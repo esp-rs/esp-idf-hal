@@ -1,0 +1,137 @@
+[build]
+target = "xtensa-none-elf"
+
+# rustflags = [
+#   "-C", "link-arg=-Wl,--gc-sections",
+#
+#   "-C", "link-arg=-Wl,--start-group",
+#   "-C", "link-arg=-lstdc++",
+#   "-C", "link-arg=-lc",
+#   "-C", "link-arg=-lgcc",
+#   "-C", "link-arg=-lnosys",
+#   "-C", "link-arg=-Wl,--end-group",
+# ]
+
+#xtensa-esp32-elf-gcc
+
+rustflags = [
+  "-C", "link-arg=-nostdlib",
+  "-C", "link-arg=-u",
+  "-C", "link-arg=call_user_start_cpu0",
+
+#   "-C", "link-arg=-Wl,--trace",
+  "-C", "link-arg=-Wl,--gc-sections",
+  "-C", "link-arg=-Wl,-static",
+  "-C", "link-arg=-Wl,--start-group",
+# "-C", "link-arg=",
+
+# -L/home/aarbuzov/git/rust/xtensa/esp32-hello/build/app_trace -lapp_trace
+  "-C", "link-arg=-L/home/aarbuzov/git/rust/xtensa/esp32-hello/build/app_update", "-C", "link-arg=-lapp_update",
+
+# -u esp_app_desc
+
+# -L/home/aarbuzov/git/rust/xtensa/esp32-hello/build/asio -lasio
+# -L/home/aarbuzov/git/rust/xtensa/esp32-hello/build/aws_iot
+
+# -L/home/aarbuzov/git/rust/xtensa/esp32-hello/build/bootloader_support -lbootloader_support
+# -L/home/aarbuzov/git/rust/xtensa/esp32-hello/build/bt -lbt
+# -L/home/aarbuzov/git/rust/xtensa/esp32-hello/build/coap -lcoap
+# -L/home/aarbuzov/git/rust/xtensa/esp32-hello/build/console -lconsole
+# -L/home/aarbuzov/git/rust/xtensa/esp32-hello/build/cxx -lcxx
+
+# -u __cxa_guard_dummy
+# -u __cxx_fatal_exception
+
+  "-C", "link-arg=-L/home/aarbuzov/git/rust/xtensa/esp32-hello/build/driver", "-C", "link-arg=-ldriver",
+  "-C", "link-arg=-L/home/aarbuzov/git/rust/xtensa/esp32-hello/build/esp-tls",  "-C", "link-arg=-lesp-tls",
+  "-C", "link-arg=-L/home/aarbuzov/git/rust/xtensa/esp32-hello/build/esp32",  "-C", "link-arg=-lesp32",
+  "-C", "link-arg=/home/aarbuzov/git/esp-idf/components/esp32/libhal.a",
+
+  "-C", "link-arg=-L/home/aarbuzov/git/esp-idf/components/esp32/lib",
+  "-C", "link-arg=-lcore",
+# -lrtc
+# -lnet80211
+# -lpp
+# -lwpa
+# -lsmartconfig
+# -lcoexist
+# -lwps
+# -lwpa2
+# -lespnow
+# -lphy
+# -lmesh
+
+  "-C", "link-arg=-L/home/aarbuzov/git/esp-idf/components/esp32/ld",
+  "-C", "link-arg=-Tesp32_out.ld",
+
+#-u ld_include_panic_highint_hdl
+
+  "-C", "link-arg=-T/home/aarbuzov/git/rust/xtensa/esp32-hello/build/esp32/esp32.common.ld",
+  "-C", "link-arg=-Tesp32.rom.ld",
+  "-C", "link-arg=-Tesp32.peripherals.ld",
+  "-C", "link-arg=-Tesp32.rom.libgcc.ld",
+  "-C", "link-arg=-Tesp32.rom.spiram_incompatible_fns.ld",
+
+# -L/home/aarbuzov/git/rust/xtensa/esp32-hello/build/esp_adc_cal -lesp_adc_cal
+# -L/home/aarbuzov/git/rust/xtensa/esp32-hello/build/esp_event -lesp_event
+# -L/home/aarbuzov/git/rust/xtensa/esp32-hello/build/esp_http_client -lesp_http_client
+# -L/home/aarbuzov/git/rust/xtensa/esp32-hello/build/esp_http_server -lesp_http_server
+# -L/home/aarbuzov/git/rust/xtensa/esp32-hello/build/esp_https_ota -lesp_https_ota
+# -L/home/aarbuzov/git/rust/xtensa/esp32-hello/build/esp_https_server -lesp_https_server
+  "-C", "link-arg=-L/home/aarbuzov/git/rust/xtensa/esp32-hello/build/esp_ringbuf", "-C", "link-arg=-lesp_ringbuf",
+# -L/home/aarbuzov/git/rust/xtensa/esp32-hello/build/ethernet -lethernet
+# -L/home/aarbuzov/git/rust/xtensa/esp32-hello/build/expat -lexpat
+# -L/home/aarbuzov/git/rust/xtensa/esp32-hello/build/fatfs -lfatfs
+# -L/home/aarbuzov/git/rust/xtensa/esp32-hello/build/freemodbus -lfreemodbus
+  "-C", "link-arg=-L/home/aarbuzov/git/rust/xtensa/esp32-hello/build/freertos", "-C", "link-arg=-lfreertos",
+
+  "-C", "link-arg=-Wl,--undefined=uxTopUsedPriority",
+
+  "-C", "link-arg=-L/home/aarbuzov/git/rust/xtensa/esp32-hello/build/heap", "-C", "link-arg=-lheap",
+# -L/home/aarbuzov/git/rust/xtensa/esp32-hello/build/idf_test -lidf_test
+# -L/home/aarbuzov/git/rust/xtensa/esp32-hello/build/jsmn -ljsmn
+# -L/home/aarbuzov/git/rust/xtensa/esp32-hello/build/json -ljson
+# -L/home/aarbuzov/git/rust/xtensa/esp32-hello/build/libsodium -llibsodium
+  "-C", "link-arg=-L/home/aarbuzov/git/rust/xtensa/esp32-hello/build/log", "-C", "link-arg=-llog",
+# -L/home/aarbuzov/git/rust/xtensa/esp32-hello/build/lwip -llwip
+# -L/home/aarbuzov/git/rust/xtensa/esp32-hello/build/main -lmain
+# -L/home/aarbuzov/git/rust/xtensa/esp32-hello/build/mbedtls -lmbedtls
+# -L/home/aarbuzov/git/rust/xtensa/esp32-hello/build/mdns -lmdns
+# -L/home/aarbuzov/git/rust/xtensa/esp32-hello/build/micro-ecc -lmicro-ecc
+# -L/home/aarbuzov/git/rust/xtensa/esp32-hello/build/mqtt -lmqtt
+
+  "-C", "link-arg=/home/aarbuzov/git/esp-idf/components/newlib/lib/libc.a",
+  "-C", "link-arg=/home/aarbuzov/git/esp-idf/components/newlib/lib/libm.a",
+
+  "-C", "link-arg=-L/home/aarbuzov/git/rust/xtensa/esp32-hello/build/newlib", "-C", "link-arg=-lnewlib",
+
+# -L/home/aarbuzov/git/rust/xtensa/esp32-hello/build/nghttp -lnghttp
+# -L/home/aarbuzov/git/rust/xtensa/esp32-hello/build/nvs_flash -lnvs_flash
+# -L/home/aarbuzov/git/rust/xtensa/esp32-hello/build/openssl -lopenssl
+# -L/home/aarbuzov/git/rust/xtensa/esp32-hello/build/protobuf-c -lprotobuf-c
+# -L/home/aarbuzov/git/rust/xtensa/esp32-hello/build/protocomm -lprotocomm
+  "-C", "link-arg=-L/home/aarbuzov/git/rust/xtensa/esp32-hello/build/pthread", "-C", "link-arg=-lpthread",
+# -L/home/aarbuzov/git/rust/xtensa/esp32-hello/build/sdmmc -lsdmmc
+# -L/home/aarbuzov/git/rust/xtensa/esp32-hello/build/smartconfig_ack -lsmartconfig_ack
+  "-C", "link-arg=-L/home/aarbuzov/git/rust/xtensa/esp32-hello/build/soc", "-C", "link-arg=-lsoc",
+  "-C", "link-arg=-L/home/aarbuzov/git/rust/xtensa/esp32-hello/build/spi_flash", "-C", "link-arg=-lspi_flash",
+# -L/home/aarbuzov/git/rust/xtensa/esp32-hello/build/spiffs -lspiffs
+# -L/home/aarbuzov/git/rust/xtensa/esp32-hello/build/tcp_transport -ltcp_transport
+# -L/home/aarbuzov/git/rust/xtensa/esp32-hello/build/tcpip_adapter -ltcpip_adapter
+# -L/home/aarbuzov/git/rust/xtensa/esp32-hello/build/ulp -lulp
+# -L/home/aarbuzov/git/rust/xtensa/esp32-hello/build/unity -lunity
+  "-C", "link-arg=-L/home/aarbuzov/git/rust/xtensa/esp32-hello/build/vfs", "-C", "link-arg=-lvfs",
+# -L/home/aarbuzov/git/rust/xtensa/esp32-hello/build/wear_levelling -lwear_levelling
+# -L/home/aarbuzov/git/rust/xtensa/esp32-hello/build/wifi_provisioning -lwifi_provisioning
+# -L/home/aarbuzov/git/rust/xtensa/esp32-hello/build/wpa_supplicant -lwpa_supplicant
+  "-C", "link-arg=-L/home/aarbuzov/git/rust/xtensa/esp32-hello/build/xtensa-debug-module", "-C", "link-arg=-lxtensa-debug-module",
+
+  "-C", "link-arg=-lgcc",
+  "-C", "link-arg=-lstdc++",
+  "-C", "link-arg=-lgcov",
+  "-C", "link-arg=-Wl,--end-group",
+  "-C", "link-arg=-Wl,-EL",
+
+#-o /home/aarbuzov/git/rust/xtensa/esp32-hello/build/hello-world.elf
+#-Wl,-Map=/home/aarbuzov/git/rust/xtensa/esp32-hello/build/hello-world.map
+]
