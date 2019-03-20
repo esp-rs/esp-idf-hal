@@ -14,7 +14,7 @@ CLANG_FLAGS="\
 	--sysroot=$SYSROOT \
     -I$(pwd)/build/include \
 	-D__bindgen \
-	-target xtensa -fshort-enums \
+	-target xtensa \
 	-x c"
 
 for INC in `ls -d $COMPS/**/*/include`; do
