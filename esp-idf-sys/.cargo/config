@@ -1,7 +1,7 @@
 [build]
 target = "xtensa-none-elf"
 
-# xtensa-esp32-elf-gcc
+[target.xtensa-none-elf]
 rustflags = [
   "-C", "save-temps",
   "-C", "link-arg=-nostdlib",
