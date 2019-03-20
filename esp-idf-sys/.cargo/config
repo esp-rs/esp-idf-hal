@@ -1,20 +1,9 @@
 [build]
 target = "xtensa-none-elf"
 
-# rustflags = [
-#   "-C", "link-arg=-Wl,--gc-sections",
-#
-#   "-C", "link-arg=-Wl,--start-group",
-#   "-C", "link-arg=-lstdc++",
-#   "-C", "link-arg=-lc",
-#   "-C", "link-arg=-lgcc",
-#   "-C", "link-arg=-lnosys",
-#   "-C", "link-arg=-Wl,--end-group",
-# ]
-
-#xtensa-esp32-elf-gcc
-
+# xtensa-esp32-elf-gcc
 rustflags = [
+  "-C", "save-temps",
   "-C", "link-arg=-nostdlib",
   "-C", "link-arg=-u",
   "-C", "link-arg=call_user_start_cpu0",
