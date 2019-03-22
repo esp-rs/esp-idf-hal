@@ -1,6 +1,4 @@
 #!/bin/bash
 
-export PATH=$HOME/xtensa-esp32-elf/bin:$PATH
+export PATH=/opt/gcc-xtensa-esp32-elf-1.22.0-80-g6c4433a-5.2.0/bin:$PATH
 export IDF_PATH=$HOME/git/esp-idf
-export RUSTC_SRC=$HOME/git/rust/rust
-export XARGO_RUST_SRC=$RUSTC_SRC/src
