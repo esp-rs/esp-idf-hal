@@ -9,8 +9,8 @@ TARGET_DIR=target/xtensa-none-elf/release
 # export V=1
 make -j6 app
 
-rustup run xtensa-1.34 \
-    cargo xbuild --release #--verbose
+rustup run xtensa-core \
+    cargo build --release #--verbose
 
 $IDF_PATH/components/esptool_py/esptool/esptool.py \
 	--chip esp32 \
