@@ -1,7 +1,5 @@
 #!/bin/bash
 
-# problem:- the core crate is not using the passed rustflags, temp work around copy the output of -v, and add the correct emit flags for the core crate
-
 source setenv.sh
 
 TARGET_DIR=target/xtensa-none-elf/release
@@ -9,8 +7,7 @@ TARGET_DIR=target/xtensa-none-elf/release
 # export V=1
 make -j6 app
 
-rustup run xtensa-core \
-    cargo build --release #--verbose
+cargo build --release #--verbose
 
 $IDF_PATH/components/esptool_py/esptool/esptool.py \
 	--chip esp32 \
