@@ -4,8 +4,6 @@
 
 source setenv.sh
 
-export RUSTC_SRC=$HOME/git/rust/rust
-export XARGO_RUST_SRC=$RUSTC_SRC/src
 TARGET_DIR=target/xtensa-none-elf/release
 
 # export V=1
