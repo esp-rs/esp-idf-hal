@@ -34,10 +34,9 @@ rustflags = [
   "-C", "link-arg=-Lbuild/driver", "-C", "link-arg=-ldriver",
   "-C", "link-arg=-Lbuild/esp-tls",  "-C", "link-arg=-lesp-tls",
   "-C", "link-arg=-Lbuild/esp32",  "-C", "link-arg=-lesp32",
-  "-C", "link-arg=/home/aarbuzov/git/esp-idf/components/esp32/libhal.a",
+  "-C", "link-arg=esp-idf/components/esp32/libhal.a",
 
-  "-C", "link-arg=-L/home/aarbuzov/git/esp-idf/components/esp32/lib",
-  "-C", "link-arg=-lcore",
+  "-C", "link-arg=-Lesp-idf/components/esp32/lib", "-C", "link-arg=-lcore",
 # -lrtc
 # -lnet80211
 # -lpp
@@ -50,16 +49,16 @@ rustflags = [
 # -lphy
 # -lmesh
 
-  "-C", "link-arg=-L/home/aarbuzov/git/esp-idf/components/esp32/ld",
+  "-C", "link-arg=-Lesp-idf/components/esp32/ld",
+
   "-C", "link-arg=-Tesp32_out.ld",
-
-#-u ld_include_panic_highint_hdl
-
-  "-C", "link-arg=-Tbuild/esp32/esp32.common.ld",
+  "-C", "link-arg=-Tbuild/esp32/esp32.project.ld",
   "-C", "link-arg=-Tesp32.rom.ld",
   "-C", "link-arg=-Tesp32.peripherals.ld",
   "-C", "link-arg=-Tesp32.rom.libgcc.ld",
   "-C", "link-arg=-Tesp32.rom.spiram_incompatible_fns.ld",
+
+#-u ld_include_panic_highint_hdl
 
 # -Lbuild/esp_adc_cal -lesp_adc_cal
 # -Lbuild/esp_event -lesp_event
@@ -89,8 +88,8 @@ rustflags = [
 # -Lbuild/micro-ecc -lmicro-ecc
 # -Lbuild/mqtt -lmqtt
 
-  "-C", "link-arg=/home/aarbuzov/git/esp-idf/components/newlib/lib/libc.a",
-  "-C", "link-arg=/home/aarbuzov/git/esp-idf/components/newlib/lib/libm.a",
+  "-C", "link-arg=esp-idf/components/newlib/lib/libc.a",
+  "-C", "link-arg=esp-idf/components/newlib/lib/libm.a",
 
   "-C", "link-arg=-Lbuild/newlib", "-C", "link-arg=-lnewlib",
 
