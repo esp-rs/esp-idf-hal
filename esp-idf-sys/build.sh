@@ -2,8 +2,6 @@
 
 source setenv.sh
 
-TARGET_DIR=target/xtensa-none-elf/release
-
 # export V=1
 make -j6 app
 
