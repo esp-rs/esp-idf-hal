@@ -5,52 +5,25 @@ target = "xtensa-none-elf"
 rustflags = [
   "-C", "save-temps",
   "-C", "link-arg=-nostdlib",
-  "-C", "link-arg=-u",
-  "-C", "link-arg=call_user_start_cpu0",
 
-#   "-C", "link-arg=-Wl,--trace",
+  "-C", "link-arg=-ucall_user_start_cpu0",
+  "-C", "link-arg=-u__cxa_guard_dummy",
+  "-C", "link-arg=-u__cxx_fatal_exception",
+  "-C", "link-arg=-uld_include_panic_highint_hdl",
+  "-C", "link-arg=-uesp_app_desc",
+
   "-C", "link-arg=-Wl,--gc-sections",
   "-C", "link-arg=-Wl,-static",
   "-C", "link-arg=-Wl,--start-group",
-# "-C", "link-arg=",
 
-# -Lbuild/app_trace -lapp_trace
   "-C", "link-arg=-Lbuild/app_update", "-C", "link-arg=-lapp_update",
-
-# -u esp_app_desc
-
-# -Lbuild/asio -lasio
-# -Lbuild/aws_iot
-
-# -Lbuild/bootloader_support -lbootloader_support
-# -Lbuild/bt -lbt
-# -Lbuild/coap -lcoap
-# -Lbuild/console -lconsole
-# -Lbuild/cxx -lcxx
-
-# -u __cxa_guard_dummy
-# -u __cxx_fatal_exception
-
   "-C", "link-arg=-Lbuild/driver", "-C", "link-arg=-ldriver",
   "-C", "link-arg=-Lbuild/esp-tls",  "-C", "link-arg=-lesp-tls",
   "-C", "link-arg=-Lbuild/esp32",  "-C", "link-arg=-lesp32",
   "-C", "link-arg=esp-idf/components/esp32/libhal.a",
-
   "-C", "link-arg=-Lesp-idf/components/esp32/lib", "-C", "link-arg=-lcore",
-# -lrtc
-# -lnet80211
-# -lpp
-# -lwpa
-# -lsmartconfig
-# -lcoexist
-# -lwps
-# -lwpa2
-# -lespnow
-# -lphy
-# -lmesh
 
   "-C", "link-arg=-Lesp-idf/components/esp32/ld",
-
   "-C", "link-arg=-Tesp32_out.ld",
   "-C", "link-arg=-Tbuild/esp32/esp32.project.ld",
   "-C", "link-arg=-Tesp32.rom.ld",
@@ -58,60 +31,22 @@ rustflags = [
   "-C", "link-arg=-Tesp32.rom.libgcc.ld",
   "-C", "link-arg=-Tesp32.rom.spiram_incompatible_fns.ld",
 
-#-u ld_include_panic_highint_hdl
-
-# -Lbuild/esp_adc_cal -lesp_adc_cal
-# -Lbuild/esp_event -lesp_event
-# -Lbuild/esp_http_client -lesp_http_client
-# -Lbuild/esp_http_server -lesp_http_server
-# -Lbuild/esp_https_ota -lesp_https_ota
-# -Lbuild/esp_https_server -lesp_https_server
   "-C", "link-arg=-Lbuild/esp_ringbuf", "-C", "link-arg=-lesp_ringbuf",
-# -Lbuild/ethernet -lethernet
-# -Lbuild/expat -lexpat
-# -Lbuild/fatfs -lfatfs
-# -Lbuild/freemodbus -lfreemodbus
   "-C", "link-arg=-Lbuild/freertos", "-C", "link-arg=-lfreertos",
 
   "-C", "link-arg=-Wl,--undefined=uxTopUsedPriority",
 
   "-C", "link-arg=-Lbuild/heap", "-C", "link-arg=-lheap",
-# -Lbuild/idf_test -lidf_test
-# -Lbuild/jsmn -ljsmn
-# -Lbuild/json -ljson
-# -Lbuild/libsodium -llibsodium
   "-C", "link-arg=-Lbuild/log", "-C", "link-arg=-llog",
-# -Lbuild/lwip -llwip
-# -Lbuild/main -lmain
-# -Lbuild/mbedtls -lmbedtls
-# -Lbuild/mdns -lmdns
-# -Lbuild/micro-ecc -lmicro-ecc
-# -Lbuild/mqtt -lmqtt
 
   "-C", "link-arg=esp-idf/components/newlib/lib/libc.a",
   "-C", "link-arg=esp-idf/components/newlib/lib/libm.a",
 
   "-C", "link-arg=-Lbuild/newlib", "-C", "link-arg=-lnewlib",
-
-# -Lbuild/nghttp -lnghttp
-# -Lbuild/nvs_flash -lnvs_flash
-# -Lbuild/openssl -lopenssl
-# -Lbuild/protobuf-c -lprotobuf-c
-# -Lbuild/protocomm -lprotocomm
   "-C", "link-arg=-Lbuild/pthread", "-C", "link-arg=-lpthread",
-# -Lbuild/sdmmc -lsdmmc
-# -Lbuild/smartconfig_ack -lsmartconfig_ack
   "-C", "link-arg=-Lbuild/soc", "-C", "link-arg=-lsoc",
   "-C", "link-arg=-Lbuild/spi_flash", "-C", "link-arg=-lspi_flash",
-# -Lbuild/spiffs -lspiffs
-# -Lbuild/tcp_transport -ltcp_transport
-# -Lbuild/tcpip_adapter -ltcpip_adapter
-# -Lbuild/ulp -lulp
-# -Lbuild/unity -lunity
   "-C", "link-arg=-Lbuild/vfs", "-C", "link-arg=-lvfs",
-# -Lbuild/wear_levelling -lwear_levelling
-# -Lbuild/wifi_provisioning -lwifi_provisioning
-# -Lbuild/wpa_supplicant -lwpa_supplicant
   "-C", "link-arg=-Lbuild/xtensa-debug-module", "-C", "link-arg=-lxtensa-debug-module",
 
   "-C", "link-arg=-lgcc",
@@ -119,7 +54,4 @@ rustflags = [
   "-C", "link-arg=-lgcov",
   "-C", "link-arg=-Wl,--end-group",
   "-C", "link-arg=-Wl,-EL",
-
-#-o build/hello-world.elf
-#-Wl,-Map=build/hello-world.map
 ]
