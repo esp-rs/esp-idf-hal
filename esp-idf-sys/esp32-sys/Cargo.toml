@@ -1,7 +1,6 @@
 [package]
 name = "esp32-sys"
 version = "0.1.0"
-authors = ["Alexey Arbuzov <aarbuzov@termt.com>"]
 edition = "2015"
 
 [dependencies]
