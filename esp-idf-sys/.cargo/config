@@ -3,6 +3,7 @@ target = "xtensa-none-elf"
 
 [target.xtensa-none-elf]
 rustflags = [
+  "-C", "target-cpu=esp32",
   "-C", "save-temps",
   "-C", "link-arg=-nostdlib",
 
