@@ -1,6 +1,6 @@
 #!/bin/bash
 
-source setenv.sh
+. ./setenv.sh
 
 # export V=1
 make -j6 app
