@@ -24,8 +24,12 @@ rustflags = [
   "-C", "link-arg=-Lesp-idf/components/esp32/lib", "-C", "link-arg=-lcore",
 
   "-C", "link-arg=-Lesp-idf/components/esp32/ld",
+
+  # or wifi_iram_noopt
+  "-C", "link-arg=-Lesp-idf/components/esp32/ld/wifi_iram_opt",
+
   "-C", "link-arg=-Tesp32_out.ld",
-  "-C", "link-arg=-Tbuild/esp32/esp32.project.ld",
+  "-C", "link-arg=-Tesp32.common.ld",
   "-C", "link-arg=-Tesp32.rom.ld",
   "-C", "link-arg=-Tesp32.peripherals.ld",
   "-C", "link-arg=-Tesp32.rom.libgcc.ld",
