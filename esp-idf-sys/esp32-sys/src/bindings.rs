@@ -2,21 +2,20 @@
 
 #[repr(C)]
 #[derive(Copy, Clone, Debug, Default, Eq, Hash, Ord, PartialEq, PartialOrd)]
-pub struct __BindgenBitfieldUnit<Storage, Align>
-where
-    Storage: AsRef<[u8]> + AsMut<[u8]>,
-{
+pub struct __BindgenBitfieldUnit<Storage, Align> {
     storage: Storage,
     align: [Align; 0],
+}
+impl<Storage, Align> __BindgenBitfieldUnit<Storage, Align> {
+    #[inline]
+    pub const fn new(storage: Storage) -> Self {
+        Self { storage, align: [] }
+    }
 }
 impl<Storage, Align> __BindgenBitfieldUnit<Storage, Align>
 where
     Storage: AsRef<[u8]> + AsMut<[u8]>,
 {
-    #[inline]
-    pub fn new(storage: Storage) -> Self {
-        Self { storage, align: [] }
-    }
     #[inline]
     pub fn get_bit(&self, index: usize) -> bool {
         debug_assert!(index / 8 < self.storage.as_ref().len());
@@ -87,7 +86,7 @@ where
 pub struct __IncompleteArrayField<T>(::core::marker::PhantomData<T>, [T; 0]);
 impl<T> __IncompleteArrayField<T> {
     #[inline]
-    pub fn new() -> Self {
+    pub const fn new() -> Self {
         __IncompleteArrayField(::core::marker::PhantomData, [])
     }
     #[inline]
@@ -615,6 +614,7 @@ pub const SOC_RTC_DATA_LOW: u32 = 1342177280;
 pub const SOC_RTC_DATA_HIGH: u32 = 1342185472;
 pub const SOC_EXTRAM_DATA_LOW: u32 = 1065353216;
 pub const SOC_EXTRAM_DATA_HIGH: u32 = 1069547520;
+pub const SOC_MAX_CONTIGUOUS_RAM_SIZE: u32 = 4194304;
 pub const DR_REG_DPORT_BASE: u32 = 1072693248;
 pub const DR_REG_AES_BASE: u32 = 1072697344;
 pub const DR_REG_RSA_BASE: u32 = 1072701440;
@@ -1339,7 +1339,6 @@ pub const CONFIG_MBEDTLS_SSL_ALPN: u32 = 1;
 pub const CONFIG_MBEDTLS_PEM_WRITE_C: u32 = 1;
 pub const CONFIG_LOG_DEFAULT_LEVEL_INFO: u32 = 1;
 pub const CONFIG_BT_RESERVE_DRAM: u32 = 0;
-pub const CONFIG_APP_COMPILE_TIME_DATE: u32 = 1;
 pub const CONFIG_FATFS_FS_LOCK: u32 = 0;
 pub const CONFIG_IP_LOST_TIMER_INTERVAL: u32 = 120;
 pub const CONFIG_SPIFFS_META_LENGTH: u32 = 4;
@@ -1351,7 +1350,6 @@ pub const CONFIG_MB_SERIAL_BUF_SIZE: u32 = 256;
 pub const CONFIG_CONSOLE_UART_BAUDRATE: u32 = 115200;
 pub const CONFIG_LWIP_MAX_SOCKETS: u32 = 10;
 pub const CONFIG_LWIP_NETIF_LOOPBACK: u32 = 1;
-pub const CONFIG_ESP32_PTHREAD_TASK_NAME_DEFAULT: &'static [u8; 8usize] = b"pthread\0";
 pub const CONFIG_EMAC_TASK_PRIORITY: u32 = 20;
 pub const CONFIG_TIMER_TASK_STACK_DEPTH: u32 = 2048;
 pub const CONFIG_TCP_MSS: u32 = 1436;
@@ -1386,7 +1384,6 @@ pub const CONFIG_ESPTOOLPY_FLASHSIZE_DETECT: u32 = 1;
 pub const CONFIG_TIMER_TASK_STACK_SIZE: u32 = 3584;
 pub const CONFIG_ESP32_ENABLE_COREDUMP_TO_NONE: u32 = 1;
 pub const CONFIG_MBEDTLS_X509_CRL_PARSE_C: u32 = 1;
-pub const CONFIG_UNITY_ENABLE_IDF_TEST_RUNNER: u32 = 1;
 pub const CONFIG_MB_SERIAL_TASK_STACK_SIZE: u32 = 2048;
 pub const CONFIG_LWIP_DHCPS_LEASE_UNIT: u32 = 60;
 pub const CONFIG_SPIFFS_USE_MAGIC: u32 = 1;
@@ -1419,7 +1416,6 @@ pub const CONFIG_ESP32_RTC_CLK_CAL_CYCLES: u32 = 1024;
 pub const CONFIG_ESP32_WIFI_TX_BA_WIN: u32 = 6;
 pub const CONFIG_ESP32_WIFI_NVS_ENABLED: u32 = 1;
 pub const CONFIG_MDNS_MAX_SERVICES: u32 = 10;
-pub const CONFIG_IDF_TARGET_ESP32: u32 = 1;
 pub const CONFIG_EMAC_CHECK_LINK_PERIOD_MS: u32 = 2000;
 pub const CONFIG_MBEDTLS_ECP_DP_SECP224R1_ENABLED: u32 = 1;
 pub const CONFIG_LIBSODIUM_USE_MBEDTLS_SHA: u32 = 1;
@@ -1441,8 +1437,8 @@ pub const CONFIG_TCP_MSL: u32 = 60000;
 pub const CONFIG_MBEDTLS_SSL_PROTO_TLS1_1: u32 = 1;
 pub const CONFIG_LWIP_SO_REUSE_RXTOALL: u32 = 1;
 pub const CONFIG_MB_CONTROLLER_NOTIFY_TIMEOUT: u32 = 20;
+pub const CONFIG_ESP32_WIFI_MGMT_SBUF_NUM: u32 = 32;
 pub const CONFIG_PARTITION_TABLE_SINGLE_APP: u32 = 1;
-pub const CONFIG_UNITY_ENABLE_FLOAT: u32 = 1;
 pub const CONFIG_ESP32_WIFI_RX_BA_WIN: u32 = 6;
 pub const CONFIG_MBEDTLS_X509_CSR_PARSE_C: u32 = 1;
 pub const CONFIG_SPIFFS_USE_MTIME: u32 = 1;
@@ -1505,10 +1501,8 @@ pub const CONFIG_ESP32_DEBUG_OCDAWARE: u32 = 1;
 pub const CONFIG_MQTT_TRANSPORT_WEBSOCKET: u32 = 1;
 pub const CONFIG_TIMER_TASK_PRIORITY: u32 = 1;
 pub const CONFIG_MBEDTLS_TLS_CLIENT: u32 = 1;
-pub const CONFIG_ESP32_DEFAULT_PTHREAD_CORE_NO_AFFINITY: u32 = 1;
 pub const CONFIG_MBEDTLS_ECP_DP_SECP256R1_ENABLED: u32 = 1;
 pub const CONFIG_MONITOR_BAUD: u32 = 115200;
-pub const CONFIG_ESP32_PTHREAD_TASK_CORE_DEFAULT: i32 = -1;
 pub const CONFIG_ESP32_DEBUG_STUBS_ENABLE: u32 = 1;
 pub const CONFIG_TCPIP_LWIP: u32 = 1;
 pub const CONFIG_REDUCE_PHY_TX_POWER: u32 = 1;
@@ -1524,7 +1518,6 @@ pub const CONFIG_MBEDTLS_TLS_SERVER_AND_CLIENT: u32 = 1;
 pub const CONFIG_FREERTOS_ISR_STACKSIZE: u32 = 1536;
 pub const CONFIG_SUPPORT_TERMIOS: u32 = 1;
 pub const CONFIG_OPENSSL_ASSERT_DO_NOTHING: u32 = 1;
-pub const CONFIG_IDF_TARGET: &'static [u8; 6usize] = b"esp32\0";
 pub const CONFIG_WL_SECTOR_SIZE_4096: u32 = 1;
 pub const CONFIG_OPTIMIZATION_LEVEL_DEBUG: u32 = 1;
 pub const CONFIG_FREERTOS_NO_AFFINITY: u32 = 2147483647;
@@ -1550,7 +1543,8 @@ pub const CONFIG_MB_TIMER_PORT_ENABLED: u32 = 1;
 pub const CONFIG_MONITOR_BAUD_OTHER_VAL: u32 = 115200;
 pub const CONFIG_NEWLIB_STDOUT_LINE_ENDING_CRLF: u32 = 1;
 pub const CONFIG_ESPTOOLPY_PORT: &'static [u8; 13usize] = b"/dev/ttyUSB0\0";
-pub const CONFIG_UNITY_ENABLE_DOUBLE: u32 = 1;
+pub const CONFIG_SPI_FLASH_WRITING_DANGEROUS_REGIONS_ABORTS: u32 = 1;
+pub const CONFIG_ESP32_WIFI_IRAM_OPT: u32 = 1;
 pub const XTHAL_RELEASE_MAJOR: u32 = 11000;
 pub const XTHAL_RELEASE_MINOR: u32 = 3;
 pub const XTHAL_RELEASE_NAME: &'static [u8; 7usize] = b"11.0.3\0";
@@ -2594,6 +2588,9 @@ pub const DPORT_LOWSPEED_CLK_SEL_S: u32 = 2;
 pub const DPORT_CPUPERIOD_SEL: u32 = 3;
 pub const DPORT_CPUPERIOD_SEL_V: u32 = 3;
 pub const DPORT_CPUPERIOD_SEL_S: u32 = 0;
+pub const DPORT_CPUPERIOD_SEL_80: u32 = 0;
+pub const DPORT_CPUPERIOD_SEL_160: u32 = 1;
+pub const DPORT_CPUPERIOD_SEL_240: u32 = 2;
 pub const DPORT_PRO_CACHE_CTRL_REG: u32 = 1072693312;
 pub const DPORT_PRO_DRAM_HL_V: u32 = 1;
 pub const DPORT_PRO_DRAM_HL_S: u32 = 16;
@@ -13251,15 +13248,12 @@ impl _bindgen_ty_1__bindgen_ty_28__bindgen_ty_1 {
 }
 pub type uart_dev_t = _bindgen_ty_1;
 extern "C" {
-    #[link_name = "\u{1}UART0"]
     pub static mut UART0: uart_dev_t;
 }
 extern "C" {
-    #[link_name = "\u{1}UART1"]
     pub static mut UART1: uart_dev_t;
 }
 extern "C" {
-    #[link_name = "\u{1}UART2"]
     pub static mut UART2: uart_dev_t;
 }
 pub type wchar_t = ::std::os::raw::c_uchar;
@@ -13511,19 +13505,15 @@ pub struct _reent {
     pub _signal_buf: *mut ::std::os::raw::c_char,
 }
 extern "C" {
-    #[link_name = "\u{1}__sf_fake_stdin"]
     pub static __sf_fake_stdin: __sFILE_fake;
 }
 extern "C" {
-    #[link_name = "\u{1}__sf_fake_stdout"]
     pub static __sf_fake_stdout: __sFILE_fake;
 }
 extern "C" {
-    #[link_name = "\u{1}__sf_fake_stderr"]
     pub static __sf_fake_stderr: __sFILE_fake;
 }
 extern "C" {
-    #[link_name = "\u{1}_global_impure_ptr"]
     pub static mut _global_impure_ptr: *mut _reent;
 }
 extern "C" {
@@ -13744,18 +13734,18 @@ extern "C" {
 extern "C" {
     pub fn fread(
         arg1: *mut ::std::os::raw::c_void,
-        _size: usize,
-        _n: usize,
+        _size: ::std::os::raw::c_uint,
+        _n: ::std::os::raw::c_uint,
         arg2: *mut FILE,
-    ) -> usize;
+    ) -> ::std::os::raw::c_uint;
 }
 extern "C" {
     pub fn fwrite(
         arg1: *const ::std::os::raw::c_void,
-        _size: usize,
-        _n: usize,
+        _size: ::std::os::raw::c_uint,
+        _n: ::std::os::raw::c_uint,
         arg2: *mut FILE,
-    ) -> usize;
+    ) -> ::std::os::raw::c_uint;
 }
 extern "C" {
     pub fn fgetpos(arg1: *mut FILE, arg2: *mut fpos_t) -> ::std::os::raw::c_int;
@@ -14753,22 +14743,22 @@ extern "C" {
         __readfn: ::core::option::Option<
             unsafe extern "C" fn(
                 __cookie: *mut ::std::os::raw::c_void,
-                __readfn: *mut ::std::os::raw::c_char,
-                __writefn: ::std::os::raw::c_int,
+                __buf: *mut ::std::os::raw::c_char,
+                __n: ::std::os::raw::c_int,
             ) -> ::std::os::raw::c_int,
         >,
         __writefn: ::core::option::Option<
             unsafe extern "C" fn(
                 __cookie: *mut ::std::os::raw::c_void,
-                __readfn: *const ::std::os::raw::c_char,
-                __writefn: ::std::os::raw::c_int,
+                __buf: *const ::std::os::raw::c_char,
+                __n: ::std::os::raw::c_int,
             ) -> ::std::os::raw::c_int,
         >,
         __seekfn: ::core::option::Option<
             unsafe extern "C" fn(
                 __cookie: *mut ::std::os::raw::c_void,
-                __readfn: fpos_t,
-                __writefn: ::std::os::raw::c_int,
+                __off: fpos_t,
+                __whence: ::std::os::raw::c_int,
             ) -> fpos_t,
         >,
         __closefn: ::core::option::Option<
@@ -14782,27 +14772,27 @@ extern "C" {
         __cookie: *const ::std::os::raw::c_void,
         __readfn: ::core::option::Option<
             unsafe extern "C" fn(
-                arg1: *mut ::std::os::raw::c_void,
-                __cookie: *mut ::std::os::raw::c_char,
-                __readfn: ::std::os::raw::c_int,
+                __cookie: *mut ::std::os::raw::c_void,
+                __buf: *mut ::std::os::raw::c_char,
+                __n: ::std::os::raw::c_int,
             ) -> ::std::os::raw::c_int,
         >,
         __writefn: ::core::option::Option<
             unsafe extern "C" fn(
-                arg1: *mut ::std::os::raw::c_void,
-                __cookie: *const ::std::os::raw::c_char,
-                __readfn: ::std::os::raw::c_int,
+                __cookie: *mut ::std::os::raw::c_void,
+                __buf: *const ::std::os::raw::c_char,
+                __n: ::std::os::raw::c_int,
             ) -> ::std::os::raw::c_int,
         >,
         __seekfn: ::core::option::Option<
             unsafe extern "C" fn(
-                arg1: *mut ::std::os::raw::c_void,
-                __cookie: fpos_t,
-                __readfn: ::std::os::raw::c_int,
+                __cookie: *mut ::std::os::raw::c_void,
+                __off: fpos_t,
+                __whence: ::std::os::raw::c_int,
             ) -> fpos_t,
         >,
         __closefn: ::core::option::Option<
-            unsafe extern "C" fn(arg1: *mut ::std::os::raw::c_void) -> ::std::os::raw::c_int,
+            unsafe extern "C" fn(__cookie: *mut ::std::os::raw::c_void) -> ::std::os::raw::c_int,
         >,
     ) -> *mut FILE;
 }
@@ -14973,7 +14963,7 @@ extern "C" {
     #[doc = "               interrupt of level 1. Setting ESP_INTR_FLAG_INTRDISABLED will return"]
     #[doc = "               from this function with the interrupt disabled."]
     #[doc = " @param handler The interrupt handler. Must be NULL when an interrupt of level >3"]
-    #[doc = "               is requested, because these types of interrupts aren\'t C-callable."]
+    #[doc = "               is requested, because these types of interrupts aren't C-callable."]
     #[doc = " @param arg    Optional argument for passed to the interrupt handler"]
     #[doc = " @param ret_handle Pointer to an intr_handle_t to store a handle that can later be"]
     #[doc = "               used to request details or free the interrupt. Can be NULL if no handle"]
@@ -15015,7 +15005,7 @@ extern "C" {
     #[doc = "               that are 1 in the mask set, the ISR will be called. If not, it will be"]
     #[doc = "               skipped."]
     #[doc = " @param handler The interrupt handler. Must be NULL when an interrupt of level >3"]
-    #[doc = "               is requested, because these types of interrupts aren\'t C-callable."]
+    #[doc = "               is requested, because these types of interrupts aren't C-callable."]
     #[doc = " @param arg    Optional argument for passed to the interrupt handler"]
     #[doc = " @param ret_handle Pointer to an intr_handle_t to store a handle that can later be"]
     #[doc = "               used to request details or free the interrupt. Can be NULL if no handle"]
@@ -15043,7 +15033,7 @@ extern "C" {
     #[doc = ""]
     #[doc = " @note"]
     #[doc = " When the handler shares its source with other handlers, the interrupt status"]
-    #[doc = " bits it\'s responsible for should be managed properly before freeing it. see"]
+    #[doc = " bits it's responsible for should be managed properly before freeing it. see"]
     #[doc = " ``esp_intr_disable`` for more details. Please do not call this function in ``esp_ipc_call_blocking``."]
     #[doc = ""]
     #[doc = " @param handle The handle, as obtained by esp_intr_alloc or esp_intr_alloc_intrstatus"]
@@ -15112,7 +15102,7 @@ extern "C" {
     pub fn esp_intr_set_in_iram(handle: intr_handle_t, is_in_iram: bool) -> esp_err_t;
 }
 extern "C" {
-    #[doc = " @brief Disable interrupts that aren\'t specifically marked as running from IRAM"]
+    #[doc = " @brief Disable interrupts that aren't specifically marked as running from IRAM"]
     pub fn esp_intr_noniram_disable();
 }
 extern "C" {
@@ -15147,7 +15137,6 @@ extern "C" {
     pub fn esp_dport_access_int_abort();
 }
 extern "C" {
-    #[link_name = "\u{1}Xthal_rev_no"]
     pub static Xthal_rev_no: ::std::os::raw::c_uint;
 }
 extern "C" {
@@ -15211,47 +15200,36 @@ extern "C" {
     pub fn xthal_restore_cp7(base: *mut ::std::os::raw::c_void);
 }
 extern "C" {
-    #[link_name = "\u{1}Xthal_cpregs_save_fn"]
     pub static mut Xthal_cpregs_save_fn: [*mut ::std::os::raw::c_void; 8usize];
 }
 extern "C" {
-    #[link_name = "\u{1}Xthal_cpregs_restore_fn"]
     pub static mut Xthal_cpregs_restore_fn: [*mut ::std::os::raw::c_void; 8usize];
 }
 extern "C" {
-    #[link_name = "\u{1}Xthal_cpregs_save_nw_fn"]
     pub static mut Xthal_cpregs_save_nw_fn: [*mut ::std::os::raw::c_void; 8usize];
 }
 extern "C" {
-    #[link_name = "\u{1}Xthal_cpregs_restore_nw_fn"]
     pub static mut Xthal_cpregs_restore_nw_fn: [*mut ::std::os::raw::c_void; 8usize];
 }
 extern "C" {
-    #[link_name = "\u{1}Xthal_extra_size"]
     pub static Xthal_extra_size: ::std::os::raw::c_uint;
 }
 extern "C" {
-    #[link_name = "\u{1}Xthal_extra_align"]
     pub static Xthal_extra_align: ::std::os::raw::c_uint;
 }
 extern "C" {
-    #[link_name = "\u{1}Xthal_cpregs_size"]
     pub static mut Xthal_cpregs_size: [::std::os::raw::c_uint; 8usize];
 }
 extern "C" {
-    #[link_name = "\u{1}Xthal_cpregs_align"]
     pub static mut Xthal_cpregs_align: [::std::os::raw::c_uint; 8usize];
 }
 extern "C" {
-    #[link_name = "\u{1}Xthal_all_extra_size"]
     pub static Xthal_all_extra_size: ::std::os::raw::c_uint;
 }
 extern "C" {
-    #[link_name = "\u{1}Xthal_all_extra_align"]
     pub static Xthal_all_extra_align: ::std::os::raw::c_uint;
 }
 extern "C" {
-    #[link_name = "\u{1}Xthal_cp_names"]
     pub static mut Xthal_cp_names: [*const ::std::os::raw::c_char; 8usize];
 }
 extern "C" {
@@ -15261,55 +15239,42 @@ extern "C" {
     pub fn xthal_init_mem_cp(arg1: *mut ::std::os::raw::c_void, arg2: ::std::os::raw::c_int);
 }
 extern "C" {
-    #[link_name = "\u{1}Xthal_num_coprocessors"]
     pub static Xthal_num_coprocessors: ::std::os::raw::c_uint;
 }
 extern "C" {
-    #[link_name = "\u{1}Xthal_cp_num"]
     pub static Xthal_cp_num: ::std::os::raw::c_uchar;
 }
 extern "C" {
-    #[link_name = "\u{1}Xthal_cp_max"]
     pub static Xthal_cp_max: ::std::os::raw::c_uchar;
 }
 extern "C" {
-    #[link_name = "\u{1}Xthal_cp_mask"]
     pub static Xthal_cp_mask: ::std::os::raw::c_uint;
 }
 extern "C" {
-    #[link_name = "\u{1}Xthal_num_aregs"]
     pub static Xthal_num_aregs: ::std::os::raw::c_uint;
 }
 extern "C" {
-    #[link_name = "\u{1}Xthal_num_aregs_log2"]
     pub static Xthal_num_aregs_log2: ::std::os::raw::c_uchar;
 }
 extern "C" {
-    #[link_name = "\u{1}Xthal_icache_linewidth"]
     pub static Xthal_icache_linewidth: ::std::os::raw::c_uchar;
 }
 extern "C" {
-    #[link_name = "\u{1}Xthal_dcache_linewidth"]
     pub static Xthal_dcache_linewidth: ::std::os::raw::c_uchar;
 }
 extern "C" {
-    #[link_name = "\u{1}Xthal_icache_linesize"]
     pub static Xthal_icache_linesize: ::std::os::raw::c_ushort;
 }
 extern "C" {
-    #[link_name = "\u{1}Xthal_dcache_linesize"]
     pub static Xthal_dcache_linesize: ::std::os::raw::c_ushort;
 }
 extern "C" {
-    #[link_name = "\u{1}Xthal_icache_size"]
     pub static Xthal_icache_size: ::std::os::raw::c_uint;
 }
 extern "C" {
-    #[link_name = "\u{1}Xthal_dcache_size"]
     pub static Xthal_dcache_size: ::std::os::raw::c_uint;
 }
 extern "C" {
-    #[link_name = "\u{1}Xthal_dcache_is_writeback"]
     pub static Xthal_dcache_is_writeback: ::std::os::raw::c_uchar;
 }
 extern "C" {
@@ -15390,7 +15355,6 @@ extern "C" {
     ) -> ::std::os::raw::c_int;
 }
 extern "C" {
-    #[link_name = "\u{1}Xthal_debug_configured"]
     pub static Xthal_debug_configured: ::std::os::raw::c_int;
 }
 extern "C" {
@@ -15434,111 +15398,84 @@ extern "C" {
     ) -> ::std::os::raw::c_int;
 }
 extern "C" {
-    #[link_name = "\u{1}Xthal_release_major"]
     pub static Xthal_release_major: ::std::os::raw::c_uint;
 }
 extern "C" {
-    #[link_name = "\u{1}Xthal_release_minor"]
     pub static Xthal_release_minor: ::std::os::raw::c_uint;
 }
 extern "C" {
-    #[link_name = "\u{1}Xthal_release_name"]
     pub static Xthal_release_name: *const ::std::os::raw::c_char;
 }
 extern "C" {
-    #[link_name = "\u{1}Xthal_release_internal"]
     pub static Xthal_release_internal: *const ::std::os::raw::c_char;
 }
 extern "C" {
-    #[link_name = "\u{1}Xthal_memory_order"]
     pub static Xthal_memory_order: ::std::os::raw::c_uchar;
 }
 extern "C" {
-    #[link_name = "\u{1}Xthal_have_windowed"]
     pub static Xthal_have_windowed: ::std::os::raw::c_uchar;
 }
 extern "C" {
-    #[link_name = "\u{1}Xthal_have_density"]
     pub static Xthal_have_density: ::std::os::raw::c_uchar;
 }
 extern "C" {
-    #[link_name = "\u{1}Xthal_have_booleans"]
     pub static Xthal_have_booleans: ::std::os::raw::c_uchar;
 }
 extern "C" {
-    #[link_name = "\u{1}Xthal_have_loops"]
     pub static Xthal_have_loops: ::std::os::raw::c_uchar;
 }
 extern "C" {
-    #[link_name = "\u{1}Xthal_have_nsa"]
     pub static Xthal_have_nsa: ::std::os::raw::c_uchar;
 }
 extern "C" {
-    #[link_name = "\u{1}Xthal_have_minmax"]
     pub static Xthal_have_minmax: ::std::os::raw::c_uchar;
 }
 extern "C" {
-    #[link_name = "\u{1}Xthal_have_sext"]
     pub static Xthal_have_sext: ::std::os::raw::c_uchar;
 }
 extern "C" {
-    #[link_name = "\u{1}Xthal_have_clamps"]
     pub static Xthal_have_clamps: ::std::os::raw::c_uchar;
 }
 extern "C" {
-    #[link_name = "\u{1}Xthal_have_mac16"]
     pub static Xthal_have_mac16: ::std::os::raw::c_uchar;
 }
 extern "C" {
-    #[link_name = "\u{1}Xthal_have_mul16"]
     pub static Xthal_have_mul16: ::std::os::raw::c_uchar;
 }
 extern "C" {
-    #[link_name = "\u{1}Xthal_have_fp"]
     pub static Xthal_have_fp: ::std::os::raw::c_uchar;
 }
 extern "C" {
-    #[link_name = "\u{1}Xthal_have_speculation"]
     pub static Xthal_have_speculation: ::std::os::raw::c_uchar;
 }
 extern "C" {
-    #[link_name = "\u{1}Xthal_have_threadptr"]
     pub static Xthal_have_threadptr: ::std::os::raw::c_uchar;
 }
 extern "C" {
-    #[link_name = "\u{1}Xthal_have_pif"]
     pub static Xthal_have_pif: ::std::os::raw::c_uchar;
 }
 extern "C" {
-    #[link_name = "\u{1}Xthal_num_writebuffer_entries"]
     pub static Xthal_num_writebuffer_entries: ::std::os::raw::c_ushort;
 }
 extern "C" {
-    #[link_name = "\u{1}Xthal_build_unique_id"]
     pub static Xthal_build_unique_id: ::std::os::raw::c_uint;
 }
 extern "C" {
-    #[link_name = "\u{1}Xthal_hw_configid0"]
     pub static Xthal_hw_configid0: ::std::os::raw::c_uint;
 }
 extern "C" {
-    #[link_name = "\u{1}Xthal_hw_configid1"]
     pub static Xthal_hw_configid1: ::std::os::raw::c_uint;
 }
 extern "C" {
-    #[link_name = "\u{1}Xthal_hw_release_major"]
     pub static Xthal_hw_release_major: ::std::os::raw::c_uint;
 }
 extern "C" {
-    #[link_name = "\u{1}Xthal_hw_release_minor"]
     pub static Xthal_hw_release_minor: ::std::os::raw::c_uint;
 }
 extern "C" {
-    #[link_name = "\u{1}Xthal_hw_release_name"]
     pub static Xthal_hw_release_name: *const ::std::os::raw::c_char;
 }
 extern "C" {
-    #[link_name = "\u{1}Xthal_hw_release_internal"]
     pub static Xthal_hw_release_internal: *const ::std::os::raw::c_char;
 }
 extern "C" {
@@ -15560,39 +15497,30 @@ extern "C" {
     pub fn xthal_get_cpenable() -> ::std::os::raw::c_uint;
 }
 extern "C" {
-    #[link_name = "\u{1}Xthal_num_intlevels"]
     pub static Xthal_num_intlevels: ::std::os::raw::c_uchar;
 }
 extern "C" {
-    #[link_name = "\u{1}Xthal_num_interrupts"]
     pub static Xthal_num_interrupts: ::std::os::raw::c_uchar;
 }
 extern "C" {
-    #[link_name = "\u{1}Xthal_excm_level"]
     pub static Xthal_excm_level: ::std::os::raw::c_uchar;
 }
 extern "C" {
-    #[link_name = "\u{1}Xthal_intlevel_mask"]
     pub static mut Xthal_intlevel_mask: [::std::os::raw::c_uint; 16usize];
 }
 extern "C" {
-    #[link_name = "\u{1}Xthal_intlevel_andbelow_mask"]
     pub static mut Xthal_intlevel_andbelow_mask: [::std::os::raw::c_uint; 16usize];
 }
 extern "C" {
-    #[link_name = "\u{1}Xthal_intlevel"]
     pub static mut Xthal_intlevel: [::std::os::raw::c_uchar; 32usize];
 }
 extern "C" {
-    #[link_name = "\u{1}Xthal_inttype"]
     pub static mut Xthal_inttype: [::std::os::raw::c_uchar; 32usize];
 }
 extern "C" {
-    #[link_name = "\u{1}Xthal_inttype_mask"]
     pub static mut Xthal_inttype_mask: [::std::os::raw::c_uint; 8usize];
 }
 extern "C" {
-    #[link_name = "\u{1}Xthal_timer_interrupt"]
     pub static mut Xthal_timer_interrupt: [::std::os::raw::c_int; 4usize];
 }
 extern "C" {
@@ -15611,19 +15539,15 @@ extern "C" {
     pub fn xthal_set_intclear(arg1: ::std::os::raw::c_uint);
 }
 extern "C" {
-    #[link_name = "\u{1}Xthal_num_ibreak"]
     pub static Xthal_num_ibreak: ::std::os::raw::c_int;
 }
 extern "C" {
-    #[link_name = "\u{1}Xthal_num_dbreak"]
     pub static Xthal_num_dbreak: ::std::os::raw::c_int;
 }
 extern "C" {
-    #[link_name = "\u{1}Xthal_have_ccount"]
     pub static Xthal_have_ccount: ::std::os::raw::c_uchar;
 }
 extern "C" {
-    #[link_name = "\u{1}Xthal_num_ccompare"]
     pub static Xthal_num_ccompare: ::std::os::raw::c_uchar;
 }
 extern "C" {
@@ -15636,27 +15560,21 @@ extern "C" {
     pub fn xthal_get_ccompare(arg1: ::std::os::raw::c_int) -> ::std::os::raw::c_uint;
 }
 extern "C" {
-    #[link_name = "\u{1}Xthal_have_prid"]
     pub static Xthal_have_prid: ::std::os::raw::c_uchar;
 }
 extern "C" {
-    #[link_name = "\u{1}Xthal_have_exceptions"]
     pub static Xthal_have_exceptions: ::std::os::raw::c_uchar;
 }
 extern "C" {
-    #[link_name = "\u{1}Xthal_xea_version"]
     pub static Xthal_xea_version: ::std::os::raw::c_uchar;
 }
 extern "C" {
-    #[link_name = "\u{1}Xthal_have_interrupts"]
     pub static Xthal_have_interrupts: ::std::os::raw::c_uchar;
 }
 extern "C" {
-    #[link_name = "\u{1}Xthal_have_highlevel_interrupts"]
     pub static Xthal_have_highlevel_interrupts: ::std::os::raw::c_uchar;
 }
 extern "C" {
-    #[link_name = "\u{1}Xthal_have_nmi"]
     pub static Xthal_have_nmi: ::std::os::raw::c_uchar;
 }
 extern "C" {
@@ -15703,15 +15621,12 @@ extern "C" {
 }
 pub type XtHalVoidFunc = ::core::option::Option<unsafe extern "C" fn()>;
 extern "C" {
-    #[link_name = "\u{1}Xthal_tram_pending"]
     pub static mut Xthal_tram_pending: ::std::os::raw::c_uint;
 }
 extern "C" {
-    #[link_name = "\u{1}Xthal_tram_enabled"]
     pub static mut Xthal_tram_enabled: ::std::os::raw::c_uint;
 }
 extern "C" {
-    #[link_name = "\u{1}Xthal_tram_sync"]
     pub static mut Xthal_tram_sync: ::std::os::raw::c_uint;
 }
 extern "C" {
@@ -15730,107 +15645,81 @@ extern "C" {
     pub fn xthal_set_tram_trigger_func(trigger_fn: XtHalVoidFunc) -> XtHalVoidFunc;
 }
 extern "C" {
-    #[link_name = "\u{1}Xthal_num_instrom"]
     pub static Xthal_num_instrom: ::std::os::raw::c_uchar;
 }
 extern "C" {
-    #[link_name = "\u{1}Xthal_num_instram"]
     pub static Xthal_num_instram: ::std::os::raw::c_uchar;
 }
 extern "C" {
-    #[link_name = "\u{1}Xthal_num_datarom"]
     pub static Xthal_num_datarom: ::std::os::raw::c_uchar;
 }
 extern "C" {
-    #[link_name = "\u{1}Xthal_num_dataram"]
     pub static Xthal_num_dataram: ::std::os::raw::c_uchar;
 }
 extern "C" {
-    #[link_name = "\u{1}Xthal_num_xlmi"]
     pub static Xthal_num_xlmi: ::std::os::raw::c_uchar;
 }
 extern "C" {
-    #[link_name = "\u{1}Xthal_instrom_vaddr"]
     pub static mut Xthal_instrom_vaddr: [::std::os::raw::c_uint; 0usize];
 }
 extern "C" {
-    #[link_name = "\u{1}Xthal_instrom_paddr"]
     pub static mut Xthal_instrom_paddr: [::std::os::raw::c_uint; 0usize];
 }
 extern "C" {
-    #[link_name = "\u{1}Xthal_instrom_size"]
     pub static mut Xthal_instrom_size: [::std::os::raw::c_uint; 0usize];
 }
 extern "C" {
-    #[link_name = "\u{1}Xthal_instram_vaddr"]
     pub static mut Xthal_instram_vaddr: [::std::os::raw::c_uint; 0usize];
 }
 extern "C" {
-    #[link_name = "\u{1}Xthal_instram_paddr"]
     pub static mut Xthal_instram_paddr: [::std::os::raw::c_uint; 0usize];
 }
 extern "C" {
-    #[link_name = "\u{1}Xthal_instram_size"]
     pub static mut Xthal_instram_size: [::std::os::raw::c_uint; 0usize];
 }
 extern "C" {
-    #[link_name = "\u{1}Xthal_datarom_vaddr"]
     pub static mut Xthal_datarom_vaddr: [::std::os::raw::c_uint; 0usize];
 }
 extern "C" {
-    #[link_name = "\u{1}Xthal_datarom_paddr"]
     pub static mut Xthal_datarom_paddr: [::std::os::raw::c_uint; 0usize];
 }
 extern "C" {
-    #[link_name = "\u{1}Xthal_datarom_size"]
     pub static mut Xthal_datarom_size: [::std::os::raw::c_uint; 0usize];
 }
 extern "C" {
-    #[link_name = "\u{1}Xthal_dataram_vaddr"]
     pub static mut Xthal_dataram_vaddr: [::std::os::raw::c_uint; 0usize];
 }
 extern "C" {
-    #[link_name = "\u{1}Xthal_dataram_paddr"]
     pub static mut Xthal_dataram_paddr: [::std::os::raw::c_uint; 0usize];
 }
 extern "C" {
-    #[link_name = "\u{1}Xthal_dataram_size"]
     pub static mut Xthal_dataram_size: [::std::os::raw::c_uint; 0usize];
 }
 extern "C" {
-    #[link_name = "\u{1}Xthal_xlmi_vaddr"]
     pub static mut Xthal_xlmi_vaddr: [::std::os::raw::c_uint; 0usize];
 }
 extern "C" {
-    #[link_name = "\u{1}Xthal_xlmi_paddr"]
     pub static mut Xthal_xlmi_paddr: [::std::os::raw::c_uint; 0usize];
 }
 extern "C" {
-    #[link_name = "\u{1}Xthal_xlmi_size"]
     pub static mut Xthal_xlmi_size: [::std::os::raw::c_uint; 0usize];
 }
 extern "C" {
-    #[link_name = "\u{1}Xthal_icache_setwidth"]
     pub static Xthal_icache_setwidth: ::std::os::raw::c_uchar;
 }
 extern "C" {
-    #[link_name = "\u{1}Xthal_dcache_setwidth"]
     pub static Xthal_dcache_setwidth: ::std::os::raw::c_uchar;
 }
 extern "C" {
-    #[link_name = "\u{1}Xthal_icache_ways"]
     pub static Xthal_icache_ways: ::std::os::raw::c_uint;
 }
 extern "C" {
-    #[link_name = "\u{1}Xthal_dcache_ways"]
     pub static Xthal_dcache_ways: ::std::os::raw::c_uint;
 }
 extern "C" {
-    #[link_name = "\u{1}Xthal_icache_line_lockable"]
     pub static Xthal_icache_line_lockable: ::std::os::raw::c_uchar;
 }
 extern "C" {
-    #[link_name = "\u{1}Xthal_dcache_line_lockable"]
     pub static Xthal_dcache_line_lockable: ::std::os::raw::c_uchar;
 }
 extern "C" {
@@ -15933,87 +15822,67 @@ extern "C" {
     );
 }
 extern "C" {
-    #[link_name = "\u{1}Xthal_have_spanning_way"]
     pub static Xthal_have_spanning_way: ::std::os::raw::c_uchar;
 }
 extern "C" {
-    #[link_name = "\u{1}Xthal_have_identity_map"]
     pub static Xthal_have_identity_map: ::std::os::raw::c_uchar;
 }
 extern "C" {
-    #[link_name = "\u{1}Xthal_have_mimic_cacheattr"]
     pub static Xthal_have_mimic_cacheattr: ::std::os::raw::c_uchar;
 }
 extern "C" {
-    #[link_name = "\u{1}Xthal_have_xlt_cacheattr"]
     pub static Xthal_have_xlt_cacheattr: ::std::os::raw::c_uchar;
 }
 extern "C" {
-    #[link_name = "\u{1}Xthal_have_cacheattr"]
     pub static Xthal_have_cacheattr: ::std::os::raw::c_uchar;
 }
 extern "C" {
-    #[link_name = "\u{1}Xthal_have_tlbs"]
     pub static Xthal_have_tlbs: ::std::os::raw::c_uchar;
 }
 extern "C" {
-    #[link_name = "\u{1}Xthal_mmu_asid_bits"]
     pub static Xthal_mmu_asid_bits: ::std::os::raw::c_uchar;
 }
 extern "C" {
-    #[link_name = "\u{1}Xthal_mmu_asid_kernel"]
     pub static Xthal_mmu_asid_kernel: ::std::os::raw::c_uchar;
 }
 extern "C" {
-    #[link_name = "\u{1}Xthal_mmu_rings"]
     pub static Xthal_mmu_rings: ::std::os::raw::c_uchar;
 }
 extern "C" {
-    #[link_name = "\u{1}Xthal_mmu_ring_bits"]
     pub static Xthal_mmu_ring_bits: ::std::os::raw::c_uchar;
 }
 extern "C" {
-    #[link_name = "\u{1}Xthal_mmu_sr_bits"]
     pub static Xthal_mmu_sr_bits: ::std::os::raw::c_uchar;
 }
 extern "C" {
-    #[link_name = "\u{1}Xthal_mmu_ca_bits"]
     pub static Xthal_mmu_ca_bits: ::std::os::raw::c_uchar;
 }
 extern "C" {
-    #[link_name = "\u{1}Xthal_mmu_max_pte_page_size"]
     pub static Xthal_mmu_max_pte_page_size: ::std::os::raw::c_uint;
 }
 extern "C" {
-    #[link_name = "\u{1}Xthal_mmu_min_pte_page_size"]
     pub static Xthal_mmu_min_pte_page_size: ::std::os::raw::c_uint;
 }
 extern "C" {
-    #[link_name = "\u{1}Xthal_itlb_way_bits"]
     pub static Xthal_itlb_way_bits: ::std::os::raw::c_uchar;
 }
 extern "C" {
-    #[link_name = "\u{1}Xthal_itlb_ways"]
     pub static Xthal_itlb_ways: ::std::os::raw::c_uchar;
 }
 extern "C" {
-    #[link_name = "\u{1}Xthal_itlb_arf_ways"]
     pub static Xthal_itlb_arf_ways: ::std::os::raw::c_uchar;
 }
 extern "C" {
-    #[link_name = "\u{1}Xthal_dtlb_way_bits"]
     pub static Xthal_dtlb_way_bits: ::std::os::raw::c_uchar;
 }
 extern "C" {
-    #[link_name = "\u{1}Xthal_dtlb_ways"]
     pub static Xthal_dtlb_ways: ::std::os::raw::c_uchar;
 }
 extern "C" {
-    #[link_name = "\u{1}Xthal_dtlb_arf_ways"]
     pub static Xthal_dtlb_arf_ways: ::std::os::raw::c_uchar;
 }
 extern "C" {
-    #[doc = " WARNING: these two functions may go away in a future release; don\'t depend on them!"]
+    #[doc = " WARNING: these two functions may go away in a future release; don't depend on them!"]
     pub fn xthal_static_v2p(
         vaddr: ::std::os::raw::c_uint,
         paddrp: *mut ::std::os::raw::c_uint,
@@ -16054,67 +15923,51 @@ extern "C" {
     ) -> ::std::os::raw::c_int;
 }
 extern "C" {
-    #[link_name = "\u{1}Xthal_cp_id_FPU"]
     pub static Xthal_cp_id_FPU: ::std::os::raw::c_uchar;
 }
 extern "C" {
-    #[link_name = "\u{1}Xthal_cp_mask_FPU"]
     pub static Xthal_cp_mask_FPU: ::std::os::raw::c_uint;
 }
 extern "C" {
-    #[link_name = "\u{1}Xthal_cp_id_XCHAL_CP1_IDENT"]
     pub static Xthal_cp_id_XCHAL_CP1_IDENT: ::std::os::raw::c_uchar;
 }
 extern "C" {
-    #[link_name = "\u{1}Xthal_cp_mask_XCHAL_CP1_IDENT"]
     pub static Xthal_cp_mask_XCHAL_CP1_IDENT: ::std::os::raw::c_uint;
 }
 extern "C" {
-    #[link_name = "\u{1}Xthal_cp_id_XCHAL_CP2_IDENT"]
     pub static Xthal_cp_id_XCHAL_CP2_IDENT: ::std::os::raw::c_uchar;
 }
 extern "C" {
-    #[link_name = "\u{1}Xthal_cp_mask_XCHAL_CP2_IDENT"]
     pub static Xthal_cp_mask_XCHAL_CP2_IDENT: ::std::os::raw::c_uint;
 }
 extern "C" {
-    #[link_name = "\u{1}Xthal_cp_id_XCHAL_CP3_IDENT"]
     pub static Xthal_cp_id_XCHAL_CP3_IDENT: ::std::os::raw::c_uchar;
 }
 extern "C" {
-    #[link_name = "\u{1}Xthal_cp_mask_XCHAL_CP3_IDENT"]
     pub static Xthal_cp_mask_XCHAL_CP3_IDENT: ::std::os::raw::c_uint;
 }
 extern "C" {
-    #[link_name = "\u{1}Xthal_cp_id_XCHAL_CP4_IDENT"]
     pub static Xthal_cp_id_XCHAL_CP4_IDENT: ::std::os::raw::c_uchar;
 }
 extern "C" {
-    #[link_name = "\u{1}Xthal_cp_mask_XCHAL_CP4_IDENT"]
     pub static Xthal_cp_mask_XCHAL_CP4_IDENT: ::std::os::raw::c_uint;
 }
 extern "C" {
-    #[link_name = "\u{1}Xthal_cp_id_XCHAL_CP5_IDENT"]
     pub static Xthal_cp_id_XCHAL_CP5_IDENT: ::std::os::raw::c_uchar;
 }
 extern "C" {
-    #[link_name = "\u{1}Xthal_cp_mask_XCHAL_CP5_IDENT"]
     pub static Xthal_cp_mask_XCHAL_CP5_IDENT: ::std::os::raw::c_uint;
 }
 extern "C" {
-    #[link_name = "\u{1}Xthal_cp_id_XCHAL_CP6_IDENT"]
     pub static Xthal_cp_id_XCHAL_CP6_IDENT: ::std::os::raw::c_uchar;
 }
 extern "C" {
-    #[link_name = "\u{1}Xthal_cp_mask_XCHAL_CP6_IDENT"]
     pub static Xthal_cp_mask_XCHAL_CP6_IDENT: ::std::os::raw::c_uint;
 }
 extern "C" {
-    #[link_name = "\u{1}Xthal_cp_id_XCHAL_CP7_IDENT"]
     pub static Xthal_cp_id_XCHAL_CP7_IDENT: ::std::os::raw::c_uchar;
 }
 extern "C" {
-    #[link_name = "\u{1}Xthal_cp_mask_XCHAL_CP7_IDENT"]
     pub static Xthal_cp_mask_XCHAL_CP7_IDENT: ::std::os::raw::c_uint;
 }
 #[repr(C)]
@@ -16517,7 +16370,6 @@ extern "C" {
     ) -> *mut ::std::os::raw::c_char;
 }
 extern "C" {
-    #[link_name = "\u{1}suboptarg"]
     pub static mut suboptarg: *mut ::std::os::raw::c_char;
 }
 extern "C" {
@@ -16763,7 +16615,7 @@ extern "C" {
 extern "C" {
     pub fn on_exit(
         __func: ::core::option::Option<
-            unsafe extern "C" fn(__func: ::std::os::raw::c_int, __arg: *mut ::std::os::raw::c_void),
+            unsafe extern "C" fn(arg1: ::std::os::raw::c_int, arg2: *mut ::std::os::raw::c_void),
         >,
         __arg: *mut ::std::os::raw::c_void,
     ) -> ::std::os::raw::c_int;
@@ -17147,7 +16999,6 @@ extern "C" {
     pub fn ets_post(prio: u8, sig: ETSSignal, par: ETSParam) -> ETS_STATUS;
 }
 extern "C" {
-    #[link_name = "\u{1}exc_cause_table"]
     pub static mut exc_cause_table: [*const ::std::os::raw::c_char; 40usize];
 }
 extern "C" {
@@ -17249,7 +17100,7 @@ extern "C" {
     #[doc = ""]
     #[doc = " @return None"]
     pub fn ets_install_putc1(
-        p: ::core::option::Option<unsafe extern "C" fn(p: ::std::os::raw::c_char)>,
+        p: ::core::option::Option<unsafe extern "C" fn(c: ::std::os::raw::c_char)>,
     );
 }
 extern "C" {
@@ -17260,7 +17111,7 @@ extern "C" {
     #[doc = ""]
     #[doc = " @return None"]
     pub fn ets_install_putc2(
-        p: ::core::option::Option<unsafe extern "C" fn(p: ::std::os::raw::c_char)>,
+        p: ::core::option::Option<unsafe extern "C" fn(c: ::std::os::raw::c_char)>,
     );
 }
 extern "C" {
@@ -17643,7 +17494,7 @@ extern "C" {
     #[doc = " @brief Start a periodic timer"]
     #[doc = ""]
     #[doc = " Timer should not be running when this function is called. This function will"]
-    #[doc = " start the timer which will trigger every \'period\' microseconds."]
+    #[doc = " start the timer which will trigger every 'period' microseconds."]
     #[doc = ""]
     #[doc = " @param timer timer handle created using esp_timer_create"]
     #[doc = " @param period timer period, in microseconds"]
@@ -17740,7 +17591,7 @@ extern "C" {
 extern "C" {
     #[doc = " @brief free() a buffer in a given heap."]
     #[doc = ""]
-    #[doc = " Semantics are the same as standard free(), only the argument \'p\' must be NULL or have been allocated in the specified heap."]
+    #[doc = " Semantics are the same as standard free(), only the argument 'p' must be NULL or have been allocated in the specified heap."]
     #[doc = ""]
     #[doc = " @param heap Handle to a registered heap."]
     #[doc = " @param p NULL, or a pointer previously returned from multi_heap_malloc() or multi_heap_realloc() for the same heap."]
@@ -17749,13 +17600,13 @@ extern "C" {
 extern "C" {
     #[doc = " @brief realloc() a buffer in a given heap."]
     #[doc = ""]
-    #[doc = " Semantics are the same as standard realloc(), only the argument \'p\' must be NULL or have been allocated in the specified heap."]
+    #[doc = " Semantics are the same as standard realloc(), only the argument 'p' must be NULL or have been allocated in the specified heap."]
     #[doc = ""]
     #[doc = " @param heap Handle to a registered heap."]
     #[doc = " @param p NULL, or a pointer previously returned from multi_heap_malloc() or multi_heap_realloc() for the same heap."]
     #[doc = " @param size Desired new size for buffer."]
     #[doc = ""]
-    #[doc = " @return New buffer of \'size\' containing contents of \'p\', or NULL if reallocation failed."]
+    #[doc = " @return New buffer of 'size' containing contents of 'p', or NULL if reallocation failed."]
     pub fn multi_heap_realloc(
         heap: multi_heap_handle_t,
         p: *mut ::std::os::raw::c_void,
@@ -17909,7 +17760,7 @@ extern "C" {
     #[doc = ""]
     #[doc = " In IDF, ``realloc(p, s)`` is equivalent to ``heap_caps_realloc(p, s, MALLOC_CAP_8BIT)``."]
     #[doc = ""]
-    #[doc = " \'caps\' parameter can be different to the capabilities that any original \'ptr\' was allocated with. In this way,"]
+    #[doc = " 'caps' parameter can be different to the capabilities that any original 'ptr' was allocated with. In this way,"]
     #[doc = " realloc can be used to \"move\" a buffer if necessary to ensure it meets a new set of capabilities."]
     #[doc = ""]
     #[doc = " @param ptr Pointer to previously allocated memory, or NULL for a new allocation."]
@@ -17917,7 +17768,7 @@ extern "C" {
     #[doc = " @param caps        Bitwise OR of MALLOC_CAP_* flags indicating the type"]
     #[doc = "                    of memory desired for the new allocation."]
     #[doc = ""]
-    #[doc = " @return Pointer to a new buffer of size \'size\' with capabilities \'caps\', or NULL if allocation failed."]
+    #[doc = " @return Pointer to a new buffer of size 'size' with capabilities 'caps', or NULL if allocation failed."]
     pub fn heap_caps_realloc(
         ptr: *mut ::std::os::raw::c_void,
         size: usize,
@@ -17961,7 +17812,7 @@ extern "C" {
     #[doc = " with the given capabilities."]
     #[doc = ""]
     #[doc = " Note the result may be less than the global all-time minimum available heap of this kind, as \"low water marks\" are"]
-    #[doc = " tracked per-region. Individual regions\' heaps may have reached their \"low water marks\" at different points in time. However"]
+    #[doc = " tracked per-region. Individual regions' heaps may have reached their \"low water marks\" at different points in time. However"]
     #[doc = " this result still gives a \"worst case\" indication for all-time minimum free heap."]
     #[doc = ""]
     #[doc = " @param caps        Bitwise OR of MALLOC_CAP_* flags indicating the type"]
@@ -18045,7 +17896,7 @@ extern "C" {
     #[doc = " This can be useful if debugging heap integrity for corruption at a known address,"]
     #[doc = " as it has a lower overhead than checking all heap regions. Note that if the corrupt"]
     #[doc = " address moves around between runs (due to timing or other factors) then this approach"]
-    #[doc = " won\'t work and you should call heap_caps_check_integrity or"]
+    #[doc = " won't work and you should call heap_caps_check_integrity or"]
     #[doc = " heap_caps_check_integrity_all instead."]
     #[doc = ""]
     #[doc = " @note The entire heap region around the address is checked, not only the adjacent"]
@@ -18055,7 +17906,7 @@ extern "C" {
     #[doc = " @param print_errors Print specific errors if heap corruption is found."]
     #[doc = ""]
     #[doc = " @return True if the heap containing the specified address is valid,"]
-    #[doc = " False if at least one heap is corrupt or the address doesn\'t belong to a heap region."]
+    #[doc = " False if at least one heap is corrupt or the address doesn't belong to a heap region."]
     pub fn heap_caps_check_integrity_addr(addr: isize, print_errors: bool) -> bool;
 }
 extern "C" {
@@ -18091,7 +17942,7 @@ extern "C" {
     #[doc = " @param size Size of the new buffer requested, or 0 to free the buffer."]
     #[doc = " @param num Number of variable paramters"]
     #[doc = ""]
-    #[doc = " @return Pointer to a new buffer of size \'size\', or NULL if allocation failed."]
+    #[doc = " @return Pointer to a new buffer of size 'size', or NULL if allocation failed."]
     pub fn heap_caps_realloc_prefer(
         ptr: *mut ::std::os::raw::c_void,
         size: usize,
@@ -18154,11 +18005,9 @@ pub struct soc_memory_type_desc_t {
     pub startup_stack: bool,
 }
 extern "C" {
-    #[link_name = "\u{1}soc_memory_types"]
     pub static mut soc_memory_types: [soc_memory_type_desc_t; 0usize];
 }
 extern "C" {
-    #[link_name = "\u{1}soc_memory_type_count"]
     pub static soc_memory_type_count: usize;
 }
 #[repr(C)]
@@ -18174,11 +18023,9 @@ pub struct soc_memory_region_t {
     pub iram_address: isize,
 }
 extern "C" {
-    #[link_name = "\u{1}soc_memory_regions"]
     pub static mut soc_memory_regions: [soc_memory_region_t; 0usize];
 }
 extern "C" {
-    #[link_name = "\u{1}soc_memory_region_count"]
     pub static soc_memory_region_count: usize;
 }
 #[repr(C)]
@@ -19675,7 +19522,6 @@ impl _bindgen_ty_2__bindgen_ty_22__bindgen_ty_1 {
 }
 pub type gpio_dev_t = _bindgen_ty_2;
 extern "C" {
-    #[link_name = "\u{1}GPIO"]
     pub static mut GPIO: gpio_dev_t;
 }
 pub const GPIO_INT_TYPE_GPIO_PIN_INTR_DISABLE: GPIO_INT_TYPE = 0;
@@ -19903,7 +19749,6 @@ extern "C" {
     pub fn gpio_pad_hold(gpio_num: u8);
 }
 extern "C" {
-    #[link_name = "\u{1}GPIO_PIN_MUX_REG"]
     pub static mut GPIO_PIN_MUX_REG: [u32; 40usize];
 }
 #[doc = "< GPIO0, input and output"]
@@ -20059,7 +19904,7 @@ pub type gpio_isr_handle_t = intr_handle_t;
 extern "C" {
     #[doc = " @brief GPIO common configuration"]
     #[doc = ""]
-    #[doc = "        Configure GPIO\'s Mode,pull-up,PullDown,IntrType"]
+    #[doc = "        Configure GPIO's Mode,pull-up,PullDown,IntrType"]
     #[doc = ""]
     #[doc = " @param  pGPIOConfig Pointer to GPIO configure struct"]
     #[doc = ""]
@@ -20098,7 +19943,7 @@ extern "C" {
     #[doc = ""]
     #[doc = " @note Please do not use the interrupt of GPIO36 and GPIO39 when using ADC."]
     #[doc = "       Please refer to the comments of `adc1_get_raw`."]
-    #[doc = "       Please refer to section 3.11 of \'ECO_and_Workarounds_for_Bugs_in_ESP32\' for the description of this issue."]
+    #[doc = "       Please refer to section 3.11 of 'ECO_and_Workarounds_for_Bugs_in_ESP32' for the description of this issue."]
     #[doc = ""]
     #[doc = " @param  gpio_num GPIO number. If you want to enable an interrupt on e.g. GPIO16, gpio_num should be GPIO_NUM_16 (16);"]
     #[doc = ""]
@@ -20218,7 +20063,7 @@ extern "C" {
     #[doc = "     - ESP_ERR_INVALID_ARG GPIO error"]
     #[doc = "     - ESP_ERR_NOT_FOUND No free interrupt found with the specified flags"]
     pub fn gpio_isr_register(
-        fn_: ::core::option::Option<unsafe extern "C" fn(fn_: *mut ::std::os::raw::c_void)>,
+        fn_: ::core::option::Option<unsafe extern "C" fn(arg1: *mut ::std::os::raw::c_void)>,
         arg: *mut ::std::os::raw::c_void,
         intr_alloc_flags: ::std::os::raw::c_int,
         handle: *mut gpio_isr_handle_t,
@@ -20265,7 +20110,7 @@ extern "C" {
     pub fn gpio_pulldown_dis(gpio_num: gpio_num_t) -> esp_err_t;
 }
 extern "C" {
-    #[doc = " @brief Install the driver\'s GPIO ISR handler service, which allows per-pin GPIO interrupt handlers."]
+    #[doc = " @brief Install the driver's GPIO ISR handler service, which allows per-pin GPIO interrupt handlers."]
     #[doc = ""]
     #[doc = " This function is incompatible with gpio_isr_register() - if that function is used, a single global ISR is registered for all GPIO interrupts. If this function is used, the ISR service provides a global GPIO ISR and individual pin handlers are registered via the gpio_isr_handler_add() function."]
     #[doc = ""]
@@ -20281,14 +20126,14 @@ extern "C" {
     pub fn gpio_install_isr_service(intr_alloc_flags: ::std::os::raw::c_int) -> esp_err_t;
 }
 extern "C" {
-    #[doc = " @brief Uninstall the driver\'s GPIO ISR service, freeing related resources."]
+    #[doc = " @brief Uninstall the driver's GPIO ISR service, freeing related resources."]
     pub fn gpio_uninstall_isr_service();
 }
 extern "C" {
     #[doc = " @brief Add ISR handler for the corresponding GPIO pin."]
     #[doc = ""]
     #[doc = " Call this function after using gpio_install_isr_service() to"]
-    #[doc = " install the driver\'s GPIO ISR handler service."]
+    #[doc = " install the driver's GPIO ISR handler service."]
     #[doc = ""]
     #[doc = " The pin ISR handlers no longer need to be declared with IRAM_ATTR,"]
     #[doc = " unless you pass the ESP_INTR_FLAG_IRAM flag when allocating the"]
@@ -20351,12 +20196,16 @@ extern "C" {
     ) -> esp_err_t;
 }
 extern "C" {
-    #[doc = " @brief Set gpio pad hold function."]
+    #[doc = " @brief Enable gpio pad hold function."]
     #[doc = ""]
     #[doc = " The gpio pad hold function works in both input and output modes, but must be output-capable gpios."]
     #[doc = " If pad hold enabled:"]
     #[doc = "   in output mode: the output level of the pad will be force locked and can not be changed."]
     #[doc = "   in input mode: the input value read will not change, regardless the changes of input signal."]
+    #[doc = ""]
+    #[doc = " The state of digital gpio cannot be held during Deep-sleep, and it will resume the hold function"]
+    #[doc = " when the chip wakes up from Deep-sleep. If the digital gpio also needs to be held during Deep-sleep,"]
+    #[doc = " `gpio_deep_sleep_hold_en` should also be called."]
     #[doc = ""]
     #[doc = " Power down or call gpio_hold_dis will disable this function."]
     #[doc = ""]
@@ -20368,7 +20217,15 @@ extern "C" {
     pub fn gpio_hold_en(gpio_num: gpio_num_t) -> esp_err_t;
 }
 extern "C" {
-    #[doc = " @brief Unset gpio pad hold function."]
+    #[doc = " @brief Disable gpio pad hold function."]
+    #[doc = ""]
+    #[doc = " When the chip is woken up from Deep-sleep, the gpio will be set to the default mode, so, the gpio will output"]
+    #[doc = " the default level if this function is called. If you dont't want the level changes, the gpio should be configured to"]
+    #[doc = " a known state before this function is called."]
+    #[doc = "  e.g."]
+    #[doc = "     If you hold gpio18 high during Deep-sleep, after the chip is woken up and `gpio_hold_dis` is called,"]
+    #[doc = "     gpio18 will output low level(because gpio18 is input mode by default). If you don't want this behavior,"]
+    #[doc = "     you should configure gpio18 as output mode and set it to hight level before calling `gpio_hold_dis`."]
     #[doc = ""]
     #[doc = " @param gpio_num GPIO number, only support output-capable GPIOs"]
     #[doc = ""]
@@ -20376,6 +20233,21 @@ extern "C" {
     #[doc = "     - ESP_OK Success"]
     #[doc = "     - ESP_ERR_NOT_SUPPORTED Not support pad hold function"]
     pub fn gpio_hold_dis(gpio_num: gpio_num_t) -> esp_err_t;
+}
+extern "C" {
+    #[doc = " @brief Enable all digital gpio pad hold function during Deep-sleep."]
+    #[doc = ""]
+    #[doc = " When the chip is in Deep-sleep mode, all digital gpio will hold the state before sleep, and when the chip is woken up,"]
+    #[doc = " the status of digital gpio will not be held. Note that the pad hold feature only works when the chip is in Deep-sleep mode,"]
+    #[doc = " when not in sleep mode, the digital gpio state can be changed even you have called this function."]
+    #[doc = ""]
+    #[doc = " Power down or call gpio_hold_dis will disable this function, otherwise, the digital gpio hold feature works as long as the chip enter Deep-sleep."]
+    pub fn gpio_deep_sleep_hold_en();
+}
+extern "C" {
+    #[doc = " @brief Disable all digital gpio pad hold function during Deep-sleep."]
+    #[doc = ""]
+    pub fn gpio_deep_sleep_hold_dis();
 }
 extern "C" {
     #[doc = " @brief Set pad input to a peripheral signal through the IOMUX."]
@@ -20516,8 +20388,8 @@ pub type touch_fsm_mode_t = u32;
 pub type touch_isr_handle_t = intr_handle_t;
 extern "C" {
     #[doc = " @brief Initialize touch module."]
-    #[doc = " @note  The default FSM mode is \'TOUCH_FSM_MODE_SW\'. If you want to use interrupt trigger mode,"]
-    #[doc = "        then set it using function \'touch_pad_set_fsm_mode\' to \'TOUCH_FSM_MODE_TIMER\' after calling \'touch_pad_init\'."]
+    #[doc = " @note  The default FSM mode is 'TOUCH_FSM_MODE_SW'. If you want to use interrupt trigger mode,"]
+    #[doc = "        then set it using function 'touch_pad_set_fsm_mode' to 'TOUCH_FSM_MODE_TIMER' after calling 'touch_pad_init'."]
     #[doc = " @return"]
     #[doc = "     - ESP_OK Success"]
     #[doc = "     - ESP_FAIL Touch pad init error"]
@@ -20548,11 +20420,11 @@ extern "C" {
 extern "C" {
     #[doc = " @brief get touch sensor counter value."]
     #[doc = "        Each touch sensor has a counter to count the number of charge/discharge cycles."]
-    #[doc = "        When the pad is not \'touched\', we can get a number of the counter."]
-    #[doc = "        When the pad is \'touched\', the value in counter will get smaller because of the larger equivalent capacitance."]
+    #[doc = "        When the pad is not 'touched', we can get a number of the counter."]
+    #[doc = "        When the pad is 'touched', the value in counter will get smaller because of the larger equivalent capacitance."]
     #[doc = ""]
     #[doc = " @note This API requests hardware measurement once. If IIR filter mode is enabled,"]
-    #[doc = "       please use \'touch_pad_read_raw_data\' interface instead."]
+    #[doc = "       please use 'touch_pad_read_raw_data' interface instead."]
     #[doc = ""]
     #[doc = " @param touch_num touch pad index"]
     #[doc = " @param touch_value pointer to accept touch sensor value"]
@@ -20609,7 +20481,7 @@ pub type filter_cb_t =
     ::core::option::Option<unsafe extern "C" fn(raw_value: *mut u16, filtered_value: *mut u16)>;
 extern "C" {
     #[doc = " @brief Register the callback function that is called after each IIR filter calculation."]
-    #[doc = " @note The \'read_cb\' callback is called in timer task in each filtering cycle."]
+    #[doc = " @note The 'read_cb' callback is called in timer task in each filtering cycle."]
     #[doc = " @param read_cb  Pointer to filtered callback function."]
     #[doc = "                 If the argument passed in is NULL, the callback will stop."]
     #[doc = " @return"]
@@ -20630,7 +20502,7 @@ extern "C" {
     #[doc = "     - ESP_ERR_INVALID_ARG GPIO error"]
     #[doc = "     - ESP_ERR_NO_MEM No memory"]
     pub fn touch_pad_isr_handler_register(
-        fn_: ::core::option::Option<unsafe extern "C" fn(fn_: *mut ::std::os::raw::c_void)>,
+        fn_: ::core::option::Option<unsafe extern "C" fn(arg1: *mut ::std::os::raw::c_void)>,
         arg: *mut ::std::os::raw::c_void,
         unused: ::std::os::raw::c_int,
         handle_unused: *mut intr_handle_t,
@@ -20657,9 +20529,9 @@ extern "C" {
     #[doc = " @return"]
     #[doc = "      - ESP_OK on success"]
     #[doc = "      - ESP_ERR_INVALID_STATE if a handler matching both fn and"]
-    #[doc = "        arg isn\'t registered"]
+    #[doc = "        arg isn't registered"]
     pub fn touch_pad_isr_deregister(
-        fn_: ::core::option::Option<unsafe extern "C" fn(fn_: *mut ::std::os::raw::c_void)>,
+        fn_: ::core::option::Option<unsafe extern "C" fn(arg1: *mut ::std::os::raw::c_void)>,
         arg: *mut ::std::os::raw::c_void,
     ) -> esp_err_t;
 }
@@ -20814,7 +20686,7 @@ extern "C" {
 extern "C" {
     #[doc = " @brief Set touch sensor interrupt trigger source. There are two sets of touch signals."]
     #[doc = "        Set1 and set2 can be mapped to several touch signals. Either set will be triggered"]
-    #[doc = "        if at least one of its touch signal is \'touched\'. The interrupt can be configured to be generated"]
+    #[doc = "        if at least one of its touch signal is 'touched'. The interrupt can be configured to be generated"]
     #[doc = "        if set1 is triggered, or only if both sets are triggered."]
     #[doc = " @param src touch sensor interrupt trigger source"]
     #[doc = " @return"]
@@ -20831,12 +20703,12 @@ extern "C" {
 }
 extern "C" {
     #[doc = " @brief Set touch sensor group mask."]
-    #[doc = "        Touch pad module has two sets of signals, \'Touched\' signal is triggered only if"]
+    #[doc = "        Touch pad module has two sets of signals, 'Touched' signal is triggered only if"]
     #[doc = "        at least one of touch pad in this group is \"touched\"."]
     #[doc = "        This function will set the register bits according to the given bitmask."]
-    #[doc = " @param set1_mask bitmask of touch sensor signal group1, it\'s a 10-bit value"]
-    #[doc = " @param set2_mask bitmask of touch sensor signal group2, it\'s a 10-bit value"]
-    #[doc = " @param en_mask bitmask of touch sensor work enable, it\'s a 10-bit value"]
+    #[doc = " @param set1_mask bitmask of touch sensor signal group1, it's a 10-bit value"]
+    #[doc = " @param set2_mask bitmask of touch sensor signal group2, it's a 10-bit value"]
+    #[doc = " @param en_mask bitmask of touch sensor work enable, it's a 10-bit value"]
     #[doc = " @return"]
     #[doc = "      - ESP_OK on success"]
     #[doc = "      - ESP_ERR_INVALID_ARG if argument is wrong"]
@@ -20844,9 +20716,9 @@ extern "C" {
 }
 extern "C" {
     #[doc = " @brief Get touch sensor group mask."]
-    #[doc = " @param set1_mask pointer to accept bitmask of touch sensor signal group1, it\'s a 10-bit value"]
-    #[doc = " @param set2_mask pointer to accept bitmask of touch sensor signal group2, it\'s a 10-bit value"]
-    #[doc = " @param en_mask pointer to accept bitmask of touch sensor work enable, it\'s a 10-bit value"]
+    #[doc = " @param set1_mask pointer to accept bitmask of touch sensor signal group1, it's a 10-bit value"]
+    #[doc = " @param set2_mask pointer to accept bitmask of touch sensor signal group2, it's a 10-bit value"]
+    #[doc = " @param en_mask pointer to accept bitmask of touch sensor work enable, it's a 10-bit value"]
     #[doc = " @return"]
     #[doc = "      - ESP_OK on success"]
     pub fn touch_pad_get_group_mask(
@@ -20860,9 +20732,9 @@ extern "C" {
     #[doc = "        Touch pad module has two sets of signals, Interrupt is triggered only if"]
     #[doc = "        at least one of touch pad in this group is \"touched\"."]
     #[doc = "        This function will clear the register bits according to the given bitmask."]
-    #[doc = " @param set1_mask bitmask touch sensor signal group1, it\'s a 10-bit value"]
-    #[doc = " @param set2_mask bitmask touch sensor signal group2, it\'s a 10-bit value"]
-    #[doc = " @param en_mask bitmask of touch sensor work enable, it\'s a 10-bit value"]
+    #[doc = " @param set1_mask bitmask touch sensor signal group1, it's a 10-bit value"]
+    #[doc = " @param set2_mask bitmask touch sensor signal group2, it's a 10-bit value"]
+    #[doc = " @param en_mask bitmask of touch sensor work enable, it's a 10-bit value"]
     #[doc = " @return"]
     #[doc = "      - ESP_OK on success"]
     #[doc = "      - ESP_ERR_INVALID_ARG if argument is wrong"]
@@ -20875,7 +20747,7 @@ extern "C" {
     pub fn touch_pad_clear_status() -> esp_err_t;
 }
 extern "C" {
-    #[doc = " @brief Get the touch sensor status, usually used in ISR to decide which pads are \'touched\'."]
+    #[doc = " @brief Get the touch sensor status, usually used in ISR to decide which pads are 'touched'."]
     #[doc = " @return"]
     #[doc = "      - touch status"]
     pub fn touch_pad_get_status() -> u32;
@@ -21026,6 +20898,7 @@ extern "C" {
     #[doc = "       source is used."]
     #[doc = " @return"]
     #[doc = "      - ESP_OK on success"]
+    #[doc = "      - ESP_ERR_NOT_SUPPORTED if additional current by touch (CONFIG_ESP32_RTC_EXTERNAL_CRYSTAL_ADDITIONAL_CURRENT) is enabled."]
     #[doc = "      - ESP_ERR_INVALID_STATE if ULP co-processor is not enabled or if wakeup triggers conflict"]
     pub fn esp_sleep_enable_ulp_wakeup() -> esp_err_t;
 }
@@ -21050,6 +20923,7 @@ extern "C" {
     #[doc = ""]
     #[doc = " @return"]
     #[doc = "      - ESP_OK on success"]
+    #[doc = "      - ESP_ERR_NOT_SUPPORTED if additional current by touch (CONFIG_ESP32_RTC_EXTERNAL_CRYSTAL_ADDITIONAL_CURRENT) is enabled."]
     #[doc = "      - ESP_ERR_INVALID_STATE if wakeup triggers conflict"]
     pub fn esp_sleep_enable_touchpad_wakeup() -> esp_err_t;
 }
@@ -21103,7 +20977,7 @@ extern "C" {
     #[doc = "       configured in esp_sleep_start, immediately before"]
     #[doc = "       entering sleep mode."]
     #[doc = ""]
-    #[doc = " @note internal pullups and pulldowns don\'t work when RTC peripherals are"]
+    #[doc = " @note internal pullups and pulldowns don't work when RTC peripherals are"]
     #[doc = "       shut down. In this case, external resistors need to be added."]
     #[doc = "       Alternatively, RTC peripherals (and pullups/pulldowns) may be"]
     #[doc = "       kept enabled using esp_sleep_pd_config function."]
@@ -21309,7 +21183,7 @@ pub const esp_reset_reason_t_ESP_RST_SDIO: esp_reset_reason_t = 10;
 pub type esp_reset_reason_t = u32;
 extern "C" {
     #[doc = " @cond */"]
-    #[doc = " @attention  Applications don\'t need to call this function anymore. It does nothing and will"]
+    #[doc = " @attention  Applications don't need to call this function anymore. It does nothing and will"]
     #[doc = "             be removed in future version."]
     pub fn system_init();
 }
@@ -21355,7 +21229,7 @@ extern "C" {
     #[doc = " @cond */"]
     #[doc = " @brief  Get system time, unit: microsecond."]
     #[doc = ""]
-    #[doc = " This function is deprecated. Use \'gettimeofday\' function for 64-bit precision."]
+    #[doc = " This function is deprecated. Use 'gettimeofday' function for 64-bit precision."]
     #[doc = " This definition will be removed in a future release."]
     pub fn system_get_time() -> u32;
 }
@@ -21391,7 +21265,7 @@ extern "C" {
     #[doc = " random values, call this function after WiFi or Bluetooth are started."]
     #[doc = ""]
     #[doc = " If the RF subsystem is not used by the program, the function bootloader_random_enable() can be called to enable an"]
-    #[doc = " entropy source. bootloader_random_disable() must be called before RF subsystem or I2S peripheral are used. See these functions\'"]
+    #[doc = " entropy source. bootloader_random_disable() must be called before RF subsystem or I2S peripheral are used. See these functions'"]
     #[doc = " documentation for more details."]
     #[doc = ""]
     #[doc = " Any time the app is running without an RF subsystem (or bootloader_random) enabled, RNG hardware should be"]
@@ -21742,7 +21616,7 @@ extern "C" {
     #[doc = ""]
     #[doc = "  if( xQueue2 != 0 )"]
     #[doc = "  {"]
-    #[doc = "      // Send a pointer to a struct AMessage object.  Don\'t block if the"]
+    #[doc = "      // Send a pointer to a struct AMessage object.  Don't block if the"]
     #[doc = "      // queue is already full."]
     #[doc = "      pxMessage = & xMessage;"]
     #[doc = "      xQueueGenericSend( xQueue2, ( void * ) &pxMessage, ( TickType_t ) 0, queueSEND_TO_BACK );"]
@@ -21843,7 +21717,7 @@ extern "C" {
     #[doc = ""]
     #[doc = " \t// ..."]
     #[doc = ""]
-    #[doc = " \t// Send a pointer to a struct AMessage object.  Don\'t block if the"]
+    #[doc = " \t// Send a pointer to a struct AMessage object.  Don't block if the"]
     #[doc = " \t// queue is already full."]
     #[doc = " \tpxMessage = & xMessage;"]
     #[doc = " \txQueueSend( xQueue, ( void * ) &pxMessage, ( TickType_t ) 0 );"]
@@ -21914,7 +21788,7 @@ extern "C" {
     #[doc = " It is preferred that the macros xQueueSendFromISR(),"]
     #[doc = " xQueueSendToFrontFromISR() and xQueueSendToBackFromISR() be used in place"]
     #[doc = " of calling this function directly.  xQueueGiveFromISR() is an"]
-    #[doc = " equivalent for use by semaphores that don\'t actually copy any data."]
+    #[doc = " equivalent for use by semaphores that don't actually copy any data."]
     #[doc = ""]
     #[doc = " Post an item on a queue.  It is safe to use this function from within an"]
     #[doc = " interrupt service routine."]
@@ -22026,15 +21900,15 @@ extern "C" {
     #[doc = ""]
     #[doc = " \t// Post some characters that will be used within an ISR.  If the queue"]
     #[doc = " \t// is full then this task will block for xTicksToWait ticks."]
-    #[doc = " \tcValueToPost = \'a\';"]
+    #[doc = " \tcValueToPost = 'a';"]
     #[doc = " \txQueueSend( xQueue, ( void * ) &cValueToPost, xTicksToWait );"]
-    #[doc = " \tcValueToPost = \'b\';"]
+    #[doc = " \tcValueToPost = 'b';"]
     #[doc = " \txQueueSend( xQueue, ( void * ) &cValueToPost, xTicksToWait );"]
     #[doc = ""]
     #[doc = " \t// ... keep posting characters ... this task may block when the queue"]
     #[doc = " \t// becomes full."]
     #[doc = ""]
-    #[doc = " \tcValueToPost = \'c\';"]
+    #[doc = " \tcValueToPost = 'c';"]
     #[doc = " \txQueueSend( xQueue, ( void * ) &cValueToPost, xTicksToWait );"]
     #[doc = "  }"]
     #[doc = ""]
@@ -22397,13 +22271,13 @@ pub const eTaskState_eDeleted: eTaskState = 4;
 pub type eTaskState = u32;
 #[doc = "< Notify the task without updating its notify value."]
 pub const eNotifyAction_eNoAction: eNotifyAction = 0;
-#[doc = "< Set bits in the task\'s notification value."]
+#[doc = "< Set bits in the task's notification value."]
 pub const eNotifyAction_eSetBits: eNotifyAction = 1;
-#[doc = "< Increment the task\'s notification value."]
+#[doc = "< Increment the task's notification value."]
 pub const eNotifyAction_eIncrement: eNotifyAction = 2;
-#[doc = "< Set the task\'s notification value to a specific value even if the previous value has not yet been read by the task."]
+#[doc = "< Set the task's notification value to a specific value even if the previous value has not yet been read by the task."]
 pub const eNotifyAction_eSetValueWithOverwrite: eNotifyAction = 3;
-#[doc = "< Set the task\'s notification value if the previous value has been read by the task."]
+#[doc = "< Set the task's notification value if the previous value has been read by the task."]
 pub const eNotifyAction_eSetValueWithoutOverwrite: eNotifyAction = 4;
 #[doc = " Actions that can be performed when vTaskNotify() is called."]
 pub type eNotifyAction = u32;
@@ -22444,7 +22318,7 @@ pub type TaskParameters_t = xTASK_PARAMETERS;
 pub struct xTASK_STATUS {
     #[doc = "< The handle of the task to which the rest of the information in the structure relates."]
     pub xHandle: TaskHandle_t,
-    #[doc = "< A pointer to the task\'s name.  This value will be invalid if the task was deleted since the structure was populated!"]
+    #[doc = "< A pointer to the task's name.  This value will be invalid if the task was deleted since the structure was populated!"]
     pub pcTaskName: *const ::std::os::raw::c_char,
     #[doc = "< A number unique to the task."]
     pub xTaskNumber: UBaseType_t,
@@ -22452,11 +22326,11 @@ pub struct xTASK_STATUS {
     pub eCurrentState: eTaskState,
     #[doc = "< The priority at which the task was running (may be inherited) when the structure was populated."]
     pub uxCurrentPriority: UBaseType_t,
-    #[doc = "< The priority to which the task will return if the task\'s current priority has been inherited to avoid unbounded priority inversion when obtaining a mutex.  Only valid if configUSE_MUTEXES is defined as 1 in FreeRTOSConfig.h."]
+    #[doc = "< The priority to which the task will return if the task's current priority has been inherited to avoid unbounded priority inversion when obtaining a mutex.  Only valid if configUSE_MUTEXES is defined as 1 in FreeRTOSConfig.h."]
     pub uxBasePriority: UBaseType_t,
     #[doc = "< The total run time allocated to the task so far, as defined by the run time stats clock.  See http://www.freertos.org/rtos-run-time-stats.html.  Only valid when configGENERATE_RUN_TIME_STATS is defined as 1 in FreeRTOSConfig.h."]
     pub ulRunTimeCounter: u32,
-    #[doc = "< Points to the lowest address of the task\'s stack area."]
+    #[doc = "< Points to the lowest address of the task's stack area."]
     pub pxStackBase: *mut StackType_t,
     #[doc = "< The minimum amount of stack space that has remained for the task since the task was created.  The closer this value is to zero the closer the task has come to overflowing its stack."]
     pub usStackHighWaterMark: u32,
@@ -22545,7 +22419,7 @@ extern "C" {
     pub fn vTaskAllocateMPURegions(xTask: TaskHandle_t, pxRegions: *const MemoryRegion_t);
 }
 extern "C" {
-    #[doc = " Remove a task from the RTOS real time kernel\'s management."]
+    #[doc = " Remove a task from the RTOS real time kernel's management."]
     #[doc = ""]
     #[doc = " The task being deleted will be removed from all ready, blocked, suspended"]
     #[doc = " and event lists."]
@@ -22707,7 +22581,7 @@ extern "C" {
     #[doc = "   // it itself."]
     #[doc = "   if( uxTaskPriorityGet( xHandle ) != tskIDLE_PRIORITY )"]
     #[doc = "   {"]
-    #[doc = "       // The task has changed it\'s priority."]
+    #[doc = "       // The task has changed it's priority."]
     #[doc = "   }"]
     #[doc = ""]
     #[doc = "   // ..."]
@@ -23371,8 +23245,8 @@ extern "C" {
     #[doc = " Lists all the current tasks, along with their current state and stack"]
     #[doc = " usage high water mark."]
     #[doc = ""]
-    #[doc = " Tasks are reported as blocked (\'B\'), ready (\'R\'), deleted (\'D\') or"]
-    #[doc = " suspended (\'S\')."]
+    #[doc = " Tasks are reported as blocked ('B'), ready ('R'), deleted ('D') or"]
+    #[doc = " suspended ('S')."]
     #[doc = ""]
     #[doc = " @note This function is provided for convenience only, and is used by many of the"]
     #[doc = " demo applications.  Do not consider it to be part of the scheduler."]
@@ -23464,7 +23338,7 @@ extern "C" {
     #[doc = " an intermediary object."]
     #[doc = ""]
     #[doc = " A notification sent to a task can optionally perform an action, such as"]
-    #[doc = " update, overwrite or increment the task\'s notification value.  In that way"]
+    #[doc = " update, overwrite or increment the task's notification value.  In that way"]
     #[doc = " task notifications can be used to send data to a task, or be used as light"]
     #[doc = " weight and fast binary or counting semaphores."]
     #[doc = ""]
@@ -23489,25 +23363,25 @@ extern "C" {
     #[doc = " @param ulValue Data that can be sent with the notification.  How the data is"]
     #[doc = " used depends on the value of the eAction parameter."]
     #[doc = ""]
-    #[doc = " @param eAction Specifies how the notification updates the task\'s notification"]
+    #[doc = " @param eAction Specifies how the notification updates the task's notification"]
     #[doc = " value, if at all.  Valid values for eAction are as follows:"]
     #[doc = "\t- eSetBits:"]
-    #[doc = "\t  The task\'s notification value is bitwise ORed with ulValue.  xTaskNofify()"]
+    #[doc = "\t  The task's notification value is bitwise ORed with ulValue.  xTaskNofify()"]
     #[doc = " \t  always returns pdPASS in this case."]
     #[doc = ""]
     #[doc = "\t- eIncrement:"]
-    #[doc = "\t  The task\'s notification value is incremented.  ulValue is not used and"]
+    #[doc = "\t  The task's notification value is incremented.  ulValue is not used and"]
     #[doc = "\t  xTaskNotify() always returns pdPASS in this case."]
     #[doc = ""]
     #[doc = "\t- eSetValueWithOverwrite:"]
-    #[doc = "\t  The task\'s notification value is set to the value of ulValue, even if the"]
+    #[doc = "\t  The task's notification value is set to the value of ulValue, even if the"]
     #[doc = "\t  task being notified had not yet processed the previous notification (the"]
     #[doc = "\t  task already had a notification pending).  xTaskNotify() always returns"]
     #[doc = "\t  pdPASS in this case."]
     #[doc = ""]
     #[doc = "\t- eSetValueWithoutOverwrite:"]
     #[doc = "\t  If the task being notified did not already have a notification pending then"]
-    #[doc = "\t  the task\'s notification value is set to ulValue and xTaskNotify() will"]
+    #[doc = "\t  the task's notification value is set to ulValue and xTaskNotify() will"]
     #[doc = "\t  return pdPASS.  If the task being notified already had a notification"]
     #[doc = "\t  pending then no action is performed and pdFAIL is returned."]
     #[doc = ""]
@@ -23544,7 +23418,7 @@ extern "C" {
     #[doc = " an intermediary object."]
     #[doc = ""]
     #[doc = " A notification sent to a task can optionally perform an action, such as"]
-    #[doc = " update, overwrite or increment the task\'s notification value.  In that way"]
+    #[doc = " update, overwrite or increment the task's notification value.  In that way"]
     #[doc = " task notifications can be used to send data to a task, or be used as light"]
     #[doc = " weight and fast binary or counting semaphores."]
     #[doc = ""]
@@ -23569,25 +23443,25 @@ extern "C" {
     #[doc = " @param ulValue Data that can be sent with the notification.  How the data is"]
     #[doc = " used depends on the value of the eAction parameter."]
     #[doc = ""]
-    #[doc = " @param eAction Specifies how the notification updates the task\'s notification"]
+    #[doc = " @param eAction Specifies how the notification updates the task's notification"]
     #[doc = " value, if at all.  Valid values for eAction are as follows:"]
     #[doc = "\t- eSetBits:"]
-    #[doc = "\t  The task\'s notification value is bitwise ORed with ulValue.  xTaskNofify()"]
+    #[doc = "\t  The task's notification value is bitwise ORed with ulValue.  xTaskNofify()"]
     #[doc = " \t  always returns pdPASS in this case."]
     #[doc = ""]
     #[doc = "\t- eIncrement:"]
-    #[doc = "\t  The task\'s notification value is incremented.  ulValue is not used and"]
+    #[doc = "\t  The task's notification value is incremented.  ulValue is not used and"]
     #[doc = "\t  xTaskNotify() always returns pdPASS in this case."]
     #[doc = ""]
     #[doc = "\t- eSetValueWithOverwrite:"]
-    #[doc = "\t  The task\'s notification value is set to the value of ulValue, even if the"]
+    #[doc = "\t  The task's notification value is set to the value of ulValue, even if the"]
     #[doc = "\t  task being notified had not yet processed the previous notification (the"]
     #[doc = "\t  task already had a notification pending).  xTaskNotify() always returns"]
     #[doc = "\t  pdPASS in this case."]
     #[doc = ""]
     #[doc = "\t- eSetValueWithoutOverwrite:"]
     #[doc = "\t  If the task being notified did not already have a notification pending then"]
-    #[doc = "\t  the task\'s notification value is set to ulValue and xTaskNotify() will"]
+    #[doc = "\t  the task's notification value is set to ulValue and xTaskNotify() will"]
     #[doc = "\t  return pdPASS.  If the task being notified already had a notification"]
     #[doc = "\t  pending then no action is performed and pdFAIL is returned."]
     #[doc = ""]
@@ -23631,7 +23505,7 @@ extern "C" {
     #[doc = " an intermediary object."]
     #[doc = ""]
     #[doc = " A notification sent to a task can optionally perform an action, such as"]
-    #[doc = " update, overwrite or increment the task\'s notification value.  In that way"]
+    #[doc = " update, overwrite or increment the task's notification value.  In that way"]
     #[doc = " task notifications can be used to send data to a task, or be used as light"]
     #[doc = " weight and fast binary or counting semaphores."]
     #[doc = ""]
@@ -23649,27 +23523,27 @@ extern "C" {
     #[doc = " See http://www.FreeRTOS.org/RTOS-task-notifications.html for details."]
     #[doc = ""]
     #[doc = " @param ulBitsToClearOnEntry Bits that are set in ulBitsToClearOnEntry value"]
-    #[doc = " will be cleared in the calling task\'s notification value before the task"]
+    #[doc = " will be cleared in the calling task's notification value before the task"]
     #[doc = " checks to see if any notifications are pending, and optionally blocks if no"]
     #[doc = " notifications are pending.  Setting ulBitsToClearOnEntry to ULONG_MAX (if"]
     #[doc = " limits.h is included) or 0xffffffffUL (if limits.h is not included) will have"]
-    #[doc = " the effect of resetting the task\'s notification value to 0.  Setting"]
-    #[doc = " ulBitsToClearOnEntry to 0 will leave the task\'s notification value unchanged."]
+    #[doc = " the effect of resetting the task's notification value to 0.  Setting"]
+    #[doc = " ulBitsToClearOnEntry to 0 will leave the task's notification value unchanged."]
     #[doc = ""]
     #[doc = " @param ulBitsToClearOnExit If a notification is pending or received before"]
-    #[doc = " the calling task exits the xTaskNotifyWait() function then the task\'s"]
+    #[doc = " the calling task exits the xTaskNotifyWait() function then the task's"]
     #[doc = " notification value (see the xTaskNotify() API function) is passed out using"]
     #[doc = " the pulNotificationValue parameter.  Then any bits that are set in"]
-    #[doc = " ulBitsToClearOnExit will be cleared in the task\'s notification value (note"]
+    #[doc = " ulBitsToClearOnExit will be cleared in the task's notification value (note"]
     #[doc = " *pulNotificationValue is set before any bits are cleared).  Setting"]
     #[doc = " ulBitsToClearOnExit to ULONG_MAX (if limits.h is included) or 0xffffffffUL"]
-    #[doc = " (if limits.h is not included) will have the effect of resetting the task\'s"]
+    #[doc = " (if limits.h is not included) will have the effect of resetting the task's"]
     #[doc = " notification value to 0 before the function exits.  Setting"]
-    #[doc = " ulBitsToClearOnExit to 0 will leave the task\'s notification value unchanged"]
+    #[doc = " ulBitsToClearOnExit to 0 will leave the task's notification value unchanged"]
     #[doc = " when the function exits (in which case the value passed out in"]
-    #[doc = " pulNotificationValue will match the task\'s notification value)."]
+    #[doc = " pulNotificationValue will match the task's notification value)."]
     #[doc = ""]
-    #[doc = " @param pulNotificationValue Used to pass the task\'s notification value out"]
+    #[doc = " @param pulNotificationValue Used to pass the task's notification value out"]
     #[doc = " of the function.  Note the value passed out will not be effected by the"]
     #[doc = " clearing of any bits caused by ulBitsToClearOnExit being non-zero."]
     #[doc = ""]
@@ -23711,7 +23585,7 @@ extern "C" {
     #[doc = " an intermediary object."]
     #[doc = ""]
     #[doc = " A notification sent to a task can optionally perform an action, such as"]
-    #[doc = " update, overwrite or increment the task\'s notification value.  In that way"]
+    #[doc = " update, overwrite or increment the task's notification value.  In that way"]
     #[doc = " task notifications can be used to send data to a task, or be used as light"]
     #[doc = " weight and fast binary or counting semaphores."]
     #[doc = ""]
@@ -23763,7 +23637,7 @@ extern "C" {
     #[doc = " an intermediary object."]
     #[doc = ""]
     #[doc = " A notification sent to a task can optionally perform an action, such as"]
-    #[doc = " update, overwrite or increment the task\'s notification value.  In that way"]
+    #[doc = " update, overwrite or increment the task's notification value.  In that way"]
     #[doc = " task notifications can be used to send data to a task, or be used as light"]
     #[doc = " weight and fast binary or counting semaphores."]
     #[doc = ""]
@@ -23778,37 +23652,37 @@ extern "C" {
     #[doc = " macro, or xTaskNotify() function with the eAction parameter set to"]
     #[doc = " eIncrement."]
     #[doc = ""]
-    #[doc = " ulTaskNotifyTake() can either clear the task\'s notification value to"]
+    #[doc = " ulTaskNotifyTake() can either clear the task's notification value to"]
     #[doc = " zero on exit, in which case the notification value acts like a binary"]
-    #[doc = " semaphore, or decrement the task\'s notification value on exit, in which case"]
+    #[doc = " semaphore, or decrement the task's notification value on exit, in which case"]
     #[doc = " the notification value acts like a counting semaphore."]
     #[doc = ""]
     #[doc = " A task can use ulTaskNotifyTake() to [optionally] block to wait for a"]
-    #[doc = " the task\'s notification value to be non-zero.  The task does not consume any"]
+    #[doc = " the task's notification value to be non-zero.  The task does not consume any"]
     #[doc = " CPU time while it is in the Blocked state."]
     #[doc = ""]
     #[doc = " Where as xTaskNotifyWait() will return when a notification is pending,"]
-    #[doc = " ulTaskNotifyTake() will return when the task\'s notification value is"]
+    #[doc = " ulTaskNotifyTake() will return when the task's notification value is"]
     #[doc = " not zero."]
     #[doc = ""]
     #[doc = " See http://www.FreeRTOS.org/RTOS-task-notifications.html for details."]
     #[doc = ""]
-    #[doc = " @param xClearCountOnExit if xClearCountOnExit is pdFALSE then the task\'s"]
+    #[doc = " @param xClearCountOnExit if xClearCountOnExit is pdFALSE then the task's"]
     #[doc = " notification value is decremented when the function exits.  In this way the"]
     #[doc = " notification value acts like a counting semaphore.  If xClearCountOnExit is"]
-    #[doc = " not pdFALSE then the task\'s notification value is cleared to zero when the"]
+    #[doc = " not pdFALSE then the task's notification value is cleared to zero when the"]
     #[doc = " function exits.  In this way the notification value acts like a binary"]
     #[doc = " semaphore."]
     #[doc = ""]
     #[doc = " @param xTicksToWait The maximum amount of time that the task should wait in"]
-    #[doc = " the Blocked state for the task\'s notification value to be greater than zero,"]
+    #[doc = " the Blocked state for the task's notification value to be greater than zero,"]
     #[doc = " should the count not already be greater than zero when"]
     #[doc = " ulTaskNotifyTake() was called.  The task will not consume any processing"]
     #[doc = " time while it is in the Blocked state.  This is specified in kernel ticks,"]
     #[doc = " the macro pdMS_TO_TICSK( value_in_ms ) can be used to convert a time"]
     #[doc = " specified in milliseconds to a time specified in ticks."]
     #[doc = ""]
-    #[doc = " @return The task\'s notification count before it is either cleared to zero or"]
+    #[doc = " @return The task's notification count before it is either cleared to zero or"]
     #[doc = " decremented (see the xClearCountOnExit parameter)."]
     #[doc = ""]
     #[doc = " \\ingroup TaskNotifications"]
@@ -24195,7 +24069,7 @@ extern "C" {
     #[doc = " currently sent to the ring buffer."]
     #[doc = ""]
     #[doc = " @warning This API is not thread safe. So, if multiple threads are accessing"]
-    #[doc = "          the same ring buffer, it is the application\'s responsibility to"]
+    #[doc = "          the same ring buffer, it is the application's responsibility to"]
     #[doc = "          ensure atomic access to this API and the subsequent Send"]
     #[doc = ""]
     #[doc = " @param[in]   xRingbuffer     Ring buffer to query"]
@@ -24204,14 +24078,14 @@ extern "C" {
     pub fn xRingbufferGetCurFreeSize(xRingbuffer: RingbufHandle_t) -> usize;
 }
 extern "C" {
-    #[doc = " @brief   Add the ring buffer\'s read semaphore to a queue set."]
+    #[doc = " @brief   Add the ring buffer's read semaphore to a queue set."]
     #[doc = ""]
-    #[doc = " The ring buffer\'s read semaphore indicates that data has been written"]
-    #[doc = " to the ring buffer. This function adds the ring buffer\'s read semaphore to"]
+    #[doc = " The ring buffer's read semaphore indicates that data has been written"]
+    #[doc = " to the ring buffer. This function adds the ring buffer's read semaphore to"]
     #[doc = " a queue set."]
     #[doc = ""]
     #[doc = " @param[in]   xRingbuffer     Ring buffer to add to the queue set"]
-    #[doc = " @param[in]   xQueueSet       Queue set to add the ring buffer\'s read semaphore to"]
+    #[doc = " @param[in]   xQueueSet       Queue set to add the ring buffer's read semaphore to"]
     #[doc = ""]
     #[doc = " @return"]
     #[doc = "      - pdTRUE on success, pdFALSE otherwise"]
@@ -24221,7 +24095,7 @@ extern "C" {
     ) -> BaseType_t;
 }
 extern "C" {
-    #[doc = " @brief   Check if the selected queue set member is the ring buffer\'s read semaphore"]
+    #[doc = " @brief   Check if the selected queue set member is the ring buffer's read semaphore"]
     #[doc = ""]
     #[doc = " This API checks if queue set member returned from xQueueSelectFromSet()"]
     #[doc = " is the read semaphore of this ring buffer. If so, this indicates the ring buffer"]
@@ -24239,13 +24113,13 @@ extern "C" {
     ) -> BaseType_t;
 }
 extern "C" {
-    #[doc = " @brief   Remove the ring buffer\'s read semaphore from a queue set."]
+    #[doc = " @brief   Remove the ring buffer's read semaphore from a queue set."]
     #[doc = ""]
-    #[doc = " This specifically removes a ring buffer\'s read semaphore from a queue set. The"]
+    #[doc = " This specifically removes a ring buffer's read semaphore from a queue set. The"]
     #[doc = " read semaphore is used to indicate when data has been written to the ring buffer"]
     #[doc = ""]
     #[doc = " @param[in]   xRingbuffer     Ring buffer to remove from the queue set"]
-    #[doc = " @param[in]   xQueueSet       Queue set to remove the ring buffer\'s read semaphore from"]
+    #[doc = " @param[in]   xQueueSet       Queue set to remove the ring buffer's read semaphore from"]
     #[doc = ""]
     #[doc = " @return"]
     #[doc = "      - pdTRUE on success"]
@@ -24258,7 +24132,7 @@ extern "C" {
 extern "C" {
     #[doc = " @brief   Get information about ring buffer status"]
     #[doc = ""]
-    #[doc = " Get information of the a ring buffer\'s current status such as"]
+    #[doc = " Get information of the a ring buffer's current status such as"]
     #[doc = " free/read/write pointer positions, and number of items waiting to be retrieved."]
     #[doc = " Arguments can be set to NULL if they are not required."]
     #[doc = ""]
@@ -24676,7 +24550,7 @@ extern "C" {
     #[doc = "     - ESP_FAIL Parameter error"]
     pub fn uart_isr_register(
         uart_num: uart_port_t,
-        fn_: ::core::option::Option<unsafe extern "C" fn(uart_num: *mut ::std::os::raw::c_void)>,
+        fn_: ::core::option::Option<unsafe extern "C" fn(arg1: *mut ::std::os::raw::c_void)>,
         arg: *mut ::std::os::raw::c_void,
         intr_alloc_flags: ::std::os::raw::c_int,
         handle: *mut uart_isr_handle_t,
@@ -24699,7 +24573,7 @@ extern "C" {
     #[doc = " @note Internal signal can be output to multiple GPIO pads."]
     #[doc = "       Only one GPIO pad can connect with input signal."]
     #[doc = ""]
-    #[doc = " @note Instead of GPIO number a macro \'UART_PIN_NO_CHANGE\' may be provided"]
+    #[doc = " @note Instead of GPIO number a macro 'UART_PIN_NO_CHANGE' may be provided"]
     #[doc = "to keep the currently allocated pin."]
     #[doc = ""]
     #[doc = " @param uart_num   UART_NUM_0, UART_NUM_1 or UART_NUM_2"]
@@ -24796,7 +24670,7 @@ extern "C" {
     #[doc = "        access to UART events. If set to NULL, driver will not use an event queue."]
     #[doc = " @param intr_alloc_flags Flags used to allocate the interrupt. One or multiple (ORred)"]
     #[doc = "        ESP_INTR_FLAG_* values. See esp_intr_alloc.h for more info. Do not set ESP_INTR_FLAG_IRAM here"]
-    #[doc = "        (the driver\'s ISR handler is not located in IRAM)"]
+    #[doc = "        (the driver's ISR handler is not located in IRAM)"]
     #[doc = ""]
     #[doc = " @return"]
     #[doc = "     - ESP_OK   Success"]
@@ -24854,10 +24728,10 @@ extern "C" {
 extern "C" {
     #[doc = " @brief Send data to the UART port from a given buffer and length,"]
     #[doc = ""]
-    #[doc = " If the UART driver\'s parameter \'tx_buffer_size\' is set to zero:"]
+    #[doc = " If the UART driver's parameter 'tx_buffer_size' is set to zero:"]
     #[doc = " This function will not return until all the data have been sent out, or at least pushed into TX FIFO."]
     #[doc = ""]
-    #[doc = " Otherwise, if the \'tx_buffer_size\' > 0, this function will return after copying all the data to tx ring buffer,"]
+    #[doc = " Otherwise, if the 'tx_buffer_size' > 0, this function will return after copying all the data to tx ring buffer,"]
     #[doc = " UART ISR will then move data from the ring buffer to TX FIFO gradually."]
     #[doc = ""]
     #[doc = " @param uart_num UART_NUM_0, UART_NUM_1 or UART_NUM_2"]
@@ -24876,11 +24750,11 @@ extern "C" {
 extern "C" {
     #[doc = " @brief Send data to the UART port from a given buffer and length,"]
     #[doc = ""]
-    #[doc = " If the UART driver\'s parameter \'tx_buffer_size\' is set to zero:"]
+    #[doc = " If the UART driver's parameter 'tx_buffer_size' is set to zero:"]
     #[doc = " This function will not return until all the data and the break signal have been sent out."]
     #[doc = " After all data is sent out, send a break signal."]
     #[doc = ""]
-    #[doc = " Otherwise, if the \'tx_buffer_size\' > 0, this function will return after copying all the data to tx ring buffer,"]
+    #[doc = " Otherwise, if the 'tx_buffer_size' > 0, this function will return after copying all the data to tx ring buffer,"]
     #[doc = " UART ISR will then move data from the ring buffer to TX FIFO gradually."]
     #[doc = " After all data sent out, send a break signal."]
     #[doc = ""]
@@ -24952,7 +24826,7 @@ extern "C" {
 }
 extern "C" {
     #[doc = " @brief   UART disable pattern detect function."]
-    #[doc = "          Designed for applications like \'AT commands\'."]
+    #[doc = "          Designed for applications like 'AT commands'."]
     #[doc = "          When the hardware detects a series of one same character, the interrupt will be triggered."]
     #[doc = ""]
     #[doc = " @param uart_num UART port number."]
@@ -24964,7 +24838,7 @@ extern "C" {
 }
 extern "C" {
     #[doc = " @brief UART enable pattern detect function."]
-    #[doc = "        Designed for applications like \'AT commands\'."]
+    #[doc = "        Designed for applications like 'AT commands'."]
     #[doc = "        When the hardware detect a series of one same character, the interrupt will be triggered."]
     #[doc = ""]
     #[doc = " @param uart_num UART port number."]
@@ -24998,7 +24872,7 @@ extern "C" {
     #[doc = ""]
     #[doc = "        The following APIs will modify the pattern position info:"]
     #[doc = "        uart_flush_input, uart_read_bytes, uart_driver_delete, uart_pop_pattern_pos"]
-    #[doc = "        It is the application\'s responsibility to ensure atomic access to the pattern queue and the rx data buffer"]
+    #[doc = "        It is the application's responsibility to ensure atomic access to the pattern queue and the rx data buffer"]
     #[doc = "        when using pattern detect feature."]
     #[doc = ""]
     #[doc = " @param uart_num UART port number"]
@@ -25016,7 +24890,7 @@ extern "C" {
     #[doc = ""]
     #[doc = "        The following APIs will modify the pattern position info:"]
     #[doc = "        uart_flush_input, uart_read_bytes, uart_driver_delete, uart_pop_pattern_pos"]
-    #[doc = "        It is the application\'s responsibility to ensure atomic access to the pattern queue and the rx data buffer"]
+    #[doc = "        It is the application's responsibility to ensure atomic access to the pattern queue and the rx data buffer"]
     #[doc = "        when using pattern detect feature."]
     #[doc = ""]
     #[doc = " @param uart_num UART port number"]
@@ -25090,10 +24964,10 @@ extern "C" {
     #[doc = " light sleep. This function allows setting the threshold value."]
     #[doc = ""]
     #[doc = " Stop bit and parity bits (if enabled) also contribute to the number of edges."]
-    #[doc = " For example, letter \'a\' with ASCII code 97 is encoded as 0100001101 on the wire"]
+    #[doc = " For example, letter 'a' with ASCII code 97 is encoded as 010001101 on the wire"]
     #[doc = " (with 8n1 configuration), start and stop bits included. This sequence has 3"]
     #[doc = " positive edges (transitions from 0 to 1). Therefore, to wake up the system"]
-    #[doc = " when \'a\' is sent, set wakeup_threshold=3."]
+    #[doc = " when 'a' is sent, set wakeup_threshold=3."]
     #[doc = ""]
     #[doc = " The character that triggers wakeup is not received by UART (i.e. it can not"]
     #[doc = " be obtained from UART FIFO). Depending on the baud rate, a few characters"]
@@ -25102,10 +24976,7 @@ extern "C" {
     #[doc = " correct baud rate all the time, select REF_TICK as UART clock source,"]
     #[doc = " by setting use_ref_tick field in uart_config_t to true."]
     #[doc = ""]
-    #[doc = " @note in ESP32, the wakeup signal can only be input via IO_MUX (i.e."]
-    #[doc = "       GPIO3 should be configured as function_1 to wake up UART0,"]
-    #[doc = "       GPIO9 should be configured as function_5 to wake up UART1), UART2"]
-    #[doc = "       does not support light sleep wakeup feature."]
+    #[doc = " @note in ESP32, UART2 does not support light sleep wakeup feature."]
     #[doc = ""]
     #[doc = " @param uart_num  UART number"]
     #[doc = " @param wakeup_threshold  number of RX edges for light sleep wakeup, value is 3 .. 0x3ff."]
