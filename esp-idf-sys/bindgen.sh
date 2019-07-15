@@ -12,7 +12,7 @@ TARGET=xtensa-esp32-none-elf
 : "${LIBCLANG_PATH:=../llvm-project/llvm/build/lib}"
 CLANG_FLAGS="\
     --sysroot=$SYSROOT \
-    -I$(pwd)/build/include \
+    -I"$(pwd)" \
     -D__bindgen \
     --target=$TARGET \
     -x c"
