@@ -2,49 +2,44 @@
 
 set -e
 
-source setenv.sh
+. ./setenv.sh
 
 COMPS=$IDF_PATH/components
-SYSROOT=$HOME/xtensa-esp32-elf/xtensa-esp32-elf/sysroot
-TARGET=xtensa-none-elf
+: "${SYSROOT:=$(xtensa-esp32-elf-gcc --print-sysroot)}"
+TARGET=xtensa-esp32-none-elf
 
-BINDGEN=bindgen
-LIBCLANG_PATH=$HOME/git/rust/xtensa/llvm_build/lib
+: "${BINDGEN:=bindgen}"
+: "${LIBCLANG_PATH:=../llvm-project/llvm/build/lib}"
 CLANG_FLAGS="\
-	--sysroot=$SYSROOT \
+    --sysroot=$SYSROOT \
     -I$(pwd)/build/include \
-	-D__bindgen \
-	-target xtensa \
-	-x c"
+    -D__bindgen \
+    --target=$TARGET \
+    -x c"
 
-for INC in `ls -d $COMPS/**/*/include`; do
-	#echo $INC
-	CLANG_FLAGS+=" -I$INC"
+for INC in $(ls -d "$COMPS"/**/*/include); do
+    CLANG_FLAGS="${CLANG_FLAGS} -I$INC"
 done
-for INC in `ls -d $COMPS/*/include`; do
-	#echo $INC
-	CLANG_FLAGS+=" -I$INC"
+for INC in $(ls -d "$COMPS"/*/include); do
+    CLANG_FLAGS="${CLANG_FLAGS} -I$INC"
 done
 
-#echo $CLANG_FLAGS
-
-function generate_bindings ()
+generate_bindings()
 {
-    declare -r crate=$1
+    readonly crate="$1"
 
     cd "$crate"
-    #source ./bindings.env
 
-	LIBCLANG_PATH="$LIBCLANG_PATH" \
-	"$BINDGEN" \
-		--use-core \
-		--no-layout-tests \
-		$BINDGEN_FLAGS \
-		--output src/bindings.rs \
-		src/bindings.h \
-		-- $CLANG_FLAGS
+    LIBCLANG_PATH="$LIBCLANG_PATH" \
+    "$BINDGEN" \
+        --use-core \
+        --no-layout-tests \
+        $BINDGEN_FLAGS \
+        --output esp32-sys/src/bindings.rs \
+        esp32-sys/src/bindings.h \
+        -- $CLANG_FLAGS
 
-	rustup run nightly rustfmt src/bindings.rs
+    rustup run stable rustfmt esp32-sys/src/bindings.rs
 }
 
-generate_bindings $@
+generate_bindings "$@"
