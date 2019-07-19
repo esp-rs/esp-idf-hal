@@ -5,3 +5,6 @@ authors = ["Y. Sapir <yasapir@gmail.com>"]
 edition = "2018"
 
 [dependencies]
+embedded-hal = { version = "0.2.3", features = ["unproven"] }
+esp32-sys = { path = "../esp32-sys/esp32-sys" }
+nb = "0.1.2"
