@@ -27,24 +27,22 @@ impl Uart0 {
             use_ref_tick: false,
         };
 
-        unsafe {
-            uart_param_config(uart_port_t_UART_NUM_0, &uart_config);
-            uart_set_pin(
-                uart_port_t_UART_NUM_0,
-                tx_pin,
-                rx_pin,
-                UART_PIN_NO_CHANGE, // RTS
-                UART_PIN_NO_CHANGE, // CTS
-            );
-            uart_driver_install(
-                uart_port_t_UART_NUM_0,
-                BUF_SIZE * 2,
-                0,
-                0,
-                ptr::null_mut(),
-                0,
-            );
-        }
+        uart_param_config(uart_port_t_UART_NUM_0, &uart_config);
+        uart_set_pin(
+            uart_port_t_UART_NUM_0,
+            tx_pin,
+            rx_pin,
+            UART_PIN_NO_CHANGE, // RTS
+            UART_PIN_NO_CHANGE, // CTS
+        );
+        uart_driver_install(
+            uart_port_t_UART_NUM_0,
+            BUF_SIZE * 2,
+            0,
+            0,
+            ptr::null_mut(),
+            0,
+        );
 
         Self
     }
