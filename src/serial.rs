@@ -1,11 +1,11 @@
 use core::ptr;
 use embedded_hal::serial::{Read, Write};
 use esp32_sys::{
-    uart_config_t, uart_driver_install, uart_hw_flowcontrol_t_UART_HW_FLOWCTRL_DISABLE,
-    uart_param_config, uart_parity_t_UART_PARITY_DISABLE, uart_port_t_UART_NUM_0, uart_read_bytes,
-    uart_set_pin, uart_stop_bits_t_UART_STOP_BITS_1, uart_wait_tx_done,
-    uart_word_length_t_UART_DATA_8_BITS, uart_write_bytes, ESP_ERR_TIMEOUT, ESP_OK,
-    UART_PIN_NO_CHANGE,
+    uart_config_t, uart_driver_delete, uart_driver_install,
+    uart_hw_flowcontrol_t_UART_HW_FLOWCTRL_DISABLE, uart_param_config,
+    uart_parity_t_UART_PARITY_DISABLE, uart_port_t_UART_NUM_0, uart_read_bytes, uart_set_pin,
+    uart_stop_bits_t_UART_STOP_BITS_1, uart_wait_tx_done, uart_word_length_t_UART_DATA_8_BITS,
+    uart_write_bytes, ESP_ERR_TIMEOUT, ESP_OK, UART_PIN_NO_CHANGE,
 };
 
 const BUF_SIZE: i32 = 1024;
@@ -45,6 +45,15 @@ impl Uart0 {
         );
 
         Self
+    }
+}
+
+impl Drop for Uart0 {
+    fn drop(&mut self) {
+        unsafe {
+            let err = uart_driver_delete(uart_port_t_UART_NUM_0);
+            assert_eq!(err, ESP_OK as i32);
+        }
     }
 }
 
