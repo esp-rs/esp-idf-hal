@@ -1,5 +1,8 @@
 use embedded_hal::blocking::delay::{DelayMs, DelayUs};
-use esp32_sys::{configTICK_RATE_HZ, ets_delay_us, vTaskDelay};
+use esp32_sys::{configTICK_RATE_HZ, ets_delay_us, vTaskDelay, TickType_t};
+
+#[allow(non_upper_case_globals)]
+pub const portMAX_DELAY: TickType_t = TickType_t::max_value();
 
 #[allow(non_upper_case_globals)]
 const portTICK_PERIOD_MS: u32 = 1000 / configTICK_RATE_HZ;
