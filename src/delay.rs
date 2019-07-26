@@ -5,7 +5,7 @@ use esp32_sys::{configTICK_RATE_HZ, ets_delay_us, vTaskDelay, TickType_t};
 pub const portMAX_DELAY: TickType_t = TickType_t::max_value();
 
 #[allow(non_upper_case_globals)]
-const portTICK_PERIOD_MS: u32 = 1000 / configTICK_RATE_HZ;
+pub const portTICK_PERIOD_MS: u32 = 1000 / configTICK_RATE_HZ;
 
 /// Espressif Task Scheduler-based delay provider
 pub struct Ets;
