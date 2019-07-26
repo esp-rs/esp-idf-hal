@@ -127,8 +127,9 @@ pub struct Master {
 impl Master {
     pub unsafe fn new(port: Port, sda: PinConfig, scl: PinConfig, clk_speed: u32) -> Result<Self> {
         // i2c_config_t documentation says that clock speed must be no higher than 1 MHz
-        // TODO: return an error rather than panic
-        assert!(clk_speed <= 1_000_000);
+        if clk_speed > 1_000_000 {
+            return Err(Error::InvalidArg);
+        }
 
         let sys_config = i2c_config_t {
             mode: i2c_mode_t_I2C_MODE_MASTER,
