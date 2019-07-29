@@ -112,12 +112,6 @@ impl MasterCmd {
     fn stop(&mut self) -> Result<()> {
         unsafe { EspError(i2c_master_stop((self.0).0)).into_result() }
     }
-
-    fn begin(self, port: Port, ticks_to_wait: TickType_t) -> Result<()> {
-        let cmd = self.0;
-
-        unsafe { EspError(i2c_master_cmd_begin(port.into(), cmd.0, ticks_to_wait)).into_result() }
-    }
 }
 
 pub struct Master {
@@ -157,6 +151,17 @@ impl Master {
 
         Ok(Self { port })
     }
+
+    fn begin_cmd(&mut self, cmd: MasterCmd, ticks_to_wait: TickType_t) -> Result<()> {
+        unsafe {
+            EspError(i2c_master_cmd_begin(
+                self.port.into(),
+                (cmd.0).0,
+                ticks_to_wait,
+            ))
+            .into_result()
+        }
+    }
 }
 
 impl Drop for Master {
@@ -178,7 +183,7 @@ impl Write for Master {
         cmd.write(bytes, true)?;
         cmd.stop()?;
 
-        cmd.begin(self.port, portMAX_DELAY)?;
+        self.begin_cmd(cmd, portMAX_DELAY)?;
 
         Ok(())
     }
@@ -193,7 +198,7 @@ impl Read for Master {
         cmd.read(buffer, i2c_ack_type_t_I2C_MASTER_LAST_NACK)?;
         cmd.stop()?;
 
-        cmd.begin(self.port, portMAX_DELAY)?;
+        self.begin_cmd(cmd, portMAX_DELAY)?;
 
         Ok(())
     }
@@ -209,7 +214,7 @@ impl WriteRead for Master {
         cmd.read(buffer, i2c_ack_type_t_I2C_MASTER_LAST_NACK)?;
         cmd.stop()?;
 
-        cmd.begin(self.port, portMAX_DELAY)?;
+        self.begin_cmd(cmd, portMAX_DELAY)?;
 
         Ok(())
     }
