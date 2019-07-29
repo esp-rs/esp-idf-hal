@@ -81,11 +81,11 @@ impl MasterCmd {
         Ok(MasterCmd(cmd))
     }
 
-    fn write_byte(&self, b: u8, ack_check: bool) -> Result<()> {
+    fn write_byte(&mut self, b: u8, ack_check: bool) -> Result<()> {
         unsafe { EspError(i2c_master_write_byte((self.0).0, b, ack_check)).into_result() }
     }
 
-    fn write(&self, buf: &[u8], ack_check: bool) -> Result<()> {
+    fn write(&mut self, buf: &[u8], ack_check: bool) -> Result<()> {
         unsafe {
             EspError(i2c_master_write(
                 (self.0).0,
@@ -97,7 +97,7 @@ impl MasterCmd {
         }
     }
 
-    fn read(&self, buf: &mut [u8], ack: i2c_ack_type_t) -> Result<()> {
+    fn read(&mut self, buf: &mut [u8], ack: i2c_ack_type_t) -> Result<()> {
         unsafe {
             EspError(i2c_master_read(
                 (self.0).0,
@@ -109,7 +109,7 @@ impl MasterCmd {
         }
     }
 
-    fn stop(&self) -> Result<()> {
+    fn stop(&mut self) -> Result<()> {
         unsafe { EspError(i2c_master_stop((self.0).0)).into_result() }
     }
 
@@ -173,7 +173,7 @@ impl Write for Master {
     type Error = Error;
 
     fn write(&mut self, addr: u8, bytes: &[u8]) -> Result<()> {
-        let cmd = MasterCmd::new()?;
+        let mut cmd = MasterCmd::new()?;
         cmd.write_byte((addr << 1) | (i2c_rw_t_I2C_MASTER_WRITE as u8), true)?;
         cmd.write(bytes, true)?;
         cmd.stop()?;
@@ -188,7 +188,7 @@ impl Read for Master {
     type Error = Error;
 
     fn read(&mut self, address: u8, buffer: &mut [u8]) -> Result<()> {
-        let cmd = MasterCmd::new()?;
+        let mut cmd = MasterCmd::new()?;
         cmd.write_byte((address << 1) | (i2c_rw_t_I2C_MASTER_READ as u8), true)?;
         cmd.read(buffer, i2c_ack_type_t_I2C_MASTER_LAST_NACK)?;
         cmd.stop()?;
@@ -203,7 +203,7 @@ impl WriteRead for Master {
     type Error = Error;
 
     fn write_read(&mut self, address: u8, bytes: &[u8], buffer: &mut [u8]) -> Result<()> {
-        let cmd = MasterCmd::new()?;
+        let mut cmd = MasterCmd::new()?;
         cmd.write_byte((address << 1) | (i2c_rw_t_I2C_MASTER_WRITE as u8), true)?;
         cmd.write(bytes, true)?;
         cmd.read(buffer, i2c_ack_type_t_I2C_MASTER_LAST_NACK)?;
