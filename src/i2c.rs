@@ -33,8 +33,8 @@ impl From<Port> for i2c_port_t {
 
 #[derive(Clone, Copy, Debug)]
 pub struct PinConfig {
-    pin_num: u32,
-    pullup: bool,
+    pub pin_num: u32,
+    pub pullup: bool,
 }
 
 impl PinConfig {
