@@ -16,7 +16,7 @@ use esp32_sys::{
     i2c_slave_read_buffer, i2c_slave_write_buffer, TickType_t,
 };
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Port {
     Port0,
     Port1,
