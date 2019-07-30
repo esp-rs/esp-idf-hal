@@ -220,6 +220,12 @@ impl WriteRead for Master {
     }
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum AddrMode {
+    Addr7Bit,
+    Addr10Bit,
+}
+
 pub struct Slave {
     port: Port,
 }
@@ -230,7 +236,7 @@ impl Slave {
         sda: PinConfig,
         scl: PinConfig,
         slave_addr: u16,
-        addr_10bit: bool,
+        addr_mode: AddrMode,
         rx_buf_len: usize,
         tx_buf_len: usize,
     ) -> Result<Self> {
@@ -243,7 +249,7 @@ impl Slave {
             __bindgen_anon_1: i2c_config_t__bindgen_ty_1 {
                 slave: i2c_config_t__bindgen_ty_1__bindgen_ty_2 {
                     slave_addr,
-                    addr_10bit_en: addr_10bit.into(),
+                    addr_10bit_en: (addr_mode == AddrMode::Addr10Bit).into(),
                 },
             },
         };
