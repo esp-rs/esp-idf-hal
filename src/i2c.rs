@@ -270,27 +270,36 @@ impl Slave {
         Ok(Self { port })
     }
 
-    pub fn write(&mut self, buf: &[u8], ticks_to_wait: TickType_t) -> Result<()> {
-        unsafe {
-            EspError(i2c_slave_write_buffer(
+    pub fn write(&mut self, buf: &[u8], ticks_to_wait: TickType_t) -> Result<usize> {
+        let n = unsafe {
+            i2c_slave_write_buffer(
                 self.port.into(),
                 buf.as_ptr() as *const u8 as *mut u8,
                 buf.len().try_into().unwrap(),
                 ticks_to_wait,
-            ))
-            .into_result()
+            )
+        };
+
+        if n > 0 {
+            Ok(n.try_into().unwrap())
+        } else if n == 0 {
+            Err(Error::Timeout)
+        } else {
+            EspError(n).into_result().map(|()| unreachable!())
         }
     }
 
-    pub fn read(&mut self, buf: &mut [u8], ticks_to_wait: TickType_t) -> Result<()> {
-        unsafe {
-            EspError(i2c_slave_read_buffer(
-                self.port.into(),
-                buf.as_mut_ptr(),
-                buf.len(),
-                ticks_to_wait,
-            ))
-            .into_result()
+    pub fn read(&mut self, buf: &mut [u8], ticks_to_wait: TickType_t) -> Result<usize> {
+        let n = unsafe {
+            i2c_slave_read_buffer(self.port.into(), buf.as_mut_ptr(), buf.len(), ticks_to_wait)
+        };
+
+        if n > 0 {
+            Ok(n.try_into().unwrap())
+        } else if n == 0 {
+            Err(Error::Timeout)
+        } else {
+            EspError(n).into_result().map(|()| unreachable!())
         }
     }
 }
