@@ -56,7 +56,12 @@ pub struct OutputPin {
 
 impl OutputPin {
     pub unsafe fn new(which: u32) -> Self {
+        Self::with_initial(which, false)
+    }
+
+    pub unsafe fn with_initial(which: u32, initial_high: bool) -> Self {
         gpio_pad_select_gpio(which.try_into().unwrap());
+        gpio_set_level(which, initial_high as u32);
         gpio_set_direction(which, gpio_mode_t_GPIO_MODE_OUTPUT);
         Self { which }
     }
