@@ -11,7 +11,7 @@ use core::panic::PanicInfo;
 #[panic_handler]
 fn panic(_info: &PanicInfo) -> ! {
     unsafe {
-        esp32_sys::abort();
+        esp_idf_sys::abort();
         core::hint::unreachable_unchecked();
     }
 }

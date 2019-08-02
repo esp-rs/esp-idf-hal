@@ -1,6 +1,6 @@
 use core::ptr;
 use embedded_hal::serial::{Read, Write};
-use esp32_sys::{
+use esp_idf_sys::{
     uart_config_t, uart_driver_delete, uart_driver_install,
     uart_hw_flowcontrol_t_UART_HW_FLOWCTRL_DISABLE, uart_param_config,
     uart_parity_t_UART_PARITY_DISABLE, uart_port_t_UART_NUM_0, uart_read_bytes, uart_set_pin,

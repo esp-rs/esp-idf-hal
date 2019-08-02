@@ -1,6 +1,6 @@
 use core::convert::TryInto;
 use embedded_hal::digital::v2 as hal;
-use esp32_sys::{
+use esp_idf_sys::{
     gpio_input_get, gpio_input_get_high, gpio_mode_t_GPIO_MODE_INPUT, gpio_mode_t_GPIO_MODE_OUTPUT,
     gpio_pad_pulldown, gpio_pad_pullup, gpio_pad_select_gpio, gpio_set_direction, gpio_set_level,
 };

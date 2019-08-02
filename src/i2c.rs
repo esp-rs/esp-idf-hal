@@ -4,7 +4,7 @@ use crate::{
 };
 use core::{convert::TryInto, ptr::null_mut};
 use embedded_hal::blocking::i2c::{Read, Write, WriteRead};
-use esp32_sys::{
+use esp_idf_sys::{
     gpio_pullup_t, gpio_pullup_t_GPIO_PULLUP_DISABLE, gpio_pullup_t_GPIO_PULLUP_ENABLE,
     i2c_ack_type_t, i2c_ack_type_t_I2C_MASTER_LAST_NACK, i2c_cmd_handle_t, i2c_cmd_link_create,
     i2c_cmd_link_delete, i2c_config_t, i2c_config_t__bindgen_ty_1,
