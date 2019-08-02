@@ -1,5 +1,5 @@
 [package]
-name = "esp32-hal"
+name = "esp-idf-hal"
 version = "0.1.0"
 authors = ["Y. Sapir <yasapir@gmail.com>"]
 edition = "2018"
