@@ -35,11 +35,11 @@ generate_bindings()
         --use-core \
         --no-layout-tests \
         $BINDGEN_FLAGS \
-        --output esp32-sys/src/bindings.rs \
-        esp32-sys/src/bindings.h \
+        --output src/bindings.rs \
+        src/bindings.h \
         -- $CLANG_FLAGS
 
-    rustup run stable rustfmt esp32-sys/src/bindings.rs
+    rustup run stable rustfmt src/bindings.rs
 }
 
 generate_bindings "$@"
