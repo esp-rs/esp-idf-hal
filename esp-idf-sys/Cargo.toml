@@ -1,6 +1,7 @@
 [package]
 name = "esp32-sys"
 version = "0.1.0"
+authors = ["Alexey Arbuzov <aarbuzov@termt.com>", "sapir <yasapir@gmail.com>"]
 edition = "2015"
 description = "Bindings for esp-idf (Espressif's IoT Development Framework)"
 repository = "https://github.com/sapir/esp32-sys"
