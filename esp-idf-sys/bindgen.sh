@@ -30,10 +30,12 @@ generate_bindings()
 
     cd "$crate"
 
+    # --no-rustfmt-bindings because we run rustfmt separately with regular rust
     LIBCLANG_PATH="$LIBCLANG_PATH" \
     "$BINDGEN" \
         --use-core \
         --no-layout-tests \
+        --no-rustfmt-bindings \
         $BINDGEN_FLAGS \
         --output src/bindings.rs \
         src/bindings.h \
