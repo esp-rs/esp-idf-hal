@@ -8,3 +8,7 @@ repository = "https://github.com/sapir/esp-idf-sys"
 license = "MIT"
 
 [dependencies]
+
+# no xtensa in regular compiler yet
+[package.metadata.docs.rs]
+default-target = "x86_64-unknown-linux-gnu"
