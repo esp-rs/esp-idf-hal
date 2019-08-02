@@ -1,6 +1,6 @@
 [package]
 name = "esp-idf-hal"
-version = "0.1.0"
+version = "0.1.1"
 authors = ["sapir <yasapir@gmail.com>"]
 edition = "2018"
 description = "an embedded-hal implementation for Rust on ESP32 with esp-idf"
