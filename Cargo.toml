@@ -1,8 +1,11 @@
 [package]
 name = "esp-idf-hal"
 version = "0.1.0"
-authors = ["Y. Sapir <yasapir@gmail.com>"]
+authors = ["sapir <yasapir@gmail.com>"]
 edition = "2018"
+description = "an embedded-hal implementation for Rust on ESP32 with esp-idf"
+repository = "https://github.com/sapir/esp-idf-hal"
+license = "MIT"
 
 [dependencies]
 embedded-hal = { version = "0.2.3", features = ["unproven"] }
