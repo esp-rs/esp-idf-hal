@@ -37,11 +37,11 @@ generate_bindings()
         --no-layout-tests \
         --no-rustfmt-bindings \
         $BINDGEN_FLAGS \
-        --output src/bindings.rs \
-        src/bindings.h \
+        --output esp-idf-sys/src/bindings.rs \
+        esp-idf-sys/src/bindings.h \
         -- $CLANG_FLAGS
 
-    rustup run stable rustfmt src/bindings.rs
+    rustup run stable rustfmt esp-idf-sys/src/bindings.rs
 }
 
 generate_bindings "$@"
