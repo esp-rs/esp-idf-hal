@@ -9887,6 +9887,777 @@ pub const LEDC_APB_CLK_HZ: u32 = 80000000;
 pub const LEDC_REF_CLK_HZ: u32 = 1000000;
 pub const LEDC_ERR_DUTY: u32 = 4294967295;
 pub const LEDC_ERR_VAL: i32 = -1;
+pub const RMT_CH0DATA_REG: u32 = 1073045504;
+pub const RMT_CH1DATA_REG: u32 = 1073045508;
+pub const RMT_CH2DATA_REG: u32 = 1073045512;
+pub const RMT_CH3DATA_REG: u32 = 1073045516;
+pub const RMT_CH4DATA_REG: u32 = 1073045520;
+pub const RMT_CH5DATA_REG: u32 = 1073045524;
+pub const RMT_CH6DATA_REG: u32 = 1073045528;
+pub const RMT_CH7DATA_REG: u32 = 1073045532;
+pub const RMT_CH0CONF0_REG: u32 = 1073045536;
+pub const RMT_CLK_EN_V: u32 = 1;
+pub const RMT_CLK_EN_S: u32 = 31;
+pub const RMT_MEM_PD_V: u32 = 1;
+pub const RMT_MEM_PD_S: u32 = 30;
+pub const RMT_CARRIER_OUT_LV_CH0_V: u32 = 1;
+pub const RMT_CARRIER_OUT_LV_CH0_S: u32 = 29;
+pub const RMT_CARRIER_EN_CH0_V: u32 = 1;
+pub const RMT_CARRIER_EN_CH0_S: u32 = 28;
+pub const RMT_MEM_SIZE_CH0: u32 = 15;
+pub const RMT_MEM_SIZE_CH0_V: u32 = 15;
+pub const RMT_MEM_SIZE_CH0_S: u32 = 24;
+pub const RMT_IDLE_THRES_CH0: u32 = 65535;
+pub const RMT_IDLE_THRES_CH0_V: u32 = 65535;
+pub const RMT_IDLE_THRES_CH0_S: u32 = 8;
+pub const RMT_DIV_CNT_CH0: u32 = 255;
+pub const RMT_DIV_CNT_CH0_V: u32 = 255;
+pub const RMT_DIV_CNT_CH0_S: u32 = 0;
+pub const RMT_CH0CONF1_REG: u32 = 1073045540;
+pub const RMT_IDLE_OUT_EN_CH0_V: u32 = 1;
+pub const RMT_IDLE_OUT_EN_CH0_S: u32 = 19;
+pub const RMT_IDLE_OUT_LV_CH0_V: u32 = 1;
+pub const RMT_IDLE_OUT_LV_CH0_S: u32 = 18;
+pub const RMT_REF_ALWAYS_ON_CH0_V: u32 = 1;
+pub const RMT_REF_ALWAYS_ON_CH0_S: u32 = 17;
+pub const RMT_REF_CNT_RST_CH0_V: u32 = 1;
+pub const RMT_REF_CNT_RST_CH0_S: u32 = 16;
+pub const RMT_RX_FILTER_THRES_CH0: u32 = 255;
+pub const RMT_RX_FILTER_THRES_CH0_V: u32 = 255;
+pub const RMT_RX_FILTER_THRES_CH0_S: u32 = 8;
+pub const RMT_RX_FILTER_EN_CH0_V: u32 = 1;
+pub const RMT_RX_FILTER_EN_CH0_S: u32 = 7;
+pub const RMT_TX_CONTI_MODE_CH0_V: u32 = 1;
+pub const RMT_TX_CONTI_MODE_CH0_S: u32 = 6;
+pub const RMT_MEM_OWNER_CH0_V: u32 = 1;
+pub const RMT_MEM_OWNER_CH0_S: u32 = 5;
+pub const RMT_APB_MEM_RST_CH0_V: u32 = 1;
+pub const RMT_APB_MEM_RST_CH0_S: u32 = 4;
+pub const RMT_MEM_RD_RST_CH0_V: u32 = 1;
+pub const RMT_MEM_RD_RST_CH0_S: u32 = 3;
+pub const RMT_MEM_WR_RST_CH0_V: u32 = 1;
+pub const RMT_MEM_WR_RST_CH0_S: u32 = 2;
+pub const RMT_RX_EN_CH0_V: u32 = 1;
+pub const RMT_RX_EN_CH0_S: u32 = 1;
+pub const RMT_TX_START_CH0_V: u32 = 1;
+pub const RMT_TX_START_CH0_S: u32 = 0;
+pub const RMT_CH1CONF0_REG: u32 = 1073045544;
+pub const RMT_CARRIER_OUT_LV_CH1_V: u32 = 1;
+pub const RMT_CARRIER_OUT_LV_CH1_S: u32 = 29;
+pub const RMT_CARRIER_EN_CH1_V: u32 = 1;
+pub const RMT_CARRIER_EN_CH1_S: u32 = 28;
+pub const RMT_MEM_SIZE_CH1: u32 = 15;
+pub const RMT_MEM_SIZE_CH1_V: u32 = 15;
+pub const RMT_MEM_SIZE_CH1_S: u32 = 24;
+pub const RMT_IDLE_THRES_CH1: u32 = 65535;
+pub const RMT_IDLE_THRES_CH1_V: u32 = 65535;
+pub const RMT_IDLE_THRES_CH1_S: u32 = 8;
+pub const RMT_DIV_CNT_CH1: u32 = 255;
+pub const RMT_DIV_CNT_CH1_V: u32 = 255;
+pub const RMT_DIV_CNT_CH1_S: u32 = 0;
+pub const RMT_CH1CONF1_REG: u32 = 1073045548;
+pub const RMT_IDLE_OUT_EN_CH1_V: u32 = 1;
+pub const RMT_IDLE_OUT_EN_CH1_S: u32 = 19;
+pub const RMT_IDLE_OUT_LV_CH1_V: u32 = 1;
+pub const RMT_IDLE_OUT_LV_CH1_S: u32 = 18;
+pub const RMT_REF_ALWAYS_ON_CH1_V: u32 = 1;
+pub const RMT_REF_ALWAYS_ON_CH1_S: u32 = 17;
+pub const RMT_REF_CNT_RST_CH1_V: u32 = 1;
+pub const RMT_REF_CNT_RST_CH1_S: u32 = 16;
+pub const RMT_RX_FILTER_THRES_CH1: u32 = 255;
+pub const RMT_RX_FILTER_THRES_CH1_V: u32 = 255;
+pub const RMT_RX_FILTER_THRES_CH1_S: u32 = 8;
+pub const RMT_RX_FILTER_EN_CH1_V: u32 = 1;
+pub const RMT_RX_FILTER_EN_CH1_S: u32 = 7;
+pub const RMT_TX_CONTI_MODE_CH1_V: u32 = 1;
+pub const RMT_TX_CONTI_MODE_CH1_S: u32 = 6;
+pub const RMT_MEM_OWNER_CH1_V: u32 = 1;
+pub const RMT_MEM_OWNER_CH1_S: u32 = 5;
+pub const RMT_APB_MEM_RST_CH1_V: u32 = 1;
+pub const RMT_APB_MEM_RST_CH1_S: u32 = 4;
+pub const RMT_MEM_RD_RST_CH1_V: u32 = 1;
+pub const RMT_MEM_RD_RST_CH1_S: u32 = 3;
+pub const RMT_MEM_WR_RST_CH1_V: u32 = 1;
+pub const RMT_MEM_WR_RST_CH1_S: u32 = 2;
+pub const RMT_RX_EN_CH1_V: u32 = 1;
+pub const RMT_RX_EN_CH1_S: u32 = 1;
+pub const RMT_TX_START_CH1_V: u32 = 1;
+pub const RMT_TX_START_CH1_S: u32 = 0;
+pub const RMT_CH2CONF0_REG: u32 = 1073045552;
+pub const RMT_CARRIER_OUT_LV_CH2_V: u32 = 1;
+pub const RMT_CARRIER_OUT_LV_CH2_S: u32 = 29;
+pub const RMT_CARRIER_EN_CH2_V: u32 = 1;
+pub const RMT_CARRIER_EN_CH2_S: u32 = 28;
+pub const RMT_MEM_SIZE_CH2: u32 = 15;
+pub const RMT_MEM_SIZE_CH2_V: u32 = 15;
+pub const RMT_MEM_SIZE_CH2_S: u32 = 24;
+pub const RMT_IDLE_THRES_CH2: u32 = 65535;
+pub const RMT_IDLE_THRES_CH2_V: u32 = 65535;
+pub const RMT_IDLE_THRES_CH2_S: u32 = 8;
+pub const RMT_DIV_CNT_CH2: u32 = 255;
+pub const RMT_DIV_CNT_CH2_V: u32 = 255;
+pub const RMT_DIV_CNT_CH2_S: u32 = 0;
+pub const RMT_CH2CONF1_REG: u32 = 1073045556;
+pub const RMT_IDLE_OUT_EN_CH2_V: u32 = 1;
+pub const RMT_IDLE_OUT_EN_CH2_S: u32 = 19;
+pub const RMT_IDLE_OUT_LV_CH2_V: u32 = 1;
+pub const RMT_IDLE_OUT_LV_CH2_S: u32 = 18;
+pub const RMT_REF_ALWAYS_ON_CH2_V: u32 = 1;
+pub const RMT_REF_ALWAYS_ON_CH2_S: u32 = 17;
+pub const RMT_REF_CNT_RST_CH2_V: u32 = 1;
+pub const RMT_REF_CNT_RST_CH2_S: u32 = 16;
+pub const RMT_RX_FILTER_THRES_CH2: u32 = 255;
+pub const RMT_RX_FILTER_THRES_CH2_V: u32 = 255;
+pub const RMT_RX_FILTER_THRES_CH2_S: u32 = 8;
+pub const RMT_RX_FILTER_EN_CH2_V: u32 = 1;
+pub const RMT_RX_FILTER_EN_CH2_S: u32 = 7;
+pub const RMT_TX_CONTI_MODE_CH2_V: u32 = 1;
+pub const RMT_TX_CONTI_MODE_CH2_S: u32 = 6;
+pub const RMT_MEM_OWNER_CH2_V: u32 = 1;
+pub const RMT_MEM_OWNER_CH2_S: u32 = 5;
+pub const RMT_APB_MEM_RST_CH2_V: u32 = 1;
+pub const RMT_APB_MEM_RST_CH2_S: u32 = 4;
+pub const RMT_MEM_RD_RST_CH2_V: u32 = 1;
+pub const RMT_MEM_RD_RST_CH2_S: u32 = 3;
+pub const RMT_MEM_WR_RST_CH2_V: u32 = 1;
+pub const RMT_MEM_WR_RST_CH2_S: u32 = 2;
+pub const RMT_RX_EN_CH2_V: u32 = 1;
+pub const RMT_RX_EN_CH2_S: u32 = 1;
+pub const RMT_TX_START_CH2_V: u32 = 1;
+pub const RMT_TX_START_CH2_S: u32 = 0;
+pub const RMT_CH3CONF0_REG: u32 = 1073045560;
+pub const RMT_CARRIER_OUT_LV_CH3_V: u32 = 1;
+pub const RMT_CARRIER_OUT_LV_CH3_S: u32 = 29;
+pub const RMT_CARRIER_EN_CH3_V: u32 = 1;
+pub const RMT_CARRIER_EN_CH3_S: u32 = 28;
+pub const RMT_MEM_SIZE_CH3: u32 = 15;
+pub const RMT_MEM_SIZE_CH3_V: u32 = 15;
+pub const RMT_MEM_SIZE_CH3_S: u32 = 24;
+pub const RMT_IDLE_THRES_CH3: u32 = 65535;
+pub const RMT_IDLE_THRES_CH3_V: u32 = 65535;
+pub const RMT_IDLE_THRES_CH3_S: u32 = 8;
+pub const RMT_DIV_CNT_CH3: u32 = 255;
+pub const RMT_DIV_CNT_CH3_V: u32 = 255;
+pub const RMT_DIV_CNT_CH3_S: u32 = 0;
+pub const RMT_CH3CONF1_REG: u32 = 1073045564;
+pub const RMT_IDLE_OUT_EN_CH3_V: u32 = 1;
+pub const RMT_IDLE_OUT_EN_CH3_S: u32 = 19;
+pub const RMT_IDLE_OUT_LV_CH3_V: u32 = 1;
+pub const RMT_IDLE_OUT_LV_CH3_S: u32 = 18;
+pub const RMT_REF_ALWAYS_ON_CH3_V: u32 = 1;
+pub const RMT_REF_ALWAYS_ON_CH3_S: u32 = 17;
+pub const RMT_REF_CNT_RST_CH3_V: u32 = 1;
+pub const RMT_REF_CNT_RST_CH3_S: u32 = 16;
+pub const RMT_RX_FILTER_THRES_CH3: u32 = 255;
+pub const RMT_RX_FILTER_THRES_CH3_V: u32 = 255;
+pub const RMT_RX_FILTER_THRES_CH3_S: u32 = 8;
+pub const RMT_RX_FILTER_EN_CH3_V: u32 = 1;
+pub const RMT_RX_FILTER_EN_CH3_S: u32 = 7;
+pub const RMT_TX_CONTI_MODE_CH3_V: u32 = 1;
+pub const RMT_TX_CONTI_MODE_CH3_S: u32 = 6;
+pub const RMT_MEM_OWNER_CH3_V: u32 = 1;
+pub const RMT_MEM_OWNER_CH3_S: u32 = 5;
+pub const RMT_APB_MEM_RST_CH3_V: u32 = 1;
+pub const RMT_APB_MEM_RST_CH3_S: u32 = 4;
+pub const RMT_MEM_RD_RST_CH3_V: u32 = 1;
+pub const RMT_MEM_RD_RST_CH3_S: u32 = 3;
+pub const RMT_MEM_WR_RST_CH3_V: u32 = 1;
+pub const RMT_MEM_WR_RST_CH3_S: u32 = 2;
+pub const RMT_RX_EN_CH3_V: u32 = 1;
+pub const RMT_RX_EN_CH3_S: u32 = 1;
+pub const RMT_TX_START_CH3_V: u32 = 1;
+pub const RMT_TX_START_CH3_S: u32 = 0;
+pub const RMT_CH4CONF0_REG: u32 = 1073045568;
+pub const RMT_CARRIER_OUT_LV_CH4_V: u32 = 1;
+pub const RMT_CARRIER_OUT_LV_CH4_S: u32 = 29;
+pub const RMT_CARRIER_EN_CH4_V: u32 = 1;
+pub const RMT_CARRIER_EN_CH4_S: u32 = 28;
+pub const RMT_MEM_SIZE_CH4: u32 = 15;
+pub const RMT_MEM_SIZE_CH4_V: u32 = 15;
+pub const RMT_MEM_SIZE_CH4_S: u32 = 24;
+pub const RMT_IDLE_THRES_CH4: u32 = 65535;
+pub const RMT_IDLE_THRES_CH4_V: u32 = 65535;
+pub const RMT_IDLE_THRES_CH4_S: u32 = 8;
+pub const RMT_DIV_CNT_CH4: u32 = 255;
+pub const RMT_DIV_CNT_CH4_V: u32 = 255;
+pub const RMT_DIV_CNT_CH4_S: u32 = 0;
+pub const RMT_CH4CONF1_REG: u32 = 1073045572;
+pub const RMT_IDLE_OUT_EN_CH4_V: u32 = 1;
+pub const RMT_IDLE_OUT_EN_CH4_S: u32 = 19;
+pub const RMT_IDLE_OUT_LV_CH4_V: u32 = 1;
+pub const RMT_IDLE_OUT_LV_CH4_S: u32 = 18;
+pub const RMT_REF_ALWAYS_ON_CH4_V: u32 = 1;
+pub const RMT_REF_ALWAYS_ON_CH4_S: u32 = 17;
+pub const RMT_REF_CNT_RST_CH4_V: u32 = 1;
+pub const RMT_REF_CNT_RST_CH4_S: u32 = 16;
+pub const RMT_RX_FILTER_THRES_CH4: u32 = 255;
+pub const RMT_RX_FILTER_THRES_CH4_V: u32 = 255;
+pub const RMT_RX_FILTER_THRES_CH4_S: u32 = 8;
+pub const RMT_RX_FILTER_EN_CH4_V: u32 = 1;
+pub const RMT_RX_FILTER_EN_CH4_S: u32 = 7;
+pub const RMT_TX_CONTI_MODE_CH4_V: u32 = 1;
+pub const RMT_TX_CONTI_MODE_CH4_S: u32 = 6;
+pub const RMT_MEM_OWNER_CH4_V: u32 = 1;
+pub const RMT_MEM_OWNER_CH4_S: u32 = 5;
+pub const RMT_APB_MEM_RST_CH4_V: u32 = 1;
+pub const RMT_APB_MEM_RST_CH4_S: u32 = 4;
+pub const RMT_MEM_RD_RST_CH4_V: u32 = 1;
+pub const RMT_MEM_RD_RST_CH4_S: u32 = 3;
+pub const RMT_MEM_WR_RST_CH4_V: u32 = 1;
+pub const RMT_MEM_WR_RST_CH4_S: u32 = 2;
+pub const RMT_RX_EN_CH4_V: u32 = 1;
+pub const RMT_RX_EN_CH4_S: u32 = 1;
+pub const RMT_TX_START_CH4_V: u32 = 1;
+pub const RMT_TX_START_CH4_S: u32 = 0;
+pub const RMT_CH5CONF0_REG: u32 = 1073045576;
+pub const RMT_CARRIER_OUT_LV_CH5_V: u32 = 1;
+pub const RMT_CARRIER_OUT_LV_CH5_S: u32 = 29;
+pub const RMT_CARRIER_EN_CH5_V: u32 = 1;
+pub const RMT_CARRIER_EN_CH5_S: u32 = 28;
+pub const RMT_MEM_SIZE_CH5: u32 = 15;
+pub const RMT_MEM_SIZE_CH5_V: u32 = 15;
+pub const RMT_MEM_SIZE_CH5_S: u32 = 24;
+pub const RMT_IDLE_THRES_CH5: u32 = 65535;
+pub const RMT_IDLE_THRES_CH5_V: u32 = 65535;
+pub const RMT_IDLE_THRES_CH5_S: u32 = 8;
+pub const RMT_DIV_CNT_CH5: u32 = 255;
+pub const RMT_DIV_CNT_CH5_V: u32 = 255;
+pub const RMT_DIV_CNT_CH5_S: u32 = 0;
+pub const RMT_CH5CONF1_REG: u32 = 1073045580;
+pub const RMT_IDLE_OUT_EN_CH5_V: u32 = 1;
+pub const RMT_IDLE_OUT_EN_CH5_S: u32 = 19;
+pub const RMT_IDLE_OUT_LV_CH5_V: u32 = 1;
+pub const RMT_IDLE_OUT_LV_CH5_S: u32 = 18;
+pub const RMT_REF_ALWAYS_ON_CH5_V: u32 = 1;
+pub const RMT_REF_ALWAYS_ON_CH5_S: u32 = 17;
+pub const RMT_REF_CNT_RST_CH5_V: u32 = 1;
+pub const RMT_REF_CNT_RST_CH5_S: u32 = 16;
+pub const RMT_RX_FILTER_THRES_CH5: u32 = 255;
+pub const RMT_RX_FILTER_THRES_CH5_V: u32 = 255;
+pub const RMT_RX_FILTER_THRES_CH5_S: u32 = 8;
+pub const RMT_RX_FILTER_EN_CH5_V: u32 = 1;
+pub const RMT_RX_FILTER_EN_CH5_S: u32 = 7;
+pub const RMT_TX_CONTI_MODE_CH5_V: u32 = 1;
+pub const RMT_TX_CONTI_MODE_CH5_S: u32 = 6;
+pub const RMT_MEM_OWNER_CH5_V: u32 = 1;
+pub const RMT_MEM_OWNER_CH5_S: u32 = 5;
+pub const RMT_APB_MEM_RST_CH5_V: u32 = 1;
+pub const RMT_APB_MEM_RST_CH5_S: u32 = 4;
+pub const RMT_MEM_RD_RST_CH5_V: u32 = 1;
+pub const RMT_MEM_RD_RST_CH5_S: u32 = 3;
+pub const RMT_MEM_WR_RST_CH5_V: u32 = 1;
+pub const RMT_MEM_WR_RST_CH5_S: u32 = 2;
+pub const RMT_RX_EN_CH5_V: u32 = 1;
+pub const RMT_RX_EN_CH5_S: u32 = 1;
+pub const RMT_TX_START_CH5_V: u32 = 1;
+pub const RMT_TX_START_CH5_S: u32 = 0;
+pub const RMT_CH6CONF0_REG: u32 = 1073045584;
+pub const RMT_CARRIER_OUT_LV_CH6_V: u32 = 1;
+pub const RMT_CARRIER_OUT_LV_CH6_S: u32 = 29;
+pub const RMT_CARRIER_EN_CH6_V: u32 = 1;
+pub const RMT_CARRIER_EN_CH6_S: u32 = 28;
+pub const RMT_MEM_SIZE_CH6: u32 = 15;
+pub const RMT_MEM_SIZE_CH6_V: u32 = 15;
+pub const RMT_MEM_SIZE_CH6_S: u32 = 24;
+pub const RMT_IDLE_THRES_CH6: u32 = 65535;
+pub const RMT_IDLE_THRES_CH6_V: u32 = 65535;
+pub const RMT_IDLE_THRES_CH6_S: u32 = 8;
+pub const RMT_DIV_CNT_CH6: u32 = 255;
+pub const RMT_DIV_CNT_CH6_V: u32 = 255;
+pub const RMT_DIV_CNT_CH6_S: u32 = 0;
+pub const RMT_CH6CONF1_REG: u32 = 1073045588;
+pub const RMT_IDLE_OUT_EN_CH6_V: u32 = 1;
+pub const RMT_IDLE_OUT_EN_CH6_S: u32 = 19;
+pub const RMT_IDLE_OUT_LV_CH6_V: u32 = 1;
+pub const RMT_IDLE_OUT_LV_CH6_S: u32 = 18;
+pub const RMT_REF_ALWAYS_ON_CH6_V: u32 = 1;
+pub const RMT_REF_ALWAYS_ON_CH6_S: u32 = 17;
+pub const RMT_REF_CNT_RST_CH6_V: u32 = 1;
+pub const RMT_REF_CNT_RST_CH6_S: u32 = 16;
+pub const RMT_RX_FILTER_THRES_CH6: u32 = 255;
+pub const RMT_RX_FILTER_THRES_CH6_V: u32 = 255;
+pub const RMT_RX_FILTER_THRES_CH6_S: u32 = 8;
+pub const RMT_RX_FILTER_EN_CH6_V: u32 = 1;
+pub const RMT_RX_FILTER_EN_CH6_S: u32 = 7;
+pub const RMT_TX_CONTI_MODE_CH6_V: u32 = 1;
+pub const RMT_TX_CONTI_MODE_CH6_S: u32 = 6;
+pub const RMT_MEM_OWNER_CH6_V: u32 = 1;
+pub const RMT_MEM_OWNER_CH6_S: u32 = 5;
+pub const RMT_APB_MEM_RST_CH6_V: u32 = 1;
+pub const RMT_APB_MEM_RST_CH6_S: u32 = 4;
+pub const RMT_MEM_RD_RST_CH6_V: u32 = 1;
+pub const RMT_MEM_RD_RST_CH6_S: u32 = 3;
+pub const RMT_MEM_WR_RST_CH6_V: u32 = 1;
+pub const RMT_MEM_WR_RST_CH6_S: u32 = 2;
+pub const RMT_RX_EN_CH6_V: u32 = 1;
+pub const RMT_RX_EN_CH6_S: u32 = 1;
+pub const RMT_TX_START_CH6_V: u32 = 1;
+pub const RMT_TX_START_CH6_S: u32 = 0;
+pub const RMT_CH7CONF0_REG: u32 = 1073045592;
+pub const RMT_CARRIER_OUT_LV_CH7_V: u32 = 1;
+pub const RMT_CARRIER_OUT_LV_CH7_S: u32 = 29;
+pub const RMT_CARRIER_EN_CH7_V: u32 = 1;
+pub const RMT_CARRIER_EN_CH7_S: u32 = 28;
+pub const RMT_MEM_SIZE_CH7: u32 = 15;
+pub const RMT_MEM_SIZE_CH7_V: u32 = 15;
+pub const RMT_MEM_SIZE_CH7_S: u32 = 24;
+pub const RMT_IDLE_THRES_CH7: u32 = 65535;
+pub const RMT_IDLE_THRES_CH7_V: u32 = 65535;
+pub const RMT_IDLE_THRES_CH7_S: u32 = 8;
+pub const RMT_DIV_CNT_CH7: u32 = 255;
+pub const RMT_DIV_CNT_CH7_V: u32 = 255;
+pub const RMT_DIV_CNT_CH7_S: u32 = 0;
+pub const RMT_CH7CONF1_REG: u32 = 1073045596;
+pub const RMT_IDLE_OUT_EN_CH7_V: u32 = 1;
+pub const RMT_IDLE_OUT_EN_CH7_S: u32 = 19;
+pub const RMT_IDLE_OUT_LV_CH7_V: u32 = 1;
+pub const RMT_IDLE_OUT_LV_CH7_S: u32 = 18;
+pub const RMT_REF_ALWAYS_ON_CH7_V: u32 = 1;
+pub const RMT_REF_ALWAYS_ON_CH7_S: u32 = 17;
+pub const RMT_REF_CNT_RST_CH7_V: u32 = 1;
+pub const RMT_REF_CNT_RST_CH7_S: u32 = 16;
+pub const RMT_RX_FILTER_THRES_CH7: u32 = 255;
+pub const RMT_RX_FILTER_THRES_CH7_V: u32 = 255;
+pub const RMT_RX_FILTER_THRES_CH7_S: u32 = 8;
+pub const RMT_RX_FILTER_EN_CH7_V: u32 = 1;
+pub const RMT_RX_FILTER_EN_CH7_S: u32 = 7;
+pub const RMT_TX_CONTI_MODE_CH7_V: u32 = 1;
+pub const RMT_TX_CONTI_MODE_CH7_S: u32 = 6;
+pub const RMT_MEM_OWNER_CH7_V: u32 = 1;
+pub const RMT_MEM_OWNER_CH7_S: u32 = 5;
+pub const RMT_APB_MEM_RST_CH7_V: u32 = 1;
+pub const RMT_APB_MEM_RST_CH7_S: u32 = 4;
+pub const RMT_MEM_RD_RST_CH7_V: u32 = 1;
+pub const RMT_MEM_RD_RST_CH7_S: u32 = 3;
+pub const RMT_MEM_WR_RST_CH7_V: u32 = 1;
+pub const RMT_MEM_WR_RST_CH7_S: u32 = 2;
+pub const RMT_RX_EN_CH7_V: u32 = 1;
+pub const RMT_RX_EN_CH7_S: u32 = 1;
+pub const RMT_TX_START_CH7_V: u32 = 1;
+pub const RMT_TX_START_CH7_S: u32 = 0;
+pub const RMT_CH0STATUS_REG: u32 = 1073045600;
+pub const RMT_STATUS_CH0: u32 = 4294967295;
+pub const RMT_STATUS_CH0_V: u32 = 4294967295;
+pub const RMT_STATUS_CH0_S: u32 = 0;
+pub const RMT_CH1STATUS_REG: u32 = 1073045604;
+pub const RMT_STATUS_CH1: u32 = 4294967295;
+pub const RMT_STATUS_CH1_V: u32 = 4294967295;
+pub const RMT_STATUS_CH1_S: u32 = 0;
+pub const RMT_CH2STATUS_REG: u32 = 1073045608;
+pub const RMT_STATUS_CH2: u32 = 4294967295;
+pub const RMT_STATUS_CH2_V: u32 = 4294967295;
+pub const RMT_STATUS_CH2_S: u32 = 0;
+pub const RMT_CH3STATUS_REG: u32 = 1073045612;
+pub const RMT_STATUS_CH3: u32 = 4294967295;
+pub const RMT_STATUS_CH3_V: u32 = 4294967295;
+pub const RMT_STATUS_CH3_S: u32 = 0;
+pub const RMT_CH4STATUS_REG: u32 = 1073045616;
+pub const RMT_STATUS_CH4: u32 = 4294967295;
+pub const RMT_STATUS_CH4_V: u32 = 4294967295;
+pub const RMT_STATUS_CH4_S: u32 = 0;
+pub const RMT_CH5STATUS_REG: u32 = 1073045620;
+pub const RMT_STATUS_CH5: u32 = 4294967295;
+pub const RMT_STATUS_CH5_V: u32 = 4294967295;
+pub const RMT_STATUS_CH5_S: u32 = 0;
+pub const RMT_CH6STATUS_REG: u32 = 1073045624;
+pub const RMT_STATUS_CH6: u32 = 4294967295;
+pub const RMT_STATUS_CH6_V: u32 = 4294967295;
+pub const RMT_STATUS_CH6_S: u32 = 0;
+pub const RMT_CH7STATUS_REG: u32 = 1073045628;
+pub const RMT_STATUS_CH7: u32 = 4294967295;
+pub const RMT_STATUS_CH7_V: u32 = 4294967295;
+pub const RMT_STATUS_CH7_S: u32 = 0;
+pub const RMT_CH0ADDR_REG: u32 = 1073045632;
+pub const RMT_APB_MEM_ADDR_CH0: u32 = 4294967295;
+pub const RMT_APB_MEM_ADDR_CH0_V: u32 = 4294967295;
+pub const RMT_APB_MEM_ADDR_CH0_S: u32 = 0;
+pub const RMT_CH1ADDR_REG: u32 = 1073045636;
+pub const RMT_APB_MEM_ADDR_CH1: u32 = 4294967295;
+pub const RMT_APB_MEM_ADDR_CH1_V: u32 = 4294967295;
+pub const RMT_APB_MEM_ADDR_CH1_S: u32 = 0;
+pub const RMT_CH2ADDR_REG: u32 = 1073045640;
+pub const RMT_APB_MEM_ADDR_CH2: u32 = 4294967295;
+pub const RMT_APB_MEM_ADDR_CH2_V: u32 = 4294967295;
+pub const RMT_APB_MEM_ADDR_CH2_S: u32 = 0;
+pub const RMT_CH3ADDR_REG: u32 = 1073045644;
+pub const RMT_APB_MEM_ADDR_CH3: u32 = 4294967295;
+pub const RMT_APB_MEM_ADDR_CH3_V: u32 = 4294967295;
+pub const RMT_APB_MEM_ADDR_CH3_S: u32 = 0;
+pub const RMT_CH4ADDR_REG: u32 = 1073045648;
+pub const RMT_APB_MEM_ADDR_CH4: u32 = 4294967295;
+pub const RMT_APB_MEM_ADDR_CH4_V: u32 = 4294967295;
+pub const RMT_APB_MEM_ADDR_CH4_S: u32 = 0;
+pub const RMT_CH5ADDR_REG: u32 = 1073045652;
+pub const RMT_APB_MEM_ADDR_CH5: u32 = 4294967295;
+pub const RMT_APB_MEM_ADDR_CH5_V: u32 = 4294967295;
+pub const RMT_APB_MEM_ADDR_CH5_S: u32 = 0;
+pub const RMT_CH6ADDR_REG: u32 = 1073045656;
+pub const RMT_APB_MEM_ADDR_CH6: u32 = 4294967295;
+pub const RMT_APB_MEM_ADDR_CH6_V: u32 = 4294967295;
+pub const RMT_APB_MEM_ADDR_CH6_S: u32 = 0;
+pub const RMT_CH7ADDR_REG: u32 = 1073045660;
+pub const RMT_APB_MEM_ADDR_CH7: u32 = 4294967295;
+pub const RMT_APB_MEM_ADDR_CH7_V: u32 = 4294967295;
+pub const RMT_APB_MEM_ADDR_CH7_S: u32 = 0;
+pub const RMT_INT_RAW_REG: u32 = 1073045664;
+pub const RMT_CH7_TX_THR_EVENT_INT_RAW_V: u32 = 1;
+pub const RMT_CH7_TX_THR_EVENT_INT_RAW_S: u32 = 31;
+pub const RMT_CH6_TX_THR_EVENT_INT_RAW_V: u32 = 1;
+pub const RMT_CH6_TX_THR_EVENT_INT_RAW_S: u32 = 30;
+pub const RMT_CH5_TX_THR_EVENT_INT_RAW_V: u32 = 1;
+pub const RMT_CH5_TX_THR_EVENT_INT_RAW_S: u32 = 29;
+pub const RMT_CH4_TX_THR_EVENT_INT_RAW_V: u32 = 1;
+pub const RMT_CH4_TX_THR_EVENT_INT_RAW_S: u32 = 28;
+pub const RMT_CH3_TX_THR_EVENT_INT_RAW_V: u32 = 1;
+pub const RMT_CH3_TX_THR_EVENT_INT_RAW_S: u32 = 27;
+pub const RMT_CH2_TX_THR_EVENT_INT_RAW_V: u32 = 1;
+pub const RMT_CH2_TX_THR_EVENT_INT_RAW_S: u32 = 26;
+pub const RMT_CH1_TX_THR_EVENT_INT_RAW_V: u32 = 1;
+pub const RMT_CH1_TX_THR_EVENT_INT_RAW_S: u32 = 25;
+pub const RMT_CH0_TX_THR_EVENT_INT_RAW_V: u32 = 1;
+pub const RMT_CH0_TX_THR_EVENT_INT_RAW_S: u32 = 24;
+pub const RMT_CH7_ERR_INT_RAW_V: u32 = 1;
+pub const RMT_CH7_ERR_INT_RAW_S: u32 = 23;
+pub const RMT_CH7_RX_END_INT_RAW_V: u32 = 1;
+pub const RMT_CH7_RX_END_INT_RAW_S: u32 = 22;
+pub const RMT_CH7_TX_END_INT_RAW_V: u32 = 1;
+pub const RMT_CH7_TX_END_INT_RAW_S: u32 = 21;
+pub const RMT_CH6_ERR_INT_RAW_V: u32 = 1;
+pub const RMT_CH6_ERR_INT_RAW_S: u32 = 20;
+pub const RMT_CH6_RX_END_INT_RAW_V: u32 = 1;
+pub const RMT_CH6_RX_END_INT_RAW_S: u32 = 19;
+pub const RMT_CH6_TX_END_INT_RAW_V: u32 = 1;
+pub const RMT_CH6_TX_END_INT_RAW_S: u32 = 18;
+pub const RMT_CH5_ERR_INT_RAW_V: u32 = 1;
+pub const RMT_CH5_ERR_INT_RAW_S: u32 = 17;
+pub const RMT_CH5_RX_END_INT_RAW_V: u32 = 1;
+pub const RMT_CH5_RX_END_INT_RAW_S: u32 = 16;
+pub const RMT_CH5_TX_END_INT_RAW_V: u32 = 1;
+pub const RMT_CH5_TX_END_INT_RAW_S: u32 = 15;
+pub const RMT_CH4_ERR_INT_RAW_V: u32 = 1;
+pub const RMT_CH4_ERR_INT_RAW_S: u32 = 14;
+pub const RMT_CH4_RX_END_INT_RAW_V: u32 = 1;
+pub const RMT_CH4_RX_END_INT_RAW_S: u32 = 13;
+pub const RMT_CH4_TX_END_INT_RAW_V: u32 = 1;
+pub const RMT_CH4_TX_END_INT_RAW_S: u32 = 12;
+pub const RMT_CH3_ERR_INT_RAW_V: u32 = 1;
+pub const RMT_CH3_ERR_INT_RAW_S: u32 = 11;
+pub const RMT_CH3_RX_END_INT_RAW_V: u32 = 1;
+pub const RMT_CH3_RX_END_INT_RAW_S: u32 = 10;
+pub const RMT_CH3_TX_END_INT_RAW_V: u32 = 1;
+pub const RMT_CH3_TX_END_INT_RAW_S: u32 = 9;
+pub const RMT_CH2_ERR_INT_RAW_V: u32 = 1;
+pub const RMT_CH2_ERR_INT_RAW_S: u32 = 8;
+pub const RMT_CH2_RX_END_INT_RAW_V: u32 = 1;
+pub const RMT_CH2_RX_END_INT_RAW_S: u32 = 7;
+pub const RMT_CH2_TX_END_INT_RAW_V: u32 = 1;
+pub const RMT_CH2_TX_END_INT_RAW_S: u32 = 6;
+pub const RMT_CH1_ERR_INT_RAW_V: u32 = 1;
+pub const RMT_CH1_ERR_INT_RAW_S: u32 = 5;
+pub const RMT_CH1_RX_END_INT_RAW_V: u32 = 1;
+pub const RMT_CH1_RX_END_INT_RAW_S: u32 = 4;
+pub const RMT_CH1_TX_END_INT_RAW_V: u32 = 1;
+pub const RMT_CH1_TX_END_INT_RAW_S: u32 = 3;
+pub const RMT_CH0_ERR_INT_RAW_V: u32 = 1;
+pub const RMT_CH0_ERR_INT_RAW_S: u32 = 2;
+pub const RMT_CH0_RX_END_INT_RAW_V: u32 = 1;
+pub const RMT_CH0_RX_END_INT_RAW_S: u32 = 1;
+pub const RMT_CH0_TX_END_INT_RAW_V: u32 = 1;
+pub const RMT_CH0_TX_END_INT_RAW_S: u32 = 0;
+pub const RMT_INT_ST_REG: u32 = 1073045668;
+pub const RMT_CH7_TX_THR_EVENT_INT_ST_V: u32 = 1;
+pub const RMT_CH7_TX_THR_EVENT_INT_ST_S: u32 = 31;
+pub const RMT_CH6_TX_THR_EVENT_INT_ST_V: u32 = 1;
+pub const RMT_CH6_TX_THR_EVENT_INT_ST_S: u32 = 30;
+pub const RMT_CH5_TX_THR_EVENT_INT_ST_V: u32 = 1;
+pub const RMT_CH5_TX_THR_EVENT_INT_ST_S: u32 = 29;
+pub const RMT_CH4_TX_THR_EVENT_INT_ST_V: u32 = 1;
+pub const RMT_CH4_TX_THR_EVENT_INT_ST_S: u32 = 28;
+pub const RMT_CH3_TX_THR_EVENT_INT_ST_V: u32 = 1;
+pub const RMT_CH3_TX_THR_EVENT_INT_ST_S: u32 = 27;
+pub const RMT_CH2_TX_THR_EVENT_INT_ST_V: u32 = 1;
+pub const RMT_CH2_TX_THR_EVENT_INT_ST_S: u32 = 26;
+pub const RMT_CH1_TX_THR_EVENT_INT_ST_V: u32 = 1;
+pub const RMT_CH1_TX_THR_EVENT_INT_ST_S: u32 = 25;
+pub const RMT_CH0_TX_THR_EVENT_INT_ST_V: u32 = 1;
+pub const RMT_CH0_TX_THR_EVENT_INT_ST_S: u32 = 24;
+pub const RMT_CH7_ERR_INT_ST_V: u32 = 1;
+pub const RMT_CH7_ERR_INT_ST_S: u32 = 23;
+pub const RMT_CH7_RX_END_INT_ST_V: u32 = 1;
+pub const RMT_CH7_RX_END_INT_ST_S: u32 = 22;
+pub const RMT_CH7_TX_END_INT_ST_V: u32 = 1;
+pub const RMT_CH7_TX_END_INT_ST_S: u32 = 21;
+pub const RMT_CH6_ERR_INT_ST_V: u32 = 1;
+pub const RMT_CH6_ERR_INT_ST_S: u32 = 20;
+pub const RMT_CH6_RX_END_INT_ST_V: u32 = 1;
+pub const RMT_CH6_RX_END_INT_ST_S: u32 = 19;
+pub const RMT_CH6_TX_END_INT_ST_V: u32 = 1;
+pub const RMT_CH6_TX_END_INT_ST_S: u32 = 18;
+pub const RMT_CH5_ERR_INT_ST_V: u32 = 1;
+pub const RMT_CH5_ERR_INT_ST_S: u32 = 17;
+pub const RMT_CH5_RX_END_INT_ST_V: u32 = 1;
+pub const RMT_CH5_RX_END_INT_ST_S: u32 = 16;
+pub const RMT_CH5_TX_END_INT_ST_V: u32 = 1;
+pub const RMT_CH5_TX_END_INT_ST_S: u32 = 15;
+pub const RMT_CH4_ERR_INT_ST_V: u32 = 1;
+pub const RMT_CH4_ERR_INT_ST_S: u32 = 14;
+pub const RMT_CH4_RX_END_INT_ST_V: u32 = 1;
+pub const RMT_CH4_RX_END_INT_ST_S: u32 = 13;
+pub const RMT_CH4_TX_END_INT_ST_V: u32 = 1;
+pub const RMT_CH4_TX_END_INT_ST_S: u32 = 12;
+pub const RMT_CH3_ERR_INT_ST_V: u32 = 1;
+pub const RMT_CH3_ERR_INT_ST_S: u32 = 11;
+pub const RMT_CH3_RX_END_INT_ST_V: u32 = 1;
+pub const RMT_CH3_RX_END_INT_ST_S: u32 = 10;
+pub const RMT_CH3_TX_END_INT_ST_V: u32 = 1;
+pub const RMT_CH3_TX_END_INT_ST_S: u32 = 9;
+pub const RMT_CH2_ERR_INT_ST_V: u32 = 1;
+pub const RMT_CH2_ERR_INT_ST_S: u32 = 8;
+pub const RMT_CH2_RX_END_INT_ST_V: u32 = 1;
+pub const RMT_CH2_RX_END_INT_ST_S: u32 = 7;
+pub const RMT_CH2_TX_END_INT_ST_V: u32 = 1;
+pub const RMT_CH2_TX_END_INT_ST_S: u32 = 6;
+pub const RMT_CH1_ERR_INT_ST_V: u32 = 1;
+pub const RMT_CH1_ERR_INT_ST_S: u32 = 5;
+pub const RMT_CH1_RX_END_INT_ST_V: u32 = 1;
+pub const RMT_CH1_RX_END_INT_ST_S: u32 = 4;
+pub const RMT_CH1_TX_END_INT_ST_V: u32 = 1;
+pub const RMT_CH1_TX_END_INT_ST_S: u32 = 3;
+pub const RMT_CH0_ERR_INT_ST_V: u32 = 1;
+pub const RMT_CH0_ERR_INT_ST_S: u32 = 2;
+pub const RMT_CH0_RX_END_INT_ST_V: u32 = 1;
+pub const RMT_CH0_RX_END_INT_ST_S: u32 = 1;
+pub const RMT_CH0_TX_END_INT_ST_V: u32 = 1;
+pub const RMT_CH0_TX_END_INT_ST_S: u32 = 0;
+pub const RMT_INT_ENA_REG: u32 = 1073045672;
+pub const RMT_CH7_TX_THR_EVENT_INT_ENA_V: u32 = 1;
+pub const RMT_CH7_TX_THR_EVENT_INT_ENA_S: u32 = 31;
+pub const RMT_CH6_TX_THR_EVENT_INT_ENA_V: u32 = 1;
+pub const RMT_CH6_TX_THR_EVENT_INT_ENA_S: u32 = 30;
+pub const RMT_CH5_TX_THR_EVENT_INT_ENA_V: u32 = 1;
+pub const RMT_CH5_TX_THR_EVENT_INT_ENA_S: u32 = 29;
+pub const RMT_CH4_TX_THR_EVENT_INT_ENA_V: u32 = 1;
+pub const RMT_CH4_TX_THR_EVENT_INT_ENA_S: u32 = 28;
+pub const RMT_CH3_TX_THR_EVENT_INT_ENA_V: u32 = 1;
+pub const RMT_CH3_TX_THR_EVENT_INT_ENA_S: u32 = 27;
+pub const RMT_CH2_TX_THR_EVENT_INT_ENA_V: u32 = 1;
+pub const RMT_CH2_TX_THR_EVENT_INT_ENA_S: u32 = 26;
+pub const RMT_CH1_TX_THR_EVENT_INT_ENA_V: u32 = 1;
+pub const RMT_CH1_TX_THR_EVENT_INT_ENA_S: u32 = 25;
+pub const RMT_CH0_TX_THR_EVENT_INT_ENA_V: u32 = 1;
+pub const RMT_CH0_TX_THR_EVENT_INT_ENA_S: u32 = 24;
+pub const RMT_CH7_ERR_INT_ENA_V: u32 = 1;
+pub const RMT_CH7_ERR_INT_ENA_S: u32 = 23;
+pub const RMT_CH7_RX_END_INT_ENA_V: u32 = 1;
+pub const RMT_CH7_RX_END_INT_ENA_S: u32 = 22;
+pub const RMT_CH7_TX_END_INT_ENA_V: u32 = 1;
+pub const RMT_CH7_TX_END_INT_ENA_S: u32 = 21;
+pub const RMT_CH6_ERR_INT_ENA_V: u32 = 1;
+pub const RMT_CH6_ERR_INT_ENA_S: u32 = 20;
+pub const RMT_CH6_RX_END_INT_ENA_V: u32 = 1;
+pub const RMT_CH6_RX_END_INT_ENA_S: u32 = 19;
+pub const RMT_CH6_TX_END_INT_ENA_V: u32 = 1;
+pub const RMT_CH6_TX_END_INT_ENA_S: u32 = 18;
+pub const RMT_CH5_ERR_INT_ENA_V: u32 = 1;
+pub const RMT_CH5_ERR_INT_ENA_S: u32 = 17;
+pub const RMT_CH5_RX_END_INT_ENA_V: u32 = 1;
+pub const RMT_CH5_RX_END_INT_ENA_S: u32 = 16;
+pub const RMT_CH5_TX_END_INT_ENA_V: u32 = 1;
+pub const RMT_CH5_TX_END_INT_ENA_S: u32 = 15;
+pub const RMT_CH4_ERR_INT_ENA_V: u32 = 1;
+pub const RMT_CH4_ERR_INT_ENA_S: u32 = 14;
+pub const RMT_CH4_RX_END_INT_ENA_V: u32 = 1;
+pub const RMT_CH4_RX_END_INT_ENA_S: u32 = 13;
+pub const RMT_CH4_TX_END_INT_ENA_V: u32 = 1;
+pub const RMT_CH4_TX_END_INT_ENA_S: u32 = 12;
+pub const RMT_CH3_ERR_INT_ENA_V: u32 = 1;
+pub const RMT_CH3_ERR_INT_ENA_S: u32 = 11;
+pub const RMT_CH3_RX_END_INT_ENA_V: u32 = 1;
+pub const RMT_CH3_RX_END_INT_ENA_S: u32 = 10;
+pub const RMT_CH3_TX_END_INT_ENA_V: u32 = 1;
+pub const RMT_CH3_TX_END_INT_ENA_S: u32 = 9;
+pub const RMT_CH2_ERR_INT_ENA_V: u32 = 1;
+pub const RMT_CH2_ERR_INT_ENA_S: u32 = 8;
+pub const RMT_CH2_RX_END_INT_ENA_V: u32 = 1;
+pub const RMT_CH2_RX_END_INT_ENA_S: u32 = 7;
+pub const RMT_CH2_TX_END_INT_ENA_V: u32 = 1;
+pub const RMT_CH2_TX_END_INT_ENA_S: u32 = 6;
+pub const RMT_CH1_ERR_INT_ENA_V: u32 = 1;
+pub const RMT_CH1_ERR_INT_ENA_S: u32 = 5;
+pub const RMT_CH1_RX_END_INT_ENA_V: u32 = 1;
+pub const RMT_CH1_RX_END_INT_ENA_S: u32 = 4;
+pub const RMT_CH1_TX_END_INT_ENA_V: u32 = 1;
+pub const RMT_CH1_TX_END_INT_ENA_S: u32 = 3;
+pub const RMT_CH0_ERR_INT_ENA_V: u32 = 1;
+pub const RMT_CH0_ERR_INT_ENA_S: u32 = 2;
+pub const RMT_CH0_RX_END_INT_ENA_V: u32 = 1;
+pub const RMT_CH0_RX_END_INT_ENA_S: u32 = 1;
+pub const RMT_CH0_TX_END_INT_ENA_V: u32 = 1;
+pub const RMT_CH0_TX_END_INT_ENA_S: u32 = 0;
+pub const RMT_INT_CLR_REG: u32 = 1073045676;
+pub const RMT_CH7_TX_THR_EVENT_INT_CLR_V: u32 = 1;
+pub const RMT_CH7_TX_THR_EVENT_INT_CLR_S: u32 = 31;
+pub const RMT_CH6_TX_THR_EVENT_INT_CLR_V: u32 = 1;
+pub const RMT_CH6_TX_THR_EVENT_INT_CLR_S: u32 = 30;
+pub const RMT_CH5_TX_THR_EVENT_INT_CLR_V: u32 = 1;
+pub const RMT_CH5_TX_THR_EVENT_INT_CLR_S: u32 = 29;
+pub const RMT_CH4_TX_THR_EVENT_INT_CLR_V: u32 = 1;
+pub const RMT_CH4_TX_THR_EVENT_INT_CLR_S: u32 = 28;
+pub const RMT_CH3_TX_THR_EVENT_INT_CLR_V: u32 = 1;
+pub const RMT_CH3_TX_THR_EVENT_INT_CLR_S: u32 = 27;
+pub const RMT_CH2_TX_THR_EVENT_INT_CLR_V: u32 = 1;
+pub const RMT_CH2_TX_THR_EVENT_INT_CLR_S: u32 = 26;
+pub const RMT_CH1_TX_THR_EVENT_INT_CLR_V: u32 = 1;
+pub const RMT_CH1_TX_THR_EVENT_INT_CLR_S: u32 = 25;
+pub const RMT_CH0_TX_THR_EVENT_INT_CLR_V: u32 = 1;
+pub const RMT_CH0_TX_THR_EVENT_INT_CLR_S: u32 = 24;
+pub const RMT_CH7_ERR_INT_CLR_V: u32 = 1;
+pub const RMT_CH7_ERR_INT_CLR_S: u32 = 23;
+pub const RMT_CH7_RX_END_INT_CLR_V: u32 = 1;
+pub const RMT_CH7_RX_END_INT_CLR_S: u32 = 22;
+pub const RMT_CH7_TX_END_INT_CLR_V: u32 = 1;
+pub const RMT_CH7_TX_END_INT_CLR_S: u32 = 21;
+pub const RMT_CH6_ERR_INT_CLR_V: u32 = 1;
+pub const RMT_CH6_ERR_INT_CLR_S: u32 = 20;
+pub const RMT_CH6_RX_END_INT_CLR_V: u32 = 1;
+pub const RMT_CH6_RX_END_INT_CLR_S: u32 = 19;
+pub const RMT_CH6_TX_END_INT_CLR_V: u32 = 1;
+pub const RMT_CH6_TX_END_INT_CLR_S: u32 = 18;
+pub const RMT_CH5_ERR_INT_CLR_V: u32 = 1;
+pub const RMT_CH5_ERR_INT_CLR_S: u32 = 17;
+pub const RMT_CH5_RX_END_INT_CLR_V: u32 = 1;
+pub const RMT_CH5_RX_END_INT_CLR_S: u32 = 16;
+pub const RMT_CH5_TX_END_INT_CLR_V: u32 = 1;
+pub const RMT_CH5_TX_END_INT_CLR_S: u32 = 15;
+pub const RMT_CH4_ERR_INT_CLR_V: u32 = 1;
+pub const RMT_CH4_ERR_INT_CLR_S: u32 = 14;
+pub const RMT_CH4_RX_END_INT_CLR_V: u32 = 1;
+pub const RMT_CH4_RX_END_INT_CLR_S: u32 = 13;
+pub const RMT_CH4_TX_END_INT_CLR_V: u32 = 1;
+pub const RMT_CH4_TX_END_INT_CLR_S: u32 = 12;
+pub const RMT_CH3_ERR_INT_CLR_V: u32 = 1;
+pub const RMT_CH3_ERR_INT_CLR_S: u32 = 11;
+pub const RMT_CH3_RX_END_INT_CLR_V: u32 = 1;
+pub const RMT_CH3_RX_END_INT_CLR_S: u32 = 10;
+pub const RMT_CH3_TX_END_INT_CLR_V: u32 = 1;
+pub const RMT_CH3_TX_END_INT_CLR_S: u32 = 9;
+pub const RMT_CH2_ERR_INT_CLR_V: u32 = 1;
+pub const RMT_CH2_ERR_INT_CLR_S: u32 = 8;
+pub const RMT_CH2_RX_END_INT_CLR_V: u32 = 1;
+pub const RMT_CH2_RX_END_INT_CLR_S: u32 = 7;
+pub const RMT_CH2_TX_END_INT_CLR_V: u32 = 1;
+pub const RMT_CH2_TX_END_INT_CLR_S: u32 = 6;
+pub const RMT_CH1_ERR_INT_CLR_V: u32 = 1;
+pub const RMT_CH1_ERR_INT_CLR_S: u32 = 5;
+pub const RMT_CH1_RX_END_INT_CLR_V: u32 = 1;
+pub const RMT_CH1_RX_END_INT_CLR_S: u32 = 4;
+pub const RMT_CH1_TX_END_INT_CLR_V: u32 = 1;
+pub const RMT_CH1_TX_END_INT_CLR_S: u32 = 3;
+pub const RMT_CH0_ERR_INT_CLR_V: u32 = 1;
+pub const RMT_CH0_ERR_INT_CLR_S: u32 = 2;
+pub const RMT_CH0_RX_END_INT_CLR_V: u32 = 1;
+pub const RMT_CH0_RX_END_INT_CLR_S: u32 = 1;
+pub const RMT_CH0_TX_END_INT_CLR_V: u32 = 1;
+pub const RMT_CH0_TX_END_INT_CLR_S: u32 = 0;
+pub const RMT_CH0CARRIER_DUTY_REG: u32 = 1073045680;
+pub const RMT_CARRIER_HIGH_CH0: u32 = 65535;
+pub const RMT_CARRIER_HIGH_CH0_V: u32 = 65535;
+pub const RMT_CARRIER_HIGH_CH0_S: u32 = 16;
+pub const RMT_CARRIER_LOW_CH0: u32 = 65535;
+pub const RMT_CARRIER_LOW_CH0_V: u32 = 65535;
+pub const RMT_CARRIER_LOW_CH0_S: u32 = 0;
+pub const RMT_CH1CARRIER_DUTY_REG: u32 = 1073045684;
+pub const RMT_CARRIER_HIGH_CH1: u32 = 65535;
+pub const RMT_CARRIER_HIGH_CH1_V: u32 = 65535;
+pub const RMT_CARRIER_HIGH_CH1_S: u32 = 16;
+pub const RMT_CARRIER_LOW_CH1: u32 = 65535;
+pub const RMT_CARRIER_LOW_CH1_V: u32 = 65535;
+pub const RMT_CARRIER_LOW_CH1_S: u32 = 0;
+pub const RMT_CH2CARRIER_DUTY_REG: u32 = 1073045688;
+pub const RMT_CARRIER_HIGH_CH2: u32 = 65535;
+pub const RMT_CARRIER_HIGH_CH2_V: u32 = 65535;
+pub const RMT_CARRIER_HIGH_CH2_S: u32 = 16;
+pub const RMT_CARRIER_LOW_CH2: u32 = 65535;
+pub const RMT_CARRIER_LOW_CH2_V: u32 = 65535;
+pub const RMT_CARRIER_LOW_CH2_S: u32 = 0;
+pub const RMT_CH3CARRIER_DUTY_REG: u32 = 1073045692;
+pub const RMT_CARRIER_HIGH_CH3: u32 = 65535;
+pub const RMT_CARRIER_HIGH_CH3_V: u32 = 65535;
+pub const RMT_CARRIER_HIGH_CH3_S: u32 = 16;
+pub const RMT_CARRIER_LOW_CH3: u32 = 65535;
+pub const RMT_CARRIER_LOW_CH3_V: u32 = 65535;
+pub const RMT_CARRIER_LOW_CH3_S: u32 = 0;
+pub const RMT_CH4CARRIER_DUTY_REG: u32 = 1073045696;
+pub const RMT_CARRIER_HIGH_CH4: u32 = 65535;
+pub const RMT_CARRIER_HIGH_CH4_V: u32 = 65535;
+pub const RMT_CARRIER_HIGH_CH4_S: u32 = 16;
+pub const RMT_CARRIER_LOW_CH4: u32 = 65535;
+pub const RMT_CARRIER_LOW_CH4_V: u32 = 65535;
+pub const RMT_CARRIER_LOW_CH4_S: u32 = 0;
+pub const RMT_CH5CARRIER_DUTY_REG: u32 = 1073045700;
+pub const RMT_CARRIER_HIGH_CH5: u32 = 65535;
+pub const RMT_CARRIER_HIGH_CH5_V: u32 = 65535;
+pub const RMT_CARRIER_HIGH_CH5_S: u32 = 16;
+pub const RMT_CARRIER_LOW_CH5: u32 = 65535;
+pub const RMT_CARRIER_LOW_CH5_V: u32 = 65535;
+pub const RMT_CARRIER_LOW_CH5_S: u32 = 0;
+pub const RMT_CH6CARRIER_DUTY_REG: u32 = 1073045704;
+pub const RMT_CARRIER_HIGH_CH6: u32 = 65535;
+pub const RMT_CARRIER_HIGH_CH6_V: u32 = 65535;
+pub const RMT_CARRIER_HIGH_CH6_S: u32 = 16;
+pub const RMT_CARRIER_LOW_CH6: u32 = 65535;
+pub const RMT_CARRIER_LOW_CH6_V: u32 = 65535;
+pub const RMT_CARRIER_LOW_CH6_S: u32 = 0;
+pub const RMT_CH7CARRIER_DUTY_REG: u32 = 1073045708;
+pub const RMT_CARRIER_HIGH_CH7: u32 = 65535;
+pub const RMT_CARRIER_HIGH_CH7_V: u32 = 65535;
+pub const RMT_CARRIER_HIGH_CH7_S: u32 = 16;
+pub const RMT_CARRIER_LOW_CH7: u32 = 65535;
+pub const RMT_CARRIER_LOW_CH7_V: u32 = 65535;
+pub const RMT_CARRIER_LOW_CH7_S: u32 = 0;
+pub const RMT_CH0_TX_LIM_REG: u32 = 1073045712;
+pub const RMT_TX_LIM_CH0: u32 = 511;
+pub const RMT_TX_LIM_CH0_V: u32 = 511;
+pub const RMT_TX_LIM_CH0_S: u32 = 0;
+pub const RMT_CH1_TX_LIM_REG: u32 = 1073045716;
+pub const RMT_TX_LIM_CH1: u32 = 511;
+pub const RMT_TX_LIM_CH1_V: u32 = 511;
+pub const RMT_TX_LIM_CH1_S: u32 = 0;
+pub const RMT_CH2_TX_LIM_REG: u32 = 1073045720;
+pub const RMT_TX_LIM_CH2: u32 = 511;
+pub const RMT_TX_LIM_CH2_V: u32 = 511;
+pub const RMT_TX_LIM_CH2_S: u32 = 0;
+pub const RMT_CH3_TX_LIM_REG: u32 = 1073045724;
+pub const RMT_TX_LIM_CH3: u32 = 511;
+pub const RMT_TX_LIM_CH3_V: u32 = 511;
+pub const RMT_TX_LIM_CH3_S: u32 = 0;
+pub const RMT_CH4_TX_LIM_REG: u32 = 1073045728;
+pub const RMT_TX_LIM_CH4: u32 = 511;
+pub const RMT_TX_LIM_CH4_V: u32 = 511;
+pub const RMT_TX_LIM_CH4_S: u32 = 0;
+pub const RMT_CH5_TX_LIM_REG: u32 = 1073045732;
+pub const RMT_TX_LIM_CH5: u32 = 511;
+pub const RMT_TX_LIM_CH5_V: u32 = 511;
+pub const RMT_TX_LIM_CH5_S: u32 = 0;
+pub const RMT_CH6_TX_LIM_REG: u32 = 1073045736;
+pub const RMT_TX_LIM_CH6: u32 = 511;
+pub const RMT_TX_LIM_CH6_V: u32 = 511;
+pub const RMT_TX_LIM_CH6_S: u32 = 0;
+pub const RMT_CH7_TX_LIM_REG: u32 = 1073045740;
+pub const RMT_TX_LIM_CH7: u32 = 511;
+pub const RMT_TX_LIM_CH7_V: u32 = 511;
+pub const RMT_TX_LIM_CH7_S: u32 = 0;
+pub const RMT_APB_CONF_REG: u32 = 1073045744;
+pub const RMT_MEM_TX_WRAP_EN_V: u32 = 1;
+pub const RMT_MEM_TX_WRAP_EN_S: u32 = 1;
+pub const RMT_APB_FIFO_MASK_V: u32 = 1;
+pub const RMT_APB_FIFO_MASK_S: u32 = 0;
+pub const RMT_DATE_REG: u32 = 1073045756;
+pub const RMT_DATE: u32 = 4294967295;
+pub const RMT_DATE_V: u32 = 4294967295;
+pub const RMT_DATE_S: u32 = 0;
+pub const RMT_MEM_BLOCK_BYTE_NUM: u32 = 256;
+pub const RMT_MEM_ITEM_NUM: u32 = 64;
 pub const LLDESC_TX_MBLK_SIZE: u32 = 268;
 pub const LLDESC_RX_SMBLK_SIZE: u32 = 64;
 pub const LLDESC_RX_MBLK_SIZE: u32 = 524;
@@ -28963,6 +29734,3581 @@ extern "C" {
         fade_mode: ledc_fade_mode_t,
     ) -> esp_err_t;
 }
+#[repr(C)]
+#[derive(Copy, Clone)]
+pub struct _bindgen_ty_3 {
+    pub data_ch: [u32; 8usize],
+    pub conf_ch: [_bindgen_ty_3__bindgen_ty_1; 8usize],
+    pub status_ch: [u32; 8usize],
+    pub apb_mem_addr_ch: [u32; 8usize],
+    pub int_raw: _bindgen_ty_3__bindgen_ty_2,
+    pub int_st: _bindgen_ty_3__bindgen_ty_3,
+    pub int_ena: _bindgen_ty_3__bindgen_ty_4,
+    pub int_clr: _bindgen_ty_3__bindgen_ty_5,
+    pub carrier_duty_ch: [_bindgen_ty_3__bindgen_ty_6; 8usize],
+    pub tx_lim_ch: [_bindgen_ty_3__bindgen_ty_7; 8usize],
+    pub apb_conf: _bindgen_ty_3__bindgen_ty_8,
+    pub reserved_f4: u32,
+    pub reserved_f8: u32,
+    pub date: u32,
+}
+#[repr(C)]
+#[derive(Copy, Clone)]
+pub struct _bindgen_ty_3__bindgen_ty_1 {
+    pub conf0: _bindgen_ty_3__bindgen_ty_1__bindgen_ty_1,
+    pub conf1: _bindgen_ty_3__bindgen_ty_1__bindgen_ty_2,
+}
+#[repr(C)]
+#[derive(Copy, Clone)]
+pub union _bindgen_ty_3__bindgen_ty_1__bindgen_ty_1 {
+    pub __bindgen_anon_1: _bindgen_ty_3__bindgen_ty_1__bindgen_ty_1__bindgen_ty_1,
+    pub val: u32,
+    _bindgen_union_align: u32,
+}
+#[repr(C)]
+#[repr(align(4))]
+#[derive(Debug, Copy, Clone)]
+pub struct _bindgen_ty_3__bindgen_ty_1__bindgen_ty_1__bindgen_ty_1 {
+    pub _bitfield_1: __BindgenBitfieldUnit<[u8; 4usize], u16>,
+}
+impl _bindgen_ty_3__bindgen_ty_1__bindgen_ty_1__bindgen_ty_1 {
+    #[inline]
+    pub fn div_cnt(&self) -> u32 {
+        unsafe { ::core::mem::transmute(self._bitfield_1.get(0usize, 8u8) as u32) }
+    }
+    #[inline]
+    pub fn set_div_cnt(&mut self, val: u32) {
+        unsafe {
+            let val: u32 = ::core::mem::transmute(val);
+            self._bitfield_1.set(0usize, 8u8, val as u64)
+        }
+    }
+    #[inline]
+    pub fn idle_thres(&self) -> u32 {
+        unsafe { ::core::mem::transmute(self._bitfield_1.get(8usize, 16u8) as u32) }
+    }
+    #[inline]
+    pub fn set_idle_thres(&mut self, val: u32) {
+        unsafe {
+            let val: u32 = ::core::mem::transmute(val);
+            self._bitfield_1.set(8usize, 16u8, val as u64)
+        }
+    }
+    #[inline]
+    pub fn mem_size(&self) -> u32 {
+        unsafe { ::core::mem::transmute(self._bitfield_1.get(24usize, 4u8) as u32) }
+    }
+    #[inline]
+    pub fn set_mem_size(&mut self, val: u32) {
+        unsafe {
+            let val: u32 = ::core::mem::transmute(val);
+            self._bitfield_1.set(24usize, 4u8, val as u64)
+        }
+    }
+    #[inline]
+    pub fn carrier_en(&self) -> u32 {
+        unsafe { ::core::mem::transmute(self._bitfield_1.get(28usize, 1u8) as u32) }
+    }
+    #[inline]
+    pub fn set_carrier_en(&mut self, val: u32) {
+        unsafe {
+            let val: u32 = ::core::mem::transmute(val);
+            self._bitfield_1.set(28usize, 1u8, val as u64)
+        }
+    }
+    #[inline]
+    pub fn carrier_out_lv(&self) -> u32 {
+        unsafe { ::core::mem::transmute(self._bitfield_1.get(29usize, 1u8) as u32) }
+    }
+    #[inline]
+    pub fn set_carrier_out_lv(&mut self, val: u32) {
+        unsafe {
+            let val: u32 = ::core::mem::transmute(val);
+            self._bitfield_1.set(29usize, 1u8, val as u64)
+        }
+    }
+    #[inline]
+    pub fn mem_pd(&self) -> u32 {
+        unsafe { ::core::mem::transmute(self._bitfield_1.get(30usize, 1u8) as u32) }
+    }
+    #[inline]
+    pub fn set_mem_pd(&mut self, val: u32) {
+        unsafe {
+            let val: u32 = ::core::mem::transmute(val);
+            self._bitfield_1.set(30usize, 1u8, val as u64)
+        }
+    }
+    #[inline]
+    pub fn clk_en(&self) -> u32 {
+        unsafe { ::core::mem::transmute(self._bitfield_1.get(31usize, 1u8) as u32) }
+    }
+    #[inline]
+    pub fn set_clk_en(&mut self, val: u32) {
+        unsafe {
+            let val: u32 = ::core::mem::transmute(val);
+            self._bitfield_1.set(31usize, 1u8, val as u64)
+        }
+    }
+    #[inline]
+    pub fn new_bitfield_1(
+        div_cnt: u32,
+        idle_thres: u32,
+        mem_size: u32,
+        carrier_en: u32,
+        carrier_out_lv: u32,
+        mem_pd: u32,
+        clk_en: u32,
+    ) -> __BindgenBitfieldUnit<[u8; 4usize], u16> {
+        let mut __bindgen_bitfield_unit: __BindgenBitfieldUnit<[u8; 4usize], u16> =
+            Default::default();
+        __bindgen_bitfield_unit.set(0usize, 8u8, {
+            let div_cnt: u32 = unsafe { ::core::mem::transmute(div_cnt) };
+            div_cnt as u64
+        });
+        __bindgen_bitfield_unit.set(8usize, 16u8, {
+            let idle_thres: u32 = unsafe { ::core::mem::transmute(idle_thres) };
+            idle_thres as u64
+        });
+        __bindgen_bitfield_unit.set(24usize, 4u8, {
+            let mem_size: u32 = unsafe { ::core::mem::transmute(mem_size) };
+            mem_size as u64
+        });
+        __bindgen_bitfield_unit.set(28usize, 1u8, {
+            let carrier_en: u32 = unsafe { ::core::mem::transmute(carrier_en) };
+            carrier_en as u64
+        });
+        __bindgen_bitfield_unit.set(29usize, 1u8, {
+            let carrier_out_lv: u32 = unsafe { ::core::mem::transmute(carrier_out_lv) };
+            carrier_out_lv as u64
+        });
+        __bindgen_bitfield_unit.set(30usize, 1u8, {
+            let mem_pd: u32 = unsafe { ::core::mem::transmute(mem_pd) };
+            mem_pd as u64
+        });
+        __bindgen_bitfield_unit.set(31usize, 1u8, {
+            let clk_en: u32 = unsafe { ::core::mem::transmute(clk_en) };
+            clk_en as u64
+        });
+        __bindgen_bitfield_unit
+    }
+}
+#[repr(C)]
+#[derive(Copy, Clone)]
+pub union _bindgen_ty_3__bindgen_ty_1__bindgen_ty_2 {
+    pub __bindgen_anon_1: _bindgen_ty_3__bindgen_ty_1__bindgen_ty_2__bindgen_ty_1,
+    pub val: u32,
+    _bindgen_union_align: u32,
+}
+#[repr(C)]
+#[repr(align(4))]
+#[derive(Debug, Copy, Clone)]
+pub struct _bindgen_ty_3__bindgen_ty_1__bindgen_ty_2__bindgen_ty_1 {
+    pub _bitfield_1: __BindgenBitfieldUnit<[u8; 4usize], u16>,
+}
+impl _bindgen_ty_3__bindgen_ty_1__bindgen_ty_2__bindgen_ty_1 {
+    #[inline]
+    pub fn tx_start(&self) -> u32 {
+        unsafe { ::core::mem::transmute(self._bitfield_1.get(0usize, 1u8) as u32) }
+    }
+    #[inline]
+    pub fn set_tx_start(&mut self, val: u32) {
+        unsafe {
+            let val: u32 = ::core::mem::transmute(val);
+            self._bitfield_1.set(0usize, 1u8, val as u64)
+        }
+    }
+    #[inline]
+    pub fn rx_en(&self) -> u32 {
+        unsafe { ::core::mem::transmute(self._bitfield_1.get(1usize, 1u8) as u32) }
+    }
+    #[inline]
+    pub fn set_rx_en(&mut self, val: u32) {
+        unsafe {
+            let val: u32 = ::core::mem::transmute(val);
+            self._bitfield_1.set(1usize, 1u8, val as u64)
+        }
+    }
+    #[inline]
+    pub fn mem_wr_rst(&self) -> u32 {
+        unsafe { ::core::mem::transmute(self._bitfield_1.get(2usize, 1u8) as u32) }
+    }
+    #[inline]
+    pub fn set_mem_wr_rst(&mut self, val: u32) {
+        unsafe {
+            let val: u32 = ::core::mem::transmute(val);
+            self._bitfield_1.set(2usize, 1u8, val as u64)
+        }
+    }
+    #[inline]
+    pub fn mem_rd_rst(&self) -> u32 {
+        unsafe { ::core::mem::transmute(self._bitfield_1.get(3usize, 1u8) as u32) }
+    }
+    #[inline]
+    pub fn set_mem_rd_rst(&mut self, val: u32) {
+        unsafe {
+            let val: u32 = ::core::mem::transmute(val);
+            self._bitfield_1.set(3usize, 1u8, val as u64)
+        }
+    }
+    #[inline]
+    pub fn apb_mem_rst(&self) -> u32 {
+        unsafe { ::core::mem::transmute(self._bitfield_1.get(4usize, 1u8) as u32) }
+    }
+    #[inline]
+    pub fn set_apb_mem_rst(&mut self, val: u32) {
+        unsafe {
+            let val: u32 = ::core::mem::transmute(val);
+            self._bitfield_1.set(4usize, 1u8, val as u64)
+        }
+    }
+    #[inline]
+    pub fn mem_owner(&self) -> u32 {
+        unsafe { ::core::mem::transmute(self._bitfield_1.get(5usize, 1u8) as u32) }
+    }
+    #[inline]
+    pub fn set_mem_owner(&mut self, val: u32) {
+        unsafe {
+            let val: u32 = ::core::mem::transmute(val);
+            self._bitfield_1.set(5usize, 1u8, val as u64)
+        }
+    }
+    #[inline]
+    pub fn tx_conti_mode(&self) -> u32 {
+        unsafe { ::core::mem::transmute(self._bitfield_1.get(6usize, 1u8) as u32) }
+    }
+    #[inline]
+    pub fn set_tx_conti_mode(&mut self, val: u32) {
+        unsafe {
+            let val: u32 = ::core::mem::transmute(val);
+            self._bitfield_1.set(6usize, 1u8, val as u64)
+        }
+    }
+    #[inline]
+    pub fn rx_filter_en(&self) -> u32 {
+        unsafe { ::core::mem::transmute(self._bitfield_1.get(7usize, 1u8) as u32) }
+    }
+    #[inline]
+    pub fn set_rx_filter_en(&mut self, val: u32) {
+        unsafe {
+            let val: u32 = ::core::mem::transmute(val);
+            self._bitfield_1.set(7usize, 1u8, val as u64)
+        }
+    }
+    #[inline]
+    pub fn rx_filter_thres(&self) -> u32 {
+        unsafe { ::core::mem::transmute(self._bitfield_1.get(8usize, 8u8) as u32) }
+    }
+    #[inline]
+    pub fn set_rx_filter_thres(&mut self, val: u32) {
+        unsafe {
+            let val: u32 = ::core::mem::transmute(val);
+            self._bitfield_1.set(8usize, 8u8, val as u64)
+        }
+    }
+    #[inline]
+    pub fn ref_cnt_rst(&self) -> u32 {
+        unsafe { ::core::mem::transmute(self._bitfield_1.get(16usize, 1u8) as u32) }
+    }
+    #[inline]
+    pub fn set_ref_cnt_rst(&mut self, val: u32) {
+        unsafe {
+            let val: u32 = ::core::mem::transmute(val);
+            self._bitfield_1.set(16usize, 1u8, val as u64)
+        }
+    }
+    #[inline]
+    pub fn ref_always_on(&self) -> u32 {
+        unsafe { ::core::mem::transmute(self._bitfield_1.get(17usize, 1u8) as u32) }
+    }
+    #[inline]
+    pub fn set_ref_always_on(&mut self, val: u32) {
+        unsafe {
+            let val: u32 = ::core::mem::transmute(val);
+            self._bitfield_1.set(17usize, 1u8, val as u64)
+        }
+    }
+    #[inline]
+    pub fn idle_out_lv(&self) -> u32 {
+        unsafe { ::core::mem::transmute(self._bitfield_1.get(18usize, 1u8) as u32) }
+    }
+    #[inline]
+    pub fn set_idle_out_lv(&mut self, val: u32) {
+        unsafe {
+            let val: u32 = ::core::mem::transmute(val);
+            self._bitfield_1.set(18usize, 1u8, val as u64)
+        }
+    }
+    #[inline]
+    pub fn idle_out_en(&self) -> u32 {
+        unsafe { ::core::mem::transmute(self._bitfield_1.get(19usize, 1u8) as u32) }
+    }
+    #[inline]
+    pub fn set_idle_out_en(&mut self, val: u32) {
+        unsafe {
+            let val: u32 = ::core::mem::transmute(val);
+            self._bitfield_1.set(19usize, 1u8, val as u64)
+        }
+    }
+    #[inline]
+    pub fn reserved20(&self) -> u32 {
+        unsafe { ::core::mem::transmute(self._bitfield_1.get(20usize, 12u8) as u32) }
+    }
+    #[inline]
+    pub fn set_reserved20(&mut self, val: u32) {
+        unsafe {
+            let val: u32 = ::core::mem::transmute(val);
+            self._bitfield_1.set(20usize, 12u8, val as u64)
+        }
+    }
+    #[inline]
+    pub fn new_bitfield_1(
+        tx_start: u32,
+        rx_en: u32,
+        mem_wr_rst: u32,
+        mem_rd_rst: u32,
+        apb_mem_rst: u32,
+        mem_owner: u32,
+        tx_conti_mode: u32,
+        rx_filter_en: u32,
+        rx_filter_thres: u32,
+        ref_cnt_rst: u32,
+        ref_always_on: u32,
+        idle_out_lv: u32,
+        idle_out_en: u32,
+        reserved20: u32,
+    ) -> __BindgenBitfieldUnit<[u8; 4usize], u16> {
+        let mut __bindgen_bitfield_unit: __BindgenBitfieldUnit<[u8; 4usize], u16> =
+            Default::default();
+        __bindgen_bitfield_unit.set(0usize, 1u8, {
+            let tx_start: u32 = unsafe { ::core::mem::transmute(tx_start) };
+            tx_start as u64
+        });
+        __bindgen_bitfield_unit.set(1usize, 1u8, {
+            let rx_en: u32 = unsafe { ::core::mem::transmute(rx_en) };
+            rx_en as u64
+        });
+        __bindgen_bitfield_unit.set(2usize, 1u8, {
+            let mem_wr_rst: u32 = unsafe { ::core::mem::transmute(mem_wr_rst) };
+            mem_wr_rst as u64
+        });
+        __bindgen_bitfield_unit.set(3usize, 1u8, {
+            let mem_rd_rst: u32 = unsafe { ::core::mem::transmute(mem_rd_rst) };
+            mem_rd_rst as u64
+        });
+        __bindgen_bitfield_unit.set(4usize, 1u8, {
+            let apb_mem_rst: u32 = unsafe { ::core::mem::transmute(apb_mem_rst) };
+            apb_mem_rst as u64
+        });
+        __bindgen_bitfield_unit.set(5usize, 1u8, {
+            let mem_owner: u32 = unsafe { ::core::mem::transmute(mem_owner) };
+            mem_owner as u64
+        });
+        __bindgen_bitfield_unit.set(6usize, 1u8, {
+            let tx_conti_mode: u32 = unsafe { ::core::mem::transmute(tx_conti_mode) };
+            tx_conti_mode as u64
+        });
+        __bindgen_bitfield_unit.set(7usize, 1u8, {
+            let rx_filter_en: u32 = unsafe { ::core::mem::transmute(rx_filter_en) };
+            rx_filter_en as u64
+        });
+        __bindgen_bitfield_unit.set(8usize, 8u8, {
+            let rx_filter_thres: u32 = unsafe { ::core::mem::transmute(rx_filter_thres) };
+            rx_filter_thres as u64
+        });
+        __bindgen_bitfield_unit.set(16usize, 1u8, {
+            let ref_cnt_rst: u32 = unsafe { ::core::mem::transmute(ref_cnt_rst) };
+            ref_cnt_rst as u64
+        });
+        __bindgen_bitfield_unit.set(17usize, 1u8, {
+            let ref_always_on: u32 = unsafe { ::core::mem::transmute(ref_always_on) };
+            ref_always_on as u64
+        });
+        __bindgen_bitfield_unit.set(18usize, 1u8, {
+            let idle_out_lv: u32 = unsafe { ::core::mem::transmute(idle_out_lv) };
+            idle_out_lv as u64
+        });
+        __bindgen_bitfield_unit.set(19usize, 1u8, {
+            let idle_out_en: u32 = unsafe { ::core::mem::transmute(idle_out_en) };
+            idle_out_en as u64
+        });
+        __bindgen_bitfield_unit.set(20usize, 12u8, {
+            let reserved20: u32 = unsafe { ::core::mem::transmute(reserved20) };
+            reserved20 as u64
+        });
+        __bindgen_bitfield_unit
+    }
+}
+#[repr(C)]
+#[derive(Copy, Clone)]
+pub union _bindgen_ty_3__bindgen_ty_2 {
+    pub __bindgen_anon_1: _bindgen_ty_3__bindgen_ty_2__bindgen_ty_1,
+    pub val: u32,
+    _bindgen_union_align: u32,
+}
+#[repr(C)]
+#[repr(align(4))]
+#[derive(Debug, Copy, Clone)]
+pub struct _bindgen_ty_3__bindgen_ty_2__bindgen_ty_1 {
+    pub _bitfield_1: __BindgenBitfieldUnit<[u8; 4usize], u8>,
+}
+impl _bindgen_ty_3__bindgen_ty_2__bindgen_ty_1 {
+    #[inline]
+    pub fn ch0_tx_end(&self) -> u32 {
+        unsafe { ::core::mem::transmute(self._bitfield_1.get(0usize, 1u8) as u32) }
+    }
+    #[inline]
+    pub fn set_ch0_tx_end(&mut self, val: u32) {
+        unsafe {
+            let val: u32 = ::core::mem::transmute(val);
+            self._bitfield_1.set(0usize, 1u8, val as u64)
+        }
+    }
+    #[inline]
+    pub fn ch0_rx_end(&self) -> u32 {
+        unsafe { ::core::mem::transmute(self._bitfield_1.get(1usize, 1u8) as u32) }
+    }
+    #[inline]
+    pub fn set_ch0_rx_end(&mut self, val: u32) {
+        unsafe {
+            let val: u32 = ::core::mem::transmute(val);
+            self._bitfield_1.set(1usize, 1u8, val as u64)
+        }
+    }
+    #[inline]
+    pub fn ch0_err(&self) -> u32 {
+        unsafe { ::core::mem::transmute(self._bitfield_1.get(2usize, 1u8) as u32) }
+    }
+    #[inline]
+    pub fn set_ch0_err(&mut self, val: u32) {
+        unsafe {
+            let val: u32 = ::core::mem::transmute(val);
+            self._bitfield_1.set(2usize, 1u8, val as u64)
+        }
+    }
+    #[inline]
+    pub fn ch1_tx_end(&self) -> u32 {
+        unsafe { ::core::mem::transmute(self._bitfield_1.get(3usize, 1u8) as u32) }
+    }
+    #[inline]
+    pub fn set_ch1_tx_end(&mut self, val: u32) {
+        unsafe {
+            let val: u32 = ::core::mem::transmute(val);
+            self._bitfield_1.set(3usize, 1u8, val as u64)
+        }
+    }
+    #[inline]
+    pub fn ch1_rx_end(&self) -> u32 {
+        unsafe { ::core::mem::transmute(self._bitfield_1.get(4usize, 1u8) as u32) }
+    }
+    #[inline]
+    pub fn set_ch1_rx_end(&mut self, val: u32) {
+        unsafe {
+            let val: u32 = ::core::mem::transmute(val);
+            self._bitfield_1.set(4usize, 1u8, val as u64)
+        }
+    }
+    #[inline]
+    pub fn ch1_err(&self) -> u32 {
+        unsafe { ::core::mem::transmute(self._bitfield_1.get(5usize, 1u8) as u32) }
+    }
+    #[inline]
+    pub fn set_ch1_err(&mut self, val: u32) {
+        unsafe {
+            let val: u32 = ::core::mem::transmute(val);
+            self._bitfield_1.set(5usize, 1u8, val as u64)
+        }
+    }
+    #[inline]
+    pub fn ch2_tx_end(&self) -> u32 {
+        unsafe { ::core::mem::transmute(self._bitfield_1.get(6usize, 1u8) as u32) }
+    }
+    #[inline]
+    pub fn set_ch2_tx_end(&mut self, val: u32) {
+        unsafe {
+            let val: u32 = ::core::mem::transmute(val);
+            self._bitfield_1.set(6usize, 1u8, val as u64)
+        }
+    }
+    #[inline]
+    pub fn ch2_rx_end(&self) -> u32 {
+        unsafe { ::core::mem::transmute(self._bitfield_1.get(7usize, 1u8) as u32) }
+    }
+    #[inline]
+    pub fn set_ch2_rx_end(&mut self, val: u32) {
+        unsafe {
+            let val: u32 = ::core::mem::transmute(val);
+            self._bitfield_1.set(7usize, 1u8, val as u64)
+        }
+    }
+    #[inline]
+    pub fn ch2_err(&self) -> u32 {
+        unsafe { ::core::mem::transmute(self._bitfield_1.get(8usize, 1u8) as u32) }
+    }
+    #[inline]
+    pub fn set_ch2_err(&mut self, val: u32) {
+        unsafe {
+            let val: u32 = ::core::mem::transmute(val);
+            self._bitfield_1.set(8usize, 1u8, val as u64)
+        }
+    }
+    #[inline]
+    pub fn ch3_tx_end(&self) -> u32 {
+        unsafe { ::core::mem::transmute(self._bitfield_1.get(9usize, 1u8) as u32) }
+    }
+    #[inline]
+    pub fn set_ch3_tx_end(&mut self, val: u32) {
+        unsafe {
+            let val: u32 = ::core::mem::transmute(val);
+            self._bitfield_1.set(9usize, 1u8, val as u64)
+        }
+    }
+    #[inline]
+    pub fn ch3_rx_end(&self) -> u32 {
+        unsafe { ::core::mem::transmute(self._bitfield_1.get(10usize, 1u8) as u32) }
+    }
+    #[inline]
+    pub fn set_ch3_rx_end(&mut self, val: u32) {
+        unsafe {
+            let val: u32 = ::core::mem::transmute(val);
+            self._bitfield_1.set(10usize, 1u8, val as u64)
+        }
+    }
+    #[inline]
+    pub fn ch3_err(&self) -> u32 {
+        unsafe { ::core::mem::transmute(self._bitfield_1.get(11usize, 1u8) as u32) }
+    }
+    #[inline]
+    pub fn set_ch3_err(&mut self, val: u32) {
+        unsafe {
+            let val: u32 = ::core::mem::transmute(val);
+            self._bitfield_1.set(11usize, 1u8, val as u64)
+        }
+    }
+    #[inline]
+    pub fn ch4_tx_end(&self) -> u32 {
+        unsafe { ::core::mem::transmute(self._bitfield_1.get(12usize, 1u8) as u32) }
+    }
+    #[inline]
+    pub fn set_ch4_tx_end(&mut self, val: u32) {
+        unsafe {
+            let val: u32 = ::core::mem::transmute(val);
+            self._bitfield_1.set(12usize, 1u8, val as u64)
+        }
+    }
+    #[inline]
+    pub fn ch4_rx_end(&self) -> u32 {
+        unsafe { ::core::mem::transmute(self._bitfield_1.get(13usize, 1u8) as u32) }
+    }
+    #[inline]
+    pub fn set_ch4_rx_end(&mut self, val: u32) {
+        unsafe {
+            let val: u32 = ::core::mem::transmute(val);
+            self._bitfield_1.set(13usize, 1u8, val as u64)
+        }
+    }
+    #[inline]
+    pub fn ch4_err(&self) -> u32 {
+        unsafe { ::core::mem::transmute(self._bitfield_1.get(14usize, 1u8) as u32) }
+    }
+    #[inline]
+    pub fn set_ch4_err(&mut self, val: u32) {
+        unsafe {
+            let val: u32 = ::core::mem::transmute(val);
+            self._bitfield_1.set(14usize, 1u8, val as u64)
+        }
+    }
+    #[inline]
+    pub fn ch5_tx_end(&self) -> u32 {
+        unsafe { ::core::mem::transmute(self._bitfield_1.get(15usize, 1u8) as u32) }
+    }
+    #[inline]
+    pub fn set_ch5_tx_end(&mut self, val: u32) {
+        unsafe {
+            let val: u32 = ::core::mem::transmute(val);
+            self._bitfield_1.set(15usize, 1u8, val as u64)
+        }
+    }
+    #[inline]
+    pub fn ch5_rx_end(&self) -> u32 {
+        unsafe { ::core::mem::transmute(self._bitfield_1.get(16usize, 1u8) as u32) }
+    }
+    #[inline]
+    pub fn set_ch5_rx_end(&mut self, val: u32) {
+        unsafe {
+            let val: u32 = ::core::mem::transmute(val);
+            self._bitfield_1.set(16usize, 1u8, val as u64)
+        }
+    }
+    #[inline]
+    pub fn ch5_err(&self) -> u32 {
+        unsafe { ::core::mem::transmute(self._bitfield_1.get(17usize, 1u8) as u32) }
+    }
+    #[inline]
+    pub fn set_ch5_err(&mut self, val: u32) {
+        unsafe {
+            let val: u32 = ::core::mem::transmute(val);
+            self._bitfield_1.set(17usize, 1u8, val as u64)
+        }
+    }
+    #[inline]
+    pub fn ch6_tx_end(&self) -> u32 {
+        unsafe { ::core::mem::transmute(self._bitfield_1.get(18usize, 1u8) as u32) }
+    }
+    #[inline]
+    pub fn set_ch6_tx_end(&mut self, val: u32) {
+        unsafe {
+            let val: u32 = ::core::mem::transmute(val);
+            self._bitfield_1.set(18usize, 1u8, val as u64)
+        }
+    }
+    #[inline]
+    pub fn ch6_rx_end(&self) -> u32 {
+        unsafe { ::core::mem::transmute(self._bitfield_1.get(19usize, 1u8) as u32) }
+    }
+    #[inline]
+    pub fn set_ch6_rx_end(&mut self, val: u32) {
+        unsafe {
+            let val: u32 = ::core::mem::transmute(val);
+            self._bitfield_1.set(19usize, 1u8, val as u64)
+        }
+    }
+    #[inline]
+    pub fn ch6_err(&self) -> u32 {
+        unsafe { ::core::mem::transmute(self._bitfield_1.get(20usize, 1u8) as u32) }
+    }
+    #[inline]
+    pub fn set_ch6_err(&mut self, val: u32) {
+        unsafe {
+            let val: u32 = ::core::mem::transmute(val);
+            self._bitfield_1.set(20usize, 1u8, val as u64)
+        }
+    }
+    #[inline]
+    pub fn ch7_tx_end(&self) -> u32 {
+        unsafe { ::core::mem::transmute(self._bitfield_1.get(21usize, 1u8) as u32) }
+    }
+    #[inline]
+    pub fn set_ch7_tx_end(&mut self, val: u32) {
+        unsafe {
+            let val: u32 = ::core::mem::transmute(val);
+            self._bitfield_1.set(21usize, 1u8, val as u64)
+        }
+    }
+    #[inline]
+    pub fn ch7_rx_end(&self) -> u32 {
+        unsafe { ::core::mem::transmute(self._bitfield_1.get(22usize, 1u8) as u32) }
+    }
+    #[inline]
+    pub fn set_ch7_rx_end(&mut self, val: u32) {
+        unsafe {
+            let val: u32 = ::core::mem::transmute(val);
+            self._bitfield_1.set(22usize, 1u8, val as u64)
+        }
+    }
+    #[inline]
+    pub fn ch7_err(&self) -> u32 {
+        unsafe { ::core::mem::transmute(self._bitfield_1.get(23usize, 1u8) as u32) }
+    }
+    #[inline]
+    pub fn set_ch7_err(&mut self, val: u32) {
+        unsafe {
+            let val: u32 = ::core::mem::transmute(val);
+            self._bitfield_1.set(23usize, 1u8, val as u64)
+        }
+    }
+    #[inline]
+    pub fn ch0_tx_thr_event(&self) -> u32 {
+        unsafe { ::core::mem::transmute(self._bitfield_1.get(24usize, 1u8) as u32) }
+    }
+    #[inline]
+    pub fn set_ch0_tx_thr_event(&mut self, val: u32) {
+        unsafe {
+            let val: u32 = ::core::mem::transmute(val);
+            self._bitfield_1.set(24usize, 1u8, val as u64)
+        }
+    }
+    #[inline]
+    pub fn ch1_tx_thr_event(&self) -> u32 {
+        unsafe { ::core::mem::transmute(self._bitfield_1.get(25usize, 1u8) as u32) }
+    }
+    #[inline]
+    pub fn set_ch1_tx_thr_event(&mut self, val: u32) {
+        unsafe {
+            let val: u32 = ::core::mem::transmute(val);
+            self._bitfield_1.set(25usize, 1u8, val as u64)
+        }
+    }
+    #[inline]
+    pub fn ch2_tx_thr_event(&self) -> u32 {
+        unsafe { ::core::mem::transmute(self._bitfield_1.get(26usize, 1u8) as u32) }
+    }
+    #[inline]
+    pub fn set_ch2_tx_thr_event(&mut self, val: u32) {
+        unsafe {
+            let val: u32 = ::core::mem::transmute(val);
+            self._bitfield_1.set(26usize, 1u8, val as u64)
+        }
+    }
+    #[inline]
+    pub fn ch3_tx_thr_event(&self) -> u32 {
+        unsafe { ::core::mem::transmute(self._bitfield_1.get(27usize, 1u8) as u32) }
+    }
+    #[inline]
+    pub fn set_ch3_tx_thr_event(&mut self, val: u32) {
+        unsafe {
+            let val: u32 = ::core::mem::transmute(val);
+            self._bitfield_1.set(27usize, 1u8, val as u64)
+        }
+    }
+    #[inline]
+    pub fn ch4_tx_thr_event(&self) -> u32 {
+        unsafe { ::core::mem::transmute(self._bitfield_1.get(28usize, 1u8) as u32) }
+    }
+    #[inline]
+    pub fn set_ch4_tx_thr_event(&mut self, val: u32) {
+        unsafe {
+            let val: u32 = ::core::mem::transmute(val);
+            self._bitfield_1.set(28usize, 1u8, val as u64)
+        }
+    }
+    #[inline]
+    pub fn ch5_tx_thr_event(&self) -> u32 {
+        unsafe { ::core::mem::transmute(self._bitfield_1.get(29usize, 1u8) as u32) }
+    }
+    #[inline]
+    pub fn set_ch5_tx_thr_event(&mut self, val: u32) {
+        unsafe {
+            let val: u32 = ::core::mem::transmute(val);
+            self._bitfield_1.set(29usize, 1u8, val as u64)
+        }
+    }
+    #[inline]
+    pub fn ch6_tx_thr_event(&self) -> u32 {
+        unsafe { ::core::mem::transmute(self._bitfield_1.get(30usize, 1u8) as u32) }
+    }
+    #[inline]
+    pub fn set_ch6_tx_thr_event(&mut self, val: u32) {
+        unsafe {
+            let val: u32 = ::core::mem::transmute(val);
+            self._bitfield_1.set(30usize, 1u8, val as u64)
+        }
+    }
+    #[inline]
+    pub fn ch7_tx_thr_event(&self) -> u32 {
+        unsafe { ::core::mem::transmute(self._bitfield_1.get(31usize, 1u8) as u32) }
+    }
+    #[inline]
+    pub fn set_ch7_tx_thr_event(&mut self, val: u32) {
+        unsafe {
+            let val: u32 = ::core::mem::transmute(val);
+            self._bitfield_1.set(31usize, 1u8, val as u64)
+        }
+    }
+    #[inline]
+    pub fn new_bitfield_1(
+        ch0_tx_end: u32,
+        ch0_rx_end: u32,
+        ch0_err: u32,
+        ch1_tx_end: u32,
+        ch1_rx_end: u32,
+        ch1_err: u32,
+        ch2_tx_end: u32,
+        ch2_rx_end: u32,
+        ch2_err: u32,
+        ch3_tx_end: u32,
+        ch3_rx_end: u32,
+        ch3_err: u32,
+        ch4_tx_end: u32,
+        ch4_rx_end: u32,
+        ch4_err: u32,
+        ch5_tx_end: u32,
+        ch5_rx_end: u32,
+        ch5_err: u32,
+        ch6_tx_end: u32,
+        ch6_rx_end: u32,
+        ch6_err: u32,
+        ch7_tx_end: u32,
+        ch7_rx_end: u32,
+        ch7_err: u32,
+        ch0_tx_thr_event: u32,
+        ch1_tx_thr_event: u32,
+        ch2_tx_thr_event: u32,
+        ch3_tx_thr_event: u32,
+        ch4_tx_thr_event: u32,
+        ch5_tx_thr_event: u32,
+        ch6_tx_thr_event: u32,
+        ch7_tx_thr_event: u32,
+    ) -> __BindgenBitfieldUnit<[u8; 4usize], u8> {
+        let mut __bindgen_bitfield_unit: __BindgenBitfieldUnit<[u8; 4usize], u8> =
+            Default::default();
+        __bindgen_bitfield_unit.set(0usize, 1u8, {
+            let ch0_tx_end: u32 = unsafe { ::core::mem::transmute(ch0_tx_end) };
+            ch0_tx_end as u64
+        });
+        __bindgen_bitfield_unit.set(1usize, 1u8, {
+            let ch0_rx_end: u32 = unsafe { ::core::mem::transmute(ch0_rx_end) };
+            ch0_rx_end as u64
+        });
+        __bindgen_bitfield_unit.set(2usize, 1u8, {
+            let ch0_err: u32 = unsafe { ::core::mem::transmute(ch0_err) };
+            ch0_err as u64
+        });
+        __bindgen_bitfield_unit.set(3usize, 1u8, {
+            let ch1_tx_end: u32 = unsafe { ::core::mem::transmute(ch1_tx_end) };
+            ch1_tx_end as u64
+        });
+        __bindgen_bitfield_unit.set(4usize, 1u8, {
+            let ch1_rx_end: u32 = unsafe { ::core::mem::transmute(ch1_rx_end) };
+            ch1_rx_end as u64
+        });
+        __bindgen_bitfield_unit.set(5usize, 1u8, {
+            let ch1_err: u32 = unsafe { ::core::mem::transmute(ch1_err) };
+            ch1_err as u64
+        });
+        __bindgen_bitfield_unit.set(6usize, 1u8, {
+            let ch2_tx_end: u32 = unsafe { ::core::mem::transmute(ch2_tx_end) };
+            ch2_tx_end as u64
+        });
+        __bindgen_bitfield_unit.set(7usize, 1u8, {
+            let ch2_rx_end: u32 = unsafe { ::core::mem::transmute(ch2_rx_end) };
+            ch2_rx_end as u64
+        });
+        __bindgen_bitfield_unit.set(8usize, 1u8, {
+            let ch2_err: u32 = unsafe { ::core::mem::transmute(ch2_err) };
+            ch2_err as u64
+        });
+        __bindgen_bitfield_unit.set(9usize, 1u8, {
+            let ch3_tx_end: u32 = unsafe { ::core::mem::transmute(ch3_tx_end) };
+            ch3_tx_end as u64
+        });
+        __bindgen_bitfield_unit.set(10usize, 1u8, {
+            let ch3_rx_end: u32 = unsafe { ::core::mem::transmute(ch3_rx_end) };
+            ch3_rx_end as u64
+        });
+        __bindgen_bitfield_unit.set(11usize, 1u8, {
+            let ch3_err: u32 = unsafe { ::core::mem::transmute(ch3_err) };
+            ch3_err as u64
+        });
+        __bindgen_bitfield_unit.set(12usize, 1u8, {
+            let ch4_tx_end: u32 = unsafe { ::core::mem::transmute(ch4_tx_end) };
+            ch4_tx_end as u64
+        });
+        __bindgen_bitfield_unit.set(13usize, 1u8, {
+            let ch4_rx_end: u32 = unsafe { ::core::mem::transmute(ch4_rx_end) };
+            ch4_rx_end as u64
+        });
+        __bindgen_bitfield_unit.set(14usize, 1u8, {
+            let ch4_err: u32 = unsafe { ::core::mem::transmute(ch4_err) };
+            ch4_err as u64
+        });
+        __bindgen_bitfield_unit.set(15usize, 1u8, {
+            let ch5_tx_end: u32 = unsafe { ::core::mem::transmute(ch5_tx_end) };
+            ch5_tx_end as u64
+        });
+        __bindgen_bitfield_unit.set(16usize, 1u8, {
+            let ch5_rx_end: u32 = unsafe { ::core::mem::transmute(ch5_rx_end) };
+            ch5_rx_end as u64
+        });
+        __bindgen_bitfield_unit.set(17usize, 1u8, {
+            let ch5_err: u32 = unsafe { ::core::mem::transmute(ch5_err) };
+            ch5_err as u64
+        });
+        __bindgen_bitfield_unit.set(18usize, 1u8, {
+            let ch6_tx_end: u32 = unsafe { ::core::mem::transmute(ch6_tx_end) };
+            ch6_tx_end as u64
+        });
+        __bindgen_bitfield_unit.set(19usize, 1u8, {
+            let ch6_rx_end: u32 = unsafe { ::core::mem::transmute(ch6_rx_end) };
+            ch6_rx_end as u64
+        });
+        __bindgen_bitfield_unit.set(20usize, 1u8, {
+            let ch6_err: u32 = unsafe { ::core::mem::transmute(ch6_err) };
+            ch6_err as u64
+        });
+        __bindgen_bitfield_unit.set(21usize, 1u8, {
+            let ch7_tx_end: u32 = unsafe { ::core::mem::transmute(ch7_tx_end) };
+            ch7_tx_end as u64
+        });
+        __bindgen_bitfield_unit.set(22usize, 1u8, {
+            let ch7_rx_end: u32 = unsafe { ::core::mem::transmute(ch7_rx_end) };
+            ch7_rx_end as u64
+        });
+        __bindgen_bitfield_unit.set(23usize, 1u8, {
+            let ch7_err: u32 = unsafe { ::core::mem::transmute(ch7_err) };
+            ch7_err as u64
+        });
+        __bindgen_bitfield_unit.set(24usize, 1u8, {
+            let ch0_tx_thr_event: u32 = unsafe { ::core::mem::transmute(ch0_tx_thr_event) };
+            ch0_tx_thr_event as u64
+        });
+        __bindgen_bitfield_unit.set(25usize, 1u8, {
+            let ch1_tx_thr_event: u32 = unsafe { ::core::mem::transmute(ch1_tx_thr_event) };
+            ch1_tx_thr_event as u64
+        });
+        __bindgen_bitfield_unit.set(26usize, 1u8, {
+            let ch2_tx_thr_event: u32 = unsafe { ::core::mem::transmute(ch2_tx_thr_event) };
+            ch2_tx_thr_event as u64
+        });
+        __bindgen_bitfield_unit.set(27usize, 1u8, {
+            let ch3_tx_thr_event: u32 = unsafe { ::core::mem::transmute(ch3_tx_thr_event) };
+            ch3_tx_thr_event as u64
+        });
+        __bindgen_bitfield_unit.set(28usize, 1u8, {
+            let ch4_tx_thr_event: u32 = unsafe { ::core::mem::transmute(ch4_tx_thr_event) };
+            ch4_tx_thr_event as u64
+        });
+        __bindgen_bitfield_unit.set(29usize, 1u8, {
+            let ch5_tx_thr_event: u32 = unsafe { ::core::mem::transmute(ch5_tx_thr_event) };
+            ch5_tx_thr_event as u64
+        });
+        __bindgen_bitfield_unit.set(30usize, 1u8, {
+            let ch6_tx_thr_event: u32 = unsafe { ::core::mem::transmute(ch6_tx_thr_event) };
+            ch6_tx_thr_event as u64
+        });
+        __bindgen_bitfield_unit.set(31usize, 1u8, {
+            let ch7_tx_thr_event: u32 = unsafe { ::core::mem::transmute(ch7_tx_thr_event) };
+            ch7_tx_thr_event as u64
+        });
+        __bindgen_bitfield_unit
+    }
+}
+#[repr(C)]
+#[derive(Copy, Clone)]
+pub union _bindgen_ty_3__bindgen_ty_3 {
+    pub __bindgen_anon_1: _bindgen_ty_3__bindgen_ty_3__bindgen_ty_1,
+    pub val: u32,
+    _bindgen_union_align: u32,
+}
+#[repr(C)]
+#[repr(align(4))]
+#[derive(Debug, Copy, Clone)]
+pub struct _bindgen_ty_3__bindgen_ty_3__bindgen_ty_1 {
+    pub _bitfield_1: __BindgenBitfieldUnit<[u8; 4usize], u8>,
+}
+impl _bindgen_ty_3__bindgen_ty_3__bindgen_ty_1 {
+    #[inline]
+    pub fn ch0_tx_end(&self) -> u32 {
+        unsafe { ::core::mem::transmute(self._bitfield_1.get(0usize, 1u8) as u32) }
+    }
+    #[inline]
+    pub fn set_ch0_tx_end(&mut self, val: u32) {
+        unsafe {
+            let val: u32 = ::core::mem::transmute(val);
+            self._bitfield_1.set(0usize, 1u8, val as u64)
+        }
+    }
+    #[inline]
+    pub fn ch0_rx_end(&self) -> u32 {
+        unsafe { ::core::mem::transmute(self._bitfield_1.get(1usize, 1u8) as u32) }
+    }
+    #[inline]
+    pub fn set_ch0_rx_end(&mut self, val: u32) {
+        unsafe {
+            let val: u32 = ::core::mem::transmute(val);
+            self._bitfield_1.set(1usize, 1u8, val as u64)
+        }
+    }
+    #[inline]
+    pub fn ch0_err(&self) -> u32 {
+        unsafe { ::core::mem::transmute(self._bitfield_1.get(2usize, 1u8) as u32) }
+    }
+    #[inline]
+    pub fn set_ch0_err(&mut self, val: u32) {
+        unsafe {
+            let val: u32 = ::core::mem::transmute(val);
+            self._bitfield_1.set(2usize, 1u8, val as u64)
+        }
+    }
+    #[inline]
+    pub fn ch1_tx_end(&self) -> u32 {
+        unsafe { ::core::mem::transmute(self._bitfield_1.get(3usize, 1u8) as u32) }
+    }
+    #[inline]
+    pub fn set_ch1_tx_end(&mut self, val: u32) {
+        unsafe {
+            let val: u32 = ::core::mem::transmute(val);
+            self._bitfield_1.set(3usize, 1u8, val as u64)
+        }
+    }
+    #[inline]
+    pub fn ch1_rx_end(&self) -> u32 {
+        unsafe { ::core::mem::transmute(self._bitfield_1.get(4usize, 1u8) as u32) }
+    }
+    #[inline]
+    pub fn set_ch1_rx_end(&mut self, val: u32) {
+        unsafe {
+            let val: u32 = ::core::mem::transmute(val);
+            self._bitfield_1.set(4usize, 1u8, val as u64)
+        }
+    }
+    #[inline]
+    pub fn ch1_err(&self) -> u32 {
+        unsafe { ::core::mem::transmute(self._bitfield_1.get(5usize, 1u8) as u32) }
+    }
+    #[inline]
+    pub fn set_ch1_err(&mut self, val: u32) {
+        unsafe {
+            let val: u32 = ::core::mem::transmute(val);
+            self._bitfield_1.set(5usize, 1u8, val as u64)
+        }
+    }
+    #[inline]
+    pub fn ch2_tx_end(&self) -> u32 {
+        unsafe { ::core::mem::transmute(self._bitfield_1.get(6usize, 1u8) as u32) }
+    }
+    #[inline]
+    pub fn set_ch2_tx_end(&mut self, val: u32) {
+        unsafe {
+            let val: u32 = ::core::mem::transmute(val);
+            self._bitfield_1.set(6usize, 1u8, val as u64)
+        }
+    }
+    #[inline]
+    pub fn ch2_rx_end(&self) -> u32 {
+        unsafe { ::core::mem::transmute(self._bitfield_1.get(7usize, 1u8) as u32) }
+    }
+    #[inline]
+    pub fn set_ch2_rx_end(&mut self, val: u32) {
+        unsafe {
+            let val: u32 = ::core::mem::transmute(val);
+            self._bitfield_1.set(7usize, 1u8, val as u64)
+        }
+    }
+    #[inline]
+    pub fn ch2_err(&self) -> u32 {
+        unsafe { ::core::mem::transmute(self._bitfield_1.get(8usize, 1u8) as u32) }
+    }
+    #[inline]
+    pub fn set_ch2_err(&mut self, val: u32) {
+        unsafe {
+            let val: u32 = ::core::mem::transmute(val);
+            self._bitfield_1.set(8usize, 1u8, val as u64)
+        }
+    }
+    #[inline]
+    pub fn ch3_tx_end(&self) -> u32 {
+        unsafe { ::core::mem::transmute(self._bitfield_1.get(9usize, 1u8) as u32) }
+    }
+    #[inline]
+    pub fn set_ch3_tx_end(&mut self, val: u32) {
+        unsafe {
+            let val: u32 = ::core::mem::transmute(val);
+            self._bitfield_1.set(9usize, 1u8, val as u64)
+        }
+    }
+    #[inline]
+    pub fn ch3_rx_end(&self) -> u32 {
+        unsafe { ::core::mem::transmute(self._bitfield_1.get(10usize, 1u8) as u32) }
+    }
+    #[inline]
+    pub fn set_ch3_rx_end(&mut self, val: u32) {
+        unsafe {
+            let val: u32 = ::core::mem::transmute(val);
+            self._bitfield_1.set(10usize, 1u8, val as u64)
+        }
+    }
+    #[inline]
+    pub fn ch3_err(&self) -> u32 {
+        unsafe { ::core::mem::transmute(self._bitfield_1.get(11usize, 1u8) as u32) }
+    }
+    #[inline]
+    pub fn set_ch3_err(&mut self, val: u32) {
+        unsafe {
+            let val: u32 = ::core::mem::transmute(val);
+            self._bitfield_1.set(11usize, 1u8, val as u64)
+        }
+    }
+    #[inline]
+    pub fn ch4_tx_end(&self) -> u32 {
+        unsafe { ::core::mem::transmute(self._bitfield_1.get(12usize, 1u8) as u32) }
+    }
+    #[inline]
+    pub fn set_ch4_tx_end(&mut self, val: u32) {
+        unsafe {
+            let val: u32 = ::core::mem::transmute(val);
+            self._bitfield_1.set(12usize, 1u8, val as u64)
+        }
+    }
+    #[inline]
+    pub fn ch4_rx_end(&self) -> u32 {
+        unsafe { ::core::mem::transmute(self._bitfield_1.get(13usize, 1u8) as u32) }
+    }
+    #[inline]
+    pub fn set_ch4_rx_end(&mut self, val: u32) {
+        unsafe {
+            let val: u32 = ::core::mem::transmute(val);
+            self._bitfield_1.set(13usize, 1u8, val as u64)
+        }
+    }
+    #[inline]
+    pub fn ch4_err(&self) -> u32 {
+        unsafe { ::core::mem::transmute(self._bitfield_1.get(14usize, 1u8) as u32) }
+    }
+    #[inline]
+    pub fn set_ch4_err(&mut self, val: u32) {
+        unsafe {
+            let val: u32 = ::core::mem::transmute(val);
+            self._bitfield_1.set(14usize, 1u8, val as u64)
+        }
+    }
+    #[inline]
+    pub fn ch5_tx_end(&self) -> u32 {
+        unsafe { ::core::mem::transmute(self._bitfield_1.get(15usize, 1u8) as u32) }
+    }
+    #[inline]
+    pub fn set_ch5_tx_end(&mut self, val: u32) {
+        unsafe {
+            let val: u32 = ::core::mem::transmute(val);
+            self._bitfield_1.set(15usize, 1u8, val as u64)
+        }
+    }
+    #[inline]
+    pub fn ch5_rx_end(&self) -> u32 {
+        unsafe { ::core::mem::transmute(self._bitfield_1.get(16usize, 1u8) as u32) }
+    }
+    #[inline]
+    pub fn set_ch5_rx_end(&mut self, val: u32) {
+        unsafe {
+            let val: u32 = ::core::mem::transmute(val);
+            self._bitfield_1.set(16usize, 1u8, val as u64)
+        }
+    }
+    #[inline]
+    pub fn ch5_err(&self) -> u32 {
+        unsafe { ::core::mem::transmute(self._bitfield_1.get(17usize, 1u8) as u32) }
+    }
+    #[inline]
+    pub fn set_ch5_err(&mut self, val: u32) {
+        unsafe {
+            let val: u32 = ::core::mem::transmute(val);
+            self._bitfield_1.set(17usize, 1u8, val as u64)
+        }
+    }
+    #[inline]
+    pub fn ch6_tx_end(&self) -> u32 {
+        unsafe { ::core::mem::transmute(self._bitfield_1.get(18usize, 1u8) as u32) }
+    }
+    #[inline]
+    pub fn set_ch6_tx_end(&mut self, val: u32) {
+        unsafe {
+            let val: u32 = ::core::mem::transmute(val);
+            self._bitfield_1.set(18usize, 1u8, val as u64)
+        }
+    }
+    #[inline]
+    pub fn ch6_rx_end(&self) -> u32 {
+        unsafe { ::core::mem::transmute(self._bitfield_1.get(19usize, 1u8) as u32) }
+    }
+    #[inline]
+    pub fn set_ch6_rx_end(&mut self, val: u32) {
+        unsafe {
+            let val: u32 = ::core::mem::transmute(val);
+            self._bitfield_1.set(19usize, 1u8, val as u64)
+        }
+    }
+    #[inline]
+    pub fn ch6_err(&self) -> u32 {
+        unsafe { ::core::mem::transmute(self._bitfield_1.get(20usize, 1u8) as u32) }
+    }
+    #[inline]
+    pub fn set_ch6_err(&mut self, val: u32) {
+        unsafe {
+            let val: u32 = ::core::mem::transmute(val);
+            self._bitfield_1.set(20usize, 1u8, val as u64)
+        }
+    }
+    #[inline]
+    pub fn ch7_tx_end(&self) -> u32 {
+        unsafe { ::core::mem::transmute(self._bitfield_1.get(21usize, 1u8) as u32) }
+    }
+    #[inline]
+    pub fn set_ch7_tx_end(&mut self, val: u32) {
+        unsafe {
+            let val: u32 = ::core::mem::transmute(val);
+            self._bitfield_1.set(21usize, 1u8, val as u64)
+        }
+    }
+    #[inline]
+    pub fn ch7_rx_end(&self) -> u32 {
+        unsafe { ::core::mem::transmute(self._bitfield_1.get(22usize, 1u8) as u32) }
+    }
+    #[inline]
+    pub fn set_ch7_rx_end(&mut self, val: u32) {
+        unsafe {
+            let val: u32 = ::core::mem::transmute(val);
+            self._bitfield_1.set(22usize, 1u8, val as u64)
+        }
+    }
+    #[inline]
+    pub fn ch7_err(&self) -> u32 {
+        unsafe { ::core::mem::transmute(self._bitfield_1.get(23usize, 1u8) as u32) }
+    }
+    #[inline]
+    pub fn set_ch7_err(&mut self, val: u32) {
+        unsafe {
+            let val: u32 = ::core::mem::transmute(val);
+            self._bitfield_1.set(23usize, 1u8, val as u64)
+        }
+    }
+    #[inline]
+    pub fn ch0_tx_thr_event(&self) -> u32 {
+        unsafe { ::core::mem::transmute(self._bitfield_1.get(24usize, 1u8) as u32) }
+    }
+    #[inline]
+    pub fn set_ch0_tx_thr_event(&mut self, val: u32) {
+        unsafe {
+            let val: u32 = ::core::mem::transmute(val);
+            self._bitfield_1.set(24usize, 1u8, val as u64)
+        }
+    }
+    #[inline]
+    pub fn ch1_tx_thr_event(&self) -> u32 {
+        unsafe { ::core::mem::transmute(self._bitfield_1.get(25usize, 1u8) as u32) }
+    }
+    #[inline]
+    pub fn set_ch1_tx_thr_event(&mut self, val: u32) {
+        unsafe {
+            let val: u32 = ::core::mem::transmute(val);
+            self._bitfield_1.set(25usize, 1u8, val as u64)
+        }
+    }
+    #[inline]
+    pub fn ch2_tx_thr_event(&self) -> u32 {
+        unsafe { ::core::mem::transmute(self._bitfield_1.get(26usize, 1u8) as u32) }
+    }
+    #[inline]
+    pub fn set_ch2_tx_thr_event(&mut self, val: u32) {
+        unsafe {
+            let val: u32 = ::core::mem::transmute(val);
+            self._bitfield_1.set(26usize, 1u8, val as u64)
+        }
+    }
+    #[inline]
+    pub fn ch3_tx_thr_event(&self) -> u32 {
+        unsafe { ::core::mem::transmute(self._bitfield_1.get(27usize, 1u8) as u32) }
+    }
+    #[inline]
+    pub fn set_ch3_tx_thr_event(&mut self, val: u32) {
+        unsafe {
+            let val: u32 = ::core::mem::transmute(val);
+            self._bitfield_1.set(27usize, 1u8, val as u64)
+        }
+    }
+    #[inline]
+    pub fn ch4_tx_thr_event(&self) -> u32 {
+        unsafe { ::core::mem::transmute(self._bitfield_1.get(28usize, 1u8) as u32) }
+    }
+    #[inline]
+    pub fn set_ch4_tx_thr_event(&mut self, val: u32) {
+        unsafe {
+            let val: u32 = ::core::mem::transmute(val);
+            self._bitfield_1.set(28usize, 1u8, val as u64)
+        }
+    }
+    #[inline]
+    pub fn ch5_tx_thr_event(&self) -> u32 {
+        unsafe { ::core::mem::transmute(self._bitfield_1.get(29usize, 1u8) as u32) }
+    }
+    #[inline]
+    pub fn set_ch5_tx_thr_event(&mut self, val: u32) {
+        unsafe {
+            let val: u32 = ::core::mem::transmute(val);
+            self._bitfield_1.set(29usize, 1u8, val as u64)
+        }
+    }
+    #[inline]
+    pub fn ch6_tx_thr_event(&self) -> u32 {
+        unsafe { ::core::mem::transmute(self._bitfield_1.get(30usize, 1u8) as u32) }
+    }
+    #[inline]
+    pub fn set_ch6_tx_thr_event(&mut self, val: u32) {
+        unsafe {
+            let val: u32 = ::core::mem::transmute(val);
+            self._bitfield_1.set(30usize, 1u8, val as u64)
+        }
+    }
+    #[inline]
+    pub fn ch7_tx_thr_event(&self) -> u32 {
+        unsafe { ::core::mem::transmute(self._bitfield_1.get(31usize, 1u8) as u32) }
+    }
+    #[inline]
+    pub fn set_ch7_tx_thr_event(&mut self, val: u32) {
+        unsafe {
+            let val: u32 = ::core::mem::transmute(val);
+            self._bitfield_1.set(31usize, 1u8, val as u64)
+        }
+    }
+    #[inline]
+    pub fn new_bitfield_1(
+        ch0_tx_end: u32,
+        ch0_rx_end: u32,
+        ch0_err: u32,
+        ch1_tx_end: u32,
+        ch1_rx_end: u32,
+        ch1_err: u32,
+        ch2_tx_end: u32,
+        ch2_rx_end: u32,
+        ch2_err: u32,
+        ch3_tx_end: u32,
+        ch3_rx_end: u32,
+        ch3_err: u32,
+        ch4_tx_end: u32,
+        ch4_rx_end: u32,
+        ch4_err: u32,
+        ch5_tx_end: u32,
+        ch5_rx_end: u32,
+        ch5_err: u32,
+        ch6_tx_end: u32,
+        ch6_rx_end: u32,
+        ch6_err: u32,
+        ch7_tx_end: u32,
+        ch7_rx_end: u32,
+        ch7_err: u32,
+        ch0_tx_thr_event: u32,
+        ch1_tx_thr_event: u32,
+        ch2_tx_thr_event: u32,
+        ch3_tx_thr_event: u32,
+        ch4_tx_thr_event: u32,
+        ch5_tx_thr_event: u32,
+        ch6_tx_thr_event: u32,
+        ch7_tx_thr_event: u32,
+    ) -> __BindgenBitfieldUnit<[u8; 4usize], u8> {
+        let mut __bindgen_bitfield_unit: __BindgenBitfieldUnit<[u8; 4usize], u8> =
+            Default::default();
+        __bindgen_bitfield_unit.set(0usize, 1u8, {
+            let ch0_tx_end: u32 = unsafe { ::core::mem::transmute(ch0_tx_end) };
+            ch0_tx_end as u64
+        });
+        __bindgen_bitfield_unit.set(1usize, 1u8, {
+            let ch0_rx_end: u32 = unsafe { ::core::mem::transmute(ch0_rx_end) };
+            ch0_rx_end as u64
+        });
+        __bindgen_bitfield_unit.set(2usize, 1u8, {
+            let ch0_err: u32 = unsafe { ::core::mem::transmute(ch0_err) };
+            ch0_err as u64
+        });
+        __bindgen_bitfield_unit.set(3usize, 1u8, {
+            let ch1_tx_end: u32 = unsafe { ::core::mem::transmute(ch1_tx_end) };
+            ch1_tx_end as u64
+        });
+        __bindgen_bitfield_unit.set(4usize, 1u8, {
+            let ch1_rx_end: u32 = unsafe { ::core::mem::transmute(ch1_rx_end) };
+            ch1_rx_end as u64
+        });
+        __bindgen_bitfield_unit.set(5usize, 1u8, {
+            let ch1_err: u32 = unsafe { ::core::mem::transmute(ch1_err) };
+            ch1_err as u64
+        });
+        __bindgen_bitfield_unit.set(6usize, 1u8, {
+            let ch2_tx_end: u32 = unsafe { ::core::mem::transmute(ch2_tx_end) };
+            ch2_tx_end as u64
+        });
+        __bindgen_bitfield_unit.set(7usize, 1u8, {
+            let ch2_rx_end: u32 = unsafe { ::core::mem::transmute(ch2_rx_end) };
+            ch2_rx_end as u64
+        });
+        __bindgen_bitfield_unit.set(8usize, 1u8, {
+            let ch2_err: u32 = unsafe { ::core::mem::transmute(ch2_err) };
+            ch2_err as u64
+        });
+        __bindgen_bitfield_unit.set(9usize, 1u8, {
+            let ch3_tx_end: u32 = unsafe { ::core::mem::transmute(ch3_tx_end) };
+            ch3_tx_end as u64
+        });
+        __bindgen_bitfield_unit.set(10usize, 1u8, {
+            let ch3_rx_end: u32 = unsafe { ::core::mem::transmute(ch3_rx_end) };
+            ch3_rx_end as u64
+        });
+        __bindgen_bitfield_unit.set(11usize, 1u8, {
+            let ch3_err: u32 = unsafe { ::core::mem::transmute(ch3_err) };
+            ch3_err as u64
+        });
+        __bindgen_bitfield_unit.set(12usize, 1u8, {
+            let ch4_tx_end: u32 = unsafe { ::core::mem::transmute(ch4_tx_end) };
+            ch4_tx_end as u64
+        });
+        __bindgen_bitfield_unit.set(13usize, 1u8, {
+            let ch4_rx_end: u32 = unsafe { ::core::mem::transmute(ch4_rx_end) };
+            ch4_rx_end as u64
+        });
+        __bindgen_bitfield_unit.set(14usize, 1u8, {
+            let ch4_err: u32 = unsafe { ::core::mem::transmute(ch4_err) };
+            ch4_err as u64
+        });
+        __bindgen_bitfield_unit.set(15usize, 1u8, {
+            let ch5_tx_end: u32 = unsafe { ::core::mem::transmute(ch5_tx_end) };
+            ch5_tx_end as u64
+        });
+        __bindgen_bitfield_unit.set(16usize, 1u8, {
+            let ch5_rx_end: u32 = unsafe { ::core::mem::transmute(ch5_rx_end) };
+            ch5_rx_end as u64
+        });
+        __bindgen_bitfield_unit.set(17usize, 1u8, {
+            let ch5_err: u32 = unsafe { ::core::mem::transmute(ch5_err) };
+            ch5_err as u64
+        });
+        __bindgen_bitfield_unit.set(18usize, 1u8, {
+            let ch6_tx_end: u32 = unsafe { ::core::mem::transmute(ch6_tx_end) };
+            ch6_tx_end as u64
+        });
+        __bindgen_bitfield_unit.set(19usize, 1u8, {
+            let ch6_rx_end: u32 = unsafe { ::core::mem::transmute(ch6_rx_end) };
+            ch6_rx_end as u64
+        });
+        __bindgen_bitfield_unit.set(20usize, 1u8, {
+            let ch6_err: u32 = unsafe { ::core::mem::transmute(ch6_err) };
+            ch6_err as u64
+        });
+        __bindgen_bitfield_unit.set(21usize, 1u8, {
+            let ch7_tx_end: u32 = unsafe { ::core::mem::transmute(ch7_tx_end) };
+            ch7_tx_end as u64
+        });
+        __bindgen_bitfield_unit.set(22usize, 1u8, {
+            let ch7_rx_end: u32 = unsafe { ::core::mem::transmute(ch7_rx_end) };
+            ch7_rx_end as u64
+        });
+        __bindgen_bitfield_unit.set(23usize, 1u8, {
+            let ch7_err: u32 = unsafe { ::core::mem::transmute(ch7_err) };
+            ch7_err as u64
+        });
+        __bindgen_bitfield_unit.set(24usize, 1u8, {
+            let ch0_tx_thr_event: u32 = unsafe { ::core::mem::transmute(ch0_tx_thr_event) };
+            ch0_tx_thr_event as u64
+        });
+        __bindgen_bitfield_unit.set(25usize, 1u8, {
+            let ch1_tx_thr_event: u32 = unsafe { ::core::mem::transmute(ch1_tx_thr_event) };
+            ch1_tx_thr_event as u64
+        });
+        __bindgen_bitfield_unit.set(26usize, 1u8, {
+            let ch2_tx_thr_event: u32 = unsafe { ::core::mem::transmute(ch2_tx_thr_event) };
+            ch2_tx_thr_event as u64
+        });
+        __bindgen_bitfield_unit.set(27usize, 1u8, {
+            let ch3_tx_thr_event: u32 = unsafe { ::core::mem::transmute(ch3_tx_thr_event) };
+            ch3_tx_thr_event as u64
+        });
+        __bindgen_bitfield_unit.set(28usize, 1u8, {
+            let ch4_tx_thr_event: u32 = unsafe { ::core::mem::transmute(ch4_tx_thr_event) };
+            ch4_tx_thr_event as u64
+        });
+        __bindgen_bitfield_unit.set(29usize, 1u8, {
+            let ch5_tx_thr_event: u32 = unsafe { ::core::mem::transmute(ch5_tx_thr_event) };
+            ch5_tx_thr_event as u64
+        });
+        __bindgen_bitfield_unit.set(30usize, 1u8, {
+            let ch6_tx_thr_event: u32 = unsafe { ::core::mem::transmute(ch6_tx_thr_event) };
+            ch6_tx_thr_event as u64
+        });
+        __bindgen_bitfield_unit.set(31usize, 1u8, {
+            let ch7_tx_thr_event: u32 = unsafe { ::core::mem::transmute(ch7_tx_thr_event) };
+            ch7_tx_thr_event as u64
+        });
+        __bindgen_bitfield_unit
+    }
+}
+#[repr(C)]
+#[derive(Copy, Clone)]
+pub union _bindgen_ty_3__bindgen_ty_4 {
+    pub __bindgen_anon_1: _bindgen_ty_3__bindgen_ty_4__bindgen_ty_1,
+    pub val: u32,
+    _bindgen_union_align: u32,
+}
+#[repr(C)]
+#[repr(align(4))]
+#[derive(Debug, Copy, Clone)]
+pub struct _bindgen_ty_3__bindgen_ty_4__bindgen_ty_1 {
+    pub _bitfield_1: __BindgenBitfieldUnit<[u8; 4usize], u8>,
+}
+impl _bindgen_ty_3__bindgen_ty_4__bindgen_ty_1 {
+    #[inline]
+    pub fn ch0_tx_end(&self) -> u32 {
+        unsafe { ::core::mem::transmute(self._bitfield_1.get(0usize, 1u8) as u32) }
+    }
+    #[inline]
+    pub fn set_ch0_tx_end(&mut self, val: u32) {
+        unsafe {
+            let val: u32 = ::core::mem::transmute(val);
+            self._bitfield_1.set(0usize, 1u8, val as u64)
+        }
+    }
+    #[inline]
+    pub fn ch0_rx_end(&self) -> u32 {
+        unsafe { ::core::mem::transmute(self._bitfield_1.get(1usize, 1u8) as u32) }
+    }
+    #[inline]
+    pub fn set_ch0_rx_end(&mut self, val: u32) {
+        unsafe {
+            let val: u32 = ::core::mem::transmute(val);
+            self._bitfield_1.set(1usize, 1u8, val as u64)
+        }
+    }
+    #[inline]
+    pub fn ch0_err(&self) -> u32 {
+        unsafe { ::core::mem::transmute(self._bitfield_1.get(2usize, 1u8) as u32) }
+    }
+    #[inline]
+    pub fn set_ch0_err(&mut self, val: u32) {
+        unsafe {
+            let val: u32 = ::core::mem::transmute(val);
+            self._bitfield_1.set(2usize, 1u8, val as u64)
+        }
+    }
+    #[inline]
+    pub fn ch1_tx_end(&self) -> u32 {
+        unsafe { ::core::mem::transmute(self._bitfield_1.get(3usize, 1u8) as u32) }
+    }
+    #[inline]
+    pub fn set_ch1_tx_end(&mut self, val: u32) {
+        unsafe {
+            let val: u32 = ::core::mem::transmute(val);
+            self._bitfield_1.set(3usize, 1u8, val as u64)
+        }
+    }
+    #[inline]
+    pub fn ch1_rx_end(&self) -> u32 {
+        unsafe { ::core::mem::transmute(self._bitfield_1.get(4usize, 1u8) as u32) }
+    }
+    #[inline]
+    pub fn set_ch1_rx_end(&mut self, val: u32) {
+        unsafe {
+            let val: u32 = ::core::mem::transmute(val);
+            self._bitfield_1.set(4usize, 1u8, val as u64)
+        }
+    }
+    #[inline]
+    pub fn ch1_err(&self) -> u32 {
+        unsafe { ::core::mem::transmute(self._bitfield_1.get(5usize, 1u8) as u32) }
+    }
+    #[inline]
+    pub fn set_ch1_err(&mut self, val: u32) {
+        unsafe {
+            let val: u32 = ::core::mem::transmute(val);
+            self._bitfield_1.set(5usize, 1u8, val as u64)
+        }
+    }
+    #[inline]
+    pub fn ch2_tx_end(&self) -> u32 {
+        unsafe { ::core::mem::transmute(self._bitfield_1.get(6usize, 1u8) as u32) }
+    }
+    #[inline]
+    pub fn set_ch2_tx_end(&mut self, val: u32) {
+        unsafe {
+            let val: u32 = ::core::mem::transmute(val);
+            self._bitfield_1.set(6usize, 1u8, val as u64)
+        }
+    }
+    #[inline]
+    pub fn ch2_rx_end(&self) -> u32 {
+        unsafe { ::core::mem::transmute(self._bitfield_1.get(7usize, 1u8) as u32) }
+    }
+    #[inline]
+    pub fn set_ch2_rx_end(&mut self, val: u32) {
+        unsafe {
+            let val: u32 = ::core::mem::transmute(val);
+            self._bitfield_1.set(7usize, 1u8, val as u64)
+        }
+    }
+    #[inline]
+    pub fn ch2_err(&self) -> u32 {
+        unsafe { ::core::mem::transmute(self._bitfield_1.get(8usize, 1u8) as u32) }
+    }
+    #[inline]
+    pub fn set_ch2_err(&mut self, val: u32) {
+        unsafe {
+            let val: u32 = ::core::mem::transmute(val);
+            self._bitfield_1.set(8usize, 1u8, val as u64)
+        }
+    }
+    #[inline]
+    pub fn ch3_tx_end(&self) -> u32 {
+        unsafe { ::core::mem::transmute(self._bitfield_1.get(9usize, 1u8) as u32) }
+    }
+    #[inline]
+    pub fn set_ch3_tx_end(&mut self, val: u32) {
+        unsafe {
+            let val: u32 = ::core::mem::transmute(val);
+            self._bitfield_1.set(9usize, 1u8, val as u64)
+        }
+    }
+    #[inline]
+    pub fn ch3_rx_end(&self) -> u32 {
+        unsafe { ::core::mem::transmute(self._bitfield_1.get(10usize, 1u8) as u32) }
+    }
+    #[inline]
+    pub fn set_ch3_rx_end(&mut self, val: u32) {
+        unsafe {
+            let val: u32 = ::core::mem::transmute(val);
+            self._bitfield_1.set(10usize, 1u8, val as u64)
+        }
+    }
+    #[inline]
+    pub fn ch3_err(&self) -> u32 {
+        unsafe { ::core::mem::transmute(self._bitfield_1.get(11usize, 1u8) as u32) }
+    }
+    #[inline]
+    pub fn set_ch3_err(&mut self, val: u32) {
+        unsafe {
+            let val: u32 = ::core::mem::transmute(val);
+            self._bitfield_1.set(11usize, 1u8, val as u64)
+        }
+    }
+    #[inline]
+    pub fn ch4_tx_end(&self) -> u32 {
+        unsafe { ::core::mem::transmute(self._bitfield_1.get(12usize, 1u8) as u32) }
+    }
+    #[inline]
+    pub fn set_ch4_tx_end(&mut self, val: u32) {
+        unsafe {
+            let val: u32 = ::core::mem::transmute(val);
+            self._bitfield_1.set(12usize, 1u8, val as u64)
+        }
+    }
+    #[inline]
+    pub fn ch4_rx_end(&self) -> u32 {
+        unsafe { ::core::mem::transmute(self._bitfield_1.get(13usize, 1u8) as u32) }
+    }
+    #[inline]
+    pub fn set_ch4_rx_end(&mut self, val: u32) {
+        unsafe {
+            let val: u32 = ::core::mem::transmute(val);
+            self._bitfield_1.set(13usize, 1u8, val as u64)
+        }
+    }
+    #[inline]
+    pub fn ch4_err(&self) -> u32 {
+        unsafe { ::core::mem::transmute(self._bitfield_1.get(14usize, 1u8) as u32) }
+    }
+    #[inline]
+    pub fn set_ch4_err(&mut self, val: u32) {
+        unsafe {
+            let val: u32 = ::core::mem::transmute(val);
+            self._bitfield_1.set(14usize, 1u8, val as u64)
+        }
+    }
+    #[inline]
+    pub fn ch5_tx_end(&self) -> u32 {
+        unsafe { ::core::mem::transmute(self._bitfield_1.get(15usize, 1u8) as u32) }
+    }
+    #[inline]
+    pub fn set_ch5_tx_end(&mut self, val: u32) {
+        unsafe {
+            let val: u32 = ::core::mem::transmute(val);
+            self._bitfield_1.set(15usize, 1u8, val as u64)
+        }
+    }
+    #[inline]
+    pub fn ch5_rx_end(&self) -> u32 {
+        unsafe { ::core::mem::transmute(self._bitfield_1.get(16usize, 1u8) as u32) }
+    }
+    #[inline]
+    pub fn set_ch5_rx_end(&mut self, val: u32) {
+        unsafe {
+            let val: u32 = ::core::mem::transmute(val);
+            self._bitfield_1.set(16usize, 1u8, val as u64)
+        }
+    }
+    #[inline]
+    pub fn ch5_err(&self) -> u32 {
+        unsafe { ::core::mem::transmute(self._bitfield_1.get(17usize, 1u8) as u32) }
+    }
+    #[inline]
+    pub fn set_ch5_err(&mut self, val: u32) {
+        unsafe {
+            let val: u32 = ::core::mem::transmute(val);
+            self._bitfield_1.set(17usize, 1u8, val as u64)
+        }
+    }
+    #[inline]
+    pub fn ch6_tx_end(&self) -> u32 {
+        unsafe { ::core::mem::transmute(self._bitfield_1.get(18usize, 1u8) as u32) }
+    }
+    #[inline]
+    pub fn set_ch6_tx_end(&mut self, val: u32) {
+        unsafe {
+            let val: u32 = ::core::mem::transmute(val);
+            self._bitfield_1.set(18usize, 1u8, val as u64)
+        }
+    }
+    #[inline]
+    pub fn ch6_rx_end(&self) -> u32 {
+        unsafe { ::core::mem::transmute(self._bitfield_1.get(19usize, 1u8) as u32) }
+    }
+    #[inline]
+    pub fn set_ch6_rx_end(&mut self, val: u32) {
+        unsafe {
+            let val: u32 = ::core::mem::transmute(val);
+            self._bitfield_1.set(19usize, 1u8, val as u64)
+        }
+    }
+    #[inline]
+    pub fn ch6_err(&self) -> u32 {
+        unsafe { ::core::mem::transmute(self._bitfield_1.get(20usize, 1u8) as u32) }
+    }
+    #[inline]
+    pub fn set_ch6_err(&mut self, val: u32) {
+        unsafe {
+            let val: u32 = ::core::mem::transmute(val);
+            self._bitfield_1.set(20usize, 1u8, val as u64)
+        }
+    }
+    #[inline]
+    pub fn ch7_tx_end(&self) -> u32 {
+        unsafe { ::core::mem::transmute(self._bitfield_1.get(21usize, 1u8) as u32) }
+    }
+    #[inline]
+    pub fn set_ch7_tx_end(&mut self, val: u32) {
+        unsafe {
+            let val: u32 = ::core::mem::transmute(val);
+            self._bitfield_1.set(21usize, 1u8, val as u64)
+        }
+    }
+    #[inline]
+    pub fn ch7_rx_end(&self) -> u32 {
+        unsafe { ::core::mem::transmute(self._bitfield_1.get(22usize, 1u8) as u32) }
+    }
+    #[inline]
+    pub fn set_ch7_rx_end(&mut self, val: u32) {
+        unsafe {
+            let val: u32 = ::core::mem::transmute(val);
+            self._bitfield_1.set(22usize, 1u8, val as u64)
+        }
+    }
+    #[inline]
+    pub fn ch7_err(&self) -> u32 {
+        unsafe { ::core::mem::transmute(self._bitfield_1.get(23usize, 1u8) as u32) }
+    }
+    #[inline]
+    pub fn set_ch7_err(&mut self, val: u32) {
+        unsafe {
+            let val: u32 = ::core::mem::transmute(val);
+            self._bitfield_1.set(23usize, 1u8, val as u64)
+        }
+    }
+    #[inline]
+    pub fn ch0_tx_thr_event(&self) -> u32 {
+        unsafe { ::core::mem::transmute(self._bitfield_1.get(24usize, 1u8) as u32) }
+    }
+    #[inline]
+    pub fn set_ch0_tx_thr_event(&mut self, val: u32) {
+        unsafe {
+            let val: u32 = ::core::mem::transmute(val);
+            self._bitfield_1.set(24usize, 1u8, val as u64)
+        }
+    }
+    #[inline]
+    pub fn ch1_tx_thr_event(&self) -> u32 {
+        unsafe { ::core::mem::transmute(self._bitfield_1.get(25usize, 1u8) as u32) }
+    }
+    #[inline]
+    pub fn set_ch1_tx_thr_event(&mut self, val: u32) {
+        unsafe {
+            let val: u32 = ::core::mem::transmute(val);
+            self._bitfield_1.set(25usize, 1u8, val as u64)
+        }
+    }
+    #[inline]
+    pub fn ch2_tx_thr_event(&self) -> u32 {
+        unsafe { ::core::mem::transmute(self._bitfield_1.get(26usize, 1u8) as u32) }
+    }
+    #[inline]
+    pub fn set_ch2_tx_thr_event(&mut self, val: u32) {
+        unsafe {
+            let val: u32 = ::core::mem::transmute(val);
+            self._bitfield_1.set(26usize, 1u8, val as u64)
+        }
+    }
+    #[inline]
+    pub fn ch3_tx_thr_event(&self) -> u32 {
+        unsafe { ::core::mem::transmute(self._bitfield_1.get(27usize, 1u8) as u32) }
+    }
+    #[inline]
+    pub fn set_ch3_tx_thr_event(&mut self, val: u32) {
+        unsafe {
+            let val: u32 = ::core::mem::transmute(val);
+            self._bitfield_1.set(27usize, 1u8, val as u64)
+        }
+    }
+    #[inline]
+    pub fn ch4_tx_thr_event(&self) -> u32 {
+        unsafe { ::core::mem::transmute(self._bitfield_1.get(28usize, 1u8) as u32) }
+    }
+    #[inline]
+    pub fn set_ch4_tx_thr_event(&mut self, val: u32) {
+        unsafe {
+            let val: u32 = ::core::mem::transmute(val);
+            self._bitfield_1.set(28usize, 1u8, val as u64)
+        }
+    }
+    #[inline]
+    pub fn ch5_tx_thr_event(&self) -> u32 {
+        unsafe { ::core::mem::transmute(self._bitfield_1.get(29usize, 1u8) as u32) }
+    }
+    #[inline]
+    pub fn set_ch5_tx_thr_event(&mut self, val: u32) {
+        unsafe {
+            let val: u32 = ::core::mem::transmute(val);
+            self._bitfield_1.set(29usize, 1u8, val as u64)
+        }
+    }
+    #[inline]
+    pub fn ch6_tx_thr_event(&self) -> u32 {
+        unsafe { ::core::mem::transmute(self._bitfield_1.get(30usize, 1u8) as u32) }
+    }
+    #[inline]
+    pub fn set_ch6_tx_thr_event(&mut self, val: u32) {
+        unsafe {
+            let val: u32 = ::core::mem::transmute(val);
+            self._bitfield_1.set(30usize, 1u8, val as u64)
+        }
+    }
+    #[inline]
+    pub fn ch7_tx_thr_event(&self) -> u32 {
+        unsafe { ::core::mem::transmute(self._bitfield_1.get(31usize, 1u8) as u32) }
+    }
+    #[inline]
+    pub fn set_ch7_tx_thr_event(&mut self, val: u32) {
+        unsafe {
+            let val: u32 = ::core::mem::transmute(val);
+            self._bitfield_1.set(31usize, 1u8, val as u64)
+        }
+    }
+    #[inline]
+    pub fn new_bitfield_1(
+        ch0_tx_end: u32,
+        ch0_rx_end: u32,
+        ch0_err: u32,
+        ch1_tx_end: u32,
+        ch1_rx_end: u32,
+        ch1_err: u32,
+        ch2_tx_end: u32,
+        ch2_rx_end: u32,
+        ch2_err: u32,
+        ch3_tx_end: u32,
+        ch3_rx_end: u32,
+        ch3_err: u32,
+        ch4_tx_end: u32,
+        ch4_rx_end: u32,
+        ch4_err: u32,
+        ch5_tx_end: u32,
+        ch5_rx_end: u32,
+        ch5_err: u32,
+        ch6_tx_end: u32,
+        ch6_rx_end: u32,
+        ch6_err: u32,
+        ch7_tx_end: u32,
+        ch7_rx_end: u32,
+        ch7_err: u32,
+        ch0_tx_thr_event: u32,
+        ch1_tx_thr_event: u32,
+        ch2_tx_thr_event: u32,
+        ch3_tx_thr_event: u32,
+        ch4_tx_thr_event: u32,
+        ch5_tx_thr_event: u32,
+        ch6_tx_thr_event: u32,
+        ch7_tx_thr_event: u32,
+    ) -> __BindgenBitfieldUnit<[u8; 4usize], u8> {
+        let mut __bindgen_bitfield_unit: __BindgenBitfieldUnit<[u8; 4usize], u8> =
+            Default::default();
+        __bindgen_bitfield_unit.set(0usize, 1u8, {
+            let ch0_tx_end: u32 = unsafe { ::core::mem::transmute(ch0_tx_end) };
+            ch0_tx_end as u64
+        });
+        __bindgen_bitfield_unit.set(1usize, 1u8, {
+            let ch0_rx_end: u32 = unsafe { ::core::mem::transmute(ch0_rx_end) };
+            ch0_rx_end as u64
+        });
+        __bindgen_bitfield_unit.set(2usize, 1u8, {
+            let ch0_err: u32 = unsafe { ::core::mem::transmute(ch0_err) };
+            ch0_err as u64
+        });
+        __bindgen_bitfield_unit.set(3usize, 1u8, {
+            let ch1_tx_end: u32 = unsafe { ::core::mem::transmute(ch1_tx_end) };
+            ch1_tx_end as u64
+        });
+        __bindgen_bitfield_unit.set(4usize, 1u8, {
+            let ch1_rx_end: u32 = unsafe { ::core::mem::transmute(ch1_rx_end) };
+            ch1_rx_end as u64
+        });
+        __bindgen_bitfield_unit.set(5usize, 1u8, {
+            let ch1_err: u32 = unsafe { ::core::mem::transmute(ch1_err) };
+            ch1_err as u64
+        });
+        __bindgen_bitfield_unit.set(6usize, 1u8, {
+            let ch2_tx_end: u32 = unsafe { ::core::mem::transmute(ch2_tx_end) };
+            ch2_tx_end as u64
+        });
+        __bindgen_bitfield_unit.set(7usize, 1u8, {
+            let ch2_rx_end: u32 = unsafe { ::core::mem::transmute(ch2_rx_end) };
+            ch2_rx_end as u64
+        });
+        __bindgen_bitfield_unit.set(8usize, 1u8, {
+            let ch2_err: u32 = unsafe { ::core::mem::transmute(ch2_err) };
+            ch2_err as u64
+        });
+        __bindgen_bitfield_unit.set(9usize, 1u8, {
+            let ch3_tx_end: u32 = unsafe { ::core::mem::transmute(ch3_tx_end) };
+            ch3_tx_end as u64
+        });
+        __bindgen_bitfield_unit.set(10usize, 1u8, {
+            let ch3_rx_end: u32 = unsafe { ::core::mem::transmute(ch3_rx_end) };
+            ch3_rx_end as u64
+        });
+        __bindgen_bitfield_unit.set(11usize, 1u8, {
+            let ch3_err: u32 = unsafe { ::core::mem::transmute(ch3_err) };
+            ch3_err as u64
+        });
+        __bindgen_bitfield_unit.set(12usize, 1u8, {
+            let ch4_tx_end: u32 = unsafe { ::core::mem::transmute(ch4_tx_end) };
+            ch4_tx_end as u64
+        });
+        __bindgen_bitfield_unit.set(13usize, 1u8, {
+            let ch4_rx_end: u32 = unsafe { ::core::mem::transmute(ch4_rx_end) };
+            ch4_rx_end as u64
+        });
+        __bindgen_bitfield_unit.set(14usize, 1u8, {
+            let ch4_err: u32 = unsafe { ::core::mem::transmute(ch4_err) };
+            ch4_err as u64
+        });
+        __bindgen_bitfield_unit.set(15usize, 1u8, {
+            let ch5_tx_end: u32 = unsafe { ::core::mem::transmute(ch5_tx_end) };
+            ch5_tx_end as u64
+        });
+        __bindgen_bitfield_unit.set(16usize, 1u8, {
+            let ch5_rx_end: u32 = unsafe { ::core::mem::transmute(ch5_rx_end) };
+            ch5_rx_end as u64
+        });
+        __bindgen_bitfield_unit.set(17usize, 1u8, {
+            let ch5_err: u32 = unsafe { ::core::mem::transmute(ch5_err) };
+            ch5_err as u64
+        });
+        __bindgen_bitfield_unit.set(18usize, 1u8, {
+            let ch6_tx_end: u32 = unsafe { ::core::mem::transmute(ch6_tx_end) };
+            ch6_tx_end as u64
+        });
+        __bindgen_bitfield_unit.set(19usize, 1u8, {
+            let ch6_rx_end: u32 = unsafe { ::core::mem::transmute(ch6_rx_end) };
+            ch6_rx_end as u64
+        });
+        __bindgen_bitfield_unit.set(20usize, 1u8, {
+            let ch6_err: u32 = unsafe { ::core::mem::transmute(ch6_err) };
+            ch6_err as u64
+        });
+        __bindgen_bitfield_unit.set(21usize, 1u8, {
+            let ch7_tx_end: u32 = unsafe { ::core::mem::transmute(ch7_tx_end) };
+            ch7_tx_end as u64
+        });
+        __bindgen_bitfield_unit.set(22usize, 1u8, {
+            let ch7_rx_end: u32 = unsafe { ::core::mem::transmute(ch7_rx_end) };
+            ch7_rx_end as u64
+        });
+        __bindgen_bitfield_unit.set(23usize, 1u8, {
+            let ch7_err: u32 = unsafe { ::core::mem::transmute(ch7_err) };
+            ch7_err as u64
+        });
+        __bindgen_bitfield_unit.set(24usize, 1u8, {
+            let ch0_tx_thr_event: u32 = unsafe { ::core::mem::transmute(ch0_tx_thr_event) };
+            ch0_tx_thr_event as u64
+        });
+        __bindgen_bitfield_unit.set(25usize, 1u8, {
+            let ch1_tx_thr_event: u32 = unsafe { ::core::mem::transmute(ch1_tx_thr_event) };
+            ch1_tx_thr_event as u64
+        });
+        __bindgen_bitfield_unit.set(26usize, 1u8, {
+            let ch2_tx_thr_event: u32 = unsafe { ::core::mem::transmute(ch2_tx_thr_event) };
+            ch2_tx_thr_event as u64
+        });
+        __bindgen_bitfield_unit.set(27usize, 1u8, {
+            let ch3_tx_thr_event: u32 = unsafe { ::core::mem::transmute(ch3_tx_thr_event) };
+            ch3_tx_thr_event as u64
+        });
+        __bindgen_bitfield_unit.set(28usize, 1u8, {
+            let ch4_tx_thr_event: u32 = unsafe { ::core::mem::transmute(ch4_tx_thr_event) };
+            ch4_tx_thr_event as u64
+        });
+        __bindgen_bitfield_unit.set(29usize, 1u8, {
+            let ch5_tx_thr_event: u32 = unsafe { ::core::mem::transmute(ch5_tx_thr_event) };
+            ch5_tx_thr_event as u64
+        });
+        __bindgen_bitfield_unit.set(30usize, 1u8, {
+            let ch6_tx_thr_event: u32 = unsafe { ::core::mem::transmute(ch6_tx_thr_event) };
+            ch6_tx_thr_event as u64
+        });
+        __bindgen_bitfield_unit.set(31usize, 1u8, {
+            let ch7_tx_thr_event: u32 = unsafe { ::core::mem::transmute(ch7_tx_thr_event) };
+            ch7_tx_thr_event as u64
+        });
+        __bindgen_bitfield_unit
+    }
+}
+#[repr(C)]
+#[derive(Copy, Clone)]
+pub union _bindgen_ty_3__bindgen_ty_5 {
+    pub __bindgen_anon_1: _bindgen_ty_3__bindgen_ty_5__bindgen_ty_1,
+    pub val: u32,
+    _bindgen_union_align: u32,
+}
+#[repr(C)]
+#[repr(align(4))]
+#[derive(Debug, Copy, Clone)]
+pub struct _bindgen_ty_3__bindgen_ty_5__bindgen_ty_1 {
+    pub _bitfield_1: __BindgenBitfieldUnit<[u8; 4usize], u8>,
+}
+impl _bindgen_ty_3__bindgen_ty_5__bindgen_ty_1 {
+    #[inline]
+    pub fn ch0_tx_end(&self) -> u32 {
+        unsafe { ::core::mem::transmute(self._bitfield_1.get(0usize, 1u8) as u32) }
+    }
+    #[inline]
+    pub fn set_ch0_tx_end(&mut self, val: u32) {
+        unsafe {
+            let val: u32 = ::core::mem::transmute(val);
+            self._bitfield_1.set(0usize, 1u8, val as u64)
+        }
+    }
+    #[inline]
+    pub fn ch0_rx_end(&self) -> u32 {
+        unsafe { ::core::mem::transmute(self._bitfield_1.get(1usize, 1u8) as u32) }
+    }
+    #[inline]
+    pub fn set_ch0_rx_end(&mut self, val: u32) {
+        unsafe {
+            let val: u32 = ::core::mem::transmute(val);
+            self._bitfield_1.set(1usize, 1u8, val as u64)
+        }
+    }
+    #[inline]
+    pub fn ch0_err(&self) -> u32 {
+        unsafe { ::core::mem::transmute(self._bitfield_1.get(2usize, 1u8) as u32) }
+    }
+    #[inline]
+    pub fn set_ch0_err(&mut self, val: u32) {
+        unsafe {
+            let val: u32 = ::core::mem::transmute(val);
+            self._bitfield_1.set(2usize, 1u8, val as u64)
+        }
+    }
+    #[inline]
+    pub fn ch1_tx_end(&self) -> u32 {
+        unsafe { ::core::mem::transmute(self._bitfield_1.get(3usize, 1u8) as u32) }
+    }
+    #[inline]
+    pub fn set_ch1_tx_end(&mut self, val: u32) {
+        unsafe {
+            let val: u32 = ::core::mem::transmute(val);
+            self._bitfield_1.set(3usize, 1u8, val as u64)
+        }
+    }
+    #[inline]
+    pub fn ch1_rx_end(&self) -> u32 {
+        unsafe { ::core::mem::transmute(self._bitfield_1.get(4usize, 1u8) as u32) }
+    }
+    #[inline]
+    pub fn set_ch1_rx_end(&mut self, val: u32) {
+        unsafe {
+            let val: u32 = ::core::mem::transmute(val);
+            self._bitfield_1.set(4usize, 1u8, val as u64)
+        }
+    }
+    #[inline]
+    pub fn ch1_err(&self) -> u32 {
+        unsafe { ::core::mem::transmute(self._bitfield_1.get(5usize, 1u8) as u32) }
+    }
+    #[inline]
+    pub fn set_ch1_err(&mut self, val: u32) {
+        unsafe {
+            let val: u32 = ::core::mem::transmute(val);
+            self._bitfield_1.set(5usize, 1u8, val as u64)
+        }
+    }
+    #[inline]
+    pub fn ch2_tx_end(&self) -> u32 {
+        unsafe { ::core::mem::transmute(self._bitfield_1.get(6usize, 1u8) as u32) }
+    }
+    #[inline]
+    pub fn set_ch2_tx_end(&mut self, val: u32) {
+        unsafe {
+            let val: u32 = ::core::mem::transmute(val);
+            self._bitfield_1.set(6usize, 1u8, val as u64)
+        }
+    }
+    #[inline]
+    pub fn ch2_rx_end(&self) -> u32 {
+        unsafe { ::core::mem::transmute(self._bitfield_1.get(7usize, 1u8) as u32) }
+    }
+    #[inline]
+    pub fn set_ch2_rx_end(&mut self, val: u32) {
+        unsafe {
+            let val: u32 = ::core::mem::transmute(val);
+            self._bitfield_1.set(7usize, 1u8, val as u64)
+        }
+    }
+    #[inline]
+    pub fn ch2_err(&self) -> u32 {
+        unsafe { ::core::mem::transmute(self._bitfield_1.get(8usize, 1u8) as u32) }
+    }
+    #[inline]
+    pub fn set_ch2_err(&mut self, val: u32) {
+        unsafe {
+            let val: u32 = ::core::mem::transmute(val);
+            self._bitfield_1.set(8usize, 1u8, val as u64)
+        }
+    }
+    #[inline]
+    pub fn ch3_tx_end(&self) -> u32 {
+        unsafe { ::core::mem::transmute(self._bitfield_1.get(9usize, 1u8) as u32) }
+    }
+    #[inline]
+    pub fn set_ch3_tx_end(&mut self, val: u32) {
+        unsafe {
+            let val: u32 = ::core::mem::transmute(val);
+            self._bitfield_1.set(9usize, 1u8, val as u64)
+        }
+    }
+    #[inline]
+    pub fn ch3_rx_end(&self) -> u32 {
+        unsafe { ::core::mem::transmute(self._bitfield_1.get(10usize, 1u8) as u32) }
+    }
+    #[inline]
+    pub fn set_ch3_rx_end(&mut self, val: u32) {
+        unsafe {
+            let val: u32 = ::core::mem::transmute(val);
+            self._bitfield_1.set(10usize, 1u8, val as u64)
+        }
+    }
+    #[inline]
+    pub fn ch3_err(&self) -> u32 {
+        unsafe { ::core::mem::transmute(self._bitfield_1.get(11usize, 1u8) as u32) }
+    }
+    #[inline]
+    pub fn set_ch3_err(&mut self, val: u32) {
+        unsafe {
+            let val: u32 = ::core::mem::transmute(val);
+            self._bitfield_1.set(11usize, 1u8, val as u64)
+        }
+    }
+    #[inline]
+    pub fn ch4_tx_end(&self) -> u32 {
+        unsafe { ::core::mem::transmute(self._bitfield_1.get(12usize, 1u8) as u32) }
+    }
+    #[inline]
+    pub fn set_ch4_tx_end(&mut self, val: u32) {
+        unsafe {
+            let val: u32 = ::core::mem::transmute(val);
+            self._bitfield_1.set(12usize, 1u8, val as u64)
+        }
+    }
+    #[inline]
+    pub fn ch4_rx_end(&self) -> u32 {
+        unsafe { ::core::mem::transmute(self._bitfield_1.get(13usize, 1u8) as u32) }
+    }
+    #[inline]
+    pub fn set_ch4_rx_end(&mut self, val: u32) {
+        unsafe {
+            let val: u32 = ::core::mem::transmute(val);
+            self._bitfield_1.set(13usize, 1u8, val as u64)
+        }
+    }
+    #[inline]
+    pub fn ch4_err(&self) -> u32 {
+        unsafe { ::core::mem::transmute(self._bitfield_1.get(14usize, 1u8) as u32) }
+    }
+    #[inline]
+    pub fn set_ch4_err(&mut self, val: u32) {
+        unsafe {
+            let val: u32 = ::core::mem::transmute(val);
+            self._bitfield_1.set(14usize, 1u8, val as u64)
+        }
+    }
+    #[inline]
+    pub fn ch5_tx_end(&self) -> u32 {
+        unsafe { ::core::mem::transmute(self._bitfield_1.get(15usize, 1u8) as u32) }
+    }
+    #[inline]
+    pub fn set_ch5_tx_end(&mut self, val: u32) {
+        unsafe {
+            let val: u32 = ::core::mem::transmute(val);
+            self._bitfield_1.set(15usize, 1u8, val as u64)
+        }
+    }
+    #[inline]
+    pub fn ch5_rx_end(&self) -> u32 {
+        unsafe { ::core::mem::transmute(self._bitfield_1.get(16usize, 1u8) as u32) }
+    }
+    #[inline]
+    pub fn set_ch5_rx_end(&mut self, val: u32) {
+        unsafe {
+            let val: u32 = ::core::mem::transmute(val);
+            self._bitfield_1.set(16usize, 1u8, val as u64)
+        }
+    }
+    #[inline]
+    pub fn ch5_err(&self) -> u32 {
+        unsafe { ::core::mem::transmute(self._bitfield_1.get(17usize, 1u8) as u32) }
+    }
+    #[inline]
+    pub fn set_ch5_err(&mut self, val: u32) {
+        unsafe {
+            let val: u32 = ::core::mem::transmute(val);
+            self._bitfield_1.set(17usize, 1u8, val as u64)
+        }
+    }
+    #[inline]
+    pub fn ch6_tx_end(&self) -> u32 {
+        unsafe { ::core::mem::transmute(self._bitfield_1.get(18usize, 1u8) as u32) }
+    }
+    #[inline]
+    pub fn set_ch6_tx_end(&mut self, val: u32) {
+        unsafe {
+            let val: u32 = ::core::mem::transmute(val);
+            self._bitfield_1.set(18usize, 1u8, val as u64)
+        }
+    }
+    #[inline]
+    pub fn ch6_rx_end(&self) -> u32 {
+        unsafe { ::core::mem::transmute(self._bitfield_1.get(19usize, 1u8) as u32) }
+    }
+    #[inline]
+    pub fn set_ch6_rx_end(&mut self, val: u32) {
+        unsafe {
+            let val: u32 = ::core::mem::transmute(val);
+            self._bitfield_1.set(19usize, 1u8, val as u64)
+        }
+    }
+    #[inline]
+    pub fn ch6_err(&self) -> u32 {
+        unsafe { ::core::mem::transmute(self._bitfield_1.get(20usize, 1u8) as u32) }
+    }
+    #[inline]
+    pub fn set_ch6_err(&mut self, val: u32) {
+        unsafe {
+            let val: u32 = ::core::mem::transmute(val);
+            self._bitfield_1.set(20usize, 1u8, val as u64)
+        }
+    }
+    #[inline]
+    pub fn ch7_tx_end(&self) -> u32 {
+        unsafe { ::core::mem::transmute(self._bitfield_1.get(21usize, 1u8) as u32) }
+    }
+    #[inline]
+    pub fn set_ch7_tx_end(&mut self, val: u32) {
+        unsafe {
+            let val: u32 = ::core::mem::transmute(val);
+            self._bitfield_1.set(21usize, 1u8, val as u64)
+        }
+    }
+    #[inline]
+    pub fn ch7_rx_end(&self) -> u32 {
+        unsafe { ::core::mem::transmute(self._bitfield_1.get(22usize, 1u8) as u32) }
+    }
+    #[inline]
+    pub fn set_ch7_rx_end(&mut self, val: u32) {
+        unsafe {
+            let val: u32 = ::core::mem::transmute(val);
+            self._bitfield_1.set(22usize, 1u8, val as u64)
+        }
+    }
+    #[inline]
+    pub fn ch7_err(&self) -> u32 {
+        unsafe { ::core::mem::transmute(self._bitfield_1.get(23usize, 1u8) as u32) }
+    }
+    #[inline]
+    pub fn set_ch7_err(&mut self, val: u32) {
+        unsafe {
+            let val: u32 = ::core::mem::transmute(val);
+            self._bitfield_1.set(23usize, 1u8, val as u64)
+        }
+    }
+    #[inline]
+    pub fn ch0_tx_thr_event(&self) -> u32 {
+        unsafe { ::core::mem::transmute(self._bitfield_1.get(24usize, 1u8) as u32) }
+    }
+    #[inline]
+    pub fn set_ch0_tx_thr_event(&mut self, val: u32) {
+        unsafe {
+            let val: u32 = ::core::mem::transmute(val);
+            self._bitfield_1.set(24usize, 1u8, val as u64)
+        }
+    }
+    #[inline]
+    pub fn ch1_tx_thr_event(&self) -> u32 {
+        unsafe { ::core::mem::transmute(self._bitfield_1.get(25usize, 1u8) as u32) }
+    }
+    #[inline]
+    pub fn set_ch1_tx_thr_event(&mut self, val: u32) {
+        unsafe {
+            let val: u32 = ::core::mem::transmute(val);
+            self._bitfield_1.set(25usize, 1u8, val as u64)
+        }
+    }
+    #[inline]
+    pub fn ch2_tx_thr_event(&self) -> u32 {
+        unsafe { ::core::mem::transmute(self._bitfield_1.get(26usize, 1u8) as u32) }
+    }
+    #[inline]
+    pub fn set_ch2_tx_thr_event(&mut self, val: u32) {
+        unsafe {
+            let val: u32 = ::core::mem::transmute(val);
+            self._bitfield_1.set(26usize, 1u8, val as u64)
+        }
+    }
+    #[inline]
+    pub fn ch3_tx_thr_event(&self) -> u32 {
+        unsafe { ::core::mem::transmute(self._bitfield_1.get(27usize, 1u8) as u32) }
+    }
+    #[inline]
+    pub fn set_ch3_tx_thr_event(&mut self, val: u32) {
+        unsafe {
+            let val: u32 = ::core::mem::transmute(val);
+            self._bitfield_1.set(27usize, 1u8, val as u64)
+        }
+    }
+    #[inline]
+    pub fn ch4_tx_thr_event(&self) -> u32 {
+        unsafe { ::core::mem::transmute(self._bitfield_1.get(28usize, 1u8) as u32) }
+    }
+    #[inline]
+    pub fn set_ch4_tx_thr_event(&mut self, val: u32) {
+        unsafe {
+            let val: u32 = ::core::mem::transmute(val);
+            self._bitfield_1.set(28usize, 1u8, val as u64)
+        }
+    }
+    #[inline]
+    pub fn ch5_tx_thr_event(&self) -> u32 {
+        unsafe { ::core::mem::transmute(self._bitfield_1.get(29usize, 1u8) as u32) }
+    }
+    #[inline]
+    pub fn set_ch5_tx_thr_event(&mut self, val: u32) {
+        unsafe {
+            let val: u32 = ::core::mem::transmute(val);
+            self._bitfield_1.set(29usize, 1u8, val as u64)
+        }
+    }
+    #[inline]
+    pub fn ch6_tx_thr_event(&self) -> u32 {
+        unsafe { ::core::mem::transmute(self._bitfield_1.get(30usize, 1u8) as u32) }
+    }
+    #[inline]
+    pub fn set_ch6_tx_thr_event(&mut self, val: u32) {
+        unsafe {
+            let val: u32 = ::core::mem::transmute(val);
+            self._bitfield_1.set(30usize, 1u8, val as u64)
+        }
+    }
+    #[inline]
+    pub fn ch7_tx_thr_event(&self) -> u32 {
+        unsafe { ::core::mem::transmute(self._bitfield_1.get(31usize, 1u8) as u32) }
+    }
+    #[inline]
+    pub fn set_ch7_tx_thr_event(&mut self, val: u32) {
+        unsafe {
+            let val: u32 = ::core::mem::transmute(val);
+            self._bitfield_1.set(31usize, 1u8, val as u64)
+        }
+    }
+    #[inline]
+    pub fn new_bitfield_1(
+        ch0_tx_end: u32,
+        ch0_rx_end: u32,
+        ch0_err: u32,
+        ch1_tx_end: u32,
+        ch1_rx_end: u32,
+        ch1_err: u32,
+        ch2_tx_end: u32,
+        ch2_rx_end: u32,
+        ch2_err: u32,
+        ch3_tx_end: u32,
+        ch3_rx_end: u32,
+        ch3_err: u32,
+        ch4_tx_end: u32,
+        ch4_rx_end: u32,
+        ch4_err: u32,
+        ch5_tx_end: u32,
+        ch5_rx_end: u32,
+        ch5_err: u32,
+        ch6_tx_end: u32,
+        ch6_rx_end: u32,
+        ch6_err: u32,
+        ch7_tx_end: u32,
+        ch7_rx_end: u32,
+        ch7_err: u32,
+        ch0_tx_thr_event: u32,
+        ch1_tx_thr_event: u32,
+        ch2_tx_thr_event: u32,
+        ch3_tx_thr_event: u32,
+        ch4_tx_thr_event: u32,
+        ch5_tx_thr_event: u32,
+        ch6_tx_thr_event: u32,
+        ch7_tx_thr_event: u32,
+    ) -> __BindgenBitfieldUnit<[u8; 4usize], u8> {
+        let mut __bindgen_bitfield_unit: __BindgenBitfieldUnit<[u8; 4usize], u8> =
+            Default::default();
+        __bindgen_bitfield_unit.set(0usize, 1u8, {
+            let ch0_tx_end: u32 = unsafe { ::core::mem::transmute(ch0_tx_end) };
+            ch0_tx_end as u64
+        });
+        __bindgen_bitfield_unit.set(1usize, 1u8, {
+            let ch0_rx_end: u32 = unsafe { ::core::mem::transmute(ch0_rx_end) };
+            ch0_rx_end as u64
+        });
+        __bindgen_bitfield_unit.set(2usize, 1u8, {
+            let ch0_err: u32 = unsafe { ::core::mem::transmute(ch0_err) };
+            ch0_err as u64
+        });
+        __bindgen_bitfield_unit.set(3usize, 1u8, {
+            let ch1_tx_end: u32 = unsafe { ::core::mem::transmute(ch1_tx_end) };
+            ch1_tx_end as u64
+        });
+        __bindgen_bitfield_unit.set(4usize, 1u8, {
+            let ch1_rx_end: u32 = unsafe { ::core::mem::transmute(ch1_rx_end) };
+            ch1_rx_end as u64
+        });
+        __bindgen_bitfield_unit.set(5usize, 1u8, {
+            let ch1_err: u32 = unsafe { ::core::mem::transmute(ch1_err) };
+            ch1_err as u64
+        });
+        __bindgen_bitfield_unit.set(6usize, 1u8, {
+            let ch2_tx_end: u32 = unsafe { ::core::mem::transmute(ch2_tx_end) };
+            ch2_tx_end as u64
+        });
+        __bindgen_bitfield_unit.set(7usize, 1u8, {
+            let ch2_rx_end: u32 = unsafe { ::core::mem::transmute(ch2_rx_end) };
+            ch2_rx_end as u64
+        });
+        __bindgen_bitfield_unit.set(8usize, 1u8, {
+            let ch2_err: u32 = unsafe { ::core::mem::transmute(ch2_err) };
+            ch2_err as u64
+        });
+        __bindgen_bitfield_unit.set(9usize, 1u8, {
+            let ch3_tx_end: u32 = unsafe { ::core::mem::transmute(ch3_tx_end) };
+            ch3_tx_end as u64
+        });
+        __bindgen_bitfield_unit.set(10usize, 1u8, {
+            let ch3_rx_end: u32 = unsafe { ::core::mem::transmute(ch3_rx_end) };
+            ch3_rx_end as u64
+        });
+        __bindgen_bitfield_unit.set(11usize, 1u8, {
+            let ch3_err: u32 = unsafe { ::core::mem::transmute(ch3_err) };
+            ch3_err as u64
+        });
+        __bindgen_bitfield_unit.set(12usize, 1u8, {
+            let ch4_tx_end: u32 = unsafe { ::core::mem::transmute(ch4_tx_end) };
+            ch4_tx_end as u64
+        });
+        __bindgen_bitfield_unit.set(13usize, 1u8, {
+            let ch4_rx_end: u32 = unsafe { ::core::mem::transmute(ch4_rx_end) };
+            ch4_rx_end as u64
+        });
+        __bindgen_bitfield_unit.set(14usize, 1u8, {
+            let ch4_err: u32 = unsafe { ::core::mem::transmute(ch4_err) };
+            ch4_err as u64
+        });
+        __bindgen_bitfield_unit.set(15usize, 1u8, {
+            let ch5_tx_end: u32 = unsafe { ::core::mem::transmute(ch5_tx_end) };
+            ch5_tx_end as u64
+        });
+        __bindgen_bitfield_unit.set(16usize, 1u8, {
+            let ch5_rx_end: u32 = unsafe { ::core::mem::transmute(ch5_rx_end) };
+            ch5_rx_end as u64
+        });
+        __bindgen_bitfield_unit.set(17usize, 1u8, {
+            let ch5_err: u32 = unsafe { ::core::mem::transmute(ch5_err) };
+            ch5_err as u64
+        });
+        __bindgen_bitfield_unit.set(18usize, 1u8, {
+            let ch6_tx_end: u32 = unsafe { ::core::mem::transmute(ch6_tx_end) };
+            ch6_tx_end as u64
+        });
+        __bindgen_bitfield_unit.set(19usize, 1u8, {
+            let ch6_rx_end: u32 = unsafe { ::core::mem::transmute(ch6_rx_end) };
+            ch6_rx_end as u64
+        });
+        __bindgen_bitfield_unit.set(20usize, 1u8, {
+            let ch6_err: u32 = unsafe { ::core::mem::transmute(ch6_err) };
+            ch6_err as u64
+        });
+        __bindgen_bitfield_unit.set(21usize, 1u8, {
+            let ch7_tx_end: u32 = unsafe { ::core::mem::transmute(ch7_tx_end) };
+            ch7_tx_end as u64
+        });
+        __bindgen_bitfield_unit.set(22usize, 1u8, {
+            let ch7_rx_end: u32 = unsafe { ::core::mem::transmute(ch7_rx_end) };
+            ch7_rx_end as u64
+        });
+        __bindgen_bitfield_unit.set(23usize, 1u8, {
+            let ch7_err: u32 = unsafe { ::core::mem::transmute(ch7_err) };
+            ch7_err as u64
+        });
+        __bindgen_bitfield_unit.set(24usize, 1u8, {
+            let ch0_tx_thr_event: u32 = unsafe { ::core::mem::transmute(ch0_tx_thr_event) };
+            ch0_tx_thr_event as u64
+        });
+        __bindgen_bitfield_unit.set(25usize, 1u8, {
+            let ch1_tx_thr_event: u32 = unsafe { ::core::mem::transmute(ch1_tx_thr_event) };
+            ch1_tx_thr_event as u64
+        });
+        __bindgen_bitfield_unit.set(26usize, 1u8, {
+            let ch2_tx_thr_event: u32 = unsafe { ::core::mem::transmute(ch2_tx_thr_event) };
+            ch2_tx_thr_event as u64
+        });
+        __bindgen_bitfield_unit.set(27usize, 1u8, {
+            let ch3_tx_thr_event: u32 = unsafe { ::core::mem::transmute(ch3_tx_thr_event) };
+            ch3_tx_thr_event as u64
+        });
+        __bindgen_bitfield_unit.set(28usize, 1u8, {
+            let ch4_tx_thr_event: u32 = unsafe { ::core::mem::transmute(ch4_tx_thr_event) };
+            ch4_tx_thr_event as u64
+        });
+        __bindgen_bitfield_unit.set(29usize, 1u8, {
+            let ch5_tx_thr_event: u32 = unsafe { ::core::mem::transmute(ch5_tx_thr_event) };
+            ch5_tx_thr_event as u64
+        });
+        __bindgen_bitfield_unit.set(30usize, 1u8, {
+            let ch6_tx_thr_event: u32 = unsafe { ::core::mem::transmute(ch6_tx_thr_event) };
+            ch6_tx_thr_event as u64
+        });
+        __bindgen_bitfield_unit.set(31usize, 1u8, {
+            let ch7_tx_thr_event: u32 = unsafe { ::core::mem::transmute(ch7_tx_thr_event) };
+            ch7_tx_thr_event as u64
+        });
+        __bindgen_bitfield_unit
+    }
+}
+#[repr(C)]
+#[derive(Copy, Clone)]
+pub union _bindgen_ty_3__bindgen_ty_6 {
+    pub __bindgen_anon_1: _bindgen_ty_3__bindgen_ty_6__bindgen_ty_1,
+    pub val: u32,
+    _bindgen_union_align: u32,
+}
+#[repr(C)]
+#[repr(align(4))]
+#[derive(Debug, Copy, Clone)]
+pub struct _bindgen_ty_3__bindgen_ty_6__bindgen_ty_1 {
+    pub _bitfield_1: __BindgenBitfieldUnit<[u8; 4usize], u16>,
+}
+impl _bindgen_ty_3__bindgen_ty_6__bindgen_ty_1 {
+    #[inline]
+    pub fn low(&self) -> u32 {
+        unsafe { ::core::mem::transmute(self._bitfield_1.get(0usize, 16u8) as u32) }
+    }
+    #[inline]
+    pub fn set_low(&mut self, val: u32) {
+        unsafe {
+            let val: u32 = ::core::mem::transmute(val);
+            self._bitfield_1.set(0usize, 16u8, val as u64)
+        }
+    }
+    #[inline]
+    pub fn high(&self) -> u32 {
+        unsafe { ::core::mem::transmute(self._bitfield_1.get(16usize, 16u8) as u32) }
+    }
+    #[inline]
+    pub fn set_high(&mut self, val: u32) {
+        unsafe {
+            let val: u32 = ::core::mem::transmute(val);
+            self._bitfield_1.set(16usize, 16u8, val as u64)
+        }
+    }
+    #[inline]
+    pub fn new_bitfield_1(low: u32, high: u32) -> __BindgenBitfieldUnit<[u8; 4usize], u16> {
+        let mut __bindgen_bitfield_unit: __BindgenBitfieldUnit<[u8; 4usize], u16> =
+            Default::default();
+        __bindgen_bitfield_unit.set(0usize, 16u8, {
+            let low: u32 = unsafe { ::core::mem::transmute(low) };
+            low as u64
+        });
+        __bindgen_bitfield_unit.set(16usize, 16u8, {
+            let high: u32 = unsafe { ::core::mem::transmute(high) };
+            high as u64
+        });
+        __bindgen_bitfield_unit
+    }
+}
+#[repr(C)]
+#[derive(Copy, Clone)]
+pub union _bindgen_ty_3__bindgen_ty_7 {
+    pub __bindgen_anon_1: _bindgen_ty_3__bindgen_ty_7__bindgen_ty_1,
+    pub val: u32,
+    _bindgen_union_align: u32,
+}
+#[repr(C)]
+#[repr(align(4))]
+#[derive(Debug, Copy, Clone)]
+pub struct _bindgen_ty_3__bindgen_ty_7__bindgen_ty_1 {
+    pub _bitfield_1: __BindgenBitfieldUnit<[u8; 4usize], u32>,
+}
+impl _bindgen_ty_3__bindgen_ty_7__bindgen_ty_1 {
+    #[inline]
+    pub fn limit(&self) -> u32 {
+        unsafe { ::core::mem::transmute(self._bitfield_1.get(0usize, 9u8) as u32) }
+    }
+    #[inline]
+    pub fn set_limit(&mut self, val: u32) {
+        unsafe {
+            let val: u32 = ::core::mem::transmute(val);
+            self._bitfield_1.set(0usize, 9u8, val as u64)
+        }
+    }
+    #[inline]
+    pub fn reserved9(&self) -> u32 {
+        unsafe { ::core::mem::transmute(self._bitfield_1.get(9usize, 23u8) as u32) }
+    }
+    #[inline]
+    pub fn set_reserved9(&mut self, val: u32) {
+        unsafe {
+            let val: u32 = ::core::mem::transmute(val);
+            self._bitfield_1.set(9usize, 23u8, val as u64)
+        }
+    }
+    #[inline]
+    pub fn new_bitfield_1(limit: u32, reserved9: u32) -> __BindgenBitfieldUnit<[u8; 4usize], u32> {
+        let mut __bindgen_bitfield_unit: __BindgenBitfieldUnit<[u8; 4usize], u32> =
+            Default::default();
+        __bindgen_bitfield_unit.set(0usize, 9u8, {
+            let limit: u32 = unsafe { ::core::mem::transmute(limit) };
+            limit as u64
+        });
+        __bindgen_bitfield_unit.set(9usize, 23u8, {
+            let reserved9: u32 = unsafe { ::core::mem::transmute(reserved9) };
+            reserved9 as u64
+        });
+        __bindgen_bitfield_unit
+    }
+}
+#[repr(C)]
+#[derive(Copy, Clone)]
+pub union _bindgen_ty_3__bindgen_ty_8 {
+    pub __bindgen_anon_1: _bindgen_ty_3__bindgen_ty_8__bindgen_ty_1,
+    pub val: u32,
+    _bindgen_union_align: u32,
+}
+#[repr(C)]
+#[repr(align(4))]
+#[derive(Debug, Copy, Clone)]
+pub struct _bindgen_ty_3__bindgen_ty_8__bindgen_ty_1 {
+    pub _bitfield_1: __BindgenBitfieldUnit<[u8; 4usize], u32>,
+}
+impl _bindgen_ty_3__bindgen_ty_8__bindgen_ty_1 {
+    #[inline]
+    pub fn fifo_mask(&self) -> u32 {
+        unsafe { ::core::mem::transmute(self._bitfield_1.get(0usize, 1u8) as u32) }
+    }
+    #[inline]
+    pub fn set_fifo_mask(&mut self, val: u32) {
+        unsafe {
+            let val: u32 = ::core::mem::transmute(val);
+            self._bitfield_1.set(0usize, 1u8, val as u64)
+        }
+    }
+    #[inline]
+    pub fn mem_tx_wrap_en(&self) -> u32 {
+        unsafe { ::core::mem::transmute(self._bitfield_1.get(1usize, 1u8) as u32) }
+    }
+    #[inline]
+    pub fn set_mem_tx_wrap_en(&mut self, val: u32) {
+        unsafe {
+            let val: u32 = ::core::mem::transmute(val);
+            self._bitfield_1.set(1usize, 1u8, val as u64)
+        }
+    }
+    #[inline]
+    pub fn reserved2(&self) -> u32 {
+        unsafe { ::core::mem::transmute(self._bitfield_1.get(2usize, 30u8) as u32) }
+    }
+    #[inline]
+    pub fn set_reserved2(&mut self, val: u32) {
+        unsafe {
+            let val: u32 = ::core::mem::transmute(val);
+            self._bitfield_1.set(2usize, 30u8, val as u64)
+        }
+    }
+    #[inline]
+    pub fn new_bitfield_1(
+        fifo_mask: u32,
+        mem_tx_wrap_en: u32,
+        reserved2: u32,
+    ) -> __BindgenBitfieldUnit<[u8; 4usize], u32> {
+        let mut __bindgen_bitfield_unit: __BindgenBitfieldUnit<[u8; 4usize], u32> =
+            Default::default();
+        __bindgen_bitfield_unit.set(0usize, 1u8, {
+            let fifo_mask: u32 = unsafe { ::core::mem::transmute(fifo_mask) };
+            fifo_mask as u64
+        });
+        __bindgen_bitfield_unit.set(1usize, 1u8, {
+            let mem_tx_wrap_en: u32 = unsafe { ::core::mem::transmute(mem_tx_wrap_en) };
+            mem_tx_wrap_en as u64
+        });
+        __bindgen_bitfield_unit.set(2usize, 30u8, {
+            let reserved2: u32 = unsafe { ::core::mem::transmute(reserved2) };
+            reserved2 as u64
+        });
+        __bindgen_bitfield_unit
+    }
+}
+pub type rmt_dev_t = _bindgen_ty_3;
+extern "C" {
+    pub static mut RMT: rmt_dev_t;
+}
+#[repr(C)]
+#[derive(Copy, Clone)]
+pub struct rmt_item32_t {
+    pub __bindgen_anon_1: rmt_item32_t__bindgen_ty_1,
+}
+#[repr(C)]
+#[derive(Copy, Clone)]
+pub union rmt_item32_t__bindgen_ty_1 {
+    pub __bindgen_anon_1: rmt_item32_t__bindgen_ty_1__bindgen_ty_1,
+    pub val: u32,
+    _bindgen_union_align: u32,
+}
+#[repr(C)]
+#[repr(align(4))]
+#[derive(Debug, Copy, Clone)]
+pub struct rmt_item32_t__bindgen_ty_1__bindgen_ty_1 {
+    pub _bitfield_1: __BindgenBitfieldUnit<[u8; 4usize], u16>,
+}
+impl rmt_item32_t__bindgen_ty_1__bindgen_ty_1 {
+    #[inline]
+    pub fn duration0(&self) -> u32 {
+        unsafe { ::core::mem::transmute(self._bitfield_1.get(0usize, 15u8) as u32) }
+    }
+    #[inline]
+    pub fn set_duration0(&mut self, val: u32) {
+        unsafe {
+            let val: u32 = ::core::mem::transmute(val);
+            self._bitfield_1.set(0usize, 15u8, val as u64)
+        }
+    }
+    #[inline]
+    pub fn level0(&self) -> u32 {
+        unsafe { ::core::mem::transmute(self._bitfield_1.get(15usize, 1u8) as u32) }
+    }
+    #[inline]
+    pub fn set_level0(&mut self, val: u32) {
+        unsafe {
+            let val: u32 = ::core::mem::transmute(val);
+            self._bitfield_1.set(15usize, 1u8, val as u64)
+        }
+    }
+    #[inline]
+    pub fn duration1(&self) -> u32 {
+        unsafe { ::core::mem::transmute(self._bitfield_1.get(16usize, 15u8) as u32) }
+    }
+    #[inline]
+    pub fn set_duration1(&mut self, val: u32) {
+        unsafe {
+            let val: u32 = ::core::mem::transmute(val);
+            self._bitfield_1.set(16usize, 15u8, val as u64)
+        }
+    }
+    #[inline]
+    pub fn level1(&self) -> u32 {
+        unsafe { ::core::mem::transmute(self._bitfield_1.get(31usize, 1u8) as u32) }
+    }
+    #[inline]
+    pub fn set_level1(&mut self, val: u32) {
+        unsafe {
+            let val: u32 = ::core::mem::transmute(val);
+            self._bitfield_1.set(31usize, 1u8, val as u64)
+        }
+    }
+    #[inline]
+    pub fn new_bitfield_1(
+        duration0: u32,
+        level0: u32,
+        duration1: u32,
+        level1: u32,
+    ) -> __BindgenBitfieldUnit<[u8; 4usize], u16> {
+        let mut __bindgen_bitfield_unit: __BindgenBitfieldUnit<[u8; 4usize], u16> =
+            Default::default();
+        __bindgen_bitfield_unit.set(0usize, 15u8, {
+            let duration0: u32 = unsafe { ::core::mem::transmute(duration0) };
+            duration0 as u64
+        });
+        __bindgen_bitfield_unit.set(15usize, 1u8, {
+            let level0: u32 = unsafe { ::core::mem::transmute(level0) };
+            level0 as u64
+        });
+        __bindgen_bitfield_unit.set(16usize, 15u8, {
+            let duration1: u32 = unsafe { ::core::mem::transmute(duration1) };
+            duration1 as u64
+        });
+        __bindgen_bitfield_unit.set(31usize, 1u8, {
+            let level1: u32 = unsafe { ::core::mem::transmute(level1) };
+            level1 as u64
+        });
+        __bindgen_bitfield_unit
+    }
+}
+#[repr(C)]
+#[derive(Copy, Clone)]
+pub struct _bindgen_ty_4 {
+    pub chan: [_bindgen_ty_4__bindgen_ty_1; 8usize],
+}
+#[repr(C)]
+#[derive(Copy, Clone)]
+pub struct _bindgen_ty_4__bindgen_ty_1 {
+    pub __bindgen_anon_1: _bindgen_ty_4__bindgen_ty_1__bindgen_ty_1,
+}
+#[repr(C)]
+#[derive(Copy, Clone)]
+pub union _bindgen_ty_4__bindgen_ty_1__bindgen_ty_1 {
+    pub data32: [rmt_item32_t; 64usize],
+    _bindgen_union_align: [u32; 64usize],
+}
+pub type rmt_mem_t = _bindgen_ty_4;
+extern "C" {
+    pub static mut RMTMEM: rmt_mem_t;
+}
+#[doc = "< RMT Channel 0"]
+pub const rmt_channel_t_RMT_CHANNEL_0: rmt_channel_t = 0;
+#[doc = "< RMT Channel 1"]
+pub const rmt_channel_t_RMT_CHANNEL_1: rmt_channel_t = 1;
+#[doc = "< RMT Channel 2"]
+pub const rmt_channel_t_RMT_CHANNEL_2: rmt_channel_t = 2;
+#[doc = "< RMT Channel 3"]
+pub const rmt_channel_t_RMT_CHANNEL_3: rmt_channel_t = 3;
+#[doc = "< RMT Channel 4"]
+pub const rmt_channel_t_RMT_CHANNEL_4: rmt_channel_t = 4;
+#[doc = "< RMT Channel 5"]
+pub const rmt_channel_t_RMT_CHANNEL_5: rmt_channel_t = 5;
+#[doc = "< RMT Channel 6"]
+pub const rmt_channel_t_RMT_CHANNEL_6: rmt_channel_t = 6;
+#[doc = "< RMT Channel 7"]
+pub const rmt_channel_t_RMT_CHANNEL_7: rmt_channel_t = 7;
+pub const rmt_channel_t_RMT_CHANNEL_MAX: rmt_channel_t = 8;
+pub type rmt_channel_t = u32;
+#[doc = "< RMT RX mode, RMT transmitter owns the memory block"]
+pub const rmt_mem_owner_t_RMT_MEM_OWNER_TX: rmt_mem_owner_t = 0;
+#[doc = "< RMT RX mode, RMT receiver owns the memory block"]
+pub const rmt_mem_owner_t_RMT_MEM_OWNER_RX: rmt_mem_owner_t = 1;
+pub const rmt_mem_owner_t_RMT_MEM_OWNER_MAX: rmt_mem_owner_t = 2;
+pub type rmt_mem_owner_t = u32;
+#[doc = "< RMT source clock system reference tick, 1MHz by default (not supported in this version)"]
+pub const rmt_source_clk_t_RMT_BASECLK_REF: rmt_source_clk_t = 0;
+#[doc = "< RMT source clock is APB CLK, 80Mhz by default"]
+pub const rmt_source_clk_t_RMT_BASECLK_APB: rmt_source_clk_t = 1;
+pub const rmt_source_clk_t_RMT_BASECLK_MAX: rmt_source_clk_t = 2;
+pub type rmt_source_clk_t = u32;
+pub const rmt_data_mode_t_RMT_DATA_MODE_FIFO: rmt_data_mode_t = 0;
+pub const rmt_data_mode_t_RMT_DATA_MODE_MEM: rmt_data_mode_t = 1;
+pub const rmt_data_mode_t_RMT_DATA_MODE_MAX: rmt_data_mode_t = 2;
+pub type rmt_data_mode_t = u32;
+#[doc = "< RMT TX mode"]
+pub const rmt_mode_t_RMT_MODE_TX: rmt_mode_t = 0;
+#[doc = "< RMT RX mode"]
+pub const rmt_mode_t_RMT_MODE_RX: rmt_mode_t = 1;
+pub const rmt_mode_t_RMT_MODE_MAX: rmt_mode_t = 2;
+pub type rmt_mode_t = u32;
+#[doc = "< RMT TX idle level: low Level"]
+pub const rmt_idle_level_t_RMT_IDLE_LEVEL_LOW: rmt_idle_level_t = 0;
+#[doc = "< RMT TX idle level: high Level"]
+pub const rmt_idle_level_t_RMT_IDLE_LEVEL_HIGH: rmt_idle_level_t = 1;
+pub const rmt_idle_level_t_RMT_IDLE_LEVEL_MAX: rmt_idle_level_t = 2;
+pub type rmt_idle_level_t = u32;
+#[doc = "< RMT carrier wave is modulated for low Level output"]
+pub const rmt_carrier_level_t_RMT_CARRIER_LEVEL_LOW: rmt_carrier_level_t = 0;
+#[doc = "< RMT carrier wave is modulated for high Level output"]
+pub const rmt_carrier_level_t_RMT_CARRIER_LEVEL_HIGH: rmt_carrier_level_t = 1;
+pub const rmt_carrier_level_t_RMT_CARRIER_LEVEL_MAX: rmt_carrier_level_t = 2;
+pub type rmt_carrier_level_t = u32;
+#[doc = " @brief Data struct of RMT TX configure parameters"]
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct rmt_tx_config_t {
+    #[doc = "< Enable sending RMT items in a loop"]
+    pub loop_en: bool,
+    #[doc = "< RMT carrier frequency"]
+    pub carrier_freq_hz: u32,
+    #[doc = "< RMT carrier duty (%)"]
+    pub carrier_duty_percent: u8,
+    #[doc = "< Level of the RMT output, when the carrier is applied"]
+    pub carrier_level: rmt_carrier_level_t,
+    #[doc = "< RMT carrier enable"]
+    pub carrier_en: bool,
+    #[doc = "< RMT idle level"]
+    pub idle_level: rmt_idle_level_t,
+    #[doc = "< RMT idle level output enable"]
+    pub idle_output_en: bool,
+}
+#[doc = " @brief Data struct of RMT RX configure parameters"]
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct rmt_rx_config_t {
+    #[doc = "< RMT receiver filter enable"]
+    pub filter_en: bool,
+    #[doc = "< RMT filter tick number"]
+    pub filter_ticks_thresh: u8,
+    #[doc = "< RMT RX idle threshold"]
+    pub idle_threshold: u16,
+}
+#[doc = " @brief Data struct of RMT configure parameters"]
+#[repr(C)]
+#[derive(Copy, Clone)]
+pub struct rmt_config_t {
+    #[doc = "< RMT mode: transmitter or receiver"]
+    pub rmt_mode: rmt_mode_t,
+    #[doc = "< RMT channel"]
+    pub channel: rmt_channel_t,
+    #[doc = "< RMT channel counter divider"]
+    pub clk_div: u8,
+    #[doc = "< RMT GPIO number"]
+    pub gpio_num: gpio_num_t,
+    #[doc = "< RMT memory block number"]
+    pub mem_block_num: u8,
+    pub __bindgen_anon_1: rmt_config_t__bindgen_ty_1,
+}
+#[repr(C)]
+#[derive(Copy, Clone)]
+pub union rmt_config_t__bindgen_ty_1 {
+    #[doc = "< RMT TX parameter"]
+    pub tx_config: rmt_tx_config_t,
+    #[doc = "< RMT RX parameter"]
+    pub rx_config: rmt_rx_config_t,
+    _bindgen_union_align: [u32; 7usize],
+}
+pub type rmt_isr_handle_t = intr_handle_t;
+pub type rmt_tx_end_fn_t = ::core::option::Option<
+    unsafe extern "C" fn(channel: rmt_channel_t, arg: *mut ::std::os::raw::c_void),
+>;
+#[doc = " @brief Structure encapsulating a RMT TX end callback"]
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct rmt_tx_end_callback_t {
+    #[doc = "< Function which is called on RMT TX end"]
+    pub function: rmt_tx_end_fn_t,
+    #[doc = "< Optional argument passed to function"]
+    pub arg: *mut ::std::os::raw::c_void,
+}
+#[doc = " @brief User callback function to convert uint8_t type data to rmt format(rmt_item32_t)."]
+#[doc = ""]
+#[doc = "        This function may be called from an ISR, so, the code should be short and efficient."]
+#[doc = ""]
+#[doc = " @param  src Pointer to the buffer storing the raw data that needs to be converted to rmt format."]
+#[doc = " @param[out] dest Pointer to the buffer storing the rmt format data."]
+#[doc = " @param  src_size The raw data size."]
+#[doc = " @param  wanted_num The number of rmt format data that wanted to get."]
+#[doc = " @param[out] translated_size The size of the raw data that has been converted to rmt format,"]
+#[doc = "             it should return 0 if no data is converted in user callback."]
+#[doc = " @param[out] item_num The number of the rmt format data that actually converted to, it can be less than wanted_num if there is not enough raw data,"]
+#[doc = "             but cannot exceed wanted_num. it should return 0 if no data was converted."]
+#[doc = ""]
+#[doc = "       @note"]
+#[doc = "       In fact, item_num should be a multiple of translated_size, e.g. :"]
+#[doc = "       When we convert each byte of uint8_t type data to rmt format data,"]
+#[doc = "       the relation between item_num and translated_size should be `item_num = translated_size*8`."]
+pub type sample_to_rmt_t = ::core::option::Option<
+    unsafe extern "C" fn(
+        src: *const ::std::os::raw::c_void,
+        dest: *mut rmt_item32_t,
+        src_size: usize,
+        wanted_num: usize,
+        translated_size: *mut usize,
+        item_num: *mut usize,
+    ),
+>;
+extern "C" {
+    #[doc = " @brief Set RMT clock divider, channel clock is divided from source clock."]
+    #[doc = ""]
+    #[doc = " @param channel RMT channel (0-7)"]
+    #[doc = " @param div_cnt RMT counter clock divider"]
+    #[doc = ""]
+    #[doc = " @return"]
+    #[doc = "     - ESP_ERR_INVALID_ARG Parameter error"]
+    #[doc = "     - ESP_OK Success"]
+    pub fn rmt_set_clk_div(channel: rmt_channel_t, div_cnt: u8) -> esp_err_t;
+}
+extern "C" {
+    #[doc = " @brief Get RMT clock divider, channel clock is divided from source clock."]
+    #[doc = ""]
+    #[doc = " @param channel RMT channel (0-7)"]
+    #[doc = " @param div_cnt pointer to accept RMT counter divider"]
+    #[doc = ""]
+    #[doc = " @return"]
+    #[doc = "     - ESP_ERR_INVALID_ARG Parameter error"]
+    #[doc = "     - ESP_OK Success"]
+    pub fn rmt_get_clk_div(channel: rmt_channel_t, div_cnt: *mut u8) -> esp_err_t;
+}
+extern "C" {
+    #[doc = " @brief Set RMT RX idle threshold value"]
+    #[doc = ""]
+    #[doc = "        In receive mode, when no edge is detected on the input signal"]
+    #[doc = "        for longer than idle_thres channel clock cycles,"]
+    #[doc = "        the receive process is finished."]
+    #[doc = ""]
+    #[doc = " @param channel RMT channel (0-7)"]
+    #[doc = " @param thresh RMT RX idle threshold"]
+    #[doc = ""]
+    #[doc = " @return"]
+    #[doc = "     - ESP_ERR_INVALID_ARG Parameter error"]
+    #[doc = "     - ESP_OK Success"]
+    pub fn rmt_set_rx_idle_thresh(channel: rmt_channel_t, thresh: u16) -> esp_err_t;
+}
+extern "C" {
+    #[doc = " @brief Get RMT idle threshold value."]
+    #[doc = ""]
+    #[doc = "        In receive mode, when no edge is detected on the input signal"]
+    #[doc = "        for longer than idle_thres channel clock cycles,"]
+    #[doc = "        the receive process is finished."]
+    #[doc = ""]
+    #[doc = " @param channel RMT channel (0-7)"]
+    #[doc = " @param thresh pointer to accept RMT RX idle threshold value"]
+    #[doc = ""]
+    #[doc = " @return"]
+    #[doc = "     - ESP_ERR_INVALID_ARG Parameter error"]
+    #[doc = "     - ESP_OK Success"]
+    pub fn rmt_get_rx_idle_thresh(channel: rmt_channel_t, thresh: *mut u16) -> esp_err_t;
+}
+extern "C" {
+    #[doc = " @brief Set RMT memory block number for RMT channel"]
+    #[doc = ""]
+    #[doc = "        This function is used to configure the amount of memory blocks allocated to channel n"]
+    #[doc = "        The 8 channels share a 512x32-bit RAM block which can be read and written"]
+    #[doc = "        by the processor cores over the APB bus, as well as read by the transmitters"]
+    #[doc = "        and written by the receivers."]
+    #[doc = ""]
+    #[doc = "        The RAM address range for channel n is start_addr_CHn to end_addr_CHn, which are defined by:"]
+    #[doc = "        Memory block start address is RMT_CHANNEL_MEM(n) (in soc/rmt_reg.h),"]
+    #[doc = "        that is, start_addr_chn = RMT base address + 0x800 + 64 \u{2217} 4 \u{2217} n, and"]
+    #[doc = "        end_addr_chn = RMT base address + 0x800 +  64 \u{2217} 4 \u{2217} n + 64 \u{2217} 4 \u{2217} RMT_MEM_SIZE_CHn mod 512 \u{2217} 4"]
+    #[doc = ""]
+    #[doc = "        @note"]
+    #[doc = "        If memory block number of one channel is set to a value greater than 1, this channel will occupy the memory"]
+    #[doc = "        block of the next channel."]
+    #[doc = "        Channel 0 can use at most 8 blocks of memory, accordingly channel 7 can only use one memory block."]
+    #[doc = ""]
+    #[doc = " @param channel RMT channel (0-7)"]
+    #[doc = " @param rmt_mem_num RMT RX memory block number, one block has 64 * 32 bits."]
+    #[doc = ""]
+    #[doc = " @return"]
+    #[doc = "     - ESP_ERR_INVALID_ARG Parameter error"]
+    #[doc = "     - ESP_OK Success"]
+    pub fn rmt_set_mem_block_num(channel: rmt_channel_t, rmt_mem_num: u8) -> esp_err_t;
+}
+extern "C" {
+    #[doc = " @brief Get RMT memory block number"]
+    #[doc = ""]
+    #[doc = " @param channel RMT channel (0-7)"]
+    #[doc = " @param rmt_mem_num Pointer to accept RMT RX memory block number"]
+    #[doc = ""]
+    #[doc = " @return"]
+    #[doc = "     - ESP_ERR_INVALID_ARG Parameter error"]
+    #[doc = "     - ESP_OK Success"]
+    pub fn rmt_get_mem_block_num(channel: rmt_channel_t, rmt_mem_num: *mut u8) -> esp_err_t;
+}
+extern "C" {
+    #[doc = " @brief Configure RMT carrier for TX signal."]
+    #[doc = ""]
+    #[doc = "        Set different values for carrier_high and carrier_low to set different frequency of carrier."]
+    #[doc = "        The unit of carrier_high/low is the source clock tick, not the divided channel counter clock."]
+    #[doc = ""]
+    #[doc = " @param channel RMT channel (0-7)"]
+    #[doc = " @param carrier_en Whether to enable output carrier."]
+    #[doc = " @param high_level High level duration of carrier"]
+    #[doc = " @param low_level Low level duration of carrier."]
+    #[doc = " @param carrier_level Configure the way carrier wave is modulated for channel 0-7."]
+    #[doc = "     - 1'b1:transmit on low output level"]
+    #[doc = "     - 1'b0:transmit on high output level"]
+    #[doc = ""]
+    #[doc = " @return"]
+    #[doc = "     - ESP_ERR_INVALID_ARG Parameter error"]
+    #[doc = "     - ESP_OK Success"]
+    pub fn rmt_set_tx_carrier(
+        channel: rmt_channel_t,
+        carrier_en: bool,
+        high_level: u16,
+        low_level: u16,
+        carrier_level: rmt_carrier_level_t,
+    ) -> esp_err_t;
+}
+extern "C" {
+    #[doc = " @brief Set RMT memory in low power mode."]
+    #[doc = ""]
+    #[doc = "        Reduce power consumed by memory. 1:memory is in low power state."]
+    #[doc = ""]
+    #[doc = " @param channel RMT channel (0-7)"]
+    #[doc = " @param pd_en RMT memory low power enable."]
+    #[doc = ""]
+    #[doc = " @return"]
+    #[doc = "     - ESP_ERR_INVALID_ARG Parameter error"]
+    #[doc = "     - ESP_OK Success"]
+    pub fn rmt_set_mem_pd(channel: rmt_channel_t, pd_en: bool) -> esp_err_t;
+}
+extern "C" {
+    #[doc = " @brief Get RMT memory low power mode."]
+    #[doc = ""]
+    #[doc = " @param channel RMT channel (0-7)"]
+    #[doc = " @param pd_en Pointer to accept RMT memory low power mode."]
+    #[doc = ""]
+    #[doc = " @return"]
+    #[doc = "     - ESP_ERR_INVALID_ARG Parameter error"]
+    #[doc = "     - ESP_OK Success"]
+    pub fn rmt_get_mem_pd(channel: rmt_channel_t, pd_en: *mut bool) -> esp_err_t;
+}
+extern "C" {
+    #[doc = " @brief Set RMT start sending data from memory."]
+    #[doc = ""]
+    #[doc = " @param channel RMT channel (0-7)"]
+    #[doc = " @param tx_idx_rst Set true to reset memory index for TX."]
+    #[doc = "                   Otherwise, transmitter will continue sending from the last index in memory."]
+    #[doc = ""]
+    #[doc = " @return"]
+    #[doc = "     - ESP_ERR_INVALID_ARG Parameter error"]
+    #[doc = "     - ESP_OK Success"]
+    pub fn rmt_tx_start(channel: rmt_channel_t, tx_idx_rst: bool) -> esp_err_t;
+}
+extern "C" {
+    #[doc = " @brief Set RMT stop sending."]
+    #[doc = ""]
+    #[doc = " @param channel RMT channel (0-7)"]
+    #[doc = ""]
+    #[doc = " @return"]
+    #[doc = "     - ESP_ERR_INVALID_ARG Parameter error"]
+    #[doc = "     - ESP_OK Success"]
+    pub fn rmt_tx_stop(channel: rmt_channel_t) -> esp_err_t;
+}
+extern "C" {
+    #[doc = " @brief Set RMT start receiving data."]
+    #[doc = ""]
+    #[doc = " @param channel RMT channel (0-7)"]
+    #[doc = " @param rx_idx_rst Set true to reset memory index for receiver."]
+    #[doc = "                   Otherwise, receiver will continue receiving data to the last index in memory."]
+    #[doc = ""]
+    #[doc = " @return"]
+    #[doc = "     - ESP_ERR_INVALID_ARG Parameter error"]
+    #[doc = "     - ESP_OK Success"]
+    pub fn rmt_rx_start(channel: rmt_channel_t, rx_idx_rst: bool) -> esp_err_t;
+}
+extern "C" {
+    #[doc = " @brief Set RMT stop receiving data."]
+    #[doc = ""]
+    #[doc = " @param channel RMT channel (0-7)"]
+    #[doc = ""]
+    #[doc = " @return"]
+    #[doc = "     - ESP_ERR_INVALID_ARG Parameter error"]
+    #[doc = "     - ESP_OK Success"]
+    pub fn rmt_rx_stop(channel: rmt_channel_t) -> esp_err_t;
+}
+extern "C" {
+    #[doc = " @brief Reset RMT TX/RX memory index."]
+    #[doc = ""]
+    #[doc = " @param channel RMT channel (0-7)"]
+    #[doc = ""]
+    #[doc = " @return"]
+    #[doc = "     - ESP_ERR_INVALID_ARG Parameter error"]
+    #[doc = "     - ESP_OK Success"]
+    pub fn rmt_memory_rw_rst(channel: rmt_channel_t) -> esp_err_t;
+}
+extern "C" {
+    #[doc = " @brief Set RMT memory owner."]
+    #[doc = ""]
+    #[doc = " @param channel RMT channel (0-7)"]
+    #[doc = " @param owner To set when the transmitter or receiver can process the memory of channel."]
+    #[doc = ""]
+    #[doc = " @return"]
+    #[doc = "     - ESP_ERR_INVALID_ARG Parameter error"]
+    #[doc = "     - ESP_OK Success"]
+    pub fn rmt_set_memory_owner(channel: rmt_channel_t, owner: rmt_mem_owner_t) -> esp_err_t;
+}
+extern "C" {
+    #[doc = " @brief Get RMT memory owner."]
+    #[doc = ""]
+    #[doc = " @param channel RMT channel (0-7)"]
+    #[doc = " @param owner Pointer to get memory owner."]
+    #[doc = ""]
+    #[doc = " @return"]
+    #[doc = "     - ESP_ERR_INVALID_ARG Parameter error"]
+    #[doc = "     - ESP_OK Success"]
+    pub fn rmt_get_memory_owner(channel: rmt_channel_t, owner: *mut rmt_mem_owner_t) -> esp_err_t;
+}
+extern "C" {
+    #[doc = " @brief Set RMT tx loop mode."]
+    #[doc = ""]
+    #[doc = " @param channel RMT channel (0-7)"]
+    #[doc = " @param loop_en Enable RMT transmitter loop sending mode."]
+    #[doc = "                If set true, transmitter will continue sending from the first data"]
+    #[doc = "                to the last data in channel 0-7 over and over again in a loop."]
+    #[doc = ""]
+    #[doc = " @return"]
+    #[doc = "     - ESP_ERR_INVALID_ARG Parameter error"]
+    #[doc = "     - ESP_OK Success"]
+    pub fn rmt_set_tx_loop_mode(channel: rmt_channel_t, loop_en: bool) -> esp_err_t;
+}
+extern "C" {
+    #[doc = " @brief Get RMT tx loop mode."]
+    #[doc = ""]
+    #[doc = " @param channel RMT channel (0-7)"]
+    #[doc = " @param loop_en Pointer to accept RMT transmitter loop sending mode."]
+    #[doc = ""]
+    #[doc = " @return"]
+    #[doc = "     - ESP_ERR_INVALID_ARG Parameter error"]
+    #[doc = "     - ESP_OK Success"]
+    pub fn rmt_get_tx_loop_mode(channel: rmt_channel_t, loop_en: *mut bool) -> esp_err_t;
+}
+extern "C" {
+    #[doc = " @brief Set RMT RX filter."]
+    #[doc = ""]
+    #[doc = "        In receive mode, channel 0-7 will ignore input pulse when the pulse width is smaller than threshold."]
+    #[doc = "        Counted in source clock, not divided counter clock."]
+    #[doc = ""]
+    #[doc = " @param channel RMT channel (0-7)"]
+    #[doc = " @param rx_filter_en To enable RMT receiver filter."]
+    #[doc = " @param thresh Threshold of pulse width for receiver."]
+    #[doc = ""]
+    #[doc = " @return"]
+    #[doc = "     - ESP_ERR_INVALID_ARG Parameter error"]
+    #[doc = "     - ESP_OK Success"]
+    pub fn rmt_set_rx_filter(channel: rmt_channel_t, rx_filter_en: bool, thresh: u8) -> esp_err_t;
+}
+extern "C" {
+    #[doc = " @brief Set RMT source clock"]
+    #[doc = ""]
+    #[doc = "        RMT module has two clock sources:"]
+    #[doc = "        1. APB clock which is 80Mhz"]
+    #[doc = "        2. REF tick clock, which would be 1Mhz (not supported in this version)."]
+    #[doc = ""]
+    #[doc = " @param channel RMT channel (0-7)"]
+    #[doc = " @param base_clk To choose source clock for RMT module."]
+    #[doc = ""]
+    #[doc = " @return"]
+    #[doc = "     - ESP_ERR_INVALID_ARG Parameter error"]
+    #[doc = "     - ESP_OK Success"]
+    pub fn rmt_set_source_clk(channel: rmt_channel_t, base_clk: rmt_source_clk_t) -> esp_err_t;
+}
+extern "C" {
+    #[doc = " @brief Get RMT source clock"]
+    #[doc = ""]
+    #[doc = "        RMT module has two clock sources:"]
+    #[doc = "        1. APB clock which is 80Mhz"]
+    #[doc = "        2. REF tick clock, which would be 1Mhz (not supported in this version)."]
+    #[doc = ""]
+    #[doc = " @param channel RMT channel (0-7)"]
+    #[doc = " @param src_clk Pointer to accept source clock for RMT module."]
+    #[doc = ""]
+    #[doc = " @return"]
+    #[doc = "     - ESP_ERR_INVALID_ARG Parameter error"]
+    #[doc = "     - ESP_OK Success"]
+    pub fn rmt_get_source_clk(channel: rmt_channel_t, src_clk: *mut rmt_source_clk_t) -> esp_err_t;
+}
+extern "C" {
+    #[doc = " @brief Set RMT idle output level for transmitter"]
+    #[doc = ""]
+    #[doc = " @param channel RMT channel (0-7)"]
+    #[doc = " @param idle_out_en To enable idle level output."]
+    #[doc = " @param level To set the output signal's level for channel 0-7 in idle state."]
+    #[doc = ""]
+    #[doc = " @return"]
+    #[doc = "     - ESP_ERR_INVALID_ARG Parameter error"]
+    #[doc = "     - ESP_OK Success"]
+    pub fn rmt_set_idle_level(
+        channel: rmt_channel_t,
+        idle_out_en: bool,
+        level: rmt_idle_level_t,
+    ) -> esp_err_t;
+}
+extern "C" {
+    #[doc = " @brief Get RMT idle output level for transmitter"]
+    #[doc = ""]
+    #[doc = " @param channel RMT channel (0-7)"]
+    #[doc = " @param idle_out_en Pointer to accept value of enable idle."]
+    #[doc = " @param level Pointer to accept value of output signal's level in idle state for specified channel."]
+    #[doc = ""]
+    #[doc = " @return"]
+    #[doc = "     - ESP_ERR_INVALID_ARG Parameter error"]
+    #[doc = "     - ESP_OK Success"]
+    pub fn rmt_get_idle_level(
+        channel: rmt_channel_t,
+        idle_out_en: *mut bool,
+        level: *mut rmt_idle_level_t,
+    ) -> esp_err_t;
+}
+extern "C" {
+    #[doc = " @brief Get RMT status"]
+    #[doc = ""]
+    #[doc = " @param channel RMT channel (0-7)"]
+    #[doc = " @param status Pointer to accept channel status."]
+    #[doc = ""]
+    #[doc = " @return"]
+    #[doc = "     - ESP_ERR_INVALID_ARG Parameter error"]
+    #[doc = "     - ESP_OK Success"]
+    pub fn rmt_get_status(channel: rmt_channel_t, status: *mut u32) -> esp_err_t;
+}
+extern "C" {
+    #[doc = " @brief Set mask value to RMT interrupt enable register."]
+    #[doc = ""]
+    #[doc = " @param mask Bit mask to set to the register"]
+    #[doc = ""]
+    pub fn rmt_set_intr_enable_mask(mask: u32);
+}
+extern "C" {
+    #[doc = " @brief Clear mask value to RMT interrupt enable register."]
+    #[doc = ""]
+    #[doc = " @param mask Bit mask to clear the register"]
+    #[doc = ""]
+    pub fn rmt_clr_intr_enable_mask(mask: u32);
+}
+extern "C" {
+    #[doc = " @brief Set RMT RX interrupt enable"]
+    #[doc = ""]
+    #[doc = " @param channel RMT channel (0 - 7)"]
+    #[doc = " @param en enable or disable RX interrupt."]
+    #[doc = ""]
+    #[doc = " @return"]
+    #[doc = "     - ESP_ERR_INVALID_ARG Parameter error"]
+    #[doc = "     - ESP_OK Success"]
+    pub fn rmt_set_rx_intr_en(channel: rmt_channel_t, en: bool) -> esp_err_t;
+}
+extern "C" {
+    #[doc = " @brief Set RMT RX error interrupt enable"]
+    #[doc = ""]
+    #[doc = " @param channel RMT channel (0 - 7)"]
+    #[doc = " @param en enable or disable RX err interrupt."]
+    #[doc = ""]
+    #[doc = " @return"]
+    #[doc = "     - ESP_ERR_INVALID_ARG Parameter error"]
+    #[doc = "     - ESP_OK Success"]
+    pub fn rmt_set_err_intr_en(channel: rmt_channel_t, en: bool) -> esp_err_t;
+}
+extern "C" {
+    #[doc = " @brief Set RMT TX interrupt enable"]
+    #[doc = ""]
+    #[doc = " @param channel RMT channel (0 - 7)"]
+    #[doc = " @param en enable or disable TX interrupt."]
+    #[doc = ""]
+    #[doc = " @return"]
+    #[doc = "     - ESP_ERR_INVALID_ARG Parameter error"]
+    #[doc = "     - ESP_OK Success"]
+    pub fn rmt_set_tx_intr_en(channel: rmt_channel_t, en: bool) -> esp_err_t;
+}
+extern "C" {
+    #[doc = " @brief Set RMT TX threshold event interrupt enable"]
+    #[doc = ""]
+    #[doc = " An interrupt will be triggered when the number of transmitted items reaches the threshold value"]
+    #[doc = ""]
+    #[doc = " @param channel RMT channel (0 - 7)"]
+    #[doc = " @param en enable or disable TX event interrupt."]
+    #[doc = " @param evt_thresh RMT event interrupt threshold value"]
+    #[doc = ""]
+    #[doc = " @return"]
+    #[doc = "     - ESP_ERR_INVALID_ARG Parameter error"]
+    #[doc = "     - ESP_OK Success"]
+    pub fn rmt_set_tx_thr_intr_en(channel: rmt_channel_t, en: bool, evt_thresh: u16) -> esp_err_t;
+}
+extern "C" {
+    #[doc = " @brief Set RMT pin"]
+    #[doc = ""]
+    #[doc = " @param channel RMT channel (0 - 7)"]
+    #[doc = " @param mode TX or RX mode for RMT"]
+    #[doc = " @param gpio_num GPIO number to transmit or receive the signal."]
+    #[doc = ""]
+    #[doc = " @return"]
+    #[doc = "     - ESP_ERR_INVALID_ARG Parameter error"]
+    #[doc = "     - ESP_OK Success"]
+    pub fn rmt_set_pin(channel: rmt_channel_t, mode: rmt_mode_t, gpio_num: gpio_num_t)
+        -> esp_err_t;
+}
+extern "C" {
+    #[doc = " @brief Configure RMT parameters"]
+    #[doc = ""]
+    #[doc = " @param rmt_param RMT parameter struct"]
+    #[doc = ""]
+    #[doc = " @return"]
+    #[doc = "     - ESP_ERR_INVALID_ARG Parameter error"]
+    #[doc = "     - ESP_OK Success"]
+    pub fn rmt_config(rmt_param: *const rmt_config_t) -> esp_err_t;
+}
+extern "C" {
+    #[doc = " @brief Register RMT interrupt handler, the handler is an ISR."]
+    #[doc = ""]
+    #[doc = "        The handler will be attached to the same CPU core that this function is running on."]
+    #[doc = ""]
+    #[doc = " @note  If you already called rmt_driver_install to use system RMT driver,"]
+    #[doc = "        please do not register ISR handler again."]
+    #[doc = ""]
+    #[doc = " @param fn Interrupt handler function."]
+    #[doc = " @param arg Parameter for the handler function"]
+    #[doc = " @param intr_alloc_flags Flags used to allocate the interrupt. One or multiple (ORred)"]
+    #[doc = "        ESP_INTR_FLAG_* values. See esp_intr_alloc.h for more info."]
+    #[doc = " @param handle If non-zero, a handle to later clean up the ISR gets stored here."]
+    #[doc = ""]
+    #[doc = " @return"]
+    #[doc = "     - ESP_OK Success"]
+    #[doc = "     - ESP_ERR_INVALID_ARG Function pointer error."]
+    #[doc = "     - ESP_FAIL System driver installed, can not register ISR handler for RMT"]
+    pub fn rmt_isr_register(
+        fn_: ::core::option::Option<unsafe extern "C" fn(arg1: *mut ::std::os::raw::c_void)>,
+        arg: *mut ::std::os::raw::c_void,
+        intr_alloc_flags: ::std::os::raw::c_int,
+        handle: *mut rmt_isr_handle_t,
+    ) -> esp_err_t;
+}
+extern "C" {
+    #[doc = " @brief   Deregister previously registered RMT interrupt handler"]
+    #[doc = ""]
+    #[doc = " @param handle Handle obtained from rmt_isr_register"]
+    #[doc = ""]
+    #[doc = " @return"]
+    #[doc = "     - ESP_OK Success"]
+    #[doc = "     - ESP_ERR_INVALID_ARG Handle invalid"]
+    pub fn rmt_isr_deregister(handle: rmt_isr_handle_t) -> esp_err_t;
+}
+extern "C" {
+    #[doc = " @brief Fill memory data of channel with given RMT items."]
+    #[doc = ""]
+    #[doc = " @param channel RMT channel (0 - 7)"]
+    #[doc = " @param item Pointer of items."]
+    #[doc = " @param item_num RMT sending items number."]
+    #[doc = " @param mem_offset Index offset of memory."]
+    #[doc = ""]
+    #[doc = " @return"]
+    #[doc = "     - ESP_ERR_INVALID_ARG Parameter error"]
+    #[doc = "     - ESP_OK Success"]
+    pub fn rmt_fill_tx_items(
+        channel: rmt_channel_t,
+        item: *const rmt_item32_t,
+        item_num: u16,
+        mem_offset: u16,
+    ) -> esp_err_t;
+}
+extern "C" {
+    #[doc = " @brief Initialize RMT driver"]
+    #[doc = ""]
+    #[doc = " @param channel RMT channel (0 - 7)"]
+    #[doc = " @param rx_buf_size Size of RMT RX ringbuffer. Can be 0 if the RX ringbuffer is not used."]
+    #[doc = " @param intr_alloc_flags Flags for the RMT driver interrupt handler. Pass 0 for default flags. See esp_intr_alloc.h for details."]
+    #[doc = "        If ESP_INTR_FLAG_IRAM is used, please do not use the memory allocated from psram when calling rmt_write_items."]
+    #[doc = ""]
+    #[doc = " @return"]
+    #[doc = "     - ESP_ERR_INVALID_STATE Driver is already installed, call rmt_driver_uninstall first."]
+    #[doc = "     - ESP_ERR_NO_MEM Memory allocation failure"]
+    #[doc = "     - ESP_ERR_INVALID_ARG Parameter error"]
+    #[doc = "     - ESP_OK Success"]
+    pub fn rmt_driver_install(
+        channel: rmt_channel_t,
+        rx_buf_size: usize,
+        intr_alloc_flags: ::std::os::raw::c_int,
+    ) -> esp_err_t;
+}
+extern "C" {
+    #[doc = " @brief Uninstall RMT driver."]
+    #[doc = ""]
+    #[doc = " @param channel RMT channel (0 - 7)"]
+    #[doc = ""]
+    #[doc = " @return"]
+    #[doc = "     - ESP_ERR_INVALID_ARG Parameter error"]
+    #[doc = "     - ESP_OK Success"]
+    pub fn rmt_driver_uninstall(channel: rmt_channel_t) -> esp_err_t;
+}
+extern "C" {
+    #[doc = " @brief RMT send waveform from rmt_item array."]
+    #[doc = ""]
+    #[doc = "        This API allows user to send waveform with any length."]
+    #[doc = ""]
+    #[doc = " @param channel RMT channel (0 - 7)"]
+    #[doc = " @param rmt_item head point of RMT items array."]
+    #[doc = "        If ESP_INTR_FLAG_IRAM is used, please do not use the memory allocated from psram when calling rmt_write_items."]
+    #[doc = " @param item_num RMT data item number."]
+    #[doc = " @param wait_tx_done"]
+    #[doc = "        - If set 1, it will block the task and wait for sending done."]
+    #[doc = "        - If set 0, it will not wait and return immediately."]
+    #[doc = ""]
+    #[doc = "         @note"]
+    #[doc = "         This function will not copy data, instead, it will point to the original items,"]
+    #[doc = "         and send the waveform items."]
+    #[doc = "         If wait_tx_done is set to true, this function will block and will not return until"]
+    #[doc = "         all items have been sent out."]
+    #[doc = "         If wait_tx_done is set to false, this function will return immediately, and the driver"]
+    #[doc = "         interrupt will continue sending the items. We must make sure the item data will not be"]
+    #[doc = "         damaged when the driver is still sending items in driver interrupt."]
+    #[doc = ""]
+    #[doc = " @return"]
+    #[doc = "     - ESP_ERR_INVALID_ARG Parameter error"]
+    #[doc = "     - ESP_OK Success"]
+    pub fn rmt_write_items(
+        channel: rmt_channel_t,
+        rmt_item: *const rmt_item32_t,
+        item_num: ::std::os::raw::c_int,
+        wait_tx_done: bool,
+    ) -> esp_err_t;
+}
+extern "C" {
+    #[doc = " @brief Wait RMT TX finished."]
+    #[doc = ""]
+    #[doc = " @param channel RMT channel (0 - 7)"]
+    #[doc = " @param wait_time Maximum time in ticks to wait for transmission to be complete.  If set 0, return immediately with ESP_ERR_TIMEOUT if TX is busy (polling)."]
+    #[doc = ""]
+    #[doc = " @return"]
+    #[doc = "     - ESP_OK RMT Tx done successfully"]
+    #[doc = "     - ESP_ERR_TIMEOUT Exceeded the 'wait_time' given"]
+    #[doc = "     - ESP_ERR_INVALID_ARG Parameter error"]
+    #[doc = "     - ESP_FAIL Driver not installed"]
+    pub fn rmt_wait_tx_done(channel: rmt_channel_t, wait_time: TickType_t) -> esp_err_t;
+}
+extern "C" {
+    #[doc = " @brief Get ringbuffer from RMT."]
+    #[doc = ""]
+    #[doc = "        Users can get the RMT RX ringbuffer handle, and process the RX data."]
+    #[doc = ""]
+    #[doc = " @param channel RMT channel (0 - 7)"]
+    #[doc = " @param buf_handle Pointer to buffer handle to accept RX ringbuffer handle."]
+    #[doc = ""]
+    #[doc = " @return"]
+    #[doc = "     - ESP_ERR_INVALID_ARG Parameter error"]
+    #[doc = "     - ESP_OK Success"]
+    pub fn rmt_get_ringbuf_handle(
+        channel: rmt_channel_t,
+        buf_handle: *mut RingbufHandle_t,
+    ) -> esp_err_t;
+}
+extern "C" {
+    #[doc = " @brief Init rmt translator and register user callback."]
+    #[doc = "        The callback will convert the raw data that needs to be sent to rmt format."]
+    #[doc = "        If a channel is initialized more than once, tha user callback will be replaced by the later."]
+    #[doc = ""]
+    #[doc = " @param channel RMT channel (0 - 7)."]
+    #[doc = " @param fn Point to the data conversion function."]
+    #[doc = ""]
+    #[doc = " @return"]
+    #[doc = "     - ESP_FAIL Init fail."]
+    #[doc = "     - ESP_OK Init success."]
+    pub fn rmt_translator_init(channel: rmt_channel_t, fn_: sample_to_rmt_t) -> esp_err_t;
+}
+extern "C" {
+    #[doc = " @brief Translate uint8_t type of data into rmt format and send it out."]
+    #[doc = "        Requires rmt_translator_init to init the translator first."]
+    #[doc = ""]
+    #[doc = " @param channel RMT channel (0 - 7)."]
+    #[doc = " @param src Pointer to the raw data."]
+    #[doc = " @param src_size The size of the raw data."]
+    #[doc = " @param wait_tx_done Set true to wait all data send done."]
+    #[doc = ""]
+    #[doc = " @return"]
+    #[doc = "     - ESP_FAIL Send fail"]
+    #[doc = "     - ESP_OK Send success"]
+    pub fn rmt_write_sample(
+        channel: rmt_channel_t,
+        src: *const u8,
+        src_size: usize,
+        wait_tx_done: bool,
+    ) -> esp_err_t;
+}
+extern "C" {
+    #[doc = " @brief Registers a callback that will be called when transmission ends."]
+    #[doc = ""]
+    #[doc = "        Called by rmt_driver_isr_default in interrupt context."]
+    #[doc = ""]
+    #[doc = " @note Requires rmt_driver_install to install the default ISR handler."]
+    #[doc = ""]
+    #[doc = " @param function Function to be called from the default interrupt handler or NULL."]
+    #[doc = " @param arg Argument which will be provided to the callback when it is called."]
+    #[doc = ""]
+    #[doc = " @return the previous callback settings (members will be set to NULL if there was none)"]
+    pub fn rmt_register_tx_end_callback(
+        function: rmt_tx_end_fn_t,
+        arg: *mut ::std::os::raw::c_void,
+    ) -> rmt_tx_end_callback_t;
+}
 #[doc = "<PWM0A output pin"]
 pub const mcpwm_io_signals_t_MCPWM0A: mcpwm_io_signals_t = 0;
 #[doc = "<PWM0B output pin"]
@@ -30000,33 +34346,33 @@ extern "C" {
 }
 #[repr(C)]
 #[derive(Copy, Clone)]
-pub struct _bindgen_ty_3 {
-    pub cmd: _bindgen_ty_3__bindgen_ty_1,
+pub struct _bindgen_ty_5 {
+    pub cmd: _bindgen_ty_5__bindgen_ty_1,
     pub addr: u32,
-    pub ctrl: _bindgen_ty_3__bindgen_ty_2,
-    pub ctrl1: _bindgen_ty_3__bindgen_ty_3,
-    pub rd_status: _bindgen_ty_3__bindgen_ty_4,
-    pub ctrl2: _bindgen_ty_3__bindgen_ty_5,
-    pub clock: _bindgen_ty_3__bindgen_ty_6,
-    pub user: _bindgen_ty_3__bindgen_ty_7,
-    pub user1: _bindgen_ty_3__bindgen_ty_8,
-    pub user2: _bindgen_ty_3__bindgen_ty_9,
-    pub mosi_dlen: _bindgen_ty_3__bindgen_ty_10,
-    pub miso_dlen: _bindgen_ty_3__bindgen_ty_11,
+    pub ctrl: _bindgen_ty_5__bindgen_ty_2,
+    pub ctrl1: _bindgen_ty_5__bindgen_ty_3,
+    pub rd_status: _bindgen_ty_5__bindgen_ty_4,
+    pub ctrl2: _bindgen_ty_5__bindgen_ty_5,
+    pub clock: _bindgen_ty_5__bindgen_ty_6,
+    pub user: _bindgen_ty_5__bindgen_ty_7,
+    pub user1: _bindgen_ty_5__bindgen_ty_8,
+    pub user2: _bindgen_ty_5__bindgen_ty_9,
+    pub mosi_dlen: _bindgen_ty_5__bindgen_ty_10,
+    pub miso_dlen: _bindgen_ty_5__bindgen_ty_11,
     pub slv_wr_status: u32,
-    pub pin: _bindgen_ty_3__bindgen_ty_12,
-    pub slave: _bindgen_ty_3__bindgen_ty_13,
-    pub slave1: _bindgen_ty_3__bindgen_ty_14,
-    pub slave2: _bindgen_ty_3__bindgen_ty_15,
-    pub slave3: _bindgen_ty_3__bindgen_ty_16,
-    pub slv_wrbuf_dlen: _bindgen_ty_3__bindgen_ty_17,
-    pub slv_rdbuf_dlen: _bindgen_ty_3__bindgen_ty_18,
-    pub cache_fctrl: _bindgen_ty_3__bindgen_ty_19,
-    pub cache_sctrl: _bindgen_ty_3__bindgen_ty_20,
-    pub sram_cmd: _bindgen_ty_3__bindgen_ty_21,
-    pub sram_drd_cmd: _bindgen_ty_3__bindgen_ty_22,
-    pub sram_dwr_cmd: _bindgen_ty_3__bindgen_ty_23,
-    pub slv_rd_bit: _bindgen_ty_3__bindgen_ty_24,
+    pub pin: _bindgen_ty_5__bindgen_ty_12,
+    pub slave: _bindgen_ty_5__bindgen_ty_13,
+    pub slave1: _bindgen_ty_5__bindgen_ty_14,
+    pub slave2: _bindgen_ty_5__bindgen_ty_15,
+    pub slave3: _bindgen_ty_5__bindgen_ty_16,
+    pub slv_wrbuf_dlen: _bindgen_ty_5__bindgen_ty_17,
+    pub slv_rdbuf_dlen: _bindgen_ty_5__bindgen_ty_18,
+    pub cache_fctrl: _bindgen_ty_5__bindgen_ty_19,
+    pub cache_sctrl: _bindgen_ty_5__bindgen_ty_20,
+    pub sram_cmd: _bindgen_ty_5__bindgen_ty_21,
+    pub sram_drd_cmd: _bindgen_ty_5__bindgen_ty_22,
+    pub sram_dwr_cmd: _bindgen_ty_5__bindgen_ty_23,
+    pub slv_rd_bit: _bindgen_ty_5__bindgen_ty_24,
     pub reserved_68: u32,
     pub reserved_6c: u32,
     pub reserved_70: u32,
@@ -30046,18 +34392,18 @@ pub struct _bindgen_ty_3 {
     pub reserved_e4: u32,
     pub reserved_e8: u32,
     pub reserved_ec: u32,
-    pub ext0: _bindgen_ty_3__bindgen_ty_25,
-    pub ext1: _bindgen_ty_3__bindgen_ty_26,
-    pub ext2: _bindgen_ty_3__bindgen_ty_27,
-    pub ext3: _bindgen_ty_3__bindgen_ty_28,
-    pub dma_conf: _bindgen_ty_3__bindgen_ty_29,
-    pub dma_out_link: _bindgen_ty_3__bindgen_ty_30,
-    pub dma_in_link: _bindgen_ty_3__bindgen_ty_31,
-    pub dma_status: _bindgen_ty_3__bindgen_ty_32,
-    pub dma_int_ena: _bindgen_ty_3__bindgen_ty_33,
-    pub dma_int_raw: _bindgen_ty_3__bindgen_ty_34,
-    pub dma_int_st: _bindgen_ty_3__bindgen_ty_35,
-    pub dma_int_clr: _bindgen_ty_3__bindgen_ty_36,
+    pub ext0: _bindgen_ty_5__bindgen_ty_25,
+    pub ext1: _bindgen_ty_5__bindgen_ty_26,
+    pub ext2: _bindgen_ty_5__bindgen_ty_27,
+    pub ext3: _bindgen_ty_5__bindgen_ty_28,
+    pub dma_conf: _bindgen_ty_5__bindgen_ty_29,
+    pub dma_out_link: _bindgen_ty_5__bindgen_ty_30,
+    pub dma_in_link: _bindgen_ty_5__bindgen_ty_31,
+    pub dma_status: _bindgen_ty_5__bindgen_ty_32,
+    pub dma_int_ena: _bindgen_ty_5__bindgen_ty_33,
+    pub dma_int_raw: _bindgen_ty_5__bindgen_ty_34,
+    pub dma_int_st: _bindgen_ty_5__bindgen_ty_35,
+    pub dma_int_clr: _bindgen_ty_5__bindgen_ty_36,
     pub dma_in_err_eof_des_addr: u32,
     pub dma_in_suc_eof_des_addr: u32,
     pub dma_inlink_dscr: u32,
@@ -30241,22 +34587,22 @@ pub struct _bindgen_ty_3 {
     pub reserved_3f0: u32,
     pub reserved_3f4: u32,
     pub reserved_3f8: u32,
-    pub date: _bindgen_ty_3__bindgen_ty_37,
+    pub date: _bindgen_ty_5__bindgen_ty_37,
 }
 #[repr(C)]
 #[derive(Copy, Clone)]
-pub union _bindgen_ty_3__bindgen_ty_1 {
-    pub __bindgen_anon_1: _bindgen_ty_3__bindgen_ty_1__bindgen_ty_1,
+pub union _bindgen_ty_5__bindgen_ty_1 {
+    pub __bindgen_anon_1: _bindgen_ty_5__bindgen_ty_1__bindgen_ty_1,
     pub val: u32,
     _bindgen_union_align: u32,
 }
 #[repr(C)]
 #[repr(align(4))]
 #[derive(Debug, Copy, Clone)]
-pub struct _bindgen_ty_3__bindgen_ty_1__bindgen_ty_1 {
+pub struct _bindgen_ty_5__bindgen_ty_1__bindgen_ty_1 {
     pub _bitfield_1: __BindgenBitfieldUnit<[u8; 4usize], u16>,
 }
-impl _bindgen_ty_3__bindgen_ty_1__bindgen_ty_1 {
+impl _bindgen_ty_5__bindgen_ty_1__bindgen_ty_1 {
     #[inline]
     pub fn reserved0(&self) -> u32 {
         unsafe { ::core::mem::transmute(self._bitfield_1.get(0usize, 16u8) as u32) }
@@ -30539,18 +34885,18 @@ impl _bindgen_ty_3__bindgen_ty_1__bindgen_ty_1 {
 }
 #[repr(C)]
 #[derive(Copy, Clone)]
-pub union _bindgen_ty_3__bindgen_ty_2 {
-    pub __bindgen_anon_1: _bindgen_ty_3__bindgen_ty_2__bindgen_ty_1,
+pub union _bindgen_ty_5__bindgen_ty_2 {
+    pub __bindgen_anon_1: _bindgen_ty_5__bindgen_ty_2__bindgen_ty_1,
     pub val: u32,
     _bindgen_union_align: u32,
 }
 #[repr(C)]
 #[repr(align(4))]
 #[derive(Debug, Copy, Clone)]
-pub struct _bindgen_ty_3__bindgen_ty_2__bindgen_ty_1 {
+pub struct _bindgen_ty_5__bindgen_ty_2__bindgen_ty_1 {
     pub _bitfield_1: __BindgenBitfieldUnit<[u8; 4usize], u16>,
 }
-impl _bindgen_ty_3__bindgen_ty_2__bindgen_ty_1 {
+impl _bindgen_ty_5__bindgen_ty_2__bindgen_ty_1 {
     #[inline]
     pub fn reserved0(&self) -> u32 {
         unsafe { ::core::mem::transmute(self._bitfield_1.get(0usize, 10u8) as u32) }
@@ -30817,18 +35163,18 @@ impl _bindgen_ty_3__bindgen_ty_2__bindgen_ty_1 {
 }
 #[repr(C)]
 #[derive(Copy, Clone)]
-pub union _bindgen_ty_3__bindgen_ty_3 {
-    pub __bindgen_anon_1: _bindgen_ty_3__bindgen_ty_3__bindgen_ty_1,
+pub union _bindgen_ty_5__bindgen_ty_3 {
+    pub __bindgen_anon_1: _bindgen_ty_5__bindgen_ty_3__bindgen_ty_1,
     pub val: u32,
     _bindgen_union_align: u32,
 }
 #[repr(C)]
 #[repr(align(4))]
 #[derive(Debug, Copy, Clone)]
-pub struct _bindgen_ty_3__bindgen_ty_3__bindgen_ty_1 {
+pub struct _bindgen_ty_5__bindgen_ty_3__bindgen_ty_1 {
     pub _bitfield_1: __BindgenBitfieldUnit<[u8; 4usize], u16>,
 }
-impl _bindgen_ty_3__bindgen_ty_3__bindgen_ty_1 {
+impl _bindgen_ty_5__bindgen_ty_3__bindgen_ty_1 {
     #[inline]
     pub fn reserved0(&self) -> u32 {
         unsafe { ::core::mem::transmute(self._bitfield_1.get(0usize, 16u8) as u32) }
@@ -30887,18 +35233,18 @@ impl _bindgen_ty_3__bindgen_ty_3__bindgen_ty_1 {
 }
 #[repr(C)]
 #[derive(Copy, Clone)]
-pub union _bindgen_ty_3__bindgen_ty_4 {
-    pub __bindgen_anon_1: _bindgen_ty_3__bindgen_ty_4__bindgen_ty_1,
+pub union _bindgen_ty_5__bindgen_ty_4 {
+    pub __bindgen_anon_1: _bindgen_ty_5__bindgen_ty_4__bindgen_ty_1,
     pub val: u32,
     _bindgen_union_align: u32,
 }
 #[repr(C)]
 #[repr(align(4))]
 #[derive(Debug, Copy, Clone)]
-pub struct _bindgen_ty_3__bindgen_ty_4__bindgen_ty_1 {
+pub struct _bindgen_ty_5__bindgen_ty_4__bindgen_ty_1 {
     pub _bitfield_1: __BindgenBitfieldUnit<[u8; 4usize], u16>,
 }
-impl _bindgen_ty_3__bindgen_ty_4__bindgen_ty_1 {
+impl _bindgen_ty_5__bindgen_ty_4__bindgen_ty_1 {
     #[inline]
     pub fn status(&self) -> u32 {
         unsafe { ::core::mem::transmute(self._bitfield_1.get(0usize, 16u8) as u32) }
@@ -30957,18 +35303,18 @@ impl _bindgen_ty_3__bindgen_ty_4__bindgen_ty_1 {
 }
 #[repr(C)]
 #[derive(Copy, Clone)]
-pub union _bindgen_ty_3__bindgen_ty_5 {
-    pub __bindgen_anon_1: _bindgen_ty_3__bindgen_ty_5__bindgen_ty_1,
+pub union _bindgen_ty_5__bindgen_ty_5 {
+    pub __bindgen_anon_1: _bindgen_ty_5__bindgen_ty_5__bindgen_ty_1,
     pub val: u32,
     _bindgen_union_align: u32,
 }
 #[repr(C)]
 #[repr(align(4))]
 #[derive(Debug, Copy, Clone)]
-pub struct _bindgen_ty_3__bindgen_ty_5__bindgen_ty_1 {
+pub struct _bindgen_ty_5__bindgen_ty_5__bindgen_ty_1 {
     pub _bitfield_1: __BindgenBitfieldUnit<[u8; 4usize], u8>,
 }
-impl _bindgen_ty_3__bindgen_ty_5__bindgen_ty_1 {
+impl _bindgen_ty_5__bindgen_ty_5__bindgen_ty_1 {
     #[inline]
     pub fn setup_time(&self) -> u32 {
         unsafe { ::core::mem::transmute(self._bitfield_1.get(0usize, 4u8) as u32) }
@@ -31139,18 +35485,18 @@ impl _bindgen_ty_3__bindgen_ty_5__bindgen_ty_1 {
 }
 #[repr(C)]
 #[derive(Copy, Clone)]
-pub union _bindgen_ty_3__bindgen_ty_6 {
-    pub __bindgen_anon_1: _bindgen_ty_3__bindgen_ty_6__bindgen_ty_1,
+pub union _bindgen_ty_5__bindgen_ty_6 {
+    pub __bindgen_anon_1: _bindgen_ty_5__bindgen_ty_6__bindgen_ty_1,
     pub val: u32,
     _bindgen_union_align: u32,
 }
 #[repr(C)]
 #[repr(align(4))]
 #[derive(Debug, Copy, Clone)]
-pub struct _bindgen_ty_3__bindgen_ty_6__bindgen_ty_1 {
+pub struct _bindgen_ty_5__bindgen_ty_6__bindgen_ty_1 {
     pub _bitfield_1: __BindgenBitfieldUnit<[u8; 4usize], u16>,
 }
-impl _bindgen_ty_3__bindgen_ty_6__bindgen_ty_1 {
+impl _bindgen_ty_5__bindgen_ty_6__bindgen_ty_1 {
     #[inline]
     pub fn clkcnt_l(&self) -> u32 {
         unsafe { ::core::mem::transmute(self._bitfield_1.get(0usize, 6u8) as u32) }
@@ -31241,18 +35587,18 @@ impl _bindgen_ty_3__bindgen_ty_6__bindgen_ty_1 {
 }
 #[repr(C)]
 #[derive(Copy, Clone)]
-pub union _bindgen_ty_3__bindgen_ty_7 {
-    pub __bindgen_anon_1: _bindgen_ty_3__bindgen_ty_7__bindgen_ty_1,
+pub union _bindgen_ty_5__bindgen_ty_7 {
+    pub __bindgen_anon_1: _bindgen_ty_5__bindgen_ty_7__bindgen_ty_1,
     pub val: u32,
     _bindgen_union_align: u32,
 }
 #[repr(C)]
 #[repr(align(4))]
 #[derive(Debug, Copy, Clone)]
-pub struct _bindgen_ty_3__bindgen_ty_7__bindgen_ty_1 {
+pub struct _bindgen_ty_5__bindgen_ty_7__bindgen_ty_1 {
     pub _bitfield_1: __BindgenBitfieldUnit<[u8; 4usize], u8>,
 }
-impl _bindgen_ty_3__bindgen_ty_7__bindgen_ty_1 {
+impl _bindgen_ty_5__bindgen_ty_7__bindgen_ty_1 {
     #[inline]
     pub fn doutdin(&self) -> u32 {
         unsafe { ::core::mem::transmute(self._bitfield_1.get(0usize, 1u8) as u32) }
@@ -31727,18 +36073,18 @@ impl _bindgen_ty_3__bindgen_ty_7__bindgen_ty_1 {
 }
 #[repr(C)]
 #[derive(Copy, Clone)]
-pub union _bindgen_ty_3__bindgen_ty_8 {
-    pub __bindgen_anon_1: _bindgen_ty_3__bindgen_ty_8__bindgen_ty_1,
+pub union _bindgen_ty_5__bindgen_ty_8 {
+    pub __bindgen_anon_1: _bindgen_ty_5__bindgen_ty_8__bindgen_ty_1,
     pub val: u32,
     _bindgen_union_align: u32,
 }
 #[repr(C)]
 #[repr(align(4))]
 #[derive(Debug, Copy, Clone)]
-pub struct _bindgen_ty_3__bindgen_ty_8__bindgen_ty_1 {
+pub struct _bindgen_ty_5__bindgen_ty_8__bindgen_ty_1 {
     pub _bitfield_1: __BindgenBitfieldUnit<[u8; 4usize], u32>,
 }
-impl _bindgen_ty_3__bindgen_ty_8__bindgen_ty_1 {
+impl _bindgen_ty_5__bindgen_ty_8__bindgen_ty_1 {
     #[inline]
     pub fn usr_dummy_cyclelen(&self) -> u32 {
         unsafe { ::core::mem::transmute(self._bitfield_1.get(0usize, 8u8) as u32) }
@@ -31797,18 +36143,18 @@ impl _bindgen_ty_3__bindgen_ty_8__bindgen_ty_1 {
 }
 #[repr(C)]
 #[derive(Copy, Clone)]
-pub union _bindgen_ty_3__bindgen_ty_9 {
-    pub __bindgen_anon_1: _bindgen_ty_3__bindgen_ty_9__bindgen_ty_1,
+pub union _bindgen_ty_5__bindgen_ty_9 {
+    pub __bindgen_anon_1: _bindgen_ty_5__bindgen_ty_9__bindgen_ty_1,
     pub val: u32,
     _bindgen_union_align: u32,
 }
 #[repr(C)]
 #[repr(align(4))]
 #[derive(Debug, Copy, Clone)]
-pub struct _bindgen_ty_3__bindgen_ty_9__bindgen_ty_1 {
+pub struct _bindgen_ty_5__bindgen_ty_9__bindgen_ty_1 {
     pub _bitfield_1: __BindgenBitfieldUnit<[u8; 4usize], u16>,
 }
-impl _bindgen_ty_3__bindgen_ty_9__bindgen_ty_1 {
+impl _bindgen_ty_5__bindgen_ty_9__bindgen_ty_1 {
     #[inline]
     pub fn usr_command_value(&self) -> u32 {
         unsafe { ::core::mem::transmute(self._bitfield_1.get(0usize, 16u8) as u32) }
@@ -31867,18 +36213,18 @@ impl _bindgen_ty_3__bindgen_ty_9__bindgen_ty_1 {
 }
 #[repr(C)]
 #[derive(Copy, Clone)]
-pub union _bindgen_ty_3__bindgen_ty_10 {
-    pub __bindgen_anon_1: _bindgen_ty_3__bindgen_ty_10__bindgen_ty_1,
+pub union _bindgen_ty_5__bindgen_ty_10 {
+    pub __bindgen_anon_1: _bindgen_ty_5__bindgen_ty_10__bindgen_ty_1,
     pub val: u32,
     _bindgen_union_align: u32,
 }
 #[repr(C)]
 #[repr(align(4))]
 #[derive(Debug, Copy, Clone)]
-pub struct _bindgen_ty_3__bindgen_ty_10__bindgen_ty_1 {
+pub struct _bindgen_ty_5__bindgen_ty_10__bindgen_ty_1 {
     pub _bitfield_1: __BindgenBitfieldUnit<[u8; 4usize], u32>,
 }
-impl _bindgen_ty_3__bindgen_ty_10__bindgen_ty_1 {
+impl _bindgen_ty_5__bindgen_ty_10__bindgen_ty_1 {
     #[inline]
     pub fn usr_mosi_dbitlen(&self) -> u32 {
         unsafe { ::core::mem::transmute(self._bitfield_1.get(0usize, 24u8) as u32) }
@@ -31921,18 +36267,18 @@ impl _bindgen_ty_3__bindgen_ty_10__bindgen_ty_1 {
 }
 #[repr(C)]
 #[derive(Copy, Clone)]
-pub union _bindgen_ty_3__bindgen_ty_11 {
-    pub __bindgen_anon_1: _bindgen_ty_3__bindgen_ty_11__bindgen_ty_1,
+pub union _bindgen_ty_5__bindgen_ty_11 {
+    pub __bindgen_anon_1: _bindgen_ty_5__bindgen_ty_11__bindgen_ty_1,
     pub val: u32,
     _bindgen_union_align: u32,
 }
 #[repr(C)]
 #[repr(align(4))]
 #[derive(Debug, Copy, Clone)]
-pub struct _bindgen_ty_3__bindgen_ty_11__bindgen_ty_1 {
+pub struct _bindgen_ty_5__bindgen_ty_11__bindgen_ty_1 {
     pub _bitfield_1: __BindgenBitfieldUnit<[u8; 4usize], u32>,
 }
-impl _bindgen_ty_3__bindgen_ty_11__bindgen_ty_1 {
+impl _bindgen_ty_5__bindgen_ty_11__bindgen_ty_1 {
     #[inline]
     pub fn usr_miso_dbitlen(&self) -> u32 {
         unsafe { ::core::mem::transmute(self._bitfield_1.get(0usize, 24u8) as u32) }
@@ -31975,18 +36321,18 @@ impl _bindgen_ty_3__bindgen_ty_11__bindgen_ty_1 {
 }
 #[repr(C)]
 #[derive(Copy, Clone)]
-pub union _bindgen_ty_3__bindgen_ty_12 {
-    pub __bindgen_anon_1: _bindgen_ty_3__bindgen_ty_12__bindgen_ty_1,
+pub union _bindgen_ty_5__bindgen_ty_12 {
+    pub __bindgen_anon_1: _bindgen_ty_5__bindgen_ty_12__bindgen_ty_1,
     pub val: u32,
     _bindgen_union_align: u32,
 }
 #[repr(C)]
 #[repr(align(4))]
 #[derive(Debug, Copy, Clone)]
-pub struct _bindgen_ty_3__bindgen_ty_12__bindgen_ty_1 {
+pub struct _bindgen_ty_5__bindgen_ty_12__bindgen_ty_1 {
     pub _bitfield_1: __BindgenBitfieldUnit<[u8; 4usize], u16>,
 }
-impl _bindgen_ty_3__bindgen_ty_12__bindgen_ty_1 {
+impl _bindgen_ty_5__bindgen_ty_12__bindgen_ty_1 {
     #[inline]
     pub fn cs0_dis(&self) -> u32 {
         unsafe { ::core::mem::transmute(self._bitfield_1.get(0usize, 1u8) as u32) }
@@ -32189,18 +36535,18 @@ impl _bindgen_ty_3__bindgen_ty_12__bindgen_ty_1 {
 }
 #[repr(C)]
 #[derive(Copy, Clone)]
-pub union _bindgen_ty_3__bindgen_ty_13 {
-    pub __bindgen_anon_1: _bindgen_ty_3__bindgen_ty_13__bindgen_ty_1,
+pub union _bindgen_ty_5__bindgen_ty_13 {
+    pub __bindgen_anon_1: _bindgen_ty_5__bindgen_ty_13__bindgen_ty_1,
     pub val: u32,
     _bindgen_union_align: u32,
 }
 #[repr(C)]
 #[repr(align(4))]
 #[derive(Debug, Copy, Clone)]
-pub struct _bindgen_ty_3__bindgen_ty_13__bindgen_ty_1 {
+pub struct _bindgen_ty_5__bindgen_ty_13__bindgen_ty_1 {
     pub _bitfield_1: __BindgenBitfieldUnit<[u8; 4usize], u8>,
 }
-impl _bindgen_ty_3__bindgen_ty_13__bindgen_ty_1 {
+impl _bindgen_ty_5__bindgen_ty_13__bindgen_ty_1 {
     #[inline]
     pub fn rd_buf_done(&self) -> u32 {
         unsafe { ::core::mem::transmute(self._bitfield_1.get(0usize, 1u8) as u32) }
@@ -32531,18 +36877,18 @@ impl _bindgen_ty_3__bindgen_ty_13__bindgen_ty_1 {
 }
 #[repr(C)]
 #[derive(Copy, Clone)]
-pub union _bindgen_ty_3__bindgen_ty_14 {
-    pub __bindgen_anon_1: _bindgen_ty_3__bindgen_ty_14__bindgen_ty_1,
+pub union _bindgen_ty_5__bindgen_ty_14 {
+    pub __bindgen_anon_1: _bindgen_ty_5__bindgen_ty_14__bindgen_ty_1,
     pub val: u32,
     _bindgen_union_align: u32,
 }
 #[repr(C)]
 #[repr(align(4))]
 #[derive(Debug, Copy, Clone)]
-pub struct _bindgen_ty_3__bindgen_ty_14__bindgen_ty_1 {
+pub struct _bindgen_ty_5__bindgen_ty_14__bindgen_ty_1 {
     pub _bitfield_1: __BindgenBitfieldUnit<[u8; 4usize], u16>,
 }
-impl _bindgen_ty_3__bindgen_ty_14__bindgen_ty_1 {
+impl _bindgen_ty_5__bindgen_ty_14__bindgen_ty_1 {
     #[inline]
     pub fn rdbuf_dummy_en(&self) -> u32 {
         unsafe { ::core::mem::transmute(self._bitfield_1.get(0usize, 1u8) as u32) }
@@ -32713,18 +37059,18 @@ impl _bindgen_ty_3__bindgen_ty_14__bindgen_ty_1 {
 }
 #[repr(C)]
 #[derive(Copy, Clone)]
-pub union _bindgen_ty_3__bindgen_ty_15 {
-    pub __bindgen_anon_1: _bindgen_ty_3__bindgen_ty_15__bindgen_ty_1,
+pub union _bindgen_ty_5__bindgen_ty_15 {
+    pub __bindgen_anon_1: _bindgen_ty_5__bindgen_ty_15__bindgen_ty_1,
     pub val: u32,
     _bindgen_union_align: u32,
 }
 #[repr(C)]
 #[repr(align(4))]
 #[derive(Debug, Copy, Clone)]
-pub struct _bindgen_ty_3__bindgen_ty_15__bindgen_ty_1 {
+pub struct _bindgen_ty_5__bindgen_ty_15__bindgen_ty_1 {
     pub _bitfield_1: __BindgenBitfieldUnit<[u8; 4usize], u8>,
 }
-impl _bindgen_ty_3__bindgen_ty_15__bindgen_ty_1 {
+impl _bindgen_ty_5__bindgen_ty_15__bindgen_ty_1 {
     #[inline]
     pub fn rdsta_dummy_cyclelen(&self) -> u32 {
         unsafe { ::core::mem::transmute(self._bitfield_1.get(0usize, 8u8) as u32) }
@@ -32799,18 +37145,18 @@ impl _bindgen_ty_3__bindgen_ty_15__bindgen_ty_1 {
 }
 #[repr(C)]
 #[derive(Copy, Clone)]
-pub union _bindgen_ty_3__bindgen_ty_16 {
-    pub __bindgen_anon_1: _bindgen_ty_3__bindgen_ty_16__bindgen_ty_1,
+pub union _bindgen_ty_5__bindgen_ty_16 {
+    pub __bindgen_anon_1: _bindgen_ty_5__bindgen_ty_16__bindgen_ty_1,
     pub val: u32,
     _bindgen_union_align: u32,
 }
 #[repr(C)]
 #[repr(align(4))]
 #[derive(Debug, Copy, Clone)]
-pub struct _bindgen_ty_3__bindgen_ty_16__bindgen_ty_1 {
+pub struct _bindgen_ty_5__bindgen_ty_16__bindgen_ty_1 {
     pub _bitfield_1: __BindgenBitfieldUnit<[u8; 4usize], u8>,
 }
-impl _bindgen_ty_3__bindgen_ty_16__bindgen_ty_1 {
+impl _bindgen_ty_5__bindgen_ty_16__bindgen_ty_1 {
     #[inline]
     pub fn rdbuf_cmd_value(&self) -> u32 {
         unsafe { ::core::mem::transmute(self._bitfield_1.get(0usize, 8u8) as u32) }
@@ -32885,18 +37231,18 @@ impl _bindgen_ty_3__bindgen_ty_16__bindgen_ty_1 {
 }
 #[repr(C)]
 #[derive(Copy, Clone)]
-pub union _bindgen_ty_3__bindgen_ty_17 {
-    pub __bindgen_anon_1: _bindgen_ty_3__bindgen_ty_17__bindgen_ty_1,
+pub union _bindgen_ty_5__bindgen_ty_17 {
+    pub __bindgen_anon_1: _bindgen_ty_5__bindgen_ty_17__bindgen_ty_1,
     pub val: u32,
     _bindgen_union_align: u32,
 }
 #[repr(C)]
 #[repr(align(4))]
 #[derive(Debug, Copy, Clone)]
-pub struct _bindgen_ty_3__bindgen_ty_17__bindgen_ty_1 {
+pub struct _bindgen_ty_5__bindgen_ty_17__bindgen_ty_1 {
     pub _bitfield_1: __BindgenBitfieldUnit<[u8; 4usize], u32>,
 }
-impl _bindgen_ty_3__bindgen_ty_17__bindgen_ty_1 {
+impl _bindgen_ty_5__bindgen_ty_17__bindgen_ty_1 {
     #[inline]
     pub fn bit_len(&self) -> u32 {
         unsafe { ::core::mem::transmute(self._bitfield_1.get(0usize, 24u8) as u32) }
@@ -32939,18 +37285,18 @@ impl _bindgen_ty_3__bindgen_ty_17__bindgen_ty_1 {
 }
 #[repr(C)]
 #[derive(Copy, Clone)]
-pub union _bindgen_ty_3__bindgen_ty_18 {
-    pub __bindgen_anon_1: _bindgen_ty_3__bindgen_ty_18__bindgen_ty_1,
+pub union _bindgen_ty_5__bindgen_ty_18 {
+    pub __bindgen_anon_1: _bindgen_ty_5__bindgen_ty_18__bindgen_ty_1,
     pub val: u32,
     _bindgen_union_align: u32,
 }
 #[repr(C)]
 #[repr(align(4))]
 #[derive(Debug, Copy, Clone)]
-pub struct _bindgen_ty_3__bindgen_ty_18__bindgen_ty_1 {
+pub struct _bindgen_ty_5__bindgen_ty_18__bindgen_ty_1 {
     pub _bitfield_1: __BindgenBitfieldUnit<[u8; 4usize], u32>,
 }
-impl _bindgen_ty_3__bindgen_ty_18__bindgen_ty_1 {
+impl _bindgen_ty_5__bindgen_ty_18__bindgen_ty_1 {
     #[inline]
     pub fn bit_len(&self) -> u32 {
         unsafe { ::core::mem::transmute(self._bitfield_1.get(0usize, 24u8) as u32) }
@@ -32993,18 +37339,18 @@ impl _bindgen_ty_3__bindgen_ty_18__bindgen_ty_1 {
 }
 #[repr(C)]
 #[derive(Copy, Clone)]
-pub union _bindgen_ty_3__bindgen_ty_19 {
-    pub __bindgen_anon_1: _bindgen_ty_3__bindgen_ty_19__bindgen_ty_1,
+pub union _bindgen_ty_5__bindgen_ty_19 {
+    pub __bindgen_anon_1: _bindgen_ty_5__bindgen_ty_19__bindgen_ty_1,
     pub val: u32,
     _bindgen_union_align: u32,
 }
 #[repr(C)]
 #[repr(align(4))]
 #[derive(Debug, Copy, Clone)]
-pub struct _bindgen_ty_3__bindgen_ty_19__bindgen_ty_1 {
+pub struct _bindgen_ty_5__bindgen_ty_19__bindgen_ty_1 {
     pub _bitfield_1: __BindgenBitfieldUnit<[u8; 4usize], u32>,
 }
-impl _bindgen_ty_3__bindgen_ty_19__bindgen_ty_1 {
+impl _bindgen_ty_5__bindgen_ty_19__bindgen_ty_1 {
     #[inline]
     pub fn req_en(&self) -> u32 {
         unsafe { ::core::mem::transmute(self._bitfield_1.get(0usize, 1u8) as u32) }
@@ -33095,18 +37441,18 @@ impl _bindgen_ty_3__bindgen_ty_19__bindgen_ty_1 {
 }
 #[repr(C)]
 #[derive(Copy, Clone)]
-pub union _bindgen_ty_3__bindgen_ty_20 {
-    pub __bindgen_anon_1: _bindgen_ty_3__bindgen_ty_20__bindgen_ty_1,
+pub union _bindgen_ty_5__bindgen_ty_20 {
+    pub __bindgen_anon_1: _bindgen_ty_5__bindgen_ty_20__bindgen_ty_1,
     pub val: u32,
     _bindgen_union_align: u32,
 }
 #[repr(C)]
 #[repr(align(4))]
 #[derive(Debug, Copy, Clone)]
-pub struct _bindgen_ty_3__bindgen_ty_20__bindgen_ty_1 {
+pub struct _bindgen_ty_5__bindgen_ty_20__bindgen_ty_1 {
     pub _bitfield_1: __BindgenBitfieldUnit<[u8; 4usize], u8>,
 }
-impl _bindgen_ty_3__bindgen_ty_20__bindgen_ty_1 {
+impl _bindgen_ty_5__bindgen_ty_20__bindgen_ty_1 {
     #[inline]
     pub fn reserved0(&self) -> u32 {
         unsafe { ::core::mem::transmute(self._bitfield_1.get(0usize, 1u8) as u32) }
@@ -33293,18 +37639,18 @@ impl _bindgen_ty_3__bindgen_ty_20__bindgen_ty_1 {
 }
 #[repr(C)]
 #[derive(Copy, Clone)]
-pub union _bindgen_ty_3__bindgen_ty_21 {
-    pub __bindgen_anon_1: _bindgen_ty_3__bindgen_ty_21__bindgen_ty_1,
+pub union _bindgen_ty_5__bindgen_ty_21 {
+    pub __bindgen_anon_1: _bindgen_ty_5__bindgen_ty_21__bindgen_ty_1,
     pub val: u32,
     _bindgen_union_align: u32,
 }
 #[repr(C)]
 #[repr(align(4))]
 #[derive(Debug, Copy, Clone)]
-pub struct _bindgen_ty_3__bindgen_ty_21__bindgen_ty_1 {
+pub struct _bindgen_ty_5__bindgen_ty_21__bindgen_ty_1 {
     pub _bitfield_1: __BindgenBitfieldUnit<[u8; 4usize], u32>,
 }
-impl _bindgen_ty_3__bindgen_ty_21__bindgen_ty_1 {
+impl _bindgen_ty_5__bindgen_ty_21__bindgen_ty_1 {
     #[inline]
     pub fn dio(&self) -> u32 {
         unsafe { ::core::mem::transmute(self._bitfield_1.get(0usize, 1u8) as u32) }
@@ -33395,18 +37741,18 @@ impl _bindgen_ty_3__bindgen_ty_21__bindgen_ty_1 {
 }
 #[repr(C)]
 #[derive(Copy, Clone)]
-pub union _bindgen_ty_3__bindgen_ty_22 {
-    pub __bindgen_anon_1: _bindgen_ty_3__bindgen_ty_22__bindgen_ty_1,
+pub union _bindgen_ty_5__bindgen_ty_22 {
+    pub __bindgen_anon_1: _bindgen_ty_5__bindgen_ty_22__bindgen_ty_1,
     pub val: u32,
     _bindgen_union_align: u32,
 }
 #[repr(C)]
 #[repr(align(4))]
 #[derive(Debug, Copy, Clone)]
-pub struct _bindgen_ty_3__bindgen_ty_22__bindgen_ty_1 {
+pub struct _bindgen_ty_5__bindgen_ty_22__bindgen_ty_1 {
     pub _bitfield_1: __BindgenBitfieldUnit<[u8; 4usize], u16>,
 }
-impl _bindgen_ty_3__bindgen_ty_22__bindgen_ty_1 {
+impl _bindgen_ty_5__bindgen_ty_22__bindgen_ty_1 {
     #[inline]
     pub fn usr_rd_cmd_value(&self) -> u32 {
         unsafe { ::core::mem::transmute(self._bitfield_1.get(0usize, 16u8) as u32) }
@@ -33465,18 +37811,18 @@ impl _bindgen_ty_3__bindgen_ty_22__bindgen_ty_1 {
 }
 #[repr(C)]
 #[derive(Copy, Clone)]
-pub union _bindgen_ty_3__bindgen_ty_23 {
-    pub __bindgen_anon_1: _bindgen_ty_3__bindgen_ty_23__bindgen_ty_1,
+pub union _bindgen_ty_5__bindgen_ty_23 {
+    pub __bindgen_anon_1: _bindgen_ty_5__bindgen_ty_23__bindgen_ty_1,
     pub val: u32,
     _bindgen_union_align: u32,
 }
 #[repr(C)]
 #[repr(align(4))]
 #[derive(Debug, Copy, Clone)]
-pub struct _bindgen_ty_3__bindgen_ty_23__bindgen_ty_1 {
+pub struct _bindgen_ty_5__bindgen_ty_23__bindgen_ty_1 {
     pub _bitfield_1: __BindgenBitfieldUnit<[u8; 4usize], u16>,
 }
-impl _bindgen_ty_3__bindgen_ty_23__bindgen_ty_1 {
+impl _bindgen_ty_5__bindgen_ty_23__bindgen_ty_1 {
     #[inline]
     pub fn usr_wr_cmd_value(&self) -> u32 {
         unsafe { ::core::mem::transmute(self._bitfield_1.get(0usize, 16u8) as u32) }
@@ -33535,18 +37881,18 @@ impl _bindgen_ty_3__bindgen_ty_23__bindgen_ty_1 {
 }
 #[repr(C)]
 #[derive(Copy, Clone)]
-pub union _bindgen_ty_3__bindgen_ty_24 {
-    pub __bindgen_anon_1: _bindgen_ty_3__bindgen_ty_24__bindgen_ty_1,
+pub union _bindgen_ty_5__bindgen_ty_24 {
+    pub __bindgen_anon_1: _bindgen_ty_5__bindgen_ty_24__bindgen_ty_1,
     pub val: u32,
     _bindgen_union_align: u32,
 }
 #[repr(C)]
 #[repr(align(4))]
 #[derive(Debug, Copy, Clone)]
-pub struct _bindgen_ty_3__bindgen_ty_24__bindgen_ty_1 {
+pub struct _bindgen_ty_5__bindgen_ty_24__bindgen_ty_1 {
     pub _bitfield_1: __BindgenBitfieldUnit<[u8; 4usize], u32>,
 }
-impl _bindgen_ty_3__bindgen_ty_24__bindgen_ty_1 {
+impl _bindgen_ty_5__bindgen_ty_24__bindgen_ty_1 {
     #[inline]
     pub fn slv_rdata_bit(&self) -> u32 {
         unsafe { ::core::mem::transmute(self._bitfield_1.get(0usize, 24u8) as u32) }
@@ -33589,18 +37935,18 @@ impl _bindgen_ty_3__bindgen_ty_24__bindgen_ty_1 {
 }
 #[repr(C)]
 #[derive(Copy, Clone)]
-pub union _bindgen_ty_3__bindgen_ty_25 {
-    pub __bindgen_anon_1: _bindgen_ty_3__bindgen_ty_25__bindgen_ty_1,
+pub union _bindgen_ty_5__bindgen_ty_25 {
+    pub __bindgen_anon_1: _bindgen_ty_5__bindgen_ty_25__bindgen_ty_1,
     pub val: u32,
     _bindgen_union_align: u32,
 }
 #[repr(C)]
 #[repr(align(4))]
 #[derive(Debug, Copy, Clone)]
-pub struct _bindgen_ty_3__bindgen_ty_25__bindgen_ty_1 {
+pub struct _bindgen_ty_5__bindgen_ty_25__bindgen_ty_1 {
     pub _bitfield_1: __BindgenBitfieldUnit<[u8; 4usize], u16>,
 }
-impl _bindgen_ty_3__bindgen_ty_25__bindgen_ty_1 {
+impl _bindgen_ty_5__bindgen_ty_25__bindgen_ty_1 {
     #[inline]
     pub fn t_pp_time(&self) -> u32 {
         unsafe { ::core::mem::transmute(self._bitfield_1.get(0usize, 12u8) as u32) }
@@ -33691,18 +38037,18 @@ impl _bindgen_ty_3__bindgen_ty_25__bindgen_ty_1 {
 }
 #[repr(C)]
 #[derive(Copy, Clone)]
-pub union _bindgen_ty_3__bindgen_ty_26 {
-    pub __bindgen_anon_1: _bindgen_ty_3__bindgen_ty_26__bindgen_ty_1,
+pub union _bindgen_ty_5__bindgen_ty_26 {
+    pub __bindgen_anon_1: _bindgen_ty_5__bindgen_ty_26__bindgen_ty_1,
     pub val: u32,
     _bindgen_union_align: u32,
 }
 #[repr(C)]
 #[repr(align(4))]
 #[derive(Debug, Copy, Clone)]
-pub struct _bindgen_ty_3__bindgen_ty_26__bindgen_ty_1 {
+pub struct _bindgen_ty_5__bindgen_ty_26__bindgen_ty_1 {
     pub _bitfield_1: __BindgenBitfieldUnit<[u8; 4usize], u16>,
 }
-impl _bindgen_ty_3__bindgen_ty_26__bindgen_ty_1 {
+impl _bindgen_ty_5__bindgen_ty_26__bindgen_ty_1 {
     #[inline]
     pub fn t_erase_time(&self) -> u32 {
         unsafe { ::core::mem::transmute(self._bitfield_1.get(0usize, 12u8) as u32) }
@@ -33793,18 +38139,18 @@ impl _bindgen_ty_3__bindgen_ty_26__bindgen_ty_1 {
 }
 #[repr(C)]
 #[derive(Copy, Clone)]
-pub union _bindgen_ty_3__bindgen_ty_27 {
-    pub __bindgen_anon_1: _bindgen_ty_3__bindgen_ty_27__bindgen_ty_1,
+pub union _bindgen_ty_5__bindgen_ty_27 {
+    pub __bindgen_anon_1: _bindgen_ty_5__bindgen_ty_27__bindgen_ty_1,
     pub val: u32,
     _bindgen_union_align: u32,
 }
 #[repr(C)]
 #[repr(align(4))]
 #[derive(Debug, Copy, Clone)]
-pub struct _bindgen_ty_3__bindgen_ty_27__bindgen_ty_1 {
+pub struct _bindgen_ty_5__bindgen_ty_27__bindgen_ty_1 {
     pub _bitfield_1: __BindgenBitfieldUnit<[u8; 4usize], u32>,
 }
-impl _bindgen_ty_3__bindgen_ty_27__bindgen_ty_1 {
+impl _bindgen_ty_5__bindgen_ty_27__bindgen_ty_1 {
     #[inline]
     pub fn st(&self) -> u32 {
         unsafe { ::core::mem::transmute(self._bitfield_1.get(0usize, 3u8) as u32) }
@@ -33844,18 +38190,18 @@ impl _bindgen_ty_3__bindgen_ty_27__bindgen_ty_1 {
 }
 #[repr(C)]
 #[derive(Copy, Clone)]
-pub union _bindgen_ty_3__bindgen_ty_28 {
-    pub __bindgen_anon_1: _bindgen_ty_3__bindgen_ty_28__bindgen_ty_1,
+pub union _bindgen_ty_5__bindgen_ty_28 {
+    pub __bindgen_anon_1: _bindgen_ty_5__bindgen_ty_28__bindgen_ty_1,
     pub val: u32,
     _bindgen_union_align: u32,
 }
 #[repr(C)]
 #[repr(align(4))]
 #[derive(Debug, Copy, Clone)]
-pub struct _bindgen_ty_3__bindgen_ty_28__bindgen_ty_1 {
+pub struct _bindgen_ty_5__bindgen_ty_28__bindgen_ty_1 {
     pub _bitfield_1: __BindgenBitfieldUnit<[u8; 4usize], u32>,
 }
-impl _bindgen_ty_3__bindgen_ty_28__bindgen_ty_1 {
+impl _bindgen_ty_5__bindgen_ty_28__bindgen_ty_1 {
     #[inline]
     pub fn int_hold_ena(&self) -> u32 {
         unsafe { ::core::mem::transmute(self._bitfield_1.get(0usize, 2u8) as u32) }
@@ -33898,18 +38244,18 @@ impl _bindgen_ty_3__bindgen_ty_28__bindgen_ty_1 {
 }
 #[repr(C)]
 #[derive(Copy, Clone)]
-pub union _bindgen_ty_3__bindgen_ty_29 {
-    pub __bindgen_anon_1: _bindgen_ty_3__bindgen_ty_29__bindgen_ty_1,
+pub union _bindgen_ty_5__bindgen_ty_29 {
+    pub __bindgen_anon_1: _bindgen_ty_5__bindgen_ty_29__bindgen_ty_1,
     pub val: u32,
     _bindgen_union_align: u32,
 }
 #[repr(C)]
 #[repr(align(4))]
 #[derive(Debug, Copy, Clone)]
-pub struct _bindgen_ty_3__bindgen_ty_29__bindgen_ty_1 {
+pub struct _bindgen_ty_5__bindgen_ty_29__bindgen_ty_1 {
     pub _bitfield_1: __BindgenBitfieldUnit<[u8; 4usize], u16>,
 }
-impl _bindgen_ty_3__bindgen_ty_29__bindgen_ty_1 {
+impl _bindgen_ty_5__bindgen_ty_29__bindgen_ty_1 {
     #[inline]
     pub fn reserved0(&self) -> u32 {
         unsafe { ::core::mem::transmute(self._bitfield_1.get(0usize, 2u8) as u32) }
@@ -34192,18 +38538,18 @@ impl _bindgen_ty_3__bindgen_ty_29__bindgen_ty_1 {
 }
 #[repr(C)]
 #[derive(Copy, Clone)]
-pub union _bindgen_ty_3__bindgen_ty_30 {
-    pub __bindgen_anon_1: _bindgen_ty_3__bindgen_ty_30__bindgen_ty_1,
+pub union _bindgen_ty_5__bindgen_ty_30 {
+    pub __bindgen_anon_1: _bindgen_ty_5__bindgen_ty_30__bindgen_ty_1,
     pub val: u32,
     _bindgen_union_align: u32,
 }
 #[repr(C)]
 #[repr(align(4))]
 #[derive(Debug, Copy, Clone)]
-pub struct _bindgen_ty_3__bindgen_ty_30__bindgen_ty_1 {
+pub struct _bindgen_ty_5__bindgen_ty_30__bindgen_ty_1 {
     pub _bitfield_1: __BindgenBitfieldUnit<[u8; 4usize], u32>,
 }
-impl _bindgen_ty_3__bindgen_ty_30__bindgen_ty_1 {
+impl _bindgen_ty_5__bindgen_ty_30__bindgen_ty_1 {
     #[inline]
     pub fn addr(&self) -> u32 {
         unsafe { ::core::mem::transmute(self._bitfield_1.get(0usize, 20u8) as u32) }
@@ -34310,18 +38656,18 @@ impl _bindgen_ty_3__bindgen_ty_30__bindgen_ty_1 {
 }
 #[repr(C)]
 #[derive(Copy, Clone)]
-pub union _bindgen_ty_3__bindgen_ty_31 {
-    pub __bindgen_anon_1: _bindgen_ty_3__bindgen_ty_31__bindgen_ty_1,
+pub union _bindgen_ty_5__bindgen_ty_31 {
+    pub __bindgen_anon_1: _bindgen_ty_5__bindgen_ty_31__bindgen_ty_1,
     pub val: u32,
     _bindgen_union_align: u32,
 }
 #[repr(C)]
 #[repr(align(4))]
 #[derive(Debug, Copy, Clone)]
-pub struct _bindgen_ty_3__bindgen_ty_31__bindgen_ty_1 {
+pub struct _bindgen_ty_5__bindgen_ty_31__bindgen_ty_1 {
     pub _bitfield_1: __BindgenBitfieldUnit<[u8; 4usize], u32>,
 }
-impl _bindgen_ty_3__bindgen_ty_31__bindgen_ty_1 {
+impl _bindgen_ty_5__bindgen_ty_31__bindgen_ty_1 {
     #[inline]
     pub fn addr(&self) -> u32 {
         unsafe { ::core::mem::transmute(self._bitfield_1.get(0usize, 20u8) as u32) }
@@ -34444,18 +38790,18 @@ impl _bindgen_ty_3__bindgen_ty_31__bindgen_ty_1 {
 }
 #[repr(C)]
 #[derive(Copy, Clone)]
-pub union _bindgen_ty_3__bindgen_ty_32 {
-    pub __bindgen_anon_1: _bindgen_ty_3__bindgen_ty_32__bindgen_ty_1,
+pub union _bindgen_ty_5__bindgen_ty_32 {
+    pub __bindgen_anon_1: _bindgen_ty_5__bindgen_ty_32__bindgen_ty_1,
     pub val: u32,
     _bindgen_union_align: u32,
 }
 #[repr(C)]
 #[repr(align(4))]
 #[derive(Debug, Copy, Clone)]
-pub struct _bindgen_ty_3__bindgen_ty_32__bindgen_ty_1 {
+pub struct _bindgen_ty_5__bindgen_ty_32__bindgen_ty_1 {
     pub _bitfield_1: __BindgenBitfieldUnit<[u8; 4usize], u32>,
 }
-impl _bindgen_ty_3__bindgen_ty_32__bindgen_ty_1 {
+impl _bindgen_ty_5__bindgen_ty_32__bindgen_ty_1 {
     #[inline]
     pub fn rx_en(&self) -> u32 {
         unsafe { ::core::mem::transmute(self._bitfield_1.get(0usize, 1u8) as u32) }
@@ -34514,18 +38860,18 @@ impl _bindgen_ty_3__bindgen_ty_32__bindgen_ty_1 {
 }
 #[repr(C)]
 #[derive(Copy, Clone)]
-pub union _bindgen_ty_3__bindgen_ty_33 {
-    pub __bindgen_anon_1: _bindgen_ty_3__bindgen_ty_33__bindgen_ty_1,
+pub union _bindgen_ty_5__bindgen_ty_33 {
+    pub __bindgen_anon_1: _bindgen_ty_5__bindgen_ty_33__bindgen_ty_1,
     pub val: u32,
     _bindgen_union_align: u32,
 }
 #[repr(C)]
 #[repr(align(4))]
 #[derive(Debug, Copy, Clone)]
-pub struct _bindgen_ty_3__bindgen_ty_33__bindgen_ty_1 {
+pub struct _bindgen_ty_5__bindgen_ty_33__bindgen_ty_1 {
     pub _bitfield_1: __BindgenBitfieldUnit<[u8; 4usize], u32>,
 }
-impl _bindgen_ty_3__bindgen_ty_33__bindgen_ty_1 {
+impl _bindgen_ty_5__bindgen_ty_33__bindgen_ty_1 {
     #[inline]
     pub fn inlink_dscr_empty(&self) -> u32 {
         unsafe { ::core::mem::transmute(self._bitfield_1.get(0usize, 1u8) as u32) }
@@ -34696,18 +39042,18 @@ impl _bindgen_ty_3__bindgen_ty_33__bindgen_ty_1 {
 }
 #[repr(C)]
 #[derive(Copy, Clone)]
-pub union _bindgen_ty_3__bindgen_ty_34 {
-    pub __bindgen_anon_1: _bindgen_ty_3__bindgen_ty_34__bindgen_ty_1,
+pub union _bindgen_ty_5__bindgen_ty_34 {
+    pub __bindgen_anon_1: _bindgen_ty_5__bindgen_ty_34__bindgen_ty_1,
     pub val: u32,
     _bindgen_union_align: u32,
 }
 #[repr(C)]
 #[repr(align(4))]
 #[derive(Debug, Copy, Clone)]
-pub struct _bindgen_ty_3__bindgen_ty_34__bindgen_ty_1 {
+pub struct _bindgen_ty_5__bindgen_ty_34__bindgen_ty_1 {
     pub _bitfield_1: __BindgenBitfieldUnit<[u8; 4usize], u32>,
 }
-impl _bindgen_ty_3__bindgen_ty_34__bindgen_ty_1 {
+impl _bindgen_ty_5__bindgen_ty_34__bindgen_ty_1 {
     #[inline]
     pub fn inlink_dscr_empty(&self) -> u32 {
         unsafe { ::core::mem::transmute(self._bitfield_1.get(0usize, 1u8) as u32) }
@@ -34878,18 +39224,18 @@ impl _bindgen_ty_3__bindgen_ty_34__bindgen_ty_1 {
 }
 #[repr(C)]
 #[derive(Copy, Clone)]
-pub union _bindgen_ty_3__bindgen_ty_35 {
-    pub __bindgen_anon_1: _bindgen_ty_3__bindgen_ty_35__bindgen_ty_1,
+pub union _bindgen_ty_5__bindgen_ty_35 {
+    pub __bindgen_anon_1: _bindgen_ty_5__bindgen_ty_35__bindgen_ty_1,
     pub val: u32,
     _bindgen_union_align: u32,
 }
 #[repr(C)]
 #[repr(align(4))]
 #[derive(Debug, Copy, Clone)]
-pub struct _bindgen_ty_3__bindgen_ty_35__bindgen_ty_1 {
+pub struct _bindgen_ty_5__bindgen_ty_35__bindgen_ty_1 {
     pub _bitfield_1: __BindgenBitfieldUnit<[u8; 4usize], u32>,
 }
-impl _bindgen_ty_3__bindgen_ty_35__bindgen_ty_1 {
+impl _bindgen_ty_5__bindgen_ty_35__bindgen_ty_1 {
     #[inline]
     pub fn inlink_dscr_empty(&self) -> u32 {
         unsafe { ::core::mem::transmute(self._bitfield_1.get(0usize, 1u8) as u32) }
@@ -35060,18 +39406,18 @@ impl _bindgen_ty_3__bindgen_ty_35__bindgen_ty_1 {
 }
 #[repr(C)]
 #[derive(Copy, Clone)]
-pub union _bindgen_ty_3__bindgen_ty_36 {
-    pub __bindgen_anon_1: _bindgen_ty_3__bindgen_ty_36__bindgen_ty_1,
+pub union _bindgen_ty_5__bindgen_ty_36 {
+    pub __bindgen_anon_1: _bindgen_ty_5__bindgen_ty_36__bindgen_ty_1,
     pub val: u32,
     _bindgen_union_align: u32,
 }
 #[repr(C)]
 #[repr(align(4))]
 #[derive(Debug, Copy, Clone)]
-pub struct _bindgen_ty_3__bindgen_ty_36__bindgen_ty_1 {
+pub struct _bindgen_ty_5__bindgen_ty_36__bindgen_ty_1 {
     pub _bitfield_1: __BindgenBitfieldUnit<[u8; 4usize], u32>,
 }
-impl _bindgen_ty_3__bindgen_ty_36__bindgen_ty_1 {
+impl _bindgen_ty_5__bindgen_ty_36__bindgen_ty_1 {
     #[inline]
     pub fn inlink_dscr_empty(&self) -> u32 {
         unsafe { ::core::mem::transmute(self._bitfield_1.get(0usize, 1u8) as u32) }
@@ -35242,18 +39588,18 @@ impl _bindgen_ty_3__bindgen_ty_36__bindgen_ty_1 {
 }
 #[repr(C)]
 #[derive(Copy, Clone)]
-pub union _bindgen_ty_3__bindgen_ty_37 {
-    pub __bindgen_anon_1: _bindgen_ty_3__bindgen_ty_37__bindgen_ty_1,
+pub union _bindgen_ty_5__bindgen_ty_37 {
+    pub __bindgen_anon_1: _bindgen_ty_5__bindgen_ty_37__bindgen_ty_1,
     pub val: u32,
     _bindgen_union_align: u32,
 }
 #[repr(C)]
 #[repr(align(4))]
 #[derive(Debug, Copy, Clone)]
-pub struct _bindgen_ty_3__bindgen_ty_37__bindgen_ty_1 {
+pub struct _bindgen_ty_5__bindgen_ty_37__bindgen_ty_1 {
     pub _bitfield_1: __BindgenBitfieldUnit<[u8; 4usize], u32>,
 }
-impl _bindgen_ty_3__bindgen_ty_37__bindgen_ty_1 {
+impl _bindgen_ty_5__bindgen_ty_37__bindgen_ty_1 {
     #[inline]
     pub fn date(&self) -> u32 {
         unsafe { ::core::mem::transmute(self._bitfield_1.get(0usize, 28u8) as u32) }
@@ -35291,7 +39637,7 @@ impl _bindgen_ty_3__bindgen_ty_37__bindgen_ty_1 {
         __bindgen_bitfield_unit
     }
 }
-pub type spi_dev_t = _bindgen_ty_3;
+pub type spi_dev_t = _bindgen_ty_5;
 extern "C" {
     pub static mut SPI0: spi_dev_t;
 }
@@ -36126,20 +40472,20 @@ extern "C" {
 }
 #[repr(C)]
 #[derive(Copy, Clone)]
-pub struct _bindgen_ty_4 {
-    pub hw_timer: [_bindgen_ty_4__bindgen_ty_1; 2usize],
-    pub wdt_config0: _bindgen_ty_4__bindgen_ty_2,
-    pub wdt_config1: _bindgen_ty_4__bindgen_ty_3,
+pub struct _bindgen_ty_6 {
+    pub hw_timer: [_bindgen_ty_6__bindgen_ty_1; 2usize],
+    pub wdt_config0: _bindgen_ty_6__bindgen_ty_2,
+    pub wdt_config1: _bindgen_ty_6__bindgen_ty_3,
     pub wdt_config2: u32,
     pub wdt_config3: u32,
     pub wdt_config4: u32,
     pub wdt_config5: u32,
     pub wdt_feed: u32,
     pub wdt_wprotect: u32,
-    pub rtc_cali_cfg: _bindgen_ty_4__bindgen_ty_4,
-    pub rtc_cali_cfg1: _bindgen_ty_4__bindgen_ty_5,
-    pub lactconfig: _bindgen_ty_4__bindgen_ty_6,
-    pub lactrtc: _bindgen_ty_4__bindgen_ty_7,
+    pub rtc_cali_cfg: _bindgen_ty_6__bindgen_ty_4,
+    pub rtc_cali_cfg1: _bindgen_ty_6__bindgen_ty_5,
+    pub lactconfig: _bindgen_ty_6__bindgen_ty_6,
+    pub lactrtc: _bindgen_ty_6__bindgen_ty_7,
     pub lactlo: u32,
     pub lacthi: u32,
     pub lactupdate: u32,
@@ -36148,10 +40494,10 @@ pub struct _bindgen_ty_4 {
     pub lactloadlo: u32,
     pub lactloadhi: u32,
     pub lactload: u32,
-    pub int_ena: _bindgen_ty_4__bindgen_ty_8,
-    pub int_raw: _bindgen_ty_4__bindgen_ty_9,
-    pub int_st_timers: _bindgen_ty_4__bindgen_ty_10,
-    pub int_clr_timers: _bindgen_ty_4__bindgen_ty_11,
+    pub int_ena: _bindgen_ty_6__bindgen_ty_8,
+    pub int_raw: _bindgen_ty_6__bindgen_ty_9,
+    pub int_st_timers: _bindgen_ty_6__bindgen_ty_10,
+    pub int_clr_timers: _bindgen_ty_6__bindgen_ty_11,
     pub reserved_a8: u32,
     pub reserved_ac: u32,
     pub reserved_b0: u32,
@@ -36172,13 +40518,13 @@ pub struct _bindgen_ty_4 {
     pub reserved_ec: u32,
     pub reserved_f0: u32,
     pub reserved_f4: u32,
-    pub timg_date: _bindgen_ty_4__bindgen_ty_12,
-    pub clk: _bindgen_ty_4__bindgen_ty_13,
+    pub timg_date: _bindgen_ty_6__bindgen_ty_12,
+    pub clk: _bindgen_ty_6__bindgen_ty_13,
 }
 #[repr(C)]
 #[derive(Copy, Clone)]
-pub struct _bindgen_ty_4__bindgen_ty_1 {
-    pub config: _bindgen_ty_4__bindgen_ty_1__bindgen_ty_1,
+pub struct _bindgen_ty_6__bindgen_ty_1 {
+    pub config: _bindgen_ty_6__bindgen_ty_1__bindgen_ty_1,
     pub cnt_low: u32,
     pub cnt_high: u32,
     pub update: u32,
@@ -36190,18 +40536,18 @@ pub struct _bindgen_ty_4__bindgen_ty_1 {
 }
 #[repr(C)]
 #[derive(Copy, Clone)]
-pub union _bindgen_ty_4__bindgen_ty_1__bindgen_ty_1 {
-    pub __bindgen_anon_1: _bindgen_ty_4__bindgen_ty_1__bindgen_ty_1__bindgen_ty_1,
+pub union _bindgen_ty_6__bindgen_ty_1__bindgen_ty_1 {
+    pub __bindgen_anon_1: _bindgen_ty_6__bindgen_ty_1__bindgen_ty_1__bindgen_ty_1,
     pub val: u32,
     _bindgen_union_align: u32,
 }
 #[repr(C)]
 #[repr(align(4))]
 #[derive(Debug, Copy, Clone)]
-pub struct _bindgen_ty_4__bindgen_ty_1__bindgen_ty_1__bindgen_ty_1 {
+pub struct _bindgen_ty_6__bindgen_ty_1__bindgen_ty_1__bindgen_ty_1 {
     pub _bitfield_1: __BindgenBitfieldUnit<[u8; 4usize], u16>,
 }
-impl _bindgen_ty_4__bindgen_ty_1__bindgen_ty_1__bindgen_ty_1 {
+impl _bindgen_ty_6__bindgen_ty_1__bindgen_ty_1__bindgen_ty_1 {
     #[inline]
     pub fn reserved0(&self) -> u32 {
         unsafe { ::core::mem::transmute(self._bitfield_1.get(0usize, 10u8) as u32) }
@@ -36340,18 +40686,18 @@ impl _bindgen_ty_4__bindgen_ty_1__bindgen_ty_1__bindgen_ty_1 {
 }
 #[repr(C)]
 #[derive(Copy, Clone)]
-pub union _bindgen_ty_4__bindgen_ty_2 {
-    pub __bindgen_anon_1: _bindgen_ty_4__bindgen_ty_2__bindgen_ty_1,
+pub union _bindgen_ty_6__bindgen_ty_2 {
+    pub __bindgen_anon_1: _bindgen_ty_6__bindgen_ty_2__bindgen_ty_1,
     pub val: u32,
     _bindgen_union_align: u32,
 }
 #[repr(C)]
 #[repr(align(4))]
 #[derive(Debug, Copy, Clone)]
-pub struct _bindgen_ty_4__bindgen_ty_2__bindgen_ty_1 {
+pub struct _bindgen_ty_6__bindgen_ty_2__bindgen_ty_1 {
     pub _bitfield_1: __BindgenBitfieldUnit<[u8; 4usize], u16>,
 }
-impl _bindgen_ty_4__bindgen_ty_2__bindgen_ty_1 {
+impl _bindgen_ty_6__bindgen_ty_2__bindgen_ty_1 {
     #[inline]
     pub fn reserved0(&self) -> u32 {
         unsafe { ::core::mem::transmute(self._bitfield_1.get(0usize, 14u8) as u32) }
@@ -36538,18 +40884,18 @@ impl _bindgen_ty_4__bindgen_ty_2__bindgen_ty_1 {
 }
 #[repr(C)]
 #[derive(Copy, Clone)]
-pub union _bindgen_ty_4__bindgen_ty_3 {
-    pub __bindgen_anon_1: _bindgen_ty_4__bindgen_ty_3__bindgen_ty_1,
+pub union _bindgen_ty_6__bindgen_ty_3 {
+    pub __bindgen_anon_1: _bindgen_ty_6__bindgen_ty_3__bindgen_ty_1,
     pub val: u32,
     _bindgen_union_align: u32,
 }
 #[repr(C)]
 #[repr(align(4))]
 #[derive(Debug, Copy, Clone)]
-pub struct _bindgen_ty_4__bindgen_ty_3__bindgen_ty_1 {
+pub struct _bindgen_ty_6__bindgen_ty_3__bindgen_ty_1 {
     pub _bitfield_1: __BindgenBitfieldUnit<[u8; 4usize], u16>,
 }
-impl _bindgen_ty_4__bindgen_ty_3__bindgen_ty_1 {
+impl _bindgen_ty_6__bindgen_ty_3__bindgen_ty_1 {
     #[inline]
     pub fn reserved0(&self) -> u32 {
         unsafe { ::core::mem::transmute(self._bitfield_1.get(0usize, 16u8) as u32) }
@@ -36592,18 +40938,18 @@ impl _bindgen_ty_4__bindgen_ty_3__bindgen_ty_1 {
 }
 #[repr(C)]
 #[derive(Copy, Clone)]
-pub union _bindgen_ty_4__bindgen_ty_4 {
-    pub __bindgen_anon_1: _bindgen_ty_4__bindgen_ty_4__bindgen_ty_1,
+pub union _bindgen_ty_6__bindgen_ty_4 {
+    pub __bindgen_anon_1: _bindgen_ty_6__bindgen_ty_4__bindgen_ty_1,
     pub val: u32,
     _bindgen_union_align: u32,
 }
 #[repr(C)]
 #[repr(align(4))]
 #[derive(Debug, Copy, Clone)]
-pub struct _bindgen_ty_4__bindgen_ty_4__bindgen_ty_1 {
+pub struct _bindgen_ty_6__bindgen_ty_4__bindgen_ty_1 {
     pub _bitfield_1: __BindgenBitfieldUnit<[u8; 4usize], u16>,
 }
-impl _bindgen_ty_4__bindgen_ty_4__bindgen_ty_1 {
+impl _bindgen_ty_6__bindgen_ty_4__bindgen_ty_1 {
     #[inline]
     pub fn reserved0(&self) -> u32 {
         unsafe { ::core::mem::transmute(self._bitfield_1.get(0usize, 12u8) as u32) }
@@ -36710,18 +41056,18 @@ impl _bindgen_ty_4__bindgen_ty_4__bindgen_ty_1 {
 }
 #[repr(C)]
 #[derive(Copy, Clone)]
-pub union _bindgen_ty_4__bindgen_ty_5 {
-    pub __bindgen_anon_1: _bindgen_ty_4__bindgen_ty_5__bindgen_ty_1,
+pub union _bindgen_ty_6__bindgen_ty_5 {
+    pub __bindgen_anon_1: _bindgen_ty_6__bindgen_ty_5__bindgen_ty_1,
     pub val: u32,
     _bindgen_union_align: u32,
 }
 #[repr(C)]
 #[repr(align(4))]
 #[derive(Debug, Copy, Clone)]
-pub struct _bindgen_ty_4__bindgen_ty_5__bindgen_ty_1 {
+pub struct _bindgen_ty_6__bindgen_ty_5__bindgen_ty_1 {
     pub _bitfield_1: __BindgenBitfieldUnit<[u8; 4usize], u32>,
 }
-impl _bindgen_ty_4__bindgen_ty_5__bindgen_ty_1 {
+impl _bindgen_ty_6__bindgen_ty_5__bindgen_ty_1 {
     #[inline]
     pub fn reserved0(&self) -> u32 {
         unsafe { ::core::mem::transmute(self._bitfield_1.get(0usize, 7u8) as u32) }
@@ -36761,18 +41107,18 @@ impl _bindgen_ty_4__bindgen_ty_5__bindgen_ty_1 {
 }
 #[repr(C)]
 #[derive(Copy, Clone)]
-pub union _bindgen_ty_4__bindgen_ty_6 {
-    pub __bindgen_anon_1: _bindgen_ty_4__bindgen_ty_6__bindgen_ty_1,
+pub union _bindgen_ty_6__bindgen_ty_6 {
+    pub __bindgen_anon_1: _bindgen_ty_6__bindgen_ty_6__bindgen_ty_1,
     pub val: u32,
     _bindgen_union_align: u32,
 }
 #[repr(C)]
 #[repr(align(4))]
 #[derive(Debug, Copy, Clone)]
-pub struct _bindgen_ty_4__bindgen_ty_6__bindgen_ty_1 {
+pub struct _bindgen_ty_6__bindgen_ty_6__bindgen_ty_1 {
     pub _bitfield_1: __BindgenBitfieldUnit<[u8; 4usize], u16>,
 }
-impl _bindgen_ty_4__bindgen_ty_6__bindgen_ty_1 {
+impl _bindgen_ty_6__bindgen_ty_6__bindgen_ty_1 {
     #[inline]
     pub fn reserved0(&self) -> u32 {
         unsafe { ::core::mem::transmute(self._bitfield_1.get(0usize, 7u8) as u32) }
@@ -36959,18 +41305,18 @@ impl _bindgen_ty_4__bindgen_ty_6__bindgen_ty_1 {
 }
 #[repr(C)]
 #[derive(Copy, Clone)]
-pub union _bindgen_ty_4__bindgen_ty_7 {
-    pub __bindgen_anon_1: _bindgen_ty_4__bindgen_ty_7__bindgen_ty_1,
+pub union _bindgen_ty_6__bindgen_ty_7 {
+    pub __bindgen_anon_1: _bindgen_ty_6__bindgen_ty_7__bindgen_ty_1,
     pub val: u32,
     _bindgen_union_align: u32,
 }
 #[repr(C)]
 #[repr(align(4))]
 #[derive(Debug, Copy, Clone)]
-pub struct _bindgen_ty_4__bindgen_ty_7__bindgen_ty_1 {
+pub struct _bindgen_ty_6__bindgen_ty_7__bindgen_ty_1 {
     pub _bitfield_1: __BindgenBitfieldUnit<[u8; 4usize], u32>,
 }
-impl _bindgen_ty_4__bindgen_ty_7__bindgen_ty_1 {
+impl _bindgen_ty_6__bindgen_ty_7__bindgen_ty_1 {
     #[inline]
     pub fn reserved0(&self) -> u32 {
         unsafe { ::core::mem::transmute(self._bitfield_1.get(0usize, 6u8) as u32) }
@@ -37013,18 +41359,18 @@ impl _bindgen_ty_4__bindgen_ty_7__bindgen_ty_1 {
 }
 #[repr(C)]
 #[derive(Copy, Clone)]
-pub union _bindgen_ty_4__bindgen_ty_8 {
-    pub __bindgen_anon_1: _bindgen_ty_4__bindgen_ty_8__bindgen_ty_1,
+pub union _bindgen_ty_6__bindgen_ty_8 {
+    pub __bindgen_anon_1: _bindgen_ty_6__bindgen_ty_8__bindgen_ty_1,
     pub val: u32,
     _bindgen_union_align: u32,
 }
 #[repr(C)]
 #[repr(align(4))]
 #[derive(Debug, Copy, Clone)]
-pub struct _bindgen_ty_4__bindgen_ty_8__bindgen_ty_1 {
+pub struct _bindgen_ty_6__bindgen_ty_8__bindgen_ty_1 {
     pub _bitfield_1: __BindgenBitfieldUnit<[u8; 4usize], u32>,
 }
-impl _bindgen_ty_4__bindgen_ty_8__bindgen_ty_1 {
+impl _bindgen_ty_6__bindgen_ty_8__bindgen_ty_1 {
     #[inline]
     pub fn t0(&self) -> u32 {
         unsafe { ::core::mem::transmute(self._bitfield_1.get(0usize, 1u8) as u32) }
@@ -37115,18 +41461,18 @@ impl _bindgen_ty_4__bindgen_ty_8__bindgen_ty_1 {
 }
 #[repr(C)]
 #[derive(Copy, Clone)]
-pub union _bindgen_ty_4__bindgen_ty_9 {
-    pub __bindgen_anon_1: _bindgen_ty_4__bindgen_ty_9__bindgen_ty_1,
+pub union _bindgen_ty_6__bindgen_ty_9 {
+    pub __bindgen_anon_1: _bindgen_ty_6__bindgen_ty_9__bindgen_ty_1,
     pub val: u32,
     _bindgen_union_align: u32,
 }
 #[repr(C)]
 #[repr(align(4))]
 #[derive(Debug, Copy, Clone)]
-pub struct _bindgen_ty_4__bindgen_ty_9__bindgen_ty_1 {
+pub struct _bindgen_ty_6__bindgen_ty_9__bindgen_ty_1 {
     pub _bitfield_1: __BindgenBitfieldUnit<[u8; 4usize], u32>,
 }
-impl _bindgen_ty_4__bindgen_ty_9__bindgen_ty_1 {
+impl _bindgen_ty_6__bindgen_ty_9__bindgen_ty_1 {
     #[inline]
     pub fn t0(&self) -> u32 {
         unsafe { ::core::mem::transmute(self._bitfield_1.get(0usize, 1u8) as u32) }
@@ -37217,18 +41563,18 @@ impl _bindgen_ty_4__bindgen_ty_9__bindgen_ty_1 {
 }
 #[repr(C)]
 #[derive(Copy, Clone)]
-pub union _bindgen_ty_4__bindgen_ty_10 {
-    pub __bindgen_anon_1: _bindgen_ty_4__bindgen_ty_10__bindgen_ty_1,
+pub union _bindgen_ty_6__bindgen_ty_10 {
+    pub __bindgen_anon_1: _bindgen_ty_6__bindgen_ty_10__bindgen_ty_1,
     pub val: u32,
     _bindgen_union_align: u32,
 }
 #[repr(C)]
 #[repr(align(4))]
 #[derive(Debug, Copy, Clone)]
-pub struct _bindgen_ty_4__bindgen_ty_10__bindgen_ty_1 {
+pub struct _bindgen_ty_6__bindgen_ty_10__bindgen_ty_1 {
     pub _bitfield_1: __BindgenBitfieldUnit<[u8; 4usize], u32>,
 }
-impl _bindgen_ty_4__bindgen_ty_10__bindgen_ty_1 {
+impl _bindgen_ty_6__bindgen_ty_10__bindgen_ty_1 {
     #[inline]
     pub fn t0(&self) -> u32 {
         unsafe { ::core::mem::transmute(self._bitfield_1.get(0usize, 1u8) as u32) }
@@ -37319,18 +41665,18 @@ impl _bindgen_ty_4__bindgen_ty_10__bindgen_ty_1 {
 }
 #[repr(C)]
 #[derive(Copy, Clone)]
-pub union _bindgen_ty_4__bindgen_ty_11 {
-    pub __bindgen_anon_1: _bindgen_ty_4__bindgen_ty_11__bindgen_ty_1,
+pub union _bindgen_ty_6__bindgen_ty_11 {
+    pub __bindgen_anon_1: _bindgen_ty_6__bindgen_ty_11__bindgen_ty_1,
     pub val: u32,
     _bindgen_union_align: u32,
 }
 #[repr(C)]
 #[repr(align(4))]
 #[derive(Debug, Copy, Clone)]
-pub struct _bindgen_ty_4__bindgen_ty_11__bindgen_ty_1 {
+pub struct _bindgen_ty_6__bindgen_ty_11__bindgen_ty_1 {
     pub _bitfield_1: __BindgenBitfieldUnit<[u8; 4usize], u32>,
 }
-impl _bindgen_ty_4__bindgen_ty_11__bindgen_ty_1 {
+impl _bindgen_ty_6__bindgen_ty_11__bindgen_ty_1 {
     #[inline]
     pub fn t0(&self) -> u32 {
         unsafe { ::core::mem::transmute(self._bitfield_1.get(0usize, 1u8) as u32) }
@@ -37421,18 +41767,18 @@ impl _bindgen_ty_4__bindgen_ty_11__bindgen_ty_1 {
 }
 #[repr(C)]
 #[derive(Copy, Clone)]
-pub union _bindgen_ty_4__bindgen_ty_12 {
-    pub __bindgen_anon_1: _bindgen_ty_4__bindgen_ty_12__bindgen_ty_1,
+pub union _bindgen_ty_6__bindgen_ty_12 {
+    pub __bindgen_anon_1: _bindgen_ty_6__bindgen_ty_12__bindgen_ty_1,
     pub val: u32,
     _bindgen_union_align: u32,
 }
 #[repr(C)]
 #[repr(align(4))]
 #[derive(Debug, Copy, Clone)]
-pub struct _bindgen_ty_4__bindgen_ty_12__bindgen_ty_1 {
+pub struct _bindgen_ty_6__bindgen_ty_12__bindgen_ty_1 {
     pub _bitfield_1: __BindgenBitfieldUnit<[u8; 4usize], u32>,
 }
-impl _bindgen_ty_4__bindgen_ty_12__bindgen_ty_1 {
+impl _bindgen_ty_6__bindgen_ty_12__bindgen_ty_1 {
     #[inline]
     pub fn date(&self) -> u32 {
         unsafe { ::core::mem::transmute(self._bitfield_1.get(0usize, 28u8) as u32) }
@@ -37472,18 +41818,18 @@ impl _bindgen_ty_4__bindgen_ty_12__bindgen_ty_1 {
 }
 #[repr(C)]
 #[derive(Copy, Clone)]
-pub union _bindgen_ty_4__bindgen_ty_13 {
-    pub __bindgen_anon_1: _bindgen_ty_4__bindgen_ty_13__bindgen_ty_1,
+pub union _bindgen_ty_6__bindgen_ty_13 {
+    pub __bindgen_anon_1: _bindgen_ty_6__bindgen_ty_13__bindgen_ty_1,
     pub val: u32,
     _bindgen_union_align: u32,
 }
 #[repr(C)]
 #[repr(align(4))]
 #[derive(Debug, Copy, Clone)]
-pub struct _bindgen_ty_4__bindgen_ty_13__bindgen_ty_1 {
+pub struct _bindgen_ty_6__bindgen_ty_13__bindgen_ty_1 {
     pub _bitfield_1: __BindgenBitfieldUnit<[u8; 4usize], u32>,
 }
-impl _bindgen_ty_4__bindgen_ty_13__bindgen_ty_1 {
+impl _bindgen_ty_6__bindgen_ty_13__bindgen_ty_1 {
     #[inline]
     pub fn reserved0(&self) -> u32 {
         unsafe { ::core::mem::transmute(self._bitfield_1.get(0usize, 31u8) as u32) }
@@ -37521,7 +41867,7 @@ impl _bindgen_ty_4__bindgen_ty_13__bindgen_ty_1 {
         __bindgen_bitfield_unit
     }
 }
-pub type timg_dev_t = _bindgen_ty_4;
+pub type timg_dev_t = _bindgen_ty_6;
 extern "C" {
     pub static mut TIMERG0: timg_dev_t;
 }
@@ -37872,35 +42218,35 @@ extern "C" {
 }
 #[repr(C)]
 #[derive(Copy, Clone)]
-pub struct _bindgen_ty_5 {
-    pub fifo: _bindgen_ty_5__bindgen_ty_1,
-    pub int_raw: _bindgen_ty_5__bindgen_ty_2,
-    pub int_st: _bindgen_ty_5__bindgen_ty_3,
-    pub int_ena: _bindgen_ty_5__bindgen_ty_4,
-    pub int_clr: _bindgen_ty_5__bindgen_ty_5,
-    pub clk_div: _bindgen_ty_5__bindgen_ty_6,
-    pub auto_baud: _bindgen_ty_5__bindgen_ty_7,
-    pub status: _bindgen_ty_5__bindgen_ty_8,
-    pub conf0: _bindgen_ty_5__bindgen_ty_9,
-    pub conf1: _bindgen_ty_5__bindgen_ty_10,
-    pub lowpulse: _bindgen_ty_5__bindgen_ty_11,
-    pub highpulse: _bindgen_ty_5__bindgen_ty_12,
-    pub rxd_cnt: _bindgen_ty_5__bindgen_ty_13,
-    pub flow_conf: _bindgen_ty_5__bindgen_ty_14,
-    pub sleep_conf: _bindgen_ty_5__bindgen_ty_15,
-    pub swfc_conf: _bindgen_ty_5__bindgen_ty_16,
-    pub idle_conf: _bindgen_ty_5__bindgen_ty_17,
-    pub rs485_conf: _bindgen_ty_5__bindgen_ty_18,
-    pub at_cmd_precnt: _bindgen_ty_5__bindgen_ty_19,
-    pub at_cmd_postcnt: _bindgen_ty_5__bindgen_ty_20,
-    pub at_cmd_gaptout: _bindgen_ty_5__bindgen_ty_21,
-    pub at_cmd_char: _bindgen_ty_5__bindgen_ty_22,
-    pub mem_conf: _bindgen_ty_5__bindgen_ty_23,
-    pub mem_tx_status: _bindgen_ty_5__bindgen_ty_24,
-    pub mem_rx_status: _bindgen_ty_5__bindgen_ty_25,
-    pub mem_cnt_status: _bindgen_ty_5__bindgen_ty_26,
-    pub pospulse: _bindgen_ty_5__bindgen_ty_27,
-    pub negpulse: _bindgen_ty_5__bindgen_ty_28,
+pub struct _bindgen_ty_7 {
+    pub fifo: _bindgen_ty_7__bindgen_ty_1,
+    pub int_raw: _bindgen_ty_7__bindgen_ty_2,
+    pub int_st: _bindgen_ty_7__bindgen_ty_3,
+    pub int_ena: _bindgen_ty_7__bindgen_ty_4,
+    pub int_clr: _bindgen_ty_7__bindgen_ty_5,
+    pub clk_div: _bindgen_ty_7__bindgen_ty_6,
+    pub auto_baud: _bindgen_ty_7__bindgen_ty_7,
+    pub status: _bindgen_ty_7__bindgen_ty_8,
+    pub conf0: _bindgen_ty_7__bindgen_ty_9,
+    pub conf1: _bindgen_ty_7__bindgen_ty_10,
+    pub lowpulse: _bindgen_ty_7__bindgen_ty_11,
+    pub highpulse: _bindgen_ty_7__bindgen_ty_12,
+    pub rxd_cnt: _bindgen_ty_7__bindgen_ty_13,
+    pub flow_conf: _bindgen_ty_7__bindgen_ty_14,
+    pub sleep_conf: _bindgen_ty_7__bindgen_ty_15,
+    pub swfc_conf: _bindgen_ty_7__bindgen_ty_16,
+    pub idle_conf: _bindgen_ty_7__bindgen_ty_17,
+    pub rs485_conf: _bindgen_ty_7__bindgen_ty_18,
+    pub at_cmd_precnt: _bindgen_ty_7__bindgen_ty_19,
+    pub at_cmd_postcnt: _bindgen_ty_7__bindgen_ty_20,
+    pub at_cmd_gaptout: _bindgen_ty_7__bindgen_ty_21,
+    pub at_cmd_char: _bindgen_ty_7__bindgen_ty_22,
+    pub mem_conf: _bindgen_ty_7__bindgen_ty_23,
+    pub mem_tx_status: _bindgen_ty_7__bindgen_ty_24,
+    pub mem_rx_status: _bindgen_ty_7__bindgen_ty_25,
+    pub mem_cnt_status: _bindgen_ty_7__bindgen_ty_26,
+    pub pospulse: _bindgen_ty_7__bindgen_ty_27,
+    pub negpulse: _bindgen_ty_7__bindgen_ty_28,
     pub reserved_70: u32,
     pub reserved_74: u32,
     pub date: u32,
@@ -37908,31 +42254,31 @@ pub struct _bindgen_ty_5 {
 }
 #[repr(C)]
 #[derive(Copy, Clone)]
-pub union _bindgen_ty_5__bindgen_ty_1 {
-    pub __bindgen_anon_1: _bindgen_ty_5__bindgen_ty_1__bindgen_ty_1,
+pub union _bindgen_ty_7__bindgen_ty_1 {
+    pub __bindgen_anon_1: _bindgen_ty_7__bindgen_ty_1__bindgen_ty_1,
     pub val: u32,
     _bindgen_union_align: u32,
 }
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
-pub struct _bindgen_ty_5__bindgen_ty_1__bindgen_ty_1 {
+pub struct _bindgen_ty_7__bindgen_ty_1__bindgen_ty_1 {
     pub rw_byte: u8,
     pub reserved: [u8; 3usize],
 }
 #[repr(C)]
 #[derive(Copy, Clone)]
-pub union _bindgen_ty_5__bindgen_ty_2 {
-    pub __bindgen_anon_1: _bindgen_ty_5__bindgen_ty_2__bindgen_ty_1,
+pub union _bindgen_ty_7__bindgen_ty_2 {
+    pub __bindgen_anon_1: _bindgen_ty_7__bindgen_ty_2__bindgen_ty_1,
     pub val: u32,
     _bindgen_union_align: u32,
 }
 #[repr(C)]
 #[repr(align(4))]
 #[derive(Debug, Copy, Clone)]
-pub struct _bindgen_ty_5__bindgen_ty_2__bindgen_ty_1 {
+pub struct _bindgen_ty_7__bindgen_ty_2__bindgen_ty_1 {
     pub _bitfield_1: __BindgenBitfieldUnit<[u8; 4usize], u16>,
 }
-impl _bindgen_ty_5__bindgen_ty_2__bindgen_ty_1 {
+impl _bindgen_ty_7__bindgen_ty_2__bindgen_ty_1 {
     #[inline]
     pub fn rxfifo_full(&self) -> u32 {
         unsafe { ::core::mem::transmute(self._bitfield_1.get(0usize, 1u8) as u32) }
@@ -38263,18 +42609,18 @@ impl _bindgen_ty_5__bindgen_ty_2__bindgen_ty_1 {
 }
 #[repr(C)]
 #[derive(Copy, Clone)]
-pub union _bindgen_ty_5__bindgen_ty_3 {
-    pub __bindgen_anon_1: _bindgen_ty_5__bindgen_ty_3__bindgen_ty_1,
+pub union _bindgen_ty_7__bindgen_ty_3 {
+    pub __bindgen_anon_1: _bindgen_ty_7__bindgen_ty_3__bindgen_ty_1,
     pub val: u32,
     _bindgen_union_align: u32,
 }
 #[repr(C)]
 #[repr(align(4))]
 #[derive(Debug, Copy, Clone)]
-pub struct _bindgen_ty_5__bindgen_ty_3__bindgen_ty_1 {
+pub struct _bindgen_ty_7__bindgen_ty_3__bindgen_ty_1 {
     pub _bitfield_1: __BindgenBitfieldUnit<[u8; 4usize], u16>,
 }
-impl _bindgen_ty_5__bindgen_ty_3__bindgen_ty_1 {
+impl _bindgen_ty_7__bindgen_ty_3__bindgen_ty_1 {
     #[inline]
     pub fn rxfifo_full(&self) -> u32 {
         unsafe { ::core::mem::transmute(self._bitfield_1.get(0usize, 1u8) as u32) }
@@ -38605,18 +42951,18 @@ impl _bindgen_ty_5__bindgen_ty_3__bindgen_ty_1 {
 }
 #[repr(C)]
 #[derive(Copy, Clone)]
-pub union _bindgen_ty_5__bindgen_ty_4 {
-    pub __bindgen_anon_1: _bindgen_ty_5__bindgen_ty_4__bindgen_ty_1,
+pub union _bindgen_ty_7__bindgen_ty_4 {
+    pub __bindgen_anon_1: _bindgen_ty_7__bindgen_ty_4__bindgen_ty_1,
     pub val: u32,
     _bindgen_union_align: u32,
 }
 #[repr(C)]
 #[repr(align(4))]
 #[derive(Debug, Copy, Clone)]
-pub struct _bindgen_ty_5__bindgen_ty_4__bindgen_ty_1 {
+pub struct _bindgen_ty_7__bindgen_ty_4__bindgen_ty_1 {
     pub _bitfield_1: __BindgenBitfieldUnit<[u8; 4usize], u16>,
 }
-impl _bindgen_ty_5__bindgen_ty_4__bindgen_ty_1 {
+impl _bindgen_ty_7__bindgen_ty_4__bindgen_ty_1 {
     #[inline]
     pub fn rxfifo_full(&self) -> u32 {
         unsafe { ::core::mem::transmute(self._bitfield_1.get(0usize, 1u8) as u32) }
@@ -38947,18 +43293,18 @@ impl _bindgen_ty_5__bindgen_ty_4__bindgen_ty_1 {
 }
 #[repr(C)]
 #[derive(Copy, Clone)]
-pub union _bindgen_ty_5__bindgen_ty_5 {
-    pub __bindgen_anon_1: _bindgen_ty_5__bindgen_ty_5__bindgen_ty_1,
+pub union _bindgen_ty_7__bindgen_ty_5 {
+    pub __bindgen_anon_1: _bindgen_ty_7__bindgen_ty_5__bindgen_ty_1,
     pub val: u32,
     _bindgen_union_align: u32,
 }
 #[repr(C)]
 #[repr(align(4))]
 #[derive(Debug, Copy, Clone)]
-pub struct _bindgen_ty_5__bindgen_ty_5__bindgen_ty_1 {
+pub struct _bindgen_ty_7__bindgen_ty_5__bindgen_ty_1 {
     pub _bitfield_1: __BindgenBitfieldUnit<[u8; 4usize], u16>,
 }
-impl _bindgen_ty_5__bindgen_ty_5__bindgen_ty_1 {
+impl _bindgen_ty_7__bindgen_ty_5__bindgen_ty_1 {
     #[inline]
     pub fn rxfifo_full(&self) -> u32 {
         unsafe { ::core::mem::transmute(self._bitfield_1.get(0usize, 1u8) as u32) }
@@ -39289,18 +43635,18 @@ impl _bindgen_ty_5__bindgen_ty_5__bindgen_ty_1 {
 }
 #[repr(C)]
 #[derive(Copy, Clone)]
-pub union _bindgen_ty_5__bindgen_ty_6 {
-    pub __bindgen_anon_1: _bindgen_ty_5__bindgen_ty_6__bindgen_ty_1,
+pub union _bindgen_ty_7__bindgen_ty_6 {
+    pub __bindgen_anon_1: _bindgen_ty_7__bindgen_ty_6__bindgen_ty_1,
     pub val: u32,
     _bindgen_union_align: u32,
 }
 #[repr(C)]
 #[repr(align(4))]
 #[derive(Debug, Copy, Clone)]
-pub struct _bindgen_ty_5__bindgen_ty_6__bindgen_ty_1 {
+pub struct _bindgen_ty_7__bindgen_ty_6__bindgen_ty_1 {
     pub _bitfield_1: __BindgenBitfieldUnit<[u8; 4usize], u32>,
 }
-impl _bindgen_ty_5__bindgen_ty_6__bindgen_ty_1 {
+impl _bindgen_ty_7__bindgen_ty_6__bindgen_ty_1 {
     #[inline]
     pub fn div_int(&self) -> u32 {
         unsafe { ::core::mem::transmute(self._bitfield_1.get(0usize, 20u8) as u32) }
@@ -39359,18 +43705,18 @@ impl _bindgen_ty_5__bindgen_ty_6__bindgen_ty_1 {
 }
 #[repr(C)]
 #[derive(Copy, Clone)]
-pub union _bindgen_ty_5__bindgen_ty_7 {
-    pub __bindgen_anon_1: _bindgen_ty_5__bindgen_ty_7__bindgen_ty_1,
+pub union _bindgen_ty_7__bindgen_ty_7 {
+    pub __bindgen_anon_1: _bindgen_ty_7__bindgen_ty_7__bindgen_ty_1,
     pub val: u32,
     _bindgen_union_align: u32,
 }
 #[repr(C)]
 #[repr(align(4))]
 #[derive(Debug, Copy, Clone)]
-pub struct _bindgen_ty_5__bindgen_ty_7__bindgen_ty_1 {
+pub struct _bindgen_ty_7__bindgen_ty_7__bindgen_ty_1 {
     pub _bitfield_1: __BindgenBitfieldUnit<[u8; 4usize], u16>,
 }
-impl _bindgen_ty_5__bindgen_ty_7__bindgen_ty_1 {
+impl _bindgen_ty_7__bindgen_ty_7__bindgen_ty_1 {
     #[inline]
     pub fn en(&self) -> u32 {
         unsafe { ::core::mem::transmute(self._bitfield_1.get(0usize, 1u8) as u32) }
@@ -39445,18 +43791,18 @@ impl _bindgen_ty_5__bindgen_ty_7__bindgen_ty_1 {
 }
 #[repr(C)]
 #[derive(Copy, Clone)]
-pub union _bindgen_ty_5__bindgen_ty_8 {
-    pub __bindgen_anon_1: _bindgen_ty_5__bindgen_ty_8__bindgen_ty_1,
+pub union _bindgen_ty_7__bindgen_ty_8 {
+    pub __bindgen_anon_1: _bindgen_ty_7__bindgen_ty_8__bindgen_ty_1,
     pub val: u32,
     _bindgen_union_align: u32,
 }
 #[repr(C)]
 #[repr(align(4))]
 #[derive(Debug, Copy, Clone)]
-pub struct _bindgen_ty_5__bindgen_ty_8__bindgen_ty_1 {
+pub struct _bindgen_ty_7__bindgen_ty_8__bindgen_ty_1 {
     pub _bitfield_1: __BindgenBitfieldUnit<[u8; 4usize], u8>,
 }
-impl _bindgen_ty_5__bindgen_ty_8__bindgen_ty_1 {
+impl _bindgen_ty_7__bindgen_ty_8__bindgen_ty_1 {
     #[inline]
     pub fn rxfifo_cnt(&self) -> u32 {
         unsafe { ::core::mem::transmute(self._bitfield_1.get(0usize, 8u8) as u32) }
@@ -39659,18 +44005,18 @@ impl _bindgen_ty_5__bindgen_ty_8__bindgen_ty_1 {
 }
 #[repr(C)]
 #[derive(Copy, Clone)]
-pub union _bindgen_ty_5__bindgen_ty_9 {
-    pub __bindgen_anon_1: _bindgen_ty_5__bindgen_ty_9__bindgen_ty_1,
+pub union _bindgen_ty_7__bindgen_ty_9 {
+    pub __bindgen_anon_1: _bindgen_ty_7__bindgen_ty_9__bindgen_ty_1,
     pub val: u32,
     _bindgen_union_align: u32,
 }
 #[repr(C)]
 #[repr(align(4))]
 #[derive(Debug, Copy, Clone)]
-pub struct _bindgen_ty_5__bindgen_ty_9__bindgen_ty_1 {
+pub struct _bindgen_ty_7__bindgen_ty_9__bindgen_ty_1 {
     pub _bitfield_1: __BindgenBitfieldUnit<[u8; 4usize], u8>,
 }
-impl _bindgen_ty_5__bindgen_ty_9__bindgen_ty_1 {
+impl _bindgen_ty_7__bindgen_ty_9__bindgen_ty_1 {
     #[inline]
     pub fn parity(&self) -> u32 {
         unsafe { ::core::mem::transmute(self._bitfield_1.get(0usize, 1u8) as u32) }
@@ -40113,18 +44459,18 @@ impl _bindgen_ty_5__bindgen_ty_9__bindgen_ty_1 {
 }
 #[repr(C)]
 #[derive(Copy, Clone)]
-pub union _bindgen_ty_5__bindgen_ty_10 {
-    pub __bindgen_anon_1: _bindgen_ty_5__bindgen_ty_10__bindgen_ty_1,
+pub union _bindgen_ty_7__bindgen_ty_10 {
+    pub __bindgen_anon_1: _bindgen_ty_7__bindgen_ty_10__bindgen_ty_1,
     pub val: u32,
     _bindgen_union_align: u32,
 }
 #[repr(C)]
 #[repr(align(4))]
 #[derive(Debug, Copy, Clone)]
-pub struct _bindgen_ty_5__bindgen_ty_10__bindgen_ty_1 {
+pub struct _bindgen_ty_7__bindgen_ty_10__bindgen_ty_1 {
     pub _bitfield_1: __BindgenBitfieldUnit<[u8; 4usize], u8>,
 }
-impl _bindgen_ty_5__bindgen_ty_10__bindgen_ty_1 {
+impl _bindgen_ty_7__bindgen_ty_10__bindgen_ty_1 {
     #[inline]
     pub fn rxfifo_full_thrhd(&self) -> u32 {
         unsafe { ::core::mem::transmute(self._bitfield_1.get(0usize, 7u8) as u32) }
@@ -40263,18 +44609,18 @@ impl _bindgen_ty_5__bindgen_ty_10__bindgen_ty_1 {
 }
 #[repr(C)]
 #[derive(Copy, Clone)]
-pub union _bindgen_ty_5__bindgen_ty_11 {
-    pub __bindgen_anon_1: _bindgen_ty_5__bindgen_ty_11__bindgen_ty_1,
+pub union _bindgen_ty_7__bindgen_ty_11 {
+    pub __bindgen_anon_1: _bindgen_ty_7__bindgen_ty_11__bindgen_ty_1,
     pub val: u32,
     _bindgen_union_align: u32,
 }
 #[repr(C)]
 #[repr(align(4))]
 #[derive(Debug, Copy, Clone)]
-pub struct _bindgen_ty_5__bindgen_ty_11__bindgen_ty_1 {
+pub struct _bindgen_ty_7__bindgen_ty_11__bindgen_ty_1 {
     pub _bitfield_1: __BindgenBitfieldUnit<[u8; 4usize], u32>,
 }
-impl _bindgen_ty_5__bindgen_ty_11__bindgen_ty_1 {
+impl _bindgen_ty_7__bindgen_ty_11__bindgen_ty_1 {
     #[inline]
     pub fn min_cnt(&self) -> u32 {
         unsafe { ::core::mem::transmute(self._bitfield_1.get(0usize, 20u8) as u32) }
@@ -40317,18 +44663,18 @@ impl _bindgen_ty_5__bindgen_ty_11__bindgen_ty_1 {
 }
 #[repr(C)]
 #[derive(Copy, Clone)]
-pub union _bindgen_ty_5__bindgen_ty_12 {
-    pub __bindgen_anon_1: _bindgen_ty_5__bindgen_ty_12__bindgen_ty_1,
+pub union _bindgen_ty_7__bindgen_ty_12 {
+    pub __bindgen_anon_1: _bindgen_ty_7__bindgen_ty_12__bindgen_ty_1,
     pub val: u32,
     _bindgen_union_align: u32,
 }
 #[repr(C)]
 #[repr(align(4))]
 #[derive(Debug, Copy, Clone)]
-pub struct _bindgen_ty_5__bindgen_ty_12__bindgen_ty_1 {
+pub struct _bindgen_ty_7__bindgen_ty_12__bindgen_ty_1 {
     pub _bitfield_1: __BindgenBitfieldUnit<[u8; 4usize], u32>,
 }
-impl _bindgen_ty_5__bindgen_ty_12__bindgen_ty_1 {
+impl _bindgen_ty_7__bindgen_ty_12__bindgen_ty_1 {
     #[inline]
     pub fn min_cnt(&self) -> u32 {
         unsafe { ::core::mem::transmute(self._bitfield_1.get(0usize, 20u8) as u32) }
@@ -40371,18 +44717,18 @@ impl _bindgen_ty_5__bindgen_ty_12__bindgen_ty_1 {
 }
 #[repr(C)]
 #[derive(Copy, Clone)]
-pub union _bindgen_ty_5__bindgen_ty_13 {
-    pub __bindgen_anon_1: _bindgen_ty_5__bindgen_ty_13__bindgen_ty_1,
+pub union _bindgen_ty_7__bindgen_ty_13 {
+    pub __bindgen_anon_1: _bindgen_ty_7__bindgen_ty_13__bindgen_ty_1,
     pub val: u32,
     _bindgen_union_align: u32,
 }
 #[repr(C)]
 #[repr(align(4))]
 #[derive(Debug, Copy, Clone)]
-pub struct _bindgen_ty_5__bindgen_ty_13__bindgen_ty_1 {
+pub struct _bindgen_ty_7__bindgen_ty_13__bindgen_ty_1 {
     pub _bitfield_1: __BindgenBitfieldUnit<[u8; 4usize], u32>,
 }
-impl _bindgen_ty_5__bindgen_ty_13__bindgen_ty_1 {
+impl _bindgen_ty_7__bindgen_ty_13__bindgen_ty_1 {
     #[inline]
     pub fn edge_cnt(&self) -> u32 {
         unsafe { ::core::mem::transmute(self._bitfield_1.get(0usize, 10u8) as u32) }
@@ -40425,18 +44771,18 @@ impl _bindgen_ty_5__bindgen_ty_13__bindgen_ty_1 {
 }
 #[repr(C)]
 #[derive(Copy, Clone)]
-pub union _bindgen_ty_5__bindgen_ty_14 {
-    pub __bindgen_anon_1: _bindgen_ty_5__bindgen_ty_14__bindgen_ty_1,
+pub union _bindgen_ty_7__bindgen_ty_14 {
+    pub __bindgen_anon_1: _bindgen_ty_7__bindgen_ty_14__bindgen_ty_1,
     pub val: u32,
     _bindgen_union_align: u32,
 }
 #[repr(C)]
 #[repr(align(4))]
 #[derive(Debug, Copy, Clone)]
-pub struct _bindgen_ty_5__bindgen_ty_14__bindgen_ty_1 {
+pub struct _bindgen_ty_7__bindgen_ty_14__bindgen_ty_1 {
     pub _bitfield_1: __BindgenBitfieldUnit<[u8; 4usize], u32>,
 }
-impl _bindgen_ty_5__bindgen_ty_14__bindgen_ty_1 {
+impl _bindgen_ty_7__bindgen_ty_14__bindgen_ty_1 {
     #[inline]
     pub fn sw_flow_con_en(&self) -> u32 {
         unsafe { ::core::mem::transmute(self._bitfield_1.get(0usize, 1u8) as u32) }
@@ -40559,18 +44905,18 @@ impl _bindgen_ty_5__bindgen_ty_14__bindgen_ty_1 {
 }
 #[repr(C)]
 #[derive(Copy, Clone)]
-pub union _bindgen_ty_5__bindgen_ty_15 {
-    pub __bindgen_anon_1: _bindgen_ty_5__bindgen_ty_15__bindgen_ty_1,
+pub union _bindgen_ty_7__bindgen_ty_15 {
+    pub __bindgen_anon_1: _bindgen_ty_7__bindgen_ty_15__bindgen_ty_1,
     pub val: u32,
     _bindgen_union_align: u32,
 }
 #[repr(C)]
 #[repr(align(4))]
 #[derive(Debug, Copy, Clone)]
-pub struct _bindgen_ty_5__bindgen_ty_15__bindgen_ty_1 {
+pub struct _bindgen_ty_7__bindgen_ty_15__bindgen_ty_1 {
     pub _bitfield_1: __BindgenBitfieldUnit<[u8; 4usize], u32>,
 }
-impl _bindgen_ty_5__bindgen_ty_15__bindgen_ty_1 {
+impl _bindgen_ty_7__bindgen_ty_15__bindgen_ty_1 {
     #[inline]
     pub fn active_threshold(&self) -> u32 {
         unsafe { ::core::mem::transmute(self._bitfield_1.get(0usize, 10u8) as u32) }
@@ -40613,18 +44959,18 @@ impl _bindgen_ty_5__bindgen_ty_15__bindgen_ty_1 {
 }
 #[repr(C)]
 #[derive(Copy, Clone)]
-pub union _bindgen_ty_5__bindgen_ty_16 {
-    pub __bindgen_anon_1: _bindgen_ty_5__bindgen_ty_16__bindgen_ty_1,
+pub union _bindgen_ty_7__bindgen_ty_16 {
+    pub __bindgen_anon_1: _bindgen_ty_7__bindgen_ty_16__bindgen_ty_1,
     pub val: u32,
     _bindgen_union_align: u32,
 }
 #[repr(C)]
 #[repr(align(4))]
 #[derive(Debug, Copy, Clone)]
-pub struct _bindgen_ty_5__bindgen_ty_16__bindgen_ty_1 {
+pub struct _bindgen_ty_7__bindgen_ty_16__bindgen_ty_1 {
     pub _bitfield_1: __BindgenBitfieldUnit<[u8; 4usize], u8>,
 }
-impl _bindgen_ty_5__bindgen_ty_16__bindgen_ty_1 {
+impl _bindgen_ty_7__bindgen_ty_16__bindgen_ty_1 {
     #[inline]
     pub fn xon_threshold(&self) -> u32 {
         unsafe { ::core::mem::transmute(self._bitfield_1.get(0usize, 8u8) as u32) }
@@ -40699,18 +45045,18 @@ impl _bindgen_ty_5__bindgen_ty_16__bindgen_ty_1 {
 }
 #[repr(C)]
 #[derive(Copy, Clone)]
-pub union _bindgen_ty_5__bindgen_ty_17 {
-    pub __bindgen_anon_1: _bindgen_ty_5__bindgen_ty_17__bindgen_ty_1,
+pub union _bindgen_ty_7__bindgen_ty_17 {
+    pub __bindgen_anon_1: _bindgen_ty_7__bindgen_ty_17__bindgen_ty_1,
     pub val: u32,
     _bindgen_union_align: u32,
 }
 #[repr(C)]
 #[repr(align(4))]
 #[derive(Debug, Copy, Clone)]
-pub struct _bindgen_ty_5__bindgen_ty_17__bindgen_ty_1 {
+pub struct _bindgen_ty_7__bindgen_ty_17__bindgen_ty_1 {
     pub _bitfield_1: __BindgenBitfieldUnit<[u8; 4usize], u16>,
 }
-impl _bindgen_ty_5__bindgen_ty_17__bindgen_ty_1 {
+impl _bindgen_ty_7__bindgen_ty_17__bindgen_ty_1 {
     #[inline]
     pub fn rx_idle_thrhd(&self) -> u32 {
         unsafe { ::core::mem::transmute(self._bitfield_1.get(0usize, 10u8) as u32) }
@@ -40785,18 +45131,18 @@ impl _bindgen_ty_5__bindgen_ty_17__bindgen_ty_1 {
 }
 #[repr(C)]
 #[derive(Copy, Clone)]
-pub union _bindgen_ty_5__bindgen_ty_18 {
-    pub __bindgen_anon_1: _bindgen_ty_5__bindgen_ty_18__bindgen_ty_1,
+pub union _bindgen_ty_7__bindgen_ty_18 {
+    pub __bindgen_anon_1: _bindgen_ty_7__bindgen_ty_18__bindgen_ty_1,
     pub val: u32,
     _bindgen_union_align: u32,
 }
 #[repr(C)]
 #[repr(align(4))]
 #[derive(Debug, Copy, Clone)]
-pub struct _bindgen_ty_5__bindgen_ty_18__bindgen_ty_1 {
+pub struct _bindgen_ty_7__bindgen_ty_18__bindgen_ty_1 {
     pub _bitfield_1: __BindgenBitfieldUnit<[u8; 4usize], u32>,
 }
-impl _bindgen_ty_5__bindgen_ty_18__bindgen_ty_1 {
+impl _bindgen_ty_7__bindgen_ty_18__bindgen_ty_1 {
     #[inline]
     pub fn en(&self) -> u32 {
         unsafe { ::core::mem::transmute(self._bitfield_1.get(0usize, 1u8) as u32) }
@@ -40935,18 +45281,18 @@ impl _bindgen_ty_5__bindgen_ty_18__bindgen_ty_1 {
 }
 #[repr(C)]
 #[derive(Copy, Clone)]
-pub union _bindgen_ty_5__bindgen_ty_19 {
-    pub __bindgen_anon_1: _bindgen_ty_5__bindgen_ty_19__bindgen_ty_1,
+pub union _bindgen_ty_7__bindgen_ty_19 {
+    pub __bindgen_anon_1: _bindgen_ty_7__bindgen_ty_19__bindgen_ty_1,
     pub val: u32,
     _bindgen_union_align: u32,
 }
 #[repr(C)]
 #[repr(align(4))]
 #[derive(Debug, Copy, Clone)]
-pub struct _bindgen_ty_5__bindgen_ty_19__bindgen_ty_1 {
+pub struct _bindgen_ty_7__bindgen_ty_19__bindgen_ty_1 {
     pub _bitfield_1: __BindgenBitfieldUnit<[u8; 4usize], u32>,
 }
-impl _bindgen_ty_5__bindgen_ty_19__bindgen_ty_1 {
+impl _bindgen_ty_7__bindgen_ty_19__bindgen_ty_1 {
     #[inline]
     pub fn pre_idle_num(&self) -> u32 {
         unsafe { ::core::mem::transmute(self._bitfield_1.get(0usize, 24u8) as u32) }
@@ -40989,18 +45335,18 @@ impl _bindgen_ty_5__bindgen_ty_19__bindgen_ty_1 {
 }
 #[repr(C)]
 #[derive(Copy, Clone)]
-pub union _bindgen_ty_5__bindgen_ty_20 {
-    pub __bindgen_anon_1: _bindgen_ty_5__bindgen_ty_20__bindgen_ty_1,
+pub union _bindgen_ty_7__bindgen_ty_20 {
+    pub __bindgen_anon_1: _bindgen_ty_7__bindgen_ty_20__bindgen_ty_1,
     pub val: u32,
     _bindgen_union_align: u32,
 }
 #[repr(C)]
 #[repr(align(4))]
 #[derive(Debug, Copy, Clone)]
-pub struct _bindgen_ty_5__bindgen_ty_20__bindgen_ty_1 {
+pub struct _bindgen_ty_7__bindgen_ty_20__bindgen_ty_1 {
     pub _bitfield_1: __BindgenBitfieldUnit<[u8; 4usize], u32>,
 }
-impl _bindgen_ty_5__bindgen_ty_20__bindgen_ty_1 {
+impl _bindgen_ty_7__bindgen_ty_20__bindgen_ty_1 {
     #[inline]
     pub fn post_idle_num(&self) -> u32 {
         unsafe { ::core::mem::transmute(self._bitfield_1.get(0usize, 24u8) as u32) }
@@ -41043,18 +45389,18 @@ impl _bindgen_ty_5__bindgen_ty_20__bindgen_ty_1 {
 }
 #[repr(C)]
 #[derive(Copy, Clone)]
-pub union _bindgen_ty_5__bindgen_ty_21 {
-    pub __bindgen_anon_1: _bindgen_ty_5__bindgen_ty_21__bindgen_ty_1,
+pub union _bindgen_ty_7__bindgen_ty_21 {
+    pub __bindgen_anon_1: _bindgen_ty_7__bindgen_ty_21__bindgen_ty_1,
     pub val: u32,
     _bindgen_union_align: u32,
 }
 #[repr(C)]
 #[repr(align(4))]
 #[derive(Debug, Copy, Clone)]
-pub struct _bindgen_ty_5__bindgen_ty_21__bindgen_ty_1 {
+pub struct _bindgen_ty_7__bindgen_ty_21__bindgen_ty_1 {
     pub _bitfield_1: __BindgenBitfieldUnit<[u8; 4usize], u32>,
 }
-impl _bindgen_ty_5__bindgen_ty_21__bindgen_ty_1 {
+impl _bindgen_ty_7__bindgen_ty_21__bindgen_ty_1 {
     #[inline]
     pub fn rx_gap_tout(&self) -> u32 {
         unsafe { ::core::mem::transmute(self._bitfield_1.get(0usize, 24u8) as u32) }
@@ -41097,18 +45443,18 @@ impl _bindgen_ty_5__bindgen_ty_21__bindgen_ty_1 {
 }
 #[repr(C)]
 #[derive(Copy, Clone)]
-pub union _bindgen_ty_5__bindgen_ty_22 {
-    pub __bindgen_anon_1: _bindgen_ty_5__bindgen_ty_22__bindgen_ty_1,
+pub union _bindgen_ty_7__bindgen_ty_22 {
+    pub __bindgen_anon_1: _bindgen_ty_7__bindgen_ty_22__bindgen_ty_1,
     pub val: u32,
     _bindgen_union_align: u32,
 }
 #[repr(C)]
 #[repr(align(4))]
 #[derive(Debug, Copy, Clone)]
-pub struct _bindgen_ty_5__bindgen_ty_22__bindgen_ty_1 {
+pub struct _bindgen_ty_7__bindgen_ty_22__bindgen_ty_1 {
     pub _bitfield_1: __BindgenBitfieldUnit<[u8; 4usize], u16>,
 }
-impl _bindgen_ty_5__bindgen_ty_22__bindgen_ty_1 {
+impl _bindgen_ty_7__bindgen_ty_22__bindgen_ty_1 {
     #[inline]
     pub fn data(&self) -> u32 {
         unsafe { ::core::mem::transmute(self._bitfield_1.get(0usize, 8u8) as u32) }
@@ -41167,18 +45513,18 @@ impl _bindgen_ty_5__bindgen_ty_22__bindgen_ty_1 {
 }
 #[repr(C)]
 #[derive(Copy, Clone)]
-pub union _bindgen_ty_5__bindgen_ty_23 {
-    pub __bindgen_anon_1: _bindgen_ty_5__bindgen_ty_23__bindgen_ty_1,
+pub union _bindgen_ty_7__bindgen_ty_23 {
+    pub __bindgen_anon_1: _bindgen_ty_7__bindgen_ty_23__bindgen_ty_1,
     pub val: u32,
     _bindgen_union_align: u32,
 }
 #[repr(C)]
 #[repr(align(4))]
 #[derive(Debug, Copy, Clone)]
-pub struct _bindgen_ty_5__bindgen_ty_23__bindgen_ty_1 {
+pub struct _bindgen_ty_7__bindgen_ty_23__bindgen_ty_1 {
     pub _bitfield_1: __BindgenBitfieldUnit<[u8; 4usize], u8>,
 }
-impl _bindgen_ty_5__bindgen_ty_23__bindgen_ty_1 {
+impl _bindgen_ty_7__bindgen_ty_23__bindgen_ty_1 {
     #[inline]
     pub fn mem_pd(&self) -> u32 {
         unsafe { ::core::mem::transmute(self._bitfield_1.get(0usize, 1u8) as u32) }
@@ -41397,18 +45743,18 @@ impl _bindgen_ty_5__bindgen_ty_23__bindgen_ty_1 {
 }
 #[repr(C)]
 #[derive(Copy, Clone)]
-pub union _bindgen_ty_5__bindgen_ty_24 {
-    pub __bindgen_anon_1: _bindgen_ty_5__bindgen_ty_24__bindgen_ty_1,
+pub union _bindgen_ty_7__bindgen_ty_24 {
+    pub __bindgen_anon_1: _bindgen_ty_7__bindgen_ty_24__bindgen_ty_1,
     pub val: u32,
     _bindgen_union_align: u32,
 }
 #[repr(C)]
 #[repr(align(4))]
 #[derive(Debug, Copy, Clone)]
-pub struct _bindgen_ty_5__bindgen_ty_24__bindgen_ty_1 {
+pub struct _bindgen_ty_7__bindgen_ty_24__bindgen_ty_1 {
     pub _bitfield_1: __BindgenBitfieldUnit<[u8; 4usize], u32>,
 }
-impl _bindgen_ty_5__bindgen_ty_24__bindgen_ty_1 {
+impl _bindgen_ty_7__bindgen_ty_24__bindgen_ty_1 {
     #[inline]
     pub fn status(&self) -> u32 {
         unsafe { ::core::mem::transmute(self._bitfield_1.get(0usize, 24u8) as u32) }
@@ -41451,19 +45797,19 @@ impl _bindgen_ty_5__bindgen_ty_24__bindgen_ty_1 {
 }
 #[repr(C)]
 #[derive(Copy, Clone)]
-pub union _bindgen_ty_5__bindgen_ty_25 {
-    pub __bindgen_anon_1: _bindgen_ty_5__bindgen_ty_25__bindgen_ty_1,
-    pub __bindgen_anon_2: _bindgen_ty_5__bindgen_ty_25__bindgen_ty_2,
+pub union _bindgen_ty_7__bindgen_ty_25 {
+    pub __bindgen_anon_1: _bindgen_ty_7__bindgen_ty_25__bindgen_ty_1,
+    pub __bindgen_anon_2: _bindgen_ty_7__bindgen_ty_25__bindgen_ty_2,
     pub val: u32,
     _bindgen_union_align: u32,
 }
 #[repr(C)]
 #[repr(align(4))]
 #[derive(Debug, Copy, Clone)]
-pub struct _bindgen_ty_5__bindgen_ty_25__bindgen_ty_1 {
+pub struct _bindgen_ty_7__bindgen_ty_25__bindgen_ty_1 {
     pub _bitfield_1: __BindgenBitfieldUnit<[u8; 4usize], u32>,
 }
-impl _bindgen_ty_5__bindgen_ty_25__bindgen_ty_1 {
+impl _bindgen_ty_7__bindgen_ty_25__bindgen_ty_1 {
     #[inline]
     pub fn status(&self) -> u32 {
         unsafe { ::core::mem::transmute(self._bitfield_1.get(0usize, 24u8) as u32) }
@@ -41507,10 +45853,10 @@ impl _bindgen_ty_5__bindgen_ty_25__bindgen_ty_1 {
 #[repr(C)]
 #[repr(align(4))]
 #[derive(Debug, Copy, Clone)]
-pub struct _bindgen_ty_5__bindgen_ty_25__bindgen_ty_2 {
+pub struct _bindgen_ty_7__bindgen_ty_25__bindgen_ty_2 {
     pub _bitfield_1: __BindgenBitfieldUnit<[u8; 4usize], u16>,
 }
-impl _bindgen_ty_5__bindgen_ty_25__bindgen_ty_2 {
+impl _bindgen_ty_7__bindgen_ty_25__bindgen_ty_2 {
     #[inline]
     pub fn reserved0(&self) -> u32 {
         unsafe { ::core::mem::transmute(self._bitfield_1.get(0usize, 2u8) as u32) }
@@ -41585,18 +45931,18 @@ impl _bindgen_ty_5__bindgen_ty_25__bindgen_ty_2 {
 }
 #[repr(C)]
 #[derive(Copy, Clone)]
-pub union _bindgen_ty_5__bindgen_ty_26 {
-    pub __bindgen_anon_1: _bindgen_ty_5__bindgen_ty_26__bindgen_ty_1,
+pub union _bindgen_ty_7__bindgen_ty_26 {
+    pub __bindgen_anon_1: _bindgen_ty_7__bindgen_ty_26__bindgen_ty_1,
     pub val: u32,
     _bindgen_union_align: u32,
 }
 #[repr(C)]
 #[repr(align(4))]
 #[derive(Debug, Copy, Clone)]
-pub struct _bindgen_ty_5__bindgen_ty_26__bindgen_ty_1 {
+pub struct _bindgen_ty_7__bindgen_ty_26__bindgen_ty_1 {
     pub _bitfield_1: __BindgenBitfieldUnit<[u8; 4usize], u32>,
 }
-impl _bindgen_ty_5__bindgen_ty_26__bindgen_ty_1 {
+impl _bindgen_ty_7__bindgen_ty_26__bindgen_ty_1 {
     #[inline]
     pub fn rx_cnt(&self) -> u32 {
         unsafe { ::core::mem::transmute(self._bitfield_1.get(0usize, 3u8) as u32) }
@@ -41655,18 +46001,18 @@ impl _bindgen_ty_5__bindgen_ty_26__bindgen_ty_1 {
 }
 #[repr(C)]
 #[derive(Copy, Clone)]
-pub union _bindgen_ty_5__bindgen_ty_27 {
-    pub __bindgen_anon_1: _bindgen_ty_5__bindgen_ty_27__bindgen_ty_1,
+pub union _bindgen_ty_7__bindgen_ty_27 {
+    pub __bindgen_anon_1: _bindgen_ty_7__bindgen_ty_27__bindgen_ty_1,
     pub val: u32,
     _bindgen_union_align: u32,
 }
 #[repr(C)]
 #[repr(align(4))]
 #[derive(Debug, Copy, Clone)]
-pub struct _bindgen_ty_5__bindgen_ty_27__bindgen_ty_1 {
+pub struct _bindgen_ty_7__bindgen_ty_27__bindgen_ty_1 {
     pub _bitfield_1: __BindgenBitfieldUnit<[u8; 4usize], u32>,
 }
-impl _bindgen_ty_5__bindgen_ty_27__bindgen_ty_1 {
+impl _bindgen_ty_7__bindgen_ty_27__bindgen_ty_1 {
     #[inline]
     pub fn min_cnt(&self) -> u32 {
         unsafe { ::core::mem::transmute(self._bitfield_1.get(0usize, 20u8) as u32) }
@@ -41709,18 +46055,18 @@ impl _bindgen_ty_5__bindgen_ty_27__bindgen_ty_1 {
 }
 #[repr(C)]
 #[derive(Copy, Clone)]
-pub union _bindgen_ty_5__bindgen_ty_28 {
-    pub __bindgen_anon_1: _bindgen_ty_5__bindgen_ty_28__bindgen_ty_1,
+pub union _bindgen_ty_7__bindgen_ty_28 {
+    pub __bindgen_anon_1: _bindgen_ty_7__bindgen_ty_28__bindgen_ty_1,
     pub val: u32,
     _bindgen_union_align: u32,
 }
 #[repr(C)]
 #[repr(align(4))]
 #[derive(Debug, Copy, Clone)]
-pub struct _bindgen_ty_5__bindgen_ty_28__bindgen_ty_1 {
+pub struct _bindgen_ty_7__bindgen_ty_28__bindgen_ty_1 {
     pub _bitfield_1: __BindgenBitfieldUnit<[u8; 4usize], u32>,
 }
-impl _bindgen_ty_5__bindgen_ty_28__bindgen_ty_1 {
+impl _bindgen_ty_7__bindgen_ty_28__bindgen_ty_1 {
     #[inline]
     pub fn min_cnt(&self) -> u32 {
         unsafe { ::core::mem::transmute(self._bitfield_1.get(0usize, 20u8) as u32) }
@@ -41761,7 +46107,7 @@ impl _bindgen_ty_5__bindgen_ty_28__bindgen_ty_1 {
         __bindgen_bitfield_unit
     }
 }
-pub type uart_dev_t = _bindgen_ty_5;
+pub type uart_dev_t = _bindgen_ty_7;
 extern "C" {
     pub static mut UART0: uart_dev_t;
 }

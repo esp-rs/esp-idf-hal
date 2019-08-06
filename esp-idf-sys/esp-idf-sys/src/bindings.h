@@ -7,6 +7,7 @@
 #include "driver/i2c.h"
 #include "driver/i2s.h"
 #include "driver/ledc.h"
+#include "driver/rmt.h"
 #include "driver/mcpwm.h"
 #include "driver/spi_common.h"
 #include "driver/spi_master.h"
