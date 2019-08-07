@@ -3,6 +3,7 @@ use embedded_hal::digital::v2 as hal;
 use esp_idf_sys::{
     gpio_input_get, gpio_input_get_high, gpio_mode_t_GPIO_MODE_INPUT, gpio_mode_t_GPIO_MODE_OUTPUT,
     gpio_pad_pulldown, gpio_pad_pullup, gpio_pad_select_gpio, gpio_set_direction, gpio_set_level,
+    GPIO,
 };
 
 #[derive(Clone, Debug)]
@@ -83,4 +84,38 @@ impl hal::OutputPin for OutputPin {
         }
         Ok(())
     }
+}
+
+/// Set output level high for multiple GPIO pins, 0 to 31.
+/// Each GPIO pin corresponds to a bit in the bitmask parameter.
+#[inline]
+pub unsafe fn set_multiple_high0(bitmask: u32) {
+    GPIO.out_w1ts = bitmask;
+}
+
+/// Set output level high for multiple GPIO pins, 32 and above.
+/// Each GPIO pin corresponds to a bit in the bitmask parameter, starting at 32.
+#[inline]
+pub unsafe fn set_multiple_high1(mut bitmask: u32) {
+    // Pins 34+ are input-only
+    bitmask &= 0x3;
+
+    GPIO.out1_w1ts.val = bitmask;
+}
+
+/// Set output level low for multiple GPIO pins, 0 to 31.
+/// Each GPIO pin corresponds to a bit in the bitmask parameter.
+#[inline]
+pub unsafe fn set_multiple_low0(bitmask: u32) {
+    GPIO.out_w1tc = bitmask;
+}
+
+/// Set output level low for multiple GPIO pins, 32 and above.
+/// Each GPIO pin corresponds to a bit in the bitmask parameter, starting at 32.
+#[inline]
+pub unsafe fn set_multiple_low1(mut bitmask: u32) {
+    // Pins 34+ are input-only
+    bitmask &= 0x3;
+
+    GPIO.out1_w1tc.val = bitmask;
 }
