@@ -31,6 +31,10 @@ impl InputPin {
 
         Self { which }
     }
+
+    pub fn which(&self) -> u8 {
+        self.which
+    }
 }
 
 impl hal::InputPin for InputPin {
