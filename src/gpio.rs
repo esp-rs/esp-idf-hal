@@ -56,19 +56,23 @@ impl hal::InputPin for InputPin {
 }
 
 pub struct OutputPin {
-    which: u32,
+    which: u8,
 }
 
 impl OutputPin {
-    pub unsafe fn new(which: u32) -> Self {
+    pub unsafe fn new(which: u8) -> Self {
         Self::with_initial(which, false)
     }
 
-    pub unsafe fn with_initial(which: u32, initial_high: bool) -> Self {
-        gpio_pad_select_gpio(which.try_into().unwrap());
-        gpio_set_level(which, initial_high as u32);
-        gpio_set_direction(which, gpio_mode_t_GPIO_MODE_OUTPUT);
+    pub unsafe fn with_initial(which: u8, initial_high: bool) -> Self {
+        gpio_pad_select_gpio(which);
+        gpio_set_level(which.into(), initial_high as u32);
+        gpio_set_direction(which.into(), gpio_mode_t_GPIO_MODE_OUTPUT);
         Self { which }
+    }
+
+    pub fn which(&self) -> u8 {
+        self.which
     }
 }
 
@@ -77,14 +81,14 @@ impl hal::OutputPin for OutputPin {
 
     fn set_high(&mut self) -> Result<(), Error> {
         unsafe {
-            gpio_set_level(self.which, 1);
+            gpio_set_level(self.which.into(), 1);
         }
         Ok(())
     }
 
     fn set_low(&mut self) -> Result<(), Error> {
         unsafe {
-            gpio_set_level(self.which, 0);
+            gpio_set_level(self.which.into(), 0);
         }
         Ok(())
     }
