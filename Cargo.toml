@@ -9,7 +9,7 @@ license = "MIT"
 
 [dependencies]
 embedded-hal = { version = "0.2.3", features = ["unproven"] }
-esp-idf-sys = "0.1.0"
+esp-idf-sys = "0.1.2"
 nb = "0.1.2"
 
 # no xtensa in regular compiler yet
