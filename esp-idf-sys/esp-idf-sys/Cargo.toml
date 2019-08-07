@@ -1,6 +1,6 @@
 [package]
 name = "esp-idf-sys"
-version = "0.1.1"
+version = "0.1.2"
 authors = ["Alexey Arbuzov <aarbuzov@termt.com>", "sapir <yasapir@gmail.com>"]
 edition = "2015"
 description = "Bindings for esp-idf (Espressif's IoT Development Framework)"
