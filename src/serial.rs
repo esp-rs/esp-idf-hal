@@ -1,3 +1,4 @@
+use crate::errors::{EspError, Result};
 use core::ptr;
 use embedded_hal::serial::{Read, Write};
 use esp_idf_sys::{
@@ -16,7 +17,7 @@ pub enum Error {}
 pub struct Uart0;
 
 impl Uart0 {
-    pub unsafe fn new(tx_pin: i32, rx_pin: i32) -> Self {
+    pub unsafe fn new(tx_pin: i32, rx_pin: i32) -> Result<Self> {
         let uart_config = uart_config_t {
             baud_rate: 115200,
             data_bits: uart_word_length_t_UART_DATA_8_BITS,
@@ -27,24 +28,26 @@ impl Uart0 {
             use_ref_tick: false,
         };
 
-        uart_param_config(uart_port_t_UART_NUM_0, &uart_config);
-        uart_set_pin(
+        EspError(uart_param_config(uart_port_t_UART_NUM_0, &uart_config)).into_result()?;
+        EspError(uart_set_pin(
             uart_port_t_UART_NUM_0,
             tx_pin,
             rx_pin,
             UART_PIN_NO_CHANGE, // RTS
             UART_PIN_NO_CHANGE, // CTS
-        );
-        uart_driver_install(
+        ))
+        .into_result()?;
+        EspError(uart_driver_install(
             uart_port_t_UART_NUM_0,
             BUF_SIZE * 2,
             0,
             0,
             ptr::null_mut(),
             0,
-        );
+        ))
+        .into_result()?;
 
-        Self
+        Ok(Self)
     }
 }
 
