@@ -4,6 +4,7 @@ pub mod delay;
 pub mod errors;
 pub mod gpio;
 pub mod i2c;
+pub mod rmt;
 pub mod serial;
 
 use core::panic::PanicInfo;
