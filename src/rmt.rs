@@ -1,3 +1,5 @@
+//! Wrapper for RMT peripheral. Requires the crate to be built with the "alloc" feature.
+
 extern crate alloc;
 
 use crate::{

@@ -4,8 +4,10 @@ pub mod delay;
 pub mod errors;
 pub mod gpio;
 pub mod i2c;
-pub mod rmt;
 pub mod serial;
+
+#[cfg(feature = "alloc")]
+pub mod rmt;
 
 use core::panic::PanicInfo;
 
