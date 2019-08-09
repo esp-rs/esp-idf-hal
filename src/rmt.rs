@@ -149,12 +149,12 @@ pub struct TxChannel {
 impl TxChannel {
     /// clk_div divides the 80MHz APB clock, e.g. for 1Mhz use clk_div = 80.
     /// The 1MHz REF tick clock supported by the RMT peripheral is currently unsupported.
-    pub unsafe fn new(which: Which, gpio_num: u32, clk_div: u8, config: TxConfig) -> Result<Self> {
+    pub unsafe fn new(which: Which, gpio_num: u8, clk_div: u8, config: TxConfig) -> Result<Self> {
         let config = rmt_config_t {
             rmt_mode: rmt_mode_t_RMT_MODE_TX,
             channel: which as u32,
             clk_div,
-            gpio_num,
+            gpio_num: gpio_num.into(),
             // Just a single 64*32-bit block. TODO: support other values
             mem_block_num: 1,
             __bindgen_anon_1: config.into(),
