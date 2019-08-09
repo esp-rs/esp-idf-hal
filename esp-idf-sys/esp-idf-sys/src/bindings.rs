@@ -46952,6 +46952,64 @@ extern "C" {
         out_wakeup_threshold: *mut ::std::os::raw::c_int,
     ) -> esp_err_t;
 }
+extern "C" {
+    #[doc = " @brief Get the calibration value of RTC slow clock"]
+    #[doc = ""]
+    #[doc = " The value is in the same format as returned by rtc_clk_cal (microseconds,"]
+    #[doc = " in Q13.19 fixed-point format)."]
+    #[doc = ""]
+    #[doc = " @return the calibration value obtained using rtc_clk_cal, at startup time"]
+    pub fn esp_clk_slowclk_cal_get() -> u32;
+}
+extern "C" {
+    #[doc = " @brief Update the calibration value of RTC slow clock"]
+    #[doc = ""]
+    #[doc = " The value has to be in the same format as returned by rtc_clk_cal (microseconds,"]
+    #[doc = " in Q13.19 fixed-point format)."]
+    #[doc = " This value is used by timekeeping functions (such as gettimeofday) to"]
+    #[doc = " calculate current time based on RTC counter value."]
+    #[doc = " @param value calibration value obtained using rtc_clk_cal"]
+    pub fn esp_clk_slowclk_cal_set(value: u32);
+}
+extern "C" {
+    #[doc = " @brief Return current CPU clock frequency"]
+    #[doc = " When frequency switching is performed, this frequency may change."]
+    #[doc = " However it is guaranteed that the frequency never changes with a critical"]
+    #[doc = " section."]
+    #[doc = ""]
+    #[doc = " @return CPU clock frequency, in Hz"]
+    pub fn esp_clk_cpu_freq() -> ::std::os::raw::c_int;
+}
+extern "C" {
+    #[doc = " @brief Return current APB clock frequency"]
+    #[doc = ""]
+    #[doc = " When frequency switching is performed, this frequency may change."]
+    #[doc = " However it is guaranteed that the frequency never changes with a critical"]
+    #[doc = " section."]
+    #[doc = ""]
+    #[doc = " @return APB clock frequency, in Hz"]
+    pub fn esp_clk_apb_freq() -> ::std::os::raw::c_int;
+}
+extern "C" {
+    #[doc = " @brief Return frequency of the main XTAL"]
+    #[doc = ""]
+    #[doc = " Frequency of the main XTAL can be either auto-detected or set at compile"]
+    #[doc = " time (see CONFIG_ESP32_XTAL_FREQ_SEL sdkconfig option). In both cases, this"]
+    #[doc = " function returns the actual value at run time."]
+    #[doc = ""]
+    #[doc = " @return XTAL frequency, in Hz"]
+    pub fn esp_clk_xtal_freq() -> ::std::os::raw::c_int;
+}
+extern "C" {
+    #[doc = " @brief Read value of RTC counter, converting it to microseconds"]
+    #[doc = " @attention The value returned by this function may change abruptly when"]
+    #[doc = " calibration value of RTC counter is updated via esp_clk_slowclk_cal_set"]
+    #[doc = " function. This should not happen unless application calls esp_clk_slowclk_cal_set."]
+    #[doc = " In ESP-IDF, esp_clk_slowclk_cal_set is only called in startup code."]
+    #[doc = ""]
+    #[doc = " @return Value or RTC counter, expressed in microseconds"]
+    pub fn esp_clk_rtc_time() -> u64;
+}
 pub type __builtin_va_list = __va_list_tag;
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]

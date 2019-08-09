@@ -14,3 +14,4 @@
 #include "driver/spi_slave.h"
 #include "driver/timer.h"
 #include "driver/uart.h"
+#include <esp_clk.h>
