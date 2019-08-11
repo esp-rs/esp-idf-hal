@@ -228,6 +228,7 @@ pub enum AddrMode {
 
 pub struct Slave {
     port: Port,
+    timeout: Option<TickType_t>,
 }
 
 impl Slave {
@@ -267,31 +268,42 @@ impl Slave {
         ))
         .into_result()?;
 
-        Ok(Self { port })
+        Ok(Self {
+            port,
+            timeout: None,
+        })
     }
 
-    pub fn write(&mut self, buf: &[u8], ticks_to_wait: TickType_t) -> Result<usize> {
-        let n = unsafe {
-            i2c_slave_write_buffer(
-                self.port.into(),
-                buf.as_ptr() as *const u8 as *mut u8,
-                buf.len().try_into().unwrap(),
-                ticks_to_wait,
-            )
-        };
+    pub fn timeout(&self) -> Option<TickType_t> {
+        self.timeout
+    }
 
-        if n > 0 {
-            Ok(n.try_into().unwrap())
-        } else if n == 0 {
-            Err(Error::Timeout)
-        } else {
-            EspError(n).into_result().map(|()| unreachable!())
+    pub fn set_timeout(&mut self, timeout: Option<TickType_t>) {
+        self.timeout = timeout;
+    }
+}
+
+impl Drop for Slave {
+    fn drop(&mut self) {
+        unsafe {
+            EspError(i2c_driver_delete(self.port.into()))
+                .into_result()
+                .unwrap();
         }
     }
+}
 
-    pub fn read(&mut self, buf: &mut [u8], ticks_to_wait: TickType_t) -> Result<usize> {
+impl genio::Read for Slave {
+    type ReadError = Error;
+
+    fn read(&mut self, buf: &mut [u8]) -> Result<usize> {
         let n = unsafe {
-            i2c_slave_read_buffer(self.port.into(), buf.as_mut_ptr(), buf.len(), ticks_to_wait)
+            i2c_slave_read_buffer(
+                self.port.into(),
+                buf.as_mut_ptr(),
+                buf.len(),
+                self.timeout.unwrap_or(portMAX_DELAY),
+            )
         };
 
         if n > 0 {
@@ -304,12 +316,33 @@ impl Slave {
     }
 }
 
-impl Drop for Slave {
-    fn drop(&mut self) {
-        unsafe {
-            EspError(i2c_driver_delete(self.port.into()))
-                .into_result()
-                .unwrap();
+impl genio::Write for Slave {
+    type WriteError = Error;
+    type FlushError = Error;
+
+    fn write(&mut self, buf: &[u8]) -> Result<usize> {
+        let n = unsafe {
+            i2c_slave_write_buffer(
+                self.port.into(),
+                buf.as_ptr() as *const u8 as *mut u8,
+                buf.len().try_into().unwrap(),
+                self.timeout.unwrap_or(portMAX_DELAY),
+            )
+        };
+
+        if n > 0 {
+            Ok(n.try_into().unwrap())
+        } else if n == 0 {
+            Err(Error::Timeout)
+        } else {
+            EspError(n).into_result().map(|()| unreachable!())
         }
     }
+
+    /// This currently doesn't actually do anything
+    fn flush(&mut self) -> Result<()> {
+        Ok(())
+    }
+
+    fn size_hint(&mut self, _bytes: usize) {}
 }
