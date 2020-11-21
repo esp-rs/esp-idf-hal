@@ -42,6 +42,7 @@ generate_bindings()
         --use-core \
         --no-layout-tests \
         --no-rustfmt-bindings \
+        --ctypes-prefix c_types \
         $BINDGEN_FLAGS \
         --output esp-idf-sys/src/bindings.rs \
         esp-idf-sys/src/bindings.h \

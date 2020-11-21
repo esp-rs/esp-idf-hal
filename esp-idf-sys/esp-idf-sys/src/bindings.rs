@@ -13583,26 +13583,26 @@ pub const UART_NUM_2: u32 = 2;
 pub const UART_NUM_MAX: u32 = 3;
 pub const UART_PIN_NO_CHANGE: i32 = -1;
 pub const ESP_ERR_NOT_FINISHED: u32 = 513;
-pub type __int8_t = ::std::os::raw::c_schar;
-pub type __uint8_t = ::std::os::raw::c_uchar;
-pub type __int16_t = ::std::os::raw::c_short;
-pub type __uint16_t = ::std::os::raw::c_ushort;
-pub type __int32_t = ::std::os::raw::c_int;
-pub type __uint32_t = ::std::os::raw::c_uint;
-pub type __int64_t = ::std::os::raw::c_longlong;
-pub type __uint64_t = ::std::os::raw::c_ulonglong;
-pub type __int_least8_t = ::std::os::raw::c_schar;
-pub type __uint_least8_t = ::std::os::raw::c_uchar;
-pub type __int_least16_t = ::std::os::raw::c_short;
-pub type __uint_least16_t = ::std::os::raw::c_ushort;
-pub type __int_least32_t = ::std::os::raw::c_int;
-pub type __uint_least32_t = ::std::os::raw::c_uint;
-pub type __int_least64_t = ::std::os::raw::c_longlong;
-pub type __uint_least64_t = ::std::os::raw::c_ulonglong;
-pub type __intmax_t = ::std::os::raw::c_longlong;
-pub type __uintmax_t = ::std::os::raw::c_ulonglong;
-pub type __intptr_t = ::std::os::raw::c_int;
-pub type __uintptr_t = ::std::os::raw::c_uint;
+pub type __int8_t = c_types::c_schar;
+pub type __uint8_t = c_types::c_uchar;
+pub type __int16_t = c_types::c_short;
+pub type __uint16_t = c_types::c_ushort;
+pub type __int32_t = c_types::c_int;
+pub type __uint32_t = c_types::c_uint;
+pub type __int64_t = c_types::c_longlong;
+pub type __uint64_t = c_types::c_ulonglong;
+pub type __int_least8_t = c_types::c_schar;
+pub type __uint_least8_t = c_types::c_uchar;
+pub type __int_least16_t = c_types::c_short;
+pub type __uint_least16_t = c_types::c_ushort;
+pub type __int_least32_t = c_types::c_int;
+pub type __uint_least32_t = c_types::c_uint;
+pub type __int_least64_t = c_types::c_longlong;
+pub type __uint_least64_t = c_types::c_ulonglong;
+pub type __intmax_t = c_types::c_longlong;
+pub type __uintmax_t = c_types::c_ulonglong;
+pub type __intptr_t = c_types::c_int;
+pub type __uintptr_t = c_types::c_uint;
 pub type intmax_t = __intmax_t;
 pub type uintmax_t = __uintmax_t;
 pub type int_least8_t = __int_least8_t;
@@ -13613,25 +13613,25 @@ pub type int_least32_t = __int_least32_t;
 pub type uint_least32_t = __uint_least32_t;
 pub type int_least64_t = __int_least64_t;
 pub type uint_least64_t = __uint_least64_t;
-pub type int_fast8_t = ::std::os::raw::c_schar;
-pub type uint_fast8_t = ::std::os::raw::c_uchar;
-pub type int_fast16_t = ::std::os::raw::c_short;
-pub type uint_fast16_t = ::std::os::raw::c_ushort;
-pub type int_fast32_t = ::std::os::raw::c_int;
-pub type uint_fast32_t = ::std::os::raw::c_uint;
-pub type int_fast64_t = ::std::os::raw::c_longlong;
-pub type uint_fast64_t = ::std::os::raw::c_ulonglong;
-pub type size_t = ::std::os::raw::c_uint;
-pub type wchar_t = ::std::os::raw::c_uchar;
+pub type int_fast8_t = c_types::c_schar;
+pub type uint_fast8_t = c_types::c_uchar;
+pub type int_fast16_t = c_types::c_short;
+pub type uint_fast16_t = c_types::c_ushort;
+pub type int_fast32_t = c_types::c_int;
+pub type uint_fast32_t = c_types::c_uint;
+pub type int_fast64_t = c_types::c_longlong;
+pub type uint_fast64_t = c_types::c_ulonglong;
+pub type size_t = c_types::c_uint;
+pub type wchar_t = c_types::c_uchar;
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
 pub struct max_align_t {
-    pub __clang_max_align_nonce1: ::std::os::raw::c_longlong,
+    pub __clang_max_align_nonce1: c_types::c_longlong,
     pub __clang_max_align_nonce2: f64,
 }
 pub type va_list = __builtin_va_list;
 pub type __gnuc_va_list = __builtin_va_list;
-pub type _lock_t = ::std::os::raw::c_int;
+pub type _lock_t = c_types::c_int;
 pub type _LOCK_RECURSIVE_T = _lock_t;
 pub type _LOCK_T = _lock_t;
 extern "C" {
@@ -13653,10 +13653,10 @@ extern "C" {
     pub fn _lock_acquire_recursive(lock: *mut _lock_t);
 }
 extern "C" {
-    pub fn _lock_try_acquire(lock: *mut _lock_t) -> ::std::os::raw::c_int;
+    pub fn _lock_try_acquire(lock: *mut _lock_t) -> c_types::c_int;
 }
 extern "C" {
-    pub fn _lock_try_acquire_recursive(lock: *mut _lock_t) -> ::std::os::raw::c_int;
+    pub fn _lock_try_acquire_recursive(lock: *mut _lock_t) -> c_types::c_int;
 }
 extern "C" {
     pub fn _lock_release(lock: *mut _lock_t);
@@ -13664,53 +13664,53 @@ extern "C" {
 extern "C" {
     pub fn _lock_release_recursive(lock: *mut _lock_t);
 }
-pub type __blkcnt_t = ::std::os::raw::c_long;
-pub type __blksize_t = ::std::os::raw::c_long;
+pub type __blkcnt_t = c_types::c_long;
+pub type __blksize_t = c_types::c_long;
 pub type __fsblkcnt_t = __uint64_t;
 pub type __fsfilcnt_t = __uint32_t;
-pub type _off_t = ::std::os::raw::c_long;
-pub type __pid_t = ::std::os::raw::c_int;
-pub type __dev_t = ::std::os::raw::c_short;
-pub type __uid_t = ::std::os::raw::c_ushort;
-pub type __gid_t = ::std::os::raw::c_ushort;
+pub type _off_t = c_types::c_long;
+pub type __pid_t = c_types::c_int;
+pub type __dev_t = c_types::c_short;
+pub type __uid_t = c_types::c_ushort;
+pub type __gid_t = c_types::c_ushort;
 pub type __id_t = __uint32_t;
-pub type __ino_t = ::std::os::raw::c_ushort;
+pub type __ino_t = c_types::c_ushort;
 pub type __mode_t = __uint32_t;
-pub type _off64_t = ::std::os::raw::c_longlong;
+pub type _off64_t = c_types::c_longlong;
 pub type __off_t = _off_t;
 pub type __loff_t = _off64_t;
-pub type __key_t = ::std::os::raw::c_long;
-pub type _fpos_t = ::std::os::raw::c_long;
-pub type __size_t = ::std::os::raw::c_uint;
-pub type _ssize_t = ::std::os::raw::c_int;
+pub type __key_t = c_types::c_long;
+pub type _fpos_t = c_types::c_long;
+pub type __size_t = c_types::c_uint;
+pub type _ssize_t = c_types::c_int;
 pub type __ssize_t = _ssize_t;
-pub type wint_t = ::std::os::raw::c_uint;
+pub type wint_t = c_types::c_uint;
 #[repr(C)]
 #[derive(Copy, Clone)]
 pub struct _mbstate_t {
-    pub __count: ::std::os::raw::c_int,
+    pub __count: c_types::c_int,
     pub __value: _mbstate_t__bindgen_ty_1,
 }
 #[repr(C)]
 #[derive(Copy, Clone)]
 pub union _mbstate_t__bindgen_ty_1 {
     pub __wch: wint_t,
-    pub __wchb: [::std::os::raw::c_uchar; 4usize],
+    pub __wchb: [c_types::c_uchar; 4usize],
     _bindgen_union_align: u32,
 }
 pub type _flock_t = _LOCK_RECURSIVE_T;
-pub type _iconv_t = *mut ::core::ffi::c_void;
-pub type __clock_t = ::std::os::raw::c_ulong;
-pub type __time_t = ::std::os::raw::c_long;
-pub type __clockid_t = ::std::os::raw::c_ulong;
-pub type __timer_t = ::std::os::raw::c_ulong;
+pub type _iconv_t = *mut c_types::c_void;
+pub type __clock_t = c_types::c_ulong;
+pub type __time_t = c_types::c_long;
+pub type __clockid_t = c_types::c_ulong;
+pub type __timer_t = c_types::c_ulong;
 pub type __sa_family_t = __uint8_t;
 pub type __socklen_t = __uint32_t;
-pub type __nlink_t = ::std::os::raw::c_ushort;
-pub type __suseconds_t = ::std::os::raw::c_long;
-pub type __useconds_t = ::std::os::raw::c_ulong;
+pub type __nlink_t = c_types::c_ushort;
+pub type __suseconds_t = c_types::c_long;
+pub type __useconds_t = c_types::c_ulong;
 pub type __va_list = __builtin_va_list;
-pub type __ULong = ::std::os::raw::c_ulong;
+pub type __ULong = c_types::c_ulong;
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
 pub struct __locale_t {
@@ -13720,30 +13720,30 @@ pub struct __locale_t {
 #[derive(Debug, Copy, Clone)]
 pub struct _Bigint {
     pub _next: *mut _Bigint,
-    pub _k: ::std::os::raw::c_int,
-    pub _maxwds: ::std::os::raw::c_int,
-    pub _sign: ::std::os::raw::c_int,
-    pub _wds: ::std::os::raw::c_int,
+    pub _k: c_types::c_int,
+    pub _maxwds: c_types::c_int,
+    pub _sign: c_types::c_int,
+    pub _wds: c_types::c_int,
     pub _x: [__ULong; 1usize],
 }
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
 pub struct __tm {
-    pub __tm_sec: ::std::os::raw::c_int,
-    pub __tm_min: ::std::os::raw::c_int,
-    pub __tm_hour: ::std::os::raw::c_int,
-    pub __tm_mday: ::std::os::raw::c_int,
-    pub __tm_mon: ::std::os::raw::c_int,
-    pub __tm_year: ::std::os::raw::c_int,
-    pub __tm_wday: ::std::os::raw::c_int,
-    pub __tm_yday: ::std::os::raw::c_int,
-    pub __tm_isdst: ::std::os::raw::c_int,
+    pub __tm_sec: c_types::c_int,
+    pub __tm_min: c_types::c_int,
+    pub __tm_hour: c_types::c_int,
+    pub __tm_mday: c_types::c_int,
+    pub __tm_mon: c_types::c_int,
+    pub __tm_year: c_types::c_int,
+    pub __tm_wday: c_types::c_int,
+    pub __tm_yday: c_types::c_int,
+    pub __tm_isdst: c_types::c_int,
 }
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
 pub struct _on_exit_args {
-    pub _fnargs: [*mut ::core::ffi::c_void; 32usize],
-    pub _dso_handle: [*mut ::core::ffi::c_void; 32usize],
+    pub _fnargs: [*mut c_types::c_void; 32usize],
+    pub _dso_handle: [*mut c_types::c_void; 32usize],
     pub _fntypes: __ULong,
     pub _is_cxa: __ULong,
 }
@@ -13751,26 +13751,26 @@ pub struct _on_exit_args {
 #[derive(Debug, Copy, Clone)]
 pub struct _atexit {
     pub _next: *mut _atexit,
-    pub _ind: ::std::os::raw::c_int,
+    pub _ind: c_types::c_int,
     pub _fns: [::core::option::Option<unsafe extern "C" fn()>; 32usize],
     pub _on_exit_args_ptr: *mut _on_exit_args,
 }
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
 pub struct __sbuf {
-    pub _base: *mut ::std::os::raw::c_uchar,
-    pub _size: ::std::os::raw::c_int,
+    pub _base: *mut c_types::c_uchar,
+    pub _size: c_types::c_int,
 }
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
 pub struct __sFILE_fake {
-    pub _p: *mut ::std::os::raw::c_uchar,
-    pub _r: ::std::os::raw::c_int,
-    pub _w: ::std::os::raw::c_int,
-    pub _flags: ::std::os::raw::c_short,
-    pub _file: ::std::os::raw::c_short,
+    pub _p: *mut c_types::c_uchar,
+    pub _r: c_types::c_int,
+    pub _w: c_types::c_int,
+    pub _flags: c_types::c_short,
+    pub _file: c_types::c_short,
     pub _bf: __sbuf,
-    pub _lbfsize: ::std::os::raw::c_int,
+    pub _lbfsize: c_types::c_int,
     pub _data: *mut _reent,
 }
 extern "C" {
@@ -13779,90 +13779,87 @@ extern "C" {
 #[repr(C)]
 #[derive(Copy, Clone)]
 pub struct __sFILE {
-    pub _p: *mut ::std::os::raw::c_uchar,
-    pub _r: ::std::os::raw::c_int,
-    pub _w: ::std::os::raw::c_int,
-    pub _flags: ::std::os::raw::c_short,
-    pub _file: ::std::os::raw::c_short,
+    pub _p: *mut c_types::c_uchar,
+    pub _r: c_types::c_int,
+    pub _w: c_types::c_int,
+    pub _flags: c_types::c_short,
+    pub _file: c_types::c_short,
     pub _bf: __sbuf,
-    pub _lbfsize: ::std::os::raw::c_int,
+    pub _lbfsize: c_types::c_int,
     pub _data: *mut _reent,
-    pub _cookie: *mut ::core::ffi::c_void,
+    pub _cookie: *mut c_types::c_void,
     pub _read: ::core::option::Option<
         unsafe extern "C" fn(
             arg1: *mut _reent,
-            arg2: *mut ::core::ffi::c_void,
-            arg3: *mut ::std::os::raw::c_char,
-            arg4: ::std::os::raw::c_int,
-        ) -> ::std::os::raw::c_int,
+            arg2: *mut c_types::c_void,
+            arg3: *mut c_types::c_char,
+            arg4: c_types::c_int,
+        ) -> c_types::c_int,
     >,
     pub _write: ::core::option::Option<
         unsafe extern "C" fn(
             arg1: *mut _reent,
-            arg2: *mut ::core::ffi::c_void,
-            arg3: *const ::std::os::raw::c_char,
-            arg4: ::std::os::raw::c_int,
-        ) -> ::std::os::raw::c_int,
+            arg2: *mut c_types::c_void,
+            arg3: *const c_types::c_char,
+            arg4: c_types::c_int,
+        ) -> c_types::c_int,
     >,
     pub _seek: ::core::option::Option<
         unsafe extern "C" fn(
             arg1: *mut _reent,
-            arg2: *mut ::core::ffi::c_void,
+            arg2: *mut c_types::c_void,
             arg3: _fpos_t,
-            arg4: ::std::os::raw::c_int,
+            arg4: c_types::c_int,
         ) -> _fpos_t,
     >,
     pub _close: ::core::option::Option<
-        unsafe extern "C" fn(
-            arg1: *mut _reent,
-            arg2: *mut ::core::ffi::c_void,
-        ) -> ::std::os::raw::c_int,
+        unsafe extern "C" fn(arg1: *mut _reent, arg2: *mut c_types::c_void) -> c_types::c_int,
     >,
     pub _ub: __sbuf,
-    pub _up: *mut ::std::os::raw::c_uchar,
-    pub _ur: ::std::os::raw::c_int,
-    pub _ubuf: [::std::os::raw::c_uchar; 3usize],
-    pub _nbuf: [::std::os::raw::c_uchar; 1usize],
+    pub _up: *mut c_types::c_uchar,
+    pub _ur: c_types::c_int,
+    pub _ubuf: [c_types::c_uchar; 3usize],
+    pub _nbuf: [c_types::c_uchar; 1usize],
     pub _lb: __sbuf,
-    pub _blksize: ::std::os::raw::c_int,
+    pub _blksize: c_types::c_int,
     pub _offset: _off_t,
     pub _lock: _flock_t,
     pub _mbstate: _mbstate_t,
-    pub _flags2: ::std::os::raw::c_int,
+    pub _flags2: c_types::c_int,
 }
 pub type __FILE = __sFILE;
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
 pub struct _glue {
     pub _next: *mut _glue,
-    pub _niobs: ::std::os::raw::c_int,
+    pub _niobs: c_types::c_int,
     pub _iobs: *mut __FILE,
 }
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
 pub struct _rand48 {
-    pub _seed: [::std::os::raw::c_ushort; 3usize],
-    pub _mult: [::std::os::raw::c_ushort; 3usize],
-    pub _add: ::std::os::raw::c_ushort,
-    pub _rand_next: ::std::os::raw::c_ulonglong,
+    pub _seed: [c_types::c_ushort; 3usize],
+    pub _mult: [c_types::c_ushort; 3usize],
+    pub _add: c_types::c_ushort,
+    pub _rand_next: c_types::c_ulonglong,
 }
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
 pub struct _mprec {
     pub _result: *mut _Bigint,
-    pub _result_k: ::std::os::raw::c_int,
+    pub _result_k: c_types::c_int,
     pub _p5s: *mut _Bigint,
     pub _freelist: *mut *mut _Bigint,
 }
 #[repr(C)]
 #[derive(Copy, Clone)]
 pub struct _misc_reent {
-    pub _strtok_last: *mut ::std::os::raw::c_char,
+    pub _strtok_last: *mut c_types::c_char,
     pub _mblen_state: _mbstate_t,
     pub _wctomb_state: _mbstate_t,
     pub _mbtowc_state: _mbstate_t,
-    pub _l64a_buf: [::std::os::raw::c_char; 8usize],
-    pub _getdate_err: ::std::os::raw::c_int,
+    pub _l64a_buf: [c_types::c_char; 8usize],
+    pub _getdate_err: c_types::c_int,
     pub _mbrlen_state: _mbstate_t,
     pub _mbrtowc_state: _mbstate_t,
     pub _mbsrtowcs_state: _mbstate_t,
@@ -13872,30 +13869,30 @@ pub struct _misc_reent {
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
 pub struct _reent {
-    pub _errno: ::std::os::raw::c_int,
+    pub _errno: c_types::c_int,
     pub _stdin: *mut __FILE,
     pub _stdout: *mut __FILE,
     pub _stderr: *mut __FILE,
-    pub _inc: ::std::os::raw::c_int,
-    pub _emergency: *mut ::std::os::raw::c_char,
-    pub __sdidinit: ::std::os::raw::c_int,
-    pub _unspecified_locale_info: ::std::os::raw::c_int,
+    pub _inc: c_types::c_int,
+    pub _emergency: *mut c_types::c_char,
+    pub __sdidinit: c_types::c_int,
+    pub _unspecified_locale_info: c_types::c_int,
     pub _locale: *mut __locale_t,
     pub _mp: *mut _mprec,
     pub __cleanup: ::core::option::Option<unsafe extern "C" fn(arg1: *mut _reent)>,
-    pub _gamma_signgam: ::std::os::raw::c_int,
-    pub _cvtlen: ::std::os::raw::c_int,
-    pub _cvtbuf: *mut ::std::os::raw::c_char,
+    pub _gamma_signgam: c_types::c_int,
+    pub _cvtlen: c_types::c_int,
+    pub _cvtbuf: *mut c_types::c_char,
     pub _r48: *mut _rand48,
     pub _localtime_buf: *mut __tm,
-    pub _asctime_buf: *mut ::std::os::raw::c_char,
-    pub _sig_func: *mut ::core::option::Option<unsafe extern "C" fn(arg1: ::std::os::raw::c_int)>,
+    pub _asctime_buf: *mut c_types::c_char,
+    pub _sig_func: *mut ::core::option::Option<unsafe extern "C" fn(arg1: c_types::c_int)>,
     pub _atexit: *mut _atexit,
     pub _atexit0: _atexit,
     pub __sglue: _glue,
     pub __sf: *mut __FILE,
     pub _misc: *mut _misc_reent,
-    pub _signal_buf: *mut ::std::os::raw::c_char,
+    pub _signal_buf: *mut c_types::c_char,
 }
 extern "C" {
     pub static __sf_fake_stdin: __sFILE_fake;
@@ -13919,10 +13916,10 @@ pub type u_int8_t = __uint8_t;
 pub type u_int16_t = __uint16_t;
 pub type u_int32_t = __uint32_t;
 pub type u_int64_t = __uint64_t;
-pub type register_t = ::std::os::raw::c_int;
-pub type __sigset_t = ::std::os::raw::c_ulong;
+pub type register_t = c_types::c_int;
+pub type __sigset_t = c_types::c_ulong;
 pub type suseconds_t = __suseconds_t;
-pub type time_t = ::std::os::raw::c_long;
+pub type time_t = c_types::c_long;
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
 pub struct timeval {
@@ -13933,7 +13930,7 @@ pub struct timeval {
 #[derive(Debug, Copy, Clone)]
 pub struct timespec {
     pub tv_sec: time_t,
-    pub tv_nsec: ::std::os::raw::c_long,
+    pub tv_nsec: c_types::c_long,
 }
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
@@ -13942,7 +13939,7 @@ pub struct itimerspec {
     pub it_value: timespec,
 }
 pub type sigset_t = __sigset_t;
-pub type fd_mask = ::std::os::raw::c_ulong;
+pub type fd_mask = c_types::c_ulong;
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
 pub struct _types_fd_set {
@@ -13950,37 +13947,37 @@ pub struct _types_fd_set {
 }
 extern "C" {
     pub fn select(
-        __n: ::std::os::raw::c_int,
+        __n: c_types::c_int,
         __readfds: *mut _types_fd_set,
         __writefds: *mut _types_fd_set,
         __exceptfds: *mut _types_fd_set,
         __timeout: *mut timeval,
-    ) -> ::std::os::raw::c_int;
+    ) -> c_types::c_int;
 }
 extern "C" {
     pub fn pselect(
-        __n: ::std::os::raw::c_int,
+        __n: c_types::c_int,
         __readfds: *mut _types_fd_set,
         __writefds: *mut _types_fd_set,
         __exceptfds: *mut _types_fd_set,
         __timeout: *const timespec,
         __set: *const sigset_t,
-    ) -> ::std::os::raw::c_int;
+    ) -> c_types::c_int;
 }
 pub type in_addr_t = __uint32_t;
 pub type in_port_t = __uint16_t;
-pub type u_char = ::std::os::raw::c_uchar;
-pub type u_short = ::std::os::raw::c_ushort;
-pub type u_int = ::std::os::raw::c_uint;
-pub type u_long = ::std::os::raw::c_ulong;
-pub type ushort = ::std::os::raw::c_ushort;
-pub type uint = ::std::os::raw::c_uint;
-pub type ulong = ::std::os::raw::c_ulong;
+pub type u_char = c_types::c_uchar;
+pub type u_short = c_types::c_ushort;
+pub type u_int = c_types::c_uint;
+pub type u_long = c_types::c_ulong;
+pub type ushort = c_types::c_ushort;
+pub type uint = c_types::c_uint;
+pub type ulong = c_types::c_ulong;
 pub type blkcnt_t = __blkcnt_t;
 pub type blksize_t = __blksize_t;
-pub type clock_t = ::std::os::raw::c_ulong;
-pub type daddr_t = ::std::os::raw::c_long;
-pub type caddr_t = *mut ::std::os::raw::c_char;
+pub type clock_t = c_types::c_ulong;
+pub type daddr_t = c_types::c_long;
+pub type caddr_t = *mut c_types::c_char;
 pub type fsblkcnt_t = __fsblkcnt_t;
 pub type fsfilcnt_t = __fsfilcnt_t;
 pub type id_t = __id_t;
@@ -14001,202 +13998,187 @@ pub type sbintime_t = __int64_t;
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
 pub struct sched_param {
-    pub sched_priority: ::std::os::raw::c_int,
+    pub sched_priority: c_types::c_int,
 }
 extern "C" {
-    pub fn sched_yield() -> ::std::os::raw::c_int;
+    pub fn sched_yield() -> c_types::c_int;
 }
 pub type pthread_t = __uint32_t;
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
 pub struct pthread_attr_t {
-    pub is_initialized: ::std::os::raw::c_int,
-    pub stackaddr: *mut ::core::ffi::c_void,
-    pub stacksize: ::std::os::raw::c_int,
-    pub contentionscope: ::std::os::raw::c_int,
-    pub inheritsched: ::std::os::raw::c_int,
-    pub schedpolicy: ::std::os::raw::c_int,
+    pub is_initialized: c_types::c_int,
+    pub stackaddr: *mut c_types::c_void,
+    pub stacksize: c_types::c_int,
+    pub contentionscope: c_types::c_int,
+    pub inheritsched: c_types::c_int,
+    pub schedpolicy: c_types::c_int,
     pub schedparam: sched_param,
-    pub detachstate: ::std::os::raw::c_int,
+    pub detachstate: c_types::c_int,
 }
 pub type pthread_mutex_t = __uint32_t;
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
 pub struct pthread_mutexattr_t {
-    pub is_initialized: ::std::os::raw::c_int,
-    pub type_: ::std::os::raw::c_int,
-    pub recursive: ::std::os::raw::c_int,
+    pub is_initialized: c_types::c_int,
+    pub type_: c_types::c_int,
+    pub recursive: c_types::c_int,
 }
 pub type pthread_cond_t = __uint32_t;
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
 pub struct pthread_condattr_t {
-    pub is_initialized: ::std::os::raw::c_int,
+    pub is_initialized: c_types::c_int,
     pub clock: clock_t,
 }
 pub type pthread_key_t = __uint32_t;
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
 pub struct pthread_once_t {
-    pub is_initialized: ::std::os::raw::c_int,
-    pub init_executed: ::std::os::raw::c_int,
+    pub is_initialized: c_types::c_int,
+    pub init_executed: c_types::c_int,
 }
 pub type FILE = __FILE;
 pub type fpos_t = _fpos_t;
 extern "C" {
-    pub fn ctermid(arg1: *mut ::std::os::raw::c_char) -> *mut ::std::os::raw::c_char;
+    pub fn ctermid(arg1: *mut c_types::c_char) -> *mut c_types::c_char;
 }
 extern "C" {
     pub fn tmpfile() -> *mut FILE;
 }
 extern "C" {
-    pub fn tmpnam(arg1: *mut ::std::os::raw::c_char) -> *mut ::std::os::raw::c_char;
+    pub fn tmpnam(arg1: *mut c_types::c_char) -> *mut c_types::c_char;
 }
 extern "C" {
     pub fn tempnam(
-        arg1: *const ::std::os::raw::c_char,
-        arg2: *const ::std::os::raw::c_char,
-    ) -> *mut ::std::os::raw::c_char;
+        arg1: *const c_types::c_char,
+        arg2: *const c_types::c_char,
+    ) -> *mut c_types::c_char;
 }
 extern "C" {
-    pub fn fclose(arg1: *mut FILE) -> ::std::os::raw::c_int;
+    pub fn fclose(arg1: *mut FILE) -> c_types::c_int;
 }
 extern "C" {
-    pub fn fflush(arg1: *mut FILE) -> ::std::os::raw::c_int;
+    pub fn fflush(arg1: *mut FILE) -> c_types::c_int;
 }
 extern "C" {
     pub fn freopen(
-        arg1: *const ::std::os::raw::c_char,
-        arg2: *const ::std::os::raw::c_char,
+        arg1: *const c_types::c_char,
+        arg2: *const c_types::c_char,
         arg3: *mut FILE,
     ) -> *mut FILE;
 }
 extern "C" {
-    pub fn setbuf(arg1: *mut FILE, arg2: *mut ::std::os::raw::c_char);
+    pub fn setbuf(arg1: *mut FILE, arg2: *mut c_types::c_char);
 }
 extern "C" {
     pub fn setvbuf(
         arg1: *mut FILE,
-        arg2: *mut ::std::os::raw::c_char,
-        arg3: ::std::os::raw::c_int,
+        arg2: *mut c_types::c_char,
+        arg3: c_types::c_int,
         arg4: size_t,
-    ) -> ::std::os::raw::c_int;
+    ) -> c_types::c_int;
 }
 extern "C" {
-    pub fn fprintf(
-        arg1: *mut FILE,
-        arg2: *const ::std::os::raw::c_char,
-        ...
-    ) -> ::std::os::raw::c_int;
+    pub fn fprintf(arg1: *mut FILE, arg2: *const c_types::c_char, ...) -> c_types::c_int;
 }
 extern "C" {
-    pub fn fscanf(
-        arg1: *mut FILE,
-        arg2: *const ::std::os::raw::c_char,
-        ...
-    ) -> ::std::os::raw::c_int;
+    pub fn fscanf(arg1: *mut FILE, arg2: *const c_types::c_char, ...) -> c_types::c_int;
 }
 extern "C" {
-    pub fn printf(arg1: *const ::std::os::raw::c_char, ...) -> ::std::os::raw::c_int;
+    pub fn printf(arg1: *const c_types::c_char, ...) -> c_types::c_int;
 }
 extern "C" {
-    pub fn scanf(arg1: *const ::std::os::raw::c_char, ...) -> ::std::os::raw::c_int;
+    pub fn scanf(arg1: *const c_types::c_char, ...) -> c_types::c_int;
 }
 extern "C" {
     pub fn sscanf(
-        arg1: *const ::std::os::raw::c_char,
-        arg2: *const ::std::os::raw::c_char,
+        arg1: *const c_types::c_char,
+        arg2: *const c_types::c_char,
         ...
-    ) -> ::std::os::raw::c_int;
+    ) -> c_types::c_int;
 }
 extern "C" {
     pub fn vfprintf(
         arg1: *mut FILE,
-        arg2: *const ::std::os::raw::c_char,
+        arg2: *const c_types::c_char,
         arg3: __builtin_va_list,
-    ) -> ::std::os::raw::c_int;
+    ) -> c_types::c_int;
 }
 extern "C" {
-    pub fn vprintf(
-        arg1: *const ::std::os::raw::c_char,
-        arg2: __builtin_va_list,
-    ) -> ::std::os::raw::c_int;
+    pub fn vprintf(arg1: *const c_types::c_char, arg2: __builtin_va_list) -> c_types::c_int;
 }
 extern "C" {
     pub fn vsprintf(
-        arg1: *mut ::std::os::raw::c_char,
-        arg2: *const ::std::os::raw::c_char,
+        arg1: *mut c_types::c_char,
+        arg2: *const c_types::c_char,
         arg3: __builtin_va_list,
-    ) -> ::std::os::raw::c_int;
+    ) -> c_types::c_int;
 }
 extern "C" {
-    pub fn fgetc(arg1: *mut FILE) -> ::std::os::raw::c_int;
+    pub fn fgetc(arg1: *mut FILE) -> c_types::c_int;
 }
 extern "C" {
     pub fn fgets(
-        arg1: *mut ::std::os::raw::c_char,
-        arg2: ::std::os::raw::c_int,
+        arg1: *mut c_types::c_char,
+        arg2: c_types::c_int,
         arg3: *mut FILE,
-    ) -> *mut ::std::os::raw::c_char;
+    ) -> *mut c_types::c_char;
 }
 extern "C" {
-    pub fn fputc(arg1: ::std::os::raw::c_int, arg2: *mut FILE) -> ::std::os::raw::c_int;
+    pub fn fputc(arg1: c_types::c_int, arg2: *mut FILE) -> c_types::c_int;
 }
 extern "C" {
-    pub fn fputs(arg1: *const ::std::os::raw::c_char, arg2: *mut FILE) -> ::std::os::raw::c_int;
+    pub fn fputs(arg1: *const c_types::c_char, arg2: *mut FILE) -> c_types::c_int;
 }
 extern "C" {
-    pub fn getc(arg1: *mut FILE) -> ::std::os::raw::c_int;
+    pub fn getc(arg1: *mut FILE) -> c_types::c_int;
 }
 extern "C" {
-    pub fn getchar() -> ::std::os::raw::c_int;
+    pub fn getchar() -> c_types::c_int;
 }
 extern "C" {
-    pub fn gets(arg1: *mut ::std::os::raw::c_char) -> *mut ::std::os::raw::c_char;
+    pub fn gets(arg1: *mut c_types::c_char) -> *mut c_types::c_char;
 }
 extern "C" {
-    pub fn putc(arg1: ::std::os::raw::c_int, arg2: *mut FILE) -> ::std::os::raw::c_int;
+    pub fn putc(arg1: c_types::c_int, arg2: *mut FILE) -> c_types::c_int;
 }
 extern "C" {
-    pub fn putchar(arg1: ::std::os::raw::c_int) -> ::std::os::raw::c_int;
+    pub fn putchar(arg1: c_types::c_int) -> c_types::c_int;
 }
 extern "C" {
-    pub fn puts(arg1: *const ::std::os::raw::c_char) -> ::std::os::raw::c_int;
+    pub fn puts(arg1: *const c_types::c_char) -> c_types::c_int;
 }
 extern "C" {
-    pub fn ungetc(arg1: ::std::os::raw::c_int, arg2: *mut FILE) -> ::std::os::raw::c_int;
+    pub fn ungetc(arg1: c_types::c_int, arg2: *mut FILE) -> c_types::c_int;
 }
 extern "C" {
     pub fn fread(
-        arg1: *mut ::core::ffi::c_void,
-        _size: ::std::os::raw::c_uint,
-        _n: ::std::os::raw::c_uint,
+        arg1: *mut c_types::c_void,
+        _size: c_types::c_uint,
+        _n: c_types::c_uint,
         arg2: *mut FILE,
-    ) -> ::std::os::raw::c_uint;
+    ) -> c_types::c_uint;
 }
 extern "C" {
     pub fn fwrite(
-        arg1: *const ::core::ffi::c_void,
-        _size: ::std::os::raw::c_uint,
-        _n: ::std::os::raw::c_uint,
+        arg1: *const c_types::c_void,
+        _size: c_types::c_uint,
+        _n: c_types::c_uint,
         arg2: *mut FILE,
-    ) -> ::std::os::raw::c_uint;
+    ) -> c_types::c_uint;
 }
 extern "C" {
-    pub fn fgetpos(arg1: *mut FILE, arg2: *mut fpos_t) -> ::std::os::raw::c_int;
+    pub fn fgetpos(arg1: *mut FILE, arg2: *mut fpos_t) -> c_types::c_int;
 }
 extern "C" {
-    pub fn fseek(
-        arg1: *mut FILE,
-        arg2: ::std::os::raw::c_long,
-        arg3: ::std::os::raw::c_int,
-    ) -> ::std::os::raw::c_int;
+    pub fn fseek(arg1: *mut FILE, arg2: c_types::c_long, arg3: c_types::c_int) -> c_types::c_int;
 }
 extern "C" {
-    pub fn fsetpos(arg1: *mut FILE, arg2: *const fpos_t) -> ::std::os::raw::c_int;
+    pub fn fsetpos(arg1: *mut FILE, arg2: *const fpos_t) -> c_types::c_int;
 }
 extern "C" {
-    pub fn ftell(arg1: *mut FILE) -> ::std::os::raw::c_long;
+    pub fn ftell(arg1: *mut FILE) -> c_types::c_long;
 }
 extern "C" {
     pub fn rewind(arg1: *mut FILE);
@@ -14205,454 +14187,401 @@ extern "C" {
     pub fn clearerr(arg1: *mut FILE);
 }
 extern "C" {
-    pub fn feof(arg1: *mut FILE) -> ::std::os::raw::c_int;
+    pub fn feof(arg1: *mut FILE) -> c_types::c_int;
 }
 extern "C" {
-    pub fn ferror(arg1: *mut FILE) -> ::std::os::raw::c_int;
+    pub fn ferror(arg1: *mut FILE) -> c_types::c_int;
 }
 extern "C" {
-    pub fn perror(arg1: *const ::std::os::raw::c_char);
+    pub fn perror(arg1: *const c_types::c_char);
 }
 extern "C" {
-    pub fn fopen(
-        _name: *const ::std::os::raw::c_char,
-        _type: *const ::std::os::raw::c_char,
-    ) -> *mut FILE;
+    pub fn fopen(_name: *const c_types::c_char, _type: *const c_types::c_char) -> *mut FILE;
 }
 extern "C" {
-    pub fn sprintf(
-        arg1: *mut ::std::os::raw::c_char,
-        arg2: *const ::std::os::raw::c_char,
-        ...
-    ) -> ::std::os::raw::c_int;
+    pub fn sprintf(arg1: *mut c_types::c_char, arg2: *const c_types::c_char, ...)
+        -> c_types::c_int;
 }
 extern "C" {
-    pub fn remove(arg1: *const ::std::os::raw::c_char) -> ::std::os::raw::c_int;
+    pub fn remove(arg1: *const c_types::c_char) -> c_types::c_int;
 }
 extern "C" {
-    pub fn rename(
-        arg1: *const ::std::os::raw::c_char,
-        arg2: *const ::std::os::raw::c_char,
-    ) -> ::std::os::raw::c_int;
+    pub fn rename(arg1: *const c_types::c_char, arg2: *const c_types::c_char) -> c_types::c_int;
 }
 extern "C" {
-    pub fn fseeko(
-        arg1: *mut FILE,
-        arg2: off_t,
-        arg3: ::std::os::raw::c_int,
-    ) -> ::std::os::raw::c_int;
+    pub fn fseeko(arg1: *mut FILE, arg2: off_t, arg3: c_types::c_int) -> c_types::c_int;
 }
 extern "C" {
     pub fn ftello(arg1: *mut FILE) -> off_t;
 }
 extern "C" {
     pub fn snprintf(
-        arg1: *mut ::std::os::raw::c_char,
-        arg2: ::std::os::raw::c_uint,
-        arg3: *const ::std::os::raw::c_char,
+        arg1: *mut c_types::c_char,
+        arg2: c_types::c_uint,
+        arg3: *const c_types::c_char,
         ...
-    ) -> ::std::os::raw::c_int;
+    ) -> c_types::c_int;
 }
 extern "C" {
     pub fn vsnprintf(
-        arg1: *mut ::std::os::raw::c_char,
-        arg2: ::std::os::raw::c_uint,
-        arg3: *const ::std::os::raw::c_char,
+        arg1: *mut c_types::c_char,
+        arg2: c_types::c_uint,
+        arg3: *const c_types::c_char,
         arg4: __builtin_va_list,
-    ) -> ::std::os::raw::c_int;
+    ) -> c_types::c_int;
 }
 extern "C" {
     pub fn vfscanf(
         arg1: *mut FILE,
-        arg2: *const ::std::os::raw::c_char,
+        arg2: *const c_types::c_char,
         arg3: __builtin_va_list,
-    ) -> ::std::os::raw::c_int;
+    ) -> c_types::c_int;
 }
 extern "C" {
-    pub fn vscanf(
-        arg1: *const ::std::os::raw::c_char,
-        arg2: __builtin_va_list,
-    ) -> ::std::os::raw::c_int;
+    pub fn vscanf(arg1: *const c_types::c_char, arg2: __builtin_va_list) -> c_types::c_int;
 }
 extern "C" {
     pub fn vsscanf(
-        arg1: *const ::std::os::raw::c_char,
-        arg2: *const ::std::os::raw::c_char,
+        arg1: *const c_types::c_char,
+        arg2: *const c_types::c_char,
         arg3: __builtin_va_list,
-    ) -> ::std::os::raw::c_int;
+    ) -> c_types::c_int;
 }
 extern "C" {
     pub fn asiprintf(
-        arg1: *mut *mut ::std::os::raw::c_char,
-        arg2: *const ::std::os::raw::c_char,
+        arg1: *mut *mut c_types::c_char,
+        arg2: *const c_types::c_char,
         ...
-    ) -> ::std::os::raw::c_int;
+    ) -> c_types::c_int;
 }
 extern "C" {
     pub fn asniprintf(
-        arg1: *mut ::std::os::raw::c_char,
+        arg1: *mut c_types::c_char,
         arg2: *mut size_t,
-        arg3: *const ::std::os::raw::c_char,
+        arg3: *const c_types::c_char,
         ...
-    ) -> *mut ::std::os::raw::c_char;
+    ) -> *mut c_types::c_char;
 }
 extern "C" {
     pub fn asnprintf(
-        arg1: *mut ::std::os::raw::c_char,
+        arg1: *mut c_types::c_char,
         arg2: *mut size_t,
-        arg3: *const ::std::os::raw::c_char,
+        arg3: *const c_types::c_char,
         ...
-    ) -> *mut ::std::os::raw::c_char;
+    ) -> *mut c_types::c_char;
 }
 extern "C" {
-    pub fn diprintf(
-        arg1: ::std::os::raw::c_int,
-        arg2: *const ::std::os::raw::c_char,
-        ...
-    ) -> ::std::os::raw::c_int;
+    pub fn diprintf(arg1: c_types::c_int, arg2: *const c_types::c_char, ...) -> c_types::c_int;
 }
 extern "C" {
-    pub fn fiprintf(
-        arg1: *mut FILE,
-        arg2: *const ::std::os::raw::c_char,
-        ...
-    ) -> ::std::os::raw::c_int;
+    pub fn fiprintf(arg1: *mut FILE, arg2: *const c_types::c_char, ...) -> c_types::c_int;
 }
 extern "C" {
-    pub fn fiscanf(
-        arg1: *mut FILE,
-        arg2: *const ::std::os::raw::c_char,
-        ...
-    ) -> ::std::os::raw::c_int;
+    pub fn fiscanf(arg1: *mut FILE, arg2: *const c_types::c_char, ...) -> c_types::c_int;
 }
 extern "C" {
-    pub fn iprintf(arg1: *const ::std::os::raw::c_char, ...) -> ::std::os::raw::c_int;
+    pub fn iprintf(arg1: *const c_types::c_char, ...) -> c_types::c_int;
 }
 extern "C" {
-    pub fn iscanf(arg1: *const ::std::os::raw::c_char, ...) -> ::std::os::raw::c_int;
+    pub fn iscanf(arg1: *const c_types::c_char, ...) -> c_types::c_int;
 }
 extern "C" {
     pub fn siprintf(
-        arg1: *mut ::std::os::raw::c_char,
-        arg2: *const ::std::os::raw::c_char,
+        arg1: *mut c_types::c_char,
+        arg2: *const c_types::c_char,
         ...
-    ) -> ::std::os::raw::c_int;
+    ) -> c_types::c_int;
 }
 extern "C" {
     pub fn siscanf(
-        arg1: *const ::std::os::raw::c_char,
-        arg2: *const ::std::os::raw::c_char,
+        arg1: *const c_types::c_char,
+        arg2: *const c_types::c_char,
         ...
-    ) -> ::std::os::raw::c_int;
+    ) -> c_types::c_int;
 }
 extern "C" {
     pub fn sniprintf(
-        arg1: *mut ::std::os::raw::c_char,
+        arg1: *mut c_types::c_char,
         arg2: size_t,
-        arg3: *const ::std::os::raw::c_char,
+        arg3: *const c_types::c_char,
         ...
-    ) -> ::std::os::raw::c_int;
+    ) -> c_types::c_int;
 }
 extern "C" {
     pub fn vasiprintf(
-        arg1: *mut *mut ::std::os::raw::c_char,
-        arg2: *const ::std::os::raw::c_char,
+        arg1: *mut *mut c_types::c_char,
+        arg2: *const c_types::c_char,
         arg3: __gnuc_va_list,
-    ) -> ::std::os::raw::c_int;
+    ) -> c_types::c_int;
 }
 extern "C" {
     pub fn vasniprintf(
-        arg1: *mut ::std::os::raw::c_char,
+        arg1: *mut c_types::c_char,
         arg2: *mut size_t,
-        arg3: *const ::std::os::raw::c_char,
+        arg3: *const c_types::c_char,
         arg4: __gnuc_va_list,
-    ) -> *mut ::std::os::raw::c_char;
+    ) -> *mut c_types::c_char;
 }
 extern "C" {
     pub fn vasnprintf(
-        arg1: *mut ::std::os::raw::c_char,
+        arg1: *mut c_types::c_char,
         arg2: *mut size_t,
-        arg3: *const ::std::os::raw::c_char,
+        arg3: *const c_types::c_char,
         arg4: __gnuc_va_list,
-    ) -> *mut ::std::os::raw::c_char;
+    ) -> *mut c_types::c_char;
 }
 extern "C" {
     pub fn vdiprintf(
-        arg1: ::std::os::raw::c_int,
-        arg2: *const ::std::os::raw::c_char,
+        arg1: c_types::c_int,
+        arg2: *const c_types::c_char,
         arg3: __gnuc_va_list,
-    ) -> ::std::os::raw::c_int;
+    ) -> c_types::c_int;
 }
 extern "C" {
     pub fn vfiprintf(
         arg1: *mut FILE,
-        arg2: *const ::std::os::raw::c_char,
+        arg2: *const c_types::c_char,
         arg3: __gnuc_va_list,
-    ) -> ::std::os::raw::c_int;
+    ) -> c_types::c_int;
 }
 extern "C" {
     pub fn vfiscanf(
         arg1: *mut FILE,
-        arg2: *const ::std::os::raw::c_char,
+        arg2: *const c_types::c_char,
         arg3: __gnuc_va_list,
-    ) -> ::std::os::raw::c_int;
+    ) -> c_types::c_int;
 }
 extern "C" {
-    pub fn viprintf(
-        arg1: *const ::std::os::raw::c_char,
-        arg2: __gnuc_va_list,
-    ) -> ::std::os::raw::c_int;
+    pub fn viprintf(arg1: *const c_types::c_char, arg2: __gnuc_va_list) -> c_types::c_int;
 }
 extern "C" {
-    pub fn viscanf(
-        arg1: *const ::std::os::raw::c_char,
-        arg2: __gnuc_va_list,
-    ) -> ::std::os::raw::c_int;
+    pub fn viscanf(arg1: *const c_types::c_char, arg2: __gnuc_va_list) -> c_types::c_int;
 }
 extern "C" {
     pub fn vsiprintf(
-        arg1: *mut ::std::os::raw::c_char,
-        arg2: *const ::std::os::raw::c_char,
+        arg1: *mut c_types::c_char,
+        arg2: *const c_types::c_char,
         arg3: __gnuc_va_list,
-    ) -> ::std::os::raw::c_int;
+    ) -> c_types::c_int;
 }
 extern "C" {
     pub fn vsiscanf(
-        arg1: *const ::std::os::raw::c_char,
-        arg2: *const ::std::os::raw::c_char,
+        arg1: *const c_types::c_char,
+        arg2: *const c_types::c_char,
         arg3: __gnuc_va_list,
-    ) -> ::std::os::raw::c_int;
+    ) -> c_types::c_int;
 }
 extern "C" {
     pub fn vsniprintf(
-        arg1: *mut ::std::os::raw::c_char,
+        arg1: *mut c_types::c_char,
         arg2: size_t,
-        arg3: *const ::std::os::raw::c_char,
+        arg3: *const c_types::c_char,
         arg4: __gnuc_va_list,
-    ) -> ::std::os::raw::c_int;
+    ) -> c_types::c_int;
 }
 extern "C" {
-    pub fn fdopen(arg1: ::std::os::raw::c_int, arg2: *const ::std::os::raw::c_char) -> *mut FILE;
+    pub fn fdopen(arg1: c_types::c_int, arg2: *const c_types::c_char) -> *mut FILE;
 }
 extern "C" {
-    pub fn fileno(arg1: *mut FILE) -> ::std::os::raw::c_int;
+    pub fn fileno(arg1: *mut FILE) -> c_types::c_int;
 }
 extern "C" {
-    pub fn pclose(arg1: *mut FILE) -> ::std::os::raw::c_int;
+    pub fn pclose(arg1: *mut FILE) -> c_types::c_int;
 }
 extern "C" {
-    pub fn popen(
-        arg1: *const ::std::os::raw::c_char,
-        arg2: *const ::std::os::raw::c_char,
-    ) -> *mut FILE;
+    pub fn popen(arg1: *const c_types::c_char, arg2: *const c_types::c_char) -> *mut FILE;
 }
 extern "C" {
-    pub fn setbuffer(
-        arg1: *mut FILE,
-        arg2: *mut ::std::os::raw::c_char,
-        arg3: ::std::os::raw::c_int,
-    );
+    pub fn setbuffer(arg1: *mut FILE, arg2: *mut c_types::c_char, arg3: c_types::c_int);
 }
 extern "C" {
-    pub fn setlinebuf(arg1: *mut FILE) -> ::std::os::raw::c_int;
+    pub fn setlinebuf(arg1: *mut FILE) -> c_types::c_int;
 }
 extern "C" {
-    pub fn getw(arg1: *mut FILE) -> ::std::os::raw::c_int;
+    pub fn getw(arg1: *mut FILE) -> c_types::c_int;
 }
 extern "C" {
-    pub fn putw(arg1: ::std::os::raw::c_int, arg2: *mut FILE) -> ::std::os::raw::c_int;
+    pub fn putw(arg1: c_types::c_int, arg2: *mut FILE) -> c_types::c_int;
 }
 extern "C" {
-    pub fn getc_unlocked(arg1: *mut FILE) -> ::std::os::raw::c_int;
+    pub fn getc_unlocked(arg1: *mut FILE) -> c_types::c_int;
 }
 extern "C" {
-    pub fn getchar_unlocked() -> ::std::os::raw::c_int;
+    pub fn getchar_unlocked() -> c_types::c_int;
 }
 extern "C" {
     pub fn flockfile(arg1: *mut FILE);
 }
 extern "C" {
-    pub fn ftrylockfile(arg1: *mut FILE) -> ::std::os::raw::c_int;
+    pub fn ftrylockfile(arg1: *mut FILE) -> c_types::c_int;
 }
 extern "C" {
     pub fn funlockfile(arg1: *mut FILE);
 }
 extern "C" {
-    pub fn putc_unlocked(arg1: ::std::os::raw::c_int, arg2: *mut FILE) -> ::std::os::raw::c_int;
+    pub fn putc_unlocked(arg1: c_types::c_int, arg2: *mut FILE) -> c_types::c_int;
 }
 extern "C" {
-    pub fn putchar_unlocked(arg1: ::std::os::raw::c_int) -> ::std::os::raw::c_int;
+    pub fn putchar_unlocked(arg1: c_types::c_int) -> c_types::c_int;
 }
 extern "C" {
-    pub fn dprintf(
-        arg1: ::std::os::raw::c_int,
-        arg2: *const ::std::os::raw::c_char,
-        ...
-    ) -> ::std::os::raw::c_int;
+    pub fn dprintf(arg1: c_types::c_int, arg2: *const c_types::c_char, ...) -> c_types::c_int;
 }
 extern "C" {
     pub fn fmemopen(
-        arg1: *mut ::core::ffi::c_void,
+        arg1: *mut c_types::c_void,
         arg2: size_t,
-        arg3: *const ::std::os::raw::c_char,
+        arg3: *const c_types::c_char,
     ) -> *mut FILE;
 }
 extern "C" {
-    pub fn open_memstream(arg1: *mut *mut ::std::os::raw::c_char, arg2: *mut size_t) -> *mut FILE;
+    pub fn open_memstream(arg1: *mut *mut c_types::c_char, arg2: *mut size_t) -> *mut FILE;
 }
 extern "C" {
     pub fn vdprintf(
-        arg1: ::std::os::raw::c_int,
-        arg2: *const ::std::os::raw::c_char,
+        arg1: c_types::c_int,
+        arg2: *const c_types::c_char,
         arg3: __gnuc_va_list,
-    ) -> ::std::os::raw::c_int;
+    ) -> c_types::c_int;
 }
 extern "C" {
     pub fn renameat(
-        arg1: ::std::os::raw::c_int,
-        arg2: *const ::std::os::raw::c_char,
-        arg3: ::std::os::raw::c_int,
-        arg4: *const ::std::os::raw::c_char,
-    ) -> ::std::os::raw::c_int;
+        arg1: c_types::c_int,
+        arg2: *const c_types::c_char,
+        arg3: c_types::c_int,
+        arg4: *const c_types::c_char,
+    ) -> c_types::c_int;
 }
 extern "C" {
     pub fn _asiprintf_r(
         arg1: *mut _reent,
-        arg2: *mut *mut ::std::os::raw::c_char,
-        arg3: *const ::std::os::raw::c_char,
+        arg2: *mut *mut c_types::c_char,
+        arg3: *const c_types::c_char,
         ...
-    ) -> ::std::os::raw::c_int;
+    ) -> c_types::c_int;
 }
 extern "C" {
     pub fn _asniprintf_r(
         arg1: *mut _reent,
-        arg2: *mut ::std::os::raw::c_char,
+        arg2: *mut c_types::c_char,
         arg3: *mut size_t,
-        arg4: *const ::std::os::raw::c_char,
+        arg4: *const c_types::c_char,
         ...
-    ) -> *mut ::std::os::raw::c_char;
+    ) -> *mut c_types::c_char;
 }
 extern "C" {
     pub fn _asnprintf_r(
         arg1: *mut _reent,
-        arg2: *mut ::std::os::raw::c_char,
+        arg2: *mut c_types::c_char,
         arg3: *mut size_t,
-        arg4: *const ::std::os::raw::c_char,
+        arg4: *const c_types::c_char,
         ...
-    ) -> *mut ::std::os::raw::c_char;
+    ) -> *mut c_types::c_char;
 }
 extern "C" {
     pub fn _asprintf_r(
         arg1: *mut _reent,
-        arg2: *mut *mut ::std::os::raw::c_char,
-        arg3: *const ::std::os::raw::c_char,
+        arg2: *mut *mut c_types::c_char,
+        arg3: *const c_types::c_char,
         ...
-    ) -> ::std::os::raw::c_int;
+    ) -> c_types::c_int;
 }
 extern "C" {
     pub fn _diprintf_r(
         arg1: *mut _reent,
-        arg2: ::std::os::raw::c_int,
-        arg3: *const ::std::os::raw::c_char,
+        arg2: c_types::c_int,
+        arg3: *const c_types::c_char,
         ...
-    ) -> ::std::os::raw::c_int;
+    ) -> c_types::c_int;
 }
 extern "C" {
     pub fn _dprintf_r(
         arg1: *mut _reent,
-        arg2: ::std::os::raw::c_int,
-        arg3: *const ::std::os::raw::c_char,
+        arg2: c_types::c_int,
+        arg3: *const c_types::c_char,
         ...
-    ) -> ::std::os::raw::c_int;
+    ) -> c_types::c_int;
 }
 extern "C" {
-    pub fn _fclose_r(arg1: *mut _reent, arg2: *mut FILE) -> ::std::os::raw::c_int;
+    pub fn _fclose_r(arg1: *mut _reent, arg2: *mut FILE) -> c_types::c_int;
 }
 extern "C" {
-    pub fn _fcloseall_r(arg1: *mut _reent) -> ::std::os::raw::c_int;
+    pub fn _fcloseall_r(arg1: *mut _reent) -> c_types::c_int;
 }
 extern "C" {
     pub fn _fdopen_r(
         arg1: *mut _reent,
-        arg2: ::std::os::raw::c_int,
-        arg3: *const ::std::os::raw::c_char,
+        arg2: c_types::c_int,
+        arg3: *const c_types::c_char,
     ) -> *mut FILE;
 }
 extern "C" {
-    pub fn _fflush_r(arg1: *mut _reent, arg2: *mut FILE) -> ::std::os::raw::c_int;
+    pub fn _fflush_r(arg1: *mut _reent, arg2: *mut FILE) -> c_types::c_int;
 }
 extern "C" {
-    pub fn _fgetc_r(arg1: *mut _reent, arg2: *mut FILE) -> ::std::os::raw::c_int;
+    pub fn _fgetc_r(arg1: *mut _reent, arg2: *mut FILE) -> c_types::c_int;
 }
 extern "C" {
-    pub fn _fgetc_unlocked_r(arg1: *mut _reent, arg2: *mut FILE) -> ::std::os::raw::c_int;
+    pub fn _fgetc_unlocked_r(arg1: *mut _reent, arg2: *mut FILE) -> c_types::c_int;
 }
 extern "C" {
     pub fn _fgets_r(
         arg1: *mut _reent,
-        arg2: *mut ::std::os::raw::c_char,
-        arg3: ::std::os::raw::c_int,
+        arg2: *mut c_types::c_char,
+        arg3: c_types::c_int,
         arg4: *mut FILE,
-    ) -> *mut ::std::os::raw::c_char;
+    ) -> *mut c_types::c_char;
 }
 extern "C" {
     pub fn _fgets_unlocked_r(
         arg1: *mut _reent,
-        arg2: *mut ::std::os::raw::c_char,
-        arg3: ::std::os::raw::c_int,
+        arg2: *mut c_types::c_char,
+        arg3: c_types::c_int,
         arg4: *mut FILE,
-    ) -> *mut ::std::os::raw::c_char;
+    ) -> *mut c_types::c_char;
 }
 extern "C" {
-    pub fn _fgetpos_r(
-        arg1: *mut _reent,
-        arg2: *mut FILE,
-        arg3: *mut fpos_t,
-    ) -> ::std::os::raw::c_int;
+    pub fn _fgetpos_r(arg1: *mut _reent, arg2: *mut FILE, arg3: *mut fpos_t) -> c_types::c_int;
 }
 extern "C" {
-    pub fn _fsetpos_r(
-        arg1: *mut _reent,
-        arg2: *mut FILE,
-        arg3: *const fpos_t,
-    ) -> ::std::os::raw::c_int;
+    pub fn _fsetpos_r(arg1: *mut _reent, arg2: *mut FILE, arg3: *const fpos_t) -> c_types::c_int;
 }
 extern "C" {
     pub fn _fiprintf_r(
         arg1: *mut _reent,
         arg2: *mut FILE,
-        arg3: *const ::std::os::raw::c_char,
+        arg3: *const c_types::c_char,
         ...
-    ) -> ::std::os::raw::c_int;
+    ) -> c_types::c_int;
 }
 extern "C" {
     pub fn _fiscanf_r(
         arg1: *mut _reent,
         arg2: *mut FILE,
-        arg3: *const ::std::os::raw::c_char,
+        arg3: *const c_types::c_char,
         ...
-    ) -> ::std::os::raw::c_int;
+    ) -> c_types::c_int;
 }
 extern "C" {
     pub fn _fmemopen_r(
         arg1: *mut _reent,
-        arg2: *mut ::core::ffi::c_void,
+        arg2: *mut c_types::c_void,
         arg3: size_t,
-        arg4: *const ::std::os::raw::c_char,
+        arg4: *const c_types::c_char,
     ) -> *mut FILE;
 }
 extern "C" {
     pub fn _fopen_r(
         arg1: *mut _reent,
-        arg2: *const ::std::os::raw::c_char,
-        arg3: *const ::std::os::raw::c_char,
+        arg2: *const c_types::c_char,
+        arg3: *const c_types::c_char,
     ) -> *mut FILE;
 }
 extern "C" {
     pub fn _freopen_r(
         arg1: *mut _reent,
-        arg2: *const ::std::os::raw::c_char,
-        arg3: *const ::std::os::raw::c_char,
+        arg2: *const c_types::c_char,
+        arg3: *const c_types::c_char,
         arg4: *mut FILE,
     ) -> *mut FILE;
 }
@@ -14660,45 +14589,41 @@ extern "C" {
     pub fn _fprintf_r(
         arg1: *mut _reent,
         arg2: *mut FILE,
-        arg3: *const ::std::os::raw::c_char,
+        arg3: *const c_types::c_char,
         ...
-    ) -> ::std::os::raw::c_int;
+    ) -> c_types::c_int;
 }
 extern "C" {
-    pub fn _fpurge_r(arg1: *mut _reent, arg2: *mut FILE) -> ::std::os::raw::c_int;
+    pub fn _fpurge_r(arg1: *mut _reent, arg2: *mut FILE) -> c_types::c_int;
 }
 extern "C" {
-    pub fn _fputc_r(
-        arg1: *mut _reent,
-        arg2: ::std::os::raw::c_int,
-        arg3: *mut FILE,
-    ) -> ::std::os::raw::c_int;
+    pub fn _fputc_r(arg1: *mut _reent, arg2: c_types::c_int, arg3: *mut FILE) -> c_types::c_int;
 }
 extern "C" {
     pub fn _fputc_unlocked_r(
         arg1: *mut _reent,
-        arg2: ::std::os::raw::c_int,
+        arg2: c_types::c_int,
         arg3: *mut FILE,
-    ) -> ::std::os::raw::c_int;
+    ) -> c_types::c_int;
 }
 extern "C" {
     pub fn _fputs_r(
         arg1: *mut _reent,
-        arg2: *const ::std::os::raw::c_char,
+        arg2: *const c_types::c_char,
         arg3: *mut FILE,
-    ) -> ::std::os::raw::c_int;
+    ) -> c_types::c_int;
 }
 extern "C" {
     pub fn _fputs_unlocked_r(
         arg1: *mut _reent,
-        arg2: *const ::std::os::raw::c_char,
+        arg2: *const c_types::c_char,
         arg3: *mut FILE,
-    ) -> ::std::os::raw::c_int;
+    ) -> c_types::c_int;
 }
 extern "C" {
     pub fn _fread_r(
         arg1: *mut _reent,
-        arg2: *mut ::core::ffi::c_void,
+        arg2: *mut c_types::c_void,
         _size: size_t,
         _n: size_t,
         arg3: *mut FILE,
@@ -14707,7 +14632,7 @@ extern "C" {
 extern "C" {
     pub fn _fread_unlocked_r(
         arg1: *mut _reent,
-        arg2: *mut ::core::ffi::c_void,
+        arg2: *mut c_types::c_void,
         _size: size_t,
         _n: size_t,
         arg3: *mut FILE,
@@ -14717,28 +14642,28 @@ extern "C" {
     pub fn _fscanf_r(
         arg1: *mut _reent,
         arg2: *mut FILE,
-        arg3: *const ::std::os::raw::c_char,
+        arg3: *const c_types::c_char,
         ...
-    ) -> ::std::os::raw::c_int;
+    ) -> c_types::c_int;
 }
 extern "C" {
     pub fn _fseek_r(
         arg1: *mut _reent,
         arg2: *mut FILE,
-        arg3: ::std::os::raw::c_long,
-        arg4: ::std::os::raw::c_int,
-    ) -> ::std::os::raw::c_int;
+        arg3: c_types::c_long,
+        arg4: c_types::c_int,
+    ) -> c_types::c_int;
 }
 extern "C" {
     pub fn _fseeko_r(
         arg1: *mut _reent,
         arg2: *mut FILE,
         arg3: _off_t,
-        arg4: ::std::os::raw::c_int,
-    ) -> ::std::os::raw::c_int;
+        arg4: c_types::c_int,
+    ) -> c_types::c_int;
 }
 extern "C" {
-    pub fn _ftell_r(arg1: *mut _reent, arg2: *mut FILE) -> ::std::os::raw::c_long;
+    pub fn _ftell_r(arg1: *mut _reent, arg2: *mut FILE) -> c_types::c_long;
 }
 extern "C" {
     pub fn _ftello_r(arg1: *mut _reent, arg2: *mut FILE) -> _off_t;
@@ -14749,7 +14674,7 @@ extern "C" {
 extern "C" {
     pub fn _fwrite_r(
         arg1: *mut _reent,
-        arg2: *const ::core::ffi::c_void,
+        arg2: *const c_types::c_void,
         _size: size_t,
         _n: size_t,
         arg3: *mut FILE,
@@ -14758,355 +14683,318 @@ extern "C" {
 extern "C" {
     pub fn _fwrite_unlocked_r(
         arg1: *mut _reent,
-        arg2: *const ::core::ffi::c_void,
+        arg2: *const c_types::c_void,
         _size: size_t,
         _n: size_t,
         arg3: *mut FILE,
     ) -> size_t;
 }
 extern "C" {
-    pub fn _getc_r(arg1: *mut _reent, arg2: *mut FILE) -> ::std::os::raw::c_int;
+    pub fn _getc_r(arg1: *mut _reent, arg2: *mut FILE) -> c_types::c_int;
 }
 extern "C" {
-    pub fn _getc_unlocked_r(arg1: *mut _reent, arg2: *mut FILE) -> ::std::os::raw::c_int;
+    pub fn _getc_unlocked_r(arg1: *mut _reent, arg2: *mut FILE) -> c_types::c_int;
 }
 extern "C" {
-    pub fn _getchar_r(arg1: *mut _reent) -> ::std::os::raw::c_int;
+    pub fn _getchar_r(arg1: *mut _reent) -> c_types::c_int;
 }
 extern "C" {
-    pub fn _getchar_unlocked_r(arg1: *mut _reent) -> ::std::os::raw::c_int;
+    pub fn _getchar_unlocked_r(arg1: *mut _reent) -> c_types::c_int;
 }
 extern "C" {
-    pub fn _gets_r(
-        arg1: *mut _reent,
-        arg2: *mut ::std::os::raw::c_char,
-    ) -> *mut ::std::os::raw::c_char;
+    pub fn _gets_r(arg1: *mut _reent, arg2: *mut c_types::c_char) -> *mut c_types::c_char;
 }
 extern "C" {
-    pub fn _iprintf_r(
-        arg1: *mut _reent,
-        arg2: *const ::std::os::raw::c_char,
-        ...
-    ) -> ::std::os::raw::c_int;
+    pub fn _iprintf_r(arg1: *mut _reent, arg2: *const c_types::c_char, ...) -> c_types::c_int;
 }
 extern "C" {
-    pub fn _iscanf_r(
-        arg1: *mut _reent,
-        arg2: *const ::std::os::raw::c_char,
-        ...
-    ) -> ::std::os::raw::c_int;
+    pub fn _iscanf_r(arg1: *mut _reent, arg2: *const c_types::c_char, ...) -> c_types::c_int;
 }
 extern "C" {
     pub fn _open_memstream_r(
         arg1: *mut _reent,
-        arg2: *mut *mut ::std::os::raw::c_char,
+        arg2: *mut *mut c_types::c_char,
         arg3: *mut size_t,
     ) -> *mut FILE;
 }
 extern "C" {
-    pub fn _perror_r(arg1: *mut _reent, arg2: *const ::std::os::raw::c_char);
+    pub fn _perror_r(arg1: *mut _reent, arg2: *const c_types::c_char);
 }
 extern "C" {
-    pub fn _printf_r(
-        arg1: *mut _reent,
-        arg2: *const ::std::os::raw::c_char,
-        ...
-    ) -> ::std::os::raw::c_int;
+    pub fn _printf_r(arg1: *mut _reent, arg2: *const c_types::c_char, ...) -> c_types::c_int;
 }
 extern "C" {
-    pub fn _putc_r(
-        arg1: *mut _reent,
-        arg2: ::std::os::raw::c_int,
-        arg3: *mut FILE,
-    ) -> ::std::os::raw::c_int;
+    pub fn _putc_r(arg1: *mut _reent, arg2: c_types::c_int, arg3: *mut FILE) -> c_types::c_int;
 }
 extern "C" {
     pub fn _putc_unlocked_r(
         arg1: *mut _reent,
-        arg2: ::std::os::raw::c_int,
+        arg2: c_types::c_int,
         arg3: *mut FILE,
-    ) -> ::std::os::raw::c_int;
+    ) -> c_types::c_int;
 }
 extern "C" {
-    pub fn _putchar_unlocked_r(
-        arg1: *mut _reent,
-        arg2: ::std::os::raw::c_int,
-    ) -> ::std::os::raw::c_int;
+    pub fn _putchar_unlocked_r(arg1: *mut _reent, arg2: c_types::c_int) -> c_types::c_int;
 }
 extern "C" {
-    pub fn _putchar_r(arg1: *mut _reent, arg2: ::std::os::raw::c_int) -> ::std::os::raw::c_int;
+    pub fn _putchar_r(arg1: *mut _reent, arg2: c_types::c_int) -> c_types::c_int;
 }
 extern "C" {
-    pub fn _puts_r(arg1: *mut _reent, arg2: *const ::std::os::raw::c_char)
-        -> ::std::os::raw::c_int;
+    pub fn _puts_r(arg1: *mut _reent, arg2: *const c_types::c_char) -> c_types::c_int;
 }
 extern "C" {
-    pub fn _remove_r(
-        arg1: *mut _reent,
-        arg2: *const ::std::os::raw::c_char,
-    ) -> ::std::os::raw::c_int;
+    pub fn _remove_r(arg1: *mut _reent, arg2: *const c_types::c_char) -> c_types::c_int;
 }
 extern "C" {
     pub fn _rename_r(
         arg1: *mut _reent,
-        _old: *const ::std::os::raw::c_char,
-        _new: *const ::std::os::raw::c_char,
-    ) -> ::std::os::raw::c_int;
+        _old: *const c_types::c_char,
+        _new: *const c_types::c_char,
+    ) -> c_types::c_int;
 }
 extern "C" {
-    pub fn _scanf_r(
-        arg1: *mut _reent,
-        arg2: *const ::std::os::raw::c_char,
-        ...
-    ) -> ::std::os::raw::c_int;
+    pub fn _scanf_r(arg1: *mut _reent, arg2: *const c_types::c_char, ...) -> c_types::c_int;
 }
 extern "C" {
     pub fn _siprintf_r(
         arg1: *mut _reent,
-        arg2: *mut ::std::os::raw::c_char,
-        arg3: *const ::std::os::raw::c_char,
+        arg2: *mut c_types::c_char,
+        arg3: *const c_types::c_char,
         ...
-    ) -> ::std::os::raw::c_int;
+    ) -> c_types::c_int;
 }
 extern "C" {
     pub fn _siscanf_r(
         arg1: *mut _reent,
-        arg2: *const ::std::os::raw::c_char,
-        arg3: *const ::std::os::raw::c_char,
+        arg2: *const c_types::c_char,
+        arg3: *const c_types::c_char,
         ...
-    ) -> ::std::os::raw::c_int;
+    ) -> c_types::c_int;
 }
 extern "C" {
     pub fn _sniprintf_r(
         arg1: *mut _reent,
-        arg2: *mut ::std::os::raw::c_char,
+        arg2: *mut c_types::c_char,
         arg3: size_t,
-        arg4: *const ::std::os::raw::c_char,
+        arg4: *const c_types::c_char,
         ...
-    ) -> ::std::os::raw::c_int;
+    ) -> c_types::c_int;
 }
 extern "C" {
     pub fn _snprintf_r(
         arg1: *mut _reent,
-        arg2: *mut ::std::os::raw::c_char,
+        arg2: *mut c_types::c_char,
         arg3: size_t,
-        arg4: *const ::std::os::raw::c_char,
+        arg4: *const c_types::c_char,
         ...
-    ) -> ::std::os::raw::c_int;
+    ) -> c_types::c_int;
 }
 extern "C" {
     pub fn _sprintf_r(
         arg1: *mut _reent,
-        arg2: *mut ::std::os::raw::c_char,
-        arg3: *const ::std::os::raw::c_char,
+        arg2: *mut c_types::c_char,
+        arg3: *const c_types::c_char,
         ...
-    ) -> ::std::os::raw::c_int;
+    ) -> c_types::c_int;
 }
 extern "C" {
     pub fn _sscanf_r(
         arg1: *mut _reent,
-        arg2: *const ::std::os::raw::c_char,
-        arg3: *const ::std::os::raw::c_char,
+        arg2: *const c_types::c_char,
+        arg3: *const c_types::c_char,
         ...
-    ) -> ::std::os::raw::c_int;
+    ) -> c_types::c_int;
 }
 extern "C" {
     pub fn _tempnam_r(
         arg1: *mut _reent,
-        arg2: *const ::std::os::raw::c_char,
-        arg3: *const ::std::os::raw::c_char,
-    ) -> *mut ::std::os::raw::c_char;
+        arg2: *const c_types::c_char,
+        arg3: *const c_types::c_char,
+    ) -> *mut c_types::c_char;
 }
 extern "C" {
     pub fn _tmpfile_r(arg1: *mut _reent) -> *mut FILE;
 }
 extern "C" {
-    pub fn _tmpnam_r(
-        arg1: *mut _reent,
-        arg2: *mut ::std::os::raw::c_char,
-    ) -> *mut ::std::os::raw::c_char;
+    pub fn _tmpnam_r(arg1: *mut _reent, arg2: *mut c_types::c_char) -> *mut c_types::c_char;
 }
 extern "C" {
-    pub fn _ungetc_r(
-        arg1: *mut _reent,
-        arg2: ::std::os::raw::c_int,
-        arg3: *mut FILE,
-    ) -> ::std::os::raw::c_int;
+    pub fn _ungetc_r(arg1: *mut _reent, arg2: c_types::c_int, arg3: *mut FILE) -> c_types::c_int;
 }
 extern "C" {
     pub fn _vasiprintf_r(
         arg1: *mut _reent,
-        arg2: *mut *mut ::std::os::raw::c_char,
-        arg3: *const ::std::os::raw::c_char,
+        arg2: *mut *mut c_types::c_char,
+        arg3: *const c_types::c_char,
         arg4: __gnuc_va_list,
-    ) -> ::std::os::raw::c_int;
+    ) -> c_types::c_int;
 }
 extern "C" {
     pub fn _vasniprintf_r(
         arg1: *mut _reent,
-        arg2: *mut ::std::os::raw::c_char,
+        arg2: *mut c_types::c_char,
         arg3: *mut size_t,
-        arg4: *const ::std::os::raw::c_char,
+        arg4: *const c_types::c_char,
         arg5: __gnuc_va_list,
-    ) -> *mut ::std::os::raw::c_char;
+    ) -> *mut c_types::c_char;
 }
 extern "C" {
     pub fn _vasnprintf_r(
         arg1: *mut _reent,
-        arg2: *mut ::std::os::raw::c_char,
+        arg2: *mut c_types::c_char,
         arg3: *mut size_t,
-        arg4: *const ::std::os::raw::c_char,
+        arg4: *const c_types::c_char,
         arg5: __gnuc_va_list,
-    ) -> *mut ::std::os::raw::c_char;
+    ) -> *mut c_types::c_char;
 }
 extern "C" {
     pub fn _vasprintf_r(
         arg1: *mut _reent,
-        arg2: *mut *mut ::std::os::raw::c_char,
-        arg3: *const ::std::os::raw::c_char,
+        arg2: *mut *mut c_types::c_char,
+        arg3: *const c_types::c_char,
         arg4: __gnuc_va_list,
-    ) -> ::std::os::raw::c_int;
+    ) -> c_types::c_int;
 }
 extern "C" {
     pub fn _vdiprintf_r(
         arg1: *mut _reent,
-        arg2: ::std::os::raw::c_int,
-        arg3: *const ::std::os::raw::c_char,
+        arg2: c_types::c_int,
+        arg3: *const c_types::c_char,
         arg4: __gnuc_va_list,
-    ) -> ::std::os::raw::c_int;
+    ) -> c_types::c_int;
 }
 extern "C" {
     pub fn _vdprintf_r(
         arg1: *mut _reent,
-        arg2: ::std::os::raw::c_int,
-        arg3: *const ::std::os::raw::c_char,
+        arg2: c_types::c_int,
+        arg3: *const c_types::c_char,
         arg4: __gnuc_va_list,
-    ) -> ::std::os::raw::c_int;
+    ) -> c_types::c_int;
 }
 extern "C" {
     pub fn _vfiprintf_r(
         arg1: *mut _reent,
         arg2: *mut FILE,
-        arg3: *const ::std::os::raw::c_char,
+        arg3: *const c_types::c_char,
         arg4: __gnuc_va_list,
-    ) -> ::std::os::raw::c_int;
+    ) -> c_types::c_int;
 }
 extern "C" {
     pub fn _vfiscanf_r(
         arg1: *mut _reent,
         arg2: *mut FILE,
-        arg3: *const ::std::os::raw::c_char,
+        arg3: *const c_types::c_char,
         arg4: __gnuc_va_list,
-    ) -> ::std::os::raw::c_int;
+    ) -> c_types::c_int;
 }
 extern "C" {
     pub fn _vfprintf_r(
         arg1: *mut _reent,
         arg2: *mut FILE,
-        arg3: *const ::std::os::raw::c_char,
+        arg3: *const c_types::c_char,
         arg4: __gnuc_va_list,
-    ) -> ::std::os::raw::c_int;
+    ) -> c_types::c_int;
 }
 extern "C" {
     pub fn _vfscanf_r(
         arg1: *mut _reent,
         arg2: *mut FILE,
-        arg3: *const ::std::os::raw::c_char,
+        arg3: *const c_types::c_char,
         arg4: __gnuc_va_list,
-    ) -> ::std::os::raw::c_int;
+    ) -> c_types::c_int;
 }
 extern "C" {
     pub fn _viprintf_r(
         arg1: *mut _reent,
-        arg2: *const ::std::os::raw::c_char,
+        arg2: *const c_types::c_char,
         arg3: __gnuc_va_list,
-    ) -> ::std::os::raw::c_int;
+    ) -> c_types::c_int;
 }
 extern "C" {
     pub fn _viscanf_r(
         arg1: *mut _reent,
-        arg2: *const ::std::os::raw::c_char,
+        arg2: *const c_types::c_char,
         arg3: __gnuc_va_list,
-    ) -> ::std::os::raw::c_int;
+    ) -> c_types::c_int;
 }
 extern "C" {
     pub fn _vprintf_r(
         arg1: *mut _reent,
-        arg2: *const ::std::os::raw::c_char,
+        arg2: *const c_types::c_char,
         arg3: __gnuc_va_list,
-    ) -> ::std::os::raw::c_int;
+    ) -> c_types::c_int;
 }
 extern "C" {
     pub fn _vscanf_r(
         arg1: *mut _reent,
-        arg2: *const ::std::os::raw::c_char,
+        arg2: *const c_types::c_char,
         arg3: __gnuc_va_list,
-    ) -> ::std::os::raw::c_int;
+    ) -> c_types::c_int;
 }
 extern "C" {
     pub fn _vsiprintf_r(
         arg1: *mut _reent,
-        arg2: *mut ::std::os::raw::c_char,
-        arg3: *const ::std::os::raw::c_char,
+        arg2: *mut c_types::c_char,
+        arg3: *const c_types::c_char,
         arg4: __gnuc_va_list,
-    ) -> ::std::os::raw::c_int;
+    ) -> c_types::c_int;
 }
 extern "C" {
     pub fn _vsiscanf_r(
         arg1: *mut _reent,
-        arg2: *const ::std::os::raw::c_char,
-        arg3: *const ::std::os::raw::c_char,
+        arg2: *const c_types::c_char,
+        arg3: *const c_types::c_char,
         arg4: __gnuc_va_list,
-    ) -> ::std::os::raw::c_int;
+    ) -> c_types::c_int;
 }
 extern "C" {
     pub fn _vsniprintf_r(
         arg1: *mut _reent,
-        arg2: *mut ::std::os::raw::c_char,
+        arg2: *mut c_types::c_char,
         arg3: size_t,
-        arg4: *const ::std::os::raw::c_char,
+        arg4: *const c_types::c_char,
         arg5: __gnuc_va_list,
-    ) -> ::std::os::raw::c_int;
+    ) -> c_types::c_int;
 }
 extern "C" {
     pub fn _vsnprintf_r(
         arg1: *mut _reent,
-        arg2: *mut ::std::os::raw::c_char,
+        arg2: *mut c_types::c_char,
         arg3: size_t,
-        arg4: *const ::std::os::raw::c_char,
+        arg4: *const c_types::c_char,
         arg5: __gnuc_va_list,
-    ) -> ::std::os::raw::c_int;
+    ) -> c_types::c_int;
 }
 extern "C" {
     pub fn _vsprintf_r(
         arg1: *mut _reent,
-        arg2: *mut ::std::os::raw::c_char,
-        arg3: *const ::std::os::raw::c_char,
+        arg2: *mut c_types::c_char,
+        arg3: *const c_types::c_char,
         arg4: __gnuc_va_list,
-    ) -> ::std::os::raw::c_int;
+    ) -> c_types::c_int;
 }
 extern "C" {
     pub fn _vsscanf_r(
         arg1: *mut _reent,
-        arg2: *const ::std::os::raw::c_char,
-        arg3: *const ::std::os::raw::c_char,
+        arg2: *const c_types::c_char,
+        arg3: *const c_types::c_char,
         arg4: __gnuc_va_list,
-    ) -> ::std::os::raw::c_int;
+    ) -> c_types::c_int;
 }
 extern "C" {
-    pub fn fpurge(arg1: *mut FILE) -> ::std::os::raw::c_int;
+    pub fn fpurge(arg1: *mut FILE) -> c_types::c_int;
 }
 extern "C" {
     pub fn __getdelim(
-        arg1: *mut *mut ::std::os::raw::c_char,
+        arg1: *mut *mut c_types::c_char,
         arg2: *mut size_t,
-        arg3: ::std::os::raw::c_int,
+        arg3: c_types::c_int,
         arg4: *mut FILE,
     ) -> ssize_t;
 }
 extern "C" {
     pub fn __getline(
-        arg1: *mut *mut ::std::os::raw::c_char,
+        arg1: *mut *mut c_types::c_char,
         arg2: *mut size_t,
         arg3: *mut FILE,
     ) -> ssize_t;
@@ -15115,26 +15003,26 @@ extern "C" {
     pub fn clearerr_unlocked(arg1: *mut FILE);
 }
 extern "C" {
-    pub fn feof_unlocked(arg1: *mut FILE) -> ::std::os::raw::c_int;
+    pub fn feof_unlocked(arg1: *mut FILE) -> c_types::c_int;
 }
 extern "C" {
-    pub fn ferror_unlocked(arg1: *mut FILE) -> ::std::os::raw::c_int;
+    pub fn ferror_unlocked(arg1: *mut FILE) -> c_types::c_int;
 }
 extern "C" {
-    pub fn fileno_unlocked(arg1: *mut FILE) -> ::std::os::raw::c_int;
+    pub fn fileno_unlocked(arg1: *mut FILE) -> c_types::c_int;
 }
 extern "C" {
-    pub fn fflush_unlocked(arg1: *mut FILE) -> ::std::os::raw::c_int;
+    pub fn fflush_unlocked(arg1: *mut FILE) -> c_types::c_int;
 }
 extern "C" {
-    pub fn fgetc_unlocked(arg1: *mut FILE) -> ::std::os::raw::c_int;
+    pub fn fgetc_unlocked(arg1: *mut FILE) -> c_types::c_int;
 }
 extern "C" {
-    pub fn fputc_unlocked(arg1: ::std::os::raw::c_int, arg2: *mut FILE) -> ::std::os::raw::c_int;
+    pub fn fputc_unlocked(arg1: c_types::c_int, arg2: *mut FILE) -> c_types::c_int;
 }
 extern "C" {
     pub fn fread_unlocked(
-        arg1: *mut ::core::ffi::c_void,
+        arg1: *mut c_types::c_void,
         _size: size_t,
         _n: size_t,
         arg2: *mut FILE,
@@ -15142,94 +15030,90 @@ extern "C" {
 }
 extern "C" {
     pub fn fwrite_unlocked(
-        arg1: *const ::core::ffi::c_void,
+        arg1: *const c_types::c_void,
         _size: size_t,
         _n: size_t,
         arg2: *mut FILE,
     ) -> size_t;
 }
 extern "C" {
-    pub fn __srget_r(arg1: *mut _reent, arg2: *mut FILE) -> ::std::os::raw::c_int;
+    pub fn __srget_r(arg1: *mut _reent, arg2: *mut FILE) -> c_types::c_int;
 }
 extern "C" {
-    pub fn __swbuf_r(
-        arg1: *mut _reent,
-        arg2: ::std::os::raw::c_int,
-        arg3: *mut FILE,
-    ) -> ::std::os::raw::c_int;
+    pub fn __swbuf_r(arg1: *mut _reent, arg2: c_types::c_int, arg3: *mut FILE) -> c_types::c_int;
 }
 extern "C" {
     pub fn funopen(
-        __cookie: *const ::core::ffi::c_void,
+        __cookie: *const c_types::c_void,
         __readfn: ::core::option::Option<
             unsafe extern "C" fn(
-                __cookie: *mut ::core::ffi::c_void,
-                __buf: *mut ::std::os::raw::c_char,
-                __n: ::std::os::raw::c_int,
-            ) -> ::std::os::raw::c_int,
+                __cookie: *mut c_types::c_void,
+                __buf: *mut c_types::c_char,
+                __n: c_types::c_int,
+            ) -> c_types::c_int,
         >,
         __writefn: ::core::option::Option<
             unsafe extern "C" fn(
-                __cookie: *mut ::core::ffi::c_void,
-                __buf: *const ::std::os::raw::c_char,
-                __n: ::std::os::raw::c_int,
-            ) -> ::std::os::raw::c_int,
+                __cookie: *mut c_types::c_void,
+                __buf: *const c_types::c_char,
+                __n: c_types::c_int,
+            ) -> c_types::c_int,
         >,
         __seekfn: ::core::option::Option<
             unsafe extern "C" fn(
-                __cookie: *mut ::core::ffi::c_void,
+                __cookie: *mut c_types::c_void,
                 __off: fpos_t,
-                __whence: ::std::os::raw::c_int,
+                __whence: c_types::c_int,
             ) -> fpos_t,
         >,
         __closefn: ::core::option::Option<
-            unsafe extern "C" fn(__cookie: *mut ::core::ffi::c_void) -> ::std::os::raw::c_int,
+            unsafe extern "C" fn(__cookie: *mut c_types::c_void) -> c_types::c_int,
         >,
     ) -> *mut FILE;
 }
 extern "C" {
     pub fn _funopen_r(
         arg1: *mut _reent,
-        __cookie: *const ::core::ffi::c_void,
+        __cookie: *const c_types::c_void,
         __readfn: ::core::option::Option<
             unsafe extern "C" fn(
-                __cookie: *mut ::core::ffi::c_void,
-                __buf: *mut ::std::os::raw::c_char,
-                __n: ::std::os::raw::c_int,
-            ) -> ::std::os::raw::c_int,
+                __cookie: *mut c_types::c_void,
+                __buf: *mut c_types::c_char,
+                __n: c_types::c_int,
+            ) -> c_types::c_int,
         >,
         __writefn: ::core::option::Option<
             unsafe extern "C" fn(
-                __cookie: *mut ::core::ffi::c_void,
-                __buf: *const ::std::os::raw::c_char,
-                __n: ::std::os::raw::c_int,
-            ) -> ::std::os::raw::c_int,
+                __cookie: *mut c_types::c_void,
+                __buf: *const c_types::c_char,
+                __n: c_types::c_int,
+            ) -> c_types::c_int,
         >,
         __seekfn: ::core::option::Option<
             unsafe extern "C" fn(
-                __cookie: *mut ::core::ffi::c_void,
+                __cookie: *mut c_types::c_void,
                 __off: fpos_t,
-                __whence: ::std::os::raw::c_int,
+                __whence: c_types::c_int,
             ) -> fpos_t,
         >,
         __closefn: ::core::option::Option<
-            unsafe extern "C" fn(__cookie: *mut ::core::ffi::c_void) -> ::std::os::raw::c_int,
+            unsafe extern "C" fn(__cookie: *mut c_types::c_void) -> c_types::c_int,
         >,
     ) -> *mut FILE;
 }
 extern "C" {
     pub fn __assert(
-        arg1: *const ::std::os::raw::c_char,
-        arg2: ::std::os::raw::c_int,
-        arg3: *const ::std::os::raw::c_char,
+        arg1: *const c_types::c_char,
+        arg2: c_types::c_int,
+        arg3: *const c_types::c_char,
     );
 }
 extern "C" {
     pub fn __assert_func(
-        arg1: *const ::std::os::raw::c_char,
-        arg2: ::std::os::raw::c_int,
-        arg3: *const ::std::os::raw::c_char,
-        arg4: *const ::std::os::raw::c_char,
+        arg1: *const c_types::c_char,
+        arg2: c_types::c_int,
+        arg3: *const c_types::c_char,
+        arg4: *const c_types::c_char,
     );
 }
 pub type esp_err_t = i32;
@@ -15245,7 +15129,7 @@ extern "C" {
     #[doc = ""]
     #[doc = " @param code esp_err_t error code"]
     #[doc = " @return string error message"]
-    pub fn esp_err_to_name(code: esp_err_t) -> *const ::std::os::raw::c_char;
+    pub fn esp_err_to_name(code: esp_err_t) -> *const c_types::c_char;
 }
 extern "C" {
     #[doc = " @brief Returns string for esp_err_t and system error codes"]
@@ -15264,28 +15148,28 @@ extern "C" {
     #[doc = " @return buf containing the string error message"]
     pub fn esp_err_to_name_r(
         code: esp_err_t,
-        buf: *mut ::std::os::raw::c_char,
+        buf: *mut c_types::c_char,
         buflen: size_t,
-    ) -> *const ::std::os::raw::c_char;
+    ) -> *const c_types::c_char;
 }
 extern "C" {
     #[doc = " @cond"]
     pub fn _esp_error_check_failed(
         rc: esp_err_t,
-        file: *const ::std::os::raw::c_char,
-        line: ::std::os::raw::c_int,
-        function: *const ::std::os::raw::c_char,
-        expression: *const ::std::os::raw::c_char,
+        file: *const c_types::c_char,
+        line: c_types::c_int,
+        function: *const c_types::c_char,
+        expression: *const c_types::c_char,
     );
 }
 extern "C" {
     #[doc = " @cond"]
     pub fn _esp_error_check_failed_without_abort(
         rc: esp_err_t,
-        file: *const ::std::os::raw::c_char,
-        line: ::std::os::raw::c_int,
-        function: *const ::std::os::raw::c_char,
-        expression: *const ::std::os::raw::c_char,
+        file: *const c_types::c_char,
+        line: c_types::c_int,
+        function: *const c_types::c_char,
+        expression: *const c_types::c_char,
     );
 }
 extern "C" {
@@ -15297,13 +15181,13 @@ extern "C" {
     #[doc = " pre-release and release versions, but the output of this function does."]
     #[doc = ""]
     #[doc = " @return constant string from IDF_VER"]
-    pub fn esp_get_idf_version() -> *const ::std::os::raw::c_char;
+    pub fn esp_get_idf_version() -> *const c_types::c_char;
 }
 pub const esp_mac_type_t_ESP_MAC_WIFI_STA: esp_mac_type_t = 0;
 pub const esp_mac_type_t_ESP_MAC_WIFI_SOFTAP: esp_mac_type_t = 1;
 pub const esp_mac_type_t_ESP_MAC_BT: esp_mac_type_t = 2;
 pub const esp_mac_type_t_ESP_MAC_ETH: esp_mac_type_t = 3;
-pub type esp_mac_type_t = ::std::os::raw::c_uint;
+pub type esp_mac_type_t = c_types::c_uint;
 #[doc = "!< Reset reason can not be determined"]
 pub const esp_reset_reason_t_ESP_RST_UNKNOWN: esp_reset_reason_t = 0;
 #[doc = "!< Reset due to power-on event"]
@@ -15327,7 +15211,7 @@ pub const esp_reset_reason_t_ESP_RST_BROWNOUT: esp_reset_reason_t = 9;
 #[doc = "!< Reset over SDIO"]
 pub const esp_reset_reason_t_ESP_RST_SDIO: esp_reset_reason_t = 10;
 #[doc = " @brief Reset reasons"]
-pub type esp_reset_reason_t = ::std::os::raw::c_uint;
+pub type esp_reset_reason_t = c_types::c_uint;
 #[doc = " Shutdown handler type"]
 pub type shutdown_handler_t = ::core::option::Option<unsafe extern "C" fn()>;
 extern "C" {
@@ -15413,7 +15297,7 @@ extern "C" {
     #[doc = ""]
     #[doc = " @param buf Pointer to buffer to fill with random numbers."]
     #[doc = " @param len Length of buffer in bytes"]
-    pub fn esp_fill_random(buf: *mut ::core::ffi::c_void, len: size_t);
+    pub fn esp_fill_random(buf: *mut c_types::c_void, len: size_t);
 }
 extern "C" {
     #[doc = " @brief  Set base MAC address with the MAC address which is stored in BLK3 of EFUSE or"]
@@ -15500,7 +15384,7 @@ pub const esp_chip_model_t_CHIP_ESP32: esp_chip_model_t = 1;
 #[doc = "!< ESP32-S2 Beta"]
 pub const esp_chip_model_t_CHIP_ESP32S2BETA: esp_chip_model_t = 2;
 #[doc = " @brief Chip models"]
-pub type esp_chip_model_t = ::std::os::raw::c_uint;
+pub type esp_chip_model_t = c_types::c_uint;
 #[doc = " @brief The structure represents information about the chip"]
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
@@ -15533,12 +15417,9 @@ pub const esp_log_level_t_ESP_LOG_DEBUG: esp_log_level_t = 4;
 pub const esp_log_level_t_ESP_LOG_VERBOSE: esp_log_level_t = 5;
 #[doc = " @brief Log level"]
 #[doc = ""]
-pub type esp_log_level_t = ::std::os::raw::c_uint;
+pub type esp_log_level_t = c_types::c_uint;
 pub type vprintf_like_t = ::core::option::Option<
-    unsafe extern "C" fn(
-        arg1: *const ::std::os::raw::c_char,
-        arg2: va_list,
-    ) -> ::std::os::raw::c_int,
+    unsafe extern "C" fn(arg1: *const c_types::c_char, arg2: va_list) -> c_types::c_int,
 >;
 extern "C" {
     #[doc = " @brief Set log level for given tag"]
@@ -15557,7 +15438,7 @@ extern "C" {
     #[doc = ""]
     #[doc = " @param level  Selects log level to enable. Only logs at this and lower verbosity"]
     #[doc = " levels will be shown."]
-    pub fn esp_log_level_set(tag: *const ::std::os::raw::c_char, level: esp_log_level_t);
+    pub fn esp_log_level_set(tag: *const c_types::c_char, level: esp_log_level_t);
 }
 extern "C" {
     #[doc = " @brief Set function used to output log entries"]
@@ -15596,7 +15477,7 @@ extern "C" {
     #[doc = " (i.e WiFi & Bluetooth libraries), these will still print the RTOS tick time."]
     #[doc = ""]
     #[doc = " @return timestamp, in \"HH:MM:SS.sss\""]
-    pub fn esp_log_system_timestamp() -> *mut ::std::os::raw::c_char;
+    pub fn esp_log_system_timestamp() -> *mut c_types::c_char;
 }
 extern "C" {
     #[doc = " @brief Function which returns timestamp to be used in log output"]
@@ -15616,8 +15497,8 @@ extern "C" {
     #[doc = " This function or these macros should not be used from an interrupt."]
     pub fn esp_log_write(
         level: esp_log_level_t,
-        tag: *const ::std::os::raw::c_char,
-        format: *const ::std::os::raw::c_char,
+        tag: *const c_types::c_char,
+        format: *const c_types::c_char,
         ...
     );
 }
@@ -15629,31 +15510,31 @@ extern "C" {
     #[doc = " so that esp_log can be used as a log sink."]
     pub fn esp_log_writev(
         level: esp_log_level_t,
-        tag: *const ::std::os::raw::c_char,
-        format: *const ::std::os::raw::c_char,
+        tag: *const c_types::c_char,
+        format: *const c_types::c_char,
         args: va_list,
     );
 }
 extern "C" {
     pub fn esp_log_buffer_hex_internal(
-        tag: *const ::std::os::raw::c_char,
-        buffer: *const ::core::ffi::c_void,
+        tag: *const c_types::c_char,
+        buffer: *const c_types::c_void,
         buff_len: u16,
         level: esp_log_level_t,
     );
 }
 extern "C" {
     pub fn esp_log_buffer_char_internal(
-        tag: *const ::std::os::raw::c_char,
-        buffer: *const ::core::ffi::c_void,
+        tag: *const c_types::c_char,
+        buffer: *const c_types::c_void,
         buff_len: u16,
         level: esp_log_level_t,
     );
 }
 extern "C" {
     pub fn esp_log_buffer_hexdump_internal(
-        tag: *const ::std::os::raw::c_char,
-        buffer: *const ::core::ffi::c_void,
+        tag: *const c_types::c_char,
+        buffer: *const c_types::c_void,
         buff_len: u16,
         log_level: esp_log_level_t,
     );
@@ -15663,184 +15544,172 @@ extern "C" {
     #[doc = " XT_CLOCK_FREQ macro is used."]
     #[doc = " Update the code to use esp_clk_cpu_freq function instead."]
     #[doc = " @return current CPU clock frequency, in Hz"]
-    pub fn xt_clock_freq() -> ::std::os::raw::c_int;
+    pub fn xt_clock_freq() -> c_types::c_int;
 }
 extern "C" {
-    pub static Xthal_rev_no: ::std::os::raw::c_uint;
+    pub static Xthal_rev_no: c_types::c_uint;
 }
 extern "C" {
-    pub fn xthal_save_extra(base: *mut ::core::ffi::c_void);
+    pub fn xthal_save_extra(base: *mut c_types::c_void);
 }
 extern "C" {
-    pub fn xthal_restore_extra(base: *mut ::core::ffi::c_void);
+    pub fn xthal_restore_extra(base: *mut c_types::c_void);
 }
 extern "C" {
-    pub fn xthal_save_cpregs(base: *mut ::core::ffi::c_void, arg1: ::std::os::raw::c_int);
+    pub fn xthal_save_cpregs(base: *mut c_types::c_void, arg1: c_types::c_int);
 }
 extern "C" {
-    pub fn xthal_restore_cpregs(base: *mut ::core::ffi::c_void, arg1: ::std::os::raw::c_int);
+    pub fn xthal_restore_cpregs(base: *mut c_types::c_void, arg1: c_types::c_int);
 }
 extern "C" {
-    pub fn xthal_save_cp0(base: *mut ::core::ffi::c_void);
+    pub fn xthal_save_cp0(base: *mut c_types::c_void);
 }
 extern "C" {
-    pub fn xthal_save_cp1(base: *mut ::core::ffi::c_void);
+    pub fn xthal_save_cp1(base: *mut c_types::c_void);
 }
 extern "C" {
-    pub fn xthal_save_cp2(base: *mut ::core::ffi::c_void);
+    pub fn xthal_save_cp2(base: *mut c_types::c_void);
 }
 extern "C" {
-    pub fn xthal_save_cp3(base: *mut ::core::ffi::c_void);
+    pub fn xthal_save_cp3(base: *mut c_types::c_void);
 }
 extern "C" {
-    pub fn xthal_save_cp4(base: *mut ::core::ffi::c_void);
+    pub fn xthal_save_cp4(base: *mut c_types::c_void);
 }
 extern "C" {
-    pub fn xthal_save_cp5(base: *mut ::core::ffi::c_void);
+    pub fn xthal_save_cp5(base: *mut c_types::c_void);
 }
 extern "C" {
-    pub fn xthal_save_cp6(base: *mut ::core::ffi::c_void);
+    pub fn xthal_save_cp6(base: *mut c_types::c_void);
 }
 extern "C" {
-    pub fn xthal_save_cp7(base: *mut ::core::ffi::c_void);
+    pub fn xthal_save_cp7(base: *mut c_types::c_void);
 }
 extern "C" {
-    pub fn xthal_restore_cp0(base: *mut ::core::ffi::c_void);
+    pub fn xthal_restore_cp0(base: *mut c_types::c_void);
 }
 extern "C" {
-    pub fn xthal_restore_cp1(base: *mut ::core::ffi::c_void);
+    pub fn xthal_restore_cp1(base: *mut c_types::c_void);
 }
 extern "C" {
-    pub fn xthal_restore_cp2(base: *mut ::core::ffi::c_void);
+    pub fn xthal_restore_cp2(base: *mut c_types::c_void);
 }
 extern "C" {
-    pub fn xthal_restore_cp3(base: *mut ::core::ffi::c_void);
+    pub fn xthal_restore_cp3(base: *mut c_types::c_void);
 }
 extern "C" {
-    pub fn xthal_restore_cp4(base: *mut ::core::ffi::c_void);
+    pub fn xthal_restore_cp4(base: *mut c_types::c_void);
 }
 extern "C" {
-    pub fn xthal_restore_cp5(base: *mut ::core::ffi::c_void);
+    pub fn xthal_restore_cp5(base: *mut c_types::c_void);
 }
 extern "C" {
-    pub fn xthal_restore_cp6(base: *mut ::core::ffi::c_void);
+    pub fn xthal_restore_cp6(base: *mut c_types::c_void);
 }
 extern "C" {
-    pub fn xthal_restore_cp7(base: *mut ::core::ffi::c_void);
+    pub fn xthal_restore_cp7(base: *mut c_types::c_void);
 }
 extern "C" {
-    pub static mut Xthal_cpregs_save_fn: [*mut ::core::ffi::c_void; 8usize];
+    pub static mut Xthal_cpregs_save_fn: [*mut c_types::c_void; 8usize];
 }
 extern "C" {
-    pub static mut Xthal_cpregs_restore_fn: [*mut ::core::ffi::c_void; 8usize];
+    pub static mut Xthal_cpregs_restore_fn: [*mut c_types::c_void; 8usize];
 }
 extern "C" {
-    pub static mut Xthal_cpregs_save_nw_fn: [*mut ::core::ffi::c_void; 8usize];
+    pub static mut Xthal_cpregs_save_nw_fn: [*mut c_types::c_void; 8usize];
 }
 extern "C" {
-    pub static mut Xthal_cpregs_restore_nw_fn: [*mut ::core::ffi::c_void; 8usize];
+    pub static mut Xthal_cpregs_restore_nw_fn: [*mut c_types::c_void; 8usize];
 }
 extern "C" {
-    pub static Xthal_extra_size: ::std::os::raw::c_uint;
+    pub static Xthal_extra_size: c_types::c_uint;
 }
 extern "C" {
-    pub static Xthal_extra_align: ::std::os::raw::c_uint;
+    pub static Xthal_extra_align: c_types::c_uint;
 }
 extern "C" {
-    pub static Xthal_cpregs_size: [::std::os::raw::c_uint; 8usize];
+    pub static Xthal_cpregs_size: [c_types::c_uint; 8usize];
 }
 extern "C" {
-    pub static Xthal_cpregs_align: [::std::os::raw::c_uint; 8usize];
+    pub static Xthal_cpregs_align: [c_types::c_uint; 8usize];
 }
 extern "C" {
-    pub static Xthal_all_extra_size: ::std::os::raw::c_uint;
+    pub static Xthal_all_extra_size: c_types::c_uint;
 }
 extern "C" {
-    pub static Xthal_all_extra_align: ::std::os::raw::c_uint;
+    pub static Xthal_all_extra_align: c_types::c_uint;
 }
 extern "C" {
-    pub static Xthal_cp_names: [*const ::std::os::raw::c_char; 8usize];
+    pub static Xthal_cp_names: [*const c_types::c_char; 8usize];
 }
 extern "C" {
-    pub fn xthal_init_mem_extra(arg1: *mut ::core::ffi::c_void);
+    pub fn xthal_init_mem_extra(arg1: *mut c_types::c_void);
 }
 extern "C" {
-    pub fn xthal_init_mem_cp(arg1: *mut ::core::ffi::c_void, arg2: ::std::os::raw::c_int);
+    pub fn xthal_init_mem_cp(arg1: *mut c_types::c_void, arg2: c_types::c_int);
 }
 extern "C" {
-    pub static Xthal_num_coprocessors: ::std::os::raw::c_uint;
+    pub static Xthal_num_coprocessors: c_types::c_uint;
 }
 extern "C" {
-    pub static Xthal_cp_num: ::std::os::raw::c_uchar;
+    pub static Xthal_cp_num: c_types::c_uchar;
 }
 extern "C" {
-    pub static Xthal_cp_max: ::std::os::raw::c_uchar;
+    pub static Xthal_cp_max: c_types::c_uchar;
 }
 extern "C" {
-    pub static Xthal_cp_mask: ::std::os::raw::c_uint;
+    pub static Xthal_cp_mask: c_types::c_uint;
 }
 extern "C" {
-    pub static Xthal_num_aregs: ::std::os::raw::c_uint;
+    pub static Xthal_num_aregs: c_types::c_uint;
 }
 extern "C" {
-    pub static Xthal_num_aregs_log2: ::std::os::raw::c_uchar;
+    pub static Xthal_num_aregs_log2: c_types::c_uchar;
 }
 extern "C" {
-    pub static Xthal_icache_linewidth: ::std::os::raw::c_uchar;
+    pub static Xthal_icache_linewidth: c_types::c_uchar;
 }
 extern "C" {
-    pub static Xthal_dcache_linewidth: ::std::os::raw::c_uchar;
+    pub static Xthal_dcache_linewidth: c_types::c_uchar;
 }
 extern "C" {
-    pub static Xthal_icache_linesize: ::std::os::raw::c_ushort;
+    pub static Xthal_icache_linesize: c_types::c_ushort;
 }
 extern "C" {
-    pub static Xthal_dcache_linesize: ::std::os::raw::c_ushort;
+    pub static Xthal_dcache_linesize: c_types::c_ushort;
 }
 extern "C" {
-    pub static Xthal_icache_size: ::std::os::raw::c_uint;
+    pub static Xthal_icache_size: c_types::c_uint;
 }
 extern "C" {
-    pub static Xthal_dcache_size: ::std::os::raw::c_uint;
+    pub static Xthal_dcache_size: c_types::c_uint;
 }
 extern "C" {
-    pub static Xthal_dcache_is_writeback: ::std::os::raw::c_uchar;
+    pub static Xthal_dcache_is_writeback: c_types::c_uchar;
 }
 extern "C" {
-    pub fn xthal_icache_region_invalidate(
-        addr: *mut ::core::ffi::c_void,
-        size: ::std::os::raw::c_uint,
-    );
+    pub fn xthal_icache_region_invalidate(addr: *mut c_types::c_void, size: c_types::c_uint);
 }
 extern "C" {
-    pub fn xthal_dcache_region_invalidate(
-        addr: *mut ::core::ffi::c_void,
-        size: ::std::os::raw::c_uint,
-    );
+    pub fn xthal_dcache_region_invalidate(addr: *mut c_types::c_void, size: c_types::c_uint);
 }
 extern "C" {
-    pub fn xthal_dcache_region_writeback(
-        addr: *mut ::core::ffi::c_void,
-        size: ::std::os::raw::c_uint,
-    );
+    pub fn xthal_dcache_region_writeback(addr: *mut c_types::c_void, size: c_types::c_uint);
 }
 extern "C" {
-    pub fn xthal_dcache_region_writeback_inv(
-        addr: *mut ::core::ffi::c_void,
-        size: ::std::os::raw::c_uint,
-    );
+    pub fn xthal_dcache_region_writeback_inv(addr: *mut c_types::c_void, size: c_types::c_uint);
 }
 extern "C" {
-    pub fn xthal_icache_line_invalidate(addr: *mut ::core::ffi::c_void);
+    pub fn xthal_icache_line_invalidate(addr: *mut c_types::c_void);
 }
 extern "C" {
-    pub fn xthal_dcache_line_invalidate(addr: *mut ::core::ffi::c_void);
+    pub fn xthal_dcache_line_invalidate(addr: *mut c_types::c_void);
 }
 extern "C" {
-    pub fn xthal_dcache_line_writeback(addr: *mut ::core::ffi::c_void);
+    pub fn xthal_dcache_line_writeback(addr: *mut c_types::c_void);
 }
 extern "C" {
-    pub fn xthal_dcache_line_writeback_inv(addr: *mut ::core::ffi::c_void);
+    pub fn xthal_dcache_line_writeback_inv(addr: *mut c_types::c_void);
 }
 extern "C" {
     pub fn xthal_icache_sync();
@@ -15849,16 +15718,16 @@ extern "C" {
     pub fn xthal_dcache_sync();
 }
 extern "C" {
-    pub fn xthal_icache_get_ways() -> ::std::os::raw::c_uint;
+    pub fn xthal_icache_get_ways() -> c_types::c_uint;
 }
 extern "C" {
-    pub fn xthal_icache_set_ways(ways: ::std::os::raw::c_uint);
+    pub fn xthal_icache_set_ways(ways: c_types::c_uint);
 }
 extern "C" {
-    pub fn xthal_dcache_get_ways() -> ::std::os::raw::c_uint;
+    pub fn xthal_dcache_get_ways() -> c_types::c_uint;
 }
 extern "C" {
-    pub fn xthal_dcache_set_ways(ways: ::std::os::raw::c_uint);
+    pub fn xthal_dcache_set_ways(ways: c_types::c_uint);
 }
 extern "C" {
     pub fn xthal_cache_coherence_on();
@@ -15873,139 +15742,136 @@ extern "C" {
     pub fn xthal_cache_coherence_optout();
 }
 extern "C" {
-    pub fn xthal_get_cache_prefetch() -> ::std::os::raw::c_int;
+    pub fn xthal_get_cache_prefetch() -> c_types::c_int;
 }
 extern "C" {
-    pub fn xthal_set_cache_prefetch(arg1: ::std::os::raw::c_int) -> ::std::os::raw::c_int;
+    pub fn xthal_set_cache_prefetch(arg1: c_types::c_int) -> c_types::c_int;
 }
 extern "C" {
-    pub fn xthal_set_cache_prefetch_long(
-        arg1: ::std::os::raw::c_ulonglong,
-    ) -> ::std::os::raw::c_int;
+    pub fn xthal_set_cache_prefetch_long(arg1: c_types::c_ulonglong) -> c_types::c_int;
 }
 extern "C" {
-    pub static Xthal_debug_configured: ::std::os::raw::c_int;
+    pub static Xthal_debug_configured: c_types::c_int;
 }
 extern "C" {
-    pub fn xthal_set_soft_break(addr: *mut ::core::ffi::c_void) -> ::std::os::raw::c_uint;
+    pub fn xthal_set_soft_break(addr: *mut c_types::c_void) -> c_types::c_uint;
 }
 extern "C" {
-    pub fn xthal_remove_soft_break(addr: *mut ::core::ffi::c_void, arg1: ::std::os::raw::c_uint);
+    pub fn xthal_remove_soft_break(addr: *mut c_types::c_void, arg1: c_types::c_uint);
 }
 extern "C" {
     pub fn xthal_disassemble(
-        instr_buf: *mut ::std::os::raw::c_uchar,
-        tgt_addr: *mut ::core::ffi::c_void,
-        buffer: *mut ::std::os::raw::c_char,
-        buflen: ::std::os::raw::c_uint,
-        options: ::std::os::raw::c_uint,
-    ) -> ::std::os::raw::c_int;
+        instr_buf: *mut c_types::c_uchar,
+        tgt_addr: *mut c_types::c_void,
+        buffer: *mut c_types::c_char,
+        buflen: c_types::c_uint,
+        options: c_types::c_uint,
+    ) -> c_types::c_int;
 }
 extern "C" {
-    pub fn xthal_disassemble_size(instr_buf: *mut ::std::os::raw::c_uchar)
-        -> ::std::os::raw::c_int;
+    pub fn xthal_disassemble_size(instr_buf: *mut c_types::c_uchar) -> c_types::c_int;
 }
 extern "C" {
     pub fn xthal_memcpy(
-        dst: *mut ::core::ffi::c_void,
-        src: *const ::core::ffi::c_void,
-        len: ::std::os::raw::c_uint,
-    ) -> *mut ::core::ffi::c_void;
+        dst: *mut c_types::c_void,
+        src: *const c_types::c_void,
+        len: c_types::c_uint,
+    ) -> *mut c_types::c_void;
 }
 extern "C" {
     pub fn xthal_bcopy(
-        src: *const ::core::ffi::c_void,
-        dst: *mut ::core::ffi::c_void,
-        len: ::std::os::raw::c_uint,
-    ) -> *mut ::core::ffi::c_void;
+        src: *const c_types::c_void,
+        dst: *mut c_types::c_void,
+        len: c_types::c_uint,
+    ) -> *mut c_types::c_void;
 }
 extern "C" {
     pub fn xthal_compare_and_set(
-        addr: *mut ::std::os::raw::c_int,
-        test_val: ::std::os::raw::c_int,
-        compare_val: ::std::os::raw::c_int,
-    ) -> ::std::os::raw::c_int;
+        addr: *mut c_types::c_int,
+        test_val: c_types::c_int,
+        compare_val: c_types::c_int,
+    ) -> c_types::c_int;
 }
 extern "C" {
-    pub static Xthal_release_major: ::std::os::raw::c_uint;
+    pub static Xthal_release_major: c_types::c_uint;
 }
 extern "C" {
-    pub static Xthal_release_minor: ::std::os::raw::c_uint;
+    pub static Xthal_release_minor: c_types::c_uint;
 }
 extern "C" {
-    pub static Xthal_release_name: *const ::std::os::raw::c_char;
+    pub static Xthal_release_name: *const c_types::c_char;
 }
 extern "C" {
-    pub static Xthal_release_internal: *const ::std::os::raw::c_char;
+    pub static Xthal_release_internal: *const c_types::c_char;
 }
 extern "C" {
-    pub static Xthal_memory_order: ::std::os::raw::c_uchar;
+    pub static Xthal_memory_order: c_types::c_uchar;
 }
 extern "C" {
-    pub static Xthal_have_windowed: ::std::os::raw::c_uchar;
+    pub static Xthal_have_windowed: c_types::c_uchar;
 }
 extern "C" {
-    pub static Xthal_have_density: ::std::os::raw::c_uchar;
+    pub static Xthal_have_density: c_types::c_uchar;
 }
 extern "C" {
-    pub static Xthal_have_booleans: ::std::os::raw::c_uchar;
+    pub static Xthal_have_booleans: c_types::c_uchar;
 }
 extern "C" {
-    pub static Xthal_have_loops: ::std::os::raw::c_uchar;
+    pub static Xthal_have_loops: c_types::c_uchar;
 }
 extern "C" {
-    pub static Xthal_have_nsa: ::std::os::raw::c_uchar;
+    pub static Xthal_have_nsa: c_types::c_uchar;
 }
 extern "C" {
-    pub static Xthal_have_minmax: ::std::os::raw::c_uchar;
+    pub static Xthal_have_minmax: c_types::c_uchar;
 }
 extern "C" {
-    pub static Xthal_have_sext: ::std::os::raw::c_uchar;
+    pub static Xthal_have_sext: c_types::c_uchar;
 }
 extern "C" {
-    pub static Xthal_have_clamps: ::std::os::raw::c_uchar;
+    pub static Xthal_have_clamps: c_types::c_uchar;
 }
 extern "C" {
-    pub static Xthal_have_mac16: ::std::os::raw::c_uchar;
+    pub static Xthal_have_mac16: c_types::c_uchar;
 }
 extern "C" {
-    pub static Xthal_have_mul16: ::std::os::raw::c_uchar;
+    pub static Xthal_have_mul16: c_types::c_uchar;
 }
 extern "C" {
-    pub static Xthal_have_fp: ::std::os::raw::c_uchar;
+    pub static Xthal_have_fp: c_types::c_uchar;
 }
 extern "C" {
-    pub static Xthal_have_speculation: ::std::os::raw::c_uchar;
+    pub static Xthal_have_speculation: c_types::c_uchar;
 }
 extern "C" {
-    pub static Xthal_have_threadptr: ::std::os::raw::c_uchar;
+    pub static Xthal_have_threadptr: c_types::c_uchar;
 }
 extern "C" {
-    pub static Xthal_have_pif: ::std::os::raw::c_uchar;
+    pub static Xthal_have_pif: c_types::c_uchar;
 }
 extern "C" {
-    pub static Xthal_num_writebuffer_entries: ::std::os::raw::c_ushort;
+    pub static Xthal_num_writebuffer_entries: c_types::c_ushort;
 }
 extern "C" {
-    pub static Xthal_build_unique_id: ::std::os::raw::c_uint;
+    pub static Xthal_build_unique_id: c_types::c_uint;
 }
 extern "C" {
-    pub static Xthal_hw_configid0: ::std::os::raw::c_uint;
+    pub static Xthal_hw_configid0: c_types::c_uint;
 }
 extern "C" {
-    pub static Xthal_hw_configid1: ::std::os::raw::c_uint;
+    pub static Xthal_hw_configid1: c_types::c_uint;
 }
 extern "C" {
-    pub static Xthal_hw_release_major: ::std::os::raw::c_uint;
+    pub static Xthal_hw_release_major: c_types::c_uint;
 }
 extern "C" {
-    pub static Xthal_hw_release_minor: ::std::os::raw::c_uint;
+    pub static Xthal_hw_release_minor: c_types::c_uint;
 }
 extern "C" {
-    pub static Xthal_hw_release_name: *const ::std::os::raw::c_char;
+    pub static Xthal_hw_release_name: *const c_types::c_char;
 }
 extern "C" {
-    pub static Xthal_hw_release_internal: *const ::std::os::raw::c_char;
+    pub static Xthal_hw_release_internal: *const c_types::c_char;
 }
 extern "C" {
     pub fn xthal_clear_regcached_code();
@@ -16014,268 +15880,262 @@ extern "C" {
     pub fn xthal_window_spill();
 }
 extern "C" {
-    pub fn xthal_validate_cp(arg1: ::std::os::raw::c_int);
+    pub fn xthal_validate_cp(arg1: c_types::c_int);
 }
 extern "C" {
-    pub fn xthal_invalidate_cp(arg1: ::std::os::raw::c_int);
+    pub fn xthal_invalidate_cp(arg1: c_types::c_int);
 }
 extern "C" {
-    pub fn xthal_set_cpenable(arg1: ::std::os::raw::c_uint);
+    pub fn xthal_set_cpenable(arg1: c_types::c_uint);
 }
 extern "C" {
-    pub fn xthal_get_cpenable() -> ::std::os::raw::c_uint;
+    pub fn xthal_get_cpenable() -> c_types::c_uint;
 }
 extern "C" {
-    pub static Xthal_num_intlevels: ::std::os::raw::c_uchar;
+    pub static Xthal_num_intlevels: c_types::c_uchar;
 }
 extern "C" {
-    pub static Xthal_num_interrupts: ::std::os::raw::c_uchar;
+    pub static Xthal_num_interrupts: c_types::c_uchar;
 }
 extern "C" {
-    pub static Xthal_excm_level: ::std::os::raw::c_uchar;
+    pub static Xthal_excm_level: c_types::c_uchar;
 }
 extern "C" {
-    pub static Xthal_intlevel_mask: [::std::os::raw::c_uint; 16usize];
+    pub static Xthal_intlevel_mask: [c_types::c_uint; 16usize];
 }
 extern "C" {
-    pub static Xthal_intlevel_andbelow_mask: [::std::os::raw::c_uint; 16usize];
+    pub static Xthal_intlevel_andbelow_mask: [c_types::c_uint; 16usize];
 }
 extern "C" {
-    pub static Xthal_intlevel: [::std::os::raw::c_uchar; 32usize];
+    pub static Xthal_intlevel: [c_types::c_uchar; 32usize];
 }
 extern "C" {
-    pub static Xthal_inttype: [::std::os::raw::c_uchar; 32usize];
+    pub static Xthal_inttype: [c_types::c_uchar; 32usize];
 }
 extern "C" {
-    pub static Xthal_inttype_mask: [::std::os::raw::c_uint; 11usize];
+    pub static Xthal_inttype_mask: [c_types::c_uint; 11usize];
 }
 extern "C" {
-    pub static Xthal_timer_interrupt: [::std::os::raw::c_int; 4usize];
+    pub static Xthal_timer_interrupt: [c_types::c_int; 4usize];
 }
 extern "C" {
-    pub fn xthal_get_intenable() -> ::std::os::raw::c_uint;
+    pub fn xthal_get_intenable() -> c_types::c_uint;
 }
 extern "C" {
-    pub fn xthal_set_intenable(arg1: ::std::os::raw::c_uint);
+    pub fn xthal_set_intenable(arg1: c_types::c_uint);
 }
 extern "C" {
-    pub fn xthal_get_interrupt() -> ::std::os::raw::c_uint;
+    pub fn xthal_get_interrupt() -> c_types::c_uint;
 }
 extern "C" {
-    pub fn xthal_set_intset(arg1: ::std::os::raw::c_uint);
+    pub fn xthal_set_intset(arg1: c_types::c_uint);
 }
 extern "C" {
-    pub fn xthal_set_intclear(arg1: ::std::os::raw::c_uint);
+    pub fn xthal_set_intclear(arg1: c_types::c_uint);
 }
 extern "C" {
-    pub static Xthal_num_ibreak: ::std::os::raw::c_int;
+    pub static Xthal_num_ibreak: c_types::c_int;
 }
 extern "C" {
-    pub static Xthal_num_dbreak: ::std::os::raw::c_int;
+    pub static Xthal_num_dbreak: c_types::c_int;
 }
 extern "C" {
-    pub static Xthal_have_ccount: ::std::os::raw::c_uchar;
+    pub static Xthal_have_ccount: c_types::c_uchar;
 }
 extern "C" {
-    pub static Xthal_num_ccompare: ::std::os::raw::c_uchar;
+    pub static Xthal_num_ccompare: c_types::c_uchar;
 }
 extern "C" {
-    pub fn xthal_get_ccount() -> ::std::os::raw::c_uint;
+    pub fn xthal_get_ccount() -> c_types::c_uint;
 }
 extern "C" {
-    pub fn xthal_set_ccompare(arg1: ::std::os::raw::c_int, arg2: ::std::os::raw::c_uint);
+    pub fn xthal_set_ccompare(arg1: c_types::c_int, arg2: c_types::c_uint);
 }
 extern "C" {
-    pub fn xthal_get_ccompare(arg1: ::std::os::raw::c_int) -> ::std::os::raw::c_uint;
+    pub fn xthal_get_ccompare(arg1: c_types::c_int) -> c_types::c_uint;
 }
 extern "C" {
-    pub static Xthal_have_prid: ::std::os::raw::c_uchar;
+    pub static Xthal_have_prid: c_types::c_uchar;
 }
 extern "C" {
-    pub static Xthal_have_exceptions: ::std::os::raw::c_uchar;
+    pub static Xthal_have_exceptions: c_types::c_uchar;
 }
 extern "C" {
-    pub static Xthal_xea_version: ::std::os::raw::c_uchar;
+    pub static Xthal_xea_version: c_types::c_uchar;
 }
 extern "C" {
-    pub static Xthal_have_interrupts: ::std::os::raw::c_uchar;
+    pub static Xthal_have_interrupts: c_types::c_uchar;
 }
 extern "C" {
-    pub static Xthal_have_highlevel_interrupts: ::std::os::raw::c_uchar;
+    pub static Xthal_have_highlevel_interrupts: c_types::c_uchar;
 }
 extern "C" {
-    pub static Xthal_have_nmi: ::std::os::raw::c_uchar;
+    pub static Xthal_have_nmi: c_types::c_uchar;
 }
 extern "C" {
-    pub fn xthal_get_prid() -> ::std::os::raw::c_uint;
+    pub fn xthal_get_prid() -> c_types::c_uint;
 }
 extern "C" {
-    pub fn xthal_vpri_to_intlevel(vpri: ::std::os::raw::c_uint) -> ::std::os::raw::c_uint;
+    pub fn xthal_vpri_to_intlevel(vpri: c_types::c_uint) -> c_types::c_uint;
 }
 extern "C" {
-    pub fn xthal_intlevel_to_vpri(intlevel: ::std::os::raw::c_uint) -> ::std::os::raw::c_uint;
+    pub fn xthal_intlevel_to_vpri(intlevel: c_types::c_uint) -> c_types::c_uint;
 }
 extern "C" {
-    pub fn xthal_int_enable(arg1: ::std::os::raw::c_uint) -> ::std::os::raw::c_uint;
+    pub fn xthal_int_enable(arg1: c_types::c_uint) -> c_types::c_uint;
 }
 extern "C" {
-    pub fn xthal_int_disable(arg1: ::std::os::raw::c_uint) -> ::std::os::raw::c_uint;
+    pub fn xthal_int_disable(arg1: c_types::c_uint) -> c_types::c_uint;
 }
 extern "C" {
-    pub fn xthal_set_int_vpri(
-        intnum: ::std::os::raw::c_int,
-        vpri: ::std::os::raw::c_int,
-    ) -> ::std::os::raw::c_int;
+    pub fn xthal_set_int_vpri(intnum: c_types::c_int, vpri: c_types::c_int) -> c_types::c_int;
 }
 extern "C" {
-    pub fn xthal_get_int_vpri(intnum: ::std::os::raw::c_int) -> ::std::os::raw::c_int;
+    pub fn xthal_get_int_vpri(intnum: c_types::c_int) -> c_types::c_int;
 }
 extern "C" {
-    pub fn xthal_set_vpri_locklevel(intlevel: ::std::os::raw::c_uint);
+    pub fn xthal_set_vpri_locklevel(intlevel: c_types::c_uint);
 }
 extern "C" {
-    pub fn xthal_get_vpri_locklevel() -> ::std::os::raw::c_uint;
+    pub fn xthal_get_vpri_locklevel() -> c_types::c_uint;
 }
 extern "C" {
-    pub fn xthal_set_vpri(vpri: ::std::os::raw::c_uint) -> ::std::os::raw::c_uint;
+    pub fn xthal_set_vpri(vpri: c_types::c_uint) -> c_types::c_uint;
 }
 extern "C" {
-    pub fn xthal_get_vpri() -> ::std::os::raw::c_uint;
+    pub fn xthal_get_vpri() -> c_types::c_uint;
 }
 extern "C" {
-    pub fn xthal_set_vpri_intlevel(intlevel: ::std::os::raw::c_uint) -> ::std::os::raw::c_uint;
+    pub fn xthal_set_vpri_intlevel(intlevel: c_types::c_uint) -> c_types::c_uint;
 }
 extern "C" {
-    pub fn xthal_set_vpri_lock() -> ::std::os::raw::c_uint;
+    pub fn xthal_set_vpri_lock() -> c_types::c_uint;
 }
 pub type XtHalVoidFunc = ::core::option::Option<unsafe extern "C" fn()>;
 extern "C" {
-    pub static mut Xthal_tram_pending: ::std::os::raw::c_uint;
+    pub static mut Xthal_tram_pending: c_types::c_uint;
 }
 extern "C" {
-    pub static mut Xthal_tram_enabled: ::std::os::raw::c_uint;
+    pub static mut Xthal_tram_enabled: c_types::c_uint;
 }
 extern "C" {
-    pub static mut Xthal_tram_sync: ::std::os::raw::c_uint;
+    pub static mut Xthal_tram_sync: c_types::c_uint;
 }
 extern "C" {
-    pub fn xthal_tram_pending_to_service() -> ::std::os::raw::c_uint;
+    pub fn xthal_tram_pending_to_service() -> c_types::c_uint;
 }
 extern "C" {
-    pub fn xthal_tram_done(serviced_mask: ::std::os::raw::c_uint);
+    pub fn xthal_tram_done(serviced_mask: c_types::c_uint);
 }
 extern "C" {
-    pub fn xthal_tram_set_sync(
-        intnum: ::std::os::raw::c_int,
-        sync: ::std::os::raw::c_int,
-    ) -> ::std::os::raw::c_int;
+    pub fn xthal_tram_set_sync(intnum: c_types::c_int, sync: c_types::c_int) -> c_types::c_int;
 }
 extern "C" {
     pub fn xthal_set_tram_trigger_func(trigger_fn: XtHalVoidFunc) -> XtHalVoidFunc;
 }
 extern "C" {
-    pub static Xthal_num_instrom: ::std::os::raw::c_uchar;
+    pub static Xthal_num_instrom: c_types::c_uchar;
 }
 extern "C" {
-    pub static Xthal_num_instram: ::std::os::raw::c_uchar;
+    pub static Xthal_num_instram: c_types::c_uchar;
 }
 extern "C" {
-    pub static Xthal_num_datarom: ::std::os::raw::c_uchar;
+    pub static Xthal_num_datarom: c_types::c_uchar;
 }
 extern "C" {
-    pub static Xthal_num_dataram: ::std::os::raw::c_uchar;
+    pub static Xthal_num_dataram: c_types::c_uchar;
 }
 extern "C" {
-    pub static Xthal_num_xlmi: ::std::os::raw::c_uchar;
+    pub static Xthal_num_xlmi: c_types::c_uchar;
 }
 extern "C" {
-    pub static mut Xthal_instrom_vaddr: [::std::os::raw::c_uint; 0usize];
+    pub static mut Xthal_instrom_vaddr: [c_types::c_uint; 0usize];
 }
 extern "C" {
-    pub static mut Xthal_instrom_paddr: [::std::os::raw::c_uint; 0usize];
+    pub static mut Xthal_instrom_paddr: [c_types::c_uint; 0usize];
 }
 extern "C" {
-    pub static mut Xthal_instrom_size: [::std::os::raw::c_uint; 0usize];
+    pub static mut Xthal_instrom_size: [c_types::c_uint; 0usize];
 }
 extern "C" {
-    pub static mut Xthal_instram_vaddr: [::std::os::raw::c_uint; 0usize];
+    pub static mut Xthal_instram_vaddr: [c_types::c_uint; 0usize];
 }
 extern "C" {
-    pub static mut Xthal_instram_paddr: [::std::os::raw::c_uint; 0usize];
+    pub static mut Xthal_instram_paddr: [c_types::c_uint; 0usize];
 }
 extern "C" {
-    pub static mut Xthal_instram_size: [::std::os::raw::c_uint; 0usize];
+    pub static mut Xthal_instram_size: [c_types::c_uint; 0usize];
 }
 extern "C" {
-    pub static mut Xthal_datarom_vaddr: [::std::os::raw::c_uint; 0usize];
+    pub static mut Xthal_datarom_vaddr: [c_types::c_uint; 0usize];
 }
 extern "C" {
-    pub static mut Xthal_datarom_paddr: [::std::os::raw::c_uint; 0usize];
+    pub static mut Xthal_datarom_paddr: [c_types::c_uint; 0usize];
 }
 extern "C" {
-    pub static mut Xthal_datarom_size: [::std::os::raw::c_uint; 0usize];
+    pub static mut Xthal_datarom_size: [c_types::c_uint; 0usize];
 }
 extern "C" {
-    pub static mut Xthal_dataram_vaddr: [::std::os::raw::c_uint; 0usize];
+    pub static mut Xthal_dataram_vaddr: [c_types::c_uint; 0usize];
 }
 extern "C" {
-    pub static mut Xthal_dataram_paddr: [::std::os::raw::c_uint; 0usize];
+    pub static mut Xthal_dataram_paddr: [c_types::c_uint; 0usize];
 }
 extern "C" {
-    pub static mut Xthal_dataram_size: [::std::os::raw::c_uint; 0usize];
+    pub static mut Xthal_dataram_size: [c_types::c_uint; 0usize];
 }
 extern "C" {
-    pub static mut Xthal_xlmi_vaddr: [::std::os::raw::c_uint; 0usize];
+    pub static mut Xthal_xlmi_vaddr: [c_types::c_uint; 0usize];
 }
 extern "C" {
-    pub static mut Xthal_xlmi_paddr: [::std::os::raw::c_uint; 0usize];
+    pub static mut Xthal_xlmi_paddr: [c_types::c_uint; 0usize];
 }
 extern "C" {
-    pub static mut Xthal_xlmi_size: [::std::os::raw::c_uint; 0usize];
+    pub static mut Xthal_xlmi_size: [c_types::c_uint; 0usize];
 }
 extern "C" {
-    pub static Xthal_icache_setwidth: ::std::os::raw::c_uchar;
+    pub static Xthal_icache_setwidth: c_types::c_uchar;
 }
 extern "C" {
-    pub static Xthal_dcache_setwidth: ::std::os::raw::c_uchar;
+    pub static Xthal_dcache_setwidth: c_types::c_uchar;
 }
 extern "C" {
-    pub static Xthal_icache_ways: ::std::os::raw::c_uint;
+    pub static Xthal_icache_ways: c_types::c_uint;
 }
 extern "C" {
-    pub static Xthal_dcache_ways: ::std::os::raw::c_uint;
+    pub static Xthal_dcache_ways: c_types::c_uint;
 }
 extern "C" {
-    pub static Xthal_icache_line_lockable: ::std::os::raw::c_uchar;
+    pub static Xthal_icache_line_lockable: c_types::c_uchar;
 }
 extern "C" {
-    pub static Xthal_dcache_line_lockable: ::std::os::raw::c_uchar;
+    pub static Xthal_dcache_line_lockable: c_types::c_uchar;
 }
 extern "C" {
-    pub fn xthal_get_cacheattr() -> ::std::os::raw::c_uint;
+    pub fn xthal_get_cacheattr() -> c_types::c_uint;
 }
 extern "C" {
-    pub fn xthal_get_icacheattr() -> ::std::os::raw::c_uint;
+    pub fn xthal_get_icacheattr() -> c_types::c_uint;
 }
 extern "C" {
-    pub fn xthal_get_dcacheattr() -> ::std::os::raw::c_uint;
+    pub fn xthal_get_dcacheattr() -> c_types::c_uint;
 }
 extern "C" {
-    pub fn xthal_set_cacheattr(arg1: ::std::os::raw::c_uint);
+    pub fn xthal_set_cacheattr(arg1: c_types::c_uint);
 }
 extern "C" {
-    pub fn xthal_set_icacheattr(arg1: ::std::os::raw::c_uint);
+    pub fn xthal_set_icacheattr(arg1: c_types::c_uint);
 }
 extern "C" {
-    pub fn xthal_set_dcacheattr(arg1: ::std::os::raw::c_uint);
+    pub fn xthal_set_dcacheattr(arg1: c_types::c_uint);
 }
 extern "C" {
     pub fn xthal_set_region_attribute(
-        addr: *mut ::core::ffi::c_void,
-        size: ::std::os::raw::c_uint,
-        cattr: ::std::os::raw::c_uint,
-        flags: ::std::os::raw::c_uint,
-    ) -> ::std::os::raw::c_int;
+        addr: *mut c_types::c_void,
+        size: c_types::c_uint,
+        cattr: c_types::c_uint,
+        flags: c_types::c_uint,
+    ) -> c_types::c_int;
 }
 extern "C" {
     pub fn xthal_icache_enable();
@@ -16308,171 +16168,151 @@ extern "C" {
     pub fn xthal_dcache_all_unlock();
 }
 extern "C" {
-    pub fn xthal_icache_region_lock(addr: *mut ::core::ffi::c_void, size: ::std::os::raw::c_uint);
+    pub fn xthal_icache_region_lock(addr: *mut c_types::c_void, size: c_types::c_uint);
 }
 extern "C" {
-    pub fn xthal_dcache_region_lock(addr: *mut ::core::ffi::c_void, size: ::std::os::raw::c_uint);
+    pub fn xthal_dcache_region_lock(addr: *mut c_types::c_void, size: c_types::c_uint);
 }
 extern "C" {
-    pub fn xthal_icache_region_unlock(addr: *mut ::core::ffi::c_void, size: ::std::os::raw::c_uint);
+    pub fn xthal_icache_region_unlock(addr: *mut c_types::c_void, size: c_types::c_uint);
 }
 extern "C" {
-    pub fn xthal_dcache_region_unlock(addr: *mut ::core::ffi::c_void, size: ::std::os::raw::c_uint);
+    pub fn xthal_dcache_region_unlock(addr: *mut c_types::c_void, size: c_types::c_uint);
 }
 extern "C" {
-    pub fn xthal_icache_hugerange_invalidate(
-        addr: *mut ::core::ffi::c_void,
-        size: ::std::os::raw::c_uint,
-    );
+    pub fn xthal_icache_hugerange_invalidate(addr: *mut c_types::c_void, size: c_types::c_uint);
 }
 extern "C" {
-    pub fn xthal_icache_hugerange_unlock(
-        addr: *mut ::core::ffi::c_void,
-        size: ::std::os::raw::c_uint,
-    );
+    pub fn xthal_icache_hugerange_unlock(addr: *mut c_types::c_void, size: c_types::c_uint);
 }
 extern "C" {
-    pub fn xthal_dcache_hugerange_invalidate(
-        addr: *mut ::core::ffi::c_void,
-        size: ::std::os::raw::c_uint,
-    );
+    pub fn xthal_dcache_hugerange_invalidate(addr: *mut c_types::c_void, size: c_types::c_uint);
 }
 extern "C" {
-    pub fn xthal_dcache_hugerange_unlock(
-        addr: *mut ::core::ffi::c_void,
-        size: ::std::os::raw::c_uint,
-    );
+    pub fn xthal_dcache_hugerange_unlock(addr: *mut c_types::c_void, size: c_types::c_uint);
 }
 extern "C" {
-    pub fn xthal_dcache_hugerange_writeback(
-        addr: *mut ::core::ffi::c_void,
-        size: ::std::os::raw::c_uint,
-    );
+    pub fn xthal_dcache_hugerange_writeback(addr: *mut c_types::c_void, size: c_types::c_uint);
 }
 extern "C" {
-    pub fn xthal_dcache_hugerange_writeback_inv(
-        addr: *mut ::core::ffi::c_void,
-        size: ::std::os::raw::c_uint,
-    );
+    pub fn xthal_dcache_hugerange_writeback_inv(addr: *mut c_types::c_void, size: c_types::c_uint);
 }
 extern "C" {
-    pub fn xthal_icache_line_lock(addr: *mut ::core::ffi::c_void);
+    pub fn xthal_icache_line_lock(addr: *mut c_types::c_void);
 }
 extern "C" {
-    pub fn xthal_dcache_line_lock(addr: *mut ::core::ffi::c_void);
+    pub fn xthal_dcache_line_lock(addr: *mut c_types::c_void);
 }
 extern "C" {
-    pub fn xthal_icache_line_unlock(addr: *mut ::core::ffi::c_void);
+    pub fn xthal_icache_line_unlock(addr: *mut c_types::c_void);
 }
 extern "C" {
-    pub fn xthal_dcache_line_unlock(addr: *mut ::core::ffi::c_void);
+    pub fn xthal_dcache_line_unlock(addr: *mut c_types::c_void);
 }
 extern "C" {
     pub fn xthal_memep_inject_error(
-        addr: *mut ::core::ffi::c_void,
-        size: ::std::os::raw::c_int,
-        flags: ::std::os::raw::c_int,
+        addr: *mut c_types::c_void,
+        size: c_types::c_int,
+        flags: c_types::c_int,
     );
 }
 extern "C" {
-    pub static Xthal_have_spanning_way: ::std::os::raw::c_uchar;
+    pub static Xthal_have_spanning_way: c_types::c_uchar;
 }
 extern "C" {
-    pub static Xthal_have_identity_map: ::std::os::raw::c_uchar;
+    pub static Xthal_have_identity_map: c_types::c_uchar;
 }
 extern "C" {
-    pub static Xthal_have_mimic_cacheattr: ::std::os::raw::c_uchar;
+    pub static Xthal_have_mimic_cacheattr: c_types::c_uchar;
 }
 extern "C" {
-    pub static Xthal_have_xlt_cacheattr: ::std::os::raw::c_uchar;
+    pub static Xthal_have_xlt_cacheattr: c_types::c_uchar;
 }
 extern "C" {
-    pub static Xthal_have_cacheattr: ::std::os::raw::c_uchar;
+    pub static Xthal_have_cacheattr: c_types::c_uchar;
 }
 extern "C" {
-    pub static Xthal_have_tlbs: ::std::os::raw::c_uchar;
+    pub static Xthal_have_tlbs: c_types::c_uchar;
 }
 extern "C" {
-    pub static Xthal_mmu_asid_bits: ::std::os::raw::c_uchar;
+    pub static Xthal_mmu_asid_bits: c_types::c_uchar;
 }
 extern "C" {
-    pub static Xthal_mmu_asid_kernel: ::std::os::raw::c_uchar;
+    pub static Xthal_mmu_asid_kernel: c_types::c_uchar;
 }
 extern "C" {
-    pub static Xthal_mmu_rings: ::std::os::raw::c_uchar;
+    pub static Xthal_mmu_rings: c_types::c_uchar;
 }
 extern "C" {
-    pub static Xthal_mmu_ring_bits: ::std::os::raw::c_uchar;
+    pub static Xthal_mmu_ring_bits: c_types::c_uchar;
 }
 extern "C" {
-    pub static Xthal_mmu_sr_bits: ::std::os::raw::c_uchar;
+    pub static Xthal_mmu_sr_bits: c_types::c_uchar;
 }
 extern "C" {
-    pub static Xthal_mmu_ca_bits: ::std::os::raw::c_uchar;
+    pub static Xthal_mmu_ca_bits: c_types::c_uchar;
 }
 extern "C" {
-    pub static Xthal_mmu_max_pte_page_size: ::std::os::raw::c_uint;
+    pub static Xthal_mmu_max_pte_page_size: c_types::c_uint;
 }
 extern "C" {
-    pub static Xthal_mmu_min_pte_page_size: ::std::os::raw::c_uint;
+    pub static Xthal_mmu_min_pte_page_size: c_types::c_uint;
 }
 extern "C" {
-    pub static Xthal_itlb_way_bits: ::std::os::raw::c_uchar;
+    pub static Xthal_itlb_way_bits: c_types::c_uchar;
 }
 extern "C" {
-    pub static Xthal_itlb_ways: ::std::os::raw::c_uchar;
+    pub static Xthal_itlb_ways: c_types::c_uchar;
 }
 extern "C" {
-    pub static Xthal_itlb_arf_ways: ::std::os::raw::c_uchar;
+    pub static Xthal_itlb_arf_ways: c_types::c_uchar;
 }
 extern "C" {
-    pub static Xthal_dtlb_way_bits: ::std::os::raw::c_uchar;
+    pub static Xthal_dtlb_way_bits: c_types::c_uchar;
 }
 extern "C" {
-    pub static Xthal_dtlb_ways: ::std::os::raw::c_uchar;
+    pub static Xthal_dtlb_ways: c_types::c_uchar;
 }
 extern "C" {
-    pub static Xthal_dtlb_arf_ways: ::std::os::raw::c_uchar;
+    pub static Xthal_dtlb_arf_ways: c_types::c_uchar;
 }
 extern "C" {
-    pub fn xthal_static_v2p(
-        vaddr: ::std::os::raw::c_uint,
-        paddrp: *mut ::std::os::raw::c_uint,
-    ) -> ::std::os::raw::c_int;
+    pub fn xthal_static_v2p(vaddr: c_types::c_uint, paddrp: *mut c_types::c_uint)
+        -> c_types::c_int;
 }
 extern "C" {
     pub fn xthal_static_p2v(
-        paddr: ::std::os::raw::c_uint,
-        vaddrp: *mut ::std::os::raw::c_uint,
-        cached: ::std::os::raw::c_uint,
-    ) -> ::std::os::raw::c_int;
+        paddr: c_types::c_uint,
+        vaddrp: *mut c_types::c_uint,
+        cached: c_types::c_uint,
+    ) -> c_types::c_int;
 }
 extern "C" {
     pub fn xthal_set_region_translation(
-        vaddr: *mut ::core::ffi::c_void,
-        paddr: *mut ::core::ffi::c_void,
-        size: ::std::os::raw::c_uint,
-        cache_atr: ::std::os::raw::c_uint,
-        flags: ::std::os::raw::c_uint,
-    ) -> ::std::os::raw::c_int;
+        vaddr: *mut c_types::c_void,
+        paddr: *mut c_types::c_void,
+        size: c_types::c_uint,
+        cache_atr: c_types::c_uint,
+        flags: c_types::c_uint,
+    ) -> c_types::c_int;
 }
 extern "C" {
     pub fn xthal_v2p(
-        arg1: *mut ::core::ffi::c_void,
-        arg2: *mut *mut ::core::ffi::c_void,
-        arg3: *mut ::std::os::raw::c_uint,
-        arg4: *mut ::std::os::raw::c_uint,
-    ) -> ::std::os::raw::c_int;
+        arg1: *mut c_types::c_void,
+        arg2: *mut *mut c_types::c_void,
+        arg3: *mut c_types::c_uint,
+        arg4: *mut c_types::c_uint,
+    ) -> c_types::c_int;
 }
 extern "C" {
-    pub fn xthal_invalidate_region(addr: *mut ::core::ffi::c_void) -> ::std::os::raw::c_int;
+    pub fn xthal_invalidate_region(addr: *mut c_types::c_void) -> c_types::c_int;
 }
 extern "C" {
     pub fn xthal_set_region_translation_raw(
-        vaddr: *mut ::core::ffi::c_void,
-        paddr: *mut ::core::ffi::c_void,
-        cattr: ::std::os::raw::c_uint,
-    ) -> ::std::os::raw::c_int;
+        vaddr: *mut c_types::c_void,
+        paddr: *mut c_types::c_void,
+        cattr: c_types::c_uint,
+    ) -> c_types::c_int;
 }
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
@@ -16502,7 +16342,7 @@ extern "C" {
     pub fn xthal_is_user_executable(accessRights: u32) -> i32;
 }
 extern "C" {
-    pub fn xthal_encode_memory_type(x: u32) -> ::std::os::raw::c_int;
+    pub fn xthal_encode_memory_type(x: u32) -> c_types::c_int;
 }
 extern "C" {
     pub fn xthal_is_cacheable(memoryType: u32) -> i32;
@@ -16520,11 +16360,11 @@ extern "C" {
     pub fn xthal_write_map(entries: *const xthal_MPU_entry, n: u32);
 }
 extern "C" {
-    pub fn xthal_check_map(entries: *const xthal_MPU_entry, n: u32) -> ::std::os::raw::c_int;
+    pub fn xthal_check_map(entries: *const xthal_MPU_entry, n: u32) -> c_types::c_int;
 }
 extern "C" {
     pub fn xthal_get_entry_for_address(
-        vaddr: *mut ::core::ffi::c_void,
+        vaddr: *mut c_types::c_void,
         infgmap: *mut i32,
     ) -> xthal_MPU_entry;
 }
@@ -16533,174 +16373,174 @@ extern "C" {
 }
 extern "C" {
     pub fn xthal_mpu_set_region_attribute(
-        vaddr: *mut ::core::ffi::c_void,
+        vaddr: *mut c_types::c_void,
         size: size_t,
         accessRights: i32,
         memoryType: i32,
         flags: u32,
-    ) -> ::std::os::raw::c_int;
+    ) -> c_types::c_int;
 }
 extern "C" {
     pub fn xthal_read_background_map(entries: *mut xthal_MPU_entry) -> i32;
 }
 extern "C" {
-    pub static Xthal_cp_id_FPU: ::std::os::raw::c_uchar;
+    pub static Xthal_cp_id_FPU: c_types::c_uchar;
 }
 extern "C" {
-    pub static Xthal_cp_mask_FPU: ::std::os::raw::c_uint;
+    pub static Xthal_cp_mask_FPU: c_types::c_uint;
 }
 extern "C" {
-    pub static Xthal_cp_id_XCHAL_CP1_IDENT: ::std::os::raw::c_uchar;
+    pub static Xthal_cp_id_XCHAL_CP1_IDENT: c_types::c_uchar;
 }
 extern "C" {
-    pub static Xthal_cp_mask_XCHAL_CP1_IDENT: ::std::os::raw::c_uint;
+    pub static Xthal_cp_mask_XCHAL_CP1_IDENT: c_types::c_uint;
 }
 extern "C" {
-    pub static Xthal_cp_id_XCHAL_CP2_IDENT: ::std::os::raw::c_uchar;
+    pub static Xthal_cp_id_XCHAL_CP2_IDENT: c_types::c_uchar;
 }
 extern "C" {
-    pub static Xthal_cp_mask_XCHAL_CP2_IDENT: ::std::os::raw::c_uint;
+    pub static Xthal_cp_mask_XCHAL_CP2_IDENT: c_types::c_uint;
 }
 extern "C" {
-    pub static Xthal_cp_id_XCHAL_CP3_IDENT: ::std::os::raw::c_uchar;
+    pub static Xthal_cp_id_XCHAL_CP3_IDENT: c_types::c_uchar;
 }
 extern "C" {
-    pub static Xthal_cp_mask_XCHAL_CP3_IDENT: ::std::os::raw::c_uint;
+    pub static Xthal_cp_mask_XCHAL_CP3_IDENT: c_types::c_uint;
 }
 extern "C" {
-    pub static Xthal_cp_id_XCHAL_CP4_IDENT: ::std::os::raw::c_uchar;
+    pub static Xthal_cp_id_XCHAL_CP4_IDENT: c_types::c_uchar;
 }
 extern "C" {
-    pub static Xthal_cp_mask_XCHAL_CP4_IDENT: ::std::os::raw::c_uint;
+    pub static Xthal_cp_mask_XCHAL_CP4_IDENT: c_types::c_uint;
 }
 extern "C" {
-    pub static Xthal_cp_id_XCHAL_CP5_IDENT: ::std::os::raw::c_uchar;
+    pub static Xthal_cp_id_XCHAL_CP5_IDENT: c_types::c_uchar;
 }
 extern "C" {
-    pub static Xthal_cp_mask_XCHAL_CP5_IDENT: ::std::os::raw::c_uint;
+    pub static Xthal_cp_mask_XCHAL_CP5_IDENT: c_types::c_uint;
 }
 extern "C" {
-    pub static Xthal_cp_id_XCHAL_CP6_IDENT: ::std::os::raw::c_uchar;
+    pub static Xthal_cp_id_XCHAL_CP6_IDENT: c_types::c_uchar;
 }
 extern "C" {
-    pub static Xthal_cp_mask_XCHAL_CP6_IDENT: ::std::os::raw::c_uint;
+    pub static Xthal_cp_mask_XCHAL_CP6_IDENT: c_types::c_uint;
 }
 extern "C" {
-    pub static Xthal_cp_id_XCHAL_CP7_IDENT: ::std::os::raw::c_uchar;
+    pub static Xthal_cp_id_XCHAL_CP7_IDENT: c_types::c_uchar;
 }
 extern "C" {
-    pub static Xthal_cp_mask_XCHAL_CP7_IDENT: ::std::os::raw::c_uint;
+    pub static Xthal_cp_mask_XCHAL_CP7_IDENT: c_types::c_uint;
 }
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
 pub struct KernelFrame {
-    pub pc: ::std::os::raw::c_long,
-    pub ps: ::std::os::raw::c_long,
-    pub areg: [::std::os::raw::c_long; 4usize],
-    pub sar: ::std::os::raw::c_long,
-    pub lcount: ::std::os::raw::c_long,
-    pub lbeg: ::std::os::raw::c_long,
-    pub lend: ::std::os::raw::c_long,
-    pub acclo: ::std::os::raw::c_long,
-    pub acchi: ::std::os::raw::c_long,
-    pub mr: [::std::os::raw::c_long; 4usize],
+    pub pc: c_types::c_long,
+    pub ps: c_types::c_long,
+    pub areg: [c_types::c_long; 4usize],
+    pub sar: c_types::c_long,
+    pub lcount: c_types::c_long,
+    pub lbeg: c_types::c_long,
+    pub lend: c_types::c_long,
+    pub acclo: c_types::c_long,
+    pub acchi: c_types::c_long,
+    pub mr: [c_types::c_long; 4usize],
 }
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
 pub struct UserFrame {
-    pub pc: ::std::os::raw::c_long,
-    pub ps: ::std::os::raw::c_long,
-    pub sar: ::std::os::raw::c_long,
-    pub vpri: ::std::os::raw::c_long,
-    pub a2: ::std::os::raw::c_long,
-    pub a3: ::std::os::raw::c_long,
-    pub a4: ::std::os::raw::c_long,
-    pub a5: ::std::os::raw::c_long,
-    pub exccause: ::std::os::raw::c_long,
-    pub lcount: ::std::os::raw::c_long,
-    pub lbeg: ::std::os::raw::c_long,
-    pub lend: ::std::os::raw::c_long,
-    pub acclo: ::std::os::raw::c_long,
-    pub acchi: ::std::os::raw::c_long,
-    pub mr: [::std::os::raw::c_long; 4usize],
-    pub pad: [::std::os::raw::c_long; 2usize],
+    pub pc: c_types::c_long,
+    pub ps: c_types::c_long,
+    pub sar: c_types::c_long,
+    pub vpri: c_types::c_long,
+    pub a2: c_types::c_long,
+    pub a3: c_types::c_long,
+    pub a4: c_types::c_long,
+    pub a5: c_types::c_long,
+    pub exccause: c_types::c_long,
+    pub lcount: c_types::c_long,
+    pub lbeg: c_types::c_long,
+    pub lend: c_types::c_long,
+    pub acclo: c_types::c_long,
+    pub acchi: c_types::c_long,
+    pub mr: [c_types::c_long; 4usize],
+    pub pad: [c_types::c_long; 2usize],
 }
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
 pub struct XtExcFrame {
-    pub exit: ::std::os::raw::c_long,
-    pub pc: ::std::os::raw::c_long,
-    pub ps: ::std::os::raw::c_long,
-    pub a0: ::std::os::raw::c_long,
-    pub a1: ::std::os::raw::c_long,
-    pub a2: ::std::os::raw::c_long,
-    pub a3: ::std::os::raw::c_long,
-    pub a4: ::std::os::raw::c_long,
-    pub a5: ::std::os::raw::c_long,
-    pub a6: ::std::os::raw::c_long,
-    pub a7: ::std::os::raw::c_long,
-    pub a8: ::std::os::raw::c_long,
-    pub a9: ::std::os::raw::c_long,
-    pub a10: ::std::os::raw::c_long,
-    pub a11: ::std::os::raw::c_long,
-    pub a12: ::std::os::raw::c_long,
-    pub a13: ::std::os::raw::c_long,
-    pub a14: ::std::os::raw::c_long,
-    pub a15: ::std::os::raw::c_long,
-    pub sar: ::std::os::raw::c_long,
-    pub exccause: ::std::os::raw::c_long,
-    pub excvaddr: ::std::os::raw::c_long,
-    pub lbeg: ::std::os::raw::c_long,
-    pub lend: ::std::os::raw::c_long,
-    pub lcount: ::std::os::raw::c_long,
-    pub tmp0: ::std::os::raw::c_long,
-    pub tmp1: ::std::os::raw::c_long,
-    pub tmp2: ::std::os::raw::c_long,
+    pub exit: c_types::c_long,
+    pub pc: c_types::c_long,
+    pub ps: c_types::c_long,
+    pub a0: c_types::c_long,
+    pub a1: c_types::c_long,
+    pub a2: c_types::c_long,
+    pub a3: c_types::c_long,
+    pub a4: c_types::c_long,
+    pub a5: c_types::c_long,
+    pub a6: c_types::c_long,
+    pub a7: c_types::c_long,
+    pub a8: c_types::c_long,
+    pub a9: c_types::c_long,
+    pub a10: c_types::c_long,
+    pub a11: c_types::c_long,
+    pub a12: c_types::c_long,
+    pub a13: c_types::c_long,
+    pub a14: c_types::c_long,
+    pub a15: c_types::c_long,
+    pub sar: c_types::c_long,
+    pub exccause: c_types::c_long,
+    pub excvaddr: c_types::c_long,
+    pub lbeg: c_types::c_long,
+    pub lend: c_types::c_long,
+    pub lcount: c_types::c_long,
+    pub tmp0: c_types::c_long,
+    pub tmp1: c_types::c_long,
+    pub tmp2: c_types::c_long,
 }
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
 pub struct XtSolFrame {
-    pub exit: ::std::os::raw::c_long,
-    pub pc: ::std::os::raw::c_long,
-    pub ps: ::std::os::raw::c_long,
-    pub next: ::std::os::raw::c_long,
-    pub a0: ::std::os::raw::c_long,
-    pub a1: ::std::os::raw::c_long,
-    pub a2: ::std::os::raw::c_long,
-    pub a3: ::std::os::raw::c_long,
+    pub exit: c_types::c_long,
+    pub pc: c_types::c_long,
+    pub ps: c_types::c_long,
+    pub next: c_types::c_long,
+    pub a0: c_types::c_long,
+    pub a1: c_types::c_long,
+    pub a2: c_types::c_long,
+    pub a3: c_types::c_long,
 }
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
 pub struct div_t {
-    pub quot: ::std::os::raw::c_int,
-    pub rem: ::std::os::raw::c_int,
+    pub quot: c_types::c_int,
+    pub rem: c_types::c_int,
 }
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
 pub struct ldiv_t {
-    pub quot: ::std::os::raw::c_long,
-    pub rem: ::std::os::raw::c_long,
+    pub quot: c_types::c_long,
+    pub rem: c_types::c_long,
 }
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
 pub struct lldiv_t {
-    pub quot: ::std::os::raw::c_longlong,
-    pub rem: ::std::os::raw::c_longlong,
+    pub quot: c_types::c_longlong,
+    pub rem: c_types::c_longlong,
 }
 pub type __compar_fn_t = ::core::option::Option<
     unsafe extern "C" fn(
-        arg1: *const ::core::ffi::c_void,
-        arg2: *const ::core::ffi::c_void,
-    ) -> ::std::os::raw::c_int,
+        arg1: *const c_types::c_void,
+        arg2: *const c_types::c_void,
+    ) -> c_types::c_int,
 >;
 extern "C" {
-    pub fn __locale_mb_cur_max() -> ::std::os::raw::c_int;
+    pub fn __locale_mb_cur_max() -> c_types::c_int;
 }
 extern "C" {
     pub fn abort();
 }
 extern "C" {
-    pub fn abs(arg1: ::std::os::raw::c_int) -> ::std::os::raw::c_int;
+    pub fn abs(arg1: c_types::c_int) -> c_types::c_int;
 }
 extern "C" {
     pub fn arc4random() -> __uint32_t;
@@ -16709,400 +16549,350 @@ extern "C" {
     pub fn arc4random_uniform(arg1: __uint32_t) -> __uint32_t;
 }
 extern "C" {
-    pub fn arc4random_buf(arg1: *mut ::core::ffi::c_void, arg2: size_t);
+    pub fn arc4random_buf(arg1: *mut c_types::c_void, arg2: size_t);
 }
 extern "C" {
-    pub fn atexit(__func: ::core::option::Option<unsafe extern "C" fn()>) -> ::std::os::raw::c_int;
+    pub fn atexit(__func: ::core::option::Option<unsafe extern "C" fn()>) -> c_types::c_int;
 }
 extern "C" {
-    pub fn atof(__nptr: *const ::std::os::raw::c_char) -> f64;
+    pub fn atof(__nptr: *const c_types::c_char) -> f64;
 }
 extern "C" {
-    pub fn atoff(__nptr: *const ::std::os::raw::c_char) -> f32;
+    pub fn atoff(__nptr: *const c_types::c_char) -> f32;
 }
 extern "C" {
-    pub fn atoi(__nptr: *const ::std::os::raw::c_char) -> ::std::os::raw::c_int;
+    pub fn atoi(__nptr: *const c_types::c_char) -> c_types::c_int;
 }
 extern "C" {
-    pub fn _atoi_r(
-        arg1: *mut _reent,
-        __nptr: *const ::std::os::raw::c_char,
-    ) -> ::std::os::raw::c_int;
+    pub fn _atoi_r(arg1: *mut _reent, __nptr: *const c_types::c_char) -> c_types::c_int;
 }
 extern "C" {
-    pub fn atol(__nptr: *const ::std::os::raw::c_char) -> ::std::os::raw::c_long;
+    pub fn atol(__nptr: *const c_types::c_char) -> c_types::c_long;
 }
 extern "C" {
-    pub fn _atol_r(
-        arg1: *mut _reent,
-        __nptr: *const ::std::os::raw::c_char,
-    ) -> ::std::os::raw::c_long;
+    pub fn _atol_r(arg1: *mut _reent, __nptr: *const c_types::c_char) -> c_types::c_long;
 }
 extern "C" {
     pub fn bsearch(
-        __key: *const ::core::ffi::c_void,
-        __base: *const ::core::ffi::c_void,
+        __key: *const c_types::c_void,
+        __base: *const c_types::c_void,
         __nmemb: size_t,
         __size: size_t,
         _compar: __compar_fn_t,
-    ) -> *mut ::core::ffi::c_void;
+    ) -> *mut c_types::c_void;
 }
 extern "C" {
-    pub fn calloc(
-        __nmemb: ::std::os::raw::c_uint,
-        __size: ::std::os::raw::c_uint,
-    ) -> *mut ::core::ffi::c_void;
+    pub fn calloc(__nmemb: c_types::c_uint, __size: c_types::c_uint) -> *mut c_types::c_void;
 }
 extern "C" {
-    pub fn div(__numer: ::std::os::raw::c_int, __denom: ::std::os::raw::c_int) -> div_t;
+    pub fn div(__numer: c_types::c_int, __denom: c_types::c_int) -> div_t;
 }
 extern "C" {
-    pub fn exit(__status: ::std::os::raw::c_int);
+    pub fn exit(__status: c_types::c_int);
 }
 extern "C" {
-    pub fn free(arg1: *mut ::core::ffi::c_void);
+    pub fn free(arg1: *mut c_types::c_void);
 }
 extern "C" {
-    pub fn getenv(__string: *const ::std::os::raw::c_char) -> *mut ::std::os::raw::c_char;
+    pub fn getenv(__string: *const c_types::c_char) -> *mut c_types::c_char;
 }
 extern "C" {
-    pub fn _getenv_r(
-        arg1: *mut _reent,
-        __string: *const ::std::os::raw::c_char,
-    ) -> *mut ::std::os::raw::c_char;
+    pub fn _getenv_r(arg1: *mut _reent, __string: *const c_types::c_char) -> *mut c_types::c_char;
 }
 extern "C" {
     pub fn _findenv(
-        arg1: *const ::std::os::raw::c_char,
-        arg2: *mut ::std::os::raw::c_int,
-    ) -> *mut ::std::os::raw::c_char;
+        arg1: *const c_types::c_char,
+        arg2: *mut c_types::c_int,
+    ) -> *mut c_types::c_char;
 }
 extern "C" {
     pub fn _findenv_r(
         arg1: *mut _reent,
-        arg2: *const ::std::os::raw::c_char,
-        arg3: *mut ::std::os::raw::c_int,
-    ) -> *mut ::std::os::raw::c_char;
+        arg2: *const c_types::c_char,
+        arg3: *mut c_types::c_int,
+    ) -> *mut c_types::c_char;
 }
 extern "C" {
-    pub static mut suboptarg: *mut ::std::os::raw::c_char;
+    pub static mut suboptarg: *mut c_types::c_char;
 }
 extern "C" {
     pub fn getsubopt(
-        arg1: *mut *mut ::std::os::raw::c_char,
-        arg2: *const *mut ::std::os::raw::c_char,
-        arg3: *mut *mut ::std::os::raw::c_char,
-    ) -> ::std::os::raw::c_int;
+        arg1: *mut *mut c_types::c_char,
+        arg2: *const *mut c_types::c_char,
+        arg3: *mut *mut c_types::c_char,
+    ) -> c_types::c_int;
 }
 extern "C" {
-    pub fn labs(arg1: ::std::os::raw::c_long) -> ::std::os::raw::c_long;
+    pub fn labs(arg1: c_types::c_long) -> c_types::c_long;
 }
 extern "C" {
-    pub fn ldiv(__numer: ::std::os::raw::c_long, __denom: ::std::os::raw::c_long) -> ldiv_t;
+    pub fn ldiv(__numer: c_types::c_long, __denom: c_types::c_long) -> ldiv_t;
 }
 extern "C" {
-    pub fn malloc(__size: ::std::os::raw::c_uint) -> *mut ::core::ffi::c_void;
+    pub fn malloc(__size: c_types::c_uint) -> *mut c_types::c_void;
 }
 extern "C" {
-    pub fn mblen(arg1: *const ::std::os::raw::c_char, arg2: size_t) -> ::std::os::raw::c_int;
+    pub fn mblen(arg1: *const c_types::c_char, arg2: size_t) -> c_types::c_int;
 }
 extern "C" {
     pub fn _mblen_r(
         arg1: *mut _reent,
-        arg2: *const ::std::os::raw::c_char,
+        arg2: *const c_types::c_char,
         arg3: size_t,
         arg4: *mut _mbstate_t,
-    ) -> ::std::os::raw::c_int;
+    ) -> c_types::c_int;
 }
 extern "C" {
-    pub fn mbtowc(
-        arg1: *mut wchar_t,
-        arg2: *const ::std::os::raw::c_char,
-        arg3: size_t,
-    ) -> ::std::os::raw::c_int;
+    pub fn mbtowc(arg1: *mut wchar_t, arg2: *const c_types::c_char, arg3: size_t)
+        -> c_types::c_int;
 }
 extern "C" {
     pub fn _mbtowc_r(
         arg1: *mut _reent,
         arg2: *mut wchar_t,
-        arg3: *const ::std::os::raw::c_char,
+        arg3: *const c_types::c_char,
         arg4: size_t,
         arg5: *mut _mbstate_t,
-    ) -> ::std::os::raw::c_int;
+    ) -> c_types::c_int;
 }
 extern "C" {
-    pub fn wctomb(arg1: *mut ::std::os::raw::c_char, arg2: wchar_t) -> ::std::os::raw::c_int;
+    pub fn wctomb(arg1: *mut c_types::c_char, arg2: wchar_t) -> c_types::c_int;
 }
 extern "C" {
     pub fn _wctomb_r(
         arg1: *mut _reent,
-        arg2: *mut ::std::os::raw::c_char,
+        arg2: *mut c_types::c_char,
         arg3: wchar_t,
         arg4: *mut _mbstate_t,
-    ) -> ::std::os::raw::c_int;
+    ) -> c_types::c_int;
 }
 extern "C" {
-    pub fn mbstowcs(
-        arg1: *mut wchar_t,
-        arg2: *const ::std::os::raw::c_char,
-        arg3: size_t,
-    ) -> size_t;
+    pub fn mbstowcs(arg1: *mut wchar_t, arg2: *const c_types::c_char, arg3: size_t) -> size_t;
 }
 extern "C" {
     pub fn _mbstowcs_r(
         arg1: *mut _reent,
         arg2: *mut wchar_t,
-        arg3: *const ::std::os::raw::c_char,
+        arg3: *const c_types::c_char,
         arg4: size_t,
         arg5: *mut _mbstate_t,
     ) -> size_t;
 }
 extern "C" {
-    pub fn wcstombs(
-        arg1: *mut ::std::os::raw::c_char,
-        arg2: *const wchar_t,
-        arg3: size_t,
-    ) -> size_t;
+    pub fn wcstombs(arg1: *mut c_types::c_char, arg2: *const wchar_t, arg3: size_t) -> size_t;
 }
 extern "C" {
     pub fn _wcstombs_r(
         arg1: *mut _reent,
-        arg2: *mut ::std::os::raw::c_char,
+        arg2: *mut c_types::c_char,
         arg3: *const wchar_t,
         arg4: size_t,
         arg5: *mut _mbstate_t,
     ) -> size_t;
 }
 extern "C" {
-    pub fn mkdtemp(arg1: *mut ::std::os::raw::c_char) -> *mut ::std::os::raw::c_char;
+    pub fn mkdtemp(arg1: *mut c_types::c_char) -> *mut c_types::c_char;
 }
 extern "C" {
-    pub fn mkstemp(arg1: *mut ::std::os::raw::c_char) -> ::std::os::raw::c_int;
+    pub fn mkstemp(arg1: *mut c_types::c_char) -> c_types::c_int;
 }
 extern "C" {
-    pub fn mkstemps(
-        arg1: *mut ::std::os::raw::c_char,
-        arg2: ::std::os::raw::c_int,
-    ) -> ::std::os::raw::c_int;
+    pub fn mkstemps(arg1: *mut c_types::c_char, arg2: c_types::c_int) -> c_types::c_int;
 }
 extern "C" {
-    pub fn mktemp(arg1: *mut ::std::os::raw::c_char) -> *mut ::std::os::raw::c_char;
+    pub fn mktemp(arg1: *mut c_types::c_char) -> *mut c_types::c_char;
 }
 extern "C" {
-    pub fn _mkdtemp_r(
-        arg1: *mut _reent,
-        arg2: *mut ::std::os::raw::c_char,
-    ) -> *mut ::std::os::raw::c_char;
+    pub fn _mkdtemp_r(arg1: *mut _reent, arg2: *mut c_types::c_char) -> *mut c_types::c_char;
 }
 extern "C" {
     pub fn _mkostemp_r(
         arg1: *mut _reent,
-        arg2: *mut ::std::os::raw::c_char,
-        arg3: ::std::os::raw::c_int,
-    ) -> ::std::os::raw::c_int;
+        arg2: *mut c_types::c_char,
+        arg3: c_types::c_int,
+    ) -> c_types::c_int;
 }
 extern "C" {
     pub fn _mkostemps_r(
         arg1: *mut _reent,
-        arg2: *mut ::std::os::raw::c_char,
-        arg3: ::std::os::raw::c_int,
-        arg4: ::std::os::raw::c_int,
-    ) -> ::std::os::raw::c_int;
+        arg2: *mut c_types::c_char,
+        arg3: c_types::c_int,
+        arg4: c_types::c_int,
+    ) -> c_types::c_int;
 }
 extern "C" {
-    pub fn _mkstemp_r(
-        arg1: *mut _reent,
-        arg2: *mut ::std::os::raw::c_char,
-    ) -> ::std::os::raw::c_int;
+    pub fn _mkstemp_r(arg1: *mut _reent, arg2: *mut c_types::c_char) -> c_types::c_int;
 }
 extern "C" {
     pub fn _mkstemps_r(
         arg1: *mut _reent,
-        arg2: *mut ::std::os::raw::c_char,
-        arg3: ::std::os::raw::c_int,
-    ) -> ::std::os::raw::c_int;
+        arg2: *mut c_types::c_char,
+        arg3: c_types::c_int,
+    ) -> c_types::c_int;
 }
 extern "C" {
-    pub fn _mktemp_r(
-        arg1: *mut _reent,
-        arg2: *mut ::std::os::raw::c_char,
-    ) -> *mut ::std::os::raw::c_char;
+    pub fn _mktemp_r(arg1: *mut _reent, arg2: *mut c_types::c_char) -> *mut c_types::c_char;
 }
 extern "C" {
     pub fn qsort(
-        __base: *mut ::core::ffi::c_void,
+        __base: *mut c_types::c_void,
         __nmemb: size_t,
         __size: size_t,
         _compar: __compar_fn_t,
     );
 }
 extern "C" {
-    pub fn rand() -> ::std::os::raw::c_int;
+    pub fn rand() -> c_types::c_int;
 }
 extern "C" {
-    pub fn realloc(
-        __r: *mut ::core::ffi::c_void,
-        __size: ::std::os::raw::c_uint,
-    ) -> *mut ::core::ffi::c_void;
+    pub fn realloc(__r: *mut c_types::c_void, __size: c_types::c_uint) -> *mut c_types::c_void;
 }
 extern "C" {
     pub fn reallocarray(
-        arg1: *mut ::core::ffi::c_void,
+        arg1: *mut c_types::c_void,
         arg2: size_t,
         arg3: size_t,
-    ) -> *mut ::core::ffi::c_void;
+    ) -> *mut c_types::c_void;
 }
 extern "C" {
-    pub fn reallocf(__r: *mut ::core::ffi::c_void, __size: size_t) -> *mut ::core::ffi::c_void;
+    pub fn reallocf(__r: *mut c_types::c_void, __size: size_t) -> *mut c_types::c_void;
 }
 extern "C" {
     pub fn realpath(
-        path: *const ::std::os::raw::c_char,
-        resolved_path: *mut ::std::os::raw::c_char,
-    ) -> *mut ::std::os::raw::c_char;
+        path: *const c_types::c_char,
+        resolved_path: *mut c_types::c_char,
+    ) -> *mut c_types::c_char;
 }
 extern "C" {
-    pub fn rpmatch(response: *const ::std::os::raw::c_char) -> ::std::os::raw::c_int;
+    pub fn rpmatch(response: *const c_types::c_char) -> c_types::c_int;
 }
 extern "C" {
-    pub fn srand(__seed: ::std::os::raw::c_uint);
+    pub fn srand(__seed: c_types::c_uint);
 }
 extern "C" {
-    pub fn strtod(
-        __n: *const ::std::os::raw::c_char,
-        __end_PTR: *mut *mut ::std::os::raw::c_char,
-    ) -> f64;
+    pub fn strtod(__n: *const c_types::c_char, __end_PTR: *mut *mut c_types::c_char) -> f64;
 }
 extern "C" {
     pub fn _strtod_r(
         arg1: *mut _reent,
-        __n: *const ::std::os::raw::c_char,
-        __end_PTR: *mut *mut ::std::os::raw::c_char,
+        __n: *const c_types::c_char,
+        __end_PTR: *mut *mut c_types::c_char,
     ) -> f64;
 }
 extern "C" {
-    pub fn strtof(
-        __n: *const ::std::os::raw::c_char,
-        __end_PTR: *mut *mut ::std::os::raw::c_char,
-    ) -> f32;
+    pub fn strtof(__n: *const c_types::c_char, __end_PTR: *mut *mut c_types::c_char) -> f32;
 }
 extern "C" {
     pub fn strtol(
-        __n: *const ::std::os::raw::c_char,
-        __end_PTR: *mut *mut ::std::os::raw::c_char,
-        __base: ::std::os::raw::c_int,
-    ) -> ::std::os::raw::c_long;
+        __n: *const c_types::c_char,
+        __end_PTR: *mut *mut c_types::c_char,
+        __base: c_types::c_int,
+    ) -> c_types::c_long;
 }
 extern "C" {
     pub fn _strtol_r(
         arg1: *mut _reent,
-        __n: *const ::std::os::raw::c_char,
-        __end_PTR: *mut *mut ::std::os::raw::c_char,
-        __base: ::std::os::raw::c_int,
-    ) -> ::std::os::raw::c_long;
+        __n: *const c_types::c_char,
+        __end_PTR: *mut *mut c_types::c_char,
+        __base: c_types::c_int,
+    ) -> c_types::c_long;
 }
 extern "C" {
     pub fn strtoul(
-        __n: *const ::std::os::raw::c_char,
-        __end_PTR: *mut *mut ::std::os::raw::c_char,
-        __base: ::std::os::raw::c_int,
-    ) -> ::std::os::raw::c_ulong;
+        __n: *const c_types::c_char,
+        __end_PTR: *mut *mut c_types::c_char,
+        __base: c_types::c_int,
+    ) -> c_types::c_ulong;
 }
 extern "C" {
     pub fn _strtoul_r(
         arg1: *mut _reent,
-        __n: *const ::std::os::raw::c_char,
-        __end_PTR: *mut *mut ::std::os::raw::c_char,
-        __base: ::std::os::raw::c_int,
-    ) -> ::std::os::raw::c_ulong;
+        __n: *const c_types::c_char,
+        __end_PTR: *mut *mut c_types::c_char,
+        __base: c_types::c_int,
+    ) -> c_types::c_ulong;
 }
 extern "C" {
-    pub fn system(__string: *const ::std::os::raw::c_char) -> ::std::os::raw::c_int;
+    pub fn system(__string: *const c_types::c_char) -> c_types::c_int;
 }
 extern "C" {
-    pub fn a64l(__input: *const ::std::os::raw::c_char) -> ::std::os::raw::c_long;
+    pub fn a64l(__input: *const c_types::c_char) -> c_types::c_long;
 }
 extern "C" {
-    pub fn l64a(__input: ::std::os::raw::c_long) -> *mut ::std::os::raw::c_char;
+    pub fn l64a(__input: c_types::c_long) -> *mut c_types::c_char;
 }
 extern "C" {
-    pub fn _l64a_r(
-        arg1: *mut _reent,
-        __input: ::std::os::raw::c_long,
-    ) -> *mut ::std::os::raw::c_char;
+    pub fn _l64a_r(arg1: *mut _reent, __input: c_types::c_long) -> *mut c_types::c_char;
 }
 extern "C" {
     pub fn on_exit(
         __func: ::core::option::Option<
-            unsafe extern "C" fn(arg1: ::std::os::raw::c_int, arg2: *mut ::core::ffi::c_void),
+            unsafe extern "C" fn(arg1: c_types::c_int, arg2: *mut c_types::c_void),
         >,
-        __arg: *mut ::core::ffi::c_void,
-    ) -> ::std::os::raw::c_int;
+        __arg: *mut c_types::c_void,
+    ) -> c_types::c_int;
 }
 extern "C" {
-    pub fn _Exit(__status: ::std::os::raw::c_int);
+    pub fn _Exit(__status: c_types::c_int);
 }
 extern "C" {
-    pub fn putenv(__string: *mut ::std::os::raw::c_char) -> ::std::os::raw::c_int;
+    pub fn putenv(__string: *mut c_types::c_char) -> c_types::c_int;
 }
 extern "C" {
-    pub fn _putenv_r(
-        arg1: *mut _reent,
-        __string: *mut ::std::os::raw::c_char,
-    ) -> ::std::os::raw::c_int;
+    pub fn _putenv_r(arg1: *mut _reent, __string: *mut c_types::c_char) -> c_types::c_int;
 }
 extern "C" {
     pub fn _reallocf_r(
         arg1: *mut _reent,
-        arg2: *mut ::core::ffi::c_void,
+        arg2: *mut c_types::c_void,
         arg3: size_t,
-    ) -> *mut ::core::ffi::c_void;
+    ) -> *mut c_types::c_void;
 }
 extern "C" {
     pub fn setenv(
-        __string: *const ::std::os::raw::c_char,
-        __value: *const ::std::os::raw::c_char,
-        __overwrite: ::std::os::raw::c_int,
-    ) -> ::std::os::raw::c_int;
+        __string: *const c_types::c_char,
+        __value: *const c_types::c_char,
+        __overwrite: c_types::c_int,
+    ) -> c_types::c_int;
 }
 extern "C" {
     pub fn _setenv_r(
         arg1: *mut _reent,
-        __string: *const ::std::os::raw::c_char,
-        __value: *const ::std::os::raw::c_char,
-        __overwrite: ::std::os::raw::c_int,
-    ) -> ::std::os::raw::c_int;
+        __string: *const c_types::c_char,
+        __value: *const c_types::c_char,
+        __overwrite: c_types::c_int,
+    ) -> c_types::c_int;
 }
 extern "C" {
     pub fn __itoa(
-        arg1: ::std::os::raw::c_int,
-        arg2: *mut ::std::os::raw::c_char,
-        arg3: ::std::os::raw::c_int,
-    ) -> *mut ::std::os::raw::c_char;
+        arg1: c_types::c_int,
+        arg2: *mut c_types::c_char,
+        arg3: c_types::c_int,
+    ) -> *mut c_types::c_char;
 }
 extern "C" {
     pub fn __utoa(
-        arg1: ::std::os::raw::c_uint,
-        arg2: *mut ::std::os::raw::c_char,
-        arg3: ::std::os::raw::c_int,
-    ) -> *mut ::std::os::raw::c_char;
+        arg1: c_types::c_uint,
+        arg2: *mut c_types::c_char,
+        arg3: c_types::c_int,
+    ) -> *mut c_types::c_char;
 }
 extern "C" {
     pub fn itoa(
-        arg1: ::std::os::raw::c_int,
-        arg2: *mut ::std::os::raw::c_char,
-        arg3: ::std::os::raw::c_int,
-    ) -> *mut ::std::os::raw::c_char;
+        arg1: c_types::c_int,
+        arg2: *mut c_types::c_char,
+        arg3: c_types::c_int,
+    ) -> *mut c_types::c_char;
 }
 extern "C" {
     pub fn utoa(
-        arg1: ::std::os::raw::c_uint,
-        arg2: *mut ::std::os::raw::c_char,
-        arg3: ::std::os::raw::c_int,
-    ) -> *mut ::std::os::raw::c_char;
+        arg1: c_types::c_uint,
+        arg2: *mut c_types::c_char,
+        arg3: c_types::c_int,
+    ) -> *mut c_types::c_char;
 }
 extern "C" {
-    pub fn rand_r(__seed: *mut ::std::os::raw::c_uint) -> ::std::os::raw::c_int;
+    pub fn rand_r(__seed: *mut c_types::c_uint) -> c_types::c_int;
 }
 extern "C" {
     pub fn drand48() -> f64;
@@ -17111,245 +16901,218 @@ extern "C" {
     pub fn _drand48_r(arg1: *mut _reent) -> f64;
 }
 extern "C" {
-    pub fn erand48(arg1: *mut ::std::os::raw::c_ushort) -> f64;
+    pub fn erand48(arg1: *mut c_types::c_ushort) -> f64;
 }
 extern "C" {
-    pub fn _erand48_r(arg1: *mut _reent, arg2: *mut ::std::os::raw::c_ushort) -> f64;
+    pub fn _erand48_r(arg1: *mut _reent, arg2: *mut c_types::c_ushort) -> f64;
 }
 extern "C" {
-    pub fn jrand48(arg1: *mut ::std::os::raw::c_ushort) -> ::std::os::raw::c_long;
+    pub fn jrand48(arg1: *mut c_types::c_ushort) -> c_types::c_long;
 }
 extern "C" {
-    pub fn _jrand48_r(
-        arg1: *mut _reent,
-        arg2: *mut ::std::os::raw::c_ushort,
-    ) -> ::std::os::raw::c_long;
+    pub fn _jrand48_r(arg1: *mut _reent, arg2: *mut c_types::c_ushort) -> c_types::c_long;
 }
 extern "C" {
-    pub fn lcong48(arg1: *mut ::std::os::raw::c_ushort);
+    pub fn lcong48(arg1: *mut c_types::c_ushort);
 }
 extern "C" {
-    pub fn _lcong48_r(arg1: *mut _reent, arg2: *mut ::std::os::raw::c_ushort);
+    pub fn _lcong48_r(arg1: *mut _reent, arg2: *mut c_types::c_ushort);
 }
 extern "C" {
-    pub fn lrand48() -> ::std::os::raw::c_long;
+    pub fn lrand48() -> c_types::c_long;
 }
 extern "C" {
-    pub fn _lrand48_r(arg1: *mut _reent) -> ::std::os::raw::c_long;
+    pub fn _lrand48_r(arg1: *mut _reent) -> c_types::c_long;
 }
 extern "C" {
-    pub fn mrand48() -> ::std::os::raw::c_long;
+    pub fn mrand48() -> c_types::c_long;
 }
 extern "C" {
-    pub fn _mrand48_r(arg1: *mut _reent) -> ::std::os::raw::c_long;
+    pub fn _mrand48_r(arg1: *mut _reent) -> c_types::c_long;
 }
 extern "C" {
-    pub fn nrand48(arg1: *mut ::std::os::raw::c_ushort) -> ::std::os::raw::c_long;
+    pub fn nrand48(arg1: *mut c_types::c_ushort) -> c_types::c_long;
 }
 extern "C" {
-    pub fn _nrand48_r(
-        arg1: *mut _reent,
-        arg2: *mut ::std::os::raw::c_ushort,
-    ) -> ::std::os::raw::c_long;
+    pub fn _nrand48_r(arg1: *mut _reent, arg2: *mut c_types::c_ushort) -> c_types::c_long;
 }
 extern "C" {
-    pub fn seed48(arg1: *mut ::std::os::raw::c_ushort) -> *mut ::std::os::raw::c_ushort;
+    pub fn seed48(arg1: *mut c_types::c_ushort) -> *mut c_types::c_ushort;
 }
 extern "C" {
-    pub fn _seed48_r(
-        arg1: *mut _reent,
-        arg2: *mut ::std::os::raw::c_ushort,
-    ) -> *mut ::std::os::raw::c_ushort;
+    pub fn _seed48_r(arg1: *mut _reent, arg2: *mut c_types::c_ushort) -> *mut c_types::c_ushort;
 }
 extern "C" {
-    pub fn srand48(arg1: ::std::os::raw::c_long);
+    pub fn srand48(arg1: c_types::c_long);
 }
 extern "C" {
-    pub fn _srand48_r(arg1: *mut _reent, arg2: ::std::os::raw::c_long);
+    pub fn _srand48_r(arg1: *mut _reent, arg2: c_types::c_long);
 }
 extern "C" {
     pub fn initstate(
-        arg1: ::std::os::raw::c_uint,
-        arg2: *mut ::std::os::raw::c_char,
+        arg1: c_types::c_uint,
+        arg2: *mut c_types::c_char,
         arg3: size_t,
-    ) -> *mut ::std::os::raw::c_char;
+    ) -> *mut c_types::c_char;
 }
 extern "C" {
-    pub fn random() -> ::std::os::raw::c_long;
+    pub fn random() -> c_types::c_long;
 }
 extern "C" {
-    pub fn setstate(arg1: *mut ::std::os::raw::c_char) -> *mut ::std::os::raw::c_char;
+    pub fn setstate(arg1: *mut c_types::c_char) -> *mut c_types::c_char;
 }
 extern "C" {
-    pub fn srandom(arg1: ::std::os::raw::c_uint);
+    pub fn srandom(arg1: c_types::c_uint);
 }
 extern "C" {
-    pub fn atoll(__nptr: *const ::std::os::raw::c_char) -> ::std::os::raw::c_longlong;
+    pub fn atoll(__nptr: *const c_types::c_char) -> c_types::c_longlong;
 }
 extern "C" {
-    pub fn _atoll_r(
-        arg1: *mut _reent,
-        __nptr: *const ::std::os::raw::c_char,
-    ) -> ::std::os::raw::c_longlong;
+    pub fn _atoll_r(arg1: *mut _reent, __nptr: *const c_types::c_char) -> c_types::c_longlong;
 }
 extern "C" {
-    pub fn llabs(arg1: ::std::os::raw::c_longlong) -> ::std::os::raw::c_longlong;
+    pub fn llabs(arg1: c_types::c_longlong) -> c_types::c_longlong;
 }
 extern "C" {
-    pub fn lldiv(
-        __numer: ::std::os::raw::c_longlong,
-        __denom: ::std::os::raw::c_longlong,
-    ) -> lldiv_t;
+    pub fn lldiv(__numer: c_types::c_longlong, __denom: c_types::c_longlong) -> lldiv_t;
 }
 extern "C" {
     pub fn strtoll(
-        __n: *const ::std::os::raw::c_char,
-        __end_PTR: *mut *mut ::std::os::raw::c_char,
-        __base: ::std::os::raw::c_int,
-    ) -> ::std::os::raw::c_longlong;
+        __n: *const c_types::c_char,
+        __end_PTR: *mut *mut c_types::c_char,
+        __base: c_types::c_int,
+    ) -> c_types::c_longlong;
 }
 extern "C" {
     pub fn _strtoll_r(
         arg1: *mut _reent,
-        __n: *const ::std::os::raw::c_char,
-        __end_PTR: *mut *mut ::std::os::raw::c_char,
-        __base: ::std::os::raw::c_int,
-    ) -> ::std::os::raw::c_longlong;
+        __n: *const c_types::c_char,
+        __end_PTR: *mut *mut c_types::c_char,
+        __base: c_types::c_int,
+    ) -> c_types::c_longlong;
 }
 extern "C" {
     pub fn strtoull(
-        __n: *const ::std::os::raw::c_char,
-        __end_PTR: *mut *mut ::std::os::raw::c_char,
-        __base: ::std::os::raw::c_int,
-    ) -> ::std::os::raw::c_ulonglong;
+        __n: *const c_types::c_char,
+        __end_PTR: *mut *mut c_types::c_char,
+        __base: c_types::c_int,
+    ) -> c_types::c_ulonglong;
 }
 extern "C" {
     pub fn _strtoull_r(
         arg1: *mut _reent,
-        __n: *const ::std::os::raw::c_char,
-        __end_PTR: *mut *mut ::std::os::raw::c_char,
-        __base: ::std::os::raw::c_int,
-    ) -> ::std::os::raw::c_ulonglong;
+        __n: *const c_types::c_char,
+        __end_PTR: *mut *mut c_types::c_char,
+        __base: c_types::c_int,
+    ) -> c_types::c_ulonglong;
 }
 extern "C" {
-    pub fn cfree(arg1: *mut ::core::ffi::c_void);
+    pub fn cfree(arg1: *mut c_types::c_void);
 }
 extern "C" {
-    pub fn unsetenv(__string: *const ::std::os::raw::c_char) -> ::std::os::raw::c_int;
+    pub fn unsetenv(__string: *const c_types::c_char) -> c_types::c_int;
 }
 extern "C" {
-    pub fn _unsetenv_r(
-        arg1: *mut _reent,
-        __string: *const ::std::os::raw::c_char,
-    ) -> ::std::os::raw::c_int;
+    pub fn _unsetenv_r(arg1: *mut _reent, __string: *const c_types::c_char) -> c_types::c_int;
 }
 extern "C" {
     pub fn posix_memalign(
-        arg1: *mut *mut ::core::ffi::c_void,
+        arg1: *mut *mut c_types::c_void,
         arg2: size_t,
         arg3: size_t,
-    ) -> ::std::os::raw::c_int;
+    ) -> c_types::c_int;
 }
 extern "C" {
     pub fn _dtoa_r(
         arg1: *mut _reent,
         arg2: f64,
-        arg3: ::std::os::raw::c_int,
-        arg4: ::std::os::raw::c_int,
-        arg5: *mut ::std::os::raw::c_int,
-        arg6: *mut ::std::os::raw::c_int,
-        arg7: *mut *mut ::std::os::raw::c_char,
-    ) -> *mut ::std::os::raw::c_char;
+        arg3: c_types::c_int,
+        arg4: c_types::c_int,
+        arg5: *mut c_types::c_int,
+        arg6: *mut c_types::c_int,
+        arg7: *mut *mut c_types::c_char,
+    ) -> *mut c_types::c_char;
 }
 extern "C" {
-    pub fn _malloc_r(arg1: *mut _reent, arg2: size_t) -> *mut ::core::ffi::c_void;
+    pub fn _malloc_r(arg1: *mut _reent, arg2: size_t) -> *mut c_types::c_void;
 }
 extern "C" {
-    pub fn _calloc_r(arg1: *mut _reent, arg2: size_t, arg3: size_t) -> *mut ::core::ffi::c_void;
+    pub fn _calloc_r(arg1: *mut _reent, arg2: size_t, arg3: size_t) -> *mut c_types::c_void;
 }
 extern "C" {
-    pub fn _free_r(arg1: *mut _reent, arg2: *mut ::core::ffi::c_void);
+    pub fn _free_r(arg1: *mut _reent, arg2: *mut c_types::c_void);
 }
 extern "C" {
     pub fn _realloc_r(
         arg1: *mut _reent,
-        arg2: *mut ::core::ffi::c_void,
+        arg2: *mut c_types::c_void,
         arg3: size_t,
-    ) -> *mut ::core::ffi::c_void;
+    ) -> *mut c_types::c_void;
 }
 extern "C" {
-    pub fn _mstats_r(arg1: *mut _reent, arg2: *mut ::std::os::raw::c_char);
+    pub fn _mstats_r(arg1: *mut _reent, arg2: *mut c_types::c_char);
 }
 extern "C" {
-    pub fn _system_r(
-        arg1: *mut _reent,
-        arg2: *const ::std::os::raw::c_char,
-    ) -> ::std::os::raw::c_int;
+    pub fn _system_r(arg1: *mut _reent, arg2: *const c_types::c_char) -> c_types::c_int;
 }
 extern "C" {
     pub fn __eprintf(
-        arg1: *const ::std::os::raw::c_char,
-        arg2: *const ::std::os::raw::c_char,
-        arg3: ::std::os::raw::c_uint,
-        arg4: *const ::std::os::raw::c_char,
+        arg1: *const c_types::c_char,
+        arg2: *const c_types::c_char,
+        arg3: c_types::c_uint,
+        arg4: *const c_types::c_char,
     );
 }
 extern "C" {
     #[link_name = "\u{1}__bsd_qsort_r"]
     pub fn qsort_r(
-        __base: *mut ::core::ffi::c_void,
+        __base: *mut c_types::c_void,
         __nmemb: size_t,
         __size: size_t,
-        __thunk: *mut ::core::ffi::c_void,
+        __thunk: *mut c_types::c_void,
         _compar: ::core::option::Option<
             unsafe extern "C" fn(
-                arg1: *mut ::core::ffi::c_void,
-                arg2: *const ::core::ffi::c_void,
-                arg3: *const ::core::ffi::c_void,
-            ) -> ::std::os::raw::c_int,
+                arg1: *mut c_types::c_void,
+                arg2: *const c_types::c_void,
+                arg3: *const c_types::c_void,
+            ) -> c_types::c_int,
         >,
     );
 }
 extern "C" {
     pub fn _strtold_r(
         arg1: *mut _reent,
-        arg2: *const ::std::os::raw::c_char,
-        arg3: *mut *mut ::std::os::raw::c_char,
+        arg2: *const c_types::c_char,
+        arg3: *mut *mut c_types::c_char,
     ) -> f64;
 }
 extern "C" {
-    pub fn strtold(
-        arg1: *const ::std::os::raw::c_char,
-        arg2: *mut *mut ::std::os::raw::c_char,
-    ) -> f64;
+    pub fn strtold(arg1: *const c_types::c_char, arg2: *mut *mut c_types::c_char) -> f64;
 }
 extern "C" {
-    pub fn aligned_alloc(arg1: size_t, arg2: size_t) -> *mut ::core::ffi::c_void;
+    pub fn aligned_alloc(arg1: size_t, arg2: size_t) -> *mut c_types::c_void;
 }
 extern "C" {
-    pub fn at_quick_exit(
-        arg1: ::core::option::Option<unsafe extern "C" fn()>,
-    ) -> ::std::os::raw::c_int;
+    pub fn at_quick_exit(arg1: ::core::option::Option<unsafe extern "C" fn()>) -> c_types::c_int;
 }
 extern "C" {
-    pub fn quick_exit(arg1: ::std::os::raw::c_int);
+    pub fn quick_exit(arg1: c_types::c_int);
 }
-pub type TaskFunction_t =
-    ::core::option::Option<unsafe extern "C" fn(arg1: *mut ::core::ffi::c_void)>;
+pub type TaskFunction_t = ::core::option::Option<unsafe extern "C" fn(arg1: *mut c_types::c_void)>;
 extern "C" {
     #[doc = " @brief Stall CPU using RTC controller"]
     #[doc = " @param cpu_id ID of the CPU to stall (0 = PRO, 1 = APP)"]
-    pub fn esp_cpu_stall(cpu_id: ::std::os::raw::c_int);
+    pub fn esp_cpu_stall(cpu_id: c_types::c_int);
 }
 extern "C" {
     #[doc = " @brief Un-stall CPU using RTC controller"]
     #[doc = " @param cpu_id ID of the CPU to un-stall (0 = PRO, 1 = APP)"]
-    pub fn esp_cpu_unstall(cpu_id: ::std::os::raw::c_int);
+    pub fn esp_cpu_unstall(cpu_id: c_types::c_int);
 }
 extern "C" {
     #[doc = " @brief Reset CPU using RTC controller"]
     #[doc = " @param cpu_id ID of the CPU to reset (0 = PRO, 1 = APP)"]
-    pub fn esp_cpu_reset(cpu_id: ::std::os::raw::c_int);
+    pub fn esp_cpu_reset(cpu_id: c_types::c_int);
 }
 extern "C" {
     #[doc = " @brief Returns true if a JTAG debugger is attached to CPU"]
@@ -17363,87 +17126,83 @@ pub type esp_cpu_ccount_t = u32;
 #[repr(C)]
 #[derive(Copy, Clone)]
 pub struct XtosCoreState {
-    pub signature: ::std::os::raw::c_long,
-    pub restore_label: ::std::os::raw::c_long,
-    pub aftersave_label: ::std::os::raw::c_long,
-    pub areg: [::std::os::raw::c_long; 64usize],
-    pub caller_regs: [::std::os::raw::c_long; 16usize],
-    pub caller_regs_saved: ::std::os::raw::c_long,
-    pub windowbase: ::std::os::raw::c_long,
-    pub windowstart: ::std::os::raw::c_long,
-    pub sar: ::std::os::raw::c_long,
-    pub epc1: ::std::os::raw::c_long,
-    pub ps: ::std::os::raw::c_long,
-    pub excsave1: ::std::os::raw::c_long,
-    pub depc: ::std::os::raw::c_long,
-    pub epc: [::std::os::raw::c_long; 6usize],
-    pub eps: [::std::os::raw::c_long; 6usize],
-    pub excsave: [::std::os::raw::c_long; 6usize],
-    pub lcount: ::std::os::raw::c_long,
-    pub lbeg: ::std::os::raw::c_long,
-    pub lend: ::std::os::raw::c_long,
-    pub vecbase: ::std::os::raw::c_long,
-    pub atomctl: ::std::os::raw::c_long,
-    pub memctl: ::std::os::raw::c_long,
-    pub ccount: ::std::os::raw::c_long,
-    pub ccompare: [::std::os::raw::c_long; 3usize],
-    pub intenable: ::std::os::raw::c_long,
-    pub interrupt: ::std::os::raw::c_long,
-    pub icount: ::std::os::raw::c_long,
-    pub icountlevel: ::std::os::raw::c_long,
-    pub debugcause: ::std::os::raw::c_long,
-    pub dbreakc: [::std::os::raw::c_long; 2usize],
-    pub dbreaka: [::std::os::raw::c_long; 2usize],
-    pub ibreaka: [::std::os::raw::c_long; 2usize],
-    pub ibreakenable: ::std::os::raw::c_long,
-    pub misc: [::std::os::raw::c_long; 4usize],
-    pub cpenable: ::std::os::raw::c_long,
-    pub tlbs: [::std::os::raw::c_long; 16usize],
-    pub ncp: [::std::os::raw::c_char; 48usize],
-    pub cp0: [::std::os::raw::c_char; 72usize],
+    pub signature: c_types::c_long,
+    pub restore_label: c_types::c_long,
+    pub aftersave_label: c_types::c_long,
+    pub areg: [c_types::c_long; 64usize],
+    pub caller_regs: [c_types::c_long; 16usize],
+    pub caller_regs_saved: c_types::c_long,
+    pub windowbase: c_types::c_long,
+    pub windowstart: c_types::c_long,
+    pub sar: c_types::c_long,
+    pub epc1: c_types::c_long,
+    pub ps: c_types::c_long,
+    pub excsave1: c_types::c_long,
+    pub depc: c_types::c_long,
+    pub epc: [c_types::c_long; 6usize],
+    pub eps: [c_types::c_long; 6usize],
+    pub excsave: [c_types::c_long; 6usize],
+    pub lcount: c_types::c_long,
+    pub lbeg: c_types::c_long,
+    pub lend: c_types::c_long,
+    pub vecbase: c_types::c_long,
+    pub atomctl: c_types::c_long,
+    pub memctl: c_types::c_long,
+    pub ccount: c_types::c_long,
+    pub ccompare: [c_types::c_long; 3usize],
+    pub intenable: c_types::c_long,
+    pub interrupt: c_types::c_long,
+    pub icount: c_types::c_long,
+    pub icountlevel: c_types::c_long,
+    pub debugcause: c_types::c_long,
+    pub dbreakc: [c_types::c_long; 2usize],
+    pub dbreaka: [c_types::c_long; 2usize],
+    pub ibreaka: [c_types::c_long; 2usize],
+    pub ibreakenable: c_types::c_long,
+    pub misc: [c_types::c_long; 4usize],
+    pub cpenable: c_types::c_long,
+    pub tlbs: [c_types::c_long; 16usize],
+    pub ncp: [c_types::c_char; 48usize],
+    pub cp0: [c_types::c_char; 72usize],
 }
 pub type _xtos_handler_func = ::core::option::Option<unsafe extern "C" fn()>;
 pub type _xtos_handler = _xtos_handler_func;
 extern "C" {
-    pub fn _xtos_ints_off(mask: ::std::os::raw::c_uint) -> ::std::os::raw::c_uint;
+    pub fn _xtos_ints_off(mask: c_types::c_uint) -> c_types::c_uint;
 }
 extern "C" {
-    pub fn _xtos_ints_on(mask: ::std::os::raw::c_uint) -> ::std::os::raw::c_uint;
+    pub fn _xtos_ints_on(mask: c_types::c_uint) -> c_types::c_uint;
 }
 extern "C" {
-    pub fn _xtos_set_intlevel(intlevel: ::std::os::raw::c_int) -> ::std::os::raw::c_uint;
+    pub fn _xtos_set_intlevel(intlevel: c_types::c_int) -> c_types::c_uint;
 }
 extern "C" {
-    pub fn _xtos_set_min_intlevel(intlevel: ::std::os::raw::c_int) -> ::std::os::raw::c_uint;
+    pub fn _xtos_set_min_intlevel(intlevel: c_types::c_int) -> c_types::c_uint;
 }
 extern "C" {
-    pub fn _xtos_restore_intlevel(restoreval: ::std::os::raw::c_uint) -> ::std::os::raw::c_uint;
+    pub fn _xtos_restore_intlevel(restoreval: c_types::c_uint) -> c_types::c_uint;
 }
 extern "C" {
-    pub fn _xtos_restore_just_intlevel(
-        restoreval: ::std::os::raw::c_uint,
-    ) -> ::std::os::raw::c_uint;
+    pub fn _xtos_restore_just_intlevel(restoreval: c_types::c_uint) -> c_types::c_uint;
 }
 extern "C" {
-    pub fn _xtos_set_interrupt_handler(n: ::std::os::raw::c_int, f: _xtos_handler)
-        -> _xtos_handler;
+    pub fn _xtos_set_interrupt_handler(n: c_types::c_int, f: _xtos_handler) -> _xtos_handler;
 }
 extern "C" {
     pub fn _xtos_set_interrupt_handler_arg(
-        n: ::std::os::raw::c_int,
+        n: c_types::c_int,
         f: _xtos_handler,
-        arg: *mut ::core::ffi::c_void,
+        arg: *mut c_types::c_void,
     ) -> _xtos_handler;
 }
 extern "C" {
-    pub fn _xtos_set_exception_handler(n: ::std::os::raw::c_int, f: _xtos_handler)
-        -> _xtos_handler;
+    pub fn _xtos_set_exception_handler(n: c_types::c_int, f: _xtos_handler) -> _xtos_handler;
 }
 extern "C" {
     pub fn _xtos_memep_initrams();
 }
 extern "C" {
-    pub fn _xtos_memep_enable(flags: ::std::os::raw::c_int);
+    pub fn _xtos_memep_enable(flags: c_types::c_int);
 }
 extern "C" {
     pub fn _xtos_dispatch_level1_interrupts();
@@ -17464,32 +17223,32 @@ extern "C" {
     pub fn _xtos_dispatch_level6_interrupts();
 }
 extern "C" {
-    pub fn _xtos_read_ints() -> ::std::os::raw::c_uint;
+    pub fn _xtos_read_ints() -> c_types::c_uint;
 }
 extern "C" {
-    pub fn _xtos_clear_ints(mask: ::std::os::raw::c_uint);
+    pub fn _xtos_clear_ints(mask: c_types::c_uint);
 }
 extern "C" {
-    pub fn _xtos_core_shutoff(flags: ::std::os::raw::c_uint) -> ::std::os::raw::c_int;
+    pub fn _xtos_core_shutoff(flags: c_types::c_uint) -> c_types::c_int;
 }
 extern "C" {
     pub fn _xtos_core_save(
-        flags: ::std::os::raw::c_uint,
+        flags: c_types::c_uint,
         savearea: *mut XtosCoreState,
-        code: *mut ::core::ffi::c_void,
-    ) -> ::std::os::raw::c_int;
+        code: *mut c_types::c_void,
+    ) -> c_types::c_int;
 }
 extern "C" {
-    pub fn _xtos_core_restore(retvalue: ::std::os::raw::c_uint, savearea: *mut XtosCoreState);
+    pub fn _xtos_core_restore(retvalue: c_types::c_uint, savearea: *mut XtosCoreState);
 }
 extern "C" {
-    pub fn _xtos_timer_0_delta(cycles: ::std::os::raw::c_int);
+    pub fn _xtos_timer_0_delta(cycles: c_types::c_int);
 }
 extern "C" {
-    pub fn _xtos_timer_1_delta(cycles: ::std::os::raw::c_int);
+    pub fn _xtos_timer_1_delta(cycles: c_types::c_int);
 }
 extern "C" {
-    pub fn _xtos_timer_2_delta(cycles: ::std::os::raw::c_int);
+    pub fn _xtos_timer_2_delta(cycles: c_types::c_int);
 }
 extern "C" {
     #[doc = " Initialize the crosscore interrupt system for this CPU."]
@@ -17510,7 +17269,7 @@ extern "C" {
     #[doc = " and should not be called by the user."]
     #[doc = ""]
     #[doc = " @param core_id Core that should do the yielding"]
-    pub fn esp_crosscore_int_send_yield(core_id: ::std::os::raw::c_int);
+    pub fn esp_crosscore_int_send_yield(core_id: c_types::c_int);
 }
 extern "C" {
     #[doc = " Send an interrupt to a CPU indicating it should update its"]
@@ -17520,7 +17279,7 @@ extern "C" {
     #[doc = " enabled, and should not be called from application code."]
     #[doc = ""]
     #[doc = " @param core_id Core that should update its CCOMPARE1 value"]
-    pub fn esp_crosscore_int_send_freq_switch(core_id: ::std::os::raw::c_int);
+    pub fn esp_crosscore_int_send_freq_switch(core_id: c_types::c_int);
 }
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
@@ -17531,12 +17290,11 @@ pub struct esp_timer {
 pub type esp_timer_handle_t = *mut esp_timer;
 #[doc = " @brief Timer callback function type"]
 #[doc = " @param arg pointer to opaque user-specific data"]
-pub type esp_timer_cb_t =
-    ::core::option::Option<unsafe extern "C" fn(arg: *mut ::core::ffi::c_void)>;
+pub type esp_timer_cb_t = ::core::option::Option<unsafe extern "C" fn(arg: *mut c_types::c_void)>;
 #[doc = "!< Callback is called from timer task"]
 pub const esp_timer_dispatch_t_ESP_TIMER_TASK: esp_timer_dispatch_t = 0;
 #[doc = " @brief Method for dispatching timer callback"]
-pub type esp_timer_dispatch_t = ::std::os::raw::c_uint;
+pub type esp_timer_dispatch_t = c_types::c_uint;
 #[doc = " @brief Timer configuration passed to esp_timer_create"]
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
@@ -17544,11 +17302,11 @@ pub struct esp_timer_create_args_t {
     #[doc = "!< Function to call when timer expires"]
     pub callback: esp_timer_cb_t,
     #[doc = "!< Argument to pass to the callback"]
-    pub arg: *mut ::core::ffi::c_void,
+    pub arg: *mut c_types::c_void,
     #[doc = "!< Call the callback from task or from ISR"]
     pub dispatch_method: esp_timer_dispatch_t,
     #[doc = "!< Timer name, used in esp_timer_dump function"]
-    pub name: *const ::std::os::raw::c_char,
+    pub name: *const c_types::c_char,
 }
 extern "C" {
     #[doc = " @brief Initialize esp_timer library"]
@@ -17704,7 +17462,7 @@ extern "C" {
         heap: multi_heap_handle_t,
         size: size_t,
         alignment: size_t,
-    ) -> *mut ::core::ffi::c_void;
+    ) -> *mut c_types::c_void;
 }
 extern "C" {
     #[doc = " @brief malloc() a buffer in a given heap"]
@@ -17715,14 +17473,14 @@ extern "C" {
     #[doc = " @param size Size of desired buffer."]
     #[doc = ""]
     #[doc = " @return Pointer to new memory, or NULL if allocation fails."]
-    pub fn multi_heap_malloc(heap: multi_heap_handle_t, size: size_t) -> *mut ::core::ffi::c_void;
+    pub fn multi_heap_malloc(heap: multi_heap_handle_t, size: size_t) -> *mut c_types::c_void;
 }
 extern "C" {
     #[doc = " @brief free() a buffer aligned in a given heap."]
     #[doc = ""]
     #[doc = " @param heap Handle to a registered heap."]
     #[doc = " @param p NULL, or a pointer previously returned from multi_heap_aligned_alloc() for the same heap."]
-    pub fn multi_heap_aligned_free(heap: multi_heap_handle_t, p: *mut ::core::ffi::c_void);
+    pub fn multi_heap_aligned_free(heap: multi_heap_handle_t, p: *mut c_types::c_void);
 }
 extern "C" {
     #[doc = " @brief free() a buffer in a given heap."]
@@ -17731,7 +17489,7 @@ extern "C" {
     #[doc = ""]
     #[doc = " @param heap Handle to a registered heap."]
     #[doc = " @param p NULL, or a pointer previously returned from multi_heap_malloc() or multi_heap_realloc() for the same heap."]
-    pub fn multi_heap_free(heap: multi_heap_handle_t, p: *mut ::core::ffi::c_void);
+    pub fn multi_heap_free(heap: multi_heap_handle_t, p: *mut c_types::c_void);
 }
 extern "C" {
     #[doc = " @brief realloc() a buffer in a given heap."]
@@ -17745,9 +17503,9 @@ extern "C" {
     #[doc = " @return New buffer of 'size' containing contents of 'p', or NULL if reallocation failed."]
     pub fn multi_heap_realloc(
         heap: multi_heap_handle_t,
-        p: *mut ::core::ffi::c_void,
+        p: *mut c_types::c_void,
         size: size_t,
-    ) -> *mut ::core::ffi::c_void;
+    ) -> *mut c_types::c_void;
 }
 extern "C" {
     #[doc = " @brief Return the size that a particular pointer was allocated with."]
@@ -17759,7 +17517,7 @@ extern "C" {
     #[doc = " to padding and minimum block sizes."]
     pub fn multi_heap_get_allocated_size(
         heap: multi_heap_handle_t,
-        p: *mut ::core::ffi::c_void,
+        p: *mut c_types::c_void,
     ) -> size_t;
 }
 extern "C" {
@@ -17773,10 +17531,7 @@ extern "C" {
     #[doc = " @param size Size (in bytes) of the new heap."]
     #[doc = ""]
     #[doc = " @return Handle of a new heap ready for use, or NULL if the heap region was too small to be initialised."]
-    pub fn multi_heap_register(
-        start: *mut ::core::ffi::c_void,
-        size: size_t,
-    ) -> multi_heap_handle_t;
+    pub fn multi_heap_register(start: *mut c_types::c_void, size: size_t) -> multi_heap_handle_t;
 }
 extern "C" {
     #[doc = " @brief Associate a private lock pointer with a heap"]
@@ -17789,7 +17544,7 @@ extern "C" {
     #[doc = ""]
     #[doc = " @param heap Handle to a registered heap."]
     #[doc = " @param lock Optional pointer to a locking structure to associate with this heap."]
-    pub fn multi_heap_set_lock(heap: multi_heap_handle_t, lock: *mut ::core::ffi::c_void);
+    pub fn multi_heap_set_lock(heap: multi_heap_handle_t, lock: *mut c_types::c_void);
 }
 extern "C" {
     #[doc = " @brief Dump heap information to stdout"]
@@ -17877,7 +17632,7 @@ extern "C" {
     #[doc = "                    of memory to be returned"]
     #[doc = ""]
     #[doc = " @return A pointer to the memory allocated on success, NULL on failure"]
-    pub fn heap_caps_malloc(size: size_t, caps: u32) -> *mut ::core::ffi::c_void;
+    pub fn heap_caps_malloc(size: size_t, caps: u32) -> *mut c_types::c_void;
 }
 extern "C" {
     #[doc = " @brief Free memory previously allocated via heap_caps_malloc() or heap_caps_realloc()."]
@@ -17887,7 +17642,7 @@ extern "C" {
     #[doc = "  In IDF, ``free(p)`` is equivalent to ``heap_caps_free(p)``."]
     #[doc = ""]
     #[doc = " @param ptr Pointer to memory previously returned from heap_caps_malloc() or heap_caps_realloc(). Can be NULL."]
-    pub fn heap_caps_free(ptr: *mut ::core::ffi::c_void);
+    pub fn heap_caps_free(ptr: *mut c_types::c_void);
 }
 extern "C" {
     #[doc = " @brief Reallocate memory previously allocated via heap_caps_malloc() or heap_caps_realloc()."]
@@ -17906,10 +17661,10 @@ extern "C" {
     #[doc = ""]
     #[doc = " @return Pointer to a new buffer of size 'size' with capabilities 'caps', or NULL if allocation failed."]
     pub fn heap_caps_realloc(
-        ptr: *mut ::core::ffi::c_void,
+        ptr: *mut c_types::c_void,
         size: size_t,
-        caps: ::std::os::raw::c_int,
-    ) -> *mut ::core::ffi::c_void;
+        caps: c_types::c_int,
+    ) -> *mut c_types::c_void;
 }
 extern "C" {
     #[doc = " @brief Allocate a aligned chunk of memory which has the given capabilities"]
@@ -17929,8 +17684,8 @@ extern "C" {
     pub fn heap_caps_aligned_alloc(
         alignment: size_t,
         size: size_t,
-        caps: ::std::os::raw::c_int,
-    ) -> *mut ::core::ffi::c_void;
+        caps: c_types::c_int,
+    ) -> *mut c_types::c_void;
 }
 extern "C" {
     #[doc = " @brief Allocate a aligned chunk of memory which has the given capabilities. The initialized value in the memory is set to zero."]
@@ -17951,7 +17706,7 @@ extern "C" {
         n: size_t,
         size: size_t,
         caps: u32,
-    ) -> *mut ::core::ffi::c_void;
+    ) -> *mut c_types::c_void;
 }
 extern "C" {
     #[doc = " @brief Used to deallocate memory previously allocated with heap_caps_aligned_alloc"]
@@ -17960,7 +17715,7 @@ extern "C" {
     #[doc = " @note This function is aimed to deallocate only memory allocated with"]
     #[doc = "       heap_caps_aligned_alloc, memory allocated with heap_caps_malloc"]
     #[doc = "       MUST not be passed to this function"]
-    pub fn heap_caps_aligned_free(ptr: *mut ::core::ffi::c_void);
+    pub fn heap_caps_aligned_free(ptr: *mut c_types::c_void);
 }
 extern "C" {
     #[doc = " @brief Allocate a chunk of memory which has the given capabilities. The initialized value in the memory is set to zero."]
@@ -17975,7 +17730,7 @@ extern "C" {
     #[doc = "                    of memory to be returned"]
     #[doc = ""]
     #[doc = " @return A pointer to the memory allocated on success, NULL on failure"]
-    pub fn heap_caps_calloc(n: size_t, size: size_t, caps: u32) -> *mut ::core::ffi::c_void;
+    pub fn heap_caps_calloc(n: size_t, size: size_t, caps: u32) -> *mut c_types::c_void;
 }
 extern "C" {
     #[doc = " @brief Get the total size of all the regions that have the given capabilities"]
@@ -18132,7 +17887,7 @@ extern "C" {
     #[doc = " @param num Number of variable paramters"]
     #[doc = ""]
     #[doc = " @return A pointer to the memory allocated on success, NULL on failure"]
-    pub fn heap_caps_malloc_prefer(size: size_t, num: size_t, ...) -> *mut ::core::ffi::c_void;
+    pub fn heap_caps_malloc_prefer(size: size_t, num: size_t, ...) -> *mut c_types::c_void;
 }
 extern "C" {
     #[doc = " @brief Allocate a chunk of memory as preference in decreasing order."]
@@ -18143,11 +17898,11 @@ extern "C" {
     #[doc = ""]
     #[doc = " @return Pointer to a new buffer of size 'size', or NULL if allocation failed."]
     pub fn heap_caps_realloc_prefer(
-        ptr: *mut ::core::ffi::c_void,
+        ptr: *mut c_types::c_void,
         size: size_t,
         num: size_t,
         ...
-    ) -> *mut ::core::ffi::c_void;
+    ) -> *mut c_types::c_void;
 }
 extern "C" {
     #[doc = " @brief Allocate a chunk of memory as preference in decreasing order."]
@@ -18162,7 +17917,7 @@ extern "C" {
         size: size_t,
         num: size_t,
         ...
-    ) -> *mut ::core::ffi::c_void;
+    ) -> *mut c_types::c_void;
 }
 extern "C" {
     #[doc = " @brief Dump the full structure of all heaps with matching capabilities."]
@@ -18201,11 +17956,11 @@ extern "C" {
     #[doc = ""]
     #[doc = " @return Size of the memory allocated at this block."]
     #[doc = ""]
-    pub fn heap_caps_get_allocated_size(ptr: *mut ::core::ffi::c_void) -> size_t;
+    pub fn heap_caps_get_allocated_size(ptr: *mut c_types::c_void) -> size_t;
 }
 pub type StackType_t = u8;
-pub type BaseType_t = ::std::os::raw::c_int;
-pub type UBaseType_t = ::std::os::raw::c_uint;
+pub type BaseType_t = c_types::c_int;
+pub type UBaseType_t = c_types::c_uint;
 pub type TickType_t = u32;
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
@@ -18238,7 +17993,7 @@ extern "C" {
     #[doc = " @return true if mutex is successfully acquired, false on timeout."]
     pub fn vPortCPUAcquireMutexTimeout(
         mux: *mut portMUX_TYPE,
-        timeout_cycles: ::std::os::raw::c_int,
+        timeout_cycles: c_types::c_int,
     ) -> bool;
 }
 extern "C" {
@@ -18262,7 +18017,7 @@ extern "C" {
     pub fn esp_vApplicationTickHook();
 }
 extern "C" {
-    pub fn _xt_coproc_release(coproc_sa_base: *mut ::core::ffi::c_void);
+    pub fn _xt_coproc_release(coproc_sa_base: *mut c_types::c_void);
 }
 extern "C" {
     pub fn vApplicationSleep(xExpectedIdleTime: TickType_t);
@@ -18271,7 +18026,7 @@ extern "C" {
     pub fn pxPortInitialiseStack(
         pxTopOfStack: *mut StackType_t,
         pxCode: TaskFunction_t,
-        pvParameters: *mut ::core::ffi::c_void,
+        pvParameters: *mut c_types::c_void,
         xRunPrivileged: BaseType_t,
     ) -> *mut StackType_t;
 }
@@ -18285,7 +18040,7 @@ extern "C" {
     pub fn vPortYieldOtherCore(coreid: BaseType_t);
 }
 extern "C" {
-    pub fn vPortSetStackWatchpoint(pxStackStart: *mut ::core::ffi::c_void);
+    pub fn vPortSetStackWatchpoint(pxStackStart: *mut c_types::c_void);
 }
 extern "C" {
     pub fn xPortInIsrContext() -> BaseType_t;
@@ -18314,40 +18069,40 @@ extern "C" {
 #[derive(Debug, Copy, Clone)]
 pub struct xSTATIC_LIST_ITEM {
     pub xDummy1: TickType_t,
-    pub pvDummy2: [*mut ::core::ffi::c_void; 4usize],
+    pub pvDummy2: [*mut c_types::c_void; 4usize],
 }
 pub type StaticListItem_t = xSTATIC_LIST_ITEM;
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
 pub struct xSTATIC_MINI_LIST_ITEM {
     pub xDummy1: TickType_t,
-    pub pvDummy2: [*mut ::core::ffi::c_void; 2usize],
+    pub pvDummy2: [*mut c_types::c_void; 2usize],
 }
 pub type StaticMiniListItem_t = xSTATIC_MINI_LIST_ITEM;
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
 pub struct xSTATIC_LIST {
     pub uxDummy1: UBaseType_t,
-    pub pvDummy2: *mut ::core::ffi::c_void,
+    pub pvDummy2: *mut c_types::c_void,
     pub xDummy3: StaticMiniListItem_t,
 }
 pub type StaticList_t = xSTATIC_LIST;
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
 pub struct xSTATIC_TCB {
-    pub pxDummy1: *mut ::core::ffi::c_void,
+    pub pxDummy1: *mut c_types::c_void,
     pub xDummy2: xMPU_SETTINGS,
     pub xDummy3: [StaticListItem_t; 2usize],
     pub uxDummy5: UBaseType_t,
-    pub pxDummy6: *mut ::core::ffi::c_void,
+    pub pxDummy6: *mut c_types::c_void,
     pub ucDummy7: [u8; 16usize],
     pub uxDummyCoreId: UBaseType_t,
-    pub pxDummy8: *mut ::core::ffi::c_void,
+    pub pxDummy8: *mut c_types::c_void,
     pub uxDummy9: UBaseType_t,
     pub OldInterruptState: u32,
     pub uxDummy12: [UBaseType_t; 2usize],
-    pub pvDummy15: [*mut ::core::ffi::c_void; 1usize],
-    pub pvDummyLocalStorageCallBack: [*mut ::core::ffi::c_void; 1usize],
+    pub pvDummy15: [*mut c_types::c_void; 1usize],
+    pub pvDummyLocalStorageCallBack: [*mut c_types::c_void; 1usize],
     pub xDummy17: _reent,
     pub ulDummy18: u32,
     pub ucDummy19: u32,
@@ -18357,17 +18112,17 @@ pub type StaticTask_t = xSTATIC_TCB;
 #[repr(C)]
 #[derive(Copy, Clone)]
 pub struct xSTATIC_QUEUE {
-    pub pvDummy1: [*mut ::core::ffi::c_void; 3usize],
+    pub pvDummy1: [*mut c_types::c_void; 3usize],
     pub u: xSTATIC_QUEUE__bindgen_ty_1,
     pub xDummy3: [StaticList_t; 2usize],
     pub uxDummy4: [UBaseType_t; 3usize],
-    pub pvDummy7: *mut ::core::ffi::c_void,
+    pub pvDummy7: *mut c_types::c_void,
     pub muxDummy: portMUX_TYPE,
 }
 #[repr(C)]
 #[derive(Copy, Clone)]
 pub union xSTATIC_QUEUE__bindgen_ty_1 {
-    pub pvDummy2: *mut ::core::ffi::c_void,
+    pub pvDummy2: *mut c_types::c_void,
     pub uxDummy2: UBaseType_t,
     _bindgen_union_align: u32,
 }
@@ -18384,11 +18139,11 @@ pub type StaticEventGroup_t = xSTATIC_EVENT_GROUP;
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
 pub struct xSTATIC_TIMER {
-    pub pvDummy1: *mut ::core::ffi::c_void,
+    pub pvDummy1: *mut c_types::c_void,
     pub xDummy2: StaticListItem_t,
     pub xDummy3: TickType_t,
     pub uxDummy4: UBaseType_t,
-    pub pvDummy5: [*mut ::core::ffi::c_void; 2usize],
+    pub pvDummy5: [*mut c_types::c_void; 2usize],
 }
 pub type StaticTimer_t = xSTATIC_TIMER;
 #[repr(C)]
@@ -18397,8 +18152,8 @@ pub struct xLIST_ITEM {
     pub xItemValue: TickType_t,
     pub pxNext: *mut xLIST_ITEM,
     pub pxPrevious: *mut xLIST_ITEM,
-    pub pvOwner: *mut ::core::ffi::c_void,
-    pub pvContainer: *mut ::core::ffi::c_void,
+    pub pvOwner: *mut c_types::c_void,
+    pub pvContainer: *mut c_types::c_void,
 }
 pub type ListItem_t = xLIST_ITEM;
 #[repr(C)]
@@ -18439,11 +18194,11 @@ extern "C" {
 #[doc = " be used as a parameter to vTaskDelete to delete the task."]
 #[doc = ""]
 #[doc = " \\ingroup Tasks"]
-pub type TaskHandle_t = *mut ::core::ffi::c_void;
+pub type TaskHandle_t = *mut c_types::c_void;
 #[doc = " Defines the prototype to which the application task hook function must"]
 #[doc = " conform."]
 pub type TaskHookFunction_t =
-    ::core::option::Option<unsafe extern "C" fn(arg1: *mut ::core::ffi::c_void) -> BaseType_t>;
+    ::core::option::Option<unsafe extern "C" fn(arg1: *mut c_types::c_void) -> BaseType_t>;
 #[doc = "< A task is querying the state of itself, so must be running."]
 pub const eTaskState_eRunning: eTaskState = 0;
 #[doc = "< The task being queried is in a read or pending ready list."]
@@ -18455,7 +18210,7 @@ pub const eTaskState_eSuspended: eTaskState = 3;
 #[doc = "< The task being queried has been deleted, but its TCB has not yet been freed."]
 pub const eTaskState_eDeleted: eTaskState = 4;
 #[doc = " Task states returned by eTaskGetState."]
-pub type eTaskState = ::std::os::raw::c_uint;
+pub type eTaskState = c_types::c_uint;
 #[doc = "< Notify the task without updating its notify value."]
 pub const eNotifyAction_eNoAction: eNotifyAction = 0;
 #[doc = "< Set bits in the task's notification value."]
@@ -18467,7 +18222,7 @@ pub const eNotifyAction_eSetValueWithOverwrite: eNotifyAction = 3;
 #[doc = "< Set the task's notification value if the previous value has been read by the task."]
 pub const eNotifyAction_eSetValueWithoutOverwrite: eNotifyAction = 4;
 #[doc = " Actions that can be performed when vTaskNotify() is called."]
-pub type eNotifyAction = ::std::os::raw::c_uint;
+pub type eNotifyAction = c_types::c_uint;
 #[doc = " @cond */"]
 #[doc = " Used internally only."]
 #[repr(C)]
@@ -18483,7 +18238,7 @@ pub type TimeOut_t = xTIME_OUT;
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
 pub struct xMEMORY_REGION {
-    pub pvBaseAddress: *mut ::core::ffi::c_void,
+    pub pvBaseAddress: *mut c_types::c_void,
     pub ulLengthInBytes: u32,
     pub ulParameters: u32,
 }
@@ -18494,9 +18249,9 @@ pub type MemoryRegion_t = xMEMORY_REGION;
 #[derive(Debug, Copy, Clone)]
 pub struct xTASK_PARAMETERS {
     pub pvTaskCode: TaskFunction_t,
-    pub pcName: *const ::std::os::raw::c_char,
+    pub pcName: *const c_types::c_char,
     pub usStackDepth: u32,
-    pub pvParameters: *mut ::core::ffi::c_void,
+    pub pvParameters: *mut c_types::c_void,
     pub uxPriority: UBaseType_t,
     pub puxStackBuffer: *mut StackType_t,
     pub xRegions: [MemoryRegion_t; 1usize],
@@ -18510,7 +18265,7 @@ pub struct xTASK_STATUS {
     #[doc = "< The handle of the task to which the rest of the information in the structure relates."]
     pub xHandle: TaskHandle_t,
     #[doc = "< A pointer to the task's name.  This value will be invalid if the task was deleted since the structure was populated!"]
-    pub pcTaskName: *const ::std::os::raw::c_char,
+    pub pcTaskName: *const c_types::c_char,
     #[doc = "< A number unique to the task."]
     pub xTaskNumber: UBaseType_t,
     #[doc = "< The state in which the task existed when the structure was populated."]
@@ -18534,7 +18289,7 @@ pub type TaskStatus_t = xTASK_STATUS;
 #[derive(Debug, Copy, Clone)]
 pub struct xTASK_SNAPSHOT {
     #[doc = "< Address of task control block."]
-    pub pxTCB: *mut ::core::ffi::c_void,
+    pub pxTCB: *mut c_types::c_void,
     #[doc = "< Points to the location of the last item placed on the tasks stack."]
     pub pxTopOfStack: *mut StackType_t,
     #[doc = "< Points to the end of the stack. pxTopOfStack < pxEndOfStack, stack grows hi2lo"]
@@ -18551,13 +18306,13 @@ pub const eSleepModeStatus_eStandardSleep: eSleepModeStatus = 1;
 #[doc = "< No tasks are waiting for a timeout so it is safe to enter a sleep mode that can only be exited by an external interrupt."]
 pub const eSleepModeStatus_eNoTasksWaitingTimeout: eSleepModeStatus = 2;
 #[doc = " Possible return values for eTaskConfirmSleepModeStatus()."]
-pub type eSleepModeStatus = ::std::os::raw::c_uint;
+pub type eSleepModeStatus = c_types::c_uint;
 extern "C" {
     pub fn xTaskCreatePinnedToCore(
         pvTaskCode: TaskFunction_t,
-        pcName: *const ::std::os::raw::c_char,
+        pcName: *const c_types::c_char,
         usStackDepth: u32,
-        pvParameters: *mut ::core::ffi::c_void,
+        pvParameters: *mut c_types::c_void,
         uxPriority: UBaseType_t,
         pvCreatedTask: *mut TaskHandle_t,
         xCoreID: BaseType_t,
@@ -19183,7 +18938,7 @@ extern "C" {
     #[doc = " set to 1 in FreeRTOSConfig.h for pcTaskGetTaskName() to be available."]
     #[doc = ""]
     #[doc = " \\ingroup TaskUtils"]
-    pub fn pcTaskGetTaskName(xTaskToQuery: TaskHandle_t) -> *mut ::std::os::raw::c_char;
+    pub fn pcTaskGetTaskName(xTaskToQuery: TaskHandle_t) -> *mut c_types::c_char;
 }
 extern "C" {
     #[doc = " Returns the high water mark of the stack associated with xTask."]
@@ -19234,7 +18989,7 @@ extern "C" {
     pub fn vTaskSetThreadLocalStoragePointer(
         xTaskToSet: TaskHandle_t,
         xIndex: BaseType_t,
-        pvValue: *mut ::core::ffi::c_void,
+        pvValue: *mut c_types::c_void,
     );
 }
 extern "C" {
@@ -19252,12 +19007,11 @@ extern "C" {
     pub fn pvTaskGetThreadLocalStoragePointer(
         xTaskToQuery: TaskHandle_t,
         xIndex: BaseType_t,
-    ) -> *mut ::core::ffi::c_void;
+    ) -> *mut c_types::c_void;
 }
 #[doc = " Prototype of local storage pointer deletion callback."]
-pub type TlsDeleteCallbackFunction_t = ::core::option::Option<
-    unsafe extern "C" fn(arg1: ::std::os::raw::c_int, arg2: *mut ::core::ffi::c_void),
->;
+pub type TlsDeleteCallbackFunction_t =
+    ::core::option::Option<unsafe extern "C" fn(arg1: c_types::c_int, arg2: *mut c_types::c_void)>;
 extern "C" {
     #[doc = " Set local storage pointer and deletion callback."]
     #[doc = ""]
@@ -19283,7 +19037,7 @@ extern "C" {
     pub fn vTaskSetThreadLocalStoragePointerAndDelCallback(
         xTaskToSet: TaskHandle_t,
         xIndex: BaseType_t,
-        pvValue: *mut ::core::ffi::c_void,
+        pvValue: *mut c_types::c_void,
         pvDelCallback: TlsDeleteCallbackFunction_t,
     );
 }
@@ -19297,7 +19051,7 @@ extern "C" {
     #[doc = " registered by the user."]
     pub fn xTaskCallApplicationTaskHook(
         xTask: TaskHandle_t,
-        pvParameter: *mut ::core::ffi::c_void,
+        pvParameter: *mut c_types::c_void,
     ) -> BaseType_t;
 }
 extern "C" {
@@ -19466,7 +19220,7 @@ extern "C" {
     #[doc = " task should be sufficient."]
     #[doc = ""]
     #[doc = " \\ingroup TaskUtils"]
-    pub fn vTaskList(pcWriteBuffer: *mut ::std::os::raw::c_char);
+    pub fn vTaskList(pcWriteBuffer: *mut c_types::c_char);
 }
 extern "C" {
     #[doc = " Get the state of running tasks as a string"]
@@ -19515,7 +19269,7 @@ extern "C" {
     #[doc = " be sufficient."]
     #[doc = ""]
     #[doc = " \\ingroup TaskUtils"]
-    pub fn vTaskGetRunTimeStats(pcWriteBuffer: *mut ::std::os::raw::c_char);
+    pub fn vTaskGetRunTimeStats(pcWriteBuffer: *mut c_types::c_char);
 }
 extern "C" {
     #[doc = " Send task notification."]
@@ -19957,7 +19711,7 @@ extern "C" {
     pub fn eTaskConfirmSleepModeStatus() -> eSleepModeStatus;
 }
 extern "C" {
-    pub fn pvTaskIncrementMutexHeldCount() -> *mut ::core::ffi::c_void;
+    pub fn pvTaskIncrementMutexHeldCount() -> *mut c_types::c_void;
 }
 extern "C" {
     pub fn uxTaskGetSnapshotAll(
@@ -20084,7 +19838,7 @@ pub const spi_flash_wrap_mode_t_FLASH_WRAP_MODE_16B: spi_flash_wrap_mode_t = 2;
 pub const spi_flash_wrap_mode_t_FLASH_WRAP_MODE_32B: spi_flash_wrap_mode_t = 4;
 pub const spi_flash_wrap_mode_t_FLASH_WRAP_MODE_64B: spi_flash_wrap_mode_t = 6;
 pub const spi_flash_wrap_mode_t_FLASH_WRAP_MODE_DISABLE: spi_flash_wrap_mode_t = 1;
-pub type spi_flash_wrap_mode_t = ::std::os::raw::c_uint;
+pub type spi_flash_wrap_mode_t = c_types::c_uint;
 extern "C" {
     #[doc = " @brief set wrap mode of flash"]
     #[doc = ""]
@@ -20147,7 +19901,7 @@ extern "C" {
     #[doc = " @return esp_err_t"]
     pub fn spi_flash_write(
         dest_addr: size_t,
-        src: *const ::core::ffi::c_void,
+        src: *const c_types::c_void,
         size: size_t,
     ) -> esp_err_t;
 }
@@ -20172,7 +19926,7 @@ extern "C" {
     #[doc = " @return esp_err_t"]
     pub fn spi_flash_write_encrypted(
         dest_addr: size_t,
-        src: *const ::core::ffi::c_void,
+        src: *const c_types::c_void,
         size: size_t,
     ) -> esp_err_t;
 }
@@ -20196,11 +19950,7 @@ extern "C" {
     #[doc = ""]
     #[doc = ""]
     #[doc = " @return esp_err_t"]
-    pub fn spi_flash_read(
-        src_addr: size_t,
-        dest: *mut ::core::ffi::c_void,
-        size: size_t,
-    ) -> esp_err_t;
+    pub fn spi_flash_read(src_addr: size_t, dest: *mut c_types::c_void, size: size_t) -> esp_err_t;
 }
 extern "C" {
     #[doc = " @brief  Read data from Encrypted Flash."]
@@ -20217,7 +19967,7 @@ extern "C" {
     #[doc = " @return esp_err_t"]
     pub fn spi_flash_read_encrypted(
         src: size_t,
-        dest: *mut ::core::ffi::c_void,
+        dest: *mut c_types::c_void,
         size: size_t,
     ) -> esp_err_t;
 }
@@ -20226,7 +19976,7 @@ pub const spi_flash_mmap_memory_t_SPI_FLASH_MMAP_DATA: spi_flash_mmap_memory_t =
 #[doc = "< map to instruction memory (Vaddr1-3), allows only 4-byte-aligned access, 11 MB total"]
 pub const spi_flash_mmap_memory_t_SPI_FLASH_MMAP_INST: spi_flash_mmap_memory_t = 1;
 #[doc = " @brief Enumeration which specifies memory space requested in an mmap call"]
-pub type spi_flash_mmap_memory_t = ::std::os::raw::c_uint;
+pub type spi_flash_mmap_memory_t = c_types::c_uint;
 #[doc = " @brief Opaque handle for memory region obtained from spi_flash_mmap."]
 pub type spi_flash_mmap_handle_t = u32;
 extern "C" {
@@ -20254,7 +20004,7 @@ extern "C" {
         src_addr: size_t,
         size: size_t,
         memory: spi_flash_mmap_memory_t,
-        out_ptr: *mut *const ::core::ffi::c_void,
+        out_ptr: *mut *const c_types::c_void,
         out_handle: *mut spi_flash_mmap_handle_t,
     ) -> esp_err_t;
 }
@@ -20281,10 +20031,10 @@ extern "C" {
     #[doc = "      - ESP_ERR_INVALID_ARG if pagecount is zero or pages array is not in"]
     #[doc = "        internal memory"]
     pub fn spi_flash_mmap_pages(
-        pages: *const ::std::os::raw::c_int,
+        pages: *const c_types::c_int,
         page_count: size_t,
         memory: spi_flash_mmap_memory_t,
-        out_ptr: *mut *const ::core::ffi::c_void,
+        out_ptr: *mut *const c_types::c_void,
         out_handle: *mut spi_flash_mmap_handle_t,
     ) -> esp_err_t;
 }
@@ -20329,7 +20079,7 @@ extern "C" {
     #[doc = " @return"]
     #[doc = " - SPI_FLASH_CACHE2PHYS_FAIL If cache address is outside flash cache region, or the address is not mapped."]
     #[doc = " - Otherwise, returns physical offset in flash"]
-    pub fn spi_flash_cache2phys(cached: *const ::core::ffi::c_void) -> size_t;
+    pub fn spi_flash_cache2phys(cached: *const c_types::c_void) -> size_t;
 }
 extern "C" {
     #[doc = " @brief Given a physical offset in flash, return the address where it is mapped in the memory space."]
@@ -20352,7 +20102,7 @@ extern "C" {
     pub fn spi_flash_phys2cache(
         phys_offs: size_t,
         memory: spi_flash_mmap_memory_t,
-    ) -> *const ::core::ffi::c_void;
+    ) -> *const c_types::c_void;
 }
 extern "C" {
     #[doc = " @brief Check at runtime if flash cache is enabled on both CPUs"]
@@ -20468,10 +20218,9 @@ pub const esp_interface_t_ESP_IF_WIFI_AP: esp_interface_t = 1;
 #[doc = "< ESP32 ethernet interface"]
 pub const esp_interface_t_ESP_IF_ETH: esp_interface_t = 2;
 pub const esp_interface_t_ESP_IF_MAX: esp_interface_t = 3;
-pub type esp_interface_t = ::std::os::raw::c_uint;
+pub type esp_interface_t = c_types::c_uint;
 #[doc = " @cond"]
-pub type esp_ipc_func_t =
-    ::core::option::Option<unsafe extern "C" fn(arg: *mut ::core::ffi::c_void)>;
+pub type esp_ipc_func_t = ::core::option::Option<unsafe extern "C" fn(arg: *mut c_types::c_void)>;
 extern "C" {
     #[doc = " @brief Execute a function on the given CPU"]
     #[doc = ""]
@@ -20494,11 +20243,7 @@ extern "C" {
     #[doc = "      - ESP_ERR_INVALID_ARG if cpu_id is invalid"]
     #[doc = "      - ESP_ERR_INVALID_STATE if the FreeRTOS scheduler is not running"]
     #[doc = "      - ESP_OK otherwise"]
-    pub fn esp_ipc_call(
-        cpu_id: u32,
-        func: esp_ipc_func_t,
-        arg: *mut ::core::ffi::c_void,
-    ) -> esp_err_t;
+    pub fn esp_ipc_call(cpu_id: u32, func: esp_ipc_func_t, arg: *mut c_types::c_void) -> esp_err_t;
 }
 extern "C" {
     #[doc = " @brief Execute a function on the given CPU and blocks until it completes"]
@@ -20526,7 +20271,7 @@ extern "C" {
     pub fn esp_ipc_call_blocking(
         cpu_id: u32,
         func: esp_ipc_func_t,
-        arg: *mut ::core::ffi::c_void,
+        arg: *mut c_types::c_void,
     ) -> esp_err_t;
 }
 #[doc = " Require CPU frequency to be at the maximum value set via esp_pm_configure."]
@@ -20539,7 +20284,7 @@ pub const esp_pm_lock_type_t_ESP_PM_APB_FREQ_MAX: esp_pm_lock_type_t = 1;
 #[doc = " Argument is unused and should be set to 0."]
 pub const esp_pm_lock_type_t_ESP_PM_NO_LIGHT_SLEEP: esp_pm_lock_type_t = 2;
 #[doc = " @brief Power management constraints"]
-pub type esp_pm_lock_type_t = ::std::os::raw::c_uint;
+pub type esp_pm_lock_type_t = c_types::c_uint;
 extern "C" {
     #[doc = " @brief Set implementation-specific power management configuration"]
     #[doc = " @param config pointer to implementation-specific configuration structure (e.g. esp_pm_config_esp32)"]
@@ -20548,7 +20293,7 @@ extern "C" {
     #[doc = "      - ESP_ERR_INVALID_ARG if the configuration values are not correct"]
     #[doc = "      - ESP_ERR_NOT_SUPPORTED if certain combination of values is not supported,"]
     #[doc = "        or if CONFIG_PM_ENABLE is not enabled in sdkconfig"]
-    pub fn esp_pm_configure(config: *const ::core::ffi::c_void) -> esp_err_t;
+    pub fn esp_pm_configure(config: *const c_types::c_void) -> esp_err_t;
 }
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
@@ -20581,8 +20326,8 @@ extern "C" {
     #[doc = "      - ESP_ERR_NOT_SUPPORTED if CONFIG_PM_ENABLE is not enabled in sdkconfig"]
     pub fn esp_pm_lock_create(
         lock_type: esp_pm_lock_type_t,
-        arg: ::std::os::raw::c_int,
-        name: *const ::std::os::raw::c_char,
+        arg: c_types::c_int,
+        name: *const c_types::c_char,
         out_handle: *mut esp_pm_lock_handle_t,
     ) -> esp_err_t;
 }
@@ -20668,15 +20413,15 @@ extern "C" {
 #[doc = " Type by which queues are referenced.  For example, a call to xQueueCreate()"]
 #[doc = " returns an QueueHandle_t variable that can then be used as a parameter to"]
 #[doc = " xQueueSend(), xQueueReceive(), etc."]
-pub type QueueHandle_t = *mut ::core::ffi::c_void;
+pub type QueueHandle_t = *mut c_types::c_void;
 #[doc = " Type by which queue sets are referenced.  For example, a call to"]
 #[doc = " xQueueCreateSet() returns an xQueueSet variable that can then be used as a"]
 #[doc = " parameter to xQueueSelectFromSet(), xQueueAddToSet(), etc."]
-pub type QueueSetHandle_t = *mut ::core::ffi::c_void;
+pub type QueueSetHandle_t = *mut c_types::c_void;
 #[doc = " Queue sets can contain both queues and semaphores, so the"]
 #[doc = " QueueSetMemberHandle_t is defined as a type to be used where a parameter or"]
 #[doc = " return value can be either an QueueHandle_t or an SemaphoreHandle_t."]
-pub type QueueSetMemberHandle_t = *mut ::core::ffi::c_void;
+pub type QueueSetMemberHandle_t = *mut c_types::c_void;
 extern "C" {
     #[doc = " It is preferred that the macros xQueueSend(), xQueueSendToFront() and"]
     #[doc = " xQueueSendToBack() are used in place of calling this function directly."]
@@ -20752,7 +20497,7 @@ extern "C" {
     #[doc = " \\ingroup QueueManagement"]
     pub fn xQueueGenericSend(
         xQueue: QueueHandle_t,
-        pvItemToQueue: *const ::core::ffi::c_void,
+        pvItemToQueue: *const c_types::c_void,
         xTicksToWait: TickType_t,
         xCopyPosition: BaseType_t,
     ) -> BaseType_t;
@@ -20779,10 +20524,7 @@ extern "C" {
     #[doc = " otherwise pdFALSE."]
     #[doc = ""]
     #[doc = " \\ingroup QueueManagement"]
-    pub fn xQueuePeekFromISR(
-        xQueue: QueueHandle_t,
-        pvBuffer: *mut ::core::ffi::c_void,
-    ) -> BaseType_t;
+    pub fn xQueuePeekFromISR(xQueue: QueueHandle_t, pvBuffer: *mut c_types::c_void) -> BaseType_t;
 }
 extern "C" {
     #[doc = " It is preferred that the macro xQueueReceive() be used rather than calling"]
@@ -20871,7 +20613,7 @@ extern "C" {
     #[doc = " \\ingroup QueueManagement"]
     pub fn xQueueGenericReceive(
         xQueue: QueueHandle_t,
-        pvBuffer: *mut ::core::ffi::c_void,
+        pvBuffer: *mut c_types::c_void,
         xTicksToWait: TickType_t,
         xJustPeek: BaseType_t,
     ) -> BaseType_t;
@@ -20974,7 +20716,7 @@ extern "C" {
     #[doc = " \\ingroup QueueManagement"]
     pub fn xQueueGenericSendFromISR(
         xQueue: QueueHandle_t,
-        pvItemToQueue: *const ::core::ffi::c_void,
+        pvItemToQueue: *const c_types::c_void,
         pxHigherPriorityTaskWoken: *mut BaseType_t,
         xCopyPosition: BaseType_t,
     ) -> BaseType_t;
@@ -21062,7 +20804,7 @@ extern "C" {
     #[doc = " \\ingroup QueueManagement"]
     pub fn xQueueReceiveFromISR(
         xQueue: QueueHandle_t,
-        pvBuffer: *mut ::core::ffi::c_void,
+        pvBuffer: *mut c_types::c_void,
         pxHigherPriorityTaskWoken: *mut BaseType_t,
     ) -> BaseType_t;
 }
@@ -21094,7 +20836,7 @@ extern "C" {
     #[doc = " sacrifices execution speed to ensure better interrupt responsiveness."]
     pub fn xQueueAltGenericSend(
         xQueue: QueueHandle_t,
-        pvItemToQueue: *const ::core::ffi::c_void,
+        pvItemToQueue: *const c_types::c_void,
         xTicksToWait: TickType_t,
         xCopyPosition: BaseType_t,
     ) -> BaseType_t;
@@ -21102,7 +20844,7 @@ extern "C" {
 extern "C" {
     pub fn xQueueAltGenericReceive(
         xQueue: QueueHandle_t,
-        pvBuffer: *mut ::core::ffi::c_void,
+        pvBuffer: *mut c_types::c_void,
         xTicksToWait: TickType_t,
         xJustPeeking: BaseType_t,
     ) -> BaseType_t;
@@ -21110,28 +20852,28 @@ extern "C" {
 extern "C" {
     pub fn xQueueCRSendFromISR(
         xQueue: QueueHandle_t,
-        pvItemToQueue: *const ::core::ffi::c_void,
+        pvItemToQueue: *const c_types::c_void,
         xCoRoutinePreviouslyWoken: BaseType_t,
     ) -> BaseType_t;
 }
 extern "C" {
     pub fn xQueueCRReceiveFromISR(
         xQueue: QueueHandle_t,
-        pvBuffer: *mut ::core::ffi::c_void,
+        pvBuffer: *mut c_types::c_void,
         pxTaskWoken: *mut BaseType_t,
     ) -> BaseType_t;
 }
 extern "C" {
     pub fn xQueueCRSend(
         xQueue: QueueHandle_t,
-        pvItemToQueue: *const ::core::ffi::c_void,
+        pvItemToQueue: *const c_types::c_void,
         xTicksToWait: TickType_t,
     ) -> BaseType_t;
 }
 extern "C" {
     pub fn xQueueCRReceive(
         xQueue: QueueHandle_t,
-        pvBuffer: *mut ::core::ffi::c_void,
+        pvBuffer: *mut c_types::c_void,
         xTicksToWait: TickType_t,
     ) -> BaseType_t;
 }
@@ -21158,7 +20900,7 @@ extern "C" {
     ) -> QueueHandle_t;
 }
 extern "C" {
-    pub fn xQueueGetMutexHolder(xSemaphore: QueueHandle_t) -> *mut ::core::ffi::c_void;
+    pub fn xQueueGetMutexHolder(xSemaphore: QueueHandle_t) -> *mut c_types::c_void;
 }
 extern "C" {
     pub fn xQueueTakeMutexRecursive(xMutex: QueueHandle_t, xTicksToWait: TickType_t) -> BaseType_t;
@@ -21328,14 +21070,14 @@ extern "C" {
     pub fn ucQueueGetQueueType(xQueue: QueueHandle_t) -> u8;
 }
 pub type SemaphoreHandle_t = QueueHandle_t;
-pub type esp_event_base_t = *const ::std::os::raw::c_char;
-pub type esp_event_loop_handle_t = *mut ::core::ffi::c_void;
+pub type esp_event_base_t = *const c_types::c_char;
+pub type esp_event_loop_handle_t = *mut c_types::c_void;
 pub type esp_event_handler_t = ::core::option::Option<
     unsafe extern "C" fn(
-        event_handler_arg: *mut ::core::ffi::c_void,
+        event_handler_arg: *mut c_types::c_void,
         event_base: esp_event_base_t,
         event_id: i32,
-        event_data: *mut ::core::ffi::c_void,
+        event_data: *mut c_types::c_void,
     ),
 >;
 #[doc = "< null mode"]
@@ -21347,19 +21089,19 @@ pub const wifi_mode_t_WIFI_MODE_AP: wifi_mode_t = 2;
 #[doc = "< WiFi station + soft-AP mode"]
 pub const wifi_mode_t_WIFI_MODE_APSTA: wifi_mode_t = 3;
 pub const wifi_mode_t_WIFI_MODE_MAX: wifi_mode_t = 4;
-pub type wifi_mode_t = ::std::os::raw::c_uint;
+pub type wifi_mode_t = c_types::c_uint;
 pub use self::esp_interface_t as wifi_interface_t;
 #[doc = "< Country policy is auto, use the country info of AP to which the station is connected"]
 pub const wifi_country_policy_t_WIFI_COUNTRY_POLICY_AUTO: wifi_country_policy_t = 0;
 #[doc = "< Country policy is manual, always use the configured country info"]
 pub const wifi_country_policy_t_WIFI_COUNTRY_POLICY_MANUAL: wifi_country_policy_t = 1;
-pub type wifi_country_policy_t = ::std::os::raw::c_uint;
+pub type wifi_country_policy_t = c_types::c_uint;
 #[doc = " @brief Structure describing WiFi country-based regional restrictions."]
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
 pub struct wifi_country_t {
     #[doc = "< country code string"]
-    pub cc: [::std::os::raw::c_char; 3usize],
+    pub cc: [c_types::c_char; 3usize],
     #[doc = "< start channel"]
     pub schan: u8,
     #[doc = "< total channel number"]
@@ -21386,7 +21128,7 @@ pub const wifi_auth_mode_t_WIFI_AUTH_WPA3_PSK: wifi_auth_mode_t = 6;
 #[doc = "< authenticate mode : WPA2_WPA3_PSK"]
 pub const wifi_auth_mode_t_WIFI_AUTH_WPA2_WPA3_PSK: wifi_auth_mode_t = 7;
 pub const wifi_auth_mode_t_WIFI_AUTH_MAX: wifi_auth_mode_t = 8;
-pub type wifi_auth_mode_t = ::std::os::raw::c_uint;
+pub type wifi_auth_mode_t = c_types::c_uint;
 pub const wifi_err_reason_t_WIFI_REASON_UNSPECIFIED: wifi_err_reason_t = 1;
 pub const wifi_err_reason_t_WIFI_REASON_AUTH_EXPIRE: wifi_err_reason_t = 2;
 pub const wifi_err_reason_t_WIFI_REASON_AUTH_LEAVE: wifi_err_reason_t = 3;
@@ -21418,19 +21160,19 @@ pub const wifi_err_reason_t_WIFI_REASON_ASSOC_FAIL: wifi_err_reason_t = 203;
 pub const wifi_err_reason_t_WIFI_REASON_HANDSHAKE_TIMEOUT: wifi_err_reason_t = 204;
 pub const wifi_err_reason_t_WIFI_REASON_CONNECTION_FAIL: wifi_err_reason_t = 205;
 pub const wifi_err_reason_t_WIFI_REASON_AP_TSF_RESET: wifi_err_reason_t = 206;
-pub type wifi_err_reason_t = ::std::os::raw::c_uint;
+pub type wifi_err_reason_t = c_types::c_uint;
 #[doc = "< the channel width is HT20"]
 pub const wifi_second_chan_t_WIFI_SECOND_CHAN_NONE: wifi_second_chan_t = 0;
 #[doc = "< the channel width is HT40 and the secondary channel is above the primary channel"]
 pub const wifi_second_chan_t_WIFI_SECOND_CHAN_ABOVE: wifi_second_chan_t = 1;
 #[doc = "< the channel width is HT40 and the secondary channel is below the primary channel"]
 pub const wifi_second_chan_t_WIFI_SECOND_CHAN_BELOW: wifi_second_chan_t = 2;
-pub type wifi_second_chan_t = ::std::os::raw::c_uint;
+pub type wifi_second_chan_t = c_types::c_uint;
 #[doc = "< active scan"]
 pub const wifi_scan_type_t_WIFI_SCAN_TYPE_ACTIVE: wifi_scan_type_t = 0;
 #[doc = "< passive scan"]
 pub const wifi_scan_type_t_WIFI_SCAN_TYPE_PASSIVE: wifi_scan_type_t = 1;
-pub type wifi_scan_type_t = ::std::os::raw::c_uint;
+pub type wifi_scan_type_t = c_types::c_uint;
 #[doc = " @brief Range of active scan times per channel"]
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
@@ -21484,7 +21226,7 @@ pub const wifi_cipher_type_t_WIFI_CIPHER_TYPE_TKIP_CCMP: wifi_cipher_type_t = 5;
 pub const wifi_cipher_type_t_WIFI_CIPHER_TYPE_AES_CMAC128: wifi_cipher_type_t = 6;
 #[doc = "< the cipher type is unknown"]
 pub const wifi_cipher_type_t_WIFI_CIPHER_TYPE_UNKNOWN: wifi_cipher_type_t = 7;
-pub type wifi_cipher_type_t = ::std::os::raw::c_uint;
+pub type wifi_cipher_type_t = c_types::c_uint;
 #[doc = "< WiFi antenna 0"]
 pub const wifi_ant_t_WIFI_ANT_ANT0: wifi_ant_t = 0;
 #[doc = "< WiFi antenna 1"]
@@ -21493,7 +21235,7 @@ pub const wifi_ant_t_WIFI_ANT_ANT1: wifi_ant_t = 1;
 pub const wifi_ant_t_WIFI_ANT_MAX: wifi_ant_t = 2;
 #[doc = " @brief WiFi antenna"]
 #[doc = ""]
-pub type wifi_ant_t = ::std::os::raw::c_uint;
+pub type wifi_ant_t = c_types::c_uint;
 #[doc = " @brief Description of a WiFi AP"]
 #[repr(C)]
 #[derive(Copy, Clone)]
@@ -21629,12 +21371,12 @@ impl wifi_ap_record_t {
 pub const wifi_scan_method_t_WIFI_FAST_SCAN: wifi_scan_method_t = 0;
 #[doc = "< All channel scan, scan will end after scan all the channel"]
 pub const wifi_scan_method_t_WIFI_ALL_CHANNEL_SCAN: wifi_scan_method_t = 1;
-pub type wifi_scan_method_t = ::std::os::raw::c_uint;
+pub type wifi_scan_method_t = c_types::c_uint;
 #[doc = "< Sort match AP in scan list by RSSI"]
 pub const wifi_sort_method_t_WIFI_CONNECT_AP_BY_SIGNAL: wifi_sort_method_t = 0;
 #[doc = "< Sort match AP in scan list by security mode"]
 pub const wifi_sort_method_t_WIFI_CONNECT_AP_BY_SECURITY: wifi_sort_method_t = 1;
-pub type wifi_sort_method_t = ::std::os::raw::c_uint;
+pub type wifi_sort_method_t = c_types::c_uint;
 #[doc = " @brief Structure describing parameters for a WiFi fast scan"]
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
@@ -21650,10 +21392,10 @@ pub const wifi_ps_type_t_WIFI_PS_NONE: wifi_ps_type_t = 0;
 pub const wifi_ps_type_t_WIFI_PS_MIN_MODEM: wifi_ps_type_t = 1;
 #[doc = "< Maximum modem power saving. In this mode, interval to receive beacons is determined by the listen_interval parameter in wifi_sta_config_t"]
 pub const wifi_ps_type_t_WIFI_PS_MAX_MODEM: wifi_ps_type_t = 2;
-pub type wifi_ps_type_t = ::std::os::raw::c_uint;
+pub type wifi_ps_type_t = c_types::c_uint;
 pub const wifi_bandwidth_t_WIFI_BW_HT20: wifi_bandwidth_t = 1;
 pub const wifi_bandwidth_t_WIFI_BW_HT40: wifi_bandwidth_t = 2;
-pub type wifi_bandwidth_t = ::std::os::raw::c_uint;
+pub type wifi_bandwidth_t = c_types::c_uint;
 #[doc = " Configuration structure for Protected Management Frame"]
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
@@ -21830,13 +21572,13 @@ pub struct wifi_sta_list_t {
     #[doc = "< station list"]
     pub sta: [wifi_sta_info_t; 10usize],
     #[doc = "< number of stations in the list (other entries are invalid)"]
-    pub num: ::std::os::raw::c_int,
+    pub num: c_types::c_int,
 }
 #[doc = "< all configuration will store in both memory and flash"]
 pub const wifi_storage_t_WIFI_STORAGE_FLASH: wifi_storage_t = 0;
 #[doc = "< all configuration will only store in the memory"]
 pub const wifi_storage_t_WIFI_STORAGE_RAM: wifi_storage_t = 1;
-pub type wifi_storage_t = ::std::os::raw::c_uint;
+pub type wifi_storage_t = c_types::c_uint;
 pub const wifi_vendor_ie_type_t_WIFI_VND_IE_TYPE_BEACON: wifi_vendor_ie_type_t = 0;
 pub const wifi_vendor_ie_type_t_WIFI_VND_IE_TYPE_PROBE_REQ: wifi_vendor_ie_type_t = 1;
 pub const wifi_vendor_ie_type_t_WIFI_VND_IE_TYPE_PROBE_RESP: wifi_vendor_ie_type_t = 2;
@@ -21845,13 +21587,13 @@ pub const wifi_vendor_ie_type_t_WIFI_VND_IE_TYPE_ASSOC_RESP: wifi_vendor_ie_type
 #[doc = " @brief     Vendor Information Element type"]
 #[doc = ""]
 #[doc = " Determines the frame type that the IE will be associated with."]
-pub type wifi_vendor_ie_type_t = ::std::os::raw::c_uint;
+pub type wifi_vendor_ie_type_t = c_types::c_uint;
 pub const wifi_vendor_ie_id_t_WIFI_VND_IE_ID_0: wifi_vendor_ie_id_t = 0;
 pub const wifi_vendor_ie_id_t_WIFI_VND_IE_ID_1: wifi_vendor_ie_id_t = 1;
 #[doc = " @brief     Vendor Information Element index"]
 #[doc = ""]
 #[doc = " Each IE type can have up to two associated vendor ID elements."]
-pub type wifi_vendor_ie_id_t = ::std::os::raw::c_uint;
+pub type wifi_vendor_ie_id_t = c_types::c_uint;
 #[doc = " @brief Vendor Information Element header"]
 #[doc = ""]
 #[doc = " The first bytes of the Information Element will match this header. Payload follows."]
@@ -21878,198 +21620,198 @@ pub struct wifi_pkt_rx_ctrl_t {
 }
 impl wifi_pkt_rx_ctrl_t {
     #[inline]
-    pub fn rssi(&self) -> ::std::os::raw::c_int {
+    pub fn rssi(&self) -> c_types::c_int {
         unsafe { ::core::mem::transmute(self._bitfield_1.get(0usize, 8u8) as u32) }
     }
     #[inline]
-    pub fn set_rssi(&mut self, val: ::std::os::raw::c_int) {
+    pub fn set_rssi(&mut self, val: c_types::c_int) {
         unsafe {
             let val: u32 = ::core::mem::transmute(val);
             self._bitfield_1.set(0usize, 8u8, val as u64)
         }
     }
     #[inline]
-    pub fn rate(&self) -> ::std::os::raw::c_uint {
+    pub fn rate(&self) -> c_types::c_uint {
         unsafe { ::core::mem::transmute(self._bitfield_1.get(8usize, 5u8) as u32) }
     }
     #[inline]
-    pub fn set_rate(&mut self, val: ::std::os::raw::c_uint) {
+    pub fn set_rate(&mut self, val: c_types::c_uint) {
         unsafe {
             let val: u32 = ::core::mem::transmute(val);
             self._bitfield_1.set(8usize, 5u8, val as u64)
         }
     }
     #[inline]
-    pub fn sig_mode(&self) -> ::std::os::raw::c_uint {
+    pub fn sig_mode(&self) -> c_types::c_uint {
         unsafe { ::core::mem::transmute(self._bitfield_1.get(14usize, 2u8) as u32) }
     }
     #[inline]
-    pub fn set_sig_mode(&mut self, val: ::std::os::raw::c_uint) {
+    pub fn set_sig_mode(&mut self, val: c_types::c_uint) {
         unsafe {
             let val: u32 = ::core::mem::transmute(val);
             self._bitfield_1.set(14usize, 2u8, val as u64)
         }
     }
     #[inline]
-    pub fn mcs(&self) -> ::std::os::raw::c_uint {
+    pub fn mcs(&self) -> c_types::c_uint {
         unsafe { ::core::mem::transmute(self._bitfield_1.get(32usize, 7u8) as u32) }
     }
     #[inline]
-    pub fn set_mcs(&mut self, val: ::std::os::raw::c_uint) {
+    pub fn set_mcs(&mut self, val: c_types::c_uint) {
         unsafe {
             let val: u32 = ::core::mem::transmute(val);
             self._bitfield_1.set(32usize, 7u8, val as u64)
         }
     }
     #[inline]
-    pub fn cwb(&self) -> ::std::os::raw::c_uint {
+    pub fn cwb(&self) -> c_types::c_uint {
         unsafe { ::core::mem::transmute(self._bitfield_1.get(39usize, 1u8) as u32) }
     }
     #[inline]
-    pub fn set_cwb(&mut self, val: ::std::os::raw::c_uint) {
+    pub fn set_cwb(&mut self, val: c_types::c_uint) {
         unsafe {
             let val: u32 = ::core::mem::transmute(val);
             self._bitfield_1.set(39usize, 1u8, val as u64)
         }
     }
     #[inline]
-    pub fn smoothing(&self) -> ::std::os::raw::c_uint {
+    pub fn smoothing(&self) -> c_types::c_uint {
         unsafe { ::core::mem::transmute(self._bitfield_1.get(56usize, 1u8) as u32) }
     }
     #[inline]
-    pub fn set_smoothing(&mut self, val: ::std::os::raw::c_uint) {
+    pub fn set_smoothing(&mut self, val: c_types::c_uint) {
         unsafe {
             let val: u32 = ::core::mem::transmute(val);
             self._bitfield_1.set(56usize, 1u8, val as u64)
         }
     }
     #[inline]
-    pub fn not_sounding(&self) -> ::std::os::raw::c_uint {
+    pub fn not_sounding(&self) -> c_types::c_uint {
         unsafe { ::core::mem::transmute(self._bitfield_1.get(57usize, 1u8) as u32) }
     }
     #[inline]
-    pub fn set_not_sounding(&mut self, val: ::std::os::raw::c_uint) {
+    pub fn set_not_sounding(&mut self, val: c_types::c_uint) {
         unsafe {
             let val: u32 = ::core::mem::transmute(val);
             self._bitfield_1.set(57usize, 1u8, val as u64)
         }
     }
     #[inline]
-    pub fn aggregation(&self) -> ::std::os::raw::c_uint {
+    pub fn aggregation(&self) -> c_types::c_uint {
         unsafe { ::core::mem::transmute(self._bitfield_1.get(59usize, 1u8) as u32) }
     }
     #[inline]
-    pub fn set_aggregation(&mut self, val: ::std::os::raw::c_uint) {
+    pub fn set_aggregation(&mut self, val: c_types::c_uint) {
         unsafe {
             let val: u32 = ::core::mem::transmute(val);
             self._bitfield_1.set(59usize, 1u8, val as u64)
         }
     }
     #[inline]
-    pub fn stbc(&self) -> ::std::os::raw::c_uint {
+    pub fn stbc(&self) -> c_types::c_uint {
         unsafe { ::core::mem::transmute(self._bitfield_1.get(60usize, 2u8) as u32) }
     }
     #[inline]
-    pub fn set_stbc(&mut self, val: ::std::os::raw::c_uint) {
+    pub fn set_stbc(&mut self, val: c_types::c_uint) {
         unsafe {
             let val: u32 = ::core::mem::transmute(val);
             self._bitfield_1.set(60usize, 2u8, val as u64)
         }
     }
     #[inline]
-    pub fn fec_coding(&self) -> ::std::os::raw::c_uint {
+    pub fn fec_coding(&self) -> c_types::c_uint {
         unsafe { ::core::mem::transmute(self._bitfield_1.get(62usize, 1u8) as u32) }
     }
     #[inline]
-    pub fn set_fec_coding(&mut self, val: ::std::os::raw::c_uint) {
+    pub fn set_fec_coding(&mut self, val: c_types::c_uint) {
         unsafe {
             let val: u32 = ::core::mem::transmute(val);
             self._bitfield_1.set(62usize, 1u8, val as u64)
         }
     }
     #[inline]
-    pub fn sgi(&self) -> ::std::os::raw::c_uint {
+    pub fn sgi(&self) -> c_types::c_uint {
         unsafe { ::core::mem::transmute(self._bitfield_1.get(63usize, 1u8) as u32) }
     }
     #[inline]
-    pub fn set_sgi(&mut self, val: ::std::os::raw::c_uint) {
+    pub fn set_sgi(&mut self, val: c_types::c_uint) {
         unsafe {
             let val: u32 = ::core::mem::transmute(val);
             self._bitfield_1.set(63usize, 1u8, val as u64)
         }
     }
     #[inline]
-    pub fn ampdu_cnt(&self) -> ::std::os::raw::c_uint {
+    pub fn ampdu_cnt(&self) -> c_types::c_uint {
         unsafe { ::core::mem::transmute(self._bitfield_1.get(64usize, 8u8) as u32) }
     }
     #[inline]
-    pub fn set_ampdu_cnt(&mut self, val: ::std::os::raw::c_uint) {
+    pub fn set_ampdu_cnt(&mut self, val: c_types::c_uint) {
         unsafe {
             let val: u32 = ::core::mem::transmute(val);
             self._bitfield_1.set(64usize, 8u8, val as u64)
         }
     }
     #[inline]
-    pub fn channel(&self) -> ::std::os::raw::c_uint {
+    pub fn channel(&self) -> c_types::c_uint {
         unsafe { ::core::mem::transmute(self._bitfield_1.get(72usize, 4u8) as u32) }
     }
     #[inline]
-    pub fn set_channel(&mut self, val: ::std::os::raw::c_uint) {
+    pub fn set_channel(&mut self, val: c_types::c_uint) {
         unsafe {
             let val: u32 = ::core::mem::transmute(val);
             self._bitfield_1.set(72usize, 4u8, val as u64)
         }
     }
     #[inline]
-    pub fn secondary_channel(&self) -> ::std::os::raw::c_uint {
+    pub fn secondary_channel(&self) -> c_types::c_uint {
         unsafe { ::core::mem::transmute(self._bitfield_1.get(76usize, 4u8) as u32) }
     }
     #[inline]
-    pub fn set_secondary_channel(&mut self, val: ::std::os::raw::c_uint) {
+    pub fn set_secondary_channel(&mut self, val: c_types::c_uint) {
         unsafe {
             let val: u32 = ::core::mem::transmute(val);
             self._bitfield_1.set(76usize, 4u8, val as u64)
         }
     }
     #[inline]
-    pub fn timestamp(&self) -> ::std::os::raw::c_uint {
+    pub fn timestamp(&self) -> c_types::c_uint {
         unsafe { ::core::mem::transmute(self._bitfield_1.get(96usize, 32u8) as u32) }
     }
     #[inline]
-    pub fn set_timestamp(&mut self, val: ::std::os::raw::c_uint) {
+    pub fn set_timestamp(&mut self, val: c_types::c_uint) {
         unsafe {
             let val: u32 = ::core::mem::transmute(val);
             self._bitfield_1.set(96usize, 32u8, val as u64)
         }
     }
     #[inline]
-    pub fn ant(&self) -> ::std::os::raw::c_uint {
+    pub fn ant(&self) -> c_types::c_uint {
         unsafe { ::core::mem::transmute(self._bitfield_1.get(191usize, 1u8) as u32) }
     }
     #[inline]
-    pub fn set_ant(&mut self, val: ::std::os::raw::c_uint) {
+    pub fn set_ant(&mut self, val: c_types::c_uint) {
         unsafe {
             let val: u32 = ::core::mem::transmute(val);
             self._bitfield_1.set(191usize, 1u8, val as u64)
         }
     }
     #[inline]
-    pub fn sig_len(&self) -> ::std::os::raw::c_uint {
+    pub fn sig_len(&self) -> c_types::c_uint {
         unsafe { ::core::mem::transmute(self._bitfield_1.get(192usize, 12u8) as u32) }
     }
     #[inline]
-    pub fn set_sig_len(&mut self, val: ::std::os::raw::c_uint) {
+    pub fn set_sig_len(&mut self, val: c_types::c_uint) {
         unsafe {
             let val: u32 = ::core::mem::transmute(val);
             self._bitfield_1.set(192usize, 12u8, val as u64)
         }
     }
     #[inline]
-    pub fn rx_state(&self) -> ::std::os::raw::c_uint {
+    pub fn rx_state(&self) -> c_types::c_uint {
         unsafe { ::core::mem::transmute(self._bitfield_1.get(216usize, 8u8) as u32) }
     }
     #[inline]
-    pub fn set_rx_state(&mut self, val: ::std::os::raw::c_uint) {
+    pub fn set_rx_state(&mut self, val: c_types::c_uint) {
         unsafe {
             let val: u32 = ::core::mem::transmute(val);
             self._bitfield_1.set(216usize, 8u8, val as u64)
@@ -22077,24 +21819,24 @@ impl wifi_pkt_rx_ctrl_t {
     }
     #[inline]
     pub fn new_bitfield_1(
-        rssi: ::std::os::raw::c_int,
-        rate: ::std::os::raw::c_uint,
-        sig_mode: ::std::os::raw::c_uint,
-        mcs: ::std::os::raw::c_uint,
-        cwb: ::std::os::raw::c_uint,
-        smoothing: ::std::os::raw::c_uint,
-        not_sounding: ::std::os::raw::c_uint,
-        aggregation: ::std::os::raw::c_uint,
-        stbc: ::std::os::raw::c_uint,
-        fec_coding: ::std::os::raw::c_uint,
-        sgi: ::std::os::raw::c_uint,
-        ampdu_cnt: ::std::os::raw::c_uint,
-        channel: ::std::os::raw::c_uint,
-        secondary_channel: ::std::os::raw::c_uint,
-        timestamp: ::std::os::raw::c_uint,
-        ant: ::std::os::raw::c_uint,
-        sig_len: ::std::os::raw::c_uint,
-        rx_state: ::std::os::raw::c_uint,
+        rssi: c_types::c_int,
+        rate: c_types::c_uint,
+        sig_mode: c_types::c_uint,
+        mcs: c_types::c_uint,
+        cwb: c_types::c_uint,
+        smoothing: c_types::c_uint,
+        not_sounding: c_types::c_uint,
+        aggregation: c_types::c_uint,
+        stbc: c_types::c_uint,
+        fec_coding: c_types::c_uint,
+        sgi: c_types::c_uint,
+        ampdu_cnt: c_types::c_uint,
+        channel: c_types::c_uint,
+        secondary_channel: c_types::c_uint,
+        timestamp: c_types::c_uint,
+        ant: c_types::c_uint,
+        sig_len: c_types::c_uint,
+        rx_state: c_types::c_uint,
     ) -> __BindgenBitfieldUnit<[u8; 28usize], u32> {
         let mut __bindgen_bitfield_unit: __BindgenBitfieldUnit<[u8; 28usize], u32> =
             Default::default();
@@ -22194,7 +21936,7 @@ pub const wifi_promiscuous_pkt_type_t_WIFI_PKT_MISC: wifi_promiscuous_pkt_type_t
 #[doc = ""]
 #[doc = " Passed to promiscuous mode RX callback to indicate the type of parameter in the buffer."]
 #[doc = ""]
-pub type wifi_promiscuous_pkt_type_t = ::std::os::raw::c_uint;
+pub type wifi_promiscuous_pkt_type_t = c_types::c_uint;
 #[doc = " @brief Mask for filtering different packet types in promiscuous mode."]
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
@@ -22304,7 +22046,7 @@ pub const wifi_ant_mode_t_WIFI_ANT_MODE_AUTO: wifi_ant_mode_t = 2;
 pub const wifi_ant_mode_t_WIFI_ANT_MODE_MAX: wifi_ant_mode_t = 3;
 #[doc = " @brief WiFi antenna mode"]
 #[doc = ""]
-pub type wifi_ant_mode_t = ::std::os::raw::c_uint;
+pub type wifi_ant_mode_t = c_types::c_uint;
 #[doc = " @brief WiFi antenna configuration"]
 #[doc = ""]
 #[repr(C)]
@@ -22429,7 +22171,7 @@ pub const wifi_phy_rate_t_WIFI_PHY_RATE_LORA_500K: wifi_phy_rate_t = 42;
 pub const wifi_phy_rate_t_WIFI_PHY_RATE_MAX: wifi_phy_rate_t = 43;
 #[doc = " @brief WiFi PHY rate encodings"]
 #[doc = ""]
-pub type wifi_phy_rate_t = ::std::os::raw::c_uint;
+pub type wifi_phy_rate_t = c_types::c_uint;
 #[doc = "< ESP32 WiFi ready"]
 pub const wifi_event_t_WIFI_EVENT_WIFI_READY: wifi_event_t = 0;
 #[doc = "< ESP32 finish scanning AP"]
@@ -22467,7 +22209,7 @@ pub const wifi_event_t_WIFI_EVENT_AP_PROBEREQRECVED: wifi_event_t = 16;
 #[doc = "< Invalid WiFi event ID"]
 pub const wifi_event_t_WIFI_EVENT_MAX: wifi_event_t = 17;
 #[doc = " WiFi event declarations"]
-pub type wifi_event_t = ::std::os::raw::c_uint;
+pub type wifi_event_t = c_types::c_uint;
 extern "C" {
     pub static mut WIFI_EVENT: esp_event_base_t;
 }
@@ -22535,7 +22277,7 @@ pub const wifi_event_sta_wps_fail_reason_t_WPS_FAIL_REASON_RECV_M2D:
 pub const wifi_event_sta_wps_fail_reason_t_WPS_FAIL_REASON_MAX: wifi_event_sta_wps_fail_reason_t =
     2;
 #[doc = " Argument structure for WIFI_EVENT_STA_WPS_ER_FAILED event"]
-pub type wifi_event_sta_wps_fail_reason_t = ::std::os::raw::c_uint;
+pub type wifi_event_sta_wps_fail_reason_t = c_types::c_uint;
 #[doc = " Argument structure for WIFI_EVENT_AP_STACONNECTED event"]
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
@@ -22559,7 +22301,7 @@ pub struct wifi_event_ap_stadisconnected_t {
 #[derive(Debug, Copy, Clone)]
 pub struct wifi_event_ap_probe_req_rx_t {
     #[doc = "< Received probe request signal strength"]
-    pub rssi: ::std::os::raw::c_int,
+    pub rssi: c_types::c_int,
     #[doc = "< MAC address of the station which send probe request"]
     pub mac: [u8; 6usize],
 }
@@ -22605,7 +22347,7 @@ pub const esp_netif_dns_type_t_ESP_NETIF_DNS_BACKUP: esp_netif_dns_type_t = 1;
 pub const esp_netif_dns_type_t_ESP_NETIF_DNS_FALLBACK: esp_netif_dns_type_t = 2;
 pub const esp_netif_dns_type_t_ESP_NETIF_DNS_MAX: esp_netif_dns_type_t = 3;
 #[doc = " @brief Type of DNS server"]
-pub type esp_netif_dns_type_t = ::std::os::raw::c_uint;
+pub type esp_netif_dns_type_t = c_types::c_uint;
 #[doc = " @brief DNS server info"]
 #[repr(C)]
 #[derive(Copy, Clone)]
@@ -22621,7 +22363,7 @@ pub const esp_netif_dhcp_status_t_ESP_NETIF_DHCP_STARTED: esp_netif_dhcp_status_
 pub const esp_netif_dhcp_status_t_ESP_NETIF_DHCP_STOPPED: esp_netif_dhcp_status_t = 2;
 pub const esp_netif_dhcp_status_t_ESP_NETIF_DHCP_STATUS_MAX: esp_netif_dhcp_status_t = 3;
 #[doc = " @brief Status of DHCP client or DHCP server"]
-pub type esp_netif_dhcp_status_t = ::std::os::raw::c_uint;
+pub type esp_netif_dhcp_status_t = c_types::c_uint;
 pub const esp_netif_dhcp_option_mode_t_ESP_NETIF_OP_START: esp_netif_dhcp_option_mode_t = 0;
 #[doc = "< Set option"]
 pub const esp_netif_dhcp_option_mode_t_ESP_NETIF_OP_SET: esp_netif_dhcp_option_mode_t = 1;
@@ -22629,7 +22371,7 @@ pub const esp_netif_dhcp_option_mode_t_ESP_NETIF_OP_SET: esp_netif_dhcp_option_m
 pub const esp_netif_dhcp_option_mode_t_ESP_NETIF_OP_GET: esp_netif_dhcp_option_mode_t = 2;
 pub const esp_netif_dhcp_option_mode_t_ESP_NETIF_OP_MAX: esp_netif_dhcp_option_mode_t = 3;
 #[doc = " @brief Mode for DHCP client or DHCP server option functions"]
-pub type esp_netif_dhcp_option_mode_t = ::std::os::raw::c_uint;
+pub type esp_netif_dhcp_option_mode_t = c_types::c_uint;
 #[doc = "< Domain name server"]
 pub const esp_netif_dhcp_option_id_t_ESP_NETIF_DOMAIN_NAME_SERVER: esp_netif_dhcp_option_id_t = 6;
 #[doc = "< Solicitation router address"]
@@ -22645,7 +22387,7 @@ pub const esp_netif_dhcp_option_id_t_ESP_NETIF_IP_ADDRESS_LEASE_TIME: esp_netif_
 pub const esp_netif_dhcp_option_id_t_ESP_NETIF_IP_REQUEST_RETRY_TIME: esp_netif_dhcp_option_id_t =
     52;
 #[doc = " @brief Supported options for DHCP client or DHCP server"]
-pub type esp_netif_dhcp_option_id_t = ::std::os::raw::c_uint;
+pub type esp_netif_dhcp_option_id_t = c_types::c_uint;
 #[doc = "< station got IP from connected AP"]
 pub const ip_event_t_IP_EVENT_STA_GOT_IP: ip_event_t = 0;
 #[doc = "< station lost IP and the IP is reset to 0"]
@@ -22661,7 +22403,7 @@ pub const ip_event_t_IP_EVENT_PPP_GOT_IP: ip_event_t = 5;
 #[doc = "< PPP interface lost IP"]
 pub const ip_event_t_IP_EVENT_PPP_LOST_IP: ip_event_t = 6;
 #[doc = " IP event declarations"]
-pub type ip_event_t = ::std::os::raw::c_uint;
+pub type ip_event_t = c_types::c_uint;
 extern "C" {
     pub static mut IP_EVENT: esp_event_base_t;
 }
@@ -22687,7 +22429,7 @@ pub struct esp_netif_ip6_info_t {
 #[derive(Debug, Copy, Clone)]
 pub struct ip_event_got_ip_t {
     #[doc = "< Interface index for which the event is received (left for legacy compilation)"]
-    pub if_index: ::std::os::raw::c_int,
+    pub if_index: c_types::c_int,
     #[doc = "< Pointer to corresponding esp-netif object"]
     pub esp_netif: *mut esp_netif_t,
     #[doc = "< IP address, netmask, gatway IP address"]
@@ -22700,7 +22442,7 @@ pub struct ip_event_got_ip_t {
 #[derive(Debug, Copy, Clone)]
 pub struct ip_event_got_ip6_t {
     #[doc = "< Interface index for which the event is received (left for legacy compilation)"]
-    pub if_index: ::std::os::raw::c_int,
+    pub if_index: c_types::c_int,
     #[doc = "< Pointer to corresponding esp-netif object"]
     pub esp_netif: *mut esp_netif_t,
     #[doc = "< IPv6 address of the interface"]
@@ -22719,11 +22461,11 @@ pub const esp_netif_flags_ESP_NETIF_FLAG_AUTOUP: esp_netif_flags = 4;
 pub const esp_netif_flags_ESP_NETIF_FLAG_GARP: esp_netif_flags = 8;
 pub const esp_netif_flags_ESP_NETIF_FLAG_EVENT_IP_MODIFIED: esp_netif_flags = 16;
 pub const esp_netif_flags_ESP_NETIF_FLAG_IS_PPP: esp_netif_flags = 32;
-pub type esp_netif_flags = ::std::os::raw::c_uint;
+pub type esp_netif_flags = c_types::c_uint;
 pub use self::esp_netif_flags as esp_netif_flags_t;
 pub const esp_netif_ip_event_type_ESP_NETIF_IP_EVENT_GOT_IP: esp_netif_ip_event_type = 1;
 pub const esp_netif_ip_event_type_ESP_NETIF_IP_EVENT_LOST_IP: esp_netif_ip_event_type = 2;
-pub type esp_netif_ip_event_type = ::std::os::raw::c_uint;
+pub type esp_netif_ip_event_type = c_types::c_uint;
 pub use self::esp_netif_ip_event_type as esp_netif_ip_event_type_t;
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
@@ -22739,17 +22481,17 @@ pub struct esp_netif_inherent_config {
     #[doc = "< event id to be raised when interface losts its IP"]
     pub lost_ip_event: u32,
     #[doc = "< string identifier of the interface"]
-    pub if_key: *const ::std::os::raw::c_char,
+    pub if_key: *const c_types::c_char,
     #[doc = "< textual description of the interface"]
-    pub if_desc: *const ::std::os::raw::c_char,
+    pub if_desc: *const c_types::c_char,
     #[doc = "< numeric priority of this interface to become a default"]
     #[doc = "routing if (if other netifs are up)"]
-    pub route_prio: ::std::os::raw::c_int,
+    pub route_prio: c_types::c_int,
 }
 pub type esp_netif_inherent_config_t = esp_netif_inherent_config;
 pub type esp_netif_config_t = esp_netif_config;
 #[doc = " @brief  IO driver handle type"]
-pub type esp_netif_iodriver_handle = *mut ::core::ffi::c_void;
+pub type esp_netif_iodriver_handle = *mut c_types::c_void;
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
 pub struct esp_netif_driver_base_s {
@@ -22766,13 +22508,13 @@ pub struct esp_netif_driver_ifconfig {
     pub handle: esp_netif_iodriver_handle,
     pub transmit: ::core::option::Option<
         unsafe extern "C" fn(
-            h: *mut ::core::ffi::c_void,
-            buffer: *mut ::core::ffi::c_void,
+            h: *mut c_types::c_void,
+            buffer: *mut c_types::c_void,
             len: size_t,
         ) -> esp_err_t,
     >,
     pub driver_free_rx_buffer: ::core::option::Option<
-        unsafe extern "C" fn(h: *mut ::core::ffi::c_void, buffer: *mut ::core::ffi::c_void),
+        unsafe extern "C" fn(h: *mut c_types::c_void, buffer: *mut c_types::c_void),
     >,
 }
 pub type esp_netif_driver_ifconfig_t = esp_netif_driver_ifconfig;
@@ -22795,9 +22537,9 @@ pub struct esp_netif_config {
 pub type esp_netif_receive_t = ::core::option::Option<
     unsafe extern "C" fn(
         esp_netif: *mut esp_netif_t,
-        buffer: *mut ::core::ffi::c_void,
+        buffer: *mut c_types::c_void,
         len: size_t,
-        eb: *mut ::core::ffi::c_void,
+        eb: *mut c_types::c_void,
     ) -> esp_err_t,
 >;
 extern "C" {
@@ -22907,9 +22649,9 @@ extern "C" {
     #[doc = "         - ESP_OK"]
     pub fn esp_netif_receive(
         esp_netif: *mut esp_netif_t,
-        buffer: *mut ::core::ffi::c_void,
+        buffer: *mut c_types::c_void,
         len: size_t,
-        eb: *mut ::core::ffi::c_void,
+        eb: *mut c_types::c_void,
     ) -> esp_err_t;
 }
 extern "C" {
@@ -22924,10 +22666,10 @@ extern "C" {
     #[doc = " @param event_id"]
     #[doc = " @param data"]
     pub fn esp_netif_action_start(
-        esp_netif: *mut ::core::ffi::c_void,
+        esp_netif: *mut c_types::c_void,
         base: esp_event_base_t,
         event_id: i32,
-        data: *mut ::core::ffi::c_void,
+        data: *mut c_types::c_void,
     );
 }
 extern "C" {
@@ -22940,10 +22682,10 @@ extern "C" {
     #[doc = " @param event_id"]
     #[doc = " @param data"]
     pub fn esp_netif_action_stop(
-        esp_netif: *mut ::core::ffi::c_void,
+        esp_netif: *mut c_types::c_void,
         base: esp_event_base_t,
         event_id: i32,
-        data: *mut ::core::ffi::c_void,
+        data: *mut c_types::c_void,
     );
 }
 extern "C" {
@@ -22956,10 +22698,10 @@ extern "C" {
     #[doc = " @param event_id"]
     #[doc = " @param data"]
     pub fn esp_netif_action_connected(
-        esp_netif: *mut ::core::ffi::c_void,
+        esp_netif: *mut c_types::c_void,
         base: esp_event_base_t,
         event_id: i32,
-        data: *mut ::core::ffi::c_void,
+        data: *mut c_types::c_void,
     );
 }
 extern "C" {
@@ -22972,10 +22714,10 @@ extern "C" {
     #[doc = " @param event_id"]
     #[doc = " @param data"]
     pub fn esp_netif_action_disconnected(
-        esp_netif: *mut ::core::ffi::c_void,
+        esp_netif: *mut c_types::c_void,
         base: esp_event_base_t,
         event_id: i32,
-        data: *mut ::core::ffi::c_void,
+        data: *mut c_types::c_void,
     );
 }
 extern "C" {
@@ -22988,10 +22730,10 @@ extern "C" {
     #[doc = " @param event_id"]
     #[doc = " @param data"]
     pub fn esp_netif_action_got_ip(
-        esp_netif: *mut ::core::ffi::c_void,
+        esp_netif: *mut c_types::c_void,
         base: esp_event_base_t,
         event_id: i32,
-        data: *mut ::core::ffi::c_void,
+        data: *mut c_types::c_void,
     );
 }
 extern "C" {
@@ -23014,7 +22756,7 @@ extern "C" {
     #[doc = "         - ESP_ERR_ESP_NETIF_INVALID_PARAMS - parameter error"]
     pub fn esp_netif_set_hostname(
         esp_netif: *mut esp_netif_t,
-        hostname: *const ::std::os::raw::c_char,
+        hostname: *const c_types::c_char,
     ) -> esp_err_t;
 }
 extern "C" {
@@ -23029,7 +22771,7 @@ extern "C" {
     #[doc = "         - ESP_ERR_ESP_NETIF_INVALID_PARAMS - parameter error"]
     pub fn esp_netif_get_hostname(
         esp_netif: *mut esp_netif_t,
-        hostname: *mut *const ::std::os::raw::c_char,
+        hostname: *mut *const c_types::c_char,
     ) -> esp_err_t;
 }
 extern "C" {
@@ -23134,7 +22876,7 @@ extern "C" {
     #[doc = ""]
     #[doc = " @return"]
     #[doc = "         implementation specific index of interface represented with supplied esp_netif"]
-    pub fn esp_netif_get_netif_impl_index(esp_netif: *mut esp_netif_t) -> ::std::os::raw::c_int;
+    pub fn esp_netif_get_netif_impl_index(esp_netif: *mut esp_netif_t) -> c_types::c_int;
 }
 extern "C" {
     #[doc = " @brief  Set or Get DHCP server option"]
@@ -23154,7 +22896,7 @@ extern "C" {
         esp_netif: *mut esp_netif_t,
         opt_op: esp_netif_dhcp_option_mode_t,
         opt_id: esp_netif_dhcp_option_id_t,
-        opt_val: *mut ::core::ffi::c_void,
+        opt_val: *mut c_types::c_void,
         opt_len: u32,
     ) -> esp_err_t;
 }
@@ -23176,7 +22918,7 @@ extern "C" {
         esp_netif: *mut esp_netif_t,
         opt_op: esp_netif_dhcp_option_mode_t,
         opt_id: esp_netif_dhcp_option_id_t,
-        opt_val: *mut ::core::ffi::c_void,
+        opt_val: *mut c_types::c_void,
         opt_len: u32,
     ) -> esp_err_t;
 }
@@ -23378,9 +23120,9 @@ extern "C" {
     #[doc = "         representation of addr or NULL if buf was too small"]
     pub fn esp_ip4addr_ntoa(
         addr: *const esp_ip4_addr_t,
-        buf: *mut ::std::os::raw::c_char,
-        buflen: ::std::os::raw::c_int,
-    ) -> *mut ::std::os::raw::c_char;
+        buf: *mut c_types::c_char,
+        buflen: c_types::c_int,
+    ) -> *mut c_types::c_char;
 }
 extern "C" {
     #[doc = " @brief Ascii internet address interpretation routine"]
@@ -23388,7 +23130,7 @@ extern "C" {
     #[doc = ""]
     #[doc = " @param addr IP address in ascii representation (e.g. \"127.0.0.1\")"]
     #[doc = " @return ip address in network order"]
-    pub fn esp_ip4addr_aton(addr: *const ::std::os::raw::c_char) -> u32;
+    pub fn esp_ip4addr_aton(addr: *const c_types::c_char) -> u32;
 }
 extern "C" {
     #[doc = " @brief Gets media driver handle for this esp-netif instance"]
@@ -23404,9 +23146,7 @@ extern "C" {
     #[doc = " @param if_key Textual description of network interface"]
     #[doc = ""]
     #[doc = " @return Handle to esp-netif instance"]
-    pub fn esp_netif_get_handle_from_ifkey(
-        if_key: *const ::std::os::raw::c_char,
-    ) -> *mut esp_netif_t;
+    pub fn esp_netif_get_handle_from_ifkey(if_key: *const c_types::c_char) -> *mut esp_netif_t;
 }
 extern "C" {
     #[doc = " @brief Returns configured flags for this interface"]
@@ -23422,7 +23162,7 @@ extern "C" {
     #[doc = " @param[in]  esp_netif Handle to esp-netif instance"]
     #[doc = ""]
     #[doc = " @return Textual description of related interface"]
-    pub fn esp_netif_get_ifkey(esp_netif: *mut esp_netif_t) -> *const ::std::os::raw::c_char;
+    pub fn esp_netif_get_ifkey(esp_netif: *mut esp_netif_t) -> *const c_types::c_char;
 }
 extern "C" {
     #[doc = " @brief Returns configured interface type for this esp-netif instance"]
@@ -23430,7 +23170,7 @@ extern "C" {
     #[doc = " @param[in]  esp_netif Handle to esp-netif instance"]
     #[doc = ""]
     #[doc = " @return Enumerated type of this interface, such as station, AP, ethernet"]
-    pub fn esp_netif_get_desc(esp_netif: *mut esp_netif_t) -> *const ::std::os::raw::c_char;
+    pub fn esp_netif_get_desc(esp_netif: *mut esp_netif_t) -> *const c_types::c_char;
 }
 extern "C" {
     #[doc = " @brief Returns configured event for this esp-netif instance and supplied event type"]
@@ -23515,7 +23255,7 @@ pub const system_event_id_t_SYSTEM_EVENT_ETH_GOT_IP: system_event_id_t = 25;
 #[doc = "< Number of members in this enum"]
 pub const system_event_id_t_SYSTEM_EVENT_MAX: system_event_id_t = 26;
 #[doc = " System event types enumeration"]
-pub type system_event_id_t = ::std::os::raw::c_uint;
+pub type system_event_id_t = c_types::c_uint;
 #[doc = " Argument structure of SYSTEM_EVENT_STA_WPS_ER_FAILED event"]
 pub use self::wifi_event_sta_wps_fail_reason_t as system_event_sta_wps_fail_reason_t;
 #[doc = " Argument structure of SYSTEM_EVENT_SCAN_DONE event"]
@@ -23584,7 +23324,7 @@ pub type system_event_handler_t = ::core::option::Option<
     unsafe extern "C" fn(
         event_base: esp_event_base_t,
         event_id: i32,
-        event_data: *mut ::core::ffi::c_void,
+        event_data: *mut c_types::c_void,
         event_data_size: size_t,
         ticks_to_wait: TickType_t,
     ) -> esp_err_t,
@@ -23620,7 +23360,7 @@ extern "C" {
     pub fn esp_event_send_internal(
         event_base: esp_event_base_t,
         event_id: i32,
-        event_data: *mut ::core::ffi::c_void,
+        event_data: *mut c_types::c_void,
         event_data_size: size_t,
         ticks_to_wait: TickType_t,
     ) -> esp_err_t;
@@ -23666,7 +23406,7 @@ extern "C" {
 #[doc = "    - ESP_OK: succeed"]
 #[doc = "    - others: fail"]
 pub type system_event_cb_t = ::core::option::Option<
-    unsafe extern "C" fn(ctx: *mut ::core::ffi::c_void, event: *mut system_event_t) -> esp_err_t,
+    unsafe extern "C" fn(ctx: *mut c_types::c_void, event: *mut system_event_t) -> esp_err_t,
 >;
 extern "C" {
     #[doc = " @brief  Initialize event loop"]
@@ -23681,7 +23421,7 @@ extern "C" {
     #[doc = " @return"]
     #[doc = "    - ESP_OK: succeed"]
     #[doc = "    - others: fail"]
-    pub fn esp_event_loop_init(cb: system_event_cb_t, ctx: *mut ::core::ffi::c_void) -> esp_err_t;
+    pub fn esp_event_loop_init(cb: system_event_cb_t, ctx: *mut c_types::c_void) -> esp_err_t;
 }
 extern "C" {
     #[doc = " @brief  Set application specified event callback function"]
@@ -23698,7 +23438,7 @@ extern "C" {
     #[doc = " @return old callback"]
     pub fn esp_event_loop_set_cb(
         cb: system_event_cb_t,
-        ctx: *mut ::core::ffi::c_void,
+        ctx: *mut c_types::c_void,
     ) -> system_event_cb_t;
 }
 #[doc = " Configuration for creating event loops"]
@@ -23709,7 +23449,7 @@ pub struct esp_event_loop_args_t {
     pub queue_size: i32,
     #[doc = "< name of the event loop task; if NULL,"]
     #[doc = "a dedicated task is not created for event loop"]
-    pub task_name: *const ::std::os::raw::c_char,
+    pub task_name: *const c_types::c_char,
     #[doc = "< priority of the event loop task, ignored if task name is NULL"]
     pub task_priority: UBaseType_t,
     #[doc = "< stack size of the event loop task, ignored if task name is NULL"]
@@ -23823,7 +23563,7 @@ extern "C" {
         event_base: esp_event_base_t,
         event_id: i32,
         event_handler: esp_event_handler_t,
-        event_handler_arg: *mut ::core::ffi::c_void,
+        event_handler_arg: *mut c_types::c_void,
     ) -> esp_err_t;
 }
 extern "C" {
@@ -23851,7 +23591,7 @@ extern "C" {
         event_base: esp_event_base_t,
         event_id: i32,
         event_handler: esp_event_handler_t,
-        event_handler_arg: *mut ::core::ffi::c_void,
+        event_handler_arg: *mut c_types::c_void,
     ) -> esp_err_t;
 }
 extern "C" {
@@ -23922,7 +23662,7 @@ extern "C" {
     pub fn esp_event_post(
         event_base: esp_event_base_t,
         event_id: i32,
-        event_data: *mut ::core::ffi::c_void,
+        event_data: *mut c_types::c_void,
         event_data_size: size_t,
         ticks_to_wait: TickType_t,
     ) -> esp_err_t;
@@ -23952,7 +23692,7 @@ extern "C" {
         event_loop: esp_event_loop_handle_t,
         event_base: esp_event_base_t,
         event_id: i32,
-        event_data: *mut ::core::ffi::c_void,
+        event_data: *mut c_types::c_void,
         event_data_size: size_t,
         ticks_to_wait: TickType_t,
     ) -> esp_err_t;
@@ -24008,14 +23748,14 @@ pub const esp_crypto_hash_alg_t_ESP_CRYPTO_HASH_ALG_HMAC_MD5: esp_crypto_hash_al
 pub const esp_crypto_hash_alg_t_ESP_CRYPTO_HASH_ALG_HMAC_SHA1: esp_crypto_hash_alg_t = 3;
 pub const esp_crypto_hash_alg_t_ESP_CRYPTO_HASH_ALG_SHA256: esp_crypto_hash_alg_t = 4;
 pub const esp_crypto_hash_alg_t_ESP_CRYPTO_HASH_ALG_HMAC_SHA256: esp_crypto_hash_alg_t = 5;
-pub type esp_crypto_hash_alg_t = ::std::os::raw::c_uint;
+pub type esp_crypto_hash_alg_t = c_types::c_uint;
 pub const esp_crypto_cipher_alg_t_ESP_CRYPTO_CIPHER_NULL: esp_crypto_cipher_alg_t = 0;
 pub const esp_crypto_cipher_alg_t_ESP_CRYPTO_CIPHER_ALG_AES: esp_crypto_cipher_alg_t = 1;
 pub const esp_crypto_cipher_alg_t_ESP_CRYPTO_CIPHER_ALG_3DES: esp_crypto_cipher_alg_t = 2;
 pub const esp_crypto_cipher_alg_t_ESP_CRYPTO_CIPHER_ALG_DES: esp_crypto_cipher_alg_t = 3;
 pub const esp_crypto_cipher_alg_t_ESP_CRYPTO_CIPHER_ALG_RC2: esp_crypto_cipher_alg_t = 4;
 pub const esp_crypto_cipher_alg_t_ESP_CRYPTO_CIPHER_ALG_RC4: esp_crypto_cipher_alg_t = 5;
-pub type esp_crypto_cipher_alg_t = ::std::os::raw::c_uint;
+pub type esp_crypto_cipher_alg_t = c_types::c_uint;
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
 pub struct crypto_hash {
@@ -24036,11 +23776,11 @@ pub type esp_crypto_cipher_t = crypto_cipher;
 #[doc = " @param data_len  Length of data in bytes (must be divisible by 16)"]
 pub type esp_aes_128_encrypt_t = ::core::option::Option<
     unsafe extern "C" fn(
-        key: *const ::std::os::raw::c_uchar,
-        iv: *const ::std::os::raw::c_uchar,
-        data: *mut ::std::os::raw::c_uchar,
-        data_len: ::std::os::raw::c_int,
-    ) -> ::std::os::raw::c_int,
+        key: *const c_types::c_uchar,
+        iv: *const c_types::c_uchar,
+        data: *mut c_types::c_uchar,
+        data_len: c_types::c_int,
+    ) -> c_types::c_int,
 >;
 #[doc = " @brief The AES callback function when do WPS connect."]
 #[doc = ""]
@@ -24051,11 +23791,11 @@ pub type esp_aes_128_encrypt_t = ::core::option::Option<
 #[doc = ""]
 pub type esp_aes_128_decrypt_t = ::core::option::Option<
     unsafe extern "C" fn(
-        key: *const ::std::os::raw::c_uchar,
-        iv: *const ::std::os::raw::c_uchar,
-        data: *mut ::std::os::raw::c_uchar,
-        data_len: ::std::os::raw::c_int,
-    ) -> ::std::os::raw::c_int,
+        key: *const c_types::c_uchar,
+        iv: *const c_types::c_uchar,
+        data: *mut c_types::c_uchar,
+        data_len: c_types::c_int,
+    ) -> c_types::c_int,
 >;
 #[doc = " @brief The AES callback function when do STA connect."]
 #[doc = ""]
@@ -24066,11 +23806,11 @@ pub type esp_aes_128_decrypt_t = ::core::option::Option<
 #[doc = ""]
 pub type esp_aes_wrap_t = ::core::option::Option<
     unsafe extern "C" fn(
-        kek: *const ::std::os::raw::c_uchar,
-        n: ::std::os::raw::c_int,
-        plain: *const ::std::os::raw::c_uchar,
-        cipher: *mut ::std::os::raw::c_uchar,
-    ) -> ::std::os::raw::c_int,
+        kek: *const c_types::c_uchar,
+        n: c_types::c_int,
+        plain: *const c_types::c_uchar,
+        cipher: *mut c_types::c_uchar,
+    ) -> c_types::c_int,
 >;
 #[doc = " @brief The AES callback function when do STA connect."]
 #[doc = ""]
@@ -24081,11 +23821,11 @@ pub type esp_aes_wrap_t = ::core::option::Option<
 #[doc = ""]
 pub type esp_aes_unwrap_t = ::core::option::Option<
     unsafe extern "C" fn(
-        kek: *const ::std::os::raw::c_uchar,
-        n: ::std::os::raw::c_int,
-        cipher: *const ::std::os::raw::c_uchar,
-        plain: *mut ::std::os::raw::c_uchar,
-    ) -> ::std::os::raw::c_int,
+        kek: *const c_types::c_uchar,
+        n: c_types::c_int,
+        cipher: *const c_types::c_uchar,
+        plain: *mut c_types::c_uchar,
+    ) -> c_types::c_int,
 >;
 #[doc = " @brief The SHA256 callback function when do WPS connect."]
 #[doc = ""]
@@ -24098,13 +23838,13 @@ pub type esp_aes_unwrap_t = ::core::option::Option<
 #[doc = ""]
 pub type esp_hmac_sha256_vector_t = ::core::option::Option<
     unsafe extern "C" fn(
-        key: *const ::std::os::raw::c_uchar,
-        key_len: ::std::os::raw::c_int,
-        num_elem: ::std::os::raw::c_int,
-        addr: *mut *const ::std::os::raw::c_uchar,
-        len: *const ::std::os::raw::c_int,
-        mac: *mut ::std::os::raw::c_uchar,
-    ) -> ::std::os::raw::c_int,
+        key: *const c_types::c_uchar,
+        key_len: c_types::c_int,
+        num_elem: c_types::c_int,
+        addr: *mut *const c_types::c_uchar,
+        len: *const c_types::c_int,
+        mac: *mut c_types::c_uchar,
+    ) -> c_types::c_int,
 >;
 #[doc = " @brief The AES callback function when do STA connect."]
 #[doc = ""]
@@ -24118,14 +23858,14 @@ pub type esp_hmac_sha256_vector_t = ::core::option::Option<
 #[doc = ""]
 pub type esp_sha256_prf_t = ::core::option::Option<
     unsafe extern "C" fn(
-        key: *const ::std::os::raw::c_uchar,
-        key_len: ::std::os::raw::c_int,
-        label: *const ::std::os::raw::c_char,
-        data: *const ::std::os::raw::c_uchar,
-        data_len: ::std::os::raw::c_int,
-        buf: *mut ::std::os::raw::c_uchar,
-        buf_len: ::std::os::raw::c_int,
-    ) -> ::std::os::raw::c_int,
+        key: *const c_types::c_uchar,
+        key_len: c_types::c_int,
+        label: *const c_types::c_char,
+        data: *const c_types::c_uchar,
+        data_len: c_types::c_int,
+        buf: *mut c_types::c_uchar,
+        buf_len: c_types::c_int,
+    ) -> c_types::c_int,
 >;
 #[doc = " @brief HMAC-MD5 over data buffer (RFC 2104)'"]
 #[doc = ""]
@@ -24137,12 +23877,12 @@ pub type esp_sha256_prf_t = ::core::option::Option<
 #[doc = " Returns: 0 on success, -1 on failure"]
 pub type esp_hmac_md5_t = ::core::option::Option<
     unsafe extern "C" fn(
-        key: *const ::std::os::raw::c_uchar,
-        key_len: ::std::os::raw::c_uint,
-        data: *const ::std::os::raw::c_uchar,
-        data_len: ::std::os::raw::c_uint,
-        mac: *mut ::std::os::raw::c_uchar,
-    ) -> ::std::os::raw::c_int,
+        key: *const c_types::c_uchar,
+        key_len: c_types::c_uint,
+        data: *const c_types::c_uchar,
+        data_len: c_types::c_uint,
+        mac: *mut c_types::c_uchar,
+    ) -> c_types::c_int,
 >;
 #[doc = " @brief HMAC-MD5 over data vector (RFC 2104)"]
 #[doc = ""]
@@ -24155,13 +23895,13 @@ pub type esp_hmac_md5_t = ::core::option::Option<
 #[doc = " Returns: 0 on success, -1 on failure"]
 pub type esp_hmac_md5_vector_t = ::core::option::Option<
     unsafe extern "C" fn(
-        key: *const ::std::os::raw::c_uchar,
-        key_len: ::std::os::raw::c_uint,
-        num_elem: ::std::os::raw::c_uint,
-        addr: *mut *const ::std::os::raw::c_uchar,
-        len: *const ::std::os::raw::c_uint,
-        mac: *mut ::std::os::raw::c_uchar,
-    ) -> ::std::os::raw::c_int,
+        key: *const c_types::c_uchar,
+        key_len: c_types::c_uint,
+        num_elem: c_types::c_uint,
+        addr: *mut *const c_types::c_uchar,
+        len: *const c_types::c_uint,
+        mac: *mut c_types::c_uchar,
+    ) -> c_types::c_int,
 >;
 #[doc = " @brief HMAC-SHA1 over data buffer (RFC 2104)"]
 #[doc = ""]
@@ -24173,12 +23913,12 @@ pub type esp_hmac_md5_vector_t = ::core::option::Option<
 #[doc = " Returns: 0 on success, -1 of failure"]
 pub type esp_hmac_sha1_t = ::core::option::Option<
     unsafe extern "C" fn(
-        key: *const ::std::os::raw::c_uchar,
-        key_len: ::std::os::raw::c_uint,
-        data: *const ::std::os::raw::c_uchar,
-        data_len: ::std::os::raw::c_uint,
-        mac: *mut ::std::os::raw::c_uchar,
-    ) -> ::std::os::raw::c_int,
+        key: *const c_types::c_uchar,
+        key_len: c_types::c_uint,
+        data: *const c_types::c_uchar,
+        data_len: c_types::c_uint,
+        mac: *mut c_types::c_uchar,
+    ) -> c_types::c_int,
 >;
 #[doc = " @brief HMAC-SHA1 over data vector (RFC 2104)"]
 #[doc = ""]
@@ -24191,13 +23931,13 @@ pub type esp_hmac_sha1_t = ::core::option::Option<
 #[doc = " Returns: 0 on success, -1 on failure"]
 pub type esp_hmac_sha1_vector_t = ::core::option::Option<
     unsafe extern "C" fn(
-        key: *const ::std::os::raw::c_uchar,
-        key_len: ::std::os::raw::c_uint,
-        num_elem: ::std::os::raw::c_uint,
-        addr: *mut *const ::std::os::raw::c_uchar,
-        len: *const ::std::os::raw::c_uint,
-        mac: *mut ::std::os::raw::c_uchar,
-    ) -> ::std::os::raw::c_int,
+        key: *const c_types::c_uchar,
+        key_len: c_types::c_uint,
+        num_elem: c_types::c_uint,
+        addr: *mut *const c_types::c_uchar,
+        len: *const c_types::c_uint,
+        mac: *mut c_types::c_uchar,
+    ) -> c_types::c_int,
 >;
 #[doc = " @brief SHA1-based Pseudo-Random Function (PRF) (IEEE 802.11i, 8.5.1.1)"]
 #[doc = ""]
@@ -24214,14 +23954,14 @@ pub type esp_hmac_sha1_vector_t = ::core::option::Option<
 #[doc = " given key (e.g., PMK in IEEE 802.11i)."]
 pub type esp_sha1_prf_t = ::core::option::Option<
     unsafe extern "C" fn(
-        key: *const ::std::os::raw::c_uchar,
-        key_len: ::std::os::raw::c_uint,
-        label: *const ::std::os::raw::c_char,
-        data: *const ::std::os::raw::c_uchar,
-        data_len: ::std::os::raw::c_uint,
-        buf: *mut ::std::os::raw::c_uchar,
-        buf_len: ::std::os::raw::c_uint,
-    ) -> ::std::os::raw::c_int,
+        key: *const c_types::c_uchar,
+        key_len: c_types::c_uint,
+        label: *const c_types::c_char,
+        data: *const c_types::c_uchar,
+        data_len: c_types::c_uint,
+        buf: *mut c_types::c_uchar,
+        buf_len: c_types::c_uint,
+    ) -> c_types::c_int,
 >;
 #[doc = " @brief SHA-1 hash for data vector"]
 #[doc = ""]
@@ -24232,11 +23972,11 @@ pub type esp_sha1_prf_t = ::core::option::Option<
 #[doc = " Returns: 0 on success, -1 on failure"]
 pub type esp_sha1_vector_t = ::core::option::Option<
     unsafe extern "C" fn(
-        num_elem: ::std::os::raw::c_uint,
-        addr: *mut *const ::std::os::raw::c_uchar,
-        len: *const ::std::os::raw::c_uint,
-        mac: *mut ::std::os::raw::c_uchar,
-    ) -> ::std::os::raw::c_int,
+        num_elem: c_types::c_uint,
+        addr: *mut *const c_types::c_uchar,
+        len: *const c_types::c_uint,
+        mac: *mut c_types::c_uchar,
+    ) -> c_types::c_int,
 >;
 #[doc = " @brief SHA1-based key derivation function (PBKDF2) for IEEE 802.11i"]
 #[doc = ""]
@@ -24253,13 +23993,13 @@ pub type esp_sha1_vector_t = ::core::option::Option<
 #[doc = " IEEE Std 802.11-2004, Clause H.4. The main construction is from PKCS#5 v2.0."]
 pub type esp_pbkdf2_sha1_t = ::core::option::Option<
     unsafe extern "C" fn(
-        passphrase: *const ::std::os::raw::c_char,
-        ssid: *const ::std::os::raw::c_char,
-        ssid_len: ::std::os::raw::c_uint,
-        iterations: ::std::os::raw::c_int,
-        buf: *mut ::std::os::raw::c_uchar,
-        buflen: ::std::os::raw::c_uint,
-    ) -> ::std::os::raw::c_int,
+        passphrase: *const c_types::c_char,
+        ssid: *const c_types::c_char,
+        ssid_len: c_types::c_uint,
+        iterations: c_types::c_int,
+        buf: *mut c_types::c_uchar,
+        buflen: c_types::c_uint,
+    ) -> c_types::c_int,
 >;
 #[doc = " @brief XOR RC4 stream to given data with skip-stream-start"]
 #[doc = ""]
@@ -24275,12 +24015,12 @@ pub type esp_pbkdf2_sha1_t = ::core::option::Option<
 #[doc = " encryption/decryption."]
 pub type esp_rc4_skip_t = ::core::option::Option<
     unsafe extern "C" fn(
-        key: *const ::std::os::raw::c_uchar,
-        keylen: ::std::os::raw::c_uint,
-        skip: ::std::os::raw::c_uint,
-        data: *mut ::std::os::raw::c_uchar,
-        data_len: ::std::os::raw::c_uint,
-    ) -> ::std::os::raw::c_int,
+        key: *const c_types::c_uchar,
+        keylen: c_types::c_uint,
+        skip: c_types::c_uint,
+        data: *mut c_types::c_uchar,
+        data_len: c_types::c_uint,
+    ) -> c_types::c_int,
 >;
 #[doc = " @brief MD5 hash for data vector"]
 #[doc = ""]
@@ -24291,11 +24031,11 @@ pub type esp_rc4_skip_t = ::core::option::Option<
 #[doc = " Returns: 0 on success, -1 on failure"]
 pub type esp_md5_vector_t = ::core::option::Option<
     unsafe extern "C" fn(
-        num_elem: ::std::os::raw::c_uint,
-        addr: *mut *const ::std::os::raw::c_uchar,
-        len: *const ::std::os::raw::c_uint,
-        mac: *mut ::std::os::raw::c_uchar,
-    ) -> ::std::os::raw::c_int,
+        num_elem: c_types::c_uint,
+        addr: *mut *const c_types::c_uchar,
+        len: *const c_types::c_uint,
+        mac: *mut c_types::c_uchar,
+    ) -> c_types::c_int,
 >;
 #[doc = " @brief Encrypt one AES block"]
 #[doc = ""]
@@ -24304,9 +24044,9 @@ pub type esp_md5_vector_t = ::core::option::Option<
 #[doc = " @crypt: Buffer for the encrypted data (16 bytes)"]
 pub type esp_aes_encrypt_t = ::core::option::Option<
     unsafe extern "C" fn(
-        ctx: *mut ::core::ffi::c_void,
-        plain: *const ::std::os::raw::c_uchar,
-        crypt: *mut ::std::os::raw::c_uchar,
+        ctx: *mut c_types::c_void,
+        plain: *const c_types::c_uchar,
+        crypt: *mut c_types::c_uchar,
     ),
 >;
 #[doc = " @brief Initialize AES for encryption"]
@@ -24316,15 +24056,15 @@ pub type esp_aes_encrypt_t = ::core::option::Option<
 #[doc = " Returns: Pointer to context data or %NULL on failure"]
 pub type esp_aes_encrypt_init_t = ::core::option::Option<
     unsafe extern "C" fn(
-        key: *const ::std::os::raw::c_uchar,
-        len: ::std::os::raw::c_uint,
-    ) -> *mut ::core::ffi::c_void,
+        key: *const c_types::c_uchar,
+        len: c_types::c_uint,
+    ) -> *mut c_types::c_void,
 >;
 #[doc = " @brief Deinitialize AES encryption"]
 #[doc = ""]
 #[doc = " @ctx: Context pointer from aes_encrypt_init()"]
 pub type esp_aes_encrypt_deinit_t =
-    ::core::option::Option<unsafe extern "C" fn(ctx: *mut ::core::ffi::c_void)>;
+    ::core::option::Option<unsafe extern "C" fn(ctx: *mut c_types::c_void)>;
 #[doc = " @brief Decrypt one AES block"]
 #[doc = ""]
 #[doc = " @ctx: Context pointer from aes_encrypt_init()"]
@@ -24332,9 +24072,9 @@ pub type esp_aes_encrypt_deinit_t =
 #[doc = " @plain: Buffer for the decrypted data (16 bytes)"]
 pub type esp_aes_decrypt_t = ::core::option::Option<
     unsafe extern "C" fn(
-        ctx: *mut ::core::ffi::c_void,
-        crypt: *const ::std::os::raw::c_uchar,
-        plain: *mut ::std::os::raw::c_uchar,
+        ctx: *mut c_types::c_void,
+        crypt: *const c_types::c_uchar,
+        plain: *mut c_types::c_uchar,
     ),
 >;
 #[doc = " @brief Initialize AES for decryption"]
@@ -24344,15 +24084,15 @@ pub type esp_aes_decrypt_t = ::core::option::Option<
 #[doc = " Returns: Pointer to context data or %NULL on failure"]
 pub type esp_aes_decrypt_init_t = ::core::option::Option<
     unsafe extern "C" fn(
-        key: *const ::std::os::raw::c_uchar,
-        len: ::std::os::raw::c_uint,
-    ) -> *mut ::core::ffi::c_void,
+        key: *const c_types::c_uchar,
+        len: c_types::c_uint,
+    ) -> *mut c_types::c_void,
 >;
 #[doc = " @brief Deinitialize AES decryption"]
 #[doc = ""]
 #[doc = " @ctx: Context pointer from aes_encrypt_init()"]
 pub type esp_aes_decrypt_deinit_t =
-    ::core::option::Option<unsafe extern "C" fn(ctx: *mut ::core::ffi::c_void)>;
+    ::core::option::Option<unsafe extern "C" fn(ctx: *mut c_types::c_void)>;
 #[doc = " @brief One-Key CBC MAC (OMAC1) hash with AES-128 for MIC computation"]
 #[doc = ""]
 #[doc = " @key: 128-bit key for the hash operation"]
@@ -24366,7 +24106,7 @@ pub type esp_omac1_aes_128_t = ::core::option::Option<
         data: *const u8,
         data_len: size_t,
         mic: *mut u8,
-    ) -> ::std::os::raw::c_int,
+    ) -> c_types::c_int,
 >;
 #[doc = " @brief Decrypt data using CCMP (Counter Mode CBC-MAC Protocol OR"]
 #[doc = "        Counter Mode Cipher Block Chaining Message Authentication"]
@@ -24403,7 +24143,7 @@ pub type esp_ccmp_encrypt_t = ::core::option::Option<
         len: size_t,
         hdrlen: size_t,
         pn: *mut u8,
-        keyid: ::std::os::raw::c_int,
+        keyid: c_types::c_int,
         encrypted_len: *mut size_t,
     ) -> *mut u8,
 >;
@@ -24458,96 +24198,86 @@ pub struct mesh_crypto_funcs_t {
 pub struct wifi_osi_funcs_t {
     pub _version: i32,
     pub _set_isr: ::core::option::Option<
-        unsafe extern "C" fn(n: i32, f: *mut ::core::ffi::c_void, arg: *mut ::core::ffi::c_void),
+        unsafe extern "C" fn(n: i32, f: *mut c_types::c_void, arg: *mut c_types::c_void),
     >,
     pub _ints_on: ::core::option::Option<unsafe extern "C" fn(mask: u32)>,
     pub _ints_off: ::core::option::Option<unsafe extern "C" fn(mask: u32)>,
-    pub _spin_lock_create:
-        ::core::option::Option<unsafe extern "C" fn() -> *mut ::core::ffi::c_void>,
-    pub _spin_lock_delete:
-        ::core::option::Option<unsafe extern "C" fn(lock: *mut ::core::ffi::c_void)>,
+    pub _spin_lock_create: ::core::option::Option<unsafe extern "C" fn() -> *mut c_types::c_void>,
+    pub _spin_lock_delete: ::core::option::Option<unsafe extern "C" fn(lock: *mut c_types::c_void)>,
     pub _wifi_int_disable:
-        ::core::option::Option<unsafe extern "C" fn(wifi_int_mux: *mut ::core::ffi::c_void) -> u32>,
-    pub _wifi_int_restore: ::core::option::Option<
-        unsafe extern "C" fn(wifi_int_mux: *mut ::core::ffi::c_void, tmp: u32),
-    >,
+        ::core::option::Option<unsafe extern "C" fn(wifi_int_mux: *mut c_types::c_void) -> u32>,
+    pub _wifi_int_restore:
+        ::core::option::Option<unsafe extern "C" fn(wifi_int_mux: *mut c_types::c_void, tmp: u32)>,
     pub _task_yield_from_isr: ::core::option::Option<unsafe extern "C" fn()>,
-    pub _semphr_create: ::core::option::Option<
-        unsafe extern "C" fn(max: u32, init: u32) -> *mut ::core::ffi::c_void,
-    >,
-    pub _semphr_delete:
-        ::core::option::Option<unsafe extern "C" fn(semphr: *mut ::core::ffi::c_void)>,
+    pub _semphr_create:
+        ::core::option::Option<unsafe extern "C" fn(max: u32, init: u32) -> *mut c_types::c_void>,
+    pub _semphr_delete: ::core::option::Option<unsafe extern "C" fn(semphr: *mut c_types::c_void)>,
     pub _semphr_take: ::core::option::Option<
-        unsafe extern "C" fn(semphr: *mut ::core::ffi::c_void, block_time_tick: u32) -> i32,
+        unsafe extern "C" fn(semphr: *mut c_types::c_void, block_time_tick: u32) -> i32,
     >,
     pub _semphr_give:
-        ::core::option::Option<unsafe extern "C" fn(semphr: *mut ::core::ffi::c_void) -> i32>,
+        ::core::option::Option<unsafe extern "C" fn(semphr: *mut c_types::c_void) -> i32>,
     pub _wifi_thread_semphr_get:
-        ::core::option::Option<unsafe extern "C" fn() -> *mut ::core::ffi::c_void>,
-    pub _mutex_create: ::core::option::Option<unsafe extern "C" fn() -> *mut ::core::ffi::c_void>,
+        ::core::option::Option<unsafe extern "C" fn() -> *mut c_types::c_void>,
+    pub _mutex_create: ::core::option::Option<unsafe extern "C" fn() -> *mut c_types::c_void>,
     pub _recursive_mutex_create:
-        ::core::option::Option<unsafe extern "C" fn() -> *mut ::core::ffi::c_void>,
-    pub _mutex_delete:
-        ::core::option::Option<unsafe extern "C" fn(mutex: *mut ::core::ffi::c_void)>,
+        ::core::option::Option<unsafe extern "C" fn() -> *mut c_types::c_void>,
+    pub _mutex_delete: ::core::option::Option<unsafe extern "C" fn(mutex: *mut c_types::c_void)>,
     pub _mutex_lock:
-        ::core::option::Option<unsafe extern "C" fn(mutex: *mut ::core::ffi::c_void) -> i32>,
+        ::core::option::Option<unsafe extern "C" fn(mutex: *mut c_types::c_void) -> i32>,
     pub _mutex_unlock:
-        ::core::option::Option<unsafe extern "C" fn(mutex: *mut ::core::ffi::c_void) -> i32>,
+        ::core::option::Option<unsafe extern "C" fn(mutex: *mut c_types::c_void) -> i32>,
     pub _queue_create: ::core::option::Option<
-        unsafe extern "C" fn(queue_len: u32, item_size: u32) -> *mut ::core::ffi::c_void,
+        unsafe extern "C" fn(queue_len: u32, item_size: u32) -> *mut c_types::c_void,
     >,
-    pub _queue_delete:
-        ::core::option::Option<unsafe extern "C" fn(queue: *mut ::core::ffi::c_void)>,
+    pub _queue_delete: ::core::option::Option<unsafe extern "C" fn(queue: *mut c_types::c_void)>,
     pub _queue_send: ::core::option::Option<
         unsafe extern "C" fn(
-            queue: *mut ::core::ffi::c_void,
-            item: *mut ::core::ffi::c_void,
+            queue: *mut c_types::c_void,
+            item: *mut c_types::c_void,
             block_time_tick: u32,
         ) -> i32,
     >,
     pub _queue_send_from_isr: ::core::option::Option<
         unsafe extern "C" fn(
-            queue: *mut ::core::ffi::c_void,
-            item: *mut ::core::ffi::c_void,
-            hptw: *mut ::core::ffi::c_void,
+            queue: *mut c_types::c_void,
+            item: *mut c_types::c_void,
+            hptw: *mut c_types::c_void,
         ) -> i32,
     >,
     pub _queue_send_to_back: ::core::option::Option<
         unsafe extern "C" fn(
-            queue: *mut ::core::ffi::c_void,
-            item: *mut ::core::ffi::c_void,
+            queue: *mut c_types::c_void,
+            item: *mut c_types::c_void,
             block_time_tick: u32,
         ) -> i32,
     >,
     pub _queue_send_to_front: ::core::option::Option<
         unsafe extern "C" fn(
-            queue: *mut ::core::ffi::c_void,
-            item: *mut ::core::ffi::c_void,
+            queue: *mut c_types::c_void,
+            item: *mut c_types::c_void,
             block_time_tick: u32,
         ) -> i32,
     >,
     pub _queue_recv: ::core::option::Option<
         unsafe extern "C" fn(
-            queue: *mut ::core::ffi::c_void,
-            item: *mut ::core::ffi::c_void,
+            queue: *mut c_types::c_void,
+            item: *mut c_types::c_void,
             block_time_tick: u32,
         ) -> i32,
     >,
     pub _queue_msg_waiting:
-        ::core::option::Option<unsafe extern "C" fn(queue: *mut ::core::ffi::c_void) -> u32>,
-    pub _event_group_create:
-        ::core::option::Option<unsafe extern "C" fn() -> *mut ::core::ffi::c_void>,
+        ::core::option::Option<unsafe extern "C" fn(queue: *mut c_types::c_void) -> u32>,
+    pub _event_group_create: ::core::option::Option<unsafe extern "C" fn() -> *mut c_types::c_void>,
     pub _event_group_delete:
-        ::core::option::Option<unsafe extern "C" fn(event: *mut ::core::ffi::c_void)>,
-    pub _event_group_set_bits: ::core::option::Option<
-        unsafe extern "C" fn(event: *mut ::core::ffi::c_void, bits: u32) -> u32,
-    >,
-    pub _event_group_clear_bits: ::core::option::Option<
-        unsafe extern "C" fn(event: *mut ::core::ffi::c_void, bits: u32) -> u32,
-    >,
+        ::core::option::Option<unsafe extern "C" fn(event: *mut c_types::c_void)>,
+    pub _event_group_set_bits:
+        ::core::option::Option<unsafe extern "C" fn(event: *mut c_types::c_void, bits: u32) -> u32>,
+    pub _event_group_clear_bits:
+        ::core::option::Option<unsafe extern "C" fn(event: *mut c_types::c_void, bits: u32) -> u32>,
     pub _event_group_wait_bits: ::core::option::Option<
         unsafe extern "C" fn(
-            event: *mut ::core::ffi::c_void,
+            event: *mut c_types::c_void,
             bits_to_wait_for: u32,
             clear_on_exit: i32,
             wait_for_all_bits: i32,
@@ -24556,40 +24286,39 @@ pub struct wifi_osi_funcs_t {
     >,
     pub _task_create_pinned_to_core: ::core::option::Option<
         unsafe extern "C" fn(
-            task_func: *mut ::core::ffi::c_void,
-            name: *const ::std::os::raw::c_char,
+            task_func: *mut c_types::c_void,
+            name: *const c_types::c_char,
             stack_depth: u32,
-            param: *mut ::core::ffi::c_void,
+            param: *mut c_types::c_void,
             prio: u32,
-            task_handle: *mut ::core::ffi::c_void,
+            task_handle: *mut c_types::c_void,
             core_id: u32,
         ) -> i32,
     >,
     pub _task_create: ::core::option::Option<
         unsafe extern "C" fn(
-            task_func: *mut ::core::ffi::c_void,
-            name: *const ::std::os::raw::c_char,
+            task_func: *mut c_types::c_void,
+            name: *const c_types::c_char,
             stack_depth: u32,
-            param: *mut ::core::ffi::c_void,
+            param: *mut c_types::c_void,
             prio: u32,
-            task_handle: *mut ::core::ffi::c_void,
+            task_handle: *mut c_types::c_void,
         ) -> i32,
     >,
     pub _task_delete:
-        ::core::option::Option<unsafe extern "C" fn(task_handle: *mut ::core::ffi::c_void)>,
+        ::core::option::Option<unsafe extern "C" fn(task_handle: *mut c_types::c_void)>,
     pub _task_delay: ::core::option::Option<unsafe extern "C" fn(tick: u32)>,
     pub _task_ms_to_tick: ::core::option::Option<unsafe extern "C" fn(ms: u32) -> i32>,
     pub _task_get_current_task:
-        ::core::option::Option<unsafe extern "C" fn() -> *mut ::core::ffi::c_void>,
+        ::core::option::Option<unsafe extern "C" fn() -> *mut c_types::c_void>,
     pub _task_get_max_priority: ::core::option::Option<unsafe extern "C" fn() -> i32>,
-    pub _malloc:
-        ::core::option::Option<unsafe extern "C" fn(size: u32) -> *mut ::core::ffi::c_void>,
-    pub _free: ::core::option::Option<unsafe extern "C" fn(p: *mut ::core::ffi::c_void)>,
+    pub _malloc: ::core::option::Option<unsafe extern "C" fn(size: u32) -> *mut c_types::c_void>,
+    pub _free: ::core::option::Option<unsafe extern "C" fn(p: *mut c_types::c_void)>,
     pub _event_post: ::core::option::Option<
         unsafe extern "C" fn(
-            event_base: *const ::std::os::raw::c_char,
+            event_base: *const c_types::c_char,
             event_id: i32,
-            event_data: *mut ::core::ffi::c_void,
+            event_data: *mut c_types::c_void,
             event_data_size: size_t,
             ticks_to_wait: u32,
         ) -> i32,
@@ -24602,57 +24331,44 @@ pub struct wifi_osi_funcs_t {
     pub _phy_load_cal_and_init: ::core::option::Option<unsafe extern "C" fn(module: u32)>,
     pub _read_mac: ::core::option::Option<unsafe extern "C" fn(mac: *mut u8, type_: u32) -> i32>,
     pub _timer_arm: ::core::option::Option<
-        unsafe extern "C" fn(timer: *mut ::core::ffi::c_void, tmout: u32, repeat: bool),
+        unsafe extern "C" fn(timer: *mut c_types::c_void, tmout: u32, repeat: bool),
     >,
-    pub _timer_disarm:
-        ::core::option::Option<unsafe extern "C" fn(timer: *mut ::core::ffi::c_void)>,
-    pub _timer_done: ::core::option::Option<unsafe extern "C" fn(ptimer: *mut ::core::ffi::c_void)>,
+    pub _timer_disarm: ::core::option::Option<unsafe extern "C" fn(timer: *mut c_types::c_void)>,
+    pub _timer_done: ::core::option::Option<unsafe extern "C" fn(ptimer: *mut c_types::c_void)>,
     pub _timer_setfn: ::core::option::Option<
         unsafe extern "C" fn(
-            ptimer: *mut ::core::ffi::c_void,
-            pfunction: *mut ::core::ffi::c_void,
-            parg: *mut ::core::ffi::c_void,
+            ptimer: *mut c_types::c_void,
+            pfunction: *mut c_types::c_void,
+            parg: *mut c_types::c_void,
         ),
     >,
     pub _timer_arm_us: ::core::option::Option<
-        unsafe extern "C" fn(ptimer: *mut ::core::ffi::c_void, us: u32, repeat: bool),
+        unsafe extern "C" fn(ptimer: *mut c_types::c_void, us: u32, repeat: bool),
     >,
     pub _periph_module_enable: ::core::option::Option<unsafe extern "C" fn(periph: u32)>,
     pub _periph_module_disable: ::core::option::Option<unsafe extern "C" fn(periph: u32)>,
     pub _esp_timer_get_time: ::core::option::Option<unsafe extern "C" fn() -> i64>,
     pub _nvs_set_i8: ::core::option::Option<
-        unsafe extern "C" fn(handle: u32, key: *const ::std::os::raw::c_char, value: i8) -> i32,
+        unsafe extern "C" fn(handle: u32, key: *const c_types::c_char, value: i8) -> i32,
     >,
     pub _nvs_get_i8: ::core::option::Option<
-        unsafe extern "C" fn(
-            handle: u32,
-            key: *const ::std::os::raw::c_char,
-            out_value: *mut i8,
-        ) -> i32,
+        unsafe extern "C" fn(handle: u32, key: *const c_types::c_char, out_value: *mut i8) -> i32,
     >,
     pub _nvs_set_u8: ::core::option::Option<
-        unsafe extern "C" fn(handle: u32, key: *const ::std::os::raw::c_char, value: u8) -> i32,
+        unsafe extern "C" fn(handle: u32, key: *const c_types::c_char, value: u8) -> i32,
     >,
     pub _nvs_get_u8: ::core::option::Option<
-        unsafe extern "C" fn(
-            handle: u32,
-            key: *const ::std::os::raw::c_char,
-            out_value: *mut u8,
-        ) -> i32,
+        unsafe extern "C" fn(handle: u32, key: *const c_types::c_char, out_value: *mut u8) -> i32,
     >,
     pub _nvs_set_u16: ::core::option::Option<
-        unsafe extern "C" fn(handle: u32, key: *const ::std::os::raw::c_char, value: u16) -> i32,
+        unsafe extern "C" fn(handle: u32, key: *const c_types::c_char, value: u16) -> i32,
     >,
     pub _nvs_get_u16: ::core::option::Option<
-        unsafe extern "C" fn(
-            handle: u32,
-            key: *const ::std::os::raw::c_char,
-            out_value: *mut u16,
-        ) -> i32,
+        unsafe extern "C" fn(handle: u32, key: *const c_types::c_char, out_value: *mut u16) -> i32,
     >,
     pub _nvs_open: ::core::option::Option<
         unsafe extern "C" fn(
-            name: *const ::std::os::raw::c_char,
+            name: *const c_types::c_char,
             open_mode: u32,
             out_handle: *mut u32,
         ) -> i32,
@@ -24662,73 +24378,67 @@ pub struct wifi_osi_funcs_t {
     pub _nvs_set_blob: ::core::option::Option<
         unsafe extern "C" fn(
             handle: u32,
-            key: *const ::std::os::raw::c_char,
-            value: *const ::core::ffi::c_void,
+            key: *const c_types::c_char,
+            value: *const c_types::c_void,
             length: size_t,
         ) -> i32,
     >,
     pub _nvs_get_blob: ::core::option::Option<
         unsafe extern "C" fn(
             handle: u32,
-            key: *const ::std::os::raw::c_char,
-            out_value: *mut ::core::ffi::c_void,
+            key: *const c_types::c_char,
+            out_value: *mut c_types::c_void,
             length: *mut size_t,
         ) -> i32,
     >,
     pub _nvs_erase_key: ::core::option::Option<
-        unsafe extern "C" fn(handle: u32, key: *const ::std::os::raw::c_char) -> i32,
+        unsafe extern "C" fn(handle: u32, key: *const c_types::c_char) -> i32,
     >,
     pub _get_random: ::core::option::Option<unsafe extern "C" fn(buf: *mut u8, len: size_t) -> i32>,
-    pub _get_time: ::core::option::Option<unsafe extern "C" fn(t: *mut ::core::ffi::c_void) -> i32>,
-    pub _random: ::core::option::Option<unsafe extern "C" fn() -> ::std::os::raw::c_ulong>,
+    pub _get_time: ::core::option::Option<unsafe extern "C" fn(t: *mut c_types::c_void) -> i32>,
+    pub _random: ::core::option::Option<unsafe extern "C" fn() -> c_types::c_ulong>,
     pub _log_write: ::core::option::Option<
         unsafe extern "C" fn(
             level: u32,
-            tag: *const ::std::os::raw::c_char,
-            format: *const ::std::os::raw::c_char,
+            tag: *const c_types::c_char,
+            format: *const c_types::c_char,
             ...
         ),
     >,
     pub _log_writev: ::core::option::Option<
         unsafe extern "C" fn(
             level: u32,
-            tag: *const ::std::os::raw::c_char,
-            format: *const ::std::os::raw::c_char,
+            tag: *const c_types::c_char,
+            format: *const c_types::c_char,
             args: va_list,
         ),
     >,
     pub _log_timestamp: ::core::option::Option<unsafe extern "C" fn() -> u32>,
     pub _malloc_internal:
-        ::core::option::Option<unsafe extern "C" fn(size: size_t) -> *mut ::core::ffi::c_void>,
+        ::core::option::Option<unsafe extern "C" fn(size: size_t) -> *mut c_types::c_void>,
     pub _realloc_internal: ::core::option::Option<
-        unsafe extern "C" fn(
-            ptr: *mut ::core::ffi::c_void,
-            size: size_t,
-        ) -> *mut ::core::ffi::c_void,
+        unsafe extern "C" fn(ptr: *mut c_types::c_void, size: size_t) -> *mut c_types::c_void,
     >,
     pub _calloc_internal: ::core::option::Option<
-        unsafe extern "C" fn(n: size_t, size: size_t) -> *mut ::core::ffi::c_void,
+        unsafe extern "C" fn(n: size_t, size: size_t) -> *mut c_types::c_void,
     >,
     pub _zalloc_internal:
-        ::core::option::Option<unsafe extern "C" fn(size: size_t) -> *mut ::core::ffi::c_void>,
+        ::core::option::Option<unsafe extern "C" fn(size: size_t) -> *mut c_types::c_void>,
     pub _wifi_malloc:
-        ::core::option::Option<unsafe extern "C" fn(size: size_t) -> *mut ::core::ffi::c_void>,
+        ::core::option::Option<unsafe extern "C" fn(size: size_t) -> *mut c_types::c_void>,
     pub _wifi_realloc: ::core::option::Option<
-        unsafe extern "C" fn(
-            ptr: *mut ::core::ffi::c_void,
-            size: size_t,
-        ) -> *mut ::core::ffi::c_void,
+        unsafe extern "C" fn(ptr: *mut c_types::c_void, size: size_t) -> *mut c_types::c_void,
     >,
     pub _wifi_calloc: ::core::option::Option<
-        unsafe extern "C" fn(n: size_t, size: size_t) -> *mut ::core::ffi::c_void,
+        unsafe extern "C" fn(n: size_t, size: size_t) -> *mut c_types::c_void,
     >,
     pub _wifi_zalloc:
-        ::core::option::Option<unsafe extern "C" fn(size: size_t) -> *mut ::core::ffi::c_void>,
+        ::core::option::Option<unsafe extern "C" fn(size: size_t) -> *mut c_types::c_void>,
     pub _wifi_create_queue: ::core::option::Option<
-        unsafe extern "C" fn(queue_len: i32, item_size: i32) -> *mut ::core::ffi::c_void,
+        unsafe extern "C" fn(queue_len: i32, item_size: i32) -> *mut c_types::c_void,
     >,
     pub _wifi_delete_queue:
-        ::core::option::Option<unsafe extern "C" fn(queue: *mut ::core::ffi::c_void)>,
+        ::core::option::Option<unsafe extern "C" fn(queue: *mut c_types::c_void)>,
     pub _modem_sleep_enter: ::core::option::Option<unsafe extern "C" fn(module: u32) -> i32>,
     pub _modem_sleep_exit: ::core::option::Option<unsafe extern "C" fn(module: u32) -> i32>,
     pub _modem_sleep_register: ::core::option::Option<unsafe extern "C" fn(module: u32) -> i32>,
@@ -24787,7 +24497,7 @@ extern "C" {
     #[doc = " @return"]
     #[doc = "  - ESP_OK on success, error returned from esp_event_handler_register if failed"]
     pub fn esp_wifi_clear_default_wifi_driver_and_handlers(
-        esp_netif: *mut ::core::ffi::c_void,
+        esp_netif: *mut c_types::c_void,
     ) -> esp_err_t;
 }
 extern "C" {
@@ -24833,39 +24543,39 @@ pub struct wifi_init_config_t {
     #[doc = "< WiFi station crypto functions when connect"]
     pub wpa_crypto_funcs: wpa_crypto_funcs_t,
     #[doc = "< WiFi static RX buffer number"]
-    pub static_rx_buf_num: ::std::os::raw::c_int,
+    pub static_rx_buf_num: c_types::c_int,
     #[doc = "< WiFi dynamic RX buffer number"]
-    pub dynamic_rx_buf_num: ::std::os::raw::c_int,
+    pub dynamic_rx_buf_num: c_types::c_int,
     #[doc = "< WiFi TX buffer type"]
-    pub tx_buf_type: ::std::os::raw::c_int,
+    pub tx_buf_type: c_types::c_int,
     #[doc = "< WiFi static TX buffer number"]
-    pub static_tx_buf_num: ::std::os::raw::c_int,
+    pub static_tx_buf_num: c_types::c_int,
     #[doc = "< WiFi dynamic TX buffer number"]
-    pub dynamic_tx_buf_num: ::std::os::raw::c_int,
+    pub dynamic_tx_buf_num: c_types::c_int,
     #[doc = "< WiFi channel state information enable flag"]
-    pub csi_enable: ::std::os::raw::c_int,
+    pub csi_enable: c_types::c_int,
     #[doc = "< WiFi AMPDU RX feature enable flag"]
-    pub ampdu_rx_enable: ::std::os::raw::c_int,
+    pub ampdu_rx_enable: c_types::c_int,
     #[doc = "< WiFi AMPDU TX feature enable flag"]
-    pub ampdu_tx_enable: ::std::os::raw::c_int,
+    pub ampdu_tx_enable: c_types::c_int,
     #[doc = "< WiFi NVS flash enable flag"]
-    pub nvs_enable: ::std::os::raw::c_int,
+    pub nvs_enable: c_types::c_int,
     #[doc = "< Nano option for printf/scan family enable flag"]
-    pub nano_enable: ::std::os::raw::c_int,
+    pub nano_enable: c_types::c_int,
     #[doc = "< WiFi Block Ack TX window size"]
-    pub tx_ba_win: ::std::os::raw::c_int,
+    pub tx_ba_win: c_types::c_int,
     #[doc = "< WiFi Block Ack RX window size"]
-    pub rx_ba_win: ::std::os::raw::c_int,
+    pub rx_ba_win: c_types::c_int,
     #[doc = "< WiFi Task Core ID"]
-    pub wifi_task_core_id: ::std::os::raw::c_int,
+    pub wifi_task_core_id: c_types::c_int,
     #[doc = "< WiFi softAP maximum length of the beacon"]
-    pub beacon_max_len: ::std::os::raw::c_int,
+    pub beacon_max_len: c_types::c_int,
     #[doc = "< WiFi management short buffer number, the minimum value is 6, the maximum value is 32"]
-    pub mgmt_sbuf_num: ::std::os::raw::c_int,
+    pub mgmt_sbuf_num: c_types::c_int,
     #[doc = "< Enables additional WiFi features and capabilities"]
     pub feature_caps: u64,
     #[doc = "< WiFi init magic number, it should be the last field"]
-    pub magic: ::std::os::raw::c_int,
+    pub magic: c_types::c_int,
 }
 extern "C" {
     pub static g_wifi_default_wpa_crypto_funcs: wpa_crypto_funcs_t;
@@ -25290,7 +25000,7 @@ extern "C" {
 #[doc = " @param type  promiscuous packet type."]
 #[doc = ""]
 pub type wifi_promiscuous_cb_t = ::core::option::Option<
-    unsafe extern "C" fn(buf: *mut ::core::ffi::c_void, type_: wifi_promiscuous_pkt_type_t),
+    unsafe extern "C" fn(buf: *mut c_types::c_void, type_: wifi_promiscuous_pkt_type_t),
 >;
 extern "C" {
     #[doc = " @brief Register the RX callback function in the promiscuous mode."]
@@ -25464,11 +25174,11 @@ extern "C" {
 #[doc = " @param     rssi Received signal strength indication."]
 pub type esp_vendor_ie_cb_t = ::core::option::Option<
     unsafe extern "C" fn(
-        ctx: *mut ::core::ffi::c_void,
+        ctx: *mut c_types::c_void,
         type_: wifi_vendor_ie_type_t,
         sa: *const u8,
         vnd_ie: *const vendor_ie_data_t,
-        rssi: ::std::os::raw::c_int,
+        rssi: c_types::c_int,
     ),
 >;
 extern "C" {
@@ -25490,7 +25200,7 @@ extern "C" {
         enable: bool,
         type_: wifi_vendor_ie_type_t,
         idx: wifi_vendor_ie_id_t,
-        vnd_ie: *const ::core::ffi::c_void,
+        vnd_ie: *const c_types::c_void,
     ) -> esp_err_t;
 }
 extern "C" {
@@ -25504,7 +25214,7 @@ extern "C" {
     #[doc = "    - ESP_ERR_WIFI_NOT_INIT: WiFi is not initialized by esp_wifi_init"]
     pub fn esp_wifi_set_vendor_ie_cb(
         cb: esp_vendor_ie_cb_t,
-        ctx: *mut ::core::ffi::c_void,
+        ctx: *mut c_types::c_void,
     ) -> esp_err_t;
 }
 extern "C" {
@@ -25614,8 +25324,8 @@ extern "C" {
     #[doc = "    - ESP_ERR_WIFI_NO_MEM: out of memory"]
     pub fn esp_wifi_80211_tx(
         ifx: wifi_interface_t,
-        buffer: *const ::core::ffi::c_void,
-        len: ::std::os::raw::c_int,
+        buffer: *const c_types::c_void,
+        len: c_types::c_int,
         en_sys_seq: bool,
     ) -> esp_err_t;
 }
@@ -25627,7 +25337,7 @@ extern "C" {
 #[doc = " @param data CSI data received. The memory that it points to will be deallocated after callback function returns."]
 #[doc = ""]
 pub type wifi_csi_cb_t = ::core::option::Option<
-    unsafe extern "C" fn(ctx: *mut ::core::ffi::c_void, data: *mut wifi_csi_info_t),
+    unsafe extern "C" fn(ctx: *mut c_types::c_void, data: *mut wifi_csi_info_t),
 >;
 extern "C" {
     #[doc = " @brief Register the RX callback function of CSI data."]
@@ -25640,7 +25350,7 @@ extern "C" {
     #[doc = " @return"]
     #[doc = "    - ESP_OK: succeed"]
     #[doc = "    - ESP_ERR_WIFI_NOT_INIT: WiFi is not initialized by esp_wifi_init"]
-    pub fn esp_wifi_set_csi_rx_cb(cb: wifi_csi_cb_t, ctx: *mut ::core::ffi::c_void) -> esp_err_t;
+    pub fn esp_wifi_set_csi_rx_cb(cb: wifi_csi_cb_t, ctx: *mut c_types::c_void) -> esp_err_t;
 }
 extern "C" {
     #[doc = " @brief Set CSI data configuration"]
@@ -25752,7 +25462,7 @@ pub const esp_eth_state_t_ETH_STATE_SPEED: esp_eth_state_t = 3;
 #[doc = "< Duplex updated"]
 pub const esp_eth_state_t_ETH_STATE_DUPLEX: esp_eth_state_t = 4;
 #[doc = " @brief Ethernet driver state"]
-pub type esp_eth_state_t = ::std::os::raw::c_uint;
+pub type esp_eth_state_t = c_types::c_uint;
 #[doc = "< Get MAC address"]
 pub const esp_eth_io_cmd_t_ETH_CMD_G_MAC_ADDR: esp_eth_io_cmd_t = 0;
 #[doc = "< Set MAC address"]
@@ -25766,25 +25476,25 @@ pub const esp_eth_io_cmd_t_ETH_CMD_G_SPEED: esp_eth_io_cmd_t = 4;
 #[doc = "< Set promiscuous mode"]
 pub const esp_eth_io_cmd_t_ETH_CMD_S_PROMISCUOUS: esp_eth_io_cmd_t = 5;
 #[doc = " @brief Command list for ioctl API"]
-pub type esp_eth_io_cmd_t = ::std::os::raw::c_uint;
+pub type esp_eth_io_cmd_t = c_types::c_uint;
 #[doc = "< Ethernet link is up"]
 pub const eth_link_t_ETH_LINK_UP: eth_link_t = 0;
 #[doc = "< Ethernet link is down"]
 pub const eth_link_t_ETH_LINK_DOWN: eth_link_t = 1;
 #[doc = " @brief Ethernet link status"]
-pub type eth_link_t = ::std::os::raw::c_uint;
+pub type eth_link_t = c_types::c_uint;
 #[doc = "< Ethernet speed is 10Mbps"]
 pub const eth_speed_t_ETH_SPEED_10M: eth_speed_t = 0;
 #[doc = "< Ethernet speed is 100Mbps"]
 pub const eth_speed_t_ETH_SPEED_100M: eth_speed_t = 1;
 #[doc = " @brief Ethernet speed"]
-pub type eth_speed_t = ::std::os::raw::c_uint;
+pub type eth_speed_t = c_types::c_uint;
 #[doc = "< Ethernet is in half duplex"]
 pub const eth_duplex_t_ETH_DUPLEX_HALF: eth_duplex_t = 0;
 #[doc = "< Ethernet is in full duplex"]
 pub const eth_duplex_t_ETH_DUPLEX_FULL: eth_duplex_t = 1;
 #[doc = " @brief Ethernet duplex mode"]
-pub type eth_duplex_t = ::std::os::raw::c_uint;
+pub type eth_duplex_t = c_types::c_uint;
 #[doc = " @brief Ethernet mediator"]
 pub type esp_eth_mediator_t = esp_eth_mediator_s;
 #[doc = " @brief Ethernet mediator"]
@@ -25859,7 +25569,7 @@ pub struct esp_eth_mediator_s {
         unsafe extern "C" fn(
             eth: *mut esp_eth_mediator_t,
             state: esp_eth_state_t,
-            args: *mut ::core::ffi::c_void,
+            args: *mut c_types::c_void,
         ) -> esp_err_t,
     >,
 }
@@ -25872,7 +25582,7 @@ pub const eth_event_t_ETHERNET_EVENT_CONNECTED: eth_event_t = 2;
 #[doc = "< Ethernet lost a valid link"]
 pub const eth_event_t_ETHERNET_EVENT_DISCONNECTED: eth_event_t = 3;
 #[doc = " @brief Ethernet event declarations"]
-pub type eth_event_t = ::std::os::raw::c_uint;
+pub type eth_event_t = c_types::c_uint;
 extern "C" {
     pub static mut ETH_EVENT: esp_event_base_t;
 }
@@ -26122,9 +25832,9 @@ pub struct eth_mac_config_t {
     #[doc = "< Priority of the receive task"]
     pub rx_task_prio: u32,
     #[doc = "< SMI MDC GPIO number"]
-    pub smi_mdc_gpio_num: ::std::os::raw::c_int,
+    pub smi_mdc_gpio_num: c_types::c_int,
     #[doc = "< SMI MDIO GPIO number"]
-    pub smi_mdio_gpio_num: ::std::os::raw::c_int,
+    pub smi_mdio_gpio_num: c_types::c_int,
     #[doc = "< Flags that specify extra capability for mac driver"]
     pub flags: u32,
 }
@@ -26265,7 +25975,7 @@ pub struct eth_phy_config_t {
     #[doc = "< Auto-negotiation timeout value (Unit: ms)"]
     pub autonego_timeout_ms: u32,
     #[doc = "< Reset GPIO number, -1 means no hardware reset"]
-    pub reset_gpio_num: ::std::os::raw::c_int,
+    pub reset_gpio_num: c_types::c_int,
 }
 extern "C" {
     #[doc = " @brief Create a PHY instance of IP101"]
@@ -26308,7 +26018,7 @@ extern "C" {
     pub fn esp_eth_phy_new_dp83848(config: *const eth_phy_config_t) -> *mut esp_eth_phy_t;
 }
 #[doc = " @brief Handle of Ethernet driver"]
-pub type esp_eth_handle_t = *mut ::core::ffi::c_void;
+pub type esp_eth_handle_t = *mut c_types::c_void;
 #[doc = " @brief Configuration of Ethernet driver"]
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
@@ -26337,7 +26047,7 @@ pub struct esp_eth_config_t {
             eth_handle: esp_eth_handle_t,
             buffer: *mut u8,
             length: u32,
-            priv_: *mut ::core::ffi::c_void,
+            priv_: *mut c_types::c_void,
         ) -> esp_err_t,
     >,
     #[doc = " @brief Callback function invoked when lowlevel initialization is finished"]
@@ -26437,10 +26147,10 @@ extern "C" {
                 hdl: esp_eth_handle_t,
                 buffer: *mut u8,
                 length: u32,
-                priv_: *mut ::core::ffi::c_void,
+                priv_: *mut c_types::c_void,
             ) -> esp_err_t,
         >,
-        priv_: *mut ::core::ffi::c_void,
+        priv_: *mut c_types::c_void,
     ) -> esp_err_t;
 }
 extern "C" {
@@ -26456,7 +26166,7 @@ extern "C" {
     #[doc = "       - ESP_FAIL: transmit frame buffer failed because some other error occurred"]
     pub fn esp_eth_transmit(
         hdl: esp_eth_handle_t,
-        buf: *mut ::core::ffi::c_void,
+        buf: *mut c_types::c_void,
         length: u32,
     ) -> esp_err_t;
 }
@@ -26492,7 +26202,7 @@ extern "C" {
     pub fn esp_eth_ioctl(
         hdl: esp_eth_handle_t,
         cmd: esp_eth_io_cmd_t,
-        data: *mut ::core::ffi::c_void,
+        data: *mut c_types::c_void,
     ) -> esp_err_t;
 }
 extern "C" {
@@ -26524,14 +26234,14 @@ extern "C" {
     #[doc = ""]
     #[doc = " @param eth_hdl Ethernet driver handle"]
     #[doc = " @return glue object, which inherits esp_netif_driver_base_t"]
-    pub fn esp_eth_new_netif_glue(eth_hdl: esp_eth_handle_t) -> *mut ::core::ffi::c_void;
+    pub fn esp_eth_new_netif_glue(eth_hdl: esp_eth_handle_t) -> *mut c_types::c_void;
 }
 extern "C" {
     #[doc = " @brief Delete netif glue of Ethernet driver"]
     #[doc = ""]
     #[doc = " @param glue netif glue"]
     #[doc = " @return -ESP_OK: delete netif glue successfully"]
-    pub fn esp_eth_del_netif_glue(glue: *mut ::core::ffi::c_void) -> esp_err_t;
+    pub fn esp_eth_del_netif_glue(glue: *mut c_types::c_void) -> esp_err_t;
 }
 extern "C" {
     #[doc = " @brief Register default IP layer handlers for Ethernet"]
@@ -26543,7 +26253,7 @@ extern "C" {
     #[doc = "      - ESP_ERR_INVALID_ARG: invalid parameter (esp_netif is NULL)"]
     #[doc = "      - ESP_OK: set default IP layer handlers successfully"]
     #[doc = "      - others: other failure occurred during register esp_event handler"]
-    pub fn esp_eth_set_default_handlers(esp_netif: *mut ::core::ffi::c_void) -> esp_err_t;
+    pub fn esp_eth_set_default_handlers(esp_netif: *mut c_types::c_void) -> esp_err_t;
 }
 extern "C" {
     #[doc = " @brief Unregister default IP layer handlers for Ethernet"]
@@ -26553,31 +26263,30 @@ extern "C" {
     #[doc = "      - ESP_ERR_INVALID_ARG: invalid parameter (esp_netif is NULL)"]
     #[doc = "      - ESP_OK: clear default IP layer handlers successfully"]
     #[doc = "      - others: other failure occurred during unregister esp_event handler"]
-    pub fn esp_eth_clear_default_handlers(esp_netif: *mut ::core::ffi::c_void) -> esp_err_t;
+    pub fn esp_eth_clear_default_handlers(esp_netif: *mut c_types::c_void) -> esp_err_t;
 }
-pub type xt_handler = ::core::option::Option<unsafe extern "C" fn(arg1: *mut ::core::ffi::c_void)>;
+pub type xt_handler = ::core::option::Option<unsafe extern "C" fn(arg1: *mut c_types::c_void)>;
 pub type xt_exc_handler = ::core::option::Option<unsafe extern "C" fn(arg1: *mut XtExcFrame)>;
 extern "C" {
-    pub fn xt_set_exception_handler(n: ::std::os::raw::c_int, f: xt_exc_handler) -> xt_exc_handler;
+    pub fn xt_set_exception_handler(n: c_types::c_int, f: xt_exc_handler) -> xt_exc_handler;
 }
 extern "C" {
     pub fn xt_set_interrupt_handler(
-        n: ::std::os::raw::c_int,
+        n: c_types::c_int,
         f: xt_handler,
-        arg: *mut ::core::ffi::c_void,
+        arg: *mut c_types::c_void,
     ) -> xt_handler;
 }
 extern "C" {
-    pub fn xt_ints_on(mask: ::std::os::raw::c_uint);
+    pub fn xt_ints_on(mask: c_types::c_uint);
 }
 extern "C" {
-    pub fn xt_ints_off(mask: ::std::os::raw::c_uint);
+    pub fn xt_ints_off(mask: c_types::c_uint);
 }
 extern "C" {
-    pub fn xt_get_interrupt_handler_arg(n: ::std::os::raw::c_int) -> *mut ::core::ffi::c_void;
+    pub fn xt_get_interrupt_handler_arg(n: c_types::c_int) -> *mut c_types::c_void;
 }
-pub type intr_handler_t =
-    ::core::option::Option<unsafe extern "C" fn(arg: *mut ::core::ffi::c_void)>;
+pub type intr_handler_t = ::core::option::Option<unsafe extern "C" fn(arg: *mut c_types::c_void)>;
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
 pub struct intr_handle_data_t {
@@ -26599,8 +26308,8 @@ extern "C" {
     #[doc = " @return ESP_ERR_INVALID_ARG if cpu or intno is invalid"]
     #[doc = "         ESP_OK otherwise"]
     pub fn esp_intr_mark_shared(
-        intno: ::std::os::raw::c_int,
-        cpu: ::std::os::raw::c_int,
+        intno: c_types::c_int,
+        cpu: c_types::c_int,
         is_in_iram: bool,
     ) -> esp_err_t;
 }
@@ -26615,7 +26324,7 @@ extern "C" {
     #[doc = ""]
     #[doc = " @return ESP_ERR_INVALID_ARG if cpu or intno is invalid"]
     #[doc = "         ESP_OK otherwise"]
-    pub fn esp_intr_reserve(intno: ::std::os::raw::c_int, cpu: ::std::os::raw::c_int) -> esp_err_t;
+    pub fn esp_intr_reserve(intno: c_types::c_int, cpu: c_types::c_int) -> esp_err_t;
 }
 extern "C" {
     #[doc = " @brief Allocate an interrupt with the given parameters."]
@@ -26650,10 +26359,10 @@ extern "C" {
     #[doc = "         ESP_ERR_NOT_FOUND No free interrupt found with the specified flags"]
     #[doc = "         ESP_OK otherwise"]
     pub fn esp_intr_alloc(
-        source: ::std::os::raw::c_int,
-        flags: ::std::os::raw::c_int,
+        source: c_types::c_int,
+        flags: c_types::c_int,
         handler: intr_handler_t,
-        arg: *mut ::core::ffi::c_void,
+        arg: *mut c_types::c_void,
         ret_handle: *mut intr_handle_t,
     ) -> esp_err_t;
 }
@@ -26692,12 +26401,12 @@ extern "C" {
     #[doc = "         ESP_ERR_NOT_FOUND No free interrupt found with the specified flags"]
     #[doc = "         ESP_OK otherwise"]
     pub fn esp_intr_alloc_intrstatus(
-        source: ::std::os::raw::c_int,
-        flags: ::std::os::raw::c_int,
+        source: c_types::c_int,
+        flags: c_types::c_int,
         intrstatusreg: u32,
         intrstatusmask: u32,
         handler: intr_handler_t,
-        arg: *mut ::core::ffi::c_void,
+        arg: *mut c_types::c_void,
         ret_handle: *mut intr_handle_t,
     ) -> esp_err_t;
 }
@@ -26726,7 +26435,7 @@ extern "C" {
     #[doc = " @param handle The handle, as obtained by esp_intr_alloc or esp_intr_alloc_intrstatus"]
     #[doc = ""]
     #[doc = " @return The core number where the interrupt is allocated"]
-    pub fn esp_intr_get_cpu(handle: intr_handle_t) -> ::std::os::raw::c_int;
+    pub fn esp_intr_get_cpu(handle: intr_handle_t) -> c_types::c_int;
 }
 extern "C" {
     #[doc = " @brief Get the allocated interrupt for a certain handle"]
@@ -26734,7 +26443,7 @@ extern "C" {
     #[doc = " @param handle The handle, as obtained by esp_intr_alloc or esp_intr_alloc_intrstatus"]
     #[doc = ""]
     #[doc = " @return The interrupt number"]
-    pub fn esp_intr_get_intno(handle: intr_handle_t) -> ::std::os::raw::c_int;
+    pub fn esp_intr_get_intno(handle: intr_handle_t) -> c_types::c_int;
 }
 extern "C" {
     #[doc = " @brief Disable the interrupt associated with the handle"]
@@ -28214,7 +27923,7 @@ extern "C" {
 }
 pub const gpio_port_t_GPIO_PORT_0: gpio_port_t = 0;
 pub const gpio_port_t_GPIO_PORT_MAX: gpio_port_t = 1;
-pub type gpio_port_t = ::std::os::raw::c_uint;
+pub type gpio_port_t = c_types::c_uint;
 #[doc = "< Use to signal not connected to S/W"]
 pub const gpio_num_t_GPIO_NUM_NC: gpio_num_t = -1;
 #[doc = "< GPIO0, input and output"]
@@ -28291,7 +28000,7 @@ pub const gpio_num_t_GPIO_NUM_38: gpio_num_t = 38;
 pub const gpio_num_t_GPIO_NUM_39: gpio_num_t = 39;
 pub const gpio_num_t_GPIO_NUM_MAX: gpio_num_t = 40;
 #[doc = " @endcond"]
-pub type gpio_num_t = ::std::os::raw::c_int;
+pub type gpio_num_t = c_types::c_int;
 #[doc = "< Disable GPIO interrupt"]
 pub const gpio_int_type_t_GPIO_INTR_DISABLE: gpio_int_type_t = 0;
 #[doc = "< GPIO interrupt type : rising edge"]
@@ -28305,7 +28014,7 @@ pub const gpio_int_type_t_GPIO_INTR_LOW_LEVEL: gpio_int_type_t = 4;
 #[doc = "< GPIO interrupt type : input high level trigger"]
 pub const gpio_int_type_t_GPIO_INTR_HIGH_LEVEL: gpio_int_type_t = 5;
 pub const gpio_int_type_t_GPIO_INTR_MAX: gpio_int_type_t = 6;
-pub type gpio_int_type_t = ::std::os::raw::c_uint;
+pub type gpio_int_type_t = c_types::c_uint;
 #[doc = "< GPIO mode : disable input and output"]
 pub const gpio_mode_t_GPIO_MODE_DISABLE: gpio_mode_t = 0;
 #[doc = "< GPIO mode : input only"]
@@ -28318,17 +28027,17 @@ pub const gpio_mode_t_GPIO_MODE_OUTPUT_OD: gpio_mode_t = 6;
 pub const gpio_mode_t_GPIO_MODE_INPUT_OUTPUT_OD: gpio_mode_t = 7;
 #[doc = "< GPIO mode : output and input mode"]
 pub const gpio_mode_t_GPIO_MODE_INPUT_OUTPUT: gpio_mode_t = 3;
-pub type gpio_mode_t = ::std::os::raw::c_uint;
+pub type gpio_mode_t = c_types::c_uint;
 #[doc = "< Disable GPIO pull-up resistor"]
 pub const gpio_pullup_t_GPIO_PULLUP_DISABLE: gpio_pullup_t = 0;
 #[doc = "< Enable GPIO pull-up resistor"]
 pub const gpio_pullup_t_GPIO_PULLUP_ENABLE: gpio_pullup_t = 1;
-pub type gpio_pullup_t = ::std::os::raw::c_uint;
+pub type gpio_pullup_t = c_types::c_uint;
 #[doc = "< Disable GPIO pull-down resistor"]
 pub const gpio_pulldown_t_GPIO_PULLDOWN_DISABLE: gpio_pulldown_t = 0;
 #[doc = "< Enable GPIO pull-down resistor"]
 pub const gpio_pulldown_t_GPIO_PULLDOWN_ENABLE: gpio_pulldown_t = 1;
-pub type gpio_pulldown_t = ::std::os::raw::c_uint;
+pub type gpio_pulldown_t = c_types::c_uint;
 #[doc = " @brief Configuration parameters of GPIO pad for gpio_config function"]
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
@@ -28352,7 +28061,7 @@ pub const gpio_pull_mode_t_GPIO_PULLDOWN_ONLY: gpio_pull_mode_t = 1;
 pub const gpio_pull_mode_t_GPIO_PULLUP_PULLDOWN: gpio_pull_mode_t = 2;
 #[doc = "< Pad floating"]
 pub const gpio_pull_mode_t_GPIO_FLOATING: gpio_pull_mode_t = 3;
-pub type gpio_pull_mode_t = ::std::os::raw::c_uint;
+pub type gpio_pull_mode_t = c_types::c_uint;
 #[doc = "< Pad drive capability: weak"]
 pub const gpio_drive_cap_t_GPIO_DRIVE_CAP_0: gpio_drive_cap_t = 0;
 #[doc = "< Pad drive capability: stronger"]
@@ -28364,8 +28073,8 @@ pub const gpio_drive_cap_t_GPIO_DRIVE_CAP_DEFAULT: gpio_drive_cap_t = 2;
 #[doc = "< Pad drive capability: strongest"]
 pub const gpio_drive_cap_t_GPIO_DRIVE_CAP_3: gpio_drive_cap_t = 3;
 pub const gpio_drive_cap_t_GPIO_DRIVE_CAP_MAX: gpio_drive_cap_t = 4;
-pub type gpio_drive_cap_t = ::std::os::raw::c_uint;
-pub type gpio_isr_t = ::core::option::Option<unsafe extern "C" fn(arg1: *mut ::core::ffi::c_void)>;
+pub type gpio_drive_cap_t = c_types::c_uint;
+pub type gpio_isr_t = ::core::option::Option<unsafe extern "C" fn(arg1: *mut c_types::c_void)>;
 pub type gpio_isr_handle_t = intr_handle_t;
 extern "C" {
     #[doc = " @brief GPIO common configuration"]
@@ -28453,7 +28162,7 @@ extern "C" {
     #[doc = "     - 0 the GPIO input level is 0"]
     #[doc = "     - 1 the GPIO input level is 1"]
     #[doc = ""]
-    pub fn gpio_get_level(gpio_num: gpio_num_t) -> ::std::os::raw::c_int;
+    pub fn gpio_get_level(gpio_num: gpio_num_t) -> c_types::c_int;
 }
 extern "C" {
     #[doc = " @brief\t GPIO set direction"]
@@ -28529,9 +28238,9 @@ extern "C" {
     #[doc = "     - ESP_ERR_INVALID_ARG GPIO error"]
     #[doc = "     - ESP_ERR_NOT_FOUND No free interrupt found with the specified flags"]
     pub fn gpio_isr_register(
-        fn_: ::core::option::Option<unsafe extern "C" fn(arg1: *mut ::core::ffi::c_void)>,
-        arg: *mut ::core::ffi::c_void,
-        intr_alloc_flags: ::std::os::raw::c_int,
+        fn_: ::core::option::Option<unsafe extern "C" fn(arg1: *mut c_types::c_void)>,
+        arg: *mut c_types::c_void,
+        intr_alloc_flags: c_types::c_int,
         handle: *mut gpio_isr_handle_t,
     ) -> esp_err_t;
 }
@@ -28589,7 +28298,7 @@ extern "C" {
     #[doc = "     - ESP_ERR_INVALID_STATE ISR service already installed."]
     #[doc = "     - ESP_ERR_NOT_FOUND No free interrupt found with the specified flags"]
     #[doc = "     - ESP_ERR_INVALID_ARG GPIO error"]
-    pub fn gpio_install_isr_service(intr_alloc_flags: ::std::os::raw::c_int) -> esp_err_t;
+    pub fn gpio_install_isr_service(intr_alloc_flags: c_types::c_int) -> esp_err_t;
 }
 extern "C" {
     #[doc = " @brief Uninstall the driver's GPIO ISR service, freeing related resources."]
@@ -28621,7 +28330,7 @@ extern "C" {
     pub fn gpio_isr_handler_add(
         gpio_num: gpio_num_t,
         isr_handler: gpio_isr_t,
-        args: *mut ::core::ffi::c_void,
+        args: *mut c_types::c_void,
     ) -> esp_err_t;
 }
 extern "C" {
@@ -28727,7 +28436,7 @@ extern "C" {
     #[doc = " @param func The function number of the peripheral pin to output pin."]
     #[doc = "        One of the ``FUNC_X_*`` of specified pin (X) in ``soc/io_mux_reg.h``."]
     #[doc = " @param oen_inv True if the output enable needs to be inverted, otherwise False."]
-    pub fn gpio_iomux_out(gpio_num: u8, func: ::std::os::raw::c_int, oen_inv: bool);
+    pub fn gpio_iomux_out(gpio_num: u8, func: c_types::c_int, oen_inv: bool);
 }
 #[repr(C)]
 #[derive(Copy, Clone)]
@@ -41356,7 +41065,7 @@ extern "C" {
     pub static mut RTCCNTL: rtc_cntl_dev_t;
 }
 extern "C" {
-    pub static mut adc_channel_io_map: [[::std::os::raw::c_int; 10usize]; 2usize];
+    pub static mut adc_channel_io_map: [[c_types::c_int; 10usize]; 2usize];
 }
 #[doc = "< ADC channel"]
 pub const adc_channel_t_ADC_CHANNEL_0: adc_channel_t = 0;
@@ -41379,7 +41088,7 @@ pub const adc_channel_t_ADC_CHANNEL_8: adc_channel_t = 8;
 #[doc = "< ADC channel"]
 pub const adc_channel_t_ADC_CHANNEL_9: adc_channel_t = 9;
 pub const adc_channel_t_ADC_CHANNEL_MAX: adc_channel_t = 10;
-pub type adc_channel_t = ::std::os::raw::c_uint;
+pub type adc_channel_t = c_types::c_uint;
 #[doc = "<The input voltage of ADC will be reduced to about 1/1"]
 pub const adc_atten_t_ADC_ATTEN_DB_0: adc_atten_t = 0;
 #[doc = "<The input voltage of ADC will be reduced to about 1/1.34"]
@@ -41389,13 +41098,13 @@ pub const adc_atten_t_ADC_ATTEN_DB_6: adc_atten_t = 2;
 #[doc = "<The input voltage of ADC will be reduced to about 1/3.6"]
 pub const adc_atten_t_ADC_ATTEN_DB_11: adc_atten_t = 3;
 pub const adc_atten_t_ADC_ATTEN_MAX: adc_atten_t = 4;
-pub type adc_atten_t = ::std::os::raw::c_uint;
+pub type adc_atten_t = c_types::c_uint;
 #[doc = "< I2S data from GPIO matrix signal"]
 pub const adc_i2s_source_t_ADC_I2S_DATA_SRC_IO_SIG: adc_i2s_source_t = 0;
 #[doc = "< I2S data from ADC"]
 pub const adc_i2s_source_t_ADC_I2S_DATA_SRC_ADC: adc_i2s_source_t = 1;
 pub const adc_i2s_source_t_ADC_I2S_DATA_SRC_MAX: adc_i2s_source_t = 2;
-pub type adc_i2s_source_t = ::std::os::raw::c_uint;
+pub type adc_i2s_source_t = c_types::c_uint;
 #[doc = "< ADC capture width is 9Bit"]
 pub const adc_bits_width_t_ADC_WIDTH_BIT_9: adc_bits_width_t = 0;
 #[doc = "< ADC capture width is 10Bit"]
@@ -41405,7 +41114,7 @@ pub const adc_bits_width_t_ADC_WIDTH_BIT_11: adc_bits_width_t = 2;
 #[doc = "< ADC capture width is 12Bit"]
 pub const adc_bits_width_t_ADC_WIDTH_BIT_12: adc_bits_width_t = 3;
 pub const adc_bits_width_t_ADC_WIDTH_MAX: adc_bits_width_t = 4;
-pub type adc_bits_width_t = ::std::os::raw::c_uint;
+pub type adc_bits_width_t = c_types::c_uint;
 #[doc = "< ADC1 channel 0 is GPIO36 (ESP32), GPIO1 (ESP32-S2)"]
 pub const adc1_channel_t_ADC1_CHANNEL_0: adc1_channel_t = 0;
 #[doc = "< ADC1 channel 1 is GPIO37 (ESP32), GPIO2 (ESP32-S2)"]
@@ -41423,7 +41132,7 @@ pub const adc1_channel_t_ADC1_CHANNEL_6: adc1_channel_t = 6;
 #[doc = "< ADC1 channel 7 is GPIO35 (ESP32), GPIO8 (ESP32-S2)"]
 pub const adc1_channel_t_ADC1_CHANNEL_7: adc1_channel_t = 7;
 #[doc = " `adc1_channel_t` will be deprecated functions, combine into `adc_channel_t`"]
-pub type adc1_channel_t = ::std::os::raw::c_uint;
+pub type adc1_channel_t = c_types::c_uint;
 #[doc = "< ADC2 channel 0 is GPIO4  (ESP32), GPIO11 (ESP32-S2)"]
 pub const adc2_channel_t_ADC2_CHANNEL_0: adc2_channel_t = 0;
 #[doc = "< ADC2 channel 1 is GPIO0  (ESP32), GPIO12 (ESP32-S2)"]
@@ -41446,7 +41155,7 @@ pub const adc2_channel_t_ADC2_CHANNEL_8: adc2_channel_t = 8;
 pub const adc2_channel_t_ADC2_CHANNEL_9: adc2_channel_t = 9;
 pub const adc2_channel_t_ADC2_CHANNEL_MAX: adc2_channel_t = 10;
 #[doc = " `adc2_channel_t` will be deprecated functions, combine into `adc_channel_t`"]
-pub type adc2_channel_t = ::std::os::raw::c_uint;
+pub type adc2_channel_t = c_types::c_uint;
 #[doc = "< SAR ADC 1"]
 pub const adc_unit_t_ADC_UNIT_1: adc_unit_t = 1;
 #[doc = "< SAR ADC 2, not supported yet"]
@@ -41456,13 +41165,13 @@ pub const adc_unit_t_ADC_UNIT_BOTH: adc_unit_t = 3;
 #[doc = "< SAR ADC 1 and 2 alternative mode, not supported yet"]
 pub const adc_unit_t_ADC_UNIT_ALTER: adc_unit_t = 7;
 pub const adc_unit_t_ADC_UNIT_MAX: adc_unit_t = 8;
-pub type adc_unit_t = ::std::os::raw::c_uint;
+pub type adc_unit_t = c_types::c_uint;
 #[doc = "< ADC to I2S data format, [15:12]-channel [11:0]-12 bits ADC data"]
 pub const adc_i2s_encode_t_ADC_ENCODE_12BIT: adc_i2s_encode_t = 0;
 #[doc = "< ADC to I2S data format, [15]-1 [14:11]-channel [10:0]-11 bits ADC data"]
 pub const adc_i2s_encode_t_ADC_ENCODE_11BIT: adc_i2s_encode_t = 1;
 pub const adc_i2s_encode_t_ADC_ENCODE_MAX: adc_i2s_encode_t = 2;
-pub type adc_i2s_encode_t = ::std::os::raw::c_uint;
+pub type adc_i2s_encode_t = c_types::c_uint;
 extern "C" {
     #[doc = " @brief Get the GPIO number of a specific ADC1 channel."]
     #[doc = ""]
@@ -41556,7 +41265,7 @@ extern "C" {
     #[doc = " @return"]
     #[doc = "     - -1: Parameter error"]
     #[doc = "     -  Other: ADC1 channel reading."]
-    pub fn adc1_get_raw(channel: adc1_channel_t) -> ::std::os::raw::c_int;
+    pub fn adc1_get_raw(channel: adc1_channel_t) -> c_types::c_int;
 }
 extern "C" {
     #[doc = " @brief Enable ADC power"]
@@ -41636,7 +41345,7 @@ extern "C" {
     #[doc = "       ADC."]
     #[doc = ""]
     #[doc = " @return The hall sensor reading."]
-    pub fn hall_sensor_read() -> ::std::os::raw::c_int;
+    pub fn hall_sensor_read() -> c_types::c_int;
 }
 extern "C" {
     #[doc = " @brief Get the GPIO number of a specific ADC2 channel."]
@@ -41705,7 +41414,7 @@ extern "C" {
     pub fn adc2_get_raw(
         channel: adc2_channel_t,
         width_bit: adc_bits_width_t,
-        raw_out: *mut ::std::os::raw::c_int,
+        raw_out: *mut c_types::c_int,
     ) -> esp_err_t;
 }
 extern "C" {
@@ -41730,7 +41439,7 @@ pub const esp_adc_cal_value_t_ESP_ADC_CAL_VAL_EFUSE_TP: esp_adc_cal_value_t = 1;
 #[doc = "< Characterization based on default reference voltage"]
 pub const esp_adc_cal_value_t_ESP_ADC_CAL_VAL_DEFAULT_VREF: esp_adc_cal_value_t = 2;
 #[doc = " @brief Type of calibration value used in characterization"]
-pub type esp_adc_cal_value_t = ::std::os::raw::c_uint;
+pub type esp_adc_cal_value_t = c_types::c_uint;
 #[doc = " @brief Structure storing characteristics of an ADC"]
 #[doc = ""]
 #[doc = " @note Call esp_adc_cal_characterize() to initialize the structure"]
@@ -41846,7 +41555,7 @@ pub const nvs_open_mode_t_NVS_READONLY: nvs_open_mode_t = 0;
 #[doc = "< Read and write"]
 pub const nvs_open_mode_t_NVS_READWRITE: nvs_open_mode_t = 1;
 #[doc = " @brief Mode of opening the non-volatile storage"]
-pub type nvs_open_mode_t = ::std::os::raw::c_uint;
+pub type nvs_open_mode_t = c_types::c_uint;
 pub use self::nvs_open_mode_t as nvs_open_mode;
 #[doc = "< Type uint8_t"]
 pub const nvs_type_t_NVS_TYPE_U8: nvs_type_t = 1;
@@ -41872,15 +41581,15 @@ pub const nvs_type_t_NVS_TYPE_BLOB: nvs_type_t = 66;
 pub const nvs_type_t_NVS_TYPE_ANY: nvs_type_t = 255;
 #[doc = " @brief Types of variables"]
 #[doc = ""]
-pub type nvs_type_t = ::std::os::raw::c_uint;
+pub type nvs_type_t = c_types::c_uint;
 #[doc = " @brief information about entry obtained from nvs_entry_info function"]
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
 pub struct nvs_entry_info_t {
     #[doc = "< Namespace to which key-value belong"]
-    pub namespace_name: [::std::os::raw::c_char; 16usize],
+    pub namespace_name: [c_types::c_char; 16usize],
     #[doc = "< Key of stored key-value pair"]
-    pub key: [::std::os::raw::c_char; 16usize],
+    pub key: [c_types::c_char; 16usize],
     #[doc = "< Type of stored key-value pair"]
     pub type_: nvs_type_t,
 }
@@ -41918,7 +41627,7 @@ extern "C" {
     #[doc = "             - ESP_ERR_NVS_INVALID_NAME if namespace name doesn't satisfy constraints"]
     #[doc = "             - other error codes from the underlying storage driver"]
     pub fn nvs_open(
-        name: *const ::std::os::raw::c_char,
+        name: *const c_types::c_char,
         open_mode: nvs_open_mode_t,
         out_handle: *mut nvs_handle_t,
     ) -> esp_err_t;
@@ -41949,8 +41658,8 @@ extern "C" {
     #[doc = "             - ESP_ERR_NVS_INVALID_NAME if namespace name doesn't satisfy constraints"]
     #[doc = "             - other error codes from the underlying storage driver"]
     pub fn nvs_open_from_partition(
-        part_name: *const ::std::os::raw::c_char,
-        name: *const ::std::os::raw::c_char,
+        part_name: *const c_types::c_char,
+        name: *const c_types::c_char,
         open_mode: nvs_open_mode_t,
         out_handle: *mut nvs_handle_t,
     ) -> esp_err_t;
@@ -41983,66 +41692,34 @@ extern "C" {
     #[doc = "               update will be finished after re-initialization of nvs, provided that"]
     #[doc = "               flash operation doesn't fail again."]
     #[doc = "             - ESP_ERR_NVS_VALUE_TOO_LONG if the string value is too long"]
-    pub fn nvs_set_i8(
-        handle: nvs_handle_t,
-        key: *const ::std::os::raw::c_char,
-        value: i8,
-    ) -> esp_err_t;
+    pub fn nvs_set_i8(handle: nvs_handle_t, key: *const c_types::c_char, value: i8) -> esp_err_t;
 }
 extern "C" {
-    pub fn nvs_set_u8(
-        handle: nvs_handle_t,
-        key: *const ::std::os::raw::c_char,
-        value: u8,
-    ) -> esp_err_t;
+    pub fn nvs_set_u8(handle: nvs_handle_t, key: *const c_types::c_char, value: u8) -> esp_err_t;
 }
 extern "C" {
-    pub fn nvs_set_i16(
-        handle: nvs_handle_t,
-        key: *const ::std::os::raw::c_char,
-        value: i16,
-    ) -> esp_err_t;
+    pub fn nvs_set_i16(handle: nvs_handle_t, key: *const c_types::c_char, value: i16) -> esp_err_t;
 }
 extern "C" {
-    pub fn nvs_set_u16(
-        handle: nvs_handle_t,
-        key: *const ::std::os::raw::c_char,
-        value: u16,
-    ) -> esp_err_t;
+    pub fn nvs_set_u16(handle: nvs_handle_t, key: *const c_types::c_char, value: u16) -> esp_err_t;
 }
 extern "C" {
-    pub fn nvs_set_i32(
-        handle: nvs_handle_t,
-        key: *const ::std::os::raw::c_char,
-        value: i32,
-    ) -> esp_err_t;
+    pub fn nvs_set_i32(handle: nvs_handle_t, key: *const c_types::c_char, value: i32) -> esp_err_t;
 }
 extern "C" {
-    pub fn nvs_set_u32(
-        handle: nvs_handle_t,
-        key: *const ::std::os::raw::c_char,
-        value: u32,
-    ) -> esp_err_t;
+    pub fn nvs_set_u32(handle: nvs_handle_t, key: *const c_types::c_char, value: u32) -> esp_err_t;
 }
 extern "C" {
-    pub fn nvs_set_i64(
-        handle: nvs_handle_t,
-        key: *const ::std::os::raw::c_char,
-        value: i64,
-    ) -> esp_err_t;
+    pub fn nvs_set_i64(handle: nvs_handle_t, key: *const c_types::c_char, value: i64) -> esp_err_t;
 }
 extern "C" {
-    pub fn nvs_set_u64(
-        handle: nvs_handle_t,
-        key: *const ::std::os::raw::c_char,
-        value: u64,
-    ) -> esp_err_t;
+    pub fn nvs_set_u64(handle: nvs_handle_t, key: *const c_types::c_char, value: u64) -> esp_err_t;
 }
 extern "C" {
     pub fn nvs_set_str(
         handle: nvs_handle_t,
-        key: *const ::std::os::raw::c_char,
-        value: *const ::std::os::raw::c_char,
+        key: *const c_types::c_char,
+        value: *const c_types::c_char,
     ) -> esp_err_t;
 }
 extern "C" {
@@ -42073,8 +41750,8 @@ extern "C" {
     #[doc = "             - ESP_ERR_NVS_VALUE_TOO_LONG if the value is too long"]
     pub fn nvs_set_blob(
         handle: nvs_handle_t,
-        key: *const ::std::os::raw::c_char,
-        value: *const ::core::ffi::c_void,
+        key: *const c_types::c_char,
+        value: *const c_types::c_void,
         length: size_t,
     ) -> esp_err_t;
 }
@@ -42117,56 +41794,56 @@ extern "C" {
     #[doc = "             - ESP_ERR_NVS_INVALID_LENGTH if length is not sufficient to store data"]
     pub fn nvs_get_i8(
         handle: nvs_handle_t,
-        key: *const ::std::os::raw::c_char,
+        key: *const c_types::c_char,
         out_value: *mut i8,
     ) -> esp_err_t;
 }
 extern "C" {
     pub fn nvs_get_u8(
         handle: nvs_handle_t,
-        key: *const ::std::os::raw::c_char,
+        key: *const c_types::c_char,
         out_value: *mut u8,
     ) -> esp_err_t;
 }
 extern "C" {
     pub fn nvs_get_i16(
         handle: nvs_handle_t,
-        key: *const ::std::os::raw::c_char,
+        key: *const c_types::c_char,
         out_value: *mut i16,
     ) -> esp_err_t;
 }
 extern "C" {
     pub fn nvs_get_u16(
         handle: nvs_handle_t,
-        key: *const ::std::os::raw::c_char,
+        key: *const c_types::c_char,
         out_value: *mut u16,
     ) -> esp_err_t;
 }
 extern "C" {
     pub fn nvs_get_i32(
         handle: nvs_handle_t,
-        key: *const ::std::os::raw::c_char,
+        key: *const c_types::c_char,
         out_value: *mut i32,
     ) -> esp_err_t;
 }
 extern "C" {
     pub fn nvs_get_u32(
         handle: nvs_handle_t,
-        key: *const ::std::os::raw::c_char,
+        key: *const c_types::c_char,
         out_value: *mut u32,
     ) -> esp_err_t;
 }
 extern "C" {
     pub fn nvs_get_i64(
         handle: nvs_handle_t,
-        key: *const ::std::os::raw::c_char,
+        key: *const c_types::c_char,
         out_value: *mut i64,
     ) -> esp_err_t;
 }
 extern "C" {
     pub fn nvs_get_u64(
         handle: nvs_handle_t,
-        key: *const ::std::os::raw::c_char,
+        key: *const c_types::c_char,
         out_value: *mut u64,
     ) -> esp_err_t;
 }
@@ -42227,16 +41904,16 @@ extern "C" {
     #[doc = "             - ESP_ERR_NVS_INVALID_LENGTH if length is not sufficient to store data"]
     pub fn nvs_get_str(
         handle: nvs_handle_t,
-        key: *const ::std::os::raw::c_char,
-        out_value: *mut ::std::os::raw::c_char,
+        key: *const c_types::c_char,
+        out_value: *mut c_types::c_char,
         length: *mut size_t,
     ) -> esp_err_t;
 }
 extern "C" {
     pub fn nvs_get_blob(
         handle: nvs_handle_t,
-        key: *const ::std::os::raw::c_char,
-        out_value: *mut ::core::ffi::c_void,
+        key: *const c_types::c_char,
+        out_value: *mut c_types::c_void,
         length: *mut size_t,
     ) -> esp_err_t;
 }
@@ -42258,7 +41935,7 @@ extern "C" {
     #[doc = "              - ESP_ERR_NVS_READ_ONLY if handle was opened as read only"]
     #[doc = "              - ESP_ERR_NVS_NOT_FOUND if the requested key doesn't exist"]
     #[doc = "              - other error codes from the underlying storage driver"]
-    pub fn nvs_erase_key(handle: nvs_handle_t, key: *const ::std::os::raw::c_char) -> esp_err_t;
+    pub fn nvs_erase_key(handle: nvs_handle_t, key: *const c_types::c_char) -> esp_err_t;
 }
 extern "C" {
     #[doc = " @brief      Erase all key-value pairs in a namespace"]
@@ -42349,7 +42026,7 @@ extern "C" {
     #[doc = "               Return param nvs_stats will be filled not with correct values because"]
     #[doc = "               not all pages will be counted. Counting will be interrupted at the first INVALID page."]
     pub fn nvs_get_stats(
-        part_name: *const ::std::os::raw::c_char,
+        part_name: *const c_types::c_char,
         nvs_stats: *mut nvs_stats_t,
     ) -> esp_err_t;
 }
@@ -42421,8 +42098,8 @@ extern "C" {
     #[doc = "          Iterator obtained through this function has to be released"]
     #[doc = "          using nvs_release_iterator when not used any more."]
     pub fn nvs_entry_find(
-        part_name: *const ::std::os::raw::c_char,
-        namespace_name: *const ::std::os::raw::c_char,
+        part_name: *const c_types::c_char,
+        namespace_name: *const c_types::c_char,
         type_: nvs_type_t,
     ) -> nvs_iterator_t;
 }
@@ -42453,10 +42130,10 @@ extern "C" {
     pub fn nvs_release_iterator(iterator: nvs_iterator_t);
 }
 #[doc = "< The chip doesn't have enough space for the current partition table"]
-pub const ESP_ERR_FLASH_SIZE_NOT_MATCH: ::std::os::raw::c_uint = 260;
+pub const ESP_ERR_FLASH_SIZE_NOT_MATCH: c_types::c_uint = 260;
 #[doc = "< Chip did not respond to the command, or timed out."]
-pub const ESP_ERR_FLASH_NO_RESPONSE: ::std::os::raw::c_uint = 264;
-pub type _bindgen_ty_1 = ::std::os::raw::c_uint;
+pub const ESP_ERR_FLASH_NO_RESPONSE: c_types::c_uint = 264;
+pub type _bindgen_ty_1 = c_types::c_uint;
 #[doc = " Definition of a common transaction. Also holds the return value."]
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
@@ -42496,7 +42173,7 @@ pub const esp_flash_speed_t_ESP_FLASH_SPEED_MAX: esp_flash_speed_t = 6;
 #[doc = " A strategy to select the maximum allowed speed is to enumerate from the"]
 #[doc = " ``ESP_FLSH_SPEED_MAX-1`` or highest frequency supported by your flash, and"]
 #[doc = " decrease the speed until the probing success."]
-pub type esp_flash_speed_t = ::std::os::raw::c_uint;
+pub type esp_flash_speed_t = c_types::c_uint;
 #[doc = "< Data read using single I/O, some limits on speed"]
 pub const esp_flash_io_mode_t_SPI_FLASH_SLOWRD: esp_flash_io_mode_t = 0;
 #[doc = "< Data read using single I/O, no limit on speed"]
@@ -42512,14 +42189,14 @@ pub const esp_flash_io_mode_t_SPI_FLASH_QIO: esp_flash_io_mode_t = 5;
 #[doc = "< The fastest io mode supported by the host is ``ESP_FLASH_READ_MODE_MAX-1``."]
 pub const esp_flash_io_mode_t_SPI_FLASH_READ_MODE_MAX: esp_flash_io_mode_t = 6;
 #[doc = " @brief Mode used for reading from SPI flash"]
-pub type esp_flash_io_mode_t = ::std::os::raw::c_uint;
+pub type esp_flash_io_mode_t = c_types::c_uint;
 #[doc = " Host driver configuration and context structure."]
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
 pub struct spi_flash_host_driver_t {
     #[doc = " Configuration and static data used by the specific host driver. The type"]
     #[doc = " is determined by the host driver."]
-    pub driver_data: *mut ::core::ffi::c_void,
+    pub driver_data: *mut c_types::c_void,
     #[doc = " Configure the device-related register before transactions. This saves"]
     #[doc = " some time to re-configure those registers when we send continuously"]
     pub dev_config: ::core::option::Option<
@@ -42559,7 +42236,7 @@ pub struct spi_flash_host_driver_t {
     pub program_page: ::core::option::Option<
         unsafe extern "C" fn(
             driver: *mut spi_flash_host_driver_t,
-            buffer: *const ::core::ffi::c_void,
+            buffer: *const c_types::c_void,
             address: u32,
             length: u32,
         ),
@@ -42568,29 +42245,29 @@ pub struct spi_flash_host_driver_t {
     pub supports_direct_write: ::core::option::Option<
         unsafe extern "C" fn(
             driver: *mut spi_flash_host_driver_t,
-            p: *const ::core::ffi::c_void,
+            p: *const c_types::c_void,
         ) -> bool,
     >,
     #[doc = " Check whether need to allocate new buffer to read"]
     pub supports_direct_read: ::core::option::Option<
         unsafe extern "C" fn(
             driver: *mut spi_flash_host_driver_t,
-            p: *const ::core::ffi::c_void,
+            p: *const c_types::c_void,
         ) -> bool,
     >,
     #[doc = " maximum length of program_page"]
-    pub max_write_bytes: ::std::os::raw::c_int,
+    pub max_write_bytes: c_types::c_int,
     #[doc = " Read data from the flash. Check ``max_read_bytes`` for the maximum allowed reading length."]
     pub read: ::core::option::Option<
         unsafe extern "C" fn(
             driver: *mut spi_flash_host_driver_t,
-            buffer: *mut ::core::ffi::c_void,
+            buffer: *mut c_types::c_void,
             address: u32,
             read_len: u32,
         ) -> esp_err_t,
     >,
     #[doc = " maximum length of read"]
-    pub max_read_bytes: ::std::os::raw::c_int,
+    pub max_read_bytes: c_types::c_int,
     #[doc = " Check whether the host is idle to perform new operations."]
     pub host_idle:
         ::core::option::Option<unsafe extern "C" fn(driver: *mut spi_flash_host_driver_t) -> bool>,
@@ -42600,7 +42277,7 @@ pub struct spi_flash_host_driver_t {
             driver: *mut spi_flash_host_driver_t,
             command: u32,
             addr_bitlen: u32,
-            dummy_bitlen_base: ::std::os::raw::c_int,
+            dummy_bitlen_base: c_types::c_int,
             io_mode: esp_flash_io_mode_t,
         ) -> esp_err_t,
     >,
@@ -42637,29 +42314,24 @@ pub struct esp_flash_region_t {
 pub struct esp_flash_os_functions_t {
     #[doc = " Called before commencing any flash operation. Does not need to be"]
     #[doc = " recursive (ie is called at most once for each call to 'end')."]
-    pub start:
-        ::core::option::Option<unsafe extern "C" fn(arg: *mut ::core::ffi::c_void) -> esp_err_t>,
+    pub start: ::core::option::Option<unsafe extern "C" fn(arg: *mut c_types::c_void) -> esp_err_t>,
     #[doc = " Called after completing any flash operation."]
-    pub end:
-        ::core::option::Option<unsafe extern "C" fn(arg: *mut ::core::ffi::c_void) -> esp_err_t>,
+    pub end: ::core::option::Option<unsafe extern "C" fn(arg: *mut c_types::c_void) -> esp_err_t>,
     #[doc = " Called before any erase/write operations to check whether the region is limited by the OS"]
     pub region_protected: ::core::option::Option<
         unsafe extern "C" fn(
-            arg: *mut ::core::ffi::c_void,
+            arg: *mut c_types::c_void,
             start_addr: size_t,
             size: size_t,
         ) -> esp_err_t,
     >,
     #[doc = " Delay for at least 'us' microseconds. Called in between 'start' and 'end'."]
     pub delay_us: ::core::option::Option<
-        unsafe extern "C" fn(
-            arg: *mut ::core::ffi::c_void,
-            us: ::std::os::raw::c_uint,
-        ) -> esp_err_t,
+        unsafe extern "C" fn(arg: *mut c_types::c_void, us: c_types::c_uint) -> esp_err_t,
     >,
     #[doc = " Yield to other tasks. Called during erase operations."]
     pub yield_:
-        ::core::option::Option<unsafe extern "C" fn(arg: *mut ::core::ffi::c_void) -> esp_err_t>,
+        ::core::option::Option<unsafe extern "C" fn(arg: *mut c_types::c_void) -> esp_err_t>,
 }
 #[doc = " @brief Structure to describe a SPI flash chip connected to the system."]
 #[doc = ""]
@@ -42674,7 +42346,7 @@ pub struct esp_flash_t {
     #[doc = "< Pointer to os-specific hook structure. Call ``esp_flash_init_os_functions()`` to setup this field, after the host is properly initialized."]
     pub os_func: *const esp_flash_os_functions_t,
     #[doc = "< Pointer to argument for os-specific hooks. Left NULL and will be initialized with ``os_func``."]
-    pub os_func_data: *mut ::core::ffi::c_void,
+    pub os_func_data: *mut c_types::c_void,
     #[doc = "< Configured SPI flash read mode. Set before ``esp_flash_init`` is called."]
     pub read_mode: esp_flash_io_mode_t,
     #[doc = "< Size of SPI flash in bytes. If 0, size will be detected during initialisation."]
@@ -42863,7 +42535,7 @@ extern "C" {
     #[doc = "      - or a flash error code if operation failed."]
     pub fn esp_flash_read(
         chip: *mut esp_flash_t,
-        buffer: *mut ::core::ffi::c_void,
+        buffer: *mut c_types::c_void,
         address: u32,
         length: u32,
     ) -> esp_err_t;
@@ -42881,7 +42553,7 @@ extern "C" {
     #[doc = " @return ESP_OK on success, or a flash error code if operation failed."]
     pub fn esp_flash_write(
         chip: *mut esp_flash_t,
-        buffer: *const ::core::ffi::c_void,
+        buffer: *const c_types::c_void,
         address: u32,
         length: u32,
     ) -> esp_err_t;
@@ -42904,7 +42576,7 @@ extern "C" {
     pub fn esp_flash_write_encrypted(
         chip: *mut esp_flash_t,
         address: u32,
-        buffer: *const ::core::ffi::c_void,
+        buffer: *const c_types::c_void,
         length: u32,
     ) -> esp_err_t;
 }
@@ -42923,7 +42595,7 @@ extern "C" {
     pub fn esp_flash_read_encrypted(
         chip: *mut esp_flash_t,
         address: u32,
-        out_buffer: *mut ::core::ffi::c_void,
+        out_buffer: *mut c_types::c_void,
         length: u32,
     ) -> esp_err_t;
 }
@@ -42936,7 +42608,7 @@ pub const esp_partition_type_t_ESP_PARTITION_TYPE_APP: esp_partition_type_t = 0;
 pub const esp_partition_type_t_ESP_PARTITION_TYPE_DATA: esp_partition_type_t = 1;
 #[doc = " @brief Partition type"]
 #[doc = " @note Keep this enum in sync with PartitionDefinition class gen_esp32part.py"]
-pub type esp_partition_type_t = ::std::os::raw::c_uint;
+pub type esp_partition_type_t = c_types::c_uint;
 #[doc = "!< Factory application partition"]
 pub const esp_partition_subtype_t_ESP_PARTITION_SUBTYPE_APP_FACTORY: esp_partition_subtype_t = 0;
 #[doc = "!< Base for OTA partition subtypes"]
@@ -43000,7 +42672,7 @@ pub const esp_partition_subtype_t_ESP_PARTITION_SUBTYPE_DATA_SPIFFS: esp_partiti
 pub const esp_partition_subtype_t_ESP_PARTITION_SUBTYPE_ANY: esp_partition_subtype_t = 255;
 #[doc = " @brief Partition subtype"]
 #[doc = " @note Keep this enum in sync with PartitionDefinition class gen_esp32part.py"]
-pub type esp_partition_subtype_t = ::std::os::raw::c_uint;
+pub type esp_partition_subtype_t = c_types::c_uint;
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
 pub struct esp_partition_iterator_opaque_ {
@@ -43027,7 +42699,7 @@ pub struct esp_partition_t {
     #[doc = "< size of the partition, in bytes"]
     pub size: u32,
     #[doc = "< partition label, zero-terminated ASCII string"]
-    pub label: [::std::os::raw::c_char; 17usize],
+    pub label: [c_types::c_char; 17usize],
     #[doc = "< flag is set to true if partition is encrypted"]
     pub encrypted: bool,
 }
@@ -43048,7 +42720,7 @@ extern "C" {
     pub fn esp_partition_find(
         type_: esp_partition_type_t,
         subtype: esp_partition_subtype_t,
-        label: *const ::std::os::raw::c_char,
+        label: *const c_types::c_char,
     ) -> esp_partition_iterator_t;
 }
 extern "C" {
@@ -43066,7 +42738,7 @@ extern "C" {
     pub fn esp_partition_find_first(
         type_: esp_partition_type_t,
         subtype: esp_partition_subtype_t,
-        label: *const ::std::os::raw::c_char,
+        label: *const c_types::c_char,
     ) -> *const esp_partition_t;
 }
 extern "C" {
@@ -43133,7 +42805,7 @@ extern "C" {
     pub fn esp_partition_read(
         partition: *const esp_partition_t,
         src_offset: size_t,
-        dst: *mut ::core::ffi::c_void,
+        dst: *mut c_types::c_void,
         size: size_t,
     ) -> esp_err_t;
 }
@@ -43169,7 +42841,7 @@ extern "C" {
     pub fn esp_partition_write(
         partition: *const esp_partition_t,
         dst_offset: size_t,
-        src: *const ::core::ffi::c_void,
+        src: *const c_types::c_void,
         size: size_t,
     ) -> esp_err_t;
 }
@@ -43223,7 +42895,7 @@ extern "C" {
         offset: size_t,
         size: size_t,
         memory: spi_flash_mmap_memory_t,
-        out_ptr: *mut *const ::core::ffi::c_void,
+        out_ptr: *mut *const c_types::c_void,
         out_handle: *mut spi_flash_mmap_handle_t,
     ) -> esp_err_t;
 }
@@ -43287,7 +42959,7 @@ extern "C" {
         flash_chip: *mut esp_flash_t,
         offset: size_t,
         size: size_t,
-        label: *const ::std::os::raw::c_char,
+        label: *const c_types::c_char,
         type_: esp_partition_type_t,
         subtype: esp_partition_subtype_t,
         out_partition: *mut *const esp_partition_t,
@@ -43338,7 +43010,7 @@ extern "C" {
     #[doc = "        (which may happen if NVS partition was truncated)"]
     #[doc = "      - ESP_ERR_NOT_FOUND if specified partition is not found in the partition table"]
     #[doc = "      - one of the error codes from the underlying flash storage driver"]
-    pub fn nvs_flash_init_partition(partition_label: *const ::std::os::raw::c_char) -> esp_err_t;
+    pub fn nvs_flash_init_partition(partition_label: *const c_types::c_char) -> esp_err_t;
 }
 extern "C" {
     #[doc = " @brief Initialize NVS flash storage for the partition specified by partition pointer."]
@@ -43372,7 +43044,7 @@ extern "C" {
     #[doc = "      - ESP_OK on success"]
     #[doc = "      - ESP_ERR_NVS_NOT_INITIALIZED if the storage for given partition was not"]
     #[doc = "        initialized prior to this call"]
-    pub fn nvs_flash_deinit_partition(partition_label: *const ::std::os::raw::c_char) -> esp_err_t;
+    pub fn nvs_flash_deinit_partition(partition_label: *const c_types::c_char) -> esp_err_t;
 }
 extern "C" {
     #[doc = " @brief Erase the default NVS partition"]
@@ -43396,7 +43068,7 @@ extern "C" {
     #[doc = "      - ESP_OK on success"]
     #[doc = "      - ESP_ERR_NOT_FOUND if there is no NVS partition with the specified name"]
     #[doc = "        in the partition table"]
-    pub fn nvs_flash_erase_partition(part_name: *const ::std::os::raw::c_char) -> esp_err_t;
+    pub fn nvs_flash_erase_partition(part_name: *const c_types::c_char) -> esp_err_t;
 }
 extern "C" {
     #[doc = " @brief Erase custom partition."]
@@ -43449,7 +43121,7 @@ extern "C" {
     #[doc = "      - ESP_ERR_NOT_FOUND if specified partition is not found in the partition table"]
     #[doc = "      - one of the error codes from the underlying flash storage driver"]
     pub fn nvs_flash_secure_init_partition(
-        partition_label: *const ::std::os::raw::c_char,
+        partition_label: *const c_types::c_char,
         cfg: *mut nvs_sec_cfg_t,
     ) -> esp_err_t;
 }
@@ -43762,7 +43434,7 @@ pub const can_mode_t_CAN_MODE_NO_ACK: can_mode_t = 1;
 #[doc = "< The CAN controller will not influence the bus (No transmissions or acknowledgments) but can receive messages"]
 pub const can_mode_t_CAN_MODE_LISTEN_ONLY: can_mode_t = 2;
 #[doc = " @brief   CAN Controller operating modes"]
-pub type can_mode_t = ::std::os::raw::c_uint;
+pub type can_mode_t = c_types::c_uint;
 #[doc = " @brief   Structure to store a CAN message"]
 #[doc = ""]
 #[doc = " @note"]
@@ -43937,7 +43609,7 @@ pub const can_state_t_CAN_STATE_BUS_OFF: can_state_t = 2;
 #[doc = "< Recovering state. The CAN controller is undergoing bus recovery"]
 pub const can_state_t_CAN_STATE_RECOVERING: can_state_t = 3;
 #[doc = " @brief   CAN driver states"]
-pub type can_state_t = ::std::os::raw::c_uint;
+pub type can_state_t = c_types::c_uint;
 #[doc = " @brief   Structure for general configuration of the CAN driver"]
 #[doc = ""]
 #[doc = " @note    Macro initializers are available for this structure"]
@@ -44203,7 +43875,7 @@ pub const dac_channel_t_DAC_CHANNEL_1: dac_channel_t = 0;
 #[doc = "< DAC channel 2 is GPIO26(ESP32) / GPIO18(ESP32S2BETA)"]
 pub const dac_channel_t_DAC_CHANNEL_2: dac_channel_t = 1;
 pub const dac_channel_t_DAC_CHANNEL_MAX: dac_channel_t = 2;
-pub type dac_channel_t = ::std::os::raw::c_uint;
+pub type dac_channel_t = c_types::c_uint;
 #[doc = "< 1/1. Default."]
 pub const dac_cw_scale_t_DAC_CW_SCALE_1: dac_cw_scale_t = 0;
 #[doc = "< 1/2."]
@@ -44213,13 +43885,13 @@ pub const dac_cw_scale_t_DAC_CW_SCALE_4: dac_cw_scale_t = 2;
 #[doc = "< 1/8."]
 pub const dac_cw_scale_t_DAC_CW_SCALE_8: dac_cw_scale_t = 3;
 #[doc = " The multiple of the amplitude of the cosine wave generator. The max amplitude is VDD3P3_RTC."]
-pub type dac_cw_scale_t = ::std::os::raw::c_uint;
+pub type dac_cw_scale_t = c_types::c_uint;
 #[doc = "< Phase shift +0°"]
 pub const dac_cw_phase_t_DAC_CW_PHASE_0: dac_cw_phase_t = 2;
 #[doc = "< Phase shift +180°"]
 pub const dac_cw_phase_t_DAC_CW_PHASE_180: dac_cw_phase_t = 3;
 #[doc = " Set the phase of the cosine wave generator output."]
-pub type dac_cw_phase_t = ::std::os::raw::c_uint;
+pub type dac_cw_phase_t = c_types::c_uint;
 #[doc = " Config the cosine wave generator function in DAC module."]
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
@@ -44315,7 +43987,7 @@ extern "C" {
 #[doc = " Type by which ring buffers are referenced. For example, a call to xRingbufferCreate()"]
 #[doc = " returns a RingbufHandle_t variable that can then be used as a parameter to"]
 #[doc = " xRingbufferSend(), xRingbufferReceive(), etc."]
-pub type RingbufHandle_t = *mut ::core::ffi::c_void;
+pub type RingbufHandle_t = *mut c_types::c_void;
 #[doc = " No-split buffers will only store an item in contiguous memory and will"]
 #[doc = " never split an item. Each item requires an 8 byte overhead for a header"]
 #[doc = " and will always internally occupy a 32-bit aligned size of space."]
@@ -44335,7 +44007,7 @@ pub const RingbufferType_t_RINGBUF_TYPE_BYTEBUF: RingbufferType_t = 2;
 #[doc = " sequence of byte and any number of bytes can be sent or retrieved each"]
 #[doc = " time."]
 pub const RingbufferType_t_RINGBUF_TYPE_MAX: RingbufferType_t = 3;
-pub type RingbufferType_t = ::std::os::raw::c_uint;
+pub type RingbufferType_t = c_types::c_uint;
 extern "C" {
     #[doc = " @brief       Create a ring buffer"]
     #[doc = ""]
@@ -44382,7 +44054,7 @@ extern "C" {
     #[doc = "      - pdFALSE on time-out or when the data is larger than the maximum permissible size of the buffer"]
     pub fn xRingbufferSend(
         xRingbuffer: RingbufHandle_t,
-        pvItem: *const ::core::ffi::c_void,
+        pvItem: *const c_types::c_void,
         xItemSize: size_t,
         xTicksToWait: TickType_t,
     ) -> BaseType_t;
@@ -44408,7 +44080,7 @@ extern "C" {
     #[doc = "      - pdFALSE when the ring buffer does not have space."]
     pub fn xRingbufferSendFromISR(
         xRingbuffer: RingbufHandle_t,
-        pvItem: *const ::core::ffi::c_void,
+        pvItem: *const c_types::c_void,
         xItemSize: size_t,
         pxHigherPriorityTaskWoken: *mut BaseType_t,
     ) -> BaseType_t;
@@ -44440,7 +44112,7 @@ extern "C" {
     #[doc = "      - pdFALSE on time-out or when the data is larger than the maximum permissible size of the buffer"]
     pub fn xRingbufferSendAcquire(
         xRingbuffer: RingbufHandle_t,
-        ppvItem: *mut *mut ::core::ffi::c_void,
+        ppvItem: *mut *mut c_types::c_void,
         xItemSize: size_t,
         xTicksToWait: TickType_t,
     ) -> BaseType_t;
@@ -44460,7 +44132,7 @@ extern "C" {
     #[doc = "      - pdFALSE if fail for some reason."]
     pub fn xRingbufferSendComplete(
         xRingbuffer: RingbufHandle_t,
-        pvItem: *mut ::core::ffi::c_void,
+        pvItem: *mut c_types::c_void,
     ) -> BaseType_t;
 }
 extern "C" {
@@ -44482,7 +44154,7 @@ extern "C" {
         xRingbuffer: RingbufHandle_t,
         pxItemSize: *mut size_t,
         xTicksToWait: TickType_t,
-    ) -> *mut ::core::ffi::c_void;
+    ) -> *mut c_types::c_void;
 }
 extern "C" {
     #[doc = " @brief   Retrieve an item from the ring buffer in an ISR"]
@@ -44503,7 +44175,7 @@ extern "C" {
     pub fn xRingbufferReceiveFromISR(
         xRingbuffer: RingbufHandle_t,
         pxItemSize: *mut size_t,
-    ) -> *mut ::core::ffi::c_void;
+    ) -> *mut c_types::c_void;
 }
 extern "C" {
     #[doc = " @brief   Retrieve a split item from an allow-split ring buffer"]
@@ -44528,8 +44200,8 @@ extern "C" {
     #[doc = "      - pdFALSE when no item was retrieved"]
     pub fn xRingbufferReceiveSplit(
         xRingbuffer: RingbufHandle_t,
-        ppvHeadItem: *mut *mut ::core::ffi::c_void,
-        ppvTailItem: *mut *mut ::core::ffi::c_void,
+        ppvHeadItem: *mut *mut c_types::c_void,
+        ppvTailItem: *mut *mut c_types::c_void,
         pxHeadItemSize: *mut size_t,
         pxTailItemSize: *mut size_t,
         xTicksToWait: TickType_t,
@@ -44557,8 +44229,8 @@ extern "C" {
     #[doc = "      - pdFALSE when no item was retrieved"]
     pub fn xRingbufferReceiveSplitFromISR(
         xRingbuffer: RingbufHandle_t,
-        ppvHeadItem: *mut *mut ::core::ffi::c_void,
-        ppvTailItem: *mut *mut ::core::ffi::c_void,
+        ppvHeadItem: *mut *mut c_types::c_void,
+        ppvTailItem: *mut *mut c_types::c_void,
         pxHeadItemSize: *mut size_t,
         pxTailItemSize: *mut size_t,
     ) -> BaseType_t;
@@ -44588,7 +44260,7 @@ extern "C" {
         pxItemSize: *mut size_t,
         xTicksToWait: TickType_t,
         xMaxSize: size_t,
-    ) -> *mut ::core::ffi::c_void;
+    ) -> *mut c_types::c_void;
 }
 extern "C" {
     #[doc = " @brief   Retrieve bytes from a byte buffer, specifying the maximum amount of"]
@@ -44614,7 +44286,7 @@ extern "C" {
         xRingbuffer: RingbufHandle_t,
         pxItemSize: *mut size_t,
         xMaxSize: size_t,
-    ) -> *mut ::core::ffi::c_void;
+    ) -> *mut c_types::c_void;
 }
 extern "C" {
     #[doc = " @brief   Return a previously-retrieved item to the ring buffer"]
@@ -44623,7 +44295,7 @@ extern "C" {
     #[doc = " @param[in]   pvItem      Item that was received earlier"]
     #[doc = ""]
     #[doc = " @note    If a split item is retrieved, both parts should be returned by calling this function twice"]
-    pub fn vRingbufferReturnItem(xRingbuffer: RingbufHandle_t, pvItem: *mut ::core::ffi::c_void);
+    pub fn vRingbufferReturnItem(xRingbuffer: RingbufHandle_t, pvItem: *mut c_types::c_void);
 }
 extern "C" {
     #[doc = " @brief   Return a previously-retrieved item to the ring buffer from an ISR"]
@@ -44636,7 +44308,7 @@ extern "C" {
     #[doc = " @note    If a split item is retrieved, both parts should be returned by calling this function twice"]
     pub fn vRingbufferReturnItemFromISR(
         xRingbuffer: RingbufHandle_t,
-        pvItem: *mut ::core::ffi::c_void,
+        pvItem: *mut c_types::c_void,
         pxHigherPriorityTaskWoken: *mut BaseType_t,
     );
 }
@@ -44768,18 +44440,18 @@ extern "C" {
     pub fn xRingbufferPrintInfo(xRingbuffer: RingbufHandle_t);
 }
 #[doc = " @brief I2C port number, can be I2C_NUM_0 ~ (I2C_NUM_MAX-1)."]
-pub type i2c_port_t = ::std::os::raw::c_int;
+pub type i2c_port_t = c_types::c_int;
 #[doc = "< I2C slave mode"]
 pub const i2c_mode_t_I2C_MODE_SLAVE: i2c_mode_t = 0;
 #[doc = "< I2C master mode"]
 pub const i2c_mode_t_I2C_MODE_MASTER: i2c_mode_t = 1;
 pub const i2c_mode_t_I2C_MODE_MAX: i2c_mode_t = 2;
-pub type i2c_mode_t = ::std::os::raw::c_uint;
+pub type i2c_mode_t = c_types::c_uint;
 #[doc = "< I2C write data"]
 pub const i2c_rw_t_I2C_MASTER_WRITE: i2c_rw_t = 0;
 #[doc = "< I2C read data"]
 pub const i2c_rw_t_I2C_MASTER_READ: i2c_rw_t = 1;
-pub type i2c_rw_t = ::std::os::raw::c_uint;
+pub type i2c_rw_t = c_types::c_uint;
 #[doc = "<I2C restart command"]
 pub const i2c_opmode_t_I2C_CMD_RESTART: i2c_opmode_t = 0;
 #[doc = "<I2C write command"]
@@ -44790,19 +44462,19 @@ pub const i2c_opmode_t_I2C_CMD_READ: i2c_opmode_t = 2;
 pub const i2c_opmode_t_I2C_CMD_STOP: i2c_opmode_t = 3;
 #[doc = "<I2C end command"]
 pub const i2c_opmode_t_I2C_CMD_END: i2c_opmode_t = 4;
-pub type i2c_opmode_t = ::std::os::raw::c_uint;
+pub type i2c_opmode_t = c_types::c_uint;
 #[doc = "< I2C data msb first"]
 pub const i2c_trans_mode_t_I2C_DATA_MODE_MSB_FIRST: i2c_trans_mode_t = 0;
 #[doc = "< I2C data lsb first"]
 pub const i2c_trans_mode_t_I2C_DATA_MODE_LSB_FIRST: i2c_trans_mode_t = 1;
 pub const i2c_trans_mode_t_I2C_DATA_MODE_MAX: i2c_trans_mode_t = 2;
-pub type i2c_trans_mode_t = ::std::os::raw::c_uint;
+pub type i2c_trans_mode_t = c_types::c_uint;
 #[doc = "< I2C 7bit address for slave mode"]
 pub const i2c_addr_mode_t_I2C_ADDR_BIT_7: i2c_addr_mode_t = 0;
 #[doc = "< I2C 10bit address for slave mode"]
 pub const i2c_addr_mode_t_I2C_ADDR_BIT_10: i2c_addr_mode_t = 1;
 pub const i2c_addr_mode_t_I2C_ADDR_BIT_MAX: i2c_addr_mode_t = 2;
-pub type i2c_addr_mode_t = ::std::os::raw::c_uint;
+pub type i2c_addr_mode_t = c_types::c_uint;
 #[doc = "< I2C ack for each byte read"]
 pub const i2c_ack_type_t_I2C_MASTER_ACK: i2c_ack_type_t = 0;
 #[doc = "< I2C nack for each byte read"]
@@ -44810,12 +44482,12 @@ pub const i2c_ack_type_t_I2C_MASTER_NACK: i2c_ack_type_t = 1;
 #[doc = "< I2C nack for the last byte"]
 pub const i2c_ack_type_t_I2C_MASTER_LAST_NACK: i2c_ack_type_t = 2;
 pub const i2c_ack_type_t_I2C_MASTER_ACK_MAX: i2c_ack_type_t = 3;
-pub type i2c_ack_type_t = ::std::os::raw::c_uint;
+pub type i2c_ack_type_t = c_types::c_uint;
 #[doc = "< I2C source clock from REF_TICK"]
 pub const i2c_sclk_t_I2C_SCLK_REF_TICK: i2c_sclk_t = 0;
 #[doc = "< I2C source clock from APB"]
 pub const i2c_sclk_t_I2C_SCLK_APB: i2c_sclk_t = 1;
-pub type i2c_sclk_t = ::std::os::raw::c_uint;
+pub type i2c_sclk_t = c_types::c_uint;
 #[doc = " @brief I2C initialization parameters"]
 #[repr(C)]
 #[derive(Copy, Clone)]
@@ -44823,9 +44495,9 @@ pub struct i2c_config_t {
     #[doc = "< I2C mode"]
     pub mode: i2c_mode_t,
     #[doc = "< GPIO number for I2C sda signal"]
-    pub sda_io_num: ::std::os::raw::c_int,
+    pub sda_io_num: c_types::c_int,
     #[doc = "< GPIO number for I2C scl signal"]
-    pub scl_io_num: ::std::os::raw::c_int,
+    pub scl_io_num: c_types::c_int,
     #[doc = "< Internal GPIO pull mode for I2C sda signal"]
     pub sda_pullup_en: bool,
     #[doc = "< Internal GPIO pull mode for I2C scl signal"]
@@ -44853,7 +44525,7 @@ pub struct i2c_config_t__bindgen_ty_1__bindgen_ty_2 {
     #[doc = "< I2C address for slave mode"]
     pub slave_addr: u16,
 }
-pub type i2c_cmd_handle_t = *mut ::core::ffi::c_void;
+pub type i2c_cmd_handle_t = *mut c_types::c_void;
 extern "C" {
     #[doc = " @brief I2C driver install"]
     #[doc = ""]
@@ -44881,7 +44553,7 @@ extern "C" {
         mode: i2c_mode_t,
         slv_rx_buf_len: size_t,
         slv_tx_buf_len: size_t,
-        intr_alloc_flags: ::std::os::raw::c_int,
+        intr_alloc_flags: c_types::c_int,
     ) -> esp_err_t;
 }
 extern "C" {
@@ -44940,9 +44612,9 @@ extern "C" {
     #[doc = "     - ESP_ERR_INVALID_ARG Parameter error"]
     pub fn i2c_isr_register(
         i2c_num: i2c_port_t,
-        fn_: ::core::option::Option<unsafe extern "C" fn(arg1: *mut ::core::ffi::c_void)>,
-        arg: *mut ::core::ffi::c_void,
-        intr_alloc_flags: ::std::os::raw::c_int,
+        fn_: ::core::option::Option<unsafe extern "C" fn(arg1: *mut c_types::c_void)>,
+        arg: *mut c_types::c_void,
+        intr_alloc_flags: c_types::c_int,
         handle: *mut intr_handle_t,
     ) -> esp_err_t;
 }
@@ -44971,8 +44643,8 @@ extern "C" {
     #[doc = "     - ESP_ERR_INVALID_ARG Parameter error"]
     pub fn i2c_set_pin(
         i2c_num: i2c_port_t,
-        sda_io_num: ::std::os::raw::c_int,
-        scl_io_num: ::std::os::raw::c_int,
+        sda_io_num: c_types::c_int,
+        scl_io_num: c_types::c_int,
         sda_pullup_en: bool,
         scl_pullup_en: bool,
         mode: i2c_mode_t,
@@ -45151,9 +44823,9 @@ extern "C" {
     pub fn i2c_slave_write_buffer(
         i2c_num: i2c_port_t,
         data: *mut u8,
-        size: ::std::os::raw::c_int,
+        size: c_types::c_int,
         ticks_to_wait: TickType_t,
-    ) -> ::std::os::raw::c_int;
+    ) -> c_types::c_int;
 }
 extern "C" {
     #[doc = " @brief I2C slave read data from internal buffer. When I2C slave receive data, isr will copy received data"]
@@ -45174,7 +44846,7 @@ extern "C" {
         data: *mut u8,
         max_size: size_t,
         ticks_to_wait: TickType_t,
-    ) -> ::std::os::raw::c_int;
+    ) -> c_types::c_int;
 }
 extern "C" {
     #[doc = " @brief set I2C master clock period"]
@@ -45188,8 +44860,8 @@ extern "C" {
     #[doc = "     - ESP_ERR_INVALID_ARG Parameter error"]
     pub fn i2c_set_period(
         i2c_num: i2c_port_t,
-        high_period: ::std::os::raw::c_int,
-        low_period: ::std::os::raw::c_int,
+        high_period: c_types::c_int,
+        low_period: c_types::c_int,
     ) -> esp_err_t;
 }
 extern "C" {
@@ -45204,8 +44876,8 @@ extern "C" {
     #[doc = "     - ESP_ERR_INVALID_ARG Parameter error"]
     pub fn i2c_get_period(
         i2c_num: i2c_port_t,
-        high_period: *mut ::std::os::raw::c_int,
-        low_period: *mut ::std::os::raw::c_int,
+        high_period: *mut c_types::c_int,
+        low_period: *mut c_types::c_int,
     ) -> esp_err_t;
 }
 extern "C" {
@@ -45247,8 +44919,8 @@ extern "C" {
     #[doc = "     - ESP_ERR_INVALID_ARG Parameter error"]
     pub fn i2c_set_start_timing(
         i2c_num: i2c_port_t,
-        setup_time: ::std::os::raw::c_int,
-        hold_time: ::std::os::raw::c_int,
+        setup_time: c_types::c_int,
+        hold_time: c_types::c_int,
     ) -> esp_err_t;
 }
 extern "C" {
@@ -45263,8 +44935,8 @@ extern "C" {
     #[doc = "     - ESP_ERR_INVALID_ARG Parameter error"]
     pub fn i2c_get_start_timing(
         i2c_num: i2c_port_t,
-        setup_time: *mut ::std::os::raw::c_int,
-        hold_time: *mut ::std::os::raw::c_int,
+        setup_time: *mut c_types::c_int,
+        hold_time: *mut c_types::c_int,
     ) -> esp_err_t;
 }
 extern "C" {
@@ -45279,8 +44951,8 @@ extern "C" {
     #[doc = "     - ESP_ERR_INVALID_ARG Parameter error"]
     pub fn i2c_set_stop_timing(
         i2c_num: i2c_port_t,
-        setup_time: ::std::os::raw::c_int,
-        hold_time: ::std::os::raw::c_int,
+        setup_time: c_types::c_int,
+        hold_time: c_types::c_int,
     ) -> esp_err_t;
 }
 extern "C" {
@@ -45295,8 +44967,8 @@ extern "C" {
     #[doc = "     - ESP_ERR_INVALID_ARG Parameter error"]
     pub fn i2c_get_stop_timing(
         i2c_num: i2c_port_t,
-        setup_time: *mut ::std::os::raw::c_int,
-        hold_time: *mut ::std::os::raw::c_int,
+        setup_time: *mut c_types::c_int,
+        hold_time: *mut c_types::c_int,
     ) -> esp_err_t;
 }
 extern "C" {
@@ -45311,8 +44983,8 @@ extern "C" {
     #[doc = "     - ESP_ERR_INVALID_ARG Parameter error"]
     pub fn i2c_set_data_timing(
         i2c_num: i2c_port_t,
-        sample_time: ::std::os::raw::c_int,
-        hold_time: ::std::os::raw::c_int,
+        sample_time: c_types::c_int,
+        hold_time: c_types::c_int,
     ) -> esp_err_t;
 }
 extern "C" {
@@ -45327,8 +44999,8 @@ extern "C" {
     #[doc = "     - ESP_ERR_INVALID_ARG Parameter error"]
     pub fn i2c_get_data_timing(
         i2c_num: i2c_port_t,
-        sample_time: *mut ::std::os::raw::c_int,
-        hold_time: *mut ::std::os::raw::c_int,
+        sample_time: *mut c_types::c_int,
+        hold_time: *mut c_types::c_int,
     ) -> esp_err_t;
 }
 extern "C" {
@@ -45338,7 +45010,7 @@ extern "C" {
     #[doc = " @return"]
     #[doc = "     - ESP_OK Success"]
     #[doc = "     - ESP_ERR_INVALID_ARG Parameter error"]
-    pub fn i2c_set_timeout(i2c_num: i2c_port_t, timeout: ::std::os::raw::c_int) -> esp_err_t;
+    pub fn i2c_set_timeout(i2c_num: i2c_port_t, timeout: c_types::c_int) -> esp_err_t;
 }
 extern "C" {
     #[doc = " @brief get I2C timeout value"]
@@ -45347,7 +45019,7 @@ extern "C" {
     #[doc = " @return"]
     #[doc = "     - ESP_OK Success"]
     #[doc = "     - ESP_ERR_INVALID_ARG Parameter error"]
-    pub fn i2c_get_timeout(i2c_num: i2c_port_t, timeout: *mut ::std::os::raw::c_int) -> esp_err_t;
+    pub fn i2c_get_timeout(i2c_num: i2c_port_t, timeout: *mut c_types::c_int) -> esp_err_t;
 }
 extern "C" {
     #[doc = " @brief set I2C data transfer mode"]
@@ -45416,7 +45088,7 @@ pub const periph_module_t_PERIPH_BT_LC_MODULE: periph_module_t = 31;
 pub const periph_module_t_PERIPH_AES_MODULE: periph_module_t = 32;
 pub const periph_module_t_PERIPH_SHA_MODULE: periph_module_t = 33;
 pub const periph_module_t_PERIPH_RSA_MODULE: periph_module_t = 34;
-pub type periph_module_t = ::std::os::raw::c_uint;
+pub type periph_module_t = c_types::c_uint;
 #[repr(C)]
 #[derive(Copy, Clone)]
 pub struct i2s_dev_s {
@@ -50259,13 +49931,13 @@ pub struct rtc_io_desc_t {
     #[doc = "< Offset of drive capability"]
     pub drv_s: u32,
     #[doc = "< GPIO number (corresponds to RTC pad)"]
-    pub rtc_num: ::std::os::raw::c_int,
+    pub rtc_num: c_types::c_int,
 }
 extern "C" {
     pub static rtc_io_desc: [rtc_io_desc_t; 18usize];
 }
 extern "C" {
-    pub static rtc_io_num_map: [::std::os::raw::c_int; 40usize];
+    pub static rtc_io_num_map: [c_types::c_int; 40usize];
 }
 extern "C" {
     #[doc = " @brief      enable peripheral module"]
@@ -50325,7 +49997,7 @@ extern "C" {
     pub fn wifi_bt_common_module_disable();
 }
 #[doc = " @brief I2S port number, the max port number is (I2S_NUM_MAX -1)."]
-pub type i2s_port_t = ::std::os::raw::c_int;
+pub type i2s_port_t = c_types::c_int;
 #[doc = "< I2S bits per sample: 8-bits"]
 pub const i2s_bits_per_sample_t_I2S_BITS_PER_SAMPLE_8BIT: i2s_bits_per_sample_t = 8;
 #[doc = "< I2S bits per sample: 16-bits"]
@@ -50336,14 +50008,14 @@ pub const i2s_bits_per_sample_t_I2S_BITS_PER_SAMPLE_24BIT: i2s_bits_per_sample_t
 pub const i2s_bits_per_sample_t_I2S_BITS_PER_SAMPLE_32BIT: i2s_bits_per_sample_t = 32;
 #[doc = " @brief I2S bit width per sample."]
 #[doc = ""]
-pub type i2s_bits_per_sample_t = ::std::os::raw::c_uint;
+pub type i2s_bits_per_sample_t = c_types::c_uint;
 #[doc = "< I2S 1 channel (mono)"]
 pub const i2s_channel_t_I2S_CHANNEL_MONO: i2s_channel_t = 1;
 #[doc = "< I2S 2 channel (stereo)"]
 pub const i2s_channel_t_I2S_CHANNEL_STEREO: i2s_channel_t = 2;
 #[doc = " @brief I2S channel."]
 #[doc = ""]
-pub type i2s_channel_t = ::std::os::raw::c_uint;
+pub type i2s_channel_t = c_types::c_uint;
 #[doc = "< I2S communication format I2S"]
 pub const i2s_comm_format_t_I2S_COMM_FORMAT_I2S: i2s_comm_format_t = 1;
 #[doc = "< I2S format MSB"]
@@ -50358,24 +50030,24 @@ pub const i2s_comm_format_t_I2S_COMM_FORMAT_PCM_SHORT: i2s_comm_format_t = 16;
 pub const i2s_comm_format_t_I2S_COMM_FORMAT_PCM_LONG: i2s_comm_format_t = 32;
 #[doc = " @brief I2S communication standard format"]
 #[doc = ""]
-pub type i2s_comm_format_t = ::std::os::raw::c_uint;
+pub type i2s_comm_format_t = c_types::c_uint;
 pub const i2s_channel_fmt_t_I2S_CHANNEL_FMT_RIGHT_LEFT: i2s_channel_fmt_t = 0;
 pub const i2s_channel_fmt_t_I2S_CHANNEL_FMT_ALL_RIGHT: i2s_channel_fmt_t = 1;
 pub const i2s_channel_fmt_t_I2S_CHANNEL_FMT_ALL_LEFT: i2s_channel_fmt_t = 2;
 pub const i2s_channel_fmt_t_I2S_CHANNEL_FMT_ONLY_RIGHT: i2s_channel_fmt_t = 3;
 pub const i2s_channel_fmt_t_I2S_CHANNEL_FMT_ONLY_LEFT: i2s_channel_fmt_t = 4;
 #[doc = " @brief I2S channel format type"]
-pub type i2s_channel_fmt_t = ::std::os::raw::c_uint;
+pub type i2s_channel_fmt_t = c_types::c_uint;
 pub const pdm_sample_rate_ratio_t_PDM_SAMPLE_RATE_RATIO_64: pdm_sample_rate_ratio_t = 0;
 pub const pdm_sample_rate_ratio_t_PDM_SAMPLE_RATE_RATIO_128: pdm_sample_rate_ratio_t = 1;
 #[doc = " @brief PDM sample rate ratio, measured in Hz."]
 #[doc = ""]
-pub type pdm_sample_rate_ratio_t = ::std::os::raw::c_uint;
+pub type pdm_sample_rate_ratio_t = c_types::c_uint;
 pub const pdm_pcm_conv_t_PDM_PCM_CONV_ENABLE: pdm_pcm_conv_t = 0;
 pub const pdm_pcm_conv_t_PDM_PCM_CONV_DISABLE: pdm_pcm_conv_t = 1;
 #[doc = " @brief PDM PCM convter enable/disable."]
 #[doc = ""]
-pub type pdm_pcm_conv_t = ::std::os::raw::c_uint;
+pub type pdm_pcm_conv_t = c_types::c_uint;
 pub const i2s_mode_t_I2S_MODE_MASTER: i2s_mode_t = 1;
 pub const i2s_mode_t_I2S_MODE_SLAVE: i2s_mode_t = 2;
 pub const i2s_mode_t_I2S_MODE_TX: i2s_mode_t = 4;
@@ -50389,7 +50061,7 @@ pub const i2s_mode_t_I2S_MODE_PDM: i2s_mode_t = 64;
 #[doc = ""]
 #[doc = " @note PDM and built-in DAC functions are only supported on I2S0 for current ESP32 chip."]
 #[doc = ""]
-pub type i2s_mode_t = ::std::os::raw::c_uint;
+pub type i2s_mode_t = c_types::c_uint;
 #[doc = " @brief I2S configuration parameters for i2s_param_config function"]
 #[doc = ""]
 #[repr(C)]
@@ -50398,7 +50070,7 @@ pub struct i2s_config_t {
     #[doc = "< I2S work mode"]
     pub mode: i2s_mode_t,
     #[doc = "< I2S sample rate"]
-    pub sample_rate: ::std::os::raw::c_int,
+    pub sample_rate: c_types::c_int,
     #[doc = "< I2S bits per sample"]
     pub bits_per_sample: i2s_bits_per_sample_t,
     #[doc = "< I2S channel format"]
@@ -50406,17 +50078,17 @@ pub struct i2s_config_t {
     #[doc = "< I2S communication format"]
     pub communication_format: i2s_comm_format_t,
     #[doc = "< Flags used to allocate the interrupt. One or multiple (ORred) ESP_INTR_FLAG_* values. See esp_intr_alloc.h for more info"]
-    pub intr_alloc_flags: ::std::os::raw::c_int,
+    pub intr_alloc_flags: c_types::c_int,
     #[doc = "< I2S DMA Buffer Count"]
-    pub dma_buf_count: ::std::os::raw::c_int,
+    pub dma_buf_count: c_types::c_int,
     #[doc = "< I2S DMA Buffer Length"]
-    pub dma_buf_len: ::std::os::raw::c_int,
+    pub dma_buf_len: c_types::c_int,
     #[doc = "< I2S using APLL as main I2S clock, enable it to get accurate clock"]
     pub use_apll: bool,
     #[doc = "< I2S auto clear tx descriptor if there is underflow condition (helps in avoiding noise in case of data unavailability)"]
     pub tx_desc_auto_clear: bool,
     #[doc = "< I2S using fixed MCLK output. If use_apll = true and fixed_mclk > 0, then the clock output for i2s is fixed and equal to the fixed_mclk value."]
-    pub fixed_mclk: ::std::os::raw::c_int,
+    pub fixed_mclk: c_types::c_int,
 }
 pub const i2s_event_type_t_I2S_EVENT_DMA_ERROR: i2s_event_type_t = 0;
 #[doc = "< I2S DMA finish sent 1 buffer"]
@@ -50427,7 +50099,7 @@ pub const i2s_event_type_t_I2S_EVENT_RX_DONE: i2s_event_type_t = 2;
 pub const i2s_event_type_t_I2S_EVENT_MAX: i2s_event_type_t = 3;
 #[doc = " @brief I2S event types"]
 #[doc = ""]
-pub type i2s_event_type_t = ::std::os::raw::c_uint;
+pub type i2s_event_type_t = c_types::c_uint;
 #[doc = "< Disable I2S built-in DAC signals"]
 pub const i2s_dac_mode_t_I2S_DAC_CHANNEL_DISABLE: i2s_dac_mode_t = 0;
 #[doc = "< Enable I2S built-in DAC right channel, maps to DAC channel 1 on GPIO25"]
@@ -50441,7 +50113,7 @@ pub const i2s_dac_mode_t_I2S_DAC_CHANNEL_MAX: i2s_dac_mode_t = 4;
 #[doc = " @brief I2S DAC mode for i2s_set_dac_mode."]
 #[doc = ""]
 #[doc = " @note PDM and built-in DAC functions are only supported on I2S0 for current ESP32 chip."]
-pub type i2s_dac_mode_t = ::std::os::raw::c_uint;
+pub type i2s_dac_mode_t = c_types::c_uint;
 #[doc = " @brief Event structure used in I2S event queue"]
 #[doc = ""]
 #[repr(C)]
@@ -50458,13 +50130,13 @@ pub struct i2s_event_t {
 #[derive(Debug, Copy, Clone)]
 pub struct i2s_pin_config_t {
     #[doc = "< BCK in out pin"]
-    pub bck_io_num: ::std::os::raw::c_int,
+    pub bck_io_num: c_types::c_int,
     #[doc = "< WS in out pin"]
-    pub ws_io_num: ::std::os::raw::c_int,
+    pub ws_io_num: c_types::c_int,
     #[doc = "< DATA out pin"]
-    pub data_out_num: ::std::os::raw::c_int,
+    pub data_out_num: c_types::c_int,
     #[doc = "< DATA in pin"]
-    pub data_in_num: ::std::os::raw::c_int,
+    pub data_in_num: c_types::c_int,
 }
 #[doc = "< downsampling number is 8 for PDM RX mode"]
 pub const i2s_pdm_dsr_t_I2S_PDM_DSR_8S: i2s_pdm_dsr_t = 0;
@@ -50472,10 +50144,10 @@ pub const i2s_pdm_dsr_t_I2S_PDM_DSR_8S: i2s_pdm_dsr_t = 0;
 pub const i2s_pdm_dsr_t_I2S_PDM_DSR_16S: i2s_pdm_dsr_t = 1;
 pub const i2s_pdm_dsr_t_I2S_PDM_DSR_MAX: i2s_pdm_dsr_t = 2;
 #[doc = " @brief I2S PDM RX downsample mode"]
-pub type i2s_pdm_dsr_t = ::std::os::raw::c_uint;
+pub type i2s_pdm_dsr_t = c_types::c_uint;
 pub const i2s_clock_src_t_I2S_CLK_D2CLK: i2s_clock_src_t = 0;
 pub const i2s_clock_src_t_I2S_CLK_APLL: i2s_clock_src_t = 1;
-pub type i2s_clock_src_t = ::std::os::raw::c_uint;
+pub type i2s_clock_src_t = c_types::c_uint;
 pub type i2s_isr_handle_t = intr_handle_t;
 extern "C" {
     #[doc = " @brief Set I2S pin number"]
@@ -50552,8 +50224,8 @@ extern "C" {
     pub fn i2s_driver_install(
         i2s_num: i2s_port_t,
         i2s_config: *const i2s_config_t,
-        queue_size: ::std::os::raw::c_int,
-        i2s_queue: *mut ::core::ffi::c_void,
+        queue_size: c_types::c_int,
+        i2s_queue: *mut c_types::c_void,
     ) -> esp_err_t;
 }
 extern "C" {
@@ -50589,7 +50261,7 @@ extern "C" {
     #[doc = "     - ESP_ERR_INVALID_ARG  Parameter error"]
     pub fn i2s_write(
         i2s_num: i2s_port_t,
-        src: *const ::core::ffi::c_void,
+        src: *const c_types::c_void,
         size: size_t,
         bytes_written: *mut size_t,
         ticks_to_wait: TickType_t,
@@ -50625,7 +50297,7 @@ extern "C" {
     #[doc = "     - ESP_ERR_INVALID_ARG Parameter error"]
     pub fn i2s_write_expand(
         i2s_num: i2s_port_t,
-        src: *const ::core::ffi::c_void,
+        src: *const c_types::c_void,
         size: size_t,
         src_bits: size_t,
         aim_bits: size_t,
@@ -50654,7 +50326,7 @@ extern "C" {
     #[doc = "     - ESP_ERR_INVALID_ARG  Parameter error"]
     pub fn i2s_read(
         i2s_num: i2s_port_t,
-        dest: *mut ::core::ffi::c_void,
+        dest: *mut c_types::c_void,
         size: size_t,
         bytes_read: *mut size_t,
         ticks_to_wait: TickType_t,
@@ -50787,24 +50459,24 @@ pub const ledc_mode_t_LEDC_HIGH_SPEED_MODE: ledc_mode_t = 0;
 pub const ledc_mode_t_LEDC_LOW_SPEED_MODE: ledc_mode_t = 1;
 #[doc = "< LEDC speed limit"]
 pub const ledc_mode_t_LEDC_SPEED_MODE_MAX: ledc_mode_t = 2;
-pub type ledc_mode_t = ::std::os::raw::c_uint;
+pub type ledc_mode_t = c_types::c_uint;
 #[doc = "< Disable LEDC interrupt"]
 pub const ledc_intr_type_t_LEDC_INTR_DISABLE: ledc_intr_type_t = 0;
 #[doc = "< Enable LEDC interrupt"]
 pub const ledc_intr_type_t_LEDC_INTR_FADE_END: ledc_intr_type_t = 1;
 pub const ledc_intr_type_t_LEDC_INTR_MAX: ledc_intr_type_t = 2;
-pub type ledc_intr_type_t = ::std::os::raw::c_uint;
+pub type ledc_intr_type_t = c_types::c_uint;
 #[doc = "< LEDC duty decrease direction"]
 pub const ledc_duty_direction_t_LEDC_DUTY_DIR_DECREASE: ledc_duty_direction_t = 0;
 #[doc = "< LEDC duty increase direction"]
 pub const ledc_duty_direction_t_LEDC_DUTY_DIR_INCREASE: ledc_duty_direction_t = 1;
 pub const ledc_duty_direction_t_LEDC_DUTY_DIR_MAX: ledc_duty_direction_t = 2;
-pub type ledc_duty_direction_t = ::std::os::raw::c_uint;
+pub type ledc_duty_direction_t = c_types::c_uint;
 #[doc = "< LEDC low speed timer clock source is 8MHz RTC clock"]
 pub const ledc_slow_clk_sel_t_LEDC_SLOW_CLK_RTC8M: ledc_slow_clk_sel_t = 0;
 #[doc = "< LEDC low speed timer clock source is 80MHz APB clock"]
 pub const ledc_slow_clk_sel_t_LEDC_SLOW_CLK_APB: ledc_slow_clk_sel_t = 1;
-pub type ledc_slow_clk_sel_t = ::std::os::raw::c_uint;
+pub type ledc_slow_clk_sel_t = c_types::c_uint;
 #[doc = "< The driver will automatically select the source clock(REF_TICK or APB) based on the giving resolution and duty parameter when init the timer"]
 pub const ledc_clk_cfg_t_LEDC_AUTO_CLK: ledc_clk_cfg_t = 0;
 #[doc = "< LEDC timer select REF_TICK clock as source clock"]
@@ -50813,12 +50485,12 @@ pub const ledc_clk_cfg_t_LEDC_USE_REF_TICK: ledc_clk_cfg_t = 1;
 pub const ledc_clk_cfg_t_LEDC_USE_APB_CLK: ledc_clk_cfg_t = 2;
 #[doc = "< LEDC timer select RTC8M_CLK as source clock. Only for low speed channels and this parameter must be the same for all low speed channels"]
 pub const ledc_clk_cfg_t_LEDC_USE_RTC8M_CLK: ledc_clk_cfg_t = 3;
-pub type ledc_clk_cfg_t = ::std::os::raw::c_uint;
+pub type ledc_clk_cfg_t = c_types::c_uint;
 #[doc = "< LEDC timer clock divided from reference tick (1Mhz)"]
 pub const ledc_clk_src_t_LEDC_REF_TICK: ledc_clk_src_t = 1;
 #[doc = "< LEDC timer clock divided from APB clock (80Mhz)"]
 pub const ledc_clk_src_t_LEDC_APB_CLK: ledc_clk_src_t = 2;
-pub type ledc_clk_src_t = ::std::os::raw::c_uint;
+pub type ledc_clk_src_t = c_types::c_uint;
 #[doc = "< LEDC timer 0"]
 pub const ledc_timer_t_LEDC_TIMER_0: ledc_timer_t = 0;
 #[doc = "< LEDC timer 1"]
@@ -50828,7 +50500,7 @@ pub const ledc_timer_t_LEDC_TIMER_2: ledc_timer_t = 2;
 #[doc = "< LEDC timer 3"]
 pub const ledc_timer_t_LEDC_TIMER_3: ledc_timer_t = 3;
 pub const ledc_timer_t_LEDC_TIMER_MAX: ledc_timer_t = 4;
-pub type ledc_timer_t = ::std::os::raw::c_uint;
+pub type ledc_timer_t = c_types::c_uint;
 #[doc = "< LEDC channel 0"]
 pub const ledc_channel_t_LEDC_CHANNEL_0: ledc_channel_t = 0;
 #[doc = "< LEDC channel 1"]
@@ -50846,7 +50518,7 @@ pub const ledc_channel_t_LEDC_CHANNEL_6: ledc_channel_t = 6;
 #[doc = "< LEDC channel 7"]
 pub const ledc_channel_t_LEDC_CHANNEL_7: ledc_channel_t = 7;
 pub const ledc_channel_t_LEDC_CHANNEL_MAX: ledc_channel_t = 8;
-pub type ledc_channel_t = ::std::os::raw::c_uint;
+pub type ledc_channel_t = c_types::c_uint;
 #[doc = "< LEDC PWM duty resolution of  1 bits"]
 pub const ledc_timer_bit_t_LEDC_TIMER_1_BIT: ledc_timer_bit_t = 1;
 #[doc = "< LEDC PWM duty resolution of  2 bits"]
@@ -50888,19 +50560,19 @@ pub const ledc_timer_bit_t_LEDC_TIMER_19_BIT: ledc_timer_bit_t = 19;
 #[doc = "< LEDC PWM duty resolution of 20 bits"]
 pub const ledc_timer_bit_t_LEDC_TIMER_20_BIT: ledc_timer_bit_t = 20;
 pub const ledc_timer_bit_t_LEDC_TIMER_BIT_MAX: ledc_timer_bit_t = 21;
-pub type ledc_timer_bit_t = ::std::os::raw::c_uint;
+pub type ledc_timer_bit_t = c_types::c_uint;
 #[doc = "< LEDC fade function will return immediately"]
 pub const ledc_fade_mode_t_LEDC_FADE_NO_WAIT: ledc_fade_mode_t = 0;
 #[doc = "< LEDC fade function will block until fading to the target duty"]
 pub const ledc_fade_mode_t_LEDC_FADE_WAIT_DONE: ledc_fade_mode_t = 1;
 pub const ledc_fade_mode_t_LEDC_FADE_MAX: ledc_fade_mode_t = 2;
-pub type ledc_fade_mode_t = ::std::os::raw::c_uint;
+pub type ledc_fade_mode_t = c_types::c_uint;
 #[doc = " @brief Configuration parameters of LEDC channel for ledc_channel_config function"]
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
 pub struct ledc_channel_config_t {
     #[doc = "< the LEDC output gpio_num, if you want to use gpio16, gpio_num = 16"]
-    pub gpio_num: ::std::os::raw::c_int,
+    pub gpio_num: c_types::c_int,
     #[doc = "< LEDC speed speed_mode, high-speed mode or low-speed mode"]
     pub speed_mode: ledc_mode_t,
     #[doc = "< LEDC channel (0 - 7)"]
@@ -50912,7 +50584,7 @@ pub struct ledc_channel_config_t {
     #[doc = "< LEDC channel duty, the range of duty setting is [0, (2**duty_resolution)]"]
     pub duty: u32,
     #[doc = "< LEDC channel hpoint value, the max value is 0xfffff"]
-    pub hpoint: ::std::os::raw::c_int,
+    pub hpoint: c_types::c_int,
 }
 #[doc = " @brief Configuration parameters of LEDC Timer timer for ledc_timer_config function"]
 #[repr(C)]
@@ -50990,7 +50662,7 @@ extern "C" {
     #[doc = "     - ESP_OK Success"]
     #[doc = "     - ESP_ERR_INVALID_ARG Parameter error"]
     pub fn ledc_set_pin(
-        gpio_num: ::std::os::raw::c_int,
+        gpio_num: c_types::c_int,
         speed_mode: ledc_mode_t,
         ledc_channel: ledc_channel_t,
     ) -> esp_err_t;
@@ -51071,10 +50743,7 @@ extern "C" {
     #[doc = " @return"]
     #[doc = "     - LEDC_ERR_VAL if parameter error"]
     #[doc = "     - Others Current hpoint value of LEDC channel"]
-    pub fn ledc_get_hpoint(
-        speed_mode: ledc_mode_t,
-        channel: ledc_channel_t,
-    ) -> ::std::os::raw::c_int;
+    pub fn ledc_get_hpoint(speed_mode: ledc_mode_t, channel: ledc_channel_t) -> c_types::c_int;
 }
 extern "C" {
     #[doc = " @brief LEDC set duty"]
@@ -51146,9 +50815,9 @@ extern "C" {
     #[doc = "     - ESP_OK Success"]
     #[doc = "     - ESP_ERR_INVALID_ARG Function pointer error."]
     pub fn ledc_isr_register(
-        fn_: ::core::option::Option<unsafe extern "C" fn(arg1: *mut ::core::ffi::c_void)>,
-        arg: *mut ::core::ffi::c_void,
-        intr_alloc_flags: ::std::os::raw::c_int,
+        fn_: ::core::option::Option<unsafe extern "C" fn(arg1: *mut c_types::c_void)>,
+        arg: *mut c_types::c_void,
+        intr_alloc_flags: c_types::c_int,
         handle: *mut ledc_isr_handle_t,
     ) -> esp_err_t;
 }
@@ -51273,7 +50942,7 @@ extern "C" {
         speed_mode: ledc_mode_t,
         channel: ledc_channel_t,
         target_duty: u32,
-        max_fade_time_ms: ::std::os::raw::c_int,
+        max_fade_time_ms: c_types::c_int,
     ) -> esp_err_t;
 }
 extern "C" {
@@ -51284,7 +50953,7 @@ extern "C" {
     #[doc = " @return"]
     #[doc = "     - ESP_OK Success"]
     #[doc = "     - ESP_ERR_INVALID_STATE Fade function already installed."]
-    pub fn ledc_fade_func_install(intr_alloc_flags: ::std::os::raw::c_int) -> esp_err_t;
+    pub fn ledc_fade_func_install(intr_alloc_flags: c_types::c_int) -> esp_err_t;
 }
 extern "C" {
     #[doc = " @brief Uninstall LEDC fade function."]
@@ -51383,7 +51052,7 @@ pub const mcpwm_intr_t_MCPWM_LL_INTR_CAP1: mcpwm_intr_t = 268435456;
 #[doc = "< Capture 2 happened"]
 pub const mcpwm_intr_t_MCPWM_LL_INTR_CAP2: mcpwm_intr_t = 536870912;
 #[doc = " Interrupts for MCPWM"]
-pub type mcpwm_intr_t = ::std::os::raw::c_uint;
+pub type mcpwm_intr_t = c_types::c_uint;
 #[doc = "<For asymmetric MCPWM"]
 pub const mcpwm_counter_type_t_MCPWM_UP_COUNTER: mcpwm_counter_type_t = 1;
 #[doc = "<For asymmetric MCPWM"]
@@ -51393,7 +51062,7 @@ pub const mcpwm_counter_type_t_MCPWM_UP_DOWN_COUNTER: mcpwm_counter_type_t = 3;
 #[doc = "<Maximum counter mode"]
 pub const mcpwm_counter_type_t_MCPWM_COUNTER_MAX: mcpwm_counter_type_t = 4;
 #[doc = " @brief Select type of MCPWM counter"]
-pub type mcpwm_counter_type_t = ::std::os::raw::c_uint;
+pub type mcpwm_counter_type_t = c_types::c_uint;
 #[doc = "<Active high duty, i.e. duty cycle proportional to high time for asymmetric MCPWM"]
 pub const mcpwm_duty_type_t_MCPWM_DUTY_MODE_0: mcpwm_duty_type_t = 0;
 #[doc = "<Active low duty,  i.e. duty cycle proportional to low  time for asymmetric MCPWM, out of phase(inverted) MCPWM"]
@@ -51403,7 +51072,7 @@ pub const mcpwm_duty_type_t_MCPWM_HAL_GENERATOR_MODE_FORCE_HIGH: mcpwm_duty_type
 #[doc = "<Num of duty cycle modes"]
 pub const mcpwm_duty_type_t_MCPWM_DUTY_MODE_MAX: mcpwm_duty_type_t = 4;
 #[doc = " @brief Select type of MCPWM duty cycle mode"]
-pub type mcpwm_duty_type_t = ::std::os::raw::c_uint;
+pub type mcpwm_duty_type_t = c_types::c_uint;
 #[doc = "<No change in the output"]
 pub const mcpwm_output_action_t_MCPWM_ACTION_NO_CHANGE: mcpwm_output_action_t = 0;
 #[doc = "<Make output low"]
@@ -51413,7 +51082,7 @@ pub const mcpwm_output_action_t_MCPWM_ACTION_FORCE_HIGH: mcpwm_output_action_t =
 #[doc = "<Make output toggle"]
 pub const mcpwm_output_action_t_MCPWM_ACTION_TOGGLE: mcpwm_output_action_t = 3;
 #[doc = " @brief MCPWM select action to be taken on the output when event happens"]
-pub type mcpwm_output_action_t = ::std::os::raw::c_uint;
+pub type mcpwm_output_action_t = c_types::c_uint;
 #[doc = "<Bypass the deadtime"]
 pub const mcpwm_deadtime_type_t_MCPWM_DEADTIME_BYPASS: mcpwm_deadtime_type_t = 0;
 #[doc = "<MCPWMXA = no change, MCPWMXB = falling edge delay"]
@@ -51434,7 +51103,7 @@ pub const mcpwm_deadtime_type_t_MCPWM_ACTIVE_RED_FED_FROM_PWMXA: mcpwm_deadtime_
 pub const mcpwm_deadtime_type_t_MCPWM_ACTIVE_RED_FED_FROM_PWMXB: mcpwm_deadtime_type_t = 8;
 pub const mcpwm_deadtime_type_t_MCPWM_DEADTIME_TYPE_MAX: mcpwm_deadtime_type_t = 9;
 #[doc = " @brief MCPWM deadtime types, used to generate deadtime, RED refers to rising edge delay and FED refers to falling edge delay"]
-pub type mcpwm_deadtime_type_t = ::std::os::raw::c_uint;
+pub type mcpwm_deadtime_type_t = c_types::c_uint;
 #[doc = "<Select SYNC0 as input"]
 pub const mcpwm_sync_signal_t_MCPWM_SELECT_SYNC0: mcpwm_sync_signal_t = 4;
 #[doc = "<Select SYNC1 as input"]
@@ -51442,13 +51111,13 @@ pub const mcpwm_sync_signal_t_MCPWM_SELECT_SYNC1: mcpwm_sync_signal_t = 5;
 #[doc = "<Select SYNC2 as input"]
 pub const mcpwm_sync_signal_t_MCPWM_SELECT_SYNC2: mcpwm_sync_signal_t = 6;
 #[doc = " @brief MCPWM select sync signal input"]
-pub type mcpwm_sync_signal_t = ::std::os::raw::c_uint;
+pub type mcpwm_sync_signal_t = c_types::c_uint;
 #[doc = "<Capture the negative edge"]
 pub const mcpwm_capture_on_edge_t_MCPWM_NEG_EDGE: mcpwm_capture_on_edge_t = 1;
 #[doc = "<Capture the positive edge"]
 pub const mcpwm_capture_on_edge_t_MCPWM_POS_EDGE: mcpwm_capture_on_edge_t = 2;
 #[doc = " @brief MCPWM select capture starts from which edge"]
-pub type mcpwm_capture_on_edge_t = ::std::os::raw::c_uint;
+pub type mcpwm_capture_on_edge_t = c_types::c_uint;
 #[doc = "<PWM0A output pin"]
 pub const mcpwm_io_signals_t_MCPWM0A: mcpwm_io_signals_t = 0;
 #[doc = "<PWM0B output pin"]
@@ -51485,42 +51154,42 @@ pub const mcpwm_io_signals_t_MCPWM_CAP_2: mcpwm_io_signals_t = 86;
 #[doc = "        - 3 MCPWM fault input pins to detect faults like overcurrent, overvoltage, etc."]
 #[doc = "        - 3 MCPWM sync input pins to synchronize MCPWM outputs signals"]
 #[doc = "        - 3 MCPWM capture input pins to gather feedback from controlled motors, using e.g. hall sensors"]
-pub type mcpwm_io_signals_t = ::std::os::raw::c_uint;
+pub type mcpwm_io_signals_t = c_types::c_uint;
 #[doc = " @brief MCPWM pin number for"]
 #[doc = ""]
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
 pub struct mcpwm_pin_config_t {
     #[doc = "<MCPWM0A out pin"]
-    pub mcpwm0a_out_num: ::std::os::raw::c_int,
+    pub mcpwm0a_out_num: c_types::c_int,
     #[doc = "<MCPWM0A out pin"]
-    pub mcpwm0b_out_num: ::std::os::raw::c_int,
+    pub mcpwm0b_out_num: c_types::c_int,
     #[doc = "<MCPWM0A out pin"]
-    pub mcpwm1a_out_num: ::std::os::raw::c_int,
+    pub mcpwm1a_out_num: c_types::c_int,
     #[doc = "<MCPWM0A out pin"]
-    pub mcpwm1b_out_num: ::std::os::raw::c_int,
+    pub mcpwm1b_out_num: c_types::c_int,
     #[doc = "<MCPWM0A out pin"]
-    pub mcpwm2a_out_num: ::std::os::raw::c_int,
+    pub mcpwm2a_out_num: c_types::c_int,
     #[doc = "<MCPWM0A out pin"]
-    pub mcpwm2b_out_num: ::std::os::raw::c_int,
+    pub mcpwm2b_out_num: c_types::c_int,
     #[doc = "<SYNC0  in pin"]
-    pub mcpwm_sync0_in_num: ::std::os::raw::c_int,
+    pub mcpwm_sync0_in_num: c_types::c_int,
     #[doc = "<SYNC1  in pin"]
-    pub mcpwm_sync1_in_num: ::std::os::raw::c_int,
+    pub mcpwm_sync1_in_num: c_types::c_int,
     #[doc = "<SYNC2  in pin"]
-    pub mcpwm_sync2_in_num: ::std::os::raw::c_int,
+    pub mcpwm_sync2_in_num: c_types::c_int,
     #[doc = "<FAULT0 in pin"]
-    pub mcpwm_fault0_in_num: ::std::os::raw::c_int,
+    pub mcpwm_fault0_in_num: c_types::c_int,
     #[doc = "<FAULT1 in pin"]
-    pub mcpwm_fault1_in_num: ::std::os::raw::c_int,
+    pub mcpwm_fault1_in_num: c_types::c_int,
     #[doc = "<FAULT2 in pin"]
-    pub mcpwm_fault2_in_num: ::std::os::raw::c_int,
+    pub mcpwm_fault2_in_num: c_types::c_int,
     #[doc = "<CAP0   in pin"]
-    pub mcpwm_cap0_in_num: ::std::os::raw::c_int,
+    pub mcpwm_cap0_in_num: c_types::c_int,
     #[doc = "<CAP1   in pin"]
-    pub mcpwm_cap1_in_num: ::std::os::raw::c_int,
+    pub mcpwm_cap1_in_num: c_types::c_int,
     #[doc = "<CAP2   in pin"]
-    pub mcpwm_cap2_in_num: ::std::os::raw::c_int,
+    pub mcpwm_cap2_in_num: c_types::c_int,
 }
 #[doc = "<MCPWM unit0 selected"]
 pub const mcpwm_unit_t_MCPWM_UNIT_0: mcpwm_unit_t = 0;
@@ -51529,7 +51198,7 @@ pub const mcpwm_unit_t_MCPWM_UNIT_1: mcpwm_unit_t = 1;
 #[doc = "<Num of MCPWM units on ESP32"]
 pub const mcpwm_unit_t_MCPWM_UNIT_MAX: mcpwm_unit_t = 2;
 #[doc = " @brief Select MCPWM unit"]
-pub type mcpwm_unit_t = ::std::os::raw::c_uint;
+pub type mcpwm_unit_t = c_types::c_uint;
 #[doc = "<Select MCPWM timer0"]
 pub const mcpwm_timer_t_MCPWM_TIMER_0: mcpwm_timer_t = 0;
 #[doc = "<Select MCPWM timer1"]
@@ -51539,7 +51208,7 @@ pub const mcpwm_timer_t_MCPWM_TIMER_2: mcpwm_timer_t = 2;
 #[doc = "<Num of MCPWM timers on ESP32"]
 pub const mcpwm_timer_t_MCPWM_TIMER_MAX: mcpwm_timer_t = 3;
 #[doc = " @brief Select MCPWM timer"]
-pub type mcpwm_timer_t = ::std::os::raw::c_uint;
+pub type mcpwm_timer_t = c_types::c_uint;
 #[doc = "<Select MCPWMXA, where 'X' is operator number"]
 pub const mcpwm_generator_t_MCPWM_GEN_A: mcpwm_generator_t = 0;
 #[doc = "<Select MCPWMXB, where 'X' is operator number"]
@@ -51547,20 +51216,20 @@ pub const mcpwm_generator_t_MCPWM_GEN_B: mcpwm_generator_t = 1;
 #[doc = "<Num of generators to each operator of MCPWM"]
 pub const mcpwm_generator_t_MCPWM_GEN_MAX: mcpwm_generator_t = 2;
 #[doc = " @brief Select MCPWM operator"]
-pub type mcpwm_generator_t = ::std::os::raw::c_uint;
+pub type mcpwm_generator_t = c_types::c_uint;
 pub use self::mcpwm_generator_t as mcpwm_operator_t;
 #[doc = "<Enable oneshot mode"]
 pub const mcpwm_carrier_os_t_MCPWM_ONESHOT_MODE_DIS: mcpwm_carrier_os_t = 0;
 #[doc = "<Disable oneshot mode"]
 pub const mcpwm_carrier_os_t_MCPWM_ONESHOT_MODE_EN: mcpwm_carrier_os_t = 1;
 #[doc = " @brief MCPWM carrier oneshot mode, in this mode the width of the first pulse of carrier can be programmed"]
-pub type mcpwm_carrier_os_t = ::std::os::raw::c_uint;
+pub type mcpwm_carrier_os_t = c_types::c_uint;
 #[doc = "<Enable  carrier output inversion"]
 pub const mcpwm_carrier_out_ivt_t_MCPWM_CARRIER_OUT_IVT_DIS: mcpwm_carrier_out_ivt_t = 0;
 #[doc = "<Disable carrier output inversion"]
 pub const mcpwm_carrier_out_ivt_t_MCPWM_CARRIER_OUT_IVT_EN: mcpwm_carrier_out_ivt_t = 1;
 #[doc = " @brief MCPWM carrier output inversion, high frequency carrier signal active with MCPWM signal is high"]
-pub type mcpwm_carrier_out_ivt_t = ::std::os::raw::c_uint;
+pub type mcpwm_carrier_out_ivt_t = c_types::c_uint;
 #[doc = "<Select F0 as input"]
 pub const mcpwm_fault_signal_t_MCPWM_SELECT_F0: mcpwm_fault_signal_t = 0;
 #[doc = "<Select F1 as input"]
@@ -51568,13 +51237,13 @@ pub const mcpwm_fault_signal_t_MCPWM_SELECT_F1: mcpwm_fault_signal_t = 1;
 #[doc = "<Select F2 as input"]
 pub const mcpwm_fault_signal_t_MCPWM_SELECT_F2: mcpwm_fault_signal_t = 2;
 #[doc = " @brief MCPWM select fault signal input"]
-pub type mcpwm_fault_signal_t = ::std::os::raw::c_uint;
+pub type mcpwm_fault_signal_t = c_types::c_uint;
 #[doc = "<Fault condition occurs when fault input signal goes from high to low, currently not supported"]
 pub const mcpwm_fault_input_level_t_MCPWM_LOW_LEVEL_TGR: mcpwm_fault_input_level_t = 0;
 #[doc = "<Fault condition occurs when fault input signal goes low to high"]
 pub const mcpwm_fault_input_level_t_MCPWM_HIGH_LEVEL_TGR: mcpwm_fault_input_level_t = 1;
 #[doc = " @brief MCPWM select triggering level of fault signal"]
-pub type mcpwm_fault_input_level_t = ::std::os::raw::c_uint;
+pub type mcpwm_fault_input_level_t = c_types::c_uint;
 #[doc = " @deprecated MCPWM select action to be taken on MCPWMXA when fault occurs"]
 pub use self::mcpwm_output_action_t as mcpwm_action_on_pwmxa_t;
 #[doc = " @deprecated MCPWM select action to be taken on MCPWMXB when fault occurs"]
@@ -51586,7 +51255,7 @@ pub const mcpwm_capture_signal_t_MCPWM_SELECT_CAP1: mcpwm_capture_signal_t = 1;
 #[doc = "<Select CAP2 as input"]
 pub const mcpwm_capture_signal_t_MCPWM_SELECT_CAP2: mcpwm_capture_signal_t = 2;
 #[doc = " @brief MCPWM select capture signal input"]
-pub type mcpwm_capture_signal_t = ::std::os::raw::c_uint;
+pub type mcpwm_capture_signal_t = c_types::c_uint;
 #[doc = " @brief MCPWM config structure"]
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
@@ -51633,7 +51302,7 @@ extern "C" {
     pub fn mcpwm_gpio_init(
         mcpwm_num: mcpwm_unit_t,
         io_signal: mcpwm_io_signals_t,
-        gpio_num: ::std::os::raw::c_int,
+        gpio_num: c_types::c_int,
     ) -> esp_err_t;
 }
 extern "C" {
@@ -52149,16 +51818,16 @@ extern "C" {
     #[doc = "     - ESP_ERR_INVALID_ARG Function pointer error."]
     pub fn mcpwm_isr_register(
         mcpwm_num: mcpwm_unit_t,
-        fn_: ::core::option::Option<unsafe extern "C" fn(arg1: *mut ::core::ffi::c_void)>,
-        arg: *mut ::core::ffi::c_void,
-        intr_alloc_flags: ::std::os::raw::c_int,
+        fn_: ::core::option::Option<unsafe extern "C" fn(arg1: *mut c_types::c_void)>,
+        arg: *mut c_types::c_void,
+        intr_alloc_flags: c_types::c_int,
         handle: *mut intr_handle_t,
     ) -> esp_err_t;
 }
 #[doc = " @brief PCNT port number, the max port number is (PCNT_PORT_MAX - 1)."]
-pub type pcnt_port_t = ::std::os::raw::c_int;
+pub type pcnt_port_t = c_types::c_int;
 #[doc = " @brief Selection of all available PCNT units"]
-pub type pcnt_unit_t = ::std::os::raw::c_int;
+pub type pcnt_unit_t = c_types::c_int;
 #[doc = "< Control mode: won't change counter mode"]
 pub const pcnt_ctrl_mode_t_PCNT_MODE_KEEP: pcnt_ctrl_mode_t = 0;
 #[doc = "< Control mode: invert counter mode(increase -> decrease, decrease -> increase)"]
@@ -52168,7 +51837,7 @@ pub const pcnt_ctrl_mode_t_PCNT_MODE_DISABLE: pcnt_ctrl_mode_t = 2;
 pub const pcnt_ctrl_mode_t_PCNT_MODE_MAX: pcnt_ctrl_mode_t = 3;
 #[doc = " @brief Selection of available modes that determine the counter's action depending on the state of the control signal's input GPIO"]
 #[doc = " @note  Configuration covers two actions, one for high, and one for low level on the control input"]
-pub type pcnt_ctrl_mode_t = ::std::os::raw::c_uint;
+pub type pcnt_ctrl_mode_t = c_types::c_uint;
 #[doc = "< Counter mode: Inhibit counter(counter value will not change in this condition)"]
 pub const pcnt_count_mode_t_PCNT_COUNT_DIS: pcnt_count_mode_t = 0;
 #[doc = "< Counter mode: Increase counter value"]
@@ -52178,14 +51847,14 @@ pub const pcnt_count_mode_t_PCNT_COUNT_DEC: pcnt_count_mode_t = 2;
 pub const pcnt_count_mode_t_PCNT_COUNT_MAX: pcnt_count_mode_t = 3;
 #[doc = " @brief Selection of available modes that determine the counter's action on the edge of the pulse signal's input GPIO"]
 #[doc = " @note  Configuration covers two actions, one for positive, and one for negative edge on the pulse input"]
-pub type pcnt_count_mode_t = ::std::os::raw::c_uint;
+pub type pcnt_count_mode_t = c_types::c_uint;
 #[doc = "< PCNT channel 0"]
 pub const pcnt_channel_t_PCNT_CHANNEL_0: pcnt_channel_t = 0;
 #[doc = "< PCNT channel 1"]
 pub const pcnt_channel_t_PCNT_CHANNEL_1: pcnt_channel_t = 1;
 pub const pcnt_channel_t_PCNT_CHANNEL_MAX: pcnt_channel_t = 2;
 #[doc = " @brief Selection of channels available for a single PCNT unit"]
-pub type pcnt_channel_t = ::std::os::raw::c_uint;
+pub type pcnt_channel_t = c_types::c_uint;
 #[doc = "< PCNT watch point event: threshold1 value event"]
 pub const pcnt_evt_type_t_PCNT_EVT_THRES_1: pcnt_evt_type_t = 4;
 #[doc = "< PCNT watch point event: threshold0 value event"]
@@ -52198,15 +51867,15 @@ pub const pcnt_evt_type_t_PCNT_EVT_H_LIM: pcnt_evt_type_t = 32;
 pub const pcnt_evt_type_t_PCNT_EVT_ZERO: pcnt_evt_type_t = 64;
 pub const pcnt_evt_type_t_PCNT_EVT_MAX: pcnt_evt_type_t = 65;
 #[doc = " @brief Selection of counter's events the may trigger an interrupt"]
-pub type pcnt_evt_type_t = ::std::os::raw::c_uint;
+pub type pcnt_evt_type_t = c_types::c_uint;
 #[doc = " @brief Pulse Counter configuration for a single channel"]
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
 pub struct pcnt_config_t {
     #[doc = "< Pulse input GPIO number, if you want to use GPIO16, enter pulse_gpio_num = 16, a negative value will be ignored"]
-    pub pulse_gpio_num: ::std::os::raw::c_int,
+    pub pulse_gpio_num: c_types::c_int,
     #[doc = "< Control signal input GPIO number, a negative value will be ignored"]
-    pub ctrl_gpio_num: ::std::os::raw::c_int,
+    pub ctrl_gpio_num: c_types::c_int,
     #[doc = "< PCNT low control mode"]
     pub lctrl_mode: pcnt_ctrl_mode_t,
     #[doc = "< PCNT high control mode"]
@@ -53961,9 +53630,9 @@ extern "C" {
     #[doc = "     - ESP_ERR_NOT_FOUND Can not find the interrupt that matches the flags."]
     #[doc = "     - ESP_ERR_INVALID_ARG Function pointer error."]
     pub fn pcnt_isr_register(
-        fn_: ::core::option::Option<unsafe extern "C" fn(arg1: *mut ::core::ffi::c_void)>,
-        arg: *mut ::core::ffi::c_void,
-        intr_alloc_flags: ::std::os::raw::c_int,
+        fn_: ::core::option::Option<unsafe extern "C" fn(arg1: *mut c_types::c_void)>,
+        arg: *mut c_types::c_void,
+        intr_alloc_flags: c_types::c_int,
         handle: *mut pcnt_isr_handle_t,
     ) -> esp_err_t;
 }
@@ -53984,8 +53653,8 @@ extern "C" {
     pub fn pcnt_set_pin(
         unit: pcnt_unit_t,
         channel: pcnt_channel_t,
-        pulse_io: ::std::os::raw::c_int,
-        ctrl_io: ::std::os::raw::c_int,
+        pulse_io: c_types::c_int,
+        ctrl_io: c_types::c_int,
     ) -> esp_err_t;
 }
 extern "C" {
@@ -54085,8 +53754,8 @@ extern "C" {
     #[doc = "     - ESP_ERR_INVALID_ARG Parameter error"]
     pub fn pcnt_isr_handler_add(
         unit: pcnt_unit_t,
-        isr_handler: ::core::option::Option<unsafe extern "C" fn(arg1: *mut ::core::ffi::c_void)>,
-        args: *mut ::core::ffi::c_void,
+        isr_handler: ::core::option::Option<unsafe extern "C" fn(arg1: *mut c_types::c_void)>,
+        args: *mut c_types::c_void,
     ) -> esp_err_t;
 }
 extern "C" {
@@ -54103,7 +53772,7 @@ extern "C" {
     #[doc = "     - ESP_ERR_INVALID_STATE pcnt driver has not been initialized"]
     #[doc = "     - ESP_ERR_NO_MEM No memory to install this service"]
     #[doc = "     - ESP_ERR_INVALID_STATE ISR service already installed"]
-    pub fn pcnt_isr_service_install(intr_alloc_flags: ::std::os::raw::c_int) -> esp_err_t;
+    pub fn pcnt_isr_service_install(intr_alloc_flags: c_types::c_int) -> esp_err_t;
 }
 extern "C" {
     #[doc = " @brief Uninstall PCNT ISR service, freeing related resources."]
@@ -54139,7 +53808,7 @@ pub const rmt_channel_id_t_RMT_CHANNEL_7: rmt_channel_id_t = 7;
 #[doc = "< Number of RMT channels"]
 pub const rmt_channel_id_t_RMT_CHANNEL_MAX: rmt_channel_id_t = 8;
 #[doc = " @brief RMT channel ID"]
-pub type rmt_channel_id_t = ::std::os::raw::c_uint;
+pub type rmt_channel_id_t = c_types::c_uint;
 #[repr(C)]
 #[derive(Copy, Clone)]
 pub struct rmt_dev_s {
@@ -56978,7 +56647,7 @@ pub const rmt_mem_owner_t_RMT_MEM_OWNER_RX: rmt_mem_owner_t = 1;
 pub const rmt_mem_owner_t_RMT_MEM_OWNER_MAX: rmt_mem_owner_t = 2;
 #[doc = " @brief RMT Internal Memory Owner"]
 #[doc = ""]
-pub type rmt_mem_owner_t = ::std::os::raw::c_uint;
+pub type rmt_mem_owner_t = c_types::c_uint;
 #[doc = "< RMT source clock system reference tick, 1MHz by default (not supported in this version)"]
 pub const rmt_source_clk_t_RMT_BASECLK_REF: rmt_source_clk_t = 0;
 #[doc = "< RMT source clock is APB CLK, 80Mhz by default"]
@@ -56986,7 +56655,7 @@ pub const rmt_source_clk_t_RMT_BASECLK_APB: rmt_source_clk_t = 1;
 pub const rmt_source_clk_t_RMT_BASECLK_MAX: rmt_source_clk_t = 2;
 #[doc = " @brief Clock Source of RMT Channel"]
 #[doc = ""]
-pub type rmt_source_clk_t = ::std::os::raw::c_uint;
+pub type rmt_source_clk_t = c_types::c_uint;
 pub const rmt_data_mode_t_RMT_DATA_MODE_FIFO: rmt_data_mode_t = 0;
 pub const rmt_data_mode_t_RMT_DATA_MODE_MEM: rmt_data_mode_t = 1;
 pub const rmt_data_mode_t_RMT_DATA_MODE_MAX: rmt_data_mode_t = 2;
@@ -56994,7 +56663,7 @@ pub const rmt_data_mode_t_RMT_DATA_MODE_MAX: rmt_data_mode_t = 2;
 #[doc = ""]
 #[doc = " @note We highly recommended to use MEM mode not FIFO mode since there will be some gotcha in FIFO mode."]
 #[doc = ""]
-pub type rmt_data_mode_t = ::std::os::raw::c_uint;
+pub type rmt_data_mode_t = c_types::c_uint;
 #[doc = "< RMT TX mode"]
 pub const rmt_mode_t_RMT_MODE_TX: rmt_mode_t = 0;
 #[doc = "< RMT RX mode"]
@@ -57002,7 +56671,7 @@ pub const rmt_mode_t_RMT_MODE_RX: rmt_mode_t = 1;
 pub const rmt_mode_t_RMT_MODE_MAX: rmt_mode_t = 2;
 #[doc = " @brief RMT Channel Working Mode (TX or RX)"]
 #[doc = ""]
-pub type rmt_mode_t = ::std::os::raw::c_uint;
+pub type rmt_mode_t = c_types::c_uint;
 #[doc = "< RMT TX idle level: low Level"]
 pub const rmt_idle_level_t_RMT_IDLE_LEVEL_LOW: rmt_idle_level_t = 0;
 #[doc = "< RMT TX idle level: high Level"]
@@ -57010,7 +56679,7 @@ pub const rmt_idle_level_t_RMT_IDLE_LEVEL_HIGH: rmt_idle_level_t = 1;
 pub const rmt_idle_level_t_RMT_IDLE_LEVEL_MAX: rmt_idle_level_t = 2;
 #[doc = " @brief RMT Idle Level"]
 #[doc = ""]
-pub type rmt_idle_level_t = ::std::os::raw::c_uint;
+pub type rmt_idle_level_t = c_types::c_uint;
 #[doc = "< RMT carrier wave is modulated for low Level output"]
 pub const rmt_carrier_level_t_RMT_CARRIER_LEVEL_LOW: rmt_carrier_level_t = 0;
 #[doc = "< RMT carrier wave is modulated for high Level output"]
@@ -57018,7 +56687,7 @@ pub const rmt_carrier_level_t_RMT_CARRIER_LEVEL_HIGH: rmt_carrier_level_t = 1;
 pub const rmt_carrier_level_t_RMT_CARRIER_LEVEL_MAX: rmt_carrier_level_t = 2;
 #[doc = " @brief RMT Carrier Level"]
 #[doc = ""]
-pub type rmt_carrier_level_t = ::std::os::raw::c_uint;
+pub type rmt_carrier_level_t = c_types::c_uint;
 #[doc = "< RMT channel uninitialized"]
 pub const rmt_channel_status_t_RMT_CHANNEL_UNINIT: rmt_channel_status_t = 0;
 #[doc = "< RMT channel status idle"]
@@ -57027,7 +56696,7 @@ pub const rmt_channel_status_t_RMT_CHANNEL_IDLE: rmt_channel_status_t = 1;
 pub const rmt_channel_status_t_RMT_CHANNEL_BUSY: rmt_channel_status_t = 2;
 #[doc = " @brief RMT Channel Status"]
 #[doc = ""]
-pub type rmt_channel_status_t = ::std::os::raw::c_uint;
+pub type rmt_channel_status_t = c_types::c_uint;
 #[doc = " @brief Data struct of RMT channel status"]
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
@@ -57093,9 +56762,8 @@ pub union rmt_config_t__bindgen_ty_1 {
 #[doc = " @brief RMT interrupt handle"]
 pub type rmt_isr_handle_t = intr_handle_t;
 #[doc = " @brief Type of RMT Tx End callback function"]
-pub type rmt_tx_end_fn_t = ::core::option::Option<
-    unsafe extern "C" fn(channel: rmt_channel_t, arg: *mut ::core::ffi::c_void),
->;
+pub type rmt_tx_end_fn_t =
+    ::core::option::Option<unsafe extern "C" fn(channel: rmt_channel_t, arg: *mut c_types::c_void)>;
 #[doc = " @brief Structure encapsulating a RMT TX end callback"]
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
@@ -57103,7 +56771,7 @@ pub struct rmt_tx_end_callback_t {
     #[doc = "< Function which is called on RMT TX end"]
     pub function: rmt_tx_end_fn_t,
     #[doc = "< Optional argument passed to function"]
-    pub arg: *mut ::core::ffi::c_void,
+    pub arg: *mut c_types::c_void,
 }
 #[doc = " @brief User callback function to convert uint8_t type data to rmt format(rmt_item32_t)."]
 #[doc = ""]
@@ -57125,7 +56793,7 @@ pub struct rmt_tx_end_callback_t {
 #[doc = "       the relation between item_num and translated_size should be `item_num = translated_size*8`."]
 pub type sample_to_rmt_t = ::core::option::Option<
     unsafe extern "C" fn(
-        src: *const ::core::ffi::c_void,
+        src: *const c_types::c_void,
         dest: *mut rmt_item32_t,
         src_size: size_t,
         wanted_num: size_t,
@@ -57561,9 +57229,9 @@ extern "C" {
     #[doc = "     - ESP_ERR_INVALID_ARG Function pointer error."]
     #[doc = "     - ESP_FAIL System driver installed, can not register ISR handler for RMT"]
     pub fn rmt_isr_register(
-        fn_: ::core::option::Option<unsafe extern "C" fn(arg1: *mut ::core::ffi::c_void)>,
-        arg: *mut ::core::ffi::c_void,
-        intr_alloc_flags: ::std::os::raw::c_int,
+        fn_: ::core::option::Option<unsafe extern "C" fn(arg1: *mut c_types::c_void)>,
+        arg: *mut c_types::c_void,
+        intr_alloc_flags: c_types::c_int,
         handle: *mut rmt_isr_handle_t,
     ) -> esp_err_t;
 }
@@ -57611,7 +57279,7 @@ extern "C" {
     pub fn rmt_driver_install(
         channel: rmt_channel_t,
         rx_buf_size: size_t,
-        intr_alloc_flags: ::std::os::raw::c_int,
+        intr_alloc_flags: c_types::c_int,
     ) -> esp_err_t;
 }
 extern "C" {
@@ -57675,7 +57343,7 @@ extern "C" {
     pub fn rmt_write_items(
         channel: rmt_channel_t,
         rmt_item: *const rmt_item32_t,
-        item_num: ::std::os::raw::c_int,
+        item_num: c_types::c_int,
         wait_tx_done: bool,
     ) -> esp_err_t;
 }
@@ -57753,7 +57421,7 @@ extern "C" {
     #[doc = " @return the previous callback settings (members will be set to NULL if there was none)"]
     pub fn rmt_register_tx_end_callback(
         function: rmt_tx_end_fn_t,
-        arg: *mut ::core::ffi::c_void,
+        arg: *mut c_types::c_void,
     ) -> rmt_tx_end_callback_t;
 }
 extern "C" {
@@ -57773,7 +57441,7 @@ extern "C" {
     #[doc = "      - other errors returned by esp_intr_alloc"]
     pub fn rtc_isr_register(
         handler: intr_handler_t,
-        handler_arg: *mut ::core::ffi::c_void,
+        handler_arg: *mut c_types::c_void,
         rtc_intr_mask: u32,
     ) -> esp_err_t;
 }
@@ -57787,7 +57455,7 @@ extern "C" {
     #[doc = "        handler_arg isn't registered"]
     pub fn rtc_isr_deregister(
         handler: intr_handler_t,
-        handler_arg: *mut ::core::ffi::c_void,
+        handler_arg: *mut c_types::c_void,
     ) -> esp_err_t;
 }
 #[doc = "< Pad input"]
@@ -57803,7 +57471,7 @@ pub const rtc_gpio_mode_t_RTC_GPIO_MODE_OUTPUT_OD: rtc_gpio_mode_t = 4;
 #[doc = "< Pad input + open-drain output"]
 pub const rtc_gpio_mode_t_RTC_GPIO_MODE_INPUT_OUTPUT_OD: rtc_gpio_mode_t = 5;
 #[doc = " RTCIO output/input mode type."]
-pub type rtc_gpio_mode_t = ::std::os::raw::c_uint;
+pub type rtc_gpio_mode_t = c_types::c_uint;
 extern "C" {
     #[doc = " @brief Init a GPIO as RTC GPIO"]
     #[doc = ""]
@@ -58049,7 +57717,7 @@ pub const sdio_slave_hostint_t_SDIO_SLAVE_HOSTINT_BIT7: sdio_slave_hostint_t = 1
 #[doc = "< New packet available"]
 pub const sdio_slave_hostint_t_SDIO_SLAVE_HOSTINT_SEND_NEW_PACKET: sdio_slave_hostint_t = 8388608;
 #[doc = " Mask of interrupts sending to the host."]
-pub type sdio_slave_hostint_t = ::std::os::raw::c_uint;
+pub type sdio_slave_hostint_t = c_types::c_uint;
 #[doc = "< Send at posedge, and sample at posedge. Default value for HS mode."]
 #[doc = "   Normally there's no problem using this to work in DS mode."]
 pub const sdio_slave_timing_t_SDIO_SLAVE_TIMING_PSEND_PSAMPLE: sdio_slave_timing_t = 0;
@@ -58060,13 +57728,13 @@ pub const sdio_slave_timing_t_SDIO_SLAVE_TIMING_PSEND_NSAMPLE: sdio_slave_timing
 #[doc = "< Send at negedge, and sample at negedge"]
 pub const sdio_slave_timing_t_SDIO_SLAVE_TIMING_NSEND_NSAMPLE: sdio_slave_timing_t = 3;
 #[doc = " Timing of SDIO slave"]
-pub type sdio_slave_timing_t = ::std::os::raw::c_uint;
+pub type sdio_slave_timing_t = c_types::c_uint;
 #[doc = "< Stream mode, all packets to send will be combined as one if possible"]
 pub const sdio_slave_sending_mode_t_SDIO_SLAVE_SEND_STREAM: sdio_slave_sending_mode_t = 0;
 #[doc = "< Packet mode, one packets will be sent one after another (only increase packet_len if last packet sent)."]
 pub const sdio_slave_sending_mode_t_SDIO_SLAVE_SEND_PACKET: sdio_slave_sending_mode_t = 1;
 #[doc = " Configuration of SDIO slave mode"]
-pub type sdio_slave_sending_mode_t = ::std::os::raw::c_uint;
+pub type sdio_slave_sending_mode_t = c_types::c_uint;
 #[repr(C)]
 #[derive(Copy, Clone)]
 pub struct slc_dev_s {
@@ -77868,7 +77536,7 @@ pub struct sdio_slave_slot_info_t {
     pub d1_gpio: u32,
     pub d2_gpio: u32,
     pub d3_gpio: u32,
-    pub func: ::std::os::raw::c_int,
+    pub func: c_types::c_int,
 }
 extern "C" {
     pub static mut sdio_slave_slot_info: [sdio_slave_slot_info_t; 0usize];
@@ -77883,7 +77551,7 @@ pub struct sdio_slave_config_t {
     #[doc = "< mode of sdio_slave. `SDIO_SLAVE_MODE_STREAM` if the data needs to be sent as much as possible; `SDIO_SLAVE_MODE_PACKET` if the data should be sent in packets."]
     pub sending_mode: sdio_slave_sending_mode_t,
     #[doc = "< max buffers that can be queued before sending."]
-    pub send_queue_size: ::std::os::raw::c_int,
+    pub send_queue_size: c_types::c_int,
     pub recv_buffer_size: size_t,
     #[doc = "< when the host interrupts slave, this callback will be called with interrupt number (0-7)."]
     pub event_cb: sdio_event_cb_t,
@@ -77892,7 +77560,7 @@ pub struct sdio_slave_config_t {
 }
 #[doc = " Handle of a receive buffer, register a handle by calling ``sdio_slave_recv_register_buf``. Use the handle to load the buffer to the"]
 #[doc = "  driver, or call ``sdio_slave_recv_unregister_buf`` if it is no longer used."]
-pub type sdio_slave_buf_handle_t = *mut ::core::ffi::c_void;
+pub type sdio_slave_buf_handle_t = *mut c_types::c_void;
 extern "C" {
     #[doc = " Initialize the sdio slave driver"]
     #[doc = ""]
@@ -78011,7 +77679,7 @@ extern "C" {
     pub fn sdio_slave_send_queue(
         addr: *mut u8,
         len: size_t,
-        arg: *mut ::core::ffi::c_void,
+        arg: *mut c_types::c_void,
         wait: TickType_t,
     ) -> esp_err_t;
 }
@@ -78022,7 +77690,7 @@ extern "C" {
     #[doc = ""]
     #[doc = " @return ESP_ERR_TIMEOUT if no transaction finished, or ESP_OK if succeed."]
     pub fn sdio_slave_send_get_finished(
-        out_arg: *mut *mut ::core::ffi::c_void,
+        out_arg: *mut *mut c_types::c_void,
         wait: TickType_t,
     ) -> esp_err_t;
 }
@@ -78046,7 +77714,7 @@ extern "C" {
     #[doc = " @note register 28 to 31 are reserved for interrupt vector."]
     #[doc = ""]
     #[doc = " @return value of the register."]
-    pub fn sdio_slave_read_reg(pos: ::std::os::raw::c_int) -> u8;
+    pub fn sdio_slave_read_reg(pos: c_types::c_int) -> u8;
 }
 extern "C" {
     #[doc = " Write the spi slave register shared with host."]
@@ -78057,7 +77725,7 @@ extern "C" {
     #[doc = " @note register 29 and 31 are used for interrupt vector."]
     #[doc = ""]
     #[doc = " @return ESP_ERR_INVALID_ARG if address wrong, otherwise ESP_OK."]
-    pub fn sdio_slave_write_reg(pos: ::std::os::raw::c_int, reg: u8) -> esp_err_t;
+    pub fn sdio_slave_write_reg(pos: c_types::c_int, reg: u8) -> esp_err_t;
 }
 extern "C" {
     #[doc = " Get the interrupt enable for host."]
@@ -78097,52 +77765,52 @@ extern "C" {
     #[doc = " @note this clears the interrupt at the same time."]
     #[doc = ""]
     #[doc = " @return ESP_OK if success, ESP_ERR_TIMEOUT if timeout."]
-    pub fn sdio_slave_wait_int(pos: ::std::os::raw::c_int, wait: TickType_t) -> esp_err_t;
+    pub fn sdio_slave_wait_int(pos: c_types::c_int, wait: TickType_t) -> esp_err_t;
 }
 #[doc = " Decoded values from SD card Card Specific Data register"]
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
 pub struct sdmmc_csd_t {
     #[doc = "< CSD structure format"]
-    pub csd_ver: ::std::os::raw::c_int,
+    pub csd_ver: c_types::c_int,
     #[doc = "< MMC version (for CID format)"]
-    pub mmc_ver: ::std::os::raw::c_int,
+    pub mmc_ver: c_types::c_int,
     #[doc = "< total number of sectors"]
-    pub capacity: ::std::os::raw::c_int,
+    pub capacity: c_types::c_int,
     #[doc = "< sector size in bytes"]
-    pub sector_size: ::std::os::raw::c_int,
+    pub sector_size: c_types::c_int,
     #[doc = "< block length for reads"]
-    pub read_block_len: ::std::os::raw::c_int,
+    pub read_block_len: c_types::c_int,
     #[doc = "< Card Command Class for SD"]
-    pub card_command_class: ::std::os::raw::c_int,
+    pub card_command_class: c_types::c_int,
     #[doc = "< Max transfer speed"]
-    pub tr_speed: ::std::os::raw::c_int,
+    pub tr_speed: c_types::c_int,
 }
 #[doc = " Decoded values from SD card Card IDentification register"]
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
 pub struct sdmmc_cid_t {
     #[doc = "< manufacturer identification number"]
-    pub mfg_id: ::std::os::raw::c_int,
+    pub mfg_id: c_types::c_int,
     #[doc = "< OEM/product identification number"]
-    pub oem_id: ::std::os::raw::c_int,
+    pub oem_id: c_types::c_int,
     #[doc = "< product name (MMC v1 has the longest)"]
-    pub name: [::std::os::raw::c_char; 8usize],
+    pub name: [c_types::c_char; 8usize],
     #[doc = "< product revision"]
-    pub revision: ::std::os::raw::c_int,
+    pub revision: c_types::c_int,
     #[doc = "< product serial number"]
-    pub serial: ::std::os::raw::c_int,
+    pub serial: c_types::c_int,
     #[doc = "< manufacturing date"]
-    pub date: ::std::os::raw::c_int,
+    pub date: c_types::c_int,
 }
 #[doc = " Decoded values from SD Configuration Register"]
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
 pub struct sdmmc_scr_t {
     #[doc = "< SD Physical layer specification version, reported by card"]
-    pub sd_spec: ::std::os::raw::c_int,
+    pub sd_spec: c_types::c_int,
     #[doc = "< bus widths supported by card: BIT(0) — 1-bit bus, BIT(2) — 4-bit bus"]
-    pub bus_width: ::std::os::raw::c_int,
+    pub bus_width: c_types::c_int,
 }
 #[doc = " Decoded values of Extended Card Specific Data"]
 #[repr(C)]
@@ -78171,17 +77839,17 @@ pub struct sdmmc_command_t {
     #[doc = "< response buffer"]
     pub response: sdmmc_response_t,
     #[doc = "< buffer to send or read into"]
-    pub data: *mut ::core::ffi::c_void,
+    pub data: *mut c_types::c_void,
     #[doc = "< length of data buffer"]
     pub datalen: size_t,
     #[doc = "< block length"]
     pub blklen: size_t,
     #[doc = "< see below"]
-    pub flags: ::std::os::raw::c_int,
+    pub flags: c_types::c_int,
     #[doc = "< error returned from transfer"]
     pub error: esp_err_t,
     #[doc = "< response timeout, in milliseconds"]
-    pub timeout_ms: ::std::os::raw::c_int,
+    pub timeout_ms: c_types::c_int,
 }
 #[doc = " SD/MMC Host description"]
 #[doc = ""]
@@ -78193,46 +77861,42 @@ pub struct sdmmc_host_t {
     #[doc = "< flags defining host properties"]
     pub flags: u32,
     #[doc = "< slot number, to be passed to host functions"]
-    pub slot: ::std::os::raw::c_int,
+    pub slot: c_types::c_int,
     #[doc = "< max frequency supported by the host"]
-    pub max_freq_khz: ::std::os::raw::c_int,
+    pub max_freq_khz: c_types::c_int,
     #[doc = "< I/O voltage used by the controller (voltage switching is not supported)"]
     pub io_voltage: f32,
     #[doc = "< Host function to initialize the driver"]
     pub init: ::core::option::Option<unsafe extern "C" fn() -> esp_err_t>,
     #[doc = "< host function to set bus width"]
     pub set_bus_width: ::core::option::Option<
-        unsafe extern "C" fn(slot: ::std::os::raw::c_int, width: size_t) -> esp_err_t,
+        unsafe extern "C" fn(slot: c_types::c_int, width: size_t) -> esp_err_t,
     >,
     #[doc = "< host function to get bus width"]
-    pub get_bus_width:
-        ::core::option::Option<unsafe extern "C" fn(slot: ::std::os::raw::c_int) -> size_t>,
+    pub get_bus_width: ::core::option::Option<unsafe extern "C" fn(slot: c_types::c_int) -> size_t>,
     #[doc = "< host function to set DDR mode"]
     pub set_bus_ddr_mode: ::core::option::Option<
-        unsafe extern "C" fn(slot: ::std::os::raw::c_int, ddr_enable: bool) -> esp_err_t,
+        unsafe extern "C" fn(slot: c_types::c_int, ddr_enable: bool) -> esp_err_t,
     >,
     #[doc = "< host function to set card clock frequency"]
     pub set_card_clk: ::core::option::Option<
-        unsafe extern "C" fn(slot: ::std::os::raw::c_int, freq_khz: u32) -> esp_err_t,
+        unsafe extern "C" fn(slot: c_types::c_int, freq_khz: u32) -> esp_err_t,
     >,
     #[doc = "< host function to do a transaction"]
     pub do_transaction: ::core::option::Option<
-        unsafe extern "C" fn(
-            slot: ::std::os::raw::c_int,
-            cmdinfo: *mut sdmmc_command_t,
-        ) -> esp_err_t,
+        unsafe extern "C" fn(slot: c_types::c_int, cmdinfo: *mut sdmmc_command_t) -> esp_err_t,
     >,
     #[doc = "< host function to deinitialize the driver"]
     pub deinit: ::core::option::Option<unsafe extern "C" fn() -> esp_err_t>,
     #[doc = "< Host function to enable SDIO interrupt line"]
     pub io_int_enable:
-        ::core::option::Option<unsafe extern "C" fn(slot: ::std::os::raw::c_int) -> esp_err_t>,
+        ::core::option::Option<unsafe extern "C" fn(slot: c_types::c_int) -> esp_err_t>,
     #[doc = "< Host function to wait for SDIO interrupt line to be active"]
     pub io_int_wait: ::core::option::Option<
-        unsafe extern "C" fn(slot: ::std::os::raw::c_int, timeout_ticks: TickType_t) -> esp_err_t,
+        unsafe extern "C" fn(slot: c_types::c_int, timeout_ticks: TickType_t) -> esp_err_t,
     >,
     #[doc = "< timeout, in milliseconds, of a single command. Set to 0 to use the default value."]
-    pub command_timeout_ms: ::std::os::raw::c_int,
+    pub command_timeout_ms: c_types::c_int,
 }
 #[doc = " SD/MMC card information structure"]
 #[repr(C)]
@@ -78428,7 +78092,7 @@ extern "C" {
     #[doc = "      - ESP_OK on success"]
     #[doc = "      - ESP_ERR_INVALID_STATE if host has not been initialized using sdmmc_host_init"]
     pub fn sdmmc_host_init_slot(
-        slot: ::std::os::raw::c_int,
+        slot: c_types::c_int,
         slot_config: *const sdmmc_slot_config_t,
     ) -> esp_err_t;
 }
@@ -78445,14 +78109,14 @@ extern "C" {
     #[doc = " @return"]
     #[doc = "      - ESP_OK on success"]
     #[doc = "      - ESP_ERR_INVALID_ARG if slot number or width is not valid"]
-    pub fn sdmmc_host_set_bus_width(slot: ::std::os::raw::c_int, width: size_t) -> esp_err_t;
+    pub fn sdmmc_host_set_bus_width(slot: c_types::c_int, width: size_t) -> esp_err_t;
 }
 extern "C" {
     #[doc = " @brief Get bus width configured in ``sdmmc_host_init_slot`` to be used for data transfer"]
     #[doc = ""]
     #[doc = " @param slot  slot number (SDMMC_HOST_SLOT_0 or SDMMC_HOST_SLOT_1)"]
     #[doc = " @return configured bus width of the specified slot."]
-    pub fn sdmmc_host_get_slot_width(slot: ::std::os::raw::c_int) -> size_t;
+    pub fn sdmmc_host_get_slot_width(slot: c_types::c_int) -> size_t;
 }
 extern "C" {
     #[doc = " @brief Set card clock frequency"]
@@ -78468,7 +78132,7 @@ extern "C" {
     #[doc = " @return"]
     #[doc = "      - ESP_OK on success"]
     #[doc = "      - other error codes may be returned in the future"]
-    pub fn sdmmc_host_set_card_clk(slot: ::std::os::raw::c_int, freq_khz: u32) -> esp_err_t;
+    pub fn sdmmc_host_set_card_clk(slot: c_types::c_int, freq_khz: u32) -> esp_err_t;
 }
 extern "C" {
     #[doc = " @brief Enable or disable DDR mode of SD interface"]
@@ -78477,8 +78141,7 @@ extern "C" {
     #[doc = " @return"]
     #[doc = "      - ESP_OK on success"]
     #[doc = "      - ESP_ERR_NOT_SUPPORTED if DDR mode is not supported on this slot"]
-    pub fn sdmmc_host_set_bus_ddr_mode(slot: ::std::os::raw::c_int, ddr_enabled: bool)
-        -> esp_err_t;
+    pub fn sdmmc_host_set_bus_ddr_mode(slot: c_types::c_int, ddr_enabled: bool) -> esp_err_t;
 }
 extern "C" {
     #[doc = " @brief Send command to the card and get response"]
@@ -78503,7 +78166,7 @@ extern "C" {
     #[doc = "      - ESP_ERR_INVALID_SIZE if the size of data transfer is not valid in SD protocol"]
     #[doc = "      - ESP_ERR_INVALID_ARG if the data buffer is not in DMA capable memory"]
     pub fn sdmmc_host_do_transaction(
-        slot: ::std::os::raw::c_int,
+        slot: c_types::c_int,
         cmdinfo: *mut sdmmc_command_t,
     ) -> esp_err_t;
 }
@@ -78514,7 +78177,7 @@ extern "C" {
     #[doc = ""]
     #[doc = " @param slot  slot number (SDMMC_HOST_SLOT_0 or SDMMC_HOST_SLOT_1)"]
     #[doc = " @return returns ESP_OK, other errors possible in the future"]
-    pub fn sdmmc_host_io_int_enable(slot: ::std::os::raw::c_int) -> esp_err_t;
+    pub fn sdmmc_host_io_int_enable(slot: c_types::c_int) -> esp_err_t;
 }
 extern "C" {
     #[doc = " @brief Block until an SDIO interrupt is received, or timeout occurs"]
@@ -78523,10 +78186,7 @@ extern "C" {
     #[doc = " @return"]
     #[doc = "  - ESP_OK on success (interrupt received)"]
     #[doc = "  - ESP_ERR_TIMEOUT if the interrupt did not occur within timeout_ticks"]
-    pub fn sdmmc_host_io_int_wait(
-        slot: ::std::os::raw::c_int,
-        timeout_ticks: TickType_t,
-    ) -> esp_err_t;
+    pub fn sdmmc_host_io_int_wait(slot: c_types::c_int, timeout_ticks: TickType_t) -> esp_err_t;
 }
 extern "C" {
     #[doc = " @brief Disable SDMMC host and release allocated resources"]
@@ -78552,10 +78212,7 @@ extern "C" {
     #[doc = "      - ESP_OK: if success"]
     #[doc = "      - ESP_ERR_INVALID_ARG: if configured width larger than maximum the slot can"]
     #[doc = "              support"]
-    pub fn sdmmc_host_pullup_en(
-        slot: ::std::os::raw::c_int,
-        width: ::std::os::raw::c_int,
-    ) -> esp_err_t;
+    pub fn sdmmc_host_pullup_en(slot: c_types::c_int, width: c_types::c_int) -> esp_err_t;
 }
 extern "C" {
     #[doc = " Generate a linked list pointing to a (huge) buffer in an descriptor array."]
@@ -78569,8 +78226,8 @@ extern "C" {
     #[doc = " @param isrx The RX DMA may require the buffer to be word-aligned, set to true for a RX link, otherwise false."]
     pub fn lldesc_setup_link(
         out_desc_array: *mut lldesc_t,
-        buffer: *const ::core::ffi::c_void,
-        size: ::std::os::raw::c_int,
+        buffer: *const c_types::c_void,
+        size: c_types::c_int,
         isrx: bool,
     );
 }
@@ -83908,7 +83565,7 @@ pub struct spi_signal_conn_t {
     pub irq: u8,
     pub irq_dma: u8,
     pub module: periph_module_t,
-    pub func: ::std::os::raw::c_int,
+    pub func: c_types::c_int,
     pub hw: *mut spi_dev_t,
 }
 extern "C" {
@@ -83921,7 +83578,7 @@ pub const spi_host_device_t_SPI2_HOST: spi_host_device_t = 1;
 #[doc = "< SPI3"]
 pub const spi_host_device_t_SPI3_HOST: spi_host_device_t = 2;
 #[doc = " @brief Enum with the three SPI peripherals that are software-accessible in it"]
-pub type spi_host_device_t = ::std::os::raw::c_uint;
+pub type spi_host_device_t = c_types::c_uint;
 #[doc = " @brief This is a configuration structure for a SPI bus."]
 #[doc = ""]
 #[doc = " You can use this structure to specify the GPIO pins of the bus. Normally, the driver will use the"]
@@ -83933,24 +83590,24 @@ pub type spi_host_device_t = ::std::os::raw::c_uint;
 #[derive(Debug, Copy, Clone)]
 pub struct spi_bus_config_t {
     #[doc = "< GPIO pin for Master Out Slave In (=spi_d) signal, or -1 if not used."]
-    pub mosi_io_num: ::std::os::raw::c_int,
+    pub mosi_io_num: c_types::c_int,
     #[doc = "< GPIO pin for Master In Slave Out (=spi_q) signal, or -1 if not used."]
-    pub miso_io_num: ::std::os::raw::c_int,
+    pub miso_io_num: c_types::c_int,
     #[doc = "< GPIO pin for Spi CLocK signal, or -1 if not used."]
-    pub sclk_io_num: ::std::os::raw::c_int,
+    pub sclk_io_num: c_types::c_int,
     #[doc = "< GPIO pin for WP (Write Protect) signal which is used as D2 in 4-bit communication modes, or -1 if not used."]
-    pub quadwp_io_num: ::std::os::raw::c_int,
+    pub quadwp_io_num: c_types::c_int,
     #[doc = "< GPIO pin for HD (HolD) signal which is used as D3 in 4-bit communication modes, or -1 if not used."]
-    pub quadhd_io_num: ::std::os::raw::c_int,
+    pub quadhd_io_num: c_types::c_int,
     #[doc = "< Maximum transfer size, in bytes. Defaults to 4094 if 0."]
-    pub max_transfer_sz: ::std::os::raw::c_int,
+    pub max_transfer_sz: c_types::c_int,
     #[doc = "< Abilities of bus to be checked by the driver. Or-ed value of ``SPICOMMON_BUSFLAG_*`` flags."]
     pub flags: u32,
     #[doc = "< Interrupt flag for the bus to set the priority, and IRAM attribute, see"]
     #[doc = "  ``esp_intr_alloc.h``. Note that the EDGE, INTRDISABLED attribute are ignored"]
     #[doc = "  by the driver. Note that if ESP_INTR_FLAG_IRAM is set, ALL the callbacks of"]
     #[doc = "  the driver, and their callee functions, should be put in the IRAM."]
-    pub intr_flags: ::std::os::raw::c_int,
+    pub intr_flags: c_types::c_int,
 }
 extern "C" {
     #[doc = " @brief Initialize a SPI bus"]
@@ -83980,7 +83637,7 @@ extern "C" {
     pub fn spi_bus_initialize(
         host: spi_host_device_t,
         bus_config: *const spi_bus_config_t,
-        dma_chan: ::std::os::raw::c_int,
+        dma_chan: c_types::c_int,
     ) -> esp_err_t;
 }
 extern "C" {
@@ -84016,18 +83673,18 @@ pub struct spi_device_interface_config_t {
     #[doc = "< Amount of SPI bit-cycles the cs should stay active after the transmission (0-16)"]
     pub cs_ena_posttrans: u8,
     #[doc = "< Clock speed, divisors of 80MHz, in Hz. See ``SPI_MASTER_FREQ_*``."]
-    pub clock_speed_hz: ::std::os::raw::c_int,
+    pub clock_speed_hz: c_types::c_int,
     #[doc = "< Maximum data valid time of slave. The time required between SCLK and MISO"]
     #[doc = "valid, including the possible clock delay from slave to master. The driver uses this value to give an extra"]
     #[doc = "delay before the MISO is ready on the line. Leave at 0 unless you know you need a delay. For better timing"]
     #[doc = "performance at high frequency (over 8MHz), it's suggest to have the right value."]
-    pub input_delay_ns: ::std::os::raw::c_int,
+    pub input_delay_ns: c_types::c_int,
     #[doc = "< CS GPIO pin for this device, or -1 if not used"]
-    pub spics_io_num: ::std::os::raw::c_int,
+    pub spics_io_num: c_types::c_int,
     #[doc = "< Bitwise OR of SPI_DEVICE_* flags"]
     pub flags: u32,
     #[doc = "< Transaction queue size. This sets how many transactions can be 'in the air' (queued using spi_device_queue_trans but not yet finished using spi_device_get_trans_result) at the same time"]
-    pub queue_size: ::std::os::raw::c_int,
+    pub queue_size: c_types::c_int,
     #[doc = "< Callback to be called before a transmission is started."]
     #[doc = ""]
     #[doc = "  This callback is called within interrupt"]
@@ -84072,7 +83729,7 @@ pub struct spi_transaction_t {
     #[doc = "< Total data length received, should be not greater than ``length`` in full-duplex mode (0 defaults this to the value of ``length``)."]
     pub rxlength: size_t,
     #[doc = "< User-defined variable. Can be used to store eg transaction ID."]
-    pub user: *mut ::core::ffi::c_void,
+    pub user: *mut c_types::c_void,
     pub __bindgen_anon_1: spi_transaction_t__bindgen_ty_1,
     pub __bindgen_anon_2: spi_transaction_t__bindgen_ty_2,
 }
@@ -84080,7 +83737,7 @@ pub struct spi_transaction_t {
 #[derive(Copy, Clone)]
 pub union spi_transaction_t__bindgen_ty_1 {
     #[doc = "< Pointer to transmit buffer, or NULL for no MOSI phase"]
-    pub tx_buffer: *const ::core::ffi::c_void,
+    pub tx_buffer: *const c_types::c_void,
     #[doc = "< If SPI_TRANS_USE_TXDATA is set, data set here is sent directly from this variable."]
     pub tx_data: [u8; 4usize],
     _bindgen_union_align: u32,
@@ -84089,7 +83746,7 @@ pub union spi_transaction_t__bindgen_ty_1 {
 #[derive(Copy, Clone)]
 pub union spi_transaction_t__bindgen_ty_2 {
     #[doc = "< Pointer to receive buffer, or NULL for no MISO phase. Written by 4 bytes-unit if DMA is used."]
-    pub rx_buffer: *mut ::core::ffi::c_void,
+    pub rx_buffer: *mut c_types::c_void,
     #[doc = "< If SPI_TRANS_USE_RXDATA is set, data is received directly to this variable"]
     pub rx_data: [u8; 4usize],
     _bindgen_union_align: u32,
@@ -84310,11 +83967,11 @@ extern "C" {
     #[doc = ""]
     #[doc = " @return Actual working frequency that most fit."]
     pub fn spi_cal_clock(
-        fapb: ::std::os::raw::c_int,
-        hz: ::std::os::raw::c_int,
-        duty_cycle: ::std::os::raw::c_int,
+        fapb: c_types::c_int,
+        hz: c_types::c_int,
+        duty_cycle: c_types::c_int,
         reg_o: *mut u32,
-    ) -> ::std::os::raw::c_int;
+    ) -> c_types::c_int;
 }
 extern "C" {
     #[doc = " @brief Calculate the working frequency that is most close to desired frequency."]
@@ -84325,10 +83982,10 @@ extern "C" {
     #[doc = ""]
     #[doc = " @return Actual working frequency that most fit."]
     pub fn spi_get_actual_clock(
-        fapb: ::std::os::raw::c_int,
-        hz: ::std::os::raw::c_int,
-        duty_cycle: ::std::os::raw::c_int,
-    ) -> ::std::os::raw::c_int;
+        fapb: c_types::c_int,
+        hz: c_types::c_int,
+        duty_cycle: c_types::c_int,
+    ) -> c_types::c_int;
 }
 extern "C" {
     #[doc = " @brief Calculate the timing settings of specified frequency and settings."]
@@ -84345,10 +84002,10 @@ extern "C" {
     #[doc = " @note If **dummy_o* is not zero, it means dummy bits should be applied in half duplex mode, and full duplex mode may not work."]
     pub fn spi_get_timing(
         gpio_is_used: bool,
-        input_delay_ns: ::std::os::raw::c_int,
-        eff_clk: ::std::os::raw::c_int,
-        dummy_o: *mut ::std::os::raw::c_int,
-        cycles_remain_o: *mut ::std::os::raw::c_int,
+        input_delay_ns: c_types::c_int,
+        eff_clk: c_types::c_int,
+        dummy_o: *mut c_types::c_int,
+        cycles_remain_o: *mut c_types::c_int,
     );
 }
 extern "C" {
@@ -84359,10 +84016,8 @@ extern "C" {
     #[doc = " @param gpio_is_used True if using GPIO matrix, or False if native pins are used."]
     #[doc = " @param input_delay_ns Input delay from SCLK launch edge to MISO data valid."]
     #[doc = " @return Frequency limit of current configurations."]
-    pub fn spi_get_freq_limit(
-        gpio_is_used: bool,
-        input_delay_ns: ::std::os::raw::c_int,
-    ) -> ::std::os::raw::c_int;
+    pub fn spi_get_freq_limit(gpio_is_used: bool, input_delay_ns: c_types::c_int)
+        -> c_types::c_int;
 }
 #[doc = " Extra configuration for SPI host"]
 #[repr(C)]
@@ -84383,7 +84038,7 @@ pub struct sdspi_slot_config_t {
     #[doc = "< GPIO number of interrupt line (input) for SDIO card."]
     pub gpio_int: gpio_num_t,
     #[doc = "< DMA channel to be used by SPI driver (1 or 2)"]
-    pub dma_channel: ::std::os::raw::c_int,
+    pub dma_channel: c_types::c_int,
 }
 extern "C" {
     #[doc = " @brief Initialize SD SPI driver"]
@@ -84411,7 +84066,7 @@ extern "C" {
     #[doc = "      - ESP_ERR_NO_MEM if memory can not be allocated"]
     #[doc = "      - other errors from the underlying spi_master and gpio drivers"]
     pub fn sdspi_host_init_slot(
-        slot: ::std::os::raw::c_int,
+        slot: c_types::c_int,
         slot_config: *const sdspi_slot_config_t,
     ) -> esp_err_t;
 }
@@ -84434,7 +84089,7 @@ extern "C" {
     #[doc = "      - ESP_ERR_INVALID_CRC if response or data transfer CRC check has failed"]
     #[doc = "      - ESP_ERR_INVALID_RESPONSE if the card has sent an invalid response"]
     pub fn sdspi_host_do_transaction(
-        slot: ::std::os::raw::c_int,
+        slot: c_types::c_int,
         cmdinfo: *mut sdmmc_command_t,
     ) -> esp_err_t;
 }
@@ -84452,7 +84107,7 @@ extern "C" {
     #[doc = " @return"]
     #[doc = "      - ESP_OK on success"]
     #[doc = "      - other error codes may be returned in the future"]
-    pub fn sdspi_host_set_card_clk(slot: ::std::os::raw::c_int, freq_khz: u32) -> esp_err_t;
+    pub fn sdspi_host_set_card_clk(slot: c_types::c_int, freq_khz: u32) -> esp_err_t;
 }
 extern "C" {
     #[doc = " @brief Release resources allocated using sdspi_host_init"]
@@ -84471,7 +84126,7 @@ extern "C" {
     #[doc = ""]
     #[doc = " @return"]
     #[doc = "      - ESP_OK on success"]
-    pub fn sdspi_host_io_int_enable(slot: ::std::os::raw::c_int) -> esp_err_t;
+    pub fn sdspi_host_io_int_enable(slot: c_types::c_int) -> esp_err_t;
 }
 extern "C" {
     #[doc = " @brief Wait for SDIO interrupt until timeout."]
@@ -84481,10 +84136,7 @@ extern "C" {
     #[doc = ""]
     #[doc = " @return"]
     #[doc = "      - ESP_OK on success"]
-    pub fn sdspi_host_io_int_wait(
-        slot: ::std::os::raw::c_int,
-        timeout_ticks: TickType_t,
-    ) -> esp_err_t;
+    pub fn sdspi_host_io_int_wait(slot: c_types::c_int, timeout_ticks: TickType_t) -> esp_err_t;
 }
 #[repr(C)]
 #[derive(Copy, Clone)]
@@ -84725,9 +84377,9 @@ extern "C" {
     pub static mut SIGMADELTA: gpio_sd_dev_t;
 }
 #[doc = " @brief SIGMADELTA port number, the max port number is (SIGMADELTA_NUM_MAX -1)."]
-pub type sigmadelta_port_t = ::std::os::raw::c_int;
+pub type sigmadelta_port_t = c_types::c_int;
 #[doc = " @brief Sigma-delta channel list"]
-pub type sigmadelta_channel_t = ::std::os::raw::c_int;
+pub type sigmadelta_channel_t = c_types::c_int;
 #[doc = " @brief Sigma-delta configure struct"]
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
@@ -84802,11 +84454,11 @@ pub type slave_transaction_cb_t =
 #[derive(Debug, Copy, Clone)]
 pub struct spi_slave_interface_config_t {
     #[doc = "< CS GPIO pin for this device"]
-    pub spics_io_num: ::std::os::raw::c_int,
+    pub spics_io_num: c_types::c_int,
     #[doc = "< Bitwise OR of SPI_SLAVE_* flags"]
     pub flags: u32,
     #[doc = "< Transaction queue size. This sets how many transactions can be 'in the air' (queued using spi_slave_queue_trans but not yet finished using spi_slave_get_trans_result) at the same time"]
-    pub queue_size: ::std::os::raw::c_int,
+    pub queue_size: c_types::c_int,
     #[doc = "< SPI mode (0-3)"]
     pub mode: u8,
     #[doc = "< Callback called after the SPI registers are loaded with new data."]
@@ -84839,13 +84491,13 @@ pub struct spi_slave_transaction_t {
     #[doc = "< Transaction data length, in bits"]
     pub trans_len: size_t,
     #[doc = "< Pointer to transmit buffer, or NULL for no MOSI phase"]
-    pub tx_buffer: *const ::core::ffi::c_void,
+    pub tx_buffer: *const c_types::c_void,
     #[doc = "< Pointer to receive buffer, or NULL for no MISO phase."]
     #[doc = " When the DMA is anabled, must start at WORD boundary (``rx_buffer%4==0``),"]
     #[doc = " and has length of a multiple of 4 bytes."]
-    pub rx_buffer: *mut ::core::ffi::c_void,
+    pub rx_buffer: *mut c_types::c_void,
     #[doc = "< User-defined variable. Can be used to store eg transaction ID."]
-    pub user: *mut ::core::ffi::c_void,
+    pub user: *mut c_types::c_void,
 }
 extern "C" {
     #[doc = " @brief Initialize a SPI bus as a slave interface"]
@@ -84875,7 +84527,7 @@ extern "C" {
         host: spi_host_device_t,
         bus_config: *const spi_bus_config_t,
         slave_config: *const spi_slave_interface_config_t,
-        dma_chan: ::std::os::raw::c_int,
+        dma_chan: c_types::c_int,
     ) -> esp_err_t;
 }
 extern "C" {
@@ -86369,27 +86021,27 @@ pub const timer_group_t_TIMER_GROUP_0: timer_group_t = 0;
 pub const timer_group_t_TIMER_GROUP_1: timer_group_t = 1;
 pub const timer_group_t_TIMER_GROUP_MAX: timer_group_t = 2;
 #[doc = " @brief Selects a Timer-Group out of 2 available groups"]
-pub type timer_group_t = ::std::os::raw::c_uint;
+pub type timer_group_t = c_types::c_uint;
 #[doc = "<Select timer0 of GROUPx"]
 pub const timer_idx_t_TIMER_0: timer_idx_t = 0;
 #[doc = "<Select timer1 of GROUPx"]
 pub const timer_idx_t_TIMER_1: timer_idx_t = 1;
 pub const timer_idx_t_TIMER_MAX: timer_idx_t = 2;
 #[doc = " @brief Select a hardware timer from timer groups"]
-pub type timer_idx_t = ::std::os::raw::c_uint;
+pub type timer_idx_t = c_types::c_uint;
 #[doc = "< Descending Count from cnt.high|cnt.low"]
 pub const timer_count_dir_t_TIMER_COUNT_DOWN: timer_count_dir_t = 0;
 #[doc = "< Ascending Count from Zero"]
 pub const timer_count_dir_t_TIMER_COUNT_UP: timer_count_dir_t = 1;
 pub const timer_count_dir_t_TIMER_COUNT_MAX: timer_count_dir_t = 2;
 #[doc = " @brief Decides the direction of counter"]
-pub type timer_count_dir_t = ::std::os::raw::c_uint;
+pub type timer_count_dir_t = c_types::c_uint;
 #[doc = "<Pause timer counter"]
 pub const timer_start_t_TIMER_PAUSE: timer_start_t = 0;
 #[doc = "<Start timer counter"]
 pub const timer_start_t_TIMER_START: timer_start_t = 1;
 #[doc = " @brief Decides whether timer is on or paused"]
-pub type timer_start_t = ::std::os::raw::c_uint;
+pub type timer_start_t = c_types::c_uint;
 #[doc = "< interrupt of timer 0"]
 pub const timer_intr_t_TIMER_INTR_T0: timer_intr_t = 1;
 #[doc = "< interrupt of timer 1"]
@@ -86398,7 +86050,7 @@ pub const timer_intr_t_TIMER_INTR_T1: timer_intr_t = 2;
 pub const timer_intr_t_TIMER_INTR_WDT: timer_intr_t = 4;
 pub const timer_intr_t_TIMER_INTR_NONE: timer_intr_t = 0;
 #[doc = " @brief Interrupt types of the timer."]
-pub type timer_intr_t = ::std::os::raw::c_uint;
+pub type timer_intr_t = c_types::c_uint;
 #[doc = "< The stage is turned off"]
 pub const timer_wdt_behavior_t_TIMER_WDT_OFF: timer_wdt_behavior_t = 0;
 #[doc = "< The stage will trigger an interrupt"]
@@ -86408,26 +86060,26 @@ pub const timer_wdt_behavior_t_TIMER_WDT_RESET_CPU: timer_wdt_behavior_t = 2;
 #[doc = "< The stage will reset the whole system"]
 pub const timer_wdt_behavior_t_TIMER_WDT_RESET_SYSTEM: timer_wdt_behavior_t = 3;
 #[doc = " @brief Behavior of the watchdog if a stage times out."]
-pub type timer_wdt_behavior_t = ::std::os::raw::c_uint;
+pub type timer_wdt_behavior_t = c_types::c_uint;
 #[doc = "< Disable timer alarm"]
 pub const timer_alarm_t_TIMER_ALARM_DIS: timer_alarm_t = 0;
 #[doc = "< Enable timer alarm"]
 pub const timer_alarm_t_TIMER_ALARM_EN: timer_alarm_t = 1;
 pub const timer_alarm_t_TIMER_ALARM_MAX: timer_alarm_t = 2;
 #[doc = " @brief Decides whether to enable alarm mode"]
-pub type timer_alarm_t = ::std::os::raw::c_uint;
+pub type timer_alarm_t = c_types::c_uint;
 #[doc = "< Interrupt mode: level mode"]
 pub const timer_intr_mode_t_TIMER_INTR_LEVEL: timer_intr_mode_t = 0;
 pub const timer_intr_mode_t_TIMER_INTR_MAX: timer_intr_mode_t = 1;
 #[doc = " @brief Select interrupt type if running in alarm mode."]
-pub type timer_intr_mode_t = ::std::os::raw::c_uint;
+pub type timer_intr_mode_t = c_types::c_uint;
 #[doc = "< Disable auto-reload: hardware will not load counter value after an alarm event"]
 pub const timer_autoreload_t_TIMER_AUTORELOAD_DIS: timer_autoreload_t = 0;
 #[doc = "< Enable auto-reload: hardware will load counter value after an alarm event"]
 pub const timer_autoreload_t_TIMER_AUTORELOAD_EN: timer_autoreload_t = 1;
 pub const timer_autoreload_t_TIMER_AUTORELOAD_MAX: timer_autoreload_t = 2;
 #[doc = " @brief Select if Alarm needs to be loaded by software or automatically reload by hardware."]
-pub type timer_autoreload_t = ::std::os::raw::c_uint;
+pub type timer_autoreload_t = c_types::c_uint;
 #[doc = " @brief Data structure with timer's configuration settings"]
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
@@ -86457,7 +86109,7 @@ pub struct timer_config_t {
 #[doc = "       For example, `xQueueSendFromISR` is called in callback, if the return value `pxHigherPriorityTaskWoken`"]
 #[doc = "       of any FreeRTOS calls is pdTRUE, return true; otherwise return false."]
 pub type timer_isr_t =
-    ::core::option::Option<unsafe extern "C" fn(arg1: *mut ::core::ffi::c_void) -> bool>;
+    ::core::option::Option<unsafe extern "C" fn(arg1: *mut c_types::c_void) -> bool>;
 #[doc = " @brief Interrupt handle, used in order to free the isr after use."]
 #[doc = " Aliases to an int handle for now."]
 pub type timer_isr_handle_t = intr_handle_t;
@@ -86656,8 +86308,8 @@ extern "C" {
         group_num: timer_group_t,
         timer_num: timer_idx_t,
         isr_handler: timer_isr_t,
-        arg: *mut ::core::ffi::c_void,
-        intr_alloc_flags: ::std::os::raw::c_int,
+        arg: *mut c_types::c_void,
+        intr_alloc_flags: c_types::c_int,
     ) -> esp_err_t;
 }
 extern "C" {
@@ -86700,9 +86352,9 @@ extern "C" {
     pub fn timer_isr_register(
         group_num: timer_group_t,
         timer_num: timer_idx_t,
-        fn_: ::core::option::Option<unsafe extern "C" fn(arg1: *mut ::core::ffi::c_void)>,
-        arg: *mut ::core::ffi::c_void,
-        intr_alloc_flags: ::std::os::raw::c_int,
+        fn_: ::core::option::Option<unsafe extern "C" fn(arg1: *mut c_types::c_void)>,
+        arg: *mut c_types::c_void,
+        intr_alloc_flags: c_types::c_int,
         handle: *mut timer_isr_handle_t,
     ) -> esp_err_t;
 }
@@ -86936,7 +86588,7 @@ extern "C" {
     pub fn timer_spinlock_give(group_num: timer_group_t) -> esp_err_t;
 }
 extern "C" {
-    pub static touch_sensor_channel_io_map: [::std::os::raw::c_int; 10usize];
+    pub static touch_sensor_channel_io_map: [c_types::c_int; 10usize];
 }
 #[doc = "< Touch pad channel 0 is GPIO4(ESP32)"]
 pub const touch_pad_t_TOUCH_PAD_NUM0: touch_pad_t = 0;
@@ -86959,7 +86611,7 @@ pub const touch_pad_t_TOUCH_PAD_NUM8: touch_pad_t = 8;
 #[doc = "< Touch pad channel 9 is GPIO32(ESP32) / GPIO9(ESP32-S2)"]
 pub const touch_pad_t_TOUCH_PAD_NUM9: touch_pad_t = 9;
 pub const touch_pad_t_TOUCH_PAD_MAX: touch_pad_t = 10;
-pub type touch_pad_t = ::std::os::raw::c_uint;
+pub type touch_pad_t = c_types::c_uint;
 #[doc = "<Touch sensor high reference voltage, no change"]
 pub const touch_high_volt_t_TOUCH_HVOLT_KEEP: touch_high_volt_t = -1;
 #[doc = "<Touch sensor high reference voltage, 2.4V"]
@@ -86971,7 +86623,7 @@ pub const touch_high_volt_t_TOUCH_HVOLT_2V6: touch_high_volt_t = 2;
 #[doc = "<Touch sensor high reference voltage, 2.7V"]
 pub const touch_high_volt_t_TOUCH_HVOLT_2V7: touch_high_volt_t = 3;
 pub const touch_high_volt_t_TOUCH_HVOLT_MAX: touch_high_volt_t = 4;
-pub type touch_high_volt_t = ::std::os::raw::c_int;
+pub type touch_high_volt_t = c_types::c_int;
 #[doc = "<Touch sensor low reference voltage, no change"]
 pub const touch_low_volt_t_TOUCH_LVOLT_KEEP: touch_low_volt_t = -1;
 #[doc = "<Touch sensor low reference voltage, 0.5V"]
@@ -86983,7 +86635,7 @@ pub const touch_low_volt_t_TOUCH_LVOLT_0V7: touch_low_volt_t = 2;
 #[doc = "<Touch sensor low reference voltage, 0.8V"]
 pub const touch_low_volt_t_TOUCH_LVOLT_0V8: touch_low_volt_t = 3;
 pub const touch_low_volt_t_TOUCH_LVOLT_MAX: touch_low_volt_t = 4;
-pub type touch_low_volt_t = ::std::os::raw::c_int;
+pub type touch_low_volt_t = c_types::c_int;
 #[doc = "<Touch sensor high reference voltage attenuation, no change"]
 pub const touch_volt_atten_t_TOUCH_HVOLT_ATTEN_KEEP: touch_volt_atten_t = -1;
 #[doc = "<Touch sensor high reference voltage attenuation, 1.5V attenuation"]
@@ -86995,7 +86647,7 @@ pub const touch_volt_atten_t_TOUCH_HVOLT_ATTEN_0V5: touch_volt_atten_t = 2;
 #[doc = "<Touch sensor high reference voltage attenuation,   0V attenuation"]
 pub const touch_volt_atten_t_TOUCH_HVOLT_ATTEN_0V: touch_volt_atten_t = 3;
 pub const touch_volt_atten_t_TOUCH_HVOLT_ATTEN_MAX: touch_volt_atten_t = 4;
-pub type touch_volt_atten_t = ::std::os::raw::c_int;
+pub type touch_volt_atten_t = c_types::c_int;
 #[doc = "<Touch sensor charge / discharge speed, always zero"]
 pub const touch_cnt_slope_t_TOUCH_PAD_SLOPE_0: touch_cnt_slope_t = 0;
 #[doc = "<Touch sensor charge / discharge speed, slowest"]
@@ -87013,32 +86665,32 @@ pub const touch_cnt_slope_t_TOUCH_PAD_SLOPE_6: touch_cnt_slope_t = 6;
 #[doc = "<Touch sensor charge / discharge speed, fast"]
 pub const touch_cnt_slope_t_TOUCH_PAD_SLOPE_7: touch_cnt_slope_t = 7;
 pub const touch_cnt_slope_t_TOUCH_PAD_SLOPE_MAX: touch_cnt_slope_t = 8;
-pub type touch_cnt_slope_t = ::std::os::raw::c_uint;
+pub type touch_cnt_slope_t = c_types::c_uint;
 #[doc = "<Initial level of charging voltage, low level"]
 pub const touch_tie_opt_t_TOUCH_PAD_TIE_OPT_LOW: touch_tie_opt_t = 0;
 #[doc = "<Initial level of charging voltage, high level"]
 pub const touch_tie_opt_t_TOUCH_PAD_TIE_OPT_HIGH: touch_tie_opt_t = 1;
 pub const touch_tie_opt_t_TOUCH_PAD_TIE_OPT_MAX: touch_tie_opt_t = 2;
-pub type touch_tie_opt_t = ::std::os::raw::c_uint;
+pub type touch_tie_opt_t = c_types::c_uint;
 #[doc = "<To start touch FSM by timer"]
 pub const touch_fsm_mode_t_TOUCH_FSM_MODE_TIMER: touch_fsm_mode_t = 0;
 #[doc = "<To start touch FSM by software trigger"]
 pub const touch_fsm_mode_t_TOUCH_FSM_MODE_SW: touch_fsm_mode_t = 1;
 pub const touch_fsm_mode_t_TOUCH_FSM_MODE_MAX: touch_fsm_mode_t = 2;
-pub type touch_fsm_mode_t = ::std::os::raw::c_uint;
+pub type touch_fsm_mode_t = c_types::c_uint;
 #[doc = "<Touch interrupt will happen if counter value is less than threshold."]
 pub const touch_trigger_mode_t_TOUCH_TRIGGER_BELOW: touch_trigger_mode_t = 0;
 #[doc = "<Touch interrupt will happen if counter value is larger than threshold."]
 pub const touch_trigger_mode_t_TOUCH_TRIGGER_ABOVE: touch_trigger_mode_t = 1;
 pub const touch_trigger_mode_t_TOUCH_TRIGGER_MAX: touch_trigger_mode_t = 2;
 #[doc = " ESP32 Only"]
-pub type touch_trigger_mode_t = ::std::os::raw::c_uint;
+pub type touch_trigger_mode_t = c_types::c_uint;
 #[doc = "< wakeup interrupt is generated if both SET1 and SET2 are \"touched\""]
 pub const touch_trigger_src_t_TOUCH_TRIGGER_SOURCE_BOTH: touch_trigger_src_t = 0;
 #[doc = "< wakeup interrupt is generated if SET1 is \"touched\""]
 pub const touch_trigger_src_t_TOUCH_TRIGGER_SOURCE_SET1: touch_trigger_src_t = 1;
 pub const touch_trigger_src_t_TOUCH_TRIGGER_SOURCE_MAX: touch_trigger_src_t = 2;
-pub type touch_trigger_src_t = ::std::os::raw::c_uint;
+pub type touch_trigger_src_t = c_types::c_uint;
 extern "C" {
     #[doc = " @brief Configure touch pad interrupt threshold."]
     #[doc = ""]
@@ -87134,7 +86786,7 @@ extern "C" {
     #[doc = "     - ESP_OK Success ;"]
     #[doc = "     - ESP_ERR_INVALID_ARG GPIO error"]
     #[doc = "     - ESP_ERR_NO_MEM No memory"]
-    pub fn touch_pad_isr_register(fn_: intr_handler_t, arg: *mut ::core::ffi::c_void) -> esp_err_t;
+    pub fn touch_pad_isr_register(fn_: intr_handler_t, arg: *mut c_types::c_void) -> esp_err_t;
 }
 extern "C" {
     #[doc = " @brief Set touch sensor measurement and sleep time."]
@@ -87419,8 +87071,8 @@ extern "C" {
     #[doc = "      - ESP_ERR_INVALID_STATE if a handler matching both fn and"]
     #[doc = "        arg isn't registered"]
     pub fn touch_pad_isr_deregister(
-        fn_: ::core::option::Option<unsafe extern "C" fn(arg1: *mut ::core::ffi::c_void)>,
-        arg: *mut ::core::ffi::c_void,
+        fn_: ::core::option::Option<unsafe extern "C" fn(arg1: *mut c_types::c_void)>,
+        arg: *mut c_types::c_void,
     ) -> esp_err_t;
 }
 extern "C" {
@@ -87463,7 +87115,7 @@ extern "C" {
     pub fn touch_pad_get_status() -> u32;
 }
 #[doc = " @brief UART port number, can be UART_NUM_0 ~ (UART_NUM_MAX -1)."]
-pub type uart_port_t = ::std::os::raw::c_int;
+pub type uart_port_t = c_types::c_int;
 #[doc = "< mode: regular UART mode"]
 pub const uart_mode_t_UART_MODE_UART: uart_mode_t = 0;
 #[doc = "< mode: half duplex RS485 UART mode control by RTS pin"]
@@ -87475,7 +87127,7 @@ pub const uart_mode_t_UART_MODE_RS485_COLLISION_DETECT: uart_mode_t = 3;
 #[doc = "< mode: application control RS485 UART mode (used for test purposes)"]
 pub const uart_mode_t_UART_MODE_RS485_APP_CTRL: uart_mode_t = 4;
 #[doc = " @brief UART mode selection"]
-pub type uart_mode_t = ::std::os::raw::c_uint;
+pub type uart_mode_t = c_types::c_uint;
 #[doc = "< word length: 5bits"]
 pub const uart_word_length_t_UART_DATA_5_BITS: uart_word_length_t = 0;
 #[doc = "< word length: 6bits"]
@@ -87486,7 +87138,7 @@ pub const uart_word_length_t_UART_DATA_7_BITS: uart_word_length_t = 2;
 pub const uart_word_length_t_UART_DATA_8_BITS: uart_word_length_t = 3;
 pub const uart_word_length_t_UART_DATA_BITS_MAX: uart_word_length_t = 4;
 #[doc = " @brief UART word length constants"]
-pub type uart_word_length_t = ::std::os::raw::c_uint;
+pub type uart_word_length_t = c_types::c_uint;
 #[doc = "< stop bit: 1bit"]
 pub const uart_stop_bits_t_UART_STOP_BITS_1: uart_stop_bits_t = 1;
 #[doc = "< stop bit: 1.5bits"]
@@ -87495,7 +87147,7 @@ pub const uart_stop_bits_t_UART_STOP_BITS_1_5: uart_stop_bits_t = 2;
 pub const uart_stop_bits_t_UART_STOP_BITS_2: uart_stop_bits_t = 3;
 pub const uart_stop_bits_t_UART_STOP_BITS_MAX: uart_stop_bits_t = 4;
 #[doc = " @brief UART stop bits number"]
-pub type uart_stop_bits_t = ::std::os::raw::c_uint;
+pub type uart_stop_bits_t = c_types::c_uint;
 #[doc = "< Disable UART parity"]
 pub const uart_parity_t_UART_PARITY_DISABLE: uart_parity_t = 0;
 #[doc = "< Enable UART even parity"]
@@ -87503,7 +87155,7 @@ pub const uart_parity_t_UART_PARITY_EVEN: uart_parity_t = 2;
 #[doc = "< Enable UART odd parity"]
 pub const uart_parity_t_UART_PARITY_ODD: uart_parity_t = 3;
 #[doc = " @brief UART parity constants"]
-pub type uart_parity_t = ::std::os::raw::c_uint;
+pub type uart_parity_t = c_types::c_uint;
 #[doc = "< disable hardware flow control"]
 pub const uart_hw_flowcontrol_t_UART_HW_FLOWCTRL_DISABLE: uart_hw_flowcontrol_t = 0;
 #[doc = "< enable RX hardware flow control (rts)"]
@@ -87514,7 +87166,7 @@ pub const uart_hw_flowcontrol_t_UART_HW_FLOWCTRL_CTS: uart_hw_flowcontrol_t = 2;
 pub const uart_hw_flowcontrol_t_UART_HW_FLOWCTRL_CTS_RTS: uart_hw_flowcontrol_t = 3;
 pub const uart_hw_flowcontrol_t_UART_HW_FLOWCTRL_MAX: uart_hw_flowcontrol_t = 4;
 #[doc = " @brief UART hardware flow control modes"]
-pub type uart_hw_flowcontrol_t = ::std::os::raw::c_uint;
+pub type uart_hw_flowcontrol_t = c_types::c_uint;
 #[doc = "< inverse the UART irda_tx signal"]
 pub const uart_signal_inv_t_UART_SIGNAL_IRDA_TX_INV: uart_signal_inv_t = 1;
 #[doc = "< inverse the UART irda_rx signal"]
@@ -87532,13 +87184,13 @@ pub const uart_signal_inv_t_UART_SIGNAL_RTS_INV: uart_signal_inv_t = 64;
 #[doc = "< inverse the UART dtr signal"]
 pub const uart_signal_inv_t_UART_SIGNAL_DTR_INV: uart_signal_inv_t = 128;
 #[doc = " @brief UART signal bit map"]
-pub type uart_signal_inv_t = ::std::os::raw::c_uint;
+pub type uart_signal_inv_t = c_types::c_uint;
 #[doc = "< UART source clock from APB"]
 pub const uart_sclk_t_UART_SCLK_APB: uart_sclk_t = 0;
 #[doc = "< UART source clock from REF_TICK"]
 pub const uart_sclk_t_UART_SCLK_REF_TICK: uart_sclk_t = 1;
 #[doc = " @brief UART source clock"]
-pub type uart_sclk_t = ::std::os::raw::c_uint;
+pub type uart_sclk_t = c_types::c_uint;
 #[doc = " @brief UART AT cmd char configuration parameters"]
 #[doc = "        Note that this function may different on different chip. Please refer to the TRM at confirguration."]
 #[repr(C)]
@@ -87573,7 +87225,7 @@ pub struct uart_sw_flowctrl_t {
 #[derive(Copy, Clone)]
 pub struct uart_config_t {
     #[doc = "< UART baud rate"]
-    pub baud_rate: ::std::os::raw::c_int,
+    pub baud_rate: c_types::c_int,
     #[doc = "< UART byte size"]
     pub data_bits: uart_word_length_t,
     #[doc = "< UART parity mode"]
@@ -87626,7 +87278,7 @@ pub const uart_event_type_t_UART_PATTERN_DET: uart_event_type_t = 7;
 #[doc = "< UART event max index"]
 pub const uart_event_type_t_UART_EVENT_MAX: uart_event_type_t = 8;
 #[doc = " @brief UART event types used in the ring buffer"]
-pub type uart_event_type_t = ::std::os::raw::c_uint;
+pub type uart_event_type_t = c_types::c_uint;
 #[doc = " @brief Event structure used in UART event queue"]
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
@@ -87660,11 +87312,11 @@ extern "C" {
     #[doc = "     - ESP_FAIL Parameter error"]
     pub fn uart_driver_install(
         uart_num: uart_port_t,
-        rx_buffer_size: ::std::os::raw::c_int,
-        tx_buffer_size: ::std::os::raw::c_int,
-        queue_size: ::std::os::raw::c_int,
+        rx_buffer_size: c_types::c_int,
+        tx_buffer_size: c_types::c_int,
+        queue_size: c_types::c_int,
         uart_queue: *mut QueueHandle_t,
-        intr_alloc_flags: ::std::os::raw::c_int,
+        intr_alloc_flags: c_types::c_int,
     ) -> esp_err_t;
 }
 extern "C" {
@@ -87916,8 +87568,8 @@ extern "C" {
     #[doc = "     - ESP_FAIL Parameter error"]
     pub fn uart_enable_tx_intr(
         uart_num: uart_port_t,
-        enable: ::std::os::raw::c_int,
-        thresh: ::std::os::raw::c_int,
+        enable: c_types::c_int,
+        thresh: c_types::c_int,
     ) -> esp_err_t;
 }
 extern "C" {
@@ -87938,9 +87590,9 @@ extern "C" {
     #[doc = "     - ESP_FAIL Parameter error"]
     pub fn uart_isr_register(
         uart_num: uart_port_t,
-        fn_: ::core::option::Option<unsafe extern "C" fn(arg1: *mut ::core::ffi::c_void)>,
-        arg: *mut ::core::ffi::c_void,
-        intr_alloc_flags: ::std::os::raw::c_int,
+        fn_: ::core::option::Option<unsafe extern "C" fn(arg1: *mut c_types::c_void)>,
+        arg: *mut c_types::c_void,
+        intr_alloc_flags: c_types::c_int,
         handle: *mut uart_isr_handle_t,
     ) -> esp_err_t;
 }
@@ -87975,10 +87627,10 @@ extern "C" {
     #[doc = "     - ESP_FAIL Parameter error"]
     pub fn uart_set_pin(
         uart_num: uart_port_t,
-        tx_io_num: ::std::os::raw::c_int,
-        rx_io_num: ::std::os::raw::c_int,
-        rts_io_num: ::std::os::raw::c_int,
-        cts_io_num: ::std::os::raw::c_int,
+        tx_io_num: c_types::c_int,
+        rx_io_num: c_types::c_int,
+        rts_io_num: c_types::c_int,
+        cts_io_num: c_types::c_int,
     ) -> esp_err_t;
 }
 extern "C" {
@@ -87991,7 +87643,7 @@ extern "C" {
     #[doc = " @return"]
     #[doc = "     - ESP_OK   Success"]
     #[doc = "     - ESP_FAIL Parameter error"]
-    pub fn uart_set_rts(uart_num: uart_port_t, level: ::std::os::raw::c_int) -> esp_err_t;
+    pub fn uart_set_rts(uart_num: uart_port_t, level: c_types::c_int) -> esp_err_t;
 }
 extern "C" {
     #[doc = " @brief Manually set the UART DTR pin level."]
@@ -88002,7 +87654,7 @@ extern "C" {
     #[doc = " @return"]
     #[doc = "     - ESP_OK   Success"]
     #[doc = "     - ESP_FAIL Parameter error"]
-    pub fn uart_set_dtr(uart_num: uart_port_t, level: ::std::os::raw::c_int) -> esp_err_t;
+    pub fn uart_set_dtr(uart_num: uart_port_t, level: c_types::c_int) -> esp_err_t;
 }
 extern "C" {
     #[doc = " @brief Set UART idle interval after tx FIFO is empty"]
@@ -88069,9 +87721,9 @@ extern "C" {
     #[doc = "     - OTHERS (>=0) The number of bytes pushed to the TX FIFO"]
     pub fn uart_tx_chars(
         uart_num: uart_port_t,
-        buffer: *const ::std::os::raw::c_char,
+        buffer: *const c_types::c_char,
         len: u32,
-    ) -> ::std::os::raw::c_int;
+    ) -> c_types::c_int;
 }
 extern "C" {
     #[doc = " @brief Send data to the UART port from a given buffer and length,"]
@@ -88091,9 +87743,9 @@ extern "C" {
     #[doc = "     - OTHERS (>=0) The number of bytes pushed to the TX FIFO"]
     pub fn uart_write_bytes(
         uart_num: uart_port_t,
-        src: *const ::std::os::raw::c_char,
+        src: *const c_types::c_char,
         size: size_t,
-    ) -> ::std::os::raw::c_int;
+    ) -> c_types::c_int;
 }
 extern "C" {
     #[doc = " @brief Send data to the UART port from a given buffer and length,"]
@@ -88116,10 +87768,10 @@ extern "C" {
     #[doc = "     - OTHERS (>=0) The number of bytes pushed to the TX FIFO"]
     pub fn uart_write_bytes_with_break(
         uart_num: uart_port_t,
-        src: *const ::std::os::raw::c_char,
+        src: *const c_types::c_char,
         size: size_t,
-        brk_len: ::std::os::raw::c_int,
-    ) -> ::std::os::raw::c_int;
+        brk_len: c_types::c_int,
+    ) -> c_types::c_int;
 }
 extern "C" {
     #[doc = " @brief UART read bytes from UART buffer"]
@@ -88137,7 +87789,7 @@ extern "C" {
         buf: *mut u8,
         length: u32,
         ticks_to_wait: TickType_t,
-    ) -> ::std::os::raw::c_int;
+    ) -> c_types::c_int;
 }
 extern "C" {
     #[doc = " @brief Alias of uart_flush_input."]
@@ -88204,11 +87856,11 @@ extern "C" {
     #[doc = "     - ESP_FAIL Parameter error"]
     pub fn uart_enable_pattern_det_baud_intr(
         uart_num: uart_port_t,
-        pattern_chr: ::std::os::raw::c_char,
+        pattern_chr: c_types::c_char,
         chr_num: u8,
-        chr_tout: ::std::os::raw::c_int,
-        post_idle: ::std::os::raw::c_int,
-        pre_idle: ::std::os::raw::c_int,
+        chr_tout: c_types::c_int,
+        post_idle: c_types::c_int,
+        pre_idle: c_types::c_int,
     ) -> esp_err_t;
 }
 extern "C" {
@@ -88227,7 +87879,7 @@ extern "C" {
     #[doc = " @return"]
     #[doc = "     - (-1) No pattern found for current index or parameter error"]
     #[doc = "     - others the pattern position in rx buffer."]
-    pub fn uart_pattern_pop_pos(uart_num: uart_port_t) -> ::std::os::raw::c_int;
+    pub fn uart_pattern_pop_pos(uart_num: uart_port_t) -> c_types::c_int;
 }
 extern "C" {
     #[doc = " @brief Return the nearest detected pattern position in buffer."]
@@ -88245,7 +87897,7 @@ extern "C" {
     #[doc = " @return"]
     #[doc = "     - (-1) No pattern found for current index or parameter error"]
     #[doc = "     - others the pattern position in rx buffer."]
-    pub fn uart_pattern_get_pos(uart_num: uart_port_t) -> ::std::os::raw::c_int;
+    pub fn uart_pattern_get_pos(uart_num: uart_port_t) -> c_types::c_int;
 }
 extern "C" {
     #[doc = " @brief Allocate a new memory with the given length to save record the detected pattern position in rx buffer."]
@@ -88261,7 +87913,7 @@ extern "C" {
     #[doc = "     - ESP_OK Success"]
     pub fn uart_pattern_queue_reset(
         uart_num: uart_port_t,
-        queue_length: ::std::os::raw::c_int,
+        queue_length: c_types::c_int,
     ) -> esp_err_t;
 }
 extern "C" {
@@ -88290,7 +87942,7 @@ extern "C" {
     #[doc = "     - ESP_ERR_INVALID_STATE Driver is not installed"]
     pub fn uart_set_rx_full_threshold(
         uart_num: uart_port_t,
-        threshold: ::std::os::raw::c_int,
+        threshold: c_types::c_int,
     ) -> esp_err_t;
 }
 extern "C" {
@@ -88305,7 +87957,7 @@ extern "C" {
     #[doc = "     - ESP_ERR_INVALID_STATE Driver is not installed"]
     pub fn uart_set_tx_empty_threshold(
         uart_num: uart_port_t,
-        threshold: ::std::os::raw::c_int,
+        threshold: c_types::c_int,
     ) -> esp_err_t;
 }
 extern "C" {
@@ -88371,7 +88023,7 @@ extern "C" {
     #[doc = "        outside of [3, 0x3ff] range."]
     pub fn uart_set_wakeup_threshold(
         uart_num: uart_port_t,
-        wakeup_threshold: ::std::os::raw::c_int,
+        wakeup_threshold: c_types::c_int,
     ) -> esp_err_t;
 }
 extern "C" {
@@ -88388,7 +88040,7 @@ extern "C" {
     #[doc = "      - ESP_ERR_INVALID_ARG if out_wakeup_threshold is NULL"]
     pub fn uart_get_wakeup_threshold(
         uart_num: uart_port_t,
-        out_wakeup_threshold: *mut ::std::os::raw::c_int,
+        out_wakeup_threshold: *mut c_types::c_int,
     ) -> esp_err_t;
 }
 extern "C" {
@@ -88417,7 +88069,7 @@ extern "C" {
 pub const uart_select_notif_t_UART_SELECT_READ_NOTIF: uart_select_notif_t = 0;
 pub const uart_select_notif_t_UART_SELECT_WRITE_NOTIF: uart_select_notif_t = 1;
 pub const uart_select_notif_t_UART_SELECT_ERROR_NOTIF: uart_select_notif_t = 2;
-pub type uart_select_notif_t = ::std::os::raw::c_uint;
+pub type uart_select_notif_t = c_types::c_uint;
 pub type uart_select_notif_callback_t = ::core::option::Option<
     unsafe extern "C" fn(
         uart_num: uart_port_t,
@@ -88527,7 +88179,7 @@ extern "C" {
     #[doc = "      - One of the error codes from SDMMC host controller"]
     pub fn sdmmc_write_sectors(
         card: *mut sdmmc_card_t,
-        src: *const ::core::ffi::c_void,
+        src: *const c_types::c_void,
         start_sector: size_t,
         sector_count: size_t,
     ) -> esp_err_t;
@@ -88546,7 +88198,7 @@ extern "C" {
     #[doc = "      - One of the error codes from SDMMC host controller"]
     pub fn sdmmc_read_sectors(
         card: *mut sdmmc_card_t,
-        dst: *mut ::core::ffi::c_void,
+        dst: *mut c_types::c_void,
         start_sector: size_t,
         sector_count: size_t,
     ) -> esp_err_t;
@@ -88610,7 +88262,7 @@ extern "C" {
         card: *mut sdmmc_card_t,
         function: u32,
         addr: u32,
-        dst: *mut ::core::ffi::c_void,
+        dst: *mut c_types::c_void,
         size: size_t,
     ) -> esp_err_t;
 }
@@ -88634,7 +88286,7 @@ extern "C" {
         card: *mut sdmmc_card_t,
         function: u32,
         addr: u32,
-        src: *const ::core::ffi::c_void,
+        src: *const c_types::c_void,
         size: size_t,
     ) -> esp_err_t;
 }
@@ -88659,7 +88311,7 @@ extern "C" {
         card: *mut sdmmc_card_t,
         function: u32,
         addr: u32,
-        dst: *mut ::core::ffi::c_void,
+        dst: *mut c_types::c_void,
         size: size_t,
     ) -> esp_err_t;
 }
@@ -88684,7 +88336,7 @@ extern "C" {
         card: *mut sdmmc_card_t,
         function: u32,
         addr: u32,
-        src: *const ::core::ffi::c_void,
+        src: *const c_types::c_void,
         size: size_t,
     ) -> esp_err_t;
 }
@@ -88848,7 +88500,7 @@ extern "C" {
     #[doc = "      - One of the error codes from SDMMC host controller"]
     pub fn essl_send_packet(
         handle: essl_handle_t,
-        start: *const ::core::ffi::c_void,
+        start: *const c_types::c_void,
         length: size_t,
         wait_ms: u32,
     ) -> esp_err_t;
@@ -88868,7 +88520,7 @@ extern "C" {
     #[doc = "     - One of the error codes from SDMMC host controller"]
     pub fn essl_get_packet(
         handle: essl_handle_t,
-        out_data: *mut ::core::ffi::c_void,
+        out_data: *mut c_types::c_void,
         size: size_t,
         out_length: *mut size_t,
         wait_ms: u32,
@@ -89006,7 +88658,7 @@ pub struct essl_sdio_config_t {
     #[doc = "< The initialized sdmmc card pointer of the slave."]
     pub card: *mut sdmmc_card_t,
     #[doc = "< The pre-negotiated recv buffer size used by both the host and the slave."]
-    pub recv_buffer_size: ::std::os::raw::c_int,
+    pub recv_buffer_size: c_types::c_int,
 }
 extern "C" {
     #[doc = " @brief Initialize the ESSL SDIO device and get its handle."]
@@ -89040,7 +88692,7 @@ extern "C" {
     #[doc = " @return"]
     #[doc = "      - ESP_OK if success"]
     #[doc = "      - One of the error codes from SDMMC host controller"]
-    pub fn essl_sdio_init(arg: *mut ::core::ffi::c_void, wait_ms: u32) -> esp_err_t;
+    pub fn essl_sdio_init(arg: *mut c_types::c_void, wait_ms: u32) -> esp_err_t;
 }
 extern "C" {
     #[doc = " Wait for interrupt of a ESP32 slave device."]
@@ -89051,7 +88703,7 @@ extern "C" {
     #[doc = " @return"]
     #[doc = "      - ESP_OK if success"]
     #[doc = "      - One of the error codes from SDMMC host controller"]
-    pub fn essl_sdio_wait_for_ready(arg: *mut ::core::ffi::c_void, wait_ms: u32) -> esp_err_t;
+    pub fn essl_sdio_wait_for_ready(arg: *mut c_types::c_void, wait_ms: u32) -> esp_err_t;
 }
 extern "C" {
     #[doc = " Get buffer num for the host to send data to the slave. The buffers are size of ``buffer_size``."]
@@ -89061,7 +88713,7 @@ extern "C" {
     #[doc = " @return"]
     #[doc = "      - ESP_OK Success"]
     #[doc = "      - One of the error codes from SDMMC host controller"]
-    pub fn essl_sdio_get_tx_buffer_num(arg: *mut ::core::ffi::c_void) -> u32;
+    pub fn essl_sdio_get_tx_buffer_num(arg: *mut c_types::c_void) -> u32;
 }
 extern "C" {
     #[doc = " Get amount of data the ESP32 slave preparing to send to host."]
@@ -89071,7 +88723,7 @@ extern "C" {
     #[doc = " @return"]
     #[doc = "      - ESP_OK Success"]
     #[doc = "      - One of the error codes from SDMMC host controller"]
-    pub fn essl_sdio_get_rx_data_size(arg: *mut ::core::ffi::c_void) -> u32;
+    pub fn essl_sdio_get_rx_data_size(arg: *mut c_types::c_void) -> u32;
 }
 extern "C" {
     #[doc = " Send a packet to the ESP32 slave. The slave receive the packet into buffers whose size is ``buffer_size`` in the arg."]
@@ -89086,8 +88738,8 @@ extern "C" {
     #[doc = "      - ESP_ERR_TIMEOUT No buffer to use, or error ftrom SDMMC host controller"]
     #[doc = "      - One of the error codes from SDMMC host controller"]
     pub fn essl_sdio_send_packet(
-        arg: *mut ::core::ffi::c_void,
-        start: *const ::core::ffi::c_void,
+        arg: *mut c_types::c_void,
+        start: *const c_types::c_void,
         length: size_t,
         wait_ms: u32,
     ) -> esp_err_t;
@@ -89105,8 +88757,8 @@ extern "C" {
     #[doc = "     - ESP_ERR_NOT_FINISHED Read success, while there're data remaining."]
     #[doc = "     - One of the error codes from SDMMC host controller"]
     pub fn essl_sdio_get_packet(
-        arg: *mut ::core::ffi::c_void,
-        out_data: *mut ::core::ffi::c_void,
+        arg: *mut c_types::c_void,
+        out_data: *mut c_types::c_void,
         size: size_t,
         wait_ms: u32,
     ) -> esp_err_t;
@@ -89121,7 +88773,7 @@ extern "C" {
     #[doc = "  - ESP_OK: if interrupt happened"]
     #[doc = "  - ESP_ERR_TIMEOUT: if timeout before interrupt happened."]
     #[doc = "  - or other values returned from the `io_int_wait` member of the `card->host` structure."]
-    pub fn essl_sdio_wait_int(arg: *mut ::core::ffi::c_void, wait_ms: u32) -> esp_err_t;
+    pub fn essl_sdio_wait_int(arg: *mut c_types::c_void, wait_ms: u32) -> esp_err_t;
 }
 extern "C" {
     #[doc = " Clear interrupt bits of ESP32 slave. All the bits set in the mask will be cleared, while other bits will stay the same."]
@@ -89134,7 +88786,7 @@ extern "C" {
     #[doc = "      - ESP_OK Success"]
     #[doc = "      - One of the error codes from SDMMC host controller"]
     pub fn essl_sdio_clear_intr(
-        arg: *mut ::core::ffi::c_void,
+        arg: *mut c_types::c_void,
         intr_mask: u32,
         wait_ms: u32,
     ) -> esp_err_t;
@@ -89152,7 +88804,7 @@ extern "C" {
     #[doc = "      - ESP_INVALID_ARG   if both ``intr_raw`` and ``intr_st`` are NULL."]
     #[doc = "      - One of the error codes from SDMMC host controller"]
     pub fn essl_sdio_get_intr(
-        arg: *mut ::core::ffi::c_void,
+        arg: *mut c_types::c_void,
         intr_raw: *mut u32,
         intr_st: *mut u32,
         wait_ms: u32,
@@ -89169,7 +88821,7 @@ extern "C" {
     #[doc = "      - ESP_OK Success"]
     #[doc = "      - One of the error codes from SDMMC host controller"]
     pub fn essl_sdio_set_intr_ena(
-        arg: *mut ::core::ffi::c_void,
+        arg: *mut c_types::c_void,
         ena_mask: u32,
         wait_ms: u32,
     ) -> esp_err_t;
@@ -89185,7 +88837,7 @@ extern "C" {
     #[doc = "      - ESP_OK Success"]
     #[doc = "      - One of the error codes from SDMMC host controller"]
     pub fn essl_sdio_get_intr_ena(
-        arg: *mut ::core::ffi::c_void,
+        arg: *mut c_types::c_void,
         ena_mask_o: *mut u32,
         wait_ms: u32,
     ) -> esp_err_t;
@@ -89203,7 +88855,7 @@ extern "C" {
     #[doc = "      - ESP_ERR_INVALID_ARG Address not valid."]
     #[doc = "      - One of the error codes from SDMMC host controller"]
     pub fn essl_sdio_write_reg(
-        arg: *mut ::core::ffi::c_void,
+        arg: *mut c_types::c_void,
         addr: u8,
         value: u8,
         value_o: *mut u8,
@@ -89223,7 +88875,7 @@ extern "C" {
     #[doc = "      - ESP_ERR_INVALID_ARG Address not valid."]
     #[doc = "      - One of the error codes from SDMMC host controller"]
     pub fn essl_sdio_read_reg(
-        arg: *mut ::core::ffi::c_void,
+        arg: *mut c_types::c_void,
         add: u8,
         value_o: *mut u8,
         wait_ms: u32,
@@ -89240,7 +88892,7 @@ extern "C" {
     #[doc = "      - ESP_OK Success"]
     #[doc = "      - One of the error codes from SDMMC host controller"]
     pub fn essl_sdio_send_slave_intr(
-        arg: *mut ::core::ffi::c_void,
+        arg: *mut c_types::c_void,
         intr_mask: u32,
         wait_ms: u32,
     ) -> esp_err_t;
@@ -89251,13 +88903,13 @@ extern "C" {
     #[doc = " @note Only call when you know the slave has reset its counter, or there will be inconsistent between the master and the slave."]
     #[doc = ""]
     #[doc = " @param arg  Context of the component."]
-    pub fn essl_sdio_reset_cnt(arg: *mut ::core::ffi::c_void);
+    pub fn essl_sdio_reset_cnt(arg: *mut c_types::c_void);
 }
 pub type __builtin_va_list = __va_list_tag;
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
 pub struct __va_list_tag {
-    pub __va_stk: *mut ::std::os::raw::c_int,
-    pub __va_reg: *mut ::std::os::raw::c_int,
-    pub __va_ndx: ::std::os::raw::c_int,
+    pub __va_stk: *mut c_types::c_int,
+    pub __va_reg: *mut c_types::c_int,
+    pub __va_ndx: c_types::c_int,
 }
