@@ -1,4 +1,12 @@
-[workspace]
-members = [
-    "esp-idf-sys",
-]
+[package]
+name = "esp-idf-sys"
+version = "0.2.0"
+authors = ["Alexey Arbuzov <aarbuzov@termt.com>", "sapir <yasapir@gmail.com>"]
+edition = "2015"
+description = "Bindings for esp-idf (Espressif's IoT Development Framework)"
+repository = "https://github.com/sapir/esp-idf-sys"
+license = "MIT"
+
+# no xtensa in regular compiler yet
+[package.metadata.docs.rs]
+default-target = "x86_64-unknown-linux-gnu"
