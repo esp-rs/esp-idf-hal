@@ -5,7 +5,7 @@
 
 ## Background
 
-The ESP-IDF API in Rust, with support for each ESP chip (ESP32, ESP32S2, ESP8266 etc.) conditionally compiled-in based on your project settings.
+The ESP-IDF API in Rust, with support for each ESP chip (ESP32, ESP32S2, ESP8266 etc.) conditionally.
 
 Currently, the bindings specific for each chip are enabled conditionally using Cargo features (e.g. feature = "esp32", feature = "esp32s2", etc.) with "esp32" being the default,
 but that might change in future to be automatically derived from the Rust/Cargo target configuration.
@@ -20,7 +20,7 @@ but that might change in future to be automatically derived from the Rust/Cargo 
 If you would like to re-generate the bindings (for example, to include your own "sdkconfig.h" in the relevant src/idf-target/esp*/ directory),
 you'll need:
 * **Clang** with support for the ESP-family targets. I.e. you should build it from the [Espressif fork of LLVM](https://github.com/espressif/llvm-project) sources.
-* The **ESP-IDF GCC Toolchain*** corresponding to your chip(s). For e.g. ESP32, you can fetch it from [here](https://github.com/espressif/crosstool-NG/releases); for ESP8266 [here](https://docs.espressif.com/projects/esp8266-rtos-sdk/en/latest/get-started/linux-setup.html).
+* The **ESP-IDF GCC Toolchain** corresponding to your chip(s). For e.g. ESP32, you can fetch it from [here](https://github.com/espressif/crosstool-NG/releases); for ESP8266 [here](https://docs.espressif.com/projects/esp8266-rtos-sdk/en/latest/get-started/linux-setup.html).
 * **Bindgen** (`cargo install bindgen`)
 * **Bash**
 
