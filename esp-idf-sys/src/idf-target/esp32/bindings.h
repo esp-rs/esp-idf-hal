@@ -25,7 +25,6 @@
 #include "nvs.h"
 #include "nvs_flash.h"
 
-#include "esp32/rom/lldesc.h"
 #include "driver/adc.h"
 #include "driver/can.h"
 #include "driver/dac.h"

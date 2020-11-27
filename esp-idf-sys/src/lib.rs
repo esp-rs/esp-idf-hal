@@ -47,7 +47,7 @@ impl Error {
     }
 
     pub fn panic(self: &Self) {
-        panic!("ESP ERROR: {}", self);
+        panic!("ESP-IDF ERROR: {}", self);
     }
 
     pub fn code(self: &Self) -> esp_err_t {
@@ -96,4 +96,14 @@ macro_rules! esp_nofail {
     }}
 }
 
-include!("bindings.rs");
+#[cfg(all(
+    feature = "esp32", 
+    not(feature = "esp32s2"),
+    not(feature = "esp8266")))]
+include!("bindings_esp32.rs");
+
+#[cfg(feature = "esp32s2")]
+include!("bindings_esp32s2.rs");
+
+#[cfg(feature = "esp8266")]
+include!("bindings_esp8266.rs");
