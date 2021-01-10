@@ -20,6 +20,10 @@
 #include "esp_eth.h"
 #include "esp_eth_netif_glue.h"
 
+#include "apps/ping/ping_sock.h"
+
+#include "esp_http_server.h"
+
 #include "esp_adc_cal.h"
 
 #include "nvs.h"

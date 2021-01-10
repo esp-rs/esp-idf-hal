@@ -1,4 +1,5 @@
-#![no_std]
+#![cfg_attr(not(feature = "std"), no_std)]
+
 #![allow(non_upper_case_globals)]
 #![allow(non_camel_case_types)]
 #![allow(non_snake_case)]
@@ -21,51 +22,53 @@ pub mod c_types {
     pub type c_longlong = i64;
     pub type c_ulonglong = u64;
 }
+#[derive(Copy, Clone, Eq, PartialEq, Hash, Debug)]
+pub struct EspError(esp_err_t);
 
-#[derive(Clone, Debug)]
-pub struct Error(pub c_types::c_uint);
-
-impl Error {
-    pub fn from(error: esp_err_t) -> Option<Error> {
+impl EspError {
+    pub fn from(error: esp_err_t) -> Option<Self> {
         if error == 0 {
             None
         } else {
-            Some(Error(error as c_types::c_uint))
+            Some(EspError(error))
         }
     }
 
-    pub fn check_and_return<T>(error: esp_err_t, value: T) -> Result<T, Error> {
+    pub fn check_and_return<T>(error: esp_err_t, value: T) -> Result<T, Self> {
         if error == 0 {
             Ok(value)
         } else {
-            Err(Error(error as c_types::c_uint))
+            Err(EspError(error))
         }
     }
 
-    pub fn convert(error: esp_err_t) -> Result<(), Error> {
-        Error::check_and_return(error, ())
+    pub fn convert(error: esp_err_t) -> Result<(), Self> {
+        EspError::check_and_return(error, ())
     }
 
-    pub fn panic(self: &Self) {
+    pub fn panic(&self) {
         panic!("ESP-IDF ERROR: {}", self);
     }
 
-    pub fn code(self: &Self) -> esp_err_t {
-        self.0 as esp_err_t
+    pub fn code(&self) -> esp_err_t {
+        self.0
     }
 }
 
-impl fmt::Display for Error {
+#[cfg(feature = "std")]
+impl std::error::Error for EspError {}
+
+impl fmt::Display for EspError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         unsafe fn strlen(c_s: *const c_types::c_char) -> usize {
             let mut len = 0;
             while *c_s.offset(len) != 0 {
                 len += 1;
             }
-        
+
             len as usize
         }
-        
+
         unsafe {
             let c_s = esp_err_to_name(self.code());
             str::from_utf8_unchecked(slice::from_raw_parts(c_s as *const u8, strlen(c_s))).fmt(f)
@@ -76,34 +79,31 @@ impl fmt::Display for Error {
 #[macro_export]
 macro_rules! esp {
     ($err:expr) => {{
-        Error::convert($err as esp_err_t)
+        esp_idf_sys::EspError::convert($err as esp_idf_sys::esp_err_t)
     }}
 }
 
 #[macro_export]
 macro_rules! esp_result {
     ($err:expr, $value:expr) => {{
-        Error::check_and_return($err as esp_err_t, value)
+        esp_idf_sys::EspError::check_and_return($err as esp_idf_sys::esp_err_t, value)
     }}
 }
 
 #[macro_export]
 macro_rules! esp_nofail {
     ($err:expr) => {{
-        if let Some(error) = Error::from($err as esp_err_t) {
+        if let Some(error) = esp_idf_sys::EspError::from($err as esp_idf_sys::esp_err_t) {
             error.panic();
         }
     }}
 }
 
 #[cfg(all(
-    feature = "esp32", 
+    feature = "esp32",
     not(feature = "esp32s2"),
     not(feature = "esp8266")))]
 include!("bindings_esp32.rs");
-
-#[cfg(feature = "esp32s2")]
-include!("bindings_esp32s2.rs");
 
 #[cfg(feature = "esp8266")]
 include!("bindings_esp8266.rs");

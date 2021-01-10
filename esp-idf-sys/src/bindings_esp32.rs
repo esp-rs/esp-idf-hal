@@ -8879,6 +8879,860 @@ pub const WIFI_TASK_CORE_ID: u32 = 0;
 pub const WIFI_SOFTAP_BEACON_MAX_LEN: u32 = 752;
 pub const WIFI_MGMT_SBUF_NUM: u32 = 32;
 pub const CONFIG_FEATURE_WPA3_SAE_BIT: u32 = 1;
+pub const _CLOCKS_PER_SEC_: u32 = 1000;
+pub const CLOCKS_PER_SEC: u32 = 1000;
+pub const CLK_TCK: u32 = 1000;
+pub const SIGEV_NONE: u32 = 1;
+pub const SIGEV_SIGNAL: u32 = 2;
+pub const SIGEV_THREAD: u32 = 3;
+pub const SI_USER: u32 = 1;
+pub const SI_QUEUE: u32 = 2;
+pub const SI_TIMER: u32 = 3;
+pub const SI_ASYNCIO: u32 = 4;
+pub const SI_MESGQ: u32 = 5;
+pub const SA_NOCLDSTOP: u32 = 1;
+pub const MINSIGSTKSZ: u32 = 2048;
+pub const SIGSTKSZ: u32 = 8192;
+pub const SS_ONSTACK: u32 = 1;
+pub const SS_DISABLE: u32 = 2;
+pub const SIG_SETMASK: u32 = 0;
+pub const SIG_BLOCK: u32 = 1;
+pub const SIG_UNBLOCK: u32 = 2;
+pub const SIGHUP: u32 = 1;
+pub const SIGINT: u32 = 2;
+pub const SIGQUIT: u32 = 3;
+pub const SIGILL: u32 = 4;
+pub const SIGTRAP: u32 = 5;
+pub const SIGIOT: u32 = 6;
+pub const SIGABRT: u32 = 6;
+pub const SIGEMT: u32 = 7;
+pub const SIGFPE: u32 = 8;
+pub const SIGKILL: u32 = 9;
+pub const SIGBUS: u32 = 10;
+pub const SIGSEGV: u32 = 11;
+pub const SIGSYS: u32 = 12;
+pub const SIGPIPE: u32 = 13;
+pub const SIGALRM: u32 = 14;
+pub const SIGTERM: u32 = 15;
+pub const SIGURG: u32 = 16;
+pub const SIGSTOP: u32 = 17;
+pub const SIGTSTP: u32 = 18;
+pub const SIGCONT: u32 = 19;
+pub const SIGCHLD: u32 = 20;
+pub const SIGCLD: u32 = 20;
+pub const SIGTTIN: u32 = 21;
+pub const SIGTTOU: u32 = 22;
+pub const SIGIO: u32 = 23;
+pub const SIGPOLL: u32 = 23;
+pub const SIGXCPU: u32 = 24;
+pub const SIGXFSZ: u32 = 25;
+pub const SIGVTALRM: u32 = 26;
+pub const SIGPROF: u32 = 27;
+pub const SIGWINCH: u32 = 28;
+pub const SIGLOST: u32 = 29;
+pub const SIGUSR1: u32 = 30;
+pub const SIGUSR2: u32 = 31;
+pub const NSIG: u32 = 32;
+pub const CLOCK_ENABLED: u32 = 1;
+pub const CLOCK_DISABLED: u32 = 0;
+pub const CLOCK_ALLOWED: u32 = 1;
+pub const CLOCK_DISALLOWED: u32 = 0;
+pub const TIMER_ABSTIME: u32 = 4;
+pub const F_ULOCK: u32 = 0;
+pub const F_LOCK: u32 = 1;
+pub const F_TLOCK: u32 = 2;
+pub const F_TEST: u32 = 3;
+pub const F_OK: u32 = 0;
+pub const R_OK: u32 = 4;
+pub const W_OK: u32 = 2;
+pub const X_OK: u32 = 1;
+pub const STDIN_FILENO: u32 = 0;
+pub const STDOUT_FILENO: u32 = 1;
+pub const STDERR_FILENO: u32 = 2;
+pub const _SC_ARG_MAX: u32 = 0;
+pub const _SC_CHILD_MAX: u32 = 1;
+pub const _SC_CLK_TCK: u32 = 2;
+pub const _SC_NGROUPS_MAX: u32 = 3;
+pub const _SC_OPEN_MAX: u32 = 4;
+pub const _SC_JOB_CONTROL: u32 = 5;
+pub const _SC_SAVED_IDS: u32 = 6;
+pub const _SC_VERSION: u32 = 7;
+pub const _SC_PAGESIZE: u32 = 8;
+pub const _SC_PAGE_SIZE: u32 = 8;
+pub const _SC_NPROCESSORS_CONF: u32 = 9;
+pub const _SC_NPROCESSORS_ONLN: u32 = 10;
+pub const _SC_PHYS_PAGES: u32 = 11;
+pub const _SC_AVPHYS_PAGES: u32 = 12;
+pub const _SC_MQ_OPEN_MAX: u32 = 13;
+pub const _SC_MQ_PRIO_MAX: u32 = 14;
+pub const _SC_RTSIG_MAX: u32 = 15;
+pub const _SC_SEM_NSEMS_MAX: u32 = 16;
+pub const _SC_SEM_VALUE_MAX: u32 = 17;
+pub const _SC_SIGQUEUE_MAX: u32 = 18;
+pub const _SC_TIMER_MAX: u32 = 19;
+pub const _SC_TZNAME_MAX: u32 = 20;
+pub const _SC_ASYNCHRONOUS_IO: u32 = 21;
+pub const _SC_FSYNC: u32 = 22;
+pub const _SC_MAPPED_FILES: u32 = 23;
+pub const _SC_MEMLOCK: u32 = 24;
+pub const _SC_MEMLOCK_RANGE: u32 = 25;
+pub const _SC_MEMORY_PROTECTION: u32 = 26;
+pub const _SC_MESSAGE_PASSING: u32 = 27;
+pub const _SC_PRIORITIZED_IO: u32 = 28;
+pub const _SC_REALTIME_SIGNALS: u32 = 29;
+pub const _SC_SEMAPHORES: u32 = 30;
+pub const _SC_SHARED_MEMORY_OBJECTS: u32 = 31;
+pub const _SC_SYNCHRONIZED_IO: u32 = 32;
+pub const _SC_TIMERS: u32 = 33;
+pub const _SC_AIO_LISTIO_MAX: u32 = 34;
+pub const _SC_AIO_MAX: u32 = 35;
+pub const _SC_AIO_PRIO_DELTA_MAX: u32 = 36;
+pub const _SC_DELAYTIMER_MAX: u32 = 37;
+pub const _SC_THREAD_KEYS_MAX: u32 = 38;
+pub const _SC_THREAD_STACK_MIN: u32 = 39;
+pub const _SC_THREAD_THREADS_MAX: u32 = 40;
+pub const _SC_TTY_NAME_MAX: u32 = 41;
+pub const _SC_THREADS: u32 = 42;
+pub const _SC_THREAD_ATTR_STACKADDR: u32 = 43;
+pub const _SC_THREAD_ATTR_STACKSIZE: u32 = 44;
+pub const _SC_THREAD_PRIORITY_SCHEDULING: u32 = 45;
+pub const _SC_THREAD_PRIO_INHERIT: u32 = 46;
+pub const _SC_THREAD_PRIO_PROTECT: u32 = 47;
+pub const _SC_THREAD_PRIO_CEILING: u32 = 47;
+pub const _SC_THREAD_PROCESS_SHARED: u32 = 48;
+pub const _SC_THREAD_SAFE_FUNCTIONS: u32 = 49;
+pub const _SC_GETGR_R_SIZE_MAX: u32 = 50;
+pub const _SC_GETPW_R_SIZE_MAX: u32 = 51;
+pub const _SC_LOGIN_NAME_MAX: u32 = 52;
+pub const _SC_THREAD_DESTRUCTOR_ITERATIONS: u32 = 53;
+pub const _SC_ADVISORY_INFO: u32 = 54;
+pub const _SC_ATEXIT_MAX: u32 = 55;
+pub const _SC_BARRIERS: u32 = 56;
+pub const _SC_BC_BASE_MAX: u32 = 57;
+pub const _SC_BC_DIM_MAX: u32 = 58;
+pub const _SC_BC_SCALE_MAX: u32 = 59;
+pub const _SC_BC_STRING_MAX: u32 = 60;
+pub const _SC_CLOCK_SELECTION: u32 = 61;
+pub const _SC_COLL_WEIGHTS_MAX: u32 = 62;
+pub const _SC_CPUTIME: u32 = 63;
+pub const _SC_EXPR_NEST_MAX: u32 = 64;
+pub const _SC_HOST_NAME_MAX: u32 = 65;
+pub const _SC_IOV_MAX: u32 = 66;
+pub const _SC_IPV6: u32 = 67;
+pub const _SC_LINE_MAX: u32 = 68;
+pub const _SC_MONOTONIC_CLOCK: u32 = 69;
+pub const _SC_RAW_SOCKETS: u32 = 70;
+pub const _SC_READER_WRITER_LOCKS: u32 = 71;
+pub const _SC_REGEXP: u32 = 72;
+pub const _SC_RE_DUP_MAX: u32 = 73;
+pub const _SC_SHELL: u32 = 74;
+pub const _SC_SPAWN: u32 = 75;
+pub const _SC_SPIN_LOCKS: u32 = 76;
+pub const _SC_SPORADIC_SERVER: u32 = 77;
+pub const _SC_SS_REPL_MAX: u32 = 78;
+pub const _SC_SYMLOOP_MAX: u32 = 79;
+pub const _SC_THREAD_CPUTIME: u32 = 80;
+pub const _SC_THREAD_SPORADIC_SERVER: u32 = 81;
+pub const _SC_TIMEOUTS: u32 = 82;
+pub const _SC_TRACE: u32 = 83;
+pub const _SC_TRACE_EVENT_FILTER: u32 = 84;
+pub const _SC_TRACE_EVENT_NAME_MAX: u32 = 85;
+pub const _SC_TRACE_INHERIT: u32 = 86;
+pub const _SC_TRACE_LOG: u32 = 87;
+pub const _SC_TRACE_NAME_MAX: u32 = 88;
+pub const _SC_TRACE_SYS_MAX: u32 = 89;
+pub const _SC_TRACE_USER_EVENT_MAX: u32 = 90;
+pub const _SC_TYPED_MEMORY_OBJECTS: u32 = 91;
+pub const _SC_V7_ILP32_OFF32: u32 = 92;
+pub const _SC_V6_ILP32_OFF32: u32 = 92;
+pub const _SC_XBS5_ILP32_OFF32: u32 = 92;
+pub const _SC_V7_ILP32_OFFBIG: u32 = 93;
+pub const _SC_V6_ILP32_OFFBIG: u32 = 93;
+pub const _SC_XBS5_ILP32_OFFBIG: u32 = 93;
+pub const _SC_V7_LP64_OFF64: u32 = 94;
+pub const _SC_V6_LP64_OFF64: u32 = 94;
+pub const _SC_XBS5_LP64_OFF64: u32 = 94;
+pub const _SC_V7_LPBIG_OFFBIG: u32 = 95;
+pub const _SC_V6_LPBIG_OFFBIG: u32 = 95;
+pub const _SC_XBS5_LPBIG_OFFBIG: u32 = 95;
+pub const _SC_XOPEN_CRYPT: u32 = 96;
+pub const _SC_XOPEN_ENH_I18N: u32 = 97;
+pub const _SC_XOPEN_LEGACY: u32 = 98;
+pub const _SC_XOPEN_REALTIME: u32 = 99;
+pub const _SC_STREAM_MAX: u32 = 100;
+pub const _SC_PRIORITY_SCHEDULING: u32 = 101;
+pub const _SC_XOPEN_REALTIME_THREADS: u32 = 102;
+pub const _SC_XOPEN_SHM: u32 = 103;
+pub const _SC_XOPEN_STREAMS: u32 = 104;
+pub const _SC_XOPEN_UNIX: u32 = 105;
+pub const _SC_XOPEN_VERSION: u32 = 106;
+pub const _SC_2_CHAR_TERM: u32 = 107;
+pub const _SC_2_C_BIND: u32 = 108;
+pub const _SC_2_C_DEV: u32 = 109;
+pub const _SC_2_FORT_DEV: u32 = 110;
+pub const _SC_2_FORT_RUN: u32 = 111;
+pub const _SC_2_LOCALEDEF: u32 = 112;
+pub const _SC_2_PBS: u32 = 113;
+pub const _SC_2_PBS_ACCOUNTING: u32 = 114;
+pub const _SC_2_PBS_CHECKPOINT: u32 = 115;
+pub const _SC_2_PBS_LOCATE: u32 = 116;
+pub const _SC_2_PBS_MESSAGE: u32 = 117;
+pub const _SC_2_PBS_TRACK: u32 = 118;
+pub const _SC_2_SW_DEV: u32 = 119;
+pub const _SC_2_UPE: u32 = 120;
+pub const _SC_2_VERSION: u32 = 121;
+pub const _SC_THREAD_ROBUST_PRIO_INHERIT: u32 = 122;
+pub const _SC_THREAD_ROBUST_PRIO_PROTECT: u32 = 123;
+pub const _SC_XOPEN_UUCP: u32 = 124;
+pub const _SC_LEVEL1_ICACHE_SIZE: u32 = 125;
+pub const _SC_LEVEL1_ICACHE_ASSOC: u32 = 126;
+pub const _SC_LEVEL1_ICACHE_LINESIZE: u32 = 127;
+pub const _SC_LEVEL1_DCACHE_SIZE: u32 = 128;
+pub const _SC_LEVEL1_DCACHE_ASSOC: u32 = 129;
+pub const _SC_LEVEL1_DCACHE_LINESIZE: u32 = 130;
+pub const _SC_LEVEL2_CACHE_SIZE: u32 = 131;
+pub const _SC_LEVEL2_CACHE_ASSOC: u32 = 132;
+pub const _SC_LEVEL2_CACHE_LINESIZE: u32 = 133;
+pub const _SC_LEVEL3_CACHE_SIZE: u32 = 134;
+pub const _SC_LEVEL3_CACHE_ASSOC: u32 = 135;
+pub const _SC_LEVEL3_CACHE_LINESIZE: u32 = 136;
+pub const _SC_LEVEL4_CACHE_SIZE: u32 = 137;
+pub const _SC_LEVEL4_CACHE_ASSOC: u32 = 138;
+pub const _SC_LEVEL4_CACHE_LINESIZE: u32 = 139;
+pub const _SC_POSIX_26_VERSION: u32 = 140;
+pub const _PC_LINK_MAX: u32 = 0;
+pub const _PC_MAX_CANON: u32 = 1;
+pub const _PC_MAX_INPUT: u32 = 2;
+pub const _PC_NAME_MAX: u32 = 3;
+pub const _PC_PATH_MAX: u32 = 4;
+pub const _PC_PIPE_BUF: u32 = 5;
+pub const _PC_CHOWN_RESTRICTED: u32 = 6;
+pub const _PC_NO_TRUNC: u32 = 7;
+pub const _PC_VDISABLE: u32 = 8;
+pub const _PC_ASYNC_IO: u32 = 9;
+pub const _PC_PRIO_IO: u32 = 10;
+pub const _PC_SYNC_IO: u32 = 11;
+pub const _PC_FILESIZEBITS: u32 = 12;
+pub const _PC_2_SYMLINKS: u32 = 13;
+pub const _PC_SYMLINK_MAX: u32 = 14;
+pub const _PC_ALLOC_SIZE_MIN: u32 = 15;
+pub const _PC_REC_INCR_XFER_SIZE: u32 = 16;
+pub const _PC_REC_MAX_XFER_SIZE: u32 = 17;
+pub const _PC_REC_MIN_XFER_SIZE: u32 = 18;
+pub const _PC_REC_XFER_ALIGN: u32 = 19;
+pub const _PC_TIMESTAMP_RESOLUTION: u32 = 20;
+pub const L_SET: u32 = 0;
+pub const L_INCR: u32 = 1;
+pub const L_XTND: u32 = 2;
+pub const DST_NONE: u32 = 0;
+pub const DST_USA: u32 = 1;
+pub const DST_AUST: u32 = 2;
+pub const DST_WET: u32 = 3;
+pub const DST_MET: u32 = 4;
+pub const DST_EET: u32 = 5;
+pub const DST_CAN: u32 = 6;
+pub const SBT_MAX: u64 = 9223372036854775807;
+pub const ITIMER_REAL: u32 = 0;
+pub const ITIMER_VIRTUAL: u32 = 1;
+pub const ITIMER_PROF: u32 = 2;
+pub const _FOPEN: i32 = -1;
+pub const _FREAD: u32 = 1;
+pub const _FWRITE: u32 = 2;
+pub const _FAPPEND: u32 = 8;
+pub const _FMARK: u32 = 16;
+pub const _FDEFER: u32 = 32;
+pub const _FASYNC: u32 = 64;
+pub const _FSHLOCK: u32 = 128;
+pub const _FEXLOCK: u32 = 256;
+pub const _FCREAT: u32 = 512;
+pub const _FTRUNC: u32 = 1024;
+pub const _FEXCL: u32 = 2048;
+pub const _FNBIO: u32 = 4096;
+pub const _FSYNC: u32 = 8192;
+pub const _FNONBLOCK: u32 = 16384;
+pub const _FNDELAY: u32 = 16384;
+pub const _FNOCTTY: u32 = 32768;
+pub const O_RDONLY: u32 = 0;
+pub const O_WRONLY: u32 = 1;
+pub const O_RDWR: u32 = 2;
+pub const O_APPEND: u32 = 8;
+pub const O_CREAT: u32 = 512;
+pub const O_TRUNC: u32 = 1024;
+pub const O_EXCL: u32 = 2048;
+pub const O_SYNC: u32 = 8192;
+pub const O_NONBLOCK: u32 = 16384;
+pub const O_NOCTTY: u32 = 32768;
+pub const FAPPEND: u32 = 8;
+pub const FSYNC: u32 = 8192;
+pub const FASYNC: u32 = 64;
+pub const FNBIO: u32 = 4096;
+pub const FNONBIO: u32 = 16384;
+pub const FNDELAY: u32 = 16384;
+pub const FREAD: u32 = 1;
+pub const FWRITE: u32 = 2;
+pub const FMARK: u32 = 16;
+pub const FDEFER: u32 = 32;
+pub const FSHLOCK: u32 = 128;
+pub const FEXLOCK: u32 = 256;
+pub const FOPEN: i32 = -1;
+pub const FCREAT: u32 = 512;
+pub const FTRUNC: u32 = 1024;
+pub const FEXCL: u32 = 2048;
+pub const FNOCTTY: u32 = 32768;
+pub const FNONBLOCK: u32 = 16384;
+pub const FD_CLOEXEC: u32 = 1;
+pub const F_DUPFD: u32 = 0;
+pub const F_GETFD: u32 = 1;
+pub const F_SETFD: u32 = 2;
+pub const F_GETFL: u32 = 3;
+pub const F_SETFL: u32 = 4;
+pub const F_GETOWN: u32 = 5;
+pub const F_SETOWN: u32 = 6;
+pub const F_GETLK: u32 = 7;
+pub const F_SETLK: u32 = 8;
+pub const F_SETLKW: u32 = 9;
+pub const F_RGETLK: u32 = 10;
+pub const F_RSETLK: u32 = 11;
+pub const F_CNVT: u32 = 12;
+pub const F_RSETLKW: u32 = 13;
+pub const F_DUPFD_CLOEXEC: u32 = 14;
+pub const F_RDLCK: u32 = 1;
+pub const F_WRLCK: u32 = 2;
+pub const F_UNLCK: u32 = 3;
+pub const F_UNLKSYS: u32 = 4;
+pub const AT_FDCWD: i32 = -2;
+pub const AT_EACCESS: u32 = 1;
+pub const AT_SYMLINK_NOFOLLOW: u32 = 2;
+pub const AT_SYMLINK_FOLLOW: u32 = 4;
+pub const AT_REMOVEDIR: u32 = 8;
+pub const LOCK_SH: u32 = 1;
+pub const LOCK_EX: u32 = 2;
+pub const LOCK_NB: u32 = 4;
+pub const LOCK_UN: u32 = 8;
+pub const _IFMT: u32 = 61440;
+pub const _IFDIR: u32 = 16384;
+pub const _IFCHR: u32 = 8192;
+pub const _IFBLK: u32 = 24576;
+pub const _IFREG: u32 = 32768;
+pub const _IFLNK: u32 = 40960;
+pub const _IFSOCK: u32 = 49152;
+pub const _IFIFO: u32 = 4096;
+pub const S_BLKSIZE: u32 = 1024;
+pub const S_ISUID: u32 = 2048;
+pub const S_ISGID: u32 = 1024;
+pub const S_ISVTX: u32 = 512;
+pub const S_IREAD: u32 = 256;
+pub const S_IWRITE: u32 = 128;
+pub const S_IEXEC: u32 = 64;
+pub const S_ENFMT: u32 = 1024;
+pub const S_IFMT: u32 = 61440;
+pub const S_IFDIR: u32 = 16384;
+pub const S_IFCHR: u32 = 8192;
+pub const S_IFBLK: u32 = 24576;
+pub const S_IFREG: u32 = 32768;
+pub const S_IFLNK: u32 = 40960;
+pub const S_IFSOCK: u32 = 49152;
+pub const S_IFIFO: u32 = 4096;
+pub const S_IRUSR: u32 = 256;
+pub const S_IWUSR: u32 = 128;
+pub const S_IXUSR: u32 = 64;
+pub const S_IRGRP: u32 = 32;
+pub const S_IWGRP: u32 = 16;
+pub const S_IXGRP: u32 = 8;
+pub const S_IROTH: u32 = 4;
+pub const S_IWOTH: u32 = 2;
+pub const S_IXOTH: u32 = 1;
+pub const DEFFILEMODE: u32 = 438;
+pub const SYS_LIGHTWEIGHT_PROT: u32 = 1;
+pub const MEM_LIBC_MALLOC: u32 = 1;
+pub const MEMP_MEM_MALLOC: u32 = 1;
+pub const MEM_ALIGNMENT: u32 = 4;
+pub const MEMP_NUM_NETCONN: u32 = 10;
+pub const MEMP_NUM_RAW_PCB: u32 = 16;
+pub const MEMP_NUM_TCP_PCB: u32 = 16;
+pub const MEMP_NUM_TCP_PCB_LISTEN: u32 = 16;
+pub const MEMP_NUM_UDP_PCB: u32 = 16;
+pub const ARP_QUEUEING: u32 = 1;
+pub const IP_FRAG: u32 = 1;
+pub const IP_REASS_MAXAGE: u32 = 3;
+pub const IP_REASS_MAX_PBUFS: u32 = 10;
+pub const LWIP_RAW: u32 = 1;
+pub const LWIP_DHCP: u32 = 1;
+pub const DHCP_MAXRTX: u32 = 0;
+pub const DHCP_DOES_ARP_CHECK: u32 = 1;
+pub const LWIP_IGMP: u32 = 1;
+pub const LWIP_DNS: u32 = 1;
+pub const DNS_MAX_SERVERS: u32 = 3;
+pub const DNS_FALLBACK_SERVER_INDEX: u32 = 2;
+pub const TCP_QUEUE_OOSEQ: u32 = 1;
+pub const TCP_MSS: u32 = 1440;
+pub const TCP_TMR_INTERVAL: u32 = 250;
+pub const TCP_MSL: u32 = 60000;
+pub const TCP_MAXRTX: u32 = 12;
+pub const TCP_SYNMAXRTX: u32 = 6;
+pub const TCP_LISTEN_BACKLOG: u32 = 1;
+pub const TCP_OVERSIZE: u32 = 1440;
+pub const LWIP_NETIF_HOSTNAME: u32 = 1;
+pub const LWIP_NETIF_TX_SINGLE_PBUF: u32 = 1;
+pub const LWIP_NETIF_LOOPBACK: u32 = 1;
+pub const LWIP_LOOPBACK_MAX_PBUFS: u32 = 8;
+pub const TCPIP_THREAD_NAME: &'static [u8; 4usize] = b"tiT\0";
+pub const TCPIP_THREAD_STACKSIZE: u32 = 3584;
+pub const TCPIP_THREAD_PRIO: u32 = 18;
+pub const TCPIP_MBOX_SIZE: u32 = 32;
+pub const DEFAULT_UDP_RECVMBOX_SIZE: u32 = 6;
+pub const DEFAULT_TCP_RECVMBOX_SIZE: u32 = 6;
+pub const DEFAULT_ACCEPTMBOX_SIZE: u32 = 6;
+pub const DEFAULT_THREAD_STACKSIZE: u32 = 3584;
+pub const DEFAULT_THREAD_PRIO: u32 = 18;
+pub const DEFAULT_RAW_RECVMBOX_SIZE: u32 = 6;
+pub const LWIP_TCPIP_CORE_LOCKING: u32 = 0;
+pub const LWIP_SO_SNDTIMEO: u32 = 1;
+pub const LWIP_SO_RCVTIMEO: u32 = 1;
+pub const LWIP_TCP_KEEPALIVE: u32 = 1;
+pub const SO_REUSE: u32 = 1;
+pub const LWIP_DNS_SUPPORT_MDNS_QUERIES: u32 = 1;
+pub const SO_REUSE_RXTOALL: u32 = 1;
+pub const LWIP_IPV6: u32 = 1;
+pub const LWIP_POSIX_SOCKETS_IO_NAMES: u32 = 0;
+pub const LWIP_SOCKET_OFFSET: u32 = 54;
+pub const ESP_LWIP: u32 = 1;
+pub const ESP_LWIP_ARP: u32 = 1;
+pub const ESP_PER_SOC_TCP_WND: u32 = 0;
+pub const ESP_THREAD_SAFE: u32 = 1;
+pub const ESP_DHCP: u32 = 1;
+pub const ESP_DNS: u32 = 1;
+pub const ESP_PERF: u32 = 0;
+pub const ESP_RANDOM_TCP_PORT: u32 = 1;
+pub const ESP_IP4_ATON: u32 = 1;
+pub const ESP_LIGHT_SLEEP: u32 = 1;
+pub const ESP_STATS_TCP: u32 = 0;
+pub const ESP_DHCPS_TIMER: u32 = 1;
+pub const ESP_PING: u32 = 1;
+pub const ESP_HAS_SELECT: u32 = 1;
+pub const ESP_AUTO_RECV: u32 = 1;
+pub const ESP_GRATUITOUS_ARP: u32 = 1;
+pub const ESP_IP4_ROUTE: u32 = 1;
+pub const ESP_AUTO_IP: u32 = 1;
+pub const ESP_PBUF: u32 = 1;
+pub const ESP_PPP: u32 = 1;
+pub const ESP_IPV6: u32 = 1;
+pub const ESP_SOCKET: u32 = 1;
+pub const ESP_LWIP_SELECT: u32 = 1;
+pub const ESP_LWIP_LOCK: u32 = 1;
+pub const ESP_LWIP_IGMP_TIMERS_ONDEMAND: u32 = 1;
+pub const ESP_LWIP_MLD6_TIMERS_ONDEMAND: u32 = 1;
+pub const TCP_SND_BUF: u32 = 5744;
+pub const TCP_WND: u32 = 5744;
+pub const CHECKSUM_CHECK_UDP: u32 = 0;
+pub const CHECKSUM_CHECK_IP: u32 = 0;
+pub const LWIP_NETCONN_FULLDUPLEX: u32 = 1;
+pub const LWIP_NETCONN_SEM_PER_THREAD: u32 = 1;
+pub const LWIP_DHCP_MAX_NTP_SERVERS: u32 = 1;
+pub const LWIP_TIMEVAL_PRIVATE: u32 = 0;
+pub const SNTP_SERVER_DNS: u32 = 1;
+pub const __error_t_defined: u32 = 1;
+pub const EPERM: u32 = 1;
+pub const ENOENT: u32 = 2;
+pub const ESRCH: u32 = 3;
+pub const EINTR: u32 = 4;
+pub const EIO: u32 = 5;
+pub const ENXIO: u32 = 6;
+pub const E2BIG: u32 = 7;
+pub const ENOEXEC: u32 = 8;
+pub const EBADF: u32 = 9;
+pub const ECHILD: u32 = 10;
+pub const EAGAIN: u32 = 11;
+pub const ENOMEM: u32 = 12;
+pub const EACCES: u32 = 13;
+pub const EFAULT: u32 = 14;
+pub const EBUSY: u32 = 16;
+pub const EEXIST: u32 = 17;
+pub const EXDEV: u32 = 18;
+pub const ENODEV: u32 = 19;
+pub const ENOTDIR: u32 = 20;
+pub const EISDIR: u32 = 21;
+pub const EINVAL: u32 = 22;
+pub const ENFILE: u32 = 23;
+pub const EMFILE: u32 = 24;
+pub const ENOTTY: u32 = 25;
+pub const ETXTBSY: u32 = 26;
+pub const EFBIG: u32 = 27;
+pub const ENOSPC: u32 = 28;
+pub const ESPIPE: u32 = 29;
+pub const EROFS: u32 = 30;
+pub const EMLINK: u32 = 31;
+pub const EPIPE: u32 = 32;
+pub const EDOM: u32 = 33;
+pub const ERANGE: u32 = 34;
+pub const ENOMSG: u32 = 35;
+pub const EIDRM: u32 = 36;
+pub const EDEADLK: u32 = 45;
+pub const ENOLCK: u32 = 46;
+pub const ENOSTR: u32 = 60;
+pub const ENODATA: u32 = 61;
+pub const ETIME: u32 = 62;
+pub const ENOSR: u32 = 63;
+pub const ENOLINK: u32 = 67;
+pub const EPROTO: u32 = 71;
+pub const EMULTIHOP: u32 = 74;
+pub const EBADMSG: u32 = 77;
+pub const EFTYPE: u32 = 79;
+pub const ENOSYS: u32 = 88;
+pub const ENOTEMPTY: u32 = 90;
+pub const ENAMETOOLONG: u32 = 91;
+pub const ELOOP: u32 = 92;
+pub const EOPNOTSUPP: u32 = 95;
+pub const EPFNOSUPPORT: u32 = 96;
+pub const ECONNRESET: u32 = 104;
+pub const ENOBUFS: u32 = 105;
+pub const EAFNOSUPPORT: u32 = 106;
+pub const EPROTOTYPE: u32 = 107;
+pub const ENOTSOCK: u32 = 108;
+pub const ENOPROTOOPT: u32 = 109;
+pub const ECONNREFUSED: u32 = 111;
+pub const EADDRINUSE: u32 = 112;
+pub const ECONNABORTED: u32 = 113;
+pub const ENETUNREACH: u32 = 114;
+pub const ENETDOWN: u32 = 115;
+pub const ETIMEDOUT: u32 = 116;
+pub const EHOSTDOWN: u32 = 117;
+pub const EHOSTUNREACH: u32 = 118;
+pub const EINPROGRESS: u32 = 119;
+pub const EALREADY: u32 = 120;
+pub const EDESTADDRREQ: u32 = 121;
+pub const EMSGSIZE: u32 = 122;
+pub const EPROTONOSUPPORT: u32 = 123;
+pub const EADDRNOTAVAIL: u32 = 125;
+pub const ENETRESET: u32 = 126;
+pub const EISCONN: u32 = 127;
+pub const ENOTCONN: u32 = 128;
+pub const ETOOMANYREFS: u32 = 129;
+pub const EDQUOT: u32 = 132;
+pub const ESTALE: u32 = 133;
+pub const ENOTSUP: u32 = 134;
+pub const EILSEQ: u32 = 138;
+pub const EOVERFLOW: u32 = 139;
+pub const ECANCELED: u32 = 140;
+pub const ENOTRECOVERABLE: u32 = 141;
+pub const EOWNERDEAD: u32 = 142;
+pub const EWOULDBLOCK: u32 = 11;
+pub const __ELASTERROR: u32 = 2000;
+pub const ERR_NEED_SCHED: u32 = 123;
+pub const LWIP_COMPAT_MUTEX: u32 = 0;
+pub const S16_F: &'static [u8; 2usize] = b"d\0";
+pub const U16_F: &'static [u8; 2usize] = b"d\0";
+pub const X16_F: &'static [u8; 2usize] = b"x\0";
+pub const S32_F: &'static [u8; 2usize] = b"d\0";
+pub const U32_F: &'static [u8; 2usize] = b"d\0";
+pub const X32_F: &'static [u8; 2usize] = b"x\0";
+pub const LWIP_NO_STDDEF_H: u32 = 0;
+pub const LWIP_NO_STDINT_H: u32 = 0;
+pub const LWIP_HAVE_INT64: u32 = 1;
+pub const LWIP_NO_INTTYPES_H: u32 = 0;
+pub const X8_F: &'static [u8; 3usize] = b"02\0";
+pub const LWIP_NO_LIMITS_H: u32 = 0;
+pub const LWIP_UINT32_MAX: u32 = 4294967295;
+pub const LWIP_NO_CTYPE_H: u32 = 0;
+pub const _U: u32 = 1;
+pub const _L: u32 = 2;
+pub const _N: u32 = 4;
+pub const _S: u32 = 8;
+pub const _P: u32 = 16;
+pub const _C: u32 = 32;
+pub const _X: u32 = 64;
+pub const _B: u32 = 128;
+pub const LWIP_DBG_LEVEL_ALL: u32 = 0;
+pub const LWIP_DBG_LEVEL_WARNING: u32 = 1;
+pub const LWIP_DBG_LEVEL_SERIOUS: u32 = 2;
+pub const LWIP_DBG_LEVEL_SEVERE: u32 = 3;
+pub const LWIP_DBG_MASK_LEVEL: u32 = 3;
+pub const LWIP_DBG_LEVEL_OFF: u32 = 0;
+pub const LWIP_DBG_ON: u32 = 128;
+pub const LWIP_DBG_OFF: u32 = 0;
+pub const LWIP_DBG_TRACE: u32 = 64;
+pub const LWIP_DBG_STATE: u32 = 32;
+pub const LWIP_DBG_FRESH: u32 = 16;
+pub const LWIP_DBG_HALT: u32 = 8;
+pub const NO_SYS: u32 = 0;
+pub const LWIP_TIMERS: u32 = 1;
+pub const LWIP_TIMERS_CUSTOM: u32 = 0;
+pub const LWIP_MPU_COMPATIBLE: u32 = 0;
+pub const LWIP_TCPIP_CORE_LOCKING_INPUT: u32 = 0;
+pub const MEMP_MEM_INIT: u32 = 0;
+pub const MEM_SIZE: u32 = 1600;
+pub const MEMP_OVERFLOW_CHECK: u32 = 0;
+pub const MEMP_SANITY_CHECK: u32 = 0;
+pub const MEM_OVERFLOW_CHECK: u32 = 0;
+pub const MEM_SANITY_CHECK: u32 = 0;
+pub const MEM_USE_POOLS: u32 = 0;
+pub const MEM_USE_POOLS_TRY_BIGGER_POOL: u32 = 0;
+pub const MEMP_USE_CUSTOM_POOLS: u32 = 0;
+pub const LWIP_ALLOW_MEM_FREE_FROM_OTHER_CONTEXT: u32 = 0;
+pub const MEMP_NUM_PBUF: u32 = 16;
+pub const MEMP_NUM_TCP_SEG: u32 = 16;
+pub const MEMP_NUM_ALTCP_PCB: u32 = 16;
+pub const MEMP_NUM_REASSDATA: u32 = 5;
+pub const MEMP_NUM_FRAG_PBUF: u32 = 15;
+pub const MEMP_NUM_ARP_QUEUE: u32 = 30;
+pub const MEMP_NUM_IGMP_GROUP: u32 = 8;
+pub const MEMP_NUM_NETBUF: u32 = 2;
+pub const MEMP_NUM_SELECT_CB: u32 = 4;
+pub const MEMP_NUM_TCPIP_MSG_API: u32 = 8;
+pub const MEMP_NUM_TCPIP_MSG_INPKT: u32 = 8;
+pub const MEMP_NUM_NETDB: u32 = 1;
+pub const MEMP_NUM_LOCALHOSTLIST: u32 = 1;
+pub const PBUF_POOL_SIZE: u32 = 16;
+pub const MEMP_NUM_API_MSG: u32 = 8;
+pub const MEMP_NUM_DNS_API_MSG: u32 = 8;
+pub const MEMP_NUM_SOCKET_SETGETSOCKOPT_DATA: u32 = 8;
+pub const MEMP_NUM_NETIFAPI_MSG: u32 = 8;
+pub const LWIP_ARP: u32 = 1;
+pub const ARP_TABLE_SIZE: u32 = 10;
+pub const ARP_MAXAGE: u32 = 300;
+pub const ARP_QUEUE_LEN: u32 = 3;
+pub const ETHARP_SUPPORT_VLAN: u32 = 0;
+pub const LWIP_ETHERNET: u32 = 1;
+pub const ETH_PAD_SIZE: u32 = 0;
+pub const ETHARP_SUPPORT_STATIC_ENTRIES: u32 = 0;
+pub const LWIP_IPV4: u32 = 1;
+pub const IP_FORWARD: u32 = 0;
+pub const IP_NAPT: u32 = 0;
+pub const IP_OPTIONS_ALLOWED: u32 = 1;
+pub const IP_DEFAULT_TTL: u32 = 255;
+pub const IP_SOF_BROADCAST: u32 = 0;
+pub const IP_SOF_BROADCAST_RECV: u32 = 0;
+pub const IP_FORWARD_ALLOW_TX_ON_RX_NETIF: u32 = 0;
+pub const LWIP_ICMP: u32 = 1;
+pub const ICMP_TTL: u32 = 255;
+pub const RAW_TTL: u32 = 255;
+pub const LWIP_DHCP_BOOTP_FILE: u32 = 0;
+pub const LWIP_DHCP_GET_NTP_SRV: u32 = 0;
+pub const LWIP_DHCP_MAX_DNS_SERVERS: u32 = 3;
+pub const LWIP_AUTOIP: u32 = 0;
+pub const LWIP_DHCP_AUTOIP_COOP: u32 = 0;
+pub const ESP_IPV6_AUTOCONFIG: u32 = 0;
+pub const LWIP_DHCP_AUTOIP_COOP_TRIES: u32 = 9;
+pub const LWIP_MIB2_CALLBACKS: u32 = 0;
+pub const DNS_TABLE_SIZE: u32 = 4;
+pub const DNS_MAX_NAME_LENGTH: u32 = 256;
+pub const DNS_MAX_RETRIES: u32 = 4;
+pub const DNS_DOES_NAME_CHECK: u32 = 1;
+pub const LWIP_DNS_SECURE_RAND_XID: u32 = 1;
+pub const LWIP_DNS_SECURE_NO_MULTIPLE_OUTSTANDING: u32 = 2;
+pub const LWIP_DNS_SECURE_RAND_SRC_PORT: u32 = 4;
+pub const DNS_LOCAL_HOSTLIST: u32 = 0;
+pub const DNS_LOCAL_HOSTLIST_IS_DYNAMIC: u32 = 0;
+pub const LWIP_UDP: u32 = 1;
+pub const LWIP_UDPLITE: u32 = 0;
+pub const UDP_TTL: u32 = 255;
+pub const LWIP_TCP: u32 = 1;
+pub const TCP_TTL: u32 = 255;
+pub const LWIP_TCP_MAX_SACK_NUM: u32 = 4;
+pub const TCP_CALCULATE_EFF_SEND_MSS: u32 = 1;
+pub const TCP_SND_QUEUELEN: u32 = 16;
+pub const TCP_OOSEQ_MAX_BYTES: u32 = 0;
+pub const TCP_OOSEQ_MAX_PBUFS: u32 = 0;
+pub const TCP_DEFAULT_LISTEN_BACKLOG: u32 = 255;
+pub const LWIP_TCP_TIMESTAMPS: u32 = 0;
+pub const LWIP_EVENT_API: u32 = 0;
+pub const LWIP_CALLBACK_API: u32 = 1;
+pub const LWIP_WND_SCALE: u32 = 0;
+pub const TCP_RCV_SCALE: u32 = 0;
+pub const LWIP_TCP_PCB_NUM_EXT_ARGS: u32 = 0;
+pub const LWIP_ALTCP: u32 = 0;
+pub const LWIP_ALTCP_TLS: u32 = 0;
+pub const PBUF_LINK_HLEN: u32 = 14;
+pub const PBUF_LINK_ENCAPSULATION_HLEN: u32 = 0;
+pub const LWIP_SINGLE_NETIF: u32 = 0;
+pub const LWIP_NETIF_API: u32 = 0;
+pub const LWIP_NETIF_STATUS_CALLBACK: u32 = 0;
+pub const LWIP_NETIF_EXT_STATUS_CALLBACK: u32 = 0;
+pub const LWIP_NETIF_LINK_CALLBACK: u32 = 0;
+pub const LWIP_NETIF_REMOVE_CALLBACK: u32 = 0;
+pub const LWIP_NETIF_HWADDRHINT: u32 = 0;
+pub const LWIP_NUM_NETIF_CLIENT_DATA: u32 = 0;
+pub const LWIP_LOOPIF_MULTICAST: u32 = 0;
+pub const SLIPIF_THREAD_NAME: &'static [u8; 12usize] = b"slipif_loop\0";
+pub const SLIPIF_THREAD_STACKSIZE: u32 = 0;
+pub const SLIPIF_THREAD_PRIO: u32 = 1;
+pub const DEFAULT_THREAD_NAME: &'static [u8; 5usize] = b"lwIP\0";
+pub const LWIP_NETCONN: u32 = 1;
+pub const LWIP_TCPIP_TIMEOUT: u32 = 0;
+pub const LWIP_SOCKET: u32 = 1;
+pub const LWIP_COMPAT_SOCKETS: u32 = 1;
+pub const LWIP_SO_SNDRCVTIMEO_NONSTANDARD: u32 = 0;
+pub const LWIP_TCP_CLOSE_TIMEOUT_MS_DEFAULT: u32 = 20000;
+pub const LWIP_FIONREAD_LINUXMODE: u32 = 0;
+pub const LWIP_SOCKET_SELECT: u32 = 1;
+pub const LWIP_SOCKET_POLL: u32 = 1;
+pub const LINK_STATS: u32 = 0;
+pub const ETHARP_STATS: u32 = 0;
+pub const IP_STATS: u32 = 0;
+pub const IPFRAG_STATS: u32 = 0;
+pub const ICMP_STATS: u32 = 0;
+pub const IGMP_STATS: u32 = 0;
+pub const UDP_STATS: u32 = 0;
+pub const TCP_STATS: u32 = 0;
+pub const MEM_STATS: u32 = 0;
+pub const MEMP_STATS: u32 = 0;
+pub const SYS_STATS: u32 = 0;
+pub const LWIP_STATS_DISPLAY: u32 = 0;
+pub const IP6_STATS: u32 = 0;
+pub const ICMP6_STATS: u32 = 0;
+pub const IP6_FRAG_STATS: u32 = 0;
+pub const MLD6_STATS: u32 = 0;
+pub const ND6_STATS: u32 = 0;
+pub const MIB2_STATS: u32 = 0;
+pub const LWIP_CHECKSUM_CTRL_PER_NETIF: u32 = 0;
+pub const CHECKSUM_GEN_IP: u32 = 1;
+pub const CHECKSUM_GEN_UDP: u32 = 1;
+pub const CHECKSUM_GEN_TCP: u32 = 1;
+pub const CHECKSUM_GEN_ICMP: u32 = 1;
+pub const CHECKSUM_GEN_ICMP6: u32 = 1;
+pub const CHECKSUM_CHECK_TCP: u32 = 1;
+pub const CHECKSUM_CHECK_ICMP: u32 = 1;
+pub const CHECKSUM_CHECK_ICMP6: u32 = 1;
+pub const LWIP_CHECKSUM_ON_COPY: u32 = 0;
+pub const IPV6_REASS_MAXAGE: u32 = 60;
+pub const LWIP_IPV6_SCOPES_DEBUG: u32 = 0;
+pub const LWIP_IPV6_NUM_ADDRESSES: u32 = 3;
+pub const LWIP_IPV6_FORWARD: u32 = 0;
+pub const LWIP_IPV6_FRAG: u32 = 1;
+pub const LWIP_IPV6_REASS: u32 = 1;
+pub const LWIP_IPV6_SEND_ROUTER_SOLICIT: u32 = 1;
+pub const LWIP_IPV6_AUTOCONFIG: u32 = 1;
+pub const LWIP_IPV6_ADDRESS_LIFETIMES: u32 = 1;
+pub const LWIP_IPV6_DUP_DETECT_ATTEMPTS: u32 = 1;
+pub const LWIP_ICMP6: u32 = 1;
+pub const LWIP_ICMP6_DATASIZE: u32 = 8;
+pub const LWIP_ICMP6_HL: u32 = 255;
+pub const LWIP_IPV6_MLD: u32 = 1;
+pub const MEMP_NUM_MLD6_GROUP: u32 = 4;
+pub const LWIP_ND6_QUEUEING: u32 = 1;
+pub const MEMP_NUM_ND6_QUEUE: u32 = 20;
+pub const LWIP_ND6_NUM_NEIGHBORS: u32 = 10;
+pub const LWIP_ND6_NUM_DESTINATIONS: u32 = 10;
+pub const LWIP_ND6_NUM_PREFIXES: u32 = 5;
+pub const LWIP_ND6_NUM_ROUTERS: u32 = 3;
+pub const LWIP_ND6_MAX_MULTICAST_SOLICIT: u32 = 3;
+pub const LWIP_ND6_MAX_UNICAST_SOLICIT: u32 = 3;
+pub const LWIP_ND6_MAX_ANYCAST_DELAY_TIME: u32 = 1000;
+pub const LWIP_ND6_MAX_NEIGHBOR_ADVERTISEMENT: u32 = 3;
+pub const LWIP_ND6_REACHABLE_TIME: u32 = 30000;
+pub const LWIP_ND6_RETRANS_TIMER: u32 = 1000;
+pub const LWIP_ND6_DELAY_FIRST_PROBE_TIME: u32 = 5000;
+pub const LWIP_ND6_ALLOW_RA_UPDATES: u32 = 1;
+pub const LWIP_ND6_TCP_REACHABILITY_HINTS: u32 = 1;
+pub const LWIP_ND6_RDNSS_MAX_DNS_SERVERS: u32 = 0;
+pub const LWIP_IPV6_DHCP6: u32 = 0;
+pub const LWIP_IPV6_DHCP6_STATEFUL: u32 = 0;
+pub const LWIP_IPV6_DHCP6_STATELESS: u32 = 0;
+pub const LWIP_DHCP6_GET_NTP_SRV: u32 = 0;
+pub const LWIP_DHCP6_MAX_NTP_SERVERS: u32 = 1;
+pub const LWIP_DHCP6_MAX_DNS_SERVERS: u32 = 3;
+pub const LWIP_DBG_MIN_LEVEL: u32 = 0;
+pub const LWIP_DBG_TYPES_ON: u32 = 128;
+pub const API_MSG_DEBUG: u32 = 0;
+pub const IGMP_DEBUG: u32 = 0;
+pub const INET_DEBUG: u32 = 0;
+pub const IP_REASS_DEBUG: u32 = 0;
+pub const RAW_DEBUG: u32 = 0;
+pub const MEM_DEBUG: u32 = 0;
+pub const SYS_DEBUG: u32 = 0;
+pub const TIMERS_DEBUG: u32 = 0;
+pub const TCP_FR_DEBUG: u32 = 0;
+pub const TCP_RTO_DEBUG: u32 = 0;
+pub const TCP_CWND_DEBUG: u32 = 0;
+pub const TCP_WND_DEBUG: u32 = 0;
+pub const TCP_RST_DEBUG: u32 = 0;
+pub const TCP_QLEN_DEBUG: u32 = 0;
+pub const UDP_DEBUG: u32 = 0;
+pub const SLIP_DEBUG: u32 = 0;
+pub const AUTOIP_DEBUG: u32 = 0;
+pub const DNS_DEBUG: u32 = 0;
+pub const IP6_DEBUG: u32 = 0;
+pub const DHCP6_DEBUG: u32 = 0;
+pub const LWIP_TESTMODE: u32 = 0;
+pub const NAPT_DEBUG: u32 = 0;
+pub const LWIP_PERF: u32 = 0;
+pub const IP_CLASSA_NET: u32 = 4278190080;
+pub const IP_CLASSA_NSHIFT: u32 = 24;
+pub const IP_CLASSA_HOST: u32 = 16777215;
+pub const IP_CLASSA_MAX: u32 = 128;
+pub const IP_CLASSB_NET: u32 = 4294901760;
+pub const IP_CLASSB_NSHIFT: u32 = 16;
+pub const IP_CLASSB_HOST: u32 = 65535;
+pub const IP_CLASSB_MAX: u32 = 65536;
+pub const IP_CLASSC_NET: u32 = 4294967040;
+pub const IP_CLASSC_NSHIFT: u32 = 8;
+pub const IP_CLASSC_HOST: u32 = 255;
+pub const IP_CLASSD_NET: u32 = 4026531840;
+pub const IP_CLASSD_NSHIFT: u32 = 28;
+pub const IP_CLASSD_HOST: u32 = 268435455;
+pub const IP_LOOPBACKNET: u32 = 127;
+pub const IP4ADDR_STRLEN_MAX: u32 = 16;
+pub const IP6_NO_ZONE: u32 = 0;
+pub const IPV6_CUSTOM_SCOPES: u32 = 0;
+pub const IP6_MULTICAST_SCOPE_RESERVED: u32 = 0;
+pub const IP6_MULTICAST_SCOPE_RESERVED0: u32 = 0;
+pub const IP6_MULTICAST_SCOPE_INTERFACE_LOCAL: u32 = 1;
+pub const IP6_MULTICAST_SCOPE_LINK_LOCAL: u32 = 2;
+pub const IP6_MULTICAST_SCOPE_RESERVED3: u32 = 3;
+pub const IP6_MULTICAST_SCOPE_ADMIN_LOCAL: u32 = 4;
+pub const IP6_MULTICAST_SCOPE_SITE_LOCAL: u32 = 5;
+pub const IP6_MULTICAST_SCOPE_ORGANIZATION_LOCAL: u32 = 8;
+pub const IP6_MULTICAST_SCOPE_GLOBAL: u32 = 14;
+pub const IP6_MULTICAST_SCOPE_RESERVEDF: u32 = 15;
+pub const IP6_ADDR_INVALID: u32 = 0;
+pub const IP6_ADDR_TENTATIVE: u32 = 8;
+pub const IP6_ADDR_TENTATIVE_1: u32 = 9;
+pub const IP6_ADDR_TENTATIVE_2: u32 = 10;
+pub const IP6_ADDR_TENTATIVE_3: u32 = 11;
+pub const IP6_ADDR_TENTATIVE_4: u32 = 12;
+pub const IP6_ADDR_TENTATIVE_5: u32 = 13;
+pub const IP6_ADDR_TENTATIVE_6: u32 = 14;
+pub const IP6_ADDR_TENTATIVE_7: u32 = 15;
+pub const IP6_ADDR_VALID: u32 = 16;
+pub const IP6_ADDR_PREFERRED: u32 = 48;
+pub const IP6_ADDR_DEPRECATED: u32 = 16;
+pub const IP6_ADDR_DUPLICATED: u32 = 64;
+pub const IP6_ADDR_TENTATIVE_COUNT_MASK: u32 = 7;
+pub const IP6_ADDR_LIFE_STATIC: u32 = 0;
+pub const IP6_ADDR_LIFE_INFINITE: u32 = 4294967295;
+pub const IP6ADDR_STRLEN_MAX: u32 = 46;
+pub const IPADDR_STRLEN_MAX: u32 = 46;
+pub const ESP_PING_COUNT_INFINITE: u32 = 0;
+pub const HTTP_PARSER_VERSION_MAJOR: u32 = 2;
+pub const HTTP_PARSER_VERSION_MINOR: u32 = 7;
+pub const HTTP_PARSER_VERSION_PATCH: u32 = 0;
+pub const HTTP_PARSER_STRICT: u32 = 1;
+pub const HTTP_MAX_HEADER_SIZE: u32 = 81920;
+pub const ESP_ERR_HTTPD_BASE: u32 = 45056;
+pub const ESP_ERR_HTTPD_HANDLERS_FULL: u32 = 45057;
+pub const ESP_ERR_HTTPD_HANDLER_EXISTS: u32 = 45058;
+pub const ESP_ERR_HTTPD_INVALID_REQ: u32 = 45059;
+pub const ESP_ERR_HTTPD_RESULT_TRUNC: u32 = 45060;
+pub const ESP_ERR_HTTPD_RESP_HDR: u32 = 45061;
+pub const ESP_ERR_HTTPD_RESP_SEND: u32 = 45062;
+pub const ESP_ERR_HTTPD_ALLOC_MEM: u32 = 45063;
+pub const ESP_ERR_HTTPD_TASK: u32 = 45064;
+pub const HTTPD_RESP_USE_STRLEN: i32 = -1;
+pub const HTTPD_MAX_REQ_HDR_LEN: u32 = 512;
+pub const HTTPD_MAX_URI_LEN: u32 = 512;
+pub const HTTPD_SOCK_ERR_FAIL: i32 = -1;
+pub const HTTPD_SOCK_ERR_INVALID: i32 = -2;
+pub const HTTPD_SOCK_ERR_TIMEOUT: i32 = -3;
+pub const HTTPD_200: &'static [u8; 7usize] = b"200 OK\0";
+pub const HTTPD_204: &'static [u8; 15usize] = b"204 No Content\0";
+pub const HTTPD_207: &'static [u8; 17usize] = b"207 Multi-Status\0";
+pub const HTTPD_400: &'static [u8; 16usize] = b"400 Bad Request\0";
+pub const HTTPD_404: &'static [u8; 14usize] = b"404 Not Found\0";
+pub const HTTPD_408: &'static [u8; 20usize] = b"408 Request Timeout\0";
+pub const HTTPD_500: &'static [u8; 26usize] = b"500 Internal Server Error\0";
+pub const HTTPD_TYPE_JSON: &'static [u8; 17usize] = b"application/json\0";
+pub const HTTPD_TYPE_TEXT: &'static [u8; 10usize] = b"text/html\0";
+pub const HTTPD_TYPE_OCTET: &'static [u8; 25usize] = b"application/octet-stream\0";
 pub const ESP_INTR_FLAG_LEVEL1: u32 = 2;
 pub const ESP_INTR_FLAG_LEVEL2: u32 = 4;
 pub const ESP_INTR_FLAG_LEVEL3: u32 = 8;
@@ -44648,6 +45502,3372 @@ extern "C" {
     #[doc = "    - ESP_ERR_WIFI_NOT_INIT: WiFi is not initialized by esp_wifi_init"]
     #[doc = "    - ESP_ERR_WIFI_ARG: invalid argument, e.g. parameter is NULL"]
     pub fn esp_wifi_get_ant(config: *mut wifi_ant_config_t) -> esp_err_t;
+}
+pub type locale_t = *mut __locale_t;
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct tm {
+    pub tm_sec: c_types::c_int,
+    pub tm_min: c_types::c_int,
+    pub tm_hour: c_types::c_int,
+    pub tm_mday: c_types::c_int,
+    pub tm_mon: c_types::c_int,
+    pub tm_year: c_types::c_int,
+    pub tm_wday: c_types::c_int,
+    pub tm_yday: c_types::c_int,
+    pub tm_isdst: c_types::c_int,
+}
+extern "C" {
+    pub fn clock() -> clock_t;
+}
+extern "C" {
+    pub fn difftime(_time2: time_t, _time1: time_t) -> f64;
+}
+extern "C" {
+    pub fn mktime(_timeptr: *mut tm) -> time_t;
+}
+extern "C" {
+    pub fn time(_timer: *mut time_t) -> time_t;
+}
+extern "C" {
+    pub fn asctime(_tblock: *const tm) -> *mut c_types::c_char;
+}
+extern "C" {
+    pub fn ctime(_time: *const time_t) -> *mut c_types::c_char;
+}
+extern "C" {
+    pub fn gmtime(_timer: *const time_t) -> *mut tm;
+}
+extern "C" {
+    pub fn localtime(_timer: *const time_t) -> *mut tm;
+}
+extern "C" {
+    pub fn strftime(
+        _s: *mut c_types::c_char,
+        _maxsize: size_t,
+        _fmt: *const c_types::c_char,
+        _t: *const tm,
+    ) -> size_t;
+}
+extern "C" {
+    pub fn strftime_l(
+        _s: *mut c_types::c_char,
+        _maxsize: size_t,
+        _fmt: *const c_types::c_char,
+        _t: *const tm,
+        _l: locale_t,
+    ) -> size_t;
+}
+extern "C" {
+    pub fn asctime_r(arg1: *const tm, arg2: *mut c_types::c_char) -> *mut c_types::c_char;
+}
+extern "C" {
+    pub fn ctime_r(arg1: *const time_t, arg2: *mut c_types::c_char) -> *mut c_types::c_char;
+}
+extern "C" {
+    pub fn gmtime_r(arg1: *const time_t, arg2: *mut tm) -> *mut tm;
+}
+extern "C" {
+    pub fn localtime_r(arg1: *const time_t, arg2: *mut tm) -> *mut tm;
+}
+extern "C" {
+    pub fn tzset();
+}
+extern "C" {
+    pub fn _tzset_r(arg1: *mut _reent);
+}
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct __tzrule_struct {
+    pub ch: c_types::c_char,
+    pub m: c_types::c_int,
+    pub n: c_types::c_int,
+    pub d: c_types::c_int,
+    pub s: c_types::c_int,
+    pub change: time_t,
+    pub offset: c_types::c_long,
+}
+pub type __tzrule_type = __tzrule_struct;
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct __tzinfo_struct {
+    pub __tznorth: c_types::c_int,
+    pub __tzyear: c_types::c_int,
+    pub __tzrule: [__tzrule_type; 2usize],
+}
+pub type __tzinfo_type = __tzinfo_struct;
+extern "C" {
+    pub fn __gettzinfo() -> *mut __tzinfo_type;
+}
+extern "C" {
+    pub static mut _timezone: c_types::c_long;
+}
+extern "C" {
+    pub static mut _daylight: c_types::c_int;
+}
+extern "C" {
+    pub static mut _tzname: [*mut c_types::c_char; 2usize];
+}
+#[repr(C)]
+#[derive(Copy, Clone)]
+pub union sigval {
+    pub sival_int: c_types::c_int,
+    pub sival_ptr: *mut c_types::c_void,
+    _bindgen_union_align: u32,
+}
+#[repr(C)]
+#[derive(Copy, Clone)]
+pub struct sigevent {
+    pub sigev_notify: c_types::c_int,
+    pub sigev_signo: c_types::c_int,
+    pub sigev_value: sigval,
+    pub sigev_notify_function: ::core::option::Option<unsafe extern "C" fn(arg1: sigval)>,
+    pub sigev_notify_attributes: *mut pthread_attr_t,
+}
+#[repr(C)]
+#[derive(Copy, Clone)]
+pub struct siginfo_t {
+    pub si_signo: c_types::c_int,
+    pub si_code: c_types::c_int,
+    pub si_value: sigval,
+}
+pub type _sig_func_ptr = ::core::option::Option<unsafe extern "C" fn(arg1: c_types::c_int)>;
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct sigaction {
+    pub sa_handler: _sig_func_ptr,
+    pub sa_mask: sigset_t,
+    pub sa_flags: c_types::c_int,
+}
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct sigaltstack {
+    pub ss_sp: *mut c_types::c_void,
+    pub ss_flags: c_types::c_int,
+    pub ss_size: size_t,
+}
+pub type stack_t = sigaltstack;
+extern "C" {
+    pub fn sigprocmask(
+        how: c_types::c_int,
+        set: *const sigset_t,
+        oset: *mut sigset_t,
+    ) -> c_types::c_int;
+}
+extern "C" {
+    pub fn pthread_sigmask(
+        how: c_types::c_int,
+        set: *const sigset_t,
+        oset: *mut sigset_t,
+    ) -> c_types::c_int;
+}
+extern "C" {
+    pub fn kill(arg1: pid_t, arg2: c_types::c_int) -> c_types::c_int;
+}
+extern "C" {
+    pub fn killpg(arg1: pid_t, arg2: c_types::c_int) -> c_types::c_int;
+}
+extern "C" {
+    pub fn sigaction(
+        arg1: c_types::c_int,
+        arg2: *const sigaction,
+        arg3: *mut sigaction,
+    ) -> c_types::c_int;
+}
+extern "C" {
+    pub fn sigaddset(arg1: *mut sigset_t, arg2: c_types::c_int) -> c_types::c_int;
+}
+extern "C" {
+    pub fn sigdelset(arg1: *mut sigset_t, arg2: c_types::c_int) -> c_types::c_int;
+}
+extern "C" {
+    pub fn sigismember(arg1: *const sigset_t, arg2: c_types::c_int) -> c_types::c_int;
+}
+extern "C" {
+    pub fn sigfillset(arg1: *mut sigset_t) -> c_types::c_int;
+}
+extern "C" {
+    pub fn sigemptyset(arg1: *mut sigset_t) -> c_types::c_int;
+}
+extern "C" {
+    pub fn sigpending(arg1: *mut sigset_t) -> c_types::c_int;
+}
+extern "C" {
+    pub fn sigsuspend(arg1: *const sigset_t) -> c_types::c_int;
+}
+extern "C" {
+    pub fn sigwait(set: *const sigset_t, sig: *mut c_types::c_int) -> c_types::c_int;
+}
+extern "C" {
+    pub fn sigpause(arg1: c_types::c_int) -> c_types::c_int;
+}
+extern "C" {
+    pub fn sigaltstack(arg1: *const stack_t, arg2: *mut stack_t) -> c_types::c_int;
+}
+extern "C" {
+    pub fn pthread_kill(thread: pthread_t, sig: c_types::c_int) -> c_types::c_int;
+}
+extern "C" {
+    pub fn sigwaitinfo(set: *const sigset_t, info: *mut siginfo_t) -> c_types::c_int;
+}
+extern "C" {
+    pub fn sigtimedwait(
+        set: *const sigset_t,
+        info: *mut siginfo_t,
+        timeout: *const timespec,
+    ) -> c_types::c_int;
+}
+extern "C" {
+    pub fn sigqueue(pid: pid_t, signo: c_types::c_int, value: sigval) -> c_types::c_int;
+}
+pub type sig_atomic_t = c_types::c_int;
+pub type sig_t = _sig_func_ptr;
+extern "C" {
+    pub fn _signal_r(arg1: *mut _reent, arg2: c_types::c_int, arg3: _sig_func_ptr)
+        -> _sig_func_ptr;
+}
+extern "C" {
+    pub fn _raise_r(arg1: *mut _reent, arg2: c_types::c_int) -> c_types::c_int;
+}
+extern "C" {
+    pub fn signal(arg1: c_types::c_int, arg2: _sig_func_ptr) -> _sig_func_ptr;
+}
+extern "C" {
+    pub fn raise(arg1: c_types::c_int) -> c_types::c_int;
+}
+extern "C" {
+    pub fn psignal(arg1: c_types::c_int, arg2: *const c_types::c_char);
+}
+extern "C" {
+    pub fn clock_settime(clock_id: clockid_t, tp: *const timespec) -> c_types::c_int;
+}
+extern "C" {
+    pub fn clock_gettime(clock_id: clockid_t, tp: *mut timespec) -> c_types::c_int;
+}
+extern "C" {
+    pub fn clock_getres(clock_id: clockid_t, res: *mut timespec) -> c_types::c_int;
+}
+extern "C" {
+    pub fn timer_create(
+        clock_id: clockid_t,
+        evp: *mut sigevent,
+        timerid: *mut timer_t,
+    ) -> c_types::c_int;
+}
+extern "C" {
+    pub fn timer_delete(timerid: timer_t) -> c_types::c_int;
+}
+extern "C" {
+    pub fn timer_settime(
+        timerid: timer_t,
+        flags: c_types::c_int,
+        value: *const itimerspec,
+        ovalue: *mut itimerspec,
+    ) -> c_types::c_int;
+}
+extern "C" {
+    pub fn timer_gettime(timerid: timer_t, value: *mut itimerspec) -> c_types::c_int;
+}
+extern "C" {
+    pub fn timer_getoverrun(timerid: timer_t) -> c_types::c_int;
+}
+extern "C" {
+    pub fn nanosleep(rqtp: *const timespec, rmtp: *mut timespec) -> c_types::c_int;
+}
+extern "C" {
+    pub fn clock_nanosleep(
+        clock_id: clockid_t,
+        flags: c_types::c_int,
+        rqtp: *const timespec,
+        rmtp: *mut timespec,
+    ) -> c_types::c_int;
+}
+extern "C" {
+    pub static mut environ: *mut *mut c_types::c_char;
+}
+extern "C" {
+    pub fn _exit(__status: c_types::c_int);
+}
+extern "C" {
+    pub fn access(__path: *const c_types::c_char, __amode: c_types::c_int) -> c_types::c_int;
+}
+extern "C" {
+    pub fn alarm(__secs: c_types::c_uint) -> c_types::c_uint;
+}
+extern "C" {
+    pub fn chdir(__path: *const c_types::c_char) -> c_types::c_int;
+}
+extern "C" {
+    pub fn chmod(__path: *const c_types::c_char, __mode: mode_t) -> c_types::c_int;
+}
+extern "C" {
+    pub fn chown(__path: *const c_types::c_char, __owner: uid_t, __group: gid_t) -> c_types::c_int;
+}
+extern "C" {
+    pub fn chroot(__path: *const c_types::c_char) -> c_types::c_int;
+}
+extern "C" {
+    pub fn close(__fildes: c_types::c_int) -> c_types::c_int;
+}
+extern "C" {
+    pub fn confstr(__name: c_types::c_int, __buf: *mut c_types::c_char, __len: size_t) -> size_t;
+}
+extern "C" {
+    pub fn daemon(nochdir: c_types::c_int, noclose: c_types::c_int) -> c_types::c_int;
+}
+extern "C" {
+    pub fn dup(__fildes: c_types::c_int) -> c_types::c_int;
+}
+extern "C" {
+    pub fn dup2(__fildes: c_types::c_int, __fildes2: c_types::c_int) -> c_types::c_int;
+}
+extern "C" {
+    pub fn endusershell();
+}
+extern "C" {
+    pub fn execl(
+        __path: *const c_types::c_char,
+        arg1: *const c_types::c_char,
+        ...
+    ) -> c_types::c_int;
+}
+extern "C" {
+    pub fn execle(
+        __path: *const c_types::c_char,
+        arg1: *const c_types::c_char,
+        ...
+    ) -> c_types::c_int;
+}
+extern "C" {
+    pub fn execlp(
+        __file: *const c_types::c_char,
+        arg1: *const c_types::c_char,
+        ...
+    ) -> c_types::c_int;
+}
+extern "C" {
+    pub fn execlpe(
+        __file: *const c_types::c_char,
+        arg1: *const c_types::c_char,
+        ...
+    ) -> c_types::c_int;
+}
+extern "C" {
+    pub fn execv(
+        __path: *const c_types::c_char,
+        __argv: *const *mut c_types::c_char,
+    ) -> c_types::c_int;
+}
+extern "C" {
+    pub fn execve(
+        __path: *const c_types::c_char,
+        __argv: *const *mut c_types::c_char,
+        __envp: *const *mut c_types::c_char,
+    ) -> c_types::c_int;
+}
+extern "C" {
+    pub fn execvp(
+        __file: *const c_types::c_char,
+        __argv: *const *mut c_types::c_char,
+    ) -> c_types::c_int;
+}
+extern "C" {
+    pub fn faccessat(
+        __dirfd: c_types::c_int,
+        __path: *const c_types::c_char,
+        __mode: c_types::c_int,
+        __flags: c_types::c_int,
+    ) -> c_types::c_int;
+}
+extern "C" {
+    pub fn fchdir(__fildes: c_types::c_int) -> c_types::c_int;
+}
+extern "C" {
+    pub fn fchmod(__fildes: c_types::c_int, __mode: mode_t) -> c_types::c_int;
+}
+extern "C" {
+    pub fn fchown(__fildes: c_types::c_int, __owner: uid_t, __group: gid_t) -> c_types::c_int;
+}
+extern "C" {
+    pub fn fchownat(
+        __dirfd: c_types::c_int,
+        __path: *const c_types::c_char,
+        __owner: uid_t,
+        __group: gid_t,
+        __flags: c_types::c_int,
+    ) -> c_types::c_int;
+}
+extern "C" {
+    pub fn fexecve(
+        __fd: c_types::c_int,
+        __argv: *const *mut c_types::c_char,
+        __envp: *const *mut c_types::c_char,
+    ) -> c_types::c_int;
+}
+extern "C" {
+    pub fn fork() -> pid_t;
+}
+extern "C" {
+    pub fn fpathconf(__fd: c_types::c_int, __name: c_types::c_int) -> c_types::c_long;
+}
+extern "C" {
+    pub fn fsync(__fd: c_types::c_int) -> c_types::c_int;
+}
+extern "C" {
+    pub fn fdatasync(__fd: c_types::c_int) -> c_types::c_int;
+}
+extern "C" {
+    pub fn getcwd(__buf: *mut c_types::c_char, __size: size_t) -> *mut c_types::c_char;
+}
+extern "C" {
+    pub fn getdomainname(__name: *mut c_types::c_char, __len: size_t) -> c_types::c_int;
+}
+extern "C" {
+    pub fn getentropy(arg1: *mut c_types::c_void, arg2: size_t) -> c_types::c_int;
+}
+extern "C" {
+    pub fn getegid() -> gid_t;
+}
+extern "C" {
+    pub fn geteuid() -> uid_t;
+}
+extern "C" {
+    pub fn getgid() -> gid_t;
+}
+extern "C" {
+    pub fn getgroups(__gidsetsize: c_types::c_int, __grouplist: *mut gid_t) -> c_types::c_int;
+}
+extern "C" {
+    pub fn gethostid() -> c_types::c_long;
+}
+extern "C" {
+    pub fn getlogin() -> *mut c_types::c_char;
+}
+extern "C" {
+    pub fn getpass(__prompt: *const c_types::c_char) -> *mut c_types::c_char;
+}
+extern "C" {
+    pub fn getpagesize() -> c_types::c_int;
+}
+extern "C" {
+    pub fn getpeereid(arg1: c_types::c_int, arg2: *mut uid_t, arg3: *mut gid_t) -> c_types::c_int;
+}
+extern "C" {
+    pub fn getpgid(arg1: pid_t) -> pid_t;
+}
+extern "C" {
+    pub fn getpgrp() -> pid_t;
+}
+extern "C" {
+    pub fn getpid() -> pid_t;
+}
+extern "C" {
+    pub fn getppid() -> pid_t;
+}
+extern "C" {
+    pub fn getsid(arg1: pid_t) -> pid_t;
+}
+extern "C" {
+    pub fn getuid() -> uid_t;
+}
+extern "C" {
+    pub fn getusershell() -> *mut c_types::c_char;
+}
+extern "C" {
+    pub fn getwd(__buf: *mut c_types::c_char) -> *mut c_types::c_char;
+}
+extern "C" {
+    pub fn iruserok(
+        raddr: c_types::c_ulong,
+        superuser: c_types::c_int,
+        ruser: *const c_types::c_char,
+        luser: *const c_types::c_char,
+    ) -> c_types::c_int;
+}
+extern "C" {
+    pub fn isatty(__fildes: c_types::c_int) -> c_types::c_int;
+}
+extern "C" {
+    pub fn issetugid() -> c_types::c_int;
+}
+extern "C" {
+    pub fn lchown(__path: *const c_types::c_char, __owner: uid_t, __group: gid_t)
+        -> c_types::c_int;
+}
+extern "C" {
+    pub fn link(__path1: *const c_types::c_char, __path2: *const c_types::c_char)
+        -> c_types::c_int;
+}
+extern "C" {
+    pub fn linkat(
+        __dirfd1: c_types::c_int,
+        __path1: *const c_types::c_char,
+        __dirfd2: c_types::c_int,
+        __path2: *const c_types::c_char,
+        __flags: c_types::c_int,
+    ) -> c_types::c_int;
+}
+extern "C" {
+    pub fn nice(__nice_value: c_types::c_int) -> c_types::c_int;
+}
+extern "C" {
+    pub fn lseek(__fildes: c_types::c_int, __offset: off_t, __whence: c_types::c_int) -> off_t;
+}
+extern "C" {
+    pub fn lockf(__fd: c_types::c_int, __cmd: c_types::c_int, __len: off_t) -> c_types::c_int;
+}
+extern "C" {
+    pub fn pathconf(__path: *const c_types::c_char, __name: c_types::c_int) -> c_types::c_long;
+}
+extern "C" {
+    pub fn pause() -> c_types::c_int;
+}
+extern "C" {
+    pub fn pthread_atfork(
+        arg1: ::core::option::Option<unsafe extern "C" fn()>,
+        arg2: ::core::option::Option<unsafe extern "C" fn()>,
+        arg3: ::core::option::Option<unsafe extern "C" fn()>,
+    ) -> c_types::c_int;
+}
+extern "C" {
+    pub fn pipe(__fildes: *mut c_types::c_int) -> c_types::c_int;
+}
+extern "C" {
+    pub fn pread(
+        __fd: c_types::c_int,
+        __buf: *mut c_types::c_void,
+        __nbytes: size_t,
+        __offset: off_t,
+    ) -> ssize_t;
+}
+extern "C" {
+    pub fn pwrite(
+        __fd: c_types::c_int,
+        __buf: *const c_types::c_void,
+        __nbytes: size_t,
+        __offset: off_t,
+    ) -> ssize_t;
+}
+extern "C" {
+    pub fn read(
+        __fd: c_types::c_int,
+        __buf: *mut c_types::c_void,
+        __nbyte: size_t,
+    ) -> c_types::c_int;
+}
+extern "C" {
+    pub fn rresvport(__alport: *mut c_types::c_int) -> c_types::c_int;
+}
+extern "C" {
+    pub fn revoke(__path: *mut c_types::c_char) -> c_types::c_int;
+}
+extern "C" {
+    pub fn rmdir(__path: *const c_types::c_char) -> c_types::c_int;
+}
+extern "C" {
+    pub fn ruserok(
+        rhost: *const c_types::c_char,
+        superuser: c_types::c_int,
+        ruser: *const c_types::c_char,
+        luser: *const c_types::c_char,
+    ) -> c_types::c_int;
+}
+extern "C" {
+    pub fn sbrk(__incr: isize) -> *mut c_types::c_void;
+}
+extern "C" {
+    pub fn setegid(__gid: gid_t) -> c_types::c_int;
+}
+extern "C" {
+    pub fn seteuid(__uid: uid_t) -> c_types::c_int;
+}
+extern "C" {
+    pub fn setgid(__gid: gid_t) -> c_types::c_int;
+}
+extern "C" {
+    pub fn setgroups(ngroups: c_types::c_int, grouplist: *const gid_t) -> c_types::c_int;
+}
+extern "C" {
+    pub fn sethostname(arg1: *const c_types::c_char, arg2: size_t) -> c_types::c_int;
+}
+extern "C" {
+    pub fn setpgid(__pid: pid_t, __pgid: pid_t) -> c_types::c_int;
+}
+extern "C" {
+    pub fn setpgrp() -> c_types::c_int;
+}
+extern "C" {
+    pub fn setregid(__rgid: gid_t, __egid: gid_t) -> c_types::c_int;
+}
+extern "C" {
+    pub fn setreuid(__ruid: uid_t, __euid: uid_t) -> c_types::c_int;
+}
+extern "C" {
+    pub fn setsid() -> pid_t;
+}
+extern "C" {
+    pub fn setuid(__uid: uid_t) -> c_types::c_int;
+}
+extern "C" {
+    pub fn setusershell();
+}
+extern "C" {
+    pub fn sleep(__seconds: c_types::c_uint) -> c_types::c_uint;
+}
+extern "C" {
+    pub fn sysconf(__name: c_types::c_int) -> c_types::c_long;
+}
+extern "C" {
+    pub fn tcgetpgrp(__fildes: c_types::c_int) -> pid_t;
+}
+extern "C" {
+    pub fn tcsetpgrp(__fildes: c_types::c_int, __pgrp_id: pid_t) -> c_types::c_int;
+}
+extern "C" {
+    pub fn ttyname(__fildes: c_types::c_int) -> *mut c_types::c_char;
+}
+extern "C" {
+    pub fn ttyname_r(
+        arg1: c_types::c_int,
+        arg2: *mut c_types::c_char,
+        arg3: size_t,
+    ) -> c_types::c_int;
+}
+extern "C" {
+    pub fn unlink(__path: *const c_types::c_char) -> c_types::c_int;
+}
+extern "C" {
+    pub fn usleep(__useconds: useconds_t) -> c_types::c_int;
+}
+extern "C" {
+    pub fn vhangup() -> c_types::c_int;
+}
+extern "C" {
+    pub fn write(
+        __fd: c_types::c_int,
+        __buf: *const c_types::c_void,
+        __nbyte: size_t,
+    ) -> c_types::c_int;
+}
+extern "C" {
+    pub static mut optarg: *mut c_types::c_char;
+}
+extern "C" {
+    pub static mut optind: c_types::c_int;
+}
+extern "C" {
+    pub static mut opterr: c_types::c_int;
+}
+extern "C" {
+    pub static mut optopt: c_types::c_int;
+}
+extern "C" {
+    pub fn getopt(
+        arg1: c_types::c_int,
+        arg2: *const *mut c_types::c_char,
+        arg3: *const c_types::c_char,
+    ) -> c_types::c_int;
+}
+extern "C" {
+    pub static mut optreset: c_types::c_int;
+}
+extern "C" {
+    pub fn vfork() -> c_types::c_int;
+}
+extern "C" {
+    pub fn ftruncate(__fd: c_types::c_int, __length: off_t) -> c_types::c_int;
+}
+extern "C" {
+    pub fn truncate(arg1: *const c_types::c_char, __length: off_t) -> c_types::c_int;
+}
+extern "C" {
+    pub fn getdtablesize() -> c_types::c_int;
+}
+extern "C" {
+    pub fn ualarm(__useconds: useconds_t, __interval: useconds_t) -> useconds_t;
+}
+extern "C" {
+    pub fn gethostname(__name: *mut c_types::c_char, __len: size_t) -> c_types::c_int;
+}
+extern "C" {
+    pub fn setdtablesize(arg1: c_types::c_int) -> c_types::c_int;
+}
+extern "C" {
+    pub fn sync();
+}
+extern "C" {
+    pub fn readlink(
+        __path: *const c_types::c_char,
+        __buf: *mut c_types::c_char,
+        __buflen: size_t,
+    ) -> ssize_t;
+}
+extern "C" {
+    pub fn symlink(
+        __name1: *const c_types::c_char,
+        __name2: *const c_types::c_char,
+    ) -> c_types::c_int;
+}
+extern "C" {
+    pub fn readlinkat(
+        __dirfd1: c_types::c_int,
+        __path: *const c_types::c_char,
+        __buf: *mut c_types::c_char,
+        __buflen: size_t,
+    ) -> ssize_t;
+}
+extern "C" {
+    pub fn symlinkat(
+        arg1: *const c_types::c_char,
+        arg2: c_types::c_int,
+        arg3: *const c_types::c_char,
+    ) -> c_types::c_int;
+}
+extern "C" {
+    pub fn unlinkat(
+        arg1: c_types::c_int,
+        arg2: *const c_types::c_char,
+        arg3: c_types::c_int,
+    ) -> c_types::c_int;
+}
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct timezone {
+    pub tz_minuteswest: c_types::c_int,
+    pub tz_dsttime: c_types::c_int,
+}
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct bintime {
+    pub sec: time_t,
+    pub frac: u64,
+}
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct itimerval {
+    pub it_interval: timeval,
+    pub it_value: timeval,
+}
+extern "C" {
+    pub fn utimes(__path: *const c_types::c_char, __tvp: *const timeval) -> c_types::c_int;
+}
+extern "C" {
+    pub fn adjtime(arg1: *const timeval, arg2: *mut timeval) -> c_types::c_int;
+}
+extern "C" {
+    pub fn futimes(arg1: c_types::c_int, arg2: *const timeval) -> c_types::c_int;
+}
+extern "C" {
+    pub fn lutimes(arg1: *const c_types::c_char, arg2: *const timeval) -> c_types::c_int;
+}
+extern "C" {
+    pub fn settimeofday(arg1: *const timeval, arg2: *const timezone) -> c_types::c_int;
+}
+extern "C" {
+    pub fn getitimer(__which: c_types::c_int, __value: *mut itimerval) -> c_types::c_int;
+}
+extern "C" {
+    pub fn setitimer(
+        __which: c_types::c_int,
+        __value: *const itimerval,
+        __ovalue: *mut itimerval,
+    ) -> c_types::c_int;
+}
+extern "C" {
+    pub fn gettimeofday(__p: *mut timeval, __tz: *mut c_types::c_void) -> c_types::c_int;
+}
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct flock {
+    pub l_type: c_types::c_short,
+    pub l_whence: c_types::c_short,
+    pub l_start: c_types::c_long,
+    pub l_len: c_types::c_long,
+    pub l_pid: c_types::c_short,
+    pub l_xxx: c_types::c_short,
+}
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct eflock {
+    pub l_type: c_types::c_short,
+    pub l_whence: c_types::c_short,
+    pub l_start: c_types::c_long,
+    pub l_len: c_types::c_long,
+    pub l_pid: c_types::c_short,
+    pub l_xxx: c_types::c_short,
+    pub l_rpid: c_types::c_long,
+    pub l_rsys: c_types::c_long,
+}
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct stat {
+    pub st_dev: dev_t,
+    pub st_ino: ino_t,
+    pub st_mode: mode_t,
+    pub st_nlink: nlink_t,
+    pub st_uid: uid_t,
+    pub st_gid: gid_t,
+    pub st_rdev: dev_t,
+    pub st_size: off_t,
+    pub st_atime: time_t,
+    pub st_spare1: c_types::c_long,
+    pub st_mtime: time_t,
+    pub st_spare2: c_types::c_long,
+    pub st_ctime: time_t,
+    pub st_spare3: c_types::c_long,
+    pub st_blksize: blksize_t,
+    pub st_blocks: blkcnt_t,
+    pub st_spare4: [c_types::c_long; 2usize],
+}
+extern "C" {
+    pub fn fstat(__fd: c_types::c_int, __sbuf: *mut stat) -> c_types::c_int;
+}
+extern "C" {
+    pub fn mkdir(_path: *const c_types::c_char, __mode: mode_t) -> c_types::c_int;
+}
+extern "C" {
+    pub fn mkfifo(__path: *const c_types::c_char, __mode: mode_t) -> c_types::c_int;
+}
+extern "C" {
+    pub fn stat(__path: *const c_types::c_char, __sbuf: *mut stat) -> c_types::c_int;
+}
+extern "C" {
+    pub fn umask(__mask: mode_t) -> mode_t;
+}
+extern "C" {
+    pub fn fchmodat(
+        arg1: c_types::c_int,
+        arg2: *const c_types::c_char,
+        arg3: mode_t,
+        arg4: c_types::c_int,
+    ) -> c_types::c_int;
+}
+extern "C" {
+    pub fn fstatat(
+        arg1: c_types::c_int,
+        arg2: *const c_types::c_char,
+        arg3: *mut stat,
+        arg4: c_types::c_int,
+    ) -> c_types::c_int;
+}
+extern "C" {
+    pub fn mkdirat(
+        arg1: c_types::c_int,
+        arg2: *const c_types::c_char,
+        arg3: mode_t,
+    ) -> c_types::c_int;
+}
+extern "C" {
+    pub fn mkfifoat(
+        arg1: c_types::c_int,
+        arg2: *const c_types::c_char,
+        arg3: mode_t,
+    ) -> c_types::c_int;
+}
+extern "C" {
+    pub fn mknodat(
+        arg1: c_types::c_int,
+        arg2: *const c_types::c_char,
+        arg3: mode_t,
+        arg4: dev_t,
+    ) -> c_types::c_int;
+}
+extern "C" {
+    pub fn utimensat(
+        arg1: c_types::c_int,
+        arg2: *const c_types::c_char,
+        arg3: *const timespec,
+        arg4: c_types::c_int,
+    ) -> c_types::c_int;
+}
+extern "C" {
+    pub fn futimens(arg1: c_types::c_int, arg2: *const timespec) -> c_types::c_int;
+}
+extern "C" {
+    pub fn open(arg1: *const c_types::c_char, arg2: c_types::c_int, ...) -> c_types::c_int;
+}
+extern "C" {
+    pub fn openat(
+        arg1: c_types::c_int,
+        arg2: *const c_types::c_char,
+        arg3: c_types::c_int,
+        ...
+    ) -> c_types::c_int;
+}
+extern "C" {
+    pub fn creat(arg1: *const c_types::c_char, arg2: mode_t) -> c_types::c_int;
+}
+extern "C" {
+    pub fn fcntl(arg1: c_types::c_int, arg2: c_types::c_int, ...) -> c_types::c_int;
+}
+extern "C" {
+    pub fn flock(arg1: c_types::c_int, arg2: c_types::c_int) -> c_types::c_int;
+}
+extern "C" {
+    pub fn ioctl(fd: c_types::c_int, request: c_types::c_int, ...) -> c_types::c_int;
+}
+#[doc = "< Update system time immediately when receiving a response from the SNTP server."]
+pub const sntp_sync_mode_t_SNTP_SYNC_MODE_IMMED: sntp_sync_mode_t = 0;
+#[doc = "< Smooth time updating. Time error is gradually reduced using adjtime function. If the difference between SNTP response time and system time is large (more than 35 minutes) then update immediately."]
+pub const sntp_sync_mode_t_SNTP_SYNC_MODE_SMOOTH: sntp_sync_mode_t = 1;
+#[doc = " SNTP time update mode"]
+pub type sntp_sync_mode_t = c_types::c_uint;
+pub const sntp_sync_status_t_SNTP_SYNC_STATUS_RESET: sntp_sync_status_t = 0;
+pub const sntp_sync_status_t_SNTP_SYNC_STATUS_COMPLETED: sntp_sync_status_t = 1;
+pub const sntp_sync_status_t_SNTP_SYNC_STATUS_IN_PROGRESS: sntp_sync_status_t = 2;
+#[doc = " SNTP sync status"]
+pub type sntp_sync_status_t = c_types::c_uint;
+#[doc = " @brief SNTP callback function for notifying about time sync event"]
+#[doc = ""]
+#[doc = " @param tv Time received from SNTP server."]
+pub type sntp_sync_time_cb_t = ::core::option::Option<unsafe extern "C" fn(tv: *mut timeval)>;
+extern "C" {
+    #[doc = " @brief This function updates the system time."]
+    #[doc = ""]
+    #[doc = " This is a weak-linked function. It is possible to replace all SNTP update functionality"]
+    #[doc = " by placing a sntp_sync_time() function in the app firmware source."]
+    #[doc = " If the default implementation is used, calling sntp_set_sync_mode() allows"]
+    #[doc = " the time synchronization mode to be changed to instant or smooth."]
+    #[doc = " If a callback function is registered via sntp_set_time_sync_notification_cb(),"]
+    #[doc = " it will be called following time synchronization."]
+    #[doc = ""]
+    #[doc = " @param tv Time received from SNTP server."]
+    pub fn sntp_sync_time(tv: *mut timeval);
+}
+extern "C" {
+    #[doc = " @brief Set the sync mode"]
+    #[doc = ""]
+    #[doc = " Allowable two mode: SNTP_SYNC_MODE_IMMED and SNTP_SYNC_MODE_SMOOTH."]
+    #[doc = " @param sync_mode Sync mode."]
+    pub fn sntp_set_sync_mode(sync_mode: sntp_sync_mode_t);
+}
+extern "C" {
+    #[doc = " @brief Get set sync mode"]
+    #[doc = ""]
+    #[doc = " @return  SNTP_SYNC_MODE_IMMED: Update time immediately."]
+    #[doc = "          SNTP_SYNC_MODE_SMOOTH: Smooth time updating."]
+    pub fn sntp_get_sync_mode() -> sntp_sync_mode_t;
+}
+extern "C" {
+    #[doc = " @brief Get status of time sync"]
+    #[doc = ""]
+    #[doc = " After the update is completed, the status will be returned as SNTP_SYNC_STATUS_COMPLETED."]
+    #[doc = " After that, the status will be reset to SNTP_SYNC_STATUS_RESET."]
+    #[doc = " If the update operation is not completed yet, the status will be SNTP_SYNC_STATUS_RESET."]
+    #[doc = " If a smooth mode was chosen and the synchronization is still continuing (adjtime works), then it will be SNTP_SYNC_STATUS_IN_PROGRESS."]
+    #[doc = ""]
+    #[doc = " @return  SNTP_SYNC_STATUS_RESET: Reset status."]
+    #[doc = "          SNTP_SYNC_STATUS_COMPLETED: Time is synchronized."]
+    #[doc = "          SNTP_SYNC_STATUS_IN_PROGRESS: Smooth time sync in progress."]
+    pub fn sntp_get_sync_status() -> sntp_sync_status_t;
+}
+extern "C" {
+    #[doc = " @brief Set status of time sync"]
+    #[doc = ""]
+    #[doc = " @param sync_status status of time sync (see sntp_sync_status_t)"]
+    pub fn sntp_set_sync_status(sync_status: sntp_sync_status_t);
+}
+extern "C" {
+    #[doc = " @brief Set a callback function for time synchronization notification"]
+    #[doc = ""]
+    #[doc = " @param callback a callback function"]
+    pub fn sntp_set_time_sync_notification_cb(callback: sntp_sync_time_cb_t);
+}
+extern "C" {
+    #[doc = " @brief Set the sync interval of SNTP operation"]
+    #[doc = ""]
+    #[doc = " Note: SNTPv4 RFC 4330 enforces a minimum sync interval of 15 seconds."]
+    #[doc = " This sync interval will be used in the next attempt update time throught SNTP."]
+    #[doc = " To apply the new sync interval call the sntp_restart() function,"]
+    #[doc = " otherwise, it will be applied after the last interval expired."]
+    #[doc = ""]
+    #[doc = " @param interval_ms   The sync interval in ms. It cannot be lower than 15 seconds, otherwise 15 seconds will be set."]
+    pub fn sntp_set_sync_interval(interval_ms: u32);
+}
+extern "C" {
+    #[doc = " @brief Get the sync interval of SNTP operation"]
+    #[doc = ""]
+    #[doc = " @return  the sync interval"]
+    pub fn sntp_get_sync_interval() -> u32;
+}
+extern "C" {
+    #[doc = " @brief Restart SNTP"]
+    #[doc = ""]
+    #[doc = " @return True  - Restart"]
+    #[doc = "         False - SNTP was not initialized yet"]
+    pub fn sntp_restart() -> bool;
+}
+extern "C" {
+    pub fn dhcp_ip_addr_restore(netif: *mut c_types::c_void) -> bool;
+}
+extern "C" {
+    pub fn dhcp_ip_addr_store(netif: *mut c_types::c_void);
+}
+extern "C" {
+    pub fn dhcp_ip_addr_erase(esp_netif: *mut c_types::c_void);
+}
+pub type error_t = c_types::c_int;
+extern "C" {
+    pub fn __errno() -> *mut c_types::c_int;
+}
+extern "C" {
+    pub static mut _sys_errlist: [*const c_types::c_char; 0usize];
+}
+extern "C" {
+    pub static mut _sys_nerr: c_types::c_int;
+}
+extern "C" {
+    pub fn esp_vfs_lwip_sockets_register();
+}
+pub type sys_sem_t = SemaphoreHandle_t;
+pub type sys_mutex_t = SemaphoreHandle_t;
+pub type sys_thread_t = TaskHandle_t;
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct sys_mbox_s {
+    pub os_mbox: QueueHandle_t,
+    pub owner: *mut c_types::c_void,
+}
+pub type sys_mbox_t = *mut sys_mbox_s;
+extern "C" {
+    pub fn sys_delay_ms(ms: u32);
+}
+extern "C" {
+    pub fn sys_thread_sem_init() -> *mut sys_sem_t;
+}
+extern "C" {
+    pub fn sys_thread_sem_deinit();
+}
+extern "C" {
+    pub fn sys_thread_sem_get() -> *mut sys_sem_t;
+}
+pub type u8_t = u8;
+pub type s8_t = i8;
+pub type u16_t = u16;
+pub type s16_t = i16;
+pub type u32_t = u32;
+pub type s32_t = i32;
+pub type sys_prot_t = c_types::c_int;
+pub type u64_t = u64;
+pub type s64_t = i64;
+pub type mem_ptr_t = usize;
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct imaxdiv_t {
+    pub quot: intmax_t,
+    pub rem: intmax_t,
+}
+extern "C" {
+    pub fn imaxabs(j: intmax_t) -> intmax_t;
+}
+extern "C" {
+    pub fn imaxdiv(numer: intmax_t, denomer: intmax_t) -> imaxdiv_t;
+}
+extern "C" {
+    pub fn strtoimax(
+        arg1: *const c_types::c_char,
+        arg2: *mut *mut c_types::c_char,
+        arg3: c_types::c_int,
+    ) -> intmax_t;
+}
+extern "C" {
+    pub fn _strtoimax_r(
+        arg1: *mut _reent,
+        arg2: *const c_types::c_char,
+        arg3: *mut *mut c_types::c_char,
+        arg4: c_types::c_int,
+    ) -> intmax_t;
+}
+extern "C" {
+    pub fn strtoumax(
+        arg1: *const c_types::c_char,
+        arg2: *mut *mut c_types::c_char,
+        arg3: c_types::c_int,
+    ) -> uintmax_t;
+}
+extern "C" {
+    pub fn _strtoumax_r(
+        arg1: *mut _reent,
+        arg2: *const c_types::c_char,
+        arg3: *mut *mut c_types::c_char,
+        arg4: c_types::c_int,
+    ) -> uintmax_t;
+}
+extern "C" {
+    pub fn wcstoimax(
+        arg1: *const wchar_t,
+        arg2: *mut *mut wchar_t,
+        arg3: c_types::c_int,
+    ) -> intmax_t;
+}
+extern "C" {
+    pub fn _wcstoimax_r(
+        arg1: *mut _reent,
+        arg2: *const wchar_t,
+        arg3: *mut *mut wchar_t,
+        arg4: c_types::c_int,
+    ) -> intmax_t;
+}
+extern "C" {
+    pub fn wcstoumax(
+        arg1: *const wchar_t,
+        arg2: *mut *mut wchar_t,
+        arg3: c_types::c_int,
+    ) -> uintmax_t;
+}
+extern "C" {
+    pub fn _wcstoumax_r(
+        arg1: *mut _reent,
+        arg2: *const wchar_t,
+        arg3: *mut *mut wchar_t,
+        arg4: c_types::c_int,
+    ) -> uintmax_t;
+}
+extern "C" {
+    pub fn strtoimax_l(
+        arg1: *const c_types::c_char,
+        _restrict: *mut *mut c_types::c_char,
+        arg2: c_types::c_int,
+        arg3: locale_t,
+    ) -> intmax_t;
+}
+extern "C" {
+    pub fn strtoumax_l(
+        arg1: *const c_types::c_char,
+        _restrict: *mut *mut c_types::c_char,
+        arg2: c_types::c_int,
+        arg3: locale_t,
+    ) -> uintmax_t;
+}
+extern "C" {
+    pub fn wcstoimax_l(
+        arg1: *const wchar_t,
+        _restrict: *mut *mut wchar_t,
+        arg2: c_types::c_int,
+        arg3: locale_t,
+    ) -> intmax_t;
+}
+extern "C" {
+    pub fn wcstoumax_l(
+        arg1: *const wchar_t,
+        _restrict: *mut *mut wchar_t,
+        arg2: c_types::c_int,
+        arg3: locale_t,
+    ) -> uintmax_t;
+}
+extern "C" {
+    pub fn isalnum(__c: c_types::c_int) -> c_types::c_int;
+}
+extern "C" {
+    pub fn isalpha(__c: c_types::c_int) -> c_types::c_int;
+}
+extern "C" {
+    pub fn iscntrl(__c: c_types::c_int) -> c_types::c_int;
+}
+extern "C" {
+    pub fn isdigit(__c: c_types::c_int) -> c_types::c_int;
+}
+extern "C" {
+    pub fn isgraph(__c: c_types::c_int) -> c_types::c_int;
+}
+extern "C" {
+    pub fn islower(__c: c_types::c_int) -> c_types::c_int;
+}
+extern "C" {
+    pub fn isprint(__c: c_types::c_int) -> c_types::c_int;
+}
+extern "C" {
+    pub fn ispunct(__c: c_types::c_int) -> c_types::c_int;
+}
+extern "C" {
+    pub fn isspace(__c: c_types::c_int) -> c_types::c_int;
+}
+extern "C" {
+    pub fn isupper(__c: c_types::c_int) -> c_types::c_int;
+}
+extern "C" {
+    pub fn isxdigit(__c: c_types::c_int) -> c_types::c_int;
+}
+extern "C" {
+    pub fn tolower(__c: c_types::c_int) -> c_types::c_int;
+}
+extern "C" {
+    pub fn toupper(__c: c_types::c_int) -> c_types::c_int;
+}
+extern "C" {
+    pub fn isblank(__c: c_types::c_int) -> c_types::c_int;
+}
+extern "C" {
+    pub fn isascii(__c: c_types::c_int) -> c_types::c_int;
+}
+extern "C" {
+    pub fn toascii(__c: c_types::c_int) -> c_types::c_int;
+}
+extern "C" {
+    pub fn isalnum_l(__c: c_types::c_int, __l: locale_t) -> c_types::c_int;
+}
+extern "C" {
+    pub fn isalpha_l(__c: c_types::c_int, __l: locale_t) -> c_types::c_int;
+}
+extern "C" {
+    pub fn isblank_l(__c: c_types::c_int, __l: locale_t) -> c_types::c_int;
+}
+extern "C" {
+    pub fn iscntrl_l(__c: c_types::c_int, __l: locale_t) -> c_types::c_int;
+}
+extern "C" {
+    pub fn isdigit_l(__c: c_types::c_int, __l: locale_t) -> c_types::c_int;
+}
+extern "C" {
+    pub fn isgraph_l(__c: c_types::c_int, __l: locale_t) -> c_types::c_int;
+}
+extern "C" {
+    pub fn islower_l(__c: c_types::c_int, __l: locale_t) -> c_types::c_int;
+}
+extern "C" {
+    pub fn isprint_l(__c: c_types::c_int, __l: locale_t) -> c_types::c_int;
+}
+extern "C" {
+    pub fn ispunct_l(__c: c_types::c_int, __l: locale_t) -> c_types::c_int;
+}
+extern "C" {
+    pub fn isspace_l(__c: c_types::c_int, __l: locale_t) -> c_types::c_int;
+}
+extern "C" {
+    pub fn isupper_l(__c: c_types::c_int, __l: locale_t) -> c_types::c_int;
+}
+extern "C" {
+    pub fn isxdigit_l(__c: c_types::c_int, __l: locale_t) -> c_types::c_int;
+}
+extern "C" {
+    pub fn tolower_l(__c: c_types::c_int, __l: locale_t) -> c_types::c_int;
+}
+extern "C" {
+    pub fn toupper_l(__c: c_types::c_int, __l: locale_t) -> c_types::c_int;
+}
+extern "C" {
+    pub fn isascii_l(__c: c_types::c_int, __l: locale_t) -> c_types::c_int;
+}
+extern "C" {
+    pub fn toascii_l(__c: c_types::c_int, __l: locale_t) -> c_types::c_int;
+}
+extern "C" {
+    pub fn __locale_ctype_ptr() -> *const c_types::c_char;
+}
+extern "C" {
+    pub fn __locale_ctype_ptr_l(arg1: locale_t) -> *const c_types::c_char;
+}
+extern "C" {
+    pub static mut _ctype_: [c_types::c_char; 0usize];
+}
+extern "C" {
+    pub fn lwip_htons(x: u16_t) -> u16_t;
+}
+extern "C" {
+    pub fn lwip_htonl(x: u32_t) -> u32_t;
+}
+extern "C" {
+    pub fn lwip_itoa(result: *mut c_types::c_char, bufsize: size_t, number: c_types::c_int);
+}
+extern "C" {
+    pub fn lwip_strnicmp(
+        str1: *const c_types::c_char,
+        str2: *const c_types::c_char,
+        len: size_t,
+    ) -> c_types::c_int;
+}
+extern "C" {
+    pub fn lwip_stricmp(
+        str1: *const c_types::c_char,
+        str2: *const c_types::c_char,
+    ) -> c_types::c_int;
+}
+extern "C" {
+    pub fn lwip_strnstr(
+        buffer: *const c_types::c_char,
+        token: *const c_types::c_char,
+        n: size_t,
+    ) -> *mut c_types::c_char;
+}
+#[doc = " This is the aligned version of ip4_addr_t,"]
+#[doc = "used as local variable, on the stack, etc."]
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct ip4_addr {
+    pub addr: u32_t,
+}
+#[doc = " ip4_addr_t uses a struct for convenience only, so that the same defines can"]
+#[doc = " operate both on ip4_addr_t as well as on ip4_addr_p_t."]
+pub type ip4_addr_t = ip4_addr;
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct netif {
+    _unused: [u8; 0],
+}
+extern "C" {
+    pub fn ip4_addr_isbroadcast_u32(addr: u32_t, netif: *const netif) -> u8_t;
+}
+extern "C" {
+    pub fn ip4_addr_netmask_valid(netmask: u32_t) -> u8_t;
+}
+extern "C" {
+    pub fn ipaddr_addr(cp: *const c_types::c_char) -> u32_t;
+}
+extern "C" {
+    pub fn ip4addr_aton(cp: *const c_types::c_char, addr: *mut ip4_addr_t) -> c_types::c_int;
+}
+extern "C" {
+    #[doc = " returns ptr to static buffer; not reentrant!"]
+    pub fn ip4addr_ntoa(addr: *const ip4_addr_t) -> *mut c_types::c_char;
+}
+extern "C" {
+    pub fn ip4addr_ntoa_r(
+        addr: *const ip4_addr_t,
+        buf: *mut c_types::c_char,
+        buflen: c_types::c_int,
+    ) -> *mut c_types::c_char;
+}
+#[doc = " Unknown"]
+pub const lwip_ipv6_scope_type_IP6_UNKNOWN: lwip_ipv6_scope_type = 0;
+#[doc = " Unicast"]
+pub const lwip_ipv6_scope_type_IP6_UNICAST: lwip_ipv6_scope_type = 1;
+#[doc = " Multicast"]
+pub const lwip_ipv6_scope_type_IP6_MULTICAST: lwip_ipv6_scope_type = 2;
+#[doc = " Symbolic constants for the 'type' parameters in some of the macros."]
+#[doc = " These exist for efficiency only, allowing the macros to avoid certain tests"]
+#[doc = " when the address is known not to be of a certain type. Dead code elimination"]
+#[doc = " will do the rest. IP6_MULTICAST is supported but currently not optimized."]
+#[doc = " @see ip6_addr_has_scope, ip6_addr_assign_zone, ip6_addr_lacks_zone."]
+pub type lwip_ipv6_scope_type = c_types::c_uint;
+#[doc = " This is the aligned version of ip6_addr_t,"]
+#[doc = "used as local variable, on the stack, etc."]
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct ip6_addr {
+    pub addr: [u32_t; 4usize],
+    pub zone: u8_t,
+}
+#[doc = " IPv6 address"]
+pub type ip6_addr_t = ip6_addr;
+extern "C" {
+    pub fn ip6addr_aton(cp: *const c_types::c_char, addr: *mut ip6_addr_t) -> c_types::c_int;
+}
+extern "C" {
+    #[doc = " returns ptr to static buffer; not reentrant!"]
+    pub fn ip6addr_ntoa(addr: *const ip6_addr_t) -> *mut c_types::c_char;
+}
+extern "C" {
+    pub fn ip6addr_ntoa_r(
+        addr: *const ip6_addr_t,
+        buf: *mut c_types::c_char,
+        buflen: c_types::c_int,
+    ) -> *mut c_types::c_char;
+}
+#[doc = " IPv4"]
+pub const lwip_ip_addr_type_IPADDR_TYPE_V4: lwip_ip_addr_type = 0;
+#[doc = " IPv6"]
+pub const lwip_ip_addr_type_IPADDR_TYPE_V6: lwip_ip_addr_type = 6;
+#[doc = " IPv4+IPv6 (\"dual-stack\")"]
+pub const lwip_ip_addr_type_IPADDR_TYPE_ANY: lwip_ip_addr_type = 46;
+#[doc = " @ingroup ipaddr"]
+#[doc = " IP address types for use in ip_addr_t.type member."]
+#[doc = " @see tcp_new_ip_type(), udp_new_ip_type(), raw_new_ip_type()."]
+pub type lwip_ip_addr_type = c_types::c_uint;
+#[doc = " @ingroup ipaddr"]
+#[doc = " A union struct for both IP version's addresses."]
+#[doc = " ATTENTION: watch out for its size when adding IPv6 address scope!"]
+#[repr(C)]
+#[derive(Copy, Clone)]
+pub struct ip_addr {
+    pub u_addr: ip_addr__bindgen_ty_1,
+    #[doc = " @ref lwip_ip_addr_type"]
+    pub type_: u8_t,
+}
+#[repr(C)]
+#[derive(Copy, Clone)]
+pub union ip_addr__bindgen_ty_1 {
+    pub ip6: ip6_addr_t,
+    pub ip4: ip4_addr_t,
+    _bindgen_union_align: [u32; 5usize],
+}
+#[doc = " @ingroup ipaddr"]
+#[doc = " A union struct for both IP version's addresses."]
+#[doc = " ATTENTION: watch out for its size when adding IPv6 address scope!"]
+pub type ip_addr_t = ip_addr;
+extern "C" {
+    pub static ip_addr_any_type: ip_addr_t;
+}
+extern "C" {
+    pub fn ipaddr_ntoa(addr: *const ip_addr_t) -> *mut c_types::c_char;
+}
+extern "C" {
+    pub fn ipaddr_ntoa_r(
+        addr: *const ip_addr_t,
+        buf: *mut c_types::c_char,
+        buflen: c_types::c_int,
+    ) -> *mut c_types::c_char;
+}
+extern "C" {
+    pub fn ipaddr_aton(cp: *const c_types::c_char, addr: *mut ip_addr_t) -> c_types::c_int;
+}
+extern "C" {
+    pub static ip_addr_any: ip_addr_t;
+}
+extern "C" {
+    pub static ip_addr_broadcast: ip_addr_t;
+}
+extern "C" {
+    pub static ip6_addr_any: ip_addr_t;
+}
+#[doc = " @brief Type of \"ping\" session handle"]
+pub type esp_ping_handle_t = *mut c_types::c_void;
+#[doc = " @brief Type of \"ping\" callback functions"]
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct esp_ping_callbacks_t {
+    #[doc = " @brief arguments for callback functions"]
+    #[doc = ""]
+    pub cb_args: *mut c_types::c_void,
+    #[doc = " @brief Invoked by internal ping thread when received ICMP echo reply packet"]
+    #[doc = ""]
+    pub on_ping_success: ::core::option::Option<
+        unsafe extern "C" fn(hdl: esp_ping_handle_t, args: *mut c_types::c_void),
+    >,
+    #[doc = " @brief Invoked by internal ping thread when receive ICMP echo reply packet timeout"]
+    #[doc = ""]
+    pub on_ping_timeout: ::core::option::Option<
+        unsafe extern "C" fn(hdl: esp_ping_handle_t, args: *mut c_types::c_void),
+    >,
+    #[doc = " @brief Invoked by internal ping thread when a ping session is finished"]
+    #[doc = ""]
+    pub on_ping_end: ::core::option::Option<
+        unsafe extern "C" fn(hdl: esp_ping_handle_t, args: *mut c_types::c_void),
+    >,
+}
+#[doc = " @brief Type of \"ping\" configuration"]
+#[repr(C)]
+#[derive(Copy, Clone)]
+pub struct esp_ping_config_t {
+    #[doc = "< A \"ping\" session contains count procedures"]
+    pub count: u32,
+    #[doc = "< Milliseconds between each ping procedure"]
+    pub interval_ms: u32,
+    #[doc = "< Timeout value (in milliseconds) of each ping procedure"]
+    pub timeout_ms: u32,
+    #[doc = "< Size of the data next to ICMP packet header"]
+    pub data_size: u32,
+    #[doc = "< Type of Service, a field specified in the IP header"]
+    pub tos: u8,
+    #[doc = "< Target IP address, either IPv4 or IPv6"]
+    pub target_addr: ip_addr_t,
+    #[doc = "< Stack size of internal ping task"]
+    pub task_stack_size: u32,
+    #[doc = "< Priority of internal ping task"]
+    pub task_prio: u32,
+}
+#[doc = "< Sequence number of a ping procedure"]
+pub const esp_ping_profile_t_ESP_PING_PROF_SEQNO: esp_ping_profile_t = 0;
+#[doc = "< Time to live of a ping procedure"]
+pub const esp_ping_profile_t_ESP_PING_PROF_TTL: esp_ping_profile_t = 1;
+#[doc = "< Number of request packets sent out"]
+pub const esp_ping_profile_t_ESP_PING_PROF_REQUEST: esp_ping_profile_t = 2;
+#[doc = "< Number of reply packets received"]
+pub const esp_ping_profile_t_ESP_PING_PROF_REPLY: esp_ping_profile_t = 3;
+#[doc = "< IP address of replied target"]
+pub const esp_ping_profile_t_ESP_PING_PROF_IPADDR: esp_ping_profile_t = 4;
+#[doc = "< Size of received packet"]
+pub const esp_ping_profile_t_ESP_PING_PROF_SIZE: esp_ping_profile_t = 5;
+#[doc = "< Elapsed time between request and reply packet"]
+pub const esp_ping_profile_t_ESP_PING_PROF_TIMEGAP: esp_ping_profile_t = 6;
+#[doc = "< Elapsed time of the whole ping session"]
+pub const esp_ping_profile_t_ESP_PING_PROF_DURATION: esp_ping_profile_t = 7;
+#[doc = " @brief Profile of ping session"]
+pub type esp_ping_profile_t = c_types::c_uint;
+extern "C" {
+    #[doc = " @brief Create a ping session"]
+    #[doc = ""]
+    #[doc = " @param config ping configuration"]
+    #[doc = " @param cbs a bunch of callback functions invoked by internal ping task"]
+    #[doc = " @param hdl_out handle of ping session"]
+    #[doc = " @return"]
+    #[doc = "      - ESP_ERR_INVALID_ARG: invalid parameters (e.g. configuration is null, etc)"]
+    #[doc = "      - ESP_ERR_NO_MEM: out of memory"]
+    #[doc = "      - ESP_FAIL: other internal error (e.g. socket error)"]
+    #[doc = "      - ESP_OK: create ping session successfully, user can take the ping handle to do follow-on jobs"]
+    pub fn esp_ping_new_session(
+        config: *const esp_ping_config_t,
+        cbs: *const esp_ping_callbacks_t,
+        hdl_out: *mut esp_ping_handle_t,
+    ) -> esp_err_t;
+}
+extern "C" {
+    #[doc = " @brief Delete a ping session"]
+    #[doc = ""]
+    #[doc = " @param hdl handle of ping session"]
+    #[doc = " @return"]
+    #[doc = "      - ESP_ERR_INVALID_ARG: invalid parameters (e.g. ping handle is null, etc)"]
+    #[doc = "      - ESP_OK: delete ping session successfully"]
+    pub fn esp_ping_delete_session(hdl: esp_ping_handle_t) -> esp_err_t;
+}
+extern "C" {
+    #[doc = " @brief Start the ping session"]
+    #[doc = ""]
+    #[doc = " @param hdl handle of ping session"]
+    #[doc = " @return"]
+    #[doc = "      - ESP_ERR_INVALID_ARG: invalid parameters (e.g. ping handle is null, etc)"]
+    #[doc = "      - ESP_OK: start ping session successfully"]
+    pub fn esp_ping_start(hdl: esp_ping_handle_t) -> esp_err_t;
+}
+extern "C" {
+    #[doc = " @brief Stop the ping session"]
+    #[doc = ""]
+    #[doc = " @param hdl handle of ping session"]
+    #[doc = " @return"]
+    #[doc = "      - ESP_ERR_INVALID_ARG: invalid parameters (e.g. ping handle is null, etc)"]
+    #[doc = "      - ESP_OK: stop ping session successfully"]
+    pub fn esp_ping_stop(hdl: esp_ping_handle_t) -> esp_err_t;
+}
+extern "C" {
+    #[doc = " @brief Get runtime profile of ping session"]
+    #[doc = ""]
+    #[doc = " @param hdl handle of ping session"]
+    #[doc = " @param profile type of profile"]
+    #[doc = " @param data profile data"]
+    #[doc = " @param size profile data size"]
+    #[doc = " @return"]
+    #[doc = "      - ESP_ERR_INVALID_ARG: invalid parameters (e.g. ping handle is null, etc)"]
+    #[doc = "      - ESP_ERR_INVALID_SIZE: the actual profile data size doesn't match the \"size\" parameter"]
+    #[doc = "      - ESP_OK: get profile successfully"]
+    pub fn esp_ping_get_profile(
+        hdl: esp_ping_handle_t,
+        profile: esp_ping_profile_t,
+        data: *mut c_types::c_void,
+        size: u32,
+    ) -> esp_err_t;
+}
+extern "C" {
+    pub fn bcmp(
+        arg1: *const c_types::c_void,
+        arg2: *const c_types::c_void,
+        arg3: c_types::c_uint,
+    ) -> c_types::c_int;
+}
+extern "C" {
+    pub fn bcopy(arg1: *const c_types::c_void, arg2: *mut c_types::c_void, arg3: size_t);
+}
+extern "C" {
+    pub fn bzero(arg1: *mut c_types::c_void, arg2: c_types::c_uint);
+}
+extern "C" {
+    pub fn explicit_bzero(arg1: *mut c_types::c_void, arg2: size_t);
+}
+extern "C" {
+    pub fn ffs(arg1: c_types::c_int) -> c_types::c_int;
+}
+extern "C" {
+    pub fn ffsl(arg1: c_types::c_long) -> c_types::c_int;
+}
+extern "C" {
+    pub fn ffsll(arg1: c_types::c_longlong) -> c_types::c_int;
+}
+extern "C" {
+    pub fn fls(arg1: c_types::c_int) -> c_types::c_int;
+}
+extern "C" {
+    pub fn flsl(arg1: c_types::c_long) -> c_types::c_int;
+}
+extern "C" {
+    pub fn flsll(arg1: c_types::c_longlong) -> c_types::c_int;
+}
+extern "C" {
+    pub fn index(arg1: *const c_types::c_char, arg2: c_types::c_int) -> *mut c_types::c_char;
+}
+extern "C" {
+    pub fn rindex(arg1: *const c_types::c_char, arg2: c_types::c_int) -> *mut c_types::c_char;
+}
+extern "C" {
+    pub fn strcasecmp(arg1: *const c_types::c_char, arg2: *const c_types::c_char)
+        -> c_types::c_int;
+}
+extern "C" {
+    pub fn strncasecmp(
+        arg1: *const c_types::c_char,
+        arg2: *const c_types::c_char,
+        arg3: c_types::c_uint,
+    ) -> c_types::c_int;
+}
+extern "C" {
+    pub fn strcasecmp_l(
+        arg1: *const c_types::c_char,
+        arg2: *const c_types::c_char,
+        arg3: locale_t,
+    ) -> c_types::c_int;
+}
+extern "C" {
+    pub fn strncasecmp_l(
+        arg1: *const c_types::c_char,
+        arg2: *const c_types::c_char,
+        arg3: size_t,
+        arg4: locale_t,
+    ) -> c_types::c_int;
+}
+extern "C" {
+    pub fn memchr(
+        arg1: *const c_types::c_void,
+        arg2: c_types::c_int,
+        arg3: c_types::c_uint,
+    ) -> *mut c_types::c_void;
+}
+extern "C" {
+    pub fn memcmp(
+        arg1: *const c_types::c_void,
+        arg2: *const c_types::c_void,
+        arg3: c_types::c_uint,
+    ) -> c_types::c_int;
+}
+extern "C" {
+    pub fn memcpy(
+        arg1: *mut c_types::c_void,
+        arg2: *const c_types::c_void,
+        arg3: c_types::c_uint,
+    ) -> *mut c_types::c_void;
+}
+extern "C" {
+    pub fn memmove(
+        arg1: *mut c_types::c_void,
+        arg2: *const c_types::c_void,
+        arg3: c_types::c_uint,
+    ) -> *mut c_types::c_void;
+}
+extern "C" {
+    pub fn memset(
+        arg1: *mut c_types::c_void,
+        arg2: c_types::c_int,
+        arg3: c_types::c_uint,
+    ) -> *mut c_types::c_void;
+}
+extern "C" {
+    pub fn strcat(arg1: *mut c_types::c_char, arg2: *const c_types::c_char)
+        -> *mut c_types::c_char;
+}
+extern "C" {
+    pub fn strchr(arg1: *const c_types::c_char, arg2: c_types::c_int) -> *mut c_types::c_char;
+}
+extern "C" {
+    pub fn strcmp(arg1: *const c_types::c_char, arg2: *const c_types::c_char) -> c_types::c_int;
+}
+extern "C" {
+    pub fn strcoll(arg1: *const c_types::c_char, arg2: *const c_types::c_char) -> c_types::c_int;
+}
+extern "C" {
+    pub fn strcpy(arg1: *mut c_types::c_char, arg2: *const c_types::c_char)
+        -> *mut c_types::c_char;
+}
+extern "C" {
+    pub fn strcspn(arg1: *const c_types::c_char, arg2: *const c_types::c_char) -> c_types::c_uint;
+}
+extern "C" {
+    pub fn strerror(arg1: c_types::c_int) -> *mut c_types::c_char;
+}
+extern "C" {
+    pub fn strlen(arg1: *const c_types::c_char) -> c_types::c_uint;
+}
+extern "C" {
+    pub fn strncat(
+        arg1: *mut c_types::c_char,
+        arg2: *const c_types::c_char,
+        arg3: c_types::c_uint,
+    ) -> *mut c_types::c_char;
+}
+extern "C" {
+    pub fn strncmp(
+        arg1: *const c_types::c_char,
+        arg2: *const c_types::c_char,
+        arg3: c_types::c_uint,
+    ) -> c_types::c_int;
+}
+extern "C" {
+    pub fn strncpy(
+        arg1: *mut c_types::c_char,
+        arg2: *const c_types::c_char,
+        arg3: c_types::c_uint,
+    ) -> *mut c_types::c_char;
+}
+extern "C" {
+    pub fn strpbrk(
+        arg1: *const c_types::c_char,
+        arg2: *const c_types::c_char,
+    ) -> *mut c_types::c_char;
+}
+extern "C" {
+    pub fn strrchr(arg1: *const c_types::c_char, arg2: c_types::c_int) -> *mut c_types::c_char;
+}
+extern "C" {
+    pub fn strspn(arg1: *const c_types::c_char, arg2: *const c_types::c_char) -> c_types::c_uint;
+}
+extern "C" {
+    pub fn strstr(
+        arg1: *const c_types::c_char,
+        arg2: *const c_types::c_char,
+    ) -> *mut c_types::c_char;
+}
+extern "C" {
+    pub fn strtok(arg1: *mut c_types::c_char, arg2: *const c_types::c_char)
+        -> *mut c_types::c_char;
+}
+extern "C" {
+    pub fn strxfrm(
+        arg1: *mut c_types::c_char,
+        arg2: *const c_types::c_char,
+        arg3: c_types::c_uint,
+    ) -> c_types::c_uint;
+}
+extern "C" {
+    pub fn strcoll_l(
+        arg1: *const c_types::c_char,
+        arg2: *const c_types::c_char,
+        arg3: locale_t,
+    ) -> c_types::c_int;
+}
+extern "C" {
+    pub fn strerror_l(arg1: c_types::c_int, arg2: locale_t) -> *mut c_types::c_char;
+}
+extern "C" {
+    pub fn strxfrm_l(
+        arg1: *mut c_types::c_char,
+        arg2: *const c_types::c_char,
+        arg3: size_t,
+        arg4: locale_t,
+    ) -> size_t;
+}
+extern "C" {
+    pub fn strtok_r(
+        arg1: *mut c_types::c_char,
+        arg2: *const c_types::c_char,
+        arg3: *mut *mut c_types::c_char,
+    ) -> *mut c_types::c_char;
+}
+extern "C" {
+    pub fn timingsafe_bcmp(
+        arg1: *const c_types::c_void,
+        arg2: *const c_types::c_void,
+        arg3: size_t,
+    ) -> c_types::c_int;
+}
+extern "C" {
+    pub fn timingsafe_memcmp(
+        arg1: *const c_types::c_void,
+        arg2: *const c_types::c_void,
+        arg3: size_t,
+    ) -> c_types::c_int;
+}
+extern "C" {
+    pub fn memccpy(
+        arg1: *mut c_types::c_void,
+        arg2: *const c_types::c_void,
+        arg3: c_types::c_int,
+        arg4: c_types::c_uint,
+    ) -> *mut c_types::c_void;
+}
+extern "C" {
+    pub fn stpcpy(arg1: *mut c_types::c_char, arg2: *const c_types::c_char)
+        -> *mut c_types::c_char;
+}
+extern "C" {
+    pub fn stpncpy(
+        arg1: *mut c_types::c_char,
+        arg2: *const c_types::c_char,
+        arg3: c_types::c_uint,
+    ) -> *mut c_types::c_char;
+}
+extern "C" {
+    pub fn strdup(arg1: *const c_types::c_char) -> *mut c_types::c_char;
+}
+extern "C" {
+    pub fn _strdup_r(arg1: *mut _reent, arg2: *const c_types::c_char) -> *mut c_types::c_char;
+}
+extern "C" {
+    pub fn strndup(arg1: *const c_types::c_char, arg2: c_types::c_uint) -> *mut c_types::c_char;
+}
+extern "C" {
+    pub fn _strndup_r(
+        arg1: *mut _reent,
+        arg2: *const c_types::c_char,
+        arg3: size_t,
+    ) -> *mut c_types::c_char;
+}
+extern "C" {
+    #[link_name = "\u{1}__xpg_strerror_r"]
+    pub fn strerror_r(
+        arg1: c_types::c_int,
+        arg2: *mut c_types::c_char,
+        arg3: size_t,
+    ) -> c_types::c_int;
+}
+extern "C" {
+    pub fn _strerror_r(
+        arg1: *mut _reent,
+        arg2: c_types::c_int,
+        arg3: c_types::c_int,
+        arg4: *mut c_types::c_int,
+    ) -> *mut c_types::c_char;
+}
+extern "C" {
+    pub fn strlcat(
+        arg1: *mut c_types::c_char,
+        arg2: *const c_types::c_char,
+        arg3: c_types::c_uint,
+    ) -> c_types::c_uint;
+}
+extern "C" {
+    pub fn strlcpy(
+        arg1: *mut c_types::c_char,
+        arg2: *const c_types::c_char,
+        arg3: c_types::c_uint,
+    ) -> c_types::c_uint;
+}
+extern "C" {
+    pub fn strnlen(arg1: *const c_types::c_char, arg2: size_t) -> size_t;
+}
+extern "C" {
+    pub fn strsep(
+        arg1: *mut *mut c_types::c_char,
+        arg2: *const c_types::c_char,
+    ) -> *mut c_types::c_char;
+}
+extern "C" {
+    pub fn strnstr(
+        arg1: *const c_types::c_char,
+        arg2: *const c_types::c_char,
+        arg3: size_t,
+    ) -> *mut c_types::c_char;
+}
+extern "C" {
+    pub fn strlwr(arg1: *mut c_types::c_char) -> *mut c_types::c_char;
+}
+extern "C" {
+    pub fn strupr(arg1: *mut c_types::c_char) -> *mut c_types::c_char;
+}
+extern "C" {
+    pub fn strsignal(__signo: c_types::c_int) -> *mut c_types::c_char;
+}
+pub type http_data_cb = ::core::option::Option<
+    unsafe extern "C" fn(
+        arg1: *mut http_parser,
+        at: *const c_types::c_char,
+        length: size_t,
+    ) -> c_types::c_int,
+>;
+pub type http_cb =
+    ::core::option::Option<unsafe extern "C" fn(arg1: *mut http_parser) -> c_types::c_int>;
+pub const http_method_HTTP_DELETE: http_method = 0;
+pub const http_method_HTTP_GET: http_method = 1;
+pub const http_method_HTTP_HEAD: http_method = 2;
+pub const http_method_HTTP_POST: http_method = 3;
+pub const http_method_HTTP_PUT: http_method = 4;
+pub const http_method_HTTP_CONNECT: http_method = 5;
+pub const http_method_HTTP_OPTIONS: http_method = 6;
+pub const http_method_HTTP_TRACE: http_method = 7;
+pub const http_method_HTTP_COPY: http_method = 8;
+pub const http_method_HTTP_LOCK: http_method = 9;
+pub const http_method_HTTP_MKCOL: http_method = 10;
+pub const http_method_HTTP_MOVE: http_method = 11;
+pub const http_method_HTTP_PROPFIND: http_method = 12;
+pub const http_method_HTTP_PROPPATCH: http_method = 13;
+pub const http_method_HTTP_SEARCH: http_method = 14;
+pub const http_method_HTTP_UNLOCK: http_method = 15;
+pub const http_method_HTTP_BIND: http_method = 16;
+pub const http_method_HTTP_REBIND: http_method = 17;
+pub const http_method_HTTP_UNBIND: http_method = 18;
+pub const http_method_HTTP_ACL: http_method = 19;
+pub const http_method_HTTP_REPORT: http_method = 20;
+pub const http_method_HTTP_MKACTIVITY: http_method = 21;
+pub const http_method_HTTP_CHECKOUT: http_method = 22;
+pub const http_method_HTTP_MERGE: http_method = 23;
+pub const http_method_HTTP_MSEARCH: http_method = 24;
+pub const http_method_HTTP_NOTIFY: http_method = 25;
+pub const http_method_HTTP_SUBSCRIBE: http_method = 26;
+pub const http_method_HTTP_UNSUBSCRIBE: http_method = 27;
+pub const http_method_HTTP_PATCH: http_method = 28;
+pub const http_method_HTTP_PURGE: http_method = 29;
+pub const http_method_HTTP_MKCALENDAR: http_method = 30;
+pub const http_method_HTTP_LINK: http_method = 31;
+pub const http_method_HTTP_UNLINK: http_method = 32;
+pub type http_method = c_types::c_uint;
+pub const http_parser_type_HTTP_REQUEST: http_parser_type = 0;
+pub const http_parser_type_HTTP_RESPONSE: http_parser_type = 1;
+pub const http_parser_type_HTTP_BOTH: http_parser_type = 2;
+pub type http_parser_type = c_types::c_uint;
+pub const flags_F_CHUNKED: flags = 1;
+pub const flags_F_CONNECTION_KEEP_ALIVE: flags = 2;
+pub const flags_F_CONNECTION_CLOSE: flags = 4;
+pub const flags_F_CONNECTION_UPGRADE: flags = 8;
+pub const flags_F_TRAILING: flags = 16;
+pub const flags_F_UPGRADE: flags = 32;
+pub const flags_F_SKIPBODY: flags = 64;
+pub const flags_F_CONTENTLENGTH: flags = 128;
+pub type flags = c_types::c_uint;
+pub const http_errno_HPE_OK: http_errno = 0;
+pub const http_errno_HPE_CB_message_begin: http_errno = 1;
+pub const http_errno_HPE_CB_url: http_errno = 2;
+pub const http_errno_HPE_CB_header_field: http_errno = 3;
+pub const http_errno_HPE_CB_header_value: http_errno = 4;
+pub const http_errno_HPE_CB_headers_complete: http_errno = 5;
+pub const http_errno_HPE_CB_body: http_errno = 6;
+pub const http_errno_HPE_CB_message_complete: http_errno = 7;
+pub const http_errno_HPE_CB_status: http_errno = 8;
+pub const http_errno_HPE_CB_chunk_header: http_errno = 9;
+pub const http_errno_HPE_CB_chunk_complete: http_errno = 10;
+pub const http_errno_HPE_INVALID_EOF_STATE: http_errno = 11;
+pub const http_errno_HPE_HEADER_OVERFLOW: http_errno = 12;
+pub const http_errno_HPE_CLOSED_CONNECTION: http_errno = 13;
+pub const http_errno_HPE_INVALID_VERSION: http_errno = 14;
+pub const http_errno_HPE_INVALID_STATUS: http_errno = 15;
+pub const http_errno_HPE_INVALID_METHOD: http_errno = 16;
+pub const http_errno_HPE_INVALID_URL: http_errno = 17;
+pub const http_errno_HPE_INVALID_HOST: http_errno = 18;
+pub const http_errno_HPE_INVALID_PORT: http_errno = 19;
+pub const http_errno_HPE_INVALID_PATH: http_errno = 20;
+pub const http_errno_HPE_INVALID_QUERY_STRING: http_errno = 21;
+pub const http_errno_HPE_INVALID_FRAGMENT: http_errno = 22;
+pub const http_errno_HPE_LF_EXPECTED: http_errno = 23;
+pub const http_errno_HPE_INVALID_HEADER_TOKEN: http_errno = 24;
+pub const http_errno_HPE_INVALID_CONTENT_LENGTH: http_errno = 25;
+pub const http_errno_HPE_UNEXPECTED_CONTENT_LENGTH: http_errno = 26;
+pub const http_errno_HPE_INVALID_CHUNK_SIZE: http_errno = 27;
+pub const http_errno_HPE_INVALID_CONSTANT: http_errno = 28;
+pub const http_errno_HPE_INVALID_INTERNAL_STATE: http_errno = 29;
+pub const http_errno_HPE_STRICT: http_errno = 30;
+pub const http_errno_HPE_PAUSED: http_errno = 31;
+pub const http_errno_HPE_UNKNOWN: http_errno = 32;
+pub type http_errno = c_types::c_uint;
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct http_parser {
+    pub _bitfield_1: __BindgenBitfieldUnit<[u8; 4usize], u8>,
+    pub nread: u32,
+    pub content_length: u64,
+    #[doc = " READ-ONLY"]
+    pub http_major: c_types::c_ushort,
+    pub http_minor: c_types::c_ushort,
+    pub _bitfield_2: __BindgenBitfieldUnit<[u8; 4usize], u16>,
+    #[doc = " PUBLIC"]
+    pub data: *mut c_types::c_void,
+}
+impl http_parser {
+    #[inline]
+    pub fn type_(&self) -> c_types::c_uint {
+        unsafe { ::core::mem::transmute(self._bitfield_1.get(0usize, 2u8) as u32) }
+    }
+    #[inline]
+    pub fn set_type(&mut self, val: c_types::c_uint) {
+        unsafe {
+            let val: u32 = ::core::mem::transmute(val);
+            self._bitfield_1.set(0usize, 2u8, val as u64)
+        }
+    }
+    #[inline]
+    pub fn flags(&self) -> c_types::c_uint {
+        unsafe { ::core::mem::transmute(self._bitfield_1.get(2usize, 8u8) as u32) }
+    }
+    #[inline]
+    pub fn set_flags(&mut self, val: c_types::c_uint) {
+        unsafe {
+            let val: u32 = ::core::mem::transmute(val);
+            self._bitfield_1.set(2usize, 8u8, val as u64)
+        }
+    }
+    #[inline]
+    pub fn state(&self) -> c_types::c_uint {
+        unsafe { ::core::mem::transmute(self._bitfield_1.get(10usize, 7u8) as u32) }
+    }
+    #[inline]
+    pub fn set_state(&mut self, val: c_types::c_uint) {
+        unsafe {
+            let val: u32 = ::core::mem::transmute(val);
+            self._bitfield_1.set(10usize, 7u8, val as u64)
+        }
+    }
+    #[inline]
+    pub fn header_state(&self) -> c_types::c_uint {
+        unsafe { ::core::mem::transmute(self._bitfield_1.get(17usize, 7u8) as u32) }
+    }
+    #[inline]
+    pub fn set_header_state(&mut self, val: c_types::c_uint) {
+        unsafe {
+            let val: u32 = ::core::mem::transmute(val);
+            self._bitfield_1.set(17usize, 7u8, val as u64)
+        }
+    }
+    #[inline]
+    pub fn index(&self) -> c_types::c_uint {
+        unsafe { ::core::mem::transmute(self._bitfield_1.get(24usize, 7u8) as u32) }
+    }
+    #[inline]
+    pub fn set_index(&mut self, val: c_types::c_uint) {
+        unsafe {
+            let val: u32 = ::core::mem::transmute(val);
+            self._bitfield_1.set(24usize, 7u8, val as u64)
+        }
+    }
+    #[inline]
+    pub fn lenient_http_headers(&self) -> c_types::c_uint {
+        unsafe { ::core::mem::transmute(self._bitfield_1.get(31usize, 1u8) as u32) }
+    }
+    #[inline]
+    pub fn set_lenient_http_headers(&mut self, val: c_types::c_uint) {
+        unsafe {
+            let val: u32 = ::core::mem::transmute(val);
+            self._bitfield_1.set(31usize, 1u8, val as u64)
+        }
+    }
+    #[inline]
+    pub fn new_bitfield_1(
+        type_: c_types::c_uint,
+        flags: c_types::c_uint,
+        state: c_types::c_uint,
+        header_state: c_types::c_uint,
+        index: c_types::c_uint,
+        lenient_http_headers: c_types::c_uint,
+    ) -> __BindgenBitfieldUnit<[u8; 4usize], u8> {
+        let mut __bindgen_bitfield_unit: __BindgenBitfieldUnit<[u8; 4usize], u8> =
+            Default::default();
+        __bindgen_bitfield_unit.set(0usize, 2u8, {
+            let type_: u32 = unsafe { ::core::mem::transmute(type_) };
+            type_ as u64
+        });
+        __bindgen_bitfield_unit.set(2usize, 8u8, {
+            let flags: u32 = unsafe { ::core::mem::transmute(flags) };
+            flags as u64
+        });
+        __bindgen_bitfield_unit.set(10usize, 7u8, {
+            let state: u32 = unsafe { ::core::mem::transmute(state) };
+            state as u64
+        });
+        __bindgen_bitfield_unit.set(17usize, 7u8, {
+            let header_state: u32 = unsafe { ::core::mem::transmute(header_state) };
+            header_state as u64
+        });
+        __bindgen_bitfield_unit.set(24usize, 7u8, {
+            let index: u32 = unsafe { ::core::mem::transmute(index) };
+            index as u64
+        });
+        __bindgen_bitfield_unit.set(31usize, 1u8, {
+            let lenient_http_headers: u32 = unsafe { ::core::mem::transmute(lenient_http_headers) };
+            lenient_http_headers as u64
+        });
+        __bindgen_bitfield_unit
+    }
+    #[inline]
+    pub fn status_code(&self) -> c_types::c_uint {
+        unsafe { ::core::mem::transmute(self._bitfield_2.get(0usize, 16u8) as u32) }
+    }
+    #[inline]
+    pub fn set_status_code(&mut self, val: c_types::c_uint) {
+        unsafe {
+            let val: u32 = ::core::mem::transmute(val);
+            self._bitfield_2.set(0usize, 16u8, val as u64)
+        }
+    }
+    #[inline]
+    pub fn method(&self) -> c_types::c_uint {
+        unsafe { ::core::mem::transmute(self._bitfield_2.get(16usize, 8u8) as u32) }
+    }
+    #[inline]
+    pub fn set_method(&mut self, val: c_types::c_uint) {
+        unsafe {
+            let val: u32 = ::core::mem::transmute(val);
+            self._bitfield_2.set(16usize, 8u8, val as u64)
+        }
+    }
+    #[inline]
+    pub fn http_errno(&self) -> c_types::c_uint {
+        unsafe { ::core::mem::transmute(self._bitfield_2.get(24usize, 7u8) as u32) }
+    }
+    #[inline]
+    pub fn set_http_errno(&mut self, val: c_types::c_uint) {
+        unsafe {
+            let val: u32 = ::core::mem::transmute(val);
+            self._bitfield_2.set(24usize, 7u8, val as u64)
+        }
+    }
+    #[inline]
+    pub fn upgrade(&self) -> c_types::c_uint {
+        unsafe { ::core::mem::transmute(self._bitfield_2.get(31usize, 1u8) as u32) }
+    }
+    #[inline]
+    pub fn set_upgrade(&mut self, val: c_types::c_uint) {
+        unsafe {
+            let val: u32 = ::core::mem::transmute(val);
+            self._bitfield_2.set(31usize, 1u8, val as u64)
+        }
+    }
+    #[inline]
+    pub fn new_bitfield_2(
+        status_code: c_types::c_uint,
+        method: c_types::c_uint,
+        http_errno: c_types::c_uint,
+        upgrade: c_types::c_uint,
+    ) -> __BindgenBitfieldUnit<[u8; 4usize], u16> {
+        let mut __bindgen_bitfield_unit: __BindgenBitfieldUnit<[u8; 4usize], u16> =
+            Default::default();
+        __bindgen_bitfield_unit.set(0usize, 16u8, {
+            let status_code: u32 = unsafe { ::core::mem::transmute(status_code) };
+            status_code as u64
+        });
+        __bindgen_bitfield_unit.set(16usize, 8u8, {
+            let method: u32 = unsafe { ::core::mem::transmute(method) };
+            method as u64
+        });
+        __bindgen_bitfield_unit.set(24usize, 7u8, {
+            let http_errno: u32 = unsafe { ::core::mem::transmute(http_errno) };
+            http_errno as u64
+        });
+        __bindgen_bitfield_unit.set(31usize, 1u8, {
+            let upgrade: u32 = unsafe { ::core::mem::transmute(upgrade) };
+            upgrade as u64
+        });
+        __bindgen_bitfield_unit
+    }
+}
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct http_parser_settings {
+    pub on_message_begin: http_cb,
+    pub on_url: http_data_cb,
+    pub on_status: http_data_cb,
+    pub on_header_field: http_data_cb,
+    pub on_header_value: http_data_cb,
+    pub on_headers_complete: http_cb,
+    pub on_body: http_data_cb,
+    pub on_message_complete: http_cb,
+    pub on_chunk_header: http_cb,
+    pub on_chunk_complete: http_cb,
+}
+pub const http_parser_url_fields_UF_SCHEMA: http_parser_url_fields = 0;
+pub const http_parser_url_fields_UF_HOST: http_parser_url_fields = 1;
+pub const http_parser_url_fields_UF_PORT: http_parser_url_fields = 2;
+pub const http_parser_url_fields_UF_PATH: http_parser_url_fields = 3;
+pub const http_parser_url_fields_UF_QUERY: http_parser_url_fields = 4;
+pub const http_parser_url_fields_UF_FRAGMENT: http_parser_url_fields = 5;
+pub const http_parser_url_fields_UF_USERINFO: http_parser_url_fields = 6;
+pub const http_parser_url_fields_UF_MAX: http_parser_url_fields = 7;
+pub type http_parser_url_fields = c_types::c_uint;
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct http_parser_url {
+    pub field_set: u16,
+    pub port: u16,
+    pub field_data: [http_parser_url__bindgen_ty_1; 7usize],
+}
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct http_parser_url__bindgen_ty_1 {
+    pub off: u16,
+    pub len: u16,
+}
+extern "C" {
+    pub fn http_parser_version() -> c_types::c_ulong;
+}
+extern "C" {
+    pub fn http_parser_init(parser: *mut http_parser, type_: http_parser_type);
+}
+extern "C" {
+    pub fn http_parser_settings_init(settings: *mut http_parser_settings);
+}
+extern "C" {
+    pub fn http_parser_execute(
+        parser: *mut http_parser,
+        settings: *const http_parser_settings,
+        data: *const c_types::c_char,
+        len: size_t,
+    ) -> size_t;
+}
+extern "C" {
+    pub fn http_should_keep_alive(parser: *const http_parser) -> c_types::c_int;
+}
+extern "C" {
+    pub fn http_method_str(m: http_method) -> *const c_types::c_char;
+}
+extern "C" {
+    pub fn http_errno_name(err: http_errno) -> *const c_types::c_char;
+}
+extern "C" {
+    pub fn http_errno_description(err: http_errno) -> *const c_types::c_char;
+}
+extern "C" {
+    pub fn http_parser_url_init(u: *mut http_parser_url);
+}
+extern "C" {
+    pub fn http_parser_parse_url(
+        buf: *const c_types::c_char,
+        buflen: size_t,
+        is_connect: c_types::c_int,
+        u: *mut http_parser_url,
+    ) -> c_types::c_int;
+}
+extern "C" {
+    pub fn http_parser_pause(parser: *mut http_parser, paused: c_types::c_int);
+}
+extern "C" {
+    pub fn http_body_is_final(parser: *const http_parser) -> c_types::c_int;
+}
+#[doc = " @brief   HTTP Server Instance Handle"]
+#[doc = ""]
+#[doc = " Every instance of the server will have a unique handle."]
+pub type httpd_handle_t = *mut c_types::c_void;
+#[doc = " @brief   HTTP Method Type wrapper over \"enum http_method\""]
+#[doc = "          available in \"http_parser\" library"]
+pub use self::http_method as httpd_method_t;
+#[doc = " @brief  Prototype for freeing context data (if any)"]
+#[doc = " @param[in] ctx   object to free"]
+pub type httpd_free_ctx_fn_t =
+    ::core::option::Option<unsafe extern "C" fn(ctx: *mut c_types::c_void)>;
+#[doc = " @brief  Function prototype for opening a session."]
+#[doc = ""]
+#[doc = " Called immediately after the socket was opened to set up the send/recv functions and"]
+#[doc = " other parameters of the socket."]
+#[doc = ""]
+#[doc = " @param[in] hd       server instance"]
+#[doc = " @param[in] sockfd   session socket file descriptor"]
+#[doc = " @return"]
+#[doc = "  - ESP_OK   : On success"]
+#[doc = "  - Any value other than ESP_OK will signal the server to close the socket immediately"]
+pub type httpd_open_func_t = ::core::option::Option<
+    unsafe extern "C" fn(hd: httpd_handle_t, sockfd: c_types::c_int) -> esp_err_t,
+>;
+#[doc = " @brief  Function prototype for closing a session."]
+#[doc = ""]
+#[doc = " @note   It's possible that the socket descriptor is invalid at this point, the function"]
+#[doc = "         is called for all terminated sessions. Ensure proper handling of return codes."]
+#[doc = ""]
+#[doc = " @param[in] hd   server instance"]
+#[doc = " @param[in] sockfd   session socket file descriptor"]
+pub type httpd_close_func_t =
+    ::core::option::Option<unsafe extern "C" fn(hd: httpd_handle_t, sockfd: c_types::c_int)>;
+#[doc = " @brief  Function prototype for URI matching."]
+#[doc = ""]
+#[doc = " @param[in] reference_uri   URI/template with respect to which the other URI is matched"]
+#[doc = " @param[in] uri_to_match    URI/template being matched to the reference URI/template"]
+#[doc = " @param[in] match_upto      For specifying the actual length of `uri_to_match` up to"]
+#[doc = "                            which the matching algorithm is to be applied (The maximum"]
+#[doc = "                            value is `strlen(uri_to_match)`, independent of the length"]
+#[doc = "                            of `reference_uri`)"]
+#[doc = " @return true on match"]
+pub type httpd_uri_match_func_t = ::core::option::Option<
+    unsafe extern "C" fn(
+        reference_uri: *const c_types::c_char,
+        uri_to_match: *const c_types::c_char,
+        match_upto: size_t,
+    ) -> bool,
+>;
+#[doc = " @brief   HTTP Server Configuration Structure"]
+#[doc = ""]
+#[doc = " @note    Use HTTPD_DEFAULT_CONFIG() to initialize the configuration"]
+#[doc = "          to a default value and then modify only those fields that are"]
+#[doc = "          specifically determined by the use case."]
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct httpd_config {
+    #[doc = "< Priority of FreeRTOS task which runs the server"]
+    pub task_priority: c_types::c_uint,
+    #[doc = "< The maximum stack size allowed for the server task"]
+    pub stack_size: size_t,
+    #[doc = "< The core the HTTP server task will run on"]
+    pub core_id: BaseType_t,
+    #[doc = " TCP Port number for receiving and transmitting HTTP traffic"]
+    pub server_port: u16,
+    #[doc = " UDP Port number for asynchronously exchanging control signals"]
+    #[doc = " between various components of the server"]
+    pub ctrl_port: u16,
+    #[doc = "< Max number of sockets/clients connected at any time"]
+    pub max_open_sockets: u16,
+    #[doc = "< Maximum allowed uri handlers"]
+    pub max_uri_handlers: u16,
+    #[doc = "< Maximum allowed additional headers in HTTP response"]
+    pub max_resp_headers: u16,
+    #[doc = "< Number of backlog connections"]
+    pub backlog_conn: u16,
+    #[doc = "< Purge \"Least Recently Used\" connection"]
+    pub lru_purge_enable: bool,
+    #[doc = "< Timeout for recv function (in seconds)"]
+    pub recv_wait_timeout: u16,
+    #[doc = "< Timeout for send function (in seconds)"]
+    pub send_wait_timeout: u16,
+    #[doc = " Global user context."]
+    #[doc = ""]
+    #[doc = " This field can be used to store arbitrary user data within the server context."]
+    #[doc = " The value can be retrieved using the server handle, available e.g. in the httpd_req_t struct."]
+    #[doc = ""]
+    #[doc = " When shutting down, the server frees up the user context by"]
+    #[doc = " calling free() on the global_user_ctx field. If you wish to use a custom"]
+    #[doc = " function for freeing the global user context, please specify that here."]
+    pub global_user_ctx: *mut c_types::c_void,
+    #[doc = " Free function for global user context"]
+    pub global_user_ctx_free_fn: httpd_free_ctx_fn_t,
+    #[doc = " Global transport context."]
+    #[doc = ""]
+    #[doc = " Similar to global_user_ctx, but used for session encoding or encryption (e.g. to hold the SSL context)."]
+    #[doc = " It will be freed using free(), unless global_transport_ctx_free_fn is specified."]
+    pub global_transport_ctx: *mut c_types::c_void,
+    #[doc = " Free function for global transport context"]
+    pub global_transport_ctx_free_fn: httpd_free_ctx_fn_t,
+    #[doc = " Custom session opening callback."]
+    #[doc = ""]
+    #[doc = " Called on a new session socket just after accept(), but before reading any data."]
+    #[doc = ""]
+    #[doc = " This is an opportunity to set up e.g. SSL encryption using global_transport_ctx"]
+    #[doc = " and the send/recv/pending session overrides."]
+    #[doc = ""]
+    #[doc = " If a context needs to be maintained between these functions, store it in the session using"]
+    #[doc = " httpd_sess_set_transport_ctx() and retrieve it later with httpd_sess_get_transport_ctx()"]
+    #[doc = ""]
+    #[doc = " Returning a value other than ESP_OK will immediately close the new socket."]
+    pub open_fn: httpd_open_func_t,
+    #[doc = " Custom session closing callback."]
+    #[doc = ""]
+    #[doc = " Called when a session is deleted, before freeing user and transport contexts and before"]
+    #[doc = " closing the socket. This is a place for custom de-init code common to all sockets."]
+    #[doc = ""]
+    #[doc = " Set the user or transport context to NULL if it was freed here, so the server does not"]
+    #[doc = " try to free it again."]
+    #[doc = ""]
+    #[doc = " This function is run for all terminated sessions, including sessions where the socket"]
+    #[doc = " was closed by the network stack - that is, the file descriptor may not be valid anymore."]
+    pub close_fn: httpd_close_func_t,
+    #[doc = " URI matcher function."]
+    #[doc = ""]
+    #[doc = " Called when searching for a matching URI:"]
+    #[doc = "     1) whose request handler is to be executed right"]
+    #[doc = "        after an HTTP request is successfully parsed"]
+    #[doc = "     2) in order to prevent duplication while registering"]
+    #[doc = "        a new URI handler using `httpd_register_uri_handler()`"]
+    #[doc = ""]
+    #[doc = " Available options are:"]
+    #[doc = "     1) NULL : Internally do basic matching using `strncmp()`"]
+    #[doc = "     2) `httpd_uri_match_wildcard()` : URI wildcard matcher"]
+    #[doc = ""]
+    #[doc = " Users can implement their own matching functions (See description"]
+    #[doc = " of the `httpd_uri_match_func_t` function prototype)"]
+    pub uri_match_fn: httpd_uri_match_func_t,
+}
+#[doc = " @brief   HTTP Server Configuration Structure"]
+#[doc = ""]
+#[doc = " @note    Use HTTPD_DEFAULT_CONFIG() to initialize the configuration"]
+#[doc = "          to a default value and then modify only those fields that are"]
+#[doc = "          specifically determined by the use case."]
+pub type httpd_config_t = httpd_config;
+extern "C" {
+    #[doc = " @brief Starts the web server"]
+    #[doc = ""]
+    #[doc = " Create an instance of HTTP server and allocate memory/resources for it"]
+    #[doc = " depending upon the specified configuration."]
+    #[doc = ""]
+    #[doc = " Example usage:"]
+    #[doc = " @code{c}"]
+    #[doc = ""]
+    #[doc = " //Function for starting the webserver"]
+    #[doc = " httpd_handle_t start_webserver(void)"]
+    #[doc = " {"]
+    #[doc = "      // Generate default configuration"]
+    #[doc = "      httpd_config_t config = HTTPD_DEFAULT_CONFIG();"]
+    #[doc = ""]
+    #[doc = "      // Empty handle to http_server"]
+    #[doc = "      httpd_handle_t server = NULL;"]
+    #[doc = ""]
+    #[doc = "      // Start the httpd server"]
+    #[doc = "      if (httpd_start(&server, &config) == ESP_OK) {"]
+    #[doc = "          // Register URI handlers"]
+    #[doc = "          httpd_register_uri_handler(server, &uri_get);"]
+    #[doc = "          httpd_register_uri_handler(server, &uri_post);"]
+    #[doc = "      }"]
+    #[doc = "      // If server failed to start, handle will be NULL"]
+    #[doc = "      return server;"]
+    #[doc = " }"]
+    #[doc = ""]
+    #[doc = " @endcode"]
+    #[doc = ""]
+    #[doc = " @param[in]  config   Configuration for new instance of the server"]
+    #[doc = " @param[out] handle   Handle to newly created instance of the server. NULL on error"]
+    #[doc = " @return"]
+    #[doc = "  - ESP_OK    : Instance created successfully"]
+    #[doc = "  - ESP_ERR_INVALID_ARG      : Null argument(s)"]
+    #[doc = "  - ESP_ERR_HTTPD_ALLOC_MEM  : Failed to allocate memory for instance"]
+    #[doc = "  - ESP_ERR_HTTPD_TASK       : Failed to launch server task"]
+    pub fn httpd_start(handle: *mut httpd_handle_t, config: *const httpd_config_t) -> esp_err_t;
+}
+extern "C" {
+    #[doc = " @brief Stops the web server"]
+    #[doc = ""]
+    #[doc = " Deallocates memory/resources used by an HTTP server instance and"]
+    #[doc = " deletes it. Once deleted the handle can no longer be used for accessing"]
+    #[doc = " the instance."]
+    #[doc = ""]
+    #[doc = " Example usage:"]
+    #[doc = " @code{c}"]
+    #[doc = ""]
+    #[doc = " // Function for stopping the webserver"]
+    #[doc = " void stop_webserver(httpd_handle_t server)"]
+    #[doc = " {"]
+    #[doc = "      // Ensure handle is non NULL"]
+    #[doc = "      if (server != NULL) {"]
+    #[doc = "          // Stop the httpd server"]
+    #[doc = "          httpd_stop(server);"]
+    #[doc = "      }"]
+    #[doc = " }"]
+    #[doc = ""]
+    #[doc = " @endcode"]
+    #[doc = ""]
+    #[doc = " @param[in] handle Handle to server returned by httpd_start"]
+    #[doc = " @return"]
+    #[doc = "  - ESP_OK : Server stopped successfully"]
+    #[doc = "  - ESP_ERR_INVALID_ARG : Handle argument is Null"]
+    pub fn httpd_stop(handle: httpd_handle_t) -> esp_err_t;
+}
+#[doc = " @brief HTTP Request Data Structure"]
+#[repr(C)]
+#[derive(Copy, Clone)]
+pub struct httpd_req {
+    #[doc = "< Handle to server instance"]
+    pub handle: httpd_handle_t,
+    #[doc = "< The type of HTTP request, -1 if unsupported method"]
+    pub method: c_types::c_int,
+    #[doc = "< The URI of this request (1 byte extra for null termination)"]
+    pub uri: [c_types::c_char; 513usize],
+    #[doc = "< Length of the request body"]
+    pub content_len: size_t,
+    #[doc = "< Internally used members"]
+    pub aux: *mut c_types::c_void,
+    #[doc = " User context pointer passed during URI registration."]
+    pub user_ctx: *mut c_types::c_void,
+    #[doc = " Session Context Pointer"]
+    #[doc = ""]
+    #[doc = " A session context. Contexts are maintained across 'sessions' for a"]
+    #[doc = " given open TCP connection. One session could have multiple request"]
+    #[doc = " responses. The web server will ensure that the context persists"]
+    #[doc = " across all these request and responses."]
+    #[doc = ""]
+    #[doc = " By default, this is NULL. URI Handlers can set this to any meaningful"]
+    #[doc = " value."]
+    #[doc = ""]
+    #[doc = " If the underlying socket gets closed, and this pointer is non-NULL,"]
+    #[doc = " the web server will free up the context by calling free(), unless"]
+    #[doc = " free_ctx function is set."]
+    pub sess_ctx: *mut c_types::c_void,
+    #[doc = " Pointer to free context hook"]
+    #[doc = ""]
+    #[doc = " Function to free session context"]
+    #[doc = ""]
+    #[doc = " If the web server's socket closes, it frees up the session context by"]
+    #[doc = " calling free() on the sess_ctx member. If you wish to use a custom"]
+    #[doc = " function for freeing the session context, please specify that here."]
+    pub free_ctx: httpd_free_ctx_fn_t,
+    #[doc = " Flag indicating if Session Context changes should be ignored"]
+    #[doc = ""]
+    #[doc = " By default, if you change the sess_ctx in some URI handler, the http server"]
+    #[doc = " will internally free the earlier context (if non NULL), after the URI handler"]
+    #[doc = " returns. If you want to manage the allocation/reallocation/freeing of"]
+    #[doc = " sess_ctx yourself, set this flag to true, so that the server will not"]
+    #[doc = " perform any checks on it. The context will be cleared by the server"]
+    #[doc = " (by calling free_ctx or free()) only if the socket gets closed."]
+    pub ignore_sess_ctx_changes: bool,
+}
+#[doc = " @brief HTTP Request Data Structure"]
+pub type httpd_req_t = httpd_req;
+#[doc = " @brief Structure for URI handler"]
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct httpd_uri {
+    #[doc = "< The URI to handle"]
+    pub uri: *const c_types::c_char,
+    #[doc = "< Method supported by the URI"]
+    pub method: httpd_method_t,
+    #[doc = " Handler to call for supported request method. This must"]
+    #[doc = " return ESP_OK, or else the underlying socket will be closed."]
+    pub handler: ::core::option::Option<unsafe extern "C" fn(r: *mut httpd_req_t) -> esp_err_t>,
+    #[doc = " Pointer to user context data which will be available to handler"]
+    pub user_ctx: *mut c_types::c_void,
+}
+#[doc = " @brief Structure for URI handler"]
+pub type httpd_uri_t = httpd_uri;
+extern "C" {
+    #[doc = " @brief   Registers a URI handler"]
+    #[doc = ""]
+    #[doc = " @note    URI handlers can be registered in real time as long as the"]
+    #[doc = "          server handle is valid."]
+    #[doc = ""]
+    #[doc = " Example usage:"]
+    #[doc = " @code{c}"]
+    #[doc = ""]
+    #[doc = " esp_err_t my_uri_handler(httpd_req_t* req)"]
+    #[doc = " {"]
+    #[doc = "     // Recv , Process and Send"]
+    #[doc = "     ...."]
+    #[doc = "     ...."]
+    #[doc = "     ...."]
+    #[doc = ""]
+    #[doc = "     // Fail condition"]
+    #[doc = "     if (....) {"]
+    #[doc = "         // Return fail to close session //"]
+    #[doc = "         return ESP_FAIL;"]
+    #[doc = "     }"]
+    #[doc = ""]
+    #[doc = "     // On success"]
+    #[doc = "     return ESP_OK;"]
+    #[doc = " }"]
+    #[doc = ""]
+    #[doc = " // URI handler structure"]
+    #[doc = " httpd_uri_t my_uri {"]
+    #[doc = "     .uri      = \"/my_uri/path/xyz\","]
+    #[doc = "     .method   = HTTPD_GET,"]
+    #[doc = "     .handler  = my_uri_handler,"]
+    #[doc = "     .user_ctx = NULL"]
+    #[doc = " };"]
+    #[doc = ""]
+    #[doc = " // Register handler"]
+    #[doc = " if (httpd_register_uri_handler(server_handle, &my_uri) != ESP_OK) {"]
+    #[doc = "    // If failed to register handler"]
+    #[doc = "    ...."]
+    #[doc = " }"]
+    #[doc = ""]
+    #[doc = " @endcode"]
+    #[doc = ""]
+    #[doc = " @param[in] handle      handle to HTTPD server instance"]
+    #[doc = " @param[in] uri_handler pointer to handler that needs to be registered"]
+    #[doc = ""]
+    #[doc = " @return"]
+    #[doc = "  - ESP_OK : On successfully registering the handler"]
+    #[doc = "  - ESP_ERR_INVALID_ARG : Null arguments"]
+    #[doc = "  - ESP_ERR_HTTPD_HANDLERS_FULL  : If no slots left for new handler"]
+    #[doc = "  - ESP_ERR_HTTPD_HANDLER_EXISTS : If handler with same URI and"]
+    #[doc = "                                   method is already registered"]
+    pub fn httpd_register_uri_handler(
+        handle: httpd_handle_t,
+        uri_handler: *const httpd_uri_t,
+    ) -> esp_err_t;
+}
+extern "C" {
+    #[doc = " @brief   Unregister a URI handler"]
+    #[doc = ""]
+    #[doc = " @param[in] handle    handle to HTTPD server instance"]
+    #[doc = " @param[in] uri       URI string"]
+    #[doc = " @param[in] method    HTTP method"]
+    #[doc = ""]
+    #[doc = " @return"]
+    #[doc = "  - ESP_OK : On successfully deregistering the handler"]
+    #[doc = "  - ESP_ERR_INVALID_ARG : Null arguments"]
+    #[doc = "  - ESP_ERR_NOT_FOUND   : Handler with specified URI and method not found"]
+    pub fn httpd_unregister_uri_handler(
+        handle: httpd_handle_t,
+        uri: *const c_types::c_char,
+        method: httpd_method_t,
+    ) -> esp_err_t;
+}
+extern "C" {
+    #[doc = " @brief   Unregister all URI handlers with the specified uri string"]
+    #[doc = ""]
+    #[doc = " @param[in] handle   handle to HTTPD server instance"]
+    #[doc = " @param[in] uri      uri string specifying all handlers that need"]
+    #[doc = "                     to be deregisterd"]
+    #[doc = ""]
+    #[doc = " @return"]
+    #[doc = "  - ESP_OK : On successfully deregistering all such handlers"]
+    #[doc = "  - ESP_ERR_INVALID_ARG : Null arguments"]
+    #[doc = "  - ESP_ERR_NOT_FOUND   : No handler registered with specified uri string"]
+    pub fn httpd_unregister_uri(handle: httpd_handle_t, uri: *const c_types::c_char) -> esp_err_t;
+}
+pub const httpd_err_code_t_HTTPD_500_INTERNAL_SERVER_ERROR: httpd_err_code_t = 0;
+pub const httpd_err_code_t_HTTPD_501_METHOD_NOT_IMPLEMENTED: httpd_err_code_t = 1;
+pub const httpd_err_code_t_HTTPD_505_VERSION_NOT_SUPPORTED: httpd_err_code_t = 2;
+pub const httpd_err_code_t_HTTPD_400_BAD_REQUEST: httpd_err_code_t = 3;
+pub const httpd_err_code_t_HTTPD_404_NOT_FOUND: httpd_err_code_t = 4;
+pub const httpd_err_code_t_HTTPD_405_METHOD_NOT_ALLOWED: httpd_err_code_t = 5;
+pub const httpd_err_code_t_HTTPD_408_REQ_TIMEOUT: httpd_err_code_t = 6;
+pub const httpd_err_code_t_HTTPD_411_LENGTH_REQUIRED: httpd_err_code_t = 7;
+pub const httpd_err_code_t_HTTPD_414_URI_TOO_LONG: httpd_err_code_t = 8;
+pub const httpd_err_code_t_HTTPD_431_REQ_HDR_FIELDS_TOO_LARGE: httpd_err_code_t = 9;
+pub const httpd_err_code_t_HTTPD_ERR_CODE_MAX: httpd_err_code_t = 10;
+#[doc = " @brief Error codes sent as HTTP response in case of errors"]
+#[doc = "        encountered during processing of an HTTP request"]
+pub type httpd_err_code_t = c_types::c_uint;
+#[doc = " @brief  Function prototype for HTTP error handling."]
+#[doc = ""]
+#[doc = " This function is executed upon HTTP errors generated during"]
+#[doc = " internal processing of an HTTP request. This is used to override"]
+#[doc = " the default behavior on error, which is to send HTTP error response"]
+#[doc = " and close the underlying socket."]
+#[doc = ""]
+#[doc = " @note"]
+#[doc = "  - If implemented, the server will not automatically send out HTTP"]
+#[doc = "    error response codes, therefore, httpd_resp_send_err() must be"]
+#[doc = "    invoked inside this function if user wishes to generate HTTP"]
+#[doc = "    error responses."]
+#[doc = "  - When invoked, the validity of `uri`, `method`, `content_len`"]
+#[doc = "    and `user_ctx` fields of the httpd_req_t parameter is not"]
+#[doc = "    guaranteed as the HTTP request may be partially received/parsed."]
+#[doc = "  - The function must return ESP_OK if underlying socket needs to"]
+#[doc = "    be kept open. Any other value will ensure that the socket is"]
+#[doc = "    closed. The return value is ignored when error is of type"]
+#[doc = "    `HTTPD_500_INTERNAL_SERVER_ERROR` and the socket closed anyway."]
+#[doc = ""]
+#[doc = " @param[in] req    HTTP request for which the error needs to be handled"]
+#[doc = " @param[in] error  Error type"]
+#[doc = ""]
+#[doc = " @return"]
+#[doc = "  - ESP_OK   : error handled successful"]
+#[doc = "  - ESP_FAIL : failure indicates that the underlying socket needs to be closed"]
+pub type httpd_err_handler_func_t = ::core::option::Option<
+    unsafe extern "C" fn(req: *mut httpd_req_t, error: httpd_err_code_t) -> esp_err_t,
+>;
+extern "C" {
+    #[doc = " @brief  Function for registering HTTP error handlers"]
+    #[doc = ""]
+    #[doc = " This function maps a handler function to any supported error code"]
+    #[doc = " given by `httpd_err_code_t`. See prototype `httpd_err_handler_func_t`"]
+    #[doc = " above for details."]
+    #[doc = ""]
+    #[doc = " @param[in] handle     HTTP server handle"]
+    #[doc = " @param[in] error      Error type"]
+    #[doc = " @param[in] handler_fn User implemented handler function"]
+    #[doc = "                       (Pass NULL to unset any previously set handler)"]
+    #[doc = ""]
+    #[doc = " @return"]
+    #[doc = "  - ESP_OK : handler registered successfully"]
+    #[doc = "  - ESP_ERR_INVALID_ARG : invalid error code or server handle"]
+    pub fn httpd_register_err_handler(
+        handle: httpd_handle_t,
+        error: httpd_err_code_t,
+        handler_fn: httpd_err_handler_func_t,
+    ) -> esp_err_t;
+}
+#[doc = " @brief  Prototype for HTTPDs low-level send function"]
+#[doc = ""]
+#[doc = " @note   User specified send function must handle errors internally,"]
+#[doc = "         depending upon the set value of errno, and return specific"]
+#[doc = "         HTTPD_SOCK_ERR_ codes, which will eventually be conveyed as"]
+#[doc = "         return value of httpd_send() function"]
+#[doc = ""]
+#[doc = " @param[in] hd        server instance"]
+#[doc = " @param[in] sockfd    session socket file descriptor"]
+#[doc = " @param[in] buf       buffer with bytes to send"]
+#[doc = " @param[in] buf_len   data size"]
+#[doc = " @param[in] flags     flags for the send() function"]
+#[doc = " @return"]
+#[doc = "  - Bytes : The number of bytes sent successfully"]
+#[doc = "  - HTTPD_SOCK_ERR_INVALID  : Invalid arguments"]
+#[doc = "  - HTTPD_SOCK_ERR_TIMEOUT  : Timeout/interrupted while calling socket send()"]
+#[doc = "  - HTTPD_SOCK_ERR_FAIL     : Unrecoverable error while calling socket send()"]
+pub type httpd_send_func_t = ::core::option::Option<
+    unsafe extern "C" fn(
+        hd: httpd_handle_t,
+        sockfd: c_types::c_int,
+        buf: *const c_types::c_char,
+        buf_len: size_t,
+        flags: c_types::c_int,
+    ) -> c_types::c_int,
+>;
+#[doc = " @brief  Prototype for HTTPDs low-level recv function"]
+#[doc = ""]
+#[doc = " @note   User specified recv function must handle errors internally,"]
+#[doc = "         depending upon the set value of errno, and return specific"]
+#[doc = "         HTTPD_SOCK_ERR_ codes, which will eventually be conveyed as"]
+#[doc = "         return value of httpd_req_recv() function"]
+#[doc = ""]
+#[doc = " @param[in] hd        server instance"]
+#[doc = " @param[in] sockfd    session socket file descriptor"]
+#[doc = " @param[in] buf       buffer with bytes to send"]
+#[doc = " @param[in] buf_len   data size"]
+#[doc = " @param[in] flags     flags for the send() function"]
+#[doc = " @return"]
+#[doc = "  - Bytes : The number of bytes received successfully"]
+#[doc = "  - 0     : Buffer length parameter is zero / connection closed by peer"]
+#[doc = "  - HTTPD_SOCK_ERR_INVALID  : Invalid arguments"]
+#[doc = "  - HTTPD_SOCK_ERR_TIMEOUT  : Timeout/interrupted while calling socket recv()"]
+#[doc = "  - HTTPD_SOCK_ERR_FAIL     : Unrecoverable error while calling socket recv()"]
+pub type httpd_recv_func_t = ::core::option::Option<
+    unsafe extern "C" fn(
+        hd: httpd_handle_t,
+        sockfd: c_types::c_int,
+        buf: *mut c_types::c_char,
+        buf_len: size_t,
+        flags: c_types::c_int,
+    ) -> c_types::c_int,
+>;
+#[doc = " @brief  Prototype for HTTPDs low-level \"get pending bytes\" function"]
+#[doc = ""]
+#[doc = " @note   User specified pending function must handle errors internally,"]
+#[doc = "         depending upon the set value of errno, and return specific"]
+#[doc = "         HTTPD_SOCK_ERR_ codes, which will be handled accordingly in"]
+#[doc = "         the server task."]
+#[doc = ""]
+#[doc = " @param[in] hd       server instance"]
+#[doc = " @param[in] sockfd   session socket file descriptor"]
+#[doc = " @return"]
+#[doc = "  - Bytes : The number of bytes waiting to be received"]
+#[doc = "  - HTTPD_SOCK_ERR_INVALID  : Invalid arguments"]
+#[doc = "  - HTTPD_SOCK_ERR_TIMEOUT  : Timeout/interrupted while calling socket pending()"]
+#[doc = "  - HTTPD_SOCK_ERR_FAIL     : Unrecoverable error while calling socket pending()"]
+pub type httpd_pending_func_t = ::core::option::Option<
+    unsafe extern "C" fn(hd: httpd_handle_t, sockfd: c_types::c_int) -> c_types::c_int,
+>;
+extern "C" {
+    #[doc = " @brief   Override web server's receive function (by session FD)"]
+    #[doc = ""]
+    #[doc = " This function overrides the web server's receive function. This same function is"]
+    #[doc = " used to read HTTP request packets."]
+    #[doc = ""]
+    #[doc = " @note    This API is supposed to be called either from the context of"]
+    #[doc = "          - an http session APIs where sockfd is a valid parameter"]
+    #[doc = "          - a URI handler where sockfd is obtained using httpd_req_to_sockfd()"]
+    #[doc = ""]
+    #[doc = " @param[in] hd        HTTPD instance handle"]
+    #[doc = " @param[in] sockfd    Session socket FD"]
+    #[doc = " @param[in] recv_func The receive function to be set for this session"]
+    #[doc = ""]
+    #[doc = " @return"]
+    #[doc = "  - ESP_OK : On successfully registering override"]
+    #[doc = "  - ESP_ERR_INVALID_ARG : Null arguments"]
+    pub fn httpd_sess_set_recv_override(
+        hd: httpd_handle_t,
+        sockfd: c_types::c_int,
+        recv_func: httpd_recv_func_t,
+    ) -> esp_err_t;
+}
+extern "C" {
+    #[doc = " @brief   Override web server's send function (by session FD)"]
+    #[doc = ""]
+    #[doc = " This function overrides the web server's send function. This same function is"]
+    #[doc = " used to send out any response to any HTTP request."]
+    #[doc = ""]
+    #[doc = " @note    This API is supposed to be called either from the context of"]
+    #[doc = "          - an http session APIs where sockfd is a valid parameter"]
+    #[doc = "          - a URI handler where sockfd is obtained using httpd_req_to_sockfd()"]
+    #[doc = ""]
+    #[doc = " @param[in] hd        HTTPD instance handle"]
+    #[doc = " @param[in] sockfd    Session socket FD"]
+    #[doc = " @param[in] send_func The send function to be set for this session"]
+    #[doc = ""]
+    #[doc = " @return"]
+    #[doc = "  - ESP_OK : On successfully registering override"]
+    #[doc = "  - ESP_ERR_INVALID_ARG : Null arguments"]
+    pub fn httpd_sess_set_send_override(
+        hd: httpd_handle_t,
+        sockfd: c_types::c_int,
+        send_func: httpd_send_func_t,
+    ) -> esp_err_t;
+}
+extern "C" {
+    #[doc = " @brief   Override web server's pending function (by session FD)"]
+    #[doc = ""]
+    #[doc = " This function overrides the web server's pending function. This function is"]
+    #[doc = " used to test for pending bytes in a socket."]
+    #[doc = ""]
+    #[doc = " @note    This API is supposed to be called either from the context of"]
+    #[doc = "          - an http session APIs where sockfd is a valid parameter"]
+    #[doc = "          - a URI handler where sockfd is obtained using httpd_req_to_sockfd()"]
+    #[doc = ""]
+    #[doc = " @param[in] hd           HTTPD instance handle"]
+    #[doc = " @param[in] sockfd       Session socket FD"]
+    #[doc = " @param[in] pending_func The receive function to be set for this session"]
+    #[doc = ""]
+    #[doc = " @return"]
+    #[doc = "  - ESP_OK : On successfully registering override"]
+    #[doc = "  - ESP_ERR_INVALID_ARG : Null arguments"]
+    pub fn httpd_sess_set_pending_override(
+        hd: httpd_handle_t,
+        sockfd: c_types::c_int,
+        pending_func: httpd_pending_func_t,
+    ) -> esp_err_t;
+}
+extern "C" {
+    #[doc = " @brief   Get the Socket Descriptor from the HTTP request"]
+    #[doc = ""]
+    #[doc = " This API will return the socket descriptor of the session for"]
+    #[doc = " which URI handler was executed on reception of HTTP request."]
+    #[doc = " This is useful when user wants to call functions that require"]
+    #[doc = " session socket fd, from within a URI handler, ie. :"]
+    #[doc = "      httpd_sess_get_ctx(),"]
+    #[doc = "      httpd_sess_trigger_close(),"]
+    #[doc = "      httpd_sess_update_lru_counter()."]
+    #[doc = ""]
+    #[doc = " @note    This API is supposed to be called only from the context of"]
+    #[doc = "          a URI handler where httpd_req_t* request pointer is valid."]
+    #[doc = ""]
+    #[doc = " @param[in] r The request whose socket descriptor should be found"]
+    #[doc = ""]
+    #[doc = " @return"]
+    #[doc = "  - Socket descriptor : The socket descriptor for this request"]
+    #[doc = "  - -1 : Invalid/NULL request pointer"]
+    pub fn httpd_req_to_sockfd(r: *mut httpd_req_t) -> c_types::c_int;
+}
+extern "C" {
+    #[doc = " @brief   API to read content data from the HTTP request"]
+    #[doc = ""]
+    #[doc = " This API will read HTTP content data from the HTTP request into"]
+    #[doc = " provided buffer. Use content_len provided in httpd_req_t structure"]
+    #[doc = " to know the length of data to be fetched. If content_len is too"]
+    #[doc = " large for the buffer then user may have to make multiple calls to"]
+    #[doc = " this function, each time fetching 'buf_len' number of bytes,"]
+    #[doc = " while the pointer to content data is incremented internally by"]
+    #[doc = " the same number."]
+    #[doc = ""]
+    #[doc = " @note"]
+    #[doc = "  - This API is supposed to be called only from the context of"]
+    #[doc = "    a URI handler where httpd_req_t* request pointer is valid."]
+    #[doc = "  - If an error is returned, the URI handler must further return an error."]
+    #[doc = "    This will ensure that the erroneous socket is closed and cleaned up by"]
+    #[doc = "    the web server."]
+    #[doc = "  - Presently Chunked Encoding is not supported"]
+    #[doc = ""]
+    #[doc = " @param[in] r         The request being responded to"]
+    #[doc = " @param[in] buf       Pointer to a buffer that the data will be read into"]
+    #[doc = " @param[in] buf_len   Length of the buffer"]
+    #[doc = ""]
+    #[doc = " @return"]
+    #[doc = "  - Bytes : Number of bytes read into the buffer successfully"]
+    #[doc = "  - 0     : Buffer length parameter is zero / connection closed by peer"]
+    #[doc = "  - HTTPD_SOCK_ERR_INVALID  : Invalid arguments"]
+    #[doc = "  - HTTPD_SOCK_ERR_TIMEOUT  : Timeout/interrupted while calling socket recv()"]
+    #[doc = "  - HTTPD_SOCK_ERR_FAIL     : Unrecoverable error while calling socket recv()"]
+    pub fn httpd_req_recv(
+        r: *mut httpd_req_t,
+        buf: *mut c_types::c_char,
+        buf_len: size_t,
+    ) -> c_types::c_int;
+}
+extern "C" {
+    #[doc = " @brief   Search for a field in request headers and"]
+    #[doc = "          return the string length of it's value"]
+    #[doc = ""]
+    #[doc = " @note"]
+    #[doc = "  - This API is supposed to be called only from the context of"]
+    #[doc = "    a URI handler where httpd_req_t* request pointer is valid."]
+    #[doc = "  - Once httpd_resp_send() API is called all request headers"]
+    #[doc = "    are purged, so request headers need be copied into separate"]
+    #[doc = "    buffers if they are required later."]
+    #[doc = ""]
+    #[doc = " @param[in]  r        The request being responded to"]
+    #[doc = " @param[in]  field    The header field to be searched in the request"]
+    #[doc = ""]
+    #[doc = " @return"]
+    #[doc = "  - Length    : If field is found in the request URL"]
+    #[doc = "  - Zero      : Field not found / Invalid request / Null arguments"]
+    pub fn httpd_req_get_hdr_value_len(
+        r: *mut httpd_req_t,
+        field: *const c_types::c_char,
+    ) -> size_t;
+}
+extern "C" {
+    #[doc = " @brief   Get the value string of a field from the request headers"]
+    #[doc = ""]
+    #[doc = " @note"]
+    #[doc = "  - This API is supposed to be called only from the context of"]
+    #[doc = "    a URI handler where httpd_req_t* request pointer is valid."]
+    #[doc = "  - Once httpd_resp_send() API is called all request headers"]
+    #[doc = "    are purged, so request headers need be copied into separate"]
+    #[doc = "    buffers if they are required later."]
+    #[doc = "  - If output size is greater than input, then the value is truncated,"]
+    #[doc = "    accompanied by truncation error as return value."]
+    #[doc = "  - Use httpd_req_get_hdr_value_len() to know the right buffer length"]
+    #[doc = ""]
+    #[doc = " @param[in]  r        The request being responded to"]
+    #[doc = " @param[in]  field    The field to be searched in the header"]
+    #[doc = " @param[out] val      Pointer to the buffer into which the value will be copied if the field is found"]
+    #[doc = " @param[in]  val_size Size of the user buffer \"val\""]
+    #[doc = ""]
+    #[doc = " @return"]
+    #[doc = "  - ESP_OK : Field found in the request header and value string copied"]
+    #[doc = "  - ESP_ERR_NOT_FOUND          : Key not found"]
+    #[doc = "  - ESP_ERR_INVALID_ARG        : Null arguments"]
+    #[doc = "  - ESP_ERR_HTTPD_INVALID_REQ  : Invalid HTTP request pointer"]
+    #[doc = "  - ESP_ERR_HTTPD_RESULT_TRUNC : Value string truncated"]
+    pub fn httpd_req_get_hdr_value_str(
+        r: *mut httpd_req_t,
+        field: *const c_types::c_char,
+        val: *mut c_types::c_char,
+        val_size: size_t,
+    ) -> esp_err_t;
+}
+extern "C" {
+    #[doc = " @brief   Get Query string length from the request URL"]
+    #[doc = ""]
+    #[doc = " @note    This API is supposed to be called only from the context of"]
+    #[doc = "          a URI handler where httpd_req_t* request pointer is valid"]
+    #[doc = ""]
+    #[doc = " @param[in]  r    The request being responded to"]
+    #[doc = ""]
+    #[doc = " @return"]
+    #[doc = "  - Length    : Query is found in the request URL"]
+    #[doc = "  - Zero      : Query not found / Null arguments / Invalid request"]
+    pub fn httpd_req_get_url_query_len(r: *mut httpd_req_t) -> size_t;
+}
+extern "C" {
+    #[doc = " @brief   Get Query string from the request URL"]
+    #[doc = ""]
+    #[doc = " @note"]
+    #[doc = "  - Presently, the user can fetch the full URL query string, but decoding"]
+    #[doc = "    will have to be performed by the user. Request headers can be read using"]
+    #[doc = "    httpd_req_get_hdr_value_str() to know the 'Content-Type' (eg. Content-Type:"]
+    #[doc = "    application/x-www-form-urlencoded) and then the appropriate decoding"]
+    #[doc = "    algorithm needs to be applied."]
+    #[doc = "  - This API is supposed to be called only from the context of"]
+    #[doc = "    a URI handler where httpd_req_t* request pointer is valid"]
+    #[doc = "  - If output size is greater than input, then the value is truncated,"]
+    #[doc = "    accompanied by truncation error as return value"]
+    #[doc = "  - Prior to calling this function, one can use httpd_req_get_url_query_len()"]
+    #[doc = "    to know the query string length beforehand and hence allocate the buffer"]
+    #[doc = "    of right size (usually query string length + 1 for null termination)"]
+    #[doc = "    for storing the query string"]
+    #[doc = ""]
+    #[doc = " @param[in]  r         The request being responded to"]
+    #[doc = " @param[out] buf       Pointer to the buffer into which the query string will be copied (if found)"]
+    #[doc = " @param[in]  buf_len   Length of output buffer"]
+    #[doc = ""]
+    #[doc = " @return"]
+    #[doc = "  - ESP_OK : Query is found in the request URL and copied to buffer"]
+    #[doc = "  - ESP_ERR_NOT_FOUND          : Query not found"]
+    #[doc = "  - ESP_ERR_INVALID_ARG        : Null arguments"]
+    #[doc = "  - ESP_ERR_HTTPD_INVALID_REQ  : Invalid HTTP request pointer"]
+    #[doc = "  - ESP_ERR_HTTPD_RESULT_TRUNC : Query string truncated"]
+    pub fn httpd_req_get_url_query_str(
+        r: *mut httpd_req_t,
+        buf: *mut c_types::c_char,
+        buf_len: size_t,
+    ) -> esp_err_t;
+}
+extern "C" {
+    #[doc = " @brief   Helper function to get a URL query tag from a query"]
+    #[doc = "          string of the type param1=val1&param2=val2"]
+    #[doc = ""]
+    #[doc = " @note"]
+    #[doc = "  - The components of URL query string (keys and values) are not URLdecoded."]
+    #[doc = "    The user must check for 'Content-Type' field in the request headers and"]
+    #[doc = "    then depending upon the specified encoding (URLencoded or otherwise) apply"]
+    #[doc = "    the appropriate decoding algorithm."]
+    #[doc = "  - If actual value size is greater than val_size, then the value is truncated,"]
+    #[doc = "    accompanied by truncation error as return value."]
+    #[doc = ""]
+    #[doc = " @param[in]  qry       Pointer to query string"]
+    #[doc = " @param[in]  key       The key to be searched in the query string"]
+    #[doc = " @param[out] val       Pointer to the buffer into which the value will be copied if the key is found"]
+    #[doc = " @param[in]  val_size  Size of the user buffer \"val\""]
+    #[doc = ""]
+    #[doc = " @return"]
+    #[doc = "  - ESP_OK : Key is found in the URL query string and copied to buffer"]
+    #[doc = "  - ESP_ERR_NOT_FOUND          : Key not found"]
+    #[doc = "  - ESP_ERR_INVALID_ARG        : Null arguments"]
+    #[doc = "  - ESP_ERR_HTTPD_RESULT_TRUNC : Value string truncated"]
+    pub fn httpd_query_key_value(
+        qry: *const c_types::c_char,
+        key: *const c_types::c_char,
+        val: *mut c_types::c_char,
+        val_size: size_t,
+    ) -> esp_err_t;
+}
+extern "C" {
+    #[doc = " @brief Test if a URI matches the given wildcard template."]
+    #[doc = ""]
+    #[doc = " Template may end with \"?\" to make the previous character optional (typically a slash),"]
+    #[doc = " \"*\" for a wildcard match, and \"?*\" to make the previous character optional, and if present,"]
+    #[doc = " allow anything to follow."]
+    #[doc = ""]
+    #[doc = " Example:"]
+    #[doc = "   - * matches everything"]
+    #[doc = "   - /foo/? matches /foo and /foo/"]
+    #[doc = "   - /foo/\\* (sans the backslash) matches /foo/ and /foo/bar, but not /foo or /fo"]
+    #[doc = "   - /foo/?* or /foo/\\*?  (sans the backslash) matches /foo/, /foo/bar, and also /foo, but not /foox or /fo"]
+    #[doc = ""]
+    #[doc = " The special characters \"?\" and \"*\" anywhere else in the template will be taken literally."]
+    #[doc = ""]
+    #[doc = " @param[in] uri_template   URI template (pattern)"]
+    #[doc = " @param[in] uri_to_match   URI to be matched"]
+    #[doc = " @param[in] match_upto     how many characters of the URI buffer to test"]
+    #[doc = "                          (there may be trailing query string etc.)"]
+    #[doc = ""]
+    #[doc = " @return true if a match was found"]
+    pub fn httpd_uri_match_wildcard(
+        uri_template: *const c_types::c_char,
+        uri_to_match: *const c_types::c_char,
+        match_upto: size_t,
+    ) -> bool;
+}
+extern "C" {
+    #[doc = " @brief   API to send a complete HTTP response."]
+    #[doc = ""]
+    #[doc = " This API will send the data as an HTTP response to the request."]
+    #[doc = " This assumes that you have the entire response ready in a single"]
+    #[doc = " buffer. If you wish to send response in incremental chunks use"]
+    #[doc = " httpd_resp_send_chunk() instead."]
+    #[doc = ""]
+    #[doc = " If no status code and content-type were set, by default this"]
+    #[doc = " will send 200 OK status code and content type as text/html."]
+    #[doc = " You may call the following functions before this API to configure"]
+    #[doc = " the response headers :"]
+    #[doc = "      httpd_resp_set_status() - for setting the HTTP status string,"]
+    #[doc = "      httpd_resp_set_type()   - for setting the Content Type,"]
+    #[doc = "      httpd_resp_set_hdr()    - for appending any additional field"]
+    #[doc = "                                value entries in the response header"]
+    #[doc = ""]
+    #[doc = " @note"]
+    #[doc = "  - This API is supposed to be called only from the context of"]
+    #[doc = "    a URI handler where httpd_req_t* request pointer is valid."]
+    #[doc = "  - Once this API is called, the request has been responded to."]
+    #[doc = "  - No additional data can then be sent for the request."]
+    #[doc = "  - Once this API is called, all request headers are purged, so"]
+    #[doc = "    request headers need be copied into separate buffers if"]
+    #[doc = "    they are required later."]
+    #[doc = ""]
+    #[doc = " @param[in] r         The request being responded to"]
+    #[doc = " @param[in] buf       Buffer from where the content is to be fetched"]
+    #[doc = " @param[in] buf_len   Length of the buffer, HTTPD_RESP_USE_STRLEN to use strlen()"]
+    #[doc = ""]
+    #[doc = " @return"]
+    #[doc = "  - ESP_OK : On successfully sending the response packet"]
+    #[doc = "  - ESP_ERR_INVALID_ARG : Null request pointer"]
+    #[doc = "  - ESP_ERR_HTTPD_RESP_HDR    : Essential headers are too large for internal buffer"]
+    #[doc = "  - ESP_ERR_HTTPD_RESP_SEND   : Error in raw send"]
+    #[doc = "  - ESP_ERR_HTTPD_INVALID_REQ : Invalid request"]
+    pub fn httpd_resp_send(
+        r: *mut httpd_req_t,
+        buf: *const c_types::c_char,
+        buf_len: ssize_t,
+    ) -> esp_err_t;
+}
+extern "C" {
+    #[doc = " @brief   API to send one HTTP chunk"]
+    #[doc = ""]
+    #[doc = " This API will send the data as an HTTP response to the"]
+    #[doc = " request. This API will use chunked-encoding and send the response"]
+    #[doc = " in the form of chunks. If you have the entire response contained in"]
+    #[doc = " a single buffer, please use httpd_resp_send() instead."]
+    #[doc = ""]
+    #[doc = " If no status code and content-type were set, by default this will"]
+    #[doc = " send 200 OK status code and content type as text/html. You may"]
+    #[doc = " call the following functions before this API to configure the"]
+    #[doc = " response headers"]
+    #[doc = "      httpd_resp_set_status() - for setting the HTTP status string,"]
+    #[doc = "      httpd_resp_set_type()   - for setting the Content Type,"]
+    #[doc = "      httpd_resp_set_hdr()    - for appending any additional field"]
+    #[doc = "                                value entries in the response header"]
+    #[doc = ""]
+    #[doc = " @note"]
+    #[doc = " - This API is supposed to be called only from the context of"]
+    #[doc = "   a URI handler where httpd_req_t* request pointer is valid."]
+    #[doc = " - When you are finished sending all your chunks, you must call"]
+    #[doc = "   this function with buf_len as 0."]
+    #[doc = " - Once this API is called, all request headers are purged, so"]
+    #[doc = "   request headers need be copied into separate buffers if they"]
+    #[doc = "   are required later."]
+    #[doc = ""]
+    #[doc = " @param[in] r         The request being responded to"]
+    #[doc = " @param[in] buf       Pointer to a buffer that stores the data"]
+    #[doc = " @param[in] buf_len   Length of the buffer, HTTPD_RESP_USE_STRLEN to use strlen()"]
+    #[doc = ""]
+    #[doc = " @return"]
+    #[doc = "  - ESP_OK : On successfully sending the response packet chunk"]
+    #[doc = "  - ESP_ERR_INVALID_ARG : Null request pointer"]
+    #[doc = "  - ESP_ERR_HTTPD_RESP_HDR    : Essential headers are too large for internal buffer"]
+    #[doc = "  - ESP_ERR_HTTPD_RESP_SEND   : Error in raw send"]
+    #[doc = "  - ESP_ERR_HTTPD_INVALID_REQ : Invalid request pointer"]
+    pub fn httpd_resp_send_chunk(
+        r: *mut httpd_req_t,
+        buf: *const c_types::c_char,
+        buf_len: ssize_t,
+    ) -> esp_err_t;
+}
+extern "C" {
+    #[doc = " @brief   API to set the HTTP status code"]
+    #[doc = ""]
+    #[doc = " This API sets the status of the HTTP response to the value specified."]
+    #[doc = " By default, the '200 OK' response is sent as the response."]
+    #[doc = ""]
+    #[doc = " @note"]
+    #[doc = "  - This API is supposed to be called only from the context of"]
+    #[doc = "    a URI handler where httpd_req_t* request pointer is valid."]
+    #[doc = "  - This API only sets the status to this value. The status isn't"]
+    #[doc = "    sent out until any of the send APIs is executed."]
+    #[doc = "  - Make sure that the lifetime of the status string is valid till"]
+    #[doc = "    send function is called."]
+    #[doc = ""]
+    #[doc = " @param[in] r         The request being responded to"]
+    #[doc = " @param[in] status    The HTTP status code of this response"]
+    #[doc = ""]
+    #[doc = " @return"]
+    #[doc = "  - ESP_OK : On success"]
+    #[doc = "  - ESP_ERR_INVALID_ARG : Null arguments"]
+    #[doc = "  - ESP_ERR_HTTPD_INVALID_REQ : Invalid request pointer"]
+    pub fn httpd_resp_set_status(r: *mut httpd_req_t, status: *const c_types::c_char) -> esp_err_t;
+}
+extern "C" {
+    #[doc = " @brief   API to set the HTTP content type"]
+    #[doc = ""]
+    #[doc = " This API sets the 'Content Type' field of the response."]
+    #[doc = " The default content type is 'text/html'."]
+    #[doc = ""]
+    #[doc = " @note"]
+    #[doc = "  - This API is supposed to be called only from the context of"]
+    #[doc = "    a URI handler where httpd_req_t* request pointer is valid."]
+    #[doc = "  - This API only sets the content type to this value. The type"]
+    #[doc = "    isn't sent out until any of the send APIs is executed."]
+    #[doc = "  - Make sure that the lifetime of the type string is valid till"]
+    #[doc = "    send function is called."]
+    #[doc = ""]
+    #[doc = " @param[in] r     The request being responded to"]
+    #[doc = " @param[in] type  The Content Type of the response"]
+    #[doc = ""]
+    #[doc = " @return"]
+    #[doc = "  - ESP_OK   : On success"]
+    #[doc = "  - ESP_ERR_INVALID_ARG : Null arguments"]
+    #[doc = "  - ESP_ERR_HTTPD_INVALID_REQ : Invalid request pointer"]
+    pub fn httpd_resp_set_type(r: *mut httpd_req_t, type_: *const c_types::c_char) -> esp_err_t;
+}
+extern "C" {
+    #[doc = " @brief   API to append any additional headers"]
+    #[doc = ""]
+    #[doc = " This API sets any additional header fields that need to be sent in the response."]
+    #[doc = ""]
+    #[doc = " @note"]
+    #[doc = "  - This API is supposed to be called only from the context of"]
+    #[doc = "    a URI handler where httpd_req_t* request pointer is valid."]
+    #[doc = "  - The header isn't sent out until any of the send APIs is executed."]
+    #[doc = "  - The maximum allowed number of additional headers is limited to"]
+    #[doc = "    value of max_resp_headers in config structure."]
+    #[doc = "  - Make sure that the lifetime of the field value strings are valid till"]
+    #[doc = "    send function is called."]
+    #[doc = ""]
+    #[doc = " @param[in] r     The request being responded to"]
+    #[doc = " @param[in] field The field name of the HTTP header"]
+    #[doc = " @param[in] value The value of this HTTP header"]
+    #[doc = ""]
+    #[doc = " @return"]
+    #[doc = "  - ESP_OK : On successfully appending new header"]
+    #[doc = "  - ESP_ERR_INVALID_ARG : Null arguments"]
+    #[doc = "  - ESP_ERR_HTTPD_RESP_HDR    : Total additional headers exceed max allowed"]
+    #[doc = "  - ESP_ERR_HTTPD_INVALID_REQ : Invalid request pointer"]
+    pub fn httpd_resp_set_hdr(
+        r: *mut httpd_req_t,
+        field: *const c_types::c_char,
+        value: *const c_types::c_char,
+    ) -> esp_err_t;
+}
+extern "C" {
+    #[doc = " @brief   For sending out error code in response to HTTP request."]
+    #[doc = ""]
+    #[doc = " @note"]
+    #[doc = "  - This API is supposed to be called only from the context of"]
+    #[doc = "    a URI handler where httpd_req_t* request pointer is valid."]
+    #[doc = "  - Once this API is called, all request headers are purged, so"]
+    #[doc = "    request headers need be copied into separate buffers if"]
+    #[doc = "    they are required later."]
+    #[doc = "  - If you wish to send additional data in the body of the"]
+    #[doc = "    response, please use the lower-level functions directly."]
+    #[doc = ""]
+    #[doc = " @param[in] req     Pointer to the HTTP request for which the response needs to be sent"]
+    #[doc = " @param[in] error   Error type to send"]
+    #[doc = " @param[in] msg     Error message string (pass NULL for default message)"]
+    #[doc = ""]
+    #[doc = " @return"]
+    #[doc = "  - ESP_OK : On successfully sending the response packet"]
+    #[doc = "  - ESP_ERR_INVALID_ARG : Null arguments"]
+    #[doc = "  - ESP_ERR_HTTPD_RESP_SEND   : Error in raw send"]
+    #[doc = "  - ESP_ERR_HTTPD_INVALID_REQ : Invalid request pointer"]
+    pub fn httpd_resp_send_err(
+        req: *mut httpd_req_t,
+        error: httpd_err_code_t,
+        msg: *const c_types::c_char,
+    ) -> esp_err_t;
+}
+extern "C" {
+    #[doc = " @brief   Raw HTTP send"]
+    #[doc = ""]
+    #[doc = " Call this API if you wish to construct your custom response packet."]
+    #[doc = " When using this, all essential header, eg. HTTP version, Status Code,"]
+    #[doc = " Content Type and Length, Encoding, etc. will have to be constructed"]
+    #[doc = " manually, and HTTP delimeters (CRLF) will need to be placed correctly"]
+    #[doc = " for separating sub-sections of the HTTP response packet."]
+    #[doc = ""]
+    #[doc = " If the send override function is set, this API will end up"]
+    #[doc = " calling that function eventually to send data out."]
+    #[doc = ""]
+    #[doc = " @note"]
+    #[doc = "  - This API is supposed to be called only from the context of"]
+    #[doc = "    a URI handler where httpd_req_t* request pointer is valid."]
+    #[doc = "  - Unless the response has the correct HTTP structure (which the"]
+    #[doc = "    user must now ensure) it is not guaranteed that it will be"]
+    #[doc = "    recognized by the client. For most cases, you wouldn't have"]
+    #[doc = "    to call this API, but you would rather use either of :"]
+    #[doc = "          httpd_resp_send(),"]
+    #[doc = "          httpd_resp_send_chunk()"]
+    #[doc = ""]
+    #[doc = " @param[in] r         The request being responded to"]
+    #[doc = " @param[in] buf       Buffer from where the fully constructed packet is to be read"]
+    #[doc = " @param[in] buf_len   Length of the buffer"]
+    #[doc = ""]
+    #[doc = " @return"]
+    #[doc = "  - Bytes : Number of bytes that were sent successfully"]
+    #[doc = "  - HTTPD_SOCK_ERR_INVALID  : Invalid arguments"]
+    #[doc = "  - HTTPD_SOCK_ERR_TIMEOUT  : Timeout/interrupted while calling socket send()"]
+    #[doc = "  - HTTPD_SOCK_ERR_FAIL     : Unrecoverable error while calling socket send()"]
+    pub fn httpd_send(
+        r: *mut httpd_req_t,
+        buf: *const c_types::c_char,
+        buf_len: size_t,
+    ) -> c_types::c_int;
+}
+extern "C" {
+    #[doc = " @brief   Get session context from socket descriptor"]
+    #[doc = ""]
+    #[doc = " Typically if a session context is created, it is available to URI handlers"]
+    #[doc = " through the httpd_req_t structure. But, there are cases where the web"]
+    #[doc = " server's send/receive functions may require the context (for example, for"]
+    #[doc = " accessing keying information etc). Since the send/receive function only have"]
+    #[doc = " the socket descriptor at their disposal, this API provides them with a way to"]
+    #[doc = " retrieve the session context."]
+    #[doc = ""]
+    #[doc = " @param[in] handle    Handle to server returned by httpd_start"]
+    #[doc = " @param[in] sockfd    The socket descriptor for which the context should be extracted."]
+    #[doc = ""]
+    #[doc = " @return"]
+    #[doc = "  - void* : Pointer to the context associated with this session"]
+    #[doc = "  - NULL  : Empty context / Invalid handle / Invalid socket fd"]
+    pub fn httpd_sess_get_ctx(
+        handle: httpd_handle_t,
+        sockfd: c_types::c_int,
+    ) -> *mut c_types::c_void;
+}
+extern "C" {
+    #[doc = " @brief   Set session context by socket descriptor"]
+    #[doc = ""]
+    #[doc = " @param[in] handle    Handle to server returned by httpd_start"]
+    #[doc = " @param[in] sockfd    The socket descriptor for which the context should be extracted."]
+    #[doc = " @param[in] ctx       Context object to assign to the session"]
+    #[doc = " @param[in] free_fn   Function that should be called to free the context"]
+    pub fn httpd_sess_set_ctx(
+        handle: httpd_handle_t,
+        sockfd: c_types::c_int,
+        ctx: *mut c_types::c_void,
+        free_fn: httpd_free_ctx_fn_t,
+    );
+}
+extern "C" {
+    #[doc = " @brief   Get session 'transport' context by socket descriptor"]
+    #[doc = " @see     httpd_sess_get_ctx()"]
+    #[doc = ""]
+    #[doc = " This context is used by the send/receive functions, for example to manage SSL context."]
+    #[doc = ""]
+    #[doc = " @param[in] handle    Handle to server returned by httpd_start"]
+    #[doc = " @param[in] sockfd    The socket descriptor for which the context should be extracted."]
+    #[doc = " @return"]
+    #[doc = "  - void* : Pointer to the transport context associated with this session"]
+    #[doc = "  - NULL  : Empty context / Invalid handle / Invalid socket fd"]
+    pub fn httpd_sess_get_transport_ctx(
+        handle: httpd_handle_t,
+        sockfd: c_types::c_int,
+    ) -> *mut c_types::c_void;
+}
+extern "C" {
+    #[doc = " @brief   Set session 'transport' context by socket descriptor"]
+    #[doc = " @see     httpd_sess_set_ctx()"]
+    #[doc = ""]
+    #[doc = " @param[in] handle    Handle to server returned by httpd_start"]
+    #[doc = " @param[in] sockfd    The socket descriptor for which the context should be extracted."]
+    #[doc = " @param[in] ctx       Transport context object to assign to the session"]
+    #[doc = " @param[in] free_fn   Function that should be called to free the transport context"]
+    pub fn httpd_sess_set_transport_ctx(
+        handle: httpd_handle_t,
+        sockfd: c_types::c_int,
+        ctx: *mut c_types::c_void,
+        free_fn: httpd_free_ctx_fn_t,
+    );
+}
+extern "C" {
+    #[doc = " @brief   Get HTTPD global user context (it was set in the server config struct)"]
+    #[doc = ""]
+    #[doc = " @param[in] handle    Handle to server returned by httpd_start"]
+    #[doc = " @return global user context"]
+    pub fn httpd_get_global_user_ctx(handle: httpd_handle_t) -> *mut c_types::c_void;
+}
+extern "C" {
+    #[doc = " @brief   Get HTTPD global transport context (it was set in the server config struct)"]
+    #[doc = ""]
+    #[doc = " @param[in] handle    Handle to server returned by httpd_start"]
+    #[doc = " @return global transport context"]
+    pub fn httpd_get_global_transport_ctx(handle: httpd_handle_t) -> *mut c_types::c_void;
+}
+extern "C" {
+    #[doc = " @brief   Trigger an httpd session close externally"]
+    #[doc = ""]
+    #[doc = " @note    Calling this API is only required in special circumstances wherein"]
+    #[doc = "          some application requires to close an httpd client session asynchronously."]
+    #[doc = ""]
+    #[doc = " @param[in] handle    Handle to server returned by httpd_start"]
+    #[doc = " @param[in] sockfd    The socket descriptor of the session to be closed"]
+    #[doc = ""]
+    #[doc = " @return"]
+    #[doc = "  - ESP_OK    : On successfully initiating closure"]
+    #[doc = "  - ESP_FAIL  : Failure to queue work"]
+    #[doc = "  - ESP_ERR_NOT_FOUND   : Socket fd not found"]
+    #[doc = "  - ESP_ERR_INVALID_ARG : Null arguments"]
+    pub fn httpd_sess_trigger_close(handle: httpd_handle_t, sockfd: c_types::c_int) -> esp_err_t;
+}
+extern "C" {
+    #[doc = " @brief   Update LRU counter for a given socket"]
+    #[doc = ""]
+    #[doc = " LRU Counters are internally associated with each session to monitor"]
+    #[doc = " how recently a session exchanged traffic. When LRU purge is enabled,"]
+    #[doc = " if a client is requesting for connection but maximum number of"]
+    #[doc = " sockets/sessions is reached, then the session having the earliest"]
+    #[doc = " LRU counter is closed automatically."]
+    #[doc = ""]
+    #[doc = " Updating the LRU counter manually prevents the socket from being purged"]
+    #[doc = " due to the Least Recently Used (LRU) logic, even though it might not"]
+    #[doc = " have received traffic for some time. This is useful when all open"]
+    #[doc = " sockets/session are frequently exchanging traffic but the user specifically"]
+    #[doc = " wants one of the sessions to be kept open, irrespective of when it last"]
+    #[doc = " exchanged a packet."]
+    #[doc = ""]
+    #[doc = " @note    Calling this API is only necessary if the LRU Purge Enable option"]
+    #[doc = "          is enabled."]
+    #[doc = ""]
+    #[doc = " @param[in] handle    Handle to server returned by httpd_start"]
+    #[doc = " @param[in] sockfd    The socket descriptor of the session for which LRU counter"]
+    #[doc = "                      is to be updated"]
+    #[doc = ""]
+    #[doc = " @return"]
+    #[doc = "  - ESP_OK : Socket found and LRU counter updated"]
+    #[doc = "  - ESP_ERR_NOT_FOUND   : Socket not found"]
+    #[doc = "  - ESP_ERR_INVALID_ARG : Null arguments"]
+    pub fn httpd_sess_update_lru_counter(
+        handle: httpd_handle_t,
+        sockfd: c_types::c_int,
+    ) -> esp_err_t;
+}
+#[doc = " @brief   Prototype of the HTTPD work function"]
+#[doc = "          Please refer to httpd_queue_work() for more details."]
+#[doc = " @param[in] arg   The arguments for this work function"]
+pub type httpd_work_fn_t = ::core::option::Option<unsafe extern "C" fn(arg: *mut c_types::c_void)>;
+extern "C" {
+    #[doc = " @brief   Queue execution of a function in HTTPD's context"]
+    #[doc = ""]
+    #[doc = " This API queues a work function for asynchronous execution"]
+    #[doc = ""]
+    #[doc = " @note    Some protocols require that the web server generate some asynchronous data"]
+    #[doc = "          and send it to the persistently opened connection. This facility is for use"]
+    #[doc = "          by such protocols."]
+    #[doc = ""]
+    #[doc = " @param[in] handle    Handle to server returned by httpd_start"]
+    #[doc = " @param[in] work      Pointer to the function to be executed in the HTTPD's context"]
+    #[doc = " @param[in] arg       Pointer to the arguments that should be passed to this function"]
+    #[doc = ""]
+    #[doc = " @return"]
+    #[doc = "  - ESP_OK   : On successfully queueing the work"]
+    #[doc = "  - ESP_FAIL : Failure in ctrl socket"]
+    #[doc = "  - ESP_ERR_INVALID_ARG : Null arguments"]
+    pub fn httpd_queue_work(
+        handle: httpd_handle_t,
+        work: httpd_work_fn_t,
+        arg: *mut c_types::c_void,
+    ) -> esp_err_t;
 }
 pub type xt_handler = ::core::option::Option<unsafe extern "C" fn(arg1: *mut c_types::c_void)>;
 pub type xt_exc_handler = ::core::option::Option<unsafe extern "C" fn(arg1: *mut XtExcFrame)>;

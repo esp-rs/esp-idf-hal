@@ -5,8 +5,6 @@
 #include "esp_aio.h"
 #include "esp_attr.h"
 #include "esp_clk.h"
-//#include "esp_event_loop.h"
-//#include "esp_event.h"
 #include "esp_interface.h"
 #include "esp_libc.h"
 #include "esp_netif.h"
@@ -18,7 +16,15 @@
 #include "esp_task_wdt.h"
 #include "esp_timer.h"
 #include "esp_types.h"
+
+//#include "esp_event_loop.h"
+//#include "esp_event.h"
+
 //#include "esp_wifi.h"
+
+//#include "apps/ping/ping_sock.h"
+
+//#include "esp_http_server.h"
 
 #include "nvs.h"
 #include "nvs_flash.h"
