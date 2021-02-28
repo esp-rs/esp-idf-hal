@@ -517,11 +517,11 @@ impl Drop for EspWifi {
 }
 
 impl Wifi for EspWifi {
-    fn get_supported_operation_modes(&self) -> Result<collections::HashSet<OperationMode>> {
+    fn get_capabilities(&self) -> Result<collections::HashSet<Capability>> {
         Ok(vec! [
-                OperationMode::Client,
-                OperationMode::AccessPoint,
-                OperationMode::Mixed]
+                Capability::Client,
+                Capability::AccessPoint,
+                Capability::Mixed]
             .into_iter()
             .collect())
     }
