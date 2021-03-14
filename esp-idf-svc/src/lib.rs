@@ -8,5 +8,6 @@ pub mod wifi;
 pub mod ping;
 pub mod httpd;
 pub mod edge_config;
+pub mod log;
 
 mod common;

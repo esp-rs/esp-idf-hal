@@ -1,5 +1,5 @@
 [package]
-name = "esp-idf-sys"
+name = "esp-idf-svc"
 version = "0.1.0"
 authors = ["Ivan Markov <ivan.markov@gmail.com>"]
 edition = "2018"
@@ -11,7 +11,8 @@ license = "MIT"
 
 [dependencies]
 anyhow = "*"
-scopeguard = "1.1.0"
-lazy_static = "1.4.0"
+scopeguard = "1.1"
+lazy_static = "1.4"
+log = "0.4"
 embedded-svc = {path = "../embedded-svc"}
 esp-idf-sys = {path = "../esp-idf-sys", features = ["esp32", "std"]}
