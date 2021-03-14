@@ -1,4 +1,4 @@
-use std::{mem, ptr, thread, time::Duration, vec};
+use std::{mem, ptr, time::Duration, vec};
 use std::sync::{Condvar, Mutex};
 
 use anyhow::*;
@@ -47,26 +47,27 @@ impl EspPing {
 
         info!("Ping session established, got handle {:?}", &handle);
 
+        {
+            *tracker.running.lock().unwrap() = true;
+        }
+
         esp!(unsafe {esp_ping_start(handle)})?;
         info!("Ping session started");
 
         info!("Waiting for the ping session to complete");
 
-        loop {
-            {
-                let finished = tracker.lock.lock().unwrap();
-                if *finished {
-                    break
-                }
-            }
+        // loop {
+        //     {
+        //         let finished = tracker.lock.lock().unwrap();
+        //         if *finished {
+        //             break
+        //         }
+        //     }
 
-            thread::sleep(Duration::from_millis(500));
-        }
-
-        // let mut finished = tracker.lock.lock().unwrap();
-        // while !*finished {
-        //     finished = tracker.cvar.wait(finished).unwrap();
+        //     thread::sleep(Duration::from_millis(500));
         // }
+
+        let _running = tracker.cvar.wait_while(tracker.running.lock().unwrap(), |running| *running).unwrap();
 
         esp!(unsafe {esp_ping_stop(handle)})?;
         info!("Ping session stopped");
@@ -192,10 +193,8 @@ impl EspPing {
         tracker.summary.received = received;
         tracker.summary.time = Duration::from_millis(total_time as u64);
 
-        let mut finished = tracker.lock.lock().unwrap();
-
-        *finished = true;
-        //tracker.cvar.notify_one();
+        *tracker.running.lock().unwrap() = false;
+        tracker.cvar.notify_one();
     }
 }
 
@@ -228,7 +227,7 @@ struct Tracker {
     summary: Summary,
     replies: Option<vec::Vec<Reply>>,
     cvar: Condvar,
-    lock: Mutex<bool>,
+    running: Mutex<bool>,
 }
 
 impl Default for Tracker {
@@ -241,7 +240,7 @@ impl Default for Tracker {
             },
             replies: None,
             cvar: Condvar::new(),
-            lock: Mutex::new(false),
+            running: Mutex::new(false),
         }
     }
 }
