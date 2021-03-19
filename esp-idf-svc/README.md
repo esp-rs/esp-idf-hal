@@ -1,6 +1,6 @@
 # Type-Safe Rust Wrappers for various ESP-IDF services (WiFi, Network, Httpd, Logging, etc.)
 
-The wrappers are implementations of the abstractions defined in the [embedded-svc]() project.
+The wrappers are implementations of the abstractions defined in the [embedded-svc](https://github.com/ivmarkov/embedded-svc) project.
 <br><br>
 
 For more information, check out:
