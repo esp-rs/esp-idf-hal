@@ -95,7 +95,7 @@ impl Logger {
             None
         } else {
             match level {
-                Level::Error => Some(30),  // LOG_COLOR_RED
+                Level::Error => Some(31),  // LOG_COLOR_RED
                 Level::Warn => Some(33),   // LOG_COLOR_BROWN
                 Level::Info => Some(32),   // LOG_COLOR_GREEN,
                 _ => None
