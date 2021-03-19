@@ -4,29 +4,17 @@ use log::{Level, LevelFilter, Metadata, Record};
 
 use esp_idf_sys::*;
 
+use crate::common::Newtype;
+
 pub struct Logger;
 
 unsafe impl Send for Logger {}
 unsafe impl Sync for Logger {}
 
-impl Logger {
-    pub fn initialize(&self) {
-        log::set_max_level(self.get_max_level());
-    }
-
-    pub fn get_max_level(&self) -> LevelFilter {
-        Self::to_level_filter(CONFIG_LOG_DEFAULT_LEVEL)
-    }
-
-    pub fn set_target_level<T: AsRef<str>>(&self, target: T, level_filter: LevelFilter) {
-        let ctarget = CString::new(target.as_ref()).unwrap();
-
-        unsafe {esp_log_level_set(ctarget.as_c_str().as_ptr(), Self::from_level_filter(level_filter))};
-    }
-
-    #[allow(non_upper_case_globals)]
-    fn to_level_filter(level: esp_log_level_t) -> LevelFilter {
-        match level {
+#[allow(non_upper_case_globals)]
+impl From<Newtype<esp_log_level_t>> for LevelFilter {
+    fn from(level: Newtype<esp_log_level_t>) -> Self {
+        match level.0 {
             esp_log_level_t_ESP_LOG_NONE => LevelFilter::Off,
             esp_log_level_t_ESP_LOG_ERROR => LevelFilter::Error,
             esp_log_level_t_ESP_LOG_WARN => LevelFilter::Warn,
@@ -36,21 +24,25 @@ impl Logger {
             _ => LevelFilter::Trace
         }
     }
+}
 
-    fn from_level_filter(level_filter: LevelFilter) -> esp_log_level_t {
-        match level_filter {
+impl From<LevelFilter> for Newtype<esp_log_level_t> {
+    fn from(level: LevelFilter) -> Self {
+        Newtype(match level {
             LevelFilter::Off => esp_log_level_t_ESP_LOG_NONE,
             LevelFilter::Error => esp_log_level_t_ESP_LOG_ERROR,
             LevelFilter::Warn => esp_log_level_t_ESP_LOG_WARN,
             LevelFilter::Info => esp_log_level_t_ESP_LOG_INFO,
             LevelFilter::Debug => esp_log_level_t_ESP_LOG_DEBUG,
             LevelFilter::Trace => esp_log_level_t_ESP_LOG_VERBOSE
-        }
+        })
     }
+}
 
-    #[allow(non_upper_case_globals)]
-    fn to_level(level: esp_log_level_t) -> Level {
-        match level {
+#[allow(non_upper_case_globals)]
+impl From<Newtype<esp_log_level_t>> for Level {
+    fn from(level: Newtype<esp_log_level_t>) -> Self {
+        match level.0 {
             esp_log_level_t_ESP_LOG_ERROR => Level::Error,
             esp_log_level_t_ESP_LOG_WARN => Level::Warn,
             esp_log_level_t_ESP_LOG_INFO => Level::Info,
@@ -59,15 +51,33 @@ impl Logger {
             _ => Level::Trace
         }
     }
+}
 
-    fn from_level(level: Level) -> esp_log_level_t {
-        match level {
+impl From<Level> for Newtype<esp_log_level_t> {
+    fn from(level: Level) -> Self {
+        Newtype(match level {
             Level::Error => esp_log_level_t_ESP_LOG_ERROR,
             Level::Warn => esp_log_level_t_ESP_LOG_WARN,
             Level::Info => esp_log_level_t_ESP_LOG_INFO,
             Level::Debug => esp_log_level_t_ESP_LOG_DEBUG,
             Level::Trace => esp_log_level_t_ESP_LOG_VERBOSE
-        }
+        })
+    }
+}
+
+impl Logger {
+    pub fn initialize(&self) {
+        log::set_max_level(self.get_max_level());
+    }
+
+    pub fn get_max_level(&self) -> LevelFilter {
+        LevelFilter::from(Newtype(CONFIG_LOG_DEFAULT_LEVEL))
+    }
+
+    pub fn set_target_level<T: AsRef<str>>(&self, target: T, level_filter: LevelFilter) {
+        let ctarget = CString::new(target.as_ref()).unwrap();
+
+        unsafe {esp_log_level_set(ctarget.as_c_str().as_ptr(), Newtype::<esp_log_level_t>::from(level_filter).0)};
     }
 
     fn get_marker(level: Level) -> &'static CStr {
@@ -96,7 +106,7 @@ impl Logger {
 
 impl log::Log for Logger {
     fn enabled(&self, metadata: &Metadata) -> bool {
-        metadata.level() <= Self::to_level(CONFIG_LOG_DEFAULT_LEVEL)
+        metadata.level() <= LevelFilter::from(Newtype(CONFIG_LOG_DEFAULT_LEVEL))
     }
 
     fn log(&self, record: &Record) {
@@ -109,9 +119,9 @@ impl log::Log for Logger {
             if let Some(color) = Self::get_color(record.level()) {
                 unsafe {
                     esp_log_write(
-                        Self::from_level(record.level()),
-                        b"rust-logging\0" as *const u8 as *const i8, // TODO: ctarget.as_c_str().as_ptr() as *const u8 as *const i8,
-                        b"\x1b[0;%dm%s (%d) %s: %s\x1b[0m\n\0" as *const u8 as *const i8,
+                        Newtype::<esp_log_level_t>::from(record.level()).0,
+                        b"rust-logging\0" as *const u8 as *const _, // TODO: ctarget.as_c_str().as_ptr() as *const u8 as *const _,
+                        b"\x1b[0;%dm%s (%d) %s: %s\x1b[0m\n\0" as *const u8 as *const _,
                         color as u32,
                         Self::get_marker(record.metadata().level()).as_ptr(),
                         esp_log_timestamp(),
@@ -121,9 +131,9 @@ impl log::Log for Logger {
             } else {
                 unsafe {
                     esp_log_write(
-                        Self::from_level(record.level()),
-                        b"rust-logging\0" as *const u8 as *const i8, // TODO: ctarget.as_c_str().as_ptr() as *const u8 as *const i8,
-                        b"%s (%d) %s: %s\n\0" as *const u8 as *const i8,
+                        Newtype::<esp_log_level_t>::from(record.level()).0,
+                        b"rust-logging\0" as *const u8 as *const _, // TODO: ctarget.as_c_str().as_ptr() as *const u8 as *const _,
+                        b"%s (%d) %s: %s\n\0" as *const u8 as *const _,
                         Self::get_marker(record.metadata().level()).as_ptr(),
                         esp_log_timestamp(),
                         ctarget.as_c_str().as_ptr(),
