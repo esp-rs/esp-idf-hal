@@ -1,4 +1,4 @@
-use std::{cell::RefCell, collections::HashMap, ffi::CString, io, io::Read, marker::PhantomData, ptr, vec};
+use std::{collections::HashMap, ffi::CString, io, io::Read, marker::PhantomData, ptr, vec};
 
 use anyhow;
 
@@ -7,7 +7,7 @@ use embedded_svc::httpd::*;
 use esp_idf_sys::c_types::*;
 use esp_idf_sys::esp;
 use esp_idf_sys::esp_nofail;
-use log::info;
+use log::{Level, info, log};
 
 struct IdfRequest<'r>(*mut esp_idf_sys::httpd_req_t, PhantomData<&'r esp_idf_sys::httpd_req_t>);
 
@@ -43,26 +43,26 @@ impl<'r> IdfRequest<'r> {
         match response.body {
             Body::Empty => self.send_body_bytes(&[]),
             Body::Bytes(vec) => self.send_body_bytes(vec.as_slice()),
-            Body::Read(_, r) => self.send_body_read(r)
+            Body::Read(_, mut r) => self.send_body_read(&mut r)
         }
     }
 
     fn send_body_bytes(&mut self, data: &[u8]) -> anyhow::Result<()> {
         esp!(unsafe {esp_idf_sys::httpd_resp_send(
             self.0,
-            data.as_ptr() as *const c_char,
+            data.as_ptr() as *const _,
             data.len() as esp_idf_sys::ssize_t)}).map_err(Into::into)
     }
 
-    fn send_body_read(&mut self, r: Box<RefCell<dyn Read>>) -> anyhow::Result<()> {
-        let mut buf: [u8; 256] = [0; 256];
+    fn send_body_read<R: Read>(&mut self, r: &mut R) -> anyhow::Result<()> {
+        let mut buf = [0; 256];
 
         Ok(loop {
-            let len = r.borrow_mut().read(&mut buf)?;
+            let len = r.read(&mut buf)?;
 
             esp!(unsafe {esp_idf_sys::httpd_resp_send_chunk(
                 self.0,
-                buf.as_ptr() as *const c_char,
+                buf.as_ptr() as *const _,
                 len as esp_idf_sys::ssize_t)})?;
 
             if len == 0 {
@@ -75,22 +75,20 @@ impl<'r> IdfRequest<'r> {
 impl<'r> RequestDelegate for IdfRequest<'r> {
     fn header(&self, name: &str) -> Option<String> {
         let c_str = CString::new(name).unwrap();
-        let c_name: *const c_char = c_str.as_ptr() as *const c_char;
 
         unsafe {
-            let len = esp_idf_sys::httpd_req_get_hdr_value_len(self.0, c_name) as usize + 1;
-            match len {
+            match esp_idf_sys::httpd_req_get_hdr_value_len(self.0, c_str.as_ptr()) as usize {
                 0 => None,
                 len => {
-                    let mut buf: vec::Vec<u8> = std::vec![0; len];
+                    let mut buf: vec::Vec<u8> = Vec::with_capacity(len + 1);
 
                     esp_nofail!(esp_idf_sys::httpd_req_get_hdr_value_str(
                         self.0,
-                        c_name,
-                        buf.as_mut_slice().as_ptr() as *mut i8,
-                        len as esp_idf_sys::size_t));
+                        c_str.as_ptr(),
+                        buf.as_mut_ptr() as *mut _,
+                        (len + 1) as esp_idf_sys::size_t));
 
-                    Some(std::str::from_utf8_unchecked(&buf.as_slice()[..len - 1]).into())
+                    Some(std::str::from_utf8_unchecked(&buf[..len]).into())
                 }
             }
         }
@@ -98,16 +96,19 @@ impl<'r> RequestDelegate for IdfRequest<'r> {
 
     fn url(&self) -> String {
         unsafe {
-            let len = esp_idf_sys::httpd_req_get_url_query_len(self.0) as usize + 1;
+            match esp_idf_sys::httpd_req_get_url_query_len(self.0) as usize {
+                0 => "".into(),
+                len => {
+                    let mut buf: vec::Vec<u8> = Vec::with_capacity(len + 1);
 
-            let mut buf: vec::Vec<u8> = std::vec![0; len];
+                    esp_nofail!(esp_idf_sys::httpd_req_get_url_query_str(
+                        self.0,
+                        buf.as_mut_ptr() as *mut _,
+                        (len + 1) as esp_idf_sys::size_t));
 
-            esp_nofail!(esp_idf_sys::httpd_req_get_url_query_str(
-                self.0,
-                buf.as_mut_slice().as_ptr() as *mut i8,
-                len as esp_idf_sys::size_t));
-
-            std::str::from_utf8_unchecked(&buf.as_slice()[..len - 1]).into()
+                    std::str::from_utf8_unchecked(&buf[..len]).into()
+                }
+            }
         }
     }
 
@@ -115,7 +116,7 @@ impl<'r> RequestDelegate for IdfRequest<'r> {
         unsafe {
             let len = esp_idf_sys::httpd_req_recv(
                 self.0,
-                buf.as_ptr() as *mut c_char,
+                buf.as_mut_ptr() as *mut _,
                 buf.len() as esp_idf_sys::size_t);
 
             if len < 0 {
@@ -187,7 +188,9 @@ impl Server {
         let mut handle: esp_idf_sys::httpd_handle_t = ptr::null_mut();
         let handle_ref = &mut handle;
 
-        esp!(unsafe {esp_idf_sys::httpd_start(handle_ref, &config as *const esp_idf_sys::httpd_config_t)})?;
+        esp!(unsafe {esp_idf_sys::httpd_start(handle_ref, &config as *const _)})?;
+
+        info!("Started Httpd IDF server with config {:?}", conf);
 
         Ok(Server {
             sd: handle,
@@ -197,15 +200,18 @@ impl Server {
 
     fn register(&mut self, handler: Handler) -> Result<()> {
         let c_str = CString::new(handler.uri().as_ref()).unwrap();
+        let method = handler.method();
 
         let conf = esp_idf_sys::httpd_uri_t {
             uri: c_str.as_ptr(),
-            method: Self::get_httpd_method(handler.method()),
+            method: Self::get_httpd_method(method),
             user_ctx: Box::into_raw(Box::new(handler.handler())) as *mut _,
             handler: Some(Server::handle),
         };
 
         esp!(unsafe {esp_idf_sys::httpd_register_uri_handler(self.sd, &conf)})?;
+
+        info!("Registered Httpd IDF server handler {:?} for URI \"{}\"", method, c_str.to_str().unwrap());
 
         self.registrations.push((c_str, conf));
 
@@ -219,8 +225,10 @@ impl Server {
                 uri.as_ptr(),
                 conf.method))?;
 
-            let _drop = Box::from_raw(conf.user_ctx as *mut Box<dyn Fn(Request) -> Result<Response>>);
+            let _drop = Box::from_raw(conf.user_ctx as *mut _);
         };
+
+        info!("Unregistered Httpd IDF server handler {:?} for URI \"{}\"", conf.method, uri.to_str().unwrap());
 
         Ok(())
     }
@@ -238,22 +246,29 @@ impl Server {
             self.sd = ptr::null_mut();
         }
 
+        info!("Httpd IDF server stopped");
+
         Ok(())
     }
 
     unsafe extern "C" fn handle(rd: *mut esp_idf_sys::httpd_req_t) -> c_int {
         let handler = ((*rd).user_ctx as *mut Box<dyn Fn(Request) -> Result<Response>>).as_ref().unwrap();
 
-        let result = handler(Request::new(Box::new(IdfRequest(rd, PhantomData)), HashMap::new(), None, None));
+        let idf_request = IdfRequest(rd, PhantomData);
+        info!("About to handle URI \"{}\"", idf_request.url());
 
-        let result = match result {
-            Ok(response) => IdfRequest(rd, PhantomData).send(response),
-            Err(err) => Err(err)
+        let (response, err) = match handler(Request::new(Box::new(idf_request), HashMap::new(), None, None)) {
+            Ok(response) => (response, false),
+            Err(err) => (err.into(), true)
         };
 
-        match result {
-            Result::Ok(_) => 0,
-            Result::Err(_) => 1, // TODO: For  now
+        let mut idf_request_response = IdfRequest(rd, PhantomData);
+
+        log!(if err {Level::Warn} else {Level::Info}, "Request handled with status {} ({:?})", &response.status, &response.status_message);
+
+        match idf_request_response.send(response) {
+            Result::Ok(_) => esp_idf_sys::ESP_OK as _,
+            Result::Err(_) => esp_idf_sys::ESP_FAIL as _
         }
     }
 
