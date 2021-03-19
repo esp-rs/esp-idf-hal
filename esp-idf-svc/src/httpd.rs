@@ -88,16 +88,18 @@ impl<'r> RequestDelegate for IdfRequest<'r> {
                         buf.as_mut_ptr() as *mut _,
                         (len + 1) as esp_idf_sys::size_t));
 
+                    buf.set_len(len + 1);
+
                     Some(std::str::from_utf8_unchecked(&buf[..len]).into())
                 }
             }
         }
     }
 
-    fn url(&self) -> String {
+    fn query_string(&self) -> Option<String> {
         unsafe {
             match esp_idf_sys::httpd_req_get_url_query_len(self.0) as usize {
-                0 => "".into(),
+                0 => None,
                 len => {
                     let mut buf: vec::Vec<u8> = Vec::with_capacity(len + 1);
 
@@ -106,7 +108,9 @@ impl<'r> RequestDelegate for IdfRequest<'r> {
                         buf.as_mut_ptr() as *mut _,
                         (len + 1) as esp_idf_sys::size_t));
 
-                    std::str::from_utf8_unchecked(&buf[..len]).into()
+                    buf.set_len(len + 1);
+
+                    Some(std::str::from_utf8_unchecked(&buf[..len]).into())
                 }
             }
         }
@@ -255,7 +259,7 @@ impl Server {
         let handler = ((*rd).user_ctx as *mut Box<dyn Fn(Request) -> Result<Response>>).as_ref().unwrap();
 
         let idf_request = IdfRequest(rd, PhantomData);
-        info!("About to handle URI \"{}\"", idf_request.url());
+        info!("About to handle query string {:?}", idf_request.query_string());
 
         let (response, err) = match handler(Request::new(Box::new(idf_request), HashMap::new(), None, None)) {
             Ok(response) => (response, false),

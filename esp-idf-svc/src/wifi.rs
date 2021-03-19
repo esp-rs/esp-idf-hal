@@ -417,7 +417,7 @@ impl EspWifi {
             }
 
             // TODO: Replace with waiting on a condvar that wakes up when an event is received
-            thread::sleep(Duration::from_millis(100));
+            thread::sleep(Duration::from_millis(500));
         }
     }
 

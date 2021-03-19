@@ -121,10 +121,18 @@ impl EspPing {
             &mut recv_len as *mut c_types::c_uint as *mut c_types::c_void,
             mem::size_of_val(&recv_len) as u32);
 
-        info!("From {} icmp_seq={} ttl={} time={}ms bytes={}", "???", seqno, ttl, elapsed_time, recv_len);
+        let addr = ipv4::Ipv4Addr::from(Newtype(target_addr.u_addr.ip4));
+
+        info!("From {} icmp_seq={} ttl={} time={}ms bytes={}",
+            addr,
+            seqno,
+            ttl,
+            elapsed_time,
+            recv_len);
 
         if let Some(ref mut replies) = tracker.replies {
             replies.push(Reply::Success(Info {
+                addr,
                 seqno: seqno as u32,
                 ttl: ttl as u8,
                 recv_len: recv_len as u32,
