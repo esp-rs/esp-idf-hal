@@ -50,7 +50,7 @@ generate_bindings()
         for INC in $(ls -d "$IDF_COMPS"/**/*/*/include | grep -v $6); do
             IDF_INCLUDES="${IDF_INCLUDES} -I$INC"
         done
-        
+
         IDF_INCLUDES="${IDF_INCLUDES} -I$IDF_COMPS/lwip/include/apps/sntp"
     fi
 

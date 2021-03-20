@@ -2,6 +2,8 @@
 
 //#include "esp_crc.h"
 #include "esp_log.h"
+#include "esp_debug_helpers.h"
+
 #include "esp_task.h"
 #include "esp_task_wdt.h"
 #include "esp_timer.h"
