@@ -594,7 +594,7 @@ impl EspWifi {
 
     unsafe fn reconnect_if_operating(operating: bool) -> Result<ClientStatus> {
         Ok(if operating {
-            info!("Recconecting");
+            info!("Reconnecting");
 
             esp_nofail!(esp_wifi_connect());
 
