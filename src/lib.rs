@@ -1,18 +1,14 @@
-#![no_std]
+#![cfg_attr(not(feature = "std"), no_std)]
 
 pub mod delay;
-pub mod errors;
 pub mod gpio;
 pub mod i2c;
 pub mod serial;
+pub mod units;
 
-#[cfg(feature = "alloc")]
-pub mod rmt;
-
-use core::panic::PanicInfo;
-
-#[panic_handler]
-fn panic(_info: &PanicInfo) -> ! {
+#[cfg_attr(not(feature = "std"), panic_handler)]
+#[allow(dead_code)]
+fn panic(_info: &core::panic::PanicInfo) -> ! {
     unsafe {
         esp_idf_sys::abort();
         core::hint::unreachable_unchecked();

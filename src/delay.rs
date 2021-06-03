@@ -1,5 +1,6 @@
 use embedded_hal::blocking::delay::{DelayMs, DelayUs};
-use esp_idf_sys::{configTICK_RATE_HZ, ets_delay_us, vTaskDelay, TickType_t};
+
+use esp_idf_sys::*;
 
 #[allow(non_upper_case_globals)]
 pub const portMAX_DELAY: TickType_t = TickType_t::max_value();
@@ -18,6 +19,12 @@ impl DelayUs<u32> for Ets {
     }
 }
 
+impl DelayUs<u16> for Ets {
+    fn delay_us(&mut self, us: u16) {
+        DelayUs::<u32>::delay_us(self, us as u32);
+    }
+}
+
 /// FreeRTOS-based delay provider
 pub struct FreeRtos;
 
@@ -28,5 +35,11 @@ impl DelayMs<u32> for FreeRtos {
         unsafe {
             vTaskDelay(ticks);
         }
+    }
+}
+
+impl DelayMs<u16> for FreeRtos {
+    fn delay_ms(&mut self, ms: u16) {
+        DelayMs::<u32>::delay_ms(self, ms as u32);
     }
 }

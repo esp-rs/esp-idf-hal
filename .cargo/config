@@ -1,2 +1,0 @@
-[build]
-target = "xtensa-esp32-none-elf"

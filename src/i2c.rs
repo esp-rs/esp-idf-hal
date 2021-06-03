@@ -1,66 +1,254 @@
-use crate::{
-    delay::portMAX_DELAY,
-    errors::{Error, EspError, Result},
-};
-use core::{convert::TryInto, ptr::null_mut};
-use embedded_hal::blocking::i2c::{Read, Write, WriteRead};
-use esp_idf_sys::{
-    gpio_pullup_t, gpio_pullup_t_GPIO_PULLUP_DISABLE, gpio_pullup_t_GPIO_PULLUP_ENABLE,
-    i2c_ack_type_t, i2c_ack_type_t_I2C_MASTER_LAST_NACK, i2c_cmd_handle_t, i2c_cmd_link_create,
-    i2c_cmd_link_delete, i2c_config_t, i2c_config_t__bindgen_ty_1,
-    i2c_config_t__bindgen_ty_1__bindgen_ty_1, i2c_config_t__bindgen_ty_1__bindgen_ty_2,
-    i2c_driver_delete, i2c_driver_install, i2c_master_cmd_begin, i2c_master_read, i2c_master_start,
-    i2c_master_stop, i2c_master_write, i2c_master_write_byte, i2c_mode_t_I2C_MODE_MASTER,
-    i2c_mode_t_I2C_MODE_SLAVE, i2c_param_config, i2c_port_t, i2c_port_t_I2C_NUM_0,
-    i2c_port_t_I2C_NUM_1, i2c_rw_t_I2C_MASTER_READ, i2c_rw_t_I2C_MASTER_WRITE,
-    i2c_slave_read_buffer, i2c_slave_write_buffer, TickType_t,
-};
+use crate::{delay::*, gpio::*};
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum Port {
-    Port0,
-    Port1,
+use esp_idf_sys::*;
+
+pub struct Pins<SDA: OutputPin + InputPin, SCL: OutputPin + InputPin> {
+    pub sda: SDA,
+    pub scl: SCL,
 }
 
-impl From<Port> for i2c_port_t {
-    fn from(value: Port) -> Self {
-        match value {
-            Port::Port0 => i2c_port_t_I2C_NUM_0,
-            Port::Port1 => i2c_port_t_I2C_NUM_1,
+pub trait I2c {
+    fn port() -> i2c_port_t;
+}
+
+pub struct Master<I2C, SDA, SCL>
+where
+    I2C: I2c,
+    SDA: OutputPin + InputPin,
+    SCL: OutputPin + InputPin
+{
+    i2c: I2C,
+    pins: Pins<SDA, SCL>,
+}
+
+pub struct Slave<I2C, SDA, SCL>
+where
+    I2C: I2c,
+    SDA: OutputPin + InputPin,
+    SCL: OutputPin + InputPin
+{
+    i2c: I2C,
+    pins: Pins<SDA, SCL>,
+    timeout: Option<u32>,
+}
+
+impl<I2C, SDA, SCL> Master<I2C, SDA, SCL>
+where
+    I2C: I2c,
+    SDA: OutputPin + InputPin,
+    SCL: OutputPin + InputPin
+{
+    pub fn new(
+            i2c: I2C,
+            pins: Pins<SDA, SCL>,
+            clk_speed: u32) -> Result<Master<I2C, SDA, SCL>, EspError> {
+        // i2c_config_t documentation says that clock speed must be no higher than 1 MHz
+        // if clk_speed > 1_000_000 {
+        //     return Err(Error::InvalidArg);
+        // }
+
+        let sys_config = i2c_config_t {
+            mode: i2c_mode_t_I2C_MODE_MASTER,
+            sda_io_num: SDA::pin() as i32,
+            sda_pullup_en: true, //sda.pullup_enable(),
+            scl_io_num: SCL::pin() as i32,
+            scl_pullup_en: true, //scl.pullup_enable(),
+            __bindgen_anon_1: i2c_config_t__bindgen_ty_1 {
+                master: i2c_config_t__bindgen_ty_1__bindgen_ty_1 { clk_speed },
+            },
+        };
+
+        esp!(unsafe {i2c_param_config(I2C::port(), &sys_config)})?;
+
+        esp!(unsafe {i2c_driver_install(
+            I2C::port(),
+            i2c_mode_t_I2C_MODE_MASTER,
+            0, // rx_buf_len,
+            0, // tx_buf_len,
+            0) // TODO: set flags
+        })?;
+
+        Ok(Master {
+            i2c,
+            pins,
+        })
+    }
+
+    pub fn release(self) -> Result<(I2C, Pins<SDA, SCL>), EspError> {
+        esp!(unsafe {i2c_driver_delete(I2C::port())})?;
+
+        //self.pins.sda.reset()?;
+        //self.pins.scl.reset()?;
+
+        Ok((self.i2c, self.pins))
+    }
+}
+
+impl<I2C, SDA, SCL> embedded_hal::blocking::i2c::Read for Master<I2C, SDA, SCL>
+where
+    I2C: I2c,
+    SDA: OutputPin + InputPin,
+    SCL: OutputPin + InputPin
+{
+    type Error = EspError;
+
+    fn read(&mut self, addr: u8, buffer: &mut [u8]) -> Result<(), Self::Error> {
+        let command_link = CommandLink::new()?;
+
+        unsafe {
+            esp!(i2c_master_write_byte(command_link.0, (addr << 1) | (i2c_rw_t_I2C_MASTER_READ as u8), true))?;
+            esp!(i2c_master_read(command_link.0, buffer.as_ptr() as *const u8 as *mut u8, buffer.len() as u32, i2c_ack_type_t_I2C_MASTER_LAST_NACK))?;
+            esp!(i2c_master_stop(command_link.0))?;
+
+            esp_result!(i2c_master_cmd_begin(I2C::port(), command_link.0, portMAX_DELAY), ())
         }
     }
 }
 
-#[derive(Clone, Copy, Debug)]
-pub struct PinConfig {
-    pub pin_num: u32,
-    pub pullup: bool,
-}
+impl<I2C, SDA, SCL> embedded_hal::blocking::i2c::Write for Master<I2C, SDA, SCL>
+where
+    I2C: I2c,
+    SDA: OutputPin + InputPin,
+    SCL: OutputPin + InputPin
+{
+    type Error = EspError;
 
-impl PinConfig {
-    fn pullup_enable(&self) -> gpio_pullup_t {
-        match self.pullup {
-            true => gpio_pullup_t_GPIO_PULLUP_ENABLE,
-            false => gpio_pullup_t_GPIO_PULLUP_DISABLE,
+    fn write(&mut self, addr: u8, bytes: &[u8]) -> Result<(), Self::Error> {
+        unsafe {
+            let command_link = CommandLink::new()?;
+
+            esp!(i2c_master_write_byte(command_link.0, (addr << 1) | (i2c_rw_t_I2C_MASTER_WRITE as u8), true))?;
+            esp!(i2c_master_write(command_link.0, bytes.as_ptr() as *const u8 as *mut u8, bytes.len() as u32, true))?;
+            esp!(i2c_master_stop(command_link.0))?;
+
+            esp_result!(i2c_master_cmd_begin(I2C::port(), command_link.0, portMAX_DELAY), ())
         }
     }
 }
 
-struct CmdHandle(i2c_cmd_handle_t);
+impl<I2C, SDA, SCL> embedded_hal::blocking::i2c::WriteRead for Master<I2C, SDA, SCL>
+where
+    I2C: I2c,
+    SDA: OutputPin + InputPin,
+    SCL: OutputPin + InputPin
+{
+    type Error = EspError;
 
-impl CmdHandle {
-    fn new() -> Result<Self> {
-        let cmd = unsafe { i2c_cmd_link_create() };
+    fn write_read(&mut self, addr: u8, bytes: &[u8], buffer: &mut [u8]) -> Result<(), Self::Error> {
+        let command_link = CommandLink::new()?;
 
-        if cmd == null_mut() {
-            return Err(Error::NoMem);
+        unsafe {
+            esp!(i2c_master_write_byte(command_link.0, (addr << 1) | (i2c_rw_t_I2C_MASTER_WRITE as u8), true))?;
+            esp!(i2c_master_write(command_link.0, bytes.as_ptr() as *const u8 as *mut u8, bytes.len() as u32, true))?;
+            esp!(i2c_master_read(command_link.0, buffer.as_ptr() as *const u8 as *mut u8, buffer.len() as u32, i2c_ack_type_t_I2C_MASTER_LAST_NACK))?;
+            esp!(i2c_master_stop(command_link.0))?;
+
+            esp_result!(i2c_master_cmd_begin(I2C::port(), command_link.0, portMAX_DELAY), ())
         }
-
-        Ok(CmdHandle(cmd))
     }
 }
 
-impl Drop for CmdHandle {
+impl<I2C, SDA, SCL> Slave<I2C, SDA, SCL>
+where
+    I2C: I2c,
+    SDA: OutputPin + InputPin,
+    SCL: OutputPin + InputPin
+{
+    pub fn new(
+            i2c: I2C,
+            pins: Pins<SDA, SCL>,
+            slave_addr: u16,
+            addr10bits: bool,
+            rx_buf_len: usize,
+            tx_buf_len: usize) -> Result<Self, EspError> {
+        let sys_config = i2c_config_t {
+            mode: i2c_mode_t_I2C_MODE_SLAVE,
+            sda_io_num: SDA::pin() as i32,
+            sda_pullup_en: true, //sda.pullup_enable(),
+            scl_io_num: SCL::pin() as i32,
+            scl_pullup_en: true, //scl.pullup_enable(),
+            __bindgen_anon_1: i2c_config_t__bindgen_ty_1 {
+                slave: i2c_config_t__bindgen_ty_1__bindgen_ty_2 {
+                    slave_addr,
+                    addr_10bit_en: if addr10bits {1} else {0} as u8,
+                },
+            },
+        };
+
+        esp!(unsafe {i2c_param_config(I2C::port(), &sys_config)})?;
+
+        esp!(unsafe {i2c_driver_install(
+            I2C::port(),
+            i2c_mode_t_I2C_MODE_SLAVE,
+            rx_buf_len as u32,
+            tx_buf_len as u32,
+            0, // TODO: set flags
+        )})?;
+
+        Ok(Self {
+            i2c,
+            pins,
+            timeout: None, // TODO
+        })
+    }
+
+    pub fn release(self) -> Result<(I2C, Pins<SDA, SCL>), EspError> {
+        esp!(unsafe {i2c_driver_delete(I2C::port())})?;
+
+        //self.pins.sda.reset()?;
+        //self.pins.scl.reset()?;
+
+        Ok((self.i2c, self.pins))
+    }
+
+    pub fn read(&mut self, buffer: &mut [u8]) -> Result<usize, EspError> {
+        let n = unsafe {i2c_slave_read_buffer(
+            I2C::port(),
+            buffer.as_mut_ptr(),
+            buffer.len() as u32,
+            self.timeout.unwrap_or(portMAX_DELAY))};
+
+        // if n > 0 {
+            Ok(n as usize)
+        // } else if n == 0 {
+        //     Err(Error::Timeout)
+        // } else {
+        //     EspError(n).into_result().map(|()| unreachable!())
+        // }
+    }
+
+    pub fn write(&mut self, bytes: &[u8]) -> Result<usize, EspError> {
+        let n = unsafe {i2c_slave_write_buffer(
+            I2C::port(),
+            bytes.as_ptr() as *const u8 as *mut u8,
+            bytes.len() as i32,
+            self.timeout.unwrap_or(portMAX_DELAY))};
+
+        // if n > 0 {
+            Ok(n as usize)
+        // } else if n == 0 {
+        //     Err(Error::Timeout)
+        // } else {
+        //     EspError(n).into_result().map(|()| unreachable!())
+        // }
+    }
+}
+
+struct CommandLink(i2c_cmd_handle_t);
+
+impl CommandLink {
+    fn new() -> Result<Self, EspError> {
+        let handle = unsafe {i2c_cmd_link_create()};
+
+        // if handle == null_mut() {
+        //     return Err(Error::NoMem);
+        // }
+
+        Ok(CommandLink(handle))
+    }
+}
+
+impl Drop for CommandLink {
     fn drop(&mut self) {
         unsafe {
             i2c_cmd_link_delete(self.0);
@@ -68,281 +256,21 @@ impl Drop for CmdHandle {
     }
 }
 
-struct MasterCmd(CmdHandle);
+macro_rules! impl_i2c {
+    ($i2c:ident: $port:expr) => {
+        pub struct $i2c;
 
-impl MasterCmd {
-    fn new() -> Result<Self> {
-        let cmd = CmdHandle::new()?;
-
-        unsafe {
-            EspError(i2c_master_start(cmd.0)).into_result()?;
+        impl $i2c {
+            pub unsafe fn new() -> Self {
+                $i2c {}
+            }
         }
 
-        Ok(MasterCmd(cmd))
-    }
-
-    fn write_byte(&mut self, b: u8, ack_check: bool) -> Result<()> {
-        unsafe { EspError(i2c_master_write_byte((self.0).0, b, ack_check)).into_result() }
-    }
-
-    fn write(&mut self, buf: &[u8], ack_check: bool) -> Result<()> {
-        unsafe {
-            EspError(i2c_master_write(
-                (self.0).0,
-                buf.as_ptr() as *const u8 as *mut u8,
-                buf.len(),
-                ack_check,
-            ))
-            .into_result()
+        impl I2c for $i2c {
+            fn port() -> i2c_port_t {$port}
         }
-    }
-
-    fn read(&mut self, buf: &mut [u8], ack: i2c_ack_type_t) -> Result<()> {
-        unsafe {
-            EspError(i2c_master_read(
-                (self.0).0,
-                buf.as_mut_ptr(),
-                buf.len(),
-                ack,
-            ))
-            .into_result()
-        }
-    }
-
-    fn stop(&mut self) -> Result<()> {
-        unsafe { EspError(i2c_master_stop((self.0).0)).into_result() }
-    }
+    };
 }
 
-pub struct Master {
-    port: Port,
-}
-
-impl Master {
-    pub unsafe fn new(port: Port, sda: PinConfig, scl: PinConfig, clk_speed: u32) -> Result<Self> {
-        // i2c_config_t documentation says that clock speed must be no higher than 1 MHz
-        if clk_speed > 1_000_000 {
-            return Err(Error::InvalidArg);
-        }
-
-        let sys_config = i2c_config_t {
-            mode: i2c_mode_t_I2C_MODE_MASTER,
-            sda_io_num: sda.pin_num,
-            sda_pullup_en: sda.pullup_enable(),
-            scl_io_num: scl.pin_num,
-            scl_pullup_en: scl.pullup_enable(),
-            __bindgen_anon_1: i2c_config_t__bindgen_ty_1 {
-                master: i2c_config_t__bindgen_ty_1__bindgen_ty_1 { clk_speed },
-            },
-        };
-
-        EspError(i2c_param_config(port.into(), &sys_config)).into_result()?;
-
-        // TODO: set flags
-        let intr_alloc_flags = 0;
-        EspError(i2c_driver_install(
-            port.into(),
-            i2c_mode_t_I2C_MODE_MASTER,
-            0, // rx_buf_len,
-            0, // tx_buf_len,
-            intr_alloc_flags,
-        ))
-        .into_result()?;
-
-        Ok(Self { port })
-    }
-
-    fn begin_cmd(&mut self, cmd: MasterCmd, ticks_to_wait: TickType_t) -> Result<()> {
-        unsafe {
-            EspError(i2c_master_cmd_begin(
-                self.port.into(),
-                (cmd.0).0,
-                ticks_to_wait,
-            ))
-            .into_result()
-        }
-    }
-}
-
-impl Drop for Master {
-    fn drop(&mut self) {
-        unsafe {
-            EspError(i2c_driver_delete(self.port.into()))
-                .into_result()
-                .unwrap();
-        }
-    }
-}
-
-impl Write for Master {
-    type Error = Error;
-
-    fn write(&mut self, addr: u8, bytes: &[u8]) -> Result<()> {
-        let mut cmd = MasterCmd::new()?;
-        cmd.write_byte((addr << 1) | (i2c_rw_t_I2C_MASTER_WRITE as u8), true)?;
-        cmd.write(bytes, true)?;
-        cmd.stop()?;
-
-        self.begin_cmd(cmd, portMAX_DELAY)?;
-
-        Ok(())
-    }
-}
-
-impl Read for Master {
-    type Error = Error;
-
-    fn read(&mut self, address: u8, buffer: &mut [u8]) -> Result<()> {
-        let mut cmd = MasterCmd::new()?;
-        cmd.write_byte((address << 1) | (i2c_rw_t_I2C_MASTER_READ as u8), true)?;
-        cmd.read(buffer, i2c_ack_type_t_I2C_MASTER_LAST_NACK)?;
-        cmd.stop()?;
-
-        self.begin_cmd(cmd, portMAX_DELAY)?;
-
-        Ok(())
-    }
-}
-
-impl WriteRead for Master {
-    type Error = Error;
-
-    fn write_read(&mut self, address: u8, bytes: &[u8], buffer: &mut [u8]) -> Result<()> {
-        let mut cmd = MasterCmd::new()?;
-        cmd.write_byte((address << 1) | (i2c_rw_t_I2C_MASTER_WRITE as u8), true)?;
-        cmd.write(bytes, true)?;
-        cmd.read(buffer, i2c_ack_type_t_I2C_MASTER_LAST_NACK)?;
-        cmd.stop()?;
-
-        self.begin_cmd(cmd, portMAX_DELAY)?;
-
-        Ok(())
-    }
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum AddrMode {
-    Addr7Bit,
-    Addr10Bit,
-}
-
-pub struct Slave {
-    port: Port,
-    timeout: Option<TickType_t>,
-}
-
-impl Slave {
-    pub unsafe fn new(
-        port: Port,
-        sda: PinConfig,
-        scl: PinConfig,
-        slave_addr: u16,
-        addr_mode: AddrMode,
-        rx_buf_len: usize,
-        tx_buf_len: usize,
-    ) -> Result<Self> {
-        let sys_config = i2c_config_t {
-            mode: i2c_mode_t_I2C_MODE_SLAVE,
-            sda_io_num: sda.pin_num,
-            sda_pullup_en: sda.pullup_enable(),
-            scl_io_num: scl.pin_num,
-            scl_pullup_en: scl.pullup_enable(),
-            __bindgen_anon_1: i2c_config_t__bindgen_ty_1 {
-                slave: i2c_config_t__bindgen_ty_1__bindgen_ty_2 {
-                    slave_addr,
-                    addr_10bit_en: (addr_mode == AddrMode::Addr10Bit).into(),
-                },
-            },
-        };
-
-        EspError(i2c_param_config(port.into(), &sys_config)).into_result()?;
-
-        // TODO: set flags
-        let intr_alloc_flags = 0;
-        EspError(i2c_driver_install(
-            port.into(),
-            i2c_mode_t_I2C_MODE_SLAVE,
-            rx_buf_len,
-            tx_buf_len,
-            intr_alloc_flags,
-        ))
-        .into_result()?;
-
-        Ok(Self {
-            port,
-            timeout: None,
-        })
-    }
-
-    pub fn timeout(&self) -> Option<TickType_t> {
-        self.timeout
-    }
-
-    pub fn set_timeout(&mut self, timeout: Option<TickType_t>) {
-        self.timeout = timeout;
-    }
-}
-
-impl Drop for Slave {
-    fn drop(&mut self) {
-        unsafe {
-            EspError(i2c_driver_delete(self.port.into()))
-                .into_result()
-                .unwrap();
-        }
-    }
-}
-
-impl genio::Read for Slave {
-    type ReadError = Error;
-
-    fn read(&mut self, buf: &mut [u8]) -> Result<usize> {
-        let n = unsafe {
-            i2c_slave_read_buffer(
-                self.port.into(),
-                buf.as_mut_ptr(),
-                buf.len(),
-                self.timeout.unwrap_or(portMAX_DELAY),
-            )
-        };
-
-        if n > 0 {
-            Ok(n.try_into().unwrap())
-        } else if n == 0 {
-            Err(Error::Timeout)
-        } else {
-            EspError(n).into_result().map(|()| unreachable!())
-        }
-    }
-}
-
-impl genio::Write for Slave {
-    type WriteError = Error;
-    type FlushError = Error;
-
-    fn write(&mut self, buf: &[u8]) -> Result<usize> {
-        let n = unsafe {
-            i2c_slave_write_buffer(
-                self.port.into(),
-                buf.as_ptr() as *const u8 as *mut u8,
-                buf.len().try_into().unwrap(),
-                self.timeout.unwrap_or(portMAX_DELAY),
-            )
-        };
-
-        if n > 0 {
-            Ok(n.try_into().unwrap())
-        } else if n == 0 {
-            Err(Error::Timeout)
-        } else {
-            EspError(n).into_result().map(|()| unreachable!())
-        }
-    }
-
-    /// This currently doesn't actually do anything
-    fn flush(&mut self) -> Result<()> {
-        Ok(())
-    }
-
-    fn size_hint(&mut self, _bytes: usize) {}
-}
+impl_i2c!(I2C0: 0);
+impl_i2c!(I2C1: 1);
