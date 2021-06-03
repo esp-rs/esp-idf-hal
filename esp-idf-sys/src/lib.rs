@@ -22,6 +22,9 @@ pub mod c_types {
     pub type c_longlong = i64;
     pub type c_ulonglong = u64;
 }
+
+include!(env!("CARGO_PIO_BINDGEN_RUNNER_BINDINGS_FILE"));
+
 #[derive(Copy, Clone, Eq, PartialEq, Hash, Debug)]
 pub struct EspError(esp_err_t);
 
@@ -86,7 +89,7 @@ macro_rules! esp {
 #[macro_export]
 macro_rules! esp_result {
     ($err:expr, $value:expr) => {{
-        esp_idf_sys::EspError::check_and_return($err as esp_idf_sys::esp_err_t, value)
+        esp_idf_sys::EspError::check_and_return($err as esp_idf_sys::esp_err_t, $value)
     }}
 }
 
@@ -98,12 +101,3 @@ macro_rules! esp_nofail {
         }
     }}
 }
-
-#[cfg(all(
-    feature = "esp32",
-    not(feature = "esp32s2"),
-    not(feature = "esp8266")))]
-include!("bindings_esp32.rs");
-
-#[cfg(feature = "esp8266")]
-include!("bindings_esp8266.rs");

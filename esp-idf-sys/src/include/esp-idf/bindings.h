@@ -22,7 +22,7 @@
 #include "esp_eth.h"
 #include "esp_eth_netif_glue.h"
 
-#include "apps/ping/ping_sock.h"
+#include "ping/ping_sock.h"
 
 #include "esp_http_server.h"
 
@@ -32,7 +32,7 @@
 #include "nvs_flash.h"
 
 #include "driver/adc.h"
-#include "driver/can.h"
+#include "driver/twai.h"
 #include "driver/dac.h"
 #include "driver/gpio.h"
 #include "driver/i2c.h"
@@ -55,8 +55,8 @@
 #include "driver/spi_slave.h"
 #include "driver/timer.h"
 #include "driver/touch_pad.h"
-#include "touch_sensor.h"
-#include "driver/touch_sensor_common.h"
+//#include "touch_sensor.h"
+//#include "driver/touch_sensor_common.h"
 #include "driver/uart.h"
 #include "driver/uart_select.h"
 
