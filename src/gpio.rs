@@ -318,6 +318,11 @@ macro_rules! impl_input_output {
 }
 
 impl_input_output!(Gpio0: 0);
+impl_input_output!(Gpio1: 1);
+impl_input_output!(Gpio2: 2);
+impl_input_output!(Gpio6: 6);
+impl_input_output!(Gpio7: 7);
+impl_input_output!(Gpio8: 8);
 impl_input_output!(Gpio19: 19);
 impl_input_output!(Gpio22: 22);
 impl_input_only!(Gpio29: 22);
