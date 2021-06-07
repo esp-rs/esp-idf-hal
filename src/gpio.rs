@@ -225,6 +225,7 @@ macro_rules! impl_input_base {
         impl<MODE> Pin for $pxi<MODE> {
             type Error = EspError;
 
+            #[inline(always)]
             fn pin() -> i32 {$pin}
 
             fn reset(&mut self) -> Result<(), Self::Error> {Ok(())}
@@ -320,9 +321,16 @@ macro_rules! impl_input_output {
 impl_input_output!(Gpio0: 0);
 impl_input_output!(Gpio1: 1);
 impl_input_output!(Gpio2: 2);
+impl_input_output!(Gpio3: 3);
+impl_input_output!(Gpio4: 4);
+impl_input_output!(Gpio5: 5);
 impl_input_output!(Gpio6: 6);
 impl_input_output!(Gpio7: 7);
 impl_input_output!(Gpio8: 8);
+impl_input_output!(Gpio16: 16);
+impl_input_output!(Gpio18: 18);
 impl_input_output!(Gpio19: 19);
+impl_input_output!(Gpio20: 20);
 impl_input_output!(Gpio22: 22);
-impl_input_only!(Gpio29: 22);
+impl_input_output!(Gpio23: 23);
+impl_input_only!(Gpio29: 29);

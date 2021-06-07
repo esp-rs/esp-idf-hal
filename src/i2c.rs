@@ -256,17 +256,20 @@ impl Drop for CommandLink {
     }
 }
 
+struct I2cPrivateField;
+
 macro_rules! impl_i2c {
     ($i2c:ident: $port:expr) => {
-        pub struct $i2c;
+        pub struct $i2c(I2cPrivateField);
 
         impl $i2c {
             pub unsafe fn new() -> Self {
-                $i2c {}
+                $i2c(I2cPrivateField)
             }
         }
 
         impl I2c for $i2c {
+            #[inline(always)]
             fn port() -> i2c_port_t {$port}
         }
     };

@@ -39,8 +39,8 @@ pub struct Pins<
     SCLK: OutputPin,
     SDO: OutputPin,
     // default pins to allow type inference
-    SDI: InputPin + OutputPin = crate::gpio::Gpio1<crate::gpio::Input>,
-    CS: OutputPin = crate::gpio::Gpio2<crate::gpio::Output>,
+    SDI: InputPin + OutputPin, // = crate::gpio::Gpio1<crate::gpio::Input>,
+    CS: OutputPin, // = crate::gpio::Gpio2<crate::gpio::Output>,
 > {
     pub sclk: SCLK,
     pub sdo: SDO,
@@ -102,8 +102,8 @@ pub struct Master<
     SCLK: OutputPin,
     SDO: OutputPin,
     // default pins to allow type inference
-    SDI: InputPin + OutputPin = crate::gpio::Gpio1<crate::gpio::Input>,
-    CS: OutputPin = crate::gpio::Gpio2<crate::gpio::Output>,
+    SDI: InputPin + OutputPin, // = crate::gpio::Gpio1<crate::gpio::Input>,
+    CS: OutputPin, // = crate::gpio::Gpio2<crate::gpio::Output>,
 > {
     spi: SPI,
     pins: Pins<SCLK, SDO, SDI, CS>,
@@ -141,7 +141,7 @@ impl<SCLK: OutputPin, SDO: OutputPin, SDI: InputPin + OutputPin, CS: OutputPin>
     Master<SPI2, SCLK, SDO, SDI, CS>
 {
     /// Create new instance of SPI controller for SPI2
-    pub fn new(
+    pub fn new_spi2(
         spi: SPI2,
         pins: Pins<SCLK, SDO, SDI, CS>,
         config: config::Config,
@@ -154,7 +154,7 @@ impl<SCLK: OutputPin, SDO: OutputPin, SDI: InputPin + OutputPin, CS: OutputPin>
     Master<SPI3, SCLK, SDO, SDI, CS>
 {
     /// Create new instance of SPI controller for SPI3
-    pub fn new(
+    pub fn new_spi3(
         spi: SPI3,
         pins: Pins<SCLK, SDO, SDI, CS>,
         config: config::Config,
@@ -178,28 +178,30 @@ impl<
         config: config::Config,
        // clock_control: ClockControlConfig,
     ) -> Result<Self, EspError> {
-        esp!(unsafe {spi_bus_initialize(
-            SPI::device(),
-            &spi_bus_config_t {
-                mosi_io_num: SDO::pin(),
-                miso_io_num: if pins.sdi.is_some() {SDI::pin()} else {-1},
-                sclk_io_num: SCLK::pin(),
-                ..Default::default()
-            },
-            0/*: DMA support*/)
-        })?;
+        let bus_config = spi_bus_config_t {
+            flags: SPICOMMON_BUSFLAG_MASTER,
+            mosi_io_num: SDO::pin(),
+            miso_io_num: if pins.sdi.is_some() {SDI::pin()} else {-1},
+            sclk_io_num: SCLK::pin(),
+            quadwp_io_num: -1,
+            quadhd_io_num: -1,
+            //max_transfer_sz: SPI_MAX_TRANSFER_SIZE,
+            ..Default::default()
+        };
+
+        esp!(unsafe {spi_bus_initialize(SPI::device(), &bus_config, 0/*TODO: DMA support*/)})?;
+
+        let device_config = spi_device_interface_config_t {
+            spics_io_num: if pins.cs.is_some() {CS::pin()} else {-1},
+            clock_speed_hz: config.baudrate.0 as i32,
+            mode: (if config.data_mode.polarity == Polarity::IdleHigh {2} else {0}) | (if config.data_mode.phase == Phase::CaptureOnSecondTransition {1} else {0}),
+            queue_size: 64,
+            ..Default::default()
+        };
 
         let mut device_handle: spi_device_handle_t = core::ptr::null_mut();
 
-        esp!(unsafe {spi_bus_add_device(
-            SPI::device(),
-            &spi_device_interface_config_t {
-                spics_io_num: if pins.cs.is_some() {CS::pin()} else {-1},
-                clock_speed_hz: config.baudrate.0 as i32,
-                mode: (if config.data_mode.polarity == Polarity::IdleHigh {2} else {0}) | (if config.data_mode.phase == Phase::CaptureOnSecondTransition {1} else {0}),
-                ..Default::default()
-            },
-            &mut device_handle as *mut _)})?;
+        esp!(unsafe {spi_bus_add_device(SPI::device(), &device_config, &mut device_handle as *mut _)})?;
 
         Ok(Self {
             spi,
@@ -240,7 +242,7 @@ impl<
         while words_index < words.len() {
             let mut index = 0;
             let mut words_write_index = words_index;
-            while index < tx_buffer.len() && words_write_index < words.len() {
+            while index + core::mem::size_of::<T>() <= tx_buffer.len() && words_write_index < words.len() {
                 words[words_write_index].store(&mut tx_buffer[index..], self.bit_order);
                 words_write_index += 1;
                 index += core::mem::size_of::<T>();
@@ -250,10 +252,10 @@ impl<
                 break;
             }
 
-            transaction.length = index as u32;
-            transaction.rxlength = index as u32;
+            transaction.length = index as u32 * 8;
+            transaction.rxlength = index as u32 * 8;
 
-            esp!(unsafe {spi_device_transmit(self.device, &mut transaction as *mut _)})?;
+            esp!(unsafe {spi_device_polling_transmit(self.device, &mut transaction as *mut _)})?;
 
             index = 0;
             while index < transaction.rxlength as usize && words_index < words.len() {
@@ -286,7 +288,7 @@ impl<
 
         while words_index < words.len() {
             let mut index = 0;
-            while index < tx_buffer.len() && words_index < words.len() {
+            while index + core::mem::size_of::<T>() <= tx_buffer.len() && words_index < words.len() {
                 words[words_index].store(&mut tx_buffer[index..], self.bit_order);
                 words_index += 1;
                 index += core::mem::size_of::<T>();
@@ -296,10 +298,10 @@ impl<
                 break;
             }
 
-            transaction.length = index as u32;
+            transaction.length = index as u32 * 8;
             transaction.rxlength = 0;
 
-            esp!(unsafe {spi_device_transmit(self.device, &mut transaction as *mut _)})?;
+            esp!(unsafe {spi_device_polling_transmit(self.device, &mut transaction as *mut _)})?;
         }
 
         Ok(())
@@ -325,7 +327,7 @@ impl<
         let mut iter = words.into_iter().peekable();
         while iter.peek().is_some() {
             let mut index = 0;
-            while index < tx_buffer.len() {
+            while index + core::mem::size_of::<T>() <= tx_buffer.len() {
                 if let Some(word) = iter.next() {
                     word.store(&mut tx_buffer[index..], self.bit_order);
                     index += core::mem::size_of::<T>();
@@ -338,10 +340,10 @@ impl<
                 break;
             }
 
-            transaction.length = index as u32;
+            transaction.length = index as u32 * 8;
             transaction.rxlength = 0;
 
-            esp!(unsafe {spi_device_transmit(self.device, &mut transaction as *mut _)})?;
+            esp!(unsafe {spi_device_polling_transmit(self.device, &mut transaction as *mut _)})?;
         }
 
         Ok(())
@@ -622,22 +624,25 @@ impl<
     }
 }
 
+struct SpiPrivateField;
+
 macro_rules! impl_spi {
     ($spi:ident: $device:expr) => {
-        pub struct $spi;
+        pub struct $spi(SpiPrivateField);
 
         impl $spi {
             pub unsafe fn new() -> Self {
-                $spi {}
+                $spi(SpiPrivateField)
             }
         }
 
         impl Spi for $spi {
+            #[inline(always)]
             fn device() -> spi_host_device_t {$device}
         }
     };
 }
 
-impl_spi!(SPI1: 1);
-impl_spi!(SPI2: 2);
-impl_spi!(SPI3: 3);
+impl_spi!(SPI1: spi_host_device_t_SPI1_HOST);
+impl_spi!(SPI2: spi_host_device_t_SPI2_HOST);
+impl_spi!(SPI3: spi_host_device_t_SPI3_HOST);
