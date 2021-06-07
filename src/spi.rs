@@ -39,8 +39,8 @@ pub struct Pins<
     SCLK: OutputPin,
     SDO: OutputPin,
     // default pins to allow type inference
-    SDI: InputPin + OutputPin, // = crate::gpio::Gpio1<crate::gpio::Input>,
-    CS: OutputPin, // = crate::gpio::Gpio2<crate::gpio::Output>,
+    SDI: InputPin + OutputPin = crate::gpio::Gpio1<crate::gpio::Input>,
+    CS: OutputPin = crate::gpio::Gpio2<crate::gpio::Output>,
 > {
     pub sclk: SCLK,
     pub sdo: SDO,
@@ -102,8 +102,8 @@ pub struct Master<
     SCLK: OutputPin,
     SDO: OutputPin,
     // default pins to allow type inference
-    SDI: InputPin + OutputPin, // = crate::gpio::Gpio1<crate::gpio::Input>,
-    CS: OutputPin, // = crate::gpio::Gpio2<crate::gpio::Output>,
+    SDI: InputPin + OutputPin = crate::gpio::Gpio1<crate::gpio::Input>,
+    CS: OutputPin = crate::gpio::Gpio2<crate::gpio::Output>,
 > {
     spi: SPI,
     pins: Pins<SCLK, SDO, SDI, CS>,
@@ -141,7 +141,7 @@ impl<SCLK: OutputPin, SDO: OutputPin, SDI: InputPin + OutputPin, CS: OutputPin>
     Master<SPI2, SCLK, SDO, SDI, CS>
 {
     /// Create new instance of SPI controller for SPI2
-    pub fn new_spi2(
+    pub fn new(
         spi: SPI2,
         pins: Pins<SCLK, SDO, SDI, CS>,
         config: config::Config,
@@ -154,7 +154,7 @@ impl<SCLK: OutputPin, SDO: OutputPin, SDI: InputPin + OutputPin, CS: OutputPin>
     Master<SPI3, SCLK, SDO, SDI, CS>
 {
     /// Create new instance of SPI controller for SPI3
-    pub fn new_spi3(
+    pub fn new(
         spi: SPI3,
         pins: Pins<SCLK, SDO, SDI, CS>,
         config: config::Config,
@@ -176,7 +176,6 @@ impl<
         spi: SPI,
         pins: Pins<SCLK, SDO, SDI, CS>,
         config: config::Config,
-       // clock_control: ClockControlConfig,
     ) -> Result<Self, EspError> {
         let bus_config = spi_bus_config_t {
             flags: SPICOMMON_BUSFLAG_MASTER,
