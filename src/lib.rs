@@ -6,6 +6,8 @@ pub mod i2c;
 pub mod spi;
 pub mod serial;
 pub mod units;
+pub mod peripherals;
+pub mod prelude;
 
 #[cfg_attr(not(feature = "std"), panic_handler)]
 #[allow(dead_code)]
