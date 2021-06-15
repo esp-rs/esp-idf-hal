@@ -31,6 +31,7 @@ impl EspPing {
             },
             task_stack_size: 4096,
             task_prio: 2,
+            ..Default::default()
         };
 
         let callbacks = esp_ping_callbacks_t {

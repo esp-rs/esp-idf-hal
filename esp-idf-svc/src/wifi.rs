@@ -178,13 +178,14 @@ impl EspWifi {
                 ampdu_tx_enable: 1,
                 nvs_enable: 0,
                 nano_enable: 0,
-                tx_ba_win: 6,
+                //tx_ba_win: 6,
                 rx_ba_win: 6,
                 wifi_task_core_id: 0,
                 beacon_max_len: 752,
                 mgmt_sbuf_num: 32,
                 feature_caps: 1, // CONFIG_FEATURE_WPA3_SAE_BIT
                 magic: 0x1F2F3F4F,
+                ..Default::default()
             };
             esp!(esp_wifi_init(&cfg))?;
 
