@@ -19,7 +19,7 @@ default = ["std"]
 std = []
 
 [build-dependencies]
-#cargo-pio = {version = "*", git = "https://github.com/ivmarkov/cargo-pio"}
-cargo-pio = {version = "*", path = "../../../cargo-pio"}
+cargo-pio = {version = "0.4", git = "https://github.com/ivmarkov/cargo-pio"}
+#cargo-pio = {version = "0.4", path = "../../../cargo-pio"}
 globwalk = "0.8"
 anyhow = "1.0"

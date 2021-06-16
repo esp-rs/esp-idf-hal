@@ -10,12 +10,10 @@ fn main() -> Result<()> {
     let idf_target = get_target()?;
 
     let pio_scons_vars = if let Some(pio_scons_vars) = pio::SconsVariables::from_piofirst() {
-        println!("cargo:warning=PIO->Cargo build detected: generating bindings only");
+        println!("cargo:info=PIO->Cargo build detected: generating bindings only");
 
         pio_scons_vars
     } else {
-        println!("cargo:warning=Not a PIO->Cargo build: generating bindings and link flags");
-
         let pio = pio::Pio::get_default()?;
 
         let resolution = pio::Resolver::new(pio.clone())
