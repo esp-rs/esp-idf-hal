@@ -73,7 +73,6 @@ pub mod config {
                 DataBits::DataBits6 => uart_word_length_t_UART_DATA_6_BITS,
                 DataBits::DataBits7 => uart_word_length_t_UART_DATA_7_BITS,
                 DataBits::DataBits8 => uart_word_length_t_UART_DATA_8_BITS,
-                _ => panic!("???")
             }
         }
     }
@@ -86,7 +85,7 @@ pub mod config {
                 uart_word_length_t_UART_DATA_6_BITS => DataBits::DataBits6,
                 uart_word_length_t_UART_DATA_7_BITS => DataBits::DataBits7,
                 uart_word_length_t_UART_DATA_8_BITS => DataBits::DataBits8,
-                _ => panic!("???")
+                _ => unreachable!(),
             }
         }
     }
@@ -109,7 +108,6 @@ pub mod config {
                 FlowControl::CTS => uart_hw_flowcontrol_t_UART_HW_FLOWCTRL_CTS,
                 FlowControl::CTSRTS => uart_hw_flowcontrol_t_UART_HW_FLOWCTRL_CTS_RTS,
                 FlowControl::MAX => uart_hw_flowcontrol_t_UART_HW_FLOWCTRL_MAX,
-                _ => panic!("???")
             }
         }
     }
@@ -123,7 +121,7 @@ pub mod config {
                 uart_hw_flowcontrol_t_UART_HW_FLOWCTRL_CTS => FlowControl::CTS,
                 uart_hw_flowcontrol_t_UART_HW_FLOWCTRL_CTS_RTS => FlowControl::CTSRTS,
                 uart_hw_flowcontrol_t_UART_HW_FLOWCTRL_MAX => FlowControl::MAX,
-                _ => panic!("???")
+                _ => unreachable!(),
             }
         }
     }
@@ -141,7 +139,7 @@ pub mod config {
             match parity {
                 Parity::ParityNone => uart_parity_t_UART_PARITY_DISABLE,
                 Parity::ParityEven => uart_parity_t_UART_PARITY_EVEN,
-                _ => panic!("???")
+                Parity::ParityOdd => uart_parity_t_UART_PARITY_ODD,
             }
         }
     }
@@ -153,7 +151,7 @@ pub mod config {
                 uart_parity_t_UART_PARITY_DISABLE => Parity::ParityNone,
                 uart_parity_t_UART_PARITY_EVEN => Parity::ParityEven,
                 uart_parity_t_UART_PARITY_ODD => Parity::ParityOdd,
-                _ => panic!("???")
+                _ => unreachable!(),
             }
         }
     }
@@ -175,7 +173,6 @@ pub mod config {
                 StopBits::STOP1 => uart_stop_bits_t_UART_STOP_BITS_1,
                 StopBits::STOP1P5 => uart_stop_bits_t_UART_STOP_BITS_1_5,
                 StopBits::STOP2 => uart_stop_bits_t_UART_STOP_BITS_2,
-                _ => panic!("???")
             }
         }
     }
@@ -187,7 +184,7 @@ pub mod config {
                 uart_stop_bits_t_UART_STOP_BITS_1 => StopBits::STOP1,
                 uart_stop_bits_t_UART_STOP_BITS_1_5 => StopBits::STOP1P5,
                 uart_stop_bits_t_UART_STOP_BITS_2 => StopBits::STOP2,
-                _ => panic!("???")
+                _ => unreachable!(),
             }
         }
     }
