@@ -4,6 +4,6 @@ The wrappers are implementations of the abstractions defined in the [embedded-sv
 <br><br>
 
 For more information, check out:
-* The [Rust Xtensa STD port](https://github.com/ivmarkov/rust)
+* The [Rust ESP32 STD compiler fork](https://github.com/ivmarkov/rust)
 * The ["Hello, World" demo](https://github.com/ivmarkov/rust-esp32-std-hello)
 * The [embedded-svc](https://github.com/ivmarkov/embedded-svc) project
