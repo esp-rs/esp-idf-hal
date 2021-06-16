@@ -1,6 +1,6 @@
 [package]
 name = "esp-idf-svc"
-version = "0.4.0"
+version = "0.4.1"
 authors = ["Ivan Markov <ivan.markov@gmail.com>"]
 edition = "2018"
 categories = ["embedded", "hardware-support"]
@@ -8,6 +8,12 @@ keywords = ["xtensa", "hal", "esp", "esp32", "esp8266", "idf"]
 description = "Implementation of the embedded-svc traits for ESP-IDF (Espressif's IoT Development Framework)"
 repository = "https://github.com/ivmarkov/esp-idf-sys"
 license = "MIT"
+
+[features]
+default = ["binstart"]
+
+binstart = []
+libstart = []
 
 [dependencies]
 anyhow = {version = "1.0", features = ["backtrace"]}

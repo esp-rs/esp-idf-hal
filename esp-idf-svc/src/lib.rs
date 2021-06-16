@@ -11,6 +11,7 @@ pub mod httpd;
 pub mod edge_config;
 pub mod log;
 
+#[cfg(any(feature = "binstart", feature = "libstart"))]
 pub mod start;
 
 mod stubs;
