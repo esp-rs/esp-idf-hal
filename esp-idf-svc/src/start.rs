@@ -26,7 +26,7 @@ extern "C" {
 /// calling it from app_main(). If the user does not define a main() runction in Rust, there will
 /// be a linkage error instead of the nice Rust syntax error for binary crates.
 ///
-/// Another restriction of the "libmain" feature is that the Rust main function will always have one
+/// Another restriction of the "libstart" feature is that the Rust main function will always have one
 /// fixed signature: "fn main() -> !" - as opposed to the flexibility of main() in binary crates
 /// where it can have quite a few different returning types
 #[cfg(feature = "libstart")]
