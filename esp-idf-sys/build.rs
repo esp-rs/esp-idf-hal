@@ -34,10 +34,13 @@ fn main() -> Result<()> {
             env::var("PROFILE")? == "release",
             &resolution)?;
 
-        cargofirst::output_link_args(project_path, &pio_scons_vars)?;
+        pio_scons_vars.output_cargo_link_args(project_path)?;
 
         pio_scons_vars
     };
+
+    // In case other SYS crates need to have access to the ESP-IDF C headers
+    pio_scons_vars.output_cargo_c_include_paths()?;
 
     bindgen::Runner::from_scons_vars(&pio_scons_vars)
         .run(
