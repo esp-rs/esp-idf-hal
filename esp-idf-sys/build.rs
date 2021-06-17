@@ -32,7 +32,10 @@ fn main() -> Result<()> {
             &pio,
             &project_path,
             env::var("PROFILE")? == "release",
-            &resolution)?;
+            &resolution,
+            Some("ESP_IDF_SYS_PIO_CONF_"),
+            Some("ESP_IDF_SYS_GLOB_"),
+        )?;
 
         pio_scons_vars.output_cargo_link_args(project_path)?;
 
