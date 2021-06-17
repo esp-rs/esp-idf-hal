@@ -10,8 +10,6 @@ repository = "https://github.com/ivmarkov/esp-idf-sys"
 license = "MIT"
 
 [features]
-default = ["binstart"]
-
 binstart = []
 libstart = []
 
