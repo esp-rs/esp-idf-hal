@@ -14,7 +14,7 @@ fn main() -> Result<()> {
 
         pio_scons_vars
     } else {
-        let pio = pio::Pio::get_default()?;
+        let pio = pio::Pio::install_default()?;
 
         let resolution = pio::Resolver::new(pio.clone())
             .params(pio::ResolutionParams {
@@ -33,6 +33,7 @@ fn main() -> Result<()> {
             &project_path,
             env::var("PROFILE")? == "release",
             &resolution,
+            &[(&PathBuf::from("patches").join("pthread_destructor_fix.diff"), &PathBuf::from("framework-espidf"))],
             Some("ESP_IDF_SYS_PIO_CONF_"),
             Some("ESP_IDF_SYS_GLOB_"),
         )?;
