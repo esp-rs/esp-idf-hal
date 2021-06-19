@@ -1,6 +1,6 @@
 [package]
 name = "esp-idf-svc"
-version = "0.4.1"
+version = "0.5.0"
 authors = ["Ivan Markov <ivan.markov@gmail.com>"]
 edition = "2018"
 categories = ["embedded", "hardware-support"]
@@ -18,8 +18,8 @@ anyhow = {version = "1.0", features = ["backtrace"]}
 log = "0.4"
 scopeguard = "1.1"
 lazy_static = "1.4"
-libc = "0.2"
+libc = { version = "0.2.79", git = "https://github.com/ivmarkov/libc", branch = "version_0.2.79" }
 embedded-svc = {version = "0.4", git = "https://github.com/ivmarkov/embedded-svc.git"}
 #embedded-svc = {version = "*", path = "../embedded-svc"}
-esp-idf-sys = {version = "0.4", git = "https://github.com/ivmarkov/esp-idf-sys.git"}
+esp-idf-sys = {version = "0.5", git = "https://github.com/ivmarkov/esp-idf-sys.git"}
 #esp-idf-sys = {version = "*", path = "../esp-idf-sys"}

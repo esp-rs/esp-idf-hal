@@ -10,13 +10,24 @@ use log::info;
 
 use crate::common::*;
 
-pub struct EspPing;
+#[derive(Debug)]
+pub struct EspPing(u32);
 
 unsafe impl Send for EspPing {}
 unsafe impl Sync for EspPing {}
 
+impl Default for EspPing {
+    fn default() -> Self {
+        Self(0)
+    }
+}
+
 impl EspPing {
-    fn run_ping(ip: ipv4::Ipv4Addr, conf: &Configuration, tracker: &mut Tracker) -> Result<()> {
+    pub fn new(interface_index: u32) -> Self {
+        Self(interface_index)
+    }
+
+    fn run_ping(&self, ip: ipv4::Ipv4Addr, conf: &Configuration, tracker: &mut Tracker) -> Result<()> {
         let config = esp_ping_config_t {
             count: conf.count,
             interval_ms: conf.interval.as_millis() as u32,
@@ -31,6 +42,7 @@ impl EspPing {
             },
             task_stack_size: 4096,
             task_prio: 2,
+            interface: self.0,
             ..Default::default()
         };
 
@@ -216,7 +228,7 @@ impl Ping for EspPing {
             ..Default::default()
         };
 
-        Self::run_ping(ip, conf, &mut tracker)?;
+        self.run_ping(ip, conf, &mut tracker)?;
 
         Ok(tracker.replies.unwrap())
     }
@@ -226,7 +238,7 @@ impl Ping for EspPing {
 
         let mut tracker = Default::default();
 
-        Self::run_ping(ip, conf, &mut tracker)?;
+        self.run_ping(ip, conf, &mut tracker)?;
 
         Ok(tracker.summary)
     }

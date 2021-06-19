@@ -276,6 +276,7 @@ impl EspWifi {
     fn set_client_ip_conf(&mut self, conf: &Option<ipv4::ClientConfiguration>) -> Result<()> {
         unsafe {
             EspWifi::clear_ip_conf(&mut self.sta_netif)?;
+            self.sta_netif = ptr::null_mut();
 
             if let Some(client_conf) = conf {
                 info!("Setting STA IP configuration: {:?}", client_conf);
@@ -336,6 +337,7 @@ impl EspWifi {
     fn set_router_ip_conf(&mut self, conf: &Option<ipv4::RouterConfiguration>) -> Result<()> {
         unsafe {
             EspWifi::clear_ip_conf(&mut self.ap_netif)?;
+            self.ap_netif = ptr::null_mut();
 
             if let Some(router_conf) = conf {
                 info!("Setting AP IP configuration: {:?}", router_conf);
