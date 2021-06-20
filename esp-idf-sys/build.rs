@@ -38,7 +38,7 @@ fn main() -> Result<()> {
             Some("ESP_IDF_SYS_GLOB_"),
         )?;
 
-        pio_scons_vars.output_cargo_link_args(project_path)?;
+        pio_scons_vars.output_cargo_link_args(project_path, true, true)?;
 
         pio_scons_vars
     };
@@ -46,7 +46,7 @@ fn main() -> Result<()> {
     // In case other SYS crates need to have access to the ESP-IDF C headers
     pio_scons_vars.output_cargo_c_include_paths()?;
 
-    bindgen::Runner::from_scons_vars(&pio_scons_vars)
+    bindgen::Runner::from_scons_vars(&pio_scons_vars)?
         .run(
             &[format!("src/include/{}/bindings.h", if idf_target == "esp8266" {"esp-8266-rtos-sdk"} else {"esp-idf"})],
             bindgen::Language::C)
