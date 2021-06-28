@@ -1,10 +1,9 @@
-use std::ffi::{CStr, CString};
-
 use log::{Level, LevelFilter, Metadata, Record};
 
 use esp_idf_sys::*;
 
-use crate::common::Newtype;
+use crate::private::common::*;
+use crate::private::cstr::*;
 
 pub struct Logger;
 
@@ -74,7 +73,7 @@ impl Logger {
         LevelFilter::from(Newtype(CONFIG_LOG_DEFAULT_LEVEL))
     }
 
-    pub fn set_target_level<T: AsRef<str>>(&self, target: T, level_filter: LevelFilter) {
+    pub fn set_target_level(&self, target: impl AsRef<str>, level_filter: LevelFilter) {
         let ctarget = CString::new(target.as_ref()).unwrap();
 
         unsafe {esp_log_level_set(ctarget.as_c_str().as_ptr(), Newtype::<esp_log_level_t>::from(level_filter).0)};
@@ -111,6 +110,8 @@ impl log::Log for Logger {
 
     fn log(&self, record: &Record) {
         if self.enabled(record.metadata()) {
+            // TODO: Get rid of all allocations, if possible
+
             let output = format!("{}", record.args());
 
             let coutput = CString::new(output).unwrap();

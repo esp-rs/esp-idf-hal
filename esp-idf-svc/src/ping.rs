@@ -1,14 +1,18 @@
-use std::{mem, ptr, time::Duration, vec};
-use std::sync::{Condvar, Mutex};
+use core::{mem, ptr, time::Duration};
 
-use anyhow::*;
+use log::*;
+
+#[cfg(feature = "std")]
+use std::sync::*;
+
+use mutex_trait::Mutex;
 
 use embedded_svc::ipv4;
 use embedded_svc::ping::*;
-use esp_idf_sys::*;
-use log::info;
 
-use crate::common::*;
+use esp_idf_sys::*;
+
+use crate::private::common::*;
 
 #[derive(Debug)]
 pub struct EspPing(u32);
@@ -27,7 +31,7 @@ impl EspPing {
         Self(interface_index)
     }
 
-    fn run_ping(&self, ip: ipv4::Ipv4Addr, conf: &Configuration, tracker: &mut Tracker) -> Result<()> {
+    fn run_ping<F: Fn(&Summary, &Reply)>(&self, ip: ipv4::Ipv4Addr, conf: &Configuration, tracker: &mut Tracker<F>) -> Result<(), EspError> {
         let config = esp_ping_config_t {
             count: conf.count,
             interval_ms: conf.interval.as_millis() as u32,
@@ -47,10 +51,10 @@ impl EspPing {
         };
 
         let callbacks = esp_ping_callbacks_t {
-            on_ping_success: Some(EspPing::on_ping_success),
-            on_ping_timeout: Some(EspPing::on_ping_timeout),
-            on_ping_end: Some(EspPing::on_ping_end),
-            cb_args: tracker as *mut Tracker as *mut c_types::c_void,
+            on_ping_success: Some(EspPing::on_ping_success::<F>),
+            on_ping_timeout: Some(EspPing::on_ping_timeout::<F>),
+            on_ping_end: Some(EspPing::on_ping_end::<F>),
+            cb_args: tracker as *mut Tracker<F> as *mut c_types::c_void,
         };
 
         let mut handle: esp_ping_handle_t = ptr::null_mut();
@@ -60,27 +64,27 @@ impl EspPing {
 
         info!("Ping session established, got handle {:?}", &handle);
 
-        {
-            *tracker.running.lock().unwrap() = true;
-        }
+        tracker.running.lock(|running| *running = true);
 
         esp!(unsafe {esp_ping_start(handle)})?;
         info!("Ping session started");
 
         info!("Waiting for the ping session to complete");
 
-        // loop {
-        //     {
-        //         let finished = tracker.lock.lock().unwrap();
-        //         if *finished {
-        //             break
-        //         }
-        //     }
+        #[cfg(feature = "std")]
+        {
+            let _running = tracker.cvar.wait_while(
+                tracker.running.0.lock().unwrap(),
+                |running| *running,
+            ).unwrap();
+        }
 
-        //     thread::sleep(Duration::from_millis(500));
-        // }
-
-        let _running = tracker.cvar.wait_while(tracker.running.lock().unwrap(), |running| *running).unwrap();
+        #[cfg(not(feature = "std"))]
+        {
+            while tracker.running.lock(|running| *running) {
+                unsafe {vTaskDelay(500)};
+            }
+        }
 
         esp!(unsafe {esp_ping_stop(handle)})?;
         info!("Ping session stopped");
@@ -92,10 +96,11 @@ impl EspPing {
         Ok(())
     }
 
-    unsafe extern "C" fn on_ping_success(handle: esp_ping_handle_t, args: *mut c_types::c_void) {
+    unsafe extern "C" fn on_ping_success<F: Fn(&Summary, &Reply)>(handle: esp_ping_handle_t, args: *mut c_types::c_void) {
         info!("Ping success callback invoked");
 
-        let tracker = (args as *mut Tracker).as_mut().unwrap();
+        let tracker_ptr: *mut Tracker<F> = args as _;
+        let tracker = tracker_ptr.as_mut().unwrap();
 
         let mut seqno: c_types::c_ushort = 0;
         esp_ping_get_profile(
@@ -143,8 +148,10 @@ impl EspPing {
             elapsed_time,
             recv_len);
 
-        if let Some(ref mut replies) = tracker.replies {
-            replies.push(Reply::Success(Info {
+        if let Some(reply_callback) = tracker.reply_callback {
+            Self::update_summary(handle, &mut tracker.summary);
+
+            reply_callback(&tracker.summary, &Reply::Success(Info {
                 addr,
                 seqno: seqno as u32,
                 ttl: ttl as u8,
@@ -154,10 +161,11 @@ impl EspPing {
         }
     }
 
-    unsafe extern "C" fn on_ping_timeout(handle: esp_ping_handle_t, args: *mut c_types::c_void) {
+    unsafe extern "C" fn on_ping_timeout<F: Fn(&Summary, &Reply)>(handle: esp_ping_handle_t, args: *mut c_types::c_void) {
         info!("Ping timeout callback invoked");
 
-        let tracker = (args as *mut Tracker).as_mut().unwrap();
+        let tracker_ptr: *mut Tracker<F> = args as _;
+        let tracker = tracker_ptr.as_mut().unwrap();
 
         let mut seqno: c_types::c_ushort = 0;
         esp_ping_get_profile(
@@ -177,16 +185,34 @@ impl EspPing {
 
         info!("From {} icmp_seq={} timeout", "???", seqno);
 
-        if let Some(ref mut replies) = tracker.replies {
-            replies.push(Reply::Timeout);
+        if let Some(reply_callback) = tracker.reply_callback {
+            Self::update_summary(handle, &mut tracker.summary);
+
+            reply_callback(&tracker.summary, &Reply::Timeout);
         }
     }
 
-    unsafe extern "C" fn on_ping_end(handle: esp_ping_handle_t, args: *mut c_types::c_void) {
+    unsafe extern "C" fn on_ping_end<F: Fn(&Summary, &Reply)>(handle: esp_ping_handle_t, args: *mut c_types::c_void) {
         info!("Ping end callback invoked");
 
-        let tracker = (args as *mut Tracker).as_mut().unwrap();
+        let tracker_ptr: *mut Tracker<F> = args as _;
+        let tracker = tracker_ptr.as_mut().unwrap();
 
+        Self::update_summary(handle, &mut tracker.summary);
+
+        info!("{} packets transmitted, {} received, time {}ms", tracker.summary.transmitted, tracker.summary.received, tracker.summary.time.as_millis());
+
+        #[cfg(feature = "std")]
+        {
+            *tracker.running.0.lock().unwrap() = false;
+            tracker.cvar.notify_one();
+        }
+
+        #[cfg(not(feature = "std"))]
+        tracker.running.lock(|running| *running = false);
+    }
+
+    unsafe fn update_summary(handle: esp_ping_handle_t, summary: &mut Summary) {
         let mut transmitted: c_types::c_uint = 0;
         esp_ping_get_profile(
             handle,
@@ -208,35 +234,29 @@ impl EspPing {
             &mut total_time as *mut c_types::c_uint as *mut c_types::c_void,
             mem::size_of_val(&total_time) as u32);
 
-        info!("{} packets transmitted, {} received, time {}ms", transmitted, received, total_time);
-
-        tracker.summary.transmitted = transmitted;
-        tracker.summary.received = received;
-        tracker.summary.time = Duration::from_millis(total_time as u64);
-
-        *tracker.running.lock().unwrap() = false;
-        tracker.cvar.notify_one();
+        summary.transmitted = transmitted;
+        summary.received = received;
+        summary.time = Duration::from_millis(total_time as u64);
     }
 }
 
 impl Ping for EspPing {
-    fn ping(&mut self, ip: ipv4::Ipv4Addr, conf: &Configuration) -> Result<vec::Vec<Reply>> {
-        info!("About to run a detailed ping {} with configuration {:?}", ip, &conf);
+    type Error = EspError;
 
-        let mut tracker = Tracker {
-            replies: Some(vec::Vec::new()),
-            ..Default::default()
-        };
+    fn ping(&mut self, ip: ipv4::Ipv4Addr, conf: &Configuration) -> Result<Summary, Self::Error> {
+        info!("About to run a summary ping {} with configuration {:?}", ip, conf);
+
+        let mut tracker = Tracker::new(Some(&nop_callback));
 
         self.run_ping(ip, conf, &mut tracker)?;
 
-        Ok(tracker.replies.unwrap())
+        Ok(tracker.summary)
     }
 
-    fn ping_summary(&mut self, ip: ipv4::Ipv4Addr, conf: &Configuration) -> Result<Summary> {
-        info!("About to run a summary ping {} with configuration {:?}", ip, &conf);
+    fn ping_details<F: Fn(&Summary, &Reply)>(&mut self, ip: ipv4::Ipv4Addr, conf: &Configuration, reply_callback: &F) -> Result<Summary, Self::Error> {
+        info!("About to run a detailed ping {} with configuration {:?}", ip, conf);
 
-        let mut tracker = Default::default();
+        let mut tracker = Tracker::new(Some(reply_callback));
 
         self.run_ping(ip, conf, &mut tracker)?;
 
@@ -244,24 +264,31 @@ impl Ping for EspPing {
     }
 }
 
-struct Tracker {
+struct Tracker<'a, F: Fn(&Summary, &Reply)> {
     summary: Summary,
-    replies: Option<vec::Vec<Reply>>,
+    #[cfg(feature = "std")]
     cvar: Condvar,
-    running: Mutex<bool>,
+    #[cfg(feature = "std")]
+    running: EspStdMutex<bool>,
+    #[cfg(not(feature = "std"))]
+    running: EspMutex<bool>,
+    reply_callback: Option<&'a F>,
 }
 
-impl Default for Tracker {
-    fn default() -> Self {
-        Tracker {
-            summary: Summary {
-                transmitted: 0,
-                received: 0,
-                time: Duration::from_secs(0),
-            },
-            replies: None,
+impl<'a, F: Fn(&Summary, &Reply)> Tracker<'a, F> {
+    pub fn new(reply_callback: Option<&'a F>) -> Self {
+        Self {
+            summary: Default::default(),
+            #[cfg(feature = "std")]
             cvar: Condvar::new(),
-            running: Mutex::new(false),
+            #[cfg(feature = "std")]
+            running: EspStdMutex::new(false),
+            #[cfg(not(feature = "std"))]
+            running: EspMutex::new(false),
+            reply_callback,
         }
     }
+}
+
+fn nop_callback(_summary: &Summary, _reply: &Reply) {
 }

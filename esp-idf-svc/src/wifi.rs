@@ -1,17 +1,28 @@
-use std::{cmp, collections, convert::TryInto, mem, ptr, sync::Arc, sync::Mutex, sync::RwLock, thread, time::{Duration, Instant}, vec};
-use std::ffi::CStr;
+use core::{cmp, mem, ptr, convert::TryInto, time::Duration};
 
+extern crate alloc;
+use alloc::vec;
+use alloc::sync::Arc;
+
+use enumset::*;
 use log::*;
-use anyhow::*;
+
+use mutex_trait::*;
 
 use embedded_svc::wifi::*;
 use embedded_svc::ipv4;
+
+use esp_idf_sys::mutex::RwLock;
 use esp_idf_sys::*;
 
-use crate::common::*;
 use crate::netif::EspNetif;
 use crate::sysloop::EspSysLoop;
 use crate::nvs::EspDefaultNvs;
+
+use crate::private::common::*;
+use crate::private::cstr::*;
+
+const MAX_AP: usize = 20;
 
 impl From<AuthMethod> for Newtype<wifi_auth_mode_t> {
     fn from(method: AuthMethod) -> Self {
@@ -111,7 +122,7 @@ impl From<Newtype<wifi_ap_config_t>> for AccessPointConfiguration {
             channel: conf.0.channel,
             secondary_channel: None,
             auth_method: AuthMethod::from(Newtype(conf.0.authmode)),
-            protocols: collections::HashSet::new(), // TODO
+            protocols: EnumSet::<Protocol>::empty(), // TODO
             password: from_cstr(&conf.0.password),
             max_connections: conf.0.max_connection as u16,
             ip_conf: None, // This must be set at a later stage
@@ -119,9 +130,29 @@ impl From<Newtype<wifi_ap_config_t>> for AccessPointConfiguration {
     }
 }
 
-lazy_static! {
-    static ref TAKEN: Arc<Mutex<bool>> = Arc::new(Mutex::new(false));
+impl From<Newtype<&wifi_ap_record_t>> for AccessPointInfo {
+    #[allow(non_upper_case_globals)]
+    fn from(ap_info: Newtype<&wifi_ap_record_t>) -> Self {
+        let a = ap_info.0;
+
+        Self {
+            ssid: from_cstr(&a.ssid),
+            bssid: a.bssid,
+            channel: a.primary,
+            secondary_channel: match a.second {
+                wifi_second_chan_t_WIFI_SECOND_CHAN_NONE => SecondaryChannel::None,
+                wifi_second_chan_t_WIFI_SECOND_CHAN_ABOVE => SecondaryChannel::Above,
+                wifi_second_chan_t_WIFI_SECOND_CHAN_BELOW => SecondaryChannel::Below,
+                _ => panic!()
+            },
+            signal_strength: a.rssi as u8,
+            protocols: EnumSet::<Protocol>::empty(), // TODO
+            auth_method: AuthMethod::from(Newtype::<wifi_auth_mode_t>(a.authmode)),
+        }
+    }
 }
+
+static mut TAKEN: EspMutex<bool> = EspMutex::new(false);
 
 struct Shared {
     client_ip_conf: Option<ipv4::ClientConfiguration>,
@@ -129,6 +160,17 @@ struct Shared {
 
     status: Status,
     operating: bool
+}
+
+impl Default for Shared {
+    fn default() -> Self {
+        Self {
+            client_ip_conf: None,
+            router_ip_conf: None,
+            status: Status(ClientStatus::Stopped, ApStatus::Stopped),
+            operating: false
+        }
+    }
 }
 
 pub struct EspWifi {
@@ -139,28 +181,40 @@ pub struct EspWifi {
     sta_netif: *mut esp_netif_t,
     ap_netif: *mut esp_netif_t,
 
-    shared: Box<RwLock<Shared>>
+    #[cfg(feature = "std")]
+    shared: Box<EspStdRwLock<Shared>>,
+
+    #[cfg(not(feature = "std"))]
+    shared: Box<EspMutex<Shared>>,
 }
 
 impl EspWifi {
-    pub fn new(netif: Arc<EspNetif>, sys_loop: Arc<EspSysLoop>, nvs: Arc<EspDefaultNvs>) -> Result<EspWifi> {
-        let mut taken = TAKEN.lock().unwrap();
-        if *taken {
-            bail!("Wifi driver is already owned elsewhere");
-        }
+    pub fn new(netif: Arc<EspNetif>, sys_loop: Arc<EspSysLoop>, nvs: Arc<EspDefaultNvs>) -> Result<EspWifi, EspError> {
+        unsafe {
+            TAKEN.lock(|taken|
+                if *taken {
+                    Err(EspError::from(ESP_ERR_INVALID_STATE as i32).unwrap())
+                } else {
+                    let wifi = Self::init(netif, sys_loop, nvs)?;
 
-        let wifi = EspWifi {
+                    *taken = true;
+                    Ok(wifi)
+                }
+            )
+        }
+    }
+
+    fn init(netif: Arc<EspNetif>, sys_loop: Arc<EspSysLoop>, nvs: Arc<EspDefaultNvs>) -> Result<EspWifi, EspError> {
+        let mut wifi = EspWifi {
             _netif: netif,
             _sys_loop: sys_loop,
             _nvs: nvs,
             sta_netif: ptr::null_mut(),
             ap_netif: ptr::null_mut(),
-            shared: Box::new(RwLock::new(Shared {
-                client_ip_conf: None,
-                router_ip_conf: None,
-                status: Status(ClientStatus::Stopped, ApStatus::Stopped),
-                operating: false
-            }))
+            #[cfg(feature = "std")]
+            shared: Box::new(EspStdRwLock::new(Default::default())),
+            #[cfg(not(feature = "std"))]
+            shared: Box::new(EspMutex::new(Default::default())),
         };
 
         unsafe {
@@ -191,15 +245,13 @@ impl EspWifi {
 
             info!("Driver initialized");
 
-            let shared_ref: *const RwLock<Shared> = &*wifi.shared;
+            let shared_ref: *mut _ = &mut *wifi.shared;
 
             esp!(esp_event_handler_register(WIFI_EVENT, ESP_EVENT_ANY_ID, Option::Some(EspWifi::event_handler), shared_ref as *mut c_types::c_void))?;
             esp!(esp_event_handler_register(IP_EVENT, ip_event_t_IP_EVENT_STA_GOT_IP as i32, Option::Some(EspWifi::event_handler), shared_ref as *mut c_types::c_void))?;
 
             info!("Event handlers registered");
         }
-
-        *taken = true;
 
         info!("Initialization complete");
 
@@ -214,21 +266,21 @@ impl EspWifi {
         self.ap_netif
     }
 
-    fn get_client_conf(&self) -> Result<ClientConfiguration> {
+    fn get_client_conf(&self) -> Result<ClientConfiguration, EspError> {
         let mut wifi_config = [0 as u8; mem::size_of::<wifi_config_t>()];
         let wifi_config_ref: &mut wifi_config_t = unsafe {mem::transmute(&mut wifi_config)};
 
         esp!(unsafe {esp_wifi_get_config(esp_interface_t_ESP_IF_WIFI_STA, wifi_config_ref)})?;
 
         let mut result: ClientConfiguration = unsafe {(&Newtype(wifi_config_ref.sta)).into()};
-        result.ip_conf = self.shared.read().unwrap().client_ip_conf;
+        result.ip_conf = self.shared.lock_read(|shared| shared.client_ip_conf.clone());
 
         info!("Providing STA configuration: {:?}", &result);
 
         Ok(result)
     }
 
-    fn set_client_conf(&mut self, conf: &ClientConfiguration) -> Result<()> {
+    fn set_client_conf(&mut self, conf: &ClientConfiguration) -> Result<(), EspError> {
         info!("Setting STA configuration: {:?}", conf);
 
         let mut wifi_config = wifi_config_t {
@@ -244,21 +296,21 @@ impl EspWifi {
         Ok(())
     }
 
-    fn get_ap_conf(&self) -> Result<AccessPointConfiguration> {
+    fn get_ap_conf(&self) -> Result<AccessPointConfiguration, EspError> {
         let mut wifi_config = [0 as u8; mem::size_of::<wifi_config_t>()];
         let wifi_config_ref: &mut wifi_config_t = unsafe {mem::transmute(&mut wifi_config)};
 
         esp!(unsafe {esp_wifi_get_config(esp_interface_t_ESP_IF_WIFI_AP, wifi_config_ref)})?;
 
         let mut result: AccessPointConfiguration = unsafe {Newtype(wifi_config_ref.ap).into()};
-        result.ip_conf = self.shared.read().unwrap().router_ip_conf;
+        result.ip_conf = self.shared.lock_read(|shared| shared.router_ip_conf.clone());
 
         info!("Providing AP configuration: {:?}", &result);
 
         Ok(result)
     }
 
-    fn set_ap_conf(&mut self, conf: &AccessPointConfiguration) -> Result<()> {
+    fn set_ap_conf(&mut self, conf: &AccessPointConfiguration) -> Result<(), EspError> {
         info!("Setting AP configuration: {:?}", conf);
 
         let mut wifi_config = wifi_config_t {
@@ -273,7 +325,7 @@ impl EspWifi {
         Ok(())
     }
 
-    fn set_client_ip_conf(&mut self, conf: &Option<ipv4::ClientConfiguration>) -> Result<()> {
+    fn set_client_ip_conf(&mut self, conf: &Option<ipv4::ClientConfiguration>) -> Result<(), EspError> {
         unsafe {
             EspWifi::clear_ip_conf(&mut self.sta_netif)?;
             self.sta_netif = ptr::null_mut();
@@ -329,12 +381,12 @@ impl EspWifi {
             }
         }
 
-        self.shared.write().unwrap().client_ip_conf = conf.clone();
+        self.shared.lock(|shared| shared.client_ip_conf = conf.clone());
 
         Ok(())
     }
 
-    fn set_router_ip_conf(&mut self, conf: &Option<ipv4::RouterConfiguration>) -> Result<()> {
+    fn set_router_ip_conf(&mut self, conf: &Option<ipv4::RouterConfiguration>) -> Result<(), EspError> {
         unsafe {
             EspWifi::clear_ip_conf(&mut self.ap_netif)?;
             self.ap_netif = ptr::null_mut();
@@ -375,7 +427,7 @@ impl EspWifi {
             }
         }
 
-        self.shared.write().unwrap().router_ip_conf = conf.clone();
+        self.shared.lock(|shared| shared.router_ip_conf = conf.clone());
 
         Ok(())
     }
@@ -391,7 +443,7 @@ impl EspWifi {
             }
 
             // TODO: Replace with waiting on a condvar that wakes up when an event is received
-            thread::sleep(Duration::from_millis(100));
+            unsafe {vTaskDelay(100)};
         };
 
         info!("Waiting for status done - success");
@@ -402,7 +454,7 @@ impl EspWifi {
     fn wait_status_with_timeout<F: Fn(&Status) -> bool>(&self, timeout: Duration, waiter: F) -> Result<(), Status> {
         info!("About to wait for status with timeout {:?}", timeout);
 
-        let start = Instant::now();
+        let mut accum = Duration::from_millis(0);
 
         loop {
             let status = self.get_status();
@@ -413,26 +465,25 @@ impl EspWifi {
                 break Ok(())
             }
 
-            if Instant::now() > start + timeout {
+            if accum > timeout {
                 info!("Timeout while waiting for status");
 
                 break Err(status)
             }
 
             // TODO: Replace with waiting on a condvar that wakes up when an event is received
-            thread::sleep(Duration::from_millis(500));
+            unsafe {vTaskDelay(500)};
+            accum += Duration::from_millis(500);
         }
     }
 
-    fn start(&mut self, status: Status) -> Result<()> {
+    fn start(&mut self, status: Status) -> Result<(), EspError> {
         info!("Starting with status: {:?}", status);
 
-        {
-            let shared = &mut self.shared.write().unwrap();
-
+        self.shared.lock(|shared| {
             shared.status = status.clone();
             shared.operating = status.is_operating();
-        }
+        });
 
         if status.is_operating() {
             info!("Status is of operating type, starting");
@@ -443,10 +494,10 @@ impl EspWifi {
 
             let result = self.wait_status_with_timeout(Duration::from_secs(10), |s| !s.is_transitional());
 
-            if let Err(status) = result {
+            if let Err(_) = result {
                 info!("Timeout while waiting for the requested state");
 
-                bail!("Timeout waiting in transition {:?}", status);
+                return Err(EspError::from(ESP_ERR_TIMEOUT as i32).unwrap());
             }
 
             info!("Started");
@@ -457,12 +508,10 @@ impl EspWifi {
         Ok(())
     }
 
-    fn stop(&mut self) -> Result<()> {
+    fn stop(&mut self) -> Result<(), EspError> {
         info!("Stopping");
 
-        {
-            self.shared.write().unwrap().operating = false;
-        }
+        self.shared.lock(|shared| shared.operating = false);
 
         esp!(unsafe {esp_wifi_disconnect()})
             .or_else(|err| if err.code() == esp_idf_sys::ESP_ERR_WIFI_NOT_STARTED as esp_err_t {
@@ -485,7 +534,7 @@ impl EspWifi {
         Ok(())
     }
 
-    fn clear_all(&mut self) -> Result<()> {
+    fn clear_all(&mut self) -> Result<(), EspError> {
         self.stop()?;
 
         unsafe {
@@ -507,7 +556,71 @@ impl EspWifi {
         Ok(())
     }
 
-    unsafe fn clear_ip_conf(netif: &mut *mut esp_netif_t) -> Result<()> {
+    #[allow(non_upper_case_globals)]
+    fn do_scan(&mut self) -> Result<usize, EspError> {
+        info!("About to scan for access points");
+
+        self.stop()?;
+
+        unsafe {
+            esp!(esp_wifi_set_mode(wifi_mode_t_WIFI_MODE_STA))?;
+            esp!(esp_wifi_start())?;
+
+            // let scan_conf = wifi_scan_config_t {
+            //     ssid: ptr::null_mut(),
+            //     bssid: ptr::null_mut(),
+            //     channel: 0,
+            //     show_hidden: true,
+            //     scan_type: wifi_scan_type_t_WIFI_SCAN_TYPE_ACTIVE,
+            //     scan_time: wifi_scan_time_t {
+            //         active: wifi_active_scan_time_t {
+            //             min: 0,
+            //             max: 0,
+            //         },
+            //         passive: 0,
+            //     },
+            // };
+            esp!(esp_wifi_scan_start(ptr::null_mut()/*&scan_conf*/, true))?;
+        }
+
+        let mut found_ap: u16 = 0;
+        esp!(unsafe {esp_wifi_scan_get_ap_num(&mut found_ap as *mut _)})?;
+
+        Ok(found_ap as usize)
+    }
+
+    #[allow(non_upper_case_globals)]
+    fn do_get_scan_infos(&mut self, ap_infos_raw: &mut [wifi_ap_record_t]) -> Result<usize, EspError> {
+        info!("About to get info for found access points");
+
+        // let mut ap_info_raw = [0 as u8; std::mem::size_of::<wifi_ap_record_t>() * MAX_AP];
+
+        // let mut ap_records: Vec<wifi_ap_record_t> = std::vec! [
+        //     wifi_ap_record_t {
+        //         bssid: [0; 6],
+        //         ssid: [0; 33],
+        //         primary: 0,
+        //         second: 0,
+        //         rssi: 0,
+        //         authmode: 0,
+        //         pairwise_cipher: 0,
+        //         group_cipher: 0,
+        //         ant: 0,
+        //         _bitfield_1: wifi_ap_record_t::new_bitfield_1(0, 0, 0, 0, 0, 0),
+        //         country: wifi_country_t {
+        //         },
+        //     },
+        //     ap_num];
+        // let ap_info: &[wifi_ap_record_t; MAX_AP] = unsafe {mem::transmute(&ap_info_raw)};
+
+        let mut ap_count: u16 = ap_infos_raw.len() as u16;
+
+        esp!(unsafe {esp_wifi_scan_get_ap_records(&mut ap_count, ap_infos_raw.as_mut_ptr() /*as *mut wifi_ap_record_t*/)})?;
+
+        Ok(ap_count as usize)
+    }
+
+    unsafe fn clear_ip_conf(netif: &mut *mut esp_netif_t) -> Result<(), EspError> {
         if !(*netif).is_null() {
             esp!(esp_wifi_clear_default_wifi_driver_and_handlers(*netif as *mut c_types::c_void))?;
             esp_netif_destroy(*netif);
@@ -521,22 +634,27 @@ impl EspWifi {
     }
 
     unsafe extern "C" fn event_handler(arg: *mut c_types::c_void, event_base: esp_event_base_t, event_id: c_types::c_int, event_data: *mut c_types::c_void) {
-        let shared_ref: &RwLock<Shared> = (arg as *const RwLock<Shared>).as_ref().unwrap();
-        let mut shared_guard = shared_ref.write().unwrap();
+        #[cfg(feature = "std")]
+        let shared_ref = (arg as *mut EspStdRwLock<Shared>).as_mut().unwrap();
 
-        if event_base == WIFI_EVENT {
-            Self::on_wifi_event(&mut shared_guard, event_id, event_data)
-        } else if event_base == IP_EVENT {
-            Self::on_ip_event(&mut shared_guard, event_id, event_data)
-        } else {
-            warn!("Got unknown event base");
+        #[cfg(not(feature = "std"))]
+        let shared_ref = (arg as *mut mutex::EspMutex<Shared>).as_mut().unwrap();
 
-            Ok(())
-        }.unwrap();
+        shared_ref.lock(|shared|
+            if event_base == WIFI_EVENT {
+                Self::on_wifi_event(shared, event_id, event_data)
+            } else if event_base == IP_EVENT {
+                Self::on_ip_event(shared, event_id, event_data)
+            } else {
+                warn!("Got unknown event base");
+
+                Ok(())
+            }.unwrap()
+        );
     }
 
     #[allow(non_upper_case_globals)]
-    unsafe fn on_wifi_event(shared: &mut Shared, event_id: c_types::c_int, _event_data: *mut c_types::c_void) -> Result<()> {
+    unsafe fn on_wifi_event(shared: &mut Shared, event_id: c_types::c_int, _event_data: *mut c_types::c_void) -> Result<(), EspError> {
         info!("Got wifi event: {} ", event_id);
 
         shared.status = Status(
@@ -546,7 +664,7 @@ impl EspWifi {
                 wifi_event_t_WIFI_EVENT_STA_CONNECTED => ClientStatus::Started(ClientConnectionStatus::Connected(match shared.client_ip_conf.as_ref() {
                     None => ClientIpStatus::Disabled,
                     Some(ipv4::ClientConfiguration::DHCP) => ClientIpStatus::Waiting,
-                    Some(ipv4::ClientConfiguration::Fixed(ref status)) => ClientIpStatus::Done(*status),
+                    Some(ipv4::ClientConfiguration::Fixed(ref status)) => ClientIpStatus::Done(status.clone()),
                 })),
                 wifi_event_t_WIFI_EVENT_STA_DISCONNECTED => EspWifi::reconnect_if_operating(shared.operating)?,
                 _ => shared.status.0.clone(),
@@ -565,13 +683,13 @@ impl EspWifi {
     }
 
     #[allow(non_upper_case_globals)]
-    unsafe fn on_ip_event(shared: &mut Shared, event_id: c_types::c_int, event_data: *mut c_types::c_void) -> Result<()> {
+    unsafe fn on_ip_event(shared: &mut Shared, event_id: c_types::c_int, event_data: *mut c_types::c_void) -> Result<(), EspError> {
         info!("Got IP event: {}", event_id);
 
         shared.status = Status(
             match event_id as u32 {
                 ip_event_t_IP_EVENT_STA_GOT_IP => {
-                    let event: *const ip_event_got_ip_t = std::mem::transmute(event_data);
+                    let event: *const ip_event_got_ip_t = mem::transmute(event_data);
 
                     ClientStatus::Started(ClientConnectionStatus::Connected(ClientIpStatus::Done(ipv4::ClientSettings {
                         ip: ipv4::Ipv4Addr::from(Newtype((*event).ip_info.ip)),
@@ -595,7 +713,7 @@ impl EspWifi {
         Ok(())
     }
 
-    unsafe fn reconnect_if_operating(operating: bool) -> Result<ClientStatus> {
+    unsafe fn reconnect_if_operating(operating: bool) -> Result<ClientStatus, EspError> {
         Ok(if operating {
             info!("Reconnecting");
 
@@ -610,22 +728,22 @@ impl EspWifi {
 
 impl Drop for EspWifi {
     fn drop(&mut self) {
-        self.clear_all().unwrap();
-
-        *TAKEN.lock().unwrap() = false;
+        unsafe {
+            TAKEN.lock(|taken| {
+                self.clear_all().unwrap();
+                *taken = false;
+            });
+        }
 
         info!("Dropped");
     }
 }
 
 impl Wifi for EspWifi {
-    fn get_capabilities(&self) -> Result<collections::HashSet<Capability>> {
-        let caps = vec! [
-                Capability::Client,
-                Capability::AccessPoint,
-                Capability::Mixed]
-            .into_iter()
-            .collect();
+    type Error = EspError;
+
+    fn get_capabilities(&self) -> Result<EnumSet<Capability>, Self::Error> {
+        let caps = Capability::Client | Capability::AccessPoint| Capability::Mixed;
 
         info!("Providing capabilities: {:?}", caps);
 
@@ -633,7 +751,7 @@ impl Wifi for EspWifi {
     }
 
     fn get_status(&self) -> Status {
-        let status = self.shared.read().unwrap().status.clone();
+        let status = self.shared.lock_read(|shared| shared.status.clone());
 
         info!("Providing status: {:?}", status);
 
@@ -641,90 +759,62 @@ impl Wifi for EspWifi {
     }
 
     #[allow(non_upper_case_globals)]
-    fn scan(&mut self) -> Result<vec::Vec<AccessPointInfo>> {
-        info!("About to scan for access points");
-
+    fn scan_fill(&mut self, ap_infos: &mut [AccessPointInfo]) -> Result<usize, Self::Error> {
         let conf = self.get_configuration()?;
-
-        self.stop()?;
 
         // defer! {
         //     self.set_configuration(&conf);
         // }
 
-        unsafe {
-            esp!(esp_wifi_set_mode(wifi_mode_t_WIFI_MODE_STA))?;
-            esp!(esp_wifi_start())?;
+        let total_count = self.do_scan()?;
 
-            // let scan_conf = wifi_scan_config_t {
-            //     ssid: ptr::null_mut(),
-            //     bssid: ptr::null_mut(),
-            //     channel: 0,
-            //     show_hidden: true,
-            //     scan_type: wifi_scan_type_t_WIFI_SCAN_TYPE_ACTIVE,
-            //     scan_time: wifi_scan_time_t {
-            //         active: wifi_active_scan_time_t {
-            //             min: 0,
-            //             max: 0,
-            //         },
-            //         passive: 0,
-            //     },
-            // };
-            esp!(esp_wifi_scan_start(ptr::null_mut()/*&scan_conf*/, true))?;
+        if ap_infos.len() > 0 {
+            let mut ap_infos_raw_u8 = [0 as u8; mem::size_of::<wifi_ap_record_t>() * MAX_AP];
+            let ap_infos_raw: &mut [wifi_ap_record_t; MAX_AP] = unsafe {mem::transmute(&mut ap_infos_raw_u8)};
+
+            let real_count = self.do_get_scan_infos(ap_infos_raw)?;
+
+            for i in 0..real_count {
+                if ap_infos.len() == i {
+                    break;
+                }
+
+                ap_infos[i] = Newtype(&ap_infos_raw[i]).into();
+            }
         }
-
-        const MAX_AP: usize = 16;
-
-        let mut ap_info_raw = [0 as u8; std::mem::size_of::<wifi_ap_record_t>() * MAX_AP];
-        let mut ap_count: u16 = 0;
-
-        esp!(unsafe {esp_wifi_scan_get_ap_records(&mut ap_count, ap_info_raw.as_mut_ptr() as *mut wifi_ap_record_t)})?;
-
-        // let mut ap_records: Vec<wifi_ap_record_t> = std::vec! [
-        //     wifi_ap_record_t {
-        //         bssid: [0; 6],
-        //         ssid: [0; 33],
-        //         primary: 0,
-        //         second: 0,
-        //         rssi: 0,
-        //         authmode: 0,
-        //         pairwise_cipher: 0,
-        //         group_cipher: 0,
-        //         ant: 0,
-        //         _bitfield_1: wifi_ap_record_t::new_bitfield_1(0, 0, 0, 0, 0, 0),
-        //         country: wifi_country_t {
-        //         },
-        //     },
-        //     ap_num];
-        let ap_info: &[wifi_ap_record_t; MAX_AP] = unsafe {mem::transmute(&ap_info_raw)};
-
-        let result = (0..ap_count as usize)
-            .map(|i| ap_info[i])
-            .map(|a| AccessPointInfo {
-                ssid: from_cstr(&a.ssid),
-                bssid: a.bssid,
-                channel: a.primary,
-                secondary_channel: match a.second {
-                    wifi_second_chan_t_WIFI_SECOND_CHAN_NONE => SecondaryChannel::None,
-                    wifi_second_chan_t_WIFI_SECOND_CHAN_ABOVE => SecondaryChannel::Above,
-                    wifi_second_chan_t_WIFI_SECOND_CHAN_BELOW => SecondaryChannel::Below,
-                    _ => panic!()
-                },
-                signal_strength: a.rssi as u8,
-                protocols: collections::HashSet::new(), // TODO
-                auth_method: AuthMethod::from(Newtype::<wifi_auth_mode_t>(a.authmode)),
-            })
-            .collect();
 
         self.set_configuration(&conf)?;
 
-        info!("Scanning complete, got access points: {:?}", &result);
+        Ok(cmp::min(total_count, MAX_AP))
+    }
+
+    #[allow(non_upper_case_globals)]
+    fn scan(&mut self) -> Result<vec::Vec<AccessPointInfo>, Self::Error> {
+        let conf = self.get_configuration()?;
+
+        // defer! {
+        //     self.set_configuration(&conf);
+        // }
+
+        let total_count = self.do_scan()?;
+
+        let mut ap_infos_raw: vec::Vec<wifi_ap_record_t> = vec::Vec::with_capacity(total_count as usize);
+        unsafe {ap_infos_raw.set_len(total_count as usize)};
+
+        let real_count = self.do_get_scan_infos(&mut ap_infos_raw)?;
+
+        let mut result = vec::Vec::with_capacity(real_count);
+        for i in 0..real_count {
+            result.push(Newtype(&ap_infos_raw[i]).into());
+        }
+
+        self.set_configuration(&conf)?;
 
         Ok(result)
     }
 
     #[allow(non_upper_case_globals)]
-    fn get_configuration(&self) -> Result<Configuration> {
+    fn get_configuration(&self) -> Result<Configuration, Self::Error> {
         info!("Getting configuration");
 
         unsafe {
@@ -746,7 +836,7 @@ impl Wifi for EspWifi {
         }
     }
 
-    fn set_configuration(&mut self, conf: &Configuration) -> Result<()> {
+    fn set_configuration(&mut self, conf: &Configuration) -> Result<(), Self::Error> {
         info!("Setting configuration: {:?}", conf);
 
         self.stop()?;

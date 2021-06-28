@@ -1,38 +1,45 @@
-use std::sync::Mutex;
-
-use anyhow::*;
+use log::*;
 
 use esp_idf_sys::*;
 
-lazy_static! {
-    static ref INITIALIZED: Mutex<(bool, bool)> = Mutex::new((false, false));
-}
+use mutex_trait::*;
 
-pub struct EspNetif;
+static mut TAKEN: EspMutex<(bool, bool)> = EspMutex::new((false, false));
+
+#[derive(Debug)]
+struct PrivateData;
+
+#[derive(Debug)]
+pub struct EspNetif(PrivateData);
 
 impl EspNetif {
-    pub fn new() -> Result<Self> {
-        let mut initialized = INITIALIZED.lock().unwrap();
+    pub fn new() -> Result<Self, EspError> {
+        unsafe {
+            TAKEN.lock(|taken|
+                if taken.0 {
+                    Err(EspError::from(ESP_ERR_INVALID_STATE as i32).unwrap())
+                } else {
+                    if !taken.1 {
+                        esp!(esp_netif_init())?;
+                    }
 
-        if initialized.0 {
-            bail!("Netif is already owned elsewhere");
+                    *taken = (true, true);
+                    Ok(EspNetif(PrivateData))
+                }
+            )
         }
-
-        if !initialized.1 {
-            esp!(unsafe {esp_netif_init()})?;
-        }
-
-        *initialized = (true, true);
-
-        Ok(EspNetif)
     }
 }
 
 impl Drop for EspNetif {
     fn drop(&mut self) {
-        let mut initialized = INITIALIZED.lock().unwrap();
+        unsafe {
+            TAKEN.lock(|taken| {
+                // ESP netif does not support deinitialization yet, so we only flag that it is no longer owned
+                *taken = (false, true);
+            });
+        }
 
-        // ESP netif does not support deinitialization yet, so we only flag that it is no longer owned
-        initialized.0 = false;
+        info!("Dropped");
     }
 }

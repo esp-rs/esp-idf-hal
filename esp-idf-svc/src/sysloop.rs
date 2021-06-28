@@ -1,36 +1,43 @@
-use std::sync::Mutex;
+use log::*;
 
-use anyhow::*;
+use mutex_trait::*;
 
 use esp_idf_sys::*;
 
-lazy_static! {
-    static ref INITIALIZED: Mutex<bool> = Mutex::new(false);
-}
+static mut TAKEN: EspMutex<bool> = EspMutex::new(false);
 
-pub struct EspSysLoop;
+#[derive(Debug)]
+struct PrivateData;
+
+#[derive(Debug)]
+pub struct EspSysLoop(PrivateData);
 
 impl EspSysLoop {
-    pub fn new() -> Result<Self> {
-        let mut initialized = INITIALIZED.lock().unwrap();
+    pub fn new() -> Result<Self, EspError> {
+        unsafe {
+            TAKEN.lock(|taken|
+                if *taken {
+                    Err(EspError::from(ESP_ERR_INVALID_STATE as i32).unwrap())
+                } else {
+                    esp!(esp_event_loop_create_default())?;
 
-        if *initialized {
-            bail!("System event loop is already owned elsewhere");
+                    *taken = true;
+                    Ok(EspSysLoop(PrivateData))
+                }
+            )
         }
-
-        esp!(unsafe {esp_event_loop_create_default()})?;
-        *initialized = true;
-
-        Ok(EspSysLoop)
     }
 }
 
 impl Drop for EspSysLoop {
     fn drop(&mut self) {
-        let mut initialized = INITIALIZED.lock().unwrap();
+        unsafe {
+            TAKEN.lock(|taken| {
+                esp!(esp_event_loop_delete_default()).unwrap();
+                *taken = false;
+            });
+        }
 
-        esp!(unsafe {esp_event_loop_delete_default()}).unwrap();
-
-        *initialized = false;
+        info!("Dropped");
     }
 }

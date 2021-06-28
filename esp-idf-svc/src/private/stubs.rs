@@ -1,6 +1,8 @@
+use esp_idf_sys::c_types;
+
 // TODO: Figure out which library references this
 #[no_mangle]
-pub extern fn timegm(_: libc::tm) -> libc::time_t {
+pub extern fn timegm(_: c_types::c_void) -> c_types::c_int {
     // Not supported but don't crash just in case
     0
 }
@@ -8,8 +10,9 @@ pub extern fn timegm(_: libc::tm) -> libc::time_t {
 // Called by the rand crate
 #[no_mangle]
 pub extern "C" fn pthread_atfork(
-    _: *const libc::c_void,
-    _: *const libc::c_void,
-    _: *const libc::c_void) -> libc::c_int {
+    _: *const c_types::c_void,
+    _: *const c_types::c_void,
+    _: *const c_types::c_void,
+) -> c_types::c_int {
     0
 }

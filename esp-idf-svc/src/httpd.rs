@@ -1,13 +1,21 @@
-use std::{collections::HashMap, ffi::CString, io, io::Read, marker::PhantomData, ptr, vec};
+use core::{marker::PhantomData, ptr};
+
+extern crate alloc;
+use alloc::vec;
+
+use std::io;
 
 use anyhow;
+
+use log::{Level, info, log};
 
 use embedded_svc::httpd::*;
 
 use esp_idf_sys::c_types::*;
 use esp_idf_sys::esp;
 use esp_idf_sys::esp_nofail;
-use log::{Level, info, log};
+
+use crate::private::cstr::*;
 
 struct IdfRequest<'r>(*mut esp_idf_sys::httpd_req_t, PhantomData<&'r esp_idf_sys::httpd_req_t>);
 
@@ -54,7 +62,7 @@ impl<'r> IdfRequest<'r> {
             data.len() as esp_idf_sys::ssize_t)}).map_err(Into::into)
     }
 
-    fn send_body_read<R: Read>(&mut self, r: &mut R) -> anyhow::Result<()> {
+    fn send_body_read<R: io::Read>(&mut self, r: &mut R) -> anyhow::Result<()> {
         let mut buf = [0; 256];
 
         Ok(loop {
@@ -261,7 +269,7 @@ impl Server {
         let idf_request = IdfRequest(rd, PhantomData);
         info!("About to handle query string {:?}", idf_request.query_string());
 
-        let (response, err) = match handler(Request::new(Box::new(idf_request), HashMap::new(), None, None)) {
+        let (response, err) = match handler(Request::new(Box::new(idf_request), StateMap::new(), None, None)) {
             Ok(response) => (response, false),
             Err(err) => (err.into(), true)
         };

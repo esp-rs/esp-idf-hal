@@ -1,16 +1,21 @@
-use std::{any::Any, ffi::CString, ptr, sync::Arc};
+use core::{any::Any, ptr};
 
-use anyhow::*;
+extern crate alloc;
+use alloc::vec;
+use alloc::sync::Arc;
 
 use embedded_svc::storage::Storage;
+
 use esp_idf_sys::*;
 
-use crate::nvs::{EspDefaultNvs, EspNvs};
+use crate::nvs::*;
+
+use crate::private::cstr::*;
 
 pub struct EspNvsStorage(Arc<dyn Any>, nvs_handle_t);
 
 impl EspNvsStorage {
-    pub fn new_default(default_nvs: Arc<EspDefaultNvs>, namespace: impl AsRef<str>, read_write: bool) -> Result<Self> {
+    pub fn new_default(default_nvs: Arc<EspDefaultNvs>, namespace: impl AsRef<str>, read_write: bool) -> Result<Self, EspError> {
         let c_namespace = CString::new(namespace.as_ref()).unwrap();
 
         let mut handle: nvs_handle_t = 0;
@@ -22,7 +27,7 @@ impl EspNvsStorage {
         Ok(Self(default_nvs, handle))
     }
 
-    pub fn new(nvs: Arc<EspNvs>, namespace: impl AsRef<str>, read_write: bool) -> Result<Self> {
+    pub fn new(nvs: Arc<EspNvs>, namespace: impl AsRef<str>, read_write: bool) -> Result<Self, EspError> {
         let c_namespace = CString::new(namespace.as_ref()).unwrap();
 
         let mut handle: nvs_handle_t = 0;
@@ -43,7 +48,9 @@ impl Drop for EspNvsStorage {
 }
 
 impl Storage for EspNvsStorage {
-    fn contains(&self, key: impl AsRef<str>) -> Result<bool> {
+    type Error = EspError;
+
+    fn contains(&self, key: impl AsRef<str>) -> Result<bool, Self::Error> {
         let c_key = CString::new(key.as_ref()).unwrap();
 
         let dummy: u_int64_t = 0;
@@ -58,7 +65,7 @@ impl Storage for EspNvsStorage {
         }
     }
 
-    fn remove(&mut self, key: impl AsRef<str>) -> Result<bool> {
+    fn remove(&mut self, key: impl AsRef<str>) -> Result<bool, Self::Error> {
         let c_key = CString::new(key.as_ref()).unwrap();
 
         let result = unsafe {nvs_erase_key(self.1, c_key.as_ptr())};
@@ -73,7 +80,7 @@ impl Storage for EspNvsStorage {
         }
     }
 
-    fn get_raw(&self, key: impl AsRef<str>) -> Result<Option<Vec<u8>>> {
+    fn get_raw(&self, key: impl AsRef<str>) -> Result<Option<vec::Vec<u8>>, Self::Error> {
         let c_key = CString::new(key.as_ref()).unwrap();
 
         let mut value: u_int64_t = 0;
@@ -85,7 +92,7 @@ impl Storage for EspNvsStorage {
 
                 esp!(unsafe {nvs_get_blob(self.1, c_key.as_ptr(), ptr::null_mut(), &mut len as *mut _)})?;
 
-                let mut vec: Vec<u8> = Vec::with_capacity(len as usize);
+                let mut vec: vec::Vec<u8> = vec::Vec::with_capacity(len as usize);
                 esp!(unsafe {nvs_get_blob(self.1, c_key.as_ptr(), vec.as_mut_ptr() as *mut _, &mut len as *mut _)})?;
 
                 unsafe {vec.set_len(len as usize)};
@@ -113,7 +120,7 @@ impl Storage for EspNvsStorage {
         }
     }
 
-    fn put_raw(&mut self, key: impl AsRef<str>, value: impl Into<Vec<u8>>) -> Result<bool> {
+    fn put_raw(&mut self, key: impl AsRef<str>, value: impl Into<vec::Vec<u8>>) -> Result<bool, Self::Error> {
         let c_key = CString::new(key.as_ref()).unwrap();
         let mut uvalue: u_int64_t = 0;
 
