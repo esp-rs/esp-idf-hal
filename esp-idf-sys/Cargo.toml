@@ -1,6 +1,6 @@
 [package]
 name = "esp-idf-sys"
-version = "0.6.0"
+version = "0.7.0"
 authors = ["Alexey Arbuzov <aarbuzov@termt.com>", "sapir <yasapir@gmail.com>", "Ivan Markov <ivan.markov@gmail.com>"]
 edition = "2018"
 categories = ["embedded", "hardware-support"]
@@ -17,6 +17,9 @@ default-target = "x86_64-unknown-linux-gnu"
 default = ["std"]
 
 std = []
+
+[dependencies]
+mutex-trait = "0.2"
 
 [build-dependencies]
 cargo-pio = {version = "0.8", git = "https://github.com/ivmarkov/cargo-pio"}

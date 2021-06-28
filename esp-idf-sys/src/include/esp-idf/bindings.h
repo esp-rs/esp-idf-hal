@@ -64,3 +64,6 @@
 
 #include "esp_serial_slave_link/essl.h"
 #include "esp_serial_slave_link/essl_sdio.h"
+
+#include "pthread.h"
+#include "esp_pthread.h"
