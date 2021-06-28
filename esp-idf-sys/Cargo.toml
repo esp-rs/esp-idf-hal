@@ -22,7 +22,7 @@ std = []
 mutex-trait = "0.2"
 
 [build-dependencies]
-cargo-pio = {version = "0.8", git = "https://github.com/ivmarkov/cargo-pio"}
-#cargo-pio = {version = "0.8", path = "../../../cargo-pio"}
+cargo-pio = {version = "0.8.1", git = "https://github.com/ivmarkov/cargo-pio"}
+#cargo-pio = {version = "*", path = "../../../cargo-pio"}
 globwalk = "0.8"
 anyhow = "1.0"
