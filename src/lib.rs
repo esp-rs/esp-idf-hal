@@ -8,12 +8,3 @@ pub mod serial;
 pub mod units;
 pub mod peripherals;
 pub mod prelude;
-
-#[cfg_attr(not(feature = "std"), panic_handler)]
-#[allow(dead_code)]
-fn panic(_info: &core::panic::PanicInfo) -> ! {
-    unsafe {
-        esp_idf_sys::abort();
-        core::hint::unreachable_unchecked();
-    }
-}

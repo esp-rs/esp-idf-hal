@@ -1,3 +1,7 @@
+use mutex_trait::*;
+
+use esp_idf_sys::EspMutex;
+
 use crate::gpio;
 use crate::i2c;
 use crate::spi;
@@ -11,17 +15,19 @@ pub struct Peripherals {
     pub spi3: spi::SPI3,
 }
 
-static mut TAKEN: bool = false; // TODO: Use xtensa mutex to protect
+static mut TAKEN: EspMutex<bool> = EspMutex::new(false);
 
 impl Peripherals {
     pub fn take() -> Option<Self> {
         unsafe {
-            if TAKEN {
-                None
-            } else {
-                TAKEN = true;
-                Some(Peripherals::new())
-            }
+            TAKEN.lock(|taken|
+                if *taken {
+                    None
+                } else {
+                    *taken = true;
+                    Some(Peripherals::new())
+                }
+            )
         }
     }
 
