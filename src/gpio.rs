@@ -156,7 +156,7 @@ pub enum DriveStrength {
 macro_rules! impl_hal_input_pin {
     ($pxi:ident: $mode:ident) => {
         impl embedded_hal::digital::v2::InputPin for $pxi<$mode> {
-            type Error = Infallible;
+            type Error = EspError;
 
             fn is_high(&self) -> Result<bool, Self::Error> {
                 Ok(unsafe {gpio_get_level($pxi::<$mode>::pin())} != 0)
@@ -287,6 +287,7 @@ macro_rules! impl_input_output {
         }
 
         impl_hal_input_pin!($pxi: InputOutput);
+        impl_hal_output_pin!($pxi: InputOutput);
         impl_hal_output_pin!($pxi: Output);
         impl_pull!($pxi: Input);
         impl_pull!($pxi: InputOutput);
