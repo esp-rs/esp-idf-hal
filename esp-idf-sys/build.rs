@@ -38,13 +38,16 @@ fn main() -> Result<()> {
             Some("ESP_IDF_SYS_GLOB_"),
         )?;
 
-        pio_scons_vars.output_cargo_link_args(project_path, true, true)?;
+        // pio_scons_vars.output_cargo_link_args(project_path, true, true)?; // No longer works due to this issue: https://github.com/rust-lang/cargo/issues/9641
+        pio_scons_vars.propagate_cargo_link_args(project_path, true, true)?;
 
         pio_scons_vars
     };
 
     // In case other SYS crates need to have access to the ESP-IDF C headers
-    pio_scons_vars.output_cargo_c_include_paths()?;
+
+    // pio_scons_vars.output_cargo_c_include_args()?; // No longer works due to this issue: https://github.com/rust-lang/cargo/issues/9641
+    pio_scons_vars.propagate_cargo_c_include_args()?;
 
     bindgen::Runner::from_scons_vars(&pio_scons_vars)?
         .run(
