@@ -48,7 +48,15 @@ fn main() -> Result<()> {
 
     bindgen::Runner::from_scons_vars(&pio_scons_vars)?
         .run(
-            &[format!("src/include/{}/bindings.h", if idf_target == "esp8266" {"esp-8266-rtos-sdk"} else {"esp-idf"})],
+            &[PathBuf::from("src")
+                .join("include")
+                .join(if idf_target == "esp8266" {"esp-8266-rtos-sdk"} else {"esp-idf"})
+                .join("bindings.h")
+                .as_os_str()
+                .to_str()
+                .unwrap(),
+            ],
+            "c_types",
             bindgen::Language::C)
 }
 

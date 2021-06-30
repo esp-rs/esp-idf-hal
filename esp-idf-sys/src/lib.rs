@@ -7,8 +7,8 @@
 pub mod error;
 pub mod mutex;
 
-mod allocator;
-mod panic_handler;
+mod alloc;
+mod panic;
 
 pub use error::*;
 pub use mutex::EspMutex;
