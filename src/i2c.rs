@@ -110,7 +110,7 @@ where
             esp_result!(i2c_master_cmd_begin(
                 I2C::port(),
                 command_link.0,
-                self.timeout.into()), ())
+                self.timeout), ())
         }
     }
 }
