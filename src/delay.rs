@@ -1,3 +1,5 @@
+use core::time::Duration;
+
 use embedded_hal::blocking::delay::{DelayMs, DelayUs};
 
 use esp_idf_sys::*;
@@ -7,6 +9,40 @@ pub const portMAX_DELAY: TickType_t = TickType_t::max_value();
 
 #[allow(non_upper_case_globals)]
 pub const portTICK_PERIOD_MS: u32 = 1000 / configTICK_RATE_HZ;
+
+pub struct TickType(pub TickType_t);
+
+impl From<Duration> for TickType {
+    fn from(duration: Duration) -> Self {
+        TickType(((duration.as_millis() + portTICK_PERIOD_MS as u128 - 1) / portTICK_PERIOD_MS as u128) as TickType_t)
+    }
+}
+
+impl From<Option<Duration>> for TickType {
+    fn from(duration: Option<Duration>) -> Self {
+        if let Some(duration) = duration {
+            duration.into()
+        } else {
+            TickType(portMAX_DELAY)
+        }
+    }
+}
+
+impl From<TickType> for Duration {
+    fn from(ticks: TickType) -> Self {
+        Duration::from_millis(ticks.0 as u64 * portTICK_PERIOD_MS as u64)
+    }
+}
+
+impl From<TickType> for Option<Duration> {
+    fn from(ticks: TickType) -> Self {
+        if ticks.0 == portMAX_DELAY {
+            None
+        } else {
+            Some(ticks.into())
+        }
+    }
+}
 
 /// Espressif Task Scheduler-based delay provider
 pub struct Ets;
