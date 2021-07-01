@@ -1,12 +1,107 @@
-use core::time::Duration;
-
-use crate::{delay::*, gpio::*};
+use crate::{delay::*, units::*, gpio::*};
 
 use esp_idf_sys::*;
 
 pub struct Pins<SDA: OutputPin + InputPin, SCL: OutputPin + InputPin> {
     pub sda: SDA,
     pub scl: SCL,
+}
+
+/// I2C configuration
+pub mod config {
+    use core::time::Duration;
+    use crate::units::*;
+
+    /// I2C Master configuration
+    #[derive(Copy, Clone)]
+    pub struct MasterConfig {
+        pub baudrate: Hertz,
+        pub timeout: Option<Duration>,
+        pub sda_pullup_enabled: bool,
+        pub scl_pullup_enabled: bool,
+    }
+
+    impl MasterConfig {
+        pub fn baudrate(mut self, baudrate: Hertz) -> Self {
+            self.baudrate = baudrate;
+            self
+        }
+
+        pub fn timeout(mut self, timeout: Option<Duration>) -> Self {
+            self.timeout = timeout;
+            self
+        }
+
+        pub fn sda_enable_pullup(mut self, enable: bool) -> Self {
+            self.sda_pullup_enabled = enable;
+            self
+        }
+
+        pub fn scl_enable_pullup(mut self, enable: bool) -> Self {
+            self.scl_pullup_enabled = enable;
+            self
+        }
+    }
+
+    impl Default for MasterConfig {
+        fn default() -> Self {
+            Self {
+                baudrate: Hertz(1_000_000),
+                timeout: None,
+                sda_pullup_enabled: true,
+                scl_pullup_enabled: true,
+            }
+        }
+    }
+
+    /// I2C Slave configuration
+    #[derive(Copy, Clone)]
+    pub struct SlaveConfig {
+        pub timeout: Option<Duration>,
+        pub sda_pullup_enabled: bool,
+        pub scl_pullup_enabled: bool,
+        pub rx_buf_len: usize,
+        pub tx_buf_len: usize,
+    }
+
+    impl SlaveConfig {
+        pub fn timeout(mut self, timeout: Option<Duration>) -> Self {
+            self.timeout = timeout;
+            self
+        }
+
+        pub fn sda_enable_pullup(mut self, enable: bool) -> Self {
+            self.sda_pullup_enabled = enable;
+            self
+        }
+
+        pub fn scl_enable_pullup(mut self, enable: bool) -> Self {
+            self.scl_pullup_enabled = enable;
+            self
+        }
+
+        pub fn rx_buffer_length(mut self, len: usize) -> Self {
+            self.rx_buf_len = len;
+            self
+        }
+
+        pub fn tx_buffer_length(mut self, len: usize) -> Self {
+            self.tx_buf_len = len;
+            self
+        }
+    }
+
+    impl Default for SlaveConfig {
+        fn default() -> Self {
+            Self {
+                timeout: None,
+                sda_pullup_enabled: true,
+                scl_pullup_enabled: true,
+                rx_buf_len: 0,
+                tx_buf_len: 0,
+            }
+        }
+    }
 }
 
 pub trait I2c {
@@ -39,27 +134,26 @@ impl<I2C, SDA, SCL> Master<I2C, SDA, SCL>
 where
     I2C: I2c,
     SDA: OutputPin + InputPin,
-    SCL: OutputPin + InputPin
+    SCL: OutputPin + InputPin,
 {
     pub fn new(
             i2c: I2C,
             pins: Pins<SDA, SCL>,
-            clk_speed: u32,
-            timeout: Option<Duration>,
+            config: config::MasterConfig,
     ) -> Result<Master<I2C, SDA, SCL>, EspError> {
         // i2c_config_t documentation says that clock speed must be no higher than 1 MHz
-        // if clk_speed > 1_000_000 {
-        //     return Err(Error::InvalidArg);
-        // }
+        if config.baudrate > 1.MHz().into() {
+            return Err(EspError::from(ESP_ERR_INVALID_ARG as i32).unwrap());
+        }
 
         let sys_config = i2c_config_t {
             mode: i2c_mode_t_I2C_MODE_MASTER,
             sda_io_num: SDA::pin() as i32,
-            sda_pullup_en: true, //sda.pullup_enable(),
+            sda_pullup_en: config.sda_pullup_enabled,
             scl_io_num: SCL::pin() as i32,
-            scl_pullup_en: true, //scl.pullup_enable(),
+            scl_pullup_en: config.scl_pullup_enabled,
             __bindgen_anon_1: i2c_config_t__bindgen_ty_1 {
-                master: i2c_config_t__bindgen_ty_1__bindgen_ty_1 { clk_speed },
+                master: i2c_config_t__bindgen_ty_1__bindgen_ty_1 { clk_speed: config.baudrate.into() },
             },
         };
 
@@ -76,7 +170,7 @@ where
         Ok(Master {
             i2c,
             pins,
-            timeout: TickType::from(timeout).0,
+            timeout: TickType::from(config.timeout).0,
         })
     }
 
@@ -179,22 +273,19 @@ where
     pub fn new(
             i2c: I2C,
             pins: Pins<SDA, SCL>,
-            slave_addr: u16,
-            addr10bits: bool,
-            rx_buf_len: usize,
-            tx_buf_len: usize,
-            timeout: Option<Duration>,
+            slave_addr: u8,
+            config: config::SlaveConfig,
     ) -> Result<Self, EspError> {
         let sys_config = i2c_config_t {
             mode: i2c_mode_t_I2C_MODE_SLAVE,
             sda_io_num: SDA::pin() as i32,
-            sda_pullup_en: true, //sda.pullup_enable(),
+            sda_pullup_en: config.sda_pullup_enabled,
             scl_io_num: SCL::pin() as i32,
-            scl_pullup_en: true, //scl.pullup_enable(),
+            scl_pullup_en: config.scl_pullup_enabled,
             __bindgen_anon_1: i2c_config_t__bindgen_ty_1 {
                 slave: i2c_config_t__bindgen_ty_1__bindgen_ty_2 {
-                    slave_addr,
-                    addr_10bit_en: if addr10bits {1} else {0} as u8,
+                    slave_addr: slave_addr as u16,
+                    addr_10bit_en: 0, // For now; to become configurable with embedded-hal V1.0
                 },
             },
         };
@@ -204,15 +295,15 @@ where
         esp!(unsafe {i2c_driver_install(
             I2C::port(),
             i2c_mode_t_I2C_MODE_SLAVE,
-            rx_buf_len as u32,
-            tx_buf_len as u32,
+            config.rx_buf_len as u32,
+            config.tx_buf_len as u32,
             0, // TODO: set flags
         )})?;
 
         Ok(Self {
             i2c,
             pins,
-            timeout: TickType::from(timeout).0,
+            timeout: TickType::from(config.timeout).0,
         })
     }
 
