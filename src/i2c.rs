@@ -96,6 +96,7 @@ where
         let command_link = CommandLink::new()?;
 
         unsafe {
+            esp!(i2c_master_start(command_link.0))?;
             esp!(i2c_master_write_byte(command_link.0, (addr << 1) | (i2c_rw_t_I2C_MASTER_READ as u8), true))?;
             esp!(i2c_master_read(command_link.0, buffer.as_ptr() as *const u8 as *mut u8, buffer.len() as u32, i2c_ack_type_t_I2C_MASTER_LAST_NACK))?;
             esp!(i2c_master_stop(command_link.0))?;
@@ -117,6 +118,7 @@ where
         unsafe {
             let command_link = CommandLink::new()?;
 
+            esp!(i2c_master_start(command_link.0))?;
             esp!(i2c_master_write_byte(command_link.0, (addr << 1) | (i2c_rw_t_I2C_MASTER_WRITE as u8), true))?;
             esp!(i2c_master_write(command_link.0, bytes.as_ptr() as *const u8 as *mut u8, bytes.len() as u32, true))?;
             esp!(i2c_master_stop(command_link.0))?;
@@ -138,9 +140,14 @@ where
         let command_link = CommandLink::new()?;
 
         unsafe {
+            esp!(i2c_master_start(command_link.0))?;
             esp!(i2c_master_write_byte(command_link.0, (addr << 1) | (i2c_rw_t_I2C_MASTER_WRITE as u8), true))?;
             esp!(i2c_master_write(command_link.0, bytes.as_ptr() as *const u8 as *mut u8, bytes.len() as u32, true))?;
+
+            esp!(i2c_master_start(command_link.0))?;
+            esp!(i2c_master_write_byte(command_link.0, (addr << 1) | (i2c_rw_t_I2C_MASTER_READ as u8), true))?;
             esp!(i2c_master_read(command_link.0, buffer.as_ptr() as *const u8 as *mut u8, buffer.len() as u32, i2c_ack_type_t_I2C_MASTER_LAST_NACK))?;
+
             esp!(i2c_master_stop(command_link.0))?;
 
             esp_result!(i2c_master_cmd_begin(I2C::port(), command_link.0, portMAX_DELAY), ())
