@@ -86,8 +86,8 @@ pub mod config {
     }
 
     impl Default for Config {
-        fn default() -> Config {
-            Config {
+        fn default() -> Self {
+            Self {
                 baudrate: Hertz(1_000_000),
                 data_mode: MODE_0,
                 bit_order: BitOrder::LSBFirst,
