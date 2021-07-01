@@ -1,3 +1,5 @@
+use core::time::Duration;
+
 use crate::{delay::*, gpio::*};
 
 use esp_idf_sys::*;
@@ -19,6 +21,7 @@ where
 {
     i2c: I2C,
     pins: Pins<SDA, SCL>,
+    timeout: TickType_t,
 }
 
 pub struct Slave<I2C, SDA, SCL>
@@ -29,7 +32,7 @@ where
 {
     i2c: I2C,
     pins: Pins<SDA, SCL>,
-    timeout: Option<u32>,
+    timeout: TickType_t,
 }
 
 impl<I2C, SDA, SCL> Master<I2C, SDA, SCL>
@@ -41,7 +44,9 @@ where
     pub fn new(
             i2c: I2C,
             pins: Pins<SDA, SCL>,
-            clk_speed: u32) -> Result<Master<I2C, SDA, SCL>, EspError> {
+            clk_speed: u32,
+            timeout: Option<Duration>,
+    ) -> Result<Master<I2C, SDA, SCL>, EspError> {
         // i2c_config_t documentation says that clock speed must be no higher than 1 MHz
         // if clk_speed > 1_000_000 {
         //     return Err(Error::InvalidArg);
@@ -63,14 +68,15 @@ where
         esp!(unsafe {i2c_driver_install(
             I2C::port(),
             i2c_mode_t_I2C_MODE_MASTER,
-            0, // rx_buf_len,
-            0, // tx_buf_len,
+            0, // Not used in master mode
+            0, // Not used in master mode
             0) // TODO: set flags
         })?;
 
         Ok(Master {
             i2c,
             pins,
+            timeout: TickType::from(timeout).0,
         })
     }
 
@@ -101,7 +107,10 @@ where
             esp!(i2c_master_read(command_link.0, buffer.as_ptr() as *const u8 as *mut u8, buffer.len() as u32, i2c_ack_type_t_I2C_MASTER_LAST_NACK))?;
             esp!(i2c_master_stop(command_link.0))?;
 
-            esp_result!(i2c_master_cmd_begin(I2C::port(), command_link.0, portMAX_DELAY), ())
+            esp_result!(i2c_master_cmd_begin(
+                I2C::port(),
+                command_link.0,
+                self.timeout.into()), ())
         }
     }
 }
@@ -123,7 +132,10 @@ where
             esp!(i2c_master_write(command_link.0, bytes.as_ptr() as *const u8 as *mut u8, bytes.len() as u32, true))?;
             esp!(i2c_master_stop(command_link.0))?;
 
-            esp_result!(i2c_master_cmd_begin(I2C::port(), command_link.0, portMAX_DELAY), ())
+            esp_result!(i2c_master_cmd_begin(
+                I2C::port(),
+                command_link.0,
+                self.timeout), ())
         }
     }
 }
@@ -150,7 +162,10 @@ where
 
             esp!(i2c_master_stop(command_link.0))?;
 
-            esp_result!(i2c_master_cmd_begin(I2C::port(), command_link.0, portMAX_DELAY), ())
+            esp_result!(i2c_master_cmd_begin(
+                I2C::port(),
+                command_link.0,
+                self.timeout), ())
         }
     }
 }
@@ -167,7 +182,9 @@ where
             slave_addr: u16,
             addr10bits: bool,
             rx_buf_len: usize,
-            tx_buf_len: usize) -> Result<Self, EspError> {
+            tx_buf_len: usize,
+            timeout: Option<Duration>,
+    ) -> Result<Self, EspError> {
         let sys_config = i2c_config_t {
             mode: i2c_mode_t_I2C_MODE_SLAVE,
             sda_io_num: SDA::pin() as i32,
@@ -195,7 +212,7 @@ where
         Ok(Self {
             i2c,
             pins,
-            timeout: None, // TODO
+            timeout: TickType::from(timeout).0,
         })
     }
 
@@ -213,15 +230,13 @@ where
             I2C::port(),
             buffer.as_mut_ptr(),
             buffer.len() as u32,
-            self.timeout.unwrap_or(portMAX_DELAY))};
+            self.timeout)};
 
-        // if n > 0 {
+        if n > 0 {
             Ok(n as usize)
-        // } else if n == 0 {
-        //     Err(Error::Timeout)
-        // } else {
-        //     EspError(n).into_result().map(|()| unreachable!())
-        // }
+        } else {
+            Err(EspError::from(ESP_ERR_TIMEOUT as i32).unwrap())
+        }
     }
 
     pub fn write(&mut self, bytes: &[u8]) -> Result<usize, EspError> {
@@ -229,15 +244,13 @@ where
             I2C::port(),
             bytes.as_ptr() as *const u8 as *mut u8,
             bytes.len() as i32,
-            self.timeout.unwrap_or(portMAX_DELAY))};
+            self.timeout)};
 
-        // if n > 0 {
+        if n > 0 {
             Ok(n as usize)
-        // } else if n == 0 {
-        //     Err(Error::Timeout)
-        // } else {
-        //     EspError(n).into_result().map(|()| unreachable!())
-        // }
+        } else {
+            Err(EspError::from(ESP_ERR_TIMEOUT as i32).unwrap())
+        }
     }
 }
 
@@ -247,9 +260,9 @@ impl CommandLink {
     fn new() -> Result<Self, EspError> {
         let handle = unsafe {i2c_cmd_link_create()};
 
-        // if handle == null_mut() {
-        //     return Err(Error::NoMem);
-        // }
+        if handle == core::ptr::null_mut() {
+            return Err(EspError::from(ESP_ERR_NO_MEM as i32).unwrap());
+        }
 
         Ok(CommandLink(handle))
     }
