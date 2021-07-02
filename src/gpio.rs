@@ -11,7 +11,7 @@
 //! IO can be done inside the peripheral instead of having to be done upfront.
 
 use {
-    core::{convert::Infallible, marker::PhantomData},
+    core::marker::PhantomData,
     embedded_hal::digital::v2::{OutputPin as _, StatefulOutputPin as _},
 };
 
