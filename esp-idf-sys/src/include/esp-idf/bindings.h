@@ -67,3 +67,9 @@
 
 #include "pthread.h"
 #include "esp_pthread.h"
+
+// If a custom sdkconfig file has been used to enable Bluetooth support,
+// since by default neither of the BT stacks is enabled.
+#ifdef CONFIG_BT_ENABLED
+#include "esp_bt.h"
+#endif
