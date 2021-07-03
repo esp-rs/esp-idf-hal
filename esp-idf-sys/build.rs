@@ -7,8 +7,6 @@ use pio::bindgen;
 use pio::cargofirst;
 
 fn main() -> Result<()> {
-    let idf_target = get_target()?;
-
     let pio_scons_vars = if let Some(pio_scons_vars) = pio::SconsVariables::from_piofirst() {
         println!("cargo:info=PIO->Cargo build detected: generating bindings only");
 
@@ -20,11 +18,10 @@ fn main() -> Result<()> {
             .params(pio::ResolutionParams {
                 platform: Some("espressif32".into()),
                 frameworks: vec!["espidf".into()],
-                mcu: Some(idf_target.to_uppercase()),
                 target: Some(env::var("TARGET")?),
                 ..Default::default()
             })
-            .resolve()?;
+            .resolve(true)?;
 
         let project_path = PathBuf::from(env::var("OUT_DIR")?).join("esp-idf");
 
@@ -53,7 +50,7 @@ fn main() -> Result<()> {
         .run(
             &[PathBuf::from("src")
                 .join("include")
-                .join(if idf_target == "esp8266" {"esp-8266-rtos-sdk"} else {"esp-idf"})
+                .join(if pio_scons_vars.mcu == "ESP8266" {"esp-8266-rtos-sdk"} else {"esp-idf"})
                 .join("bindings.h")
                 .as_os_str()
                 .to_str()
@@ -61,16 +58,4 @@ fn main() -> Result<()> {
             ],
             "c_types",
             bindgen::Language::C)
-}
-
-fn get_target() -> Result<&'static str> {
-    Ok(match env::var("TARGET")?.as_ref() {
-        "xtensa-esp32-none-elf" => "esp32",
-        "xtensa-esp32s2-none-elf" => "esp32s2",
-        //"xtensa-esp8266-none-elf" => "esp8266",
-        target => {
-            println!("cargo:error=Generating ESP IDF bindings for target '{}' is not supported", target);
-            bail!("Generating ESP IDF bindings for target '{}' is not supported", target)
-        }
-    })
 }
