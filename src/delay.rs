@@ -61,6 +61,21 @@ impl DelayUs<u16> for Ets {
     }
 }
 
+impl DelayMs<u32> for Ets {
+    fn delay_ms(&mut self, ms: u32) {
+        unsafe {
+            ets_delay_us(ms * 1000);
+        }
+    }
+}
+
+impl DelayMs<u16> for Ets {
+    fn delay_ms(&mut self, ms: u16) {
+        DelayMs::<u32>::delay_ms(self, ms as u32);
+    }
+}
+
+
 /// FreeRTOS-based delay provider
 pub struct FreeRtos;
 
