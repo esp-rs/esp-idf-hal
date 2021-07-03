@@ -1,4 +1,4 @@
-use log::*;
+use ::log::*;
 
 use esp_idf_sys::*;
 
@@ -15,7 +15,7 @@ pub struct EspNetif(PrivateData);
 impl EspNetif {
     pub fn new() -> Result<Self, EspError> {
         unsafe {
-            TAKEN.lock(|taken|
+            TAKEN.lock(|taken| {
                 if taken.0 {
                     Err(EspError::from(ESP_ERR_INVALID_STATE as i32).unwrap())
                 } else {
@@ -26,7 +26,7 @@ impl EspNetif {
                     *taken = (true, true);
                     Ok(EspNetif(PrivateData))
                 }
-            )
+            })
         }
     }
 }
