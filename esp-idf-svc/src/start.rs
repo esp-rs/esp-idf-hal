@@ -36,13 +36,15 @@ extern "Rust" {
 
 #[no_mangle]
 pub extern "C" fn app_main() {
-    log::set_logger(&LOGGER).map(|()| LOGGER.initialize()).unwrap();
+    log::set_logger(&LOGGER)
+        .map(|()| LOGGER.initialize())
+        .unwrap();
 
     #[cfg(feature = "binstart")]
     {
-        match unsafe {main(0, core::ptr::null())} {
+        match unsafe { main(0, core::ptr::null()) } {
             0 => log::error!("Unexpected program exit!\n(no error reported)"),
-            n => log::error!("Unexpected program exit!\n{}", n)
+            n => log::error!("Unexpected program exit!\n{}", n),
         }
 
         log::warn!("Will restart now...");
@@ -50,5 +52,7 @@ pub extern "C" fn app_main() {
     }
 
     #[cfg(feature = "libstart")]
-    unsafe {main()}
+    unsafe {
+        main()
+    }
 }

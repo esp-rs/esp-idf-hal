@@ -7,7 +7,7 @@ use std::io;
 
 use anyhow;
 
-use log::{Level, info, log};
+use log::{info, log, Level};
 
 use embedded_svc::httpd::*;
 
@@ -17,7 +17,10 @@ use esp_idf_sys::esp_nofail;
 
 use crate::private::cstr::*;
 
-struct IdfRequest<'r>(*mut esp_idf_sys::httpd_req_t, PhantomData<&'r esp_idf_sys::httpd_req_t>);
+struct IdfRequest<'r>(
+    *mut esp_idf_sys::httpd_req_t,
+    PhantomData<&'r esp_idf_sys::httpd_req_t>,
+);
 
 impl<'r> IdfRequest<'r> {
     fn send(&mut self, mut response: Response) -> Result<()> {
@@ -29,37 +32,45 @@ impl<'r> IdfRequest<'r> {
 
         let c_status = CString::new(status_string.as_str()).unwrap();
 
-        esp!(unsafe {esp_idf_sys::httpd_resp_set_status(self.0, c_status.as_ptr())})?;
+        esp!(unsafe { esp_idf_sys::httpd_resp_set_status(self.0, c_status.as_ptr()) })?;
 
         if let Some(cl) = response.body.len() {
-            response.headers.insert("content-length".into(), cl.to_string());
+            response
+                .headers
+                .insert("content-length".into(), cl.to_string());
         }
 
-        let mut c_headers: std::vec::Vec<(CString, CString)> = vec! [];
+        let mut c_headers: std::vec::Vec<(CString, CString)> = vec![];
 
         for (key, value) in response.headers {
             c_headers.push((
                 CString::new(key.as_str()).unwrap(),
-                CString::new(value.as_str()).unwrap()
+                CString::new(value.as_str()).unwrap(),
             ))
         }
 
         for (c_field, c_value) in &c_headers {
-            esp!(unsafe {esp_idf_sys::httpd_resp_set_hdr(self.0, c_field.as_ptr(), c_value.as_ptr())})?;
+            esp!(unsafe {
+                esp_idf_sys::httpd_resp_set_hdr(self.0, c_field.as_ptr(), c_value.as_ptr())
+            })?;
         }
 
         match response.body {
             Body::Empty => self.send_body_bytes(&[]),
             Body::Bytes(vec) => self.send_body_bytes(vec.as_slice()),
-            Body::Read(_, mut r) => self.send_body_read(&mut r)
+            Body::Read(_, mut r) => self.send_body_read(&mut r),
         }
     }
 
     fn send_body_bytes(&mut self, data: &[u8]) -> anyhow::Result<()> {
-        esp!(unsafe {esp_idf_sys::httpd_resp_send(
-            self.0,
-            data.as_ptr() as *const _,
-            data.len() as esp_idf_sys::ssize_t)}).map_err(Into::into)
+        esp!(unsafe {
+            esp_idf_sys::httpd_resp_send(
+                self.0,
+                data.as_ptr() as *const _,
+                data.len() as esp_idf_sys::ssize_t,
+            )
+        })
+        .map_err(Into::into)
     }
 
     fn send_body_read<R: io::Read>(&mut self, r: &mut R) -> anyhow::Result<()> {
@@ -68,13 +79,16 @@ impl<'r> IdfRequest<'r> {
         Ok(loop {
             let len = r.read(&mut buf)?;
 
-            esp!(unsafe {esp_idf_sys::httpd_resp_send_chunk(
-                self.0,
-                buf.as_ptr() as *const _,
-                len as esp_idf_sys::ssize_t)})?;
+            esp!(unsafe {
+                esp_idf_sys::httpd_resp_send_chunk(
+                    self.0,
+                    buf.as_ptr() as *const _,
+                    len as esp_idf_sys::ssize_t,
+                )
+            })?;
 
             if len == 0 {
-                break
+                break;
             }
         })
     }
@@ -94,7 +108,8 @@ impl<'r> RequestDelegate for IdfRequest<'r> {
                         self.0,
                         c_str.as_ptr(),
                         buf.as_mut_ptr() as *mut _,
-                        (len + 1) as esp_idf_sys::size_t));
+                        (len + 1) as esp_idf_sys::size_t
+                    ));
 
                     buf.set_len(len + 1);
 
@@ -114,7 +129,8 @@ impl<'r> RequestDelegate for IdfRequest<'r> {
                     esp_nofail!(esp_idf_sys::httpd_req_get_url_query_str(
                         self.0,
                         buf.as_mut_ptr() as *mut _,
-                        (len + 1) as esp_idf_sys::size_t));
+                        (len + 1) as esp_idf_sys::size_t
+                    ));
 
                     buf.set_len(len + 1);
 
@@ -129,7 +145,8 @@ impl<'r> RequestDelegate for IdfRequest<'r> {
             let len = esp_idf_sys::httpd_req_recv(
                 self.0,
                 buf.as_mut_ptr() as *mut _,
-                buf.len() as esp_idf_sys::size_t);
+                buf.len() as esp_idf_sys::size_t,
+            );
 
             if len < 0 {
                 Err(match len {
@@ -137,7 +154,8 @@ impl<'r> RequestDelegate for IdfRequest<'r> {
                     esp_idf_sys::HTTPD_SOCK_ERR_TIMEOUT => io::ErrorKind::TimedOut,
                     esp_idf_sys::HTTPD_SOCK_ERR_FAIL => io::ErrorKind::Other,
                     _ => io::ErrorKind::Other,
-                }.into())
+                }
+                .into())
             } else {
                 Ok(len as usize)
             }
@@ -148,14 +166,14 @@ impl<'r> RequestDelegate for IdfRequest<'r> {
 #[derive(Copy, Clone, Debug)]
 pub struct Configuration {
     pub http_port: u16,
-    pub https_port: u16
+    pub https_port: u16,
 }
 
 impl Default for Configuration {
     fn default() -> Self {
         Configuration {
             http_port: 80,
-            https_port: 443
+            https_port: 443,
         }
     }
 }
@@ -190,7 +208,7 @@ impl registry::Registry for ServerRegistry {
 
 pub struct Server {
     sd: esp_idf_sys::httpd_handle_t,
-    registrations: Vec<(CString, esp_idf_sys::httpd_uri_t)>
+    registrations: Vec<(CString, esp_idf_sys::httpd_uri_t)>,
 }
 
 impl Server {
@@ -200,13 +218,13 @@ impl Server {
         let mut handle: esp_idf_sys::httpd_handle_t = ptr::null_mut();
         let handle_ref = &mut handle;
 
-        esp!(unsafe {esp_idf_sys::httpd_start(handle_ref, &config as *const _)})?;
+        esp!(unsafe { esp_idf_sys::httpd_start(handle_ref, &config as *const _) })?;
 
         info!("Started Httpd IDF server with config {:?}", conf);
 
         Ok(Server {
             sd: handle,
-            registrations: vec! []
+            registrations: vec![],
         })
     }
 
@@ -221,9 +239,13 @@ impl Server {
             handler: Some(Server::handle),
         };
 
-        esp!(unsafe {esp_idf_sys::httpd_register_uri_handler(self.sd, &conf)})?;
+        esp!(unsafe { esp_idf_sys::httpd_register_uri_handler(self.sd, &conf) })?;
 
-        info!("Registered Httpd IDF server handler {:?} for URI \"{}\"", method, c_str.to_str().unwrap());
+        info!(
+            "Registered Httpd IDF server handler {:?} for URI \"{}\"",
+            method,
+            c_str.to_str().unwrap()
+        );
 
         self.registrations.push((c_str, conf));
 
@@ -235,12 +257,17 @@ impl Server {
             esp!(esp_idf_sys::httpd_unregister_uri_handler(
                 self.sd,
                 uri.as_ptr(),
-                conf.method))?;
+                conf.method
+            ))?;
 
             let _drop = Box::from_raw(conf.user_ctx as *mut _);
         };
 
-        info!("Unregistered Httpd IDF server handler {:?} for URI \"{}\"", conf.method, uri.to_str().unwrap());
+        info!(
+            "Unregistered Httpd IDF server handler {:?} for URI \"{}\"",
+            conf.method,
+            uri.to_str().unwrap()
+        );
 
         Ok(())
     }
@@ -253,7 +280,7 @@ impl Server {
                 self.unregister(uri, registration)?;
             }
 
-            esp!(unsafe {esp_idf_sys::httpd_stop(self.sd)})?;
+            esp!(unsafe { esp_idf_sys::httpd_stop(self.sd) })?;
 
             self.sd = ptr::null_mut();
         }
@@ -264,23 +291,38 @@ impl Server {
     }
 
     unsafe extern "C" fn handle(rd: *mut esp_idf_sys::httpd_req_t) -> c_int {
-        let handler = ((*rd).user_ctx as *mut Box<dyn Fn(Request) -> Result<Response>>).as_ref().unwrap();
+        let handler = ((*rd).user_ctx as *mut Box<dyn Fn(Request) -> Result<Response>>)
+            .as_ref()
+            .unwrap();
 
         let idf_request = IdfRequest(rd, PhantomData);
-        info!("About to handle query string {:?}", idf_request.query_string());
+        info!(
+            "About to handle query string {:?}",
+            idf_request.query_string()
+        );
 
-        let (response, err) = match handler(Request::new(Box::new(idf_request), StateMap::new(), None, None)) {
+        let (response, err) = match handler(Request::new(
+            Box::new(idf_request),
+            StateMap::new(),
+            None,
+            None,
+        )) {
             Ok(response) => (response, false),
-            Err(err) => (err.into(), true)
+            Err(err) => (err.into(), true),
         };
 
         let mut idf_request_response = IdfRequest(rd, PhantomData);
 
-        log!(if err {Level::Warn} else {Level::Info}, "Request handled with status {} ({:?})", &response.status, &response.status_message);
+        log!(
+            if err { Level::Warn } else { Level::Info },
+            "Request handled with status {} ({:?})",
+            &response.status,
+            &response.status_message
+        );
 
         match idf_request_response.send(response) {
             Result::Ok(_) => esp_idf_sys::ESP_OK as _,
-            Result::Err(_) => esp_idf_sys::ESP_FAIL as _
+            Result::Err(_) => esp_idf_sys::ESP_FAIL as _,
         }
     }
 
@@ -325,25 +367,25 @@ impl Server {
     /// Copied from the definition of HTTPD_DEFAULT_CONFIG() in http_server.h/https_server.h
     fn default_configuration(http_port: u16, https_port: u16) -> esp_idf_sys::httpd_config_t {
         esp_idf_sys::httpd_config_t {
-            task_priority:      5,
-            stack_size:         if https_port != 0 {10240} else {4096},
-            core_id:            std::i32::MAX,
-            server_port:        http_port,
-            ctrl_port:          32768,
-            max_open_sockets:   if https_port != 0 {4} else {7},
-            max_uri_handlers:   8,
-            max_resp_headers:   8,
-            backlog_conn:       5,
-            lru_purge_enable:   https_port != 0,
-            recv_wait_timeout:  5,
-            send_wait_timeout:  5,
-            global_user_ctx:    ptr::null_mut(),
+            task_priority: 5,
+            stack_size: if https_port != 0 { 10240 } else { 4096 },
+            core_id: std::i32::MAX,
+            server_port: http_port,
+            ctrl_port: 32768,
+            max_open_sockets: if https_port != 0 { 4 } else { 7 },
+            max_uri_handlers: 8,
+            max_resp_headers: 8,
+            backlog_conn: 5,
+            lru_purge_enable: https_port != 0,
+            recv_wait_timeout: 5,
+            send_wait_timeout: 5,
+            global_user_ctx: ptr::null_mut(),
             global_user_ctx_free_fn: None,
             global_transport_ctx: ptr::null_mut(),
             global_transport_ctx_free_fn: None,
-            open_fn:            None,
-            close_fn:           None,
-            uri_match_fn:       None,
+            open_fn: None,
+            close_fn: None,
+            uri_match_fn: None,
         }
     }
 }
