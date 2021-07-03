@@ -1,4 +1,4 @@
-use log::{Level, LevelFilter, Metadata, Record};
+use ::log::{Level, LevelFilter, Metadata, Record};
 
 use esp_idf_sys::*;
 
@@ -20,7 +20,7 @@ impl From<Newtype<esp_log_level_t>> for LevelFilter {
             esp_log_level_t_ESP_LOG_INFO => LevelFilter::Info,
             esp_log_level_t_ESP_LOG_DEBUG => LevelFilter::Debug,
             esp_log_level_t_ESP_LOG_VERBOSE => LevelFilter::Trace,
-            _ => LevelFilter::Trace
+            _ => LevelFilter::Trace,
         }
     }
 }
@@ -33,7 +33,7 @@ impl From<LevelFilter> for Newtype<esp_log_level_t> {
             LevelFilter::Warn => esp_log_level_t_ESP_LOG_WARN,
             LevelFilter::Info => esp_log_level_t_ESP_LOG_INFO,
             LevelFilter::Debug => esp_log_level_t_ESP_LOG_DEBUG,
-            LevelFilter::Trace => esp_log_level_t_ESP_LOG_VERBOSE
+            LevelFilter::Trace => esp_log_level_t_ESP_LOG_VERBOSE,
         })
     }
 }
@@ -47,7 +47,7 @@ impl From<Newtype<esp_log_level_t>> for Level {
             esp_log_level_t_ESP_LOG_INFO => Level::Info,
             esp_log_level_t_ESP_LOG_DEBUG => Level::Debug,
             esp_log_level_t_ESP_LOG_VERBOSE => Level::Trace,
-            _ => Level::Trace
+            _ => Level::Trace,
         }
     }
 }
@@ -59,14 +59,14 @@ impl From<Level> for Newtype<esp_log_level_t> {
             Level::Warn => esp_log_level_t_ESP_LOG_WARN,
             Level::Info => esp_log_level_t_ESP_LOG_INFO,
             Level::Debug => esp_log_level_t_ESP_LOG_DEBUG,
-            Level::Trace => esp_log_level_t_ESP_LOG_VERBOSE
+            Level::Trace => esp_log_level_t_ESP_LOG_VERBOSE,
         })
     }
 }
 
 impl Logger {
     pub fn initialize(&self) {
-        log::set_max_level(self.get_max_level());
+        ::log::set_max_level(self.get_max_level());
     }
 
     pub fn get_max_level(&self) -> LevelFilter {
@@ -76,7 +76,12 @@ impl Logger {
     pub fn set_target_level(&self, target: impl AsRef<str>, level_filter: LevelFilter) {
         let ctarget = CString::new(target.as_ref()).unwrap();
 
-        unsafe {esp_log_level_set(ctarget.as_c_str().as_ptr(), Newtype::<esp_log_level_t>::from(level_filter).0)};
+        unsafe {
+            esp_log_level_set(
+                ctarget.as_c_str().as_ptr(),
+                Newtype::<esp_log_level_t>::from(level_filter).0,
+            )
+        };
     }
 
     fn get_marker(level: Level) -> &'static CStr {
@@ -85,8 +90,9 @@ impl Logger {
             Level::Warn => b"W\0",
             Level::Info => b"I\0",
             Level::Debug => b"D\0",
-            Level::Trace => b"V\0"
-        }).unwrap()
+            Level::Trace => b"V\0",
+        })
+        .unwrap()
     }
 
     fn get_color(level: Level) -> Option<u8> {
@@ -94,16 +100,16 @@ impl Logger {
             None
         } else {
             match level {
-                Level::Error => Some(31),  // LOG_COLOR_RED
-                Level::Warn => Some(33),   // LOG_COLOR_BROWN
-                Level::Info => Some(32),   // LOG_COLOR_GREEN,
-                _ => None
+                Level::Error => Some(31), // LOG_COLOR_RED
+                Level::Warn => Some(33),  // LOG_COLOR_BROWN
+                Level::Info => Some(32),  // LOG_COLOR_GREEN,
+                _ => None,
             }
         }
     }
 }
 
-impl log::Log for Logger {
+impl ::log::Log for Logger {
     fn enabled(&self, metadata: &Metadata) -> bool {
         metadata.level() <= LevelFilter::from(Newtype(CONFIG_LOG_DEFAULT_LEVEL))
     }
@@ -127,7 +133,8 @@ impl log::Log for Logger {
                         Self::get_marker(record.metadata().level()).as_ptr(),
                         esp_log_timestamp(),
                         ctarget.as_c_str().as_ptr(),
-                        coutput.as_c_str().as_ptr());
+                        coutput.as_c_str().as_ptr(),
+                    );
                 }
             } else {
                 unsafe {
@@ -138,7 +145,8 @@ impl log::Log for Logger {
                         Self::get_marker(record.metadata().level()).as_ptr(),
                         esp_log_timestamp(),
                         ctarget.as_c_str().as_ptr(),
-                        coutput.as_c_str().as_ptr());
+                        coutput.as_c_str().as_ptr(),
+                    );
                 }
             }
         }

@@ -2,7 +2,7 @@ use esp_idf_sys::c_types;
 
 // TODO: Figure out which library references this
 #[no_mangle]
-pub extern fn timegm(_: c_types::c_void) -> c_types::c_int {
+pub extern "C" fn timegm(_: c_types::c_void) -> c_types::c_int {
     // Not supported but don't crash just in case
     0
 }

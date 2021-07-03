@@ -1,4 +1,4 @@
-use log::*;
+use ::log::*;
 
 use mutex_trait::*;
 
@@ -15,7 +15,7 @@ pub struct EspSysLoop(PrivateData);
 impl EspSysLoop {
     pub fn new() -> Result<Self, EspError> {
         unsafe {
-            TAKEN.lock(|taken|
+            TAKEN.lock(|taken| {
                 if *taken {
                     Err(EspError::from(ESP_ERR_INVALID_STATE as i32).unwrap())
                 } else {
@@ -24,7 +24,7 @@ impl EspSysLoop {
                     *taken = true;
                     Ok(EspSysLoop(PrivateData))
                 }
-            )
+            })
         }
     }
 }

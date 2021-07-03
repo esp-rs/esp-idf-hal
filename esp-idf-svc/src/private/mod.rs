@@ -1,6 +1,6 @@
 pub mod common;
-pub mod net;
 pub mod cstr;
+pub mod net;
 
 mod stubs;
 

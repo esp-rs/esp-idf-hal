@@ -1,6 +1,6 @@
 extern crate alloc;
 
-use log::*;
+use ::log::*;
 
 use mutex_trait::*;
 
@@ -9,7 +9,8 @@ use esp_idf_sys::*;
 use crate::private::cstr::*;
 
 static mut DEFAULT_TAKEN: EspMutex<bool> = EspMutex::new(false);
-static mut NONDEFAULT_LOCKED: EspMutex<alloc::collections::BTreeSet<CString>> = EspMutex::new(alloc::collections::BTreeSet::new());
+static mut NONDEFAULT_LOCKED: EspMutex<alloc::collections::BTreeSet<CString>> =
+    EspMutex::new(alloc::collections::BTreeSet::new());
 
 #[derive(Debug)]
 struct PrivateData;
@@ -20,7 +21,7 @@ pub struct EspDefaultNvs(PrivateData);
 impl EspDefaultNvs {
     pub fn new() -> Result<Self, EspError> {
         unsafe {
-            DEFAULT_TAKEN.lock(|taken|
+            DEFAULT_TAKEN.lock(|taken| {
                 if *taken {
                     Err(EspError::from(ESP_ERR_INVALID_STATE as i32).unwrap())
                 } else {
@@ -29,7 +30,7 @@ impl EspDefaultNvs {
                     *taken = true;
                     Ok(default_nvs)
                 }
-            )
+            })
         }
     }
 
@@ -39,8 +40,8 @@ impl EspDefaultNvs {
                 ESP_ERR_NVS_NO_FREE_PAGES | ESP_ERR_NVS_NEW_VERSION_FOUND => {
                     esp!(nvs_flash_erase())?;
                     esp!(nvs_flash_init())?;
-                },
-                _ => ()
+                }
+                _ => (),
             }
         }
 
@@ -66,12 +67,13 @@ pub struct EspNvs(pub(crate) CString);
 
 impl EspNvs {
     pub fn new(partition: impl AsRef<str>) -> Result<Self, EspError> {
-        unsafe {
-            NONDEFAULT_LOCKED.lock(|registrations| Self::init(partition, registrations))
-        }
+        unsafe { NONDEFAULT_LOCKED.lock(|registrations| Self::init(partition, registrations)) }
     }
 
-    fn init(partition: impl AsRef<str>, registrations: &mut alloc::collections::BTreeSet<CString>) -> Result<Self, EspError> {
+    fn init(
+        partition: impl AsRef<str>,
+        registrations: &mut alloc::collections::BTreeSet<CString>,
+    ) -> Result<Self, EspError> {
         let c_partition = CString::new(partition.as_ref()).unwrap();
 
         if registrations.contains(c_partition.as_ref()) {
@@ -84,8 +86,8 @@ impl EspNvs {
                     ESP_ERR_NVS_NO_FREE_PAGES | ESP_ERR_NVS_NEW_VERSION_FOUND => {
                         esp!(nvs_flash_erase_partition(c_partition.as_ptr()))?;
                         esp!(nvs_flash_init_partition(c_partition.as_ptr()))?;
-                    },
-                    _ => ()
+                    }
+                    _ => (),
                 }
             }
         }

@@ -1,6 +1,6 @@
 use core::{mem, ptr, time::Duration};
 
-use log::*;
+use ::log::*;
 
 #[cfg(feature = "std")]
 use std::sync::*;
@@ -31,7 +31,12 @@ impl EspPing {
         Self(interface_index)
     }
 
-    fn run_ping<F: Fn(&Summary, &Reply)>(&self, ip: ipv4::Ipv4Addr, conf: &Configuration, tracker: &mut Tracker<F>) -> Result<(), EspError> {
+    fn run_ping<F: Fn(&Summary, &Reply)>(
+        &self,
+        ip: ipv4::Ipv4Addr,
+        conf: &Configuration,
+        tracker: &mut Tracker<F>,
+    ) -> Result<(), EspError> {
         let config = esp_ping_config_t {
             count: conf.count,
             interval_ms: conf.interval.as_millis() as u32,
@@ -60,43 +65,48 @@ impl EspPing {
         let mut handle: esp_ping_handle_t = ptr::null_mut();
         let handle_ref = &mut handle;
 
-        esp!(unsafe {esp_ping_new_session(&config, &callbacks, handle_ref as *mut *mut c_types::c_void)})?;
+        esp!(unsafe {
+            esp_ping_new_session(&config, &callbacks, handle_ref as *mut *mut c_types::c_void)
+        })?;
 
         info!("Ping session established, got handle {:?}", &handle);
 
         tracker.running.lock(|running| *running = true);
 
-        esp!(unsafe {esp_ping_start(handle)})?;
+        esp!(unsafe { esp_ping_start(handle) })?;
         info!("Ping session started");
 
         info!("Waiting for the ping session to complete");
 
         #[cfg(feature = "std")]
         {
-            let _running = tracker.cvar.wait_while(
-                tracker.running.0.lock().unwrap(),
-                |running| *running,
-            ).unwrap();
+            let _running = tracker
+                .cvar
+                .wait_while(tracker.running.0.lock().unwrap(), |running| *running)
+                .unwrap();
         }
 
         #[cfg(not(feature = "std"))]
         {
             while tracker.running.lock(|running| *running) {
-                unsafe {vTaskDelay(500)};
+                unsafe { vTaskDelay(500) };
             }
         }
 
-        esp!(unsafe {esp_ping_stop(handle)})?;
+        esp!(unsafe { esp_ping_stop(handle) })?;
         info!("Ping session stopped");
 
-        esp!(unsafe {esp_ping_delete_session(handle)})?;
+        esp!(unsafe { esp_ping_delete_session(handle) })?;
 
         info!("Ping session {:?} removed", &handle);
 
         Ok(())
     }
 
-    unsafe extern "C" fn on_ping_success<F: Fn(&Summary, &Reply)>(handle: esp_ping_handle_t, args: *mut c_types::c_void) {
+    unsafe extern "C" fn on_ping_success<F: Fn(&Summary, &Reply)>(
+        handle: esp_ping_handle_t,
+        args: *mut c_types::c_void,
+    ) {
         info!("Ping success callback invoked");
 
         let tracker_ptr: *mut Tracker<F> = args as _;
@@ -107,14 +117,16 @@ impl EspPing {
             handle,
             esp_ping_profile_t_ESP_PING_PROF_SEQNO,
             &mut seqno as *mut c_types::c_ushort as *mut c_types::c_void,
-            mem::size_of_val(&seqno) as u32);
+            mem::size_of_val(&seqno) as u32,
+        );
 
         let mut ttl: c_types::c_uchar = 0;
         esp_ping_get_profile(
             handle,
             esp_ping_profile_t_ESP_PING_PROF_TTL,
             &mut ttl as *mut c_types::c_uchar as *mut c_types::c_void,
-            mem::size_of_val(&ttl) as u32);
+            mem::size_of_val(&ttl) as u32,
+        );
 
         let mut target_addr_raw = [0 as u8; mem::size_of::<ip_addr_t>()];
         let target_addr: &mut ip_addr_t = mem::transmute(&mut target_addr_raw);
@@ -123,45 +135,52 @@ impl EspPing {
             handle,
             esp_ping_profile_t_ESP_PING_PROF_IPADDR,
             target_addr as *mut ip_addr_t as *mut c_types::c_void,
-            mem::size_of::<ip_addr_t> as u32);
+            mem::size_of::<ip_addr_t> as u32,
+        );
 
         let mut elapsed_time: c_types::c_uint = 0;
         esp_ping_get_profile(
             handle,
             esp_ping_profile_t_ESP_PING_PROF_TIMEGAP,
             &mut elapsed_time as *mut c_types::c_uint as *mut c_types::c_void,
-            mem::size_of_val(&elapsed_time) as u32);
+            mem::size_of_val(&elapsed_time) as u32,
+        );
 
         let mut recv_len: c_types::c_uint = 0;
         esp_ping_get_profile(
             handle,
             esp_ping_profile_t_ESP_PING_PROF_SIZE,
             &mut recv_len as *mut c_types::c_uint as *mut c_types::c_void,
-            mem::size_of_val(&recv_len) as u32);
+            mem::size_of_val(&recv_len) as u32,
+        );
 
         let addr = ipv4::Ipv4Addr::from(Newtype(target_addr.u_addr.ip4));
 
-        info!("From {} icmp_seq={} ttl={} time={}ms bytes={}",
-            addr,
-            seqno,
-            ttl,
-            elapsed_time,
-            recv_len);
+        info!(
+            "From {} icmp_seq={} ttl={} time={}ms bytes={}",
+            addr, seqno, ttl, elapsed_time, recv_len
+        );
 
         if let Some(reply_callback) = tracker.reply_callback {
             Self::update_summary(handle, &mut tracker.summary);
 
-            reply_callback(&tracker.summary, &Reply::Success(Info {
-                addr,
-                seqno: seqno as u32,
-                ttl: ttl as u8,
-                recv_len: recv_len as u32,
-                elapsed_time: Duration::from_millis(elapsed_time as u64)
-            }));
+            reply_callback(
+                &tracker.summary,
+                &Reply::Success(Info {
+                    addr,
+                    seqno: seqno as u32,
+                    ttl: ttl as u8,
+                    recv_len: recv_len as u32,
+                    elapsed_time: Duration::from_millis(elapsed_time as u64),
+                }),
+            );
         }
     }
 
-    unsafe extern "C" fn on_ping_timeout<F: Fn(&Summary, &Reply)>(handle: esp_ping_handle_t, args: *mut c_types::c_void) {
+    unsafe extern "C" fn on_ping_timeout<F: Fn(&Summary, &Reply)>(
+        handle: esp_ping_handle_t,
+        args: *mut c_types::c_void,
+    ) {
         info!("Ping timeout callback invoked");
 
         let tracker_ptr: *mut Tracker<F> = args as _;
@@ -172,7 +191,8 @@ impl EspPing {
             handle,
             esp_ping_profile_t_ESP_PING_PROF_SEQNO,
             &mut seqno as *mut c_types::c_ushort as *mut c_types::c_void,
-            mem::size_of_val(&seqno) as u32);
+            mem::size_of_val(&seqno) as u32,
+        );
 
         let mut target_addr_raw = [0 as u8; mem::size_of::<ip_addr_t>()];
         let target_addr: &mut ip_addr_t = mem::transmute(&mut target_addr_raw);
@@ -181,7 +201,8 @@ impl EspPing {
             handle,
             esp_ping_profile_t_ESP_PING_PROF_IPADDR,
             target_addr as *mut ip_addr_t as *mut c_types::c_void,
-            mem::size_of::<ip_addr_t> as u32);
+            mem::size_of::<ip_addr_t> as u32,
+        );
 
         info!("From {} icmp_seq={} timeout", "???", seqno);
 
@@ -192,7 +213,10 @@ impl EspPing {
         }
     }
 
-    unsafe extern "C" fn on_ping_end<F: Fn(&Summary, &Reply)>(handle: esp_ping_handle_t, args: *mut c_types::c_void) {
+    unsafe extern "C" fn on_ping_end<F: Fn(&Summary, &Reply)>(
+        handle: esp_ping_handle_t,
+        args: *mut c_types::c_void,
+    ) {
         info!("Ping end callback invoked");
 
         let tracker_ptr: *mut Tracker<F> = args as _;
@@ -200,7 +224,12 @@ impl EspPing {
 
         Self::update_summary(handle, &mut tracker.summary);
 
-        info!("{} packets transmitted, {} received, time {}ms", tracker.summary.transmitted, tracker.summary.received, tracker.summary.time.as_millis());
+        info!(
+            "{} packets transmitted, {} received, time {}ms",
+            tracker.summary.transmitted,
+            tracker.summary.received,
+            tracker.summary.time.as_millis()
+        );
 
         #[cfg(feature = "std")]
         {
@@ -218,21 +247,24 @@ impl EspPing {
             handle,
             esp_ping_profile_t_ESP_PING_PROF_REQUEST,
             &mut transmitted as *mut c_types::c_uint as *mut c_types::c_void,
-            mem::size_of_val(&transmitted) as u32);
+            mem::size_of_val(&transmitted) as u32,
+        );
 
         let mut received: c_types::c_uint = 0;
         esp_ping_get_profile(
             handle,
             esp_ping_profile_t_ESP_PING_PROF_REPLY,
             &mut received as *mut c_types::c_uint as *mut c_types::c_void,
-            mem::size_of_val(&received) as u32);
+            mem::size_of_val(&received) as u32,
+        );
 
         let mut total_time: c_types::c_uint = 0;
         esp_ping_get_profile(
             handle,
             esp_ping_profile_t_ESP_PING_PROF_DURATION,
             &mut total_time as *mut c_types::c_uint as *mut c_types::c_void,
-            mem::size_of_val(&total_time) as u32);
+            mem::size_of_val(&total_time) as u32,
+        );
 
         summary.transmitted = transmitted;
         summary.received = received;
@@ -244,7 +276,10 @@ impl Ping for EspPing {
     type Error = EspError;
 
     fn ping(&mut self, ip: ipv4::Ipv4Addr, conf: &Configuration) -> Result<Summary, Self::Error> {
-        info!("About to run a summary ping {} with configuration {:?}", ip, conf);
+        info!(
+            "About to run a summary ping {} with configuration {:?}",
+            ip, conf
+        );
 
         let mut tracker = Tracker::new(Some(&nop_callback));
 
@@ -253,8 +288,16 @@ impl Ping for EspPing {
         Ok(tracker.summary)
     }
 
-    fn ping_details<F: Fn(&Summary, &Reply)>(&mut self, ip: ipv4::Ipv4Addr, conf: &Configuration, reply_callback: &F) -> Result<Summary, Self::Error> {
-        info!("About to run a detailed ping {} with configuration {:?}", ip, conf);
+    fn ping_details<F: Fn(&Summary, &Reply)>(
+        &mut self,
+        ip: ipv4::Ipv4Addr,
+        conf: &Configuration,
+        reply_callback: &F,
+    ) -> Result<Summary, Self::Error> {
+        info!(
+            "About to run a detailed ping {} with configuration {:?}",
+            ip, conf
+        );
 
         let mut tracker = Tracker::new(Some(reply_callback));
 
@@ -290,5 +333,4 @@ impl<'a, F: Fn(&Summary, &Reply)> Tracker<'a, F> {
     }
 }
 
-fn nop_callback(_summary: &Summary, _reply: &Reply) {
-}
+fn nop_callback(_summary: &Summary, _reply: &Reply) {}
