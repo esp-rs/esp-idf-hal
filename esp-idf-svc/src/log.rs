@@ -66,7 +66,7 @@ impl From<Level> for Newtype<esp_log_level_t> {
 
 impl Logger {
     pub fn initialize(&self) {
-        log::set_max_level(self.get_max_level());
+        ::log::set_max_level(self.get_max_level());
     }
 
     pub fn get_max_level(&self) -> LevelFilter {
@@ -109,7 +109,7 @@ impl Logger {
     }
 }
 
-impl log::Log for Logger {
+impl ::log::Log for Logger {
     fn enabled(&self, metadata: &Metadata) -> bool {
         metadata.level() <= LevelFilter::from(Newtype(CONFIG_LOG_DEFAULT_LEVEL))
     }
