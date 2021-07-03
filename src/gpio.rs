@@ -54,11 +54,9 @@ pub trait Pin {
     fn reset(&mut self) -> Result<(), Self::Error>;
 }
 
-pub trait InputPin: Pin {
-}
+pub trait InputPin: Pin {}
 
-pub trait OutputPin: Pin {
-}
+pub trait OutputPin: Pin {}
 
 pub trait RTCPin: Pin {
     fn rtc_pin() -> i32;
@@ -159,7 +157,7 @@ macro_rules! impl_hal_input_pin {
             type Error = EspError;
 
             fn is_high(&self) -> Result<bool, Self::Error> {
-                Ok(unsafe {gpio_get_level($pxi::<$mode>::pin())} != 0)
+                Ok(unsafe { gpio_get_level($pxi::<$mode>::pin()) } != 0)
             }
 
             fn is_low(&self) -> Result<bool, Self::Error> {
@@ -175,11 +173,11 @@ macro_rules! impl_hal_output_pin {
             type Error = EspError;
 
             fn set_high(&mut self) -> Result<(), Self::Error> {
-                esp_result!(unsafe {gpio_set_level($pxi::<$mode>::pin(), 1)}, ())
+                esp_result!(unsafe { gpio_set_level($pxi::<$mode>::pin(), 1) }, ())
             }
 
             fn set_low(&mut self) -> Result<(), Self::Error> {
-                esp_result!(unsafe {gpio_set_level($pxi::<$mode>::pin(), 0)}, ())
+                esp_result!(unsafe { gpio_set_level($pxi::<$mode>::pin(), 0) }, ())
             }
         }
 
@@ -187,7 +185,7 @@ macro_rules! impl_hal_output_pin {
             //type Error = Infallible;
 
             fn is_set_high(&self) -> Result<bool, Self::Error> {
-                Ok(unsafe {gpio_get_level($pxi::<$mode>::pin())} != 0)
+                Ok(unsafe { gpio_get_level($pxi::<$mode>::pin()) } != 0)
             }
 
             fn is_set_low(&self) -> Result<bool, Self::Error> {
@@ -215,19 +213,45 @@ macro_rules! impl_pull {
             type Error = EspError;
 
             fn set_pull_up(&mut self) -> Result<&mut Self, Self::Error> {
-                esp_result!(unsafe {gpio_set_pull_mode($pxi::<$mode>::pin(), gpio_pull_mode_t_GPIO_PULLUP_ONLY)}, self)
+                esp_result!(
+                    unsafe {
+                        gpio_set_pull_mode($pxi::<$mode>::pin(), gpio_pull_mode_t_GPIO_PULLUP_ONLY)
+                    },
+                    self
+                )
             }
 
             fn set_pull_down(&mut self) -> Result<&mut Self, Self::Error> {
-                esp_result!(unsafe {gpio_set_pull_mode($pxi::<$mode>::pin(), gpio_pull_mode_t_GPIO_PULLDOWN_ONLY)}, self)
+                esp_result!(
+                    unsafe {
+                        gpio_set_pull_mode(
+                            $pxi::<$mode>::pin(),
+                            gpio_pull_mode_t_GPIO_PULLDOWN_ONLY,
+                        )
+                    },
+                    self
+                )
             }
 
             fn set_pull_up_down(&mut self) -> Result<&mut Self, Self::Error> {
-                esp_result!(unsafe {gpio_set_pull_mode($pxi::<$mode>::pin(), gpio_pull_mode_t_GPIO_PULLUP_PULLDOWN)}, self)
+                esp_result!(
+                    unsafe {
+                        gpio_set_pull_mode(
+                            $pxi::<$mode>::pin(),
+                            gpio_pull_mode_t_GPIO_PULLUP_PULLDOWN,
+                        )
+                    },
+                    self
+                )
             }
 
             fn set_floating(&mut self) -> Result<&mut Self, Self::Error> {
-                esp_result!(unsafe {gpio_set_pull_mode($pxi::<$mode>::pin(), gpio_pull_mode_t_GPIO_FLOATING)}, self)
+                esp_result!(
+                    unsafe {
+                        gpio_set_pull_mode($pxi::<$mode>::pin(), gpio_pull_mode_t_GPIO_FLOATING)
+                    },
+                    self
+                )
             }
         }
     };
@@ -243,13 +267,16 @@ macro_rules! impl_input_base {
             type Error = EspError;
 
             #[inline(always)]
-            fn pin() -> i32 {$pin}
+            fn pin() -> i32 {
+                $pin
+            }
 
-            fn reset(&mut self) -> Result<(), Self::Error> {Ok(())}
+            fn reset(&mut self) -> Result<(), Self::Error> {
+                Ok(())
+            }
         }
 
-        impl<MODE> InputPin for $pxi<MODE> {
-        }
+        impl<MODE> InputPin for $pxi<MODE> {}
 
         impl_hal_input_pin!($pxi: Input);
     };
@@ -261,19 +288,23 @@ macro_rules! impl_input_only {
 
         impl<MODE> $pxi<MODE> {
             pub unsafe fn new() -> $pxi<Unknown> {
-                $pxi {_mode: PhantomData}
+                $pxi { _mode: PhantomData }
             }
 
             pub fn into_disabled(self) -> Result<$pxi<Disabled>, EspError> {
                 esp_result!(
-                    unsafe {gpio_set_direction($pxi::<MODE>::pin(), gpio_mode_t_GPIO_MODE_DISABLE)},
-                    $pxi {_mode: PhantomData})
+                    unsafe {
+                        gpio_set_direction($pxi::<MODE>::pin(), gpio_mode_t_GPIO_MODE_DISABLE)
+                    },
+                    $pxi { _mode: PhantomData }
+                )
             }
 
             pub fn into_input(self) -> Result<$pxi<Input>, EspError> {
                 esp_result!(
-                    unsafe {gpio_set_direction($pxi::<MODE>::pin(), gpio_mode_t_GPIO_MODE_INPUT)},
-                    $pxi {_mode: PhantomData})
+                    unsafe { gpio_set_direction($pxi::<MODE>::pin(), gpio_mode_t_GPIO_MODE_INPUT) },
+                    $pxi { _mode: PhantomData }
+                )
             }
         }
     };
@@ -283,8 +314,7 @@ macro_rules! impl_input_output {
     ($pxi:ident: $pin:expr) => {
         impl_input_base!($pxi: $pin);
 
-        impl<MODE> OutputPin for $pxi<MODE> {
-        }
+        impl<MODE> OutputPin for $pxi<MODE> {}
 
         impl_hal_input_pin!($pxi: InputOutput);
         impl_hal_output_pin!($pxi: InputOutput);
@@ -294,43 +324,62 @@ macro_rules! impl_input_output {
 
         impl<MODE> $pxi<MODE> {
             pub unsafe fn new() -> $pxi<Unknown> {
-                $pxi {_mode: PhantomData}
+                $pxi { _mode: PhantomData }
             }
 
             pub fn into_disabled(self) -> Result<$pxi<Disabled>, EspError> {
                 esp_result!(
-                    unsafe {gpio_set_direction($pxi::<MODE>::pin(), gpio_mode_t_GPIO_MODE_DISABLE)},
-                    $pxi {_mode: PhantomData})
+                    unsafe {
+                        gpio_set_direction($pxi::<MODE>::pin(), gpio_mode_t_GPIO_MODE_DISABLE)
+                    },
+                    $pxi { _mode: PhantomData }
+                )
             }
 
             pub fn into_input(self) -> Result<$pxi<Input>, EspError> {
                 esp_result!(
-                    unsafe {gpio_set_direction($pxi::<MODE>::pin(), gpio_mode_t_GPIO_MODE_INPUT)},
-                    $pxi {_mode: PhantomData})
+                    unsafe { gpio_set_direction($pxi::<MODE>::pin(), gpio_mode_t_GPIO_MODE_INPUT) },
+                    $pxi { _mode: PhantomData }
+                )
             }
 
             pub fn into_input_output(self) -> Result<$pxi<InputOutput>, EspError> {
                 esp_result!(
-                    unsafe {gpio_set_direction($pxi::<MODE>::pin(), gpio_mode_t_GPIO_MODE_INPUT_OUTPUT)},
-                    $pxi {_mode: PhantomData})
+                    unsafe {
+                        gpio_set_direction($pxi::<MODE>::pin(), gpio_mode_t_GPIO_MODE_INPUT_OUTPUT)
+                    },
+                    $pxi { _mode: PhantomData }
+                )
             }
 
             pub fn into_input_output_od(self) -> Result<$pxi<InputOutput>, EspError> {
                 esp_result!(
-                    unsafe {gpio_set_direction($pxi::<MODE>::pin(), gpio_mode_t_GPIO_MODE_INPUT_OUTPUT_OD)},
-                    $pxi {_mode: PhantomData})
+                    unsafe {
+                        gpio_set_direction(
+                            $pxi::<MODE>::pin(),
+                            gpio_mode_t_GPIO_MODE_INPUT_OUTPUT_OD,
+                        )
+                    },
+                    $pxi { _mode: PhantomData }
+                )
             }
 
             pub fn into_output(self) -> Result<$pxi<Output>, EspError> {
                 esp_result!(
-                    unsafe {gpio_set_direction($pxi::<MODE>::pin(), gpio_mode_t_GPIO_MODE_OUTPUT)},
-                    $pxi {_mode: PhantomData})
+                    unsafe {
+                        gpio_set_direction($pxi::<MODE>::pin(), gpio_mode_t_GPIO_MODE_OUTPUT)
+                    },
+                    $pxi { _mode: PhantomData }
+                )
             }
 
             pub fn into_output_od(self) -> Result<$pxi<Output>, EspError> {
                 esp_result!(
-                    unsafe {gpio_set_direction($pxi::<MODE>::pin(), gpio_mode_t_GPIO_MODE_OUTPUT_OD)},
-                    $pxi {_mode: PhantomData})
+                    unsafe {
+                        gpio_set_direction($pxi::<MODE>::pin(), gpio_mode_t_GPIO_MODE_OUTPUT_OD)
+                    },
+                    $pxi { _mode: PhantomData }
+                )
             }
         }
     };
@@ -345,8 +394,7 @@ macro_rules! impl_rtc {
         }
     };
 
-    ($pxi:ident: $pin:expr, NORTC:$rtc:expr) => {
-    };
+    ($pxi:ident: $pin:expr, NORTC:$rtc:expr) => {};
 }
 
 macro_rules! impl_adc {
@@ -374,8 +422,7 @@ macro_rules! impl_adc {
         }
     };
 
-    ($pxi:ident: $pin:expr, NOADC:$adc:expr) => {
-    };
+    ($pxi:ident: $pin:expr, NOADC:$adc:expr) => {};
 }
 
 macro_rules! impl_dac {
@@ -387,8 +434,7 @@ macro_rules! impl_dac {
         }
     };
 
-    ($pxi:ident: $pin:expr, NODAC:$dac:expr) => {
-    };
+    ($pxi:ident: $pin:expr, NODAC:$dac:expr) => {};
 }
 
 macro_rules! impl_touch {
@@ -400,25 +446,24 @@ macro_rules! impl_touch {
         }
     };
 
-    ($pxi:ident: $pin:expr, NOTOUCH:$touch:expr) => {
-    };
+    ($pxi:ident: $pin:expr, NOTOUCH:$touch:expr) => {};
 }
 
 macro_rules! pin {
     ($pxi:ident: $pin:expr, Input, $rtc:ident:$rtcno:expr, $adc:ident:$adcno:expr, $dac:ident:$dacno:expr, $touch:ident:$touchno:expr) => {
         impl_input_only!($pxi: $pin);
-        impl_rtc!($pxi: $pin, $rtc:$rtcno);
-        impl_adc!($pxi: $pin, $adc:$adcno);
-        impl_dac!($pxi: $pin, $dac:$dacno);
-        impl_touch!($pxi: $pin, $touch:$touchno);
+        impl_rtc!($pxi: $pin, $rtc: $rtcno);
+        impl_adc!($pxi: $pin, $adc: $adcno);
+        impl_dac!($pxi: $pin, $dac: $dacno);
+        impl_touch!($pxi: $pin, $touch: $touchno);
     };
 
     ($pxi:ident: $pin:expr, IO, $rtc:ident:$rtcno:expr, $adc:ident:$adcno:expr, $dac:ident:$dacno:expr, $touch:ident:$touchno:expr) => {
         impl_input_output!($pxi: $pin);
-        impl_rtc!($pxi: $pin, $rtc:$rtcno);
-        impl_adc!($pxi: $pin, $adc:$adcno);
-        impl_dac!($pxi: $pin, $dac:$dacno);
-        impl_touch!($pxi: $pin, $touch:$touchno);
+        impl_rtc!($pxi: $pin, $rtc: $rtcno);
+        impl_adc!($pxi: $pin, $adc: $adcno);
+        impl_dac!($pxi: $pin, $dac: $dacno);
+        impl_touch!($pxi: $pin, $touch: $touchno);
     };
 }
 

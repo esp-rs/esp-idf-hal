@@ -22,10 +22,10 @@
 
 //use crate::prelude::*;
 
-use crate::{gpio::{self, InputPin, OutputPin}};
+use crate::gpio::{self, InputPin, OutputPin};
 
-use embedded_hal::spi::{Phase, Polarity};
 use embedded_hal::blocking::spi::{Transfer, Write, WriteIter};
+use embedded_hal::spi::{Phase, Polarity};
 //use embedded_hal::spi::FullDuplex,
 
 use esp_idf_sys::*;
@@ -112,13 +112,7 @@ pub struct Master<
 }
 
 impl<CS: OutputPin>
-    Master<
-        SPI1,
-        gpio::Gpio6<gpio::Output>,
-        gpio::Gpio7<gpio::Output>,
-        gpio::Gpio8<gpio::Input>,
-        CS,
-    >
+    Master<SPI1, gpio::Gpio6<gpio::Output>, gpio::Gpio7<gpio::Output>, gpio::Gpio8<gpio::Input>, CS>
 {
     /// Create new instance of SPI controller for SPI1
     ///
@@ -163,13 +157,8 @@ impl<SCLK: OutputPin, SDO: OutputPin, SDI: InputPin + OutputPin, CS: OutputPin>
     }
 }
 
-impl<
-        SPI: Spi,
-        SCLK: OutputPin,
-        SDO: OutputPin,
-        SDI: InputPin + OutputPin,
-        CS: OutputPin,
-    > Master<SPI, SCLK, SDO, SDI, CS>
+impl<SPI: Spi, SCLK: OutputPin, SDO: OutputPin, SDI: InputPin + OutputPin, CS: OutputPin>
+    Master<SPI, SCLK, SDO, SDI, CS>
 {
     /// Internal implementation of new shared by all SPI controllers
     fn new_internal(
@@ -180,7 +169,7 @@ impl<
         let bus_config = spi_bus_config_t {
             flags: SPICOMMON_BUSFLAG_MASTER,
             mosi_io_num: SDO::pin(),
-            miso_io_num: if pins.sdi.is_some() {SDI::pin()} else {-1},
+            miso_io_num: if pins.sdi.is_some() { SDI::pin() } else { -1 },
             sclk_io_num: SCLK::pin(),
             quadwp_io_num: -1,
             quadhd_io_num: -1,
@@ -188,19 +177,31 @@ impl<
             ..Default::default()
         };
 
-        esp!(unsafe {spi_bus_initialize(SPI::device(), &bus_config, 0/*TODO: DMA support*/)})?;
+        esp!(unsafe {
+            spi_bus_initialize(SPI::device(), &bus_config, 0 /*TODO: DMA support*/)
+        })?;
 
         let device_config = spi_device_interface_config_t {
-            spics_io_num: if pins.cs.is_some() {CS::pin()} else {-1},
+            spics_io_num: if pins.cs.is_some() { CS::pin() } else { -1 },
             clock_speed_hz: config.baudrate.0 as i32,
-            mode: (if config.data_mode.polarity == Polarity::IdleHigh {2} else {0}) | (if config.data_mode.phase == Phase::CaptureOnSecondTransition {1} else {0}),
+            mode: (if config.data_mode.polarity == Polarity::IdleHigh {
+                2
+            } else {
+                0
+            }) | (if config.data_mode.phase == Phase::CaptureOnSecondTransition {
+                1
+            } else {
+                0
+            }),
             queue_size: 64,
             ..Default::default()
         };
 
         let mut device_handle: spi_device_handle_t = core::ptr::null_mut();
 
-        esp!(unsafe {spi_bus_add_device(SPI::device(), &device_config, &mut device_handle as *mut _)})?;
+        esp!(unsafe {
+            spi_bus_add_device(SPI::device(), &device_config, &mut device_handle as *mut _)
+        })?;
 
         Ok(Self {
             spi,
@@ -212,8 +213,8 @@ impl<
 
     /// Release and return the raw interface to the underlying SPI peripheral
     pub fn release(self) -> Result<(SPI, Pins<SCLK, SDO, SDI, CS>), EspError> {
-        esp!(unsafe {spi_bus_remove_device(self.device)})?;
-        esp!(unsafe {spi_bus_free(SPI::device())})?;
+        esp!(unsafe { spi_bus_remove_device(self.device) })?;
+        esp!(unsafe { spi_bus_free(SPI::device()) })?;
 
         Ok((self.spi, self.pins))
     }
@@ -231,8 +232,12 @@ impl<
 
         let mut transaction = spi_transaction_t {
             flags: 0, //SPI_TRANS_USE_RXDATA|SPI_TRANS_USE_TXDATA,
-            __bindgen_anon_1: spi_transaction_t__bindgen_ty_1 {tx_buffer: &tx_buffer as *const [u8] as *const _},
-            __bindgen_anon_2: spi_transaction_t__bindgen_ty_2 {rx_buffer: &mut rx_buffer as *mut [u8] as *mut _},
+            __bindgen_anon_1: spi_transaction_t__bindgen_ty_1 {
+                tx_buffer: &tx_buffer as *const [u8] as *const _,
+            },
+            __bindgen_anon_2: spi_transaction_t__bindgen_ty_2 {
+                rx_buffer: &mut rx_buffer as *mut [u8] as *mut _,
+            },
             ..Default::default()
         };
 
@@ -241,7 +246,9 @@ impl<
         while words_index < words.len() {
             let mut index = 0;
             let mut words_write_index = words_index;
-            while index + core::mem::size_of::<T>() <= tx_buffer.len() && words_write_index < words.len() {
+            while index + core::mem::size_of::<T>() <= tx_buffer.len()
+                && words_write_index < words.len()
+            {
                 words[words_write_index].store(&mut tx_buffer[index..], self.bit_order);
                 words_write_index += 1;
                 index += core::mem::size_of::<T>();
@@ -254,7 +261,7 @@ impl<
             transaction.length = index as u32 * 8;
             transaction.rxlength = index as u32 * 8;
 
-            esp!(unsafe {spi_device_polling_transmit(self.device, &mut transaction as *mut _)})?;
+            esp!(unsafe { spi_device_polling_transmit(self.device, &mut transaction as *mut _) })?;
 
             index = 0;
             while index < transaction.rxlength as usize && words_index < words.len() {
@@ -279,7 +286,9 @@ impl<
 
         let mut transaction = spi_transaction_t {
             flags: 0, //SPI_TRANS_USE_RXDATA|SPI_TRANS_USE_TXDATA,
-            __bindgen_anon_1: spi_transaction_t__bindgen_ty_1 {tx_buffer: &tx_buffer as *const [u8] as *const _},
+            __bindgen_anon_1: spi_transaction_t__bindgen_ty_1 {
+                tx_buffer: &tx_buffer as *const [u8] as *const _,
+            },
             ..Default::default()
         };
 
@@ -287,7 +296,8 @@ impl<
 
         while words_index < words.len() {
             let mut index = 0;
-            while index + core::mem::size_of::<T>() <= tx_buffer.len() && words_index < words.len() {
+            while index + core::mem::size_of::<T>() <= tx_buffer.len() && words_index < words.len()
+            {
                 words[words_index].store(&mut tx_buffer[index..], self.bit_order);
                 words_index += 1;
                 index += core::mem::size_of::<T>();
@@ -300,7 +310,7 @@ impl<
             transaction.length = index as u32 * 8;
             transaction.rxlength = 0;
 
-            esp!(unsafe {spi_device_polling_transmit(self.device, &mut transaction as *mut _)})?;
+            esp!(unsafe { spi_device_polling_transmit(self.device, &mut transaction as *mut _) })?;
         }
 
         Ok(())
@@ -319,7 +329,9 @@ impl<
 
         let mut transaction = spi_transaction_t {
             flags: 0, //SPI_TRANS_USE_RXDATA|SPI_TRANS_USE_TXDATA,
-            __bindgen_anon_1: spi_transaction_t__bindgen_ty_1 {tx_buffer: &tx_buffer as *const [u8] as *const _},
+            __bindgen_anon_1: spi_transaction_t__bindgen_ty_1 {
+                tx_buffer: &tx_buffer as *const [u8] as *const _,
+            },
             ..Default::default()
         };
 
@@ -342,7 +354,7 @@ impl<
             transaction.length = index as u32 * 8;
             transaction.rxlength = 0;
 
-            esp!(unsafe {spi_device_polling_transmit(self.device, &mut transaction as *mut _)})?;
+            esp!(unsafe { spi_device_polling_transmit(self.device, &mut transaction as *mut _) })?;
         }
 
         Ok(())
@@ -471,13 +483,8 @@ impl Word for u8 {
 // }
 
 // cannot use generics as it conflicts with the Default implementation
-impl<
-        SPI: Spi,
-        SCLK: OutputPin,
-        SDO: OutputPin,
-        SDI: InputPin + OutputPin,
-        CS: OutputPin,
-    > Transfer<u8> for Master<SPI, SCLK, SDO, SDI, CS>
+impl<SPI: Spi, SCLK: OutputPin, SDO: OutputPin, SDI: InputPin + OutputPin, CS: OutputPin>
+    Transfer<u8> for Master<SPI, SCLK, SDO, SDI, CS>
 {
     type Error = EspError;
 
@@ -486,13 +493,8 @@ impl<
     }
 }
 
-impl<
-        SPI: Spi,
-        SCLK: OutputPin,
-        SDO: OutputPin,
-        SDI: InputPin + OutputPin,
-        CS: OutputPin,
-    > Transfer<u16> for Master<SPI, SCLK, SDO, SDI, CS>
+impl<SPI: Spi, SCLK: OutputPin, SDO: OutputPin, SDI: InputPin + OutputPin, CS: OutputPin>
+    Transfer<u16> for Master<SPI, SCLK, SDO, SDI, CS>
 {
     type Error = EspError;
 
@@ -504,13 +506,8 @@ impl<
     }
 }
 
-impl<
-        SPI: Spi,
-        SCLK: OutputPin,
-        SDO: OutputPin,
-        SDI: InputPin + OutputPin,
-        CS: OutputPin,
-    > Transfer<u32> for Master<SPI, SCLK, SDO, SDI, CS>
+impl<SPI: Spi, SCLK: OutputPin, SDO: OutputPin, SDI: InputPin + OutputPin, CS: OutputPin>
+    Transfer<u32> for Master<SPI, SCLK, SDO, SDI, CS>
 {
     type Error = EspError;
 
@@ -523,13 +520,8 @@ impl<
 }
 
 // cannot use generics as it conflicts with the Default implementation
-impl<
-        SPI: Spi,
-        SCLK: OutputPin,
-        SDO: OutputPin,
-        SDI: InputPin + OutputPin,
-        CS: OutputPin,
-    > Write<u8> for Master<SPI, SCLK, SDO, SDI, CS>
+impl<SPI: Spi, SCLK: OutputPin, SDO: OutputPin, SDI: InputPin + OutputPin, CS: OutputPin> Write<u8>
+    for Master<SPI, SCLK, SDO, SDI, CS>
 {
     type Error = EspError;
 
@@ -538,13 +530,8 @@ impl<
     }
 }
 
-impl<
-        SPI: Spi,
-        SCLK: OutputPin,
-        SDO: OutputPin,
-        SDI: InputPin + OutputPin,
-        CS: OutputPin,
-    > Write<u16> for Master<SPI, SCLK, SDO, SDI, CS>
+impl<SPI: Spi, SCLK: OutputPin, SDO: OutputPin, SDI: InputPin + OutputPin, CS: OutputPin> Write<u16>
+    for Master<SPI, SCLK, SDO, SDI, CS>
 {
     type Error = EspError;
 
@@ -553,13 +540,8 @@ impl<
     }
 }
 
-impl<
-        SPI: Spi,
-        SCLK: OutputPin,
-        SDO: OutputPin,
-        SDI: InputPin + OutputPin,
-        CS: OutputPin,
-    > Write<u32> for Master<SPI, SCLK, SDO, SDI, CS>
+impl<SPI: Spi, SCLK: OutputPin, SDO: OutputPin, SDI: InputPin + OutputPin, CS: OutputPin> Write<u32>
+    for Master<SPI, SCLK, SDO, SDI, CS>
 {
     type Error = EspError;
 
@@ -569,13 +551,8 @@ impl<
 }
 
 // cannot use generics as it conflicts with the Default implementation
-impl<
-        SPI: Spi,
-        SCLK: OutputPin,
-        SDO: OutputPin,
-        SDI: InputPin + OutputPin,
-        CS: OutputPin,
-    > WriteIter<u8> for Master<SPI, SCLK, SDO, SDI, CS>
+impl<SPI: Spi, SCLK: OutputPin, SDO: OutputPin, SDI: InputPin + OutputPin, CS: OutputPin>
+    WriteIter<u8> for Master<SPI, SCLK, SDO, SDI, CS>
 {
     type Error = EspError;
 
@@ -587,13 +564,8 @@ impl<
     }
 }
 
-impl<
-        SPI: Spi,
-        SCLK: OutputPin,
-        SDO: OutputPin,
-        SDI: InputPin + OutputPin,
-        CS: OutputPin,
-    > WriteIter<u16> for Master<SPI, SCLK, SDO, SDI, CS>
+impl<SPI: Spi, SCLK: OutputPin, SDO: OutputPin, SDI: InputPin + OutputPin, CS: OutputPin>
+    WriteIter<u16> for Master<SPI, SCLK, SDO, SDI, CS>
 {
     type Error = EspError;
 
@@ -605,13 +577,8 @@ impl<
     }
 }
 
-impl<
-        SPI: Spi,
-        SCLK: OutputPin,
-        SDO: OutputPin,
-        SDI: InputPin + OutputPin,
-        CS: OutputPin,
-    > WriteIter<u32> for Master<SPI, SCLK, SDO, SDI, CS>
+impl<SPI: Spi, SCLK: OutputPin, SDO: OutputPin, SDI: InputPin + OutputPin, CS: OutputPin>
+    WriteIter<u32> for Master<SPI, SCLK, SDO, SDI, CS>
 {
     type Error = EspError;
 
@@ -637,7 +604,9 @@ macro_rules! impl_spi {
 
         impl Spi for $spi {
             #[inline(always)]
-            fn device() -> spi_host_device_t {$device}
+            fn device() -> spi_host_device_t {
+                $device
+            }
         }
     };
 }

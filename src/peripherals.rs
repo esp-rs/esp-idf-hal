@@ -20,14 +20,14 @@ static mut TAKEN: EspMutex<bool> = EspMutex::new(false);
 impl Peripherals {
     pub fn take() -> Option<Self> {
         unsafe {
-            TAKEN.lock(|taken|
+            TAKEN.lock(|taken| {
                 if *taken {
                     None
                 } else {
                     *taken = true;
                     Some(Peripherals::new())
                 }
-            )
+            })
         }
     }
 
