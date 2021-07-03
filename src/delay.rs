@@ -14,7 +14,10 @@ pub struct TickType(pub TickType_t);
 
 impl From<Duration> for TickType {
     fn from(duration: Duration) -> Self {
-        TickType(((duration.as_millis() + portTICK_PERIOD_MS as u128 - 1) / portTICK_PERIOD_MS as u128) as TickType_t)
+        TickType(
+            ((duration.as_millis() + portTICK_PERIOD_MS as u128 - 1) / portTICK_PERIOD_MS as u128)
+                as TickType_t,
+        )
     }
 }
 
@@ -74,7 +77,6 @@ impl DelayMs<u16> for Ets {
         DelayMs::<u32>::delay_ms(self, ms as u32);
     }
 }
-
 
 /// FreeRTOS-based delay provider
 pub struct FreeRtos;
