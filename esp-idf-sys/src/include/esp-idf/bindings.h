@@ -67,3 +67,30 @@
 
 #include "pthread.h"
 #include "esp_pthread.h"
+
+// If a custom sdkconfig file has been used to enable Bluetooth support,
+// since by default neither of the BT stacks is enabled.
+#ifdef CONFIG_BT_ENABLED
+#include "esp_bt.h"
+#include "services/gap/ble_svc_gap.h"
+#endif
+
+#ifdef CONFIG_BT_BLUEDROID_ENABLED
+#include "esp_gap_ble_api.h"
+#include "esp_gattc_api.h"
+#include "esp_gatt_defs.h"
+#include "esp_gatt_common_api.h"
+#include "esp_gatts_api.h"
+#include "esp_bt_defs.h"
+#include "esp_bt_main.h"
+#include "esp_gap_bt_api.h"
+#include "esp_bt_device.h"
+#endif
+
+#ifdef CONFIG_BT_NIMBLE_ENABLED
+#include "esp_nimble_hci.h"
+#include "nimble/nimble_port.h"
+#include "nimble/nimble_port_freertos.h"
+#include "host/ble_hs.h"
+#include "host/util/util.h"
+#endif
