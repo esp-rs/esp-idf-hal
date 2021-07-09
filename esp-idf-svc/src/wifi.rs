@@ -79,6 +79,7 @@ impl From<&ClientConfiguration> for Newtype<wifi_sta_config_t> {
                 capable: false,
                 required: false,
             },
+            ..Default::default()
         };
 
         set_str(&mut result.ssid, conf.ssid.as_str());
@@ -115,6 +116,7 @@ impl From<&AccessPointConfiguration> for Newtype<wifi_ap_config_t> {
             ssid_hidden: if conf.ssid_hidden { 1 } else { 0 },
             max_connection: cmp::max(conf.max_connections, 16) as u8,
             beacon_interval: 100,
+            ..Default::default()
         };
 
         set_str(&mut result.ssid, conf.ssid.as_str());
