@@ -33,18 +33,18 @@
 
 #include "driver/adc.h"
 #include "driver/twai.h"
-#include "driver/dac.h"
+#include "driver/dac.h" // TODO: Disable conditionally for ESP32-C3
 #include "driver/gpio.h"
 #include "driver/i2c.h"
 #include "driver/i2s.h"
 #include "driver/ledc.h"
 #include "driver/mcpwm.h"
-#include "driver/pcnt.h"
+#include "driver/pcnt.h" // TODO: Disable conditionally for ESP32-C3
 #include "driver/periph_ctrl.h"
 #include "driver/rmt.h"
 #include "driver/rtc_cntl.h"
 #include "driver/rtc_io.h"
-#include "driver/sdio_slave.h"
+#include "driver/sdio_slave.h" // TODO: Disable conditionally for ESP32-C3
 #include "driver/sdmmc_defs.h"
 #include "driver/sdmmc_host.h"
 #include "driver/sdmmc_types.h"
@@ -54,7 +54,7 @@
 #include "driver/spi_master.h"
 #include "driver/spi_slave.h"
 #include "driver/timer.h"
-#include "driver/touch_pad.h"
+#include "driver/touch_pad.h" // TODO: Disable conditionally for ESP32-C3
 //#include "touch_sensor.h"
 //#include "driver/touch_sensor_common.h"
 #include "driver/uart.h"

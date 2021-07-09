@@ -9,6 +9,9 @@ pub mod mutex;
 mod alloc;
 mod panic;
 
+#[cfg(feature = "atomics")]
+mod atomics;
+
 pub use error::*;
 pub use mutex::EspMutex;
 

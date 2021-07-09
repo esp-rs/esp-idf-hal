@@ -30,6 +30,10 @@ fn main() -> Result<()> {
             &project_path,
             env::var("PROFILE")? == "release",
             &resolution,
+            &[
+                // For now, until the pthread spawning issues with V4.3 are fixed
+                "framework-espidf@https://github.com/ivmarkov/esp-idf.git#release/v4.2",
+            ],
             &[(
                 &PathBuf::from("patches").join("pthread_destructor_fix.diff"),
                 &PathBuf::from("framework-espidf"),
@@ -52,7 +56,7 @@ fn main() -> Result<()> {
     bindgen::Runner::from_scons_vars(&pio_scons_vars)?.run(
         &[PathBuf::from("src")
             .join("include")
-            .join(if pio_scons_vars.mcu == "ESP8266" {
+            .join(if pio_scons_vars.mcu == "esp8266" {
                 "esp-8266-rtos-sdk"
             } else {
                 "esp-idf"
@@ -62,6 +66,11 @@ fn main() -> Result<()> {
             .to_str()
             .unwrap()],
         "c_types",
+        if pio_scons_vars.mcu == "esp32c3" {
+            Some("riscv32")
+        } else {
+            None
+        },
         bindgen::Language::C,
     )
 }
