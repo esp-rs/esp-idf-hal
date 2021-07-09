@@ -155,6 +155,7 @@ where
             __bindgen_anon_1: i2c_config_t__bindgen_ty_1 {
                 master: i2c_config_t__bindgen_ty_1__bindgen_ty_1 { clk_speed: config.baudrate.into() },
             },
+            ..Default::default()
         };
 
         esp!(unsafe {i2c_param_config(I2C::port(), &sys_config)})?;
@@ -288,6 +289,7 @@ where
                     addr_10bit_en: 0, // For now; to become configurable with embedded-hal V1.0
                 },
             },
+            ..Default::default()
         };
 
         esp!(unsafe {i2c_param_config(I2C::port(), &sys_config)})?;
