@@ -25,7 +25,7 @@ impl<T> EspMutex<T> {
 
 impl<T> Drop for EspMutex<T> {
     fn drop(&mut self) {
-        let r = unsafe {pthread_mutex_destroy(self.0.get_mut() as *mut _)};
+        let r = unsafe { pthread_mutex_destroy(self.0.get_mut() as *mut _) };
         debug_assert_eq!(r, 0);
     }
 }
@@ -35,12 +35,12 @@ impl<T> Mutex for EspMutex<T> {
 
     #[inline(always)]
     fn lock<R>(&mut self, f: impl FnOnce(&mut Self::Data) -> R) -> R {
-        let r = unsafe {pthread_mutex_lock(self.0.get_mut() as *mut _)};
+        let r = unsafe { pthread_mutex_lock(self.0.get_mut() as *mut _) };
         debug_assert_eq!(r, 0);
 
         let result = f(&mut self.1);
 
-        let r = unsafe {pthread_mutex_unlock(self.0.get_mut() as *mut _)};
+        let r = unsafe { pthread_mutex_unlock(self.0.get_mut() as *mut _) };
         debug_assert_eq!(r, 0);
 
         result
@@ -50,12 +50,12 @@ impl<T> Mutex for EspMutex<T> {
 impl<T> RwLock for EspMutex<T> {
     #[inline(always)]
     fn lock_read<R>(&self, f: impl FnOnce(&Self::Data) -> R) -> R {
-        let r = unsafe {pthread_mutex_lock(&mut *self.0.get() as *mut _)};
+        let r = unsafe { pthread_mutex_lock(&mut *self.0.get() as *mut _) };
         debug_assert_eq!(r, 0);
 
         let result = f(&self.1);
 
-        let r = unsafe {pthread_mutex_unlock(&mut *self.0.get() as *mut _)};
+        let r = unsafe { pthread_mutex_unlock(&mut *self.0.get() as *mut _) };
         debug_assert_eq!(r, 0);
 
         result
@@ -63,7 +63,7 @@ impl<T> RwLock for EspMutex<T> {
 }
 
 #[cfg(feature = "std")]
-pub struct EspStdMutex<T> (pub std::sync::Mutex<T>);
+pub struct EspStdMutex<T>(pub std::sync::Mutex<T>);
 
 #[cfg(feature = "std")]
 impl<T> EspStdMutex<T> {
@@ -86,7 +86,7 @@ impl<T> Mutex for EspStdMutex<T> {
 }
 
 #[cfg(feature = "std")]
-pub struct EspStdRwLock<T> (pub std::sync::RwLock<T>);
+pub struct EspStdRwLock<T>(pub std::sync::RwLock<T>);
 
 #[cfg(feature = "std")]
 impl<T> EspStdRwLock<T> {

@@ -30,7 +30,10 @@ fn main() -> Result<()> {
             &project_path,
             env::var("PROFILE")? == "release",
             &resolution,
-            &[(&PathBuf::from("patches").join("pthread_destructor_fix.diff"), &PathBuf::from("framework-espidf"))],
+            &[(
+                &PathBuf::from("patches").join("pthread_destructor_fix.diff"),
+                &PathBuf::from("framework-espidf"),
+            )],
             Some("ESP_IDF_SYS_PIO_CONF_"),
             Some("ESP_IDF_SYS_GLOB_"),
         )?;
@@ -46,16 +49,19 @@ fn main() -> Result<()> {
     // pio_scons_vars.output_cargo_c_include_args()?; // No longer works due to this issue: https://github.com/rust-lang/cargo/issues/9641
     pio_scons_vars.propagate_cargo_c_include_args()?;
 
-    bindgen::Runner::from_scons_vars(&pio_scons_vars)?
-        .run(
-            &[PathBuf::from("src")
-                .join("include")
-                .join(if pio_scons_vars.mcu == "ESP8266" {"esp-8266-rtos-sdk"} else {"esp-idf"})
-                .join("bindings.h")
-                .as_os_str()
-                .to_str()
-                .unwrap(),
-            ],
-            "c_types",
-            bindgen::Language::C)
+    bindgen::Runner::from_scons_vars(&pio_scons_vars)?.run(
+        &[PathBuf::from("src")
+            .join("include")
+            .join(if pio_scons_vars.mcu == "ESP8266" {
+                "esp-8266-rtos-sdk"
+            } else {
+                "esp-idf"
+            })
+            .join("bindings.h")
+            .as_os_str()
+            .to_str()
+            .unwrap()],
+        "c_types",
+        bindgen::Language::C,
+    )
 }
