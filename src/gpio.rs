@@ -67,10 +67,12 @@ pub trait ADCPin: Pin {
     fn adc_channel() -> adc_channel_t;
 }
 
+// TODO: Do not compile for ESP32C3
 pub trait DACPin: Pin {
     fn dac_channel() -> dac_channel_t;
 }
 
+// TODO: Do not compile for ESP32C3
 pub trait TouchPin: Pin {
     fn touch_channel() -> touch_pad_t;
 }
@@ -425,6 +427,7 @@ macro_rules! impl_adc {
     ($pxi:ident: $pin:expr, NOADC:$adc:expr) => {};
 }
 
+// TODO: Do not compile for ESP32C3
 macro_rules! impl_dac {
     ($pxi:ident: $pin:expr, DAC:$dac:expr) => {
         impl<MODE> DACPin for $pxi<MODE> {
@@ -437,6 +440,7 @@ macro_rules! impl_dac {
     ($pxi:ident: $pin:expr, NODAC:$dac:expr) => {};
 }
 
+// TODO: Do not compile for ESP32C3
 macro_rules! impl_touch {
     ($pxi:ident: $pin:expr, TOUCH:$touch:expr) => {
         impl<MODE> TouchPin for $pxi<MODE> {
