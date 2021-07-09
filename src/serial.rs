@@ -35,8 +35,8 @@ use embedded_hal::serial;
 
 //use crate::prelude::*;
 
-use crate::units::*;
 use crate::gpio::*;
+use crate::units::*;
 
 use esp_idf_sys::*;
 
@@ -54,8 +54,8 @@ const UART_FIFO_SIZE: u8 = 128;
 
 /// UART configuration
 pub mod config {
-    use esp_idf_sys::*;
     use crate::units::*;
+    use esp_idf_sys::*;
 
     /// Number of data bits
     #[derive(PartialEq, Eq, Hash, Copy, Clone, Debug)]
@@ -307,8 +307,8 @@ impl<UART: Uart, TX: OutputPin, RX: InputPin, CTS: InputPin, RTS: OutputPin>
         let serial = Self {
             uart,
             pins,
-            rx: Rx {_uart: PhantomData},
-            tx: Tx {_uart: PhantomData},
+            rx: Rx { _uart: PhantomData },
+            tx: Tx { _uart: PhantomData },
         };
 
         let uart_config = uart_config_t {
@@ -320,16 +320,9 @@ impl<UART: Uart, TX: OutputPin, RX: InputPin, CTS: InputPin, RTS: OutputPin>
             ..Default::default()
         };
 
-        esp!(unsafe {uart_param_config(UART::port(), &uart_config)})?;
+        esp!(unsafe { uart_param_config(UART::port(), &uart_config) })?;
 
-        esp!(unsafe {
-            uart_set_pin(
-                UART::port(),
-                TX::pin(),
-                RX::pin(),
-                RTS::pin(),
-                CTS::pin())
-        })?;
+        esp!(unsafe { uart_set_pin(UART::port(), TX::pin(), RX::pin(), RTS::pin(), CTS::pin()) })?;
 
         esp!(unsafe {
             uart_driver_install(
@@ -338,7 +331,8 @@ impl<UART: Uart, TX: OutputPin, RX: InputPin, CTS: InputPin, RTS: OutputPin>
                 UART_FIFO_SIZE as i32,
                 0,
                 ptr::null_mut(),
-                0)
+                0,
+            )
         })?;
 
         Ok(serial)
@@ -346,35 +340,53 @@ impl<UART: Uart, TX: OutputPin, RX: InputPin, CTS: InputPin, RTS: OutputPin>
 
     /// Change the number of stop bits
     pub fn change_stop_bits(&mut self, stop_bits: config::StopBits) -> Result<&mut Self, EspError> {
-        esp_result!(unsafe {uart_set_stop_bits(UART::port(), stop_bits.into())}, self)
+        esp_result!(
+            unsafe { uart_set_stop_bits(UART::port(), stop_bits.into()) },
+            self
+        )
     }
 
     /// Retruns the current number of stop bits
     pub fn stop_bits(&self) -> Result<config::StopBits, EspError> {
         let mut stop_bits: uart_stop_bits_t = 0;
-        esp_result!(unsafe {uart_get_stop_bits(UART::port(), &mut stop_bits)}, stop_bits.into())
+        esp_result!(
+            unsafe { uart_get_stop_bits(UART::port(), &mut stop_bits) },
+            stop_bits.into()
+        )
     }
 
     /// Change the number of data bits
     pub fn change_data_bits(&mut self, data_bits: config::DataBits) -> Result<&mut Self, EspError> {
-        esp_result!(unsafe {uart_set_word_length(UART::port(), data_bits.into())}, self)
+        esp_result!(
+            unsafe { uart_set_word_length(UART::port(), data_bits.into()) },
+            self
+        )
     }
 
     /// Return the current number of data bits
     pub fn data_bits(&self) -> Result<config::DataBits, EspError> {
         let mut data_bits: uart_word_length_t = 0;
-        esp_result!(unsafe {uart_get_word_length(UART::port(), &mut data_bits)}, data_bits.into())
+        esp_result!(
+            unsafe { uart_get_word_length(UART::port(), &mut data_bits) },
+            data_bits.into()
+        )
     }
 
     /// Change the type of parity checking
     pub fn change_parity(&mut self, parity: config::Parity) -> Result<&mut Self, EspError> {
-        esp_result!(unsafe {uart_set_parity(UART::port(), parity.into())}, self)
+        esp_result!(
+            unsafe { uart_set_parity(UART::port(), parity.into()) },
+            self
+        )
     }
 
     /// Returns the current type of parity checking
     pub fn parity(&self) -> Result<config::Parity, EspError> {
         let mut parity: uart_parity_t = 0;
-        esp_result!(unsafe {uart_get_parity(UART::port(), &mut parity)}, parity.into())
+        esp_result!(
+            unsafe { uart_get_parity(UART::port(), &mut parity) },
+            parity.into()
+        )
     }
 
     /// Change the baudrate.
@@ -388,7 +400,10 @@ impl<UART: Uart, TX: OutputPin, RX: InputPin, CTS: InputPin, RTS: OutputPin>
         &mut self,
         baudrate: T,
     ) -> Result<&mut Self, EspError> {
-        esp_result!(unsafe {uart_set_baudrate(UART::port(), baudrate.into().into())}, self)
+        esp_result!(
+            unsafe { uart_set_baudrate(UART::port(), baudrate.into().into()) },
+            self
+        )
     }
 
     // /// Returns if the reference or APB clock is used
@@ -399,7 +414,10 @@ impl<UART: Uart, TX: OutputPin, RX: InputPin, CTS: InputPin, RTS: OutputPin>
     /// Returns the current baudrate
     pub fn baudrate(&self) -> Result<Hertz, EspError> {
         let mut baudrate: u32 = 0;
-        esp_result!(unsafe {uart_get_baudrate(UART::port(), &mut baudrate)}, baudrate.into())
+        esp_result!(
+            unsafe { uart_get_baudrate(UART::port(), &mut baudrate) },
+            baudrate.into()
+        )
     }
 
     // /// Starts listening for an interrupt event
@@ -429,7 +447,7 @@ impl<UART: Uart, TX: OutputPin, RX: InputPin, CTS: InputPin, RTS: OutputPin>
 
     /// Release the UART and GPIO resources
     pub fn release(self) -> Result<(UART, Pins<TX, RX, CTS, RTS>), EspError> {
-        esp!(unsafe {uart_driver_delete(UART::port())})?;
+        esp!(unsafe { uart_driver_delete(UART::port()) })?;
 
         // self.pins.tx.reset()?;
         // self.pins.rx.reset()?;
@@ -493,7 +511,10 @@ impl<UART: Uart> Rx<UART> {
     /// Get count of bytes in the receive FIFO
     pub fn count(&self) -> Result<u8, EspError> {
         let mut size = 0 as size_t;
-        esp_result!(unsafe {uart_get_buffered_data_len(UART::port(), &mut size)}, size as u8)
+        esp_result!(
+            unsafe { uart_get_buffered_data_len(UART::port(), &mut size) },
+            size as u8
+        )
     }
 
     // /// Check if the receivers is idle
@@ -533,7 +554,7 @@ impl<UART: Uart> serial::Write<u8> for Tx<UART> {
     type Error = EspError;
 
     fn flush(&mut self) -> nb::Result<(), Self::Error> {
-        match unsafe {uart_wait_tx_done(UART::port(), 0)} as u32 {
+        match unsafe { uart_wait_tx_done(UART::port(), 0) } as u32 {
             ESP_OK => Ok(()),
             ESP_ERR_TIMEOUT => Err(nb::Error::WouldBlock),
             _ => unreachable!(),
@@ -542,7 +563,7 @@ impl<UART: Uart> serial::Write<u8> for Tx<UART> {
 
     fn write(&mut self, byte: u8) -> nb::Result<(), Self::Error> {
         // TODO: Figure out how to not block
-        match unsafe {uart_write_bytes(UART::port(), &byte as *const u8 as *const _, 1)} as u32 {
+        match unsafe { uart_write_bytes(UART::port(), &byte as *const u8 as *const _, 1) } as u32 {
             ESP_OK => Ok(()),
             err => Err(nb::Error::Other(EspError::from(err as i32).unwrap())),
         }
@@ -573,7 +594,9 @@ macro_rules! impl_uart {
         }
 
         impl Uart for $uart {
-            fn port() -> uart_port_t {$port}
+            fn port() -> uart_port_t {
+                $port
+            }
         }
     };
 }
