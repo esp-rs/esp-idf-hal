@@ -1,6 +1,6 @@
 // Support for ESP32-S2 and ESP32-C3
 // Temporary, until ESP-IDF V4.4 is released.
-// V4.4 will have the very same functions implemented here as part of
+// V4.4 will have the very same functions currently implemented here as part of
 // `components/newlib/stdatomic.c`
 
 // Single core SoC: atomics can be implemented using portENTER_CRITICAL_NESTED
@@ -53,7 +53,14 @@ unsafe fn atomic_exchange<T: Copy>(mem: *mut T, val: T, _memorder: i32) -> T {
 }
 
 #[inline(always)]
-unsafe fn atomic_compare_exchange<T: Copy + Eq>(mem: *mut T, expect: *mut T, desired: T, _weak: bool, _success: i32, _failure: i32) -> bool {
+unsafe fn atomic_compare_exchange<T: Copy + Eq>(
+    mem: *mut T,
+    expect: *mut T,
+    desired: T,
+    _weak: bool,
+    _success: i32,
+    _failure: i32,
+) -> bool {
     let _cs = CriticalSection::new();
 
     let mem = mem.as_mut().unwrap();
@@ -69,7 +76,11 @@ unsafe fn atomic_compare_exchange<T: Copy + Eq>(mem: *mut T, expect: *mut T, des
 }
 
 #[inline(always)]
-unsafe fn atomic_fetch_add<T: Copy + core::ops::Add<Output = T>>(mem: *mut T, val: T, _memorder: i32) -> T {
+unsafe fn atomic_fetch_add<T: Copy + core::ops::Add<Output = T>>(
+    mem: *mut T,
+    val: T,
+    _memorder: i32,
+) -> T {
     let _cs = CriticalSection::new();
 
     let mem = mem.as_mut().unwrap();
@@ -81,7 +92,11 @@ unsafe fn atomic_fetch_add<T: Copy + core::ops::Add<Output = T>>(mem: *mut T, va
 }
 
 #[inline(always)]
-unsafe fn atomic_fetch_sub<T: Copy + core::ops::Sub<Output = T>>(mem: *mut T, val: T, _memorder: i32) -> T {
+unsafe fn atomic_fetch_sub<T: Copy + core::ops::Sub<Output = T>>(
+    mem: *mut T,
+    val: T,
+    _memorder: i32,
+) -> T {
     let _cs = CriticalSection::new();
 
     let mem = mem.as_mut().unwrap();
@@ -93,7 +108,11 @@ unsafe fn atomic_fetch_sub<T: Copy + core::ops::Sub<Output = T>>(mem: *mut T, va
 }
 
 #[inline(always)]
-unsafe fn atomic_fetch_and<T: Copy + core::ops::BitAnd<Output = T>>(mem: *mut T, val: T, _memorder: i32) -> T {
+unsafe fn atomic_fetch_and<T: Copy + core::ops::BitAnd<Output = T>>(
+    mem: *mut T,
+    val: T,
+    _memorder: i32,
+) -> T {
     let _cs = CriticalSection::new();
 
     let mem = mem.as_mut().unwrap();
@@ -105,7 +124,11 @@ unsafe fn atomic_fetch_and<T: Copy + core::ops::BitAnd<Output = T>>(mem: *mut T,
 }
 
 #[inline(always)]
-unsafe fn atomic_fetch_or<T: Copy + core::ops::BitOr<Output = T>>(mem: *mut T, val: T, _memorder: i32) -> T {
+unsafe fn atomic_fetch_or<T: Copy + core::ops::BitOr<Output = T>>(
+    mem: *mut T,
+    val: T,
+    _memorder: i32,
+) -> T {
     let _cs = CriticalSection::new();
 
     let mem = mem.as_mut().unwrap();
@@ -117,7 +140,11 @@ unsafe fn atomic_fetch_or<T: Copy + core::ops::BitOr<Output = T>>(mem: *mut T, v
 }
 
 #[inline(always)]
-unsafe fn atomic_fetch_xor<T: Copy + core::ops::BitXor<Output = T>>(mem: *mut T, val: T, _memorder: i32) -> T {
+unsafe fn atomic_fetch_xor<T: Copy + core::ops::BitXor<Output = T>>(
+    mem: *mut T,
+    val: T,
+    _memorder: i32,
+) -> T {
     let _cs = CriticalSection::new();
 
     let mem = mem.as_mut().unwrap();
@@ -127,36 +154,6 @@ unsafe fn atomic_fetch_xor<T: Copy + core::ops::BitXor<Output = T>>(mem: *mut T,
 
     prev
 }
-
-// #[inline(always)]
-// unsafe fn sync_fetch_and<T: Copy>(mem: *mut T, val: T) -> T {
-//     atomic_fetch(mem, val, 5/*__ATOMIC_SEQ_CST*/)
-// }
-
-// #[inline(always)]
-// unsafe fn sync_bool_compare_and_swap<T: Copy + Eq>(mem: *mut T, old_val: T, new_val: T) -> bool {
-//     let cs = CriticalSection::new();
-
-//     if *mem.as_ref().unwrap() == old_val {
-//         *mem.as_ref().unwrap() = new_val;
-//         true
-//     } else {
-//         false
-//     }
-// }
-
-// #[inline(always)]
-// unsafe fn sync_val_compare_and_swap<T: Copy + Eq>(mem: *mut T, old_val: T, new_val: T) -> T {
-//     let _cs = CriticalSection::new();
-
-//     let current_val = *mem.as_ref().unwrap();
-
-//     if current_val == old_val {
-//         *mem.as_mut().unwrap() = new_val;
-//     }
-
-//     current_val
-// }
 
 macro_rules! impl_atomics {
     ($t:ty: $s: ident) => {
@@ -205,21 +202,6 @@ macro_rules! impl_atomics {
             pub unsafe extern "C" fn [<__atomic_fetch_xor $s>](mem: *mut $t, val: $t, memorder: i32) -> $t {
                 atomic_fetch_xor(mem, val, memorder)
             }
-
-            // #[no_mangle]
-            // pub unsafe extern "C" fn [<__sync_fetch_and $s>](mem: *mut $t, val: $t) -> $t {
-            //     sync_fetch_and(mem, val)
-            // }
-
-            // #[no_mangle]
-            // pub unsafe extern "C" fn [<__sync_bool_compare_and_swap $s>](mem: *mut $t, old_val: $t, new_val: $t) -> bool {
-            //     sync_bool_compare_and_swap(mem, old_val, new_val)
-            // }
-
-            // #[no_mangle]
-            // pub unsafe extern "C" fn [<__sync_val_compare_and_swap $s>](mem: *mut $t, old_val: $t, new_val: $t) -> $t {
-            //     sync_val_compare_and_swap(mem, old_val, new_val)
-            // }
         }
     };
 }

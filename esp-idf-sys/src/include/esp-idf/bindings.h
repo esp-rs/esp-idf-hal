@@ -33,18 +33,24 @@
 
 #include "driver/adc.h"
 #include "driver/twai.h"
-#include "driver/dac.h" // TODO: Disable conditionally for ESP32-C3
+#ifndef CONFIG_IDF_TARGET_ESP32C3
+#include "driver/dac.h"
+#endif
 #include "driver/gpio.h"
 #include "driver/i2c.h"
 #include "driver/i2s.h"
 #include "driver/ledc.h"
 #include "driver/mcpwm.h"
-#include "driver/pcnt.h" // TODO: Disable conditionally for ESP32-C3
+#ifndef CONFIG_IDF_TARGET_ESP32C3
+#include "driver/pcnt.h"
+#endif
 #include "driver/periph_ctrl.h"
 #include "driver/rmt.h"
 #include "driver/rtc_cntl.h"
 #include "driver/rtc_io.h"
-#include "driver/sdio_slave.h" // TODO: Disable conditionally for ESP32-C3
+#ifndef CONFIG_IDF_TARGET_ESP32C3
+#include "driver/sdio_slave.h"
+#endif
 #include "driver/sdmmc_defs.h"
 #include "driver/sdmmc_host.h"
 #include "driver/sdmmc_types.h"
@@ -54,7 +60,9 @@
 #include "driver/spi_master.h"
 #include "driver/spi_slave.h"
 #include "driver/timer.h"
-#include "driver/touch_pad.h" // TODO: Disable conditionally for ESP32-C3
+#ifndef CONFIG_IDF_TARGET_ESP32C3
+#include "driver/touch_pad.h"
+#endif
 //#include "touch_sensor.h"
 //#include "driver/touch_sensor_common.h"
 #include "driver/uart.h"
@@ -67,6 +75,8 @@
 
 #include "pthread.h"
 #include "esp_pthread.h"
+
+#ifndef CONFIG_IDF_TARGET_ESP32S2 // No BT in ESP32-S2
 
 // If a custom sdkconfig file has been used to enable Bluetooth support,
 // since by default neither of the BT stacks is enabled.
@@ -93,4 +103,6 @@
 #include "nimble/nimble_port_freertos.h"
 #include "host/ble_hs.h"
 #include "host/util/util.h"
+#endif
+
 #endif

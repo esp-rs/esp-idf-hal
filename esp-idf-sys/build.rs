@@ -25,19 +25,28 @@ fn main() -> Result<()> {
 
         let project_path = PathBuf::from(env::var("OUT_DIR")?).join("esp-idf");
 
+        #[cfg(feature = "espidf_master")]
+        let platform_packages = ["framework-espidf@https://github.com/ivmarkov/esp-idf.git#master"];
+
+        #[cfg(feature = "espidf_master")]
+        let patches: [(&std::path::Path, &std::path::Path); 0] = [];
+
+        #[cfg(not(feature = "espidf_master"))]
+        let platform_packages: [&str; 0] = [];
+
+        #[cfg(not(feature = "espidf_master"))]
+        let patches = [(
+            PathBuf::from("patches").join("pthread_destructor_fix.diff"),
+            PathBuf::from("framework-espidf"),
+        )];
+
         let pio_scons_vars = cargofirst::build_framework(
             &pio,
             &project_path,
             env::var("PROFILE")? == "release",
             &resolution,
-            &[
-                // For now, until the pthread spawning issues with V4.3 are fixed
-                "framework-espidf@https://github.com/ivmarkov/esp-idf.git#release/v4.2",
-            ],
-            &[(
-                &PathBuf::from("patches").join("pthread_destructor_fix.diff"),
-                &PathBuf::from("framework-espidf"),
-            )],
+            &platform_packages,
+            &patches,
             Some("ESP_IDF_SYS_PIO_CONF_"),
             Some("ESP_IDF_SYS_GLOB_"),
         )?;
@@ -49,14 +58,19 @@ fn main() -> Result<()> {
     };
 
     // In case other SYS crates need to have access to the ESP-IDF C headers
-
     // pio_scons_vars.output_cargo_c_include_args()?; // No longer works due to this issue: https://github.com/rust-lang/cargo/issues/9641
     pio_scons_vars.propagate_cargo_c_include_args()?;
+
+    let mcu = pio_scons_vars.mcu.as_str();
+
+    // Output the exact ESP32 MCU, so that we and crates depending directly on us can branch using e.g. #[cfg(esp32xxx)]
+    println!("cargo:rustc-cfg={}", mcu);
+    println!("cargo:MCU={}", mcu);
 
     bindgen::Runner::from_scons_vars(&pio_scons_vars)?.run(
         &[PathBuf::from("src")
             .join("include")
-            .join(if pio_scons_vars.mcu == "esp8266" {
+            .join(if mcu == "esp8266" {
                 "esp-8266-rtos-sdk"
             } else {
                 "esp-idf"
@@ -66,7 +80,7 @@ fn main() -> Result<()> {
             .to_str()
             .unwrap()],
         "c_types",
-        if pio_scons_vars.mcu == "esp32c3" {
+        if mcu == "esp32c3" {
             Some("riscv32")
         } else {
             None

@@ -9,7 +9,7 @@ pub mod mutex;
 mod alloc;
 mod panic;
 
-#[cfg(feature = "atomics")]
+#[cfg(any(esp32s2, esp32c3))]
 mod atomics;
 
 pub use error::*;
