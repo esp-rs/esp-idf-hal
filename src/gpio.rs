@@ -67,12 +67,12 @@ pub trait ADCPin: Pin {
     fn adc_channel() -> adc_channel_t;
 }
 
-// TODO: Do not compile for ESP32C3
+#[cfg(not(esp32c3))]
 pub trait DACPin: Pin {
     fn dac_channel() -> dac_channel_t;
 }
 
-// TODO: Do not compile for ESP32C3
+#[cfg(not(esp32c3))]
 pub trait TouchPin: Pin {
     fn touch_channel() -> touch_pad_t;
 }
@@ -427,9 +427,9 @@ macro_rules! impl_adc {
     ($pxi:ident: $pin:expr, NOADC:$adc:expr) => {};
 }
 
-// TODO: Do not compile for ESP32C3
 macro_rules! impl_dac {
     ($pxi:ident: $pin:expr, DAC:$dac:expr) => {
+        #[cfg(not(esp32c3))]
         impl<MODE> DACPin for $pxi<MODE> {
             fn dac_channel() -> dac_channel_t {
                 $dac
@@ -440,9 +440,9 @@ macro_rules! impl_dac {
     ($pxi:ident: $pin:expr, NODAC:$dac:expr) => {};
 }
 
-// TODO: Do not compile for ESP32C3
 macro_rules! impl_touch {
     ($pxi:ident: $pin:expr, TOUCH:$touch:expr) => {
+        #[cfg(not(esp32c3))]
         impl<MODE> TouchPin for $pxi<MODE> {
             fn touch_channel() -> touch_pad_t {
                 $touch
@@ -471,6 +471,7 @@ macro_rules! pin {
     };
 }
 
+// TODO: Separate pin layout for esp32s2, esp32s3 and esp32c3
 pin!(Gpio0:0, IO, RTC:11, ADC2:1, NODAC:0, TOUCH:1);
 pin!(Gpio1:1, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
 pin!(Gpio2:2, IO, RTC:12, ADC2:2, NODAC:0, TOUCH:2);

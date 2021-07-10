@@ -529,7 +529,7 @@ impl<UART: Uart> serial::Read<u8> for Rx<UART> {
     fn read(&mut self) -> nb::Result<u8, Self::Error> {
         let mut buf: u8 = 0;
 
-        match unsafe {uart_read_bytes(UART::port(), &mut buf as *mut u8 as *mut _, 1, 0)} as u32 {
+        match unsafe { uart_read_bytes(UART::port(), &mut buf as *mut u8 as *mut _, 1, 0) } as u32 {
             // TODO: Check when the timeout is reached what is returned
             ESP_OK => Err(nb::Error::WouldBlock),
             ESP_ERR_TIMEOUT => Ok(buf),
@@ -603,4 +603,6 @@ macro_rules! impl_uart {
 
 impl_uart!(UART0: 0);
 impl_uart!(UART1: 1);
+
+#[cfg(esp32)]
 impl_uart!(UART2: 2);

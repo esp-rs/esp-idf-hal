@@ -144,6 +144,7 @@ impl<SCLK: OutputPin, SDO: OutputPin, SDI: InputPin + OutputPin, CS: OutputPin>
     }
 }
 
+#[cfg(not(esp32c3))]
 impl<SCLK: OutputPin, SDO: OutputPin, SDI: InputPin + OutputPin, CS: OutputPin>
     Master<SPI3, SCLK, SDO, SDI, CS>
 {
@@ -613,4 +614,6 @@ macro_rules! impl_spi {
 
 impl_spi!(SPI1: spi_host_device_t_SPI1_HOST);
 impl_spi!(SPI2: spi_host_device_t_SPI2_HOST);
+
+#[cfg(not(esp32c3))]
 impl_spi!(SPI3: spi_host_device_t_SPI3_HOST);
