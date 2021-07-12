@@ -1,10 +1,12 @@
-// Support for ESP32-S2 and ESP32-C3
+// Support for ESP32-C3
 // Temporary, until ESP-IDF V4.4 is released.
 // V4.4 will have the very same functions currently implemented here as part of
 // `components/newlib/stdatomic.c`
 
 // Single core SoC: atomics can be implemented using portENTER_CRITICAL_NESTED
 // and portEXIT_CRITICAL_NESTED, which disable and enable interrupts.
+
+// TODO: Figure out how to express the IRAM_ATTR attribute in Rust, so that the functions are placed in IRAM
 
 use crate::*;
 
@@ -153,6 +155,19 @@ unsafe fn atomic_fetch_xor<T: Copy + core::ops::BitXor<Output = T>>(
     *mem = prev ^ val;
 
     prev
+}
+
+#[inline(always)]
+unsafe fn sync_val_compare_and_swap<T: Copy + Eq>(mem: *mut T, old_val: T, new_val: T) -> T {
+    let _cs = CriticalSection::new();
+
+    let current_val = *mem.as_ref().unwrap();
+
+    if current_val == old_val {
+        *mem.as_mut().unwrap() = new_val;
+    }
+
+    current_val
 }
 
 macro_rules! impl_atomics {

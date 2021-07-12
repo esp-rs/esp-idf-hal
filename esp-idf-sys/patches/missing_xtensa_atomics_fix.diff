@@ -1,0 +1,42 @@
+diff --git a/components/xtensa/stdatomic.c b/components/xtensa/stdatomic.c
+index 4dc425c50..84e3ccbb1 100644
+--- a/components/xtensa/stdatomic.c
++++ b/components/xtensa/stdatomic.c
+@@ -133,6 +133,22 @@
+     return ret;                                                                  \
+ }
+ 
++#define SYNC_LOCK_TEST_AND_SET(n, type) type  __sync_lock_test_and_set_ ## n  (type *ptr, type val, ...) \
++{                                                                                \
++    unsigned state = _ATOMIC_ENTER_CRITICAL();                                   \
++    type ret = *ptr;                                                             \
++    *ptr = val;                                                                  \
++    _ATOMIC_EXIT_CRITICAL(state);                                                \
++    return ret;                                                                  \
++}
++
++#define SYNC_LOCK_RELEASE(n, type) void  __sync_lock_release_ ## n  (type *ptr, ...) \
++{                                                                                \
++    unsigned state = _ATOMIC_ENTER_CRITICAL();                                   \
++    *ptr = 0;                                                                    \
++    _ATOMIC_EXIT_CRITICAL(state);                                                \
++}
++
+ #ifndef XCHAL_HAVE_S32C1I
+ #error "XCHAL_HAVE_S32C1I not defined, include correct header!"
+ #endif
+@@ -212,4 +228,14 @@ SYNC_VAL_CMP_EXCHANGE(2, uint16_t)
+ SYNC_VAL_CMP_EXCHANGE(4, uint32_t)
+ SYNC_VAL_CMP_EXCHANGE(8, uint64_t)
+ 
++SYNC_LOCK_TEST_AND_SET(1, uint8_t)
++SYNC_LOCK_TEST_AND_SET(2, uint16_t)
++SYNC_LOCK_TEST_AND_SET(4, uint32_t)
++SYNC_LOCK_TEST_AND_SET(8, uint64_t)
++
++SYNC_LOCK_RELEASE(1, uint8_t)
++SYNC_LOCK_RELEASE(2, uint16_t)
++SYNC_LOCK_RELEASE(4, uint32_t)
++SYNC_LOCK_RELEASE(8, uint64_t)
++
+ #endif

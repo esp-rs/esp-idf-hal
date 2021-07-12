@@ -35,10 +35,16 @@ fn main() -> Result<()> {
         let platform_packages: [&str; 0] = [];
 
         #[cfg(not(feature = "espidf_master"))]
-        let patches = [(
-            PathBuf::from("patches").join("pthread_destructor_fix.diff"),
-            PathBuf::from("framework-espidf"),
-        )];
+        let patches = [
+            (
+                PathBuf::from("patches").join("pthread_destructor_fix.diff"),
+                PathBuf::from("framework-espidf"),
+            ),
+            (
+                PathBuf::from("patches").join("missing_xtensa_atomics_fix.diff"),
+                PathBuf::from("framework-espidf"),
+            ),
+        ];
 
         let pio_scons_vars = cargofirst::build_framework(
             &pio,

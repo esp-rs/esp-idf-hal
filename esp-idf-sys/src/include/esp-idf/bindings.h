@@ -48,7 +48,7 @@
 #include "driver/rmt.h"
 #include "driver/rtc_cntl.h"
 #include "driver/rtc_io.h"
-#ifndef CONFIG_IDF_TARGET_ESP32C3
+#ifdef CONFIG_IDF_TARGET_ESP32
 #include "driver/sdio_slave.h"
 #endif
 #include "driver/sdmmc_defs.h"

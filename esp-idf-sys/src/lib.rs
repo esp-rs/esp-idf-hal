@@ -9,8 +9,9 @@ pub mod mutex;
 mod alloc;
 mod panic;
 
-#[cfg(any(esp32s2, esp32c3))]
-mod atomics;
+// Only for ESP32C3, because the atomics are already implemented in ESP-IDF V4.3 for ESP32S2
+#[cfg(esp32c3)]
+mod atomics_esp32c3;
 
 pub use error::*;
 pub use mutex::EspMutex;
