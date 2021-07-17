@@ -14,6 +14,7 @@ struct CriticalSection(i32);
 
 impl CriticalSection {
     #[inline(always)]
+    #[link_section = ".rwtext"]
     unsafe fn new() -> Self {
         Self(vPortSetInterruptMask())
     }
@@ -21,6 +22,7 @@ impl CriticalSection {
 
 impl Drop for CriticalSection {
     #[inline(always)]
+    #[link_section = ".rwtext"]
     fn drop(&mut self) {
         unsafe {
             vPortClearInterruptMask(self.0);
@@ -29,6 +31,7 @@ impl Drop for CriticalSection {
 }
 
 #[inline(always)]
+#[link_section = ".rwtext"]
 unsafe fn atomic_load<T: Copy>(mem: *const T, _memorder: i32) -> T {
     let _cs = CriticalSection::new();
 
@@ -36,6 +39,7 @@ unsafe fn atomic_load<T: Copy>(mem: *const T, _memorder: i32) -> T {
 }
 
 #[inline(always)]
+#[link_section = ".rwtext"]
 unsafe fn atomic_store<T: Copy>(mem: *mut T, val: T, _memorder: i32) {
     let _cs = CriticalSection::new();
 
@@ -43,6 +47,7 @@ unsafe fn atomic_store<T: Copy>(mem: *mut T, val: T, _memorder: i32) {
 }
 
 #[inline(always)]
+#[link_section = ".rwtext"]
 unsafe fn atomic_exchange<T: Copy>(mem: *mut T, val: T, _memorder: i32) -> T {
     let _cs = CriticalSection::new();
 
@@ -55,6 +60,7 @@ unsafe fn atomic_exchange<T: Copy>(mem: *mut T, val: T, _memorder: i32) -> T {
 }
 
 #[inline(always)]
+#[link_section = ".rwtext"]
 unsafe fn atomic_compare_exchange<T: Copy + Eq>(
     mem: *mut T,
     expect: *mut T,
@@ -78,6 +84,7 @@ unsafe fn atomic_compare_exchange<T: Copy + Eq>(
 }
 
 #[inline(always)]
+#[link_section = ".rwtext"]
 unsafe fn atomic_fetch_add<T: Copy + core::ops::Add<Output = T>>(
     mem: *mut T,
     val: T,
@@ -94,6 +101,7 @@ unsafe fn atomic_fetch_add<T: Copy + core::ops::Add<Output = T>>(
 }
 
 #[inline(always)]
+#[link_section = ".rwtext"]
 unsafe fn atomic_fetch_sub<T: Copy + core::ops::Sub<Output = T>>(
     mem: *mut T,
     val: T,
@@ -110,6 +118,7 @@ unsafe fn atomic_fetch_sub<T: Copy + core::ops::Sub<Output = T>>(
 }
 
 #[inline(always)]
+#[link_section = ".rwtext"]
 unsafe fn atomic_fetch_and<T: Copy + core::ops::BitAnd<Output = T>>(
     mem: *mut T,
     val: T,
@@ -126,6 +135,7 @@ unsafe fn atomic_fetch_and<T: Copy + core::ops::BitAnd<Output = T>>(
 }
 
 #[inline(always)]
+#[link_section = ".rwtext"]
 unsafe fn atomic_fetch_or<T: Copy + core::ops::BitOr<Output = T>>(
     mem: *mut T,
     val: T,
@@ -142,6 +152,7 @@ unsafe fn atomic_fetch_or<T: Copy + core::ops::BitOr<Output = T>>(
 }
 
 #[inline(always)]
+#[link_section = ".rwtext"]
 unsafe fn atomic_fetch_xor<T: Copy + core::ops::BitXor<Output = T>>(
     mem: *mut T,
     val: T,
@@ -157,63 +168,68 @@ unsafe fn atomic_fetch_xor<T: Copy + core::ops::BitXor<Output = T>>(
     prev
 }
 
-#[inline(always)]
-unsafe fn sync_val_compare_and_swap<T: Copy + Eq>(mem: *mut T, old_val: T, new_val: T) -> T {
-    let _cs = CriticalSection::new();
-
-    let current_val = *mem.as_ref().unwrap();
-
-    if current_val == old_val {
-        *mem.as_mut().unwrap() = new_val;
-    }
-
-    current_val
-}
-
 macro_rules! impl_atomics {
     ($t:ty: $s: ident) => {
         paste::item! {
             #[no_mangle]
+            #[inline(never)]
+            #[link_section = ".rwtext"]
             pub unsafe extern "C" fn [<__atomic_load $s>](mem: *const $t, memorder: i32) -> $t {
                 atomic_load(mem, memorder)
             }
 
             #[no_mangle]
+            #[inline(never)]
+            #[link_section = ".rwtext"]
             pub unsafe extern "C" fn [<__atomic_store $s>](mem: *mut $t, val: $t, memorder: i32) {
                 atomic_store(mem, val, memorder)
             }
 
             #[no_mangle]
+            #[inline(never)]
+            #[link_section = ".rwtext"]
             pub unsafe extern "C" fn [<__atomic_exchange $s>](mem: *mut $t, val: $t, memorder: i32) -> $t {
                 atomic_exchange(mem, val, memorder)
             }
 
             #[no_mangle]
+            #[inline(never)]
+            #[link_section = ".rwtext"]
             pub unsafe extern "C" fn [<__atomic_compare_exchange $s>](mem: *mut $t, expect: *mut $t, desired: $t, weak: bool, success: i32, failure: i32) -> bool {
                 atomic_compare_exchange(mem, expect, desired, weak, success, failure)
             }
 
             #[no_mangle]
+            #[inline(never)]
+            #[link_section = ".rwtext"]
             pub unsafe extern "C" fn [<__atomic_fetch_add $s>](mem: *mut $t, val: $t, memorder: i32) -> $t {
                 atomic_fetch_add(mem, val, memorder)
             }
 
             #[no_mangle]
+            #[inline(never)]
+            #[link_section = ".rwtext"]
             pub unsafe extern "C" fn [<__atomic_fetch_sub $s>](mem: *mut $t, val: $t, memorder: i32) -> $t {
                 atomic_fetch_sub(mem, val, memorder)
             }
 
             #[no_mangle]
+            #[inline(never)]
+            #[link_section = ".rwtext"]
             pub unsafe extern "C" fn [<__atomic_fetch_and $s>](mem: *mut $t, val: $t, memorder: i32) -> $t {
                 atomic_fetch_and(mem, val, memorder)
             }
 
             #[no_mangle]
+            #[inline(never)]
+            #[link_section = ".rwtext"]
             pub unsafe extern "C" fn [<__atomic_fetch_or $s>](mem: *mut $t, val: $t, memorder: i32) -> $t {
                 atomic_fetch_or(mem, val, memorder)
             }
 
             #[no_mangle]
+            #[inline(never)]
+            #[link_section = ".rwtext"]
             pub unsafe extern "C" fn [<__atomic_fetch_xor $s>](mem: *mut $t, val: $t, memorder: i32) -> $t {
                 atomic_fetch_xor(mem, val, memorder)
             }
