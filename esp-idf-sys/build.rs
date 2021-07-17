@@ -1,13 +1,15 @@
+use std::convert::TryFrom;
 use std::{env, path::PathBuf};
 
 use anyhow::*;
 
 use pio;
 use pio::bindgen;
-use pio::cargofirst;
+use pio::project;
+use pio::cargo::build;
 
 fn main() -> Result<()> {
-    let pio_scons_vars = if let Some(pio_scons_vars) = pio::SconsVariables::from_piofirst() {
+    let pio_scons_vars = if let Some(pio_scons_vars) = project::SconsVariables::from_piofirst() {
         println!("cargo:info=PIO->Cargo build detected: generating bindings only");
 
         pio_scons_vars
@@ -23,49 +25,36 @@ fn main() -> Result<()> {
             })
             .resolve(true)?;
 
-        let project_path = PathBuf::from(env::var("OUT_DIR")?).join("esp-idf");
+        let mut builder = project::Builder::new(PathBuf::from(env::var("OUT_DIR")?).join("esp-idf"));
+
+        builder
+            .enable_scons_dump()
+            .enable_c_entry_points()
+            .options(build::env_options_iter("ESP_IDF_SYS_PIO_CONF")?)
+            .files(build::tracked_globs_iter(PathBuf::from("."), &["patches/**"])?)
+            .files(build::tracked_env_globs_iter("ESP_IDF_SYS_GLOB")?);
 
         #[cfg(feature = "espidf_master")]
-        let platform_packages = ["framework-espidf@https://github.com/ivmarkov/esp-idf.git#master"];
-
-        #[cfg(feature = "espidf_master")]
-        let patches: [(&std::path::Path, &std::path::Path); 0] = [];
+        builder.platform_package("framework-espidf", "https://github.com/ivmarkov/esp-idf.git#master");
 
         #[cfg(not(feature = "espidf_master"))]
-        let platform_packages: [&str; 0] = [];
+        builder
+            .platform_package_patch(PathBuf::from("patches").join("pthread_destructor_fix.diff"), PathBuf::from("framework-espidf"))
+            .platform_package_patch(PathBuf::from("patches").join("missing_xtensa_atomics_fix.diff"), PathBuf::from("framework-espidf"));
 
-        #[cfg(not(feature = "espidf_master"))]
-        let patches = [
-            (
-                PathBuf::from("patches").join("pthread_destructor_fix.diff"),
-                PathBuf::from("framework-espidf"),
-            ),
-            (
-                PathBuf::from("patches").join("missing_xtensa_atomics_fix.diff"),
-                PathBuf::from("framework-espidf"),
-            ),
-        ];
+        let project_path = builder.generate(&resolution)?;
 
-        let pio_scons_vars = cargofirst::build_framework(
-            &pio,
-            &project_path,
-            env::var("PROFILE")? == "release",
-            &resolution,
-            &platform_packages,
-            &patches,
-            Some("ESP_IDF_SYS_PIO_CONF_"),
-            Some("ESP_IDF_SYS_GLOB_"),
-        )?;
+        pio.build(&project_path, env::var("PROFILE")? == "release")?;
 
-        // pio_scons_vars.output_cargo_link_args(project_path, true, true)?; // No longer works due to this issue: https://github.com/rust-lang/cargo/issues/9641
-        pio_scons_vars.propagate_cargo_link_args(project_path, true, true)?;
+        let pio_scons_vars = project::SconsVariables::from_dump(&project_path)?;
+
+        build::LinkArgs::try_from(&pio_scons_vars)?.propagate(project_path, true, true);
 
         pio_scons_vars
     };
 
     // In case other SYS crates need to have access to the ESP-IDF C headers
-    // pio_scons_vars.output_cargo_c_include_args()?; // No longer works due to this issue: https://github.com/rust-lang/cargo/issues/9641
-    pio_scons_vars.propagate_cargo_c_include_args()?;
+    build::CInclArgs::try_from(&pio_scons_vars)?.propagate();
 
     let mcu = pio_scons_vars.mcu.as_str();
 
@@ -73,24 +62,18 @@ fn main() -> Result<()> {
     println!("cargo:rustc-cfg={}", mcu);
     println!("cargo:MCU={}", mcu);
 
-    bindgen::Runner::from_scons_vars(&pio_scons_vars)?.run(
-        &[PathBuf::from("src")
-            .join("include")
-            .join(if mcu == "esp8266" {
-                "esp-8266-rtos-sdk"
-            } else {
-                "esp-idf"
-            })
-            .join("bindings.h")
-            .as_os_str()
-            .to_str()
-            .unwrap()],
-        "c_types",
-        if mcu == "esp32c3" {
-            Some("riscv32")
-        } else {
-            None
-        },
-        bindgen::Language::C,
+    let header = PathBuf::from("src")
+        .join("include")
+        .join(if mcu == "esp8266" { "esp-8266-rtos-sdk" } else { "esp-idf" })
+        .join("bindings.h");
+
+    build::track(&header)?;
+
+    bindgen::run(bindgen::Factory::from_scons_vars(&pio_scons_vars)?.builder()?
+        .ctypes_prefix("c_types")
+        .header(build::to_string(header)?)
+        .blacklist_function("strtold")
+        .blacklist_function("_strtold_r")
+        .clang_args(if mcu == "esp32c3" { vec!["-target", "riscv32"] } else { vec![] }),
     )
 }
