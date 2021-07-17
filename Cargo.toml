@@ -1,6 +1,6 @@
 [package]
 name = "esp-idf-hal"
-version = "0.15.0"
+version = "0.16.0"
 authors = ["sapir <yasapir@gmail.com>", "Ivan Markov <ivan.markov@gmail.com>"]
 edition = "2018"
 categories = ["embedded", "hardware-support"]
@@ -22,7 +22,7 @@ std = ["esp-idf-sys/std"]
 nb = "0.1.2"
 mutex-trait = "0.2"
 embedded-hal = { version = "0.2", features = ["unproven"] }
-esp-idf-sys = {version = "0.15", git = "https://github.com/ivmarkov/esp-idf-sys.git", default-features = false}
+esp-idf-sys = {version = "0.16", git = "https://github.com/ivmarkov/esp-idf-sys.git", default-features = false}
 #esp-idf-sys = { version = "*", path = "../esp-idf-sys", default-features = false}
 
 [dev-dependencies]
