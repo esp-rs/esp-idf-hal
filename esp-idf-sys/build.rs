@@ -35,10 +35,17 @@ fn main() -> Result<()> {
             .files(build::tracked_env_globs_iter("ESP_IDF_SYS_GLOB")?);
 
         #[cfg(feature = "espidf_master")]
-        builder.platform_package("framework-espidf", "https://github.com/ivmarkov/esp-idf.git#master");
+        builder
+            .platform_package("framework-espidf", "https://github.com/ivmarkov/esp-idf.git#master")
+            .platform_package_patch(PathBuf::from("patches").join("master_missing_xtensa_atomics_fix.diff"), PathBuf::from("framework-espidf"))
+            .platform_package_patch(PathBuf::from("patches").join("master_restore_link_fragments_for_pio.diff"), PathBuf::from("framework-espidf"));
+
+        #[cfg(feature = "espidf_master")]
+        env::set_var("IDF_MAINTAINER", "1");
 
         #[cfg(not(feature = "espidf_master"))]
         builder
+            .platform_package_patch(PathBuf::from("patches").join("esp32c3_atomics_emul.diff"), PathBuf::from("framework-espidf"))
             .platform_package_patch(PathBuf::from("patches").join("pthread_destructor_fix.diff"), PathBuf::from("framework-espidf"))
             .platform_package_patch(PathBuf::from("patches").join("missing_xtensa_atomics_fix.diff"), PathBuf::from("framework-espidf"));
 

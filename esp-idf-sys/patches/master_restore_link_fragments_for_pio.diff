@@ -1,0 +1,48 @@
+diff --git a/components/esp32/ld/esp32_fragments.lf b/components/esp32/ld/esp32_fragments.lf
+new file mode 100644
+index 000000000..516c9b30b
+--- /dev/null
++++ b/components/esp32/ld/esp32_fragments.lf
+@@ -0,0 +1,2 @@
++[sections:text]
++
+diff --git a/components/esp32/linker.lf b/components/esp32/linker.lf
+new file mode 100644
+index 000000000..516c9b30b
+--- /dev/null
++++ b/components/esp32/linker.lf
+@@ -0,0 +1,2 @@
++[sections:text]
++
+diff --git a/components/esp32c3/ld/esp32c3_fragments.lf b/components/esp32c3/ld/esp32c3_fragments.lf
+new file mode 100644
+index 000000000..516c9b30b
+--- /dev/null
++++ b/components/esp32c3/ld/esp32c3_fragments.lf
+@@ -0,0 +1,2 @@
++[sections:text]
++
+diff --git a/components/esp32c3/linker.lf b/components/esp32c3/linker.lf
+new file mode 100644
+index 000000000..516c9b30b
+--- /dev/null
++++ b/components/esp32c3/linker.lf
+@@ -0,0 +1,2 @@
++[sections:text]
++
+diff --git a/components/esp32s2/ld/esp32s2_fragments.lf b/components/esp32s2/ld/esp32s2_fragments.lf
+new file mode 100644
+index 000000000..516c9b30b
+--- /dev/null
++++ b/components/esp32s2/ld/esp32s2_fragments.lf
+@@ -0,0 +1,2 @@
++[sections:text]
++
+diff --git a/components/esp32s2/linker.lf b/components/esp32s2/linker.lf
+new file mode 100644
+index 000000000..516c9b30b
+--- /dev/null
++++ b/components/esp32s2/linker.lf
+@@ -0,0 +1,2 @@
++[sections:text]
++

@@ -1,0 +1,448 @@
+diff --git a/components/riscv/CMakeLists.txt b/components/riscv/CMakeLists.txt
+index 0290ca993..344e418a8 100644
+--- a/components/riscv/CMakeLists.txt
++++ b/components/riscv/CMakeLists.txt
+@@ -9,6 +9,7 @@ else()
+     set(srcs
+         "expression_with_stack_riscv.c"
+         "expression_with_stack_riscv_asm.S"
++        "atomic_emu.c"
+         "instruction_decode.c"
+         "interrupt.c"
+         "stdatomic.c"
+@@ -19,3 +20,5 @@ idf_component_register(SRCS "${srcs}"
+                        LDFRAGMENTS linker.lf
+                        INCLUDE_DIRS "include"
+                        PRIV_REQUIRES ${priv_requires})
++
++target_link_libraries(${COMPONENT_LIB} INTERFACE "-Wl,--undefined=riscv_handle_illegal_instruction")
+diff --git a/components/riscv/atomic_emu.c b/components/riscv/atomic_emu.c
+new file mode 100644
+index 000000000..4a223aa4f
+--- /dev/null
++++ b/components/riscv/atomic_emu.c
+@@ -0,0 +1,150 @@
++// Copyright 2021 Espressif Systems (Shanghai) PTE LTD
++//
++// Licensed under the Apache License, Version 2.0 (the "License");
++// you may not use this file except in compliance with the License.
++// You may obtain a copy of the License at
++//
++//     http://www.apache.org/licenses/LICENSE-2.0
++//
++// Unless required by applicable law or agreed to in writing, software
++// distributed under the License is distributed on an "AS IS" BASIS,
++// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++// See the License for the specific language governing permissions and
++// limitations under the License.
++
++#include <stdint.h>
++#include <stddef.h>
++#include <stdbool.h>
++#include <sys/param.h>
++#include "soc/soc_memory_layout.h"
++#include "riscv/rvruntime-frames.h"
++#include "esp_rom_sys.h"
++
++#ifndef __riscv_atomic
++
++extern void xt_unhandled_exception(void *frame) __attribute__((noreturn));
++
++static uint32_t s_lr_addr;
++
++#define FRAME_AS_U32_ARRAY  ((uint32_t*)frame)
++#define GET_FRAME_REG(n) ((n == 0)?0:FRAME_AS_U32_ARRAY[n])
++#define SET_FRAME_REG(n, val)  \
++    do {\
++        if ((n) > 0) { \
++            FRAME_AS_U32_ARRAY[(n)] = (val); \
++        } \
++    } while(0)
++
++static inline uint32_t min_signed(uint32_t a, uint32_t b)
++{
++    int32_t ia = (int32_t) a;
++    int32_t ib = (int32_t) b;
++    return (uint32_t) MIN(ia, ib);
++}
++
++static inline uint32_t max_signed(uint32_t a, uint32_t b)
++{
++    int32_t ia = (int32_t) a;
++    int32_t ib = (int32_t) b;
++    return (uint32_t) MAX(ia, ib);
++}
++
++static inline uint32_t min_unsigned(uint32_t a, uint32_t b)
++{
++    return MIN(a, b);
++}
++
++static inline uint32_t max_unsigned(uint32_t a, uint32_t b)
++{
++    return MAX(a, b);
++}
++
++
++static bool emulate_atomic(RvExcFrame* frame)
++{
++    const uint32_t* insn_ptr = (const uint32_t*) frame->mepc;
++    if (!esp_ptr_executable(insn_ptr) && ((frame->mepc & 0x3) == 0)) {
++        return false;
++    }
++    const uint32_t insn = *insn_ptr;
++    if ((insn & 0b1111111) != 0b0101111) {
++        return false;
++    }
++    const uint32_t reg_mask = 0b11111;
++    const uint32_t rd = (insn >> 7) & reg_mask;
++    const uint32_t rs1 = (insn >> 15) & reg_mask;
++    const uint32_t rs2 = (insn >> 20) & reg_mask;
++    uint32_t tmp;
++
++    switch (insn >> 27) {
++        case 0b00010: /* LR */
++            s_lr_addr = GET_FRAME_REG(rs1);
++            tmp = *(uint32_t*)(s_lr_addr);
++            SET_FRAME_REG(rd, tmp);
++            return true;
++        case 0b00011: /* SC */
++            tmp = GET_FRAME_REG(rs1);
++            if (tmp != s_lr_addr) {
++                SET_FRAME_REG(rd, 1);
++            } else {
++                *(uint32_t*)(s_lr_addr) = GET_FRAME_REG(rs2);
++                SET_FRAME_REG(rd, 0);
++                s_lr_addr = 0;
++            }
++            return true;
++
++#define  HANDLE_AMO(expr) \
++            do { \
++                tmp = GET_FRAME_REG(rs1); \
++                uint32_t a = *(uint32_t*)tmp; \
++                uint32_t b = GET_FRAME_REG(rs2); \
++                SET_FRAME_REG(rd, a); \
++                *(uint32_t*)(tmp) = (expr); \
++            } while(0)
++
++
++        case 0b00001: /* AMOSWAP */
++            HANDLE_AMO(b);
++            return true;
++        case 0b00000: /* AMOADD */
++            HANDLE_AMO(a + b);
++            return true;
++        case 0b00100: /* AMOXOR */
++            HANDLE_AMO(a ^ b);
++            return true;
++        case 0b01100: /* AMOAND */
++            HANDLE_AMO(a & b);
++            return true;
++        case 0b01000: /* AMOOR */
++            HANDLE_AMO(a | b);
++            return true;
++        case 0b10000: /* AMOMIN */
++            HANDLE_AMO(min_signed(a, b));
++            return true;
++        case 0b10100: /* AMOMAX */
++            HANDLE_AMO(max_signed(a, b));
++            return true;
++        case 0b11000: /* AMOMINU */
++            HANDLE_AMO(min_unsigned(a, b));
++            return true;
++        case 0b11100: /* AMOMAXU */
++            HANDLE_AMO(max_unsigned(a, b));
++            return true;
++
++#undef HANDLE_AMO
++
++        default:
++            return false;
++    }
++    return true;
++}
++
++void riscv_handle_illegal_instruction(RvExcFrame* frame, uint32_t mcause)
++{
++    if (!emulate_atomic(frame)) {
++        xt_unhandled_exception(frame);
++    }
++    frame->mepc += 4;
++}
++
++#endif // __riscv_atomic
+diff --git a/components/riscv/test/CMakeLists.txt b/components/riscv/test/CMakeLists.txt
+new file mode 100644
+index 000000000..2808b98ca
+--- /dev/null
++++ b/components/riscv/test/CMakeLists.txt
+@@ -0,0 +1,6 @@
++idf_component_register(SRC_DIRS "."
++                       PRIV_REQUIRES unity)
++
++set_source_files_properties(test_atomic_emu_helpers.S
++    PROPERTIES COMPILE_FLAGS
++    -march=rv32imac)
+diff --git a/components/riscv/test/test_atomic_emu.c b/components/riscv/test/test_atomic_emu.c
+new file mode 100644
+index 000000000..d96d4a366
+--- /dev/null
++++ b/components/riscv/test/test_atomic_emu.c
+@@ -0,0 +1,23 @@
++#include <assert.h>
++#include "riscv/rvruntime-frames.h"
++#include "unity.h"
++
++#ifndef __riscv_atomic
++
++int _atomic_cas(uint32_t* ptr, uint32_t cmp, uint32_t set);
++uint32_t _atomic_swap(uint32_t* ptr, uint32_t val);
++
++TEST_CASE("risc-v atomics emulation", "[riscv]")
++{
++    volatile uint32_t val = 0;
++    uint32_t *pval = (uint32_t*) &val;
++    TEST_ASSERT_EQUAL(0, _atomic_cas(pval, 0, 1));
++    TEST_ASSERT_NOT_EQUAL(0, _atomic_cas(pval, 0, 1));
++    TEST_ASSERT_EQUAL(0, _atomic_cas(pval, 1, 0));
++
++    TEST_ASSERT_EQUAL(0, _atomic_swap(pval, 1));
++    TEST_ASSERT_EQUAL(1, _atomic_swap(pval, 0));
++    TEST_ASSERT_EQUAL(0, _atomic_swap(pval, 0));
++}
++
++#endif // __riscv_atomic
+diff --git a/components/riscv/test/test_atomic_emu_helpers.S b/components/riscv/test/test_atomic_emu_helpers.S
+new file mode 100644
+index 000000000..329a860e4
+--- /dev/null
++++ b/components/riscv/test/test_atomic_emu_helpers.S
+@@ -0,0 +1,18 @@
++	.global _atomic_cas
++	.type _atomic_cas, @function
++_atomic_cas:
++	lr.w t0, (a0)     // Load original value.
++	bne t0, a1, 1f    // Doesn’t match, so fail.
++	sc.w a0, a2, (a0) // Try to update.
++	ret
++1:
++	li a0, 1          // Set return to failure.
++	ret
++	.size  _atomic_cas, .-_atomic_cas
++
++	.global _atomic_swap
++	.type _atomic_swap, @function
++_atomic_swap:
++	amoswap.w.aq a0, a1, (a0)
++	ret
++	.size  _atomic_swap, .-_atomic_swap
+diff --git a/components/riscv/vectors.S b/components/riscv/vectors.S
+index 2e1c7c477..9e07a4457 100644
+--- a/components/riscv/vectors.S
++++ b/components/riscv/vectors.S
+@@ -23,8 +23,7 @@
+ 	.equ panic_from_exception, xt_unhandled_exception
+ 	.equ panic_from_isr, panicHandler
+ 
+-.macro save_regs
+-	addi sp, sp, -CONTEXT_SIZE
++.macro save_base_regs
+ 	sw   ra,  RV_STK_RA(sp)
+ 	sw   tp,  RV_STK_TP(sp)
+ 	sw   t0,  RV_STK_T0(sp)
+@@ -56,12 +55,35 @@
+ 	sw   t6,  RV_STK_T6(sp)
+ .endm
+ 
++.macro save_regs
++	addi sp, sp, -CONTEXT_SIZE
++	save_base_regs
++.endm
++
+ .macro save_mepc
+ 	csrr t0, mepc
+ 	sw   t0, RV_STK_MEPC(sp)
+ .endm
+ 
+-.macro restore_regs
++/* Registers to be saved in an exception handler */
++.macro save_regs_exc
++	addi sp, sp, -RV_STK_FRMSZ
++	save_base_regs
++	sw   gp,  RV_STK_GP(sp)
++	/* calculate SP value when trap happened */
++	addi t0, sp, RV_STK_FRMSZ
++	sw t0,  RV_STK_SP(sp)
++	save_mepc
++	sw t0,  RV_STK_MSTATUS(sp)
++	csrr t0, mtvec
++	sw t0,  RV_STK_MTVEC(sp)
++	csrr t0, mtval
++	sw t0,  RV_STK_MTVAL(sp)
++	csrr t0, mhartid
++	sw t0,  RV_STK_MHARTID(sp)
++.endm
++
++.macro restore_base_regs
+ 	lw   ra,  RV_STK_RA(sp)
+ 	lw   tp,  RV_STK_TP(sp)
+ 	lw   t0,  RV_STK_T0(sp)
+@@ -91,6 +113,10 @@
+ 	lw   t4,  RV_STK_T4(sp)
+ 	lw   t5,  RV_STK_T5(sp)
+ 	lw   t6,  RV_STK_T6(sp)
++.endm
++
++.macro restore_regs
++	restore_base_regs
+ 	addi sp, sp, CONTEXT_SIZE
+ .endm
+ 
+@@ -99,6 +125,42 @@
+ 	csrw	mepc, t0
+ .endm
+ 
++.macro restore_regs_exc
++	restore_mepc
++	/* MTVEC and SP are assumed to be unmodified.
++	 * MSTATUS, MHARTID, MTVAL are read-only and not restored.
++	 */
++	lw gp,  RV_STK_GP(sp)
++	restore_base_regs
++	addi sp, sp, RV_STK_FRMSZ
++.endm
++
++.macro exc_handler_entry exc_handler_name
++	.weak \exc_handler_name
++	.word \exc_handler_name
++.endm
++
++	.data
++	.global _exc_handlers_table
++_exc_handlers_table:
++	exc_handler_entry riscv_handle_fetch_misaligned
++	exc_handler_entry riscv_handle_fetch_fault
++	exc_handler_entry riscv_handle_illegal_instruction
++	exc_handler_entry riscv_handle_breakpoint
++	exc_handler_entry riscv_handle_load_misaligned
++	exc_handler_entry riscv_handle_load_fault
++	exc_handler_entry riscv_handle_store_misaligned
++	exc_handler_entry riscv_handle_store_fault
++	exc_handler_entry riscv_handle_user_ecall
++	exc_handler_entry riscv_handle_supervisor_ecall
++	exc_handler_entry riscv_handle_hypervisor_ecall
++	exc_handler_entry riscv_handle_machine_ecall
++	exc_handler_entry riscv_handle_exec_page_fault
++	exc_handler_entry riscv_handle_load_page_fault
++	exc_handler_entry riscv_handle_reserved
++	exc_handler_entry riscv_handle_store_page_fault
++	.size _exc_handlers_table, .-_exc_handlers_table
++
+ 	.global rtos_int_enter
+ 	.global rtos_int_exit
+ 	.global _global_interrupt_handler
+@@ -141,74 +203,50 @@ _vector_table:
+ 	/* Exception handler.*/
+ 	.type _panic_handler, @function
+ _panic_handler:
+-	addi sp, sp, -RV_STK_FRMSZ /* allocate space on stack to store necessary registers */
+-	/* save general registers */
+-	sw ra,  RV_STK_RA(sp)
+-	sw gp,  RV_STK_GP(sp)
+-	sw tp,  RV_STK_TP(sp)
+-	sw t0,  RV_STK_T0(sp)
+-	sw t1,  RV_STK_T1(sp)
+-	sw t2,  RV_STK_T2(sp)
+-	sw s0,  RV_STK_S0(sp)
+-	sw s1,  RV_STK_S1(sp)
+-	sw a0,  RV_STK_A0(sp)
+-	sw a1,  RV_STK_A1(sp)
+-	sw a2,  RV_STK_A2(sp)
+-	sw a3,  RV_STK_A3(sp)
+-	sw a4,  RV_STK_A4(sp)
+-	sw a5,  RV_STK_A5(sp)
+-	sw a6,  RV_STK_A6(sp)
+-	sw a7,  RV_STK_A7(sp)
+-	sw s2,  RV_STK_S2(sp)
+-	sw s3,  RV_STK_S3(sp)
+-	sw s4,  RV_STK_S4(sp)
+-	sw s5,  RV_STK_S5(sp)
+-	sw s6,  RV_STK_S6(sp)
+-	sw s7,  RV_STK_S7(sp)
+-	sw s8,  RV_STK_S8(sp)
+-	sw s9,  RV_STK_S9(sp)
+-	sw s10, RV_STK_S10(sp)
+-	sw s11, RV_STK_S11(sp)
+-	sw t3,  RV_STK_T3(sp)
+-	sw t4,  RV_STK_T4(sp)
+-	sw t5,  RV_STK_T5(sp)
+-	sw t6,  RV_STK_T6(sp)
+-	addi t0, sp, RV_STK_FRMSZ /* restore sp with the value when trap happened */
+-	sw t0,  RV_STK_SP(sp)
+-	csrr t0, mepc
+-	sw t0,  RV_STK_MEPC(sp)
+-	csrr t0, mstatus
+-	sw t0,  RV_STK_MSTATUS(sp)
+-	csrr t0, mtvec
+-	sw t0,  RV_STK_MTVEC(sp)
+-	csrr t0, mtval
+-	sw t0,  RV_STK_MTVAL(sp)
+-	csrr t0, mhartid
+-	sw t0,  RV_STK_MHARTID(sp)
+-
++	save_regs_exc
+ 	/* Call panic_from_exception(sp) or panic_from_isr(sp)
+ 	 * depending on whether we have a pseudo excause or not.
+ 	 * If mcause's highest bit is 1, then an interrupt called this routine,
+ 	 * so we have a pseudo excause. Else, it is due to a exception, we don't
+-         * have an pseudo excause */
++	 * have an pseudo excause */
+ 	mv a0, sp
+ 	csrr a1, mcause
+-	/* Branches instructions don't accept immediates values, so use t1 to
+-         * store our comparator */
++	/* Branches instructions don't accept immediates values, so use t0 to
++	 * store our comparator */
+ 	li t0, 0x80000000
+ 	bgeu a1, t0, _call_panic_handler
+ 	sw a1,  RV_STK_MCAUSE(sp)
+-	/* exception_from_panic never returns */
+-	j panic_from_exception
++	/* Jump to _exc_handlers_table[mcause]. This table allows exception handlers
++	 * to be overridden.
++	 * Arguments are: frame pointer, mcause.
++	 */
++	la t1, _exc_handlers_table
++	slli t0, a1, 2
++	add t0, t0, t1
++	lw t0, 0(t0)
++	bnez t0, 1f
++	la t0, panic_from_exception
++1:
++	jalr t0
++	/* We arrive here if the exception handler has returned. */
++	j _return_from_exception
++
+ _call_panic_handler:
+ 	/* Remove highest bit from mcause (a1) register and save it in the
+ 	 * structure */
+ 	not t0, t0
+ 	and a1, a1, t0
+ 	sw a1, RV_STK_MCAUSE(sp)
+-	/* exception_from_isr never returns */
+-	j panic_from_isr
+-	.size  panic_from_isr, .-panic_from_isr
++	jal panic_from_isr
++
++	/* We arrive here if the exception handler has returned. This means that
++	 * the exception was handled, and the execution flow should resume.
++	 * Restore the registers and return from the exception.
++	 */
++_return_from_exception:
++	restore_regs_exc
++	mret
++	.size  _panic_handler, .-_panic_handler
+ 
+ 	/* This is the interrupt handler.
+ 	 * It saves the registers on the stack,
