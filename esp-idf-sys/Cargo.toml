@@ -20,8 +20,6 @@ default = ["std"]
 
 std = []
 
-espidf_master = []
-
 [dependencies]
 mutex-trait = "0.2"
 paste = "1"
