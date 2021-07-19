@@ -4,10 +4,11 @@ version = "0.16.0"
 authors = ["sapir <yasapir@gmail.com>", "Ivan Markov <ivan.markov@gmail.com>"]
 edition = "2018"
 categories = ["embedded", "hardware-support"]
-keywords = ["xtensa", "hal", "esp", "esp32", "esp8266", "idf"]
+keywords = ["hal", "idf", "esp-idf", "esp32"]
 description = "A Hardware abstraction layer for Espressif's ESP family of microcontrollers based on the ESP-IDF framework."
 repository = "https://github.com/ivmarkov/esp-idf-hal"
 license = "MIT"
+readme = "README.md"
 
 # no xtensa in regular compiler yet
 [package.metadata.docs.rs]
@@ -22,8 +23,8 @@ std = ["esp-idf-sys/std"]
 nb = "0.1.2"
 mutex-trait = "0.2"
 embedded-hal = { version = "0.2", features = ["unproven"] }
-esp-idf-sys = {version = "0.16", git = "https://github.com/ivmarkov/esp-idf-sys.git", default-features = false}
-#esp-idf-sys = { version = "*", path = "../esp-idf-sys", default-features = false}
+esp-idf-sys = "0.16"
+#esp-idf-sys = { path = "../esp-idf-sys"}
 
 [dev-dependencies]
 panic-halt = "0.2.0"
