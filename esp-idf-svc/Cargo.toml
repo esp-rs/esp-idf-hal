@@ -4,10 +4,11 @@ version = "0.16.0"
 authors = ["Ivan Markov <ivan.markov@gmail.com>"]
 edition = "2018"
 categories = ["embedded", "hardware-support"]
-keywords = ["xtensa", "hal", "esp", "esp32", "esp8266", "idf"]
+keywords = ["embedded", "svc", "idf", "esp-idf", "esp32"]
 description = "Implementation of the embedded-svc traits for ESP-IDF (Espressif's IoT Development Framework)"
-repository = "https://github.com/ivmarkov/esp-idf-sys"
+repository = "https://github.com/ivmarkov/esp-idf-svc"
 license = "MIT"
+readme = "README.md"
 
 [features]
 default = ["std"]
@@ -22,9 +23,9 @@ libstart = []
 enumset = "1"
 log = "0.4"
 cstr_core = "0.2"
-anyhow = {version = "1.0", features = ["backtrace"], optional = true}
+anyhow = { version = "1.0", features = ["backtrace"], optional = true }
 mutex-trait = "0.2"
-embedded-svc = {version = "0.7", git = "https://github.com/ivmarkov/embedded-svc.git"}
-#embedded-svc = {version = "*", path = "../embedded-svc"}
-esp-idf-sys = {version = "0.16", git = "https://github.com/ivmarkov/esp-idf-sys.git"}
-#esp-idf-sys = {version = "*", path = "../esp-idf-sys"}
+embedded-svc = "0.7"
+#embedded-svc = { path = "../embedded-svc" }
+esp-idf-sys = "0.16"
+#esp-idf-sys = { path = "../esp-idf-sys" }
