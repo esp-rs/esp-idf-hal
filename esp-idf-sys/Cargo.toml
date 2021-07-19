@@ -4,11 +4,12 @@ version = "0.16.1"
 authors = ["Alexey Arbuzov <aarbuzov@termt.com>", "sapir <yasapir@gmail.com>", "Ivan Markov <ivan.markov@gmail.com>"]
 edition = "2018"
 categories = ["embedded", "hardware-support"]
-keywords = ["xtensa", "hal", "esp", "esp32", "esp32s2", "esp8266", "idf", "esp-idf"]
+keywords = ["xtensa", "hal", "esp", "esp32", "esp32s2", "esp32c3", "esp8266", "idf", "esp-idf"]
 description = "Bindings for ESP-IDF (Espressif's IoT Development Framework)"
 repository = "https://github.com/ivmarkov/esp-idf-sys"
-links = "esp_idf"
 license = "MIT"
+readme = "README.md"
+links = "esp_idf"
 
 # No xtensa in regular compiler yet
 [package.metadata.docs.rs]
