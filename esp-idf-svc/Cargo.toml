@@ -1,6 +1,6 @@
 [package]
 name = "esp-idf-svc"
-version = "0.16.0"
+version = "0.16.1"
 authors = ["Ivan Markov <ivan.markov@gmail.com>"]
 edition = "2018"
 categories = ["embedded", "hardware-support"]
@@ -26,6 +26,4 @@ cstr_core = "0.2"
 anyhow = { version = "1.0", features = ["backtrace"], optional = true }
 mutex-trait = "0.2"
 embedded-svc = "0.7"
-#embedded-svc = { path = "../embedded-svc" }
 esp-idf-sys = "0.16"
-#esp-idf-sys = { path = "../esp-idf-sys" }
