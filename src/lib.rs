@@ -10,7 +10,7 @@ cfg_if::cfg_if! {
 
 #[cfg(feature = "ulp")]
 #[macro_use]
-mod ulp;
+pub mod ulp;
 #[cfg(not(feature = "ulp"))]
 pub mod delay;
 pub mod gpio;
