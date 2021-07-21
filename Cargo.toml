@@ -1,6 +1,6 @@
 [package]
 name = "esp-idf-hal"
-version = "0.16.0"
+version = "0.16.1"
 authors = ["sapir <yasapir@gmail.com>", "Ivan Markov <ivan.markov@gmail.com>"]
 edition = "2018"
 categories = ["embedded", "hardware-support"]
@@ -15,16 +15,15 @@ readme = "README.md"
 default-target = "x86_64-unknown-linux-gnu"
 
 [features]
-default = ["std"]
+default = ["std", "esp-idf-sys"]
 
 std = ["esp-idf-sys/std"]
 
+ulp = [] # Early experiment, not working yet
+
 [dependencies]
+cfg-if = "1"
 nb = "0.1.2"
 mutex-trait = "0.2"
 embedded-hal = { version = "0.2", features = ["unproven"] }
-esp-idf-sys = "0.16"
-#esp-idf-sys = { path = "../esp-idf-sys"}
-
-[dev-dependencies]
-panic-halt = "0.2.0"
+esp-idf-sys = { version = "0.16", optional = true, default-features = false }

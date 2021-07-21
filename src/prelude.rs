@@ -6,14 +6,7 @@
 //!
 //! This can be imported as use `esp_idf_hal::prelude::*`.
 
-//#[cfg(feature = "rt")]
-//pub use xtensa_lx_rt::{entry, exception};
-
 pub use crate::peripherals::*;
-//pub use crate::analog::SensExt;
-//pub use crate::gpio::GpioExt;
-//pub use crate::interrupt;
-//pub use crate::proc_macros::*;
 pub use crate::units::*;
 
 pub use embedded_hal::digital::v2::InputPin as _;
@@ -22,6 +15,3 @@ pub use embedded_hal::digital::v2::StatefulOutputPin as _;
 pub use embedded_hal::digital::v2::ToggleableOutputPin as _;
 pub use embedded_hal::prelude::*;
 pub use embedded_hal::timer::{Cancel, CountDown, Periodic};
-
-//pub use xtensa_lx::mutex::mutex_trait::prelude::*;
-//pub use xtensa_lx::mutex::CriticalSectionSpinLockMutex;

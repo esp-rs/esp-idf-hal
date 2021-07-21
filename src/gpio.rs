@@ -15,7 +15,11 @@ use {
     embedded_hal::digital::v2::{OutputPin as _, StatefulOutputPin as _},
 };
 
+#[cfg(not(feature = "ulp"))]
 use esp_idf_sys::*;
+
+#[cfg(feature = "ulp")]
+use crate::ulp::sys::*;
 
 /// Extension trait to split a GPIO peripheral into independent pins and registers
 pub trait GpioExt {
@@ -95,6 +99,7 @@ pub struct Unknown;
 /// GPIO with edge triggering on the CPU.*
 //
 // Value must correspond to values in the register
+#[cfg(not(feature = "ulp"))]
 #[derive(Copy, Clone)]
 pub enum Event {
     /// Trigger on the rising edge
@@ -184,8 +189,6 @@ macro_rules! impl_hal_output_pin {
         }
 
         impl embedded_hal::digital::v2::StatefulOutputPin for $pxi<$mode> {
-            //type Error = Infallible;
-
             fn is_set_high(&self) -> Result<bool, Self::Error> {
                 Ok(unsafe { gpio_get_level($pxi::<$mode>::pin()) } != 0)
             }
