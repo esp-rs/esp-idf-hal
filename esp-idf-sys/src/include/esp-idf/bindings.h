@@ -4,6 +4,7 @@
 #include "esp_log.h"
 #include "esp_debug_helpers.h"
 
+#include "esp_sleep.h"
 #include "esp_task.h"
 #include "esp_task_wdt.h"
 #include "esp_timer.h"
@@ -75,6 +76,19 @@
 
 #include "pthread.h"
 #include "esp_pthread.h"
+
+#ifdef CONFIG_IDF_TARGET_ESP32
+#include "esp32/ulp.h"
+#endif
+
+#ifdef CONFIG_IDF_TARGET_ESP32S2
+#include "esp32s2/ulp.h"
+#include "esp32s2/ulp_riscv.h"
+#endif
+
+#ifdef CONFIG_IDF_TARGET_ESP32S3
+#include "esp32s3/ulp.h"
+#endif
 
 #ifndef CONFIG_IDF_TARGET_ESP32S2 // No BT in ESP32-S2
 
