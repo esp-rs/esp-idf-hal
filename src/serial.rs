@@ -256,8 +256,8 @@ pub struct Pins<
     TX: OutputPin,
     RX: InputPin,
     // default pins to allow type inference
-    CTS: InputPin = crate::gpio::Gpio19<crate::gpio::Input>,
-    RTS: OutputPin = crate::gpio::Gpio22<crate::gpio::Output>,
+    CTS: InputPin = crate::gpio::Gpio1<crate::gpio::Input>,
+    RTS: OutputPin = crate::gpio::Gpio2<crate::gpio::Output>,
 > {
     pub tx: TX,
     pub rx: RX,
@@ -276,8 +276,8 @@ pub struct Serial<
     TX: OutputPin,
     RX: InputPin,
     // default pins to allow type inference
-    CTS: InputPin = crate::gpio::Gpio19<crate::gpio::Input>,
-    RTS: OutputPin = crate::gpio::Gpio22<crate::gpio::Output>,
+    CTS: InputPin = crate::gpio::Gpio1<crate::gpio::Input>,
+    RTS: OutputPin = crate::gpio::Gpio2<crate::gpio::Output>,
 > {
     uart: UART,
     pins: Pins<TX, RX, CTS, RTS>,

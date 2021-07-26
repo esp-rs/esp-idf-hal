@@ -1,5 +1,4 @@
 #![feature(llvm_asm)]
-
 #![cfg_attr(not(feature = "std"), no_std)]
 
 cfg_if::cfg_if! {
@@ -8,7 +7,6 @@ cfg_if::cfg_if! {
     }
 }
 
-#[cfg(feature = "ulp")]
 #[macro_use]
 pub mod ulp;
 #[cfg(not(feature = "ulp"))]

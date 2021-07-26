@@ -10,16 +10,15 @@
 //! The advantage of using the dedicated traits in peripherals is that the configuration of the
 //! IO can be done inside the peripheral instead of having to be done upfront.
 
-use {
-    core::marker::PhantomData,
-    embedded_hal::digital::v2::{OutputPin as _, StatefulOutputPin as _},
-};
+use core::marker::PhantomData;
 
 #[cfg(not(feature = "ulp"))]
 use esp_idf_sys::*;
 
 #[cfg(feature = "ulp")]
 use crate::ulp::sys::*;
+
+pub use chip::*;
 
 /// Extension trait to split a GPIO peripheral into independent pins and registers
 pub trait GpioExt {
@@ -164,7 +163,7 @@ macro_rules! impl_hal_input_pin {
             type Error = EspError;
 
             fn is_high(&self) -> Result<bool, Self::Error> {
-                Ok(unsafe { gpio_get_level($pxi::<$mode>::pin()) } != 0)
+                Ok(unsafe { gpio_get_level($pxi::<$mode>::runtime_pin()) } != 0)
             }
 
             fn is_low(&self) -> Result<bool, Self::Error> {
@@ -180,17 +179,23 @@ macro_rules! impl_hal_output_pin {
             type Error = EspError;
 
             fn set_high(&mut self) -> Result<(), Self::Error> {
-                esp_result!(unsafe { gpio_set_level($pxi::<$mode>::pin(), 1) }, ())
+                esp_result!(
+                    unsafe { gpio_set_level($pxi::<$mode>::runtime_pin(), 1) },
+                    ()
+                )
             }
 
             fn set_low(&mut self) -> Result<(), Self::Error> {
-                esp_result!(unsafe { gpio_set_level($pxi::<$mode>::pin(), 0) }, ())
+                esp_result!(
+                    unsafe { gpio_set_level($pxi::<$mode>::runtime_pin(), 0) },
+                    ()
+                )
             }
         }
 
         impl embedded_hal::digital::v2::StatefulOutputPin for $pxi<$mode> {
             fn is_set_high(&self) -> Result<bool, Self::Error> {
-                Ok(unsafe { gpio_get_level($pxi::<$mode>::pin()) } != 0)
+                Ok(unsafe { gpio_get_level($pxi::<$mode>::runtime_pin()) } != 0)
             }
 
             fn is_set_low(&self) -> Result<bool, Self::Error> {
@@ -220,7 +225,10 @@ macro_rules! impl_pull {
             fn set_pull_up(&mut self) -> Result<&mut Self, Self::Error> {
                 esp_result!(
                     unsafe {
-                        gpio_set_pull_mode($pxi::<$mode>::pin(), gpio_pull_mode_t_GPIO_PULLUP_ONLY)
+                        gpio_set_pull_mode(
+                            $pxi::<$mode>::runtime_pin(),
+                            gpio_pull_mode_t_GPIO_PULLUP_ONLY,
+                        )
                     },
                     self
                 )
@@ -230,7 +238,7 @@ macro_rules! impl_pull {
                 esp_result!(
                     unsafe {
                         gpio_set_pull_mode(
-                            $pxi::<$mode>::pin(),
+                            $pxi::<$mode>::runtime_pin(),
                             gpio_pull_mode_t_GPIO_PULLDOWN_ONLY,
                         )
                     },
@@ -242,7 +250,7 @@ macro_rules! impl_pull {
                 esp_result!(
                     unsafe {
                         gpio_set_pull_mode(
-                            $pxi::<$mode>::pin(),
+                            $pxi::<$mode>::runtime_pin(),
                             gpio_pull_mode_t_GPIO_PULLUP_PULLDOWN,
                         )
                     },
@@ -253,7 +261,10 @@ macro_rules! impl_pull {
             fn set_floating(&mut self) -> Result<&mut Self, Self::Error> {
                 esp_result!(
                     unsafe {
-                        gpio_set_pull_mode($pxi::<$mode>::pin(), gpio_pull_mode_t_GPIO_FLOATING)
+                        gpio_set_pull_mode(
+                            $pxi::<$mode>::runtime_pin(),
+                            gpio_pull_mode_t_GPIO_FLOATING,
+                        )
                     },
                     self
                 )
@@ -266,6 +277,14 @@ macro_rules! impl_input_base {
     ($pxi:ident: $pin:expr) => {
         pub struct $pxi<MODE> {
             _mode: PhantomData<MODE>,
+        }
+
+        #[cfg(not(feature = "ulp"))]
+        impl<MODE> $pxi<MODE> {
+            #[inline(always)]
+            fn runtime_pin() -> i32 {
+                $pin
+            }
         }
 
         impl<MODE> Pin for $pxi<MODE> {
@@ -287,6 +306,7 @@ macro_rules! impl_input_base {
     };
 }
 
+#[allow(unused)]
 macro_rules! impl_input_only {
     ($pxi:ident: $pin:expr) => {
         impl_input_base!($pxi: $pin);
@@ -299,7 +319,10 @@ macro_rules! impl_input_only {
             pub fn into_disabled(self) -> Result<$pxi<Disabled>, EspError> {
                 esp_result!(
                     unsafe {
-                        gpio_set_direction($pxi::<MODE>::pin(), gpio_mode_t_GPIO_MODE_DISABLE)
+                        gpio_set_direction(
+                            $pxi::<MODE>::runtime_pin(),
+                            gpio_mode_t_GPIO_MODE_DISABLE,
+                        )
                     },
                     $pxi { _mode: PhantomData }
                 )
@@ -307,7 +330,9 @@ macro_rules! impl_input_only {
 
             pub fn into_input(self) -> Result<$pxi<Input>, EspError> {
                 esp_result!(
-                    unsafe { gpio_set_direction($pxi::<MODE>::pin(), gpio_mode_t_GPIO_MODE_INPUT) },
+                    unsafe {
+                        gpio_set_direction($pxi::<MODE>::runtime_pin(), gpio_mode_t_GPIO_MODE_INPUT)
+                    },
                     $pxi { _mode: PhantomData }
                 )
             }
@@ -335,7 +360,10 @@ macro_rules! impl_input_output {
             pub fn into_disabled(self) -> Result<$pxi<Disabled>, EspError> {
                 esp_result!(
                     unsafe {
-                        gpio_set_direction($pxi::<MODE>::pin(), gpio_mode_t_GPIO_MODE_DISABLE)
+                        gpio_set_direction(
+                            $pxi::<MODE>::runtime_pin(),
+                            gpio_mode_t_GPIO_MODE_DISABLE,
+                        )
                     },
                     $pxi { _mode: PhantomData }
                 )
@@ -343,7 +371,9 @@ macro_rules! impl_input_output {
 
             pub fn into_input(self) -> Result<$pxi<Input>, EspError> {
                 esp_result!(
-                    unsafe { gpio_set_direction($pxi::<MODE>::pin(), gpio_mode_t_GPIO_MODE_INPUT) },
+                    unsafe {
+                        gpio_set_direction($pxi::<MODE>::runtime_pin(), gpio_mode_t_GPIO_MODE_INPUT)
+                    },
                     $pxi { _mode: PhantomData }
                 )
             }
@@ -351,7 +381,10 @@ macro_rules! impl_input_output {
             pub fn into_input_output(self) -> Result<$pxi<InputOutput>, EspError> {
                 esp_result!(
                     unsafe {
-                        gpio_set_direction($pxi::<MODE>::pin(), gpio_mode_t_GPIO_MODE_INPUT_OUTPUT)
+                        gpio_set_direction(
+                            $pxi::<MODE>::runtime_pin(),
+                            gpio_mode_t_GPIO_MODE_INPUT_OUTPUT,
+                        )
                     },
                     $pxi { _mode: PhantomData }
                 )
@@ -361,7 +394,7 @@ macro_rules! impl_input_output {
                 esp_result!(
                     unsafe {
                         gpio_set_direction(
-                            $pxi::<MODE>::pin(),
+                            $pxi::<MODE>::runtime_pin(),
                             gpio_mode_t_GPIO_MODE_INPUT_OUTPUT_OD,
                         )
                     },
@@ -372,7 +405,10 @@ macro_rules! impl_input_output {
             pub fn into_output(self) -> Result<$pxi<Output>, EspError> {
                 esp_result!(
                     unsafe {
-                        gpio_set_direction($pxi::<MODE>::pin(), gpio_mode_t_GPIO_MODE_OUTPUT)
+                        gpio_set_direction(
+                            $pxi::<MODE>::runtime_pin(),
+                            gpio_mode_t_GPIO_MODE_OUTPUT,
+                        )
                     },
                     $pxi { _mode: PhantomData }
                 )
@@ -381,7 +417,10 @@ macro_rules! impl_input_output {
             pub fn into_output_od(self) -> Result<$pxi<Output>, EspError> {
                 esp_result!(
                     unsafe {
-                        gpio_set_direction($pxi::<MODE>::pin(), gpio_mode_t_GPIO_MODE_OUTPUT_OD)
+                        gpio_set_direction(
+                            $pxi::<MODE>::runtime_pin(),
+                            gpio_mode_t_GPIO_MODE_OUTPUT_OD,
+                        )
                     },
                     $pxi { _mode: PhantomData }
                 )
@@ -391,7 +430,15 @@ macro_rules! impl_input_output {
 }
 
 macro_rules! impl_rtc {
-    ($pxi:ident: $pin:expr, RTC:$rtc:expr) => {
+    ($pxi:ident: $pin:expr, RTC: $rtc:expr) => {
+        #[cfg(feature = "ulp")]
+        impl<MODE> $pxi<MODE> {
+            #[inline(always)]
+            fn runtime_pin() -> i32 {
+                $rtc
+            }
+        }
+
         impl<MODE> RTCPin for $pxi<MODE> {
             fn rtc_pin() -> i32 {
                 $rtc
@@ -399,11 +446,11 @@ macro_rules! impl_rtc {
         }
     };
 
-    ($pxi:ident: $pin:expr, NORTC:$rtc:expr) => {};
+    ($pxi:ident: $pin:expr, NORTC: $rtc:expr) => {};
 }
 
 macro_rules! impl_adc {
-    ($pxi:ident: $pin:expr, ADC1:$adc:expr) => {
+    ($pxi:ident: $pin:expr, ADC1: $adc:expr) => {
         impl<MODE> ADCPin for $pxi<MODE> {
             fn adc_unit() -> adc_unit_t {
                 adc_unit_t_ADC_UNIT_1
@@ -415,7 +462,7 @@ macro_rules! impl_adc {
         }
     };
 
-    ($pxi:ident: $pin:expr, ADC2:$adc:expr) => {
+    ($pxi:ident: $pin:expr, ADC2: $adc:expr) => {
         impl<MODE> ADCPin for $pxi<MODE> {
             fn adc_unit() -> adc_unit_t {
                 adc_unit_t_ADC_UNIT_2
@@ -427,11 +474,11 @@ macro_rules! impl_adc {
         }
     };
 
-    ($pxi:ident: $pin:expr, NOADC:$adc:expr) => {};
+    ($pxi:ident: $pin:expr, NOADC: $adc:expr) => {};
 }
 
 macro_rules! impl_dac {
-    ($pxi:ident: $pin:expr, DAC:$dac:expr) => {
+    ($pxi:ident: $pin:expr, DAC: $dac:expr) => {
         #[cfg(not(esp32c3))]
         impl<MODE> DACPin for $pxi<MODE> {
             fn dac_channel() -> dac_channel_t {
@@ -440,11 +487,11 @@ macro_rules! impl_dac {
         }
     };
 
-    ($pxi:ident: $pin:expr, NODAC:$dac:expr) => {};
+    ($pxi:ident: $pin:expr, NODAC: $dac:expr) => {};
 }
 
 macro_rules! impl_touch {
-    ($pxi:ident: $pin:expr, TOUCH:$touch:expr) => {
+    ($pxi:ident: $pin:expr, TOUCH: $touch:expr) => {
         #[cfg(not(esp32c3))]
         impl<MODE> TouchPin for $pxi<MODE> {
             fn touch_channel() -> touch_pad_t {
@@ -453,11 +500,11 @@ macro_rules! impl_touch {
         }
     };
 
-    ($pxi:ident: $pin:expr, NOTOUCH:$touch:expr) => {};
+    ($pxi:ident: $pin:expr, NOTOUCH: $touch:expr) => {};
 }
 
 macro_rules! pin {
-    ($pxi:ident: $pin:expr, Input, $rtc:ident:$rtcno:expr, $adc:ident:$adcno:expr, $dac:ident:$dacno:expr, $touch:ident:$touchno:expr) => {
+    ($pxi:ident: $pin:expr, Input, $rtc:ident: $rtcno:expr, $adc:ident: $adcno:expr, $dac:ident: $dacno:expr, $touch:ident: $touchno:expr) => {
         impl_input_only!($pxi: $pin);
         impl_rtc!($pxi: $pin, $rtc: $rtcno);
         impl_adc!($pxi: $pin, $adc: $adcno);
@@ -465,7 +512,7 @@ macro_rules! pin {
         impl_touch!($pxi: $pin, $touch: $touchno);
     };
 
-    ($pxi:ident: $pin:expr, IO, $rtc:ident:$rtcno:expr, $adc:ident:$adcno:expr, $dac:ident:$dacno:expr, $touch:ident:$touchno:expr) => {
+    ($pxi:ident: $pin:expr, IO, $rtc:ident: $rtcno:expr, $adc:ident: $adcno:expr, $dac:ident: $dacno:expr, $touch:ident: $touchno:expr) => {
         impl_input_output!($pxi: $pin);
         impl_rtc!($pxi: $pin, $rtc: $rtcno);
         impl_adc!($pxi: $pin, $adc: $adcno);
@@ -474,112 +521,429 @@ macro_rules! pin {
     };
 }
 
-// TODO: Separate pin layout for esp32s2, esp32s3 and esp32c3
-pin!(Gpio0:0, IO, RTC:11, ADC2:1, NODAC:0, TOUCH:1);
-pin!(Gpio1:1, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
-pin!(Gpio2:2, IO, RTC:12, ADC2:2, NODAC:0, TOUCH:2);
-pin!(Gpio3:3, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
-pin!(Gpio4:4, IO, RTC:10, ADC2:0, NODAC:0, TOUCH:0);
-pin!(Gpio5:5, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
-pin!(Gpio6:6, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
-pin!(Gpio7:7, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
-pin!(Gpio8:8, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
-pin!(Gpio9:9, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
-pin!(Gpio10:10, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
-pin!(Gpio11:11, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
-pin!(Gpio12:12, IO, RTC:15, ADC2:5, NODAC:0, TOUCH:5);
-pin!(Gpio13:13, IO, RTC:14, ADC2:4, NODAC:0, TOUCH:4);
-pin!(Gpio14:14, IO, RTC:16, ADC2:6, NODAC:0, TOUCH:6);
-pin!(Gpio15:15, IO, RTC:13, ADC2:3, NODAC:0, TOUCH:3);
-pin!(Gpio16:16, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
-pin!(Gpio17:17, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
-pin!(Gpio18:18, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
-pin!(Gpio19:19, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
-pin!(Gpio21:21, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
-pin!(Gpio22:22, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
-pin!(Gpio23:23, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
-pin!(Gpio25:25, IO, RTC:6, ADC2:8, DAC:1, NOTOUCH:0);
-pin!(Gpio26:26, IO, RTC:7, ADC2:9, DAC:2, NOTOUCH:0);
-pin!(Gpio27:27, IO, RTC:17, ADC2:7, NODAC:0, TOUCH:7);
-pin!(Gpio32:32, IO, RTC:9, ADC1:4, NODAC:0, TOUCH:9);
-pin!(Gpio33:33, IO, RTC:8, ADC1:5, NODAC:0, TOUCH:8);
-pin!(Gpio34:34, Input, RTC:4, ADC1:6, NODAC:0, NOTOUCH:0);
-pin!(Gpio35:35, Input, RTC:5, ADC1:7, NODAC:0, NOTOUCH:0);
-pin!(Gpio36:36, Input, RTC:0, ADC1:0, NODAC:0, NOTOUCH:0);
-pin!(Gpio39:39, Input, RTC:3, ADC1:3, NODAC:0, NOTOUCH:0);
+#[cfg(esp32)]
+mod chip {
+    use {
+        core::marker::PhantomData,
+        embedded_hal::digital::v2::{OutputPin as _, StatefulOutputPin as _},
+    };
 
-// Not mapped: 20, 24, 28, 29, 30, 31, 37, 38
+    #[cfg(not(feature = "ulp"))]
+    use esp_idf_sys::*;
 
-pub struct Pins {
-    pub gpio0: Gpio0<Unknown>,
-    pub gpio1: Gpio1<Unknown>,
-    pub gpio2: Gpio2<Unknown>,
-    pub gpio3: Gpio3<Unknown>,
-    pub gpio4: Gpio4<Unknown>,
-    pub gpio5: Gpio5<Unknown>,
-    pub gpio6: Gpio6<Unknown>,
-    pub gpio7: Gpio7<Unknown>,
-    pub gpio8: Gpio8<Unknown>,
-    pub gpio9: Gpio9<Unknown>,
-    pub gpio10: Gpio10<Unknown>,
-    pub gpio11: Gpio11<Unknown>,
-    pub gpio12: Gpio12<Unknown>,
-    pub gpio13: Gpio13<Unknown>,
-    pub gpio14: Gpio14<Unknown>,
-    pub gpio15: Gpio15<Unknown>,
-    pub gpio16: Gpio16<Unknown>,
-    pub gpio17: Gpio17<Unknown>,
-    pub gpio18: Gpio18<Unknown>,
-    pub gpio19: Gpio19<Unknown>,
-    pub gpio21: Gpio21<Unknown>,
-    pub gpio22: Gpio22<Unknown>,
-    pub gpio23: Gpio23<Unknown>,
-    pub gpio25: Gpio25<Unknown>,
-    pub gpio26: Gpio26<Unknown>,
-    pub gpio27: Gpio27<Unknown>,
-    pub gpio32: Gpio32<Unknown>,
-    pub gpio33: Gpio33<Unknown>,
-    pub gpio34: Gpio34<Unknown>,
-    pub gpio35: Gpio35<Unknown>,
-    pub gpio36: Gpio36<Unknown>,
-    pub gpio39: Gpio39<Unknown>,
+    #[cfg(feature = "ulp")]
+    use crate::ulp::sys::*;
+
+    use super::*;
+
+    // Not mapped: 20, 24, 28, 29, 30, 31, 37, 38
+    pin!(Gpio0:0, IO, RTC:11, ADC2:1, NODAC:0, TOUCH:1);
+    #[cfg(not(feature = "ulp"))]
+    pin!(Gpio1:1, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
+    pin!(Gpio2:2, IO, RTC:12, ADC2:2, NODAC:0, TOUCH:2);
+    #[cfg(not(feature = "ulp"))]
+    pin!(Gpio3:3, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
+    pin!(Gpio4:4, IO, RTC:10, ADC2:0, NODAC:0, TOUCH:0);
+    #[cfg(not(feature = "ulp"))]
+    pin!(Gpio5:5, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
+    #[cfg(not(feature = "ulp"))]
+    pin!(Gpio6:6, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
+    #[cfg(not(feature = "ulp"))]
+    pin!(Gpio7:7, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
+    #[cfg(not(feature = "ulp"))]
+    pin!(Gpio8:8, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
+    #[cfg(not(feature = "ulp"))]
+    pin!(Gpio9:9, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
+    #[cfg(not(feature = "ulp"))]
+    pin!(Gpio10:10, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
+    #[cfg(not(feature = "ulp"))]
+    pin!(Gpio11:11, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
+    pin!(Gpio12:12, IO, RTC:15, ADC2:5, NODAC:0, TOUCH:5);
+    pin!(Gpio13:13, IO, RTC:14, ADC2:4, NODAC:0, TOUCH:4);
+    pin!(Gpio14:14, IO, RTC:16, ADC2:6, NODAC:0, TOUCH:6);
+    pin!(Gpio15:15, IO, RTC:13, ADC2:3, NODAC:0, TOUCH:3);
+    #[cfg(not(feature = "ulp"))]
+    pin!(Gpio16:16, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
+    #[cfg(not(feature = "ulp"))]
+    pin!(Gpio17:17, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
+    #[cfg(not(feature = "ulp"))]
+    pin!(Gpio18:18, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
+    #[cfg(not(feature = "ulp"))]
+    pin!(Gpio19:19, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
+    #[cfg(not(feature = "ulp"))]
+    pin!(Gpio21:21, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
+    #[cfg(not(feature = "ulp"))]
+    pin!(Gpio22:22, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
+    #[cfg(not(feature = "ulp"))]
+    pin!(Gpio23:23, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
+    pin!(Gpio25:25, IO, RTC:6, ADC2:8, DAC:1, NOTOUCH:0);
+    pin!(Gpio26:26, IO, RTC:7, ADC2:9, DAC:2, NOTOUCH:0);
+    pin!(Gpio27:27, IO, RTC:17, ADC2:7, NODAC:0, TOUCH:7);
+    pin!(Gpio32:32, IO, RTC:9, ADC1:4, NODAC:0, TOUCH:9);
+    pin!(Gpio33:33, IO, RTC:8, ADC1:5, NODAC:0, TOUCH:8);
+    pin!(Gpio34:34, Input, RTC:4, ADC1:6, NODAC:0, NOTOUCH:0);
+    pin!(Gpio35:35, Input, RTC:5, ADC1:7, NODAC:0, NOTOUCH:0);
+    pin!(Gpio36:36, Input, RTC:0, ADC1:0, NODAC:0, NOTOUCH:0);
+    pin!(Gpio39:39, Input, RTC:3, ADC1:3, NODAC:0, NOTOUCH:0);
+
+    pub struct Pins {
+        pub gpio0: Gpio0<Unknown>,
+        #[cfg(not(feature = "ulp"))]
+        pub gpio1: Gpio1<Unknown>,
+        pub gpio2: Gpio2<Unknown>,
+        #[cfg(not(feature = "ulp"))]
+        pub gpio3: Gpio3<Unknown>,
+        pub gpio4: Gpio4<Unknown>,
+        #[cfg(not(feature = "ulp"))]
+        pub gpio5: Gpio5<Unknown>,
+        #[cfg(not(feature = "ulp"))]
+        pub gpio6: Gpio6<Unknown>,
+        #[cfg(not(feature = "ulp"))]
+        pub gpio7: Gpio7<Unknown>,
+        #[cfg(not(feature = "ulp"))]
+        pub gpio8: Gpio8<Unknown>,
+        #[cfg(not(feature = "ulp"))]
+        pub gpio9: Gpio9<Unknown>,
+        #[cfg(not(feature = "ulp"))]
+        pub gpio10: Gpio10<Unknown>,
+        #[cfg(not(feature = "ulp"))]
+        pub gpio11: Gpio11<Unknown>,
+        pub gpio12: Gpio12<Unknown>,
+        pub gpio13: Gpio13<Unknown>,
+        pub gpio14: Gpio14<Unknown>,
+        pub gpio15: Gpio15<Unknown>,
+        #[cfg(not(feature = "ulp"))]
+        pub gpio16: Gpio16<Unknown>,
+        #[cfg(not(feature = "ulp"))]
+        pub gpio17: Gpio17<Unknown>,
+        #[cfg(not(feature = "ulp"))]
+        pub gpio18: Gpio18<Unknown>,
+        #[cfg(not(feature = "ulp"))]
+        pub gpio19: Gpio19<Unknown>,
+        #[cfg(not(feature = "ulp"))]
+        pub gpio21: Gpio21<Unknown>,
+        #[cfg(not(feature = "ulp"))]
+        pub gpio22: Gpio22<Unknown>,
+        #[cfg(not(feature = "ulp"))]
+        pub gpio23: Gpio23<Unknown>,
+        pub gpio25: Gpio25<Unknown>,
+        pub gpio26: Gpio26<Unknown>,
+        pub gpio27: Gpio27<Unknown>,
+        pub gpio32: Gpio32<Unknown>,
+        pub gpio33: Gpio33<Unknown>,
+        pub gpio34: Gpio34<Unknown>,
+        pub gpio35: Gpio35<Unknown>,
+        pub gpio36: Gpio36<Unknown>,
+        pub gpio39: Gpio39<Unknown>,
+    }
+
+    impl Pins {
+        pub unsafe fn new() -> Self {
+            Self {
+                gpio0: Gpio0::<Unknown>::new(),
+                #[cfg(not(feature = "ulp"))]
+                gpio1: Gpio1::<Unknown>::new(),
+                gpio2: Gpio2::<Unknown>::new(),
+                #[cfg(not(feature = "ulp"))]
+                gpio3: Gpio3::<Unknown>::new(),
+                gpio4: Gpio4::<Unknown>::new(),
+                #[cfg(not(feature = "ulp"))]
+                gpio5: Gpio5::<Unknown>::new(),
+                #[cfg(not(feature = "ulp"))]
+                gpio6: Gpio6::<Unknown>::new(),
+                #[cfg(not(feature = "ulp"))]
+                gpio7: Gpio7::<Unknown>::new(),
+                #[cfg(not(feature = "ulp"))]
+                gpio8: Gpio8::<Unknown>::new(),
+                #[cfg(not(feature = "ulp"))]
+                gpio9: Gpio9::<Unknown>::new(),
+                #[cfg(not(feature = "ulp"))]
+                gpio10: Gpio10::<Unknown>::new(),
+                #[cfg(not(feature = "ulp"))]
+                gpio11: Gpio11::<Unknown>::new(),
+                gpio12: Gpio12::<Unknown>::new(),
+                gpio13: Gpio13::<Unknown>::new(),
+                gpio14: Gpio14::<Unknown>::new(),
+                gpio15: Gpio15::<Unknown>::new(),
+                #[cfg(not(feature = "ulp"))]
+                gpio16: Gpio16::<Unknown>::new(),
+                #[cfg(not(feature = "ulp"))]
+                gpio17: Gpio17::<Unknown>::new(),
+                #[cfg(not(feature = "ulp"))]
+                gpio18: Gpio18::<Unknown>::new(),
+                #[cfg(not(feature = "ulp"))]
+                gpio19: Gpio19::<Unknown>::new(),
+                #[cfg(not(feature = "ulp"))]
+                gpio21: Gpio21::<Unknown>::new(),
+                #[cfg(not(feature = "ulp"))]
+                gpio22: Gpio22::<Unknown>::new(),
+                #[cfg(not(feature = "ulp"))]
+                gpio23: Gpio23::<Unknown>::new(),
+                gpio25: Gpio25::<Unknown>::new(),
+                gpio26: Gpio26::<Unknown>::new(),
+                gpio27: Gpio27::<Unknown>::new(),
+                gpio32: Gpio32::<Unknown>::new(),
+                gpio33: Gpio33::<Unknown>::new(),
+                gpio34: Gpio34::<Unknown>::new(),
+                gpio35: Gpio35::<Unknown>::new(),
+                gpio36: Gpio36::<Unknown>::new(),
+                gpio39: Gpio39::<Unknown>::new(),
+            }
+        }
+    }
 }
 
-impl Pins {
-    pub unsafe fn new() -> Self {
-        Self {
-            gpio0: Gpio0::<Unknown>::new(),
-            gpio1: Gpio1::<Unknown>::new(),
-            gpio2: Gpio2::<Unknown>::new(),
-            gpio3: Gpio3::<Unknown>::new(),
-            gpio4: Gpio4::<Unknown>::new(),
-            gpio5: Gpio5::<Unknown>::new(),
-            gpio6: Gpio6::<Unknown>::new(),
-            gpio7: Gpio7::<Unknown>::new(),
-            gpio8: Gpio8::<Unknown>::new(),
-            gpio9: Gpio9::<Unknown>::new(),
-            gpio10: Gpio10::<Unknown>::new(),
-            gpio11: Gpio11::<Unknown>::new(),
-            gpio12: Gpio12::<Unknown>::new(),
-            gpio13: Gpio13::<Unknown>::new(),
-            gpio14: Gpio14::<Unknown>::new(),
-            gpio15: Gpio15::<Unknown>::new(),
-            gpio16: Gpio16::<Unknown>::new(),
-            gpio17: Gpio17::<Unknown>::new(),
-            gpio18: Gpio18::<Unknown>::new(),
-            gpio19: Gpio19::<Unknown>::new(),
-            gpio21: Gpio21::<Unknown>::new(),
-            gpio22: Gpio22::<Unknown>::new(),
-            gpio23: Gpio23::<Unknown>::new(),
-            gpio25: Gpio25::<Unknown>::new(),
-            gpio26: Gpio26::<Unknown>::new(),
-            gpio27: Gpio27::<Unknown>::new(),
-            gpio32: Gpio32::<Unknown>::new(),
-            gpio33: Gpio33::<Unknown>::new(),
-            gpio34: Gpio34::<Unknown>::new(),
-            gpio35: Gpio35::<Unknown>::new(),
-            gpio36: Gpio36::<Unknown>::new(),
-            gpio39: Gpio39::<Unknown>::new(),
+#[cfg(any(esp32s2, esp32s3))]
+mod chip {
+    use {
+        core::marker::PhantomData,
+        embedded_hal::digital::v2::{OutputPin as _, StatefulOutputPin as _},
+    };
+
+    #[cfg(not(feature = "ulp"))]
+    use esp_idf_sys::*;
+
+    #[cfg(feature = "ulp")]
+    use crate::ulp::sys::*;
+
+    use super::*;
+
+    // Not mapped: 22 - 25, 27 - 32
+    pin!(Gpio0:0, IO, RTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
+    pin!(Gpio1:1, IO, RTC:1, ADC1:0, NODAC:0, TOUCH:1);
+    pin!(Gpio2:2, IO, RTC:2, ADC1:1, NODAC:0, TOUCH:2);
+    pin!(Gpio3:3, IO, RTC:3, ADC1:2, NODAC:0, TOUCH:3);
+    pin!(Gpio4:4, IO, RTC:4, ADC1:3, NODAC:0, TOUCH:4);
+    pin!(Gpio5:5, IO, RTC:5, ADC1:4, NODAC:0, TOUCH:5);
+    pin!(Gpio6:6, IO, RTC:6, ADC1:5, NODAC:0, TOUCH:6);
+    pin!(Gpio7:7, IO, RTC:7, ADC1:6, NODAC:0, TOUCH:7);
+    pin!(Gpio8:8, IO, RTC:8, ADC1:7, NODAC:0, TOUCH:8);
+    pin!(Gpio9:9, IO, RTC:9, ADC1:8, NODAC:0, TOUCH:9);
+    pin!(Gpio10:10, IO, RTC:10, ADC1:9, NODAC:0, TOUCH:10);
+    pin!(Gpio11:11, IO, RTC:11, ADC2:0, NODAC:0, TOUCH:11);
+    pin!(Gpio12:12, IO, RTC:12, ADC2:1, NODAC:0, TOUCH:12);
+    pin!(Gpio13:13, IO, RTC:13, ADC2:2, NODAC:0, TOUCH:13);
+    pin!(Gpio14:14, IO, RTC:14, ADC2:3, NODAC:0, TOUCH:14);
+    pin!(Gpio15:15, IO, RTC:15, ADC2:4, NODAC:0, TOUCH:15);
+    pin!(Gpio16:16, IO, RTC:16, ADC2:5, NODAC:0, NOTOUCH:0);
+    pin!(Gpio17:17, IO, RTC:17, ADC2:6, NODAC:0, NOTOUCH:0);
+    pin!(Gpio18:18, IO, RTC:18, ADC2:7, NODAC:0, NOTOUCH:0);
+    pin!(Gpio19:19, IO, RTC:19, ADC2:8, NODAC:0, NOTOUCH:0);
+    pin!(Gpio20:20, IO, RTC:20, ADC2:9, NODAC:0, NOTOUCH:0);
+    pin!(Gpio21:21, IO, RTC:21, NOADC:0, NODAC:0, NOTOUCH:0);
+    #[cfg(not(feature = "ulp"))]
+    pin!(Gpio26:26, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
+    #[cfg(not(feature = "ulp"))]
+    pin!(Gpio33:33, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
+    #[cfg(not(feature = "ulp"))]
+    pin!(Gpio34:34, Input, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
+    #[cfg(not(feature = "ulp"))]
+    pin!(Gpio35:35, Input, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
+    #[cfg(not(feature = "ulp"))]
+    pin!(Gpio36:36, Input, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
+    #[cfg(not(feature = "ulp"))]
+    pin!(Gpio37:37, Input, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
+    #[cfg(not(feature = "ulp"))]
+    pin!(Gpio38:38, Input, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
+    #[cfg(not(feature = "ulp"))]
+    pin!(Gpio39:39, Input, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
+    #[cfg(not(feature = "ulp"))]
+    pin!(Gpio40:40, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
+    #[cfg(not(feature = "ulp"))]
+    pin!(Gpio41:41, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
+    #[cfg(not(feature = "ulp"))]
+    pin!(Gpio42:42, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
+    #[cfg(not(feature = "ulp"))]
+    pin!(Gpio43:43, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
+    #[cfg(not(feature = "ulp"))]
+    pin!(Gpio44:44, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
+    #[cfg(not(feature = "ulp"))]
+    pin!(Gpio45:45, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
+    #[cfg(not(feature = "ulp"))]
+    pin!(Gpio46:46, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
+
+    pub struct Pins {
+        pub gpio0: Gpio0<Unknown>,
+        pub gpio1: Gpio1<Unknown>,
+        pub gpio2: Gpio2<Unknown>,
+        pub gpio3: Gpio3<Unknown>,
+        pub gpio4: Gpio4<Unknown>,
+        pub gpio5: Gpio5<Unknown>,
+        pub gpio6: Gpio6<Unknown>,
+        pub gpio7: Gpio7<Unknown>,
+        pub gpio8: Gpio8<Unknown>,
+        pub gpio9: Gpio9<Unknown>,
+        pub gpio10: Gpio10<Unknown>,
+        pub gpio11: Gpio11<Unknown>,
+        pub gpio12: Gpio12<Unknown>,
+        pub gpio13: Gpio13<Unknown>,
+        pub gpio14: Gpio14<Unknown>,
+        pub gpio15: Gpio15<Unknown>,
+        pub gpio16: Gpio16<Unknown>,
+        pub gpio17: Gpio17<Unknown>,
+        pub gpio18: Gpio18<Unknown>,
+        pub gpio19: Gpio19<Unknown>,
+        pub gpio20: Gpio20<Unknown>,
+        pub gpio21: Gpio21<Unknown>,
+        #[cfg(not(feature = "ulp"))]
+        pub gpio26: Gpio26<Unknown>,
+        #[cfg(not(feature = "ulp"))]
+        pub gpio33: Gpio33<Unknown>,
+        #[cfg(not(feature = "ulp"))]
+        pub gpio34: Gpio34<Unknown>,
+        #[cfg(not(feature = "ulp"))]
+        pub gpio35: Gpio35<Unknown>,
+        #[cfg(not(feature = "ulp"))]
+        pub gpio36: Gpio36<Unknown>,
+        #[cfg(not(feature = "ulp"))]
+        pub gpio37: Gpio37<Unknown>,
+        #[cfg(not(feature = "ulp"))]
+        pub gpio38: Gpio38<Unknown>,
+        #[cfg(not(feature = "ulp"))]
+        pub gpio39: Gpio39<Unknown>,
+        #[cfg(not(feature = "ulp"))]
+        pub gpio40: Gpio40<Unknown>,
+        #[cfg(not(feature = "ulp"))]
+        pub gpio41: Gpio41<Unknown>,
+        #[cfg(not(feature = "ulp"))]
+        pub gpio42: Gpio42<Unknown>,
+        #[cfg(not(feature = "ulp"))]
+        pub gpio43: Gpio43<Unknown>,
+        #[cfg(not(feature = "ulp"))]
+        pub gpio44: Gpio44<Unknown>,
+        #[cfg(not(feature = "ulp"))]
+        pub gpio45: Gpio45<Unknown>,
+        #[cfg(not(feature = "ulp"))]
+        pub gpio46: Gpio46<Unknown>,
+    }
+
+    impl Pins {
+        pub unsafe fn new() -> Self {
+            Self {
+                gpio0: Gpio0::<Unknown>::new(),
+                gpio1: Gpio1::<Unknown>::new(),
+                gpio2: Gpio2::<Unknown>::new(),
+                gpio3: Gpio3::<Unknown>::new(),
+                gpio4: Gpio4::<Unknown>::new(),
+                gpio5: Gpio5::<Unknown>::new(),
+                gpio6: Gpio6::<Unknown>::new(),
+                gpio7: Gpio7::<Unknown>::new(),
+                gpio8: Gpio8::<Unknown>::new(),
+                gpio9: Gpio9::<Unknown>::new(),
+                gpio10: Gpio10::<Unknown>::new(),
+                gpio11: Gpio11::<Unknown>::new(),
+                gpio12: Gpio12::<Unknown>::new(),
+                gpio13: Gpio13::<Unknown>::new(),
+                gpio14: Gpio14::<Unknown>::new(),
+                gpio15: Gpio15::<Unknown>::new(),
+                gpio16: Gpio16::<Unknown>::new(),
+                gpio17: Gpio17::<Unknown>::new(),
+                gpio18: Gpio18::<Unknown>::new(),
+                gpio19: Gpio19::<Unknown>::new(),
+                gpio20: Gpio20::<Unknown>::new(),
+                gpio21: Gpio21::<Unknown>::new(),
+                #[cfg(not(feature = "ulp"))]
+                gpio26: Gpio26::<Unknown>::new(),
+                #[cfg(not(feature = "ulp"))]
+                gpio33: Gpio33::<Unknown>::new(),
+                #[cfg(not(feature = "ulp"))]
+                gpio34: Gpio34::<Unknown>::new(),
+                #[cfg(not(feature = "ulp"))]
+                gpio35: Gpio35::<Unknown>::new(),
+                #[cfg(not(feature = "ulp"))]
+                gpio36: Gpio36::<Unknown>::new(),
+                #[cfg(not(feature = "ulp"))]
+                gpio37: Gpio37::<Unknown>::new(),
+                #[cfg(not(feature = "ulp"))]
+                gpio38: Gpio38::<Unknown>::new(),
+                #[cfg(not(feature = "ulp"))]
+                gpio39: Gpio39::<Unknown>::new(),
+                #[cfg(not(feature = "ulp"))]
+                gpio40: Gpio40::<Unknown>::new(),
+                #[cfg(not(feature = "ulp"))]
+                gpio41: Gpio41::<Unknown>::new(),
+                #[cfg(not(feature = "ulp"))]
+                gpio42: Gpio42::<Unknown>::new(),
+                #[cfg(not(feature = "ulp"))]
+                gpio43: Gpio43::<Unknown>::new(),
+                #[cfg(not(feature = "ulp"))]
+                gpio44: Gpio44::<Unknown>::new(),
+                #[cfg(not(feature = "ulp"))]
+                gpio45: Gpio45::<Unknown>::new(),
+                #[cfg(not(feature = "ulp"))]
+                gpio46: Gpio46::<Unknown>::new(),
+            }
+        }
+    }
+}
+
+#[cfg(esp32c3)]
+#[cfg(not(feature = "ulp"))]
+mod chip {
+    use {
+        core::marker::PhantomData,
+        embedded_hal::digital::v2::{OutputPin as _, StatefulOutputPin as _},
+    };
+
+    #[cfg(not(feature = "ulp"))]
+    use esp_idf_sys::*;
+
+    use super::*;
+
+    // Not mapped: 11 - 17
+    pin!(Gpio0:0, IO, RTC:0, ADC1:0, NODAC:0, TOUCH:0);
+    pin!(Gpio1:1, IO, RTC:1, ADC1:1, NODAC:0, TOUCH:1);
+    pin!(Gpio2:2, IO, RTC:2, ADC1:2, NODAC:0, TOUCH:2);
+    pin!(Gpio3:3, IO, RTC:3, ADC1:3, NODAC:0, TOUCH:3);
+    pin!(Gpio4:4, IO, RTC:4, ADC1:4, NODAC:0, TOUCH:4);
+    pin!(Gpio5:5, IO, RTC:5, ADC2:0, NODAC:0, TOUCH:5);
+    pin!(Gpio6:6, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
+    pin!(Gpio7:7, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
+    pin!(Gpio8:8, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
+    pin!(Gpio9:9, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
+    pin!(Gpio10:10, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
+    pin!(Gpio18:18, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
+    pin!(Gpio19:19, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
+    pin!(Gpio20:20, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
+    pin!(Gpio21:21, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
+
+    pub struct Pins {
+        pub gpio0: Gpio0<Unknown>,
+        pub gpio1: Gpio1<Unknown>,
+        pub gpio2: Gpio2<Unknown>,
+        pub gpio3: Gpio3<Unknown>,
+        pub gpio4: Gpio4<Unknown>,
+        pub gpio5: Gpio5<Unknown>,
+        pub gpio6: Gpio6<Unknown>,
+        pub gpio7: Gpio7<Unknown>,
+        pub gpio8: Gpio8<Unknown>,
+        pub gpio9: Gpio9<Unknown>,
+        pub gpio10: Gpio10<Unknown>,
+        pub gpio18: Gpio18<Unknown>,
+        pub gpio19: Gpio19<Unknown>,
+        pub gpio20: Gpio20<Unknown>,
+        pub gpio21: Gpio21<Unknown>,
+    }
+
+    impl Pins {
+        pub unsafe fn new() -> Self {
+            Self {
+                gpio0: Gpio0::<Unknown>::new(),
+                gpio1: Gpio1::<Unknown>::new(),
+                gpio2: Gpio2::<Unknown>::new(),
+                gpio3: Gpio3::<Unknown>::new(),
+                gpio4: Gpio4::<Unknown>::new(),
+                gpio5: Gpio5::<Unknown>::new(),
+                gpio6: Gpio6::<Unknown>::new(),
+                gpio7: Gpio7::<Unknown>::new(),
+                gpio8: Gpio8::<Unknown>::new(),
+                gpio9: Gpio9::<Unknown>::new(),
+                gpio10: Gpio10::<Unknown>::new(),
+                gpio18: Gpio18::<Unknown>::new(),
+                gpio19: Gpio19::<Unknown>::new(),
+                gpio20: Gpio20::<Unknown>::new(),
+                gpio21: Gpio21::<Unknown>::new(),
+            }
         }
     }
 }

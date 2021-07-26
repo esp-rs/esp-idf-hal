@@ -2,7 +2,7 @@ use embedded_hal::blocking::delay::{DelayMs, DelayUs};
 
 use super::sys::*;
 
-/// ESP-IDF busy-loop based delay for the risc-v ULP coprocessor
+/// Busy-loop based delay for the RiscV ULP coprocessor
 pub struct Ulp;
 
 impl DelayUs<u32> for Ulp {
@@ -33,7 +33,5 @@ impl DelayMs<u16> for Ulp {
 fn delay_cycles(cycles: u32) {
     let start = get_ccount();
 
-    while get_ccount() - start < cycles {
-        /* Wait */
-    }
+    while get_ccount() - start < cycles { /* Wait */ }
 }

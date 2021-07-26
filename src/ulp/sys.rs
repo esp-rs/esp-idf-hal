@@ -1,6 +1,5 @@
 /// A mini "esp-idf-ulp-sys" module exposing stuff on top of which the ULP HAL support is implemented
 /// (currently, only GPIO) + some utilities for the riscv ULP processor
-
 use mutex_trait::*;
 
 pub use self::cpu::*;
