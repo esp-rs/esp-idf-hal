@@ -8,6 +8,8 @@ mod reg;
 pub mod sys;
 #[cfg(feature = "ulp")]
 pub mod delay;
+#[cfg(feature = "ulp")]
+pub mod start;
 
 #[cfg(not(feature = "ulp"))]
 #[cfg(any(esp32, esp32s2, esp32s3))]

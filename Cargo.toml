@@ -1,6 +1,6 @@
 [package]
 name = "esp-idf-hal"
-version = "0.17.0"
+version = "0.17.1"
 authors = ["sapir <yasapir@gmail.com>", "Ivan Markov <ivan.markov@gmail.com>"]
 edition = "2018"
 categories = ["embedded", "hardware-support"]
