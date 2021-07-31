@@ -23,7 +23,7 @@ struct IdfRequest<'r>(
 );
 
 impl<'r> IdfRequest<'r> {
-    fn send(&mut self, mut response: Response) -> Result<()> {
+    fn send(&mut self, response: Response) -> Result<()> {
         let mut status_string = response.status.to_string();
         if let Some(message) = response.status_message {
             status_string.push_str(" ");
@@ -33,12 +33,6 @@ impl<'r> IdfRequest<'r> {
         let c_status = CString::new(status_string.as_str()).unwrap();
 
         esp!(unsafe { esp_idf_sys::httpd_resp_set_status(self.0, c_status.as_ptr()) })?;
-
-        if let Some(cl) = response.body.len() {
-            response
-                .headers
-                .insert("content-length".into(), cl.to_string());
-        }
 
         let mut c_headers: std::vec::Vec<(CString, CString)> = vec![];
 
