@@ -768,7 +768,7 @@ impl EspWifi {
                 _ => shared.status.0.clone(),
             },
             match event_id as u32 {
-                wifi_event_t_WIFI_EVENT_AP_START => ApStatus::Started(ApIpStatus::Waiting),
+                wifi_event_t_WIFI_EVENT_AP_START => ApStatus::Started(ApIpStatus::Done),
                 wifi_event_t_WIFI_EVENT_AP_STOP => ApStatus::Stopped,
                 _ => shared.status.1.clone(),
             },
@@ -811,10 +811,7 @@ impl EspWifi {
                 }
                 _ => shared.status.0.clone(),
             },
-            match event_id as u32 {
-                ip_event_t_IP_EVENT_AP_STAIPASSIGNED => ApStatus::Started(ApIpStatus::Done),
-                _ => shared.status.1.clone(),
-            },
+            shared.status.1.clone(),
         );
 
         info!("Set status: {:?}", shared.status);
