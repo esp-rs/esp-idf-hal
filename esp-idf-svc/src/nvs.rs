@@ -1,6 +1,6 @@
 extern crate alloc;
 
-use ::log::*;
+use log::*;
 
 use mutex_trait::*;
 

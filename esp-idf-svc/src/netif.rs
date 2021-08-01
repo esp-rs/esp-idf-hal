@@ -1,4 +1,4 @@
-use ::log::*;
+use log::*;
 
 use esp_idf_sys::*;
 

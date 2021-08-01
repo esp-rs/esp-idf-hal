@@ -1,4 +1,4 @@
-use ::log::{Level, LevelFilter, Metadata, Record};
+use log::{Level, LevelFilter, Metadata, Record};
 
 use esp_idf_sys::*;
 

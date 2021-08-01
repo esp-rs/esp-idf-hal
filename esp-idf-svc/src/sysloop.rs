@@ -1,4 +1,4 @@
-use ::log::*;
+use log::*;
 
 use mutex_trait::*;
 

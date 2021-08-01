@@ -4,8 +4,8 @@ extern crate alloc;
 use alloc::sync::Arc;
 use alloc::vec;
 
-use ::log::*;
 use enumset::*;
+use log::*;
 
 use mutex_trait::*;
 
@@ -275,7 +275,7 @@ impl EspWifi {
             ))?;
             esp!(esp_event_handler_register(
                 IP_EVENT,
-                ip_event_t_IP_EVENT_STA_GOT_IP as i32,
+                ESP_EVENT_ANY_ID,
                 Option::Some(EspWifi::event_handler),
                 shared_ref as *mut c_types::c_void
             ))?;
@@ -768,7 +768,7 @@ impl EspWifi {
                 _ => shared.status.0.clone(),
             },
             match event_id as u32 {
-                wifi_event_t_WIFI_EVENT_AP_START => ApStatus::Started(ApIpStatus::Waiting), // TODO
+                wifi_event_t_WIFI_EVENT_AP_START => ApStatus::Started(ApIpStatus::Waiting),
                 wifi_event_t_WIFI_EVENT_AP_STOP => ApStatus::Stopped,
                 _ => shared.status.1.clone(),
             },
@@ -811,7 +811,10 @@ impl EspWifi {
                 }
                 _ => shared.status.0.clone(),
             },
-            shared.status.1.clone(),
+            match event_id as u32 {
+                ip_event_t_IP_EVENT_AP_STAIPASSIGNED => ApStatus::Started(ApIpStatus::Done),
+                _ => shared.status.1.clone(),
+            },
         );
 
         info!("Set status: {:?}", shared.status);
