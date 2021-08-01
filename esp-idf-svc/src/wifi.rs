@@ -402,7 +402,7 @@ impl EspWifi {
                     },
                     if_key: CStr::from_ptr("WIFI_STA_DEF\0".as_ptr() as *const c_types::c_char)
                         .as_ptr(),
-                    if_desc: CStr::from_ptr("sta".as_ptr() as *const c_types::c_char).as_ptr(),
+                    if_desc: CStr::from_ptr("sta\0".as_ptr() as *const c_types::c_char).as_ptr(),
                     route_prio: 100,
                 };
 
@@ -413,7 +413,11 @@ impl EspWifi {
                 };
 
                 self.sta_netif = esp_netif_new(&cfg);
-                info!("STA netif allocated: {:?}", &self.sta_netif);
+                info!(
+                    "STA netif allocated: {:?}, index: {}",
+                    self.sta_netif,
+                    esp_netif_get_netif_impl_index(self.sta_netif)
+                );
 
                 esp!(esp_netif_attach_wifi_station(self.sta_netif))?;
                 esp!(esp_wifi_set_default_wifi_sta_handlers())?;
@@ -457,18 +461,22 @@ impl EspWifi {
                     lost_ip_event: 0,
                     if_key: CStr::from_ptr("WIFI_AP_DEF\0".as_ptr() as *const c_types::c_char)
                         .as_ptr(),
-                    if_desc: CStr::from_ptr("ap".as_ptr() as *const c_types::c_char).as_ptr(),
+                    if_desc: CStr::from_ptr("ap\0".as_ptr() as *const c_types::c_char).as_ptr(),
                     route_prio: 10,
                 };
 
                 let cfg: esp_netif_config_t = esp_netif_config_t {
                     base: &ip_cfg,
                     driver: ptr::null(),
-                    stack: _g_esp_netif_netstack_default_wifi_sta,
+                    stack: _g_esp_netif_netstack_default_wifi_ap,
                 };
 
                 self.ap_netif = esp_netif_new(&cfg);
-                info!("AP netif allocated: {:?}", &self.ap_netif);
+                info!(
+                    "AP netif allocated: {:?}, index: {}",
+                    self.ap_netif,
+                    esp_netif_get_netif_impl_index(self.ap_netif)
+                );
 
                 esp!(esp_netif_attach_wifi_ap(self.ap_netif))?;
                 esp!(esp_wifi_set_default_wifi_ap_handlers())?;
@@ -700,6 +708,8 @@ impl EspWifi {
 
     unsafe fn clear_ip_conf(netif: &mut *mut esp_netif_t) -> Result<(), EspError> {
         if !(*netif).is_null() {
+            let netif_info = *netif;
+
             esp!(esp_wifi_clear_default_wifi_driver_and_handlers(
                 *netif as *mut c_types::c_void
             ))?;
@@ -707,7 +717,7 @@ impl EspWifi {
 
             *netif = ptr::null_mut();
 
-            info!("Netif {:?} destroyed", netif);
+            info!("Netif {:?} destroyed", netif_info);
         }
 
         Ok(())
@@ -743,7 +753,7 @@ impl EspWifi {
     unsafe fn on_wifi_event(
         shared: &mut Shared,
         event_id: c_types::c_int,
-        _event_data: *mut c_types::c_void,
+        event_data: *mut c_types::c_void,
     ) -> Result<(), EspError> {
         info!("Got wifi event: {} ", event_id);
 
@@ -770,6 +780,20 @@ impl EspWifi {
             match event_id as u32 {
                 wifi_event_t_WIFI_EVENT_AP_START => ApStatus::Started(ApIpStatus::Done),
                 wifi_event_t_WIFI_EVENT_AP_STOP => ApStatus::Stopped,
+                wifi_event_t_WIFI_EVENT_AP_STACONNECTED => {
+                    let event: *const wifi_event_ap_staconnected_t = mem::transmute(event_data);
+                    info!("Station {:?} AID={} connected", (*event).mac, (*event).aid);
+                    shared.status.1.clone()
+                }
+                wifi_event_t_WIFI_EVENT_AP_STADISCONNECTED => {
+                    let event: *const wifi_event_ap_stadisconnected_t = mem::transmute(event_data);
+                    info!(
+                        "Station {:?} AID={} disconnected",
+                        (*event).mac,
+                        (*event).aid
+                    );
+                    shared.status.1.clone()
+                }
                 _ => shared.status.1.clone(),
             },
         );
@@ -811,7 +835,17 @@ impl EspWifi {
                 }
                 _ => shared.status.0.clone(),
             },
-            shared.status.1.clone(),
+            match event_id as u32 {
+                ip_event_t_IP_EVENT_AP_STAIPASSIGNED => {
+                    let event: *const ip_event_ap_staipassigned_t = mem::transmute(event_data);
+                    info!(
+                        "Station got IP {}",
+                        ipv4::Ipv4Addr::from(Newtype((*event).ip))
+                    );
+                    shared.status.1.clone()
+                }
+                _ => shared.status.1.clone(),
+            },
         );
 
         info!("Set status: {:?}", shared.status);
