@@ -129,7 +129,7 @@ impl From<&AccessPointConfiguration> for Newtype<wifi_ap_config_t> {
 impl From<Newtype<wifi_ap_config_t>> for AccessPointConfiguration {
     fn from(conf: Newtype<wifi_ap_config_t>) -> Self {
         AccessPointConfiguration {
-            ssid: from_cstr(&conf.0.ssid),
+            ssid: if conf.0.ssid_len == 0 { from_cstr(&conf.0.ssid) } else { unsafe { core::str::from_utf8_unchecked(&conf.0.ssid[0..conf.0.ssid_len as usize]).to_owned() } },
             ssid_hidden: conf.0.ssid_hidden != 0,
             channel: conf.0.channel,
             secondary_channel: None,
@@ -641,28 +641,13 @@ impl EspWifi {
             esp!(esp_wifi_set_mode(wifi_mode_t_WIFI_MODE_STA))?;
             esp!(esp_wifi_start())?;
 
-            // let scan_conf = wifi_scan_config_t {
-            //     ssid: ptr::null_mut(),
-            //     bssid: ptr::null_mut(),
-            //     channel: 0,
-            //     show_hidden: true,
-            //     scan_type: wifi_scan_type_t_WIFI_SCAN_TYPE_ACTIVE,
-            //     scan_time: wifi_scan_time_t {
-            //         active: wifi_active_scan_time_t {
-            //             min: 0,
-            //             max: 0,
-            //         },
-            //         passive: 0,
-            //     },
-            // };
-            esp!(esp_wifi_scan_start(
-                ptr::null_mut(), /*&scan_conf*/
-                true
-            ))?;
+            esp!(esp_wifi_scan_start(ptr::null_mut(), true))?;
         }
 
         let mut found_ap: u16 = 0;
         esp!(unsafe { esp_wifi_scan_get_ap_num(&mut found_ap as *mut _) })?;
+
+        info!("Found {} access points", found_ap);
 
         Ok(found_ap as usize)
     }
@@ -674,26 +659,6 @@ impl EspWifi {
     ) -> Result<usize, EspError> {
         info!("About to get info for found access points");
 
-        // let mut ap_info_raw = [0 as u8; std::mem::size_of::<wifi_ap_record_t>() * MAX_AP];
-
-        // let mut ap_records: Vec<wifi_ap_record_t> = std::vec! [
-        //     wifi_ap_record_t {
-        //         bssid: [0; 6],
-        //         ssid: [0; 33],
-        //         primary: 0,
-        //         second: 0,
-        //         rssi: 0,
-        //         authmode: 0,
-        //         pairwise_cipher: 0,
-        //         group_cipher: 0,
-        //         ant: 0,
-        //         _bitfield_1: wifi_ap_record_t::new_bitfield_1(0, 0, 0, 0, 0, 0),
-        //         country: wifi_country_t {
-        //         },
-        //     },
-        //     ap_num];
-        // let ap_info: &[wifi_ap_record_t; MAX_AP] = unsafe {mem::transmute(&ap_info_raw)};
-
         let mut ap_count: u16 = ap_infos_raw.len() as u16;
 
         esp!(unsafe {
@@ -702,6 +667,8 @@ impl EspWifi {
                 ap_infos_raw.as_mut_ptr(), /*as *mut wifi_ap_record_t*/
             )
         })?;
+
+        info!("Got info for {} access points", ap_count);
 
         Ok(ap_count as usize)
     }
@@ -902,12 +869,6 @@ impl Wifi for EspWifi {
 
     #[allow(non_upper_case_globals)]
     fn scan_fill(&mut self, ap_infos: &mut [AccessPointInfo]) -> Result<usize, Self::Error> {
-        let conf = self.get_configuration()?;
-
-        // defer! {
-        //     self.set_configuration(&conf);
-        // }
-
         let total_count = self.do_scan()?;
 
         if ap_infos.len() > 0 {
@@ -922,23 +883,18 @@ impl Wifi for EspWifi {
                     break;
                 }
 
-                ap_infos[i] = Newtype(&ap_infos_raw[i]).into();
+                let ap_info = Newtype(&ap_infos_raw[i]).into();
+                info!("Found access point {:?}", ap_info);
+
+                ap_infos[i] = ap_info;
             }
         }
-
-        self.set_configuration(&conf)?;
 
         Ok(cmp::min(total_count, MAX_AP))
     }
 
     #[allow(non_upper_case_globals)]
     fn scan(&mut self) -> Result<vec::Vec<AccessPointInfo>, Self::Error> {
-        let conf = self.get_configuration()?;
-
-        // defer! {
-        //     self.set_configuration(&conf);
-        // }
-
         let total_count = self.do_scan()?;
 
         let mut ap_infos_raw: vec::Vec<wifi_ap_record_t> =
@@ -949,10 +905,11 @@ impl Wifi for EspWifi {
 
         let mut result = vec::Vec::with_capacity(real_count);
         for i in 0..real_count {
-            result.push(Newtype(&ap_infos_raw[i]).into());
-        }
+            let ap_info = Newtype(&ap_infos_raw[i]).into();
+            info!("Found access point {:?}", ap_info);
 
-        self.set_configuration(&conf)?;
+            result.push(ap_info);
+        }
 
         Ok(result)
     }

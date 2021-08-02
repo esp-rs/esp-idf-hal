@@ -19,7 +19,9 @@ pub fn set_str(buf: &mut [u8], s: &str) {
 
 #[cfg(feature = "alloc")]
 pub fn from_cstr(buf: &[u8]) -> alloc::string::String {
-    let c_str: &CStr = CStr::from_bytes_with_nul(buf).unwrap();
+    // We have to find the first '\0' ourselves, because the passed buffer might
+    // be wider than the ASCIIZ string it contains
+    let len = buf.iter().position(|e| *e == 0).unwrap() + 1;
 
-    alloc::string::String::from(c_str.to_str().unwrap())
+    unsafe { CStr::from_bytes_with_nul_unchecked(&buf[0..len]) }.to_string_lossy().into()
 }

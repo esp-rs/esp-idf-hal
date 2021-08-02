@@ -42,7 +42,7 @@ pub extern "C" fn app_main() {
 
     #[cfg(feature = "binstart")]
     {
-        match unsafe { main(0, core::ptr::null()) } {
+        match unsafe { main(0, &[core::ptr::null()] as *const *const u8) } {
             0 => log::error!("Unexpected program exit!\n(no error reported)"),
             n => log::error!("Unexpected program exit!\n{}", n),
         }

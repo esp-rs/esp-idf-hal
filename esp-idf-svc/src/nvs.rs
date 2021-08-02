@@ -53,7 +53,7 @@ impl Drop for EspDefaultNvs {
     fn drop(&mut self) {
         unsafe {
             DEFAULT_TAKEN.lock(|taken| {
-                esp!(nvs_flash_deinit()).unwrap();
+                //esp!(nvs_flash_deinit()).unwrap(); TODO: To be checked why it fails
                 *taken = false;
             });
         }
