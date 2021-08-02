@@ -8,6 +8,7 @@ pub mod mutex;
 
 mod alloc;
 mod panic;
+mod pthread_rwlock;
 
 // ESP-IDF current stable version (4.3) has atomics for ESP32S2, but not for ESP32C3
 // The ESP-IDF master branch has atomics for both
