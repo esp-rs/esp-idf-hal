@@ -1,11 +1,13 @@
-
 // TODO: This is __wrong__ and needs to be replaced with a proper implementation e.g. in the spirit of this:
 // https://en.wikipedia.org/wiki/Readers%E2%80%93writer_lock#Using_a_condition_variable_and_a_mutex
 
 use crate::*;
 
 #[no_mangle]
-pub unsafe extern "C" fn pthread_rwlock_init(rwlock: *mut c_types::c_void, attr: *const c_types::c_void) -> c_types::c_int {
+pub unsafe extern "C" fn pthread_rwlock_init(
+    rwlock: *mut c_types::c_void,
+    attr: *const c_types::c_void,
+) -> c_types::c_int {
     pthread_mutex_init(rwlock as *mut _, attr as *const _)
 }
 

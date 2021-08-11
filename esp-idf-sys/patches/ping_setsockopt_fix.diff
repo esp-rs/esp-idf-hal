@@ -1,0 +1,13 @@
+diff --git a/components/lwip/apps/ping/ping_sock.c b/components/lwip/apps/ping/ping_sock.c
+index 00595514c..e8da70e86 100644
+--- a/components/lwip/apps/ping/ping_sock.c
++++ b/components/lwip/apps/ping/ping_sock.c
+@@ -274,7 +274,7 @@ esp_err_t esp_ping_new_session(const esp_ping_config_t *config, const esp_ping_c
+         if(netif_index_to_name(config->interface, iface.ifr_name) == NULL) {
+           goto err;
+         }
+-        if(setsockopt(ep->sock, SOL_SOCKET, SO_BINDTODEVICE, &iface, sizeof(iface) !=0)) {
++        if(setsockopt(ep->sock, SOL_SOCKET, SO_BINDTODEVICE, &iface, sizeof(iface)) != 0) {
+           goto err;
+         }
+     }

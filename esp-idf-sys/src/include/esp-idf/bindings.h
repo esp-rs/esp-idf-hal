@@ -13,21 +13,23 @@
 #include "esp_interface.h"
 #include "esp_ipc.h"
 #include "esp_pm.h"
+#include "esp_adc_cal.h"
 
 #include "esp_event.h"
 
 #include "esp_netif.h"
 
 #include "esp_wifi.h"
+#include "esp_wifi_netif.h"
 
 #include "esp_eth.h"
 #include "esp_eth_netif_glue.h"
 
+#include "lwip/lwip_napt.h"
+
 #include "ping/ping_sock.h"
 
 #include "esp_http_server.h"
-
-#include "esp_adc_cal.h"
 
 #include "nvs.h"
 #include "nvs_flash.h"
