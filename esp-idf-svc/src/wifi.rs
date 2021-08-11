@@ -15,9 +15,9 @@ use embedded_svc::wifi::*;
 use esp_idf_sys::mutex::RwLock;
 use esp_idf_sys::*;
 
-use crate::netif::EspNetif;
+use crate::netif::*;
 use crate::nvs::EspDefaultNvs;
-use crate::sysloop::EspSysLoop;
+use crate::sysloop::*;
 
 use crate::private::common::*;
 use crate::private::cstr::*;
@@ -31,7 +31,11 @@ impl From<AuthMethod> for Newtype<wifi_auth_mode_t> {
             AuthMethod::WEP => wifi_auth_mode_t_WIFI_AUTH_WEP,
             AuthMethod::WPA => wifi_auth_mode_t_WIFI_AUTH_WPA_PSK,
             AuthMethod::WPA2Personal => wifi_auth_mode_t_WIFI_AUTH_WPA2_PSK,
+            AuthMethod::WPAWPA2Personal => wifi_auth_mode_t_WIFI_AUTH_WPA_WPA2_PSK,
+            AuthMethod::WPA2Enterprise => wifi_auth_mode_t_WIFI_AUTH_WPA2_ENTERPRISE,
             AuthMethod::WPA3Personal => wifi_auth_mode_t_WIFI_AUTH_WPA3_PSK,
+            AuthMethod::WPA2WPA3Personal => wifi_auth_mode_t_WIFI_AUTH_WPA2_WPA3_PSK,
+            AuthMethod::WAPIPersonal => wifi_auth_mode_t_WIFI_AUTH_WAPI_PSK,
         })
     }
 }
@@ -44,7 +48,11 @@ impl From<Newtype<wifi_auth_mode_t>> for AuthMethod {
             wifi_auth_mode_t_WIFI_AUTH_WEP => AuthMethod::WEP,
             wifi_auth_mode_t_WIFI_AUTH_WPA_PSK => AuthMethod::WPA,
             wifi_auth_mode_t_WIFI_AUTH_WPA2_PSK => AuthMethod::WPA2Personal,
+            wifi_auth_mode_t_WIFI_AUTH_WPA_WPA2_PSK => AuthMethod::WPAWPA2Personal,
+            wifi_auth_mode_t_WIFI_AUTH_WPA2_ENTERPRISE => AuthMethod::WPA2Enterprise,
             wifi_auth_mode_t_WIFI_AUTH_WPA3_PSK => AuthMethod::WPA3Personal,
+            wifi_auth_mode_t_WIFI_AUTH_WPA2_WPA3_PSK => AuthMethod::WPA2WPA3Personal,
+            wifi_auth_mode_t_WIFI_AUTH_WAPI_PSK => AuthMethod::WAPIPersonal,
             _ => panic!(),
         }
     }
@@ -68,7 +76,7 @@ impl From<&ClientConfiguration> for Newtype<wifi_sta_config_t> {
             scan_method: wifi_scan_method_t_WIFI_FAST_SCAN,
             bssid_set: has_bssid,
             bssid: bssid,
-            channel: 0,
+            channel: conf.channel.unwrap_or(0u8),
             listen_interval: 0,
             sort_method: wifi_sort_method_t_WIFI_CONNECT_AP_BY_SIGNAL,
             threshold: wifi_scan_threshold_t {
@@ -92,14 +100,19 @@ impl From<&ClientConfiguration> for Newtype<wifi_sta_config_t> {
 impl From<&Newtype<wifi_sta_config_t>> for ClientConfiguration {
     fn from(conf: &Newtype<wifi_sta_config_t>) -> Self {
         ClientConfiguration {
-            ssid: from_cstr(&conf.0.ssid),
+            ssid: from_cstr(&conf.0.ssid).into(),
             bssid: if conf.0.bssid_set {
                 Some(conf.0.bssid)
             } else {
                 None
             },
             auth_method: Newtype(conf.0.threshold.authmode).into(),
-            password: from_cstr(&conf.0.password),
+            password: from_cstr(&conf.0.password).into(),
+            channel: if conf.0.channel != 0 {
+                Some(conf.0.channel)
+            } else {
+                None
+            },
             ip_conf: None, // This must be set at a later stage
         }
     }
@@ -129,13 +142,20 @@ impl From<&AccessPointConfiguration> for Newtype<wifi_ap_config_t> {
 impl From<Newtype<wifi_ap_config_t>> for AccessPointConfiguration {
     fn from(conf: Newtype<wifi_ap_config_t>) -> Self {
         AccessPointConfiguration {
-            ssid: if conf.0.ssid_len == 0 { from_cstr(&conf.0.ssid) } else { unsafe { core::str::from_utf8_unchecked(&conf.0.ssid[0..conf.0.ssid_len as usize]).to_owned() } },
+            ssid: if conf.0.ssid_len == 0 {
+                from_cstr(&conf.0.ssid).into()
+            } else {
+                unsafe {
+                    core::str::from_utf8_unchecked(&conf.0.ssid[0..conf.0.ssid_len as usize])
+                        .to_owned()
+                }
+            },
             ssid_hidden: conf.0.ssid_hidden != 0,
             channel: conf.0.channel,
             secondary_channel: None,
             auth_method: AuthMethod::from(Newtype(conf.0.authmode)),
             protocols: EnumSet::<Protocol>::empty(), // TODO
-            password: from_cstr(&conf.0.password),
+            password: from_cstr(&conf.0.password).into(),
             max_connections: conf.0.max_connection as u16,
             ip_conf: None, // This must be set at a later stage
         }
@@ -148,7 +168,7 @@ impl From<Newtype<&wifi_ap_record_t>> for AccessPointInfo {
         let a = ap_info.0;
 
         Self {
-            ssid: from_cstr(&a.ssid),
+            ssid: from_cstr(&a.ssid).into(),
             bssid: a.bssid,
             channel: a.primary,
             secondary_channel: match a.second {
@@ -186,12 +206,12 @@ impl Default for Shared {
 }
 
 pub struct EspWifi {
-    _netif: Arc<EspNetif>,
-    _sys_loop: Arc<EspSysLoop>,
+    netif_stack: Arc<EspNetifStack>,
+    _sys_loop_stack: Arc<EspSysLoopStack>,
     _nvs: Arc<EspDefaultNvs>,
 
-    sta_netif: *mut esp_netif_t,
-    ap_netif: *mut esp_netif_t,
+    sta_netif: Option<EspNetif>,
+    ap_netif: Option<EspNetif>,
 
     #[cfg(feature = "std")]
     shared: Box<EspStdRwLock<Shared>>,
@@ -202,8 +222,8 @@ pub struct EspWifi {
 
 impl EspWifi {
     pub fn new(
-        netif: Arc<EspNetif>,
-        sys_loop: Arc<EspSysLoop>,
+        netif_stack: Arc<EspNetifStack>,
+        sys_loop_stack: Arc<EspSysLoopStack>,
         nvs: Arc<EspDefaultNvs>,
     ) -> Result<EspWifi, EspError> {
         unsafe {
@@ -211,7 +231,7 @@ impl EspWifi {
                 if *taken {
                     Err(EspError::from(ESP_ERR_INVALID_STATE as i32).unwrap())
                 } else {
-                    let wifi = Self::init(netif, sys_loop, nvs)?;
+                    let wifi = Self::init(netif_stack, sys_loop_stack, nvs)?;
 
                     *taken = true;
                     Ok(wifi)
@@ -221,16 +241,16 @@ impl EspWifi {
     }
 
     fn init(
-        netif: Arc<EspNetif>,
-        sys_loop: Arc<EspSysLoop>,
+        netif_stack: Arc<EspNetifStack>,
+        sys_loop_stack: Arc<EspSysLoopStack>,
         nvs: Arc<EspDefaultNvs>,
     ) -> Result<EspWifi, EspError> {
         let mut wifi = EspWifi {
-            _netif: netif,
-            _sys_loop: sys_loop,
+            netif_stack: netif_stack,
+            _sys_loop_stack: sys_loop_stack,
             _nvs: nvs,
-            sta_netif: ptr::null_mut(),
-            ap_netif: ptr::null_mut(),
+            sta_netif: None,
+            ap_netif: None,
             #[cfg(feature = "std")]
             shared: Box::new(EspStdRwLock::new(Default::default())),
             #[cfg(not(feature = "std"))]
@@ -288,19 +308,25 @@ impl EspWifi {
         Ok(wifi)
     }
 
-    pub unsafe fn get_client_netif(&self) -> *mut esp_netif_t {
-        self.sta_netif
+    pub fn with_client_netif<F, T>(&self, f: F) -> T
+    where
+        F: FnOnce(Option<&EspNetif>) -> T,
+    {
+        f(self.sta_netif.as_ref())
     }
 
-    pub unsafe fn get_ap_netif(&self) -> *mut esp_netif_t {
-        self.ap_netif
+    pub fn with_router_netif<F, T>(&self, f: F) -> T
+    where
+        F: FnOnce(Option<&EspNetif>) -> T,
+    {
+        f(self.ap_netif.as_ref())
     }
 
     fn get_client_conf(&self) -> Result<ClientConfiguration, EspError> {
         let mut wifi_config = [0 as u8; mem::size_of::<wifi_config_t>()];
         let wifi_config_ref: &mut wifi_config_t = unsafe { mem::transmute(&mut wifi_config) };
 
-        esp!(unsafe { esp_wifi_get_config(esp_interface_t_ESP_IF_WIFI_STA, wifi_config_ref) })?;
+        esp!(unsafe { esp_wifi_get_config(wifi_interface_t_WIFI_IF_STA, wifi_config_ref) })?;
 
         let mut result: ClientConfiguration = unsafe { (&Newtype(wifi_config_ref.sta)).into() };
         result.ip_conf = self
@@ -319,7 +345,7 @@ impl EspWifi {
             sta: Newtype::<wifi_sta_config_t>::from(conf).0,
         };
 
-        esp!(unsafe { esp_wifi_set_config(esp_interface_t_ESP_IF_WIFI_STA, &mut wifi_config) })?;
+        esp!(unsafe { esp_wifi_set_config(wifi_interface_t_WIFI_IF_STA, &mut wifi_config) })?;
 
         self.set_client_ip_conf(&conf.ip_conf)?;
 
@@ -329,12 +355,10 @@ impl EspWifi {
     }
 
     fn get_ap_conf(&self) -> Result<AccessPointConfiguration, EspError> {
-        let mut wifi_config = [0 as u8; mem::size_of::<wifi_config_t>()];
-        let wifi_config_ref: &mut wifi_config_t = unsafe { mem::transmute(&mut wifi_config) };
+        let mut wifi_config: wifi_config_t = Default::default();
+        esp!(unsafe { esp_wifi_get_config(wifi_interface_t_WIFI_IF_AP, &mut wifi_config) })?;
 
-        esp!(unsafe { esp_wifi_get_config(esp_interface_t_ESP_IF_WIFI_AP, wifi_config_ref) })?;
-
-        let mut result: AccessPointConfiguration = unsafe { Newtype(wifi_config_ref.ap).into() };
+        let mut result: AccessPointConfiguration = unsafe { Newtype(wifi_config.ap).into() };
         result.ip_conf = self
             .shared
             .lock_read(|shared| shared.router_ip_conf.clone());
@@ -351,7 +375,7 @@ impl EspWifi {
             ap: Newtype::<wifi_ap_config_t>::from(conf).0,
         };
 
-        esp!(unsafe { esp_wifi_set_config(esp_interface_t_ESP_IF_WIFI_AP, &mut wifi_config) })?;
+        esp!(unsafe { esp_wifi_set_config(wifi_interface_t_WIFI_IF_AP, &mut wifi_config) })?;
         self.set_router_ip_conf(&conf.ip_conf)?;
 
         info!("AP configuration done");
@@ -363,69 +387,26 @@ impl EspWifi {
         &mut self,
         conf: &Option<ipv4::ClientConfiguration>,
     ) -> Result<(), EspError> {
-        unsafe {
-            EspWifi::clear_ip_conf(&mut self.sta_netif)?;
-            self.sta_netif = ptr::null_mut();
+        Self::netif_unbind(self.sta_netif.as_mut())?;
 
-            if let Some(client_conf) = conf {
-                info!("Setting STA IP configuration: {:?}", client_conf);
+        if let Some(conf) = conf {
+            let mut iconf = InterfaceConfiguration::wifi_default_client();
+            iconf.ip_configuration = InterfaceIpConfiguration::Client(conf.clone());
 
-                let ip_cfg = esp_netif_inherent_config_t {
-                    flags: match client_conf {
-                        ipv4::ClientConfiguration::DHCP => {
-                            esp_netif_flags_ESP_NETIF_DHCP_CLIENT
-                                | esp_netif_flags_ESP_NETIF_FLAG_GARP
-                                | esp_netif_flags_ESP_NETIF_FLAG_EVENT_IP_MODIFIED
-                        }
-                        ipv4::ClientConfiguration::Fixed(_) => {
-                            esp_netif_flags_ESP_NETIF_FLAG_AUTOUP
-                        }
-                    },
-                    mac: [0; 6],
-                    ip_info: match client_conf {
-                        ipv4::ClientConfiguration::DHCP => ptr::null_mut(),
-                        ipv4::ClientConfiguration::Fixed(ref fixed_conf) => {
-                            &mut esp_netif_ip_info_t {
-                                ip: Newtype::<esp_ip4_addr_t>::from(fixed_conf.ip).0,
-                                netmask: Newtype::<esp_ip4_addr_t>::from(fixed_conf.subnet.mask).0,
-                                gw: Newtype::<esp_ip4_addr_t>::from(fixed_conf.subnet.gateway).0,
-                            }
-                        }
-                    },
-                    get_ip_event: match client_conf {
-                        ipv4::ClientConfiguration::DHCP => ip_event_t_IP_EVENT_STA_GOT_IP,
-                        ipv4::ClientConfiguration::Fixed(_) => 0,
-                    },
-                    lost_ip_event: match client_conf {
-                        ipv4::ClientConfiguration::DHCP => ip_event_t_IP_EVENT_STA_LOST_IP,
-                        ipv4::ClientConfiguration::Fixed(_) => 0,
-                    },
-                    if_key: CStr::from_ptr("WIFI_STA_DEF\0".as_ptr() as *const c_types::c_char)
-                        .as_ptr(),
-                    if_desc: CStr::from_ptr("sta\0".as_ptr() as *const c_types::c_char).as_ptr(),
-                    route_prio: 100,
-                };
+            info!("Setting STA interface configuration: {:?}", iconf);
 
-                let cfg: esp_netif_config_t = esp_netif_config_t {
-                    base: &ip_cfg,
-                    driver: ptr::null(),
-                    stack: _g_esp_netif_netstack_default_wifi_sta,
-                };
+            let netif = EspNetif::new(self.netif_stack.clone(), &iconf);
 
-                self.sta_netif = esp_netif_new(&cfg);
-                info!(
-                    "STA netif allocated: {:?}, index: {}",
-                    self.sta_netif,
-                    esp_netif_get_netif_impl_index(self.sta_netif)
-                );
+            esp!(unsafe { esp_netif_attach_wifi_station(netif.1) })?;
+            esp!(unsafe { esp_wifi_set_default_wifi_sta_handlers() })?;
 
-                esp!(esp_netif_attach_wifi_station(self.sta_netif))?;
-                esp!(esp_wifi_set_default_wifi_sta_handlers())?;
+            self.sta_netif = Some(netif);
 
-                info!("STA IP configuration done");
-            } else {
-                info!("Skipping STA IP configuration (not configured)");
-            }
+            info!("STA IP configuration done");
+        } else {
+            self.sta_netif = None;
+
+            info!("Skipping STA IP configuration (not configured)");
         }
 
         self.shared
@@ -438,53 +419,26 @@ impl EspWifi {
         &mut self,
         conf: &Option<ipv4::RouterConfiguration>,
     ) -> Result<(), EspError> {
-        unsafe {
-            EspWifi::clear_ip_conf(&mut self.ap_netif)?;
-            self.ap_netif = ptr::null_mut();
+        Self::netif_unbind(self.ap_netif.as_mut())?;
 
-            if let Some(router_conf) = conf {
-                info!("Setting AP IP configuration: {:?}", router_conf);
+        if let Some(conf) = conf {
+            let mut iconf = InterfaceConfiguration::wifi_default_router();
+            iconf.ip_configuration = InterfaceIpConfiguration::Router(conf.clone());
 
-                let ip_cfg = esp_netif_inherent_config_t {
-                    flags: (if router_conf.dhcp_enabled {
-                        esp_netif_flags_ESP_NETIF_DHCP_SERVER
-                    } else {
-                        0
-                    }) | esp_netif_flags_ESP_NETIF_FLAG_AUTOUP,
-                    mac: [0; 6],
-                    ip_info: &mut esp_netif_ip_info_t {
-                        ip: Newtype::<esp_ip4_addr_t>::from(router_conf.subnet.gateway).0,
-                        netmask: Newtype::<esp_ip4_addr_t>::from(router_conf.subnet.mask).0,
-                        gw: Newtype::<esp_ip4_addr_t>::from(router_conf.subnet.gateway).0,
-                    },
-                    get_ip_event: 0,
-                    lost_ip_event: 0,
-                    if_key: CStr::from_ptr("WIFI_AP_DEF\0".as_ptr() as *const c_types::c_char)
-                        .as_ptr(),
-                    if_desc: CStr::from_ptr("ap\0".as_ptr() as *const c_types::c_char).as_ptr(),
-                    route_prio: 10,
-                };
+            info!("Setting AP interface configuration: {:?}", iconf);
 
-                let cfg: esp_netif_config_t = esp_netif_config_t {
-                    base: &ip_cfg,
-                    driver: ptr::null(),
-                    stack: _g_esp_netif_netstack_default_wifi_ap,
-                };
+            let netif = EspNetif::new(self.netif_stack.clone(), &iconf);
 
-                self.ap_netif = esp_netif_new(&cfg);
-                info!(
-                    "AP netif allocated: {:?}, index: {}",
-                    self.ap_netif,
-                    esp_netif_get_netif_impl_index(self.ap_netif)
-                );
+            esp!(unsafe { esp_netif_attach_wifi_ap(netif.1) })?;
+            esp!(unsafe { esp_wifi_set_default_wifi_ap_handlers() })?;
 
-                esp!(esp_netif_attach_wifi_ap(self.ap_netif))?;
-                esp!(esp_wifi_set_default_wifi_ap_handlers())?;
+            self.ap_netif = Some(netif);
 
-                info!("AP IP configuration done");
-            } else {
-                info!("Skipping AP IP configuration (not configured)");
-            }
+            info!("AP IP configuration done");
+        } else {
+            self.ap_netif = None;
+
+            info!("Skipping AP IP configuration (not configured)");
         }
 
         self.shared
@@ -567,6 +521,9 @@ impl EspWifi {
             }
 
             info!("Started");
+
+            Self::netif_info("STA", self.sta_netif.as_ref())?;
+            Self::netif_info("AP", self.ap_netif.as_ref())?;
         } else {
             info!("Status is NOT of operating type, not starting");
         }
@@ -605,8 +562,8 @@ impl EspWifi {
         self.stop()?;
 
         unsafe {
-            EspWifi::clear_ip_conf(&mut self.ap_netif)?;
-            EspWifi::clear_ip_conf(&mut self.sta_netif)?;
+            Self::netif_unbind(self.ap_netif.as_mut())?;
+            Self::netif_unbind(self.sta_netif.as_mut())?;
 
             esp!(esp_event_handler_unregister(
                 WIFI_EVENT,
@@ -661,30 +618,35 @@ impl EspWifi {
 
         let mut ap_count: u16 = ap_infos_raw.len() as u16;
 
-        esp!(unsafe {
-            esp_wifi_scan_get_ap_records(
-                &mut ap_count,
-                ap_infos_raw.as_mut_ptr(), /*as *mut wifi_ap_record_t*/
-            )
-        })?;
+        esp!(unsafe { esp_wifi_scan_get_ap_records(&mut ap_count, ap_infos_raw.as_mut_ptr(),) })?;
 
         info!("Got info for {} access points", ap_count);
 
         Ok(ap_count as usize)
     }
 
-    unsafe fn clear_ip_conf(netif: &mut *mut esp_netif_t) -> Result<(), EspError> {
-        if !(*netif).is_null() {
-            let netif_info = *netif;
+    fn netif_unbind(netif: Option<&mut EspNetif>) -> Result<(), EspError> {
+        if let Some(netif) = netif {
+            esp!(unsafe {
+                esp_wifi_clear_default_wifi_driver_and_handlers(netif.1 as *mut c_types::c_void)
+            })?;
+        }
 
-            esp!(esp_wifi_clear_default_wifi_driver_and_handlers(
-                *netif as *mut c_types::c_void
-            ))?;
-            esp_netif_destroy(*netif);
+        Ok(())
+    }
 
-            *netif = ptr::null_mut();
-
-            info!("Netif {:?} destroyed", netif_info);
+    fn netif_info(name: &'static str, netif: Option<&EspNetif>) -> Result<(), EspError> {
+        if let Some(netif) = netif {
+            info!(
+                "{} netif status: {:?}, index: {}, name: {}, ifkey: {}",
+                name,
+                netif,
+                netif.get_index(),
+                netif.get_name(),
+                netif.get_key()
+            );
+        } else {
+            info!("{} netif is not allocated", name);
         }
 
         Ok(())
@@ -872,11 +834,9 @@ impl Wifi for EspWifi {
         let total_count = self.do_scan()?;
 
         if ap_infos.len() > 0 {
-            let mut ap_infos_raw_u8 = [0 as u8; mem::size_of::<wifi_ap_record_t>() * MAX_AP];
-            let ap_infos_raw: &mut [wifi_ap_record_t; MAX_AP] =
-                unsafe { mem::transmute(&mut ap_infos_raw_u8) };
+            let mut ap_infos_raw: [wifi_ap_record_t; MAX_AP] = Default::default();
 
-            let real_count = self.do_get_scan_infos(ap_infos_raw)?;
+            let real_count = self.do_get_scan_infos(&mut ap_infos_raw)?;
 
             for i in 0..real_count {
                 if ap_infos.len() == i {
@@ -905,7 +865,7 @@ impl Wifi for EspWifi {
 
         let mut result = vec::Vec::with_capacity(real_count);
         for i in 0..real_count {
-            let ap_info = Newtype(&ap_infos_raw[i]).into();
+            let ap_info: AccessPointInfo = Newtype(&ap_infos_raw[i]).into();
             info!("Found access point {:?}", ap_info);
 
             result.push(ap_info);

@@ -1,6 +1,6 @@
 [package]
 name = "esp-idf-svc"
-version = "0.16.6"
+version = "0.17.0"
 authors = ["Ivan Markov <ivan.markov@gmail.com>"]
 edition = "2018"
 categories = ["embedded", "hardware-support"]
@@ -25,5 +25,5 @@ log = "0.4"
 cstr_core = "0.2"
 anyhow = { version = "1.0", features = ["backtrace"], optional = true }
 mutex-trait = "0.2"
-embedded-svc = "0.7"
-esp-idf-sys = "0.16"
+embedded-svc = "0.8"
+esp-idf-sys = "0.17"

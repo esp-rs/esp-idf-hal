@@ -9,22 +9,26 @@ impl From<ipv4::Ipv4Addr> for Newtype<esp_ip4_addr_t> {
     fn from(ip: ipv4::Ipv4Addr) -> Self {
         let octets = ip.octets();
 
+        let addr = ((octets[0] as u32 & 0xff) << 24)
+            | ((octets[1] as u32 & 0xff) << 16)
+            | ((octets[2] as u32 & 0xff) << 8)
+            | (octets[3] as u32 & 0xff);
+
         Newtype(esp_ip4_addr_t {
-            addr: ((octets[3] as u32 & 0xff) << 24)
-                | ((octets[2] as u32 & 0xff) << 16)
-                | ((octets[1] as u32 & 0xff) << 8)
-                | (octets[0] as u32 & 0xff),
+            addr: u32::from_be(addr),
         })
     }
 }
 
 impl From<Newtype<esp_ip4_addr_t>> for ipv4::Ipv4Addr {
     fn from(ip: Newtype<esp_ip4_addr_t>) -> Self {
-        let (d, c, b, a) = (
-            ((ip.0.addr >> 24) & 0xff) as u8,
-            ((ip.0.addr >> 16) & 0xff) as u8,
-            ((ip.0.addr >> 8) & 0xff) as u8,
-            (ip.0.addr & 0xff) as u8,
+        let addr = u32::to_be(ip.0.addr);
+
+        let (a, b, c, d) = (
+            ((addr >> 24) & 0xff) as u8,
+            ((addr >> 16) & 0xff) as u8,
+            ((addr >> 8) & 0xff) as u8,
+            (addr & 0xff) as u8,
         );
 
         ipv4::Ipv4Addr::new(a, b, c, d)

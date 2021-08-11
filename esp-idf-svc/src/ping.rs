@@ -69,7 +69,11 @@ impl EspPing {
             esp_ping_new_session(&config, &callbacks, handle_ref as *mut *mut c_types::c_void)
         })?;
 
-        info!("Ping session established, got handle {:?}", &handle);
+        if handle.is_null() {
+            return Err(EspError::from(ESP_ERR_INVALID_ARG as _).unwrap());
+        }
+
+        info!("Ping session established, got handle {:?}", handle);
 
         tracker.running.lock(|running| *running = true);
 

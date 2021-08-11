@@ -10,9 +10,9 @@ static mut TAKEN: EspMutex<bool> = EspMutex::new(false);
 struct PrivateData;
 
 #[derive(Debug)]
-pub struct EspSysLoop(PrivateData);
+pub struct EspSysLoopStack(PrivateData);
 
-impl EspSysLoop {
+impl EspSysLoopStack {
     pub fn new() -> Result<Self, EspError> {
         unsafe {
             TAKEN.lock(|taken| {
@@ -22,14 +22,14 @@ impl EspSysLoop {
                     esp!(esp_event_loop_create_default())?;
 
                     *taken = true;
-                    Ok(EspSysLoop(PrivateData))
+                    Ok(EspSysLoopStack(PrivateData))
                 }
             })
         }
     }
 }
 
-impl Drop for EspSysLoop {
+impl Drop for EspSysLoopStack {
     fn drop(&mut self) {
         unsafe {
             TAKEN.lock(|taken| {
