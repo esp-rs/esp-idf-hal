@@ -64,7 +64,7 @@ impl InterfaceConfiguration {
         Self {
             key: "ETH_CL_DEF".into(),
             description: "eth".into(),
-            route_priority: 50,
+            route_priority: 60,
             ip_configuration: InterfaceIpConfiguration::Client(Default::default()),
             interface_stack: InterfaceStack::Eth,
         }
@@ -74,7 +74,7 @@ impl InterfaceConfiguration {
         Self {
             key: "ETH_RT_DEF".into(),
             description: "ethrt".into(),
-            route_priority: 60,
+            route_priority: 50,
             ip_configuration: InterfaceIpConfiguration::Router(Default::default()),
             interface_stack: InterfaceStack::Eth,
         }
@@ -104,7 +104,7 @@ impl InterfaceConfiguration {
         Self {
             key: "PPP_CL_DEF".into(),
             description: "ppp".into(),
-            route_priority: 20,
+            route_priority: 30,
             ip_configuration: InterfaceIpConfiguration::Client(Default::default()),
             interface_stack: InterfaceStack::Ppp,
         }
@@ -114,7 +114,7 @@ impl InterfaceConfiguration {
         Self {
             key: "PPP_RT_DEF".into(),
             description: "ppprt".into(),
-            route_priority: 30,
+            route_priority: 20,
             ip_configuration: InterfaceIpConfiguration::Router(Default::default()),
             interface_stack: InterfaceStack::Ppp,
         }
@@ -169,7 +169,7 @@ impl EspNetif {
         let c_if_key = CString::new(conf.key.as_str()).unwrap();
         let c_if_description = CString::new(conf.description.as_str()).unwrap();
 
-        let (mut esp_inherent_config, ip_info) = match conf.ip_configuration {
+        let (mut esp_inherent_config, ip_info, dns, secondary_dns) = match conf.ip_configuration {
             InterfaceIpConfiguration::Client(ref ip_conf) => (
                 esp_netif_inherent_config_t {
                     flags: match ip_conf {
@@ -216,6 +216,14 @@ impl EspNetif {
                         gw: Newtype::<esp_ip4_addr_t>::from(fixed_conf.subnet.gateway).0,
                     }),
                 },
+                match ip_conf {
+                    ipv4::ClientConfiguration::DHCP => None,
+                    ipv4::ClientConfiguration::Fixed(ref fixed_conf) => fixed_conf.dns,
+                },
+                match ip_conf {
+                    ipv4::ClientConfiguration::DHCP => None,
+                    ipv4::ClientConfiguration::Fixed(ref fixed_conf) => fixed_conf.secondary_dns,
+                },
             ),
             InterfaceIpConfiguration::Router(ref ip_conf) => (
                 esp_netif_inherent_config_t {
@@ -237,6 +245,8 @@ impl EspNetif {
                     netmask: Newtype::<esp_ip4_addr_t>::from(ip_conf.subnet.mask).0,
                     gw: Newtype::<esp_ip4_addr_t>::from(ip_conf.subnet.gateway).0,
                 }),
+                ip_conf.dns,
+                None, /* For APs, ESP-IDF supports setting a primary DNS only ip_conf.secondary_dns */
             ),
         };
 
@@ -257,7 +267,17 @@ impl EspNetif {
             },
         };
 
-        Self(netif_stack, unsafe { esp_netif_new(&cfg) })
+        let mut netif = Self(netif_stack, unsafe { esp_netif_new(&cfg) });
+
+        if let Some(dns) = dns {
+            netif.set_dns(dns);
+        }
+
+        if let Some(secondary_dns) = secondary_dns {
+            netif.set_secondary_dns(secondary_dns);
+        }
+
+        netif
     }
 
     pub fn get_key(&self) -> String {
@@ -275,6 +295,66 @@ impl EspNetif {
             .unwrap();
 
         from_cstr(&netif_name).into()
+    }
+
+    pub fn get_dns(&self) -> ipv4::Ipv4Addr {
+        let mut dns_info = Default::default();
+
+        unsafe {
+            esp!(esp_netif_get_dns_info(
+                self.1,
+                esp_netif_dns_type_t_ESP_NETIF_DNS_MAIN,
+                &mut dns_info
+            ))
+            .unwrap();
+
+            Newtype(dns_info.ip.u_addr.ip4).into()
+        }
+    }
+
+    pub fn get_secondary_dns(&self) -> ipv4::Ipv4Addr {
+        let mut dns_info = Default::default();
+
+        unsafe {
+            esp!(esp_netif_get_dns_info(
+                self.1,
+                esp_netif_dns_type_t_ESP_NETIF_DNS_BACKUP,
+                &mut dns_info
+            ))
+            .unwrap();
+
+            Newtype(dns_info.ip.u_addr.ip4).into()
+        }
+    }
+
+    pub fn set_dns(&mut self, dns: ipv4::Ipv4Addr) {
+        let mut dns_info: esp_netif_dns_info_t = Default::default();
+
+        unsafe {
+            dns_info.ip.u_addr.ip4 = Newtype::<esp_ip4_addr_t>::from(dns).0;
+
+            esp!(esp_netif_set_dns_info(
+                self.1,
+                esp_netif_dns_type_t_ESP_NETIF_DNS_MAIN,
+                &mut dns_info
+            ))
+            .unwrap();
+        }
+    }
+
+    pub fn set_secondary_dns(&mut self, secondary_dns: ipv4::Ipv4Addr) {
+        let mut dns_info: esp_netif_dns_info_t = Default::default();
+
+        unsafe {
+            dns_info.ip.u_addr.ip4 = Newtype::<esp_ip4_addr_t>::from(secondary_dns).0;
+
+            esp!(esp_netif_set_dns_info(
+                self.1,
+                esp_netif_dns_type_t_ESP_NETIF_DNS_BACKUP,
+                &mut dns_info
+            ))
+            .unwrap();
+        }
     }
 }
 
