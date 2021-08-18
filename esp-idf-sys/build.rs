@@ -6,6 +6,7 @@ use anyhow::*;
 use pio;
 use pio::bindgen;
 use pio::cargo::build;
+use pio::kconfig;
 use pio::project;
 
 fn main() -> Result<()> {
@@ -92,6 +93,20 @@ fn main() -> Result<()> {
 
     // In case other SYS crates need to have access to the ESP-IDF C headers
     build::CInclArgs::try_from(&pio_scons_vars)?.propagate();
+
+    let cfg_args = kconfig::CfgArgs::try_from(
+        pio_scons_vars
+            .project_dir
+            .join(if pio_scons_vars.release_build {
+                "sdkconfig"
+            } else {
+                "sdkconfig.debug"
+            })
+            .as_path(),
+    )?;
+
+    cfg_args.propagate();
+    cfg_args.output("ESP_IDF");
 
     let mcu = pio_scons_vars.mcu.as_str();
 

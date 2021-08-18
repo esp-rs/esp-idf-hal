@@ -1,6 +1,6 @@
 [package]
 name = "esp-idf-sys"
-version = "0.17.0"
+version = "0.18.0"
 authors = ["Alexey Arbuzov <aarbuzov@termt.com>", "sapir <yasapir@gmail.com>", "Ivan Markov <ivan.markov@gmail.com>"]
 edition = "2018"
 categories = ["embedded", "hardware-support"]
@@ -25,5 +25,5 @@ mutex-trait = "0.2"
 paste = "1"
 
 [build-dependencies]
-cargo-pio = "0.20"
-anyhow = "1.0"
+cargo-pio = "0.21"
+anyhow = "1"
