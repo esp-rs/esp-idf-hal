@@ -1,4 +1,4 @@
-fn main() {
+fn main() -> anyhow::Result<()> {
     #[cfg(not(feature = "ulp"))]
     pio::kconfig::CfgArgs::output_propagated("ESP_IDF")?;
 
@@ -28,4 +28,6 @@ fn main() {
             ulp_dir.join("ulp_link.x").display()
         );
     }
+
+    Ok(())
 }
