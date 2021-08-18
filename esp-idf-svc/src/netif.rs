@@ -356,6 +356,16 @@ impl EspNetif {
             .unwrap();
         }
     }
+
+    #[cfg(esp_idf_config_lwip_ipv4_napt)]
+    pub fn enable_napt(&mut self, enable: bool) {
+        unsafe {
+            esp_idf_sys::ip_napt_enable_no(
+                (esp_netif_get_netif_impl_index(self.1) - 1) as u8,
+                if enable { 1 } else { 0 },
+            )
+        };
+    }
 }
 
 impl Drop for EspNetif {

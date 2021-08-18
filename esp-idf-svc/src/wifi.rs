@@ -315,11 +315,25 @@ impl EspWifi {
         f(self.sta_netif.as_ref())
     }
 
+    pub fn with_client_netif_mut<F, T>(&mut self, f: F) -> T
+    where
+        F: FnOnce(Option<&mut EspNetif>) -> T,
+    {
+        f(self.sta_netif.as_mut())
+    }
+
     pub fn with_router_netif<F, T>(&self, f: F) -> T
     where
         F: FnOnce(Option<&EspNetif>) -> T,
     {
         f(self.ap_netif.as_ref())
+    }
+
+    pub fn with_router_netif_mut<F, T>(&mut self, f: F) -> T
+    where
+        F: FnOnce(Option<&mut EspNetif>) -> T,
+    {
+        f(self.ap_netif.as_mut())
     }
 
     fn get_client_conf(&self) -> Result<ClientConfiguration, EspError> {

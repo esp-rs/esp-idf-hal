@@ -10,6 +10,8 @@ pub mod httpd;
 #[cfg(any(feature = "alloc"))]
 // TODO: Ideally should not need "alloc" (also for performance reasons)
 pub mod log;
+#[cfg(esp_idf_config_lwip_ipv4_napt)]
+pub mod napt;
 pub mod netif;
 #[cfg(any(feature = "alloc"))] // TODO: Expose a subset which does not require "alloc"
 pub mod nvs;
