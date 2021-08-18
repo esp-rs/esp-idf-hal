@@ -1,5 +1,8 @@
 fn main() {
     #[cfg(not(feature = "ulp"))]
+    pio::kconfig::CfgArgs::output_propagated("ESP_IDF")?;
+
+    #[cfg(not(feature = "ulp"))]
     let mcu = std::env::var("DEP_ESP_IDF_MCU").unwrap();
 
     #[cfg(feature = "ulp")]
@@ -16,7 +19,13 @@ fn main() {
         println!("cargo:rustc-link-lib=static=ulp_start");
 
         println!("cargo:rerun-if-changed=build.rs");
-        println!("cargo:rerun-if-changed={}", ulp_dir.join("libulp_start.a").display());
-        println!("cargo:rerun-if-changed={}", ulp_dir.join("ulp_link.x").display());
+        println!(
+            "cargo:rerun-if-changed={}",
+            ulp_dir.join("libulp_start.a").display()
+        );
+        println!(
+            "cargo:rerun-if-changed={}",
+            ulp_dir.join("ulp_link.x").display()
+        );
     }
 }
