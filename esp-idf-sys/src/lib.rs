@@ -19,12 +19,6 @@ pub use error::*;
 pub use mutex::EspMutex;
 
 #[cfg(feature = "std")]
-pub use mutex::EspStdMutex;
-
-#[cfg(feature = "std")]
-pub use mutex::EspStdRwLock;
-
-#[cfg(feature = "std")]
 pub mod c_types {
     pub type c_void = std::os::raw::c_void;
     pub type c_uchar = std::os::raw::c_uchar;
