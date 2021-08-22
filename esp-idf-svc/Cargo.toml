@@ -13,7 +13,7 @@ readme = "README.md"
 [features]
 default = ["std"]
 
-std = ["alloc", "anyhow/std", "esp-idf-sys/std"]
+std = ["alloc", "anyhow/std", "esp-idf-sys/std", "embedded-svc/std"]
 alloc = ["cstr_core/alloc", "anyhow"]
 
 binstart = []
