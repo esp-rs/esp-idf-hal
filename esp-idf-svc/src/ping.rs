@@ -5,9 +5,8 @@ use log::*;
 #[cfg(feature = "std")]
 use std::sync::*;
 
-use mutex_trait::Mutex;
-
 use embedded_svc::ipv4;
+use embedded_svc::mutex::Mutex;
 use embedded_svc::ping::*;
 
 use esp_idf_sys::*;
@@ -75,7 +74,7 @@ impl EspPing {
 
         info!("Ping session established, got handle {:?}", handle);
 
-        tracker.running.lock(|running| *running = true);
+        tracker.running.with_lock(|running| *running = true);
 
         esp!(unsafe { esp_ping_start(handle) })?;
         info!("Ping session started");
@@ -86,13 +85,13 @@ impl EspPing {
         {
             let _running = tracker
                 .cvar
-                .wait_while(tracker.running.0.lock().unwrap(), |running| *running)
+                .wait_while(tracker.running.lock().unwrap(), |running| *running)
                 .unwrap();
         }
 
         #[cfg(not(feature = "std"))]
         {
-            while tracker.running.lock(|running| *running) {
+            while tracker.running.with_lock(|running| *running) {
                 unsafe { vTaskDelay(500) };
             }
         }
@@ -237,12 +236,12 @@ impl EspPing {
 
         #[cfg(feature = "std")]
         {
-            *tracker.running.0.lock().unwrap() = false;
+            *tracker.running.lock().unwrap() = false;
             tracker.cvar.notify_one();
         }
 
         #[cfg(not(feature = "std"))]
-        tracker.running.lock(|running| *running = false);
+        tracker.running.with_lock(|running| *running = false);
     }
 
     unsafe fn update_summary(handle: esp_ping_handle_t, summary: &mut Summary) {
@@ -316,7 +315,7 @@ struct Tracker<'a, F: Fn(&Summary, &Reply)> {
     #[cfg(feature = "std")]
     cvar: Condvar,
     #[cfg(feature = "std")]
-    running: EspStdMutex<bool>,
+    running: std::sync::Mutex<bool>,
     #[cfg(not(feature = "std"))]
     running: EspMutex<bool>,
     reply_callback: Option<&'a F>,
@@ -329,7 +328,7 @@ impl<'a, F: Fn(&Summary, &Reply)> Tracker<'a, F> {
             #[cfg(feature = "std")]
             cvar: Condvar::new(),
             #[cfg(feature = "std")]
-            running: EspStdMutex::new(false),
+            running: std::sync::Mutex::new(false),
             #[cfg(not(feature = "std"))]
             running: EspMutex::new(false),
             reply_callback,

@@ -7,12 +7,12 @@ use alloc::vec;
 use enumset::*;
 use log::*;
 
-use mutex_trait::*;
+use mutex_trait::Mutex;
 
 use embedded_svc::ipv4;
+use embedded_svc::mutex::Mutex as ESVCMutex;
 use embedded_svc::wifi::*;
 
-use esp_idf_sys::mutex::RwLock;
 use esp_idf_sys::*;
 
 use crate::netif::*;
@@ -213,10 +213,6 @@ pub struct EspWifi {
     sta_netif: Option<EspNetif>,
     ap_netif: Option<EspNetif>,
 
-    #[cfg(feature = "std")]
-    shared: Box<EspStdRwLock<Shared>>,
-
-    #[cfg(not(feature = "std"))]
     shared: Box<EspMutex<Shared>>,
 }
 
@@ -251,9 +247,6 @@ impl EspWifi {
             _nvs: nvs,
             sta_netif: None,
             ap_netif: None,
-            #[cfg(feature = "std")]
-            shared: Box::new(EspStdRwLock::new(Default::default())),
-            #[cfg(not(feature = "std"))]
             shared: Box::new(EspMutex::new(Default::default())),
         };
 
@@ -345,7 +338,7 @@ impl EspWifi {
         let mut result: ClientConfiguration = unsafe { (&Newtype(wifi_config_ref.sta)).into() };
         result.ip_conf = self
             .shared
-            .lock_read(|shared| shared.client_ip_conf.clone());
+            .with_lock(|shared| shared.client_ip_conf.clone());
 
         info!("Providing STA configuration: {:?}", &result);
 
@@ -375,7 +368,7 @@ impl EspWifi {
         let mut result: AccessPointConfiguration = unsafe { Newtype(wifi_config.ap).into() };
         result.ip_conf = self
             .shared
-            .lock_read(|shared| shared.router_ip_conf.clone());
+            .with_lock(|shared| shared.router_ip_conf.clone());
 
         info!("Providing AP configuration: {:?}", &result);
 
@@ -424,7 +417,7 @@ impl EspWifi {
         }
 
         self.shared
-            .lock(|shared| shared.client_ip_conf = conf.clone());
+            .with_lock(|shared| shared.client_ip_conf = conf.clone());
 
         Ok(())
     }
@@ -456,7 +449,7 @@ impl EspWifi {
         }
 
         self.shared
-            .lock(|shared| shared.router_ip_conf = conf.clone());
+            .with_lock(|shared| shared.router_ip_conf = conf.clone());
 
         Ok(())
     }
@@ -513,7 +506,7 @@ impl EspWifi {
     fn start(&mut self, status: Status) -> Result<(), EspError> {
         info!("Starting with status: {:?}", status);
 
-        self.shared.lock(|shared| {
+        self.shared.with_lock(|shared| {
             shared.status = status.clone();
             shared.operating = status.is_operating();
         });
@@ -548,7 +541,7 @@ impl EspWifi {
     fn stop(&mut self) -> Result<(), EspError> {
         info!("Stopping");
 
-        self.shared.lock(|shared| shared.operating = false);
+        self.shared.with_lock(|shared| shared.operating = false);
 
         esp!(unsafe { esp_wifi_disconnect() }).or_else(|err| {
             if err.code() == esp_idf_sys::ESP_ERR_WIFI_NOT_STARTED as esp_err_t {
@@ -672,13 +665,9 @@ impl EspWifi {
         event_id: c_types::c_int,
         event_data: *mut c_types::c_void,
     ) {
-        #[cfg(feature = "std")]
-        let shared_ref = (arg as *mut EspStdRwLock<Shared>).as_mut().unwrap();
-
-        #[cfg(not(feature = "std"))]
         let shared_ref = (arg as *mut mutex::EspMutex<Shared>).as_mut().unwrap();
 
-        shared_ref.lock(|shared| {
+        shared_ref.with_lock(|shared| {
             if event_base == WIFI_EVENT {
                 Self::on_wifi_event(shared, event_id, event_data)
             } else if event_base == IP_EVENT {
@@ -836,7 +825,7 @@ impl Wifi for EspWifi {
     }
 
     fn get_status(&self) -> Status {
-        let status = self.shared.lock_read(|shared| shared.status.clone());
+        let status = self.shared.with_lock(|shared| shared.status.clone());
 
         info!("Providing status: {:?}", status);
 
