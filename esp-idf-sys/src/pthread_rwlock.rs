@@ -4,6 +4,7 @@
 use crate::*;
 
 #[no_mangle]
+#[inline(never)]
 pub unsafe extern "C" fn pthread_rwlock_init(
     rwlock: *mut c_types::c_void,
     attr: *const c_types::c_void,
@@ -12,41 +13,49 @@ pub unsafe extern "C" fn pthread_rwlock_init(
 }
 
 #[no_mangle]
+#[inline(never)]
 pub unsafe extern "C" fn pthread_rwlock_rdlock(rwlock: *mut c_types::c_void) -> c_types::c_int {
     pthread_mutex_lock(rwlock as *mut _)
 }
 
 #[no_mangle]
+#[inline(never)]
 pub unsafe extern "C" fn pthread_rwlock_tryrdlock(rwlock: *mut c_types::c_void) -> c_types::c_int {
     pthread_mutex_trylock(rwlock as *mut _)
 }
 
 #[no_mangle]
+#[inline(never)]
 pub unsafe extern "C" fn pthread_rwlock_wrlock(rwlock: *mut c_types::c_void) -> c_types::c_int {
     pthread_mutex_lock(rwlock as *mut _)
 }
 
 #[no_mangle]
+#[inline(never)]
 pub unsafe extern "C" fn pthread_rwlock_trywrlock(rwlock: *mut c_types::c_void) -> c_types::c_int {
     pthread_mutex_trylock(rwlock as *mut _)
 }
 
 #[no_mangle]
+#[inline(never)]
 pub unsafe extern "C" fn pthread_rwlock_unlock(rwlock: *mut c_types::c_void) -> c_types::c_int {
     pthread_mutex_unlock(rwlock as *mut _)
 }
 
 #[no_mangle]
+#[inline(never)]
 pub unsafe extern "C" fn pthread_rwlock_destroy(rwlock: *mut c_types::c_void) -> c_types::c_int {
     pthread_mutex_destroy(rwlock as *mut _)
 }
 
 #[no_mangle]
+#[inline(never)]
 pub unsafe extern "C" fn pthread_rwlockattr_init(attr: *mut c_types::c_void) -> c_types::c_int {
     pthread_mutexattr_init(attr as *mut _)
 }
 
 #[no_mangle]
+#[inline(never)]
 pub unsafe extern "C" fn pthread_rwlockattr_destroy(attr: *mut c_types::c_void) -> c_types::c_int {
     pthread_rwlockattr_init(attr as *mut _)
 }
