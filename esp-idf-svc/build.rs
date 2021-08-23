@@ -1,5 +1,5 @@
 fn main() -> anyhow::Result<()> {
-    pio::kconfig::CfgArgs::output_propagated("ESP_IDF")?;
+    embuild::kconfig::CfgArgs::output_propagated("ESP_IDF")?;
 
     println!(
         "cargo:rustc-cfg={}",
