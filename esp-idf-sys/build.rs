@@ -60,10 +60,6 @@ fn main() -> Result<()> {
         #[cfg(not(feature = "espidf_master"))]
         builder
             .platform_package_patch(
-                PathBuf::from("patches").join("esp32c3_atomics_emul.diff"),
-                PathBuf::from("framework-espidf"),
-            )
-            .platform_package_patch(
                 PathBuf::from("patches").join("pthread_destructor_fix.diff"),
                 PathBuf::from("framework-espidf"),
             )
