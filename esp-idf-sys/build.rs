@@ -50,10 +50,6 @@ fn main() -> Result<()> {
                 PathBuf::from("framework-espidf"),
             )
             .platform_package_patch(
-                PathBuf::from("patches").join("master_restore_link_fragments_for_pio.diff"),
-                PathBuf::from("framework-espidf"),
-            )
-            .platform_package_patch(
                 PathBuf::from("patches").join("ping_setsockopt_fix.diff"),
                 PathBuf::from("framework-espidf"),
             );
@@ -86,7 +82,7 @@ fn main() -> Result<()> {
 
         let pio_scons_vars = project::SconsVariables::from_dump(&project_path)?;
 
-        build::LinkArgs::try_from(&pio_scons_vars)?.propagate(project_path, true, true);
+        build::LinkArgs::try_from(&pio_scons_vars)?.propagate(project_path, true);
 
         pio_scons_vars
     };
@@ -98,7 +94,7 @@ fn main() -> Result<()> {
         pio_scons_vars
             .project_dir
             .join(if pio_scons_vars.release_build {
-                "sdkconfig"
+                "sdkconfig.release"
             } else {
                 "sdkconfig.debug"
             })
