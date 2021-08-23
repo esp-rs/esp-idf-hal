@@ -1,6 +1,6 @@
 fn main() -> anyhow::Result<()> {
     #[cfg(not(feature = "ulp"))]
-    pio::kconfig::CfgArgs::output_propagated("ESP_IDF")?;
+    embuild::kconfig::CfgArgs::output_propagated("ESP_IDF")?;
 
     #[cfg(not(feature = "ulp"))]
     let mcu = std::env::var("DEP_ESP_IDF_MCU").unwrap();
