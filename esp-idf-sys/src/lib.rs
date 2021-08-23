@@ -56,4 +56,4 @@ pub mod c_types {
 pub static mut __PTHREAD_RWLOCK_INTERNAL_REFERENCE: *mut c_types::c_void =
     pthread_rwlock::pthread_rwlock_init as *mut _;
 
-include!(env!("CARGO_PIO_BINDGEN_RUNNER_BINDINGS_FILE"));
+include!(env!("EMBUILD_GENERATED_BINDINGS_FILE"));

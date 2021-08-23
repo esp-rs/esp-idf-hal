@@ -3,11 +3,12 @@ use std::{env, path::PathBuf};
 
 use anyhow::*;
 
-use pio;
-use pio::bindgen;
-use pio::cargo::build;
-use pio::kconfig;
-use pio::project;
+use embuild::bindgen;
+use embuild::build;
+use embuild::cargo;
+use embuild::kconfig;
+use embuild::pio;
+use embuild::pio::project;
 
 fn main() -> Result<()> {
     let pio_scons_vars = if let Some(pio_scons_vars) = project::SconsVariables::from_piofirst() {
@@ -78,7 +79,9 @@ fn main() -> Result<()> {
 
         let pio_scons_vars = project::SconsVariables::from_dump(&project_path)?;
 
-        build::LinkArgs::try_from(&pio_scons_vars)?.propagate(project_path, true);
+        build::LinkArgsBuilder::try_from(&pio_scons_vars)?
+            .build()
+            .propagate();
 
         pio_scons_vars
     };
@@ -97,7 +100,7 @@ fn main() -> Result<()> {
             .as_path(),
     )?;
 
-    cfg_args.propagate();
+    cfg_args.propagate("ESP_IDF");
     cfg_args.output("ESP_IDF");
 
     let mcu = pio_scons_vars.mcu.as_str();
@@ -115,13 +118,13 @@ fn main() -> Result<()> {
         })
         .join("bindings.h");
 
-    build::track(&header)?;
+    cargo::track_file(&header);
 
     bindgen::run(
         bindgen::Factory::from_scons_vars(&pio_scons_vars)?
             .builder()?
             .ctypes_prefix("c_types")
-            .header(build::to_string(header)?)
+            .header(header.to_string_lossy())
             .blacklist_function("strtold")
             .blacklist_function("_strtold_r")
             .clang_args(if mcu == "esp32c3" {
