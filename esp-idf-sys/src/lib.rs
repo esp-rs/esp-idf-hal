@@ -50,4 +50,10 @@ pub mod c_types {
     pub type c_ulonglong = u64;
 }
 
+/// Do NOT use. This static mut is declared only as a workaround for the fact that libstd - in the link order -
+/// is *following* esp-idf-sys, which means that unless we reference outrselves the pthread_rwlock_* symbols,
+/// these will not be linked!
+pub static mut __PTHREAD_RWLOCK_INTERNAL_REFERENCE: *mut c_types::c_void =
+    pthread_rwlock::pthread_rwlock_init as *mut _;
+
 include!(env!("CARGO_PIO_BINDGEN_RUNNER_BINDINGS_FILE"));
