@@ -402,7 +402,7 @@ impl EspWifi {
 
             info!("Setting STA interface configuration: {:?}", iconf);
 
-            let netif = EspNetif::new(self.netif_stack.clone(), &iconf);
+            let netif = EspNetif::new(self.netif_stack.clone(), &iconf)?;
 
             esp!(unsafe { esp_netif_attach_wifi_station(netif.1) })?;
             esp!(unsafe { esp_wifi_set_default_wifi_sta_handlers() })?;
@@ -434,7 +434,7 @@ impl EspWifi {
 
             info!("Setting AP interface configuration: {:?}", iconf);
 
-            let netif = EspNetif::new(self.netif_stack.clone(), &iconf);
+            let netif = EspNetif::new(self.netif_stack.clone(), &iconf)?;
 
             esp!(unsafe { esp_netif_attach_wifi_ap(netif.1) })?;
             esp!(unsafe { esp_wifi_set_default_wifi_ap_handlers() })?;

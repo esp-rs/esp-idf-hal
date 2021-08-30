@@ -165,11 +165,16 @@ impl Drop for EspNetifStack {
 pub struct EspNetif(Arc<EspNetifStack>, pub(crate) *mut esp_netif_t);
 
 impl EspNetif {
-    pub fn new(netif_stack: Arc<EspNetifStack>, conf: &InterfaceConfiguration) -> Self {
+    pub fn new(
+        netif_stack: Arc<EspNetifStack>,
+        conf: &InterfaceConfiguration,
+    ) -> Result<Self, EspError> {
         let c_if_key = CString::new(conf.key.as_str()).unwrap();
         let c_if_description = CString::new(conf.description.as_str()).unwrap();
 
-        let (mut esp_inherent_config, ip_info, dns, secondary_dns) = match conf.ip_configuration {
+        let (mut esp_inherent_config, ip_info, dhcps, dns, secondary_dns) = match conf
+            .ip_configuration
+        {
             InterfaceIpConfiguration::Client(ref ip_conf) => (
                 esp_netif_inherent_config_t {
                     flags: match ip_conf {
@@ -216,6 +221,7 @@ impl EspNetif {
                         gw: Newtype::<esp_ip4_addr_t>::from(fixed_conf.subnet.gateway).0,
                     }),
                 },
+                false,
                 match ip_conf {
                     ipv4::ClientConfiguration::DHCP => None,
                     ipv4::ClientConfiguration::Fixed(ref fixed_conf) => fixed_conf.dns,
@@ -245,6 +251,7 @@ impl EspNetif {
                     netmask: Newtype::<esp_ip4_addr_t>::from(ip_conf.subnet.mask).0,
                     gw: Newtype::<esp_ip4_addr_t>::from(ip_conf.subnet.gateway).0,
                 }),
+                ip_conf.dhcp_enabled,
                 ip_conf.dns,
                 None, /* For APs, ESP-IDF supports setting a primary DNS only ip_conf.secondary_dns */
             ),
@@ -271,13 +278,27 @@ impl EspNetif {
 
         if let Some(dns) = dns {
             netif.set_dns(dns);
+
+            if dhcps {
+                let mut dhcps_dns_value: dhcps_offer_t = dhcps_offer_option_OFFER_DNS as _;
+
+                esp!(unsafe {
+                    esp_netif_dhcps_option(
+                        netif.1,
+                        esp_netif_dhcp_option_mode_t_ESP_NETIF_OP_SET,
+                        esp_netif_dhcp_option_id_t_ESP_NETIF_DOMAIN_NAME_SERVER,
+                        &mut dhcps_dns_value as *mut _ as *mut _,
+                        core::mem::size_of::<dhcps_offer_t>() as u32,
+                    )
+                })?;
+            }
         }
 
         if let Some(secondary_dns) = secondary_dns {
             netif.set_secondary_dns(secondary_dns);
         }
 
-        netif
+        Ok(netif)
     }
 
     pub fn get_key(&self) -> String {
