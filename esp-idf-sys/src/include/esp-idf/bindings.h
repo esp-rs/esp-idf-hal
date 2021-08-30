@@ -29,6 +29,8 @@
 
 #include "ping/ping_sock.h"
 
+#include "esp_ota_ops.h"
+
 #include "esp_http_server.h"
 
 #include "nvs.h"
