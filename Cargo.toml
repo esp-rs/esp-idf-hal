@@ -1,13 +1,13 @@
 [package]
 name = "esp-idf-hal"
-version = "0.19.0"
+version = "0.19.1"
 authors = ["sapir <yasapir@gmail.com>", "Ivan Markov <ivan.markov@gmail.com>"]
 edition = "2018"
 categories = ["embedded", "hardware-support"]
 keywords = ["hal", "idf", "esp-idf", "esp32"]
 description = "A Hardware abstraction layer for Espressif's ESP family of microcontrollers based on the ESP-IDF framework."
 repository = "https://github.com/ivmarkov/esp-idf-hal"
-license = "MIT"
+license = "MIT OR Apache-2.0"
 readme = "README.md"
 
 # no xtensa in regular compiler yet
