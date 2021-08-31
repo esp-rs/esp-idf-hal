@@ -1,13 +1,13 @@
 [package]
 name = "esp-idf-svc"
-version = "0.19.2"
+version = "0.19.3"
 authors = ["Ivan Markov <ivan.markov@gmail.com>"]
 edition = "2018"
 categories = ["embedded", "hardware-support"]
 keywords = ["embedded", "svc", "idf", "esp-idf", "esp32"]
 description = "Implementation of the embedded-svc traits for ESP-IDF (Espressif's IoT Development Framework)"
 repository = "https://github.com/ivmarkov/esp-idf-svc"
-license = "MIT"
+license = "MIT OR Apache-2.0"
 readme = "README.md"
 
 [features]
