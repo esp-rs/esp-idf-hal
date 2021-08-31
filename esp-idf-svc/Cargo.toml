@@ -1,6 +1,6 @@
 [package]
 name = "esp-idf-svc"
-version = "0.19.1"
+version = "0.19.2"
 authors = ["Ivan Markov <ivan.markov@gmail.com>"]
 edition = "2018"
 categories = ["embedded", "hardware-support"]
@@ -25,7 +25,7 @@ log = "0.4"
 cstr_core = "0.2"
 anyhow = { version = "1.0", features = ["backtrace"], optional = true }
 mutex-trait = "0.2"
-embedded-svc = "0.8.3"
+embedded-svc = "0.8.4"
 esp-idf-sys = "0.19"
 
 [build-dependencies]
