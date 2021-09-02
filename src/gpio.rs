@@ -312,6 +312,9 @@ macro_rules! impl_input_only {
         impl_input_base!($pxi: $pin);
 
         impl<MODE> $pxi<MODE> {
+            /// # Safety
+            ///
+            /// Care should be taken not to instantiate a pin which is already used elsewhere
             pub unsafe fn new() -> $pxi<Unknown> {
                 $pxi { _mode: PhantomData }
             }
@@ -353,6 +356,9 @@ macro_rules! impl_input_output {
         impl_pull!($pxi: InputOutput);
 
         impl<MODE> $pxi<MODE> {
+            /// # Safety
+            ///
+            /// Care should be taken not to instantiate a pin which is already used elsewhere
             pub unsafe fn new() -> $pxi<Unknown> {
                 $pxi { _mode: PhantomData }
             }
@@ -638,6 +644,9 @@ mod chip {
     }
 
     impl Pins {
+        /// # Safety
+        ///
+        /// Care should be taken not to instnatiate the Pins structure, if it is already instantiated and used elsewhere
         pub unsafe fn new() -> Self {
             Self {
                 gpio0: Gpio0::<Unknown>::new(),
@@ -818,6 +827,9 @@ mod chip {
     }
 
     impl Pins {
+        /// # Safety
+        ///
+        /// Care should be taken not to instnatiate the Pins structure, if it is already instantiated and used elsewhere
         pub unsafe fn new() -> Self {
             Self {
                 gpio0: Gpio0::<Unknown>::new(),
@@ -926,6 +938,9 @@ mod chip {
     }
 
     impl Pins {
+        /// # Safety
+        ///
+        /// Care should be taken not to instnatiate the Pins structure, if it is already instantiated and used elsewhere
         pub unsafe fn new() -> Self {
             Self {
                 gpio0: Gpio0::<Unknown>::new(),

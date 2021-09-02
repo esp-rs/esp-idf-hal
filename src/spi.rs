@@ -213,6 +213,7 @@ impl<SPI: Spi, SCLK: OutputPin, SDO: OutputPin, SDI: InputPin + OutputPin, CS: O
     }
 
     /// Release and return the raw interface to the underlying SPI peripheral
+    #[allow(clippy::type_complexity)]
     pub fn release(self) -> Result<(SPI, Pins<SCLK, SDO, SDI, CS>), EspError> {
         esp!(unsafe { spi_bus_remove_device(self.device) })?;
         esp!(unsafe { spi_bus_free(SPI::device()) })?;
@@ -228,8 +229,8 @@ impl<SPI: Spi, SCLK: OutputPin, SDO: OutputPin, SDI: InputPin + OutputPin, CS: O
     where
         T: Word,
     {
-        let mut tx_buffer = [0 as u8; 64];
-        let mut rx_buffer = [0 as u8; 64];
+        let mut tx_buffer = [0_u8; 64];
+        let mut rx_buffer = [0_u8; 64];
 
         let mut transaction = spi_transaction_t {
             flags: 0, //SPI_TRANS_USE_RXDATA|SPI_TRANS_USE_TXDATA,
@@ -279,11 +280,11 @@ impl<SPI: Spi, SCLK: OutputPin, SDO: OutputPin, SDI: InputPin + OutputPin, CS: O
     ///
     /// This function locks the APB bus frequency and chunks the output of the iterator
     /// for maximum write performance.
-    fn write_internal<'a, T>(&mut self, words: &'a [T]) -> Result<(), EspError>
+    fn write_internal<T>(&mut self, words: &'_ [T]) -> Result<(), EspError>
     where
         T: Word,
     {
-        let mut tx_buffer = [0 as u8; 64];
+        let mut tx_buffer = [0_u8; 64];
 
         let mut transaction = spi_transaction_t {
             flags: 0, //SPI_TRANS_USE_RXDATA|SPI_TRANS_USE_TXDATA,
@@ -326,7 +327,7 @@ impl<SPI: Spi, SCLK: OutputPin, SDO: OutputPin, SDI: InputPin + OutputPin, CS: O
         T: Word,
         WI: IntoIterator<Item = T>,
     {
-        let mut tx_buffer = [0 as u8; 64];
+        let mut tx_buffer = [0_u8; 64];
 
         let mut transaction = spi_transaction_t {
             flags: 0, //SPI_TRANS_USE_RXDATA|SPI_TRANS_USE_TXDATA,
@@ -598,6 +599,9 @@ macro_rules! impl_spi {
         pub struct $spi(SpiPrivateField);
 
         impl $spi {
+            /// # Safety
+            ///
+            /// Care should be taken not to instantiate this SPI instance, if it is already instantiated and used elsewhere
             pub unsafe fn new() -> Self {
                 $spi(SpiPrivateField)
             }

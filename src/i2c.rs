@@ -401,7 +401,7 @@ impl CommandLink {
     fn new() -> Result<Self, EspError> {
         let handle = unsafe { i2c_cmd_link_create() };
 
-        if handle == core::ptr::null_mut() {
+        if handle.is_null() {
             return Err(EspError::from(ESP_ERR_NO_MEM as i32).unwrap());
         }
 
@@ -424,6 +424,9 @@ macro_rules! impl_i2c {
         pub struct $i2c(I2cPrivateField);
 
         impl $i2c {
+            /// # Safety
+            ///
+            /// Care should be taken not to instnatiate this I2C instance, if it is already instantiated and used elsewhere
             pub unsafe fn new() -> Self {
                 $i2c(I2cPrivateField)
             }

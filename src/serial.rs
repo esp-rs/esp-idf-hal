@@ -446,6 +446,7 @@ impl<UART: Uart, TX: OutputPin, RX: InputPin, CTS: InputPin, RTS: OutputPin>
     }
 
     /// Release the UART and GPIO resources
+    #[allow(clippy::type_complexity)]
     pub fn release(self) -> Result<(UART, Pins<TX, RX, CTS, RTS>), EspError> {
         esp!(unsafe { uart_driver_delete(UART::port()) })?;
 
@@ -510,7 +511,7 @@ impl<UART: Uart, TX: OutputPin, RX: InputPin, CTS: InputPin, RTS: OutputPin> cor
 impl<UART: Uart> Rx<UART> {
     /// Get count of bytes in the receive FIFO
     pub fn count(&self) -> Result<u8, EspError> {
-        let mut size = 0 as size_t;
+        let mut size = 0_u32;
         esp_result!(
             unsafe { uart_get_buffered_data_len(UART::port(), &mut size) },
             size as u8
@@ -588,6 +589,9 @@ macro_rules! impl_uart {
         pub struct $uart;
 
         impl $uart {
+            /// # Safety
+            ///
+            /// Care should be taken not to instantiate this UART instance, if it is already instantiated and used elsewhere
             pub unsafe fn new() -> Self {
                 $uart {}
             }

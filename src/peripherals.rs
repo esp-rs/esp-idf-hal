@@ -52,6 +52,9 @@ impl Peripherals {
         }
     }
 
+    /// # Safety
+    ///
+    /// Care should be taken not to instantiate the Peripherals structure, if it is already instantiated and used elsewhere
     pub unsafe fn new() -> Self {
         Self {
             #[cfg(any(not(esp32c3), not(feature = "ulp")))]
