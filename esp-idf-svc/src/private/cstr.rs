@@ -14,7 +14,7 @@ extern crate alloc;
 pub fn set_str(buf: &mut [u8], s: &str) {
     let cs = CString::new(s).unwrap();
     let ss: &[u8] = cs.as_bytes_with_nul();
-    buf[..ss.len()].copy_from_slice(&ss);
+    buf[..ss.len()].copy_from_slice(ss);
 }
 
 #[cfg(feature = "alloc")]

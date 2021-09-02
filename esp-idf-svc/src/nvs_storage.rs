@@ -190,11 +190,11 @@ impl Storage for EspNvsStorage {
         if new_small {
             for v in value.iter().rev() {
                 uvalue <<= 8;
-                uvalue = uvalue | *v as u_int64_t;
+                uvalue |= *v as u_int64_t;
             }
 
             uvalue <<= 8;
-            uvalue = uvalue | value.len() as u_int64_t;
+            uvalue |= value.len() as u_int64_t;
 
             esp!(unsafe { nvs_set_u64(self.1, c_key.as_ptr(), uvalue) })?;
         } else {

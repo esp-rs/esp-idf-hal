@@ -36,6 +36,7 @@ impl EspPing {
         conf: &Configuration,
         tracker: &mut Tracker<F>,
     ) -> Result<(), EspError> {
+        #[allow(clippy::needless_update)]
         let config = esp_ping_config_t {
             count: conf.count,
             interval_ms: conf.interval.as_millis() as u32,
@@ -74,6 +75,7 @@ impl EspPing {
 
         info!("Ping session established, got handle {:?}", handle);
 
+        #[allow(clippy::mutex_atomic)]
         tracker.running.with_lock(|running| *running = true);
 
         esp!(unsafe { esp_ping_start(handle) })?;
@@ -83,6 +85,7 @@ impl EspPing {
 
         #[cfg(feature = "std")]
         {
+            #[allow(clippy::mutex_atomic)]
             let _running = tracker
                 .cvar
                 .wait_while(tracker.running.lock().unwrap(), |running| *running)
@@ -131,14 +134,14 @@ impl EspPing {
             mem::size_of_val(&ttl) as u32,
         );
 
-        let mut target_addr_raw = [0 as u8; mem::size_of::<ip_addr_t>()];
+        let mut target_addr_raw = [0_u8; mem::size_of::<ip_addr_t>()];
         let target_addr: &mut ip_addr_t = mem::transmute(&mut target_addr_raw);
 
         esp_ping_get_profile(
             handle,
             esp_ping_profile_t_ESP_PING_PROF_IPADDR,
             target_addr as *mut ip_addr_t as *mut c_types::c_void,
-            mem::size_of::<ip_addr_t> as u32,
+            mem::size_of::<ip_addr_t>() as _,
         );
 
         let mut elapsed_time: c_types::c_uint = 0;
@@ -197,14 +200,14 @@ impl EspPing {
             mem::size_of_val(&seqno) as u32,
         );
 
-        let mut target_addr_raw = [0 as u8; mem::size_of::<ip_addr_t>()];
+        let mut target_addr_raw = [0_u8; mem::size_of::<ip_addr_t>()];
         let target_addr: &mut ip_addr_t = mem::transmute(&mut target_addr_raw);
 
         esp_ping_get_profile(
             handle,
             esp_ping_profile_t_ESP_PING_PROF_IPADDR,
             target_addr as *mut ip_addr_t as *mut c_types::c_void,
-            mem::size_of::<ip_addr_t> as u32,
+            mem::size_of::<ip_addr_t>() as _,
         );
 
         info!("From {} icmp_seq={} timeout", "???", seqno);
@@ -216,6 +219,7 @@ impl EspPing {
         }
     }
 
+    #[allow(clippy::mutex_atomic)]
     unsafe extern "C" fn on_ping_end<F: Fn(&Summary, &Reply)>(
         handle: esp_ping_handle_t,
         args: *mut c_types::c_void,
@@ -322,6 +326,7 @@ struct Tracker<'a, F: Fn(&Summary, &Reply)> {
 }
 
 impl<'a, F: Fn(&Summary, &Reply)> Tracker<'a, F> {
+    #[allow(clippy::mutex_atomic)]
     pub fn new(reply_callback: Option<&'a F>) -> Self {
         Self {
             summary: Default::default(),

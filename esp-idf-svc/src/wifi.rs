@@ -60,11 +60,6 @@ impl From<Newtype<wifi_auth_mode_t>> for AuthMethod {
 
 impl From<&ClientConfiguration> for Newtype<wifi_sta_config_t> {
     fn from(conf: &ClientConfiguration) -> Self {
-        let has_bssid = match &conf.bssid {
-            Some(_) => true,
-            None => false,
-        };
-
         let bssid: [u8; 6] = match &conf.bssid {
             Some(bssid_ref) => *bssid_ref,
             None => [0; 6],
@@ -74,8 +69,8 @@ impl From<&ClientConfiguration> for Newtype<wifi_sta_config_t> {
             ssid: [0; 32],
             password: [0; 64],
             scan_method: wifi_scan_method_t_WIFI_FAST_SCAN,
-            bssid_set: has_bssid,
-            bssid: bssid,
+            bssid_set: conf.bssid.is_some(),
+            bssid,
             channel: conf.channel.unwrap_or(0u8),
             listen_interval: 0,
             sort_method: wifi_sort_method_t_WIFI_CONNECT_AP_BY_SIGNAL,
@@ -242,7 +237,7 @@ impl EspWifi {
         nvs: Arc<EspDefaultNvs>,
     ) -> Result<EspWifi, EspError> {
         let mut wifi = EspWifi {
-            netif_stack: netif_stack,
+            netif_stack,
             _sys_loop_stack: sys_loop_stack,
             _nvs: nvs,
             sta_netif: None,
@@ -330,7 +325,7 @@ impl EspWifi {
     }
 
     fn get_client_conf(&self) -> Result<ClientConfiguration, EspError> {
-        let mut wifi_config = [0 as u8; mem::size_of::<wifi_config_t>()];
+        let mut wifi_config = [0_u8; mem::size_of::<wifi_config_t>()];
         let wifi_config_ref: &mut wifi_config_t = unsafe { mem::transmute(&mut wifi_config) };
 
         esp!(unsafe { esp_wifi_get_config(wifi_interface_t_WIFI_IF_STA, wifi_config_ref) })?;
@@ -521,7 +516,7 @@ impl EspWifi {
             let result =
                 self.wait_status_with_timeout(Duration::from_secs(10), |s| !s.is_transitional());
 
-            if let Err(_) = result {
+            if result.is_err() {
                 info!("Timeout while waiting for the requested state");
 
                 return Err(EspError::from(ESP_ERR_TIMEOUT as i32).unwrap());
@@ -555,10 +550,7 @@ impl EspWifi {
         esp!(unsafe { esp_wifi_stop() })?;
         info!("Stop requested");
 
-        self.wait_status(|s| match s {
-            Status(ClientStatus::Stopped, ApStatus::Stopped) => true,
-            _ => false,
-        });
+        self.wait_status(|s| matches!(s, Status(ClientStatus::Stopped, ApStatus::Stopped)));
 
         info!("Stopped");
 
@@ -836,7 +828,7 @@ impl Wifi for EspWifi {
     fn scan_fill(&mut self, ap_infos: &mut [AccessPointInfo]) -> Result<usize, Self::Error> {
         let total_count = self.do_scan()?;
 
-        if ap_infos.len() > 0 {
+        if !ap_infos.is_empty() {
             let mut ap_infos_raw: [wifi_ap_record_t; MAX_AP] = Default::default();
 
             let real_count = self.do_get_scan_infos(&mut ap_infos_raw)?;
@@ -867,8 +859,8 @@ impl Wifi for EspWifi {
         let real_count = self.do_get_scan_infos(&mut ap_infos_raw)?;
 
         let mut result = vec::Vec::with_capacity(real_count);
-        for i in 0..real_count {
-            let ap_info: AccessPointInfo = Newtype(&ap_infos_raw[i]).into();
+        for ap_info_raw in ap_infos_raw.iter().take(real_count) {
+            let ap_info: AccessPointInfo = Newtype(ap_info_raw).into();
             info!("Found access point {:?}", ap_info);
 
             result.push(ap_info);

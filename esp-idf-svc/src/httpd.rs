@@ -26,7 +26,7 @@ impl<'r> IdfRequest<'r> {
     fn send(&mut self, response: Response) -> Result<()> {
         let mut status_string = response.status.to_string();
         if let Some(message) = response.status_message {
-            status_string.push_str(" ");
+            status_string.push(' ');
             status_string.push_str(message.as_str());
         }
 
@@ -70,7 +70,7 @@ impl<'r> IdfRequest<'r> {
     fn send_body_read<R: io::Read>(&mut self, r: &mut R) -> anyhow::Result<()> {
         let mut buf = [0; 256];
 
-        Ok(loop {
+        loop {
             let len = r.read(&mut buf)?;
 
             esp!(unsafe {
@@ -84,7 +84,8 @@ impl<'r> IdfRequest<'r> {
             if len == 0 {
                 break;
             }
-        })
+        }
+        Ok(())
     }
 }
 
@@ -190,6 +191,12 @@ impl ServerRegistry {
     }
 }
 
+impl Default for ServerRegistry {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl registry::Registry for ServerRegistry {
     fn handler(self, handler: Handler) -> Result<Self> {
         Ok(Self(self.0.handler(handler)?))
@@ -267,7 +274,7 @@ impl Server {
     }
 
     fn stop(&mut self) -> Result<()> {
-        if self.sd != ptr::null_mut() {
+        if !self.sd.is_null() {
             while !self.registrations.is_empty() {
                 let (uri, registration) = self.registrations.pop().unwrap();
 

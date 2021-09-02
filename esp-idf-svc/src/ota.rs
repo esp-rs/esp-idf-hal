@@ -21,11 +21,11 @@ impl From<Newtype<&esp_app_desc_t>> for ota::FirmwareInfo {
         let app_desc = app_desc.0;
 
         Self {
-            version: from_cstr_ptr(&app_desc.version as *const _).into(),
+            version: from_cstr_ptr(&app_desc.version as *const _),
             signature: Some(app_desc.app_elf_sha256.into()),
-            released: String::from(from_cstr_ptr(&app_desc.date as *const _))
+            released: from_cstr_ptr(&app_desc.date as *const _)
                 + &from_cstr_ptr(&app_desc.time as *const _),
-            description: from_cstr_ptr(&app_desc.project_name as *const _).into(),
+            description: from_cstr_ptr(&app_desc.project_name as *const _),
         }
     }
 }
@@ -35,6 +35,12 @@ pub struct EspFirmwareInfoLoader(vec::Vec<u8>);
 impl EspFirmwareInfoLoader {
     pub fn new() -> Self {
         Self(vec::Vec::new())
+    }
+}
+
+impl Default for EspFirmwareInfoLoader {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
@@ -84,7 +90,7 @@ impl ota::Slot for EspSlot {
     type Error = EspError;
 
     fn get_label(&self) -> Result<String, Self::Error> {
-        Ok(from_cstr_ptr(&self.0.label as *const _ as *const _).into())
+        Ok(from_cstr_ptr(&self.0.label as *const _ as *const _))
     }
 
     fn get_state(&self) -> Result<ota::SlotState, Self::Error> {
@@ -169,7 +175,7 @@ impl ota::Ota for EspOta<Read> {
         Self::Slot: 'a,
     {
         Ok(EspSlot(unsafe {
-            esp_ota_get_boot_partition().as_ref().unwrap().clone()
+            *esp_ota_get_boot_partition().as_ref().unwrap()
         }))
     }
 
@@ -178,7 +184,7 @@ impl ota::Ota for EspOta<Read> {
         Self::Slot: 'a,
     {
         Ok(EspSlot(unsafe {
-            esp_ota_get_boot_partition().as_ref().unwrap().clone()
+            *esp_ota_get_boot_partition().as_ref().unwrap()
         }))
     }
 
@@ -187,10 +193,9 @@ impl ota::Ota for EspOta<Read> {
         Self::Slot: 'a,
     {
         Ok(EspSlot(unsafe {
-            esp_ota_get_next_update_partition(ptr::null())
+            *esp_ota_get_next_update_partition(ptr::null())
                 .as_ref()
                 .unwrap()
-                .clone()
         }))
     }
 
