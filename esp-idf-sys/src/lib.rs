@@ -1,7 +1,4 @@
 #![cfg_attr(not(feature = "std"), no_std)]
-#![allow(non_upper_case_globals)]
-#![allow(non_camel_case_types)]
-#![allow(non_snake_case)]
 
 pub mod error;
 pub mod mutex;
@@ -15,10 +12,13 @@ mod pthread_rwlock;
 #[cfg(all(esp32c3, not(feature = "espidf_master")))]
 mod atomics_esp32c3;
 
+pub use bindings::*;
 pub use error::*;
 pub use mutex::EspMutex;
 
 #[cfg(feature = "std")]
+#[allow(non_upper_case_globals)]
+#[allow(non_camel_case_types)]
 pub mod c_types {
     pub type c_void = std::os::raw::c_void;
     pub type c_uchar = std::os::raw::c_uchar;
@@ -35,6 +35,8 @@ pub mod c_types {
 }
 
 #[cfg(not(feature = "std"))]
+#[allow(non_upper_case_globals)]
+#[allow(non_camel_case_types)]
 pub mod c_types {
     pub type c_void = core::ffi::c_void;
     pub type c_uchar = u8;
@@ -50,10 +52,18 @@ pub mod c_types {
     pub type c_ulonglong = u64;
 }
 
-/// Do NOT use. This static mut is declared only as a workaround for the fact that libstd - in the link order -
-/// is *following* esp-idf-sys, which means that unless we reference outrselves the pthread_rwlock_* symbols,
-/// these will not be linked!
-pub static mut __PTHREAD_RWLOCK_INTERNAL_REFERENCE: *mut c_types::c_void =
-    pthread_rwlock::pthread_rwlock_init as *mut _;
+#[allow(clippy::all)]
+#[allow(non_upper_case_globals)]
+#[allow(non_camel_case_types)]
+#[allow(non_snake_case)]
+mod bindings {
+    use super::c_types;
 
-include!(env!("EMBUILD_GENERATED_BINDINGS_FILE"));
+    /// Do NOT use. This static mut is declared only as a workaround for the fact that libstd - in the link order -
+    /// is *following* esp-idf-sys, which means that unless we reference outrselves the pthread_rwlock_* symbols,
+    /// these will not be linked!
+    pub static mut __PTHREAD_RWLOCK_INTERNAL_REFERENCE: *mut c_types::c_void =
+        super::pthread_rwlock::pthread_rwlock_init as *mut _;
+
+    include!(env!("EMBUILD_GENERATED_BINDINGS_FILE"));
+}
