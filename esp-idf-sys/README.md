@@ -14,7 +14,7 @@ The ESP-IDF API in Rust, with support for each ESP chip (ESP32, ESP32S2, ESP32C3
     - with the feature `native` (*experimental*): utilizing native `esp-idf` tooling.
 - Check the ["Hello, World" demo](https://github.com/ivmarkov/rust-esp32-std-hello) for how to use and build this crate
 
-## Feature `platformio`
+## Feature `pio`
 This is currently the default for installing all build tools and building the `esp-idf` C
 library. It uses [platformio](https://platformio.org/) via the
 [embuild](https://github.com/ivmarkov/embuild) crate.
