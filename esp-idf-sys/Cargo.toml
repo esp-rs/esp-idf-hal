@@ -1,6 +1,6 @@
 [package]
 name = "esp-idf-sys"
-version = "0.19.5"
+version = "0.19.6"
 authors = ["Alexey Arbuzov <aarbuzov@termt.com>", "sapir <yasapir@gmail.com>", "Ivan Markov <ivan.markov@gmail.com>"]
 edition = "2018"
 categories = ["embedded", "hardware-support"]
@@ -16,9 +16,9 @@ links = "esp_idf"
 default-target = "x86_64-unknown-linux-gnu"
 
 [features]
-default = ["std", "embedded-svc/std", "pio"]
+default = ["std", "pio"]
 
-std = []
+std = ["embedded-svc/std"]
 
 # Use `platformio` to build the `esp-idf`
 pio = []
