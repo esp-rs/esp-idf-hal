@@ -4,7 +4,7 @@ extern crate alloc;
 use alloc::sync::Arc;
 
 use cstr_core::CString;
-use log::*;
+use ::log::*;
 
 use mutex_trait::*;
 

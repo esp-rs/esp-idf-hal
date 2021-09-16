@@ -4,7 +4,7 @@ use core::ptr;
 extern crate alloc;
 use alloc::vec;
 
-use log::*;
+use ::log::*;
 
 use mutex_trait::*;
 

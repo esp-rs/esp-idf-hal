@@ -1,6 +1,6 @@
 use core::{mem, ptr, time::Duration};
 
-use log::*;
+use ::log::*;
 
 #[cfg(feature = "std")]
 use std::sync::*;

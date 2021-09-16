@@ -5,7 +5,7 @@ use alloc::sync::Arc;
 use alloc::vec;
 
 use enumset::*;
-use log::*;
+use ::log::*;
 
 use mutex_trait::Mutex;
 
