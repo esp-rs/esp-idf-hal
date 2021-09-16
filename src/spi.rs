@@ -167,13 +167,45 @@ impl<SPI: Spi, SCLK: OutputPin, SDO: OutputPin, SDI: InputPin + OutputPin, CS: O
         pins: Pins<SCLK, SDO, SDI, CS>,
         config: config::Config,
     ) -> Result<Self, EspError> {
+        #[cfg(esp_idf_version = "4.4")]
         let bus_config = spi_bus_config_t {
             flags: SPICOMMON_BUSFLAG_MASTER,
+            sclk_io_num: SCLK::pin(),
+
+            data4_io_num: -1,
+            data5_io_num: -1,
+            data6_io_num: -1,
+            data7_io_num: -1,
+            __bindgen_anon_1: spi_bus_config_t__bindgen_ty_1 {
+                mosi_io_num: SDO::pin(),
+                //data0_io_num: -1,
+            },
+            __bindgen_anon_2: spi_bus_config_t__bindgen_ty_2 {
+                miso_io_num: if pins.sdi.is_some() { SDI::pin() } else { -1 },
+                //data1_io_num: -1,
+            },
+            __bindgen_anon_3: spi_bus_config_t__bindgen_ty_3 {
+                quadwp_io_num: -1,
+                //data2_io_num: -1,
+            },
+            __bindgen_anon_4: spi_bus_config_t__bindgen_ty_4 {
+                quadhd_io_num: -1,
+                //data3_io_num: -1,
+            },
+            //max_transfer_sz: SPI_MAX_TRANSFER_SIZE,
+            ..Default::default()
+        };
+
+        #[cfg(not(esp_idf_version = "4.4"))]
+        let bus_config = spi_bus_config_t {
+            flags: SPICOMMON_BUSFLAG_MASTER,
+            sclk_io_num: SCLK::pin(),
+
             mosi_io_num: SDO::pin(),
             miso_io_num: if pins.sdi.is_some() { SDI::pin() } else { -1 },
-            sclk_io_num: SCLK::pin(),
             quadwp_io_num: -1,
             quadhd_io_num: -1,
+
             //max_transfer_sz: SPI_MAX_TRANSFER_SIZE,
             ..Default::default()
         };
