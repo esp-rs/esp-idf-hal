@@ -1,12 +1,12 @@
 diff --git a/components/newlib/stdatomic.c b/components/newlib/stdatomic.c
-index 993fcd1ac..fe5e2e845 100644
+index bbd2d17e80..bbe1a0325a 100644
 --- a/components/newlib/stdatomic.c
 +++ b/components/newlib/stdatomic.c
-@@ -186,6 +186,22 @@ static portMUX_TYPE s_atomic_lock = portMUX_INITIALIZER_UNLOCKED;
-     return ret;                                                                  \
- }
- 
-+#define SYNC_LOCK_TEST_AND_SET(n, type) type  __sync_lock_test_and_set_ ## n  (type *ptr, type val, ...) \
+@@ -208,6 +208,23 @@ CLANG_DECLARE_ALIAS( __sync_bool_compare_and_swap_ ## n )
+ }                                                                                \
+ CLANG_DECLARE_ALIAS( __sync_val_compare_and_swap_ ## n )
+
++#define SYNC_LOCK_TEST_AND_SET(n, type) type  CLANG_ATOMIC_SUFFIX(__sync_lock_test_and_set_ ## n)  (type *ptr, type val, ...) \
 +{                                                                                \
 +    unsigned state = _ATOMIC_ENTER_CRITICAL();                                   \
 +    type ret = *ptr;                                                             \
@@ -14,21 +14,22 @@ index 993fcd1ac..fe5e2e845 100644
 +    _ATOMIC_EXIT_CRITICAL(state);                                                \
 +    return ret;                                                                  \
 +}
++CLANG_DECLARE_ALIAS( __sync_lock_test_and_set_ ## n )
 +
-+#define SYNC_LOCK_RELEASE(n, type) void  __sync_lock_release_ ## n  (type *ptr, ...) \
++#define SYNC_LOCK_RELEASE(n, type) void  CLANG_ATOMIC_SUFFIX(__sync_lock_release_ ## n)  (type *ptr, ...) \
 +{                                                                                \
 +    unsigned state = _ATOMIC_ENTER_CRITICAL();                                   \
 +    *ptr = 0;                                                                    \
 +    _ATOMIC_EXIT_CRITICAL(state);                                                \
 +}
-+
++CLANG_DECLARE_ALIAS( __sync_lock_release_ ## n )
+
  #if !HAS_ATOMICS_32
- 
- ATOMIC_EXCHANGE(1, uint8_t)
-@@ -244,6 +260,14 @@ SYNC_VAL_CMP_EXCHANGE(1, uint8_t)
+
+@@ -267,6 +284,14 @@ SYNC_VAL_CMP_EXCHANGE(1, uint8_t)
  SYNC_VAL_CMP_EXCHANGE(2, uint16_t)
  SYNC_VAL_CMP_EXCHANGE(4, uint32_t)
- 
+
 +SYNC_LOCK_TEST_AND_SET(1, uint8_t)
 +SYNC_LOCK_TEST_AND_SET(2, uint16_t)
 +SYNC_LOCK_TEST_AND_SET(4, uint32_t)
@@ -38,12 +39,12 @@ index 993fcd1ac..fe5e2e845 100644
 +SYNC_LOCK_RELEASE(4, uint32_t)
 +
  #endif // !HAS_ATOMICS_32
- 
+
  #if !HAS_ATOMICS_64
-@@ -280,4 +304,8 @@ SYNC_BOOL_CMP_EXCHANGE(8, uint64_t)
- 
+@@ -303,4 +328,8 @@ SYNC_BOOL_CMP_EXCHANGE(8, uint64_t)
+
  SYNC_VAL_CMP_EXCHANGE(8, uint64_t)
- 
+
 +SYNC_LOCK_TEST_AND_SET(8, uint64_t)
 +
 +SYNC_LOCK_RELEASE(8, uint64_t)

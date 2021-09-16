@@ -9,7 +9,7 @@ mod pthread_rwlock;
 
 // ESP-IDF current stable version (4.3) has atomics for ESP32S2, but not for ESP32C3
 // The ESP-IDF master branch has atomics for both
-#[cfg(all(esp32c3, not(feature = "espidf_master")))]
+#[cfg(all(esp32c3, esp_idf_version = "4.3"))]
 mod atomics_esp32c3;
 
 pub use bindings::*;

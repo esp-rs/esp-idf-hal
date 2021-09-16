@@ -17,6 +17,10 @@ use embuild::utils::{OsStrExt, PathExt};
 use embuild::{bindgen, build, cargo, cmake, cmd, cmd_output, git, kconfig, path_buf};
 use strum::{Display, EnumString};
 
+use super::EspIdfBuildOutput;
+use super::MASTER_PATCHES;
+use super::STABLE_PATCHES;
+
 const SDK_DIR_VAR: &str = "SDK_DIR";
 const ESP_IDF_VERSION_VAR: &str = "ESP_IDF_VERSION";
 const ESP_IDF_REPOSITORY_VAR: &str = "ESP_IDF_REPOSITORY";
@@ -29,18 +33,9 @@ const DEFAULT_SDK_DIR: &str = ".espressif";
 const DEFAULT_ESP_IDF_REPOSITORY: &str = "https://github.com/espressif/esp-idf.git";
 const DEFAULT_ESP_IDF_VERSION: &str = "v4.3";
 
-const STABLE_PATCHES: &[&str] = &[
-    "patches/missing_xtensa_atomics_fix.diff",
-    "patches/pthread_destructor_fix.diff",
-    "patches/ping_setsockopt_fix.diff",
-];
-const MASTER_PATCHES: &[&str] = &[
-    "patches/master_missing_xtensa_atomics_fix.diff",
-    "patches/ping_setsockopt_fix.diff",
-];
-
 fn esp_idf_version() -> git::Ref {
-    let version = env::var(ESP_IDF_VERSION_VAR).unwrap_or(DEFAULT_ESP_IDF_VERSION.to_owned());
+    let version =
+        env::var(ESP_IDF_VERSION_VAR).unwrap_or_else(|_| DEFAULT_ESP_IDF_VERSION.to_owned());
     let version = version.trim();
     assert!(
         !version.is_empty(),
@@ -64,7 +59,9 @@ fn esp_idf_version() -> git::Ref {
     }
 }
 
-pub fn main() -> Result<()> {
+pub(crate) fn main() -> Result<EspIdfBuildOutput<impl Iterator<Item = (String, kconfig::Value)>>> {
+    // TODO: Implement support for CMake-first builds in a similar way as to how cargo-pio supports PIO-first builds
+
     let out_dir = path_buf![env::var("OUT_DIR")?];
     let target = env::var("TARGET")?;
     let workspace_dir = out_dir.pop_times(6);
@@ -84,14 +81,14 @@ pub fn main() -> Result<()> {
     cargo::track_env_var(ESP_IDF_EXTRA_TOOLS_VAR);
     cargo::track_env_var(MCU_VAR);
 
-    let sdk_dir = path_buf![env::var(SDK_DIR_VAR).unwrap_or(DEFAULT_SDK_DIR.to_owned())]
+    let sdk_dir = path_buf![env::var(SDK_DIR_VAR).unwrap_or_else(|_| DEFAULT_SDK_DIR.to_owned())]
         .abspath_relative_to(&workspace_dir);
 
     // Clone the esp-idf.
     let esp_idf_dir = sdk_dir.join("esp-idf");
     let esp_idf_version = esp_idf_version();
     let esp_idf_repo =
-        env::var(ESP_IDF_REPOSITORY_VAR).unwrap_or(DEFAULT_ESP_IDF_REPOSITORY.to_owned());
+        env::var(ESP_IDF_REPOSITORY_VAR).unwrap_or_else(|_| DEFAULT_ESP_IDF_REPOSITORY.to_owned());
     let mut esp_idf = Repository::new(&esp_idf_dir);
 
     esp_idf.clone_ext(
@@ -103,10 +100,8 @@ pub fn main() -> Result<()> {
 
     // Apply patches, only if the patches were not previously applied.
     let patch_set = match esp_idf_version {
-        git::Ref::Branch(b) if esp_idf.get_default_branch()?.as_ref() == Some(&b) => {
-            &MASTER_PATCHES[..]
-        }
-        git::Ref::Tag(t) if t == DEFAULT_ESP_IDF_VERSION => &STABLE_PATCHES[..],
+        git::Ref::Branch(b) if esp_idf.get_default_branch()?.as_ref() == Some(&b) => MASTER_PATCHES,
+        git::Ref::Tag(t) if t == DEFAULT_ESP_IDF_VERSION => STABLE_PATCHES,
         _ => {
             cargo::print_warning(format_args!(
                 "`esp-idf` version ({:?}) not officially supported by `esp-idf-sys`. \
@@ -126,7 +121,7 @@ pub fn main() -> Result<()> {
     // path to the windows representation.
     let cygpath_works = cfg!(windows) && cmd_output!("cygpath", "--version").is_ok();
     let to_win_path = if cygpath_works {
-        |p: String| cmd_output!("cygpath", "-w", p).unwrap().to_string()
+        |p: String| cmd_output!("cygpath", "-w", p).unwrap()
     } else {
         |p: String| p
     };
@@ -145,7 +140,7 @@ pub fn main() -> Result<()> {
                        ignore_exitcode, env=("IDF_TOOLS_PATH", &sdk_dir))
                             .lines()
                             .find(|s| s.trim_start().starts_with("IDF_PYTHON_ENV_PATH="))
-                            .ok_or(anyhow!("`idf_tools.py export` result contains no `IDF_PYTHON_ENV_PATH` item"))?
+                            .ok_or_else(|| anyhow!("`idf_tools.py export` result contains no `IDF_PYTHON_ENV_PATH` item"))?
                             .trim()
                             .strip_prefix("IDF_PYTHON_ENV_PATH=").unwrap()
                                   .to_string())
@@ -188,7 +183,7 @@ pub fn main() -> Result<()> {
     }
 
     // Get the paths to the tools.
-    let mut bin_paths: Vec<_> = cmd_output!(python, &idf_tools_py, "--idf-path", &esp_idf_dir, "--quiet", "export", "--format=key-value"; 
+    let mut bin_paths: Vec<_> = cmd_output!(python, &idf_tools_py, "--idf-path", &esp_idf_dir, "--quiet", "export", "--format=key-value";
                                             ignore_exitcode, env=("IDF_TOOLS_PATH", &sdk_dir))
                             .lines()
                             .find(|s| s.trim_start().starts_with("PATH="))
@@ -228,7 +223,7 @@ pub fn main() -> Result<()> {
             cargo::track_file(&path);
             path.into_os_string()
         })
-        .unwrap_or_else(|| OsString::new());
+        .unwrap_or_else(OsString::new);
 
     let sdkconfig_defaults = env::var_os(ESP_IDF_SDKCONFIG_DEFAULTS_VAR)
         .filter(|v| !v.is_empty())
@@ -316,45 +311,28 @@ pub fn main() -> Result<()> {
         })
         .context("Could not determine the compiler from cmake")?;
 
-    let header_file = path_buf![&manifest_dir, "src", "include", "esp-idf", "bindings.h"];
-
-    bindgen::run(
-        bindgen::Factory::from_cmake(&target.compile_groups[0])?
-            .with_linker(&compiler)
-            .builder()?
-            .ctypes_prefix("c_types")
-            .header(header_file.try_to_str()?)
-            .blacklist_function("strtold")
-            .blacklist_function("_strtold_r")
-            .clang_args(["-target", chip.clang_target()]),
-    )?;
-
-    // Output the exact ESP32 MCU, so that we and crates depending directly on us can branch using e.g. #[cfg(esp32xxx)]
-    cargo::set_rustc_cfg(chip, "");
-    cargo::set_metadata("MCU", chip);
-
-    build::LinkArgsBuilder::try_from(&target.link.unwrap())?
-        .linker(&compiler)
-        .working_directory(&cmake_build_dir)
-        .force_ldproxy(true)
-        .build()?
-        .propagate();
-
-    // In case other SYS crates need to have access to the ESP-IDF C headers
-    build::CInclArgs::try_from(&target.compile_groups[0])?.propagate();
-
     let sdkconfig_json = path_buf![&cmake_build_dir, "config", "sdkconfig.json"];
-    let cfgs = kconfig::CfgArgs::try_from_json(&sdkconfig_json)
-        .with_context(|| anyhow!("Failed to read '{:?}'", sdkconfig_json))?;
-    cfgs.propagate("ESP_IDF");
-    cfgs.output("ESP_IDF");
 
-    Ok(())
+    let build_output = EspIdfBuildOutput {
+        cincl_args: build::CInclArgs::try_from(&target.compile_groups[0])?,
+        link_args: Some(
+            build::LinkArgsBuilder::try_from(&target.link.unwrap())?
+                .linker(&compiler)
+                .working_directory(&cmake_build_dir)
+                .force_ldproxy(true)
+                .build()?,
+        ),
+        bindgen: bindgen::Factory::from_cmake(&target.compile_groups[0])?.with_linker(&compiler),
+        kconfig_args: kconfig::try_from_json_file(sdkconfig_json.clone())
+            .with_context(|| anyhow!("Failed to read '{:?}'", sdkconfig_json))?,
+    };
+
+    Ok(build_output)
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug, Display, EnumString)]
 #[repr(u32)]
-pub enum Chip {
+enum Chip {
     /// Xtensa LX7 based dual core
     #[strum(serialize = "esp32")]
     ESP32 = 0,
@@ -370,7 +348,7 @@ pub enum Chip {
 }
 
 impl Chip {
-    pub fn detect(rust_target_triple: &str) -> Result<Chip> {
+    fn detect(rust_target_triple: &str) -> Result<Chip> {
         if rust_target_triple.starts_with("xtensa-esp") {
             if rust_target_triple.contains("esp32s3") {
                 return Ok(Chip::ESP32S3);
@@ -386,7 +364,7 @@ impl Chip {
     }
 
     /// The name of the gcc toolchain (to compile the `esp-idf`) for `idf_tools.py`.
-    pub fn gcc_toolchain(self) -> &'static str {
+    fn gcc_toolchain(self) -> &'static str {
         match self {
             Self::ESP32 => "xtensa-esp32-elf",
             Self::ESP32S2 => "xtensa-esp32s2-elf",
@@ -397,7 +375,7 @@ impl Chip {
 
     /// The name of the gcc toolchain for the ultra low-power co-processor for
     /// `idf_tools.py`.
-    pub fn ulp_gcc_toolchain(self) -> Option<&'static str> {
+    fn ulp_gcc_toolchain(self) -> Option<&'static str> {
         match self {
             Self::ESP32 => Some("esp32ulp-elf"),
             Self::ESP32S2 => Some("esp32s2ulp-elf"),
@@ -405,14 +383,7 @@ impl Chip {
         }
     }
 
-    pub fn cmake_toolchain_file(self) -> String {
+    fn cmake_toolchain_file(self) -> String {
         format!("toolchain-{}.cmake", self)
-    }
-
-    pub fn clang_target(self) -> &'static str {
-        match self {
-            Self::ESP32 | Self::ESP32S2 | Self::ESP32S3 => "xtensa",
-            Self::ESP32C3 => "riscv32",
-        }
     }
 }
