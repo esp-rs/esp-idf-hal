@@ -4,8 +4,8 @@ extern crate alloc;
 use alloc::sync::Arc;
 use alloc::vec;
 
-use enumset::*;
 use ::log::*;
+use enumset::*;
 
 use mutex_trait::Mutex;
 

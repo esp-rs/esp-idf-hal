@@ -3,8 +3,8 @@ use core::ptr;
 extern crate alloc;
 use alloc::sync::Arc;
 
-use cstr_core::CString;
 use ::log::*;
+use cstr_core::CString;
 
 use mutex_trait::*;
 
@@ -269,6 +269,9 @@ impl EspNetif {
                     InterfaceStack::Sta => _g_esp_netif_netstack_default_wifi_sta,
                     InterfaceStack::Ap => _g_esp_netif_netstack_default_wifi_ap,
                     InterfaceStack::Eth => _g_esp_netif_netstack_default_eth,
+                    #[cfg(esp_idf_version = "4.4")]
+                    InterfaceStack::Ppp => panic!("Not yet supported on ESP-IDF 4.4"),
+                    #[cfg(not(esp_idf_version = "4.4"))]
                     InterfaceStack::Ppp => _g_esp_netif_netstack_default_ppp,
                 }
             },

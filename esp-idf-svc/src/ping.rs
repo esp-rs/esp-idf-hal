@@ -13,17 +13,11 @@ use esp_idf_sys::*;
 
 use crate::private::common::*;
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct EspPing(u32);
 
 unsafe impl Send for EspPing {}
 unsafe impl Sync for EspPing {}
-
-impl Default for EspPing {
-    fn default() -> Self {
-        Self(0)
-    }
-}
 
 impl EspPing {
     pub fn new(interface_index: u32) -> Self {
