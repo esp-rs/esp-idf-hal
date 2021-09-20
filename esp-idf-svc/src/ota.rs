@@ -2,13 +2,15 @@ use core::mem;
 use core::ptr;
 
 extern crate alloc;
+use alloc::borrow::Cow;
 use alloc::vec;
 
 use ::log::*;
 
 use mutex_trait::*;
 
-use embedded_svc::ota::{self, OtaUpdate};
+use embedded_svc::io;
+use embedded_svc::ota;
 
 use esp_idf_sys::*;
 
@@ -21,11 +23,12 @@ impl From<Newtype<&esp_app_desc_t>> for ota::FirmwareInfo {
         let app_desc = app_desc.0;
 
         Self {
-            version: from_cstr_ptr(&app_desc.version as *const _),
+            version: from_cstr_ptr(&app_desc.version as *const _).into_owned(),
             signature: Some(app_desc.app_elf_sha256.into()),
-            released: from_cstr_ptr(&app_desc.date as *const _)
-                + &from_cstr_ptr(&app_desc.time as *const _),
-            description: from_cstr_ptr(&app_desc.project_name as *const _),
+            released: from_cstr_ptr(&app_desc.date as *const _).into_owned()
+                + from_cstr_ptr(&app_desc.time as *const _).as_ref(),
+            description: from_cstr_ptr(&app_desc.project_name as *const _).into_owned(),
+            download_id: None,
         }
     }
 }
@@ -86,10 +89,10 @@ impl ota::FirmwareInfoLoader for EspFirmwareInfoLoader {
 
 pub struct EspSlot(esp_partition_t);
 
-impl ota::Slot for EspSlot {
+impl<'a> ota::Slot<'a> for EspSlot {
     type Error = EspError;
 
-    fn get_label(&self) -> Result<String, Self::Error> {
+    fn get_label(&self) -> Result<Cow<'_, str>, Self::Error> {
         Ok(from_cstr_ptr(&self.0.label as *const _ as *const _))
     }
 
@@ -166,32 +169,23 @@ impl<MODE> Drop for EspOta<MODE> {
 }
 
 impl ota::Ota for EspOta<Read> {
-    type Slot = EspSlot;
+    type Slot<'a> = EspSlot;
     type OtaUpdate = EspOta<Update>;
     type Error = EspError;
 
-    fn get_boot_slot<'a>(&'a self) -> Result<Self::Slot, Self::Error>
-    where
-        Self::Slot: 'a,
-    {
+    fn get_boot_slot(&self) -> Result<Self::Slot<'_>, Self::Error> {
         Ok(EspSlot(unsafe {
             *esp_ota_get_boot_partition().as_ref().unwrap()
         }))
     }
 
-    fn get_running_slot<'a>(&'a self) -> Result<Self::Slot, Self::Error>
-    where
-        Self::Slot: 'a,
-    {
+    fn get_running_slot(&self) -> Result<Self::Slot<'_>, Self::Error> {
         Ok(EspSlot(unsafe {
             *esp_ota_get_boot_partition().as_ref().unwrap()
         }))
     }
 
-    fn get_update_slot<'a>(&'a self) -> Result<Self::Slot, Self::Error>
-    where
-        Self::Slot: 'a,
-    {
+    fn get_update_slot(&self) -> Result<Self::Slot<'_>, Self::Error> {
         Ok(EspSlot(unsafe {
             *esp_ota_get_next_update_partition(ptr::null())
                 .as_ref()
@@ -228,11 +222,6 @@ impl ota::Ota for EspOta<Read> {
 
 impl ota::OtaUpdate for EspOta<Update> {
     type Ota = EspOta<Read>;
-    type Error = EspError;
-
-    fn write_buf(&mut self, buf: &[u8]) -> Result<(), Self::Error> {
-        esp!(unsafe { esp_ota_write(self.0 .0, buf as *const _ as *const _, buf.len() as _) })
-    }
 
     fn complete(self) -> Result<Self::Ota, Self::Error> {
         esp!(unsafe { esp_ota_end(self.0 .0) })?;
@@ -249,15 +238,12 @@ impl ota::OtaUpdate for EspOta<Update> {
     }
 }
 
-#[cfg(feature = "std")]
-impl std::io::Write for EspOta<Update> {
-    fn write(&mut self, buf: &[u8]) -> Result<usize, std::io::Error> {
-        self.write_buf(buf)
-            .map(|_| buf.len())
-            .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))
-    }
+impl io::Write for EspOta<Update> {
+    type Error = EspError;
 
-    fn flush(&mut self) -> Result<(), std::io::Error> {
-        Ok(())
+    fn do_write(&mut self, buf: &[u8]) -> Result<usize, Self::Error> {
+        esp!(unsafe { esp_ota_write(self.0 .0, buf.as_ptr() as _, buf.len() as _) })?;
+
+        Ok(buf.len())
     }
 }

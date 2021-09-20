@@ -1,6 +1,7 @@
 use core::ptr;
 
 extern crate alloc;
+use alloc::borrow::Cow;
 use alloc::sync::Arc;
 
 use ::log::*;
@@ -304,7 +305,7 @@ impl EspNetif {
         Ok(netif)
     }
 
-    pub fn get_key(&self) -> String {
+    pub fn get_key(&self) -> Cow<'_, str> {
         from_cstr_ptr(unsafe { esp_netif_get_ifkey(self.1) })
     }
 
@@ -312,13 +313,13 @@ impl EspNetif {
         unsafe { esp_netif_get_netif_impl_index(self.1) as _ }
     }
 
-    pub fn get_name(&self) -> String {
+    pub fn get_name(&self) -> Cow<'_, str> {
         let mut netif_name = [0u8; 7];
 
         esp!(unsafe { esp_netif_get_netif_impl_name(self.1, netif_name.as_mut_ptr() as *mut _) })
             .unwrap();
 
-        from_cstr(&netif_name).into()
+        Cow::Owned(from_cstr(&netif_name).into_owned())
     }
 
     pub fn get_dns(&self) -> ipv4::Ipv4Addr {

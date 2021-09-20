@@ -18,8 +18,8 @@ pub fn set_str(buf: &mut [u8], s: &str) {
 }
 
 #[cfg(feature = "alloc")]
-pub fn from_cstr_ptr(ptr: *const i8) -> alloc::string::String {
-    unsafe { CStr::from_ptr(ptr) }.to_string_lossy().to_string()
+pub fn from_cstr_ptr<'a>(ptr: *const i8) -> alloc::borrow::Cow<'a, str> {
+    unsafe { CStr::from_ptr(ptr) }.to_string_lossy()
 }
 
 #[cfg(feature = "alloc")]

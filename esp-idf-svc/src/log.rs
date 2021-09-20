@@ -117,6 +117,10 @@ impl ::log::Log for Logger {
     fn log(&self, record: &Record) {
         if self.enabled(record.metadata()) {
             // TODO: Get rid of all allocations, if possible
+            // How?
+            // - retire the call to esp_log_write() in favor of the following:
+            // - esp_log_level_get() - to decide whether to log
+            // - for printing - just println!(), because ESP-IDF uses vprintf by default as well
 
             let output = format!("{}", record.args());
 
