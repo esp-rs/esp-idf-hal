@@ -25,6 +25,11 @@
 #include "esp_eth.h"
 #include "esp_eth_netif_glue.h"
 
+#include "esp_vfs.h"
+#if ((ESP_IDF_VERSION_MAJOR > 4) || ((ESP_IDF_VERSION_MAJOR == 4) && (ESP_IDF_VERSION_MINOR >= 4)))
+#include "esp_vfs_eventfd.h"
+#endif
+
 #include "lwip/lwip_napt.h"
 
 #include "ping/ping_sock.h"
