@@ -1,8 +1,8 @@
 diff --git a/components/newlib/stdatomic.c b/components/newlib/stdatomic.c
-index bbd2d17e80..bbe1a0325a 100644
+index bbd2d17e80..634206ae37 100644
 --- a/components/newlib/stdatomic.c
 +++ b/components/newlib/stdatomic.c
-@@ -208,6 +208,23 @@ CLANG_DECLARE_ALIAS( __sync_bool_compare_and_swap_ ## n )
+@@ -208,9 +208,34 @@ CLANG_DECLARE_ALIAS( __sync_bool_compare_and_swap_ ## n )
  }                                                                                \
  CLANG_DECLARE_ALIAS( __sync_val_compare_and_swap_ ## n )
 
@@ -26,7 +26,18 @@ index bbd2d17e80..bbe1a0325a 100644
 
  #if !HAS_ATOMICS_32
 
-@@ -267,6 +284,14 @@ SYNC_VAL_CMP_EXCHANGE(1, uint8_t)
++ATOMIC_LOAD(1, uint8_t)
++ATOMIC_LOAD(2, uint16_t)
++ATOMIC_LOAD(4, uint32_t)
++
++ATOMIC_STORE(1, uint8_t)
++ATOMIC_STORE(2, uint16_t)
++ATOMIC_STORE(4, uint32_t)
++
+ ATOMIC_EXCHANGE(1, uint8_t)
+ ATOMIC_EXCHANGE(2, uint16_t)
+ ATOMIC_EXCHANGE(4, uint32_t)
+@@ -267,6 +292,14 @@ SYNC_VAL_CMP_EXCHANGE(1, uint8_t)
  SYNC_VAL_CMP_EXCHANGE(2, uint16_t)
  SYNC_VAL_CMP_EXCHANGE(4, uint32_t)
 
@@ -41,7 +52,7 @@ index bbd2d17e80..bbe1a0325a 100644
  #endif // !HAS_ATOMICS_32
 
  #if !HAS_ATOMICS_64
-@@ -303,4 +328,8 @@ SYNC_BOOL_CMP_EXCHANGE(8, uint64_t)
+@@ -303,4 +336,8 @@ SYNC_BOOL_CMP_EXCHANGE(8, uint64_t)
 
  SYNC_VAL_CMP_EXCHANGE(8, uint64_t)
 
