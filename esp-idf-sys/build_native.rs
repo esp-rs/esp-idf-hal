@@ -17,9 +17,7 @@ use embuild::utils::{OsStrExt, PathExt};
 use embuild::{bindgen, build, cargo, cmake, cmd, cmd_output, git, kconfig, path_buf};
 use strum::{Display, EnumString};
 
-use super::EspIdfBuildOutput;
-use super::MASTER_PATCHES;
-use super::STABLE_PATCHES;
+use super::{EspIdfBuildOutput, MASTER_PATCHES, STABLE_PATCHES};
 
 const SDK_DIR_VAR: &str = "SDK_DIR";
 const ESP_IDF_VERSION_VAR: &str = "ESP_IDF_VERSION";
@@ -218,12 +216,21 @@ pub(crate) fn main() -> Result<EspIdfBuildOutput<impl Iterator<Item = (String, k
     // relative to the workspace directory if not empty.
     let sdkconfig = env::var_os(ESP_IDF_SDKCONFIG_VAR)
         .filter(|v| !v.is_empty())
-        .map(|v| {
+        .map(|v| -> Result<OsString> {
             let path = Path::new(&v).abspath_relative_to(&workspace_dir);
             cargo::track_file(&path);
-            path.into_os_string()
+            if cfg!(windows) {
+                // cmake doesn't allow backslashes in its function arguments,
+                // so we convert this path to a path with slashes.
+                // Currently this also forbids non-unicode paths, because we have to
+                // convert the `OsStr` to `str` to do this replace operation (without us
+                // having to implement it ourselves).
+                Ok(path.try_to_str()?.replace('\\', "/").into())
+            } else {
+                Ok(path.into_os_string())
+            }
         })
-        .unwrap_or_else(OsString::new);
+        .unwrap_or_else(|| Ok(OsString::new()))?;
 
     let sdkconfig_defaults = env::var_os(ESP_IDF_SDKCONFIG_DEFAULTS_VAR)
         .filter(|v| !v.is_empty())
@@ -239,7 +246,12 @@ pub(crate) fn main() -> Result<EspIdfBuildOutput<impl Iterator<Item = (String, k
                 if !result.is_empty() {
                     result.push(";");
                 }
-                result.push(s);
+                if cfg!(windows) {
+                    // Same reason as above.
+                    result.push(s.try_to_str()?.replace('\\', "/"));
+                } else {
+                    result.push(s);
+                }
             }
 
             Ok(result)
