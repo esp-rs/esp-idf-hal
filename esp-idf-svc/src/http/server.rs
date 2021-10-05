@@ -14,7 +14,9 @@ pub use std::ffi::CString;
 #[cfg(not(feature = "std"))]
 pub use cstr_core::CString;
 
-use embedded_svc::http::server::{Completion, Handler, Registry, Request, Response};
+use embedded_svc::http::server::{
+    HttpCompletion, HttpHandler, HttpRegistry, HttpRequest, HttpResponse,
+};
 use embedded_svc::http::*;
 use embedded_svc::io::{Read, Write};
 
@@ -63,52 +65,52 @@ impl From<&Configuration> for Newtype<httpd_config_t> {
     }
 }
 
-impl From<Method> for Newtype<c_types::c_uint> {
-    fn from(method: Method) -> Self {
+impl From<HttpMethod> for Newtype<c_types::c_uint> {
+    fn from(method: HttpMethod) -> Self {
         Self(match method {
-            Method::Get => esp_idf_sys::http_method_HTTP_GET,
-            Method::Post => esp_idf_sys::http_method_HTTP_POST,
-            Method::Delete => esp_idf_sys::http_method_HTTP_DELETE,
-            Method::Head => esp_idf_sys::http_method_HTTP_HEAD,
-            Method::Put => esp_idf_sys::http_method_HTTP_PUT,
-            Method::Connect => esp_idf_sys::http_method_HTTP_CONNECT,
-            Method::Options => esp_idf_sys::http_method_HTTP_OPTIONS,
-            Method::Trace => esp_idf_sys::http_method_HTTP_TRACE,
-            Method::Copy => esp_idf_sys::http_method_HTTP_COPY,
-            Method::Lock => esp_idf_sys::http_method_HTTP_LOCK,
-            Method::MkCol => esp_idf_sys::http_method_HTTP_MKCOL,
-            Method::Move => esp_idf_sys::http_method_HTTP_MOVE,
-            Method::Propfind => esp_idf_sys::http_method_HTTP_PROPFIND,
-            Method::Proppatch => esp_idf_sys::http_method_HTTP_PROPPATCH,
-            Method::Search => esp_idf_sys::http_method_HTTP_SEARCH,
-            Method::Unlock => esp_idf_sys::http_method_HTTP_UNLOCK,
-            Method::Bind => esp_idf_sys::http_method_HTTP_BIND,
-            Method::Rebind => esp_idf_sys::http_method_HTTP_REBIND,
-            Method::Unbind => esp_idf_sys::http_method_HTTP_UNBIND,
-            Method::Acl => esp_idf_sys::http_method_HTTP_ACL,
-            Method::Report => esp_idf_sys::http_method_HTTP_REPORT,
-            Method::MkActivity => esp_idf_sys::http_method_HTTP_MKACTIVITY,
-            Method::Checkout => esp_idf_sys::http_method_HTTP_CHECKOUT,
-            Method::Merge => esp_idf_sys::http_method_HTTP_MERGE,
-            Method::MSearch => esp_idf_sys::http_method_HTTP_MSEARCH,
-            Method::Notify => esp_idf_sys::http_method_HTTP_NOTIFY,
-            Method::Subscribe => esp_idf_sys::http_method_HTTP_SUBSCRIBE,
-            Method::Unsubscribe => esp_idf_sys::http_method_HTTP_UNSUBSCRIBE,
-            Method::Patch => esp_idf_sys::http_method_HTTP_PATCH,
-            Method::Purge => esp_idf_sys::http_method_HTTP_PURGE,
-            Method::MkCalendar => esp_idf_sys::http_method_HTTP_MKCALENDAR,
-            Method::Link => esp_idf_sys::http_method_HTTP_LINK,
-            Method::Unlink => esp_idf_sys::http_method_HTTP_UNLINK,
+            HttpMethod::Get => esp_idf_sys::http_method_HTTP_GET,
+            HttpMethod::Post => esp_idf_sys::http_method_HTTP_POST,
+            HttpMethod::Delete => esp_idf_sys::http_method_HTTP_DELETE,
+            HttpMethod::Head => esp_idf_sys::http_method_HTTP_HEAD,
+            HttpMethod::Put => esp_idf_sys::http_method_HTTP_PUT,
+            HttpMethod::Connect => esp_idf_sys::http_method_HTTP_CONNECT,
+            HttpMethod::Options => esp_idf_sys::http_method_HTTP_OPTIONS,
+            HttpMethod::Trace => esp_idf_sys::http_method_HTTP_TRACE,
+            HttpMethod::Copy => esp_idf_sys::http_method_HTTP_COPY,
+            HttpMethod::Lock => esp_idf_sys::http_method_HTTP_LOCK,
+            HttpMethod::MkCol => esp_idf_sys::http_method_HTTP_MKCOL,
+            HttpMethod::Move => esp_idf_sys::http_method_HTTP_MOVE,
+            HttpMethod::Propfind => esp_idf_sys::http_method_HTTP_PROPFIND,
+            HttpMethod::Proppatch => esp_idf_sys::http_method_HTTP_PROPPATCH,
+            HttpMethod::Search => esp_idf_sys::http_method_HTTP_SEARCH,
+            HttpMethod::Unlock => esp_idf_sys::http_method_HTTP_UNLOCK,
+            HttpMethod::Bind => esp_idf_sys::http_method_HTTP_BIND,
+            HttpMethod::Rebind => esp_idf_sys::http_method_HTTP_REBIND,
+            HttpMethod::Unbind => esp_idf_sys::http_method_HTTP_UNBIND,
+            HttpMethod::Acl => esp_idf_sys::http_method_HTTP_ACL,
+            HttpMethod::Report => esp_idf_sys::http_method_HTTP_REPORT,
+            HttpMethod::MkActivity => esp_idf_sys::http_method_HTTP_MKACTIVITY,
+            HttpMethod::Checkout => esp_idf_sys::http_method_HTTP_CHECKOUT,
+            HttpMethod::Merge => esp_idf_sys::http_method_HTTP_MERGE,
+            HttpMethod::MSearch => esp_idf_sys::http_method_HTTP_MSEARCH,
+            HttpMethod::Notify => esp_idf_sys::http_method_HTTP_NOTIFY,
+            HttpMethod::Subscribe => esp_idf_sys::http_method_HTTP_SUBSCRIBE,
+            HttpMethod::Unsubscribe => esp_idf_sys::http_method_HTTP_UNSUBSCRIBE,
+            HttpMethod::Patch => esp_idf_sys::http_method_HTTP_PATCH,
+            HttpMethod::Purge => esp_idf_sys::http_method_HTTP_PURGE,
+            HttpMethod::MkCalendar => esp_idf_sys::http_method_HTTP_MKCALENDAR,
+            HttpMethod::Link => esp_idf_sys::http_method_HTTP_LINK,
+            HttpMethod::Unlink => esp_idf_sys::http_method_HTTP_UNLINK,
         })
     }
 }
 
-pub struct EspServer {
+pub struct EspHttpServer {
     sd: esp_idf_sys::httpd_handle_t,
     registrations: Vec<(CString, esp_idf_sys::httpd_uri_t)>,
 }
 
-impl EspServer {
+impl EspHttpServer {
     pub fn new(conf: &Configuration) -> Result<Self, EspError> {
         let config: Newtype<esp_idf_sys::httpd_config_t> = conf.into();
 
@@ -119,7 +121,7 @@ impl EspServer {
 
         info!("Started Httpd server with config {:?}", conf);
 
-        Ok(EspServer {
+        Ok(EspHttpServer {
             sd: handle,
             registrations: vec![],
         })
@@ -165,12 +167,12 @@ impl EspServer {
 
     unsafe extern "C" fn handle(raw_req: *mut httpd_req_t) -> c_types::c_int {
         let handler = ((*raw_req).user_ctx
-            as *mut Box<dyn Fn(EspRequest, EspResponse) -> Result<Completion, EspError>>)
+            as *mut Box<dyn Fn(EspHttpRequest, EspHttpResponse) -> Result<HttpCompletion, EspError>>)
             .as_ref()
             .unwrap();
 
-        let request = EspRequest(raw_req);
-        let response = EspResponse {
+        let request = EspHttpRequest(raw_req);
+        let response = EspHttpResponse {
             raw_req,
             status: 200,
             status_message: None,
@@ -202,20 +204,20 @@ impl EspServer {
     }
 }
 
-impl Drop for EspServer {
+impl Drop for EspHttpServer {
     fn drop(&mut self) {
         self.stop().expect("Unable to stop the server cleanly");
     }
 }
 
-impl Registry for EspServer {
-    type Request<'a> = EspRequest;
-    type Response<'a> = EspResponse<'a>;
+impl HttpRegistry for EspHttpServer {
+    type Request<'a> = EspHttpRequest;
+    type Response<'a> = EspHttpResponse<'a>;
     type Error = EspError;
 
-    fn set_handler<'b, F, E>(&mut self, handler: Handler<F>) -> Result<&mut Self, Self::Error>
+    fn set_handler<'b, F, E>(&mut self, handler: HttpHandler<F>) -> Result<&mut Self, Self::Error>
     where
-        F: Fn(Self::Request<'b>, Self::Response<'b>) -> Result<Completion, E>,
+        F: Fn(Self::Request<'b>, Self::Response<'b>) -> Result<HttpCompletion, E>,
         E: Into<Box<dyn std::error::Error>>,
     {
         let c_str = CString::new(handler.uri().as_ref()).unwrap();
@@ -225,7 +227,7 @@ impl Registry for EspServer {
             uri: c_str.as_ptr() as _,
             method: Newtype::<c_types::c_uint>::from(method).0,
             user_ctx: Box::into_raw(Box::new(handler.handler())) as *mut _,
-            handler: Some(EspServer::handle),
+            handler: Some(EspHttpServer::handle),
         };
 
         esp!(unsafe { esp_idf_sys::httpd_register_uri_handler(self.sd, &conf) })?;
@@ -242,9 +244,9 @@ impl Registry for EspServer {
     }
 }
 
-pub struct EspRequest(*mut httpd_req_t);
+pub struct EspHttpRequest(*mut httpd_req_t);
 
-impl<'a> Request<'a> for EspRequest {
+impl<'a> HttpRequest<'a> for EspHttpRequest {
     type Read = Self;
     type Error = EspError;
 
@@ -280,7 +282,7 @@ impl<'a> Request<'a> for EspRequest {
     }
 }
 
-impl Read for EspRequest {
+impl Read for EspHttpRequest {
     type Error = EspError;
 
     fn do_read(&mut self, buf: &mut [u8]) -> Result<usize, Self::Error> {
@@ -300,7 +302,7 @@ impl Read for EspRequest {
     }
 }
 
-impl Headers for EspRequest {
+impl HttpHeaders for EspHttpRequest {
     fn header(&self, name: impl AsRef<str>) -> Option<Cow<'_, str>> {
         let c_name = CString::new(name.as_ref()).unwrap();
 
@@ -332,14 +334,14 @@ impl Headers for EspRequest {
     }
 }
 
-pub struct EspResponse<'a> {
+pub struct EspHttpResponse<'a> {
     raw_req: *mut httpd_req_t,
     status: u16,
     status_message: Option<Cow<'a, str>>,
     headers: BTreeMap<Cow<'a, str>, Cow<'a, str>>,
 }
 
-impl<'a> SendStatus<'a> for EspResponse<'a> {
+impl<'a> HttpSendStatus<'a> for EspHttpResponse<'a> {
     fn set_status(&mut self, status: u16) -> &mut Self {
         self.status = status;
         self
@@ -354,7 +356,7 @@ impl<'a> SendStatus<'a> for EspResponse<'a> {
     }
 }
 
-impl<'a> SendHeaders<'a> for EspResponse<'a> {
+impl<'a> HttpSendHeaders<'a> for EspHttpResponse<'a> {
     fn set_header<H, V>(&mut self, name: H, value: V) -> &mut Self
     where
         H: Into<Cow<'a, str>>,
@@ -365,15 +367,18 @@ impl<'a> SendHeaders<'a> for EspResponse<'a> {
     }
 }
 
-impl<'a> Response<'a> for EspResponse<'a> {
+impl<'a> HttpResponse<'a> for EspHttpResponse<'a> {
     type Write = Self;
     type Error = EspError;
 
     fn send(
         mut self,
-        request: impl Request<'a>,
+        request: impl HttpRequest<'a>,
         f: impl FnOnce(&mut Self::Write) -> Result<(), Self::Error>,
-    ) -> Result<Completion, Self::Error> {
+    ) -> Result<HttpCompletion, Self::Error>
+    where
+        Self: Sized,
+    {
         // TODO: Would be much more effective if we are serializing the status line and headers directly
         // Consider implement this, based on http_resp_send() - even though that would require implementing
         // chunking in Rust
@@ -414,11 +419,11 @@ impl<'a> Response<'a> for EspResponse<'a> {
             esp_idf_sys::httpd_resp_send_chunk(self.raw_req, std::ptr::null() as *const _, 0)
         })?;
 
-        Ok(Completion::new(request, self))
+        Ok(HttpCompletion::new(request, self))
     }
 }
 
-impl<'a> Write for EspResponse<'a> {
+impl<'a> Write for EspHttpResponse<'a> {
     type Error = EspError;
 
     fn do_write(&mut self, buf: &[u8]) -> Result<usize, Self::Error> {
