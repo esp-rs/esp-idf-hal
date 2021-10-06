@@ -1,6 +1,6 @@
 [package]
 name = "esp-idf-sys"
-version = "0.20.2"
+version = "0.20.3"
 authors = ["Alexey Arbuzov <aarbuzov@termt.com>", "sapir <yasapir@gmail.com>", "Ivan Markov <ivan.markov@gmail.com>"]
 edition = "2018"
 categories = ["embedded", "hardware-support"]
@@ -10,6 +10,7 @@ repository = "https://github.com/ivmarkov/esp-idf-sys"
 license = "MIT OR Apache-2.0"
 readme = "README.md"
 links = "esp_idf"
+build = "build/build.rs"
 
 # No xtensa in regular compiler yet
 [package.metadata.docs.rs]
@@ -31,7 +32,7 @@ embedded-svc = "0.8.3"
 paste = "1"
 
 [build-dependencies]
-embuild = "0.24"
+embuild = "0.24.5"
 anyhow = "1"
 strum = { version = "0.21", optional = true, features = ["derive"] }
 regex = "1.5"

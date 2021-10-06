@@ -8,12 +8,18 @@
 #include "esp_task.h"
 #include "esp_task_wdt.h"
 #include "esp_timer.h"
-#include "esp_spi_flash.h"
 #include "esp_int_wdt.h"
 #include "esp_interface.h"
 #include "esp_ipc.h"
 #include "esp_pm.h"
+
+#ifdef ESP_IDF_COMP_SPI_FLASH_ENABLED
+#include "esp_spi_flash.h"
+#endif
+
+#ifdef ESP_IDF_COMP_ESP_ADC_CAL_ENABLED
 #include "esp_adc_cal.h"
+#endif
 
 #include "esp_event.h"
 
@@ -34,13 +40,22 @@
 
 #include "ping/ping_sock.h"
 
+#ifdef ESP_IDF_COMP_APP_UPDATE_ENABLED
 #include "esp_ota_ops.h"
+#endif
 
+#ifdef ESP_IDF_COMP_ESP_HTTP_CLIENT_ENABLED
 #include "esp_http_client.h"
-#include "esp_http_server.h"
+#endif
 
+#ifdef ESP_IDF_COMP_ESP_HTTP_SERVER_ENABLED
+#include "esp_http_server.h"
+#endif
+
+#ifdef ESP_IDF_COMP_NVS_FLASH_ENABLED
 #include "nvs.h"
 #include "nvs_flash.h"
+#endif
 
 #include "driver/adc.h"
 #include "driver/twai.h"
@@ -71,21 +86,33 @@
 #include "driver/spi_master.h"
 #include "driver/spi_slave.h"
 #include "driver/timer.h"
+
 #ifndef CONFIG_IDF_TARGET_ESP32C3
 #include "driver/touch_pad.h"
 #endif
-//#include "touch_sensor.h"
-//#include "driver/touch_sensor_common.h"
+
+#if defined(CONFIG_IDF_TARGET_ESP32) || defined(CONFIG_IDF_TARGET_ESP32S2) || defined(CONFIG_IDF_TARGET_ESP32S3)
+#include "touch_sensor.h"
+#include "driver/touch_sensor_common.h"
+#endif
+
 #include "driver/uart.h"
 #include "driver/uart_select.h"
 
+#ifdef ESP_IDF_COMP_ESPCOREDUMP_ENABLED
 #include "esp_core_dump.h"
+#endif
 
+#ifdef ESP_IDF_COMP_ESP_SERIAL_SLAVE_LINK_ENABLED
 #include "esp_serial_slave_link/essl.h"
 #include "esp_serial_slave_link/essl_sdio.h"
+#endif
 
 #include "pthread.h"
+
+#ifdef ESP_IDF_COMP_PTHREAD_ENABLED
 #include "esp_pthread.h"
+#endif
 
 #ifdef CONFIG_ESP32S2_ULP_COPROC_ENABLED
 #ifdef CONFIG_IDF_TARGET_ESP32

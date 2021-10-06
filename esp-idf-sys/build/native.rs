@@ -17,7 +17,7 @@ use embuild::utils::{OsStrExt, PathExt};
 use embuild::{bindgen, build, cargo, cmake, cmd, cmd_output, git, kconfig, path_buf};
 use strum::{Display, EnumString};
 
-use super::{EspIdfBuildOutput, MASTER_PATCHES, STABLE_PATCHES};
+use super::common::{EspIdfBuildOutput, EspIdfComponents, MASTER_PATCHES, STABLE_PATCHES};
 
 const SDK_DIR_VAR: &str = "SDK_DIR";
 const ESP_IDF_VERSION_VAR: &str = "ESP_IDF_VERSION";
@@ -31,35 +31,72 @@ const DEFAULT_SDK_DIR: &str = ".espressif";
 const DEFAULT_ESP_IDF_REPOSITORY: &str = "https://github.com/espressif/esp-idf.git";
 const DEFAULT_ESP_IDF_VERSION: &str = "v4.3";
 
-fn esp_idf_version() -> git::Ref {
-    let version =
-        env::var(ESP_IDF_VERSION_VAR).unwrap_or_else(|_| DEFAULT_ESP_IDF_VERSION.to_owned());
-    let version = version.trim();
-    assert!(
-        !version.is_empty(),
-        "${} (='{}') must contain a valid version",
-        ESP_IDF_VERSION_VAR,
-        version
-    );
+const CARGO_CMAKE_BUILD_ACTIVE_VAR: &str = "CARGO_CMAKE_BUILD_ACTIVE";
+const CARGO_CMAKE_BUILD_INCLUDES_VAR: &str = "CARGO_CMAKE_BUILD_INCLUDES";
+const CARGO_CMAKE_BUILD_LINK_LIBRARIES_VAR: &str = "CARGO_CMAKE_BUILD_LINK_LIBRARIES";
+const CARGO_CMAKE_BUILD_COMPILER_VAR: &str = "CARGO_CMAKE_BUILD_COMPILER";
+const CARGO_CMAKE_BUILD_SDKCONFIG_VAR: &str = "CARGO_CMAKE_BUILD_SDKCONFIG";
 
-    match version.split_once(':') {
-        Some(("commit", c)) => git::Ref::Commit(c.to_owned()),
-        Some(("tag", t)) => git::Ref::Tag(t.to_owned()),
-        Some(("branch", b)) => git::Ref::Branch(b.to_owned()),
-        _ => match version.chars().next() {
-            Some(c) if c.is_ascii_digit() => git::Ref::Tag("v".to_owned() + version),
-            Some('v') if version.len() > 1 && version.chars().nth(1).unwrap().is_ascii_digit() => {
-                git::Ref::Tag(version.to_owned())
-            }
-            Some(_) => git::Ref::Branch(version.to_owned()),
-            _ => unreachable!(),
-        },
+pub fn build() -> Result<EspIdfBuildOutput> {
+    if env::var(CARGO_CMAKE_BUILD_ACTIVE_VAR).is_ok()
+        || env::var(CARGO_CMAKE_BUILD_INCLUDES_VAR).is_ok()
+    {
+        build_cmake_first()
+    } else {
+        build_cargo_first()
     }
 }
 
-pub(crate) fn main() -> Result<EspIdfBuildOutput<impl Iterator<Item = (String, kconfig::Value)>>> {
-    // TODO: Implement support for CMake-first builds in a similar way as to how cargo-pio supports PIO-first builds
+fn build_cmake_first() -> Result<EspIdfBuildOutput> {
+    let components = EspIdfComponents::from(
+        env::var(CARGO_CMAKE_BUILD_LINK_LIBRARIES_VAR)?
+            .split(";")
+            .filter_map(|s| {
+                if let Some(comp) = s.strip_prefix("__idf_") {
+                    // All ESP-IDF components are prefixed with `__idf_`
+                    // Check this comment for more info:
+                    // https://github.com/esp-rs/esp-idf-sys/pull/17#discussion_r723133416
+                    Some(format!("comp_{}_enabled", comp))
+                } else {
+                    None
+                }
+            }),
+    );
 
+    let sdkconfig = PathBuf::from(env::var(CARGO_CMAKE_BUILD_SDKCONFIG_VAR)?);
+
+    let build_output = EspIdfBuildOutput {
+        cincl_args: build::CInclArgs {
+            args: env::var(CARGO_CMAKE_BUILD_INCLUDES_VAR)?,
+        },
+        link_args: None,
+        kconfig_args: Box::new(
+            kconfig::try_from_config_file(sdkconfig.clone())
+                .with_context(|| anyhow!("Failed to read '{:?}'", sdkconfig))?
+                .map(|(key, value)| {
+                    (
+                        key.strip_prefix("CONFIG_")
+                            .map(str::to_string)
+                            .unwrap_or(key),
+                        value,
+                    )
+                }),
+        ),
+        components,
+        bindgen: bindgen::Factory::new()
+            .with_linker(env::var(CARGO_CMAKE_BUILD_COMPILER_VAR)?)
+            .with_clang_args(
+                env::var(CARGO_CMAKE_BUILD_INCLUDES_VAR)?
+                    .split(";")
+                    .map(|dir| format!("-I{}", dir))
+                    .collect::<Vec<_>>(),
+            ),
+    };
+
+    Ok(build_output)
+}
+
+fn build_cargo_first() -> Result<EspIdfBuildOutput> {
     let out_dir = path_buf![env::var("OUT_DIR")?];
     let target = env::var("TARGET")?;
     let workspace_dir = out_dir.pop_times(6);
@@ -335,11 +372,40 @@ pub(crate) fn main() -> Result<EspIdfBuildOutput<impl Iterator<Item = (String, k
                 .build()?,
         ),
         bindgen: bindgen::Factory::from_cmake(&target.compile_groups[0])?.with_linker(&compiler),
-        kconfig_args: kconfig::try_from_json_file(sdkconfig_json.clone())
-            .with_context(|| anyhow!("Failed to read '{:?}'", sdkconfig_json))?,
+        components: EspIdfComponents::new(),
+        kconfig_args: Box::new(
+            kconfig::try_from_json_file(sdkconfig_json.clone())
+                .with_context(|| anyhow!("Failed to read '{:?}'", sdkconfig_json))?,
+        ),
     };
 
     Ok(build_output)
+}
+
+fn esp_idf_version() -> git::Ref {
+    let version =
+        env::var(ESP_IDF_VERSION_VAR).unwrap_or_else(|_| DEFAULT_ESP_IDF_VERSION.to_owned());
+    let version = version.trim();
+    assert!(
+        !version.is_empty(),
+        "${} (='{}') must contain a valid version",
+        ESP_IDF_VERSION_VAR,
+        version
+    );
+
+    match version.split_once(':') {
+        Some(("commit", c)) => git::Ref::Commit(c.to_owned()),
+        Some(("tag", t)) => git::Ref::Tag(t.to_owned()),
+        Some(("branch", b)) => git::Ref::Branch(b.to_owned()),
+        _ => match version.chars().next() {
+            Some(c) if c.is_ascii_digit() => git::Ref::Tag("v".to_owned() + version),
+            Some('v') if version.len() > 1 && version.chars().nth(1).unwrap().is_ascii_digit() => {
+                git::Ref::Tag(version.to_owned())
+            }
+            Some(_) => git::Ref::Branch(version.to_owned()),
+            _ => unreachable!(),
+        },
+    }
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug, Display, EnumString)]
