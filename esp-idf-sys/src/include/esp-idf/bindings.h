@@ -91,11 +91,6 @@
 #include "driver/touch_pad.h"
 #endif
 
-#if defined(CONFIG_IDF_TARGET_ESP32) || defined(CONFIG_IDF_TARGET_ESP32S2) || defined(CONFIG_IDF_TARGET_ESP32S3)
-#include "touch_sensor.h"
-#include "driver/touch_sensor_common.h"
-#endif
-
 #include "driver/uart.h"
 #include "driver/uart_select.h"
 
