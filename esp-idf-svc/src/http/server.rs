@@ -167,7 +167,9 @@ impl EspHttpServer {
 
     unsafe extern "C" fn handle(raw_req: *mut httpd_req_t) -> c_types::c_int {
         let handler = ((*raw_req).user_ctx
-            as *mut Box<dyn Fn(EspHttpRequest, EspHttpResponse) -> Result<HttpCompletion, EspError>>)
+            as *mut Box<
+                dyn Fn(EspHttpRequest, EspHttpResponse) -> Result<HttpCompletion, EspError>,
+            >)
             .as_ref()
             .unwrap();
 
