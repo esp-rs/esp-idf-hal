@@ -8,23 +8,23 @@ extern crate alloc;
 
 #[cfg(all(feature = "experimental", feature = "alloc"))]
 pub mod http;
-#[cfg(any(feature = "std"))] // TODO: Lower requirements to "alloc"
+#[cfg(all(feature = "std", esp_idf_comp_esp_http_server_enabled))] // TODO: Lower requirements to "alloc"
 pub mod httpd;
-#[cfg(any(feature = "alloc"))]
+#[cfg(feature = "alloc")]
 // TODO: Ideally should not need "alloc" (also for performance reasons)
 pub mod log;
 #[cfg(esp_idf_config_lwip_ipv4_napt)]
 pub mod napt;
 pub mod netif;
-#[cfg(any(feature = "alloc"))] // TODO: Expose a subset which does not require "alloc"
+#[cfg(all(feature = "alloc", esp_idf_comp_nvs_flash_enabled))] // TODO: Expose a subset which does not require "alloc"
 pub mod nvs;
-#[cfg(any(feature = "alloc"))] // TODO: Expose a subset which does not require "alloc"
+#[cfg(all(feature = "alloc", esp_idf_comp_nvs_flash_enabled))] // TODO: Expose a subset which does not require "alloc"
 pub mod nvs_storage;
-#[cfg(all(feature = "experimental", feature = "alloc"))]
+#[cfg(all(feature = "experimental", feature = "alloc", esp_idf_comp_app_update_enabled, comp_spi_flash_enabled))]
 pub mod ota;
 pub mod ping;
 pub mod sysloop;
-#[cfg(any(feature = "alloc"))] // TODO: Expose a subset which does not require "alloc"
+#[cfg(feature = "alloc")] // TODO: Expose a subset which does not require "alloc"
 pub mod wifi;
 
 #[cfg(any(feature = "binstart", feature = "libstart"))]
