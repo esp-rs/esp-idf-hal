@@ -15,6 +15,7 @@
 
 #ifdef ESP_IDF_COMP_SPI_FLASH_ENABLED
 #include "esp_spi_flash.h"
+#include "esp_partition.h"
 #endif
 
 #ifdef ESP_IDF_COMP_ESP_ADC_CAL_ENABLED
