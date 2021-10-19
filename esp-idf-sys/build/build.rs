@@ -75,7 +75,6 @@ fn main() -> anyhow::Result<()> {
             .header(header_file.try_to_str()?)
             .blacklist_function("strtold")
             .blacklist_function("_strtold_r")
-            .blacklist_function("esp_eth_mac_new_esp32")
             .clang_args(build_output.components.clang_args())
             .clang_args(vec![
                 "-target",
