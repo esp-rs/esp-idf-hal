@@ -216,7 +216,7 @@ impl EspWifi {
         netif_stack: Arc<EspNetifStack>,
         sys_loop_stack: Arc<EspSysLoopStack>,
         nvs: Arc<EspDefaultNvs>,
-    ) -> Result<EspWifi, EspError> {
+    ) -> Result<Self, EspError> {
         unsafe {
             TAKEN.lock(|taken| {
                 if *taken {
@@ -235,8 +235,8 @@ impl EspWifi {
         netif_stack: Arc<EspNetifStack>,
         sys_loop_stack: Arc<EspSysLoopStack>,
         nvs: Arc<EspDefaultNvs>,
-    ) -> Result<EspWifi, EspError> {
-        let mut wifi = EspWifi {
+    ) -> Result<Self, EspError> {
+        let mut wifi = Self {
             netif_stack,
             _sys_loop_stack: sys_loop_stack,
             _nvs: nvs,
@@ -278,13 +278,13 @@ impl EspWifi {
             esp!(esp_event_handler_register(
                 WIFI_EVENT,
                 ESP_EVENT_ANY_ID,
-                Option::Some(EspWifi::event_handler),
+                Option::Some(Self::event_handler),
                 shared_ref as *mut c_types::c_void
             ))?;
             esp!(esp_event_handler_register(
                 IP_EVENT,
                 ESP_EVENT_ANY_ID,
-                Option::Some(EspWifi::event_handler),
+                Option::Some(Self::event_handler),
                 shared_ref as *mut c_types::c_void
             ))?;
 
@@ -567,12 +567,12 @@ impl EspWifi {
             esp!(esp_event_handler_unregister(
                 WIFI_EVENT,
                 ESP_EVENT_ANY_ID,
-                Option::Some(EspWifi::event_handler)
+                Option::Some(Self::event_handler)
             ))?;
             esp!(esp_event_handler_unregister(
                 IP_EVENT,
                 ESP_EVENT_ANY_ID as i32,
-                Option::Some(EspWifi::event_handler)
+                Option::Some(Self::event_handler)
             ))?;
 
             info!("Event handlers deregistered");
@@ -684,7 +684,7 @@ impl EspWifi {
         shared.status = Status(
             match event_id as u32 {
                 wifi_event_t_WIFI_EVENT_STA_START => {
-                    EspWifi::reconnect_if_operating(shared.operating)?
+                    Self::reconnect_if_operating(shared.operating)?
                 }
                 wifi_event_t_WIFI_EVENT_STA_STOP => ClientStatus::Stopped,
                 wifi_event_t_WIFI_EVENT_STA_CONNECTED => ClientStatus::Started(
@@ -697,7 +697,7 @@ impl EspWifi {
                     }),
                 ),
                 wifi_event_t_WIFI_EVENT_STA_DISCONNECTED => {
-                    EspWifi::reconnect_if_operating(shared.operating)?
+                    Self::reconnect_if_operating(shared.operating)?
                 }
                 _ => shared.status.0.clone(),
             },
@@ -754,16 +754,14 @@ impl EspWifi {
                         },
                     )))
                 }
-                ip_event_t_IP_EVENT_STA_LOST_IP => {
-                    EspWifi::reconnect_if_operating(shared.operating)?
-                }
+                ip_event_t_IP_EVENT_STA_LOST_IP => Self::reconnect_if_operating(shared.operating)?,
                 _ => shared.status.0.clone(),
             },
             match event_id as u32 {
                 ip_event_t_IP_EVENT_AP_STAIPASSIGNED => {
                     let event: *const ip_event_ap_staipassigned_t = mem::transmute(event_data);
                     info!(
-                        "Station got IP {}",
+                        "AP assigned IP to a station: {}",
                         ipv4::Ipv4Addr::from(Newtype((*event).ip))
                     );
                     shared.status.1.clone()
