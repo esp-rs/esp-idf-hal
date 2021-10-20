@@ -1,4 +1,4 @@
-use core::{convert::TryInto, mem, ptr, time::Duration};
+use core::{convert::TryInto, ptr, time::Duration};
 
 extern crate alloc;
 use alloc::sync::Arc;
@@ -152,13 +152,7 @@ where
                 } else {
                     let (mac, phy) = Self::initialize(driver)?;
 
-                    let eth = Self::init(
-                        netif_stack,
-                        sys_loop_stack,
-                        mac,
-                        phy,
-                        hw,
-                    )?;
+                    let eth = Self::init(netif_stack, sys_loop_stack, mac, phy, hw)?;
 
                     *taken = true;
                     Ok(eth)
@@ -182,7 +176,9 @@ where
         Ok(self.hw)
     }
 
-    fn initialize(driver: Esp32EthDriver) -> Result<(*mut esp_eth_mac_t, *mut esp_eth_phy_t), EspError> {
+    fn initialize(
+        driver: Esp32EthDriver,
+    ) -> Result<(*mut esp_eth_mac_t, *mut esp_eth_phy_t), EspError> {
         let mac_cfg = EspEth::<Esp32EthHw<MDC, MDIO>>::eth_mac_default_config();
         let phy_cfg = EspEth::<Esp32EthHw<MDC, MDIO>>::eth_phy_default_config();
 
@@ -249,7 +245,8 @@ impl EspEth<()> {
     esp_idf_eth_spi_ethernet_w5500,
     esp_idf_eth_spi_ethernet_ksz8851snl
 ))]
-impl<INT, SPI, SCLK, SDO, SDI, CS> EspEth<(SpiEthHw<INT, SPI, SCLK, SDO, SDI, CS>, spi_device_handle_t)>
+impl<INT, SPI, SCLK, SDO, SDI, CS>
+    EspEth<(SpiEthHw<INT, SPI, SCLK, SDO, SDI, CS>, spi_device_handle_t)>
 where
     INT: gpio::InputPin + gpio::OutputPin,
     SPI: spi::Spi,
@@ -286,7 +283,10 @@ where
         Ok(self.hw.0)
     }
 
-    fn initialize(driver: SpiEthDriver, baudrate: Hertz) -> Result<(*mut esp_eth_mac_t, *mut esp_eth_phy_t, spi_device_handle_t), EspError> {
+    fn initialize(
+        driver: SpiEthDriver,
+        baudrate: Hertz,
+    ) -> Result<(*mut esp_eth_mac_t, *mut esp_eth_phy_t, spi_device_handle_t), EspError> {
         Self::initialize_spi_bus()?;
 
         let mac_cfg = EspEth::<SpiEthHw<INT, SPI, SCLK, SDO, SDI, CS>>::eth_mac_default_config();
@@ -306,7 +306,7 @@ where
                 let phy = unsafe { esp_eth_phy_new_dm9051(&phy_cfg) };
 
                 (mac, phy, spi_handle)
-            },
+            }
             #[cfg(esp_idf_eth_spi_ethernet_w5500)]
             SpiEthDriver::W5500 => {
                 let spi_handle = Self::initialize_spi(16, 8, baudrate)?;
@@ -320,7 +320,7 @@ where
                 let phy = unsafe { esp_eth_phy_new_w5500(&phy_cfg) };
 
                 (mac, phy, spi_handle)
-            },
+            }
             #[cfg(esp_idf_eth_spi_ethernet_ksz8851snl)]
             SpiEthDriver::KSZ8851SNL => {
                 let spi_handle = Self::initialize_spi(16, 8, baudrate)?; // TODO
@@ -334,18 +334,28 @@ where
                 let phy = unsafe { esp_eth_phy_new_ksz8851snl(&phy_cfg) };
 
                 (mac, phy, spi_handle)
-            },
+            }
         };
 
         // The SPI Ethernet module might not have a burned factory MAC address, so we have to set it manually then.
         // 02:00:00 is a Locally Administered OUI range so it should not be used except when testing on a LAN under your control. TODO
         let mut mac_addr: [u8; 6] = [0x02, 0x00, 0x00, 0x12, 0x34, 0x56];
-        esp!(unsafe { esp_eth_ioctl(spi_handle as *mut _, esp_eth_io_cmd_t_ETH_CMD_S_MAC_ADDR, mac_addr.as_mut_ptr() as *mut _) })?;
+        esp!(unsafe {
+            esp_eth_ioctl(
+                spi_handle as *mut _,
+                esp_eth_io_cmd_t_ETH_CMD_S_MAC_ADDR,
+                mac_addr.as_mut_ptr() as *mut _,
+            )
+        })?;
 
         Ok((mac, phy, spi_handle))
     }
 
-    fn initialize_spi(command_bits: u8, address_bits: u8, baudrate: Hertz) -> Result<spi_device_handle_t, EspError> {
+    fn initialize_spi(
+        command_bits: u8,
+        address_bits: u8,
+        baudrate: Hertz,
+    ) -> Result<spi_device_handle_t, EspError> {
         let dev_cfg = spi_device_interface_config_t {
             command_bits,
             address_bits,
@@ -613,7 +623,10 @@ impl<HW> EspEth<HW> {
 
         self.shared.with_lock(|shared| shared.operating = false);
 
-        esp!(unsafe { esp_eth_stop(self.handle) })?;
+        let err = unsafe { esp_eth_stop(self.handle) };
+        if err != ESP_ERR_INVALID_STATE as i32 {
+            esp!(err)?;
+        }
         info!("Stop requested");
 
         self.wait_status(|s| matches!(s, Status::Stopped));
@@ -740,15 +753,15 @@ impl<HW> EspEth<HW> {
         info!("Got IP event: {}", event_id);
 
         shared.status = match event_id as u32 {
-            ip_event_t_IP_EVENT_ETH_GOT_IP => {
-                let event: *const ip_event_got_ip_t = mem::transmute(event_data);
+            ip_event_t_IP_EVENT_ETH_GOT_IP | ip_event_t_IP_EVENT_STA_GOT_IP => {
+                let event = (event_data as *const ip_event_got_ip_t).as_ref().unwrap();
 
                 Status::Started(ConnectionStatus::Connected(IpStatus::Done(Some(
                     ipv4::ClientSettings {
-                        ip: ipv4::Ipv4Addr::from(Newtype((*event).ip_info.ip)),
+                        ip: ipv4::Ipv4Addr::from(Newtype(event.ip_info.ip)),
                         subnet: ipv4::Subnet {
-                            gateway: ipv4::Ipv4Addr::from(Newtype((*event).ip_info.gw)),
-                            mask: Newtype((*event).ip_info.netmask).try_into()?,
+                            gateway: ipv4::Ipv4Addr::from(Newtype(event.ip_info.gw)),
+                            mask: Newtype(event.ip_info.netmask).try_into()?,
                         },
                         dns: None,           // TODO
                         secondary_dns: None, // TODO
