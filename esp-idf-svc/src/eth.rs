@@ -7,6 +7,7 @@ use ::log::*;
 
 use enumset::*;
 
+#[allow(unused_imports)]
 use mutex_trait::Mutex;
 
 use embedded_svc::eth::*;
@@ -17,7 +18,7 @@ use esp_idf_sys::*;
 
 #[cfg(any(
     all(esp32, esp_idf_eth_use_esp32_emac),
-    all(
+    any(
         esp_idf_eth_spi_ethernet_dm9051,
         esp_idf_eth_spi_ethernet_w5500,
         esp_idf_eth_spi_ethernet_ksz8851snl
@@ -25,12 +26,12 @@ use esp_idf_sys::*;
 ))]
 use esp_idf_hal::gpio;
 
-#[cfg(all(
+#[cfg(any(
     esp_idf_eth_spi_ethernet_dm9051,
     esp_idf_eth_spi_ethernet_w5500,
     esp_idf_eth_spi_ethernet_ksz8851snl
 ))]
-use esp_idf_hal::spi;
+use esp_idf_hal::{spi, units::Hertz};
 
 use crate::netif::*;
 use crate::sysloop::*;
@@ -39,7 +40,7 @@ use crate::private::common::*;
 
 #[cfg(all(esp32, esp_idf_eth_use_esp32_emac))]
 // TODO: #[derive(Debug)]
-pub struct Pins<MDC, MDIO> {
+pub struct Esp32EthHw<MDC, MDIO> {
     pub rmii_rdx0: gpio::Gpio25<gpio::Output>,
     pub rmii_rdx1: gpio::Gpio26<gpio::Output>,
     pub rmii_crs_dv: gpio::Gpio27<gpio::Output>,
@@ -52,118 +53,50 @@ pub struct Pins<MDC, MDIO> {
 }
 
 #[cfg(all(esp32, esp_idf_eth_use_esp32_emac))]
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+pub enum Esp32EthDriver {
+    IP101,
+    RTL8201,
+    LAN87XX,
+    DP83848,
+    KSZ8041,
+    #[cfg(esp_idf_version = "4.4")]
+    KSZ8081,
+}
+
+#[cfg(any(
+    esp_idf_eth_spi_ethernet_dm9051,
+    esp_idf_eth_spi_ethernet_w5500,
+    esp_idf_eth_spi_ethernet_ksz8851snl
+))]
 // TODO: #[derive(Debug)]
-pub enum Esp32EthHw<MDC, MDIO> {
-    IP101(Pins<MDC, MDIO>),
-    RTL8201(Pins<MDC, MDIO>),
-    LAN87XX(Pins<MDC, MDIO>),
-    DP83848(Pins<MDC, MDIO>),
-    KSZ8041(Pins<MDC, MDIO>),
-    #[cfg(all(esp_idf_version_major = "4", esp_idf_version_minor = "4"))]
-    KSZ8081(Pins<MDC, MDIO>),
-}
-
-#[cfg(all(esp32, esp_idf_eth_use_esp32_emac))]
-impl<MDC, MDIO> Esp32EthHw<MDC, MDIO>
+pub struct SpiEthHw<INT, SPI, SCLK, SDO, SDI, CS>
 where
-    MDC: gpio::Pin,
-    MDIO: gpio::Pin,
+    INT: gpio::InputPin,
+    SPI: spi::Spi,
+    SCLK: gpio::OutputPin,
+    SDO: gpio::OutputPin,
+    SDI: gpio::InputPin + gpio::OutputPin,
+    CS: gpio::OutputPin,
 {
-    fn new_mac(&self) -> *mut esp_eth_mac_t {
-        core::ptr::null_mut() //unsafe { esp_eth_mac_new_esp32(&EspEth::eth_mac_default_config()) }
-    }
-
-    fn new_phy(&self) -> *mut esp_eth_phy_t {
-        let phy_cfg = EspEth::<Pins<MDC, MDIO>>::eth_phy_default_config();
-
-        match self {
-            Self::IP101(_) => unsafe { esp_eth_phy_new_ip101(&phy_cfg) },
-            Self::RTL8201(_) => unsafe { esp_eth_phy_new_rtl8201(&phy_cfg) },
-            Self::LAN87XX(_) => unsafe { esp_eth_phy_new_lan8720(&phy_cfg) },
-            Self::DP83848(_) => unsafe { esp_eth_phy_new_dp83848(&phy_cfg) },
-            Self::KSZ8041(_) => unsafe { esp_eth_phy_new_ksz8041(&phy_cfg) },
-            #[cfg(all(esp_idf_version_major = "4", esp_idf_version_minor = "4"))]
-            Self::KSZ8081(_) => unsafe { esp_eth_phy_new_ksz8081(&phy_cfg) },
-        }
-    }
-
-    fn into_hw(self) -> Pins<MDC, MDIO> {
-        match self {
-            Self::IP101(pins) => pins,
-            Self::RTL8201(pins) => pins,
-            Self::LAN87XX(pins) => pins,
-            Self::DP83848(pins) => pins,
-            Self::KSZ8041(pins) => pins,
-            #[cfg(all(esp_idf_version_major = "4", esp_idf_version_minor = "4"))]
-            Self::KSZ8081(pins) => pins,
-        }
-    }
+    pub int_pin: INT,
+    pub spi_pins: spi::Pins<SCLK, SDO, SDI, CS>,
+    pub spi: SPI,
 }
 
-#[cfg(all(
+#[cfg(any(
     esp_idf_eth_spi_ethernet_dm9051,
     esp_idf_eth_spi_ethernet_w5500,
     esp_idf_eth_spi_ethernet_ksz8851snl
 ))]
-#[derive(Debug)]
-pub enum SpiEthHw<S, P> {
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+pub enum SpiEthDriver {
     #[cfg(esp_idf_eth_spi_ethernet_dm9051)]
-    DM9051(S, P),
+    DM9051,
     #[cfg(esp_idf_eth_spi_ethernet_w5500)]
-    W5500(S, P),
+    W5500,
     #[cfg(esp_idf_eth_spi_ethernet_ksz8851snl)]
-    KSZ8851SNL(S, P),
-}
-
-#[cfg(all(
-    esp_idf_eth_spi_ethernet_dm9051,
-    esp_idf_eth_spi_ethernet_w5500,
-    esp_idf_eth_spi_ethernet_ksz8851snl
-))]
-impl<S, P> SpiEthHw<S, P>
-where
-    S: spi::Spi,
-    P: gpio::Pin,
-{
-    fn new_mac(&self) -> *mut esp_eth_mac_t {
-        let mac_cfg = unsafe { EspEth::eth_mac_default_config() };
-
-        match self {
-            #[cfg(esp_idf_eth_spi_ethernet_dm9051)]
-            Self::DM9051(_, _) => unsafe { esp_eth_mac_new_dm9051(&mac_cfg) },
-            #[cfg(esp_idf_eth_spi_ethernet_w5500)]
-            Self::W5500(_, _) => unsafe { esp_eth_mac_new_w5500(&mac_cfg) },
-            #[cfg(esp_idf_eth_spi_ethernet_ksz8851snl)]
-            Self::KSZ8851SNL(_, _) => unsafe { esp_eth_mac_new_ksz8851snl(&mac_cfg) },
-            _ => unreachable!(),
-        }
-    }
-
-    fn new_phy(&self) -> *mut esp_eth_phy_t {
-        let phy_cfg = EspEth::eth_phy_default_config();
-
-        match self {
-            #[cfg(esp_idf_eth_spi_ethernet_dm9051)]
-            Self::DM9051(_, _) => unsafe { esp_eth_phy_new_dm9051(&phy_cfg) },
-            #[cfg(esp_idf_eth_spi_ethernet_w5500)]
-            Self::W5500(_, _) => unsafe { esp_eth_phy_new_w5500(&phy_cfg) },
-            #[cfg(esp_idf_eth_spi_ethernet_ksz8851snl)]
-            Self::KSZ8851SNL(_, _) => unsafe { esp_eth_phy_new_ksz8851snl(&phy_cfg) },
-            _ => unreachable!(),
-        }
-    }
-
-    fn into_hw(self) -> (S, P) {
-        match self {
-            #[cfg(esp_idf_eth_spi_ethernet_dm9051)]
-            Self::DM9051(s, p) => (s, p),
-            #[cfg(esp_idf_eth_spi_ethernet_w5500)]
-            Self::W5500(s, p) => (s, p),
-            #[cfg(esp_idf_eth_spi_ethernet_ksz8851snl)]
-            Self::KSZ8851SNL(s, p) => (s, p),
-            _ => unreachable!(),
-        }
-    }
+    KSZ8851SNL,
 }
 
 #[cfg(any(all(esp32, esp_idf_eth_use_esp32_emac), esp_idf_eth_use_openeth))]
@@ -186,12 +119,11 @@ impl Default for Shared {
     }
 }
 
-pub struct EspEth<IO> {
+pub struct EspEth<HW> {
     netif_stack: Arc<EspNetifStack>,
     _sys_loop_stack: Arc<EspSysLoopStack>,
 
-    #[allow(dead_code)]
-    io: IO,
+    hw: HW,
 
     handle: esp_eth_handle_t,
     glue_handle: *mut c_types::c_void,
@@ -202,27 +134,30 @@ pub struct EspEth<IO> {
 }
 
 #[cfg(all(esp32, esp_idf_eth_use_esp32_emac))]
-impl<MDC, MDIO> EspEth<Pins<MDC, MDIO>>
+impl<MDC, MDIO> EspEth<Esp32EthHw<MDC, MDIO>>
 where
-    MDC: gpio::Pin,
-    MDIO: gpio::Pin,
+    MDC: gpio::OutputPin,
+    MDIO: gpio::InputPin + gpio::OutputPin,
 {
     pub fn new(
         netif_stack: Arc<EspNetifStack>,
         sys_loop_stack: Arc<EspSysLoopStack>,
         hw: Esp32EthHw<MDC, MDIO>,
+        driver: Esp32EthDriver,
     ) -> Result<Self, EspError> {
         unsafe {
             TAKEN.lock(|taken| {
                 if *taken {
                     Err(EspError::from(ESP_ERR_INVALID_STATE as i32).unwrap())
                 } else {
+                    let (mac, phy) = Self::initialize(driver)?;
+
                     let eth = Self::init(
                         netif_stack,
                         sys_loop_stack,
-                        hw.new_mac(),
-                        hw.new_phy(),
-                        hw.into_hw(),
+                        mac,
+                        phy,
+                        hw,
                     )?;
 
                     *taken = true;
@@ -232,17 +167,41 @@ where
         }
     }
 
-    pub fn release(mut self) -> Pins<MDC, MDIO> {
+    pub fn release(mut self) -> Result<Esp32EthHw<MDC, MDIO>, EspError> {
         unsafe {
             TAKEN.lock(|taken| {
-                self.clear_all().unwrap();
+                self.clear_all()?;
                 *taken = false;
-            });
+
+                Ok(())
+            })?;
         }
 
         info!("Released");
 
-        self.io
+        Ok(self.hw)
+    }
+
+    fn initialize(driver: Esp32EthDriver) -> Result<(*mut esp_eth_mac_t, *mut esp_eth_phy_t), EspError> {
+        let mac_cfg = EspEth::<Esp32EthHw<MDC, MDIO>>::eth_mac_default_config();
+        let phy_cfg = EspEth::<Esp32EthHw<MDC, MDIO>>::eth_phy_default_config();
+
+        let mac = unsafe { esp_eth_mac_new_esp32(&mac_cfg) };
+
+        let phy = match driver {
+            Esp32EthDriver::IP101 => unsafe { esp_eth_phy_new_ip101(&phy_cfg) },
+            Esp32EthDriver::RTL8201 => unsafe { esp_eth_phy_new_rtl8201(&phy_cfg) },
+            #[cfg(esp_idf_version = "4.4")]
+            Esp32EthDriver::LAN87XX => unsafe { esp_eth_phy_new_lan87xx(&phy_cfg) },
+            #[cfg(not(esp_idf_version = "4.4"))]
+            Esp32EthDriver::LAN87XX => unsafe { esp_eth_phy_new_lan8720(&phy_cfg) },
+            Esp32EthDriver::DP83848 => unsafe { esp_eth_phy_new_dp83848(&phy_cfg) },
+            Esp32EthDriver::KSZ8041 => unsafe { esp_eth_phy_new_ksz8041(&phy_cfg) },
+            #[cfg(esp_idf_version = "4.4")]
+            Esp32EthDriver::KSZ8081 => unsafe { esp_eth_phy_new_ksz8081(&phy_cfg) },
+        };
+
+        Ok((mac, phy))
     }
 }
 
@@ -269,60 +228,200 @@ impl EspEth<()> {
         }
     }
 
-    pub fn release(mut self) {
+    pub fn release(mut self) -> Result<(), EspError> {
         unsafe {
             TAKEN.lock(|taken| {
-                self.clear_all().unwrap();
+                self.clear_all()?;
                 *taken = false;
-            });
+
+                Ok(())
+            })?;
         }
 
         info!("Released");
+
+        Ok(self.hw)
     }
 }
 
-#[cfg(all(
+#[cfg(any(
     esp_idf_eth_spi_ethernet_dm9051,
     esp_idf_eth_spi_ethernet_w5500,
     esp_idf_eth_spi_ethernet_ksz8851snl
 ))]
-impl<S, P> EspEth<(S, P)>
+impl<INT, SPI, SCLK, SDO, SDI, CS> EspEth<(SpiEthHw<INT, SPI, SCLK, SDO, SDI, CS>, spi_device_handle_t)>
 where
-    S: spi::Spi,
-    P: gpio::Pin,
+    INT: gpio::InputPin + gpio::OutputPin,
+    SPI: spi::Spi,
+    SCLK: gpio::OutputPin,
+    SDO: gpio::OutputPin,
+    SDI: gpio::InputPin + gpio::OutputPin,
+    CS: gpio::OutputPin,
 {
     pub fn new_spi(
         netif_stack: Arc<EspNetifStack>,
         sys_loop_stack: Arc<EspSysLoopStack>,
-        hw: SpiEthHw<S, P>,
+        hw: SpiEthHw<INT, SPI, SCLK, SDO, SDI, CS>,
+        driver: SpiEthDriver,
+        baudrate: Hertz,
     ) -> Result<Self, EspError> {
+        let (mac, phy, spi_handle) = Self::initialize(driver, baudrate)?;
+
         Ok(Self::init(
             netif_stack,
             sys_loop_stack,
-            hw.new_mac(),
-            hw.new_phy(),
-            hw.into_hw(),
+            mac,
+            phy,
+            (hw, spi_handle),
         )?)
     }
 
-    pub fn release(mut self) -> (S, P) {
-        unsafe {
-            self.clear_all().unwrap();
-        }
+    pub fn release(mut self) -> Result<SpiEthHw<INT, SPI, SCLK, SDO, SDI, CS>, EspError> {
+        self.clear_all()?;
+        esp!(unsafe { spi_bus_remove_device(self.hw.1) })?;
+        esp!(unsafe { spi_bus_free(SPI::device()) })?;
 
         info!("Released");
 
-        self.io
+        Ok(self.hw.0)
+    }
+
+    fn initialize(driver: SpiEthDriver, baudrate: Hertz) -> Result<(*mut esp_eth_mac_t, *mut esp_eth_phy_t, spi_device_handle_t), EspError> {
+        Self::initialize_spi_bus()?;
+
+        let mac_cfg = EspEth::<SpiEthHw<INT, SPI, SCLK, SDO, SDI, CS>>::eth_mac_default_config();
+        let phy_cfg = EspEth::<SpiEthHw<INT, SPI, SCLK, SDO, SDI, CS>>::eth_phy_default_config();
+
+        let (mac, phy, spi_handle) = match driver {
+            #[cfg(esp_idf_eth_spi_ethernet_dm9051)]
+            SpiEthDriver::DM9051 => {
+                let spi_handle = Self::initialize_spi(1, 7, baudrate)?;
+
+                let dm9051_cfg = eth_dm9051_config_t {
+                    spi_hdl: spi_handle as *mut _,
+                    int_gpio_num: INT::pin(),
+                };
+
+                let mac = unsafe { esp_eth_mac_new_dm9051(&dm9051_cfg, &mac_cfg) };
+                let phy = unsafe { esp_eth_phy_new_dm9051(&phy_cfg) };
+
+                (mac, phy, spi_handle)
+            },
+            #[cfg(esp_idf_eth_spi_ethernet_w5500)]
+            SpiEthDriver::W5500 => {
+                let spi_handle = Self::initialize_spi(16, 8, baudrate)?;
+
+                let w5500_cfg = eth_w5500_config_t {
+                    spi_hdl: spi_handle as *mut _,
+                    int_gpio_num: INT::pin(),
+                };
+
+                let mac = unsafe { esp_eth_mac_new_w5500(&w5500_cfg, &mac_cfg) };
+                let phy = unsafe { esp_eth_phy_new_w5500(&phy_cfg) };
+
+                (mac, phy, spi_handle)
+            },
+            #[cfg(esp_idf_eth_spi_ethernet_ksz8851snl)]
+            SpiEthDriver::KSZ8851SNL => {
+                let spi_handle = Self::initialize_spi(16, 8, baudrate)?; // TODO
+
+                let ksz8851snl_cfg = eth_ksz8851snl_config_t {
+                    spi_hdl: spi_handle as *mut _,
+                    int_gpio_num: INT::pin(),
+                };
+
+                let mac = unsafe { esp_eth_mac_new_ksz8851snl(&ksz8851snl_cfg, &mac_cfg) };
+                let phy = unsafe { esp_eth_phy_new_ksz8851snl(&phy_cfg) };
+
+                (mac, phy, spi_handle)
+            },
+        };
+
+        // The SPI Ethernet module might not have a burned factory MAC address, so we have to set it manually then.
+        // 02:00:00 is a Locally Administered OUI range so it should not be used except when testing on a LAN under your control. TODO
+        let mut mac_addr: [u8; 6] = [0x02, 0x00, 0x00, 0x12, 0x34, 0x56];
+        esp!(unsafe { esp_eth_ioctl(spi_handle as *mut _, esp_eth_io_cmd_t_ETH_CMD_S_MAC_ADDR, mac_addr.as_mut_ptr() as *mut _) })?;
+
+        Ok((mac, phy, spi_handle))
+    }
+
+    fn initialize_spi(command_bits: u8, address_bits: u8, baudrate: Hertz) -> Result<spi_device_handle_t, EspError> {
+        let dev_cfg = spi_device_interface_config_t {
+            command_bits,
+            address_bits,
+            mode: 0,
+            clock_speed_hz: baudrate.0 as i32,
+            spics_io_num: CS::pin(),
+            queue_size: 20,
+            ..Default::default()
+        };
+
+        let mut spi_handle: spi_device_handle_t = ptr::null_mut();
+
+        esp!(unsafe { spi_bus_add_device(SPI::device(), &dev_cfg, &mut spi_handle) })?;
+
+        Ok(spi_handle)
+    }
+
+    fn initialize_spi_bus() -> Result<(), EspError> {
+        unsafe { gpio_install_isr_service(0) };
+
+        #[cfg(esp_idf_version = "4.4")]
+        let bus_config = spi_bus_config_t {
+            flags: SPICOMMON_BUSFLAG_MASTER,
+            sclk_io_num: SCLK::pin(),
+
+            data4_io_num: -1,
+            data5_io_num: -1,
+            data6_io_num: -1,
+            data7_io_num: -1,
+            __bindgen_anon_1: spi_bus_config_t__bindgen_ty_1 {
+                mosi_io_num: SDO::pin(),
+                //data0_io_num: -1,
+            },
+            __bindgen_anon_2: spi_bus_config_t__bindgen_ty_2 {
+                miso_io_num: SDI::pin(),
+                //data1_io_num: -1,
+            },
+            __bindgen_anon_3: spi_bus_config_t__bindgen_ty_3 {
+                quadwp_io_num: -1,
+                //data2_io_num: -1,
+            },
+            __bindgen_anon_4: spi_bus_config_t__bindgen_ty_4 {
+                quadhd_io_num: -1,
+                //data3_io_num: -1,
+            },
+            //max_transfer_sz: SPI_MAX_TRANSFER_SIZE,
+            ..Default::default()
+        };
+
+        #[cfg(not(esp_idf_version = "4.4"))]
+        let bus_config = spi_bus_config_t {
+            flags: SPICOMMON_BUSFLAG_MASTER,
+            sclk_io_num: SCLK::pin(),
+
+            mosi_io_num: SDO::pin(),
+            miso_io_num: SDI::pin(),
+            quadwp_io_num: -1,
+            quadhd_io_num: -1,
+
+            //max_transfer_sz: SPI_MAX_TRANSFER_SIZE,
+            ..Default::default()
+        };
+
+        esp!(unsafe { spi_bus_initialize(SPI::device(), &bus_config, 1) })?;
+
+        Ok(())
     }
 }
 
-impl<IO> EspEth<IO> {
+impl<HW> EspEth<HW> {
     fn init(
         netif_stack: Arc<EspNetifStack>,
         sys_loop_stack: Arc<EspSysLoopStack>,
         mac: *mut esp_eth_mac_t,
         phy: *mut esp_eth_phy_t,
-        io: IO,
+        hw: HW,
     ) -> Result<Self, EspError> {
         let cfg = Self::eth_default_config(mac, phy);
 
@@ -358,9 +457,9 @@ impl<IO> EspEth<IO> {
         let eth = Self {
             netif_stack,
             _sys_loop_stack: sys_loop_stack,
-            io,
+            hw,
             handle,
-            glue_handle,
+            glue_handle: glue_handle as *mut _,
             netif: None,
             shared,
         };
@@ -530,7 +629,7 @@ impl<IO> EspEth<IO> {
         unsafe {
             Self::netif_unbind(self.netif.as_mut())?;
 
-            esp!(esp_eth_del_netif_glue(self.glue_handle))?;
+            esp!(esp_eth_del_netif_glue(self.glue_handle as *mut _))?;
 
             esp!(esp_event_handler_unregister(
                 ETH_EVENT,
@@ -693,13 +792,13 @@ impl<IO> EspEth<IO> {
             smi_mdc_gpio_num: 23,
             smi_mdio_gpio_num: 18,
             flags: 0,
-            #[cfg(all(esp_idf_version_major = "4", esp_idf_version_minor = "4"))]
-            interface: EMAC_DATA_INTERFACE_RMII,
-            #[cfg(all(esp_idf_version_major = "4", esp_idf_version_minor = "4"))]
+            #[cfg(esp_idf_version = "4.4")]
+            interface: eth_data_interface_t_EMAC_DATA_INTERFACE_RMII,
+            #[cfg(esp_idf_version = "4.4")]
             clock_config: eth_mac_clock_config_t {
-                rmii: rmii {
-                    clock_mode: EMAC_CLK_DEFAULT,
-                    clock_gpio: EMAC_CLK_IN_GPIO,
+                rmii: eth_mac_clock_config_t__bindgen_ty_2 {
+                    clock_mode: emac_rmii_clock_mode_t_EMAC_CLK_DEFAULT,
+                    clock_gpio: emac_rmii_clock_gpio_t_EMAC_CLK_IN_GPIO,
                 },
             },
             ..Default::default()

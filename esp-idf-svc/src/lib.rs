@@ -9,7 +9,7 @@ extern crate alloc;
 #[cfg(feature = "alloc")]
 #[cfg(any(
     all(esp32, esp_idf_eth_use_esp32_emac),
-    all(
+    any(
         esp_idf_eth_spi_ethernet_dm9051,
         esp_idf_eth_spi_ethernet_w5500,
         esp_idf_eth_spi_ethernet_ksz8851snl
