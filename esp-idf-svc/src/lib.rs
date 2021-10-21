@@ -38,15 +38,12 @@ pub mod nvs_storage;
     feature = "experimental",
     feature = "alloc",
     esp_idf_comp_app_update_enabled,
-    comp_spi_flash_enabled
+    esp_idf_comp_spi_flash_enabled
 ))]
 pub mod ota;
 pub mod ping;
 pub mod sysloop;
 #[cfg(feature = "alloc")] // TODO: Expose a subset which does not require "alloc"
 pub mod wifi;
-
-#[cfg(any(feature = "binstart", feature = "libstart"))]
-pub mod start;
 
 mod private;

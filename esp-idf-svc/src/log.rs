@@ -5,11 +5,6 @@ use esp_idf_sys::*;
 use crate::private::common::*;
 use crate::private::cstr::*;
 
-pub struct Logger;
-
-unsafe impl Send for Logger {}
-unsafe impl Sync for Logger {}
-
 #[allow(non_upper_case_globals)]
 impl From<Newtype<esp_log_level_t>> for LevelFilter {
     fn from(level: Newtype<esp_log_level_t>) -> Self {
@@ -64,7 +59,20 @@ impl From<Level> for Newtype<esp_log_level_t> {
     }
 }
 
-impl Logger {
+static LOGGER: EspLogger = EspLogger;
+
+pub struct EspLogger;
+
+unsafe impl Send for EspLogger {}
+unsafe impl Sync for EspLogger {}
+
+impl EspLogger {
+    pub fn initialize_default() {
+        log::set_logger(&LOGGER)
+            .map(|()| LOGGER.initialize())
+            .unwrap();
+    }
+
     pub fn initialize(&self) {
         ::log::set_max_level(self.get_max_level());
     }
@@ -109,7 +117,7 @@ impl Logger {
     }
 }
 
-impl ::log::Log for Logger {
+impl ::log::Log for EspLogger {
     fn enabled(&self, metadata: &Metadata) -> bool {
         metadata.level() <= LevelFilter::from(Newtype(CONFIG_LOG_DEFAULT_LEVEL))
     }
