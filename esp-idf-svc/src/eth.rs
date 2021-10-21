@@ -40,7 +40,7 @@ use crate::private::common::*;
 
 #[cfg(all(esp32, esp_idf_eth_use_esp32_emac))]
 // TODO: #[derive(Debug)]
-pub struct Esp32EthHw<MDC, MDIO> {
+pub struct Esp32EthHw<MDC, MDIO, RST: gpio::OutputPin = gpio::Gpio10<gpio::Output>> {
     pub rmii_rdx0: gpio::Gpio25<gpio::Output>,
     pub rmii_rdx1: gpio::Gpio26<gpio::Output>,
     pub rmii_crs_dv: gpio::Gpio27<gpio::Output>,
@@ -50,6 +50,7 @@ pub struct Esp32EthHw<MDC, MDIO> {
     pub rmii_txd0: gpio::Gpio19<gpio::Output>,
     pub rmii_mdio: MDIO,
     pub rmii_ref_clk: gpio::Gpio0<gpio::Output>,
+    pub rst: Option<RST>,
 }
 
 #[cfg(all(esp32, esp_idf_eth_use_esp32_emac))]
@@ -70,7 +71,7 @@ pub enum Esp32EthDriver {
     esp_idf_eth_spi_ethernet_ksz8851snl
 ))]
 // TODO: #[derive(Debug)]
-pub struct SpiEthHw<INT, SPI, SCLK, SDO, SDI, CS>
+pub struct SpiEthHw<INT, SPI, SCLK, SDO, SDI, CS, RST = gpio::Gpio10<gpio::Output>>
 where
     INT: gpio::InputPin,
     SPI: spi::Spi,
@@ -78,8 +79,10 @@ where
     SDO: gpio::OutputPin,
     SDI: gpio::InputPin + gpio::OutputPin,
     CS: gpio::OutputPin,
+    RST: gpio::OutputPin,
 {
     pub int_pin: INT,
+    pub rst_pin: Option<RST>,
     pub spi_pins: spi::Pins<SCLK, SDO, SDI, CS>,
     pub spi: SPI,
 }
@@ -134,25 +137,27 @@ pub struct EspEth<HW> {
 }
 
 #[cfg(all(esp32, esp_idf_eth_use_esp32_emac))]
-impl<MDC, MDIO> EspEth<Esp32EthHw<MDC, MDIO>>
+impl<MDC, MDIO, RST> EspEth<Esp32EthHw<MDC, MDIO, RST>>
 where
     MDC: gpio::OutputPin,
     MDIO: gpio::InputPin + gpio::OutputPin,
+    RST: gpio::OutputPin,
 {
     pub fn new(
         netif_stack: Arc<EspNetifStack>,
         sys_loop_stack: Arc<EspSysLoopStack>,
-        hw: Esp32EthHw<MDC, MDIO>,
+        hw: Esp32EthHw<MDC, MDIO, RST>,
         driver: Esp32EthDriver,
+        phy_addr: Option<u32>,
     ) -> Result<Self, EspError> {
         unsafe {
             TAKEN.lock(|taken| {
                 if *taken {
                     Err(EspError::from(ESP_ERR_INVALID_STATE as i32).unwrap())
                 } else {
-                    let (mac, phy) = Self::initialize(driver)?;
+                    let (mac, phy) = Self::initialize(driver, &hw.rst, phy_addr)?;
 
-                    let eth = Self::init(netif_stack, sys_loop_stack, mac, phy, hw)?;
+                    let eth = Self::init(netif_stack, sys_loop_stack, mac, phy, None, hw)?;
 
                     *taken = true;
                     Ok(eth)
@@ -161,7 +166,7 @@ where
         }
     }
 
-    pub fn release(mut self) -> Result<Esp32EthHw<MDC, MDIO>, EspError> {
+    pub fn release(mut self) -> Result<Esp32EthHw<MDC, MDIO, RST>, EspError> {
         unsafe {
             TAKEN.lock(|taken| {
                 self.clear_all()?;
@@ -178,9 +183,14 @@ where
 
     fn initialize(
         driver: Esp32EthDriver,
+        reset: &Option<RST>,
+        phy_addr: Option<u32>,
     ) -> Result<(*mut esp_eth_mac_t, *mut esp_eth_phy_t), EspError> {
         let mac_cfg = EspEth::<Esp32EthHw<MDC, MDIO>>::eth_mac_default_config();
-        let phy_cfg = EspEth::<Esp32EthHw<MDC, MDIO>>::eth_phy_default_config();
+        let phy_cfg = EspEth::<Esp32EthHw<MDC, MDIO>>::eth_phy_default_config(
+            reset.as_ref().map(|_| RST::pin()),
+            phy_addr,
+        );
 
         let mac = unsafe { esp_eth_mac_new_esp32(&mac_cfg) };
 
@@ -213,9 +223,9 @@ impl EspEth<()> {
                     Err(EspError::from(ESP_ERR_INVALID_STATE as i32).unwrap())
                 } else {
                     let mac = esp_eth_mac_new_openeth(&Self::eth_mac_default_config());
-                    let phy = esp_eth_phy_new_dp83848(&Self::eth_phy_default_config());
+                    let phy = esp_eth_phy_new_dp83848(&Self::eth_phy_default_config(None, None));
 
-                    let eth = Self::init(netif_stack, sys_loop_stack, mac, phy, ())?;
+                    let eth = Self::init(netif_stack, sys_loop_stack, mac, phy, None, ())?;
 
                     *taken = true;
                     Ok(eth)
@@ -245,35 +255,42 @@ impl EspEth<()> {
     esp_idf_eth_spi_ethernet_w5500,
     esp_idf_eth_spi_ethernet_ksz8851snl
 ))]
-impl<INT, SPI, SCLK, SDO, SDI, CS>
-    EspEth<(SpiEthHw<INT, SPI, SCLK, SDO, SDI, CS>, spi_device_handle_t)>
+impl<INT, SPI, SCLK, SDO, SDI, CS, RST>
+    EspEth<(
+        SpiEthHw<INT, SPI, SCLK, SDO, SDI, CS, RST>,
+        spi_device_handle_t,
+    )>
 where
-    INT: gpio::InputPin + gpio::OutputPin,
+    INT: gpio::InputPin,
     SPI: spi::Spi,
     SCLK: gpio::OutputPin,
     SDO: gpio::OutputPin,
     SDI: gpio::InputPin + gpio::OutputPin,
     CS: gpio::OutputPin,
+    RST: gpio::OutputPin,
 {
     pub fn new_spi(
         netif_stack: Arc<EspNetifStack>,
         sys_loop_stack: Arc<EspSysLoopStack>,
-        hw: SpiEthHw<INT, SPI, SCLK, SDO, SDI, CS>,
+        hw: SpiEthHw<INT, SPI, SCLK, SDO, SDI, CS, RST>,
         driver: SpiEthDriver,
         baudrate: Hertz,
+        mac_addr: Option<&[u8; 6]>,
+        phy_addr: Option<u32>,
     ) -> Result<Self, EspError> {
-        let (mac, phy, spi_handle) = Self::initialize(driver, baudrate)?;
+        let (mac, phy, spi_handle) = Self::initialize(driver, baudrate, &hw.rst_pin, phy_addr)?;
 
         Ok(Self::init(
             netif_stack,
             sys_loop_stack,
             mac,
             phy,
+            mac_addr,
             (hw, spi_handle),
         )?)
     }
 
-    pub fn release(mut self) -> Result<SpiEthHw<INT, SPI, SCLK, SDO, SDI, CS>, EspError> {
+    pub fn release(mut self) -> Result<SpiEthHw<INT, SPI, SCLK, SDO, SDI, CS, RST>, EspError> {
         self.clear_all()?;
         esp!(unsafe { spi_bus_remove_device(self.hw.1) })?;
         esp!(unsafe { spi_bus_free(SPI::device()) })?;
@@ -286,11 +303,17 @@ where
     fn initialize(
         driver: SpiEthDriver,
         baudrate: Hertz,
+        reset_pin: &Option<RST>,
+        phy_addr: Option<u32>,
     ) -> Result<(*mut esp_eth_mac_t, *mut esp_eth_phy_t, spi_device_handle_t), EspError> {
         Self::initialize_spi_bus()?;
 
-        let mac_cfg = EspEth::<SpiEthHw<INT, SPI, SCLK, SDO, SDI, CS>>::eth_mac_default_config();
-        let phy_cfg = EspEth::<SpiEthHw<INT, SPI, SCLK, SDO, SDI, CS>>::eth_phy_default_config();
+        let mac_cfg =
+            EspEth::<SpiEthHw<INT, SPI, SCLK, SDO, SDI, CS, RST>>::eth_mac_default_config();
+        let phy_cfg = EspEth::<SpiEthHw<INT, SPI, SCLK, SDO, SDI, CS, RST>>::eth_phy_default_config(
+            reset_pin.as_ref().map(|_| RST::pin()),
+            phy_addr,
+        );
 
         let (mac, phy, spi_handle) = match driver {
             #[cfg(esp_idf_eth_spi_ethernet_dm9051)]
@@ -323,7 +346,7 @@ where
             }
             #[cfg(esp_idf_eth_spi_ethernet_ksz8851snl)]
             SpiEthDriver::KSZ8851SNL => {
-                let spi_handle = Self::initialize_spi(16, 8, baudrate)?; // TODO
+                let spi_handle = Self::initialize_spi(0, 0, baudrate)?;
 
                 let ksz8851snl_cfg = eth_ksz8851snl_config_t {
                     spi_hdl: spi_handle as *mut _,
@@ -336,17 +359,6 @@ where
                 (mac, phy, spi_handle)
             }
         };
-
-        // The SPI Ethernet module might not have a burned factory MAC address, so we have to set it manually then.
-        // 02:00:00 is a Locally Administered OUI range so it should not be used except when testing on a LAN under your control. TODO
-        let mut mac_addr: [u8; 6] = [0x02, 0x00, 0x00, 0x12, 0x34, 0x56];
-        esp!(unsafe {
-            esp_eth_ioctl(
-                spi_handle as *mut _,
-                esp_eth_io_cmd_t_ETH_CMD_S_MAC_ADDR,
-                mac_addr.as_mut_ptr() as *mut _,
-            )
-        })?;
 
         Ok((mac, phy, spi_handle))
     }
@@ -419,7 +431,7 @@ where
             ..Default::default()
         };
 
-        esp!(unsafe { spi_bus_initialize(SPI::device(), &bus_config, 1) })?;
+        esp!(unsafe { spi_bus_initialize(SPI::device(), &bus_config, 1) })?; // SPI_DMA_CH_AUTO
 
         Ok(())
     }
@@ -431,6 +443,7 @@ impl<HW> EspEth<HW> {
         sys_loop_stack: Arc<EspSysLoopStack>,
         mac: *mut esp_eth_mac_t,
         phy: *mut esp_eth_phy_t,
+        mac_addr: Option<&[u8; 6]>,
         hw: HW,
     ) -> Result<Self, EspError> {
         let cfg = Self::eth_default_config(mac, phy);
@@ -439,6 +452,18 @@ impl<HW> EspEth<HW> {
         esp!(unsafe { esp_eth_driver_install(&cfg, &mut handle) })?;
 
         info!("Driver initialized");
+
+        if let Some(mac_addr) = mac_addr {
+            esp!(unsafe {
+                esp_eth_ioctl(
+                    handle,
+                    esp_eth_io_cmd_t_ETH_CMD_S_MAC_ADDR,
+                    mac_addr.as_ptr() as *mut _,
+                )
+            })?;
+
+            info!("Attached MAC address: {:?}", mac_addr);
+        }
 
         let glue_handle = unsafe { esp_eth_new_netif_glue(handle) };
 
@@ -787,12 +812,12 @@ impl<HW> EspEth<HW> {
         }
     }
 
-    fn eth_phy_default_config() -> eth_phy_config_t {
+    fn eth_phy_default_config(reset_pin: Option<i32>, phy_addr: Option<u32>) -> eth_phy_config_t {
         eth_phy_config_t {
-            phy_addr: ESP_ETH_PHY_ADDR_AUTO,
+            phy_addr: phy_addr.map(|a| a as i32).unwrap_or(ESP_ETH_PHY_ADDR_AUTO),
             reset_timeout_ms: 100,
             autonego_timeout_ms: 4000,
-            reset_gpio_num: 5,
+            reset_gpio_num: reset_pin.unwrap_or(-1),
             ..Default::default()
         }
     }
