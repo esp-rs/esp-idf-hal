@@ -11,9 +11,7 @@ pub const STABLE_PATCHES: &[&str] = &[
 ];
 
 #[allow(unused)]
-pub const MASTER_PATCHES: &[&str] = &[
-    "patches/master_missing_xtensa_atomics_fix.diff",
-];
+pub const MASTER_PATCHES: &[&str] = &[];
 
 const ALL_COMPONENTS: &[&str] = &[
     // TODO: Put all IDF components here
