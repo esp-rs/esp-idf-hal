@@ -1,20 +1,25 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
+pub use bindings::*;
+pub use error::*;
+pub use mutex::EspMutex;
+
 pub mod error;
 pub mod mutex;
 
 mod alloc;
 mod panic;
+mod start;
+
+// (Temporary code) ESP-IDF does not (yet) have a pthread rwlock implementation, which is required by STD
+// We provide a quick and very hacky implementation here
+#[cfg(feature = "std")]
 mod pthread_rwlock;
 
-// ESP-IDF current stable version (4.3) has atomics for ESP32S2, but not for ESP32C3
+// (Temporary code) ESP-IDF current stable version (4.3) has atomics for ESP32S2, but not for ESP32C3
 // The ESP-IDF master branch has atomics for both
 #[cfg(all(esp32c3, esp_idf_version = "4.3"))]
 mod atomics_esp32c3;
-
-pub use bindings::*;
-pub use error::*;
-pub use mutex::EspMutex;
 
 #[cfg(feature = "std")]
 #[allow(non_upper_case_globals)]

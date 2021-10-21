@@ -1,3 +1,5 @@
+#![cfg(all(not(feature = "std"), feature = "alloc_handler"))]
+
 use core::alloc::{GlobalAlloc, Layout};
 
 use crate::*;
