@@ -285,6 +285,12 @@ macro_rules! impl_input_base {
             fn runtime_pin() -> i32 {
                 $pin
             }
+
+            pub fn into_unknown(self) -> $pxi<Unknown> {
+                $pxi {
+                    _mode: PhantomData,
+                }
+            }
         }
 
         impl<MODE> Pin for $pxi<MODE> {
