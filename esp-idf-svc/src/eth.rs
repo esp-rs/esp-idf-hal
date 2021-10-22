@@ -40,22 +40,22 @@ use crate::private::common::*;
 
 #[cfg(all(esp32, esp_idf_eth_use_esp32_emac))]
 // TODO: #[derive(Debug)]
-pub struct Esp32EthHw<MDC, MDIO, RST: gpio::OutputPin = gpio::Gpio10<gpio::Output>> {
-    pub rmii_rdx0: gpio::Gpio25<gpio::Output>,
-    pub rmii_rdx1: gpio::Gpio26<gpio::Output>,
-    pub rmii_crs_dv: gpio::Gpio27<gpio::Output>,
+pub struct RmiiEthPeripherals<MDC, MDIO, RST: gpio::OutputPin = gpio::Gpio10<gpio::Unknown>> {
+    pub rmii_rdx0: gpio::Gpio25<gpio::Unknown>,
+    pub rmii_rdx1: gpio::Gpio26<gpio::Unknown>,
+    pub rmii_crs_dv: gpio::Gpio27<gpio::Unknown>,
     pub rmii_mdc: MDC,
-    pub rmii_txd1: gpio::Gpio22<gpio::Output>,
-    pub rmii_tx_en: gpio::Gpio21<gpio::Output>,
-    pub rmii_txd0: gpio::Gpio19<gpio::Output>,
+    pub rmii_txd1: gpio::Gpio22<gpio::Unknown>,
+    pub rmii_tx_en: gpio::Gpio21<gpio::Unknown>,
+    pub rmii_txd0: gpio::Gpio19<gpio::Unknown>,
     pub rmii_mdio: MDIO,
-    pub rmii_ref_clk: gpio::Gpio0<gpio::Output>,
+    pub rmii_ref_clk: gpio::Gpio0<gpio::Unknown>,
     pub rst: Option<RST>,
 }
 
 #[cfg(all(esp32, esp_idf_eth_use_esp32_emac))]
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
-pub enum Esp32EthDriver {
+pub enum RmiiEthChipset {
     IP101,
     RTL8201,
     LAN87XX,
@@ -71,7 +71,7 @@ pub enum Esp32EthDriver {
     esp_idf_eth_spi_ethernet_ksz8851snl
 ))]
 // TODO: #[derive(Debug)]
-pub struct SpiEthHw<INT, SPI, SCLK, SDO, SDI, CS, RST = gpio::Gpio10<gpio::Output>>
+pub struct SpiEthPeripherals<INT, SPI, SCLK, SDO, SDI, CS, RST = gpio::Gpio10<gpio::Unknown>>
 where
     INT: gpio::InputPin,
     SPI: spi::Spi,
@@ -93,7 +93,7 @@ where
     esp_idf_eth_spi_ethernet_ksz8851snl
 ))]
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
-pub enum SpiEthDriver {
+pub enum SpiEthChipset {
     #[cfg(esp_idf_eth_spi_ethernet_dm9051)]
     DM9051,
     #[cfg(esp_idf_eth_spi_ethernet_w5500)]
@@ -110,23 +110,29 @@ struct Shared {
 
     status: Status,
     operating: bool,
+
+    handle: esp_eth_handle_t,
+    netif: Option<*mut esp_netif_t>,
 }
 
-impl Default for Shared {
-    fn default() -> Self {
+impl Shared {
+    fn new(handle: esp_eth_handle_t) -> Self {
         Self {
             conf: Configuration::None,
             status: Status::Stopped,
             operating: false,
+
+            handle,
+            netif: None,
         }
     }
 }
 
-pub struct EspEth<HW> {
+pub struct EspEth<P> {
     netif_stack: Arc<EspNetifStack>,
     _sys_loop_stack: Arc<EspSysLoopStack>,
 
-    hw: HW,
+    peripherals: P,
 
     handle: esp_eth_handle_t,
     glue_handle: *mut c_types::c_void,
@@ -137,17 +143,17 @@ pub struct EspEth<HW> {
 }
 
 #[cfg(all(esp32, esp_idf_eth_use_esp32_emac))]
-impl<MDC, MDIO, RST> EspEth<Esp32EthHw<MDC, MDIO, RST>>
+impl<MDC, MDIO, RST> EspEth<RmiiEthPeripherals<MDC, MDIO, RST>>
 where
     MDC: gpio::OutputPin,
     MDIO: gpio::InputPin + gpio::OutputPin,
     RST: gpio::OutputPin,
 {
-    pub fn new(
+    pub fn new_rmii(
         netif_stack: Arc<EspNetifStack>,
         sys_loop_stack: Arc<EspSysLoopStack>,
-        hw: Esp32EthHw<MDC, MDIO, RST>,
-        driver: Esp32EthDriver,
+        peripherals: RmiiEthPeripherals<MDC, MDIO, RST>,
+        chipset: RmiiEthChipset,
         phy_addr: Option<u32>,
     ) -> Result<Self, EspError> {
         unsafe {
@@ -155,9 +161,9 @@ where
                 if *taken {
                     Err(EspError::from(ESP_ERR_INVALID_STATE as i32).unwrap())
                 } else {
-                    let (mac, phy) = Self::initialize(driver, &hw.rst, phy_addr)?;
+                    let (mac, phy) = Self::initialize(chipset, &peripherals.rst, phy_addr)?;
 
-                    let eth = Self::init(netif_stack, sys_loop_stack, mac, phy, None, hw)?;
+                    let eth = Self::init(netif_stack, sys_loop_stack, mac, phy, None, peripherals)?;
 
                     *taken = true;
                     Ok(eth)
@@ -166,7 +172,7 @@ where
         }
     }
 
-    pub fn release(mut self) -> Result<Esp32EthHw<MDC, MDIO, RST>, EspError> {
+    pub fn release(mut self) -> Result<RmiiEthPeripherals<MDC, MDIO, RST>, EspError> {
         unsafe {
             TAKEN.lock(|taken| {
                 self.clear_all()?;
@@ -178,33 +184,33 @@ where
 
         info!("Released");
 
-        Ok(self.hw)
+        Ok(self.peripherals)
     }
 
     fn initialize(
-        driver: Esp32EthDriver,
+        chipset: RmiiEthChipset,
         reset: &Option<RST>,
         phy_addr: Option<u32>,
     ) -> Result<(*mut esp_eth_mac_t, *mut esp_eth_phy_t), EspError> {
-        let mac_cfg = EspEth::<Esp32EthHw<MDC, MDIO>>::eth_mac_default_config();
-        let phy_cfg = EspEth::<Esp32EthHw<MDC, MDIO>>::eth_phy_default_config(
+        let mac_cfg = EspEth::<RmiiEthPeripherals<MDC, MDIO>>::eth_mac_default_config();
+        let phy_cfg = EspEth::<RmiiEthPeripherals<MDC, MDIO>>::eth_phy_default_config(
             reset.as_ref().map(|_| RST::pin()),
             phy_addr,
         );
 
         let mac = unsafe { esp_eth_mac_new_esp32(&mac_cfg) };
 
-        let phy = match driver {
-            Esp32EthDriver::IP101 => unsafe { esp_eth_phy_new_ip101(&phy_cfg) },
-            Esp32EthDriver::RTL8201 => unsafe { esp_eth_phy_new_rtl8201(&phy_cfg) },
+        let phy = match chipset {
+            RmiiEthChipset::IP101 => unsafe { esp_eth_phy_new_ip101(&phy_cfg) },
+            RmiiEthChipset::RTL8201 => unsafe { esp_eth_phy_new_rtl8201(&phy_cfg) },
             #[cfg(esp_idf_version = "4.4")]
-            Esp32EthDriver::LAN87XX => unsafe { esp_eth_phy_new_lan87xx(&phy_cfg) },
+            RmiiEthChipset::LAN87XX => unsafe { esp_eth_phy_new_lan87xx(&phy_cfg) },
             #[cfg(not(esp_idf_version = "4.4"))]
-            Esp32EthDriver::LAN87XX => unsafe { esp_eth_phy_new_lan8720(&phy_cfg) },
-            Esp32EthDriver::DP83848 => unsafe { esp_eth_phy_new_dp83848(&phy_cfg) },
-            Esp32EthDriver::KSZ8041 => unsafe { esp_eth_phy_new_ksz8041(&phy_cfg) },
+            RmiiEthChipset::LAN87XX => unsafe { esp_eth_phy_new_lan8720(&phy_cfg) },
+            RmiiEthChipset::DP83848 => unsafe { esp_eth_phy_new_dp83848(&phy_cfg) },
+            RmiiEthChipset::KSZ8041 => unsafe { esp_eth_phy_new_ksz8041(&phy_cfg) },
             #[cfg(esp_idf_version = "4.4")]
-            Esp32EthDriver::KSZ8081 => unsafe { esp_eth_phy_new_ksz8081(&phy_cfg) },
+            RmiiEthChipset::KSZ8081 => unsafe { esp_eth_phy_new_ksz8081(&phy_cfg) },
         };
 
         Ok((mac, phy))
@@ -246,7 +252,7 @@ impl EspEth<()> {
 
         info!("Released");
 
-        Ok(self.hw)
+        Ok(self.peripherals)
     }
 }
 
@@ -257,7 +263,7 @@ impl EspEth<()> {
 ))]
 impl<INT, SPI, SCLK, SDO, SDI, CS, RST>
     EspEth<(
-        SpiEthHw<INT, SPI, SCLK, SDO, SDI, CS, RST>,
+        SpiEthPeripherals<INT, SPI, SCLK, SDO, SDI, CS, RST>,
         spi_device_handle_t,
     )>
 where
@@ -272,13 +278,14 @@ where
     pub fn new_spi(
         netif_stack: Arc<EspNetifStack>,
         sys_loop_stack: Arc<EspSysLoopStack>,
-        hw: SpiEthHw<INT, SPI, SCLK, SDO, SDI, CS, RST>,
-        driver: SpiEthDriver,
+        peripherals: SpiEthPeripherals<INT, SPI, SCLK, SDO, SDI, CS, RST>,
+        chipset: SpiEthChipset,
         baudrate: Hertz,
         mac_addr: Option<&[u8; 6]>,
         phy_addr: Option<u32>,
     ) -> Result<Self, EspError> {
-        let (mac, phy, spi_handle) = Self::initialize(driver, baudrate, &hw.rst_pin, phy_addr)?;
+        let (mac, phy, spi_handle) =
+            Self::initialize(chipset, baudrate, &peripherals.rst_pin, phy_addr)?;
 
         Ok(Self::init(
             netif_stack,
@@ -286,22 +293,24 @@ where
             mac,
             phy,
             mac_addr,
-            (hw, spi_handle),
+            (peripherals, spi_handle),
         )?)
     }
 
-    pub fn release(mut self) -> Result<SpiEthHw<INT, SPI, SCLK, SDO, SDI, CS, RST>, EspError> {
+    pub fn release(
+        mut self,
+    ) -> Result<SpiEthPeripherals<INT, SPI, SCLK, SDO, SDI, CS, RST>, EspError> {
         self.clear_all()?;
-        esp!(unsafe { spi_bus_remove_device(self.hw.1) })?;
+        esp!(unsafe { spi_bus_remove_device(self.peripherals.1) })?;
         esp!(unsafe { spi_bus_free(SPI::device()) })?;
 
         info!("Released");
 
-        Ok(self.hw.0)
+        Ok(self.peripherals.0)
     }
 
     fn initialize(
-        driver: SpiEthDriver,
+        chipset: SpiEthChipset,
         baudrate: Hertz,
         reset_pin: &Option<RST>,
         phy_addr: Option<u32>,
@@ -309,15 +318,17 @@ where
         Self::initialize_spi_bus()?;
 
         let mac_cfg =
-            EspEth::<SpiEthHw<INT, SPI, SCLK, SDO, SDI, CS, RST>>::eth_mac_default_config();
-        let phy_cfg = EspEth::<SpiEthHw<INT, SPI, SCLK, SDO, SDI, CS, RST>>::eth_phy_default_config(
-            reset_pin.as_ref().map(|_| RST::pin()),
-            phy_addr,
-        );
+            EspEth::<SpiEthPeripherals<INT, SPI, SCLK, SDO, SDI, CS, RST>>::eth_mac_default_config(
+            );
+        let phy_cfg =
+            EspEth::<SpiEthPeripherals<INT, SPI, SCLK, SDO, SDI, CS, RST>>::eth_phy_default_config(
+                reset_pin.as_ref().map(|_| RST::pin()),
+                phy_addr,
+            );
 
-        let (mac, phy, spi_handle) = match driver {
+        let (mac, phy, spi_handle) = match chipset {
             #[cfg(esp_idf_eth_spi_ethernet_dm9051)]
-            SpiEthDriver::DM9051 => {
+            SpiEthChipset::DM9051 => {
                 let spi_handle = Self::initialize_spi(1, 7, baudrate)?;
 
                 let dm9051_cfg = eth_dm9051_config_t {
@@ -331,7 +342,7 @@ where
                 (mac, phy, spi_handle)
             }
             #[cfg(esp_idf_eth_spi_ethernet_w5500)]
-            SpiEthDriver::W5500 => {
+            SpiEthChipset::W5500 => {
                 let spi_handle = Self::initialize_spi(16, 8, baudrate)?;
 
                 let w5500_cfg = eth_w5500_config_t {
@@ -345,7 +356,7 @@ where
                 (mac, phy, spi_handle)
             }
             #[cfg(esp_idf_eth_spi_ethernet_ksz8851snl)]
-            SpiEthDriver::KSZ8851SNL => {
+            SpiEthChipset::KSZ8851SNL => {
                 let spi_handle = Self::initialize_spi(0, 0, baudrate)?;
 
                 let ksz8851snl_cfg = eth_ksz8851snl_config_t {
@@ -437,14 +448,14 @@ where
     }
 }
 
-impl<HW> EspEth<HW> {
+impl<P> EspEth<P> {
     fn init(
         netif_stack: Arc<EspNetifStack>,
         sys_loop_stack: Arc<EspSysLoopStack>,
         mac: *mut esp_eth_mac_t,
         phy: *mut esp_eth_phy_t,
         mac_addr: Option<&[u8; 6]>,
-        hw: HW,
+        peripherals: P,
     ) -> Result<Self, EspError> {
         let cfg = Self::eth_default_config(mac, phy);
 
@@ -467,7 +478,8 @@ impl<HW> EspEth<HW> {
 
         let glue_handle = unsafe { esp_eth_new_netif_glue(handle) };
 
-        let mut shared: Box<EspMutex<Shared>> = Box::new(EspMutex::new(Default::default()));
+        let mut shared: Box<EspMutex<Shared>> = Box::new(EspMutex::new(Shared::new(handle)));
+
         let shared_ref: *mut _ = &mut *shared;
 
         esp!(unsafe {
@@ -492,7 +504,7 @@ impl<HW> EspEth<HW> {
         let eth = Self {
             netif_stack,
             _sys_loop_stack: sys_loop_stack,
-            hw,
+            peripherals,
             handle,
             glue_handle: glue_handle as *mut _,
             netif: None,
@@ -555,7 +567,10 @@ impl<HW> EspEth<HW> {
             info!("Skipping IP configuration (not configured)");
         }
 
-        self.shared.with_lock(|shared| shared.conf = conf.clone());
+        self.shared.with_lock(|shared| {
+            shared.conf = conf.clone();
+            shared.netif = self.netif.as_ref().map(|netif| netif.1);
+        });
 
         Ok(())
     }
@@ -666,6 +681,9 @@ impl<HW> EspEth<HW> {
 
         unsafe {
             Self::netif_unbind(self.netif.as_mut())?;
+            self.shared.with_lock(|shared| {
+                shared.netif = None;
+            });
 
             esp!(esp_eth_del_netif_glue(self.glue_handle as *mut _))?;
 
@@ -736,11 +754,20 @@ impl<HW> EspEth<HW> {
     }
 
     #[allow(non_upper_case_globals)]
-    unsafe fn on_eth_event(
+    fn on_eth_event(
         shared: &mut Shared,
         event_id: c_types::c_int,
-        _event_data: *mut c_types::c_void,
+        event_data: *mut c_types::c_void,
     ) -> Result<(), EspError> {
+        let eth_handle = unsafe { (event_data as *const esp_eth_handle_t).as_ref() };
+        let for_us = eth_handle
+            .map(|eth_handle| *eth_handle == shared.handle)
+            .unwrap_or(false);
+
+        if !for_us {
+            return Ok(());
+        }
+
         info!("Got eth event: {} ", event_id);
 
         shared.status = match event_id as u32 {
@@ -762,43 +789,57 @@ impl<HW> EspEth<HW> {
             _ => shared.status.clone(),
         };
 
-        info!("Set status: {:?}", shared.status);
-
-        info!("Eth event {} handled", event_id);
+        info!(
+            "Eth event {} handled, set status: {:?}",
+            event_id, shared.status
+        );
 
         Ok(())
     }
 
     #[allow(non_upper_case_globals)]
-    unsafe fn on_ip_event(
+    fn on_ip_event(
         shared: &mut Shared,
         event_id: c_types::c_int,
         event_data: *mut c_types::c_void,
     ) -> Result<(), EspError> {
+        let event_id = event_id as u32;
+
+        let for_us = shared.netif.is_some()
+            && (event_id == ip_event_t_IP_EVENT_ETH_GOT_IP
+                || event_id == ip_event_t_IP_EVENT_STA_GOT_IP);
+        if !for_us {
+            return Ok(());
+        }
+
+        let event = unsafe { (event_data as *const ip_event_got_ip_t).as_ref() };
+        if !event.is_some() {
+            return Ok(());
+        }
+
+        let event = event.unwrap();
+        if event.esp_netif != shared.netif.unwrap() {
+            return Ok(());
+        }
+
         info!("Got IP event: {}", event_id);
 
-        shared.status = match event_id as u32 {
-            ip_event_t_IP_EVENT_ETH_GOT_IP | ip_event_t_IP_EVENT_STA_GOT_IP => {
-                let event = (event_data as *const ip_event_got_ip_t).as_ref().unwrap();
+        shared.status = Status::Started(ConnectionStatus::Connected(IpStatus::Done(Some(
+            ipv4::ClientSettings {
+                ip: ipv4::Ipv4Addr::from(Newtype(event.ip_info.ip)),
+                subnet: ipv4::Subnet {
+                    gateway: ipv4::Ipv4Addr::from(Newtype(event.ip_info.gw)),
+                    mask: Newtype(event.ip_info.netmask).try_into()?,
+                },
+                dns: None,           // TODO
+                secondary_dns: None, // TODO
+            },
+        ))));
 
-                Status::Started(ConnectionStatus::Connected(IpStatus::Done(Some(
-                    ipv4::ClientSettings {
-                        ip: ipv4::Ipv4Addr::from(Newtype(event.ip_info.ip)),
-                        subnet: ipv4::Subnet {
-                            gateway: ipv4::Ipv4Addr::from(Newtype(event.ip_info.gw)),
-                            mask: Newtype(event.ip_info.netmask).try_into()?,
-                        },
-                        dns: None,           // TODO
-                        secondary_dns: None, // TODO
-                    },
-                ))))
-            }
-            _ => shared.status.clone(),
-        };
-
-        info!("Set status: {:?}", shared.status);
-
-        info!("IP event {} handled", event_id);
+        info!(
+            "IP event {} handled, set status: {:?}",
+            event_id, shared.status
+        );
 
         Ok(())
     }
@@ -844,7 +885,7 @@ impl<HW> EspEth<HW> {
     }
 }
 
-impl<IO> Eth for EspEth<IO> {
+impl<P> Eth for EspEth<P> {
     type Error = EspError;
 
     fn get_capabilities(&self) -> Result<EnumSet<Capability>, Self::Error> {

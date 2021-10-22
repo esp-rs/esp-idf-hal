@@ -1,4 +1,4 @@
-use core::{cmp, convert::TryInto, mem, ptr, time::Duration};
+use core::{cmp, convert::TryInto, ptr, time::Duration};
 
 extern crate alloc;
 use alloc::sync::Arc;
@@ -187,6 +187,9 @@ struct Shared {
 
     status: Status,
     operating: bool,
+
+    sta_netif: Option<*mut esp_netif_t>,
+    ap_netif: Option<*mut esp_netif_t>,
 }
 
 impl Default for Shared {
@@ -196,6 +199,8 @@ impl Default for Shared {
             router_ip_conf: None,
             status: Status(ClientStatus::Stopped, ApStatus::Stopped),
             operating: false,
+            sta_netif: None,
+            ap_netif: None,
         }
     }
 }
@@ -325,12 +330,10 @@ impl EspWifi {
     }
 
     fn get_client_conf(&self) -> Result<ClientConfiguration, EspError> {
-        let mut wifi_config = [0_u8; mem::size_of::<wifi_config_t>()];
-        let wifi_config_ref: &mut wifi_config_t = unsafe { mem::transmute(&mut wifi_config) };
+        let mut wifi_config: wifi_config_t = Default::default();
+        esp!(unsafe { esp_wifi_get_config(wifi_interface_t_WIFI_IF_STA, &mut wifi_config) })?;
 
-        esp!(unsafe { esp_wifi_get_config(wifi_interface_t_WIFI_IF_STA, wifi_config_ref) })?;
-
-        let mut result: ClientConfiguration = unsafe { (&Newtype(wifi_config_ref.sta)).into() };
+        let mut result: ClientConfiguration = unsafe { (&Newtype(wifi_config.sta)).into() };
         result.ip_conf = self
             .shared
             .with_lock(|shared| shared.client_ip_conf.clone());
@@ -411,8 +414,10 @@ impl EspWifi {
             info!("Skipping STA IP configuration (not configured)");
         }
 
-        self.shared
-            .with_lock(|shared| shared.client_ip_conf = conf.clone());
+        self.shared.with_lock(|shared| {
+            shared.client_ip_conf = conf.clone();
+            shared.sta_netif = self.sta_netif.as_ref().map(|sta_netif| sta_netif.1);
+        });
 
         Ok(())
     }
@@ -443,8 +448,10 @@ impl EspWifi {
             info!("Skipping AP IP configuration (not configured)");
         }
 
-        self.shared
-            .with_lock(|shared| shared.router_ip_conf = conf.clone());
+        self.shared.with_lock(|shared| {
+            shared.router_ip_conf = conf.clone();
+            shared.ap_netif = self.ap_netif.as_ref().map(|ap_netif| ap_netif.1);
+        });
 
         Ok(())
     }
@@ -563,6 +570,10 @@ impl EspWifi {
         unsafe {
             Self::netif_unbind(self.ap_netif.as_mut())?;
             Self::netif_unbind(self.sta_netif.as_mut())?;
+            self.shared.with_lock(|shared| {
+                shared.sta_netif = None;
+                shared.ap_netif = None;
+            });
 
             esp!(esp_event_handler_unregister(
                 WIFI_EVENT,
@@ -674,7 +685,7 @@ impl EspWifi {
     }
 
     #[allow(non_upper_case_globals)]
-    unsafe fn on_wifi_event(
+    fn on_wifi_event(
         shared: &mut Shared,
         event_id: c_types::c_int,
         event_data: *mut c_types::c_void,
@@ -705,43 +716,54 @@ impl EspWifi {
                 wifi_event_t_WIFI_EVENT_AP_START => ApStatus::Started(ApIpStatus::Done),
                 wifi_event_t_WIFI_EVENT_AP_STOP => ApStatus::Stopped,
                 wifi_event_t_WIFI_EVENT_AP_STACONNECTED => {
-                    let event: *const wifi_event_ap_staconnected_t = mem::transmute(event_data);
-                    info!("Station {:?} AID={} connected", (*event).mac, (*event).aid);
+                    let event =
+                        unsafe { (event_data as *const wifi_event_ap_staconnected_t).as_ref() }
+                            .unwrap();
+                    info!("Station {:?} AID={} connected", event.mac, event.aid);
                     shared.status.1.clone()
                 }
                 wifi_event_t_WIFI_EVENT_AP_STADISCONNECTED => {
-                    let event: *const wifi_event_ap_stadisconnected_t = mem::transmute(event_data);
-                    info!(
-                        "Station {:?} AID={} disconnected",
-                        (*event).mac,
-                        (*event).aid
-                    );
+                    let event =
+                        unsafe { (event_data as *const wifi_event_ap_stadisconnected_t).as_ref() }
+                            .unwrap();
+                    info!("Station {:?} AID={} disconnected", event.mac, event.aid);
                     shared.status.1.clone()
                 }
                 _ => shared.status.1.clone(),
             },
         );
 
-        info!("Set status: {:?}", shared.status);
-
-        info!("Wifi event {} handled", event_id);
+        info!(
+            "Wifi event {} handled, set status: {:?}",
+            event_id, shared.status
+        );
 
         Ok(())
     }
 
     #[allow(non_upper_case_globals)]
-    unsafe fn on_ip_event(
+    fn on_ip_event(
         shared: &mut Shared,
         event_id: c_types::c_int,
         event_data: *mut c_types::c_void,
     ) -> Result<(), EspError> {
-        info!("Got IP event: {}", event_id);
+        let event_id = event_id as u32;
 
-        shared.status = Status(
-            match event_id as u32 {
-                ip_event_t_IP_EVENT_STA_GOT_IP => {
-                    let event: *const ip_event_got_ip_t = mem::transmute(event_data);
+        if shared.sta_netif.is_some()
+            && (event_id == ip_event_t_IP_EVENT_STA_GOT_IP
+                || event_id == ip_event_t_IP_EVENT_STA_LOST_IP)
+        {
+            if event_id == ip_event_t_IP_EVENT_STA_GOT_IP {
+                let event = unsafe { (event_data as *const ip_event_got_ip_t).as_ref() }.unwrap();
 
+                // Check the exact netif because it seems that the Eth stack mistakenly sends IP_EVENT_STA_GOT_IP instead of IP_EVENT_ETH_GOT_IP
+                if shared.sta_netif.unwrap() != (*event).esp_netif {
+                    return Ok(());
+                }
+
+                info!("Got IP event: {}", event_id);
+
+                shared.status = Status(
                     ClientStatus::Started(ClientConnectionStatus::Connected(ClientIpStatus::Done(
                         ipv4::ClientSettings {
                             ip: ipv4::Ipv4Addr::from(Newtype((*event).ip_info.ip)),
@@ -752,36 +774,48 @@ impl EspWifi {
                             dns: None,           // TODO
                             secondary_dns: None, // TODO
                         },
-                    )))
-                }
-                ip_event_t_IP_EVENT_STA_LOST_IP => Self::reconnect_if_operating(shared.operating)?,
-                _ => shared.status.0.clone(),
-            },
-            match event_id as u32 {
-                ip_event_t_IP_EVENT_AP_STAIPASSIGNED => {
-                    let event: *const ip_event_ap_staipassigned_t = mem::transmute(event_data);
-                    info!(
-                        "AP assigned IP to a station: {}",
-                        ipv4::Ipv4Addr::from(Newtype((*event).ip))
-                    );
-                    shared.status.1.clone()
-                }
-                _ => shared.status.1.clone(),
-            },
-        );
+                    ))),
+                    shared.status.1.clone(),
+                );
 
-        info!("Set status: {:?}", shared.status);
+                info!(
+                    "IP event {} handled, set status: {:?}",
+                    event_id, shared.status
+                );
+            } else {
+                info!("Got IP event: {}", event_id);
 
-        info!("IP event {} handled", event_id);
+                shared.status = Status(
+                    Self::reconnect_if_operating(shared.operating)?,
+                    shared.status.1.clone(),
+                );
+
+                info!(
+                    "IP event {} handled, set status: {:?}",
+                    event_id, shared.status
+                );
+            }
+        } else if shared.ap_netif.is_some() && event_id == ip_event_t_IP_EVENT_AP_STAIPASSIGNED {
+            info!("Got IP event: {}", event_id);
+
+            let event =
+                unsafe { (event_data as *const ip_event_ap_staipassigned_t).as_ref() }.unwrap();
+            info!(
+                "AP assigned IP to a station: {}",
+                ipv4::Ipv4Addr::from(Newtype((*event).ip))
+            );
+
+            info!("IP event {} handled", event_id);
+        }
 
         Ok(())
     }
 
-    unsafe fn reconnect_if_operating(operating: bool) -> Result<ClientStatus, EspError> {
+    fn reconnect_if_operating(operating: bool) -> Result<ClientStatus, EspError> {
         Ok(if operating {
             info!("Reconnecting");
 
-            esp_nofail!(esp_wifi_connect());
+            esp_nofail!(unsafe { esp_wifi_connect() });
 
             ClientStatus::Started(ClientConnectionStatus::Connecting)
         } else {

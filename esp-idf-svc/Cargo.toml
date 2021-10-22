@@ -1,6 +1,6 @@
 [package]
 name = "esp-idf-svc"
-version = "0.26.1"
+version = "0.27.0"
 authors = ["Ivan Markov <ivan.markov@gmail.com>"]
 edition = "2018"
 categories = ["embedded", "hardware-support"]
