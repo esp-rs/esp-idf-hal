@@ -1,26 +1,36 @@
 //! UART peripheral control
 //!
-//! Controls the 3 uart peripherals (UART0, UART1, UART2).
+//! Controls ESP32 uart peripherals (UART0, UART1, UART2).
+//! Notice that UART0 is typically already used for loading firmware and logging.
+//! Therefore use UART1 and UART2 in your application.
 //!
 //! # Example
 //!
-//! Creation of the serial peripheral and writing formatted info.
+//! Create serial peripheral and write to serial port.
 //! ```
-//! let serial: Serial<_, _, _> = Serial::new(
-//!     dp.UART0,
-//!     esp32_hal::serial::Pins {
-//!         tx: gpios.gpio1,
-//!         rx: gpios.gpio3,
+//! use std::fmt::Write;
+//! use esp_idf_hal::prelude::*;
+//! use esp_idf_hal::serial;
+//!
+//! let peripherals = Peripherals::take().unwrap();
+//! let pins = peripherals.pins;
+//!
+//! let config = serial::config::Config::default().baudrate(Hertz(115_200));
+//!
+//! let mut serial: serial::Serial<_, _, _> = serial::Serial::new(
+//!     peripherals.uart1,
+//!     serial::Pins {
+//!         tx: pins.gpio1,
+//!         rx: pins.gpio3,
 //!         cts: None,
 //!         rts: None,
 //!     },
-//!     config,
-//!     clkcntrl_config,
-//!     &mut dport,
-//!     )
-//!     .unwrap();
+//!     config
+//!     ).unwrap();
 //!
-//! writeln!(serial, "Serial output").unwrap();
+//! for i in 0..10 {
+//!     writeln!(serial, "{:}", format!("count {:}", i)).unwrap();
+//! }
 //! ```
 //!
 //! # TODO
