@@ -10,6 +10,12 @@
 
 use crate::*;
 
+static mut __ATOMICS_ESP32C3_INTERNAL_REFERENCE: *mut c_types::c_void = __atomic_load_1 as *mut _;
+
+pub fn link_patches() -> *mut c_types::c_void {
+    unsafe { __ATOMICS_ESP32C3_INTERNAL_REFERENCE }
+}
+
 struct CriticalSection(i32);
 
 impl CriticalSection {

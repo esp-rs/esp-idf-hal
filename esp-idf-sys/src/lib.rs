@@ -21,6 +21,26 @@ mod pthread_rwlock;
 #[cfg(all(esp32c3, esp_idf_version = "4.3"))]
 mod atomics_esp32c3;
 
+/// A hack to make sure that the rwlock implementation and the esp32c3 atomics are linked to the final executable
+/// Call this function once e.g. in the beginning of your main function
+///
+/// This function will become no-op once ESP-IDF V4.4 is released
+pub fn link_patches() -> (*mut c_types::c_void, *mut c_types::c_void) {
+    #[cfg(feature = "std")]
+    let rwlock = pthread_rwlock::link_patches();
+
+    #[cfg(not(feature = "std"))]
+    let rwlock = core::ptr::null_mut();
+
+    #[cfg(all(esp32c3, esp_idf_version = "4.3"))]
+    let atomics = atomics_esp32c3::link_patches();
+
+    #[cfg(not(all(esp32c3, esp_idf_version = "4.3")))]
+    let atomics = core::ptr::null_mut();
+
+    (rwlock, atomics)
+}
+
 #[cfg(feature = "std")]
 #[allow(non_upper_case_globals)]
 #[allow(non_camel_case_types)]
@@ -63,12 +83,6 @@ pub mod c_types {
 #[allow(non_snake_case)]
 mod bindings {
     use super::c_types;
-
-    /// Do NOT use. This static mut is declared only as a workaround for the fact that libstd - in the link order -
-    /// is *following* esp-idf-sys, which means that unless we reference outrselves the pthread_rwlock_* symbols,
-    /// these will not be linked!
-    pub static mut __PTHREAD_RWLOCK_INTERNAL_REFERENCE: *mut c_types::c_void =
-        super::pthread_rwlock::pthread_rwlock_init as *mut _;
 
     include!(env!("EMBUILD_GENERATED_BINDINGS_FILE"));
 }

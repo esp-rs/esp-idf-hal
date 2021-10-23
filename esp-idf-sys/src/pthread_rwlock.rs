@@ -3,6 +3,13 @@
 
 use crate::*;
 
+static mut __PTHREAD_RWLOCK_INTERNAL_REFERENCE: *mut c_types::c_void =
+    pthread_rwlock_init as *mut _;
+
+pub fn link_patches() -> *mut c_types::c_void {
+    unsafe { __PTHREAD_RWLOCK_INTERNAL_REFERENCE }
+}
+
 #[no_mangle]
 #[inline(never)]
 pub unsafe extern "C" fn pthread_rwlock_init(
