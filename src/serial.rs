@@ -40,7 +40,7 @@ use crate::units::*;
 
 use esp_idf_sys::*;
 
-const UART_FIFO_SIZE: u8 = 128;
+const UART_FIFO_SIZE: i32 = 128;
 
 // /// Interrupt event
 // pub enum Event {
@@ -327,8 +327,8 @@ impl<UART: Uart, TX: OutputPin, RX: InputPin, CTS: InputPin, RTS: OutputPin>
         esp!(unsafe {
             uart_driver_install(
                 UART::port(),
-                UART_FIFO_SIZE as i32,
-                UART_FIFO_SIZE as i32,
+                UART_FIFO_SIZE * 2,
+                UART_FIFO_SIZE * 2,
                 0,
                 ptr::null_mut(),
                 0,
