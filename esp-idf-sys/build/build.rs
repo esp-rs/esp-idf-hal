@@ -2,7 +2,7 @@
 compile_error!("One of the features `pio` or `native` must be selected.");
 
 use anyhow::*;
-use regex;
+
 use std::{env, iter::once, path::PathBuf};
 
 use embuild::{bindgen, build, cargo, kconfig, path_buf, utils::OsStrExt};

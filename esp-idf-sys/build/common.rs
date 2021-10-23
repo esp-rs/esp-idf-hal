@@ -38,7 +38,7 @@ pub struct EspIdfComponents(Vec<&'static str>);
 
 impl EspIdfComponents {
     pub fn new() -> Self {
-        Self(ALL_COMPONENTS.iter().map(|s| *s).collect::<Vec<_>>())
+        Self(ALL_COMPONENTS.iter().copied().collect::<Vec<_>>())
     }
 
     #[allow(dead_code)]
@@ -52,18 +52,20 @@ impl EspIdfComponents {
         Self(
             ALL_COMPONENTS
                 .iter()
-                .map(|s| *s)
+                .copied()
                 .filter(|s| enabled.contains(*s))
                 .collect::<Vec<_>>(),
         )
     }
 
+    #[allow(clippy::needless_lifetimes)]
     pub fn clang_args<'a>(&'a self) -> impl Iterator<Item = String> + 'a {
         self.0
             .iter()
             .map(|s| format!("-DESP_IDF_{}", s.to_uppercase()))
     }
 
+    #[allow(clippy::needless_lifetimes)]
     pub fn cfg_args<'a>(&'a self) -> impl Iterator<Item = String> + 'a {
         self.0.iter().map(|c| format!("esp_idf_{}", c))
     }
