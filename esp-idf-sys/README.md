@@ -60,22 +60,36 @@ Download all tools and build the `esp-idf` using its own tooling.
 
 **Warning**: This is an experimental feature and subject to changes.
 
-Currently, this build script installs all needed tools to compile the `esp-idf` as well as the `esp-idf` itself
-under `<workspace-dir>/.espressif`, this is subject to change in the future.
+Currently, this build script installs all needed tools to compile the `esp-idf` as well as
+the `esp-idf` itself using `embuild::espidf::Installer`.  There are two locations where
+the `esp-idf` source and tools are detected and installed:
+
+- **`~/.espressif`**
+- **`$ESP_IDF_INSTALL_DIR`** or **`<crate workspace-dir>/.embuild/espressif`**
 
 ### Requirements
 - If using chips other than `esp32c3`: 
     - [Rust ESP32 compiler fork](https://github.com/esp-rs/rust)
     - [libclang of the xtensa LLVM fork](https://github.com/espressif/llvm-project/releases)
 - `python >= 3.7`
-- `cmake >= 3.20`
     
 ### Configuration
 Environment variables are used to configure how the `esp-idf` is compiled.
 The following environment variables are used by the build script:
 
-- `SDK_DIR`: The path to the directory where all esp-idf tools are installed,
-             defaults to `<workspace-dir>/.espressif`.
+- `ESP_IDF_INSTALL_DIR`: 
+
+    The path to the directory where all esp-idf tools are installed. If it is set to a
+    relative path, it is relative to the crate workspace-dir.
+    
+    If not set, when `ESP_IDF_GLOBAL_INSTALL` is set to `1` it defaults to the global
+    install dir `~/.espressif`, otherwise it defaults to the local install dir `<crate
+    workspace-dir>/.embuild/espressif`.
+    
+- `ESP_IDF_GLOBAL_INSTALL`
+
+    If set to `1`, `true`, `y` or `yes` uses the global install directory only when `ESP_IDF_INSTALL_DIR` is not specified.
+
 - `ESP_IDF_VERSION`:
   The version used for the `esp-idf` can be one of the following:
   - `commit:<hash>`: Uses the commit `<hash>` of the `esp-idf` repository.
@@ -87,9 +101,8 @@ The following environment variables are used by the build script:
 
   It defaults to `v4.3`.
 - `ESP_IDF_REPOSITORY`: The URL to the git repository of the `esp-idf`, defaults to <https://github.com/espressif/esp-idf.git>.
-- `ESP_IDF_SDKCONFIG_DEFAULTS`: A `;`-seperated list of paths to `sdkconfig.default` files to be used as base
+- `ESP_IDF_SDKCONFIG_DEFAULTS`: A `;`-separated list of paths to `sdkconfig.default` files to be used as base
                                 values for the `sdkconfig`.
 - `ESP_IDF_SDKCONFIG`: A path (absolute or relative) to the esp-idf `sdkconfig` file.
-- `ESP_IDF_EXTRA_TOOLS`: A `;`-seperated list of additional tools to install with `idf_tools.py`.
-- `MCU`: The mcu name (e.g. `esp32` or `esp32c3`). If not set this will be automatically detected from the
-         cargo target.
+- `MCU`: The mcu name (e.g. `esp32` or `esp32c3`). If not set this will be automatically
+         detected from the cargo target.

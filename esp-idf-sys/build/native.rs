@@ -7,19 +7,18 @@ use std::path::{Path, PathBuf};
 use std::str::FromStr;
 
 use anyhow::*;
-use embuild::cargo::IntoWarning;
-use embuild::cmake::codemodel::Language;
-use embuild::cmake::ObjKind;
+use embuild::cmake::file_api::codemodel::Language;
+use embuild::cmake::file_api::ObjKind;
+use embuild::espidf::InstallOpts;
 use embuild::fs::copy_file_if_different;
-use embuild::git::{CloneOptions, Repository};
-use embuild::python::{check_python_at_least, PYTHON};
 use embuild::utils::{OsStrExt, PathExt};
-use embuild::{bindgen, build, cargo, cmake, cmd, cmd_output, git, kconfig, path_buf};
+use embuild::{bindgen, build, cargo, cmake, espidf, git, kconfig, path_buf};
 use strum::{Display, EnumString};
 
 use super::common::{EspIdfBuildOutput, EspIdfComponents, MASTER_PATCHES, STABLE_PATCHES};
 
-const SDK_DIR_VAR: &str = "SDK_DIR";
+const ESP_IDF_INSTALL_DIR_VAR: &str = "ESP_IDF_INSTALL_DIR";
+const ESP_IDF_GLOBAL_INSTALL_VAR: &str = "ESP_IDF_GLOBAL_INSTALL";
 const ESP_IDF_VERSION_VAR: &str = "ESP_IDF_VERSION";
 const ESP_IDF_REPOSITORY_VAR: &str = "ESP_IDF_REPOSITORY";
 const ESP_IDF_SDKCONFIG_DEFAULTS_VAR: &str = "ESP_IDF_SDKCONFIG_DEFAULTS";
@@ -27,8 +26,6 @@ const ESP_IDF_SDKCONFIG_VAR: &str = "ESP_IDF_SDKCONFIG";
 const ESP_IDF_EXTRA_TOOLS_VAR: &str = "ESP_IDF_EXTRA_TOOLS";
 const MCU_VAR: &str = "MCU";
 
-const DEFAULT_SDK_DIR: &str = ".espressif";
-const DEFAULT_ESP_IDF_REPOSITORY: &str = "https://github.com/espressif/esp-idf.git";
 const DEFAULT_ESP_IDF_VERSION: &str = "v4.3";
 
 const CARGO_CMAKE_BUILD_ACTIVE_VAR: &str = "CARGO_CMAKE_BUILD_ACTIVE";
@@ -108,7 +105,8 @@ fn build_cargo_first() -> Result<EspIdfBuildOutput> {
         Chip::detect(&target)?
     };
 
-    cargo::track_env_var(SDK_DIR_VAR);
+    cargo::track_env_var(ESP_IDF_INSTALL_DIR_VAR);
+    cargo::track_env_var(ESP_IDF_GLOBAL_INSTALL_VAR);
     cargo::track_env_var(ESP_IDF_VERSION_VAR);
     cargo::track_env_var(ESP_IDF_REPOSITORY_VAR);
     cargo::track_env_var(ESP_IDF_SDKCONFIG_DEFAULTS_VAR);
@@ -116,124 +114,46 @@ fn build_cargo_first() -> Result<EspIdfBuildOutput> {
     cargo::track_env_var(ESP_IDF_EXTRA_TOOLS_VAR);
     cargo::track_env_var(MCU_VAR);
 
-    let sdk_dir = path_buf![env::var(SDK_DIR_VAR).unwrap_or_else(|_| DEFAULT_SDK_DIR.to_owned())]
-        .abspath_relative_to(&workspace_dir);
+    let cmake_tool = espidf::Tools::cmake()?;
+    let tools = espidf::Tools::new(
+        vec!["ninja", chip.gcc_toolchain()]
+            .into_iter()
+            .chain(chip.ulp_gcc_toolchain()),
+    );
 
-    // Clone the esp-idf.
-    let esp_idf_dir = sdk_dir.join("esp-idf");
-    let esp_idf_version = esp_idf_version();
-    let esp_idf_repo =
-        env::var(ESP_IDF_REPOSITORY_VAR).unwrap_or_else(|_| DEFAULT_ESP_IDF_REPOSITORY.to_owned());
-    let mut esp_idf = Repository::new(&esp_idf_dir);
-
-    esp_idf.clone_ext(
-        &esp_idf_repo,
-        CloneOptions::new()
-            .force_ref(esp_idf_version.clone())
-            .depth(1),
-    )?;
+    let idf = espidf::Installer::new(esp_idf_version()?)
+        .local_install_dir(env::var_os(ESP_IDF_INSTALL_DIR_VAR).map(PathBuf::from))
+        .opts(esp_idf_install_opts()?)
+        .git_url(match env::var(ESP_IDF_REPOSITORY_VAR) {
+            Err(env::VarError::NotPresent) => None,
+            git_url => Some(git_url?),
+        })
+        .with_tools(tools)
+        .with_tools(cmake_tool)
+        .install()
+        .context("Could not install esp-idf")?;
 
     // Apply patches, only if the patches were not previously applied.
-    let patch_set = match esp_idf_version {
-        git::Ref::Branch(b) if esp_idf.get_default_branch()?.as_ref() == Some(&b) => MASTER_PATCHES,
+    let patch_set = match &idf.esp_idf_version {
+        git::Ref::Branch(b) if idf.esp_idf.get_default_branch()?.as_ref() == Some(&b) => {
+            MASTER_PATCHES
+        }
         git::Ref::Tag(t) if t == DEFAULT_ESP_IDF_VERSION => STABLE_PATCHES,
         _ => {
             cargo::print_warning(format_args!(
                 "`esp-idf` version ({:?}) not officially supported by `esp-idf-sys`. \
                  Supported versions are 'master', '{}'.",
-                &esp_idf_version, DEFAULT_ESP_IDF_VERSION
+                &idf.esp_idf_version, DEFAULT_ESP_IDF_VERSION
             ));
             &[]
         }
     };
     if !patch_set.is_empty() {
-        esp_idf.apply_once(patch_set.iter().map(|p| manifest_dir.join(p)))?;
+        idf.esp_idf
+            .apply_once(patch_set.iter().map(|p| manifest_dir.join(p)))?;
     }
 
-    // This is a workaround for msys or even git bash.
-    // When using them `idf_tools.py` prints unix paths (ex. `/c/user/` instead of
-    // `C:\user\`), so we correct this with an invocation of `cygpath` which converts the
-    // path to the windows representation.
-    let cygpath_works = cfg!(windows) && cmd_output!("cygpath", "--version").is_ok();
-    let to_win_path = if cygpath_works {
-        |p: String| cmd_output!("cygpath", "-w", p).unwrap()
-    } else {
-        |p: String| p
-    };
-    let path_var_sep = if cygpath_works || cfg!(not(windows)) {
-        ':'
-    } else {
-        ';'
-    };
-
-    // Create python virtualenv or use a previously installed one.
-    check_python_at_least(3, 7)?;
-    let idf_tools_py = path_buf![&esp_idf_dir, "tools", "idf_tools.py"];
-
-    let get_python_env_dir = || -> Result<String> {
-        Ok(cmd_output!(PYTHON, &idf_tools_py, "--idf-path", &esp_idf_dir, "--quiet", "export", "--format=key-value";
-                       ignore_exitcode, env=("IDF_TOOLS_PATH", &sdk_dir))
-                            .lines()
-                            .find(|s| s.trim_start().starts_with("IDF_PYTHON_ENV_PATH="))
-                            .ok_or_else(|| anyhow!("`idf_tools.py export` result contains no `IDF_PYTHON_ENV_PATH` item"))?
-                            .trim()
-                            .strip_prefix("IDF_PYTHON_ENV_PATH=").unwrap()
-                                  .to_string())
-    };
-
-    let python_env_dir = get_python_env_dir().map(&to_win_path);
-    let python_env_dir: PathBuf = if python_env_dir.is_err()
-        || !Path::new(&python_env_dir.as_ref().unwrap()).exists()
-    {
-        cmd!(PYTHON, &idf_tools_py, "--idf-path", &esp_idf_dir, "--quiet", "--non-interactive", "install-python-env";
-             env=("IDF_TOOLS_PATH", &sdk_dir))?;
-        to_win_path(get_python_env_dir()?)
-    } else {
-        python_env_dir.unwrap()
-    }.into();
-
-    // TODO: better way to get the virtualenv python executable
-    let python = embuild::which::which_in(
-        "python",
-        #[cfg(windows)]
-        Some(&python_env_dir.join("Scripts")),
-        #[cfg(not(windows))]
-        Some(&python_env_dir.join("bin")),
-        env::current_dir()?,
-    )?;
-
-    // Install tools.
-    let mut tools = vec!["ninja", chip.gcc_toolchain()];
-    tools.extend(chip.ulp_gcc_toolchain().iter());
-    cmd!(python, &idf_tools_py, "--idf-path", &esp_idf_dir, "install"; env=("IDF_TOOLS_PATH", &sdk_dir), args=(tools))?;
-
-    // Intall extra tools if requested, but don't fail compilation if this errors
-    if let Some(extra_tools) = env::var_os(ESP_IDF_EXTRA_TOOLS_VAR) {
-        cmd!(
-            python, &idf_tools_py, "--idf-path", &esp_idf_dir, "install";
-            args=(extra_tools.to_string_lossy().split(';').filter(|s| !s.is_empty()).map(str::trim)),
-            env=("IDF_TOOLS_PATH", &sdk_dir)
-        )
-        .into_warning();
-    }
-
-    // Get the paths to the tools.
-    let mut bin_paths: Vec<_> = cmd_output!(python, &idf_tools_py, "--idf-path", &esp_idf_dir, "--quiet", "export", "--format=key-value";
-                                            ignore_exitcode, env=("IDF_TOOLS_PATH", &sdk_dir))
-                            .lines()
-                            .find(|s| s.trim_start().starts_with("PATH="))
-                            .expect("`idf_tools.py export` result contains no `PATH` item").trim()
-                            .strip_prefix("PATH=").unwrap()
-                            .split(path_var_sep)
-                            .map(|s| s.to_owned())
-                            .collect();
-    bin_paths.pop();
-    let bin_paths: Vec<_> = bin_paths
-        .into_iter()
-        .map(|s| PathBuf::from(to_win_path(s)))
-        .chain(env::split_paths(&env::var("PATH")?))
-        .collect();
-    let paths = env::join_paths(bin_paths.iter())?;
+    env::set_var("PATH", &idf.exported_path);
 
     // Create cmake project.
     copy_file_if_different(
@@ -295,8 +215,12 @@ fn build_cargo_first() -> Result<EspIdfBuildOutput> {
         })
         .unwrap_or_else(|| Ok(OsString::new()))?;
 
-    let cmake_toolchain_file =
-        path_buf![&esp_idf_dir, "tools", "cmake", chip.cmake_toolchain_file()];
+    let cmake_toolchain_file = path_buf![
+        &idf.esp_idf.worktree(),
+        "tools",
+        "cmake",
+        chip.cmake_toolchain_file()
+    ];
 
     // Get the asm, C and C++ flags from the toolchain file, these would otherwise get
     // overwritten because `cmake::Config` also sets these (see
@@ -331,8 +255,8 @@ fn build_cargo_first() -> Result<EspIdfBuildOutput> {
         .asmflag(asm_flags)
         .cflag(c_flags)
         .cxxflag(cxx_flags)
-        .env("IDF_PATH", &esp_idf_dir)
-        .env("PATH", &paths)
+        .env("IDF_PATH", &idf.esp_idf.worktree())
+        .env("PATH", &idf.exported_path)
         .env("SDKCONFIG", sdkconfig)
         .env("SDKCONFIG_DEFAULTS", sdkconfig_defaults)
         .env("IDF_TARGET", &chip.to_string())
@@ -344,7 +268,7 @@ fn build_cargo_first() -> Result<EspIdfBuildOutput> {
         .into_first_conf()
         .get_target("libespidf.elf")
         .unwrap_or_else(|| {
-            bail!("Could not read build information from cmake: Target 'libespidf.elf' not found",)
+            bail!("Could not read build information from cmake: Target 'libespidf.elf' not found")
         })?;
 
     let compiler = replies
@@ -382,30 +306,25 @@ fn build_cargo_first() -> Result<EspIdfBuildOutput> {
     Ok(build_output)
 }
 
-fn esp_idf_version() -> git::Ref {
-    let version =
-        env::var(ESP_IDF_VERSION_VAR).unwrap_or_else(|_| DEFAULT_ESP_IDF_VERSION.to_owned());
-    let version = version.trim();
-    assert!(
-        !version.is_empty(),
-        "${} (='{}') must contain a valid version",
-        ESP_IDF_VERSION_VAR,
-        version
-    );
+fn esp_idf_version() -> Result<git::Ref> {
+    let version = match env::var(ESP_IDF_VERSION_VAR) {
+        Err(env::VarError::NotPresent) => DEFAULT_ESP_IDF_VERSION.to_owned(),
+        v => v?,
+    };
+    Ok(espidf::decode_esp_idf_version_ref(&version))
+}
 
-    match version.split_once(':') {
-        Some(("commit", c)) => git::Ref::Commit(c.to_owned()),
-        Some(("tag", t)) => git::Ref::Tag(t.to_owned()),
-        Some(("branch", b)) => git::Ref::Branch(b.to_owned()),
-        _ => match version.chars().next() {
-            Some(c) if c.is_ascii_digit() => git::Ref::Tag("v".to_owned() + version),
-            Some('v') if version.len() > 1 && version.chars().nth(1).unwrap().is_ascii_digit() => {
-                git::Ref::Tag(version.to_owned())
-            }
-            Some(_) => git::Ref::Branch(version.to_owned()),
-            _ => unreachable!(),
-        },
-    }
+fn esp_idf_install_opts() -> Result<InstallOpts> {
+    let install_global = match env::var(ESP_IDF_GLOBAL_INSTALL_VAR) {
+        Err(env::VarError::NotPresent) => None,
+        e => Some(e?),
+    };
+
+    let install_global = install_global.map(|s| s.trim().to_lowercase());
+    Ok(match install_global.as_deref() {
+        Some("1" | "true" | "y" | "yes") => InstallOpts::empty(),
+        Some(_) | None => InstallOpts::NO_GLOBAL_INSTALL,
+    })
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug, Display, EnumString)]
