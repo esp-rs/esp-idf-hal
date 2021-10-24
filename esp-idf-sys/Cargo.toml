@@ -1,6 +1,6 @@
 [package]
 name = "esp-idf-sys"
-version = "0.21.1"
+version = "0.22.2"
 authors = ["Alexey Arbuzov <aarbuzov@termt.com>", "sapir <yasapir@gmail.com>", "Ivan Markov <ivan.markov@gmail.com>"]
 edition = "2018"
 categories = ["embedded", "hardware-support"]
@@ -36,7 +36,7 @@ embedded-svc = "0.11"
 paste = "1"
 
 [build-dependencies]
-embuild = "0.25.0"
+embuild = "0.25"
 anyhow = "1"
 strum = { version = "0.21", optional = true, features = ["derive"] }
 regex = "1.5"
