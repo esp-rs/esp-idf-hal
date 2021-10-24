@@ -1,12 +1,13 @@
 //! UART peripheral control
 //!
-//! Controls ESP32 uart peripherals (UART0, UART1, UART2).
+//! Controls UART peripherals (UART0, UART1, UART2).
 //! Notice that UART0 is typically already used for loading firmware and logging.
 //! Therefore use UART1 and UART2 in your application.
+//! Any pin can be used for `rx` and `tx`.
 //!
 //! # Example
 //!
-//! Create serial peripheral and write to serial port.
+//! Create a serial peripheral and write to serial port.
 //! ```
 //! use std::fmt::Write;
 //! use esp_idf_hal::prelude::*;
@@ -17,7 +18,7 @@
 //!
 //! let config = serial::config::Config::default().baudrate(Hertz(115_200));
 //!
-//! let mut serial: serial::Serial<_, _, _> = serial::Serial::new(
+//! let mut serial: serial::Serial<serial::UART1, _, _> = serial::Serial::new(
 //!     peripherals.uart1,
 //!     serial::Pins {
 //!         tx: pins.gpio1,
@@ -26,7 +27,7 @@
 //!         rts: None,
 //!     },
 //!     config
-//!     ).unwrap();
+//! ).unwrap();
 //!
 //! for i in 0..10 {
 //!     writeln!(serial, "{:}", format!("count {:}", i)).unwrap();
@@ -574,8 +575,10 @@ impl<UART: Uart> serial::Write<u8> for Tx<UART> {
 
     fn write(&mut self, byte: u8) -> nb::Result<(), Self::Error> {
         // TODO: Figure out how to not block
-        match unsafe { uart_write_bytes(UART::port(), &byte as *const u8 as *const _, 1) } as u32 {
-            ESP_OK => Ok(()),
+
+        let len = 1;
+        match unsafe { uart_write_bytes(UART::port(), &byte as *const u8 as *const _, len) } {
+            len => Ok(()),
             err => Err(nb::Error::Other(EspError::from(err as i32).unwrap())),
         }
     }
