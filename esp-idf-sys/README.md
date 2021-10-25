@@ -4,20 +4,34 @@
 
 The ESP-IDF API in Rust, with support for each ESP chip (ESP32, ESP32S2, ESP32C3 etc.) based on the Rust target
 
+![CI](https://github.com/esp-rs/esp-idf-sys/actions/workflows/ci.yml/badge.svg)
+
 ## Build
 
 - The build requires the [Rust ESP32 STD compiler fork](https://github.com/esp-rs/rust) to be configured and installed as per the instructions there.
 - The relevant Espressif toolchain, as well as the `esp-idf` itself are all automatically
-  downloaded during the build by 
+  downloaded during the build by
     - with the feature `pio` (default): utilizing [platformio](https://platformio.org/) (via
         the [embuild](https://github.com/ivmarkov/embuild) crate) or
     - with the feature `native` (*experimental*): utilizing native `esp-idf` tooling.
-- Check the ["Hello, World" demo](https://github.com/ivmarkov/rust-esp32-std-hello) for how to use and build this crate
+- Check the [mini](https://github.com/ivmarkov/rust-esp32-std-mini) crate for a "Hello, world!" Rust template demonstrating how to use and build this crate
+- Check the [demo](https://github.com/ivmarkov/rust-esp32-std-demo) crate for a more comprehensive example in terms of capabilities
 
 ## Feature `pio`
-This is currently the default for installing all build tools and building the `esp-idf` C
-library. It uses [platformio](https://platformio.org/) via the
+This is currently the default for installing all build tools and building the ESP-IDF framework. It uses [PlatformIO](https://platformio.org/) via the
 [embuild](https://github.com/ivmarkov/embuild) crate.
+
+## Feature `native`
+This is an experimental feature for downloading all tools and building the ESP-IDF framework using the framerosk's "native" own tooling.
+It will become the default in the near future.
+It also relies on build and installation utilities available in the [embuild](https://github.com/ivmarkov/embuild) crate.
+
+Currently, this build script installs all needed tools to compile the `esp-idf` as well as
+the `esp-idf` itself using `embuild::espidf::Installer`.  There are two locations where
+the `esp-idf` source and tools are detected and installed:
+
+- **`~/.espressif`**
+- **`$ESP_IDF_INSTALL_DIR`** or **`<crate workspace-dir>/.embuild/espressif`**
 
 ### Bluetooth Support
 
@@ -53,39 +67,25 @@ To enable Bluetooth, or do other configurations to the ESP-IDF sdkconfig you mig
 If you are interested how it all works under the hood, check the [build_pio.rs](build.rs)
 or  script of this crate.
 
-
-## Experimental feature `native`
-
-Download all tools and build the `esp-idf` using its own tooling.
-
-**Warning**: This is an experimental feature and subject to changes.
-
-Currently, this build script installs all needed tools to compile the `esp-idf` as well as
-the `esp-idf` itself using `embuild::espidf::Installer`.  There are two locations where
-the `esp-idf` source and tools are detected and installed:
-
-- **`~/.espressif`**
-- **`$ESP_IDF_INSTALL_DIR`** or **`<crate workspace-dir>/.embuild/espressif`**
-
 ### Requirements
-- If using chips other than `esp32c3`: 
+- If using chips other than `esp32c3`:
     - [Rust ESP32 compiler fork](https://github.com/esp-rs/rust)
     - [libclang of the xtensa LLVM fork](https://github.com/espressif/llvm-project/releases)
 - `python >= 3.7`
-    
+
 ### Configuration
 Environment variables are used to configure how the `esp-idf` is compiled.
 The following environment variables are used by the build script:
 
-- `ESP_IDF_INSTALL_DIR`: 
+- `ESP_IDF_INSTALL_DIR`:
 
     The path to the directory where all esp-idf tools are installed. If it is set to a
     relative path, it is relative to the crate workspace-dir.
-    
+
     If not set, when `ESP_IDF_GLOBAL_INSTALL` is set to `1` it defaults to the global
     install dir `~/.espressif`, otherwise it defaults to the local install dir `<crate
     workspace-dir>/.embuild/espressif`.
-    
+
 - `ESP_IDF_GLOBAL_INSTALL`
 
     If set to `1`, `true`, `y` or `yes` uses the global install directory only when `ESP_IDF_INSTALL_DIR` is not specified.
