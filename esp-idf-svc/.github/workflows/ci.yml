@@ -1,0 +1,36 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+  schedule:
+    - cron: '50 4 * * *'
+
+jobs:
+  compile:
+    name: Compile
+    runs-on: ubuntu-latest
+    steps:
+      - name: Setup | Checkout
+        uses: actions/checkout@v2
+      - name: Setup | Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: nightly
+          components: rustfmt, clippy
+      - name: Setup | Std
+        run: rustup component add rust-src --toolchain nightly-x86_64-unknown-linux-gnu
+      - name: Setup | Default to nightly
+        run: rustup default nightly
+      - name: Build | Fmt Check
+        run: cargo fmt -- --check
+      - name: Build | Clippy
+        run: export ESP_IDF_SYS_GLOB_BASE=$(pwd)/.github/configs; export ESP_IDF_SYS_GLOB_0=/sdkconfig.*; cargo clippy --no-deps --target riscv32imc-esp-espidf -Zbuild-std=std,panic_abort -Zbuild-std-features=panic_immediate_abort
+#      - name: Build | Compile
+#        run: export ESP_IDF_SYS_GLOB_BASE=$(pwd)/.github/configs; export ESP_IDF_SYS_GLOB_0=/sdkconfig.*; cargo build --target riscv32imc-esp-espidf -Zbuild-std=std,panic_abort -Zbuild-std-features=panic_immediate_abort
+      - name: Build | Compile Native / ESP-IDF master
+        run: export ESP_IDF_VERSION=master; cargo build --features native --target riscv32imc-esp-espidf -Zbuild-std=std,panic_abort -Zbuild-std-features=panic_immediate_abort
+#      - name: Build | Compile Native
+#        run: export ESP_IDF_SDKCONFIG_DEFAULTS=$(pwd)/.github/configs/sdkconfig.defaults; cargo build --features native --target riscv32imc-esp-espidf -Zbuild-std=std,panic_abort -Zbuild-std-features=panic_immediate_abort
