@@ -1,3 +1,7 @@
+/.vscode
+/.espressif
+/.embuild
 /target
+/Cargo.lock
+**/*.rs.bk
 ulp/ulp_start.o
-Cargo.lock
