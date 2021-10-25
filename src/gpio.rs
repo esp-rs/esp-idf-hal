@@ -287,9 +287,7 @@ macro_rules! impl_input_base {
             }
 
             pub fn into_unknown(self) -> $pxi<Unknown> {
-                $pxi {
-                    _mode: PhantomData,
-                }
+                $pxi { _mode: PhantomData }
             }
         }
 
