@@ -574,11 +574,9 @@ impl<UART: Uart> serial::Write<u8> for Tx<UART> {
     }
 
     fn write(&mut self, byte: u8) -> nb::Result<(), Self::Error> {
-        // TODO: Figure out how to not block
-
-        let len = 1;
-        match unsafe { uart_write_bytes(UART::port(), &byte as *const u8 as *const _, len) } {
-            len => Ok(()),
+        // `uart_write_bytes()` returns error (-1) or how many bytes were written
+        match unsafe { uart_write_bytes(UART::port(), &byte as *const u8 as *const _, 1) } {
+            1 => Ok(()),
             err => Err(nb::Error::Other(EspError::from(err as i32).unwrap())),
         }
     }
