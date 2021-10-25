@@ -1,5 +1,7 @@
 # An embedded-hal implementation for Rust on ESP32 and ESP-IDF
 
+![CI](https://github.com/esp-rs/esp-idf-hal/actions/workflows/ci.yml/badge.svg)
+
 * This crate is intended for usage in ESP32 embedded projects that utilize and link with the **ESP-IDF SDK**.
 * For embedded projects that don't need Rust STD support, WiFi or BLE (and thus don't link with the ESP-IDF SDK), please check [esp32-hal](https://github.com/esp-rs/esp32-hal).
 
