@@ -315,13 +315,6 @@ impl<UART: Uart, TX: OutputPin, RX: InputPin, CTS: InputPin, RTS: OutputPin>
         pins: Pins<TX, RX, CTS, RTS>,
         config: config::Config,
     ) -> Result<Self, EspError> {
-        let serial = Self {
-            uart,
-            pins,
-            rx: Rx { _uart: PhantomData },
-            tx: Tx { _uart: PhantomData },
-        };
-
         let uart_config = uart_config_t {
             baud_rate: config.baudrate.0 as i32,
             data_bits: config.data_bits.into(),
@@ -333,7 +326,15 @@ impl<UART: Uart, TX: OutputPin, RX: InputPin, CTS: InputPin, RTS: OutputPin>
 
         esp!(unsafe { uart_param_config(UART::port(), &uart_config) })?;
 
-        esp!(unsafe { uart_set_pin(UART::port(), TX::pin(), RX::pin(), RTS::pin(), CTS::pin()) })?;
+        esp!(unsafe {
+            uart_set_pin(
+                UART::port(),
+                TX::pin(),
+                RX::pin(),
+                if pins.rts.is_some() { RTS::pin() } else { -1 },
+                if pins.cts.is_some() { CTS::pin() } else { -1 },
+            )
+        })?;
 
         esp!(unsafe {
             uart_driver_install(
@@ -346,7 +347,12 @@ impl<UART: Uart, TX: OutputPin, RX: InputPin, CTS: InputPin, RTS: OutputPin>
             )
         })?;
 
-        Ok(serial)
+        Ok(Self {
+            uart,
+            pins,
+            rx: Rx { _uart: PhantomData },
+            tx: Tx { _uart: PhantomData },
+        })
     }
 
     /// Change the number of stop bits
