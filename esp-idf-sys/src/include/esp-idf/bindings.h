@@ -38,6 +38,7 @@
 #endif
 
 #include "lwip/lwip_napt.h"
+#include "esp_sntp.h"
 
 #include "ping/ping_sock.h"
 
