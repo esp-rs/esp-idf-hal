@@ -396,13 +396,32 @@ impl<'a> HttpResponse<'a> for EspHttpResponse<'a> {
         esp!(unsafe { esp_idf_sys::httpd_resp_set_status(self.raw_req, c_status.as_ptr() as _) })?;
 
         let mut c_headers: std::vec::Vec<(CString, CString)> = vec![];
+        let mut c_content_type: Option<CString> = None;
+        let mut content_len: Option<usize> = None; // TODO: Use it
 
         for (key, value) in &self.headers {
-            c_headers.push((
-                CString::new(key.as_ref()).unwrap(),
-                // TODO: Replace with a proper conversion from UTF8 to ISO-8859-1
-                CString::new(value.as_ref()).unwrap(),
-            ))
+            if key.as_ref().eq_ignore_ascii_case("Content-Type") {
+                c_content_type = Some(CString::new(value.as_ref()).unwrap());
+            } else if key.as_ref().eq_ignore_ascii_case("Content-Length") {
+                content_len = Some(
+                    value
+                        .as_ref()
+                        .parse::<usize>()
+                        .map_err(|_| EspError::from(ESP_ERR_INVALID_ARG as _).unwrap())?,
+                );
+            } else {
+                c_headers.push((
+                    CString::new(key.as_ref()).unwrap(),
+                    // TODO: Replace with a proper conversion from UTF8 to ISO-8859-1
+                    CString::new(value.as_ref()).unwrap(),
+                ))
+            }
+        }
+
+        if let Some(c_content_type) = c_content_type.as_ref() {
+            esp!(unsafe {
+                esp_idf_sys::httpd_resp_set_type(self.raw_req, c_content_type.as_ptr())
+            })?
         }
 
         for (c_field, c_value) in &c_headers {

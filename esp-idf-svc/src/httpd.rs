@@ -5,7 +5,7 @@ use alloc::vec;
 
 use std::io;
 
-use anyhow;
+use ::anyhow::anyhow;
 
 use log::{info, log, Level};
 
@@ -35,12 +35,29 @@ impl<'r> IdfRequest<'r> {
         esp!(unsafe { esp_idf_sys::httpd_resp_set_status(self.0, c_status.as_ptr()) })?;
 
         let mut c_headers: std::vec::Vec<(CString, CString)> = vec![];
+        let mut c_content_type: Option<CString> = None;
+        let mut content_len: Option<usize> = None;
 
         for (key, value) in response.headers {
-            c_headers.push((
-                CString::new(key.as_str()).unwrap(),
-                CString::new(value.as_str()).unwrap(),
-            ))
+            if key.as_str().eq_ignore_ascii_case("Content-Type") {
+                c_content_type = Some(CString::new(value.as_str()).unwrap());
+            } else if key.as_str().eq_ignore_ascii_case("Content-Length") {
+                content_len = Some(
+                    value
+                        .as_str()
+                        .parse::<usize>()
+                        .map_err(|_| anyhow!("Header Content-Length is invalid: {}", value))?,
+                );
+            } else {
+                c_headers.push((
+                    CString::new(key.as_str()).unwrap(),
+                    CString::new(value.as_str()).unwrap(),
+                ))
+            }
+        }
+
+        if let Some(c_content_type) = c_content_type.as_ref() {
+            esp!(unsafe { esp_idf_sys::httpd_resp_set_type(self.0, c_content_type.as_ptr()) })?
         }
 
         for (c_field, c_value) in &c_headers {
@@ -50,13 +67,13 @@ impl<'r> IdfRequest<'r> {
         }
 
         match response.body {
-            Body::Empty => self.send_body_bytes(&[]),
-            Body::Bytes(vec) => self.send_body_bytes(vec.as_slice()),
-            Body::Read(_, mut r) => self.send_body_read(&mut r),
+            Body::Empty => self.send_body_bytes(content_len, &[]),
+            Body::Bytes(vec) => self.send_body_bytes(content_len, vec.as_slice()),
+            Body::Read(size, mut r) => self.send_body_read(content_len, size, &mut r),
         }
     }
 
-    fn send_body_bytes(&mut self, data: &[u8]) -> anyhow::Result<()> {
+    fn send_body_bytes(&mut self, _size: Option<usize>, data: &[u8]) -> anyhow::Result<()> {
         esp!(unsafe {
             esp_idf_sys::httpd_resp_send(
                 self.0,
@@ -67,7 +84,12 @@ impl<'r> IdfRequest<'r> {
         .map_err(Into::into)
     }
 
-    fn send_body_read<R: io::Read>(&mut self, r: &mut R) -> anyhow::Result<()> {
+    fn send_body_read<R: io::Read>(
+        &mut self,
+        _content_len: Option<usize>,
+        _size: Option<usize>,
+        r: &mut R,
+    ) -> anyhow::Result<()> {
         let mut buf = [0; 256];
 
         loop {
