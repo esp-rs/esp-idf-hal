@@ -27,6 +27,7 @@ pub mod httpd;
 pub mod log;
 #[cfg(esp_idf_config_lwip_ipv4_napt)]
 pub mod napt;
+#[cfg(feature = "alloc")]
 pub mod netif;
 #[cfg(all(feature = "alloc", esp_idf_comp_nvs_flash_enabled))]
 // TODO: Expose a subset which does not require "alloc"

@@ -1,6 +1,6 @@
 [package]
 name = "esp-idf-svc"
-version = "0.27.1"
+version = "0.27.2"
 authors = ["Ivan Markov <ivan.markov@gmail.com>"]
 edition = "2018"
 categories = ["embedded", "hardware-support"]
@@ -13,20 +13,20 @@ readme = "README.md"
 [features]
 default = ["std"]
 
-std = ["alloc", "anyhow/std", "esp-idf-sys/std", "embedded-svc/std"]
+std = ["alloc", "anyhow/std", "log/std", "esp-idf-sys/std", "embedded-svc/std"]
 alloc = ["cstr_core/alloc", "anyhow", "embedded-svc/alloc"]
 
 experimental = ["embedded-svc/experimental"]
 
 [dependencies]
 enumset = "1"
-log = "0.4"
+log = { version = "0.4", default-features = false }
 cstr_core = "0.2"
 anyhow = { version = "1.0", features = ["backtrace"], optional = true }
 mutex-trait = "0.2"
-embedded-svc = "0.11"
-esp-idf-sys = "0.21"
-esp-idf-hal = "0.21"
+embedded-svc = { version = "0.11", default-features = false }
+esp-idf-sys = { version = "0.22.3", default-features = false }
+esp-idf-hal = "0.21.2"
 
 [build-dependencies]
 embuild = "0.24"

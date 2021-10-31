@@ -1,6 +1,8 @@
 use core::{cmp, convert::TryInto, ptr, time::Duration};
 
 extern crate alloc;
+use alloc::borrow::ToOwned;
+use alloc::boxed::Box;
 use alloc::sync::Arc;
 use alloc::vec;
 

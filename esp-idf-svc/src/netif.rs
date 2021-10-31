@@ -2,6 +2,7 @@ use core::ptr;
 
 extern crate alloc;
 use alloc::borrow::Cow;
+use alloc::string::String;
 use alloc::sync::Arc;
 
 use ::log::*;

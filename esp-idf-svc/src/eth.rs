@@ -1,6 +1,7 @@
 use core::{convert::TryInto, ptr, time::Duration};
 
 extern crate alloc;
+use alloc::boxed::Box;
 use alloc::sync::Arc;
 
 use ::log::*;
