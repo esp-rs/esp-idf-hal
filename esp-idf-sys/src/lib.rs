@@ -1,4 +1,5 @@
 #![cfg_attr(not(feature = "std"), no_std)]
+#![cfg_attr(all(not(feature = "std"), feature = "alloc_handler"), feature(alloc_error_handler))]
 
 pub use bindings::*;
 pub use error::*;
