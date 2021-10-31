@@ -62,7 +62,7 @@ pub enum RmiiEthChipset {
     LAN87XX,
     DP83848,
     KSZ8041,
-    #[cfg(esp_idf_version = "4.4")]
+    #[cfg(any(esp_idf_version = "4.4", esp_idf_version_major = "5"))]
     KSZ8081,
 }
 
@@ -204,13 +204,13 @@ where
         let phy = match chipset {
             RmiiEthChipset::IP101 => unsafe { esp_eth_phy_new_ip101(&phy_cfg) },
             RmiiEthChipset::RTL8201 => unsafe { esp_eth_phy_new_rtl8201(&phy_cfg) },
-            #[cfg(esp_idf_version = "4.4")]
+            #[cfg(any(esp_idf_version = "4.4", esp_idf_version_major = "5"))]
             RmiiEthChipset::LAN87XX => unsafe { esp_eth_phy_new_lan87xx(&phy_cfg) },
-            #[cfg(not(esp_idf_version = "4.4"))]
+            #[cfg(not(any(esp_idf_version = "4.4", esp_idf_version_major = "5")))]
             RmiiEthChipset::LAN87XX => unsafe { esp_eth_phy_new_lan8720(&phy_cfg) },
             RmiiEthChipset::DP83848 => unsafe { esp_eth_phy_new_dp83848(&phy_cfg) },
             RmiiEthChipset::KSZ8041 => unsafe { esp_eth_phy_new_ksz8041(&phy_cfg) },
-            #[cfg(esp_idf_version = "4.4")]
+            #[cfg(any(esp_idf_version = "4.4", esp_idf_version_major = "5"))]
             RmiiEthChipset::KSZ8081 => unsafe { esp_eth_phy_new_ksz8081(&phy_cfg) },
         };
 
@@ -400,7 +400,7 @@ where
     fn initialize_spi_bus() -> Result<(), EspError> {
         unsafe { gpio_install_isr_service(0) };
 
-        #[cfg(esp_idf_version = "4.4")]
+        #[cfg(any(esp_idf_version = "4.4", esp_idf_version_major = "5"))]
         let bus_config = spi_bus_config_t {
             flags: SPICOMMON_BUSFLAG_MASTER,
             sclk_io_num: SCLK::pin(),
@@ -429,7 +429,7 @@ where
             ..Default::default()
         };
 
-        #[cfg(not(esp_idf_version = "4.4"))]
+        #[cfg(not(any(esp_idf_version = "4.4", esp_idf_version_major = "5")))]
         let bus_config = spi_bus_config_t {
             flags: SPICOMMON_BUSFLAG_MASTER,
             sclk_io_num: SCLK::pin(),
@@ -872,9 +872,9 @@ impl<P> EspEth<P> {
             smi_mdc_gpio_num: 23,
             smi_mdio_gpio_num: 18,
             flags: 0,
-            #[cfg(esp_idf_version = "4.4")]
+            #[cfg(any(esp_idf_version = "4.4", esp_idf_version_major = "5"))]
             interface: eth_data_interface_t_EMAC_DATA_INTERFACE_RMII,
-            #[cfg(esp_idf_version = "4.4")]
+            #[cfg(any(esp_idf_version = "4.4", esp_idf_version_major = "5"))]
             clock_config: eth_mac_clock_config_t {
                 rmii: eth_mac_clock_config_t__bindgen_ty_2 {
                     clock_mode: emac_rmii_clock_mode_t_EMAC_CLK_DEFAULT,

@@ -1,33 +1,34 @@
 [package]
 name = "esp-idf-svc"
-version = "0.27.2"
+version = "0.28.0"
 authors = ["Ivan Markov <ivan.markov@gmail.com>"]
 edition = "2018"
+resolver = "2"
 categories = ["embedded", "hardware-support"]
 keywords = ["embedded", "svc", "idf", "esp-idf", "esp32"]
 description = "Implementation of the embedded-svc traits for ESP-IDF (Espressif's IoT Development Framework)"
-repository = "https://github.com/ivmarkov/esp-idf-svc"
+repository = "https://github.com/esp-rs/esp-idf-svc"
 license = "MIT OR Apache-2.0"
 readme = "README.md"
 
 [features]
 default = ["std"]
 
-std = ["alloc", "anyhow/std", "log/std", "esp-idf-sys/std", "embedded-svc/std"]
+std = ["alloc", "anyhow/std", "log/std", "esp-idf-sys/std", "esp-idf-hal/std", "embedded-svc/std"]
 alloc = ["cstr_core/alloc", "anyhow", "embedded-svc/alloc"]
 
 experimental = ["embedded-svc/experimental"]
 
 [dependencies]
-enumset = "1"
+enumset = { version = "1", default-features = false }
 log = { version = "0.4", default-features = false }
 cstr_core = "0.2"
-anyhow = { version = "1.0", features = ["backtrace"], optional = true }
+anyhow = { version = "1", default-features = false, optional = true }
 mutex-trait = "0.2"
-embedded-svc = { version = "0.11", default-features = false }
-esp-idf-sys = { version = "0.22.3", default-features = false }
-esp-idf-hal = "0.21.2"
+embedded-svc = { version = "0.12", default-features = false }
+esp-idf-sys = { version = "0.24", default-features = false, features = ["pio"] }
+esp-idf-hal = { version = "0.23", default-features = false, features = ["esp-idf-sys"] }
 
 [build-dependencies]
-embuild = "0.24"
+embuild = "0.25"
 anyhow = "1"
