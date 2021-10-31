@@ -167,7 +167,7 @@ impl<SPI: Spi, SCLK: OutputPin, SDO: OutputPin, SDI: InputPin + OutputPin, CS: O
         pins: Pins<SCLK, SDO, SDI, CS>,
         config: config::Config,
     ) -> Result<Self, EspError> {
-        #[cfg(esp_idf_version = "4.4")]
+        #[cfg(any(esp_idf_version = "4.4", esp_idf_version_major = "5"))]
         let bus_config = spi_bus_config_t {
             flags: SPICOMMON_BUSFLAG_MASTER,
             sclk_io_num: SCLK::pin(),
@@ -196,7 +196,7 @@ impl<SPI: Spi, SCLK: OutputPin, SDO: OutputPin, SDI: InputPin + OutputPin, CS: O
             ..Default::default()
         };
 
-        #[cfg(not(esp_idf_version = "4.4"))]
+        #[cfg(not(any(esp_idf_version = "4.4", esp_idf_version_major = "5")))]
         let bus_config = spi_bus_config_t {
             flags: SPICOMMON_BUSFLAG_MASTER,
             sclk_io_num: SCLK::pin(),

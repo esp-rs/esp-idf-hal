@@ -1,6 +1,6 @@
 [package]
 name = "esp-idf-hal"
-version = "0.22.0"
+version = "0.23.0"
 authors = ["sapir <yasapir@gmail.com>", "Ivan Markov <ivan.markov@gmail.com>"]
 edition = "2018"
 resolver = "2"
@@ -23,7 +23,7 @@ cfg-if = "1"
 nb = "0.1.2"
 mutex-trait = "0.2"
 embedded-hal = { version = "0.2", features = ["unproven"] }
-esp-idf-sys = { version = "0.23", optional = true, default-features = false, features = ["pio"] }
+esp-idf-sys = { version = "0.24", optional = true, default-features = false, features = ["pio"] }
 
 [build-dependencies]
 embuild = "0.25"
