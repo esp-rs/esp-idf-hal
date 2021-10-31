@@ -1,11 +1,11 @@
 #![feature(llvm_asm)]
 #![cfg_attr(not(feature = "std"), no_std)]
 
-cfg_if::cfg_if! {
-    if #[cfg(all(feature = "std", feature = "ulp"))] {
-        compile_error!("Feature \"std\" is not compatible with feature \"ulp\"");
-    }
-}
+#[cfg(all(feature = "std", feature = "ulp"))]
+compile_error!("Feature `std` is not compatible with feature `ulp`");
+
+#[cfg(all(feature = "ulp", not(esp32s2)))]
+compile_error!("Feature `ulp` is currently only supported on esp32s2");
 
 #[macro_use]
 pub mod ulp;

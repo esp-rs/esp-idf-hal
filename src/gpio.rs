@@ -906,7 +906,7 @@ mod chip {
 
     use super::*;
 
-    // Not mapped: 11 - 17
+    // Not mapped: 12 - 17, as these are used by SPI0/1 and not recommended for other uses
     pin!(Gpio0:0, IO, RTC:0, ADC1:0, NODAC:0, TOUCH:0);
     pin!(Gpio1:1, IO, RTC:1, ADC1:1, NODAC:0, TOUCH:1);
     pin!(Gpio2:2, IO, RTC:2, ADC1:2, NODAC:0, TOUCH:2);
@@ -918,6 +918,7 @@ mod chip {
     pin!(Gpio8:8, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
     pin!(Gpio9:9, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
     pin!(Gpio10:10, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
+    pin!(Gpio11:11, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
     pin!(Gpio18:18, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
     pin!(Gpio19:19, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
     pin!(Gpio20:20, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
@@ -935,6 +936,7 @@ mod chip {
         pub gpio8: Gpio8<Unknown>,
         pub gpio9: Gpio9<Unknown>,
         pub gpio10: Gpio10<Unknown>,
+        pub gpio11: Gpio11<Unknown>,
         pub gpio18: Gpio18<Unknown>,
         pub gpio19: Gpio19<Unknown>,
         pub gpio20: Gpio20<Unknown>,
@@ -958,6 +960,7 @@ mod chip {
                 gpio8: Gpio8::<Unknown>::new(),
                 gpio9: Gpio9::<Unknown>::new(),
                 gpio10: Gpio10::<Unknown>::new(),
+                gpio11: Gpio11::<Unknown>::new(),
                 gpio18: Gpio18::<Unknown>::new(),
                 gpio19: Gpio19::<Unknown>::new(),
                 gpio20: Gpio20::<Unknown>::new(),

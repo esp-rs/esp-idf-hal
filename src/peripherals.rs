@@ -6,7 +6,6 @@ use esp_idf_sys::EspMutex;
 #[cfg(feature = "ulp")]
 use crate::ulp::sys::EspMutex;
 
-#[cfg(any(not(esp32c3), not(feature = "ulp")))]
 use crate::gpio;
 #[cfg(not(feature = "ulp"))]
 use crate::i2c;
@@ -16,7 +15,6 @@ use crate::serial;
 use crate::spi;
 
 pub struct Peripherals {
-    #[cfg(any(not(esp32c3), not(feature = "ulp")))]
     pub pins: gpio::Pins,
     #[cfg(not(feature = "ulp"))]
     pub uart0: serial::UART0,
@@ -57,7 +55,6 @@ impl Peripherals {
     /// Care should be taken not to instantiate the Peripherals structure, if it is already instantiated and used elsewhere
     pub unsafe fn new() -> Self {
         Self {
-            #[cfg(any(not(esp32c3), not(feature = "ulp")))]
             pins: gpio::Pins::new(),
             #[cfg(not(feature = "ulp"))]
             uart0: serial::UART0::new(),
