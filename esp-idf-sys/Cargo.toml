@@ -1,20 +1,17 @@
 [package]
 name = "esp-idf-sys"
-version = "0.22.3"
+version = "0.23.0"
 authors = ["Alexey Arbuzov <aarbuzov@termt.com>", "sapir <yasapir@gmail.com>", "Ivan Markov <ivan.markov@gmail.com>"]
 edition = "2018"
+resolver = "2"
 categories = ["embedded", "hardware-support"]
 keywords = ["sys", "idf", "esp-idf", "esp32"]
 description = "Bindings for ESP-IDF (Espressif's IoT Development Framework)"
-repository = "https://github.com/ivmarkov/esp-idf-sys"
+repository = "https://github.com/esp-rs/esp-idf-sys"
 license = "MIT OR Apache-2.0"
 readme = "README.md"
 links = "esp_idf"
 build = "build/build.rs"
-
-# No xtensa in regular compiler yet
-[package.metadata.docs.rs]
-default-target = "x86_64-unknown-linux-gnu"
 
 [features]
 default = ["std", "pio"]
@@ -28,15 +25,15 @@ libstart = []
 # Use `platformio` to build the `esp-idf`
 pio = []
 # Experimental: Use native `esp-idf` tooling to build it
-native = ["strum"]
+native = []
 
 [dependencies]
 mutex-trait = "0.2"
-embedded-svc = { version = "0.11", default-features = false }
+embedded-svc = { version = "0.12", default-features = false }
 paste = "1"
 
 [build-dependencies]
 embuild = "0.25"
 anyhow = "1"
-strum = { version = "0.21", optional = true, features = ["derive"] }
+strum = { version = "0.21", features = ["derive"] }
 regex = "1.5"
