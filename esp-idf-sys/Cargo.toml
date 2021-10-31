@@ -1,6 +1,6 @@
 [package]
 name = "esp-idf-sys"
-version = "0.22.2"
+version = "0.22.3"
 authors = ["Alexey Arbuzov <aarbuzov@termt.com>", "sapir <yasapir@gmail.com>", "Ivan Markov <ivan.markov@gmail.com>"]
 edition = "2018"
 categories = ["embedded", "hardware-support"]
@@ -32,7 +32,7 @@ native = ["strum"]
 
 [dependencies]
 mutex-trait = "0.2"
-embedded-svc = "0.11"
+embedded-svc = { version = "0.11", default-features = false }
 paste = "1"
 
 [build-dependencies]
