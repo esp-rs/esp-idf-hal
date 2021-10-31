@@ -1,18 +1,15 @@
 [package]
 name = "esp-idf-hal"
-version = "0.21.2"
+version = "0.22.0"
 authors = ["sapir <yasapir@gmail.com>", "Ivan Markov <ivan.markov@gmail.com>"]
 edition = "2018"
+resolver = "2"
 categories = ["embedded", "hardware-support"]
 keywords = ["hal", "idf", "esp-idf", "esp32"]
 description = "A Hardware abstraction layer for Espressif's ESP family of microcontrollers based on the ESP-IDF framework."
-repository = "https://github.com/ivmarkov/esp-idf-hal"
+repository = "https://github.com/esp-rs/esp-idf-hal"
 license = "MIT OR Apache-2.0"
 readme = "README.md"
-
-# no xtensa in regular compiler yet
-[package.metadata.docs.rs]
-default-target = "x86_64-unknown-linux-gnu"
 
 [features]
 default = ["std", "esp-idf-sys"]
@@ -26,8 +23,8 @@ cfg-if = "1"
 nb = "0.1.2"
 mutex-trait = "0.2"
 embedded-hal = { version = "0.2", features = ["unproven"] }
-esp-idf-sys = { version = "0.22.3", optional = true, default-features = false, features = ["pio"] }
+esp-idf-sys = { version = "0.23", optional = true, default-features = false, features = ["pio"] }
 
 [build-dependencies]
-embuild = "0.24"
+embuild = "0.25"
 anyhow = "1"
