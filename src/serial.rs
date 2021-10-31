@@ -1,26 +1,37 @@
 //! UART peripheral control
 //!
-//! Controls the 3 uart peripherals (UART0, UART1, UART2).
+//! Controls UART peripherals (UART0, UART1, UART2).
+//! Notice that UART0 is typically already used for loading firmware and logging.
+//! Therefore use UART1 and UART2 in your application.
+//! Any pin can be used for `rx` and `tx`.
 //!
 //! # Example
 //!
-//! Creation of the serial peripheral and writing formatted info.
+//! Create a serial peripheral and write to serial port.
 //! ```
-//! let serial: Serial<_, _, _> = Serial::new(
-//!     dp.UART0,
-//!     esp32_hal::serial::Pins {
-//!         tx: gpios.gpio1,
-//!         rx: gpios.gpio3,
+//! use std::fmt::Write;
+//! use esp_idf_hal::prelude::*;
+//! use esp_idf_hal::serial;
+//!
+//! let peripherals = Peripherals::take().unwrap();
+//! let pins = peripherals.pins;
+//!
+//! let config = serial::config::Config::default().baudrate(Hertz(115_200));
+//!
+//! let mut serial: serial::Serial<serial::UART1, _, _> = serial::Serial::new(
+//!     peripherals.uart1,
+//!     serial::Pins {
+//!         tx: pins.gpio1,
+//!         rx: pins.gpio3,
 //!         cts: None,
 //!         rts: None,
 //!     },
-//!     config,
-//!     clkcntrl_config,
-//!     &mut dport,
-//!     )
-//!     .unwrap();
+//!     config
+//! ).unwrap();
 //!
-//! writeln!(serial, "Serial output").unwrap();
+//! for i in 0..10 {
+//!     writeln!(serial, "{:}", format!("count {:}", i)).unwrap();
+//! }
 //! ```
 //!
 //! # TODO
@@ -40,7 +51,7 @@ use crate::units::*;
 
 use esp_idf_sys::*;
 
-const UART_FIFO_SIZE: u8 = 128;
+const UART_FIFO_SIZE: i32 = 128;
 
 // /// Interrupt event
 // pub enum Event {
@@ -304,13 +315,6 @@ impl<UART: Uart, TX: OutputPin, RX: InputPin, CTS: InputPin, RTS: OutputPin>
         pins: Pins<TX, RX, CTS, RTS>,
         config: config::Config,
     ) -> Result<Self, EspError> {
-        let serial = Self {
-            uart,
-            pins,
-            rx: Rx { _uart: PhantomData },
-            tx: Tx { _uart: PhantomData },
-        };
-
         let uart_config = uart_config_t {
             baud_rate: config.baudrate.0 as i32,
             data_bits: config.data_bits.into(),
@@ -322,20 +326,33 @@ impl<UART: Uart, TX: OutputPin, RX: InputPin, CTS: InputPin, RTS: OutputPin>
 
         esp!(unsafe { uart_param_config(UART::port(), &uart_config) })?;
 
-        esp!(unsafe { uart_set_pin(UART::port(), TX::pin(), RX::pin(), RTS::pin(), CTS::pin()) })?;
+        esp!(unsafe {
+            uart_set_pin(
+                UART::port(),
+                TX::pin(),
+                RX::pin(),
+                if pins.rts.is_some() { RTS::pin() } else { -1 },
+                if pins.cts.is_some() { CTS::pin() } else { -1 },
+            )
+        })?;
 
         esp!(unsafe {
             uart_driver_install(
                 UART::port(),
-                UART_FIFO_SIZE as i32,
-                UART_FIFO_SIZE as i32,
+                UART_FIFO_SIZE * 2,
+                UART_FIFO_SIZE * 2,
                 0,
                 ptr::null_mut(),
                 0,
             )
         })?;
 
-        Ok(serial)
+        Ok(Self {
+            uart,
+            pins,
+            rx: Rx { _uart: PhantomData },
+            tx: Tx { _uart: PhantomData },
+        })
     }
 
     /// Change the number of stop bits
@@ -530,10 +547,11 @@ impl<UART: Uart> serial::Read<u8> for Rx<UART> {
     fn read(&mut self) -> nb::Result<u8, Self::Error> {
         let mut buf: u8 = 0;
 
-        match unsafe { uart_read_bytes(UART::port(), &mut buf as *mut u8 as *mut _, 1, 0) } as u32 {
-            // TODO: Check when the timeout is reached what is returned
-            ESP_OK => Err(nb::Error::WouldBlock),
-            ESP_ERR_TIMEOUT => Ok(buf),
+        // uart_read_bytes() returns error (-1) or how many bytes were read out
+        // 0 means timeout and nothing is yet read out
+        match unsafe { uart_read_bytes(UART::port(), &mut buf as *mut u8 as *mut _, 1, 0) } {
+            1 => Ok(buf),
+            0 => Err(nb::Error::WouldBlock),
             err => Err(nb::Error::Other(EspError::from(err as i32).unwrap())),
         }
     }
@@ -563,9 +581,9 @@ impl<UART: Uart> serial::Write<u8> for Tx<UART> {
     }
 
     fn write(&mut self, byte: u8) -> nb::Result<(), Self::Error> {
-        // TODO: Figure out how to not block
-        match unsafe { uart_write_bytes(UART::port(), &byte as *const u8 as *const _, 1) } as u32 {
-            ESP_OK => Ok(()),
+        // `uart_write_bytes()` returns error (-1) or how many bytes were written
+        match unsafe { uart_write_bytes(UART::port(), &byte as *const u8 as *const _, 1) } {
+            1 => Ok(()),
             err => Err(nb::Error::Other(EspError::from(err as i32).unwrap())),
         }
     }
