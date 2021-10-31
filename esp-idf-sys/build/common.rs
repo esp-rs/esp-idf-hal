@@ -90,16 +90,16 @@ impl EspIdfVersion {
 
     pub fn cfg_args(&self) -> impl Iterator<Item = String> {
         once(format!(
-            "esp_idf_full_version=\"{}.{}.{}\"",
+            "esp_idf_version_full=\"{}.{}.{}\"",
             self.major, self.minor, self.patch
         ))
         .chain(once(format!(
             "esp_idf_version=\"{}.{}\"",
             self.major, self.minor
         )))
-        .chain(once(format!("esp_idf_major_version=\"{}\"", self.major)))
-        .chain(once(format!("esp_idf_minor_version=\"{}\"", self.minor)))
-        .chain(once(format!("esp_idf_patch_version=\"{}\"", self.patch)))
+        .chain(once(format!("esp_idf_version_major=\"{}\"", self.major)))
+        .chain(once(format!("esp_idf_version_minor=\"{}\"", self.minor)))
+        .chain(once(format!("esp_idf_version_patch=\"{}\"", self.patch)))
     }
 
     fn grab_const<T>(
