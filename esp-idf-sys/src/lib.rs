@@ -70,6 +70,13 @@ pub mod c_types {
     pub type c_void = core::ffi::c_void;
     pub type c_uchar = u8;
     pub type c_schar = i8;
+    // Even though libc and STD do use a signed char type for both RiscV & Xtensa,
+    // we need to switch to unsigned char for no_std + RiscV in order to match what
+    // is currently hard-coded in the cty crate (used by the CStr & CString impls in no_std):
+    // https://github.com/japaric/cty/blob/master/src/lib.rs#L30
+    #[cfg(arch = "riscv32")]
+    pub type c_char = u8;
+    #[cfg(not(arch = "riscv32"))]
     pub type c_char = i8;
     pub type c_short = i16;
     pub type c_ushort = u16;
