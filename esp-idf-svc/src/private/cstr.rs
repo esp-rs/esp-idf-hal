@@ -10,6 +10,8 @@ pub use cstr_core::CString;
 #[cfg(feature = "alloc")]
 extern crate alloc;
 
+use esp_idf_sys::c_types;
+
 #[cfg(feature = "alloc")]
 pub fn set_str(buf: &mut [u8], s: &str) {
     let cs = CString::new(s).unwrap();
@@ -18,7 +20,7 @@ pub fn set_str(buf: &mut [u8], s: &str) {
 }
 
 #[cfg(feature = "alloc")]
-pub fn from_cstr_ptr<'a>(ptr: *const i8) -> alloc::borrow::Cow<'a, str> {
+pub fn from_cstr_ptr<'a>(ptr: *const c_types::c_char) -> alloc::borrow::Cow<'a, str> {
     unsafe { CStr::from_ptr(ptr) }.to_string_lossy()
 }
 
