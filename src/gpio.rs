@@ -70,7 +70,7 @@ pub trait ADCPin: Pin {
     fn adc_channel() -> adc_channel_t;
 }
 
-#[cfg(not(esp32c3))]
+#[cfg(all(not(esp32c3), not(esp32s3)))]
 pub trait DACPin: Pin {
     fn dac_channel() -> dac_channel_t;
 }
@@ -489,7 +489,7 @@ macro_rules! impl_adc {
 
 macro_rules! impl_dac {
     ($pxi:ident: $pin:expr, DAC: $dac:expr) => {
-        #[cfg(not(esp32c3))]
+        #[cfg(all(not(esp32c3), not(esp32s3)))]
         impl<MODE> DACPin for $pxi<MODE> {
             fn dac_channel() -> dac_channel_t {
                 $dac
