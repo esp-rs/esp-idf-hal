@@ -61,7 +61,7 @@
 
 #include "driver/adc.h"
 #include "driver/twai.h"
-#ifndef CONFIG_IDF_TARGET_ESP32C3
+#if !defined(CONFIG_IDF_TARGET_ESP32C3) && !defined(CONFIG_IDF_TARGET_ESP32S3)
 #include "driver/dac.h"
 #endif
 #include "driver/gpio.h"
