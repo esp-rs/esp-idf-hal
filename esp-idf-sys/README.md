@@ -46,10 +46,10 @@ The location where the `esp-idf` source and tools are detected and installed can
   - This is the location used by default
 - **`~/.espressif`** 
   - This is the "standard" ESP-IDF tools location
-  - To enable it, set the environment variable [ESP_IDF_GLOBAL_INSTALL](...) to 1
+  - To enable it, set the environment variable `ESP_IDF_GLOBAL_INSTALL` to 1
 - **`$ESP_IDF_INSTALL_DIR`**
   - This is a user-provided location
-  - To enable it, simply define the [ESP_IDF_INSTALL_DIR](...) variable to point to a directory of your preference
+  - To enable it, simply define the `ESP_IDF_INSTALL_DIR` variable to point to a directory of your preference
 
 ### (Native builder only) Using cargo-idf to interactively modify ESP-IDF's `sdkconfig` file
 
