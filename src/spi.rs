@@ -111,6 +111,8 @@ pub struct Master<
     bit_order: config::BitOrder,
 }
 
+unsafe impl<SPI: Spi, SCLK: OutputPin, SDO: OutputPin, SDI: InputPin + OutputPin, CS: OutputPin> Send for Master<SPI, SCLK, SDO, SDI, CS> {}
+
 impl<CS: OutputPin>
     Master<SPI1, gpio::Gpio6<gpio::Output>, gpio::Gpio7<gpio::Output>, gpio::Gpio8<gpio::Input>, CS>
 {
@@ -624,18 +626,16 @@ impl<SPI: Spi, SCLK: OutputPin, SDO: OutputPin, SDI: InputPin + OutputPin, CS: O
     }
 }
 
-struct SpiPrivateField;
-
 macro_rules! impl_spi {
     ($spi:ident: $device:expr) => {
-        pub struct $spi(SpiPrivateField);
+        pub struct $spi(::core::marker::PhantomData<*const ()>);
 
         impl $spi {
             /// # Safety
             ///
             /// Care should be taken not to instantiate this SPI instance, if it is already instantiated and used elsewhere
             pub unsafe fn new() -> Self {
-                $spi(SpiPrivateField)
+                $spi(::core::marker::PhantomData)
             }
         }
 

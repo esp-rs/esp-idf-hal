@@ -2,7 +2,12 @@ use crate::{delay::*, gpio::*, units::*};
 
 use esp_idf_sys::*;
 
-pub struct Pins<SDA: OutputPin + InputPin, SCL: OutputPin + InputPin> {
+pub struct MasterPins<SDA: OutputPin + InputPin, SCL: OutputPin> {
+    pub sda: SDA,
+    pub scl: SCL,
+}
+
+pub struct SlavePins<SDA: OutputPin + InputPin, SCL: InputPin> {
     pub sda: SDA,
     pub scl: SCL,
 }
@@ -108,14 +113,16 @@ pub trait I2c {
     fn port() -> i2c_port_t;
 }
 
+unsafe impl<I2C: I2c, SDA: OutputPin + InputPin, SCL: OutputPin> Send for Master<I2C, SDA, SCL> {}
+
 pub struct Master<I2C, SDA, SCL>
 where
     I2C: I2c,
     SDA: OutputPin + InputPin,
-    SCL: OutputPin + InputPin,
+    SCL: OutputPin,
 {
     i2c: I2C,
-    pins: Pins<SDA, SCL>,
+    pins: MasterPins<SDA, SCL>,
     timeout: TickType_t,
 }
 
@@ -123,22 +130,24 @@ pub struct Slave<I2C, SDA, SCL>
 where
     I2C: I2c,
     SDA: OutputPin + InputPin,
-    SCL: OutputPin + InputPin,
+    SCL: InputPin,
 {
     i2c: I2C,
-    pins: Pins<SDA, SCL>,
+    pins: SlavePins<SDA, SCL>,
     timeout: TickType_t,
 }
+
+unsafe impl<I2C: I2c, SDA: OutputPin + InputPin, SCL: InputPin> Send for Slave<I2C, SDA, SCL> {}
 
 impl<I2C, SDA, SCL> Master<I2C, SDA, SCL>
 where
     I2C: I2c,
     SDA: OutputPin + InputPin,
-    SCL: OutputPin + InputPin,
+    SCL: OutputPin,
 {
     pub fn new(
         i2c: I2C,
-        pins: Pins<SDA, SCL>,
+        pins: MasterPins<SDA, SCL>,
         config: config::MasterConfig,
     ) -> Result<Master<I2C, SDA, SCL>, EspError> {
         // i2c_config_t documentation says that clock speed must be no higher than 1 MHz
@@ -179,7 +188,7 @@ where
         })
     }
 
-    pub fn release(self) -> Result<(I2C, Pins<SDA, SCL>), EspError> {
+    pub fn release(self) -> Result<(I2C, MasterPins<SDA, SCL>), EspError> {
         esp!(unsafe { i2c_driver_delete(I2C::port()) })?;
 
         //self.pins.sda.reset()?;
@@ -193,7 +202,7 @@ impl<I2C, SDA, SCL> embedded_hal::blocking::i2c::Read for Master<I2C, SDA, SCL>
 where
     I2C: I2c,
     SDA: OutputPin + InputPin,
-    SCL: OutputPin + InputPin,
+    SCL: OutputPin,
 {
     type Error = EspError;
 
@@ -227,7 +236,7 @@ impl<I2C, SDA, SCL> embedded_hal::blocking::i2c::Write for Master<I2C, SDA, SCL>
 where
     I2C: I2c,
     SDA: OutputPin + InputPin,
-    SCL: OutputPin + InputPin,
+    SCL: OutputPin,
 {
     type Error = EspError;
 
@@ -261,7 +270,7 @@ impl<I2C, SDA, SCL> embedded_hal::blocking::i2c::WriteRead for Master<I2C, SDA, 
 where
     I2C: I2c,
     SDA: OutputPin + InputPin,
-    SCL: OutputPin + InputPin,
+    SCL: OutputPin,
 {
     type Error = EspError;
 
@@ -309,11 +318,11 @@ impl<I2C, SDA, SCL> Slave<I2C, SDA, SCL>
 where
     I2C: I2c,
     SDA: OutputPin + InputPin,
-    SCL: OutputPin + InputPin,
+    SCL: InputPin,
 {
     pub fn new(
         i2c: I2C,
-        pins: Pins<SDA, SCL>,
+        pins: SlavePins<SDA, SCL>,
         slave_addr: u8,
         config: config::SlaveConfig,
     ) -> Result<Self, EspError> {
@@ -352,7 +361,7 @@ where
         })
     }
 
-    pub fn release(self) -> Result<(I2C, Pins<SDA, SCL>), EspError> {
+    pub fn release(self) -> Result<(I2C, SlavePins<SDA, SCL>), EspError> {
         esp!(unsafe { i2c_driver_delete(I2C::port()) })?;
 
         //self.pins.sda.reset()?;
@@ -418,18 +427,16 @@ impl Drop for CommandLink {
     }
 }
 
-struct I2cPrivateField;
-
 macro_rules! impl_i2c {
     ($i2c:ident: $port:expr) => {
-        pub struct $i2c(I2cPrivateField);
+        pub struct $i2c(::core::marker::PhantomData<*const ()>);
 
         impl $i2c {
             /// # Safety
             ///
             /// Care should be taken not to instnatiate this I2C instance, if it is already instantiated and used elsewhere
             pub unsafe fn new() -> Self {
-                $i2c(I2cPrivateField)
+                $i2c(::core::marker::PhantomData)
             }
         }
 
