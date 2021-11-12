@@ -111,7 +111,10 @@ pub struct Master<
     bit_order: config::BitOrder,
 }
 
-unsafe impl<SPI: Spi, SCLK: OutputPin, SDO: OutputPin, SDI: InputPin + OutputPin, CS: OutputPin> Send for Master<SPI, SCLK, SDO, SDI, CS> {}
+unsafe impl<SPI: Spi, SCLK: OutputPin, SDO: OutputPin, SDI: InputPin + OutputPin, CS: OutputPin>
+    Send for Master<SPI, SCLK, SDO, SDI, CS>
+{
+}
 
 impl<CS: OutputPin>
     Master<SPI1, gpio::Gpio6<gpio::Output>, gpio::Gpio7<gpio::Output>, gpio::Gpio8<gpio::Input>, CS>
