@@ -68,7 +68,7 @@ unsafe impl Sync for EspLogger {}
 
 impl EspLogger {
     pub fn initialize_default() {
-        log::set_logger(&LOGGER)
+        ::log::set_logger(&LOGGER)
             .map(|()| LOGGER.initialize())
             .unwrap();
     }
