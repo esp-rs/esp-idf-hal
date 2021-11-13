@@ -1,4 +1,5 @@
 use core::time::Duration;
+
 #[cfg(feature = "std")]
 use std::sync::{Condvar, Mutex};
 
@@ -6,7 +7,7 @@ use std::sync::{Condvar, Mutex};
 use esp_idf_sys::*;
 
 #[cfg(not(feature = "std"))]
-use super::time::micros_since_boot;
+use embedded_svc::mutex::Mutex;
 
 pub struct Waitable<T> {
     #[cfg(feature = "std")]
@@ -36,7 +37,7 @@ impl<T> Waitable<T> {
 
     #[cfg(not(feature = "std"))]
     pub fn get<Q>(&self, getter: impl FnOnce(&T) -> Q) -> Q {
-        self.state.with_lock(|state| getter(*state))
+        self.state.with_lock(|state| getter(state))
     }
 
     #[cfg(feature = "std")]
@@ -53,8 +54,8 @@ impl<T> Waitable<T> {
     }
 
     #[cfg(not(feature = "std"))]
-    pub fn modify<Q>(&mut self, modifier: impl FnOnce(&mut T) -> (bool, Q)) {
-        self.shared.with_lock(|mut state| modifier(&mut state).1)
+    pub fn modify<Q>(&mut self, modifier: impl FnOnce(&mut T) -> (bool, Q)) -> Q {
+        self.state.with_lock(|state| modifier(state).1)
     }
 
     pub fn wait_while(&self, condition: impl Fn(&T) -> bool) {
@@ -70,7 +71,7 @@ impl<T> Waitable<T> {
     pub fn wait_while_and_get<Q>(
         &self,
         condition: impl Fn(&T) -> bool,
-        getter: impl FnOnce(&T) -> Q,
+        getter: impl Fn(&T) -> Q,
     ) -> Q {
         getter(
             &self
@@ -84,10 +85,10 @@ impl<T> Waitable<T> {
     pub fn wait_while_and_get<Q>(
         &self,
         condition: impl Fn(&T) -> bool,
-        getter: impl FnOnce(&T) -> Q,
+        getter: impl Fn(&T) -> Q,
     ) -> Q {
         loop {
-            (cond, value) = self
+            let (cond, value) = self
                 .state
                 .with_lock(|state| (condition(&state), getter(&state)));
 
@@ -104,7 +105,7 @@ impl<T> Waitable<T> {
         &self,
         dur: Duration,
         condition: impl Fn(&T) -> bool,
-        getter: impl FnOnce(&T) -> Q,
+        getter: impl Fn(&T) -> Q,
     ) -> (bool, Q) {
         let (guard, result) = self
             .cvar
@@ -115,12 +116,16 @@ impl<T> Waitable<T> {
     }
 
     #[cfg(not(feature = "std"))]
-    pub fn wait_timeout_while_and_get(
+    pub fn wait_timeout_while_and_get<Q>(
         &self,
         dur: Duration,
         condition: impl Fn(&T) -> bool,
-        getter: impl FnOnce(&T) -> Q,
+        getter: impl Fn(&T) -> Q,
     ) -> (bool, Q) {
+        fn micros_since_boot() -> u128 {
+            unsafe { esp_timer_get_time() as _ }
+        }
+
         let now = micros_since_boot();
         let end = now + dur.as_micros();
 

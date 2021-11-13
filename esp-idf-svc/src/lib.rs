@@ -43,6 +43,8 @@ pub mod nvs_storage;
 ))]
 pub mod ota;
 pub mod ping;
+#[cfg(feature = "alloc")]
+pub mod sntp;
 pub mod sysloop;
 #[cfg(feature = "alloc")] // TODO: Expose a subset which does not require "alloc"
 pub mod wifi;

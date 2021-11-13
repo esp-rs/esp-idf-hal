@@ -14,6 +14,7 @@ use esp_idf_sys::c_types;
 
 #[cfg(feature = "alloc")]
 pub fn set_str(buf: &mut [u8], s: &str) {
+    assert!(s.len() < buf.len());
     let cs = CString::new(s).unwrap();
     let ss: &[u8] = cs.as_bytes_with_nul();
     buf[..ss.len()].copy_from_slice(ss);
