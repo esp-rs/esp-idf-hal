@@ -12,7 +12,6 @@ use enumset::*;
 use mutex_trait::Mutex;
 
 use embedded_svc::ipv4;
-use embedded_svc::mutex::Mutex as ESVCMutex;
 use embedded_svc::wifi::*;
 
 use esp_idf_sys::*;
@@ -23,6 +22,7 @@ use crate::sysloop::*;
 
 use crate::private::common::*;
 use crate::private::cstr::*;
+use crate::private::waitable::*;
 
 const MAX_AP: usize = 20;
 
@@ -215,7 +215,7 @@ pub struct EspWifi {
     sta_netif: Option<EspNetif>,
     ap_netif: Option<EspNetif>,
 
-    shared: Box<EspMutex<Shared>>,
+    shared: Box<Waitable<Shared>>,
 }
 
 impl EspWifi {
@@ -249,7 +249,7 @@ impl EspWifi {
             _nvs: nvs,
             sta_netif: None,
             ap_netif: None,
-            shared: Box::new(EspMutex::new(Default::default())),
+            shared: Box::new(Waitable::new(Default::default())),
         };
 
         unsafe {
@@ -336,9 +336,7 @@ impl EspWifi {
         esp!(unsafe { esp_wifi_get_config(wifi_interface_t_WIFI_IF_STA, &mut wifi_config) })?;
 
         let mut result: ClientConfiguration = unsafe { (&Newtype(wifi_config.sta)).into() };
-        result.ip_conf = self
-            .shared
-            .with_lock(|shared| shared.client_ip_conf.clone());
+        result.ip_conf = self.shared.get(|shared| shared.client_ip_conf.clone());
 
         info!("Providing STA configuration: {:?}", &result);
 
@@ -366,9 +364,7 @@ impl EspWifi {
         esp!(unsafe { esp_wifi_get_config(wifi_interface_t_WIFI_IF_AP, &mut wifi_config) })?;
 
         let mut result: AccessPointConfiguration = unsafe { Newtype(wifi_config.ap).into() };
-        result.ip_conf = self
-            .shared
-            .with_lock(|shared| shared.router_ip_conf.clone());
+        result.ip_conf = self.shared.get(|shared| shared.router_ip_conf.clone());
 
         info!("Providing AP configuration: {:?}", &result);
 
@@ -416,9 +412,13 @@ impl EspWifi {
             info!("Skipping STA IP configuration (not configured)");
         }
 
-        self.shared.with_lock(|shared| {
+        let netif_ptr = self.sta_netif.as_ref().map(|sta_netif| sta_netif.1);
+
+        self.shared.modify(|shared| {
             shared.client_ip_conf = conf.clone();
-            shared.sta_netif = self.sta_netif.as_ref().map(|sta_netif| sta_netif.1);
+            shared.sta_netif = netif_ptr;
+
+            (false, ())
         });
 
         Ok(())
@@ -450,69 +450,56 @@ impl EspWifi {
             info!("Skipping AP IP configuration (not configured)");
         }
 
-        self.shared.with_lock(|shared| {
+        let netif_ptr = self.ap_netif.as_ref().map(|ap_netif| ap_netif.1);
+
+        self.shared.modify(|shared| {
             shared.router_ip_conf = conf.clone();
-            shared.ap_netif = self.ap_netif.as_ref().map(|ap_netif| ap_netif.1);
+            shared.ap_netif = netif_ptr;
+
+            (false, ())
         });
 
         Ok(())
     }
 
-    fn wait_status<F: Fn(&Status) -> bool>(&self, waiter: F) -> Status {
+    fn wait_status(&self, matcher: impl Fn(&Status) -> bool) {
         info!("About to wait for status");
 
-        let result = loop {
-            let status = self.get_status();
-
-            if waiter(&status) {
-                break status;
-            }
-
-            // TODO: Replace with waiting on a condvar that wakes up when an event is received
-            unsafe { vTaskDelay(100) };
-        };
+        self.shared.wait_while(|shared| !matcher(&shared.status));
 
         info!("Waiting for status done - success");
-
-        result
     }
 
-    fn wait_status_with_timeout<F: Fn(&Status) -> bool>(
+    fn wait_status_with_timeout(
         &self,
-        timeout: Duration,
-        waiter: F,
+        dur: Duration,
+        matcher: impl Fn(&Status) -> bool,
     ) -> Result<(), Status> {
-        info!("About to wait for status with timeout {:?}", timeout);
+        info!("About to wait {:?} for status", dur);
 
-        let mut accum = Duration::from_millis(0);
+        let (timeout, status) = self.shared.wait_timeout_while_and_get(
+            dur,
+            |shared| !matcher(&shared.status),
+            |shared| shared.status.clone(),
+        );
 
-        loop {
-            let status = self.get_status();
-
-            if waiter(&status) {
-                info!("Waiting for status done - success");
-
-                break Ok(());
-            }
-
-            if accum > timeout {
-                info!("Timeout while waiting for status");
-
-                break Err(status);
-            }
-
-            // TODO: Replace with waiting on a condvar that wakes up when an event is received
-            unsafe { vTaskDelay(500) };
-            accum += Duration::from_millis(500);
+        if !timeout {
+            info!("Waiting for status done - success");
+            Ok(())
+        } else {
+            info!("Timeout while waiting for status");
+            Err(status)
         }
     }
 
     fn start(&mut self, status: Status) -> Result<(), EspError> {
         info!("Starting with status: {:?}", status);
 
-        self.shared.with_lock(|shared| {
+        self.shared.modify(|shared| {
             shared.status = status.clone();
             shared.operating = status.is_operating();
+
+            (false, ())
         });
 
         if status.is_operating() {
@@ -545,7 +532,11 @@ impl EspWifi {
     fn stop(&mut self) -> Result<(), EspError> {
         info!("Stopping");
 
-        self.shared.with_lock(|shared| shared.operating = false);
+        self.shared.modify(|shared| {
+            shared.operating = false;
+
+            (false, ())
+        });
 
         esp!(unsafe { esp_wifi_disconnect() }).or_else(|err| {
             if err.code() == esp_idf_sys::ESP_ERR_WIFI_NOT_STARTED as esp_err_t {
@@ -572,9 +563,11 @@ impl EspWifi {
         unsafe {
             Self::netif_unbind(self.ap_netif.as_mut())?;
             Self::netif_unbind(self.sta_netif.as_mut())?;
-            self.shared.with_lock(|shared| {
+            self.shared.modify(|shared| {
                 shared.sta_netif = None;
                 shared.ap_netif = None;
+
+                (false, ())
             });
 
             esp!(esp_event_handler_unregister(
@@ -670,9 +663,9 @@ impl EspWifi {
         event_id: c_types::c_int,
         event_data: *mut c_types::c_void,
     ) {
-        let shared_ref = (arg as *mut mutex::EspMutex<Shared>).as_mut().unwrap();
+        let shared_ref = (arg as *mut Waitable<Shared>).as_mut().unwrap();
 
-        shared_ref.with_lock(|shared| {
+        shared_ref.modify(|shared| {
             if event_base == WIFI_EVENT {
                 Self::on_wifi_event(shared, event_id, event_data)
             } else if event_base == IP_EVENT {
@@ -680,8 +673,9 @@ impl EspWifi {
             } else {
                 warn!("Got unknown event base");
 
-                Ok(())
+                Ok(false)
             }
+            .map(|notify| (notify, ()))
             .unwrap()
         });
     }
@@ -691,56 +685,70 @@ impl EspWifi {
         shared: &mut Shared,
         event_id: c_types::c_int,
         event_data: *mut c_types::c_void,
-    ) -> Result<(), EspError> {
+    ) -> Result<bool, EspError> {
         info!("Got wifi event: {} ", event_id);
 
-        shared.status = Status(
-            match event_id as u32 {
-                wifi_event_t_WIFI_EVENT_STA_START => {
-                    Self::reconnect_if_operating(shared.operating)?
-                }
-                wifi_event_t_WIFI_EVENT_STA_STOP => ClientStatus::Stopped,
-                wifi_event_t_WIFI_EVENT_STA_CONNECTED => ClientStatus::Started(
-                    ClientConnectionStatus::Connected(match shared.client_ip_conf.as_ref() {
+        let handled = match event_id as u32 {
+            wifi_event_t_WIFI_EVENT_STA_START => {
+                shared.status.0 = Self::reconnect_if_operating(shared.operating)?;
+                true
+            }
+            wifi_event_t_WIFI_EVENT_STA_STOP => {
+                shared.status.0 = ClientStatus::Stopped;
+                true
+            }
+            wifi_event_t_WIFI_EVENT_STA_CONNECTED => {
+                shared.status.0 = ClientStatus::Started(ClientConnectionStatus::Connected(
+                    match shared.client_ip_conf.as_ref() {
                         None => ClientIpStatus::Disabled,
                         Some(ipv4::ClientConfiguration::DHCP) => ClientIpStatus::Waiting,
                         Some(ipv4::ClientConfiguration::Fixed(ref status)) => {
                             ClientIpStatus::Done(status.clone())
                         }
-                    }),
-                ),
-                wifi_event_t_WIFI_EVENT_STA_DISCONNECTED => {
-                    Self::reconnect_if_operating(shared.operating)?
-                }
-                _ => shared.status.0.clone(),
-            },
-            match event_id as u32 {
-                wifi_event_t_WIFI_EVENT_AP_START => ApStatus::Started(ApIpStatus::Done),
-                wifi_event_t_WIFI_EVENT_AP_STOP => ApStatus::Stopped,
-                wifi_event_t_WIFI_EVENT_AP_STACONNECTED => {
-                    let event =
-                        unsafe { (event_data as *const wifi_event_ap_staconnected_t).as_ref() }
-                            .unwrap();
-                    info!("Station {:?} AID={} connected", event.mac, event.aid);
-                    shared.status.1.clone()
-                }
-                wifi_event_t_WIFI_EVENT_AP_STADISCONNECTED => {
-                    let event =
-                        unsafe { (event_data as *const wifi_event_ap_stadisconnected_t).as_ref() }
-                            .unwrap();
-                    info!("Station {:?} AID={} disconnected", event.mac, event.aid);
-                    shared.status.1.clone()
-                }
-                _ => shared.status.1.clone(),
-            },
-        );
+                    },
+                ));
 
-        info!(
-            "Wifi event {} handled, set status: {:?}",
-            event_id, shared.status
-        );
+                true
+            }
+            wifi_event_t_WIFI_EVENT_STA_DISCONNECTED => {
+                shared.status.0 = Self::reconnect_if_operating(shared.operating)?;
 
-        Ok(())
+                true
+            }
+            wifi_event_t_WIFI_EVENT_AP_START => {
+                shared.status.1 = ApStatus::Started(ApIpStatus::Done);
+                true
+            }
+            wifi_event_t_WIFI_EVENT_AP_STOP => {
+                shared.status.1 = ApStatus::Stopped;
+                true
+            }
+            wifi_event_t_WIFI_EVENT_AP_STACONNECTED => {
+                let event = unsafe { (event_data as *const wifi_event_ap_staconnected_t).as_ref() }
+                    .unwrap();
+                info!("Station {:?} AID={} connected", event.mac, event.aid);
+
+                false
+            }
+            wifi_event_t_WIFI_EVENT_AP_STADISCONNECTED => {
+                let event =
+                    unsafe { (event_data as *const wifi_event_ap_stadisconnected_t).as_ref() }
+                        .unwrap();
+                info!("Station {:?} AID={} disconnected", event.mac, event.aid);
+
+                false
+            }
+            _ => false,
+        };
+
+        if handled {
+            info!(
+                "Wifi event {} handled, set status: {:?}",
+                event_id, shared.status
+            );
+        }
+
+        Ok(handled)
     }
 
     #[allow(non_upper_case_globals)]
@@ -748,10 +756,10 @@ impl EspWifi {
         shared: &mut Shared,
         event_id: c_types::c_int,
         event_data: *mut c_types::c_void,
-    ) -> Result<(), EspError> {
+    ) -> Result<bool, EspError> {
         let event_id = event_id as u32;
 
-        if shared.sta_netif.is_some()
+        let handled = if shared.sta_netif.is_some()
             && (event_id == ip_event_t_IP_EVENT_STA_GOT_IP
                 || event_id == ip_event_t_IP_EVENT_STA_LOST_IP)
         {
@@ -760,42 +768,40 @@ impl EspWifi {
 
                 // Check the exact netif because it seems that the Eth stack mistakenly sends IP_EVENT_STA_GOT_IP instead of IP_EVENT_ETH_GOT_IP
                 if shared.sta_netif.unwrap() != (*event).esp_netif {
-                    return Ok(());
+                    return Ok(false);
                 }
 
                 info!("Got IP event: {}", event_id);
 
-                shared.status = Status(
-                    ClientStatus::Started(ClientConnectionStatus::Connected(ClientIpStatus::Done(
-                        ipv4::ClientSettings {
-                            ip: ipv4::Ipv4Addr::from(Newtype((*event).ip_info.ip)),
-                            subnet: ipv4::Subnet {
-                                gateway: ipv4::Ipv4Addr::from(Newtype((*event).ip_info.gw)),
-                                mask: Newtype((*event).ip_info.netmask).try_into()?,
-                            },
-                            dns: None,           // TODO
-                            secondary_dns: None, // TODO
+                shared.status.0 = ClientStatus::Started(ClientConnectionStatus::Connected(
+                    ClientIpStatus::Done(ipv4::ClientSettings {
+                        ip: ipv4::Ipv4Addr::from(Newtype((*event).ip_info.ip)),
+                        subnet: ipv4::Subnet {
+                            gateway: ipv4::Ipv4Addr::from(Newtype((*event).ip_info.gw)),
+                            mask: Newtype((*event).ip_info.netmask).try_into()?,
                         },
-                    ))),
-                    shared.status.1.clone(),
-                );
+                        dns: None,           // TODO
+                        secondary_dns: None, // TODO
+                    }),
+                ));
 
                 info!(
                     "IP event {} handled, set status: {:?}",
                     event_id, shared.status
                 );
+
+                true
             } else {
                 info!("Got IP event: {}", event_id);
 
-                shared.status = Status(
-                    Self::reconnect_if_operating(shared.operating)?,
-                    shared.status.1.clone(),
-                );
+                shared.status.0 = Self::reconnect_if_operating(shared.operating)?;
 
                 info!(
                     "IP event {} handled, set status: {:?}",
                     event_id, shared.status
                 );
+
+                true
             }
         } else if shared.ap_netif.is_some() && event_id == ip_event_t_IP_EVENT_AP_STAIPASSIGNED {
             info!("Got IP event: {}", event_id);
@@ -808,9 +814,13 @@ impl EspWifi {
             );
 
             info!("IP event {} handled", event_id);
-        }
 
-        Ok(())
+            false
+        } else {
+            false
+        };
+
+        Ok(handled)
     }
 
     fn reconnect_if_operating(operating: bool) -> Result<ClientStatus, EspError> {
@@ -851,7 +861,7 @@ impl Wifi for EspWifi {
     }
 
     fn get_status(&self) -> Status {
-        let status = self.shared.with_lock(|shared| shared.status.clone());
+        let status = self.shared.get(|shared| shared.status.clone());
 
         info!("Providing status: {:?}", status);
 

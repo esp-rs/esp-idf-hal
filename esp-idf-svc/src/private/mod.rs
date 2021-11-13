@@ -1,6 +1,7 @@
 pub mod common;
 pub mod cstr;
 pub mod net;
+pub mod waitable;
 
 mod stubs;
 

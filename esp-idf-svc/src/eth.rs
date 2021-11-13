@@ -13,9 +13,10 @@ use mutex_trait::Mutex;
 
 use embedded_svc::eth::*;
 use embedded_svc::ipv4;
-use embedded_svc::mutex::Mutex as ESVCMutex;
 
 use esp_idf_sys::*;
+
+use crate::private::waitable::*;
 
 #[cfg(any(
     all(esp32, esp_idf_eth_use_esp32_emac),
@@ -140,7 +141,7 @@ pub struct EspEth<P> {
 
     netif: Option<EspNetif>,
 
-    shared: Box<EspMutex<Shared>>,
+    shared: Box<Waitable<Shared>>,
 }
 
 #[cfg(all(esp32, esp_idf_eth_use_esp32_emac))]
@@ -479,7 +480,7 @@ impl<P> EspEth<P> {
 
         let glue_handle = unsafe { esp_eth_new_netif_glue(handle) };
 
-        let mut shared: Box<EspMutex<Shared>> = Box::new(EspMutex::new(Shared::new(handle)));
+        let mut shared: Box<Waitable<Shared>> = Box::new(Waitable::new(Shared::new(handle)));
 
         let shared_ref: *mut _ = &mut *shared;
 
@@ -568,69 +569,56 @@ impl<P> EspEth<P> {
             info!("Skipping IP configuration (not configured)");
         }
 
-        self.shared.with_lock(|shared| {
+        let netif_ptr = self.netif.as_ref().map(|netif| netif.1);
+
+        self.shared.modify(|shared| {
             shared.conf = conf.clone();
-            shared.netif = self.netif.as_ref().map(|netif| netif.1);
+            shared.netif = netif_ptr;
+
+            (false, ())
         });
 
         Ok(())
     }
 
-    fn wait_status<F: Fn(&Status) -> bool>(&self, waiter: F) -> Status {
+    fn wait_status(&self, matcher: impl Fn(&Status) -> bool) {
         info!("About to wait for status");
 
-        let result = loop {
-            let status = self.get_status();
-
-            if waiter(&status) {
-                break status;
-            }
-
-            // TODO: Replace with waiting on a condvar that wakes up when an event is received
-            unsafe { vTaskDelay(100) };
-        };
+        self.shared.wait_while(|shared| !matcher(&shared.status));
 
         info!("Waiting for status done - success");
-
-        result
     }
 
-    fn wait_status_with_timeout<F: Fn(&Status) -> bool>(
+    fn wait_status_with_timeout(
         &self,
-        timeout: Duration,
-        waiter: F,
+        dur: Duration,
+        matcher: impl Fn(&Status) -> bool,
     ) -> Result<(), Status> {
-        info!("About to wait for status with timeout {:?}", timeout);
+        info!("About to wait {:?} for status", dur);
 
-        let mut accum = Duration::from_millis(0);
+        let (timeout, status) = self.shared.wait_timeout_while_and_get(
+            dur,
+            |shared| !matcher(&shared.status),
+            |shared| shared.status.clone(),
+        );
 
-        loop {
-            let status = self.get_status();
-
-            if waiter(&status) {
-                info!("Waiting for status done - success");
-
-                break Ok(());
-            }
-
-            if accum > timeout {
-                info!("Timeout while waiting for status");
-
-                break Err(status);
-            }
-
-            // TODO: Replace with waiting on a condvar that wakes up when an event is received
-            unsafe { vTaskDelay(500) };
-            accum += Duration::from_millis(500);
+        if !timeout {
+            info!("Waiting for status done - success");
+            Ok(())
+        } else {
+            info!("Timeout while waiting for status");
+            Err(status)
         }
     }
 
     fn start(&mut self, status: Status) -> Result<(), EspError> {
         info!("Starting with status: {:?}", status);
 
-        self.shared.with_lock(|shared| {
+        self.shared.modify(|shared| {
             shared.status = status.clone();
-            shared.operating = status.is_operating();
+            shared.operating = shared.status.is_operating();
+
+            (false, ())
         });
 
         if status.is_operating() {
@@ -662,7 +650,11 @@ impl<P> EspEth<P> {
     fn stop(&mut self) -> Result<(), EspError> {
         info!("Stopping");
 
-        self.shared.with_lock(|shared| shared.operating = false);
+        self.shared.modify(|shared| {
+            shared.operating = false;
+
+            (false, ())
+        });
 
         let err = unsafe { esp_eth_stop(self.handle) };
         if err != ESP_ERR_INVALID_STATE as i32 {
@@ -682,8 +674,10 @@ impl<P> EspEth<P> {
 
         unsafe {
             Self::netif_unbind(self.netif.as_mut())?;
-            self.shared.with_lock(|shared| {
+            self.shared.modify(|shared| {
                 shared.netif = None;
+
+                (false, ())
             });
 
             esp!(esp_eth_del_netif_glue(self.glue_handle as *mut _))?;
@@ -738,9 +732,9 @@ impl<P> EspEth<P> {
         event_id: c_types::c_int,
         event_data: *mut c_types::c_void,
     ) {
-        let shared_ref = (arg as *mut mutex::EspMutex<Shared>).as_mut().unwrap();
+        let shared_ref = (arg as *mut Waitable<Shared>).as_mut().unwrap();
 
-        shared_ref.with_lock(|shared| {
+        shared_ref.modify(|shared| {
             if event_base == ETH_EVENT {
                 Self::on_eth_event(shared, event_id, event_data)
             } else if event_base == IP_EVENT {
@@ -748,8 +742,9 @@ impl<P> EspEth<P> {
             } else {
                 warn!("Got unknown event base");
 
-                Ok(())
+                Ok(false)
             }
+            .map(|notify| (notify, ()))
             .unwrap()
         });
     }
@@ -759,43 +754,55 @@ impl<P> EspEth<P> {
         shared: &mut Shared,
         event_id: c_types::c_int,
         event_data: *mut c_types::c_void,
-    ) -> Result<(), EspError> {
+    ) -> Result<bool, EspError> {
         let eth_handle = unsafe { (event_data as *const esp_eth_handle_t).as_ref() };
         let for_us = eth_handle
             .map(|eth_handle| *eth_handle == shared.handle)
             .unwrap_or(false);
 
         if !for_us {
-            return Ok(());
+            return Ok(false);
         }
 
         info!("Got eth event: {} ", event_id);
 
-        shared.status = match event_id as u32 {
-            eth_event_t_ETHERNET_EVENT_START => Status::Starting,
-            eth_event_t_ETHERNET_EVENT_STOP => Status::Stopped,
+        let handled = match event_id as u32 {
+            eth_event_t_ETHERNET_EVENT_START => {
+                shared.status = Status::Starting;
+                true
+            }
+            eth_event_t_ETHERNET_EVENT_STOP => {
+                shared.status = Status::Stopped;
+                true
+            }
             eth_event_t_ETHERNET_EVENT_CONNECTED => {
-                Status::Started(ConnectionStatus::Connected(match shared.conf {
+                shared.status = Status::Started(ConnectionStatus::Connected(match shared.conf {
                     Configuration::Client(ipv4::ClientConfiguration::DHCP) => IpStatus::Waiting,
                     Configuration::Client(ipv4::ClientConfiguration::Fixed(ref status)) => {
                         IpStatus::Done(Some(status.clone()))
                     }
                     Configuration::Router(_) => IpStatus::Done(None),
                     _ => IpStatus::Disabled,
-                }))
+                }));
+
+                true
             }
             eth_event_t_ETHERNET_EVENT_DISCONNECTED => {
-                Status::Started(ConnectionStatus::Disconnected)
+                shared.status = Status::Started(ConnectionStatus::Disconnected);
+
+                true
             }
-            _ => shared.status.clone(),
+            _ => false,
         };
 
-        info!(
-            "Eth event {} handled, set status: {:?}",
-            event_id, shared.status
-        );
+        if handled {
+            info!(
+                "Eth event {} handled, set status: {:?}",
+                event_id, shared.status
+            );
+        }
 
-        Ok(())
+        Ok(handled)
     }
 
     #[allow(non_upper_case_globals)]
@@ -803,24 +810,24 @@ impl<P> EspEth<P> {
         shared: &mut Shared,
         event_id: c_types::c_int,
         event_data: *mut c_types::c_void,
-    ) -> Result<(), EspError> {
+    ) -> Result<bool, EspError> {
         let event_id = event_id as u32;
 
         let for_us = shared.netif.is_some()
             && (event_id == ip_event_t_IP_EVENT_ETH_GOT_IP
                 || event_id == ip_event_t_IP_EVENT_STA_GOT_IP);
         if !for_us {
-            return Ok(());
+            return Ok(false);
         }
 
         let event = unsafe { (event_data as *const ip_event_got_ip_t).as_ref() };
         if !event.is_some() {
-            return Ok(());
+            return Ok(false);
         }
 
         let event = event.unwrap();
         if event.esp_netif != shared.netif.unwrap() {
-            return Ok(());
+            return Ok(false);
         }
 
         info!("Got IP event: {}", event_id);
@@ -842,7 +849,7 @@ impl<P> EspEth<P> {
             event_id, shared.status
         );
 
-        Ok(())
+        Ok(true)
     }
 
     fn eth_default_config(mac: *mut esp_eth_mac_t, phy: *mut esp_eth_phy_t) -> esp_eth_config_t {
@@ -898,7 +905,7 @@ impl<P> Eth for EspEth<P> {
     }
 
     fn get_status(&self) -> Status {
-        let status = self.shared.with_lock(|shared| shared.status.clone());
+        let status = self.shared.get(|shared| shared.status.clone());
 
         info!("Providing status: {:?}", status);
 
@@ -909,7 +916,7 @@ impl<P> Eth for EspEth<P> {
     fn get_configuration(&self) -> Result<Configuration, Self::Error> {
         info!("Getting configuration");
 
-        let conf = self.shared.with_lock(|shared| shared.conf.clone());
+        let conf = self.shared.get(|shared| shared.conf.clone());
 
         info!("Configuration gotten: {:?}", &conf);
 

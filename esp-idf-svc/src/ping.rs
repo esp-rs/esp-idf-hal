@@ -2,16 +2,13 @@ use core::{mem, ptr, time::Duration};
 
 use ::log::*;
 
-#[cfg(feature = "std")]
-use std::sync::*;
-
 use embedded_svc::ipv4;
-use embedded_svc::mutex::Mutex;
 use embedded_svc::ping::*;
 
 use esp_idf_sys::*;
 
 use crate::private::common::*;
+use crate::private::waitable::*;
 
 #[derive(Debug, Default)]
 pub struct EspPing(u32);
@@ -69,29 +66,18 @@ impl EspPing {
 
         info!("Ping session established, got handle {:?}", handle);
 
-        #[allow(clippy::mutex_atomic)]
-        tracker.running.with_lock(|running| *running = true);
+        tracker.running.modify(|running| {
+            *running = true;
+
+            (false, ())
+        });
 
         esp!(unsafe { esp_ping_start(handle) })?;
         info!("Ping session started");
 
         info!("Waiting for the ping session to complete");
 
-        #[cfg(feature = "std")]
-        {
-            #[allow(clippy::mutex_atomic)]
-            let _running = tracker
-                .cvar
-                .wait_while(tracker.running.lock().unwrap(), |running| *running)
-                .unwrap();
-        }
-
-        #[cfg(not(feature = "std"))]
-        {
-            while tracker.running.with_lock(|running| *running) {
-                unsafe { vTaskDelay(500) };
-            }
-        }
+        tracker.running.wait_while(|running| *running);
 
         esp!(unsafe { esp_ping_stop(handle) })?;
         info!("Ping session stopped");
@@ -232,14 +218,11 @@ impl EspPing {
             tracker.summary.time.as_millis()
         );
 
-        #[cfg(feature = "std")]
-        {
-            *tracker.running.lock().unwrap() = false;
-            tracker.cvar.notify_one();
-        }
+        tracker.running.modify(|running| {
+            *running = false;
 
-        #[cfg(not(feature = "std"))]
-        tracker.running.with_lock(|running| *running = false);
+            (true, ())
+        });
     }
 
     unsafe fn update_summary(handle: esp_ping_handle_t, summary: &mut Summary) {
@@ -310,12 +293,7 @@ impl Ping for EspPing {
 
 struct Tracker<'a, F: Fn(&Summary, &Reply)> {
     summary: Summary,
-    #[cfg(feature = "std")]
-    cvar: Condvar,
-    #[cfg(feature = "std")]
-    running: std::sync::Mutex<bool>,
-    #[cfg(not(feature = "std"))]
-    running: EspMutex<bool>,
+    running: Waitable<bool>,
     reply_callback: Option<&'a F>,
 }
 
@@ -324,12 +302,7 @@ impl<'a, F: Fn(&Summary, &Reply)> Tracker<'a, F> {
     pub fn new(reply_callback: Option<&'a F>) -> Self {
         Self {
             summary: Default::default(),
-            #[cfg(feature = "std")]
-            cvar: Condvar::new(),
-            #[cfg(feature = "std")]
-            running: std::sync::Mutex::new(false),
-            #[cfg(not(feature = "std"))]
-            running: EspMutex::new(false),
+            running: Waitable::new(false),
             reply_callback,
         }
     }
