@@ -24,7 +24,10 @@ pub enum InterfaceStack {
     Sta,
     Ap,
     Eth,
+    #[cfg(esp_idf_ppp_support)]
     Ppp,
+    #[cfg(esp_idf_slip_support)]
+    Slip,
 }
 
 impl InterfaceStack {
@@ -33,7 +36,10 @@ impl InterfaceStack {
             Self::Sta => InterfaceConfiguration::wifi_default_client(),
             Self::Ap => InterfaceConfiguration::wifi_default_router(),
             Self::Eth => InterfaceConfiguration::eth_default_client(),
+            #[cfg(esp_idf_ppp_support)]
             Self::Ppp => InterfaceConfiguration::ppp_default_client(),
+            #[cfg(esp_idf_slip_support)]
+            Self::Slip => InterfaceConfiguration::slip_default_client(),
         }
     }
 }
@@ -102,6 +108,7 @@ impl InterfaceConfiguration {
         }
     }
 
+    #[cfg(esp_idf_ppp_support)]
     pub fn ppp_default_client() -> Self {
         Self {
             key: "PPP_CL_DEF".into(),
@@ -112,6 +119,7 @@ impl InterfaceConfiguration {
         }
     }
 
+    #[cfg(esp_idf_ppp_support)]
     pub fn ppp_default_router() -> Self {
         Self {
             key: "PPP_RT_DEF".into(),
@@ -119,6 +127,28 @@ impl InterfaceConfiguration {
             route_priority: 20,
             ip_configuration: InterfaceIpConfiguration::Router(Default::default()),
             interface_stack: InterfaceStack::Ppp,
+        }
+    }
+
+    #[cfg(esp_idf_slip_support)]
+    pub fn slip_default_client() -> Self {
+        Self {
+            key: "SLIP_CL_DEF".into(),
+            description: "slip".into(),
+            route_priority: 35,
+            ip_configuration: InterfaceIpConfiguration::Client(Default::default()),
+            interface_stack: InterfaceStack::Slip,
+        }
+    }
+
+    #[cfg(esp_idf_slip_support)]
+    pub fn slip_default_router() -> Self {
+        Self {
+            key: "SLIP_RT_DEF".into(),
+            description: "sliprt".into(),
+            route_priority: 25,
+            ip_configuration: InterfaceIpConfiguration::Router(Default::default()),
+            interface_stack: InterfaceStack::Slip,
         }
     }
 }
@@ -271,10 +301,10 @@ impl EspNetif {
                     InterfaceStack::Sta => _g_esp_netif_netstack_default_wifi_sta,
                     InterfaceStack::Ap => _g_esp_netif_netstack_default_wifi_ap,
                     InterfaceStack::Eth => _g_esp_netif_netstack_default_eth,
-                    #[cfg(any(esp_idf_version = "4.4", esp_idf_version_major = "5"))]
-                    InterfaceStack::Ppp => panic!("Not yet supported on ESP-IDF 4.4 & ESP-IDF 5.X"),
-                    #[cfg(not(any(esp_idf_version = "4.4", esp_idf_version_major = "5")))]
+                    #[cfg(esp_idf_ppp_support)]
                     InterfaceStack::Ppp => _g_esp_netif_netstack_default_ppp,
+                    #[cfg(esp_idf_slip_support)]
+                    InterfaceStack::Slip => _g_esp_netif_netstack_default_slip,
                 }
             },
         };
