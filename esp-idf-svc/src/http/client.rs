@@ -237,7 +237,7 @@ impl<'a> HttpRequest<'a> for EspHttpRequest<'a> {
             }
 
             if self.follow_redirects {
-                let status = unsafe { esp_http_client_get_status_code(self.client.raw) as _ };
+                let status = unsafe { esp_http_client_get_status_code(self.client.raw) as u16 };
 
                 if status::REDIRECT.contains(&status) {
                     info!("Got response {}, about to follow redirect", status);
