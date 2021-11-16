@@ -1,6 +1,6 @@
 [package]
 name = "esp-idf-sys"
-version = "0.24.6"
+version = "0.25.0"
 authors = ["Alexey Arbuzov <aarbuzov@termt.com>", "sapir <yasapir@gmail.com>", "Ivan Markov <ivan.markov@gmail.com>"]
 edition = "2018"
 resolver = "2"
@@ -29,7 +29,7 @@ native = []
 
 [dependencies]
 mutex-trait = "0.2"
-embedded-svc = { version = "0.12", default-features = false }
+embedded-svc = { version = "0.13", default-features = false }
 paste = "1"
 
 [build-dependencies]
