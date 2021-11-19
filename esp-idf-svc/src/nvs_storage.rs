@@ -77,13 +77,29 @@ impl Storage for EspNvsStorage {
     fn contains(&self, key: impl AsRef<str>) -> Result<bool, Self::Error> {
         let c_key = CString::new(key.as_ref()).unwrap();
 
-        let dummy: u_int64_t = 0;
+        let mut dummy: u_int64_t = 0;
 
-        match unsafe { nvs_get_u64(self.1, c_key.as_ptr(), dummy as *mut _) } as u32 {
-            ESP_ERR_NVS_NOT_FOUND => Ok(false),
-            ESP_ERR_NVS_INVALID_LENGTH => Ok(true),
+        // check if key is present for u64 datatype
+        match unsafe { nvs_get_u64(self.1, c_key.as_ptr(), &mut dummy as *mut _) } as u32 {
+            ESP_ERR_NVS_NOT_FOUND => {
+                // now check if key is present for blob datatype
+                let mut len: size_t = 0;
+                match unsafe {
+                    nvs_get_blob(self.1, c_key.as_ptr(), ptr::null_mut(), &mut len as *mut _)
+                } as u32
+                {
+                    // not found as u64, nor as blob, this key has not been found
+                    ESP_ERR_NVS_NOT_FOUND => Ok(false),
+                    result => {
+                        // bail on any kind of error, return true if no error
+                        esp!(result)?;
+                        Ok(true)
+                    }
+                }
+            }
             result => {
                 esp!(result)?;
+                // if we get here, the value was found as a u64
                 Ok(true)
             }
         }
@@ -92,6 +108,7 @@ impl Storage for EspNvsStorage {
     fn remove(&mut self, key: impl AsRef<str>) -> Result<bool, Self::Error> {
         let c_key = CString::new(key.as_ref()).unwrap();
 
+        // nvs_erase_key is not scoped by datatype
         let result = unsafe { nvs_erase_key(self.1, c_key.as_ptr()) };
 
         if result == ESP_ERR_NVS_NOT_FOUND as i32 {
@@ -109,32 +126,41 @@ impl Storage for EspNvsStorage {
 
         let mut value: u_int64_t = 0;
 
-        match unsafe { nvs_get_u64(self.1, c_key.as_ptr(), value as *mut _) } as u32 {
-            ESP_ERR_NVS_NOT_FOUND => Ok(None),
-            ESP_ERR_NVS_INVALID_LENGTH => {
+        // check for u64 value
+        match unsafe { nvs_get_u64(self.1, c_key.as_ptr(), &mut value as *mut _) } as u32 {
+            ESP_ERR_NVS_NOT_FOUND => {
+                // check for blob value, by getting blob length
                 let mut len: size_t = 0;
-
-                esp!(unsafe {
+                match unsafe {
                     nvs_get_blob(self.1, c_key.as_ptr(), ptr::null_mut(), &mut len as *mut _)
-                })?;
+                } as u32
+                {
+                    ESP_ERR_NVS_NOT_FOUND => Ok(None),
+                    err => {
+                        // bail on error
+                        esp!(err)?;
 
-                let mut vec: vec::Vec<u8> = vec::Vec::with_capacity(len as usize);
-                esp!(unsafe {
-                    nvs_get_blob(
-                        self.1,
-                        c_key.as_ptr(),
-                        vec.as_mut_ptr() as *mut _,
-                        &mut len as *mut _,
-                    )
-                })?;
+                        // fetch value if no error
+                        let mut vec: vec::Vec<u8> = vec::Vec::with_capacity(len as usize);
+                        esp!(unsafe {
+                            nvs_get_blob(
+                                self.1,
+                                c_key.as_ptr(),
+                                vec.as_mut_ptr() as *mut _,
+                                &mut len as *mut _,
+                            )
+                        })?;
 
-                unsafe { vec.set_len(len as usize) };
-
-                Ok(Some(vec))
+                        unsafe { vec.set_len(len as usize) };
+                        Ok(Some(vec))
+                    }
+                }
             }
-            result => {
-                esp!(result)?;
+            err => {
+                // bail on error
+                esp!(err)?;
 
+                // u64 value was found, decode it
                 let len: u8 = (value & 0xff) as u8;
                 value >>= 8;
 
@@ -159,35 +185,13 @@ impl Storage for EspNvsStorage {
         value: impl Into<vec::Vec<u8>>,
     ) -> Result<bool, Self::Error> {
         let c_key = CString::new(key.as_ref()).unwrap();
+        let mut value = value.into();
         let mut uvalue: u_int64_t = 0;
 
-        let small: bool;
-        let found: bool;
+        // start by just clearing this key
+        unsafe { nvs_erase_key(self.1, c_key.as_ptr()) };
 
-        match unsafe { nvs_get_u64(self.1, c_key.as_ptr(), uvalue as *mut _) as u32 } {
-            ESP_ERR_NVS_NOT_FOUND => {
-                found = false;
-                small = false;
-            }
-            ESP_ERR_NVS_INVALID_LENGTH => {
-                found = true;
-                small = false;
-            }
-            result => {
-                esp!(result)?;
-                found = true;
-                small = true;
-            }
-        }
-
-        let mut value = value.into();
-        let new_small = value.len() < 8;
-
-        if found && small != new_small {
-            esp!(unsafe { nvs_erase_key(self.1, c_key.as_ptr()) })?;
-        }
-
-        if new_small {
+        if value.len() < 8 {
             for v in value.iter().rev() {
                 uvalue <<= 8;
                 uvalue |= *v as u_int64_t;
@@ -210,6 +214,6 @@ impl Storage for EspNvsStorage {
 
         esp!(unsafe { nvs_commit(self.1) })?;
 
-        Ok(found)
+        Ok(true)
     }
 }
