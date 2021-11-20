@@ -737,9 +737,15 @@ mod chip {
     pin!(Gpio12:12, IO, RTC:12, ADC2:1, NODAC:0, TOUCH:12);
     pin!(Gpio13:13, IO, RTC:13, ADC2:2, NODAC:0, TOUCH:13);
     pin!(Gpio14:14, IO, RTC:14, ADC2:3, NODAC:0, TOUCH:14);
-    pin!(Gpio15:15, IO, RTC:15, ADC2:4, NODAC:0, TOUCH:15);
+    pin!(Gpio15:15, IO, RTC:15, ADC2:4, NODAC:0, NOTOUCH:0);
     pin!(Gpio16:16, IO, RTC:16, ADC2:5, NODAC:0, NOTOUCH:0);
-    pin!(Gpio17:17, IO, RTC:17, ADC2:6, NODAC:0, NOTOUCH:0);
+    #[cfg(esp32s2)]
+    pin!(Gpio17:17, IO, RTC:17, ADC2:6, DAC:1, NOTOUCH:0);
+    #[cfg(esp32s3)]
+    pin!(Gpio17:17, IO, RTC:17, ADC2:6, NODAC:0 NOTOUCH:0);
+    #[cfg(esp32s2)]
+    pin!(Gpio18:18, IO, RTC:18, ADC2:7, DAC:2, NOTOUCH:0);
+    #[cfg(esp32s3)]
     pin!(Gpio18:18, IO, RTC:18, ADC2:7, NODAC:0, NOTOUCH:0);
     pin!(Gpio19:19, IO, RTC:19, ADC2:8, NODAC:0, NOTOUCH:0);
     pin!(Gpio20:20, IO, RTC:20, ADC2:9, NODAC:0, NOTOUCH:0);
@@ -749,17 +755,17 @@ mod chip {
     #[cfg(not(feature = "ulp"))]
     pin!(Gpio33:33, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
     #[cfg(not(feature = "ulp"))]
-    pin!(Gpio34:34, Input, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
+    pin!(Gpio34:34, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
     #[cfg(not(feature = "ulp"))]
-    pin!(Gpio35:35, Input, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
+    pin!(Gpio35:35, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
     #[cfg(not(feature = "ulp"))]
-    pin!(Gpio36:36, Input, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
+    pin!(Gpio36:36, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
     #[cfg(not(feature = "ulp"))]
-    pin!(Gpio37:37, Input, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
+    pin!(Gpio37:37, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
     #[cfg(not(feature = "ulp"))]
-    pin!(Gpio38:38, Input, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
+    pin!(Gpio38:38, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
     #[cfg(not(feature = "ulp"))]
-    pin!(Gpio39:39, Input, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
+    pin!(Gpio39:39, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
     #[cfg(not(feature = "ulp"))]
     pin!(Gpio40:40, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
     #[cfg(not(feature = "ulp"))]
@@ -772,7 +778,9 @@ mod chip {
     pin!(Gpio44:44, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
     #[cfg(not(feature = "ulp"))]
     pin!(Gpio45:45, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
-    #[cfg(not(feature = "ulp"))]
+    #[cfg(all(esp32s2, not(feature = "ulp")))]
+    pin!(Gpio46:46, Input, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
+    #[cfg(all(esp32s3, not(feature = "ulp")))]
     pin!(Gpio46:46, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
 
     pub struct Pins {
