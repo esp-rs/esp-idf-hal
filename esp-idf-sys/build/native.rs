@@ -203,31 +203,38 @@ fn build_cargo_first() -> Result<EspIdfBuildOutput> {
         })
         .unwrap_or_else(|| Ok(OsString::new()))?;
 
-    let sdkconfig_defaults = env::var_os(ESP_IDF_SDKCONFIG_DEFAULTS_VAR)
-        .filter(|v| !v.is_empty())
-        .map(|v| -> Result<OsString> {
-            let mut result = OsString::new();
-            for s in v
-                .try_to_str()?
-                .split(';')
-                .filter(|v| !v.is_empty())
-                .map(|v| Path::new(v).abspath_relative_to(&workspace_dir))
-            {
-                cargo::track_file(&s);
-                if !result.is_empty() {
-                    result.push(";");
-                }
-                if cfg!(windows) {
-                    // Same reason as above.
-                    result.push(s.try_to_str()?.replace('\\', "/"));
-                } else {
-                    result.push(s);
-                }
-            }
+    let sdkconfig_defaults = {
+        let gen_defaults_path = out_dir.join("gen-sdkconfig.defaults");
+        fs::write(&gen_defaults_path, generate_sdkconfig_defaults()?)?;
 
-            Ok(result)
-        })
-        .unwrap_or_else(|| Ok(OsString::new()))?;
+        let mut defaults_paths = gen_defaults_path.into_os_string();
+        if let Some(s) = env::var_os(ESP_IDF_SDKCONFIG_DEFAULTS_VAR) {
+            defaults_paths.push(";");
+            defaults_paths.push(s);
+        }
+
+        let mut result = OsString::new();
+        for s in defaults_paths
+            .try_to_str()?
+            .split(';')
+            .filter(|v| !v.is_empty())
+            .map(|v| Path::new(v).abspath_relative_to(&workspace_dir))
+        {
+            if !result.is_empty() {
+                result.push(";");
+
+                // This is in here to prevent the first file (which is our generated one)
+                // to be tracked.
+                cargo::track_file(&s);
+            }
+            if cfg!(windows) {
+                result.push(s.try_to_str()?.replace('\\', "/"));
+            } else {
+                result.push(s);
+            }
+        }
+        result
+    };
 
     let cmake_toolchain_file = path_buf![
         &idf.esp_idf.worktree(),
@@ -366,6 +373,32 @@ fn get_sdkconfig_profile(path: &Path, profile: &str, chip: &str) -> Option<PathB
             }
         })
 }
+
+fn generate_sdkconfig_defaults() -> Result<String> {
+    const OPT_VARS: [&'static str; 4] = [
+        "CONFIG_COMPILER_OPTIMIZATION_NONE",
+        "CONFIG_COMPILER_OPTIMIZATION_DEFAULT",
+        "CONFIG_COMPILER_OPTIMIZATION_PERF",
+        "CONFIG_COMPILER_OPTIMIZATION_SIZE",
+    ];
+
+    let opt_level = env::var("OPT_LEVEL")?;
+    let debug = env::var("DEBUG")?;
+    let opt_index = match (opt_level.as_str(), debug.as_str()) {
+        ("s" | "z", _) => 3,               // -Os
+        ("1", _) | (_, "2" | "true") => 1, // -Og
+        ("0", _) => 0,                     // -O0
+        ("2" | "3", _) => 2,               // -O2
+        _ => unreachable!("Invalid DEBUG or OPT_LEVEL"),
+    };
+
+    Ok(OPT_VARS
+        .iter()
+        .enumerate()
+        .map(|(i, s)| format!("{}={}\n", s, if i == opt_index { 'y' } else { 'n' }))
+        .collect::<String>())
+}
+
 #[derive(Clone, Copy, PartialEq, Eq, Debug, Display, EnumString)]
 #[repr(u32)]
 enum Chip {
