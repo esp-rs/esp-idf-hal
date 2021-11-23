@@ -49,8 +49,10 @@ pub fn build() -> Result<EspIdfBuildOutput> {
 
                 (path, format!("sdkconfig.{}", profile).into())
             });
-        let sdkconfig_defaults = env::var_os(ESP_IDF_SDKCONFIG_DEFAULTS_VAR)
-            .unwrap_or_default()
+
+        let sdkconfig_defaults_var =
+            env::var_os(ESP_IDF_SDKCONFIG_DEFAULTS_VAR).unwrap_or_default();
+        let sdkconfig_defaults = sdkconfig_defaults_var
             .try_to_str()?
             .split(';')
             .filter(|v| !v.is_empty())
@@ -60,8 +62,7 @@ pub fn build() -> Result<EspIdfBuildOutput> {
 
                 let file_name = PathBuf::from(path.file_name().unwrap());
                 (path, file_name)
-            })
-            .collect::<Vec<_>>();
+            });
 
         builder
             .enable_scons_dump()
@@ -70,7 +71,7 @@ pub fn build() -> Result<EspIdfBuildOutput> {
             .files(build::tracked_globs_iter(path_buf!["."], &["patches/**"])?)
             .files(build::tracked_env_globs_iter("ESP_IDF_SYS_GLOB")?)
             .files(sdkconfig.into_iter())
-            .files(sdkconfig_defaults.into_iter());
+            .files(sdkconfig_defaults);
 
         let manifest_dir = PathBuf::from(env::var("CARGO_MANIFEST_DIR")?);
         for patch in STABLE_PATCHES {
