@@ -258,6 +258,7 @@ fn build_cargo_first() -> Result<EspIdfBuildOutput> {
         .out_dir(&out_dir)
         .no_build_target(true)
         .define("CMAKE_TOOLCHAIN_FILE", &cmake_toolchain_file)
+        .define("CMAKE_BUILD_TYPE", "")
         .always_configure(true)
         .pic(false)
         .asmflag(asm_flags)
