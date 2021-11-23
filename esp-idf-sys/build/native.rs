@@ -1,7 +1,7 @@
 //! Install tools and build the `esp-idf` using native tooling.
 
 use std::convert::TryFrom;
-use std::env;
+use std::{env, fs};
 use std::ffi::OsString;
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
@@ -164,6 +164,14 @@ fn build_cargo_first() -> Result<EspIdfBuildOutput> {
         manifest_dir.join(path_buf!("resources", "cmake_project", "main.c")),
         &out_dir,
     )?;
+    
+    // Copy additional globbed files specified by user env variables
+    for file in build::tracked_env_globs_iter("ESP_IDF_SYS_GLOB")? {
+        let dest_path = out_dir.join(file.1);
+        fs::create_dir_all(dest_path.parent().unwrap())?;
+        // TODO: Maybe warn if this overwrites a critical file (e.g. CMakeLists.txt).
+        copy_file_if_different(&file.0, &out_dir)?;
+    }
 
     // The `kconfig.cmake` script looks at this variable if it should compile `mconf` on windows.
     // But this variable is also present when using git-bash which doesn't have gcc.
