@@ -7,7 +7,6 @@ use std::str::FromStr;
 use std::{env, fs};
 
 use anyhow::*;
-use embuild::cargo::IntoWarning;
 use embuild::cmake::file_api::codemodel::Language;
 use embuild::cmake::file_api::ObjKind;
 use embuild::espidf::InstallOpts;
@@ -16,15 +15,12 @@ use embuild::utils::{OsStrExt, PathExt};
 use embuild::{bindgen, build, cargo, cmake, espidf, git, kconfig, path_buf};
 use strum::{Display, EnumString};
 
-use super::common::{EspIdfBuildOutput, EspIdfComponents, MASTER_PATCHES, STABLE_PATCHES};
+use super::common::{EspIdfBuildOutput, EspIdfComponents, MASTER_PATCHES, STABLE_PATCHES, *};
 
 const ESP_IDF_INSTALL_DIR_VAR: &str = "ESP_IDF_INSTALL_DIR";
 const ESP_IDF_GLOBAL_INSTALL_VAR: &str = "ESP_IDF_GLOBAL_INSTALL";
 const ESP_IDF_VERSION_VAR: &str = "ESP_IDF_VERSION";
 const ESP_IDF_REPOSITORY_VAR: &str = "ESP_IDF_REPOSITORY";
-const ESP_IDF_SDKCONFIG_DEFAULTS_VAR: &str = "ESP_IDF_SDKCONFIG_DEFAULTS";
-const ESP_IDF_SDKCONFIG_VAR: &str = "ESP_IDF_SDKCONFIG";
-const ESP_IDF_EXTRA_TOOLS_VAR: &str = "ESP_IDF_EXTRA_TOOLS";
 const MCU_VAR: &str = "MCU";
 
 const DEFAULT_ESP_IDF_VERSION: &str = "v4.3.1";
@@ -48,16 +44,14 @@ pub fn build() -> Result<EspIdfBuildOutput> {
 fn build_cmake_first() -> Result<EspIdfBuildOutput> {
     let components = EspIdfComponents::from(
         env::var(CARGO_CMAKE_BUILD_LINK_LIBRARIES_VAR)?
-            .split(";")
+            .split(';')
             .filter_map(|s| {
-                if let Some(comp) = s.strip_prefix("__idf_") {
+                s.strip_prefix("__idf_").map(|comp| {
                     // All ESP-IDF components are prefixed with `__idf_`
                     // Check this comment for more info:
                     // https://github.com/esp-rs/esp-idf-sys/pull/17#discussion_r723133416
-                    Some(format!("comp_{}_enabled", comp))
-                } else {
-                    None
-                }
+                    format!("comp_{}_enabled", comp)
+                })
             }),
     );
 
@@ -85,7 +79,7 @@ fn build_cmake_first() -> Result<EspIdfBuildOutput> {
             .with_linker(env::var(CARGO_CMAKE_BUILD_COMPILER_VAR)?)
             .with_clang_args(
                 env::var(CARGO_CMAKE_BUILD_INCLUDES_VAR)?
-                    .split(";")
+                    .split(';')
                     .map(|dir| format!("-I{}", dir))
                     .collect::<Vec<_>>(),
             ),
@@ -95,9 +89,9 @@ fn build_cmake_first() -> Result<EspIdfBuildOutput> {
 }
 
 fn build_cargo_first() -> Result<EspIdfBuildOutput> {
-    let out_dir = path_buf![env::var("OUT_DIR")?];
+    let out_dir = cargo::out_dir();
     let target = env::var("TARGET")?;
-    let workspace_dir = out_dir.pop_times(6);
+    let workspace_dir = workspace_dir(&out_dir);
     let manifest_dir = PathBuf::from(env::var("CARGO_MANIFEST_DIR")?);
 
     let chip = if let Some(mcu) = env::var_os(MCU_VAR) {
@@ -106,7 +100,7 @@ fn build_cargo_first() -> Result<EspIdfBuildOutput> {
         Chip::detect(&target)?
     };
     let chip_name = chip.to_string();
-    let profile = env::var("PROFILE")?;
+    let profile = build_profile();
 
     cargo::track_env_var(ESP_IDF_INSTALL_DIR_VAR);
     cargo::track_env_var(ESP_IDF_GLOBAL_INSTALL_VAR);
@@ -114,7 +108,6 @@ fn build_cargo_first() -> Result<EspIdfBuildOutput> {
     cargo::track_env_var(ESP_IDF_REPOSITORY_VAR);
     cargo::track_env_var(ESP_IDF_SDKCONFIG_DEFAULTS_VAR);
     cargo::track_env_var(ESP_IDF_SDKCONFIG_VAR);
-    cargo::track_env_var(ESP_IDF_EXTRA_TOOLS_VAR);
     cargo::track_env_var(MCU_VAR);
 
     let cmake_tool = espidf::Tools::cmake()?;
@@ -138,7 +131,7 @@ fn build_cargo_first() -> Result<EspIdfBuildOutput> {
 
     // Apply patches, only if the patches were not previously applied.
     let patch_set = match &idf.esp_idf_version {
-        git::Ref::Branch(b) if idf.esp_idf.get_default_branch()?.as_ref() == Some(&b) => {
+        git::Ref::Branch(b) if idf.esp_idf.get_default_branch()?.as_ref() == Some(b) => {
             MASTER_PATCHES
         }
         git::Ref::Tag(t) if t == DEFAULT_ESP_IDF_VERSION => STABLE_PATCHES,
@@ -173,6 +166,7 @@ fn build_cargo_first() -> Result<EspIdfBuildOutput> {
         let dest_path = out_dir.join(file.1);
         fs::create_dir_all(dest_path.parent().unwrap())?;
         // TODO: Maybe warn if this overwrites a critical file (e.g. CMakeLists.txt).
+        // It could be useful for the user to explicitly overwrite our files.
         copy_file_if_different(&file.0, &out_dir)?;
     }
 
@@ -186,8 +180,7 @@ fn build_cargo_first() -> Result<EspIdfBuildOutput> {
         .filter(|v| !v.is_empty())
         .map(|v| -> Result<OsString> {
             let path = Path::new(&v).abspath_relative_to(&workspace_dir);
-            let path =
-                get_sdkconfig_profile(&path, &profile, &chip_name).unwrap_or_else(move || path);
+            let path = get_sdkconfig_profile(&path, &profile, &chip_name).unwrap_or(path);
 
             cargo::track_file(&path);
             if cfg!(windows) {
@@ -349,33 +342,8 @@ fn esp_idf_install_opts() -> Result<InstallOpts> {
     })
 }
 
-/// Find the appropriate sdkconfig file.
-///
-/// Returns the path with the following precedence if it exists and is a file:
-/// 1. `<path>.<profile>.<chip>`
-/// 2. `<path>.<chip>`
-/// 3. `<path>.<profile>`
-/// 4. `None`
-fn get_sdkconfig_profile(path: &Path, profile: &str, chip: &str) -> Option<PathBuf> {
-    let filename = path.file_name()?.try_to_str().into_warning()?;
-    let profile_specific = format!("{}.{}", filename, profile);
-    let chip_specific = format!("{}.{}", filename, chip);
-    let profile_chip_specific = format!("{}.{}", &profile_specific, chip);
-
-    [profile_chip_specific, chip_specific, profile_specific]
-        .iter()
-        .find_map(|s| {
-            let path = path.with_file_name(s);
-            if path.is_file() {
-                Some(path)
-            } else {
-                None
-            }
-        })
-}
-
 fn generate_sdkconfig_defaults() -> Result<String> {
-    const OPT_VARS: [&'static str; 4] = [
+    const OPT_VARS: [&str; 4] = [
         "CONFIG_COMPILER_OPTIMIZATION_NONE",
         "CONFIG_COMPILER_OPTIMIZATION_DEFAULT",
         "CONFIG_COMPILER_OPTIMIZATION_PERF",

@@ -1,8 +1,16 @@
-use anyhow::*;
-use regex::{self};
-use std::{collections::HashSet, error, fs, iter::once, path::Path, str::FromStr};
+use std::collections::HashSet;
+use std::iter::once;
+use std::path::{Path, PathBuf};
+use std::str::FromStr;
+use std::{error, fs};
 
+use anyhow::*;
+use embuild::cargo::IntoWarning;
+use embuild::utils::{OsStrExt, PathExt};
 use embuild::{bindgen, build, kconfig};
+
+pub const ESP_IDF_SDKCONFIG_DEFAULTS_VAR: &str = "ESP_IDF_SDKCONFIG_DEFAULTS";
+pub const ESP_IDF_SDKCONFIG_VAR: &str = "ESP_IDF_SDKCONFIG";
 
 pub const STABLE_PATCHES: &[&str] = &[
     "patches/missing_xtensa_atomics_fix.diff",
@@ -129,4 +137,39 @@ impl EspIdfVersion {
 
         Ok(value)
     }
+}
+
+/// Get the workspace dir (the directory that contains the target dir) from the cargo out
+/// dir.
+pub fn workspace_dir(out_dir: &Path) -> PathBuf {
+    out_dir.pop_times(6)
+}
+
+pub fn build_profile() -> String {
+    std::env::var("PROFILE").expect("No cargo `PROFILE` environment variable")
+}
+
+/// Find the appropriate sdkconfig file.
+///
+/// Returns the path with the following precedence if it exists and is a file:
+/// 1. `<path>.<profile>.<chip>`
+/// 2. `<path>.<chip>`
+/// 3. `<path>.<profile>`
+/// 4. `None`
+pub fn get_sdkconfig_profile(path: &Path, profile: &str, chip: &str) -> Option<PathBuf> {
+    let filename = path.file_name()?.try_to_str().into_warning()?;
+    let profile_specific = format!("{}.{}", filename, profile);
+    let chip_specific = format!("{}.{}", filename, chip);
+    let profile_chip_specific = format!("{}.{}", &profile_specific, chip);
+
+    [profile_chip_specific, chip_specific, profile_specific]
+        .iter()
+        .find_map(|s| {
+            let path = path.with_file_name(s);
+            if path.is_file() {
+                Some(path)
+            } else {
+                None
+            }
+        })
 }
