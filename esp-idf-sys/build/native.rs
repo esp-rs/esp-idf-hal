@@ -1,12 +1,13 @@
 //! Install tools and build the `esp-idf` using native tooling.
 
 use std::convert::TryFrom;
-use std::{env, fs};
 use std::ffi::OsString;
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
+use std::{env, fs};
 
 use anyhow::*;
+use embuild::cargo::IntoWarning;
 use embuild::cmake::file_api::codemodel::Language;
 use embuild::cmake::file_api::ObjKind;
 use embuild::espidf::InstallOpts;
@@ -104,6 +105,8 @@ fn build_cargo_first() -> Result<EspIdfBuildOutput> {
     } else {
         Chip::detect(&target)?
     };
+    let chip_name = chip.to_string();
+    let profile = env::var("PROFILE")?;
 
     cargo::track_env_var(ESP_IDF_INSTALL_DIR_VAR);
     cargo::track_env_var(ESP_IDF_GLOBAL_INSTALL_VAR);
@@ -164,7 +167,7 @@ fn build_cargo_first() -> Result<EspIdfBuildOutput> {
         manifest_dir.join(path_buf!("resources", "cmake_project", "main.c")),
         &out_dir,
     )?;
-    
+
     // Copy additional globbed files specified by user env variables
     for file in build::tracked_env_globs_iter("ESP_IDF_SYS_GLOB")? {
         let dest_path = out_dir.join(file.1);
@@ -183,6 +186,9 @@ fn build_cargo_first() -> Result<EspIdfBuildOutput> {
         .filter(|v| !v.is_empty())
         .map(|v| -> Result<OsString> {
             let path = Path::new(&v).abspath_relative_to(&workspace_dir);
+            let path =
+                get_sdkconfig_profile(&path, &profile, &chip_name).unwrap_or_else(move || path);
+
             cargo::track_file(&path);
             if cfg!(windows) {
                 // cmake doesn't allow backslashes in its function arguments,
@@ -268,7 +274,7 @@ fn build_cargo_first() -> Result<EspIdfBuildOutput> {
         .env("PATH", &idf.exported_path)
         .env("SDKCONFIG", sdkconfig)
         .env("SDKCONFIG_DEFAULTS", sdkconfig_defaults)
-        .env("IDF_TARGET", &chip.to_string())
+        .env("IDF_TARGET", &chip_name)
         .build();
 
     let replies = query.get_replies()?;
@@ -336,6 +342,30 @@ fn esp_idf_install_opts() -> Result<InstallOpts> {
     })
 }
 
+/// Find the appropriate sdkconfig file.
+///
+/// Returns the path with the following precedence if it exists and is a file:
+/// 1. `<path>.<profile>.<chip>`
+/// 2. `<path>.<chip>`
+/// 3. `<path>.<profile>`
+/// 4. `None`
+fn get_sdkconfig_profile(path: &Path, profile: &str, chip: &str) -> Option<PathBuf> {
+    let filename = path.file_name()?.try_to_str().into_warning()?;
+    let profile_specific = format!("{}.{}", filename, profile);
+    let chip_specific = format!("{}.{}", filename, chip);
+    let profile_chip_specific = format!("{}.{}", &profile_specific, chip);
+
+    [profile_chip_specific, chip_specific, profile_specific]
+        .iter()
+        .find_map(|s| {
+            let path = path.with_file_name(s);
+            if path.is_file() {
+                Some(path)
+            } else {
+                None
+            }
+        })
+}
 #[derive(Clone, Copy, PartialEq, Eq, Debug, Display, EnumString)]
 #[repr(u32)]
 enum Chip {
