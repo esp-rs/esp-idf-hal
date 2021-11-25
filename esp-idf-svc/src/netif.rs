@@ -440,7 +440,7 @@ impl EspNetif {
 
     pub fn set_hostname(&self, hostname: &str) -> Result<(), EspError> {
         if let Ok(hostname) = CString::new(hostname) {
-            esp!(unsafe { esp_netif_set_hostname(self.1, hostname.as_ptr()) })
+            esp!(unsafe { esp_netif_set_hostname(self.1, hostname.as_ptr() as *const _) })
         } else {
             esp!(ESP_ERR_INVALID_ARG)
         }
