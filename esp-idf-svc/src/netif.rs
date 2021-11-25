@@ -339,7 +339,7 @@ impl EspNetif {
         }
 
         if let Some(hostname) = hostname {
-            netif.set_hostname(hostname);
+            netif.set_hostname(hostname)?;
         }
 
         Ok(netif)
@@ -433,17 +433,20 @@ impl EspNetif {
     }
 
     pub fn get_hostname(&self) -> Result<Cow<'_, str>, EspError> {
-        let mut ptr: *const c_types::c_char = std::ptr::null();
+        let mut ptr: *const c_types::c_char = core::ptr::null();
         esp!(unsafe { esp_netif_get_hostname(self.1, &mut ptr) })?;
+
         Ok(from_cstr_ptr(ptr))
     }
 
     pub fn set_hostname(&self, hostname: &str) -> Result<(), EspError> {
         if let Ok(hostname) = CString::new(hostname) {
-            esp!(unsafe { esp_netif_set_hostname(self.1, hostname.as_ptr() as *const _) })
+            esp!(unsafe { esp_netif_set_hostname(self.1, hostname.as_ptr() as *const _) })?;
         } else {
-            esp!(ESP_ERR_INVALID_ARG)
+            esp!(ESP_ERR_INVALID_ARG)?;
         }
+
+        Ok(())
     }
 }
 
