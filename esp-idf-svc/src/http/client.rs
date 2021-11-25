@@ -295,9 +295,13 @@ impl<'a> Write for EspHttpRequest<'a> {
     type Error = EspError;
 
     fn do_write(&mut self, buf: &[u8]) -> Result<usize, Self::Error> {
-        esp!(unsafe { esp_http_client_write(self.client.raw, buf.as_ptr() as _, buf.len() as _) })?;
+        let result =
+            unsafe { esp_http_client_write(self.client.raw, buf.as_ptr() as _, buf.len() as _) };
+        if result < 0 {
+            esp!(result)?;
+        }
 
-        Ok(buf.len())
+        Ok(result as _)
     }
 }
 
