@@ -6,14 +6,6 @@ use alloc::string::ToString;
 
 use ::log::*;
 
-#[cfg(feature = "std")]
-pub use std::ffi::{CStr, CString};
-
-#[cfg(not(feature = "std"))]
-pub use cstr_core::{CStr, CString};
-
-use mutex_trait::Mutex;
-
 use embedded_svc::http::client::*;
 use embedded_svc::http::*;
 use embedded_svc::io::{Read, Write};
@@ -21,7 +13,7 @@ use embedded_svc::io::{Read, Write};
 use esp_idf_sys::*;
 
 use crate::private::common::Newtype;
-use crate::private::cstr;
+use crate::private::cstr::*;
 
 impl From<HttpMethod> for Newtype<(esp_http_client_method_t, ())> {
     fn from(method: HttpMethod) -> Self {
@@ -51,10 +43,6 @@ impl From<HttpMethod> for Newtype<(esp_http_client_method_t, ())> {
     }
 }
 
-static mut EVENT_HANDLERS: EspMutex<
-    BTreeMap<esp_http_client_handle_t, *const dyn Fn(&esp_http_client_event_t)>,
-> = EspMutex::new(BTreeMap::new());
-
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 #[cfg_attr(feature = "std", derive(Hash))]
 pub enum FollowRedirectsPolicy {
@@ -78,6 +66,7 @@ pub struct EspHttpClientConfiguration {
 pub struct EspHttpClient {
     raw: esp_http_client_handle_t,
     follow_redirects_policy: FollowRedirectsPolicy,
+    event_handler: Box<Option<Box<dyn Fn(&esp_http_client_event_t) -> esp_err_t>>>,
 }
 
 impl EspHttpClient {
@@ -86,11 +75,14 @@ impl EspHttpClient {
     }
 
     pub fn new(configuration: &EspHttpClientConfiguration) -> Result<Self, EspError> {
+        let event_handler = Box::new(None);
+
         let mut native_config = esp_http_client_config_t {
             // The ESP-IDF HTTP client is really picky on being initialized with a valid URL
             // So we set something here, which will be changed later anyway, in the request() method
             url: b"http://127.0.0.1\0".as_ptr() as *const _,
             event_handler: Some(Self::on_events),
+            user_data: &*event_handler as *const _ as *mut c_types::c_void,
             ..Default::default()
         };
 
@@ -105,23 +97,26 @@ impl EspHttpClient {
             Ok(Self {
                 raw,
                 follow_redirects_policy: configuration.follow_redirects_policy,
+                event_handler,
             })
         }
     }
 
-    extern "C" fn on_events(event: *mut esp_http_client_event_t) -> i32 {
-        let event = unsafe { event.as_mut().unwrap() };
+    extern "C" fn on_events(event: *mut esp_http_client_event_t) -> esp_err_t {
+        match unsafe { event.as_mut() } {
+            Some(event) => {
+                let handler = event.user_data
+                    as *const Option<Box<dyn Fn(&esp_http_client_event_t) -> esp_err_t>>;
+                if let Some(handler) = unsafe { handler.as_ref() } {
+                    if let Some(handler) = handler.as_ref() {
+                        return handler(event);
+                    }
+                }
 
-        let handler =
-            unsafe { EVENT_HANDLERS.lock(|handlers| handlers.get(&event.client).copied()) };
-
-        if let Some(handler) = handler {
-            let handler = unsafe { handler.as_ref().unwrap() };
-
-            handler(event);
+                ESP_OK as _
+            }
+            None => ESP_FAIL as _,
         }
-
-        ESP_OK as _
     }
 }
 
@@ -173,20 +168,15 @@ pub struct EspHttpRequest<'a> {
 }
 
 impl<'a> EspHttpRequest<'a> {
-    fn register_handler(&self, handler: *const dyn Fn(&esp_http_client_event_t)) {
-        unsafe {
-            EVENT_HANDLERS.lock(|handlers| {
-                handlers.insert(self.client.raw, handler);
-            });
-        }
+    fn register_handler(
+        &mut self,
+        handler: impl Fn(&esp_http_client_event_t) -> esp_err_t + 'static,
+    ) {
+        *self.client.event_handler = Some(Box::new(handler));
     }
 
-    fn deregister_handler(&self) {
-        unsafe {
-            EVENT_HANDLERS.lock(|handlers| {
-                handlers.remove(&self.client.raw);
-            });
-        }
+    fn deregister_handler(&mut self) {
+        *self.client.event_handler = None;
     }
 }
 
@@ -221,14 +211,16 @@ impl<'a> HttpRequest<'a> for EspHttpRequest<'a> {
                         // TODO: Replace with a proper conversion from ISO-8859-1 to UTF8
 
                         headers_ptr.as_mut().unwrap().insert(
-                            cstr::from_cstr_ptr(event.header_key).into_owned(),
-                            cstr::from_cstr_ptr(event.header_value).into_owned(),
+                            from_cstr_ptr(event.header_key).into_owned(),
+                            from_cstr_ptr(event.header_value).into_owned(),
                         );
                     }
                 }
+
+                ESP_OK as esp_err_t
             };
 
-            self.register_handler(&handler);
+            self.register_handler(handler);
 
             let result = unsafe { esp_http_client_fetch_headers(self.client.raw) };
 
@@ -237,6 +229,8 @@ impl<'a> HttpRequest<'a> for EspHttpRequest<'a> {
             if result < 0 {
                 esp!(result)?;
             }
+
+            trace!("Fetched headers: {:?}", headers);
 
             if self.follow_redirects {
                 let status = unsafe { esp_http_client_get_status_code(self.client.raw) as u16 };
