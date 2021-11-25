@@ -204,13 +204,13 @@ impl EspNetif {
         let c_if_key = CString::new(conf.key.as_str()).unwrap();
         let c_if_description = CString::new(conf.description.as_str()).unwrap();
 
-        let (mut esp_inherent_config, ip_info, dhcps, dns, secondary_dns) = match conf
+        let (mut esp_inherent_config, ip_info, dhcps, dns, secondary_dns, hostname) = match conf
             .ip_configuration
         {
             InterfaceIpConfiguration::Client(ref ip_conf) => (
                 esp_netif_inherent_config_t {
                     flags: match ip_conf {
-                        ipv4::ClientConfiguration::DHCP => {
+                        ipv4::ClientConfiguration::DHCP(_) => {
                             esp_netif_flags_ESP_NETIF_DHCP_CLIENT
                                 | esp_netif_flags_ESP_NETIF_FLAG_GARP
                                 | esp_netif_flags_ESP_NETIF_FLAG_EVENT_IP_MODIFIED
@@ -222,7 +222,7 @@ impl EspNetif {
                     mac: [0; 6],
                     ip_info: ptr::null(),
                     get_ip_event: match ip_conf {
-                        ipv4::ClientConfiguration::DHCP => {
+                        ipv4::ClientConfiguration::DHCP(_) => {
                             if conf.interface_stack == InterfaceStack::Sta {
                                 ip_event_t_IP_EVENT_STA_GOT_IP
                             } else {
@@ -232,7 +232,7 @@ impl EspNetif {
                         ipv4::ClientConfiguration::Fixed(_) => 0,
                     },
                     lost_ip_event: match ip_conf {
-                        ipv4::ClientConfiguration::DHCP => {
+                        ipv4::ClientConfiguration::DHCP(_) => {
                             if conf.interface_stack == InterfaceStack::Sta {
                                 ip_event_t_IP_EVENT_STA_LOST_IP
                             } else {
@@ -246,7 +246,7 @@ impl EspNetif {
                     route_prio: conf.route_priority as _,
                 },
                 match ip_conf {
-                    ipv4::ClientConfiguration::DHCP => None,
+                    ipv4::ClientConfiguration::DHCP(_) => None,
                     ipv4::ClientConfiguration::Fixed(ref fixed_conf) => Some(esp_netif_ip_info_t {
                         ip: Newtype::<esp_ip4_addr_t>::from(fixed_conf.ip).0,
                         netmask: Newtype::<esp_ip4_addr_t>::from(fixed_conf.subnet.mask).0,
@@ -255,12 +255,16 @@ impl EspNetif {
                 },
                 false,
                 match ip_conf {
-                    ipv4::ClientConfiguration::DHCP => None,
+                    ipv4::ClientConfiguration::DHCP(_) => None,
                     ipv4::ClientConfiguration::Fixed(ref fixed_conf) => fixed_conf.dns,
                 },
                 match ip_conf {
-                    ipv4::ClientConfiguration::DHCP => None,
+                    ipv4::ClientConfiguration::DHCP(_) => None,
                     ipv4::ClientConfiguration::Fixed(ref fixed_conf) => fixed_conf.secondary_dns,
+                },
+                match ip_conf {
+                    ipv4::ClientConfiguration::DHCP(ref dhcp_conf) => dhcp_conf.hostname.as_ref(),
+                    ipv4::ClientConfiguration::Fixed(_) => None,
                 },
             ),
             InterfaceIpConfiguration::Router(ref ip_conf) => (
@@ -286,6 +290,7 @@ impl EspNetif {
                 ip_conf.dhcp_enabled,
                 ip_conf.dns,
                 None, /* For APs, ESP-IDF supports setting a primary DNS only ip_conf.secondary_dns */
+                None,
             ),
         };
 
@@ -331,6 +336,10 @@ impl EspNetif {
 
         if let Some(secondary_dns) = secondary_dns {
             netif.set_secondary_dns(secondary_dns);
+        }
+
+        if let Some(hostname) = hostname {
+            netif.set_hostname(hostname);
         }
 
         Ok(netif)
@@ -421,6 +430,20 @@ impl EspNetif {
                 if enable { 1 } else { 0 },
             )
         };
+    }
+
+    pub fn get_hostname(&self) -> Result<Cow<'_, str>, EspError> {
+        let mut ptr: *const c_types::c_char = std::ptr::null();
+        esp!(unsafe { esp_netif_get_hostname(self.1, &mut ptr) })?;
+        Ok(from_cstr_ptr(ptr))
+    }
+
+    pub fn set_hostname(&self, hostname: &str) -> Result<(), EspError> {
+        if let Ok(hostname) = CString::new(hostname) {
+            esp!(unsafe { esp_netif_set_hostname(self.1, hostname.as_ptr()) })
+        } else {
+            esp!(ESP_ERR_INVALID_ARG)
+        }
     }
 }
 

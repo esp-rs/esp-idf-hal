@@ -701,7 +701,7 @@ impl EspWifi {
                 shared.status.0 = ClientStatus::Started(ClientConnectionStatus::Connected(
                     match shared.client_ip_conf.as_ref() {
                         None => ClientIpStatus::Disabled,
-                        Some(ipv4::ClientConfiguration::DHCP) => ClientIpStatus::Waiting,
+                        Some(ipv4::ClientConfiguration::DHCP(_)) => ClientIpStatus::Waiting,
                         Some(ipv4::ClientConfiguration::Fixed(ref status)) => {
                             ClientIpStatus::Done(status.clone())
                         }

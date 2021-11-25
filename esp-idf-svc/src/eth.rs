@@ -777,7 +777,7 @@ impl<P> EspEth<P> {
             }
             eth_event_t_ETHERNET_EVENT_CONNECTED => {
                 shared.status = Status::Started(ConnectionStatus::Connected(match shared.conf {
-                    Configuration::Client(ipv4::ClientConfiguration::DHCP) => IpStatus::Waiting,
+                    Configuration::Client(ipv4::ClientConfiguration::DHCP(_)) => IpStatus::Waiting,
                     Configuration::Client(ipv4::ClientConfiguration::Fixed(ref status)) => {
                         IpStatus::Done(Some(status.clone()))
                     }
