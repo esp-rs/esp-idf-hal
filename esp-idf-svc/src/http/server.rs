@@ -5,7 +5,7 @@ use alloc::borrow::Cow;
 use alloc::collections::BTreeMap;
 use alloc::string::String;
 use alloc::sync::Arc;
-use alloc::vec;
+use alloc::vec::Vec;
 
 use log::info;
 
@@ -114,8 +114,8 @@ impl From<Method> for Newtype<c_types::c_uint> {
     }
 }
 
-type EspSessionMutex = EspMutex<session::SessionState>;
-type EspSessionsMutex = EspMutex<BTreeMap<String, Arc<EspSessionMutex>>>;
+type EspSessionMutex = EspMutex<Option<BTreeMap<String, Vec<u8>>>>;
+type EspSessionsMutex = EspMutex<BTreeMap<String, session::SessionData<EspSessionMutex>>>;
 type EspSessions = session::Sessions<EspSessionsMutex, EspSessionMutex>;
 type EspRequestScopedSession = session::RequestScopedSession<EspSessionsMutex, EspSessionMutex>;
 
@@ -364,7 +364,7 @@ impl<'a> EspHttpRequest<'a> {
                     //
                     // Check if we can implement it ourselves vy traversing the scratch buffer manually
 
-                    let mut buf: vec::Vec<u8> = Vec::with_capacity(len + 1);
+                    let mut buf: Vec<u8> = Vec::with_capacity(len + 1);
 
                     esp_nofail!(esp_idf_sys::httpd_req_get_hdr_value_str(
                         raw_req,
@@ -411,7 +411,7 @@ impl<'a> Request<'a> for EspHttpRequest<'a> {
                     //
                     // Check if we can implement it ourselves vy traversing the scratch buffer manually
 
-                    let mut buf: vec::Vec<u8> = Vec::with_capacity(len + 1);
+                    let mut buf: Vec<u8> = Vec::with_capacity(len + 1);
 
                     esp_nofail!(esp_idf_sys::httpd_req_get_url_query_str(
                         self.raw_req,
