@@ -51,6 +51,14 @@ impl<T> embedded_svc::mutex::Mutex for EspMutex<T> {
     type Data = T;
 
     #[inline(always)]
+    fn new(data: T) -> Self {
+        Self(
+            UnsafeCell::new(PTHREAD_MUTEX_INITIALIZER as _),
+            UnsafeCell::new(data),
+        )
+    }
+
+    #[inline(always)]
     fn with_lock<R>(&self, f: impl FnOnce(&mut Self::Data) -> R) -> R {
         let r = unsafe { pthread_mutex_lock(self.0.get() as *mut _) };
         debug_assert_eq!(r, 0);
