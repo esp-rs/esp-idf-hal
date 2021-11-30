@@ -156,7 +156,6 @@ impl Client for EspHttpClient {
         Ok(EspHttpRequest {
             client: self,
             follow_redirects,
-            size: 0,
         })
     }
 }
@@ -164,10 +163,51 @@ impl Client for EspHttpClient {
 pub struct EspHttpRequest<'a> {
     client: &'a mut EspHttpClient,
     follow_redirects: bool,
+}
+
+impl<'a> Request<'a> for EspHttpRequest<'a> {
+    type Write<'b> = EspHttpRequestWrite<'b>;
+
+    type Error = EspError;
+
+    fn into_writer(self, size: usize) -> Result<Self::Write<'a>, Self::Error> {
+        esp!(unsafe { esp_http_client_open(self.client.raw, size as _) })?;
+
+        Ok(Self::Write::<'a> {
+            client: self.client,
+            follow_redirects: self.follow_redirects,
+            size,
+        })
+    }
+}
+
+impl<'a> SendHeaders<'a> for EspHttpRequest<'a> {
+    fn set_header<H, V>(&mut self, name: H, value: V) -> &mut Self
+    where
+        H: Into<Cow<'a, str>>,
+        V: Into<Cow<'a, str>>,
+    {
+        let c_name = CString::new(name.into().as_ref()).unwrap();
+
+        // TODO: Replace with a proper conversion from UTF8 to ISO-8859-1
+        let c_value = CString::new(value.into().as_ref()).unwrap();
+
+        esp!(unsafe {
+            esp_http_client_set_header(self.client.raw, c_name.as_ptr() as _, c_value.as_ptr() as _)
+        })
+        .unwrap();
+
+        self
+    }
+}
+
+pub struct EspHttpRequestWrite<'a> {
+    client: &'a mut EspHttpClient,
+    follow_redirects: bool,
     size: usize,
 }
 
-impl<'a> EspHttpRequest<'a> {
+impl<'a> EspHttpRequestWrite<'a> {
     fn fetch_headers(&mut self) -> Result<BTreeMap<String, String>, EspError> {
         let mut headers = BTreeMap::new();
 
@@ -243,21 +283,7 @@ impl<'a> EspHttpRequest<'a> {
     }
 }
 
-impl<'a> Request<'a> for EspHttpRequest<'a> {
-    type Write<'b> = EspHttpRequest<'b>;
-
-    type Error = EspError;
-
-    fn into_writer(mut self, size: usize) -> Result<Self::Write<'a>, Self::Error> {
-        esp!(unsafe { esp_http_client_open(self.client.raw, size as _) })?;
-
-        self.size = size;
-
-        Ok(self)
-    }
-}
-
-impl<'a> RequestWrite<'a> for EspHttpRequest<'a> {
+impl<'a> RequestWrite<'a> for EspHttpRequestWrite<'a> {
     type Response = EspHttpResponse<'a>;
 
     fn into_response(mut self) -> Result<Self::Response, Self::Error> {
@@ -270,27 +296,7 @@ impl<'a> RequestWrite<'a> for EspHttpRequest<'a> {
     }
 }
 
-impl<'a> SendHeaders<'a> for EspHttpRequest<'a> {
-    fn set_header<H, V>(&mut self, name: H, value: V) -> &mut Self
-    where
-        H: Into<Cow<'a, str>>,
-        V: Into<Cow<'a, str>>,
-    {
-        let c_name = CString::new(name.into().as_ref()).unwrap();
-
-        // TODO: Replace with a proper conversion from UTF8 to ISO-8859-1
-        let c_value = CString::new(value.into().as_ref()).unwrap();
-
-        esp!(unsafe {
-            esp_http_client_set_header(self.client.raw, c_name.as_ptr() as _, c_value.as_ptr() as _)
-        })
-        .unwrap();
-
-        self
-    }
-}
-
-impl<'a> Write for EspHttpRequest<'a> {
+impl<'a> Write for EspHttpRequestWrite<'a> {
     type Error = EspError;
 
     fn do_write(&mut self, buf: &[u8]) -> Result<usize, Self::Error> {
