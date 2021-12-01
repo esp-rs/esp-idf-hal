@@ -15,7 +15,10 @@ use embuild::utils::{OsStrExt, PathExt};
 use embuild::{bindgen, build, cargo, cmake, espidf, git, kconfig, path_buf};
 use strum::{Display, EnumString};
 
-use super::common::{EspIdfBuildOutput, EspIdfComponents, MASTER_PATCHES, STABLE_PATCHES, *};
+use super::common::{
+    self, get_sdkconfig_profile, EspIdfBuildOutput, EspIdfComponents,
+    ESP_IDF_SDKCONFIG_DEFAULTS_VAR, ESP_IDF_SDKCONFIG_VAR, MASTER_PATCHES, STABLE_PATCHES,
+};
 
 const ESP_IDF_INSTALL_DIR_VAR: &str = "ESP_IDF_INSTALL_DIR";
 const ESP_IDF_GLOBAL_INSTALL_VAR: &str = "ESP_IDF_GLOBAL_INSTALL";
@@ -91,7 +94,7 @@ fn build_cmake_first() -> Result<EspIdfBuildOutput> {
 fn build_cargo_first() -> Result<EspIdfBuildOutput> {
     let out_dir = cargo::out_dir();
     let target = env::var("TARGET")?;
-    let workspace_dir = workspace_dir(&out_dir);
+    let workspace_dir = common::workspace_dir(&out_dir);
     let manifest_dir = PathBuf::from(env::var("CARGO_MANIFEST_DIR")?);
 
     let chip = if let Some(mcu) = env::var_os(MCU_VAR) {
@@ -100,7 +103,7 @@ fn build_cargo_first() -> Result<EspIdfBuildOutput> {
         Chip::detect(&target)?
     };
     let chip_name = chip.to_string();
-    let profile = build_profile();
+    let profile = common::build_profile();
 
     cargo::track_env_var(ESP_IDF_INSTALL_DIR_VAR);
     cargo::track_env_var(ESP_IDF_GLOBAL_INSTALL_VAR);
