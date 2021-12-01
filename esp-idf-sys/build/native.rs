@@ -176,26 +176,6 @@ fn build_cargo_first() -> Result<EspIdfBuildOutput> {
 
     // Resolve `ESP_IDF_SDKCONFIG` and `ESP_IDF_SDKCONFIG_DEFAULTS` to an absolute path
     // relative to the workspace directory if not empty.
-    let sdkconfig = env::var_os(ESP_IDF_SDKCONFIG_VAR)
-        .filter(|v| !v.is_empty())
-        .map(|v| -> Result<OsString> {
-            let path = Path::new(&v).abspath_relative_to(&workspace_dir);
-            let path = get_sdkconfig_profile(&path, &profile, &chip_name).unwrap_or(path);
-
-            cargo::track_file(&path);
-            if cfg!(windows) {
-                // cmake doesn't allow backslashes in its function arguments,
-                // so we convert this path to a path with slashes.
-                // Currently this also forbids non-unicode paths, because we have to
-                // convert the `OsStr` to `str` to do this replace operation (without us
-                // having to implement it ourselves).
-                Ok(path.try_to_str()?.replace('\\', "/").into())
-            } else {
-                Ok(path.into_os_string())
-            }
-        })
-        .unwrap_or_else(|| Ok(OsString::new()))?;
-
     let sdkconfig_defaults = {
         let gen_defaults_path = out_dir.join("gen-sdkconfig.defaults");
         fs::write(&gen_defaults_path, generate_sdkconfig_defaults()?)?;
@@ -204,6 +184,15 @@ fn build_cargo_first() -> Result<EspIdfBuildOutput> {
         if let Some(s) = env::var_os(ESP_IDF_SDKCONFIG_DEFAULTS_VAR) {
             defaults_paths.push(";");
             defaults_paths.push(s);
+        }
+        // Use the `sdkconfig` as a defaults file to prevent it from being changed by the
+        // build. It must be the last defaults file so that its options have precendence
+        // over any actual defaults from files before it.
+        if let Some(s) = env::var_os(ESP_IDF_SDKCONFIG_VAR) {
+            defaults_paths.push(";");
+            let path = Path::new(&s).abspath_relative_to(&workspace_dir);
+            let path = get_sdkconfig_profile(&path, &profile, &chip_name).unwrap_or(path);
+            defaults_paths.push(path);
         }
 
         let mut result = OsString::new();
@@ -272,7 +261,6 @@ fn build_cargo_first() -> Result<EspIdfBuildOutput> {
         .cxxflag(cxx_flags)
         .env("IDF_PATH", &idf.esp_idf.worktree())
         .env("PATH", &idf.exported_path)
-        .env("SDKCONFIG", sdkconfig)
         .env("SDKCONFIG_DEFAULTS", sdkconfig_defaults)
         .env("IDF_TARGET", &chip_name)
         .build();
@@ -342,6 +330,9 @@ fn esp_idf_install_opts() -> Result<InstallOpts> {
     })
 }
 
+// Generate `sdkconfig.defaults` content based on the crate manifest (`Cargo.toml`).
+//
+// This is currently only used to forward the optimization options to the esp-idf.
 fn generate_sdkconfig_defaults() -> Result<String> {
     const OPT_VARS: [&str; 4] = [
         "CONFIG_COMPILER_OPTIMIZATION_NONE",
