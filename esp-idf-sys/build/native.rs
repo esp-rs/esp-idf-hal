@@ -1,10 +1,10 @@
 //! Install tools and build the `esp-idf` using native tooling.
 
 use std::convert::TryFrom;
-use std::env;
 use std::ffi::OsString;
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
+use std::{env, fs};
 
 use anyhow::*;
 use embuild::cmake::file_api::codemodel::Language;
@@ -15,15 +15,15 @@ use embuild::utils::{OsStrExt, PathExt};
 use embuild::{bindgen, build, cargo, cmake, espidf, git, kconfig, path_buf};
 use strum::{Display, EnumString};
 
-use super::common::{EspIdfBuildOutput, EspIdfComponents, MASTER_PATCHES, STABLE_PATCHES};
+use super::common::{
+    self, get_sdkconfig_profile, EspIdfBuildOutput, EspIdfComponents,
+    ESP_IDF_SDKCONFIG_DEFAULTS_VAR, ESP_IDF_SDKCONFIG_VAR, MASTER_PATCHES, STABLE_PATCHES,
+};
 
 const ESP_IDF_INSTALL_DIR_VAR: &str = "ESP_IDF_INSTALL_DIR";
 const ESP_IDF_GLOBAL_INSTALL_VAR: &str = "ESP_IDF_GLOBAL_INSTALL";
 const ESP_IDF_VERSION_VAR: &str = "ESP_IDF_VERSION";
 const ESP_IDF_REPOSITORY_VAR: &str = "ESP_IDF_REPOSITORY";
-const ESP_IDF_SDKCONFIG_DEFAULTS_VAR: &str = "ESP_IDF_SDKCONFIG_DEFAULTS";
-const ESP_IDF_SDKCONFIG_VAR: &str = "ESP_IDF_SDKCONFIG";
-const ESP_IDF_EXTRA_TOOLS_VAR: &str = "ESP_IDF_EXTRA_TOOLS";
 const MCU_VAR: &str = "MCU";
 
 const DEFAULT_ESP_IDF_VERSION: &str = "v4.3.1";
@@ -47,16 +47,14 @@ pub fn build() -> Result<EspIdfBuildOutput> {
 fn build_cmake_first() -> Result<EspIdfBuildOutput> {
     let components = EspIdfComponents::from(
         env::var(CARGO_CMAKE_BUILD_LINK_LIBRARIES_VAR)?
-            .split(";")
+            .split(';')
             .filter_map(|s| {
-                if let Some(comp) = s.strip_prefix("__idf_") {
+                s.strip_prefix("__idf_").map(|comp| {
                     // All ESP-IDF components are prefixed with `__idf_`
                     // Check this comment for more info:
                     // https://github.com/esp-rs/esp-idf-sys/pull/17#discussion_r723133416
-                    Some(format!("comp_{}_enabled", comp))
-                } else {
-                    None
-                }
+                    format!("comp_{}_enabled", comp)
+                })
             }),
     );
 
@@ -84,7 +82,7 @@ fn build_cmake_first() -> Result<EspIdfBuildOutput> {
             .with_linker(env::var(CARGO_CMAKE_BUILD_COMPILER_VAR)?)
             .with_clang_args(
                 env::var(CARGO_CMAKE_BUILD_INCLUDES_VAR)?
-                    .split(";")
+                    .split(';')
                     .map(|dir| format!("-I{}", dir))
                     .collect::<Vec<_>>(),
             ),
@@ -94,9 +92,9 @@ fn build_cmake_first() -> Result<EspIdfBuildOutput> {
 }
 
 fn build_cargo_first() -> Result<EspIdfBuildOutput> {
-    let out_dir = path_buf![env::var("OUT_DIR")?];
+    let out_dir = cargo::out_dir();
     let target = env::var("TARGET")?;
-    let workspace_dir = out_dir.pop_times(6);
+    let workspace_dir = common::workspace_dir(&out_dir);
     let manifest_dir = PathBuf::from(env::var("CARGO_MANIFEST_DIR")?);
 
     let chip = if let Some(mcu) = env::var_os(MCU_VAR) {
@@ -104,6 +102,8 @@ fn build_cargo_first() -> Result<EspIdfBuildOutput> {
     } else {
         Chip::detect(&target)?
     };
+    let chip_name = chip.to_string();
+    let profile = common::build_profile();
 
     cargo::track_env_var(ESP_IDF_INSTALL_DIR_VAR);
     cargo::track_env_var(ESP_IDF_GLOBAL_INSTALL_VAR);
@@ -111,7 +111,6 @@ fn build_cargo_first() -> Result<EspIdfBuildOutput> {
     cargo::track_env_var(ESP_IDF_REPOSITORY_VAR);
     cargo::track_env_var(ESP_IDF_SDKCONFIG_DEFAULTS_VAR);
     cargo::track_env_var(ESP_IDF_SDKCONFIG_VAR);
-    cargo::track_env_var(ESP_IDF_EXTRA_TOOLS_VAR);
     cargo::track_env_var(MCU_VAR);
 
     let cmake_tool = espidf::Tools::cmake()?;
@@ -135,7 +134,7 @@ fn build_cargo_first() -> Result<EspIdfBuildOutput> {
 
     // Apply patches, only if the patches were not previously applied.
     let patch_set = match &idf.esp_idf_version {
-        git::Ref::Branch(b) if idf.esp_idf.get_default_branch()?.as_ref() == Some(&b) => {
+        git::Ref::Branch(b) if idf.esp_idf.get_default_branch()?.as_ref() == Some(b) => {
             MASTER_PATCHES
         }
         git::Ref::Tag(t) if t == DEFAULT_ESP_IDF_VERSION => STABLE_PATCHES,
@@ -165,55 +164,62 @@ fn build_cargo_first() -> Result<EspIdfBuildOutput> {
         &out_dir,
     )?;
 
+    // Copy additional globbed files specified by user env variables
+    for file in build::tracked_env_globs_iter("ESP_IDF_SYS_GLOB")? {
+        let dest_path = out_dir.join(file.1);
+        fs::create_dir_all(dest_path.parent().unwrap())?;
+        // TODO: Maybe warn if this overwrites a critical file (e.g. CMakeLists.txt).
+        // It could be useful for the user to explicitly overwrite our files.
+        copy_file_if_different(&file.0, &out_dir)?;
+    }
+
     // The `kconfig.cmake` script looks at this variable if it should compile `mconf` on windows.
     // But this variable is also present when using git-bash which doesn't have gcc.
     env::remove_var("MSYSTEM");
 
     // Resolve `ESP_IDF_SDKCONFIG` and `ESP_IDF_SDKCONFIG_DEFAULTS` to an absolute path
     // relative to the workspace directory if not empty.
-    let sdkconfig = env::var_os(ESP_IDF_SDKCONFIG_VAR)
-        .filter(|v| !v.is_empty())
-        .map(|v| -> Result<OsString> {
-            let path = Path::new(&v).abspath_relative_to(&workspace_dir);
-            cargo::track_file(&path);
-            if cfg!(windows) {
-                // cmake doesn't allow backslashes in its function arguments,
-                // so we convert this path to a path with slashes.
-                // Currently this also forbids non-unicode paths, because we have to
-                // convert the `OsStr` to `str` to do this replace operation (without us
-                // having to implement it ourselves).
-                Ok(path.try_to_str()?.replace('\\', "/").into())
-            } else {
-                Ok(path.into_os_string())
-            }
-        })
-        .unwrap_or_else(|| Ok(OsString::new()))?;
+    let sdkconfig_defaults = {
+        let gen_defaults_path = out_dir.join("gen-sdkconfig.defaults");
+        fs::write(&gen_defaults_path, generate_sdkconfig_defaults()?)?;
 
-    let sdkconfig_defaults = env::var_os(ESP_IDF_SDKCONFIG_DEFAULTS_VAR)
-        .filter(|v| !v.is_empty())
-        .map(|v| -> Result<OsString> {
-            let mut result = OsString::new();
-            for s in v
-                .try_to_str()?
-                .split(';')
-                .filter(|v| !v.is_empty())
-                .map(|v| Path::new(v).abspath_relative_to(&workspace_dir))
-            {
+        let mut defaults_paths = gen_defaults_path.into_os_string();
+        if let Some(s) = env::var_os(ESP_IDF_SDKCONFIG_DEFAULTS_VAR) {
+            defaults_paths.push(";");
+            defaults_paths.push(s);
+        }
+        // Use the `sdkconfig` as a defaults file to prevent it from being changed by the
+        // build. It must be the last defaults file so that its options have precendence
+        // over any actual defaults from files before it.
+        if let Some(s) = env::var_os(ESP_IDF_SDKCONFIG_VAR) {
+            defaults_paths.push(";");
+            let path = Path::new(&s).abspath_relative_to(&workspace_dir);
+            let path = get_sdkconfig_profile(&path, &profile, &chip_name).unwrap_or(path);
+            defaults_paths.push(path);
+        }
+
+        let mut result = OsString::new();
+        for s in defaults_paths
+            .try_to_str()?
+            .split(';')
+            .filter(|v| !v.is_empty())
+            .map(|v| Path::new(v).abspath_relative_to(&workspace_dir))
+        {
+            if !result.is_empty() {
+                result.push(";");
+
+                // This is in here to prevent the first file (which is our generated one)
+                // to be tracked.
                 cargo::track_file(&s);
-                if !result.is_empty() {
-                    result.push(";");
-                }
-                if cfg!(windows) {
-                    // Same reason as above.
-                    result.push(s.try_to_str()?.replace('\\', "/"));
-                } else {
-                    result.push(s);
-                }
             }
-
-            Ok(result)
-        })
-        .unwrap_or_else(|| Ok(OsString::new()))?;
+            if cfg!(windows) {
+                result.push(s.try_to_str()?.replace('\\', "/"));
+            } else {
+                result.push(s);
+            }
+        }
+        result
+    };
 
     let cmake_toolchain_file = path_buf![
         &idf.esp_idf.worktree(),
@@ -250,6 +256,7 @@ fn build_cargo_first() -> Result<EspIdfBuildOutput> {
         .out_dir(&out_dir)
         .no_build_target(true)
         .define("CMAKE_TOOLCHAIN_FILE", &cmake_toolchain_file)
+        .define("CMAKE_BUILD_TYPE", "")
         .always_configure(true)
         .pic(false)
         .asmflag(asm_flags)
@@ -257,9 +264,8 @@ fn build_cargo_first() -> Result<EspIdfBuildOutput> {
         .cxxflag(cxx_flags)
         .env("IDF_PATH", &idf.esp_idf.worktree())
         .env("PATH", &idf.exported_path)
-        .env("SDKCONFIG", sdkconfig)
         .env("SDKCONFIG_DEFAULTS", sdkconfig_defaults)
-        .env("IDF_TARGET", &chip.to_string())
+        .env("IDF_TARGET", &chip_name)
         .build();
 
     let replies = query.get_replies()?;
@@ -325,6 +331,34 @@ fn esp_idf_install_opts() -> Result<InstallOpts> {
         Some("1" | "true" | "y" | "yes") => InstallOpts::empty(),
         Some(_) | None => InstallOpts::NO_GLOBAL_INSTALL,
     })
+}
+
+// Generate `sdkconfig.defaults` content based on the crate manifest (`Cargo.toml`).
+//
+// This is currently only used to forward the optimization options to the esp-idf.
+fn generate_sdkconfig_defaults() -> Result<String> {
+    const OPT_VARS: [&str; 4] = [
+        "CONFIG_COMPILER_OPTIMIZATION_NONE",
+        "CONFIG_COMPILER_OPTIMIZATION_DEFAULT",
+        "CONFIG_COMPILER_OPTIMIZATION_PERF",
+        "CONFIG_COMPILER_OPTIMIZATION_SIZE",
+    ];
+
+    let opt_level = env::var("OPT_LEVEL")?;
+    let debug = env::var("DEBUG")?;
+    let opt_index = match (opt_level.as_str(), debug.as_str()) {
+        ("s" | "z", _) => 3,               // -Os
+        ("1", _) | (_, "2" | "true") => 1, // -Og
+        ("0", _) => 0,                     // -O0
+        ("2" | "3", _) => 2,               // -O2
+        _ => unreachable!("Invalid DEBUG or OPT_LEVEL"),
+    };
+
+    Ok(OPT_VARS
+        .iter()
+        .enumerate()
+        .map(|(i, s)| format!("{}={}\n", s, if i == opt_index { 'y' } else { 'n' }))
+        .collect::<String>())
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug, Display, EnumString)]

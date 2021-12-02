@@ -1,15 +1,13 @@
 //! Install tools and build the `esp-idf` using `platformio`.
 
 use std::convert::TryFrom;
-use std::{env, path::PathBuf};
+use std::env;
+use std::path::{Path, PathBuf};
 
 use anyhow::*;
-
-use embuild::build;
-use embuild::kconfig;
-use embuild::pio;
 use embuild::pio::project;
-use embuild::{bindgen, path_buf};
+use embuild::utils::{OsStrExt, PathExt};
+use embuild::{bindgen, build, cargo, kconfig, path_buf, pio};
 
 use super::common::*;
 
@@ -32,15 +30,48 @@ pub fn build() -> Result<EspIdfBuildOutput> {
             })
             .resolve(true)?;
 
-        let mut builder =
-            project::Builder::new(PathBuf::from(env::var("OUT_DIR")?).join("esp-idf"));
+        let out_dir = cargo::out_dir();
+        let workspace_dir = workspace_dir(&out_dir);
+        let profile = build_profile();
+
+        let mut builder = project::Builder::new(out_dir.join("esp-idf"));
+
+        // Resolve `ESP_IDF_SDKCONFIG` and `ESP_IDF_SDKCONFIG_DEFAULTS` to an absolute path
+        // relative to the workspace directory if not empty.
+        cargo::track_env_var(ESP_IDF_SDKCONFIG_VAR);
+        cargo::track_env_var(ESP_IDF_SDKCONFIG_DEFAULTS_VAR);
+        let sdkconfig = env::var_os(ESP_IDF_SDKCONFIG_VAR)
+            .filter(|v| !v.is_empty())
+            .map(|v| {
+                let path = Path::new(&v).abspath_relative_to(&workspace_dir);
+                let path = get_sdkconfig_profile(&path, &profile, &resolution.mcu).unwrap_or(path);
+                cargo::track_file(&path);
+
+                (path, format!("sdkconfig.{}", profile).into())
+            });
+
+        let sdkconfig_defaults_var =
+            env::var_os(ESP_IDF_SDKCONFIG_DEFAULTS_VAR).unwrap_or_default();
+        let sdkconfig_defaults = sdkconfig_defaults_var
+            .try_to_str()?
+            .split(';')
+            .filter(|v| !v.is_empty())
+            .map(|v| {
+                let path = Path::new(v).abspath_relative_to(&workspace_dir);
+                cargo::track_file(&path);
+
+                let file_name = PathBuf::from(path.file_name().unwrap());
+                (path, file_name)
+            });
 
         builder
             .enable_scons_dump()
             .enable_c_entry_points()
             .options(build::env_options_iter("ESP_IDF_SYS_PIO_CONF")?)
             .files(build::tracked_globs_iter(path_buf!["."], &["patches/**"])?)
-            .files(build::tracked_env_globs_iter("ESP_IDF_SYS_GLOB")?);
+            .files(build::tracked_env_globs_iter("ESP_IDF_SYS_GLOB")?)
+            .files(sdkconfig.into_iter())
+            .files(sdkconfig_defaults);
 
         let manifest_dir = PathBuf::from(env::var("CARGO_MANIFEST_DIR")?);
         for patch in STABLE_PATCHES {

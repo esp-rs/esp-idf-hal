@@ -2,7 +2,7 @@
 
 ## Background
 
-The ESP-IDF API in Rust, with support for each ESP chip (ESP32, ESP32S2, ESP32C3 etc.) based on the Rust target
+The ESP-IDF API in Rust, with support for each ESP chip (ESP32, ESP32S2, ESP32C3 etc.) based on the Rust target.
 
 ![CI](https://github.com/esp-rs/esp-idf-sys/actions/workflows/ci.yml/badge.svg)
 
@@ -13,8 +13,8 @@ The ESP-IDF API in Rust, with support for each ESP chip (ESP32, ESP32S2, ESP32C3
   downloaded during the build by
     - with the feature `pio` (default): utilizing [platformio](https://platformio.org/) (via the [embuild](https://github.com/ivmarkov/embuild) crate) or
     - with the feature `native` (*experimental*): utilizing native `esp-idf` tooling.
-- Check the [ESP-IDF Rust Hello World template crate](https://github.com/esp-rs/esp-idf-template) for a "Hello, world!" Rust template demonstrating how to use and build this crate
-- Check the [demo](https://github.com/ivmarkov/rust-esp32-std-demo) crate for a more comprehensive example in terms of capabilities
+- Check the [ESP-IDF Rust Hello World template crate](https://github.com/esp-rs/esp-idf-template) for a "Hello, world!" Rust template demonstrating how to use and build this crate.
+- Check the [demo](https://github.com/ivmarkov/rust-esp32-std-demo) crate for a more comprehensive example in terms of capabilities.
 
 ## Feature `pio`
 This is currently the default for installing all build tools and building the ESP-IDF framework. It uses [PlatformIO](https://platformio.org/) via the
@@ -57,14 +57,33 @@ TBD: Upcoming
 
 ## Configuration
 
-*NOTE*: This configuration is currently honored *only* by the `native` builder.
-The `pio` (default) builder has a different configuration, but it is not documented here, because in the near future the `pio` builder will also be migrating to 
-the configuration supported by the `native` builder.
+*NOTE*: This configuration is currently only partially honored by the `pio` builder.
+
+The `pio` (default) builder has a different configuration, but it is not documented here,
+because in the near future the `pio` builder will also be migrating to the configuration
+supported by the `native` builder.
 
 Environment variables are used to configure how the `esp-idf` is compiled.
 The following environment variables are used by the build script:
 
-- `ESP_IDF_INSTALL_DIR`:
+- `ESP_IDF_SDKCONFIG_DEFAULTS` (*native* and *pio*): 
+
+    A `;`-separated list of paths to `sdkconfig.default` files to be used as base
+    values for the `sdkconfig`. If such a path is relative, it will be relative to the
+    cargo workspace directory (i.e. the directory that contains the `target` dir).
+
+- `ESP_IDF_SDKCONFIG` (*native* and *pio*): 
+    
+    The path to the `sdkconfig` file used to [configure the
+    `esp-idf`](https://docs.espressif.com/projects/esp-idf/en/latest/esp32/api-reference/kconfig.html).
+    If this is a relative path, it is relative to the cargo workspace directory.
+
+    **Note** (*native* only):   
+    The cargo optimization options (`debug` and `opt-level`) are used by default to
+    determine the compiler optimizations of the `esp-idf`, **however** if the compiler
+    optimization options are already set in the `sdkconfig` **they will be used instead.**
+
+- `ESP_IDF_INSTALL_DIR` (*native* only):
 
     The path to the directory where all esp-idf tools are installed. If it is set to a
     relative path, it is relative to the crate workspace-dir.
@@ -73,11 +92,12 @@ The following environment variables are used by the build script:
     install dir `~/.espressif`, otherwise it defaults to the local install dir `<crate
     workspace-dir>/.embuild/espressif`.
 
-- `ESP_IDF_GLOBAL_INSTALL`
+- `ESP_IDF_GLOBAL_INSTALL` (*native* only):
 
     If set to `1`, `true`, `y` or `yes` uses the global install directory only when `ESP_IDF_INSTALL_DIR` is not specified.
 
-- `ESP_IDF_VERSION`:
+- `ESP_IDF_VERSION` (*native* only):
+
   The version used for the `esp-idf` can be one of the following:
   - `commit:<hash>`: Uses the commit `<hash>` of the `esp-idf` repository.
                      Note that this will clone the whole `esp-idf` not just one commit.
@@ -86,13 +106,15 @@ The following environment variables are used by the build script:
   - `v<major>.<minor>` or `<major>.<minor>`: Uses the tag `v<major>.<minor>` of the `esp-idf` repository.
   - `<branch>`: Uses the branch `<branch>` of the `esp-idf` repository.
 
-  It defaults to `v4.3`.
-- `ESP_IDF_REPOSITORY`: The URL to the git repository of the `esp-idf`, defaults to <https://github.com/espressif/esp-idf.git>.
-- `ESP_IDF_SDKCONFIG_DEFAULTS`: A `;`-separated list of paths to `sdkconfig.default` files to be used as base
-                                values for the `sdkconfig`.
-- `ESP_IDF_SDKCONFIG`: A path (absolute or relative) to the esp-idf `sdkconfig` file.
-- `MCU`: The mcu name (e.g. `esp32` or `esp32c3`). If not set this will be automatically
-         detected from the cargo target.
+  It defaults to `v4.3.1`.
+- `ESP_IDF_REPOSITORY` (*native* only): 
+
+   The URL to the git repository of the `esp-idf`, defaults to <https://github.com/espressif/esp-idf.git>.
+
+- `MCU` (*native* only): 
+
+   The mcu name (e.g. `esp32` or `esp32c3`). If not set this will be automatically
+   detected from the cargo target.
 
 ## More info
 
