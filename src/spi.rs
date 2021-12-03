@@ -204,10 +204,10 @@ impl<SPI: Spi, SCLK: OutputPin, SDO: OutputPin, SDI: InputPin + OutputPin, CS: O
         #[cfg(not(any(esp_idf_version = "4.4", esp_idf_version_major = "5")))]
         let bus_config = spi_bus_config_t {
             flags: SPICOMMON_BUSFLAG_MASTER,
-            sclk_io_num: SCLK::pin(),
+            sclk_io_num: pins.sclk.pin(),
 
-            mosi_io_num: SDO::pin(),
-            miso_io_num: if pins.sdi.is_some() { SDI::pin() } else { -1 },
+            mosi_io_num: pins.sdo.pin(),
+            miso_io_num: pins.sdi.as_ref().map_or(-1, |p| p.pin()),
             quadwp_io_num: -1,
             quadhd_io_num: -1,
 
@@ -220,7 +220,7 @@ impl<SPI: Spi, SCLK: OutputPin, SDO: OutputPin, SDI: InputPin + OutputPin, CS: O
         })?;
 
         let device_config = spi_device_interface_config_t {
-            spics_io_num: if pins.cs.is_some() { CS::pin() } else { -1 },
+            spics_io_num: pins.cs.as_ref().map_or(-1, |p| p.pin()),
             clock_speed_hz: config.baudrate.0 as i32,
             mode: (if config.data_mode.polarity == Polarity::IdleHigh {
                 2

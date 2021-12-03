@@ -329,10 +329,10 @@ impl<UART: Uart, TX: OutputPin, RX: InputPin, CTS: InputPin, RTS: OutputPin>
         esp!(unsafe {
             uart_set_pin(
                 UART::port(),
-                TX::pin(),
-                RX::pin(),
-                if pins.rts.is_some() { RTS::pin() } else { -1 },
-                if pins.cts.is_some() { CTS::pin() } else { -1 },
+                pins.tx.pin(),
+                pins.rx.pin(),
+                pins.rts.as_ref().map_or(-1, |p| p.pin()),
+                pins.cts.as_ref().map_or(-1, |p| p.pin()),
             )
         })?;
 
