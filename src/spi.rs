@@ -30,7 +30,7 @@ use embedded_hal::spi::{Phase, Polarity};
 
 use esp_idf_sys::*;
 
-pub trait Spi {
+pub trait Spi: Send {
     fn device() -> spi_host_device_t;
 }
 
@@ -641,6 +641,8 @@ macro_rules! impl_spi {
                 $spi(::core::marker::PhantomData)
             }
         }
+
+        unsafe impl Send for $spi {}
 
         impl Spi for $spi {
             #[inline(always)]

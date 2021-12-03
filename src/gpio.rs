@@ -49,7 +49,7 @@ pub trait Pull {
     fn set_floating(&mut self) -> Result<&mut Self, Self::Error>;
 }
 
-pub trait Pin {
+pub trait Pin: Send {
     type Error;
 
     fn pin(&self) -> i32;
@@ -96,7 +96,10 @@ pub struct GpioPin<MODE> {
     _mode: PhantomData<MODE>,
 }
 
-impl<MODE> GpioPin<MODE> {
+impl<MODE> GpioPin<MODE>
+where
+    MODE: Send,
+{
     fn new(pin: i32) -> GpioPin<MODE> {
         Self {
             pin,
@@ -105,7 +108,10 @@ impl<MODE> GpioPin<MODE> {
     }
 }
 
-impl<MODE> Pin for GpioPin<MODE> {
+impl<MODE> Pin for GpioPin<MODE>
+where
+    MODE: Send,
+{
     type Error = EspError;
 
     fn pin(&self) -> i32
@@ -317,7 +323,10 @@ macro_rules! impl_input_base {
         }
 
         #[cfg(not(feature = "ulp"))]
-        impl<MODE> $pxi<MODE> {
+        impl<MODE> $pxi<MODE>
+        where
+            MODE: Send,
+        {
             #[inline(always)]
             fn runtime_pin() -> i32 {
                 $pin
@@ -334,7 +343,10 @@ macro_rules! impl_input_base {
             }
         }
 
-        impl<MODE> Pin for $pxi<MODE> {
+        impl<MODE> Pin for $pxi<MODE>
+        where
+            MODE: Send,
+        {
             type Error = EspError;
 
             #[inline(always)]
@@ -347,7 +359,7 @@ macro_rules! impl_input_base {
             }
         }
 
-        impl<MODE> InputPin for $pxi<MODE> {}
+        impl<MODE> InputPin for $pxi<MODE> where MODE: Send {}
 
         impl_hal_input_pin!($pxi: Input);
     };
@@ -358,7 +370,10 @@ macro_rules! impl_input_only {
     ($pxi:ident: $pin:expr) => {
         impl_input_base!($pxi: $pin);
 
-        impl<MODE> $pxi<MODE> {
+        impl<MODE> $pxi<MODE>
+        where
+            MODE: Send,
+        {
             /// # Safety
             ///
             /// Care should be taken not to instantiate a pin which is already used elsewhere
@@ -394,7 +409,7 @@ macro_rules! impl_input_output {
     ($pxi:ident: $pin:expr) => {
         impl_input_base!($pxi: $pin);
 
-        impl<MODE> OutputPin for $pxi<MODE> {}
+        impl<MODE> OutputPin for $pxi<MODE> where MODE: Send {}
 
         impl_hal_input_pin!($pxi: InputOutput);
         impl_hal_output_pin!($pxi: InputOutput);
@@ -402,7 +417,10 @@ macro_rules! impl_input_output {
         impl_pull!($pxi: Input);
         impl_pull!($pxi: InputOutput);
 
-        impl<MODE> $pxi<MODE> {
+        impl<MODE> $pxi<MODE>
+        where
+            MODE: Send,
+        {
             /// # Safety
             ///
             /// Care should be taken not to instantiate a pin which is already used elsewhere
@@ -485,14 +503,20 @@ macro_rules! impl_input_output {
 macro_rules! impl_rtc {
     ($pxi:ident: $pin:expr, RTC: $rtc:expr) => {
         #[cfg(feature = "ulp")]
-        impl<MODE> $pxi<MODE> {
+        impl<MODE> $pxi<MODE>
+        where
+            MODE: Send,
+        {
             #[inline(always)]
             fn runtime_pin() -> i32 {
                 $rtc
             }
         }
 
-        impl<MODE> RTCPin for $pxi<MODE> {
+        impl<MODE> RTCPin for $pxi<MODE>
+        where
+            MODE: Send,
+        {
             fn rtc_pin() -> i32 {
                 $rtc
             }
@@ -504,7 +528,10 @@ macro_rules! impl_rtc {
 
 macro_rules! impl_adc {
     ($pxi:ident: $pin:expr, ADC1: $adc:expr) => {
-        impl<MODE> ADCPin for $pxi<MODE> {
+        impl<MODE> ADCPin for $pxi<MODE>
+        where
+            MODE: Send,
+        {
             fn adc_unit() -> adc_unit_t {
                 adc_unit_t_ADC_UNIT_1
             }
@@ -516,7 +543,10 @@ macro_rules! impl_adc {
     };
 
     ($pxi:ident: $pin:expr, ADC2: $adc:expr) => {
-        impl<MODE> ADCPin for $pxi<MODE> {
+        impl<MODE> ADCPin for $pxi<MODE>
+        where
+            MODE: Send,
+        {
             fn adc_unit() -> adc_unit_t {
                 adc_unit_t_ADC_UNIT_2
             }
@@ -533,7 +563,10 @@ macro_rules! impl_adc {
 macro_rules! impl_dac {
     ($pxi:ident: $pin:expr, DAC: $dac:expr) => {
         #[cfg(all(not(esp32c3), not(esp32s3)))]
-        impl<MODE> DACPin for $pxi<MODE> {
+        impl<MODE> DACPin for $pxi<MODE>
+        where
+            MODE: Send,
+        {
             fn dac_channel() -> dac_channel_t {
                 $dac
             }
@@ -546,7 +579,10 @@ macro_rules! impl_dac {
 macro_rules! impl_touch {
     ($pxi:ident: $pin:expr, TOUCH: $touch:expr) => {
         #[cfg(not(esp32c3))]
-        impl<MODE> TouchPin for $pxi<MODE> {
+        impl<MODE> TouchPin for $pxi<MODE>
+        where
+            MODE: Send,
+        {
             fn touch_channel() -> touch_pad_t {
                 $touch
             }

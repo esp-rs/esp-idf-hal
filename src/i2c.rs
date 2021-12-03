@@ -109,7 +109,7 @@ pub mod config {
     }
 }
 
-pub trait I2c {
+pub trait I2c: Send {
     fn port() -> i2c_port_t;
 }
 
@@ -336,7 +336,6 @@ where
                 slave: i2c_config_t__bindgen_ty_1__bindgen_ty_2 {
                     slave_addr: slave_addr as u16,
                     addr_10bit_en: 0, // For now; to become configurable with embedded-hal V1.0
-                    ..Default::default()
                 },
             },
             ..Default::default()
@@ -439,6 +438,8 @@ macro_rules! impl_i2c {
                 $i2c(::core::marker::PhantomData)
             }
         }
+
+        unsafe impl Send for $i2c {}
 
         impl I2c for $i2c {
             #[inline(always)]
