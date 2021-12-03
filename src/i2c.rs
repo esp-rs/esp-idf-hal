@@ -157,9 +157,9 @@ where
 
         let sys_config = i2c_config_t {
             mode: i2c_mode_t_I2C_MODE_MASTER,
-            sda_io_num: SDA::pin() as i32,
+            sda_io_num: pins.sda.pin(),
             sda_pullup_en: config.sda_pullup_enabled,
-            scl_io_num: SCL::pin() as i32,
+            scl_io_num: pins.scl.pin(),
             scl_pullup_en: config.scl_pullup_enabled,
             __bindgen_anon_1: i2c_config_t__bindgen_ty_1 {
                 master: i2c_config_t__bindgen_ty_1__bindgen_ty_1 {
@@ -328,9 +328,9 @@ where
     ) -> Result<Self, EspError> {
         let sys_config = i2c_config_t {
             mode: i2c_mode_t_I2C_MODE_SLAVE,
-            sda_io_num: SDA::pin() as i32,
+            sda_io_num: pins.sda.pin(),
             sda_pullup_en: config.sda_pullup_enabled,
-            scl_io_num: SCL::pin() as i32,
+            scl_io_num: pins.scl.pin(),
             scl_pullup_en: config.scl_pullup_enabled,
             __bindgen_anon_1: i2c_config_t__bindgen_ty_1 {
                 slave: i2c_config_t__bindgen_ty_1__bindgen_ty_2 {

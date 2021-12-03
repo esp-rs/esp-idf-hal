@@ -52,7 +52,7 @@ pub trait Pull {
 pub trait Pin {
     type Error;
 
-    fn pin() -> i32;
+    fn pin(&self) -> i32;
 
     fn reset(&mut self) -> Result<(), Self::Error>;
 }
@@ -89,6 +89,43 @@ pub struct InputOutput;
 pub struct Disabled;
 
 pub struct Unknown;
+
+// /// Generic $GpioX pin
+pub struct GpioPin<MODE> {
+    pin: i32,
+    _mode: PhantomData<MODE>,
+}
+
+impl<MODE> GpioPin<MODE> {
+    fn new(pin: i32) -> GpioPin<MODE> {
+        Self {
+            pin,
+            _mode: PhantomData,
+        }
+    }
+}
+
+impl<MODE> Pin for GpioPin<MODE> {
+    type Error = EspError;
+
+    fn pin(&self) -> i32
+    where
+        Self: Sized,
+    {
+        self.pin
+    }
+
+    fn reset(&mut self) -> Result<(), Self::Error> {
+        Ok(())
+    }
+}
+
+impl InputPin for GpioPin<Input> {}
+
+impl OutputPin for GpioPin<Output> {}
+
+impl OutputPin for GpioPin<InputOutput> {}
+impl InputPin for GpioPin<InputOutput> {}
 
 /// Interrupt events
 ///
@@ -286,6 +323,12 @@ macro_rules! impl_input_base {
                 $pin
             }
 
+            /// Degrades a concrete pin (e.g. [`Gpio1`]) to a generic pin
+            /// struct that can also be used with periphals.
+            pub fn degrade(self) -> GpioPin<MODE> {
+                GpioPin::new($pin)
+            }
+
             pub fn into_unknown(self) -> $pxi<Unknown> {
                 $pxi { _mode: PhantomData }
             }
@@ -295,7 +338,7 @@ macro_rules! impl_input_base {
             type Error = EspError;
 
             #[inline(always)]
-            fn pin() -> i32 {
+            fn pin(&self) -> i32 {
                 $pin
             }
 
