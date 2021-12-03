@@ -196,7 +196,7 @@ where
     ) -> Result<(*mut esp_eth_mac_t, *mut esp_eth_phy_t), EspError> {
         let mac_cfg = EspEth::<RmiiEthPeripherals<MDC, MDIO>>::eth_mac_default_config();
         let phy_cfg = EspEth::<RmiiEthPeripherals<MDC, MDIO>>::eth_phy_default_config(
-            reset.as_ref().map(|_| RST::pin()),
+            reset.as_ref().map(|p| p.pin()),
             phy_addr,
         );
 
@@ -286,8 +286,14 @@ where
         mac_addr: Option<&[u8; 6]>,
         phy_addr: Option<u32>,
     ) -> Result<Self, EspError> {
-        let (mac, phy, spi_handle) =
-            Self::initialize(chipset, baudrate, &peripherals.rst_pin, phy_addr)?;
+        let (mac, phy, spi_handle) = Self::initialize(
+            chipset,
+            baudrate,
+            &peripherals.spi_pins,
+            &peripherals.int_pin,
+            &peripherals.rst_pin,
+            phy_addr,
+        )?;
 
         Ok(Self::init(
             netif_stack,
@@ -314,28 +320,30 @@ where
     fn initialize(
         chipset: SpiEthChipset,
         baudrate: Hertz,
+        spi_pins: &spi::Pins<SCLK, SDO, SDI, CS>,
+        int_pin: &INT,
         reset_pin: &Option<RST>,
         phy_addr: Option<u32>,
     ) -> Result<(*mut esp_eth_mac_t, *mut esp_eth_phy_t, spi_device_handle_t), EspError> {
-        Self::initialize_spi_bus()?;
+        Self::initialize_spi_bus(&spi_pins.sclk, &spi_pins.sdo, spi_pins.sdi.as_ref())?;
 
         let mac_cfg =
             EspEth::<SpiEthPeripherals<INT, SPI, SCLK, SDO, SDI, CS, RST>>::eth_mac_default_config(
             );
         let phy_cfg =
             EspEth::<SpiEthPeripherals<INT, SPI, SCLK, SDO, SDI, CS, RST>>::eth_phy_default_config(
-                reset_pin.as_ref().map(|_| RST::pin()),
+                reset_pin.as_ref().map(|p| p.pin()),
                 phy_addr,
             );
 
         let (mac, phy, spi_handle) = match chipset {
             #[cfg(esp_idf_eth_spi_ethernet_dm9051)]
             SpiEthChipset::DM9051 => {
-                let spi_handle = Self::initialize_spi(1, 7, baudrate)?;
+                let spi_handle = Self::initialize_spi(spi_pins.cs.as_ref(), 1, 7, baudrate)?;
 
                 let dm9051_cfg = eth_dm9051_config_t {
                     spi_hdl: spi_handle as *mut _,
-                    int_gpio_num: INT::pin(),
+                    int_gpio_num: int_pin.pin(),
                 };
 
                 let mac = unsafe { esp_eth_mac_new_dm9051(&dm9051_cfg, &mac_cfg) };
@@ -345,11 +353,11 @@ where
             }
             #[cfg(esp_idf_eth_spi_ethernet_w5500)]
             SpiEthChipset::W5500 => {
-                let spi_handle = Self::initialize_spi(16, 8, baudrate)?;
+                let spi_handle = Self::initialize_spi(spi_pins.cs.as_ref(), 16, 8, baudrate)?;
 
                 let w5500_cfg = eth_w5500_config_t {
                     spi_hdl: spi_handle as *mut _,
-                    int_gpio_num: INT::pin(),
+                    int_gpio_num: int_pin.pin(),
                 };
 
                 let mac = unsafe { esp_eth_mac_new_w5500(&w5500_cfg, &mac_cfg) };
@@ -359,11 +367,11 @@ where
             }
             #[cfg(esp_idf_eth_spi_ethernet_ksz8851snl)]
             SpiEthChipset::KSZ8851SNL => {
-                let spi_handle = Self::initialize_spi(0, 0, baudrate)?;
+                let spi_handle = Self::initialize_spi(spi_pins.cs.as_ref(), 0, 0, baudrate)?;
 
                 let ksz8851snl_cfg = eth_ksz8851snl_config_t {
                     spi_hdl: spi_handle as *mut _,
-                    int_gpio_num: INT::pin(),
+                    int_gpio_num: int_pin.pin(),
                 };
 
                 let mac = unsafe { esp_eth_mac_new_ksz8851snl(&ksz8851snl_cfg, &mac_cfg) };
@@ -377,6 +385,7 @@ where
     }
 
     fn initialize_spi(
+        cs_pin: Option<&CS>,
         command_bits: u8,
         address_bits: u8,
         baudrate: Hertz,
@@ -386,7 +395,7 @@ where
             address_bits,
             mode: 0,
             clock_speed_hz: baudrate.0 as i32,
-            spics_io_num: CS::pin(),
+            spics_io_num: cs_pin.map(|p| p.pin()).unwrap_or(-1),
             queue_size: 20,
             ..Default::default()
         };
@@ -398,24 +407,28 @@ where
         Ok(spi_handle)
     }
 
-    fn initialize_spi_bus() -> Result<(), EspError> {
+    fn initialize_spi_bus(
+        sclk_pin: &SCLK,
+        sdo_pin: &SDO,
+        sdi_pin: Option<&SDI>,
+    ) -> Result<(), EspError> {
         unsafe { gpio_install_isr_service(0) };
 
         #[cfg(any(esp_idf_version = "4.4", esp_idf_version_major = "5"))]
         let bus_config = spi_bus_config_t {
             flags: SPICOMMON_BUSFLAG_MASTER,
-            sclk_io_num: SCLK::pin(),
+            sclk_io_num: sclk_pin.pin(),
 
             data4_io_num: -1,
             data5_io_num: -1,
             data6_io_num: -1,
             data7_io_num: -1,
             __bindgen_anon_1: spi_bus_config_t__bindgen_ty_1 {
-                mosi_io_num: SDO::pin(),
+                mosi_io_num: sdo_pin.pin(),
                 //data0_io_num: -1,
             },
             __bindgen_anon_2: spi_bus_config_t__bindgen_ty_2 {
-                miso_io_num: SDI::pin(),
+                miso_io_num: sdi_pin.map(|p| p.pin()).unwrap_or(-1),
                 //data1_io_num: -1,
             },
             __bindgen_anon_3: spi_bus_config_t__bindgen_ty_3 {
@@ -433,10 +446,10 @@ where
         #[cfg(not(any(esp_idf_version = "4.4", esp_idf_version_major = "5")))]
         let bus_config = spi_bus_config_t {
             flags: SPICOMMON_BUSFLAG_MASTER,
-            sclk_io_num: SCLK::pin(),
+            sclk_io_num: sclk_pin.pin(),
 
-            mosi_io_num: SDO::pin(),
-            miso_io_num: SDI::pin(),
+            mosi_io_num: sdo_pin.pin(),
+            miso_io_num: sdi_pin.map(|p| p.pin()).unwrap_or(-1),
             quadwp_io_num: -1,
             quadhd_io_num: -1,
 

@@ -96,8 +96,8 @@ impl Default for SntpConf {
     fn default() -> Self {
         let mut servers: [String; SNTP_SERVER_NUM] = Default::default();
         // Only 0-3 are valid ntp pool domain names
-        for i in 0..SNTP_SERVER_NUM.min(4) {
-            servers[i] = format!("{}.pool.ntp.org", i);
+        for (i, item) in servers.iter_mut().enumerate().take(SNTP_SERVER_NUM.min(4)) {
+            *item = format!("{}.pool.ntp.org", i);
         }
 
         Self {
@@ -126,7 +126,7 @@ impl EspSntp {
                 if *taken {
                     Err(EspError::from(ESP_ERR_INVALID_STATE as i32).unwrap())
                 } else {
-                    let sntp = Self::init(&conf)?;
+                    let sntp = Self::init(conf)?;
 
                     *taken = true;
                     Ok(sntp)
