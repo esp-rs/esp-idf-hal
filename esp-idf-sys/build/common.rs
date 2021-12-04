@@ -1,16 +1,20 @@
 use std::collections::HashSet;
+use std::env;
 use std::iter::once;
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
 use std::{error, fs};
 
 use anyhow::*;
+
 use embuild::cargo::IntoWarning;
-use embuild::utils::{OsStrExt, PathExt};
+use embuild::utils::OsStrExt;
 use embuild::{bindgen, build, kconfig};
 
+pub const ESP_IDF_GLOB_VAR_PREFIX: &str = "ESP_IDF_GLOB";
 pub const ESP_IDF_SDKCONFIG_DEFAULTS_VAR: &str = "ESP_IDF_SDKCONFIG_DEFAULTS";
 pub const ESP_IDF_SDKCONFIG_VAR: &str = "ESP_IDF_SDKCONFIG";
+pub const MCU_VAR: &str = "MCU";
 
 pub const STABLE_PATCHES: &[&str] = &[
     "patches/missing_xtensa_atomics_fix.diff",
@@ -139,12 +143,6 @@ impl EspIdfVersion {
     }
 }
 
-/// Get the workspace dir (the directory that contains the target dir) from the cargo out
-/// dir.
-pub fn workspace_dir(out_dir: &Path) -> PathBuf {
-    out_dir.pop_times(6)
-}
-
 pub fn build_profile() -> String {
     std::env::var("PROFILE").expect("No cargo `PROFILE` environment variable")
 }
@@ -172,4 +170,17 @@ pub fn get_sdkconfig_profile(path: &Path, profile: &str, chip: &str) -> Option<P
                 None
             }
         })
+}
+
+pub fn is_install_global(env_var: impl AsRef<str>) -> Result<bool> {
+    let install_global = match env::var(env_var.as_ref()) {
+        Err(env::VarError::NotPresent) => None,
+        e => Some(e?),
+    };
+
+    let install_global = install_global.map(|s| s.trim().to_lowercase());
+    Ok(matches!(
+        install_global.as_deref(),
+        Some("1" | "true" | "y" | "yes")
+    ))
 }

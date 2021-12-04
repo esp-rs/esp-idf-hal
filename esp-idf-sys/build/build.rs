@@ -73,8 +73,8 @@ fn main() -> anyhow::Result<()> {
             .builder()?
             .ctypes_prefix("c_types")
             .header(header_file.try_to_str()?)
-            .blacklist_function("strtold")
-            .blacklist_function("_strtold_r")
+            .blocklist_function("strtold")
+            .blocklist_function("_strtold_r")
             .clang_args(build_output.components.clang_args())
             .clang_args(vec![
                 "-target",

@@ -20,13 +20,15 @@ The ESP-IDF API in Rust, with support for each ESP chip (ESP32, ESP32S2, ESP32C3
 This is currently the default for installing all build tools and building the ESP-IDF framework. It uses [PlatformIO](https://platformio.org/) via the
 [embuild](https://github.com/ivmarkov/embuild) crate.
 
-The `pio` builder installs all needed tools to compile the `esp-idf` as well as the `esp-idf` itself. 
+The `pio` builder installs all needed tools to compile this crate as well as the `esp-idf` itself. 
 The location where the `esp-idf` source and tools are detected and installed is the following:
-- **~/.platformio`**
-  - This is the "standard" PlatformIO location, where all tooling, and the ESP-IDF is installed
-
-*NOTE*: In the near future, the `pio` builder will have a flexible scheme as to where the PlatformIO tooling will be installed. This scheme will follow in spirit
-the `native` builder scheme described below.
+- **`<crate workspace-dir>/.embuild/platformio`**
+  - This is the location used by default
+- **`~/.platformio`**
+  - This is the "standard" PlatformIO location, where all tooling as well as the ESP-IDF is installed
+- **`$ESP_IDF_SYS_PIO_INSTALL_DIR`**
+  - This is a user-provided location
+  - To enable it, simply define the `ESP_IDF_SYS_PIO_INSTALL_DIR` variable to point to a directory of your preference
 
 ### (PIO builder only) Using cargo-pio to interactively modify ESP-IDF's `sdkconfig` file
 
@@ -40,7 +42,7 @@ This is an experimental feature for downloading all tools and building the ESP-I
 It will become the default in the near future.
 It also relies on build and installation utilities available in the [embuild](https://github.com/ivmarkov/embuild) crate.
 
-Similarly to the `pio` builder, the `native` builder also automatically installs all needed tools to compile the `esp-idf` as well as the `esp-idf` itself. 
+Similarly to the `pio` builder, the `native` builder also automatically installs all needed tools to compile this crate as well as the `esp-idf` itself. 
 The location where the `esp-idf` source and tools are detected and installed can be one of the following ones:
 - **`<crate workspace-dir>/.embuild/espressif`**
   - This is the location used by default
@@ -57,13 +59,11 @@ TBD: Upcoming
 
 ## Configuration
 
-*NOTE*: This configuration is currently only partially honored by the `pio` builder.
+Environment variables are used to configure how the ESP-IDF framework is compiled. 
 
-The `pio` (default) builder has a different configuration, but it is not documented here,
-because in the near future the `pio` builder will also be migrating to the configuration
-supported by the `native` builder.
+Note that instead of / in addition to specifying those on the command line, you can also put these in a `./config/cargo.toml` file inside your crate directory 
+(or a parent directory of your crate) by using the recently stabilized Cargo [configurable-env](https://doc.rust-lang.org/cargo/reference/config.html#env) feature.
 
-Environment variables are used to configure how the `esp-idf` is compiled.
 The following environment variables are used by the build script:
 
 - `ESP_IDF_SDKCONFIG_DEFAULTS` (*native* and *pio*): 
@@ -72,8 +72,9 @@ The following environment variables are used by the build script:
     values for the `sdkconfig`. If such a path is relative, it will be relative to the
     cargo workspace directory (i.e. the directory that contains the `target` dir).
 
-- `ESP_IDF_SDKCONFIG` (*native* and *pio*): 
-    
+
+- `ESP_IDF_SDKCONFIG` (*native* and *pio*):     
+
     The path to the `sdkconfig` file used to [configure the
     `esp-idf`](https://docs.espressif.com/projects/esp-idf/en/latest/esp32/api-reference/kconfig.html).
     If this is a relative path, it is relative to the cargo workspace directory.
@@ -83,18 +84,36 @@ The following environment variables are used by the build script:
     determine the compiler optimizations of the `esp-idf`, **however** if the compiler
     optimization options are already set in the `sdkconfig` **they will be used instead.**
 
+
+- `ESP_IDF_PIO_INSTALL_DIR` (*pio* only):
+
+    The path to the directory where PlatformIO is/will be installed. If it is set to a
+    relative path, it is relative to the crate workspace-dir.
+
+    If not set, the PlatformIO installation location defaults to the local install dir `<crate-workspace-dir>/.embuild/platformio`.
+    However, the user can still force the crate to use the global PlatformIO install dir (`~/.platformio`)
+    by setting `ESP_IDF_PIO_GLOBAL_INSTALL` to `1`.
+
+
 - `ESP_IDF_INSTALL_DIR` (*native* only):
 
     The path to the directory where all esp-idf tools are installed. If it is set to a
     relative path, it is relative to the crate workspace-dir.
 
-    If not set, when `ESP_IDF_GLOBAL_INSTALL` is set to `1` it defaults to the global
-    install dir `~/.espressif`, otherwise it defaults to the local install dir `<crate
-    workspace-dir>/.embuild/espressif`.
+    If not set, the esp-idf source & tooling location defaults to the local install dir `<crate-workspace-dir>/.embuild/espressif`.
+    However, the user can still force the crate to use the global esp-idf tooling install dir (`~/.espressif`)
+    by setting `ESP_IDF_GLOBAL_INSTALL` to `1`.
+
+
+- `ESP_IDF_PIO_GLOBAL_INSTALL` (*pio* only):
+
+    If set to `1`, `true`, `y` or `yes` uses the global install directory (that is, unless `ESP_IDF_PIO_INSTALL_DIR` is also specified, which takes priority over this setting then).
+
 
 - `ESP_IDF_GLOBAL_INSTALL` (*native* only):
 
-    If set to `1`, `true`, `y` or `yes` uses the global install directory only when `ESP_IDF_INSTALL_DIR` is not specified.
+    If set to `1`, `true`, `y` or `yes` uses the global install directory (that is, unless `ESP_IDF_INSTALL_DIR` is also specified, which takes priority over this setting then).
+
 
 - `ESP_IDF_VERSION` (*native* only):
 
@@ -107,14 +126,46 @@ The following environment variables are used by the build script:
   - `<branch>`: Uses the branch `<branch>` of the `esp-idf` repository.
 
   It defaults to `v4.3.1`.
+
+
 - `ESP_IDF_REPOSITORY` (*native* only): 
 
-   The URL to the git repository of the `esp-idf`, defaults to <https://github.com/espressif/esp-idf.git>.
+  The URL to the git repository of the `esp-idf`, defaults to <https://github.com/espressif/esp-idf.git>.
+  
+  Note that when the `pio` builder is used, it is possibnle to achieve something similar to `ESP_IDF_VERSION` and `ESP_IDF_REPOSITORY` by using 
+  the [`platform_packages`](https://docs.platformio.org/en/latest/projectconf/section_env_platform.html#platform-packages) PlatformIO option as follows:
+    - `ESP_IDF_PIO_CONF="platform_packages = framework-espidf @ <git-url> [@ <git-branch>]"`
+    - The above approach however has the restriction that PlatformIO will always use the ESP-IDF build tooling from its own ESP-IDF distribution, 
+      so the user-provided ESP-IDF branch may or may not compile. The current PlatformIO tooling is suitable for compiling ESP-IDF branches derived from versions 4.3.X .
 
-- `MCU` (*native* only): 
 
-   The mcu name (e.g. `esp32` or `esp32c3`). If not set this will be automatically
-   detected from the cargo target.
+- `ESP_IDF_GLOB[_XXX]_BASE` and `ESP_IDF_GLOB[_XXX]_YYY` (*native* and *pio*):
+
+  A pair of environment variable prefixes that enable copying files and directory trees that match a certain glob mask into the native C project used for building the ESP-IDF framework:
+  - `ESP_IDF_GLOB[_XXX]_BASE` specifies the base directory which will be glob-ed for resources to be copied
+  - `ESP_IDF_GLOB[_XXX]_BASE_YYY` specifies one or more environment variables that represent the glob masks of resources to be searched for and copied, using the directory designated by the `ESP_IDF_GLOB[_XXX]_BASE` environment variable as the root. For example, if the follwing variables are specified:
+    - `ESP_IDF_GLOB_HOMEDIR_BASE=/home/someuser`
+    - `ESP_IDF_GLOB_HOMEDIR_FOO=foo*`
+    - `ESP_IDF_GLOB_HOMEDIR_BAR=bar*`
+    ... then all files and directories matching 'foo*' or 'bar*' from the home directory of the user will be copied in theESP-IDF C project.
+
+    Note also that `_HOMEDIR` in the above example is optional, and is just a mechanism allowing the user to specify more than base directory and its glob patterns.
+
+
+- `ESP_IDF_PIO_CONF_XXX` (*pio* only):
+
+  A PlatformIO setting (or multiple settings separated by a newline) that will be passed as-is to the `platformio.ini` file of the C project that compiles the ESP-IDF.
+  - Check [the PlatformIO documentation](https://docs.platformio.org/en/latest/projectconf/index.html) for more information as to what settings you can pass via this variable.
+  - Note also that this is not one variable - but rather - a family of variables all starting with `ESP_IDF_PIO_CONF_`. I.e., passing `ESP_IDF_PIO_CONF_1` as well as `ESP_IDF_PIO_CONF_FOO` is valid and all such variables will be honored
+
+
+- `MCU` (*native* and *pio*):
+
+   The MCU name (i.e. `esp32`, `esp32s2`, `esp32s3` `esp32c3` and `esp32h2`). 
+   
+   - If not set this will be automatically detected from the cargo target.
+   
+   - Note that [older ESP-IDF versions might not support all MCUs from above](https://github.com/espressif/esp-idf#esp-idf-release-and-soc-compatibility).
 
 ## More info
 

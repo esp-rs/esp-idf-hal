@@ -16,15 +16,15 @@ use embuild::{bindgen, build, cargo, cmake, espidf, git, kconfig, path_buf};
 use strum::{Display, EnumString};
 
 use super::common::{
-    self, get_sdkconfig_profile, EspIdfBuildOutput, EspIdfComponents,
-    ESP_IDF_SDKCONFIG_DEFAULTS_VAR, ESP_IDF_SDKCONFIG_VAR, MASTER_PATCHES, STABLE_PATCHES,
+    self, get_sdkconfig_profile, is_install_global, EspIdfBuildOutput, EspIdfComponents,
+    ESP_IDF_GLOB_VAR_PREFIX, ESP_IDF_SDKCONFIG_DEFAULTS_VAR, ESP_IDF_SDKCONFIG_VAR, MASTER_PATCHES,
+    MCU_VAR, STABLE_PATCHES,
 };
 
 const ESP_IDF_INSTALL_DIR_VAR: &str = "ESP_IDF_INSTALL_DIR";
 const ESP_IDF_GLOBAL_INSTALL_VAR: &str = "ESP_IDF_GLOBAL_INSTALL";
 const ESP_IDF_VERSION_VAR: &str = "ESP_IDF_VERSION";
 const ESP_IDF_REPOSITORY_VAR: &str = "ESP_IDF_REPOSITORY";
-const MCU_VAR: &str = "MCU";
 
 const DEFAULT_ESP_IDF_VERSION: &str = "v4.3.1";
 
@@ -94,7 +94,8 @@ fn build_cmake_first() -> Result<EspIdfBuildOutput> {
 fn build_cargo_first() -> Result<EspIdfBuildOutput> {
     let out_dir = cargo::out_dir();
     let target = env::var("TARGET")?;
-    let workspace_dir = common::workspace_dir(&out_dir);
+    let workspace_dir =
+        cargo::workspace_dir().ok_or_else(|| anyhow!("Cannot fetch crate's workspace dir"))?;
     let manifest_dir = PathBuf::from(env::var("CARGO_MANIFEST_DIR")?);
 
     let chip = if let Some(mcu) = env::var_os(MCU_VAR) {
@@ -165,7 +166,7 @@ fn build_cargo_first() -> Result<EspIdfBuildOutput> {
     )?;
 
     // Copy additional globbed files specified by user env variables
-    for file in build::tracked_env_globs_iter("ESP_IDF_SYS_GLOB")? {
+    for file in build::tracked_env_globs_iter(ESP_IDF_GLOB_VAR_PREFIX)? {
         let dest_path = out_dir.join(file.1);
         fs::create_dir_all(dest_path.parent().unwrap())?;
         // TODO: Maybe warn if this overwrites a critical file (e.g. CMakeLists.txt).
@@ -321,16 +322,11 @@ fn esp_idf_version() -> Result<git::Ref> {
 }
 
 fn esp_idf_install_opts() -> Result<InstallOpts> {
-    let install_global = match env::var(ESP_IDF_GLOBAL_INSTALL_VAR) {
-        Err(env::VarError::NotPresent) => None,
-        e => Some(e?),
-    };
-
-    let install_global = install_global.map(|s| s.trim().to_lowercase());
-    Ok(match install_global.as_deref() {
-        Some("1" | "true" | "y" | "yes") => InstallOpts::empty(),
-        Some(_) | None => InstallOpts::NO_GLOBAL_INSTALL,
-    })
+    if is_install_global(ESP_IDF_GLOBAL_INSTALL_VAR)? {
+        Ok(InstallOpts::empty())
+    } else {
+        Ok(InstallOpts::NO_GLOBAL_INSTALL)
+    }
 }
 
 // Generate `sdkconfig.defaults` content based on the crate manifest (`Cargo.toml`).
