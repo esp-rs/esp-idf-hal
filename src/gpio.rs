@@ -238,7 +238,10 @@ macro_rules! impl_hal_output_pin {
 
         impl embedded_hal::digital::v2::StatefulOutputPin for $pxi<$mode> {
             fn is_set_high(&self) -> Result<bool, Self::Error> {
-                Ok(unsafe { gpio_get_level($pxi::<$mode>::runtime_pin()) } != 0)
+                Ok(unsafe {
+                    (*(GPIO_OUT_REG as *const u32) >> $pxi::<$mode>::runtime_pin() as u32) & 0x01
+                        != 0
+                })
             }
 
             fn is_set_low(&self) -> Result<bool, Self::Error> {
