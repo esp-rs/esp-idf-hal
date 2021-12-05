@@ -10,7 +10,6 @@ const PTHREAD_MUTEX_INITIALIZER: u32 = 0xFFFFFFFF;
 
 pub struct EspMutex<T>(UnsafeCell<pthread_mutex_t>, UnsafeCell<T>);
 
-unsafe impl<T> Send for EspMutex<T> {}
 unsafe impl<T> Sync for EspMutex<T> {}
 
 impl<T> EspMutex<T> {
