@@ -16,13 +16,11 @@ use embuild::{bindgen, build, cargo, cmake, espidf, git, kconfig, path_buf};
 use strum::{Display, EnumString};
 
 use super::common::{
-    self, get_sdkconfig_profile, is_install_global, EspIdfBuildOutput, EspIdfComponents,
-    ESP_IDF_GLOB_VAR_PREFIX, ESP_IDF_SDKCONFIG_DEFAULTS_VAR, ESP_IDF_SDKCONFIG_VAR, MASTER_PATCHES,
-    MCU_VAR, STABLE_PATCHES,
+    self, get_install_dir, get_sdkconfig_profile, workspace_dir, EspIdfBuildOutput,
+    EspIdfComponents, ESP_IDF_GLOB_VAR_PREFIX, ESP_IDF_SDKCONFIG_DEFAULTS_VAR,
+    ESP_IDF_SDKCONFIG_VAR, ESP_IDF_TOOLS_INSTALL_DIR_VAR, MASTER_PATCHES, MCU_VAR, STABLE_PATCHES,
 };
 
-const ESP_IDF_INSTALL_DIR_VAR: &str = "ESP_IDF_INSTALL_DIR";
-const ESP_IDF_GLOBAL_INSTALL_VAR: &str = "ESP_IDF_GLOBAL_INSTALL";
 const ESP_IDF_VERSION_VAR: &str = "ESP_IDF_VERSION";
 const ESP_IDF_REPOSITORY_VAR: &str = "ESP_IDF_REPOSITORY";
 
@@ -94,8 +92,7 @@ fn build_cmake_first() -> Result<EspIdfBuildOutput> {
 fn build_cargo_first() -> Result<EspIdfBuildOutput> {
     let out_dir = cargo::out_dir();
     let target = env::var("TARGET")?;
-    let workspace_dir =
-        cargo::workspace_dir().ok_or_else(|| anyhow!("Cannot fetch crate's workspace dir"))?;
+    let workspace_dir = workspace_dir()?;
     let manifest_dir = PathBuf::from(env::var("CARGO_MANIFEST_DIR")?);
 
     let chip = if let Some(mcu) = env::var_os(MCU_VAR) {
@@ -106,8 +103,7 @@ fn build_cargo_first() -> Result<EspIdfBuildOutput> {
     let chip_name = chip.to_string();
     let profile = common::build_profile();
 
-    cargo::track_env_var(ESP_IDF_INSTALL_DIR_VAR);
-    cargo::track_env_var(ESP_IDF_GLOBAL_INSTALL_VAR);
+    cargo::track_env_var(ESP_IDF_TOOLS_INSTALL_DIR_VAR);
     cargo::track_env_var(ESP_IDF_VERSION_VAR);
     cargo::track_env_var(ESP_IDF_REPOSITORY_VAR);
     cargo::track_env_var(ESP_IDF_SDKCONFIG_DEFAULTS_VAR);
@@ -121,9 +117,15 @@ fn build_cargo_first() -> Result<EspIdfBuildOutput> {
             .chain(chip.ulp_gcc_toolchain()),
     );
 
+    let install_dir = get_install_dir("espressif")?;
+
     let idf = espidf::Installer::new(esp_idf_version()?)
-        .local_install_dir(env::var_os(ESP_IDF_INSTALL_DIR_VAR).map(PathBuf::from))
-        .opts(esp_idf_install_opts()?)
+        .opts(if install_dir.is_some() {
+            InstallOpts::empty()
+        } else {
+            InstallOpts::NO_GLOBAL_INSTALL
+        })
+        .local_install_dir(install_dir)
         .git_url(match env::var(ESP_IDF_REPOSITORY_VAR) {
             Err(env::VarError::NotPresent) => None,
             git_url => Some(git_url?),
@@ -319,14 +321,6 @@ fn esp_idf_version() -> Result<git::Ref> {
         v => v?,
     };
     Ok(espidf::decode_esp_idf_version_ref(&version))
-}
-
-fn esp_idf_install_opts() -> Result<InstallOpts> {
-    if is_install_global(ESP_IDF_GLOBAL_INSTALL_VAR)? {
-        Ok(InstallOpts::empty())
-    } else {
-        Ok(InstallOpts::NO_GLOBAL_INSTALL)
-    }
 }
 
 // Generate `sdkconfig.defaults` content based on the crate manifest (`Cargo.toml`).

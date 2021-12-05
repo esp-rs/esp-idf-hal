@@ -12,12 +12,6 @@ use embuild::{bindgen, build, cargo, kconfig, path_buf, pio};
 
 use super::common::*;
 
-/// The default local install dir of PlatformIO, relative to the crate
-/// workspace dir (see [`cargo::workspace_dir`](crate::cargo::workspace_dir)).
-const DEFAULT_LOCAL_INSTALL_DIR: &str = ".embuild/platformio";
-
-const ESP_IDF_PIO_INSTALL_DIR_VAR: &str = "ESP_IDF_PIO_INSTALL_DIR";
-const ESP_IDF_PIO_GLOBAL_INSTALL_VAR: &str = "ESP_IDF_PIO_GLOBAL_INSTALL";
 const ESP_IDF_PIO_CONF_VAR_PREFIX: &str = "ESP_IDF_PIO_CONF";
 
 pub fn build() -> Result<EspIdfBuildOutput> {
@@ -28,31 +22,23 @@ pub fn build() -> Result<EspIdfBuildOutput> {
 
         (pio_scons_vars, None)
     } else {
-        cargo::track_env_var(ESP_IDF_PIO_INSTALL_DIR_VAR);
-        cargo::track_env_var(ESP_IDF_PIO_GLOBAL_INSTALL_VAR);
+        cargo::track_env_var(ESP_IDF_TOOLS_INSTALL_DIR_VAR);
         cargo::track_env_var(ESP_IDF_SDKCONFIG_VAR);
         cargo::track_env_var(ESP_IDF_SDKCONFIG_DEFAULTS_VAR);
         cargo::track_env_var(MCU_VAR);
 
         let out_dir = cargo::out_dir();
-        let workspace_dir =
-            cargo::workspace_dir().ok_or_else(|| anyhow!("Cannot fetch crate's workspace dir"))?;
+        let workspace_dir = workspace_dir()?;
         let profile = build_profile();
 
-        let pio_install_dir = if let Some(dir) = env::var_os(ESP_IDF_PIO_INSTALL_DIR_VAR) {
-            Some(PathBuf::from(dir).abspath_relative_to(&workspace_dir))
-        } else if is_install_global(ESP_IDF_PIO_GLOBAL_INSTALL_VAR)? {
-            None
-        } else {
-            Some(workspace_dir.join(DEFAULT_LOCAL_INSTALL_DIR))
-        };
+        let install_dir = get_install_dir("platformio")?;
 
-        if let Some(dir) = pio_install_dir.as_ref() {
+        if let Some(install_dir) = install_dir.as_ref() {
             // Workaround an issue in embuild until it is fixed in the next version
-            fs::create_dir_all(dir)?;
+            fs::create_dir_all(install_dir)?;
         }
 
-        let pio = pio::Pio::install(pio_install_dir, pio::LogLevel::Standard, false)?;
+        let pio = pio::Pio::install(install_dir, pio::LogLevel::Standard, false)?;
 
         let resolution = pio::Resolver::new(pio.clone())
             .params(pio::ResolutionParams {

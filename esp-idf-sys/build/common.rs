@@ -7,10 +7,11 @@ use std::{error, fs};
 
 use anyhow::*;
 
-use embuild::cargo::IntoWarning;
-use embuild::utils::OsStrExt;
+use embuild::cargo::{self, IntoWarning};
+use embuild::utils::{OsStrExt, PathExt};
 use embuild::{bindgen, build, kconfig};
 
+pub const ESP_IDF_TOOLS_INSTALL_DIR_VAR: &str = "ESP_IDF_TOOLS_INSTALL_DIR";
 pub const ESP_IDF_GLOB_VAR_PREFIX: &str = "ESP_IDF_GLOB";
 pub const ESP_IDF_SDKCONFIG_DEFAULTS_VAR: &str = "ESP_IDF_SDKCONFIG_DEFAULTS";
 pub const ESP_IDF_SDKCONFIG_VAR: &str = "ESP_IDF_SDKCONFIG";
@@ -24,6 +25,8 @@ pub const STABLE_PATCHES: &[&str] = &[
 
 #[allow(unused)]
 pub const MASTER_PATCHES: &[&str] = &[];
+
+const TOOLS_WORKSPACE_INSTALL_DIR: &str = ".embuild";
 
 const ALL_COMPONENTS: &[&str] = &[
     // TODO: Put all IDF components here
@@ -172,15 +175,37 @@ pub fn get_sdkconfig_profile(path: &Path, profile: &str, chip: &str) -> Option<P
         })
 }
 
-pub fn is_install_global(env_var: impl AsRef<str>) -> Result<bool> {
-    let install_global = match env::var(env_var.as_ref()) {
+pub fn get_install_dir(builder_name: impl AsRef<str>) -> Result<Option<PathBuf>> {
+    let location = match env::var(ESP_IDF_TOOLS_INSTALL_DIR_VAR) {
         Err(env::VarError::NotPresent) => None,
         e => Some(e?),
     };
 
-    let install_global = install_global.map(|s| s.trim().to_lowercase());
-    Ok(matches!(
-        install_global.as_deref(),
-        Some("1" | "true" | "y" | "yes")
-    ))
+    let location = location.unwrap_or_else(|| "workspace".into());
+
+    let dir = match location.to_lowercase().as_str() {
+        "global" => None,
+        "workspace" => Some(
+            workspace_dir()?
+                .join(TOOLS_WORKSPACE_INSTALL_DIR)
+                .join(builder_name.as_ref()),
+        ),
+        "out" => Some(cargo::out_dir().join(builder_name.as_ref())),
+        custom => {
+            if custom.starts_with("custom:") {
+                Some(
+                    PathBuf::from(&custom[0.."custom:".len()])
+                        .abspath_relative_to(&workspace_dir()?),
+                )
+            } else {
+                bail!("Inalid installation directory format. Shold be one of `global`, `workspace`, `out` or `custom:<dir>`");
+            }
+        }
+    };
+
+    Ok(dir)
+}
+
+pub fn workspace_dir() -> Result<PathBuf> {
+    Ok(cargo::workspace_dir().ok_or_else(|| anyhow!("Cannot fetch crate's workspace dir"))?)
 }
