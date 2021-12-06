@@ -237,6 +237,7 @@ macro_rules! impl_hal_output_pin {
         }
 
         impl embedded_hal::digital::v2::StatefulOutputPin for $pxi<$mode> {
+            #[cfg(not(feature = "ulp"))]
             fn is_set_high(&self) -> Result<bool, Self::Error> {
                 let pin = $pxi::<$mode>::runtime_pin() as u32;
 
@@ -252,6 +253,11 @@ macro_rules! impl_hal_output_pin {
                 };
 
                 Ok(is_set_high)
+            }
+
+            #[cfg(feature = "ulp")]
+            fn is_set_high(&self) -> Result<bool, Self::Error> {
+                Ok(unsafe { gpio_get_output_level($pxi::<$mode>::runtime_pin()) } != 0)
             }
 
             fn is_set_low(&self) -> Result<bool, Self::Error> {
@@ -523,6 +529,16 @@ macro_rules! impl_rtc {
             #[inline(always)]
             fn runtime_pin() -> i32 {
                 $rtc
+            }
+
+            /// Degrades a concrete pin (e.g. [`Gpio1`]) to a generic pin
+            /// struct that can also be used with periphals.
+            pub fn degrade(self) -> GpioPin<MODE> {
+                GpioPin::new($pin)
+            }
+
+            pub fn into_unknown(self) -> $pxi<Unknown> {
+                $pxi { _mode: PhantomData }
             }
         }
 

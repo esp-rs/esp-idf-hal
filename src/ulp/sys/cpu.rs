@@ -17,6 +17,7 @@ pub fn get_ccount() -> u32 {
     #[allow(unused_assignments)]
     let mut ccount = 0;
 
+    #[allow(deprecated)]
     unsafe {
         llvm_asm!("rdcycle $0" : "=r"(ccount) : : : "volatile");
     }

@@ -172,3 +172,18 @@ pub unsafe fn gpio_set_level(gpio_num: i32, level: u8) {
         );
     }
 }
+
+#[inline(always)]
+pub unsafe fn gpio_get_output_level(gpio_num: i32) -> u8 {
+    if (reg_get_field(
+        RTC_GPIO_OUT_W1TS_REG,
+        RTC_GPIO_OUT_DATA_W1TS_S,
+        RTC_GPIO_OUT_DATA_W1TS_V,
+    ) & bit(gpio_num as u32))
+        != 0
+    {
+        1
+    } else {
+        0
+    }
+}
