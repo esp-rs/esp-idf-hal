@@ -326,6 +326,24 @@ where
         slave_addr: u8,
         config: config::SlaveConfig,
     ) -> Result<Self, EspError> {
+        #[cfg(any(esp_idf_version = "4.4", esp_idf_version_major = "5"))]
+        let sys_config = i2c_config_t {
+            mode: i2c_mode_t_I2C_MODE_SLAVE,
+            sda_io_num: pins.sda.pin(),
+            sda_pullup_en: config.sda_pullup_enabled,
+            scl_io_num: pins.scl.pin(),
+            scl_pullup_en: config.scl_pullup_enabled,
+            __bindgen_anon_1: i2c_config_t__bindgen_ty_1 {
+                slave: i2c_config_t__bindgen_ty_1__bindgen_ty_2 {
+                    slave_addr: slave_addr as u16,
+                    addr_10bit_en: 0, // For now; to become configurable with embedded-hal V1.0
+                    maximum_speed: 0,
+                },
+            },
+            ..Default::default()
+        };
+
+        #[cfg(not(any(esp_idf_version = "4.4", esp_idf_version_major = "5")))]
         let sys_config = i2c_config_t {
             mode: i2c_mode_t_I2C_MODE_SLAVE,
             sda_io_num: pins.sda.pin(),

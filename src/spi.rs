@@ -175,18 +175,18 @@ impl<SPI: Spi, SCLK: OutputPin, SDO: OutputPin, SDI: InputPin + OutputPin, CS: O
         #[cfg(any(esp_idf_version = "4.4", esp_idf_version_major = "5"))]
         let bus_config = spi_bus_config_t {
             flags: SPICOMMON_BUSFLAG_MASTER,
-            sclk_io_num: SCLK::pin(),
+            sclk_io_num: pins.sclk.pin(),
 
             data4_io_num: -1,
             data5_io_num: -1,
             data6_io_num: -1,
             data7_io_num: -1,
             __bindgen_anon_1: spi_bus_config_t__bindgen_ty_1 {
-                mosi_io_num: SDO::pin(),
+                mosi_io_num: pins.sdo.pin(),
                 //data0_io_num: -1,
             },
             __bindgen_anon_2: spi_bus_config_t__bindgen_ty_2 {
-                miso_io_num: if pins.sdi.is_some() { SDI::pin() } else { -1 },
+                miso_io_num: pins.sdi.as_ref().map_or(-1, |p| p.pin()),
                 //data1_io_num: -1,
             },
             __bindgen_anon_3: spi_bus_config_t__bindgen_ty_3 {
