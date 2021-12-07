@@ -177,47 +177,56 @@ fn build_cargo_first() -> Result<EspIdfBuildOutput> {
 
     // Resolve `ESP_IDF_SDKCONFIG` and `ESP_IDF_SDKCONFIG_DEFAULTS` to an absolute path
     // relative to the workspace directory if not empty.
+    let sdkconfig = env::var_os(ESP_IDF_SDKCONFIG_VAR)
+        .map(|s| {
+            let path = Path::new(&s).abspath_relative_to(&workspace_dir);
+            let path = get_sdkconfig_profile(&path, &profile, &chip_name).unwrap_or(path);
+            cargo::track_file(&path);
+            path
+        })
+        .filter(|v| v.exists());
     let sdkconfig_defaults = {
         let gen_defaults_path = out_dir.join("gen-sdkconfig.defaults");
         fs::write(&gen_defaults_path, generate_sdkconfig_defaults()?)?;
 
-        let mut defaults_paths = gen_defaults_path.into_os_string();
-        if let Some(s) = env::var_os(ESP_IDF_SDKCONFIG_DEFAULTS_VAR) {
-            defaults_paths.push(";");
-            defaults_paths.push(s);
-        }
+        let mut result = vec![gen_defaults_path];
+        result.extend(
+            env::var_os(ESP_IDF_SDKCONFIG_DEFAULTS_VAR)
+                .unwrap_or_default()
+                .try_to_str()?
+                .split(';')
+                .filter_map(|v| {
+                    if !v.is_empty() {
+                        let path = Path::new(v).abspath_relative_to(&workspace_dir);
+                        cargo::track_file(&path);
+                        Some(path)
+                    } else {
+                        None
+                    }
+                }),
+        );
+        result
+    };
+    let defaults_files = sdkconfig_defaults
+        .iter()
         // Use the `sdkconfig` as a defaults file to prevent it from being changed by the
         // build. It must be the last defaults file so that its options have precendence
         // over any actual defaults from files before it.
-        if let Some(s) = env::var_os(ESP_IDF_SDKCONFIG_VAR) {
-            defaults_paths.push(";");
-            let path = Path::new(&s).abspath_relative_to(&workspace_dir);
-            let path = get_sdkconfig_profile(&path, &profile, &chip_name).unwrap_or(path);
-            defaults_paths.push(path);
-        }
-
-        let mut result = OsString::new();
-        for s in defaults_paths
-            .try_to_str()?
-            .split(';')
-            .filter(|v| !v.is_empty())
-            .map(|v| Path::new(v).abspath_relative_to(&workspace_dir))
-        {
-            if !result.is_empty() {
-                result.push(";");
-
-                // This is in here to prevent the first file (which is our generated one)
-                // to be tracked.
-                cargo::track_file(&s);
+        .chain(sdkconfig.as_ref())
+        .try_fold(OsString::new(), |mut accu, p| -> Result<OsString> {
+            if !accu.is_empty() {
+                accu.push(";");
             }
+            // Windows uses `\` as directory separators which cmake can't deal with, so we
+            // convert all back-slashes to forward-slashes here. This would be tedious to
+            // do with an `OsString` so we have to convert it to `str` first.
             if cfg!(windows) {
-                result.push(s.try_to_str()?.replace('\\', "/"));
+                accu.push(p.try_to_str()?.replace('\\', "/"));
             } else {
-                result.push(s);
+                accu.push(p);
             }
-        }
-        result
-    };
+            Ok(accu)
+        })?;
 
     let cmake_toolchain_file = path_buf![
         &idf.esp_idf.worktree(),
@@ -262,7 +271,7 @@ fn build_cargo_first() -> Result<EspIdfBuildOutput> {
         .cxxflag(cxx_flags)
         .env("IDF_PATH", &idf.esp_idf.worktree())
         .env("PATH", &idf.exported_path)
-        .env("SDKCONFIG_DEFAULTS", sdkconfig_defaults)
+        .env("SDKCONFIG_DEFAULTS", defaults_files)
         .env("IDF_TARGET", &chip_name)
         .build();
 

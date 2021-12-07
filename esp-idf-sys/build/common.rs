@@ -176,20 +176,18 @@ pub fn get_sdkconfig_profile(path: &Path, profile: &str, chip: &str) -> Option<P
 pub fn get_install_dir(builder_name: impl AsRef<str>) -> Result<Option<PathBuf>> {
     let location = match env::var(ESP_IDF_TOOLS_INSTALL_DIR_VAR) {
         Err(env::VarError::NotPresent) => None,
-        e => Some(e?),
+        var => Some(var?.to_lowercase()),
     };
 
-    let location = location.unwrap_or_else(|| "workspace".into());
-
-    let dir = match location.to_lowercase().as_str() {
-        "global" => None,
-        "workspace" => Some(
+    let dir = match location.as_deref() {
+        None | Some("workspace") => Some(
             workspace_dir()?
                 .join(TOOLS_WORKSPACE_INSTALL_DIR)
                 .join(builder_name.as_ref()),
         ),
-        "out" => Some(cargo::out_dir().join(builder_name.as_ref())),
-        custom => {
+        Some("global") => None,
+        Some("out") => Some(cargo::out_dir().join(builder_name.as_ref())),
+        Some(custom) => {
             if let Some(suffix) = custom.strip_prefix("custom:") {
                 Some(PathBuf::from(suffix).abspath_relative_to(&workspace_dir()?))
             } else {

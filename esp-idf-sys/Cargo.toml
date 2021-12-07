@@ -14,7 +14,7 @@ links = "esp_idf"
 build = "build/build.rs"
 
 [features]
-default = ["std", "pio"]
+default = ["std"]
 
 std = ["embedded-svc/std"]
 alloc_handler = []
@@ -23,9 +23,9 @@ binstart = []
 libstart = []
 
 # Use `platformio` to build the `esp-idf`
-pio = []
+pio = ["embuild/pio"]
 # Experimental: Use native `esp-idf` tooling to build it
-native = []
+native = ["embuild/cmake", "embuild/espidf"]
 
 [dependencies]
 mutex-trait = "0.2"
@@ -33,7 +33,7 @@ embedded-svc = { version = "0.15.4", default-features = false }
 paste = "1"
 
 [build-dependencies]
-embuild = "0.26"
+embuild = { version = "0.27", features = ["glob"] }
 anyhow = "1"
 strum = { version = "0.21", features = ["derive"] }
 regex = "1.5"
