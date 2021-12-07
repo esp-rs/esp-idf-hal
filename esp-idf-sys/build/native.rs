@@ -118,13 +118,8 @@ fn build_cargo_first() -> Result<EspIdfBuildOutput> {
     );
 
     let install_dir = get_install_dir("espressif")?;
-
     let idf = espidf::Installer::new(esp_idf_version()?)
-        .opts(if install_dir.is_some() {
-            InstallOpts::empty()
-        } else {
-            InstallOpts::NO_GLOBAL_INSTALL
-        })
+        .opts(InstallOpts::empty())
         .local_install_dir(install_dir)
         .git_url(match env::var(ESP_IDF_REPOSITORY_VAR) {
             Err(env::VarError::NotPresent) => None,

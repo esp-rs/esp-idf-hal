@@ -1,12 +1,10 @@
 use std::collections::HashSet;
-use std::env;
 use std::iter::once;
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
-use std::{error, fs};
+use std::{env, error, fs};
 
 use anyhow::*;
-
 use embuild::cargo::{self, IntoWarning};
 use embuild::utils::{OsStrExt, PathExt};
 use embuild::{bindgen, build, kconfig};
@@ -192,13 +190,10 @@ pub fn get_install_dir(builder_name: impl AsRef<str>) -> Result<Option<PathBuf>>
         ),
         "out" => Some(cargo::out_dir().join(builder_name.as_ref())),
         custom => {
-            if custom.starts_with("custom:") {
-                Some(
-                    PathBuf::from(&custom[0.."custom:".len()])
-                        .abspath_relative_to(&workspace_dir()?),
-                )
+            if let Some(suffix) = custom.strip_prefix("custom:") {
+                Some(PathBuf::from(suffix).abspath_relative_to(&workspace_dir()?))
             } else {
-                bail!("Inalid installation directory format. Shold be one of `global`, `workspace`, `out` or `custom:<dir>`");
+                bail!("Invalid installation directory format. Should be one of `global`, `workspace`, `out` or `custom:<dir>`");
             }
         }
     };
