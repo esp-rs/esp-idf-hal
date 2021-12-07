@@ -14,7 +14,7 @@ links = "esp_idf"
 build = "build/build.rs"
 
 [features]
-default = ["std"]
+default = ["std", "pio"]
 
 std = ["embedded-svc/std"]
 alloc_handler = []
