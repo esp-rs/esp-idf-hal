@@ -122,7 +122,7 @@ where
     }
 
     fn reset(&mut self) -> Result<(), Self::Error> {
-        Ok(())
+        esp_result!(unsafe { gpio_reset_pin(self.pin) }, ())
     }
 }
 
@@ -374,7 +374,7 @@ macro_rules! impl_input_base {
             }
 
             fn reset(&mut self) -> Result<(), Self::Error> {
-                Ok(())
+                esp_result!(unsafe { gpio_reset_pin($pin) }, ())
             }
         }
 
@@ -412,7 +412,8 @@ macro_rules! impl_input_only {
                 )
             }
 
-            pub fn into_input(self) -> Result<$pxi<Input>, EspError> {
+            pub fn into_input(mut self) -> Result<$pxi<Input>, EspError> {
+                self.reset()?;
                 esp_result!(
                     unsafe {
                         gpio_set_direction($pxi::<MODE>::runtime_pin(), gpio_mode_t_GPIO_MODE_INPUT)
@@ -459,7 +460,8 @@ macro_rules! impl_input_output {
                 )
             }
 
-            pub fn into_input(self) -> Result<$pxi<Input>, EspError> {
+            pub fn into_input(mut self) -> Result<$pxi<Input>, EspError> {
+                self.reset()?;
                 esp_result!(
                     unsafe {
                         gpio_set_direction($pxi::<MODE>::runtime_pin(), gpio_mode_t_GPIO_MODE_INPUT)
@@ -468,7 +470,8 @@ macro_rules! impl_input_output {
                 )
             }
 
-            pub fn into_input_output(self) -> Result<$pxi<InputOutput>, EspError> {
+            pub fn into_input_output(mut self) -> Result<$pxi<InputOutput>, EspError> {
+                self.reset()?;
                 esp_result!(
                     unsafe {
                         gpio_set_direction(
@@ -480,7 +483,8 @@ macro_rules! impl_input_output {
                 )
             }
 
-            pub fn into_input_output_od(self) -> Result<$pxi<InputOutput>, EspError> {
+            pub fn into_input_output_od(mut self) -> Result<$pxi<InputOutput>, EspError> {
+                self.reset()?;
                 esp_result!(
                     unsafe {
                         gpio_set_direction(
@@ -492,7 +496,8 @@ macro_rules! impl_input_output {
                 )
             }
 
-            pub fn into_output(self) -> Result<$pxi<Output>, EspError> {
+            pub fn into_output(mut self) -> Result<$pxi<Output>, EspError> {
+                self.reset()?;
                 esp_result!(
                     unsafe {
                         gpio_set_direction(
@@ -504,7 +509,8 @@ macro_rules! impl_input_output {
                 )
             }
 
-            pub fn into_output_od(self) -> Result<$pxi<Output>, EspError> {
+            pub fn into_output_od(mut self) -> Result<$pxi<Output>, EspError> {
+                self.reset()?;
                 esp_result!(
                     unsafe {
                         gpio_set_direction(
