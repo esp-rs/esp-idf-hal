@@ -51,7 +51,7 @@ pub struct EspIdfComponents(Vec<&'static str>);
 
 impl EspIdfComponents {
     pub fn new() -> Self {
-        Self(ALL_COMPONENTS.iter().copied().collect::<Vec<_>>())
+        Self(ALL_COMPONENTS.to_vec())
     }
 
     #[allow(dead_code)]
