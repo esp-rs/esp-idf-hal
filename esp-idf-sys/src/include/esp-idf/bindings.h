@@ -54,6 +54,10 @@
 #include "esp_http_server.h"
 #endif
 
+#ifdef ESP_IDF_COMP_MQTT_ENABLED
+#include "mqtt_client.h"
+#endif
+
 #ifdef ESP_IDF_COMP_NVS_FLASH_ENABLED
 #include "nvs.h"
 #include "nvs_flash.h"
