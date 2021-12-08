@@ -122,7 +122,12 @@ where
     }
 
     fn reset(&mut self) -> Result<(), Self::Error> {
-        esp_result!(unsafe { gpio_reset_pin(self.pin) }, ())
+        #[cfg(not(feature = "ulp"))]
+        let res = esp_result!(unsafe { gpio_reset_pin(self.pin) }, ());
+        #[cfg(feature = "ulp")]
+        let res = Ok(());
+
+        res
     }
 }
 
@@ -374,7 +379,12 @@ macro_rules! impl_input_base {
             }
 
             fn reset(&mut self) -> Result<(), Self::Error> {
-                esp_result!(unsafe { gpio_reset_pin($pin) }, ())
+                #[cfg(not(feature = "ulp"))]
+                let res = esp_result!(unsafe { gpio_reset_pin(self.pin()) }, ());
+                #[cfg(feature = "ulp")]
+                let res = Ok(());
+
+                res
             }
         }
 
