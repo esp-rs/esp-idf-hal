@@ -30,5 +30,7 @@ jobs:
         run: export ESP_IDF_SDKCONFIG_DEFAULTS=$(pwd)/.github/configs/sdkconfig.defaults; cargo clippy --no-deps --target riscv32imc-esp-espidf -Zbuild-std=std,panic_abort -Zbuild-std-features=panic_immediate_abort -- -Dwarnings 
       - name: Build | Compile
         run: export ESP_IDF_SDKCONFIG_DEFAULTS=$(pwd)/.github/configs/sdkconfig.defaults; cargo build --target riscv32imc-esp-espidf -Zbuild-std=std,panic_abort -Zbuild-std-features=panic_immediate_abort
+      - name: Build | ULP
+        run: cargo build --features ulp --no-default-features --target riscv32imc-unknown-none-elf -Zbuild-std=core,panic_abort -Zbuild-std-features=panic_immediate_abort
       - name: Build | Compile Native ESP-IDF master no_std
         run: export ESP_IDF_VERSION=master; export ESP_IDF_SDKCONFIG_DEFAULTS=$(pwd)/.github/configs/sdkconfig.defaults; cargo build --features esp-idf-sys/native --no-default-features --target riscv32imc-esp-espidf -Zbuild-std=std,panic_abort -Zbuild-std-features=panic_immediate_abort
