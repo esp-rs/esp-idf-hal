@@ -37,6 +37,7 @@ const ALL_COMPONENTS: &[&str] = &[
     "comp_esp_serial_slave_link_enabled",
     "comp_spi_flash_enabled",
     "comp_esp_adc_cal_enabled",
+    "comp_mqtt_enabled",
 ];
 
 pub struct EspIdfBuildOutput {
