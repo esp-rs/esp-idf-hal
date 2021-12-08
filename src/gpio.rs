@@ -850,7 +850,7 @@ mod chip {
     #[cfg(esp32s2)]
     pin!(Gpio17:17, IO, RTC:17, ADC2:6, DAC:1, NOTOUCH:0);
     #[cfg(esp32s3)]
-    pin!(Gpio17:17, IO, RTC:17, ADC2:6, NODAC:0 NOTOUCH:0);
+    pin!(Gpio17:17, IO, RTC:17, ADC2:6, NODAC:0, NOTOUCH:0);
     #[cfg(esp32s2)]
     pin!(Gpio18:18, IO, RTC:18, ADC2:7, DAC:2, NOTOUCH:0);
     #[cfg(esp32s3)]
