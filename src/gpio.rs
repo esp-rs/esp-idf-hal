@@ -657,20 +657,18 @@ macro_rules! pin {
 
 #[cfg(esp32)]
 mod chip {
-    use {
-        core::marker::PhantomData,
-        embedded_hal::digital::v2::{OutputPin as _, StatefulOutputPin as _},
-    };
+    use core::marker::PhantomData;
 
+    use embedded_hal::digital::v2::{OutputPin as _, StatefulOutputPin as _};
     #[cfg(not(feature = "ulp"))]
     use esp_idf_sys::*;
 
+    use super::*;
     #[cfg(feature = "ulp")]
     use crate::ulp::sys::*;
 
-    use super::*;
-
-    // Not mapped: 20, 24, 28, 29, 30, 31, 37, 38
+    // NOTE: Gpio26 - Gpio32 are used by SPI0/SPI1 for external PSRAM/SPI Flash and
+    //       are not recommended for other uses
     pin!(Gpio0:0, IO, RTC:11, ADC2:1, NODAC:0, TOUCH:1);
     #[cfg(not(feature = "ulp"))]
     pin!(Gpio1:1, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
@@ -718,6 +716,8 @@ mod chip {
     pin!(Gpio34:34, Input, RTC:4, ADC1:6, NODAC:0, NOTOUCH:0);
     pin!(Gpio35:35, Input, RTC:5, ADC1:7, NODAC:0, NOTOUCH:0);
     pin!(Gpio36:36, Input, RTC:0, ADC1:0, NODAC:0, NOTOUCH:0);
+    pin!(Gpio37:37, Input, RTC:1, ADC1:1, NODAC:0, NOTOUCH:0);
+    pin!(Gpio38:38, Input, RTC:2, ADC1:2, NODAC:0, NOTOUCH:0);
     pin!(Gpio39:39, Input, RTC:3, ADC1:3, NODAC:0, NOTOUCH:0);
 
     pub struct Pins {
@@ -768,13 +768,16 @@ mod chip {
         pub gpio34: Gpio34<Unknown>,
         pub gpio35: Gpio35<Unknown>,
         pub gpio36: Gpio36<Unknown>,
+        pub gpio37: Gpio37<Unknown>,
+        pub gpio38: Gpio38<Unknown>,
         pub gpio39: Gpio39<Unknown>,
     }
 
     impl Pins {
         /// # Safety
         ///
-        /// Care should be taken not to instnatiate the Pins structure, if it is already instantiated and used elsewhere
+        /// Care should be taken not to instnatiate the Pins structure, if it is
+        /// already instantiated and used elsewhere
         pub unsafe fn new() -> Self {
             Self {
                 gpio0: Gpio0::<Unknown>::new(),
@@ -824,6 +827,8 @@ mod chip {
                 gpio34: Gpio34::<Unknown>::new(),
                 gpio35: Gpio35::<Unknown>::new(),
                 gpio36: Gpio36::<Unknown>::new(),
+                gpio37: Gpio37::<Unknown>::new(),
+                gpio38: Gpio38::<Unknown>::new(),
                 gpio39: Gpio39::<Unknown>::new(),
             }
         }
