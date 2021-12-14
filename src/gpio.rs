@@ -90,7 +90,7 @@ pub struct Disabled;
 
 pub struct Unknown;
 
-// /// Generic $GpioX pin
+/// Generic $GpioX pin
 pub struct GpioPin<MODE> {
     pin: i32,
     _mode: PhantomData<MODE>,
@@ -105,6 +105,37 @@ where
             pin,
             _mode: PhantomData,
         }
+    }
+
+    fn get_input_level(&self) -> bool {
+        (unsafe { gpio_get_level(self.pin) } != 0)
+    }
+
+    #[cfg(not(feature = "ulp"))]
+    fn get_output_level(&self) -> bool {
+        let pin = self.pin as u32;
+
+        #[cfg(esp32c3)]
+        let is_set_high = unsafe { (*(GPIO_OUT_REG as *const u32) >> pin) & 0x01 != 0 };
+        #[cfg(not(esp32c3))]
+        let is_set_high = if pin <= 31 {
+            // GPIO0 - GPIO31
+            unsafe { (*(GPIO_OUT_REG as *const u32) >> pin) & 0x01 != 0 }
+        } else {
+            // GPIO32+
+            unsafe { (*(GPIO_OUT1_REG as *const u32) >> (pin - 32)) & 0x01 != 0 }
+        };
+
+        is_set_high
+    }
+
+    #[cfg(feature = "ulp")]
+    fn get_output_level(&self) -> bool {
+        (unsafe { gpio_get_output_level(self.pin) } != 0)
+    }
+
+    fn set_output_level(&mut self, on: bool) -> Result<(), EspError> {
+        esp_result!(unsafe { gpio_set_level(self.pin, (on as u8).into()) }, ())
     }
 }
 
@@ -133,10 +164,83 @@ where
 
 impl InputPin for GpioPin<Input> {}
 
+impl embedded_hal::digital::v2::InputPin for GpioPin<Input> {
+    type Error = EspError;
+
+    fn is_high(&self) -> Result<bool, Self::Error> {
+        Ok(self.get_input_level())
+    }
+
+    fn is_low(&self) -> Result<bool, Self::Error> {
+        Ok(!self.get_input_level())
+    }
+}
+
 impl OutputPin for GpioPin<Output> {}
 
-impl OutputPin for GpioPin<InputOutput> {}
+impl embedded_hal::digital::v2::OutputPin for GpioPin<Output> {
+    type Error = EspError;
+
+    fn set_high(&mut self) -> Result<(), Self::Error> {
+        self.set_output_level(true)
+    }
+
+    fn set_low(&mut self) -> Result<(), Self::Error> {
+        self.set_output_level(false)
+    }
+}
+
+impl embedded_hal::digital::v2::StatefulOutputPin for GpioPin<Output> {
+    fn is_set_high(&self) -> Result<bool, Self::Error> {
+        Ok(self.get_output_level())
+    }
+
+    fn is_set_low(&self) -> Result<bool, Self::Error> {
+        Ok(!self.get_output_level())
+    }
+}
+
+impl embedded_hal::digital::v2::toggleable::Default for GpioPin<Output> {}
+
 impl InputPin for GpioPin<InputOutput> {}
+
+impl embedded_hal::digital::v2::InputPin for GpioPin<InputOutput> {
+    type Error = EspError;
+
+    fn is_high(&self) -> Result<bool, Self::Error> {
+        Ok(self.get_input_level())
+    }
+
+    fn is_low(&self) -> Result<bool, Self::Error> {
+        Ok(!self.get_input_level())
+    }
+}
+
+impl OutputPin for GpioPin<InputOutput> {}
+
+impl embedded_hal::digital::v2::OutputPin for GpioPin<InputOutput> {
+    type Error = EspError;
+
+    fn set_high(&mut self) -> Result<(), Self::Error> {
+        self.set_output_level(true)
+    }
+
+    fn set_low(&mut self) -> Result<(), Self::Error> {
+        self.set_output_level(false)
+    }
+}
+
+impl embedded_hal::digital::v2::StatefulOutputPin for GpioPin<InputOutput> {
+    fn is_set_high(&self) -> Result<bool, Self::Error> {
+        Ok(self.get_output_level())
+    }
+
+    fn is_set_low(&self) -> Result<bool, Self::Error> {
+        Ok(!self.get_output_level())
+    }
+}
+
+impl embedded_hal::digital::v2::toggleable::Default for GpioPin<InputOutput> {}
 
 /// Interrupt events
 ///
