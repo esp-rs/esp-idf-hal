@@ -657,20 +657,18 @@ macro_rules! pin {
 
 #[cfg(esp32)]
 mod chip {
-    use {
-        core::marker::PhantomData,
-        embedded_hal::digital::v2::{OutputPin as _, StatefulOutputPin as _},
-    };
+    use core::marker::PhantomData;
 
+    use embedded_hal::digital::v2::{OutputPin as _, StatefulOutputPin as _};
     #[cfg(not(feature = "ulp"))]
     use esp_idf_sys::*;
 
+    use super::*;
     #[cfg(feature = "ulp")]
     use crate::ulp::sys::*;
 
-    use super::*;
-
-    // Not mapped: 20, 24, 28, 29, 30, 31, 37, 38
+    // NOTE: Gpio26 - Gpio32 are used by SPI0/SPI1 for external PSRAM/SPI Flash and
+    //       are not recommended for other uses
     pin!(Gpio0:0, IO, RTC:11, ADC2:1, NODAC:0, TOUCH:1);
     #[cfg(not(feature = "ulp"))]
     pin!(Gpio1:1, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
@@ -718,6 +716,8 @@ mod chip {
     pin!(Gpio34:34, Input, RTC:4, ADC1:6, NODAC:0, NOTOUCH:0);
     pin!(Gpio35:35, Input, RTC:5, ADC1:7, NODAC:0, NOTOUCH:0);
     pin!(Gpio36:36, Input, RTC:0, ADC1:0, NODAC:0, NOTOUCH:0);
+    pin!(Gpio37:37, Input, RTC:1, ADC1:1, NODAC:0, NOTOUCH:0);
+    pin!(Gpio38:38, Input, RTC:2, ADC1:2, NODAC:0, NOTOUCH:0);
     pin!(Gpio39:39, Input, RTC:3, ADC1:3, NODAC:0, NOTOUCH:0);
 
     pub struct Pins {
@@ -768,13 +768,16 @@ mod chip {
         pub gpio34: Gpio34<Unknown>,
         pub gpio35: Gpio35<Unknown>,
         pub gpio36: Gpio36<Unknown>,
+        pub gpio37: Gpio37<Unknown>,
+        pub gpio38: Gpio38<Unknown>,
         pub gpio39: Gpio39<Unknown>,
     }
 
     impl Pins {
         /// # Safety
         ///
-        /// Care should be taken not to instnatiate the Pins structure, if it is already instantiated and used elsewhere
+        /// Care should be taken not to instnatiate the Pins structure, if it is
+        /// already instantiated and used elsewhere
         pub unsafe fn new() -> Self {
             Self {
                 gpio0: Gpio0::<Unknown>::new(),
@@ -824,6 +827,8 @@ mod chip {
                 gpio34: Gpio34::<Unknown>::new(),
                 gpio35: Gpio35::<Unknown>::new(),
                 gpio36: Gpio36::<Unknown>::new(),
+                gpio37: Gpio37::<Unknown>::new(),
+                gpio38: Gpio38::<Unknown>::new(),
                 gpio39: Gpio39::<Unknown>::new(),
             }
         }
@@ -832,20 +837,19 @@ mod chip {
 
 #[cfg(any(esp32s2, esp32s3))]
 mod chip {
-    use {
-        core::marker::PhantomData,
-        embedded_hal::digital::v2::{OutputPin as _, StatefulOutputPin as _},
-    };
+    use core::marker::PhantomData;
 
+    use embedded_hal::digital::v2::{OutputPin as _, StatefulOutputPin as _};
     #[cfg(not(feature = "ulp"))]
     use esp_idf_sys::*;
 
+    use super::*;
     #[cfg(feature = "ulp")]
     use crate::ulp::sys::*;
 
-    use super::*;
-
-    // Not mapped: 22 - 25, 27 - 32
+    // NOTE: Gpio26 - Gpio32 (and Gpio33 - Gpio37 if using Octal RAM/Flash) are used
+    //       by SPI0/SPI1 for external PSRAM/SPI Flash and are not recommended for
+    //       other uses
     pin!(Gpio0:0, IO, RTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
     pin!(Gpio1:1, IO, RTC:1, ADC1:0, NODAC:0, TOUCH:1);
     pin!(Gpio2:2, IO, RTC:2, ADC1:1, NODAC:0, TOUCH:2);
@@ -877,6 +881,18 @@ mod chip {
     #[cfg(not(feature = "ulp"))]
     pin!(Gpio26:26, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
     #[cfg(not(feature = "ulp"))]
+    pin!(Gpio27:27, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
+    #[cfg(not(feature = "ulp"))]
+    pin!(Gpio28:28, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
+    #[cfg(not(feature = "ulp"))]
+    pin!(Gpio29:29, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
+    #[cfg(not(feature = "ulp"))]
+    pin!(Gpio30:30, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
+    #[cfg(not(feature = "ulp"))]
+    pin!(Gpio31:31, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
+    #[cfg(not(feature = "ulp"))]
+    pin!(Gpio32:32, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
+    #[cfg(not(feature = "ulp"))]
     pin!(Gpio33:33, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
     #[cfg(not(feature = "ulp"))]
     pin!(Gpio34:34, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
@@ -906,6 +922,10 @@ mod chip {
     pin!(Gpio46:46, Input, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
     #[cfg(all(esp32s3, not(feature = "ulp")))]
     pin!(Gpio46:46, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
+    #[cfg(all(esp32s3, not(feature = "ulp")))]
+    pin!(Gpio47:47, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
+    #[cfg(all(esp32s3, not(feature = "ulp")))]
+    pin!(Gpio48:48, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
 
     pub struct Pins {
         pub gpio0: Gpio0<Unknown>,
@@ -932,6 +952,18 @@ mod chip {
         pub gpio21: Gpio21<Unknown>,
         #[cfg(not(feature = "ulp"))]
         pub gpio26: Gpio26<Unknown>,
+        #[cfg(not(feature = "ulp"))]
+        pub gpio27: Gpio27<Unknown>,
+        #[cfg(not(feature = "ulp"))]
+        pub gpio28: Gpio28<Unknown>,
+        #[cfg(not(feature = "ulp"))]
+        pub gpio29: Gpio29<Unknown>,
+        #[cfg(not(feature = "ulp"))]
+        pub gpio30: Gpio30<Unknown>,
+        #[cfg(not(feature = "ulp"))]
+        pub gpio31: Gpio31<Unknown>,
+        #[cfg(not(feature = "ulp"))]
+        pub gpio32: Gpio32<Unknown>,
         #[cfg(not(feature = "ulp"))]
         pub gpio33: Gpio33<Unknown>,
         #[cfg(not(feature = "ulp"))]
@@ -960,12 +992,17 @@ mod chip {
         pub gpio45: Gpio45<Unknown>,
         #[cfg(not(feature = "ulp"))]
         pub gpio46: Gpio46<Unknown>,
+        #[cfg(all(esp32s3, not(feature = "ulp")))]
+        pub gpio47: Gpio47<Unknown>,
+        #[cfg(all(esp32s3, not(feature = "ulp")))]
+        pub gpio48: Gpio48<Unknown>,
     }
 
     impl Pins {
         /// # Safety
         ///
-        /// Care should be taken not to instnatiate the Pins structure, if it is already instantiated and used elsewhere
+        /// Care should be taken not to instnatiate the Pins structure, if it is
+        /// already instantiated and used elsewhere
         pub unsafe fn new() -> Self {
             Self {
                 gpio0: Gpio0::<Unknown>::new(),
@@ -992,6 +1029,18 @@ mod chip {
                 gpio21: Gpio21::<Unknown>::new(),
                 #[cfg(not(feature = "ulp"))]
                 gpio26: Gpio26::<Unknown>::new(),
+                #[cfg(not(feature = "ulp"))]
+                gpio27: Gpio27::<Unknown>::new(),
+                #[cfg(not(feature = "ulp"))]
+                gpio28: Gpio28::<Unknown>::new(),
+                #[cfg(not(feature = "ulp"))]
+                gpio29: Gpio29::<Unknown>::new(),
+                #[cfg(not(feature = "ulp"))]
+                gpio30: Gpio30::<Unknown>::new(),
+                #[cfg(not(feature = "ulp"))]
+                gpio31: Gpio31::<Unknown>::new(),
+                #[cfg(not(feature = "ulp"))]
+                gpio32: Gpio32::<Unknown>::new(),
                 #[cfg(not(feature = "ulp"))]
                 gpio33: Gpio33::<Unknown>::new(),
                 #[cfg(not(feature = "ulp"))]
@@ -1020,6 +1069,10 @@ mod chip {
                 gpio45: Gpio45::<Unknown>::new(),
                 #[cfg(not(feature = "ulp"))]
                 gpio46: Gpio46::<Unknown>::new(),
+                #[cfg(all(esp32s3, not(feature = "ulp")))]
+                gpio47: Gpio47::<Unknown>::new(),
+                #[cfg(all(esp32s3, not(feature = "ulp")))]
+                gpio48: Gpio48::<Unknown>::new(),
             }
         }
     }
@@ -1028,29 +1081,33 @@ mod chip {
 #[cfg(esp32c3)]
 #[cfg(not(feature = "ulp"))]
 mod chip {
-    use {
-        core::marker::PhantomData,
-        embedded_hal::digital::v2::{OutputPin as _, StatefulOutputPin as _},
-    };
+    use core::marker::PhantomData;
 
-    #[cfg(not(feature = "ulp"))]
+    use embedded_hal::digital::v2::{OutputPin as _, StatefulOutputPin as _};
     use esp_idf_sys::*;
 
     use super::*;
 
-    // Not mapped: 12 - 17, as these are used by SPI0/1 and not recommended for other uses
-    pin!(Gpio0:0, IO, RTC:0, ADC1:0, NODAC:0, TOUCH:0);
-    pin!(Gpio1:1, IO, RTC:1, ADC1:1, NODAC:0, TOUCH:1);
-    pin!(Gpio2:2, IO, RTC:2, ADC1:2, NODAC:0, TOUCH:2);
-    pin!(Gpio3:3, IO, RTC:3, ADC1:3, NODAC:0, TOUCH:3);
-    pin!(Gpio4:4, IO, RTC:4, ADC1:4, NODAC:0, TOUCH:4);
-    pin!(Gpio5:5, IO, RTC:5, ADC2:0, NODAC:0, TOUCH:5);
-    pin!(Gpio6:6, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
-    pin!(Gpio7:7, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
-    pin!(Gpio8:8, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
-    pin!(Gpio9:9, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
+    // NOTE: Gpio12 - Gpio17 are used by SPI0/SPI1 for external PSRAM/SPI Flash and
+    //       are not recommended for other uses
+    pin!(Gpio0:0,   IO,   RTC:0,  ADC1:0, NODAC:0, NOTOUCH:0);
+    pin!(Gpio1:1,   IO,   RTC:1,  ADC1:1, NODAC:0, NOTOUCH:0);
+    pin!(Gpio2:2,   IO,   RTC:2,  ADC1:2, NODAC:0, NOTOUCH:0);
+    pin!(Gpio3:3,   IO,   RTC:3,  ADC1:3, NODAC:0, NOTOUCH:0);
+    pin!(Gpio4:4,   IO,   RTC:4,  ADC1:4, NODAC:0, NOTOUCH:0);
+    pin!(Gpio5:5,   IO,   RTC:5,  ADC2:0, NODAC:0, NOTOUCH:0);
+    pin!(Gpio6:6,   IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
+    pin!(Gpio7:7,   IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
+    pin!(Gpio8:8,   IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
+    pin!(Gpio9:9,   IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
     pin!(Gpio10:10, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
     pin!(Gpio11:11, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
+    pin!(Gpio12:12, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
+    pin!(Gpio13:13, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
+    pin!(Gpio14:14, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
+    pin!(Gpio15:15, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
+    pin!(Gpio16:16, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
+    pin!(Gpio17:17, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
     pin!(Gpio18:18, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
     pin!(Gpio19:19, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
     pin!(Gpio20:20, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
@@ -1069,6 +1126,12 @@ mod chip {
         pub gpio9: Gpio9<Unknown>,
         pub gpio10: Gpio10<Unknown>,
         pub gpio11: Gpio11<Unknown>,
+        pub gpio12: Gpio12<Unknown>,
+        pub gpio13: Gpio13<Unknown>,
+        pub gpio14: Gpio14<Unknown>,
+        pub gpio15: Gpio15<Unknown>,
+        pub gpio16: Gpio16<Unknown>,
+        pub gpio17: Gpio17<Unknown>,
         pub gpio18: Gpio18<Unknown>,
         pub gpio19: Gpio19<Unknown>,
         pub gpio20: Gpio20<Unknown>,
@@ -1078,7 +1141,8 @@ mod chip {
     impl Pins {
         /// # Safety
         ///
-        /// Care should be taken not to instnatiate the Pins structure, if it is already instantiated and used elsewhere
+        /// Care should be taken not to instantiate the Pins structure, if it is
+        /// already instantiated and used elsewhere
         pub unsafe fn new() -> Self {
             Self {
                 gpio0: Gpio0::<Unknown>::new(),
@@ -1093,6 +1157,12 @@ mod chip {
                 gpio9: Gpio9::<Unknown>::new(),
                 gpio10: Gpio10::<Unknown>::new(),
                 gpio11: Gpio11::<Unknown>::new(),
+                gpio12: Gpio12::<Unknown>::new(),
+                gpio13: Gpio13::<Unknown>::new(),
+                gpio14: Gpio14::<Unknown>::new(),
+                gpio15: Gpio15::<Unknown>::new(),
+                gpio16: Gpio16::<Unknown>::new(),
+                gpio17: Gpio17::<Unknown>::new(),
                 gpio18: Gpio18::<Unknown>::new(),
                 gpio19: Gpio19::<Unknown>::new(),
                 gpio20: Gpio20::<Unknown>::new(),

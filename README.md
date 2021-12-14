@@ -11,3 +11,18 @@ For more information, check out:
 * The [esp-idf-svc](https://github.com/ivmarkov/esp-idf-svc) project
 * The [embedded-hal](https://github.com/rust-embedded/embedded-hal) project
 * The [esp32-hal](https://github.com/esp-rs/esp32-hal) project
+
+## Hardware Notes
+
+Each chip has a number of GPIO pins which are generally used by the `SPI0` and `SPI1` peripherals in order to connect external PSRAM and/or SPI Flash memory. The datasheets explicitly state that these are not recommended for use, however this crate includes them anyways for completeness.
+
+Please refer to the table below to determine the pins which are not recommended for use for your chip.
+
+| Chip         |       GPIOs        |
+| ------------ | :----------------: |
+| **ESP32**    |  6 - 11, 16 - 17   |
+| **ESP32-C3** |      12 - 17       |
+| **ESP32-S2** |      26 - 32       |
+| **ESP32-S3** | 26 - 32, 33 - 37\* |
+
+_\* When using Octal Flash and/or Octal PSRAM_
