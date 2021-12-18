@@ -64,6 +64,12 @@ impl DelayUs<u16> for Ets {
     }
 }
 
+impl DelayUs<u8> for Ets {
+    fn delay_us(&mut self, us: u8) {
+        DelayUs::<u32>::delay_us(self, us as u32);
+    }
+}
+
 impl DelayMs<u32> for Ets {
     fn delay_ms(&mut self, ms: u32) {
         unsafe {
@@ -74,6 +80,12 @@ impl DelayMs<u32> for Ets {
 
 impl DelayMs<u16> for Ets {
     fn delay_ms(&mut self, ms: u16) {
+        DelayMs::<u32>::delay_ms(self, ms as u32);
+    }
+}
+
+impl DelayMs<u8> for Ets {
+    fn delay_ms(&mut self, ms: u8) {
         DelayMs::<u32>::delay_ms(self, ms as u32);
     }
 }
