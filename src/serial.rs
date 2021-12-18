@@ -211,36 +211,43 @@ pub mod config {
     }
 
     impl Config {
+        #[must_use]
         pub fn baudrate(mut self, baudrate: Hertz) -> Self {
             self.baudrate = baudrate;
             self
         }
 
+        #[must_use]
         pub fn parity_none(mut self) -> Self {
             self.parity = Parity::ParityNone;
             self
         }
 
+        #[must_use]
         pub fn parity_even(mut self) -> Self {
             self.parity = Parity::ParityEven;
             self
         }
 
+        #[must_use]
         pub fn parity_odd(mut self) -> Self {
             self.parity = Parity::ParityOdd;
             self
         }
 
+        #[must_use]
         pub fn data_bits(mut self, data_bits: DataBits) -> Self {
             self.data_bits = data_bits;
             self
         }
 
+        #[must_use]
         pub fn stop_bits(mut self, stop_bits: StopBits) -> Self {
             self.stop_bits = stop_bits;
             self
         }
 
+        #[must_use]
         pub fn flow_control(mut self, flow_control: FlowControl) -> Self {
             self.flow_control = flow_control;
             self

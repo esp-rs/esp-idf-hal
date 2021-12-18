@@ -27,21 +27,25 @@ pub mod config {
     }
 
     impl MasterConfig {
+        #[must_use]
         pub fn baudrate(mut self, baudrate: Hertz) -> Self {
             self.baudrate = baudrate;
             self
         }
 
+        #[must_use]
         pub fn timeout(mut self, timeout: Option<Duration>) -> Self {
             self.timeout = timeout;
             self
         }
 
+        #[must_use]
         pub fn sda_enable_pullup(mut self, enable: bool) -> Self {
             self.sda_pullup_enabled = enable;
             self
         }
 
+        #[must_use]
         pub fn scl_enable_pullup(mut self, enable: bool) -> Self {
             self.scl_pullup_enabled = enable;
             self
@@ -70,26 +74,31 @@ pub mod config {
     }
 
     impl SlaveConfig {
+        #[must_use]
         pub fn timeout(mut self, timeout: Option<Duration>) -> Self {
             self.timeout = timeout;
             self
         }
 
+        #[must_use]
         pub fn sda_enable_pullup(mut self, enable: bool) -> Self {
             self.sda_pullup_enabled = enable;
             self
         }
 
+        #[must_use]
         pub fn scl_enable_pullup(mut self, enable: bool) -> Self {
             self.scl_pullup_enabled = enable;
             self
         }
 
+        #[must_use]
         pub fn rx_buffer_length(mut self, len: usize) -> Self {
             self.rx_buf_len = len;
             self
         }
 
+        #[must_use]
         pub fn tx_buffer_length(mut self, len: usize) -> Self {
             self.tx_buf_len = len;
             self
