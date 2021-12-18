@@ -69,16 +69,19 @@ pub mod config {
     }
 
     impl Config {
+        #[must_use]
         pub fn baudrate(mut self, baudrate: Hertz) -> Self {
             self.baudrate = baudrate;
             self
         }
 
+        #[must_use]
         pub fn data_mode(mut self, data_mode: embedded_hal::spi::Mode) -> Self {
             self.data_mode = data_mode;
             self
         }
 
+        #[must_use]
         pub fn bit_order(mut self, bit_order: BitOrder) -> Self {
             self.bit_order = bit_order;
             self
