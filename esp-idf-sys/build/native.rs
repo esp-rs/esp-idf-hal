@@ -2,6 +2,7 @@
 
 use std::convert::TryFrom;
 use std::ffi::OsString;
+use std::iter;
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
 use std::{env, fs};
@@ -185,18 +186,30 @@ fn build_cargo_first() -> Result<EspIdfBuildOutput> {
             path
         })
         .filter(|v| v.exists());
-    let sdkconfig_defaults = {
-        let gen_defaults_path = out_dir.join("gen-sdkconfig.defaults");
-        fs::write(&gen_defaults_path, generate_sdkconfig_defaults()?)?;
 
-        let mut result = vec![gen_defaults_path];
-        result.extend(
+    // We need to filter out .defaults.<chip> files where <chip>
+    // is NOT our architecture, because the CMake build will not
+    // do this for us.
+    //
+    // The relevant logic is in idf.py, but since we are not using idf.py,
+    // we have to do this ourselves.
+    let chip_defaults = format!(".defaults.{}", chip_name.to_string().to_lowercase());
+
+    let gen_defaults_path = out_dir.join("gen-sdkconfig.defaults");
+    fs::write(&gen_defaults_path, generate_sdkconfig_defaults()?)?;
+
+    let defaults_files = iter::once(gen_defaults_path)
+        .chain(
             env::var_os(ESP_IDF_SDKCONFIG_DEFAULTS_VAR)
                 .unwrap_or_default()
                 .try_to_str()?
                 .split(';')
                 .filter_map(|v| {
-                    if !v.is_empty() {
+                    let v = v.trim();
+
+                    let vl = v.to_lowercase();
+                    if !vl.is_empty() && (vl.ends_with(".defaults") || vl.ends_with(&chip_defaults))
+                    {
                         let path = Path::new(v).abspath_relative_to(&workspace_dir);
                         cargo::track_file(&path);
                         Some(path)
@@ -204,15 +217,11 @@ fn build_cargo_first() -> Result<EspIdfBuildOutput> {
                         None
                     }
                 }),
-        );
-        result
-    };
-    let defaults_files = sdkconfig_defaults
-        .iter()
+        )
         // Use the `sdkconfig` as a defaults file to prevent it from being changed by the
         // build. It must be the last defaults file so that its options have precendence
         // over any actual defaults from files before it.
-        .chain(sdkconfig.as_ref())
+        .chain(sdkconfig)
         .try_fold(OsString::new(), |mut accu, p| -> Result<OsString> {
             if !accu.is_empty() {
                 accu.push(";");

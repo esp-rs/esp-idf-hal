@@ -69,6 +69,7 @@ pub fn build() -> Result<EspIdfBuildOutput> {
         let sdkconfig_defaults = sdkconfig_defaults_var
             .try_to_str()?
             .split(';')
+            .map(|v| v.trim())
             .filter(|v| !v.is_empty())
             .map(|v| {
                 let path = Path::new(v).abspath_relative_to(&workspace_dir);
