@@ -2,7 +2,7 @@ use std::collections::HashSet;
 use std::iter::once;
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
-use std::{array, env, error, fs};
+use std::{env, error, fs};
 
 use anyhow::*;
 use embuild::cargo::{self, IntoWarning};
@@ -174,12 +174,15 @@ pub fn list_specific_sdkconfigs(
         let chip_specific = format!("{}.{}", filename, chip);
         let profile_chip_specific = format!("{}.{}", &profile_specific, chip);
 
-        Some(array::IntoIter::new([
-            profile_chip_specific,
-            chip_specific,
-            profile_specific,
-            filename.to_owned(),
-        ]))
+        Some(
+            [
+                profile_chip_specific,
+                chip_specific,
+                profile_specific,
+                filename.to_owned(),
+            ]
+            .into_iter(),
+        )
     } else {
         None
     }

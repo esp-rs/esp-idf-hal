@@ -2,7 +2,7 @@
 name = "esp-idf-sys"
 version = "0.28.3"
 authors = ["Alexey Arbuzov <aarbuzov@termt.com>", "sapir <yasapir@gmail.com>", "Ivan Markov <ivan.markov@gmail.com>"]
-edition = "2018"
+edition = "2021"
 resolver = "2"
 categories = ["embedded", "hardware-support"]
 keywords = ["sys", "idf", "esp-idf", "esp32"]
