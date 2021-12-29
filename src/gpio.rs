@@ -318,6 +318,7 @@ pub struct PushPull;
 pub struct Analog;
 
 /// Drive strength (values are approximates)
+#[cfg(not(feature = "ulp"))]
 pub enum DriveStrength {
     I5mA = 0,
     I10mA = 1,
@@ -325,6 +326,7 @@ pub enum DriveStrength {
     I40mA = 3,
 }
 
+#[cfg(not(feature = "ulp"))]
 impl From<DriveStrength> for gpio_drive_cap_t {
     fn from(strength: DriveStrength) -> gpio_drive_cap_t {
         match strength {
@@ -336,6 +338,7 @@ impl From<DriveStrength> for gpio_drive_cap_t {
     }
 }
 
+#[cfg(not(feature = "ulp"))]
 impl From<gpio_drive_cap_t> for DriveStrength {
     #[allow(non_upper_case_globals)]
     fn from(cap: gpio_drive_cap_t) -> DriveStrength {
