@@ -135,7 +135,23 @@ where
     }
 
     fn set_output_level(&mut self, on: bool) -> Result<(), EspError> {
-        esp_result!(unsafe { gpio_set_level(self.pin, (on as u8).into()) }, ())
+        esp_result!(unsafe { gpio_set_level(self.pin(), (on as u8).into()) }, ())
+    }
+
+    #[cfg(not(feature = "ulp"))]
+    pub fn get_drive_strength(&self) -> Result<DriveStrength, EspError> {
+        let mut cap: gpio_drive_cap_t = 0;
+
+        esp!(unsafe { gpio_get_drive_capability(self.pin(), &mut cap as *mut _) })?;
+
+        Ok(cap.into())
+    }
+
+    #[cfg(not(feature = "ulp"))]
+    pub fn set_drive_strength(&mut self, strength: DriveStrength) -> Result<(), EspError> {
+        esp!(unsafe { gpio_set_drive_capability(self.pin(), strength.into()) })?;
+
+        Ok(())
     }
 }
 
@@ -309,6 +325,30 @@ pub enum DriveStrength {
     I40mA = 3,
 }
 
+impl From<DriveStrength> for gpio_drive_cap_t {
+    fn from(strength: DriveStrength) -> gpio_drive_cap_t {
+        match strength {
+            DriveStrength::I5mA => gpio_drive_cap_t_GPIO_DRIVE_CAP_0,
+            DriveStrength::I10mA => gpio_drive_cap_t_GPIO_DRIVE_CAP_1,
+            DriveStrength::I20mA => gpio_drive_cap_t_GPIO_DRIVE_CAP_2,
+            DriveStrength::I40mA => gpio_drive_cap_t_GPIO_DRIVE_CAP_3,
+        }
+    }
+}
+
+impl From<gpio_drive_cap_t> for DriveStrength {
+    #[allow(non_upper_case_globals)]
+    fn from(cap: gpio_drive_cap_t) -> DriveStrength {
+        match cap {
+            gpio_drive_cap_t_GPIO_DRIVE_CAP_0 => DriveStrength::I5mA,
+            gpio_drive_cap_t_GPIO_DRIVE_CAP_1 => DriveStrength::I10mA,
+            gpio_drive_cap_t_GPIO_DRIVE_CAP_2 => DriveStrength::I20mA,
+            gpio_drive_cap_t_GPIO_DRIVE_CAP_3 => DriveStrength::I40mA,
+            other => panic!("Unknown GPIO pin drive capability: {}", other),
+        }
+    }
+}
+
 macro_rules! impl_hal_input_pin {
     ($pxi:ident: $mode:ident) => {
         impl embedded_hal::digital::v2::InputPin for $pxi<$mode> {
@@ -327,6 +367,24 @@ macro_rules! impl_hal_input_pin {
 
 macro_rules! impl_hal_output_pin {
     ($pxi:ident: $mode:ident) => {
+        impl $pxi<$mode> {
+            #[cfg(not(feature = "ulp"))]
+            pub fn get_drive_strength(&self) -> Result<DriveStrength, EspError> {
+                let mut cap: gpio_drive_cap_t = 0;
+
+                esp!(unsafe { gpio_get_drive_capability(self.pin(), &mut cap as *mut _) })?;
+
+                Ok(cap.into())
+            }
+
+            #[cfg(not(feature = "ulp"))]
+            pub fn set_drive_strength(&mut self, strength: DriveStrength) -> Result<(), EspError> {
+                esp!(unsafe { gpio_set_drive_capability(self.pin(), strength.into()) })?;
+
+                Ok(())
+            }
+        }
+
         impl embedded_hal::digital::v2::OutputPin for $pxi<$mode> {
             type Error = EspError;
 
