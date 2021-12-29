@@ -21,7 +21,7 @@ ulp = []
 [dependencies]
 nb = "0.1.2"
 mutex-trait = "0.2"
-embedded-hal = { version = "0.2", features = ["unproven"] }
+embedded-hal = "=1.0.0-alpha.6"
 esp-idf-sys = { version = "0.28.1", optional = true, default-features = false, features = ["pio"] }
 
 [build-dependencies]

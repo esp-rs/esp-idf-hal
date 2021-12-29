@@ -24,7 +24,7 @@
 
 use crate::gpio::{self, InputPin, OutputPin};
 
-use embedded_hal::blocking::spi::{Transfer, Write, WriteIter};
+use embedded_hal::spi::blocking::{Transfer, Write, WriteIter};
 use embedded_hal::spi::{Phase, Polarity};
 //use embedded_hal::spi::FullDuplex,
 
@@ -269,7 +269,11 @@ impl<SPI: Spi, SCLK: OutputPin, SDO: OutputPin, SDI: InputPin + OutputPin, CS: O
     ///
     /// This function locks the APB bus frequency and chunks the output
     /// for maximum write performance.
-    fn transfer_internal<'a, T>(&mut self, words: &'a mut [T]) -> Result<&'a [T], EspError>
+    fn transfer_internal<T>(
+        &mut self,
+        read: &mut [T],
+        write: &[T],
+    ) -> Result<(), embedded_hal::spi::ErrorKind>
     where
         T: Word,
     {
@@ -289,13 +293,13 @@ impl<SPI: Spi, SCLK: OutputPin, SDO: OutputPin, SDI: InputPin + OutputPin, CS: O
 
         let mut words_index = 0;
 
-        while words_index < words.len() {
+        while words_index < write.len() {
             let mut index = 0;
             let mut words_write_index = words_index;
             while index + core::mem::size_of::<T>() <= tx_buffer.len()
-                && words_write_index < words.len()
+                && words_write_index < write.len()
             {
-                words[words_write_index].store(&mut tx_buffer[index..], self.bit_order);
+                write[words_write_index].store(&mut tx_buffer[index..], self.bit_order);
                 words_write_index += 1;
                 index += core::mem::size_of::<T>();
             }
@@ -307,24 +311,25 @@ impl<SPI: Spi, SCLK: OutputPin, SDO: OutputPin, SDI: InputPin + OutputPin, CS: O
             transaction.length = index as u32 * 8;
             transaction.rxlength = index as u32 * 8;
 
-            esp!(unsafe { spi_device_polling_transmit(self.device, &mut transaction as *mut _) })?;
+            esp!(unsafe { spi_device_polling_transmit(self.device, &mut transaction as *mut _) })
+                .map_err(|_| embedded_hal::spi::ErrorKind::Other)?;
 
             index = 0;
-            while index < transaction.rxlength as usize && words_index < words.len() {
-                words[words_index] = T::load(&rx_buffer[index..], self.bit_order);
+            while index < transaction.rxlength as usize && words_index < read.len() {
+                read[words_index] = T::load(&rx_buffer[index..], self.bit_order);
                 words_index += 1;
                 index += core::mem::size_of::<T>();
             }
         }
 
-        Ok(words)
+        Ok(())
     }
 
     /// Generic write function for iterators
     ///
     /// This function locks the APB bus frequency and chunks the output of the iterator
     /// for maximum write performance.
-    fn write_internal<T>(&mut self, words: &'_ [T]) -> Result<(), EspError>
+    fn write_internal<T>(&mut self, words: &'_ [T]) -> Result<(), embedded_hal::spi::ErrorKind>
     where
         T: Word,
     {
@@ -356,7 +361,8 @@ impl<SPI: Spi, SCLK: OutputPin, SDO: OutputPin, SDI: InputPin + OutputPin, CS: O
             transaction.length = index as u32 * 8;
             transaction.rxlength = 0;
 
-            esp!(unsafe { spi_device_polling_transmit(self.device, &mut transaction as *mut _) })?;
+            esp!(unsafe { spi_device_polling_transmit(self.device, &mut transaction as *mut _) })
+                .map_err(|_| embedded_hal::spi::ErrorKind::Other)?;
         }
 
         Ok(())
@@ -366,7 +372,7 @@ impl<SPI: Spi, SCLK: OutputPin, SDO: OutputPin, SDI: InputPin + OutputPin, CS: O
     ///
     /// This function locks the APB bus frequency and chunks the output of the iterator
     /// for maximum write performance.
-    fn write_iter_internal<T, WI>(&mut self, words: WI) -> Result<(), EspError>
+    fn write_iter_internal<T, WI>(&mut self, words: WI) -> Result<(), embedded_hal::spi::ErrorKind>
     where
         T: Word,
         WI: IntoIterator<Item = T>,
@@ -400,7 +406,8 @@ impl<SPI: Spi, SCLK: OutputPin, SDO: OutputPin, SDI: InputPin + OutputPin, CS: O
             transaction.length = index as u32 * 8;
             transaction.rxlength = 0;
 
-            esp!(unsafe { spi_device_polling_transmit(self.device, &mut transaction as *mut _) })?;
+            esp!(unsafe { spi_device_polling_transmit(self.device, &mut transaction as *mut _) })
+                .map_err(|_| embedded_hal::spi::ErrorKind::Other)?;
         }
 
         Ok(())
@@ -532,36 +539,30 @@ impl Word for u8 {
 impl<SPI: Spi, SCLK: OutputPin, SDO: OutputPin, SDI: InputPin + OutputPin, CS: OutputPin>
     Transfer<u8> for Master<SPI, SCLK, SDO, SDI, CS>
 {
-    type Error = EspError;
+    type Error = embedded_hal::spi::ErrorKind;
 
-    fn transfer<'w>(&mut self, words: &'w mut [u8]) -> core::result::Result<&'w [u8], Self::Error> {
-        self.transfer_internal(words)
+    fn transfer(&mut self, read: &mut [u8], write: &[u8]) -> Result<(), Self::Error> {
+        self.transfer_internal(read, write)
     }
 }
 
 impl<SPI: Spi, SCLK: OutputPin, SDO: OutputPin, SDI: InputPin + OutputPin, CS: OutputPin>
     Transfer<u16> for Master<SPI, SCLK, SDO, SDI, CS>
 {
-    type Error = EspError;
+    type Error = embedded_hal::spi::ErrorKind;
 
-    fn transfer<'w>(
-        &mut self,
-        words: &'w mut [u16],
-    ) -> core::result::Result<&'w [u16], Self::Error> {
-        self.transfer_internal(words)
+    fn transfer(&mut self, read: &mut [u16], write: &[u16]) -> Result<(), Self::Error> {
+        self.transfer_internal(read, write)
     }
 }
 
 impl<SPI: Spi, SCLK: OutputPin, SDO: OutputPin, SDI: InputPin + OutputPin, CS: OutputPin>
     Transfer<u32> for Master<SPI, SCLK, SDO, SDI, CS>
 {
-    type Error = EspError;
+    type Error = embedded_hal::spi::ErrorKind;
 
-    fn transfer<'w>(
-        &mut self,
-        words: &'w mut [u32],
-    ) -> core::result::Result<&'w [u32], Self::Error> {
-        self.transfer_internal(words)
+    fn transfer(&mut self, read: &mut [u32], write: &[u32]) -> Result<(), Self::Error> {
+        self.transfer_internal(read, write)
     }
 }
 
@@ -569,7 +570,7 @@ impl<SPI: Spi, SCLK: OutputPin, SDO: OutputPin, SDI: InputPin + OutputPin, CS: O
 impl<SPI: Spi, SCLK: OutputPin, SDO: OutputPin, SDI: InputPin + OutputPin, CS: OutputPin> Write<u8>
     for Master<SPI, SCLK, SDO, SDI, CS>
 {
-    type Error = EspError;
+    type Error = embedded_hal::spi::ErrorKind;
 
     fn write(&mut self, words: &[u8]) -> Result<(), Self::Error> {
         self.write_iter_internal(words.iter().copied())
@@ -579,7 +580,7 @@ impl<SPI: Spi, SCLK: OutputPin, SDO: OutputPin, SDI: InputPin + OutputPin, CS: O
 impl<SPI: Spi, SCLK: OutputPin, SDO: OutputPin, SDI: InputPin + OutputPin, CS: OutputPin> Write<u16>
     for Master<SPI, SCLK, SDO, SDI, CS>
 {
-    type Error = EspError;
+    type Error = embedded_hal::spi::ErrorKind;
 
     fn write(&mut self, words: &[u16]) -> Result<(), Self::Error> {
         self.write_internal(words)
@@ -589,7 +590,7 @@ impl<SPI: Spi, SCLK: OutputPin, SDO: OutputPin, SDI: InputPin + OutputPin, CS: O
 impl<SPI: Spi, SCLK: OutputPin, SDO: OutputPin, SDI: InputPin + OutputPin, CS: OutputPin> Write<u32>
     for Master<SPI, SCLK, SDO, SDI, CS>
 {
-    type Error = EspError;
+    type Error = embedded_hal::spi::ErrorKind;
 
     fn write(&mut self, words: &[u32]) -> Result<(), Self::Error> {
         self.write_internal(words)
@@ -600,7 +601,7 @@ impl<SPI: Spi, SCLK: OutputPin, SDO: OutputPin, SDI: InputPin + OutputPin, CS: O
 impl<SPI: Spi, SCLK: OutputPin, SDO: OutputPin, SDI: InputPin + OutputPin, CS: OutputPin>
     WriteIter<u8> for Master<SPI, SCLK, SDO, SDI, CS>
 {
-    type Error = EspError;
+    type Error = embedded_hal::spi::ErrorKind;
 
     fn write_iter<WI>(&mut self, words: WI) -> Result<(), Self::Error>
     where
@@ -613,7 +614,7 @@ impl<SPI: Spi, SCLK: OutputPin, SDO: OutputPin, SDI: InputPin + OutputPin, CS: O
 impl<SPI: Spi, SCLK: OutputPin, SDO: OutputPin, SDI: InputPin + OutputPin, CS: OutputPin>
     WriteIter<u16> for Master<SPI, SCLK, SDO, SDI, CS>
 {
-    type Error = EspError;
+    type Error = embedded_hal::spi::ErrorKind;
 
     fn write_iter<WI>(&mut self, words: WI) -> Result<(), Self::Error>
     where
@@ -626,7 +627,7 @@ impl<SPI: Spi, SCLK: OutputPin, SDO: OutputPin, SDI: InputPin + OutputPin, CS: O
 impl<SPI: Spi, SCLK: OutputPin, SDO: OutputPin, SDI: InputPin + OutputPin, CS: OutputPin>
     WriteIter<u32> for Master<SPI, SCLK, SDO, SDI, CS>
 {
-    type Error = EspError;
+    type Error = embedded_hal::spi::ErrorKind;
 
     fn write_iter<WI>(&mut self, words: WI) -> Result<(), Self::Error>
     where

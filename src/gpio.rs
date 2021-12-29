@@ -182,7 +182,7 @@ where
 
 impl InputPin for GpioPin<Input> {}
 
-impl embedded_hal::digital::v2::InputPin for GpioPin<Input> {
+impl embedded_hal::digital::blocking::InputPin for GpioPin<Input> {
     type Error = EspError;
 
     fn is_high(&self) -> Result<bool, Self::Error> {
@@ -196,7 +196,7 @@ impl embedded_hal::digital::v2::InputPin for GpioPin<Input> {
 
 impl OutputPin for GpioPin<Output> {}
 
-impl embedded_hal::digital::v2::OutputPin for GpioPin<Output> {
+impl embedded_hal::digital::blocking::OutputPin for GpioPin<Output> {
     type Error = EspError;
 
     fn set_high(&mut self) -> Result<(), Self::Error> {
@@ -208,7 +208,7 @@ impl embedded_hal::digital::v2::OutputPin for GpioPin<Output> {
     }
 }
 
-impl embedded_hal::digital::v2::StatefulOutputPin for GpioPin<Output> {
+impl embedded_hal::digital::blocking::StatefulOutputPin for GpioPin<Output> {
     fn is_set_high(&self) -> Result<bool, Self::Error> {
         Ok(self.get_output_level())
     }
@@ -218,11 +218,9 @@ impl embedded_hal::digital::v2::StatefulOutputPin for GpioPin<Output> {
     }
 }
 
-impl embedded_hal::digital::v2::toggleable::Default for GpioPin<Output> {}
-
 impl InputPin for GpioPin<InputOutput> {}
 
-impl embedded_hal::digital::v2::InputPin for GpioPin<InputOutput> {
+impl embedded_hal::digital::blocking::InputPin for GpioPin<InputOutput> {
     type Error = EspError;
 
     fn is_high(&self) -> Result<bool, Self::Error> {
@@ -236,7 +234,7 @@ impl embedded_hal::digital::v2::InputPin for GpioPin<InputOutput> {
 
 impl OutputPin for GpioPin<InputOutput> {}
 
-impl embedded_hal::digital::v2::OutputPin for GpioPin<InputOutput> {
+impl embedded_hal::digital::blocking::OutputPin for GpioPin<InputOutput> {
     type Error = EspError;
 
     fn set_high(&mut self) -> Result<(), Self::Error> {
@@ -248,7 +246,7 @@ impl embedded_hal::digital::v2::OutputPin for GpioPin<InputOutput> {
     }
 }
 
-impl embedded_hal::digital::v2::StatefulOutputPin for GpioPin<InputOutput> {
+impl embedded_hal::digital::blocking::StatefulOutputPin for GpioPin<InputOutput> {
     fn is_set_high(&self) -> Result<bool, Self::Error> {
         Ok(self.get_output_level())
     }
@@ -258,17 +256,13 @@ impl embedded_hal::digital::v2::StatefulOutputPin for GpioPin<InputOutput> {
     }
 }
 
-impl embedded_hal::digital::v2::toggleable::Default for GpioPin<InputOutput> {}
+impl embedded_hal::digital::blocking::ToggleableOutputPin for GpioPin<InputOutput> {
+    type Error = EspError;
 
-// Not possible with embedded-hal V0.2 (possible with V1.0)
-// because in V0.2, channel() does not take &self
-// impl<AN: Analog<ADC>, ADC: Adc> embedded_hal::adc::Channel for GpioPin<AN> {
-//     type ID = u8;
-
-//     fn channel() -> Self::ID {
-//         todo!()
-//     }
-// }
+    fn toggle(&mut self) -> Result<(), Self::Error> {
+        self.set_output_level(!self.get_output_level())
+    }
+}
 
 /// Interrupt events
 ///
@@ -345,7 +339,7 @@ impl From<gpio_drive_cap_t> for DriveStrength {
 
 macro_rules! impl_hal_input_pin {
     ($pxi:ident: $mode:ident) => {
-        impl embedded_hal::digital::v2::InputPin for $pxi<$mode> {
+        impl embedded_hal::digital::blocking::InputPin for $pxi<$mode> {
             type Error = EspError;
 
             fn is_high(&self) -> Result<bool, Self::Error> {
@@ -379,7 +373,7 @@ macro_rules! impl_hal_output_pin {
             }
         }
 
-        impl embedded_hal::digital::v2::OutputPin for $pxi<$mode> {
+        impl embedded_hal::digital::blocking::OutputPin for $pxi<$mode> {
             type Error = EspError;
 
             fn set_high(&mut self) -> Result<(), Self::Error> {
@@ -397,7 +391,7 @@ macro_rules! impl_hal_output_pin {
             }
         }
 
-        impl embedded_hal::digital::v2::StatefulOutputPin for $pxi<$mode> {
+        impl embedded_hal::digital::blocking::StatefulOutputPin for $pxi<$mode> {
             #[cfg(not(feature = "ulp"))]
             fn is_set_high(&self) -> Result<bool, Self::Error> {
                 let pin = $pxi::<$mode>::runtime_pin() as u32;
@@ -426,7 +420,7 @@ macro_rules! impl_hal_output_pin {
             }
         }
 
-        impl embedded_hal::digital::v2::ToggleableOutputPin for $pxi<$mode> {
+        impl embedded_hal::digital::blocking::ToggleableOutputPin for $pxi<$mode> {
             type Error = EspError;
 
             fn toggle(&mut self) -> Result<(), Self::Error> {
@@ -784,13 +778,13 @@ macro_rules! impl_adc {
             }
         }
 
-        impl<AN> embedded_hal::adc::Channel<AN> for $pxi<AN>
+        impl<AN> embedded_hal::adc::nb::Channel<AN> for $pxi<AN>
         where
             AN: adc::Analog<adc::ADC1> + Send,
         {
             type ID = u8;
 
-            fn channel() -> Self::ID {
+            fn channel(&self) -> Self::ID {
                 $adc as u8
             }
         }
@@ -852,13 +846,13 @@ macro_rules! impl_adc {
             }
         }
 
-        impl<AN> embedded_hal::adc::Channel<AN> for $pxi<AN>
+        impl<AN> embedded_hal::adc::nb::Channel<AN> for $pxi<AN>
         where
             AN: adc::Analog<adc::ADC2> + Send,
         {
             type ID = u8;
 
-            fn channel() -> Self::ID {
+            fn channel(&self) -> Self::ID {
                 $adc as u8
             }
         }
@@ -921,7 +915,7 @@ macro_rules! pin {
 mod chip {
     use core::marker::PhantomData;
 
-    use embedded_hal::digital::v2::{OutputPin as _, StatefulOutputPin as _};
+    use embedded_hal::digital::blocking::{OutputPin as _, StatefulOutputPin as _};
     #[cfg(not(feature = "ulp"))]
     use esp_idf_sys::*;
 
@@ -1101,7 +1095,7 @@ mod chip {
 mod chip {
     use core::marker::PhantomData;
 
-    use embedded_hal::digital::v2::{OutputPin as _, StatefulOutputPin as _};
+    use embedded_hal::digital::blocking::{OutputPin as _, StatefulOutputPin as _};
     #[cfg(not(feature = "ulp"))]
     use esp_idf_sys::*;
 
@@ -1345,7 +1339,7 @@ mod chip {
 mod chip {
     use core::marker::PhantomData;
 
-    use embedded_hal::digital::v2::{OutputPin as _, StatefulOutputPin as _};
+    use embedded_hal::digital::blocking::{OutputPin as _, StatefulOutputPin as _};
     use esp_idf_sys::*;
 
     use super::*;

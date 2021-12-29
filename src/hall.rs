@@ -15,10 +15,10 @@ impl HallSensor {
 
 unsafe impl Send for HallSensor {}
 
-impl embedded_hal::adc::Channel<adc::ADC1> for HallSensor {
+impl embedded_hal::adc::nb::Channel<adc::ADC1> for HallSensor {
     type ID = ();
 
-    fn channel() -> Self::ID {
+    fn channel(&self) -> Self::ID {
         ()
     }
 }

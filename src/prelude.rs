@@ -9,9 +9,8 @@
 pub use crate::peripherals::*;
 pub use crate::units::*;
 
-pub use embedded_hal::digital::v2::InputPin as _;
-pub use embedded_hal::digital::v2::OutputPin as _;
-pub use embedded_hal::digital::v2::StatefulOutputPin as _;
-pub use embedded_hal::digital::v2::ToggleableOutputPin as _;
-pub use embedded_hal::prelude::*;
-pub use embedded_hal::timer::{Cancel, CountDown, Periodic};
+pub use embedded_hal::digital::blocking::InputPin as _;
+pub use embedded_hal::digital::blocking::OutputPin as _;
+pub use embedded_hal::digital::blocking::StatefulOutputPin as _;
+pub use embedded_hal::digital::blocking::ToggleableOutputPin as _;
+pub use embedded_hal::timer::nb::{Cancel, CountDown};
