@@ -500,20 +500,20 @@ impl<UART: Uart, TX: OutputPin, RX: InputPin, CTS: InputPin, RTS: OutputPin>
     // }
 }
 
-impl<UART: Uart, TX: OutputPin, RX: InputPin, CTS: InputPin, RTS: OutputPin> serial::Read<u8>
+impl<UART: Uart, TX: OutputPin, RX: InputPin, CTS: InputPin, RTS: OutputPin> serial::nb::Read<u8>
     for Serial<UART, TX, RX, CTS, RTS>
 {
-    type Error = EspError;
+    type Error = serial::ErrorKind;
 
     fn read(&mut self) -> nb::Result<u8, Self::Error> {
         self.rx.read()
     }
 }
 
-impl<UART: Uart, TX: OutputPin, RX: InputPin, CTS: InputPin, RTS: OutputPin> serial::Write<u8>
+impl<UART: Uart, TX: OutputPin, RX: InputPin, CTS: InputPin, RTS: OutputPin> serial::nb::Write<u8>
     for Serial<UART, TX, RX, CTS, RTS>
 {
-    type Error = EspError;
+    type Error = serial::ErrorKind;
 
     fn flush(&mut self) -> nb::Result<(), Self::Error> {
         self.tx.flush()
@@ -528,7 +528,7 @@ impl<UART: Uart, TX: OutputPin, RX: InputPin, CTS: InputPin, RTS: OutputPin> cor
     for Serial<UART, TX, RX, CTS, RTS>
 {
     fn write_str(&mut self, s: &str) -> core::fmt::Result {
-        use embedded_hal::serial::Write;
+        use embedded_hal::serial::nb::Write;
         s.as_bytes()
             .iter()
             .try_for_each(|c| nb::block!(self.write(*c)))
@@ -552,8 +552,8 @@ impl<UART: Uart> Rx<UART> {
     // }
 }
 
-impl<UART: Uart> serial::Read<u8> for Rx<UART> {
-    type Error = EspError;
+impl<UART: Uart> serial::nb::Read<u8> for Rx<UART> {
+    type Error = serial::ErrorKind;
 
     fn read(&mut self) -> nb::Result<u8, Self::Error> {
         let mut buf: u8 = 0;
@@ -563,7 +563,7 @@ impl<UART: Uart> serial::Read<u8> for Rx<UART> {
         match unsafe { uart_read_bytes(UART::port(), &mut buf as *mut u8 as *mut _, 1, 0) } {
             1 => Ok(buf),
             0 => Err(nb::Error::WouldBlock),
-            err => Err(nb::Error::Other(EspError::from(err as i32).unwrap())),
+            _ => Err(nb::Error::Other(serial::ErrorKind::Other)),
         }
     }
 }
@@ -580,8 +580,8 @@ impl<UART: Uart> serial::Read<u8> for Rx<UART> {
 //     }
 // }
 
-impl<UART: Uart> serial::Write<u8> for Tx<UART> {
-    type Error = EspError;
+impl<UART: Uart> serial::nb::Write<u8> for Tx<UART> {
+    type Error = serial::ErrorKind;
 
     fn flush(&mut self) -> nb::Result<(), Self::Error> {
         match unsafe { uart_wait_tx_done(UART::port(), 0) } {
@@ -595,17 +595,17 @@ impl<UART: Uart> serial::Write<u8> for Tx<UART> {
         // `uart_write_bytes()` returns error (-1) or how many bytes were written
         match unsafe { uart_write_bytes(UART::port(), &byte as *const u8 as *const _, 1) } {
             1 => Ok(()),
-            err => Err(nb::Error::Other(EspError::from(err as i32).unwrap())),
+            _ => Err(nb::Error::Other(serial::ErrorKind::Other)),
         }
     }
 }
 
 impl<UART: Uart> core::fmt::Write for Tx<UART>
 where
-    Tx<UART>: embedded_hal::serial::Write<u8>,
+    Tx<UART>: embedded_hal::serial::nb::Write<u8>,
 {
     fn write_str(&mut self, s: &str) -> core::fmt::Result {
-        use embedded_hal::serial::Write;
+        use embedded_hal::serial::nb::Write;
         s.as_bytes()
             .iter()
             .try_for_each(|c| nb::block!(self.write(*c)))

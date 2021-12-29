@@ -262,23 +262,23 @@ impl<ADC: Adc> PoweredAdc<ADC> {
 }
 
 #[cfg(not(feature = "ulp"))]
-impl<ADC, AN, PIN> embedded_hal::adc::OneShot<AN, u16, PIN> for PoweredAdc<ADC>
+impl<ADC, AN, PIN> embedded_hal::adc::nb::OneShot<AN, u16, PIN> for PoweredAdc<ADC>
 where
     ADC: Adc,
     AN: Analog<ADC>,
-    PIN: embedded_hal::adc::Channel<AN, ID = u8>,
+    PIN: embedded_hal::adc::nb::Channel<AN, ID = u8>,
 {
     type Error = EspError;
 
-    fn read(&mut self, _pin: &mut PIN) -> nb::Result<u16, Self::Error> {
+    fn read(&mut self, pin: &mut PIN) -> nb::Result<u16, Self::Error> {
         let mut measurement = 0_i32;
 
         if ADC::unit() == adc_unit_t_ADC_UNIT_1 {
-            measurement = unsafe { adc1_get_raw(PIN::channel() as adc_channel_t) };
+            measurement = unsafe { adc1_get_raw(pin.channel() as adc_channel_t) };
         } else {
             let res = unsafe {
                 adc2_get_raw(
-                    PIN::channel() as adc_channel_t,
+                    pin.channel() as adc_channel_t,
                     self.resolution.into(),
                     &mut measurement as *mut _,
                 )
@@ -296,7 +296,7 @@ where
 }
 
 #[cfg(all(esp32, not(feature = "ulp")))]
-impl embedded_hal::adc::OneShot<ADC1, u16, hall::HallSensor> for PoweredAdc<ADC1> {
+impl embedded_hal::adc::nb::OneShot<ADC1, u16, hall::HallSensor> for PoweredAdc<ADC1> {
     type Error = EspError;
 
     fn read(&mut self, _hall_sensor: &mut hall::HallSensor) -> nb::Result<u16, Self::Error> {

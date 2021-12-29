@@ -1,6 +1,5 @@
 use core::time::Duration;
-
-use embedded_hal::blocking::delay::{DelayMs, DelayUs};
+use embedded_hal::delay::blocking::DelayUs;
 
 use esp_idf_sys::*;
 
@@ -50,61 +49,41 @@ impl From<TickType> for Option<Duration> {
 /// Espressif Task Scheduler-based delay provider
 pub struct Ets;
 
-impl DelayUs<u32> for Ets {
-    fn delay_us(&mut self, us: u32) {
+impl DelayUs for Ets {
+    type Error = core::convert::Infallible;
+
+    fn delay_us(&mut self, us: u32) -> Result<(), Self::Error> {
         unsafe {
             ets_delay_us(us);
         }
+        Ok(())
     }
-}
 
-impl DelayUs<u16> for Ets {
-    fn delay_us(&mut self, us: u16) {
-        DelayUs::<u32>::delay_us(self, us as u32);
-    }
-}
-
-impl DelayUs<u8> for Ets {
-    fn delay_us(&mut self, us: u8) {
-        DelayUs::<u32>::delay_us(self, us as u32);
-    }
-}
-
-impl DelayMs<u32> for Ets {
-    fn delay_ms(&mut self, ms: u32) {
+    fn delay_ms(&mut self, ms: u32) -> Result<(), Self::Error> {
         unsafe {
             ets_delay_us(ms * 1000);
         }
-    }
-}
-
-impl DelayMs<u16> for Ets {
-    fn delay_ms(&mut self, ms: u16) {
-        DelayMs::<u32>::delay_ms(self, ms as u32);
-    }
-}
-
-impl DelayMs<u8> for Ets {
-    fn delay_ms(&mut self, ms: u8) {
-        DelayMs::<u32>::delay_ms(self, ms as u32);
+        Ok(())
     }
 }
 
 /// FreeRTOS-based delay provider
 pub struct FreeRtos;
 
-impl DelayMs<u32> for FreeRtos {
-    fn delay_ms(&mut self, ms: u32) {
+impl DelayUs for FreeRtos {
+    type Error = core::convert::Infallible;
+
+    fn delay_us(&mut self, us: u32) -> Result<(), Self::Error> {
+        let ms = us / 1000;
+        Self::delay_ms(self, ms)
+    }
+
+    fn delay_ms(&mut self, ms: u32) -> Result<(), Self::Error> {
         // divide by tick length, rounding up
         let ticks = (ms + portTICK_PERIOD_MS - 1) / portTICK_PERIOD_MS;
         unsafe {
             vTaskDelay(ticks);
         }
-    }
-}
-
-impl DelayMs<u16> for FreeRtos {
-    fn delay_ms(&mut self, ms: u16) {
-        DelayMs::<u32>::delay_ms(self, ms as u32);
+        Ok(())
     }
 }
