@@ -1,11 +1,11 @@
 //! CAN bus peripheral control.
-//! CAN is called Two-Wire Automotive Interface (TWAI) in ESP32 documentation.
 //!
-//! ESP32 has one CAN peripheral.
+//! It is called Two-Wire Automotive Interface (TWAI) in ESP32 documentation.
 //!
 
 use core::marker::PhantomData;
 
+use crate::delay::portMAX_DELAY;
 use crate::gpio::*;
 use embedded_hal::can::blocking::Can;
 use esp_idf_sys::*;
@@ -132,7 +132,9 @@ impl Timing {
 /// let f = Filter::Standard { filter, mask };
 /// ```
 pub enum Filter {
+    // Filter for 11 bit standard CAN IDs
     Standard { filter: u16, mask: u16 },
+    // Filter for 29 bit extended CAN IDs
     Extended { filter: u32, mask: u32 },
 }
 
@@ -196,5 +198,109 @@ impl<TX: OutputPin, RX: InputPin> CanBus<TX, RX> {
             tx: PhantomData,
             rx: PhantomData,
         })
+    }
+}
+
+pub struct Frame(twai_message_t);
+
+impl embedded_hal::can::Frame for Frame {
+    fn new(id: impl Into<embedded_hal::can::Id>, data: &[u8]) -> Option<Self> {
+        let dlc = data.len();
+
+        if dlc <= 8 {
+            // unions are not very well supported in rust
+            // therefore setting those union flags is quite hairy
+            let mut flags = twai_message_t__bindgen_ty_1::default();
+
+            let id: embedded_hal::can::Id = id.into();
+            let id = match id {
+                embedded_hal::can::Id::Standard(id) => id.as_raw() as u32,
+                embedded_hal::can::Id::Extended(id) => {
+                    // set bits in an union
+                    unsafe { flags.__bindgen_anon_1.set_extd(1) };
+                    unsafe { flags.__bindgen_anon_1.set_ss(1) };
+                    id.as_raw()
+                }
+            };
+
+            let mut payload = [0; 8];
+            payload[..dlc].copy_from_slice(data);
+
+            let twai_message = twai_message_t {
+                __bindgen_anon_1: flags,
+                identifier: id,
+                data_length_code: dlc as u8,
+                data: payload,
+            };
+
+            Some(Frame(twai_message))
+        } else {
+            None
+        }
+    }
+
+    fn new_remote(id: impl Into<embedded_hal::can::Id>, dlc: usize) -> Option<Self> {
+        if dlc <= 8 {
+            // unions are not very well supported in rust
+            // therefore setting those union flags is quite hairy
+            let mut flags = twai_message_t__bindgen_ty_1::default();
+
+            let id: embedded_hal::can::Id = id.into();
+            let id = match id {
+                embedded_hal::can::Id::Standard(id) => id.as_raw() as u32,
+                embedded_hal::can::Id::Extended(id) => {
+                    // set bits in an union
+                    unsafe { flags.__bindgen_anon_1.set_rtr(1) };
+                    unsafe { flags.__bindgen_anon_1.set_ss(1) };
+                    id.as_raw()
+                }
+            };
+
+            let twai_message = twai_message_t {
+                __bindgen_anon_1: flags,
+                identifier: id,
+                data_length_code: dlc as u8,
+                data: [0; 8],
+            };
+
+            Some(Frame(twai_message))
+        } else {
+            None
+        }
+    }
+
+    fn is_extended(&self) -> bool {
+        unsafe { self.0.__bindgen_anon_1.__bindgen_anon_1.extd() == 1 }
+    }
+
+    fn is_standard(&self) -> bool {
+        !self.is_extended()
+    }
+
+    fn is_remote_frame(&self) -> bool {
+        unsafe { self.0.__bindgen_anon_1.__bindgen_anon_1.rtr() == 1 }
+    }
+
+    fn is_data_frame(&self) -> bool {
+        !self.is_remote_frame()
+    }
+
+    fn id(&self) -> embedded_hal::can::Id {
+        if unsafe { self.0.__bindgen_anon_1.__bindgen_anon_1.extd() == 1 } {
+            let id =
+                unsafe { embedded_hal::can::StandardId::new_unchecked(self.0.identifier as u16) };
+            embedded_hal::can::Id::Standard(id)
+        } else {
+            let id = unsafe { embedded_hal::can::ExtendedId::new_unchecked(self.0.identifier) };
+            embedded_hal::can::Id::Extended(id)
+        }
+    }
+
+    fn dlc(&self) -> usize {
+        self.0.data_length_code as usize
+    }
+
+    fn data(&self) -> &[u8] {
+        &self.0.data
     }
 }
