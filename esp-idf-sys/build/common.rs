@@ -2,7 +2,7 @@ use std::collections::HashSet;
 use std::iter::once;
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
-use std::{env, error, fs};
+use std::{array, env, error, fs};
 
 use anyhow::*;
 use embuild::cargo::{self, IntoWarning};
@@ -14,6 +14,9 @@ pub const ESP_IDF_GLOB_VAR_PREFIX: &str = "ESP_IDF_GLOB";
 pub const ESP_IDF_SDKCONFIG_DEFAULTS_VAR: &str = "ESP_IDF_SDKCONFIG_DEFAULTS";
 pub const ESP_IDF_SDKCONFIG_VAR: &str = "ESP_IDF_SDKCONFIG";
 pub const MCU_VAR: &str = "MCU";
+
+pub const SDKCONFIG_FILE: &str = "sdkconfig";
+pub const SDKCONFIG_DEFAULTS_FILE: &str = "sdkconfig.defaults";
 
 pub const STABLE_PATCHES: &[&str] = &[
     "patches/missing_xtensa_atomics_fix.diff",
@@ -149,29 +152,47 @@ pub fn build_profile() -> String {
     std::env::var("PROFILE").expect("No cargo `PROFILE` environment variable")
 }
 
-/// Find the appropriate sdkconfig file.
+/// List all appropriate sdkconfig files.
 ///
-/// Returns the path with the following precedence if it exists and is a file:
+/// Returns an iterator of paths with the following patterns and ordering if they exist
+/// and are files:
 /// 1. `<path>.<profile>.<chip>`
 /// 2. `<path>.<chip>`
 /// 3. `<path>.<profile>`
-/// 4. `None`
-pub fn get_sdkconfig_profile(path: &Path, profile: &str, chip: &str) -> Option<PathBuf> {
-    let filename = path.file_name()?.try_to_str().into_warning()?;
-    let profile_specific = format!("{}.{}", filename, profile);
-    let chip_specific = format!("{}.{}", filename, chip);
-    let profile_chip_specific = format!("{}.{}", &profile_specific, chip);
+/// 4. `<path>`
+pub fn list_specific_sdkconfigs(
+    path: PathBuf,
+    profile: &str,
+    chip: &str,
+) -> impl DoubleEndedIterator<Item = PathBuf> {
+    let filename = path
+        .file_name()
+        .and_then(|filename| filename.try_to_str().into_warning());
 
-    [profile_chip_specific, chip_specific, profile_specific]
-        .iter()
-        .find_map(|s| {
-            let path = path.with_file_name(s);
-            if path.is_file() {
-                Some(path)
-            } else {
-                None
-            }
-        })
+    if let Some(filename) = filename {
+        let profile_specific = format!("{}.{}", filename, profile);
+        let chip_specific = format!("{}.{}", filename, chip);
+        let profile_chip_specific = format!("{}.{}", &profile_specific, chip);
+
+        Some(array::IntoIter::new([
+            profile_chip_specific,
+            chip_specific,
+            profile_specific,
+            filename.to_owned(),
+        ]))
+    } else {
+        None
+    }
+    .into_iter()
+    .flatten()
+    .filter_map(move |s| {
+        let path = path.with_file_name(s);
+        if path.is_file() {
+            Some(path)
+        } else {
+            None
+        }
+    })
 }
 
 pub fn get_install_dir(builder_name: impl AsRef<str>) -> Result<Option<PathBuf>> {
