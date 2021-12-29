@@ -201,6 +201,27 @@ impl<TX: OutputPin, RX: InputPin> CanBus<TX, RX> {
     }
 }
 
+impl<TX: OutputPin, RX: InputPin> Can for CanBus<TX, RX> {
+    type Frame = Frame;
+    type Error = embedded_hal::can::ErrorKind;
+
+    fn transmit(&mut self, frame: &Self::Frame) -> Result<(), Self::Error> {
+        esp!(unsafe { twai_transmit(&frame.0, portMAX_DELAY) })
+            .map_err(|_| embedded_hal::can::ErrorKind::Other)
+    }
+
+    fn receive(&mut self) -> Result<Self::Frame, Self::Error> {
+        let mut rx_msg = twai_message_t {
+            ..Default::default()
+        };
+
+        match esp_result!(unsafe { twai_receive(&mut rx_msg, portMAX_DELAY) }, ()) {
+            Ok(_) => Ok(Frame(rx_msg)),
+            Err(_) => Err(embedded_hal::can::ErrorKind::Other),
+        }
+    }
+}
+
 pub struct Frame(twai_message_t);
 
 impl embedded_hal::can::Frame for Frame {
