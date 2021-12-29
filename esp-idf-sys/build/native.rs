@@ -306,8 +306,23 @@ fn build_cargo_first() -> Result<EspIdfBuildOutput> {
         })
         .context("Could not determine the compiler from cmake")?;
 
-    let sdkconfig_json = path_buf![&cmake_build_dir, "config", "sdkconfig.json"];
+    // Save information about the esp-idf build to the out dir so that it can be
+    // easily retrieved by tools that need it.
+    espidf::EspIdfBuildInfo {
+        install_dir: idf.install_dir,
+        esp_idf_dir: idf.esp_idf.worktree().to_owned(),
+        exported_path_var: idf.exported_path.try_to_str()?.to_owned(),
+        venv_python: idf.venv_python,
+        build_dir: cmake_build_dir.clone(),
+        project_dir: out_dir.clone(),
+        compiler: compiler.clone(),
+        mcu: chip_name,
+        sdkconfig,
+        sdkconfig_defaults: Some(sdkconfig_defaults),
+    }
+    .save_json(out_dir.join("esp-idf-build.json"))?;
 
+    let sdkconfig_json = path_buf![&cmake_build_dir, "config", "sdkconfig.json"];
     let build_output = EspIdfBuildOutput {
         cincl_args: build::CInclArgs::try_from(&target.compile_groups[0])?,
         link_args: Some(
