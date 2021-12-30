@@ -3,11 +3,10 @@
 //! It is called Two-Wire Automotive Interface (TWAI) in ESP32 documentation.
 //!
 
-use core::marker::PhantomData;
-
-use crate::delay::portMAX_DELAY;
+use crate::delay::{portMAX_DELAY, TickType};
 use crate::gpio::*;
-use embedded_hal::can::blocking::Can;
+use core::marker::PhantomData;
+use core::time::Duration;
 use esp_idf_sys::*;
 
 /// CAN timing
@@ -201,7 +200,7 @@ impl<TX: OutputPin, RX: InputPin> CanBus<TX, RX> {
     }
 }
 
-impl<TX: OutputPin, RX: InputPin> Can for CanBus<TX, RX> {
+impl<TX: OutputPin, RX: InputPin> embedded_hal::can::blocking::Can for CanBus<TX, RX> {
     type Frame = Frame;
     type Error = embedded_hal::can::ErrorKind;
 
@@ -218,6 +217,37 @@ impl<TX: OutputPin, RX: InputPin> Can for CanBus<TX, RX> {
         match esp_result!(unsafe { twai_receive(&mut rx_msg, portMAX_DELAY) }, ()) {
             Ok(_) => Ok(Frame(rx_msg)),
             Err(_) => Err(embedded_hal::can::ErrorKind::Other),
+        }
+    }
+}
+
+impl<TX: OutputPin, RX: InputPin> embedded_hal::can::nb::Can for CanBus<TX, RX> {
+    type Frame = Frame;
+    type Error = embedded_hal::can::ErrorKind;
+
+    fn transmit(&mut self, frame: &Self::Frame) -> nb::Result<Option<Self::Frame>, Self::Error> {
+        // ESP_FAIL is i32 but others are u32
+        const _ESP_OK: i32 = ESP_OK as i32;
+        const _ESP_ERR_TIMEOUT: i32 = ESP_ERR_TIMEOUT as i32;
+
+        match unsafe { twai_transmit(&frame.0, portMAX_DELAY) } {
+            _ESP_OK => Ok(None),
+            ESP_FAIL => Err(nb::Error::WouldBlock),
+            _ESP_ERR_TIMEOUT => Err(nb::Error::WouldBlock),
+            _ => Err(nb::Error::Other(embedded_hal::can::ErrorKind::Other)),
+        }
+    }
+
+    fn receive(&mut self) -> nb::Result<Self::Frame, Self::Error> {
+        let mut rx_msg = twai_message_t {
+            ..Default::default()
+        };
+
+        let timeout: TickType_t = TickType::from(Duration::from_millis(1)).0;
+        match unsafe { twai_receive(&mut rx_msg, timeout) } as u32 {
+            ESP_OK => Ok(Frame(rx_msg)),
+            ESP_ERR_TIMEOUT => Err(nb::Error::WouldBlock),
+            _ => Err(nb::Error::Other(embedded_hal::can::ErrorKind::Other)),
         }
     }
 }
