@@ -1,7 +1,7 @@
 use crate::ulp::pac::*;
 /// A mini "esp-idf-ulp-sys" module exposing stuff on top of which the ULP HAL support is implemented
 /// (currently, only GPIO)
-/// Implemented as a manual transation of a few C fiels from current ESP-IDF S2 master:
+/// Implemented as a manual transation of a few C fields from current ESP-IDF S2 master:
 /// - https://github.com/espressif/esp-idf/blob/master/components/ulp/ulp_riscv/include/ulp_riscv/ulp_riscv_gpio.h
 use crate::ulp::reg::*;
 
@@ -13,11 +13,22 @@ pub type adc_channel_t = i32;
 pub type dac_channel_t = i32;
 #[allow(non_camel_case_types)]
 pub type touch_pad_t = i32;
+#[allow(non_camel_case_types)]
+pub type adc_atten_t = i32;
 
 #[allow(non_upper_case_globals)]
-pub const adc_unit_t_ADC_UNIT_1: i32 = 0;
+pub const adc_unit_t_ADC_UNIT_1: adc_unit_t = 0;
 #[allow(non_upper_case_globals)]
-pub const adc_unit_t_ADC_UNIT_2: i32 = 1;
+pub const adc_unit_t_ADC_UNIT_2: adc_unit_t = 1;
+
+#[allow(non_upper_case_globals)]
+pub const adc_atten_t_ADC_ATTEN_DB_0: adc_atten_t = 0;
+#[allow(non_upper_case_globals)]
+pub const adc_atten_t_ADC_ATTEN_DB_2_5: adc_atten_t = 1;
+#[allow(non_upper_case_globals)]
+pub const adc_atten_t_ADC_ATTEN_DB_6: adc_atten_t = 2;
+#[allow(non_upper_case_globals)]
+pub const adc_atten_t_ADC_ATTEN_DB_11: adc_atten_t = 3;
 
 #[allow(non_upper_case_globals)]
 pub const gpio_mode_t_GPIO_MODE_DISABLE: u8 = 0;
