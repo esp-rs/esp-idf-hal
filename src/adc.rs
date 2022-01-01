@@ -63,7 +63,7 @@ pub mod config {
     use esp_idf_sys::*;
 
     /// The sampling/readout resolution of the ADC
-    #[derive(PartialEq, Eq, Clone, Copy)]
+    #[derive(Debug, PartialEq, Eq, Clone, Copy)]
     pub enum Resolution {
         #[cfg(esp32)]
         Resolution9Bit,
@@ -106,7 +106,7 @@ pub mod config {
         }
     }
 
-    #[derive(Copy, Clone)]
+    #[derive(Debug, Copy, Clone, Default)]
     pub struct Config {
         pub resolution: Resolution,
         pub calibration: bool,
@@ -127,15 +127,6 @@ pub mod config {
         pub fn calibration(mut self, calibration: bool) -> Self {
             self.calibration = calibration;
             self
-        }
-    }
-
-    impl Default for Config {
-        fn default() -> Self {
-            Self {
-                resolution: Default::default(),
-                calibration: false,
-            }
         }
     }
 }
@@ -279,7 +270,7 @@ where
     type Error = EspError;
 
     fn read(&mut self, _pin: &mut PIN) -> nb::Result<u16, Self::Error> {
-        let mut measurement = 0 as c_types::c_int;
+        let mut measurement = 0_i32;
 
         if ADC::unit() == adc_unit_t_ADC_UNIT_1 {
             measurement = unsafe { adc1_get_raw(PIN::channel() as adc_channel_t) };
