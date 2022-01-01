@@ -139,6 +139,7 @@ pub struct PoweredAdc<ADC: Adc> {
         Option<[Option<esp_adc_cal_characteristics_t>; adc_atten_t_ADC_ATTEN_MAX as usize + 1]>,
 }
 
+#[cfg(not(feature = "ulp"))]
 unsafe impl<ADC: Adc> Send for PoweredAdc<ADC> {}
 
 #[cfg(not(feature = "ulp"))]
