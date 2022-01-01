@@ -9,9 +9,12 @@ compile_error!("Feature `ulp` is currently only supported on esp32s2");
 
 #[macro_use]
 pub mod ulp;
+pub mod adc;
 #[cfg(not(feature = "ulp"))]
 pub mod delay;
 pub mod gpio;
+#[cfg(esp32)]
+pub mod hall;
 #[cfg(not(feature = "ulp"))]
 pub mod i2c;
 pub mod peripherals;

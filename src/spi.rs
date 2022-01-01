@@ -69,6 +69,10 @@ pub mod config {
     }
 
     impl Config {
+        pub fn new() -> Self {
+            Default::default()
+        }
+
         #[must_use]
         pub fn baudrate(mut self, baudrate: Hertz) -> Self {
             self.baudrate = baudrate;

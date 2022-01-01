@@ -27,6 +27,10 @@ pub mod config {
     }
 
     impl MasterConfig {
+        pub fn new() -> Self {
+            Default::default()
+        }
+
         #[must_use]
         pub fn baudrate(mut self, baudrate: Hertz) -> Self {
             self.baudrate = baudrate;
@@ -74,6 +78,10 @@ pub mod config {
     }
 
     impl SlaveConfig {
+        pub fn new() -> Self {
+            Default::default()
+        }
+
         #[must_use]
         pub fn timeout(mut self, timeout: Option<Duration>) -> Self {
             self.timeout = timeout;

@@ -18,6 +18,8 @@ use esp_idf_sys::*;
 #[cfg(feature = "ulp")]
 use crate::ulp::sys::*;
 
+use crate::adc;
+
 pub use chip::*;
 
 /// Extension trait to split a GPIO peripheral into independent pins and registers
@@ -62,22 +64,22 @@ pub trait InputPin: Pin {}
 pub trait OutputPin: Pin {}
 
 pub trait RTCPin: Pin {
-    fn rtc_pin() -> i32;
+    fn rtc_pin(&self) -> i32;
 }
 
 pub trait ADCPin: Pin {
-    fn adc_unit() -> adc_unit_t;
-    fn adc_channel() -> adc_channel_t;
+    fn adc_unit(&self) -> adc_unit_t;
+    fn adc_channel(&self) -> adc_channel_t;
 }
 
 #[cfg(all(not(esp32c3), not(esp32s3)))]
 pub trait DACPin: Pin {
-    fn dac_channel() -> dac_channel_t;
+    fn dac_channel(&self) -> dac_channel_t;
 }
 
 #[cfg(not(esp32c3))]
 pub trait TouchPin: Pin {
-    fn touch_channel() -> touch_pad_t;
+    fn touch_channel(&self) -> touch_pad_t;
 }
 
 pub struct Input;
@@ -258,6 +260,16 @@ impl embedded_hal::digital::v2::StatefulOutputPin for GpioPin<InputOutput> {
 
 impl embedded_hal::digital::v2::toggleable::Default for GpioPin<InputOutput> {}
 
+// Not possible with embedded-hal V0.2 (possible with V1.0)
+// because in V0.2, channel() does not take &self
+// impl<AN: Analog<ADC>, ADC: Adc> embedded_hal::adc::Channel for GpioPin<AN> {
+//     type ID = u8;
+
+//     fn channel() -> Self::ID {
+//         todo!()
+//     }
+// }
+
 /// Interrupt events
 ///
 /// *Note: ESP32 has a bug (3.14), which prevents correct triggering of interrupts when
@@ -286,18 +298,6 @@ pub struct RTCInput<MODE> {
     _mode: PhantomData<MODE>,
 }
 
-/// Floating input (type state)
-pub struct Floating;
-
-/// Pulled down input (type state)
-pub struct PullDown;
-
-/// Pulled up input (type state)
-pub struct PullUp;
-
-/// Pulled up + pulled down input (type state)
-pub struct PullUpDown;
-
 /// Output mode via RTC (type state)
 pub struct RTCOutput<MODE> {
     _mode: PhantomData<MODE>,
@@ -307,15 +307,6 @@ pub struct RTCOutput<MODE> {
 pub struct RTCInputOutput<MODE> {
     _mode: PhantomData<MODE>,
 }
-
-/// Open drain input or output (type state)
-pub struct OpenDrain;
-
-/// Push pull output (type state)
-pub struct PushPull;
-
-/// Analog mode (type state)
-pub struct Analog;
 
 /// Drive strength (values are approximates)
 #[cfg(not(feature = "ulp"))]
@@ -727,7 +718,7 @@ macro_rules! impl_rtc {
         where
             MODE: Send,
         {
-            fn rtc_pin() -> i32 {
+            fn rtc_pin(&self) -> i32 {
                 $rtc
             }
         }
@@ -738,31 +729,137 @@ macro_rules! impl_rtc {
 
 macro_rules! impl_adc {
     ($pxi:ident: $pin:expr, ADC1: $adc:expr) => {
+        #[cfg(not(feature = "ulp"))]
+        impl<MODE> $pxi<MODE>
+        where
+            MODE: Send,
+        {
+            pub fn into_analog_atten_0db(
+                mut self,
+            ) -> Result<$pxi<adc::Atten0dB<adc::ADC1>>, EspError> {
+                self.reset()?;
+                esp!(unsafe { adc1_config_channel_atten($adc, adc_atten_t_ADC_ATTEN_DB_0) })?;
+
+                Ok($pxi { _mode: PhantomData })
+            }
+
+            pub fn into_analog_atten_2p5db(
+                mut self,
+            ) -> Result<$pxi<adc::Atten2p5dB<adc::ADC1>>, EspError> {
+                self.reset()?;
+                esp!(unsafe { adc1_config_channel_atten($adc, adc_atten_t_ADC_ATTEN_DB_2_5) })?;
+
+                Ok($pxi { _mode: PhantomData })
+            }
+
+            pub fn into_analog_atten_6db(
+                mut self,
+            ) -> Result<$pxi<adc::Atten6dB<adc::ADC1>>, EspError> {
+                self.reset()?;
+                esp!(unsafe { adc1_config_channel_atten($adc, adc_atten_t_ADC_ATTEN_DB_6) })?;
+
+                Ok($pxi { _mode: PhantomData })
+            }
+
+            pub fn into_analog_atten_11db(
+                mut self,
+            ) -> Result<$pxi<adc::Atten11dB<adc::ADC1>>, EspError> {
+                self.reset()?;
+                esp!(unsafe { adc1_config_channel_atten($adc, adc_atten_t_ADC_ATTEN_DB_11) })?;
+
+                Ok($pxi { _mode: PhantomData })
+            }
+        }
+
         impl<MODE> ADCPin for $pxi<MODE>
         where
             MODE: Send,
         {
-            fn adc_unit() -> adc_unit_t {
+            fn adc_unit(&self) -> adc_unit_t {
                 adc_unit_t_ADC_UNIT_1
             }
 
-            fn adc_channel() -> adc_channel_t {
+            fn adc_channel(&self) -> adc_channel_t {
                 $adc
+            }
+        }
+
+        impl<AN> embedded_hal::adc::Channel<AN> for $pxi<AN>
+        where
+            AN: adc::Analog<adc::ADC1> + Send,
+        {
+            type ID = u8;
+
+            fn channel() -> Self::ID {
+                $adc as u8
             }
         }
     };
 
     ($pxi:ident: $pin:expr, ADC2: $adc:expr) => {
+        #[cfg(not(feature = "ulp"))]
+        impl<MODE> $pxi<MODE>
+        where
+            MODE: Send,
+        {
+            pub fn into_analog_atten_0db(
+                mut self,
+            ) -> Result<$pxi<adc::Atten0dB<adc::ADC2>>, EspError> {
+                self.reset()?;
+                esp!(unsafe { adc2_config_channel_atten($adc, adc_atten_t_ADC_ATTEN_DB_0) })?;
+
+                Ok($pxi { _mode: PhantomData })
+            }
+
+            pub fn into_analog_atten_2p5db(
+                mut self,
+            ) -> Result<$pxi<adc::Atten2p5dB<adc::ADC2>>, EspError> {
+                self.reset()?;
+                esp!(unsafe { adc2_config_channel_atten($adc, adc_atten_t_ADC_ATTEN_DB_2_5) })?;
+
+                Ok($pxi { _mode: PhantomData })
+            }
+
+            pub fn into_analog_atten_6db(
+                mut self,
+            ) -> Result<$pxi<adc::Atten6dB<adc::ADC2>>, EspError> {
+                self.reset()?;
+                esp!(unsafe { adc2_config_channel_atten($adc, adc_atten_t_ADC_ATTEN_DB_6) })?;
+
+                Ok($pxi { _mode: PhantomData })
+            }
+
+            pub fn into_analog_atten_11db(
+                mut self,
+            ) -> Result<$pxi<adc::Atten11dB<adc::ADC2>>, EspError> {
+                self.reset()?;
+                esp!(unsafe { adc2_config_channel_atten($adc, adc_atten_t_ADC_ATTEN_DB_11) })?;
+
+                Ok($pxi { _mode: PhantomData })
+            }
+        }
+
         impl<MODE> ADCPin for $pxi<MODE>
         where
             MODE: Send,
         {
-            fn adc_unit() -> adc_unit_t {
+            fn adc_unit(&self) -> adc_unit_t {
                 adc_unit_t_ADC_UNIT_2
             }
 
-            fn adc_channel() -> adc_channel_t {
+            fn adc_channel(&self) -> adc_channel_t {
                 $adc
+            }
+        }
+
+        impl<AN> embedded_hal::adc::Channel<AN> for $pxi<AN>
+        where
+            AN: adc::Analog<adc::ADC2> + Send,
+        {
+            type ID = u8;
+
+            fn channel() -> Self::ID {
+                $adc as u8
             }
         }
     };
@@ -777,7 +874,7 @@ macro_rules! impl_dac {
         where
             MODE: Send,
         {
-            fn dac_channel() -> dac_channel_t {
+            fn dac_channel(&self) -> dac_channel_t {
                 $dac
             }
         }
@@ -793,7 +890,7 @@ macro_rules! impl_touch {
         where
             MODE: Send,
         {
-            fn touch_channel() -> touch_pad_t {
+            fn touch_channel(&self) -> touch_pad_t {
                 $touch
             }
         }
