@@ -165,37 +165,30 @@ pub fn list_specific_sdkconfigs(
     profile: &str,
     chip: &str,
 ) -> impl DoubleEndedIterator<Item = PathBuf> {
-    let filename = path
-        .file_name()
-        .and_then(|filename| filename.try_to_str().into_warning());
+    path.file_name()
+        .and_then(|filename| filename.try_to_str().into_warning())
+        .map(|filename| {
+            let profile_specific = format!("{}.{}", filename, profile);
+            let chip_specific = format!("{}.{}", filename, chip);
+            let profile_chip_specific = format!("{}.{}", &profile_specific, chip);
 
-    if let Some(filename) = filename {
-        let profile_specific = format!("{}.{}", filename, profile);
-        let chip_specific = format!("{}.{}", filename, chip);
-        let profile_chip_specific = format!("{}.{}", &profile_specific, chip);
-
-        Some(
             [
                 profile_chip_specific,
                 chip_specific,
                 profile_specific,
                 filename.to_owned(),
             ]
-            .into_iter(),
-        )
-    } else {
-        None
-    }
-    .into_iter()
-    .flatten()
-    .filter_map(move |s| {
-        let path = path.with_file_name(s);
-        if path.is_file() {
-            Some(path)
-        } else {
-            None
-        }
-    })
+        })
+        .into_iter()
+        .flatten()
+        .filter_map(move |s| {
+            let path = path.with_file_name(s);
+            if path.is_file() {
+                Some(path)
+            } else {
+                None
+            }
+        })
 }
 
 pub fn get_install_dir(builder_name: impl AsRef<str>) -> Result<Option<PathBuf>> {

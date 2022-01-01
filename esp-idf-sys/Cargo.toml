@@ -25,7 +25,7 @@ libstart = []
 # Use `platformio` to build the `esp-idf`
 pio = ["embuild/pio"]
 # Experimental: Use native `esp-idf` tooling to build it
-native = ["embuild/cmake", "embuild/espidf"]
+native = ["embuild/cmake", "embuild/espidf", "strum"]
 
 [dependencies]
 mutex-trait = "0.2"
@@ -35,5 +35,6 @@ paste = "1"
 [build-dependencies]
 embuild = { version = "0.27", features = ["glob"] }
 anyhow = "1"
-strum = { version = "0.21", features = ["derive"] }
+strum = { version = "0.21", features = ["derive"], optional = true }
 regex = "1.5"
+bindgen = "0.59"
