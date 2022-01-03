@@ -7,7 +7,11 @@ use crate::delay::{portMAX_DELAY, TickType};
 use crate::gpio::*;
 use core::marker::PhantomData;
 use core::time::Duration;
+use embedded_hal::can::Frame as _;
 use esp_idf_sys::*;
+
+pub use embedded_hal::can::ExtendedId;
+pub use embedded_hal::can::StandardId;
 
 /// CAN timing
 pub enum Timing {
@@ -253,6 +257,17 @@ impl<TX: OutputPin, RX: InputPin> embedded_hal::can::nb::Can for CanBus<TX, RX> 
 }
 
 pub struct Frame(twai_message_t);
+
+impl core::fmt::Display for Frame {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        write!(
+            f,
+            "Frame {{ id: {:?}, data: {:?} }}",
+            self.id(),
+            self.data()
+        )
+    }
+}
 
 impl embedded_hal::can::Frame for Frame {
     fn new(id: impl Into<embedded_hal::can::Id>, data: &[u8]) -> Option<Self> {
