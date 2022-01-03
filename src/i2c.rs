@@ -1,6 +1,11 @@
 use crate::{delay::*, gpio::*, units::*};
-
 use esp_idf_sys::*;
+
+crate::embedded_hal_error!(
+    I2cError,
+    embedded_hal::i2c::Error,
+    embedded_hal::i2c::ErrorKind
+);
 
 pub struct MasterPins<SDA: OutputPin + InputPin, SCL: OutputPin> {
     pub sda: SDA,
@@ -221,35 +226,33 @@ where
     SDA: OutputPin + InputPin,
     SCL: OutputPin,
 {
-    type Error = embedded_hal::i2c::ErrorKind;
+    type Error = I2cError;
 
     fn read(&mut self, addr: u8, buffer: &mut [u8]) -> Result<(), Self::Error> {
-        let command_link = CommandLink::new().map_err(|_| embedded_hal::i2c::ErrorKind::Other)?;
+        let command_link = CommandLink::new().map_err(I2cError::other)?;
 
         unsafe {
-            esp!(i2c_master_start(command_link.0))
-                .map_err(|_| embedded_hal::i2c::ErrorKind::Other)?;
+            esp!(i2c_master_start(command_link.0)).map_err(I2cError::other)?;
             esp!(i2c_master_write_byte(
                 command_link.0,
                 (addr << 1) | (i2c_rw_t_I2C_MASTER_READ as u8),
                 true
             ))
-            .map_err(|_| embedded_hal::i2c::ErrorKind::Other)?;
+            .map_err(I2cError::other)?;
             esp!(i2c_master_read(
                 command_link.0,
                 buffer.as_ptr() as *const u8 as *mut u8,
                 buffer.len() as u32,
                 i2c_ack_type_t_I2C_MASTER_LAST_NACK
             ))
-            .map_err(|_| embedded_hal::i2c::ErrorKind::Other)?;
-            esp!(i2c_master_stop(command_link.0))
-                .map_err(|_| embedded_hal::i2c::ErrorKind::Other)?;
+            .map_err(I2cError::other)?;
+            esp!(i2c_master_stop(command_link.0)).map_err(I2cError::other)?;
 
             esp_result!(
                 i2c_master_cmd_begin(I2C::port(), command_link.0, self.timeout),
                 ()
             )
-            .map_err(|_| embedded_hal::i2c::ErrorKind::Other)
+            .map_err(I2cError::other)
         }
     }
 }
@@ -260,36 +263,33 @@ where
     SDA: OutputPin + InputPin,
     SCL: OutputPin,
 {
-    type Error = embedded_hal::i2c::ErrorKind;
+    type Error = I2cError;
 
     fn write(&mut self, addr: u8, bytes: &[u8]) -> Result<(), Self::Error> {
         unsafe {
-            let command_link =
-                CommandLink::new().map_err(|_| embedded_hal::i2c::ErrorKind::Other)?;
+            let command_link = CommandLink::new().map_err(I2cError::other)?;
 
-            esp!(i2c_master_start(command_link.0))
-                .map_err(|_| embedded_hal::i2c::ErrorKind::Other)?;
+            esp!(i2c_master_start(command_link.0)).map_err(I2cError::other)?;
             esp!(i2c_master_write_byte(
                 command_link.0,
                 (addr << 1) | (i2c_rw_t_I2C_MASTER_WRITE as u8),
                 true
             ))
-            .map_err(|_| embedded_hal::i2c::ErrorKind::Other)?;
+            .map_err(I2cError::other)?;
             esp!(i2c_master_write(
                 command_link.0,
                 bytes.as_ptr() as *const u8 as *mut u8,
                 bytes.len() as u32,
                 true
             ))
-            .map_err(|_| embedded_hal::i2c::ErrorKind::Other)?;
-            esp!(i2c_master_stop(command_link.0))
-                .map_err(|_| embedded_hal::i2c::ErrorKind::Other)?;
+            .map_err(I2cError::other)?;
+            esp!(i2c_master_stop(command_link.0)).map_err(I2cError::other)?;
 
             esp_result!(
                 i2c_master_cmd_begin(I2C::port(), command_link.0, self.timeout),
                 ()
             )
-            .map_err(|_| embedded_hal::i2c::ErrorKind::Other)
+            .map_err(I2cError::other)
         }
     }
 }
@@ -300,52 +300,49 @@ where
     SDA: OutputPin + InputPin,
     SCL: OutputPin,
 {
-    type Error = embedded_hal::i2c::ErrorKind;
+    type Error = I2cError;
 
     fn write_read(&mut self, addr: u8, bytes: &[u8], buffer: &mut [u8]) -> Result<(), Self::Error> {
-        let command_link = CommandLink::new().map_err(|_| embedded_hal::i2c::ErrorKind::Other)?;
+        let command_link = CommandLink::new().map_err(I2cError::other)?;
 
         unsafe {
-            esp!(i2c_master_start(command_link.0))
-                .map_err(|_| embedded_hal::i2c::ErrorKind::Other)?;
+            esp!(i2c_master_start(command_link.0)).map_err(I2cError::other)?;
             esp!(i2c_master_write_byte(
                 command_link.0,
                 (addr << 1) | (i2c_rw_t_I2C_MASTER_WRITE as u8),
                 true
             ))
-            .map_err(|_| embedded_hal::i2c::ErrorKind::Other)?;
+            .map_err(I2cError::other)?;
             esp!(i2c_master_write(
                 command_link.0,
                 bytes.as_ptr() as *const u8 as *mut u8,
                 bytes.len() as u32,
                 true
             ))
-            .map_err(|_| embedded_hal::i2c::ErrorKind::Other)?;
+            .map_err(I2cError::other)?;
 
-            esp!(i2c_master_start(command_link.0))
-                .map_err(|_| embedded_hal::i2c::ErrorKind::Other)?;
+            esp!(i2c_master_start(command_link.0)).map_err(I2cError::other)?;
             esp!(i2c_master_write_byte(
                 command_link.0,
                 (addr << 1) | (i2c_rw_t_I2C_MASTER_READ as u8),
                 true
             ))
-            .map_err(|_| embedded_hal::i2c::ErrorKind::Other)?;
+            .map_err(I2cError::other)?;
             esp!(i2c_master_read(
                 command_link.0,
                 buffer.as_ptr() as *const u8 as *mut u8,
                 buffer.len() as u32,
                 i2c_ack_type_t_I2C_MASTER_LAST_NACK
             ))
-            .map_err(|_| embedded_hal::i2c::ErrorKind::Other)?;
+            .map_err(I2cError::other)?;
 
-            esp!(i2c_master_stop(command_link.0))
-                .map_err(|_| embedded_hal::i2c::ErrorKind::Other)?;
+            esp!(i2c_master_stop(command_link.0)).map_err(I2cError::other)?;
 
             esp_result!(
                 i2c_master_cmd_begin(I2C::port(), command_link.0, self.timeout),
                 ()
             )
-            .map_err(|_| embedded_hal::i2c::ErrorKind::Other)
+            .map_err(I2cError::other)
         }
     }
 }

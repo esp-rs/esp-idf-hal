@@ -44,8 +44,6 @@ use core::ptr;
 
 use embedded_hal::serial;
 
-//use crate::prelude::*;
-
 use crate::gpio::*;
 use crate::units::*;
 
