@@ -367,6 +367,6 @@ impl embedded_hal::can::Frame for Frame {
     }
 
     fn data(&self) -> &[u8] {
-        &self.0.data
+        &self.0.data[..self.dlc()]
     }
 }
