@@ -7,6 +7,8 @@ use esp_idf_sys::EspMutex;
 use crate::ulp::sys::EspMutex;
 
 use crate::adc;
+#[cfg(not(feature = "ulp"))]
+use crate::can;
 use crate::gpio;
 #[cfg(esp32)]
 use crate::hall;
@@ -39,6 +41,8 @@ pub struct Peripherals {
     pub adc2: adc::ADC2,
     #[cfg(esp32)]
     pub hall_sensor: hall::HallSensor,
+    #[cfg(not(feature = "ulp"))]
+    pub can: can::CAN,
 }
 
 static mut TAKEN: EspMutex<bool> = EspMutex::new(false);
@@ -83,6 +87,8 @@ impl Peripherals {
             adc2: adc::ADC2::new(),
             #[cfg(esp32)]
             hall_sensor: hall::HallSensor::new(),
+            #[cfg(not(feature = "ulp"))]
+            can: can::CAN::new(),
         }
     }
 }
