@@ -584,7 +584,7 @@ impl<UART: Uart> serial::Write<u8> for Tx<UART> {
     type Error = EspError;
 
     fn flush(&mut self) -> nb::Result<(), Self::Error> {
-        match unsafe { uart_wait_tx_done(UART::port(), 0) } as u32 {
+        match unsafe { uart_wait_tx_done(UART::port(), 0) } {
             ESP_OK => Ok(()),
             ESP_ERR_TIMEOUT => Err(nb::Error::WouldBlock),
             _ => unreachable!(),
