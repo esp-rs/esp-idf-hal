@@ -1106,8 +1106,6 @@ mod chip {
     use esp_idf_sys::*;
 
     use super::*;
-    #[cfg(feature = "ulp")]
-    use crate::ulp::sys::*;
 
     // NOTE: Gpio26 - Gpio32 (and Gpio33 - Gpio37 if using Octal RAM/Flash) are used
     //       by SPI0/SPI1 for external PSRAM/SPI Flash and are not recommended for

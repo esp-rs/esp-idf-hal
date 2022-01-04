@@ -9,6 +9,8 @@ pub mod sys;
 #[cfg(feature = "ulp")]
 pub mod delay;
 #[cfg(feature = "ulp")]
+pub mod mutex;
+#[cfg(feature = "ulp")]
 pub mod start;
 
 #[cfg(not(feature = "ulp"))]

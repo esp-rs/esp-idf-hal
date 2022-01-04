@@ -1,10 +1,8 @@
-use mutex_trait::*;
-
 #[cfg(not(feature = "ulp"))]
-use esp_idf_sys::EspMutex;
+use crate::mutex;
 
 #[cfg(feature = "ulp")]
-use crate::ulp::sys::EspMutex;
+use crate::ulp::mutex;
 
 use crate::adc;
 use crate::gpio;
@@ -41,19 +39,17 @@ pub struct Peripherals {
     pub hall_sensor: hall::HallSensor,
 }
 
-static mut TAKEN: EspMutex<bool> = EspMutex::new(false);
+static TAKEN: mutex::Mutex<bool> = mutex::Mutex::new(false);
 
 impl Peripherals {
     pub fn take() -> Option<Self> {
-        unsafe {
-            TAKEN.lock(|taken| {
-                if *taken {
-                    None
-                } else {
-                    *taken = true;
-                    Some(Peripherals::new())
-                }
-            })
+        let mut taken = TAKEN.lock();
+
+        if *taken {
+            None
+        } else {
+            *taken = true;
+            Some(unsafe { Peripherals::new() })
         }
     }
 

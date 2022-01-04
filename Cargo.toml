@@ -1,6 +1,6 @@
 [package]
 name = "esp-idf-hal"
-version = "0.30.0"
+version = "0.31.0"
 authors = ["sapir <yasapir@gmail.com>", "Ivan Markov <ivan.markov@gmail.com>"]
 edition = "2018"
 resolver = "2"
@@ -16,13 +16,18 @@ default = ["std", "esp-idf-sys"]
 
 std = ["esp-idf-sys/std"]
 
+embedded-svc-mutex = ["embedded-svc"]
+
 ulp = []
+
+experimental = []
 
 [dependencies]
 nb = "0.1.2"
-mutex-trait = "0.2"
+mutex-trait = { version = "0.2", optional = true, default-features = false }
 embedded-hal = { version = "0.2", features = ["unproven"] }
-esp-idf-sys = { version = "0.28.1", optional = true, default-features = false, features = ["pio"] }
+embedded-svc = { version = "0.16", optional = true, default-features = false }
+esp-idf-sys = { version = "0.29", optional = true, default-features = false, features = ["pio"] }
 
 [build-dependencies]
 embuild = "0.27"
