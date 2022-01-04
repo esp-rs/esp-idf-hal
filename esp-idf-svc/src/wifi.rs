@@ -9,10 +9,10 @@ use alloc::vec;
 use ::log::*;
 use enumset::*;
 
-use mutex_trait::Mutex;
-
 use embedded_svc::ipv4;
 use embedded_svc::wifi::*;
+
+use esp_idf_hal::mutex;
 
 use esp_idf_sys::*;
 
@@ -181,7 +181,7 @@ impl From<Newtype<&wifi_ap_record_t>> for AccessPointInfo {
     }
 }
 
-static mut TAKEN: EspMutex<bool> = EspMutex::new(false);
+static TAKEN: mutex::Mutex<bool> = mutex::Mutex::new(false);
 
 struct Shared {
     client_ip_conf: Option<ipv4::ClientConfiguration>,
@@ -224,18 +224,16 @@ impl EspWifi {
         sys_loop_stack: Arc<EspSysLoopStack>,
         nvs: Arc<EspDefaultNvs>,
     ) -> Result<Self, EspError> {
-        unsafe {
-            TAKEN.lock(|taken| {
-                if *taken {
-                    Err(EspError::from(ESP_ERR_INVALID_STATE as i32).unwrap())
-                } else {
-                    let wifi = Self::init(netif_stack, sys_loop_stack, nvs)?;
+        let mut taken = TAKEN.lock();
 
-                    *taken = true;
-                    Ok(wifi)
-                }
-            })
+        if *taken {
+            esp!(ESP_ERR_INVALID_STATE as i32)?;
         }
+
+        let wifi = Self::init(netif_stack, sys_loop_stack, nvs)?;
+
+        *taken = true;
+        Ok(wifi)
     }
 
     fn init(
@@ -838,11 +836,11 @@ impl EspWifi {
 
 impl Drop for EspWifi {
     fn drop(&mut self) {
-        unsafe {
-            TAKEN.lock(|taken| {
-                self.clear_all().unwrap();
-                *taken = false;
-            });
+        {
+            let mut taken = TAKEN.lock();
+
+            self.clear_all().unwrap();
+            *taken = false;
         }
 
         info!("Dropped");

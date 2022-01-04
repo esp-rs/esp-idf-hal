@@ -7,16 +7,16 @@ use alloc::vec;
 
 use ::log::*;
 
-use mutex_trait::*;
-
 use embedded_svc::io;
 use embedded_svc::ota;
+
+use esp_idf_hal::mutex;
 
 use esp_idf_sys::*;
 
 use crate::private::{common::*, cstr::*};
 
-static mut TAKEN: EspMutex<bool> = EspMutex::new(false);
+static TAKEN: mutex::Mutex<bool> = mutex::Mutex::new(false);
 
 impl From<Newtype<&esp_app_desc_t>> for ota::FirmwareInfo {
     fn from(app_desc: Newtype<&esp_app_desc_t>) -> Self {
@@ -146,16 +146,14 @@ pub struct EspOta<MODE>(MODE);
 
 impl EspOta<Read> {
     pub fn new() -> Result<Self, EspError> {
-        unsafe {
-            TAKEN.lock(|taken| {
-                if *taken {
-                    Err(EspError::from(ESP_ERR_INVALID_STATE as i32).unwrap())
-                } else {
-                    *taken = true;
-                    Ok(Self(Read))
-                }
-            })
+        let mut taken = TAKEN.lock();
+
+        if *taken {
+            esp!(ESP_ERR_INVALID_STATE as i32)?;
         }
+
+        *taken = true;
+        Ok(Self(Read))
     }
 
     fn get_factory_partition(&self) -> Result<*const esp_partition_t, EspError> {
@@ -181,11 +179,7 @@ impl EspOta<Read> {
 
 impl<MODE> Drop for EspOta<MODE> {
     fn drop(&mut self) {
-        unsafe {
-            TAKEN.lock(|taken| {
-                *taken = false;
-            });
-        }
+        *TAKEN.lock() = false;
 
         info!("Dropped");
     }

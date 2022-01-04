@@ -17,6 +17,8 @@ use embedded_svc::http::server::{
 use embedded_svc::http::*;
 use embedded_svc::io::{Read, Write};
 
+use esp_idf_hal::mutex;
+
 use esp_idf_sys::*;
 
 use crate::private::common::Newtype;
@@ -116,8 +118,8 @@ impl From<Method> for Newtype<c_types::c_uint> {
     }
 }
 
-type EspSessionMutex = EspMutex<Option<BTreeMap<String, Vec<u8>>>>;
-type EspSessionsMutex = EspMutex<BTreeMap<String, session::SessionData<EspSessionMutex>>>;
+type EspSessionMutex = mutex::Mutex<Option<BTreeMap<String, Vec<u8>>>>;
+type EspSessionsMutex = mutex::Mutex<BTreeMap<String, session::SessionData<EspSessionMutex>>>;
 type EspSessions = session::Sessions<EspSessionsMutex, EspSessionMutex>;
 type EspRequestScopedSession = session::RequestScopedSession<EspSessionsMutex, EspSessionMutex>;
 

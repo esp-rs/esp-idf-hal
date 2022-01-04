@@ -1,48 +1,37 @@
 use core::time::Duration;
 
-#[cfg(feature = "std")]
-use std::sync::{Condvar, Mutex};
-
 #[cfg(not(feature = "std"))]
 use esp_idf_sys::*;
 
-#[cfg(not(feature = "std"))]
 use embedded_svc::mutex::Mutex;
 
 pub struct Waitable<T> {
     #[cfg(feature = "std")]
-    cvar: Condvar,
+    cvar: std::sync::Condvar,
     #[cfg(feature = "std")]
-    state: Mutex<T>,
+    state: std::sync::Mutex<T>,
     #[cfg(not(feature = "std"))]
-    state: EspMutex<T>,
+    state: esp_idf_hal::mutex::Mutex<T>,
 }
 
 impl<T> Waitable<T> {
     pub fn new(state: T) -> Self {
         Self {
             #[cfg(feature = "std")]
-            cvar: Condvar::new(),
+            cvar: std::sync::Condvar::new(),
             #[cfg(feature = "std")]
-            state: Mutex::new(state),
+            state: std::sync::Mutex::new(state),
             #[cfg(not(feature = "std"))]
-            state: EspMutex::new(state),
+            state: esp_idf_hal::mutex::Mutex::new(state),
         }
     }
 
-    #[cfg(feature = "std")]
     pub fn get<Q>(&self, getter: impl FnOnce(&T) -> Q) -> Q {
-        getter(&self.state.lock().unwrap())
+        getter(&Mutex::lock(&self.state))
     }
 
-    #[cfg(not(feature = "std"))]
-    pub fn get<Q>(&self, getter: impl FnOnce(&T) -> Q) -> Q {
-        self.state.with_lock(|state| getter(state))
-    }
-
-    #[cfg(feature = "std")]
     pub fn modify<Q>(&mut self, modifier: impl FnOnce(&mut T) -> (bool, Q)) -> Q {
-        let mut guard = self.state.lock().unwrap();
+        let mut guard = Mutex::lock(&self.state);
 
         let (notify, result) = modifier(&mut *guard);
 
@@ -51,11 +40,6 @@ impl<T> Waitable<T> {
         }
 
         result
-    }
-
-    #[cfg(not(feature = "std"))]
-    pub fn modify<Q>(&mut self, modifier: impl FnOnce(&mut T) -> (bool, Q)) -> Q {
-        self.state.with_lock(|state| modifier(state).1)
     }
 
     pub fn wait_while(&self, condition: impl Fn(&T) -> bool) {
@@ -88,12 +72,12 @@ impl<T> Waitable<T> {
         getter: impl Fn(&T) -> Q,
     ) -> Q {
         loop {
-            let (cond, value) = self
-                .state
-                .with_lock(|state| (condition(&state), getter(&state)));
+            {
+                let state = Mutex::lock(self);
 
-            if !cond {
-                return value;
+                if !condition(&state) {
+                    return getter(&state);
+                }
             }
 
             unsafe { vTaskDelay(500) };
@@ -130,14 +114,14 @@ impl<T> Waitable<T> {
         let end = now + dur.as_micros();
 
         loop {
-            let (cond, value) = self
-                .state
-                .with_lock(|state| (condition(&state), getter(&state)));
+            {
+                let state = Mutex::lock(self.state);
 
-            if !cond {
-                return (false, value);
-            } else if micros_since_boot() > end {
-                return (true, value);
+                if !condition(&state) {
+                    return (false, getter(&state));
+                } else if micros_since_boot() > end {
+                    return (true, getter(&state));
+                }
             }
 
             unsafe { vTaskDelay(500) };

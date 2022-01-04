@@ -1,6 +1,6 @@
-use mutex_trait::Mutex;
-
 use embedded_svc::ipv4;
+
+use esp_idf_hal::mutex;
 
 use esp_idf_sys::*;
 
@@ -26,20 +26,18 @@ impl Protocol {
     }
 }
 
-static mut TAKEN: EspMutex<bool> = EspMutex::new(false);
+static TAKEN: mutex::Mutex<bool> = mutex::Mutex::new(false);
 
 impl EspNapt {
     pub fn new() -> Result<Self, EspError> {
-        unsafe {
-            TAKEN.lock(|taken| {
-                if *taken {
-                    Err(EspError::from(ESP_ERR_INVALID_STATE as i32).unwrap())
-                } else {
-                    *taken = true;
-                    Ok(Self(PrivateData))
-                }
-            })
+        let mut taken = TAKEN.lock();
+
+        if *taken {
+            esp!(ESP_ERR_INVALID_STATE as i32)?;
         }
+
+        *taken = true;
+        Ok(Self(PrivateData))
     }
 
     pub fn add_portmap(
@@ -67,10 +65,6 @@ impl EspNapt {
 
 impl Drop for EspNapt {
     fn drop(&mut self) {
-        unsafe {
-            TAKEN.lock(|taken| {
-                *taken = false;
-            });
-        }
+        *TAKEN.lock() = false;
     }
 }

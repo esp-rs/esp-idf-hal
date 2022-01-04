@@ -2,15 +2,15 @@ extern crate alloc;
 
 use ::log::*;
 
-use mutex_trait::*;
+use esp_idf_hal::mutex;
 
 use esp_idf_sys::*;
 
 use crate::private::cstr::*;
 
-static mut DEFAULT_TAKEN: EspMutex<bool> = EspMutex::new(false);
-static mut NONDEFAULT_LOCKED: EspMutex<alloc::collections::BTreeSet<CString>> =
-    EspMutex::new(alloc::collections::BTreeSet::new());
+static DEFAULT_TAKEN: mutex::Mutex<bool> = mutex::Mutex::new(false);
+static NONDEFAULT_LOCKED: mutex::Mutex<alloc::collections::BTreeSet<CString>> =
+    mutex::Mutex::new(alloc::collections::BTreeSet::new());
 
 #[derive(Debug)]
 struct PrivateData;
@@ -20,26 +20,24 @@ pub struct EspDefaultNvs(PrivateData);
 
 impl EspDefaultNvs {
     pub fn new() -> Result<Self, EspError> {
-        unsafe {
-            DEFAULT_TAKEN.lock(|taken| {
-                if *taken {
-                    Err(EspError::from(ESP_ERR_INVALID_STATE as i32).unwrap())
-                } else {
-                    let default_nvs = Self::init()?;
+        let mut taken = DEFAULT_TAKEN.lock();
 
-                    *taken = true;
-                    Ok(default_nvs)
-                }
-            })
+        if *taken {
+            esp!(ESP_ERR_INVALID_STATE as i32)?;
         }
+
+        let default_nvs = Self::init()?;
+
+        *taken = true;
+        Ok(default_nvs)
     }
 
-    unsafe fn init() -> Result<Self, EspError> {
-        if let Some(err) = EspError::from(nvs_flash_init()) {
+    fn init() -> Result<Self, EspError> {
+        if let Some(err) = EspError::from(unsafe { nvs_flash_init() }) {
             match err.code() as u32 {
                 ESP_ERR_NVS_NO_FREE_PAGES | ESP_ERR_NVS_NEW_VERSION_FOUND => {
-                    esp!(nvs_flash_erase())?;
-                    esp!(nvs_flash_init())?;
+                    esp!(unsafe { nvs_flash_erase() })?;
+                    esp!(unsafe { nvs_flash_init() })?;
                 }
                 _ => (),
             }
@@ -51,12 +49,8 @@ impl EspDefaultNvs {
 
 impl Drop for EspDefaultNvs {
     fn drop(&mut self) {
-        unsafe {
-            DEFAULT_TAKEN.lock(|taken| {
-                //esp!(nvs_flash_deinit()).unwrap(); TODO: To be checked why it fails
-                *taken = false;
-            });
-        }
+        //esp!(nvs_flash_deinit()).unwrap(); TODO: To be checked why it fails
+        *DEFAULT_TAKEN.lock() = false;
 
         info!("Dropped");
     }
@@ -67,7 +61,9 @@ pub struct EspNvs(pub(crate) CString);
 
 impl EspNvs {
     pub fn new(partition: impl AsRef<str>) -> Result<Self, EspError> {
-        unsafe { NONDEFAULT_LOCKED.lock(|registrations| Self::init(partition, registrations)) }
+        let mut registrations = NONDEFAULT_LOCKED.lock();
+
+        Self::init(partition, &mut registrations)
     }
 
     fn init(
@@ -100,11 +96,11 @@ impl EspNvs {
 
 impl Drop for EspNvs {
     fn drop(&mut self) {
-        unsafe {
-            NONDEFAULT_LOCKED.lock(|registrations| {
-                esp!(nvs_flash_deinit_partition(self.0.as_ptr())).unwrap();
-                registrations.remove(self.0.as_ref());
-            });
+        {
+            let mut registrations = NONDEFAULT_LOCKED.lock();
+
+            esp!(unsafe { nvs_flash_deinit_partition(self.0.as_ptr()) }).unwrap();
+            registrations.remove(self.0.as_ref());
         }
 
         info!("Dropped");

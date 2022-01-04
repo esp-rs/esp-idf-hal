@@ -8,9 +8,6 @@ use ::log::*;
 
 use enumset::*;
 
-#[allow(unused_imports)]
-use mutex_trait::Mutex;
-
 use embedded_svc::eth::*;
 use embedded_svc::ipv4;
 
@@ -105,7 +102,7 @@ pub enum SpiEthChipset {
 }
 
 #[cfg(any(all(esp32, esp_idf_eth_use_esp32_emac), esp_idf_eth_use_openeth))]
-static mut TAKEN: EspMutex<bool> = EspMutex::new(false);
+static TAKEN: esp_idf_hal::mutex::Mutex<bool> = esp_idf_hal::mutex::Mutex::new(false);
 
 struct Shared {
     conf: Configuration,
@@ -158,30 +155,26 @@ where
         chipset: RmiiEthChipset,
         phy_addr: Option<u32>,
     ) -> Result<Self, EspError> {
-        unsafe {
-            TAKEN.lock(|taken| {
-                if *taken {
-                    Err(EspError::from(ESP_ERR_INVALID_STATE as i32).unwrap())
-                } else {
-                    let (mac, phy) = Self::initialize(chipset, &peripherals.rst, phy_addr)?;
+        let mut taken = TAKEN.lock();
 
-                    let eth = Self::init(netif_stack, sys_loop_stack, mac, phy, None, peripherals)?;
-
-                    *taken = true;
-                    Ok(eth)
-                }
-            })
+        if *taken {
+            esp!(ESP_ERR_INVALID_STATE as i32)?;
         }
+
+        let (mac, phy) = Self::initialize(chipset, &peripherals.rst, phy_addr)?;
+
+        let eth = Self::init(netif_stack, sys_loop_stack, mac, phy, None, peripherals)?;
+
+        *taken = true;
+        Ok(eth)
     }
 
     pub fn release(mut self) -> Result<RmiiEthPeripherals<MDC, MDIO, RST>, EspError> {
-        unsafe {
-            TAKEN.lock(|taken| {
-                self.clear_all()?;
-                *taken = false;
+        {
+            let mut taken = TAKEN.lock();
 
-                Ok(())
-            })?;
+            self.clear_all()?;
+            *taken = false;
         }
 
         info!("Released");
@@ -225,31 +218,27 @@ impl EspEth<()> {
         netif_stack: Arc<EspNetifStack>,
         sys_loop_stack: Arc<EspSysLoopStack>,
     ) -> Result<Self, EspError> {
-        unsafe {
-            TAKEN.lock(|taken| {
-                if *taken {
-                    Err(EspError::from(ESP_ERR_INVALID_STATE as i32).unwrap())
-                } else {
-                    let mac = esp_eth_mac_new_openeth(&Self::eth_mac_default_config());
-                    let phy = esp_eth_phy_new_dp83848(&Self::eth_phy_default_config(None, None));
+        let mut taken = TAKEN.lock();
 
-                    let eth = Self::init(netif_stack, sys_loop_stack, mac, phy, None, ())?;
-
-                    *taken = true;
-                    Ok(eth)
-                }
-            })
+        if *taken {
+            esp!(ESP_ERR_INVALID_STATE as i32)?;
         }
+
+        let mac = unsafe { esp_eth_mac_new_openeth(&Self::eth_mac_default_config()) };
+        let phy = unsafe { esp_eth_phy_new_dp83848(&Self::eth_phy_default_config(None, None)) };
+
+        let eth = Self::init(netif_stack, sys_loop_stack, mac, phy, None, ())?;
+
+        *taken = true;
+        Ok(eth)
     }
 
     pub fn release(mut self) -> Result<(), EspError> {
-        unsafe {
-            TAKEN.lock(|taken| {
-                self.clear_all()?;
-                *taken = false;
+        {
+            let mut taken = TAKEN.lock();
 
-                Ok(())
-            })?;
+            self.clear_all()?;
+            *taken = false;
         }
 
         info!("Released");

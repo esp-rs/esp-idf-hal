@@ -2,7 +2,8 @@ extern crate alloc;
 use alloc::string::String;
 
 use log::*;
-use mutex_trait::Mutex;
+
+use esp_idf_hal::mutex;
 
 use esp_idf_sys::*;
 
@@ -108,7 +109,7 @@ impl Default for SntpConf {
     }
 }
 
-static mut TAKEN: EspMutex<bool> = EspMutex::new(false);
+static TAKEN: mutex::Mutex<bool> = mutex::Mutex::new(false);
 
 pub struct EspSntp {
     // Needs to be kept around because the C bindings only have a pointer.
@@ -121,18 +122,16 @@ impl EspSntp {
     }
 
     pub fn new(conf: &SntpConf) -> Result<Self, EspError> {
-        unsafe {
-            TAKEN.lock(|taken| {
-                if *taken {
-                    Err(EspError::from(ESP_ERR_INVALID_STATE as i32).unwrap())
-                } else {
-                    let sntp = Self::init(conf)?;
+        let mut taken = TAKEN.lock();
 
-                    *taken = true;
-                    Ok(sntp)
-                }
-            })
+        if *taken {
+            esp!(ESP_ERR_INVALID_STATE as i32)?;
         }
+
+        let sntp = Self::init(conf)?;
+
+        *taken = true;
+        Ok(sntp)
     }
 
     fn init(conf: &SntpConf) -> Result<Self, EspError> {
@@ -175,11 +174,11 @@ impl EspSntp {
 
 impl Drop for EspSntp {
     fn drop(&mut self) {
-        unsafe {
-            TAKEN.lock(|taken| {
-                sntp_stop();
-                *taken = false;
-            });
+        {
+            let mut taken = TAKEN.lock();
+
+            unsafe { sntp_stop() };
+            *taken = false;
         }
 
         info!("Dropped");

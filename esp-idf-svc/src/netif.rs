@@ -8,9 +8,9 @@ use alloc::sync::Arc;
 use ::log::*;
 use cstr_core::CString;
 
-use mutex_trait::*;
-
 use embedded_svc::ipv4;
+
+use esp_idf_hal::mutex;
 
 use esp_idf_sys::*;
 
@@ -153,7 +153,7 @@ impl InterfaceConfiguration {
     }
 }
 
-static mut TAKEN: EspMutex<(bool, bool)> = EspMutex::new((false, false));
+static TAKEN: mutex::Mutex<(bool, bool)> = mutex::Mutex::new((false, false));
 
 #[derive(Debug)]
 struct PrivateData;
@@ -163,31 +163,25 @@ pub struct EspNetifStack(PrivateData);
 
 impl EspNetifStack {
     pub fn new() -> Result<Self, EspError> {
-        unsafe {
-            TAKEN.lock(|taken| {
-                if taken.0 {
-                    Err(EspError::from(ESP_ERR_INVALID_STATE as i32).unwrap())
-                } else {
-                    if !taken.1 {
-                        esp!(esp_netif_init())?;
-                    }
+        let mut taken = TAKEN.lock();
 
-                    *taken = (true, true);
-                    Ok(Self(PrivateData))
-                }
-            })
+        if taken.0 {
+            esp!(ESP_ERR_INVALID_STATE as i32)?;
         }
+
+        if !taken.1 {
+            esp!(unsafe { esp_netif_init() })?;
+        }
+
+        *taken = (true, true);
+        Ok(Self(PrivateData))
     }
 }
 
 impl Drop for EspNetifStack {
     fn drop(&mut self) {
-        unsafe {
-            TAKEN.lock(|taken| {
-                // ESP netif does not support deinitialization yet, so we only flag that it is no longer owned
-                *taken = (false, true);
-            });
-        }
+        // ESP netif does not support deinitialization yet, so we only flag that it is no longer owned
+        *TAKEN.lock() = (false, true);
 
         info!("Dropped");
     }
