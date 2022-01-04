@@ -1,6 +1,6 @@
 [package]
 name = "esp-idf-sys"
-version = "0.28.3"
+version = "0.29.0"
 authors = ["Alexey Arbuzov <aarbuzov@termt.com>", "sapir <yasapir@gmail.com>", "Ivan Markov <ivan.markov@gmail.com>"]
 edition = "2018"
 resolver = "2"
@@ -16,7 +16,7 @@ build = "build/build.rs"
 [features]
 default = ["std", "pio"]
 
-std = ["embedded-svc/std"]
+std = []
 alloc_handler = []
 panic_handler = []
 binstart = []
@@ -28,8 +28,6 @@ pio = ["embuild/pio"]
 native = ["embuild/cmake", "embuild/espidf"]
 
 [dependencies]
-mutex-trait = "0.2"
-embedded-svc = { version = "0.15.4", default-features = false }
 paste = "1"
 
 [build-dependencies]

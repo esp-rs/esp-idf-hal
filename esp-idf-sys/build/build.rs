@@ -75,6 +75,27 @@ fn main() -> anyhow::Result<()> {
             .header(header_file.try_to_str()?)
             .blocklist_function("strtold")
             .blocklist_function("_strtold_r")
+            .blocklist_function("v.*printf")
+            .blocklist_function("v.*scanf")
+            .blocklist_function("_v.*printf_r")
+            .blocklist_function("_v.*scanf_r")
+            .blocklist_function("esp_log_writev")
+            // .blocklist_function("vsprintf")
+            // .blocklist_function("vsnprintf")
+            // .blocklist_function("vfscanf")
+            // .blocklist_function("vscanf")
+            // .blocklist_function("vsscanf")
+            // .blocklist_function("vasniprintf")
+            // .blocklist_function("vasnprintf")
+            // .blocklist_function("vasnprintf")
+            // vdiprintf
+            // vfiprintf
+            // vfiscanf
+            // viprintf
+            // viscanf
+            // vsiprintf
+            // vsiscanf
+            // vsniprintf
             .clang_args(build_output.components.clang_args())
             .clang_args(vec![
                 "-target",
