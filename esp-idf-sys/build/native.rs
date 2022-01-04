@@ -2,7 +2,6 @@
 
 use std::convert::TryFrom;
 use std::ffi::OsString;
-use std::iter;
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
 use std::{env, fs};
@@ -17,10 +16,11 @@ use embuild::{bindgen, build, cargo, cmake, espidf, git, kconfig, path_buf};
 use strum::{Display, EnumString};
 
 use super::common::{
-    self, get_install_dir, get_sdkconfig_profile, workspace_dir, EspIdfBuildOutput,
+    self, get_install_dir, list_specific_sdkconfigs, workspace_dir, EspIdfBuildOutput,
     EspIdfComponents, ESP_IDF_GLOB_VAR_PREFIX, ESP_IDF_SDKCONFIG_DEFAULTS_VAR,
     ESP_IDF_SDKCONFIG_VAR, ESP_IDF_TOOLS_INSTALL_DIR_VAR, MASTER_PATCHES, MCU_VAR, STABLE_PATCHES,
 };
+use crate::common::{SDKCONFIG_DEFAULTS_FILE, SDKCONFIG_FILE};
 
 const ESP_IDF_VERSION_VAR: &str = "ESP_IDF_VERSION";
 const ESP_IDF_REPOSITORY_VAR: &str = "ESP_IDF_REPOSITORY";
@@ -178,50 +178,51 @@ fn build_cargo_first() -> Result<EspIdfBuildOutput> {
 
     // Resolve `ESP_IDF_SDKCONFIG` and `ESP_IDF_SDKCONFIG_DEFAULTS` to an absolute path
     // relative to the workspace directory if not empty.
-    let sdkconfig = env::var_os(ESP_IDF_SDKCONFIG_VAR)
-        .map(|s| {
-            let path = Path::new(&s).abspath_relative_to(&workspace_dir);
-            let path = get_sdkconfig_profile(&path, &profile, &chip_name).unwrap_or(path);
-            cargo::track_file(&path);
-            path
-        })
-        .filter(|v| v.exists());
+    let sdkconfig = {
+        let file = env::var_os(ESP_IDF_SDKCONFIG_VAR).unwrap_or_else(|| SDKCONFIG_FILE.into());
+        let path = Path::new(&file).abspath_relative_to(&workspace_dir);
+        let cfg = list_specific_sdkconfigs(path, &profile, &chip_name).next();
+        if let Some(ref file) = cfg {
+            cargo::track_file(file);
+        }
+        cfg
+    };
 
-    // We need to filter out .defaults.<chip> files where <chip>
-    // is NOT our architecture, because the CMake build will not
-    // do this for us.
-    //
-    // The relevant logic is in idf.py, but since we are not using idf.py,
-    // we have to do this ourselves.
-    let chip_defaults = format!(".defaults.{}", chip_name.to_string().to_lowercase());
+    let sdkconfig_defaults = {
+        let gen_defaults_path = out_dir.join("gen-sdkconfig.defaults");
+        fs::write(&gen_defaults_path, generate_sdkconfig_defaults()?)?;
 
-    let gen_defaults_path = out_dir.join("gen-sdkconfig.defaults");
-    fs::write(&gen_defaults_path, generate_sdkconfig_defaults()?)?;
-
-    let defaults_files = iter::once(gen_defaults_path)
-        .chain(
+        let mut result = vec![gen_defaults_path];
+        result.extend(
             env::var_os(ESP_IDF_SDKCONFIG_DEFAULTS_VAR)
-                .unwrap_or_default()
+                .unwrap_or_else(|| SDKCONFIG_DEFAULTS_FILE.into())
                 .try_to_str()?
                 .split(';')
                 .filter_map(|v| {
-                    let v = v.trim();
-
-                    let vl = v.to_lowercase();
-                    if !vl.is_empty() && (vl.ends_with(".defaults") || vl.ends_with(&chip_defaults))
-                    {
+                    if !v.is_empty() {
                         let path = Path::new(v).abspath_relative_to(&workspace_dir);
-                        cargo::track_file(&path);
-                        Some(path)
+                        Some(
+                            list_specific_sdkconfigs(path, &profile, &chip_name)
+                                // We need to reverse the order here so that the more
+                                // specific defaults come last.
+                                .rev()
+                                .inspect(|p| cargo::track_file(p)),
+                        )
                     } else {
                         None
                     }
-                }),
-        )
+                })
+                .flatten(),
+        );
+        result
+    };
+
+    let defaults_files = sdkconfig_defaults
+        .iter()
         // Use the `sdkconfig` as a defaults file to prevent it from being changed by the
         // build. It must be the last defaults file so that its options have precendence
         // over any actual defaults from files before it.
-        .chain(sdkconfig)
+        .chain(sdkconfig.as_ref())
         .try_fold(OsString::new(), |mut accu, p| -> Result<OsString> {
             if !accu.is_empty() {
                 accu.push(";");
@@ -306,8 +307,23 @@ fn build_cargo_first() -> Result<EspIdfBuildOutput> {
         })
         .context("Could not determine the compiler from cmake")?;
 
-    let sdkconfig_json = path_buf![&cmake_build_dir, "config", "sdkconfig.json"];
+    // Save information about the esp-idf build to the out dir so that it can be
+    // easily retrieved by tools that need it.
+    espidf::EspIdfBuildInfo {
+        install_dir: idf.install_dir,
+        esp_idf_dir: idf.esp_idf.worktree().to_owned(),
+        exported_path_var: idf.exported_path.try_to_str()?.to_owned(),
+        venv_python: idf.venv_python,
+        build_dir: cmake_build_dir.clone(),
+        project_dir: out_dir.clone(),
+        compiler: compiler.clone(),
+        mcu: chip_name,
+        sdkconfig,
+        sdkconfig_defaults: Some(sdkconfig_defaults),
+    }
+    .save_json(out_dir.join("esp-idf-build.json"))?;
 
+    let sdkconfig_json = path_buf![&cmake_build_dir, "config", "sdkconfig.json"];
     let build_output = EspIdfBuildOutput {
         cincl_args: build::CInclArgs::try_from(&target.compile_groups[0])?,
         link_args: Some(

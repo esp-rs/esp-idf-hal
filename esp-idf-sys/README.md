@@ -54,13 +54,39 @@ The following environment variables are used by the build script:
     A `;`-separated list of paths to `sdkconfig.defaults` files to be used as base
     values for the `sdkconfig`. If such a path is relative, it will be relative to the
     cargo workspace directory (i.e. the directory that contains the `target` dir).
+    
+    If unspecified `sdkconfig.defaults` is used as default.
+    
+    For each defaults file in this list more specific version will also be searched and
+    used. This happens with the following patterns and order (least to most specific):
 
+    1. `<path>`
+    2. `<path>.<profile>`
+    3. `<path>.<mcu>`
+    4. `<path>.<profile>.<chip>`
+    
+    where `<profile>` is the current cargo profile used (`debug`/`release`) and `<mcu>`
+    specifies the mcu for which this is currently compiled for (see the `MCU`
+    configuration option below).
+
+    Also note that a setting contained in a more specific defaults file will override the
+    same setting specified in a less specific one.
 
 - `ESP_IDF_SDKCONFIG`:     
 
-    The path to the `sdkconfig` file used to [configure the
+    The base-path to the `sdkconfig` file used to [configure the
     `esp-idf`](https://docs.espressif.com/projects/esp-idf/en/latest/esp32/api-reference/kconfig.html).
     If this is a relative path, it is relative to the cargo workspace directory.
+    
+    If unspecified `sdkconfig` is used as default.
+    
+    Similar to the `sdkconfig.defaults`-file a more specific `sdkconfig`-file will be
+    selected if available. This happens with the following patterns and precedence:
+
+    1. `<path>.<profile>.<chip>`
+    2. `<path>.<mcu>`
+    3. `<path>.<profile>`
+    4. `<path>`
 
     **Note** (*native* builder only):   
     The cargo optimization options (`debug` and `opt-level`) are used by default to

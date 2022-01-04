@@ -1,13 +1,15 @@
 #[cfg(not(any(feature = "pio", feature = "native")))]
 compile_error!("One of the features `pio` or `native` must be selected.");
 
+use std::env;
+use std::iter::once;
+use std::path::PathBuf;
+
+use ::bindgen::callbacks::{IntKind, ParseCallbacks};
 use anyhow::*;
-
-use std::{env, iter::once, path::PathBuf};
-
-use embuild::{bindgen, build, cargo, kconfig, path_buf, utils::OsStrExt};
-
 use common::*;
+use embuild::utils::OsStrExt;
+use embuild::{bindgen, build, cargo, kconfig, path_buf};
 
 mod common;
 
@@ -20,6 +22,25 @@ mod common;
 #[cfg_attr(feature = "native", path = "native.rs")]
 #[cfg_attr(all(feature = "pio", not(feature = "native")), path = "pio.rs")]
 mod build_driver;
+
+#[derive(Debug)]
+struct BindgenCallbacks;
+
+impl ParseCallbacks for BindgenCallbacks {
+    fn int_macro(&self, name: &str, _value: i64) -> Option<IntKind> {
+        // Make sure the ESP_ERR_*, ESP_OK and ESP_FAIL macros are all i32.
+        const PREFIX: &str = "ESP_";
+        const SUFFIX: &str = "ERR_";
+        const SUFFIX_SPECIAL: [&str; 2] = ["OK", "FAIL"];
+
+        let name = name.strip_prefix(PREFIX)?;
+        if name.starts_with(SUFFIX) || SUFFIX_SPECIAL.iter().any(|&s| name == s) {
+            Some(IntKind::I32)
+        } else {
+            None
+        }
+    }
+}
 
 fn main() -> anyhow::Result<()> {
     let build_output = build_driver::build()?;
@@ -71,6 +92,7 @@ fn main() -> anyhow::Result<()> {
         build_output
             .bindgen
             .builder()?
+            .parse_callbacks(Box::new(BindgenCallbacks))
             .ctypes_prefix("c_types")
             .header(header_file.try_to_str()?)
             .blocklist_function("strtold")
