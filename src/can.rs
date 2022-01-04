@@ -3,10 +3,9 @@
 //! It is called Two-Wire Automotive Interface (TWAI) in ESP32 documentation.
 //!
 
-use crate::delay::{portMAX_DELAY, TickType};
+use crate::delay::portMAX_DELAY;
 use crate::gpio::*;
 use core::marker::PhantomData;
-use core::time::Duration;
 use embedded_hal::can::Frame as _;
 use esp_idf_sys::*;
 
@@ -285,7 +284,7 @@ impl<TX: OutputPin, RX: InputPin> embedded_hal::can::nb::Can for CanBus<TX, RX> 
     type Error = CanError;
 
     fn transmit(&mut self, frame: &Self::Frame) -> nb::Result<Option<Self::Frame>, Self::Error> {
-        match esp_result!(unsafe { twai_transmit(&frame.0, portMAX_DELAY) }, ()) {
+        match esp_result!(unsafe { twai_transmit(&frame.0, 0) }, ()) {
             Ok(_) => Ok(None),
             Err(e) if e.code() == ESP_FAIL => Err(nb::Error::WouldBlock),
             Err(e) if e.code() == ESP_ERR_TIMEOUT as i32 => Err(nb::Error::WouldBlock),
@@ -298,8 +297,7 @@ impl<TX: OutputPin, RX: InputPin> embedded_hal::can::nb::Can for CanBus<TX, RX> 
             ..Default::default()
         };
 
-        let timeout: TickType_t = TickType::from(Duration::from_millis(1)).0;
-        match esp_result!(unsafe { twai_receive(&mut rx_msg, timeout) }, ()) {
+        match esp_result!(unsafe { twai_receive(&mut rx_msg, 0) }, ()) {
             Ok(_) => Ok(Frame(rx_msg)),
             Err(e) if e.code() == ESP_ERR_TIMEOUT as i32 => Err(nb::Error::WouldBlock),
             Err(e) => Err(nb::Error::Other(CanError::other(e))),
