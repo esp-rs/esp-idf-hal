@@ -80,14 +80,13 @@ impl Storage for EspNvsStorage {
         let mut dummy: u_int64_t = 0;
 
         // check if key is present for u64 datatype
-        match unsafe { nvs_get_u64(self.1, c_key.as_ptr(), &mut dummy as *mut _) } as u32 {
+        match unsafe { nvs_get_u64(self.1, c_key.as_ptr(), &mut dummy as *mut _) } {
             ESP_ERR_NVS_NOT_FOUND => {
                 // now check if key is present for blob datatype
                 let mut len: size_t = 0;
                 match unsafe {
                     nvs_get_blob(self.1, c_key.as_ptr(), ptr::null_mut(), &mut len as *mut _)
-                } as u32
-                {
+                } {
                     // not found as u64, nor as blob, this key has not been found
                     ESP_ERR_NVS_NOT_FOUND => Ok(false),
                     result => {
@@ -127,14 +126,13 @@ impl Storage for EspNvsStorage {
         let mut value: u_int64_t = 0;
 
         // check for u64 value
-        match unsafe { nvs_get_u64(self.1, c_key.as_ptr(), &mut value as *mut _) } as u32 {
+        match unsafe { nvs_get_u64(self.1, c_key.as_ptr(), &mut value as *mut _) } {
             ESP_ERR_NVS_NOT_FOUND => {
                 // check for blob value, by getting blob length
                 let mut len: size_t = 0;
                 match unsafe {
                     nvs_get_blob(self.1, c_key.as_ptr(), ptr::null_mut(), &mut len as *mut _)
-                } as u32
-                {
+                } {
                     ESP_ERR_NVS_NOT_FOUND => Ok(None),
                     err => {
                         // bail on error

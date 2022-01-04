@@ -34,7 +34,7 @@ impl EspDefaultNvs {
 
     fn init() -> Result<Self, EspError> {
         if let Some(err) = EspError::from(unsafe { nvs_flash_init() }) {
-            match err.code() as u32 {
+            match err.code() {
                 ESP_ERR_NVS_NO_FREE_PAGES | ESP_ERR_NVS_NEW_VERSION_FOUND => {
                     esp!(unsafe { nvs_flash_erase() })?;
                     esp!(unsafe { nvs_flash_init() })?;
@@ -78,7 +78,7 @@ impl EspNvs {
 
         unsafe {
             if let Some(err) = EspError::from(nvs_flash_init_partition(c_partition.as_ptr())) {
-                match err.code() as u32 {
+                match err.code() {
                     ESP_ERR_NVS_NO_FREE_PAGES | ESP_ERR_NVS_NEW_VERSION_FOUND => {
                         esp!(nvs_flash_erase_partition(c_partition.as_ptr()))?;
                         esp!(nvs_flash_init_partition(c_partition.as_ptr()))?;
