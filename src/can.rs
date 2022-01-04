@@ -13,6 +13,12 @@ use esp_idf_sys::*;
 pub use embedded_hal::can::ExtendedId;
 pub use embedded_hal::can::StandardId;
 
+crate::embedded_hal_error!(
+    CanError,
+    embedded_hal::can::Error,
+    embedded_hal::can::ErrorKind
+);
+
 pub mod config {
     use esp_idf_sys::*;
 
@@ -256,11 +262,10 @@ impl<TX: OutputPin, RX: InputPin> CanBus<TX, RX> {
 
 impl<TX: OutputPin, RX: InputPin> embedded_hal::can::blocking::Can for CanBus<TX, RX> {
     type Frame = Frame;
-    type Error = embedded_hal::can::ErrorKind;
+    type Error = CanError;
 
     fn transmit(&mut self, frame: &Self::Frame) -> Result<(), Self::Error> {
-        esp!(unsafe { twai_transmit(&frame.0, portMAX_DELAY) })
-            .map_err(|_| embedded_hal::can::ErrorKind::Other)
+        esp!(unsafe { twai_transmit(&frame.0, portMAX_DELAY) }).map_err(CanError::other)
     }
 
     fn receive(&mut self) -> Result<Self::Frame, Self::Error> {
@@ -270,25 +275,21 @@ impl<TX: OutputPin, RX: InputPin> embedded_hal::can::blocking::Can for CanBus<TX
 
         match esp_result!(unsafe { twai_receive(&mut rx_msg, portMAX_DELAY) }, ()) {
             Ok(_) => Ok(Frame(rx_msg)),
-            Err(_) => Err(embedded_hal::can::ErrorKind::Other),
+            Err(e) => Err(CanError::other(e)),
         }
     }
 }
 
 impl<TX: OutputPin, RX: InputPin> embedded_hal::can::nb::Can for CanBus<TX, RX> {
     type Frame = Frame;
-    type Error = embedded_hal::can::ErrorKind;
+    type Error = CanError;
 
     fn transmit(&mut self, frame: &Self::Frame) -> nb::Result<Option<Self::Frame>, Self::Error> {
-        // ESP_FAIL is i32 but others are u32
-        const _ESP_OK: i32 = ESP_OK as i32;
-        const _ESP_ERR_TIMEOUT: i32 = ESP_ERR_TIMEOUT as i32;
-
-        match unsafe { twai_transmit(&frame.0, portMAX_DELAY) } {
-            _ESP_OK => Ok(None),
-            ESP_FAIL => Err(nb::Error::WouldBlock),
-            _ESP_ERR_TIMEOUT => Err(nb::Error::WouldBlock),
-            _ => Err(nb::Error::Other(embedded_hal::can::ErrorKind::Other)),
+        match esp_result!(unsafe { twai_transmit(&frame.0, portMAX_DELAY) }, ()) {
+            Ok(_) => Ok(None),
+            Err(e) if e.code() == ESP_FAIL => Err(nb::Error::WouldBlock),
+            Err(e) if e.code() == ESP_ERR_TIMEOUT as i32 => Err(nb::Error::WouldBlock),
+            Err(e) => Err(nb::Error::Other(CanError::other(e))),
         }
     }
 
@@ -298,10 +299,10 @@ impl<TX: OutputPin, RX: InputPin> embedded_hal::can::nb::Can for CanBus<TX, RX> 
         };
 
         let timeout: TickType_t = TickType::from(Duration::from_millis(1)).0;
-        match unsafe { twai_receive(&mut rx_msg, timeout) } as u32 {
-            ESP_OK => Ok(Frame(rx_msg)),
-            ESP_ERR_TIMEOUT => Err(nb::Error::WouldBlock),
-            _ => Err(nb::Error::Other(embedded_hal::can::ErrorKind::Other)),
+        match esp_result!(unsafe { twai_receive(&mut rx_msg, timeout) }, ()) {
+            Ok(_) => Ok(Frame(rx_msg)),
+            Err(e) if e.code() == ESP_ERR_TIMEOUT as i32 => Err(nb::Error::WouldBlock),
+            Err(e) => Err(nb::Error::Other(CanError::other(e))),
         }
     }
 }
