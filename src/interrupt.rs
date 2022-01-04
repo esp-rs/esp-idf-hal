@@ -60,9 +60,14 @@ impl CriticalSection {
             vPortEnterCritical()
         };
 
-        #[cfg(not(any(esp32c3, esp32s2)))]
+        #[cfg(all(esp_idf_version = "4.3", not(any(esp32c3, esp32s2))))]
         unsafe {
             vPortEnterCritical(self.0.get())
+        };
+
+        #[cfg(all(not(esp_idf_version = "4.3"), not(any(esp32c3, esp32s2))))]
+        unsafe {
+            xPortEnterCriticalTimeout(self.0.get(), portMUX_NO_TIMEOUT)
         };
 
         CriticalSectionGuard(self)
