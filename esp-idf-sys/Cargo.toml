@@ -12,6 +12,7 @@ license = "MIT OR Apache-2.0"
 readme = "README.md"
 links = "esp_idf"
 build = "build/build.rs"
+documentation = "https://esp-rs.github.io/esp-idf-sys/"
 
 [features]
 default = ["std", "pio"]
