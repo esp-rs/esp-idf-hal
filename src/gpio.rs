@@ -92,178 +92,6 @@ pub struct Disabled;
 
 pub struct Unknown;
 
-/// Generic $GpioX pin
-pub struct GpioPin<MODE> {
-    pin: i32,
-    _mode: PhantomData<MODE>,
-}
-
-impl<MODE> GpioPin<MODE>
-where
-    MODE: Send,
-{
-    fn new(pin: i32) -> GpioPin<MODE> {
-        Self {
-            pin,
-            _mode: PhantomData,
-        }
-    }
-
-    fn get_input_level(&self) -> bool {
-        (unsafe { gpio_get_level(self.pin) } != 0)
-    }
-
-    #[cfg(not(feature = "ulp"))]
-    fn get_output_level(&self) -> bool {
-        let pin = self.pin as u32;
-
-        #[cfg(esp32c3)]
-        let is_set_high = unsafe { (*(GPIO_OUT_REG as *const u32) >> pin) & 0x01 != 0 };
-        #[cfg(not(esp32c3))]
-        let is_set_high = if pin <= 31 {
-            // GPIO0 - GPIO31
-            unsafe { (*(GPIO_OUT_REG as *const u32) >> pin) & 0x01 != 0 }
-        } else {
-            // GPIO32+
-            unsafe { (*(GPIO_OUT1_REG as *const u32) >> (pin - 32)) & 0x01 != 0 }
-        };
-
-        is_set_high
-    }
-
-    #[cfg(feature = "ulp")]
-    fn get_output_level(&self) -> bool {
-        (unsafe { gpio_get_output_level(self.pin) } != 0)
-    }
-
-    fn set_output_level(&mut self, on: bool) -> Result<(), EspError> {
-        esp_result!(unsafe { gpio_set_level(self.pin(), (on as u8).into()) }, ())
-    }
-
-    #[cfg(not(feature = "ulp"))]
-    pub fn get_drive_strength(&self) -> Result<DriveStrength, EspError> {
-        let mut cap: gpio_drive_cap_t = 0;
-
-        esp!(unsafe { gpio_get_drive_capability(self.pin(), &mut cap as *mut _) })?;
-
-        Ok(cap.into())
-    }
-
-    #[cfg(not(feature = "ulp"))]
-    pub fn set_drive_strength(&mut self, strength: DriveStrength) -> Result<(), EspError> {
-        esp!(unsafe { gpio_set_drive_capability(self.pin(), strength.into()) })?;
-
-        Ok(())
-    }
-}
-
-impl<MODE> Pin for GpioPin<MODE>
-where
-    MODE: Send,
-{
-    type Error = EspError;
-
-    fn pin(&self) -> i32
-    where
-        Self: Sized,
-    {
-        self.pin
-    }
-
-    fn reset(&mut self) -> Result<(), Self::Error> {
-        #[cfg(not(feature = "ulp"))]
-        let res = esp_result!(unsafe { gpio_reset_pin(self.pin) }, ());
-        #[cfg(feature = "ulp")]
-        let res = Ok(());
-
-        res
-    }
-}
-
-impl InputPin for GpioPin<Input> {}
-
-impl embedded_hal::digital::blocking::InputPin for GpioPin<Input> {
-    type Error = EspError;
-
-    fn is_high(&self) -> Result<bool, Self::Error> {
-        Ok(self.get_input_level())
-    }
-
-    fn is_low(&self) -> Result<bool, Self::Error> {
-        Ok(!self.get_input_level())
-    }
-}
-
-impl OutputPin for GpioPin<Output> {}
-
-impl embedded_hal::digital::blocking::OutputPin for GpioPin<Output> {
-    type Error = EspError;
-
-    fn set_high(&mut self) -> Result<(), Self::Error> {
-        self.set_output_level(true)
-    }
-
-    fn set_low(&mut self) -> Result<(), Self::Error> {
-        self.set_output_level(false)
-    }
-}
-
-impl embedded_hal::digital::blocking::StatefulOutputPin for GpioPin<Output> {
-    fn is_set_high(&self) -> Result<bool, Self::Error> {
-        Ok(self.get_output_level())
-    }
-
-    fn is_set_low(&self) -> Result<bool, Self::Error> {
-        Ok(!self.get_output_level())
-    }
-}
-
-impl InputPin for GpioPin<InputOutput> {}
-
-impl embedded_hal::digital::blocking::InputPin for GpioPin<InputOutput> {
-    type Error = EspError;
-
-    fn is_high(&self) -> Result<bool, Self::Error> {
-        Ok(self.get_input_level())
-    }
-
-    fn is_low(&self) -> Result<bool, Self::Error> {
-        Ok(!self.get_input_level())
-    }
-}
-
-impl OutputPin for GpioPin<InputOutput> {}
-
-impl embedded_hal::digital::blocking::OutputPin for GpioPin<InputOutput> {
-    type Error = EspError;
-
-    fn set_high(&mut self) -> Result<(), Self::Error> {
-        self.set_output_level(true)
-    }
-
-    fn set_low(&mut self) -> Result<(), Self::Error> {
-        self.set_output_level(false)
-    }
-}
-
-impl embedded_hal::digital::blocking::StatefulOutputPin for GpioPin<InputOutput> {
-    fn is_set_high(&self) -> Result<bool, Self::Error> {
-        Ok(self.get_output_level())
-    }
-
-    fn is_set_low(&self) -> Result<bool, Self::Error> {
-        Ok(!self.get_output_level())
-    }
-}
-
-impl embedded_hal::digital::blocking::ToggleableOutputPin for GpioPin<InputOutput> {
-    type Error = EspError;
-
-    fn toggle(&mut self) -> Result<(), Self::Error> {
-        self.set_output_level(!self.get_output_level())
-    }
-}
-
 /// Interrupt events
 ///
 /// *Note: ESP32 has a bug (3.14), which prevents correct triggering of interrupts when
@@ -337,25 +165,52 @@ impl From<gpio_drive_cap_t> for DriveStrength {
     }
 }
 
-macro_rules! impl_hal_input_pin {
-    ($pxi:ident: $mode:ident) => {
-        impl embedded_hal::digital::blocking::InputPin for $pxi<$mode> {
-            type Error = EspError;
+macro_rules! impl_base {
+    ($pxi:ident) => {
+        impl<MODE> $pxi<MODE>
+        where
+            MODE: Send,
+        {
+            fn internal_reset(&mut self) -> Result<(), EspError> {
+                #[cfg(not(feature = "ulp"))]
+                let res = esp_result!(unsafe { gpio_reset_pin(self.pin()) }, ());
+                #[cfg(feature = "ulp")]
+                let res = Ok(());
 
-            fn is_high(&self) -> Result<bool, Self::Error> {
-                Ok(unsafe { gpio_get_level($pxi::<$mode>::runtime_pin()) } != 0)
+                res
             }
 
-            fn is_low(&self) -> Result<bool, Self::Error> {
-                Ok(!self.is_high()?)
+            fn get_input_level(&self) -> bool {
+                (unsafe { gpio_get_level(self.pin()) } != 0)
             }
-        }
-    };
-}
 
-macro_rules! impl_hal_output_pin {
-    ($pxi:ident: $mode:ident) => {
-        impl $pxi<$mode> {
+            #[cfg(not(feature = "ulp"))]
+            fn get_output_level(&self) -> bool {
+                let pin = self.pin() as u32;
+
+                #[cfg(esp32c3)]
+                let is_set_high = unsafe { (*(GPIO_OUT_REG as *const u32) >> pin) & 0x01 != 0 };
+                #[cfg(not(esp32c3))]
+                let is_set_high = if pin <= 31 {
+                    // GPIO0 - GPIO31
+                    unsafe { (*(GPIO_OUT_REG as *const u32) >> pin) & 0x01 != 0 }
+                } else {
+                    // GPIO32+
+                    unsafe { (*(GPIO_OUT1_REG as *const u32) >> (pin - 32)) & 0x01 != 0 }
+                };
+
+                is_set_high
+            }
+
+            #[cfg(feature = "ulp")]
+            fn get_output_level(&self) -> bool {
+                (unsafe { gpio_get_output_level(self.pin()) } != 0)
+            }
+
+            fn set_output_level(&mut self, on: bool) -> Result<(), EspError> {
+                esp_result!(unsafe { gpio_set_level(self.pin(), (on as u8).into()) }, ())
+            }
+
             #[cfg(not(feature = "ulp"))]
             pub fn get_drive_strength(&self) -> Result<DriveStrength, EspError> {
                 let mut cap: gpio_drive_cap_t = 0;
@@ -372,65 +227,6 @@ macro_rules! impl_hal_output_pin {
                 Ok(())
             }
         }
-
-        impl embedded_hal::digital::blocking::OutputPin for $pxi<$mode> {
-            type Error = EspError;
-
-            fn set_high(&mut self) -> Result<(), Self::Error> {
-                esp_result!(
-                    unsafe { gpio_set_level($pxi::<$mode>::runtime_pin(), 1) },
-                    ()
-                )
-            }
-
-            fn set_low(&mut self) -> Result<(), Self::Error> {
-                esp_result!(
-                    unsafe { gpio_set_level($pxi::<$mode>::runtime_pin(), 0) },
-                    ()
-                )
-            }
-        }
-
-        impl embedded_hal::digital::blocking::StatefulOutputPin for $pxi<$mode> {
-            #[cfg(not(feature = "ulp"))]
-            fn is_set_high(&self) -> Result<bool, Self::Error> {
-                let pin = $pxi::<$mode>::runtime_pin() as u32;
-
-                #[cfg(esp32c3)]
-                let is_set_high = unsafe { (*(GPIO_OUT_REG as *const u32) >> pin) & 0x01 != 0 };
-                #[cfg(not(esp32c3))]
-                let is_set_high = if pin <= 31 {
-                    // GPIO0 - GPIO31
-                    unsafe { (*(GPIO_OUT_REG as *const u32) >> pin) & 0x01 != 0 }
-                } else {
-                    // GPIO32+
-                    unsafe { (*(GPIO_OUT1_REG as *const u32) >> (pin - 32)) & 0x01 != 0 }
-                };
-
-                Ok(is_set_high)
-            }
-
-            #[cfg(feature = "ulp")]
-            fn is_set_high(&self) -> Result<bool, Self::Error> {
-                Ok(unsafe { gpio_get_output_level($pxi::<$mode>::runtime_pin()) } != 0)
-            }
-
-            fn is_set_low(&self) -> Result<bool, Self::Error> {
-                Ok(!self.is_set_high()?)
-            }
-        }
-
-        impl embedded_hal::digital::blocking::ToggleableOutputPin for $pxi<$mode> {
-            type Error = EspError;
-
-            fn toggle(&mut self) -> Result<(), Self::Error> {
-                if self.is_set_high()? {
-                    Ok(self.set_low()?)
-                } else {
-                    Ok(self.set_high()?)
-                }
-            }
-        }
     };
 }
 
@@ -441,24 +237,14 @@ macro_rules! impl_pull {
 
             fn set_pull_up(&mut self) -> Result<&mut Self, Self::Error> {
                 esp_result!(
-                    unsafe {
-                        gpio_set_pull_mode(
-                            $pxi::<$mode>::runtime_pin(),
-                            gpio_pull_mode_t_GPIO_PULLUP_ONLY,
-                        )
-                    },
+                    unsafe { gpio_set_pull_mode(self.pin(), gpio_pull_mode_t_GPIO_PULLUP_ONLY,) },
                     self
                 )
             }
 
             fn set_pull_down(&mut self) -> Result<&mut Self, Self::Error> {
                 esp_result!(
-                    unsafe {
-                        gpio_set_pull_mode(
-                            $pxi::<$mode>::runtime_pin(),
-                            gpio_pull_mode_t_GPIO_PULLDOWN_ONLY,
-                        )
-                    },
+                    unsafe { gpio_set_pull_mode(self.pin(), gpio_pull_mode_t_GPIO_PULLDOWN_ONLY,) },
                     self
                 )
             }
@@ -466,10 +252,7 @@ macro_rules! impl_pull {
             fn set_pull_up_down(&mut self) -> Result<&mut Self, Self::Error> {
                 esp_result!(
                     unsafe {
-                        gpio_set_pull_mode(
-                            $pxi::<$mode>::runtime_pin(),
-                            gpio_pull_mode_t_GPIO_PULLUP_PULLDOWN,
-                        )
+                        gpio_set_pull_mode(self.pin(), gpio_pull_mode_t_GPIO_PULLUP_PULLDOWN)
                     },
                     self
                 )
@@ -477,12 +260,7 @@ macro_rules! impl_pull {
 
             fn set_floating(&mut self) -> Result<&mut Self, Self::Error> {
                 esp_result!(
-                    unsafe {
-                        gpio_set_pull_mode(
-                            $pxi::<$mode>::runtime_pin(),
-                            gpio_pull_mode_t_GPIO_FLOATING,
-                        )
-                    },
+                    unsafe { gpio_set_pull_mode(self.pin(), gpio_pull_mode_t_GPIO_FLOATING,) },
                     self
                 )
             }
@@ -496,16 +274,10 @@ macro_rules! impl_input_base {
             _mode: PhantomData<MODE>,
         }
 
-        #[cfg(not(feature = "ulp"))]
         impl<MODE> $pxi<MODE>
         where
             MODE: Send,
         {
-            #[inline(always)]
-            fn runtime_pin() -> i32 {
-                $pin
-            }
-
             /// Degrades a concrete pin (e.g. [`Gpio1`]) to a generic pin
             /// struct that can also be used with periphals.
             pub fn degrade(self) -> GpioPin<MODE> {
@@ -529,17 +301,13 @@ macro_rules! impl_input_base {
             }
 
             fn reset(&mut self) -> Result<(), Self::Error> {
-                #[cfg(not(feature = "ulp"))]
-                let res = esp_result!(unsafe { gpio_reset_pin(self.pin()) }, ());
-                #[cfg(feature = "ulp")]
-                let res = Ok(());
-
-                res
+                self.internal_reset()
             }
         }
 
         impl<MODE> InputPin for $pxi<MODE> where MODE: Send {}
 
+        impl_base!($pxi);
         impl_hal_input_pin!($pxi: Input);
     };
 }
@@ -562,12 +330,7 @@ macro_rules! impl_input_only {
 
             pub fn into_disabled(self) -> Result<$pxi<Disabled>, EspError> {
                 esp_result!(
-                    unsafe {
-                        gpio_set_direction(
-                            $pxi::<MODE>::runtime_pin(),
-                            gpio_mode_t_GPIO_MODE_DISABLE,
-                        )
-                    },
+                    unsafe { gpio_set_direction(self.pin(), gpio_mode_t_GPIO_MODE_DISABLE,) },
                     $pxi { _mode: PhantomData }
                 )
             }
@@ -575,9 +338,7 @@ macro_rules! impl_input_only {
             pub fn into_input(mut self) -> Result<$pxi<Input>, EspError> {
                 self.reset()?;
                 esp_result!(
-                    unsafe {
-                        gpio_set_direction($pxi::<MODE>::runtime_pin(), gpio_mode_t_GPIO_MODE_INPUT)
-                    },
+                    unsafe { gpio_set_direction(self._pin(), gpio_mode_t_GPIO_MODE_INPUT) },
                     $pxi { _mode: PhantomData }
                 )
             }
@@ -610,12 +371,7 @@ macro_rules! impl_input_output {
 
             pub fn into_disabled(self) -> Result<$pxi<Disabled>, EspError> {
                 esp_result!(
-                    unsafe {
-                        gpio_set_direction(
-                            $pxi::<MODE>::runtime_pin(),
-                            gpio_mode_t_GPIO_MODE_DISABLE,
-                        )
-                    },
+                    unsafe { gpio_set_direction(self.pin(), gpio_mode_t_GPIO_MODE_DISABLE,) },
                     $pxi { _mode: PhantomData }
                 )
             }
@@ -623,9 +379,7 @@ macro_rules! impl_input_output {
             pub fn into_input(mut self) -> Result<$pxi<Input>, EspError> {
                 self.reset()?;
                 esp_result!(
-                    unsafe {
-                        gpio_set_direction($pxi::<MODE>::runtime_pin(), gpio_mode_t_GPIO_MODE_INPUT)
-                    },
+                    unsafe { gpio_set_direction(self.pin(), gpio_mode_t_GPIO_MODE_INPUT) },
                     $pxi { _mode: PhantomData }
                 )
             }
@@ -633,12 +387,7 @@ macro_rules! impl_input_output {
             pub fn into_input_output(mut self) -> Result<$pxi<InputOutput>, EspError> {
                 self.reset()?;
                 esp_result!(
-                    unsafe {
-                        gpio_set_direction(
-                            $pxi::<MODE>::runtime_pin(),
-                            gpio_mode_t_GPIO_MODE_INPUT_OUTPUT,
-                        )
-                    },
+                    unsafe { gpio_set_direction(self.pin(), gpio_mode_t_GPIO_MODE_INPUT_OUTPUT,) },
                     $pxi { _mode: PhantomData }
                 )
             }
@@ -647,10 +396,7 @@ macro_rules! impl_input_output {
                 self.reset()?;
                 esp_result!(
                     unsafe {
-                        gpio_set_direction(
-                            $pxi::<MODE>::runtime_pin(),
-                            gpio_mode_t_GPIO_MODE_INPUT_OUTPUT_OD,
-                        )
+                        gpio_set_direction(self.pin(), gpio_mode_t_GPIO_MODE_INPUT_OUTPUT_OD)
                     },
                     $pxi { _mode: PhantomData }
                 )
@@ -659,12 +405,7 @@ macro_rules! impl_input_output {
             pub fn into_output(mut self) -> Result<$pxi<Output>, EspError> {
                 self.reset()?;
                 esp_result!(
-                    unsafe {
-                        gpio_set_direction(
-                            $pxi::<MODE>::runtime_pin(),
-                            gpio_mode_t_GPIO_MODE_OUTPUT,
-                        )
-                    },
+                    unsafe { gpio_set_direction(self.pin(), gpio_mode_t_GPIO_MODE_OUTPUT,) },
                     $pxi { _mode: PhantomData }
                 )
             }
@@ -672,12 +413,7 @@ macro_rules! impl_input_output {
             pub fn into_output_od(mut self) -> Result<$pxi<Output>, EspError> {
                 self.reset()?;
                 esp_result!(
-                    unsafe {
-                        gpio_set_direction(
-                            $pxi::<MODE>::runtime_pin(),
-                            gpio_mode_t_GPIO_MODE_OUTPUT_OD,
-                        )
-                    },
+                    unsafe { gpio_set_direction(self.pin(), gpio_mode_t_GPIO_MODE_OUTPUT_OD,) },
                     $pxi { _mode: PhantomData }
                 )
             }
@@ -687,27 +423,6 @@ macro_rules! impl_input_output {
 
 macro_rules! impl_rtc {
     ($pxi:ident: $pin:expr, RTC: $rtc:expr) => {
-        #[cfg(feature = "ulp")]
-        impl<MODE> $pxi<MODE>
-        where
-            MODE: Send,
-        {
-            #[inline(always)]
-            fn runtime_pin() -> i32 {
-                $rtc
-            }
-
-            /// Degrades a concrete pin (e.g. [`Gpio1`]) to a generic pin
-            /// struct that can also be used with periphals.
-            pub fn degrade(self) -> GpioPin<MODE> {
-                GpioPin::new($pin)
-            }
-
-            pub fn into_unknown(self) -> $pxi<Unknown> {
-                $pxi { _mode: PhantomData }
-            }
-        }
-
         impl<MODE> RTCPin for $pxi<MODE>
         where
             MODE: Send,
@@ -778,6 +493,17 @@ macro_rules! impl_adc {
             }
         }
 
+        impl<AN> embedded_hal_0_2::adc::Channel<AN> for $pxi<AN>
+        where
+            AN: adc::Analog<adc::ADC1> + Send,
+        {
+            type ID = u8;
+
+            fn channel() -> Self::ID {
+                adc_unit_t_ADC_UNIT_1 as u8
+            }
+        }
+
         impl<AN> embedded_hal::adc::nb::Channel<AN> for $pxi<AN>
         where
             AN: adc::Analog<adc::ADC1> + Send,
@@ -785,7 +511,7 @@ macro_rules! impl_adc {
             type ID = u8;
 
             fn channel(&self) -> Self::ID {
-                $adc as u8
+                adc_unit_t_ADC_UNIT_1 as u8
             }
         }
     };
@@ -846,6 +572,17 @@ macro_rules! impl_adc {
             }
         }
 
+        impl<AN> embedded_hal_0_2::adc::Channel<AN> for $pxi<AN>
+        where
+            AN: adc::Analog<adc::ADC2> + Send,
+        {
+            type ID = u8;
+
+            fn channel() -> Self::ID {
+                $adc as u8
+            }
+        }
+
         impl<AN> embedded_hal::adc::nb::Channel<AN> for $pxi<AN>
         where
             AN: adc::Analog<adc::ADC2> + Send,
@@ -853,7 +590,7 @@ macro_rules! impl_adc {
             type ID = u8;
 
             fn channel(&self) -> Self::ID {
-                $adc as u8
+                adc_unit_t_ADC_UNIT_2 as u8
             }
         }
     };
@@ -893,6 +630,98 @@ macro_rules! impl_touch {
     ($pxi:ident: $pin:expr, NOTOUCH: $touch:expr) => {};
 }
 
+macro_rules! impl_hal_input_pin {
+    ($pxi:ident: $mode:ident) => {
+        impl embedded_hal_0_2::digital::v2::InputPin for $pxi<$mode> {
+            type Error = EspError;
+
+            fn is_high(&self) -> Result<bool, Self::Error> {
+                Ok(self.get_input_level())
+            }
+
+            fn is_low(&self) -> Result<bool, Self::Error> {
+                Ok(!self.is_high()?)
+            }
+        }
+
+        impl embedded_hal::digital::blocking::InputPin for $pxi<$mode> {
+            type Error = EspError;
+
+            fn is_high(&self) -> Result<bool, Self::Error> {
+                Ok(self.get_input_level())
+            }
+
+            fn is_low(&self) -> Result<bool, Self::Error> {
+                Ok(!self.is_high()?)
+            }
+        }
+    };
+}
+
+macro_rules! impl_hal_output_pin {
+    ($pxi:ident: $mode:ident) => {
+        impl embedded_hal_0_2::digital::v2::OutputPin for $pxi<$mode> {
+            type Error = EspError;
+
+            fn set_high(&mut self) -> Result<(), Self::Error> {
+                self.set_output_level(true)
+            }
+
+            fn set_low(&mut self) -> Result<(), Self::Error> {
+                self.set_output_level(false)
+            }
+        }
+
+        impl embedded_hal::digital::blocking::OutputPin for $pxi<$mode> {
+            type Error = EspError;
+
+            fn set_high(&mut self) -> Result<(), Self::Error> {
+                self.set_output_level(true)
+            }
+
+            fn set_low(&mut self) -> Result<(), Self::Error> {
+                self.set_output_level(false)
+            }
+        }
+
+        impl embedded_hal::digital::blocking::StatefulOutputPin for $pxi<$mode> {
+            fn is_set_high(&self) -> Result<bool, Self::Error> {
+                Ok(self.get_output_level())
+            }
+
+            fn is_set_low(&self) -> Result<bool, Self::Error> {
+                Ok(!self.is_set_high()?)
+            }
+        }
+
+        impl embedded_hal_0_2::digital::v2::StatefulOutputPin for $pxi<$mode> {
+            fn is_set_high(&self) -> Result<bool, Self::Error> {
+                Ok(self.get_output_level())
+            }
+
+            fn is_set_low(&self) -> Result<bool, Self::Error> {
+                Ok(!self.is_set_high()?)
+            }
+        }
+
+        impl embedded_hal_0_2::digital::v2::ToggleableOutputPin for $pxi<$mode> {
+            type Error = EspError;
+
+            fn toggle(&mut self) -> Result<(), Self::Error> {
+                self.set_output_level(!self.get_output_level())
+            }
+        }
+
+        impl embedded_hal::digital::blocking::ToggleableOutputPin for $pxi<$mode> {
+            type Error = EspError;
+
+            fn toggle(&mut self) -> Result<(), Self::Error> {
+                self.set_output_level(!self.get_output_level())
+            }
+        }
+    };
+}
+
 macro_rules! pin {
     ($pxi:ident: $pin:expr, Input, $rtc:ident: $rtcno:expr, $adc:ident: $adcno:expr, $dac:ident: $dacno:expr, $touch:ident: $touchno:expr) => {
         impl_input_only!($pxi: $pin);
@@ -910,6 +739,58 @@ macro_rules! pin {
         impl_touch!($pxi: $pin, $touch: $touchno);
     };
 }
+
+/// Generic $GpioX pin
+pub struct GpioPin<MODE> {
+    pin: i32,
+    _mode: PhantomData<MODE>,
+}
+
+impl<MODE> GpioPin<MODE>
+where
+    MODE: Send,
+{
+    fn new(pin: i32) -> GpioPin<MODE> {
+        Self {
+            pin,
+            _mode: PhantomData,
+        }
+    }
+}
+
+impl<MODE> Pin for GpioPin<MODE>
+where
+    MODE: Send,
+{
+    type Error = EspError;
+
+    fn pin(&self) -> i32
+    where
+        Self: Sized,
+    {
+        self.pin
+    }
+
+    fn reset(&mut self) -> Result<(), Self::Error> {
+        self.internal_reset()
+    }
+}
+
+impl InputPin for GpioPin<Input> {}
+
+impl OutputPin for GpioPin<Output> {}
+
+impl InputPin for GpioPin<InputOutput> {}
+
+impl OutputPin for GpioPin<InputOutput> {}
+
+impl_base!(GpioPin);
+impl_pull!(GpioPin: InputOutput);
+impl_pull!(GpioPin: Output);
+impl_hal_input_pin!(GpioPin: Input);
+impl_hal_input_pin!(GpioPin: InputOutput);
+impl_hal_output_pin!(GpioPin: InputOutput);
+impl_hal_output_pin!(GpioPin: Output);
 
 #[cfg(esp32)]
 mod chip {
@@ -1337,7 +1218,6 @@ mod chip {
 mod chip {
     use core::marker::PhantomData;
 
-    use embedded_hal::digital::blocking::{OutputPin as _, StatefulOutputPin as _};
     use esp_idf_sys::*;
 
     use super::*;

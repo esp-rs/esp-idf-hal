@@ -259,6 +259,56 @@ impl<ADC: Adc> PoweredAdc<ADC> {
             Ok(None)
         }
     }
+
+    fn read(
+        &mut self,
+        unit: adc_unit_t,
+        channel: adc_channel_t,
+        atten: adc_atten_t,
+    ) -> nb::Result<u16, EspError> {
+        let mut measurement = 0_i32;
+
+        if unit == adc_unit_t_ADC_UNIT_1 {
+            measurement = unsafe { adc1_get_raw(channel) };
+        } else {
+            let res = unsafe {
+                adc2_get_raw(channel, self.resolution.into(), &mut measurement as *mut _)
+            };
+
+            if res == ESP_ERR_INVALID_STATE as i32 {
+                return Err(nb::Error::WouldBlock);
+            } else if res < 0 {
+                return Err(nb::Error::Other(EspError::from(res).unwrap()));
+            }
+        };
+
+        Ok(self.raw_to_voltage(measurement, atten)?)
+    }
+
+    #[cfg(esp32)]
+    fn read_hall(&mut self) -> nb::Result<u16, EspError> {
+        let measurement = unsafe { hall_sensor_read() };
+
+        Ok(self.raw_to_voltage(measurement, adc_atten_t_ADC_ATTEN_DB_0)?)
+    }
+}
+
+#[cfg(not(feature = "ulp"))]
+impl<ADC, AN, PIN> embedded_hal_0_2::adc::OneShot<AN, u16, PIN> for PoweredAdc<ADC>
+where
+    ADC: Adc,
+    AN: Analog<ADC>,
+    PIN: embedded_hal_0_2::adc::Channel<AN, ID = u8>,
+{
+    type Error = EspError;
+
+    fn read(&mut self, _pin: &mut PIN) -> nb::Result<u16, Self::Error> {
+        self.read(
+            ADC::unit(),
+            PIN::channel() as adc_channel_t,
+            AN::attenuation(),
+        )
+    }
 }
 
 #[cfg(not(feature = "ulp"))]
@@ -271,27 +321,11 @@ where
     type Error = EspError;
 
     fn read(&mut self, pin: &mut PIN) -> nb::Result<u16, Self::Error> {
-        let mut measurement = 0_i32;
-
-        if ADC::unit() == adc_unit_t_ADC_UNIT_1 {
-            measurement = unsafe { adc1_get_raw(pin.channel() as adc_channel_t) };
-        } else {
-            let res = unsafe {
-                adc2_get_raw(
-                    pin.channel() as adc_channel_t,
-                    self.resolution.into(),
-                    &mut measurement as *mut _,
-                )
-            };
-
-            if res == ESP_ERR_INVALID_STATE as i32 {
-                return Err(nb::Error::WouldBlock);
-            } else if res < 0 {
-                return Err(nb::Error::Other(EspError::from(res).unwrap()));
-            }
-        };
-
-        Ok(self.raw_to_voltage(measurement, AN::attenuation())?)
+        self.read(
+            ADC::unit(),
+            pin.channel() as adc_channel_t,
+            AN::attenuation(),
+        )
     }
 }
 
@@ -300,9 +334,7 @@ impl embedded_hal::adc::nb::OneShot<ADC1, u16, hall::HallSensor> for PoweredAdc<
     type Error = EspError;
 
     fn read(&mut self, _hall_sensor: &mut hall::HallSensor) -> nb::Result<u16, Self::Error> {
-        let measurement = unsafe { hall_sensor_read() };
-
-        Ok(self.raw_to_voltage(measurement, adc_atten_t_ADC_ATTEN_DB_0)?)
+        self.read_hall()
     }
 }
 

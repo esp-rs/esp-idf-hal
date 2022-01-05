@@ -220,6 +220,19 @@ where
     }
 }
 
+impl<I2C, SDA, SCL> embedded_hal_0_2::blocking::i2c::Read for Master<I2C, SDA, SCL>
+where
+    I2C: I2c,
+    SDA: OutputPin + InputPin,
+    SCL: OutputPin,
+{
+    type Error = I2cError;
+
+    fn read(&mut self, addr: u8, buffer: &mut [u8]) -> Result<(), Self::Error> {
+        embedded_hal::i2c::blocking::Read::read(self, addr, buffer)
+    }
+}
+
 impl<I2C, SDA, SCL> embedded_hal::i2c::blocking::Read for Master<I2C, SDA, SCL>
 where
     I2C: I2c,
@@ -257,6 +270,19 @@ where
     }
 }
 
+impl<I2C, SDA, SCL> embedded_hal_0_2::blocking::i2c::Write for Master<I2C, SDA, SCL>
+where
+    I2C: I2c,
+    SDA: OutputPin + InputPin,
+    SCL: OutputPin,
+{
+    type Error = I2cError;
+
+    fn write(&mut self, addr: u8, bytes: &[u8]) -> Result<(), Self::Error> {
+        embedded_hal::i2c::blocking::Write::write(self, addr, bytes)
+    }
+}
+
 impl<I2C, SDA, SCL> embedded_hal::i2c::blocking::Write for Master<I2C, SDA, SCL>
 where
     I2C: I2c,
@@ -291,6 +317,19 @@ where
             )
             .map_err(I2cError::other)
         }
+    }
+}
+
+impl<I2C, SDA, SCL> embedded_hal_0_2::blocking::i2c::WriteRead for Master<I2C, SDA, SCL>
+where
+    I2C: I2c,
+    SDA: OutputPin + InputPin,
+    SCL: OutputPin,
+{
+    type Error = I2cError;
+
+    fn write_read(&mut self, addr: u8, bytes: &[u8], buffer: &mut [u8]) -> Result<(), Self::Error> {
+        embedded_hal::i2c::blocking::WriteRead::write_read(self, addr, bytes, buffer)
     }
 }
 
