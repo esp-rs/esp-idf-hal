@@ -250,6 +250,7 @@ impl<TX: OutputPin, RX: InputPin> CanBus<TX, RX> {
     }
 
     pub fn release(self) -> Result<(CAN, TX, RX), EspError> {
+        esp!(unsafe { twai_stop() })?;
         esp!(unsafe { twai_driver_uninstall() })?;
 
         Ok((self.can, self.tx, self.rx))
