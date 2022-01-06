@@ -404,8 +404,8 @@ impl<SPI: Spi, SCLK: OutputPin, SDO: OutputPin, SDI: InputPin + OutputPin, CS: O
             ..Default::default()
         };
 
-        transaction.length = write_len as _;
-        transaction.rxlength = read_len as _;
+        transaction.length = (write_len * 8) as _;
+        transaction.rxlength = (read_len * 8) as _;
 
         esp!(unsafe { spi_device_polling_transmit(self.device, &mut transaction as *mut _) })
             .map_err(SpiError::other)?;
