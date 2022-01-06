@@ -55,9 +55,11 @@ macro_rules! embedded_hal_error {
             pub fn new(kind: $kind, cause: esp_idf_sys::EspError) -> Self {
                 Self { kind, cause }
             }
+
             pub fn other(cause: esp_idf_sys::EspError) -> Self {
                 Self::new(<$kind>::Other, cause)
             }
+
             pub fn cause(&self) -> esp_idf_sys::EspError {
                 self.cause
             }

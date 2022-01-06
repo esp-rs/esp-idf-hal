@@ -1,14 +1,4 @@
 //! GPIO and pin configuration
-//!
-//! ESP32 has very flexible pin assignment via the GPIO mux. It also has a separate RTC mux for
-//! low power and analog functions.
-//!
-//! To support this flexibility two sets of traits are supported:
-//! - The various embedded_hal properties
-//! - Dedicated [Pin], [InputPin], [OutputPin], [RTCInputPin] and [RTCOutputPin]
-//!
-//! The advantage of using the dedicated traits in peripherals is that the configuration of the
-//! IO can be done inside the peripheral instead of having to be done upfront.
 
 use core::marker::PhantomData;
 
@@ -22,14 +12,22 @@ use crate::adc;
 
 pub use chip::*;
 
-/// Extension trait to split a GPIO peripheral into independent pins and registers
-pub trait GpioExt {
-    /// The type to split the GPIO into
-    type Parts;
+/// A trait implemented by every pin insance
+pub trait Pin: Send {
+    type Error;
 
-    /// Splits the GPIO block into independent pins and registers
-    fn split(self) -> Self::Parts;
+    fn pin(&self) -> i32;
 }
+
+/// A marker trait designating a pin which is capable of
+/// operating as an input pin, even if its current mode
+/// might be a different one
+pub trait InputPin: Pin {}
+
+/// A marker trait designating a pin which is capable of
+/// operating as an output pin, even if its current mode
+/// might be a different one
+pub trait OutputPin: Pin {}
 
 /// Functions available on pins with pull up/down resistors
 //
@@ -51,32 +49,29 @@ pub trait Pull {
     fn set_floating(&mut self) -> Result<&mut Self, Self::Error>;
 }
 
-pub trait Pin: Send {
-    type Error;
-
-    fn pin(&self) -> i32;
-
-    fn reset(&mut self) -> Result<(), Self::Error>;
-}
-
-pub trait InputPin: Pin {}
-
-pub trait OutputPin: Pin {}
-
 pub trait RTCPin: Pin {
     fn rtc_pin(&self) -> i32;
 }
 
+/// A marker trait designating a pin which is capable of
+/// operating as an ADC pin, even if its current mode
+/// might be a different one
 pub trait ADCPin: Pin {
     fn adc_unit(&self) -> adc_unit_t;
     fn adc_channel(&self) -> adc_channel_t;
 }
 
+/// A marker trait designating a pin which is capable of
+/// operating as a DAC pin, even if its current mode
+/// might be a different one
 #[cfg(all(not(esp32c3), not(esp32s3)))]
 pub trait DACPin: Pin {
     fn dac_channel(&self) -> dac_channel_t;
 }
 
+/// A marker trait designating a pin which is capable of
+/// operating as a touch pin, even if its current mode
+/// might be a different one
 #[cfg(not(esp32c3))]
 pub trait TouchPin: Pin {
     fn touch_channel(&self) -> touch_pad_t;
@@ -91,44 +86,6 @@ pub struct InputOutput;
 pub struct Disabled;
 
 pub struct Unknown;
-
-/// Interrupt events
-///
-/// *Note: ESP32 has a bug (3.14), which prevents correct triggering of interrupts when
-/// multiple GPIO's are configured for edge triggering in a group (GPIO0-31 is one group,
-/// GPIO32-39 is the other group). This can be worked around by using level triggering on the
-/// GPIO with edge triggering on the CPU.*
-//
-// Value must correspond to values in the register
-#[cfg(not(feature = "ulp"))]
-#[derive(Copy, Clone)]
-pub enum Event {
-    /// Trigger on the rising edge
-    RisingEdge = 1,
-    /// Trigger on the falling edge
-    FallingEdge = 2,
-    /// Trigger on any edge
-    AnyEdge = 3,
-    /// Trigger while low level
-    LowLevel = 4,
-    /// Trigger while high level
-    HighLevel = 5,
-}
-
-/// Input mode via RTC (type state)
-pub struct RTCInput<MODE> {
-    _mode: PhantomData<MODE>,
-}
-
-/// Output mode via RTC (type state)
-pub struct RTCOutput<MODE> {
-    _mode: PhantomData<MODE>,
-}
-
-/// Input-output mode via RTC (type state)
-pub struct RTCInputOutput<MODE> {
-    _mode: PhantomData<MODE>,
-}
 
 /// Drive strength (values are approximates)
 #[cfg(not(feature = "ulp"))]
@@ -167,11 +124,12 @@ impl From<gpio_drive_cap_t> for DriveStrength {
 
 macro_rules! impl_base {
     ($pxi:ident) => {
+        #[allow(dead_code)]
         impl<MODE> $pxi<MODE>
         where
             MODE: Send,
         {
-            fn internal_reset(&mut self) -> Result<(), EspError> {
+            fn reset(&mut self) -> Result<(), EspError> {
                 #[cfg(not(feature = "ulp"))]
                 let res = esp_result!(unsafe { gpio_reset_pin(self.pin()) }, ());
                 #[cfg(feature = "ulp")]
@@ -223,6 +181,51 @@ macro_rules! impl_base {
             #[cfg(not(feature = "ulp"))]
             pub fn set_drive_strength(&mut self, strength: DriveStrength) -> Result<(), EspError> {
                 esp!(unsafe { gpio_set_drive_capability(self.pin(), strength.into()) })?;
+
+                Ok(())
+            }
+
+            fn set_disabled(&mut self) -> Result<(), EspError> {
+                esp!(unsafe { gpio_set_direction(self.pin(), gpio_mode_t_GPIO_MODE_DISABLE,) })?;
+
+                Ok(())
+            }
+
+            fn set_input(&mut self) -> Result<(), EspError> {
+                self.reset()?;
+                esp!(unsafe { gpio_set_direction(self.pin(), gpio_mode_t_GPIO_MODE_INPUT) })?;
+
+                Ok(())
+            }
+
+            fn set_input_output(&mut self) -> Result<(), EspError> {
+                self.reset()?;
+                esp!(unsafe {
+                    gpio_set_direction(self.pin(), gpio_mode_t_GPIO_MODE_INPUT_OUTPUT)
+                })?;
+
+                Ok(())
+            }
+
+            fn set_input_output_od(&mut self) -> Result<(), EspError> {
+                self.reset()?;
+                esp!(unsafe {
+                    gpio_set_direction(self.pin(), gpio_mode_t_GPIO_MODE_INPUT_OUTPUT_OD)
+                })?;
+
+                Ok(())
+            }
+
+            fn set_output(&mut self) -> Result<(), EspError> {
+                self.reset()?;
+                esp!(unsafe { gpio_set_direction(self.pin(), gpio_mode_t_GPIO_MODE_OUTPUT,) })?;
+
+                Ok(())
+            }
+
+            fn set_output_od(&mut self) -> Result<(), EspError> {
+                self.reset()?;
+                esp!(unsafe { gpio_set_direction(self.pin(), gpio_mode_t_GPIO_MODE_OUTPUT_OD,) })?;
 
                 Ok(())
             }
@@ -278,14 +281,33 @@ macro_rules! impl_input_base {
         where
             MODE: Send,
         {
+            /// # Safety
+            ///
+            /// Care should be taken not to instantiate a pin which is already used elsewhere
+            pub unsafe fn new() -> $pxi<Unknown> {
+                $pxi { _mode: PhantomData }
+            }
+
+            pub fn into_unknown(self) -> Result<$pxi<Unknown>, EspError> {
+                Ok($pxi { _mode: PhantomData })
+            }
+
+            pub fn into_disabled(mut self) -> Result<$pxi<Disabled>, EspError> {
+                self.set_disabled()?;
+
+                Ok($pxi { _mode: PhantomData })
+            }
+
+            pub fn into_input(mut self) -> Result<$pxi<Input>, EspError> {
+                self.set_input()?;
+
+                Ok($pxi { _mode: PhantomData })
+            }
+
             /// Degrades a concrete pin (e.g. [`Gpio1`]) to a generic pin
             /// struct that can also be used with periphals.
             pub fn degrade(self) -> GpioPin<MODE> {
                 GpioPin::new($pin)
-            }
-
-            pub fn into_unknown(self) -> $pxi<Unknown> {
-                $pxi { _mode: PhantomData }
             }
         }
 
@@ -298,10 +320,6 @@ macro_rules! impl_input_base {
             #[inline(always)]
             fn pin(&self) -> i32 {
                 $pin
-            }
-
-            fn reset(&mut self) -> Result<(), Self::Error> {
-                self.internal_reset()
             }
         }
 
@@ -316,106 +334,47 @@ macro_rules! impl_input_base {
 macro_rules! impl_input_only {
     ($pxi:ident: $pin:expr) => {
         impl_input_base!($pxi: $pin);
-
-        impl<MODE> $pxi<MODE>
-        where
-            MODE: Send,
-        {
-            /// # Safety
-            ///
-            /// Care should be taken not to instantiate a pin which is already used elsewhere
-            pub unsafe fn new() -> $pxi<Unknown> {
-                $pxi { _mode: PhantomData }
-            }
-
-            pub fn into_disabled(self) -> Result<$pxi<Disabled>, EspError> {
-                esp_result!(
-                    unsafe { gpio_set_direction(self.pin(), gpio_mode_t_GPIO_MODE_DISABLE,) },
-                    $pxi { _mode: PhantomData }
-                )
-            }
-
-            pub fn into_input(mut self) -> Result<$pxi<Input>, EspError> {
-                self.reset()?;
-                esp_result!(
-                    unsafe { gpio_set_direction(self._pin(), gpio_mode_t_GPIO_MODE_INPUT) },
-                    $pxi { _mode: PhantomData }
-                )
-            }
-        }
     };
 }
 
 macro_rules! impl_input_output {
     ($pxi:ident: $pin:expr) => {
         impl_input_base!($pxi: $pin);
+        impl_pull!($pxi: Input);
+        impl_pull!($pxi: InputOutput);
+        impl_hal_input_pin!($pxi: InputOutput);
 
         impl<MODE> OutputPin for $pxi<MODE> where MODE: Send {}
 
-        impl_hal_input_pin!($pxi: InputOutput);
         impl_hal_output_pin!($pxi: InputOutput);
         impl_hal_output_pin!($pxi: Output);
-        impl_pull!($pxi: Input);
-        impl_pull!($pxi: InputOutput);
 
         impl<MODE> $pxi<MODE>
         where
             MODE: Send,
         {
-            /// # Safety
-            ///
-            /// Care should be taken not to instantiate a pin which is already used elsewhere
-            pub unsafe fn new() -> $pxi<Unknown> {
-                $pxi { _mode: PhantomData }
-            }
-
-            pub fn into_disabled(self) -> Result<$pxi<Disabled>, EspError> {
-                esp_result!(
-                    unsafe { gpio_set_direction(self.pin(), gpio_mode_t_GPIO_MODE_DISABLE,) },
-                    $pxi { _mode: PhantomData }
-                )
-            }
-
-            pub fn into_input(mut self) -> Result<$pxi<Input>, EspError> {
-                self.reset()?;
-                esp_result!(
-                    unsafe { gpio_set_direction(self.pin(), gpio_mode_t_GPIO_MODE_INPUT) },
-                    $pxi { _mode: PhantomData }
-                )
-            }
-
             pub fn into_input_output(mut self) -> Result<$pxi<InputOutput>, EspError> {
-                self.reset()?;
-                esp_result!(
-                    unsafe { gpio_set_direction(self.pin(), gpio_mode_t_GPIO_MODE_INPUT_OUTPUT,) },
-                    $pxi { _mode: PhantomData }
-                )
+                self.set_input_output()?;
+
+                Ok($pxi { _mode: PhantomData })
             }
 
             pub fn into_input_output_od(mut self) -> Result<$pxi<InputOutput>, EspError> {
-                self.reset()?;
-                esp_result!(
-                    unsafe {
-                        gpio_set_direction(self.pin(), gpio_mode_t_GPIO_MODE_INPUT_OUTPUT_OD)
-                    },
-                    $pxi { _mode: PhantomData }
-                )
+                self.set_input_output_od()?;
+
+                Ok($pxi { _mode: PhantomData })
             }
 
             pub fn into_output(mut self) -> Result<$pxi<Output>, EspError> {
-                self.reset()?;
-                esp_result!(
-                    unsafe { gpio_set_direction(self.pin(), gpio_mode_t_GPIO_MODE_OUTPUT,) },
-                    $pxi { _mode: PhantomData }
-                )
+                self.set_output()?;
+
+                Ok($pxi { _mode: PhantomData })
             }
 
             pub fn into_output_od(mut self) -> Result<$pxi<Output>, EspError> {
-                self.reset()?;
-                esp_result!(
-                    unsafe { gpio_set_direction(self.pin(), gpio_mode_t_GPIO_MODE_OUTPUT_OD,) },
-                    $pxi { _mode: PhantomData }
-                )
+                self.set_output_od()?;
+
+                Ok($pxi { _mode: PhantomData })
             }
         }
     };
@@ -500,7 +459,7 @@ macro_rules! impl_adc {
             type ID = u8;
 
             fn channel() -> Self::ID {
-                adc_unit_t_ADC_UNIT_1 as u8
+                $adc
             }
         }
 
@@ -511,7 +470,7 @@ macro_rules! impl_adc {
             type ID = u8;
 
             fn channel(&self) -> Self::ID {
-                adc_unit_t_ADC_UNIT_1 as u8
+                $adc
             }
         }
     };
@@ -640,7 +599,7 @@ macro_rules! impl_hal_input_pin {
             }
 
             fn is_low(&self) -> Result<bool, Self::Error> {
-                Ok(!self.is_high()?)
+                Ok(!self.get_input_level())
             }
         }
 
@@ -652,7 +611,7 @@ macro_rules! impl_hal_input_pin {
             }
 
             fn is_low(&self) -> Result<bool, Self::Error> {
-                Ok(!self.is_high()?)
+                Ok(!self.get_input_level())
             }
         }
     };
@@ -690,7 +649,7 @@ macro_rules! impl_hal_output_pin {
             }
 
             fn is_set_low(&self) -> Result<bool, Self::Error> {
-                Ok(!self.is_set_high()?)
+                Ok(!self.get_output_level())
             }
         }
 
@@ -700,7 +659,7 @@ macro_rules! impl_hal_output_pin {
             }
 
             fn is_set_low(&self) -> Result<bool, Self::Error> {
-                Ok(!self.is_set_high()?)
+                Ok(!self.get_output_level())
             }
         }
 
@@ -770,10 +729,6 @@ where
     {
         self.pin
     }
-
-    fn reset(&mut self) -> Result<(), Self::Error> {
-        self.internal_reset()
-    }
 }
 
 impl InputPin for GpioPin<Input> {}
@@ -785,8 +740,6 @@ impl InputPin for GpioPin<InputOutput> {}
 impl OutputPin for GpioPin<InputOutput> {}
 
 impl_base!(GpioPin);
-impl_pull!(GpioPin: InputOutput);
-impl_pull!(GpioPin: Output);
 impl_hal_input_pin!(GpioPin: Input);
 impl_hal_input_pin!(GpioPin: InputOutput);
 impl_hal_output_pin!(GpioPin: InputOutput);
@@ -796,7 +749,6 @@ impl_hal_output_pin!(GpioPin: Output);
 mod chip {
     use core::marker::PhantomData;
 
-    use embedded_hal::digital::blocking::{OutputPin as _, StatefulOutputPin as _};
     #[cfg(not(feature = "ulp"))]
     use esp_idf_sys::*;
 
@@ -976,7 +928,6 @@ mod chip {
 mod chip {
     use core::marker::PhantomData;
 
-    use embedded_hal::digital::blocking::{OutputPin as _, StatefulOutputPin as _};
     #[cfg(not(feature = "ulp"))]
     use esp_idf_sys::*;
 

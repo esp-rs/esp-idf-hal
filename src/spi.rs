@@ -37,6 +37,8 @@ pub trait Spi: Send {
     fn device() -> spi_host_device_t;
 }
 
+const TRANS_LEN: usize = 64;
+
 /// Pins used by the SPI interface
 pub struct Pins<
     SCLK: OutputPin,
@@ -192,8 +194,6 @@ impl<SCLK: OutputPin, SDO: OutputPin, SDI: InputPin + OutputPin, CS: OutputPin>
 impl<SPI: Spi, SCLK: OutputPin, SDO: OutputPin, SDI: InputPin + OutputPin, CS: OutputPin>
     Master<SPI, SCLK, SDO, SDI, CS>
 {
-    const TRANS_LEN: usize = 64;
-
     /// Internal implementation of new shared by all SPI controllers
     fn new_internal(
         spi: SPI,
@@ -292,7 +292,7 @@ impl<SPI: Spi, SCLK: OutputPin, SDO: OutputPin, SDI: InputPin + OutputPin, CS: O
     }
 
     fn lock_bus_for(&mut self, lock_bus: bool, size: usize) -> Result<Option<()>, SpiError> {
-        if lock_bus && size > Self::TRANS_LEN {
+        if lock_bus && size > TRANS_LEN {
             Ok(Some(self.lock_bus()?))
         } else {
             Ok(None)
@@ -308,9 +308,9 @@ impl<SPI: Spi, SCLK: OutputPin, SDO: OutputPin, SDI: InputPin + OutputPin, CS: O
         let _lock = self.lock_bus_for(lock_bus, max(read.len(), write.len()))?;
 
         let len = max(read.len(), write.len());
-        for offset in (0..len).step_by(Self::TRANS_LEN) {
+        for offset in (0..len).step_by(TRANS_LEN) {
             let (read_ptr, read_len) = if offset < read.len() {
-                let len = min(Self::TRANS_LEN, read.len() - offset);
+                let len = min(TRANS_LEN, read.len() - offset);
                 let chunk = &mut read[offset..len];
 
                 (chunk.as_mut_ptr(), len)
@@ -319,7 +319,7 @@ impl<SPI: Spi, SCLK: OutputPin, SDO: OutputPin, SDI: InputPin + OutputPin, CS: O
             };
 
             let (write_ptr, write_len) = if offset < write.len() {
-                let chunk = &write[offset..min(Self::TRANS_LEN, write.len() - offset)];
+                let chunk = &write[offset..min(TRANS_LEN, write.len() - offset)];
 
                 (chunk.as_ptr(), chunk.len())
             } else {
@@ -339,8 +339,8 @@ impl<SPI: Spi, SCLK: OutputPin, SDO: OutputPin, SDI: InputPin + OutputPin, CS: O
     ) -> Result<(), SpiError> {
         let _lock = self.lock_bus_for(lock_bus, data.len())?;
 
-        for offset in (0..data.len()).step_by(Self::TRANS_LEN) {
-            let len = min(Self::TRANS_LEN, data.len() - offset);
+        for offset in (0..data.len()).step_by(TRANS_LEN) {
+            let len = min(TRANS_LEN, data.len() - offset);
             let chunk = &mut data[offset..len];
             let ptr = chunk.as_mut_ptr();
 
@@ -356,7 +356,7 @@ impl<SPI: Spi, SCLK: OutputPin, SDO: OutputPin, SDI: InputPin + OutputPin, CS: O
     {
         let mut words = words.into_iter();
 
-        let mut buf = [0_u8; Self::TRANS_LEN];
+        let mut buf = [0_u8; TRANS_LEN];
 
         let mut lock = None;
 
