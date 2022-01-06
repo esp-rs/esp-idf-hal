@@ -38,7 +38,13 @@ pub trait Spi: Send {
     fn device() -> spi_host_device_t;
 }
 
-const TRANS_LEN: usize = 64;
+// Limit to 64, as we sometimes allocate a buffer of size TRANS_LEN on the stack, so we have to keep it small
+// SOC_SPI_MAXIMUM_BUFFER_SIZE equals 64 or 72 (esp32s2) anyway
+const TRANS_LEN: usize = if SOC_SPI_MAXIMUM_BUFFER_SIZE < 64_u32 {
+    SOC_SPI_MAXIMUM_BUFFER_SIZE as _
+} else {
+    64_usize
+};
 
 /// Pins used by the SPI interface
 pub struct Pins<
@@ -354,9 +360,9 @@ impl<SPI: Spi, SCLK: OutputPin, SDO: OutputPin, SDI: InputPin + OutputPin, CS: O
                     chunk.as_mut_ptr()
                 };
 
-                let chunk_len = max(read_chunk_end, write_chunk_end) - offset;
+                let transfer_len = max(read_chunk_end, write_chunk_end) - offset;
 
-                self.transfer_internal_raw(read_ptr, chunk_len, write_ptr, chunk_len)?;
+                self.transfer_internal_raw(read_ptr, transfer_len, write_ptr, transfer_len)?;
 
                 if read_chunk_end > offset && read_chunk_end < offset + TRANS_LEN {
                     read[offset..read_chunk_end].copy_from_slice(&buf[0..read_chunk_end - offset]);
