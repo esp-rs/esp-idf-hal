@@ -14,6 +14,8 @@ compile_error!("Feature `ulp` is currently only supported on esp32s2");
 #[macro_use]
 pub mod ulp;
 pub mod adc;
+#[cfg(not(feature = "ulp"))]
+pub mod can;
 #[cfg(all(feature = "experimental", not(feature = "ulp")))]
 pub mod cpu;
 #[cfg(not(feature = "ulp"))]

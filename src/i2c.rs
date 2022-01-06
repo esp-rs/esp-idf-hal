@@ -1,5 +1,6 @@
-use crate::{delay::*, gpio::*, units::*};
 use esp_idf_sys::*;
+
+use crate::{delay::*, gpio::*, units::*};
 
 crate::embedded_hal_error!(
     I2cError,

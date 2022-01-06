@@ -4,7 +4,7 @@ use core::time::Duration;
 use esp_idf_sys::*;
 
 #[allow(non_upper_case_globals)]
-const portMAX_DELAY: TickType_t = TickType_t::max_value();
+pub(crate) const portMAX_DELAY: TickType_t = TickType_t::max_value();
 
 #[allow(non_upper_case_globals)]
 const portTICK_PERIOD_MS: u32 = 1000 / configTICK_RATE_HZ;
