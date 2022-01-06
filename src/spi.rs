@@ -23,6 +23,7 @@
 use core::cmp::{max, min};
 use core::ptr;
 
+use crate::delay::portMAX_DELAY;
 use crate::gpio::{self, InputPin, OutputPin};
 
 use esp_idf_sys::*;
@@ -191,6 +192,24 @@ impl<SCLK: OutputPin, SDO: OutputPin, SDI: InputPin + OutputPin, CS: OutputPin>
     }
 }
 
+struct Lock(spi_device_handle_t);
+
+impl Lock {
+    fn new(device: spi_device_handle_t) -> Result<Self, EspError> {
+        esp!(unsafe { spi_device_acquire_bus(device, portMAX_DELAY) })?;
+
+        Ok(Self(device))
+    }
+}
+
+impl Drop for Lock {
+    fn drop(&mut self) {
+        unsafe {
+            spi_device_release_bus(self.0);
+        }
+    }
+}
+
 impl<SPI: Spi, SCLK: OutputPin, SDO: OutputPin, SDI: InputPin + OutputPin, CS: OutputPin>
     Master<SPI, SCLK, SDO, SDI, CS>
 {
@@ -287,11 +306,11 @@ impl<SPI: Spi, SCLK: OutputPin, SDO: OutputPin, SDI: InputPin + OutputPin, CS: O
         Ok((self.spi, self.pins))
     }
 
-    fn lock_bus(&mut self) -> Result<(), SpiError> {
-        Ok(())
+    fn lock_bus(&mut self) -> Result<Lock, SpiError> {
+        Lock::new(self.device).map_err(SpiError::other)
     }
 
-    fn lock_bus_for(&mut self, lock_bus: bool, size: usize) -> Result<Option<()>, SpiError> {
+    fn lock_bus_for(&mut self, lock_bus: bool, size: usize) -> Result<Option<Lock>, SpiError> {
         if lock_bus && size > TRANS_LEN {
             Ok(Some(self.lock_bus()?))
         } else {
@@ -309,24 +328,50 @@ impl<SPI: Spi, SCLK: OutputPin, SDO: OutputPin, SDI: InputPin + OutputPin, CS: O
 
         let len = max(read.len(), write.len());
         for offset in (0..len).step_by(TRANS_LEN) {
-            let (read_ptr, read_len) = if offset < read.len() {
-                let len = min(TRANS_LEN, read.len() - offset);
-                let chunk = &mut read[offset..len];
+            let read_chunk_end = min(offset + TRANS_LEN, read.len());
+            let write_chunk_end = min(offset + TRANS_LEN, write.len());
 
-                (chunk.as_mut_ptr(), len)
+            if read_chunk_end != write_chunk_end {
+                let mut buf = [0_u8; TRANS_LEN];
+
+                let write_ptr = if write_chunk_end < offset + TRANS_LEN {
+                    if write_chunk_end > offset {
+                        buf.copy_from_slice(&write[offset..write_chunk_end]);
+                    }
+
+                    buf.as_ptr()
+                } else {
+                    let chunk = &write[offset..write_chunk_end];
+
+                    chunk.as_ptr()
+                };
+
+                let read_ptr = if read_chunk_end < offset + TRANS_LEN {
+                    buf.as_mut_ptr()
+                } else {
+                    let chunk = &mut read[offset..read_chunk_end];
+
+                    chunk.as_mut_ptr()
+                };
+
+                let chunk_len = max(read_chunk_end, write_chunk_end) - offset;
+
+                self.transfer_internal_raw(read_ptr, chunk_len, write_ptr, chunk_len)?;
+
+                if read_chunk_end > offset && read_chunk_end < offset + TRANS_LEN {
+                    read[offset..read_chunk_end].copy_from_slice(&buf[0..read_chunk_end - offset]);
+                }
             } else {
-                (ptr::null_mut(), 0)
-            };
+                let read_chunk = &mut read[offset..read_chunk_end];
+                let write_chunk = &write[offset..write_chunk_end];
 
-            let (write_ptr, write_len) = if offset < write.len() {
-                let chunk = &write[offset..min(TRANS_LEN, write.len() - offset)];
-
-                (chunk.as_ptr(), chunk.len())
-            } else {
-                (ptr::null(), 0)
-            };
-
-            self.transfer_internal_raw(read_ptr, read_len, write_ptr, write_len)?;
+                self.transfer_internal_raw(
+                    read_chunk.as_mut_ptr(),
+                    read_chunk.len(),
+                    write_chunk.as_ptr(),
+                    write_chunk.len(),
+                )?;
+            }
         }
 
         Ok(())
@@ -339,9 +384,10 @@ impl<SPI: Spi, SCLK: OutputPin, SDO: OutputPin, SDI: InputPin + OutputPin, CS: O
     ) -> Result<(), SpiError> {
         let _lock = self.lock_bus_for(lock_bus, data.len())?;
 
+        let total_len = data.len();
         for offset in (0..data.len()).step_by(TRANS_LEN) {
-            let len = min(TRANS_LEN, data.len() - offset);
-            let chunk = &mut data[offset..len];
+            let chunk = &mut data[offset..min(offset + TRANS_LEN, total_len)];
+            let len = chunk.len();
             let ptr = chunk.as_mut_ptr();
 
             self.transfer_internal_raw(ptr, len, ptr, len)?;
@@ -380,7 +426,10 @@ impl<SPI: Spi, SCLK: OutputPin, SDO: OutputPin, SDI: InputPin + OutputPin, CS: O
                 lock = Some(self.lock_bus()?);
             }
 
-            self.transfer_internal(&mut [], &buf[0..offset], false)?;
+            let chunk = &mut buf[..offset];
+            let ptr = chunk.as_mut_ptr();
+
+            self.transfer_internal_raw(ptr, chunk.len(), ptr, chunk.len())?;
         }
 
         Ok(())
