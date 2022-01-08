@@ -353,10 +353,10 @@ impl Frame {
             // therefore setting those union flags is quite hairy
             let mut flags = twai_message_t__bindgen_ty_1::default();
 
+            // set bits in an union
+            unsafe { flags.__bindgen_anon_1.set_ss(1) };
             if extended {
-                // set bits in an union
                 unsafe { flags.__bindgen_anon_1.set_extd(1) };
-                unsafe { flags.__bindgen_anon_1.set_ss(1) };
             }
 
             let mut payload = [0; 8];
@@ -381,10 +381,11 @@ impl Frame {
             // therefore setting those union flags is quite hairy
             let mut flags = twai_message_t__bindgen_ty_1::default();
 
+            // set bits in an union
+            unsafe { flags.__bindgen_anon_1.set_rtr(1) };
+            unsafe { flags.__bindgen_anon_1.set_ss(1) };
             if extended {
-                // set bits in an union
-                unsafe { flags.__bindgen_anon_1.set_rtr(1) };
-                unsafe { flags.__bindgen_anon_1.set_ss(1) };
+                unsafe { flags.__bindgen_anon_1.set_extd(1) };
             }
 
             let twai_message = twai_message_t {
