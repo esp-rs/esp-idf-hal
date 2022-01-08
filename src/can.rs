@@ -470,7 +470,7 @@ impl core::fmt::Display for Frame {
 //     }
 
 //     fn id(&self) -> embedded_hal_0_2::can::Id {
-//         if self.get_extended() {
+//         if self.is_standard() {
 //             let id = unsafe {
 //                 embedded_hal_0_2::can::StandardId::new_unchecked(self.get_identifier() as u16)
 //             };
@@ -527,7 +527,7 @@ impl embedded_hal::can::Frame for Frame {
     }
 
     fn id(&self) -> embedded_hal::can::Id {
-        if self.get_extended() {
+        if self.is_standard() {
             let id = unsafe {
                 embedded_hal::can::StandardId::new_unchecked(self.get_identifier() as u16)
             };
