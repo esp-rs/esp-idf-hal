@@ -157,18 +157,12 @@ pub mod config {
     impl Filter {
         /// Filter that allows all standard CAN IDs.
         pub fn standard_allow_all() -> Self {
-            Self::Standard {
-                filter: 0,
-                mask: 0x7FF,
-            }
+            Self::Standard { filter: 0, mask: 0 }
         }
 
         /// Filter that accepts all extended CAN IDs.
         pub fn extended_allow_all() -> Self {
-            Self::Extended {
-                filter: 0,
-                mask: 0x1FFFFFFF,
-            }
+            Self::Extended { filter: 0, mask: 0 }
         }
     }
 
