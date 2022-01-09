@@ -25,6 +25,8 @@ pub mod httpd;
 #[cfg(feature = "alloc")]
 // TODO: Ideally should not need "alloc" (also for performance reasons)
 pub mod log;
+#[cfg(all(feature = "experimental", feature = "alloc"))]
+pub mod mqtt;
 #[cfg(esp_idf_config_lwip_ipv4_napt)]
 pub mod napt;
 #[cfg(feature = "alloc")]

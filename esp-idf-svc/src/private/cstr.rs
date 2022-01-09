@@ -33,3 +33,37 @@ pub fn from_cstr(buf: &[u8]) -> alloc::borrow::Cow<'_, str> {
 
     unsafe { CStr::from_bytes_with_nul_unchecked(&buf[0..len]) }.to_string_lossy()
 }
+
+#[cfg(feature = "alloc")]
+pub struct RawCstrs(alloc::vec::Vec<CString>);
+
+#[cfg(feature = "alloc")]
+impl RawCstrs {
+    pub fn new() -> Self {
+        Self(Vec::new())
+    }
+
+    pub fn as_ptr(&mut self, s: impl AsRef<str>) -> *const c_types::c_char {
+        let cs = CString::new(s.as_ref()).unwrap();
+
+        let cstr_ptr = cs.as_ptr();
+
+        self.0.push(cs);
+
+        cstr_ptr
+    }
+
+    pub fn as_nptr<S>(&mut self, s: Option<S>) -> *const c_types::c_char
+    where
+        S: AsRef<str>,
+    {
+        s.map(|s| self.as_ptr(s)).unwrap_or(core::ptr::null())
+    }
+}
+
+#[cfg(feature = "alloc")]
+impl Default for RawCstrs {
+    fn default() -> Self {
+        RawCstrs::new()
+    }
+}
