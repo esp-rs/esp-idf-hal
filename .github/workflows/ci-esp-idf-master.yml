@@ -1,10 +1,6 @@
 name: CIEspIdfMaster
 
 on:
-  push:
-    branches:
-      - master
-  pull_request:
   schedule:
     - cron: '50 5 * * *'
 
