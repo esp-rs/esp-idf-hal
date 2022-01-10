@@ -36,6 +36,7 @@ impl<T> Waitable<T> {
         let (notify, result) = modifier(&mut *guard);
 
         if notify {
+            #[cfg(feature = "std")]
             self.cvar.notify_all();
         }
 
@@ -73,7 +74,7 @@ impl<T> Waitable<T> {
     ) -> Q {
         loop {
             {
-                let state = Mutex::lock(self);
+                let state = self.state.lock();
 
                 if !condition(&state) {
                     return getter(&state);
@@ -115,7 +116,7 @@ impl<T> Waitable<T> {
 
         loop {
             {
-                let state = Mutex::lock(self.state);
+                let state = self.state.lock();
 
                 if !condition(&state) {
                     return (false, getter(&state));

@@ -897,7 +897,7 @@ impl Wifi for EspWifi {
         let mut ap_infos_raw: vec::Vec<wifi_ap_record_t> =
             vec::Vec::with_capacity(total_count as usize);
         #[allow(clippy::uninit_vec)]
-        // ... because we are filling it in on the next likem and only reading the initialized members
+        // ... because we are filling it in on the next line and only reading the initialized members
         unsafe {
             ap_infos_raw.set_len(total_count as usize)
         };

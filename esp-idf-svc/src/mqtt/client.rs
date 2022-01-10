@@ -370,7 +370,7 @@ impl EspConnection {
                 queue.0,
                 &event as *const _ as *const _,
                 TickType_t::max_value(),
-                0 as _,
+                0_i32,
             )
         })
         .unwrap();

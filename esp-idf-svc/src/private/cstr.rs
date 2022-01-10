@@ -9,6 +9,7 @@ pub use cstr_core::CString;
 
 #[cfg(feature = "alloc")]
 extern crate alloc;
+use alloc::vec::Vec;
 
 use esp_idf_sys::c_types;
 
@@ -39,10 +40,12 @@ pub struct RawCstrs(alloc::vec::Vec<CString>);
 
 #[cfg(feature = "alloc")]
 impl RawCstrs {
+    #[allow(dead_code)]
     pub fn new() -> Self {
         Self(Vec::new())
     }
 
+    #[allow(dead_code)]
     pub fn as_ptr(&mut self, s: impl AsRef<str>) -> *const c_types::c_char {
         let cs = CString::new(s.as_ref()).unwrap();
 
@@ -53,6 +56,7 @@ impl RawCstrs {
         cstr_ptr
     }
 
+    #[allow(dead_code)]
     pub fn as_nptr<S>(&mut self, s: Option<S>) -> *const c_types::c_char
     where
         S: AsRef<str>,

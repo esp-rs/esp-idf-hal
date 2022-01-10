@@ -63,6 +63,7 @@ pub struct EspHttpClientConfiguration {
     pub follow_redirects_policy: FollowRedirectsPolicy,
 }
 
+#[warn(allow::type_complexity)]
 pub struct EspHttpClient {
     raw: esp_http_client_handle_t,
     follow_redirects_policy: FollowRedirectsPolicy,

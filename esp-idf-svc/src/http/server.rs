@@ -255,7 +255,7 @@ impl EspHttpServer {
         ESP_OK as _
     }
 
-    fn render_error<'a, E>(raw_req: *mut httpd_req_t, error: E) -> Result<Completion, EspError>
+    fn render_error<E>(raw_req: *mut httpd_req_t, error: E) -> Result<Completion, EspError>
     where
         E: fmt::Display + fmt::Debug,
     {
@@ -737,11 +737,11 @@ impl<'a> EspHttpResponseWrite<'a> {
             self.c_content_type = c_content_type;
             self.c_status = Some(c_status);
 
-            drop(headers);
-
             self.headers = None;
             self.session_id = None;
         }
+
+        self.headers = None;
 
         Ok(())
     }
