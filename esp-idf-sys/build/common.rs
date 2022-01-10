@@ -33,6 +33,7 @@ const ALL_COMPONENTS: &[&str] = &[
     // TODO: Put all IDF components here
     "comp_pthread_enabled",
     "comp_nvs_flash_enabled",
+    "comp_esp_tls_enabled",
     "comp_esp_http_client_enabled",
     "comp_esp_http_server_enabled",
     "comp_espcoredump_enabled",

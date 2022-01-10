@@ -42,6 +42,10 @@
 
 #include "ping/ping_sock.h"
 
+#ifdef ESP_IDF_COMP_ESP_TLS_ENABLED
+#include "esp_tls.h"
+#endif
+
 #ifdef ESP_IDF_COMP_APP_UPDATE_ENABLED
 #include "esp_ota_ops.h"
 #endif
