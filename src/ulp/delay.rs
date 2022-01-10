@@ -11,7 +11,13 @@ impl embedded_hal_0_2::blocking::delay::DelayUs<u32> for Ulp {
 
 impl embedded_hal_0_2::blocking::delay::DelayUs<u16> for Ulp {
     fn delay_us(&mut self, us: u16) {
-        DelayUs::<u32>::delay_us(self, us as u32);
+        delay_cycles(us as u32 * ULP_RISCV_CYCLES_PER_US_NUM / ULP_RISCV_CYCLES_PER_US_DENUM);
+    }
+}
+
+impl embedded_hal_0_2::blocking::delay::DelayUs<u8> for Ulp {
+    fn delay_us(&mut self, us: u8) {
+        delay_cycles(us as u32 * ULP_RISCV_CYCLES_PER_US_NUM / ULP_RISCV_CYCLES_PER_US_DENUM);
     }
 }
 
@@ -23,7 +29,13 @@ impl embedded_hal_0_2::blocking::delay::DelayMs<u32> for Ulp {
 
 impl embedded_hal_0_2::blocking::delay::DelayMs<u16> for Ulp {
     fn delay_ms(&mut self, ms: u16) {
-        DelayMs::<u32>::delay_ms(self, ms as u32);
+        delay_cycles(ms as u32 * ULP_RISCV_CYCLES_PER_MS);
+    }
+}
+
+impl embedded_hal_0_2::blocking::delay::DelayMs<u8> for Ulp {
+    fn delay_ms(&mut self, ms: u8) {
+        delay_cycles(ms as u32 * ULP_RISCV_CYCLES_PER_MS);
     }
 }
 
