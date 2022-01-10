@@ -342,7 +342,8 @@ impl<SPI: Spi, SCLK: OutputPin, SDO: OutputPin, SDI: InputPin + OutputPin, CS: O
 
                 let write_ptr = if write_chunk_end < offset + TRANS_LEN {
                     if write_chunk_end > offset {
-                        buf.copy_from_slice(&write[offset..write_chunk_end]);
+                        buf[0..write_chunk_end - offset]
+                            .copy_from_slice(&write[offset..write_chunk_end]);
                     }
 
                     buf.as_ptr()
@@ -456,11 +457,10 @@ impl<SPI: Spi, SCLK: OutputPin, SDO: OutputPin, SDI: InputPin + OutputPin, CS: O
             __bindgen_anon_2: spi_transaction_t__bindgen_ty_2 {
                 rx_buffer: read as *mut _,
             },
+            length: (write_len * 8) as _,
+            rxlength: (read_len * 8) as _,
             ..Default::default()
         };
-
-        transaction.length = (write_len * 8) as _;
-        transaction.rxlength = (read_len * 8) as _;
 
         esp!(unsafe { spi_device_polling_transmit(self.device, &mut transaction as *mut _) })
             .map_err(SpiError::other)?;

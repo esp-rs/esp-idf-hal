@@ -10,7 +10,7 @@ use super::sys::cpu;
 pub static __ONCE__: () = ();
 
 /// # Safety
-/// 
+///
 /// Rust entry point (_start_rust)
 /// This function is NOT supposed to be called from use code
 ///
@@ -54,7 +54,7 @@ pub struct TrapFrame {
 }
 
 /// # Safety
-/// 
+///
 /// Trap entry point rust (_start_trap_rust)
 /// This function is NOT supposed to be called from use code
 ///
