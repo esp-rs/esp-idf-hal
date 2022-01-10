@@ -2,6 +2,36 @@
 //!
 //! It is called Two-Wire Automotive Interface (TWAI) in ESP32 documentation.
 //!
+//! # Example
+//!
+//! Create a CAN peripheral and then transmit and receive a message.
+//! ```
+//! use embedded_hal::can::nb::Can;
+//! use embedded_hal::can::Frame;
+//! use embedded_hal::can::StandardId;
+//! use esp_idf_hal::prelude::*;
+//! use esp_idf_hal::can;
+//!
+//! let peripherals = Peripherals::take().unwrap();
+//! let pins = peripherals.pins;
+//!
+//! // filter to accept only CAN ID 881
+//! let filter = can::config::Filter::Standard {filter: 881, mask: 0x7FF };
+//! // filter that accepts all CAN IDs
+//! // let filter = can::config::Filter::standard_allow_all();
+//!
+//! let timing = can::config::Timing::B500K;
+//! let config = can::config::Config::new().filter(filter).timing(timing);
+//! let mut can = can::CanBus::new(peripherals.can, pins.gpio5, pins.gpio4, config).unwrap();
+//!
+//! let tx_frame = can::Frame::new(StandardId::new(0x042).unwrap(), &[0, 1, 2, 3, 4, 5, 6, 7]).unwrap();
+//! nb::block!(can.transmit(&tx_frame)).unwrap();
+//!
+//! if let Ok(rx_frame) = nb::block!(can.receive()) {
+//!    info!("rx {:}:", rx_frame);
+//! }
+//! ```
+
 use core::marker::PhantomData;
 
 use esp_idf_sys::*;
@@ -104,27 +134,27 @@ pub mod config {
     ///
     /// Notice that Espressif TWAI (CAN in rest of the world) acceptance filtering
     /// works differently than common CAN filtering (for example mask bits are inversed).
-    /// However here those differences are hidden away from the user and common CAN filtering can be used.
+    /// However here those differences are hidden away from the user and common CAN filtering is used.
     ///
-    /// `mask` is used to determine which bits in the CAN ID are compared with the `filter`.
-    /// If a mask bit is set to a zero, the corresponding CAN ID bit will be accepted,
-    /// regardless of the value of the filter bit.
+    /// `mask` is used to determine which bits in the incoming CAN ID are compared with the `filter` value.
+    /// Bits in `mask` mean:
+    /// `0`: do not care - the bit is not used for the comparison
+    /// `1`: must match - the bit of the incoming CAN ID must have the same state as in `filter`
     ///
-    /// `filter` determines which bits must be set in the CAN ID to accept the frame,
-    /// however `mask` can relax those constraints if its bit is set to zero.
+    /// Notice that if `mask` is `0`, all CAN IDs are accepted regardless of `filter` value.
     ///
     /// ## Examples
     ///
     /// This shows how 11 bit CAN ID `0x3AA` goes through filtering engine and is finally accepted:
     /// ```
-    /// // can id    [ 0 1 1 1 0 1 0 1 0 1 0 ]
-    /// // mask      [ 1 0 1 0 0 1 1 1 0 0 0 ]
-    /// //             1 = compare
-    /// //             0 = do not care
-    /// // masked id [ 0 _ 1 _ _ 1 0 1 _ _ _ ]
-    /// // filter    [ 0 0 1 1 1 1 0 1 0 1 1 ]
+    /// // incoming id [ 0 1 1 1 0 1 0 1 0 1 0 ]
+    /// // mask        [ 1 0 1 0 0 1 1 1 0 0 0 ]
+    /// //               1 = compare
+    /// //               0 = do not care
+    /// // masked id   [ 0 _ 1 _ _ 1 0 1 _ _ _ ]
+    /// // filter      [ 0 0 1 1 1 1 0 1 0 1 1 ]
     ///
-    /// // can id    [ 0 1 1 1 0 1 0 1 0 1 0 ]
+    /// // incoming id [ 0 1 1 1 0 1 0 1 0 1 0 ]
     /// // accepted
     /// ```
     ///
@@ -157,18 +187,12 @@ pub mod config {
     impl Filter {
         /// Filter that allows all standard CAN IDs.
         pub fn standard_allow_all() -> Self {
-            Self::Standard {
-                filter: 0,
-                mask: 0x7FF,
-            }
+            Self::Standard { filter: 0, mask: 0 }
         }
 
         /// Filter that accepts all extended CAN IDs.
         pub fn extended_allow_all() -> Self {
-            Self::Extended {
-                filter: 0,
-                mask: 0x1FFFFFFF,
-            }
+            Self::Extended { filter: 0, mask: 0 }
         }
     }
 
@@ -359,10 +383,10 @@ impl Frame {
             // therefore setting those union flags is quite hairy
             let mut flags = twai_message_t__bindgen_ty_1::default();
 
+            // set bits in an union
+            unsafe { flags.__bindgen_anon_1.set_ss(1) };
             if extended {
-                // set bits in an union
                 unsafe { flags.__bindgen_anon_1.set_extd(1) };
-                unsafe { flags.__bindgen_anon_1.set_ss(1) };
             }
 
             let mut payload = [0; 8];
@@ -387,10 +411,11 @@ impl Frame {
             // therefore setting those union flags is quite hairy
             let mut flags = twai_message_t__bindgen_ty_1::default();
 
+            // set bits in an union
+            unsafe { flags.__bindgen_anon_1.set_rtr(1) };
+            unsafe { flags.__bindgen_anon_1.set_ss(1) };
             if extended {
-                // set bits in an union
-                unsafe { flags.__bindgen_anon_1.set_rtr(1) };
-                unsafe { flags.__bindgen_anon_1.set_ss(1) };
+                unsafe { flags.__bindgen_anon_1.set_extd(1) };
             }
 
             let twai_message = twai_message_t {
@@ -476,7 +501,7 @@ impl core::fmt::Display for Frame {
 //     }
 
 //     fn id(&self) -> embedded_hal_0_2::can::Id {
-//         if self.get_extended() {
+//         if self.is_standard() {
 //             let id = unsafe {
 //                 embedded_hal_0_2::can::StandardId::new_unchecked(self.get_identifier() as u16)
 //             };
@@ -533,7 +558,7 @@ impl embedded_hal::can::Frame for Frame {
     }
 
     fn id(&self) -> embedded_hal::can::Id {
-        if self.get_extended() {
+        if self.is_standard() {
             let id = unsafe {
                 embedded_hal::can::StandardId::new_unchecked(self.get_identifier() as u16)
             };
