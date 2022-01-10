@@ -66,5 +66,6 @@ pub fn shutdown() -> ! {
         set_peri_reg_mask(RTC_CNTL_COCPU_CTRL_REG, RTC_CNTL_COCPU_SHUT_RESET_EN);
     }
 
+    #[allow(clippy::empty_loop)]
     loop {}
 }

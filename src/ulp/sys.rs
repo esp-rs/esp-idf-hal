@@ -4,6 +4,7 @@ pub use self::cpu::*;
 pub use self::gpio::*;
 
 pub mod cpu;
+#[allow(clippy::missing_safety_doc)]
 pub mod gpio;
 
 pub type EspError = core::convert::Infallible;
@@ -22,6 +23,6 @@ macro_rules! esp {
     ($err:expr) => {{
         $err;
 
-        Ok(())
+        core::result::Result::<(), EspError>::Ok(())
     }};
 }

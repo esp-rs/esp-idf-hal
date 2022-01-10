@@ -45,7 +45,7 @@ pub use crate::ulp::delay;
 //
 // Example:
 // embedded_hal_error!(I2cError, embedded_hal::i2c::Error, embedded_hal::i2c::ErrorKind)
-#[allow(unused_imports)]
+#[allow(unused_macros)]
 macro_rules! embedded_hal_error {
     ($error:ident, $errortrait:ty, $kind:ty) => {
         #[derive(Debug, Copy, Clone, Eq, PartialEq)]
@@ -97,4 +97,5 @@ macro_rules! embedded_hal_error {
     };
 }
 
+#[allow(unused_imports)]
 pub(crate) use embedded_hal_error;

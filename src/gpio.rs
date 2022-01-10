@@ -307,7 +307,7 @@ macro_rules! impl_input_base {
             /// Degrades a concrete pin (e.g. [`Gpio1`]) to a generic pin
             /// struct that can also be used with periphals.
             pub fn degrade(self) -> GpioPin<MODE> {
-                GpioPin::new($pin)
+                unsafe { GpioPin::new($pin) }
             }
         }
 
@@ -709,7 +709,12 @@ impl<MODE> GpioPin<MODE>
 where
     MODE: Send,
 {
-    fn new(pin: i32) -> GpioPin<MODE> {
+    /// # Safety
+    ///
+    /// Care should be taken not to instantiate this Pin, if it is
+    /// already instantiated and used elsewhere, or if it is not set
+    /// already in the mode of operation which is being instantiated
+    pub unsafe fn new(pin: i32) -> GpioPin<MODE> {
         Self {
             pin,
             _mode: PhantomData,
@@ -865,7 +870,7 @@ mod chip {
     impl Pins {
         /// # Safety
         ///
-        /// Care should be taken not to instnatiate the Pins structure, if it is
+        /// Care should be taken not to instantiate the Pins structure, if it is
         /// already instantiated and used elsewhere
         pub unsafe fn new() -> Self {
             Self {
@@ -1087,7 +1092,7 @@ mod chip {
     impl Pins {
         /// # Safety
         ///
-        /// Care should be taken not to instnatiate the Pins structure, if it is
+        /// Care should be taken not to instantiate the Pins structure, if it is
         /// already instantiated and used elsewhere
         pub unsafe fn new() -> Self {
             Self {
