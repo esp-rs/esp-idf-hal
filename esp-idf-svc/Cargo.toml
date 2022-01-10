@@ -11,9 +11,6 @@ repository = "https://github.com/esp-rs/esp-idf-svc"
 license = "MIT OR Apache-2.0"
 readme = "README.md"
 
-[patch.crates-io]
-getrandom = { version = "0.2", git = "https://github.com/esp-rs-compat/getrandom.git" }
-
 [features]
 default = ["std"]
 
