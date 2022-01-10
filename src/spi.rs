@@ -20,19 +20,31 @@
 //! - Multiple CS pins
 //! - Slave
 
-//use crate::prelude::*;
+use core::cmp::{max, min};
+use core::ptr;
 
+use crate::delay::portMAX_DELAY;
 use crate::gpio::{self, InputPin, OutputPin};
 
-use embedded_hal::blocking::spi::{Transfer, Write, WriteIter};
-use embedded_hal::spi::{Phase, Polarity};
-//use embedded_hal::spi::FullDuplex,
-
 use esp_idf_sys::*;
+
+crate::embedded_hal_error!(
+    SpiError,
+    embedded_hal::spi::Error,
+    embedded_hal::spi::ErrorKind
+);
 
 pub trait Spi: Send {
     fn device() -> spi_host_device_t;
 }
+
+// Limit to 64, as we sometimes allocate a buffer of size TRANS_LEN on the stack, so we have to keep it small
+// SOC_SPI_MAXIMUM_BUFFER_SIZE equals 64 or 72 (esp32s2) anyway
+const TRANS_LEN: usize = if SOC_SPI_MAXIMUM_BUFFER_SIZE < 64_u32 {
+    SOC_SPI_MAXIMUM_BUFFER_SIZE as _
+} else {
+    64_usize
+};
 
 /// Pins used by the SPI interface
 pub struct Pins<
@@ -51,13 +63,38 @@ pub struct Pins<
 /// SPI configuration
 pub mod config {
     use crate::units::*;
-    pub use embedded_hal::spi::{Mode, MODE_0, MODE_1, MODE_2, MODE_3};
 
-    /// SPI Bit Order
-    #[derive(PartialEq, Eq, Copy, Clone)]
-    pub enum BitOrder {
-        LSBFirst,
-        MSBFirst,
+    pub struct V02Type<T>(pub T);
+
+    impl From<V02Type<embedded_hal_0_2::spi::Polarity>> for embedded_hal::spi::Polarity {
+        fn from(polarity: V02Type<embedded_hal_0_2::spi::Polarity>) -> Self {
+            match polarity.0 {
+                embedded_hal_0_2::spi::Polarity::IdleHigh => embedded_hal::spi::Polarity::IdleHigh,
+                embedded_hal_0_2::spi::Polarity::IdleLow => embedded_hal::spi::Polarity::IdleLow,
+            }
+        }
+    }
+
+    impl From<V02Type<embedded_hal_0_2::spi::Phase>> for embedded_hal::spi::Phase {
+        fn from(phase: V02Type<embedded_hal_0_2::spi::Phase>) -> Self {
+            match phase.0 {
+                embedded_hal_0_2::spi::Phase::CaptureOnFirstTransition => {
+                    embedded_hal::spi::Phase::CaptureOnFirstTransition
+                }
+                embedded_hal_0_2::spi::Phase::CaptureOnSecondTransition => {
+                    embedded_hal::spi::Phase::CaptureOnSecondTransition
+                }
+            }
+        }
+    }
+
+    impl From<V02Type<embedded_hal_0_2::spi::Mode>> for embedded_hal::spi::Mode {
+        fn from(mode: V02Type<embedded_hal_0_2::spi::Mode>) -> Self {
+            Self {
+                polarity: V02Type(mode.0.polarity).into(),
+                phase: V02Type(mode.0.phase).into(),
+            }
+        }
     }
 
     /// SPI configuration
@@ -65,7 +102,6 @@ pub mod config {
     pub struct Config {
         pub baudrate: Hertz,
         pub data_mode: embedded_hal::spi::Mode,
-        pub bit_order: BitOrder,
     }
 
     impl Config {
@@ -84,20 +120,13 @@ pub mod config {
             self.data_mode = data_mode;
             self
         }
-
-        #[must_use]
-        pub fn bit_order(mut self, bit_order: BitOrder) -> Self {
-            self.bit_order = bit_order;
-            self
-        }
     }
 
     impl Default for Config {
         fn default() -> Self {
             Self {
                 baudrate: Hertz(1_000_000),
-                data_mode: MODE_0,
-                bit_order: BitOrder::LSBFirst,
+                data_mode: embedded_hal::spi::MODE_0,
             }
         }
     }
@@ -115,7 +144,6 @@ pub struct Master<
     spi: SPI,
     pins: Pins<SCLK, SDO, SDI, CS>,
     device: spi_device_handle_t,
-    bit_order: config::BitOrder,
 }
 
 unsafe impl<SPI: Spi, SCLK: OutputPin, SDO: OutputPin, SDI: InputPin + OutputPin, CS: OutputPin>
@@ -167,6 +195,24 @@ impl<SCLK: OutputPin, SDO: OutputPin, SDI: InputPin + OutputPin, CS: OutputPin>
         config: config::Config,
     ) -> Result<Self, EspError> {
         Master::new_internal(spi, pins, config)
+    }
+}
+
+struct Lock(spi_device_handle_t);
+
+impl Lock {
+    fn new(device: spi_device_handle_t) -> Result<Self, EspError> {
+        esp!(unsafe { spi_device_acquire_bus(device, portMAX_DELAY) })?;
+
+        Ok(Self(device))
+    }
+}
+
+impl Drop for Lock {
+    fn drop(&mut self) {
+        unsafe {
+            spi_device_release_bus(self.0);
+        }
     }
 }
 
@@ -229,11 +275,13 @@ impl<SPI: Spi, SCLK: OutputPin, SDO: OutputPin, SDI: InputPin + OutputPin, CS: O
         let device_config = spi_device_interface_config_t {
             spics_io_num: pins.cs.as_ref().map_or(-1, |p| p.pin()),
             clock_speed_hz: config.baudrate.0 as i32,
-            mode: (if config.data_mode.polarity == Polarity::IdleHigh {
+            mode: (if config.data_mode.polarity == embedded_hal::spi::Polarity::IdleHigh {
                 2
             } else {
                 0
-            }) | (if config.data_mode.phase == Phase::CaptureOnSecondTransition {
+            }) | (if config.data_mode.phase
+                == embedded_hal::spi::Phase::CaptureOnSecondTransition
+            {
                 1
             } else {
                 0
@@ -242,7 +290,7 @@ impl<SPI: Spi, SCLK: OutputPin, SDO: OutputPin, SDI: InputPin + OutputPin, CS: O
             ..Default::default()
         };
 
-        let mut device_handle: spi_device_handle_t = core::ptr::null_mut();
+        let mut device_handle: spi_device_handle_t = ptr::null_mut();
 
         esp!(unsafe {
             spi_bus_add_device(SPI::device(), &device_config, &mut device_handle as *mut _)
@@ -252,7 +300,6 @@ impl<SPI: Spi, SCLK: OutputPin, SDO: OutputPin, SDI: InputPin + OutputPin, CS: O
             spi,
             pins,
             device: device_handle,
-            bit_order: config.bit_order,
         })
     }
 
@@ -265,342 +312,231 @@ impl<SPI: Spi, SCLK: OutputPin, SDO: OutputPin, SDI: InputPin + OutputPin, CS: O
         Ok((self.spi, self.pins))
     }
 
-    /// Generic transfer function
-    ///
-    /// This function locks the APB bus frequency and chunks the output
-    /// for maximum write performance.
-    fn transfer_internal<'a, T>(&mut self, words: &'a mut [T]) -> Result<&'a [T], EspError>
-    where
-        T: Word,
-    {
-        let mut tx_buffer = [0_u8; 64];
-        let mut rx_buffer = [0_u8; 64];
-
-        let mut transaction = spi_transaction_t {
-            flags: 0, //SPI_TRANS_USE_RXDATA|SPI_TRANS_USE_TXDATA,
-            __bindgen_anon_1: spi_transaction_t__bindgen_ty_1 {
-                tx_buffer: &tx_buffer as *const [u8] as *const _,
-            },
-            __bindgen_anon_2: spi_transaction_t__bindgen_ty_2 {
-                rx_buffer: &mut rx_buffer as *mut [u8] as *mut _,
-            },
-            ..Default::default()
-        };
-
-        let mut words_index = 0;
-
-        while words_index < words.len() {
-            let mut index = 0;
-            let mut words_write_index = words_index;
-            while index + core::mem::size_of::<T>() <= tx_buffer.len()
-                && words_write_index < words.len()
-            {
-                words[words_write_index].store(&mut tx_buffer[index..], self.bit_order);
-                words_write_index += 1;
-                index += core::mem::size_of::<T>();
-            }
-
-            if index == 0 {
-                break;
-            }
-
-            transaction.length = index as u32 * 8;
-            transaction.rxlength = index as u32 * 8;
-
-            esp!(unsafe { spi_device_polling_transmit(self.device, &mut transaction as *mut _) })?;
-
-            index = 0;
-            while index < transaction.rxlength as usize && words_index < words.len() {
-                words[words_index] = T::load(&rx_buffer[index..], self.bit_order);
-                words_index += 1;
-                index += core::mem::size_of::<T>();
-            }
-        }
-
-        Ok(words)
+    fn lock_bus(&mut self) -> Result<Lock, SpiError> {
+        Lock::new(self.device).map_err(SpiError::other)
     }
 
-    /// Generic write function for iterators
-    ///
-    /// This function locks the APB bus frequency and chunks the output of the iterator
-    /// for maximum write performance.
-    fn write_internal<T>(&mut self, words: &'_ [T]) -> Result<(), EspError>
-    where
-        T: Word,
-    {
-        let mut tx_buffer = [0_u8; 64];
+    fn lock_bus_for(&mut self, lock_bus: bool, size: usize) -> Result<Option<Lock>, SpiError> {
+        if lock_bus && size > TRANS_LEN {
+            Ok(Some(self.lock_bus()?))
+        } else {
+            Ok(None)
+        }
+    }
 
-        let mut transaction = spi_transaction_t {
-            flags: 0, //SPI_TRANS_USE_RXDATA|SPI_TRANS_USE_TXDATA,
-            __bindgen_anon_1: spi_transaction_t__bindgen_ty_1 {
-                tx_buffer: &tx_buffer as *const [u8] as *const _,
-            },
-            ..Default::default()
-        };
+    fn transfer_internal(
+        &mut self,
+        read: &mut [u8],
+        write: &[u8],
+        lock_bus: bool,
+    ) -> Result<(), SpiError> {
+        let _lock = self.lock_bus_for(lock_bus, max(read.len(), write.len()))?;
 
-        let mut words_index = 0;
+        let len = max(read.len(), write.len());
+        for offset in (0..len).step_by(TRANS_LEN) {
+            let read_chunk_end = min(offset + TRANS_LEN, read.len());
+            let write_chunk_end = min(offset + TRANS_LEN, write.len());
 
-        while words_index < words.len() {
-            let mut index = 0;
-            while index + core::mem::size_of::<T>() <= tx_buffer.len() && words_index < words.len()
-            {
-                words[words_index].store(&mut tx_buffer[index..], self.bit_order);
-                words_index += 1;
-                index += core::mem::size_of::<T>();
+            if read_chunk_end != write_chunk_end {
+                let mut buf = [0_u8; TRANS_LEN];
+
+                let write_ptr = if write_chunk_end < offset + TRANS_LEN {
+                    if write_chunk_end > offset {
+                        buf[0..write_chunk_end - offset]
+                            .copy_from_slice(&write[offset..write_chunk_end]);
+                    }
+
+                    buf.as_ptr()
+                } else {
+                    let chunk = &write[offset..write_chunk_end];
+
+                    chunk.as_ptr()
+                };
+
+                let read_ptr = if read_chunk_end < offset + TRANS_LEN {
+                    buf.as_mut_ptr()
+                } else {
+                    let chunk = &mut read[offset..read_chunk_end];
+
+                    chunk.as_mut_ptr()
+                };
+
+                let transfer_len = max(read_chunk_end, write_chunk_end) - offset;
+
+                self.transfer_internal_raw(read_ptr, transfer_len, write_ptr, transfer_len)?;
+
+                if read_chunk_end > offset && read_chunk_end < offset + TRANS_LEN {
+                    read[offset..read_chunk_end].copy_from_slice(&buf[0..read_chunk_end - offset]);
+                }
+            } else {
+                let read_chunk = &mut read[offset..read_chunk_end];
+                let write_chunk = &write[offset..write_chunk_end];
+
+                self.transfer_internal_raw(
+                    read_chunk.as_mut_ptr(),
+                    read_chunk.len(),
+                    write_chunk.as_ptr(),
+                    write_chunk.len(),
+                )?;
             }
-
-            if index == 0 {
-                break;
-            }
-
-            transaction.length = index as u32 * 8;
-            transaction.rxlength = 0;
-
-            esp!(unsafe { spi_device_polling_transmit(self.device, &mut transaction as *mut _) })?;
         }
 
         Ok(())
     }
 
-    /// Generic write function for iterators
-    ///
-    /// This function locks the APB bus frequency and chunks the output of the iterator
-    /// for maximum write performance.
-    fn write_iter_internal<T, WI>(&mut self, words: WI) -> Result<(), EspError>
+    fn transfer_inplace_internal(
+        &mut self,
+        data: &mut [u8],
+        lock_bus: bool,
+    ) -> Result<(), SpiError> {
+        let _lock = self.lock_bus_for(lock_bus, data.len())?;
+
+        let total_len = data.len();
+        for offset in (0..data.len()).step_by(TRANS_LEN) {
+            let chunk = &mut data[offset..min(offset + TRANS_LEN, total_len)];
+            let len = chunk.len();
+            let ptr = chunk.as_mut_ptr();
+
+            self.transfer_internal_raw(ptr, len, ptr, len)?;
+        }
+
+        Ok(())
+    }
+
+    fn write_iter_internal<WI>(&mut self, words: WI) -> Result<(), SpiError>
     where
-        T: Word,
-        WI: IntoIterator<Item = T>,
+        WI: IntoIterator<Item = u8>,
     {
-        let mut tx_buffer = [0_u8; 64];
+        let mut words = words.into_iter();
 
-        let mut transaction = spi_transaction_t {
-            flags: 0, //SPI_TRANS_USE_RXDATA|SPI_TRANS_USE_TXDATA,
-            __bindgen_anon_1: spi_transaction_t__bindgen_ty_1 {
-                tx_buffer: &tx_buffer as *const [u8] as *const _,
-            },
-            ..Default::default()
-        };
+        let mut buf = [0_u8; TRANS_LEN];
 
-        let mut iter = words.into_iter().peekable();
-        while iter.peek().is_some() {
-            let mut index = 0;
-            while index + core::mem::size_of::<T>() <= tx_buffer.len() {
-                if let Some(word) = iter.next() {
-                    word.store(&mut tx_buffer[index..], self.bit_order);
-                    index += core::mem::size_of::<T>();
+        let mut lock = None;
+
+        loop {
+            let mut offset = 0_usize;
+
+            while offset < buf.len() {
+                if let Some(word) = words.next() {
+                    buf[offset] = word;
+                    offset += 1;
                 } else {
                     break;
                 }
             }
 
-            if index == 0 {
+            if offset == 0 {
                 break;
             }
 
-            transaction.length = index as u32 * 8;
-            transaction.rxlength = 0;
+            if offset == buf.len() && lock.is_none() {
+                lock = Some(self.lock_bus()?);
+            }
 
-            esp!(unsafe { spi_device_polling_transmit(self.device, &mut transaction as *mut _) })?;
+            let chunk = &mut buf[..offset];
+            let ptr = chunk.as_mut_ptr();
+
+            self.transfer_internal_raw(ptr, chunk.len(), ptr, chunk.len())?;
         }
+
+        Ok(())
+    }
+
+    fn transfer_internal_raw(
+        &mut self,
+        read: *mut u8,
+        read_len: usize,
+        write: *const u8,
+        write_len: usize,
+    ) -> Result<(), SpiError> {
+        let mut transaction = spi_transaction_t {
+            flags: 0,
+            __bindgen_anon_1: spi_transaction_t__bindgen_ty_1 {
+                tx_buffer: write as *const _,
+            },
+            __bindgen_anon_2: spi_transaction_t__bindgen_ty_2 {
+                rx_buffer: read as *mut _,
+            },
+            length: (write_len * 8) as _,
+            rxlength: (read_len * 8) as _,
+            ..Default::default()
+        };
+
+        esp!(unsafe { spi_device_polling_transmit(self.device, &mut transaction as *mut _) })
+            .map_err(SpiError::other)?;
 
         Ok(())
     }
 }
 
-pub trait Word: Copy + Clone + Sized {
-    fn load(buffer: &[u8], bit_order: config::BitOrder) -> Self;
-    fn store(self, buffer: &mut [u8], bit_order: config::BitOrder);
-}
-
-impl Word for u32 {
-    #[inline(always)]
-    fn load(buffer: &[u8], bit_order: config::BitOrder) -> Self {
-        if bit_order == config::BitOrder::MSBFirst {
-            ((buffer[0] as u32) << 24)
-                | ((buffer[1] as u32) << 16)
-                | ((buffer[2] as u32) << 8)
-                | (buffer[3] as u32)
-        } else {
-            ((buffer[3] as u32) << 24)
-                | ((buffer[2] as u32) << 16)
-                | ((buffer[1] as u32) << 8)
-                | (buffer[0] as u32)
-        }
-    }
-
-    #[inline(always)]
-    fn store(self, buffer: &mut [u8], bit_order: config::BitOrder) {
-        if bit_order == config::BitOrder::MSBFirst {
-            buffer[0] = ((self >> 24) & 0xff) as u8;
-            buffer[1] = ((self >> 16) & 0xff) as u8;
-            buffer[2] = ((self >> 8) & 0xff) as u8;
-            buffer[3] = (self & 0xff) as u8;
-        } else {
-            buffer[3] = ((self >> 24) & 0xff) as u8;
-            buffer[2] = ((self >> 16) & 0xff) as u8;
-            buffer[1] = ((self >> 8) & 0xff) as u8;
-            buffer[0] = (self & 0xff) as u8;
-        }
-    }
-}
-
-impl Word for u16 {
-    #[inline(always)]
-    fn load(buffer: &[u8], bit_order: config::BitOrder) -> Self {
-        if bit_order == config::BitOrder::MSBFirst {
-            ((buffer[0] as u16) << 8) | (buffer[1] as u16)
-        } else {
-            ((buffer[1] as u16) << 8) | (buffer[0] as u16)
-        }
-    }
-
-    #[inline(always)]
-    fn store(self, buffer: &mut [u8], bit_order: config::BitOrder) {
-        if bit_order == config::BitOrder::MSBFirst {
-            buffer[0] = ((self >> 8) & 0xff) as u8;
-            buffer[1] = (self & 0xff) as u8;
-        } else {
-            buffer[1] = ((self >> 8) & 0xff) as u8;
-            buffer[0] = (self & 0xff) as u8;
-        }
-    }
-}
-
-impl Word for u8 {
-    #[inline(always)]
-    fn load(buffer: &[u8], _bit_order: config::BitOrder) -> Self {
-        buffer[0]
-    }
-
-    #[inline(always)]
-    fn store(self, buffer: &mut [u8], _bit_order: config::BitOrder) {
-        buffer[0] = self;
-    }
-}
-
-/// Full-duplex implementation for writing/reading via SPI
-///
-/// *Note: these functions do not lock the frequency of the APB bus, so transactions may be
-/// at lower frequency if APB bus is not locked in caller.*
-// impl<
-//         T: Word,
-//         SPI: Spi,
-//         SCLK: OutputPin,
-//         SDO: OutputPin,
-//         SDI: InputPin + OutputPin,
-//         CS: OutputPin,
-//     > FullDuplex<T> for Master<SPI, SCLK, SDO, SDI, CS>
-// {
-//     type Error = EspError;
-
-//     fn read(&mut self) -> nb::Result<T, Self::Error> {
-//         let spi = &self.instance;
-
-//         if spi.cmd.read().usr().bit_is_set() {
-//             return Err(nb::Error::WouldBlock);
-//         }
-
-//         let bits = (core::mem::size_of::<T>() * 8) as u32;
-
-//         (spi.w[0].read().bits() & (0xffffffff >> (32 - bits)))
-//             .try_into()
-//             .map_err(|_| nb::Error::Other(Self::Error::ConversionFailed))
-//     }
-
-//     fn send(&mut self, value: T) -> nb::Result<(), Self::Error> {
-//         let spi = &self.instance;
-
-//         if spi.cmd.read().usr().bit_is_set() {
-//             return Err(nb::Error::WouldBlock);
-//         }
-
-//         let bits = (core::mem::size_of::<T>() * 8 - 1) as u32;
-
-//         spi.mosi_dlen
-//             .write(|w| unsafe { w.usr_mosi_dbitlen().bits(bits) });
-//         spi.miso_dlen
-//             .write(|w| unsafe { w.usr_miso_dbitlen().bits(bits) });
-//         spi.w[0].write(|w| unsafe { w.bits(value.into()) });
-
-//         spi.cmd.modify(|_, w| w.usr().set_bit());
-
-//         Ok(())
-//     }
-// }
-
-// cannot use generics as it conflicts with the Default implementation
 impl<SPI: Spi, SCLK: OutputPin, SDO: OutputPin, SDI: InputPin + OutputPin, CS: OutputPin>
-    Transfer<u8> for Master<SPI, SCLK, SDO, SDI, CS>
+    embedded_hal_0_2::blocking::spi::Transfer<u8> for Master<SPI, SCLK, SDO, SDI, CS>
 {
-    type Error = EspError;
+    type Error = SpiError;
 
-    fn transfer<'w>(&mut self, words: &'w mut [u8]) -> core::result::Result<&'w [u8], Self::Error> {
-        self.transfer_internal(words)
+    fn transfer<'w>(&mut self, words: &'w mut [u8]) -> Result<&'w [u8], Self::Error> {
+        self.transfer_inplace_internal(words, true)?;
+
+        Ok(words)
     }
 }
 
 impl<SPI: Spi, SCLK: OutputPin, SDO: OutputPin, SDI: InputPin + OutputPin, CS: OutputPin>
-    Transfer<u16> for Master<SPI, SCLK, SDO, SDI, CS>
+    embedded_hal::spi::blocking::TransferInplace<u8> for Master<SPI, SCLK, SDO, SDI, CS>
 {
-    type Error = EspError;
+    type Error = SpiError;
 
-    fn transfer<'w>(
-        &mut self,
-        words: &'w mut [u16],
-    ) -> core::result::Result<&'w [u16], Self::Error> {
-        self.transfer_internal(words)
+    fn transfer_inplace(&mut self, words: &mut [u8]) -> Result<(), Self::Error> {
+        self.transfer_inplace_internal(words, true)?;
+
+        Ok(())
     }
 }
 
 impl<SPI: Spi, SCLK: OutputPin, SDO: OutputPin, SDI: InputPin + OutputPin, CS: OutputPin>
-    Transfer<u32> for Master<SPI, SCLK, SDO, SDI, CS>
+    embedded_hal::spi::blocking::Transfer<u8> for Master<SPI, SCLK, SDO, SDI, CS>
 {
-    type Error = EspError;
+    type Error = SpiError;
 
-    fn transfer<'w>(
-        &mut self,
-        words: &'w mut [u32],
-    ) -> core::result::Result<&'w [u32], Self::Error> {
-        self.transfer_internal(words)
+    fn transfer(&mut self, read: &mut [u8], write: &[u8]) -> Result<(), Self::Error> {
+        self.transfer_internal(read, write, true)
     }
 }
 
-// cannot use generics as it conflicts with the Default implementation
-impl<SPI: Spi, SCLK: OutputPin, SDO: OutputPin, SDI: InputPin + OutputPin, CS: OutputPin> Write<u8>
-    for Master<SPI, SCLK, SDO, SDI, CS>
+impl<SPI: Spi, SCLK: OutputPin, SDO: OutputPin, SDI: InputPin + OutputPin, CS: OutputPin>
+    embedded_hal::spi::blocking::Read<u8> for Master<SPI, SCLK, SDO, SDI, CS>
 {
-    type Error = EspError;
+    type Error = SpiError;
+
+    fn read(&mut self, words: &mut [u8]) -> Result<(), Self::Error> {
+        self.transfer_internal(words, &[], true)
+    }
+}
+
+impl<SPI: Spi, SCLK: OutputPin, SDO: OutputPin, SDI: InputPin + OutputPin, CS: OutputPin>
+    embedded_hal_0_2::blocking::spi::Write<u8> for Master<SPI, SCLK, SDO, SDI, CS>
+{
+    type Error = SpiError;
 
     fn write(&mut self, words: &[u8]) -> Result<(), Self::Error> {
-        self.write_iter_internal(words.iter().copied())
+        self.transfer_internal(&mut [], words, true)
     }
 }
 
-impl<SPI: Spi, SCLK: OutputPin, SDO: OutputPin, SDI: InputPin + OutputPin, CS: OutputPin> Write<u16>
-    for Master<SPI, SCLK, SDO, SDI, CS>
-{
-    type Error = EspError;
-
-    fn write(&mut self, words: &[u16]) -> Result<(), Self::Error> {
-        self.write_internal(words)
-    }
-}
-
-impl<SPI: Spi, SCLK: OutputPin, SDO: OutputPin, SDI: InputPin + OutputPin, CS: OutputPin> Write<u32>
-    for Master<SPI, SCLK, SDO, SDI, CS>
-{
-    type Error = EspError;
-
-    fn write(&mut self, words: &[u32]) -> Result<(), Self::Error> {
-        self.write_internal(words)
-    }
-}
-
-// cannot use generics as it conflicts with the Default implementation
 impl<SPI: Spi, SCLK: OutputPin, SDO: OutputPin, SDI: InputPin + OutputPin, CS: OutputPin>
-    WriteIter<u8> for Master<SPI, SCLK, SDO, SDI, CS>
+    embedded_hal::spi::blocking::Write<u8> for Master<SPI, SCLK, SDO, SDI, CS>
 {
-    type Error = EspError;
+    type Error = SpiError;
+
+    fn write(&mut self, words: &[u8]) -> Result<(), Self::Error> {
+        self.transfer_internal(&mut [], words, true)
+    }
+}
+
+impl<SPI: Spi, SCLK: OutputPin, SDO: OutputPin, SDI: InputPin + OutputPin, CS: OutputPin>
+    embedded_hal_0_2::blocking::spi::WriteIter<u8> for Master<SPI, SCLK, SDO, SDI, CS>
+{
+    type Error = SpiError;
 
     fn write_iter<WI>(&mut self, words: WI) -> Result<(), Self::Error>
     where
@@ -611,28 +547,73 @@ impl<SPI: Spi, SCLK: OutputPin, SDO: OutputPin, SDI: InputPin + OutputPin, CS: O
 }
 
 impl<SPI: Spi, SCLK: OutputPin, SDO: OutputPin, SDI: InputPin + OutputPin, CS: OutputPin>
-    WriteIter<u16> for Master<SPI, SCLK, SDO, SDI, CS>
+    embedded_hal::spi::blocking::WriteIter<u8> for Master<SPI, SCLK, SDO, SDI, CS>
 {
-    type Error = EspError;
+    type Error = SpiError;
 
     fn write_iter<WI>(&mut self, words: WI) -> Result<(), Self::Error>
     where
-        WI: IntoIterator<Item = u16>,
+        WI: IntoIterator<Item = u8>,
     {
         self.write_iter_internal(words)
     }
 }
 
 impl<SPI: Spi, SCLK: OutputPin, SDO: OutputPin, SDI: InputPin + OutputPin, CS: OutputPin>
-    WriteIter<u32> for Master<SPI, SCLK, SDO, SDI, CS>
+    embedded_hal_0_2::blocking::spi::Transactional<u8> for Master<SPI, SCLK, SDO, SDI, CS>
 {
-    type Error = EspError;
+    type Error = SpiError;
 
-    fn write_iter<WI>(&mut self, words: WI) -> Result<(), Self::Error>
-    where
-        WI: IntoIterator<Item = u32>,
-    {
-        self.write_iter_internal(words)
+    fn exec<'a>(
+        &mut self,
+        operations: &mut [embedded_hal_0_2::blocking::spi::Operation<'a, u8>],
+    ) -> Result<(), Self::Error> {
+        let _lock = self.lock_bus()?;
+
+        for operation in operations {
+            match operation {
+                embedded_hal_0_2::blocking::spi::Operation::Write(write) => {
+                    self.transfer_internal(&mut [], write, false)?
+                }
+                embedded_hal_0_2::blocking::spi::Operation::Transfer(words) => {
+                    self.transfer_inplace_internal(words, false)?
+                }
+            }
+        }
+
+        Ok(())
+    }
+}
+
+impl<SPI: Spi, SCLK: OutputPin, SDO: OutputPin, SDI: InputPin + OutputPin, CS: OutputPin>
+    embedded_hal::spi::blocking::Transactional<u8> for Master<SPI, SCLK, SDO, SDI, CS>
+{
+    type Error = SpiError;
+
+    fn exec<'a>(
+        &mut self,
+        operations: &mut [embedded_hal::spi::blocking::Operation<'a, u8>],
+    ) -> Result<(), Self::Error> {
+        let _lock = self.lock_bus()?;
+
+        for operation in operations {
+            match operation {
+                embedded_hal::spi::blocking::Operation::Read(read) => {
+                    self.transfer_internal(read, &[], false)?
+                }
+                embedded_hal::spi::blocking::Operation::Write(write) => {
+                    self.transfer_internal(&mut [], write, false)?
+                }
+                embedded_hal::spi::blocking::Operation::Transfer(read, write) => {
+                    self.transfer_internal(read, write, false)?
+                }
+                embedded_hal::spi::blocking::Operation::TransferInplace(words) => {
+                    self.transfer_inplace_internal(words, false)?
+                }
+            }
+        }
+
+        Ok(())
     }
 }
 

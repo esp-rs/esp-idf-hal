@@ -9,7 +9,10 @@ use super::sys::cpu;
 #[doc(hidden)]
 pub static __ONCE__: () = ();
 
+/// # Safety
+///
 /// Rust entry point (_start_rust)
+/// This function is NOT supposed to be called from use code
 ///
 /// Calls main. This function never returns.
 #[link_section = ".start.rust"]
@@ -50,14 +53,17 @@ pub struct TrapFrame {
     pub a7: usize,
 }
 
+/// # Safety
+///
 /// Trap entry point rust (_start_trap_rust)
+/// This function is NOT supposed to be called from use code
 ///
 /// `mcause` is read to determine the cause of the trap. XLEN-1 bit indicates
 /// if it's an interrupt or an exception. The result is examined and ExceptionHandler
 /// or one of the core interrupt handlers is called.
 #[link_section = ".trap.rust"]
 #[export_name = "_start_trap_rust"]
-pub extern "C" fn start_trap_rust(trap_frame: *const TrapFrame) {
+pub unsafe extern "C" fn start_trap_rust(trap_frame: *const TrapFrame) {
     // use riscv::register::mcause;
 
     extern "C" {
@@ -66,24 +72,22 @@ pub extern "C" fn start_trap_rust(trap_frame: *const TrapFrame) {
         fn DefaultHandler();
     }
 
-    unsafe {
-        // let cause = mcause::read();
-        // if cause.is_exception() {
-        ExceptionHandler(&*trap_frame)
-        // } else {
-        //     let code = cause.code();
-        //     if code < __INTERRUPTS.len() {
-        //         let h = &__INTERRUPTS[code];
-        //         if h.reserved == 0 {
-        //             DefaultHandler();
-        //         } else {
-        //             (h.handler)();
-        //         }
-        //     } else {
-        //         DefaultHandler();
-        //     }
-        // }
-    }
+    // let cause = mcause::read();
+    // if cause.is_exception() {
+    ExceptionHandler(trap_frame.as_ref().unwrap())
+    // } else {
+    //     let code = cause.code();
+    //     if code < __INTERRUPTS.len() {
+    //         let h = &__INTERRUPTS[code];
+    //         if h.reserved == 0 {
+    //             DefaultHandler();
+    //         } else {
+    //             (h.handler)();
+    //         }
+    //     } else {
+    //         DefaultHandler();
+    //     }
+    // }
 }
 
 #[doc(hidden)]

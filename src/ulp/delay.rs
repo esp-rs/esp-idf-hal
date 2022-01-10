@@ -1,31 +1,21 @@
-use embedded_hal::blocking::delay::{DelayMs, DelayUs};
+use embedded_hal::delay::blocking::DelayUs;
 
 use super::sys::*;
 
 /// Busy-loop based delay for the RiscV ULP coprocessor
 pub struct Ulp;
 
-impl DelayUs<u32> for Ulp {
-    fn delay_us(&mut self, us: u32) {
+impl DelayUs for Ulp {
+    type Error = core::convert::Infallible;
+
+    fn delay_us(&mut self, us: u32) -> Result<(), Self::Error> {
         delay_cycles(us * ULP_RISCV_CYCLES_PER_US_NUM / ULP_RISCV_CYCLES_PER_US_DENUM);
+        Ok(())
     }
-}
 
-impl DelayUs<u16> for Ulp {
-    fn delay_us(&mut self, us: u16) {
-        DelayUs::<u32>::delay_us(self, us as u32);
-    }
-}
-
-impl DelayMs<u32> for Ulp {
-    fn delay_ms(&mut self, ms: u32) {
+    fn delay_ms(&mut self, ms: u32) -> Result<(), Self::Error> {
         delay_cycles(ms * ULP_RISCV_CYCLES_PER_MS);
-    }
-}
-
-impl DelayMs<u16> for Ulp {
-    fn delay_ms(&mut self, ms: u16) {
-        DelayMs::<u32>::delay_ms(self, ms as u32);
+        Ok(())
     }
 }
 
