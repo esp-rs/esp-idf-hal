@@ -16,3 +16,12 @@ macro_rules! esp_result {
         Ok($value)
     }};
 }
+
+#[macro_export]
+macro_rules! esp {
+    ($err:expr) => {{
+        $err;
+
+        Ok(())
+    }};
+}
