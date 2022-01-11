@@ -10,7 +10,7 @@ pub const CORES: u32 = SOC_CPU_CORES_NUM;
 /// 0 - when the active core is the PRO CPU
 /// 1 - when the active core is the APP CPU
 #[inline(always)]
-#[link_section = ".rwtext"]
+#[link_section = ".iram1.cpu_core"]
 pub fn core() -> u32 {
     #[cfg(any(esp32c3, esp32s2))]
     let core = 0;

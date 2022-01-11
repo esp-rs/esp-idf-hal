@@ -5,7 +5,7 @@ use esp_idf_sys::*;
 
 /// Returns true if the currently active core is executing an ISR request
 #[inline(always)]
-#[link_section = ".rwtext"]
+#[link_section = ".iram1.interrupt_active"]
 pub fn active() -> bool {
     unsafe { xPortInIsrContext() != 0 }
 }
@@ -20,7 +20,7 @@ pub struct CriticalSection(core::marker::PhantomData<*const ()>);
 impl CriticalSection {
     /// Constructs a new `CriticalSection` instance
     #[inline(always)]
-    #[link_section = ".rwtext"]
+    #[link_section = ".iram1.interrupt_cs_new"]
     pub const fn new() -> Self {
         #[cfg(not(any(esp32c3, esp32s2)))]
         let mux = core::cell::UnsafeCell::new(portMUX_TYPE {
@@ -53,7 +53,7 @@ impl CriticalSection {
     ///
     /// For more information, refer to https://docs.espressif.com/projects/esp-idf/en/latest/esp32/api-guides/freertos-smp.html#critical-sections
     #[inline(always)]
-    #[link_section = ".rwtext"]
+    #[link_section = ".iram1.interrupt_cs_enter"]
     pub fn enter(&self) -> CriticalSectionGuard {
         #[cfg(any(esp32c3, esp32s2))]
         unsafe {
@@ -76,7 +76,7 @@ impl CriticalSection {
 
 impl Default for CriticalSection {
     #[inline(always)]
-    #[link_section = ".rwtext"]
+    #[link_section = ".iram1.interrupt_cs_default"]
     fn default() -> Self {
         Self::new()
     }
@@ -96,7 +96,7 @@ impl<'a> Drop for CriticalSectionGuard<'a> {
     /// interrupts for the core will be re-enabled only when the last guard that
     /// disabled interrupts for the concrete core is dropped.
     #[inline(always)]
-    #[link_section = ".rwtext"]
+    #[link_section = ".iram1.interrupt_csg_drop"]
     fn drop(&mut self) {
         #[cfg(any(esp32c3, esp32s2))]
         unsafe {
@@ -112,7 +112,7 @@ impl<'a> Drop for CriticalSectionGuard<'a> {
 
 /// Executes closure f in an interrupt-free context
 #[inline(always)]
-#[link_section = ".rwtext"]
+#[link_section = ".iram1.interrupt_free"]
 pub fn free<R>(f: impl FnOnce() -> R) -> R {
     let cs = CriticalSection::new();
     let _guard = cs.enter();
@@ -128,7 +128,7 @@ pub struct Mutex<T> {
 
 impl<T> Mutex<T> {
     #[inline(always)]
-    #[link_section = ".rwtext"]
+    #[link_section = ".iram1.interrupt_mutex_new"]
     pub const fn new(data: T) -> Self {
         Self {
             cs: CriticalSection::new(),
@@ -137,7 +137,7 @@ impl<T> Mutex<T> {
     }
 
     #[inline(always)]
-    #[link_section = ".rwtext"]
+    #[link_section = ".iram1.interrupt_mutex_lock"]
     pub fn lock(&self) -> MutexGuard<'_, T> {
         MutexGuard::new(self)
     }
@@ -150,7 +150,7 @@ pub struct MutexGuard<'a, T: 'a>(CriticalSectionGuard<'a>, RefMut<'a, T>);
 
 impl<'a, T> MutexGuard<'a, T> {
     #[inline(always)]
-    #[link_section = ".rwtext"]
+    #[link_section = ".iram1.interrupt_mutexg_new"]
     fn new(mutex: &'a Mutex<T>) -> Self {
         Self(mutex.cs.enter(), mutex.data.borrow_mut())
     }
@@ -162,7 +162,7 @@ impl<'a, T> Deref for MutexGuard<'a, T> {
     type Target = T;
 
     #[inline(always)]
-    #[link_section = ".rwtext"]
+    #[link_section = ".iram1.interrupt_mutexg_deref"]
     fn deref(&self) -> &Self::Target {
         &*self.1
     }
@@ -170,7 +170,7 @@ impl<'a, T> Deref for MutexGuard<'a, T> {
 
 impl<'a, T> DerefMut for MutexGuard<'a, T> {
     #[inline(always)]
-    #[link_section = ".rwtext"]
+    #[link_section = ".iram1.interrupt_mutexg_derefmut"]
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut *self.1
     }
@@ -181,7 +181,7 @@ impl<'a, T> mutex_trait::Mutex for &'a Mutex<T> {
     type Data = T;
 
     #[inline(always)]
-    #[link_section = ".rwtext"]
+    #[link_section = ".iram1.interrupt_mutext_lock"]
     fn lock<R>(&mut self, f: impl FnOnce(&mut Self::Data) -> R) -> R {
         let mut guard = Mutex::lock(self);
 
@@ -199,13 +199,13 @@ impl<T> embedded_svc::mutex::Mutex for Mutex<T> {
     = MutexGuard<'a, T>;
 
     #[inline(always)]
-    #[link_section = ".rwtext"]
+    #[link_section = ".iram1.interrupt_mutexe_new"]
     fn new(data: Self::Data) -> Self {
         Mutex::new(data)
     }
 
     #[inline(always)]
-    #[link_section = ".rwtext"]
+    #[link_section = ".iram1.interrupt_mutexe_lock"]
     fn lock(&self) -> Self::Guard<'_> {
         Mutex::lock(self)
     }
