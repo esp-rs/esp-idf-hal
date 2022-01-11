@@ -1,5 +1,3 @@
-PROVIDE(_ram_size = 2K);
-
 PROVIDE(UserSoft = DefaultHandler);
 PROVIDE(SupervisorSoft = DefaultHandler);
 PROVIDE(MachineSoft = DefaultHandler);
