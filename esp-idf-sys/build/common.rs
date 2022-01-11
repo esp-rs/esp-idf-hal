@@ -19,6 +19,7 @@ pub const SDKCONFIG_FILE: &str = "sdkconfig";
 pub const SDKCONFIG_DEFAULTS_FILE: &str = "sdkconfig.defaults";
 
 pub const STABLE_PATCHES: &[&str] = &[
+    "patches/missing_riscv_atomics_fix.diff",
     "patches/missing_xtensa_atomics_fix.diff",
     "patches/pthread_destructor_fix.diff",
     "patches/ping_setsockopt_fix.diff",
