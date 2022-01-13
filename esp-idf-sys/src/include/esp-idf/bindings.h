@@ -119,22 +119,26 @@
 #include "esp_pthread.h"
 #endif
 
-#ifdef CONFIG_ESP32S2_ULP_COPROC_ENABLED
-#ifdef CONFIG_IDF_TARGET_ESP32
+#ifdef CONFIG_ESP32_ULP_COPROC_ENABLED
 #include "esp32/ulp.h"
 #endif
 
-#ifdef CONFIG_IDF_TARGET_ESP32S2
-#include "esp32s2/ulp.h"
+#ifdef CONFIG_ESP32S2_ULP_COPROC_ENABLED
 #ifdef CONFIG_ESP32S2_ULP_COPROC_RISCV
 #include "esp32s2/ulp_riscv.h"
+#else
+#include "esp32s2/ulp.h"
 #endif
 #endif
 
-#ifdef CONFIG_IDF_TARGET_ESP32S3
-#include "esp32s3/ulp.h"
+#ifdef CONFIG_ESP32S3_ULP_COPROC_ENABLED
+#ifdef CONFIG_ESP32S3_ULP_COPROC_RISCV
+#include "esp32s3/ulp_riscv.h"
+#else
+#include "esp32s2/ulp.h"
 #endif
 #endif
+
 
 #ifndef CONFIG_IDF_TARGET_ESP32S2 // No BT in ESP32-S2
 

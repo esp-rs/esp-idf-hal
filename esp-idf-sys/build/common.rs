@@ -51,6 +51,8 @@ pub struct EspIdfBuildOutput {
     pub kconfig_args: Box<dyn Iterator<Item = (String, kconfig::Value)>>,
     pub components: EspIdfComponents,
     pub bindgen: bindgen::Factory,
+    pub env_path: Option<String>,
+    pub esp_idf: PathBuf,
 }
 
 pub struct EspIdfComponents(Vec<&'static str>);

@@ -126,6 +126,7 @@ pub fn build() -> Result<EspIdfBuildOutput> {
 
     let build_output = EspIdfBuildOutput {
         cincl_args: build::CInclArgs::try_from(&pio_scons_vars)?,
+        env_path: link_args.as_ref().map(|_| pio_scons_vars.path.clone()),
         link_args,
         bindgen: bindgen::Factory::from_scons_vars(&pio_scons_vars)?
             .with_clang_args(EspIdfComponents::new().clang_args().collect::<Vec<_>>()),
@@ -142,6 +143,7 @@ pub fn build() -> Result<EspIdfBuildOutput> {
                     )
                 }),
         ),
+        esp_idf: PathBuf::from(pio_scons_vars.pio_framework_dir),
     };
 
     Ok(build_output)

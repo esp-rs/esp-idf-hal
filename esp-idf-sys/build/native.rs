@@ -32,6 +32,7 @@ const CARGO_CMAKE_BUILD_INCLUDES_VAR: &str = "CARGO_CMAKE_BUILD_INCLUDES";
 const CARGO_CMAKE_BUILD_LINK_LIBRARIES_VAR: &str = "CARGO_CMAKE_BUILD_LINK_LIBRARIES";
 const CARGO_CMAKE_BUILD_COMPILER_VAR: &str = "CARGO_CMAKE_BUILD_COMPILER";
 const CARGO_CMAKE_BUILD_SDKCONFIG_VAR: &str = "CARGO_CMAKE_BUILD_SDKCONFIG";
+const CARGO_CMAKE_BUILD_ESP_IDF_VAR: &str = "CARGO_CMAKE_BUILD_ESP_IDF";
 
 pub fn build() -> Result<EspIdfBuildOutput> {
     if env::var(CARGO_CMAKE_BUILD_ACTIVE_VAR).is_ok()
@@ -85,6 +86,8 @@ fn build_cmake_first() -> Result<EspIdfBuildOutput> {
                     .map(|dir| format!("-I{}", dir))
                     .collect::<Vec<_>>(),
             ),
+        env_path: None,
+        esp_idf: PathBuf::from(env::var(CARGO_CMAKE_BUILD_ESP_IDF_VAR)?),
     };
 
     Ok(build_output)
@@ -310,7 +313,6 @@ fn build_cargo_first() -> Result<EspIdfBuildOutput> {
     // Save information about the esp-idf build to the out dir so that it can be
     // easily retrieved by tools that need it.
     espidf::EspIdfBuildInfo {
-        install_dir: idf.install_dir,
         esp_idf_dir: idf.esp_idf.worktree().to_owned(),
         exported_path_var: idf.exported_path.try_to_str()?.to_owned(),
         venv_python: idf.venv_python,
@@ -339,6 +341,8 @@ fn build_cargo_first() -> Result<EspIdfBuildOutput> {
             kconfig::try_from_json_file(sdkconfig_json.clone())
                 .with_context(|| anyhow!("Failed to read '{:?}'", sdkconfig_json))?,
         ),
+        env_path: Some(idf.exported_path.try_to_str()?.to_owned()),
+        esp_idf: idf.esp_idf.worktree().to_owned(),
     };
 
     Ok(build_output)

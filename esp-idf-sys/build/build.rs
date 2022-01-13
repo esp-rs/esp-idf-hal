@@ -128,7 +128,19 @@ fn main() -> anyhow::Result<()> {
     cfg_args.propagate();
     cfg_args.output();
 
-    // In case other SYS crates need to have access to the ESP-IDF C headers
+    // In case other crates need to have access to the ESP-IDF C headers
+    build_output.cincl_args.propagate();
+
+    // In case other crates need to have access to the ESP-IDF toolchains
+    if let Some(env_path) = build_output.env_path {
+        // TODO: Replace with embuild::build::VAR_ENV_PATH once we have a new embuild release
+        cargo::set_metadata("EMBUILD_ENV_PATH", env_path);
+    }
+
+    // In case other crates need to the ESP-IDF SDK
+    // TODO: Replace with embuild::espidf::XXX paths once we have a new embuild release
+    cargo::set_metadata("EMBUILD_ESP_IDF_PATH", build_output.esp_idf.try_to_str()?);
+
     build_output.cincl_args.propagate();
 
     if let Some(link_args) = build_output.link_args {
