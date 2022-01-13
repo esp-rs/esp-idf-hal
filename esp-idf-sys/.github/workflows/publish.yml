@@ -27,7 +27,7 @@ jobs:
       - name: Build Documentation
         run: cargo doc --features native --target riscv32imc-esp-espidf -Zbuild-std=std,panic_abort -Zbuild-std-features=panic_immediate_abort; echo "<meta http-equiv=\"refresh\" content=\"0; url=build_wheel\">" > target/riscv32imc-esp-espidf/doc/index.html; mv target/riscv32imc-esp-espidf/doc ./docs
       - name: Deploy Documentation
-        if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/master' }}
+        if: ${{ github.ref == 'refs/heads/master' }}
         uses: peaceiris/actions-gh-pages@v3
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
