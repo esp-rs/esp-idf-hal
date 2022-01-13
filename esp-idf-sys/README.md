@@ -63,7 +63,7 @@ The following environment variables are used by the build script:
     1. `<path>`
     2. `<path>.<profile>`
     3. `<path>.<mcu>`
-    4. `<path>.<profile>.<chip>`
+    4. `<path>.<profile>.<mcu>`
     
     where `<profile>` is the current cargo profile used (`debug`/`release`) and `<mcu>`
     specifies the mcu for which this is currently compiled for (see the `MCU`
@@ -83,7 +83,7 @@ The following environment variables are used by the build script:
     Similar to the `sdkconfig.defaults`-file a more specific `sdkconfig`-file will be
     selected if available. This happens with the following patterns and precedence:
 
-    1. `<path>.<profile>.<chip>`
+    1. `<path>.<profile>.<mcu>`
     2. `<path>.<mcu>`
     3. `<path>.<profile>`
     4. `<path>`

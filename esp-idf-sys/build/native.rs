@@ -323,7 +323,7 @@ fn build_cargo_first() -> Result<EspIdfBuildOutput> {
         sdkconfig,
         sdkconfig_defaults: Some(sdkconfig_defaults),
     }
-    .save_json(out_dir.join("esp-idf-build.json"))?;
+    .save_json(out_dir.join(espidf::BUILD_INFO_FILENAME))?;
 
     let sdkconfig_json = path_buf![&cmake_build_dir, "config", "sdkconfig.json"];
     let build_output = EspIdfBuildOutput {
