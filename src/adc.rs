@@ -1,12 +1,12 @@
 use core::marker::PhantomData;
 
-#[cfg(not(feature = "ulp"))]
+#[cfg(not(feature = "riscv-ulp-hal"))]
 use esp_idf_sys::*;
 
-#[cfg(feature = "ulp")]
-use crate::ulp::sys::*;
+#[cfg(feature = "riscv-ulp-hal")]
+use crate::riscv_ulp_hal::sys::*;
 
-#[cfg(all(esp32, not(feature = "ulp")))]
+#[cfg(all(esp32, not(feature = "riscv-ulp-hal")))]
 use crate::hall;
 
 pub trait Adc: Send {
@@ -58,7 +58,7 @@ impl<ADC: Adc> Analog<ADC> for Atten11dB<ADC> {
 }
 
 /// ADC configuration
-#[cfg(not(feature = "ulp"))]
+#[cfg(not(feature = "riscv-ulp-hal"))]
 pub mod config {
     use esp_idf_sys::*;
 
@@ -131,7 +131,7 @@ pub mod config {
     }
 }
 
-#[cfg(not(feature = "ulp"))]
+#[cfg(not(feature = "riscv-ulp-hal"))]
 pub struct PoweredAdc<ADC: Adc> {
     adc: ADC,
     resolution: config::Resolution,
@@ -139,10 +139,10 @@ pub struct PoweredAdc<ADC: Adc> {
         Option<[Option<esp_adc_cal_characteristics_t>; adc_atten_t_ADC_ATTEN_MAX as usize + 1]>,
 }
 
-#[cfg(not(feature = "ulp"))]
+#[cfg(not(feature = "riscv-ulp-hal"))]
 unsafe impl<ADC: Adc> Send for PoweredAdc<ADC> {}
 
-#[cfg(not(feature = "ulp"))]
+#[cfg(not(feature = "riscv-ulp-hal"))]
 impl<ADC: Adc> PoweredAdc<ADC> {
     #[cfg(esp32)]
     const CALIBRATION_SCHEME: esp_adc_cal_value_t = esp_adc_cal_value_t_ESP_ADC_CAL_VAL_EFUSE_VREF;
@@ -293,7 +293,7 @@ impl<ADC: Adc> PoweredAdc<ADC> {
     }
 }
 
-#[cfg(not(feature = "ulp"))]
+#[cfg(not(feature = "riscv-ulp-hal"))]
 impl<ADC, AN, PIN> embedded_hal_0_2::adc::OneShot<AN, u16, PIN> for PoweredAdc<ADC>
 where
     ADC: Adc,
@@ -311,7 +311,7 @@ where
     }
 }
 
-#[cfg(not(feature = "ulp"))]
+#[cfg(not(feature = "riscv-ulp-hal"))]
 impl<ADC, AN, PIN> embedded_hal::adc::nb::OneShot<AN, u16, PIN> for PoweredAdc<ADC>
 where
     ADC: Adc,
@@ -329,7 +329,7 @@ where
     }
 }
 
-#[cfg(all(esp32, not(feature = "ulp")))]
+#[cfg(all(esp32, not(feature = "riscv-ulp-hal")))]
 impl embedded_hal_0_2::adc::OneShot<ADC1, u16, hall::HallSensor> for PoweredAdc<ADC1> {
     type Error = EspError;
 
@@ -338,7 +338,7 @@ impl embedded_hal_0_2::adc::OneShot<ADC1, u16, hall::HallSensor> for PoweredAdc<
     }
 }
 
-#[cfg(all(esp32, not(feature = "ulp")))]
+#[cfg(all(esp32, not(feature = "riscv-ulp-hal")))]
 impl embedded_hal::adc::nb::OneShot<ADC1, u16, hall::HallSensor> for PoweredAdc<ADC1> {
     type Error = EspError;
 

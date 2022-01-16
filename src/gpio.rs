@@ -2,11 +2,11 @@
 
 use core::marker::PhantomData;
 
-#[cfg(not(feature = "ulp"))]
+#[cfg(not(feature = "riscv-ulp-hal"))]
 use esp_idf_sys::*;
 
-#[cfg(feature = "ulp")]
-use crate::ulp::sys::*;
+#[cfg(feature = "riscv-ulp-hal")]
+use crate::riscv_ulp_hal::sys::*;
 
 use crate::adc;
 
@@ -88,7 +88,7 @@ pub struct Disabled;
 pub struct Unknown;
 
 /// Drive strength (values are approximates)
-#[cfg(not(feature = "ulp"))]
+#[cfg(not(feature = "riscv-ulp-hal"))]
 pub enum DriveStrength {
     I5mA = 0,
     I10mA = 1,
@@ -96,7 +96,7 @@ pub enum DriveStrength {
     I40mA = 3,
 }
 
-#[cfg(not(feature = "ulp"))]
+#[cfg(not(feature = "riscv-ulp-hal"))]
 impl From<DriveStrength> for gpio_drive_cap_t {
     fn from(strength: DriveStrength) -> gpio_drive_cap_t {
         match strength {
@@ -108,7 +108,7 @@ impl From<DriveStrength> for gpio_drive_cap_t {
     }
 }
 
-#[cfg(not(feature = "ulp"))]
+#[cfg(not(feature = "riscv-ulp-hal"))]
 impl From<gpio_drive_cap_t> for DriveStrength {
     #[allow(non_upper_case_globals)]
     fn from(cap: gpio_drive_cap_t) -> DriveStrength {
@@ -130,9 +130,9 @@ macro_rules! impl_base {
             MODE: Send,
         {
             fn reset(&mut self) -> Result<(), EspError> {
-                #[cfg(not(feature = "ulp"))]
+                #[cfg(not(feature = "riscv-ulp-hal"))]
                 let res = esp_result!(unsafe { gpio_reset_pin(self.pin()) }, ());
-                #[cfg(feature = "ulp")]
+                #[cfg(feature = "riscv-ulp-hal")]
                 let res = Ok(());
 
                 res
@@ -142,7 +142,7 @@ macro_rules! impl_base {
                 (unsafe { gpio_get_level(self.pin()) } != 0)
             }
 
-            #[cfg(not(feature = "ulp"))]
+            #[cfg(not(feature = "riscv-ulp-hal"))]
             fn get_output_level(&self) -> bool {
                 let pin = self.pin() as u32;
 
@@ -160,7 +160,7 @@ macro_rules! impl_base {
                 is_set_high
             }
 
-            #[cfg(feature = "ulp")]
+            #[cfg(feature = "riscv-ulp-hal")]
             fn get_output_level(&self) -> bool {
                 (unsafe { gpio_get_output_level(self.pin()) } != 0)
             }
@@ -169,7 +169,7 @@ macro_rules! impl_base {
                 esp_result!(unsafe { gpio_set_level(self.pin(), (on as u8).into()) }, ())
             }
 
-            #[cfg(not(feature = "ulp"))]
+            #[cfg(not(feature = "riscv-ulp-hal"))]
             pub fn get_drive_strength(&self) -> Result<DriveStrength, EspError> {
                 let mut cap: gpio_drive_cap_t = 0;
 
@@ -178,7 +178,7 @@ macro_rules! impl_base {
                 Ok(cap.into())
             }
 
-            #[cfg(not(feature = "ulp"))]
+            #[cfg(not(feature = "riscv-ulp-hal"))]
             pub fn set_drive_strength(&mut self, strength: DriveStrength) -> Result<(), EspError> {
                 esp!(unsafe { gpio_set_drive_capability(self.pin(), strength.into()) })?;
 
@@ -397,7 +397,7 @@ macro_rules! impl_rtc {
 
 macro_rules! impl_adc {
     ($pxi:ident: $pin:expr, ADC1: $adc:expr) => {
-        #[cfg(not(feature = "ulp"))]
+        #[cfg(not(feature = "riscv-ulp-hal"))]
         impl<MODE> $pxi<MODE>
         where
             MODE: Send,
@@ -476,7 +476,7 @@ macro_rules! impl_adc {
     };
 
     ($pxi:ident: $pin:expr, ADC2: $adc:expr) => {
-        #[cfg(not(feature = "ulp"))]
+        #[cfg(not(feature = "riscv-ulp-hal"))]
         impl<MODE> $pxi<MODE>
         where
             MODE: Send,
@@ -754,53 +754,54 @@ impl_hal_output_pin!(GpioPin: Output);
 mod chip {
     use core::marker::PhantomData;
 
-    #[cfg(not(feature = "ulp"))]
+    #[cfg(not(feature = "riscv-ulp-hal"))]
     use esp_idf_sys::*;
 
     use super::*;
-    #[cfg(feature = "ulp")]
-    use crate::ulp::sys::*;
+
+    #[cfg(feature = "riscv-ulp-hal")]
+    use crate::riscv_ulp_hal::sys::*;
 
     // NOTE: Gpio26 - Gpio32 are used by SPI0/SPI1 for external PSRAM/SPI Flash and
     //       are not recommended for other uses
     pin!(Gpio0:0, IO, RTC:11, ADC2:1, NODAC:0, TOUCH:1);
-    #[cfg(not(feature = "ulp"))]
+    #[cfg(not(feature = "riscv-ulp-hal"))]
     pin!(Gpio1:1, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
     pin!(Gpio2:2, IO, RTC:12, ADC2:2, NODAC:0, TOUCH:2);
-    #[cfg(not(feature = "ulp"))]
+    #[cfg(not(feature = "riscv-ulp-hal"))]
     pin!(Gpio3:3, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
     pin!(Gpio4:4, IO, RTC:10, ADC2:0, NODAC:0, TOUCH:0);
-    #[cfg(not(feature = "ulp"))]
+    #[cfg(not(feature = "riscv-ulp-hal"))]
     pin!(Gpio5:5, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
-    #[cfg(not(feature = "ulp"))]
+    #[cfg(not(feature = "riscv-ulp-hal"))]
     pin!(Gpio6:6, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
-    #[cfg(not(feature = "ulp"))]
+    #[cfg(not(feature = "riscv-ulp-hal"))]
     pin!(Gpio7:7, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
-    #[cfg(not(feature = "ulp"))]
+    #[cfg(not(feature = "riscv-ulp-hal"))]
     pin!(Gpio8:8, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
-    #[cfg(not(feature = "ulp"))]
+    #[cfg(not(feature = "riscv-ulp-hal"))]
     pin!(Gpio9:9, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
-    #[cfg(not(feature = "ulp"))]
+    #[cfg(not(feature = "riscv-ulp-hal"))]
     pin!(Gpio10:10, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
-    #[cfg(not(feature = "ulp"))]
+    #[cfg(not(feature = "riscv-ulp-hal"))]
     pin!(Gpio11:11, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
     pin!(Gpio12:12, IO, RTC:15, ADC2:5, NODAC:0, TOUCH:5);
     pin!(Gpio13:13, IO, RTC:14, ADC2:4, NODAC:0, TOUCH:4);
     pin!(Gpio14:14, IO, RTC:16, ADC2:6, NODAC:0, TOUCH:6);
     pin!(Gpio15:15, IO, RTC:13, ADC2:3, NODAC:0, TOUCH:3);
-    #[cfg(not(feature = "ulp"))]
+    #[cfg(not(feature = "riscv-ulp-hal"))]
     pin!(Gpio16:16, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
-    #[cfg(not(feature = "ulp"))]
+    #[cfg(not(feature = "riscv-ulp-hal"))]
     pin!(Gpio17:17, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
-    #[cfg(not(feature = "ulp"))]
+    #[cfg(not(feature = "riscv-ulp-hal"))]
     pin!(Gpio18:18, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
-    #[cfg(not(feature = "ulp"))]
+    #[cfg(not(feature = "riscv-ulp-hal"))]
     pin!(Gpio19:19, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
-    #[cfg(not(feature = "ulp"))]
+    #[cfg(not(feature = "riscv-ulp-hal"))]
     pin!(Gpio21:21, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
-    #[cfg(not(feature = "ulp"))]
+    #[cfg(not(feature = "riscv-ulp-hal"))]
     pin!(Gpio22:22, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
-    #[cfg(not(feature = "ulp"))]
+    #[cfg(not(feature = "riscv-ulp-hal"))]
     pin!(Gpio23:23, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
     pin!(Gpio25:25, IO, RTC:6, ADC2:8, DAC:1, NOTOUCH:0);
     pin!(Gpio26:26, IO, RTC:7, ADC2:9, DAC:2, NOTOUCH:0);
@@ -816,43 +817,43 @@ mod chip {
 
     pub struct Pins {
         pub gpio0: Gpio0<Unknown>,
-        #[cfg(not(feature = "ulp"))]
+        #[cfg(not(feature = "riscv-ulp-hal"))]
         pub gpio1: Gpio1<Unknown>,
         pub gpio2: Gpio2<Unknown>,
-        #[cfg(not(feature = "ulp"))]
+        #[cfg(not(feature = "riscv-ulp-hal"))]
         pub gpio3: Gpio3<Unknown>,
         pub gpio4: Gpio4<Unknown>,
-        #[cfg(not(feature = "ulp"))]
+        #[cfg(not(feature = "riscv-ulp-hal"))]
         pub gpio5: Gpio5<Unknown>,
-        #[cfg(not(feature = "ulp"))]
+        #[cfg(not(feature = "riscv-ulp-hal"))]
         pub gpio6: Gpio6<Unknown>,
-        #[cfg(not(feature = "ulp"))]
+        #[cfg(not(feature = "riscv-ulp-hal"))]
         pub gpio7: Gpio7<Unknown>,
-        #[cfg(not(feature = "ulp"))]
+        #[cfg(not(feature = "riscv-ulp-hal"))]
         pub gpio8: Gpio8<Unknown>,
-        #[cfg(not(feature = "ulp"))]
+        #[cfg(not(feature = "riscv-ulp-hal"))]
         pub gpio9: Gpio9<Unknown>,
-        #[cfg(not(feature = "ulp"))]
+        #[cfg(not(feature = "riscv-ulp-hal"))]
         pub gpio10: Gpio10<Unknown>,
-        #[cfg(not(feature = "ulp"))]
+        #[cfg(not(feature = "riscv-ulp-hal"))]
         pub gpio11: Gpio11<Unknown>,
         pub gpio12: Gpio12<Unknown>,
         pub gpio13: Gpio13<Unknown>,
         pub gpio14: Gpio14<Unknown>,
         pub gpio15: Gpio15<Unknown>,
-        #[cfg(not(feature = "ulp"))]
+        #[cfg(not(feature = "riscv-ulp-hal"))]
         pub gpio16: Gpio16<Unknown>,
-        #[cfg(not(feature = "ulp"))]
+        #[cfg(not(feature = "riscv-ulp-hal"))]
         pub gpio17: Gpio17<Unknown>,
-        #[cfg(not(feature = "ulp"))]
+        #[cfg(not(feature = "riscv-ulp-hal"))]
         pub gpio18: Gpio18<Unknown>,
-        #[cfg(not(feature = "ulp"))]
+        #[cfg(not(feature = "riscv-ulp-hal"))]
         pub gpio19: Gpio19<Unknown>,
-        #[cfg(not(feature = "ulp"))]
+        #[cfg(not(feature = "riscv-ulp-hal"))]
         pub gpio21: Gpio21<Unknown>,
-        #[cfg(not(feature = "ulp"))]
+        #[cfg(not(feature = "riscv-ulp-hal"))]
         pub gpio22: Gpio22<Unknown>,
-        #[cfg(not(feature = "ulp"))]
+        #[cfg(not(feature = "riscv-ulp-hal"))]
         pub gpio23: Gpio23<Unknown>,
         pub gpio25: Gpio25<Unknown>,
         pub gpio26: Gpio26<Unknown>,
@@ -875,43 +876,43 @@ mod chip {
         pub unsafe fn new() -> Self {
             Self {
                 gpio0: Gpio0::<Unknown>::new(),
-                #[cfg(not(feature = "ulp"))]
+                #[cfg(not(feature = "riscv-ulp-hal"))]
                 gpio1: Gpio1::<Unknown>::new(),
                 gpio2: Gpio2::<Unknown>::new(),
-                #[cfg(not(feature = "ulp"))]
+                #[cfg(not(feature = "riscv-ulp-hal"))]
                 gpio3: Gpio3::<Unknown>::new(),
                 gpio4: Gpio4::<Unknown>::new(),
-                #[cfg(not(feature = "ulp"))]
+                #[cfg(not(feature = "riscv-ulp-hal"))]
                 gpio5: Gpio5::<Unknown>::new(),
-                #[cfg(not(feature = "ulp"))]
+                #[cfg(not(feature = "riscv-ulp-hal"))]
                 gpio6: Gpio6::<Unknown>::new(),
-                #[cfg(not(feature = "ulp"))]
+                #[cfg(not(feature = "riscv-ulp-hal"))]
                 gpio7: Gpio7::<Unknown>::new(),
-                #[cfg(not(feature = "ulp"))]
+                #[cfg(not(feature = "riscv-ulp-hal"))]
                 gpio8: Gpio8::<Unknown>::new(),
-                #[cfg(not(feature = "ulp"))]
+                #[cfg(not(feature = "riscv-ulp-hal"))]
                 gpio9: Gpio9::<Unknown>::new(),
-                #[cfg(not(feature = "ulp"))]
+                #[cfg(not(feature = "riscv-ulp-hal"))]
                 gpio10: Gpio10::<Unknown>::new(),
-                #[cfg(not(feature = "ulp"))]
+                #[cfg(not(feature = "riscv-ulp-hal"))]
                 gpio11: Gpio11::<Unknown>::new(),
                 gpio12: Gpio12::<Unknown>::new(),
                 gpio13: Gpio13::<Unknown>::new(),
                 gpio14: Gpio14::<Unknown>::new(),
                 gpio15: Gpio15::<Unknown>::new(),
-                #[cfg(not(feature = "ulp"))]
+                #[cfg(not(feature = "riscv-ulp-hal"))]
                 gpio16: Gpio16::<Unknown>::new(),
-                #[cfg(not(feature = "ulp"))]
+                #[cfg(not(feature = "riscv-ulp-hal"))]
                 gpio17: Gpio17::<Unknown>::new(),
-                #[cfg(not(feature = "ulp"))]
+                #[cfg(not(feature = "riscv-ulp-hal"))]
                 gpio18: Gpio18::<Unknown>::new(),
-                #[cfg(not(feature = "ulp"))]
+                #[cfg(not(feature = "riscv-ulp-hal"))]
                 gpio19: Gpio19::<Unknown>::new(),
-                #[cfg(not(feature = "ulp"))]
+                #[cfg(not(feature = "riscv-ulp-hal"))]
                 gpio21: Gpio21::<Unknown>::new(),
-                #[cfg(not(feature = "ulp"))]
+                #[cfg(not(feature = "riscv-ulp-hal"))]
                 gpio22: Gpio22::<Unknown>::new(),
-                #[cfg(not(feature = "ulp"))]
+                #[cfg(not(feature = "riscv-ulp-hal"))]
                 gpio23: Gpio23::<Unknown>::new(),
                 gpio25: Gpio25::<Unknown>::new(),
                 gpio26: Gpio26::<Unknown>::new(),
@@ -933,7 +934,7 @@ mod chip {
 mod chip {
     use core::marker::PhantomData;
 
-    #[cfg(not(feature = "ulp"))]
+    #[cfg(not(feature = "riscv-ulp-hal"))]
     use esp_idf_sys::*;
 
     use super::*;
@@ -969,53 +970,53 @@ mod chip {
     pin!(Gpio19:19, IO, RTC:19, ADC2:8, NODAC:0, NOTOUCH:0);
     pin!(Gpio20:20, IO, RTC:20, ADC2:9, NODAC:0, NOTOUCH:0);
     pin!(Gpio21:21, IO, RTC:21, NOADC:0, NODAC:0, NOTOUCH:0);
-    #[cfg(not(feature = "ulp"))]
+    #[cfg(not(feature = "riscv-ulp-hal"))]
     pin!(Gpio26:26, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
-    #[cfg(not(feature = "ulp"))]
+    #[cfg(not(feature = "riscv-ulp-hal"))]
     pin!(Gpio27:27, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
-    #[cfg(not(feature = "ulp"))]
+    #[cfg(not(feature = "riscv-ulp-hal"))]
     pin!(Gpio28:28, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
-    #[cfg(not(feature = "ulp"))]
+    #[cfg(not(feature = "riscv-ulp-hal"))]
     pin!(Gpio29:29, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
-    #[cfg(not(feature = "ulp"))]
+    #[cfg(not(feature = "riscv-ulp-hal"))]
     pin!(Gpio30:30, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
-    #[cfg(not(feature = "ulp"))]
+    #[cfg(not(feature = "riscv-ulp-hal"))]
     pin!(Gpio31:31, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
-    #[cfg(not(feature = "ulp"))]
+    #[cfg(not(feature = "riscv-ulp-hal"))]
     pin!(Gpio32:32, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
-    #[cfg(not(feature = "ulp"))]
+    #[cfg(not(feature = "riscv-ulp-hal"))]
     pin!(Gpio33:33, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
-    #[cfg(not(feature = "ulp"))]
+    #[cfg(not(feature = "riscv-ulp-hal"))]
     pin!(Gpio34:34, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
-    #[cfg(not(feature = "ulp"))]
+    #[cfg(not(feature = "riscv-ulp-hal"))]
     pin!(Gpio35:35, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
-    #[cfg(not(feature = "ulp"))]
+    #[cfg(not(feature = "riscv-ulp-hal"))]
     pin!(Gpio36:36, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
-    #[cfg(not(feature = "ulp"))]
+    #[cfg(not(feature = "riscv-ulp-hal"))]
     pin!(Gpio37:37, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
-    #[cfg(not(feature = "ulp"))]
+    #[cfg(not(feature = "riscv-ulp-hal"))]
     pin!(Gpio38:38, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
-    #[cfg(not(feature = "ulp"))]
+    #[cfg(not(feature = "riscv-ulp-hal"))]
     pin!(Gpio39:39, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
-    #[cfg(not(feature = "ulp"))]
+    #[cfg(not(feature = "riscv-ulp-hal"))]
     pin!(Gpio40:40, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
-    #[cfg(not(feature = "ulp"))]
+    #[cfg(not(feature = "riscv-ulp-hal"))]
     pin!(Gpio41:41, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
-    #[cfg(not(feature = "ulp"))]
+    #[cfg(not(feature = "riscv-ulp-hal"))]
     pin!(Gpio42:42, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
-    #[cfg(not(feature = "ulp"))]
+    #[cfg(not(feature = "riscv-ulp-hal"))]
     pin!(Gpio43:43, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
-    #[cfg(not(feature = "ulp"))]
+    #[cfg(not(feature = "riscv-ulp-hal"))]
     pin!(Gpio44:44, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
-    #[cfg(not(feature = "ulp"))]
+    #[cfg(not(feature = "riscv-ulp-hal"))]
     pin!(Gpio45:45, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
-    #[cfg(all(esp32s2, not(feature = "ulp")))]
+    #[cfg(all(esp32s2, not(feature = "riscv-ulp-hal")))]
     pin!(Gpio46:46, Input, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
-    #[cfg(all(esp32s3, not(feature = "ulp")))]
+    #[cfg(all(esp32s3, not(feature = "riscv-ulp-hal")))]
     pin!(Gpio46:46, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
-    #[cfg(all(esp32s3, not(feature = "ulp")))]
+    #[cfg(all(esp32s3, not(feature = "riscv-ulp-hal")))]
     pin!(Gpio47:47, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
-    #[cfg(all(esp32s3, not(feature = "ulp")))]
+    #[cfg(all(esp32s3, not(feature = "riscv-ulp-hal")))]
     pin!(Gpio48:48, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
 
     pub struct Pins {
@@ -1041,51 +1042,51 @@ mod chip {
         pub gpio19: Gpio19<Unknown>,
         pub gpio20: Gpio20<Unknown>,
         pub gpio21: Gpio21<Unknown>,
-        #[cfg(not(feature = "ulp"))]
+        #[cfg(not(feature = "riscv-ulp-hal"))]
         pub gpio26: Gpio26<Unknown>,
-        #[cfg(not(feature = "ulp"))]
+        #[cfg(not(feature = "riscv-ulp-hal"))]
         pub gpio27: Gpio27<Unknown>,
-        #[cfg(not(feature = "ulp"))]
+        #[cfg(not(feature = "riscv-ulp-hal"))]
         pub gpio28: Gpio28<Unknown>,
-        #[cfg(not(feature = "ulp"))]
+        #[cfg(not(feature = "riscv-ulp-hal"))]
         pub gpio29: Gpio29<Unknown>,
-        #[cfg(not(feature = "ulp"))]
+        #[cfg(not(feature = "riscv-ulp-hal"))]
         pub gpio30: Gpio30<Unknown>,
-        #[cfg(not(feature = "ulp"))]
+        #[cfg(not(feature = "riscv-ulp-hal"))]
         pub gpio31: Gpio31<Unknown>,
-        #[cfg(not(feature = "ulp"))]
+        #[cfg(not(feature = "riscv-ulp-hal"))]
         pub gpio32: Gpio32<Unknown>,
-        #[cfg(not(feature = "ulp"))]
+        #[cfg(not(feature = "riscv-ulp-hal"))]
         pub gpio33: Gpio33<Unknown>,
-        #[cfg(not(feature = "ulp"))]
+        #[cfg(not(feature = "riscv-ulp-hal"))]
         pub gpio34: Gpio34<Unknown>,
-        #[cfg(not(feature = "ulp"))]
+        #[cfg(not(feature = "riscv-ulp-hal"))]
         pub gpio35: Gpio35<Unknown>,
-        #[cfg(not(feature = "ulp"))]
+        #[cfg(not(feature = "riscv-ulp-hal"))]
         pub gpio36: Gpio36<Unknown>,
-        #[cfg(not(feature = "ulp"))]
+        #[cfg(not(feature = "riscv-ulp-hal"))]
         pub gpio37: Gpio37<Unknown>,
-        #[cfg(not(feature = "ulp"))]
+        #[cfg(not(feature = "riscv-ulp-hal"))]
         pub gpio38: Gpio38<Unknown>,
-        #[cfg(not(feature = "ulp"))]
+        #[cfg(not(feature = "riscv-ulp-hal"))]
         pub gpio39: Gpio39<Unknown>,
-        #[cfg(not(feature = "ulp"))]
+        #[cfg(not(feature = "riscv-ulp-hal"))]
         pub gpio40: Gpio40<Unknown>,
-        #[cfg(not(feature = "ulp"))]
+        #[cfg(not(feature = "riscv-ulp-hal"))]
         pub gpio41: Gpio41<Unknown>,
-        #[cfg(not(feature = "ulp"))]
+        #[cfg(not(feature = "riscv-ulp-hal"))]
         pub gpio42: Gpio42<Unknown>,
-        #[cfg(not(feature = "ulp"))]
+        #[cfg(not(feature = "riscv-ulp-hal"))]
         pub gpio43: Gpio43<Unknown>,
-        #[cfg(not(feature = "ulp"))]
+        #[cfg(not(feature = "riscv-ulp-hal"))]
         pub gpio44: Gpio44<Unknown>,
-        #[cfg(not(feature = "ulp"))]
+        #[cfg(not(feature = "riscv-ulp-hal"))]
         pub gpio45: Gpio45<Unknown>,
-        #[cfg(not(feature = "ulp"))]
+        #[cfg(not(feature = "riscv-ulp-hal"))]
         pub gpio46: Gpio46<Unknown>,
-        #[cfg(all(esp32s3, not(feature = "ulp")))]
+        #[cfg(all(esp32s3, not(feature = "riscv-ulp-hal")))]
         pub gpio47: Gpio47<Unknown>,
-        #[cfg(all(esp32s3, not(feature = "ulp")))]
+        #[cfg(all(esp32s3, not(feature = "riscv-ulp-hal")))]
         pub gpio48: Gpio48<Unknown>,
     }
 
@@ -1118,51 +1119,51 @@ mod chip {
                 gpio19: Gpio19::<Unknown>::new(),
                 gpio20: Gpio20::<Unknown>::new(),
                 gpio21: Gpio21::<Unknown>::new(),
-                #[cfg(not(feature = "ulp"))]
+                #[cfg(not(feature = "riscv-ulp-hal"))]
                 gpio26: Gpio26::<Unknown>::new(),
-                #[cfg(not(feature = "ulp"))]
+                #[cfg(not(feature = "riscv-ulp-hal"))]
                 gpio27: Gpio27::<Unknown>::new(),
-                #[cfg(not(feature = "ulp"))]
+                #[cfg(not(feature = "riscv-ulp-hal"))]
                 gpio28: Gpio28::<Unknown>::new(),
-                #[cfg(not(feature = "ulp"))]
+                #[cfg(not(feature = "riscv-ulp-hal"))]
                 gpio29: Gpio29::<Unknown>::new(),
-                #[cfg(not(feature = "ulp"))]
+                #[cfg(not(feature = "riscv-ulp-hal"))]
                 gpio30: Gpio30::<Unknown>::new(),
-                #[cfg(not(feature = "ulp"))]
+                #[cfg(not(feature = "riscv-ulp-hal"))]
                 gpio31: Gpio31::<Unknown>::new(),
-                #[cfg(not(feature = "ulp"))]
+                #[cfg(not(feature = "riscv-ulp-hal"))]
                 gpio32: Gpio32::<Unknown>::new(),
-                #[cfg(not(feature = "ulp"))]
+                #[cfg(not(feature = "riscv-ulp-hal"))]
                 gpio33: Gpio33::<Unknown>::new(),
-                #[cfg(not(feature = "ulp"))]
+                #[cfg(not(feature = "riscv-ulp-hal"))]
                 gpio34: Gpio34::<Unknown>::new(),
-                #[cfg(not(feature = "ulp"))]
+                #[cfg(not(feature = "riscv-ulp-hal"))]
                 gpio35: Gpio35::<Unknown>::new(),
-                #[cfg(not(feature = "ulp"))]
+                #[cfg(not(feature = "riscv-ulp-hal"))]
                 gpio36: Gpio36::<Unknown>::new(),
-                #[cfg(not(feature = "ulp"))]
+                #[cfg(not(feature = "riscv-ulp-hal"))]
                 gpio37: Gpio37::<Unknown>::new(),
-                #[cfg(not(feature = "ulp"))]
+                #[cfg(not(feature = "riscv-ulp-hal"))]
                 gpio38: Gpio38::<Unknown>::new(),
-                #[cfg(not(feature = "ulp"))]
+                #[cfg(not(feature = "riscv-ulp-hal"))]
                 gpio39: Gpio39::<Unknown>::new(),
-                #[cfg(not(feature = "ulp"))]
+                #[cfg(not(feature = "riscv-ulp-hal"))]
                 gpio40: Gpio40::<Unknown>::new(),
-                #[cfg(not(feature = "ulp"))]
+                #[cfg(not(feature = "riscv-ulp-hal"))]
                 gpio41: Gpio41::<Unknown>::new(),
-                #[cfg(not(feature = "ulp"))]
+                #[cfg(not(feature = "riscv-ulp-hal"))]
                 gpio42: Gpio42::<Unknown>::new(),
-                #[cfg(not(feature = "ulp"))]
+                #[cfg(not(feature = "riscv-ulp-hal"))]
                 gpio43: Gpio43::<Unknown>::new(),
-                #[cfg(not(feature = "ulp"))]
+                #[cfg(not(feature = "riscv-ulp-hal"))]
                 gpio44: Gpio44::<Unknown>::new(),
-                #[cfg(not(feature = "ulp"))]
+                #[cfg(not(feature = "riscv-ulp-hal"))]
                 gpio45: Gpio45::<Unknown>::new(),
-                #[cfg(not(feature = "ulp"))]
+                #[cfg(not(feature = "riscv-ulp-hal"))]
                 gpio46: Gpio46::<Unknown>::new(),
-                #[cfg(all(esp32s3, not(feature = "ulp")))]
+                #[cfg(all(esp32s3, not(feature = "riscv-ulp-hal")))]
                 gpio47: Gpio47::<Unknown>::new(),
-                #[cfg(all(esp32s3, not(feature = "ulp")))]
+                #[cfg(all(esp32s3, not(feature = "riscv-ulp-hal")))]
                 gpio48: Gpio48::<Unknown>::new(),
             }
         }
@@ -1170,7 +1171,7 @@ mod chip {
 }
 
 #[cfg(esp32c3)]
-#[cfg(not(feature = "ulp"))]
+#[cfg(not(feature = "riscv-ulp-hal"))]
 mod chip {
     use core::marker::PhantomData;
 

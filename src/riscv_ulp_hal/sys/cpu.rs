@@ -14,6 +14,9 @@ use core::arch::asm;
 use crate::ulp::pac::*;
 use crate::ulp::reg::*;
 
+use crate::riscv_ulp_hal::pac::*;
+use crate::riscv_ulp_hal::reg::*;
+
 #[inline(always)]
 pub fn get_ccount() -> u32 {
     #[allow(unused_assignments)]
