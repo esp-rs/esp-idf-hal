@@ -1,13 +1,10 @@
-use core::ptr;
-use core::slice;
-use core::time;
+use core::{ptr, slice, time};
+use std::convert::TryInto;
 
 extern crate alloc;
-use alloc::borrow::Cow;
-use alloc::sync::Arc;
+use alloc::{borrow::Cow, sync::Arc};
 
 use embedded_svc::mqtt::client;
-
 use esp_idf_sys::*;
 
 use crate::private::cstr::*;
@@ -343,7 +340,12 @@ impl<'a> client::Message for EspMessage<'a> {
     }
 
     fn topic(&self, _topic_token: &client::TopicToken) -> Cow<'_, str> {
-        Cow::Owned(from_cstr_ptr(self.event.topic).into_owned())
+        let ptr = self.event.topic;
+        let len = self.event.topic_len;
+        unsafe {
+            let slice = slice::from_raw_parts(ptr as _, len.try_into().unwrap());
+            Cow::Borrowed(std::str::from_utf8(slice).unwrap())
+        }
     }
 
     fn details(&self) -> &client::Details {
