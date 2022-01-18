@@ -46,6 +46,10 @@
 #include "esp_tls.h"
 #endif
 
+#ifdef CONFIG_ESP_TLS_USING_MBEDTLS
+#include "esp_crt_bundle.h"
+#endif
+
 #ifdef ESP_IDF_COMP_APP_UPDATE_ENABLED
 #include "esp_ota_ops.h"
 #endif
