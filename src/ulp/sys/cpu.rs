@@ -11,15 +11,15 @@ pub const ULP_RISCV_CYCLES_PER_MS: u32 =
 
 use crate::ulp::pac::*;
 use crate::ulp::reg::*;
+use core::arch::asm;
 
 #[inline(always)]
 pub fn get_ccount() -> u32 {
     #[allow(unused_assignments)]
     let mut ccount = 0;
 
-    #[allow(deprecated)]
     unsafe {
-        llvm_asm!("rdcycle $0" : "=r"(ccount) : : : "volatile");
+        asm!("rdcycle {}", out(reg) ccount);
     }
 
     ccount

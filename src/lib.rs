@@ -1,4 +1,3 @@
-#![feature(llvm_asm)]
 #![cfg_attr(not(feature = "std"), no_std)]
 #![feature(generic_associated_types)] // For mutex
 

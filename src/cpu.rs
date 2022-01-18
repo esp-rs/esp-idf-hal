@@ -1,3 +1,4 @@
+use core::arch::asm;
 use esp_idf_sys::*;
 
 /// Returns the number of cores supported by the esp32* chip
@@ -20,9 +21,8 @@ pub fn core() -> u32 {
     let mut core = 0;
 
     #[cfg(any(esp32, esp32s3))]
-    #[allow(deprecated)]
     unsafe {
-        llvm_asm!("rsr.prid $0\nextui $0,$0,13,1" : "=r"(core) : : : "volatile");
+        asm!("rsr.prid {0}", "extui {0},{0},13,1", out(reg) core);
     }
 
     core
