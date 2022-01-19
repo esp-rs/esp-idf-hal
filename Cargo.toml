@@ -18,7 +18,7 @@ std = ["esp-idf-sys/std"]
 
 embedded-svc-mutex = ["embedded-svc"]
 
-ulp = []
+riscv-ulp-hal = []
 
 experimental = []
 

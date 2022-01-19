@@ -3,16 +3,15 @@
 /// This module is a manual translation of the following C file from current ESP-IDF master:
 /// - https://github.com/espressif/esp-idf/blob/master/components/ulp/ulp_riscv/include/ulp_riscv/ulp_utils.h
 /// - https://github.com/espressif/esp-idf/blob/master/components/ulp/ulp_riscv/ulp_utils.c
+use core::arch::asm;
+
+use crate::riscv_ulp_hal::pac::*;
+use crate::riscv_ulp_hal::reg::*;
 
 pub const ULP_RISCV_CYCLES_PER_US_NUM: u32 = 85;
 pub const ULP_RISCV_CYCLES_PER_US_DENUM: u32 = 10;
 pub const ULP_RISCV_CYCLES_PER_MS: u32 =
     ULP_RISCV_CYCLES_PER_US_NUM * (1000 / ULP_RISCV_CYCLES_PER_US_DENUM);
-
-use core::arch::asm;
-
-use crate::ulp::pac::*;
-use crate::ulp::reg::*;
 
 #[inline(always)]
 pub fn get_ccount() -> u32 {

@@ -1,25 +1,25 @@
-#[cfg(not(feature = "ulp"))]
+#[cfg(not(feature = "riscv-ulp-hal"))]
 fn main() -> anyhow::Result<()> {
     embuild::build::CfgArgs::output_propagated("ESP_IDF")
 }
 
-#[cfg(feature = "ulp")]
+#[cfg(feature = "riscv-ulp-hal")]
 fn main() {
     println!("cargo:rustc-cfg=esp32s2");
 
-    let ulp_dir = std::env::current_dir().unwrap().join("ulp");
-    println!("cargo:rustc-link-search={}", ulp_dir.display());
+    let riscv_ulp_dir = std::env::current_dir().unwrap().join("riscv-ulp");
+    println!("cargo:rustc-link-search={}", riscv_ulp_dir.display());
 
     println!(
         "cargo:rerun-if-changed={}",
-        ulp_dir.join("libulp_start.a").display()
+        riscv_ulp_dir.join("libriscv_ulp_start.a").display()
     );
     println!(
         "cargo:rerun-if-changed={}",
-        ulp_dir.join("ulp_link_base.x").display()
+        riscv_ulp_dir.join("riscv_ulp_link_base.x").display()
     );
     println!(
         "cargo:rerun-if-changed={}",
-        ulp_dir.join("ulp_link_default.x").display()
+        riscv_ulp_dir.join("riscv_ulp_link_default.x").display()
     );
 }

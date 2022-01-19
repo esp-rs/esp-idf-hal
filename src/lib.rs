@@ -3,43 +3,46 @@
 #![feature(generic_associated_types)] // For mutex
 #![cfg_attr(not(version("1.59")), feature(asm))]
 
-#[cfg(all(feature = "std", feature = "ulp"))]
+#[cfg(all(feature = "std", feature = "riscv-ulp-hal"))]
 compile_error!("Feature `std` is not compatible with feature `ulp`");
 
-#[cfg(all(feature = "embedded-svc-mutex", feature = "ulp"))]
+#[cfg(all(feature = "embedded-svc-mutex", feature = "riscv-ulp-hal"))]
 compile_error!("Feature `embedded-svc-mutex` is not compatible with feature `ulp`");
 
-#[cfg(all(feature = "ulp", not(esp32s2)))]
+#[cfg(all(feature = "riscv-ulp-hal", not(esp32s2)))]
 compile_error!("Feature `ulp` is currently only supported on esp32s2");
 
 #[macro_use]
-pub mod ulp;
+pub mod riscv_ulp_hal;
+
 pub mod adc;
-#[cfg(not(feature = "ulp"))]
+#[cfg(not(feature = "riscv-ulp-hal"))]
 pub mod can;
-#[cfg(all(feature = "experimental", not(feature = "ulp")))]
+#[cfg(all(feature = "experimental", not(feature = "riscv-ulp-hal")))]
 pub mod cpu;
-#[cfg(not(feature = "ulp"))]
+#[cfg(not(feature = "riscv-ulp-hal"))]
 pub mod delay;
 pub mod gpio;
 #[cfg(esp32)]
 pub mod hall;
-#[cfg(not(feature = "ulp"))]
+#[cfg(not(feature = "riscv-ulp-hal"))]
 pub mod i2c;
-#[cfg(all(feature = "experimental", not(feature = "ulp")))]
+#[cfg(all(feature = "experimental", not(feature = "riscv-ulp-hal")))]
 pub mod interrupt;
-#[cfg(not(feature = "ulp"))]
+#[cfg(not(feature = "riscv-ulp-hal"))]
 pub mod mutex;
 pub mod peripherals;
 pub mod prelude;
-#[cfg(not(feature = "ulp"))]
+#[cfg(not(feature = "riscv-ulp-hal"))]
 pub mod serial;
-#[cfg(not(feature = "ulp"))]
+#[cfg(not(feature = "riscv-ulp-hal"))]
 pub mod spi;
+#[cfg(all(any(esp32, esp32s2, esp32s3), not(feature = "riscv-ulp-hal")))]
+pub mod ulp;
 pub mod units;
 
-#[cfg(feature = "ulp")]
-pub use crate::ulp::delay;
+#[cfg(feature = "riscv-ulp-hal")]
+pub use crate::riscv_ulp_hal::delay;
 
 // This is used to create `embedded_hal` compatible error structs
 // that preserve original `EspError`.
