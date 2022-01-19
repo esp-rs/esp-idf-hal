@@ -9,9 +9,10 @@ pub const ULP_RISCV_CYCLES_PER_US_DENUM: u32 = 10;
 pub const ULP_RISCV_CYCLES_PER_MS: u32 =
     ULP_RISCV_CYCLES_PER_US_NUM * (1000 / ULP_RISCV_CYCLES_PER_US_DENUM);
 
+use core::arch::asm;
+
 use crate::ulp::pac::*;
 use crate::ulp::reg::*;
-use core::arch::asm;
 
 #[inline(always)]
 pub fn get_ccount() -> u32 {

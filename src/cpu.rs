@@ -1,4 +1,5 @@
 use core::arch::asm;
+
 use esp_idf_sys::*;
 
 /// Returns the number of cores supported by the esp32* chip
