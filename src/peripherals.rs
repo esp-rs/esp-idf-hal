@@ -2,7 +2,7 @@
 use crate::mutex;
 
 #[cfg(feature = "riscv-ulp-hal")]
-use crate::ulp::mutex;
+use crate::riscv_ulp_hal::mutex;
 
 use crate::adc;
 #[cfg(not(feature = "riscv-ulp-hal"))]

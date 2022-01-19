@@ -12,14 +12,14 @@ fn main() {
 
     println!(
         "cargo:rerun-if-changed={}",
-        ulp_dir.join("libriscv_ulp_start.a").display()
+        riscv_ulp_dir.join("libriscv_ulp_start.a").display()
     );
     println!(
         "cargo:rerun-if-changed={}",
-        ulp_dir.join("riscv_ulp_link_base.x").display()
+        riscv_ulp_dir.join("riscv_ulp_link_base.x").display()
     );
     println!(
         "cargo:rerun-if-changed={}",
-        ulp_dir.join("riscv_ulp_link_default.x").display()
+        riscv_ulp_dir.join("riscv_ulp_link_default.x").display()
     );
 }

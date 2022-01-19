@@ -1,9 +1,9 @@
-use crate::ulp::pac::*;
 /// A mini "esp-idf-ulp-sys" module exposing stuff on top of which the ULP HAL support is implemented
 /// (currently, only GPIO)
 /// Implemented as a manual transation of a few C fields from current ESP-IDF S2 master:
 /// - https://github.com/espressif/esp-idf/blob/master/components/ulp/ulp_riscv/include/ulp_riscv/ulp_riscv_gpio.h
-use crate::ulp::reg::*;
+use crate::riscv_ulp_hal::pac::*;
+use crate::riscv_ulp_hal::reg::*;
 
 #[allow(non_camel_case_types)]
 pub type adc_unit_t = i32;
