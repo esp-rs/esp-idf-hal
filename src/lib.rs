@@ -1,6 +1,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
+#![feature(cfg_version)]
 #![feature(generic_associated_types)] // For mutex
-#![feature(asm)]
+#![cfg_attr(not(version("1.59")), feature(asm))]
 
 #[cfg(all(feature = "std", feature = "ulp"))]
 compile_error!("Feature `std` is not compatible with feature `ulp`");
