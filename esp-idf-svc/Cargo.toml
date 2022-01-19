@@ -17,16 +17,16 @@ default = ["std"]
 std = ["alloc", "anyhow/std", "log/std", "esp-idf-sys/std", "esp-idf-hal/std", "embedded-svc/std"]
 alloc = ["cstr_core/alloc", "anyhow", "embedded-svc/alloc"]
 
-experimental = ["embedded-svc/experimental"]
+experimental = ["embedded-svc/experimental", "esp-idf-hal/experimental"]
 
 [dependencies]
 enumset = { version = "1", default-features = false }
 log = { version = "0.4", default-features = false }
 cstr_core = "0.2"
 anyhow = { version = "1", default-features = false, optional = true }
-embedded-svc = { version = "0.16.2", default-features = false }
+embedded-svc = { version = "0.16.3", default-features = false }
 esp-idf-sys = { version = "0.30", default-features = false, features = ["pio"] }
-esp-idf-hal = { version = "0.32.3", default-features = false, features = ["esp-idf-sys", "embedded-svc-mutex"] }
+esp-idf-hal = { version = "0.32.4", default-features = false, features = ["esp-idf-sys", "embedded-svc-mutex"] }
 
 [build-dependencies]
 embuild = "0.28"

@@ -342,6 +342,7 @@ impl<'a> client::Message for EspMessage<'a> {
     fn topic(&self, _topic_token: &client::TopicToken) -> Cow<'_, str> {
         let ptr = self.event.topic;
         let len = self.event.topic_len;
+
         unsafe {
             let slice = slice::from_raw_parts(ptr as _, len.try_into().unwrap());
             Cow::Borrowed(std::str::from_utf8(slice).unwrap())

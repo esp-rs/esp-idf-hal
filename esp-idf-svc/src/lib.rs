@@ -18,6 +18,8 @@ extern crate alloc;
 ))]
 pub mod eth;
 #[cfg(all(feature = "experimental", feature = "alloc"))]
+pub mod eventloop;
+#[cfg(all(feature = "experimental", feature = "alloc"))]
 pub mod http;
 #[cfg(all(feature = "std", esp_idf_comp_esp_http_server_enabled))]
 // TODO: Lower requirements to "alloc"
@@ -48,6 +50,9 @@ pub mod ping;
 #[cfg(feature = "alloc")]
 pub mod sntp;
 pub mod sysloop;
+pub mod systime;
+#[cfg(all(feature = "experimental", feature = "alloc"))]
+pub mod timer;
 #[cfg(feature = "alloc")] // TODO: Expose a subset which does not require "alloc"
 pub mod wifi;
 
