@@ -470,6 +470,10 @@ mod chip {
     impl_channel!(CHANNEL3: ledc_channel_t_LEDC_CHANNEL_3);
     impl_channel!(CHANNEL4: ledc_channel_t_LEDC_CHANNEL_4);
     impl_channel!(CHANNEL5: ledc_channel_t_LEDC_CHANNEL_5);
+    #[cfg(any(esp32, esp32s2, esp32s3, esp8684))]
+    impl_channel!(CHANNEL6: ledc_channel_t_LEDC_CHANNEL_6);
+    #[cfg(any(esp32, esp32s2, esp32s3, esp8684))]
+    impl_channel!(CHANNEL7: ledc_channel_t_LEDC_CHANNEL_7);
 
     /// The LED Control device peripheral
     pub struct Peripheral {
