@@ -1,6 +1,6 @@
 [package]
 name = "esp-idf-hal"
-version = "0.32.3"
+version = "0.32.4"
 authors = ["sapir <yasapir@gmail.com>", "Ivan Markov <ivan.markov@gmail.com>"]
 edition = "2018"
 resolver = "2"
