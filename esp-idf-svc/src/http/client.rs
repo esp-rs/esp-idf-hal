@@ -10,6 +10,7 @@ use embedded_svc::http::client::*;
 use embedded_svc::http::*;
 use embedded_svc::io::{Read, Write};
 
+use esp_idf_sys::c_types::c_void;
 use esp_idf_sys::*;
 
 use crate::private::common::Newtype;
@@ -61,6 +62,10 @@ impl Default for FollowRedirectsPolicy {
 pub struct EspHttpClientConfiguration {
     pub buffer_size: Option<usize>,
     pub follow_redirects_policy: FollowRedirectsPolicy,
+
+    pub use_global_ca_store: bool,
+    #[cfg(not(esp_idf_version = "4.3"))]
+    pub crt_bundle_attach: Option<unsafe extern "C" fn(conf: *mut c_void) -> esp_err_t>,
 }
 
 #[allow(clippy::type_complexity)]
@@ -84,6 +89,11 @@ impl EspHttpClient {
             url: b"http://127.0.0.1\0".as_ptr() as *const _,
             event_handler: Some(Self::on_events),
             user_data: &*event_handler as *const _ as *mut c_types::c_void,
+
+            use_global_ca_store: configuration.use_global_ca_store,
+            #[cfg(not(esp_idf_version = "4.3"))]
+            crt_bundle_attach: configuration.crt_bundle_attach,
+
             ..Default::default()
         };
 
