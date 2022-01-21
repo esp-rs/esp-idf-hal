@@ -13,6 +13,8 @@ use embedded_svc::io::{Read, Write};
 use esp_idf_sys::c_types::c_void;
 use esp_idf_sys::*;
 
+use uncased::{Uncased, UncasedStr};
+
 use crate::private::common::Newtype;
 use crate::private::cstr::*;
 
@@ -219,12 +221,12 @@ pub struct EspHttpRequestWrite<'a> {
 }
 
 impl<'a> EspHttpRequestWrite<'a> {
-    fn fetch_headers(&mut self) -> Result<BTreeMap<String, String>, EspError> {
+    fn fetch_headers(&mut self) -> Result<BTreeMap<Uncased<'static>, String>, EspError> {
         let mut headers = BTreeMap::new();
 
         loop {
             // TODO: Implement a mechanism where the client can declare in which header it is interested
-            let headers_ptr = &mut headers as *mut BTreeMap<String, String>;
+            let headers_ptr = &mut headers as *mut BTreeMap<Uncased, String>;
 
             let handler = move |event: &esp_http_client_event_t| {
                 if event.event_id == esp_http_client_event_id_t_HTTP_EVENT_ON_HEADER {
@@ -232,7 +234,7 @@ impl<'a> EspHttpRequestWrite<'a> {
                         // TODO: Replace with a proper conversion from ISO-8859-1 to UTF8
 
                         headers_ptr.as_mut().unwrap().insert(
-                            from_cstr_ptr(event.header_key).into_owned(),
+                            Uncased::from(from_cstr_ptr(event.header_key).into_owned()),
                             from_cstr_ptr(event.header_value).into_owned(),
                         );
                     }
@@ -323,7 +325,7 @@ impl<'a> Write for EspHttpRequestWrite<'a> {
 
 pub struct EspHttpResponse<'a> {
     client: &'a mut EspHttpClient,
-    headers: BTreeMap<String, String>,
+    headers: BTreeMap<Uncased<'static>, String>,
 }
 
 impl<'a> Response for EspHttpResponse<'a> {
@@ -345,7 +347,7 @@ impl<'a> Headers for EspHttpResponse<'a> {
             self.content_len().map(|l| Cow::Owned(l.to_string()))
         } else {
             self.headers
-                .get(name.as_ref())
+                .get(UncasedStr::new(name.as_ref()))
                 .map(|s| Cow::Borrowed(s.as_str()))
         }
     }
