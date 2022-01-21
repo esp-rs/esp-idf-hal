@@ -21,6 +21,8 @@ use esp_idf_hal::mutex;
 
 use esp_idf_sys::*;
 
+use uncased::{Uncased, UncasedStr};
+
 use crate::private::common::Newtype;
 
 #[derive(Copy, Clone, Debug)]
@@ -538,7 +540,7 @@ struct ResponseHeaders<'a> {
     _ptr: PhantomData<&'a httpd_req_t>,
     status: u16,
     status_message: Option<Cow<'a, str>>,
-    headers: BTreeMap<Cow<'a, str>, Cow<'a, str>>,
+    headers: BTreeMap<Uncased<'a>, Cow<'a, str>>,
     session_cookie_name: &'a str,
 }
 
@@ -615,11 +617,11 @@ impl<'a> SendHeaders<'a> for EspHttpResponse<'a> {
         H: Into<Cow<'a, str>>,
         V: Into<Cow<'a, str>>,
     {
-        // TODO: Optimize; convert everything to lower case (or make the map case insensitive)
+        // TODO: Optimize; convert everything to lower case? (map is now case-insensitive)
         *self
             .headers
             .headers
-            .entry(name.into())
+            .entry(Uncased::from(name.into()))
             .or_insert(Cow::Borrowed("")) = value.into();
         self
     }
@@ -668,15 +670,15 @@ impl<'a> EspHttpResponseWrite<'a> {
 
             if let Some(session_id) = self.session_id.as_ref() {
                 headers.headers.insert(
-                    Cow::Borrowed("cookies"),
+                    Uncased::from(Cow::Borrowed("cookies")),
                     cookies::Cookies::new(
                         headers
                             .headers
-                            .get("cookies")
+                            .get(UncasedStr::new("cookies"))
                             .map(AsRef::as_ref)
                             .unwrap_or(""),
                     )
-                    .insert(headers.session_cookie_name, session_id)
+                    .insert(Uncased::from(headers.session_cookie_name), session_id)
                     .into(),
                 );
             }
@@ -698,9 +700,9 @@ impl<'a> EspHttpResponseWrite<'a> {
             //let content_len: Option<usize> = None;
 
             for (key, value) in &headers.headers {
-                if key.as_ref().eq_ignore_ascii_case("Content-Type") {
+                if key == "Content-Type" {
                     c_content_type = Some(CString::new(value.as_ref()).unwrap());
-                } else if key.as_ref().eq_ignore_ascii_case("Content-Length") {
+                } else if key == "Content-Length" {
                     // TODO: Skip this header for now, as we are doing a chunked delivery anyway
                     // content_len = Some(
                     //     value
@@ -710,7 +712,7 @@ impl<'a> EspHttpResponseWrite<'a> {
                     // );
                 } else {
                     c_headers.push((
-                        CString::new(key.as_ref()).unwrap(),
+                        CString::new(key.as_str()).unwrap(),
                         // TODO: Replace with a proper conversion from UTF8 to ISO-8859-1
                         CString::new(value.as_ref()).unwrap(),
                     ))
