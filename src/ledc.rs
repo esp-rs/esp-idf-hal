@@ -6,10 +6,14 @@
 //! This is an initial implementation supporting the generation of PWM signals
 //! but no chrome and spoilers like fading.
 //!
-//! # Example
+//! # Examples
 //!
-//! Create a 25 kHz PWM signal with 25 % duty cycle on GPIO 1
+//! Create a 25 kHz PWM signal with 75 % duty cycle on GPIO 1
 //! ```
+//! use embedded_hal::{
+//!     pwm::blocking::PwmPin,
+//!     delay::blocking::DelayUs,
+//! };
 //! use esp_idf_hal::ledc::{
 //!     config::TimerConfig,
 //!     Channel,
@@ -23,8 +27,11 @@
 //! let timer = Timer::new(peripherals.ledc.timer0, &config)?;
 //! let channel = Channel::new(peripherals.ledc.channel0, &timer, peripherals.pins.gpio1)?;
 //!
-//! channel.set_duty(64);
+//! let max_duty = channel.get_max_duty()?;
+//! channel.set_duty(max_duty * 3 / 4);
 //! ```
+//!
+//! See the `examples/` folder of this repository for more.
 
 use crate::gpio::OutputPin;
 use crate::mutex::Mutex;
