@@ -1,3 +1,4 @@
+#[cfg(any(esp32, esp32s3))]
 use core::arch::asm;
 
 use esp_idf_sys::*;
