@@ -411,7 +411,7 @@ mod chip {
     macro_rules! impl_timer {
         ($instance:ident: $timer:expr) => {
             pub struct $instance {
-                _marker: PhantomData<*const ()>,
+                _marker: PhantomData<ledc_timer_t>,
             }
 
             impl $instance {
@@ -441,7 +441,7 @@ mod chip {
     macro_rules! impl_channel {
         ($instance:ident: $channel:expr) => {
             pub struct $instance {
-                _marker: PhantomData<*const ()>,
+                _marker: PhantomData<ledc_channel_t>,
             }
 
             impl $instance {
