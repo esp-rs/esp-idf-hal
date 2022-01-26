@@ -105,7 +105,7 @@ impl ULP {
     const TIMER_REG: *mut u32 = RTC_CNTL_STATE0_REG as _;
 
     #[cfg(any(esp32s2, esp32s3))]
-    const TIMER_REG: *mut u32 = RTC_CNTL_ULP_CP_TIMER_REG;
+    const TIMER_REG: *mut u32 = RTC_CNTL_ULP_CP_TIMER_REG as _;
 
     #[cfg(any(esp32, esp32s2, esp32s3))]
     const TIMER_EN_BIT: u32 = RTC_CNTL_ULP_CP_SLP_TIMER_EN_V << RTC_CNTL_ULP_CP_SLP_TIMER_EN_S;
@@ -281,7 +281,7 @@ impl ULP {
         Ok(ptr::read_volatile(src))
     }
 
-    pub unsafe fn write_var(&self, dst: *mut T, value: T) -> Result<(), EspError> {
+    pub unsafe fn write_var<T>(&self, dst: *mut T, value: T) -> Result<(), EspError> {
         Self::check_boundaries(dst)?;
 
         ptr::write_volatile(dst, value);
@@ -289,7 +289,7 @@ impl ULP {
         Ok(())
     }
 
-    pub unsafe fn swap_var(&mut self, ptr: *mut T, value: T) -> Result<T, EspError> {
+    pub unsafe fn swap_var<T>(&mut self, ptr: *mut T, value: T) -> Result<T, EspError> {
         let old_value = self.read_var(ptr)?;
 
         self.write_var(ptr, value)?;
