@@ -33,6 +33,8 @@
 //!
 //! See the `examples/` folder of this repository for more.
 
+use std::{borrow::Borrow, marker::PhantomData};
+
 use crate::gpio::OutputPin;
 use crate::mutex::Mutex;
 use embedded_hal::pwm::blocking::PwmPin;
@@ -147,9 +149,10 @@ impl<T: HwTimer> Timer<T> {
 }
 
 /// LED Control output channel abstraction
-pub struct Channel<'a, C: HwChannel, T: HwTimer, P: OutputPin> {
+pub struct Channel<C: HwChannel, H: HwTimer, T: Borrow<Timer<H>>, P: OutputPin> {
     instance: C,
-    timer: &'a Timer<T>,
+    _hw_timer: PhantomData<H>,
+    timer: T,
     pin: P,
     duty: Duty,
 }
@@ -157,14 +160,14 @@ pub struct Channel<'a, C: HwChannel, T: HwTimer, P: OutputPin> {
 // TODO: Stop channel when the instance gets dropped. It seems that we can't
 // have both at the same time: a method for releasing its hardware resources
 // and implementing Drop.
-impl<'a, C: HwChannel, T: HwTimer, P: OutputPin> Channel<'a, C, T, P> {
+impl<C: HwChannel, H: HwTimer, T: Borrow<Timer<H>>, P: OutputPin> Channel<C, H, T, P> {
     /// Creates a new LED Control output channel abstraction
-    pub fn new(instance: C, timer: &'a Timer<T>, pin: P) -> Result<Self, EspError> {
+    pub fn new(instance: C, timer: T, pin: P) -> Result<Self, EspError> {
         let duty = 0;
         let channel_config = ledc_channel_config_t {
-            speed_mode: timer.speed_mode,
+            speed_mode: timer.borrow().speed_mode,
             channel: C::channel(),
-            timer_sel: T::timer(),
+            timer_sel: H::timer(),
             intr_type: ledc_intr_type_t_LEDC_INTR_DISABLE,
             gpio_num: pin.pin(),
             duty: duty as u32,
@@ -192,6 +195,7 @@ impl<'a, C: HwChannel, T: HwTimer, P: OutputPin> Channel<'a, C, T, P> {
 
         Ok(Channel {
             instance,
+            _hw_timer: PhantomData,
             timer,
             pin,
             duty,
@@ -210,7 +214,7 @@ impl<'a, C: HwChannel, T: HwTimer, P: OutputPin> Channel<'a, C, T, P> {
     }
 
     fn get_max_duty(&self) -> Duty {
-        self.timer.max_duty
+        self.timer.borrow().max_duty
     }
 
     fn disable(&mut self) -> Result<(), EspError> {
@@ -230,26 +234,26 @@ impl<'a, C: HwChannel, T: HwTimer, P: OutputPin> Channel<'a, C, T, P> {
         // TODO: Why does calling self.get_max_duty() result in the compiler
         // error 'expected `u32`, found enum `Result`' when our method returns
         // Duty?
-        let clamped = duty.min(self.timer.max_duty);
+        let clamped = duty.min(self.timer.borrow().max_duty);
         self.duty = clamped;
         self.update_duty(clamped)?;
         Ok(())
     }
 
     fn stop(&mut self) -> Result<(), EspError> {
-        esp!(unsafe { ledc_stop(self.timer.speed_mode, C::channel(), IDLE_LEVEL) })?;
+        esp!(unsafe { ledc_stop(self.timer.borrow().speed_mode, C::channel(), IDLE_LEVEL) })?;
         Ok(())
     }
 
     fn update_duty(&mut self, duty: Duty) -> Result<(), EspError> {
         esp!(unsafe {
-            ledc_set_duty_and_update(self.timer.speed_mode, C::channel(), duty as u32, HPOINT)
+            ledc_set_duty_and_update(self.timer.borrow().speed_mode, C::channel(), duty as u32, HPOINT)
         })?;
         Ok(())
     }
 }
 
-impl<'a, C: HwChannel, T: HwTimer, P: OutputPin> PwmPin for Channel<'a, C, T, P> {
+impl<C: HwChannel, H: HwTimer, T: Borrow<Timer<H>>, P: OutputPin> PwmPin for Channel<C, H, T, P> {
     type Duty = Duty;
     type Error = EspError;
 
@@ -274,7 +278,7 @@ impl<'a, C: HwChannel, T: HwTimer, P: OutputPin> PwmPin for Channel<'a, C, T, P>
     }
 }
 
-impl<'a, C: HwChannel, T: HwTimer, P: OutputPin> embedded_hal_0_2::PwmPin for Channel<'a, C, T, P> {
+impl<C: HwChannel, H: HwTimer, T: Borrow<Timer<H>>, P: OutputPin> embedded_hal_0_2::PwmPin for Channel<C, H, T, P> {
     type Duty = Duty;
 
     fn disable(&mut self) {
