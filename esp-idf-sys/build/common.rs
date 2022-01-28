@@ -18,14 +18,14 @@ pub const MCU_VAR: &str = "MCU";
 pub const SDKCONFIG_FILE: &str = "sdkconfig";
 pub const SDKCONFIG_DEFAULTS_FILE: &str = "sdkconfig.defaults";
 
-pub const STABLE_PATCHES: &[&str] = &[
+pub const V_4_3_2_PATCHES: &[&str] = &[
     "patches/missing_riscv_atomics_fix.diff",
     "patches/missing_xtensa_atomics_fix.diff",
     "patches/pthread_destructor_fix.diff",
 ];
 
 #[allow(unused)]
-pub const MASTER_PATCHES: &[&str] = &[];
+pub const NO_PATCHES: &[&str] = &[];
 
 const TOOLS_WORKSPACE_INSTALL_DIR: &str = ".embuild";
 

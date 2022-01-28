@@ -19,7 +19,7 @@ use strum::{Display, EnumString};
 use super::common::{
     self, get_install_dir, list_specific_sdkconfigs, workspace_dir, EspIdfBuildOutput,
     EspIdfComponents, ESP_IDF_GLOB_VAR_PREFIX, ESP_IDF_SDKCONFIG_DEFAULTS_VAR,
-    ESP_IDF_SDKCONFIG_VAR, ESP_IDF_TOOLS_INSTALL_DIR_VAR, MASTER_PATCHES, MCU_VAR, STABLE_PATCHES,
+    ESP_IDF_SDKCONFIG_VAR, ESP_IDF_TOOLS_INSTALL_DIR_VAR, MCU_VAR, NO_PATCHES, V_4_3_2_PATCHES,
 };
 use crate::common::{SDKCONFIG_DEFAULTS_FILE, SDKCONFIG_FILE};
 
@@ -137,15 +137,19 @@ fn build_cargo_first() -> Result<EspIdfBuildOutput> {
 
     // Apply patches, only if the patches were not previously applied.
     let patch_set = match &idf.esp_idf_version {
-        git::Ref::Branch(b) if idf.esp_idf.get_default_branch()?.as_ref() == Some(b) => {
-            MASTER_PATCHES
+        git::Ref::Branch(b)
+            if b == "release/v4.4" || idf.esp_idf.get_default_branch()?.as_ref() == Some(b) =>
+        {
+            NO_PATCHES
         }
-        git::Ref::Tag(t) if t == DEFAULT_ESP_IDF_VERSION => STABLE_PATCHES,
+        git::Ref::Branch(b) if b == "release/v4.3" => V_4_3_2_PATCHES,
+        git::Ref::Tag(t) if t.starts_with("v4.4") => NO_PATCHES,
+        git::Ref::Tag(t) if t == "v4.3.2" => V_4_3_2_PATCHES,
         _ => {
             cargo::print_warning(format_args!(
                 "`esp-idf` version ({:?}) not officially supported by `esp-idf-sys`. \
-                 Supported versions are 'master', '{}'.",
-                &idf.esp_idf_version, DEFAULT_ESP_IDF_VERSION
+                 Supported versions are 'master', 'release/v4.4', 'release/v4.3', 'v4.4(.X)', 'v4.3.2'.",
+                 &idf.esp_idf_version,
             ));
             &[]
         }
