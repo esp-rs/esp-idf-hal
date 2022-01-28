@@ -69,6 +69,7 @@ pub mod c_types {
 #[allow(non_upper_case_globals)]
 #[allow(non_camel_case_types)]
 #[allow(non_snake_case)]
+#[allow(improper_ctypes)] // TODO: For now, as 5.0 spits out tons of these
 mod bindings {
     use super::c_types;
 

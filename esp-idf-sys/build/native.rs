@@ -6,7 +6,8 @@ use std::path::{Path, PathBuf};
 use std::str::FromStr;
 use std::{env, fs};
 
-use anyhow::*;
+use anyhow::{anyhow, bail, Context, Error, Result};
+
 use embuild::cmake::file_api::codemodel::Language;
 use embuild::cmake::file_api::ObjKind;
 use embuild::espidf::InstallOpts;
@@ -252,7 +253,15 @@ fn build_cargo_first() -> Result<EspIdfBuildOutput> {
     // overwritten because `cmake::Config` also sets these (see
     // https://github.com/espressif/esp-idf/issues/7507).
     let (asm_flags, c_flags, cxx_flags) = {
-        let mut vars = cmake::get_script_variables(&cmake_toolchain_file)?;
+        let extractor_script = cmake::script_variables_extractor(&cmake_toolchain_file)?;
+
+        let output = embuild::cmd_output!(
+            cmake::cmake(), 
+            "-P", 
+            extractor_script.as_ref().as_os_str();
+            env=("IDF_PATH", &idf.esp_idf.worktree().as_os_str()))?;
+
+        let mut vars = cmake::process_script_variables_extractor_output(output)?;
         (
             vars.remove("CMAKE_ASM_FLAGS").unwrap_or_default(),
             vars.remove("CMAKE_C_FLAGS").unwrap_or_default(),
