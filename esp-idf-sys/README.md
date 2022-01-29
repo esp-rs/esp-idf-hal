@@ -2,7 +2,7 @@
 
 ## Background
 
-The ESP-IDF API in Rust, with support for each ESP chip (ESP32, ESP32S2, ESP32C3 etc.) based on the Rust target.
+The ESP-IDF API in Rust, with support for each ESP chip (ESP32, ESP32S2, ESP32S3, ESP32C3 etc.) based on the Rust target.
 
 ![CI](https://github.com/esp-rs/esp-idf-sys/actions/workflows/ci.yml/badge.svg)
 
