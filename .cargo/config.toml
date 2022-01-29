@@ -14,6 +14,9 @@ linker = "ldproxy"
 # See also https://github.com/ivmarkov/embuild/issues/16
 rustflags = ["-C", "default-linker-libraries"]
 
+[env]
+ESP_IDF_SDKCONFIG_DEFAULTS = ".github/configs/sdkconfig.defaults"
+
 [unstable]
 build-std = ["std", "panic_abort"]
 build-std-features = ["panic_immediate_abort"]
