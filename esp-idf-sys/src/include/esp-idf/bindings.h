@@ -32,9 +32,29 @@
 #include "esp_eth.h"
 #include "esp_eth_netif_glue.h"
 
+#ifdef ESP_IDF_COMP_VFS_ENABLED
 #include "esp_vfs.h"
+#include "esp_vfs_cdcacm.h"
+#include "esp_vfs_dev.h"
+#include "esp_vfs_semihost.h"
+#include "esp_vfs_usb_serial_jtag.h"
+
+#if ((ESP_IDF_VERSION_MAJOR > 4) || ((ESP_IDF_VERSION_MAJOR == 4) && (ESP_IDF_VERSION_MINOR >= 4)))
+#include "esp_vfs_console.h"
+#endif
+
 #if ((ESP_IDF_VERSION_MAJOR > 4) || ((ESP_IDF_VERSION_MAJOR == 4) && (ESP_IDF_VERSION_MINOR >= 4)))
 #include "esp_vfs_eventfd.h"
+#endif
+
+#ifdef ESP_IDF_COMP_SPIFFS_ENABLED
+#include "esp_spiffs.h"
+#endif
+
+#ifdef ESP_IDF_COMP_FATFS_ENABLED
+#include "esp_vfs_fat.h"
+#endif
+
 #endif
 
 #include "lwip/lwip_napt.h"

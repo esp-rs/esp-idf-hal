@@ -42,6 +42,9 @@ const ALL_COMPONENTS: &[&str] = &[
     "comp_spi_flash_enabled",
     "comp_esp_adc_cal_enabled",
     "comp_mqtt_enabled",
+    "comp_vfs_enabled",
+    "comp_spiffs_enabled",
+    "comp_fatfs_enabled",
 ];
 
 pub struct EspIdfBuildOutput {
