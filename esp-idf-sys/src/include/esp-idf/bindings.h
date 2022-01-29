@@ -91,6 +91,11 @@
 #include "nvs_flash.h"
 #endif
 
+#ifdef ESP_IDF_COMP_SOC_ENABLED
+// TODO: Include all XXX_periph.h headers here
+#include "soc/gpio_periph.h"
+#endif
+
 #include "driver/adc.h"
 #include "driver/twai.h"
 #if !defined(CONFIG_IDF_TARGET_ESP32C3) && !defined(CONFIG_IDF_TARGET_ESP32S3)

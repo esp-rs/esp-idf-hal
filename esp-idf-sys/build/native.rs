@@ -125,7 +125,7 @@ fn build_cargo_first() -> Result<EspIdfBuildOutput> {
     let install_dir = get_install_dir("espressif")?;
     let idf = espidf::Installer::new(esp_idf_version()?)
         .opts(InstallOpts::empty())
-        .local_install_dir(install_dir)
+        .local_install_dir(install_dir.clone())
         .git_url(match env::var(ESP_IDF_REPOSITORY_VAR) {
             Err(env::VarError::NotPresent) => None,
             git_url => Some(git_url?),
@@ -283,8 +283,9 @@ fn build_cargo_first() -> Result<EspIdfBuildOutput> {
         &[ObjKind::Codemodel, ObjKind::Toolchains],
     )?;
 
-    // Build the esp-idf.
-    cmake::Config::new(&out_dir)
+    let mut cmake_config = cmake::Config::new(&out_dir);
+
+    cmake_config
         .generator("Ninja")
         .out_dir(&out_dir)
         .no_build_target(true)
@@ -298,8 +299,14 @@ fn build_cargo_first() -> Result<EspIdfBuildOutput> {
         .env("IDF_PATH", &idf.esp_idf.worktree())
         .env("PATH", &idf.exported_path)
         .env("SDKCONFIG_DEFAULTS", defaults_files)
-        .env("IDF_TARGET", &chip_name)
-        .build();
+        .env("IDF_TARGET", &chip_name);
+
+    if let Some(install_dir) = install_dir {
+        cmake_config.env("IDF_TOOLS_PATH", install_dir);
+    }
+
+    // Build the esp-idf.
+    cmake_config.build();
 
     let replies = query.get_replies()?;
     let target = replies
@@ -445,7 +452,7 @@ impl Chip {
     fn ulp_gcc_toolchain(self) -> Option<&'static str> {
         match self {
             Self::ESP32 => Some("esp32ulp-elf"),
-            Self::ESP32S2 => Some("esp32s2ulp-elf"),
+            Self::ESP32S2 | Self::ESP32S3 => Some("esp32s2ulp-elf"),
             _ => None,
         }
     }

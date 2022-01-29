@@ -45,6 +45,7 @@ const ALL_COMPONENTS: &[&str] = &[
     "comp_vfs_enabled",
     "comp_spiffs_enabled",
     "comp_fatfs_enabled",
+    "comp_soc_enabled",
 ];
 
 pub struct EspIdfBuildOutput {
