@@ -1,13 +1,16 @@
+use core::convert::TryInto;
 use core::{ptr, slice, time};
-use std::convert::TryInto;
 
 extern crate alloc;
 use alloc::{borrow::Cow, sync::Arc};
 
-use embedded_svc::mqtt::client;
+use embedded_svc::{mqtt::client, service};
+
+use esp_idf_hal::mutex::{Condvar, Mutex};
+
 use esp_idf_sys::*;
 
-use crate::private::cstr::*;
+use crate::private::{common::Newtype, cstr::*};
 
 // !!! NOTE: WORK IN PROGRESS
 
@@ -71,34 +74,54 @@ impl<'a> From<&Configuration<'a>> for (esp_mqtt_client_config_t, RawCstrs) {
     }
 }
 
+struct UnsafeCallback(*mut Box<dyn FnMut(esp_mqtt_event_handle_t)>);
+
+impl UnsafeCallback {
+    fn from(boxed: &mut Box<Box<dyn FnMut(esp_mqtt_event_handle_t)>>) -> Self {
+        Self(boxed.as_mut())
+    }
+
+    unsafe fn from_ptr(ptr: *mut c_types::c_void) -> Self {
+        Self(ptr as *mut _)
+    }
+
+    fn as_ptr(&self) -> *mut c_types::c_void {
+        self.0 as *mut _
+    }
+
+    unsafe fn call(&self, data: esp_mqtt_event_handle_t) {
+        let reference = self.0.as_mut().unwrap();
+
+        (reference)(data);
+    }
+}
+
 pub struct EspMqttClient(
     esp_mqtt_client_handle_t,
-    Box<dyn Fn(esp_mqtt_event_handle_t)>,
+    Box<dyn FnMut(esp_mqtt_event_handle_t)>,
 );
 
 impl EspMqttClient {
     pub fn new<'a>(
         url: impl AsRef<str>,
         conf: &'a Configuration<'a>,
-    ) -> Result<(Self, EspConnection), EspError>
+    ) -> Result<(Self, EspMqttConnection), EspError>
     where
         Self: Sized,
     {
-        let queue = unsafe {
-            xQueueGenericCreate(1, core::mem::size_of::<&esp_mqtt_event_handle_t>() as _, 0)
-        };
-        if queue.is_null() {
-            esp!(ESP_FAIL)?;
-        }
+        let state = Arc::new(EspMqttConnectionState {
+            message: Mutex::new(None),
+            posted: Condvar::new(),
+            processed: Condvar::new(),
+        });
 
-        let queue = Arc::new(Queue(queue));
-
-        let connection = EspConnection(queue.clone());
+        let connection = EspMqttConnection(state.clone());
+        let client_connection = connection.clone();
 
         let client = Self::new_with_raw_callback(
             url,
             conf,
-            Box::new(move |event_handle| EspConnection::post(&queue, event_handle)),
+            Box::new(move |event_handle| EspMqttConnection::post(&client_connection, event_handle)),
         )?;
 
         Ok((client, connection))
@@ -107,7 +130,8 @@ impl EspMqttClient {
     pub fn new_with_callback<'a>(
         url: impl AsRef<str>,
         conf: &'a Configuration<'a>,
-        callback: impl for<'b> Fn(Result<client::Event<EspMessage<'b>>, EspError>) + 'static,
+        mut callback: impl for<'b> FnMut(Option<Result<client::Event<EspMqttMessage<'b>>, EspError>>)
+            + 'static,
     ) -> Result<Self, EspError>
     where
         Self: Sized,
@@ -116,9 +140,13 @@ impl EspMqttClient {
             url,
             conf,
             Box::new(move |event_handle| {
-                let event = unsafe { event_handle.as_ref().unwrap() };
+                let event = unsafe { event_handle.as_ref() };
 
-                callback(EspMessage::new_event(event, None))
+                if let Some(event) = event {
+                    callback(Some(EspMqttMessage::new_event(event, None)))
+                } else {
+                    callback(None)
+                }
             }),
         )
     }
@@ -126,11 +154,15 @@ impl EspMqttClient {
     fn new_with_raw_callback<'a>(
         url: impl AsRef<str>,
         conf: &'a Configuration<'a>,
-        raw_callback: Box<dyn Fn(esp_mqtt_event_handle_t)>,
+        raw_callback: Box<dyn FnMut(esp_mqtt_event_handle_t)>,
     ) -> Result<Self, EspError>
     where
         Self: Sized,
     {
+        let mut boxed_raw_callback = Box::new(raw_callback);
+
+        let unsafe_callback = UnsafeCallback::from(&mut boxed_raw_callback);
+
         let (c_conf, _cstrs) = conf.into();
 
         let client = unsafe { esp_mqtt_client_init(&c_conf as *const _) };
@@ -138,7 +170,7 @@ impl EspMqttClient {
             esp!(ESP_FAIL)?;
         }
 
-        let client = Self(client, Box::new(raw_callback));
+        let client = Self(client, boxed_raw_callback);
 
         let c_url = CString::new(url.as_ref()).unwrap();
 
@@ -149,7 +181,7 @@ impl EspMqttClient {
                 client.0,
                 esp_mqtt_event_id_t_MQTT_EVENT_ANY,
                 Some(Self::handle),
-                &*client.1 as *const _ as *mut _,
+                unsafe_callback.as_ptr(),
             )
         })?;
 
@@ -164,11 +196,9 @@ impl EspMqttClient {
         _event_id: i32,
         event_data: *mut c_types::c_void,
     ) {
-        let handler_ptr = event_handler_arg as *mut Box<dyn Fn(esp_mqtt_event_handle_t)>;
-
-        let handler = unsafe { handler_ptr.as_ref() }.unwrap();
-
-        (handler)(event_data as _);
+        unsafe {
+            UnsafeCallback::from_ptr(event_handler_arg).call(event_data as _);
+        }
     }
 
     fn check(result: i32) -> Result<client::MessageId, EspError> {
@@ -185,12 +215,40 @@ impl Drop for EspMqttClient {
         esp!(unsafe { esp_mqtt_client_disconnect(self.0) }).unwrap();
         esp!(unsafe { esp_mqtt_client_stop(self.0) }).unwrap();
         esp!(unsafe { esp_mqtt_client_destroy(self.0) }).unwrap();
+
+        (self.1)(ptr::null_mut() as *mut _);
     }
 }
 
-impl client::Client for EspMqttClient {
+impl service::Service for EspMqttClient {
     type Error = EspError;
+}
 
+impl client::Client for EspMqttClient {
+    fn subscribe<'a, S>(
+        &'a mut self,
+        topic: S,
+        qos: client::QoS,
+    ) -> Result<client::MessageId, Self::Error>
+    where
+        S: Into<Cow<'a, str>>,
+    {
+        let c_topic = CString::new(topic.into().as_ref()).unwrap();
+
+        Self::check(unsafe { esp_mqtt_client_subscribe(self.0, c_topic.as_ptr(), qos as _) })
+    }
+
+    fn unsubscribe<'a, S>(&'a mut self, topic: S) -> Result<client::MessageId, Self::Error>
+    where
+        S: Into<Cow<'a, str>>,
+    {
+        let c_topic = CString::new(topic.into().as_ref()).unwrap();
+
+        Self::check(unsafe { esp_mqtt_client_unsubscribe(self.0, c_topic.as_ptr()) })
+    }
+}
+
+impl client::Publish for EspMqttClient {
     fn publish<'a, S, V>(
         &'a mut self,
         topic: S,
@@ -217,44 +275,52 @@ impl client::Client for EspMqttClient {
             )
         })
     }
+}
 
-    fn subscribe<'a, S>(
+impl client::Enqueue for EspMqttClient {
+    fn enqueue<'a, S, V>(
         &'a mut self,
         topic: S,
         qos: client::QoS,
+        retain: bool,
+        payload: V,
     ) -> Result<client::MessageId, Self::Error>
     where
         S: Into<Cow<'a, str>>,
+        V: Into<Cow<'a, [u8]>>,
     {
         let c_topic = CString::new(topic.into().as_ref()).unwrap();
 
-        Self::check(unsafe { esp_mqtt_client_subscribe(self.0, c_topic.as_ptr(), qos as _) })
-    }
+        let payload = payload.into();
 
-    fn unsubscribe<'a, S>(&'a mut self, topic: S) -> Result<client::MessageId, Self::Error>
-    where
-        S: Into<Cow<'a, str>>,
-    {
-        let c_topic = CString::new(topic.into().as_ref()).unwrap();
-
-        Self::check(unsafe { esp_mqtt_client_unsubscribe(self.0, c_topic.as_ptr()) })
+        Self::check(unsafe {
+            esp_mqtt_client_enqueue(
+                self.0,
+                c_topic.as_ptr(),
+                payload.as_ref().as_ptr() as _,
+                payload.as_ref().len() as _,
+                qos as _,
+                retain as _,
+                true,
+            )
+        })
     }
 }
 
 unsafe impl Send for EspMqttClient {}
 
-pub struct EspMessage<'a> {
+pub struct EspMqttMessage<'a> {
     event: &'a esp_mqtt_event_t,
     details: client::Details,
-    queue: Option<Arc<Queue>>,
+    connection: Option<Arc<EspMqttConnectionState>>,
 }
 
-impl<'a> EspMessage<'a> {
+impl<'a> EspMqttMessage<'a> {
     #[allow(non_upper_case_globals)]
     fn new_event(
         event: &esp_mqtt_event_t,
-        queue: Option<Arc<Queue>>,
-    ) -> Result<client::Event<EspMessage<'_>>, EspError> {
+        connection: Option<Arc<EspMqttConnectionState>>,
+    ) -> Result<client::Event<EspMqttMessage<'_>>, EspError> {
         match event.event_id {
             esp_mqtt_event_id_t_MQTT_EVENT_ERROR => Err(EspError::from(ESP_FAIL).unwrap()), // TODO
             esp_mqtt_event_id_t_MQTT_EVENT_BEFORE_CONNECT => Ok(client::Event::BeforeConnect),
@@ -271,19 +337,19 @@ impl<'a> EspMessage<'a> {
             esp_mqtt_event_id_t_MQTT_EVENT_PUBLISHED => {
                 Ok(client::Event::Published(event.msg_id as _))
             }
-            esp_mqtt_event_id_t_MQTT_EVENT_DATA => {
-                Ok(client::Event::Received(EspMessage::new(event, queue)))
-            }
+            esp_mqtt_event_id_t_MQTT_EVENT_DATA => Ok(client::Event::Received(
+                EspMqttMessage::new(event, connection),
+            )),
             esp_mqtt_event_id_t_MQTT_EVENT_DELETED => Ok(client::Event::Deleted(event.msg_id as _)),
             other => panic!("Unknown message type: {}", other),
         }
     }
 
-    fn new(event: &'a esp_mqtt_event_t, queue: Option<Arc<Queue>>) -> Self {
+    fn new(event: &'a esp_mqtt_event_t, connection: Option<Arc<EspMqttConnectionState>>) -> Self {
         let mut message = Self {
             event,
             details: client::Details::Complete(unsafe { client::TopicToken::new() }),
-            queue,
+            connection,
         };
 
         message.fill_chunk_details();
@@ -308,24 +374,20 @@ impl<'a> EspMessage<'a> {
     }
 }
 
-impl<'a> Drop for EspMessage<'a> {
+impl<'a> Drop for EspMqttMessage<'a> {
     fn drop(&mut self) {
-        if let Some(queue) = self.queue.as_ref() {
-            let mut conn_data: esp_mqtt_event_handle_t = ptr::null_mut();
+        if let Some(state) = self.connection.as_ref() {
+            let mut message = state.message.lock();
 
-            esp!(unsafe {
-                xQueueReceive(
-                    queue.0,
-                    &mut conn_data as *mut _ as *mut _,
-                    TickType_t::max_value(),
-                )
-            })
-            .unwrap();
+            if message.is_some() {
+                *message = None;
+                state.processed.notify_all();
+            }
         }
     }
 }
 
-impl<'a> client::Message for EspMessage<'a> {
+impl<'a> client::Message for EspMqttMessage<'a> {
     fn id(&self) -> client::MessageId {
         self.event.msg_id as _
     }
@@ -345,7 +407,7 @@ impl<'a> client::Message for EspMessage<'a> {
 
         unsafe {
             let slice = slice::from_raw_parts(ptr as _, len.try_into().unwrap());
-            Cow::Borrowed(std::str::from_utf8(slice).unwrap())
+            Cow::Borrowed(core::str::from_utf8(slice).unwrap())
         }
     }
 
@@ -354,53 +416,51 @@ impl<'a> client::Message for EspMessage<'a> {
     }
 }
 
-struct Queue(QueueHandle_t);
+unsafe impl Send for Newtype<esp_mqtt_event_handle_t> {}
 
-impl Drop for Queue {
-    fn drop(&mut self) {
-        unsafe {
-            vQueueDelete(self.0);
+struct EspMqttConnectionState {
+    message: Mutex<Option<Newtype<esp_mqtt_event_handle_t>>>,
+    posted: Condvar,
+    processed: Condvar,
+}
+
+#[derive(Clone)]
+pub struct EspMqttConnection(Arc<EspMqttConnectionState>);
+
+impl EspMqttConnection {
+    fn post(&self, event: esp_mqtt_event_handle_t) {
+        let mut message = self.0.message.lock();
+
+        while message.is_some() {
+            message = self.0.processed.wait(message);
         }
+
+        *message = Some(Newtype(event));
+        self.0.posted.notify_all();
     }
 }
 
-pub struct EspConnection(Arc<Queue>);
+unsafe impl Send for EspMqttConnection {}
 
-impl EspConnection {
-    fn post(queue: &Queue, event: esp_mqtt_event_handle_t) {
-        esp!(unsafe {
-            xQueueGenericSend(
-                queue.0,
-                &event as *const _ as *const _,
-                TickType_t::max_value(),
-                0_i32,
-            )
-        })
-        .unwrap();
-    }
-}
-
-unsafe impl Send for EspConnection {}
-
-impl client::Connection for EspConnection {
+impl service::Service for EspMqttConnection {
     type Error = EspError;
+}
 
-    type Message<'a> = EspMessage<'a>;
+impl client::Connection for EspMqttConnection {
+    type Message<'a> = EspMqttMessage<'a>;
 
     fn next(&mut self) -> Option<Result<client::Event<Self::Message<'_>>, Self::Error>> {
-        let mut conn_data: esp_mqtt_event_handle_t = ptr::null_mut();
+        let mut message = self.0.message.lock();
 
-        esp!(unsafe {
-            xQueuePeek(
-                self.0 .0,
-                &mut conn_data as *mut _ as *mut _,
-                TickType_t::max_value(),
-            )
-        })
-        .unwrap();
+        while message.is_none() {
+            message = self.0.posted.wait(message);
+        }
 
-        let conn_data = unsafe { conn_data.as_ref() };
-
-        conn_data.map(|event| EspMessage::new_event(event, Some(self.0.clone())))
+        let event = unsafe { message.as_ref().unwrap().0.as_ref() };
+        if let Some(event) = event {
+            Some(EspMqttMessage::new_event(event, Some(self.0.clone())))
+        } else {
+            None
+        }
     }
 }

@@ -59,9 +59,12 @@ pub enum RmiiEthChipset {
     RTL8201,
     LAN87XX,
     DP83848,
+    #[cfg(not(esp_idf_version_major = "5"))]
     KSZ8041,
-    #[cfg(any(esp_idf_version = "4.4", esp_idf_version_major = "5"))]
+    #[cfg(esp_idf_version = "4.4")]
     KSZ8081,
+    #[cfg(esp_idf_version_major = "5")]
+    KSZ80XX,
 }
 
 #[cfg(any(
@@ -126,6 +129,8 @@ impl Shared {
         }
     }
 }
+
+unsafe impl Send for Shared {}
 
 pub struct EspEth<P> {
     netif_stack: Arc<EspNetifStack>,
@@ -203,9 +208,12 @@ where
             #[cfg(not(any(esp_idf_version = "4.4", esp_idf_version_major = "5")))]
             RmiiEthChipset::LAN87XX => unsafe { esp_eth_phy_new_lan8720(&phy_cfg) },
             RmiiEthChipset::DP83848 => unsafe { esp_eth_phy_new_dp83848(&phy_cfg) },
+            #[cfg(not(esp_idf_version_major = "5"))]
             RmiiEthChipset::KSZ8041 => unsafe { esp_eth_phy_new_ksz8041(&phy_cfg) },
-            #[cfg(any(esp_idf_version = "4.4", esp_idf_version_major = "5"))]
+            #[cfg(esp_idf_version = "4.4")]
             RmiiEthChipset::KSZ8081 => unsafe { esp_eth_phy_new_ksz8081(&phy_cfg) },
+            #[cfg(esp_idf_version_major = "5")]
+            RmiiEthChipset::KSZ80XX => unsafe { esp_eth_phy_new_ksz80xx(&phy_cfg) },
         };
 
         Ok((mac, phy))

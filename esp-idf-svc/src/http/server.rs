@@ -59,7 +59,7 @@ impl From<&Configuration> for Newtype<httpd_config_t> {
         Self(httpd_config_t {
             task_priority: 5,
             stack_size: conf.stack_size as _,
-            core_id: std::i32::MAX,
+            core_id: core::i32::MAX,
             server_port: conf.http_port,
             ctrl_port: 32768,
             max_open_sockets: conf.max_open_sockets as _,

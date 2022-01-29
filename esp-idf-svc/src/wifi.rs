@@ -94,8 +94,8 @@ impl From<&ClientConfiguration> for Newtype<wifi_sta_config_t> {
     }
 }
 
-impl From<&Newtype<wifi_sta_config_t>> for ClientConfiguration {
-    fn from(conf: &Newtype<wifi_sta_config_t>) -> Self {
+impl From<Newtype<wifi_sta_config_t>> for ClientConfiguration {
+    fn from(conf: Newtype<wifi_sta_config_t>) -> Self {
         ClientConfiguration {
             ssid: from_cstr(&conf.0.ssid).into(),
             bssid: if conf.0.bssid_set {
@@ -206,6 +206,8 @@ impl Default for Shared {
         }
     }
 }
+
+unsafe impl Send for Shared {}
 
 pub struct EspWifi {
     netif_stack: Arc<EspNetifStack>,
@@ -333,7 +335,7 @@ impl EspWifi {
         let mut wifi_config: wifi_config_t = Default::default();
         esp!(unsafe { esp_wifi_get_config(wifi_interface_t_WIFI_IF_STA, &mut wifi_config) })?;
 
-        let mut result: ClientConfiguration = unsafe { (&Newtype(wifi_config.sta)).into() };
+        let mut result: ClientConfiguration = unsafe { Newtype(wifi_config.sta).into() };
         result.ip_conf = self.shared.get(|shared| shared.client_ip_conf.clone());
 
         info!("Providing STA configuration: {:?}", &result);

@@ -26,11 +26,17 @@ impl<T> Waitable<T> {
         }
     }
 
-    pub fn get<Q>(&self, getter: impl FnOnce(&T) -> Q) -> Q {
+    pub fn get<Q>(&self, getter: impl FnOnce(&T) -> Q) -> Q
+    where
+        T: Send,
+    {
         getter(&Mutex::lock(&self.state))
     }
 
-    pub fn modify<Q>(&mut self, modifier: impl FnOnce(&mut T) -> (bool, Q)) -> Q {
+    pub fn modify<Q>(&mut self, modifier: impl FnOnce(&mut T) -> (bool, Q)) -> Q
+    where
+        T: Send,
+    {
         let mut guard = Mutex::lock(&self.state);
 
         let (notify, result) = modifier(&mut *guard);
