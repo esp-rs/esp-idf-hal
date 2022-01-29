@@ -162,6 +162,12 @@ impl Condvar {
     }
 }
 
+impl Default for Condvar {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Drop for Condvar {
     fn drop(&mut self) {
         let r = unsafe { pthread_cond_destroy(self.0.get()) };
