@@ -1,10 +1,4 @@
-use core::ffi::c_void;
 use core::marker::PhantomData;
-use core::mem;
-use core::ptr;
-use core::time::Duration;
-
-use esp_idf_sys::*;
 
 #[derive(Copy, Clone, Eq, PartialEq, Debug)]
 pub enum SleepTimer {
@@ -88,74 +82,84 @@ impl ULP {
     all(esp32s3, esp_idf_esp32s3_ulp_coproc_enabled)
 ))]
 impl ULP {
-    const RTC_SLOW_MEM: u32 = 0x50000000_u32;
+    const RTC_SLOW_MEM: u32 = 0x5000_0000_u32;
 
-    pub const MEM_START: *mut c_void = Self::RTC_SLOW_MEM as _;
+    pub const MEM_START: *mut core::ffi::c_void = Self::RTC_SLOW_MEM as _;
 
     #[cfg(esp32)]
-    pub const MEM_SIZE: usize = CONFIG_ESP32_ULP_COPROC_RESERVE_MEM as _;
+    pub const MEM_SIZE: usize = esp_idf_sys::CONFIG_ESP32_ULP_COPROC_RESERVE_MEM as _;
 
     #[cfg(esp32s2)]
-    pub const MEM_SIZE: usize = CONFIG_ESP32S2_ULP_COPROC_RESERVE_MEM as _;
+    pub const MEM_SIZE: usize = esp_idf_sys::CONFIG_ESP32S2_ULP_COPROC_RESERVE_MEM as _;
 
     #[cfg(esp32s3)]
-    pub const MEM_SIZE: usize = CONFIG_ESP32S3_ULP_COPROC_RESERVE_MEM as _;
+    pub const MEM_SIZE: usize = esp_idf_sys::CONFIG_ESP32S3_ULP_COPROC_RESERVE_MEM as _;
 
     #[cfg(esp32)]
-    const TIMER_REG: *mut u32 = RTC_CNTL_STATE0_REG as _;
+    const TIMER_REG: *mut u32 = esp_idf_sys::RTC_CNTL_STATE0_REG as _;
 
     #[cfg(any(esp32s2, esp32s3))]
-    const TIMER_REG: *mut u32 = RTC_CNTL_ULP_CP_TIMER_REG;
+    const TIMER_REG: *mut u32 = esp_idf_sys::RTC_CNTL_ULP_CP_TIMER_REG as _;
 
     #[cfg(any(esp32, esp32s2, esp32s3))]
-    const TIMER_EN_BIT: u32 = RTC_CNTL_ULP_CP_SLP_TIMER_EN_V << RTC_CNTL_ULP_CP_SLP_TIMER_EN_S;
+    const TIMER_EN_BIT: u32 =
+        esp_idf_sys::RTC_CNTL_ULP_CP_SLP_TIMER_EN_V << esp_idf_sys::RTC_CNTL_ULP_CP_SLP_TIMER_EN_S;
 
-    pub fn stop(&mut self) -> Result<(), EspError> {
+    pub fn stop(&mut self) -> Result<(), esp_idf_sys::EspError> {
         unsafe {
             // disable ULP timer
-            ptr::write_volatile(
+            core::ptr::write_volatile(
                 Self::TIMER_REG,
-                ptr::read_volatile(Self::TIMER_REG) & !Self::TIMER_EN_BIT,
+                core::ptr::read_volatile(Self::TIMER_REG) & !Self::TIMER_EN_BIT,
             );
 
             // wait for at least 1 RTC_SLOW_CLK cycle
-            esp_rom_delay_us(10);
+            esp_idf_sys::esp_rom_delay_us(10);
         }
 
         Ok(())
     }
 
-    pub fn is_started(&self) -> Result<bool, EspError> {
+    pub fn is_started(&self) -> Result<bool, esp_idf_sys::EspError> {
         unsafe {
-            let enabled = (ptr::read_volatile(Self::TIMER_REG) & Self::TIMER_EN_BIT) != 0;
+            let enabled = (core::ptr::read_volatile(Self::TIMER_REG) & Self::TIMER_EN_BIT) != 0;
 
             Ok(enabled)
         }
     }
 
-    pub fn set_sleep_period_default(&mut self, duration: Duration) -> Result<(), EspError> {
+    pub fn set_sleep_period_default(
+        &mut self,
+        duration: core::time::Duration,
+    ) -> Result<(), esp_idf_sys::EspError> {
         self.set_sleep_period(Default::default(), duration)
     }
 
     pub fn set_sleep_period(
         &mut self,
         timer: SleepTimer,
-        duration: Duration,
-    ) -> Result<(), EspError> {
-        esp!(unsafe { ulp_set_wakeup_period(timer as size_t, duration.as_micros() as u32) })?;
+        duration: core::time::Duration,
+    ) -> Result<(), esp_idf_sys::EspError> {
+        esp_idf_sys::esp!(unsafe {
+            esp_idf_sys::ulp_set_wakeup_period(
+                timer as esp_idf_sys::size_t,
+                duration.as_micros() as u32,
+            )
+        })?;
 
         Ok(())
     }
 
-    fn check_boundaries<T>(ptr: *const T) -> Result<(), EspError> {
+    fn check_boundaries<T>(ptr: *const T) -> Result<(), esp_idf_sys::EspError> {
         let ptr = ptr as *const u8;
         let mem_start = Self::MEM_START as *const u8;
 
         unsafe {
             if ptr < mem_start
-                || ptr.offset(mem::size_of::<T>() as _) > mem_start.offset(Self::MEM_SIZE as _)
+                || ptr.offset(core::mem::size_of::<T>() as _)
+                    > mem_start.offset(Self::MEM_SIZE as _)
             {
-                esp!(ESP_ERR_INVALID_SIZE)?;
+                esp_idf_sys::esp!(esp_idf_sys::ESP_ERR_INVALID_SIZE)?;
             }
         }
 
@@ -179,42 +183,45 @@ impl ULP {
 impl ULP {
     pub unsafe fn load_at_ulp_address(
         &mut self,
-        address: *mut c_void,
+        address: *mut core::ffi::c_void,
         program: &[u8],
-    ) -> Result<(), EspError> {
-        let address: usize = std::mem::transmute(address);
-        if address % mem::size_of::<u32>() != 0 {
-            esp!(ESP_ERR_INVALID_ARG)?;
+    ) -> Result<(), esp_idf_sys::EspError> {
+        let address: usize = core::mem::transmute(address);
+        if address % core::mem::size_of::<u32>() != 0 {
+            esp_idf_sys::esp!(esp_idf_sys::ESP_ERR_INVALID_ARG)?;
         }
 
-        if program.len() % mem::size_of::<u32>() != 0 {
-            esp!(ESP_ERR_INVALID_SIZE)?;
+        if program.len() % core::mem::size_of::<u32>() != 0 {
+            esp_idf_sys::esp!(esp_idf_sys::ESP_ERR_INVALID_SIZE)?;
         }
 
-        esp!(ulp_load_binary(
-            (address / mem::size_of::<u32>()) as u32,
+        esp_idf_sys::esp!(esp_idf_sys::ulp_load_binary(
+            (address / core::mem::size_of::<u32>()) as u32,
             program.as_ptr(),
-            (program.len() / mem::size_of::<u32>()) as u32
+            (program.len() / core::mem::size_of::<u32>()) as u32
         ))?;
 
         Ok(())
     }
 
-    pub unsafe fn load(&mut self, program: &[u8]) -> Result<(), EspError> {
+    pub unsafe fn load(&mut self, program: &[u8]) -> Result<(), esp_idf_sys::EspError> {
         self.load_at_ulp_address(Self::MEM_START, program)
     }
 
-    pub unsafe fn start(&mut self, address: *mut c_void) -> Result<(), EspError> {
-        esp!(ulp_run(address as u32))?;
+    pub unsafe fn start(
+        &mut self,
+        address: *mut core::ffi::c_void,
+    ) -> Result<(), esp_idf_sys::EspError> {
+        esp_idf_sys::esp!(esp_idf_sys::ulp_run(address as u32))?;
 
         Ok(())
     }
 
-    pub unsafe fn read_word(&self, ptr: *const u32) -> Result<Word, EspError> {
+    pub unsafe fn read_word(&self, ptr: *const u32) -> Result<Word, esp_idf_sys::EspError> {
         Self::check_boundaries(ptr)?;
         Self::check_alignment(ptr)?;
 
-        let value = ptr::read_volatile(ptr);
+        let value = core::ptr::read_volatile(ptr);
 
         Ok(Word {
             pc: ((value >> 16) & 0xffff_u32) as u16,
@@ -222,16 +229,24 @@ impl ULP {
         })
     }
 
-    pub unsafe fn write_word(&self, ptr: *mut u32, value: u16) -> Result<(), EspError> {
+    pub unsafe fn write_word(
+        &self,
+        ptr: *mut u32,
+        value: u16,
+    ) -> Result<(), esp_idf_sys::EspError> {
         Self::check_boundaries(ptr)?;
         Self::check_alignment(ptr)?;
 
-        ptr::write_volatile(ptr as *mut u32, value as u32);
+        core::ptr::write_volatile(ptr as *mut u32, value as u32);
 
         Ok(())
     }
 
-    pub unsafe fn swap_word(&mut self, ptr: *mut u32, value: u16) -> Result<Word, EspError> {
+    pub unsafe fn swap_word(
+        &mut self,
+        ptr: *mut u32,
+        value: u16,
+    ) -> Result<Word, esp_idf_sys::EspError> {
         let old_value = self.read_word(ptr)?;
 
         self.write_word(ptr, value)?;
@@ -239,11 +254,11 @@ impl ULP {
         Ok(old_value)
     }
 
-    fn check_alignment<T>(ptr: *const T) -> Result<(), EspError> {
-        let ptr_usize: usize = unsafe { std::mem::transmute(ptr) };
+    fn check_alignment<T>(ptr: *const T) -> Result<(), esp_idf_sys::EspError> {
+        let ptr_usize: usize = unsafe { core::mem::transmute(ptr) };
 
-        if ptr_usize % mem::size_of::<T>() != 0 {
-            esp!(ESP_ERR_INVALID_SIZE)?;
+        if ptr_usize % core::mem::size_of::<T>() != 0 {
+            esp_idf_sys::esp!(esp_idf_sys::ESP_ERR_INVALID_SIZE)?;
         }
 
         Ok(())
@@ -263,33 +278,40 @@ impl ULP {
     )
 ))]
 impl ULP {
-    pub unsafe fn load(&mut self, program: &[u8]) -> Result<(), EspError> {
-        esp!(ulp_riscv_load_binary(program.as_ptr(), program.len() as _))?;
+    pub unsafe fn load(&mut self, program: &[u8]) -> Result<(), esp_idf_sys::EspError> {
+        esp_idf_sys::esp!(esp_idf_sys::ulp_riscv_load_binary(
+            program.as_ptr(),
+            program.len() as _
+        ))?;
 
         Ok(())
     }
 
-    pub unsafe fn start(&mut self) -> Result<(), EspError> {
-        esp!(ulp_riscv_run())?;
+    pub unsafe fn start(&mut self) -> Result<(), esp_idf_sys::EspError> {
+        esp_idf_sys::esp!(esp_idf_sys::ulp_riscv_run())?;
 
         Ok(())
     }
 
-    pub unsafe fn read_var<T>(&self, src: *const T) -> Result<T, EspError> {
+    pub unsafe fn read_var<T>(&self, src: *const T) -> Result<T, esp_idf_sys::EspError> {
         Self::check_boundaries(src)?;
 
-        Ok(ptr::read_volatile(src))
+        Ok(core::ptr::read_volatile(src))
     }
 
-    pub unsafe fn write_var(&self, dst: *mut T, value: T) -> Result<(), EspError> {
+    pub unsafe fn write_var<T>(&self, dst: *mut T, value: T) -> Result<(), esp_idf_sys::EspError> {
         Self::check_boundaries(dst)?;
 
-        ptr::write_volatile(dst, value);
+        core::ptr::write_volatile(dst, value);
 
         Ok(())
     }
 
-    pub unsafe fn swap_var(&mut self, ptr: *mut T, value: T) -> Result<T, EspError> {
+    pub unsafe fn swap_var<T>(
+        &mut self,
+        ptr: *mut T,
+        value: T,
+    ) -> Result<T, esp_idf_sys::EspError> {
         let old_value = self.read_var(ptr)?;
 
         self.write_var(ptr, value)?;
