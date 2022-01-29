@@ -64,10 +64,10 @@
 
 #ifdef ESP_IDF_COMP_ESP_TLS_ENABLED
 #include "esp_tls.h"
-#endif
 
 #ifdef CONFIG_ESP_TLS_USING_MBEDTLS
 #include "esp_crt_bundle.h"
+#endif
 #endif
 
 #ifdef ESP_IDF_COMP_APP_UPDATE_ENABLED
