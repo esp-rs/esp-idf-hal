@@ -157,6 +157,11 @@ The following environment variables are used by the build script:
   - Check [the PlatformIO documentation](https://docs.platformio.org/en/latest/projectconf/index.html) for more information as to what settings you can pass via this variable.
   - Note also that this is not one variable - but rather - a family of variables all starting with `ESP_IDF_PIO_CONF_`. I.e., passing `ESP_IDF_PIO_CONF_1` as well as `ESP_IDF_PIO_CONF_FOO` is valid and all such variables will be honored
 
+- `ESP_IDF_CMAKE_GENERATOR` (*native* builder only):
+
+  The CMake generator to be used when building the ESP-IDF SDK. If not specified or set to `default`, Ninja will be used on all platforms except Linux/aarch64, where
+  (for now) the Unix Makefiles generator will be used, as there are no Ninja builds for that platform provided by Espressif yet.
+  Possible values for this environment variable are [the names of all command-line generators that CMake supports](https://cmake.org/cmake/help/latest/manual/cmake-generators.7.html#cmake-generators) with **spaces and hyphens removed**.
 
 - `MCU`:
 

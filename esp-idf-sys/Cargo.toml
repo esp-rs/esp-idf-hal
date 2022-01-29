@@ -1,6 +1,6 @@
 [package]
 name = "esp-idf-sys"
-version = "0.30.2"
+version = "0.30.3"
 authors = ["Alexey Arbuzov <aarbuzov@termt.com>", "sapir <yasapir@gmail.com>", "Ivan Markov <ivan.markov@gmail.com>"]
 edition = "2021"
 resolver = "2"
@@ -32,7 +32,7 @@ native = ["embuild/cmake", "embuild/espidf", "strum"]
 paste = "1"
 
 [build-dependencies]
-embuild = { version = "0.28.3", features = ["glob"] }
+embuild = { version = "0.28.4", features = ["glob"] }
 anyhow = "1"
 strum = { version = "0.23", features = ["derive"], optional = true }
 regex = "1.5"

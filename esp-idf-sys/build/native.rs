@@ -2,11 +2,14 @@
 
 use std::convert::TryFrom;
 use std::ffi::OsString;
+use std::iter;
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
 use std::{env, fs};
 
 use anyhow::{anyhow, bail, Context, Error, Result};
+
+use strum::{Display, EnumString, IntoEnumIterator};
 
 use embuild::cmake::file_api::codemodel::Language;
 use embuild::cmake::file_api::ObjKind;
@@ -14,7 +17,6 @@ use embuild::espidf::InstallOpts;
 use embuild::fs::copy_file_if_different;
 use embuild::utils::{OsStrExt, PathExt};
 use embuild::{bindgen, build, cargo, cmake, espidf, git, kconfig, path_buf};
-use strum::{Display, EnumString};
 
 use super::common::{
     self, get_install_dir, list_specific_sdkconfigs, workspace_dir, EspIdfBuildOutput,
@@ -25,6 +27,7 @@ use crate::common::{SDKCONFIG_DEFAULTS_FILE, SDKCONFIG_FILE};
 
 const ESP_IDF_VERSION_VAR: &str = "ESP_IDF_VERSION";
 const ESP_IDF_REPOSITORY_VAR: &str = "ESP_IDF_REPOSITORY";
+pub const ESP_IDF_CMAKE_GENERATOR: &str = "ESP_IDF_CMAKE_GENERATOR";
 
 const DEFAULT_ESP_IDF_VERSION: &str = "v4.3.2";
 
@@ -116,10 +119,17 @@ fn build_cargo_first() -> Result<EspIdfBuildOutput> {
     cargo::track_env_var(MCU_VAR);
 
     let cmake_tool = espidf::Tools::cmake()?;
+
+    let cmake_generator = get_cmake_generator()?;
+
     let tools = espidf::Tools::new(
-        vec!["ninja", chip.gcc_toolchain()]
-            .into_iter()
-            .chain(chip.ulp_gcc_toolchain()),
+        iter::once(chip.gcc_toolchain())
+            .chain(chip.ulp_gcc_toolchain())
+            .chain(if cmake_generator == cmake::Generator::Ninja {
+                Some("ninja")
+            } else {
+                None
+            }),
     );
 
     let install_dir = get_install_dir("espressif")?;
@@ -260,8 +270,8 @@ fn build_cargo_first() -> Result<EspIdfBuildOutput> {
         let extractor_script = cmake::script_variables_extractor(&cmake_toolchain_file)?;
 
         let output = embuild::cmd_output!(
-            cmake::cmake(), 
-            "-P", 
+            cmake::cmake(),
+            "-P",
             extractor_script.as_ref().as_os_str();
             env=("IDF_PATH", &idf.esp_idf.worktree().as_os_str()))?;
 
@@ -286,7 +296,7 @@ fn build_cargo_first() -> Result<EspIdfBuildOutput> {
     let mut cmake_config = cmake::Config::new(&out_dir);
 
     cmake_config
-        .generator("Ninja")
+        .generator(cmake_generator.name())
         .out_dir(&out_dir)
         .no_build_target(true)
         .define("CMAKE_TOOLCHAIN_FILE", &cmake_toolchain_file)
@@ -402,6 +412,39 @@ fn generate_sdkconfig_defaults() -> Result<String> {
         .enumerate()
         .map(|(i, s)| format!("{}={}\n", s, if i == opt_index { 'y' } else { 'n' }))
         .collect::<String>())
+}
+
+fn get_cmake_generator() -> Result<cmake::Generator> {
+    let generator = match env::var(ESP_IDF_CMAKE_GENERATOR) {
+        Err(env::VarError::NotPresent) => None,
+        var => Some(var?),
+    };
+
+    let generator = match generator.as_deref() {
+        None | Some("default") => {
+            // No Ninja builds for linux=aarch64 from Espressif yet
+            #[cfg(all(target_os = "linux", target_arch = "aarch64"))]
+            {
+                cmake::Generator::UnixMakefiles
+            }
+
+            #[cfg(not(all(target_os = "linux", target_arch = "aarch64")))]
+            {
+                cmake::Generator::Ninja
+            }
+        }
+        Some(other) => cmake::Generator::from_str(other).map_err(|_| {
+            anyhow::anyhow!(
+                "Invalid CMake generator. Should be either `default`, or one of [{}]",
+                cmake::Generator::iter()
+                    .map(|e| e.into())
+                    .collect::<Vec<&'static str>>()
+                    .join(", ")
+            )
+        })?,
+    };
+
+    Ok(generator)
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug, Display, EnumString)]
