@@ -10,7 +10,6 @@ use embedded_svc::http::client::*;
 use embedded_svc::http::*;
 use embedded_svc::io::{Read, Write};
 
-use esp_idf_sys::c_types::c_void;
 use esp_idf_sys::*;
 
 use uncased::{Uncased, UncasedStr};
