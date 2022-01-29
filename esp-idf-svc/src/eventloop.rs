@@ -20,10 +20,10 @@ use esp_idf_sys::*;
 
 use crate::private::cstr::RawCstrs;
 
-pub type EspSystemEventBus = EspEventLoop<System>;
-pub type EspBackgroundEventBus = EspEventLoop<User<Background>>;
-pub type EspExplicitEventBus = EspEventLoop<User<Explicit>>;
-pub type EspPinnedEventBus = EspEventLoop<User<Pinned>>;
+pub type EspSystemEventLoop = EspEventLoop<System>;
+pub type EspBackgroundEventLoop = EspEventLoop<User<Background>>;
+pub type EspExplicitEventLoop = EspEventLoop<User<Explicit>>;
+pub type EspPinnedEventLoop = EspEventLoop<User<Pinned>>;
 
 #[derive(Debug)]
 pub struct BackgroundConfiguration<'a> {
