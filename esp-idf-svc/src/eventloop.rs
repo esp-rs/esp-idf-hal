@@ -120,7 +120,7 @@ pub trait EspEventSubscribeMetadata {
     fn source() -> *const c_types::c_char;
 
     fn event_id() -> i32 {
-        0
+        -1 // All events by default
     }
 }
 
