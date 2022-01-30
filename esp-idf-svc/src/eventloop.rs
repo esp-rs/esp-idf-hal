@@ -20,13 +20,18 @@ use esp_idf_sys::*;
 
 use crate::private::cstr::RawCstrs;
 
+pub type EspSystemSubscription = EspSubscription<System>;
+pub type EspBackgroundSubscription = EspSubscription<User<Background>>;
+pub type EspExplicitSubscription = EspSubscription<User<Explicit>>;
+pub type EspPinnedSubscription = EspSubscription<User<Pinned>>;
+
 pub type EspSystemEventLoop = EspEventLoop<System>;
 pub type EspBackgroundEventLoop = EspEventLoop<User<Background>>;
 pub type EspExplicitEventLoop = EspEventLoop<User<Explicit>>;
 pub type EspPinnedEventLoop = EspEventLoop<User<Pinned>>;
 
 #[derive(Debug)]
-pub struct BackgroundConfiguration<'a> {
+pub struct BackgroundLoopConfiguration<'a> {
     pub queue_size: usize,
     pub task_name: &'a str,
     pub task_priority: u8,
@@ -34,7 +39,7 @@ pub struct BackgroundConfiguration<'a> {
     pub task_pin_to_core: Core,
 }
 
-impl<'a> Default for BackgroundConfiguration<'a> {
+impl<'a> Default for BackgroundLoopConfiguration<'a> {
     fn default() -> Self {
         Self {
             queue_size: 8192,
@@ -46,8 +51,8 @@ impl<'a> Default for BackgroundConfiguration<'a> {
     }
 }
 
-impl<'a> From<&BackgroundConfiguration<'a>> for (esp_event_loop_args_t, RawCstrs) {
-    fn from(conf: &BackgroundConfiguration<'a>) -> Self {
+impl<'a> From<&BackgroundLoopConfiguration<'a>> for (esp_event_loop_args_t, RawCstrs) {
+    fn from(conf: &BackgroundLoopConfiguration<'a>) -> Self {
         let mut rcs = RawCstrs::new();
 
         let ela = esp_event_loop_args_t {
@@ -63,18 +68,18 @@ impl<'a> From<&BackgroundConfiguration<'a>> for (esp_event_loop_args_t, RawCstrs
 }
 
 #[derive(Debug)]
-pub struct Configuration {
+pub struct ExplicitLoopConfiguration {
     pub queue_size: usize,
 }
 
-impl Default for Configuration {
+impl Default for ExplicitLoopConfiguration {
     fn default() -> Self {
         Self { queue_size: 8192 }
     }
 }
 
-impl From<&Configuration> for esp_event_loop_args_t {
-    fn from(conf: &Configuration) -> Self {
+impl From<&ExplicitLoopConfiguration> for esp_event_loop_args_t {
+    fn from(conf: &ExplicitLoopConfiguration) -> Self {
         esp_event_loop_args_t {
             queue_size: conf.queue_size as _,
             ..Default::default()
@@ -112,20 +117,49 @@ impl<T> EspEventLoopType for User<T> {
 }
 
 pub trait EspEventSubscribeMetadata {
-    fn metadata() -> (*const c_types::c_char, i32);
+    fn source() -> *const c_types::c_char;
+
+    fn event_id() -> i32 {
+        0
+    }
 }
 
-pub struct EspEventPostData {
+pub struct EspEventPostData<'a> {
     pub source: *const c_types::c_char,
     pub event_id: i32,
     pub payload: *const c_types::c_void,
     pub payload_len: usize,
+    pub phantom: PhantomData<&'a ()>,
+}
+
+impl<'a> EspEventPostData<'a> {
+    pub unsafe fn new<P: Copy>(
+        source: *const c_types::c_char,
+        event_id: i32,
+        payload: &'a P,
+    ) -> EspEventPostData<'a> {
+        Self {
+            source,
+            event_id,
+            payload: payload as *const _ as *const _,
+            payload_len: mem::size_of::<P>(),
+            phantom: PhantomData,
+        }
+    }
 }
 
 pub struct EspEventFetchData {
     pub source: *const c_types::c_char,
     pub event_id: i32,
     pub payload: *const c_types::c_void,
+}
+
+impl EspEventFetchData {
+    pub unsafe fn as_payload<P: Copy>(&self) -> P {
+        let payload: &P = (self.payload as *const P).as_ref().unwrap();
+
+        *payload
+    }
 }
 
 struct UnsafeCallback(*mut Box<dyn FnMut(EspEventFetchData) + 'static>);
@@ -203,7 +237,8 @@ where
             }
         } else {
             unsafe {
-                let user: &User<T> = mem::transmute(&*self.event_loop_handle);
+                let handle: &T = &self.event_loop_handle.0;
+                let user: &User<Background> = mem::transmute(handle);
 
                 esp!(esp_event_handler_instance_unregister_with(
                     user.0,
@@ -248,7 +283,7 @@ impl<T> EventLoopHandle<User<T>> {
 }
 
 impl EventLoopHandle<User<Background>> {
-    fn new(conf: &BackgroundConfiguration) -> Result<Self, EspError> {
+    fn new(conf: &BackgroundLoopConfiguration) -> Result<Self, EspError> {
         let (nconf, _rcs) = conf.into();
 
         Self::new_internal(&nconf)
@@ -256,13 +291,13 @@ impl EventLoopHandle<User<Background>> {
 }
 
 impl EventLoopHandle<User<Explicit>> {
-    fn new(conf: &Configuration) -> Result<Self, EspError> {
+    fn new(conf: &ExplicitLoopConfiguration) -> Result<Self, EspError> {
         Self::new_internal(&conf.into())
     }
 }
 
 impl EventLoopHandle<User<Pinned>> {
-    fn new(conf: &Configuration) -> Result<Self, EspError> {
+    fn new(conf: &ExplicitLoopConfiguration) -> Result<Self, EspError> {
         Self::new_internal(&conf.into())
     }
 }
@@ -282,7 +317,8 @@ where
             *taken = false;
         } else {
             unsafe {
-                let user: &User<T> = mem::transmute(&mut self.0);
+                let handle: &T = &self.0;
+                let user: &User<Background> = mem::transmute(handle);
 
                 esp!(esp_event_loop_delete(user.0)).unwrap();
             }
@@ -300,7 +336,7 @@ impl<T> EspEventLoop<T>
 where
     T: EspEventLoopType,
 {
-    pub fn subscribe<E>(
+    pub fn subscribe_raw<E>(
         &mut self,
         source: *const c_types::c_char,
         event_id: i32,
@@ -329,14 +365,15 @@ where
             })?;
         } else {
             esp!(unsafe {
-                let user: &User<T> = mem::transmute(&mut self.0);
+                let handle: &T = &self.0 .0;
+                let user: &User<Background> = mem::transmute(handle);
 
                 esp_event_handler_instance_register_with(
                     user.0,
                     source,
                     event_id,
                     Some(EspSubscription::<User<T>>::handle),
-                    &unsafe_callback as *const _ as *mut _,
+                    unsafe_callback.as_ptr(),
                     &mut handler_instance as *mut _,
                 )
             })?;
@@ -351,22 +388,27 @@ where
         })
     }
 
-    pub fn post(&mut self, data: &EspEventPostData) -> Result<(), EspError> {
+    pub fn post_raw(
+        &mut self,
+        data: &EspEventPostData,
+        wait: Option<Duration>,
+    ) -> Result<bool, EspError> {
         // TODO: Handle the case where data size is < 4 as an optimization
 
-        if T::is_system() {
-            esp!(unsafe {
+        let result = if T::is_system() {
+            unsafe {
                 esp_event_post(
                     data.source,
                     data.event_id,
                     data.payload as *const _ as *mut _,
                     data.payload_len as _,
-                    TickType_t::max_value(),
+                    TickType::from(wait).0,
                 )
-            })
+            }
         } else {
-            esp!(unsafe {
-                let user: &User<T> = mem::transmute(&mut self.0);
+            unsafe {
+                let handle: &T = &self.0 .0;
+                let user: &User<Background> = mem::transmute(handle);
 
                 esp_event_post_to(
                     user.0,
@@ -374,9 +416,56 @@ where
                     data.event_id,
                     data.payload as *const _ as *mut _,
                     data.payload_len as _,
-                    TickType_t::max_value(),
+                    TickType::from(wait).0,
                 )
-            })
+            }
+        };
+
+        if result == ESP_ERR_TIMEOUT {
+            Ok(false)
+        } else {
+            esp!(result)?;
+
+            Ok(true)
+        }
+    }
+
+    #[cfg(esp_idf_esp_event_post_from_isr)]
+    pub fn isr_post_raw(&mut self, data: &EspEventPostData) -> Result<bool, EspError> {
+        // TODO: Handle the case where data size is < 4 as an optimization
+
+        let result = if T::is_system() {
+            unsafe {
+                esp_event_isr_post(
+                    data.source,
+                    data.event_id,
+                    data.payload as *const _ as *mut _,
+                    data.payload_len as _,
+                    ptr::null_mut(),
+                )
+            }
+        } else {
+            unsafe {
+                let handle: &T = &self.0 .0;
+                let user: &User<Background> = mem::transmute(handle);
+
+                esp_event_isr_post_to(
+                    user.0,
+                    data.source,
+                    data.event_id,
+                    data.payload as *const _ as *mut _,
+                    data.payload_len as _,
+                    ptr::null_mut(),
+                )
+            }
+        };
+
+        if result == ESP_FAIL {
+            Ok(false)
+        } else {
+            esp!(result)?;
+
+            Ok(true)
         }
     }
 }
@@ -388,7 +477,7 @@ impl EspEventLoop<System> {
 }
 
 impl EspEventLoop<User<Background>> {
-    pub fn new(conf: &BackgroundConfiguration) -> Result<Self, EspError> {
+    pub fn new(conf: &BackgroundLoopConfiguration) -> Result<Self, EspError> {
         Ok(Self(Arc::new(EventLoopHandle::<User<Background>>::new(
             conf,
         )?)))
@@ -396,7 +485,7 @@ impl EspEventLoop<User<Background>> {
 }
 
 impl EspEventLoop<User<Explicit>> {
-    pub fn new(conf: &Configuration) -> Result<Self, EspError> {
+    pub fn new(conf: &ExplicitLoopConfiguration) -> Result<Self, EspError> {
         Ok(Self(Arc::new(EventLoopHandle::<User<Explicit>>::new(
             conf,
         )?)))
@@ -404,7 +493,7 @@ impl EspEventLoop<User<Explicit>> {
 }
 
 impl EspEventLoop<User<Pinned>> {
-    pub fn new(conf: &Configuration) -> Result<Self, EspError> {
+    pub fn new(conf: &ExplicitLoopConfiguration) -> Result<Self, EspError> {
         Ok(Self(Arc::new(EventLoopHandle::<User<Pinned>>::new(conf)?)))
     }
 }
@@ -442,18 +531,19 @@ impl<T> event_bus::Spin for EspEventLoop<User<T>> {
 
 impl<P, T> event_bus::Postbox<P> for EspEventLoop<T>
 where
-    P: Into<EspEventPostData>,
+    for<'a> &'a P: Into<EspEventPostData<'a>>,
     T: EspEventLoopType,
 {
-    fn post(&mut self, payload: P) -> Result<(), Self::Error> {
-        self.post(&payload.into())
+    fn post(&mut self, payload: P, wait: Option<Duration>) -> Result<bool, Self::Error> {
+        let payload = &payload;
+        self.post_raw(&payload.into(), wait)
     }
 }
 
 impl<P, T> event_bus::EventBus<P> for EspEventLoop<T>
 where
-    P: From<EspEventFetchData> + 'static,
-    P: Into<EspEventPostData>,
+    P: From<EspEventFetchData>,
+    for<'a> &'a P: Into<EspEventPostData<'a>>,
     P: EspEventSubscribeMetadata,
     T: EspEventLoopType,
 {
@@ -468,9 +558,9 @@ where
     where
         E: Display + Debug + Send + Sync + 'static,
     {
-        let (source, event_id) = P::metadata();
-
-        self.subscribe(source, event_id, move |data| callback(&data.into()))
+        self.subscribe_raw(P::source(), P::event_id(), move |data| {
+            callback(&data.into())
+        })
     }
 
     fn postbox(&mut self) -> Result<Self::Postbox, Self::Error> {
@@ -480,8 +570,8 @@ where
 
 impl<P> event_bus::PinnedEventBus<P> for EspEventLoop<User<Pinned>>
 where
-    P: From<EspEventFetchData> + 'static,
-    P: Into<EspEventPostData>,
+    P: From<EspEventFetchData>,
+    for<'a> &'a P: Into<EspEventPostData<'a>>,
     P: EspEventSubscribeMetadata,
 {
     type Subscription = EspSubscription<User<Pinned>>;
@@ -495,9 +585,9 @@ where
     where
         E: Display + Debug + Send + Sync + 'static,
     {
-        let (source, event_id) = P::metadata();
-
-        self.subscribe(source, event_id, move |data| callback(&data.into()))
+        self.subscribe_raw(P::source(), P::event_id(), move |data| {
+            callback(&data.into())
+        })
     }
 
     fn postbox(&mut self) -> Result<Self::Postbox, Self::Error> {
