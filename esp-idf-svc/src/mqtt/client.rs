@@ -1,5 +1,7 @@
 use core::convert::TryInto;
-use core::{ptr, slice, time};
+use core::ptr;
+use core::slice;
+use core::time;
 
 extern crate alloc;
 use alloc::{borrow::Cow, sync::Arc};
@@ -12,7 +14,20 @@ use esp_idf_sys::*;
 
 use crate::private::{common::Newtype, cstr::*};
 
-// !!! NOTE: WORK IN PROGRESS
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+pub enum MqttProtocolVersion {
+    V3_1,
+    V3_1_1,
+}
+
+impl From<MqttProtocolVersion> for esp_mqtt_protocol_ver_t {
+    fn from(pv: MqttProtocolVersion) -> Self {
+        match pv {
+            MqttProtocolVersion::V3_1 => esp_mqtt_protocol_ver_t_MQTT_PROTOCOL_V_3_1,
+            MqttProtocolVersion::V3_1_1 => esp_mqtt_protocol_ver_t_MQTT_PROTOCOL_V_3_1_1,
+        }
+    }
+}
 
 #[derive(Debug)]
 pub struct LwtConfiguration<'a> {
@@ -22,53 +37,126 @@ pub struct LwtConfiguration<'a> {
     pub retain: bool,
 }
 
-#[derive(Debug, Default)]
-pub struct Configuration<'a> {
-    // pub protocol_version: ProtocolVersion,
+#[derive(Debug)]
+pub struct MqttClientConfiguration<'a> {
+    pub protocol_version: Option<MqttProtocolVersion>,
+
     pub client_id: Option<&'a str>,
 
     pub connection_refresh_interval: time::Duration,
     pub keep_alive_interval: Option<time::Duration>,
-    pub reconnect_timeout: time::Duration,
+    pub reconnect_timeout: Option<time::Duration>,
     pub network_timeout: time::Duration,
 
     pub lwt: Option<LwtConfiguration<'a>>,
 
     pub disable_clean_session: bool,
-    pub disable_auto_reconnect: bool,
 
     pub task_prio: u8,
     pub task_stack: usize,
     pub buffer_size: usize,
     pub out_buffer_size: usize,
+
+    pub use_global_ca_store: bool,
+    pub skip_cert_common_name_check: bool,
+    #[cfg(not(esp_idf_version = "4.3"))]
+    pub crt_bundle_attach: Option<unsafe extern "C" fn(conf: *mut c_void) -> esp_err_t>,
+    // TODO: Future
+
     // pub cert_pem: &'a [u8],
     // pub client_cert_pem: &'a [u8],
     // pub client_key_pem: &'a [u8],
 
     // pub psk_hint_key: KeyHint,
-    // pub use_global_ca_store: bool,
-    // //esp_err_t (*crt_bundle_attach)(void *conf); /*!< Pointer to ESP x509 Certificate Bundle attach function for the usage of certification bundles in mqtts */
     // pub alpn_protos: &'a [&'a str],
 
     // pub clientkey_password: &'a str,
-    // pub skip_cert_common_name_check: bool,
     // pub use_secure_element: bool,
 
     // void *ds_data;                          /*!< carrier of handle for digital signature parameters */
 }
 
-impl<'a> From<&Configuration<'a>> for (esp_mqtt_client_config_t, RawCstrs) {
-    fn from(conf: &Configuration<'a>) -> Self {
+impl<'a> Default for MqttClientConfiguration<'a> {
+    fn default() -> Self {
+        Self {
+            protocol_version: None,
+
+            client_id: None,
+
+            connection_refresh_interval: time::Duration::from_secs(0),
+            keep_alive_interval: Some(time::Duration::from_secs(0)),
+            reconnect_timeout: Some(time::Duration::from_secs(0)),
+            network_timeout: time::Duration::from_secs(0),
+
+            lwt: None,
+
+            disable_clean_session: false,
+
+            task_prio: 0,
+            task_stack: 0,
+            buffer_size: 0,
+            out_buffer_size: 0,
+
+            use_global_ca_store: false,
+            skip_cert_common_name_check: false,
+
+            #[cfg(not(esp_idf_version = "4.3"))]
+            crt_bundle_attach: Default::default(),
+        }
+    }
+}
+
+impl<'a> From<&MqttClientConfiguration<'a>> for (esp_mqtt_client_config_t, RawCstrs) {
+    fn from(conf: &MqttClientConfiguration<'a>) -> Self {
         let mut cstrs = RawCstrs::new();
 
-        let c_conf = esp_mqtt_client_config_t {
+        let mut c_conf = esp_mqtt_client_config_t {
+            protocol_ver: if let Some(protocol_version) = conf.protocol_version {
+                protocol_version.into()
+            } else {
+                esp_mqtt_protocol_ver_t_MQTT_PROTOCOL_UNDEFINED
+            },
             client_id: cstrs.as_nptr(conf.client_id),
-            // refresh_connection: time::Duration,
-            // reconnect_timeout: time::Duration,
-            // network_timeout: time::Duration,
-            // keepalive: Option<time::Duration>,
+
+            refresh_connection_after_ms: conf.connection_refresh_interval.as_millis() as _,
+            network_timeout_ms: conf.network_timeout.as_millis() as _,
+
+            disable_clean_session: conf.disable_clean_session as _,
+
+            task_prio: conf.task_prio as _,
+            task_stack: conf.task_stack as _,
+            buffer_size: conf.buffer_size as _,
+            out_buffer_size: conf.out_buffer_size as _,
+
+            use_global_ca_store: conf.use_global_ca_store,
+            skip_cert_common_name_check: conf.skip_cert_common_name_check,
+            #[cfg(not(esp_idf_version = "4.3"))]
+            crt_bundle_attach: conf.crt_bundle_attach,
+
             ..Default::default()
         };
+
+        if let Some(keep_alive_interval) = conf.keep_alive_interval {
+            c_conf.keepalive = keep_alive_interval.as_secs() as _;
+            c_conf.keepalive = true as _;
+        } else {
+            c_conf.keepalive = false as _;
+        }
+
+        if let Some(reconnect_timeout) = conf.reconnect_timeout {
+            c_conf.reconnect_timeout_ms = reconnect_timeout.as_millis() as _;
+            c_conf.disable_auto_reconnect = false;
+        } else {
+            c_conf.disable_auto_reconnect = true;
+        }
+
+        if let Some(lwt) = conf.lwt.as_ref() {
+            c_conf.lwt_topic = cstrs.as_ptr(lwt.topic);
+            c_conf.lwt_msg = lwt.payload.as_ptr() as _;
+            c_conf.lwt_msg_len = lwt.payload.len() as _;
+            c_conf.lwt_qos = lwt.qos as _;
+            c_conf.lwt_retain = lwt.retain as _;
+        }
 
         (c_conf, cstrs)
     }
@@ -104,7 +192,7 @@ pub struct EspMqttClient(
 impl EspMqttClient {
     pub fn new<'a>(
         url: impl AsRef<str>,
-        conf: &'a Configuration<'a>,
+        conf: &'a MqttClientConfiguration<'a>,
     ) -> Result<(Self, EspMqttConnection), EspError>
     where
         Self: Sized,
@@ -129,7 +217,7 @@ impl EspMqttClient {
 
     pub fn new_with_callback<'a>(
         url: impl AsRef<str>,
-        conf: &'a Configuration<'a>,
+        conf: &'a MqttClientConfiguration<'a>,
         mut callback: impl for<'b> FnMut(Option<Result<client::Event<EspMqttMessage<'b>>, EspError>>)
             + 'static,
     ) -> Result<Self, EspError>
@@ -153,7 +241,7 @@ impl EspMqttClient {
 
     fn new_with_raw_callback<'a>(
         url: impl AsRef<str>,
-        conf: &'a Configuration<'a>,
+        conf: &'a MqttClientConfiguration<'a>,
         raw_callback: Box<dyn FnMut(esp_mqtt_event_handle_t)>,
     ) -> Result<Self, EspError>
     where
@@ -318,9 +406,9 @@ pub struct EspMqttMessage<'a> {
 impl<'a> EspMqttMessage<'a> {
     #[allow(non_upper_case_globals)]
     fn new_event(
-        event: &esp_mqtt_event_t,
-        connection: Option<Arc<EspMqttConnectionState>>,
-    ) -> Result<client::Event<EspMqttMessage<'_>>, EspError> {
+        event: &'a esp_mqtt_event_t,
+        connection: Option<&Arc<EspMqttConnectionState>>,
+    ) -> Result<client::Event<EspMqttMessage<'a>>, EspError> {
         match event.event_id {
             esp_mqtt_event_id_t_MQTT_EVENT_ERROR => Err(EspError::from(ESP_FAIL).unwrap()), // TODO
             esp_mqtt_event_id_t_MQTT_EVENT_BEFORE_CONNECT => Ok(client::Event::BeforeConnect),
@@ -338,7 +426,7 @@ impl<'a> EspMqttMessage<'a> {
                 Ok(client::Event::Published(event.msg_id as _))
             }
             esp_mqtt_event_id_t_MQTT_EVENT_DATA => Ok(client::Event::Received(
-                EspMqttMessage::new(event, connection),
+                EspMqttMessage::new(event, connection.map(|connection| connection.clone())),
             )),
             esp_mqtt_event_id_t_MQTT_EVENT_DELETED => Ok(client::Event::Deleted(event.msg_id as _)),
             other => panic!("Unknown message type: {}", other),
@@ -437,6 +525,10 @@ impl EspMqttConnection {
 
         *message = Some(Newtype(event));
         self.0.posted.notify_all();
+
+        while message.is_some() {
+            message = self.0.processed.wait(message);
+        }
     }
 }
 
@@ -458,7 +550,16 @@ impl client::Connection for EspMqttConnection {
 
         let event = unsafe { message.as_ref().unwrap().0.as_ref() };
         if let Some(event) = event {
-            Some(EspMqttMessage::new_event(event, Some(self.0.clone())))
+            let event = EspMqttMessage::new_event(event, Some(&self.0));
+
+            if let Ok(client::Event::Received(_)) = event.as_ref() {
+                Some(event)
+            } else {
+                *message = None;
+                self.0.processed.notify_all();
+
+                Some(event)
+            }
         } else {
             None
         }
