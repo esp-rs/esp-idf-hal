@@ -42,7 +42,7 @@ pub struct BackgroundLoopConfiguration<'a> {
 impl<'a> Default for BackgroundLoopConfiguration<'a> {
     fn default() -> Self {
         Self {
-            queue_size: 8192,
+            queue_size: 64,
             task_name: "(unknown)",
             task_priority: 0,
             task_stack_size: 3072,
