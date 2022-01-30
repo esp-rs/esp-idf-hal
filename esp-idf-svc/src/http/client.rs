@@ -66,7 +66,7 @@ pub struct EspHttpClientConfiguration {
 
     pub use_global_ca_store: bool,
     #[cfg(not(esp_idf_version = "4.3"))]
-    pub crt_bundle_attach: Option<unsafe extern "C" fn(conf: *mut c_void) -> esp_err_t>,
+    pub crt_bundle_attach: Option<unsafe extern "C" fn(conf: *mut c_types::c_void) -> esp_err_t>,
 }
 
 #[allow(clippy::type_complexity)]

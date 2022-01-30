@@ -60,7 +60,7 @@ pub struct MqttClientConfiguration<'a> {
     pub use_global_ca_store: bool,
     pub skip_cert_common_name_check: bool,
     #[cfg(not(esp_idf_version = "4.3"))]
-    pub crt_bundle_attach: Option<unsafe extern "C" fn(conf: *mut c_void) -> esp_err_t>,
+    pub crt_bundle_attach: Option<unsafe extern "C" fn(conf: *mut c_types::c_void) -> esp_err_t>,
     // TODO: Future
 
     // pub cert_pem: &'a [u8],
