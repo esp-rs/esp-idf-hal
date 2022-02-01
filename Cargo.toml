@@ -10,6 +10,7 @@ description = "A Hardware abstraction layer for Espressif's ESP family of microc
 repository = "https://github.com/esp-rs/esp-idf-hal"
 license = "MIT OR Apache-2.0"
 readme = "README.md"
+documentation = "https://esp-rs.github.io/esp-idf-hal/"
 
 [features]
 default = ["std", "esp-idf-sys"]
