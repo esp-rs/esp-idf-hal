@@ -124,7 +124,13 @@ fn build_cargo_first() -> Result<EspIdfBuildOutput> {
 
     let tools = espidf::Tools::new(
         iter::once(chip.gcc_toolchain())
-            .chain(chip.ulp_gcc_toolchain())
+            .chain(
+                if !cfg!(target_os = "linux") && !cfg!(target_arch = "aarch64") {
+                    chip.ulp_gcc_toolchain()
+                } else {
+                    None
+                },
+            )
             .chain(if cmake_generator == cmake::Generator::Ninja {
                 Some("ninja")
             } else {
