@@ -10,15 +10,8 @@
 //!
 //! Create a 25 kHz PWM signal with 75 % duty cycle on GPIO 1
 //! ```
-//! use embedded_hal::{
-//!     pwm::blocking::PwmPin,
-//!     delay::blocking::DelayUs,
-//! };
-//! use esp_idf_hal::ledc::{
-//!     config::TimerConfig,
-//!     Channel,
-//!     Timer,
-//! };
+//! use embedded_hal::pwm::blocking::PwmPin;
+//! use esp_idf_hal::ledc::{config::TimerConfig, Channel, Timer};
 //! use esp_idf_hal::peripherals::Peripherals;
 //! use esp_idf_hal::prelude::*;
 //!
@@ -247,7 +240,12 @@ impl<C: HwChannel, H: HwTimer, T: Borrow<Timer<H>>, P: OutputPin> Channel<C, H, 
 
     fn update_duty(&mut self, duty: Duty) -> Result<(), EspError> {
         esp!(unsafe {
-            ledc_set_duty_and_update(self.timer.borrow().speed_mode, C::channel(), duty as u32, HPOINT)
+            ledc_set_duty_and_update(
+                self.timer.borrow().speed_mode,
+                C::channel(),
+                duty as u32,
+                HPOINT,
+            )
         })?;
         Ok(())
     }
@@ -278,7 +276,9 @@ impl<C: HwChannel, H: HwTimer, T: Borrow<Timer<H>>, P: OutputPin> PwmPin for Cha
     }
 }
 
-impl<C: HwChannel, H: HwTimer, T: Borrow<Timer<H>>, P: OutputPin> embedded_hal_0_2::PwmPin for Channel<C, H, T, P> {
+impl<C: HwChannel, H: HwTimer, T: Borrow<Timer<H>>, P: OutputPin> embedded_hal_0_2::PwmPin
+    for Channel<C, H, T, P>
+{
     type Duty = Duty;
 
     fn disable(&mut self) {
