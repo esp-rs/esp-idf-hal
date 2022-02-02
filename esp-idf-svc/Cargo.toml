@@ -10,6 +10,7 @@ description = "Implementation of the embedded-svc traits for ESP-IDF (Espressif'
 repository = "https://github.com/esp-rs/esp-idf-svc"
 license = "MIT OR Apache-2.0"
 readme = "README.md"
+documentation = "https://esp-rs.github.io/esp-idf-svc/"
 
 [features]
 default = ["std"]
