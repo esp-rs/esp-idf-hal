@@ -33,6 +33,7 @@ pub mod interrupt;
 pub mod mutex;
 pub mod peripherals;
 pub mod prelude;
+pub mod rmt;
 #[cfg(not(feature = "riscv-ulp-hal"))]
 pub mod serial;
 #[cfg(not(feature = "riscv-ulp-hal"))]
