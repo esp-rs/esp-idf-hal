@@ -39,7 +39,6 @@ pub use chip::*;
 
 type Duty = u32;
 
-const HPOINT: u32 = 0;
 const IDLE_LEVEL: u32 = 0;
 
 static FADE_FUNC_INSTALLED: Mutex<bool> = Mutex::new(false);
@@ -166,9 +165,7 @@ impl<C: HwChannel, H: HwTimer, T: Borrow<Timer<H>>, P: OutputPin> Channel<C, H, 
             intr_type: ledc_intr_type_t_LEDC_INTR_DISABLE,
             gpio_num: pin.pin(),
             duty: duty as u32,
-            // TODO: Cross-check why hpoint is a i32 here and an u32 at
-            // ledc_set_duty_and_update.
-            hpoint: HPOINT as i32,
+            ..Default::default()
         };
 
         let mut installed = FADE_FUNC_INSTALLED.lock();
@@ -246,7 +243,7 @@ impl<C: HwChannel, H: HwTimer, T: Borrow<Timer<H>>, P: OutputPin> Channel<C, H, 
                 self.timer.borrow().speed_mode,
                 C::channel(),
                 duty as u32,
-                HPOINT,
+                Default::default(),
             )
         })?;
         Ok(())
