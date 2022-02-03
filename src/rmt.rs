@@ -11,6 +11,7 @@ use std::mem::ManuallyDrop;
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 #[repr(u32)]
 pub enum Channel {
+    // TODO: Work out the different number of channels per chip.
     Channel0 = rmt_channel_t_RMT_CHANNEL_0,
     Channel1 = rmt_channel_t_RMT_CHANNEL_1,
     Channel2 = rmt_channel_t_RMT_CHANNEL_2,
@@ -61,11 +62,11 @@ impl Pulse {
     }
 }
 
-pub struct WritePulsesBuilder {
+pub struct WriteConfig {
     config: rmt_config_t,
 }
 
-impl WritePulsesBuilder {
+impl WriteConfig {
     pub fn new(pin: &dyn OutputPin<Error = EspError>, channel: Channel) -> Self {
         // Defaults from https://github.com/espressif/esp-idf/blob/master/components/driver/include/driver/rmt.h#L101
         Self {
