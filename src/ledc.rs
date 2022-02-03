@@ -28,7 +28,7 @@
 //!
 //! See the `examples/` folder of this repository for more.
 
-use std::{borrow::Borrow, marker::PhantomData};
+use core::{borrow::Borrow, marker::PhantomData};
 
 use crate::gpio::OutputPin;
 use crate::mutex::Mutex;
