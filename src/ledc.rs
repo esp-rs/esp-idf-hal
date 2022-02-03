@@ -1,3 +1,5 @@
+#![cfg(not(feature = "riscv-ulp-hal"))]
+
 //! LED Control peripheral (which also crates PWM signals for other purposes)
 //!
 //! Interface to the [LED Control (LEDC)
