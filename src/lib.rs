@@ -2,8 +2,10 @@
 #![feature(cfg_version)]
 #![feature(generic_associated_types)] // For mutex
 #![cfg_attr(not(version("1.59")), feature(asm))]
-#![cfg_attr(all(version("1.58"), target_arch = "xtensa"), feature(asm_experimental_arch))]
-
+#![cfg_attr(
+    all(version("1.58"), target_arch = "xtensa"),
+    feature(asm_experimental_arch)
+)]
 #[cfg(all(feature = "std", feature = "riscv-ulp-hal"))]
 compile_error!("Feature `std` is not compatible with feature `ulp`");
 
