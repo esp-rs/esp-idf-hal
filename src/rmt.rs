@@ -1,4 +1,4 @@
-use crate::gpio::OutputPin;
+use crate::gpio::{OutputPin, Pin};
 use esp_idf_sys::{
     esp, rmt_channel_t_RMT_CHANNEL_0, rmt_channel_t_RMT_CHANNEL_1, rmt_channel_t_RMT_CHANNEL_2,
     rmt_channel_t_RMT_CHANNEL_3, rmt_config, rmt_config_t, rmt_config_t__bindgen_ty_1,
@@ -38,36 +38,15 @@ impl Default for Level {
     }
 }
 
-#[derive(Debug, Copy, Clone, Eq, PartialEq)]
-pub enum PulseDuration {
-    Tick(u32),
-    Nanos(u32),
-}
 
-impl Default for PulseDuration {
-    fn default() -> Self {
-        Self::Tick(0)
-    }
-}
-
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Default)]
-pub struct Pulse {
-    duration: PulseDuration,
-    level: Level,
-}
-
-impl Pulse {
-    pub fn new(level: Level, duration: PulseDuration) -> Self {
-        Pulse { level, duration }
-    }
-}
-
-pub struct WriteConfig {
+pub struct WriterConfig {
     config: rmt_config_t,
 }
 
-impl WriteConfig {
-    pub fn new(pin: &dyn OutputPin<Error = EspError>, channel: Channel) -> Self {
+impl WriterConfig {
+    pub fn new(pin: &OP, channel: Channel) -> Self
+        where OP: OutputPin
+    {
         // Defaults from https://github.com/espressif/esp-idf/blob/master/components/driver/include/driver/rmt.h#L101
         Self {
             config: rmt_config_t {
@@ -93,41 +72,97 @@ impl WriteConfig {
         }
     }
 
-    pub fn build(self) -> Result<WritePulses, EspError> {
-        unsafe {
-            esp!(rmt_config(&self.config))?;
-            esp!(rmt_driver_install(self.config.channel as u32, 0, 0))?;
-        }
-
-        Ok(WritePulses {
-            config: self.config, // TODO: Pass in reference?
-            items: Default::default(),
-            half_inserted: false,
-        })
-    }
-
-    pub fn set_clock_divider(mut self, divider: u8) -> Self {
+    pub fn clock_divider(mut self, divider: u8) -> Self {
         self.config.clk_div = divider;
         self
     }
 
-    pub fn set_loop_enabled(mut self, enabled: bool) -> Self {
+    pub fn loop_enabled(mut self, enabled: bool) -> Self {
         self.config.__bindgen_anon_1.tx_config.loop_en = enabled;
         self
     }
 
-    pub fn set_carrier_enabled(mut self, enabled: bool) -> Self {
+    pub fn carrier_enabled(mut self, enabled: bool) -> Self {
         self.config.__bindgen_anon_1.tx_config.carrier_en = enabled;
         self
     }
 
-    pub fn set_carrier_freq_hz(mut self, freq: u32) -> Self {
+    pub fn carrier_freq_hz(mut self, freq: u32) -> Self {
         self.config.__bindgen_anon_1.tx_config.carrier_freq_hz = freq;
         self
     }
 }
 
-pub struct WritePulses {
+mod embedded_hal_draft {
+    use embedded_hal_0_2::digital::v2::PinState;
+
+    pub trait Error: core::fmt::Debug {
+        fn kind(&self) -> ErrorKind;
+    }
+
+    #[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
+    #[non_exhaustive]
+    pub enum ErrorKind {}
+
+    impl Error for ErrorKind {
+        fn kind(&self) -> ErrorKind {
+            *self
+        }
+    }
+
+    #[derive(Debug, Copy, Clone, Eq, PartialEq)]
+    pub enum PulseDuration {
+        Tick(u32),
+        Nanos(u32),
+    }
+
+    impl Default for PulseDuration {
+        fn default() -> Self {
+            Self::Tick(0)
+        }
+    }
+
+    #[derive(Debug, Copy, Clone, Eq, PartialEq, Default)]
+    pub struct Pulse {
+        duration: PulseDuration,
+        level: PinState,
+    }
+
+    impl Pulse {
+        pub fn new(level: PinState, duration: PulseDuration) -> Self {
+            Pulse { level, duration }
+        }
+    }
+
+    // Aiming at potential embedded-hal traits.
+    trait PulseWriter {
+        type Error: Error;
+
+        fn add<I>(&mut self, pulses: I) -> Result<(), Self::Error> where I: IntoIterator<Item=Pulse>;
+        fn clear(&mut self);
+    }
+
+    mod blocking {
+        trait PulseWriter: PulseWriter {
+            type Error: super::Error;
+
+            fn run(&self) -> Result<(), Self::Error>;
+        }
+    }
+
+    mod nb {
+        use super::PulseWriter;
+
+        trait BackgroundPulseWriter: PulseWriter {
+            type Error: super::Error;
+
+            fn start(&self) -> Result<(), Self::Error>;
+            fn stop(&self) -> Result<(), Self::Error>;
+        }
+    }
+}
+
+pub struct Writer {
     config: rmt_config_t,
 
     /// This must be ManuallyDrop to ensure that it isn't automatically dropped before the driver is
@@ -138,10 +173,27 @@ pub struct WritePulses {
     half_inserted: bool,
 }
 
-impl WritePulses {
-    pub fn add<I>(&mut self, pulses: I) -> Result<(), EspError>
-    where
-        I: IntoIterator<Item = Pulse>,
+impl Writer {
+    pub fn new(config: WriterConfig) -> Result<Writer, EspError> {
+        let s = Writer {
+            config,
+            items: Default::default(),
+            half_inserted: false,
+        };
+
+        unsafe {
+            esp!(rmt_config(&self.config))?;
+            esp!(rmt_driver_install(self.config.channel as u32, 0, 0))?;
+        }
+
+        Ok(s)
+    }
+}
+
+impl PulseWriter for Writer {
+    fn add<I>(&mut self, pulses: I) -> Result<(), EspError>
+        where
+            I: IntoIterator<Item=Pulse>,
     {
         let mut ticks_hz: u32 = 0;
         esp!(unsafe { rmt_get_counter_clock(self.config.channel, &mut ticks_hz) })?;
@@ -188,12 +240,16 @@ impl WritePulses {
         Ok(())
     }
 
-    pub fn clear(&mut self) {
+    fn clear(&mut self) -> Result<(), EspError> {
         self.items.clear();
+        self.half_inserted = false;
+        Ok(())
     }
+}
 
+impl BackgroundPulseWriter for Writer {
     /// Start sending the pulses.
-    pub fn start(&self) -> Result<(), EspError> {
+    fn start(&self) -> Result<(), EspError> {
         esp!(unsafe {
             rmt_write_items(
                 self.config.channel as u32,
@@ -204,7 +260,7 @@ impl WritePulses {
         })
     }
 
-    pub fn stop(&self) {
+    fn stop(&self) -> Result<(), EspError> {
         todo!()
     }
 }
