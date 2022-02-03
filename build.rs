@@ -1,6 +1,7 @@
 #[cfg(not(feature = "riscv-ulp-hal"))]
 fn main() -> anyhow::Result<()> {
-    embuild::build::CfgArgs::output_propagated("ESP_IDF")
+    embuild::build::CfgArgs::output_propagated("ESP_IDF")?;
+    embuild::build::LinkArgs::output_propagated("ESP_IDF")
 }
 
 #[cfg(feature = "riscv-ulp-hal")]

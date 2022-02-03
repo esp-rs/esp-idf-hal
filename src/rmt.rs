@@ -1,4 +1,5 @@
-use crate::gpio::{OutputPin, Pin};
+use crate::gpio::OutputPin;
+use embedded_hal::digital::PinState;
 use esp_idf_sys::{
     esp, rmt_channel_t_RMT_CHANNEL_0, rmt_channel_t_RMT_CHANNEL_1, rmt_channel_t_RMT_CHANNEL_2,
     rmt_channel_t_RMT_CHANNEL_3, rmt_config, rmt_config_t, rmt_config_t__bindgen_ty_1,
@@ -26,26 +27,25 @@ pub enum Mode {
 }
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
-#[repr(u32)]
-pub enum Level {
-    Low,
-    High,
+pub struct Pulse {
+    duration: PulseDuration,
+    level: PinState,
 }
 
-impl Default for Level {
-    fn default() -> Self {
-        Self::Low
+impl Pulse {
+    pub fn new(level: PinState, duration: PulseDuration) -> Self {
+        Pulse { level, duration }
     }
 }
-
 
 pub struct WriterConfig {
     config: rmt_config_t,
 }
 
 impl WriterConfig {
-    pub fn new(pin: &OP, channel: Channel) -> Self
-        where OP: OutputPin
+    pub fn new<OP>(pin: &OP, channel: Channel) -> Self
+    where
+        OP: OutputPin,
     {
         // Defaults from https://github.com/espressif/esp-idf/blob/master/components/driver/include/driver/rmt.h#L101
         Self {
@@ -59,8 +59,8 @@ impl WriterConfig {
                 __bindgen_anon_1: rmt_config_t__bindgen_ty_1 {
                     tx_config: rmt_tx_config_t {
                         carrier_freq_hz: 38000,
-                        carrier_level: Level::High as u32,
-                        idle_level: Level::Low as u32,
+                        carrier_level: PinState::High as u32,
+                        idle_level: PinState::Low as u32,
                         carrier_duty_percent: 33,
                         loop_count: 0,
                         carrier_en: false,
@@ -71,6 +71,14 @@ impl WriterConfig {
             },
         }
     }
+
+    // TODO:
+    // mem_block_num
+    // flags
+    // carrier_level
+    // idle_level
+    // loop_count
+    // idle_output_en
 
     pub fn clock_divider(mut self, divider: u8) -> Self {
         self.config.clk_div = divider;
@@ -93,72 +101,15 @@ impl WriterConfig {
     }
 }
 
-mod embedded_hal_draft {
-    use embedded_hal_0_2::digital::v2::PinState;
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+pub enum PulseDuration {
+    Tick(u32),
+    Nanos(u32),
+}
 
-    pub trait Error: core::fmt::Debug {
-        fn kind(&self) -> ErrorKind;
-    }
-
-    #[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
-    #[non_exhaustive]
-    pub enum ErrorKind {}
-
-    impl Error for ErrorKind {
-        fn kind(&self) -> ErrorKind {
-            *self
-        }
-    }
-
-    #[derive(Debug, Copy, Clone, Eq, PartialEq)]
-    pub enum PulseDuration {
-        Tick(u32),
-        Nanos(u32),
-    }
-
-    impl Default for PulseDuration {
-        fn default() -> Self {
-            Self::Tick(0)
-        }
-    }
-
-    #[derive(Debug, Copy, Clone, Eq, PartialEq, Default)]
-    pub struct Pulse {
-        duration: PulseDuration,
-        level: PinState,
-    }
-
-    impl Pulse {
-        pub fn new(level: PinState, duration: PulseDuration) -> Self {
-            Pulse { level, duration }
-        }
-    }
-
-    // Aiming at potential embedded-hal traits.
-    trait PulseWriter {
-        type Error: Error;
-
-        fn add<I>(&mut self, pulses: I) -> Result<(), Self::Error> where I: IntoIterator<Item=Pulse>;
-        fn clear(&mut self);
-    }
-
-    mod blocking {
-        trait PulseWriter: PulseWriter {
-            type Error: super::Error;
-
-            fn run(&self) -> Result<(), Self::Error>;
-        }
-    }
-
-    mod nb {
-        use super::PulseWriter;
-
-        trait BackgroundPulseWriter: PulseWriter {
-            type Error: super::Error;
-
-            fn start(&self) -> Result<(), Self::Error>;
-            fn stop(&self) -> Result<(), Self::Error>;
-        }
+impl Default for PulseDuration {
+    fn default() -> Self {
+        Self::Tick(0)
     }
 }
 
@@ -176,24 +127,22 @@ pub struct Writer {
 impl Writer {
     pub fn new(config: WriterConfig) -> Result<Writer, EspError> {
         let s = Writer {
-            config,
+            config: config.config,
             items: Default::default(),
             half_inserted: false,
         };
 
         unsafe {
-            esp!(rmt_config(&self.config))?;
-            esp!(rmt_driver_install(self.config.channel as u32, 0, 0))?;
+            esp!(rmt_config(&s.config))?;
+            esp!(rmt_driver_install(s.config.channel as u32, 0, 0))?;
         }
 
         Ok(s)
     }
-}
 
-impl PulseWriter for Writer {
-    fn add<I>(&mut self, pulses: I) -> Result<(), EspError>
-        where
-            I: IntoIterator<Item=Pulse>,
+    pub fn add<I>(&mut self, pulses: I) -> Result<(), EspError>
+    where
+        I: IntoIterator<Item = Pulse>,
     {
         let mut ticks_hz: u32 = 0;
         esp!(unsafe { rmt_get_counter_clock(self.config.channel, &mut ticks_hz) })?;
@@ -240,16 +189,14 @@ impl PulseWriter for Writer {
         Ok(())
     }
 
-    fn clear(&mut self) -> Result<(), EspError> {
+    pub fn clear(&mut self) -> Result<(), EspError> {
         self.items.clear();
         self.half_inserted = false;
         Ok(())
     }
-}
 
-impl BackgroundPulseWriter for Writer {
     /// Start sending the pulses.
-    fn start(&self) -> Result<(), EspError> {
+    pub fn start(&self) -> Result<(), EspError> {
         esp!(unsafe {
             rmt_write_items(
                 self.config.channel as u32,
@@ -260,7 +207,13 @@ impl BackgroundPulseWriter for Writer {
         })
     }
 
-    fn stop(&self) -> Result<(), EspError> {
+    pub fn stop(&self) -> Result<(), EspError> {
         todo!()
+    }
+}
+
+impl Drop for Writer {
+    fn drop(&mut self) {
+        todo!("Ensure we have stopped before dropping items.");
     }
 }

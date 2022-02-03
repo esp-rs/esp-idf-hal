@@ -34,3 +34,9 @@ esp-idf-sys = { version = "0.30", optional = true, default-features = false, fea
 [build-dependencies]
 embuild = "0.28"
 anyhow = "1"
+
+[dev-dependencies]
+anyhow = "1"
+esp-idf-svc = "*"
+esp-idf-sys = { version = "*", features = ["pio", "binstart"] }
+log = "0.4"
