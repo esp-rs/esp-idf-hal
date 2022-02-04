@@ -1,3 +1,4 @@
+// TODO: Q: Do we need to prevent users from creating two drivers on the same channel?
 use crate::gpio::OutputPin;
 use embedded_hal::digital::PinState;
 use esp_idf_sys::{
@@ -29,12 +30,12 @@ pub enum Mode {
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub struct Pulse {
     duration: PulseDuration,
-    level: PinState,
+    state: PinState,
 }
 
 impl Pulse {
-    pub fn new(level: PinState, duration: PulseDuration) -> Self {
-        Pulse { level, duration }
+    pub fn new(state: PinState, duration: PulseDuration) -> Self {
+        Pulse { state, duration }
     }
 }
 
@@ -169,11 +170,11 @@ impl Writer {
                 // union field.
                 let inner = unsafe { &mut item.__bindgen_anon_1.__bindgen_anon_1 };
 
-                inner.set_level1(pulse.level as u32);
+                inner.set_level1(pulse.state as u32);
                 inner.set_duration1(ticks as u32);
             } else {
                 let mut inner = rmt_item32_t__bindgen_ty_1__bindgen_ty_1::default();
-                inner.set_level0(pulse.level as u32);
+                inner.set_level0(pulse.state as u32);
                 inner.set_duration0(ticks as u32);
                 let item = esp_idf_sys::rmt_item32_t {
                     __bindgen_anon_1: rmt_item32_t__bindgen_ty_1 {
