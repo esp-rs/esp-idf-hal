@@ -34,3 +34,9 @@ embassy = { version = "0.1", git = "https://github.com/embassy-rs/embassy", opti
 [build-dependencies]
 embuild = "0.28"
 anyhow = "1"
+
+[dev-dependencies]
+anyhow = "1"
+esp-idf-svc = "0.36.2"
+esp-idf-sys = { version = "0.30", features = ["pio", "binstart"] }
+log = "0.4"

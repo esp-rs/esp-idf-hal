@@ -34,6 +34,7 @@ pub mod hall;
 pub mod i2c;
 #[cfg(all(feature = "experimental", not(feature = "riscv-ulp-hal")))]
 pub mod interrupt;
+pub mod ledc;
 #[cfg(not(feature = "riscv-ulp-hal"))]
 pub mod mutex;
 pub mod peripherals;

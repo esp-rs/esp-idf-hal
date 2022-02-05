@@ -34,3 +34,10 @@ jobs:
         run: cargo build --features riscv-ulp-hal --no-default-features --target riscv32imc-unknown-none-elf -Zbuild-std=core,panic_abort -Zbuild-std-features=panic_immediate_abort
       - name: Build | Compile Native ESP-IDF V4.4 no_std
         run: export ESP_IDF_VERSION=release/v4.4; export ESP_IDF_SDKCONFIG_DEFAULTS=$(pwd)/.github/configs/sdkconfig.defaults; cargo build --features esp-idf-sys/native --no-default-features --target riscv32imc-esp-espidf -Zbuild-std=std,panic_abort -Zbuild-std-features=panic_immediate_abort
+      - name: Setup | ldproxy
+        uses: actions-rs/install@v0.1
+        with:
+          crate: ldproxy
+          version: latest
+      - name: Build | Examples
+        run: export ESP_IDF_SDKCONFIG_DEFAULTS=$(pwd)/.github/configs/sdkconfig.defaults; cargo build --examples --target riscv32imc-esp-espidf -Zbuild-std=std,panic_abort -Zbuild-std-features=panic_immediate_abort
