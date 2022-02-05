@@ -33,11 +33,11 @@ mod embassy {
 
     impl EspDriver {
         const fn to_micros(ticks: u64) -> u64 {
-            ticks / 1000
+            ticks
         }
 
         const fn to_ticks(ticks: u64) -> u64 {
-            ticks * 1000
+            ticks
         }
 
         fn deregister(index: usize) -> Option<(fn(*mut ()), *mut ())> {
