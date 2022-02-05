@@ -1,11 +1,13 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 #![feature(cfg_version)]
 #![feature(generic_associated_types)] // For mutex
+#![feature(const_fn_fn_ptr_basics)] // Embassy timer
 #![cfg_attr(not(version("1.59")), feature(asm))]
 #![cfg_attr(
     all(version("1.58"), target_arch = "xtensa"),
     feature(asm_experimental_arch)
 )]
+
 #[cfg(all(feature = "std", feature = "riscv-ulp-hal"))]
 compile_error!("Feature `std` is not compatible with feature `ulp`");
 
@@ -40,6 +42,8 @@ pub mod prelude;
 pub mod serial;
 #[cfg(not(feature = "riscv-ulp-hal"))]
 pub mod spi;
+#[cfg(not(feature = "riscv-ulp-hal"))]
+pub mod timer;
 #[cfg(all(any(esp32, esp32s2, esp32s3), not(feature = "riscv-ulp-hal")))]
 pub mod ulp;
 pub mod units;

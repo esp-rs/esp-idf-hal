@@ -85,7 +85,7 @@ impl<T> mutex_trait::Mutex for Mutex<T> {
     }
 }
 
-#[cfg(feature = "embedded-svc-mutex")]
+#[cfg(feature = "embedded-svc")]
 impl<T> embedded_svc::mutex::Mutex for Mutex<T> {
     type Data = T;
 
@@ -175,7 +175,7 @@ impl Drop for Condvar {
     }
 }
 
-#[cfg(feature = "embedded-svc-mutex")]
+#[cfg(feature = "embedded-svc")]
 impl embedded_svc::mutex::Condvar for Condvar {
     type Mutex<T>
     where
@@ -217,5 +217,28 @@ impl embedded_svc::mutex::Condvar for Condvar {
 
     fn notify_all(&self) {
         Condvar::notify_all(self)
+    }
+}
+
+#[cfg(feature = "embassy")]
+pub mod embassy {
+    pub enum EspMutexKind {}
+    impl embassy::blocking_mutex::kind::MutexKind for EspMutexKind {
+        type Mutex<T> = super::Mutex<T>;
+    }
+
+    impl<'a, T> embassy::blocking_mutex::Mutex for super::Mutex<T> {
+        type Data = T;
+
+        fn new(data: Self::Data) -> Self {
+            super::Mutex::new(data)
+        }
+
+        #[inline(always)]
+        fn lock<R>(&self, f: impl FnOnce(&Self::Data) -> R) -> R {
+            let mut guard = super::Mutex::lock(self);
+
+            f(&mut guard)
+        }
     }
 }

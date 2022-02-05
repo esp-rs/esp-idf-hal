@@ -13,11 +13,9 @@ readme = "README.md"
 documentation = "https://esp-rs.github.io/esp-idf-hal/"
 
 [features]
-default = ["std", "esp-idf-sys"]
+default = ["std", "esp-idf-sys", "embedded-svc"]
 
-std = ["esp-idf-sys/std"]
-
-embedded-svc-mutex = ["embedded-svc"]
+std = ["esp-idf-sys/std", "embassy/std"]
 
 riscv-ulp-hal = []
 
@@ -30,6 +28,8 @@ embedded-hal = "=1.0.0-alpha.6"
 embedded-hal-0-2 = { package = "embedded-hal", version = "0.2", features = ["unproven"] }
 embedded-svc = { version = "0.16.4", optional = true, default-features = false }
 esp-idf-sys = { version = "0.30", optional = true, default-features = false, features = ["pio"] }
+critical-section = { version = "0.2.5", optional = true, features = ["custom-impl"] }
+embassy = { version = "0.1", git = "https://github.com/embassy-rs/embassy", optional = true, features = ["time", "time-tick-1mhz"] }
 
 [build-dependencies]
 embuild = "0.28"
