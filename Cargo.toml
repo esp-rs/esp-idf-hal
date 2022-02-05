@@ -15,7 +15,7 @@ documentation = "https://esp-rs.github.io/esp-idf-hal/"
 [features]
 default = ["std", "esp-idf-sys", "embedded-svc"]
 
-std = ["esp-idf-sys/std", "embassy/std"]
+std = ["esp-idf-sys/std"]
 
 riscv-ulp-hal = []
 
