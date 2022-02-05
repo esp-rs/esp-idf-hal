@@ -1,6 +1,6 @@
 [package]
 name = "esp-idf-hal"
-version = "0.32.7"
+version = "0.32.8"
 authors = ["sapir <yasapir@gmail.com>", "Ivan Markov <ivan.markov@gmail.com>"]
 edition = "2018"
 resolver = "2"
@@ -29,7 +29,7 @@ embedded-hal-0-2 = { package = "embedded-hal", version = "0.2", features = ["unp
 embedded-svc = { version = "0.16.4", optional = true, default-features = false }
 esp-idf-sys = { version = "0.30", optional = true, default-features = false, features = ["pio"] }
 critical-section = { version = "0.2.5", optional = true, features = ["custom-impl"] }
-embassy = "0"
+embassy = { version = "0", optional = true }
 # The real version is this one and it needs to be patched into the binary crate:
 #embassy = { version = "0.1", git = "https://github.com/embassy-rs/embassy", optional = true, features = ["time", "time-tick-1mhz"] }
 
