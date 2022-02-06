@@ -166,18 +166,21 @@ impl Writer {
 
     /// Returns None if the resulting ticks from the ns conversion is too high.
     /// See `PulseTicks` for details.
-    pub fn pulse_ns(&mut self, pin_state: PinState, ns: u32) -> Option<Pulse> {
+    pub fn pulse_ns(&mut self, pin_state: PinState, ns: u32) -> Result<Option<Pulse>, EspError> {
         let ticks_per_ns = match &self.ticks_per_ns {
             None => {
-                let ticks_hz = self.counter_clock();
+                let ticks_hz = self.counter_clock()?;
                 let ticks_per_ns = ticks_hz as f32 / 1e9;
                 self.ticks_per_ns = Some(ticks_per_ns);
                 self.ticks_per_ns.as_ref().unwrap()
             }
             Some(t) => t,
         };
-        let ticks = ((ticks_per_ns * ns as f32) as u16);
-        Some(Pulse::new(pin_state, PulseTicks::new(ticks)?))
+        let ticks = (ticks_per_ns * ns as f32) as u16;
+        match PulseTicks::new(ticks) {
+            Some(ticks) => Ok(Some(Pulse::new(pin_state, ticks))),
+            None => Ok(None),
+        }
     }
 
     pub fn add<I>(&mut self, pulses: I) -> Result<(), EspError>
@@ -198,11 +201,11 @@ impl Writer {
                 let inner = unsafe { &mut item.__bindgen_anon_1.__bindgen_anon_1 };
 
                 inner.set_level1(pulse.pin_state as u32);
-                inner.set_duration1(pulse.ticks.0);
+                inner.set_duration1(pulse.ticks.0 as u32);
             } else {
                 let mut inner = rmt_item32_t__bindgen_ty_1__bindgen_ty_1::default();
                 inner.set_level0(pulse.pin_state as u32);
-                inner.set_duration0(pulse.ticks.0);
+                inner.set_duration0(pulse.ticks.0 as u32);
                 let item = esp_idf_sys::rmt_item32_t {
                     __bindgen_anon_1: rmt_item32_t__bindgen_ty_1 {
                         __bindgen_anon_1: inner,

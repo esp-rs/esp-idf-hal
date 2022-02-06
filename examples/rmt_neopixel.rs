@@ -5,7 +5,7 @@ use esp_idf_hal::gpio::Gpio18;
 use esp_idf_hal::gpio::Output;
 use esp_idf_hal::peripherals::Peripherals;
 use esp_idf_hal::rmt::Channel::Channel0;
-use esp_idf_hal::rmt::{Pulse, PulseDuration, Writer, WriterConfig};
+use esp_idf_hal::rmt::{Pulse, Writer, WriterConfig};
 use std::time::SystemTime;
 
 fn main() -> anyhow::Result<()> {
@@ -34,16 +34,15 @@ fn neopixel(writer: &mut Writer, rgb: u32) {
 
     writer.clear().unwrap();
 
+    let t0h = writer.pulse_ns(PinState::High, T0H).unwrap().unwrap();
+    let t1h = writer.pulse_ns(PinState::High, T1H).unwrap().unwrap();
+    let t0l = writer.pulse_ns(PinState::Low, T0L).unwrap().unwrap();
+    let t1l = writer.pulse_ns(PinState::Low, T1L).unwrap().unwrap();
+
     for i in 0..24 {
         let bit = 2_u32.pow(i) & rgb != 0;
-        let (high, low) = if bit { (T1H, T1L) } else { (T0H, T0L) };
-
-        writer
-            .add([
-                Pulse::new(PinState::High, PulseDuration::Nanos(high)),
-                Pulse::new(PinState::Low, PulseDuration::Nanos(low)),
-            ])
-            .unwrap();
+        let (high_pulse, low_pulse) = if bit { (t1h, t1l) } else { (t0h, t0l) };
+        writer.add([high_pulse, low_pulse]).unwrap();
     }
 
     writer.start().unwrap();
