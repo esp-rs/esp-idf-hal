@@ -1,6 +1,6 @@
 [package]
 name = "esp-idf-svc"
-version = "0.36.8"
+version = "0.36.9"
 authors = ["Ivan Markov <ivan.markov@gmail.com>"]
 edition = "2018"
 resolver = "2"
@@ -25,7 +25,7 @@ enumset = { version = "1", default-features = false }
 log = { version = "0.4", default-features = false }
 cstr_core = "0.2"
 anyhow = { version = "1", default-features = false, optional = true }
-embedded-svc = { version = "0.16.5", default-features = false }
+embedded-svc = { version = "0.16.7", default-features = false }
 esp-idf-sys = { version = "0.30", default-features = false, features = ["pio"] }
 esp-idf-hal = { version = "0.32.8", default-features = false, features = ["esp-idf-sys", "embedded-svc"] }
 uncased = { version = "0.9.6", optional = true }

@@ -116,34 +116,24 @@ impl<T> EspEventLoopType for User<T> {
     }
 }
 
-pub trait EspEventSubscribeMetadata {
-    fn source() -> *const c_types::c_char;
-
-    fn event_id() -> i32 {
-        -1 // All events by default
-    }
-}
-
-pub struct EspEventPostData<'a> {
+pub struct EspEventPostData {
     pub source: *const c_types::c_char,
     pub event_id: i32,
     pub payload: *const c_types::c_void,
     pub payload_len: usize,
-    pub phantom: PhantomData<&'a ()>,
 }
 
-impl<'a> EspEventPostData<'a> {
+impl<'a> EspEventPostData {
     pub unsafe fn new<P: Copy>(
         source: *const c_types::c_char,
-        event_id: i32,
-        payload: &'a P,
-    ) -> EspEventPostData<'a> {
+        event_id: Option<i32>,
+        payload: &P,
+    ) -> EspEventPostData {
         Self {
             source,
-            event_id,
+            event_id: event_id.unwrap_or(0),
             payload: payload as *const _ as *const _,
             payload_len: mem::size_of::<P>(),
-            phantom: PhantomData,
         }
     }
 }
@@ -155,17 +145,17 @@ pub struct EspEventFetchData {
 }
 
 impl EspEventFetchData {
-    pub unsafe fn as_payload<P: Copy>(&self) -> P {
+    pub unsafe fn as_payload<P: Copy>(&self) -> &P {
         let payload: &P = (self.payload as *const P).as_ref().unwrap();
 
-        *payload
+        payload
     }
 }
 
-struct UnsafeCallback(*mut Box<dyn FnMut(EspEventFetchData) + 'static>);
+struct UnsafeCallback(*mut Box<dyn for<'a> FnMut(&'a EspEventFetchData) + 'static>);
 
 impl UnsafeCallback {
-    fn from(boxed: &mut Box<Box<dyn FnMut(EspEventFetchData) + 'static>>) -> Self {
+    fn from(boxed: &mut Box<Box<dyn for<'a> FnMut(&'a EspEventFetchData) + 'static>>) -> Self {
         Self(boxed.as_mut())
     }
 
@@ -177,7 +167,7 @@ impl UnsafeCallback {
         self.0 as *mut _
     }
 
-    unsafe fn call(&self, data: EspEventFetchData) {
+    unsafe fn call(&self, data: &EspEventFetchData) {
         let reference = self.0.as_mut().unwrap();
 
         (reference)(data);
@@ -192,7 +182,7 @@ where
     handler_instance: esp_event_handler_instance_t,
     source: *const c_types::c_char,
     event_id: i32,
-    _callback: Box<Box<dyn FnMut(EspEventFetchData) + 'static>>,
+    _callback: Box<Box<dyn for<'a> FnMut(&'a EspEventFetchData) + 'static>>,
 }
 
 impl<T> EspSubscription<T>
@@ -212,7 +202,7 @@ where
         };
 
         unsafe {
-            UnsafeCallback::from_ptr(event_handler_arg).call(data);
+            UnsafeCallback::from_ptr(event_handler_arg).call(&data);
         }
     }
 }
@@ -340,14 +330,14 @@ where
         &mut self,
         source: *const c_types::c_char,
         event_id: i32,
-        mut callback: impl FnMut(EspEventFetchData) -> Result<(), E> + 'static,
+        mut callback: impl for<'a> FnMut(&EspEventFetchData) -> Result<(), E> + 'static,
     ) -> Result<EspSubscription<T>, EspError>
     where
         E: Display + Debug + Send + Sync + 'static,
     {
         let mut handler_instance: esp_event_handler_instance_t = ptr::null_mut();
 
-        let callback: Box<dyn FnMut(EspEventFetchData) + 'static> =
+        let callback: Box<dyn for<'a> FnMut(&EspEventFetchData) + 'static> =
             Box::new(move |data| callback(data).unwrap());
         let mut callback = Box::new(callback);
 
@@ -393,14 +383,12 @@ where
         data: &EspEventPostData,
         wait: Option<Duration>,
     ) -> Result<bool, EspError> {
-        // TODO: Handle the case where data size is < 4 as an optimization
-
         let result = if T::is_system() {
             unsafe {
                 esp_event_post(
                     data.source,
                     data.event_id,
-                    data.payload as *const _ as *mut _,
+                    data.payload as *mut _,
                     data.payload_len as _,
                     TickType::from(wait).0,
                 )
@@ -414,7 +402,7 @@ where
                     user.0,
                     data.source,
                     data.event_id,
-                    data.payload as *const _ as *mut _,
+                    data.payload as *mut _,
                     data.payload_len as _,
                     TickType::from(wait).0,
                 )
@@ -432,8 +420,6 @@ where
 
     #[cfg(esp_idf_esp_event_post_from_isr)]
     pub fn isr_post_raw(&mut self, data: &EspEventPostData) -> Result<bool, EspError> {
-        // TODO: Handle the case where data size is < 4 as an optimization
-
         let result = if T::is_system() {
             unsafe {
                 esp_event_isr_post(
@@ -529,22 +515,31 @@ impl<T> event_bus::Spin for EspEventLoop<User<T>> {
     }
 }
 
+pub trait EspTypedEventSerDe<P> {
+    fn source() -> *const c_types::c_char;
+
+    fn event_id() -> Option<i32> {
+        None
+    }
+
+    fn serialize<R>(payload: &P, f: impl for<'a> FnOnce(&'a EspEventPostData) -> R) -> R;
+
+    fn deserialize<R>(data: &EspEventFetchData, f: &mut impl for<'a> FnMut(&'a P) -> R) -> R;
+}
+
 impl<P, T> event_bus::Postbox<P> for EspEventLoop<T>
 where
-    for<'a> &'a P: Into<EspEventPostData<'a>>,
+    P: EspTypedEventSerDe<P>,
     T: EspEventLoopType,
 {
-    fn post(&mut self, payload: P, wait: Option<Duration>) -> Result<bool, Self::Error> {
-        let payload = &payload;
-        self.post_raw(&payload.into(), wait)
+    fn post(&mut self, payload: &P, wait: Option<Duration>) -> Result<bool, Self::Error> {
+        P::serialize(payload, |raw_event| self.post_raw(raw_event, wait))
     }
 }
 
 impl<P, T> event_bus::EventBus<P> for EspEventLoop<T>
 where
-    P: From<EspEventFetchData>,
-    for<'a> &'a P: Into<EspEventPostData<'a>>,
-    P: EspEventSubscribeMetadata,
+    P: EspTypedEventSerDe<P>,
     T: EspEventLoopType,
 {
     type Subscription = EspSubscription<T>;
@@ -558,9 +553,11 @@ where
     where
         E: Display + Debug + Send + Sync + 'static,
     {
-        self.subscribe_raw(P::source(), P::event_id(), move |data| {
-            callback(&data.into())
-        })
+        self.subscribe_raw(
+            P::source(),
+            P::event_id().unwrap_or(ESP_EVENT_ANY_ID),
+            move |raw_event| P::deserialize(raw_event, &mut callback),
+        )
     }
 
     fn postbox(&mut self) -> Result<Self::Postbox, Self::Error> {
@@ -570,9 +567,7 @@ where
 
 impl<P> event_bus::PinnedEventBus<P> for EspEventLoop<User<Pinned>>
 where
-    P: From<EspEventFetchData>,
-    for<'a> &'a P: Into<EspEventPostData<'a>>,
-    P: EspEventSubscribeMetadata,
+    P: EspTypedEventSerDe<P>,
 {
     type Subscription = EspSubscription<User<Pinned>>;
 
@@ -585,12 +580,117 @@ where
     where
         E: Display + Debug + Send + Sync + 'static,
     {
-        self.subscribe_raw(P::source(), P::event_id(), move |data| {
-            callback(&data.into())
-        })
+        self.subscribe_raw(
+            P::source(),
+            P::event_id().unwrap_or(ESP_EVENT_ANY_ID),
+            move |raw_event| P::deserialize(raw_event, &mut callback),
+        )
     }
 
     fn postbox(&mut self) -> Result<Self::Postbox, Self::Error> {
         Ok(self.clone())
+    }
+}
+
+pub struct EspTypedEventLoop<M, P, L> {
+    untyped_event_loop: L,
+    _serde: PhantomData<fn() -> M>,
+    _payload: PhantomData<fn() -> P>,
+}
+
+impl<L, M, P> EspTypedEventLoop<M, P, L> {
+    pub fn new(untyped_event_loop: L) -> Self {
+        Self {
+            untyped_event_loop,
+            _serde: PhantomData,
+            _payload: PhantomData,
+        }
+    }
+}
+
+impl<M, P, L> Clone for EspTypedEventLoop<M, P, L>
+where
+    L: Clone,
+{
+    fn clone(&self) -> Self {
+        Self {
+            untyped_event_loop: self.untyped_event_loop.clone(),
+            _serde: PhantomData,
+            _payload: PhantomData,
+        }
+    }
+}
+
+impl<M, P, L> service::Service for EspTypedEventLoop<M, P, L>
+where
+    L: service::Service,
+{
+    type Error = L::Error;
+}
+
+impl<M, P, T> event_bus::Postbox<P> for EspTypedEventLoop<M, P, EspEventLoop<T>>
+where
+    M: EspTypedEventSerDe<P>,
+    T: EspEventLoopType,
+{
+    fn post(&mut self, payload: &P, wait: Option<Duration>) -> Result<bool, Self::Error> {
+        M::serialize(payload, |raw_event| {
+            self.untyped_event_loop.post_raw(raw_event, wait)
+        })
+    }
+}
+
+impl<M, P, T> event_bus::EventBus<P> for EspTypedEventLoop<M, P, EspEventLoop<T>>
+where
+    M: EspTypedEventSerDe<P>,
+    T: EspEventLoopType,
+{
+    type Subscription = EspSubscription<T>;
+
+    type Postbox = Self;
+
+    fn subscribe<E>(
+        &mut self,
+        mut callback: impl for<'b> FnMut(&'b P) -> Result<(), E> + Send + 'static,
+    ) -> Result<Self::Subscription, EspError>
+    where
+        E: Display + Debug + Send + Sync + 'static,
+    {
+        self.untyped_event_loop.subscribe_raw(
+            M::source(),
+            M::event_id().unwrap_or(ESP_EVENT_ANY_ID),
+            move |raw_event| M::deserialize(raw_event, &mut callback),
+        )
+    }
+
+    fn postbox(&mut self) -> Result<Self::Postbox, Self::Error> {
+        Ok(Self::new(self.untyped_event_loop.clone()))
+    }
+}
+
+impl<M, P> event_bus::PinnedEventBus<P> for EspTypedEventLoop<M, P, EspEventLoop<User<Pinned>>>
+where
+    M: EspTypedEventSerDe<P>,
+{
+    type Subscription = EspSubscription<User<Pinned>>;
+
+    type Postbox = Self;
+
+    fn subscribe<E>(
+        &mut self,
+        mut callback: impl for<'b> FnMut(&'b P) -> Result<(), E> + 'static,
+    ) -> Result<Self::Subscription, EspError>
+    where
+        E: Display + Debug + Send + Sync + 'static,
+    {
+        self.untyped_event_loop.subscribe_raw(
+            M::source(),
+            M::event_id().unwrap_or(ESP_EVENT_ANY_ID),
+            move |raw_event| M::deserialize(raw_event, &mut callback),
+        )
+    }
+
+    fn postbox(&mut self) -> Result<Self::Postbox, Self::Error> {
+        Ok(Self::new(self.untyped_event_loop.clone()))
     }
 }
