@@ -162,6 +162,9 @@ impl Condvar {
     }
 }
 
+unsafe impl Sync for Condvar {}
+unsafe impl Send for Condvar {}
+
 impl Default for Condvar {
     fn default() -> Self {
         Self::new()
