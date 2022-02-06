@@ -1,4 +1,7 @@
-// TODO: Q: Do we need to prevent users from creating two drivers on the same channel?
+use std::convert::TryFrom;
+// TODO: Do we need to prevent users from creating two drivers on the same channel?
+// TODO: Should probably prevent writing to buffer while rmt is transmitting:
+//       "We must make sure the item data will not be damaged when the driver is still sending items in driver interrupt."
 use crate::gpio::OutputPin;
 use embedded_hal::digital::PinState;
 use esp_idf_sys::{
@@ -29,13 +32,13 @@ pub enum Mode {
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub struct Pulse {
-    duration: PulseDuration,
-    state: PinState,
+    ticks: PulseTicks,
+    pin_state: PinState,
 }
 
 impl Pulse {
-    pub fn new(state: PinState, duration: PulseDuration) -> Self {
-        Pulse { state, duration }
+    pub fn new(pin_state: PinState, ticks: PulseTicks) -> Self {
+        Pulse { pin_state, ticks }
     }
 }
 
@@ -103,14 +106,25 @@ impl WriterConfig {
 }
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
-pub enum PulseDuration {
-    Tick(u32),
-    Nanos(u32),
-}
+pub struct PulseTicks(u16);
 
-impl Default for PulseDuration {
-    fn default() -> Self {
-        Self::Tick(0)
+impl PulseTicks {
+    const MAX: u16 = 32767;
+
+    /// PulseTick needs to be unsigned 15 bits: 0-32767 inclusive.
+    ///
+    /// It will return `None` if it's out of range.
+    pub fn new(v: u16) -> Option<Self> {
+        if v > 32767 {
+            // TODO: Not sure of a nicer way to deal with this? Allow an overflow like rust does?
+            None
+        } else {
+            Some(Self(v))
+        }
+    }
+
+    pub fn max() -> Self {
+        Self(Self::MAX)
     }
 }
 
@@ -123,6 +137,8 @@ pub struct Writer {
     items: ManuallyDrop<Vec<rmt_item32_t>>,
 
     half_inserted: bool,
+
+    ticks_per_ns: Option<f32>,
 }
 
 impl Writer {
@@ -131,6 +147,7 @@ impl Writer {
             config: config.config,
             items: Default::default(),
             half_inserted: false,
+            ticks_per_ns: None,
         };
 
         unsafe {
@@ -141,23 +158,33 @@ impl Writer {
         Ok(s)
     }
 
+    pub fn counter_clock(&self) -> Result<u32, EspError> {
+        let mut ticks_hz: u32 = 0;
+        esp!(unsafe { rmt_get_counter_clock(self.config.channel, &mut ticks_hz) })?;
+        Ok(ticks_hz)
+    }
+
+    /// Returns None if the resulting ticks from the ns conversion is too high.
+    /// See `PulseTicks` for details.
+    pub fn pulse_ns(&mut self, pin_state: PinState, ns: u32) -> Option<Pulse> {
+        let ticks_per_ns = match &self.ticks_per_ns {
+            None => {
+                let ticks_hz = self.counter_clock();
+                let ticks_per_ns = ticks_hz as f32 / 1e9;
+                self.ticks_per_ns = Some(ticks_per_ns);
+                self.ticks_per_ns.as_ref().unwrap()
+            }
+            Some(t) => t,
+        };
+        let ticks = ((ticks_per_ns * ns as f32) as u16);
+        Some(Pulse::new(pin_state, PulseTicks::new(ticks)?))
+    }
+
     pub fn add<I>(&mut self, pulses: I) -> Result<(), EspError>
     where
         I: IntoIterator<Item = Pulse>,
     {
-        let mut ticks_hz: u32 = 0;
-        esp!(unsafe { rmt_get_counter_clock(self.config.channel, &mut ticks_hz) })?;
-
         for pulse in pulses {
-            let ticks = match pulse.duration {
-                PulseDuration::Tick(ticks) => ticks,
-                PulseDuration::Nanos(ns) => {
-                    let ticks_per_ns = ticks_hz as f32 / 1e9;
-                    let ticks = ticks_per_ns * ns as f32;
-                    ticks as u32
-                }
-            };
-
             let len = self.items.len();
             // TODO: Replace half_inserted with a reference to `Option<&Item>` to prevent
             // the unwrap below.
@@ -170,12 +197,12 @@ impl Writer {
                 // union field.
                 let inner = unsafe { &mut item.__bindgen_anon_1.__bindgen_anon_1 };
 
-                inner.set_level1(pulse.state as u32);
-                inner.set_duration1(ticks as u32);
+                inner.set_level1(pulse.pin_state as u32);
+                inner.set_duration1(pulse.ticks.0);
             } else {
                 let mut inner = rmt_item32_t__bindgen_ty_1__bindgen_ty_1::default();
-                inner.set_level0(pulse.state as u32);
-                inner.set_duration0(ticks as u32);
+                inner.set_level0(pulse.pin_state as u32);
+                inner.set_duration0(pulse.ticks.0);
                 let item = esp_idf_sys::rmt_item32_t {
                     __bindgen_anon_1: rmt_item32_t__bindgen_ty_1 {
                         __bindgen_anon_1: inner,

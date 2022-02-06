@@ -10,32 +10,20 @@ use std::time::SystemTime;
 
 fn main() -> anyhow::Result<()> {
     esp_idf_sys::link_patches();
-    // esp_idf_svc::log::EspLogger::initialize_default();
-
-    println!("???????????");
-    return Ok(());
+    esp_idf_svc::log::EspLogger::initialize_default();
 
     let peripherals = Peripherals::take().unwrap();
     let led: Gpio18<Output> = peripherals.pins.gpio18.into_output().unwrap();
     let config = WriterConfig::new(&led, Channel0).clock_divider(1);
     let mut writer = Writer::new(config).unwrap();
-    let start = SystemTime::now();
 
+    let rgbs = [0xff0000, 0xffff00, 0x00ffff, 0x00ff00, 0xa000ff];
     loop {
-        let r = band(&start, 1f32);
-        let c = r * 0xff00;
-        neopixel(&mut writer, c);
-        Ets.delay_ms(10).unwrap();
+        for rgb in rgbs {
+            neopixel(&mut writer, rgb);
+            Ets.delay_ms(1000).unwrap();
+        }
     }
-}
-
-fn band(start: &SystemTime, speed: f32) -> u32 {
-    let b = SystemTime::now()
-        .duration_since(*start)
-        .unwrap()
-        .as_secs_f32()
-        * speed;
-    (b * ((b.cos() + 1f32) / 2f32)) as u32
 }
 
 fn neopixel(writer: &mut Writer, rgb: u32) {

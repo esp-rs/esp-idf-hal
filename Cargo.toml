@@ -40,3 +40,9 @@ anyhow = "1"
 esp-idf-svc = "0.36.2"
 esp-idf-sys = { version = "0.30", features = ["pio", "binstart"] }
 log = "0.4"
+
+[patch.crates-io]
+#esp-idf-svc = "0.36.2"
+#esp-idf-sys = "0.30"
+esp-idf-hal = { path = "." }
+#log = "0.4"
