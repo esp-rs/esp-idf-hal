@@ -142,11 +142,13 @@ where
     }
 }
 
-#[derive(Clone)]
-struct PrivateData;
+pub struct EspTimerService<T>(PhantomData<fn() -> T>);
 
-#[derive(Clone)]
-pub struct EspTimerService<T>(PhantomData<*const T>);
+impl<T> Clone for EspTimerService<T> {
+    fn clone(&self) -> Self {
+        Self(PhantomData)
+    }
+}
 
 impl<T> EspTimerService<T>
 where
