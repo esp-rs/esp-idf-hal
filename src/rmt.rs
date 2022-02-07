@@ -17,8 +17,21 @@
 //! * Change of config after initialisation.
 //!
 //! # Example Usage
+//! ```
+//! use esp_idf_hal::gpio::Output;
+//! use esp_idf_hal::rmt::Channel::Channel0;
 //!
-//! TODO: Example!
+//! let peripherals = Peripherals::take().unwrap();
+//! let led: Gpio18<Output> = peripherals.pins.gpio18.into_output().unwrap();
+//! let config = WriterConfig::new(&led, Channel0).clock_divider(1);
+//! let mut writer = Writer::new(config).unwrap();
+//!
+//! writer.push_pulse(Pulse::new(PinState::High, PulseTicks::max()));
+//! writer.push_pulse(Pulse::new(PinState::Low, PulseTicks::max()));
+//!
+//! writer.start().unwrap();
+//!
+//!```
 //!
 //! See the `examples/` folder of this repository for more.
 
@@ -182,6 +195,7 @@ impl PulseTicks {
         }
     }
 
+    /// Use the maximum value of 32767.
     pub fn max() -> Self {
         Self(Self::MAX)
     }
@@ -190,12 +204,13 @@ impl PulseTicks {
 pub struct Writer {
     config: rmt_config_t,
 
-    /// This must be ManuallyDrop to ensure that it isn't automatically dropped before the driver is
-    /// done using the items.
+    // This must be ManuallyDrop to ensure that it isn't automatically dropped before the driver is
+    // done using the items.
     // TODO: Manually drop this!
     items: ManuallyDrop<Vec<rmt_item32_t>>,
 
-    half_inserted: bool,
+    // An item that has had only its first half populated.
+    half_inserted: Option<rmt_item32_t>,
 
     ticks_per_ns: Option<f32>,
 }
@@ -205,7 +220,7 @@ impl Writer {
         let s = Writer {
             config: config.config,
             items: Default::default(),
-            half_inserted: false,
+            half_inserted: None,
             ticks_per_ns: None,
         };
 
@@ -223,8 +238,13 @@ impl Writer {
         Ok(ticks_hz)
     }
 
+    /// Creates a Pulse based on Nanoseconds.
+    ///
     /// Returns None if the resulting ticks from the ns conversion is too high.
     /// See `PulseTicks` for details.
+    ///
+    /// This function exists on `Writer` because of the internal call to `rmt_get_counter_clock`
+    /// requires a channel which is managed by `Writer`.
     pub fn pulse_ns(&mut self, pin_state: PinState, ns: u32) -> Result<Option<Pulse>, EspError> {
         let ticks_per_ns = match &self.ticks_per_ns {
             None => {
@@ -249,20 +269,15 @@ impl Writer {
         for pulse in pulses {
             println!("{:?} {}", &pulse.pin_state, pulse.ticks.0);
 
-            let len = self.items.len();
-            // TODO: Replace half_inserted with a reference to `Option<&Item>` to prevent
-            // the unwrap below.
-            if self.half_inserted {
-                // This unwrap() shouldn't panic because len() will always be at least 1 when
-                // something has been half_inserted.
-                let item = self.items.get_mut(len - 1).unwrap();
-
+            if let Some(item) = self.half_inserted.as_mut() {
                 // SAFETY: We have retrieved this item which is previously populated with the same
                 // union field.
                 let inner = unsafe { &mut item.__bindgen_anon_1.__bindgen_anon_1 };
 
                 inner.set_level1(pulse.pin_state as u32);
                 inner.set_duration1(pulse.ticks.0 as u32);
+
+                self.flush_half_inserted();
             } else {
                 let mut inner = rmt_item32_t__bindgen_ty_1__bindgen_ty_1::default();
                 inner.set_level0(pulse.pin_state as u32);
@@ -272,23 +287,30 @@ impl Writer {
                         __bindgen_anon_1: inner,
                     },
                 };
-                self.items.push(item);
+                self.half_inserted = Some(item);
             };
-
-            self.half_inserted = !self.half_inserted;
         }
 
         Ok(())
     }
 
+    fn flush_half_inserted(&mut self) {
+        if let Some(item) = self.half_inserted {
+            self.items.push(item);
+            self.half_inserted = None;
+        }
+    }
+
     pub fn clear(&mut self) -> Result<(), EspError> {
         self.items.clear();
-        self.half_inserted = false;
+        self.half_inserted = None;
         Ok(())
     }
 
     /// Start sending the pulses.
-    pub fn start(&self) -> Result<(), EspError> {
+    pub fn start(&mut self) -> Result<(), EspError> {
+        self.flush_half_inserted();
+
         esp!(unsafe {
             rmt_write_items(
                 self.config.channel as u32,

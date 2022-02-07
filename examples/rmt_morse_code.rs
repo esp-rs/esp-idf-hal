@@ -32,7 +32,7 @@ fn main() -> anyhow::Result<()> {
 
     loop {
         writer.start()?;
-        Ets.delay_ms(1000)?;
+        Ets.delay_ms(3000)?;
     }
 }
 
