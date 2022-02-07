@@ -1,6 +1,6 @@
 [package]
 name = "esp-idf-sys"
-version = "0.30.4"
+version = "0.30.5"
 authors = ["Alexey Arbuzov <aarbuzov@termt.com>", "sapir <yasapir@gmail.com>", "Ivan Markov <ivan.markov@gmail.com>"]
 edition = "2021"
 resolver = "2"
