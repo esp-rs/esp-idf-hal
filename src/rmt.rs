@@ -31,7 +31,7 @@ use esp_idf_sys::{
     rmt_channel_t_RMT_CHANNEL_3, rmt_config, rmt_config_t, rmt_config_t__bindgen_ty_1,
     rmt_driver_install, rmt_get_counter_clock, rmt_item32_t, rmt_item32_t__bindgen_ty_1,
     rmt_item32_t__bindgen_ty_1__bindgen_ty_1, rmt_mode_t_RMT_MODE_RX, rmt_mode_t_RMT_MODE_TX,
-    rmt_tx_config_t, rmt_write_items, EspError,
+    rmt_tx_config_t, rmt_write_items, EspError, RMT_CHANNEL_FLAGS_AWARE_DFS,
 };
 use std::mem::ManuallyDrop;
 
@@ -143,12 +143,12 @@ impl WriterConfig {
     }
 
     pub fn carrier_level(mut self, level: PinState) -> Self {
-        self.config.__bindgen_anon_1.tx_config.carrier_level = level;
+        self.config.__bindgen_anon_1.tx_config.carrier_level = level as u32;
         self
     }
 
     pub fn idle_level(mut self, level: PinState) -> Self {
-        self.config.__bindgen_anon_1.tx_config.idle_level = level;
+        self.config.__bindgen_anon_1.tx_config.idle_level = level as u32;
         self
     }
 
@@ -158,7 +158,7 @@ impl WriterConfig {
     }
 
     pub fn mem_block_num(mut self, mem_block_num: u8) -> Self {
-        self.config.__bindgen_anon_1.tx_config.mem_block_num = mem_block_num;
+        self.config.mem_block_num = mem_block_num;
         self
     }
 }
