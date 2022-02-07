@@ -26,3 +26,10 @@ Please refer to the table below to determine the pins which are not recommended 
 | **ESP32-S3** | 26 - 32, 33 - 37\* |
 
 _\* When using Octal Flash and/or Octal PSRAM_
+
+## Examples
+
+The examples could be built and flashed conveniently with [`cargo-espflash`](https://github.com/esp-rs/espflash/). To run `ledc-simple` on an ESP32-C3:
+```
+$ cargo espflash --release --target riscv32imc-esp-espidf --example ledc-simple --monitor /dev/ttyUSB0
+```

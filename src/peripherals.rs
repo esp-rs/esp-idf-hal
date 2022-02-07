@@ -13,6 +13,8 @@ use crate::hall;
 #[cfg(not(feature = "riscv-ulp-hal"))]
 use crate::i2c;
 #[cfg(not(feature = "riscv-ulp-hal"))]
+use crate::ledc;
+#[cfg(not(feature = "riscv-ulp-hal"))]
 use crate::serial;
 #[cfg(not(feature = "riscv-ulp-hal"))]
 use crate::spi;
@@ -43,6 +45,8 @@ pub struct Peripherals {
     pub hall_sensor: hall::HallSensor,
     #[cfg(not(feature = "riscv-ulp-hal"))]
     pub can: can::CAN,
+    #[cfg(not(feature = "riscv-ulp-hal"))]
+    pub ledc: ledc::Peripheral,
     #[cfg(all(any(esp32, esp32s2, esp32s3), not(feature = "riscv-ulp-hal")))]
     pub ulp: ulp::ULP,
 }
@@ -89,6 +93,8 @@ impl Peripherals {
             hall_sensor: hall::HallSensor::new(),
             #[cfg(not(feature = "riscv-ulp-hal"))]
             can: can::CAN::new(),
+            #[cfg(not(feature = "riscv-ulp-hal"))]
+            ledc: ledc::Peripheral::new(),
             #[cfg(all(any(esp32, esp32s2, esp32s3), not(feature = "riscv-ulp-hal")))]
             ulp: ulp::ULP::new(),
         }
