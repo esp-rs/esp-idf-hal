@@ -1,5 +1,9 @@
 #include "esp_system.h"
 
+#if ((ESP_IDF_VERSION_MAJOR < 4) || ((ESP_IDF_VERSION_MAJOR == 4) && (ESP_IDF_VERSION_MINOR < 3)) || ((ESP_IDF_VERSION_MAJOR == 4) && (ESP_IDF_VERSION_MINOR == 3) && (ESP_IDF_VERSION_PATCH < 2)))
+#error Only ESP-IDF versions >= V4.3.2 are currently supported; if you are using the PIO build (the default one), wipe out your `.embuild` folder and try again with a clean rebuild
+#endif
+
 //#include "esp_crc.h"
 #include "esp_log.h"
 #include "esp_debug_helpers.h"
@@ -175,7 +179,6 @@
 // since by default neither of the BT stacks is enabled.
 #ifdef CONFIG_BT_ENABLED
 #include "esp_bt.h"
-#include "services/gap/ble_svc_gap.h"
 #endif
 
 #ifdef CONFIG_BT_BLUEDROID_ENABLED
