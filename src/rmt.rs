@@ -1,3 +1,26 @@
+//! Remote Control (RMT) module driver.
+//!
+//! The RMT (Remote Control) module driver can be used to send and receive infrared remote control
+//! signals. Due to flexibility of RMT module, the driver can also be used to generate or receive
+//! many other types of signals.
+//!
+//! This module is a wrapper around the [IDF RMT](https://docs.espressif.com/projects/esp-idf/en/latest/esp32/api-reference/peripherals/rmt.html)
+//! implementation. It is recommended to read before using this module.
+//!
+//! This is an initial implementation supporting:
+//!  * Transmission, currently only blocking.
+//!
+//! Not supported:
+//! * Receiving.
+//! * No channel locking. (To prevent users from accidentally reusing a channel.)
+//! * No buffer protection while transmitting.
+//! * Change of config after initialisation.
+//!
+//! # Example Usage
+//!
+//!
+//! See the `examples/` folder of this repository for more.
+
 // TODO: Do we need to prevent users from creating two drivers on the same channel?
 // TODO: Should probably prevent writing to buffer while rmt is transmitting:
 //       "We must make sure the item data will not be damaged when the driver is still sending items in driver interrupt."
@@ -75,13 +98,18 @@ impl WriterConfig {
         }
     }
 
-    // TODO:
-    // mem_block_num
-    // flags
-    // carrier_level
-    // idle_level
-    // loop_count
-    // idle_output_en
+    /// Channel can work during APB clock scaling.
+    ///
+    /// When set, RMT channel will take REF_TICK or XTAL as source clock. The benefit is, RMT
+    /// channel can continue work even when APB clock is changing.
+    pub fn aware_dfs(mut self, enable: bool) -> Self {
+        if enable {
+            self.config.flags |= RMT_CHANNEL_FLAGS_AWARE_DFS;
+        } else {
+            self.config.flags &= !RMT_CHANNEL_FLAGS_AWARE_DFS;
+        }
+        self
+    }
 
     pub fn clock_divider(mut self, divider: u8) -> Self {
         self.config.clk_div = divider;
@@ -90,6 +118,11 @@ impl WriterConfig {
 
     pub fn loop_enabled(mut self, enabled: bool) -> Self {
         self.config.__bindgen_anon_1.tx_config.loop_en = enabled;
+        self
+    }
+
+    pub fn loop_count(mut self, count: u32) -> Self {
+        self.config.__bindgen_anon_1.tx_config.loop_count = count;
         self
     }
 
@@ -106,6 +139,26 @@ impl WriterConfig {
     // TODO: Restrict 0-100 using a newtype.
     pub fn carrier_duty_percent(mut self, percent: u8) -> Self {
         self.config.__bindgen_anon_1.tx_config.carrier_duty_percent = percent;
+        self
+    }
+
+    pub fn carrier_level(mut self, level: PinState) -> Self {
+        self.config.__bindgen_anon_1.tx_config.carrier_level = level;
+        self
+    }
+
+    pub fn idle_level(mut self, level: PinState) -> Self {
+        self.config.__bindgen_anon_1.tx_config.idle_level = level;
+        self
+    }
+
+    pub fn idle_output_enable(mut self, enabled: bool) -> Self {
+        self.config.__bindgen_anon_1.tx_config.idle_output_en = enabled;
+        self
+    }
+
+    pub fn mem_block_num(mut self, mem_block_num: u8) -> Self {
+        self.config.__bindgen_anon_1.tx_config.mem_block_num = mem_block_num;
         self
     }
 }
