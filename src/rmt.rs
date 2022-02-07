@@ -112,6 +112,11 @@ impl WriterConfig {
         self
     }
 
+    pub fn mem_block_num(mut self, mem_block_num: u8) -> Self {
+        self.config.mem_block_num = mem_block_num;
+        self
+    }
+
     pub fn clock_divider(mut self, divider: u8) -> Self {
         self.config.clk_div = divider;
         self
@@ -155,11 +160,6 @@ impl WriterConfig {
 
     pub fn idle_output_enable(mut self, enabled: bool) -> Self {
         self.config.__bindgen_anon_1.tx_config.idle_output_en = enabled;
-        self
-    }
-
-    pub fn mem_block_num(mut self, mem_block_num: u8) -> Self {
-        self.config.mem_block_num = mem_block_num;
         self
     }
 }
