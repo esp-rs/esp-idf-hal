@@ -193,6 +193,8 @@ impl Writer {
         I: IntoIterator<Item = Pulse>,
     {
         for pulse in pulses {
+            println!("{:?} {}", &pulse.pin_state, pulse.ticks.0);
+
             let len = self.items.len();
             // TODO: Replace half_inserted with a reference to `Option<&Item>` to prevent
             // the unwrap below.
