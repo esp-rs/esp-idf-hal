@@ -1,3 +1,5 @@
+// TODO: Write some notes
+
 use embedded_hal::delay::blocking::DelayUs;
 use embedded_hal::digital::PinState;
 use esp_idf_hal::delay::Ets;
