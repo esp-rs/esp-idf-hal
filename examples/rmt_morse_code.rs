@@ -1,3 +1,8 @@
+//! RMT Transmit Example -- Morse Code
+//!
+//! Example loosely based off:
+//! https://github.com/espressif/esp-idf/tree/master/examples/peripherals/rmt/morse_code
+
 use embedded_hal::delay::blocking::DelayUs;
 use embedded_hal::digital::PinState;
 use esp_idf_hal::delay::Ets;
@@ -7,11 +12,6 @@ use esp_idf_hal::peripherals::Peripherals;
 use esp_idf_hal::rmt::Channel::Channel0;
 use esp_idf_hal::rmt::{Pulse, PulseTicks, Writer, WriterConfig};
 use log::*;
-/// RMT Transmit Example -- Morse Code
-///
-/// Example loosely based off:
-/// https://github.com/espressif/esp-idf/tree/master/examples/peripherals/rmt/morse_code
-///
 use Code::*;
 
 fn main() -> anyhow::Result<()> {
