@@ -1,4 +1,3 @@
-use std::convert::TryFrom;
 // TODO: Do we need to prevent users from creating two drivers on the same channel?
 // TODO: Should probably prevent writing to buffer while rmt is transmitting:
 //       "We must make sure the item data will not be damaged when the driver is still sending items in driver interrupt."
@@ -101,6 +100,12 @@ impl WriterConfig {
 
     pub fn carrier_freq_hz(mut self, freq: u32) -> Self {
         self.config.__bindgen_anon_1.tx_config.carrier_freq_hz = freq;
+        self
+    }
+
+    // TODO: Restrict 0-100 using a newtype.
+    pub fn carrier_duty_percent(mut self, percent: u8) -> Self {
+        self.config.__bindgen_anon_1.tx_config.carrier_duty_percent = percent;
         self
     }
 }
