@@ -301,10 +301,9 @@ impl Writer {
         }
     }
 
-    pub fn clear(&mut self) -> Result<(), EspError> {
+    pub fn clear(&mut self) {
         self.items.clear();
         self.half_inserted = None;
-        Ok(())
     }
 
     /// Start sending the pulses.
