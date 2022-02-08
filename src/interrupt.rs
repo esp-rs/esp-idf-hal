@@ -55,7 +55,7 @@ impl CriticalSection {
     #[inline(always)]
     #[link_section = ".iram1.interrupt_cs_new"]
     pub const fn new() -> Self {
-        #[cfg(not(any(esp32c3, esp32s2)))]
+        #[cfg(not(esp32c3))]
         let mux = core::cell::UnsafeCell::new(portMUX_TYPE {
             owner: portMUX_FREE_VAL,
             count: 0,
@@ -65,7 +65,7 @@ impl CriticalSection {
             lastLockedLine: -1,
         });
 
-        #[cfg(any(esp32c3, esp32s2))]
+        #[cfg(esp32c3)]
         let mux = core::marker::PhantomData;
 
         Self(mux)
