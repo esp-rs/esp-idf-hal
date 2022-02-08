@@ -11,26 +11,26 @@ pub fn active() -> bool {
 }
 
 /// A critical section allows the user to disable interrupts
-#[cfg(not(any(esp32c3, esp32s2)))]
+#[cfg(not(esp32c3))]
 pub struct CriticalSection(core::cell::UnsafeCell<portMUX_TYPE>);
 
-#[cfg(any(esp32c3, esp32s2))]
+#[cfg(esp32c3)]
 pub struct CriticalSection(core::marker::PhantomData<*const ()>);
 
 #[inline(always)]
 #[link_section = ".iram1.interrupt_enter"]
 fn enter(cs: &CriticalSection) {
-    #[cfg(any(esp32c3, esp32s2))]
+    #[cfg(esp32c3)]
     unsafe {
         vPortEnterCritical();
     }
 
-    #[cfg(all(esp_idf_version = "4.3", not(any(esp32c3, esp32s2))))]
+    #[cfg(all(esp_idf_version = "4.3", not(esp32c3)))]
     unsafe {
         vPortEnterCritical(cs.0.get());
     }
 
-    #[cfg(all(not(esp_idf_version = "4.3"), not(any(esp32c3, esp32s2))))]
+    #[cfg(all(not(esp_idf_version = "4.3"), not(esp32c3)))]
     unsafe {
         xPortEnterCriticalTimeout(cs.0.get(), portMUX_NO_TIMEOUT);
     }
@@ -39,12 +39,12 @@ fn enter(cs: &CriticalSection) {
 #[inline(always)]
 #[link_section = ".iram1.interrupt_exit"]
 fn exit(cs: &CriticalSection) {
-    #[cfg(any(esp32c3, esp32s2))]
+    #[cfg(esp32c3)]
     unsafe {
         vPortExitCritical();
     }
 
-    #[cfg(not(any(esp32c3, esp32s2)))]
+    #[cfg(not(esp32c3))]
     unsafe {
         vPortExitCritical(cs.0.get());
     }
