@@ -36,11 +36,10 @@
 //!
 //! See the `examples/` folder of this repository for more.
 
-// TODO: Do we need to prevent users from creating two drivers on the same channel?
-// TODO: Should probably prevent writing to buffer while rmt is transmitting:
-//       "We must make sure the item data will not be damaged when the driver is still sending items in driver interrupt."
 use crate::gpio::OutputPin;
 use config::WriterConfig;
+use core::convert::TryFrom;
+use core::mem::ManuallyDrop;
 use core::time::Duration;
 use embedded_hal::digital::PinState;
 use esp_idf_sys::{
@@ -50,8 +49,6 @@ use esp_idf_sys::{
     rmt_item32_t__bindgen_ty_1__bindgen_ty_1, rmt_mode_t_RMT_MODE_TX, rmt_tx_config_t,
     rmt_write_items, EspError, EOVERFLOW, ESP_ERR_INVALID_ARG, RMT_CHANNEL_FLAGS_AWARE_DFS,
 };
-use std::convert::TryFrom;
-use std::mem::ManuallyDrop;
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum Channel {
@@ -60,17 +57,6 @@ pub enum Channel {
     Channel1,
     Channel2,
     Channel3,
-}
-
-impl Into<u32> for Channel {
-    fn into(self) -> u32 {
-        match self {
-            Channel::Channel0 => rmt_channel_t_RMT_CHANNEL_0,
-            Channel::Channel1 => rmt_channel_t_RMT_CHANNEL_1,
-            Channel::Channel2 => rmt_channel_t_RMT_CHANNEL_2,
-            Channel::Channel3 => rmt_channel_t_RMT_CHANNEL_3,
-        }
-    }
 }
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
@@ -133,6 +119,7 @@ impl PulseTicks {
 
     /// Convert a `Duration` into `PulseTicks`.
     ///
+    /// See `Pulse::new_with_duration()` for details.
     pub fn new_with_duration(ticks_hz: u32, duration: Duration) -> Result<Self, EspError> {
         let ticks = duration
             .as_nanos()
@@ -271,11 +258,7 @@ pub mod config {
 
 pub struct Writer {
     channel: Channel,
-
-    // This must be ManuallyDrop to ensure that it isn't automatically dropped before the driver is
-    // done using the items.
-    // TODO: Manually drop this!
-    items: ManuallyDrop<Vec<rmt_item32_t>>,
+    items: Vec<rmt_item32_t>,
 
     // An item that has had only its first half populated.
     half_inserted: Option<rmt_item32_t>,
@@ -347,8 +330,7 @@ impl Writer {
     {
         for pulse in pulses {
             if let Some(item) = self.half_inserted.as_mut() {
-                // SAFETY: We have retrieved this item which is previously populated with the same
-                // union field.
+                // SAFETY: This item was previously populated with the same union field.
                 let inner = unsafe { &mut item.__bindgen_anon_1.__bindgen_anon_1 };
 
                 inner.set_level1(pulse.pin_state as u32);
@@ -400,16 +382,5 @@ impl Writer {
 
     pub fn stop(&self) -> Result<(), EspError> {
         todo!()
-    }
-}
-
-impl Drop for Writer {
-    fn drop(&mut self) {
-        // We're not able to return errors, so log a warning if we can't stop.
-        if let Err(err) = self.stop() {
-            println!("Failed to stop rmt::Writer during Drop: {:?}", err);
-        }
-
-        todo!("Ensure we have stopped before dropping items.");
     }
 }
