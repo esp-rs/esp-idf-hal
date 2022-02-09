@@ -38,6 +38,7 @@
 
 use crate::gpio::OutputPin;
 use config::WriterConfig;
+use core::cell::RefCell;
 use core::convert::TryFrom;
 use core::mem::ManuallyDrop;
 use core::time::Duration;
@@ -258,10 +259,6 @@ pub mod config {
 
 pub struct Writer {
     channel: Channel,
-    items: Vec<rmt_item32_t>,
-
-    // An item that has had only its first half populated.
-    half_inserted: Option<rmt_item32_t>,
 }
 
 impl Writer {
@@ -311,11 +308,7 @@ impl Writer {
             esp!(rmt_driver_install(channel as u32, 0, 0))?;
         }
 
-        Ok(Self {
-            channel,
-            items: Default::default(),
-            half_inserted: None,
-        })
+        Ok(Self { channel })
     }
 
     pub fn counter_clock(&self) -> Result<u32, EspError> {
@@ -324,57 +317,24 @@ impl Writer {
         Ok(ticks_hz)
     }
 
-    pub fn add<I>(&mut self, pulses: I) -> Result<(), EspError>
-    where
-        I: IntoIterator<Item = Pulse>,
-    {
-        for pulse in pulses {
-            if let Some(item) = self.half_inserted.as_mut() {
-                // SAFETY: This item was previously populated with the same union field.
-                let inner = unsafe { &mut item.__bindgen_anon_1.__bindgen_anon_1 };
-
-                inner.set_level1(pulse.pin_state as u32);
-                inner.set_duration1(pulse.ticks.0 as u32);
-
-                self.flush_half_inserted();
-            } else {
-                let mut inner = rmt_item32_t__bindgen_ty_1__bindgen_ty_1::default();
-                inner.set_level0(pulse.pin_state as u32);
-                inner.set_duration0(pulse.ticks.0 as u32);
-                let item = esp_idf_sys::rmt_item32_t {
-                    __bindgen_anon_1: rmt_item32_t__bindgen_ty_1 {
-                        __bindgen_anon_1: inner,
-                    },
-                };
-                self.half_inserted = Some(item);
-            };
-        }
-
-        Ok(())
-    }
-
-    /// This must be run before starting the RMT pulses otherwise it will drop the odd last entry.
-    fn flush_half_inserted(&mut self) {
-        if let Some(item) = self.half_inserted {
-            self.items.push(item);
-            self.half_inserted = None;
-        }
-    }
-
-    pub fn clear(&mut self) {
-        self.items.clear();
-        self.half_inserted = None;
-    }
-
     /// Start sending the pulses.
-    pub fn start(&mut self) -> Result<(), EspError> {
-        self.flush_half_inserted();
+    pub fn start<D>(&mut self, data: D) -> Result<(), EspError>
+    where
+        D: Data,
+    {
+        let items = data.as_slice();
+        dbg!(items.as_ptr());
+        dbg!(items.len());
+
+        let b: &[u16] =
+            unsafe { ::std::slice::from_raw_parts(items.as_ptr() as *const u16, items.len() * 4) };
+        dbg!(b);
 
         esp!(unsafe {
             rmt_write_items(
                 self.channel as u32,
-                self.items.as_ptr(),
-                self.items.len() as i32,
+                items.as_ptr(),
+                items.len() as i32,
                 true, // TODO: Blocking.
             )
         })
@@ -385,34 +345,117 @@ impl Writer {
     }
 }
 
-fn pulses_to_internal<const N: usize>(s: [u64; N]) -> [u32; (N + 1) / 2] {
+fn pulses_to_internal<const N: usize>(s: [Pulse; N]) -> [rmt_item32_t; (N + 1) / 2] {
     todo!()
 }
 
-// Actual:
-// struct WriterData<const N: usize>([rmt_item32_t; N]);
-// struct WriterData<const N: usize>([u32; N]);
+pub trait Data {
+    fn as_slice(&self) -> &[rmt_item32_t];
+}
+
+pub struct VecData {
+    items: Vec<rmt_item32_t>,
+    next_item_is_new: bool,
+}
+
+struct VecDataInner {}
+
+impl VecData {
+    pub fn new() -> Self {
+        Self {
+            items: vec![],
+            next_item_is_new: true,
+        }
+    }
+
+    pub fn add<I>(&mut self, pulses: I) -> Result<(), EspError>
+    where
+        I: IntoIterator<Item = Pulse>,
+    {
+        for pulse in pulses {
+            if self.next_item_is_new {
+                let mut inner_item = rmt_item32_t__bindgen_ty_1__bindgen_ty_1::default();
+                inner_item.set_level0(pulse.pin_state as u32);
+                inner_item.set_duration0(pulse.ticks.0 as u32);
+                let item = rmt_item32_t {
+                    __bindgen_anon_1: rmt_item32_t__bindgen_ty_1 {
+                        __bindgen_anon_1: inner_item,
+                    },
+                };
+                self.items.push(item);
+            } else {
+                // There should be at least one item in the vec.
+                let len = self.items.len();
+                let item = self.items.get_mut(len - 1).unwrap();
+
+                // SAFETY: This item was previously populated with the same union field.
+                let inner = unsafe { &mut item.__bindgen_anon_1.__bindgen_anon_1 };
+
+                inner.set_level1(pulse.pin_state as u32);
+                inner.set_duration1(pulse.ticks.0 as u32);
+            }
+
+            self.next_item_is_new = !self.next_item_is_new;
+        }
+
+        Ok(())
+    }
+
+    pub fn clear(&mut self) {
+        self.next_item_is_new = true;
+        self.items.clear();
+    }
+}
+
+impl Data for VecData {
+    fn as_slice(&self) -> &[rmt_item32_t] {
+        &self.items
+    }
+}
+
+pub struct StackWriterData<const N: usize>([rmt_item32_t; N]);
+
+impl<const N: usize> Data for StackWriterData<N> {
+    fn as_slice(&self) -> &[rmt_item32_t] {
+        self.0.as_slice()
+    }
+}
+
+// pub fn pulses_to_data<const N: usize>(s: &[Pulse; N]) -> StackWriterData<{ (N + 1) / 2 }> {
+//     todo!()
+// }
 //
-// impl<const N: usize> WriterData<N> {
-//     fn from_slice(pulses: &[Pulse; N]) -> Self {
-//         WriterData([0; N])
+// impl<const N: usize> From<&[Pulse; N]> for StackWriterData<{ (N + 1) / 2 }> {
+//     fn from(pulses: &[Pulse; N]) -> Self {
+//         let slice = [rmt_item32_t {
+//             __bindgen_anon_1: rmt_item32_t__bindgen_ty_1 {
+//                 __bindgen_anon_1: rmt_item32_t__bindgen_ty_1__bindgen_ty_1::default(),
+//             },
+//         }; (N + 1) / 2];
+//         StackWriterData(slice)
 //     }
 // }
 //
-fn brainstorming() {
-    //     let pulse = Pulse::new(PinState::High, PulseTicks::max());
-    //     // If from slice is even, /2. If odd, /2 + 1
-    //     let wd: WriterData<1> = WriterData::from_slice(&[pulse]);
-    //     let wd: WriterData<2> = WriterData::from_slice(&[pulse, pulse]);
-    //     let wd: WriterData<3> = WriterData::from_slice(&[pulse, pulse, pulse]);
-    //     let wd: WriterData<4> = WriterData::from_slice(&[pulse, pulse, pulse, pulse]);
-
-    let a: [u32; 1] = pulses_to_internal([1]);
-    let a: [u32; 1] = pulses_to_internal([1, 2]);
-    let a: [u32; 2] = pulses_to_internal([1, 2, 3]);
-    let a: [u32; 2] = pulses_to_internal([1, 2, 3, 4]);
-    let a = pulses_to_internal([1]);
-    let a = pulses_to_internal([1, 2]);
-    let a = pulses_to_internal([1, 2, 3]);
-    let a = pulses_to_internal([1, 2, 3, 4]);
-}
+// fn brainstorming() {
+//     let pulse = Pulse::new(PinState::High, PulseTicks::max());
+//     //     // If from slice is even, /2. If odd, /2 + 1
+//     //     let wd: WriterData<1> = WriterData::from_slice(&[pulse]);
+//     //     let wd: WriterData<2> = WriterData::from_slice(&[pulse, pulse]);
+//     //     let wd: WriterData<3> = WriterData::from_slice(&[pulse, pulse, pulse]);
+//     //     let wd: WriterData<4> = WriterData::from_slice(&[pulse, pulse, pulse, pulse]);
+//
+//     let a: [rmt_item32_t; 0] = pulses_to_internal([]);
+//     let a: [rmt_item32_t; 1] = pulses_to_internal([pulse]);
+//     let a: [rmt_item32_t; 1] = pulses_to_internal([pulse, pulse]);
+//     let a: [rmt_item32_t; 2] = pulses_to_internal([pulse, pulse, pulse]);
+//     let a: [rmt_item32_t; 2] = pulses_to_internal([pulse, pulse, pulse, pulse]);
+//
+//     let a: StackWriterData<1> = pulses_to_data(&[pulse]);
+//     let a: StackWriterData<1> = pulses_to_data(&[pulse, pulse]);
+//     let a: StackWriterData<2> = pulses_to_data(&[pulse, pulse, pulse]);
+//     let a: StackWriterData<2> = pulses_to_data(&[pulse, pulse, pulse, pulse]);
+//
+//     let _: StackWriterData<1> = (&[pulse]).into();
+//     let _: StackWriterData<1> = (&[pulse, pulse]).into();
+//     let _: StackWriterData<2> = (&[pulse, pulse, pulse]).into();
+// }

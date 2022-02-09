@@ -9,7 +9,7 @@ use esp_idf_hal::gpio::Output;
 use esp_idf_hal::peripherals::Peripherals;
 use esp_idf_hal::rmt::config::WriterConfig;
 use esp_idf_hal::rmt::Channel::Channel0;
-use esp_idf_hal::rmt::{Pulse, Writer};
+use esp_idf_hal::rmt::{Pulse, StackWriterData, VecData, Writer};
 
 fn main() -> anyhow::Result<()> {
     esp_idf_sys::link_patches();
@@ -32,15 +32,15 @@ fn main() -> anyhow::Result<()> {
 fn neopixel(writer: &mut Writer, rgb: u32) -> anyhow::Result<()> {
     let ticks_hz = writer.counter_clock()?;
     let t0h = Pulse::new_with_duration(ticks_hz, PinState::High, Duration::from_nanos(350))?;
-    let t1h = Pulse::new_with_duration(ticks_hz, PinState::High, Duration::from_nanos(700))?;
     let t0l = Pulse::new_with_duration(ticks_hz, PinState::Low, Duration::from_nanos(800))?;
+    let t1h = Pulse::new_with_duration(ticks_hz, PinState::High, Duration::from_nanos(700))?;
     let t1l = Pulse::new_with_duration(ticks_hz, PinState::Low, Duration::from_nanos(600))?;
 
-    writer.clear();
+    let mut data = VecData::new();
     for i in 0..24 {
         let bit = 2_u32.pow(i) & rgb != 0;
         let (high_pulse, low_pulse) = if bit { (t1h, t1l) } else { (t0h, t0l) };
-        writer.add([high_pulse, low_pulse])?;
+        data.add([high_pulse, low_pulse])?;
     }
-    Ok(writer.start()?)
+    Ok(writer.start(data)?)
 }

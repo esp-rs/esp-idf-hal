@@ -11,7 +11,7 @@ use esp_idf_hal::gpio::Output;
 use esp_idf_hal::peripherals::Peripherals;
 use esp_idf_hal::rmt::config::{CarrierConfig, WriterConfig};
 use esp_idf_hal::rmt::Channel::Channel0;
-use esp_idf_hal::rmt::{Pulse, PulseTicks, Writer};
+use esp_idf_hal::rmt::{Pulse, PulseTicks, VecData, Writer};
 use log::*;
 use Code::*;
 
@@ -29,12 +29,14 @@ fn main() -> anyhow::Result<()> {
 
     let mut writer = Writer::new(led, Channel0, &config)?;
     let pulses = str_pulses("ABC CBA");
-    writer.add(pulses)?;
+    let mut data = VecData::new();
+    data.add(pulses)?;
 
-    loop {
-        writer.start()?;
-        Ets.delay_ms(3000)?;
-    }
+    // loop {
+    writer.start(data)?;
+    // Ets.delay_ms(3000)?;
+    // }
+    Ok(())
 }
 
 fn high() -> Pulse {
