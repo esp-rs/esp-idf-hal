@@ -1,5 +1,6 @@
 // TODO: Write some notes
 
+use core::time::Duration;
 use embedded_hal::delay::blocking::DelayUs;
 use embedded_hal::digital::PinState;
 use esp_idf_hal::delay::Ets;
@@ -9,7 +10,6 @@ use esp_idf_hal::peripherals::Peripherals;
 use esp_idf_hal::rmt::config::WriterConfig;
 use esp_idf_hal::rmt::Channel::Channel0;
 use esp_idf_hal::rmt::{Pulse, Writer};
-use std::time::SystemTime;
 
 fn main() -> anyhow::Result<()> {
     esp_idf_sys::link_patches();
@@ -32,10 +32,10 @@ fn main() -> anyhow::Result<()> {
 fn neopixel(writer: &mut Writer, rgb: u32) -> anyhow::Result<()> {
     writer.clear();
 
-    let t0h = writer.pulse_ns(PinState::High, 350)?;
-    let t1h = writer.pulse_ns(PinState::High, 700)?;
-    let t0l = writer.pulse_ns(PinState::Low, 800)?;
-    let t1l = writer.pulse_ns(PinState::Low, 600)?;
+    let t0h = writer.pulse_duration(PinState::High, Duration::from_nanos(350))?;
+    let t1h = writer.pulse_duration(PinState::High, Duration::from_nanos(700))?;
+    let t0l = writer.pulse_duration(PinState::Low, Duration::from_nanos(800))?;
+    let t1l = writer.pulse_duration(PinState::Low, Duration::from_nanos(600))?;
 
     for i in 0..24 {
         let bit = 2_u32.pow(i) & rgb != 0;

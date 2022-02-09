@@ -40,7 +40,7 @@
 // TODO: Should probably prevent writing to buffer while rmt is transmitting:
 //       "We must make sure the item data will not be damaged when the driver is still sending items in driver interrupt."
 use crate::gpio::OutputPin;
-use crate::rmt::config::WriterConfig;
+use config::WriterConfig;
 use core::time::Duration;
 use embedded_hal::digital::PinState;
 use esp_idf_sys::{
@@ -48,7 +48,7 @@ use esp_idf_sys::{
     rmt_channel_t_RMT_CHANNEL_2, rmt_channel_t_RMT_CHANNEL_3, rmt_config, rmt_config_t,
     rmt_config_t__bindgen_ty_1, rmt_driver_install, rmt_get_counter_clock, rmt_item32_t,
     rmt_item32_t__bindgen_ty_1, rmt_item32_t__bindgen_ty_1__bindgen_ty_1, rmt_mode_t_RMT_MODE_RX,
-    rmt_mode_t_RMT_MODE_TX, rmt_tx_config_t, rmt_write_items, EspError, ERANGE,
+    rmt_mode_t_RMT_MODE_TX, rmt_tx_config_t, rmt_write_items, EspError, EOVERFLOW,
     ESP_ERR_INVALID_ARG, RMT_CHANNEL_FLAGS_AWARE_DFS,
 };
 use std::mem::ManuallyDrop;
@@ -69,21 +69,6 @@ impl Into<u32> for Channel {
             Channel::Channel1 => rmt_channel_t_RMT_CHANNEL_1,
             Channel::Channel2 => rmt_channel_t_RMT_CHANNEL_2,
             Channel::Channel3 => rmt_channel_t_RMT_CHANNEL_3,
-        }
-    }
-}
-
-#[derive(Debug, Copy, Clone, Eq, PartialEq)]
-pub enum Mode {
-    Tx,
-    Rx,
-}
-
-impl Into<u32> for Mode {
-    fn into(self) -> u32 {
-        match self {
-            Mode::Tx => rmt_mode_t_RMT_MODE_TX,
-            Mode::Rx => rmt_mode_t_RMT_MODE_RX,
         }
     }
 }
@@ -342,7 +327,6 @@ impl Writer {
             .checked_mul(*ticks_hz as u128)
             .ok_or(EspError::from(EOVERFLOW as i32).unwrap())?
             / 1_000_000_000;
-        // let ticks = (*ticks_hz as u64 * ns as u64 / 1_000_000_000) as u16;
         let ticks = PulseTicks::new(ticks as u16)?;
         Ok(Pulse::new(pin_state, ticks))
     }
