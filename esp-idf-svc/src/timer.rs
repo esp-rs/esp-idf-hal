@@ -184,6 +184,32 @@ where
     }
 }
 
+impl EspTimerService<Periodic> {
+    pub fn into_async(
+        self,
+    ) -> embedded_svc::utils::nonblocking::timer::Periodic<
+        esp_idf_hal::mutex::Mutex<
+            embedded_svc::utils::nonblocking::timer::TimerState<EspTimer<Periodic>>,
+        >,
+        Self,
+    > {
+        embedded_svc::utils::nonblocking::timer::Periodic::new(self)
+    }
+}
+
+impl EspTimerService<Once> {
+    pub fn into_async(
+        self,
+    ) -> embedded_svc::utils::nonblocking::timer::Once<
+        esp_idf_hal::mutex::Mutex<
+            embedded_svc::utils::nonblocking::timer::OnceState<EspTimer<Once>>,
+        >,
+        Self,
+    > {
+        embedded_svc::utils::nonblocking::timer::Once::new(self)
+    }
+}
+
 impl<T> service::Service for EspTimerService<T> {
     type Error = EspError;
 }

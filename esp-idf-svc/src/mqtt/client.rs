@@ -215,6 +215,33 @@ impl EspMqttClient {
         Ok((client, connection))
     }
 
+    pub fn new_async<'a>(
+        url: impl AsRef<str>,
+        conf: &'a MqttClientConfiguration<'a>,
+    ) -> Result<
+        (
+            Self,
+            embedded_svc::utils::nonblocking::mqtt::client::Connection<
+                Condvar,
+                EspMqttMessage,
+                EspError,
+            >,
+        ),
+        EspError,
+    > {
+        let connection = embedded_svc::utils::nonblocking::mqtt::client::Connection::<
+            Condvar,
+            _,
+            EspError,
+        >::new();
+
+        let cb_connection = connection.clone();
+
+        let client = Self::new_with_callback(url, conf, move |event| cb_connection.post(event))?;
+
+        Ok((client, connection))
+    }
+
     pub fn new_with_callback<'a>(
         url: impl AsRef<str>,
         conf: &'a MqttClientConfiguration<'a>,

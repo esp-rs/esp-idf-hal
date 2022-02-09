@@ -454,6 +454,23 @@ where
             Ok(true)
         }
     }
+
+    pub fn into_typed<M, P>(self) -> EspTypedEventLoop<M, P, Self> {
+        EspTypedEventLoop::new(self)
+    }
+
+    pub fn into_async<M, P>(
+        self,
+    ) -> embedded_svc::utils::nonblocking::event_bus::EventBus<
+        esp_idf_hal::mutex::Condvar,
+        EspTypedEventLoop<M, P, EspEventLoop<T>>,
+    >
+    where
+        Self: Clone,
+        M: EspTypedEventSerDe<P>,
+    {
+        self.into_typed().into_async()
+    }
 }
 
 impl EspEventLoop<System> {
@@ -598,13 +615,31 @@ pub struct EspTypedEventLoop<M, P, L> {
     _payload: PhantomData<fn() -> P>,
 }
 
-impl<L, M, P> EspTypedEventLoop<M, P, L> {
+impl<M, P, L> EspTypedEventLoop<M, P, L> {
     pub fn new(untyped_event_loop: L) -> Self {
         Self {
             untyped_event_loop,
             _serde: PhantomData,
             _payload: PhantomData,
         }
+    }
+}
+
+impl<M, P, T> EspTypedEventLoop<M, P, EspEventLoop<T>>
+where
+    T: EspEventLoopType,
+{
+    pub fn into_async(
+        self,
+    ) -> embedded_svc::utils::nonblocking::event_bus::EventBus<
+        esp_idf_hal::mutex::Condvar,
+        EspTypedEventLoop<M, P, EspEventLoop<T>>,
+    >
+    where
+        Self: Clone,
+        M: EspTypedEventSerDe<P>,
+    {
+        embedded_svc::utils::nonblocking::event_bus::EventBus::new::<P>(self)
     }
 }
 
