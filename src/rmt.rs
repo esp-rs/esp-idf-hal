@@ -61,8 +61,8 @@ pub enum Channel {
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub struct Pulse {
-    ticks: PulseTicks,
-    pin_state: PinState,
+    pub ticks: PulseTicks,
+    pub pin_state: PinState,
 }
 
 impl Pulse {
@@ -383,4 +383,36 @@ impl Writer {
     pub fn stop(&self) -> Result<(), EspError> {
         todo!()
     }
+}
+
+fn pulses_to_internal<const N: usize>(s: [u64; N]) -> [u32; (N + 1) / 2] {
+    todo!()
+}
+
+// Actual:
+// struct WriterData<const N: usize>([rmt_item32_t; N]);
+// struct WriterData<const N: usize>([u32; N]);
+//
+// impl<const N: usize> WriterData<N> {
+//     fn from_slice(pulses: &[Pulse; N]) -> Self {
+//         WriterData([0; N])
+//     }
+// }
+//
+fn brainstorming() {
+    //     let pulse = Pulse::new(PinState::High, PulseTicks::max());
+    //     // If from slice is even, /2. If odd, /2 + 1
+    //     let wd: WriterData<1> = WriterData::from_slice(&[pulse]);
+    //     let wd: WriterData<2> = WriterData::from_slice(&[pulse, pulse]);
+    //     let wd: WriterData<3> = WriterData::from_slice(&[pulse, pulse, pulse]);
+    //     let wd: WriterData<4> = WriterData::from_slice(&[pulse, pulse, pulse, pulse]);
+
+    let a: [u32; 1] = pulses_to_internal([1]);
+    let a: [u32; 1] = pulses_to_internal([1, 2]);
+    let a: [u32; 2] = pulses_to_internal([1, 2, 3]);
+    let a: [u32; 2] = pulses_to_internal([1, 2, 3, 4]);
+    let a = pulses_to_internal([1]);
+    let a = pulses_to_internal([1, 2]);
+    let a = pulses_to_internal([1, 2, 3]);
+    let a = pulses_to_internal([1, 2, 3, 4]);
 }

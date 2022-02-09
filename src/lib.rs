@@ -2,6 +2,7 @@
 #![feature(cfg_version)]
 #![feature(generic_associated_types)] // For mutex
 #![feature(const_fn_fn_ptr_basics)] // Embassy timer
+#![feature(generic_const_exprs)] // Used in rmt to prevent alloc.
 #![cfg_attr(not(version("1.59")), feature(asm))]
 #![cfg_attr(
     all(version("1.58"), target_arch = "xtensa"),
