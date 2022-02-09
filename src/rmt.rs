@@ -41,6 +41,7 @@
 //       "We must make sure the item data will not be damaged when the driver is still sending items in driver interrupt."
 use crate::gpio::OutputPin;
 use crate::rmt::config::WriterConfig;
+use core::time::Duration;
 use embedded_hal::digital::PinState;
 use esp_idf_sys::{
     esp, esp_err_t, rmt_channel_t_RMT_CHANNEL_0, rmt_channel_t_RMT_CHANNEL_1,
@@ -106,10 +107,8 @@ impl PulseTicks {
     const MAX: u16 = 32767;
 
     /// PulseTick needs to be unsigned 15 bits: 0-32767 inclusive.
-    ///
-    /// It will return `None` if it's out of range.
     pub fn new(v: u16) -> Result<Self, EspError> {
-        if v > 32767 {
+        if v > Self::MAX {
             Err(EspError::from(ESP_ERR_INVALID_ARG as i32).unwrap())
         } else {
             Ok(Self(v))
@@ -326,7 +325,11 @@ impl Writer {
     ///
     /// This function exists on `Writer` because of the internal call to `rmt_get_counter_clock`
     /// requires a channel which is managed by `Writer`.
-    pub fn pulse_ns(&mut self, pin_state: PinState, ns: u32) -> Result<Pulse, EspError> {
+    pub fn pulse_duration(
+        &mut self,
+        pin_state: PinState,
+        duration: Duration,
+    ) -> Result<Pulse, EspError> {
         let ticks_hz = match &self.ticks_hz {
             None => {
                 self.ticks_hz = Some(self.counter_clock()?);
@@ -334,8 +337,13 @@ impl Writer {
             }
             Some(t) => t,
         };
-        let ticks = (*ticks_hz as u64 * ns as u64 / 1_000_000_000) as u16;
-        let ticks = PulseTicks::new(ticks)?;
+        let ticks = duration
+            .as_nanos()
+            .checked_mul(*ticks_hz as u128)
+            .ok_or(EspError::from(EOVERFLOW as i32).unwrap())?
+            / 1_000_000_000;
+        // let ticks = (*ticks_hz as u64 * ns as u64 / 1_000_000_000) as u16;
+        let ticks = PulseTicks::new(ticks as u16)?;
         Ok(Pulse::new(pin_state, ticks))
     }
 
