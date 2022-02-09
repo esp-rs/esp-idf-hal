@@ -23,30 +23,25 @@ fn main() -> anyhow::Result<()> {
     let rgbs = [0xff0000, 0xffff00, 0x00ffff, 0x00ff00, 0xa000ff];
     loop {
         for rgb in rgbs {
-            neopixel(&mut writer, rgb);
+            neopixel(&mut writer, rgb)?;
             Ets.delay_ms(1000).unwrap();
         }
     }
 }
 
-fn neopixel(writer: &mut Writer, rgb: u32) {
-    const T0H: u32 = 350;
-    const T1H: u32 = 700;
-    const T0L: u32 = 800;
-    const T1L: u32 = 600;
-
+fn neopixel(writer: &mut Writer, rgb: u32) -> anyhow::Result<()> {
     writer.clear();
 
-    let t0h = writer.pulse_ns(PinState::High, T0H).unwrap().unwrap();
-    let t1h = writer.pulse_ns(PinState::High, T1H).unwrap().unwrap();
-    let t0l = writer.pulse_ns(PinState::Low, T0L).unwrap().unwrap();
-    let t1l = writer.pulse_ns(PinState::Low, T1L).unwrap().unwrap();
+    let t0h = writer.pulse_ns(PinState::High, 350)?;
+    let t1h = writer.pulse_ns(PinState::High, 700)?;
+    let t0l = writer.pulse_ns(PinState::Low, 800)?;
+    let t1l = writer.pulse_ns(PinState::Low, 600)?;
 
     for i in 0..24 {
         let bit = 2_u32.pow(i) & rgb != 0;
         let (high_pulse, low_pulse) = if bit { (t1h, t1l) } else { (t0h, t0l) };
-        writer.add([high_pulse, low_pulse]).unwrap();
+        writer.add([high_pulse, low_pulse])?;
     }
 
-    writer.start().unwrap();
+    Ok(writer.start()?)
 }

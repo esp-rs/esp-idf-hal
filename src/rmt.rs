@@ -43,11 +43,12 @@ use crate::gpio::OutputPin;
 use crate::rmt::config::WriterConfig;
 use embedded_hal::digital::PinState;
 use esp_idf_sys::{
-    esp, rmt_channel_t_RMT_CHANNEL_0, rmt_channel_t_RMT_CHANNEL_1, rmt_channel_t_RMT_CHANNEL_2,
-    rmt_channel_t_RMT_CHANNEL_3, rmt_config, rmt_config_t, rmt_config_t__bindgen_ty_1,
-    rmt_driver_install, rmt_get_counter_clock, rmt_item32_t, rmt_item32_t__bindgen_ty_1,
-    rmt_item32_t__bindgen_ty_1__bindgen_ty_1, rmt_mode_t_RMT_MODE_RX, rmt_mode_t_RMT_MODE_TX,
-    rmt_tx_config_t, rmt_write_items, EspError, RMT_CHANNEL_FLAGS_AWARE_DFS,
+    esp, esp_err_t, rmt_channel_t_RMT_CHANNEL_0, rmt_channel_t_RMT_CHANNEL_1,
+    rmt_channel_t_RMT_CHANNEL_2, rmt_channel_t_RMT_CHANNEL_3, rmt_config, rmt_config_t,
+    rmt_config_t__bindgen_ty_1, rmt_driver_install, rmt_get_counter_clock, rmt_item32_t,
+    rmt_item32_t__bindgen_ty_1, rmt_item32_t__bindgen_ty_1__bindgen_ty_1, rmt_mode_t_RMT_MODE_RX,
+    rmt_mode_t_RMT_MODE_TX, rmt_tx_config_t, rmt_write_items, EspError, ERANGE,
+    ESP_ERR_INVALID_ARG, RMT_CHANNEL_FLAGS_AWARE_DFS,
 };
 use std::mem::ManuallyDrop;
 
@@ -107,12 +108,11 @@ impl PulseTicks {
     /// PulseTick needs to be unsigned 15 bits: 0-32767 inclusive.
     ///
     /// It will return `None` if it's out of range.
-    pub fn new(v: u16) -> Option<Self> {
+    pub fn new(v: u16) -> Result<Self, EspError> {
         if v > 32767 {
-            // TODO: Not sure of a nicer way to deal with this? Allow an overflow like rust does?
-            None
+            Err(EspError::from(ESP_ERR_INVALID_ARG as i32).unwrap())
         } else {
-            Some(Self(v))
+            Ok(Self(v))
         }
     }
 
@@ -324,12 +324,9 @@ impl Writer {
 
     /// Creates a Pulse based on Nanoseconds.
     ///
-    /// Returns None if the resulting ticks from the ns conversion is too high.
-    /// See `PulseTicks` for details.
-    ///
     /// This function exists on `Writer` because of the internal call to `rmt_get_counter_clock`
     /// requires a channel which is managed by `Writer`.
-    pub fn pulse_ns(&mut self, pin_state: PinState, ns: u32) -> Result<Option<Pulse>, EspError> {
+    pub fn pulse_ns(&mut self, pin_state: PinState, ns: u32) -> Result<Pulse, EspError> {
         let ticks_per_ns = match &self.ticks_per_ns {
             None => {
                 let ticks_hz = self.counter_clock()?;
@@ -340,10 +337,8 @@ impl Writer {
             Some(t) => t,
         };
         let ticks = (ticks_per_ns * ns as f32) as u16;
-        match PulseTicks::new(ticks) {
-            Some(ticks) => Ok(Some(Pulse::new(pin_state, ticks))),
-            None => Ok(None),
-        }
+        let ticks = PulseTicks::new(ticks)?;
+        Ok(Pulse::new(pin_state, ticks))
     }
 
     pub fn add<I>(&mut self, pulses: I) -> Result<(), EspError>
