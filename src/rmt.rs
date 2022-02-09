@@ -86,7 +86,7 @@ impl Pulse {
 
     /// Create a `Pulse` using a `Duration`.
     ///
-    /// We need to know the ticks frequency (ticks_hz), which depends on the prepared channel
+    /// We need to know the ticks frequency (`ticks_hz`), which depends on the prepared channel
     /// within a `Writer`. To get the frequency for the `ticks_hz` argument, use
     /// `Writer::counter_clock()`. For example:
     /// ```
@@ -279,8 +279,6 @@ pub struct Writer {
 
     // An item that has had only its first half populated.
     half_inserted: Option<rmt_item32_t>,
-
-    ticks_hz: Option<u32>,
 }
 
 impl Writer {
@@ -334,7 +332,6 @@ impl Writer {
             channel,
             items: Default::default(),
             half_inserted: None,
-            ticks_hz: None,
         })
     }
 
@@ -374,6 +371,7 @@ impl Writer {
         Ok(())
     }
 
+    /// This must be run before starting the RMT pulses otherwise it will drop the odd last entry.
     fn flush_half_inserted(&mut self) {
         if let Some(item) = self.half_inserted {
             self.items.push(item);
