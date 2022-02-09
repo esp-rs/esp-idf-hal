@@ -21,10 +21,11 @@
 //! use esp_idf_hal::gpio::Output;
 //! use esp_idf_hal::rmt::Channel::Channel0;
 //!
+//! let cfg = config:WriterConfig::new().clock_divider(1);
+//!
 //! let peripherals = Peripherals::take().unwrap();
 //! let led: Gpio18<Output> = peripherals.pins.gpio18.into_output().unwrap();
-//! let config = WriterConfig::new(&led, Channel0).clock_divider(1);
-//! let mut writer = Writer::new(config).unwrap();
+//! let mut writer = Writer::new(led, cfg).unwrap();
 //!
 //! writer.push_pulse(Pulse::new(PinState::High, PulseTicks::max()));
 //! writer.push_pulse(Pulse::new(PinState::Low, PulseTicks::max()));
@@ -39,6 +40,7 @@
 // TODO: Should probably prevent writing to buffer while rmt is transmitting:
 //       "We must make sure the item data will not be damaged when the driver is still sending items in driver interrupt."
 use crate::gpio::OutputPin;
+use crate::rmt::config::WriterConfig;
 use embedded_hal::digital::PinState;
 use esp_idf_sys::{
     esp, rmt_channel_t_RMT_CHANNEL_0, rmt_channel_t_RMT_CHANNEL_1, rmt_channel_t_RMT_CHANNEL_2,
@@ -50,20 +52,38 @@ use esp_idf_sys::{
 use std::mem::ManuallyDrop;
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
-#[repr(u32)]
 pub enum Channel {
     // TODO: Work out the different number of channels per chip.
-    Channel0 = rmt_channel_t_RMT_CHANNEL_0,
-    Channel1 = rmt_channel_t_RMT_CHANNEL_1,
-    Channel2 = rmt_channel_t_RMT_CHANNEL_2,
-    Channel3 = rmt_channel_t_RMT_CHANNEL_3,
+    Channel0,
+    Channel1,
+    Channel2,
+    Channel3,
+}
+
+impl Into<u32> for Channel {
+    fn into(self) -> u32 {
+        match self {
+            Channel::Channel0 => rmt_channel_t_RMT_CHANNEL_0,
+            Channel::Channel1 => rmt_channel_t_RMT_CHANNEL_1,
+            Channel::Channel2 => rmt_channel_t_RMT_CHANNEL_2,
+            Channel::Channel3 => rmt_channel_t_RMT_CHANNEL_3,
+        }
+    }
 }
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
-#[repr(u32)]
 pub enum Mode {
-    Tx = rmt_mode_t_RMT_MODE_TX,
-    Rx = rmt_mode_t_RMT_MODE_RX,
+    Tx,
+    Rx,
+}
+
+impl Into<u32> for Mode {
+    fn into(self) -> u32 {
+        match self {
+            Mode::Tx => rmt_mode_t_RMT_MODE_TX,
+            Mode::Rx => rmt_mode_t_RMT_MODE_RX,
+        }
+    }
 }
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
@@ -75,105 +95,6 @@ pub struct Pulse {
 impl Pulse {
     pub fn new(pin_state: PinState, ticks: PulseTicks) -> Self {
         Pulse { pin_state, ticks }
-    }
-}
-
-pub struct WriterConfig {
-    config: rmt_config_t,
-}
-
-impl WriterConfig {
-    pub fn new<OP>(pin: &OP, channel: Channel) -> Self
-    where
-        OP: OutputPin,
-    {
-        // Defaults from https://github.com/espressif/esp-idf/blob/master/components/driver/include/driver/rmt.h#L101
-        Self {
-            config: rmt_config_t {
-                rmt_mode: rmt_mode_t_RMT_MODE_TX,
-                channel: channel as u32,
-                gpio_num: pin.pin(),
-                clk_div: 80,
-                mem_block_num: 1,
-                flags: 0,
-                __bindgen_anon_1: rmt_config_t__bindgen_ty_1 {
-                    tx_config: rmt_tx_config_t {
-                        carrier_freq_hz: 38000,
-                        carrier_level: PinState::High as u32,
-                        idle_level: PinState::Low as u32,
-                        carrier_duty_percent: 33,
-                        loop_count: 0,
-                        carrier_en: false,
-                        loop_en: false,
-                        idle_output_en: true,
-                    },
-                },
-            },
-        }
-    }
-
-    /// Channel can work during APB clock scaling.
-    ///
-    /// When set, RMT channel will take REF_TICK or XTAL as source clock. The benefit is, RMT
-    /// channel can continue work even when APB clock is changing.
-    pub fn aware_dfs(mut self, enable: bool) -> Self {
-        if enable {
-            self.config.flags |= RMT_CHANNEL_FLAGS_AWARE_DFS;
-        } else {
-            self.config.flags &= !RMT_CHANNEL_FLAGS_AWARE_DFS;
-        }
-        self
-    }
-
-    pub fn mem_block_num(mut self, mem_block_num: u8) -> Self {
-        self.config.mem_block_num = mem_block_num;
-        self
-    }
-
-    pub fn clock_divider(mut self, divider: u8) -> Self {
-        self.config.clk_div = divider;
-        self
-    }
-
-    pub fn loop_enabled(mut self, enabled: bool) -> Self {
-        self.config.__bindgen_anon_1.tx_config.loop_en = enabled;
-        self
-    }
-
-    pub fn loop_count(mut self, count: u32) -> Self {
-        self.config.__bindgen_anon_1.tx_config.loop_count = count;
-        self
-    }
-
-    pub fn carrier_enabled(mut self, enabled: bool) -> Self {
-        self.config.__bindgen_anon_1.tx_config.carrier_en = enabled;
-        self
-    }
-
-    pub fn carrier_freq_hz(mut self, freq: u32) -> Self {
-        self.config.__bindgen_anon_1.tx_config.carrier_freq_hz = freq;
-        self
-    }
-
-    // TODO: Restrict 0-100 using a newtype.
-    pub fn carrier_duty_percent(mut self, percent: u8) -> Self {
-        self.config.__bindgen_anon_1.tx_config.carrier_duty_percent = percent;
-        self
-    }
-
-    pub fn carrier_level(mut self, level: PinState) -> Self {
-        self.config.__bindgen_anon_1.tx_config.carrier_level = level as u32;
-        self
-    }
-
-    pub fn idle_level(mut self, level: PinState) -> Self {
-        self.config.__bindgen_anon_1.tx_config.idle_level = level as u32;
-        self
-    }
-
-    pub fn idle_output_enable(mut self, enabled: bool) -> Self {
-        self.config.__bindgen_anon_1.tx_config.idle_output_en = enabled;
-        self
     }
 }
 
@@ -201,8 +122,133 @@ impl PulseTicks {
     }
 }
 
+pub mod config {
+    use embedded_hal::digital::PinState;
+    use esp_idf_sys::EspError;
+
+    #[derive(Debug, Copy, Clone, Eq, PartialEq)]
+    pub struct CarrierConfig {
+        // TODO: Use units::Frequency.
+        pub frequency_hz: u32,
+        pub carrier_level: PinState,
+        pub idle_level: PinState,
+        // TODO: Use a Percentage type to restrict range to 0-100.
+        pub duty_percent: u8,
+    }
+
+    impl Default for CarrierConfig {
+        // Defaults from https://github.com/espressif/esp-idf/blob/master/components/driver/include/driver/rmt.h#L101
+        fn default() -> Self {
+            Self {
+                frequency_hz: 38000,
+                carrier_level: PinState::High,
+                idle_level: PinState::Low,
+                duty_percent: 33,
+            }
+        }
+    }
+
+    impl CarrierConfig {
+        pub fn new() -> Self {
+            Default::default()
+        }
+
+        pub fn frequency_hz(mut self, f: u32) -> Self {
+            self.frequency_hz = f;
+            self
+        }
+
+        pub fn carrier_level(mut self, state: PinState) -> Self {
+            self.carrier_level = state;
+            self
+        }
+
+        pub fn idle_level(mut self, state: PinState) -> Self {
+            self.idle_level = state;
+            self
+        }
+
+        pub fn duty_percent(mut self, duty: u8) -> Self {
+            self.duty_percent = duty;
+            self
+        }
+    }
+
+    #[derive(Debug, Copy, Clone, Eq, PartialEq)]
+    pub enum Loop {
+        None,
+        Count(u32),
+        Infinite,
+    }
+
+    pub struct WriterConfig {
+        pub clock_divider: u8,
+        pub mem_block_num: u8,
+        pub carrier: Option<CarrierConfig>,
+        // TODO: `loop` is taken. Maybe can change to repeat even though it doesn't match the IDF.
+        pub looping: Loop,
+        /// Enable and set the signal level on the output if idle.
+        pub idle: Option<PinState>,
+        pub aware_dfs: bool,
+    }
+
+    impl Default for WriterConfig {
+        // Defaults from https://github.com/espressif/esp-idf/blob/master/components/driver/include/driver/rmt.h#L101
+        fn default() -> Self {
+            Self {
+                aware_dfs: false,
+                mem_block_num: 1,
+                clock_divider: 80,
+                looping: Loop::None,
+                carrier: None,
+                idle: Some(PinState::Low),
+            }
+        }
+    }
+
+    impl WriterConfig {
+        pub fn new() -> Self {
+            Self::default()
+        }
+
+        /// Channel can work during APB clock scaling.
+        ///
+        /// When set, RMT channel will take REF_TICK or XTAL as source clock. The benefit is, RMT
+        /// channel can continue work even when APB clock is changing.
+        pub fn aware_dfs(mut self, enable: bool) -> Self {
+            self.aware_dfs = enable;
+            self
+        }
+
+        pub fn mem_block_num(mut self, mem_block_num: u8) -> Self {
+            self.mem_block_num = mem_block_num;
+            self
+        }
+
+        pub fn clock_divider(mut self, divider: u8) -> Self {
+            self.clock_divider = divider;
+            self
+        }
+
+        pub fn looping(mut self, looping: Loop) -> Self {
+            self.looping = looping;
+            self
+        }
+
+        pub fn carrier(mut self, carrier: Option<CarrierConfig>) -> Self {
+            self.carrier = carrier;
+            self
+        }
+
+        pub fn idle(mut self, idle: Option<PinState>) -> Self {
+            self.idle = idle;
+            self
+        }
+    }
+}
+
 pub struct Writer {
-    config: rmt_config_t,
+    channel: Channel,
 
     // This must be ManuallyDrop to ensure that it isn't automatically dropped before the driver is
     // done using the items.
@@ -216,25 +262,63 @@ pub struct Writer {
 }
 
 impl Writer {
-    pub fn new(config: WriterConfig) -> Result<Writer, EspError> {
-        let s = Writer {
-            config: config.config,
-            items: Default::default(),
-            half_inserted: None,
-            ticks_per_ns: None,
+    pub fn new<P>(pin: P, channel: Channel, config: &WriterConfig) -> Result<Writer, EspError>
+    where
+        P: OutputPin,
+    {
+        let mut flags = 0;
+        if config.aware_dfs {
+            flags |= RMT_CHANNEL_FLAGS_AWARE_DFS;
+        }
+
+        let carrier_en = config.carrier.is_some();
+        let carrier = config.carrier.unwrap_or_default();
+
+        use config::Loop;
+        let loop_en = config.looping != Loop::None;
+        let loop_count = match config.looping {
+            Loop::None => 0,
+            Loop::Count(c) => c,
+            Loop::Infinite => 0,
+        };
+
+        let sys_config = rmt_config_t {
+            rmt_mode: rmt_mode_t_RMT_MODE_TX,
+            channel: channel as u32,
+            gpio_num: pin.pin(),
+            clk_div: config.clock_divider,
+            mem_block_num: config.mem_block_num,
+            flags,
+            __bindgen_anon_1: rmt_config_t__bindgen_ty_1 {
+                tx_config: rmt_tx_config_t {
+                    carrier_en,
+                    carrier_freq_hz: carrier.frequency_hz,
+                    carrier_level: carrier.carrier_level as u32,
+                    carrier_duty_percent: carrier.duty_percent,
+                    idle_output_en: config.idle.is_some(),
+                    idle_level: config.idle.map(|i| i as u32).unwrap_or(0),
+                    loop_en,
+                    loop_count,
+                },
+            },
         };
 
         unsafe {
-            esp!(rmt_config(&s.config))?;
-            esp!(rmt_driver_install(s.config.channel as u32, 0, 0))?;
+            esp!(rmt_config(&sys_config))?;
+            esp!(rmt_driver_install(channel as u32, 0, 0))?;
         }
 
-        Ok(s)
+        Ok(Self {
+            channel,
+            items: Default::default(),
+            half_inserted: None,
+            ticks_per_ns: None,
+        })
     }
 
     pub fn counter_clock(&self) -> Result<u32, EspError> {
         let mut ticks_hz: u32 = 0;
-        esp!(unsafe { rmt_get_counter_clock(self.config.channel, &mut ticks_hz) })?;
+        esp!(unsafe { rmt_get_counter_clock(self.channel as u32, &mut ticks_hz) })?;
         Ok(ticks_hz)
     }
 
@@ -267,8 +351,6 @@ impl Writer {
         I: IntoIterator<Item = Pulse>,
     {
         for pulse in pulses {
-            println!("{:?} {}", &pulse.pin_state, pulse.ticks.0);
-
             if let Some(item) = self.half_inserted.as_mut() {
                 // SAFETY: We have retrieved this item which is previously populated with the same
                 // union field.
@@ -312,7 +394,7 @@ impl Writer {
 
         esp!(unsafe {
             rmt_write_items(
-                self.config.channel as u32,
+                self.channel as u32,
                 self.items.as_ptr(),
                 self.items.len() as i32,
                 true, // TODO: Blocking.
@@ -327,6 +409,11 @@ impl Writer {
 
 impl Drop for Writer {
     fn drop(&mut self) {
+        // We're not able to return errors, so log a warning if we can't stop.
+        if let Err(err) = self.stop() {
+            println!("Failed to stop rmt::Writer during Drop: {:?}", err);
+        }
+
         todo!("Ensure we have stopped before dropping items.");
     }
 }

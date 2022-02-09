@@ -9,8 +9,9 @@ use esp_idf_hal::delay::Ets;
 use esp_idf_hal::gpio::Gpio17;
 use esp_idf_hal::gpio::Output;
 use esp_idf_hal::peripherals::Peripherals;
+use esp_idf_hal::rmt::config::{CarrierConfig, WriterConfig};
 use esp_idf_hal::rmt::Channel::Channel0;
-use esp_idf_hal::rmt::{Pulse, PulseTicks, Writer, WriterConfig};
+use esp_idf_hal::rmt::{Pulse, PulseTicks, Writer};
 use log::*;
 use Code::*;
 
@@ -21,12 +22,12 @@ fn main() -> anyhow::Result<()> {
     let peripherals = Peripherals::take().unwrap();
     let led: Gpio17<Output> = peripherals.pins.gpio17.into_output()?;
 
-    let config = WriterConfig::new(&led, Channel0)
-        .carrier_duty_percent(50)
-        .carrier_freq_hz(611)
+    let carrier = CarrierConfig::new().duty_percent(50).frequency_hz(611);
+    let config = WriterConfig::new()
+        .carrier(Some(carrier))
         .clock_divider(255);
-    let mut writer = Writer::new(config)?;
 
+    let mut writer = Writer::new(led, Channel0, &config)?;
     let pulses = str_pulses("ABC CBA");
     writer.add(pulses)?;
 

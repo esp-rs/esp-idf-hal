@@ -6,8 +6,9 @@ use esp_idf_hal::delay::Ets;
 use esp_idf_hal::gpio::Gpio18;
 use esp_idf_hal::gpio::Output;
 use esp_idf_hal::peripherals::Peripherals;
+use esp_idf_hal::rmt::config::WriterConfig;
 use esp_idf_hal::rmt::Channel::Channel0;
-use esp_idf_hal::rmt::{Pulse, Writer, WriterConfig};
+use esp_idf_hal::rmt::{Pulse, Writer};
 use std::time::SystemTime;
 
 fn main() -> anyhow::Result<()> {
@@ -16,8 +17,8 @@ fn main() -> anyhow::Result<()> {
 
     let peripherals = Peripherals::take().unwrap();
     let led: Gpio18<Output> = peripherals.pins.gpio18.into_output().unwrap();
-    let config = WriterConfig::new(&led, Channel0).clock_divider(1);
-    let mut writer = Writer::new(config).unwrap();
+    let config = WriterConfig::new().clock_divider(1);
+    let mut writer = Writer::new(led, Channel0, &config).unwrap();
 
     let rgbs = [0xff0000, 0xffff00, 0x00ffff, 0x00ff00, 0xa000ff];
     loop {
@@ -34,7 +35,7 @@ fn neopixel(writer: &mut Writer, rgb: u32) {
     const T0L: u32 = 800;
     const T1L: u32 = 600;
 
-    writer.clear().unwrap();
+    writer.clear();
 
     let t0h = writer.pulse_ns(PinState::High, T0H).unwrap().unwrap();
     let t1h = writer.pulse_ns(PinState::High, T1H).unwrap().unwrap();
