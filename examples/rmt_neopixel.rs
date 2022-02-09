@@ -30,18 +30,17 @@ fn main() -> anyhow::Result<()> {
 }
 
 fn neopixel(writer: &mut Writer, rgb: u32) -> anyhow::Result<()> {
+    let ticks_hz = writer.counter_clock()?;
+    let t0h = Pulse::new_with_duration(ticks_hz, PinState::High, Duration::from_nanos(350))?;
+    let t1h = Pulse::new_with_duration(ticks_hz, PinState::High, Duration::from_nanos(700))?;
+    let t0l = Pulse::new_with_duration(ticks_hz, PinState::Low, Duration::from_nanos(800))?;
+    let t1l = Pulse::new_with_duration(ticks_hz, PinState::Low, Duration::from_nanos(600))?;
+
     writer.clear();
-
-    let t0h = writer.pulse_duration(PinState::High, Duration::from_nanos(350))?;
-    let t1h = writer.pulse_duration(PinState::High, Duration::from_nanos(700))?;
-    let t0l = writer.pulse_duration(PinState::Low, Duration::from_nanos(800))?;
-    let t1l = writer.pulse_duration(PinState::Low, Duration::from_nanos(600))?;
-
     for i in 0..24 {
         let bit = 2_u32.pow(i) & rgb != 0;
         let (high_pulse, low_pulse) = if bit { (t1h, t1l) } else { (t0h, t0l) };
         writer.add([high_pulse, low_pulse])?;
     }
-
     Ok(writer.start()?)
 }

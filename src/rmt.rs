@@ -44,13 +44,13 @@ use config::WriterConfig;
 use core::time::Duration;
 use embedded_hal::digital::PinState;
 use esp_idf_sys::{
-    esp, esp_err_t, rmt_channel_t_RMT_CHANNEL_0, rmt_channel_t_RMT_CHANNEL_1,
-    rmt_channel_t_RMT_CHANNEL_2, rmt_channel_t_RMT_CHANNEL_3, rmt_config, rmt_config_t,
-    rmt_config_t__bindgen_ty_1, rmt_driver_install, rmt_get_counter_clock, rmt_item32_t,
-    rmt_item32_t__bindgen_ty_1, rmt_item32_t__bindgen_ty_1__bindgen_ty_1, rmt_mode_t_RMT_MODE_RX,
-    rmt_mode_t_RMT_MODE_TX, rmt_tx_config_t, rmt_write_items, EspError, EOVERFLOW,
-    ESP_ERR_INVALID_ARG, RMT_CHANNEL_FLAGS_AWARE_DFS,
+    esp, rmt_channel_t_RMT_CHANNEL_0, rmt_channel_t_RMT_CHANNEL_1, rmt_channel_t_RMT_CHANNEL_2,
+    rmt_channel_t_RMT_CHANNEL_3, rmt_config, rmt_config_t, rmt_config_t__bindgen_ty_1,
+    rmt_driver_install, rmt_get_counter_clock, rmt_item32_t, rmt_item32_t__bindgen_ty_1,
+    rmt_item32_t__bindgen_ty_1__bindgen_ty_1, rmt_mode_t_RMT_MODE_TX, rmt_tx_config_t,
+    rmt_write_items, EspError, EOVERFLOW, ESP_ERR_INVALID_ARG, RMT_CHANNEL_FLAGS_AWARE_DFS,
 };
+use std::convert::TryFrom;
 use std::mem::ManuallyDrop;
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
@@ -83,6 +83,32 @@ impl Pulse {
     pub fn new(pin_state: PinState, ticks: PulseTicks) -> Self {
         Pulse { pin_state, ticks }
     }
+
+    /// Create a `Pulse` using a `Duration`.
+    ///
+    /// We need to know the ticks frequency (ticks_hz), which depends on the prepared channel
+    /// within a `Writer`. To get the frequency for the `ticks_hz` argument, use
+    /// `Writer::counter_clock()`. For example:
+    /// ```
+    /// # use esp_idf_sys::EspError;
+    /// # use esp_idf_hal::gpio::Output;
+    /// # use esp_idf_hal::rmt::Channel::Channel0;
+    /// # fn example() -> Result<(), EspError> {
+    /// # let peripherals = Peripherals::take()?;
+    /// # let led: Gpio18<Output> = peripherals.pins.gpio18.into_output()?;
+    /// let mut writer = Writer::new(led, cfg)?;
+    /// let ticks_hz = writer.counter_clock()?;
+    /// let pulse = Pulse::new_with_duration(ticks_hz, PinState::High, Duration::from_nanos(500))?;
+    /// # }
+    /// ```
+    pub fn new_with_duration(
+        ticks_hz: u32,
+        pin_state: PinState,
+        duration: Duration,
+    ) -> Result<Self, EspError> {
+        let ticks = PulseTicks::new_with_duration(ticks_hz, duration)?;
+        Ok(Self::new(pin_state, ticks))
+    }
 }
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
@@ -104,11 +130,23 @@ impl PulseTicks {
     pub fn max() -> Self {
         Self(Self::MAX)
     }
+
+    /// Convert a `Duration` into `PulseTicks`.
+    ///
+    pub fn new_with_duration(ticks_hz: u32, duration: Duration) -> Result<Self, EspError> {
+        let ticks = duration
+            .as_nanos()
+            .checked_mul(ticks_hz as u128)
+            .ok_or(EspError::from(EOVERFLOW as i32).unwrap())?
+            / 1_000_000_000;
+        let ticks = u16::try_from(ticks).map_err(|_| EspError::from(EOVERFLOW as i32).unwrap())?;
+
+        Self::new(ticks)
+    }
 }
 
 pub mod config {
     use embedded_hal::digital::PinState;
-    use esp_idf_sys::EspError;
 
     #[derive(Debug, Copy, Clone, Eq, PartialEq)]
     pub struct CarrierConfig {
@@ -304,31 +342,6 @@ impl Writer {
         let mut ticks_hz: u32 = 0;
         esp!(unsafe { rmt_get_counter_clock(self.channel as u32, &mut ticks_hz) })?;
         Ok(ticks_hz)
-    }
-
-    /// Creates a Pulse based on Nanoseconds.
-    ///
-    /// This function exists on `Writer` because of the internal call to `rmt_get_counter_clock`
-    /// requires a channel which is managed by `Writer`.
-    pub fn pulse_duration(
-        &mut self,
-        pin_state: PinState,
-        duration: Duration,
-    ) -> Result<Pulse, EspError> {
-        let ticks_hz = match &self.ticks_hz {
-            None => {
-                self.ticks_hz = Some(self.counter_clock()?);
-                self.ticks_hz.as_ref().unwrap()
-            }
-            Some(t) => t,
-        };
-        let ticks = duration
-            .as_nanos()
-            .checked_mul(*ticks_hz as u128)
-            .ok_or(EspError::from(EOVERFLOW as i32).unwrap())?
-            / 1_000_000_000;
-        let ticks = PulseTicks::new(ticks as u16)?;
-        Ok(Pulse::new(pin_state, ticks))
     }
 
     pub fn add<I>(&mut self, pulses: I) -> Result<(), EspError>
