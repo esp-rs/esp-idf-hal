@@ -258,7 +258,7 @@ pub struct Writer {
     // An item that has had only its first half populated.
     half_inserted: Option<rmt_item32_t>,
 
-    ticks_per_ns: Option<f32>,
+    ticks_hz: Option<u32>,
 }
 
 impl Writer {
@@ -312,7 +312,7 @@ impl Writer {
             channel,
             items: Default::default(),
             half_inserted: None,
-            ticks_per_ns: None,
+            ticks_hz: None,
         })
     }
 
@@ -327,16 +327,14 @@ impl Writer {
     /// This function exists on `Writer` because of the internal call to `rmt_get_counter_clock`
     /// requires a channel which is managed by `Writer`.
     pub fn pulse_ns(&mut self, pin_state: PinState, ns: u32) -> Result<Pulse, EspError> {
-        let ticks_per_ns = match &self.ticks_per_ns {
+        let ticks_hz = match &self.ticks_hz {
             None => {
-                let ticks_hz = self.counter_clock()?;
-                let ticks_per_ns = ticks_hz as f32 / 1e9;
-                self.ticks_per_ns = Some(ticks_per_ns);
-                self.ticks_per_ns.as_ref().unwrap()
+                self.ticks_hz = Some(self.counter_clock()?);
+                self.ticks_hz.as_ref().unwrap()
             }
             Some(t) => t,
         };
-        let ticks = (ticks_per_ns * ns as f32) as u16;
+        let ticks = (*ticks_hz as u64 * ns as u64 / 1_000_000_000) as u16;
         let ticks = PulseTicks::new(ticks)?;
         Ok(Pulse::new(pin_state, ticks))
     }
