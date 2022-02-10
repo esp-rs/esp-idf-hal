@@ -194,7 +194,9 @@ pub mod config {
     #[derive(Debug, Copy, Clone, Eq, PartialEq)]
     pub enum Loop {
         None,
+        // TODO: Docs say max is 1023
         Count(u32),
+        // TODO: Docs don't say zero is forever, so remove this.
         Forever,
     }
 
@@ -281,11 +283,13 @@ impl<P: OutputPin, C: HwChannel> Writer<P, C> {
 
         use config::Loop;
         let loop_en = config.looping != Loop::None;
+        dbg!(loop_en);
         let loop_count = match config.looping {
             Loop::None => 0,
             Loop::Count(c) => c,
             Loop::Forever => 0,
         };
+        dbg!(loop_count);
 
         let sys_config = rmt_config_t {
             rmt_mode: rmt_mode_t_RMT_MODE_TX,
@@ -302,6 +306,7 @@ impl<P: OutputPin, C: HwChannel> Writer<P, C> {
                     carrier_duty_percent: carrier.duty_percent.0,
                     idle_output_en: config.idle.is_some(),
                     idle_level: config.idle.map(|i| i as u32).unwrap_or(0),
+                    // TODO: This doesn't seem to work at all on my ESP32S2
                     loop_en,
                     loop_count,
                 },

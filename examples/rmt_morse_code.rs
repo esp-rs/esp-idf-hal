@@ -2,11 +2,17 @@
 //!
 //! Example loosely based off:
 //! https://github.com/espressif/esp-idf/tree/master/examples/peripherals/rmt/morse_code
-
+//!
+//! This example demonstrates:
+//! * A carrier signal.
+//! * Looping.
+//! * Background sending.
+//! * Waiting for a signal to finished.
+//! * Releasing a Gpio Pin and Channel, to be used again.
 use embedded_hal::delay::blocking::DelayUs;
 use embedded_hal::digital::blocking::InputPin;
 use esp_idf_hal::delay::Ets;
-use esp_idf_hal::gpio::{Gpio16, Gpio17, GpioPin, Input, Output, Pin};
+use esp_idf_hal::gpio::{Gpio16, Gpio17, Input, Output, Pin};
 use esp_idf_hal::peripherals::Peripherals;
 use esp_idf_hal::rmt::config::{CarrierConfig, DutyPercent, Loop, WriterConfig};
 use esp_idf_hal::rmt::{PinState, Pulse, PulseTicks, VecData, Writer, CHANNEL0};
@@ -27,18 +33,22 @@ fn main() -> anyhow::Result<()> {
         .frequency(611.Hz());
     let mut config = WriterConfig::new()
         .carrier(Some(carrier))
-        .looping(Loop::Forever)
+        .looping(Loop::Count(1323))
         .clock_divider(255);
 
-    let writer = send_morse_code(&config, led, channel, "IS ANYONE THERE  ")?;
+    let writer = send_morse_code(&config, led, channel, "IS ANYBODY OUT THERE  ")?;
 
-    info!("Keep sending until pin {} is set high.", stop.pin());
-    while stop.is_low()? {
+    info!("Keep sending until pin {} is set low.", stop.pin());
+    while stop.is_high()? {
         Ets.delay_ms(100)?;
     }
+    info!("Pin {} is set to low--stopping message.", stop.pin());
 
     // Release pin and channel so we can use them again.
     let (led, channel) = writer.release()?;
+
+    // Wait so the messages don't get garbled.
+    Ets.delay_ms(3000)?;
 
     // Now send a single message and stop.
     config.looping = Loop::None;
@@ -55,7 +65,7 @@ fn send_morse_code(
     channel: CHANNEL0,
     message: &str,
 ) -> anyhow::Result<Writer<Gpio17<Output>, CHANNEL0>> {
-    info!("Sending morse code to pin {}.", led.pin());
+    info!("Sending morse message '{}' to pin {}.", message, led.pin());
 
     let mut data = VecData::new();
     data.add(str_pulses(message))?;
@@ -91,13 +101,6 @@ impl Code {
     }
 }
 
-const CODES: &[(char, &[Code])] = &[
-    (' ', &[Code::WordGap]),
-    ('A', &[Code::Dot, Code::Dash]),
-    ('B', &[Code::Dash, Code::Dot, Code::Dot, Code::Dot]),
-    ('C', &[Code::Dash, Code::Dot, Code::Dash, Code::Dot]),
-];
-
 fn find_codes(c: &char) -> &'static [Code] {
     for (found, codes) in CODES.iter() {
         if found == c {
@@ -118,3 +121,33 @@ fn str_pulses(s: &str) -> Vec<Pulse> {
     }
     pulses
 }
+
+const CODES: &[(char, &[Code])] = &[
+    (' ', &[Code::WordGap]),
+    ('A', &[Code::Dot, Code::Dash]),
+    ('B', &[Code::Dash, Code::Dot, Code::Dot, Code::Dot]),
+    ('C', &[Code::Dash, Code::Dot, Code::Dash, Code::Dot]),
+    ('D', &[Code::Dash, Code::Dot, Code::Dot]),
+    ('E', &[Code::Dot]),
+    ('F', &[Code::Dot, Code::Dot, Code::Dash, Code::Dot]),
+    ('G', &[Code::Dash, Code::Dash, Code::Dot]),
+    ('H', &[Code::Dot, Code::Dot, Code::Dot, Code::Dot]),
+    ('I', &[Code::Dot, Code::Dot]),
+    ('J', &[Code::Dot, Code::Dash, Code::Dash, Code::Dash]),
+    ('K', &[Code::Dash, Code::Dot, Code::Dash]),
+    ('L', &[Code::Dot, Code::Dash, Code::Dot, Code::Dot]),
+    ('M', &[Code::Dash, Code::Dash]),
+    ('N', &[Code::Dash, Code::Dot]),
+    ('O', &[Code::Dash, Code::Dash, Code::Dash]),
+    ('P', &[Code::Dot, Code::Dash, Code::Dash, Code::Dot]),
+    ('Q', &[Code::Dash, Code::Dash, Code::Dot, Code::Dash]),
+    ('R', &[Code::Dot, Code::Dash, Code::Dot]),
+    ('S', &[Code::Dot, Code::Dot, Code::Dot]),
+    ('T', &[Code::Dash]),
+    ('U', &[Code::Dot, Code::Dot, Code::Dash]),
+    ('V', &[Code::Dot, Code::Dot, Code::Dot, Code::Dash]),
+    ('W', &[Code::Dot, Code::Dash, Code::Dash]),
+    ('X', &[Code::Dash, Code::Dot, Code::Dot, Code::Dash]),
+    ('Y', &[Code::Dash, Code::Dot, Code::Dash, Code::Dash]),
+    ('Z', &[Code::Dash, Code::Dash, Code::Dot, Code::Dot]),
+];
