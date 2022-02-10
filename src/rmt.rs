@@ -48,8 +48,9 @@ use esp_idf_sys::{
     rmt_channel_t_RMT_CHANNEL_3, rmt_config, rmt_config_t, rmt_config_t__bindgen_ty_1,
     rmt_driver_install, rmt_get_counter_clock, rmt_item32_t, rmt_item32_t__bindgen_ty_1,
     rmt_item32_t__bindgen_ty_1__bindgen_ty_1, rmt_mode_t_RMT_MODE_TX, rmt_tx_config_t,
-    rmt_write_items, EspError, EOVERFLOW, ESP_ERR_INVALID_ARG, RMT_CHANNEL_FLAGS_AWARE_DFS,
+    rmt_write_items, EspError, EOVERFLOW, ERANGE, ESP_ERR_INVALID_ARG, RMT_CHANNEL_FLAGS_AWARE_DFS,
 };
+use std::ops::IndexMut;
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum Channel {
@@ -323,13 +324,6 @@ impl Writer {
         D: Data,
     {
         let items = data.as_slice();
-        dbg!(items.as_ptr());
-        dbg!(items.len());
-
-        let b: &[u16] =
-            unsafe { ::std::slice::from_raw_parts(items.as_ptr() as *const u16, items.len() * 4) };
-        dbg!(b);
-
         esp!(unsafe {
             rmt_write_items(
                 self.channel as u32,
@@ -349,16 +343,18 @@ fn pulses_to_internal<const N: usize>(s: [Pulse; N]) -> [rmt_item32_t; (N + 1) /
     todo!()
 }
 
+/// Data storage for writer in the format for the RMT driver.
 pub trait Data {
     fn as_slice(&self) -> &[rmt_item32_t];
 }
 
+/// Vec based store for RMT pulse data.
+///
+/// Use this for when you don't know the final size of your data.
 pub struct VecData {
     items: Vec<rmt_item32_t>,
     next_item_is_new: bool,
 }
-
-struct VecDataInner {}
 
 impl VecData {
     pub fn new() -> Self {
@@ -413,14 +409,51 @@ impl Data for VecData {
     }
 }
 
-pub struct StackWriterData<const N: usize>([rmt_item32_t; N]);
+pub struct StackPairedData<const N: usize>([rmt_item32_t; N]);
 
-impl<const N: usize> Data for StackWriterData<N> {
-    fn as_slice(&self) -> &[rmt_item32_t] {
-        self.0.as_slice()
+impl<const N: usize> StackPairedData<N> {
+    pub fn new() -> Self {
+        Self(
+            [rmt_item32_t {
+                __bindgen_anon_1: rmt_item32_t__bindgen_ty_1 {
+                    // Quick way to set all 32 bits to zero, instead of using `__bindgen_anon_1`.
+                    val: 0,
+                },
+            }; N],
+        )
+    }
+
+    pub fn set(&mut self, index: usize, pair: &(Pulse, Pulse)) -> Result<(), EspError> {
+        let item = self
+            .0
+            .get_mut(index)
+            .ok_or(EspError::from(ERANGE as i32).unwrap())?;
+
+        // SAFETY: We're overriding all 32 bits, so it doesn't matter what was here before.
+        let inner = unsafe { &mut item.__bindgen_anon_1.__bindgen_anon_1 };
+        inner.set_level0(pair.0.pin_state as u32);
+        inner.set_duration0(pair.0.ticks.0 as u32);
+        inner.set_level1(pair.1.pin_state as u32);
+        inner.set_duration1(pair.1.ticks.0 as u32);
+
+        Ok(())
     }
 }
 
+impl<const N: usize> Data for StackPairedData<N> {
+    fn as_slice(&self) -> &[rmt_item32_t] {
+        &self.0
+    }
+}
+
+// pub struct StackWriterData<const N: usize>([rmt_item32_t; N]);
+//
+// impl<const N: usize> Data for StackWriterData<N> {
+//     fn as_slice(&self) -> &[rmt_item32_t] {
+//         self.0.as_slice()
+//     }
+// }
+//
 // pub fn pulses_to_data<const N: usize>(s: &[Pulse; N]) -> StackWriterData<{ (N + 1) / 2 }> {
 //     todo!()
 // }
