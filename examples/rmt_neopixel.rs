@@ -1,4 +1,5 @@
-// TODO: Write some notes
+// TODO: Docs
+// TODO: Instructions
 // Mention stack data.
 // Link to datasheet
 // Link to IDF example

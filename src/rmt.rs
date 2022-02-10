@@ -22,16 +22,7 @@
 //! use esp_idf_hal::gpio::Output;
 //! use esp_idf_hal::rmt::Channel::Channel0;
 //!
-//! let cfg = config:WriterConfig::new().clock_divider(1);
-//!
-//! let peripherals = Peripherals::take().unwrap();
-//! let led: Gpio18<Output> = peripherals.pins.gpio18.into_output().unwrap();
-//! let mut writer = Writer::new(led, cfg).unwrap();
-//!
-//! writer.push_pulse(Pulse::new(PinState::High, PulseTicks::max()));
-//! writer.push_pulse(Pulse::new(PinState::Low, PulseTicks::max()));
-//!
-//! writer.start().unwrap();
+//! // TODO: Update this
 //!
 //!```
 //!
@@ -47,12 +38,14 @@ use esp_idf_sys::*;
 
 pub use chip::*;
 
+// TODO: Docs
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum PinState {
     Low,
     High,
 }
 
+// TODO: Docs
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub struct Pulse {
     pub ticks: PulseTicks,
@@ -79,6 +72,7 @@ impl Pulse {
     /// let mut writer = Writer::new(led, cfg)?;
     /// let ticks_hz = writer.counter_clock()?;
     /// let pulse = Pulse::new_with_duration(ticks_hz, PinState::High, Duration::from_nanos(500))?;
+    //! // TODO: Update this
     /// # }
     /// ```
     pub fn new_with_duration(
@@ -91,6 +85,7 @@ impl Pulse {
     }
 }
 
+// TODO: Docs
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub struct PulseTicks(u16);
 
@@ -126,15 +121,18 @@ impl PulseTicks {
     }
 }
 
+// TODO: Docs
 pub mod config {
     use super::PinState;
     use crate::units::{FromValueType, Hertz};
     use esp_idf_sys::{EspError, ESP_ERR_INVALID_ARG};
 
+    // TODO: Docs
     #[derive(Debug, Copy, Clone, Eq, PartialEq)]
     pub struct DutyPercent(pub(super) u8);
 
     impl DutyPercent {
+        // TODO: Docs
         pub fn new(v: u8) -> Result<Self, EspError> {
             if v > 100 {
                 Err(EspError::from(ESP_ERR_INVALID_ARG as i32).unwrap())
@@ -144,11 +142,16 @@ pub mod config {
         }
     }
 
+    // TODO: Docs
     #[derive(Debug, Copy, Clone, Eq, PartialEq)]
     pub struct CarrierConfig {
+        // TODO: Docs
         pub frequency: Hertz,
+        // TODO: Docs
         pub carrier_level: PinState,
+        // TODO: Docs
         pub idle_level: PinState,
+        // TODO: Docs
         pub duty_percent: DutyPercent,
     }
 
@@ -190,6 +193,7 @@ pub mod config {
         }
     }
 
+    // TODO: Docs
     #[derive(Debug, Copy, Clone, Eq, PartialEq)]
     pub enum Loop {
         None,
@@ -197,7 +201,9 @@ pub mod config {
         Count(u32),
     }
 
+    // TODO: Docs
     pub struct WriterConfig {
+        // TODO: Docs
         pub clock_divider: u8,
         pub mem_block_num: u8,
         pub carrier: Option<CarrierConfig>,
@@ -263,12 +269,14 @@ pub mod config {
     }
 }
 
+// TODO: Docs
 pub struct Writer<P: OutputPin, C: HwChannel> {
     pin: P,
     channel: C,
 }
 
 impl<P: OutputPin, C: HwChannel> Writer<P, C> {
+    // TODO: Docs
     pub fn new(pin: P, channel: C, config: &WriterConfig) -> Result<Self, EspError> {
         let mut flags = 0;
         if config.aware_dfs {
@@ -316,6 +324,7 @@ impl<P: OutputPin, C: HwChannel> Writer<P, C> {
         Ok(Self { pin, channel })
     }
 
+    // TODO: Docs
     pub fn counter_clock(&self) -> Result<Hertz, EspError> {
         let mut ticks_hz: u32 = 0;
         esp!(unsafe { rmt_get_counter_clock(C::channel(), &mut ticks_hz) })?;
@@ -332,6 +341,7 @@ impl<P: OutputPin, C: HwChannel> Writer<P, C> {
         self.write_items(&data, false)
     }
 
+    // TODO: Docs
     pub fn start_blocking<D>(&self, data: &D) -> Result<(), EspError>
     where
         D: Data,
@@ -339,6 +349,7 @@ impl<P: OutputPin, C: HwChannel> Writer<P, C> {
         self.write_items(data, true)
     }
 
+    // TODO: Docs
     fn write_items<D>(&self, data: &D, block: bool) -> Result<(), EspError>
     where
         D: Data,
@@ -347,10 +358,12 @@ impl<P: OutputPin, C: HwChannel> Writer<P, C> {
         esp!(unsafe { rmt_write_items(C::channel(), items.as_ptr(), items.len() as i32, block,) })
     }
 
+    // TODO: Docs
     pub fn stop(&self) -> Result<(), EspError> {
         esp!(unsafe { rmt_tx_stop(C::channel()) })
     }
 
+    // TODO: Docs
     pub fn release(self) -> Result<(P, C), EspError> {
         self.stop()?;
         esp!(unsafe { rmt_driver_uninstall(C::channel()) })?;
@@ -369,6 +382,7 @@ pub trait Data {
 ///
 /// Internally RMT uses pairs of pulses as part of its data structure, so keep things simple
 /// in this implementation, you need to `set` a pair of `Pulse`s for each index.
+// TODO: Example
 #[derive(Clone)]
 pub struct StackPairedData<const N: usize>([rmt_item32_t; N]);
 
@@ -384,6 +398,7 @@ impl<const N: usize> StackPairedData<N> {
         )
     }
 
+    // TODO: Docs
     pub fn set(&mut self, index: usize, pair: &(Pulse, Pulse)) -> Result<(), EspError> {
         let item = self
             .0
@@ -430,6 +445,7 @@ impl VecData {
         }
     }
 
+    // TODO: Docs
     pub fn add<I>(&mut self, pulses: I) -> Result<(), EspError>
     where
         I: IntoIterator<Item = Pulse>,
@@ -463,6 +479,7 @@ impl VecData {
         Ok(())
     }
 
+    // TODO: Docs
     pub fn clear(&mut self) {
         self.next_item_is_new = true;
         self.items.clear();
@@ -524,6 +541,7 @@ mod chip {
     #[cfg(any(esp32, esp32s3))]
     impl_channel!(CHANNEL7: rmt_channel_t_RMT_CHANNEL_7);
 
+    // TODO: Docs
     pub struct Peripheral {
         pub channel0: CHANNEL0,
         pub channel1: CHANNEL1,
@@ -540,6 +558,7 @@ mod chip {
     }
 
     impl Peripheral {
+        // TODO: Docs
         pub unsafe fn new() -> Self {
             Self {
                 channel0: CHANNEL0::new(),

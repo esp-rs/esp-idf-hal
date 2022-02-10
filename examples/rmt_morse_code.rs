@@ -1,7 +1,7 @@
 //! RMT Transmit Example -- Morse Code
 //!
-//! Example loosely based off:
-//! https://github.com/espressif/esp-idf/tree/master/examples/peripherals/rmt/morse_code
+//! TODO: Instructions
+//! TODO: Mention heap data.
 //!
 //! This example demonstrates:
 //! * A carrier signal.
@@ -9,6 +9,12 @@
 //! * Background sending.
 //! * TODO: Waiting for a signal to finished.
 //! * Stopping/releasing a Pin and Channel, to be used again.
+//!
+//! Example loosely based off:
+//! https://github.com/espressif/esp-idf/tree/master/examples/peripherals/rmt/morse_code
+//!
+//!
+//!
 use embedded_hal::delay::blocking::DelayUs;
 use embedded_hal::digital::blocking::InputPin;
 use esp_idf_hal::delay::Ets;
