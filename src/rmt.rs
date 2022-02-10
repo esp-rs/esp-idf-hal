@@ -366,7 +366,7 @@ impl<P: OutputPin> Writer<P> {
     }
 
     pub fn stop(&self) -> Result<(), EspError> {
-        todo!()
+        esp!(unsafe { rmt_tx_stop(self.channel as u32) })
     }
 
     pub fn release(self) -> Result<(P, ()), EspError> {
