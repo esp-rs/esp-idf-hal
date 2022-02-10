@@ -1,5 +1,4 @@
-//! Remote Control (RMT) module driver.
-//!
+//! Remote Control (RMT) module driver. //!
 //! The RMT (Remote Control) module driver can be used to send and receive infrared remote control
 //! signals. Due to flexibility of RMT module, the driver can also be used to generate or receive
 //! many other types of signals.
@@ -39,29 +38,18 @@
 
 use crate::gpio::OutputPin;
 use crate::units::Hertz;
+use chip::HwChannel;
 use config::WriterConfig;
 use core::convert::TryFrom;
 use core::time::Duration;
-use esp_idf_sys::{
-    esp, rmt_config, rmt_config_t, rmt_config_t__bindgen_ty_1, rmt_driver_install,
-    rmt_get_counter_clock, rmt_item32_t, rmt_item32_t__bindgen_ty_1,
-    rmt_item32_t__bindgen_ty_1__bindgen_ty_1, rmt_mode_t_RMT_MODE_TX, rmt_tx_config_t, rmt_tx_stop,
-    rmt_write_items, EspError, EOVERFLOW, ERANGE, ESP_ERR_INVALID_ARG, RMT_CHANNEL_FLAGS_AWARE_DFS,
-};
+use esp_idf_sys::*;
+
+pub use chip::*;
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum PinState {
     Low,
     High,
-}
-
-#[derive(Debug, Copy, Clone, Eq, PartialEq)]
-pub enum Channel {
-    // TODO: Work out the different number of channels per chip.
-    Channel0,
-    Channel1,
-    Channel2,
-    Channel3,
 }
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
@@ -275,13 +263,13 @@ pub mod config {
     }
 }
 
-pub struct Writer<P: OutputPin> {
+pub struct Writer<P: OutputPin, C: HwChannel> {
     pin: P,
-    channel: Channel,
+    channel: C,
 }
 
-impl<P: OutputPin> Writer<P> {
-    pub fn new(pin: P, channel: Channel, config: &WriterConfig) -> Result<Self, EspError> {
+impl<P: OutputPin, C: HwChannel> Writer<P, C> {
+    pub fn new(pin: P, channel: C, config: &WriterConfig) -> Result<Self, EspError> {
         let mut flags = 0;
         if config.aware_dfs {
             flags |= RMT_CHANNEL_FLAGS_AWARE_DFS;
@@ -300,7 +288,7 @@ impl<P: OutputPin> Writer<P> {
 
         let sys_config = rmt_config_t {
             rmt_mode: rmt_mode_t_RMT_MODE_TX,
-            channel: channel as u32,
+            channel: C::channel(),
             gpio_num: pin.pin(),
             clk_div: config.clock_divider,
             mem_block_num: config.mem_block_num,
@@ -321,7 +309,7 @@ impl<P: OutputPin> Writer<P> {
 
         unsafe {
             esp!(rmt_config(&sys_config))?;
-            esp!(rmt_driver_install(channel as u32, 0, 0))?;
+            esp!(rmt_driver_install(C::channel(), 0, 0))?;
         }
 
         Ok(Self { pin, channel })
@@ -329,7 +317,7 @@ impl<P: OutputPin> Writer<P> {
 
     pub fn counter_clock(&self) -> Result<Hertz, EspError> {
         let mut ticks_hz: u32 = 0;
-        esp!(unsafe { rmt_get_counter_clock(self.channel as u32, &mut ticks_hz) })?;
+        esp!(unsafe { rmt_get_counter_clock(C::channel(), &mut ticks_hz) })?;
         Ok(ticks_hz.into())
     }
 
@@ -355,29 +343,22 @@ impl<P: OutputPin> Writer<P> {
         D: Data,
     {
         let items = data.as_slice();
-        esp!(unsafe {
-            rmt_write_items(
-                self.channel as u32,
-                items.as_ptr(),
-                items.len() as i32,
-                block,
-            )
-        })
+        esp!(unsafe { rmt_write_items(C::channel(), items.as_ptr(), items.len() as i32, block,) })
     }
 
     // TODO: Need to specify ticks.
     // pub fn wait(&self) -> Result<(), EspError> {
-    //     esp!(unsafe { rmt_wait_tx_done(self.channel as u32) })
+    //     esp!(unsafe { rmt_wait_tx_done(C::channel()) })
     // }
 
     pub fn stop(&self) -> Result<(), EspError> {
-        esp!(unsafe { rmt_tx_stop(self.channel as u32) })
+        esp!(unsafe { rmt_tx_stop(C::channel()) })
     }
 
-    pub fn release(self) -> Result<(P, ()), EspError> {
+    pub fn release(self) -> Result<(P, C), EspError> {
         self.stop()?;
         // TODO: Release channel
-        Ok((self.pin, ()))
+        Ok((self.pin, self.channel))
     }
 }
 
@@ -495,5 +476,63 @@ impl VecData {
 impl Data for VecData {
     fn as_slice(&self) -> &[rmt_item32_t] {
         &self.items
+    }
+}
+
+mod chip {
+    use core::marker::PhantomData;
+    use esp_idf_sys::*;
+
+    /// RMT peripheral channel.
+    pub trait HwChannel {
+        fn channel() -> rmt_channel_t;
+    }
+
+    macro_rules! impl_channel {
+        ($instance:ident: $channel:expr) => {
+            pub struct $instance {
+                _marker: PhantomData<rmt_channel_t>,
+            }
+
+            impl $instance {
+                /// # Safety
+                ///
+                /// It is safe to instantiate this channel exactly one time.
+                pub unsafe fn new() -> Self {
+                    $instance {
+                        _marker: PhantomData,
+                    }
+                }
+            }
+
+            impl HwChannel for $instance {
+                fn channel() -> rmt_channel_t {
+                    $channel
+                }
+            }
+        };
+    }
+
+    impl_channel!(CHANNEL0: rmt_channel_t_RMT_CHANNEL_0);
+    impl_channel!(CHANNEL1: rmt_channel_t_RMT_CHANNEL_1);
+    impl_channel!(CHANNEL2: rmt_channel_t_RMT_CHANNEL_2);
+    impl_channel!(CHANNEL3: rmt_channel_t_RMT_CHANNEL_3);
+
+    pub struct Peripheral {
+        pub channel0: CHANNEL0,
+        pub channel1: CHANNEL1,
+        pub channel2: CHANNEL2,
+        pub channel3: CHANNEL3,
+    }
+
+    impl Peripheral {
+        pub unsafe fn new() -> Self {
+            Self {
+                channel0: CHANNEL0::new(),
+                channel1: CHANNEL1::new(),
+                channel2: CHANNEL2::new(),
+                channel3: CHANNEL3::new(),
+            }
+        }
     }
 }

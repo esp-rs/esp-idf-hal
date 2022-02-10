@@ -10,8 +10,7 @@ use esp_idf_hal::gpio::Gpio18;
 use esp_idf_hal::gpio::Output;
 use esp_idf_hal::peripherals::Peripherals;
 use esp_idf_hal::rmt::config::WriterConfig;
-use esp_idf_hal::rmt::Channel::Channel0;
-use esp_idf_hal::rmt::{PinState, Pulse, StackPairedData, Writer};
+use esp_idf_hal::rmt::{PinState, Pulse, StackPairedData, Writer, CHANNEL0};
 
 fn main() -> anyhow::Result<()> {
     esp_idf_sys::link_patches();
@@ -19,8 +18,9 @@ fn main() -> anyhow::Result<()> {
 
     let peripherals = Peripherals::take().unwrap();
     let led: Gpio18<Output> = peripherals.pins.gpio18.into_output()?;
+    let channel: CHANNEL0 = peripherals.rmt.channel0;
     let config = WriterConfig::new().clock_divider(1);
-    let writer = Writer::new(led, Channel0, &config)?;
+    let writer = Writer::new(led, channel, &config)?;
 
     let rgbs = [0xff0000, 0xffff00, 0x00ffff, 0x00ff00, 0xa000ff];
     loop {
