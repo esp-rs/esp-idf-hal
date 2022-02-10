@@ -45,7 +45,7 @@ use core::time::Duration;
 use esp_idf_sys::{
     esp, rmt_config, rmt_config_t, rmt_config_t__bindgen_ty_1, rmt_driver_install,
     rmt_get_counter_clock, rmt_item32_t, rmt_item32_t__bindgen_ty_1,
-    rmt_item32_t__bindgen_ty_1__bindgen_ty_1, rmt_mode_t_RMT_MODE_TX, rmt_tx_config_t,
+    rmt_item32_t__bindgen_ty_1__bindgen_ty_1, rmt_mode_t_RMT_MODE_TX, rmt_tx_config_t, rmt_tx_stop,
     rmt_write_items, EspError, EOVERFLOW, ERANGE, ESP_ERR_INVALID_ARG, RMT_CHANNEL_FLAGS_AWARE_DFS,
 };
 
@@ -365,6 +365,11 @@ impl<P: OutputPin> Writer<P> {
         })
     }
 
+    // TODO: Need to specify ticks.
+    // pub fn wait(&self) -> Result<(), EspError> {
+    //     esp!(unsafe { rmt_wait_tx_done(self.channel as u32) })
+    // }
+
     pub fn stop(&self) -> Result<(), EspError> {
         esp!(unsafe { rmt_tx_stop(self.channel as u32) })
     }
@@ -386,7 +391,8 @@ pub trait Data {
 /// Use this if you know the length of the pulses ahead of time.
 ///
 /// Internally RMT uses pairs of pulses as part of its data structure, so keep things simple
-/// in this implementation, you need to `set` a pair of `Pulse`es for each index.
+/// in this implementation, you need to `set` a pair of `Pulse`s for each index.
+#[derive(Clone)]
 pub struct StackPairedData<const N: usize>([rmt_item32_t; N]);
 
 impl<const N: usize> StackPairedData<N> {
@@ -430,8 +436,12 @@ impl<const N: usize> Data for StackPairedData<N> {
 /// `Vec` based storage for RMT pulse data.
 ///
 /// Use this for when you don't know the final size of your data.
+#[derive(Clone)]
 pub struct VecData {
     items: Vec<rmt_item32_t>,
+
+    // Items contain two pulses. Track if we're adding a new pulse to the first one (true) or if
+    // we're changing the second one (false).
     next_item_is_new: bool,
 }
 
