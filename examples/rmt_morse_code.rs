@@ -7,8 +7,8 @@
 //! * A carrier signal.
 //! * Looping.
 //! * Background sending.
-//! * Waiting for a signal to finished.
-//! * Releasing a Gpio Pin and Channel, to be used again.
+//! * TODO: Waiting for a signal to finished.
+//! * Stopping/releasing a Pin and Channel, to be used again.
 use embedded_hal::delay::blocking::DelayUs;
 use embedded_hal::digital::blocking::InputPin;
 use esp_idf_hal::delay::Ets;
@@ -33,10 +33,11 @@ fn main() -> anyhow::Result<()> {
         .frequency(611.Hz());
     let mut config = WriterConfig::new()
         .carrier(Some(carrier))
-        .looping(Loop::Count(1323))
+        .looping(Loop::Count(100))
         .clock_divider(255);
 
-    let writer = send_morse_code(&config, led, channel, "IS ANYBODY OUT THERE  ")?;
+    // let writer = send_morse_code(&config, led, channel, "IS ANYBODY OUT THERE  ")?;
+    let writer = send_morse_code(&config, led, channel, "HELLO ")?;
 
     info!("Keep sending until pin {} is set low.", stop.pin());
     while stop.is_high()? {
@@ -52,7 +53,7 @@ fn main() -> anyhow::Result<()> {
 
     // Now send a single message and stop.
     config.looping = Loop::None;
-    let writer = send_morse_code(&config, led, channel, "HELLO AND BYE")?;
+    let writer = send_morse_code(&config, led, channel, "GOODBYE")?;
 
     // TODO: writer.wait()?;
 
