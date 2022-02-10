@@ -38,6 +38,7 @@
 //! See the `examples/` folder of this repository for more.
 
 use crate::gpio::OutputPin;
+use crate::units::Hertz;
 use config::WriterConfig;
 use core::convert::TryFrom;
 use core::time::Duration;
@@ -92,7 +93,7 @@ impl Pulse {
     /// # }
     /// ```
     pub fn new_with_duration(
-        ticks_hz: u32,
+        ticks_hz: Hertz,
         pin_state: PinState,
         duration: Duration,
     ) -> Result<Self, EspError> {
@@ -124,10 +125,10 @@ impl PulseTicks {
     /// Convert a `Duration` into `PulseTicks`.
     ///
     /// See `Pulse::new_with_duration()` for details.
-    pub fn new_with_duration(ticks_hz: u32, duration: Duration) -> Result<Self, EspError> {
+    pub fn new_with_duration(ticks_hz: Hertz, duration: Duration) -> Result<Self, EspError> {
         let ticks = duration
             .as_nanos()
-            .checked_mul(ticks_hz as u128)
+            .checked_mul(u32::from(ticks_hz) as u128)
             .ok_or(EspError::from(EOVERFLOW as i32).unwrap())?
             / 1_000_000_000;
         let ticks = u16::try_from(ticks).map_err(|_| EspError::from(EOVERFLOW as i32).unwrap())?;
@@ -326,10 +327,10 @@ impl<P: OutputPin> Writer<P> {
         Ok(Self { pin, channel })
     }
 
-    pub fn counter_clock(&self) -> Result<u32, EspError> {
+    pub fn counter_clock(&self) -> Result<Hertz, EspError> {
         let mut ticks_hz: u32 = 0;
         esp!(unsafe { rmt_get_counter_clock(self.channel as u32, &mut ticks_hz) })?;
-        Ok(ticks_hz)
+        Ok(ticks_hz.into())
     }
 
     /// Start sending the pulses returning immediately. Non blocking.
