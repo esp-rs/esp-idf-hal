@@ -39,15 +39,12 @@
 
 use crate::gpio::OutputPin;
 use config::WriterConfig;
-use core::cell::RefCell;
 use core::convert::TryFrom;
-use core::mem::ManuallyDrop;
 use core::time::Duration;
 use embedded_hal::digital::PinState;
 use esp_idf_sys::{
-    esp, rmt_channel_t_RMT_CHANNEL_0, rmt_channel_t_RMT_CHANNEL_1, rmt_channel_t_RMT_CHANNEL_2,
-    rmt_channel_t_RMT_CHANNEL_3, rmt_config, rmt_config_t, rmt_config_t__bindgen_ty_1,
-    rmt_driver_install, rmt_get_counter_clock, rmt_item32_t, rmt_item32_t__bindgen_ty_1,
+    esp, rmt_config, rmt_config_t, rmt_config_t__bindgen_ty_1, rmt_driver_install,
+    rmt_get_counter_clock, rmt_item32_t, rmt_item32_t__bindgen_ty_1,
     rmt_item32_t__bindgen_ty_1__bindgen_ty_1, rmt_mode_t_RMT_MODE_TX, rmt_tx_config_t,
     rmt_write_items, EspError, EOVERFLOW, ERANGE, ESP_ERR_INVALID_ARG, RMT_CHANNEL_FLAGS_AWARE_DFS,
 };
@@ -258,15 +255,13 @@ pub mod config {
     }
 }
 
-pub struct Writer {
+pub struct Writer<P: OutputPin> {
+    pin: P,
     channel: Channel,
 }
 
-impl Writer {
-    pub fn new<P>(pin: P, channel: Channel, config: &WriterConfig) -> Result<Writer, EspError>
-    where
-        P: OutputPin,
-    {
+impl<P: OutputPin> Writer<P> {
+    pub fn new(pin: P, channel: Channel, config: &WriterConfig) -> Result<Self, EspError> {
         let mut flags = 0;
         if config.aware_dfs {
             flags |= RMT_CHANNEL_FLAGS_AWARE_DFS;
@@ -309,7 +304,7 @@ impl Writer {
             esp!(rmt_driver_install(channel as u32, 0, 0))?;
         }
 
-        Ok(Self { channel })
+        Ok(Self { pin, channel })
     }
 
     pub fn counter_clock(&self) -> Result<u32, EspError> {
@@ -337,10 +332,12 @@ impl Writer {
     pub fn stop(&self) -> Result<(), EspError> {
         todo!()
     }
-}
 
-fn pulses_to_internal<const N: usize>(s: [Pulse; N]) -> [rmt_item32_t; (N + 1) / 2] {
-    todo!()
+    pub fn release(self) -> Result<(P, ()), EspError> {
+        self.stop()?;
+        // TODO: Release channel
+        Ok((self.pin, ()))
+    }
 }
 
 /// Data storage for writer in the format for the RMT driver.
@@ -348,7 +345,7 @@ pub trait Data {
     fn as_slice(&self) -> &[rmt_item32_t];
 }
 
-/// Stack based data storage.
+/// Stack based storage for RMT pulse data.
 ///
 /// Use this if you know the length of the pulses ahead of time.
 ///
@@ -391,7 +388,10 @@ impl<const N: usize> Data for StackPairedData<N> {
     }
 }
 
-/// `Vec` based store for RMT pulse data.
+// TODO: impl<const N: usize> From<&[Pulse; N]> for StackWriterData<{ (N + 1) / 2 }> {
+// Implementing this caused the compiler to crash!
+
+/// `Vec` based storage for RMT pulse data.
 ///
 /// Use this for when you don't know the final size of your data.
 pub struct VecData {
@@ -451,50 +451,3 @@ impl Data for VecData {
         &self.items
     }
 }
-
-// pub struct StackWriterData<const N: usize>([rmt_item32_t; N]);
-//
-// impl<const N: usize> Data for StackWriterData<N> {
-//     fn as_slice(&self) -> &[rmt_item32_t] {
-//         self.0.as_slice()
-//     }
-// }
-//
-// pub fn pulses_to_data<const N: usize>(s: &[Pulse; N]) -> StackWriterData<{ (N + 1) / 2 }> {
-//     todo!()
-// }
-//
-// impl<const N: usize> From<&[Pulse; N]> for StackWriterData<{ (N + 1) / 2 }> {
-//     fn from(pulses: &[Pulse; N]) -> Self {
-//         let slice = [rmt_item32_t {
-//             __bindgen_anon_1: rmt_item32_t__bindgen_ty_1 {
-//                 __bindgen_anon_1: rmt_item32_t__bindgen_ty_1__bindgen_ty_1::default(),
-//             },
-//         }; (N + 1) / 2];
-//         StackWriterData(slice)
-//     }
-// }
-//
-// fn brainstorming() {
-//     let pulse = Pulse::new(PinState::High, PulseTicks::max());
-//     //     // If from slice is even, /2. If odd, /2 + 1
-//     //     let wd: WriterData<1> = WriterData::from_slice(&[pulse]);
-//     //     let wd: WriterData<2> = WriterData::from_slice(&[pulse, pulse]);
-//     //     let wd: WriterData<3> = WriterData::from_slice(&[pulse, pulse, pulse]);
-//     //     let wd: WriterData<4> = WriterData::from_slice(&[pulse, pulse, pulse, pulse]);
-//
-//     let a: [rmt_item32_t; 0] = pulses_to_internal([]);
-//     let a: [rmt_item32_t; 1] = pulses_to_internal([pulse]);
-//     let a: [rmt_item32_t; 1] = pulses_to_internal([pulse, pulse]);
-//     let a: [rmt_item32_t; 2] = pulses_to_internal([pulse, pulse, pulse]);
-//     let a: [rmt_item32_t; 2] = pulses_to_internal([pulse, pulse, pulse, pulse]);
-//
-//     let a: StackWriterData<1> = pulses_to_data(&[pulse]);
-//     let a: StackWriterData<1> = pulses_to_data(&[pulse, pulse]);
-//     let a: StackWriterData<2> = pulses_to_data(&[pulse, pulse, pulse]);
-//     let a: StackWriterData<2> = pulses_to_data(&[pulse, pulse, pulse, pulse]);
-//
-//     let _: StackWriterData<1> = (&[pulse]).into();
-//     let _: StackWriterData<1> = (&[pulse, pulse]).into();
-//     let _: StackWriterData<2> = (&[pulse, pulse, pulse]).into();
-// }

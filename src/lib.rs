@@ -1,3 +1,4 @@
+#![allow(incomplete_features)] // Used for generic_const_exprs
 #![cfg_attr(not(feature = "std"), no_std)]
 #![feature(cfg_version)]
 #![feature(generic_associated_types)] // For mutex
