@@ -5,14 +5,13 @@
 
 use core::time::Duration;
 use embedded_hal::delay::blocking::DelayUs;
-use embedded_hal::digital::PinState;
 use esp_idf_hal::delay::Ets;
 use esp_idf_hal::gpio::Gpio18;
 use esp_idf_hal::gpio::Output;
 use esp_idf_hal::peripherals::Peripherals;
 use esp_idf_hal::rmt::config::WriterConfig;
 use esp_idf_hal::rmt::Channel::Channel0;
-use esp_idf_hal::rmt::{Pulse, StackPairedData, Writer};
+use esp_idf_hal::rmt::{PinState, Pulse, StackPairedData, Writer};
 
 fn main() -> anyhow::Result<()> {
     esp_idf_sys::link_patches();
@@ -21,7 +20,7 @@ fn main() -> anyhow::Result<()> {
     let peripherals = Peripherals::take().unwrap();
     let led: Gpio18<Output> = peripherals.pins.gpio18.into_output()?;
     let config = WriterConfig::new().clock_divider(1);
-    let mut writer = Writer::new(led, Channel0, &config)?;
+    let writer = Writer::new(led, Channel0, &config)?;
 
     let rgbs = [0xff0000, 0xffff00, 0x00ffff, 0x00ff00, 0xa000ff];
     loop {
@@ -40,7 +39,7 @@ fn main() -> anyhow::Result<()> {
                 let (high_pulse, low_pulse) = if bit { (t1h, t1l) } else { (t0h, t0l) };
                 data.set(i as usize, &(high_pulse, low_pulse))?;
             }
-            writer.start(data)?;
+            writer.start_blocking(&data)?;
             Ets.delay_ms(1000)?;
         }
     }

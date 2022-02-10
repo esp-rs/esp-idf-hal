@@ -41,13 +41,18 @@ use crate::gpio::OutputPin;
 use config::WriterConfig;
 use core::convert::TryFrom;
 use core::time::Duration;
-use embedded_hal::digital::PinState;
 use esp_idf_sys::{
     esp, rmt_config, rmt_config_t, rmt_config_t__bindgen_ty_1, rmt_driver_install,
     rmt_get_counter_clock, rmt_item32_t, rmt_item32_t__bindgen_ty_1,
     rmt_item32_t__bindgen_ty_1__bindgen_ty_1, rmt_mode_t_RMT_MODE_TX, rmt_tx_config_t,
     rmt_write_items, EspError, EOVERFLOW, ERANGE, ESP_ERR_INVALID_ARG, RMT_CHANNEL_FLAGS_AWARE_DFS,
 };
+
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+pub enum PinState {
+    Low,
+    High,
+}
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum Channel {
@@ -132,7 +137,7 @@ impl PulseTicks {
 }
 
 pub mod config {
-    use embedded_hal::digital::PinState;
+    use super::PinState;
 
     #[derive(Debug, Copy, Clone, Eq, PartialEq)]
     pub struct CarrierConfig {
@@ -313,8 +318,24 @@ impl<P: OutputPin> Writer<P> {
         Ok(ticks_hz)
     }
 
-    /// Start sending the pulses.
-    pub fn start<D>(&mut self, data: D) -> Result<(), EspError>
+    /// Start sending the pulses returning immediately. Non blocking.
+    ///
+    /// `data` is captured for safety so that the user can't change the data while transmitting.
+    pub fn start<D>(&self, data: D) -> Result<(), EspError>
+    where
+        D: Data,
+    {
+        self.write_items(&data, false)
+    }
+
+    pub fn start_blocking<D>(&self, data: &D) -> Result<(), EspError>
+    where
+        D: Data,
+    {
+        self.write_items(data, true)
+    }
+
+    fn write_items<D>(&self, data: &D, block: bool) -> Result<(), EspError>
     where
         D: Data,
     {
@@ -324,7 +345,7 @@ impl<P: OutputPin> Writer<P> {
                 self.channel as u32,
                 items.as_ptr(),
                 items.len() as i32,
-                true, // TODO: Blocking.
+                block,
             )
         })
     }
