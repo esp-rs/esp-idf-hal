@@ -146,7 +146,6 @@ pub mod config {
 
     #[derive(Debug, Copy, Clone, Eq, PartialEq)]
     pub struct CarrierConfig {
-        // TODO: Use units::Frequency.
         pub frequency: Hertz,
         pub carrier_level: PinState,
         pub idle_level: PinState,
@@ -196,8 +195,6 @@ pub mod config {
         None,
         // TODO: Docs say max is 1023
         Count(u32),
-        // TODO: Docs don't say zero is forever, so remove this.
-        Forever,
     }
 
     pub struct WriterConfig {
@@ -286,7 +283,6 @@ impl<P: OutputPin, C: HwChannel> Writer<P, C> {
         let loop_count = match config.looping {
             Loop::None => 0,
             Loop::Count(c) => c,
-            Loop::Forever => 0,
         };
 
         let sys_config = rmt_config_t {
@@ -304,9 +300,9 @@ impl<P: OutputPin, C: HwChannel> Writer<P, C> {
                     carrier_duty_percent: carrier.duty_percent.0,
                     idle_output_en: config.idle.is_some(),
                     idle_level: config.idle.map(|i| i as u32).unwrap_or(0),
-                    // TODO: This doesn't seem to work for longer length data on ESP32S2
+                    // Bug? This doesn't seem to work for longer length data on ESP32S2.
                     loop_en,
-                    // TODO: When looping is working, it seems to be ignored.
+                    // Bug? When looping is working, it seems to be ignored at least on my ESP32S2.
                     loop_count,
                 },
             },
@@ -315,9 +311,6 @@ impl<P: OutputPin, C: HwChannel> Writer<P, C> {
         unsafe {
             esp!(rmt_config(&sys_config))?;
             esp!(rmt_driver_install(C::channel(), 0, 0))?;
-            // TODO: This is just testing because looping isn't working for me.
-            // See https://github.com/espressif/esp-idf/issues/4664#issuecomment-586707777
-            esp!(rmt_set_tx_intr_en(C::channel(), false))?;
         }
 
         Ok(Self { pin, channel })
@@ -353,11 +346,6 @@ impl<P: OutputPin, C: HwChannel> Writer<P, C> {
         let items = data.as_slice();
         esp!(unsafe { rmt_write_items(C::channel(), items.as_ptr(), items.len() as i32, block,) })
     }
-
-    // TODO: Need to specify ticks.
-    // pub fn wait(&self) -> Result<(), EspError> {
-    //     esp!(unsafe { rmt_wait_tx_done(C::channel()) })
-    // }
 
     pub fn stop(&self) -> Result<(), EspError> {
         esp!(unsafe { rmt_tx_stop(C::channel()) })
@@ -521,16 +509,34 @@ mod chip {
         };
     }
 
+    // SOC_RMT_CHANNELS_PER_GROUP defines how many channels there are.
+
     impl_channel!(CHANNEL0: rmt_channel_t_RMT_CHANNEL_0);
     impl_channel!(CHANNEL1: rmt_channel_t_RMT_CHANNEL_1);
     impl_channel!(CHANNEL2: rmt_channel_t_RMT_CHANNEL_2);
     impl_channel!(CHANNEL3: rmt_channel_t_RMT_CHANNEL_3);
+    #[cfg(any(esp32, esp32s3))]
+    impl_channel!(CHANNEL4: rmt_channel_t_RMT_CHANNEL_4);
+    #[cfg(any(esp32, esp32s3))]
+    impl_channel!(CHANNEL5: rmt_channel_t_RMT_CHANNEL_5);
+    #[cfg(any(esp32, esp32s3))]
+    impl_channel!(CHANNEL6: rmt_channel_t_RMT_CHANNEL_6);
+    #[cfg(any(esp32, esp32s3))]
+    impl_channel!(CHANNEL7: rmt_channel_t_RMT_CHANNEL_7);
 
     pub struct Peripheral {
         pub channel0: CHANNEL0,
         pub channel1: CHANNEL1,
         pub channel2: CHANNEL2,
         pub channel3: CHANNEL3,
+        #[cfg(any(esp32, esp32s3))]
+        pub channel4: CHANNEL4,
+        #[cfg(any(esp32, esp32s3))]
+        pub channel5: CHANNEL5,
+        #[cfg(any(esp32, esp32s3))]
+        pub channel6: CHANNEL6,
+        #[cfg(any(esp32, esp32s3))]
+        pub channel7: CHANNEL7,
     }
 
     impl Peripheral {
@@ -540,6 +546,14 @@ mod chip {
                 channel1: CHANNEL1::new(),
                 channel2: CHANNEL2::new(),
                 channel3: CHANNEL3::new(),
+                #[cfg(any(esp32, esp32s3))]
+                channel4: CHANNEL4::new(),
+                #[cfg(any(esp32, esp32s3))]
+                channel5: CHANNEL5::new(),
+                #[cfg(any(esp32, esp32s3))]
+                channel6: CHANNEL6::new(),
+                #[cfg(any(esp32, esp32s3))]
+                channel7: CHANNEL7::new(),
             }
         }
     }

@@ -53,9 +53,7 @@ fn main() -> anyhow::Result<()> {
 
     // Now send a single message and stop.
     config.looping = Loop::None;
-    let writer = send_morse_code(&config, led, channel, "GOODBYE")?;
-
-    // TODO: writer.wait()?;
+    send_morse_code(&config, led, channel, "GOODBYE")?;
 
     Ok(())
 }
