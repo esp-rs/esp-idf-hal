@@ -4,7 +4,7 @@
 //! signals. Due to flexibility of RMT module, the driver can also be used to generate or receive
 //! many other types of signals.
 //!
-//! This module is a wrapper around the [IDF RMT](https://docs.espressif.com/projects/esp-idf/en/latest/esp32/api-reference/peripherals/rmt.html)
+//! This module is an abstraction around the [IDF RMT](https://docs.espressif.com/projects/esp-idf/en/latest/esp32/api-reference/peripherals/rmt.html)
 //! implementation. It is recommended to read before using this module.
 //!
 //! This is an initial implementation supporting:
@@ -12,9 +12,10 @@
 //!
 //! Not supported:
 //! * Receiving.
-//! * No channel locking. (To prevent users from accidentally reusing a channel.)
-//! * No buffer protection while transmitting.
 //! * Change of config after initialisation.
+//!
+//! # Loading pulses
+//! TODO: Mention VecData vs StackPairedData.
 //!
 //! # Example Usage
 //! ```
@@ -50,7 +51,6 @@ use esp_idf_sys::{
     rmt_item32_t__bindgen_ty_1__bindgen_ty_1, rmt_mode_t_RMT_MODE_TX, rmt_tx_config_t,
     rmt_write_items, EspError, EOVERFLOW, ERANGE, ESP_ERR_INVALID_ARG, RMT_CHANNEL_FLAGS_AWARE_DFS,
 };
-use std::ops::IndexMut;
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum Channel {
@@ -348,7 +348,50 @@ pub trait Data {
     fn as_slice(&self) -> &[rmt_item32_t];
 }
 
-/// Vec based store for RMT pulse data.
+/// Stack based data storage.
+///
+/// Use this if you know the length of the pulses ahead of time.
+///
+/// Internally RMT uses pairs of pulses as part of its data structure, so keep things simple
+/// in this implementation, you need to `set` a pair of `Pulse`es for each index.
+pub struct StackPairedData<const N: usize>([rmt_item32_t; N]);
+
+impl<const N: usize> StackPairedData<N> {
+    pub fn new() -> Self {
+        Self(
+            [rmt_item32_t {
+                __bindgen_anon_1: rmt_item32_t__bindgen_ty_1 {
+                    // Quick way to set all 32 bits to zero, instead of using `__bindgen_anon_1`.
+                    val: 0,
+                },
+            }; N],
+        )
+    }
+
+    pub fn set(&mut self, index: usize, pair: &(Pulse, Pulse)) -> Result<(), EspError> {
+        let item = self
+            .0
+            .get_mut(index)
+            .ok_or(EspError::from(ERANGE as i32).unwrap())?;
+
+        // SAFETY: We're overriding all 32 bits, so it doesn't matter what was here before.
+        let inner = unsafe { &mut item.__bindgen_anon_1.__bindgen_anon_1 };
+        inner.set_level0(pair.0.pin_state as u32);
+        inner.set_duration0(pair.0.ticks.0 as u32);
+        inner.set_level1(pair.1.pin_state as u32);
+        inner.set_duration1(pair.1.ticks.0 as u32);
+
+        Ok(())
+    }
+}
+
+impl<const N: usize> Data for StackPairedData<N> {
+    fn as_slice(&self) -> &[rmt_item32_t] {
+        &self.0
+    }
+}
+
+/// `Vec` based store for RMT pulse data.
 ///
 /// Use this for when you don't know the final size of your data.
 pub struct VecData {
@@ -406,43 +449,6 @@ impl VecData {
 impl Data for VecData {
     fn as_slice(&self) -> &[rmt_item32_t] {
         &self.items
-    }
-}
-
-pub struct StackPairedData<const N: usize>([rmt_item32_t; N]);
-
-impl<const N: usize> StackPairedData<N> {
-    pub fn new() -> Self {
-        Self(
-            [rmt_item32_t {
-                __bindgen_anon_1: rmt_item32_t__bindgen_ty_1 {
-                    // Quick way to set all 32 bits to zero, instead of using `__bindgen_anon_1`.
-                    val: 0,
-                },
-            }; N],
-        )
-    }
-
-    pub fn set(&mut self, index: usize, pair: &(Pulse, Pulse)) -> Result<(), EspError> {
-        let item = self
-            .0
-            .get_mut(index)
-            .ok_or(EspError::from(ERANGE as i32).unwrap())?;
-
-        // SAFETY: We're overriding all 32 bits, so it doesn't matter what was here before.
-        let inner = unsafe { &mut item.__bindgen_anon_1.__bindgen_anon_1 };
-        inner.set_level0(pair.0.pin_state as u32);
-        inner.set_duration0(pair.0.ticks.0 as u32);
-        inner.set_level1(pair.1.pin_state as u32);
-        inner.set_duration1(pair.1.ticks.0 as u32);
-
-        Ok(())
-    }
-}
-
-impl<const N: usize> Data for StackPairedData<N> {
-    fn as_slice(&self) -> &[rmt_item32_t] {
-        &self.0
     }
 }
 
