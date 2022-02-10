@@ -22,7 +22,7 @@ fn main() -> anyhow::Result<()> {
     let peripherals = Peripherals::take().unwrap();
     let led: Gpio17<Output> = peripherals.pins.gpio17.into_output()?;
 
-    let carrier = CarrierConfig::new().duty_percent(50).frequency_hz(611);
+    let carrier = CarrierConfig::new().duty_percent(50).frequency(611);
     let config = WriterConfig::new()
         .carrier(Some(carrier))
         .clock_divider(255);

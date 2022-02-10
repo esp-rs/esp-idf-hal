@@ -138,6 +138,7 @@ impl PulseTicks {
 
 pub mod config {
     use super::PinState;
+    use crate::units::{FromValueType, Hertz};
     use esp_idf_sys::{EspError, ESP_ERR_INVALID_ARG};
 
     #[derive(Debug, Copy, Clone, Eq, PartialEq)]
@@ -156,7 +157,7 @@ pub mod config {
     #[derive(Debug, Copy, Clone, Eq, PartialEq)]
     pub struct CarrierConfig {
         // TODO: Use units::Frequency.
-        pub frequency_hz: u32,
+        pub frequency: Hertz,
         pub carrier_level: PinState,
         pub idle_level: PinState,
         pub duty_percent: DutyPercent,
@@ -166,7 +167,7 @@ pub mod config {
         // Defaults from https://github.com/espressif/esp-idf/blob/master/components/driver/include/driver/rmt.h#L101
         fn default() -> Self {
             Self {
-                frequency_hz: 38000,
+                frequency: 38.kHz().into(),
                 carrier_level: PinState::High,
                 idle_level: PinState::Low,
                 duty_percent: DutyPercent(33),
@@ -179,8 +180,8 @@ pub mod config {
             Default::default()
         }
 
-        pub fn frequency_hz(mut self, f: u32) -> Self {
-            self.frequency_hz = f;
+        pub fn frequency(mut self, hz: Hertz) -> Self {
+            self.frequency = hz;
             self
         }
 
@@ -306,7 +307,7 @@ impl<P: OutputPin> Writer<P> {
             __bindgen_anon_1: rmt_config_t__bindgen_ty_1 {
                 tx_config: rmt_tx_config_t {
                     carrier_en,
-                    carrier_freq_hz: carrier.frequency_hz,
+                    carrier_freq_hz: carrier.frequency.into(),
                     carrier_level: carrier.carrier_level as u32,
                     carrier_duty_percent: carrier.duty_percent.0,
                     idle_output_en: config.idle.is_some(),
