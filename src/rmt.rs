@@ -195,7 +195,7 @@ pub mod config {
     pub enum Loop {
         None,
         Count(u32),
-        Infinite,
+        Forever,
     }
 
     pub struct WriterConfig {
@@ -284,7 +284,7 @@ impl<P: OutputPin, C: HwChannel> Writer<P, C> {
         let loop_count = match config.looping {
             Loop::None => 0,
             Loop::Count(c) => c,
-            Loop::Infinite => 0,
+            Loop::Forever => 0,
         };
 
         let sys_config = rmt_config_t {
@@ -358,6 +358,7 @@ impl<P: OutputPin, C: HwChannel> Writer<P, C> {
 
     pub fn release(self) -> Result<(P, C), EspError> {
         self.stop()?;
+        esp!(unsafe { rmt_driver_uninstall(C::channel()) })?;
         Ok((self.pin, self.channel))
     }
 }

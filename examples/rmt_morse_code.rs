@@ -3,12 +3,13 @@
 //! Example loosely based off:
 //! https://github.com/espressif/esp-idf/tree/master/examples/peripherals/rmt/morse_code
 
-use esp_idf_hal::gpio::Gpio17;
-use esp_idf_hal::gpio::Output;
+use embedded_hal::delay::blocking::DelayUs;
+use embedded_hal::digital::blocking::InputPin;
+use esp_idf_hal::delay::Ets;
+use esp_idf_hal::gpio::{Gpio16, Gpio17, GpioPin, Input, Output, Pin};
 use esp_idf_hal::peripherals::Peripherals;
-use esp_idf_hal::rmt::config::{CarrierConfig, DutyPercent, WriterConfig};
-use esp_idf_hal::rmt::Channel::Channel0;
-use esp_idf_hal::rmt::{PinState, Pulse, PulseTicks, VecData, Writer};
+use esp_idf_hal::rmt::config::{CarrierConfig, DutyPercent, Loop, WriterConfig};
+use esp_idf_hal::rmt::{PinState, Pulse, PulseTicks, VecData, Writer, CHANNEL0};
 use esp_idf_hal::units::FromValueType;
 use log::*;
 
@@ -18,25 +19,52 @@ fn main() -> anyhow::Result<()> {
 
     let peripherals = Peripherals::take().unwrap();
     let led: Gpio17<Output> = peripherals.pins.gpio17.into_output()?;
+    let stop: Gpio16<Input> = peripherals.pins.gpio16.into_input()?;
+    let channel = peripherals.rmt.channel0;
 
     let carrier = CarrierConfig::new()
         .duty_percent(DutyPercent::new(50)?)
         .frequency(611.Hz());
-    let config = WriterConfig::new()
+    let mut config = WriterConfig::new()
         .carrier(Some(carrier))
+        .looping(Loop::Forever)
         .clock_divider(255);
 
-    let writer = Writer::new(led, Channel0, &config)?;
-    let pulses = str_pulses("ABC CBA");
+    let writer = send_morse_code(&config, led, channel, "IS ANYONE THERE  ")?;
 
-    let mut data = VecData::new();
-    data.add(pulses)?;
+    info!("Keep sending until pin {} is set high.", stop.pin());
+    while stop.is_low()? {
+        Ets.delay_ms(100)?;
+    }
 
-    info!("Starting signal...");
-    writer.start_blocking(&data)?;
-    info!("Done!");
+    // Release pin and channel so we can use them again.
+    let (led, channel) = writer.release()?;
+
+    // Now send a single message and stop.
+    config.looping = Loop::None;
+    let writer = send_morse_code(&config, led, channel, "HELLO AND BYE")?;
+
+    // TODO: writer.wait()?;
 
     Ok(())
+}
+
+fn send_morse_code(
+    config: &WriterConfig,
+    led: Gpio17<Output>,
+    channel: CHANNEL0,
+    message: &str,
+) -> anyhow::Result<Writer<Gpio17<Output>, CHANNEL0>> {
+    info!("Sending morse code to pin {}.", led.pin());
+
+    let mut data = VecData::new();
+    data.add(str_pulses(message))?;
+
+    let writer = Writer::new(led, channel, &config)?;
+    writer.start(data)?;
+
+    // Return writer so we can release the pin and channel later.
+    Ok(writer)
 }
 
 fn high() -> Pulse {
