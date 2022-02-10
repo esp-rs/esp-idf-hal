@@ -7,26 +7,49 @@
 //! This module is an abstraction around the [IDF RMT](https://docs.espressif.com/projects/esp-idf/en/latest/esp32/api-reference/peripherals/rmt.html)
 //! implementation. It is recommended to read before using this module.
 //!
-//! This is an initial implementation supporting:
-//!  * Transmission, currently only blocking.
+//! This is implementation currently supports transmission only.
 //!
 //! Not supported:
+//! * Interrupts.
 //! * Receiving.
 //! * Change of config after initialisation.
 //!
-//! # Loading pulses
-//! TODO: Mention VecData vs StackPairedData.
-//!
 //! # Example Usage
+//!
 //! ```
-//! use esp_idf_hal::gpio::Output;
-//! use esp_idf_hal::rmt::Channel::Channel0;
+//! // Prepare the config.
+//! let config = WriterConfig::new().clock_divider(1);
 //!
-//! // TODO: Update this
+//! // Retrieve the output pin and channel from peripherals.
+//! let peripherals = Peripherals::take().unwrap();
+//! let pin = peripherals.pins.gpio18.into_output()?;
+//! let channel = peripherals.rmt.channel0;
 //!
+//! // Create the RMT writer.
+//! let writer = Writer::new(pin, channel, &config)?;
+//!
+//! // Prepare signal pulse signal to be sent.
+//! let low = Pulse::new(PinState::Low, PulseTicks::new(10)?);
+//! let high = Pulse::new(PinState::High, PulseTicks::new(10)?);
+//! let mut signal = StackPairedSignal::<2>::new();
+//! signal.set(0, &(low, high))?;
+//! signal.set(1, &(high, low))?;
+//!
+//! // Transmit the signal.
+//! writer.start(signal)?;
 //!```
 //!
 //! See the `examples/` folder of this repository for more.
+//!
+//! # Loading pulses
+//! There are two ways of preparing pulse signal. [StackPairedSignal] and [VecSignal]. These
+//! implement the [Signal] trait.
+//!
+//! [StackPairedSignal] lives on the stack and must have the items set in pairs of [Pulse]s. This is
+//! due to the internal implementation of RMT, and const generics limitations.
+//!
+//! [VecSignal] allows you to use the heap and incrementally add pulse items without knowing the size
+//! ahead of time.
 
 use crate::gpio::OutputPin;
 use crate::units::Hertz;
@@ -45,7 +68,7 @@ pub enum PinState {
     High,
 }
 
-// TODO: Docs
+/// A `Pulse` has a state (high or low) and a duration in ticks.
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub struct Pulse {
     pub ticks: PulseTicks,
@@ -72,7 +95,7 @@ impl Pulse {
     /// let mut writer = Writer::new(led, cfg)?;
     /// let ticks_hz = writer.counter_clock()?;
     /// let pulse = Pulse::new_with_duration(ticks_hz, PinState::High, Duration::from_nanos(500))?;
-    //! // TODO: Update this
+    /// // TODO: Update this
     /// # }
     /// ```
     pub fn new_with_duration(
@@ -333,28 +356,28 @@ impl<P: OutputPin, C: HwChannel> Writer<P, C> {
 
     /// Start sending the pulses returning immediately. Non blocking.
     ///
-    /// `data` is captured for safety so that the user can't change the data while transmitting.
-    pub fn start<D>(&self, data: D) -> Result<(), EspError>
+    /// `signal` is captured for safety so that the user can't change the data while transmitting.
+    pub fn start<S>(&self, signal: S) -> Result<(), EspError>
     where
-        D: Data,
+        S: Signal,
     {
-        self.write_items(&data, false)
+        self.write_items(&signal, false)
     }
 
     // TODO: Docs
-    pub fn start_blocking<D>(&self, data: &D) -> Result<(), EspError>
+    pub fn start_blocking<S>(&self, signal: &S) -> Result<(), EspError>
     where
-        D: Data,
+        S: Signal,
     {
-        self.write_items(data, true)
+        self.write_items(signal, true)
     }
 
     // TODO: Docs
-    fn write_items<D>(&self, data: &D, block: bool) -> Result<(), EspError>
+    fn write_items<S>(&self, signal: &S, block: bool) -> Result<(), EspError>
     where
-        D: Data,
+        S: Signal,
     {
-        let items = data.as_slice();
+        let items = signal.as_slice();
         esp!(unsafe { rmt_write_items(C::channel(), items.as_ptr(), items.len() as i32, block,) })
     }
 
@@ -371,12 +394,12 @@ impl<P: OutputPin, C: HwChannel> Writer<P, C> {
     }
 }
 
-/// Data storage for writer in the format for the RMT driver.
-pub trait Data {
+/// Signal storage for writer in a format ready for the RMT driver.
+pub trait Signal {
     fn as_slice(&self) -> &[rmt_item32_t];
 }
 
-/// Stack based storage for RMT pulse data.
+/// Stack based signal storage for an RMT signal.
 ///
 /// Use this if you know the length of the pulses ahead of time.
 ///
@@ -384,9 +407,9 @@ pub trait Data {
 /// in this implementation, you need to `set` a pair of `Pulse`s for each index.
 // TODO: Example
 #[derive(Clone)]
-pub struct StackPairedData<const N: usize>([rmt_item32_t; N]);
+pub struct StackPairedSignal<const N: usize>([rmt_item32_t; N]);
 
-impl<const N: usize> StackPairedData<N> {
+impl<const N: usize> StackPairedSignal<N> {
     pub fn new() -> Self {
         Self(
             [rmt_item32_t {
@@ -416,20 +439,20 @@ impl<const N: usize> StackPairedData<N> {
     }
 }
 
-impl<const N: usize> Data for StackPairedData<N> {
+impl<const N: usize> Signal for StackPairedSignal<N> {
     fn as_slice(&self) -> &[rmt_item32_t] {
         &self.0
     }
 }
 
-// TODO: impl<const N: usize> From<&[Pulse; N]> for StackWriterData<{ (N + 1) / 2 }> {
+// TODO: impl<const N: usize> From<&[Pulse; N]> for StackWriterSignal<{ (N + 1) / 2 }> {
 // Implementing this caused the compiler to crash!
 
-/// `Vec` based storage for RMT pulse data.
+/// `Vec` heap based storage for an RMT signal.
 ///
-/// Use this for when you don't know the final size of your data.
+/// Use this for when you don't know the final size of your signal data.
 #[derive(Clone)]
-pub struct VecData {
+pub struct VecSignal {
     items: Vec<rmt_item32_t>,
 
     // Items contain two pulses. Track if we're adding a new pulse to the first one (true) or if
@@ -437,7 +460,7 @@ pub struct VecData {
     next_item_is_new: bool,
 }
 
-impl VecData {
+impl VecSignal {
     pub fn new() -> Self {
         Self {
             items: vec![],
@@ -486,7 +509,7 @@ impl VecData {
     }
 }
 
-impl Data for VecData {
+impl Signal for VecSignal {
     fn as_slice(&self) -> &[rmt_item32_t] {
         &self.items
     }

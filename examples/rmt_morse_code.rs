@@ -21,7 +21,7 @@ use esp_idf_hal::delay::Ets;
 use esp_idf_hal::gpio::{Gpio16, Gpio17, Input, Output, Pin};
 use esp_idf_hal::peripherals::Peripherals;
 use esp_idf_hal::rmt::config::{CarrierConfig, DutyPercent, Loop, WriterConfig};
-use esp_idf_hal::rmt::{PinState, Pulse, PulseTicks, VecData, Writer, CHANNEL0};
+use esp_idf_hal::rmt::{PinState, Pulse, PulseTicks, VecSignal, Writer, CHANNEL0};
 use esp_idf_hal::units::FromValueType;
 use log::*;
 
@@ -71,11 +71,11 @@ fn send_morse_code(
 ) -> anyhow::Result<Writer<Gpio17<Output>, CHANNEL0>> {
     info!("Sending morse message '{}' to pin {}.", message, led.pin());
 
-    let mut data = VecData::new();
-    data.add(str_pulses(message))?;
+    let mut signal = VecSignal::new();
+    signal.add(str_pulses(message))?;
 
     let writer = Writer::new(led, channel, &config)?;
-    writer.start(data)?;
+    writer.start(signal)?;
 
     // Return writer so we can release the pin and channel later.
     Ok(writer)
