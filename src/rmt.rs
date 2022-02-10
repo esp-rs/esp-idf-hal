@@ -138,6 +138,20 @@ impl PulseTicks {
 
 pub mod config {
     use super::PinState;
+    use esp_idf_sys::{EspError, ESP_ERR_INVALID_ARG};
+
+    #[derive(Debug, Copy, Clone, Eq, PartialEq)]
+    pub struct DutyPercent(pub(super) u8);
+
+    impl DutyPercent {
+        pub fn new(v: u8) -> Result<Self, EspError> {
+            if v > 100 {
+                Err(EspError::from(ESP_ERR_INVALID_ARG as i32).unwrap())
+            } else {
+                Ok(Self(v))
+            }
+        }
+    }
 
     #[derive(Debug, Copy, Clone, Eq, PartialEq)]
     pub struct CarrierConfig {
@@ -145,8 +159,7 @@ pub mod config {
         pub frequency_hz: u32,
         pub carrier_level: PinState,
         pub idle_level: PinState,
-        // TODO: Use a Percentage type to restrict range to 0-100.
-        pub duty_percent: u8,
+        pub duty_percent: DutyPercent,
     }
 
     impl Default for CarrierConfig {
@@ -156,7 +169,7 @@ pub mod config {
                 frequency_hz: 38000,
                 carrier_level: PinState::High,
                 idle_level: PinState::Low,
-                duty_percent: 33,
+                duty_percent: DutyPercent(33),
             }
         }
     }
@@ -181,7 +194,7 @@ pub mod config {
             self
         }
 
-        pub fn duty_percent(mut self, duty: u8) -> Self {
+        pub fn duty_percent(mut self, duty: DutyPercent) -> Self {
             self.duty_percent = duty;
             self
         }
@@ -295,7 +308,7 @@ impl<P: OutputPin> Writer<P> {
                     carrier_en,
                     carrier_freq_hz: carrier.frequency_hz,
                     carrier_level: carrier.carrier_level as u32,
-                    carrier_duty_percent: carrier.duty_percent,
+                    carrier_duty_percent: carrier.duty_percent.0,
                     idle_output_en: config.idle.is_some(),
                     idle_level: config.idle.map(|i| i as u32).unwrap_or(0),
                     loop_en,
