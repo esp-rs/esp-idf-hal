@@ -42,7 +42,6 @@ fn main() -> anyhow::Result<()> {
         .looping(Loop::Count(100))
         .clock_divider(255);
 
-    // let writer = send_morse_code(&config, led, channel, "IS ANYBODY OUT THERE  ")?;
     let writer = send_morse_code(&config, led, channel, "HELLO ")?;
 
     info!("Keep sending until pin {} is set low.", stop.pin());
