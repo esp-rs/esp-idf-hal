@@ -305,7 +305,7 @@ pub mod config {
     }
 }
 
-// TODO: Docs
+/// Main functionality for RMT transmission.
 pub struct Writer<P: OutputPin, C: HwChannel> {
     pin: P,
     channel: C,
@@ -360,14 +360,17 @@ impl<P: OutputPin, C: HwChannel> Writer<P, C> {
         Ok(Self { pin, channel })
     }
 
-    // TODO: Docs
+    /// Get speed of channel’s internal counter clock.
+    ///
+    /// This calls (https://docs.espressif.com/projects/esp-idf/en/latest/esp32/api-reference/peripherals/rmt.html#_CPPv421rmt_get_counter_clock13rmt_channel_tP8uint32_t)[rmt_get_counter_clock]
+    /// internally. It is used for calculating the number of ticks per second for pulses.
     pub fn counter_clock(&self) -> Result<Hertz, EspError> {
         let mut ticks_hz: u32 = 0;
         esp!(unsafe { rmt_get_counter_clock(C::channel(), &mut ticks_hz) })?;
         Ok(ticks_hz.into())
     }
 
-    /// Start sending the pulses returning immediately. Non blocking.
+    /// Start sending the given signal without blocking.
     ///
     /// `signal` is captured for safety so that the user can't change the data while transmitting.
     pub fn start<S>(&self, signal: S) -> Result<(), EspError>
@@ -377,7 +380,7 @@ impl<P: OutputPin, C: HwChannel> Writer<P, C> {
         self.write_items(&signal, false)
     }
 
-    // TODO: Docs
+    /// Start sending the given signal while blocking.
     pub fn start_blocking<S>(&self, signal: &S) -> Result<(), EspError>
     where
         S: Signal,
@@ -385,7 +388,6 @@ impl<P: OutputPin, C: HwChannel> Writer<P, C> {
         self.write_items(signal, true)
     }
 
-    // TODO: Docs
     fn write_items<S>(&self, signal: &S, block: bool) -> Result<(), EspError>
     where
         S: Signal,
@@ -394,12 +396,14 @@ impl<P: OutputPin, C: HwChannel> Writer<P, C> {
         esp!(unsafe { rmt_write_items(C::channel(), items.as_ptr(), items.len() as i32, block,) })
     }
 
-    // TODO: Docs
+    /// Stop transmitting.
     pub fn stop(&self) -> Result<(), EspError> {
         esp!(unsafe { rmt_tx_stop(C::channel()) })
     }
 
-    // TODO: Docs
+    /// Stop and release the driver.
+    ///
+    /// This will return the pin and channel.
     pub fn release(self) -> Result<(P, C), EspError> {
         self.stop()?;
         esp!(unsafe { rmt_driver_uninstall(C::channel()) })?;
