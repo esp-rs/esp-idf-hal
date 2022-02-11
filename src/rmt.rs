@@ -14,7 +14,7 @@
 //! * Receiving.
 //! * Change of config after initialisation.
 //!
-//! # Example Usage
+//! # Example
 //!
 //! ```
 //! // Prepare the config.
@@ -68,7 +68,17 @@ pub enum PinState {
     High,
 }
 
-/// A `Pulse` has a state (high or low) and a duration in ticks.
+/// A `Pulse` contains a pin state and a tick count, used in creating a [`Signal`].
+///
+/// The real time duration of a tick depends on the [`WriterConfig::clock_divider`] setting.
+///
+/// You can create a `Pulse` with a [`Duration`] by using [`Pulse::new_with_duration`].
+///
+/// # Example
+/// ```rust
+/// # use esp_idf_hal::rmt::PulseTicks;
+/// let pulse = Pulse::new(PinState::High, PulseTicks::new(32));
+/// ```
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub struct Pulse {
     pub ticks: PulseTicks,
@@ -80,22 +90,24 @@ impl Pulse {
         Pulse { pin_state, ticks }
     }
 
-    /// Create a `Pulse` using a `Duration`.
+    /// Create a [`Pulse`] using a [`Duration`].
     ///
-    /// We need to know the ticks frequency (`ticks_hz`), which depends on the prepared channel
-    /// within a `Writer`. To get the frequency for the `ticks_hz` argument, use
-    /// `Writer::counter_clock()`. For example:
+    /// The ticks frequency, which depends on the clock divider set on the channel within a
+    /// [`Writer`]. To get the frequency for the `ticks_hz` argument, use [`Writer::counter_clock()`].
+    ///
+    /// # Example
     /// ```
     /// # use esp_idf_sys::EspError;
     /// # use esp_idf_hal::gpio::Output;
     /// # use esp_idf_hal::rmt::Channel::Channel0;
     /// # fn example() -> Result<(), EspError> {
     /// # let peripherals = Peripherals::take()?;
-    /// # let led: Gpio18<Output> = peripherals.pins.gpio18.into_output()?;
-    /// let mut writer = Writer::new(led, cfg)?;
+    /// # let led = peripherals.pins.gpio18.into_output()?;
+    /// # let channel = peripherals.rmt.channel0;
+    /// # let config = WriterConfig::new()?;
+    /// let writer = Writer::new(led, channel, &config)?;
     /// let ticks_hz = writer.counter_clock()?;
     /// let pulse = Pulse::new_with_duration(ticks_hz, PinState::High, Duration::from_nanos(500))?;
-    /// // TODO: Update this
     /// # }
     /// ```
     pub fn new_with_duration(
@@ -108,14 +120,15 @@ impl Pulse {
     }
 }
 
-// TODO: Docs
+/// Number of ticks, restricting the range to 0 to 32,767.
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub struct PulseTicks(u16);
 
 impl PulseTicks {
     const MAX: u16 = 32767;
 
-    /// PulseTick needs to be unsigned 15 bits: 0-32767 inclusive.
+    /// Needs to be unsigned 15 bits: 0-32767 inclusive, otherwise an [ESP_ERR_INVALID_ARG] is
+    /// returned.
     pub fn new(v: u16) -> Result<Self, EspError> {
         if v > Self::MAX {
             Err(EspError::from(ESP_ERR_INVALID_ARG as i32).unwrap())
