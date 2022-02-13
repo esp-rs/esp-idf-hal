@@ -157,7 +157,23 @@ impl PulseTicks {
     }
 }
 
-/// RMT Configuration.
+/// Types used for configuring the [`rmt`][crate::rmt] module.
+///
+/// [`TransmitConfig`] is used when creating a [`Transmit`][crate::rmt::Transmit] instance.
+///
+/// # Example
+/// ```
+/// # use esp_idf_hal::units::FromValueType;
+/// let carrier = CarrierConfig::new()
+///     .duty_percent(DutyPercent::new(50)?)
+///     .frequency(611.Hz());
+///
+/// let config = TransmitConfig::new()
+///     .carrier(Some(carrier))
+///     .looping(Loop::Count(100))
+///     .clock_divider(255);
+///
+/// ```
 pub mod config {
     use super::PinState;
     use crate::units::{FromValueType, Hertz};
@@ -192,7 +208,7 @@ pub mod config {
     }
 
     impl Default for CarrierConfig {
-        // Defaults from https://github.com/espressif/esp-idf/blob/master/components/driver/include/driver/rmt.h#L101
+        /// Defaults from `<https://github.com/espressif/esp-idf/blob/master/components/driver/include/driver/rmt.h#L101>`
         fn default() -> Self {
             Self {
                 frequency: 38.kHz().into(),
@@ -223,29 +239,33 @@ pub mod config {
         }
     }
 
-    // TODO: Docs
+    /// Configuration setting for looping a signal.
     #[derive(Debug, Copy, Clone, Eq, PartialEq)]
     pub enum Loop {
         None,
-        // TODO: Docs say max is 1023
+        // TODO: Docs say max is 1023. Should restrict this value.
         Count(u32),
     }
 
-    // TODO: Docs
+    /// Used when creating a [`Transmit`][crate::rmt::Transmit] instance.
     pub struct TransmitConfig {
-        // TODO: Docs
         pub clock_divider: u8,
         pub mem_block_num: u8,
         pub carrier: Option<CarrierConfig>,
-        // TODO: `loop` is taken. Maybe can change to repeat even though it doesn't match the IDF.
+        // TODO: `loop` is taken. Maybe can change to `repeat` even though it doesn't match the IDF.
         pub looping: Loop,
         /// Enable and set the signal level on the output if idle.
         pub idle: Option<PinState>,
+
+        /// Channel can work during APB clock scaling.
+        ///
+        /// When set, RMT channel will take REF_TICK or XTAL as source clock. The benefit is, RMT
+        /// channel can continue work even when APB clock is changing.
         pub aware_dfs: bool,
     }
 
     impl Default for TransmitConfig {
-        // Defaults from https://github.com/espressif/esp-idf/blob/master/components/driver/include/driver/rmt.h#L101
+        /// Defaults from `<https://github.com/espressif/esp-idf/blob/master/components/driver/include/driver/rmt.h#L101>`
         fn default() -> Self {
             Self {
                 aware_dfs: false,
@@ -263,10 +283,6 @@ pub mod config {
             Self::default()
         }
 
-        /// Channel can work during APB clock scaling.
-        ///
-        /// When set, RMT channel will take REF_TICK or XTAL as source clock. The benefit is, RMT
-        /// channel can continue work even when APB clock is changing.
         pub fn aware_dfs(mut self, enable: bool) -> Self {
             self.aware_dfs = enable;
             self
@@ -299,14 +315,23 @@ pub mod config {
     }
 }
 
-/// Main functionality for RMT transmission.
+/// The RMT transmitter.
+///
+/// Use [`Transmit::start()`] or [`Transmit::start_blocking()`] to transmit pulses.
+///
+/// See the [rmt module][crate::rmt] for more information.
 pub struct Transmit<P: OutputPin, C: HwChannel> {
     pin: P,
     channel: C,
 }
 
 impl<P: OutputPin, C: HwChannel> Transmit<P, C> {
-    // TODO: Docs
+    /// Initialise the rmt module with the specified pin, channel and configuration.
+    ///
+    /// To uninstall the driver and return ownership of the `channel` and `pin` use
+    /// [`Transmit::release()`].
+    ///
+    /// Internally this calls `rmt_config()` and `rmt_driver_install()`.
     pub fn new(pin: P, channel: C, config: &TransmitConfig) -> Result<Self, EspError> {
         let mut flags = 0;
         if config.aware_dfs {
@@ -436,6 +461,7 @@ pub trait Signal {
 pub struct StackPairedSignal<const N: usize>([rmt_item32_t; N]);
 
 impl<const N: usize> StackPairedSignal<N> {
+    /// Creates a new array of size `<N>`, where the number of pulses is `N * 2`.
     pub fn new() -> Self {
         Self(
             [rmt_item32_t {
@@ -447,7 +473,7 @@ impl<const N: usize> StackPairedSignal<N> {
         )
     }
 
-    // TODO: Docs
+    /// Set a pair of [`Pulse`]s at a position in the array.
     pub fn set(&mut self, index: usize, pair: &(Pulse, Pulse)) -> Result<(), EspError> {
         let item = self
             .0
@@ -484,7 +510,9 @@ impl<const N: usize> Signal for StackPairedSignal<N> {
 /// signal.push(Pulse::new(PinState::High, PulseTicks::new(10)));
 /// signal.push(Pulse::new(PinState::Low, PulseTicks::new(9)));
 /// ```
+
 #[derive(Clone)]
+#[cfg(feature = "std")]
 pub struct VecSignal {
     items: Vec<rmt_item32_t>,
 
@@ -493,6 +521,7 @@ pub struct VecSignal {
     next_item_is_new: bool,
 }
 
+#[cfg(feature = "std")]
 impl VecSignal {
     pub fn new() -> Self {
         Self {
@@ -542,6 +571,7 @@ impl VecSignal {
     }
 }
 
+#[cfg(feature = "std")]
 impl Signal for VecSignal {
     fn as_slice(&self) -> &[rmt_item32_t] {
         &self.items
@@ -597,7 +627,6 @@ mod chip {
     #[cfg(any(esp32, esp32s3))]
     impl_channel!(CHANNEL7: rmt_channel_t_RMT_CHANNEL_7);
 
-    // TODO: Docs
     pub struct Peripheral {
         pub channel0: CHANNEL0,
         pub channel1: CHANNEL1,

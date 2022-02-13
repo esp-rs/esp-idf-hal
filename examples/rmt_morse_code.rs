@@ -1,19 +1,18 @@
 //! RMT Transmit Example -- Morse Code
 //!
-//! TODO: Instructions
-//! TODO: Mention heap data.
+//! To try this out, connect a piezo buzzer via a resistor into pin 17. It should repeat "HELLO"
+//! in morse code.
+//!
+//! Set pin 16 to low to stop the signal and make the buzzer sound "GOODBYE" in morse code.
+//!
+//! Example loosely based off which has a circuit you can follow.
+//! https://github.com/espressif/esp-idf/tree/master/examples/peripherals/rmt/morse_code
 //!
 //! This example demonstrates:
 //! * A carrier signal.
 //! * Looping.
 //! * Background sending.
-//! * TODO: Waiting for a signal to finished.
-//! * Stopping/releasing a Pin and Channel, to be used again.
-//!
-//! Example loosely based off:
-//! https://github.com/espressif/esp-idf/tree/master/examples/peripherals/rmt/morse_code
-//!
-//!
+//! * Stopping/releasing a [`Pin`] and [`Channel`], to be used again.
 //!
 use embedded_hal::delay::blocking::DelayUs;
 use embedded_hal::digital::blocking::InputPin;
@@ -21,7 +20,8 @@ use esp_idf_hal::delay::Ets;
 use esp_idf_hal::gpio::{Gpio16, Gpio17, Input, Output, Pin};
 use esp_idf_hal::peripherals::Peripherals;
 use esp_idf_hal::rmt::config::{CarrierConfig, DutyPercent, Loop, TransmitConfig};
-use esp_idf_hal::rmt::{PinState, Pulse, PulseTicks, Transmit, VecSignal, CHANNEL0};
+use esp_idf_hal::rmt::VecSignal; // This example requires `std` feature.
+use esp_idf_hal::rmt::{PinState, Pulse, PulseTicks, Transmit, CHANNEL0};
 use esp_idf_hal::units::FromValueType;
 use log::*;
 
@@ -57,6 +57,7 @@ fn main() -> anyhow::Result<()> {
     Ets.delay_ms(3000)?;
 
     // Now send a single message and stop.
+    info!("Saying GOODBYE!");
     config.looping = Loop::None;
     send_morse_code(&config, led, channel, "GOODBYE")?;
 
@@ -120,6 +121,8 @@ fn str_pulses(s: &str) -> Vec<Pulse> {
         for code in find_codes(&c) {
             code.push_pulse(&mut pulses);
         }
+
+        // Create a gap after each symbol.
         pulses.push(low());
         pulses.push(low());
     }

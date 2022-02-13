@@ -1,8 +1,15 @@
-// TODO: Docs
-// TODO: Instructions
-// Mention stack data.
-// Link to datasheet
-// Link to IDF example
+//! A simple example to change colours of a WS2812/NeoPixel compatible LED.
+//!
+//! It is set to pin 18 which some dev boards have connected to a compatible LED.
+//!
+//! This example demonstrates the use of [`StackPairedSignal`][crate::rmt::StackPairedSignal] which
+//! lives on the stack and requires a known length before creating it.
+//!
+//! There is a similar implementation in the esp-idf project:
+//! https://github.com/espressif/esp-idf/tree/20847eeb96/examples/peripherals/rmt/led_strip
+//!
+//! Datasheet (PDF) for a WS2812, which explains how the pulses are to be sent:
+//! https://cdn-shop.adafruit.com/datasheets/WS2812.pdf
 
 use core::time::Duration;
 use embedded_hal::delay::blocking::DelayUs;
