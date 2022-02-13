@@ -61,7 +61,7 @@ use esp_idf_sys::*;
 
 pub use chip::*;
 
-// TODO: Docs
+/// A `Low` (0) or `High` (1) state for a pin.
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum PinState {
     Low,
@@ -157,18 +157,18 @@ impl PulseTicks {
     }
 }
 
-// TODO: Docs
+/// RMT Configuration.
 pub mod config {
     use super::PinState;
     use crate::units::{FromValueType, Hertz};
     use esp_idf_sys::{EspError, ESP_ERR_INVALID_ARG};
 
-    // TODO: Docs
+    /// A percentage from 0 to 100%, used to specify the duty percentage in [`CarrierConfig`].
     #[derive(Debug, Copy, Clone, Eq, PartialEq)]
     pub struct DutyPercent(pub(super) u8);
 
     impl DutyPercent {
-        // TODO: Docs
+        /// Must be between 0 and 100, otherwise an error is returned.
         pub fn new(v: u8) -> Result<Self, EspError> {
             if v > 100 {
                 Err(EspError::from(ESP_ERR_INVALID_ARG as i32).unwrap())
@@ -178,16 +178,16 @@ pub mod config {
         }
     }
 
-    // TODO: Docs
+    /// Configuration for when enabling a carrier frequency.
     #[derive(Debug, Copy, Clone, Eq, PartialEq)]
     pub struct CarrierConfig {
-        // TODO: Docs
+        /// Frequency of the carrier in Hz.
         pub frequency: Hertz,
-        // TODO: Docs
+
+        /// Level of the RMT output, when the carrier is applied.
         pub carrier_level: PinState,
-        // TODO: Docs
-        pub idle_level: PinState,
-        // TODO: Docs
+
+        /// Duty cycle of the carrier signal in percent (%).
         pub duty_percent: DutyPercent,
     }
 
@@ -197,7 +197,6 @@ pub mod config {
             Self {
                 frequency: 38.kHz().into(),
                 carrier_level: PinState::High,
-                idle_level: PinState::Low,
                 duty_percent: DutyPercent(33),
             }
         }
@@ -215,11 +214,6 @@ pub mod config {
 
         pub fn carrier_level(mut self, state: PinState) -> Self {
             self.carrier_level = state;
-            self
-        }
-
-        pub fn idle_level(mut self, state: PinState) -> Self {
-            self.idle_level = state;
             self
         }
 
