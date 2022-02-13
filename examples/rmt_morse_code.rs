@@ -72,7 +72,7 @@ fn send_morse_code(
     info!("Sending morse message '{}' to pin {}.", message, led.pin());
 
     let mut signal = VecSignal::new();
-    signal.add(str_pulses(message))?;
+    signal.push(str_pulses(message))?;
 
     let writer = Writer::new(led, channel, &config)?;
     writer.start(signal)?;

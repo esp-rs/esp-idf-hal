@@ -360,10 +360,14 @@ impl<P: OutputPin, C: HwChannel> Writer<P, C> {
         Ok(Self { pin, channel })
     }
 
-    /// Get speed of channel’s internal counter clock.
+    /// Get speed of the channel’s internal counter clock.
     ///
-    /// This calls (https://docs.espressif.com/projects/esp-idf/en/latest/esp32/api-reference/peripherals/rmt.html#_CPPv421rmt_get_counter_clock13rmt_channel_tP8uint32_t)[rmt_get_counter_clock]
+    /// This calls [rmt_get_counter_clock()][rmt_get_counter_clock]
     /// internally. It is used for calculating the number of ticks per second for pulses.
+    ///
+    /// See [Pulse::new_with_duration()].
+    ///
+    /// [rmt_get_counter_clock]: https://docs.espressif.com/projects/esp-idf/en/latest/esp32/api-reference/peripherals/rmt.html#_CPPv421rmt_get_counter_clock13rmt_channel_tP8uint32_t
     pub fn counter_clock(&self) -> Result<Hertz, EspError> {
         let mut ticks_hz: u32 = 0;
         esp!(unsafe { rmt_get_counter_clock(C::channel(), &mut ticks_hz) })?;
@@ -401,7 +405,7 @@ impl<P: OutputPin, C: HwChannel> Writer<P, C> {
         esp!(unsafe { rmt_tx_stop(C::channel()) })
     }
 
-    /// Stop and release the driver.
+    /// Stop transmitting and release the driver.
     ///
     /// This will return the pin and channel.
     pub fn release(self) -> Result<(P, C), EspError> {
@@ -418,11 +422,22 @@ pub trait Signal {
 
 /// Stack based signal storage for an RMT signal.
 ///
-/// Use this if you know the length of the pulses ahead of time.
+/// Use this if you know the length of the pulses ahead of time and prefer to use the stack.
 ///
-/// Internally RMT uses pairs of pulses as part of its data structure, so keep things simple
-/// in this implementation, you need to `set` a pair of `Pulse`s for each index.
-// TODO: Example
+/// Internally RMT uses pairs of pulses as part of its data structure. This implementation
+/// you need to [`set`][StackPairedSignal::set()] a two [`Pulse`]s for each index.
+///
+/// ```rust
+/// # use esp_idf_hal::rmt::StackPairedSignal;
+/// let p1 = Pulse::new(PinState::High, PulseTicks::new(10));
+/// let p2 = Pulse::new(PinState::Low, PulseTicks::new(11));
+/// let p3 = Pulse::new(PinState::High, PulseTicks::new(12));
+/// let p4 = Pulse::new(PinState::Low, PulseTicks::new(13));
+///
+/// let mut s = StackPairedSignal::new();
+/// s.set(0, &(p1, p2));
+/// s.set(1, &(p3, p4));
+/// ```
 #[derive(Clone)]
 pub struct StackPairedSignal<const N: usize>([rmt_item32_t; N]);
 
@@ -468,6 +483,13 @@ impl<const N: usize> Signal for StackPairedSignal<N> {
 /// `Vec` heap based storage for an RMT signal.
 ///
 /// Use this for when you don't know the final size of your signal data.
+///
+/// # Example
+/// ```rust
+/// let mut signal = VecSignal::new();
+/// signal.push(Pulse::new(PinState::High, PulseTicks::new(10)));
+/// signal.push(Pulse::new(PinState::Low, PulseTicks::new(9)));
+/// ```
 #[derive(Clone)]
 pub struct VecSignal {
     items: Vec<rmt_item32_t>,
@@ -485,8 +507,8 @@ impl VecSignal {
         }
     }
 
-    // TODO: Docs
-    pub fn add<I>(&mut self, pulses: I) -> Result<(), EspError>
+    /// Add [`Pulse`]s to the end of the signal.
+    pub fn push<I>(&mut self, pulses: I) -> Result<(), EspError>
     where
         I: IntoIterator<Item = Pulse>,
     {
@@ -519,7 +541,7 @@ impl VecSignal {
         Ok(())
     }
 
-    // TODO: Docs
+    /// Delete all pulses.
     pub fn clear(&mut self) {
         self.next_item_is_new = true;
         self.items.clear();
@@ -598,7 +620,15 @@ mod chip {
     }
 
     impl Peripheral {
-        // TODO: Docs
+        /// Creates a new instance of the RMT peripheral. Typically one wants
+        /// to use the instance [`rmt`](crate::peripherals::Peripherals::rmt) from
+        /// the device peripherals obtained via
+        /// [`peripherals::Peripherals::take()`](crate::peripherals::Peripherals::take()).
+        ///
+        /// # Safety
+        ///
+        /// It is safe to instantiate the RMT peripheral exactly one time.
+        /// Care has to be taken that this has not already been done elsewhere.
         pub unsafe fn new() -> Self {
             Self {
                 channel0: CHANNEL0::new(),
