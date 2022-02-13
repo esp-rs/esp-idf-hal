@@ -53,7 +53,6 @@
 
 use crate::gpio::OutputPin;
 use crate::units::Hertz;
-use chip::HwChannel;
 use config::TransmitConfig;
 use core::convert::TryFrom;
 use core::time::Duration;
