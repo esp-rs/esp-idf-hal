@@ -18,15 +18,15 @@
 //!
 //! ```
 //! // Prepare the config.
-//! let config = WriterConfig::new().clock_divider(1);
+//! let config = TransmitConfig::new().clock_divider(1);
 //!
 //! // Retrieve the output pin and channel from peripherals.
 //! let peripherals = Peripherals::take().unwrap();
 //! let pin = peripherals.pins.gpio18.into_output()?;
 //! let channel = peripherals.rmt.channel0;
 //!
-//! // Create the RMT writer.
-//! let writer = Writer::new(pin, channel, &config)?;
+//! // Create an RMT transmitter.
+//! let tx = Transmit::new(pin, channel, &config)?;
 //!
 //! // Prepare signal pulse signal to be sent.
 //! let low = Pulse::new(PinState::Low, PulseTicks::new(10)?);
@@ -36,7 +36,7 @@
 //! signal.set(1, &(high, low))?;
 //!
 //! // Transmit the signal.
-//! writer.start(signal)?;
+//! tx.start(signal)?;
 //!```
 //!
 //! See the `examples/` folder of this repository for more.
@@ -54,7 +54,7 @@
 use crate::gpio::OutputPin;
 use crate::units::Hertz;
 use chip::HwChannel;
-use config::WriterConfig;
+use config::TransmitConfig;
 use core::convert::TryFrom;
 use core::time::Duration;
 use esp_idf_sys::*;
@@ -70,7 +70,7 @@ pub enum PinState {
 
 /// A `Pulse` contains a pin state and a tick count, used in creating a [`Signal`].
 ///
-/// The real time duration of a tick depends on the [`WriterConfig::clock_divider`] setting.
+/// The real time duration of a tick depends on the [`TransmitConfig::clock_divider`] setting.
 ///
 /// You can create a `Pulse` with a [`Duration`] by using [`Pulse::new_with_duration`].
 ///
@@ -93,7 +93,7 @@ impl Pulse {
     /// Create a [`Pulse`] using a [`Duration`].
     ///
     /// The ticks frequency, which depends on the clock divider set on the channel within a
-    /// [`Writer`]. To get the frequency for the `ticks_hz` argument, use [`Writer::counter_clock()`].
+    /// [`Transmit`]. To get the frequency for the `ticks_hz` argument, use [`Transmit::counter_clock()`].
     ///
     /// # Example
     /// ```
@@ -104,9 +104,9 @@ impl Pulse {
     /// # let peripherals = Peripherals::take()?;
     /// # let led = peripherals.pins.gpio18.into_output()?;
     /// # let channel = peripherals.rmt.channel0;
-    /// # let config = WriterConfig::new()?;
-    /// let writer = Writer::new(led, channel, &config)?;
-    /// let ticks_hz = writer.counter_clock()?;
+    /// # let config = TransmitConfig::new()?;
+    /// let tx = Transmit::new(led, channel, &config)?;
+    /// let ticks_hz = tx.counter_clock()?;
     /// let pulse = Pulse::new_with_duration(ticks_hz, PinState::High, Duration::from_nanos(500))?;
     /// # }
     /// ```
@@ -238,7 +238,7 @@ pub mod config {
     }
 
     // TODO: Docs
-    pub struct WriterConfig {
+    pub struct TransmitConfig {
         // TODO: Docs
         pub clock_divider: u8,
         pub mem_block_num: u8,
@@ -250,7 +250,7 @@ pub mod config {
         pub aware_dfs: bool,
     }
 
-    impl Default for WriterConfig {
+    impl Default for TransmitConfig {
         // Defaults from https://github.com/espressif/esp-idf/blob/master/components/driver/include/driver/rmt.h#L101
         fn default() -> Self {
             Self {
@@ -264,7 +264,7 @@ pub mod config {
         }
     }
 
-    impl WriterConfig {
+    impl TransmitConfig {
         pub fn new() -> Self {
             Self::default()
         }
@@ -306,14 +306,14 @@ pub mod config {
 }
 
 /// Main functionality for RMT transmission.
-pub struct Writer<P: OutputPin, C: HwChannel> {
+pub struct Transmit<P: OutputPin, C: HwChannel> {
     pin: P,
     channel: C,
 }
 
-impl<P: OutputPin, C: HwChannel> Writer<P, C> {
+impl<P: OutputPin, C: HwChannel> Transmit<P, C> {
     // TODO: Docs
-    pub fn new(pin: P, channel: C, config: &WriterConfig) -> Result<Self, EspError> {
+    pub fn new(pin: P, channel: C, config: &TransmitConfig) -> Result<Self, EspError> {
         let mut flags = 0;
         if config.aware_dfs {
             flags |= RMT_CHANNEL_FLAGS_AWARE_DFS;
@@ -415,7 +415,7 @@ impl<P: OutputPin, C: HwChannel> Writer<P, C> {
     }
 }
 
-/// Signal storage for writer in a format ready for the RMT driver.
+/// Signal storage for [`Transmit`] in a format ready for the RMT driver.
 pub trait Signal {
     fn as_slice(&self) -> &[rmt_item32_t];
 }
@@ -477,7 +477,7 @@ impl<const N: usize> Signal for StackPairedSignal<N> {
     }
 }
 
-// TODO: impl<const N: usize> From<&[Pulse; N]> for StackWriterSignal<{ (N + 1) / 2 }> {
+// TODO: impl<const N: usize> From<&[Pulse; N]> for StackSignal<{ (N + 1) / 2 }> {
 // Implementing this caused the compiler to crash!
 
 /// `Vec` heap based storage for an RMT signal.

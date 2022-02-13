@@ -4,15 +4,12 @@
 // Link to datasheet
 // Link to IDF example
 
-use anyhow::Context;
 use core::time::Duration;
 use embedded_hal::delay::blocking::DelayUs;
 use esp_idf_hal::delay::Ets;
-use esp_idf_hal::gpio::Gpio18;
-use esp_idf_hal::gpio::Output;
 use esp_idf_hal::peripherals::Peripherals;
-use esp_idf_hal::rmt::config::WriterConfig;
-use esp_idf_hal::rmt::{PinState, Pulse, PulseTicks, StackPairedSignal, Writer, CHANNEL0};
+use esp_idf_hal::rmt::config::TransmitConfig;
+use esp_idf_hal::rmt::{PinState, Pulse, StackPairedSignal, Transmit};
 
 fn main() -> anyhow::Result<()> {
     esp_idf_sys::link_patches();
@@ -21,13 +18,13 @@ fn main() -> anyhow::Result<()> {
     let peripherals = Peripherals::take().unwrap();
     let led = peripherals.pins.gpio18.into_output()?;
     let channel = peripherals.rmt.channel0;
-    let config = WriterConfig::new().clock_divider(1);
-    let writer = Writer::new(led, channel, &config)?;
+    let config = TransmitConfig::new().clock_divider(1);
+    let tx = Transmit::new(led, channel, &config)?;
 
     let rgbs = [0xff0000, 0xffff00, 0x00ffff, 0x00ff00, 0xa000ff];
     loop {
         for rgb in rgbs {
-            let ticks_hz = writer.counter_clock()?;
+            let ticks_hz = tx.counter_clock()?;
             let t0h =
                 Pulse::new_with_duration(ticks_hz, PinState::High, Duration::from_nanos(350))?;
             let t0l = Pulse::new_with_duration(ticks_hz, PinState::Low, Duration::from_nanos(800))?;
@@ -41,7 +38,7 @@ fn main() -> anyhow::Result<()> {
                 let (high_pulse, low_pulse) = if bit { (t1h, t1l) } else { (t0h, t0l) };
                 signal.set(i as usize, &(high_pulse, low_pulse))?;
             }
-            writer.start_blocking(&signal)?;
+            tx.start_blocking(&signal)?;
             Ets.delay_ms(1000)?;
         }
     }

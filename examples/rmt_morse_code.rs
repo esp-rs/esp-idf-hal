@@ -20,8 +20,8 @@ use embedded_hal::digital::blocking::InputPin;
 use esp_idf_hal::delay::Ets;
 use esp_idf_hal::gpio::{Gpio16, Gpio17, Input, Output, Pin};
 use esp_idf_hal::peripherals::Peripherals;
-use esp_idf_hal::rmt::config::{CarrierConfig, DutyPercent, Loop, WriterConfig};
-use esp_idf_hal::rmt::{PinState, Pulse, PulseTicks, VecSignal, Writer, CHANNEL0};
+use esp_idf_hal::rmt::config::{CarrierConfig, DutyPercent, Loop, TransmitConfig};
+use esp_idf_hal::rmt::{PinState, Pulse, PulseTicks, Transmit, VecSignal, CHANNEL0};
 use esp_idf_hal::units::FromValueType;
 use log::*;
 
@@ -37,12 +37,12 @@ fn main() -> anyhow::Result<()> {
     let carrier = CarrierConfig::new()
         .duty_percent(DutyPercent::new(50)?)
         .frequency(611.Hz());
-    let mut config = WriterConfig::new()
+    let mut config = TransmitConfig::new()
         .carrier(Some(carrier))
         .looping(Loop::Count(100))
         .clock_divider(255);
 
-    let writer = send_morse_code(&config, led, channel, "HELLO ")?;
+    let tx = send_morse_code(&config, led, channel, "HELLO ")?;
 
     info!("Keep sending until pin {} is set low.", stop.pin());
     while stop.is_high()? {
@@ -51,7 +51,7 @@ fn main() -> anyhow::Result<()> {
     info!("Pin {} is set to low--stopping message.", stop.pin());
 
     // Release pin and channel so we can use them again.
-    let (led, channel) = writer.release()?;
+    let (led, channel) = tx.release()?;
 
     // Wait so the messages don't get garbled.
     Ets.delay_ms(3000)?;
@@ -64,21 +64,21 @@ fn main() -> anyhow::Result<()> {
 }
 
 fn send_morse_code(
-    config: &WriterConfig,
+    config: &TransmitConfig,
     led: Gpio17<Output>,
     channel: CHANNEL0,
     message: &str,
-) -> anyhow::Result<Writer<Gpio17<Output>, CHANNEL0>> {
+) -> anyhow::Result<Transmit<Gpio17<Output>, CHANNEL0>> {
     info!("Sending morse message '{}' to pin {}.", message, led.pin());
 
     let mut signal = VecSignal::new();
     signal.push(str_pulses(message))?;
 
-    let writer = Writer::new(led, channel, &config)?;
-    writer.start(signal)?;
+    let tx = Transmit::new(led, channel, &config)?;
+    tx.start(signal)?;
 
-    // Return writer so we can release the pin and channel later.
-    Ok(writer)
+    // Return `tx` so we can release the pin and channel later.
+    Ok(tx)
 }
 
 fn high() -> Pulse {
