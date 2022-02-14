@@ -33,11 +33,13 @@ fn main() -> anyhow::Result<()> {
         for rgb in rgbs {
             let ticks_hz = tx.counter_clock()?;
             let t0h =
-                Pulse::new_with_duration(ticks_hz, PinState::High, Duration::from_nanos(350))?;
-            let t0l = Pulse::new_with_duration(ticks_hz, PinState::Low, Duration::from_nanos(800))?;
+                Pulse::new_with_duration(ticks_hz, PinState::High, &Duration::from_nanos(350))?;
+            let t0l =
+                Pulse::new_with_duration(ticks_hz, PinState::Low, &Duration::from_nanos(800))?;
             let t1h =
-                Pulse::new_with_duration(ticks_hz, PinState::High, Duration::from_nanos(700))?;
-            let t1l = Pulse::new_with_duration(ticks_hz, PinState::Low, Duration::from_nanos(600))?;
+                Pulse::new_with_duration(ticks_hz, PinState::High, &Duration::from_nanos(700))?;
+            let t1l =
+                Pulse::new_with_duration(ticks_hz, PinState::Low, &Duration::from_nanos(600))?;
 
             let mut signal = StackPairedSignal::<24>::new();
             for i in 0..24 {

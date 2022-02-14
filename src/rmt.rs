@@ -53,12 +53,11 @@
 
 use crate::gpio::OutputPin;
 use crate::units::Hertz;
+pub use chip::*;
 use config::TransmitConfig;
 use core::convert::TryFrom;
 use core::time::Duration;
 use esp_idf_sys::*;
-
-pub use chip::*;
 
 /// A `Low` (0) or `High` (1) state for a pin.
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
@@ -112,7 +111,7 @@ impl Pulse {
     pub fn new_with_duration(
         ticks_hz: Hertz,
         pin_state: PinState,
-        duration: Duration,
+        duration: &Duration,
     ) -> Result<Self, EspError> {
         let ticks = PulseTicks::new_with_duration(ticks_hz, duration)?;
         Ok(Self::new(pin_state, ticks))
@@ -144,16 +143,20 @@ impl PulseTicks {
     /// Convert a `Duration` into `PulseTicks`.
     ///
     /// See `Pulse::new_with_duration()` for details.
-    pub fn new_with_duration(ticks_hz: Hertz, duration: Duration) -> Result<Self, EspError> {
-        let ticks = duration
-            .as_nanos()
-            .checked_mul(u32::from(ticks_hz) as u128)
-            .ok_or(EspError::from(EOVERFLOW as i32).unwrap())?
-            / 1_000_000_000;
+    pub fn new_with_duration(ticks_hz: Hertz, duration: &Duration) -> Result<Self, EspError> {
+        let ticks = duration_to_ticks(ticks_hz, duration)?;
         let ticks = u16::try_from(ticks).map_err(|_| EspError::from(EOVERFLOW as i32).unwrap())?;
-
         Self::new(ticks)
     }
+}
+
+/// A utility to convert a duration into ticks, depending on the clock ticks.
+pub fn duration_to_ticks(ticks_hz: Hertz, duration: &Duration) -> Result<u128, EspError> {
+    Ok(duration
+        .as_nanos()
+        .checked_mul(u32::from(ticks_hz) as u128)
+        .ok_or(EspError::from(EOVERFLOW as i32).unwrap())?
+        / 1_000_000_000)
 }
 
 /// Types used for configuring the [`rmt`][crate::rmt] module.
@@ -246,6 +249,15 @@ pub mod config {
         Count(u32),
     }
 
+    impl From<Loop> for u32 {
+        fn from(looping: Loop) -> Self {
+            match looping {
+                Loop::None => 0,
+                Loop::Count(c) => c,
+            }
+        }
+    }
+
     /// Used when creating a [`Transmit`][crate::rmt::Transmit] instance.
     pub struct TransmitConfig {
         pub clock_divider: u8,
@@ -253,6 +265,7 @@ pub mod config {
         pub carrier: Option<CarrierConfig>,
         // TODO: `loop` is taken. Maybe can change to `repeat` even though it doesn't match the IDF.
         pub looping: Loop,
+
         /// Enable and set the signal level on the output if idle.
         pub idle: Option<PinState>,
 
@@ -342,10 +355,7 @@ impl<P: OutputPin, C: HwChannel> Transmit<P, C> {
 
         use config::Loop;
         let loop_en = config.looping != Loop::None;
-        let loop_count = match config.looping {
-            Loop::None => 0,
-            Loop::Count(c) => c,
-        };
+        let loop_count = config.looping.into();
 
         let sys_config = rmt_config_t {
             rmt_mode: rmt_mode_t_RMT_MODE_TX,
@@ -430,6 +440,10 @@ impl<P: OutputPin, C: HwChannel> Transmit<P, C> {
         self.stop()?;
         esp!(unsafe { rmt_driver_uninstall(C::channel()) })?;
         Ok((self.pin, self.channel))
+    }
+
+    pub fn set_looping(&self, looping: config::Loop) -> Result<(), EspError> {
+        esp!(unsafe { rmt_set_tx_loop_count(C::channel(), looping.into()) })
     }
 }
 
