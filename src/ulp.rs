@@ -84,6 +84,8 @@ impl ULP {
 impl ULP {
     const RTC_SLOW_MEM: u32 = 0x5000_0000_u32;
 
+    pub const MEM_START_ULP: *mut core::ffi::c_void = 0_u32 as _;
+
     pub const MEM_START: *mut core::ffi::c_void = Self::RTC_SLOW_MEM as _;
 
     #[cfg(esp32)]
@@ -205,13 +207,10 @@ impl ULP {
     }
 
     pub unsafe fn load(&mut self, program: &[u8]) -> Result<(), esp_idf_sys::EspError> {
-        self.load_at_ulp_address(Self::MEM_START, program)
+        self.load_at_ulp_address(Self::MEM_START_ULP, program)
     }
 
-    pub unsafe fn start(
-        &mut self,
-        address: *mut core::ffi::c_void,
-    ) -> Result<(), esp_idf_sys::EspError> {
+    pub unsafe fn start(&mut self, address: *const u32) -> Result<(), esp_idf_sys::EspError> {
         esp_idf_sys::esp!(esp_idf_sys::ulp_run(address as u32))?;
 
         Ok(())
