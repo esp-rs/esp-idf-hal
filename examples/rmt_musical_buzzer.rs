@@ -1,15 +1,16 @@
+//! Play a song using a piezo buzzer.
+//!
+//! Should play "Ode to Joy" on pin 17.
+//!
+//! Based off the ESP-IDF rmt musical buzzer example:
+//! https://github.com/espressif/esp-idf/blob/b092fa073047c957545a0ae9504f04972a8c6d74/examples/peripherals/rmt/musical_buzzer/main/musical_buzzer_example_main.c
 use core::time::Duration;
 use embedded_hal::delay::blocking::DelayUs;
 use esp_idf_hal::delay::Ets;
 use esp_idf_hal::gpio::OutputPin;
 use esp_idf_hal::peripherals::Peripherals;
-use esp_idf_hal::prelude::FromValueType;
 use esp_idf_hal::rmt::config::{Loop, TransmitConfig};
-use esp_idf_hal::rmt::{
-    duration_to_ticks, HwChannel, PinState, Pulse, PulseTicks, StackPairedSignal, Transmit,
-};
-use esp_idf_hal::units::Hertz;
-use log::info;
+use esp_idf_hal::rmt::{HwChannel, PinState, Pulse, PulseTicks, StackPairedSignal, Transmit};
 use notes::*;
 
 fn main() -> anyhow::Result<()> {
