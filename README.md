@@ -33,3 +33,5 @@ The examples could be built and flashed conveniently with [`cargo-espflash`](htt
 ```
 $ cargo espflash --release --target riscv32imc-esp-espidf --example ledc-simple --monitor /dev/ttyUSB0
 ```
+
+In order to run the examples on other chips you will most likely need to adapt at least the used pins.
