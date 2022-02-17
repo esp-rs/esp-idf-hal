@@ -47,6 +47,46 @@ pub trait Pull {
 
     /// Disable internal pull up and down resistors
     fn set_floating(&mut self) -> Result<&mut Self, Self::Error>;
+
+    /// Enable internal pull up resistor, disable pull down
+    fn into_pull_up(mut self) -> Result<Self, Self::Error>
+    where
+        Self: Sized,
+    {
+        self.set_pull_up()?;
+
+        Ok(self)
+    }
+
+    /// Enable internal pull down resistor, disable pull up
+    fn into_pull_down(mut self) -> Result<Self, Self::Error>
+    where
+        Self: Sized,
+    {
+        self.set_pull_down()?;
+
+        Ok(self)
+    }
+
+    /// Enable internal pull up and down resistors
+    fn into_pull_up_down(mut self) -> Result<Self, Self::Error>
+    where
+        Self: Sized,
+    {
+        self.set_pull_up_down()?;
+
+        Ok(self)
+    }
+
+    /// Disable internal pull up and down resistors
+    fn into_floating(mut self) -> Result<Self, Self::Error>
+    where
+        Self: Sized,
+    {
+        self.set_floating()?;
+
+        Ok(self)
+    }
 }
 
 pub trait RTCPin: Pin {
