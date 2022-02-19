@@ -155,7 +155,7 @@ pub fn duration_to_ticks(ticks_hz: Hertz, duration: &Duration) -> Result<u128, E
     Ok(duration
         .as_nanos()
         .checked_mul(u32::from(ticks_hz) as u128)
-        .ok_or(EspError::from(EOVERFLOW as i32).unwrap())?
+        .ok_or_else(|| EspError::from(EOVERFLOW as i32).unwrap())?
         / 1_000_000_000)
 }
 
@@ -491,7 +491,7 @@ impl<const N: usize> StackPairedSignal<N> {
         let item = self
             .0
             .get_mut(index)
-            .ok_or(EspError::from(ERANGE as i32).unwrap())?;
+            .ok_or_else(|| EspError::from(ERANGE as i32).unwrap())?;
 
         // SAFETY: We're overriding all 32 bits, so it doesn't matter what was here before.
         let inner = unsafe { &mut item.__bindgen_anon_1.__bindgen_anon_1 };
@@ -510,6 +510,12 @@ impl<const N: usize> Signal for StackPairedSignal<N> {
     }
 }
 
+impl<const N: usize> Default for StackPairedSignal<N> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 // TODO: impl<const N: usize> From<&[Pulse; N]> for StackSignal<{ (N + 1) / 2 }> {
 // Implementing this caused the compiler to crash!
 
@@ -524,7 +530,7 @@ impl<const N: usize> Signal for StackPairedSignal<N> {
 /// signal.push(Pulse::new(PinState::Low, PulseTicks::new(9)));
 /// ```
 
-#[derive(Clone)]
+#[derive(Clone, Default)]
 #[cfg(feature = "std")]
 pub struct VecSignal {
     items: Vec<rmt_item32_t>,
