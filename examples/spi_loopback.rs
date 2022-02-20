@@ -22,7 +22,6 @@ use esp_idf_hal::spi;
 
 fn main() -> anyhow::Result<()> {
     esp_idf_sys::link_patches();
-    esp_idf_svc::log::EspLogger::initialize_default();
 
     let peripherals = Peripherals::take().unwrap();
     let spi = peripherals.spi2;

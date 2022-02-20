@@ -18,7 +18,6 @@ use esp_idf_hal::peripherals::Peripherals;
 
 fn main() -> anyhow::Result<()> {
     esp_idf_sys::link_patches();
-    esp_idf_svc::log::EspLogger::initialize_default();
 
     let peripherals = Peripherals::take().unwrap();
     let mut led = peripherals.pins.gpio4.into_output()?;
