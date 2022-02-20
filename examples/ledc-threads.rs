@@ -1,10 +1,9 @@
-use std::{sync::Arc, time::Duration};
+use std::{borrow::Borrow, sync::Arc, time::Duration};
 
+use esp_idf_hal::gpio::OutputPin;
 use esp_idf_hal::ledc::*;
 use esp_idf_hal::peripherals::Peripherals;
 use esp_idf_hal::prelude::*;
-
-use esp_idf_sys::EspError;
 
 const CYCLES: usize = 3;
 
@@ -20,7 +19,7 @@ where
     T: Borrow<Timer<H>>,
     P: OutputPin,
 {
-    let max_duty = pwm.get_max_duty()?;
+    let max_duty = pwm.get_max_duty();
 
     for cycle in 0..times {
         println!("{} cycle: {}", log_prefix, cycle);
@@ -41,7 +40,7 @@ fn main() -> anyhow::Result<()> {
     println!("Setting up PWM output channels");
 
     let mut peripherals = Peripherals::take().unwrap();
-    let config = TimerConfig::default().frequency(25.kHz().into());
+    let config = config::TimerConfig::default().frequency(25.kHz().into());
     let timer = Arc::new(Timer::new(peripherals.ledc.timer0, &config)?);
     let timer0 = timer.clone();
     let timer1 = timer.clone();

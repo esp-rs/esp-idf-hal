@@ -17,7 +17,7 @@ fn main() -> anyhow::Result<()> {
 
     println!("Starting duty-cycle loop");
 
-    let max_duty = channel.get_max_duty()?;
+    let max_duty = channel.get_max_duty();
     for numerator in [0, 1, 2, 3, 4, 5].iter().cycle() {
         println!("Duty {}/5", numerator);
         channel.set_duty(max_duty * numerator / 5)?;
