@@ -11,11 +11,17 @@
 #include "esp_sleep.h"
 #include "esp_task.h"
 #include "esp_task_wdt.h"
-#include "esp_timer.h"
 #include "esp_int_wdt.h"
 #include "esp_interface.h"
 #include "esp_ipc.h"
+
+#ifdef ESP_IDF_COMP_ESP_PM_ENABLED
 #include "esp_pm.h"
+#endif
+
+#ifdef ESP_IDF_COMP_ESP_TIMER_ENABLED
+#include "esp_timer.h"
+#endif
 
 #ifdef ESP_IDF_COMP_SPI_FLASH_ENABLED
 #include "esp_spi_flash.h"
@@ -26,15 +32,27 @@
 #include "esp_adc_cal.h"
 #endif
 
+#ifdef ESP_IDF_COMP_ESP_EVENT_ENABLED
 #include "esp_event.h"
+#endif
 
+#ifdef ESP_IDF_COMP_ESP_NETIF_ENABLED
 #include "esp_netif.h"
+#endif
 
+#ifdef ESP_IDF_COMP_ESP_WIFI_ENABLED
 #include "esp_wifi.h"
+#ifdef ESP_IDF_COMP_ESP_NETIF_ENABLED
 #include "esp_wifi_netif.h"
+#endif
+#endif
 
+#ifdef ESP_IDF_COMP_ESP_ETH_ENABLED
 #include "esp_eth.h"
+#ifdef ESP_IDF_COMP_ESP_NETIF_ENABLED
 #include "esp_eth_netif_glue.h"
+#endif
+#endif
 
 #ifdef ESP_IDF_COMP_VFS_ENABLED
 #include "esp_vfs.h"
@@ -84,6 +102,10 @@
 
 #ifdef ESP_IDF_COMP_ESP_HTTP_SERVER_ENABLED
 #include "esp_http_server.h"
+#endif
+
+#ifdef ESP_IDF_COMP_MDNS_ENABLED
+#include "mdns.h"
 #endif
 
 #ifdef ESP_IDF_COMP_MQTT_ENABLED

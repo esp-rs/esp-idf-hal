@@ -31,21 +31,28 @@ const TOOLS_WORKSPACE_INSTALL_DIR: &str = ".embuild";
 
 const ALL_COMPONENTS: &[&str] = &[
     // TODO: Put all IDF components here
-    "comp_pthread_enabled",
-    "comp_nvs_flash_enabled",
-    "comp_esp_tls_enabled",
+    "comp_app_update_enabled",
+    "comp_esp_adc_cal_enabled",
+    "comp_esp_eth_enabled",
+    "comp_esp_event_enabled",
     "comp_esp_http_client_enabled",
     "comp_esp_http_server_enabled",
-    "comp_espcoredump_enabled",
-    "comp_app_update_enabled",
+    "comp_esp_netif_enabled",
+    "comp_esp_pm_enabled",
     "comp_esp_serial_slave_link_enabled",
-    "comp_spi_flash_enabled",
-    "comp_esp_adc_cal_enabled",
-    "comp_mqtt_enabled",
-    "comp_vfs_enabled",
-    "comp_spiffs_enabled",
+    "comp_esp_timer_enabled",
+    "comp_esp_tls_enabled",
+    "comp_esp_wifi_enabled",
+    "comp_espcoredump_enabled",
     "comp_fatfs_enabled",
+    "comp_mdns_enabled",
+    "comp_mqtt_enabled",
+    "comp_nvs_flash_enabled",
+    "comp_spi_flash_enabled",
+    "comp_pthread_enabled",
     "comp_soc_enabled",
+    "comp_spiffs_enabled",
+    "comp_vfs_enabled",
 ];
 
 pub struct EspIdfBuildOutput {
