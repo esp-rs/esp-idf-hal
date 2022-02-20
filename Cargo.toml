@@ -31,7 +31,7 @@ esp-idf-sys = { version = "0.30", optional = true, default-features = false, fea
 critical-section = { version = "0.2.5", optional = true, features = ["custom-impl"] }
 embassy = { version = "0", optional = true }
 # The real version is this one and it needs to be patched into the binary crate:
-#embassy = { version = "0.1", git = "https://github.com/embassy-rs/embassy", optional = true, features = ["time", "time-tick-1mhz"] }
+#embassy = { version = "0.1", git = "https://github.com/embassy-rs/embassy", optional = true, features = ["executor-agnostic"] }
 
 [build-dependencies]
 embuild = "0.28"
