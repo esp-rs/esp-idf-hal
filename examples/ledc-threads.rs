@@ -1,19 +1,27 @@
-use embedded_hal::pwm::blocking::PwmPin;
-use esp_idf_hal::ledc::{config::TimerConfig, Channel, Timer};
+use std::{sync::Arc, time::Duration};
+
+use log::*;
+
+use esp_idf_hal::ledc::*;
 use esp_idf_hal::peripherals::Peripherals;
 use esp_idf_hal::prelude::*;
+
 use esp_idf_sys::EspError;
-use log::*;
-use std::{sync::Arc, time::Duration};
 
 const CYCLES: usize = 3;
 
-fn cycle_duty(
-    mut pwm: impl PwmPin<Duty = u32, Error = EspError>,
+fn cycle_duty<C, H, T, P>(
+    mut pwm: Channel<C, H, T, P>,
     times: usize,
     log_prefix: &str,
     sleep: Duration,
-) -> anyhow::Result<()> {
+) -> anyhow::Result<()>
+where
+    C: HwChannel,
+    H: HwTimer,
+    T: Borrow<Timer<H>>,
+    P: OutputPin,
+{
     let max_duty = pwm.get_max_duty()?;
 
     for cycle in 0..times {
@@ -40,8 +48,8 @@ fn main() -> anyhow::Result<()> {
     let timer = Arc::new(Timer::new(peripherals.ledc.timer0, &config)?);
     let timer0 = timer.clone();
     let timer1 = timer.clone();
-    let channel0 = Channel::new(peripherals.ledc.channel0, timer0, peripherals.pins.gpio1)?;
-    let channel1 = Channel::new(peripherals.ledc.channel1, timer1, peripherals.pins.gpio2)?;
+    let channel0 = Channel::new(peripherals.ledc.channel0, timer0, peripherals.pins.gpio4)?;
+    let channel1 = Channel::new(peripherals.ledc.channel1, timer1, peripherals.pins.gpio5)?;
 
     info!("Spawning PWM threads");
 

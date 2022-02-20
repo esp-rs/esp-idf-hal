@@ -270,6 +270,10 @@ macro_rules! impl_base {
                 Ok(())
             }
         }
+
+        impl<MODE> embedded_hal::digital::ErrorType for $pxi<MODE> {
+            type Error = EspError;
+        }
     };
 }
 
@@ -644,8 +648,6 @@ macro_rules! impl_hal_input_pin {
         }
 
         impl embedded_hal::digital::blocking::InputPin for $pxi<$mode> {
-            type Error = EspError;
-
             fn is_high(&self) -> Result<bool, Self::Error> {
                 Ok(self.get_input_level())
             }
@@ -672,8 +674,6 @@ macro_rules! impl_hal_output_pin {
         }
 
         impl embedded_hal::digital::blocking::OutputPin for $pxi<$mode> {
-            type Error = EspError;
-
             fn set_high(&mut self) -> Result<(), Self::Error> {
                 self.set_output_level(true)
             }
@@ -712,8 +712,6 @@ macro_rules! impl_hal_output_pin {
         }
 
         impl embedded_hal::digital::blocking::ToggleableOutputPin for $pxi<$mode> {
-            type Error = EspError;
-
             fn toggle(&mut self) -> Result<(), Self::Error> {
                 self.set_output_level(!self.get_output_level())
             }

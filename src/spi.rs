@@ -470,6 +470,12 @@ impl<SPI: Spi, SCLK: OutputPin, SDO: OutputPin, SDI: InputPin + OutputPin, CS: O
 }
 
 impl<SPI: Spi, SCLK: OutputPin, SDO: OutputPin, SDI: InputPin + OutputPin, CS: OutputPin>
+    embedded_hal::spi::ErrorType for Master<SPI, SCLK, SDO, SDI, CS>
+{
+    type Error = SpiError;
+}
+
+impl<SPI: Spi, SCLK: OutputPin, SDO: OutputPin, SDI: InputPin + OutputPin, CS: OutputPin>
     embedded_hal_0_2::blocking::spi::Transfer<u8> for Master<SPI, SCLK, SDO, SDI, CS>
 {
     type Error = SpiError;
@@ -484,8 +490,6 @@ impl<SPI: Spi, SCLK: OutputPin, SDO: OutputPin, SDI: InputPin + OutputPin, CS: O
 impl<SPI: Spi, SCLK: OutputPin, SDO: OutputPin, SDI: InputPin + OutputPin, CS: OutputPin>
     embedded_hal::spi::blocking::TransferInplace<u8> for Master<SPI, SCLK, SDO, SDI, CS>
 {
-    type Error = SpiError;
-
     fn transfer_inplace(&mut self, words: &mut [u8]) -> Result<(), Self::Error> {
         self.transfer_inplace_internal(words, true)?;
 
@@ -496,8 +500,6 @@ impl<SPI: Spi, SCLK: OutputPin, SDO: OutputPin, SDI: InputPin + OutputPin, CS: O
 impl<SPI: Spi, SCLK: OutputPin, SDO: OutputPin, SDI: InputPin + OutputPin, CS: OutputPin>
     embedded_hal::spi::blocking::Transfer<u8> for Master<SPI, SCLK, SDO, SDI, CS>
 {
-    type Error = SpiError;
-
     fn transfer(&mut self, read: &mut [u8], write: &[u8]) -> Result<(), Self::Error> {
         self.transfer_internal(read, write, true)
     }
@@ -506,8 +508,6 @@ impl<SPI: Spi, SCLK: OutputPin, SDO: OutputPin, SDI: InputPin + OutputPin, CS: O
 impl<SPI: Spi, SCLK: OutputPin, SDO: OutputPin, SDI: InputPin + OutputPin, CS: OutputPin>
     embedded_hal::spi::blocking::Read<u8> for Master<SPI, SCLK, SDO, SDI, CS>
 {
-    type Error = SpiError;
-
     fn read(&mut self, words: &mut [u8]) -> Result<(), Self::Error> {
         self.transfer_internal(words, &[], true)
     }
@@ -526,8 +526,6 @@ impl<SPI: Spi, SCLK: OutputPin, SDO: OutputPin, SDI: InputPin + OutputPin, CS: O
 impl<SPI: Spi, SCLK: OutputPin, SDO: OutputPin, SDI: InputPin + OutputPin, CS: OutputPin>
     embedded_hal::spi::blocking::Write<u8> for Master<SPI, SCLK, SDO, SDI, CS>
 {
-    type Error = SpiError;
-
     fn write(&mut self, words: &[u8]) -> Result<(), Self::Error> {
         self.transfer_internal(&mut [], words, true)
     }
@@ -549,8 +547,6 @@ impl<SPI: Spi, SCLK: OutputPin, SDO: OutputPin, SDI: InputPin + OutputPin, CS: O
 impl<SPI: Spi, SCLK: OutputPin, SDO: OutputPin, SDI: InputPin + OutputPin, CS: OutputPin>
     embedded_hal::spi::blocking::WriteIter<u8> for Master<SPI, SCLK, SDO, SDI, CS>
 {
-    type Error = SpiError;
-
     fn write_iter<WI>(&mut self, words: WI) -> Result<(), Self::Error>
     where
         WI: IntoIterator<Item = u8>,
@@ -588,8 +584,6 @@ impl<SPI: Spi, SCLK: OutputPin, SDO: OutputPin, SDI: InputPin + OutputPin, CS: O
 impl<SPI: Spi, SCLK: OutputPin, SDO: OutputPin, SDI: InputPin + OutputPin, CS: OutputPin>
     embedded_hal::spi::blocking::Transactional<u8> for Master<SPI, SCLK, SDO, SDI, CS>
 {
-    type Error = SpiError;
-
     fn exec<'a>(
         &mut self,
         operations: &mut [embedded_hal::spi::blocking::Operation<'a, u8>],

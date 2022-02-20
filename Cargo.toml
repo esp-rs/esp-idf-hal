@@ -24,8 +24,8 @@ experimental = []
 [dependencies]
 nb = "0.1.2"
 mutex-trait = { version = "0.2", optional = true, default-features = false }
-embedded-hal = "=1.0.0-alpha.6"
-embedded-hal-0-2 = { package = "embedded-hal", version = "0.2", features = ["unproven"] }
+embedded-hal = "=1.0.0-alpha.7"
+embedded-hal-0-2 = { package = "embedded-hal", version = "0.2.7", features = ["unproven"] }
 embedded-svc = { version = "0.16.4", optional = true, default-features = false }
 esp-idf-sys = { version = "0.30", optional = true, default-features = false, features = ["pio"] }
 critical-section = { version = "0.2.5", optional = true, features = ["custom-impl"] }

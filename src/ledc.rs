@@ -30,10 +30,10 @@
 
 use core::{borrow::Borrow, marker::PhantomData};
 
+use esp_idf_sys::*;
+
 use crate::gpio::OutputPin;
 use crate::mutex::Mutex;
-use embedded_hal::pwm::blocking::PwmPin;
-use esp_idf_sys::*;
 
 pub use chip::*;
 
@@ -201,25 +201,25 @@ impl<C: HwChannel, H: HwTimer, T: Borrow<Timer<H>>, P: OutputPin> Channel<C, H, 
         Ok((self.instance, self.pin))
     }
 
-    fn get_duty(&self) -> Duty {
+    pub fn get_duty(&self) -> Duty {
         self.duty
     }
 
-    fn get_max_duty(&self) -> Duty {
+    pub fn get_max_duty(&self) -> Duty {
         self.timer.borrow().max_duty
     }
 
-    fn disable(&mut self) -> Result<(), EspError> {
+    pub fn disable(&mut self) -> Result<(), EspError> {
         self.update_duty(0)?;
         Ok(())
     }
 
-    fn enable(&mut self) -> Result<(), EspError> {
+    pub fn enable(&mut self) -> Result<(), EspError> {
         self.update_duty(self.duty)?;
         Ok(())
     }
 
-    fn set_duty(&mut self, duty: Duty) -> Result<(), EspError> {
+    pub fn set_duty(&mut self, duty: Duty) -> Result<(), EspError> {
         // Clamp the actual duty cycle to the current maximum as done by other
         // Pwm/PwmPin implementations.
         //
@@ -250,30 +250,31 @@ impl<C: HwChannel, H: HwTimer, T: Borrow<Timer<H>>, P: OutputPin> Channel<C, H, 
     }
 }
 
-impl<C: HwChannel, H: HwTimer, T: Borrow<Timer<H>>, P: OutputPin> PwmPin for Channel<C, H, T, P> {
-    type Duty = Duty;
-    type Error = EspError;
+// PwmPin temporarily removed from embedded-hal-1.0.alpha7 in anticipation of e-hal 1.0 release
+// impl<C: HwChannel, H: HwTimer, T: Borrow<Timer<H>>, P: OutputPin> embedded_hal::pwm::blocking::PwmPin for Channel<C, H, T, P> {
+//     type Duty = Duty;
+//     type Error = EspError;
 
-    fn disable(&mut self) -> Result<(), Self::Error> {
-        self.disable()
-    }
+//     fn disable(&mut self) -> Result<(), Self::Error> {
+//         self.disable()
+//     }
 
-    fn enable(&mut self) -> Result<(), Self::Error> {
-        self.enable()
-    }
+//     fn enable(&mut self) -> Result<(), Self::Error> {
+//         self.enable()
+//     }
 
-    fn get_duty(&self) -> Result<Self::Duty, Self::Error> {
-        Ok(self.get_duty())
-    }
+//     fn get_duty(&self) -> Result<Self::Duty, Self::Error> {
+//         Ok(self.get_duty())
+//     }
 
-    fn get_max_duty(&self) -> Result<Self::Duty, Self::Error> {
-        Ok(self.get_max_duty())
-    }
+//     fn get_max_duty(&self) -> Result<Self::Duty, Self::Error> {
+//         Ok(self.get_max_duty())
+//     }
 
-    fn set_duty(&mut self, duty: Duty) -> Result<(), Self::Error> {
-        self.set_duty(duty)
-    }
-}
+//     fn set_duty(&mut self, duty: Duty) -> Result<(), Self::Error> {
+//         self.set_duty(duty)
+//     }
+// }
 
 impl<C: HwChannel, H: HwTimer, T: Borrow<Timer<H>>, P: OutputPin> embedded_hal_0_2::PwmPin
     for Channel<C, H, T, P>
