@@ -12,7 +12,7 @@
 use std::thread;
 use std::time::Duration;
 
-use embedded_hal::i2c::blocking::Write;
+use embedded_hal::i2c::blocking::I2c;
 
 use esp_idf_hal::i2c;
 use esp_idf_hal::peripherals::Peripherals;
