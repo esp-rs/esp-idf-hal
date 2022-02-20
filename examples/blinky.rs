@@ -9,6 +9,7 @@ use std::thread;
 use std::time::Duration;
 
 use embedded_hal::digital::blocking::OutputPin;
+
 use esp_idf_hal::peripherals::Peripherals;
 
 fn main() -> anyhow::Result<()> {

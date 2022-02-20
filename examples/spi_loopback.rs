@@ -15,10 +15,10 @@ use std::thread;
 use std::time::Duration;
 
 use embedded_hal::spi::blocking::Transfer;
+
 use esp_idf_hal::peripherals::Peripherals;
 use esp_idf_hal::prelude::*;
 use esp_idf_hal::spi;
-use log::*;
 
 fn main() -> anyhow::Result<()> {
     esp_idf_sys::link_patches();
@@ -32,7 +32,7 @@ fn main() -> anyhow::Result<()> {
     let mosi = peripherals.pins.gpio7;
     let cs = peripherals.pins.gpio10;
 
-    info!("Starting SPI loopback test");
+    println!("Starting SPI loopback test");
     let config = <spi::config::Config as Default>::default().baudrate(26.MHz().into());
     let mut spi = spi::Master::<spi::SPI2, _, _, _, _>::new(
         spi,
@@ -52,6 +52,6 @@ fn main() -> anyhow::Result<()> {
         // we are using thread::sleep here to make sure the watchdog isn't triggered
         thread::sleep(Duration::from_millis(500));
         spi.transfer(&mut read, &write)?;
-        info!("Wrote {:x?}, read {:x?}", write, read);
+        println!("Wrote {:x?}, read {:x?}", write, read);
     }
 }

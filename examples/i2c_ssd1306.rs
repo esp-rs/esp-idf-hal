@@ -13,10 +13,10 @@ use std::thread;
 use std::time::Duration;
 
 use embedded_hal::i2c::blocking::Write;
+
 use esp_idf_hal::i2c;
 use esp_idf_hal::peripherals::Peripherals;
 use esp_idf_hal::prelude::*;
-use log::*;
 
 const SSD1306_ADDRESS: u8 = 0x3c;
 
@@ -29,7 +29,7 @@ fn main() -> anyhow::Result<()> {
     let sda = peripherals.pins.gpio5;
     let scl = peripherals.pins.gpio6;
 
-    info!("Starting I2C SSD1306 test");
+    println!("Starting I2C SSD1306 test");
 
     let config = <i2c::config::MasterConfig as Default>::default().baudrate(100.kHz().into());
     let mut i2c = i2c::Master::<i2c::I2C0, _, _>::new(i2c, i2c::MasterPins { sda, scl }, config)?;
