@@ -1,3 +1,5 @@
+#![allow(unused)]
+
 pub mod common;
 pub mod cstr;
 pub mod net;

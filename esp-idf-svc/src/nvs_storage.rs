@@ -4,6 +4,7 @@ extern crate alloc;
 use alloc::sync::Arc;
 use alloc::vec;
 
+use embedded_svc::errors::Errors;
 use embedded_svc::storage::Storage;
 
 use esp_idf_sys::*;
@@ -71,9 +72,11 @@ impl Drop for EspNvsStorage {
     }
 }
 
-impl Storage for EspNvsStorage {
+impl Errors for EspNvsStorage {
     type Error = EspError;
+}
 
+impl Storage for EspNvsStorage {
     fn contains(&self, key: impl AsRef<str>) -> Result<bool, Self::Error> {
         let c_key = CString::new(key.as_ref()).unwrap();
 

@@ -1,3 +1,4 @@
+use core::convert::TryInto;
 use core::ptr;
 
 extern crate alloc;
@@ -6,6 +7,7 @@ use alloc::string::String;
 use alloc::sync::Arc;
 
 use ::log::*;
+
 use cstr_core::CString;
 
 use embedded_svc::ipv4;
@@ -14,6 +16,7 @@ use esp_idf_hal::mutex;
 
 use esp_idf_sys::*;
 
+use crate::eventloop::{EspTypedEventDeserializer, EspTypedEventSource};
 use crate::private::common::*;
 use crate::private::cstr::*;
 
@@ -447,5 +450,120 @@ impl EspNetif {
 impl Drop for EspNetif {
     fn drop(&mut self) {
         unsafe { esp_netif_destroy(self.1) };
+    }
+}
+
+pub type NetifHandle = *const core::ffi::c_void;
+
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+pub struct ApStaIpAssignment {
+    pub ip: ipv4::Ipv4Addr,
+    #[cfg(not(esp_idf_version_major = "4"))]
+    pub mac: [u8; 6],
+}
+
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+pub struct DhcpIpAssignment {
+    pub netif_handle: NetifHandle,
+    pub ip_settings: ipv4::ClientSettings,
+    pub ip_changed: bool,
+}
+
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+pub struct DhcpIp6Assignment {
+    pub netif_handle: NetifHandle,
+    pub ip: [u32; 4],
+    pub ip_zone: u8,
+    pub ip_index: u32,
+}
+
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+pub enum IpEvent {
+    ApStaIpAssigned(ApStaIpAssignment),
+    DhcpIpAssigned(DhcpIpAssignment),
+    DhcpIp6Assigned(DhcpIp6Assignment),
+    DhcpIpDeassigned(NetifHandle),
+}
+
+impl IpEvent {
+    pub fn handle(&self) -> Option<NetifHandle> {
+        match self {
+            Self::ApStaIpAssigned(_) => None,
+            Self::DhcpIpAssigned(assignment) => Some(assignment.netif_handle),
+            Self::DhcpIp6Assigned(assignment) => Some(assignment.netif_handle),
+            Self::DhcpIpDeassigned(handle) => Some(*handle),
+        }
+    }
+}
+
+impl EspTypedEventSource for IpEvent {
+    fn source() -> *const c_types::c_char {
+        unsafe { IP_EVENT }
+    }
+}
+
+impl EspTypedEventDeserializer<IpEvent> for IpEvent {
+    #[allow(non_upper_case_globals, non_snake_case)]
+    fn deserialize<R>(
+        data: &crate::eventloop::EspEventFetchData,
+        f: &mut impl for<'a> FnMut(&'a IpEvent) -> R,
+    ) -> R {
+        let event_id = data.event_id as u32;
+
+        let event = if event_id == ip_event_t_IP_EVENT_AP_STAIPASSIGNED {
+            let event = unsafe {
+                (data.payload as *const ip_event_ap_staipassigned_t)
+                    .as_ref()
+                    .unwrap()
+            };
+
+            IpEvent::ApStaIpAssigned(ApStaIpAssignment {
+                ip: ipv4::Ipv4Addr::from(Newtype(event.ip)),
+                #[cfg(not(esp_idf_version_major = "4"))]
+                mac: event.mac,
+            })
+        } else if event_id == ip_event_t_IP_EVENT_STA_GOT_IP
+            || event_id == ip_event_t_IP_EVENT_ETH_GOT_IP
+            || event_id == ip_event_t_IP_EVENT_PPP_GOT_IP
+        {
+            let event = unsafe { (data.payload as *const ip_event_got_ip_t).as_ref().unwrap() };
+
+            IpEvent::DhcpIpAssigned(DhcpIpAssignment {
+                netif_handle: event.esp_netif as _,
+                ip_settings: ipv4::ClientSettings {
+                    ip: ipv4::Ipv4Addr::from(Newtype(event.ip_info.ip)),
+                    subnet: ipv4::Subnet {
+                        gateway: ipv4::Ipv4Addr::from(Newtype(event.ip_info.gw)),
+                        mask: Newtype(event.ip_info.netmask).try_into().unwrap(),
+                    },
+                    dns: None,           // TODO
+                    secondary_dns: None, // TODO
+                },
+                ip_changed: event.ip_changed,
+            })
+        } else if event_id == ip_event_t_IP_EVENT_GOT_IP6 {
+            let event = unsafe {
+                (data.payload as *const ip_event_got_ip6_t)
+                    .as_ref()
+                    .unwrap()
+            };
+
+            IpEvent::DhcpIp6Assigned(DhcpIp6Assignment {
+                netif_handle: event.esp_netif as _,
+                ip: event.ip6_info.ip.addr,
+                ip_zone: event.ip6_info.ip.zone,
+                ip_index: event.ip_index as _,
+            })
+        } else if event_id == ip_event_t_IP_EVENT_STA_LOST_IP
+            || event_id == ip_event_t_IP_EVENT_PPP_LOST_IP
+        {
+            let netif_handle_ref = unsafe { (data.payload as *const *mut esp_netif_obj).as_ref() };
+
+            IpEvent::DhcpIpDeassigned(*netif_handle_ref.unwrap() as _)
+        } else {
+            panic!("Unknown event ID: {}", event_id);
+        };
+
+        f(&event)
     }
 }

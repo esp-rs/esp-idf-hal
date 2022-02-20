@@ -2,6 +2,7 @@ use core::{mem, ptr, time::Duration};
 
 use ::log::*;
 
+use embedded_svc::errors::Errors;
 use embedded_svc::ipv4;
 use embedded_svc::ping::*;
 
@@ -66,18 +67,17 @@ impl EspPing {
 
         info!("Ping session established, got handle {:?}", handle);
 
-        tracker.running.modify(|running| {
+        {
+            let mut running = tracker.waitable.state.lock();
             *running = true;
-
-            (false, ())
-        });
+        }
 
         esp!(unsafe { esp_ping_start(handle) })?;
         info!("Ping session started");
 
         info!("Waiting for the ping session to complete");
 
-        tracker.running.wait_while(|running| *running);
+        tracker.waitable.wait_while(|running| *running);
 
         esp!(unsafe { esp_ping_stop(handle) })?;
         info!("Ping session stopped");
@@ -218,11 +218,10 @@ impl EspPing {
             tracker.summary.time.as_millis()
         );
 
-        tracker.running.modify(|running| {
-            *running = false;
+        let mut running = tracker.waitable.state.lock();
+        *running = false;
 
-            (true, ())
-        });
+        tracker.waitable.cvar.notify_all();
     }
 
     unsafe fn update_summary(handle: esp_ping_handle_t, summary: &mut Summary) {
@@ -256,9 +255,11 @@ impl EspPing {
     }
 }
 
-impl Ping for EspPing {
+impl Errors for EspPing {
     type Error = EspError;
+}
 
+impl Ping for EspPing {
     fn ping(&mut self, ip: ipv4::Ipv4Addr, conf: &Configuration) -> Result<Summary, Self::Error> {
         info!(
             "About to run a summary ping {} with configuration {:?}",
@@ -293,7 +294,7 @@ impl Ping for EspPing {
 
 struct Tracker<'a, F: Fn(&Summary, &Reply)> {
     summary: Summary,
-    running: Waitable<bool>,
+    waitable: Waitable<bool>,
     reply_callback: Option<&'a F>,
 }
 
@@ -302,7 +303,7 @@ impl<'a, F: Fn(&Summary, &Reply)> Tracker<'a, F> {
     pub fn new(reply_callback: Option<&'a F>) -> Self {
         Self {
             summary: Default::default(),
-            running: Waitable::new(false),
+            waitable: Waitable::new(false),
             reply_callback,
         }
     }

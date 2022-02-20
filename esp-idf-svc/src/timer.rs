@@ -1,45 +1,23 @@
-use core::fmt::{Debug, Display};
-use core::marker::PhantomData;
-use core::mem;
 use core::ptr;
 use core::result::Result;
 use core::time::Duration;
 
-use embedded_svc::service;
-use embedded_svc::timer::{self, Timer};
+extern crate alloc;
+use alloc::boxed::Box;
+
+use embedded_svc::errors::Errors;
+use embedded_svc::timer::{self, OnceTimer, PeriodicTimer, Timer, TimerService};
 
 use esp_idf_sys::*;
 
-pub type EspOnce = EspTimerService<Once>;
-pub type EspPeriodic = EspTimerService<Periodic>;
+#[cfg(feature = "experimental")]
+pub use nonblocking::*;
 
-pub type EspOnceTimer = EspTimer<Once>;
-pub type EspPeriodicTimer = EspTimer<Periodic>;
+struct UnsafeCallback(*mut Box<dyn FnMut()>);
 
-pub trait EspTimerType {
-    fn is_periodic() -> bool;
-}
-
-pub struct Once(Option<Box<dyn FnOnce() + 'static>>);
-pub struct Periodic(Box<dyn FnMut() + 'static>);
-
-impl EspTimerType for Once {
-    fn is_periodic() -> bool {
-        false
-    }
-}
-
-impl EspTimerType for Periodic {
-    fn is_periodic() -> bool {
-        true
-    }
-}
-
-struct UnsafeCallback<T>(*mut T);
-
-impl<T> UnsafeCallback<T> {
-    fn from(boxed: &mut Box<T>) -> Self {
-        Self(boxed.as_mut())
+impl UnsafeCallback {
+    fn from(boxed: &mut Box<dyn FnMut()>) -> Self {
+        Self(boxed)
     }
 
     unsafe fn from_ptr(ptr: *mut c_types::c_void) -> Self {
@@ -49,58 +27,32 @@ impl<T> UnsafeCallback<T> {
     fn as_ptr(&self) -> *mut c_types::c_void {
         self.0 as *mut _
     }
-}
 
-impl UnsafeCallback<Once> {
     unsafe fn call(&self) {
         let reference = self.0.as_mut().unwrap();
 
-        if let Some(cb) = mem::replace(&mut reference.0, None) {
-            cb();
-        }
+        (reference)();
     }
 }
 
-impl UnsafeCallback<Periodic> {
-    unsafe fn call(&self) {
-        let reference = self.0.as_mut().unwrap();
-
-        (reference.0)();
-    }
-}
-
-pub struct EspTimer<T>
-where
-    T: EspTimerType,
-{
+pub struct EspTimer {
     handle: esp_timer_handle_t,
-    duration: Duration,
-    _callback: Box<T>,
+    _callback: Box<dyn FnMut()>,
 }
 
-impl<T> EspTimer<T>
-where
-    T: EspTimerType,
-{
+impl EspTimer {
     extern "C" fn handle(arg: *mut c_types::c_void) {
         unsafe {
-            if T::is_periodic() {
-                UnsafeCallback::<Periodic>::from_ptr(arg).call();
-            } else {
-                UnsafeCallback::<Once>::from_ptr(arg).call();
-            }
+            UnsafeCallback::from_ptr(arg).call();
         }
     }
 }
 
-unsafe impl<T> Send for EspTimer<T> where T: EspTimerType {}
+unsafe impl Send for EspTimer {}
 
-impl<T> Drop for EspTimer<T>
-where
-    T: EspTimerType,
-{
+impl Drop for EspTimer {
     fn drop(&mut self) {
-        let _ = self.cancel();
+        self.cancel().unwrap();
 
         while unsafe { esp_timer_delete(self.handle) } != ESP_OK {
             // Timer is still running, busy-loop
@@ -108,29 +60,11 @@ where
     }
 }
 
-impl<T> service::Service for EspTimer<T>
-where
-    T: EspTimerType,
-{
+impl Errors for EspTimer {
     type Error = EspError;
 }
 
-impl<T> timer::Timer for EspTimer<T>
-where
-    T: EspTimerType,
-{
-    fn start(&mut self) -> Result<(), Self::Error> {
-        let _ = self.cancel();
-
-        if T::is_periodic() {
-            esp!(unsafe { esp_timer_start_periodic(self.handle, self.duration.as_micros() as _) })?;
-        } else {
-            esp!(unsafe { esp_timer_start_once(self.handle, self.duration.as_micros() as _) })?;
-        }
-
-        Ok(())
-    }
-
+impl timer::Timer for EspTimer {
     fn is_scheduled(&self) -> Result<bool, Self::Error> {
         Ok(unsafe { esp_timer_is_active(self.handle) })
     }
@@ -142,31 +76,59 @@ where
     }
 }
 
-pub struct EspTimerService<T>(PhantomData<fn() -> T>);
+impl OnceTimer for EspTimer {
+    fn after(&mut self, duration: Duration) -> Result<(), Self::Error> {
+        self.cancel()?;
 
-impl<T> Clone for EspTimerService<T> {
-    fn clone(&self) -> Self {
-        Self(PhantomData)
+        esp!(unsafe { esp_timer_start_once(self.handle, duration.as_micros() as _) })?;
+
+        Ok(())
     }
 }
 
-impl<T> EspTimerService<T>
-where
-    T: EspTimerType,
-{
-    pub fn new() -> Result<Self, EspError> {
-        Ok(Self(PhantomData))
-    }
+impl PeriodicTimer for EspTimer {
+    fn every(&mut self, duration: Duration) -> Result<(), Self::Error> {
+        self.cancel()?;
 
-    fn timer(&self, duration: Duration, mut callback: Box<T>) -> Result<EspTimer<T>, EspError> {
+        esp!(unsafe { esp_timer_start_periodic(self.handle, duration.as_micros() as _) })?;
+
+        Ok(())
+    }
+}
+
+pub struct EspTimerService(());
+
+impl EspTimerService {
+    pub fn new() -> Result<Self, EspError> {
+        Ok(Self(()))
+    }
+}
+
+impl Clone for EspTimerService {
+    fn clone(&self) -> Self {
+        Self(())
+    }
+}
+
+impl Errors for EspTimerService {
+    type Error = EspError;
+}
+
+impl TimerService for EspTimerService {
+    type Timer = EspTimer;
+
+    fn timer(&mut self, callback: impl FnMut() + Send + 'static) -> Result<EspTimer, EspError> {
         let mut handle: esp_timer_handle_t = ptr::null_mut();
 
+        let boxed_callback: Box<dyn FnMut()> = Box::new(callback);
+
+        let mut callback = Box::new(boxed_callback);
         let unsafe_callback = UnsafeCallback::from(&mut callback);
 
         esp!(unsafe {
             esp_timer_create(
                 &esp_timer_create_args_t {
-                    callback: Some(EspTimer::<T>::handle),
+                    callback: Some(EspTimer::handle),
                     name: b"rust\0" as *const _ as *const _, // TODO
                     arg: unsafe_callback.as_ptr(),
                     dispatch_method: esp_timer_dispatch_t_ESP_TIMER_TASK,
@@ -178,74 +140,17 @@ where
 
         Ok(EspTimer {
             handle,
-            duration,
             _callback: callback,
         })
     }
 }
 
-impl EspTimerService<Periodic> {
-    pub fn into_async(
-        self,
-    ) -> embedded_svc::utils::nonblocking::timer::Periodic<
-        esp_idf_hal::mutex::Mutex<
-            embedded_svc::utils::nonblocking::timer::TimerState<EspTimer<Periodic>>,
-        >,
-        Self,
-    > {
-        embedded_svc::utils::nonblocking::timer::Periodic::new(self)
-    }
-}
+#[cfg(feature = "experimental")]
+mod nonblocking {
+    use embedded_svc::utils::nonblocking::timer::AsyncTimerService;
+    use embedded_svc::utils::nonblocking::Asyncify;
 
-impl EspTimerService<Once> {
-    pub fn into_async(
-        self,
-    ) -> embedded_svc::utils::nonblocking::timer::Once<
-        esp_idf_hal::mutex::Mutex<
-            embedded_svc::utils::nonblocking::timer::OnceState<EspTimer<Once>>,
-        >,
-        Self,
-    > {
-        embedded_svc::utils::nonblocking::timer::Once::new(self)
-    }
-}
-
-impl<T> service::Service for EspTimerService<T> {
-    type Error = EspError;
-}
-
-impl timer::Once for EspTimerService<Once> {
-    type Timer = EspTimer<Once>;
-
-    fn after<E>(
-        &mut self,
-        duration: Duration,
-        callback: impl FnOnce() -> Result<(), E> + Send + 'static,
-    ) -> Result<Self::Timer, Self::Error>
-    where
-        E: Display + Debug + Send + Sync + 'static,
-    {
-        self.timer(
-            duration,
-            Box::new(Once(Some(Box::new(move || callback().unwrap())))),
-        )
-    }
-}
-
-impl timer::Periodic for EspTimerService<Periodic> {
-    type Timer = EspTimer<Periodic>;
-
-    fn every<E>(
-        &mut self,
-        duration: Duration,
-        mut callback: impl FnMut() -> Result<(), E> + Send + 'static,
-    ) -> Result<Self::Timer, Self::Error>
-    where
-        E: Display + Debug + Send + Sync + 'static,
-    {
-        self.timer(
-            duration,
-            Box::new(Periodic(Box::new(move || callback().unwrap()))),
-        )
+    impl Asyncify for super::EspTimerService {
+        type AsyncWrapper<S> = AsyncTimerService<S>;
     }
 }

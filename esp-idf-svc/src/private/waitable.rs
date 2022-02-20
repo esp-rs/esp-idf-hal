@@ -1,52 +1,36 @@
 use core::time::Duration;
 
+use esp_idf_hal::mutex::{Condvar, Mutex};
+
 #[cfg(not(feature = "std"))]
 use esp_idf_sys::*;
 
-use embedded_svc::mutex::Mutex;
-
 pub struct Waitable<T> {
-    #[cfg(feature = "std")]
-    cvar: std::sync::Condvar,
-    #[cfg(feature = "std")]
-    state: std::sync::Mutex<T>,
-    #[cfg(not(feature = "std"))]
-    state: esp_idf_hal::mutex::Mutex<T>,
+    pub cvar: Condvar,
+    pub state: Mutex<T>,
 }
 
-impl<T> Waitable<T> {
+impl<T> Waitable<T>
+where
+    T: Send,
+{
     pub fn new(state: T) -> Self {
         Self {
-            #[cfg(feature = "std")]
-            cvar: std::sync::Condvar::new(),
-            #[cfg(feature = "std")]
-            state: std::sync::Mutex::new(state),
-            #[cfg(not(feature = "std"))]
-            state: esp_idf_hal::mutex::Mutex::new(state),
+            cvar: Condvar::new(),
+            state: Mutex::new(state),
         }
     }
 
-    pub fn get<Q>(&self, getter: impl FnOnce(&T) -> Q) -> Q
-    where
-        T: Send,
-    {
-        getter(&Mutex::lock(&self.state))
+    pub fn get<Q>(&self, getter: impl FnOnce(&T) -> Q) -> Q {
+        let state = self.state.lock();
+
+        getter(&state)
     }
 
-    pub fn modify<Q>(&mut self, modifier: impl FnOnce(&mut T) -> (bool, Q)) -> Q
-    where
-        T: Send,
-    {
-        let mut guard = Mutex::lock(&self.state);
+    pub fn get_mut<Q>(&self, getter: impl FnOnce(&mut T) -> Q) -> Q {
+        let mut state = self.state.lock();
 
-        let (notify, result) = modifier(&mut *guard);
-
-        if notify {
-            #[cfg(feature = "std")]
-            self.cvar.notify_all();
-        }
-
-        result
+        getter(&mut state)
     }
 
     pub fn wait_while(&self, condition: impl Fn(&T) -> bool) {
@@ -58,80 +42,42 @@ impl<T> Waitable<T> {
         self.wait_timeout_while_and_get(dur, condition, |_| ());
     }
 
-    #[cfg(feature = "std")]
     pub fn wait_while_and_get<Q>(
         &self,
         condition: impl Fn(&T) -> bool,
         getter: impl Fn(&T) -> Q,
     ) -> Q {
-        getter(
-            &self
-                .cvar
-                .wait_while(self.state.lock().unwrap(), |state| condition(state))
-                .unwrap(),
-        )
-    }
+        let mut state = self.state.lock();
 
-    #[cfg(not(feature = "std"))]
-    pub fn wait_while_and_get<Q>(
-        &self,
-        condition: impl Fn(&T) -> bool,
-        getter: impl Fn(&T) -> Q,
-    ) -> Q {
         loop {
-            {
-                let state = self.state.lock();
-
-                if !condition(&state) {
-                    return getter(&state);
-                }
+            if !condition(&state) {
+                return getter(&state);
             }
 
-            unsafe { vTaskDelay(500) };
+            state = self.cvar.wait(state);
         }
     }
 
-    #[cfg(feature = "std")]
     pub fn wait_timeout_while_and_get<Q>(
         &self,
         dur: Duration,
         condition: impl Fn(&T) -> bool,
         getter: impl Fn(&T) -> Q,
     ) -> (bool, Q) {
-        let (guard, result) = self
-            .cvar
-            .wait_timeout_while(self.state.lock().unwrap(), dur, |state| condition(state))
-            .unwrap();
-
-        (result.timed_out(), getter(&guard))
-    }
-
-    #[cfg(not(feature = "std"))]
-    pub fn wait_timeout_while_and_get<Q>(
-        &self,
-        dur: Duration,
-        condition: impl Fn(&T) -> bool,
-        getter: impl Fn(&T) -> Q,
-    ) -> (bool, Q) {
-        fn micros_since_boot() -> u128 {
-            unsafe { esp_timer_get_time() as _ }
-        }
-
-        let now = micros_since_boot();
-        let end = now + dur.as_micros();
+        let mut state = self.state.lock();
 
         loop {
-            {
-                let state = self.state.lock();
-
-                if !condition(&state) {
-                    return (false, getter(&state));
-                } else if micros_since_boot() > end {
-                    return (true, getter(&state));
-                }
+            if !condition(&state) {
+                return (false, getter(&state));
             }
 
-            unsafe { vTaskDelay(500) };
+            let (new_state, timeout) = self.cvar.wait_timeout(state, dur);
+
+            state = new_state;
+
+            if timeout {
+                return (true, getter(&state));
+            }
         }
     }
 }

@@ -6,6 +6,7 @@ use alloc::string::ToString;
 
 use ::log::*;
 
+use embedded_svc::errors::Errors;
 use embedded_svc::http::client::*;
 use embedded_svc::http::*;
 use embedded_svc::io::{Read, Write};
@@ -139,10 +140,12 @@ impl Drop for EspHttpClient {
     }
 }
 
+impl Errors for EspHttpClient {
+    type Error = EspError;
+}
+
 impl Client for EspHttpClient {
     type Request<'a> = EspHttpRequest<'a>;
-
-    type Error = EspError;
 
     fn request(
         &mut self,
@@ -177,10 +180,12 @@ pub struct EspHttpRequest<'a> {
     follow_redirects: bool,
 }
 
+impl<'a> Errors for EspHttpRequest<'a> {
+    type Error = EspError;
+}
+
 impl<'a> Request<'a> for EspHttpRequest<'a> {
     type Write<'b> = EspHttpRequestWrite<'b>;
-
-    type Error = EspError;
 
     fn into_writer(self, size: usize) -> Result<Self::Write<'a>, Self::Error> {
         esp!(unsafe { esp_http_client_open(self.client.raw, size as _) })?;
@@ -308,9 +313,11 @@ impl<'a> RequestWrite<'a> for EspHttpRequestWrite<'a> {
     }
 }
 
-impl<'a> Write for EspHttpRequestWrite<'a> {
+impl<'a> Errors for EspHttpRequestWrite<'a> {
     type Error = EspError;
+}
 
+impl<'a> Write for EspHttpRequestWrite<'a> {
     fn do_write(&mut self, buf: &[u8]) -> Result<usize, Self::Error> {
         let result =
             unsafe { esp_http_client_write(self.client.raw, buf.as_ptr() as _, buf.len() as _) };
@@ -327,13 +334,15 @@ pub struct EspHttpResponse<'a> {
     headers: BTreeMap<Uncased<'static>, String>,
 }
 
+impl<'a> Errors for EspHttpResponse<'a> {
+    type Error = EspError;
+}
+
 impl<'a> Response for EspHttpResponse<'a> {
     type Read<'b>
     where
         'a: 'b,
     = &'b EspHttpResponse<'a>;
-
-    type Error = EspError;
 
     fn reader(&self) -> Self::Read<'_> {
         self
@@ -373,8 +382,6 @@ impl<'a> Status for EspHttpResponse<'a> {
 }
 
 impl<'a> Read for &EspHttpResponse<'a> {
-    type Error = EspError;
-
     fn do_read(&mut self, buf: &mut [u8]) -> Result<usize, Self::Error> {
         let result = unsafe {
             esp_http_client_read_response(self.client.raw, buf.as_mut_ptr() as _, buf.len() as _)

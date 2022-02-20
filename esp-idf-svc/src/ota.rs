@@ -7,6 +7,7 @@ use alloc::vec;
 
 use ::log::*;
 
+use embedded_svc::errors::Errors;
 use embedded_svc::io;
 use embedded_svc::ota;
 
@@ -47,9 +48,11 @@ impl Default for EspFirmwareInfoLoader {
     }
 }
 
-impl ota::FirmwareInfoLoader for EspFirmwareInfoLoader {
+impl Errors for EspFirmwareInfoLoader {
     type Error = EspError;
+}
 
+impl ota::FirmwareInfoLoader for EspFirmwareInfoLoader {
     fn load(&mut self, buf: &[u8]) -> Result<ota::LoadResult, Self::Error> {
         if !self.is_loaded() {
             self.0.extend_from_slice(buf);
@@ -89,9 +92,11 @@ impl ota::FirmwareInfoLoader for EspFirmwareInfoLoader {
 
 pub struct EspSlot(esp_partition_t);
 
-impl ota::OtaSlot for EspSlot {
+impl Errors for EspSlot {
     type Error = EspError;
+}
 
+impl ota::OtaSlot for EspSlot {
     fn get_label(&self) -> Result<Cow<'_, str>, Self::Error> {
         Ok(from_cstr_ptr(&self.0.label as *const _ as *const _))
     }
@@ -185,10 +190,13 @@ impl<MODE> Drop for EspOta<MODE> {
     }
 }
 
+impl Errors for EspOta<Read> {
+    type Error = EspError;
+}
+
 impl ota::Ota for EspOta<Read> {
     type Slot<'a> = EspSlot;
     type Update<'a> = EspOta<Update>;
-    type Error = EspError;
 
     fn get_boot_slot(&self) -> Result<Self::Slot<'_>, Self::Error> {
         Ok(EspSlot(unsafe {
@@ -261,9 +269,11 @@ impl ota::OtaUpdate for EspOta<Update> {
     }
 }
 
-impl io::Write for EspOta<Update> {
+impl Errors for EspOta<Update> {
     type Error = EspError;
+}
 
+impl io::Write for EspOta<Update> {
     fn do_write(&mut self, buf: &[u8]) -> Result<usize, Self::Error> {
         esp!(unsafe { esp_ota_write(self.0.handle, buf.as_ptr() as _, buf.len() as _) })?;
 

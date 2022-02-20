@@ -11,6 +11,7 @@ use log::{info, warn};
 
 use crate::private::cstr::CString;
 
+use embedded_svc::errors::Errors;
 use embedded_svc::http::server::{
     attr, middleware, registry::*, session, Completion, Request, Response, ResponseWrite, Session,
 };
@@ -329,10 +330,13 @@ impl Drop for EspHttpServer {
     }
 }
 
+impl Errors for EspHttpServer {
+    type Error = EspError;
+}
+
 impl Registry for EspHttpServer {
     type Request<'a> = EspHttpRequest<'a>;
     type Response<'a> = EspHttpResponse<'a>;
-    type Error = EspError;
     type Root = Self;
     type MiddlewareRegistry<'q, M>
     where
@@ -443,6 +447,10 @@ impl<'a> EspHttpRequest<'a> {
     }
 }
 
+impl<'a> Errors for EspHttpRequest<'a> {
+    type Error = EspError;
+}
+
 impl<'a> Request<'a> for EspHttpRequest<'a> {
     type Read<'b>
     where
@@ -458,8 +466,6 @@ impl<'a> Request<'a> for EspHttpRequest<'a> {
     where
         Self: 'b,
     = session::RequestScopedSessionReference<'b, EspSessionsMutex, EspSessionMutex>;
-
-    type Error = EspError;
 
     fn query_string(&self) -> Cow<'a, str> {
         unsafe {
@@ -502,8 +508,6 @@ impl<'a> Request<'a> for EspHttpRequest<'a> {
 }
 
 impl<'a> Read for &EspHttpRequest<'a> {
-    type Error = EspError;
-
     fn do_read(&mut self, buf: &mut [u8]) -> Result<usize, Self::Error> {
         unsafe {
             let len = esp_idf_sys::httpd_req_recv(
@@ -627,9 +631,12 @@ impl<'a> SendHeaders<'a> for EspHttpResponse<'a> {
     }
 }
 
+impl<'a> Errors for EspHttpResponse<'a> {
+    type Error = EspError;
+}
+
 impl<'a> Response<'a> for EspHttpResponse<'a> {
     type Write<'b> = EspHttpResponseWrite<'b>;
-    type Error = EspError;
 
     fn into_writer(self, request: impl Request<'a>) -> Result<Self::Write<'a>, Self::Error> {
         let session_id: Option<Cow<'static, str>> = {
@@ -763,9 +770,11 @@ impl<'a> ResponseWrite<'a> for EspHttpResponseWrite<'a> {
     }
 }
 
-impl<'a> Write for EspHttpResponseWrite<'a> {
+impl<'a> Errors for EspHttpResponseWrite<'a> {
     type Error = EspError;
+}
 
+impl<'a> Write for EspHttpResponseWrite<'a> {
     fn do_write(&mut self, buf: &[u8]) -> Result<usize, Self::Error> {
         if !buf.is_empty() {
             self.send_headers()?;
