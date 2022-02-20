@@ -23,7 +23,7 @@ pub mod riscv_ulp_hal;
 pub mod adc;
 #[cfg(not(feature = "riscv-ulp-hal"))]
 pub mod can;
-#[cfg(all(feature = "experimental", not(feature = "riscv-ulp-hal")))]
+#[cfg(not(feature = "riscv-ulp-hal"))]
 pub mod cpu;
 #[cfg(not(feature = "riscv-ulp-hal"))]
 pub mod delay;
