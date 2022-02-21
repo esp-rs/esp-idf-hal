@@ -1,11 +1,13 @@
 use core::convert::TryInto;
+use core::mem::ManuallyDrop;
 use core::ptr;
 use core::slice;
 use core::time;
-use std::mem::ManuallyDrop;
 
 extern crate alloc;
-use alloc::{borrow::Cow, sync::Arc};
+use alloc::borrow::Cow;
+use alloc::boxed::Box;
+use alloc::sync::Arc;
 
 use embedded_svc::{errors, mqtt::client};
 

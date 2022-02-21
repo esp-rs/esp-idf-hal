@@ -4,7 +4,6 @@ use core::mem;
 use core::ptr;
 use core::result::Result;
 use core::time::Duration;
-use std::ptr::NonNull;
 
 extern crate alloc;
 use alloc::boxed::Box;
@@ -165,7 +164,7 @@ impl EspEventFetchData {
         let payload: &P = if mem::size_of::<P>() > 0 {
             self.payload as *const P
         } else {
-            NonNull::dangling().as_ptr() as *const P
+            ptr::NonNull::dangling().as_ptr() as *const P
         }
         .as_ref()
         .unwrap();
