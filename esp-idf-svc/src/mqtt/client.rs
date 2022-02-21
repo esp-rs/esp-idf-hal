@@ -1,4 +1,5 @@
 use core::convert::TryInto;
+use core::fmt::{self, Debug};
 use core::mem::ManuallyDrop;
 use core::ptr;
 use core::slice;
@@ -9,7 +10,7 @@ use alloc::borrow::Cow;
 use alloc::boxed::Box;
 use alloc::sync::Arc;
 
-use embedded_svc::{errors, mqtt::client};
+use embedded_svc::{errors, mqtt::client, mqtt::client::Message};
 
 use esp_idf_hal::mutex::{Condvar, Mutex};
 
@@ -508,6 +509,18 @@ impl<'a> EspMqttMessage<'a> {
     }
 }
 
+impl<'a> Debug for EspMqttMessage<'a> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "[id = {}, topic = {:?}, details = {:?}]",
+            self.id(),
+            self.retrieve_topic(),
+            self.details()
+        )
+    }
+}
+
 impl<'a> Drop for EspMqttMessage<'a> {
     fn drop(&mut self) {
         if let Some(state) = self.connection.as_ref() {
@@ -550,7 +563,7 @@ impl<'a> client::Message for EspMqttMessage<'a> {
     }
 }
 
-#[allow(suspicious_auto_trait_impls)]
+#[cfg_attr(version("1.61"), allow(suspicious_auto_trait_impls))]
 unsafe impl Send for Newtype<esp_mqtt_event_handle_t> {}
 
 struct EspMqttConnectionState {
