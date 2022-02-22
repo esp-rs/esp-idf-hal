@@ -1041,9 +1041,9 @@ impl<P> EventBus<()> for EspEth<P> {
 
 #[cfg(feature = "experimental")]
 mod nonblocking {
-    use embedded_svc::utils::nonblocking::{event_bus::Channel, Asyncify};
+    use embedded_svc::utils::nonblocking::{event_bus::AsyncEventBus, Asyncify};
 
     impl<P> Asyncify for super::EspEth<P> {
-        type AsyncWrapper<S> = Channel<(), esp_idf_hal::mutex::Condvar, S>;
+        type AsyncWrapper<S> = AsyncEventBus<(), esp_idf_hal::mutex::Condvar, S>;
     }
 }

@@ -1112,11 +1112,11 @@ impl EventBus<()> for EspWifi {
 
 #[cfg(feature = "experimental")]
 mod nonblocking {
-    use embedded_svc::utils::nonblocking::{event_bus::Channel, Asyncify};
+    use embedded_svc::utils::nonblocking::{event_bus::AsyncEventBus, Asyncify};
 
     use esp_idf_hal::mutex::Condvar;
 
     impl Asyncify for super::EspWifi {
-        type AsyncWrapper<S> = Channel<(), Condvar, S>;
+        type AsyncWrapper<S> = AsyncEventBus<(), Condvar, S>;
     }
 }

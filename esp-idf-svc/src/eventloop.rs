@@ -777,7 +777,7 @@ where
 
 #[cfg(feature = "experimental")]
 mod nonblocking {
-    use embedded_svc::utils::nonblocking::event_bus::Channel;
+    use embedded_svc::utils::nonblocking::event_bus::AsyncEventBus;
     use embedded_svc::utils::nonblocking::{Asyncify, UnblockingAsyncify};
 
     use esp_idf_hal::mutex::Condvar;
@@ -786,21 +786,21 @@ mod nonblocking {
     where
         T: super::EspEventLoopType,
     {
-        type AsyncWrapper<S> = Channel<(), Condvar, S>;
+        type AsyncWrapper<S> = AsyncEventBus<(), Condvar, S>;
     }
 
     impl<T> UnblockingAsyncify for super::EspEventLoop<T>
     where
         T: super::EspEventLoopType,
     {
-        type AsyncWrapper<U, S> = Channel<U, Condvar, S>;
+        type AsyncWrapper<U, S> = AsyncEventBus<U, Condvar, S>;
     }
 
     impl<M, P, L> Asyncify for super::EspTypedEventLoop<M, P, L> {
-        type AsyncWrapper<S> = Channel<(), Condvar, S>;
+        type AsyncWrapper<S> = AsyncEventBus<(), Condvar, S>;
     }
 
     impl<M, P, L> UnblockingAsyncify for super::EspTypedEventLoop<M, P, L> {
-        type AsyncWrapper<U, S> = Channel<U, Condvar, S>;
+        type AsyncWrapper<U, S> = AsyncEventBus<U, Condvar, S>;
     }
 }
