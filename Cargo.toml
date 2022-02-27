@@ -1,6 +1,6 @@
 [package]
 name = "esp-idf-hal"
-version = "0.32.10"
+version = "0.33.1"
 authors = ["sapir <yasapir@gmail.com>", "Ivan Markov <ivan.markov@gmail.com>"]
 edition = "2018"
 resolver = "2"
@@ -26,14 +26,14 @@ experimental = []
 [dependencies]
 nb = "0.1.2"
 mutex-trait = { version = "0.2", optional = true, default-features = false }
-embedded-hal = "=1.0.0-alpha.6"
-embedded-hal-0-2 = { package = "embedded-hal", version = "0.2", features = ["unproven"] }
-embedded-svc = { version = "0.16.4", optional = true, default-features = false }
+embedded-hal = "=1.0.0-alpha.7"
+embedded-hal-0-2 = { package = "embedded-hal", version = "0.2.7", features = ["unproven"] }
+embedded-svc = { version = "0.17.1", optional = true, default-features = false }
 esp-idf-sys = { version = "0.30", optional = true, default-features = false, features = ["pio"] }
 critical-section = { version = "0.2.5", optional = true, features = ["custom-impl"] }
 embassy = { version = "0", optional = true }
 # The real version is this one and it needs to be patched into the binary crate:
-#embassy = { version = "0.1", git = "https://github.com/embassy-rs/embassy", optional = true, features = ["time", "time-tick-1mhz"] }
+#embassy = { version = "0.1", git = "https://github.com/embassy-rs/embassy", optional = true, features = ["executor-agnostic"] }
 
 [build-dependencies]
 embuild = "0.28"
@@ -41,6 +41,4 @@ anyhow = "1"
 
 [dev-dependencies]
 anyhow = "1"
-esp-idf-svc = "0.36.2"
 esp-idf-sys = { version = "0.30", features = ["pio", "binstart"] }
-log = "0.4"

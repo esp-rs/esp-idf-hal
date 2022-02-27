@@ -47,6 +47,46 @@ pub trait Pull {
 
     /// Disable internal pull up and down resistors
     fn set_floating(&mut self) -> Result<&mut Self, Self::Error>;
+
+    /// Enable internal pull up resistor, disable pull down
+    fn into_pull_up(mut self) -> Result<Self, Self::Error>
+    where
+        Self: Sized,
+    {
+        self.set_pull_up()?;
+
+        Ok(self)
+    }
+
+    /// Enable internal pull down resistor, disable pull up
+    fn into_pull_down(mut self) -> Result<Self, Self::Error>
+    where
+        Self: Sized,
+    {
+        self.set_pull_down()?;
+
+        Ok(self)
+    }
+
+    /// Enable internal pull up and down resistors
+    fn into_pull_up_down(mut self) -> Result<Self, Self::Error>
+    where
+        Self: Sized,
+    {
+        self.set_pull_up_down()?;
+
+        Ok(self)
+    }
+
+    /// Disable internal pull up and down resistors
+    fn into_floating(mut self) -> Result<Self, Self::Error>
+    where
+        Self: Sized,
+    {
+        self.set_floating()?;
+
+        Ok(self)
+    }
 }
 
 pub trait RTCPin: Pin {
@@ -229,6 +269,10 @@ macro_rules! impl_base {
 
                 Ok(())
             }
+        }
+
+        impl<MODE> embedded_hal::digital::ErrorType for $pxi<MODE> {
+            type Error = EspError;
         }
     };
 }
@@ -604,8 +648,6 @@ macro_rules! impl_hal_input_pin {
         }
 
         impl embedded_hal::digital::blocking::InputPin for $pxi<$mode> {
-            type Error = EspError;
-
             fn is_high(&self) -> Result<bool, Self::Error> {
                 Ok(self.get_input_level())
             }
@@ -632,8 +674,6 @@ macro_rules! impl_hal_output_pin {
         }
 
         impl embedded_hal::digital::blocking::OutputPin for $pxi<$mode> {
-            type Error = EspError;
-
             fn set_high(&mut self) -> Result<(), Self::Error> {
                 self.set_output_level(true)
             }
@@ -672,8 +712,6 @@ macro_rules! impl_hal_output_pin {
         }
 
         impl embedded_hal::digital::blocking::ToggleableOutputPin for $pxi<$mode> {
-            type Error = EspError;
-
             fn toggle(&mut self) -> Result<(), Self::Error> {
                 self.set_output_level(!self.get_output_level())
             }

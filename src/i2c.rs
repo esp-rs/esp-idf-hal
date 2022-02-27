@@ -230,11 +230,11 @@ where
     type Error = I2cError;
 
     fn read(&mut self, addr: u8, buffer: &mut [u8]) -> Result<(), Self::Error> {
-        embedded_hal::i2c::blocking::Read::read(self, addr, buffer)
+        embedded_hal::i2c::blocking::I2c::read(self, addr, buffer)
     }
 }
 
-impl<I2C, SDA, SCL> embedded_hal::i2c::blocking::Read for Master<I2C, SDA, SCL>
+impl<I2C, SDA, SCL> embedded_hal_0_2::blocking::i2c::Write for Master<I2C, SDA, SCL>
 where
     I2C: I2c,
     SDA: OutputPin + InputPin,
@@ -242,6 +242,40 @@ where
 {
     type Error = I2cError;
 
+    fn write(&mut self, addr: u8, bytes: &[u8]) -> Result<(), Self::Error> {
+        embedded_hal::i2c::blocking::I2c::write(self, addr, bytes)
+    }
+}
+
+impl<I2C, SDA, SCL> embedded_hal_0_2::blocking::i2c::WriteRead for Master<I2C, SDA, SCL>
+where
+    I2C: I2c,
+    SDA: OutputPin + InputPin,
+    SCL: OutputPin,
+{
+    type Error = I2cError;
+
+    fn write_read(&mut self, addr: u8, bytes: &[u8], buffer: &mut [u8]) -> Result<(), Self::Error> {
+        embedded_hal::i2c::blocking::I2c::write_read(self, addr, bytes, buffer)
+    }
+}
+
+impl<I2C, SDA, SCL> embedded_hal::i2c::ErrorType for Master<I2C, SDA, SCL>
+where
+    I2C: I2c,
+    SDA: OutputPin + InputPin,
+    SCL: OutputPin,
+{
+    type Error = I2cError;
+}
+
+impl<I2C, SDA, SCL> embedded_hal::i2c::blocking::I2c<embedded_hal::i2c::SevenBitAddress>
+    for Master<I2C, SDA, SCL>
+where
+    I2C: I2c,
+    SDA: OutputPin + InputPin,
+    SCL: OutputPin,
+{
     fn read(&mut self, addr: u8, buffer: &mut [u8]) -> Result<(), Self::Error> {
         let command_link = CommandLink::new().map_err(I2cError::other)?;
 
@@ -269,28 +303,6 @@ where
             .map_err(I2cError::other)
         }
     }
-}
-
-impl<I2C, SDA, SCL> embedded_hal_0_2::blocking::i2c::Write for Master<I2C, SDA, SCL>
-where
-    I2C: I2c,
-    SDA: OutputPin + InputPin,
-    SCL: OutputPin,
-{
-    type Error = I2cError;
-
-    fn write(&mut self, addr: u8, bytes: &[u8]) -> Result<(), Self::Error> {
-        embedded_hal::i2c::blocking::Write::write(self, addr, bytes)
-    }
-}
-
-impl<I2C, SDA, SCL> embedded_hal::i2c::blocking::Write for Master<I2C, SDA, SCL>
-where
-    I2C: I2c,
-    SDA: OutputPin + InputPin,
-    SCL: OutputPin,
-{
-    type Error = I2cError;
 
     fn write(&mut self, addr: u8, bytes: &[u8]) -> Result<(), Self::Error> {
         unsafe {
@@ -319,28 +331,6 @@ where
             .map_err(I2cError::other)
         }
     }
-}
-
-impl<I2C, SDA, SCL> embedded_hal_0_2::blocking::i2c::WriteRead for Master<I2C, SDA, SCL>
-where
-    I2C: I2c,
-    SDA: OutputPin + InputPin,
-    SCL: OutputPin,
-{
-    type Error = I2cError;
-
-    fn write_read(&mut self, addr: u8, bytes: &[u8], buffer: &mut [u8]) -> Result<(), Self::Error> {
-        embedded_hal::i2c::blocking::WriteRead::write_read(self, addr, bytes, buffer)
-    }
-}
-
-impl<I2C, SDA, SCL> embedded_hal::i2c::blocking::WriteRead for Master<I2C, SDA, SCL>
-where
-    I2C: I2c,
-    SDA: OutputPin + InputPin,
-    SCL: OutputPin,
-{
-    type Error = I2cError;
 
     fn write_read(&mut self, addr: u8, bytes: &[u8], buffer: &mut [u8]) -> Result<(), Self::Error> {
         let command_link = CommandLink::new().map_err(I2cError::other)?;
@@ -384,6 +374,40 @@ where
             )
             .map_err(I2cError::other)
         }
+    }
+
+    fn write_iter<B>(&mut self, _address: u8, _bytes: B) -> Result<(), Self::Error>
+    where
+        B: IntoIterator<Item = u8>,
+    {
+        todo!()
+    }
+
+    fn write_iter_read<B>(
+        &mut self,
+        _address: u8,
+        _bytes: B,
+        _buffer: &mut [u8],
+    ) -> Result<(), Self::Error>
+    where
+        B: IntoIterator<Item = u8>,
+    {
+        todo!()
+    }
+
+    fn transaction<'a>(
+        &mut self,
+        _address: u8,
+        _operations: &mut [embedded_hal::i2c::blocking::Operation<'a>],
+    ) -> Result<(), Self::Error> {
+        todo!()
+    }
+
+    fn transaction_iter<'a, O>(&mut self, _address: u8, _operations: O) -> Result<(), Self::Error>
+    where
+        O: IntoIterator<Item = embedded_hal::i2c::blocking::Operation<'a>>,
+    {
+        todo!()
     }
 }
 

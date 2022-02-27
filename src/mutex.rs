@@ -35,7 +35,7 @@ impl<T> Drop for Mutex<T> {
 unsafe impl<T> Sync for Mutex<T> where T: Send {}
 unsafe impl<T> Send for Mutex<T> where T: Send {}
 
-pub struct MutexGuard<'a, T>(&'a Mutex<T>, &'a mut T);
+pub struct MutexGuard<'a, T>(&'a Mutex<T>);
 
 impl<'a, T> MutexGuard<'a, T> {
     #[inline(always)]
@@ -43,7 +43,7 @@ impl<'a, T> MutexGuard<'a, T> {
         let r = unsafe { pthread_mutex_lock(mutex.0.get()) };
         debug_assert_eq!(r, 0);
 
-        Self(mutex, unsafe { mutex.1.get().as_mut().unwrap() })
+        Self(mutex)
     }
 }
 
@@ -62,14 +62,14 @@ impl<'a, T> Deref for MutexGuard<'a, T> {
 
     #[inline(always)]
     fn deref(&self) -> &Self::Target {
-        self.1
+        unsafe { self.0 .1.get().as_mut().unwrap() }
     }
 }
 
 impl<'a, T> DerefMut for MutexGuard<'a, T> {
     #[inline(always)]
     fn deref_mut(&mut self) -> &mut Self::Target {
-        self.1
+        unsafe { self.0 .1.get().as_mut().unwrap() }
     }
 }
 
@@ -142,13 +142,9 @@ impl Condvar {
 
         let r =
             unsafe { pthread_cond_timedwait(self.0.get(), guard.0 .0.get(), &abstime as *const _) };
-        if r == ETIMEDOUT as i32 {
-            (guard, true)
-        } else {
-            debug_assert_eq!(r, 0);
+        debug_assert!(r == ETIMEDOUT as i32 || r == 0);
 
-            (guard, false)
-        }
+        (guard, r == ETIMEDOUT as i32)
     }
 
     pub fn notify_one(&self) {

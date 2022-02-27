@@ -503,6 +503,12 @@ impl<UART: Uart, TX: OutputPin, RX: InputPin, CTS: InputPin, RTS: OutputPin>
 }
 
 impl<UART: Uart, TX: OutputPin, RX: InputPin, CTS: InputPin, RTS: OutputPin>
+    embedded_hal::serial::ErrorType for Serial<UART, TX, RX, CTS, RTS>
+{
+    type Error = SerialError;
+}
+
+impl<UART: Uart, TX: OutputPin, RX: InputPin, CTS: InputPin, RTS: OutputPin>
     embedded_hal_0_2::serial::Read<u8> for Serial<UART, TX, RX, CTS, RTS>
 {
     type Error = SerialError;
@@ -515,8 +521,6 @@ impl<UART: Uart, TX: OutputPin, RX: InputPin, CTS: InputPin, RTS: OutputPin>
 impl<UART: Uart, TX: OutputPin, RX: InputPin, CTS: InputPin, RTS: OutputPin>
     embedded_hal::serial::nb::Read<u8> for Serial<UART, TX, RX, CTS, RTS>
 {
-    type Error = SerialError;
-
     fn read(&mut self) -> nb::Result<u8, Self::Error> {
         self.rx.read()
     }
@@ -539,8 +543,6 @@ impl<UART: Uart, TX: OutputPin, RX: InputPin, CTS: InputPin, RTS: OutputPin>
 impl<UART: Uart, TX: OutputPin, RX: InputPin, CTS: InputPin, RTS: OutputPin>
     embedded_hal::serial::nb::Write<u8> for Serial<UART, TX, RX, CTS, RTS>
 {
-    type Error = SerialError;
-
     fn flush(&mut self) -> nb::Result<(), Self::Error> {
         self.tx.flush()
     }
@@ -560,6 +562,10 @@ impl<UART: Uart, TX: OutputPin, RX: InputPin, CTS: InputPin, RTS: OutputPin> cor
             .try_for_each(|c| nb::block!(self.write(*c)))
             .map_err(|_| core::fmt::Error)
     }
+}
+
+impl<UART: Uart> embedded_hal::serial::ErrorType for Rx<UART> {
+    type Error = SerialError;
 }
 
 impl<UART: Uart> Rx<UART> {
@@ -597,8 +603,6 @@ impl<UART: Uart> embedded_hal_0_2::serial::Read<u8> for Rx<UART> {
 }
 
 impl<UART: Uart> embedded_hal::serial::nb::Read<u8> for Rx<UART> {
-    type Error = SerialError;
-
     fn read(&mut self) -> nb::Result<u8, Self::Error> {
         let mut buf: u8 = 0;
 
@@ -626,6 +630,10 @@ impl<UART: Uart> embedded_hal::serial::nb::Read<u8> for Rx<UART> {
 //     }
 // }
 
+impl<UART: Uart> embedded_hal::serial::ErrorType for Tx<UART> {
+    type Error = SerialError;
+}
+
 impl<UART: Uart> embedded_hal_0_2::serial::Write<u8> for Tx<UART> {
     type Error = SerialError;
 
@@ -651,8 +659,6 @@ impl<UART: Uart> embedded_hal_0_2::serial::Write<u8> for Tx<UART> {
 }
 
 impl<UART: Uart> embedded_hal::serial::nb::Write<u8> for Tx<UART> {
-    type Error = SerialError;
-
     fn flush(&mut self) -> nb::Result<(), Self::Error> {
         match unsafe { uart_wait_tx_done(UART::port(), 0) } {
             ESP_OK => Ok(()),

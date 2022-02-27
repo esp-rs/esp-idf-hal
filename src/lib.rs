@@ -23,7 +23,7 @@ pub mod riscv_ulp_hal;
 pub mod adc;
 #[cfg(not(feature = "riscv-ulp-hal"))]
 pub mod can;
-#[cfg(all(feature = "experimental", not(feature = "riscv-ulp-hal")))]
+#[cfg(not(feature = "riscv-ulp-hal"))]
 pub mod cpu;
 #[cfg(not(feature = "riscv-ulp-hal"))]
 pub mod delay;
@@ -45,8 +45,6 @@ pub mod rmt;
 pub mod serial;
 #[cfg(not(feature = "riscv-ulp-hal"))]
 pub mod spi;
-#[cfg(not(feature = "riscv-ulp-hal"))]
-pub mod timer;
 #[cfg(all(any(esp32, esp32s2, esp32s3), not(feature = "riscv-ulp-hal")))]
 pub mod ulp;
 pub mod units;

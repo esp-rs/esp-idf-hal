@@ -49,6 +49,12 @@ impl From<TickType> for Option<Duration> {
 /// Espressif Task Scheduler-based delay provider
 pub struct Ets;
 
+// No longer available in the generated bindings for ESP-IDF 5
+#[cfg(esp_idf_version_major = "5")]
+extern "C" {
+    pub fn ets_delay_us(us: u32);
+}
+
 impl Ets {
     fn delay_us_internal(&mut self, us: u32) {
         unsafe {
