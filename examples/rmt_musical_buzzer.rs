@@ -21,26 +21,26 @@ fn main() -> anyhow::Result<()> {
     let led = peripherals.pins.gpio17.into_output()?;
     let channel = peripherals.rmt.channel0;
     let config = TransmitConfig::new().looping(Loop::Count(1024));
-    let tx = Transmit::new(led, channel, &config)?;
+    let mut tx = Transmit::new(led, channel, &config)?;
 
     loop {
-        play_song(&tx, ODE_TO_JOY)?;
+        play_song(&mut tx, ODE_TO_JOY)?;
         Ets.delay_ms(3000)?;
     }
 }
 
 pub fn play_song<P: OutputPin, C: HwChannel>(
-    tx: &Transmit<P, C>,
+    tx: &mut Transmit<P, C>,
     song: &[NoteValue],
 ) -> anyhow::Result<()> {
     for note_value in song {
-        play_note(&tx, note_value.note.0, note_value.duration)?;
+        play_note(tx, note_value.note.0, note_value.duration)?;
     }
     Ok(())
 }
 
 pub fn play_note<P: OutputPin, C: HwChannel>(
-    tx: &Transmit<P, C>,
+    tx: &mut Transmit<P, C>,
     pitch: u16,
     duration: Duration,
 ) -> anyhow::Result<()> {

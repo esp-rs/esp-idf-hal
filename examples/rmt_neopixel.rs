@@ -26,20 +26,16 @@ fn main() -> anyhow::Result<()> {
     let led = peripherals.pins.gpio18.into_output()?;
     let channel = peripherals.rmt.channel0;
     let config = TransmitConfig::new().clock_divider(1);
-    let tx = Transmit::new(led, channel, &config)?;
+    let mut tx = Transmit::new(led, channel, &config)?;
 
     let rgbs = [0xff0000, 0xffff00, 0x00ffff, 0x00ff00, 0xa000ff];
     loop {
         for rgb in rgbs {
             let ticks_hz = tx.counter_clock()?;
-            let t0h =
-                Pulse::new_with_duration(ticks_hz, PinState::High, &Duration::from_nanos(350))?;
-            let t0l =
-                Pulse::new_with_duration(ticks_hz, PinState::Low, &Duration::from_nanos(800))?;
-            let t1h =
-                Pulse::new_with_duration(ticks_hz, PinState::High, &Duration::from_nanos(700))?;
-            let t1l =
-                Pulse::new_with_duration(ticks_hz, PinState::Low, &Duration::from_nanos(600))?;
+            let t0h = Pulse::new_with_duration(ticks_hz, PinState::High, &ns(350))?;
+            let t0l = Pulse::new_with_duration(ticks_hz, PinState::Low, &ns(800))?;
+            let t1h = Pulse::new_with_duration(ticks_hz, PinState::High, &ns(700))?;
+            let t1l = Pulse::new_with_duration(ticks_hz, PinState::Low, &ns(600))?;
 
             let mut signal = StackPairedSignal::<24>::new();
             for i in 0..24 {
@@ -51,4 +47,8 @@ fn main() -> anyhow::Result<()> {
             Ets.delay_ms(1000)?;
         }
     }
+}
+
+fn ns(nanos: u64) -> Duration {
+    Duration::from_nanos(nanos)
 }

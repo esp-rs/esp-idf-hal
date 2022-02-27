@@ -51,6 +51,12 @@
 //! [VecSignal] allows you to use the heap and incrementally add pulse items without knowing the size
 //! ahead of time.
 
+#[cfg(feature = "alloc")]
+extern crate alloc;
+
+#[cfg(feature = "alloc")]
+use alloc::vec::Vec;
+
 use crate::gpio::OutputPin;
 use crate::units::Hertz;
 pub use chip::*;
@@ -405,7 +411,7 @@ impl<P: OutputPin, C: HwChannel> Transmit<P, C> {
     /// Start sending the given signal without blocking.
     ///
     /// `signal` is captured for safety so that the user can't change the data while transmitting.
-    pub fn start<S>(&self, signal: S) -> Result<(), EspError>
+    pub fn start<S>(&mut self, signal: S) -> Result<(), EspError>
     where
         S: Signal,
     {
@@ -413,14 +419,14 @@ impl<P: OutputPin, C: HwChannel> Transmit<P, C> {
     }
 
     /// Start sending the given signal while blocking.
-    pub fn start_blocking<S>(&self, signal: &S) -> Result<(), EspError>
+    pub fn start_blocking<S>(&mut self, signal: &S) -> Result<(), EspError>
     where
         S: Signal,
     {
         self.write_items(signal, true)
     }
 
-    fn write_items<S>(&self, signal: &S, block: bool) -> Result<(), EspError>
+    fn write_items<S>(&mut self, signal: &S, block: bool) -> Result<(), EspError>
     where
         S: Signal,
     {
@@ -429,20 +435,20 @@ impl<P: OutputPin, C: HwChannel> Transmit<P, C> {
     }
 
     /// Stop transmitting.
-    pub fn stop(&self) -> Result<(), EspError> {
+    pub fn stop(&mut self) -> Result<(), EspError> {
         esp!(unsafe { rmt_tx_stop(C::channel()) })
     }
 
     /// Stop transmitting and release the driver.
     ///
     /// This will return the pin and channel.
-    pub fn release(self) -> Result<(P, C), EspError> {
+    pub fn release(mut self) -> Result<(P, C), EspError> {
         self.stop()?;
         esp!(unsafe { rmt_driver_uninstall(C::channel()) })?;
         Ok((self.pin, self.channel))
     }
 
-    pub fn set_looping(&self, looping: config::Loop) -> Result<(), EspError> {
+    pub fn set_looping(&mut self, looping: config::Loop) -> Result<(), EspError> {
         esp!(unsafe { rmt_set_tx_loop_count(C::channel(), looping.into()) })
     }
 }
@@ -531,7 +537,7 @@ impl<const N: usize> Default for StackPairedSignal<N> {
 /// ```
 
 #[derive(Clone, Default)]
-#[cfg(feature = "std")]
+#[cfg(feature = "alloc")]
 pub struct VecSignal {
     items: Vec<rmt_item32_t>,
 
@@ -540,11 +546,11 @@ pub struct VecSignal {
     next_item_is_new: bool,
 }
 
-#[cfg(feature = "std")]
+#[cfg(feature = "alloc")]
 impl VecSignal {
     pub fn new() -> Self {
         Self {
-            items: vec![],
+            items: Vec::new(),
             next_item_is_new: true,
         }
     }
@@ -552,7 +558,7 @@ impl VecSignal {
     /// Add [`Pulse`]s to the end of the signal.
     pub fn push<I>(&mut self, pulses: I) -> Result<(), EspError>
     where
-        I: IntoIterator<Item = Pulse>,
+        I: IntoIterator<Item = &Pulse>,
     {
         for pulse in pulses {
             if self.next_item_is_new {
@@ -590,7 +596,7 @@ impl VecSignal {
     }
 }
 
-#[cfg(feature = "std")]
+#[cfg(feature = "alloc")]
 impl Signal for VecSignal {
     fn as_slice(&self) -> &[rmt_item32_t] {
         &self.items
