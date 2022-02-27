@@ -10,7 +10,7 @@ use esp_idf_hal::delay::Ets;
 use esp_idf_hal::gpio::OutputPin;
 use esp_idf_hal::peripherals::Peripherals;
 use esp_idf_hal::rmt::config::{Loop, TransmitConfig};
-use esp_idf_hal::rmt::{HwChannel, PinState, Pulse, PulseTicks, StackPairedSignal, Transmit};
+use esp_idf_hal::rmt::{FixedLengthSignal, HwChannel, PinState, Pulse, PulseTicks, Transmit};
 use notes::*;
 
 fn main() -> anyhow::Result<()> {
@@ -52,7 +52,7 @@ pub fn play_note<P: OutputPin, C: HwChannel>(
     // Add high and low pulses for the tick duration.
     let on = Pulse::new(PinState::High, ticks);
     let off = Pulse::new(PinState::Low, ticks);
-    let mut signal = StackPairedSignal::<1>::new();
+    let mut signal = FixedLengthSignal::<1>::new();
     signal.set(0, &(on, off))?;
 
     // Play the note for the 80% of the duration.

@@ -2,7 +2,7 @@
 //!
 //! It is set to pin 18 which some dev boards have connected to a compatible LED.
 //!
-//! This example demonstrates the use of [`StackPairedSignal`][crate::rmt::StackPairedSignal] which
+//! This example demonstrates the use of [`FixedLengthSignal`][crate::rmt::FixedLengthSignal] which
 //! lives on the stack and requires a known length before creating it.
 //!
 //! There is a similar implementation in the esp-idf project:
@@ -16,7 +16,7 @@ use embedded_hal::delay::blocking::DelayUs;
 use esp_idf_hal::delay::Ets;
 use esp_idf_hal::peripherals::Peripherals;
 use esp_idf_hal::rmt::config::TransmitConfig;
-use esp_idf_hal::rmt::{PinState, Pulse, StackPairedSignal, Transmit};
+use esp_idf_hal::rmt::{FixedLengthSignal, PinState, Pulse, Transmit};
 
 fn main() -> anyhow::Result<()> {
     esp_idf_sys::link_patches();
@@ -37,7 +37,7 @@ fn main() -> anyhow::Result<()> {
             let t1h = Pulse::new_with_duration(ticks_hz, PinState::High, &ns(700))?;
             let t1l = Pulse::new_with_duration(ticks_hz, PinState::Low, &ns(600))?;
 
-            let mut signal = StackPairedSignal::<24>::new();
+            let mut signal = FixedLengthSignal::<24>::new();
             for i in 0..24 {
                 let bit = 2_u32.pow(i) & rgb != 0;
                 let (high_pulse, low_pulse) = if bit { (t1h, t1l) } else { (t0h, t0l) };

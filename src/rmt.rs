@@ -31,7 +31,7 @@
 //! // Prepare signal pulse signal to be sent.
 //! let low = Pulse::new(PinState::Low, PulseTicks::new(10)?);
 //! let high = Pulse::new(PinState::High, PulseTicks::new(10)?);
-//! let mut signal = StackPairedSignal::<2>::new();
+//! let mut signal = FixedLengthSignal::<2>::new();
 //! signal.set(0, &(low, high))?;
 //! signal.set(1, &(high, low))?;
 //!
@@ -42,13 +42,13 @@
 //! See the `examples/` folder of this repository for more.
 //!
 //! # Loading pulses
-//! There are two ways of preparing pulse signal. [StackPairedSignal] and [VecSignal]. These
+//! There are two ways of preparing pulse signal. [FixedLengthSignal] and [VariableLengthSignal]. These
 //! implement the [Signal] trait.
 //!
-//! [StackPairedSignal] lives on the stack and must have the items set in pairs of [Pulse]s. This is
+//! [FixedLengthSignal] lives on the stack and must have the items set in pairs of [Pulse]s. This is
 //! due to the internal implementation of RMT, and const generics limitations.
 //!
-//! [VecSignal] allows you to use the heap and incrementally add pulse items without knowing the size
+//! [VariableLengthSignal] allows you to use the heap and incrementally add pulse items without knowing the size
 //! ahead of time.
 
 extern crate alloc;
@@ -462,23 +462,23 @@ pub trait Signal {
 /// Use this if you know the length of the pulses ahead of time and prefer to use the stack.
 ///
 /// Internally RMT uses pairs of pulses as part of its data structure. This implementation
-/// you need to [`set`][StackPairedSignal::set()] a two [`Pulse`]s for each index.
+/// you need to [`set`][FixedLengthSignal::set()] a two [`Pulse`]s for each index.
 ///
 /// ```rust
-/// # use esp_idf_hal::rmt::StackPairedSignal;
+/// # use esp_idf_hal::rmt::FixedLengthSignal;
 /// let p1 = Pulse::new(PinState::High, PulseTicks::new(10));
 /// let p2 = Pulse::new(PinState::Low, PulseTicks::new(11));
 /// let p3 = Pulse::new(PinState::High, PulseTicks::new(12));
 /// let p4 = Pulse::new(PinState::Low, PulseTicks::new(13));
 ///
-/// let mut s = StackPairedSignal::new();
+/// let mut s = FixedLengthSignal::new();
 /// s.set(0, &(p1, p2));
 /// s.set(1, &(p3, p4));
 /// ```
 #[derive(Clone)]
-pub struct StackPairedSignal<const N: usize>([rmt_item32_t; N]);
+pub struct FixedLengthSignal<const N: usize>([rmt_item32_t; N]);
 
-impl<const N: usize> StackPairedSignal<N> {
+impl<const N: usize> FixedLengthSignal<N> {
     /// Creates a new array of size `<N>`, where the number of pulses is `N * 2`.
     pub fn new() -> Self {
         Self(
@@ -509,13 +509,13 @@ impl<const N: usize> StackPairedSignal<N> {
     }
 }
 
-impl<const N: usize> Signal for StackPairedSignal<N> {
+impl<const N: usize> Signal for FixedLengthSignal<N> {
     fn as_slice(&self) -> &[rmt_item32_t] {
         &self.0
     }
 }
 
-impl<const N: usize> Default for StackPairedSignal<N> {
+impl<const N: usize> Default for FixedLengthSignal<N> {
     fn default() -> Self {
         Self::new()
     }
@@ -530,14 +530,14 @@ impl<const N: usize> Default for StackPairedSignal<N> {
 ///
 /// # Example
 /// ```rust
-/// let mut signal = VecSignal::new();
+/// let mut signal = VariableLengthSignal::new();
 /// signal.push(Pulse::new(PinState::High, PulseTicks::new(10)));
 /// signal.push(Pulse::new(PinState::Low, PulseTicks::new(9)));
 /// ```
 
 #[derive(Clone, Default)]
 #[cfg(feature = "alloc")]
-pub struct VecSignal {
+pub struct VariableLengthSignal {
     items: Vec<rmt_item32_t>,
 
     // Items contain two pulses. Track if we're adding a new pulse to the first one (true) or if
@@ -546,7 +546,7 @@ pub struct VecSignal {
 }
 
 #[cfg(feature = "alloc")]
-impl VecSignal {
+impl VariableLengthSignal {
     pub fn new() -> Self {
         Self {
             items: Vec::new(),
@@ -596,7 +596,7 @@ impl VecSignal {
 }
 
 #[cfg(feature = "alloc")]
-impl Signal for VecSignal {
+impl Signal for VariableLengthSignal {
     fn as_slice(&self) -> &[rmt_item32_t] {
         &self.items
     }

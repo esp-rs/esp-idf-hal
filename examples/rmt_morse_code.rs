@@ -20,7 +20,7 @@ use esp_idf_hal::delay::Ets;
 use esp_idf_hal::gpio::{Gpio16, Gpio17, Input, Output, Pin};
 use esp_idf_hal::peripherals::Peripherals;
 use esp_idf_hal::rmt::config::{CarrierConfig, DutyPercent, Loop, TransmitConfig};
-use esp_idf_hal::rmt::VecSignal; // This example requires `alloc` feature.
+use esp_idf_hal::rmt::VariableLengthSignal; // This example requires `alloc` feature.
 use esp_idf_hal::rmt::{PinState, Pulse, PulseTicks, Transmit, CHANNEL0};
 use esp_idf_hal::units::FromValueType;
 use log::*;
@@ -72,7 +72,7 @@ fn send_morse_code(
 ) -> anyhow::Result<Transmit<Gpio17<Output>, CHANNEL0>> {
     info!("Sending morse message '{}' to pin {}.", message, led.pin());
 
-    let mut signal = VecSignal::new();
+    let mut signal = VariableLengthSignal::new();
     signal.push(str_pulses(message))?;
 
     let tx = Transmit::new(led, channel, &config)?;
