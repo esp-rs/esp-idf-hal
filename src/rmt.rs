@@ -555,9 +555,9 @@ impl VariableLengthSignal {
     }
 
     /// Add [`Pulse`]s to the end of the signal.
-    pub fn push<I>(&mut self, pulses: I) -> Result<(), EspError>
+    pub fn push<'p, I>(&mut self, pulses: I) -> Result<(), EspError>
     where
-        I: IntoIterator<Item = &Pulse>,
+        I: IntoIterator<Item = &'p Pulse>,
     {
         for pulse in pulses {
             if self.next_item_is_new {

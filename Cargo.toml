@@ -13,9 +13,11 @@ readme = "README.md"
 documentation = "https://esp-rs.github.io/esp-idf-hal/"
 
 [features]
-default = ["std", "esp-idf-sys", "embedded-svc"]
+default = ["std", "alloc", "esp-idf-sys", "embedded-svc"]
 
-std = ["esp-idf-sys/std"]
+std = ["alloc", "esp-idf-sys/std"]
+
+alloc = []
 
 riscv-ulp-hal = []
 

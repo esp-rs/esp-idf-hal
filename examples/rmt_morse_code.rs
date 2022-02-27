@@ -73,9 +73,12 @@ fn send_morse_code(
     info!("Sending morse message '{}' to pin {}.", message, led.pin());
 
     let mut signal = VariableLengthSignal::new();
-    signal.push(str_pulses(message))?;
+    let pulses = str_pulses(message);
+    // We've been collecting `Pulse` but `VariableLengthSignal` needs `&Pulse`:
+    let pulses: Vec<&Pulse> = pulses.iter().map(|p| p).collect();
+    signal.push(pulses)?;
 
-    let tx = Transmit::new(led, channel, &config)?;
+    let mut tx = Transmit::new(led, channel, &config)?;
     tx.start(signal)?;
 
     // Return `tx` so we can release the pin and channel later.
