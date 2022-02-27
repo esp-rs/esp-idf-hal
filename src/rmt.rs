@@ -51,7 +51,6 @@
 //! [VecSignal] allows you to use the heap and incrementally add pulse items without knowing the size
 //! ahead of time.
 
-#[cfg(feature = "alloc")]
 extern crate alloc;
 
 #[cfg(feature = "alloc")]
