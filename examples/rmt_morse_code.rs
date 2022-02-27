@@ -75,7 +75,7 @@ fn send_morse_code(
     let mut signal = VariableLengthSignal::new();
     let pulses = str_pulses(message);
     // We've been collecting `Pulse` but `VariableLengthSignal` needs `&Pulse`:
-    let pulses: Vec<&Pulse> = pulses.iter().map(|p| p).collect();
+    let pulses: Vec<&Pulse> = pulses.iter().collect();
     signal.push(pulses)?;
 
     let mut tx = Transmit::new(led, channel, &config)?;
