@@ -20,7 +20,6 @@ use esp_idf_hal::rmt::{FixedLengthSignal, PinState, Pulse, Transmit};
 
 fn main() -> anyhow::Result<()> {
     esp_idf_sys::link_patches();
-    esp_idf_svc::log::EspLogger::initialize_default();
 
     let peripherals = Peripherals::take().unwrap();
     let led = peripherals.pins.gpio18.into_output()?;

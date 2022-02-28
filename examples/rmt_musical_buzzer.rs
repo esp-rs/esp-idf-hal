@@ -15,7 +15,6 @@ use notes::*;
 
 fn main() -> anyhow::Result<()> {
     esp_idf_sys::link_patches();
-    esp_idf_svc::log::EspLogger::initialize_default();
 
     let peripherals = Peripherals::take().unwrap();
     let led = peripherals.pins.gpio17.into_output()?;
@@ -46,7 +45,7 @@ pub fn play_note<P: OutputPin, C: HwChannel>(
 ) -> anyhow::Result<()> {
     // Calculate the frequency for a piezo buzzer.
     let ticks_hz = tx.counter_clock()?;
-    let tick_count = (ticks_hz.0 as u128 / pitch as u128 / 2 as u128) as u16;
+    let tick_count = (ticks_hz.0 as u128 / pitch as u128 / 2_u128) as u16;
     let ticks = PulseTicks::new(tick_count)?;
 
     // Add high and low pulses for the tick duration.

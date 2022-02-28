@@ -23,11 +23,9 @@ use esp_idf_hal::rmt::config::{CarrierConfig, DutyPercent, Loop, TransmitConfig}
 use esp_idf_hal::rmt::VariableLengthSignal; // This example requires `alloc` feature.
 use esp_idf_hal::rmt::{PinState, Pulse, PulseTicks, Transmit, CHANNEL0};
 use esp_idf_hal::units::FromValueType;
-use log::*;
 
 fn main() -> anyhow::Result<()> {
     esp_idf_sys::link_patches();
-    esp_idf_svc::log::EspLogger::initialize_default();
 
     let peripherals = Peripherals::take().unwrap();
     let led: Gpio17<Output> = peripherals.pins.gpio17.into_output()?;
@@ -44,11 +42,11 @@ fn main() -> anyhow::Result<()> {
 
     let tx = send_morse_code(&config, led, channel, "HELLO ")?;
 
-    info!("Keep sending until pin {} is set low.", stop.pin());
+    println!("Keep sending until pin {} is set low.", stop.pin());
     while stop.is_high()? {
         Ets.delay_ms(100)?;
     }
-    info!("Pin {} is set to low--stopping message.", stop.pin());
+    println!("Pin {} is set to low--stopping message.", stop.pin());
 
     // Release pin and channel so we can use them again.
     let (led, channel) = tx.release()?;
@@ -57,7 +55,7 @@ fn main() -> anyhow::Result<()> {
     Ets.delay_ms(3000)?;
 
     // Now send a single message and stop.
-    info!("Saying GOODBYE!");
+    println!("Saying GOODBYE!");
     config.looping = Loop::None;
     send_morse_code(&config, led, channel, "GOODBYE")?;
 
@@ -70,7 +68,7 @@ fn send_morse_code(
     channel: CHANNEL0,
     message: &str,
 ) -> anyhow::Result<Transmit<Gpio17<Output>, CHANNEL0>> {
-    info!("Sending morse message '{}' to pin {}.", message, led.pin());
+    println!("Sending morse message '{}' to pin {}.", message, led.pin());
 
     let mut signal = VariableLengthSignal::new();
     let pulses = str_pulses(message);
@@ -78,7 +76,7 @@ fn send_morse_code(
     let pulses: Vec<&Pulse> = pulses.iter().collect();
     signal.push(pulses)?;
 
-    let mut tx = Transmit::new(led, channel, &config)?;
+    let mut tx = Transmit::new(led, channel, config)?;
     tx.start(signal)?;
 
     // Return `tx` so we can release the pin and channel later.
