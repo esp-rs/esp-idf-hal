@@ -110,8 +110,8 @@ impl<'a> Default for MqttClientConfiguration<'a> {
     }
 }
 
-impl<'a> From<&MqttClientConfiguration<'a>> for (esp_mqtt_client_config_t, RawCstrs) {
-    fn from(conf: &MqttClientConfiguration<'a>) -> Self {
+impl<'a> From<&'a MqttClientConfiguration<'a>> for (esp_mqtt_client_config_t, RawCstrs) {
+    fn from(conf: &'a MqttClientConfiguration<'a>) -> Self {
         let mut cstrs = RawCstrs::new();
 
         let mut c_conf = esp_mqtt_client_config_t {
@@ -250,7 +250,7 @@ impl EspMqttClient {
     }
 
     fn new_with_raw_callback<'a>(
-        url: impl AsRef<str>,
+        url: impl AsRef<str> + 'a,
         conf: &'a MqttClientConfiguration<'a>,
         raw_callback: Box<dyn FnMut(esp_mqtt_event_handle_t)>,
     ) -> Result<Self, EspError>
@@ -312,7 +312,7 @@ impl EspMqttClient {
 impl EspMqttClient {
     pub fn new_async<'a, U, S>(
         url: S,
-        conf: &'a MqttClientConfiguration<'a>,
+        conf: /*TODO: issue with the compiler: &'a*/ MqttClientConfiguration<'a>,
     ) -> Result<
         (
             embedded_svc::utils::nonblocking::mqtt::client::AsyncClient<U, Mutex<Self>>,
@@ -326,7 +326,7 @@ impl EspMqttClient {
     >
     where
         U: embedded_svc::unblocker::nonblocking::Unblocker,
-        S: AsRef<str>,
+        S: AsRef<str> + 'a,
     {
         let connection = embedded_svc::utils::nonblocking::mqtt::client::AsyncConnection::<
             Condvar,
@@ -336,7 +336,7 @@ impl EspMqttClient {
 
         let cb_connection = connection.clone();
 
-        let client = Self::new_with_callback(url, conf, move |event| cb_connection.post(event))?;
+        let client = Self::new_with_callback(url, &conf, move |event| cb_connection.post(event))?;
 
         Ok((
             embedded_svc::utils::nonblocking::mqtt::client::AsyncClient::new(client),
