@@ -61,6 +61,9 @@ pub struct MqttClientConfiguration<'a> {
     pub buffer_size: usize,
     pub out_buffer_size: usize,
 
+    pub username: Option<&'a str>,
+    pub password: Option<&'a str>,
+
     pub use_global_ca_store: bool,
     pub skip_cert_common_name_check: bool,
     #[cfg(not(esp_idf_version = "4.3"))]
@@ -101,6 +104,9 @@ impl<'a> Default for MqttClientConfiguration<'a> {
             buffer_size: 0,
             out_buffer_size: 0,
 
+            username: None,
+            password: None,
+
             use_global_ca_store: false,
             skip_cert_common_name_check: false,
 
@@ -131,6 +137,9 @@ impl<'a> From<&'a MqttClientConfiguration<'a>> for (esp_mqtt_client_config_t, Ra
             task_stack: conf.task_stack as _,
             buffer_size: conf.buffer_size as _,
             out_buffer_size: conf.out_buffer_size as _,
+
+            username: cstrs.as_nptr(conf.username),
+            password: cstrs.as_nptr(conf.password),
 
             use_global_ca_store: conf.use_global_ca_store,
             skip_cert_common_name_check: conf.skip_cert_common_name_check,

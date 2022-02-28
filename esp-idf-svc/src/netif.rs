@@ -359,6 +359,13 @@ impl EspNetif {
         Cow::Owned(from_cstr(&netif_name).into_owned())
     }
 
+    pub fn get_mac(&self) -> Result<[u8; 6], EspError> {
+        let mut mac = [0u8; 6];
+
+        esp!(unsafe { esp_netif_get_mac(self.1, mac.as_mut_ptr() as *mut _) })?;
+        Ok(mac)
+    }
+
     pub fn get_dns(&self) -> ipv4::Ipv4Addr {
         let mut dns_info = Default::default();
 
