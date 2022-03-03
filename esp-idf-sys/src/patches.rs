@@ -3,7 +3,10 @@
 #[cfg(all(feature = "std", esp_idf_version = "4.3"))]
 mod pthread_rwlock;
 
-pub struct PatchesRef(*mut crate::c_types::c_void);
+#[cfg(feature = "std")]
+mod lstat;
+
+pub struct PatchesRef(*mut crate::c_types::c_void, *mut crate::c_types::c_void);
 
 /// A hack to make sure that the rwlock implementation is linked to the final executable
 /// Call this function once e.g. in the beginning of your main function
@@ -19,5 +22,10 @@ pub fn link_patches() -> PatchesRef {
     ))]
     let rwlock = core::ptr::null_mut();
 
-    PatchesRef(rwlock)
+    #[cfg(feature = "std")]
+    let lstat = lstat::link_patches();
+    #[cfg(not(feature = "std"))]
+    let lstat = core::ptr::null_mut();
+
+    PatchesRef(rwlock, lstat)
 }
