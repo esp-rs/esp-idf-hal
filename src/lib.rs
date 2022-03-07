@@ -1,7 +1,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 #![feature(cfg_version)]
 #![feature(generic_associated_types)] // For mutex
-#![feature(const_fn_fn_ptr_basics)] // Embassy timer
+#![cfg_attr(version("1.61"), allow(deprecated_where_clause_location))]
 #![cfg_attr(not(version("1.59")), feature(asm))]
 #![cfg_attr(
     all(version("1.58"), target_arch = "xtensa"),
