@@ -1,7 +1,8 @@
 #![cfg_attr(not(feature = "std"), no_std)]
-#![feature(generic_associated_types)] // For mutex, http, http::client, http::server, ota
-#![feature(const_btree_new)]
 #![feature(cfg_version)]
+#![feature(const_btree_new)]
+#![feature(generic_associated_types)] // For mutex, http, http::client, http::server, ota
+#![cfg_attr(version("1.61"), allow(deprecated_where_clause_location))]
 
 #[cfg(any(feature = "alloc"))]
 #[macro_use]
