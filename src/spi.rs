@@ -336,6 +336,7 @@ impl<SPI: Spi, SCLK: OutputPin, SDO: OutputPin, SDI: InputPin + OutputPin, CS: O
         for offset in (0..len).step_by(TRANS_LEN) {
             let read_chunk_end = min(offset + TRANS_LEN, read.len());
             let write_chunk_end = min(offset + TRANS_LEN, write.len());
+            let is_last_chunk = offset + TRANS_LEN < len;
 
             if read_chunk_end != write_chunk_end {
                 let mut buf = [0_u8; TRANS_LEN];
@@ -363,7 +364,13 @@ impl<SPI: Spi, SCLK: OutputPin, SDO: OutputPin, SDI: InputPin + OutputPin, CS: O
 
                 let transfer_len = max(read_chunk_end, write_chunk_end) - offset;
 
-                self.transfer_internal_raw(read_ptr, transfer_len, write_ptr, transfer_len)?;
+                self.transfer_internal_raw(
+                    read_ptr,
+                    transfer_len,
+                    write_ptr,
+                    transfer_len,
+                    !is_last_chunk,
+                )?;
 
                 if read_chunk_end > offset && read_chunk_end < offset + TRANS_LEN {
                     read[offset..read_chunk_end].copy_from_slice(&buf[0..read_chunk_end - offset]);
@@ -377,6 +384,7 @@ impl<SPI: Spi, SCLK: OutputPin, SDO: OutputPin, SDI: InputPin + OutputPin, CS: O
                     read_chunk.len(),
                     write_chunk.as_ptr(),
                     write_chunk.len(),
+                    !is_last_chunk,
                 )?;
             }
         }
@@ -397,7 +405,8 @@ impl<SPI: Spi, SCLK: OutputPin, SDO: OutputPin, SDI: InputPin + OutputPin, CS: O
             let len = chunk.len();
             let ptr = chunk.as_mut_ptr();
 
-            self.transfer_internal_raw(ptr, len, ptr, len)?;
+            let is_last_chunk = offset + TRANS_LEN < total_len;
+            self.transfer_internal_raw(ptr, len, ptr, len, !is_last_chunk)?;
         }
 
         Ok(())
@@ -426,17 +435,29 @@ impl<SPI: Spi, SCLK: OutputPin, SDO: OutputPin, SDI: InputPin + OutputPin, CS: O
             }
 
             if offset == 0 {
+                if lock.is_some() {
+                    // If there was a lock, the CS line needs to be de-asserted to end the
+                    // transaction.
+                    let ptr = buf.as_mut_ptr();
+                    self.transfer_internal_raw(ptr, 0, ptr, 0, false)?;
+                }
                 break;
             }
 
-            if offset == buf.len() && lock.is_none() {
-                lock = Some(self.lock_bus()?);
+            let is_last_chunk;
+            if offset == buf.len() {
+                if lock.is_none() {
+                    lock = Some(self.lock_bus()?);
+                }
+                is_last_chunk = false;
+            } else {
+                is_last_chunk = true;
             }
 
             let chunk = &mut buf[..offset];
             let ptr = chunk.as_mut_ptr();
 
-            self.transfer_internal_raw(ptr, chunk.len(), ptr, chunk.len())?;
+            self.transfer_internal_raw(ptr, chunk.len(), ptr, chunk.len(), !is_last_chunk)?;
         }
 
         Ok(())
@@ -448,9 +469,14 @@ impl<SPI: Spi, SCLK: OutputPin, SDO: OutputPin, SDI: InputPin + OutputPin, CS: O
         read_len: usize,
         write: *const u8,
         write_len: usize,
+        keep_cs_active: bool,
     ) -> Result<(), SpiError> {
         let mut transaction = spi_transaction_t {
-            flags: 0,
+            flags: if keep_cs_active {
+                SPI_TRANS_CS_KEEP_ACTIVE
+            } else {
+                0
+            },
             __bindgen_anon_1: spi_transaction_t__bindgen_ty_1 {
                 tx_buffer: write as *const _,
             },
