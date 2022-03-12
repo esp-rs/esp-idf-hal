@@ -481,19 +481,19 @@ pub trait Signal {
 #[derive(Clone)]
 pub struct FixedLengthSignal<const N: usize>([rmt_item32_t; N]);
 
+#[cfg(all(esp_idf_version_major = "4", esp32))]
+#[allow(non_camel_case_types)]
+type rmt_item32_t__bindgen_ty_1 = rmt_item32_s__bindgen_ty_1;
+#[cfg(all(esp_idf_version_major = "4", esp32))]
+#[allow(non_camel_case_types)]
+type rmt_item32_t__bindgen_ty_1__bindgen_ty_1 = rmt_item32_s__bindgen_ty_1__bindgen_ty_1;
+
 impl<const N: usize> FixedLengthSignal<N> {
     /// Creates a new array of size `<N>`, where the number of pulses is `N * 2`.
     pub fn new() -> Self {
         Self(
             [rmt_item32_t {
-                #[cfg(all(esp_idf_version_major = "4", esp_idf_version_minor = "3"))]
                 __bindgen_anon_1: rmt_item32_t__bindgen_ty_1 {
-                    // Quick way to set all 32 bits to zero, instead of using `__bindgen_anon_1`.
-                    val: 0,
-                },
-
-                #[cfg(not(all(esp_idf_version_major = "4", esp_idf_version_minor = "3")))]
-                __bindgen_anon_1: rmt_item32_s__bindgen_ty_1 {
                     // Quick way to set all 32 bits to zero, instead of using `__bindgen_anon_1`.
                     val: 0,
                 },
@@ -571,25 +571,13 @@ impl VariableLengthSignal {
     {
         for pulse in pulses {
             if self.next_item_is_new {
-                #[cfg(all(esp_idf_version_major = "4", esp_idf_version_minor = "3"))]
                 let mut inner_item = rmt_item32_t__bindgen_ty_1__bindgen_ty_1::default();
-
-                #[cfg(not(all(esp_idf_version_major = "4", esp_idf_version_minor = "3")))]
-                let mut inner_item = rmt_item32_s__bindgen_ty_1__bindgen_ty_1::default();
 
                 inner_item.set_level0(pulse.pin_state as u32);
                 inner_item.set_duration0(pulse.ticks.0 as u32);
 
-                #[cfg(all(esp_idf_version_major = "4", esp_idf_version_minor = "3"))]
                 let item = rmt_item32_t {
                     __bindgen_anon_1: rmt_item32_t__bindgen_ty_1 {
-                        __bindgen_anon_1: inner_item,
-                    },
-                };
-
-                #[cfg(not(all(esp_idf_version_major = "4", esp_idf_version_minor = "3")))]
-                let item = rmt_item32_t {
-                    __bindgen_anon_1: rmt_item32_s__bindgen_ty_1 {
                         __bindgen_anon_1: inner_item,
                     },
                 };
