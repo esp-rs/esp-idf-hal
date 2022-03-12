@@ -368,7 +368,7 @@ impl<P: OutputPin, C: HwChannel> Transmit<P, C> {
                     loop_en: config.looping != config::Loop::None,
                     #[cfg(not(any(esp32, esp32c2)))]
                     loop_count: match config.looping {
-                        Loop::Count(count) if count > 0 && count < 1024 => count,
+                        config::Loop::Count(count) if count > 0 && count < 1024 => count,
                         _ => 0,
                     },
                 },
@@ -445,7 +445,7 @@ impl<P: OutputPin, C: HwChannel> Transmit<P, C> {
             rmt_set_tx_loop_count(
                 C::channel(),
                 match config.looping {
-                    Loop::Count(count) if count > 0 && count < 1024 => count,
+                    config::Loop::Count(count) if count > 0 && count < 1024 => count,
                     _ => 0,
                 },
             )
