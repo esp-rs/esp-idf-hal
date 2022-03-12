@@ -444,7 +444,7 @@ impl<P: OutputPin, C: HwChannel> Transmit<P, C> {
         esp!(unsafe {
             rmt_set_tx_loop_count(
                 C::channel(),
-                match config.looping {
+                match looping {
                     config::Loop::Count(count) if count > 0 && count < 1024 => count,
                     _ => 0,
                 },
