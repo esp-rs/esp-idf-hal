@@ -16,6 +16,12 @@
 #include "esp_interface.h"
 #include "esp_ipc.h"
 
+#ifdef ESP_IDF_COMP_CONSOLE_ENABLED
+#include "esp_console.h"
+#include "linenoise/linenoise.h"
+#include "argtable3/argtable3.h"
+#endif
+
 #ifdef ESP_IDF_COMP_ESP_PM_ENABLED
 #include "esp_pm.h"
 #endif
