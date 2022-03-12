@@ -247,6 +247,7 @@ pub mod config {
     }
 
     /// Configuration setting for looping a signal.
+    #[cfg(esp_idf_soc_rmt_support_tx_loop_count)]
     #[derive(Debug, Copy, Clone, Eq, PartialEq)]
     pub enum Loop {
         None,
@@ -254,6 +255,7 @@ pub mod config {
         Count(u32),
     }
 
+    #[cfg(esp_idf_soc_rmt_support_tx_loop_count)]
     impl From<Loop> for u32 {
         fn from(looping: Loop) -> Self {
             match looping {
@@ -269,6 +271,7 @@ pub mod config {
         pub mem_block_num: u8,
         pub carrier: Option<CarrierConfig>,
         // TODO: `loop` is taken. Maybe can change to `repeat` even though it doesn't match the IDF.
+        #[cfg(esp_idf_soc_rmt_support_tx_loop_count)]
         pub looping: Loop,
 
         /// Enable and set the signal level on the output if idle.
@@ -288,6 +291,7 @@ pub mod config {
                 aware_dfs: false,
                 mem_block_num: 1,
                 clock_divider: 80,
+                #[cfg(esp_idf_soc_rmt_support_tx_loop_count)]
                 looping: Loop::None,
                 carrier: None,
                 idle: Some(PinState::Low),
@@ -315,6 +319,7 @@ pub mod config {
             self
         }
 
+        #[cfg(esp_idf_soc_rmt_support_tx_loop_count)]
         pub fn looping(mut self, looping: Loop) -> Self {
             self.looping = looping;
             self
@@ -358,10 +363,6 @@ impl<P: OutputPin, C: HwChannel> Transmit<P, C> {
         let carrier_en = config.carrier.is_some();
         let carrier = config.carrier.unwrap_or_default();
 
-        use config::Loop;
-        let loop_en = config.looping != Loop::None;
-        let loop_count = config.looping.into();
-
         let sys_config = rmt_config_t {
             rmt_mode: rmt_mode_t_RMT_MODE_TX,
             channel: C::channel(),
@@ -377,10 +378,14 @@ impl<P: OutputPin, C: HwChannel> Transmit<P, C> {
                     carrier_duty_percent: carrier.duty_percent.0,
                     idle_output_en: config.idle.is_some(),
                     idle_level: config.idle.map(|i| i as u32).unwrap_or(0),
+                    #[cfg(not(esp_idf_soc_rmt_support_tx_loop_count))]
+                    loop_en: false,
                     // Bug? This doesn't seem to work for longer length data on ESP32S2.
-                    loop_en,
+                    #[cfg(esp_idf_soc_rmt_support_tx_loop_count)]
+                    loop_en: config.looping != config::Loop::None,
                     // Bug? When looping is working, it seems to be ignored at least on my ESP32S2.
-                    loop_count,
+                    #[cfg(esp_idf_soc_rmt_support_tx_loop_count)]
+                    loop_count: config.looping.into(),
                 },
             },
         };
@@ -447,6 +452,7 @@ impl<P: OutputPin, C: HwChannel> Transmit<P, C> {
         Ok((self.pin, self.channel))
     }
 
+    #[cfg(esp_idf_soc_rmt_support_tx_loop_count)]
     pub fn set_looping(&mut self, looping: config::Loop) -> Result<(), EspError> {
         esp!(unsafe { rmt_set_tx_loop_count(C::channel(), looping.into()) })
     }
@@ -483,7 +489,14 @@ impl<const N: usize> FixedLengthSignal<N> {
     pub fn new() -> Self {
         Self(
             [rmt_item32_t {
+                #[cfg(all(esp_idf_version_major = "4", esp_idf_version_minor = "3"))]
                 __bindgen_anon_1: rmt_item32_t__bindgen_ty_1 {
+                    // Quick way to set all 32 bits to zero, instead of using `__bindgen_anon_1`.
+                    val: 0,
+                },
+
+                #[cfg(not(all(esp_idf_version_major = "4", esp_idf_version_minor = "3")))]
+                __bindgen_anon_1: rmt_item32_s__bindgen_ty_1 {
                     // Quick way to set all 32 bits to zero, instead of using `__bindgen_anon_1`.
                     val: 0,
                 },
@@ -561,14 +574,29 @@ impl VariableLengthSignal {
     {
         for pulse in pulses {
             if self.next_item_is_new {
+                #[cfg(all(esp_idf_version_major = "4", esp_idf_version_minor = "3"))]
                 let mut inner_item = rmt_item32_t__bindgen_ty_1__bindgen_ty_1::default();
+
+                #[cfg(not(all(esp_idf_version_major = "4", esp_idf_version_minor = "3")))]
+                let mut inner_item = rmt_item32_s__bindgen_ty_1__bindgen_ty_1::default();
+
                 inner_item.set_level0(pulse.pin_state as u32);
                 inner_item.set_duration0(pulse.ticks.0 as u32);
+
+                #[cfg(all(esp_idf_version_major = "4", esp_idf_version_minor = "3"))]
                 let item = rmt_item32_t {
                     __bindgen_anon_1: rmt_item32_t__bindgen_ty_1 {
                         __bindgen_anon_1: inner_item,
                     },
                 };
+
+                #[cfg(not(all(esp_idf_version_major = "4", esp_idf_version_minor = "3")))]
+                let item = rmt_item32_t {
+                    __bindgen_anon_1: rmt_item32_s__bindgen_ty_1 {
+                        __bindgen_anon_1: inner_item,
+                    },
+                };
+
                 self.items.push(item);
             } else {
                 // There should be at least one item in the vec.
