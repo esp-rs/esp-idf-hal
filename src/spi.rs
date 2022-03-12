@@ -471,12 +471,15 @@ impl<SPI: Spi, SCLK: OutputPin, SDO: OutputPin, SDI: InputPin + OutputPin, CS: O
         write_len: usize,
         keep_cs_active: bool,
     ) -> Result<(), SpiError> {
+        let mut flags = 0;
+
+        #[cfg(any(esp_idf_version = "4.4", esp_idf_version_major = "5"))]
+        if keep_cs_active {
+            flags |= SPI_TRANS_CS_KEEP_ACTIVE;
+        }
+
         let mut transaction = spi_transaction_t {
-            flags: if keep_cs_active {
-                SPI_TRANS_CS_KEEP_ACTIVE
-            } else {
-                0
-            },
+            flags,
             __bindgen_anon_1: spi_transaction_t__bindgen_ty_1 {
                 tx_buffer: write as *const _,
             },
