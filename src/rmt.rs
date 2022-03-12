@@ -177,7 +177,7 @@ pub fn duration_to_ticks(ticks_hz: Hertz, duration: &Duration) -> Result<u128, E
 ///
 /// let config = TransmitConfig::new()
 ///     .carrier(Some(carrier))
-///     .looping(Loop::Count(100))
+///     .looping(Loop::Endless)
 ///     .clock_divider(255);
 ///
 /// ```
@@ -247,22 +247,12 @@ pub mod config {
     }
 
     /// Configuration setting for looping a signal.
-    #[cfg(esp_idf_soc_rmt_support_tx_loop_count)]
-    #[derive(Debug, Copy, Clone, Eq, PartialEq)]
+    #[derive(Copy, Clone, Debug, PartialEq, Eq)]
     pub enum Loop {
         None,
-        // TODO: Docs say max is 1023. Should restrict this value.
+        Endless,
+        #[cfg(not(any(esp32, esp32c2)))]
         Count(u32),
-    }
-
-    #[cfg(esp_idf_soc_rmt_support_tx_loop_count)]
-    impl From<Loop> for u32 {
-        fn from(looping: Loop) -> Self {
-            match looping {
-                Loop::None => 0,
-                Loop::Count(c) => c,
-            }
-        }
     }
 
     /// Used when creating a [`Transmit`][crate::rmt::Transmit] instance.
@@ -271,7 +261,6 @@ pub mod config {
         pub mem_block_num: u8,
         pub carrier: Option<CarrierConfig>,
         // TODO: `loop` is taken. Maybe can change to `repeat` even though it doesn't match the IDF.
-        #[cfg(esp_idf_soc_rmt_support_tx_loop_count)]
         pub looping: Loop,
 
         /// Enable and set the signal level on the output if idle.
@@ -291,7 +280,6 @@ pub mod config {
                 aware_dfs: false,
                 mem_block_num: 1,
                 clock_divider: 80,
-                #[cfg(esp_idf_soc_rmt_support_tx_loop_count)]
                 looping: Loop::None,
                 carrier: None,
                 idle: Some(PinState::Low),
@@ -319,7 +307,6 @@ pub mod config {
             self
         }
 
-        #[cfg(esp_idf_soc_rmt_support_tx_loop_count)]
         pub fn looping(mut self, looping: Loop) -> Self {
             self.looping = looping;
             self
@@ -378,14 +365,12 @@ impl<P: OutputPin, C: HwChannel> Transmit<P, C> {
                     carrier_duty_percent: carrier.duty_percent.0,
                     idle_output_en: config.idle.is_some(),
                     idle_level: config.idle.map(|i| i as u32).unwrap_or(0),
-                    #[cfg(not(esp_idf_soc_rmt_support_tx_loop_count))]
-                    loop_en: false,
-                    // Bug? This doesn't seem to work for longer length data on ESP32S2.
-                    #[cfg(esp_idf_soc_rmt_support_tx_loop_count)]
                     loop_en: config.looping != config::Loop::None,
-                    // Bug? When looping is working, it seems to be ignored at least on my ESP32S2.
-                    #[cfg(esp_idf_soc_rmt_support_tx_loop_count)]
-                    loop_count: config.looping.into(),
+                    #[cfg(not(any(esp32, esp32c2)))]
+                    loop_count: match config.looping {
+                        Loop::Count(count) if count > 0 && count < 1024 => count,
+                        _ => 0,
+                    },
                 },
             },
         };
@@ -452,9 +437,21 @@ impl<P: OutputPin, C: HwChannel> Transmit<P, C> {
         Ok((self.pin, self.channel))
     }
 
-    #[cfg(esp_idf_soc_rmt_support_tx_loop_count)]
     pub fn set_looping(&mut self, looping: config::Loop) -> Result<(), EspError> {
-        esp!(unsafe { rmt_set_tx_loop_count(C::channel(), looping.into()) })
+        esp!(unsafe { rmt_set_tx_loop_mode(C::channel(), looping != config::Loop::None) })?;
+
+        #[cfg(not(any(esp32, esp32c2)))]
+        esp!(unsafe {
+            rmt_set_tx_loop_count(
+                C::channel(),
+                match config.looping {
+                    Loop::Count(count) if count > 0 && count < 1024 => count,
+                    _ => 0,
+                },
+            )
+        })?;
+
+        Ok(())
     }
 }
 
