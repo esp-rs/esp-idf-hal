@@ -117,6 +117,8 @@ pub trait TouchPin: Pin {
     fn touch_channel(&self) -> touch_pad_t;
 }
 
+pub trait SubscribedPin: Pin {}
+
 pub struct Input;
 
 pub struct Output;
@@ -126,6 +128,108 @@ pub struct InputOutput;
 pub struct Disabled;
 
 pub struct Unknown;
+
+pub struct Subscribed;
+
+struct UnsafeCallback(*mut Box<dyn for<'a> FnMut() + 'static>);
+
+impl UnsafeCallback {
+    #[allow(clippy::type_complexity)]
+    pub fn from(boxed: &mut Box<Box<dyn for<'a> FnMut() + 'static>>) -> Self {
+        Self(boxed.as_mut())
+    }
+
+    pub unsafe fn from_ptr(ptr: *mut c_types::c_void) -> Self {
+        Self(ptr as *mut _)
+    }
+
+    pub fn as_ptr(&self) -> *mut c_types::c_void {
+        self.0 as *mut _
+    }
+
+    pub unsafe fn call(&mut self) {
+        let reference = self.0.as_mut().unwrap();
+
+        (reference)();
+    }
+}
+
+static ISR_SERVICE_ENABLED: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+
+unsafe extern "C" fn irq_handler(unsafe_callback: *mut esp_idf_sys::c_types::c_void) {
+    let mut unsafe_callback = UnsafeCallback::from_ptr(unsafe_callback);
+    unsafe_callback.call();
+}
+
+fn enable_isr_service() -> Result<(), EspError> {
+    if ISR_SERVICE_ENABLED.compare_exchange(false, true, std::sync::atomic::Ordering::SeqCst, std::sync::atomic::Ordering::Relaxed) == Ok(false) {
+        if let Err(e) = esp!(unsafe { esp_idf_sys::gpio_install_isr_service(0) }) {
+            ISR_SERVICE_ENABLED.store(false, std::sync::atomic::Ordering::SeqCst);
+            return Err(e);
+        }
+    }
+    Ok(())
+}
+
+type ClosureBox = Box<Box<dyn for<'a> FnMut()>>;
+
+/// The PinNotifySubscription represents the association between an InputPin and
+/// a registered isr handler.
+/// When the PinNotifySubscription is dropped, the isr handler is unregistered.
+pub(crate) struct PinNotifySubscription(i32, ClosureBox);
+
+impl PinNotifySubscription {
+    fn subscribe<P>(pin: &mut P, callback: impl for<'a> FnMut() + 'static) -> Result<Self, EspError> 
+        where P: InputPin + Pin
+    {
+        enable_isr_service()?;
+
+        let pin_number: i32 = pin.pin();
+
+        let callback: Box<dyn for<'a> FnMut() + 'static> = Box::new(callback);
+        let mut callback = Box::new(callback);
+
+        let unsafe_callback = UnsafeCallback::from(&mut callback);
+
+        esp!(unsafe {
+            esp_idf_sys::gpio_isr_handler_add(
+                pin_number,
+                Some(irq_handler),
+                unsafe_callback.as_ptr(),
+            )
+        })?;
+
+        Ok(Self(pin_number, callback))
+    }
+}
+
+impl Drop for PinNotifySubscription {
+    fn drop(self: &mut PinNotifySubscription) {
+        println!("Dropping subscription for {}", self.0);
+        esp!(unsafe { esp_idf_sys::gpio_isr_handler_remove(self.0) }).expect("Error unsubscribing");
+    }
+}
+
+/// Interrupt types
+pub enum InterruptType {
+    PosEdge,
+    NegEdge,
+    AnyEdge,
+    LowLevel,
+    HighLevel,
+}
+
+impl From<InterruptType> for gpio_int_type_t {
+    fn from(interrupt_type: InterruptType) -> gpio_int_type_t {
+        match interrupt_type {
+            InterruptType::PosEdge => gpio_int_type_t_GPIO_INTR_POSEDGE,
+            InterruptType::NegEdge => gpio_int_type_t_GPIO_INTR_NEGEDGE,
+            InterruptType::AnyEdge => gpio_int_type_t_GPIO_INTR_ANYEDGE,
+            InterruptType::LowLevel => gpio_int_type_t_GPIO_INTR_LOW_LEVEL,
+            InterruptType::HighLevel => gpio_int_type_t_GPIO_INTR_HIGH_LEVEL,
+        }
+    }
+}
 
 /// Drive strength (values are approximates)
 #[cfg(not(feature = "riscv-ulp-hal"))]
@@ -269,6 +373,27 @@ macro_rules! impl_base {
 
                 Ok(())
             }
+
+            fn enable_interrupt(&mut self) -> Result<(), EspError> {
+                esp!(unsafe { gpio_intr_enable(self.pin()) })?;
+
+                Ok(())
+            }
+
+            fn disable_interrupt(&mut self) -> Result<(), EspError> {
+                esp!(unsafe { gpio_intr_disable(self.pin()) })?;
+
+                Ok(())
+            }
+
+            fn set_interrupt_type(
+                &mut self,
+                interrupt_type: InterruptType,
+            ) -> Result<(), EspError> {
+                esp!(unsafe { gpio_set_intr_type(self.pin(), interrupt_type.into()) })?;
+
+                Ok(())
+            }
         }
 
         impl<MODE> embedded_hal::digital::ErrorType for $pxi<MODE> {
@@ -315,6 +440,14 @@ macro_rules! impl_pull {
     };
 }
 
+unsafe fn register_irq_handler(pin_number: usize, p: PinNotifySubscription) {
+    chip::IRQ_HANDLERS[pin_number] = Some(p);
+}
+
+unsafe fn unregister_irq_handler(pin_number: usize) {
+    chip::IRQ_HANDLERS[pin_number].take();
+}
+
 macro_rules! impl_input_base {
     ($pxi:ident: $pin:expr) => {
         pub struct $pxi<MODE> {
@@ -352,6 +485,28 @@ macro_rules! impl_input_base {
             /// struct that can also be used with periphals.
             pub fn degrade(self) -> GpioPin<MODE> {
                 unsafe { GpioPin::new($pin) }
+            }
+        }
+
+        impl $pxi<Input> {
+            pub unsafe fn into_subscribed(mut self, callback: impl for<'a> FnMut() + 'static, interrupt_type: InterruptType ) -> Result<$pxi<Subscribed>, EspError> {
+                self.enable_interrupt()?;
+
+                self.set_interrupt_type(interrupt_type)?;
+
+                let callback = PinNotifySubscription::subscribe(&mut self, callback)?;
+
+                register_irq_handler(self.pin() as usize, callback);
+
+                Ok($pxi { _mode: PhantomData })
+            }
+        }
+
+        impl $pxi<Subscribed> {
+            pub fn unsubscribe(self) -> Result<$pxi<Input>, EspError> {
+                unsafe { unregister_irq_handler(self.pin() as usize) };
+
+                Ok($pxi { _mode: PhantomData })
             }
         }
 
@@ -398,6 +553,7 @@ macro_rules! impl_input_output {
             MODE: Send,
         {
             pub fn into_input_output(mut self) -> Result<$pxi<InputOutput>, EspError> {
+
                 self.set_input_output()?;
 
                 Ok($pxi { _mode: PhantomData })
@@ -775,6 +931,9 @@ where
 }
 
 impl InputPin for GpioPin<Input> {}
+impl InputPin for GpioPin<Subscribed> {}
+
+impl SubscribedPin for GpioPin<Subscribed> {}
 
 impl OutputPin for GpioPin<Output> {}
 
@@ -799,6 +958,13 @@ mod chip {
 
     #[cfg(feature = "riscv-ulp-hal")]
     use crate::riscv_ulp_hal::sys::*;
+
+    pub(crate) static mut IRQ_HANDLERS: [Option<PinNotifySubscription>; 40] = [
+        None, None, None, None, None,None, None, None, None, None,
+        None, None, None, None, None,None, None, None, None, None,
+        None, None, None, None, None,None, None, None, None, None,
+        None, None, None, None, None,None, None, None, None, None,
+    ];
 
     // NOTE: Gpio26 - Gpio32 are used by SPI0/SPI1 for external PSRAM/SPI Flash and
     //       are not recommended for other uses
@@ -976,6 +1142,13 @@ mod chip {
     use esp_idf_sys::*;
 
     use super::*;
+
+    pub(crate) static mut IRQ_HANDLERS: [Option<PinNotifySubscription>; 49] = [
+        None, None, None, None, None,None, None, None, None, None, None, None, None,
+        None, None, None, None, None,None, None, None, None, None, None, None,
+        None, None, None, None, None,None, None, None, None, None, None, None,
+        None, None, None, None, None,None, None, None, None, None, None, None,
+    ];
 
     // NOTE: Gpio26 - Gpio32 (and Gpio33 - Gpio37 if using Octal RAM/Flash) are used
     //       by SPI0/SPI1 for external PSRAM/SPI Flash and are not recommended for
@@ -1216,6 +1389,11 @@ mod chip {
     use esp_idf_sys::*;
 
     use super::*;
+
+    pub(crate) static mut IRQ_HANDLERS: [Option<PinNotifySubscription>; 22] = [
+        None, None, None, None, None,None, None, None, None, None, None,
+        None, None, None, None, None,None, None, None, None, None, None,
+    ];
 
     // NOTE: Gpio12 - Gpio17 are used by SPI0/SPI1 for external PSRAM/SPI Flash and
     //       are not recommended for other uses
