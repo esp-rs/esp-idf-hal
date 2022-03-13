@@ -497,6 +497,10 @@ macro_rules! impl_input_base {
         }
 
         impl $pxi<Input> {
+            /// # Safety
+            ///
+            /// The callback passed to this method is executed in the context of an
+            /// interrupt handler. So you should take care of what is done in it.
             pub unsafe fn into_subscribed(
                 mut self,
                 callback: impl for<'a> FnMut() + 'static,
