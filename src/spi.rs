@@ -469,14 +469,16 @@ impl<SPI: Spi, SCLK: OutputPin, SDO: OutputPin, SDI: InputPin + OutputPin, CS: O
         read_len: usize,
         write: *const u8,
         write_len: usize,
-        keep_cs_active: bool,
+        _keep_cs_active: bool,
     ) -> Result<(), SpiError> {
-        let mut flags = 0;
+        let flags = 0;
 
         #[cfg(any(esp_idf_version = "4.4", esp_idf_version_major = "5"))]
-        if keep_cs_active {
-            flags |= SPI_TRANS_CS_KEEP_ACTIVE;
-        }
+        let flags = if _keep_cs_active {
+            flags | SPI_TRANS_CS_KEEP_ACTIVE;
+        } else {
+            flags
+        };
 
         let mut transaction = spi_transaction_t {
             flags,
