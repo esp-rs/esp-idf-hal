@@ -154,7 +154,8 @@ impl UnsafeCallback {
     }
 }
 
-static ISR_SERVICE_ENABLED: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+static ISR_SERVICE_ENABLED: std::sync::atomic::AtomicBool =
+    std::sync::atomic::AtomicBool::new(false);
 
 unsafe extern "C" fn irq_handler(unsafe_callback: *mut esp_idf_sys::c_types::c_void) {
     let mut unsafe_callback = UnsafeCallback::from_ptr(unsafe_callback);
@@ -162,7 +163,13 @@ unsafe extern "C" fn irq_handler(unsafe_callback: *mut esp_idf_sys::c_types::c_v
 }
 
 fn enable_isr_service() -> Result<(), EspError> {
-    if ISR_SERVICE_ENABLED.compare_exchange(false, true, std::sync::atomic::Ordering::SeqCst, std::sync::atomic::Ordering::Relaxed) == Ok(false) {
+    if ISR_SERVICE_ENABLED.compare_exchange(
+        false,
+        true,
+        std::sync::atomic::Ordering::SeqCst,
+        std::sync::atomic::Ordering::Relaxed,
+    ) == Ok(false)
+    {
         if let Err(e) = esp!(unsafe { esp_idf_sys::gpio_install_isr_service(0) }) {
             ISR_SERVICE_ENABLED.store(false, std::sync::atomic::Ordering::SeqCst);
             return Err(e);
@@ -179,8 +186,9 @@ type ClosureBox = Box<Box<dyn for<'a> FnMut()>>;
 pub(crate) struct PinNotifySubscription(i32, ClosureBox);
 
 impl PinNotifySubscription {
-    fn subscribe<P>(pin: &mut P, callback: impl for<'a> FnMut() + 'static) -> Result<Self, EspError> 
-        where P: InputPin + Pin
+    fn subscribe<P>(pin: &mut P, callback: impl for<'a> FnMut() + 'static) -> Result<Self, EspError>
+    where
+        P: InputPin + Pin,
     {
         enable_isr_service()?;
 
@@ -489,7 +497,11 @@ macro_rules! impl_input_base {
         }
 
         impl $pxi<Input> {
-            pub unsafe fn into_subscribed(mut self, callback: impl for<'a> FnMut() + 'static, interrupt_type: InterruptType ) -> Result<$pxi<Subscribed>, EspError> {
+            pub unsafe fn into_subscribed(
+                mut self,
+                callback: impl for<'a> FnMut() + 'static,
+                interrupt_type: InterruptType,
+            ) -> Result<$pxi<Subscribed>, EspError> {
                 self.enable_interrupt()?;
 
                 self.set_interrupt_type(interrupt_type)?;
@@ -553,7 +565,6 @@ macro_rules! impl_input_output {
             MODE: Send,
         {
             pub fn into_input_output(mut self) -> Result<$pxi<InputOutput>, EspError> {
-
                 self.set_input_output()?;
 
                 Ok($pxi { _mode: PhantomData })
@@ -960,10 +971,9 @@ mod chip {
     use crate::riscv_ulp_hal::sys::*;
 
     pub(crate) static mut IRQ_HANDLERS: [Option<PinNotifySubscription>; 40] = [
-        None, None, None, None, None,None, None, None, None, None,
-        None, None, None, None, None,None, None, None, None, None,
-        None, None, None, None, None,None, None, None, None, None,
-        None, None, None, None, None,None, None, None, None, None,
+        None, None, None, None, None, None, None, None, None, None, None, None, None, None, None,
+        None, None, None, None, None, None, None, None, None, None, None, None, None, None, None,
+        None, None, None, None, None, None, None, None, None, None,
     ];
 
     // NOTE: Gpio26 - Gpio32 are used by SPI0/SPI1 for external PSRAM/SPI Flash and
@@ -1144,10 +1154,10 @@ mod chip {
     use super::*;
 
     pub(crate) static mut IRQ_HANDLERS: [Option<PinNotifySubscription>; 49] = [
-        None, None, None, None, None,None, None, None, None, None, None, None, None,
-        None, None, None, None, None,None, None, None, None, None, None, None,
-        None, None, None, None, None,None, None, None, None, None, None, None,
-        None, None, None, None, None,None, None, None, None, None, None, None,
+        None, None, None, None, None, None, None, None, None, None, None, None, None, None, None,
+        None, None, None, None, None, None, None, None, None, None, None, None, None, None, None,
+        None, None, None, None, None, None, None, None, None, None, None, None, None, None, None,
+        None, None, None, None,
     ];
 
     // NOTE: Gpio26 - Gpio32 (and Gpio33 - Gpio37 if using Octal RAM/Flash) are used
@@ -1391,8 +1401,8 @@ mod chip {
     use super::*;
 
     pub(crate) static mut IRQ_HANDLERS: [Option<PinNotifySubscription>; 22] = [
-        None, None, None, None, None,None, None, None, None, None, None,
-        None, None, None, None, None,None, None, None, None, None, None,
+        None, None, None, None, None, None, None, None, None, None, None, None, None, None, None,
+        None, None, None, None, None, None, None,
     ];
 
     // NOTE: Gpio12 - Gpio17 are used by SPI0/SPI1 for external PSRAM/SPI Flash and
