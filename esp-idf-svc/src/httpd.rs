@@ -255,11 +255,13 @@ impl Server {
         let c_str = CString::new(handler.uri().as_ref()).unwrap();
         let method = handler.method();
 
+        #[allow(clippy::needless_update)]
         let conf = esp_idf_sys::httpd_uri_t {
             uri: c_str.as_ptr(),
             method: Self::get_httpd_method(method),
             user_ctx: Box::into_raw(Box::new(handler.handler())) as *mut _,
             handler: Some(Server::handle),
+            ..Default::default()
         };
 
         esp!(unsafe { esp_idf_sys::httpd_register_uri_handler(self.sd, &conf) })?;

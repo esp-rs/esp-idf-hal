@@ -1,4 +1,11 @@
-use core::{cell::RefCell, fmt, marker::PhantomData, ptr, time::*};
+use core::{
+    cell::RefCell,
+    fmt,
+    marker::PhantomData,
+    ptr,
+    sync::atomic::{AtomicBool, Ordering},
+    time::*,
+};
 
 extern crate alloc;
 use alloc::borrow::Cow;
@@ -8,8 +15,6 @@ use alloc::sync::Arc;
 use alloc::vec::Vec;
 
 use log::{info, warn};
-
-use crate::private::cstr::CString;
 
 use embedded_svc::errors::Errors;
 use embedded_svc::http::server::{
@@ -25,6 +30,7 @@ use esp_idf_sys::*;
 use uncased::{Uncased, UncasedStr};
 
 use crate::private::common::Newtype;
+use crate::private::cstr::CString;
 
 #[derive(Copy, Clone, Debug)]
 pub struct Configuration {
@@ -84,39 +90,39 @@ impl From<&Configuration> for Newtype<httpd_config_t> {
 impl From<Method> for Newtype<c_types::c_uint> {
     fn from(method: Method) -> Self {
         Self(match method {
-            Method::Get => esp_idf_sys::http_method_HTTP_GET,
-            Method::Post => esp_idf_sys::http_method_HTTP_POST,
-            Method::Delete => esp_idf_sys::http_method_HTTP_DELETE,
-            Method::Head => esp_idf_sys::http_method_HTTP_HEAD,
-            Method::Put => esp_idf_sys::http_method_HTTP_PUT,
-            Method::Connect => esp_idf_sys::http_method_HTTP_CONNECT,
-            Method::Options => esp_idf_sys::http_method_HTTP_OPTIONS,
-            Method::Trace => esp_idf_sys::http_method_HTTP_TRACE,
-            Method::Copy => esp_idf_sys::http_method_HTTP_COPY,
-            Method::Lock => esp_idf_sys::http_method_HTTP_LOCK,
-            Method::MkCol => esp_idf_sys::http_method_HTTP_MKCOL,
-            Method::Move => esp_idf_sys::http_method_HTTP_MOVE,
-            Method::Propfind => esp_idf_sys::http_method_HTTP_PROPFIND,
-            Method::Proppatch => esp_idf_sys::http_method_HTTP_PROPPATCH,
-            Method::Search => esp_idf_sys::http_method_HTTP_SEARCH,
-            Method::Unlock => esp_idf_sys::http_method_HTTP_UNLOCK,
-            Method::Bind => esp_idf_sys::http_method_HTTP_BIND,
-            Method::Rebind => esp_idf_sys::http_method_HTTP_REBIND,
-            Method::Unbind => esp_idf_sys::http_method_HTTP_UNBIND,
-            Method::Acl => esp_idf_sys::http_method_HTTP_ACL,
-            Method::Report => esp_idf_sys::http_method_HTTP_REPORT,
-            Method::MkActivity => esp_idf_sys::http_method_HTTP_MKACTIVITY,
-            Method::Checkout => esp_idf_sys::http_method_HTTP_CHECKOUT,
-            Method::Merge => esp_idf_sys::http_method_HTTP_MERGE,
-            Method::MSearch => esp_idf_sys::http_method_HTTP_MSEARCH,
-            Method::Notify => esp_idf_sys::http_method_HTTP_NOTIFY,
-            Method::Subscribe => esp_idf_sys::http_method_HTTP_SUBSCRIBE,
-            Method::Unsubscribe => esp_idf_sys::http_method_HTTP_UNSUBSCRIBE,
-            Method::Patch => esp_idf_sys::http_method_HTTP_PATCH,
-            Method::Purge => esp_idf_sys::http_method_HTTP_PURGE,
-            Method::MkCalendar => esp_idf_sys::http_method_HTTP_MKCALENDAR,
-            Method::Link => esp_idf_sys::http_method_HTTP_LINK,
-            Method::Unlink => esp_idf_sys::http_method_HTTP_UNLINK,
+            Method::Get => http_method_HTTP_GET,
+            Method::Post => http_method_HTTP_POST,
+            Method::Delete => http_method_HTTP_DELETE,
+            Method::Head => http_method_HTTP_HEAD,
+            Method::Put => http_method_HTTP_PUT,
+            Method::Connect => http_method_HTTP_CONNECT,
+            Method::Options => http_method_HTTP_OPTIONS,
+            Method::Trace => http_method_HTTP_TRACE,
+            Method::Copy => http_method_HTTP_COPY,
+            Method::Lock => http_method_HTTP_LOCK,
+            Method::MkCol => http_method_HTTP_MKCOL,
+            Method::Move => http_method_HTTP_MOVE,
+            Method::Propfind => http_method_HTTP_PROPFIND,
+            Method::Proppatch => http_method_HTTP_PROPPATCH,
+            Method::Search => http_method_HTTP_SEARCH,
+            Method::Unlock => http_method_HTTP_UNLOCK,
+            Method::Bind => http_method_HTTP_BIND,
+            Method::Rebind => http_method_HTTP_REBIND,
+            Method::Unbind => http_method_HTTP_UNBIND,
+            Method::Acl => http_method_HTTP_ACL,
+            Method::Report => http_method_HTTP_REPORT,
+            Method::MkActivity => http_method_HTTP_MKACTIVITY,
+            Method::Checkout => http_method_HTTP_CHECKOUT,
+            Method::Merge => http_method_HTTP_MERGE,
+            Method::MSearch => http_method_HTTP_MSEARCH,
+            Method::Notify => http_method_HTTP_NOTIFY,
+            Method::Subscribe => http_method_HTTP_SUBSCRIBE,
+            Method::Unsubscribe => http_method_HTTP_UNSUBSCRIBE,
+            Method::Patch => http_method_HTTP_PATCH,
+            Method::Purge => http_method_HTTP_PURGE,
+            Method::MkCalendar => http_method_HTTP_MKCALENDAR,
+            Method::Link => http_method_HTTP_LINK,
+            Method::Unlink => http_method_HTTP_UNLINK,
         })
     }
 }
@@ -126,8 +132,13 @@ type EspSessionsMutex = mutex::Mutex<BTreeMap<String, session::SessionData<EspSe
 type EspSessions = session::Sessions<EspSessionsMutex, EspSessionMutex>;
 type EspRequestScopedSession = session::RequestScopedSession<EspSessionsMutex, EspSessionMutex>;
 
+static OPEN_SESSIONS: mutex::Mutex<BTreeMap<(u32, c_types::c_int), Arc<AtomicBool>>> =
+    mutex::Mutex::new(BTreeMap::new());
+static mut CLOSE_HANDLERS: mutex::Mutex<BTreeMap<u32, Vec<Box<dyn Fn(c_types::c_int)>>>> =
+    mutex::Mutex::new(BTreeMap::new());
+
 pub struct EspHttpServer {
-    sd: esp_idf_sys::httpd_handle_t,
+    sd: httpd_handle_t,
     registrations: Vec<(CString, esp_idf_sys::httpd_uri_t)>,
     sessions: Arc<EspSessions>,
     session_cookie_name: &'static str,
@@ -135,18 +146,19 @@ pub struct EspHttpServer {
 
 impl EspHttpServer {
     pub fn new(conf: &Configuration) -> Result<Self, EspError> {
-        let config: Newtype<esp_idf_sys::httpd_config_t> = conf.into();
+        let mut config: Newtype<httpd_config_t> = conf.into();
+        config.0.close_fn = Some(Self::close_fn);
 
-        let mut handle: esp_idf_sys::httpd_handle_t = ptr::null_mut();
+        let mut handle: httpd_handle_t = ptr::null_mut();
         let handle_ref = &mut handle;
 
-        esp!(unsafe { esp_idf_sys::httpd_start(handle_ref, &config.0 as *const _) })?;
+        esp!(unsafe { httpd_start(handle_ref, &config.0 as *const _) })?;
 
         info!("Started Httpd server with config {:?}", conf);
 
-        Ok(EspHttpServer {
+        let server = EspHttpServer {
             sd: handle,
-            registrations: vec![],
+            registrations: Vec::new(),
             sessions: Arc::new(EspSessions::new(
                 Self::get_random,
                 Self::get_current_time,
@@ -154,7 +166,13 @@ impl EspHttpServer {
                 conf.session_timeout,
             )),
             session_cookie_name: conf.session_cookie_name,
-        })
+        };
+
+        unsafe {
+            CLOSE_HANDLERS.lock().insert(server.sd as _, Vec::new());
+        }
+
+        Ok(server)
     }
 
     fn get_random() -> [u8; 16] {
@@ -174,9 +192,9 @@ impl EspHttpServer {
         Duration::from_micros(unsafe { esp_timer_get_time() } as _)
     }
 
-    fn unregister(&mut self, uri: CString, conf: esp_idf_sys::httpd_uri_t) -> Result<(), EspError> {
+    fn unregister(&mut self, uri: CString, conf: httpd_uri_t) -> Result<(), EspError> {
         unsafe {
-            esp!(esp_idf_sys::httpd_unregister_uri_handler(
+            esp!(httpd_unregister_uri_handler(
                 self.sd,
                 uri.as_ptr() as _,
                 conf.method
@@ -203,6 +221,8 @@ impl EspHttpServer {
             }
 
             esp!(unsafe { esp_idf_sys::httpd_stop(self.sd) })?;
+
+            unsafe { CLOSE_HANDLERS.lock() }.remove(&(self.sd as u32));
 
             self.sd = ptr::null_mut();
         }
@@ -322,6 +342,24 @@ impl EspHttpServer {
 
         (handler)(raw_req)
     }
+
+    extern "C" fn close_fn(sd: httpd_handle_t, sockfd: c_types::c_int) {
+        {
+            let mut sessions = OPEN_SESSIONS.lock();
+
+            if let Some(closed) = sessions.remove(&(sd as u32, sockfd)) {
+                closed.store(true, Ordering::SeqCst);
+            }
+        }
+
+        let all_close_handlers = unsafe { CLOSE_HANDLERS.lock() };
+
+        let close_handlers = all_close_handlers.get(&(sd as u32)).unwrap();
+
+        for close_handler in &*close_handlers {
+            (close_handler)(sockfd);
+        }
+    }
 }
 
 impl Drop for EspHttpServer {
@@ -365,11 +403,13 @@ impl Registry for EspHttpServer {
     {
         let c_str = CString::new(uri).unwrap();
 
-        let conf = esp_idf_sys::httpd_uri_t {
+        #[allow(clippy::needless_update)]
+        let conf = httpd_uri_t {
             uri: c_str.as_ptr() as _,
             method: Newtype::<c_types::c_uint>::from(method).0,
             user_ctx: Box::into_raw(Box::new(self.to_native_handler(handler))) as *mut _,
             handler: Some(EspHttpServer::handle),
+            ..Default::default()
         };
 
         esp!(unsafe { esp_idf_sys::httpd_register_uri_handler(self.sd, &conf) })?;
@@ -420,7 +460,7 @@ impl<'a> EspHttpRequest<'a> {
         let c_name = CString::new(name.as_ref()).unwrap();
 
         unsafe {
-            match esp_idf_sys::httpd_req_get_hdr_value_len(raw_req, c_name.as_ptr() as _) as usize {
+            match httpd_req_get_hdr_value_len(raw_req, c_name.as_ptr() as _) as usize {
                 0 => None,
                 len => {
                     // TODO: Would've been much more effective, if ESP-IDF was capable of returning a
@@ -430,11 +470,11 @@ impl<'a> EspHttpRequest<'a> {
 
                     let mut buf: Vec<u8> = Vec::with_capacity(len + 1);
 
-                    esp_nofail!(esp_idf_sys::httpd_req_get_hdr_value_str(
+                    esp_nofail!(httpd_req_get_hdr_value_str(
                         raw_req,
                         c_name.as_ptr() as _,
                         buf.as_mut_ptr() as *mut _,
-                        (len + 1) as esp_idf_sys::size_t
+                        (len + 1) as size_t
                     ));
 
                     buf.set_len(len + 1);
@@ -469,7 +509,7 @@ impl<'a> Request<'a> for EspHttpRequest<'a> {
 
     fn query_string(&self) -> Cow<'a, str> {
         unsafe {
-            match esp_idf_sys::httpd_req_get_url_query_len(self.raw_req) as usize {
+            match httpd_req_get_url_query_len(self.raw_req) as usize {
                 0 => "".into(),
                 len => {
                     // TODO: Would've been much more effective, if ESP-IDF was capable of returning a
@@ -479,10 +519,10 @@ impl<'a> Request<'a> for EspHttpRequest<'a> {
 
                     let mut buf: Vec<u8> = Vec::with_capacity(len + 1);
 
-                    esp_nofail!(esp_idf_sys::httpd_req_get_url_query_str(
+                    esp_nofail!(httpd_req_get_url_query_str(
                         self.raw_req,
                         buf.as_mut_ptr() as *mut _,
-                        (len + 1) as esp_idf_sys::size_t
+                        (len + 1) as size_t
                     ));
 
                     buf.set_len(len + 1);
@@ -510,10 +550,10 @@ impl<'a> Request<'a> for EspHttpRequest<'a> {
 impl<'a> Read for &EspHttpRequest<'a> {
     fn do_read(&mut self, buf: &mut [u8]) -> Result<usize, Self::Error> {
         unsafe {
-            let len = esp_idf_sys::httpd_req_recv(
+            let len = httpd_req_recv(
                 self.raw_req,
                 buf.as_mut_ptr() as *mut _,
-                buf.len() as esp_idf_sys::size_t,
+                buf.len() as size_t,
             );
 
             if len < 0 {
@@ -698,9 +738,7 @@ impl<'a> EspHttpResponseWrite<'a> {
 
             let c_status = CString::new(status.as_str()).unwrap();
 
-            esp!(unsafe {
-                esp_idf_sys::httpd_resp_set_status(self.raw_req, c_status.as_ptr() as _)
-            })?;
+            esp!(unsafe { httpd_resp_set_status(self.raw_req, c_status.as_ptr() as _) })?;
 
             let mut c_headers: Vec<(CString, CString)> = vec![];
             let mut c_content_type: Option<CString> = None;
@@ -727,18 +765,12 @@ impl<'a> EspHttpResponseWrite<'a> {
             }
 
             if let Some(c_content_type) = c_content_type.as_ref() {
-                esp!(unsafe {
-                    esp_idf_sys::httpd_resp_set_type(self.raw_req, c_content_type.as_ptr())
-                })?
+                esp!(unsafe { httpd_resp_set_type(self.raw_req, c_content_type.as_ptr()) })?
             }
 
             for (c_field, c_value) in &c_headers {
                 esp!(unsafe {
-                    esp_idf_sys::httpd_resp_set_hdr(
-                        self.raw_req,
-                        c_field.as_ptr() as _,
-                        c_value.as_ptr() as _,
-                    )
+                    httpd_resp_set_hdr(self.raw_req, c_field.as_ptr() as _, c_value.as_ptr() as _)
                 })?;
             }
 
@@ -760,9 +792,7 @@ impl<'a> ResponseWrite<'a> for EspHttpResponseWrite<'a> {
     fn complete(mut self) -> Result<Completion, Self::Error> {
         self.send_headers()?;
 
-        esp!(unsafe {
-            esp_idf_sys::httpd_resp_send_chunk(self.raw_req, core::ptr::null() as *const _, 0)
-        })?;
+        esp!(unsafe { httpd_resp_send_chunk(self.raw_req, core::ptr::null() as *const _, 0) })?;
 
         *self.state = ResponseState::Closed;
 
@@ -780,16 +810,442 @@ impl<'a> Write for EspHttpResponseWrite<'a> {
             self.send_headers()?;
 
             esp!(unsafe {
-                esp_idf_sys::httpd_resp_send_chunk(
-                    self.raw_req,
-                    buf.as_ptr() as *const _,
-                    buf.len() as esp_idf_sys::ssize_t,
-                )
+                httpd_resp_send_chunk(self.raw_req, buf.as_ptr() as *const _, buf.len() as ssize_t)
             })?;
 
             *self.state = ResponseState::Opened;
         }
 
         Ok(buf.len())
+    }
+}
+
+#[cfg(esp_idf_httpd_ws_support)]
+pub mod ws {
+    use core::fmt;
+    use core::ptr;
+    use core::sync::atomic::{AtomicBool, Ordering};
+
+    extern crate alloc;
+    use alloc::sync::Arc;
+
+    use log::*;
+
+    use embedded_svc::errors::*;
+    use embedded_svc::http::Method;
+    use embedded_svc::utils::nonblocking::ws::server::Processor;
+    use embedded_svc::ws::server::registry::*;
+    use embedded_svc::ws::server::*;
+    use embedded_svc::ws::*;
+
+    use esp_idf_sys::*;
+
+    use esp_idf_hal::mutex::{Condvar, Mutex};
+
+    use crate::private::common::Newtype;
+    use crate::private::cstr::CString;
+
+    use super::EspHttpServer;
+    use super::CLOSE_HANDLERS;
+    use super::OPEN_SESSIONS;
+
+    pub type EspHttpWsProcessor =
+        Processor<esp_idf_hal::mutex::Condvar, EspHttpWsSender, EspHttpWsReceiver>;
+
+    pub enum EspHttpWsSender {
+        Open(httpd_handle_t, *mut httpd_req_t),
+        Closed(c_types::c_int),
+    }
+
+    impl EspHttpWsSender {
+        fn create_raw_frame(frame_type: FrameType, frame_data: Option<&[u8]>) -> httpd_ws_frame_t {
+            httpd_ws_frame_t {
+                type_: match frame_type {
+                    FrameType::Text(_) => httpd_ws_type_t_HTTPD_WS_TYPE_TEXT,
+                    FrameType::Binary(_) => httpd_ws_type_t_HTTPD_WS_TYPE_BINARY,
+                    FrameType::Ping => httpd_ws_type_t_HTTPD_WS_TYPE_PING,
+                    FrameType::Pong => httpd_ws_type_t_HTTPD_WS_TYPE_PONG,
+                    FrameType::Close => httpd_ws_type_t_HTTPD_WS_TYPE_CLOSE,
+                    FrameType::Continue(_) => httpd_ws_type_t_HTTPD_WS_TYPE_CONTINUE,
+                    FrameType::SocketClose => panic!("Cannot send SocketClose as a frame"),
+                },
+                final_: frame_type.is_partial(),
+                fragmented: frame_type.is_partial(),
+                payload: frame_data
+                    .map(|frame_data| frame_data.as_ptr() as *const _ as *mut _)
+                    .unwrap_or(ptr::null_mut()),
+                len: frame_data
+                    .map(|frame_data| frame_data.len() as _)
+                    .unwrap_or(0),
+            }
+        }
+    }
+
+    impl Errors for EspHttpWsSender {
+        type Error = EspError;
+    }
+
+    impl Sender for EspHttpWsSender {
+        fn send(
+            &mut self,
+            frame_type: FrameType,
+            frame_data: Option<&[u8]>,
+        ) -> Result<(), Self::Error> {
+            match self {
+                Self::Open(_, raw_req) => {
+                    let raw_frame = Self::create_raw_frame(frame_type, frame_data);
+
+                    esp!(unsafe {
+                        httpd_ws_send_frame(*raw_req, &raw_frame as *const _ as *mut _)
+                    })?;
+
+                    Ok(())
+                }
+                Self::Closed(_) => {
+                    esp!(ESP_FAIL)?;
+
+                    Ok(())
+                }
+            }
+        }
+    }
+
+    impl SenderFactory for EspHttpWsSender {
+        type Sender = EspHttpWsDetachedSender;
+
+        fn create(&self) -> Result<Self::Sender, Self::Error> {
+            match self {
+                Self::Open(sd, raw_req) => {
+                    let fd = unsafe { httpd_req_to_sockfd(*raw_req) };
+
+                    let mut sessions = OPEN_SESSIONS.lock();
+
+                    let closed = sessions
+                        .entry((*sd as u32, fd))
+                        .or_insert_with(|| Arc::new(AtomicBool::new(false)));
+
+                    Ok(EspHttpWsDetachedSender::new(*sd, fd, closed.clone()))
+                }
+                Self::Closed(_) => Err(EspError::from(ESP_FAIL).unwrap()),
+            }
+        }
+    }
+
+    impl SessionProvider for EspHttpWsSender {
+        type Session = c_types::c_int;
+
+        fn session(&self) -> Self::Session {
+            match self {
+                Self::Open(_, raw_req) => unsafe { httpd_req_to_sockfd(*raw_req) },
+                Self::Closed(fd) => *fd,
+            }
+        }
+
+        fn is_closed(&self) -> bool {
+            matches!(self, Self::Closed(_))
+        }
+    }
+
+    pub enum EspHttpWsReceiver {
+        Open(*mut httpd_req_t),
+        Closed(c_types::c_int),
+    }
+
+    impl EspHttpWsReceiver {
+        #[allow(non_upper_case_globals)]
+        fn create_frame_type(raw_frame: &httpd_ws_frame_t) -> (FrameType, usize) {
+            match raw_frame.type_ {
+                httpd_ws_type_t_HTTPD_WS_TYPE_TEXT => (
+                    FrameType::Text(raw_frame.fragmented && !raw_frame.final_),
+                    raw_frame.len as usize + 1,
+                ),
+                httpd_ws_type_t_HTTPD_WS_TYPE_BINARY => (
+                    FrameType::Binary(raw_frame.fragmented && !raw_frame.final_),
+                    raw_frame.len as _,
+                ),
+                httpd_ws_type_t_HTTPD_WS_TYPE_CONTINUE => (
+                    FrameType::Continue(raw_frame.fragmented && !raw_frame.final_),
+                    raw_frame.len as _,
+                ),
+                httpd_ws_type_t_HTTPD_WS_TYPE_PING => (FrameType::Ping, 0),
+                httpd_ws_type_t_HTTPD_WS_TYPE_PONG => (FrameType::Pong, 0),
+                httpd_ws_type_t_HTTPD_WS_TYPE_CLOSE => (FrameType::Close, 0),
+                _ => panic!("Unknown frame type: {}", raw_frame.type_),
+            }
+        }
+    }
+
+    impl Errors for EspHttpWsReceiver {
+        type Error = EspError;
+    }
+
+    impl Receiver for EspHttpWsReceiver {
+        fn recv(&mut self, frame_data_buf: &mut [u8]) -> Result<(FrameType, usize), Self::Error> {
+            match self {
+                Self::Open(raw_req) => {
+                    let mut raw_frame: httpd_ws_frame_t = Default::default();
+
+                    esp!(unsafe { httpd_ws_recv_frame(*raw_req, &mut raw_frame as *mut _, 0) })?;
+
+                    let (frame_type, len) = Self::create_frame_type(&raw_frame);
+
+                    if frame_data_buf.len() >= len {
+                        raw_frame.payload = frame_data_buf.as_mut_ptr() as *mut _;
+                        esp!(unsafe {
+                            httpd_ws_recv_frame(*raw_req, &mut raw_frame as *mut _, len as _)
+                        })?;
+                    }
+
+                    Ok((frame_type, len))
+                }
+                Self::Closed(_) => Ok((FrameType::SocketClose, 0)),
+            }
+        }
+    }
+
+    impl SessionProvider for EspHttpWsReceiver {
+        type Session = c_types::c_int;
+
+        fn session(&self) -> Self::Session {
+            match self {
+                Self::Open(raw_req) => unsafe { httpd_req_to_sockfd(*raw_req) },
+                Self::Closed(fd) => *fd,
+            }
+        }
+
+        fn is_closed(&self) -> bool {
+            matches!(self, Self::Closed(_))
+        }
+    }
+
+    pub struct EspWsDetachedSendRequest {
+        sd: httpd_handle_t,
+        fd: c_types::c_int,
+
+        closed: Arc<AtomicBool>,
+
+        raw_frame: *const httpd_ws_frame_t,
+
+        error_code: Mutex<Option<u32>>,
+        condvar: Condvar,
+    }
+
+    pub struct EspHttpWsDetachedSender {
+        sd: httpd_handle_t,
+        fd: c_types::c_int,
+        closed: Arc<AtomicBool>,
+    }
+
+    impl EspHttpWsDetachedSender {
+        fn new(sd: httpd_handle_t, fd: c_types::c_int, closed: Arc<AtomicBool>) -> Self {
+            Self { sd, fd, closed }
+        }
+
+        extern "C" fn enqueue(arg: *mut c_types::c_void) {
+            let request = unsafe { (arg as *const EspWsDetachedSendRequest).as_ref().unwrap() };
+
+            let ret = if !request.closed.load(Ordering::SeqCst) {
+                unsafe {
+                    httpd_ws_send_frame_async(
+                        request.sd,
+                        request.fd,
+                        &request.raw_frame as *const _ as *mut _,
+                    )
+                }
+            } else {
+                ESP_FAIL
+            };
+
+            *request.error_code.lock() = Some(ret as _);
+            request.condvar.notify_all();
+        }
+    }
+
+    unsafe impl Send for EspHttpWsDetachedSender {}
+
+    impl Clone for EspHttpWsDetachedSender {
+        fn clone(&self) -> Self {
+            Self {
+                sd: self.sd.clone(),
+                fd: self.fd.clone(),
+                closed: self.closed.clone(),
+            }
+        }
+    }
+
+    impl Errors for EspHttpWsDetachedSender {
+        type Error = EspError;
+    }
+
+    impl Sender for EspHttpWsDetachedSender {
+        fn send(
+            &mut self,
+            frame_type: FrameType,
+            frame_data: Option<&[u8]>,
+        ) -> Result<(), Self::Error> {
+            if !self.closed.load(Ordering::SeqCst) {
+                let raw_frame = EspHttpWsSender::create_raw_frame(frame_type, frame_data);
+
+                let send_request = EspWsDetachedSendRequest {
+                    sd: self.sd,
+                    fd: self.fd,
+
+                    closed: self.closed.clone(),
+
+                    raw_frame: &raw_frame as *const _,
+
+                    error_code: Mutex::new(None),
+                    condvar: Condvar::new(),
+                };
+
+                esp!(unsafe {
+                    httpd_queue_work(
+                        self.sd,
+                        Some(Self::enqueue),
+                        &send_request as *const _ as *mut _,
+                    )
+                })?;
+
+                let mut guard = send_request.error_code.lock();
+
+                while guard.is_none() {
+                    guard = send_request.condvar.wait(guard);
+                }
+
+                esp!((*guard).unwrap())?;
+            } else {
+                esp!(ESP_FAIL)?;
+            }
+
+            Ok(())
+        }
+    }
+
+    impl SessionProvider for EspHttpWsDetachedSender {
+        type Session = c_types::c_int;
+
+        fn session(&self) -> Self::Session {
+            self.fd
+        }
+
+        fn is_closed(&self) -> bool {
+            self.closed.load(Ordering::SeqCst)
+        }
+    }
+
+    impl Registry for EspHttpServer {
+        type Receiver = EspHttpWsReceiver;
+        type Sender = EspHttpWsSender;
+
+        fn set_handler<H, E>(&mut self, uri: &str, handler: H) -> Result<&mut Self, Self::Error>
+        where
+            H: for<'a> Fn(&'a mut Self::Receiver, &'a mut Self::Sender) -> Result<(), E> + 'static,
+            E: fmt::Display + fmt::Debug,
+        {
+            let c_str = CString::new(uri).unwrap();
+
+            let (req_handler, close_handler) = self.to_native_ws_handler(self.sd.clone(), handler);
+
+            let conf = httpd_uri_t {
+                uri: uri.as_ptr() as _,
+                method: Newtype::<c_types::c_uint>::from(Method::Get).0,
+                user_ctx: Box::into_raw(Box::new(req_handler)) as *mut _,
+                handler: Some(EspHttpServer::handle),
+                is_websocket: true,
+                handle_ws_control_frames: true,
+                ..Default::default()
+            };
+
+            esp!(unsafe { esp_idf_sys::httpd_register_uri_handler(self.sd, &conf) })?;
+
+            {
+                let mut all_close_handlers = unsafe { CLOSE_HANDLERS.lock() };
+
+                let close_handlers = all_close_handlers.get_mut(&(self.sd as u32)).unwrap();
+
+                close_handlers.push(close_handler);
+            }
+
+            info!(
+                "Registered Httpd server WS handler for URI \"{}\"",
+                c_str.to_str().unwrap()
+            );
+
+            self.registrations.push((c_str, conf));
+
+            Ok(self)
+        }
+    }
+
+    impl EspHttpServer {
+        fn handle_ws_request<H, E>(
+            receiver: &mut EspHttpWsReceiver,
+            sender: &mut EspHttpWsSender,
+            handler: &H,
+        ) -> Result<(), E>
+        where
+            H: for<'b> Fn(&'b mut EspHttpWsReceiver, &'b mut EspHttpWsSender) -> Result<(), E>,
+            E: fmt::Display + fmt::Debug,
+        {
+            info!(
+                "About to handle WS frame for session: {:?}",
+                receiver.session()
+            );
+
+            handler(receiver, sender)?;
+
+            Ok(())
+        }
+
+        fn handle_ws_error<'a, E>(error: E) -> c_types::c_int
+        where
+            E: fmt::Display + fmt::Debug,
+        {
+            warn!("Unhandled internal error [{}]:\n{:?}", error, error);
+
+            ESP_OK as _
+        }
+
+        fn to_native_ws_handler<H, E>(
+            &self,
+            server_handle: httpd_handle_t,
+            handler: H,
+        ) -> (
+            Box<dyn Fn(*mut httpd_req_t) -> c_types::c_int>,
+            Box<dyn Fn(c_types::c_int)>,
+        )
+        where
+            H: for<'a> Fn(&'a mut EspHttpWsReceiver, &'a mut EspHttpWsSender) -> Result<(), E>
+                + 'static,
+            E: fmt::Display + fmt::Debug,
+        {
+            let boxed_handler = Arc::new(
+                move |mut receiver: EspHttpWsReceiver, mut sender: EspHttpWsSender| {
+                    let result = Self::handle_ws_request(&mut receiver, &mut sender, &handler);
+
+                    match result {
+                        Ok(()) => ESP_OK as _,
+                        Err(e) => Self::handle_ws_error(e),
+                    }
+                },
+            );
+
+            let req_handler = {
+                let boxed_handler = boxed_handler.clone();
+
+                Box::new(move |raw_req| {
+                    (boxed_handler)(
+                        EspHttpWsReceiver::Open(raw_req),
+                        EspHttpWsSender::Open(server_handle.clone(), raw_req),
+                    )
+                })
+            };
+
+            let close_handler = Box::new(move |fd| {
+                (boxed_handler)(EspHttpWsReceiver::Closed(fd), EspHttpWsSender::Closed(fd));
+            });
+
+            (req_handler, close_handler)
+        }
     }
 }
