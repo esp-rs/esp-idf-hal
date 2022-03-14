@@ -45,9 +45,7 @@
 #ifdef ESP_IDF_COMP_ESP_NETIF_ENABLED
 #include "esp_wifi_netif.h"
 #endif
-#ifdef ESP_IDF_COMP_ESP_ESPNOW_ENABLED
 #include "esp_now.h"
-#endif
 #endif
 
 #ifdef ESP_IDF_COMP_ESP_ETH_ENABLED
