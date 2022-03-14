@@ -444,15 +444,14 @@ impl<SPI: Spi, SCLK: OutputPin, SDO: OutputPin, SDI: InputPin + OutputPin, CS: O
                 break;
             }
 
-            let is_last_chunk;
-            if offset == buf.len() {
+            let is_last_chunk = if offset == buf.len() {
                 if lock.is_none() {
                     lock = Some(self.lock_bus()?);
                 }
-                is_last_chunk = false;
+                false
             } else {
-                is_last_chunk = true;
-            }
+                true
+            };
 
             let chunk = &mut buf[..offset];
             let ptr = chunk.as_mut_ptr();
@@ -473,7 +472,7 @@ impl<SPI: Spi, SCLK: OutputPin, SDO: OutputPin, SDI: InputPin + OutputPin, CS: O
     ) -> Result<(), SpiError> {
         let flags = 0;
 
-        #[cfg(any(esp_idf_version = "4.4", esp_idf_version_major = "5"))]
+        #[cfg(not(esp_idf_version = "4.3"))]
         let flags = if _keep_cs_active {
             flags | SPI_TRANS_CS_KEEP_ACTIVE
         } else {
