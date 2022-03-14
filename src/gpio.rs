@@ -561,6 +561,9 @@ macro_rules! impl_input_base {
 
         impl_base!($pxi);
         impl_hal_input_pin!($pxi: Input);
+
+        #[cfg(all(not(feature = "riscv-ulp-hal"), feature = "std"))]
+        impl_hal_input_pin!($pxi: SubscribedInput);
     };
 }
 
