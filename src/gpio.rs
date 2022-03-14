@@ -131,7 +131,7 @@ pub struct Disabled;
 pub struct Unknown;
 
 #[cfg(all(not(feature = "riscv-ulp-hal"), feature = "std"))]
-pub struct Subscribed;
+pub struct SubscribedInput;
 
 #[cfg(all(not(feature = "riscv-ulp-hal"), feature = "std"))]
 struct UnsafeCallback(*mut Box<dyn FnMut() + 'static>);
@@ -523,7 +523,7 @@ macro_rules! impl_input_base {
                 mut self,
                 callback: impl FnMut() + 'static,
                 interrupt_type: InterruptType,
-            ) -> Result<$pxi<Subscribed>, EspError> {
+            ) -> Result<$pxi<SubscribedInput>, EspError> {
                 self.enable_interrupt()?;
 
                 self.set_interrupt_type(interrupt_type)?;
@@ -537,7 +537,7 @@ macro_rules! impl_input_base {
         }
 
         #[cfg(all(not(feature = "riscv-ulp-hal"), feature = "std"))]
-        impl $pxi<Subscribed> {
+        impl $pxi<SubscribedInput> {
             pub fn unsubscribe(self) -> Result<$pxi<Input>, EspError> {
                 unsafe { unregister_irq_handler(self.pin() as usize) };
 
@@ -967,10 +967,10 @@ where
 impl InputPin for GpioPin<Input> {}
 
 #[cfg(all(not(feature = "riscv-ulp-hal"), feature = "std"))]
-impl InputPin for GpioPin<Subscribed> {}
+impl InputPin for GpioPin<SubscribedInput> {}
 
 #[cfg(all(not(feature = "riscv-ulp-hal"), feature = "std"))]
-impl SubscribedPin for GpioPin<Subscribed> {}
+impl SubscribedPin for GpioPin<SubscribedInput> {}
 
 impl OutputPin for GpioPin<Output> {}
 
