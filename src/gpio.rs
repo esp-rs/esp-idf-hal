@@ -134,12 +134,12 @@ pub struct Unknown;
 pub struct Subscribed;
 
 #[cfg(all(not(feature = "riscv-ulp-hal"), feature = "std"))]
-struct UnsafeCallback(*mut Box<dyn for<'a> FnMut() + 'static>);
+struct UnsafeCallback(*mut Box<dyn FnMut() + 'static>);
 
 #[cfg(all(not(feature = "riscv-ulp-hal"), feature = "std"))]
 impl UnsafeCallback {
     #[allow(clippy::type_complexity)]
-    pub fn from(boxed: &mut Box<Box<dyn for<'a> FnMut() + 'static>>) -> Self {
+    pub fn from(boxed: &mut Box<Box<dyn FnMut() + 'static>>) -> Self {
         Self(boxed.as_mut())
     }
 
@@ -186,7 +186,7 @@ fn enable_isr_service() -> Result<(), EspError> {
 }
 
 #[cfg(all(not(feature = "riscv-ulp-hal"), feature = "std"))]
-type ClosureBox = Box<Box<dyn for<'a> FnMut()>>;
+type ClosureBox = Box<Box<dyn FnMut()>>;
 
 /// The PinNotifySubscription represents the association between an InputPin and
 /// a registered isr handler.
@@ -196,7 +196,7 @@ pub(crate) struct PinNotifySubscription(i32, ClosureBox);
 
 #[cfg(all(not(feature = "riscv-ulp-hal"), feature = "std"))]
 impl PinNotifySubscription {
-    fn subscribe<P>(pin: &mut P, callback: impl for<'a> FnMut() + 'static) -> Result<Self, EspError>
+    fn subscribe<P>(pin: &mut P, callback: impl FnMut() + 'static) -> Result<Self, EspError>
     where
         P: InputPin + Pin,
     {
@@ -204,7 +204,7 @@ impl PinNotifySubscription {
 
         let pin_number: i32 = pin.pin();
 
-        let callback: Box<dyn for<'a> FnMut() + 'static> = Box::new(callback);
+        let callback: Box<dyn FnMut() + 'static> = Box::new(callback);
         let mut callback = Box::new(callback);
 
         let unsafe_callback = UnsafeCallback::from(&mut callback);
@@ -521,7 +521,7 @@ macro_rules! impl_input_base {
             /// interrupt handler. So you should take care of what is done in it.
             pub unsafe fn into_subscribed(
                 mut self,
-                callback: impl for<'a> FnMut() + 'static,
+                callback: impl FnMut() + 'static,
                 interrupt_type: InterruptType,
             ) -> Result<$pxi<Subscribed>, EspError> {
                 self.enable_interrupt()?;
