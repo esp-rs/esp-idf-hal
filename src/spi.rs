@@ -475,7 +475,7 @@ impl<SPI: Spi, SCLK: OutputPin, SDO: OutputPin, SDI: InputPin + OutputPin, CS: O
 
         #[cfg(any(esp_idf_version = "4.4", esp_idf_version_major = "5"))]
         let flags = if _keep_cs_active {
-            flags | SPI_TRANS_CS_KEEP_ACTIVE;
+            flags | SPI_TRANS_CS_KEEP_ACTIVE
         } else {
             flags
         };
