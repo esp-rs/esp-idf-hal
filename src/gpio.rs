@@ -159,8 +159,8 @@ impl UnsafeCallback {
 }
 
 #[cfg(all(not(feature = "riscv-ulp-hal"), feature = "std"))]
-static ISR_SERVICE_ENABLED: std::sync::atomic::AtomicBool =
-    std::sync::atomic::AtomicBool::new(false);
+static ISR_SERVICE_ENABLED: core::sync::atomic::AtomicBool =
+    core::sync::atomic::AtomicBool::new(false);
 
 #[cfg(all(not(feature = "riscv-ulp-hal"), feature = "std"))]
 unsafe extern "C" fn irq_handler(unsafe_callback: *mut esp_idf_sys::c_types::c_void) {
@@ -173,12 +173,12 @@ fn enable_isr_service() -> Result<(), EspError> {
     if ISR_SERVICE_ENABLED.compare_exchange(
         false,
         true,
-        std::sync::atomic::Ordering::SeqCst,
-        std::sync::atomic::Ordering::Relaxed,
+        core::sync::atomic::Ordering::SeqCst,
+        core::sync::atomic::Ordering::Relaxed,
     ) == Ok(false)
     {
         if let Err(e) = esp!(unsafe { esp_idf_sys::gpio_install_isr_service(0) }) {
-            ISR_SERVICE_ENABLED.store(false, std::sync::atomic::Ordering::SeqCst);
+            ISR_SERVICE_ENABLED.store(false, core::sync::atomic::Ordering::SeqCst);
             return Err(e);
         }
     }
