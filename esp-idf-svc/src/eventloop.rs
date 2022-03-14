@@ -3,6 +3,7 @@ use core::marker::PhantomData;
 use core::mem;
 use core::ptr;
 use core::result::Result;
+use core::slice;
 use core::time::Duration;
 
 extern crate alloc;
@@ -147,6 +148,23 @@ impl<'a> EspEventPostData {
             payload_len: mem::size_of::<P>(),
         }
     }
+
+    /// # Safety
+    ///
+    /// Care should be taken to only call this function with payload reference that lives at least as long as
+    /// the call that will post this data to the event loop
+    pub unsafe fn new_raw(
+        source: *const c_types::c_char,
+        event_id: Option<i32>,
+        payload: &[u32],
+    ) -> EspEventPostData {
+        Self {
+            source,
+            event_id: event_id.unwrap_or(0),
+            payload: payload.as_ptr() as *const _,
+            payload_len: payload.len(),
+        }
+    }
 }
 
 pub struct EspEventFetchData {
@@ -170,6 +188,14 @@ impl EspEventFetchData {
         .unwrap();
 
         payload
+    }
+
+    /// # Safety
+    ///
+    /// Care should be taken to only call this function on fetch data that one is certain to be
+    /// of length `len`
+    pub unsafe fn as_raw_payload(&self, len: usize) -> &[u8] {
+        slice::from_raw_parts(self.payload as *const _, len)
     }
 }
 
