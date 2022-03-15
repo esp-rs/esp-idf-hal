@@ -340,7 +340,13 @@ macro_rules! impl_base {
         {
             fn reset(&mut self) -> Result<(), EspError> {
                 #[cfg(not(feature = "riscv-ulp-hal"))]
-                let res = esp_result!(unsafe { gpio_reset_pin(self.pin()) }, ());
+                let res = {
+                    esp!(unsafe { gpio_reset_pin(self.pin()) })?;
+                    #[cfg(any(feature = "std", feature = "alloc"))]
+                    self.disable_interrupt()?;
+                    Ok(())
+                };
+
                 #[cfg(feature = "riscv-ulp-hal")]
                 let res = Ok(());
 
@@ -455,6 +461,8 @@ macro_rules! impl_base {
             ))]
             fn disable_interrupt(&mut self) -> Result<(), EspError> {
                 esp!(unsafe { gpio_intr_disable(self.pin()) })?;
+                esp!(unsafe { gpio_set_intr_type(self.pin(), gpio_int_type_t_GPIO_INTR_DISABLE) })?;
+                unsafe { unregister_irq_handler(self.pin() as usize) };
 
                 Ok(())
             }
@@ -530,7 +538,9 @@ unsafe fn register_irq_handler(pin_number: usize, p: PinNotifySubscription) {
     any(feature = "std", feature = "alloc")
 ))]
 unsafe fn unregister_irq_handler(pin_number: usize) {
-    chip::IRQ_HANDLERS[pin_number].take();
+    if chip::IRQ_HANDLERS[pin_number].is_some() {
+        chip::IRQ_HANDLERS[pin_number].take();
+    }
 }
 
 macro_rules! impl_input_base {
@@ -594,18 +604,6 @@ macro_rules! impl_input_base {
                 let callback = PinNotifySubscription::subscribe(&mut self, callback)?;
 
                 register_irq_handler(self.pin() as usize, callback);
-
-                Ok($pxi { _mode: PhantomData })
-            }
-        }
-
-        #[cfg(all(
-            not(feature = "riscv-ulp-hal"),
-            any(feature = "std", feature = "alloc")
-        ))]
-        impl $pxi<SubscribedInput> {
-            pub fn unsubscribe(self) -> Result<$pxi<Input>, EspError> {
-                unsafe { unregister_irq_handler(self.pin() as usize) };
 
                 Ok($pxi { _mode: PhantomData })
             }
