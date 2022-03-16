@@ -2,10 +2,10 @@
 
 use core::marker::PhantomData;
 
-#[cfg(feature = "std")]
-use std::boxed::Box;
+#[cfg(feature = "alloc")]
+extern crate alloc;
 
-#[cfg(all(not(feature = "std"), feature = "alloc"))]
+#[cfg(feature = "alloc")]
 use alloc::boxed::Box;
 
 #[cfg(not(feature = "riscv-ulp-hal"))]
@@ -123,10 +123,7 @@ pub trait TouchPin: Pin {
     fn touch_channel(&self) -> touch_pad_t;
 }
 
-#[cfg(all(
-    not(feature = "riscv-ulp-hal"),
-    any(feature = "std", feature = "alloc")
-))]
+#[cfg(all(not(feature = "riscv-ulp-hal"), feature = "alloc"))]
 pub trait SubscribedPin: Pin {}
 
 pub struct Input;
@@ -139,22 +136,13 @@ pub struct Disabled;
 
 pub struct Unknown;
 
-#[cfg(all(
-    not(feature = "riscv-ulp-hal"),
-    any(feature = "std", feature = "alloc")
-))]
+#[cfg(all(not(feature = "riscv-ulp-hal"), feature = "alloc"))]
 pub struct SubscribedInput;
 
-#[cfg(all(
-    not(feature = "riscv-ulp-hal"),
-    any(feature = "std", feature = "alloc")
-))]
+#[cfg(all(not(feature = "riscv-ulp-hal"), feature = "alloc"))]
 struct UnsafeCallback(*mut Box<dyn FnMut() + 'static>);
 
-#[cfg(all(
-    not(feature = "riscv-ulp-hal"),
-    any(feature = "std", feature = "alloc")
-))]
+#[cfg(all(not(feature = "riscv-ulp-hal"), feature = "alloc"))]
 impl UnsafeCallback {
     #[allow(clippy::type_complexity)]
     pub fn from(boxed: &mut Box<Box<dyn FnMut() + 'static>>) -> Self {
@@ -176,26 +164,17 @@ impl UnsafeCallback {
     }
 }
 
-#[cfg(all(
-    not(feature = "riscv-ulp-hal"),
-    any(feature = "std", feature = "alloc")
-))]
+#[cfg(all(not(feature = "riscv-ulp-hal"), feature = "alloc"))]
 static ISR_SERVICE_ENABLED: core::sync::atomic::AtomicBool =
     core::sync::atomic::AtomicBool::new(false);
 
-#[cfg(all(
-    not(feature = "riscv-ulp-hal"),
-    any(feature = "std", feature = "alloc")
-))]
+#[cfg(all(not(feature = "riscv-ulp-hal"), feature = "alloc"))]
 unsafe extern "C" fn irq_handler(unsafe_callback: *mut esp_idf_sys::c_types::c_void) {
     let mut unsafe_callback = UnsafeCallback::from_ptr(unsafe_callback);
     unsafe_callback.call();
 }
 
-#[cfg(all(
-    not(feature = "riscv-ulp-hal"),
-    any(feature = "std", feature = "alloc")
-))]
+#[cfg(all(not(feature = "riscv-ulp-hal"), feature = "alloc"))]
 fn enable_isr_service() -> Result<(), EspError> {
     if ISR_SERVICE_ENABLED.compare_exchange(
         false,
@@ -212,25 +191,16 @@ fn enable_isr_service() -> Result<(), EspError> {
     Ok(())
 }
 
-#[cfg(all(
-    not(feature = "riscv-ulp-hal"),
-    any(feature = "std", feature = "alloc")
-))]
+#[cfg(all(not(feature = "riscv-ulp-hal"), feature = "alloc"))]
 type ClosureBox = Box<Box<dyn FnMut()>>;
 
 /// The PinNotifySubscription represents the association between an InputPin and
 /// a registered isr handler.
 /// When the PinNotifySubscription is dropped, the isr handler is unregistered.
-#[cfg(all(
-    not(feature = "riscv-ulp-hal"),
-    any(feature = "std", feature = "alloc")
-))]
+#[cfg(all(not(feature = "riscv-ulp-hal"), feature = "alloc"))]
 pub(crate) struct PinNotifySubscription(i32, ClosureBox);
 
-#[cfg(all(
-    not(feature = "riscv-ulp-hal"),
-    any(feature = "std", feature = "alloc")
-))]
+#[cfg(all(not(feature = "riscv-ulp-hal"), feature = "alloc"))]
 impl PinNotifySubscription {
     fn subscribe<P>(pin: &mut P, callback: impl FnMut() + 'static) -> Result<Self, EspError>
     where
@@ -257,10 +227,7 @@ impl PinNotifySubscription {
     }
 }
 
-#[cfg(all(
-    not(feature = "riscv-ulp-hal"),
-    any(feature = "std", feature = "alloc")
-))]
+#[cfg(all(not(feature = "riscv-ulp-hal"), feature = "alloc"))]
 impl Drop for PinNotifySubscription {
     fn drop(self: &mut PinNotifySubscription) {
         esp!(unsafe { esp_idf_sys::gpio_isr_handler_remove(self.0) }).expect("Error unsubscribing");
@@ -268,10 +235,7 @@ impl Drop for PinNotifySubscription {
 }
 
 /// Interrupt types
-#[cfg(all(
-    not(feature = "riscv-ulp-hal"),
-    any(feature = "std", feature = "alloc")
-))]
+#[cfg(all(not(feature = "riscv-ulp-hal"), feature = "alloc"))]
 pub enum InterruptType {
     PosEdge,
     NegEdge,
@@ -280,10 +244,7 @@ pub enum InterruptType {
     HighLevel,
 }
 
-#[cfg(all(
-    not(feature = "riscv-ulp-hal"),
-    any(feature = "std", feature = "alloc")
-))]
+#[cfg(all(not(feature = "riscv-ulp-hal"), feature = "alloc"))]
 impl From<InterruptType> for gpio_int_type_t {
     fn from(interrupt_type: InterruptType) -> gpio_int_type_t {
         match interrupt_type {
@@ -342,7 +303,7 @@ macro_rules! impl_base {
                 #[cfg(not(feature = "riscv-ulp-hal"))]
                 let res = {
                     esp!(unsafe { gpio_reset_pin(self.pin()) })?;
-                    #[cfg(any(feature = "std", feature = "alloc"))]
+                    #[cfg(feature = "alloc")]
                     self.disable_interrupt()?;
                     Ok(())
                 };
@@ -445,20 +406,14 @@ macro_rules! impl_base {
                 Ok(())
             }
 
-            #[cfg(all(
-                not(feature = "riscv-ulp-hal"),
-                any(feature = "std", feature = "alloc")
-            ))]
+            #[cfg(all(not(feature = "riscv-ulp-hal"), feature = "alloc"))]
             fn enable_interrupt(&mut self) -> Result<(), EspError> {
                 esp!(unsafe { gpio_intr_enable(self.pin()) })?;
 
                 Ok(())
             }
 
-            #[cfg(all(
-                not(feature = "riscv-ulp-hal"),
-                any(feature = "std", feature = "alloc")
-            ))]
+            #[cfg(all(not(feature = "riscv-ulp-hal"), feature = "alloc"))]
             fn disable_interrupt(&mut self) -> Result<(), EspError> {
                 esp!(unsafe { gpio_intr_disable(self.pin()) })?;
                 esp!(unsafe { gpio_set_intr_type(self.pin(), gpio_int_type_t_GPIO_INTR_DISABLE) })?;
@@ -467,10 +422,7 @@ macro_rules! impl_base {
                 Ok(())
             }
 
-            #[cfg(all(
-                not(feature = "riscv-ulp-hal"),
-                any(feature = "std", feature = "alloc")
-            ))]
+            #[cfg(all(not(feature = "riscv-ulp-hal"), feature = "alloc"))]
             fn set_interrupt_type(
                 &mut self,
                 interrupt_type: InterruptType,
@@ -525,18 +477,12 @@ macro_rules! impl_pull {
     };
 }
 
-#[cfg(all(
-    not(feature = "riscv-ulp-hal"),
-    any(feature = "std", feature = "alloc")
-))]
+#[cfg(all(not(feature = "riscv-ulp-hal"), feature = "alloc"))]
 unsafe fn register_irq_handler(pin_number: usize, p: PinNotifySubscription) {
     chip::IRQ_HANDLERS[pin_number] = Some(p);
 }
 
-#[cfg(all(
-    not(feature = "riscv-ulp-hal"),
-    any(feature = "std", feature = "alloc")
-))]
+#[cfg(all(not(feature = "riscv-ulp-hal"), feature = "alloc"))]
 unsafe fn unregister_irq_handler(pin_number: usize) {
     if chip::IRQ_HANDLERS[pin_number].is_some() {
         chip::IRQ_HANDLERS[pin_number].take();
@@ -583,10 +529,7 @@ macro_rules! impl_input_base {
             }
         }
 
-        #[cfg(all(
-            not(feature = "riscv-ulp-hal"),
-            any(feature = "std", feature = "alloc")
-        ))]
+        #[cfg(all(not(feature = "riscv-ulp-hal"), feature = "alloc"))]
         impl $pxi<Input> {
             /// # Safety
             ///
@@ -626,10 +569,7 @@ macro_rules! impl_input_base {
         impl_base!($pxi);
         impl_hal_input_pin!($pxi: Input);
 
-        #[cfg(all(
-            not(feature = "riscv-ulp-hal"),
-            any(feature = "std", feature = "alloc")
-        ))]
+        #[cfg(all(not(feature = "riscv-ulp-hal"), feature = "alloc"))]
         impl_hal_input_pin!($pxi: SubscribedInput);
     };
 }
@@ -1036,16 +976,10 @@ where
 
 impl InputPin for GpioPin<Input> {}
 
-#[cfg(all(
-    not(feature = "riscv-ulp-hal"),
-    any(feature = "std", feature = "alloc")
-))]
+#[cfg(all(not(feature = "riscv-ulp-hal"), feature = "alloc"))]
 impl InputPin for GpioPin<SubscribedInput> {}
 
-#[cfg(all(
-    not(feature = "riscv-ulp-hal"),
-    any(feature = "std", feature = "alloc")
-))]
+#[cfg(all(not(feature = "riscv-ulp-hal"), feature = "alloc"))]
 impl SubscribedPin for GpioPin<SubscribedInput> {}
 
 impl OutputPin for GpioPin<Output> {}
@@ -1058,10 +992,7 @@ impl_base!(GpioPin);
 impl_hal_input_pin!(GpioPin: Input);
 impl_hal_input_pin!(GpioPin: InputOutput);
 
-#[cfg(all(
-    not(feature = "riscv-ulp-hal"),
-    any(feature = "std", feature = "alloc")
-))]
+#[cfg(all(not(feature = "riscv-ulp-hal"), feature = "alloc"))]
 impl_hal_input_pin!(GpioPin: SubscribedInput);
 
 impl_hal_output_pin!(GpioPin: InputOutput);
@@ -1079,10 +1010,7 @@ mod chip {
     #[cfg(feature = "riscv-ulp-hal")]
     use crate::riscv_ulp_hal::sys::*;
 
-    #[cfg(all(
-        not(feature = "riscv-ulp-hal"),
-        any(feature = "std", feature = "alloc")
-    ))]
+    #[cfg(all(not(feature = "riscv-ulp-hal"), feature = "alloc"))]
     pub(crate) static mut IRQ_HANDLERS: [Option<PinNotifySubscription>; 40] = [
         None, None, None, None, None, None, None, None, None, None, None, None, None, None, None,
         None, None, None, None, None, None, None, None, None, None, None, None, None, None, None,
@@ -1266,10 +1194,7 @@ mod chip {
 
     use super::*;
 
-    #[cfg(all(
-        not(feature = "riscv-ulp-hal"),
-        any(feature = "std", feature = "alloc")
-    ))]
+    #[cfg(all(not(feature = "riscv-ulp-hal"), feature = "alloc"))]
     pub(crate) static mut IRQ_HANDLERS: [Option<PinNotifySubscription>; 49] = [
         None, None, None, None, None, None, None, None, None, None, None, None, None, None, None,
         None, None, None, None, None, None, None, None, None, None, None, None, None, None, None,
@@ -1517,7 +1442,7 @@ mod chip {
 
     use super::*;
 
-    #[cfg(any(feature = "std", feature = "alloc"))]
+    #[cfg(feature = "alloc")]
     pub(crate) static mut IRQ_HANDLERS: [Option<PinNotifySubscription>; 22] = [
         None, None, None, None, None, None, None, None, None, None, None, None, None, None, None,
         None, None, None, None, None, None, None,
