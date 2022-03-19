@@ -485,9 +485,7 @@ unsafe fn register_irq_handler(pin_number: usize, p: PinNotifySubscription) {
 
 #[cfg(all(not(feature = "riscv-ulp-hal"), feature = "alloc"))]
 unsafe fn unregister_irq_handler(pin_number: usize) {
-    if chip::IRQ_HANDLERS[pin_number].is_some() {
-        chip::IRQ_HANDLERS[pin_number].take();
-    }
+    chip::IRQ_HANDLERS[pin_number].take();
 }
 
 macro_rules! impl_input_base {
