@@ -2,11 +2,11 @@
 
 use core::marker::PhantomData;
 
-#[cfg(all(not(feature = "riscv-ulp-hal"), feature = "alloc"))]
+#[cfg(feature = "alloc")]
 extern crate alloc;
 
-#[cfg(all(not(feature = "riscv-ulp-hal"), feature = "alloc"))]
-use alloc::{boxed::Box, rc::Rc};
+#[cfg(feature = "alloc")]
+use alloc::boxed::Box;
 
 #[cfg(not(feature = "riscv-ulp-hal"))]
 use esp_idf_sys::*;
@@ -165,24 +165,8 @@ impl UnsafeCallback {
 }
 
 #[cfg(all(not(feature = "riscv-ulp-hal"), feature = "alloc"))]
-pub struct Service;
-
-#[cfg(all(not(feature = "riscv-ulp-hal"), feature = "alloc"))]
-impl Service {
-    pub fn new(intr_alloc_flags: i32) -> Result<Service, EspError> {
-        let result = esp!(unsafe { gpio_install_isr_service(intr_alloc_flags) });
-        result.map(|_| Service)
-    }
-}
-
-#[cfg(all(not(feature = "riscv-ulp-hal"), feature = "alloc"))]
-impl Drop for Service {
-    fn drop(&mut self) {
-        unsafe {
-            gpio_uninstall_isr_service();
-        }
-    }
-}
+static ISR_SERVICE_ENABLED: core::sync::atomic::AtomicBool =
+    core::sync::atomic::AtomicBool::new(false);
 
 #[cfg(all(not(feature = "riscv-ulp-hal"), feature = "alloc"))]
 unsafe extern "C" fn irq_handler(unsafe_callback: *mut esp_idf_sys::c_types::c_void) {
@@ -190,22 +174,40 @@ unsafe extern "C" fn irq_handler(unsafe_callback: *mut esp_idf_sys::c_types::c_v
     unsafe_callback.call();
 }
 
+#[cfg(all(not(feature = "riscv-ulp-hal"), feature = "alloc"))]
+fn enable_isr_service() -> Result<(), EspError> {
+    if ISR_SERVICE_ENABLED.compare_exchange(
+        false,
+        true,
+        core::sync::atomic::Ordering::SeqCst,
+        core::sync::atomic::Ordering::Relaxed,
+    ) == Ok(false)
+    {
+        if let Err(e) = esp!(unsafe { esp_idf_sys::gpio_install_isr_service(0) }) {
+            ISR_SERVICE_ENABLED.store(false, core::sync::atomic::Ordering::SeqCst);
+            return Err(e);
+        }
+    }
+    Ok(())
+}
+
+#[cfg(all(not(feature = "riscv-ulp-hal"), feature = "alloc"))]
+type ClosureBox = Box<Box<dyn FnMut()>>;
+
 /// The PinNotifySubscription represents the association between an InputPin and
 /// a registered isr handler.
 /// When the PinNotifySubscription is dropped, the isr handler is unregistered.
 #[cfg(all(not(feature = "riscv-ulp-hal"), feature = "alloc"))]
-pub(crate) struct PinNotifySubscription(Rc<Service>, i32, Box<Box<dyn FnMut()>>);
+pub(crate) struct PinNotifySubscription(i32, ClosureBox);
 
 #[cfg(all(not(feature = "riscv-ulp-hal"), feature = "alloc"))]
 impl PinNotifySubscription {
-    fn subscribe<P>(
-        service: Rc<Service>,
-        pin: &mut P,
-        callback: impl FnMut() + 'static,
-    ) -> Result<Self, EspError>
+    fn subscribe<P>(pin: &mut P, callback: impl FnMut() + 'static) -> Result<Self, EspError>
     where
         P: InputPin + Pin,
     {
+        enable_isr_service()?;
+
         let pin_number: i32 = pin.pin();
 
         let callback: Box<dyn FnMut() + 'static> = Box::new(callback);
@@ -221,14 +223,14 @@ impl PinNotifySubscription {
             )
         })?;
 
-        Ok(Self(service, pin_number, callback))
+        Ok(Self(pin_number, callback))
     }
 }
 
 #[cfg(all(not(feature = "riscv-ulp-hal"), feature = "alloc"))]
 impl Drop for PinNotifySubscription {
     fn drop(self: &mut PinNotifySubscription) {
-        esp!(unsafe { esp_idf_sys::gpio_isr_handler_remove(self.1) }).expect("Error unsubscribing");
+        esp!(unsafe { esp_idf_sys::gpio_isr_handler_remove(self.0) }).expect("Error unsubscribing");
     }
 }
 
@@ -536,7 +538,6 @@ macro_rules! impl_input_base {
             /// interrupt handler. So you should take care of what is done in it.
             pub unsafe fn into_subscribed(
                 mut self,
-                service: &Rc<Service>,
                 callback: impl FnMut() + 'static,
                 interrupt_type: InterruptType,
             ) -> Result<$pxi<SubscribedInput>, EspError> {
@@ -544,8 +545,7 @@ macro_rules! impl_input_base {
 
                 self.set_interrupt_type(interrupt_type)?;
 
-                let callback =
-                    PinNotifySubscription::subscribe(Rc::clone(service), &mut self, callback)?;
+                let callback = PinNotifySubscription::subscribe(&mut self, callback)?;
 
                 register_irq_handler(self.pin() as usize, callback);
 
