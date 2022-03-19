@@ -165,8 +165,7 @@ impl UnsafeCallback {
 }
 
 #[cfg(all(not(feature = "riscv-ulp-hal"), feature = "alloc"))]
-static ISR_SERVICE_ENABLED: core::sync::atomic::AtomicBool =
-    core::sync::atomic::AtomicBool::new(false);
+static ISR_SERVICE_ENABLED: crate::mutex::Mutex<bool> = crate::mutex::Mutex::new(false);
 
 #[cfg(all(not(feature = "riscv-ulp-hal"), feature = "alloc"))]
 unsafe extern "C" fn irq_handler(unsafe_callback: *mut esp_idf_sys::c_types::c_void) {
@@ -176,16 +175,12 @@ unsafe extern "C" fn irq_handler(unsafe_callback: *mut esp_idf_sys::c_types::c_v
 
 #[cfg(all(not(feature = "riscv-ulp-hal"), feature = "alloc"))]
 fn enable_isr_service() -> Result<(), EspError> {
-    if ISR_SERVICE_ENABLED.compare_exchange(
-        false,
-        true,
-        core::sync::atomic::Ordering::SeqCst,
-        core::sync::atomic::Ordering::Relaxed,
-    ) == Ok(false)
-    {
+    let mut service_enabled = ISR_SERVICE_ENABLED.lock();
+    if !*service_enabled {
         if let Err(e) = esp!(unsafe { esp_idf_sys::gpio_install_isr_service(0) }) {
-            ISR_SERVICE_ENABLED.store(false, core::sync::atomic::Ordering::SeqCst);
             return Err(e);
+        } else {
+            *service_enabled = true;
         }
     }
     Ok(())
