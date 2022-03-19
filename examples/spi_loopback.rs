@@ -32,17 +32,16 @@ fn main() -> anyhow::Result<()> {
     let cs = peripherals.pins.gpio10;
 
     println!("Starting SPI loopback test");
-    let config = <spi::config::Config as Default>::default().baudrate(26.MHz().into());
-    let mut spi = spi::Master::<spi::SPI2, _, _, _, _>::new(
+    let bus = spi::Bus::<spi::SPI2, _, _, _>::new(
         spi,
         spi::Pins {
             sclk,
             sdo: miso,
             sdi: Some(mosi),
-            cs: Some(cs),
         },
-        config,
     )?;
+    let config = <spi::config::Config as Default>::default().baudrate(26.MHz().into());
+    let mut spi = spi::Master::new(&bus, Some(cs), config)?;
 
     let mut read = [0u8; 4];
     let write = [0xde, 0xad, 0xbe, 0xef];

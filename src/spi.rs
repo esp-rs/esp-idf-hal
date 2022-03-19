@@ -22,6 +22,8 @@
 
 use core::cmp::{max, min};
 use core::ptr;
+use std::borrow::Borrow;
+use std::marker::PhantomData;
 
 use crate::delay::portMAX_DELAY;
 use crate::gpio::{self, InputPin, OutputPin};
@@ -52,12 +54,117 @@ pub struct Pins<
     SDO: OutputPin,
     // default pins to allow type inference
     SDI: InputPin + OutputPin = crate::gpio::Gpio1<crate::gpio::Input>,
-    CS: OutputPin = crate::gpio::Gpio2<crate::gpio::Output>,
 > {
     pub sclk: SCLK,
     pub sdo: SDO,
     pub sdi: Option<SDI>,
-    pub cs: Option<CS>,
+}
+
+pub struct Bus<
+    SPI: Spi,
+    SCLK: OutputPin,
+    SDO: OutputPin,
+    // default pins to allow type inference
+    SDI: InputPin + OutputPin = crate::gpio::Gpio1<crate::gpio::Input>,
+> {
+    spi: SPI,
+    pins: Pins<SCLK, SDO, SDI>,
+}
+
+unsafe impl<SPI: Spi, SCLK: OutputPin, SDO: OutputPin, SDI: InputPin + OutputPin> Send
+    for Bus<SPI, SCLK, SDO, SDI>
+{
+}
+
+impl Bus<SPI1, gpio::Gpio6<gpio::Output>, gpio::Gpio7<gpio::Output>, gpio::Gpio8<gpio::Input>> {
+    /// Create new instance of SPI bus for SPI1
+    ///
+    /// SPI1 can only use fixed pin for SCLK, SDO and SDI as they are shared with SPI0.
+    pub fn new(
+        spi: SPI1,
+        pins: Pins<gpio::Gpio6<gpio::Output>, gpio::Gpio7<gpio::Output>, gpio::Gpio8<gpio::Input>>,
+    ) -> Result<Self, EspError> {
+        Bus::new_internal(spi, pins)
+    }
+}
+
+impl<SCLK: OutputPin, SDO: OutputPin, SDI: InputPin + OutputPin> Bus<SPI2, SCLK, SDO, SDI> {
+    /// Create new instance of SPI bus for SPI2
+    pub fn new(spi: SPI2, pins: Pins<SCLK, SDO, SDI>) -> Result<Self, EspError> {
+        Bus::new_internal(spi, pins)
+    }
+}
+
+#[cfg(not(esp32c3))]
+impl<SCLK: OutputPin, SDO: OutputPin, SDI: InputPin + OutputPin> Bus<SPI3, SCLK, SDO, SDI> {
+    /// Create new instance of SPI bus for SPI3
+    pub fn new(spi: SPI3, pins: Pins<SCLK, SDO, SDI>) -> Result<Self, EspError> {
+        Bus::new_internal(spi, pins)
+    }
+}
+
+impl<SPI: Spi, SCLK: OutputPin, SDO: OutputPin, SDI: InputPin + OutputPin>
+    Bus<SPI, SCLK, SDO, SDI>
+{
+    /// Internal implementation of new shared by all SPI buses
+    fn new_internal(spi: SPI, pins: Pins<SCLK, SDO, SDI>) -> Result<Self, EspError> {
+        #[cfg(any(esp_idf_version = "4.4", esp_idf_version_major = "5"))]
+        let bus_config = spi_bus_config_t {
+            flags: SPICOMMON_BUSFLAG_MASTER,
+            sclk_io_num: pins.sclk.pin(),
+
+            data4_io_num: -1,
+            data5_io_num: -1,
+            data6_io_num: -1,
+            data7_io_num: -1,
+            __bindgen_anon_1: spi_bus_config_t__bindgen_ty_1 {
+                mosi_io_num: pins.sdo.pin(),
+                //data0_io_num: -1,
+            },
+            __bindgen_anon_2: spi_bus_config_t__bindgen_ty_2 {
+                miso_io_num: pins.sdi.as_ref().map_or(-1, |p| p.pin()),
+                //data1_io_num: -1,
+            },
+            __bindgen_anon_3: spi_bus_config_t__bindgen_ty_3 {
+                quadwp_io_num: -1,
+                //data2_io_num: -1,
+            },
+            __bindgen_anon_4: spi_bus_config_t__bindgen_ty_4 {
+                quadhd_io_num: -1,
+                //data3_io_num: -1,
+            },
+            //max_transfer_sz: SPI_MAX_TRANSFER_SIZE,
+            ..Default::default()
+        };
+
+        #[cfg(not(any(esp_idf_version = "4.4", esp_idf_version_major = "5")))]
+        let bus_config = spi_bus_config_t {
+            flags: SPICOMMON_BUSFLAG_MASTER,
+            sclk_io_num: pins.sclk.pin(),
+
+            mosi_io_num: pins.sdo.pin(),
+            miso_io_num: pins.sdi.as_ref().map_or(-1, |p| p.pin()),
+            quadwp_io_num: -1,
+            quadhd_io_num: -1,
+
+            //max_transfer_sz: SPI_MAX_TRANSFER_SIZE,
+            ..Default::default()
+        };
+
+        esp!(unsafe {
+            spi_bus_initialize(SPI::device(), &bus_config, 0 /*TODO: DMA support*/)
+        })?;
+
+        Ok(Self { spi, pins })
+    }
+
+    /// Release and return the raw interface to the underlying SPI peripheral
+    #[allow(clippy::type_complexity)]
+    pub fn release(self) -> Result<(SPI, Pins<SCLK, SDO, SDI>), EspError> {
+        esp!(unsafe { spi_bus_free(SPI::device()) })?;
+
+        Ok((self.spi, self.pins))
+    }
 }
 
 /// SPI configuration
@@ -137,65 +244,28 @@ pub struct Master<
     SPI: Spi,
     SCLK: OutputPin,
     SDO: OutputPin,
-    // default pins to allow type inference
-    SDI: InputPin + OutputPin = crate::gpio::Gpio1<crate::gpio::Input>,
-    CS: OutputPin = crate::gpio::Gpio2<crate::gpio::Output>,
+    SDI: InputPin + OutputPin,
+    BUS: Borrow<Bus<SPI, SCLK, SDO, SDI>>,
+    CS: OutputPin,
 > {
-    spi: SPI,
-    pins: Pins<SCLK, SDO, SDI, CS>,
+    _bus: BUS,
+    cs: Option<CS>,
     device: spi_device_handle_t,
+    _spi: PhantomData<SPI>,
+    _sclk: PhantomData<SCLK>,
+    _sdo: PhantomData<SDO>,
+    _sdi: PhantomData<SDI>,
 }
 
-unsafe impl<SPI: Spi, SCLK: OutputPin, SDO: OutputPin, SDI: InputPin + OutputPin, CS: OutputPin>
-    Send for Master<SPI, SCLK, SDO, SDI, CS>
+unsafe impl<
+        SPI: Spi,
+        SCLK: OutputPin,
+        SDO: OutputPin,
+        SDI: InputPin + OutputPin,
+        BUS: Borrow<Bus<SPI, SCLK, SDO, SDI>>,
+        CS: OutputPin,
+    > Send for Master<SPI, SCLK, SDO, SDI, BUS, CS>
 {
-}
-
-impl<CS: OutputPin>
-    Master<SPI1, gpio::Gpio6<gpio::Output>, gpio::Gpio7<gpio::Output>, gpio::Gpio8<gpio::Input>, CS>
-{
-    /// Create new instance of SPI controller for SPI1
-    ///
-    /// SPI1 can only use fixed pin for SCLK, SDO and SDI as they are shared with SPI0.
-    pub fn new(
-        spi: SPI1,
-        pins: Pins<
-            gpio::Gpio6<gpio::Output>,
-            gpio::Gpio7<gpio::Output>,
-            gpio::Gpio8<gpio::Input>,
-            CS,
-        >,
-        config: config::Config,
-    ) -> Result<Self, EspError> {
-        Master::new_internal(spi, pins, config)
-    }
-}
-
-impl<SCLK: OutputPin, SDO: OutputPin, SDI: InputPin + OutputPin, CS: OutputPin>
-    Master<SPI2, SCLK, SDO, SDI, CS>
-{
-    /// Create new instance of SPI controller for SPI2
-    pub fn new(
-        spi: SPI2,
-        pins: Pins<SCLK, SDO, SDI, CS>,
-        config: config::Config,
-    ) -> Result<Self, EspError> {
-        Master::new_internal(spi, pins, config)
-    }
-}
-
-#[cfg(not(esp32c3))]
-impl<SCLK: OutputPin, SDO: OutputPin, SDI: InputPin + OutputPin, CS: OutputPin>
-    Master<SPI3, SCLK, SDO, SDI, CS>
-{
-    /// Create new instance of SPI controller for SPI3
-    pub fn new(
-        spi: SPI3,
-        pins: Pins<SCLK, SDO, SDI, CS>,
-        config: config::Config,
-    ) -> Result<Self, EspError> {
-        Master::new_internal(spi, pins, config)
-    }
 }
 
 struct Lock(spi_device_handle_t);
@@ -216,64 +286,18 @@ impl Drop for Lock {
     }
 }
 
-impl<SPI: Spi, SCLK: OutputPin, SDO: OutputPin, SDI: InputPin + OutputPin, CS: OutputPin>
-    Master<SPI, SCLK, SDO, SDI, CS>
+impl<
+        SPI: Spi,
+        SCLK: OutputPin,
+        SDO: OutputPin,
+        SDI: InputPin + OutputPin,
+        BUS: Borrow<Bus<SPI, SCLK, SDO, SDI>>,
+        CS: OutputPin,
+    > Master<SPI, SCLK, SDO, SDI, BUS, CS>
 {
-    /// Internal implementation of new shared by all SPI controllers
-    fn new_internal(
-        spi: SPI,
-        pins: Pins<SCLK, SDO, SDI, CS>,
-        config: config::Config,
-    ) -> Result<Self, EspError> {
-        #[cfg(any(esp_idf_version = "4.4", esp_idf_version_major = "5"))]
-        let bus_config = spi_bus_config_t {
-            flags: SPICOMMON_BUSFLAG_MASTER,
-            sclk_io_num: pins.sclk.pin(),
-
-            data4_io_num: -1,
-            data5_io_num: -1,
-            data6_io_num: -1,
-            data7_io_num: -1,
-            __bindgen_anon_1: spi_bus_config_t__bindgen_ty_1 {
-                mosi_io_num: pins.sdo.pin(),
-                //data0_io_num: -1,
-            },
-            __bindgen_anon_2: spi_bus_config_t__bindgen_ty_2 {
-                miso_io_num: pins.sdi.as_ref().map_or(-1, |p| p.pin()),
-                //data1_io_num: -1,
-            },
-            __bindgen_anon_3: spi_bus_config_t__bindgen_ty_3 {
-                quadwp_io_num: -1,
-                //data2_io_num: -1,
-            },
-            __bindgen_anon_4: spi_bus_config_t__bindgen_ty_4 {
-                quadhd_io_num: -1,
-                //data3_io_num: -1,
-            },
-            //max_transfer_sz: SPI_MAX_TRANSFER_SIZE,
-            ..Default::default()
-        };
-
-        #[cfg(not(any(esp_idf_version = "4.4", esp_idf_version_major = "5")))]
-        let bus_config = spi_bus_config_t {
-            flags: SPICOMMON_BUSFLAG_MASTER,
-            sclk_io_num: pins.sclk.pin(),
-
-            mosi_io_num: pins.sdo.pin(),
-            miso_io_num: pins.sdi.as_ref().map_or(-1, |p| p.pin()),
-            quadwp_io_num: -1,
-            quadhd_io_num: -1,
-
-            //max_transfer_sz: SPI_MAX_TRANSFER_SIZE,
-            ..Default::default()
-        };
-
-        esp!(unsafe {
-            spi_bus_initialize(SPI::device(), &bus_config, 0 /*TODO: DMA support*/)
-        })?;
-
+    pub fn new(bus: BUS, cs: Option<CS>, config: config::Config) -> Result<Self, EspError> {
         let device_config = spi_device_interface_config_t {
-            spics_io_num: pins.cs.as_ref().map_or(-1, |p| p.pin()),
+            spics_io_num: cs.as_ref().map_or(-1, |p| p.pin()),
             clock_speed_hz: config.baudrate.0 as i32,
             mode: (if config.data_mode.polarity == embedded_hal::spi::Polarity::IdleHigh {
                 2
@@ -297,19 +321,22 @@ impl<SPI: Spi, SCLK: OutputPin, SDO: OutputPin, SDI: InputPin + OutputPin, CS: O
         })?;
 
         Ok(Self {
-            spi,
-            pins,
+            _bus: bus,
+            cs,
             device: device_handle,
+            _spi: PhantomData,
+            _sclk: PhantomData,
+            _sdo: PhantomData,
+            _sdi: PhantomData,
         })
     }
 
     /// Release and return the raw interface to the underlying SPI peripheral
     #[allow(clippy::type_complexity)]
-    pub fn release(self) -> Result<(SPI, Pins<SCLK, SDO, SDI, CS>), EspError> {
+    pub fn release(self) -> Result<Option<CS>, EspError> {
         esp!(unsafe { spi_bus_remove_device(self.device) })?;
-        esp!(unsafe { spi_bus_free(SPI::device()) })?;
 
-        Ok((self.spi, self.pins))
+        Ok(self.cs)
     }
 
     fn lock_bus(&mut self) -> Result<Lock, SpiError> {
@@ -469,14 +496,26 @@ impl<SPI: Spi, SCLK: OutputPin, SDO: OutputPin, SDI: InputPin + OutputPin, CS: O
     }
 }
 
-impl<SPI: Spi, SCLK: OutputPin, SDO: OutputPin, SDI: InputPin + OutputPin, CS: OutputPin>
-    embedded_hal::spi::ErrorType for Master<SPI, SCLK, SDO, SDI, CS>
+impl<
+        SPI: Spi,
+        SCLK: OutputPin,
+        SDO: OutputPin,
+        SDI: InputPin + OutputPin,
+        BUS: Borrow<Bus<SPI, SCLK, SDO, SDI>>,
+        CS: OutputPin,
+    > embedded_hal::spi::ErrorType for Master<SPI, SCLK, SDO, SDI, BUS, CS>
 {
     type Error = SpiError;
 }
 
-impl<SPI: Spi, SCLK: OutputPin, SDO: OutputPin, SDI: InputPin + OutputPin, CS: OutputPin>
-    embedded_hal_0_2::blocking::spi::Transfer<u8> for Master<SPI, SCLK, SDO, SDI, CS>
+impl<
+        SPI: Spi,
+        SCLK: OutputPin,
+        SDO: OutputPin,
+        SDI: InputPin + OutputPin,
+        BUS: Borrow<Bus<SPI, SCLK, SDO, SDI>>,
+        CS: OutputPin,
+    > embedded_hal_0_2::blocking::spi::Transfer<u8> for Master<SPI, SCLK, SDO, SDI, BUS, CS>
 {
     type Error = SpiError;
 
@@ -487,8 +526,14 @@ impl<SPI: Spi, SCLK: OutputPin, SDO: OutputPin, SDI: InputPin + OutputPin, CS: O
     }
 }
 
-impl<SPI: Spi, SCLK: OutputPin, SDO: OutputPin, SDI: InputPin + OutputPin, CS: OutputPin>
-    embedded_hal::spi::blocking::TransferInplace<u8> for Master<SPI, SCLK, SDO, SDI, CS>
+impl<
+        SPI: Spi,
+        SCLK: OutputPin,
+        SDO: OutputPin,
+        SDI: InputPin + OutputPin,
+        BUS: Borrow<Bus<SPI, SCLK, SDO, SDI>>,
+        CS: OutputPin,
+    > embedded_hal::spi::blocking::TransferInplace<u8> for Master<SPI, SCLK, SDO, SDI, BUS, CS>
 {
     fn transfer_inplace(&mut self, words: &mut [u8]) -> Result<(), Self::Error> {
         self.transfer_inplace_internal(words, true)?;
@@ -497,24 +542,42 @@ impl<SPI: Spi, SCLK: OutputPin, SDO: OutputPin, SDI: InputPin + OutputPin, CS: O
     }
 }
 
-impl<SPI: Spi, SCLK: OutputPin, SDO: OutputPin, SDI: InputPin + OutputPin, CS: OutputPin>
-    embedded_hal::spi::blocking::Transfer<u8> for Master<SPI, SCLK, SDO, SDI, CS>
+impl<
+        SPI: Spi,
+        SCLK: OutputPin,
+        SDO: OutputPin,
+        SDI: InputPin + OutputPin,
+        BUS: Borrow<Bus<SPI, SCLK, SDO, SDI>>,
+        CS: OutputPin,
+    > embedded_hal::spi::blocking::Transfer<u8> for Master<SPI, SCLK, SDO, SDI, BUS, CS>
 {
     fn transfer(&mut self, read: &mut [u8], write: &[u8]) -> Result<(), Self::Error> {
         self.transfer_internal(read, write, true)
     }
 }
 
-impl<SPI: Spi, SCLK: OutputPin, SDO: OutputPin, SDI: InputPin + OutputPin, CS: OutputPin>
-    embedded_hal::spi::blocking::Read<u8> for Master<SPI, SCLK, SDO, SDI, CS>
+impl<
+        SPI: Spi,
+        SCLK: OutputPin,
+        SDO: OutputPin,
+        SDI: InputPin + OutputPin,
+        BUS: Borrow<Bus<SPI, SCLK, SDO, SDI>>,
+        CS: OutputPin,
+    > embedded_hal::spi::blocking::Read<u8> for Master<SPI, SCLK, SDO, SDI, BUS, CS>
 {
     fn read(&mut self, words: &mut [u8]) -> Result<(), Self::Error> {
         self.transfer_internal(words, &[], true)
     }
 }
 
-impl<SPI: Spi, SCLK: OutputPin, SDO: OutputPin, SDI: InputPin + OutputPin, CS: OutputPin>
-    embedded_hal_0_2::blocking::spi::Write<u8> for Master<SPI, SCLK, SDO, SDI, CS>
+impl<
+        SPI: Spi,
+        SCLK: OutputPin,
+        SDO: OutputPin,
+        SDI: InputPin + OutputPin,
+        BUS: Borrow<Bus<SPI, SCLK, SDO, SDI>>,
+        CS: OutputPin,
+    > embedded_hal_0_2::blocking::spi::Write<u8> for Master<SPI, SCLK, SDO, SDI, BUS, CS>
 {
     type Error = SpiError;
 
@@ -523,16 +586,28 @@ impl<SPI: Spi, SCLK: OutputPin, SDO: OutputPin, SDI: InputPin + OutputPin, CS: O
     }
 }
 
-impl<SPI: Spi, SCLK: OutputPin, SDO: OutputPin, SDI: InputPin + OutputPin, CS: OutputPin>
-    embedded_hal::spi::blocking::Write<u8> for Master<SPI, SCLK, SDO, SDI, CS>
+impl<
+        SPI: Spi,
+        SCLK: OutputPin,
+        SDO: OutputPin,
+        SDI: InputPin + OutputPin,
+        BUS: Borrow<Bus<SPI, SCLK, SDO, SDI>>,
+        CS: OutputPin,
+    > embedded_hal::spi::blocking::Write<u8> for Master<SPI, SCLK, SDO, SDI, BUS, CS>
 {
     fn write(&mut self, words: &[u8]) -> Result<(), Self::Error> {
         self.transfer_internal(&mut [], words, true)
     }
 }
 
-impl<SPI: Spi, SCLK: OutputPin, SDO: OutputPin, SDI: InputPin + OutputPin, CS: OutputPin>
-    embedded_hal_0_2::blocking::spi::WriteIter<u8> for Master<SPI, SCLK, SDO, SDI, CS>
+impl<
+        SPI: Spi,
+        SCLK: OutputPin,
+        SDO: OutputPin,
+        SDI: InputPin + OutputPin,
+        BUS: Borrow<Bus<SPI, SCLK, SDO, SDI>>,
+        CS: OutputPin,
+    > embedded_hal_0_2::blocking::spi::WriteIter<u8> for Master<SPI, SCLK, SDO, SDI, BUS, CS>
 {
     type Error = SpiError;
 
@@ -544,8 +619,14 @@ impl<SPI: Spi, SCLK: OutputPin, SDO: OutputPin, SDI: InputPin + OutputPin, CS: O
     }
 }
 
-impl<SPI: Spi, SCLK: OutputPin, SDO: OutputPin, SDI: InputPin + OutputPin, CS: OutputPin>
-    embedded_hal::spi::blocking::WriteIter<u8> for Master<SPI, SCLK, SDO, SDI, CS>
+impl<
+        SPI: Spi,
+        SCLK: OutputPin,
+        SDO: OutputPin,
+        SDI: InputPin + OutputPin,
+        BUS: Borrow<Bus<SPI, SCLK, SDO, SDI>>,
+        CS: OutputPin,
+    > embedded_hal::spi::blocking::WriteIter<u8> for Master<SPI, SCLK, SDO, SDI, BUS, CS>
 {
     fn write_iter<WI>(&mut self, words: WI) -> Result<(), Self::Error>
     where
@@ -555,8 +636,14 @@ impl<SPI: Spi, SCLK: OutputPin, SDO: OutputPin, SDI: InputPin + OutputPin, CS: O
     }
 }
 
-impl<SPI: Spi, SCLK: OutputPin, SDO: OutputPin, SDI: InputPin + OutputPin, CS: OutputPin>
-    embedded_hal_0_2::blocking::spi::Transactional<u8> for Master<SPI, SCLK, SDO, SDI, CS>
+impl<
+        SPI: Spi,
+        SCLK: OutputPin,
+        SDO: OutputPin,
+        SDI: InputPin + OutputPin,
+        BUS: Borrow<Bus<SPI, SCLK, SDO, SDI>>,
+        CS: OutputPin,
+    > embedded_hal_0_2::blocking::spi::Transactional<u8> for Master<SPI, SCLK, SDO, SDI, BUS, CS>
 {
     type Error = SpiError;
 
@@ -581,8 +668,14 @@ impl<SPI: Spi, SCLK: OutputPin, SDO: OutputPin, SDI: InputPin + OutputPin, CS: O
     }
 }
 
-impl<SPI: Spi, SCLK: OutputPin, SDO: OutputPin, SDI: InputPin + OutputPin, CS: OutputPin>
-    embedded_hal::spi::blocking::Transactional<u8> for Master<SPI, SCLK, SDO, SDI, CS>
+impl<
+        SPI: Spi,
+        SCLK: OutputPin,
+        SDO: OutputPin,
+        SDI: InputPin + OutputPin,
+        BUS: Borrow<Bus<SPI, SCLK, SDO, SDI>>,
+        CS: OutputPin,
+    > embedded_hal::spi::blocking::Transactional<u8> for Master<SPI, SCLK, SDO, SDI, BUS, CS>
 {
     fn exec<'a>(
         &mut self,
