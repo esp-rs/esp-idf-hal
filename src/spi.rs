@@ -22,8 +22,8 @@
 
 use core::cmp::{max, min};
 use core::ptr;
-use std::borrow::Borrow;
-use std::marker::PhantomData;
+use core::borrow::Borrow;
+use core::marker::PhantomData;
 
 use crate::delay::portMAX_DELAY;
 use crate::gpio::{self, InputPin, OutputPin};
