@@ -16,11 +16,23 @@ The ESP-IDF API in Rust, with support for each ESP chip (ESP32, ESP32S2, ESP32S3
 - Check the [ESP-IDF Rust Hello World template crate](https://github.com/esp-rs/esp-idf-template) for a "Hello, world!" Rust template demonstrating how to use and build this crate.
 - Check the [demo](https://github.com/ivmarkov/rust-esp32-std-demo) crate for a more comprehensive example in terms of capabilities.
 
+## Feature `native`
+This is the default feature for downloading all tools and building the ESP-IDF framework using the framework's "native" (own) tooling.
+It relies on build and installation utilities available in the [embuild](https://github.com/ivmarkov/embuild) crate.
+
+The `native` builder installs all needed tools to compile this crate as well as the ESP-IDF framework itself. 
+
+### (Native builder only) Using cargo-idf to interactively modify ESP-IDF's `sdkconfig` file
+
+TBD: Upcoming
+
 ## Feature `pio`
-This is currently the default for installing all build tools and building the ESP-IDF framework. It uses [PlatformIO](https://platformio.org/) via the
+This is a backup feature for installing all build tools and building the ESP-IDF framework. It uses [PlatformIO](https://platformio.org/) via the
 [embuild](https://github.com/ivmarkov/embuild) crate.
 
-The `pio` builder installs all needed tools to compile this crate as well as the ESP-IDF framework itself. 
+Similarly to the `native` builder, the `pio` builder also automatically installs all needed tools (PlatformIO packages and frameworks in this case) to compile this crate as well as the ESP-IDF framework itself. 
+
+**NOTE:** The `pio` builder is less flexible than the default `native` builder in that it can work with only **one, specific** version of ESP-IDF. At the time of writing, this is V4.3.2.
 
 ### (PIO builder only) Using cargo-pio to interactively modify ESP-IDF's `sdkconfig` file
 
@@ -28,17 +40,6 @@ To enable Bluetooth, or do other configurations to the ESP-IDF sdkconfig you mig
 * To install it, issue `cargo install cargo-pio --git https://github.com/ivmarkov/cargo-pio`
 * To open the ESP-IDF interactive menuconfig system, issue `cargo pio espidf menuconfig` in the root of your **binary crate** project
 * To use the generated/updated `sdkconfig` file, follow the steps described in the "Bluetooth Support" section
-
-## Feature `native`
-This is an experimental feature for downloading all tools and building the ESP-IDF framework using the framework's "native" (own) tooling.
-It will become the default in the near future.
-It also relies on build and installation utilities available in the [embuild](https://github.com/ivmarkov/embuild) crate.
-
-Similarly to the `pio` builder, the `native` builder also automatically installs all needed tools to compile this crate as well as the ESP-IDF framework itself. 
-
-### (Native builder only) Using cargo-idf to interactively modify ESP-IDF's `sdkconfig` file
-
-TBD: Upcoming
 
 ## Configuration
 
