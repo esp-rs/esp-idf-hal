@@ -11,8 +11,8 @@ The ESP-IDF API in Rust, with support for each ESP chip (ESP32, ESP32S2, ESP32S3
 - To build this crate, please follow all the build requirements specified in the [ESP-IDF Rust Hello World template crate](https://github.com/esp-rs/esp-idf-template)
 - The relevant Espressif toolchain, as well as the ESP-IDF framework itself are all automatically
   downloaded during the build:
-    - With feature `pio` (default): utilizing [platformio](https://platformio.org/) (via the [embuild](https://github.com/ivmarkov/embuild) crate) or
-    - With feature `native` (*experimental*): utilizing native `esp-idf` tooling also via the [embuild](https://github.com/ivmarkov/embuild) crate.
+    - With feature `native` (default): utilizing native ESP-IDF tooling via the [embuild](https://github.com/ivmarkov/embuild) crate or
+    - With feature `pio` (backup): utilizing [PlatformIO](https://platformio.org/) (also via the [embuild](https://github.com/ivmarkov/embuild) crate).
 - Check the [ESP-IDF Rust Hello World template crate](https://github.com/esp-rs/esp-idf-template) for a "Hello, world!" Rust template demonstrating how to use and build this crate.
 - Check the [demo](https://github.com/ivmarkov/rust-esp32-std-demo) crate for a more comprehensive example in terms of capabilities.
 
