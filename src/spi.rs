@@ -269,7 +269,11 @@ impl<SPI: Spi, SCLK: OutputPin, SDO: OutputPin, SDI: InputPin + OutputPin, CS: O
         };
 
         esp!(unsafe {
-            spi_bus_initialize(SPI::device(), &bus_config, 0 /*TODO: DMA support*/)
+            spi_bus_initialize(
+                SPI::device(),
+                &bus_config,
+                spi_common_dma_t::SPI_DMA_DISABLED, // TODO: DMA support
+            )
         })?;
 
         let device_config = spi_device_interface_config_t {
@@ -635,8 +639,8 @@ macro_rules! impl_spi {
     };
 }
 
-impl_spi!(SPI1: spi_host_device_t_SPI1_HOST);
-impl_spi!(SPI2: spi_host_device_t_SPI2_HOST);
+impl_spi!(SPI1: spi_host_device_t::SPI1_HOST);
+impl_spi!(SPI2: spi_host_device_t::SPI2_HOST);
 
 #[cfg(not(esp32c3))]
-impl_spi!(SPI3: spi_host_device_t_SPI3_HOST);
+impl_spi!(SPI3: spi_host_device_t::SPI3_HOST);

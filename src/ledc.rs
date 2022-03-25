@@ -81,7 +81,7 @@ pub mod config {
             TimerConfig {
                 frequency: 1000.Hz(),
                 resolution: Resolution::Bits8,
-                speed_mode: ledc_mode_t_LEDC_LOW_SPEED_MODE,
+                speed_mode: ledc_mode_t::LEDC_LOW_SPEED_MODE,
             }
         }
     }
@@ -104,7 +104,7 @@ impl<T: HwTimer> Timer<T> {
                 duty_resolution: config.resolution.timer_bits(),
             },
             freq_hz: config.frequency.into(),
-            clk_cfg: ledc_clk_cfg_t_LEDC_AUTO_CLK,
+            clk_cfg: ledc_clk_cfg_t::LEDC_AUTO_CLK,
         };
 
         // SAFETY: We own the instance and therefor are safe to configure it.
@@ -162,7 +162,7 @@ impl<C: HwChannel, H: HwTimer, T: Borrow<Timer<H>>, P: OutputPin> Channel<C, H, 
             speed_mode: timer.borrow().speed_mode,
             channel: C::channel(),
             timer_sel: H::timer(),
-            intr_type: ledc_intr_type_t_LEDC_INTR_DISABLE,
+            intr_type: ledc_intr_type_t::LEDC_INTR_DISABLE,
             gpio_num: pin.pin(),
             duty: duty as u32,
             ..Default::default()
@@ -379,32 +379,32 @@ mod chip {
 
         pub(crate) const fn timer_bits(&self) -> ledc_timer_bit_t {
             match self {
-                Resolution::Bits1 => ledc_timer_bit_t_LEDC_TIMER_1_BIT,
-                Resolution::Bits2 => ledc_timer_bit_t_LEDC_TIMER_2_BIT,
-                Resolution::Bits3 => ledc_timer_bit_t_LEDC_TIMER_3_BIT,
-                Resolution::Bits4 => ledc_timer_bit_t_LEDC_TIMER_4_BIT,
-                Resolution::Bits5 => ledc_timer_bit_t_LEDC_TIMER_5_BIT,
-                Resolution::Bits6 => ledc_timer_bit_t_LEDC_TIMER_6_BIT,
-                Resolution::Bits7 => ledc_timer_bit_t_LEDC_TIMER_7_BIT,
-                Resolution::Bits8 => ledc_timer_bit_t_LEDC_TIMER_8_BIT,
-                Resolution::Bits9 => ledc_timer_bit_t_LEDC_TIMER_9_BIT,
-                Resolution::Bits10 => ledc_timer_bit_t_LEDC_TIMER_10_BIT,
-                Resolution::Bits11 => ledc_timer_bit_t_LEDC_TIMER_11_BIT,
-                Resolution::Bits12 => ledc_timer_bit_t_LEDC_TIMER_12_BIT,
-                Resolution::Bits13 => ledc_timer_bit_t_LEDC_TIMER_13_BIT,
-                Resolution::Bits14 => ledc_timer_bit_t_LEDC_TIMER_14_BIT,
+                Resolution::Bits1 => ledc_timer_bit_t::LEDC_TIMER_1_BIT,
+                Resolution::Bits2 => ledc_timer_bit_t::LEDC_TIMER_2_BIT,
+                Resolution::Bits3 => ledc_timer_bit_t::LEDC_TIMER_3_BIT,
+                Resolution::Bits4 => ledc_timer_bit_t::LEDC_TIMER_4_BIT,
+                Resolution::Bits5 => ledc_timer_bit_t::LEDC_TIMER_5_BIT,
+                Resolution::Bits6 => ledc_timer_bit_t::LEDC_TIMER_6_BIT,
+                Resolution::Bits7 => ledc_timer_bit_t::LEDC_TIMER_7_BIT,
+                Resolution::Bits8 => ledc_timer_bit_t::LEDC_TIMER_8_BIT,
+                Resolution::Bits9 => ledc_timer_bit_t::LEDC_TIMER_9_BIT,
+                Resolution::Bits10 => ledc_timer_bit_t::LEDC_TIMER_10_BIT,
+                Resolution::Bits11 => ledc_timer_bit_t::LEDC_TIMER_11_BIT,
+                Resolution::Bits12 => ledc_timer_bit_t::LEDC_TIMER_12_BIT,
+                Resolution::Bits13 => ledc_timer_bit_t::LEDC_TIMER_13_BIT,
+                Resolution::Bits14 => ledc_timer_bit_t::LEDC_TIMER_14_BIT,
                 #[cfg(esp32)]
-                Resolution::Bits15 => ledc_timer_bit_t_LEDC_TIMER_15_BIT,
+                Resolution::Bits15 => ledc_timer_bit_t::LEDC_TIMER_15_BIT,
                 #[cfg(esp32)]
-                Resolution::Bits16 => ledc_timer_bit_t_LEDC_TIMER_16_BIT,
+                Resolution::Bits16 => ledc_timer_bit_t::LEDC_TIMER_16_BIT,
                 #[cfg(esp32)]
-                Resolution::Bits17 => ledc_timer_bit_t_LEDC_TIMER_17_BIT,
+                Resolution::Bits17 => ledc_timer_bit_t::LEDC_TIMER_17_BIT,
                 #[cfg(esp32)]
-                Resolution::Bits18 => ledc_timer_bit_t_LEDC_TIMER_18_BIT,
+                Resolution::Bits18 => ledc_timer_bit_t::LEDC_TIMER_18_BIT,
                 #[cfg(esp32)]
-                Resolution::Bits19 => ledc_timer_bit_t_LEDC_TIMER_19_BIT,
+                Resolution::Bits19 => ledc_timer_bit_t::LEDC_TIMER_19_BIT,
                 #[cfg(esp32)]
-                Resolution::Bits20 => ledc_timer_bit_t_LEDC_TIMER_20_BIT,
+                Resolution::Bits20 => ledc_timer_bit_t::LEDC_TIMER_20_BIT,
             }
         }
     }
@@ -444,10 +444,10 @@ mod chip {
         };
     }
 
-    impl_timer!(TIMER0: ledc_timer_t_LEDC_TIMER_0);
-    impl_timer!(TIMER1: ledc_timer_t_LEDC_TIMER_1);
-    impl_timer!(TIMER2: ledc_timer_t_LEDC_TIMER_2);
-    impl_timer!(TIMER3: ledc_timer_t_LEDC_TIMER_3);
+    impl_timer!(TIMER0: ledc_timer_t::LEDC_TIMER_0);
+    impl_timer!(TIMER1: ledc_timer_t::LEDC_TIMER_1);
+    impl_timer!(TIMER2: ledc_timer_t::LEDC_TIMER_2);
+    impl_timer!(TIMER3: ledc_timer_t::LEDC_TIMER_3);
 
     macro_rules! impl_channel {
         ($instance:ident: $channel:expr) => {
@@ -475,16 +475,16 @@ mod chip {
         };
     }
 
-    impl_channel!(CHANNEL0: ledc_channel_t_LEDC_CHANNEL_0);
-    impl_channel!(CHANNEL1: ledc_channel_t_LEDC_CHANNEL_1);
-    impl_channel!(CHANNEL2: ledc_channel_t_LEDC_CHANNEL_2);
-    impl_channel!(CHANNEL3: ledc_channel_t_LEDC_CHANNEL_3);
-    impl_channel!(CHANNEL4: ledc_channel_t_LEDC_CHANNEL_4);
-    impl_channel!(CHANNEL5: ledc_channel_t_LEDC_CHANNEL_5);
+    impl_channel!(CHANNEL0: ledc_channel_t::LEDC_CHANNEL_0);
+    impl_channel!(CHANNEL1: ledc_channel_t::LEDC_CHANNEL_1);
+    impl_channel!(CHANNEL2: ledc_channel_t::LEDC_CHANNEL_2);
+    impl_channel!(CHANNEL3: ledc_channel_t::LEDC_CHANNEL_3);
+    impl_channel!(CHANNEL4: ledc_channel_t::LEDC_CHANNEL_4);
+    impl_channel!(CHANNEL5: ledc_channel_t::LEDC_CHANNEL_5);
     #[cfg(any(esp32, esp32s2, esp32s3, esp8684))]
-    impl_channel!(CHANNEL6: ledc_channel_t_LEDC_CHANNEL_6);
+    impl_channel!(CHANNEL6: ledc_channel_t::LEDC_CHANNEL_6);
     #[cfg(any(esp32, esp32s2, esp32s3, esp8684))]
-    impl_channel!(CHANNEL7: ledc_channel_t_LEDC_CHANNEL_7);
+    impl_channel!(CHANNEL7: ledc_channel_t::LEDC_CHANNEL_7);
 
     /// The LED Control device peripheral
     pub struct Peripheral {

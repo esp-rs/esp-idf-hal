@@ -140,24 +140,23 @@ pub enum DriveStrength {
 impl From<DriveStrength> for gpio_drive_cap_t {
     fn from(strength: DriveStrength) -> gpio_drive_cap_t {
         match strength {
-            DriveStrength::I5mA => gpio_drive_cap_t_GPIO_DRIVE_CAP_0,
-            DriveStrength::I10mA => gpio_drive_cap_t_GPIO_DRIVE_CAP_1,
-            DriveStrength::I20mA => gpio_drive_cap_t_GPIO_DRIVE_CAP_2,
-            DriveStrength::I40mA => gpio_drive_cap_t_GPIO_DRIVE_CAP_3,
+            DriveStrength::I5mA => gpio_drive_cap_t::GPIO_DRIVE_CAP_0,
+            DriveStrength::I10mA => gpio_drive_cap_t::GPIO_DRIVE_CAP_1,
+            DriveStrength::I20mA => gpio_drive_cap_t::GPIO_DRIVE_CAP_2,
+            DriveStrength::I40mA => gpio_drive_cap_t::GPIO_DRIVE_CAP_3,
         }
     }
 }
 
 #[cfg(not(feature = "riscv-ulp-hal"))]
 impl From<gpio_drive_cap_t> for DriveStrength {
-    #[allow(non_upper_case_globals)]
     fn from(cap: gpio_drive_cap_t) -> DriveStrength {
         match cap {
-            gpio_drive_cap_t_GPIO_DRIVE_CAP_0 => DriveStrength::I5mA,
-            gpio_drive_cap_t_GPIO_DRIVE_CAP_1 => DriveStrength::I10mA,
-            gpio_drive_cap_t_GPIO_DRIVE_CAP_2 => DriveStrength::I20mA,
-            gpio_drive_cap_t_GPIO_DRIVE_CAP_3 => DriveStrength::I40mA,
-            other => panic!("Unknown GPIO pin drive capability: {}", other),
+            gpio_drive_cap_t::GPIO_DRIVE_CAP_0 => DriveStrength::I5mA,
+            gpio_drive_cap_t::GPIO_DRIVE_CAP_1 => DriveStrength::I10mA,
+            gpio_drive_cap_t::GPIO_DRIVE_CAP_2 => DriveStrength::I20mA,
+            gpio_drive_cap_t::GPIO_DRIVE_CAP_3 => DriveStrength::I40mA,
+            _ => unreachable!(),
         }
     }
 }
@@ -169,9 +168,14 @@ macro_rules! impl_base {
         where
             MODE: Send,
         {
+            #[inline(always)]
+            fn gpio_num(&self) -> gpio_num_t {
+                gpio_num_t(self.pin())
+            }
+
             fn reset(&mut self) -> Result<(), EspError> {
                 #[cfg(not(feature = "riscv-ulp-hal"))]
-                let res = esp_result!(unsafe { gpio_reset_pin(self.pin()) }, ());
+                let res = esp_result!(unsafe { gpio_reset_pin(self.gpio_num()) }, ());
                 #[cfg(feature = "riscv-ulp-hal")]
                 let res = Ok(());
 
@@ -179,7 +183,7 @@ macro_rules! impl_base {
             }
 
             fn get_input_level(&self) -> bool {
-                (unsafe { gpio_get_level(self.pin()) } != 0)
+                (unsafe { gpio_get_level(self.gpio_num()) } != 0)
             }
 
             #[cfg(not(feature = "riscv-ulp-hal"))]
@@ -202,38 +206,43 @@ macro_rules! impl_base {
 
             #[cfg(feature = "riscv-ulp-hal")]
             fn get_output_level(&self) -> bool {
-                (unsafe { gpio_get_output_level(self.pin()) } != 0)
+                (unsafe { gpio_get_output_level(self.gpio_num()) } != 0)
             }
 
             fn set_output_level(&mut self, on: bool) -> Result<(), EspError> {
-                esp_result!(unsafe { gpio_set_level(self.pin(), (on as u8).into()) }, ())
+                esp_result!(
+                    unsafe { gpio_set_level(self.gpio_num(), (on as u8).into()) },
+                    (),
+                )
             }
 
             #[cfg(not(feature = "riscv-ulp-hal"))]
             pub fn get_drive_strength(&self) -> Result<DriveStrength, EspError> {
-                let mut cap: gpio_drive_cap_t = 0;
+                let mut cap = gpio_drive_cap_t::GPIO_DRIVE_CAP_DEFAULT;
 
-                esp!(unsafe { gpio_get_drive_capability(self.pin(), &mut cap as *mut _) })?;
+                esp!(unsafe { gpio_get_drive_capability(self.gpio_num(), &mut cap as *mut _) })?;
 
                 Ok(cap.into())
             }
 
             #[cfg(not(feature = "riscv-ulp-hal"))]
             pub fn set_drive_strength(&mut self, strength: DriveStrength) -> Result<(), EspError> {
-                esp!(unsafe { gpio_set_drive_capability(self.pin(), strength.into()) })?;
+                esp!(unsafe { gpio_set_drive_capability(self.gpio_num(), strength.into()) })?;
 
                 Ok(())
             }
 
             fn set_disabled(&mut self) -> Result<(), EspError> {
-                esp!(unsafe { gpio_set_direction(self.pin(), gpio_mode_t_GPIO_MODE_DISABLE,) })?;
+                esp!(unsafe {
+                    gpio_set_direction(self.gpio_num(), gpio_mode_t::GPIO_MODE_DISABLE)
+                })?;
 
                 Ok(())
             }
 
             fn set_input(&mut self) -> Result<(), EspError> {
                 self.reset()?;
-                esp!(unsafe { gpio_set_direction(self.pin(), gpio_mode_t_GPIO_MODE_INPUT) })?;
+                esp!(unsafe { gpio_set_direction(self.gpio_num(), gpio_mode_t::GPIO_MODE_INPUT) })?;
 
                 Ok(())
             }
@@ -241,7 +250,7 @@ macro_rules! impl_base {
             fn set_input_output(&mut self) -> Result<(), EspError> {
                 self.reset()?;
                 esp!(unsafe {
-                    gpio_set_direction(self.pin(), gpio_mode_t_GPIO_MODE_INPUT_OUTPUT)
+                    gpio_set_direction(self.gpio_num(), gpio_mode_t::GPIO_MODE_INPUT_OUTPUT)
                 })?;
 
                 Ok(())
@@ -250,7 +259,7 @@ macro_rules! impl_base {
             fn set_input_output_od(&mut self) -> Result<(), EspError> {
                 self.reset()?;
                 esp!(unsafe {
-                    gpio_set_direction(self.pin(), gpio_mode_t_GPIO_MODE_INPUT_OUTPUT_OD)
+                    gpio_set_direction(self.gpio_num(), gpio_mode_t::GPIO_MODE_INPUT_OUTPUT_OD)
                 })?;
 
                 Ok(())
@@ -258,14 +267,18 @@ macro_rules! impl_base {
 
             fn set_output(&mut self) -> Result<(), EspError> {
                 self.reset()?;
-                esp!(unsafe { gpio_set_direction(self.pin(), gpio_mode_t_GPIO_MODE_OUTPUT,) })?;
+                esp!(unsafe {
+                    gpio_set_direction(self.gpio_num(), gpio_mode_t::GPIO_MODE_OUTPUT)
+                })?;
 
                 Ok(())
             }
 
             fn set_output_od(&mut self) -> Result<(), EspError> {
                 self.reset()?;
-                esp!(unsafe { gpio_set_direction(self.pin(), gpio_mode_t_GPIO_MODE_OUTPUT_OD,) })?;
+                esp!(unsafe {
+                    gpio_set_direction(self.gpio_num(), gpio_mode_t::GPIO_MODE_OUTPUT_OD)
+                })?;
 
                 Ok(())
             }
@@ -284,14 +297,18 @@ macro_rules! impl_pull {
 
             fn set_pull_up(&mut self) -> Result<&mut Self, Self::Error> {
                 esp_result!(
-                    unsafe { gpio_set_pull_mode(self.pin(), gpio_pull_mode_t_GPIO_PULLUP_ONLY,) },
+                    unsafe {
+                        gpio_set_pull_mode(self.gpio_num(), gpio_pull_mode_t::GPIO_PULLUP_ONLY)
+                    },
                     self
                 )
             }
 
             fn set_pull_down(&mut self) -> Result<&mut Self, Self::Error> {
                 esp_result!(
-                    unsafe { gpio_set_pull_mode(self.pin(), gpio_pull_mode_t_GPIO_PULLDOWN_ONLY,) },
+                    unsafe {
+                        gpio_set_pull_mode(self.gpio_num(), gpio_pull_mode_t::GPIO_PULLDOWN_ONLY)
+                    },
                     self
                 )
             }
@@ -299,7 +316,7 @@ macro_rules! impl_pull {
             fn set_pull_up_down(&mut self) -> Result<&mut Self, Self::Error> {
                 esp_result!(
                     unsafe {
-                        gpio_set_pull_mode(self.pin(), gpio_pull_mode_t_GPIO_PULLUP_PULLDOWN)
+                        gpio_set_pull_mode(self.gpio_num(), gpio_pull_mode_t::GPIO_PULLUP_PULLDOWN)
                     },
                     self
                 )
@@ -307,7 +324,7 @@ macro_rules! impl_pull {
 
             fn set_floating(&mut self) -> Result<&mut Self, Self::Error> {
                 esp_result!(
-                    unsafe { gpio_set_pull_mode(self.pin(), gpio_pull_mode_t_GPIO_FLOATING,) },
+                    unsafe { gpio_set_pull_mode(self.gpio_num(), gpio_pull_mode_t::GPIO_FLOATING) },
                     self
                 )
             }
@@ -446,11 +463,18 @@ macro_rules! impl_adc {
         where
             MODE: Send,
         {
+            #[inline(always)]
+            fn adc1_channel(&self) -> adc1_channel_t {
+                adc1_channel_t($adc)
+            }
+
             pub fn into_analog_atten_0db(
                 mut self,
             ) -> Result<$pxi<adc::Atten0dB<adc::ADC1>>, EspError> {
                 self.reset()?;
-                esp!(unsafe { adc1_config_channel_atten($adc, adc_atten_t_ADC_ATTEN_DB_0) })?;
+                esp!(unsafe {
+                    adc1_config_channel_atten(self.adc1_channel(), adc_atten_t::ADC_ATTEN_DB_0)
+                })?;
 
                 Ok($pxi { _mode: PhantomData })
             }
@@ -459,7 +483,9 @@ macro_rules! impl_adc {
                 mut self,
             ) -> Result<$pxi<adc::Atten2p5dB<adc::ADC1>>, EspError> {
                 self.reset()?;
-                esp!(unsafe { adc1_config_channel_atten($adc, adc_atten_t_ADC_ATTEN_DB_2_5) })?;
+                esp!(unsafe {
+                    adc1_config_channel_atten(self.adc1_channel(), adc_atten_t::ADC_ATTEN_DB_2_5)
+                })?;
 
                 Ok($pxi { _mode: PhantomData })
             }
@@ -468,7 +494,9 @@ macro_rules! impl_adc {
                 mut self,
             ) -> Result<$pxi<adc::Atten6dB<adc::ADC1>>, EspError> {
                 self.reset()?;
-                esp!(unsafe { adc1_config_channel_atten($adc, adc_atten_t_ADC_ATTEN_DB_6) })?;
+                esp!(unsafe {
+                    adc1_config_channel_atten(self.adc1_channel(), adc_atten_t::ADC_ATTEN_DB_6)
+                })?;
 
                 Ok($pxi { _mode: PhantomData })
             }
@@ -477,7 +505,9 @@ macro_rules! impl_adc {
                 mut self,
             ) -> Result<$pxi<adc::Atten11dB<adc::ADC1>>, EspError> {
                 self.reset()?;
-                esp!(unsafe { adc1_config_channel_atten($adc, adc_atten_t_ADC_ATTEN_DB_11) })?;
+                esp!(unsafe {
+                    adc1_config_channel_atten(self.adc1_channel(), adc_atten_t::ADC_ATTEN_DB_11)
+                })?;
 
                 Ok($pxi { _mode: PhantomData })
             }
@@ -488,11 +518,11 @@ macro_rules! impl_adc {
             MODE: Send,
         {
             fn adc_unit(&self) -> adc_unit_t {
-                adc_unit_t_ADC_UNIT_1
+                adc_unit_t::ADC_UNIT_1
             }
 
             fn adc_channel(&self) -> adc_channel_t {
-                $adc
+                adc_channel_t($adc)
             }
         }
 
@@ -525,11 +555,18 @@ macro_rules! impl_adc {
         where
             MODE: Send,
         {
+            #[inline(always)]
+            fn adc2_channel(&self) -> adc2_channel_t {
+                adc2_channel_t($adc)
+            }
+
             pub fn into_analog_atten_0db(
                 mut self,
             ) -> Result<$pxi<adc::Atten0dB<adc::ADC2>>, EspError> {
                 self.reset()?;
-                esp!(unsafe { adc2_config_channel_atten($adc, adc_atten_t_ADC_ATTEN_DB_0) })?;
+                esp!(unsafe {
+                    adc2_config_channel_atten(self.adc2_channel(), adc_atten_t::ADC_ATTEN_DB_0)
+                })?;
 
                 Ok($pxi { _mode: PhantomData })
             }
@@ -538,7 +575,9 @@ macro_rules! impl_adc {
                 mut self,
             ) -> Result<$pxi<adc::Atten2p5dB<adc::ADC2>>, EspError> {
                 self.reset()?;
-                esp!(unsafe { adc2_config_channel_atten($adc, adc_atten_t_ADC_ATTEN_DB_2_5) })?;
+                esp!(unsafe {
+                    adc2_config_channel_atten(self.adc2_channel(), adc_atten_t::ADC_ATTEN_DB_2_5)
+                })?;
 
                 Ok($pxi { _mode: PhantomData })
             }
@@ -547,7 +586,9 @@ macro_rules! impl_adc {
                 mut self,
             ) -> Result<$pxi<adc::Atten6dB<adc::ADC2>>, EspError> {
                 self.reset()?;
-                esp!(unsafe { adc2_config_channel_atten($adc, adc_atten_t_ADC_ATTEN_DB_6) })?;
+                esp!(unsafe {
+                    adc2_config_channel_atten(self.adc2_channel(), adc_atten_t::ADC_ATTEN_DB_6)
+                })?;
 
                 Ok($pxi { _mode: PhantomData })
             }
@@ -556,7 +597,9 @@ macro_rules! impl_adc {
                 mut self,
             ) -> Result<$pxi<adc::Atten11dB<adc::ADC2>>, EspError> {
                 self.reset()?;
-                esp!(unsafe { adc2_config_channel_atten($adc, adc_atten_t_ADC_ATTEN_DB_11) })?;
+                esp!(unsafe {
+                    adc2_config_channel_atten(self.adc2_channel(), adc_atten_t::ADC_ATTEN_DB_11)
+                })?;
 
                 Ok($pxi { _mode: PhantomData })
             }
@@ -567,11 +610,11 @@ macro_rules! impl_adc {
             MODE: Send,
         {
             fn adc_unit(&self) -> adc_unit_t {
-                adc_unit_t_ADC_UNIT_2
+                adc_unit_t::ADC_UNIT_2
             }
 
             fn adc_channel(&self) -> adc_channel_t {
-                $adc
+                adc_channel_t($adc)
             }
         }
 
@@ -582,7 +625,7 @@ macro_rules! impl_adc {
             type ID = u8;
 
             fn channel() -> Self::ID {
-                $adc as u8
+                $adc
             }
         }
 
@@ -593,7 +636,7 @@ macro_rules! impl_adc {
             type ID = u8;
 
             fn channel(&self) -> Self::ID {
-                adc_unit_t_ADC_UNIT_2 as u8
+                adc_unit_t::ADC_UNIT_2.0 as u8
             }
         }
     };
@@ -609,7 +652,7 @@ macro_rules! impl_dac {
             MODE: Send,
         {
             fn dac_channel(&self) -> dac_channel_t {
-                $dac
+                dac_channel_t($dac)
             }
         }
     };
@@ -625,7 +668,7 @@ macro_rules! impl_touch {
             MODE: Send,
         {
             fn touch_channel(&self) -> touch_pad_t {
-                $touch
+                touch_pad_t($touch)
             }
         }
     };

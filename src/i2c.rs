@@ -179,7 +179,7 @@ where
         }
 
         let sys_config = i2c_config_t {
-            mode: i2c_mode_t_I2C_MODE_MASTER,
+            mode: i2c_mode_t::I2C_MODE_MASTER,
             sda_io_num: pins.sda.pin(),
             sda_pullup_en: config.sda_pullup_enabled,
             scl_io_num: pins.scl.pin(),
@@ -197,7 +197,7 @@ where
         esp!(unsafe {
             i2c_driver_install(
                 I2C::port(),
-                i2c_mode_t_I2C_MODE_MASTER,
+                i2c_mode_t::I2C_MODE_MASTER,
                 0, // Not used in master mode
                 0, // Not used in master mode
                 0,
@@ -283,7 +283,7 @@ where
             esp!(i2c_master_start(command_link.0)).map_err(I2cError::other)?;
             esp!(i2c_master_write_byte(
                 command_link.0,
-                (addr << 1) | (i2c_rw_t_I2C_MASTER_READ as u8),
+                (addr << 1) | (i2c_rw_t::I2C_MASTER_READ.0 as u8),
                 true
             ))
             .map_err(I2cError::other)?;
@@ -291,7 +291,7 @@ where
                 command_link.0,
                 buffer.as_ptr() as *const u8 as *mut u8,
                 buffer.len() as u32,
-                i2c_ack_type_t_I2C_MASTER_LAST_NACK
+                i2c_ack_type_t::I2C_MASTER_LAST_NACK
             ))
             .map_err(I2cError::other)?;
             esp!(i2c_master_stop(command_link.0)).map_err(I2cError::other)?;
@@ -311,7 +311,7 @@ where
             esp!(i2c_master_start(command_link.0)).map_err(I2cError::other)?;
             esp!(i2c_master_write_byte(
                 command_link.0,
-                (addr << 1) | (i2c_rw_t_I2C_MASTER_WRITE as u8),
+                (addr << 1) | (i2c_rw_t::I2C_MASTER_WRITE.0 as u8),
                 true
             ))
             .map_err(I2cError::other)?;
@@ -339,7 +339,7 @@ where
             esp!(i2c_master_start(command_link.0)).map_err(I2cError::other)?;
             esp!(i2c_master_write_byte(
                 command_link.0,
-                (addr << 1) | (i2c_rw_t_I2C_MASTER_WRITE as u8),
+                (addr << 1) | (i2c_rw_t::I2C_MASTER_WRITE.0 as u8),
                 true
             ))
             .map_err(I2cError::other)?;
@@ -354,7 +354,7 @@ where
             esp!(i2c_master_start(command_link.0)).map_err(I2cError::other)?;
             esp!(i2c_master_write_byte(
                 command_link.0,
-                (addr << 1) | (i2c_rw_t_I2C_MASTER_READ as u8),
+                (addr << 1) | (i2c_rw_t::I2C_MASTER_READ.0 as u8),
                 true
             ))
             .map_err(I2cError::other)?;
@@ -362,7 +362,7 @@ where
                 command_link.0,
                 buffer.as_ptr() as *const u8 as *mut u8,
                 buffer.len() as u32,
-                i2c_ack_type_t_I2C_MASTER_LAST_NACK
+                i2c_ack_type_t::I2C_MASTER_LAST_NACK
             ))
             .map_err(I2cError::other)?;
 
@@ -425,7 +425,7 @@ where
     ) -> Result<Self, EspError> {
         #[cfg(any(esp_idf_version = "4.4", esp_idf_version_major = "5"))]
         let sys_config = i2c_config_t {
-            mode: i2c_mode_t_I2C_MODE_SLAVE,
+            mode: i2c_mode_t::I2C_MODE_SLAVE,
             sda_io_num: pins.sda.pin(),
             sda_pullup_en: config.sda_pullup_enabled,
             scl_io_num: pins.scl.pin(),
@@ -442,7 +442,7 @@ where
 
         #[cfg(not(any(esp_idf_version = "4.4", esp_idf_version_major = "5")))]
         let sys_config = i2c_config_t {
-            mode: i2c_mode_t_I2C_MODE_SLAVE,
+            mode: i2c_mode_t::I2C_MODE_SLAVE,
             sda_io_num: pins.sda.pin(),
             sda_pullup_en: config.sda_pullup_enabled,
             scl_io_num: pins.scl.pin(),
@@ -461,7 +461,7 @@ where
         esp!(unsafe {
             i2c_driver_install(
                 I2C::port(),
-                i2c_mode_t_I2C_MODE_SLAVE,
+                i2c_mode_t::I2C_MODE_SLAVE,
                 config.rx_buf_len as u32,
                 config.tx_buf_len as u32,
                 0, // TODO: set flags

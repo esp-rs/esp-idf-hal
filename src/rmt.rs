@@ -350,10 +350,20 @@ impl<P: OutputPin, C: HwChannel> Transmit<P, C> {
         let carrier_en = config.carrier.is_some();
         let carrier = config.carrier.unwrap_or_default();
 
+        let carrier_level = match carrier.carrier_level {
+            PinState::Low => rmt_carrier_level_t::RMT_CARRIER_LEVEL_LOW,
+            PinState::High => rmt_carrier_level_t::RMT_CARRIER_LEVEL_HIGH,
+        };
+
+        let idle_level = match config.idle.unwrap_or(PinState::Low) {
+            PinState::Low => rmt_idle_level_t::RMT_IDLE_LEVEL_LOW,
+            PinState::High => rmt_idle_level_t::RMT_IDLE_LEVEL_HIGH,
+        };
+
         let sys_config = rmt_config_t {
-            rmt_mode: rmt_mode_t_RMT_MODE_TX,
+            rmt_mode: rmt_mode_t::RMT_MODE_TX,
             channel: C::channel(),
-            gpio_num: pin.pin(),
+            gpio_num: gpio_num_t(pin.pin()),
             clk_div: config.clock_divider,
             mem_block_num: config.mem_block_num,
             flags,
@@ -361,10 +371,10 @@ impl<P: OutputPin, C: HwChannel> Transmit<P, C> {
                 tx_config: rmt_tx_config_t {
                     carrier_en,
                     carrier_freq_hz: carrier.frequency.into(),
-                    carrier_level: carrier.carrier_level as u32,
+                    carrier_level,
                     carrier_duty_percent: carrier.duty_percent.0,
                     idle_output_en: config.idle.is_some(),
-                    idle_level: config.idle.map(|i| i as u32).unwrap_or(0),
+                    idle_level,
                     loop_en: config.looping != config::Loop::None,
                     #[cfg(not(any(esp32, esp32c2)))]
                     loop_count: match config.looping {
@@ -651,18 +661,18 @@ mod chip {
 
     // SOC_RMT_CHANNELS_PER_GROUP defines how many channels there are.
 
-    impl_channel!(CHANNEL0: rmt_channel_t_RMT_CHANNEL_0);
-    impl_channel!(CHANNEL1: rmt_channel_t_RMT_CHANNEL_1);
-    impl_channel!(CHANNEL2: rmt_channel_t_RMT_CHANNEL_2);
-    impl_channel!(CHANNEL3: rmt_channel_t_RMT_CHANNEL_3);
+    impl_channel!(CHANNEL0: rmt_channel_t::RMT_CHANNEL_0);
+    impl_channel!(CHANNEL1: rmt_channel_t::RMT_CHANNEL_1);
+    impl_channel!(CHANNEL2: rmt_channel_t::RMT_CHANNEL_2);
+    impl_channel!(CHANNEL3: rmt_channel_t::RMT_CHANNEL_3);
     #[cfg(any(esp32, esp32s3))]
-    impl_channel!(CHANNEL4: rmt_channel_t_RMT_CHANNEL_4);
+    impl_channel!(CHANNEL4: rmt_channel_t::RMT_CHANNEL_4);
     #[cfg(any(esp32, esp32s3))]
-    impl_channel!(CHANNEL5: rmt_channel_t_RMT_CHANNEL_5);
+    impl_channel!(CHANNEL5: rmt_channel_t::RMT_CHANNEL_5);
     #[cfg(any(esp32, esp32s3))]
-    impl_channel!(CHANNEL6: rmt_channel_t_RMT_CHANNEL_6);
+    impl_channel!(CHANNEL6: rmt_channel_t::RMT_CHANNEL_6);
     #[cfg(any(esp32, esp32s3))]
-    impl_channel!(CHANNEL7: rmt_channel_t_RMT_CHANNEL_7);
+    impl_channel!(CHANNEL7: rmt_channel_t::RMT_CHANNEL_7);
 
     pub struct Peripheral {
         pub channel0: CHANNEL0,

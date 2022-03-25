@@ -76,22 +76,21 @@ pub mod config {
     impl From<DataBits> for uart_word_length_t {
         fn from(data_bits: DataBits) -> Self {
             match data_bits {
-                DataBits::DataBits5 => uart_word_length_t_UART_DATA_5_BITS,
-                DataBits::DataBits6 => uart_word_length_t_UART_DATA_6_BITS,
-                DataBits::DataBits7 => uart_word_length_t_UART_DATA_7_BITS,
-                DataBits::DataBits8 => uart_word_length_t_UART_DATA_8_BITS,
+                DataBits::DataBits5 => uart_word_length_t::UART_DATA_5_BITS,
+                DataBits::DataBits6 => uart_word_length_t::UART_DATA_6_BITS,
+                DataBits::DataBits7 => uart_word_length_t::UART_DATA_7_BITS,
+                DataBits::DataBits8 => uart_word_length_t::UART_DATA_8_BITS,
             }
         }
     }
 
     impl From<uart_word_length_t> for DataBits {
-        #[allow(non_upper_case_globals)]
         fn from(word_length: uart_word_length_t) -> Self {
             match word_length {
-                uart_word_length_t_UART_DATA_5_BITS => DataBits::DataBits5,
-                uart_word_length_t_UART_DATA_6_BITS => DataBits::DataBits6,
-                uart_word_length_t_UART_DATA_7_BITS => DataBits::DataBits7,
-                uart_word_length_t_UART_DATA_8_BITS => DataBits::DataBits8,
+                uart_word_length_t::UART_DATA_5_BITS => DataBits::DataBits5,
+                uart_word_length_t::UART_DATA_6_BITS => DataBits::DataBits6,
+                uart_word_length_t::UART_DATA_7_BITS => DataBits::DataBits7,
+                uart_word_length_t::UART_DATA_8_BITS => DataBits::DataBits8,
                 _ => unreachable!(),
             }
         }
@@ -104,30 +103,26 @@ pub mod config {
         RTS,
         CTS,
         CTSRTS,
-        MAX,
     }
 
     impl From<FlowControl> for uart_hw_flowcontrol_t {
         fn from(flow_control: FlowControl) -> Self {
             match flow_control {
-                FlowControl::None => uart_hw_flowcontrol_t_UART_HW_FLOWCTRL_DISABLE,
-                FlowControl::RTS => uart_hw_flowcontrol_t_UART_HW_FLOWCTRL_RTS,
-                FlowControl::CTS => uart_hw_flowcontrol_t_UART_HW_FLOWCTRL_CTS,
-                FlowControl::CTSRTS => uart_hw_flowcontrol_t_UART_HW_FLOWCTRL_CTS_RTS,
-                FlowControl::MAX => uart_hw_flowcontrol_t_UART_HW_FLOWCTRL_MAX,
+                FlowControl::None => uart_hw_flowcontrol_t::UART_HW_FLOWCTRL_DISABLE,
+                FlowControl::RTS => uart_hw_flowcontrol_t::UART_HW_FLOWCTRL_RTS,
+                FlowControl::CTS => uart_hw_flowcontrol_t::UART_HW_FLOWCTRL_CTS,
+                FlowControl::CTSRTS => uart_hw_flowcontrol_t::UART_HW_FLOWCTRL_CTS_RTS,
             }
         }
     }
 
     impl From<uart_hw_flowcontrol_t> for FlowControl {
-        #[allow(non_upper_case_globals)]
         fn from(flow_control: uart_hw_flowcontrol_t) -> Self {
             match flow_control {
-                uart_hw_flowcontrol_t_UART_HW_FLOWCTRL_DISABLE => FlowControl::None,
-                uart_hw_flowcontrol_t_UART_HW_FLOWCTRL_RTS => FlowControl::RTS,
-                uart_hw_flowcontrol_t_UART_HW_FLOWCTRL_CTS => FlowControl::CTS,
-                uart_hw_flowcontrol_t_UART_HW_FLOWCTRL_CTS_RTS => FlowControl::CTSRTS,
-                uart_hw_flowcontrol_t_UART_HW_FLOWCTRL_MAX => FlowControl::MAX,
+                uart_hw_flowcontrol_t::UART_HW_FLOWCTRL_DISABLE => FlowControl::None,
+                uart_hw_flowcontrol_t::UART_HW_FLOWCTRL_RTS => FlowControl::RTS,
+                uart_hw_flowcontrol_t::UART_HW_FLOWCTRL_CTS => FlowControl::CTS,
+                uart_hw_flowcontrol_t::UART_HW_FLOWCTRL_CTS_RTS => FlowControl::CTSRTS,
                 _ => unreachable!(),
             }
         }
@@ -144,20 +139,19 @@ pub mod config {
     impl From<Parity> for uart_parity_t {
         fn from(parity: Parity) -> Self {
             match parity {
-                Parity::ParityNone => uart_parity_t_UART_PARITY_DISABLE,
-                Parity::ParityEven => uart_parity_t_UART_PARITY_EVEN,
-                Parity::ParityOdd => uart_parity_t_UART_PARITY_ODD,
+                Parity::ParityNone => uart_parity_t::UART_PARITY_DISABLE,
+                Parity::ParityEven => uart_parity_t::UART_PARITY_EVEN,
+                Parity::ParityOdd => uart_parity_t::UART_PARITY_ODD,
             }
         }
     }
 
     impl From<uart_parity_t> for Parity {
-        #[allow(non_upper_case_globals)]
         fn from(parity: uart_parity_t) -> Self {
             match parity {
-                uart_parity_t_UART_PARITY_DISABLE => Parity::ParityNone,
-                uart_parity_t_UART_PARITY_EVEN => Parity::ParityEven,
-                uart_parity_t_UART_PARITY_ODD => Parity::ParityOdd,
+                uart_parity_t::UART_PARITY_DISABLE => Parity::ParityNone,
+                uart_parity_t::UART_PARITY_EVEN => Parity::ParityEven,
+                uart_parity_t::UART_PARITY_ODD => Parity::ParityOdd,
                 _ => unreachable!(),
             }
         }
@@ -177,20 +171,19 @@ pub mod config {
     impl From<StopBits> for uart_stop_bits_t {
         fn from(stop_bits: StopBits) -> Self {
             match stop_bits {
-                StopBits::STOP1 => uart_stop_bits_t_UART_STOP_BITS_1,
-                StopBits::STOP1P5 => uart_stop_bits_t_UART_STOP_BITS_1_5,
-                StopBits::STOP2 => uart_stop_bits_t_UART_STOP_BITS_2,
+                StopBits::STOP1 => uart_stop_bits_t::UART_STOP_BITS_1,
+                StopBits::STOP1P5 => uart_stop_bits_t::UART_STOP_BITS_1_5,
+                StopBits::STOP2 => uart_stop_bits_t::UART_STOP_BITS_2,
             }
         }
     }
 
     impl From<uart_stop_bits_t> for StopBits {
-        #[allow(non_upper_case_globals)]
         fn from(stop_bits: uart_stop_bits_t) -> Self {
             match stop_bits {
-                uart_stop_bits_t_UART_STOP_BITS_1 => StopBits::STOP1,
-                uart_stop_bits_t_UART_STOP_BITS_1_5 => StopBits::STOP1P5,
-                uart_stop_bits_t_UART_STOP_BITS_2 => StopBits::STOP2,
+                uart_stop_bits_t::UART_STOP_BITS_1 => StopBits::STOP1,
+                uart_stop_bits_t::UART_STOP_BITS_1_5 => StopBits::STOP1P5,
+                uart_stop_bits_t::UART_STOP_BITS_2 => StopBits::STOP2,
                 _ => unreachable!(),
             }
         }
@@ -378,7 +371,7 @@ impl<UART: Uart, TX: OutputPin, RX: InputPin, CTS: InputPin, RTS: OutputPin>
 
     /// Retruns the current number of stop bits
     pub fn stop_bits(&self) -> Result<config::StopBits, EspError> {
-        let mut stop_bits: uart_stop_bits_t = 0;
+        let mut stop_bits = uart_stop_bits_t::UART_STOP_BITS_1;
         esp_result!(
             unsafe { uart_get_stop_bits(UART::port(), &mut stop_bits) },
             stop_bits.into()
@@ -395,7 +388,7 @@ impl<UART: Uart, TX: OutputPin, RX: InputPin, CTS: InputPin, RTS: OutputPin>
 
     /// Return the current number of data bits
     pub fn data_bits(&self) -> Result<config::DataBits, EspError> {
-        let mut data_bits: uart_word_length_t = 0;
+        let mut data_bits = uart_word_length_t::UART_DATA_5_BITS;
         esp_result!(
             unsafe { uart_get_word_length(UART::port(), &mut data_bits) },
             data_bits.into()
@@ -412,7 +405,7 @@ impl<UART: Uart, TX: OutputPin, RX: InputPin, CTS: InputPin, RTS: OutputPin>
 
     /// Returns the current type of parity checking
     pub fn parity(&self) -> Result<config::Parity, EspError> {
-        let mut parity: uart_parity_t = 0;
+        let mut parity = uart_parity_t::UART_PARITY_DISABLE;
         esp_result!(
             unsafe { uart_get_parity(UART::port(), &mut parity) },
             parity.into()

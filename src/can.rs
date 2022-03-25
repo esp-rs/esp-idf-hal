@@ -239,11 +239,11 @@ unsafe impl<TX: OutputPin, RX: InputPin> Send for CanBus<TX, RX> {}
 impl<TX: OutputPin, RX: InputPin> CanBus<TX, RX> {
     pub fn new(can: CAN, tx: TX, rx: RX, config: config::Config) -> Result<Self, EspError> {
         let general_config = twai_general_config_t {
-            mode: twai_mode_t_TWAI_MODE_NORMAL,
-            tx_io: tx.pin(),
-            rx_io: rx.pin(),
-            clkout_io: -1,
-            bus_off_io: -1,
+            mode: twai_mode_t::TWAI_MODE_NORMAL,
+            tx_io: gpio_num_t(tx.pin()),
+            rx_io: gpio_num_t(rx.pin()),
+            clkout_io: gpio_num_t(-1),
+            bus_off_io: gpio_num_t(-1),
             tx_queue_len: 5,
             rx_queue_len: 5,
             alerts_enabled: TWAI_ALERT_NONE,

@@ -35,25 +35,25 @@ pub struct Atten11dB<ADC: Adc> {
 
 impl<ADC: Adc> Analog<ADC> for Atten0dB<ADC> {
     fn attenuation() -> adc_atten_t {
-        adc_atten_t_ADC_ATTEN_DB_0
+        adc_atten_t::ADC_ATTEN_DB_0
     }
 }
 
 impl<ADC: Adc> Analog<ADC> for Atten2p5dB<ADC> {
     fn attenuation() -> adc_atten_t {
-        adc_atten_t_ADC_ATTEN_DB_2_5
+        adc_atten_t::ADC_ATTEN_DB_2_5
     }
 }
 
 impl<ADC: Adc> Analog<ADC> for Atten6dB<ADC> {
     fn attenuation() -> adc_atten_t {
-        adc_atten_t_ADC_ATTEN_DB_6
+        adc_atten_t::ADC_ATTEN_DB_6
     }
 }
 
 impl<ADC: Adc> Analog<ADC> for Atten11dB<ADC> {
     fn attenuation() -> adc_atten_t {
-        adc_atten_t_ADC_ATTEN_DB_11
+        adc_atten_t::ADC_ATTEN_DB_11
     }
 }
 
@@ -93,15 +93,15 @@ pub mod config {
         fn from(resolution: Resolution) -> Self {
             match resolution {
                 #[cfg(esp32)]
-                Resolution::Resolution9Bit => adc_bits_width_t_ADC_WIDTH_BIT_9,
+                Resolution::Resolution9Bit => adc_bits_width_t::ADC_WIDTH_BIT_9,
                 #[cfg(esp32)]
-                Resolution::Resolution10Bit => adc_bits_width_t_ADC_WIDTH_BIT_10,
+                Resolution::Resolution10Bit => adc_bits_width_t::ADC_WIDTH_BIT_10,
                 #[cfg(esp32)]
-                Resolution::Resolution11Bit => adc_bits_width_t_ADC_WIDTH_BIT_11,
+                Resolution::Resolution11Bit => adc_bits_width_t::ADC_WIDTH_BIT_11,
                 #[cfg(any(esp32, esp32s3, esp32c3))]
-                Resolution::Resolution12Bit => adc_bits_width_t_ADC_WIDTH_BIT_12,
+                Resolution::Resolution12Bit => adc_bits_width_t::ADC_WIDTH_BIT_12,
                 #[cfg(esp32s2)]
-                Resolution::Resolution13Bit => adc_bits_width_t_ADC_WIDTH_BIT_13,
+                Resolution::Resolution13Bit => adc_bits_width_t::ADC_WIDTH_BIT_13,
             }
         }
     }
@@ -136,7 +136,7 @@ pub struct PoweredAdc<ADC: Adc> {
     adc: ADC,
     resolution: config::Resolution,
     cal_characteristics:
-        Option<[Option<esp_adc_cal_characteristics_t>; adc_atten_t_ADC_ATTEN_MAX as usize + 1]>,
+        Option<[Option<esp_adc_cal_characteristics_t>; adc_atten_t::ADC_ATTEN_MAX.0 as usize + 1]>,
 }
 
 #[cfg(not(feature = "riscv-ulp-hal"))]
@@ -145,14 +145,14 @@ unsafe impl<ADC: Adc> Send for PoweredAdc<ADC> {}
 #[cfg(not(feature = "riscv-ulp-hal"))]
 impl<ADC: Adc> PoweredAdc<ADC> {
     #[cfg(esp32)]
-    const CALIBRATION_SCHEME: esp_adc_cal_value_t = esp_adc_cal_value_t_ESP_ADC_CAL_VAL_EFUSE_VREF;
+    const CALIBRATION_SCHEME: esp_adc_cal_value_t = esp_adc_cal_value_t::ESP_ADC_CAL_VAL_EFUSE_VREF;
 
     #[cfg(any(esp32c3, esp32s2))]
-    const CALIBRATION_SCHEME: esp_adc_cal_value_t = esp_adc_cal_value_t_ESP_ADC_CAL_VAL_EFUSE_TP;
+    const CALIBRATION_SCHEME: esp_adc_cal_value_t = esp_adc_cal_value_t::ESP_ADC_CAL_VAL_EFUSE_TP;
 
     #[cfg(esp32s3)]
     const CALIBRATION_SCHEME: esp_adc_cal_value_t =
-        esp_adc_cal_value_t_ESP_ADC_CAL_VAL_EFUSE_TP_FIT;
+        esp_adc_cal_value_t::ESP_ADC_CAL_VAL_EFUSE_TP_FIT;
 
     #[cfg(not(esp32s2))]
     const MAX_READING: u32 = 4095;
@@ -165,7 +165,7 @@ impl<ADC: Adc> PoweredAdc<ADC> {
             esp!(unsafe { esp_adc_cal_check_efuse(Self::CALIBRATION_SCHEME) })?;
         }
 
-        if ADC::unit() == adc_unit_t_ADC_UNIT_1 {
+        if ADC::unit() == adc_unit_t::ADC_UNIT_1 {
             esp!(unsafe { adc1_config_width(config.resolution.into()) })?;
         }
 
@@ -198,33 +198,32 @@ impl<ADC: Adc> PoweredAdc<ADC> {
         Ok(mv)
     }
 
-    #[allow(non_upper_case_globals)]
     fn get_max_mv(attenuation: adc_atten_t) -> u32 {
         #[cfg(esp32)]
         let mv = match attenuation {
-            adc_atten_t_ADC_ATTEN_DB_0 => 950,
-            adc_atten_t_ADC_ATTEN_DB_2_5 => 1250,
-            adc_atten_t_ADC_ATTEN_DB_6 => 1750,
-            adc_atten_t_ADC_ATTEN_DB_11 => 2450,
-            other => panic!("Unknown attenuation: {}", other),
+            adc_atten_t::ADC_ATTEN_DB_0 => 950,
+            adc_atten_t::ADC_ATTEN_DB_2_5 => 1250,
+            adc_atten_t::ADC_ATTEN_DB_6 => 1750,
+            adc_atten_t::ADC_ATTEN_DB_11 => 2450,
+            _ => unreachable!(),
         };
 
         #[cfg(any(esp32c3, esp32s2))]
         let mv = match attenuation {
-            adc_atten_t_ADC_ATTEN_DB_0 => 750,
-            adc_atten_t_ADC_ATTEN_DB_2_5 => 1050,
-            adc_atten_t_ADC_ATTEN_DB_6 => 1300,
-            adc_atten_t_ADC_ATTEN_DB_11 => 2500,
-            other => panic!("Unknown attenuation: {}", other),
+            adc_atten_t::ADC_ATTEN_DB_0 => 750,
+            adc_atten_t::ADC_ATTEN_DB_2_5 => 1050,
+            adc_atten_t::ADC_ATTEN_DB_6 => 1300,
+            adc_atten_t::ADC_ATTEN_DB_11 => 2500,
+            _ => unreachable!(),
         };
 
         #[cfg(esp32s3)]
         let mv = match attenuation {
-            adc_atten_t_ADC_ATTEN_DB_0 => 950,
-            adc_atten_t_ADC_ATTEN_DB_2_5 => 1250,
-            adc_atten_t_ADC_ATTEN_DB_6 => 1750,
-            adc_atten_t_ADC_ATTEN_DB_11 => 3100,
-            other => panic!("Unknown attenuation: {}", other),
+            adc_atten_t::ADC_ATTEN_DB_0 => 950,
+            adc_atten_t::ADC_ATTEN_DB_2_5 => 1250,
+            adc_atten_t::ADC_ATTEN_DB_6 => 1750,
+            adc_atten_t::ADC_ATTEN_DB_11 => 3100,
+            _ => unreachable!(),
         };
 
         mv
@@ -235,7 +234,7 @@ impl<ADC: Adc> PoweredAdc<ADC> {
         attenuation: adc_atten_t,
     ) -> Result<Option<esp_adc_cal_characteristics_t>, EspError> {
         if let Some(characteristics) = &mut self.cal_characteristics {
-            if let Some(cal) = characteristics[attenuation as usize] {
+            if let Some(cal) = characteristics[attenuation.0 as usize] {
                 Ok(Some(cal))
             } else {
                 esp!(unsafe { esp_adc_cal_check_efuse(Self::CALIBRATION_SCHEME) })?;
@@ -251,7 +250,7 @@ impl<ADC: Adc> PoweredAdc<ADC> {
                     )
                 };
 
-                characteristics[attenuation as usize] = Some(cal);
+                characteristics[attenuation.0 as usize] = Some(cal);
 
                 Ok(Some(cal))
             }
@@ -268,11 +267,15 @@ impl<ADC: Adc> PoweredAdc<ADC> {
     ) -> nb::Result<u16, EspError> {
         let mut measurement = 0_i32;
 
-        if unit == adc_unit_t_ADC_UNIT_1 {
-            measurement = unsafe { adc1_get_raw(channel) };
+        if unit == adc_unit_t::ADC_UNIT_1 {
+            measurement = unsafe { adc1_get_raw(adc1_channel_t(channel.0)) };
         } else {
             let res = unsafe {
-                adc2_get_raw(channel, self.resolution.into(), &mut measurement as *mut _)
+                adc2_get_raw(
+                    adc2_channel_t(channel.0),
+                    self.resolution.into(),
+                    &mut measurement as *mut _,
+                )
             };
 
             if res == ESP_ERR_INVALID_STATE as i32 {
@@ -289,7 +292,7 @@ impl<ADC: Adc> PoweredAdc<ADC> {
     fn read_hall(&mut self) -> nb::Result<u16, EspError> {
         let measurement = unsafe { hall_sensor_read() };
 
-        Ok(self.raw_to_voltage(measurement, adc_atten_t_ADC_ATTEN_DB_0)?)
+        Ok(self.raw_to_voltage(measurement, adc_atten_t::ADC_ATTEN_DB_0)?)
     }
 }
 
@@ -305,7 +308,7 @@ where
     fn read(&mut self, _pin: &mut PIN) -> nb::Result<u16, Self::Error> {
         self.read(
             ADC::unit(),
-            PIN::channel() as adc_channel_t,
+            adc_channel_t(PIN::channel() as _),
             AN::attenuation(),
         )
     }
@@ -323,7 +326,7 @@ where
     fn read(&mut self, pin: &mut PIN) -> nb::Result<u16, Self::Error> {
         self.read(
             ADC::unit(),
-            pin.channel() as adc_channel_t,
+            adc_channel_t(pin.channel() as _),
             AN::attenuation(),
         )
     }
@@ -371,5 +374,5 @@ macro_rules! impl_adc {
     };
 }
 
-impl_adc!(ADC1: adc_unit_t_ADC_UNIT_1);
-impl_adc!(ADC2: adc_unit_t_ADC_UNIT_2);
+impl_adc!(ADC1: adc_unit_t::ADC_UNIT_1);
+impl_adc!(ADC2: adc_unit_t::ADC_UNIT_2);
