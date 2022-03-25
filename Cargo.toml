@@ -45,3 +45,6 @@ anyhow = "1"
 [dev-dependencies]
 anyhow = "1"
 esp-idf-sys = { version = "0.30", features = ["pio", "binstart"] }
+
+[patch.crates-io]
+esp-idf-sys = { git = "https://github.com/reitermarkus/esp-idf-sys", branch = "improve-codegen" }
