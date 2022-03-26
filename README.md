@@ -1,4 +1,4 @@
-# An embedded-hal implementation for Rust on ESP32 and ESP-IDF
+# An embedded-hal implementation for Rust on ESP32[-XX] and ESP-IDF
 
 ![CI](https://github.com/esp-rs/esp-idf-hal/actions/workflows/ci.yml/badge.svg)
 
@@ -7,7 +7,8 @@
 
 For more information, check out:
 * The [Rust for Xtensa toolchain](https://github.com/esp-rs/rust-build)
-* The [Rust-with-STD demo](https://github.com/ivmarkov/rust-esp32-std-demo)
+* The [Rust-with-STD demo](https://github.com/ivmarkov/rust-esp32-std-demo) project
+* The [esp-idf-template](https://github.com/esp-rs/esp-idf-template) project
 * The [esp-idf-svc](https://github.com/esp-rs/esp-idf-svc) project
 * The [embedded-hal](https://github.com/rust-embedded/embedded-hal) project
 * The [esp-hal](https://github.com/esp-rs/esp-hal) project
