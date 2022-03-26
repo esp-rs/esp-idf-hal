@@ -1,16 +1,20 @@
-# An embedded-hal implementation for Rust on ESP32 and ESP-IDF
+# An [embedded-hal](https://github.com/rust-embedded/embedded-hal) implementation for ESP32[-XX] + ESP-IDF
 
 ![CI](https://github.com/esp-rs/esp-idf-hal/actions/workflows/ci.yml/badge.svg)
 
-* This crate is intended for usage in ESP32 embedded projects that utilize and link with the **ESP-IDF SDK**.
-* For embedded projects that don't need Rust STD support, WiFi or BLE (and thus don't link with the ESP-IDF SDK), please check [esp32-hal](https://github.com/esp-rs/esp32-hal).
+* This crate is intended for usage in ESP32[-XX] embedded projects that utilize and link with the **ESP-IDF SDK**.
+* For embedded projects that don't need Rust STD support, WiFi or BLE (and thus don't link with the ESP-IDF SDK), please check [esp-hal](https://github.com/esp-rs/esp-hal).
 
 For more information, check out:
-* The [Rust for Xtensa toolchain](https://github.com/esp-rs/rust-build)
-* The [Rust-with-STD demo](https://github.com/ivmarkov/rust-esp32-std-demo)
-* The [esp-idf-svc](https://github.com/esp-rs/esp-idf-svc) project
+* The [Rust on ESP Book](https://esp-rs.github.io/book/)
 * The [embedded-hal](https://github.com/rust-embedded/embedded-hal) project
-* The [esp32-hal](https://github.com/esp-rs/esp32-hal) project
+* The [esp-hal](https://github.com/esp-rs/esp-hal) project
+* The [esp-idf-template](https://github.com/esp-rs/esp-idf-template) project
+* The [esp-idf-sys](https://github.com/esp-rs/esp-idf-sys) project
+* The [embedded-svc](https://github.com/esp-rs/embedded-svc) project
+* The [esp-idf-svc](https://github.com/esp-rs/esp-idf-svc) project
+* The [Rust for Xtensa toolchain](https://github.com/esp-rs/rust-build)
+* The [Rust-with-STD demo](https://github.com/ivmarkov/rust-esp32-std-demo) project
 
 ## Hardware Notes
 
