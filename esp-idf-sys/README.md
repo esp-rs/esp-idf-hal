@@ -1,10 +1,19 @@
-# Rust bindings for ESP-IDF (Espressif's IoT Development Framework)
+# Rust bindings for ESP-IDF
+  (Espressif's IoT Development Framework)
 
 ## Background
 
 The ESP-IDF API in Rust, with support for each ESP chip (ESP32, ESP32S2, ESP32S3, ESP32C3 etc.) based on the Rust target.
 
 ![CI](https://github.com/esp-rs/esp-idf-sys/actions/workflows/ci.yml/badge.svg)
+
+For more information, check out:
+* The [Rust on ESP Book](https://esp-rs.github.io/book/)
+* The [esp-idf-template](https://github.com/esp-rs/esp-idf-template) project
+* The [esp-idf-svc](https://github.com/esp-rs/esp-idf-svc) project
+* The [esp-idf-hal](https://github.com/esp-rs/esp-idf-hal) project
+* The [Rust for Xtensa toolchain](https://github.com/esp-rs/rust-build)
+* The [Rust-with-STD demo](https://github.com/ivmarkov/rust-esp32-std-demo) project
 
 ## Build
 
