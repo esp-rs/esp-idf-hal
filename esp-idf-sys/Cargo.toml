@@ -23,10 +23,10 @@ panic_handler = []
 binstart = []
 libstart = []
 
-# Use `platformio` to build the `esp-idf`
-pio = ["embuild/pio"]
-# Experimental: Use native `esp-idf` tooling to build it
+# Use native `esp-idf` tooling to build the `esp-idf`
 native = ["embuild/cmake", "embuild/espidf", "strum"]
+# Backup: use `platformio` to build the `esp-idf`
+pio = ["embuild/pio"]
 
 [dependencies]
 paste = "1"
