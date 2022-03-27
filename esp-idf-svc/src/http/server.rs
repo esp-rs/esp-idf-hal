@@ -869,8 +869,8 @@ pub mod ws {
                     FrameType::Continue(_) => httpd_ws_type_t_HTTPD_WS_TYPE_CONTINUE,
                     FrameType::SocketClose => panic!("Cannot send SocketClose as a frame"),
                 },
-                final_: frame_type.is_partial(),
-                fragmented: frame_type.is_partial(),
+                final_: frame_type.is_final(),
+                fragmented: frame_type.is_fragmented(),
                 payload: frame_data
                     .map(|frame_data| frame_data.as_ptr() as *const _ as *mut _)
                     .unwrap_or(ptr::null_mut()),
@@ -941,12 +941,17 @@ pub mod ws {
             }
         }
 
+        fn is_new(&self) -> bool {
+            false
+        }
+
         fn is_closed(&self) -> bool {
             matches!(self, Self::Closed(_))
         }
     }
 
     pub enum EspHttpWsReceiver {
+        New(*mut httpd_req_t),
         Open(*mut httpd_req_t),
         Closed(c_types::c_int),
     }
@@ -956,17 +961,15 @@ pub mod ws {
         fn create_frame_type(raw_frame: &httpd_ws_frame_t) -> (FrameType, usize) {
             match raw_frame.type_ {
                 httpd_ws_type_t_HTTPD_WS_TYPE_TEXT => (
-                    FrameType::Text(raw_frame.fragmented && !raw_frame.final_),
+                    FrameType::Text(raw_frame.fragmented),
                     raw_frame.len as usize + 1,
                 ),
-                httpd_ws_type_t_HTTPD_WS_TYPE_BINARY => (
-                    FrameType::Binary(raw_frame.fragmented && !raw_frame.final_),
-                    raw_frame.len as _,
-                ),
-                httpd_ws_type_t_HTTPD_WS_TYPE_CONTINUE => (
-                    FrameType::Continue(raw_frame.fragmented && !raw_frame.final_),
-                    raw_frame.len as _,
-                ),
+                httpd_ws_type_t_HTTPD_WS_TYPE_BINARY => {
+                    (FrameType::Binary(raw_frame.fragmented), raw_frame.len as _)
+                }
+                httpd_ws_type_t_HTTPD_WS_TYPE_CONTINUE => {
+                    (FrameType::Continue(raw_frame.final_), raw_frame.len as _)
+                }
                 httpd_ws_type_t_HTTPD_WS_TYPE_PING => (FrameType::Ping, 0),
                 httpd_ws_type_t_HTTPD_WS_TYPE_PONG => (FrameType::Pong, 0),
                 httpd_ws_type_t_HTTPD_WS_TYPE_CLOSE => (FrameType::Close, 0),
@@ -982,6 +985,7 @@ pub mod ws {
     impl Receiver for EspHttpWsReceiver {
         fn recv(&mut self, frame_data_buf: &mut [u8]) -> Result<(FrameType, usize), Self::Error> {
             match self {
+                Self::New(_) => Err(EspError::from(ESP_FAIL).unwrap()),
                 Self::Open(raw_req) => {
                     let mut raw_frame: httpd_ws_frame_t = Default::default();
 
@@ -1008,9 +1012,15 @@ pub mod ws {
 
         fn session(&self) -> Self::Session {
             match self {
-                Self::Open(raw_req) => unsafe { httpd_req_to_sockfd(*raw_req) },
+                Self::New(raw_req) | Self::Open(raw_req) => unsafe {
+                    httpd_req_to_sockfd(*raw_req)
+                },
                 Self::Closed(fd) => *fd,
             }
+        }
+
+        fn is_new(&self) -> bool {
+            matches!(self, Self::New(_))
         }
 
         fn is_closed(&self) -> bool {
@@ -1049,7 +1059,7 @@ pub mod ws {
                     httpd_ws_send_frame_async(
                         request.sd,
                         request.fd,
-                        &request.raw_frame as *const _ as *mut _,
+                        request.raw_frame as *const _ as *mut _,
                     )
                 }
             } else {
@@ -1128,6 +1138,10 @@ pub mod ws {
             self.fd
         }
 
+        fn is_new(&self) -> bool {
+            false
+        }
+
         fn is_closed(&self) -> bool {
             self.closed.load(Ordering::SeqCst)
         }
@@ -1147,12 +1161,12 @@ pub mod ws {
             let (req_handler, close_handler) = self.to_native_ws_handler(self.sd.clone(), handler);
 
             let conf = httpd_uri_t {
-                uri: uri.as_ptr() as _,
+                uri: c_str.as_ptr() as _,
                 method: Newtype::<c_types::c_uint>::from(Method::Get).0,
                 user_ctx: Box::into_raw(Box::new(req_handler)) as *mut _,
                 handler: Some(EspHttpServer::handle),
                 is_websocket: true,
-                handle_ws_control_frames: true,
+                // TODO: Expose as a parameter in future: handle_ws_control_frames: true,
                 ..Default::default()
             };
 
@@ -1187,10 +1201,7 @@ pub mod ws {
             H: for<'b> Fn(&'b mut EspHttpWsReceiver, &'b mut EspHttpWsSender) -> Result<(), E>,
             E: fmt::Display + fmt::Debug,
         {
-            info!(
-                "About to handle WS frame for session: {:?}",
-                receiver.session()
-            );
+            info!("About to handle WS session: {:?}", receiver.session());
 
             handler(receiver, sender)?;
 
@@ -1233,9 +1244,15 @@ pub mod ws {
             let req_handler = {
                 let boxed_handler = boxed_handler.clone();
 
-                Box::new(move |raw_req| {
+                Box::new(move |raw_req: *mut httpd_req_t| {
+                    let req = unsafe { raw_req.as_ref() }.unwrap();
+
                     (boxed_handler)(
-                        EspHttpWsReceiver::Open(raw_req),
+                        if req.method == http_method_HTTP_GET as i32 {
+                            EspHttpWsReceiver::New(raw_req)
+                        } else {
+                            EspHttpWsReceiver::Open(raw_req)
+                        },
                         EspHttpWsSender::Open(server_handle.clone(), raw_req),
                     )
                 })
