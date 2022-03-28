@@ -42,6 +42,7 @@ pub struct Configuration {
     pub max_open_sockets: usize,
     pub max_uri_handlers: usize,
     pub max_resp_handlers: usize,
+    pub lru_purge_enable: bool,
     pub session_cookie_name: &'static str,
 }
 
@@ -52,10 +53,11 @@ impl Default for Configuration {
             https_port: 443,
             max_sessions: 16,
             session_timeout: Duration::from_secs(20 * 60),
-            stack_size: 10240,
-            max_open_sockets: 5,
+            stack_size: 6144,
+            max_open_sockets: 4,
             max_uri_handlers: 32,
             max_resp_handlers: 8,
+            lru_purge_enable: true,
             session_cookie_name: "SESSIONID",
         }
     }
@@ -73,7 +75,7 @@ impl From<&Configuration> for Newtype<httpd_config_t> {
             max_uri_handlers: conf.max_uri_handlers as _,
             max_resp_headers: conf.max_resp_handlers as _,
             backlog_conn: 5,
-            lru_purge_enable: conf.https_port != 0,
+            lru_purge_enable: conf.lru_purge_enable,
             recv_wait_timeout: 5,
             send_wait_timeout: 5,
             global_user_ctx: ptr::null_mut(),
@@ -1201,8 +1203,6 @@ pub mod ws {
             H: for<'b> Fn(&'b mut EspHttpWsReceiver, &'b mut EspHttpWsSender) -> Result<(), E>,
             E: fmt::Display + fmt::Debug,
         {
-            info!("About to handle WS session: {:?}", receiver.session());
-
             handler(receiver, sender)?;
 
             Ok(())
