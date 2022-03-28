@@ -472,6 +472,11 @@ macro_rules! impl_pull {
     };
 }
 
+/// # Safety
+///
+/// - Access to `IRQ_HANDLERS` is not guarded because we only call register
+///   from the context of Pin which is owned and in the rights state
+///
 // Clippy in the CI seems to wrongfully catch a only_used_in_recursion
 // lint error in this function. We'll ignore it until it's fixed.
 #[allow(clippy::only_used_in_recursion)]
@@ -480,6 +485,11 @@ unsafe fn register_irq_handler(pin_number: usize, p: PinNotifySubscription) {
     chip::IRQ_HANDLERS[pin_number] = Some(p);
 }
 
+/// # Safety
+///
+/// - Access to `IRQ_HANDLERS` is not guarded because we only call register
+///   from the context of Pin which is owned and in the rights state
+///
 #[cfg(all(not(feature = "riscv-ulp-hal"), feature = "alloc"))]
 unsafe fn unregister_irq_handler(pin_number: usize) {
     chip::IRQ_HANDLERS[pin_number].take();
