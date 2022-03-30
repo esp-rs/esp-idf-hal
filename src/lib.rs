@@ -109,5 +109,23 @@ macro_rules! embedded_hal_error {
     };
 }
 
+// This is used to implement an extra error trait on the `embedded_hal` compatible error struct
+// Example:
+// embedded_hal_error!(CanError, embedded_hal::can::Error, embedded_hal::can::ErrorKind) // For e-hal 1.0 compatibility
+// embedded_hal_error_trait!(CanError, embedded_hal_0_2::can::Error, embedded_hal_0_2::can::ErrorKind) // For e-hal 0.2 compatibility
+#[allow(unused_macros)]
+macro_rules! embedded_hal_error_trait {
+    ($error:ident, $errortrait:ty, $kind:ty) => {
+        impl $errortrait for $error {
+            fn kind(&self) -> $kind {
+                self.kind
+            }
+        }
+    };
+}
+
 #[allow(unused_imports)]
 pub(crate) use embedded_hal_error;
+
+#[allow(unused_imports)]
+pub(crate) use embedded_hal_error_trait;
