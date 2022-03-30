@@ -41,9 +41,12 @@ use crate::gpio::*;
 
 crate::embedded_hal_error!(
     CanError,
-    embedded_hal::can::Error,
-    embedded_hal::can::ErrorKind
+    embedded_hal_0_2::can::Error,
+    embedded_hal_0_2::can::ErrorKind
 );
+
+
+
 
 pub mod config {
     use esp_idf_sys::*;
@@ -297,22 +300,7 @@ impl<TX: OutputPin, RX: InputPin> CanBus<TX, RX> {
 }
 
 // Requires embedded-hal V0.2.7 which is not released yet
-// impl<TX: OutputPin, RX: InputPin> embedded_hal_0_2::blocking::can::Can for CanBus<TX, RX> {
-//     type Frame = Frame;
-//     type Error = CanError;
-
-//     fn transmit(&mut self, frame: &Self::Frame) -> Result<(), Self::Error> {
-//         self.transmit_internal(frame, portMAX_DELAY)
-//             .map_err(CanError::other)
-//     }
-
-//     fn receive(&mut self) -> Result<Self::Frame, Self::Error> {
-//         self.receive_internal(portMAX_DELAY)
-//             .map_err(CanError::other)
-//     }
-// }
-
-impl<TX: OutputPin, RX: InputPin> embedded_hal::can::blocking::Can for CanBus<TX, RX> {
+impl<TX: OutputPin, RX: InputPin> embedded_hal_0_2::blocking::can::Can for CanBus<TX, RX> {
     type Frame = Frame;
     type Error = CanError;
 
@@ -327,30 +315,25 @@ impl<TX: OutputPin, RX: InputPin> embedded_hal::can::blocking::Can for CanBus<TX
     }
 }
 
+/*
+impl<TX: OutputPin, RX: InputPin> embedded_hal::can::blocking::Can for CanBus<TX, RX> {
+    type Frame = Frame;
+    type Error = CanError;
+
+    fn transmit(&mut self, frame: &Self::Frame) -> Result<(), Self::Error> {
+        self.transmit_internal(frame, portMAX_DELAY)
+            .map_err(CanError::other)
+    }
+
+    fn receive(&mut self) -> Result<Self::Frame, Self::Error> {
+        self.receive_internal(portMAX_DELAY)
+            .map_err(CanError::other)
+    }
+}
+*/
+
 // Requires embedded-hal V0.2.7 which is not released yet
-// impl<TX: OutputPin, RX: InputPin> embedded_hal_0_2::can::nb::Can for CanBus<TX, RX> {
-//     type Frame = Frame;
-//     type Error = CanError;
-
-//     fn transmit(&mut self, frame: &Self::Frame) -> nb::Result<Option<Self::Frame>, Self::Error> {
-//         match self.transmit_internal(frame, 0) {
-//             Ok(_) => Ok(None),
-//             Err(e) if e.code() == ESP_FAIL => Err(nb::Error::WouldBlock),
-//             Err(e) if e.code() == ESP_ERR_TIMEOUT as i32 => Err(nb::Error::WouldBlock),
-//             Err(e) => Err(nb::Error::Other(CanError::other(e))),
-//         }
-//     }
-
-//     fn receive(&mut self) -> nb::Result<Self::Frame, Self::Error> {
-//         match self.receive_internal(0) {
-//             Ok(frame) => Ok(frame),
-//             Err(e) if e.code() == ESP_ERR_TIMEOUT as i32 => Err(nb::Error::WouldBlock),
-//             Err(e) => Err(nb::Error::Other(CanError::other(e))),
-//         }
-//     }
-// }
-
-impl<TX: OutputPin, RX: InputPin> embedded_hal::can::nb::Can for CanBus<TX, RX> {
+impl<TX: OutputPin, RX: InputPin> embedded_hal_0_2::can::nb::Can for CanBus<TX, RX> {
     type Frame = Frame;
     type Error = CanError;
 
@@ -372,6 +355,29 @@ impl<TX: OutputPin, RX: InputPin> embedded_hal::can::nb::Can for CanBus<TX, RX> 
     }
 }
 
+/*
+impl<TX: OutputPin, RX: InputPin> embedded_hal::can::nb::Can for CanBus<TX, RX> {
+    type Frame = Frame;
+    type Error = CanError;
+
+    fn transmit(&mut self, frame: &Self::Frame) -> nb::Result<Option<Self::Frame>, Self::Error> {
+        match self.transmit_internal(frame, 0) {
+            Ok(_) => Ok(None),
+            Err(e) if e.code() == ESP_FAIL => Err(nb::Error::WouldBlock),
+            Err(e) if e.code() == ESP_ERR_TIMEOUT as i32 => Err(nb::Error::WouldBlock),
+            Err(e) => Err(nb::Error::Other(CanError::other(e))),
+        }
+    }
+
+    fn receive(&mut self) -> nb::Result<Self::Frame, Self::Error> {
+        match self.receive_internal(0) {
+            Ok(frame) => Ok(frame),
+            Err(e) if e.code() == ESP_ERR_TIMEOUT as i32 => Err(nb::Error::WouldBlock),
+            Err(e) => Err(nb::Error::Other(CanError::other(e))),
+        }
+    }
+}
+*/
 pub struct Frame(twai_message_t);
 
 impl Frame {
@@ -465,63 +471,65 @@ impl core::fmt::Display for Frame {
 }
 
 // Requires embedded-hal V0.2.7 which is not released yet
-// impl embedded_hal_0_2::can::Frame for Frame {
-//     fn new(id: impl Into<embedded_hal_0_2::can::Id>, data: &[u8]) -> Option<Self> {
-//         let (id, extended) = match id.into() {
-//             embedded_hal::can::Id::Standard(id) => (id.as_raw() as u32, false),
-//             embedded_hal::can::Id::Extended(id) => (id.as_raw(), true),
-//         };
+impl embedded_hal_0_2::can::Frame for Frame {
+    fn new(id: impl Into<embedded_hal_0_2::can::Id>, data: &[u8]) -> Option<Self> {
+        let (id, extended) = match id.into() {
+            embedded_hal_0_2::can::Id::Standard(id) => (id.as_raw() as u32, false),
+            embedded_hal_0_2::can::Id::Extended(id) => (id.as_raw(), true),
+        };
 
-//         Self::new(id, extended, data)
-//     }
+        Self::new(id, extended, data)
+    }
 
-//     fn new_remote(id: impl Into<embedded_hal_0_2::can::Id>, dlc: usize) -> Option<Self> {
-//         let (id, extended) = match id.into() {
-//             embedded_hal::can::Id::Standard(id) => (id.as_raw() as u32, false),
-//             embedded_hal::can::Id::Extended(id) => (id.as_raw(), true),
-//         };
+    fn new_remote(id: impl Into<embedded_hal_0_2::can::Id>, dlc: usize) -> Option<Self> {
+        let (id, extended) = match id.into() {
+           embedded_hal_0_2::can::Id::Standard(id) => (id.as_raw() as u32, false),
+           embedded_hal_0_2::can::Id::Extended(id) => (id.as_raw(), true),
+        };
 
-//         Self::new_remote(id, extended, dlc)
-//     }
+        Self::new_remote(id, extended, dlc)
+    }
 
-//     fn is_extended(&self) -> bool {
-//         self.get_extended()
-//     }
+    fn is_extended(&self) -> bool {
+        self.get_extended()
+    }
 
-//     fn is_standard(&self) -> bool {
-//         !self.is_extended()
-//     }
+    fn is_standard(&self) -> bool {
+        !self.is_extended()
+    }
 
-//     fn is_remote_frame(&self) -> bool {
-//         self.get_remote_frame()
-//     }
+    fn is_remote_frame(&self) -> bool {
+        self.get_remote_frame()
+    }
 
-//     fn is_data_frame(&self) -> bool {
-//         !self.is_remote_frame()
-//     }
+    fn is_data_frame(&self) -> bool {
+        !self.is_remote_frame()
+    }
 
-//     fn id(&self) -> embedded_hal_0_2::can::Id {
-//         if self.is_standard() {
-//             let id = unsafe {
-//                 embedded_hal_0_2::can::StandardId::new_unchecked(self.get_identifier() as u16)
-//             };
-//             embedded_hal_0_2::can::Id::Standard(id)
-//         } else {
-//             let id =
-//                 unsafe { embedded_hal_0_2::can::ExtendedId::new_unchecked(self.get_identifier()) };
-//             embedded_hal_0_2::can::Id::Extended(id)
-//         }
-//     }
+    fn id(&self) -> embedded_hal_0_2::can::Id {
+        if self.is_standard() {
+            let id = unsafe {
+                embedded_hal_0_2::can::StandardId::new_unchecked(self.get_identifier() as u16)
+            };
+             embedded_hal_0_2::can::Id::Standard(id)
+        } else {
+            let id =
+                 unsafe { embedded_hal_0_2::can::ExtendedId::new_unchecked(self.get_identifier()) };
+             embedded_hal_0_2::can::Id::Extended(id)
+         }
+     }
 
-//     fn dlc(&self) -> usize {
-//         self.get_dlc()
-//     }
+     fn dlc(&self) -> usize {
+         self.get_dlc()
+    }
 
-//     fn data(&self) -> &[u8] {
-//         self.get_data()
-//     }
-// }
+     fn data(&self) -> &[u8] {
+         self.get_data()
+     }
+ }
 
+
+/*
 impl embedded_hal::can::Frame for Frame {
     fn new(id: impl Into<embedded_hal::can::Id>, data: &[u8]) -> Option<Self> {
         let (id, extended) = match id.into() {
@@ -577,6 +585,7 @@ impl embedded_hal::can::Frame for Frame {
         self.get_data()
     }
 }
+*/
 
 pub struct CAN(PhantomData<*const ()>);
 
