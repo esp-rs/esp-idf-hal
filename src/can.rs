@@ -45,8 +45,8 @@ crate::embedded_hal_error!(
     embedded_hal::can::ErrorKind
 );
 
-crate::embedded_hal_error_trait!(
-    CanError,
+crate::embedded_hal_error!(
+    Can02Error,
     embedded_hal_0_2::can::Error,
     embedded_hal_0_2::can::ErrorKind
 );
@@ -304,16 +304,16 @@ impl<TX: OutputPin, RX: InputPin> CanBus<TX, RX> {
 
 impl<TX: OutputPin, RX: InputPin> embedded_hal_0_2::blocking::can::Can for CanBus<TX, RX> {
     type Frame = Frame;
-    type Error = CanError;
+    type Error = Can02Error;
 
     fn transmit(&mut self, frame: &Self::Frame) -> Result<(), Self::Error> {
         self.transmit_internal(frame, portMAX_DELAY)
-            .map_err(CanError::other)
+            .map_err(Can02Error::other)
     }
 
     fn receive(&mut self) -> Result<Self::Frame, Self::Error> {
         self.receive_internal(portMAX_DELAY)
-            .map_err(CanError::other)
+            .map_err(Can02Error::other)
     }
 }
 
@@ -334,14 +334,14 @@ impl<TX: OutputPin, RX: InputPin> embedded_hal::can::blocking::Can for CanBus<TX
 
 impl<TX: OutputPin, RX: InputPin> embedded_hal_0_2::can::nb::Can for CanBus<TX, RX> {
     type Frame = Frame;
-    type Error = CanError;
+    type Error = Can02Error;
 
     fn transmit(&mut self, frame: &Self::Frame) -> nb::Result<Option<Self::Frame>, Self::Error> {
         match self.transmit_internal(frame, 0) {
             Ok(_) => Ok(None),
             Err(e) if e.code() == ESP_FAIL => Err(nb::Error::WouldBlock),
             Err(e) if e.code() == ESP_ERR_TIMEOUT as i32 => Err(nb::Error::WouldBlock),
-            Err(e) => Err(nb::Error::Other(CanError::other(e))),
+            Err(e) => Err(nb::Error::Other(Can02Error::other(e))),
         }
     }
 
@@ -349,7 +349,7 @@ impl<TX: OutputPin, RX: InputPin> embedded_hal_0_2::can::nb::Can for CanBus<TX, 
         match self.receive_internal(0) {
             Ok(frame) => Ok(frame),
             Err(e) if e.code() == ESP_ERR_TIMEOUT as i32 => Err(nb::Error::WouldBlock),
-            Err(e) => Err(nb::Error::Other(CanError::other(e))),
+            Err(e) => Err(nb::Error::Other(Can02Error::other(e))),
         }
     }
 }
