@@ -4,7 +4,7 @@ on:
   workflow_dispatch
 
 env:
-  rust_toolchain: nightly-2022-03-23
+  rust_toolchain: nightly
 
 jobs:
   publish:
