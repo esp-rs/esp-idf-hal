@@ -123,12 +123,6 @@ pub trait TouchPin: Pin {
     fn touch_channel(&self) -> touch_pad_t;
 }
 
-/// A marker trait designating a pin which is capable of
-/// providing/receiving a rmii clk signal
-pub trait RmiiClkPin: Pin {
-    fn clock_config() -> eth_mac_clock_config_t__bindgen_ty_2;
-}
-
 #[cfg(all(not(feature = "riscv-ulp-hal"), feature = "alloc"))]
 pub trait SubscribedPin: Pin {}
 
@@ -1082,6 +1076,14 @@ mod chip {
     pin!(Gpio38:38, Input, RTC:2, ADC1:2, NODAC:0, NOTOUCH:0);
     pin!(Gpio39:39, Input, RTC:3, ADC1:3, NODAC:0, NOTOUCH:0);
 
+    /// A marker trait designating a pin which is capable of
+    /// providing/receiving a rmii clk signal
+    #[cfg(not(feature = "riscv-ulp-hal"))]
+    pub trait RmiiClkPin: Pin {
+        fn clock_config() -> eth_mac_clock_config_t__bindgen_ty_2;
+    }
+
+    #[cfg(not(feature = "riscv-ulp-hal"))]
     impl<MODE> RmiiClkPin for Gpio0<MODE>
     where
         MODE: Send,
@@ -1093,6 +1095,8 @@ mod chip {
             }
         }
     }
+
+    #[cfg(not(feature = "riscv-ulp-hal"))]
     impl<MODE> RmiiClkPin for Gpio16<MODE>
     where
         MODE: Send,
@@ -1104,6 +1108,8 @@ mod chip {
             }
         }
     }
+
+    #[cfg(not(feature = "riscv-ulp-hal"))]
     impl<MODE> RmiiClkPin for Gpio17<MODE>
     where
         MODE: Send,
