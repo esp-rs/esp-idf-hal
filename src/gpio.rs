@@ -123,6 +123,12 @@ pub trait TouchPin: Pin {
     fn touch_channel(&self) -> touch_pad_t;
 }
 
+/// A marker trait designating a pin which is capable of
+/// providing/receiving a rmii clk signal
+pub trait RmiiClkPin: Pin {
+    fn clock_config() -> eth_mac_clock_config_t__bindgen_ty_2;
+}
+
 #[cfg(all(not(feature = "riscv-ulp-hal"), feature = "alloc"))]
 pub trait SubscribedPin: Pin {}
 
@@ -1075,6 +1081,40 @@ mod chip {
     pin!(Gpio37:37, Input, RTC:1, ADC1:1, NODAC:0, NOTOUCH:0);
     pin!(Gpio38:38, Input, RTC:2, ADC1:2, NODAC:0, NOTOUCH:0);
     pin!(Gpio39:39, Input, RTC:3, ADC1:3, NODAC:0, NOTOUCH:0);
+
+    impl<MODE> RmiiClkPin for Gpio0<MODE>
+    where
+        MODE: Send,
+    {
+        fn clock_config() -> eth_mac_clock_config_t__bindgen_ty_2 {
+            eth_mac_clock_config_t__bindgen_ty_2 {
+                clock_mode: emac_rmii_clock_mode_t_EMAC_CLK_DEFAULT,
+                clock_gpio: emac_rmii_clock_gpio_t_EMAC_CLK_IN_GPIO,
+            }
+        }
+    }
+    impl<MODE> RmiiClkPin for Gpio16<MODE>
+    where
+        MODE: Send,
+    {
+        fn clock_config() -> eth_mac_clock_config_t__bindgen_ty_2 {
+            eth_mac_clock_config_t__bindgen_ty_2 {
+                clock_mode: emac_rmii_clock_mode_t_EMAC_CLK_OUT,
+                clock_gpio: emac_rmii_clock_gpio_t_EMAC_CLK_OUT_GPIO,
+            }
+        }
+    }
+    impl<MODE> RmiiClkPin for Gpio17<MODE>
+    where
+        MODE: Send,
+    {
+        fn clock_config() -> eth_mac_clock_config_t__bindgen_ty_2 {
+            eth_mac_clock_config_t__bindgen_ty_2 {
+                clock_mode: emac_rmii_clock_mode_t_EMAC_CLK_OUT,
+                clock_gpio: emac_rmii_clock_gpio_t_EMAC_CLK_OUT_180_GPIO,
+            }
+        }
+    }
 
     pub struct Pins {
         pub gpio0: Gpio0<Unknown>,
