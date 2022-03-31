@@ -1080,7 +1080,7 @@ mod chip {
     /// providing/receiving a rmii clk signal
     #[cfg(not(feature = "riscv-ulp-hal"))]
     pub trait RmiiClkPin: Pin {
-        fn clock_config() -> eth_mac_clock_config_t__bindgen_ty_2;
+        fn clock_config() -> eth_mac_clock_config_t;
     }
 
     #[cfg(not(feature = "riscv-ulp-hal"))]
@@ -1088,36 +1088,42 @@ mod chip {
     where
         MODE: Send,
     {
-        fn clock_config() -> eth_mac_clock_config_t__bindgen_ty_2 {
-            eth_mac_clock_config_t__bindgen_ty_2 {
-                clock_mode: emac_rmii_clock_mode_t_EMAC_CLK_DEFAULT,
-                clock_gpio: emac_rmii_clock_gpio_t_EMAC_CLK_IN_GPIO,
+        fn clock_config() -> eth_mac_clock_config_t {
+            eth_mac_clock_config_t {
+                rmii: eth_mac_clock_config_t__bindgen_ty_2 {
+                    clock_mode: emac_rmii_clock_mode_t_EMAC_CLK_DEFAULT,
+                    clock_gpio: emac_rmii_clock_gpio_t_EMAC_CLK_IN_GPIO,
+                },
             }
         }
     }
 
-    #[cfg(not(feature = "riscv-ulp-hal"))]
+    #[cfg(all(not(feature = "riscv-ulp-hal"), not(esp_idf_version = "4.3")))]
     impl<MODE> RmiiClkPin for Gpio16<MODE>
     where
         MODE: Send,
     {
-        fn clock_config() -> eth_mac_clock_config_t__bindgen_ty_2 {
-            eth_mac_clock_config_t__bindgen_ty_2 {
-                clock_mode: emac_rmii_clock_mode_t_EMAC_CLK_OUT,
-                clock_gpio: emac_rmii_clock_gpio_t_EMAC_CLK_OUT_GPIO,
+        fn clock_config() -> eth_mac_clock_config_t {
+            eth_mac_clock_config_t {
+                rmii: eth_mac_clock_config_t__bindgen_ty_2 {
+                    clock_mode: emac_rmii_clock_mode_t_EMAC_CLK_OUT,
+                    clock_gpio: emac_rmii_clock_gpio_t_EMAC_CLK_OUT_GPIO,
+                },
             }
         }
     }
 
-    #[cfg(not(feature = "riscv-ulp-hal"))]
+    #[cfg(all(not(feature = "riscv-ulp-hal"), not(esp_idf_version = "4.3")))]
     impl<MODE> RmiiClkPin for Gpio17<MODE>
     where
         MODE: Send,
     {
-        fn clock_config() -> eth_mac_clock_config_t__bindgen_ty_2 {
-            eth_mac_clock_config_t__bindgen_ty_2 {
-                clock_mode: emac_rmii_clock_mode_t_EMAC_CLK_OUT,
-                clock_gpio: emac_rmii_clock_gpio_t_EMAC_CLK_OUT_180_GPIO,
+        fn clock_config() -> eth_mac_clock_config_t {
+            eth_mac_clock_config_t {
+                rmii: eth_mac_clock_config_t__bindgen_ty_2 {
+                    clock_mode: emac_rmii_clock_mode_t_EMAC_CLK_OUT,
+                    clock_gpio: emac_rmii_clock_gpio_t_EMAC_CLK_OUT_180_GPIO,
+                },
             }
         }
     }
