@@ -835,7 +835,7 @@ pub mod ws {
 
     use embedded_svc::errors::*;
     use embedded_svc::http::Method;
-    use embedded_svc::utils::nonblocking::ws::server::Processor;
+    use embedded_svc::utils::asyncify::ws::server::Processor;
     use embedded_svc::ws::server::registry::*;
     use embedded_svc::ws::server::*;
     use embedded_svc::ws::*;

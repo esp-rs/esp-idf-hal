@@ -23,7 +23,7 @@ use esp_idf_sys::*;
 use crate::private::cstr::RawCstrs;
 
 #[cfg(feature = "experimental")]
-pub use nonblocking::*;
+pub use asyncify::*;
 
 pub type EspSystemSubscription = EspSubscription<System>;
 pub type EspBackgroundSubscription = EspSubscription<User<Background>>;
@@ -802,9 +802,9 @@ where
 }
 
 #[cfg(feature = "experimental")]
-mod nonblocking {
-    use embedded_svc::utils::nonblocking::event_bus::AsyncEventBus;
-    use embedded_svc::utils::nonblocking::{Asyncify, UnblockingAsyncify};
+mod asyncify {
+    use embedded_svc::utils::asyncify::event_bus::AsyncEventBus;
+    use embedded_svc::utils::asyncify::{Asyncify, UnblockingAsyncify};
 
     use esp_idf_hal::mutex::Condvar;
 

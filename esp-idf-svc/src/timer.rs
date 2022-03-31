@@ -11,7 +11,7 @@ use embedded_svc::timer::{self, OnceTimer, PeriodicTimer, Timer, TimerService};
 use esp_idf_sys::*;
 
 #[cfg(feature = "experimental")]
-pub use nonblocking::*;
+pub use asyncify::*;
 
 struct UnsafeCallback(*mut Box<dyn FnMut()>);
 
@@ -146,9 +146,9 @@ impl TimerService for EspTimerService {
 }
 
 #[cfg(feature = "experimental")]
-mod nonblocking {
-    use embedded_svc::utils::nonblocking::timer::AsyncTimerService;
-    use embedded_svc::utils::nonblocking::Asyncify;
+mod asyncify {
+    use embedded_svc::utils::asyncify::timer::AsyncTimerService;
+    use embedded_svc::utils::asyncify::Asyncify;
 
     impl Asyncify for super::EspTimerService {
         type AsyncWrapper<S> = AsyncTimerService<S>;

@@ -324,8 +324,8 @@ impl EspMqttClient {
         conf: /*TODO: issue with the compiler: &'a*/ MqttClientConfiguration<'a>,
     ) -> Result<
         (
-            embedded_svc::utils::nonblocking::mqtt::client::AsyncClient<U, Mutex<Self>>,
-            embedded_svc::utils::nonblocking::mqtt::client::AsyncConnection<
+            embedded_svc::utils::asyncify::mqtt::client::AsyncClient<U, Mutex<Self>>,
+            embedded_svc::utils::asyncify::mqtt::client::AsyncConnection<
                 Condvar,
                 EspMqttMessage,
                 EspError,
@@ -334,10 +334,10 @@ impl EspMqttClient {
         EspError,
     >
     where
-        U: embedded_svc::unblocker::nonblocking::Unblocker,
+        U: embedded_svc::unblocker::asyncs::Unblocker,
         S: AsRef<str> + 'a,
     {
-        let connection = embedded_svc::utils::nonblocking::mqtt::client::AsyncConnection::<
+        let connection = embedded_svc::utils::asyncify::mqtt::client::AsyncConnection::<
             Condvar,
             _,
             EspError,
@@ -348,7 +348,7 @@ impl EspMqttClient {
         let client = Self::new_with_callback(url, &conf, move |event| cb_connection.post(event))?;
 
         Ok((
-            embedded_svc::utils::nonblocking::mqtt::client::AsyncClient::new(client),
+            embedded_svc::utils::asyncify::mqtt::client::AsyncClient::new(client),
             connection,
         ))
     }

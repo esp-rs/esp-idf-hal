@@ -40,7 +40,7 @@ use crate::private::waitable::*;
 use crate::sysloop::*;
 
 #[cfg(feature = "experimental")]
-pub use nonblocking::*;
+pub use asyncify::*;
 
 #[cfg(all(esp32, esp_idf_eth_use_esp32_emac))]
 // TODO: #[derive(Debug)]
@@ -1040,8 +1040,8 @@ impl<P> EventBus<()> for EspEth<P> {
 }
 
 #[cfg(feature = "experimental")]
-mod nonblocking {
-    use embedded_svc::utils::nonblocking::{event_bus::AsyncEventBus, Asyncify};
+mod asyncify {
+    use embedded_svc::utils::asyncify::{event_bus::AsyncEventBus, Asyncify};
 
     impl<P> Asyncify for super::EspEth<P> {
         type AsyncWrapper<S> = AsyncEventBus<(), esp_idf_hal::mutex::Condvar, S>;

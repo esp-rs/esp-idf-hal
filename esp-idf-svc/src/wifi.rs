@@ -30,7 +30,7 @@ use crate::private::waitable::*;
 use crate::sysloop::*;
 
 #[cfg(feature = "experimental")]
-pub use nonblocking::*;
+pub use asyncify::*;
 
 const MAX_AP: usize = 20;
 
@@ -1111,8 +1111,8 @@ impl EventBus<()> for EspWifi {
 }
 
 #[cfg(feature = "experimental")]
-mod nonblocking {
-    use embedded_svc::utils::nonblocking::{event_bus::AsyncEventBus, Asyncify};
+mod asyncify {
+    use embedded_svc::utils::asyncify::{event_bus::AsyncEventBus, Asyncify};
 
     use esp_idf_hal::mutex::Condvar;
 
