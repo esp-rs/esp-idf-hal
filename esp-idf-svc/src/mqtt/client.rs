@@ -232,6 +232,7 @@ impl EspMqttClient {
         url: impl AsRef<str>,
         conf: &'a MqttClientConfiguration<'a>,
         mut callback: impl for<'b> FnMut(&'b Option<Result<client::Event<EspMqttMessage<'b>>, EspError>>)
+            + Send
             + 'static,
     ) -> Result<Self, EspError>
     where
