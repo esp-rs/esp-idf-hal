@@ -6,6 +6,7 @@ extern crate alloc;
 use alloc::boxed::Box;
 
 use embedded_svc::errors::Errors;
+use embedded_svc::sys_time::SystemTime;
 use embedded_svc::timer::{self, OnceTimer, PeriodicTimer, Timer, TimerService};
 
 use esp_idf_sys::*;
@@ -142,6 +143,12 @@ impl TimerService for EspTimerService {
             handle,
             _callback: callback,
         })
+    }
+}
+
+impl SystemTime for EspTimerService {
+    fn now(&self) -> Duration {
+        Duration::from_micros(unsafe { esp_timer_get_time() as _ })
     }
 }
 
