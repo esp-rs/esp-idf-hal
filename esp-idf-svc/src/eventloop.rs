@@ -35,6 +35,11 @@ pub type EspBackgroundEventLoop = EspEventLoop<User<Background>>;
 pub type EspExplicitEventLoop = EspEventLoop<User<Explicit>>;
 pub type EspPinnedEventLoop = EspEventLoop<User<Pinned>>;
 
+pub type EspSystemPostbox = EspPostbox<EspEventLoop<System>>;
+pub type EspBackgroundPostbox = EspPostbox<EspEventLoop<User<Background>>>;
+pub type EspExplicitPostbox = EspPostbox<EspEventLoop<User<Explicit>>>;
+pub type EspPinnedPostbox = EspPostbox<EspEventLoop<User<Pinned>>>;
+
 #[derive(Debug)]
 pub struct BackgroundLoopConfiguration<'a> {
     pub queue_size: usize,
@@ -48,7 +53,7 @@ impl<'a> Default for BackgroundLoopConfiguration<'a> {
     fn default() -> Self {
         Self {
             queue_size: 64,
-            task_name: "(unknown)",
+            task_name: "EventLoop",
             task_priority: 0,
             task_stack_size: 3072,
             task_pin_to_core: Core::Core0,
@@ -105,8 +110,11 @@ pub struct Explicit;
 #[derive(Clone, Debug)]
 pub struct Pinned;
 
-unsafe impl<T> Send for User<T> {}
-unsafe impl<T> Sync for User<T> {}
+unsafe impl Send for User<Background> {}
+unsafe impl Sync for User<Background> {}
+
+unsafe impl Send for User<Explicit> {}
+unsafe impl Sync for User<Explicit> {}
 
 pub trait EspEventLoopType {
     fn is_system() -> bool;
@@ -256,7 +264,7 @@ where
     }
 }
 
-unsafe impl<T> Send for EspSubscription<T> where T: EspEventLoopType + Send {}
+unsafe impl<T> Send for EspSubscription<T> where T: EspEventLoopType {}
 
 impl<T> Drop for EspSubscription<T>
 where
@@ -609,18 +617,51 @@ where
     }
 }
 
+pub struct EspPostbox<T>(EspEventLoop<T>)
+where
+    T: EspEventLoopType;
+
+unsafe impl<T> Send for EspPostbox<T> where T: EspEventLoopType {}
+unsafe impl<T> Sync for EspPostbox<T> where T: EspEventLoopType {}
+
+impl<T> Clone for EspPostbox<T>
+where
+    T: EspEventLoopType,
+{
+    fn clone(&self) -> Self {
+        Self(self.0.clone())
+    }
+}
+
+impl<T> errors::Errors for EspPostbox<T>
+where
+    T: EspEventLoopType,
+{
+    type Error = EspError;
+}
+
+impl<P, T> event_bus::Postbox<P> for EspPostbox<T>
+where
+    P: EspTypedEventSerializer<P>,
+    T: EspEventLoopType,
+{
+    fn post(&mut self, payload: &P, wait: Option<Duration>) -> Result<bool, Self::Error> {
+        self.0.post(payload, wait)
+    }
+}
+
 impl<P, T> event_bus::PostboxProvider<P> for EspEventLoop<T>
 where
     P: EspTypedEventSerializer<P>,
     T: EspEventLoopType,
 {
-    type Postbox = Self;
+    type Postbox = EspPostbox<T>;
 
     fn postbox(&mut self) -> Result<Self::Postbox, Self::Error>
     where
         P: EspTypedEventSerializer<P>,
     {
-        Ok(self.clone())
+        Ok(EspPostbox(self.clone()))
     }
 }
 
@@ -740,15 +781,48 @@ where
     }
 }
 
+pub struct EspTypedPostbox<M, P, T>(EspTypedEventLoop<M, P, EspEventLoop<T>>)
+where
+    T: EspEventLoopType;
+
+unsafe impl<M, P, T> Send for EspTypedPostbox<M, P, T> where T: EspEventLoopType {}
+unsafe impl<M, P, T> Sync for EspTypedPostbox<M, P, T> where T: EspEventLoopType {}
+
+impl<M, P, T> Clone for EspTypedPostbox<M, P, T>
+where
+    T: EspEventLoopType,
+{
+    fn clone(&self) -> Self {
+        Self(self.0.clone())
+    }
+}
+
+impl<M, P, T> errors::Errors for EspTypedPostbox<M, P, T>
+where
+    T: EspEventLoopType,
+{
+    type Error = EspError;
+}
+
+impl<M, P, T> event_bus::Postbox<P> for EspTypedPostbox<M, P, T>
+where
+    M: EspTypedEventSerializer<P>,
+    T: EspEventLoopType,
+{
+    fn post(&mut self, payload: &P, wait: Option<Duration>) -> Result<bool, Self::Error> {
+        self.0.post(payload, wait)
+    }
+}
+
 impl<M, P, T> event_bus::PostboxProvider<P> for EspTypedEventLoop<M, P, EspEventLoop<T>>
 where
     M: EspTypedEventSerializer<P>,
     T: EspEventLoopType,
 {
-    type Postbox = Self;
+    type Postbox = EspTypedPostbox<M, P, T>;
 
     fn postbox(&mut self) -> Result<Self::Postbox, Self::Error> {
-        Ok(Self::new(self.untyped_event_loop.clone()))
+        Ok(EspTypedPostbox(Self::new(self.untyped_event_loop.clone())))
     }
 }
 
@@ -757,10 +831,12 @@ where
     M: EspTypedEventSerializer<P>,
     T: EspEventLoopType,
 {
-    type Postbox = EspTypedEventLoop<M, P, EspEventLoop<T>>;
+    type Postbox = EspTypedPostbox<M, P, T>;
 
     fn postbox(&mut self) -> Result<Self::Postbox, Self::Error> {
-        Ok(EspTypedEventLoop::new(self.untyped_event_loop.clone()))
+        Ok(EspTypedPostbox(EspTypedEventLoop::new(
+            self.untyped_event_loop.clone(),
+        )))
     }
 }
 
