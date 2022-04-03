@@ -20,10 +20,10 @@
 //! - Multiple CS pins
 //! - Slave
 
-use core::cmp::{max, min};
-use core::ptr;
 use core::borrow::Borrow;
+use core::cmp::{max, min};
 use core::marker::PhantomData;
+use core::ptr;
 
 use crate::delay::portMAX_DELAY;
 use crate::gpio::{self, InputPin, OutputPin};
