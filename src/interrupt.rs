@@ -10,6 +10,26 @@ pub fn active() -> bool {
     unsafe { xPortInIsrContext() != 0 }
 }
 
+#[inline(always)]
+#[link_section = ".iram1.interrupt_do_yield"]
+pub fn do_yield() {
+    if active() {
+        #[cfg(esp32c3)]
+        unsafe {
+            vPortYieldFromISR();
+        }
+
+        #[cfg(not(esp32c3))]
+        unsafe {
+            vPortEvaluateYieldFromISR(0);
+        }
+    } else {
+        unsafe {
+            vPortYield();
+        }
+    }
+}
+
 /// A critical section allows the user to disable interrupts
 #[cfg(not(esp32c3))]
 pub struct CriticalSection(core::cell::UnsafeCell<portMUX_TYPE>);
