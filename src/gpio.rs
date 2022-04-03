@@ -793,7 +793,7 @@ macro_rules! impl_adc {
             type ID = u8;
 
             fn channel() -> Self::ID {
-                $adc as u8
+                $adc
             }
         }
 
@@ -804,7 +804,7 @@ macro_rules! impl_adc {
             type ID = u8;
 
             fn channel(&self) -> Self::ID {
-                adc_unit_t_ADC_UNIT_2 as u8
+                $adc
             }
         }
     };
