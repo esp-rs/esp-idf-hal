@@ -53,7 +53,7 @@ pub struct RmiiEthPeripherals<MDC, MDIO, RST: gpio::OutputPin = gpio::Gpio10<gpi
     pub rmii_tx_en: gpio::Gpio21<gpio::Unknown>,
     pub rmii_txd0: gpio::Gpio19<gpio::Unknown>,
     pub rmii_mdio: MDIO,
-    pub rmii_ref_clk: gpio::Gpio0<gpio::Unknown>,
+    pub rmii_ref_clk_config: RmiiClockConfig,
     pub rst: Option<RST>,
 }
 
@@ -70,6 +70,44 @@ pub enum RmiiEthChipset {
     KSZ8081,
     #[cfg(esp_idf_version_major = "5")]
     KSZ80XX,
+}
+
+#[cfg(all(esp32, esp_idf_eth_use_esp32_emac))]
+pub enum RmiiClockConfig {
+    Input(gpio::Gpio0<gpio::Unknown>),
+    #[cfg(not(esp_idf_version = "4.3"))]
+    OutputGpio0(gpio::Gpio0<gpio::Unknown>),
+    /// This according to ESP-IDF is for "testing" only
+    #[cfg(not(esp_idf_version = "4.3"))]
+    OutputGpio16(gpio::Gpio16<gpio::Unknown>),
+    #[cfg(not(esp_idf_version = "4.3"))]
+    OutputInvertedGpio17(gpio::Gpio17<gpio::Unknown>),
+}
+
+#[cfg(all(esp32, esp_idf_eth_use_esp32_emac, not(esp_idf_version = "4.3")))]
+impl RmiiClockConfig {
+    fn eth_mac_clock_config(&self) -> eth_mac_clock_config_t {
+        let rmii = match self {
+            Self::Input(_) => eth_mac_clock_config_t__bindgen_ty_2 {
+                clock_mode: emac_rmii_clock_mode_t_EMAC_CLK_EXT_IN,
+                clock_gpio: emac_rmii_clock_gpio_t_EMAC_CLK_IN_GPIO,
+            },
+            Self::OutputGpio0(_) => eth_mac_clock_config_t__bindgen_ty_2 {
+                clock_mode: emac_rmii_clock_mode_t_EMAC_CLK_OUT,
+                clock_gpio: emac_rmii_clock_gpio_t_EMAC_APPL_CLK_OUT_GPIO,
+            },
+            Self::OutputGpio16(_) => eth_mac_clock_config_t__bindgen_ty_2 {
+                clock_mode: emac_rmii_clock_mode_t_EMAC_CLK_OUT,
+                clock_gpio: emac_rmii_clock_gpio_t_EMAC_CLK_OUT_GPIO,
+            },
+            Self::OutputInvertedGpio17(_) => eth_mac_clock_config_t__bindgen_ty_2 {
+                clock_mode: emac_rmii_clock_mode_t_EMAC_CLK_OUT,
+                clock_gpio: emac_rmii_clock_gpio_t_EMAC_CLK_OUT_180_GPIO,
+            },
+        };
+
+        eth_mac_clock_config_t { rmii }
+    }
 }
 
 #[cfg(any(
@@ -180,7 +218,12 @@ where
             esp!(ESP_ERR_INVALID_STATE as i32)?;
         }
 
-        let (mac, phy) = Self::initialize(chipset, &peripherals.rst, phy_addr)?;
+        let (mac, phy) = Self::initialize(
+            chipset,
+            &peripherals.rst,
+            phy_addr,
+            &peripherals.rmii_ref_clk_config,
+        )?;
 
         let eth = Self::init(netif_stack, sys_loop_stack, mac, phy, None, peripherals)?;
 
@@ -205,8 +248,9 @@ where
         chipset: RmiiEthChipset,
         reset: &Option<RST>,
         phy_addr: Option<u32>,
+        clk_config: &RmiiClockConfig,
     ) -> Result<(*mut esp_eth_mac_t, *mut esp_eth_phy_t), EspError> {
-        let mac_cfg = EspEth::<RmiiEthPeripherals<MDC, MDIO>>::eth_mac_default_config();
+        let mac_cfg = EspEth::<RmiiEthPeripherals<MDC, MDIO>>::eth_mac_rmii_config(clk_config);
         let phy_cfg = EspEth::<RmiiEthPeripherals<MDC, MDIO>>::eth_phy_default_config(
             reset.as_ref().map(|p| p.pin()),
             phy_addr,
@@ -231,6 +275,17 @@ where
         };
 
         Ok((mac, phy))
+    }
+
+    fn eth_mac_rmii_config(clk_config: &RmiiClockConfig) -> eth_mac_config_t {
+        let mut config = Self::eth_mac_default_config();
+
+        #[cfg(not(esp_idf_version = "4.3"))]
+        {
+            config.clock_config = clk_config.eth_mac_clock_config();
+        }
+
+        config
     }
 }
 
@@ -840,13 +895,6 @@ impl<P> EspEth<P> {
             flags: 0,
             #[cfg(any(esp_idf_version = "4.4", esp_idf_version_major = "5"))]
             interface: eth_data_interface_t_EMAC_DATA_INTERFACE_RMII,
-            #[cfg(any(esp_idf_version = "4.4", esp_idf_version_major = "5"))]
-            clock_config: eth_mac_clock_config_t {
-                rmii: eth_mac_clock_config_t__bindgen_ty_2 {
-                    clock_mode: emac_rmii_clock_mode_t_EMAC_CLK_DEFAULT,
-                    clock_gpio: emac_rmii_clock_gpio_t_EMAC_CLK_IN_GPIO,
-                },
-            },
             ..Default::default()
         }
     }
