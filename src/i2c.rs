@@ -1,3 +1,4 @@
+use core::marker::PhantomData;
 use esp_idf_sys::*;
 
 use crate::{delay::*, gpio::*, units::*};
@@ -406,59 +407,44 @@ where
 
         command_link.master_start().map_err(I2cError::other)?;
 
-        for i in 0..operations.len() {
-            let prev_was_read = if i == 0 {
-                None
-            } else {
-                match operations[i - 1] {
-                    Operation::Read(_) => Some(true),
-                    Operation::Write(_) => Some(false),
-                }
-            };
+        let last_op_index = operations.len() - 1;
+        let mut prev_was_read = None;
 
-            match &operations[i] {
+        for (i, operation) in operations.iter_mut().enumerate() {
+            match operation {
                 Operation::Read(buf) => {
                     if let Some(false) = prev_was_read {
                         command_link.master_start().map_err(I2cError::other)?;
                     }
+                    prev_was_read = Some(true);
 
                     command_link
                         .master_write_byte((address << 1) | (i2c_rw_t_I2C_MASTER_READ as u8), true)
                         .map_err(I2cError::other)?;
                     if !buf.is_empty() {
-                        esp!(unsafe {
-                            i2c_master_read(
-                                command_link.0,
-                                buf.as_ptr() as *const u8 as *mut u8,
-                                buf.len() as u32,
-                                if i == operations.len() - 1 {
-                                    i2c_ack_type_t_I2C_MASTER_LAST_NACK
-                                } else {
-                                    i2c_ack_type_t_I2C_MASTER_ACK
-                                },
-                            )
-                        })
-                        .map_err(I2cError::other)?;
+                        let ack = if i == last_op_index {
+                            AckType::MasterLastNack
+                        } else {
+                            AckType::MasterAck
+                        };
+                        command_link
+                            .master_read(*buf, ack)
+                            .map_err(I2cError::other)?;
                     }
                 }
                 Operation::Write(buf) => {
                     if let Some(true) = prev_was_read {
                         command_link.master_start().map_err(I2cError::other)?;
                     }
+                    prev_was_read = Some(false);
 
                     command_link
                         .master_write_byte((address << 1) | (i2c_rw_t_I2C_MASTER_WRITE as u8), true)
                         .map_err(I2cError::other)?;
                     if !buf.is_empty() {
-                        esp!(unsafe {
-                            i2c_master_write(
-                                command_link.0,
-                                buf.as_ptr() as *const u8 as *mut u8,
-                                buf.len() as u32,
-                                true,
-                            )
-                        })
-                        .map_err(I2cError::other)?;
+                        command_link
+                            .master_write(buf, true)
+                            .map_err(I2cError::other)?;
                     }
                 }
             }
@@ -586,9 +572,17 @@ where
     }
 }
 
-struct CommandLink(i2c_cmd_handle_t);
+#[repr(u32)]
+enum AckType {
+    MasterAck = i2c_ack_type_t_I2C_MASTER_ACK,
+    #[allow(dead_code)]
+    MasterNack = i2c_ack_type_t_I2C_MASTER_NACK,
+    MasterLastNack = i2c_ack_type_t_I2C_MASTER_LAST_NACK,
+}
 
-impl CommandLink {
+struct CommandLink<'buffers>(i2c_cmd_handle_t, PhantomData<&'buffers u8>);
+
+impl<'buffers> CommandLink<'buffers> {
     fn new() -> Result<Self, EspError> {
         let handle = unsafe { i2c_cmd_link_create() };
 
@@ -596,7 +590,7 @@ impl CommandLink {
             return Err(EspError::from(ESP_ERR_NO_MEM as i32).unwrap());
         }
 
-        Ok(CommandLink(handle))
+        Ok(CommandLink(handle, PhantomData))
     }
 
     fn master_start(&mut self) -> Result<(), EspError> {
@@ -610,9 +604,31 @@ impl CommandLink {
     fn master_write_byte(&mut self, data: u8, ack_en: bool) -> Result<(), EspError> {
         esp!(unsafe { i2c_master_write_byte(self.0, data, ack_en) })
     }
+
+    fn master_write(&mut self, buf: &'buffers [u8], ack_en: bool) -> Result<(), EspError> {
+        esp!(unsafe {
+            i2c_master_write(
+                self.0,
+                buf.as_ptr() as *const u8 as *mut u8,
+                buf.len() as u32,
+                ack_en,
+            )
+        })
+    }
+
+    fn master_read(&mut self, buf: &'buffers mut [u8], ack: AckType) -> Result<(), EspError> {
+        esp!(unsafe {
+            i2c_master_read(
+                self.0,
+                buf.as_ptr() as *const u8 as *mut u8,
+                buf.len() as u32,
+                ack as u32,
+            )
+        })
+    }
 }
 
-impl Drop for CommandLink {
+impl<'buffers> Drop for CommandLink<'buffers> {
     fn drop(&mut self) {
         unsafe {
             i2c_cmd_link_delete(self.0);
