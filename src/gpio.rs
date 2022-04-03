@@ -436,7 +436,7 @@ macro_rules! impl_base {
 }
 
 macro_rules! impl_pull {
-    ($pxi:ident: $mode:ident) => {
+    ($pxi:ident: $mode:ty) => {
         impl Pull for $pxi<$mode> {
             type Error = EspError;
 
@@ -591,6 +591,7 @@ macro_rules! impl_input_only {
 macro_rules! impl_input_output {
     ($pxi:ident: $pin:expr) => {
         impl_input_base!($pxi: $pin);
+        impl_pull!($pxi: Unknown);
         impl_pull!($pxi: Input);
         impl_pull!($pxi: InputOutput);
 
@@ -648,6 +649,25 @@ macro_rules! impl_rtc {
     };
 
     ($pxi:ident: $pin:expr, NORTC: $rtc:expr) => {};
+}
+
+macro_rules! impl_adc_pull {
+    ($pxi:ident, ADC1) => {
+        impl_adc_pull!($pxi, adc::ADC1);
+    };
+
+    ($pxi:ident, ADC2) => {
+        impl_adc_pull!($pxi, adc::ADC2);
+    };
+
+    ($pxi:ident, NOADC) => {};
+
+    ($pxi:ident, $adc:ty) => {
+        impl_pull!($pxi: adc::Atten0dB<$adc>);
+        impl_pull!($pxi: adc::Atten2p5dB<$adc>);
+        impl_pull!($pxi: adc::Atten6dB<$adc>);
+        impl_pull!($pxi: adc::Atten11dB<$adc>);
+    };
 }
 
 macro_rules! impl_adc {
@@ -943,6 +963,7 @@ macro_rules! pin {
         impl_input_output!($pxi: $pin);
         impl_rtc!($pxi: $pin, $rtc: $rtcno);
         impl_adc!($pxi: $pin, $adc: $adcno);
+        impl_adc_pull!($pxi, $adc);
         impl_dac!($pxi: $pin, $dac: $dacno);
         impl_touch!($pxi: $pin, $touch: $touchno);
     };
