@@ -297,9 +297,10 @@ macro_rules! impl_base {
             fn reset(&mut self) -> Result<(), EspError> {
                 #[cfg(not(feature = "riscv-ulp-hal"))]
                 let res = {
-                    esp!(unsafe { gpio_reset_pin(self.pin()) })?;
                     #[cfg(feature = "alloc")]
                     self.disable_interrupt()?;
+
+                    esp!(unsafe { gpio_reset_pin(self.pin()) })?;
                     Ok(())
                 };
 
@@ -528,25 +529,17 @@ macro_rules! impl_input_base {
                 Ok($pxi { _mode: PhantomData })
             }
 
-            /// Degrades a concrete pin (e.g. [`Gpio1`]) to a generic pin
-            /// struct that can also be used with periphals.
-            pub fn degrade(self) -> GpioPin<MODE> {
-                unsafe { GpioPin::new($pin) }
-            }
-        }
-
-        #[cfg(all(not(feature = "riscv-ulp-hal"), feature = "alloc"))]
-        impl $pxi<Input> {
             /// # Safety
             ///
             /// The callback passed to this method is executed in the context of an
             /// interrupt handler. So you should take care of what is done in it.
+            #[cfg(all(not(feature = "riscv-ulp-hal"), feature = "alloc"))]
             pub unsafe fn into_subscribed(
                 mut self,
-                callback: impl FnMut() + 'static,
+                callback: impl FnMut() + Send + 'static,
                 interrupt_type: InterruptType,
             ) -> Result<$pxi<SubscribedInput>, EspError> {
-                self.enable_interrupt()?;
+                self.set_input()?;
 
                 self.set_interrupt_type(interrupt_type)?;
 
@@ -554,7 +547,15 @@ macro_rules! impl_input_base {
 
                 register_irq_handler(self.pin() as usize, callback);
 
+                self.enable_interrupt()?;
+
                 Ok($pxi { _mode: PhantomData })
+            }
+
+            /// Degrades a concrete pin (e.g. [`Gpio1`]) to a generic pin
+            /// struct that can also be used with periphals.
+            pub fn degrade(self) -> GpioPin<MODE> {
+                unsafe { GpioPin::new($pin) }
             }
         }
 
@@ -592,6 +593,7 @@ macro_rules! impl_input_output {
         impl_input_base!($pxi: $pin);
         impl_pull!($pxi: Input);
         impl_pull!($pxi: InputOutput);
+        impl_pull!($pxi: SubscribedInput);
         impl_hal_input_pin!($pxi: InputOutput);
 
         impl<MODE> OutputPin for $pxi<MODE> where MODE: Send {}
