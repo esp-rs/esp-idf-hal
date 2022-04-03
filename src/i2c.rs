@@ -423,9 +423,9 @@ where
                         .map_err(I2cError::other)?;
                     if !buf.is_empty() {
                         let ack = if i == last_op_index {
-                            AckType::MasterLastNack
+                            AckType::LastNack
                         } else {
-                            AckType::MasterAck
+                            AckType::Ack
                         };
                         command_link
                             .master_read(*buf, ack)
@@ -574,10 +574,10 @@ where
 
 #[repr(u32)]
 enum AckType {
-    MasterAck = i2c_ack_type_t_I2C_MASTER_ACK,
+    Ack = i2c_ack_type_t_I2C_MASTER_ACK,
     #[allow(dead_code)]
-    MasterNack = i2c_ack_type_t_I2C_MASTER_NACK,
-    MasterLastNack = i2c_ack_type_t_I2C_MASTER_LAST_NACK,
+    Nack = i2c_ack_type_t_I2C_MASTER_NACK,
+    LastNack = i2c_ack_type_t_I2C_MASTER_LAST_NACK,
 }
 
 struct CommandLink<'buffers>(i2c_cmd_handle_t, PhantomData<&'buffers u8>);
