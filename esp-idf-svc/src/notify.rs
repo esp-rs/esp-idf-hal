@@ -92,6 +92,12 @@ impl EspNotifyState {
     fn wait(duration: Duration) -> Option<u32> {
         let mut bits = 0_u32;
 
+        #[cfg(esp_idf_version = "4.3")]
+        let notified = unsafe {
+            xTaskNotifyWait(0, u32::MAX, &mut bits as *mut _, TickType::from(duration).0)
+        } != 0;
+
+        #[cfg(not(esp_idf_version = "4.3"))]
         let notified = unsafe {
             xTaskGenericNotifyWait(
                 0,
@@ -236,6 +242,18 @@ impl Postbox<u32> for EspNotify<Background> {
         let notified = if interrupt::active() {
             let mut higher_prio_task_woken: BaseType_t = Default::default();
 
+            #[cfg(esp_idf_version = "4.3")]
+            let notified = unsafe {
+                xTaskGenericNotifyFromISR(
+                    self.notify_type.0,
+                    *payload,
+                    eNotifyAction_eSetBits,
+                    ptr::null_mut(),
+                    &mut higher_prio_task_woken as *mut _,
+                )
+            };
+
+            #[cfg(not(esp_idf_version = "4.3"))]
             let notified = unsafe {
                 xTaskGenericNotifyFromISR(
                     self.notify_type.0,
@@ -253,7 +271,18 @@ impl Postbox<u32> for EspNotify<Background> {
 
             notified
         } else {
-            unsafe {
+            #[cfg(esp_idf_version = "4.3")]
+            let notified = unsafe {
+                xTaskGenericNotify(
+                    self.notify_type.0,
+                    *payload,
+                    eNotifyAction_eSetBits,
+                    ptr::null_mut(),
+                )
+            };
+
+            #[cfg(not(esp_idf_version = "4.3"))]
+            let notified = unsafe {
                 xTaskGenericNotify(
                     self.notify_type.0,
                     0,
@@ -261,7 +290,9 @@ impl Postbox<u32> for EspNotify<Background> {
                     eNotifyAction_eSetBits,
                     ptr::null_mut(),
                 )
-            }
+            };
+
+            notified
         };
 
         Ok(notified != 0)
