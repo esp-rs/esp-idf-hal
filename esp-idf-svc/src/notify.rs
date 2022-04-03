@@ -1,6 +1,6 @@
 use core::cell::RefCell;
+use core::ptr;
 use core::time::Duration;
-use std::ptr;
 
 extern crate alloc;
 use alloc::sync::{Arc, Weak};
