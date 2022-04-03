@@ -593,7 +593,10 @@ macro_rules! impl_input_output {
         impl_input_base!($pxi: $pin);
         impl_pull!($pxi: Input);
         impl_pull!($pxi: InputOutput);
+
+        #[cfg(all(not(feature = "riscv-ulp-hal"), feature = "alloc"))]
         impl_pull!($pxi: SubscribedInput);
+
         impl_hal_input_pin!($pxi: InputOutput);
 
         impl<MODE> OutputPin for $pxi<MODE> where MODE: Send {}
