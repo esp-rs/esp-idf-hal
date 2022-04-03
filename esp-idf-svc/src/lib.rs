@@ -44,6 +44,8 @@ pub mod mqtt;
 pub mod napt;
 #[cfg(all(feature = "alloc", esp_idf_comp_esp_netif_enabled))]
 pub mod netif;
+#[cfg(all(feature = "experimental", feature = "alloc"))]
+pub mod notify;
 #[cfg(all(feature = "alloc", esp_idf_comp_nvs_flash_enabled))]
 // TODO: Expose a subset which does not require "alloc"
 pub mod nvs;
