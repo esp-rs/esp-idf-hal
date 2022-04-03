@@ -591,7 +591,6 @@ macro_rules! impl_input_only {
 macro_rules! impl_input_output {
     ($pxi:ident: $pin:expr) => {
         impl_input_base!($pxi: $pin);
-        impl_pull!($pxi: Unknown);
         impl_pull!($pxi: Input);
         impl_pull!($pxi: InputOutput);
 
