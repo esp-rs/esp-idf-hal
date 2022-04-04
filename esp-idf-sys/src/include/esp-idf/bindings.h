@@ -77,6 +77,10 @@
 
 #ifdef ESP_IDF_COMP_FATFS_ENABLED
 #include "esp_vfs_fat.h"
+#include "diskio_impl.h"
+#include "diskio_rawflash.h"
+#include "diskio_sdmmc.h"
+#include "diskio_wl.h"
 #endif
 
 #endif
