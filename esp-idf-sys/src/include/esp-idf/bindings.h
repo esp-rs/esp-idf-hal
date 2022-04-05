@@ -5,6 +5,7 @@
 #endif
 
 //#include "esp_crc.h"
+#include "esp_efuse.h"
 #include "esp_log.h"
 #include "esp_debug_helpers.h"
 
