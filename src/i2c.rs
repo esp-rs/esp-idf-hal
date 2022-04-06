@@ -284,9 +284,11 @@ where
         command_link
             .master_write_byte((addr << 1) | (i2c_rw_t_I2C_MASTER_READ as u8), true)
             .map_err(I2cError::other)?;
-        command_link
-            .master_read(buffer, AckType::LastNack)
-            .map_err(I2cError::other)?;
+        if !buffer.is_empty() {
+            command_link
+                .master_read(buffer, AckType::LastNack)
+                .map_err(I2cError::other)?;
+        }
         command_link.master_stop().map_err(I2cError::other)?;
 
         esp!(unsafe { i2c_master_cmd_begin(I2C::port(), command_link.0, self.timeout) })
@@ -302,9 +304,11 @@ where
             .master_write_byte((addr << 1) | (i2c_rw_t_I2C_MASTER_WRITE as u8), true)
             .map_err(I2cError::other)?;
 
-        command_link
-            .master_write(bytes, true)
-            .map_err(I2cError::other)?;
+        if !bytes.is_empty() {
+            command_link
+                .master_write(bytes, true)
+                .map_err(I2cError::other)?;
+        }
         command_link.master_stop().map_err(I2cError::other)?;
         esp!(unsafe { i2c_master_cmd_begin(I2C::port(), command_link.0, self.timeout) })
             .map_err(I2cError::other)
@@ -317,17 +321,21 @@ where
         command_link
             .master_write_byte((addr << 1) | (i2c_rw_t_I2C_MASTER_WRITE as u8), true)
             .map_err(I2cError::other)?;
-        command_link
-            .master_write(bytes, true)
-            .map_err(I2cError::other)?;
+        if !bytes.is_empty() {
+            command_link
+                .master_write(bytes, true)
+                .map_err(I2cError::other)?;
+        }
 
         command_link.master_start().map_err(I2cError::other)?;
         command_link
             .master_write_byte((addr << 1) | (i2c_rw_t_I2C_MASTER_READ as u8), true)
             .map_err(I2cError::other)?;
-        command_link
-            .master_read(buffer, AckType::LastNack)
-            .map_err(I2cError::other)?;
+        if !buffer.is_empty() {
+            command_link
+                .master_read(buffer, AckType::LastNack)
+                .map_err(I2cError::other)?;
+        }
 
         command_link.master_stop().map_err(I2cError::other)?;
 
