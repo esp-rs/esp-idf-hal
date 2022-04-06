@@ -1,4 +1,5 @@
 use core::marker::PhantomData;
+use embedded_hal::i2c::{ErrorKind, NoAcknowledgeSource};
 use esp_idf_sys::*;
 
 use crate::{delay::*, gpio::*, units::*};
@@ -220,6 +221,27 @@ where
 
         Ok((self.i2c, self.pins))
     }
+
+    fn cmd_begin(
+        &mut self,
+        command_link: &CommandLink,
+        timeout: TickType_t,
+    ) -> Result<(), EspError> {
+        esp!(unsafe { i2c_master_cmd_begin(I2C::port(), command_link.0, timeout) })
+    }
+
+    fn submit(&mut self, command_link: &CommandLink) -> Result<(), I2cError> {
+        if let Err(err) = self.cmd_begin(command_link, self.timeout) {
+            let err = if err.code() == ESP_FAIL {
+                I2cError::new(ErrorKind::NoAcknowledge(NoAcknowledgeSource::Unknown), err)
+            } else {
+                I2cError::other(err)
+            };
+            Err(err)
+        } else {
+            Ok(())
+        }
+    }
 }
 
 impl<I2C, SDA, SCL> embedded_hal_0_2::blocking::i2c::Read for Master<I2C, SDA, SCL>
@@ -291,8 +313,7 @@ where
         }
         command_link.master_stop().map_err(I2cError::other)?;
 
-        esp!(unsafe { i2c_master_cmd_begin(I2C::port(), command_link.0, self.timeout) })
-            .map_err(I2cError::other)
+        self.submit(&command_link)
     }
 
     fn write(&mut self, addr: u8, bytes: &[u8]) -> Result<(), Self::Error> {
@@ -310,8 +331,8 @@ where
                 .map_err(I2cError::other)?;
         }
         command_link.master_stop().map_err(I2cError::other)?;
-        esp!(unsafe { i2c_master_cmd_begin(I2C::port(), command_link.0, self.timeout) })
-            .map_err(I2cError::other)
+
+        self.submit(&command_link)
     }
 
     fn write_read(&mut self, addr: u8, bytes: &[u8], buffer: &mut [u8]) -> Result<(), Self::Error> {
@@ -339,8 +360,7 @@ where
 
         command_link.master_stop().map_err(I2cError::other)?;
 
-        esp!(unsafe { i2c_master_cmd_begin(I2C::port(), command_link.0, self.timeout) })
-            .map_err(I2cError::other)
+        self.submit(&command_link)
     }
 
     fn write_iter<B>(&mut self, _address: u8, _bytes: B) -> Result<(), Self::Error>
@@ -418,8 +438,7 @@ where
 
         command_link.master_stop().map_err(I2cError::other)?;
 
-        esp!(unsafe { i2c_master_cmd_begin(I2C::port(), command_link.0, self.timeout) })
-            .map_err(I2cError::other)
+        self.submit(&command_link)
     }
 
     fn transaction_iter<'a, O>(&mut self, _address: u8, _operations: O) -> Result<(), Self::Error>
