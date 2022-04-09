@@ -357,8 +357,11 @@ impl EspMqttClient {
 
 impl Drop for EspMqttClient {
     fn drop(&mut self) {
-        esp!(unsafe { esp_mqtt_client_disconnect(self.0) }).unwrap();
-        esp!(unsafe { esp_mqtt_client_stop(self.0) }).unwrap();
+        // Best effort - stop if started
+        unsafe {
+            esp_mqtt_client_stop(self.0);
+        }
+
         esp!(unsafe { esp_mqtt_client_destroy(self.0) }).unwrap();
 
         (self.1)(ptr::null_mut() as *mut _);
