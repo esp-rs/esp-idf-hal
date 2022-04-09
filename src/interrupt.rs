@@ -39,7 +39,7 @@ pub struct CriticalSection(core::marker::PhantomData<*const ()>);
 
 #[inline(always)]
 #[link_section = ".iram1.interrupt_enter"]
-fn enter(cs: &CriticalSection) {
+fn enter(_cs: &CriticalSection) {
     #[cfg(esp32c3)]
     unsafe {
         vPortEnterCritical();
@@ -58,7 +58,7 @@ fn enter(cs: &CriticalSection) {
 
 #[inline(always)]
 #[link_section = ".iram1.interrupt_exit"]
-fn exit(cs: &CriticalSection) {
+fn exit(_cs: &CriticalSection) {
     #[cfg(esp32c3)]
     unsafe {
         vPortExitCritical();
@@ -138,7 +138,7 @@ impl<'a> Drop for CriticalSectionGuard<'a> {
     #[inline(always)]
     #[link_section = ".iram1.interrupt_csg_drop"]
     fn drop(&mut self) {
-        exit(&self.0);
+        exit(self.0);
     }
 }
 
