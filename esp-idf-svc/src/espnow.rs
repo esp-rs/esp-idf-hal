@@ -153,11 +153,7 @@ impl EspNowClient {
         }
     }
 
-    extern "C" fn recv_callback(
-        mac_addr: *const u8,
-        data: *const u8,
-        data_len: c_types::c_int,
-    ) {
+    extern "C" fn recv_callback(mac_addr: *const u8, data: *const u8, data_len: c_types::c_int) {
         let c_mac = unsafe { std::slice::from_raw_parts(mac_addr, 6usize) };
         let c_data = unsafe { std::slice::from_raw_parts(data, data_len as usize) };
 
