@@ -14,6 +14,9 @@ use esp_idf_sys::*;
 #[cfg(feature = "experimental")]
 pub use asyncify::*;
 
+#[cfg(esp_idf_esp_timer_supports_isr_dispatch_method)]
+pub use isr;
+
 struct UnsafeCallback(*mut Box<dyn FnMut()>);
 
 impl UnsafeCallback {
@@ -97,25 +100,51 @@ impl PeriodicTimer for EspTimer {
     }
 }
 
-pub struct EspTimerService(());
+pub trait EspTimerServiceType {
+    fn is_isr() -> bool;
+}
 
-impl EspTimerService {
+#[derive(Clone, Debug)]
+pub struct Task;
+
+impl EspTimerServiceType for Task {
+    fn is_isr() -> bool {
+        false
+    }
+}
+
+pub struct EspTimerService<T>(T)
+where
+    T: EspTimerServiceType;
+
+pub type EspTaskTimerService = EspTimerService<Task>;
+
+impl EspTimerService<Task> {
     pub fn new() -> Result<Self, EspError> {
-        Ok(Self(()))
+        Ok(Self(Task))
     }
 }
 
-impl Clone for EspTimerService {
+impl<T> Clone for EspTimerService<T>
+where
+    T: EspTimerServiceType + Clone,
+{
     fn clone(&self) -> Self {
-        Self(())
+        Self(self.0.clone())
     }
 }
 
-impl Errors for EspTimerService {
+impl<T> Errors for EspTimerService<T>
+where
+    T: EspTimerServiceType,
+{
     type Error = EspError;
 }
 
-impl TimerService for EspTimerService {
+impl<T> TimerService for EspTimerService<T>
+where
+    T: EspTimerServiceType,
+{
     type Timer = EspTimer;
 
     fn timer(&mut self, callback: impl FnMut() + Send + 'static) -> Result<EspTimer, EspError> {
@@ -126,13 +155,23 @@ impl TimerService for EspTimerService {
         let mut callback = Box::new(boxed_callback);
         let unsafe_callback = UnsafeCallback::from(&mut callback);
 
+        #[cfg(esp_idf_esp_timer_supports_isr_dispatch_method)]
+        let dispatch_method = if T::is_isr() {
+            esp_timer_dispatch_t_ESP_TIMER_ISR
+        } else {
+            esp_timer_dispatch_t_ESP_TIMER_TASK
+        };
+
+        #[cfg(not(esp_idf_esp_timer_supports_isr_dispatch_method))]
+        let dispatch_method = esp_timer_dispatch_t_ESP_TIMER_TASK;
+
         esp!(unsafe {
             esp_timer_create(
                 &esp_timer_create_args_t {
                     callback: Some(EspTimer::handle),
                     name: b"rust\0" as *const _ as *const _, // TODO
                     arg: unsafe_callback.as_ptr(),
-                    dispatch_method: esp_timer_dispatch_t_ESP_TIMER_TASK,
+                    dispatch_method,
                     skip_unhandled_events: false, // TODO
                 },
                 &mut handle as *mut _,
@@ -146,9 +185,40 @@ impl TimerService for EspTimerService {
     }
 }
 
-impl SystemTime for EspTimerService {
+impl<T> SystemTime for EspTimerService<T>
+where
+    T: EspTimerServiceType,
+{
     fn now(&self) -> Duration {
         Duration::from_micros(unsafe { esp_timer_get_time() as _ })
+    }
+}
+
+#[cfg(esp_idf_esp_timer_supports_isr_dispatch_method)]
+mod isr {
+    use esp_idf_sys::EspError;
+
+    #[derive(Clone, Debug)]
+    pub struct ISR;
+
+    impl super::EspTimerServiceType for ISR {
+        fn is_isr() -> bool {
+            true
+        }
+    }
+
+    pub type EspISRTimerService = super::EspTimerService<ISR>;
+
+    impl super::EspTimerService<ISR> {
+        pub unsafe fn new() -> Result<Self, EspError> {
+            Ok(Self(ISR))
+        }
+
+        pub fn do_yield() {
+            unsafe {
+                esp_timer_isr_dispatch_need_yield();
+            }
+        }
     }
 }
 
@@ -157,7 +227,12 @@ mod asyncify {
     use embedded_svc::utils::asyncify::timer::AsyncTimerService;
     use embedded_svc::utils::asyncify::Asyncify;
 
-    impl Asyncify for super::EspTimerService {
+    impl Asyncify for super::EspTimerService<super::Task> {
+        type AsyncWrapper<S> = AsyncTimerService<S>;
+    }
+
+    #[cfg(esp_idf_esp_timer_supports_isr_dispatch_method)]
+    impl Asyncify for super::EspTimerService<super::ISR> {
         type AsyncWrapper<S> = AsyncTimerService<S>;
     }
 }
