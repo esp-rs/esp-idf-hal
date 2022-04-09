@@ -37,34 +37,43 @@ pub struct CriticalSection(core::cell::UnsafeCell<portMUX_TYPE>);
 #[cfg(esp32c3)]
 pub struct CriticalSection(core::marker::PhantomData<*const ()>);
 
+#[cfg(esp32c3)]
 #[inline(always)]
 #[link_section = ".iram1.interrupt_enter"]
 fn enter(_cs: &CriticalSection) {
-    #[cfg(esp32c3)]
     unsafe {
         vPortEnterCritical();
     }
+}
 
-    #[cfg(all(esp_idf_version = "4.3", not(esp32c3)))]
+#[cfg(not(esp32c3))]
+#[inline(always)]
+#[link_section = ".iram1.interrupt_enter"]
+fn enter(cs: &CriticalSection) {
+    #[cfg(esp_idf_version = "4.3")]
     unsafe {
         vPortEnterCritical(cs.0.get());
     }
 
-    #[cfg(all(not(esp_idf_version = "4.3"), not(esp32c3)))]
+    #[cfg(not(esp_idf_version = "4.3"))]
     unsafe {
         xPortEnterCriticalTimeout(cs.0.get(), portMUX_NO_TIMEOUT);
     }
 }
 
+#[cfg(esp32c3)]
 #[inline(always)]
 #[link_section = ".iram1.interrupt_exit"]
 fn exit(_cs: &CriticalSection) {
-    #[cfg(esp32c3)]
     unsafe {
         vPortExitCritical();
     }
+}
 
-    #[cfg(not(esp32c3))]
+#[cfg(not(esp32c3))]
+#[inline(always)]
+#[link_section = ".iram1.interrupt_exit"]
+fn exit(cs: &CriticalSection) {
     unsafe {
         vPortExitCritical(cs.0.get());
     }
