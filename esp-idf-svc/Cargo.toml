@@ -27,7 +27,7 @@ cstr_core = "0.2"
 anyhow = { version = "1", default-features = false, optional = true }
 embedded-svc = { version = "0.19.1", default-features = false }
 esp-idf-sys = { version = "0.31", default-features = false, features = ["native"] }
-esp-idf-hal = { version = "0.35.1", default-features = false, features = ["esp-idf-sys", "embedded-svc"] }
+esp-idf-hal = { version = "0.35.2", default-features = false, features = ["esp-idf-sys", "embedded-svc"] }
 uncased = { version = "0.9.6", optional = true }
 
 [build-dependencies]
