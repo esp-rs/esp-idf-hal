@@ -16,6 +16,7 @@ use embedded_svc::{errors, event_bus};
 
 use esp_idf_hal::cpu::Core;
 use esp_idf_hal::delay::TickType;
+use esp_idf_hal::interrupt;
 use esp_idf_hal::mutex;
 
 use esp_idf_sys::*;
@@ -475,6 +476,8 @@ where
 
     #[cfg(esp_idf_esp_event_post_from_isr)]
     pub fn isr_post_raw(&mut self, data: &EspEventPostData) -> Result<bool, EspError> {
+        let mut higher_prio_task_woken: BaseType_t = Default::default();
+
         let result = if T::is_system() {
             unsafe {
                 esp_event_isr_post(
@@ -482,7 +485,7 @@ where
                     data.event_id,
                     data.payload as *const _ as *mut _,
                     data.payload_len as _,
-                    ptr::null_mut(),
+                    &mut higher_prio_task_woken as *mut _,
                 )
             }
         } else {
@@ -496,10 +499,14 @@ where
                     data.event_id,
                     data.payload as *const _ as *mut _,
                     data.payload_len as _,
-                    ptr::null_mut(),
+                    &mut higher_prio_task_woken as *mut _,
                 )
             }
         };
+
+        if higher_prio_task_woken != 0 {
+            interrupt::do_yield();
+        }
 
         if result == ESP_FAIL {
             Ok(false)
@@ -594,7 +601,21 @@ where
     T: EspEventLoopType,
 {
     fn post(&mut self, payload: &P, wait: Option<Duration>) -> Result<bool, Self::Error> {
-        P::serialize(payload, |raw_event| self.post_raw(raw_event, wait))
+        if interrupt::active() {
+            #[cfg(esp_idf_esp_event_post_from_isr)]
+            let result = P::serialize(payload, |raw_event| self.isr_post_raw(raw_event));
+
+            #[cfg(not(esp_idf_esp_event_post_from_isr))]
+            let result = {
+                panic!("Trying to post from an ISR handler. Enable `CONFIG_ESP_EVENT_POST_FROM_ISR` in `sdkconfig.defaults`");
+
+                Err(EspError::from(ESP_FAIL).unwrap())
+            };
+
+            result
+        } else {
+            P::serialize(payload, |raw_event| self.post_raw(raw_event, wait))
+        }
     }
 }
 
