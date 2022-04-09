@@ -32,7 +32,7 @@ pub mod gpio;
 pub mod hall;
 #[cfg(not(feature = "riscv-ulp-hal"))]
 pub mod i2c;
-#[cfg(all(feature = "experimental", not(feature = "riscv-ulp-hal")))]
+#[cfg(not(feature = "riscv-ulp-hal"))]
 pub mod interrupt;
 pub mod ledc;
 #[cfg(not(feature = "riscv-ulp-hal"))]
