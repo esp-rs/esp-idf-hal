@@ -9,7 +9,7 @@ on:
     - cron: '50 4 * * *'
 
 env:
-  rust_toolchain: nightly
+  rust_toolchain: nightly-2022-04-07
 
 jobs:
   compile:
