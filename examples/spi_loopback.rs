@@ -11,6 +11,7 @@
 //! This example transfers data via SPI.
 //! Connect MISO and MOSI pins to see the outgoing data is read as incoming data.
 
+use std::rc::Rc;
 use std::thread;
 use std::time::Duration;
 
@@ -32,7 +33,7 @@ fn main() -> anyhow::Result<()> {
     let cs = peripherals.pins.gpio10;
 
     println!("Starting SPI loopback test");
-    let bus = spi::Bus::<spi::SPI2, _, _, _>::new(
+    let bus = spi::RWBus::<spi::SPI2, _, _, _>::new(
         spi,
         spi::Pins {
             sclk,
