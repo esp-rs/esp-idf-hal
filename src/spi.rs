@@ -19,9 +19,7 @@
 //! - DMA
 //! - Slave
 
-use core::borrow::Borrow;
 use core::cmp::{max, min};
-use core::ops::Deref;
 use core::ptr;
 
 use crate::delay::portMAX_DELAY;
