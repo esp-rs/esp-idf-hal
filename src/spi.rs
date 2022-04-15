@@ -222,12 +222,13 @@ pub struct MasterBus {
 }
 
 impl MasterBus {
+    // These parameters assume full duplex.
     fn polling_transmit(
         &mut self,
         read: *mut u8,
-        read_len: usize,
         write: *const u8,
-        write_len: usize,
+        transaction_length: usize,
+        rx_length: usize,
     ) -> Result<(), SpiError> {
         let flags = 0;
 
@@ -244,8 +245,29 @@ impl MasterBus {
             __bindgen_anon_2: spi_transaction_t__bindgen_ty_2 {
                 rx_buffer: read as *mut _,
             },
-            length: (write_len * 8) as _,
-            rxlength: (read_len * 8) as _,
+            length: (transaction_length * 8) as _,
+            rxlength: (rx_length * 8) as _,
+            ..Default::default()
+        };
+
+        esp!(unsafe { spi_device_polling_transmit(self.handle, &mut transaction as *mut _) })
+            .map_err(SpiError::other)
+    }
+
+    /// Empty transaction to de-assert CS.
+    fn finish(&mut self) -> Result<(), SpiError> {
+        let flags = 0;
+
+        let mut transaction = spi_transaction_t {
+            flags,
+            __bindgen_anon_1: spi_transaction_t__bindgen_ty_1 {
+                tx_buffer: ptr::null(),
+            },
+            __bindgen_anon_2: spi_transaction_t__bindgen_ty_2 {
+                rx_buffer: ptr::null_mut(),
+            },
+            length: 0,
+            rxlength: 0,
             ..Default::default()
         };
 
@@ -270,7 +292,7 @@ impl embedded_hal::spi::blocking::SpiBusFlush for MasterBus {
 impl embedded_hal::spi::blocking::SpiBusRead for MasterBus {
     fn read(&mut self, words: &mut [u8]) -> Result<(), Self::Error> {
         for chunk in words.chunks_mut(self.trans_len) {
-            self.polling_transmit(chunk.as_mut_ptr(), chunk.len(), ptr::null(), 0)?;
+            self.polling_transmit(chunk.as_mut_ptr(), ptr::null(), chunk.len(), chunk.len())?;
         }
         Ok(())
     }
@@ -279,7 +301,7 @@ impl embedded_hal::spi::blocking::SpiBusRead for MasterBus {
 impl embedded_hal::spi::blocking::SpiBusWrite for MasterBus {
     fn write(&mut self, words: &[u8]) -> Result<(), Self::Error> {
         for chunk in words.chunks(self.trans_len) {
-            self.polling_transmit(ptr::null_mut(), 0, chunk.as_ptr(), chunk.len())?;
+            self.polling_transmit(ptr::null_mut(), chunk.as_ptr(), chunk.len(), 0)?;
         }
         Ok(())
     }
@@ -293,9 +315,9 @@ impl embedded_hal::spi::blocking::SpiBus for MasterBus {
         {
             self.polling_transmit(
                 read_chunk.as_mut_ptr(),
-                read_chunk.len(),
                 write_chunk.as_ptr(),
-                write_chunk.len(),
+                self.trans_len,
+                self.trans_len,
             )?;
         }
 
@@ -320,7 +342,7 @@ impl embedded_hal::spi::blocking::SpiBus for MasterBus {
         for chunk in words.chunks_mut(self.trans_len) {
             let ptr = chunk.as_mut_ptr();
             let len = chunk.len();
-            self.polling_transmit(ptr, len, ptr, len)?;
+            self.polling_transmit(ptr, ptr, len, len)?;
         }
         Ok(())
     }
@@ -599,26 +621,21 @@ impl<SPI: Spi, SCLK: OutputPin, SDO: OutputPin, SDI: InputPin + OutputPin, CS: O
             trans_len: TRANS_LEN,
         };
 
-        let _ = self.lock_bus()?;
+        let lock = self.lock_bus()?;
         let trans_result = f(&mut bus);
+
+        let finish_result = bus.finish();
 
         // Flush whatever is pending.
         // Note that this is done even when an error is returned from the transaction.
         use embedded_hal::spi::blocking::SpiBusFlush;
         let flush_result = bus.flush();
 
-        // De-assert CS by setting it high.
-        // The SPI driver should already have this pin in the correct state, so I can cheat here
-        // and avoid having to go through the state machine.
-        let cs_result = if let Some(cs) = &self.pins.cs {
-            esp!(unsafe { gpio_set_level(cs.pin(), 1) })
-        } else {
-            Ok(())
-        };
+        core::mem::drop(lock);
 
         let result = trans_result?;
+        finish_result?;
         flush_result?;
-        cs_result.map_err(SpiError::other)?;
         Ok(result)
     }
 }
