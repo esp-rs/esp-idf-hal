@@ -736,17 +736,6 @@ macro_rules! impl_adc {
                 $adc
             }
         }
-
-        impl<AN> embedded_hal::adc::nb::Channel<AN> for $pxi<AN>
-        where
-            AN: adc::Analog<adc::ADC1> + Send,
-        {
-            type ID = u8;
-
-            fn channel(&self) -> Self::ID {
-                $adc
-            }
-        }
     };
 
     ($pxi:ident: $pin:expr, ADC2: $adc:expr) => {
@@ -812,17 +801,6 @@ macro_rules! impl_adc {
             type ID = u8;
 
             fn channel() -> Self::ID {
-                $adc
-            }
-        }
-
-        impl<AN> embedded_hal::adc::nb::Channel<AN> for $pxi<AN>
-        where
-            AN: adc::Analog<adc::ADC2> + Send,
-        {
-            type ID = u8;
-
-            fn channel(&self) -> Self::ID {
                 $adc
             }
         }

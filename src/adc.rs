@@ -311,35 +311,8 @@ where
     }
 }
 
-#[cfg(not(feature = "riscv-ulp-hal"))]
-impl<ADC, AN, PIN> embedded_hal::adc::nb::OneShot<AN, u16, PIN> for PoweredAdc<ADC>
-where
-    ADC: Adc,
-    AN: Analog<ADC>,
-    PIN: embedded_hal::adc::nb::Channel<AN, ID = u8>,
-{
-    type Error = EspError;
-
-    fn read(&mut self, pin: &mut PIN) -> nb::Result<u16, Self::Error> {
-        self.read(
-            ADC::unit(),
-            pin.channel() as adc_channel_t,
-            AN::attenuation(),
-        )
-    }
-}
-
 #[cfg(all(esp32, not(feature = "riscv-ulp-hal")))]
 impl embedded_hal_0_2::adc::OneShot<ADC1, u16, hall::HallSensor> for PoweredAdc<ADC1> {
-    type Error = EspError;
-
-    fn read(&mut self, _hall_sensor: &mut hall::HallSensor) -> nb::Result<u16, Self::Error> {
-        self.read_hall()
-    }
-}
-
-#[cfg(all(esp32, not(feature = "riscv-ulp-hal")))]
-impl embedded_hal::adc::nb::OneShot<ADC1, u16, hall::HallSensor> for PoweredAdc<ADC1> {
     type Error = EspError;
 
     fn read(&mut self, _hall_sensor: &mut hall::HallSensor) -> nb::Result<u16, Self::Error> {
