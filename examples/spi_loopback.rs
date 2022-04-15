@@ -14,7 +14,7 @@
 use std::thread;
 use std::time::Duration;
 
-use embedded_hal_0_2::blocking::spi::Transfer;
+use embedded_hal::spi::blocking::SpiDevice;
 
 use esp_idf_hal::peripherals::Peripherals;
 use esp_idf_hal::prelude::*;
@@ -50,8 +50,7 @@ fn main() -> anyhow::Result<()> {
     loop {
         // we are using thread::sleep here to make sure the watchdog isn't triggered
         thread::sleep(Duration::from_millis(500));
-        read.copy_from_slice(&write);
-        spi.transfer(&mut read)?;
+        spi.transfer(&mut read, &write)?;
         println!("Wrote {:x?}, read {:x?}", write, read);
     }
 }

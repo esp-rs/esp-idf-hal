@@ -20,7 +20,7 @@
 //! - Multiple CS pins
 //! - Slave
 
-use core::cmp::{max, min};
+use core::cmp::{max, min, Ordering};
 use core::ptr;
 
 use crate::delay::portMAX_DELAY;
@@ -213,6 +213,116 @@ impl Drop for Lock {
         unsafe {
             spi_device_release_bus(self.0);
         }
+    }
+}
+
+pub struct MasterBus {
+    handle: spi_device_handle_t,
+    trans_len: usize,
+}
+
+impl MasterBus {
+    fn polling_transmit(
+        &mut self,
+        read: *mut u8,
+        read_len: usize,
+        write: *const u8,
+        write_len: usize,
+    ) -> Result<(), SpiError> {
+        let flags = 0;
+
+        // This unfortunately means that this implementation is incorrect for esp-idf < 4.4.
+        // The CS pin should be kept active through transactions.
+        #[cfg(not(esp_idf_version = "4.3"))]
+        let flags = SPI_TRANS_CS_KEEP_ACTIVE;
+
+        let mut transaction = spi_transaction_t {
+            flags,
+            __bindgen_anon_1: spi_transaction_t__bindgen_ty_1 {
+                tx_buffer: write as *const _,
+            },
+            __bindgen_anon_2: spi_transaction_t__bindgen_ty_2 {
+                rx_buffer: read as *mut _,
+            },
+            length: (write_len * 8) as _,
+            rxlength: (read_len * 8) as _,
+            ..Default::default()
+        };
+
+        esp!(unsafe { spi_device_polling_transmit(self.handle, &mut transaction as *mut _) })
+            .map_err(SpiError::other)
+    }
+}
+
+impl embedded_hal::spi::ErrorType for MasterBus {
+    type Error = SpiError;
+}
+
+impl embedded_hal::spi::blocking::SpiBusFlush for MasterBus {
+    fn flush(&mut self) -> Result<(), Self::Error> {
+        // Since we use polling transactions, flushing isn't required.
+        // In future, when DMA is available spi_device_get_trans_result
+        // will be called here.
+        Ok(())
+    }
+}
+
+impl embedded_hal::spi::blocking::SpiBusRead for MasterBus {
+    fn read(&mut self, words: &mut [u8]) -> Result<(), Self::Error> {
+        for chunk in words.chunks_mut(self.trans_len) {
+            self.polling_transmit(chunk.as_mut_ptr(), chunk.len(), ptr::null(), 0)?;
+        }
+        Ok(())
+    }
+}
+
+impl embedded_hal::spi::blocking::SpiBusWrite for MasterBus {
+    fn write(&mut self, words: &[u8]) -> Result<(), Self::Error> {
+        for chunk in words.chunks(self.trans_len) {
+            self.polling_transmit(ptr::null_mut(), 0, chunk.as_ptr(), chunk.len())?;
+        }
+        Ok(())
+    }
+}
+
+impl embedded_hal::spi::blocking::SpiBus for MasterBus {
+    fn transfer(&mut self, read: &mut [u8], write: &[u8]) -> Result<(), Self::Error> {
+        for (read_chunk, write_chunk) in read
+            .chunks_mut(self.trans_len)
+            .zip(write.chunks(self.trans_len))
+        {
+            self.polling_transmit(
+                read_chunk.as_mut_ptr(),
+                read_chunk.len(),
+                write_chunk.as_ptr(),
+                write_chunk.len(),
+            )?;
+        }
+
+        match read.len().cmp(&write.len()) {
+            Ordering::Equal => { /* Nothing left to do */ }
+            Ordering::Greater => {
+                use embedded_hal::spi::blocking::SpiBusRead;
+                // Read remainder
+                self.read(&mut read[write.len()..])?;
+            }
+            Ordering::Less => {
+                use embedded_hal::spi::blocking::SpiBusWrite;
+                // Write remainder
+                self.write(&write[read.len()..])?;
+            }
+        }
+
+        Ok(())
+    }
+
+    fn transfer_in_place(&mut self, words: &mut [u8]) -> Result<(), Self::Error> {
+        for chunk in words.chunks_mut(self.trans_len) {
+            let ptr = chunk.as_mut_ptr();
+            let len = chunk.len();
+            self.polling_transmit(ptr, len, ptr, len)?;
+        }
+        Ok(())
     }
 }
 
@@ -466,6 +576,50 @@ impl<SPI: Spi, SCLK: OutputPin, SDO: OutputPin, SDI: InputPin + OutputPin, CS: O
             .map_err(SpiError::other)?;
 
         Ok(())
+    }
+}
+
+impl<SPI: Spi, SCLK: OutputPin, SDO: OutputPin, SDI: InputPin + OutputPin, CS: OutputPin>
+    embedded_hal::spi::ErrorType for Master<SPI, SCLK, SDO, SDI, CS>
+{
+    type Error = SpiError;
+}
+
+impl<SPI: Spi, SCLK: OutputPin, SDO: OutputPin, SDI: InputPin + OutputPin, CS: OutputPin>
+    embedded_hal::spi::blocking::SpiDevice for Master<SPI, SCLK, SDO, SDI, CS>
+{
+    type Bus = MasterBus;
+
+    fn transaction<R>(
+        &mut self,
+        f: impl FnOnce(&mut Self::Bus) -> Result<R, <Self::Bus as embedded_hal::spi::ErrorType>::Error>,
+    ) -> Result<R, Self::Error> {
+        let mut bus = MasterBus {
+            handle: self.device,
+            trans_len: TRANS_LEN,
+        };
+
+        let _ = self.lock_bus()?;
+        let trans_result = f(&mut bus);
+
+        // Flush whatever is pending.
+        // Note that this is done even when an error is returned from the transaction.
+        use embedded_hal::spi::blocking::SpiBusFlush;
+        let flush_result = bus.flush();
+
+        // De-assert CS by setting it high.
+        // The SPI driver should already have this pin in the correct state, so I can cheat here
+        // and avoid having to go through the state machine.
+        let cs_result = if let Some(cs) = &self.pins.cs {
+            esp!(unsafe { gpio_set_level(cs.pin(), 1) })
+        } else {
+            Ok(())
+        };
+
+        let result = trans_result?;
+        flush_result?;
+        cs_result.map_err(SpiError::other)?;
+        Ok(result)
     }
 }
 
