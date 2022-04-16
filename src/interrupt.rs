@@ -104,7 +104,7 @@ pub mod task {
 
         #[cfg(esp_idf_version = "4.3")]
         let notified = unsafe {
-            xTaskNotifyWait(0, u32::MAX, &mut bits as *mut _, TickType::from(duration).0)
+            xTaskNotifyWait(0, u32::MAX, &mut notification as *mut _, TickType::from(duration).0)
         } != 0;
 
         #[cfg(not(esp_idf_version = "4.3"))]
