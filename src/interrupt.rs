@@ -1,5 +1,7 @@
 use core::cell::{RefCell, RefMut};
 use core::ops::{Deref, DerefMut};
+use core::ptr;
+use core::sync::atomic::{AtomicPtr, Ordering};
 
 use esp_idf_sys::*;
 
@@ -10,23 +12,186 @@ pub fn active() -> bool {
     unsafe { xPortInIsrContext() != 0 }
 }
 
-#[inline(always)]
-#[link_section = ".iram1.interrupt_do_yield"]
-pub fn do_yield() {
-    if active() {
-        #[cfg(esp32c3)]
-        unsafe {
-            vPortYieldFromISR();
-        }
+static ISR_YIELDER: AtomicPtr<unsafe fn()> = AtomicPtr::new(ptr::null_mut());
 
-        #[cfg(not(esp32c3))]
-        unsafe {
-            vPortEvaluateYieldFromISR(0);
-        }
+#[inline(always)]
+#[link_section = ".iram1.interrupt_get_isr_yielder"]
+unsafe fn get_isr_yielder() -> Option<unsafe fn()> {
+    if active() {
+        ISR_YIELDER.load(Ordering::SeqCst).as_ref().copied()
     } else {
-        unsafe {
-            vPortYield();
+        None
+    }
+}
+
+/// # Safety
+///
+/// This function should only be called from within an ISR handler, so as to set
+/// a custom ISR yield function (e.g. when using the ESP-IDF timer service).
+///
+/// Thus, if some function further down the ISR call chain invokes `do_yield`,
+/// the custom yield function set here will be called.
+///
+/// Users should not forget to call again `set_isr_yielder` at the end of the
+/// ISR handler so as to reastore the yield function which was valid before the
+/// ISR handler was invoked.
+#[inline(always)]
+#[link_section = ".iram1.interrupt_set_isr_yielder"]
+pub unsafe fn set_isr_yielder(yielder: Option<unsafe fn()>) -> Option<unsafe fn()> {
+    if active() {
+        let yielder = if let Some(yielder) = yielder {
+            &yielder as *const _ as *mut _
+        } else {
+            ptr::null_mut()
+        };
+
+        ISR_YIELDER
+            .swap(yielder, Ordering::SeqCst)
+            .as_ref()
+            .copied()
+    } else {
+        None
+    }
+}
+
+pub mod task {
+    use core::ptr;
+    use core::time::Duration;
+
+    use esp_idf_sys::*;
+
+    use crate::delay::TickType;
+
+    #[inline(always)]
+    #[link_section = ".iram1.interrupt_task_do_yield"]
+    pub fn do_yield() {
+        if super::active() {
+            #[cfg(esp32c3)]
+            unsafe {
+                if let Some(yielder) = super::get_isr_yielder() {
+                    yielder();
+                } else {
+                    vPortYieldFromISR();
+                }
+            }
+
+            #[cfg(not(esp32c3))]
+            unsafe {
+                if let Some(yielder) = super::get_isr_yielder() {
+                    yielder();
+                } else {
+                    vPortEvaluateYieldFromISR(0);
+                }
+            }
+        } else {
+            unsafe {
+                vPortYield();
+            }
         }
+    }
+
+    #[inline(always)]
+    #[link_section = ".iram1.interrupt_task_current"]
+    pub fn current() -> Option<TaskHandle_t> {
+        if super::active() {
+            None
+        } else {
+            Some(unsafe { xTaskGetCurrentTaskHandle() })
+        }
+    }
+
+    pub fn wait_any_notification() {
+        loop {
+            if let Some(notification) = wait_notification(None) {
+                if notification != 0 {
+                    break;
+                }
+            }
+        }
+    }
+
+    pub fn wait_notification(duration: Option<Duration>) -> Option<u32> {
+        let mut notification = 0_u32;
+
+        #[cfg(esp_idf_version = "4.3")]
+        let notified = unsafe {
+            xTaskNotifyWait(
+                0,
+                u32::MAX,
+                &mut notification as *mut _,
+                TickType::from(duration).0,
+            )
+        } != 0;
+
+        #[cfg(not(esp_idf_version = "4.3"))]
+        let notified = unsafe {
+            xTaskGenericNotifyWait(
+                0,
+                0,
+                u32::MAX,
+                &mut notification as *mut _,
+                TickType::from(duration).0,
+            )
+        } != 0;
+
+        if notified {
+            Some(notification)
+        } else {
+            None
+        }
+    }
+
+    /// # Safety
+    ///
+    /// When calling this function care should be taken to pass a valid
+    /// FreeRTOS task handle. Moreover, the FreeRTOS task should be valid
+    /// when this function is being called.
+    pub unsafe fn notify(task: TaskHandle_t, notification: u32) -> bool {
+        let notified = if super::active() {
+            let mut higher_prio_task_woken: BaseType_t = Default::default();
+
+            #[cfg(esp_idf_version = "4.3")]
+            let notified = xTaskGenericNotifyFromISR(
+                task,
+                notification,
+                eNotifyAction_eSetBits,
+                ptr::null_mut(),
+                &mut higher_prio_task_woken as *mut _,
+            );
+
+            #[cfg(not(esp_idf_version = "4.3"))]
+            let notified = xTaskGenericNotifyFromISR(
+                task,
+                0,
+                notification,
+                eNotifyAction_eSetBits,
+                ptr::null_mut(),
+                &mut higher_prio_task_woken as *mut _,
+            );
+
+            if higher_prio_task_woken != 0 {
+                do_yield();
+            }
+
+            notified
+        } else {
+            #[cfg(esp_idf_version = "4.3")]
+            let notified =
+                xTaskGenericNotify(task, notification, eNotifyAction_eSetBits, ptr::null_mut());
+
+            #[cfg(not(esp_idf_version = "4.3"))]
+            let notified = xTaskGenericNotify(
+                task,
+                0,
+                notification,
+                eNotifyAction_eSetBits,
+                ptr::null_mut(),
+            );
+
+            notified
+        };
+
+        notified != 0
     }
 }
 
@@ -273,6 +438,14 @@ impl<'a, T> mutex_trait::Mutex for &'a Mutex<T> {
 
         f(&mut guard)
     }
+}
+
+#[cfg(feature = "embedded-svc")]
+pub struct MutexFamily;
+
+#[cfg(feature = "embedded-svc")]
+impl embedded_svc::mutex::MutexFamily for MutexFamily {
+    type Mutex<T> = Mutex<T>;
 }
 
 #[cfg(feature = "embedded-svc")]

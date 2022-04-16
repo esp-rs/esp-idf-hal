@@ -117,10 +117,7 @@ impl Condvar {
         Self(UnsafeCell::new(cond))
     }
 
-    pub fn wait<'a, T>(&self, guard: MutexGuard<'a, T>) -> MutexGuard<'a, T>
-    where
-        T: Send,
-    {
+    pub fn wait<'a, T>(&self, guard: MutexGuard<'a, T>) -> MutexGuard<'a, T> {
         let r = unsafe { pthread_cond_wait(self.0.get(), guard.0 .0.get()) };
         debug_assert_eq!(r, 0);
 
@@ -131,10 +128,7 @@ impl Condvar {
         &self,
         guard: MutexGuard<'a, T>,
         duration: Duration,
-    ) -> (MutexGuard<'a, T>, bool)
-    where
-        T: Send,
-    {
+    ) -> (MutexGuard<'a, T>, bool) {
         let abstime = timespec {
             tv_sec: duration.as_secs() as _,
             tv_nsec: duration.subsec_nanos() as _,
@@ -175,12 +169,12 @@ impl Drop for Condvar {
 }
 
 #[cfg(feature = "embedded-svc")]
-impl embedded_svc::mutex::Condvar for Condvar {
-    type Mutex<T>
-    where
-        T: Send,
-    = Mutex<T>;
+impl embedded_svc::mutex::MutexFamily for Condvar {
+    type Mutex<T> = Mutex<T>;
+}
 
+#[cfg(feature = "embedded-svc")]
+impl embedded_svc::mutex::Condvar for Condvar {
     #[inline(always)]
     fn new() -> Self {
         Condvar::new()
@@ -188,25 +182,22 @@ impl embedded_svc::mutex::Condvar for Condvar {
 
     fn wait<'a, T>(
         &self,
-        guard: <<Self as embedded_svc::mutex::Condvar>::Mutex<T> as embedded_svc::mutex::Mutex>::Guard<'a>,
-    ) -> <<Self as embedded_svc::mutex::Condvar>::Mutex<T> as embedded_svc::mutex::Mutex>::Guard<'a>
-    where
-        T: Send,
+        guard: <<Self as embedded_svc::mutex::MutexFamily>::Mutex<T> as embedded_svc::mutex::Mutex>::Guard<'a>,
+    ) -> <<Self as embedded_svc::mutex::MutexFamily>::Mutex<T> as embedded_svc::mutex::Mutex>::Guard<'a>
     {
         Condvar::wait(self, guard)
     }
 
     fn wait_timeout<'a, T>(
         &self,
-        guard: <<Self as embedded_svc::mutex::Condvar>::Mutex<T> as embedded_svc::mutex::Mutex>::Guard<'a>,
+        guard: <<Self as embedded_svc::mutex::MutexFamily>::Mutex<T> as embedded_svc::mutex::Mutex>::Guard<'a>,
         duration: Duration,
     ) -> (
-        <<Self as embedded_svc::mutex::Condvar>::Mutex<T> as embedded_svc::mutex::Mutex>::Guard<'a>,
+        <<Self as embedded_svc::mutex::MutexFamily>::Mutex<T> as embedded_svc::mutex::Mutex>::Guard<
+            'a,
+        >,
         bool,
-    )
-    where
-        T: Send,
-    {
+    ) {
         Condvar::wait_timeout(self, guard, duration)
     }
 
