@@ -18,7 +18,7 @@ static ISR_YIELDER: AtomicPtr<unsafe fn()> = AtomicPtr::new(ptr::null_mut());
 #[link_section = ".iram1.interrupt_get_isr_yielder"]
 unsafe fn get_isr_yielder() -> Option<unsafe fn()> {
     if active() {
-        ISR_YIELDER.load(Ordering::SeqCst).as_ref().map(|f| *f)
+        ISR_YIELDER.load(Ordering::SeqCst).as_ref().copied()
     } else {
         None
     }
