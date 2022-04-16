@@ -309,15 +309,16 @@ impl embedded_hal::spi::blocking::SpiBusWrite for MasterBus {
 
 impl embedded_hal::spi::blocking::SpiBus for MasterBus {
     fn transfer(&mut self, read: &mut [u8], write: &[u8]) -> Result<(), Self::Error> {
-        for (read_chunk, write_chunk) in read
-            .chunks_mut(self.trans_len)
-            .zip(write.chunks(self.trans_len))
-        {
+        let common_length = min(read.len(), write.len());
+        let common_read = read[0..common_length].chunks_mut(self.trans_len);
+        let common_write = write[0..common_length].chunks(self.trans_len);
+
+        for (read_chunk, write_chunk) in common_read.zip(common_write) {
             self.polling_transmit(
                 read_chunk.as_mut_ptr(),
                 write_chunk.as_ptr(),
-                self.trans_len,
-                self.trans_len,
+                max(read_chunk.len(), write_chunk.len()),
+                read_chunk.len(),
             )?;
         }
 
