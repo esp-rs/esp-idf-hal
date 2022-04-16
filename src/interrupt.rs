@@ -420,6 +420,14 @@ impl<'a, T> mutex_trait::Mutex for &'a Mutex<T> {
 }
 
 #[cfg(feature = "embedded-svc")]
+pub struct MutexFamily;
+
+#[cfg(feature = "embedded-svc")]
+impl embedded_svc::mutex::MutexFamily for MutexFamily {
+    type Mutex<T> = Mutex<T>;
+}
+
+#[cfg(feature = "embedded-svc")]
 impl<T> embedded_svc::mutex::Mutex for Mutex<T> {
     type Data = T;
 
