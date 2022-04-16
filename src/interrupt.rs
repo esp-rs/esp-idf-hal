@@ -48,7 +48,7 @@ pub unsafe fn set_isr_yielder(yielder: Option<unsafe fn()>) -> Option<unsafe fn(
         ISR_YIELDER
             .swap(yielder, Ordering::SeqCst)
             .as_ref()
-            .map(|f| *f)
+            .copied()
     } else {
         None
     }
