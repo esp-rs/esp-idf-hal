@@ -12,11 +12,11 @@ pub fn active() -> bool {
     unsafe { xPortInIsrContext() != 0 }
 }
 
-const ISR_YIELDER: AtomicPtr<unsafe fn()> = AtomicPtr::new(ptr::null_mut());
+static ISR_YIELDER: AtomicPtr<unsafe fn()> = AtomicPtr::new(ptr::null_mut());
 
 #[inline(always)]
 #[link_section = ".iram1.interrupt_get_isr_yielder"]
-pub unsafe fn get_isr_yielder() -> Option<unsafe fn()> {
+unsafe fn get_isr_yielder() -> Option<unsafe fn()> {
     if active() {
         ISR_YIELDER.load(Ordering::SeqCst).as_ref().map(|f| *f)
     } else {
@@ -24,6 +24,17 @@ pub unsafe fn get_isr_yielder() -> Option<unsafe fn()> {
     }
 }
 
+/// # Safety
+///
+/// This function should only be called from within an ISR handler, so as to set
+/// a custom ISR yield function (e.g. when using the ESP-IDF timer service).
+///
+/// Thus, if some function further down the ISR call chain invokes `do_yield`,
+/// the custom yield function set here will be called.
+///
+/// Users should not forget to call again `set_isr_yielder` at the end of the
+/// ISR handler so as to reastore the yield function which was valid before the
+/// ISR handler was invoked.
 #[inline(always)]
 #[link_section = ".iram1.interrupt_set_isr_yielder"]
 pub unsafe fn set_isr_yielder(yielder: Option<unsafe fn()>) -> Option<unsafe fn()> {
@@ -130,6 +141,11 @@ pub mod task {
         }
     }
 
+    /// # Safety
+    ///
+    /// When calling this function care should be taken to pass a valid
+    /// FreeRTOS task handle. Moreover, the FreeRTOS task should be valid
+    /// when this function is being called.
     pub unsafe fn notify(task: TaskHandle_t, notification: u32) -> bool {
         let notified = if super::active() {
             let mut higher_prio_task_woken: BaseType_t = Default::default();
