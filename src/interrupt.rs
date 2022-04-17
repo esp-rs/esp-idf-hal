@@ -45,6 +45,7 @@ unsafe fn get_isr_yielder() -> Option<unsafe fn()> {
 pub unsafe fn set_isr_yielder(yielder: Option<unsafe fn()>) -> Option<unsafe fn()> {
     if active() {
         let ptr = if let Some(yielder) = yielder {
+            #[allow(clippy::transmutes_expressible_as_ptr_casts)]
             core::mem::transmute(yielder)
         } else {
             ptr::null_mut()
