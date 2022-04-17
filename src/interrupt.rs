@@ -12,13 +12,18 @@ pub fn active() -> bool {
     unsafe { xPortInIsrContext() != 0 }
 }
 
-static ISR_YIELDER: AtomicPtr<unsafe fn()> = AtomicPtr::new(ptr::null_mut());
+static ISR_YIELDER: AtomicPtr<c_types::c_void> = AtomicPtr::new(ptr::null_mut());
 
 #[inline(always)]
 #[link_section = ".iram1.interrupt_get_isr_yielder"]
 unsafe fn get_isr_yielder() -> Option<unsafe fn()> {
     if active() {
-        ISR_YIELDER.load(Ordering::SeqCst).as_ref().copied()
+        let ptr = ISR_YIELDER.load(Ordering::SeqCst);
+        if ptr.is_null() {
+            None
+        } else {
+            Some(core::mem::transmute(ptr))
+        }
     } else {
         None
     }
@@ -39,16 +44,19 @@ unsafe fn get_isr_yielder() -> Option<unsafe fn()> {
 #[link_section = ".iram1.interrupt_set_isr_yielder"]
 pub unsafe fn set_isr_yielder(yielder: Option<unsafe fn()>) -> Option<unsafe fn()> {
     if active() {
-        let yielder = if let Some(yielder) = yielder {
-            &yielder as *const _ as *mut _
+        let ptr = if let Some(yielder) = yielder {
+            core::mem::transmute(yielder)
         } else {
             ptr::null_mut()
         };
 
-        ISR_YIELDER
-            .swap(yielder, Ordering::SeqCst)
-            .as_ref()
-            .copied()
+        let ptr = ISR_YIELDER.swap(ptr, Ordering::SeqCst);
+
+        if ptr.is_null() {
+            None
+        } else {
+            Some(core::mem::transmute(ptr))
+        }
     } else {
         None
     }
