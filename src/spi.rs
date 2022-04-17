@@ -230,14 +230,13 @@ impl MasterBus {
         transaction_length: usize,
         rx_length: usize,
     ) -> Result<(), SpiError> {
-        let mut flags = 0;
+        #[cfg(esp_idf_version = "4.3")]
+        let flags = 0;
 
         // This unfortunately means that this implementation is incorrect for esp-idf < 4.4.
         // The CS pin should be kept active through transactions.
         #[cfg(not(esp_idf_version = "4.3"))]
-        {
-            flags = SPI_TRANS_CS_KEEP_ACTIVE;
-        }
+        let flags = SPI_TRANS_CS_KEEP_ACTIVE;
 
         let mut transaction = spi_transaction_t {
             flags,
