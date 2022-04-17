@@ -14,7 +14,7 @@
 use std::thread;
 use std::time::Duration;
 
-use embedded_hal::spi::blocking::Transfer;
+use embedded_hal::spi::blocking::SpiDevice;
 
 use esp_idf_hal::peripherals::Peripherals;
 use esp_idf_hal::prelude::*;
