@@ -15,7 +15,7 @@ use esp_idf_sys::*;
 pub use asyncify::*;
 
 #[cfg(esp_idf_esp_timer_supports_isr_dispatch_method)]
-pub use isr;
+pub use isr::*;
 
 struct UnsafeCallback(*mut Box<dyn FnMut()>);
 
@@ -47,7 +47,19 @@ pub struct EspTimer {
 impl EspTimer {
     extern "C" fn handle(arg: *mut c_types::c_void) {
         unsafe {
+            #[cfg(esp_idf_esp_timer_supports_isr_dispatch_method)]
+            let previous_yielder = if esp_idf_hal::interrupt::active() {
+                esp_idf_hal::interrupt::set_isr_yielder(Some(EspISRTimerService::isr_yield))
+            } else {
+                None
+            };
+
             UnsafeCallback::from_ptr(arg).call();
+
+            #[cfg(esp_idf_esp_timer_supports_isr_dispatch_method)]
+            if esp_idf_hal::interrupt::active() {
+                esp_idf_hal::interrupt::set_isr_yielder(previous_yielder);
+            }
         }
     }
 }
@@ -214,10 +226,8 @@ mod isr {
             Ok(Self(ISR))
         }
 
-        pub fn do_yield() {
-            unsafe {
-                esp_timer_isr_dispatch_need_yield();
-            }
+        pub(crate) unsafe fn isr_yield() {
+            esp_idf_sys::esp_timer_isr_dispatch_need_yield();
         }
     }
 }
@@ -226,13 +236,15 @@ mod isr {
 mod asyncify {
     use embedded_svc::utils::asyncify::timer::AsyncTimerService;
     use embedded_svc::utils::asyncify::Asyncify;
+    use embedded_svc::utils::asyncs::signal::AtomicSignal;
+    use embedded_svc::utils::atomic_swap::AtomicOption;
 
     impl Asyncify for super::EspTimerService<super::Task> {
-        type AsyncWrapper<S> = AsyncTimerService<S>;
+        type AsyncWrapper<S> = AsyncTimerService<S, AtomicSignal<AtomicOption, ()>>;
     }
 
     #[cfg(esp_idf_esp_timer_supports_isr_dispatch_method)]
     impl Asyncify for super::EspTimerService<super::ISR> {
-        type AsyncWrapper<S> = AsyncTimerService<S>;
+        type AsyncWrapper<S> = AsyncTimerService<S, AtomicSignal<AtomicOption, ()>>;
     }
 }

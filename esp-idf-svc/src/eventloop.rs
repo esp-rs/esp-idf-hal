@@ -505,7 +505,7 @@ where
         };
 
         if higher_prio_task_woken != 0 {
-            interrupt::do_yield();
+            interrupt::task::do_yield();
         }
 
         if result == ESP_FAIL {

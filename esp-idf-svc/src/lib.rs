@@ -27,6 +27,7 @@ pub mod espnow;
 pub mod eth;
 #[cfg(all(feature = "alloc", esp_idf_comp_esp_event_enabled))]
 pub mod eventloop;
+pub mod executor;
 #[cfg(all(feature = "experimental", feature = "alloc"))]
 pub mod http;
 #[cfg(all(feature = "std", esp_idf_comp_esp_http_server_enabled))]

@@ -321,6 +321,7 @@ impl EspMqttClient {
 #[cfg(feature = "experimental")]
 impl EspMqttClient {
     pub fn new_async<'a, U, S>(
+        unblocker: U,
         url: S,
         conf: /*TODO: issue with the compiler: &'a*/ MqttClientConfiguration<'a>,
     ) -> Result<
@@ -349,7 +350,7 @@ impl EspMqttClient {
         let client = Self::new_with_callback(url, &conf, move |event| cb_connection.post(event))?;
 
         Ok((
-            embedded_svc::utils::asyncify::mqtt::client::AsyncClient::new(client),
+            embedded_svc::utils::asyncify::mqtt::client::AsyncClient::new(unblocker, client),
             connection,
         ))
     }

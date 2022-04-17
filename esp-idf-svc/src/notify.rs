@@ -10,7 +10,6 @@ use embedded_svc::errors::Errors;
 use embedded_svc::event_bus::{EventBus, Postbox, PostboxProvider};
 
 use esp_idf_hal::cpu::Core;
-use esp_idf_hal::delay::TickType;
 use esp_idf_hal::interrupt;
 use esp_idf_hal::mutex::Mutex;
 
@@ -18,36 +17,7 @@ use esp_idf_sys::*;
 
 use crate::private::cstr::RawCstrs;
 
-pub type EspBackgroundNotify = EspNotify<Background>;
-
-#[derive(Debug)]
-pub struct BackgroundNotifyConfiguration<'a> {
-    pub task_name: &'a str,
-    pub task_priority: u8,
-    pub task_stack_size: usize,
-    pub task_pin_to_core: Option<Core>,
-}
-
-impl<'a> Default for BackgroundNotifyConfiguration<'a> {
-    fn default() -> Self {
-        Self {
-            task_name: "Notify",
-            task_priority: 0,
-            task_stack_size: 3072,
-            task_pin_to_core: None,
-        }
-    }
-}
-
-#[derive(Clone, Debug)]
-pub struct Background(TaskHandle_t);
-
-// TODO: Implement Explit + Pinned
-
-unsafe impl Send for Background {}
-unsafe impl Sync for Background {}
-
-pub struct EspNotifyState {
+pub struct EspSubscriptionsRegistry {
     next_subscription_id: Mutex<usize>,
     subscriptions: Mutex<
         Vec<(
@@ -57,10 +27,10 @@ pub struct EspNotifyState {
     >,
 }
 
-unsafe impl Send for EspNotifyState {}
-unsafe impl Sync for EspNotifyState {}
+unsafe impl Send for EspSubscriptionsRegistry {}
+unsafe impl Sync for EspSubscriptionsRegistry {}
 
-impl EspNotifyState {
+impl EspSubscriptionsRegistry {
     fn new() -> Self {
         Self {
             next_subscription_id: Mutex::new(0),
@@ -68,54 +38,28 @@ impl EspNotifyState {
         }
     }
 
-    extern "C" fn background_loop(notify: *mut c_types::c_void) {
-        let notify: *const EspNotifyState = notify as *const _;
-        let notify = unsafe { Weak::from_raw(notify) };
+    fn subscribe(
+        &self,
+        callback: impl for<'a> FnMut(&'a u32) + Send + 'static,
+    ) -> Result<usize, EspError> {
+        let subscription_id = {
+            let mut guard = self.next_subscription_id.lock();
 
-        loop {
-            let bits = Self::wait(Duration::from_millis(100));
+            let current = *guard;
 
-            if let Some(notify) = Weak::upgrade(&notify) {
-                if let Some(bits) = bits {
-                    notify.notify_subscribers(bits);
-                }
-            } else {
-                break;
-            }
-        }
+            *guard = current + 1;
 
-        unsafe {
-            vTaskDelete(ptr::null_mut());
-        }
+            current
+        };
+
+        self.subscriptions
+            .lock()
+            .push((subscription_id, Arc::new(RefCell::new(callback))));
+
+        Ok(subscription_id)
     }
 
-    fn wait(duration: Duration) -> Option<u32> {
-        let mut bits = 0_u32;
-
-        #[cfg(esp_idf_version = "4.3")]
-        let notified = unsafe {
-            xTaskNotifyWait(0, u32::MAX, &mut bits as *mut _, TickType::from(duration).0)
-        } != 0;
-
-        #[cfg(not(esp_idf_version = "4.3"))]
-        let notified = unsafe {
-            xTaskGenericNotifyWait(
-                0,
-                0,
-                u32::MAX,
-                &mut bits as *mut _,
-                TickType::from(duration).0,
-            )
-        } != 0;
-
-        if notified {
-            Some(bits)
-        } else {
-            None
-        }
-    }
-
-    fn notify_subscribers(&self, value: u32) {
+    fn notify(&self, notification: u32) {
         let max_id = self
             .subscriptions
             .lock()
@@ -140,7 +84,7 @@ impl EspNotifyState {
                     .map(|(subscription_id, f)| (subscription_id.clone(), f.clone()));
 
                 if let Some((subscription_id, f)) = next {
-                    f.borrow_mut()(&value);
+                    f.borrow_mut()(&notification);
 
                     prev_id = Some(subscription_id);
                 } else {
@@ -151,165 +95,9 @@ impl EspNotifyState {
     }
 }
 
-pub struct EspNotify<T> {
-    notify_type: T,
-    state: Arc<EspNotifyState>,
-}
-
-impl EspNotify<Background> {
-    pub fn new(conf: &BackgroundNotifyConfiguration<'_>) -> Result<Self, EspError> {
-        let mut rcs = RawCstrs::new();
-
-        let state = Arc::new(EspNotifyState::new());
-        let state_weak_ptr = Arc::downgrade(&state).into_raw();
-
-        let mut task: TaskHandle_t = ptr::null_mut();
-
-        let created = unsafe {
-            xTaskCreatePinnedToCore(
-                Some(EspNotifyState::background_loop),
-                rcs.as_ptr(conf.task_name),
-                conf.task_stack_size as _,
-                state_weak_ptr as *const _ as *mut _,
-                conf.task_priority as _,
-                &mut task as *mut _,
-                conf.task_pin_to_core
-                    .map(|core| core as u32)
-                    .unwrap_or(tskNO_AFFINITY) as _,
-            ) != 0
-        };
-
-        if created {
-            Ok(Self {
-                notify_type: Background(task),
-                state,
-            })
-        } else {
-            unsafe { Weak::from_raw(state_weak_ptr) };
-
-            Err(EspError::from(ESP_FAIL).unwrap())
-        }
-    }
-}
-
-impl<T> Clone for EspNotify<T>
-where
-    T: Clone,
-{
-    fn clone(&self) -> Self {
-        Self {
-            notify_type: self.notify_type.clone(),
-            state: self.state.clone(),
-        }
-    }
-}
-
-impl<T> Errors for EspNotify<T> {
-    type Error = EspError;
-}
-
-impl<T> EventBus<u32> for EspNotify<T> {
-    type Subscription = EspSubscription;
-
-    fn subscribe(
-        &mut self,
-        callback: impl for<'a> FnMut(&'a u32) + Send + 'static,
-    ) -> Result<Self::Subscription, Self::Error> {
-        let subscription_id = {
-            let mut guard = self.state.next_subscription_id.lock();
-
-            let current = *guard;
-
-            *guard = current + 1;
-
-            current
-        };
-
-        self.state
-            .subscriptions
-            .lock()
-            .push((subscription_id, Arc::new(RefCell::new(callback))));
-
-        Ok(EspSubscription {
-            subscription_id,
-            state: self.state.clone(),
-        })
-    }
-}
-
-impl Postbox<u32> for EspNotify<Background> {
-    fn post(&mut self, payload: &u32, _wait: Option<Duration>) -> Result<bool, Self::Error> {
-        let notified = if interrupt::active() {
-            let mut higher_prio_task_woken: BaseType_t = Default::default();
-
-            #[cfg(esp_idf_version = "4.3")]
-            let notified = unsafe {
-                xTaskGenericNotifyFromISR(
-                    self.notify_type.0,
-                    *payload,
-                    eNotifyAction_eSetBits,
-                    ptr::null_mut(),
-                    &mut higher_prio_task_woken as *mut _,
-                )
-            };
-
-            #[cfg(not(esp_idf_version = "4.3"))]
-            let notified = unsafe {
-                xTaskGenericNotifyFromISR(
-                    self.notify_type.0,
-                    0,
-                    *payload,
-                    eNotifyAction_eSetBits,
-                    ptr::null_mut(),
-                    &mut higher_prio_task_woken as *mut _,
-                )
-            };
-
-            if higher_prio_task_woken != 0 {
-                interrupt::do_yield();
-            }
-
-            notified
-        } else {
-            #[cfg(esp_idf_version = "4.3")]
-            let notified = unsafe {
-                xTaskGenericNotify(
-                    self.notify_type.0,
-                    *payload,
-                    eNotifyAction_eSetBits,
-                    ptr::null_mut(),
-                )
-            };
-
-            #[cfg(not(esp_idf_version = "4.3"))]
-            let notified = unsafe {
-                xTaskGenericNotify(
-                    self.notify_type.0,
-                    0,
-                    *payload,
-                    eNotifyAction_eSetBits,
-                    ptr::null_mut(),
-                )
-            };
-
-            notified
-        };
-
-        Ok(notified != 0)
-    }
-}
-
-impl PostboxProvider<u32> for EspNotify<Background> {
-    type Postbox = Self;
-
-    fn postbox(&mut self) -> Result<Self::Postbox, Self::Error> {
-        Ok(self.clone())
-    }
-}
-
 pub struct EspSubscription {
     subscription_id: usize,
-    state: Arc<EspNotifyState>,
+    state: Arc<EspSubscriptionsRegistry>,
 }
 
 impl Drop for EspSubscription {
@@ -323,6 +111,132 @@ impl Drop for EspSubscription {
 
 unsafe impl Send for EspSubscription {}
 
+#[derive(Debug)]
+pub struct Configuration<'a> {
+    pub task_name: &'a str,
+    pub task_priority: u8,
+    pub task_stack_size: usize,
+    pub task_pin_to_core: Option<Core>,
+}
+
+impl<'a> Default for Configuration<'a> {
+    fn default() -> Self {
+        Self {
+            task_name: "Notify",
+            task_priority: 0,
+            task_stack_size: 3072,
+            task_pin_to_core: None,
+        }
+    }
+}
+
+pub struct EspNotify {
+    task: Arc<TaskHandle_t>,
+    registry: Arc<EspSubscriptionsRegistry>,
+}
+
+impl EspNotify {
+    pub fn new(conf: &Configuration<'_>) -> Result<Self, EspError> {
+        let mut rcs = RawCstrs::new();
+
+        let registry = Arc::new(EspSubscriptionsRegistry::new());
+        let registry_weak_ptr = Arc::downgrade(&registry).into_raw();
+
+        let mut task: TaskHandle_t = ptr::null_mut();
+
+        let created = unsafe {
+            xTaskCreatePinnedToCore(
+                Some(Self::background_loop),
+                rcs.as_ptr(conf.task_name),
+                conf.task_stack_size as _,
+                registry_weak_ptr as *const _ as *mut _,
+                conf.task_priority as _,
+                &mut task as *mut _,
+                conf.task_pin_to_core
+                    .map(|core| core as u32)
+                    .unwrap_or(tskNO_AFFINITY) as _,
+            ) != 0
+        };
+
+        if created {
+            Ok(Self {
+                task: Arc::new(task),
+                registry,
+            })
+        } else {
+            unsafe { Weak::from_raw(registry_weak_ptr) };
+
+            Err(EspError::from(ESP_FAIL).unwrap())
+        }
+    }
+
+    extern "C" fn background_loop(registry: *mut c_types::c_void) {
+        let registry: *const EspSubscriptionsRegistry = registry as *const _;
+        let registry = unsafe { Weak::from_raw(registry) };
+
+        loop {
+            let notification = interrupt::task::wait_notification(Some(Duration::from_millis(100)));
+
+            if let Some(registry) = Weak::upgrade(&registry) {
+                if let Some(notification) = notification {
+                    registry.notify(notification);
+                }
+            } else {
+                break;
+            }
+        }
+
+        unsafe {
+            vTaskDelete(ptr::null_mut());
+        }
+    }
+}
+
+unsafe impl Send for EspNotify {}
+
+impl Clone for EspNotify {
+    fn clone(&self) -> Self {
+        Self {
+            task: self.task.clone(),
+            registry: self.registry.clone(),
+        }
+    }
+}
+
+impl Errors for EspNotify {
+    type Error = EspError;
+}
+
+impl EventBus<u32> for EspNotify {
+    type Subscription = EspSubscription;
+
+    fn subscribe(
+        &mut self,
+        callback: impl for<'a> FnMut(&'a u32) + Send + 'static,
+    ) -> Result<Self::Subscription, Self::Error> {
+        self.registry
+            .subscribe(callback)
+            .map(|subscription_id| EspSubscription {
+                subscription_id,
+                state: self.registry.clone(),
+            })
+    }
+}
+
+impl Postbox<u32> for EspNotify {
+    fn post(&mut self, payload: &u32, _wait: Option<Duration>) -> Result<bool, Self::Error> {
+        Ok(unsafe { interrupt::task::notify(*self.task, *payload) })
+    }
+}
+
+impl PostboxProvider<u32> for EspNotify {
+    type Postbox = Self;
+
+    fn postbox(&mut self) -> Result<Self::Postbox, Self::Error> {
+        Ok(self.clone())
+    }
+}
+
 #[cfg(feature = "experimental")]
 mod asyncify {
     use embedded_svc::utils::asyncify::event_bus::AsyncEventBus;
@@ -330,7 +244,7 @@ mod asyncify {
 
     use esp_idf_hal::mutex::Condvar;
 
-    impl Asyncify for super::EspNotify<super::Background> {
+    impl Asyncify for super::EspNotify {
         type AsyncWrapper<S> = AsyncEventBus<(), Condvar, S>;
     }
 }
