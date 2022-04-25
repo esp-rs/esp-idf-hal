@@ -271,7 +271,9 @@ impl EspMqttClient {
 
         let unsafe_callback = UnsafeCallback::from(&mut boxed_raw_callback);
 
-        let (c_conf, _cstrs) = conf.into();
+        let (mut c_conf, mut cstrs) = conf.into();
+
+        c_conf.uri = cstrs.as_ptr(url);
 
         let client = unsafe { esp_mqtt_client_init(&c_conf as *const _) };
         if client.is_null() {
@@ -279,10 +281,6 @@ impl EspMqttClient {
         }
 
         let client = Self(client, boxed_raw_callback);
-
-        let c_url = CString::new(url.as_ref()).unwrap();
-
-        esp!(unsafe { esp_mqtt_client_set_uri(client.0, c_url.as_ptr()) })?;
 
         esp!(unsafe {
             esp_mqtt_client_register_event(
