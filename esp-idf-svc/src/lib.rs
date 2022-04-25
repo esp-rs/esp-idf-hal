@@ -8,6 +8,12 @@
 #[macro_use]
 extern crate alloc;
 
+#[cfg(all(
+    feature = "alloc",
+    esp_idf_comp_esp_eth_enabled,
+    esp_idf_comp_esp_event_enabled,
+    esp_idf_comp_esp_netif_enabled
+))]
 pub mod espnow;
 #[cfg(all(
     feature = "alloc",
