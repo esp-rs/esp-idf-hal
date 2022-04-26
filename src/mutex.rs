@@ -210,6 +210,28 @@ impl embedded_svc::mutex::Condvar for Condvar {
     }
 }
 
+#[cfg(all(feature = "experimental", feature = "embedded-svc"))]
+pub struct MutexSignalFamily;
+
+#[cfg(all(feature = "experimental", feature = "embedded-svc"))]
+impl embedded_svc::signal::asyncs::SignalFamily for MutexSignalFamily {
+    type Signal<T> = embedded_svc::utils::asyncs::signal::MutexSignal<
+        Mutex<embedded_svc::utils::asyncs::signal::State<T>>,
+        T,
+    >;
+}
+
+#[cfg(all(feature = "experimental", feature = "embedded-svc"))]
+impl embedded_svc::signal::asyncs::SendSyncSignalFamily for MutexSignalFamily {
+    type Signal<T>
+    where
+        T: Send,
+    = embedded_svc::utils::asyncs::signal::MutexSignal<
+        Mutex<embedded_svc::utils::asyncs::signal::State<T>>,
+        T,
+    >;
+}
+
 #[cfg(feature = "embassy")]
 pub mod embassy {
     pub enum EspMutexKind {}

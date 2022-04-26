@@ -478,3 +478,25 @@ impl<T> embedded_svc::mutex::Mutex for Mutex<T> {
         Mutex::lock(self)
     }
 }
+
+#[cfg(all(feature = "experimental", feature = "embedded-svc"))]
+pub struct MutexSignalFamily;
+
+#[cfg(all(feature = "experimental", feature = "embedded-svc"))]
+impl embedded_svc::signal::asyncs::SignalFamily for MutexSignalFamily {
+    type Signal<T> = embedded_svc::utils::asyncs::signal::MutexSignal<
+        Mutex<embedded_svc::utils::asyncs::signal::State<T>>,
+        T,
+    >;
+}
+
+#[cfg(all(feature = "experimental", feature = "embedded-svc"))]
+impl embedded_svc::signal::asyncs::SendSyncSignalFamily for MutexSignalFamily {
+    type Signal<T>
+    where
+        T: Send,
+    = embedded_svc::utils::asyncs::signal::MutexSignal<
+        Mutex<embedded_svc::utils::asyncs::signal::State<T>>,
+        T,
+    >;
+}
