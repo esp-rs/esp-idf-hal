@@ -9,11 +9,9 @@ pub mod asyncs {
     use embedded_svc::utils::asyncs::executor::*;
 
     use esp_idf_hal::interrupt;
-    use esp_idf_hal::mutex::Condvar;
 
     pub type EspLocalExecutor<'a> = LocalExecutor<'a, CurrentTaskWait, SharedTaskHandle>;
-    pub type EspSendableExecutor<'a> =
-        SendableExecutor<'a, CurrentTaskWait, SharedTaskHandle, Condvar>;
+    pub type EspSendableExecutor<'a> = SendableExecutor<'a, CurrentTaskWait, SharedTaskHandle>;
 
     pub struct CurrentTaskWait;
 
