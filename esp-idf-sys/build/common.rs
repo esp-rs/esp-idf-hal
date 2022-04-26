@@ -1,10 +1,11 @@
 use std::collections::HashSet;
+use std::fmt::Display;
 use std::iter::once;
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
 use std::{env, error, fs};
 
-use anyhow::*;
+use anyhow::{anyhow, bail, Result};
 use embuild::cargo::{self, IntoWarning};
 use embuild::utils::{OsStrExt, PathExt};
 use embuild::{bindgen, build, kconfig};
@@ -23,9 +24,6 @@ pub const V_4_3_2_PATCHES: &[&str] = &[
     "patches/missing_xtensa_atomics_fix.diff",
     "patches/pthread_destructor_fix.diff",
 ];
-
-#[allow(unused)]
-pub const NO_PATCHES: &[&str] = &[];
 
 const TOOLS_WORKSPACE_INSTALL_DIR: &str = ".embuild";
 
@@ -207,32 +205,85 @@ pub fn list_specific_sdkconfigs(
         })
 }
 
-pub fn get_install_dir(builder_name: impl AsRef<str>) -> Result<Option<PathBuf>> {
-    let location = match env::var(ESP_IDF_TOOLS_INSTALL_DIR_VAR) {
-        Err(env::VarError::NotPresent) => None,
-        var => Some(var?.to_lowercase()),
-    };
+#[derive(Clone, Debug)]
+pub enum InstallDir {
+    Global,
+    Workspace(PathBuf),
+    Out(PathBuf),
+    Custom(PathBuf),
+    FromEnv,
+}
 
-    let dir = match location.as_deref() {
-        None | Some("workspace") => Some(
-            workspace_dir()?
-                .join(TOOLS_WORKSPACE_INSTALL_DIR)
-                .join(builder_name.as_ref()),
-        ),
-        Some("global") => None,
-        Some("out") => Some(cargo::out_dir().join(builder_name.as_ref())),
-        Some(custom) => {
-            if let Some(suffix) = custom.strip_prefix("custom:") {
-                Some(PathBuf::from(suffix).abspath_relative_to(&workspace_dir()?))
-            } else {
-                bail!("Invalid installation directory format. Should be one of `global`, `workspace`, `out` or `custom:<dir>`");
+impl InstallDir {
+    /// Get the install directory from the [`ESP_IDF_TOOLS_INSTALL_DIR_VAR`] env variable.
+    ///
+    /// If this env variable is unset or empty uses `default_install_dir` instead.
+    /// On success returns `(install_dir as InstallDir, is_default as bool)`.
+    pub fn from_env_or(
+        default_install_dir: &str,
+        builder_name: &str,
+    ) -> Result<(InstallDir, bool)> {
+        let location = env::var_os(ESP_IDF_TOOLS_INSTALL_DIR_VAR);
+        let (location, is_default) = match &location {
+            None => (default_install_dir, true),
+            Some(val) => {
+                let val = val.try_to_str()?.trim();
+                if val.is_empty() {
+                    (default_install_dir, true)
+                } else {
+                    (val, false)
+                }
             }
-        }
-    };
+        };
+        let install_dir = match location.to_lowercase().as_str() {
+            "global" => Self::Global,
+            "workspace" => Self::Workspace(
+                workspace_dir()?
+                    .join(TOOLS_WORKSPACE_INSTALL_DIR)
+                    .join(builder_name),
+            ),
+            "out" => Self::Out(cargo::out_dir().join(builder_name)),
+            "fromenv" => Self::FromEnv,
+            _ => Self::Custom({
+                if let Some(suffix) = location.strip_prefix("custom:") {
+                    Path::new(suffix).abspath_relative_to(&workspace_dir()?)
+                } else {
+                    bail!(
+                        "Invalid installation directory format. \
+                         Should be one of `global`, `workspace`, `out`, `fromenv` or `custom:<dir>`."
+                    );
+                }
+            }),
+        };
+        Ok((install_dir, is_default))
+    }
 
-    Ok(dir)
+    pub fn is_from_env(&self) -> bool {
+        matches!(self, Self::FromEnv)
+    }
+
+    pub fn path(&self) -> Option<&Path> {
+        match self {
+            Self::Global | Self::FromEnv => None,
+            Self::Workspace(ref path) => Some(path.as_ref()),
+            Self::Out(ref path) => Some(path.as_ref()),
+            Self::Custom(ref path) => Some(path.as_ref()),
+        }
+    }
+}
+
+impl Display for InstallDir {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Global => write!(f, "global"),
+            Self::Workspace(ref path) => write!(f, "workspace ({})", path.display()),
+            Self::Out(ref path) => write!(f, "out ({})", path.display()),
+            Self::Custom(ref path) => write!(f, "custom ({})", path.display()),
+            Self::FromEnv => write!(f, "fromenv"),
+        }
+    }
 }
 
 pub fn workspace_dir() -> Result<PathBuf> {
-    Ok(cargo::workspace_dir().ok_or_else(|| anyhow!("Cannot fetch crate's workspace dir"))?)
+    cargo::workspace_dir().ok_or_else(|| anyhow!("Cannot fetch crate's workspace dir"))
 }

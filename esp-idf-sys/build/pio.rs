@@ -30,14 +30,48 @@ pub fn build() -> Result<EspIdfBuildOutput> {
         let workspace_dir = workspace_dir()?;
         let profile = build_profile();
 
-        let install_dir = get_install_dir("platformio")?;
+        // Get the install dir from the $ESP_IDF_TOOLS_INSTALL_DIR, if unset use
+        // "workspace" and allow platformio from the environment.
+        let (install_dir, allow_from_env) = InstallDir::from_env_or("workspace", "platformio")?;
+        // Pio must come from the environment if $ESP_IDF_TOOLS_INSTALL_DIR == "fromenv".
+        let require_from_env = install_dir.is_from_env();
+        let maybe_from_env = require_from_env || allow_from_env;
 
-        if let Some(install_dir) = install_dir.as_ref() {
-            // Workaround an issue in embuild until it is fixed in the next version
-            fs::create_dir_all(install_dir)?;
-        }
+        let install = |install_dir: &InstallDir| -> Result<pio::Pio> {
+            let install_dir = install_dir.path().map(ToOwned::to_owned);
 
-        let pio = pio::Pio::install(install_dir, pio::LogLevel::Standard, false)?;
+            if let Some(install_dir) = &install_dir {
+                // Workaround an issue in embuild until it is fixed in the next version
+                fs::create_dir_all(install_dir)?;
+            }
+
+            pio::Pio::install(install_dir, pio::LogLevel::Standard, false)
+        };
+
+        let pio = match (pio::Pio::try_from_env(), maybe_from_env) {
+            (Some(pio), true) => {
+                eprintln!(
+                    "Using platformio from environment at '{}'",
+                    pio.platformio_exe.display()
+                );
+
+                pio
+            }
+            (Some(_), false) => {
+                cargo::print_warning(format_args!(
+                    "Ignoring platformio in environment: ${ESP_IDF_TOOLS_INSTALL_DIR_VAR} != {}",
+                    InstallDir::FromEnv
+                ));
+                install(&install_dir)?
+            }
+            (None, true) if require_from_env => {
+                bail!(
+                    "platformio not found in environment ($PATH) \
+                       but required by ${ESP_IDF_TOOLS_INSTALL_DIR_VAR} == {install_dir}"
+                );
+            }
+            (None, _) => install(&install_dir)?,
+        };
 
         let resolution = pio::Resolver::new(pio.clone())
             .params(pio::ResolutionParams {
@@ -101,6 +135,7 @@ pub fn build() -> Result<EspIdfBuildOutput> {
 
         let manifest_dir = PathBuf::from(env::var("CARGO_MANIFEST_DIR")?);
         for patch in V_4_3_2_PATCHES {
+            // TODO: fix patches not applying
             builder.platform_package_patch(manifest_dir.join(patch), path_buf!["framework-espidf"]);
         }
 

@@ -106,27 +106,40 @@ The following environment variables are used by the build script:
 
 - `ESP_IDF_TOOLS_INSTALL_DIR`:
 
-    The location where the ESP-IDF framework tooling is assumed to be/will be installed. 
-    The framework tooling is either PlatformIO (when the `pio` builder is used), or the ESP-IDF native toolset (when the `native` builder is used).
+  The location where the ESP-IDF framework tooling is assumed to be/will be installed. The
+  framework tooling is either PlatformIO (when the `pio` builder is used), or the ESP-IDF
+  native toolset (when the `native` builder is used).
 
-    This variable can take one of the following values:
+  This variable can take one of the following values:
     - `workspace` (default) - the tooling will be installed/used in 
       `<crate-workspace-dir>/.embuild/platformio` for `pio`, and `<crate-workspace-dir>/.embuild/espressif` for the `native` builder;
     - `out` - the tooling will be installed/used inside the crate's build output directory, and will be deleted when `cargo clean` is invoked;
     - `global` - the tooling will be installed/used in its standard directory (`~/.platformio` for PlatformIO, and `~./espressif` for the native ESP-IDF toolset);
     - `custom:<dir>` -  the tooling will be installed/used in the directory specified by `<dir>`. If this directory is a relative location, it is assumed to be 
-      relative to the crate's workspace dir.
+      relative to the crate's workspace dir;
+    - `fromenv` - use the build framework from the environment 
+        - *native* builder: use activated esp-idf environment (see esp-idf docs
+      [unix](https://docs.espressif.com/projects/esp-idf/en/latest/esp32/get-started/linux-macos-setup.html#step-4-set-up-the-environment-variables)
+      /
+      [windows](https://docs.espressif.com/projects/esp-idf/en/latest/esp32/get-started/windows-setup.html#using-the-command-prompt))
+        - *pio* builder: use `platformio` from the environment (i.e. `$PATH`)
 
-      **ATTENTION**: Please be extra careful with the `custom:<dir>` setting when switching from `pio` to `native` and the other way around, because
-      the builder will install the tooling in `<dir>` without using any additional `platformio` or `espressif` subdirectories, so if you are not careful, you might end up with 
-      both PlatformIO, as well as the ESP-IDF native tooling intermingled together in a single folder.
+      and error if this is not possible.
+      
+   **ATTENTION**: Please be extra careful with the `custom:<dir>` setting when switching from `pio` to `native` and the other way around, because
+   the builder will install the tooling in `<dir>` without using any additional `platformio` or `espressif` subdirectories, so if you are not careful, you might end up with 
+   both PlatformIO, as well as the ESP-IDF native tooling intermingled together in a single folder.
 
 
-    Note that both builders (`native` and `pio`) clone the ESP-IDF GIT repository *inside* the tooling directory as well. This restriction might be lifted soon for the `native` builder, whereas the user would be able to point the build to a custom ESP-IDF repository location.
+  Note that both builders (`native` and `pio`) clone the ESP-IDF GIT repository *inside* the tooling directory as well. This restriction might be lifted soon for the `native` builder, whereas the user would be able to point the build to a custom ESP-IDF repository location.
+  
+- `IDF_PATH` (*native* builder only):
+  A path to a user-provided local clone of the [`esp-idf`](https://github.com/espressif/esp-idf),
+  that will be used instead of the one downloaded by the build script.
 
 - `ESP_IDF_VERSION` (*native* builder only):
 
-  The version used for the `esp-idf` can be one of the following:
+  The version used for the `esp-idf`, can be one of the following:
   - `commit:<hash>`: Uses the commit `<hash>` of the `esp-idf` repository.
                      Note that this will clone the whole `esp-idf` not just one commit.
   - `tag:<tag>`: Uses the tag `<tag>` of the `esp-idf` repository.
