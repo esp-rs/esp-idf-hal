@@ -226,7 +226,8 @@ impl<P> EspMqttClient<P> {
                 let event = unsafe { event_handle.as_ref() };
 
                 if let Some(event) = event {
-                    let mut event = mem::ManuallyDrop::new(Some(EspMqttMessage::new_event(event, None)));
+                    let mut event =
+                        mem::ManuallyDrop::new(Some(EspMqttMessage::new_event(event, None)));
 
                     callback(&mut event);
 
@@ -345,7 +346,8 @@ impl EspMqttClient<()> {
                 let event = unsafe { event_handle.as_ref() };
 
                 if let Some(event) = event {
-                    let mut event = mem::ManuallyDrop::new(Some(EspMqttMessage::new_event(event, None)));
+                    let mut event =
+                        mem::ManuallyDrop::new(Some(EspMqttMessage::new_event(event, None)));
 
                     callback(&mut event);
 
