@@ -36,9 +36,9 @@ pub mod asyncs {
             // Busy loop until we can destroy the Arc - which means that nobody is actively holding a strong reference to it
             // and thus trying to notify our FreeRtos task, which will likely be destroyed afterwards
             loop {
-                match Arc::try_unwrap(arc) {
+                arc = match Arc::try_unwrap(arc) {
                     Ok(_) => break,
-                    Err(a) => arc = a,
+                    Err(a) => a,
                 }
             }
         }
