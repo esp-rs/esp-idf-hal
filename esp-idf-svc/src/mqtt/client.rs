@@ -514,16 +514,9 @@ impl<'a> client::Message for EspMqttMessage<'a> {
 
 #[cfg(feature = "experimental")]
 mod asyncify {
-    use embedded_svc::{
-        mutex::SingleThreadedMutex,
-        utils::asyncify::{mqtt::client::AsyncClient, Asyncify, UnblockingAsyncify},
-    };
+    use embedded_svc::utils::asyncify::{mqtt::client::AsyncClient, UnblockingAsyncify};
 
     use esp_idf_hal::mutex::Mutex;
-
-    impl<P> Asyncify for super::EspMqttClient<P> {
-        type AsyncWrapper<S> = AsyncClient<(), SingleThreadedMutex<S>>;
-    }
 
     impl<P> UnblockingAsyncify for super::EspMqttClient<P> {
         type AsyncWrapper<U, S> = AsyncClient<U, Mutex<S>>;
