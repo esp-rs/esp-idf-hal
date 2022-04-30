@@ -215,7 +215,7 @@ impl EspMqttClient<ConnState<MessageImpl, EspError>> {
         Self::new_with_converting_conn(url, conf, move |r| {
             r.as_ref()
                 .map(|event| event.transform_received(MessageImpl::new))
-                .map_err(|e| e.clone())
+                .map_err(|e| *e)
         })
     }
 }
@@ -605,7 +605,7 @@ mod asyncify {
             Self::new_with_converting_async_conn(url, conf, move |r| {
                 r.as_ref()
                     .map(|event| event.transform_received(MessageImpl::new))
-                    .map_err(|e| e.clone())
+                    .map_err(|e| *e)
             })
         }
     }
