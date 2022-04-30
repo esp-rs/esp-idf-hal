@@ -1,6 +1,6 @@
 [package]
 name = "esp-idf-hal"
-version = "0.37.0"
+version = "0.37.1"
 authors = ["sapir <yasapir@gmail.com>", "Ivan Markov <ivan.markov@gmail.com>"]
 edition = "2018"
 resolver = "2"
@@ -29,16 +29,16 @@ mutex-trait = { version = "0.2", optional = true, default-features = false }
 embedded-hal = "=1.0.0-alpha.8"
 embedded-hal-0-2 = { package = "embedded-hal", version = "0.2.7", features = ["unproven"] }
 embedded-svc = { version = "0.21", optional = true, default-features = false }
-esp-idf-sys = { version = "0.31", optional = true, default-features = false, features = ["native"] }
+esp-idf-sys = { version = "0.31.1", optional = true, default-features = false, features = ["native"] }
 critical-section = { version = "0.2.5", optional = true, features = ["custom-impl"] }
 embassy = { version = "0", optional = true }
 # The real version is this one and it needs to be patched into the binary crate:
 #embassy = { version = "0.1", git = "https://github.com/embassy-rs/embassy", optional = true, features = ["executor-agnostic"] }
 
 [build-dependencies]
-embuild = "0.28"
+embuild = "0.29"
 anyhow = "1"
 
 [dev-dependencies]
 anyhow = "1"
-esp-idf-sys = { version = "0.31", features = ["native", "binstart"] }
+esp-idf-sys = { version = "0.31.1", features = ["native", "binstart"] }
