@@ -835,7 +835,6 @@ pub mod ws {
 
     use embedded_svc::errors::*;
     use embedded_svc::http::Method;
-    use embedded_svc::utils::asyncify::ws::server::Processor;
     use embedded_svc::ws::server::registry::*;
     use embedded_svc::ws::server::*;
     use embedded_svc::ws::*;
@@ -850,9 +849,6 @@ pub mod ws {
     use super::EspHttpServer;
     use super::CLOSE_HANDLERS;
     use super::OPEN_SESSIONS;
-
-    pub type EspHttpWsProcessor =
-        Processor<esp_idf_hal::mutex::Condvar, EspHttpWsSender, EspHttpWsReceiver>;
 
     pub enum EspHttpWsSender {
         Open(httpd_handle_t, *mut httpd_req_t),
@@ -1264,5 +1260,15 @@ pub mod ws {
 
             (req_handler, close_handler)
         }
+    }
+
+    #[cfg(feature = "experimental")]
+    pub mod asyncs {
+        use embedded_svc::utils::asyncify::ws::server::Processor;
+
+        use super::{EspHttpWsReceiver, EspHttpWsSender};
+
+        pub type EspHttpWsProcessor =
+            Processor<esp_idf_hal::mutex::Condvar, EspHttpWsSender, EspHttpWsReceiver>;
     }
 }
