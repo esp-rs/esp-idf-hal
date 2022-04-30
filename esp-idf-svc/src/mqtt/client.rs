@@ -610,9 +610,9 @@ mod asyncify {
         }
     }
 
-    impl<R, E> EspMqttClient<AsyncConnState<R, E>>
+    impl<M, E> EspMqttClient<AsyncConnState<M, E>>
     where
-        R: Send + 'static,
+        M: Send + 'static,
         E: errors::Error + Send,
     {
         pub fn new_with_converting_async_conn<'a>(
@@ -620,10 +620,10 @@ mod asyncify {
             conf: &'a MqttClientConfiguration<'a>,
             mut converter: impl for<'b> FnMut(
                     &'b Result<client::Event<EspMqttMessage<'b>>, EspError>,
-                ) -> Result<client::Event<R>, E>
+                ) -> Result<client::Event<M>, E>
                 + Send
                 + 'static,
-        ) -> Result<(Self, AsyncConnection<Condvar, R, E>), EspError>
+        ) -> Result<(Self, AsyncConnection<Condvar, M, E>), EspError>
         where
             Self: Sized,
         {
