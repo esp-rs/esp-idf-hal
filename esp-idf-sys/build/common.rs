@@ -44,6 +44,7 @@ const ALL_COMPONENTS: &[&str] = &[
     "comp_esp_wifi_enabled",
     "comp_espcoredump_enabled",
     "comp_fatfs_enabled",
+    "comp_mbedtls_enabled",
     "comp_mdns_enabled",
     "comp_mqtt_enabled",
     "comp_nvs_flash_enabled",

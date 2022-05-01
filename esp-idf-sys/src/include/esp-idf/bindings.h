@@ -96,12 +96,14 @@
 
 #include "ping/ping_sock.h"
 
-#ifdef ESP_IDF_COMP_ESP_TLS_ENABLED
-#include "esp_tls.h"
-
-#ifdef CONFIG_ESP_TLS_USING_MBEDTLS
+#ifdef ESP_IDF_COMP_MBEDTLS_ENABLED
+#ifdef CONFIG_MBEDTLS_CERTIFICATE_BUNDLE
 #include "esp_crt_bundle.h"
 #endif
+#endif
+
+#ifdef ESP_IDF_COMP_ESP_TLS_ENABLED
+#include "esp_tls.h"
 #endif
 
 #ifdef ESP_IDF_COMP_APP_UPDATE_ENABLED
@@ -138,6 +140,7 @@
 #ifdef ESP_IDF_COMP_SOC_ENABLED
 // TODO: Include all XXX_periph.h headers here
 #include "soc/gpio_periph.h"
+#include "soc/rtc_periph.h"
 #endif
 
 #include "driver/adc.h"
@@ -192,10 +195,26 @@
 #include "esp_pthread.h"
 #endif
 
+#if (ESP_IDF_VERSION_MAJOR > 4)
+// ESP-IDF V5+
+#ifdef CONFIG_ULP_COPROC_ENABLED
+#if CONFIG_ULP_COPROC_TYPE_FSM
+#if CONFIG_IDF_TARGET_ESP32
+#include "esp32/ulp.h"
+#elif CONFIG_IDF_TARGET_ESP32S2
+#include "esp32s2/ulp.h"
+#elif CONFIG_IDF_TARGET_ESP32S3
+#include "esp32s3/ulp.h"
+#endif
+#else
+#include "ulp_riscv.h"
+#endif
+#endif
+#else
+// ESP-IDF V4.X
 #ifdef CONFIG_ESP32_ULP_COPROC_ENABLED
 #include "esp32/ulp.h"
 #endif
-
 #ifdef CONFIG_ESP32S2_ULP_COPROC_ENABLED
 #ifdef CONFIG_ESP32S2_ULP_COPROC_RISCV
 #include "esp32s2/ulp_riscv.h"
@@ -203,7 +222,6 @@
 #include "esp32s2/ulp.h"
 #endif
 #endif
-
 #ifdef CONFIG_ESP32S3_ULP_COPROC_ENABLED
 #ifdef CONFIG_ESP32S3_ULP_COPROC_RISCV
 #include "esp32s3/ulp_riscv.h"
@@ -211,7 +229,7 @@
 #include "esp32s2/ulp.h"
 #endif
 #endif
-
+#endif
 
 #ifndef CONFIG_IDF_TARGET_ESP32S2 // No BT in ESP32-S2
 
