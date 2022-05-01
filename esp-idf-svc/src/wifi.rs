@@ -265,6 +265,7 @@ impl EspWifi {
         sys_loop_stack: Arc<EspSysLoopStack>,
         nvs: Arc<EspDefaultNvs>,
     ) -> Result<Self, EspError> {
+        #[allow(clippy::needless_update)]
         let cfg = wifi_init_config_t {
             #[cfg(esp_idf_version_major = "4")]
             event_handler: Some(esp_event_send_internal),
