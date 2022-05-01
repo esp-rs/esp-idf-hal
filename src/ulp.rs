@@ -18,13 +18,20 @@ impl Default for SleepTimer {
 }
 
 #[cfg(any(
-    all(esp32, esp_idf_esp32_ulp_coproc_enabled),
     all(
+        not(esp_idf_version_major = "4"),
+        esp_idf_ulp_coproc_enabled,
+        esp_idf_ulp_coproc_type_fsm
+    ),
+    all(esp_idf_version_major = "4", esp32, esp_idf_esp32_ulp_coproc_enabled),
+    all(
+        esp_idf_version_major = "4",
         esp32s2,
         esp_idf_esp32s2_ulp_coproc_enabled,
         not(esp_idf_esp32s2_ulp_coproc_riscv)
     ),
     all(
+        esp_idf_version_major = "4",
         esp32s3,
         esp_idf_esp32s3_ulp_coproc_enabled,
         not(esp_idf_esp32s3_ulp_coproc_riscv)
@@ -37,13 +44,20 @@ pub struct Word {
 }
 
 #[cfg(any(
-    all(esp32, esp_idf_esp32_ulp_coproc_enabled),
     all(
+        not(esp_idf_version_major = "4"),
+        esp_idf_ulp_coproc_enabled,
+        esp_idf_ulp_coproc_type_fsm
+    ),
+    all(esp_idf_version_major = "4", esp32, esp_idf_esp32_ulp_coproc_enabled),
+    all(
+        esp_idf_version_major = "4",
         esp32s2,
         esp_idf_esp32s2_ulp_coproc_enabled,
         not(esp_idf_esp32s2_ulp_coproc_riscv)
     ),
     all(
+        esp_idf_version_major = "4",
         esp32s3,
         esp_idf_esp32s3_ulp_coproc_enabled,
         not(esp_idf_esp32s3_ulp_coproc_riscv)
@@ -77,9 +91,18 @@ impl ULP {
 }
 
 #[cfg(any(
-    all(esp32, esp_idf_esp32_ulp_coproc_enabled),
-    all(esp32s2, esp_idf_esp32s2_ulp_coproc_enabled),
-    all(esp32s3, esp_idf_esp32s3_ulp_coproc_enabled)
+    all(not(esp_idf_version_major = "4"), esp_idf_ulp_coproc_enabled),
+    all(esp_idf_version_major = "4", esp32, esp_idf_esp32_ulp_coproc_enabled),
+    all(
+        esp_idf_version_major = "4",
+        esp32s2,
+        esp_idf_esp32s2_ulp_coproc_enabled
+    ),
+    all(
+        esp_idf_version_major = "4",
+        esp32s3,
+        esp_idf_esp32s3_ulp_coproc_enabled
+    )
 ))]
 impl ULP {
     const RTC_SLOW_MEM: u32 = 0x5000_0000_u32;
@@ -88,14 +111,17 @@ impl ULP {
 
     pub const MEM_START: *mut core::ffi::c_void = Self::RTC_SLOW_MEM as _;
 
-    #[cfg(esp32)]
+    #[cfg(all(esp32, esp_idf_version_major = "4"))]
     pub const MEM_SIZE: usize = esp_idf_sys::CONFIG_ESP32_ULP_COPROC_RESERVE_MEM as _;
 
-    #[cfg(esp32s2)]
+    #[cfg(all(esp32s2, esp_idf_version_major = "4"))]
     pub const MEM_SIZE: usize = esp_idf_sys::CONFIG_ESP32S2_ULP_COPROC_RESERVE_MEM as _;
 
-    #[cfg(esp32s3)]
+    #[cfg(all(esp32s3, esp_idf_version_major = "4"))]
     pub const MEM_SIZE: usize = esp_idf_sys::CONFIG_ESP32S3_ULP_COPROC_RESERVE_MEM as _;
+
+    #[cfg(not(esp_idf_version_major = "4"))]
+    pub const MEM_SIZE: usize = esp_idf_sys::CONFIG_ULP_COPROC_RESERVE_MEM as _;
 
     #[cfg(esp32)]
     const TIMER_REG: *mut u32 = esp_idf_sys::RTC_CNTL_STATE0_REG as _;
@@ -170,13 +196,20 @@ impl ULP {
 }
 
 #[cfg(any(
-    all(esp32, esp_idf_esp32_ulp_coproc_enabled),
     all(
+        not(esp_idf_version_major = "4"),
+        esp_idf_ulp_coproc_enabled,
+        esp_idf_ulp_coproc_type_fsm
+    ),
+    all(esp_idf_version_major = "4", esp32, esp_idf_esp32_ulp_coproc_enabled),
+    all(
+        esp_idf_version_major = "4",
         esp32s2,
         esp_idf_esp32s2_ulp_coproc_enabled,
         not(esp_idf_esp32s2_ulp_coproc_riscv)
     ),
     all(
+        esp_idf_version_major = "4",
         esp32s3,
         esp_idf_esp32s3_ulp_coproc_enabled,
         not(esp_idf_esp32s3_ulp_coproc_riscv)
@@ -266,11 +299,18 @@ impl ULP {
 
 #[cfg(any(
     all(
+        not(esp_idf_version_major = "4"),
+        esp_idf_ulp_coproc_enabled,
+        not(esp_idf_ulp_coproc_type_fsm)
+    ),
+    all(
+        esp_idf_version_major = "4",
         esp32s2,
         esp_idf_esp32s2_ulp_coproc_enabled,
         esp_idf_esp32s2_ulp_coproc_riscv
     ),
     all(
+        esp_idf_version_major = "4",
         esp32s3,
         esp_idf_esp32s3_ulp_coproc_enabled,
         esp_idf_esp32s3_ulp_coproc_riscv

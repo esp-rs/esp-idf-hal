@@ -89,7 +89,11 @@ pub mod task {
                 if let Some(yielder) = super::get_isr_yielder() {
                     yielder();
                 } else {
+                    #[cfg(esp_idf_version_major = "4")]
                     vPortEvaluateYieldFromISR(0);
+
+                    #[cfg(esp_idf_version_major = "5")]
+                    _frxt_setup_switch();
                 }
             }
         } else {
