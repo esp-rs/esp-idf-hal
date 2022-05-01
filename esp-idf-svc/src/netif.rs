@@ -317,7 +317,12 @@ impl EspNetif {
             netif.set_dns(dns);
 
             if dhcps {
+                #[cfg(esp_idf_version_major = "4")]
                 let mut dhcps_dns_value: dhcps_offer_t = dhcps_offer_option_OFFER_DNS as _;
+
+                // Strangely dhcps_offer_t and dhcps_offer_option_* are not included in ESP-IDF V5's bindings
+                #[cfg(esp_idf_version_major = "5")]
+                let mut dhcps_dns_value: u8 = 2_u8;
 
                 esp!(unsafe {
                     esp_netif_dhcps_option(
@@ -325,7 +330,7 @@ impl EspNetif {
                         esp_netif_dhcp_option_mode_t_ESP_NETIF_OP_SET,
                         esp_netif_dhcp_option_id_t_ESP_NETIF_DOMAIN_NAME_SERVER,
                         &mut dhcps_dns_value as *mut _ as *mut _,
-                        core::mem::size_of::<dhcps_offer_t>() as u32,
+                        core::mem::size_of_val(&dhcps_dns_value) as u32,
                     )
                 })?;
             }
