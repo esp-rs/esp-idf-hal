@@ -5,7 +5,6 @@
 #endif
 
 //#include "esp_crc.h"
-#include "esp_efuse.h"
 #include "esp_log.h"
 #include "esp_debug_helpers.h"
 
@@ -20,6 +19,10 @@
 #include "esp_console.h"
 #include "linenoise/linenoise.h"
 #include "argtable3/argtable3.h"
+#endif
+
+#ifdef ESP_IDF_COMP_EFUSE_ENABLED
+#include "esp_efuse.h"
 #endif
 
 #ifdef ESP_IDF_COMP_ESP_PM_ENABLED
