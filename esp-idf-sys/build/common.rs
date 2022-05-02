@@ -52,7 +52,7 @@ impl EspIdfComponents {
         let components = dirs
             .into_iter()
             .filter_map(|dir| Self::scan(dir.as_ref()).ok())
-            .flat_map(|comps| comps)
+            .flatten()
             .collect::<Vec<_>>();
 
         Ok(Self::new(components))
@@ -105,7 +105,7 @@ impl EspIdfComponents {
                     path.read_dir()?
                         .filter_map(|entry| entry.ok())
                         .filter_map(|entry| Self::scan(&entry.path()).ok())
-                        .flat_map(|entry| entry),
+                        .flatten(),
                 )
             }
         } else {
@@ -119,7 +119,7 @@ impl EspIdfComponents {
         if path.is_dir() {
             path.file_name()
                 .and_then(|file_name| file_name.to_str())
-                .and_then(|c| if c.starts_with(".") { None } else { Some(c) })
+                .and_then(|c| if c.starts_with('.') { None } else { Some(c) })
         } else {
             None
         }
@@ -130,7 +130,7 @@ impl EspIdfComponents {
         self.0.iter().map(|c| {
             format!(
                 "-DESP_IDF_COMP_{}_ENABLED",
-                c.to_uppercase().replace("-", "_")
+                c.to_uppercase().replace('-', '_')
             )
         })
     }
@@ -140,7 +140,7 @@ impl EspIdfComponents {
         self.0.iter().map(|c| {
             format!(
                 "esp_idf_comp_{}_enabled",
-                c.to_lowercase().replace("-", "_")
+                c.to_lowercase().replace('-', '_')
             )
         })
     }
