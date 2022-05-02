@@ -122,7 +122,7 @@
 #include "esp_http_server.h"
 #endif
 
-#ifdef ESP_IDF_ESP_WEBSOCKET_CLIENT_ENABLED
+#ifdef ESP_IDF_COMP_ESP_WEBSOCKET_CLIENT_ENABLED
 #include "esp_websocket_client.h"
 #endif
 
