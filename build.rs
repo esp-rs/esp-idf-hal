@@ -1,7 +1,14 @@
 #[cfg(not(feature = "riscv-ulp-hal"))]
 fn main() -> anyhow::Result<()> {
     embuild::build::CfgArgs::output_propagated("ESP_IDF")?;
-    embuild::build::LinkArgs::output_propagated("ESP_IDF")
+
+    // Will not be available when built a CMake-first or a PIO-first build
+    // We need to output these only when building the examples' binaries anyway
+    embuild::build::LinkArgs::try_from_env("ESP_IDF")
+        .ok()
+        .map(|args| args.output());
+
+    Ok(())
 }
 
 #[cfg(feature = "riscv-ulp-hal")]

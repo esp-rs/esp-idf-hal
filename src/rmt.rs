@@ -486,6 +486,7 @@ pub struct FixedLengthSignal<const N: usize>([rmt_item32_t; N]);
 type rmt_item32_t__bindgen_ty_1 = rmt_item32_s__bindgen_ty_1;
 #[cfg(all(esp_idf_version_major = "4", esp32))]
 #[allow(non_camel_case_types)]
+#[allow(dead_code)]
 type rmt_item32_t__bindgen_ty_1__bindgen_ty_1 = rmt_item32_s__bindgen_ty_1__bindgen_ty_1;
 
 impl<const N: usize> FixedLengthSignal<N> {

@@ -20,7 +20,11 @@ use crate::rmt;
 use crate::serial;
 #[cfg(not(feature = "riscv-ulp-hal"))]
 use crate::spi;
-#[cfg(all(any(esp32, esp32s2, esp32s3), not(feature = "riscv-ulp-hal")))]
+#[cfg(all(
+    any(esp32, esp32s2, esp32s3),
+    not(feature = "riscv-ulp-hal"),
+    esp_idf_comp_ulp_enabled
+))]
 use crate::ulp;
 
 pub struct Peripherals {
@@ -51,7 +55,11 @@ pub struct Peripherals {
     pub ledc: ledc::Peripheral,
     #[cfg(not(feature = "riscv-ulp-hal"))]
     pub rmt: rmt::Peripheral,
-    #[cfg(all(any(esp32, esp32s2, esp32s3), not(feature = "riscv-ulp-hal")))]
+    #[cfg(all(
+        any(esp32, esp32s2, esp32s3),
+        not(feature = "riscv-ulp-hal"),
+        esp_idf_comp_ulp_enabled
+    ))]
     pub ulp: ulp::ULP,
 }
 
@@ -101,7 +109,11 @@ impl Peripherals {
             ledc: ledc::Peripheral::new(),
             #[cfg(not(feature = "riscv-ulp-hal"))]
             rmt: rmt::Peripheral::new(),
-            #[cfg(all(any(esp32, esp32s2, esp32s3), not(feature = "riscv-ulp-hal")))]
+            #[cfg(all(
+                any(esp32, esp32s2, esp32s3),
+                not(feature = "riscv-ulp-hal"),
+                esp_idf_comp_ulp_enabled
+            ))]
             ulp: ulp::ULP::new(),
         }
     }

@@ -8,6 +8,9 @@
     feature(asm_experimental_arch)
 )]
 
+#[cfg(all(not(feature = "riscv-ulp-hal"), not(esp_idf_comp_driver_enabled)))]
+compile_error!("esp-idf-hal requires the `driver` ESP-IDF component to be enabled");
+
 #[cfg(all(feature = "std", feature = "riscv-ulp-hal"))]
 compile_error!("Feature `std` is not compatible with feature `ulp`");
 
