@@ -130,7 +130,7 @@ impl EspIdfComponents {
         self.0.iter().map(|c| {
             format!(
                 "-DESP_IDF_COMP_{}_ENABLED",
-                c.to_uppercase().replace('-', '_')
+                c.to_uppercase().replace('-', "_")
             )
         })
     }
@@ -140,7 +140,7 @@ impl EspIdfComponents {
         self.0.iter().map(|c| {
             format!(
                 "esp_idf_comp_{}_enabled",
-                c.to_lowercase().replace('-', '_')
+                c.to_lowercase().replace('-', "_")
             )
         })
     }
