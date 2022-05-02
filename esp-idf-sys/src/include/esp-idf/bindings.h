@@ -94,10 +94,11 @@
 
 #endif
 
+#ifdef ESP_IDF_COMP_LWIP_ENABLED
 #include "lwip/lwip_napt.h"
 #include "esp_sntp.h"
-
 #include "ping/ping_sock.h"
+#endif
 
 #ifdef ESP_IDF_COMP_MBEDTLS_ENABLED
 #ifdef CONFIG_MBEDTLS_CERTIFICATE_BUNDLE
@@ -146,6 +147,7 @@
 #include "soc/rtc_periph.h"
 #endif
 
+#ifdef ESP_IDF_COMP_DRIVER_ENABLED
 #include "driver/adc.h"
 #include "driver/twai.h"
 #if !defined(CONFIG_IDF_TARGET_ESP32C3) && !defined(CONFIG_IDF_TARGET_ESP32S3)
@@ -182,6 +184,7 @@
 
 #include "driver/uart.h"
 #include "driver/uart_select.h"
+#endif
 
 #ifdef ESP_IDF_COMP_ESPCOREDUMP_ENABLED
 #include "esp_core_dump.h"
@@ -192,12 +195,12 @@
 #include "esp_serial_slave_link/essl_sdio.h"
 #endif
 
-#include "pthread.h"
-
 #ifdef ESP_IDF_COMP_PTHREAD_ENABLED
+#include "pthread.h"
 #include "esp_pthread.h"
 #endif
 
+#ifdef ESP_IDF_COMP_ULP_ENABLED
 #if (ESP_IDF_VERSION_MAJOR > 4)
 // ESP-IDF V5+
 #ifdef CONFIG_ULP_COPROC_ENABLED
@@ -230,6 +233,7 @@
 #include "esp32s3/ulp_riscv.h"
 #else
 #include "esp32s2/ulp.h"
+#endif
 #endif
 #endif
 #endif

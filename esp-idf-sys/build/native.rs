@@ -50,13 +50,11 @@ fn build_cmake_first() -> Result<EspIdfBuildOutput> {
     let components = EspIdfComponents::from(
         env::var(CARGO_CMAKE_BUILD_LINK_LIBRARIES_VAR)?
             .split(';')
-            .filter_map(|s| {
-                s.strip_prefix("__idf_").map(|comp| {
-                    // All ESP-IDF components are prefixed with `__idf_`
-                    // Check this comment for more info:
-                    // https://github.com/esp-rs/esp-idf-sys/pull/17#discussion_r723133416
-                    format!("comp_{}_enabled", comp)
-                })
+            .filter_map(|c| {
+                // All ESP-IDF components are prefixed with `__idf_`
+                // Check this comment for more info:
+                // https://github.com/esp-rs/esp-idf-sys/pull/17#discussion_r723133416
+                c.strip_prefix("__idf_")
             }),
     );
 
@@ -426,9 +424,7 @@ fn build_cargo_first() -> Result<EspIdfBuildOutput> {
         })
         .context("Could not determine the compiler from cmake")?;
 
-    // Save information about the esp-idf build to the out dir so that it can be
-    // easily retrieved by tools that need it.
-    espidf::EspIdfBuildInfo {
+    let build_info = espidf::EspIdfBuildInfo {
         esp_idf_dir: idf.repository.worktree().to_owned(),
         exported_path_var: idf.exported_path.try_to_str()?.to_owned(),
         venv_python: idf.venv_python,
@@ -438,8 +434,11 @@ fn build_cargo_first() -> Result<EspIdfBuildOutput> {
         mcu: chip_name,
         sdkconfig,
         sdkconfig_defaults: Some(sdkconfig_defaults),
-    }
-    .save_json(out_dir.join(espidf::BUILD_INFO_FILENAME))?;
+    };
+
+    // Save information about the esp-idf build to the out dir so that it can be
+    // easily retrieved by tools that need it.
+    build_info.save_json(out_dir.join(espidf::BUILD_INFO_FILENAME))?;
 
     let sdkconfig_json = path_buf![&cmake_build_dir, "config", "sdkconfig.json"];
     let build_output = EspIdfBuildOutput {
@@ -452,13 +451,13 @@ fn build_cargo_first() -> Result<EspIdfBuildOutput> {
                 .build()?,
         ),
         bindgen: bindgen::Factory::from_cmake(&target.compile_groups[0])?.with_linker(&compiler),
-        components: EspIdfComponents::new(),
+        components: EspIdfComponents::from_esp_idf(&build_info.esp_idf_dir)?,
         kconfig_args: Box::new(
             kconfig::try_from_json_file(sdkconfig_json.clone())
                 .with_context(|| anyhow!("Failed to read '{:?}'", sdkconfig_json))?,
         ),
         env_path: Some(idf.exported_path.try_to_str()?.to_owned()),
-        esp_idf: idf.repository.worktree().to_owned(),
+        esp_idf: build_info.esp_idf_dir,
     };
 
     Ok(build_output)

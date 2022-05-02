@@ -159,13 +159,14 @@ pub fn build() -> Result<EspIdfBuildOutput> {
         }
     ];
 
+    let esp_idf = PathBuf::from(pio_scons_vars.pio_framework_dir);
+
     let build_output = EspIdfBuildOutput {
         cincl_args: build::CInclArgs::try_from(&pio_scons_vars)?,
         env_path: link_args.as_ref().map(|_| pio_scons_vars.path.clone()),
         link_args,
-        bindgen: bindgen::Factory::from_scons_vars(&pio_scons_vars)?
-            .with_clang_args(EspIdfComponents::new().clang_args().collect::<Vec<_>>()),
-        components: EspIdfComponents::new(),
+        bindgen: bindgen::Factory::from_scons_vars(&pio_scons_vars)?,
+        components: EspIdfComponents::from_esp_idf(&esp_idf)?,
         kconfig_args: Box::new(
             kconfig::try_from_config_file(sdkconfig.clone())
                 .with_context(|| anyhow!("Failed to read '{:?}'", sdkconfig))?
@@ -178,7 +179,7 @@ pub fn build() -> Result<EspIdfBuildOutput> {
                     )
                 }),
         ),
-        esp_idf: PathBuf::from(pio_scons_vars.pio_framework_dir),
+        esp_idf,
     };
 
     Ok(build_output)

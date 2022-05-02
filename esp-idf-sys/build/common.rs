@@ -1,6 +1,6 @@
 use std::collections::HashSet;
 use std::fmt::Display;
-use std::iter::once;
+use std::iter;
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
 use std::{env, error, fs};
@@ -27,36 +27,6 @@ pub const V_4_3_2_PATCHES: &[&str] = &[
 
 const TOOLS_WORKSPACE_INSTALL_DIR: &str = ".embuild";
 
-const ALL_COMPONENTS: &[&str] = &[
-    // TODO: Put all IDF components here
-    "comp_app_update_enabled",
-    "comp_console_enabled",
-    "comp_efuse_enabled",
-    "comp_esp_adc_cal_enabled",
-    "comp_esp_eth_enabled",
-    "comp_esp_event_enabled",
-    "comp_esp_http_client_enabled",
-    "comp_esp_http_server_enabled",
-    "comp_esp_netif_enabled",
-    "comp_esp_pm_enabled",
-    "comp_esp_serial_slave_link_enabled",
-    "comp_esp_timer_enabled",
-    "comp_esp_tls_enabled",
-    "comp_esp_wifi_enabled",
-    "comp_espcoredump_enabled",
-    "comp_fatfs_enabled",
-    "comp_mbedtls_enabled",
-    "comp_mdns_enabled",
-    "comp_mqtt_enabled",
-    "comp_nvs_flash_enabled",
-    "comp_spi_flash_enabled",
-    "comp_pthread_enabled",
-    "comp_soc_enabled",
-    "comp_spiffs_enabled",
-    "comp_vfs_enabled",
-    "comp_esp_wifi_provisioning_enabled",
-];
-
 pub struct EspIdfBuildOutput {
     pub cincl_args: build::CInclArgs,
     pub link_args: Option<build::LinkArgs>,
@@ -67,11 +37,25 @@ pub struct EspIdfBuildOutput {
     pub esp_idf: PathBuf,
 }
 
-pub struct EspIdfComponents(Vec<&'static str>);
+pub struct EspIdfComponents(Vec<String>);
 
 impl EspIdfComponents {
-    pub fn new() -> Self {
-        Self(ALL_COMPONENTS.to_vec())
+    pub fn new(components: Vec<String>) -> Self {
+        Self(components)
+    }
+
+    pub fn from_esp_idf(esp_idf: &Path) -> Result<Self> {
+        Self::from_dirs(&[esp_idf.join("components")])
+    }
+
+    pub fn from_dirs(dirs: impl IntoIterator<Item = impl AsRef<Path>>) -> Result<Self> {
+        let components = dirs
+            .into_iter()
+            .filter_map(|dir| Self::scan(dir.as_ref()).ok())
+            .flat_map(|comps| comps)
+            .collect::<Vec<_>>();
+
+        Ok(Self::new(components))
     }
 
     #[allow(dead_code)]
@@ -80,27 +64,85 @@ impl EspIdfComponents {
         I: Iterator<Item = S>,
         S: Into<String>,
     {
-        let enabled = enabled.map(Into::into).collect::<HashSet<_>>();
-
-        Self(
-            ALL_COMPONENTS
-                .iter()
-                .copied()
-                .filter(|s| enabled.contains(*s))
+        // NOTE: The components which are always enabled by ESP-IDF's CMake build (for ESP-IDF V4.4) are as follows:
+        // cxx;
+        // newlib;
+        // freertos;
+        // esp_hw_support;
+        // heap;
+        // log;
+        // lwip;
+        // soc;
+        // hal;
+        // esp_rom;
+        // esp_common;
+        // esp_system;
+        // esp32; <- Depends on the selected MCU
+        //
+        // Note also, that for now you always have to explicitly include the `pthread` component,
+        // or else `esp-idf-hal` will currently fail to compile (due to its mutex and condvar being implemented on top of pthread)
+        //
+        // `pthread` is also mandatory when compiling with Rust STD enabled, or else you'll get linker errors
+        Self::new(
+            enabled
+                .map(Into::into)
+                // For some reason, the "driver" component is not returned
+                // by the ESP-IDF CMake build, yet it is always enabled
+                .chain(iter::once("driver".to_owned()))
+                .collect::<HashSet<_>>()
+                .into_iter()
                 .collect::<Vec<_>>(),
         )
     }
 
+    fn scan(path: &Path) -> Result<Box<dyn Iterator<Item = String>>> {
+        let comp_name = Self::get_comp_name(path);
+        let components: Box<dyn Iterator<Item = String>> = if let Some(comp_name) = comp_name {
+            if path.join("CMakeLists.txt").exists() {
+                Box::new(iter::once(comp_name.to_owned()))
+            } else {
+                Box::new(
+                    path.read_dir()?
+                        .filter_map(|entry| entry.ok())
+                        .filter_map(|entry| Self::scan(&entry.path()).ok())
+                        .flat_map(|entry| entry),
+                )
+            }
+        } else {
+            Box::new(iter::empty())
+        };
+
+        Ok(components)
+    }
+
+    fn get_comp_name(path: &Path) -> Option<&str> {
+        if path.is_dir() {
+            path.file_name()
+                .and_then(|file_name| file_name.to_str())
+                .and_then(|c| if c.starts_with(".") { None } else { Some(c) })
+        } else {
+            None
+        }
+    }
+
     #[allow(clippy::needless_lifetimes)]
     pub fn clang_args<'a>(&'a self) -> impl Iterator<Item = String> + 'a {
-        self.0
-            .iter()
-            .map(|s| format!("-DESP_IDF_{}", s.to_uppercase()))
+        self.0.iter().map(|c| {
+            format!(
+                "-DESP_IDF_COMP_{}_ENABLED",
+                c.to_uppercase().replace("-", "_")
+            )
+        })
     }
 
     #[allow(clippy::needless_lifetimes)]
     pub fn cfg_args<'a>(&'a self) -> impl Iterator<Item = String> + 'a {
-        self.0.iter().map(|c| format!("esp_idf_{}", c))
+        self.0.iter().map(|c| {
+            format!(
+                "esp_idf_comp_{}_enabled",
+                c.to_lowercase().replace("-", "_")
+            )
+        })
     }
 }
 
@@ -122,17 +164,26 @@ impl EspIdfVersion {
     }
 
     pub fn cfg_args(&self) -> impl Iterator<Item = String> {
-        once(format!(
+        iter::once(format!(
             "esp_idf_version_full=\"{}.{}.{}\"",
             self.major, self.minor, self.patch
         ))
-        .chain(once(format!(
+        .chain(iter::once(format!(
             "esp_idf_version=\"{}.{}\"",
             self.major, self.minor
         )))
-        .chain(once(format!("esp_idf_version_major=\"{}\"", self.major)))
-        .chain(once(format!("esp_idf_version_minor=\"{}\"", self.minor)))
-        .chain(once(format!("esp_idf_version_patch=\"{}\"", self.patch)))
+        .chain(iter::once(format!(
+            "esp_idf_version_major=\"{}\"",
+            self.major
+        )))
+        .chain(iter::once(format!(
+            "esp_idf_version_minor=\"{}\"",
+            self.minor
+        )))
+        .chain(iter::once(format!(
+            "esp_idf_version_patch=\"{}\"",
+            self.patch
+        )))
     }
 
     fn grab_const<T>(
