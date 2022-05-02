@@ -159,7 +159,7 @@ pub fn build() -> Result<EspIdfBuildOutput> {
         }
     ];
 
-    let esp_idf = PathBuf::from(pio_scons_vars.pio_framework_dir);
+    let esp_idf = PathBuf::from(&pio_scons_vars.pio_framework_dir);
 
     let build_output = EspIdfBuildOutput {
         cincl_args: build::CInclArgs::try_from(&pio_scons_vars)?,
