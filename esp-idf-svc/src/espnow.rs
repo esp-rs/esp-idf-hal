@@ -1,4 +1,4 @@
-use log::info;
+use ::log::info;
 
 use alloc::boxed::Box;
 

@@ -1,7 +1,7 @@
 extern crate alloc;
 use alloc::string::String;
 
-use log::*;
+use ::log::*;
 
 use esp_idf_hal::mutex;
 
