@@ -63,6 +63,7 @@ impl Default for FollowRedirectsPolicy {
 #[derive(Copy, Clone, Debug, Default)]
 pub struct EspHttpClientConfiguration {
     pub buffer_size: Option<usize>,
+    pub buffer_size_tx: Option<usize>,
     pub follow_redirects_policy: FollowRedirectsPolicy,
 
     pub use_global_ca_store: bool,
@@ -102,6 +103,10 @@ impl EspHttpClient {
         if let Some(buffer_size) = configuration.buffer_size {
             native_config.buffer_size = buffer_size as _;
         };
+
+        if let Some(buffer_size_tx) = configuration.buffer_size_tx {
+            native_config.buffer_size_tx = buffer_size_tx as _;
+        }
 
         let raw = unsafe { esp_http_client_init(&native_config) };
         if raw.is_null() {
