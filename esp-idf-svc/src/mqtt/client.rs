@@ -536,12 +536,16 @@ impl<'a> client::Message for EspMqttMessage<'a> {
     }
 
     fn data(&self) -> Cow<'_, [u8]> {
-        Cow::Borrowed(unsafe {
-            slice::from_raw_parts(
-                (self.event.data as *const u8).as_ref().unwrap(),
-                self.event.data_len as _,
-            )
-        })
+        if self.event.data_len > 0 {
+            Cow::Borrowed(unsafe {
+                slice::from_raw_parts(
+                    (self.event.data as *const u8).as_ref().unwrap(),
+                    self.event.data_len as _,
+                )
+            })
+        } else {
+            Cow::from(&[] as &[u8])
+        }
     }
 
     fn topic(&self) -> Option<Cow<'_, str>> {
