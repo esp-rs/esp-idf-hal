@@ -423,9 +423,7 @@ impl<SPI: Spi, SCLK: OutputPin, SDO: OutputPin, SDI: InputPin + OutputPin, CS: O
             ..Default::default()
         };
 
-        esp!(unsafe {
-            spi_bus_initialize(SPI::device(), &bus_config, config.dma_channel)
-        })?;
+        esp!(unsafe { spi_bus_initialize(SPI::device(), &bus_config, config.dma_channel) })?;
 
         let device_config = spi_device_interface_config_t {
             spics_io_num: pins.cs.as_ref().map_or(-1, |p| p.pin()),
@@ -442,7 +440,11 @@ impl<SPI: Spi, SCLK: OutputPin, SDO: OutputPin, SDI: InputPin + OutputPin, CS: O
                 0
             }),
             queue_size: 64,
-            flags: if config.no_dummy { SPI_DEVICE_NO_DUMMY } else { 0_u32 },
+            flags: if config.no_dummy {
+                SPI_DEVICE_NO_DUMMY
+            } else {
+                0_u32
+            },
             ..Default::default()
         };
 
