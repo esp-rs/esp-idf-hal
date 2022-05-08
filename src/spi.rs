@@ -102,7 +102,7 @@ pub mod config {
     pub struct Config {
         pub baudrate: Hertz,
         pub data_mode: embedded_hal::spi::Mode,
-        pub device_flags: u32,
+        pub no_dummy: bool,
         pub dma_channel: u32,
         pub max_transfer_size: i32,
     }
@@ -129,8 +129,8 @@ pub mod config {
             self
         }
 
-        pub fn device_flags(mut self, device_flags: u32) -> Self {
-            self.device_flags = device_flags;
+        pub fn no_dummy(mut self, no_dummy: bool) -> Self {
+            self.no_dummy = no_dummy;
             self
         }
 
@@ -145,26 +145,11 @@ pub mod config {
             Self {
                 baudrate: Hertz(1_000_000),
                 data_mode: embedded_hal::spi::MODE_0,
-                device_flags: DeviceFlag::Nothing as u32,
+                no_dummy: false,
                 dma_channel: 0,
                 max_transfer_size: 64,
             }
         }
-    }
-
-    #[repr(u32)]
-    #[derive(Copy, Clone, Debug)]
-    pub enum DeviceFlag {
-        Nothing = 0,
-        TxBitLsb = 1<<0,
-        RxBitLsb = 1<<1,
-        BitLsb = 1<<0 | 1<<1,
-        ThreeWire = 1<<2,
-        PositiveCS = 1<<3,
-        HalfDuplex = 1<<4,
-        ClockAsCS = 1<<5,
-        NoDummy = 1<<6,
-        DdrClock = 1<<7,
     }
 }
 
@@ -457,7 +442,7 @@ impl<SPI: Spi, SCLK: OutputPin, SDO: OutputPin, SDI: InputPin + OutputPin, CS: O
                 0
             }),
             queue_size: 64,
-            flags: config.device_flags as u32,
+            flags: if config.no_dummy { SPI_DEVICE_NO_DUMMY } else { 0_u32 },
             ..Default::default()
         };
 
