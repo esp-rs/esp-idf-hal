@@ -456,8 +456,8 @@ impl<SPI: Spi, SCLK: OutputPin, SDO: OutputPin, SDI: InputPin + OutputPin, CS: O
     type Error = SpiError;
 }
 
-impl<SPI: Spi, SCLK: OutputPin, SDO: OutputPin, SDI: InputPin + OutputPin, CS: OutputPin>
-    SpiDevice for Master<SPI, SCLK, SDO, SDI, CS>
+impl<SPI: Spi, SCLK: OutputPin, SDO: OutputPin, SDI: InputPin + OutputPin, CS: OutputPin> SpiDevice
+    for Master<SPI, SCLK, SDO, SDI, CS>
 {
     type Bus = MasterBus;
 
