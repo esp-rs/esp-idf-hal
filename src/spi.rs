@@ -477,7 +477,6 @@ impl<SPI: Spi, SCLK: OutputPin, SDO: OutputPin, SDI: InputPin + OutputPin, CS: O
 
         // Flush whatever is pending.
         // Note that this is done even when an error is returned from the transaction.
-        use embedded_hal::spi::blocking::SpiBusFlush;
         let flush_result = bus.flush();
 
         core::mem::drop(lock);
