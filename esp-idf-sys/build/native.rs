@@ -140,7 +140,7 @@ fn build_cargo_first() -> Result<EspIdfBuildOutput> {
         if cmake_generator == cmake::Generator::Ninja {
             subtools.push("ninja")
         }
-        if !cfg!(target_os = "linux") && !cfg!(target_arch = "aarch64") {
+        if !cfg!(target_os = "linux") || !cfg!(target_arch = "aarch64") {
             subtools.extend(chip.ulp_gcc_toolchain());
         }
         tools.push(espidf::Tools::new(subtools));
