@@ -139,7 +139,7 @@
 #include "nvs_flash.h"
 #endif
 
-#ifdef ESP_IDF_COMP_ESP_WIFI_PROVISIONING_ENABLED
+#ifdef ESP_IDF_COMP_WIFI_PROVISIONING_ENABLED
 #include "wifi_provisioning/manager.h"
 #include "wifi_provisioning/scheme_ble.h"
 #include "wifi_provisioning/scheme_softap.h"
