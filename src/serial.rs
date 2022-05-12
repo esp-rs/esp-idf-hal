@@ -334,6 +334,7 @@ impl<UART: Uart, TX: OutputPin, RX: InputPin, CTS: InputPin, RTS: OutputPin>
             parity: config.parity.into(),
             stop_bits: config.stop_bits.into(),
             flow_ctrl: config.flow_control.into(),
+            rx_flow_ctrl_thresh: 122,
             ..Default::default()
         };
 
