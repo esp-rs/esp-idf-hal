@@ -204,6 +204,7 @@ pub mod config {
         pub parity: Parity,
         pub stop_bits: StopBits,
         pub flow_control: FlowControl,
+        pub flow_control_rts_threshold: u8,
     }
 
     impl Config {
@@ -252,6 +253,15 @@ pub mod config {
             self.flow_control = flow_control;
             self
         }
+
+        #[must_use]
+        /// This setting only has effect if flow control is enabled.
+        /// It determines how many bytes must be received before `RTS` line is asserted.
+        /// Notice that count starts from `0` which means that `RTS` is asserted after every received byte.
+        pub fn flow_control_rts_threshold(mut self, flow_control_rts_threshold: u8) -> Self {
+            self.flow_control_rts_threshold = flow_control_rts_threshold;
+            self
+        }
     }
 
     impl Default for Config {
@@ -262,6 +272,7 @@ pub mod config {
                 parity: Parity::ParityNone,
                 stop_bits: StopBits::STOP1,
                 flow_control: FlowControl::None,
+                flow_control_rts_threshold: 122,
             }
         }
     }
@@ -334,6 +345,7 @@ impl<UART: Uart, TX: OutputPin, RX: InputPin, CTS: InputPin, RTS: OutputPin>
             parity: config.parity.into(),
             stop_bits: config.stop_bits.into(),
             flow_ctrl: config.flow_control.into(),
+            rx_flow_ctrl_thresh: config.flow_control_rts_threshold,
             ..Default::default()
         };
 
