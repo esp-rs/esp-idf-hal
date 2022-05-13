@@ -1,4 +1,4 @@
-use core::{any::Any, ptr};
+use core::ptr;
 
 extern crate alloc;
 use alloc::sync::Arc;
@@ -13,7 +13,12 @@ use crate::nvs::*;
 
 use crate::private::cstr::*;
 
-pub struct EspNvsStorage(Arc<dyn Any>, nvs_handle_t);
+enum EspNvsRef {
+    Default(Arc<EspDefaultNvs>),
+    Nvs(Arc<EspNvs>),
+}
+
+pub struct EspNvsStorage(EspNvsRef, nvs_handle_t);
 
 impl EspNvsStorage {
     pub fn new_default(
@@ -36,7 +41,7 @@ impl EspNvsStorage {
             )
         })?;
 
-        Ok(Self(default_nvs, handle))
+        Ok(Self(EspNvsRef::Default(default_nvs), handle))
     }
 
     pub fn new(
@@ -60,7 +65,7 @@ impl EspNvsStorage {
             )
         })?;
 
-        Ok(Self(nvs, handle))
+        Ok(Self(EspNvsRef::Nvs(nvs), handle))
     }
 }
 
