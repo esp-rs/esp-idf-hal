@@ -2,14 +2,14 @@
 //!
 //! Folowing pins are used:
 //! SCLK    GPIO6
-//! MISO    GPIO2
-//! MOSI    GPIO7
+//! SDI    GPIO2
+//! SDO    GPIO7
 //! CS      GPIO10
 //!
 //! Depending on your target and the board you are using you have to change the pins.
 //!
 //! This example transfers data via SPI.
-//! Connect MISO and MOSI pins to see the outgoing data is read as incoming data.
+//! Connect SDI and SDO pins to see the outgoing data is read as incoming data.
 
 use std::thread;
 use std::time::Duration;
@@ -27,18 +27,18 @@ fn main() -> anyhow::Result<()> {
     let spi = peripherals.spi2;
 
     let sclk = peripherals.pins.gpio6;
-    let miso = peripherals.pins.gpio2;
-    let mosi = peripherals.pins.gpio7;
+    let serial_in = peripherals.pins.gpio2;   //SDI
+    let serial_out = peripherals.pins.gpio7;  //SDO
     let cs = peripherals.pins.gpio10;
 
-    println!("Starting SPI loopback test");
+    println!("Setting up SPI bus");
     let config = <spi::config::Config as Default>::default().baudrate(26.MHz().into());
     let mut spi = spi::Master::<spi::SPI2, _, _, _, _>::new(
         spi,
         spi::Pins {
             sclk,
-            sdo: miso,
-            sdi: Some(mosi),
+            sdo: serial_out,
+            sdi: Some(serial_in),
             cs: Some(cs),
         },
         config,
