@@ -31,7 +31,7 @@ fn main() -> anyhow::Result<()> {
     let serial_out = peripherals.pins.gpio7;  //SDO
     let cs = peripherals.pins.gpio10;
 
-    println!("Setting up SPI bus");
+    println!("Starting SPI loopback test");
     let config = <spi::config::Config as Default>::default().baudrate(26.MHz().into());
     let mut spi = spi::Master::<spi::SPI2, _, _, _, _>::new(
         spi,
