@@ -944,6 +944,8 @@ impl Wifi for EspWifi {
     }
 }
 
+unsafe impl Send for EspWifi {}
+
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub enum WifiEvent {
     Ready,

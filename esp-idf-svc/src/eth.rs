@@ -985,6 +985,8 @@ impl<P> Eth for EspEth<P> {
     }
 }
 
+unsafe impl<P> Send for EspEth<P> {}
+
 pub type EthHandle = *const core::ffi::c_void;
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
