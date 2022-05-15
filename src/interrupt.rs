@@ -461,6 +461,25 @@ impl embedded_svc::mutex::MutexFamily for MutexFamily {
     type Mutex<T> = Mutex<T>;
 }
 
+#[cfg(all(feature = "experimental", feature = "embedded-svc"))]
+impl embedded_svc::signal::asyncs::SignalFamily for MutexFamily {
+    type Signal<T> = embedded_svc::utils::asyncs::signal::MutexSignal<
+        Mutex<embedded_svc::utils::asyncs::signal::State<T>>,
+        T,
+    >;
+}
+
+#[cfg(all(feature = "experimental", feature = "embedded-svc"))]
+impl embedded_svc::signal::asyncs::SendSyncSignalFamily for MutexFamily {
+    type Signal<T>
+    where
+        T: Send,
+    = embedded_svc::utils::asyncs::signal::MutexSignal<
+        Mutex<embedded_svc::utils::asyncs::signal::State<T>>,
+        T,
+    >;
+}
+
 #[cfg(feature = "embedded-svc")]
 impl<T> embedded_svc::mutex::Mutex for Mutex<T> {
     type Data = T;
@@ -481,26 +500,4 @@ impl<T> embedded_svc::mutex::Mutex for Mutex<T> {
     fn lock(&self) -> Self::Guard<'_> {
         Mutex::lock(self)
     }
-}
-
-#[cfg(all(feature = "experimental", feature = "embedded-svc"))]
-pub struct MutexSignalFamily;
-
-#[cfg(all(feature = "experimental", feature = "embedded-svc"))]
-impl embedded_svc::signal::asyncs::SignalFamily for MutexSignalFamily {
-    type Signal<T> = embedded_svc::utils::asyncs::signal::MutexSignal<
-        Mutex<embedded_svc::utils::asyncs::signal::State<T>>,
-        T,
-    >;
-}
-
-#[cfg(all(feature = "experimental", feature = "embedded-svc"))]
-impl embedded_svc::signal::asyncs::SendSyncSignalFamily for MutexSignalFamily {
-    type Signal<T>
-    where
-        T: Send,
-    = embedded_svc::utils::asyncs::signal::MutexSignal<
-        Mutex<embedded_svc::utils::asyncs::signal::State<T>>,
-        T,
-    >;
 }

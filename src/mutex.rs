@@ -173,6 +173,25 @@ impl embedded_svc::mutex::MutexFamily for Condvar {
     type Mutex<T> = Mutex<T>;
 }
 
+#[cfg(all(feature = "experimental", feature = "embedded-svc"))]
+impl embedded_svc::signal::asyncs::SignalFamily for Condvar {
+    type Signal<T> = embedded_svc::utils::asyncs::signal::MutexSignal<
+        Mutex<embedded_svc::utils::asyncs::signal::State<T>>,
+        T,
+    >;
+}
+
+#[cfg(all(feature = "experimental", feature = "embedded-svc"))]
+impl embedded_svc::signal::asyncs::SendSyncSignalFamily for Condvar {
+    type Signal<T>
+    where
+        T: Send,
+    = embedded_svc::utils::asyncs::signal::MutexSignal<
+        Mutex<embedded_svc::utils::asyncs::signal::State<T>>,
+        T,
+    >;
+}
+
 #[cfg(feature = "embedded-svc")]
 impl embedded_svc::mutex::Condvar for Condvar {
     #[inline(always)]
@@ -208,28 +227,6 @@ impl embedded_svc::mutex::Condvar for Condvar {
     fn notify_all(&self) {
         Condvar::notify_all(self)
     }
-}
-
-#[cfg(all(feature = "experimental", feature = "embedded-svc"))]
-pub struct MutexSignalFamily;
-
-#[cfg(all(feature = "experimental", feature = "embedded-svc"))]
-impl embedded_svc::signal::asyncs::SignalFamily for MutexSignalFamily {
-    type Signal<T> = embedded_svc::utils::asyncs::signal::MutexSignal<
-        Mutex<embedded_svc::utils::asyncs::signal::State<T>>,
-        T,
-    >;
-}
-
-#[cfg(all(feature = "experimental", feature = "embedded-svc"))]
-impl embedded_svc::signal::asyncs::SendSyncSignalFamily for MutexSignalFamily {
-    type Signal<T>
-    where
-        T: Send,
-    = embedded_svc::utils::asyncs::signal::MutexSignal<
-        Mutex<embedded_svc::utils::asyncs::signal::State<T>>,
-        T,
-    >;
 }
 
 #[cfg(feature = "embassy")]
