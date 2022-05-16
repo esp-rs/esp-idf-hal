@@ -266,6 +266,7 @@ where
 }
 
 unsafe impl<T> Send for EspSubscription<T> where T: EspEventLoopType {}
+unsafe impl<T> Sync for EspSubscription<T> where T: EspEventLoopType {} // TODO XXX FIXME
 
 impl<T> Drop for EspSubscription<T>
 where

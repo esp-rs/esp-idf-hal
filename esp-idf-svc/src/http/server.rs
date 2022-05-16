@@ -1268,7 +1268,7 @@ pub mod ws {
 
         use super::{EspHttpWsReceiver, EspHttpWsSender};
 
-        pub type EspHttpWsProcessor =
-            Processor<esp_idf_hal::mutex::Condvar, EspHttpWsSender, EspHttpWsReceiver>;
+        pub type EspHttpWsProcessor<const N: usize, const F: usize> =
+            Processor<esp_idf_hal::mutex::Condvar, EspHttpWsSender, EspHttpWsReceiver, N, F>;
     }
 }
