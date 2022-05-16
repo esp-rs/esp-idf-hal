@@ -1,10 +1,10 @@
 //! SPI loopback test
 //!
 //! Folowing pins are used:
-//! SCLK    GPIO6
+//! SCLK   GPIO6
 //! SDI    GPIO2
 //! SDO    GPIO7
-//! CS      GPIO10
+//! CS     GPIO10
 //!
 //! Depending on your target and the board you are using you have to change the pins.
 //!
@@ -27,8 +27,8 @@ fn main() -> anyhow::Result<()> {
     let spi = peripherals.spi2;
 
     let sclk = peripherals.pins.gpio6;
-    let serial_in = peripherals.pins.gpio2;   //SDI
-    let serial_out = peripherals.pins.gpio7;  //SDO
+    let serial_in = peripherals.pins.gpio2; //SDI
+    let serial_out = peripherals.pins.gpio7; //SDO
     let cs = peripherals.pins.gpio10;
 
     println!("Starting SPI loopback test");
