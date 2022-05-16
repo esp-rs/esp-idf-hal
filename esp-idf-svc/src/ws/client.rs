@@ -397,9 +397,18 @@ impl EspWebSocketClient {
         timeout: time::Duration,
         mut callback: impl for<'a> FnMut(&'a Result<WebSocketEvent<'a>, EspError>) + Send + 'static,
     ) -> Result<Self, EspError> {
-        Self::new_raw(uri, config, timeout, Box::new(move |event_id, event_handle| {
-            callback(&WebSocketEvent::new(event_id, unsafe { event_handle.as_ref().unwrap() }, None));
-        }))
+        Self::new_raw(
+            uri,
+            config,
+            timeout,
+            Box::new(move |event_id, event_handle| {
+                callback(&WebSocketEvent::new(
+                    event_id,
+                    unsafe { event_handle.as_ref().unwrap() },
+                    None,
+                ));
+            }),
+        )
     }
 
     fn new_raw(
