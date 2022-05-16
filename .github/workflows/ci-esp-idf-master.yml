@@ -1,6 +1,7 @@
 name: CIEspIdfMaster
 
 on:
+  workflow_dispatch
   schedule:
     - cron: '50 5 * * *'
 
