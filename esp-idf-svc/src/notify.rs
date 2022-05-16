@@ -17,6 +17,7 @@ use esp_idf_sys::*;
 
 use crate::private::cstr::RawCstrs;
 
+#[allow(clippy::type_complexity)]
 pub struct EspSubscriptionsRegistry {
     next_subscription_id: Mutex<usize>,
     subscriptions: Mutex<
@@ -64,8 +65,8 @@ impl EspSubscriptionsRegistry {
             .subscriptions
             .lock()
             .iter()
-            .map(|(subscription_id, _)| subscription_id.clone())
-            .max_by_key(|s| s.clone());
+            .map(|(subscription_id, _)| *subscription_id)
+            .max_by_key(|s| *s);
 
         if let Some(max_id) = max_id {
             let mut prev_id = None;
@@ -81,7 +82,7 @@ impl EspSubscriptionsRegistry {
                                 .map(|prev_id| prev_id < *subscription_id)
                                 .unwrap_or(true)
                     })
-                    .map(|(subscription_id, f)| (subscription_id.clone(), f.clone()));
+                    .map(|(subscription_id, f)| (*subscription_id, f.clone()));
 
                 if let Some((subscription_id, f)) = next {
                     f.borrow_mut()(&notification);

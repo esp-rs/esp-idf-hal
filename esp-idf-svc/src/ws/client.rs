@@ -388,7 +388,7 @@ impl EspWebSocketClient {
             }),
         )?;
 
-        Ok((client, EspWebSocketConnection(connection_state.clone())))
+        Ok((client, EspWebSocketConnection(connection_state)))
     }
 
     pub fn new(

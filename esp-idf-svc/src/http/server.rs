@@ -136,6 +136,7 @@ type EspRequestScopedSession = session::RequestScopedSession<EspSessionsMutex, E
 
 static OPEN_SESSIONS: mutex::Mutex<BTreeMap<(u32, c_types::c_int), Arc<AtomicBool>>> =
     mutex::Mutex::new(BTreeMap::new());
+#[allow(clippy::type_complexity)]
 static mut CLOSE_HANDLERS: mutex::Mutex<BTreeMap<u32, Vec<Box<dyn Fn(c_types::c_int)>>>> =
     mutex::Mutex::new(BTreeMap::new());
 
@@ -250,7 +251,7 @@ impl EspHttpServer {
         Ok(())
     }
 
-    fn handle_error<'a, E>(
+    fn handle_error<E>(
         raw_req: *mut httpd_req_t,
         response_state: ResponseState,
         error: E,
