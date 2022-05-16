@@ -139,7 +139,7 @@ pub struct PoweredAdc<ADC: Adc> {
     resolution: config::Resolution,
     #[cfg(esp_idf_comp_esp_adc_cal_enabled)]
     cal_characteristics:
-        Option<[Option<esp_adc_cal_characteristics_t>; adc_atten_t_ADC_ATTEN_MAX as usize + 1]>,
+        Option<[Option<esp_adc_cal_characteristics_t>; adc_atten_t_ADC_ATTEN_DB_11 as usize + 1]>,
 }
 
 #[cfg(not(feature = "riscv-ulp-hal"))]
