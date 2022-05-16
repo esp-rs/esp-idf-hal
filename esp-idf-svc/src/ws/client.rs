@@ -57,7 +57,7 @@ impl<'a> WebSocketEvent<'a> {
     ) -> Result<Self, EspError> {
         Ok(Self {
             event_type: WebSocketEventType::new(event_id, event_data)?,
-            state: state.map(|state| state.clone()),
+            state: state.cloned(),
         })
     }
 }
