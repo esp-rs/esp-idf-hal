@@ -22,6 +22,7 @@
 
 use core::cmp::{max, min, Ordering};
 use core::ptr;
+use embedded_hal::spi::blocking::{SpiBus, SpiBusFlush, SpiBusRead, SpiBusWrite, SpiDevice};
 
 use crate::delay::portMAX_DELAY;
 use crate::gpio::{self, InputPin, OutputPin};
@@ -281,7 +282,7 @@ impl embedded_hal::spi::ErrorType for MasterBus {
     type Error = SpiError;
 }
 
-impl embedded_hal::spi::blocking::SpiBusFlush for MasterBus {
+impl SpiBusFlush for MasterBus {
     fn flush(&mut self) -> Result<(), Self::Error> {
         // Since we use polling transactions, flushing isn't required.
         // In future, when DMA is available spi_device_get_trans_result
@@ -290,7 +291,7 @@ impl embedded_hal::spi::blocking::SpiBusFlush for MasterBus {
     }
 }
 
-impl embedded_hal::spi::blocking::SpiBusRead for MasterBus {
+impl SpiBusRead for MasterBus {
     fn read(&mut self, words: &mut [u8]) -> Result<(), Self::Error> {
         for chunk in words.chunks_mut(self.trans_len) {
             self.polling_transmit(chunk.as_mut_ptr(), ptr::null(), chunk.len(), chunk.len())?;
@@ -299,7 +300,7 @@ impl embedded_hal::spi::blocking::SpiBusRead for MasterBus {
     }
 }
 
-impl embedded_hal::spi::blocking::SpiBusWrite for MasterBus {
+impl SpiBusWrite for MasterBus {
     fn write(&mut self, words: &[u8]) -> Result<(), Self::Error> {
         for chunk in words.chunks(self.trans_len) {
             self.polling_transmit(ptr::null_mut(), chunk.as_ptr(), chunk.len(), 0)?;
@@ -308,7 +309,7 @@ impl embedded_hal::spi::blocking::SpiBusWrite for MasterBus {
     }
 }
 
-impl embedded_hal::spi::blocking::SpiBus for MasterBus {
+impl SpiBus for MasterBus {
     fn transfer(&mut self, read: &mut [u8], write: &[u8]) -> Result<(), Self::Error> {
         let common_length = min(read.len(), write.len());
         let common_read = read[0..common_length].chunks_mut(self.trans_len);
@@ -326,12 +327,10 @@ impl embedded_hal::spi::blocking::SpiBus for MasterBus {
         match read.len().cmp(&write.len()) {
             Ordering::Equal => { /* Nothing left to do */ }
             Ordering::Greater => {
-                use embedded_hal::spi::blocking::SpiBusRead;
                 // Read remainder
                 self.read(&mut read[write.len()..])?;
             }
             Ordering::Less => {
-                use embedded_hal::spi::blocking::SpiBusWrite;
                 // Write remainder
                 self.write(&write[read.len()..])?;
             }
@@ -449,158 +448,6 @@ impl<SPI: Spi, SCLK: OutputPin, SDO: OutputPin, SDI: InputPin + OutputPin, CS: O
     fn lock_bus(&mut self) -> Result<Lock, SpiError> {
         Lock::new(self.device).map_err(SpiError::other)
     }
-
-    fn lock_bus_for(&mut self, lock_bus: bool, size: usize) -> Result<Option<Lock>, SpiError> {
-        if lock_bus && size > TRANS_LEN {
-            Ok(Some(self.lock_bus()?))
-        } else {
-            Ok(None)
-        }
-    }
-
-    fn transfer_internal(
-        &mut self,
-        read: &mut [u8],
-        write: &[u8],
-        lock_bus: bool,
-    ) -> Result<(), SpiError> {
-        let _lock = self.lock_bus_for(lock_bus, max(read.len(), write.len()))?;
-
-        let len = max(read.len(), write.len());
-        for offset in (0..len).step_by(TRANS_LEN) {
-            let read_chunk_end = min(offset + TRANS_LEN, read.len());
-            let write_chunk_end = min(offset + TRANS_LEN, write.len());
-
-            if read_chunk_end != write_chunk_end {
-                let mut buf = [0_u8; TRANS_LEN];
-
-                let write_ptr = if write_chunk_end < offset + TRANS_LEN {
-                    if write_chunk_end > offset {
-                        buf[0..write_chunk_end - offset]
-                            .copy_from_slice(&write[offset..write_chunk_end]);
-                    }
-
-                    buf.as_ptr()
-                } else {
-                    let chunk = &write[offset..write_chunk_end];
-
-                    chunk.as_ptr()
-                };
-
-                let read_ptr = if read_chunk_end < offset + TRANS_LEN {
-                    buf.as_mut_ptr()
-                } else {
-                    let chunk = &mut read[offset..read_chunk_end];
-
-                    chunk.as_mut_ptr()
-                };
-
-                let transfer_len = max(read_chunk_end, write_chunk_end) - offset;
-
-                self.transfer_internal_raw(read_ptr, transfer_len, write_ptr, transfer_len)?;
-
-                if read_chunk_end > offset && read_chunk_end < offset + TRANS_LEN {
-                    read[offset..read_chunk_end].copy_from_slice(&buf[0..read_chunk_end - offset]);
-                }
-            } else {
-                let read_chunk = &mut read[offset..read_chunk_end];
-                let write_chunk = &write[offset..write_chunk_end];
-
-                self.transfer_internal_raw(
-                    read_chunk.as_mut_ptr(),
-                    read_chunk.len(),
-                    write_chunk.as_ptr(),
-                    write_chunk.len(),
-                )?;
-            }
-        }
-
-        Ok(())
-    }
-
-    fn transfer_inplace_internal(
-        &mut self,
-        data: &mut [u8],
-        lock_bus: bool,
-    ) -> Result<(), SpiError> {
-        let _lock = self.lock_bus_for(lock_bus, data.len())?;
-
-        let total_len = data.len();
-        for offset in (0..data.len()).step_by(TRANS_LEN) {
-            let chunk = &mut data[offset..min(offset + TRANS_LEN, total_len)];
-            let len = chunk.len();
-            let ptr = chunk.as_mut_ptr();
-
-            self.transfer_internal_raw(ptr, len, ptr, len)?;
-        }
-
-        Ok(())
-    }
-
-    fn write_iter_internal<WI>(&mut self, words: WI) -> Result<(), SpiError>
-    where
-        WI: IntoIterator<Item = u8>,
-    {
-        let mut words = words.into_iter();
-
-        let mut buf = [0_u8; TRANS_LEN];
-
-        let mut lock = None;
-
-        loop {
-            let mut offset = 0_usize;
-
-            while offset < buf.len() {
-                if let Some(word) = words.next() {
-                    buf[offset] = word;
-                    offset += 1;
-                } else {
-                    break;
-                }
-            }
-
-            if offset == 0 {
-                break;
-            }
-
-            if offset == buf.len() && lock.is_none() {
-                lock = Some(self.lock_bus()?);
-            }
-
-            let chunk = &mut buf[..offset];
-            let ptr = chunk.as_mut_ptr();
-
-            self.transfer_internal_raw(ptr, chunk.len(), ptr, chunk.len())?;
-        }
-
-        Ok(())
-    }
-
-    fn transfer_internal_raw(
-        &mut self,
-        read: *mut u8,
-        read_len: usize,
-        write: *const u8,
-        write_len: usize,
-    ) -> Result<(), SpiError> {
-        let mut transaction = spi_transaction_t {
-            flags: 0,
-            __bindgen_anon_1: spi_transaction_t__bindgen_ty_1 {
-                tx_buffer: write as *const _,
-            },
-            __bindgen_anon_2: spi_transaction_t__bindgen_ty_2 {
-                rx_buffer: read as *mut _,
-            },
-            length: (write_len * 8) as _,
-            rxlength: (read_len * 8) as _,
-            ..Default::default()
-        };
-
-        esp!(unsafe { spi_device_polling_transmit(self.device, &mut transaction as *mut _) })
-            .map_err(SpiError::other)?;
-
-        Ok(())
-    }
 }
 
 impl<SPI: Spi, SCLK: OutputPin, SDO: OutputPin, SDI: InputPin + OutputPin, CS: OutputPin>
@@ -609,8 +456,8 @@ impl<SPI: Spi, SCLK: OutputPin, SDO: OutputPin, SDI: InputPin + OutputPin, CS: O
     type Error = SpiError;
 }
 
-impl<SPI: Spi, SCLK: OutputPin, SDO: OutputPin, SDI: InputPin + OutputPin, CS: OutputPin>
-    embedded_hal::spi::blocking::SpiDevice for Master<SPI, SCLK, SDO, SDI, CS>
+impl<SPI: Spi, SCLK: OutputPin, SDO: OutputPin, SDI: InputPin + OutputPin, CS: OutputPin> SpiDevice
+    for Master<SPI, SCLK, SDO, SDI, CS>
 {
     type Bus = MasterBus;
 
@@ -630,7 +477,6 @@ impl<SPI: Spi, SCLK: OutputPin, SDO: OutputPin, SDI: InputPin + OutputPin, CS: O
 
         // Flush whatever is pending.
         // Note that this is done even when an error is returned from the transaction.
-        use embedded_hal::spi::blocking::SpiBusFlush;
         let flush_result = bus.flush();
 
         core::mem::drop(lock);
@@ -648,7 +494,7 @@ impl<SPI: Spi, SCLK: OutputPin, SDO: OutputPin, SDI: InputPin + OutputPin, CS: O
     type Error = SpiError;
 
     fn transfer<'w>(&mut self, words: &'w mut [u8]) -> Result<&'w [u8], Self::Error> {
-        self.transfer_inplace_internal(words, true)?;
+        self.transfer_in_place(words)?;
 
         Ok(words)
     }
@@ -660,7 +506,7 @@ impl<SPI: Spi, SCLK: OutputPin, SDO: OutputPin, SDI: InputPin + OutputPin, CS: O
     type Error = SpiError;
 
     fn write(&mut self, words: &[u8]) -> Result<(), Self::Error> {
-        self.transfer_internal(&mut [], words, true)
+        SpiDevice::write(self, words)
     }
 }
 
@@ -673,7 +519,31 @@ impl<SPI: Spi, SCLK: OutputPin, SDO: OutputPin, SDI: InputPin + OutputPin, CS: O
     where
         WI: IntoIterator<Item = u8>,
     {
-        self.write_iter_internal(words)
+        let mut words = words.into_iter();
+
+        let mut buf = [0_u8; TRANS_LEN];
+
+        self.transaction(|bus| {
+            loop {
+                let mut offset = 0_usize;
+
+                while offset < buf.len() {
+                    if let Some(word) = words.next() {
+                        buf[offset] = word;
+                        offset += 1;
+                    } else {
+                        break;
+                    }
+                }
+
+                if offset == 0 {
+                    break;
+                }
+
+                bus.write(&buf[..offset])?;
+            }
+            Ok(())
+        })
     }
 }
 
@@ -686,20 +556,17 @@ impl<SPI: Spi, SCLK: OutputPin, SDO: OutputPin, SDI: InputPin + OutputPin, CS: O
         &mut self,
         operations: &mut [embedded_hal_0_2::blocking::spi::Operation<'a, u8>],
     ) -> Result<(), Self::Error> {
-        let _lock = self.lock_bus()?;
-
-        for operation in operations {
-            match operation {
-                embedded_hal_0_2::blocking::spi::Operation::Write(write) => {
-                    self.transfer_internal(&mut [], write, false)?
-                }
-                embedded_hal_0_2::blocking::spi::Operation::Transfer(words) => {
-                    self.transfer_inplace_internal(words, false)?
-                }
+        self.transaction(|bus| {
+            for operation in operations {
+                match operation {
+                    embedded_hal_0_2::blocking::spi::Operation::Write(write) => bus.write(write),
+                    embedded_hal_0_2::blocking::spi::Operation::Transfer(words) => {
+                        bus.transfer_in_place(words)
+                    }
+                }?;
             }
-        }
-
-        Ok(())
+            Ok(())
+        })
     }
 }
 
