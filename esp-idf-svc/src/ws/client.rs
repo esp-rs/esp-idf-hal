@@ -1,35 +1,16 @@
+use core::convert::{TryFrom, TryInto};
+use core::time;
+
+extern crate alloc;
 use alloc::sync::Arc;
-use core::{
-    convert::{TryFrom, TryInto},
-    time,
-};
 
-use embedded_svc::{
-    errors::Errors,
-    ws::{FrameType, Sender},
-};
-use esp_idf_hal::{
-    delay::TickType,
-    mutex::{Condvar, Mutex},
-};
-use esp_idf_sys::{
-    c_types, esp, esp_event_base_t, esp_websocket_client_close, esp_websocket_client_config_t,
-    esp_websocket_client_destroy, esp_websocket_client_handle_t, esp_websocket_client_init,
-    esp_websocket_client_send_bin, esp_websocket_client_send_text, esp_websocket_client_start,
-    esp_websocket_event_data_t, esp_websocket_event_id_t_WEBSOCKET_EVENT_ANY,
-    esp_websocket_event_id_t_WEBSOCKET_EVENT_CLOSED,
-    esp_websocket_event_id_t_WEBSOCKET_EVENT_CONNECTED,
-    esp_websocket_event_id_t_WEBSOCKET_EVENT_DATA,
-    esp_websocket_event_id_t_WEBSOCKET_EVENT_DISCONNECTED,
-    esp_websocket_event_id_t_WEBSOCKET_EVENT_ERROR, esp_websocket_register_events,
-    esp_websocket_transport_t, esp_websocket_transport_t_WEBSOCKET_TRANSPORT_OVER_SSL,
-    esp_websocket_transport_t_WEBSOCKET_TRANSPORT_OVER_TCP,
-    esp_websocket_transport_t_WEBSOCKET_TRANSPORT_UNKNOWN, EspError, TickType_t,
-    ESP_ERR_INVALID_ARG, ESP_ERR_NOT_FOUND, ESP_ERR_NOT_SUPPORTED, ESP_FAIL,
-};
+use embedded_svc::errors::Errors;
+use embedded_svc::ws::{FrameType, Sender};
 
-#[cfg(esp_idf_version = "4.4")]
-use esp_idf_sys::ifreq;
+use esp_idf_hal::delay::TickType;
+use esp_idf_hal::mutex::{Condvar, Mutex};
+
+use esp_idf_sys::*;
 
 use crate::private::common::Newtype;
 use crate::private::cstr::RawCstrs;
@@ -65,33 +46,35 @@ impl From<EspWebSocketTransport> for Newtype<esp_websocket_transport_t> {
 
 pub struct WebSocketEvent<'a> {
     pub event_type: WebSocketEventType<'a>,
-    state: Arc<EspWebSocketConnectionState>,
+    state: Option<Arc<EspWebSocketConnectionState>>,
 }
 
 impl<'a> WebSocketEvent<'a> {
     fn new(
         event_id: i32,
         event_data: &'a esp_websocket_event_data_t,
-        state: &Arc<EspWebSocketConnectionState>,
+        state: Option<&Arc<EspWebSocketConnectionState>>,
     ) -> Result<Self, EspError> {
         Ok(Self {
             event_type: WebSocketEventType::new(event_id, event_data)?,
-            state: state.clone(),
+            state: state.map(|state| state.clone()),
         })
     }
 }
 
 impl<'a> Drop for WebSocketEvent<'a> {
     fn drop(&mut self) {
-        let mut message = self.state.message.lock();
+        if let Some(state) = &self.state {
+            let mut message = state.message.lock();
 
-        if message.take().is_some() {
-            self.state.state_changed.notify_all();
+            if message.take().is_some() {
+                state.state_changed.notify_all();
+            }
         }
     }
 }
 
-#[derive(Debug)]
+#[derive(Copy, Clone, Eq, PartialEq, Debug)]
 pub enum WebSocketClosingReason {
     PurposeFulfilled,
     GoingAway,
@@ -134,10 +117,7 @@ pub enum WebSocketEventType<'a> {
 }
 
 impl<'a> WebSocketEventType<'a> {
-    pub fn new(
-        event_id: i32,
-        event_data: &'a esp_websocket_event_data_t,
-    ) -> Result<Self, EspError> {
+    fn new(event_id: i32, event_data: &'a esp_websocket_event_data_t) -> Result<Self, EspError> {
         #[allow(non_upper_case_globals)]
         match event_id {
             esp_websocket_event_id_t_WEBSOCKET_EVENT_ERROR => {
@@ -188,7 +168,7 @@ pub struct EspWebSocketClientConfig<'a> {
     pub password: Option<&'a str>,
     pub disable_auto_reconnect: bool,
     // TODO: pub user_context:
-    pub task_prio: usize,
+    pub task_prio: u8,
     pub task_stack: usize,
     pub buffer_size: usize,
     pub transport: EspWebSocketTransport,
@@ -212,10 +192,10 @@ pub struct EspWebSocketClientConfig<'a> {
     pub client_key: Option<&'a str>,
 }
 
-impl<'a> TryFrom<EspWebSocketClientConfig<'a>> for (esp_websocket_client_config_t, RawCstrs) {
+impl<'a> TryFrom<&'a EspWebSocketClientConfig<'a>> for (esp_websocket_client_config_t, RawCstrs) {
     type Error = EspError;
 
-    fn try_from(conf: EspWebSocketClientConfig) -> Result<Self, Self::Error> {
+    fn try_from(conf: &EspWebSocketClientConfig) -> Result<Self, Self::Error> {
         let mut cstrs = RawCstrs::new();
 
         let mut c_conf = esp_websocket_client_config_t {
@@ -319,7 +299,7 @@ impl UnsafeCallback {
     }
 }
 
-#[cfg_attr(version("1.61"), allow(suspicious_auto_trait_impls))]
+#[cfg_attr(version("1.60"), allow(suspicious_auto_trait_impls))]
 unsafe impl Send for Newtype<*mut esp_websocket_event_data_t> {}
 
 struct EspWebSocketConnectionState {
@@ -336,28 +316,9 @@ impl Default for EspWebSocketConnectionState {
     }
 }
 
-#[derive(Clone)]
 pub struct EspWebSocketConnection(Arc<EspWebSocketConnectionState>);
 
-impl Default for EspWebSocketConnection {
-    fn default() -> Self {
-        Self(Arc::new(EspWebSocketConnectionState::default()))
-    }
-}
-
 impl EspWebSocketConnection {
-    fn post(&self, event_id: i32, event: *mut esp_websocket_event_data_t) {
-        let mut message = self.0.message.lock();
-
-        // wait for a previous message to be processed
-        while message.is_some() {
-            message = self.0.state_changed.wait(message);
-        }
-
-        *message = Some((event_id, Newtype(event)));
-        self.0.state_changed.notify_all();
-    }
-
     // NOTE: cannot implement the `Iterator` trait as it requires that all the items can be alive
     // at the same time, which is not given here
     #[allow(clippy::should_implement_trait)]
@@ -372,8 +333,11 @@ impl EspWebSocketConnection {
         let event_id = message.as_ref().unwrap().0;
         let event = unsafe { message.as_ref().unwrap().1 .0.as_ref() };
         if let Some(event) = event {
-            let wse = WebSocketEvent::new(event_id, event, &self.0);
-            *message = None;
+            let wse = WebSocketEvent::new(event_id, event, Some(&self.0));
+            if wse.is_err() {
+                *message = None;
+                self.0.state_changed.notify_all();
+            }
 
             Some(wse)
         } else {
@@ -382,41 +346,67 @@ impl EspWebSocketConnection {
     }
 }
 
+struct EspWebSocketPostbox(Arc<EspWebSocketConnectionState>);
+
+impl EspWebSocketPostbox {
+    fn post(&self, event_id: i32, event: *mut esp_websocket_event_data_t) {
+        let mut message = self.0.message.lock();
+
+        // wait for a previous message to be processed
+        while message.is_some() {
+            message = self.0.state_changed.wait(message);
+        }
+
+        *message = Some((event_id, Newtype(event)));
+        self.0.state_changed.notify_all();
+    }
+}
+
 pub struct EspWebSocketClient {
     handle: esp_websocket_client_handle_t,
     // used for the timeout in every call to a send method in the c lib as the
     // `send` method in the `Sender` trait in embedded_svc::ws does not take a timeout itself
     timeout: TickType_t,
-    #[allow(dead_code)]
-    callback: Box<dyn FnMut(i32, *mut esp_websocket_event_data_t)>,
+    _callback: Box<dyn FnMut(i32, *mut esp_websocket_event_data_t)>,
 }
 
 impl EspWebSocketClient {
-    pub fn new_with_connection(
+    pub fn new_with_conn(
         uri: impl AsRef<str>,
-        config: EspWebSocketClientConfig,
+        config: &EspWebSocketClientConfig,
         timeout: time::Duration,
     ) -> Result<(Self, EspWebSocketConnection), EspError> {
-        let connection = EspWebSocketConnection::default();
-        let client_connection = connection.clone();
+        let connection_state: Arc<EspWebSocketConnectionState> = Arc::new(Default::default());
+        let poster = EspWebSocketPostbox(connection_state.clone());
 
-        let client = Self::new(
+        let client = Self::new_raw(
             uri,
             config,
             timeout,
             Box::new(move |event_id, event_handle| {
-                EspWebSocketConnection::post(&client_connection, event_id, event_handle);
+                poster.post(event_id, event_handle);
             }),
         )?;
 
-        Ok((client, connection))
+        Ok((client, EspWebSocketConnection(connection_state.clone())))
     }
 
-    fn new(
+    pub fn new(
         uri: impl AsRef<str>,
-        config: EspWebSocketClientConfig,
+        config: &EspWebSocketClientConfig,
         timeout: time::Duration,
-        raw_callback: Box<dyn FnMut(i32, *mut esp_websocket_event_data_t)>,
+        mut callback: impl for<'a> FnMut(&'a Result<WebSocketEvent<'a>, EspError>) + Send + 'static,
+    ) -> Result<Self, EspError> {
+        Self::new_raw(uri, config, timeout, Box::new(move |event_id, event_handle| {
+            callback(&WebSocketEvent::new(event_id, unsafe { event_handle.as_ref().unwrap() }, None));
+        }))
+    }
+
+    fn new_raw(
+        uri: impl AsRef<str>,
+        config: &EspWebSocketClientConfig,
+        timeout: time::Duration,
+        raw_callback: Box<dyn FnMut(i32, *mut esp_websocket_event_data_t) + 'static>,
     ) -> Result<Self, EspError> {
         let mut boxed_raw_callback = Box::new(raw_callback);
         let unsafe_callback = UnsafeCallback::from(&mut boxed_raw_callback);
@@ -435,7 +425,7 @@ impl EspWebSocketClient {
         let client = Self {
             handle,
             timeout: t.0,
-            callback: boxed_raw_callback,
+            _callback: boxed_raw_callback,
         };
 
         esp!(unsafe {
@@ -552,3 +542,5 @@ impl Sender for EspWebSocketClient {
         Ok(())
     }
 }
+
+unsafe impl Send for EspWebSocketClient {}

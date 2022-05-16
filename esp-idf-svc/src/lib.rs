@@ -83,8 +83,6 @@ pub mod timer;
     esp_idf_comp_esp_netif_enabled
 ))]
 pub mod wifi;
-
-#[cfg(feature = "alloc")]
 pub mod ws;
 
 mod private;
