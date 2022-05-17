@@ -102,9 +102,11 @@ pub mod config {
     pub struct Config {
         pub baudrate: Hertz,
         pub data_mode: embedded_hal::spi::Mode,
-        pub no_dummy: bool,
-        pub dma_channel: u32,
-        pub max_transfer_size: i32,
+        /// This property can be set to configure a SPI Device for being write only
+        /// Thus the flag SPI_DEVICE_NO_DUMMY will be passed on initialization and
+        /// it will unlock the possibility of using 80Mhz as the bus freq
+        /// See https://docs.espressif.com/projects/esp-idf/en/latest/esp32/api-reference/peripherals/spi_master.html#timing-considerations
+        pub write_only: bool,
     }
 
     impl Config {
@@ -124,18 +126,8 @@ pub mod config {
             self
         }
 
-        pub fn max_transfer_size(mut self, max_transfer_size: i32) -> Self {
-            self.max_transfer_size = max_transfer_size;
-            self
-        }
-
-        pub fn no_dummy(mut self, no_dummy: bool) -> Self {
-            self.no_dummy = no_dummy;
-            self
-        }
-
-        pub fn dma_channel(mut self, dma_channel: u32) -> Self {
-            self.dma_channel = dma_channel;
+        pub fn write_only(mut self, write_only: bool) -> Self {
+            self.write_only = write_only;
             self
         }
     }
@@ -145,9 +137,7 @@ pub mod config {
             Self {
                 baudrate: Hertz(1_000_000),
                 data_mode: embedded_hal::spi::MODE_0,
-                no_dummy: false,
-                dma_channel: 0,
-                max_transfer_size: 64,
+                write_only: false,
             }
         }
     }
@@ -405,7 +395,7 @@ impl<SPI: Spi, SCLK: OutputPin, SDO: OutputPin, SDI: InputPin + OutputPin, CS: O
                 quadhd_io_num: -1,
                 //data3_io_num: -1,
             },
-            max_transfer_sz: config.max_transfer_size,
+            //max_transfer_sz: SPI_MAX_TRANSFER_SIZE,
             ..Default::default()
         };
 
@@ -419,11 +409,13 @@ impl<SPI: Spi, SCLK: OutputPin, SDO: OutputPin, SDI: InputPin + OutputPin, CS: O
             quadwp_io_num: -1,
             quadhd_io_num: -1,
 
-            max_transfer_sz: config.max_transfer_size,
+            //max_transfer_sz: SPI_MAX_TRANSFER_SIZE,
             ..Default::default()
         };
 
-        esp!(unsafe { spi_bus_initialize(SPI::device(), &bus_config, config.dma_channel) })?;
+        esp!(unsafe {
+            spi_bus_initialize(SPI::device(), &bus_config, 0 /*TODO: DMA support*/)
+        })?;
 
         let device_config = spi_device_interface_config_t {
             spics_io_num: pins.cs.as_ref().map_or(-1, |p| p.pin()),
@@ -440,7 +432,7 @@ impl<SPI: Spi, SCLK: OutputPin, SDO: OutputPin, SDI: InputPin + OutputPin, CS: O
                 0
             }),
             queue_size: 64,
-            flags: if config.no_dummy {
+            flags: if config.write_only {
                 SPI_DEVICE_NO_DUMMY
             } else {
                 0_u32
