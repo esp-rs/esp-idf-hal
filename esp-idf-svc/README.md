@@ -1,10 +1,9 @@
 # Type-Safe Rust Wrappers for various ESP-IDF services
-  (WiFi, Network, Httpd, Logging, etc.)
 
-![CI](https://github.com/esp-rs/esp-idf-svc/actions/workflows/ci.yml/badge.svg)
+[![CI](https://github.com/esp-rs/esp-idf-svc/actions/workflows/ci.yml/badge.svg)](https://github.com/esp-rs/esp-idf-svc/actions/workflows/ci.yml)
+[![Documentation](https://img.shields.io/badge/docs-esp--rs-brightgreen)](https://esp-rs.github.io/esp-idf-svc/esp_idf_svc/index.html)
 
-The wrappers are implementations of the abstractions defined in the [embedded-svc](https://github.com/ivmarkov/embedded-svc) project.
-<br><br>
+This crate contains wrappers which are mostly implementations of the abstractions defined in the [embedded-svc](https://github.com/ivmarkov/embedded-svc) project. It has features such as wifi, networking, httpd, logging.
 
 For more information, check out:
 * The [Rust on ESP Book](https://esp-rs.github.io/book/)
