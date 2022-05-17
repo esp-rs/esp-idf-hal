@@ -103,6 +103,11 @@ pub mod config {
     pub struct Config {
         pub baudrate: Hertz,
         pub data_mode: embedded_hal::spi::Mode,
+        /// This property can be set to configure a SPI Device for being write only
+        /// Thus the flag SPI_DEVICE_NO_DUMMY will be passed on initialization and
+        /// it will unlock the possibility of using 80Mhz as the bus freq
+        /// See https://docs.espressif.com/projects/esp-idf/en/latest/esp32/api-reference/peripherals/spi_master.html#timing-considerations
+        pub write_only: bool,
     }
 
     impl Config {
@@ -121,6 +126,11 @@ pub mod config {
             self.data_mode = data_mode;
             self
         }
+
+        pub fn write_only(mut self, write_only: bool) -> Self {
+            self.write_only = write_only;
+            self
+        }
     }
 
     impl Default for Config {
@@ -128,6 +138,7 @@ pub mod config {
             Self {
                 baudrate: Hertz(1_000_000),
                 data_mode: embedded_hal::spi::MODE_0,
+                write_only: false,
             }
         }
     }
@@ -420,6 +431,11 @@ impl<SPI: Spi, SCLK: OutputPin, SDO: OutputPin, SDI: InputPin + OutputPin, CS: O
                 0
             }),
             queue_size: 64,
+            flags: if config.write_only {
+                SPI_DEVICE_NO_DUMMY
+            } else {
+                0_u32
+            },
             ..Default::default()
         };
 
