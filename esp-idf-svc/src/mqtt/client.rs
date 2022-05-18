@@ -17,6 +17,9 @@ use esp_idf_hal::mutex::Condvar;
 
 use esp_idf_sys::*;
 
+#[cfg(feature = "experimental")]
+pub use asyncify::*;
+
 use crate::private::cstr::*;
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
@@ -598,11 +601,26 @@ mod asyncify {
         type AsyncWrapper<S> = AsyncClient<(), S>;
     }
 
+    pub type EspMqttAsyncClient = EspMqttConvertingAsyncClient<MessageImpl, EspError>;
+
+    pub type EspMqttUnblockingAsyncClient<U> =
+        EspMqttConvertingUnblockingAsyncClient<U, MessageImpl, EspError>;
+
+    pub type EspMqttAsyncConnection = EspMqttConvertingAsyncConnection<MessageImpl, EspError>;
+
+    pub type EspMqttConvertingUnblockingAsyncClient<U, M, E> =
+        AsyncClient<U, Arc<Mutex<EspMqttClient<AsyncConnState<M, E>>>>>;
+
+    pub type EspMqttConvertingAsyncClient<M, E> =
+        AsyncClient<(), EspMqttClient<AsyncConnState<M, E>>>;
+
+    pub type EspMqttConvertingAsyncConnection<M, E> = AsyncConnection<Condvar, M, E>;
+
     impl EspMqttClient<AsyncConnState<MessageImpl, EspError>> {
         pub fn new_with_async_conn<'a>(
             url: impl AsRef<str>,
             conf: &'a MqttClientConfiguration<'a>,
-        ) -> Result<(Self, AsyncConnection<Condvar, MessageImpl, EspError>), EspError>
+        ) -> Result<(Self, EspMqttAsyncConnection), EspError>
         where
             Self: Sized,
         {
@@ -627,7 +645,7 @@ mod asyncify {
                 ) -> Result<client::Event<M>, E>
                 + Send
                 + 'static,
-        ) -> Result<(Self, AsyncConnection<Condvar, M, E>), EspError>
+        ) -> Result<(Self, EspMqttConvertingAsyncConnection<M, E>), EspError>
         where
             Self: Sized,
         {
