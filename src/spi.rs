@@ -82,8 +82,8 @@ pub struct Pins<
 
 /// SPI configuration
 pub mod config {
-    use crate::units::*;
     use crate::spi::Dma;
+    use crate::units::*;
 
     pub struct V02Type<T>(pub T);
 
@@ -172,7 +172,7 @@ pub mod config {
                 data_mode: embedded_hal::spi::MODE_0,
                 write_only: false,
                 max_transfer_size: crate::spi::TRANS_LEN,
-                dma: Dma::Disabled
+                dma: Dma::Disabled,
             }
         }
     }
@@ -447,9 +447,7 @@ impl<SPI: Spi, SCLK: OutputPin, SDO: OutputPin, SDI: InputPin + OutputPin, CS: O
             ..Default::default()
         };
 
-        esp!(unsafe {
-            spi_bus_initialize(SPI::device(), &bus_config, config.dma.into())
-        })?;
+        esp!(unsafe { spi_bus_initialize(SPI::device(), &bus_config, config.dma.into()) })?;
 
         let device_config = spi_device_interface_config_t {
             spics_io_num: pins.cs.as_ref().map_or(-1, |p| p.pin()),
