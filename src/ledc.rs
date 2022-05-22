@@ -1,6 +1,6 @@
 #![cfg(not(feature = "riscv-ulp-hal"))]
 
-//! LED Control peripheral (which also crates PWM signals for other purposes)
+//! LED Control peripheral (which also creates PWM signals for other purposes)
 //!
 //! Interface to the [LED Control (LEDC)
 //! peripheral](https://docs.espressif.com/projects/esp-idf/en/latest/esp32c3/api-reference/peripherals/ledc.html)
