@@ -21,7 +21,7 @@ alloc = []
 
 riscv-ulp-hal = []
 
-experimental = []
+experimental = ["embedded-svc/experimental"]
 
 [dependencies]
 nb = "0.1.2"
