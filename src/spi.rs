@@ -50,18 +50,34 @@ const TRANS_LEN: usize = if SOC_SPI_MAXIMUM_BUFFER_SIZE < 64_u32 {
 #[derive(Copy, Clone)]
 pub enum Dma {
     Disabled,
-    Channel1,
-    Channel2,
-    Auto,
+    Channel1(usize),
+    Channel2(usize),
+    Auto(usize),
 }
 
 impl From<Dma> for spi_dma_chan_t {
     fn from(dma: Dma) -> Self {
         match dma {
-            Dma::Channel1 => 1,
-            Dma::Channel2 => 2,
-            Dma::Auto => 3,
+            Dma::Channel1(_) => 1,
+            Dma::Channel2(_) => 2,
+            Dma::Auto(_) => 3,
             _ => 0,
+        }
+    }
+}
+
+impl Dma {
+    const fn max_transfer_size(&self) -> usize {
+        let max_transfer_size = match self {
+            Dma::Disabled => TRANS_LEN,
+            Dma::Channel1(size) | Dma::Channel2(size) | Dma::Auto(size) => *size,
+        };
+        if max_transfer_size % 4 != 0 {
+            panic!("The max transfer size must a multiple of 4")
+        } else if max_transfer_size > 4096 {
+            4096
+        } else {
+            max_transfer_size
         }
     }
 }
@@ -128,7 +144,6 @@ pub mod config {
         /// it will unlock the possibility of using 80Mhz as the bus freq
         /// See https://docs.espressif.com/projects/esp-idf/en/latest/esp32/api-reference/peripherals/spi_master.html#timing-considerations
         pub write_only: bool,
-        pub max_transfer_size: usize,
         pub dma: Dma,
     }
 
@@ -154,11 +169,6 @@ pub mod config {
             self
         }
 
-        pub fn max_transfer_size(mut self, max_transfer_size: usize) -> Self {
-            self.max_transfer_size = max_transfer_size;
-            self
-        }
-
         pub fn dma(mut self, dma: Dma) -> Self {
             self.dma = dma;
             self
@@ -171,7 +181,6 @@ pub mod config {
                 baudrate: Hertz(1_000_000),
                 data_mode: embedded_hal::spi::MODE_0,
                 write_only: false,
-                max_transfer_size: crate::spi::TRANS_LEN,
                 dma: Dma::Disabled,
             }
         }
@@ -429,7 +438,7 @@ impl<SPI: Spi, SCLK: OutputPin, SDO: OutputPin, SDI: InputPin + OutputPin, CS: O
                 quadhd_io_num: -1,
                 //data3_io_num: -1,
             },
-            max_transfer_sz: config.max_transfer_size as i32,
+            max_transfer_sz: config.dma.max_transfer_size() as i32,
             ..Default::default()
         };
 
@@ -443,7 +452,7 @@ impl<SPI: Spi, SCLK: OutputPin, SDO: OutputPin, SDI: InputPin + OutputPin, CS: O
             quadwp_io_num: -1,
             quadhd_io_num: -1,
 
-            max_transfer_sz: config.max_transfer_size as i32,
+            max_transfer_sz: config.dma.max_transfer_size() as i32,
             ..Default::default()
         };
 
@@ -482,7 +491,7 @@ impl<SPI: Spi, SCLK: OutputPin, SDO: OutputPin, SDI: InputPin + OutputPin, CS: O
             spi,
             pins,
             device: device_handle,
-            max_transfer_size: config.max_transfer_size,
+            max_transfer_size: config.dma.max_transfer_size(),
         })
     }
 
