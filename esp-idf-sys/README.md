@@ -55,7 +55,7 @@ To enable Bluetooth, or do other configurations to the ESP-IDF sdkconfig you mig
 
 Environment variables are used to configure how the ESP-IDF framework is compiled. 
 
-Note that instead of / in addition to specifying those on the command line, you can also put these in a `.config/cargo.toml` file inside your crate directory 
+Note that instead of / in addition to specifying those on the command line, you can also put these in a `.cargo/config.toml` file inside your crate directory 
 (or a parent directory of your crate) by using the recently stabilized Cargo [configurable-env](https://doc.rust-lang.org/cargo/reference/config.html#env) feature.
 
 The following environment variables are used by the build script:
