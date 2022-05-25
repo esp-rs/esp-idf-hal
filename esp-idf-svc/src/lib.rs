@@ -42,6 +42,8 @@ pub mod http;
 #[cfg(all(feature = "std", esp_idf_comp_esp_http_server_enabled))]
 pub mod httpd;
 pub mod log;
+#[cfg(feature = "alloc")]
+pub mod mdns;
 #[cfg(all(
     feature = "alloc",
     esp_idf_comp_mqtt_enabled,
