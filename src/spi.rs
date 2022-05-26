@@ -47,6 +47,41 @@ const TRANS_LEN: usize = if SOC_SPI_MAXIMUM_BUFFER_SIZE < 64_u32 {
     64_usize
 };
 
+#[derive(Copy, Clone)]
+pub enum Dma {
+    Disabled,
+    Channel1(usize),
+    Channel2(usize),
+    Auto(usize),
+}
+
+impl From<Dma> for spi_dma_chan_t {
+    fn from(dma: Dma) -> Self {
+        match dma {
+            Dma::Channel1(_) => 1,
+            Dma::Channel2(_) => 2,
+            Dma::Auto(_) => 3,
+            _ => 0,
+        }
+    }
+}
+
+impl Dma {
+    const fn max_transfer_size(&self) -> usize {
+        let max_transfer_size = match self {
+            Dma::Disabled => TRANS_LEN,
+            Dma::Channel1(size) | Dma::Channel2(size) | Dma::Auto(size) => *size,
+        };
+        if max_transfer_size % 4 != 0 {
+            panic!("The max transfer size must a multiple of 4")
+        } else if max_transfer_size > 4096 {
+            4096
+        } else {
+            max_transfer_size
+        }
+    }
+}
+
 /// Pins used by the SPI interface
 pub struct Pins<
     SCLK: OutputPin,
@@ -63,6 +98,7 @@ pub struct Pins<
 
 /// SPI configuration
 pub mod config {
+    use crate::spi::Dma;
     use crate::units::*;
 
     pub struct V02Type<T>(pub T);
@@ -108,6 +144,7 @@ pub mod config {
         /// it will unlock the possibility of using 80Mhz as the bus freq
         /// See https://docs.espressif.com/projects/esp-idf/en/latest/esp32/api-reference/peripherals/spi_master.html#timing-considerations
         pub write_only: bool,
+        pub dma: Dma,
     }
 
     impl Config {
@@ -131,6 +168,11 @@ pub mod config {
             self.write_only = write_only;
             self
         }
+
+        pub fn dma(mut self, dma: Dma) -> Self {
+            self.dma = dma;
+            self
+        }
     }
 
     impl Default for Config {
@@ -139,6 +181,7 @@ pub mod config {
                 baudrate: Hertz(1_000_000),
                 data_mode: embedded_hal::spi::MODE_0,
                 write_only: false,
+                dma: Dma::Disabled,
             }
         }
     }
@@ -156,6 +199,7 @@ pub struct Master<
     spi: SPI,
     pins: Pins<SCLK, SDO, SDI, CS>,
     device: spi_device_handle_t,
+    max_transfer_size: usize,
 }
 
 unsafe impl<SPI: Spi, SCLK: OutputPin, SDO: OutputPin, SDI: InputPin + OutputPin, CS: OutputPin>
@@ -394,7 +438,7 @@ impl<SPI: Spi, SCLK: OutputPin, SDO: OutputPin, SDI: InputPin + OutputPin, CS: O
                 quadhd_io_num: -1,
                 //data3_io_num: -1,
             },
-            //max_transfer_sz: SPI_MAX_TRANSFER_SIZE,
+            max_transfer_sz: config.dma.max_transfer_size() as i32,
             ..Default::default()
         };
 
@@ -408,13 +452,11 @@ impl<SPI: Spi, SCLK: OutputPin, SDO: OutputPin, SDI: InputPin + OutputPin, CS: O
             quadwp_io_num: -1,
             quadhd_io_num: -1,
 
-            //max_transfer_sz: SPI_MAX_TRANSFER_SIZE,
+            max_transfer_sz: config.dma.max_transfer_size() as i32,
             ..Default::default()
         };
 
-        esp!(unsafe {
-            spi_bus_initialize(SPI::device(), &bus_config, 0 /*TODO: DMA support*/)
-        })?;
+        esp!(unsafe { spi_bus_initialize(SPI::device(), &bus_config, config.dma.into()) })?;
 
         let device_config = spi_device_interface_config_t {
             spics_io_num: pins.cs.as_ref().map_or(-1, |p| p.pin()),
@@ -449,6 +491,7 @@ impl<SPI: Spi, SCLK: OutputPin, SDO: OutputPin, SDI: InputPin + OutputPin, CS: O
             spi,
             pins,
             device: device_handle,
+            max_transfer_size: config.dma.max_transfer_size(),
         })
     }
 
@@ -483,7 +526,7 @@ impl<SPI: Spi, SCLK: OutputPin, SDO: OutputPin, SDI: InputPin + OutputPin, CS: O
     ) -> Result<R, Self::Error> {
         let mut bus = MasterBus {
             handle: self.device,
-            trans_len: TRANS_LEN,
+            trans_len: self.max_transfer_size,
         };
 
         let lock = self.lock_bus()?;
