@@ -15,7 +15,7 @@ pub struct MasterPins<SDA: OutputPin + InputPin, SCL: OutputPin + InputPin> {
     pub scl: SCL,
 }
 
-pub struct SlavePins<SDA: OutputPin + InputPin, SCL: InputPin + InputPin> {
+pub struct SlavePins<SDA: OutputPin + InputPin, SCL: OutputPin + InputPin> {
     pub sda: SDA,
     pub scl: SCL,
 }
