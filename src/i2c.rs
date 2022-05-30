@@ -10,12 +10,12 @@ crate::embedded_hal_error!(
     embedded_hal::i2c::ErrorKind
 );
 
-pub struct MasterPins<SDA: OutputPin + InputPin, SCL: OutputPin> {
+pub struct MasterPins<SDA: OutputPin + InputPin, SCL: OutputPin + InputPin> {
     pub sda: SDA,
     pub scl: SCL,
 }
 
-pub struct SlavePins<SDA: OutputPin + InputPin, SCL: InputPin> {
+pub struct SlavePins<SDA: OutputPin + InputPin, SCL: InputPin + InputPin> {
     pub sda: SDA,
     pub scl: SCL,
 }
@@ -138,13 +138,16 @@ pub trait I2c: Send {
     fn port() -> i2c_port_t;
 }
 
-unsafe impl<I2C: I2c, SDA: OutputPin + InputPin, SCL: OutputPin> Send for Master<I2C, SDA, SCL> {}
+unsafe impl<I2C: I2c, SDA: OutputPin + InputPin, SCL: OutputPin + InputPin> Send
+    for Master<I2C, SDA, SCL>
+{
+}
 
 pub struct Master<I2C, SDA, SCL>
 where
     I2C: I2c,
     SDA: OutputPin + InputPin,
-    SCL: OutputPin,
+    SCL: OutputPin + InputPin,
 {
     i2c: I2C,
     pins: MasterPins<SDA, SCL>,
@@ -155,20 +158,23 @@ pub struct Slave<I2C, SDA, SCL>
 where
     I2C: I2c,
     SDA: OutputPin + InputPin,
-    SCL: InputPin,
+    SCL: OutputPin + InputPin,
 {
     i2c: I2C,
     pins: SlavePins<SDA, SCL>,
     timeout: TickType_t,
 }
 
-unsafe impl<I2C: I2c, SDA: OutputPin + InputPin, SCL: InputPin> Send for Slave<I2C, SDA, SCL> {}
+unsafe impl<I2C: I2c, SDA: OutputPin + InputPin, SCL: OutputPin + InputPin> Send
+    for Slave<I2C, SDA, SCL>
+{
+}
 
 impl<I2C, SDA, SCL> Master<I2C, SDA, SCL>
 where
     I2C: I2c,
     SDA: OutputPin + InputPin,
-    SCL: OutputPin,
+    SCL: OutputPin + InputPin,
 {
     pub fn new(
         i2c: I2C,
@@ -248,7 +254,7 @@ impl<I2C, SDA, SCL> embedded_hal_0_2::blocking::i2c::Read for Master<I2C, SDA, S
 where
     I2C: I2c,
     SDA: OutputPin + InputPin,
-    SCL: OutputPin,
+    SCL: OutputPin + InputPin,
 {
     type Error = I2cError;
 
@@ -261,7 +267,7 @@ impl<I2C, SDA, SCL> embedded_hal_0_2::blocking::i2c::Write for Master<I2C, SDA, 
 where
     I2C: I2c,
     SDA: OutputPin + InputPin,
-    SCL: OutputPin,
+    SCL: OutputPin + InputPin,
 {
     type Error = I2cError;
 
@@ -274,7 +280,7 @@ impl<I2C, SDA, SCL> embedded_hal_0_2::blocking::i2c::WriteRead for Master<I2C, S
 where
     I2C: I2c,
     SDA: OutputPin + InputPin,
-    SCL: OutputPin,
+    SCL: OutputPin + InputPin,
 {
     type Error = I2cError;
 
@@ -287,7 +293,7 @@ impl<I2C, SDA, SCL> embedded_hal::i2c::ErrorType for Master<I2C, SDA, SCL>
 where
     I2C: I2c,
     SDA: OutputPin + InputPin,
-    SCL: OutputPin,
+    SCL: OutputPin + InputPin,
 {
     type Error = I2cError;
 }
@@ -297,7 +303,7 @@ impl<I2C, SDA, SCL> embedded_hal::i2c::blocking::I2c<embedded_hal::i2c::SevenBit
 where
     I2C: I2c,
     SDA: OutputPin + InputPin,
-    SCL: OutputPin,
+    SCL: OutputPin + InputPin,
 {
     fn read(&mut self, addr: u8, buffer: &mut [u8]) -> Result<(), Self::Error> {
         let mut command_link = CommandLink::new().map_err(I2cError::other)?;
@@ -453,7 +459,7 @@ impl<I2C, SDA, SCL> Slave<I2C, SDA, SCL>
 where
     I2C: I2c,
     SDA: OutputPin + InputPin,
-    SCL: InputPin,
+    SCL: OutputPin + InputPin,
 {
     pub fn new(
         i2c: I2C,
