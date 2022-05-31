@@ -11,9 +11,14 @@
 #include "esp_sleep.h"
 #include "esp_task.h"
 #include "esp_task_wdt.h"
-#include "esp_int_wdt.h"
 #include "esp_interface.h"
 #include "esp_ipc.h"
+
+#if ESP_IDF_VERSION_MAJOR == 4
+#include "esp_int_wdt.h"
+#elif ESP_IDF_VERSION_MAJOR == 5
+#include "esp_private/esp_int_wdt.h"
+#endif
 
 #ifdef ESP_IDF_COMP_CONSOLE_ENABLED
 #include "esp_console.h"
