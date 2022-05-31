@@ -100,9 +100,12 @@ impl<T: HwTimer> Timer<T> {
         let timer_config = ledc_timer_config_t {
             speed_mode: config.speed_mode,
             timer_num: T::timer(),
+            #[cfg(esp_idf_version_major = "4")]
             __bindgen_anon_1: ledc_timer_config_t__bindgen_ty_1 {
                 duty_resolution: config.resolution.timer_bits(),
             },
+            #[cfg(esp_idf_version_major = "5")]
+            duty_resolution: config.resolution.timer_bits(),
             freq_hz: config.frequency.into(),
             clk_cfg: ledc_clk_cfg_t_LEDC_AUTO_CLK,
         };
