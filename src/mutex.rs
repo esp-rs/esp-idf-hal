@@ -174,20 +174,20 @@ impl embedded_svc::mutex::MutexFamily for Condvar {
 }
 
 #[cfg(all(feature = "experimental", feature = "embedded-svc"))]
-impl embedded_svc::signal::asyncs::SignalFamily for Condvar {
-    type Signal<T> = embedded_svc::utils::asyncs::signal::MutexSignal<
-        Mutex<embedded_svc::utils::asyncs::signal::State<T>>,
+impl embedded_svc::signal::asynch::SignalFamily for Condvar {
+    type Signal<T> = embedded_svc::utils::asynch::signal::MutexSignal<
+        Mutex<embedded_svc::utils::asynch::signal::State<T>>,
         T,
     >;
 }
 
 #[cfg(all(feature = "experimental", feature = "embedded-svc"))]
-impl embedded_svc::signal::asyncs::SendSyncSignalFamily for Condvar {
+impl embedded_svc::signal::asynch::SendSyncSignalFamily for Condvar {
     type Signal<T>
     where
         T: Send,
-    = embedded_svc::utils::asyncs::signal::MutexSignal<
-        Mutex<embedded_svc::utils::asyncs::signal::State<T>>,
+    = embedded_svc::utils::asynch::signal::MutexSignal<
+        Mutex<embedded_svc::utils::asynch::signal::State<T>>,
         T,
     >;
 }
