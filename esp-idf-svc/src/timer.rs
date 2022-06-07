@@ -237,7 +237,7 @@ mod asyncify {
     use embedded_svc::utils::asyncify::timer::AsyncTimerService;
     use embedded_svc::utils::asyncify::Asyncify;
     use embedded_svc::utils::asyncs::signal::AtomicSignal;
-    
+
     impl Asyncify for super::EspTimerService<super::Task> {
         type AsyncWrapper<S> = AsyncTimerService<S, AtomicSignal<()>>;
     }
