@@ -1,6 +1,6 @@
 [package]
 name = "esp-idf-svc"
-version = "0.41.3"
+version = "0.41.4"
 authors = ["Ivan Markov <ivan.markov@gmail.com>"]
 edition = "2018"
 resolver = "2"
