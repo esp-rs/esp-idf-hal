@@ -240,11 +240,11 @@ mod asyncify {
     use embedded_svc::utils::atomic_swap::AtomicOption;
 
     impl Asyncify for super::EspTimerService<super::Task> {
-        type AsyncWrapper<S> = AsyncTimerService<S, AtomicSignal<AtomicOption, ()>>;
+        type AsyncWrapper<S> = AsyncTimerService<S, AtomicSignal<AtomicOption>>;
     }
 
     #[cfg(esp_idf_esp_timer_supports_isr_dispatch_method)]
     impl Asyncify for super::EspTimerService<super::ISR> {
-        type AsyncWrapper<S> = AsyncTimerService<S, AtomicSignal<AtomicOption, ()>>;
+        type AsyncWrapper<S> = AsyncTimerService<S, AtomicSignal<AtomicOption>>;
     }
 }
