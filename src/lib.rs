@@ -47,6 +47,8 @@ pub mod rmt;
 #[cfg(not(feature = "riscv-ulp-hal"))]
 pub mod serial;
 #[cfg(not(feature = "riscv-ulp-hal"))]
+pub mod sleep;
+#[cfg(not(feature = "riscv-ulp-hal"))]
 pub mod spi;
 #[cfg(all(any(esp32, esp32s2, esp32s3), not(feature = "riscv-ulp-hal")))]
 pub mod ulp;
