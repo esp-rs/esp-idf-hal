@@ -559,7 +559,7 @@ pub enum Event {
     /// Pattern detected
     /// Triggered for `Interrupt::CmdCharDet`
     PatternDet,
-    /// Supposedely `UART_EVENT_MAX`, seems to be used for RS285 errors in `components/driver/uart.c:uart_rx_intr_handler_default`
+    /// Supposedely `UART_EVENT_MAX`, seems to be used for RS485 errors in `components/driver/uart.c:uart_rx_intr_handler_default`
     /// Triggered for `Interrupt::Rs485ParityErr`, `Interrupt::Rs485FrmErr`, `Interrupt::Rs485Clash`, `Interrupt::TxDone`
     Invalid,
 }
