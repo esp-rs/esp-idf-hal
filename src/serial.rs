@@ -601,7 +601,7 @@ impl From<u32> for Event {
 pub struct EventStruct(uart_event_t);
 impl EventStruct {
     pub fn new(event: uart_event_t) -> Self {
-        EventStruct { 0: event }
+        EventStruct(event)
     }
 
     pub fn get_type(&self) -> Event {
@@ -659,17 +659,14 @@ impl<UART: Uart, TX: OutputPin, RX: InputPin, CTS: InputPin, RTS: OutputPin>
                 0,
             )
         })?;
-        let event_queue_handle = match ptr::NonNull::new(event_queue_handle) {
-            Some(queue) => Some(EventQueue { 0: queue }),
-            _ => None,
-        };
+        let event_handle = ptr::NonNull::new(event_queue_handle).map(EventQueue);
 
         Ok(Self {
             uart,
             pins,
             rx: Rx { _uart: PhantomData },
             tx: Tx { _uart: PhantomData },
-            event_handle: event_queue_handle,
+            event_handle,
         })
     }
 
@@ -771,7 +768,7 @@ impl<UART: Uart, TX: OutputPin, RX: InputPin, CTS: InputPin, RTS: OutputPin>
                 let mut event = uart_event_t::default();
                 let event_ptr: *mut c_void = &mut event as *mut _ as *mut c_void;
                 match unsafe { xQueueReceive(event_handle.as_ptr(), event_ptr, 0xFFFFFFFF) } {
-                    1 => Some(EventStruct { 0: event }),
+                    1 => Some(EventStruct(event)),
                     _ => None,
                 }
             }
