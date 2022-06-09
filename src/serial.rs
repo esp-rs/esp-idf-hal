@@ -33,7 +33,7 @@
 //!     writeln!(serial, "{:}", format!("count {:}", i)).unwrap();
 //! }
 //! ```
-//! 
+//!
 //! Interrupt-driven usage:
 //! ```
 //! use std::fmt::Write;
@@ -63,7 +63,7 @@
 //!             None => continue,
 //!             Some(e) => e
 //!         };
-//! 
+//!
 //!         match event.get_type() {
 //!             Some(Event::Data) => loop {
 //!                 match serial.read() {
@@ -83,7 +83,7 @@
 //!         };
 //!     }
 //! });
-//! 
+//!
 //! loop {
 //!     thread::sleep(Duration::from_secs(1));
 //! }
@@ -100,8 +100,8 @@ use core::ptr;
 use crate::gpio::*;
 use crate::units::*;
 
-use esp_idf_sys::*;
 use esp_idf_sys::c_types::c_void;
+use esp_idf_sys::*;
 
 use bitmask_enum::bitmask;
 
@@ -154,7 +154,7 @@ pub enum Interrupt {
 /// UART interrupt configuration
 pub mod isr_config {
     use crate::serial::Interrupt;
-    
+
     use esp_idf_sys::uart_intr_config_t;
 
     /// UART interrupt configuration
@@ -460,8 +460,8 @@ pub mod config {
                 stop_bits: StopBits::STOP1,
                 flow_control: FlowControl::None,
                 flow_control_rts_threshold: 122,
-                rx_buffer_size: UART_FIFO_SIZE*2,
-                tx_buffer_size: UART_FIFO_SIZE*2,
+                rx_buffer_size: UART_FIFO_SIZE * 2,
+                tx_buffer_size: UART_FIFO_SIZE * 2,
                 event_queue_size: 0,
             }
         }
@@ -774,12 +774,15 @@ impl<UART: Uart, TX: OutputPin, RX: InputPin, CTS: InputPin, RTS: OutputPin>
                     1 => Some(EventStruct { 0: event }),
                     _ => None,
                 }
-            },
+            }
             None => None,
         }
     }
 
-    pub fn configure_interrupt(&mut self, config: isr_config::IsrConfig) -> Result<&mut Self, esp_idf_sys::EspError> {
+    pub fn configure_interrupt(
+        &mut self,
+        config: isr_config::IsrConfig,
+    ) -> Result<&mut Self, esp_idf_sys::EspError> {
         let uart_config: uart_intr_config_t = config.into();
         esp_result!(
             unsafe { uart_intr_config(UART::port(), &uart_config) },
@@ -806,7 +809,12 @@ impl<UART: Uart, TX: OutputPin, RX: InputPin, CTS: InputPin, RTS: OutputPin>
     /// Starts listening for RX interrupt events
     pub fn listen_rx(&mut self) -> Result<&mut Self, esp_idf_sys::EspError> {
         esp_result!(
-            unsafe { uart_enable_intr_mask(UART::port(), (Interrupt::RxfifoTout | Interrupt::RxfifoFull).bits()) },
+            unsafe {
+                uart_enable_intr_mask(
+                    UART::port(),
+                    (Interrupt::RxfifoTout | Interrupt::RxfifoFull).bits(),
+                )
+            },
             self
         )
     }
@@ -814,7 +822,12 @@ impl<UART: Uart, TX: OutputPin, RX: InputPin, CTS: InputPin, RTS: OutputPin>
     /// Stop listening for RX interrupt events
     pub fn unlisten_rx(&mut self) -> Result<&mut Self, esp_idf_sys::EspError> {
         esp_result!(
-            unsafe { uart_disable_intr_mask(UART::port(), (Interrupt::RxfifoTout | Interrupt::RxfifoFull).bits()) },
+            unsafe {
+                uart_disable_intr_mask(
+                    UART::port(),
+                    (Interrupt::RxfifoTout | Interrupt::RxfifoFull).bits(),
+                )
+            },
             self
         )
     }
