@@ -551,61 +551,6 @@ impl<SPI: Spi, SCLK: OutputPin, SDO: OutputPin, SDI: InputPin + OutputPin, CS: O
         flush_result?;
         Ok(result)
     }
-
-    fn write<Word>(&mut self, buf: &[Word]) -> Result<(), Self::Error>
-    where
-        Self::Bus: SpiBusWrite<Word>,
-        Word: Copy,
-    {
-        let _lock = self.lock_bus();
-        let mut chunks = buf.chunks(self.max_transfer_size).peekable();
-        while let Some(chunk) = chunks.next() {
-            polling_transmit(
-                self.device,
-                ptr::null_mut(),
-                chunk.as_ptr(),
-                chunk.len(),
-                0,
-                chunks.peek().is_some(),
-            )?;
-        }
-        Ok(())
-    }
-
-    fn read<Word>(&mut self, buf: &mut [Word]) -> Result<(), Self::Error>
-    where
-        Self::Bus: SpiBusRead<Word>,
-        Word: Copy,
-    {
-        let _lock = self.lock_bus();
-        let mut chunks = buf.chunks_mut(self.max_transfer_size).peekable();
-        while let Some(chunk) = chunks.next() {
-            polling_transmit(
-                self.device,
-                chunk.as_mut_ptr(),
-                ptr::null(),
-                chunk.len(),
-                chunk.len(),
-                chunks.peek().is_some(),
-            )?;
-        }
-        Ok(())
-    }
-
-    fn transfer_in_place<Word>(&mut self, buf: &mut [Word]) -> Result<(), Self::Error>
-    where
-        Self::Bus: SpiBus<Word>,
-        Word: Copy,
-    {
-        let _lock = self.lock_bus();
-        let mut chunks = buf.chunks_mut(self.max_transfer_size).peekable();
-        while let Some(chunk) = chunks.next() {
-            let ptr = chunk.as_mut_ptr();
-            let len = chunk.len();
-            polling_transmit(self.device, ptr, ptr, len, len, chunks.peek().is_some())?;
-        }
-        Ok(())
-    }
 }
 
 impl<SPI: Spi, SCLK: OutputPin, SDO: OutputPin, SDI: InputPin + OutputPin, CS: OutputPin>
@@ -614,7 +559,13 @@ impl<SPI: Spi, SCLK: OutputPin, SDO: OutputPin, SDI: InputPin + OutputPin, CS: O
     type Error = SpiError;
 
     fn transfer<'w>(&mut self, words: &'w mut [u8]) -> Result<&'w [u8], Self::Error> {
-        self.transfer_in_place(words)?;
+        let _lock = self.lock_bus();
+        let mut chunks = words.chunks_mut(self.max_transfer_size).peekable();
+        while let Some(chunk) = chunks.next() {
+            let ptr = chunk.as_mut_ptr();
+            let len = chunk.len();
+            polling_transmit(self.device, ptr, ptr, len, len, chunks.peek().is_some())?;
+        }
 
         Ok(words)
     }
@@ -626,7 +577,19 @@ impl<SPI: Spi, SCLK: OutputPin, SDO: OutputPin, SDI: InputPin + OutputPin, CS: O
     type Error = SpiError;
 
     fn write(&mut self, words: &[u8]) -> Result<(), Self::Error> {
-        SpiDevice::write(self, words)
+        let _lock = self.lock_bus();
+        let mut chunks = words.chunks(self.max_transfer_size).peekable();
+        while let Some(chunk) = chunks.next() {
+            polling_transmit(
+                self.device,
+                ptr::null_mut(),
+                chunk.as_ptr(),
+                chunk.len(),
+                0,
+                chunks.peek().is_some(),
+            )?;
+        }
+        Ok(())
     }
 }
 
