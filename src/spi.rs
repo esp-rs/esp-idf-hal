@@ -277,8 +277,45 @@ pub struct MasterBus {
     trans_len: usize,
 }
 
+// These parameters assume full duplex.
+fn polling_transmit(
+    handle: spi_device_handle_t,
+    read: *mut u8,
+    write: *const u8,
+    transaction_length: usize,
+    rx_length: usize,
+    _keep_cs_active: bool,
+) -> Result<(), SpiError> {
+    #[cfg(esp_idf_version = "4.3")]
+    let flags = 0;
+
+    // This unfortunately means that this implementation is incorrect for esp-idf < 4.4.
+    // The CS pin should be kept active through transactions.
+    #[cfg(not(esp_idf_version = "4.3"))]
+    let flags = if _keep_cs_active {
+        SPI_TRANS_CS_KEEP_ACTIVE
+    } else {
+        0
+    };
+
+    let mut transaction = spi_transaction_t {
+        flags,
+        __bindgen_anon_1: spi_transaction_t__bindgen_ty_1 {
+            tx_buffer: write as *const _,
+        },
+        __bindgen_anon_2: spi_transaction_t__bindgen_ty_2 {
+            rx_buffer: read as *mut _,
+        },
+        length: (transaction_length * 8) as _,
+        rxlength: (rx_length * 8) as _,
+        ..Default::default()
+    };
+
+    esp!(unsafe { spi_device_polling_transmit(handle, &mut transaction as *mut _) })
+        .map_err(SpiError::other)
+}
+
 impl MasterBus {
-    // These parameters assume full duplex.
     fn polling_transmit(
         &mut self,
         read: *mut u8,
@@ -286,50 +323,19 @@ impl MasterBus {
         transaction_length: usize,
         rx_length: usize,
     ) -> Result<(), SpiError> {
-        #[cfg(esp_idf_version = "4.3")]
-        let flags = 0;
-
-        // This unfortunately means that this implementation is incorrect for esp-idf < 4.4.
-        // The CS pin should be kept active through transactions.
-        #[cfg(not(esp_idf_version = "4.3"))]
-        let flags = SPI_TRANS_CS_KEEP_ACTIVE;
-
-        let mut transaction = spi_transaction_t {
-            flags,
-            __bindgen_anon_1: spi_transaction_t__bindgen_ty_1 {
-                tx_buffer: write as *const _,
-            },
-            __bindgen_anon_2: spi_transaction_t__bindgen_ty_2 {
-                rx_buffer: read as *mut _,
-            },
-            length: (transaction_length * 8) as _,
-            rxlength: (rx_length * 8) as _,
-            ..Default::default()
-        };
-
-        esp!(unsafe { spi_device_polling_transmit(self.handle, &mut transaction as *mut _) })
-            .map_err(SpiError::other)
+        polling_transmit(
+            self.handle,
+            read,
+            write,
+            transaction_length,
+            rx_length,
+            true,
+        )
     }
 
     /// Empty transaction to de-assert CS.
     fn finish(&mut self) -> Result<(), SpiError> {
-        let flags = 0;
-
-        let mut transaction = spi_transaction_t {
-            flags,
-            __bindgen_anon_1: spi_transaction_t__bindgen_ty_1 {
-                tx_buffer: ptr::null(),
-            },
-            __bindgen_anon_2: spi_transaction_t__bindgen_ty_2 {
-                rx_buffer: ptr::null_mut(),
-            },
-            length: 0,
-            rxlength: 0,
-            ..Default::default()
-        };
-
-        esp!(unsafe { spi_device_polling_transmit(self.handle, &mut transaction as *mut _) })
-            .map_err(SpiError::other)
+        polling_transmit(self.handle, ptr::null_mut(), ptr::null(), 0, 0, false)
     }
 }
 
@@ -553,7 +559,13 @@ impl<SPI: Spi, SCLK: OutputPin, SDO: OutputPin, SDI: InputPin + OutputPin, CS: O
     type Error = SpiError;
 
     fn transfer<'w>(&mut self, words: &'w mut [u8]) -> Result<&'w [u8], Self::Error> {
-        self.transfer_in_place(words)?;
+        let _lock = self.lock_bus();
+        let mut chunks = words.chunks_mut(self.max_transfer_size).peekable();
+        while let Some(chunk) = chunks.next() {
+            let ptr = chunk.as_mut_ptr();
+            let len = chunk.len();
+            polling_transmit(self.device, ptr, ptr, len, len, chunks.peek().is_some())?;
+        }
 
         Ok(words)
     }
@@ -565,7 +577,19 @@ impl<SPI: Spi, SCLK: OutputPin, SDO: OutputPin, SDI: InputPin + OutputPin, CS: O
     type Error = SpiError;
 
     fn write(&mut self, words: &[u8]) -> Result<(), Self::Error> {
-        SpiDevice::write(self, words)
+        let _lock = self.lock_bus();
+        let mut chunks = words.chunks(self.max_transfer_size).peekable();
+        while let Some(chunk) = chunks.next() {
+            polling_transmit(
+                self.device,
+                ptr::null_mut(),
+                chunk.as_ptr(),
+                chunk.len(),
+                0,
+                chunks.peek().is_some(),
+            )?;
+        }
+        Ok(())
     }
 }
 
