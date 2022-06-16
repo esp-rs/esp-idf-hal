@@ -770,7 +770,8 @@ impl<UART: Uart, TX: OutputPin, RX: InputPin, CTS: InputPin, RTS: OutputPin>
     pub fn write_bytes(&mut self, buf: &[u8]) -> nb::Result<usize, SerialError> {
         self.tx.write_bytes(buf)
     }
-    
+
+    /// Block current task until an event occurs
     pub fn wait_for_event(&self) -> Option<EventStruct> {
         match &self.event_handle {
             Some(event_handle) => event_handle.wait_for_event(),
@@ -778,6 +779,7 @@ impl<UART: Uart, TX: OutputPin, RX: InputPin, CTS: InputPin, RTS: OutputPin>
         }
     }
 
+    /// Configure interruptions
     pub fn configure_interrupt(
         &mut self,
         config: isr_config::IsrConfig,
