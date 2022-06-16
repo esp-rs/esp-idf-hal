@@ -462,10 +462,15 @@ impl<UART: Uart, TX: OutputPin, RX: InputPin, CTS: InputPin, RTS: OutputPin>
         )
     }
 
-    // /// Starts listening for an interrupt event
-    // pub fn listen(&mut self, _event: Event) {
-    //     unimplemented!();
-    // }
+    /// Read multiple bytes into a slice
+    pub fn read_bytes(&mut self, buf: &mut [u8]) -> nb::Result<usize, SerialError> {
+        self.rx.read_bytes(buf)
+    }
+
+    /// Write multiple bytes from a slice
+    pub fn write_bytes(&mut self, buf: &[u8]) -> nb::Result<usize, SerialError> {
+        self.tx.write_bytes(buf)
+    }
 
     // /// Stop listening for an interrupt event
     // pub fn unlisten(&mut self, _event: Event) {
@@ -590,6 +595,26 @@ impl<UART: Uart> Rx<UART> {
         )
     }
 
+    /// Read multiple bytes into a slice
+    pub fn read_bytes(&mut self, buf: &mut [u8]) -> nb::Result<usize, SerialError> {
+        // uart_read_bytes() returns error (-1) or how many bytes were read out
+        // 0 means timeout and nothing is yet read out
+        match unsafe {
+            uart_read_bytes(
+                UART::port(),
+                buf.as_mut_ptr() as *mut _,
+                buf.len() as u32,
+                0,
+            )
+        } {
+            len if len > 0 => Ok(len as usize),
+            0 => Err(nb::Error::WouldBlock),
+            _ => Err(nb::Error::Other(SerialError::other(
+                EspError::from(ESP_ERR_INVALID_STATE).unwrap(),
+            ))),
+        }
+    }
+
     // /// Check if the receivers is idle
     // pub fn is_idle(&self) -> bool {
     //     unsafe { (*UART::ptr()).status.read().st_urx_out().is_rx_idle() }
@@ -630,17 +655,31 @@ impl<UART: Uart> embedded_hal::serial::nb::Read<u8> for Rx<UART> {
     }
 }
 
-// impl<UART: Uart> Tx<UART> {
-//     /// Get count of bytes in the transmitter FIFO
-//     pub fn count(&self) -> u8 {
-//         unsafe { (*UART::ptr()).status.read().txfifo_cnt().bits() }
-//     }
+impl<UART: Uart> Tx<UART> {
+    /// Write multiple bytes from a slice
+    pub fn write_bytes(&mut self, bytes: &[u8]) -> nb::Result<usize, SerialError> {
+        // `uart_write_bytes()` returns error (-1) or how many bytes were written
+        match unsafe {
+            uart_write_bytes(UART::port(), bytes.as_ptr() as *const _, bytes.len() as u32)
+        } {
+            len if len > 0 => Ok(len as usize),
+            0 => Err(nb::Error::WouldBlock),
+            _ => Err(nb::Error::Other(SerialError::other(
+                EspError::from(ESP_ERR_INVALID_STATE).unwrap(),
+            ))),
+        }
+    }
 
-//     /// Check if the transmitter is idle
-//     pub fn is_idle(&self) -> bool {
-//         unsafe { (*UART::ptr()).status.read().st_utx_out().is_tx_idle() }
-//     }
-// }
+    //     /// Get count of bytes in the transmitter FIFO
+    //     pub fn count(&self) -> u8 {
+    //         unsafe { (*UART::ptr()).status.read().txfifo_cnt().bits() }
+    //     }
+
+    //     /// Check if the transmitter is idle
+    //     pub fn is_idle(&self) -> bool {
+    //         unsafe { (*UART::ptr()).status.read().st_utx_out().is_tx_idle() }
+    //     }
+}
 
 impl<UART: Uart> embedded_hal::serial::ErrorType for Tx<UART> {
     type Error = SerialError;
