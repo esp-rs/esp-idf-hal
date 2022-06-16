@@ -522,11 +522,20 @@ pub struct Tx<UART: Uart> {
 }
 
 /// Serial event queue
-struct EventQueue(ptr::NonNull<QueueDefinition>);
+pub struct EventQueue(ptr::NonNull<QueueDefinition>);
 unsafe impl Send for EventQueue {}
 impl EventQueue {
     fn as_ptr(&self) -> QueueHandle_t {
         self.0.as_ptr()
+    }
+
+    pub fn wait_for_event(&self) -> Option<EventStruct> {
+        let mut event = uart_event_t::default();
+        let event_ptr: *mut c_void = &mut event as *mut _ as *mut c_void;
+        match unsafe { xQueueReceive(self.as_ptr(), event_ptr, 0xFFFFFFFF) } {
+            1 => Some(EventStruct(event)),
+            _ => None,
+        }
     }
 }
 
@@ -764,14 +773,7 @@ impl<UART: Uart, TX: OutputPin, RX: InputPin, CTS: InputPin, RTS: OutputPin>
     
     pub fn wait_for_event(&self) -> Option<EventStruct> {
         match &self.event_handle {
-            Some(event_handle) => {
-                let mut event = uart_event_t::default();
-                let event_ptr: *mut c_void = &mut event as *mut _ as *mut c_void;
-                match unsafe { xQueueReceive(event_handle.as_ptr(), event_ptr, 0xFFFFFFFF) } {
-                    1 => Some(EventStruct(event)),
-                    _ => None,
-                }
-            }
+            Some(event_handle) => event_handle.wait_for_event(),
             None => None,
         }
     }
@@ -856,8 +858,8 @@ impl<UART: Uart, TX: OutputPin, RX: InputPin, CTS: InputPin, RTS: OutputPin>
     // }
 
     /// Split the serial driver in separate TX and RX drivers
-    pub fn split(self) -> (Tx<UART>, Rx<UART>) {
-        (self.tx, self.rx)
+    pub fn split(self) -> (Tx<UART>, Rx<UART>, Option<EventQueue>) {
+        (self.tx, self.rx, self.event_handle)
     }
 
     /// Release the UART and GPIO resources
