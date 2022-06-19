@@ -1,6 +1,6 @@
 [package]
 name = "esp-idf-svc"
-version = "0.41.4"
+version = "0.42.0"
 authors = ["Ivan Markov <ivan.markov@gmail.com>"]
 edition = "2018"
 resolver = "2"
@@ -17,19 +17,19 @@ default = ["std"]
 
 std = ["alloc", "anyhow/std", "log/std", "esp-idf-sys/std", "esp-idf-hal/std", "embedded-svc/std"]
 alloc = ["cstr_core/alloc", "anyhow", "esp-idf-hal/alloc", "embedded-svc/alloc"]
-isr-async-executor = ["embedded-svc/isr-async-executor", "alloc", "heapless", "experimental"]
+isr-async-executor = ["embedded-svc/isr-async-executor", "alloc", "experimental"]
 experimental = ["embedded-svc/experimental", "esp-idf-hal/experimental", "uncased"]
 
 [dependencies]
+heapless = { version = "0.7", default-features = false }
 enumset = { version = "1", default-features = false }
 log = { version = "0.4", default-features = false }
 cstr_core = "0.2"
-anyhow = { version = "1", default-features = false, optional = true }
-embedded-svc = { version = "0.21.3", default-features = false }
-esp-idf-sys = { version = "0.31.5", default-features = false, features = ["native"] }
-esp-idf-hal = { version = "0.37.4", default-features = false, features = ["esp-idf-sys", "embedded-svc"] }
 uncased = { version = "0.9.6", optional = true }
-heapless = { version = "0.7", default-features = false, optional = true }
+anyhow = { version = "1", default-features = false, optional = true } # Only used by the deprecated httpd module
+embedded-svc = { version = "0.22", default-features = false }
+esp-idf-sys = { version = "0.31.5", default-features = false, features = ["native"] }
+esp-idf-hal = { version = "0.38", default-features = false, features = ["esp-idf-sys", "embedded-svc"] }
 
 [build-dependencies]
 embuild = "0.29"

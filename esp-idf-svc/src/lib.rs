@@ -8,6 +8,7 @@
 #[macro_use]
 extern crate alloc;
 
+pub mod errors;
 #[cfg(all(
     feature = "alloc",
     esp_idf_comp_esp_eth_enabled,
@@ -37,8 +38,7 @@ pub mod executor;
 #[cfg(all(feature = "experimental", feature = "alloc"))]
 pub mod http;
 #[cfg(all(feature = "std", esp_idf_comp_esp_http_server_enabled))]
-// TODO: Lower requirements to "alloc"
-pub mod httpd;
+pub mod httpd; // TODO: Retire
 #[cfg(feature = "alloc")]
 // TODO: Ideally should not need "alloc" (also for performance reasons)
 pub mod log;
@@ -55,21 +55,18 @@ pub mod netif;
 #[cfg(all(feature = "experimental", feature = "alloc"))]
 pub mod notify;
 #[cfg(all(feature = "alloc", esp_idf_comp_nvs_flash_enabled))]
-// TODO: Expose a subset which does not require "alloc"
 pub mod nvs;
 #[cfg(all(feature = "alloc", esp_idf_comp_nvs_flash_enabled))]
-// TODO: Expose a subset which does not require "alloc"
 pub mod nvs_storage;
 #[cfg(all(
     feature = "experimental",
-    feature = "alloc",
     esp_idf_comp_app_update_enabled,
     esp_idf_comp_spi_flash_enabled
 ))]
 pub mod ota;
 #[cfg(esp_idf_comp_esp_netif_enabled)]
 pub mod ping;
-#[cfg(all(feature = "alloc", esp_idf_comp_esp_netif_enabled))]
+#[cfg(esp_idf_comp_esp_netif_enabled)]
 pub mod sntp;
 #[cfg(esp_idf_comp_esp_event_enabled)]
 pub mod sysloop;

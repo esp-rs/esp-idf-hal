@@ -10,9 +10,8 @@ use enumset::*;
 extern crate alloc;
 use alloc::sync::Arc;
 
-use embedded_svc::errors::Errors;
 use embedded_svc::eth::*;
-use embedded_svc::event_bus::EventBus;
+use embedded_svc::event_bus::{ErrorType, EventBus};
 use embedded_svc::ipv4;
 
 #[cfg(any(
@@ -932,11 +931,9 @@ impl<P> EspEth<P> {
     }
 }
 
-impl<P> Errors for EspEth<P> {
-    type Error = EspError;
-}
-
 impl<P> Eth for EspEth<P> {
+    type Error = EspError;
+
     fn get_capabilities(&self) -> Result<EnumSet<Capability>, Self::Error> {
         let caps = Capability::Client | Capability::Router;
 
@@ -1038,6 +1035,10 @@ impl EspTypedEventDeserializer<EthEvent> for EthEvent {
 
         f(&event)
     }
+}
+
+impl<P> ErrorType for EspEth<P> {
+    type Error = EspError;
 }
 
 impl<P> EventBus<()> for EspEth<P> {

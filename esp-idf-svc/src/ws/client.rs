@@ -4,14 +4,14 @@ use core::time;
 extern crate alloc;
 use alloc::sync::Arc;
 
-use embedded_svc::errors::Errors;
-use embedded_svc::ws::{FrameType, Sender};
+use embedded_svc::ws::{ErrorType, FrameType, Sender};
 
 use esp_idf_hal::delay::TickType;
 use esp_idf_hal::mutex::{Condvar, Mutex};
 
 use esp_idf_sys::*;
 
+use crate::errors::EspIOError;
 use crate::private::common::Newtype;
 use crate::private::cstr::RawCstrs;
 
@@ -54,7 +54,7 @@ impl<'a> WebSocketEvent<'a> {
         event_id: i32,
         event_data: &'a esp_websocket_event_data_t,
         state: Option<&Arc<EspWebSocketConnectionState>>,
-    ) -> Result<Self, EspError> {
+    ) -> Result<Self, EspIOError> {
         Ok(Self {
             event_type: WebSocketEventType::new(event_id, event_data)?,
             state: state.cloned(),
@@ -89,7 +89,7 @@ pub enum WebSocketClosingReason {
 }
 
 impl WebSocketClosingReason {
-    fn new(code: u16) -> Result<Self, EspError> {
+    fn new(code: u16) -> Result<Self, EspIOError> {
         match code {
             1000 => Ok(Self::PurposeFulfilled),
             1001 => Ok(Self::GoingAway),
@@ -101,7 +101,7 @@ impl WebSocketClosingReason {
             1009 => Ok(Self::MessageTooBig),
             1010 => Ok(Self::ExtensionNotReturned),
             1011 => Ok(Self::UnexpectedCondition),
-            _ => Err(EspError::from(ESP_ERR_NOT_SUPPORTED).unwrap()),
+            _ => Err(EspError::from(ESP_ERR_NOT_SUPPORTED).unwrap().into()),
         }
     }
 }
@@ -117,11 +117,11 @@ pub enum WebSocketEventType<'a> {
 }
 
 impl<'a> WebSocketEventType<'a> {
-    fn new(event_id: i32, event_data: &'a esp_websocket_event_data_t) -> Result<Self, EspError> {
+    fn new(event_id: i32, event_data: &'a esp_websocket_event_data_t) -> Result<Self, EspIOError> {
         #[allow(non_upper_case_globals)]
         match event_id {
             esp_websocket_event_id_t_WEBSOCKET_EVENT_ERROR => {
-                Err(EspError::from(ESP_FAIL).unwrap())
+                Err(EspError::from(ESP_FAIL).unwrap().into())
             }
             esp_websocket_event_id_t_WEBSOCKET_EVENT_CONNECTED => Ok(Self::Connected),
             esp_websocket_event_id_t_WEBSOCKET_EVENT_DISCONNECTED => Ok(Self::Disconnected),
@@ -135,7 +135,7 @@ impl<'a> WebSocketEventType<'a> {
                         );
                         core::str::from_utf8(slice)
                     }
-                    .map_err(|_| EspError::from(ESP_FAIL).unwrap())
+                    .map_err(|_| EspError::from(ESP_FAIL).unwrap().into())
                     .map(Self::Text),
                     // Binary frame
                     2 => Ok(Self::Binary(unsafe {
@@ -153,11 +153,11 @@ impl<'a> WebSocketEventType<'a> {
                     } else {
                         None
                     })),
-                    _ => Err(EspError::from(ESP_ERR_NOT_FOUND).unwrap()),
+                    _ => Err(EspError::from(ESP_ERR_NOT_FOUND).unwrap().into()),
                 }
             }
             esp_websocket_event_id_t_WEBSOCKET_EVENT_CLOSED => Ok(Self::Closed),
-            _ => Err(EspError::from(ESP_ERR_INVALID_ARG).unwrap()),
+            _ => Err(EspError::from(ESP_ERR_INVALID_ARG).unwrap().into()),
         }
     }
 }
@@ -193,7 +193,7 @@ pub struct EspWebSocketClientConfig<'a> {
 }
 
 impl<'a> TryFrom<&'a EspWebSocketClientConfig<'a>> for (esp_websocket_client_config_t, RawCstrs) {
-    type Error = EspError;
+    type Error = EspIOError;
 
     fn try_from(conf: &EspWebSocketClientConfig) -> Result<Self, Self::Error> {
         let mut cstrs = RawCstrs::new();
@@ -242,7 +242,7 @@ impl<'a> TryFrom<&'a EspWebSocketClientConfig<'a>> for (esp_websocket_client_con
         #[cfg(esp_idf_version = "4.4")]
         if let Some(if_name) = conf.if_name {
             if !(if_name.len() == 6 && if_name.is_ascii()) {
-                return Err(EspError::from(ESP_ERR_INVALID_ARG).unwrap());
+                return Err(EspError::from(ESP_ERR_INVALID_ARG).unwrap().into());
             }
             let mut s: [c_types::c_char; 6] = [c_types::c_char::default(); 6];
             for (i, c) in if_name.chars().enumerate() {
@@ -322,7 +322,7 @@ impl EspWebSocketConnection {
     // NOTE: cannot implement the `Iterator` trait as it requires that all the items can be alive
     // at the same time, which is not given here
     #[allow(clippy::should_implement_trait)]
-    pub fn next(&mut self) -> Option<Result<WebSocketEvent<'_>, EspError>> {
+    pub fn next(&mut self) -> Option<Result<WebSocketEvent<'_>, EspIOError>> {
         let mut message = self.0.message.lock();
 
         // wait for new message to arrive
@@ -375,7 +375,7 @@ impl EspWebSocketClient {
         uri: impl AsRef<str>,
         config: &EspWebSocketClientConfig,
         timeout: time::Duration,
-    ) -> Result<(Self, EspWebSocketConnection), EspError> {
+    ) -> Result<(Self, EspWebSocketConnection), EspIOError> {
         let connection_state: Arc<EspWebSocketConnectionState> = Arc::new(Default::default());
         let poster = EspWebSocketPostbox(connection_state.clone());
 
@@ -395,8 +395,8 @@ impl EspWebSocketClient {
         uri: impl AsRef<str>,
         config: &EspWebSocketClientConfig,
         timeout: time::Duration,
-        mut callback: impl for<'a> FnMut(&'a Result<WebSocketEvent<'a>, EspError>) + Send + 'static,
-    ) -> Result<Self, EspError> {
+        mut callback: impl for<'a> FnMut(&'a Result<WebSocketEvent<'a>, EspIOError>) + Send + 'static,
+    ) -> Result<Self, EspIOError> {
         Self::new_raw(
             uri,
             config,
@@ -416,7 +416,7 @@ impl EspWebSocketClient {
         config: &EspWebSocketClientConfig,
         timeout: time::Duration,
         raw_callback: Box<dyn FnMut(i32, *mut esp_websocket_event_data_t) + 'static>,
-    ) -> Result<Self, EspError> {
+    ) -> Result<Self, EspIOError> {
         let mut boxed_raw_callback = Box::new(raw_callback);
         let unsafe_callback = UnsafeCallback::from(&mut boxed_raw_callback);
 
@@ -462,7 +462,7 @@ impl EspWebSocketClient {
         }
     }
 
-    fn check(result: c_types::c_int) -> Result<usize, EspError> {
+    fn check(result: c_types::c_int) -> Result<usize, EspIOError> {
         if result < 0 {
             esp!(result)?;
         }
@@ -474,7 +474,7 @@ impl EspWebSocketClient {
         &mut self,
         frame_type: FrameType,
         frame_data: Option<&[u8]>,
-    ) -> Result<usize, <EspWebSocketClient as Errors>::Error> {
+    ) -> Result<usize, <EspWebSocketClient as ErrorType>::Error> {
         let mut content = core::ptr::null();
         let mut content_length: usize = 0;
 
@@ -516,8 +516,8 @@ impl Drop for EspWebSocketClient {
     }
 }
 
-impl Errors for EspWebSocketClient {
-    type Error = EspError;
+impl ErrorType for EspWebSocketClient {
+    type Error = EspIOError;
 }
 
 impl Sender for EspWebSocketClient {

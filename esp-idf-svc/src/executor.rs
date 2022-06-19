@@ -1,9 +1,5 @@
-pub mod asyncs {
-    #[cfg(all(
-        feature = "isr-async-executor",
-        feature = "alloc",
-        feature = "heapless"
-    ))]
+pub mod asynch {
+    #[cfg(all(feature = "isr-async-executor", feature = "alloc"))]
     pub mod isr {
         use core::sync::atomic::{AtomicPtr, Ordering};
         use core::{mem, ptr};
@@ -11,7 +7,7 @@ pub mod asyncs {
         extern crate alloc;
         use alloc::sync::{Arc, Weak};
 
-        use embedded_svc::utils::asyncs::executor::isr::*;
+        use embedded_svc::utils::asynch::executor::isr::*;
 
         use esp_idf_hal::interrupt;
 
@@ -97,13 +93,13 @@ pub mod asyncs {
         }
 
         pub fn local_tasks_spawner<'a, const C: usize, T>(
-        ) -> embedded_svc::utils::asyncs::executor::spawn::TasksSpawner<
+        ) -> embedded_svc::utils::asynch::executor::spawn::TasksSpawner<
             'a,
             C,
             EspLocalExecutor<'a, C>,
             T,
         > {
-            embedded_svc::utils::asyncs::executor::spawn::TasksSpawner::<'a, C, _, T>::new(local::<
+            embedded_svc::utils::asynch::executor::spawn::TasksSpawner::<'a, C, _, T>::new(local::<
                 'a,
                 C,
             >(
@@ -111,9 +107,9 @@ pub mod asyncs {
         }
 
         pub fn tasks_spawner<'a, const C: usize, T>(
-        ) -> embedded_svc::utils::asyncs::executor::spawn::TasksSpawner<'a, C, EspExecutor<'a, C>, T>
+        ) -> embedded_svc::utils::asynch::executor::spawn::TasksSpawner<'a, C, EspExecutor<'a, C>, T>
         {
-            embedded_svc::utils::asyncs::executor::spawn::TasksSpawner::<'a, C, _, T>::new(
+            embedded_svc::utils::asynch::executor::spawn::TasksSpawner::<'a, C, _, T>::new(
                 executor::<'a, C>(),
             )
         }

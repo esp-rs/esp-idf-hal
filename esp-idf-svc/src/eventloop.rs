@@ -12,7 +12,7 @@ use alloc::sync::Arc;
 
 use ::log::*;
 
-use embedded_svc::{errors, event_bus};
+use embedded_svc::event_bus::{self, ErrorType};
 
 use esp_idf_hal::cpu::Core;
 use esp_idf_hal::delay::TickType;
@@ -567,7 +567,7 @@ where
 unsafe impl<T> Send for EspEventLoop<T> where T: EspEventLoopType + Send {}
 unsafe impl<T> Sync for EspEventLoop<T> where T: EspEventLoopType + Sync {}
 
-impl<T> errors::Errors for EspEventLoop<T>
+impl<T> ErrorType for EspEventLoop<T>
 where
     T: EspEventLoopType,
 {
@@ -655,7 +655,7 @@ where
     }
 }
 
-impl<T> errors::Errors for EspPostbox<T>
+impl<T> ErrorType for EspPostbox<T>
 where
     T: EspEventLoopType,
 {
@@ -734,9 +734,9 @@ where
     }
 }
 
-impl<M, P, L> errors::Errors for EspTypedEventLoop<M, P, L>
+impl<M, P, L> ErrorType for EspTypedEventLoop<M, P, L>
 where
-    L: errors::Errors,
+    L: ErrorType,
 {
     type Error = L::Error;
 }
@@ -819,7 +819,7 @@ where
     }
 }
 
-impl<M, P, T> errors::Errors for EspTypedPostbox<M, P, T>
+impl<M, P, T> ErrorType for EspTypedPostbox<M, P, T>
 where
     T: EspEventLoopType,
 {

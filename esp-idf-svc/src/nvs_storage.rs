@@ -1,11 +1,10 @@
+use core::cmp::min;
 use core::ptr;
 
 extern crate alloc;
 use alloc::sync::Arc;
-use alloc::vec;
 
-use embedded_svc::errors::Errors;
-use embedded_svc::storage::Storage;
+use embedded_svc::storage::{RawStorage, StorageBase};
 
 use esp_idf_sys::*;
 
@@ -77,43 +76,15 @@ impl Drop for EspNvsStorage {
     }
 }
 
-impl Errors for EspNvsStorage {
+impl StorageBase for EspNvsStorage {
     type Error = EspError;
-}
 
-impl Storage for EspNvsStorage {
-    fn contains(&self, key: impl AsRef<str>) -> Result<bool, Self::Error> {
-        let c_key = CString::new(key.as_ref()).unwrap();
-
-        let mut dummy: u_int64_t = 0;
-
-        // check if key is present for u64 datatype
-        match unsafe { nvs_get_u64(self.1, c_key.as_ptr(), &mut dummy as *mut _) } {
-            ESP_ERR_NVS_NOT_FOUND => {
-                // now check if key is present for blob datatype
-                let mut len: size_t = 0;
-                match unsafe {
-                    nvs_get_blob(self.1, c_key.as_ptr(), ptr::null_mut(), &mut len as *mut _)
-                } {
-                    // not found as u64, nor as blob, this key has not been found
-                    ESP_ERR_NVS_NOT_FOUND => Ok(false),
-                    result => {
-                        // bail on any kind of error, return true if no error
-                        esp!(result)?;
-                        Ok(true)
-                    }
-                }
-            }
-            result => {
-                esp!(result)?;
-                // if we get here, the value was found as a u64
-                Ok(true)
-            }
-        }
+    fn contains(&self, name: &str) -> Result<bool, Self::Error> {
+        self.len(name).map(|v| v.is_some())
     }
 
-    fn remove(&mut self, key: impl AsRef<str>) -> Result<bool, Self::Error> {
-        let c_key = CString::new(key.as_ref()).unwrap();
+    fn remove(&mut self, name: &str) -> Result<bool, Self::Error> {
+        let c_key = CString::new(name).unwrap();
 
         // nvs_erase_key is not scoped by datatype
         let result = unsafe { nvs_erase_key(self.1, c_key.as_ptr()) };
@@ -127,9 +98,11 @@ impl Storage for EspNvsStorage {
             Ok(true)
         }
     }
+}
 
-    fn get_raw(&self, key: impl AsRef<str>) -> Result<Option<vec::Vec<u8>>, Self::Error> {
-        let c_key = CString::new(key.as_ref()).unwrap();
+impl RawStorage for EspNvsStorage {
+    fn len(&self, name: &str) -> Result<Option<usize>, Self::Error> {
+        let c_key = CString::new(name).unwrap();
 
         let mut value: u_int64_t = 0;
 
@@ -146,19 +119,7 @@ impl Storage for EspNvsStorage {
                         // bail on error
                         esp!(err)?;
 
-                        // fetch value if no error
-                        let mut vec: vec::Vec<u8> = vec::Vec::with_capacity(len as usize);
-                        esp!(unsafe {
-                            nvs_get_blob(
-                                self.1,
-                                c_key.as_ptr(),
-                                vec.as_mut_ptr() as *mut _,
-                                &mut len as *mut _,
-                            )
-                        })?;
-
-                        unsafe { vec.set_len(len as usize) };
-                        Ok(Some(vec))
+                        Ok(Some(len as _))
                     }
                 }
             }
@@ -168,52 +129,97 @@ impl Storage for EspNvsStorage {
 
                 // u64 value was found, decode it
                 let len: u8 = (value & 0xff) as u8;
-                value >>= 8;
 
-                let array: [u8; 7] = [
-                    (value & 0xff) as u8,
-                    ((value >> 8) & 0xff) as u8,
-                    ((value >> 16) & 0xff) as u8,
-                    ((value >> 24) & 0xff) as u8,
-                    ((value >> 32) & 0xff) as u8,
-                    ((value >> 48) & 0xff) as u8,
-                    ((value >> 56) & 0xff) as u8,
-                ];
-
-                Ok(Some(array[..len as usize].to_vec()))
+                Ok(Some(len as _))
             }
         }
     }
 
-    fn put_raw(
-        &mut self,
-        key: impl AsRef<str>,
-        value: impl Into<vec::Vec<u8>>,
-    ) -> Result<bool, Self::Error> {
-        let c_key = CString::new(key.as_ref()).unwrap();
-        let mut value = value.into();
-        let mut uvalue: u_int64_t = 0;
+    fn get_raw<'a>(
+        &self,
+        name: &str,
+        buf: &'a mut [u8],
+    ) -> Result<Option<(&'a [u8], usize)>, Self::Error> {
+        let c_key = CString::new(name).unwrap();
+
+        let mut u64value: u_int64_t = 0;
+
+        // check for u64 value
+        match unsafe { nvs_get_u64(self.1, c_key.as_ptr(), &mut u64value as *mut _) } {
+            ESP_ERR_NVS_NOT_FOUND => {
+                // check for blob value, by getting blob length
+                let mut len: size_t = 0;
+                match unsafe {
+                    nvs_get_blob(self.1, c_key.as_ptr(), ptr::null_mut(), &mut len as *mut _)
+                } {
+                    ESP_ERR_NVS_NOT_FOUND => Ok(None),
+                    err => {
+                        // bail on error
+                        esp!(err)?;
+
+                        // fetch value if no error
+                        esp!(unsafe {
+                            nvs_get_blob(
+                                self.1,
+                                c_key.as_ptr(),
+                                buf.as_mut_ptr() as *mut _,
+                                &mut len as *mut _,
+                            )
+                        })?;
+
+                        Ok(Some((&buf[..min(buf.len(), len as usize)], len as _)))
+                    }
+                }
+            }
+            err => {
+                // bail on error
+                esp!(err)?;
+
+                // u64 value was found, decode it
+                let len: u8 = (u64value & 0xff) as u8;
+                u64value >>= 8;
+
+                let array: [u8; 7] = [
+                    (u64value & 0xff) as u8,
+                    ((u64value >> 8) & 0xff) as u8,
+                    ((u64value >> 16) & 0xff) as u8,
+                    ((u64value >> 24) & 0xff) as u8,
+                    ((u64value >> 32) & 0xff) as u8,
+                    ((u64value >> 48) & 0xff) as u8,
+                    ((u64value >> 56) & 0xff) as u8,
+                ];
+
+                buf.copy_from_slice(&array[..min(buf.len(), len as usize)]);
+
+                Ok(Some((&buf[..min(buf.len(), len as usize)], len as _)))
+            }
+        }
+    }
+
+    fn put_raw(&mut self, name: &str, buf: &[u8]) -> Result<bool, Self::Error> {
+        let c_key = CString::new(name).unwrap();
+        let mut u64value: u_int64_t = 0;
 
         // start by just clearing this key
         unsafe { nvs_erase_key(self.1, c_key.as_ptr()) };
 
-        if value.len() < 8 {
-            for v in value.iter().rev() {
-                uvalue <<= 8;
-                uvalue |= *v as u_int64_t;
+        if buf.len() < 8 {
+            for v in buf.iter().rev() {
+                u64value <<= 8;
+                u64value |= *v as u_int64_t;
             }
 
-            uvalue <<= 8;
-            uvalue |= value.len() as u_int64_t;
+            u64value <<= 8;
+            u64value |= buf.len() as u_int64_t;
 
-            esp!(unsafe { nvs_set_u64(self.1, c_key.as_ptr(), uvalue) })?;
+            esp!(unsafe { nvs_set_u64(self.1, c_key.as_ptr(), u64value) })?;
         } else {
             esp!(unsafe {
                 nvs_set_blob(
                     self.1,
                     c_key.as_ptr(),
-                    value.as_mut_ptr() as *mut _,
-                    value.len() as u32,
+                    buf.as_ptr() as *mut _,
+                    buf.len() as u32,
                 )
             })?;
         }
@@ -223,3 +229,18 @@ impl Storage for EspNvsStorage {
         Ok(true)
     }
 }
+
+// TODO
+// impl Storage for EspNvsStorage {
+//     fn get<'a, T>(&'a self, name: &str) -> Result<Option<T>, Self::Error>
+//     where
+//         T: serde::Deserialize<'a> {
+//         todo!()
+//     }
+
+//     fn set<T>(&mut self, name: &str, value: &T) -> Result<bool, Self::Error>
+//     where
+//         T: serde::Serialize {
+//         todo!()
+//     }
+// }

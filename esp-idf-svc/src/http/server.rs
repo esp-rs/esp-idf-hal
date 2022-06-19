@@ -1,14 +1,11 @@
-use core::{
-    cell::RefCell,
-    fmt,
-    marker::PhantomData,
-    ptr,
-    sync::atomic::{AtomicBool, Ordering},
-    time::*,
-};
+use core::cell::UnsafeCell;
+use core::fmt::{Debug, Display, Write as _};
+use core::marker::PhantomData;
+use core::ptr;
+use core::sync::atomic::{AtomicBool, Ordering};
+use core::time::*;
 
 extern crate alloc;
-use alloc::borrow::Cow;
 use alloc::collections::BTreeMap;
 use alloc::string::String;
 use alloc::sync::Arc;
@@ -16,12 +13,9 @@ use alloc::vec::Vec;
 
 use log::{info, warn};
 
-use embedded_svc::errors::Errors;
-use embedded_svc::http::server::{
-    attr, middleware, registry::*, session, Completion, Request, Response, ResponseWrite, Session,
-};
+use embedded_svc::http::server::{registry::Registry, Handler, HandlerError, Request, Response};
 use embedded_svc::http::*;
-use embedded_svc::io::{Read, Write};
+use embedded_svc::io::{Io, Read, Write};
 
 use esp_idf_hal::mutex;
 
@@ -29,6 +23,7 @@ use esp_idf_sys::*;
 
 use uncased::{Uncased, UncasedStr};
 
+use crate::errors::EspIOError;
 use crate::private::common::Newtype;
 use crate::private::cstr::CString;
 
@@ -129,11 +124,6 @@ impl From<Method> for Newtype<c_types::c_uint> {
     }
 }
 
-type EspSessionMutex = mutex::Mutex<Option<BTreeMap<String, Vec<u8>>>>;
-type EspSessionsMutex = mutex::Mutex<BTreeMap<String, session::SessionData<EspSessionMutex>>>;
-type EspSessions = session::Sessions<EspSessionsMutex, EspSessionMutex>;
-type EspRequestScopedSession = session::RequestScopedSession<EspSessionsMutex, EspSessionMutex>;
-
 static OPEN_SESSIONS: mutex::Mutex<BTreeMap<(u32, c_types::c_int), Arc<AtomicBool>>> =
     mutex::Mutex::new(BTreeMap::new());
 #[allow(clippy::type_complexity)]
@@ -143,12 +133,10 @@ static mut CLOSE_HANDLERS: mutex::Mutex<BTreeMap<u32, Vec<Box<dyn Fn(c_types::c_
 pub struct EspHttpServer {
     sd: httpd_handle_t,
     registrations: Vec<(CString, esp_idf_sys::httpd_uri_t)>,
-    sessions: Arc<EspSessions>,
-    session_cookie_name: &'static str,
 }
 
 impl EspHttpServer {
-    pub fn new(conf: &Configuration) -> Result<Self, EspError> {
+    pub fn new(conf: &Configuration) -> Result<Self, EspIOError> {
         let mut config: Newtype<httpd_config_t> = conf.into();
         config.0.close_fn = Some(Self::close_fn);
 
@@ -162,13 +150,6 @@ impl EspHttpServer {
         let server = EspHttpServer {
             sd: handle,
             registrations: Vec::new(),
-            sessions: Arc::new(EspSessions::new(
-                Self::get_random,
-                Self::get_current_time,
-                conf.max_sessions,
-                conf.session_timeout,
-            )),
-            session_cookie_name: conf.session_cookie_name,
         };
 
         unsafe {
@@ -178,24 +159,7 @@ impl EspHttpServer {
         Ok(server)
     }
 
-    fn get_random() -> [u8; 16] {
-        let mut result = [0; 16];
-
-        unsafe {
-            esp_fill_random(
-                &mut result as *mut _ as *mut c_types::c_void,
-                result.len() as _,
-            )
-        }
-
-        result
-    }
-
-    fn get_current_time() -> Duration {
-        Duration::from_micros(unsafe { esp_timer_get_time() } as _)
-    }
-
-    fn unregister(&mut self, uri: CString, conf: httpd_uri_t) -> Result<(), EspError> {
+    fn unregister(&mut self, uri: CString, conf: httpd_uri_t) -> Result<(), EspIOError> {
         unsafe {
             esp!(httpd_unregister_uri_handler(
                 self.sd,
@@ -215,7 +179,7 @@ impl EspHttpServer {
         Ok(())
     }
 
-    fn stop(&mut self) -> Result<(), EspError> {
+    fn stop(&mut self) -> Result<(), EspIOError> {
         if !self.sd.is_null() {
             while !self.registrations.is_empty() {
                 let (uri, registration) = self.registrations.pop().unwrap();
@@ -235,109 +199,121 @@ impl EspHttpServer {
         Ok(())
     }
 
-    fn handle_request<'a, H, E>(
+    fn handle_request<'a, H>(
         req: EspHttpRequest<'a>,
         resp: EspHttpResponse<'a>,
         handler: &H,
-    ) -> Result<(), E>
+    ) -> Result<(), HandlerError>
     where
-        H: for<'b> Fn(EspHttpRequest<'b>, EspHttpResponse<'b>) -> Result<Completion, E>,
-        E: fmt::Display + fmt::Debug,
+        H: Handler<EspHttpRequest<'a>, EspHttpResponse<'a>>,
     {
         info!("About to handle query string {:?}", req.query_string());
 
-        handler(req, resp)?;
+        handler.handle(req, resp)?;
 
         Ok(())
     }
 
-    fn handle_error<E>(
+    fn complete(
         raw_req: *mut httpd_req_t,
-        response_state: ResponseState,
-        error: E,
-    ) -> c_types::c_int
+        headers: &mut Option<EspHttpResponseHeaders>,
+    ) -> Result<(), HandlerError> {
+        let buf = &[];
+
+        if let Some(headers) = headers.as_mut() {
+            headers.send(raw_req)?;
+
+            esp!(unsafe { httpd_resp_send(raw_req, buf.as_ptr() as *const _, 0) })?;
+        } else {
+            esp!(unsafe { httpd_resp_send_chunk(raw_req, buf.as_ptr() as *const _, 0) })?;
+        }
+
+        Ok(())
+    }
+
+    fn handle_error<E>(raw_req: *mut httpd_req_t, response_sent: bool, error: E) -> c_types::c_int
     where
-        E: fmt::Display + fmt::Debug,
+        E: Display,
     {
-        if response_state == ResponseState::New {
+        if !response_sent {
             info!(
-                "About to handle internal error [{}], response is pristine",
-                error
+                "About to handle internal error [{}], response not sent yet",
+                &error
             );
 
-            if let Err(error) = Self::render_error(raw_req, error) {
+            if let Err(error2) = Self::render_error(raw_req, &error) {
                 warn!(
-                    "Internal error[{}] while rendering another internal error:\n{:?}",
-                    error, error
+                    "Internal error[{}] while rendering another internal error:\n{}",
+                    error2, error
                 );
             }
         } else {
             warn!(
-                "Unhandled internal error [{}], response is already sent or initiated:\n{:?}",
-                error, error
+                "Unhandled internal error [{}], response is already sent",
+                error
             );
         }
 
         ESP_OK as _
     }
 
-    fn render_error<E>(raw_req: *mut httpd_req_t, error: E) -> Result<Completion, EspError>
+    fn render_error<E>(raw_req: *mut httpd_req_t, error: E) -> Result<(), EspIOError>
     where
-        E: fmt::Display + fmt::Debug,
+        E: Display,
     {
-        let mut response_state = ResponseState::New;
+        let mut headers = Some(EspHttpResponseHeaders::new());
 
-        let mut writer = EspHttpResponse::new(raw_req, "", &mut response_state)
+        let mut writer = EspHttpResponse::new(raw_req, &mut headers)
             .status(500)
             .content_type("text/html")
-            .into_writer_noreq(None)?;
+            .into_writer()?;
 
-        writer.do_write_all(
+        writer.write_all(
             format!(
                 r#"
                     <!DOCTYPE html5>
                     <html>
                         <body style="font-family: Verdana, Sans;">
                             <h1>INTERNAL ERROR</h1>
-                            <h2>{}</h2>
                             <hr>
-                            <pre>{:?}</pre>
+                            <pre>{}</pre>
                         <body>
                     </html>
                 "#,
-                error, error
+                error
             )
             .as_bytes(),
         )?;
 
-        writer.complete()
+        let buf = &[];
+
+        esp!(unsafe { httpd_resp_send_chunk(raw_req, buf.as_ptr() as *const _, 0) })?;
+
+        Ok(())
     }
 
-    fn to_native_handler<H, E>(&self, handler: H) -> Box<dyn Fn(*mut httpd_req_t) -> c_types::c_int>
+    fn to_native_handler<H>(&self, handler: H) -> Box<dyn Fn(*mut httpd_req_t) -> c_types::c_int>
     where
-        H: for<'a> Fn(EspHttpRequest<'a>, EspHttpResponse<'a>) -> Result<Completion, E> + 'static,
-        E: fmt::Display + fmt::Debug,
+        H: for<'a> Handler<EspHttpRequest<'a>, EspHttpResponse<'a>> + 'static,
     {
-        let sessions = self.sessions.clone();
-        let session_cookie_name = self.session_cookie_name;
-
         Box::new(move |raw_req| {
-            let mut response_state = ResponseState::New;
+            let mut headers = Some(EspHttpResponseHeaders::new());
 
             let result = Self::handle_request(
-                EspHttpRequest::new(raw_req, session_cookie_name, sessions.clone()),
-                EspHttpResponse::new(raw_req, session_cookie_name, &mut response_state),
+                EspHttpRequest::new(raw_req),
+                EspHttpResponse::new(raw_req, &mut headers),
                 &handler,
-            );
+            )
+            .and_then(|_| Self::complete(raw_req, &mut headers));
 
             match result {
                 Ok(()) => ESP_OK as _,
-                Err(e) => Self::handle_error(raw_req, response_state, e),
+                Err(e) => Self::handle_error(raw_req, headers.is_none(), e),
             }
         })
     }
 
-    extern "C" fn handle(raw_req: *mut httpd_req_t) -> c_types::c_int {
+    extern "C" fn handle_req(raw_req: *mut httpd_req_t) -> c_types::c_int {
         let handler_ptr =
             (unsafe { *raw_req }).user_ctx as *mut Box<dyn Fn(*mut httpd_req_t) -> c_types::c_int>;
 
@@ -371,38 +347,21 @@ impl Drop for EspHttpServer {
     }
 }
 
-impl Errors for EspHttpServer {
-    type Error = EspError;
-}
-
 impl Registry for EspHttpServer {
+    type Error = EspError;
+    type IOError = EspIOError;
+
     type Request<'a> = EspHttpRequest<'a>;
     type Response<'a> = EspHttpResponse<'a>;
-    type Root = Self;
-    type MiddlewareRegistry<'q, M>
-    where
-        Self: 'q,
-        M: middleware::Middleware<Self::Root> + Clone + 'static + 'q,
-    = middleware::MiddlewareRegistry<'q, Self::Root, M>;
 
-    fn with_middleware<M>(&mut self, middleware: M) -> Self::MiddlewareRegistry<'_, M>
-    where
-        M: middleware::Middleware<Self::Root> + Clone + 'static,
-        M::Error: 'static,
-        Self: Sized,
-    {
-        middleware::MiddlewareRegistry::new(self, middleware)
-    }
-
-    fn set_inline_handler<H, E>(
+    fn set_handler<H>(
         &mut self,
         uri: &str,
         method: Method,
         handler: H,
     ) -> Result<&mut Self, Self::Error>
     where
-        H: for<'a> Fn(Self::Request<'a>, Self::Response<'a>) -> Result<Completion, E> + 'static,
-        E: fmt::Display + fmt::Debug,
+        H: for<'a> Handler<Self::Request<'a>, Self::Response<'a>> + 'static,
     {
         let c_str = CString::new(uri).unwrap();
 
@@ -411,7 +370,7 @@ impl Registry for EspHttpServer {
             uri: c_str.as_ptr() as _,
             method: Newtype::<c_types::c_uint>::from(method).0,
             user_ctx: Box::into_raw(Box::new(self.to_native_handler(handler))) as *mut _,
-            handler: Some(EspHttpServer::handle),
+            handler: Some(EspHttpServer::handle_req),
             ..Default::default()
         };
 
@@ -431,89 +390,72 @@ impl Registry for EspHttpServer {
 
 pub struct EspHttpRequest<'a> {
     raw_req: *mut httpd_req_t,
-    _ptr: PhantomData<&'a httpd_req_t>,
-    attributes: RefCell<attr::RequestScopedAttributes>,
-    session: RefCell<EspRequestScopedSession>,
+    id: UnsafeCell<Option<heapless::String<32>>>,
+    query_string: UnsafeCell<Option<String>>,
+    headers: UnsafeCell<BTreeMap<Uncased<'static>, String>>,
+    _ref: PhantomData<&'a ()>,
 }
 
 impl<'a> EspHttpRequest<'a> {
-    fn new(
-        raw_req: *mut httpd_req_t,
-        session_cookie_name: &'a str,
-        sessions: Arc<EspSessions>,
-    ) -> Self {
-        let cookies = Self::header(raw_req, "cookies").map(cookies::Cookies::new);
-
-        let session = RefCell::new(EspRequestScopedSession::new(
-            sessions,
-            cookies
-                .as_ref()
-                .and_then(|cookies| cookies.get(session_cookie_name)),
-        ));
-
+    fn new(raw_req: *mut httpd_req_t) -> Self {
         Self {
             raw_req,
-            _ptr: PhantomData,
-            attributes: RefCell::new(attr::RequestScopedAttributes::new()),
-            session,
+            id: UnsafeCell::new(None),
+            query_string: UnsafeCell::new(None),
+            headers: UnsafeCell::new(BTreeMap::new()),
+            _ref: PhantomData,
         }
     }
 
-    fn header<'b>(raw_req: *mut httpd_req_t, name: impl AsRef<str>) -> Option<Cow<'b, str>> {
-        let c_name = CString::new(name.as_ref()).unwrap();
+    fn get_random() -> [u8; 16] {
+        let mut result = [0; 16];
 
         unsafe {
-            match httpd_req_get_hdr_value_len(raw_req, c_name.as_ptr() as _) as usize {
-                0 => None,
-                len => {
-                    // TODO: Would've been much more effective, if ESP-IDF was capable of returning a
-                    // pointer to the header value that is in the scratch buffer
-                    //
-                    // Check if we can implement it ourselves vy traversing the scratch buffer manually
-
-                    let mut buf: Vec<u8> = Vec::with_capacity(len + 1);
-
-                    esp_nofail!(httpd_req_get_hdr_value_str(
-                        raw_req,
-                        c_name.as_ptr() as _,
-                        buf.as_mut_ptr() as *mut _,
-                        (len + 1) as size_t
-                    ));
-
-                    buf.set_len(len + 1);
-
-                    // TODO: Replace with a proper conversion from ISO-8859-1 to UTF8
-                    Some(String::from_utf8_lossy(&buf[..len]).into_owned().into())
-                }
-            }
+            esp_fill_random(
+                &mut result as *mut _ as *mut c_types::c_void,
+                result.len() as _,
+            )
         }
+
+        result
     }
 }
 
-impl<'a> Errors for EspHttpRequest<'a> {
-    type Error = EspError;
+impl<'a> Io for EspHttpRequest<'a> {
+    type Error = EspIOError;
 }
 
-impl<'a> Request<'a> for EspHttpRequest<'a> {
+impl<'a> Request for EspHttpRequest<'a> {
     type Read<'b>
     where
         'a: 'b,
-    = &'b EspHttpRequest<'a>;
+    = &'b mut EspHttpRequest<'a>;
 
-    type Attributes<'b>
-    where
-        Self: 'b,
-    = attr::RequestScopedAttributesReference<'b>;
+    fn get_request_id(&self) -> &'_ str {
+        if let Some(id) = unsafe { self.id.get().as_ref().unwrap() }.as_ref() {
+            id.as_ref()
+        } else {
+            let mut id = heapless::String::<32>::new();
+            let buf = Self::get_random();
 
-    type Session<'b>
-    where
-        Self: 'b,
-    = session::RequestScopedSessionReference<'b, EspSessionsMutex, EspSessionMutex>;
+            write!(
+                &mut id,
+                "{:02x}{:02x}{:02x}{:02x}{:02x}{:02x}{:02x}{:02x}{:02x}{:02x}{:02x}{:02x}{:02x}{:02x}{:02x}{:02x}",
+                buf[0], buf[1], buf[2], buf[3], buf[4], buf[5], buf[6], buf[7], buf[8], buf[9],
+                buf[10], buf[11], buf[12], buf[13], buf[14], buf[15]).unwrap();
 
-    fn query_string(&self) -> Cow<'a, str> {
-        unsafe {
-            match httpd_req_get_url_query_len(self.raw_req) as usize {
-                0 => "".into(),
+            *unsafe { self.id.get().as_mut().unwrap() } = Some(id);
+
+            unsafe { self.id.get().as_ref().unwrap() }.as_ref().unwrap()
+        }
+    }
+
+    fn query_string(&self) -> &str {
+        if let Some(query_string) = unsafe { self.query_string.get().as_ref().unwrap() }.as_ref() {
+            query_string.as_ref()
+        } else {
+            match unsafe { httpd_req_get_url_query_len(self.raw_req) } as usize {
+                0 => "",
                 len => {
                     // TODO: Would've been much more effective, if ESP-IDF was capable of returning a
                     // pointer to the header value that is in the scratch buffer
@@ -522,36 +464,39 @@ impl<'a> Request<'a> for EspHttpRequest<'a> {
 
                     let mut buf: Vec<u8> = Vec::with_capacity(len + 1);
 
-                    esp_nofail!(httpd_req_get_url_query_str(
-                        self.raw_req,
-                        buf.as_mut_ptr() as *mut _,
-                        (len + 1) as size_t
-                    ));
+                    esp_nofail!(unsafe {
+                        httpd_req_get_url_query_str(
+                            self.raw_req,
+                            buf.as_mut_ptr() as *mut _,
+                            (len + 1) as size_t,
+                        )
+                    });
 
-                    buf.set_len(len + 1);
+                    unsafe {
+                        buf.set_len(len + 1);
+                    }
 
                     // TODO: Replace with a proper conversion from ISO-8859-1 to UTF8
-                    String::from_utf8_lossy(&buf[..len]).into_owned().into()
+                    let query_string = String::from_utf8_lossy(&buf[..len]).into_owned();
+
+                    *unsafe { self.query_string.get().as_mut().unwrap() } = Some(query_string);
+
+                    unsafe { self.query_string.get().as_ref().unwrap() }
+                        .as_ref()
+                        .map(|s| s.as_ref())
+                        .unwrap()
                 }
             }
         }
     }
 
-    fn attrs<'r>(&'r self) -> Self::Attributes<'r> {
-        Self::Attributes::<'r>::new(&self.attributes)
-    }
-
-    fn session<'r>(&'r self) -> Self::Session<'r> {
-        Self::Session::<'r>::new(&self.session)
-    }
-
-    fn reader(&self) -> Self::Read<'_> {
+    fn reader(&mut self) -> Self::Read<'_> {
         self
     }
 }
 
-impl<'a> Read for &EspHttpRequest<'a> {
-    fn do_read(&mut self, buf: &mut [u8]) -> Result<usize, Self::Error> {
+impl<'a> Read for &mut EspHttpRequest<'a> {
+    fn read(&mut self, buf: &mut [u8]) -> Result<usize, Self::Error> {
         unsafe {
             let len = httpd_req_recv(
                 self.raw_req,
@@ -569,274 +514,216 @@ impl<'a> Read for &EspHttpRequest<'a> {
 }
 
 impl<'a> Headers for EspHttpRequest<'a> {
-    fn header(&self, name: impl AsRef<str>) -> Option<Cow<'a, str>> {
-        EspHttpRequest::header(self.raw_req, name)
-    }
-}
+    fn header(&self, name: &str) -> Option<&str> {
+        if let Some(value) =
+            unsafe { self.headers.get().as_ref().unwrap() }.get(UncasedStr::new(name))
+        {
+            Some(value.as_ref())
+        } else {
+            let c_name = CString::new(name).unwrap();
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq)]
-enum ResponseState {
-    New,
-    HeadersSent,
-    Opened,
-    Closed,
-}
+            match unsafe { httpd_req_get_hdr_value_len(self.raw_req, c_name.as_ptr() as _) }
+                as usize
+            {
+                0 => None,
+                len => {
+                    // TODO: Would've been much more effective, if ESP-IDF was capable of returning a
+                    // pointer to the header value that is in the scratch buffer
+                    //
+                    // Check if we can implement it ourselves vy traversing the scratch buffer manually
 
-#[derive(Debug)]
-struct ResponseHeaders<'a> {
-    _ptr: PhantomData<&'a httpd_req_t>,
-    status: u16,
-    status_message: Option<Cow<'a, str>>,
-    headers: BTreeMap<Uncased<'a>, Cow<'a, str>>,
-    session_cookie_name: &'a str,
-}
+                    let mut buf: Vec<u8> = Vec::with_capacity(len + 1);
 
-impl<'a> ResponseHeaders<'a> {
-    fn new(session_cookie_name: &'a str) -> Self {
-        Self {
-            _ptr: PhantomData,
-            status: 200,
-            status_message: None,
-            headers: BTreeMap::new(),
-            session_cookie_name,
+                    esp_nofail!(unsafe {
+                        httpd_req_get_hdr_value_str(
+                            self.raw_req,
+                            c_name.as_ptr() as _,
+                            buf.as_mut_ptr() as *mut _,
+                            (len + 1) as size_t,
+                        )
+                    });
+
+                    unsafe {
+                        buf.set_len(len + 1);
+                    }
+
+                    // TODO: Replace with a proper conversion from ISO-8859-1 to UTF8
+                    let value = String::from_utf8_lossy(&buf[..len]).into_owned();
+                    unsafe { self.headers.get().as_mut().unwrap() }
+                        .insert(Uncased::from(name.to_owned()), value);
+
+                    unsafe { self.headers.get().as_ref().unwrap() }
+                        .get(UncasedStr::new(name))
+                        .map(|s| s.as_ref())
+                }
+            }
         }
     }
 }
 
 pub struct EspHttpResponse<'a> {
     raw_req: *mut httpd_req_t,
-    _ptr: PhantomData<&'a httpd_req_t>,
-    state: &'a mut ResponseState,
-    headers: ResponseHeaders<'a>,
+    headers: &'a mut Option<EspHttpResponseHeaders>,
+    _ref: PhantomData<&'a ()>,
 }
 
-impl<'a> EspHttpResponse<'a> {
-    fn new(
-        raw_req: *mut httpd_req_t,
-        session_cookie_name: &'a str,
-        state: &'a mut ResponseState,
-    ) -> Self {
-        *state = ResponseState::New;
+struct EspHttpResponseHeaders {
+    status: u16,
+    status_message: Option<String>,
+    headers: BTreeMap<Uncased<'static>, CString>,
+    names: Vec<CString>,
+}
 
+impl<'a> EspHttpResponseHeaders {
+    fn new() -> Self {
         Self {
-            raw_req,
-            _ptr: PhantomData,
-            state,
-            headers: ResponseHeaders::new(session_cookie_name),
+            status: 200,
+            status_message: None,
+            headers: BTreeMap::new(),
+            names: Vec::new(),
         }
     }
 
-    fn into_writer_noreq(
-        self,
-        session_id: Option<Cow<'a, str>>,
-    ) -> Result<EspHttpResponseWrite<'a>, EspError> {
-        Ok(EspHttpResponseWrite::<'a> {
-            raw_req: self.raw_req,
-            _ptr: self._ptr,
-            state: self.state,
-            headers: Some(self.headers),
-            session_id,
-            c_status: None,
-            c_headers: None,
-            c_content_type: None,
-        })
-    }
-}
+    fn send(&mut self, raw_req: *mut httpd_req_t) -> Result<(), EspIOError> {
+        // TODO: Would be much more effective if we are serializing the status line and headers directly
+        // Consider implementing this on top of http_resp_send() - even though that would require implementing
+        // chunking in Rust
 
-impl<'a> SendStatus<'a> for EspHttpResponse<'a> {
-    fn set_status(&mut self, status: u16) -> &mut Self {
-        self.headers.status = status;
-        self
-    }
-
-    fn set_status_message<M>(&mut self, message: M) -> &mut Self
-    where
-        M: Into<Cow<'a, str>>,
-    {
-        self.headers.status_message = Some(message.into());
-        self
-    }
-}
-
-impl<'a> SendHeaders<'a> for EspHttpResponse<'a> {
-    fn set_header<H, V>(&mut self, name: H, value: V) -> &mut Self
-    where
-        H: Into<Cow<'a, str>>,
-        V: Into<Cow<'a, str>>,
-    {
-        // TODO: Optimize; convert everything to lower case? (map is now case-insensitive)
-        *self
-            .headers
-            .headers
-            .entry(Uncased::from(name.into()))
-            .or_insert(Cow::Borrowed("")) = value.into();
-        self
-    }
-}
-
-impl<'a> Errors for EspHttpResponse<'a> {
-    type Error = EspError;
-}
-
-impl<'a> Response<'a> for EspHttpResponse<'a> {
-    type Write<'b> = EspHttpResponseWrite<'b>;
-
-    fn into_writer(self, request: impl Request<'a>) -> Result<Self::Write<'a>, Self::Error> {
-        let session_id: Option<Cow<'static, str>> = {
-            let session = request.session();
-
-            if session.is_valid() {
-                session
-                    .id()
-                    .map(|session_id| Cow::Owned(session_id.into_owned()))
-            } else {
-                None
-            }
+        let status = if let Some(ref status_message) = self.status_message {
+            format!("{} {}", self.status, status_message)
+        } else {
+            self.status.to_string()
         };
 
-        self.into_writer_noreq(session_id)
-    }
-}
+        let c_status = CString::new(status.as_str()).unwrap();
 
-pub struct EspHttpResponseWrite<'a> {
-    raw_req: *mut httpd_req_t,
-    _ptr: PhantomData<&'a httpd_req_t>,
-    state: &'a mut ResponseState,
-    headers: Option<ResponseHeaders<'a>>,
-    session_id: Option<Cow<'a, str>>,
-    c_headers: Option<Vec<(CString, CString)>>,
-    c_content_type: Option<CString>,
-    c_status: Option<CString>,
-}
+        esp!(unsafe { httpd_resp_set_status(raw_req, c_status.as_ptr() as _) })?;
 
-impl<'a> EspHttpResponseWrite<'a> {
-    fn send_headers(&mut self) -> Result<(), EspError> {
-        if let Some(headers) = self.headers.as_mut() {
-            *self.state = ResponseState::HeadersSent;
-
-            // TODO: Would be much more effective if we are serializing the status line and headers directly
-            // Consider implementing this on top of http_resp_send() - even though that would require implementing
-            // chunking in Rust
-
-            if let Some(session_id) = self.session_id.as_ref() {
-                headers.headers.insert(
-                    Uncased::from(Cow::Borrowed("cookies")),
-                    cookies::Cookies::new(
-                        headers
-                            .headers
-                            .get(UncasedStr::new("cookies"))
-                            .map(AsRef::as_ref)
-                            .unwrap_or(""),
-                    )
-                    .insert(Uncased::from(headers.session_cookie_name), session_id)
-                    .into(),
-                );
-            }
-
-            let status = if let Some(ref status_message) = headers.status_message {
-                format!("{} {}", headers.status, status_message)
+        for (key, value) in &self.headers {
+            if key == "Content-Type" {
+                esp!(unsafe { httpd_resp_set_type(raw_req, value.as_ptr()) })?;
+            } else if key == "Content-Length" {
+                // TODO
             } else {
-                headers.status.to_string()
-            };
+                let name = CString::new(key.as_str()).unwrap();
 
-            let c_status = CString::new(status.as_str()).unwrap();
-
-            esp!(unsafe { httpd_resp_set_status(self.raw_req, c_status.as_ptr() as _) })?;
-
-            let mut c_headers: Vec<(CString, CString)> = vec![];
-            let mut c_content_type: Option<CString> = None;
-            //let content_len: Option<usize> = None;
-
-            for (key, value) in &headers.headers {
-                if key == "Content-Type" {
-                    c_content_type = Some(CString::new(value.as_ref()).unwrap());
-                } else if key == "Content-Length" {
-                    // TODO: Skip this header for now, as we are doing a chunked delivery anyway
-                    // content_len = Some(
-                    //     value
-                    //         .as_ref()
-                    //         .parse::<usize>()
-                    //         .map_err(|_| EspError::from(ESP_ERR_INVALID_ARG as _).unwrap())?,
-                    // );
-                } else {
-                    c_headers.push((
-                        CString::new(key.as_str()).unwrap(),
-                        // TODO: Replace with a proper conversion from UTF8 to ISO-8859-1
-                        CString::new(value.as_ref()).unwrap(),
-                    ))
-                }
-            }
-
-            if let Some(c_content_type) = c_content_type.as_ref() {
-                esp!(unsafe { httpd_resp_set_type(self.raw_req, c_content_type.as_ptr()) })?
-            }
-
-            for (c_field, c_value) in &c_headers {
                 esp!(unsafe {
-                    httpd_resp_set_hdr(self.raw_req, c_field.as_ptr() as _, c_value.as_ptr() as _)
+                    httpd_resp_set_hdr(raw_req, name.as_ptr() as _, value.as_ptr() as _)
                 })?;
+
+                self.names.push(name);
             }
-
-            self.c_headers = Some(c_headers);
-            self.c_content_type = c_content_type;
-            self.c_status = Some(c_status);
-
-            self.headers = None;
-            self.session_id = None;
         }
-
-        self.headers = None;
 
         Ok(())
     }
 }
 
-impl<'a> ResponseWrite<'a> for EspHttpResponseWrite<'a> {
-    fn complete(mut self) -> Result<Completion, Self::Error> {
-        self.send_headers()?;
-
-        esp!(unsafe { httpd_resp_send_chunk(self.raw_req, core::ptr::null() as *const _, 0) })?;
-
-        *self.state = ResponseState::Closed;
-
-        Ok(unsafe { Completion::internal_new() })
+impl<'a> EspHttpResponse<'a> {
+    fn new(raw_req: *mut httpd_req_t, headers: &'a mut Option<EspHttpResponseHeaders>) -> Self {
+        Self {
+            raw_req,
+            headers,
+            _ref: PhantomData,
+        }
     }
 }
 
-impl<'a> Errors for EspHttpResponseWrite<'a> {
-    type Error = EspError;
+impl<'a> SendStatus for EspHttpResponse<'a> {
+    fn set_status(&mut self, status: u16) -> &mut Self {
+        self.headers.as_mut().unwrap().status = status;
+        self
+    }
+
+    fn set_status_message(&mut self, message: &str) -> &mut Self {
+        self.headers.as_mut().unwrap().status_message = Some(message.to_owned());
+        self
+    }
+}
+
+impl<'a> SendHeaders for EspHttpResponse<'a> {
+    fn set_header(&mut self, name: &str, value: &str) -> &mut Self {
+        self.headers
+            .as_mut()
+            .unwrap()
+            .headers
+            .get_mut(UncasedStr::new(name))
+            .map(|entry| *entry = CString::new(value).unwrap())
+            .unwrap_or_else(|| {
+                self.headers
+                    .as_mut()
+                    .unwrap()
+                    .headers
+                    .insert(Uncased::from(name.to_owned()), CString::new(value).unwrap());
+            });
+
+        self
+    }
+}
+
+impl<'a> Io for EspHttpResponse<'a> {
+    type Error = EspIOError;
+}
+
+impl<'a> Response for EspHttpResponse<'a> {
+    type Write = EspHttpResponseWrite<'a>;
+
+    fn into_writer(self) -> Result<EspHttpResponseWrite<'a>, EspIOError> {
+        Ok(EspHttpResponseWrite::<'a> {
+            raw_req: self.raw_req,
+            headers: self.headers,
+            _ref: self._ref,
+        })
+    }
+}
+
+pub struct EspHttpResponseWrite<'a> {
+    raw_req: *mut httpd_req_t,
+    headers: &'a mut Option<EspHttpResponseHeaders>,
+    _ref: PhantomData<&'a ()>,
+}
+
+impl<'a> EspHttpResponseWrite<'a> {}
+
+impl<'a> Io for EspHttpResponseWrite<'a> {
+    type Error = EspIOError;
 }
 
 impl<'a> Write for EspHttpResponseWrite<'a> {
-    fn do_write(&mut self, buf: &[u8]) -> Result<usize, Self::Error> {
+    fn write(&mut self, buf: &[u8]) -> Result<usize, Self::Error> {
         if !buf.is_empty() {
-            self.send_headers()?;
+            if let Some(headers) = self.headers {
+                headers.send(self.raw_req)?;
+            }
 
             esp!(unsafe {
                 httpd_resp_send_chunk(self.raw_req, buf.as_ptr() as *const _, buf.len() as ssize_t)
             })?;
 
-            *self.state = ResponseState::Opened;
+            *self.headers = None;
         }
 
         Ok(buf.len())
+    }
+
+    fn flush(&mut self) -> Result<(), Self::Error> {
+        Ok(())
     }
 }
 
 #[cfg(esp_idf_httpd_ws_support)]
 pub mod ws {
-    use core::fmt;
+    use core::fmt::Debug;
     use core::ptr;
     use core::sync::atomic::{AtomicBool, Ordering};
 
     extern crate alloc;
     use alloc::sync::Arc;
 
+    use embedded_svc::ws::server::registry::Registry;
     use log::*;
 
-    use embedded_svc::errors::*;
     use embedded_svc::http::Method;
-    use embedded_svc::ws::server::registry::*;
     use embedded_svc::ws::server::*;
     use embedded_svc::ws::*;
 
@@ -880,7 +767,7 @@ pub mod ws {
         }
     }
 
-    impl Errors for EspHttpWsSender {
+    impl ErrorType for EspHttpWsSender {
         type Error = EspError;
     }
 
@@ -925,7 +812,7 @@ pub mod ws {
 
                     Ok(EspHttpWsDetachedSender::new(*sd, fd, closed.clone()))
                 }
-                Self::Closed(_) => Err(EspError::from(ESP_FAIL).unwrap()),
+                Self::Closed(_) => Err(EspError::from(ESP_FAIL).unwrap().into()),
             }
         }
     }
@@ -977,14 +864,14 @@ pub mod ws {
         }
     }
 
-    impl Errors for EspHttpWsReceiver {
+    impl ErrorType for EspHttpWsReceiver {
         type Error = EspError;
     }
 
     impl Receiver for EspHttpWsReceiver {
         fn recv(&mut self, frame_data_buf: &mut [u8]) -> Result<(FrameType, usize), Self::Error> {
             match self {
-                Self::New(_) => Err(EspError::from(ESP_FAIL).unwrap()),
+                Self::New(_) => Err(EspError::from(ESP_FAIL).unwrap().into()),
                 Self::Open(raw_req) => {
                     let mut raw_frame: httpd_ws_frame_t = Default::default();
 
@@ -1082,7 +969,7 @@ pub mod ws {
         }
     }
 
-    impl Errors for EspHttpWsDetachedSender {
+    impl ErrorType for EspHttpWsDetachedSender {
         type Error = EspError;
     }
 
@@ -1147,13 +1034,18 @@ pub mod ws {
     }
 
     impl Registry for EspHttpServer {
+        type Error = EspError;
+
+        type SendReceiveError = EspError;
+
         type Receiver = EspHttpWsReceiver;
         type Sender = EspHttpWsSender;
 
-        fn set_handler<H, E>(&mut self, uri: &str, handler: H) -> Result<&mut Self, Self::Error>
+        fn handle_ws<H, E>(&mut self, uri: &str, handler: H) -> Result<&mut Self, EspError>
         where
-            H: for<'a> Fn(&'a mut Self::Receiver, &'a mut Self::Sender) -> Result<(), E> + 'static,
-            E: fmt::Display + fmt::Debug,
+            H: for<'a> Fn(&'a mut EspHttpWsReceiver, &'a mut EspHttpWsSender) -> Result<(), E>
+                + 'static,
+            E: Debug,
         {
             let c_str = CString::new(uri).unwrap();
 
@@ -1163,7 +1055,7 @@ pub mod ws {
                 uri: c_str.as_ptr() as _,
                 method: Newtype::<c_types::c_uint>::from(Method::Get).0,
                 user_ctx: Box::into_raw(Box::new(req_handler)) as *mut _,
-                handler: Some(EspHttpServer::handle),
+                handler: Some(EspHttpServer::handle_req),
                 is_websocket: true,
                 // TODO: Expose as a parameter in future: handle_ws_control_frames: true,
                 ..Default::default()
@@ -1198,7 +1090,7 @@ pub mod ws {
         ) -> Result<(), E>
         where
             H: for<'b> Fn(&'b mut EspHttpWsReceiver, &'b mut EspHttpWsSender) -> Result<(), E>,
-            E: fmt::Display + fmt::Debug,
+            E: Debug,
         {
             handler(receiver, sender)?;
 
@@ -1207,9 +1099,9 @@ pub mod ws {
 
         fn handle_ws_error<'a, E>(error: E) -> c_types::c_int
         where
-            E: fmt::Display + fmt::Debug,
+            E: Debug,
         {
-            warn!("Unhandled internal error [{}]:\n{:?}", error, error);
+            warn!("Unhandled internal error [{:?}]:\n{:?}", error, error);
 
             ESP_OK as _
         }
@@ -1225,7 +1117,7 @@ pub mod ws {
         where
             H: for<'a> Fn(&'a mut EspHttpWsReceiver, &'a mut EspHttpWsSender) -> Result<(), E>
                 + 'static,
-            E: fmt::Display + fmt::Debug,
+            E: Debug,
         {
             let boxed_handler = Arc::new(
                 move |mut receiver: EspHttpWsReceiver, mut sender: EspHttpWsSender| {
@@ -1264,7 +1156,7 @@ pub mod ws {
     }
 
     #[cfg(feature = "experimental")]
-    pub mod asyncs {
+    pub mod asynch {
         use embedded_svc::utils::asyncify::ws::server::{AsyncAcceptor, Processor};
 
         use super::{EspHttpWsDetachedSender, EspHttpWsReceiver, EspHttpWsSender};

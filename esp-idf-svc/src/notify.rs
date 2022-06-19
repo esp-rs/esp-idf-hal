@@ -6,8 +6,7 @@ extern crate alloc;
 use alloc::sync::{Arc, Weak};
 use alloc::vec::Vec;
 
-use embedded_svc::errors::Errors;
-use embedded_svc::event_bus::{EventBus, Postbox, PostboxProvider};
+use embedded_svc::event_bus::{ErrorType, EventBus, Postbox, PostboxProvider};
 
 use esp_idf_hal::cpu::Core;
 use esp_idf_hal::interrupt;
@@ -204,7 +203,7 @@ impl Clone for EspNotify {
     }
 }
 
-impl Errors for EspNotify {
+impl ErrorType for EspNotify {
     type Error = EspError;
 }
 

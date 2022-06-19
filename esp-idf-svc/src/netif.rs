@@ -2,8 +2,6 @@ use core::convert::TryInto;
 use core::ptr;
 
 extern crate alloc;
-use alloc::borrow::Cow;
-use alloc::string::String;
 use alloc::sync::Arc;
 
 use ::log::*;
@@ -57,8 +55,8 @@ pub enum InterfaceIpConfiguration {
 #[derive(Clone, Debug, PartialEq)]
 #[cfg_attr(feature = "use_serde", derive(Serialize, Deserialize))]
 pub struct InterfaceConfiguration {
-    pub key: String,
-    pub description: String,
+    pub key: heapless::String<32>,
+    pub description: heapless::String<8>,
     pub route_priority: u32,
     pub ip_configuration: InterfaceIpConfiguration,
     pub interface_stack: InterfaceStack,
@@ -347,21 +345,21 @@ impl EspNetif {
         Ok(netif)
     }
 
-    pub fn get_key(&self) -> Cow<'_, str> {
-        from_cstr_ptr(unsafe { esp_netif_get_ifkey(self.1) })
+    pub fn get_key(&self) -> heapless::String<32> {
+        from_cstr_ptr(unsafe { esp_netif_get_ifkey(self.1) }).into()
     }
 
     pub fn get_index(&self) -> u32 {
         unsafe { esp_netif_get_netif_impl_index(self.1) as _ }
     }
 
-    pub fn get_name(&self) -> Cow<'_, str> {
+    pub fn get_name(&self) -> heapless::String<6> {
         let mut netif_name = [0u8; 7];
 
         esp!(unsafe { esp_netif_get_netif_impl_name(self.1, netif_name.as_mut_ptr() as *mut _) })
             .unwrap();
 
-        Cow::Owned(from_cstr(&netif_name).into_owned())
+        from_cstr(&netif_name).into()
     }
 
     pub fn get_mac(&self) -> Result<[u8; 6], EspError> {
@@ -441,11 +439,11 @@ impl EspNetif {
         };
     }
 
-    pub fn get_hostname(&self) -> Result<Cow<'_, str>, EspError> {
+    pub fn get_hostname(&self) -> Result<heapless::String<30>, EspError> {
         let mut ptr: *const c_types::c_char = core::ptr::null();
         esp!(unsafe { esp_netif_get_hostname(self.1, &mut ptr) })?;
 
-        Ok(from_cstr_ptr(ptr))
+        Ok(from_cstr_ptr(ptr).into())
     }
 
     pub fn set_hostname(&self, hostname: &str) -> Result<(), EspError> {

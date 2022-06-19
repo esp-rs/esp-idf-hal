@@ -1,5 +1,4 @@
-extern crate alloc;
-use alloc::string::String;
+use core::cmp::min;
 
 use ::log::*;
 
@@ -10,6 +9,13 @@ use esp_idf_sys::*;
 use crate::private::cstr::CString;
 
 const SNTP_SERVER_NUM: usize = SNTP_MAX_SERVERS as usize;
+
+const DEFAULT_SERVERS: [&str; 4] = [
+    "0.pool.ntp.org",
+    "1.pool.ntp.org",
+    "2.pool.ntp.org",
+    "3.pool.ntp.org",
+];
 
 #[derive(Copy, Clone, Debug, PartialEq)]
 #[cfg_attr(feature = "std", derive(Hash))]
@@ -87,19 +93,18 @@ impl From<sntp_sync_status_t> for SyncStatus {
     }
 }
 
-pub struct SntpConf {
-    pub servers: [String; SNTP_SERVER_NUM],
+pub struct SntpConf<'a> {
+    pub servers: [&'a str; SNTP_SERVER_NUM],
     pub operating_mode: OperatingMode,
     pub sync_mode: SyncMode,
 }
 
-impl Default for SntpConf {
+impl<'a> Default for SntpConf<'a> {
     fn default() -> Self {
-        let mut servers: [String; SNTP_SERVER_NUM] = Default::default();
-        // Only 0-3 are valid ntp pool domain names
-        for (i, item) in servers.iter_mut().enumerate().take(SNTP_SERVER_NUM.min(4)) {
-            *item = format!("{}.pool.ntp.org", i);
-        }
+        let mut servers: [&str; SNTP_SERVER_NUM] = Default::default();
+        let copy_len = min(servers.len(), DEFAULT_SERVERS.len());
+
+        servers[..copy_len].copy_from_slice(&DEFAULT_SERVERS[..copy_len]);
 
         Self {
             servers,
@@ -142,7 +147,7 @@ impl EspSntp {
 
         let mut c_servers: [CString; SNTP_SERVER_NUM] = Default::default();
         for (i, s) in conf.servers.iter().enumerate() {
-            let c_server = CString::new(s.as_str()).unwrap();
+            let c_server = CString::new(*s).unwrap();
             unsafe { sntp_setservername(i as u8, c_server.as_ptr()) };
             c_servers[i] = c_server;
         }

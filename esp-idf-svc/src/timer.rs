@@ -5,9 +5,8 @@ use core::time::Duration;
 extern crate alloc;
 use alloc::boxed::Box;
 
-use embedded_svc::errors::Errors;
 use embedded_svc::sys_time::SystemTime;
-use embedded_svc::timer::{self, OnceTimer, PeriodicTimer, Timer, TimerService};
+use embedded_svc::timer::{self, ErrorType, OnceTimer, PeriodicTimer, Timer, TimerService};
 
 use esp_idf_sys::*;
 
@@ -76,7 +75,7 @@ impl Drop for EspTimer {
     }
 }
 
-impl Errors for EspTimer {
+impl ErrorType for EspTimer {
     type Error = EspError;
 }
 
@@ -146,7 +145,7 @@ where
     }
 }
 
-impl<T> Errors for EspTimerService<T>
+impl<T> ErrorType for EspTimerService<T>
 where
     T: EspTimerServiceType,
 {
@@ -234,9 +233,9 @@ mod isr {
 
 #[cfg(feature = "experimental")]
 mod asyncify {
+    use embedded_svc::utils::asynch::signal::AtomicSignal;
     use embedded_svc::utils::asyncify::timer::AsyncTimerService;
     use embedded_svc::utils::asyncify::Asyncify;
-    use embedded_svc::utils::asyncs::signal::AtomicSignal;
 
     impl Asyncify for super::EspTimerService<super::Task> {
         type AsyncWrapper<S> = AsyncTimerService<S, AtomicSignal<()>>;

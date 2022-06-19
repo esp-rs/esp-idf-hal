@@ -1,20 +1,19 @@
 extern crate alloc;
-use alloc::borrow::Cow;
 use alloc::collections::BTreeMap;
 use alloc::string::String;
 use alloc::string::ToString;
 
 use ::log::*;
 
-use embedded_svc::errors::Errors;
 use embedded_svc::http::client::*;
 use embedded_svc::http::*;
-use embedded_svc::io::{Read, Write};
+use embedded_svc::io::{Io, Read, Write};
 
 use esp_idf_sys::*;
 
 use uncased::{Uncased, UncasedStr};
 
+use crate::errors::EspIOError;
 use crate::private::common::Newtype;
 use crate::private::cstr::*;
 
@@ -145,19 +144,15 @@ impl Drop for EspHttpClient {
     }
 }
 
-impl Errors for EspHttpClient {
-    type Error = EspError;
+impl Io for EspHttpClient {
+    type Error = EspIOError;
 }
 
 impl Client for EspHttpClient {
     type Request<'a> = EspHttpRequest<'a>;
 
-    fn request(
-        &mut self,
-        method: Method,
-        url: impl AsRef<str>,
-    ) -> Result<Self::Request<'_>, Self::Error> {
-        let c_url = CString::new(url.as_ref()).unwrap();
+    fn request(&mut self, method: Method, url: &str) -> Result<Self::Request<'_>, Self::Error> {
+        let c_url = CString::new(url).unwrap();
 
         esp!(unsafe { esp_http_client_set_url(self.raw, c_url.as_ptr() as _) })?;
         esp!(unsafe {
@@ -185,17 +180,17 @@ pub struct EspHttpRequest<'a> {
     follow_redirects: bool,
 }
 
-impl<'a> Errors for EspHttpRequest<'a> {
-    type Error = EspError;
+impl<'a> Io for EspHttpRequest<'a> {
+    type Error = EspIOError;
 }
 
-impl<'a> Request<'a> for EspHttpRequest<'a> {
-    type Write<'b> = EspHttpRequestWrite<'b>;
+impl<'a> Request for EspHttpRequest<'a> {
+    type Write = EspHttpRequestWrite<'a>;
 
-    fn into_writer(self, size: usize) -> Result<Self::Write<'a>, Self::Error> {
+    fn into_writer(self, size: usize) -> Result<Self::Write, Self::Error> {
         esp!(unsafe { esp_http_client_open(self.client.raw, size as _) })?;
 
-        Ok(Self::Write::<'a> {
+        Ok(Self::Write {
             client: self.client,
             follow_redirects: self.follow_redirects,
             size,
@@ -203,16 +198,12 @@ impl<'a> Request<'a> for EspHttpRequest<'a> {
     }
 }
 
-impl<'a> SendHeaders<'a> for EspHttpRequest<'a> {
-    fn set_header<H, V>(&mut self, name: H, value: V) -> &mut Self
-    where
-        H: Into<Cow<'a, str>>,
-        V: Into<Cow<'a, str>>,
-    {
-        let c_name = CString::new(name.into().as_ref()).unwrap();
+impl<'a> SendHeaders for EspHttpRequest<'a> {
+    fn set_header(&mut self, name: &str, value: &str) -> &mut Self {
+        let c_name = CString::new(name).unwrap();
 
         // TODO: Replace with a proper conversion from UTF8 to ISO-8859-1
-        let c_value = CString::new(value.into().as_ref()).unwrap();
+        let c_value = CString::new(value).unwrap();
 
         esp!(unsafe {
             esp_http_client_set_header(self.client.raw, c_name.as_ptr() as _, c_value.as_ptr() as _)
@@ -230,7 +221,7 @@ pub struct EspHttpRequestWrite<'a> {
 }
 
 impl<'a> EspHttpRequestWrite<'a> {
-    fn fetch_headers(&mut self) -> Result<BTreeMap<Uncased<'static>, String>, EspError> {
+    fn fetch_headers(&mut self) -> Result<BTreeMap<Uncased<'static>, String>, EspIOError> {
         let mut headers = BTreeMap::new();
 
         loop {
@@ -243,8 +234,8 @@ impl<'a> EspHttpRequestWrite<'a> {
                         // TODO: Replace with a proper conversion from ISO-8859-1 to UTF8
 
                         headers_ptr.as_mut().unwrap().insert(
-                            Uncased::from(from_cstr_ptr(event.header_key).into_owned()),
-                            from_cstr_ptr(event.header_value).into_owned(),
+                            Uncased::from(from_cstr_ptr(event.header_key)),
+                            from_cstr_ptr(event.header_value).to_string(),
                         );
                     }
                 }
@@ -305,10 +296,10 @@ impl<'a> EspHttpRequestWrite<'a> {
     }
 }
 
-impl<'a> RequestWrite<'a> for EspHttpRequestWrite<'a> {
+impl<'a> RequestWrite for EspHttpRequestWrite<'a> {
     type Response = EspHttpResponse<'a>;
 
-    fn into_response(mut self) -> Result<Self::Response, Self::Error> {
+    fn submit(mut self) -> Result<Self::Response, Self::Error> {
         let headers = self.fetch_headers()?;
 
         Ok(EspHttpResponse {
@@ -318,12 +309,12 @@ impl<'a> RequestWrite<'a> for EspHttpRequestWrite<'a> {
     }
 }
 
-impl<'a> Errors for EspHttpRequestWrite<'a> {
-    type Error = EspError;
+impl<'a> Io for EspHttpRequestWrite<'a> {
+    type Error = EspIOError;
 }
 
 impl<'a> Write for EspHttpRequestWrite<'a> {
-    fn do_write(&mut self, buf: &[u8]) -> Result<usize, Self::Error> {
+    fn write(&mut self, buf: &[u8]) -> Result<usize, Self::Error> {
         let result =
             unsafe { esp_http_client_write(self.client.raw, buf.as_ptr() as _, buf.len() as _) };
         if result < 0 {
@@ -332,6 +323,10 @@ impl<'a> Write for EspHttpRequestWrite<'a> {
 
         Ok(result as _)
     }
+
+    fn flush(&mut self) -> Result<(), Self::Error> {
+        Ok(())
+    }
 }
 
 pub struct EspHttpResponse<'a> {
@@ -339,30 +334,29 @@ pub struct EspHttpResponse<'a> {
     headers: BTreeMap<Uncased<'static>, String>,
 }
 
-impl<'a> Errors for EspHttpResponse<'a> {
-    type Error = EspError;
+impl<'a> Io for EspHttpResponse<'a> {
+    type Error = EspIOError;
 }
 
 impl<'a> Response for EspHttpResponse<'a> {
     type Read<'b>
     where
         'a: 'b,
-    = &'b EspHttpResponse<'a>;
+    = &'b mut EspHttpResponse<'a>;
 
-    fn reader(&self) -> Self::Read<'_> {
+    fn reader(&mut self) -> Self::Read<'_> {
         self
     }
 }
 
 impl<'a> Headers for EspHttpResponse<'a> {
-    fn header(&self, name: impl AsRef<str>) -> Option<Cow<'_, str>> {
-        if name.as_ref().eq_ignore_ascii_case("Content-Length") {
-            self.content_len().map(|l| Cow::Owned(l.to_string()))
-        } else {
-            self.headers
-                .get(UncasedStr::new(name.as_ref()))
-                .map(|s| Cow::Borrowed(s.as_str()))
-        }
+    fn header(&self, name: &str) -> Option<&str> {
+        // TODO XXX FIXME
+        // if name.eq_ignore_ascii_case("Content-Length") {
+        //     self.content_len().map(|l| l.to_string())
+        // } else {
+        self.headers.get(UncasedStr::new(name)).map(|s| s.as_str())
+        // }
     }
 
     fn content_len(&self) -> Option<usize> {
@@ -381,13 +375,13 @@ impl<'a> Status for EspHttpResponse<'a> {
         unsafe { esp_http_client_get_status_code(self.client.raw) as _ }
     }
 
-    fn status_message(&self) -> Option<Cow<'_, str>> {
+    fn status_message(&self) -> Option<&str> {
         None
     }
 }
 
-impl<'a> Read for &EspHttpResponse<'a> {
-    fn do_read(&mut self, buf: &mut [u8]) -> Result<usize, Self::Error> {
+impl<'a> Read for &mut EspHttpResponse<'a> {
+    fn read(&mut self, buf: &mut [u8]) -> Result<usize, Self::Error> {
         let result = unsafe {
             esp_http_client_read_response(self.client.raw, buf.as_mut_ptr() as _, buf.len() as _)
         };

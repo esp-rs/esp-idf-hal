@@ -1,13 +1,10 @@
+use core::cmp::min;
+use core::fmt::Write;
 use core::mem;
 use core::ptr;
 
-extern crate alloc;
-use alloc::borrow::Cow;
-use alloc::vec;
-
 use ::log::*;
 
-use embedded_svc::errors::Errors;
 use embedded_svc::io;
 use embedded_svc::ota;
 
@@ -15,6 +12,7 @@ use esp_idf_hal::mutex;
 
 use esp_idf_sys::*;
 
+use crate::errors::EspIOError;
 use crate::private::{common::*, cstr::*};
 
 static TAKEN: mutex::Mutex<bool> = mutex::Mutex::new(false);
@@ -23,22 +21,31 @@ impl From<Newtype<&esp_app_desc_t>> for ota::FirmwareInfo {
     fn from(app_desc: Newtype<&esp_app_desc_t>) -> Self {
         let app_desc = app_desc.0;
 
-        Self {
-            version: from_cstr_ptr(&app_desc.version as *const _).into_owned(),
-            signature: Some(app_desc.app_elf_sha256.into()),
-            released: from_cstr_ptr(&app_desc.date as *const _).into_owned()
-                + from_cstr_ptr(&app_desc.time as *const _).as_ref(),
-            description: from_cstr_ptr(&app_desc.project_name as *const _).into_owned(),
+        let mut result = Self {
+            version: from_cstr_ptr(&app_desc.version as *const _).into(),
+            signature: Some(heapless::Vec::from_slice(&app_desc.app_elf_sha256).unwrap()),
+            released: "".into(),
+            description: Some(from_cstr_ptr(&app_desc.project_name as *const _).into()),
             download_id: None,
-        }
+        };
+
+        write!(
+            &mut result.released,
+            "{}{}",
+            from_cstr_ptr(&app_desc.date as *const _),
+            from_cstr_ptr(&app_desc.time as *const _)
+        )
+        .unwrap();
+
+        result
     }
 }
 
-pub struct EspFirmwareInfoLoader(vec::Vec<u8>);
+pub struct EspFirmwareInfoLoader(heapless::Vec<u8, 512>);
 
 impl EspFirmwareInfoLoader {
     pub fn new() -> Self {
-        Self(vec::Vec::new())
+        Self(heapless::Vec::new())
     }
 }
 
@@ -48,14 +55,19 @@ impl Default for EspFirmwareInfoLoader {
     }
 }
 
-impl Errors for EspFirmwareInfoLoader {
-    type Error = EspError;
+impl io::Io for EspFirmwareInfoLoader {
+    type Error = EspIOError;
 }
 
 impl ota::FirmwareInfoLoader for EspFirmwareInfoLoader {
     fn load(&mut self, buf: &[u8]) -> Result<ota::LoadResult, Self::Error> {
         if !self.is_loaded() {
-            self.0.extend_from_slice(buf);
+            let remaining = self.0.capacity() - self.0.len();
+            if remaining > 0 {
+                self.0
+                    .extend_from_slice(&buf[..min(buf.len(), remaining)])
+                    .unwrap();
+            }
         }
 
         Ok(if self.is_loaded() {
@@ -83,21 +95,21 @@ impl ota::FirmwareInfoLoader for EspFirmwareInfoLoader {
                     .unwrap()
             };
 
-            Ok(ota::FirmwareInfo::from(Newtype(app_desc)))
+            Ok(Newtype(app_desc).into())
         } else {
-            Err(EspError::from(ESP_ERR_INVALID_SIZE as _).unwrap())
+            Err(EspError::from(ESP_ERR_INVALID_SIZE as _).unwrap().into())
         }
     }
 }
 
 pub struct EspSlot(esp_partition_t);
 
-impl Errors for EspSlot {
-    type Error = EspError;
+impl io::Io for EspSlot {
+    type Error = EspIOError;
 }
 
 impl ota::OtaSlot for EspSlot {
-    fn get_label(&self) -> Result<Cow<'_, str>, Self::Error> {
+    fn get_label(&self) -> Result<&str, Self::Error> {
         Ok(from_cstr_ptr(&self.0.label as *const _ as *const _))
     }
 
@@ -134,7 +146,7 @@ impl ota::OtaSlot for EspSlot {
         } else {
             esp!(err)?;
 
-            Some(ota::FirmwareInfo::from(Newtype(&app_desc)))
+            Some(Newtype(&app_desc).into())
         })
     }
 }
@@ -190,8 +202,8 @@ impl<MODE> Drop for EspOta<MODE> {
     }
 }
 
-impl Errors for EspOta<Read> {
-    type Error = EspError;
+impl<P> io::Io for EspOta<P> {
+    type Error = EspIOError;
 }
 
 impl ota::Ota for EspOta<Read> {
@@ -219,8 +231,9 @@ impl ota::Ota for EspOta<Read> {
     }
 
     fn is_factory_reset_supported(&self) -> Result<bool, Self::Error> {
-        self.get_factory_partition()
-            .map(|factory| !factory.is_null())
+        Ok(self
+            .get_factory_partition()
+            .map(|factory| !factory.is_null())?)
     }
 
     fn factory_reset(&mut self) -> Result<(), Self::Error> {
@@ -242,12 +255,12 @@ impl ota::Ota for EspOta<Read> {
     }
 
     fn mark_running_slot_valid(&mut self) -> Result<(), Self::Error> {
-        esp!(unsafe { esp_ota_mark_app_valid_cancel_rollback() })
+        Ok(esp!(unsafe { esp_ota_mark_app_valid_cancel_rollback() })?)
     }
 
     fn mark_running_slot_invalid_and_reboot(&mut self) -> Self::Error {
         if let Err(err) = esp!(unsafe { esp_ota_mark_app_invalid_rollback_and_reboot() }) {
-            err
+            err.into()
         } else {
             unreachable!()
         }
@@ -269,14 +282,14 @@ impl ota::OtaUpdate for EspOta<Update> {
     }
 }
 
-impl Errors for EspOta<Update> {
-    type Error = EspError;
-}
-
 impl io::Write for EspOta<Update> {
-    fn do_write(&mut self, buf: &[u8]) -> Result<usize, Self::Error> {
+    fn write(&mut self, buf: &[u8]) -> Result<usize, Self::Error> {
         esp!(unsafe { esp_ota_write(self.0.handle, buf.as_ptr() as _, buf.len() as _) })?;
 
         Ok(buf.len())
+    }
+
+    fn flush(&mut self) -> Result<(), Self::Error> {
+        Ok(())
     }
 }
