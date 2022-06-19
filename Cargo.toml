@@ -15,13 +15,13 @@ documentation = "https://esp-rs.github.io/esp-idf-hal/"
 [features]
 default = ["std", "alloc", "esp-idf-sys", "embedded-svc"]
 
-std = ["alloc", "esp-idf-sys/std"]
+std = ["alloc", "esp-idf-sys/std", "embedded-svc?/std"]
 
-alloc = []
+alloc = ["embedded-svc?/alloc"]
 
 riscv-ulp-hal = []
 
-experimental = []
+experimental = ["embedded-svc?/experimental"]
 
 [dependencies]
 nb = "0.1.2"
