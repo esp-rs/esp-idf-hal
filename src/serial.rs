@@ -525,6 +525,10 @@ pub struct Tx<UART: Uart> {
 pub struct EventQueue(ptr::NonNull<QueueDefinition>);
 unsafe impl Send for EventQueue {}
 impl EventQueue {
+    fn new(queue_def: *mut QueueDefinition) -> Self {
+        EventQueue(ptr::NonNull::new(queue_def).unwrap())
+    }
+
     fn as_ptr(&self) -> QueueHandle_t {
         self.0.as_ptr()
     }
@@ -657,18 +661,26 @@ impl<UART: Uart, TX: OutputPin, RX: InputPin, CTS: InputPin, RTS: OutputPin>
             )
         })?;
 
-        let mut event_queue_handle: QueueHandle_t = ptr::null_mut();
+        let mut handle = ptr::null_mut();
+        let handle_ptr = match config.event_queue_size {
+            0 => ptr::null_mut(),
+            _ => &mut handle,
+        };
+
         esp!(unsafe {
             uart_driver_install(
                 UART::port(),
                 config.rx_buffer_size,
                 config.tx_buffer_size,
                 config.event_queue_size,
-                &mut event_queue_handle,
+                handle_ptr,
                 0,
             )
         })?;
-        let event_handle = ptr::NonNull::new(event_queue_handle).map(EventQueue);
+        let event_handle = match handle.is_null() {
+            true => Some(EventQueue::new(handle)),
+            false => None,
+        };
 
         Ok(Self {
             uart,
