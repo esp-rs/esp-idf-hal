@@ -565,6 +565,20 @@ impl VariableLengthSignal {
         }
     }
 
+    /// Create a new [`VariableLengthSignal`] with a a given capacity. This is
+    /// more efficent than not specifying the capacity with `new( )` as the
+    /// memory manager only needs to allocate the underlying array once.
+    ///
+    /// - `capacity` is the number of [`Pulse`]s which can be pushes before reallocating
+    pub fn with_capacity(capacity: usize) -> Self {
+        // half the size, rounding up, because each entry in the [`Vec`] holds upto 2 pulses each
+        let vec_size = (capacity + 1) / 2;
+        Self {
+            items: Vec::with_capacity(vec_size),
+            next_item_is_new: true,
+        }
+    }
+
     /// Add [`Pulse`]s to the end of the signal.
     pub fn push<'p, I>(&mut self, pulses: I) -> Result<(), EspError>
     where
