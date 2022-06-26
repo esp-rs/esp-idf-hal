@@ -165,7 +165,8 @@ impl UnsafeCallback {
 }
 
 #[cfg(all(not(feature = "riscv-ulp-hal"), feature = "alloc"))]
-static ISR_SERVICE_ENABLED: crate::mutex::Mutex<bool> = crate::mutex::Mutex::new(false);
+static ISR_SERVICE_ENABLED: crate::mutex::Mutex<bool> =
+    crate::mutex::Mutex::wrap(crate::mutex::RawMutex::new(), false);
 
 #[cfg(all(not(feature = "riscv-ulp-hal"), feature = "alloc"))]
 unsafe extern "C" fn irq_handler(unsafe_callback: *mut esp_idf_sys::c_types::c_void) {

@@ -61,7 +61,7 @@ pub struct Peripherals {
     pub ulp: ulp::ULP,
 }
 
-static TAKEN: mutex::Mutex<bool> = mutex::Mutex::new(false);
+static TAKEN: mutex::Mutex<bool> = mutex::Mutex::wrap(mutex::RawMutex::new(), false);
 
 impl Peripherals {
     pub fn take() -> Option<Self> {

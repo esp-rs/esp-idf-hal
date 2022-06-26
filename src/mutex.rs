@@ -1,5 +1,4 @@
 use core::cell::UnsafeCell;
-use core::ops::{Deref, DerefMut};
 use core::ptr;
 use core::time::Duration;
 
@@ -8,106 +7,58 @@ use esp_idf_sys::*;
 // NOTE: ESP-IDF-specific
 const PTHREAD_MUTEX_INITIALIZER: u32 = 0xFFFFFFFF;
 
-pub struct Mutex<T>(UnsafeCell<pthread_mutex_t>, UnsafeCell<T>);
+pub type Mutex<T> = embedded_svc::utils::mutex::Mutex<RawMutex, T>;
 
-impl<T> Mutex<T> {
+pub type Condvar = embedded_svc::utils::mutex::Condvar<RawCondvar>;
+
+pub struct RawMutex(UnsafeCell<pthread_mutex_t>);
+
+impl RawMutex {
     #[inline(always)]
-    pub const fn new(data: T) -> Self {
-        Self(
-            UnsafeCell::new(PTHREAD_MUTEX_INITIALIZER as _),
-            UnsafeCell::new(data),
-        )
+    pub const fn new() -> Self {
+        Self(UnsafeCell::new(PTHREAD_MUTEX_INITIALIZER as _))
     }
 
     #[inline(always)]
-    pub fn lock(&self) -> MutexGuard<'_, T> {
-        MutexGuard::new(self)
+    pub unsafe fn lock(&self) {
+        let r = pthread_mutex_lock(self.0.get());
+        debug_assert_eq!(r, 0);
+    }
+
+    #[inline(always)]
+    pub unsafe fn unlock(&self) {
+        let r = pthread_mutex_unlock(self.0.get());
+        debug_assert_eq!(r, 0);
     }
 }
 
-impl<T> Drop for Mutex<T> {
+impl Drop for RawMutex {
     fn drop(&mut self) {
         let r = unsafe { pthread_mutex_destroy(self.0.get_mut() as *mut _) };
         debug_assert_eq!(r, 0);
     }
 }
 
-unsafe impl<T> Sync for Mutex<T> where T: Send {}
-unsafe impl<T> Send for Mutex<T> where T: Send {}
+unsafe impl Sync for RawMutex {}
+unsafe impl Send for RawMutex {}
 
-pub struct MutexGuard<'a, T>(&'a Mutex<T>);
+impl embedded_svc::mutex::RawMutex for RawMutex {
+    fn new() -> Self {
+        RawMutex::new()
+    }
 
-impl<'a, T> MutexGuard<'a, T> {
-    #[inline(always)]
-    fn new(mutex: &'a Mutex<T>) -> Self {
-        let r = unsafe { pthread_mutex_lock(mutex.0.get()) };
-        debug_assert_eq!(r, 0);
+    unsafe fn lock(&self) {
+        RawMutex::lock(self);
+    }
 
-        Self(mutex)
+    unsafe fn unlock(&self) {
+        RawMutex::unlock(self);
     }
 }
 
-unsafe impl<T> Sync for MutexGuard<'_, T> where T: Sync {}
+pub struct RawCondvar(UnsafeCell<pthread_cond_t>);
 
-impl<'a, T> Drop for MutexGuard<'a, T> {
-    #[inline(always)]
-    fn drop(&mut self) {
-        let r = unsafe { pthread_mutex_unlock(self.0 .0.get()) };
-        debug_assert_eq!(r, 0);
-    }
-}
-
-impl<'a, T> Deref for MutexGuard<'a, T> {
-    type Target = T;
-
-    #[inline(always)]
-    fn deref(&self) -> &Self::Target {
-        unsafe { self.0 .1.get().as_mut().unwrap() }
-    }
-}
-
-impl<'a, T> DerefMut for MutexGuard<'a, T> {
-    #[inline(always)]
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        unsafe { self.0 .1.get().as_mut().unwrap() }
-    }
-}
-
-#[cfg(feature = "mutex-trait")]
-impl<T> mutex_trait::Mutex for Mutex<T> {
-    type Data = T;
-
-    #[inline(always)]
-    fn lock<R>(&mut self, f: impl FnOnce(&mut Self::Data) -> R) -> R {
-        let mut guard = Mutex::lock(self);
-
-        f(&mut *guard)
-    }
-}
-
-#[cfg(feature = "embedded-svc")]
-impl<T> embedded_svc::mutex::Mutex for Mutex<T> {
-    type Data = T;
-
-    type Guard<'a>
-    where
-        T: 'a,
-    = MutexGuard<'a, T>;
-
-    #[inline(always)]
-    fn new(data: Self::Data) -> Self {
-        Mutex::new(data)
-    }
-
-    #[inline(always)]
-    fn lock(&self) -> Self::Guard<'_> {
-        Mutex::lock(self)
-    }
-}
-
-pub struct Condvar(UnsafeCell<pthread_cond_t>);
-
-impl Condvar {
+impl RawCondvar {
     pub fn new() -> Self {
         let mut cond: pthread_cond_t = Default::default();
 
@@ -117,18 +68,12 @@ impl Condvar {
         Self(UnsafeCell::new(cond))
     }
 
-    pub fn wait<'a, T>(&self, guard: MutexGuard<'a, T>) -> MutexGuard<'a, T> {
-        let r = unsafe { pthread_cond_wait(self.0.get(), guard.0 .0.get()) };
+    pub unsafe fn wait(&self, mutex: &RawMutex) {
+        let r = pthread_cond_wait(self.0.get(), mutex.0.get());
         debug_assert_eq!(r, 0);
-
-        guard
     }
 
-    pub fn wait_timeout<'a, T>(
-        &self,
-        guard: MutexGuard<'a, T>,
-        duration: Duration,
-    ) -> (MutexGuard<'a, T>, bool) {
+    pub unsafe fn wait_timeout(&self, mutex: &RawMutex, duration: Duration) -> bool {
         let mut now: timeval = unsafe { core::mem::zeroed() };
         unsafe { gettimeofday(&mut now, core::ptr::null_mut()) };
 
@@ -137,11 +82,10 @@ impl Condvar {
             tv_nsec: (now.tv_usec * 1000) + duration.subsec_nanos() as i32,
         };
 
-        let r =
-            unsafe { pthread_cond_timedwait(self.0.get(), guard.0 .0.get(), &abstime as *const _) };
+        let r = pthread_cond_timedwait(self.0.get(), mutex.0.get(), &abstime as *const _);
         debug_assert!(r == ETIMEDOUT as i32 || r == 0);
 
-        (guard, r == ETIMEDOUT as i32)
+        r == ETIMEDOUT as i32
     }
 
     pub fn notify_one(&self) {
@@ -155,79 +99,42 @@ impl Condvar {
     }
 }
 
-unsafe impl Sync for Condvar {}
-unsafe impl Send for Condvar {}
+unsafe impl Sync for RawCondvar {}
+unsafe impl Send for RawCondvar {}
 
-impl Default for Condvar {
+impl Default for RawCondvar {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl Drop for Condvar {
+impl Drop for RawCondvar {
     fn drop(&mut self) {
         let r = unsafe { pthread_cond_destroy(self.0.get()) };
         debug_assert_eq!(r, 0);
     }
 }
 
-#[cfg(feature = "embedded-svc")]
-impl embedded_svc::mutex::MutexFamily for Condvar {
-    type Mutex<T> = Mutex<T>;
-}
+impl embedded_svc::mutex::RawCondvar for RawCondvar {
+    type RawMutex = RawMutex;
 
-#[cfg(all(feature = "experimental", feature = "embedded-svc"))]
-impl embedded_svc::signal::asynch::SignalFamily for Condvar {
-    type Signal<T> = embedded_svc::utils::asynch::signal::MutexSignal<
-        Mutex<embedded_svc::utils::asynch::signal::State<T>>,
-        T,
-    >;
-}
-
-#[cfg(all(feature = "experimental", feature = "embedded-svc"))]
-impl embedded_svc::signal::asynch::SendSyncSignalFamily for Condvar {
-    type Signal<T>
-    where
-        T: Send,
-    = embedded_svc::utils::asynch::signal::MutexSignal<
-        Mutex<embedded_svc::utils::asynch::signal::State<T>>,
-        T,
-    >;
-}
-
-#[cfg(feature = "embedded-svc")]
-impl embedded_svc::mutex::Condvar for Condvar {
-    #[inline(always)]
     fn new() -> Self {
-        Condvar::new()
+        RawCondvar::new()
     }
 
-    fn wait<'a, T>(
-        &self,
-        guard: <<Self as embedded_svc::mutex::MutexFamily>::Mutex<T> as embedded_svc::mutex::Mutex>::Guard<'a>,
-    ) -> <<Self as embedded_svc::mutex::MutexFamily>::Mutex<T> as embedded_svc::mutex::Mutex>::Guard<'a>
-    {
-        Condvar::wait(self, guard)
+    unsafe fn wait(&self, mutex: &Self::RawMutex) {
+        RawCondvar::wait(self, mutex);
     }
 
-    fn wait_timeout<'a, T>(
-        &self,
-        guard: <<Self as embedded_svc::mutex::MutexFamily>::Mutex<T> as embedded_svc::mutex::Mutex>::Guard<'a>,
-        duration: Duration,
-    ) -> (
-        <<Self as embedded_svc::mutex::MutexFamily>::Mutex<T> as embedded_svc::mutex::Mutex>::Guard<
-            'a,
-        >,
-        bool,
-    ) {
-        Condvar::wait_timeout(self, guard, duration)
+    unsafe fn wait_timeout(&self, mutex: &Self::RawMutex, duration: Duration) -> bool {
+        RawCondvar::wait_timeout(self, mutex, duration)
     }
 
     fn notify_one(&self) {
-        Condvar::notify_one(self)
+        RawCondvar::notify_one(self);
     }
 
     fn notify_all(&self) {
-        Condvar::notify_all(self)
+        RawCondvar::notify_all(self);
     }
 }
