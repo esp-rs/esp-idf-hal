@@ -38,6 +38,8 @@ pub mod i2c;
 #[cfg(not(feature = "riscv-ulp-hal"))]
 pub mod interrupt;
 pub mod ledc;
+#[cfg(any(esp32, esp32s3))]
+pub mod mcpwm;
 #[cfg(not(feature = "riscv-ulp-hal"))]
 pub mod mutex;
 pub mod peripherals;
