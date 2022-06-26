@@ -11,7 +11,7 @@ use alloc::sync::Arc;
 use embedded_svc::mqtt::client::utils::{ConnState, ConnStateGuard, Connection, Postbox};
 use embedded_svc::mqtt::client::{self, ErrorType, Message, MessageImpl};
 
-use esp_idf_hal::mutex::Condvar;
+use esp_idf_hal::mutex::RawCondvar;
 
 use esp_idf_sys::*;
 
@@ -283,7 +283,7 @@ impl UnsafeCallback {
 
 pub struct EspMqttClient<S = ()> {
     raw_client: esp_mqtt_client_handle_t,
-    conn_state_guard: Option<Arc<ConnStateGuard<Condvar, S>>>,
+    conn_state_guard: Option<Arc<ConnStateGuard<RawCondvar, S>>>,
     _boxed_raw_callback: Box<dyn FnMut(esp_mqtt_event_handle_t)>,
 }
 
@@ -291,7 +291,7 @@ impl EspMqttClient<ConnState<MessageImpl, EspError>> {
     pub fn new_with_conn<'a>(
         url: impl AsRef<str>,
         conf: &'a MqttClientConfiguration<'a>,
-    ) -> Result<(Self, Connection<Condvar, MessageImpl, EspError>), EspError>
+    ) -> Result<(Self, Connection<RawCondvar, MessageImpl, EspError>), EspError>
     where
         Self: Sized,
     {
@@ -316,7 +316,7 @@ where
             ) -> Result<client::Event<M>, E>
             + Send
             + 'static,
-    ) -> Result<(Self, Connection<Condvar, M, E>), EspError>
+    ) -> Result<(Self, Connection<RawCondvar, M, E>), EspError>
     where
         Self: Sized,
     {
@@ -351,7 +351,7 @@ impl<S> EspMqttClient<S> {
     pub fn new_generic<'a>(
         url: impl AsRef<str>,
         conf: &'a MqttClientConfiguration<'a>,
-        conn_state_guard: Option<Arc<ConnStateGuard<Condvar, S>>>,
+        conn_state_guard: Option<Arc<ConnStateGuard<RawCondvar, S>>>,
         mut callback: impl for<'b> FnMut(&'b Result<client::Event<EspMqttMessage<'b>>, EspError>)
             + Send
             + 'static,
@@ -375,7 +375,7 @@ impl<S> EspMqttClient<S> {
         url: impl AsRef<str> + 'a,
         conf: &'a MqttClientConfiguration<'a>,
         raw_callback: Box<dyn FnMut(esp_mqtt_event_handle_t)>,
-        conn_state_guard: Option<Arc<ConnStateGuard<Condvar, S>>>,
+        conn_state_guard: Option<Arc<ConnStateGuard<RawCondvar, S>>>,
     ) -> Result<Self, EspError>
     where
         Self: Sized,
@@ -652,15 +652,16 @@ mod asyncify {
         AsyncClient, AsyncConnState, AsyncConnection, AsyncPostbox, Blocking, Publishing,
     };
     use embedded_svc::utils::asyncify::{Asyncify, UnblockingAsyncify};
+    use embedded_svc::utils::mutex::Mutex;
 
-    use esp_idf_hal::mutex::{Condvar, Mutex};
+    use esp_idf_hal::mutex::{RawCondvar, RawMutex};
 
     use esp_idf_sys::EspError;
 
     use super::{EspMqttClient, EspMqttMessage, MqttClientConfiguration};
 
     impl<P> UnblockingAsyncify for super::EspMqttClient<P> {
-        type AsyncWrapper<U, S> = AsyncClient<U, Arc<Mutex<S>>>;
+        type AsyncWrapper<U, S> = AsyncClient<U, Arc<Mutex<RawMutex, S>>>;
     }
 
     impl<P> Asyncify for super::EspMqttClient<P> {
@@ -675,12 +676,12 @@ mod asyncify {
     pub type EspMqttAsyncConnection = EspMqttConvertingAsyncConnection<MessageImpl, EspError>;
 
     pub type EspMqttConvertingUnblockingAsyncClient<U, M, E> =
-        AsyncClient<U, Arc<Mutex<EspMqttClient<AsyncConnState<M, E>>>>>;
+        AsyncClient<U, Arc<Mutex<RawMutex, EspMqttClient<AsyncConnState<M, E>>>>>;
 
     pub type EspMqttConvertingAsyncClient<M, E> =
         AsyncClient<(), EspMqttClient<AsyncConnState<M, E>>>;
 
-    pub type EspMqttConvertingAsyncConnection<M, E> = AsyncConnection<Condvar, M, E>;
+    pub type EspMqttConvertingAsyncConnection<M, E> = AsyncConnection<RawCondvar, M, E>;
 
     impl EspMqttClient<AsyncConnState<MessageImpl, EspError>> {
         pub fn new_with_async_conn<'a>(

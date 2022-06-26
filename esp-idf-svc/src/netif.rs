@@ -163,7 +163,8 @@ impl InterfaceConfiguration {
     }
 }
 
-static TAKEN: mutex::Mutex<(bool, bool)> = mutex::Mutex::new((false, false));
+static TAKEN: mutex::Mutex<(bool, bool)> =
+    mutex::Mutex::wrap(mutex::RawMutex::new(), (false, false));
 
 #[derive(Debug)]
 struct PrivateData;

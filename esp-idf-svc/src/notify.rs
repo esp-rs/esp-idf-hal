@@ -242,9 +242,9 @@ mod asyncify {
     use embedded_svc::utils::asyncify::event_bus::AsyncEventBus;
     use embedded_svc::utils::asyncify::Asyncify;
 
-    use esp_idf_hal::mutex::Condvar;
+    use esp_idf_hal::mutex::RawCondvar;
 
     impl Asyncify for super::EspNotify {
-        type AsyncWrapper<S> = AsyncEventBus<(), Condvar, S>;
+        type AsyncWrapper<S> = AsyncEventBus<(), RawCondvar, S>;
     }
 }

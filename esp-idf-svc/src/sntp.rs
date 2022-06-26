@@ -114,7 +114,7 @@ impl<'a> Default for SntpConf<'a> {
     }
 }
 
-static TAKEN: mutex::Mutex<bool> = mutex::Mutex::new(false);
+static TAKEN: mutex::Mutex<bool> = mutex::Mutex::wrap(mutex::RawMutex::new(), false);
 
 pub struct EspSntp {
     // Needs to be kept around because the C bindings only have a pointer.

@@ -8,9 +8,9 @@ use esp_idf_sys::*;
 
 use crate::private::cstr::*;
 
-static DEFAULT_TAKEN: mutex::Mutex<bool> = mutex::Mutex::new(false);
+static DEFAULT_TAKEN: mutex::Mutex<bool> = mutex::Mutex::wrap(mutex::RawMutex::new(), false);
 static NONDEFAULT_LOCKED: mutex::Mutex<alloc::collections::BTreeSet<CString>> =
-    mutex::Mutex::new(alloc::collections::BTreeSet::new());
+    mutex::Mutex::wrap(mutex::RawMutex::new(), alloc::collections::BTreeSet::new());
 
 #[derive(Debug)]
 struct PrivateData;

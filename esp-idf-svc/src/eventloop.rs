@@ -98,7 +98,7 @@ impl From<&ExplicitLoopConfiguration> for esp_event_loop_args_t {
     }
 }
 
-static TAKEN: mutex::Mutex<bool> = mutex::Mutex::new(false);
+static TAKEN: mutex::Mutex<bool> = mutex::Mutex::wrap(mutex::RawMutex::new(), false);
 
 #[derive(Clone, Debug)]
 pub struct System;
@@ -904,27 +904,27 @@ mod asyncify {
     use embedded_svc::utils::asyncify::event_bus::AsyncEventBus;
     use embedded_svc::utils::asyncify::{Asyncify, UnblockingAsyncify};
 
-    use esp_idf_hal::mutex::Condvar;
+    use esp_idf_hal::mutex::RawCondvar;
 
     impl<T> Asyncify for super::EspEventLoop<T>
     where
         T: super::EspEventLoopType,
     {
-        type AsyncWrapper<S> = AsyncEventBus<(), Condvar, S>;
+        type AsyncWrapper<S> = AsyncEventBus<(), RawCondvar, S>;
     }
 
     impl<T> UnblockingAsyncify for super::EspEventLoop<T>
     where
         T: super::EspEventLoopType,
     {
-        type AsyncWrapper<U, S> = AsyncEventBus<U, Condvar, S>;
+        type AsyncWrapper<U, S> = AsyncEventBus<U, RawCondvar, S>;
     }
 
     impl<M, P, L> Asyncify for super::EspTypedEventLoop<M, P, L> {
-        type AsyncWrapper<S> = AsyncEventBus<(), Condvar, S>;
+        type AsyncWrapper<S> = AsyncEventBus<(), RawCondvar, S>;
     }
 
     impl<M, P, L> UnblockingAsyncify for super::EspTypedEventLoop<M, P, L> {
-        type AsyncWrapper<U, S> = AsyncEventBus<U, Condvar, S>;
+        type AsyncWrapper<U, S> = AsyncEventBus<U, RawCondvar, S>;
     }
 }

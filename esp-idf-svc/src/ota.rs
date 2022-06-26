@@ -15,7 +15,7 @@ use esp_idf_sys::*;
 use crate::errors::EspIOError;
 use crate::private::{common::*, cstr::*};
 
-static TAKEN: mutex::Mutex<bool> = mutex::Mutex::new(false);
+static TAKEN: mutex::Mutex<bool> = mutex::Mutex::wrap(mutex::RawMutex::new(), false);
 
 impl From<Newtype<&esp_app_desc_t>> for ota::FirmwareInfo {
     fn from(app_desc: Newtype<&esp_app_desc_t>) -> Self {
