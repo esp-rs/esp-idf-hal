@@ -1,5 +1,3 @@
-use core::cell::{RefCell, RefMut};
-use core::ops::{Deref, DerefMut};
 use core::ptr;
 use core::sync::atomic::{AtomicPtr, Ordering};
 
@@ -339,120 +337,41 @@ pub fn free<R>(f: impl FnOnce() -> R) -> R {
     f()
 }
 
-/// A mutex based on critical sections
-pub struct Mutex<T> {
-    cs: CriticalSection,
-    data: RefCell<T>,
-}
-
-impl<T> Mutex<T> {
+impl RawMutex {
     #[inline(always)]
     #[link_section = ".iram1.interrupt_mutex_new"]
-    pub const fn new(data: T) -> Self {
-        Self {
-            cs: CriticalSection::new(),
-            data: RefCell::new(data),
-        }
+    pub const fn new() -> Self {
+        Self(CriticalSection::new())
     }
 
     #[inline(always)]
     #[link_section = ".iram1.interrupt_mutex_lock"]
-    pub fn lock(&self) -> MutexGuard<'_, T> {
-        MutexGuard::new(self)
-    }
-}
-
-unsafe impl<T> Sync for Mutex<T> where T: Send {}
-unsafe impl<T> Send for Mutex<T> where T: Send {}
-
-pub struct MutexGuard<'a, T: 'a>(CriticalSectionGuard<'a>, RefMut<'a, T>);
-
-impl<'a, T> MutexGuard<'a, T> {
-    #[inline(always)]
-    #[link_section = ".iram1.interrupt_mutexg_new"]
-    fn new(mutex: &'a Mutex<T>) -> Self {
-        Self(mutex.cs.enter(), mutex.data.borrow_mut())
-    }
-}
-
-unsafe impl<T> Sync for MutexGuard<'_, T> where T: Sync {}
-
-impl<'a, T> Deref for MutexGuard<'a, T> {
-    type Target = T;
-
-    #[inline(always)]
-    #[link_section = ".iram1.interrupt_mutexg_deref"]
-    fn deref(&self) -> &Self::Target {
-        &self.1
-    }
-}
-
-impl<'a, T> DerefMut for MutexGuard<'a, T> {
-    #[inline(always)]
-    #[link_section = ".iram1.interrupt_mutexg_derefmut"]
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.1
-    }
-}
-
-#[cfg(feature = "mutex-trait")]
-impl<'a, T> mutex_trait::Mutex for &'a Mutex<T> {
-    type Data = T;
-
-    #[inline(always)]
-    #[link_section = ".iram1.interrupt_mutext_lock"]
-    fn lock<R>(&mut self, f: impl FnOnce(&mut Self::Data) -> R) -> R {
-        let mut guard = Mutex::lock(self);
-
-        f(&mut guard)
-    }
-}
-
-#[cfg(feature = "embedded-svc")]
-pub struct MutexFamily;
-
-#[cfg(feature = "embedded-svc")]
-impl embedded_svc::mutex::MutexFamily for MutexFamily {
-    type Mutex<T> = Mutex<T>;
-}
-
-#[cfg(all(feature = "experimental", feature = "embedded-svc"))]
-impl embedded_svc::signal::asynch::SignalFamily for MutexFamily {
-    type Signal<T> = embedded_svc::utils::asynch::signal::MutexSignal<
-        Mutex<embedded_svc::utils::asynch::signal::State<T>>,
-        T,
-    >;
-}
-
-#[cfg(all(feature = "experimental", feature = "embedded-svc"))]
-impl embedded_svc::signal::asynch::SendSyncSignalFamily for MutexFamily {
-    type Signal<T>
-    where
-        T: Send,
-    = embedded_svc::utils::asynch::signal::MutexSignal<
-        Mutex<embedded_svc::utils::asynch::signal::State<T>>,
-        T,
-    >;
-}
-
-#[cfg(feature = "embedded-svc")]
-impl<T> embedded_svc::mutex::Mutex for Mutex<T> {
-    type Data = T;
-
-    type Guard<'a>
-    where
-        T: 'a,
-    = MutexGuard<'a, T>;
-
-    #[inline(always)]
-    #[link_section = ".iram1.interrupt_mutexe_new"]
-    fn new(data: Self::Data) -> Self {
-        Mutex::new(data)
+    pub fn lock(&self) {
+        enter(&self.0);
     }
 
     #[inline(always)]
-    #[link_section = ".iram1.interrupt_mutexe_lock"]
-    fn lock(&self) -> Self::Guard<'_> {
-        Mutex::lock(self)
+    #[link_section = ".iram1.interrupt_mutex_unlock"]
+    pub unsafe fn unlock(&self) {
+        exit(&self.0);
+    }
+}
+
+unsafe impl Sync for RawMutex {}
+unsafe impl Send for RawMutex {}
+
+pub type Mutex<T> = embedded_svc::utils::mutex::Mutex<RawMutex, T>;
+
+impl embedded_svc::mutex::RawMutex for RawMutex {
+    fn new() -> Self {
+        RawMutex::new()
+    }
+
+    unsafe fn lock(&self) {
+        RawMutex::lock(self);
+    }
+
+    unsafe fn unlock(&self) {
+        RawMutex::unlock(self);
     }
 }
