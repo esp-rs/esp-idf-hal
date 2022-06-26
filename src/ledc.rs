@@ -33,7 +33,7 @@ use core::{borrow::Borrow, marker::PhantomData};
 use esp_idf_sys::*;
 
 use crate::gpio::OutputPin;
-use crate::mutex::Mutex;
+use crate::mutex::{Mutex, RawMutex};
 
 pub use chip::*;
 
@@ -41,7 +41,7 @@ type Duty = u32;
 
 const IDLE_LEVEL: u32 = 0;
 
-static FADE_FUNC_INSTALLED: Mutex<bool> = Mutex::new(false);
+static FADE_FUNC_INSTALLED: Mutex<bool> = Mutex::wrap(RawMutex::new(), false);
 
 /// Types for configuring the LED Control peripheral
 pub mod config {
