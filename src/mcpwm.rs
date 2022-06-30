@@ -6,13 +6,31 @@
 //! This is an initial implementation supporting !::!:!:!::!:!:!:!
 //! TODO: write stuff here
 //!
-//! TODO: COme up with nice example
+//! TODO: Come up with nice example
 //! # Examples
 //!
-//! Create a 25 kHz PWM signal with 75 % duty cycle on GPIO 1
+//! Create a pair of PWM signals on pin 4 and 5. The duty on pin 4 will ramp from 0% to 100%
+//! while pin 5 will ramp from 100% down to 0%.
 //! ```
+//! let peripherals = Peripherals::take().unwrap();
+//! let config = OperatorConfig::default().frequency(25.kHz().into());
+//! let mcpwm = Mcpwm::new(peripherals.mcpwm0.mcpwm)?;
+//! let mut operator = Operator::new(
+//!     peripherals.mcpwm0.operator0,
+//!     &mcpwm,
+//!     &config,
+//!     peripherals.pins.gpio4,
+//!     peripherals.pins.gpio5,
+//! )?;
 //!
-//! TODO: write example not stolen from ledc
+//! println!("Starting duty-cycle loop");
+//!
+//! for &duty in [0.0, 20.0, 40.0, 60.0, 80.0, 100.0].iter() {
+//!     println!("Duty {}%", duty);
+//!     operator.set_duty_a(duty)?;
+//!     operator.set_duty_b(100.0 - duty)?;
+//!     FreeRtos.delay_ms(2000)?;
+//! }
 //! ```
 //!
 //! See the `examples/` folder of this repository for more.
@@ -169,7 +187,7 @@ pub type Duty = f32;
 const MAX_DUTY: Duty = 100.0;
 
 pub struct MCPWM<U: Unit> {
-    unit: U,
+    _unit: U,
 }
 
 impl<U: Unit> MCPWM<U> {
@@ -177,7 +195,9 @@ impl<U: Unit> MCPWM<U> {
     ///
     /// It is safe to instantiate this exactly one time per `Unit`.
     unsafe fn new() -> Self {
-        Self { unit: U::default() }
+        Self {
+            _unit: U::default(),
+        }
     }
 }
 
@@ -201,13 +221,14 @@ impl Unit for UnitOne {
 // TODO: How do we want capture module to fit into this?
 
 pub struct Mcpwm<U: Unit> {
-    instance: MCPWM<U>,
+    _instance: MCPWM<U>,
 }
 
 impl<U: Unit> Mcpwm<U> {
     pub fn new(instance: MCPWM<U>) -> Result<Self, EspError> {
-        todo!();
-        Ok(Self { instance })
+        Ok(Self {
+            _instance: instance,
+        })
     }
 
     // TODO: I do not at all understand the motivation behind exposing the group prescaler as
@@ -277,7 +298,7 @@ macro_rules! impl_operator_helper {
 macro_rules! impl_operator {
     ($instance:ident: $timer:expr, $signal_a:expr, $signal_b:expr) => {
         pub struct $instance<U: Unit> {
-            unit: U,
+            _unit: U,
         }
 
         impl<U: Unit> $instance<U> {
@@ -285,7 +306,9 @@ macro_rules! impl_operator {
             ///
             /// It is safe to instantiate this operator exactly one time.
             pub unsafe fn new() -> Self {
-                $instance { unit: U::default() }
+                $instance {
+                    _unit: U::default(),
+                }
             }
         }
 
@@ -315,11 +338,12 @@ impl_operator!(
 // TODO: How do we want carrier to fit into this?
 
 pub struct Operator<U: Unit, O: HwOperator<U>, M: Borrow<Mcpwm<U>>, PA: OutputPin, PB: OutputPin> {
-    instance: O,
-    unit: U,
-    mcpwm_module: M,
-    pin_a: Option<PA>,
-    pin_b: Option<PB>,
+    _instance: O,
+    _unit: U,
+    _mcpwm_module: M,
+
+    _pin_a: Option<PA>,
+    _pin_b: Option<PB>,
 }
 
 impl<U: Unit, O: HwOperator<U>, M: Borrow<Mcpwm<U>>, PA: OutputPin, PB: OutputPin>
@@ -336,31 +360,28 @@ impl<U: Unit, O: HwOperator<U>, M: Borrow<Mcpwm<U>>, PA: OutputPin, PB: OutputPi
         #[cfg(idf_newer_than_or_equal_v4_4_0)]
         {
             if config.frequency < config.lowest_frequency {
-                return panic!("TODO: Invalid parameter, should this be checked in OperatorConfig or here or hope that the IDF? will handle the error checking");
+                return Err(panic!("TODO: Invalid parameter, should this be checked in OperatorConfig or here or hope that the IDF? will handle the error checking"));
             }
             unsafe {
                 esp_idf_sys::mcpwm_timer_set_resolution();
             }
         }
-        unsafe {
-            // TODO: Handle half pwm frequency when counter_mode = UpDown here?
 
-            esp!(unsafe {
-                esp_idf_sys::mcpwm_init(
-                    U::unit(),
-                    O::timer(),
-                    &mcpwm_config_t {
-                        frequency: config.frequency.into(),
-                        cmpr_a: config.duty_a,
-                        cmpr_b: config.duty_b,
-                        duty_mode: config.duty_mode.into(),
-                        counter_mode: config.counter_mode.into(),
-                    },
-                )
-            })?;
+        // TODO: Handle half pwm frequency when counter_mode = UpDown here?
 
-            todo!();
-        }
+        esp!(unsafe {
+            esp_idf_sys::mcpwm_init(
+                U::unit(),
+                O::timer(),
+                &mcpwm_config_t {
+                    frequency: config.frequency.into(),
+                    cmpr_a: config.duty_a,
+                    cmpr_b: config.duty_b,
+                    duty_mode: config.duty_mode.into(),
+                    counter_mode: config.counter_mode.into(),
+                },
+            )
+        })?;
 
         let pin_a: Option<PA> = pin_a.into();
         let pin_b: Option<PB> = pin_b.into();
@@ -376,35 +397,68 @@ impl<U: Unit, O: HwOperator<U>, M: Borrow<Mcpwm<U>>, PA: OutputPin, PB: OutputPi
         }
 
         Ok(Self {
-            instance: operator,
-            unit: U::default(),
-            mcpwm_module,
-            pin_a,
-            pin_b,
+            _instance: operator,
+            _unit: U::default(),
+            _mcpwm_module: mcpwm_module,
+            _pin_a: pin_a,
+            _pin_b: pin_b,
         })
     }
 
-    pub fn get_duty_a(&self) -> Result<Duty, EspError> {
-        todo!()
+    pub fn get_duty_a(&self) -> Duty {
+        unsafe {
+            esp_idf_sys::mcpwm_get_duty(
+                U::unit(),
+                O::timer(),
+                esp_idf_sys::mcpwm_generator_t_MCPWM_GEN_A,
+            )
+        }
     }
 
-    pub fn get_duty_b(&self) -> Result<Duty, EspError> {
-        todo!()
+    pub fn get_duty_b(&self) -> Duty {
+        unsafe {
+            esp_idf_sys::mcpwm_get_duty(
+                U::unit(),
+                O::timer(),
+                esp_idf_sys::mcpwm_generator_t_MCPWM_GEN_B,
+            )
+        }
     }
 
+    /// Set duty as percentage between 0.0 and 100.0
     pub fn set_duty_a(&mut self, duty: Duty) -> Result<(), EspError> {
-        todo!()
+        unsafe {
+            esp!(esp_idf_sys::mcpwm_set_duty(
+                U::unit(),
+                O::timer(),
+                esp_idf_sys::mcpwm_generator_t_MCPWM_GEN_A,
+                duty
+            ))
+        }
     }
 
     pub fn set_duty_b(&mut self, duty: Duty) -> Result<(), EspError> {
-        todo!()
+        unsafe {
+            esp!(esp_idf_sys::mcpwm_set_duty(
+                U::unit(),
+                O::timer(),
+                esp_idf_sys::mcpwm_generator_t_MCPWM_GEN_B,
+                duty
+            ))
+        }
     }
 
-    pub fn set_frequency() -> Result<(), EspError> {
-        todo!()
+    pub fn set_frequency(frequency: u32) -> Result<(), EspError> {
+        unsafe {
+            esp!(esp_idf_sys::mcpwm_set_frequency(
+                U::unit(),
+                O::timer(),
+                frequency
+            ))
+        }
     }
-    pub fn get_frequency() -> Result<(), EspError> {
-        todo!()
+    pub fn get_frequency() -> u32 {
+        unsafe { esp_idf_sys::mcpwm_get_frequency(U::unit(), O::timer()) }
     }
 }
 
@@ -413,7 +467,7 @@ pub enum Generator {
     B,
 }
 
-// TODO: would we like to also implement PwmPin for something like Foo<&Operator, G: GeneratorAorB>
+// TODO: would we like to also implement PwmPin for something like Foo<&Operator, G: Generator>
 // this would allow things like:
 // let operator = Operator::new(...);
 // let gen_a = operator.generator_a_as_pwm_pin();
@@ -428,11 +482,11 @@ impl<U: Unit, O: HwOperator<U>, M: Borrow<Mcpwm<U>>, PA: OutputPin, PB: OutputPi
     type Duty = Duty;
     type Time = ();
 
-    fn disable(&mut self, channel: Self::Channel) {
+    fn disable(&mut self, _channel: Self::Channel) {
         todo!()
     }
 
-    fn enable(&mut self, channel: Self::Channel) {
+    fn enable(&mut self, _channel: Self::Channel) {
         todo!()
     }
 
@@ -441,7 +495,10 @@ impl<U: Unit, O: HwOperator<U>, M: Borrow<Mcpwm<U>>, PA: OutputPin, PB: OutputPi
     }
 
     fn get_duty(&self, channel: Self::Channel) -> Self::Duty {
-        self.get_duty(channel)
+        match channel {
+            Generator::A => self.get_duty_a(),
+            Generator::B => self.get_duty_b(),
+        }
     }
 
     fn get_max_duty(&self) -> Self::Duty {
@@ -449,10 +506,17 @@ impl<U: Unit, O: HwOperator<U>, M: Borrow<Mcpwm<U>>, PA: OutputPin, PB: OutputPi
     }
 
     fn set_duty(&mut self, channel: Self::Channel, duty: Self::Duty) {
-        self.set_duty(channel, duty)
+        match channel {
+            Generator::A => self
+                .set_duty_a(duty)
+                .expect("Failed to set duty for generator A"),
+            Generator::B => self
+                .set_duty_b(duty)
+                .expect("Failed to set duty for generator B"),
+        }
     }
 
-    fn set_period<P>(&mut self, period: P) {
+    fn set_period<P>(&mut self, _period: P) {
         todo!()
     }
 }
