@@ -1,3 +1,5 @@
+#![cfg(any(esp32, esp32s3))]
+
 use embedded_hal::delay::blocking::DelayUs;
 
 use esp_idf_hal::delay::FreeRtos;
