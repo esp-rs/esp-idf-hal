@@ -1,3 +1,5 @@
+#![cfg(all(any(esp32, esp32s3), not(feature = "riscv-ulp-hal")))]
+
 //! Motor Control Pulse Width Modulator peripheral
 //!
 //! Interface to the [Motor Control Pulse Width Modulator peripheral (MCPWM)
