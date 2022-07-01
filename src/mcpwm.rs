@@ -70,6 +70,9 @@ pub struct Peripheral<U: Unit> {
 }
 
 impl<U: Unit> Peripheral<U> {
+    /// # Safety
+    ///
+    /// It is safe to instantiate this exactly one time per `Unit`.
     pub unsafe fn new() -> Self {
         Self {
             mcpwm: MCPWM::new(),
@@ -86,9 +89,9 @@ pub enum DutyMode {
     ActiveLow,
 }
 
-impl Into<mcpwm_duty_type_t> for DutyMode {
-    fn into(self) -> mcpwm_duty_type_t {
-        match self {
+impl From<DutyMode> for mcpwm_duty_type_t {
+    fn from(val: DutyMode) -> Self {
+        match val {
             DutyMode::ActiveHigh => mcpwm_duty_type_t_MCPWM_DUTY_MODE_0,
             DutyMode::ActiveLow => mcpwm_duty_type_t_MCPWM_DUTY_MODE_1,
         }
@@ -104,9 +107,9 @@ pub enum CounterMode {
     UpDown,
 }
 
-impl Into<mcpwm_counter_type_t> for CounterMode {
-    fn into(self) -> mcpwm_counter_type_t {
-        match self {
+impl From<CounterMode> for mcpwm_counter_type_t {
+    fn from(val: CounterMode) -> Self {
+        match val {
             // TODO: This seems to be new to IDF 4.4?
             //CounterMode::Frozen => mcpwm_counter_type_t_MCPWM_FREEZE_COUNTER,
             CounterMode::Up => mcpwm_counter_type_t_MCPWM_UP_COUNTER,
@@ -304,7 +307,7 @@ macro_rules! impl_operator {
         impl<U: Unit> $instance<U> {
             /// # Safety
             ///
-            /// It is safe to instantiate this operator exactly one time.
+            /// It is safe to instantiate this operator exactly one time per Unit.
             pub unsafe fn new() -> Self {
                 $instance {
                     _unit: U::default(),
