@@ -27,7 +27,7 @@ const ESP_IDF_VERSION_VAR: &str = "ESP_IDF_VERSION";
 const ESP_IDF_REPOSITORY_VAR: &str = "ESP_IDF_REPOSITORY";
 pub const ESP_IDF_CMAKE_GENERATOR: &str = "ESP_IDF_CMAKE_GENERATOR";
 
-const DEFAULT_ESP_IDF_VERSION: &str = "v4.3.2";
+const DEFAULT_ESP_IDF_VERSION: &str = "v4.4.1";
 
 const CARGO_CMAKE_BUILD_ACTIVE_VAR: &str = "CARGO_CMAKE_BUILD_ACTIVE";
 const CARGO_CMAKE_BUILD_INCLUDES_VAR: &str = "CARGO_CMAKE_BUILD_INCLUDES";
@@ -160,7 +160,7 @@ fn build_cargo_first() -> Result<EspIdfBuildOutput> {
         match &esp_idf_origin {
             EspIdfOrigin::Custom(repo) => {
                 eprintln!(
-                    "Using custom user-supplied esp-idf repository at '{}' (detected from env variable `{}`)", 
+                    "Using custom user-supplied esp-idf repository at '{}' (detected from env variable `{}`)",
                     repo.worktree().display(),
                     espidf::IDF_PATH_VAR
                 );
@@ -194,7 +194,7 @@ fn build_cargo_first() -> Result<EspIdfBuildOutput> {
     let idf = match (espidf::EspIdf::try_from_env(), maybe_from_env) {
         (Ok(idf), true) => {
             eprintln!(
-                "Using activated esp-idf {} environment at '{}'", 
+                "Using activated esp-idf {} environment at '{}'",
                 espidf::EspIdfVersion::format(&idf.version),
                 idf.repository.worktree().display()
             );
@@ -233,11 +233,12 @@ fn build_cargo_first() -> Result<EspIdfBuildOutput> {
             // master branch
             _ if idf.repository.get_default_branch()? == idf.repository.get_branch_name()? => &[],
             Ok((4, 4, _)) => &[],
-            Ok((4, 3, patch)) if patch >= 2 => V_4_3_2_PATCHES,
+            Ok((4, 3, patch)) if patch > 2 => &[],
+            Ok((4, 3, patch)) if patch == 2 => V_4_3_2_PATCHES,
             Ok((major, minor, patch)) => {
                 cargo::print_warning(format_args!(
                     "esp-idf version ({major}.{minor}.{patch}) not officially supported by `esp-idf-sys`. \
-                     Supported versions are 'master', 'release/v4.4', 'release/v4.3', 'v4.4(.X)', 'v4.3.2'.",
+                     Supported versions are 'master', 'release/v4.4', 'release/v4.3', 'v4.4(.X)', 'v4.3.3', 'v4.3.2'.",
                 ));
                 &[]
             }

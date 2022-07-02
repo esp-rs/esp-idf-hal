@@ -128,16 +128,9 @@ pub fn build() -> Result<EspIdfBuildOutput> {
             .enable_scons_dump()
             .enable_c_entry_points()
             .options(build::env_options_iter(ESP_IDF_PIO_CONF_VAR_PREFIX)?)
-            .files(build::tracked_globs_iter(path_buf!["."], &["patches/**"])?)
             .files(build::tracked_env_globs_iter(ESP_IDF_GLOB_VAR_PREFIX)?)
             .files(sdkconfig.into_iter())
             .files(sdkconfig_defaults);
-
-        let manifest_dir = PathBuf::from(env::var("CARGO_MANIFEST_DIR")?);
-        for patch in V_4_3_2_PATCHES {
-            // TODO: fix patches not applying
-            builder.platform_package_patch(manifest_dir.join(patch), path_buf!["framework-espidf"]);
-        }
 
         let project_path = builder.generate(&resolution)?;
 
