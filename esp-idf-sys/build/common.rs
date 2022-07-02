@@ -19,6 +19,7 @@ pub const MCU_VAR: &str = "MCU";
 pub const SDKCONFIG_FILE: &str = "sdkconfig";
 pub const SDKCONFIG_DEFAULTS_FILE: &str = "sdkconfig.defaults";
 
+#[allow(dead_code)]
 pub const V_4_3_2_PATCHES: &[&str] = &[
     "patches/missing_riscv_atomics_fix.diff",
     "patches/missing_xtensa_atomics_fix.diff",
