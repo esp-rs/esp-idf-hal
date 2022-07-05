@@ -37,7 +37,7 @@ fn main() -> anyhow::Result<()> {
         .frequency(611.Hz());
     let mut config = TransmitConfig::new()
         .carrier(Some(carrier))
-        .looping(Loop::Count(100))
+        .looping(Loop::Endless)
         .clock_divider(255);
 
     let tx = send_morse_code(&config, led, channel, "HELLO ")?;

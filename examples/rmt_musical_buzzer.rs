@@ -19,7 +19,7 @@ fn main() -> anyhow::Result<()> {
     let peripherals = Peripherals::take().unwrap();
     let led = peripherals.pins.gpio17.into_output()?;
     let channel = peripherals.rmt.channel0;
-    let config = TransmitConfig::new().looping(Loop::Count(1024));
+    let config = TransmitConfig::new().looping(Loop::Endless);
     let mut tx = Transmit::new(led, channel, &config)?;
 
     loop {
