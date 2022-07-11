@@ -92,15 +92,14 @@ impl EspLogger {
         };
     }
 
-    fn get_marker(level: Level) -> &'static CStr {
-        CStr::from_bytes_with_nul(match level {
-            Level::Error => b"E\0",
-            Level::Warn => b"W\0",
-            Level::Info => b"I\0",
-            Level::Debug => b"D\0",
-            Level::Trace => b"V\0",
-        })
-        .unwrap()
+    fn get_marker(level: Level) -> &'static str {
+        match level {
+            Level::Error => "E",
+            Level::Warn => "W",
+            Level::Info => "I",
+            Level::Debug => "D",
+            Level::Trace => "V",
+        }
     }
 
     fn get_color(level: Level) -> Option<u8> {
@@ -115,6 +114,14 @@ impl EspLogger {
             }
         }
     }
+
+    fn should_log(record: &Record) -> bool {
+        let level = Newtype::<esp_log_level_t>::from(record.level()).0;
+        let min_level = unsafe {
+            esp_log_level_get(b"rust-logging\0" as *const u8 as *const _) // TODO: use record target?
+        };
+        level <= min_level
+    }
 }
 
 impl ::log::Log for EspLogger {
@@ -123,43 +130,24 @@ impl ::log::Log for EspLogger {
     }
 
     fn log(&self, record: &Record) {
-        if self.enabled(record.metadata()) {
-            // TODO: Get rid of all allocations, if possible
-            // How?
-            // - retire the call to esp_log_write() in favor of the following:
-            // - esp_log_level_get() - to decide whether to log
-            // - for printing - just println!(), because ESP-IDF uses vprintf by default as well
-
-            let output = format!("{}", record.args());
-
-            let coutput = CString::new(output).unwrap();
-            let ctarget = CString::new(record.metadata().target()).unwrap();
-
+        if self.enabled(record.metadata()) && Self::should_log(record) {
             if let Some(color) = Self::get_color(record.level()) {
-                unsafe {
-                    esp_log_write(
-                        Newtype::<esp_log_level_t>::from(record.level()).0,
-                        b"rust-logging\0" as *const u8 as *const _, // TODO: ctarget.as_c_str().as_ptr() as *const u8 as *const _,
-                        b"\x1b[0;%dm%s (%d) %s: %s\x1b[0m\n\0" as *const u8 as *const _,
-                        color as u32,
-                        Self::get_marker(record.metadata().level()).as_ptr(),
-                        esp_log_timestamp(),
-                        ctarget.as_c_str().as_ptr(),
-                        coutput.as_c_str().as_ptr(),
-                    );
-                }
+                println!(
+                    "\x1b[0;{}m{} ({}) {}: {}\x1b[0m",
+                    color,
+                    Self::get_marker(record.metadata().level()),
+                    unsafe { esp_log_timestamp() },
+                    record.metadata().target(),
+                    record.args(),
+                );
             } else {
-                unsafe {
-                    esp_log_write(
-                        Newtype::<esp_log_level_t>::from(record.level()).0,
-                        b"rust-logging\0" as *const u8 as *const _, // TODO: ctarget.as_c_str().as_ptr() as *const u8 as *const _,
-                        b"%s (%d) %s: %s\n\0" as *const u8 as *const _,
-                        Self::get_marker(record.metadata().level()).as_ptr(),
-                        esp_log_timestamp(),
-                        ctarget.as_c_str().as_ptr(),
-                        coutput.as_c_str().as_ptr(),
-                    );
-                }
+                println!(
+                    "{} ({}) {}: {}",
+                    Self::get_marker(record.metadata().level()),
+                    unsafe { esp_log_timestamp() },
+                    record.metadata().target(),
+                    record.args(),
+                );
             }
         }
     }
