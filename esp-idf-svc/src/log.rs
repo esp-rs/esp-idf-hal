@@ -117,10 +117,10 @@ impl EspLogger {
 
     fn should_log(record: &Record) -> bool {
         let level = Newtype::<esp_log_level_t>::from(record.level()).0;
-        let min_level = unsafe {
+        let max_level = unsafe {
             esp_log_level_get(b"rust-logging\0" as *const u8 as *const _) // TODO: use record target?
         };
-        level <= min_level
+        level <= max_level
     }
 }
 
