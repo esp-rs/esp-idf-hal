@@ -129,9 +129,12 @@ impl Condvar {
         guard: MutexGuard<'a, T>,
         duration: Duration,
     ) -> (MutexGuard<'a, T>, bool) {
+        let mut now: timeval = unsafe { core::mem::zeroed() };
+        unsafe { gettimeofday(&mut now, core::ptr::null_mut()) };
+
         let abstime = timespec {
-            tv_sec: duration.as_secs() as _,
-            tv_nsec: duration.subsec_nanos() as _,
+            tv_sec: now.tv_sec + duration.as_secs() as i32,
+            tv_nsec: (now.tv_usec * 1000) + duration.subsec_nanos() as i32,
         };
 
         let r =
