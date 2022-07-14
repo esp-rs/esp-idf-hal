@@ -677,7 +677,7 @@ impl<UART: Uart, TX: OutputPin, RX: InputPin, CTS: InputPin, RTS: OutputPin>
                 0,
             )
         })?;
-        let event_handle = match handle.is_null() {
+        let event_handle = match !handle.is_null() {
             true => Some(EventQueue::new(handle)),
             false => None,
         };
