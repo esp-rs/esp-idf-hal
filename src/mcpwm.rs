@@ -41,27 +41,7 @@ use core::borrow::Borrow;
 
 use crate::gpio::OutputPin;
 use crate::units::{FromValueType, Hertz};
-use esp_idf_sys::{esp, mcpwm_config_t, EspError};
-use esp_idf_sys::{
-    mcpwm_counter_type_t,
-    mcpwm_counter_type_t_MCPWM_DOWN_COUNTER,
-    //mcpwm_counter_type_t_MCPWM_FREEZE_COUNTER,
-    mcpwm_counter_type_t_MCPWM_UP_COUNTER,
-    mcpwm_counter_type_t_MCPWM_UP_DOWN_COUNTER,
-};
-use esp_idf_sys::{
-    mcpwm_duty_type_t, mcpwm_duty_type_t_MCPWM_DUTY_MODE_0, mcpwm_duty_type_t_MCPWM_DUTY_MODE_1,
-};
-use esp_idf_sys::{
-    mcpwm_io_signals_t, mcpwm_io_signals_t_MCPWM0A, mcpwm_io_signals_t_MCPWM0B,
-    mcpwm_io_signals_t_MCPWM1A, mcpwm_io_signals_t_MCPWM1B, mcpwm_io_signals_t_MCPWM2A,
-    mcpwm_io_signals_t_MCPWM2B,
-};
-use esp_idf_sys::{
-    mcpwm_timer_t, mcpwm_timer_t_MCPWM_TIMER_0, mcpwm_timer_t_MCPWM_TIMER_1,
-    mcpwm_timer_t_MCPWM_TIMER_2,
-};
-use esp_idf_sys::{mcpwm_unit_t, mcpwm_unit_t_MCPWM_UNIT_0, mcpwm_unit_t_MCPWM_UNIT_1};
+use esp_idf_sys::*;
 
 /// The Motor Control Pulse Width Modulator peripheral
 pub struct Peripheral<U: Unit> {
