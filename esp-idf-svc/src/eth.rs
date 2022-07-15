@@ -613,6 +613,13 @@ impl<P> EspEth<P> {
         Ok(eth)
     }
 
+    pub fn with_handle<F, T>(&mut self, f: F) -> T
+    where
+        F: FnOnce(esp_eth_handle_t) -> T,
+    {
+        self.waitable.get(|shared| f(shared.handle))
+    }
+
     pub fn with_netif<F, T>(&self, f: F) -> T
     where
         F: FnOnce(Option<&EspNetif>) -> T,
