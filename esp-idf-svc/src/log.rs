@@ -153,7 +153,8 @@ impl ::log::Log for EspLogger {
     fn log(&self, record: &Record) {
         if self.enabled(record.metadata()) && Self::should_log(record) {
             if let Some(color) = Self::get_color(record.level()) {
-                write!(EspStdout,
+                write!(
+                    EspStdout,
                     "\x1b[0;{}m{} ({}) {}: {}\x1b[0m\n",
                     color,
                     Self::get_marker(record.metadata().level()),
@@ -163,7 +164,8 @@ impl ::log::Log for EspLogger {
                 )
                 .unwrap();
             } else {
-                write!(EspStdout,
+                write!(
+                    EspStdout,
                     "{} ({}) {}: {}\n",
                     Self::get_marker(record.metadata().level()),
                     unsafe { esp_log_timestamp() },
