@@ -338,6 +338,7 @@ impl EspHttpServer {
         for close_handler in &*close_handlers {
             (close_handler)(sockfd);
         }
+        esp_nofail!(unsafe { close(sockfd) });
     }
 }
 
