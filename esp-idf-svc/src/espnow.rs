@@ -94,7 +94,7 @@ impl EspNowClient {
         Ok(peer_info)
     }
 
-    pub fn peer_exists(peer_addr: [u8; 6]) -> Result<bool, EspError> {
+    pub fn peer_exists(&self, peer_addr: [u8; 6]) -> Result<bool, EspError> {
         Ok(unsafe { esp_now_is_peer_exist(&peer_addr as *const u8) })
     }
 
@@ -109,7 +109,7 @@ impl EspNowClient {
         Ok(())
     }
 
-    pub fn get_verson() -> Result<u32, EspError> {
+    pub fn get_version(&self) -> Result<u32, EspError> {
         let mut version: u32 = 0;
         esp!(unsafe { esp_now_get_version(&mut version as *mut u32) })?;
         Ok(version)
