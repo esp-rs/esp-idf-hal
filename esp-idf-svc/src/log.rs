@@ -137,11 +137,20 @@ impl EspLogger {
     }
 
     fn should_log(record: &Record) -> bool {
-        let level = Newtype::<esp_log_level_t>::from(record.level()).0;
-        let max_level = unsafe {
-            esp_log_level_get(b"rust-logging\0" as *const u8 as *const _) // TODO: use record target?
-        };
-        level <= max_level
+        #[cfg(not(all(esp_idf_version_major = "4", esp_idf_version_minor = "3")))]
+        {
+            let level = Newtype::<esp_log_level_t>::from(record.level()).0;
+            let max_level = unsafe {
+                esp_log_level_get(b"rust-logging\0" as *const u8 as *const _) // TODO: use record target?
+            };
+            level <= max_level
+        }
+
+        #[cfg(all(esp_idf_version_major = "4", esp_idf_version_minor = "3"))]
+        {
+            // No esp_log_level_get on ESP-IDF V4.3
+            true
+        }
     }
 }
 
