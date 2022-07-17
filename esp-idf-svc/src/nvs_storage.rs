@@ -185,8 +185,8 @@ impl RawStorage for EspNvsStorage {
                     ((u64value >> 16) & 0xff) as u8,
                     ((u64value >> 24) & 0xff) as u8,
                     ((u64value >> 32) & 0xff) as u8,
+                    ((u64value >> 40) & 0xff) as u8,
                     ((u64value >> 48) & 0xff) as u8,
-                    ((u64value >> 56) & 0xff) as u8,
                 ];
 
                 buf.copy_from_slice(&array[..min(buf.len(), len as usize)]);
