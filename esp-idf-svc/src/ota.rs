@@ -218,7 +218,7 @@ impl ota::Ota for EspOta<Read> {
 
     fn get_running_slot(&self) -> Result<Self::Slot<'_>, Self::Error> {
         Ok(EspSlot(unsafe {
-            *esp_ota_get_boot_partition().as_ref().unwrap()
+            *esp_ota_get_running_partition().as_ref().unwrap()
         }))
     }
 
