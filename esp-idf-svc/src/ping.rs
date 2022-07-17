@@ -33,7 +33,7 @@ impl EspPing {
             interval_ms: conf.interval.as_millis() as u32,
             timeout_ms: conf.timeout.as_millis() as u32,
             data_size: conf.data_size,
-            tos: conf.tos,
+            tos: conf.tos.into(),
             target_addr: ip_addr_t {
                 u_addr: ip_addr__bindgen_ty_1 {
                     ip4: Newtype::<ip4_addr_t>::from(ip).0,
