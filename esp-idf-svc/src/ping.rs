@@ -28,6 +28,7 @@ impl EspPing {
         tracker: &mut Tracker<F>,
     ) -> Result<(), EspError> {
         #[allow(clippy::needless_update)]
+        #[allow(clippy::useless-conversion)]
         let config = esp_ping_config_t {
             count: conf.count,
             interval_ms: conf.interval.as_millis() as u32,
