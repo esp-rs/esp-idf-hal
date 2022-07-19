@@ -356,7 +356,7 @@ impl<U: Unit> Mcpwm<U> {
         let operator_input_frequency =
             MAX_PWM_TIMER_PRESCALE * MAX_PWM_TIMER_PERIOD * u32::from(lowest_frequency);
         let group_pre_scale = MCPWM_CLOCK_SOURCE_FREQUENCY / operator_input_frequency;
-        if group_pre_scale > 256 || group_pre_scale < 1 {
+        if !(1..=256).contains(&group_pre_scale) {
             return Err(EspError::from(ESP_ERR_INVALID_ARG).unwrap());
         }
 
