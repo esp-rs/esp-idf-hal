@@ -1,12 +1,12 @@
-use embedded_hal::delay::blocking::DelayUs;
-
-use esp_idf_hal::delay::FreeRtos;
-use esp_idf_hal::mcpwm::{Mcpwm, Operator, OperatorConfig};
-use esp_idf_hal::prelude::Peripherals;
-use esp_idf_hal::units::FromValueType;
-
 #[cfg(any(esp32, esp32s3))]
 fn main() -> anyhow::Result<()> {
+    use embedded_hal::delay::blocking::DelayUs;
+
+    use esp_idf_hal::delay::FreeRtos;
+    use esp_idf_hal::mcpwm::{Mcpwm, Operator, OperatorConfig};
+    use esp_idf_hal::prelude::Peripherals;
+    use esp_idf_hal::units::FromValueType;
+
     esp_idf_sys::link_patches();
 
     println!("Configuring MCPWM");
