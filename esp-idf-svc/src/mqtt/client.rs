@@ -358,11 +358,6 @@ impl<P> Drop for EspMqttClient<P> {
             connection_state.close();
         }
 
-        // Best effort - stop if started
-        unsafe {
-            esp_mqtt_client_stop(self.raw_client);
-        }
-
         esp!(unsafe { esp_mqtt_client_destroy(self.raw_client) }).unwrap();
     }
 }
