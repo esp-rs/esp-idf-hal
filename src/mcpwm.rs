@@ -1,15 +1,23 @@
-#![cfg(all(any(esp32, esp32s3), not(feature = "riscv-ulp-hal")))]
-
 //! Motor Control Pulse Width Modulator peripheral
 //!
 //! Interface to the [Motor Control Pulse Width Modulator peripheral (MCPWM)
 //! peripheral](https://docs.espressif.com/projects/esp-idf/en/latest/esp32/api-reference/peripherals/mcpwm.html)
 //!
-//! This is an initial implementation supporting !::!:!:!::!:!:!:!
-//! TODO: write stuff here
-//!
-//! TODO: Come up with nice example
-//! # Examples
+//! ```
+//!   ---------------                     ---------------
+//!  | MCPWM Unit 0  |                   | MCPWM Unit 1  |
+//!  | ------------  |                   | ------------  |
+//!  |               |                   |               |
+//!  | OPERATOR  0   |--> A              | OPERATOR  0   |--> A
+//!  |               |--> B              |               |--> B
+//!  |               |                   |               |
+//!  | OPERATOR  1   |--> A              | OPERATOR  1   |--> A
+//!  |               |--> B              |               |--> B
+//!  |               |                   |               |
+//!  | OPERATOR  2   |--> A              | OPERATOR  2   |--> A
+//!  |               |--> B              |               |--> B
+//!   ---------------                     ---------------
+//! ```
 //!
 //! Create a pair of PWM signals on pin 4 and 5. The duty on pin 4 will ramp from 0% to 100%
 //! while pin 5 will ramp from 100% down to 0%.
@@ -43,9 +51,18 @@ use crate::gpio::OutputPin;
 use crate::units::{FromValueType, Hertz};
 use esp_idf_sys::*;
 
+// MCPWM clock source frequency for ESP32 and ESP32-s3
+const MCPWM_CLOCK_SOURCE_FREQUENCY: u32 = 160_000_000;
+
+// Max PWM timer prescaler
+const MAX_PWM_TIMER_PRESCALE: u32 = 0x1_00;
+
+// Max PWM timer period
+const MAX_PWM_TIMER_PERIOD: u32 = 0x1_00_00;
+
 /// The Motor Control Pulse Width Modulator peripheral
 pub struct Peripheral<U: Unit> {
-    pub mcpwm: MCPWM<U>, // TODO: Is there a better way to name or structure this?
+    pub mcpwm: MCPWM<U>,
     pub operator0: OPERATOR0<U>,
     pub operator1: OPERATOR1<U>,
     pub operator2: OPERATOR2<U>,
@@ -83,7 +100,8 @@ impl From<DutyMode> for mcpwm_duty_type_t {
 // TODO: For UpDown, frequency is half of MCPWM frequency set
 #[derive(Clone, Copy, Debug)]
 pub enum CounterMode {
-    //Frozen,
+    #[cfg(not(esp_idf_version = "4.3"))]
+    Frozen,
     Up,
     Down,
     UpDown,
@@ -92,11 +110,102 @@ pub enum CounterMode {
 impl From<CounterMode> for mcpwm_counter_type_t {
     fn from(val: CounterMode) -> Self {
         match val {
-            // TODO: This seems to be new to IDF 4.4?
-            //CounterMode::Frozen => mcpwm_counter_type_t_MCPWM_FREEZE_COUNTER,
+            #[cfg(not(esp_idf_version = "4.3"))]
+            CounterMode::Frozen => mcpwm_counter_type_t_MCPWM_FREEZE_COUNTER,
             CounterMode::Up => mcpwm_counter_type_t_MCPWM_UP_COUNTER,
             CounterMode::Down => mcpwm_counter_type_t_MCPWM_DOWN_COUNTER,
             CounterMode::UpDown => mcpwm_counter_type_t_MCPWM_UP_DOWN_COUNTER,
+        }
+    }
+}
+
+// TODO: Note that `red` and `fed` from the IDF's perspecitve is time as in number of clock cycles after the
+//       MCPWM modules group prescaler. How do we want to expose this? Do we expose it as just that, a cycle count?
+//       Or do we expose it as a time which we then calculate the cycle count from?
+#[derive(Copy, Clone, PartialEq, Debug)]
+pub enum DeadtimeConfig {
+    // TODO: Figure out what all of those options do and give them nice descriptions
+    /// MCPWM_BYPASS_RED
+    BypassRisingEdge { fed: u16 },
+
+    /// MCPWM_BYPASS_FED
+    BypassFallingEdge { red: u16 },
+
+    /// MCPWM_ACTIVE_HIGH_MODE
+    ActiveHigh { red: u16, fed: u16 },
+
+    /// MCPWM_ACTIVE_LOW_MODE
+    ActiveLow { red: u16, fed: u16 },
+
+    /// MCPWM_ACTIVE_HIGH_COMPLIMENT_MODE
+    ActiveHighComplement { red: u16, fed: u16 },
+
+    /// MCPWM_ACTIVE_LOW_COMPLIMENT_MODE
+    ActiveLowComplement { red: u16, fed: u16 },
+
+    /// MCPWM_ACTIVE_RED_FED_FROM_PWMXA
+    ActiveRedFedFromPwmxa { red: u16, fed: u16 },
+
+    /// MCPWM_ACTIVE_RED_FED_FROM_PWMXB
+    ActiveRedFedFromPwmxb { red: u16, fed: u16 },
+}
+
+struct DeadtimeArgs {
+    red: u16,
+    fed: u16,
+    mode: mcpwm_deadtime_type_t,
+}
+
+impl DeadtimeConfig {
+    fn as_args(&self) -> DeadtimeArgs {
+        match *self {
+            DeadtimeConfig::BypassRisingEdge { fed } => DeadtimeArgs {
+                red: 0,
+                fed,
+                mode: mcpwm_deadtime_type_t_MCPWM_BYPASS_RED,
+            },
+
+            DeadtimeConfig::BypassFallingEdge { red } => DeadtimeArgs {
+                red,
+                fed: 0,
+                mode: mcpwm_deadtime_type_t_MCPWM_BYPASS_FED,
+            },
+
+            DeadtimeConfig::ActiveHigh { red, fed } => DeadtimeArgs {
+                red,
+                fed,
+                mode: mcpwm_deadtime_type_t_MCPWM_ACTIVE_HIGH_MODE,
+            },
+
+            DeadtimeConfig::ActiveLow { red, fed } => DeadtimeArgs {
+                red,
+                fed,
+                mode: mcpwm_deadtime_type_t_MCPWM_ACTIVE_LOW_MODE,
+            },
+
+            DeadtimeConfig::ActiveHighComplement { red, fed } => DeadtimeArgs {
+                red,
+                fed,
+                mode: mcpwm_deadtime_type_t_MCPWM_ACTIVE_HIGH_COMPLIMENT_MODE,
+            },
+
+            DeadtimeConfig::ActiveLowComplement { red, fed } => DeadtimeArgs {
+                red,
+                fed,
+                mode: mcpwm_deadtime_type_t_MCPWM_ACTIVE_LOW_COMPLIMENT_MODE,
+            },
+
+            DeadtimeConfig::ActiveRedFedFromPwmxa { red, fed } => DeadtimeArgs {
+                red,
+                fed,
+                mode: mcpwm_deadtime_type_t_MCPWM_ACTIVE_RED_FED_FROM_PWMXA,
+            },
+
+            DeadtimeConfig::ActiveRedFedFromPwmxb { red, fed } => DeadtimeArgs {
+                red,
+                fed,
+                mode: mcpwm_deadtime_type_t_MCPWM_ACTIVE_RED_FED_FROM_PWMXB,
+            },
         }
     }
 }
@@ -106,11 +215,12 @@ pub struct OperatorConfig {
     duty_a: Duty,
     duty_b: Duty,
 
-    #[cfg(idf_newer_than_or_equal_v4_4_0)]
+    #[cfg(not(esp_idf_version = "4.3"))]
     lowest_frequency: Hertz,
     duty_mode: DutyMode,
     counter_mode: CounterMode,
-    //deadtime: DeadtimeConfig,
+
+    deadtime: Option<DeadtimeConfig>,
 }
 
 impl OperatorConfig {
@@ -120,7 +230,7 @@ impl OperatorConfig {
         self
     }
 
-    #[cfg(idf_newer_than_or_equal_v4_4_0)]
+    #[cfg(not(esp_idf_version = "4.3"))]
     #[must_use]
     pub fn lowest_frequency(mut self, lowest_frequency: Hertz) -> Self {
         self.lowest_frequency = lowest_frequency;
@@ -139,11 +249,11 @@ impl OperatorConfig {
         self
     }
 
-    /*
     #[must_use]
-    pub fn deadtime_config(mut self, deadtime_config: DeadtimeConfig) -> Self {
-        todo!()
-    }*/
+    pub fn deadtime(mut self, deadtime: impl Into<Option<DeadtimeConfig>>) -> Self {
+        self.deadtime = deadtime.into();
+        self
+    }
 }
 
 impl Default for OperatorConfig {
@@ -153,11 +263,13 @@ impl Default for OperatorConfig {
             duty_a: 50.0,
             duty_b: 50.0,
 
-            #[cfg(idf_newer_than_or_equal_v4_4_0)]
-            lowest_frequency: 1.Hz(),
+            #[cfg(not(esp_idf_version = "4.3"))]
+            lowest_frequency: 16.Hz(),
 
             duty_mode: DutyMode::ActiveHigh,
             counter_mode: CounterMode::Up,
+
+            deadtime: None,
         }
     }
 }
@@ -169,7 +281,6 @@ pub struct UnitZero;
 pub struct UnitOne;
 
 pub type Duty = f32;
-const MAX_DUTY: Duty = 100.0;
 
 pub struct MCPWM<U: Unit> {
     _unit: U,
@@ -203,50 +314,58 @@ impl Unit for UnitOne {
 }
 
 // TODO: How do we want fault module to fit into this?
-// TODO: How do we want capture module to fit into this?
 
 pub struct Mcpwm<U: Unit> {
+    #[cfg(not(esp_idf_version = "4.3"))]
+    /// This is the frequency of the clock signal passed on as clock source for the operators timers
+    /// Those timers in turn have their own prescalers to scale this down even further
+    ///
+    /// NOTE: This is only to be set by calling Self::lowest_frequency
+    operator_input_frequency: u32,
     _instance: MCPWM<U>,
 }
 
 impl<U: Unit> Mcpwm<U> {
     pub fn new(instance: MCPWM<U>) -> Result<Self, EspError> {
-        Ok(Self {
+        let res = Self {
+            #[cfg(not(esp_idf_version = "4.3"))]
+            operator_input_frequency: 0,
             _instance: instance,
-        })
+        };
+
+        #[cfg(not(esp_idf_version = "4.3"))]
+        {
+            res.lowest_frequency(15.Hz())
+        }
+
+        #[cfg(esp_idf_version = "4.3")]
+        {
+            Ok(res)
+        }
     }
 
-    // TODO: I do not at all understand the motivation behind exposing the group prescaler as
-    // "resolution"? From what i can see, duty is exposed as a percentage so we are not talking
-    // about the pulse length in terms of cycles as is the case for ledc, right? What am I missing?
-    // Anyway, my reasoning:
-    // * High res  => small prescaler  => better maintan accuracy at high frequency, unable to reach lower freq
-    // * Lower res => larger prescaler => worse accuracy at high frequency(still as good at low frequency),
-    //   able to reach lower freq
-    // Would it make more sense to expose it as "lowest reachable frequency"
-    // Also why are there no checks other than prescaler >= 1 in the idf?
-    // What happens if prescaler register value does not fit into the least significant 8 bits?
-    #[cfg(idf_newer_than_or_equal_v4_4_0)]
+    /// Specify lowest reachable frequency
+    ///
+    /// The lower this is set, the lower frequencies will be reachable. However, this is at the cost of worse
+    /// resolution at higher frequencies.
+    ///  
+    /// Same thing goes for the other way. The higher value set here, the more resolution and so on.
+    #[cfg(not(esp_idf_version = "4.3"))]
     pub fn lowest_frequency(mut self, lowest_frequency: Hertz) -> Result<Self, EspError> {
-        // MCPWM clock source frequency for ESP32 and ESP32-s3
-        const MCPWM_CLOCK_SOURCE_FREQUENCY: u32 = 160_000_000;
-        // Max PWM timer prescaler
-        const MAX_PWM_TIMER_PRESCALE: u32 = 0x1_00;
-        // Max PWM timer period
-        const MAX_PWM_TIMER_PERIOD: u32 = 0x1_00_00;
+        // TODO: Do we care about frequency < 1Hz?
+        let operator_input_frequency =
+            MAX_PWM_TIMER_PRESCALE * MAX_PWM_TIMER_PERIOD * u32::from(lowest_frequency);
+        let group_pre_scale = MCPWM_CLOCK_SOURCE_FREQUENCY / operator_input_frequency;
+        if group_pre_scale > 256 || group_pre_scale < 1 {
+            return Err(EspError::from(ESP_ERR_INVALID_ARG).unwrap());
+        }
 
-        // let lowest_frequency = MCPWM_CLOCK_SOURCE_FREQUENCY / group_prescaler_factor / MAX_PWM_TIMER_PRESCALE / MAX_PWM_TIMER_PERIOD;
-        // let MAX_PWM_TIMER_PRESCALE * MAX_PWM_TIMER_PERIOD * frequency = MCPWM_CLOCK_SOURCE_FREQUENCY / group_prescaler_factor;
-        // let group_prescaler_factor = MCPWM_CLOCK_SOURCE_FREQUENCY / (MAX_PWM_TIMER_PRESCALE * MAX_PWM_TIMER_PERIOD * frequency);
+        let resolution =
+            MAX_PWM_TIMER_PRESCALE * MAX_PWM_TIMER_PERIOD * u32::from(lowest_frequency);
+        esp!(unsafe { mcpwm_group_set_resolution(U::unit(), resolution) })?;
+        self.operator_input_frequency = operator_input_frequency;
 
-        // let resolution = MCPWM_CLOCK_SOURCE_FREQUENCY / group_prescaler;
-
-        // let resolution = MCPWM_CLOCK_SOURCE_FREQUENCY / (MCPWM_CLOCK_SOURCE_FREQUENCY / (MAX_PWM_TIMER_PRESCALE * MAX_PWM_TIMER_PERIOD * frequency));
-        // let resolution = (MAX_PWM_TIMER_PRESCALE * MAX_PWM_TIMER_PERIOD * frequency) * 160_000_000 / MCPWM_CLOCK_SOURCE_FREQUENCY;
-        let resolution = MAX_PWM_TIMER_PRESCALE * MAX_PWM_TIMER_PERIOD * lowest_reachable_frequency;
-
-        mcpwm_group_set_resolution();
-        todo!()
+        Ok(self)
     }
 }
 
@@ -321,6 +440,7 @@ impl_operator!(
 // TODO: How do we want syncing to fit in to this?
 // TODO: How do we want deadtime to fit into this?
 // TODO: How do we want carrier to fit into this?
+// TODO: How do we want capture to fit into this?
 
 pub struct Operator<U: Unit, O: HwOperator<U>, M: Borrow<Mcpwm<U>>, PA: OutputPin, PB: OutputPin> {
     _instance: O,
@@ -341,18 +461,28 @@ impl<U: Unit, O: HwOperator<U>, M: Borrow<Mcpwm<U>>, PA: OutputPin, PB: OutputPi
         pin_a: A,
         pin_b: B,
     ) -> Result<Self, EspError> {
-        // TODO: Dont forget to make these cases work
-        #[cfg(idf_newer_than_or_equal_v4_4_0)]
+        #[cfg(not(esp_idf_version = "4.3"))]
         {
             if config.frequency < config.lowest_frequency {
-                return Err(panic!("TODO: Invalid parameter, should this be checked in OperatorConfig or here or hope that the IDF? will handle the error checking"));
+                // Can not specify a clock frequency lower then what has
+                // been configured as the lowest clock frequency
+                // Use `OperatorConfig::lowest_frequency` to enable lower frequencies
+                return Err(EspError::from(ESP_ERR_INVALID_ARG).unwrap());
             }
+
+            if config.lowest_frequency > mcpwm_module.borrow().operator_input_frequency.Hz() {
+                // Can not specify a lowest_frequency larger than the corresponding value for
+                // the parent MCPWM module. Use `Mcpwm::lowest_frequency` to enable higher frequencies
+                return Err(EspError::from(ESP_ERR_INVALID_ARG).unwrap());
+            }
+
+            let resolution = u32::from(config.lowest_frequency) * MAX_PWM_TIMER_PERIOD;
             unsafe {
-                esp_idf_sys::mcpwm_timer_set_resolution();
+                esp_idf_sys::mcpwm_timer_set_resolution(U::unit(), O::timer(), resolution);
             }
         }
 
-        // TODO: Handle half pwm frequency when counter_mode = UpDown here?
+        // TODO: Handle/document half pwm frequency when counter_mode = UpDown?
 
         esp!(unsafe {
             esp_idf_sys::mcpwm_init(
@@ -367,6 +497,20 @@ impl<U: Unit, O: HwOperator<U>, M: Borrow<Mcpwm<U>>, PA: OutputPin, PB: OutputPi
                 },
             )
         })?;
+
+        match config.deadtime {
+            None => unsafe {
+                // Only way this can faild is if an invalid timer or unit is specified
+                // which we know can not happen. So we don't have to check for errors
+                mcpwm_deadtime_disable(U::unit(), O::timer());
+            },
+            Some(config) => {
+                let DeadtimeArgs { red, fed, mode } = config.as_args();
+                unsafe {
+                    mcpwm_deadtime_enable(U::unit(), O::timer(), mode, red.into(), fed.into());
+                }
+            }
+        }
 
         let pin_a: Option<PA> = pin_a.into();
         let pin_b: Option<PB> = pin_b.into();
@@ -390,6 +534,7 @@ impl<U: Unit, O: HwOperator<U>, M: Borrow<Mcpwm<U>>, PA: OutputPin, PB: OutputPi
         })
     }
 
+    /// Get duty as percentage between 0.0 and 100.0
     pub fn get_duty_a(&self) -> Duty {
         unsafe {
             esp_idf_sys::mcpwm_get_duty(
@@ -400,6 +545,7 @@ impl<U: Unit, O: HwOperator<U>, M: Borrow<Mcpwm<U>>, PA: OutputPin, PB: OutputPi
         }
     }
 
+    /// Get duty as percentage between 0.0 and 100.0
     pub fn get_duty_b(&self) -> Duty {
         unsafe {
             esp_idf_sys::mcpwm_get_duty(
@@ -422,6 +568,7 @@ impl<U: Unit, O: HwOperator<U>, M: Borrow<Mcpwm<U>>, PA: OutputPin, PB: OutputPi
         }
     }
 
+    /// Set duty as percentage between 0.0 and 100.0
     pub fn set_duty_b(&mut self, duty: Duty) -> Result<(), EspError> {
         unsafe {
             esp!(esp_idf_sys::mcpwm_set_duty(
@@ -433,75 +580,18 @@ impl<U: Unit, O: HwOperator<U>, M: Borrow<Mcpwm<U>>, PA: OutputPin, PB: OutputPi
         }
     }
 
-    pub fn set_frequency(frequency: u32) -> Result<(), EspError> {
+    /// Set PWM frequency
+    pub fn set_frequency(frequency: Hertz) -> Result<(), EspError> {
         unsafe {
             esp!(esp_idf_sys::mcpwm_set_frequency(
                 U::unit(),
                 O::timer(),
-                frequency
+                frequency.into()
             ))
         }
     }
-    pub fn get_frequency() -> u32 {
-        unsafe { esp_idf_sys::mcpwm_get_frequency(U::unit(), O::timer()) }
-    }
-}
 
-pub enum Generator {
-    A,
-    B,
-}
-
-// TODO: would we like to also implement PwmPin for something like Foo<&Operator, G: Generator>
-// this would allow things like:
-// let operator = Operator::new(...);
-// let gen_a = operator.generator_a_as_pwm_pin();
-// let gen_b = operator.generator_b_as_pwm_pin();
-// function_expecting_pwm_pin(&gen_a);
-// gen_a.set_duty()
-// gen_a.set_duty()
-impl<U: Unit, O: HwOperator<U>, M: Borrow<Mcpwm<U>>, PA: OutputPin, PB: OutputPin>
-    embedded_hal_0_2::Pwm for Operator<U, O, M, PA, PB>
-{
-    type Channel = Generator;
-    type Duty = Duty;
-    type Time = ();
-
-    fn disable(&mut self, _channel: Self::Channel) {
-        todo!()
-    }
-
-    fn enable(&mut self, _channel: Self::Channel) {
-        todo!()
-    }
-
-    fn get_period(&self) -> Self::Time {
-        todo!()
-    }
-
-    fn get_duty(&self, channel: Self::Channel) -> Self::Duty {
-        match channel {
-            Generator::A => self.get_duty_a(),
-            Generator::B => self.get_duty_b(),
-        }
-    }
-
-    fn get_max_duty(&self) -> Self::Duty {
-        MAX_DUTY
-    }
-
-    fn set_duty(&mut self, channel: Self::Channel, duty: Self::Duty) {
-        match channel {
-            Generator::A => self
-                .set_duty_a(duty)
-                .expect("Failed to set duty for generator A"),
-            Generator::B => self
-                .set_duty_b(duty)
-                .expect("Failed to set duty for generator B"),
-        }
-    }
-
-    fn set_period<P>(&mut self, _period: P) {
-        todo!()
+    pub fn get_frequency() -> Hertz {
+        Hertz::from(unsafe { esp_idf_sys::mcpwm_get_frequency(U::unit(), O::timer()) })
     }
 }
