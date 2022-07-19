@@ -429,7 +429,7 @@ impl EspNetif {
         }
     }
 
-    #[cfg(esp_idf_config_lwip_ipv4_napt)]
+    #[cfg(esp_idf_lwip_ipv4_napt)]
     pub fn enable_napt(&mut self, enable: bool) {
         unsafe {
             esp_idf_sys::ip_napt_enable_no(
