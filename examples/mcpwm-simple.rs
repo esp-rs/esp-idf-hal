@@ -37,4 +37,6 @@ fn main() -> anyhow::Result<()> {
 }
 
 #[cfg(not(any(esp32, esp32s3)))]
-fn main() {}
+fn main() {
+    esp_idf_sys::link_patches();
+}
