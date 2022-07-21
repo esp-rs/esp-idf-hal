@@ -32,8 +32,8 @@ pio = ["embuild/pio"]
 paste = "1"
 
 [build-dependencies]
-embuild = { version = "0.29", features = ["glob"] }
+embuild = { version = "0.30", features = ["glob", "kconfig"] }
 anyhow = "1"
 strum = { version = "0.24", features = ["derive"], optional = true }
 regex = "1.5"
-bindgen = "0.59"
+bindgen = "0.60"

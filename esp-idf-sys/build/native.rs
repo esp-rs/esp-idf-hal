@@ -359,11 +359,12 @@ fn build_cargo_first() -> Result<EspIdfBuildOutput> {
     let (asm_flags, c_flags, cxx_flags) = {
         let extractor_script = cmake::script_variables_extractor(&cmake_toolchain_file)?;
 
-        let output = embuild::cmd_output!(
+        let output = embuild::cmd!(
             cmake::cmake(),
             "-P",
             extractor_script.as_ref().as_os_str();
-            env=("IDF_PATH", &idf.repository.worktree().as_os_str()))?;
+            env=("IDF_PATH", &idf.repository.worktree().as_os_str()))
+        .stdout()?;
 
         let mut vars = cmake::process_script_variables_extractor_output(output)?;
         (

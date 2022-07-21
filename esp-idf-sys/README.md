@@ -148,7 +148,7 @@ The following environment variables are used by the build script:
   - `v<major>.<minor>` or `<major>.<minor>`: Uses the tag `v<major>.<minor>` of the `esp-idf` repository.
   - `<branch>`: Uses the branch `<branch>` of the `esp-idf` repository.
 
-  It defaults to `v4.3.2`.
+  It defaults to `v4.4.1`.
 
 
 - `ESP_IDF_REPOSITORY` (*native* builder only): 
