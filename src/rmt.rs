@@ -832,7 +832,7 @@ impl<P: InputPin, C: HwChannel> Receive<P, C> {
                     filter_ticks_thresh: config.filter_ticks_thresh,
                     filter_en: config.filter_en,
                     #[cfg(not(any(esp32, esp32c2)))]
-                    carrier_en,
+                    carrier_rm,
                     #[cfg(not(any(esp32, esp32c2)))]
                     carrier_freq_hz: carrier.frequency.into(),
                     #[cfg(not(any(esp32, esp32c2)))]
@@ -888,7 +888,7 @@ impl<P: InputPin, C: HwChannel> Receive<P, C> {
                 .expect("Failed to get ringbuffer handle");
 
             let rmt_items = xRingbufferReceive(rmt_handle as *mut _, &mut length, ticks_to_wait)
-                as *mut rmt_item32_s;
+                as *mut rmt_item32_t;
 
             if length > 0 {
                 let rmt_item_qty: u32 = length / 4;
