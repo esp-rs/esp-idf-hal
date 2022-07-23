@@ -782,6 +782,36 @@ impl EspWifi {
             ClientStatus::Started(ClientConnectionStatus::Disconnected)
         })
     }
+
+    /// Filter wether or not an IpEvent is related to this [`EspWifi`] instance.
+    ///
+    /// As an example this can be used to check when the Wifi Ip changed.
+    /// ```rust
+    /// # use esp_idf_svc::sysloop::EspSysLoopStack;
+    /// # use esp_idf_svc::wifi::EspWifi;
+    /// # use esp_idf_svc::nvs::EspDefaultNvs;
+    /// # use esp_idf_svc::netif::{EspNetif, EspNetifStack, InterfaceConfiguration};
+    /// let sys_loop_stack = Arc::new(EspSysLoopStack::new()?);
+    /// let wifi = EspWifi::new(
+    ///     Arc::new(EspNetifStack::new()?),
+    ///     sys_loop_stack.clone(),
+    ///     Arc::new(EspDefaultNvs::new()?)
+    /// );
+    /// 
+    /// sys_loop_stack
+    ///     .get_loop()
+    ///     .clone()
+    ///     .subscribe(move |event: &IpEvent| {
+    ///         if wifi.is_ip_event_for_wifi(event){
+    ///             // Do something with the event
+    ///         }
+    ///     })?;
+    /// 
+    /// ```
+    pub fn is_ip_event_for_wifi(&self, event: &IpEvent) -> bool {
+        let shared = self.waitable.state.lock();
+        shared.is_our_ap_ip_event(event) || shared.is_our_sta_ip_event(event)
+    }
 }
 
 impl Drop for EspWifi {
