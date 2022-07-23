@@ -403,7 +403,7 @@ impl EspNetif {
     }
 
     pub fn set_mac(&mut self, mac: &[u8; 6]) -> Result<(), EspError> {
-        esp!(unsafe { esp_netif_set_mac(self.1, mac.clone().as_mut_ptr() as *mut _) })?;
+        esp!(unsafe { esp_netif_set_mac(self.1, mac.as_ptr() as *mut _) })?;
         Ok(())
     }
 
