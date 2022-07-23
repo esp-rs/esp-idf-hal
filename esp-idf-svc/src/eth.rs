@@ -936,6 +936,14 @@ impl<P> EspEth<P> {
             ..Default::default()
         }
     }
+
+    /// Filter wether or not an IpEvent is related to this [`EspEth`] instance.
+    ///
+    /// As an example this can be used to check when the Ip changed.
+    pub fn is_ip_event_for_self(&self, event: &IpEvent) -> bool {
+        let shared = self.waitable.state.lock();
+        shared.is_our_ip_event(event)
+    }
 }
 
 impl<P> Eth for EspEth<P> {
