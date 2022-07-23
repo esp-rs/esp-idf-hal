@@ -797,7 +797,7 @@ impl EspWifi {
     ///     sys_loop_stack.clone(),
     ///     Arc::new(EspDefaultNvs::new()?)
     /// );
-    /// 
+    ///
     /// sys_loop_stack
     ///     .get_loop()
     ///     .clone()
@@ -806,7 +806,6 @@ impl EspWifi {
     ///             // Do something with the event
     ///         }
     ///     })?;
-    /// 
     /// ```
     pub fn is_ip_event_for_wifi(&self, event: &IpEvent) -> bool {
         let shared = self.waitable.state.lock();
