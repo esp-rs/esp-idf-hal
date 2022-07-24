@@ -75,7 +75,7 @@ impl RawCondvar {
 
     pub unsafe fn wait_timeout(&self, mutex: &RawMutex, duration: Duration) -> bool {
         let mut now: timeval = unsafe { core::mem::zeroed() };
-        unsafe { gettimeofday(&mut now, core::ptr::null_mut()) };
+        gettimeofday(&mut now, core::ptr::null_mut());
 
         let abstime = timespec {
             tv_sec: now.tv_sec + duration.as_secs() as i32,
