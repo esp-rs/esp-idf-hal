@@ -122,25 +122,171 @@ impl From<CounterMode> for mcpwm_counter_type_t {
 // TODO: Note that `red` and `fed` from the IDF's perspecitve is time as in number of clock cycles after the
 //       MCPWM modules group prescaler. How do we want to expose this? Do we expose it as just that, a cycle count?
 //       Or do we expose it as a time which we then calculate the cycle count from?
+/// Deadtime config for MCPWM operator
+/// Note that the dead times are calculated from MCPWMXA's flanks unless explicitly stated otherwise
 #[derive(Copy, Clone, PartialEq, Debug)]
 pub enum DeadtimeConfig {
     // TODO: Figure out what all of those options do and give them nice descriptions
     /// MCPWM_BYPASS_RED
+    ///
+    ///               .                    .   .
+    ///               .                    .   .
+    ///               .--------------------.   .
+    ///               |                    |   .
+    /// MCPWMXA in    |                    |   .
+    ///               |                    |   .
+    /// ---------------                    ---------------------
+    ///               .                    .   .
+    ///               .                    .   .
+    ///               .--------------------.   .
+    ///               |                    |   .
+    /// MCPWMXA out   |                    |   .
+    ///               |                    |   .
+    /// ---------------                    ---------------------
+    ///               .                    .   .
+    ///               .                    .   .
+    ///               .------------------------.
+    ///               |                   >.   |< fed
+    /// MCPWMXB out   |                    .   |
+    ///               |                    .   |
+    /// --------------.                    .   -----------------
+    ///               .                    .   .
     BypassRisingEdge { fed: u16 },
 
     /// MCPWM_BYPASS_FED
+    ///
+    ///               .   .                .
+    ///               .   .                .
+    ///               .--------------------.
+    ///               |   .                |
+    /// MCPWMXA in    |   .                |
+    ///               |   .                |
+    /// ---------------   .                ---------------------
+    ///               .   .                .
+    ///               .   .                .
+    ///               .   .----------------.
+    ///          red >.   |<               |
+    /// MCPWMXA out   .   |                |
+    ///               .   |                |
+    /// -------------------                ---------------------
+    ///               .   .                .
+    ///               .   .                .
+    ///               .--------------------.
+    ///               |   .                |
+    /// MCPWMXB out   |   .                |
+    ///               |   .                |
+    /// ---------------   .                ---------------------
+    ///               .   .                .
     BypassFallingEdge { red: u16 },
 
     /// MCPWM_ACTIVE_HIGH_MODE
+    ///
+    ///               .   .                .   .
+    ///               .   .                .   .
+    ///               .--------------------.   .
+    ///               |   .                |   .
+    /// MCPWMXA in    |   .                |   .
+    ///               |   .                |   .
+    /// ---------------   .                ---------------------
+    ///               .   .                .   .
+    ///               .   .                .   .
+    ///               .   .----------------.   .
+    ///          red >.   |<               |   .
+    /// MCPWMXA out   .   |                |   .
+    ///               .   |                |   .
+    /// -------------------                ---------------------
+    ///               .   .                .   .
+    ///               .   .                .   .
+    ///               .------------------------.
+    ///               |   .               >.   |< fed
+    /// MCPWMXB out   |   .                .   |
+    ///               |   .                .   |
+    /// --------------.   .                .   -----------------
+    ///               .   .                .   .
     ActiveHigh { red: u16, fed: u16 },
 
     /// MCPWM_ACTIVE_LOW_MODE
+    ///
+    ///               .   .                .   .
+    ///               .   .                .   .
+    ///               .--------------------.   .
+    ///               |   .                |   .
+    /// MCPWMXA in    |   .                |   .
+    ///               |   .                |   .
+    /// ---------------   .                ---------------------
+    ///               .   .                .   .
+    ///               .   .                .   .
+    /// ------------------.                .--------------------
+    ///          red >.   |<               |   .
+    /// MCPWMXA out   .   |                |   .
+    ///               .   |                |   .
+    ///               .   ------------------
+    ///               .   .                .   .
+    ///               .   .                .   .
+    /// --------------.   .                .   .----------------
+    ///               |   .               >.   |< fed
+    /// MCPWMXB out   |   .                .   |
+    ///               |   .                .   |
+    ///               --------------------------
+    ///               .   .                .   .
+    ///               .   .                .   .
     ActiveLow { red: u16, fed: u16 },
 
-    /// MCPWM_ACTIVE_HIGH_COMPLIMENT_MODE
+    // TODO: Is this actually true? --------
+    //                                      |
+    //                                      v
+    /// MCPWM_ACTIVE_HIGH_COMPLIMENT_MODE - The most common deadtime mode
+    ///
+    ///               .   .                .   .
+    ///               .   .                .   .
+    ///               .--------------------.   .
+    ///               |   .                |   .
+    /// MCPWMXA in    |   .                |   .
+    ///               |   .                |   .
+    /// ---------------   .                ---------------------
+    ///               .   .                .   .
+    ///               .   .                .   .
+    ///               .   .----------------.   .
+    ///          red >.   |<               |   .
+    /// MCPWMXA out   .   |                |   .
+    ///               .   |                |   .
+    /// -------------------                ---------------------
+    ///               .   .                .   .
+    ///               .   .                .   .
+    /// --------------.   .                .   .----------------
+    ///               |   .               >.   |< fed
+    /// MCPWMXB out   |   .                .   |
+    ///               |   .                .   |
+    ///               --------------------------
+    ///               .   .                .   .
+    ///               .   .                .   .
     ActiveHighComplement { red: u16, fed: u16 },
 
     /// MCPWM_ACTIVE_LOW_COMPLIMENT_MODE
+    ///
+    ///               .   .                .   .
+    ///               .   .                .   .
+    ///               .--------------------.   .
+    ///               |   .                |   .
+    /// MCPWMXA in    |   .                |   .
+    ///               |   .                |   .
+    /// ---------------   .                ---------------------
+    ///               .   .                .   .
+    ///               .   .                .   .
+    /// ------------------.                .--------------------
+    ///          red >.   |<               |   .
+    /// MCPWMXA out   .   |                |   .
+    ///               .   |                |   .
+    ///               .   ------------------
+    ///               .   .                .   .
+    ///               .   .                .   .
+    ///               .------------------------.
+    ///               |   .               >.   |< fed
+    /// MCPWMXB out   |   .                .   |
+    ///               |   .                .   |
+    /// ---------------   .                .   -----------------
+    ///               .   .                .   .
+    ///               .   .                .   .
     ActiveLowComplement { red: u16, fed: u16 },
 
     /// MCPWM_ACTIVE_RED_FED_FROM_PWMXA
