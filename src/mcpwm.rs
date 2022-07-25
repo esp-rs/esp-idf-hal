@@ -520,11 +520,14 @@ impl<U: Unit> Mcpwm<U> {
     ///
     /// The timers of the operators can then in turn scale this frequency down further.
     ///
-    /// The lower this is set, the lower frequencies will be reachable. However, this is 
+    /// The lower this is set, the lower frequencies will be reachable. However, this is
     /// at the cost of worse resolution at higher frequencies. Same thing goes for the
     /// other way. The higher value set here, the more resolution and so on.
     #[cfg(not(esp_idf_version = "4.3"))]
-    pub fn operator_source_frequency(mut self, frequency: impl Into<Hertz>) -> Result<Self, EspError> {
+    pub fn operator_source_frequency(
+        mut self,
+        frequency: impl Into<Hertz>,
+    ) -> Result<Self, EspError> {
         let frequency: Hertz = frequency.into();
         let frequency: u32 = frequency.into();
 
