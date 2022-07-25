@@ -119,10 +119,10 @@ impl From<CounterMode> for mcpwm_counter_type_t {
     }
 }
 
-// TODO: Note that `red` and `fed` from the IDF's perspecitve is time as in number of clock cycles after the
-//       MCPWM modules group prescaler. How do we want to expose this? Do we expose it as just that, a cycle count?
-//       Or do we expose it as a time which we then calculate the cycle count from?
-/// Deadtime config for MCPWM operator
+/// Dead time config for MCPWM operator
+///
+/// `red` and `fed` is time as in number of clock cycles after the MCPWM modules group prescaler.
+///
 /// Note that the dead times are calculated from MCPWMXA's flanks unless explicitly stated otherwise
 #[derive(Copy, Clone, PartialEq, Debug)]
 pub enum DeadtimeConfig {
@@ -232,10 +232,7 @@ pub enum DeadtimeConfig {
     ///               .   .                .   .
     ActiveLow { red: u16, fed: u16 },
 
-    // TODO: Is this actually true? --------
-    //                                      |
-    //                                      v
-    /// MCPWM_ACTIVE_HIGH_COMPLIMENT_MODE - The most common deadtime mode
+    /// MCPWM_ACTIVE_HIGH_COMPLIMENT_MODE
     ///
     ///               .   .                .   .
     ///               .   .                .   .
@@ -467,7 +464,7 @@ pub struct Mcpwm<U: Unit> {
     /// Those timers in turn have their own prescalers to scale this down even further
     ///
     /// NOTE: This is only to be set by calling Self::lowest_frequency
-    operator_input_frequency: u32,
+    operator_source_frequency: u32,
     _instance: MCPWM<U>,
 }
 
@@ -475,13 +472,15 @@ impl<U: Unit> Mcpwm<U> {
     pub fn new(instance: MCPWM<U>) -> Result<Self, EspError> {
         let res = Self {
             #[cfg(not(esp_idf_version = "4.3"))]
-            operator_input_frequency: 0,
+            operator_source_frequency: 0,
             _instance: instance,
         };
 
         #[cfg(not(esp_idf_version = "4.3"))]
         {
-            res.lowest_frequency(15.Hz())
+            // TODO: Do we want to make this into something more builder-pattern like to
+            // avoid this potentially redundant function call?
+            res.operator_source_frequency(10.MHz())
         }
 
         #[cfg(esp_idf_version = "4.3")]
@@ -490,26 +489,53 @@ impl<U: Unit> Mcpwm<U> {
         }
     }
 
+    pub fn release(self) -> MCPWM<U> {
+        // TODO: Do we need to reset any state here such as group_prescaler?
+        self._instance
+    }
+
     /// Specify lowest reachable frequency
     ///
     /// The lower this is set, the lower frequencies will be reachable. However, this is at the cost of worse
     /// resolution at higher frequencies.
-    ///  
+    ///
     /// Same thing goes for the other way. The higher value set here, the more resolution and so on.
     #[cfg(not(esp_idf_version = "4.3"))]
     pub fn lowest_frequency(mut self, lowest_frequency: Hertz) -> Result<Self, EspError> {
         // TODO: Do we care about frequency < 1Hz?
-        let operator_input_frequency =
+        let operator_source_frequency =
             MAX_PWM_TIMER_PRESCALE * MAX_PWM_TIMER_PERIOD * u32::from(lowest_frequency);
-        let group_pre_scale = MCPWM_CLOCK_SOURCE_FREQUENCY / operator_input_frequency;
+        let group_pre_scale = MCPWM_CLOCK_SOURCE_FREQUENCY / operator_source_frequency;
         if !(1..=256).contains(&group_pre_scale) {
             return Err(EspError::from(ESP_ERR_INVALID_ARG).unwrap());
         }
 
-        let resolution =
-            MAX_PWM_TIMER_PRESCALE * MAX_PWM_TIMER_PERIOD * u32::from(lowest_frequency);
-        esp!(unsafe { mcpwm_group_set_resolution(U::unit(), resolution) })?;
-        self.operator_input_frequency = operator_input_frequency;
+        esp!(unsafe { mcpwm_group_set_resolution(U::unit(), operator_source_frequency) })?;
+        self.operator_source_frequency = operator_source_frequency;
+
+        Ok(self)
+    }
+
+    /// Specify frequency passed to operators timers as clock source
+    ///
+    /// The timers of the operators can then in turn scale this frequency down further.
+    ///
+    /// The lower this is set, the lower frequencies will be reachable. However, this is 
+    /// at the cost of worse resolution at higher frequencies. Same thing goes for the
+    /// other way. The higher value set here, the more resolution and so on.
+    #[cfg(not(esp_idf_version = "4.3"))]
+    pub fn operator_source_frequency(mut self, frequency: impl Into<Hertz>) -> Result<Self, EspError> {
+        let frequency: Hertz = frequency.into();
+        let frequency: u32 = frequency.into();
+
+        // TODO: Do we care about frequency < 1Hz?
+        let group_pre_scale = MCPWM_CLOCK_SOURCE_FREQUENCY / frequency;
+        if !(1..=256).contains(&group_pre_scale) {
+            return Err(EspError::from(ESP_ERR_INVALID_ARG).unwrap());
+        }
+
+        esp!(unsafe { mcpwm_group_set_resolution(U::unit(), frequency) })?;
+        self.operator_source_frequency = frequency;
 
         Ok(self)
     }
@@ -584,7 +610,7 @@ impl_operator!(
 );
 
 // TODO: How do we want syncing to fit in to this?
-// TODO: How do we want deadtime to fit into this?
+// TODO: How do we want dead time to fit into this?
 // TODO: How do we want carrier to fit into this?
 // TODO: How do we want capture to fit into this?
 
@@ -597,8 +623,13 @@ pub struct Operator<U: Unit, O: HwOperator<U>, M: Borrow<Mcpwm<U>>, PA: OutputPi
     _pin_b: Option<PB>,
 }
 
-impl<U: Unit, O: HwOperator<U>, M: Borrow<Mcpwm<U>>, PA: OutputPin, PB: OutputPin>
-    Operator<U, O, M, PA, PB>
+impl<U, O, M, PA, PB> Operator<U, O, M, PA, PB>
+where
+    U: Unit,
+    O: HwOperator<U>,
+    M: Borrow<Mcpwm<U>>,
+    PA: OutputPin,
+    PB: OutputPin,
 {
     pub fn new<A: Into<Option<PA>>, B: Into<Option<PB>>>(
         operator: O,
@@ -616,7 +647,7 @@ impl<U: Unit, O: HwOperator<U>, M: Borrow<Mcpwm<U>>, PA: OutputPin, PB: OutputPi
                 return Err(EspError::from(ESP_ERR_INVALID_ARG).unwrap());
             }
 
-            if config.lowest_frequency > mcpwm_module.borrow().operator_input_frequency.Hz() {
+            if config.lowest_frequency > mcpwm_module.borrow().operator_source_frequency.Hz() {
                 // Can not specify a lowest_frequency larger than the corresponding value for
                 // the parent MCPWM module. Use `Mcpwm::lowest_frequency` to enable higher frequencies
                 return Err(EspError::from(ESP_ERR_INVALID_ARG).unwrap());
@@ -678,6 +709,31 @@ impl<U: Unit, O: HwOperator<U>, M: Borrow<Mcpwm<U>>, PA: OutputPin, PB: OutputPi
             _pin_a: pin_a,
             _pin_b: pin_b,
         })
+    }
+
+    pub fn release(self) -> (O, Option<PA>, Option<PB>) {
+        // mcpwm_stop will only fail when invalid args are given
+        esp!(unsafe { mcpwm_stop(U::unit(), O::timer()) }).unwrap();
+
+        // TODO: Test and verify if this is the right way
+        if self._pin_a.is_some() {
+            // TODO: How to unset pin?
+            // let io_signal = O::signal_a();
+            // mcpwm_gpio_init(U::unit(), io_signal, -1)
+            // does not seem to be it...
+            todo!();
+        }
+
+        if self._pin_b.is_some() {
+            // TODO: How to unset pin?
+            // let io_signal = O::signal_b();
+            // mcpwm_gpio_init(U::unit(), io_signal, -1)
+            // does not seem to be it...
+
+            todo!();
+        }
+        // TODO: Do we need to reset any more state here such as dead time config?
+        (self._instance, self._pin_a, self._pin_b)
     }
 
     /// Get duty as percentage between 0.0 and 100.0
