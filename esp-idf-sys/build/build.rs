@@ -13,15 +13,22 @@ use embuild::{bindgen, build, cargo, kconfig, path_buf};
 
 mod common;
 
-// Note that the feature `pio` must come before `native`. These features are really
-// mutually exclusive but that would require that all dependencies specify the same
-// feature so instead we prefer the `pio` feature over `native` so that if one package
-// specifies it, this overrides the `native` feature for all other dependencies too.
+#[cfg(feature = "native")]
+mod native;
+#[cfg(feature = "pio")]
+mod pio;
+
+// Note that the first alias must exclude the `pio` feature, so that in the event both
+// features are specified the `pio` build driver is preferred.
+// The `native` and `pio` features are really mutually exclusive but that would require
+// that all dependencies specify the same feature so instead we prefer the `pio` feature
+// over `native` so that if one package specifies it, this overrides the `native` feature
+// for all other dependencies too.
 // See https://doc.rust-lang.org/cargo/reference/features.html#mutually-exclusive-features.
-#[cfg(any(feature = "pio", feature = "native"))]
-#[cfg_attr(feature = "pio", path = "pio.rs")]
-#[cfg_attr(all(feature = "native", not(feature = "pio")), path = "native.rs")]
-mod build_driver;
+#[cfg(all(feature = "native", not(feature = "pio")))]
+use native as build_driver;
+#[cfg(feature = "pio")]
+use pio as build_driver;
 
 #[derive(Debug)]
 struct BindgenCallbacks;
