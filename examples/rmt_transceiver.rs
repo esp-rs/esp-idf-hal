@@ -27,8 +27,8 @@ use std::thread;
 use std::time::Duration;
 
 use esp_idf_hal::rmt::{
-    config::ReceiveConfig, config::TransmitConfig, FixedLengthSignal, Peripheral, PinState, Pulse,
-    PulseTicks, Receive, Transmit, CHANNEL0, CHANNEL2,
+    config::ReceiveConfig, config::TransmitConfig, FixedLengthSignal, PinState, Pulse, PulseTicks,
+    Receive, Transmit, CHANNEL0, CHANNEL2,
 };
 
 fn main() -> anyhow::Result<()> {
@@ -43,7 +43,7 @@ fn main() -> anyhow::Result<()> {
      *********************** SET UP RMT RECEIVER ******************************
      */
     let input_pin = peripherals.pins.gpio36.into_input()?;
-    let rx_rmt_channel: CHANNEL2 = unsafe { Peripheral::new().channel2 };
+    let rx_rmt_channel: CHANNEL2 = peripherals.rmt.channel2;
     let rx_config = ReceiveConfig::new().idle_threshold(700u16);
     let mut rx = Receive::new(input_pin, rx_rmt_channel, &rx_config, 1000)?;
     let _rx_start = rx.start().unwrap();
@@ -75,7 +75,7 @@ fn main() -> anyhow::Result<()> {
      *********************** SET UP RMT TRANSMITTER ******************************
      */
     let output_pin = peripherals.pins.gpio25.into_output()?;
-    let tx_rmt_channel: CHANNEL0 = unsafe { Peripheral::new().channel0 };
+    let tx_rmt_channel: CHANNEL0 = peripherals.rmt.channel0;
 
     // Prepare the tx_config
     // The default uses one memory block or 64 signals and clock divider set to 80 (1us tick)
