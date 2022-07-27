@@ -5,6 +5,7 @@ use std::str::FromStr;
 use std::{env, fs};
 
 use anyhow::{anyhow, bail, Context, Error, Result};
+use config::{ESP_IDF_REPOSITORY_VAR, ESP_IDF_VERSION_VAR};
 use embuild::cargo::IntoWarning;
 use embuild::cmake::file_api::codemodel::Language;
 use embuild::cmake::file_api::ObjKind;
@@ -12,23 +13,16 @@ use embuild::espidf::{EspIdfOrigin, EspIdfRemote, FromEnvError};
 use embuild::fs::copy_file_if_different;
 use embuild::utils::{OsStrExt, PathExt};
 use embuild::{bindgen, build, cargo, cmake, espidf, git, kconfig, path_buf};
-use strum::IntoEnumIterator;
 
 use self::chip::Chip;
 use crate::common::{
     self, list_specific_sdkconfigs, workspace_dir, EspIdfBuildOutput, EspIdfComponents, InstallDir,
-    ESP_IDF_GLOB_VAR_PREFIX, ESP_IDF_SDKCONFIG_DEFAULTS_VAR, ESP_IDF_SDKCONFIG_VAR,
-    ESP_IDF_TOOLS_INSTALL_DIR_VAR, MCU_VAR, SDKCONFIG_DEFAULTS_FILE, SDKCONFIG_FILE,
     V_4_3_2_PATCHES,
 };
+use crate::config::{BuildConfig, ESP_IDF_GLOB_VAR_PREFIX, ESP_IDF_TOOLS_INSTALL_DIR_VAR};
 
 pub mod chip;
-
-const ESP_IDF_VERSION_VAR: &str = "ESP_IDF_VERSION";
-const ESP_IDF_REPOSITORY_VAR: &str = "ESP_IDF_REPOSITORY";
-pub const ESP_IDF_CMAKE_GENERATOR_VAR: &str = "ESP_IDF_CMAKE_GENERATOR";
-
-const DEFAULT_ESP_IDF_VERSION: &str = "v4.4.1";
+pub mod config;
 
 pub fn build() -> Result<EspIdfBuildOutput> {
     let out_dir = cargo::out_dir();
@@ -36,23 +30,18 @@ pub fn build() -> Result<EspIdfBuildOutput> {
     let workspace_dir = workspace_dir()?;
     let manifest_dir = PathBuf::from(env::var("CARGO_MANIFEST_DIR")?);
 
-    let chip = if let Some(mcu) = env::var_os(MCU_VAR) {
-        Chip::from_str(&mcu.to_string_lossy())?
+    let config = BuildConfig::try_from_env()?;
+    eprintln!("Build configuration: {:#?}", &config);
+
+    let chip = if let Some(mcu) = config.mcu.clone() {
+        Chip::from_str(&mcu)?
     } else {
         Chip::detect(&target)?
     };
     let chip_name = chip.to_string();
     let profile = common::build_profile();
 
-    cargo::track_env_var(espidf::IDF_PATH_VAR);
-    cargo::track_env_var(ESP_IDF_TOOLS_INSTALL_DIR_VAR);
-    cargo::track_env_var(ESP_IDF_VERSION_VAR);
-    cargo::track_env_var(ESP_IDF_REPOSITORY_VAR);
-    cargo::track_env_var(ESP_IDF_SDKCONFIG_DEFAULTS_VAR);
-    cargo::track_env_var(ESP_IDF_SDKCONFIG_VAR);
-    cargo::track_env_var(MCU_VAR);
-
-    let cmake_generator = get_cmake_generator()?;
+    let cmake_generator = config.native.esp_idf_cmake_generator();
 
     let make_tools = move |repo: &git::Repository,
                            version: &Result<espidf::EspIdfVersion>|
@@ -65,7 +54,7 @@ pub fn build() -> Result<EspIdfBuildOutput> {
 
         let mut tools = vec![];
         let mut subtools = vec![chip.gcc_toolchain()];
-        //
+
         // Use custom cmake for esp-idf<4.4, because we need at least cmake-3.20
         match version.as_ref().map(|v| (v.major, v.minor, v.patch)) {
             Ok((major, minor, _)) if major >= 4 && minor >= 4 => subtools.push("cmake"),
@@ -87,13 +76,12 @@ pub fn build() -> Result<EspIdfBuildOutput> {
 
     // Get the install dir from the $ESP_IDF_TOOLS_INSTALL_DIR, if unset use
     // "workspace" and allow esp-idf from the environment.
-    let (install_dir, allow_from_env) = InstallDir::from_env_or("workspace", "espressif")?;
+    let (install_dir, allow_from_env) = config.esp_idf_tools_install_dir()?;
     // EspIdf must come from the environment if $ESP_IDF_TOOLS_INSTALL_DIR == "fromenv".
     let require_from_env = install_dir.is_from_env();
     let maybe_from_env = require_from_env || allow_from_env;
 
     let install = |esp_idf_origin: EspIdfOrigin| -> Result<espidf::EspIdf> {
-        let (custom_url, custom_version) = esp_idf_remote_parts()?;
         match &esp_idf_origin {
             EspIdfOrigin::Custom(repo) => {
                 eprintln!(
@@ -101,14 +89,14 @@ pub fn build() -> Result<EspIdfBuildOutput> {
                     repo.worktree().display(),
                     espidf::IDF_PATH_VAR
                 );
-                if let Some(custom_url) = custom_url {
+                if let Some(custom_url) = &config.native.esp_idf_repository {
                     cargo::print_warning(format_args!(
                         "Ignoring configuration setting `{ESP_IDF_REPOSITORY_VAR}=\"{custom_url}\"`: \
                          custom esp-idf repository detected via ${}",
                         espidf::IDF_PATH_VAR
                     ));
                 }
-                if let Some(custom_version) = custom_version {
+                if let Some(custom_version) = &config.native.esp_idf_version {
                     cargo::print_warning(format_args!(
                         "Ignoring configuration setting `{ESP_IDF_VERSION_VAR}` ({custom_version}): \
                          custom esp-idf repository detected via ${}",
@@ -151,12 +139,9 @@ pub fn build() -> Result<EspIdfBuildOutput> {
             ))
         }
         (Err(FromEnvError::NoRepo(_)), _) => {
-            let (repo_url, git_ref) = esp_idf_remote_parts()?;
-            let git_ref = git_ref.unwrap_or_else(|| espidf::parse_esp_idf_git_ref(DEFAULT_ESP_IDF_VERSION));
-
             install(EspIdfOrigin::Managed(EspIdfRemote {
-                git_ref,
-                repo_url
+                git_ref: config.native.esp_idf_version(),
+                repo_url: config.native.esp_idf_repository.clone()
             }))?
         },
         (Err(FromEnvError::NotActivated { esp_idf_repo, .. }), _) => {
@@ -195,7 +180,7 @@ pub fn build() -> Result<EspIdfBuildOutput> {
 
     // Remove the sdkconfig file generated by the esp-idf so that potential changes
     // in the user provided sdkconfig and sdkconfig.defaults don't get ignored.
-    // Note: I'm really not sure why we have to do this.
+    // TODO: I'm really not sure why we have to do this.
     let _ = fs::remove_file(path_buf![&out_dir, "sdkconfig"]);
 
     // Create cmake project.
@@ -224,7 +209,7 @@ pub fn build() -> Result<EspIdfBuildOutput> {
     // Resolve `ESP_IDF_SDKCONFIG` and `ESP_IDF_SDKCONFIG_DEFAULTS` to an absolute path
     // relative to the workspace directory if not empty.
     let sdkconfig = {
-        let file = env::var_os(ESP_IDF_SDKCONFIG_VAR).unwrap_or_else(|| SDKCONFIG_FILE.into());
+        let file = config.esp_idf_sdkconfig();
         let path = Path::new(&file).abspath_relative_to(&workspace_dir);
         let cfg = list_specific_sdkconfigs(path, &profile, &chip_name).next();
         if let Some(ref file) = cfg {
@@ -239,23 +224,19 @@ pub fn build() -> Result<EspIdfBuildOutput> {
 
         let mut result = vec![gen_defaults_path];
         result.extend(
-            env::var_os(ESP_IDF_SDKCONFIG_DEFAULTS_VAR)
-                .unwrap_or_else(|| SDKCONFIG_DEFAULTS_FILE.into())
-                .try_to_str()?
-                .split(';')
-                .filter_map(|v| {
-                    if !v.is_empty() {
-                        let path = Path::new(v).abspath_relative_to(&workspace_dir);
-                        Some(
-                            list_specific_sdkconfigs(path, &profile, &chip_name)
-                                // We need to reverse the order here so that the more
-                                // specific defaults come last.
-                                .rev()
-                                .inspect(|p| cargo::track_file(p)),
-                        )
-                    } else {
-                        None
-                    }
+            config
+                .esp_idf_sdkconfig_defaults()
+                .into_iter()
+                .map(|v| {
+                    list_specific_sdkconfigs(
+                        v.abspath_relative_to(&workspace_dir),
+                        &profile,
+                        &chip_name,
+                    )
+                    // We need to reverse the order here so that the more
+                    // specific defaults come last.
+                    .rev()
+                    .inspect(|p| cargo::track_file(p))
                 })
                 .flatten(),
         );
@@ -406,22 +387,6 @@ pub fn build() -> Result<EspIdfBuildOutput> {
     Ok(build_output)
 }
 
-fn esp_idf_remote_parts() -> Result<(Option<String>, Option<git::Ref>)> {
-    let version_ref = match env::var(ESP_IDF_VERSION_VAR) {
-        Err(env::VarError::NotPresent) => None,
-        v => Some(v?.trim().to_owned()),
-    }
-    .filter(|s| !s.is_empty())
-    .map(|s| espidf::parse_esp_idf_git_ref(&s));
-
-    let repo_url = match env::var(ESP_IDF_REPOSITORY_VAR) {
-        Err(env::VarError::NotPresent) => None,
-        git_url => Some(git_url?),
-    };
-
-    Ok((repo_url, version_ref))
-}
-
 // Generate `sdkconfig.defaults` content based on the crate manifest (`Cargo.toml`).
 //
 // This is currently only used to forward the optimization options to the esp-idf.
@@ -448,39 +413,4 @@ fn generate_sdkconfig_defaults() -> Result<String> {
         .enumerate()
         .map(|(i, s)| format!("{}={}\n", s, if i == opt_index { 'y' } else { 'n' }))
         .collect::<String>())
-}
-
-/// Get the cmake generator depending on `ESP_IDF_CMAKE_GENERATOR` or the host
-/// architecture.
-fn get_cmake_generator() -> Result<cmake::Generator> {
-    let generator = match env::var(ESP_IDF_CMAKE_GENERATOR_VAR) {
-        Err(env::VarError::NotPresent) => None,
-        var => Some(var?.trim().to_lowercase()),
-    };
-
-    let generator = match generator.as_deref() {
-        None | Some("default") => {
-            // No Ninja builds for linux=aarch64 from Espressif yet
-            #[cfg(all(target_os = "linux", target_arch = "aarch64"))]
-            {
-                cmake::Generator::UnixMakefiles
-            }
-
-            #[cfg(not(all(target_os = "linux", target_arch = "aarch64")))]
-            {
-                cmake::Generator::Ninja
-            }
-        }
-        Some(other) => cmake::Generator::from_str(other).map_err(|_| {
-            anyhow!(
-                "Invalid CMake generator. Should be either `default`, or one of [{}]",
-                cmake::Generator::iter()
-                    .map(|e| e.into())
-                    .collect::<Vec<&'static str>>()
-                    .join(", ")
-            )
-        })?,
-    };
-
-    Ok(generator)
 }

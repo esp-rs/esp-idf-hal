@@ -12,6 +12,7 @@ use embuild::utils::OsStrExt;
 use embuild::{bindgen, build, cargo, kconfig, path_buf};
 
 mod common;
+mod config;
 
 #[cfg(feature = "native")]
 mod native;

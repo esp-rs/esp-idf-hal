@@ -4,6 +4,9 @@ use super::common::EspIdfBuildOutput;
 use anyhow::Result;
 use std::env;
 
+/// The name of the tools sub-directory.
+pub const TOOLS_DIR: &str = "espressif";
+
 pub fn build() -> Result<EspIdfBuildOutput> {
     if env::var_os(cmake_driver::CARGO_CMAKE_BUILD_ACTIVE_VAR).is_some()
         || env::var_os(cmake_driver::CARGO_CMAKE_BUILD_INCLUDES_VAR).is_some()
