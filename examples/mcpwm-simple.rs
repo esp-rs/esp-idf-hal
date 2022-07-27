@@ -1,3 +1,57 @@
+/// # x = 10
+///
+///               .                               .
+///               .                               .
+///               .------.                        .------.
+///               |      |                        |      |
+/// pin4          |      |                        |      |
+///               |      |                        |      |
+///           -----      --------------------------      --------------------------
+///               .                               .
+///               .                               .
+///               .------------------------.      .------------------------.
+///               |                        |      |                        |
+/// pin5          |                        |      |                        |
+///               |                        |      |                        |
+///           -----                        --------                        --------
+///               .                               .
+///
+///
+/// # x = 50
+///               .                               .
+///               .                               .
+///               .---------------.               .---------------.
+///               |               |               |               |
+/// pin4          |               |               |               |
+///               |               |               |               |
+///           -----               -----------------               -----------------
+///               .                               .
+///               .                               .
+///               .---------------.               .---------------.
+///               |               |               |               |
+/// pin5          |               |               |               |
+///               |               |               |               |
+///           -----               -----------------               -----------------
+///               .                               .
+///
+///
+/// # x = 90
+///               .                               .
+///               .                               .
+///               .------------------------.      .------------------------.
+///               |                        |      |                        |
+/// pin4          |                        |      |                        |
+///               |                        |      |                        |
+///           -----                        --------                        --------
+///               .                               .
+///               .                               .
+///               .------.                        .------.
+///               |      |                        |      |
+/// pin5          |      |                        |      |
+///               |      |                        |      |
+///           -----      --------------------------      --------------------------
+///               .                               .
+
 #[cfg(any(esp32, esp32s3))]
 fn main() -> anyhow::Result<()> {
     use embedded_hal::delay::blocking::DelayUs;
@@ -12,7 +66,7 @@ fn main() -> anyhow::Result<()> {
     println!("Configuring MCPWM");
 
     let peripherals = Peripherals::take().unwrap();
-    let config = OperatorConfig::default().frequency(25.kHz().into());
+    let config = OperatorConfig::default().frequency(25.kHz());
     let mcpwm = Mcpwm::new(peripherals.mcpwm0.mcpwm)?;
     let mut operator = Operator::new(
         peripherals.mcpwm0.operator0,
@@ -24,10 +78,10 @@ fn main() -> anyhow::Result<()> {
 
     println!("Starting duty-cycle loop");
 
-    for &duty in [0.0, 20.0, 40.0, 60.0, 80.0, 100.0].iter().cycle() {
-        println!("Duty {}%", duty);
-        operator.set_duty_a(duty)?;
-        operator.set_duty_b(100.0 - duty)?;
+    for &x in [0.0, 20.0, 40.0, 60.0, 80.0, 100.0].iter().cycle() {
+        println!("Duty {}%", x);
+        operator.set_duty_a(x)?;
+        operator.set_duty_b(100.0 - x)?;
         FreeRtos.delay_ms(2000)?;
     }
 

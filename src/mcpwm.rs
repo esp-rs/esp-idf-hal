@@ -19,6 +19,8 @@
 //!   ---------------                     ---------------
 //! ```
 //!
+//! # Example
+//!
 //! Create a pair of PWM signals on pin 4 and 5. The duty on pin 4 will ramp from 0% to 100%
 //! while pin 5 will ramp from 100% down to 0%.
 //! ```
@@ -82,9 +84,19 @@ impl<U: Unit> Peripheral<U> {
     }
 }
 
+/// Duty modes for operator
 #[derive(Clone, Copy, Debug)]
 pub enum DutyMode {
+    /// Active high
+    ///
+    /// Setting duty = 100% will result in a constant high output
+    /// Setting duty =   0% will result in a constant low output
     ActiveHigh,
+
+    /// Active low
+    ///
+    /// Setting duty = 100% will result in a constant low output
+    /// Setting duty =   0% will result in a constant high output
     ActiveLow,
 }
 
@@ -97,13 +109,64 @@ impl From<DutyMode> for mcpwm_duty_type_t {
     }
 }
 
+/// Counter mode for operator's timer for generating PWM signal
 // TODO: For UpDown, frequency is half of MCPWM frequency set
 #[derive(Clone, Copy, Debug)]
 pub enum CounterMode {
+    /// Timer is frozen or paused
     #[cfg(not(esp_idf_version = "4.3"))]
     Frozen,
+    /// Edge aligned. The counter will start from its lowest value and increment every clock cycle until the period is reached.
+    ///
+    /// The wave form will end up looking something like the following:
+    /// ```
+    ///       start, counter = 0                     reset, counter = period
+    ///         |                                       |
+    ///         |                                       |*--- start, counter = 0
+    ///         v <----  duty  ----> .                  v|
+    ///         .                    .                  .v
+    ///         .--------------------.                  ..----
+    ///         |       Active       |                  .|
+    ///         |                    |                  .|
+    ///         |                    |     Not active   .|
+    ///         -                    ---------------------
+    /// ```
     Up,
+
+    /// Edge aligned. The counter will start from its highest value, period and decrement every clock cycle until the zero is reached
+    ///
+    /// The wave form will end up looking something like the following:
+    /// ```
+    ///       start, counter = period                   reset, counter = 0
+    ///         |                                         |
+    ///         |                                         |*--- start, counter = period
+    ///         v                    .                    v|
+    ///         .                    . <----  duty  ----> .v
+    ///         .                    .--------------------..
+    ///         .       Active       |                    |.
+    ///         .                    |                    |.
+    ///         .     Not active     |      Active        |.
+    ///         ----------------------                    ----
+    /// ```
     Down,
+
+    /// Symmetric mode. The counter will start from its lowest value and increment every clock cycle until the period is reached
+    ///
+    /// The wave form will end up looking something like the following:
+    /// ```
+    ///                                             change count dir to decrement, counter = period
+    ///       start, counter = 0, incrementing          |                                     change count dir to increment, counter = 0
+    ///         |                                       |                                        |
+    ///         |                                       |*--- counter = period                   |*----- start, counter = 0, incrementing
+    ///         v <----  duty  ----> .                  v|                  . <----  duty  ----> ||
+    ///         .                    .                  .v                  .                    vv
+    ///         ---------------------.                  ..                  .-------------------------------------------.                  ..                  .--
+    ///                 Active       |                  ..                  |        Active                Active       |                  ..                  |
+    ///                              |                  ..                  |                                           |                  ..                  |
+    ///                              |     Not active   ..    Not active    |                                           |     Not active   ..    Not active    |
+    ///                              ----------------------------------------                                           ----------------------------------------
+    /// ```
+    /// NOTE: That in this mode, the frequency will be half of that specified
     UpDown,
 }
 
@@ -121,7 +184,7 @@ impl From<CounterMode> for mcpwm_counter_type_t {
 
 /// Dead time config for MCPWM operator
 ///
-/// `red` and `fed` is time as in number of clock cycles after the MCPWM modules group prescaler.
+/// `rising_edge_delay` and `falling_edge_delay` is time as in number of clock cycles after the MCPWM modules group prescaler.
 ///
 /// Note that the dead times are calculated from MCPWMXA's flanks unless explicitly stated otherwise
 #[derive(Copy, Clone, PartialEq, Debug)]
@@ -129,6 +192,7 @@ pub enum DeadtimeConfig {
     // TODO: Figure out what all of those options do and give them nice descriptions
     /// MCPWM_BYPASS_RED
     ///
+    /// ```
     ///               .                    .   .
     ///               .                    .   .
     ///               .--------------------.   .
@@ -151,10 +215,13 @@ pub enum DeadtimeConfig {
     ///               |                    .   |
     /// --------------.                    .   -----------------
     ///               .                    .   .
-    BypassRisingEdge { fed: u16 },
+    ///               .   .                .   .
+    /// ```
+    BypassRisingEdge { falling_edge_delay: u16 },
 
     /// MCPWM_BYPASS_FED
     ///
+    /// ```
     ///               .   .                .
     ///               .   .                .
     ///               .--------------------.
@@ -177,10 +244,13 @@ pub enum DeadtimeConfig {
     ///               |   .                |
     /// ---------------   .                ---------------------
     ///               .   .                .
-    BypassFallingEdge { red: u16 },
+    ///               .   .                .   .
+    /// ```
+    BypassFallingEdge { rising_edge_delay: u16 },
 
     /// MCPWM_ACTIVE_HIGH_MODE
     ///
+    /// ```
     ///               .   .                .   .
     ///               .   .                .   .
     ///               .--------------------.   .
@@ -203,10 +273,16 @@ pub enum DeadtimeConfig {
     ///               |   .                .   |
     /// --------------.   .                .   -----------------
     ///               .   .                .   .
-    ActiveHigh { red: u16, fed: u16 },
+    ///               .   .                .   .
+    /// ```
+    ActiveHigh {
+        rising_edge_delay: u16,
+        falling_edge_delay: u16,
+    },
 
     /// MCPWM_ACTIVE_LOW_MODE
     ///
+    /// ```
     ///               .   .                .   .
     ///               .   .                .   .
     ///               .--------------------.   .
@@ -230,10 +306,15 @@ pub enum DeadtimeConfig {
     ///               --------------------------
     ///               .   .                .   .
     ///               .   .                .   .
-    ActiveLow { red: u16, fed: u16 },
+    /// ```
+    ActiveLow {
+        rising_edge_delay: u16,
+        falling_edge_delay: u16,
+    },
 
     /// MCPWM_ACTIVE_HIGH_COMPLIMENT_MODE
     ///
+    /// ```
     ///               .   .                .   .
     ///               .   .                .   .
     ///               .--------------------.   .
@@ -257,10 +338,15 @@ pub enum DeadtimeConfig {
     ///               --------------------------
     ///               .   .                .   .
     ///               .   .                .   .
-    ActiveHighComplement { red: u16, fed: u16 },
+    /// ```
+    ActiveHighComplement {
+        rising_edge_delay: u16,
+        falling_edge_delay: u16,
+    },
 
     /// MCPWM_ACTIVE_LOW_COMPLIMENT_MODE
     ///
+    /// ```
     ///               .   .                .   .
     ///               .   .                .   .
     ///               .--------------------.   .
@@ -284,75 +370,104 @@ pub enum DeadtimeConfig {
     /// ---------------   .                .   -----------------
     ///               .   .                .   .
     ///               .   .                .   .
-    ActiveLowComplement { red: u16, fed: u16 },
+    /// ```
+    ActiveLowComplement {
+        rising_edge_delay: u16,
+        falling_edge_delay: u16,
+    },
 
     /// MCPWM_ACTIVE_RED_FED_FROM_PWMXA
-    ActiveRedFedFromPwmxa { red: u16, fed: u16 },
+    ActiveRedFedFromPwmxa {
+        rising_edge_delay: u16,
+        falling_edge_delay: u16,
+    },
 
     /// MCPWM_ACTIVE_RED_FED_FROM_PWMXB
-    ActiveRedFedFromPwmxb { red: u16, fed: u16 },
-}
-
-struct DeadtimeArgs {
-    red: u16,
-    fed: u16,
-    mode: mcpwm_deadtime_type_t,
+    ActiveRedFedFromPwmxb {
+        rising_edge_delay: u16,
+        falling_edge_delay: u16,
+    },
 }
 
 impl DeadtimeConfig {
     fn as_args(&self) -> DeadtimeArgs {
         match *self {
-            DeadtimeConfig::BypassRisingEdge { fed } => DeadtimeArgs {
-                red: 0,
-                fed,
+            DeadtimeConfig::BypassRisingEdge { falling_edge_delay } => DeadtimeArgs {
+                rising_edge_delay: 0,
+                falling_edge_delay,
                 mode: mcpwm_deadtime_type_t_MCPWM_BYPASS_RED,
             },
 
-            DeadtimeConfig::BypassFallingEdge { red } => DeadtimeArgs {
-                red,
-                fed: 0,
+            DeadtimeConfig::BypassFallingEdge { rising_edge_delay } => DeadtimeArgs {
+                rising_edge_delay,
+                falling_edge_delay: 0,
                 mode: mcpwm_deadtime_type_t_MCPWM_BYPASS_FED,
             },
 
-            DeadtimeConfig::ActiveHigh { red, fed } => DeadtimeArgs {
-                red,
-                fed,
+            DeadtimeConfig::ActiveHigh {
+                rising_edge_delay,
+                falling_edge_delay,
+            } => DeadtimeArgs {
+                rising_edge_delay,
+                falling_edge_delay,
                 mode: mcpwm_deadtime_type_t_MCPWM_ACTIVE_HIGH_MODE,
             },
 
-            DeadtimeConfig::ActiveLow { red, fed } => DeadtimeArgs {
-                red,
-                fed,
+            DeadtimeConfig::ActiveLow {
+                rising_edge_delay,
+                falling_edge_delay,
+            } => DeadtimeArgs {
+                rising_edge_delay,
+                falling_edge_delay,
                 mode: mcpwm_deadtime_type_t_MCPWM_ACTIVE_LOW_MODE,
             },
 
-            DeadtimeConfig::ActiveHighComplement { red, fed } => DeadtimeArgs {
-                red,
-                fed,
+            DeadtimeConfig::ActiveHighComplement {
+                rising_edge_delay,
+                falling_edge_delay,
+            } => DeadtimeArgs {
+                rising_edge_delay,
+                falling_edge_delay,
                 mode: mcpwm_deadtime_type_t_MCPWM_ACTIVE_HIGH_COMPLIMENT_MODE,
             },
 
-            DeadtimeConfig::ActiveLowComplement { red, fed } => DeadtimeArgs {
-                red,
-                fed,
+            DeadtimeConfig::ActiveLowComplement {
+                rising_edge_delay,
+                falling_edge_delay,
+            } => DeadtimeArgs {
+                rising_edge_delay,
+                falling_edge_delay,
                 mode: mcpwm_deadtime_type_t_MCPWM_ACTIVE_LOW_COMPLIMENT_MODE,
             },
 
-            DeadtimeConfig::ActiveRedFedFromPwmxa { red, fed } => DeadtimeArgs {
-                red,
-                fed,
+            DeadtimeConfig::ActiveRedFedFromPwmxa {
+                rising_edge_delay,
+                falling_edge_delay,
+            } => DeadtimeArgs {
+                rising_edge_delay,
+                falling_edge_delay,
                 mode: mcpwm_deadtime_type_t_MCPWM_ACTIVE_RED_FED_FROM_PWMXA,
             },
 
-            DeadtimeConfig::ActiveRedFedFromPwmxb { red, fed } => DeadtimeArgs {
-                red,
-                fed,
+            DeadtimeConfig::ActiveRedFedFromPwmxb {
+                rising_edge_delay,
+                falling_edge_delay,
+            } => DeadtimeArgs {
+                rising_edge_delay,
+                falling_edge_delay,
                 mode: mcpwm_deadtime_type_t_MCPWM_ACTIVE_RED_FED_FROM_PWMXB,
             },
         }
     }
 }
 
+struct DeadtimeArgs {
+    rising_edge_delay: u16,
+    falling_edge_delay: u16,
+    mode: mcpwm_deadtime_type_t,
+}
+
+/// Operator configuration
 pub struct OperatorConfig {
     frequency: Hertz,
     duty_a: Duty,
@@ -367,19 +482,32 @@ pub struct OperatorConfig {
 }
 
 impl OperatorConfig {
+    /// Frequency which the operator will run at, can also be changed live later
     #[must_use]
-    pub fn frequency(mut self, frequency: Hertz) -> Self {
-        self.frequency = frequency;
+    pub fn frequency(mut self, frequency: impl Into<Hertz>) -> Self {
+        self.frequency = frequency.into();
         self
     }
 
+    /// Lowest frequency which the operator needs to be able to reach
+    ///
+    /// This setting will limit what frequency range the operator can reach.
+    /// Setting a low value here will lead to worse resolution at higher
+    /// frequencies. A high value on the other hand will prevent any frequencies
+    /// lower than that.
+    ///
+    /// Thus, for maximum resolution set lowest_frequency to the lowest expected
+    /// frequency which will be used.
+    ///
+    /// NOTE: This value can currently not be changed live
     #[cfg(not(esp_idf_version = "4.3"))]
     #[must_use]
-    pub fn lowest_frequency(mut self, lowest_frequency: Hertz) -> Self {
-        self.lowest_frequency = lowest_frequency;
+    pub fn lowest_frequency(mut self, lowest_frequency: impl Into<Hertz>) -> Self {
+        self.lowest_frequency = lowest_frequency.into();
         self
     }
 
+    /// Specify what duty mode to use for the operator.
     #[must_use]
     pub fn duty_mode(mut self, duty_mode: DutyMode) -> Self {
         self.duty_mode = duty_mode;
@@ -457,7 +585,7 @@ impl Unit for UnitOne {
 }
 
 // TODO: How do we want fault module to fit into this?
-
+/// Motor Control PWM module abstraction
 pub struct Mcpwm<U: Unit> {
     #[cfg(not(esp_idf_version = "4.3"))]
     /// This is the frequency of the clock signal passed on as clock source for the operators timers
@@ -617,6 +745,10 @@ impl_operator!(
 // TODO: How do we want carrier to fit into this?
 // TODO: How do we want capture to fit into this?
 
+/// Motor Control operator abstraction
+///
+/// Every Motor Control module has three operators. Every operator can generate two output signals called A and B.
+/// A and B share the same timer and thus frequency and phase but can have induvidual duty set.
 pub struct Operator<U: Unit, O: HwOperator<U>, M: Borrow<Mcpwm<U>>, PA: OutputPin, PB: OutputPin> {
     _instance: O,
     _unit: U,
@@ -685,9 +817,19 @@ where
                 mcpwm_deadtime_disable(U::unit(), O::timer());
             },
             Some(config) => {
-                let DeadtimeArgs { red, fed, mode } = config.as_args();
+                let DeadtimeArgs {
+                    rising_edge_delay,
+                    falling_edge_delay,
+                    mode,
+                } = config.as_args();
                 unsafe {
-                    mcpwm_deadtime_enable(U::unit(), O::timer(), mode, red.into(), fed.into());
+                    mcpwm_deadtime_enable(
+                        U::unit(),
+                        O::timer(),
+                        mode,
+                        rising_edge_delay.into(),
+                        falling_edge_delay.into(),
+                    );
                 }
             }
         }
@@ -739,7 +881,7 @@ where
         (self._instance, self._pin_a, self._pin_b)
     }
 
-    /// Get duty as percentage between 0.0 and 100.0
+    /// Get duty as percentage between 0.0 and 100.0 for output A
     pub fn get_duty_a(&self) -> Duty {
         unsafe {
             esp_idf_sys::mcpwm_get_duty(
@@ -750,7 +892,7 @@ where
         }
     }
 
-    /// Get duty as percentage between 0.0 and 100.0
+    /// Get duty as percentage between 0.0 and 100.0 for output B
     pub fn get_duty_b(&self) -> Duty {
         unsafe {
             esp_idf_sys::mcpwm_get_duty(
@@ -761,7 +903,7 @@ where
         }
     }
 
-    /// Set duty as percentage between 0.0 and 100.0
+    /// Set duty as percentage between 0.0 and 100.0 for output A
     pub fn set_duty_a(&mut self, duty: Duty) -> Result<(), EspError> {
         unsafe {
             esp!(esp_idf_sys::mcpwm_set_duty(
@@ -773,7 +915,7 @@ where
         }
     }
 
-    /// Set duty as percentage between 0.0 and 100.0
+    /// Set duty as percentage between 0.0 and 100.0 for output B
     pub fn set_duty_b(&mut self, duty: Duty) -> Result<(), EspError> {
         unsafe {
             esp!(esp_idf_sys::mcpwm_set_duty(
