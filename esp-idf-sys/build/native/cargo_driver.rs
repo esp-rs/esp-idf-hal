@@ -16,7 +16,12 @@ use embuild::{bindgen, build, cargo, cmake, espidf, git, kconfig, path_buf};
 
 use self::chip::Chip;
 use crate::common::{
-    self, list_specific_sdkconfigs, workspace_dir, EspIdfBuildOutput, EspIdfComponents, InstallDir,
+    self,
+    list_specific_sdkconfigs,
+    workspace_dir,
+    EspIdfBuildOutput,
+    EspIdfComponents,
+    InstallDir,
     V_4_3_2_PATCHES,
 };
 use crate::config::{BuildConfig, ESP_IDF_GLOB_VAR_PREFIX, ESP_IDF_TOOLS_INSTALL_DIR_VAR};
@@ -30,8 +35,15 @@ pub fn build() -> Result<EspIdfBuildOutput> {
     let workspace_dir = workspace_dir()?;
     let manifest_dir = PathBuf::from(env::var("CARGO_MANIFEST_DIR")?);
 
-    let config = BuildConfig::try_from_env()?;
-    eprintln!("Build configuration: {:#?}", &config);
+    let config = BuildConfig::try_from_env().map(|mut config| {
+        config
+            .with_cargo_metadata()
+            .context("failed to read configuration from manifest metadata")
+            .into_warning();
+        config
+    })?;
+
+    config.print();
 
     let chip = if let Some(mcu) = config.mcu.clone() {
         Chip::from_str(&mcu)?

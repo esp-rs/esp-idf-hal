@@ -24,7 +24,13 @@ pub fn build() -> Result<EspIdfBuildOutput> {
 
             (pio_scons_vars, None)
         } else {
-            let config = BuildConfig::try_from_env()?;
+            let config = BuildConfig::try_from_env().map(|mut config| {
+                config
+                    .with_cargo_metadata()
+                    .context("failed to read configuration from manifest metadata")
+                    .into_warning();
+                config
+            })?;
             config.print();
 
             let out_dir = cargo::out_dir();

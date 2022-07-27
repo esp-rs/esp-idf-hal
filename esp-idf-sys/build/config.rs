@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use anyhow::Result;
+use anyhow::{anyhow, bail, Context, Result};
 use embuild::cargo;
 use serde::Deserialize;
 
@@ -35,6 +35,10 @@ pub struct BuildConfig {
     /// Additional configurations for the native builder.
     #[serde(skip)]
     pub native: crate::native::cargo_driver::config::NativeConfig,
+
+    /// The name of the root crate currently compiling for, in the event that the
+    /// workspace does not have a root crate.
+    pub esp_idf_sys_root_crate: Option<String>,
 }
 
 impl BuildConfig {
@@ -94,14 +98,72 @@ impl BuildConfig {
             .unwrap_or_else(|| vec![DEFAULT_SDKCONFIG_DEFAULTS_FILE.into()])
     }
 
-    pub fn from_cargo_metadata() -> Result<BuildConfig> {
+    /// Get the configuration from the `package.metadata.esp-idf-sys` table of the root
+    /// crate's manifest, and update all options that are unset.
+    ///
+    /// This has the effect that currently set values (coming from
+    /// [`BuildConfig::try_from_env`]) take precedence over config options coming from
+    /// cargo metadata, meaning environment variables take precedence over cargo metadata.
+    ///
+    /// This will execute `cargo metadata --frozen --offline` in the [`workspace_dir`] and
+    /// use the manifest's metadata of the [root crate], or if `cargo metadata` doesn't
+    /// give a root crate, the crate given by the `ESP_IDF_SYS_ROOT_CRATE` environment
+    /// variable ([`BuildConfig::esp_idf_sys_root_crate`]).
+    ///
+    /// [root crate]: https://doc.rust-lang.org/cargo/reference/workspaces.html#root-package
+    pub fn with_cargo_metadata(&mut self) -> Result<()> {
         let metadata = cargo_metadata::MetadataCommand::new()
             .current_dir(workspace_dir()?)
             .other_options(vec!["--frozen".into(), "--offline".into()])
             .exec()?;
 
-        todo!()
+        let root_package = match (metadata.root_package(), &self.esp_idf_sys_root_crate) {
+            (_, Some(pkg_name)) => {
+                metadata.workspace_packages()
+                    .into_iter().find(|p| &p.name == pkg_name)
+                    .ok_or_else(|| anyhow!("the crate given by `ESP_IDF_SYS_ROOT_CRATE` does not exist in this workspace"))? 
+            },
+            (Some(pkg), _) => pkg,
+            (None, None) => bail!("could not identify the root crate and `ESP_IDF_SYS_ROOT_CRATE` not specified")
+        };
+
+        // Deserialize the options from the `esp-idf-sys` object.
+        let InnerMetadata {
+            v:
+                BuildConfig {
+                    esp_idf_tools_install_dir,
+                    esp_idf_sdkconfig,
+                    esp_idf_sdkconfig_defaults,
+                    mcu,
+                    native: _,
+                    esp_idf_sys_root_crate: _,
+                },
+        } = InnerMetadata::deserialize(&root_package.metadata)?;
+
+        // Update all options that are currently [`None`].
+        utils::set_when_none(&mut self.esp_idf_sdkconfig, esp_idf_sdkconfig);
+        utils::set_when_none(
+            &mut self.esp_idf_sdkconfig_defaults,
+            esp_idf_sdkconfig_defaults,
+        );
+        utils::set_when_none(
+            &mut self.esp_idf_tools_install_dir,
+            esp_idf_tools_install_dir,
+        );
+        utils::set_when_none(&mut self.mcu, mcu);
+
+        #[cfg(feature = "native")]
+        self.native.with_cargo_metadata(root_package, &metadata)?;
+
+        Ok(())
     }
+}
+
+/// A container to defer to the `esp-idf-sys` table of the metadata.
+#[derive(Deserialize)]
+pub struct InnerMetadata<T: Default> {
+    #[serde(default, rename = "esp-idf-sys")]
+    pub v: T,
 }
 
 mod parse {
@@ -183,5 +245,12 @@ pub mod utils {
             fields: &mut serialized_names,
         });
         serialized_names.unwrap_or_default()
+    }
+
+    /// Set the [`Option`] `val` to `new` if it is [`None`].
+    pub fn set_when_none<T>(val: &mut Option<T>, new: Option<T>) {
+        if val.is_none() {
+            *val = new;
+        }
     }
 }

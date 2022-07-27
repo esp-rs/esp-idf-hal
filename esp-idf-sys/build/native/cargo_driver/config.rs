@@ -2,10 +2,14 @@ use std::path::PathBuf;
 use std::str::FromStr;
 
 use anyhow::{anyhow, Result};
+use cargo_metadata::{Metadata, Package};
 use embuild::espidf::parse_esp_idf_git_ref;
 use embuild::{cmake, git};
 use serde::Deserialize;
 use strum::IntoEnumIterator;
+
+use crate::config::utils::set_when_none;
+use crate::config::InnerMetadata;
 
 pub const ESP_IDF_VERSION_VAR: &str = "ESP_IDF_VERSION";
 pub const ESP_IDF_REPOSITORY_VAR: &str = "ESP_IDF_REPOSITORY";
@@ -41,15 +45,36 @@ pub struct NativeConfig {
 }
 
 impl NativeConfig {
+    /// Get the user-specified esp-idf version or [`DEFAULT_ESP_IDF_VERSION`] if unset.
     pub fn esp_idf_version(&self) -> git::Ref {
         self.esp_idf_version
             .clone()
             .unwrap_or_else(|| parse_esp_idf_git_ref(DEFAULT_ESP_IDF_VERSION))
     }
 
+    /// Get the user-specified cmake generator or [`DEFAULT_CMAKE_GENERATOR`] if unset.
     pub fn esp_idf_cmake_generator(&self) -> cmake::Generator {
         self.esp_idf_cmake_generator
             .unwrap_or(DEFAULT_CMAKE_GENERATOR)
+    }
+
+    pub fn with_cargo_metadata(&mut self, root: &Package, metadata: &Metadata) -> Result<()> {
+        let InnerMetadata {
+            v:
+                NativeConfig {
+                    esp_idf_version,
+                    esp_idf_repository,
+                    esp_idf_cmake_generator,
+                    idf_path,
+                },
+        } = InnerMetadata::deserialize(dbg!(&root.metadata))?;
+
+        set_when_none(&mut self.esp_idf_version, esp_idf_version);
+        set_when_none(&mut self.esp_idf_repository, esp_idf_repository);
+        set_when_none(&mut self.esp_idf_cmake_generator, esp_idf_cmake_generator);
+        set_when_none(&mut self.idf_path, idf_path);
+
+        Ok(())
     }
 }
 
