@@ -19,6 +19,12 @@ pub mod asynch {
 
         pub struct CurrentTaskWait;
 
+        impl CurrentTaskWait {
+            pub fn new() -> Self {
+                Self
+            }
+        }
+
         impl Wait for CurrentTaskWait {
             fn wait(&self) {
                 interrupt::task::wait_any_notification();
@@ -28,7 +34,7 @@ pub mod asynch {
         pub struct TaskHandle(Arc<AtomicPtr<esp_idf_sys::tskTaskControlBlock>>);
 
         impl TaskHandle {
-            fn new() -> Self {
+            pub fn new() -> Self {
                 Self(Arc::new(AtomicPtr::new(ptr::null_mut())))
             }
         }
