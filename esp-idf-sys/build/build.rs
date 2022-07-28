@@ -1,9 +1,7 @@
 #[cfg(not(any(feature = "pio", feature = "native")))]
 compile_error!("One of the features `pio` or `native` must be selected.");
 
-use std::env;
 use std::iter::once;
-use std::path::PathBuf;
 
 use ::bindgen::callbacks::{IntKind, ParseCallbacks};
 use anyhow::*;
@@ -80,10 +78,10 @@ fn main() -> anyhow::Result<()> {
         )
     })?;
 
-    let manifest_dir = PathBuf::from(env::var("CARGO_MANIFEST_DIR")?);
+    let manifest_dir = manifest_dir()?;
 
     let header_file = path_buf![
-        manifest_dir,
+        &manifest_dir,
         "src",
         "include",
         if mcu == "esp8266" {

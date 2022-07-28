@@ -1,4 +1,5 @@
 use std::collections::HashSet;
+use std::ffi::OsStr;
 use std::fmt::Display;
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
@@ -339,4 +340,40 @@ impl Display for InstallDir {
 
 pub fn workspace_dir() -> Result<PathBuf> {
     cargo::workspace_dir().ok_or_else(|| anyhow!("Cannot fetch crate's workspace dir"))
+}
+
+pub fn manifest_dir() -> Result<PathBuf> {
+    std::env::var_os("CARGO_MANIFEST_DIR")
+        .ok_or_else(|| {
+            anyhow!(
+                "Environment variable `CARGO_MANIFEST_DIR` unavailable: not in cargo build script"
+            )
+        })
+        .map(PathBuf::from)
+}
+
+/// Create a cmake list (`;`-separated strings), escape all `;` and on Windows make sure
+/// paths don't contain `\`.
+pub fn to_cmake_path_list(iter: impl IntoIterator<Item = impl AsRef<OsStr>>) -> Result<String> {
+    let mut accu = String::new();
+    for p in iter {
+        let p: &str = p.as_ref().try_to_str()?;
+        if !accu.is_empty() {
+            accu.push(';');
+        }
+
+        // Escape all `;` since cmake uses them as separators.
+        let p = p.replace(';', "\\;");
+
+        accu.push_str(
+            // Windows uses `\` as directory separators which cmake can't deal with, so we
+            // convert all back-slashes to forward-slashes here.
+            &if cfg!(windows) {
+                p.replace('\\', "/")
+            } else {
+                p
+            },
+        );
+    }
+    Ok(accu)
 }

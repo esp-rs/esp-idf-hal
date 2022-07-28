@@ -1,8 +1,7 @@
 use std::path::PathBuf;
 
 use anyhow::{anyhow, bail, Context, Result};
-use embuild::cargo;
-use serde::Deserialize;
+use serde::{Deserialize, Deserializer};
 
 use crate::common::{workspace_dir, InstallDir, InstallDirLocation};
 
@@ -47,21 +46,13 @@ impl BuildConfig {
     /// Note: The environment variables to deserialize must be valid rust [`String`]s
     /// (can only contain utf-8).
     pub fn try_from_env() -> Result<BuildConfig> {
-        for var in utils::serde_introspect::<BuildConfig>() {
-            cargo::track_env_var(var.to_uppercase());
-        }
-
-        let cfg: BuildConfig = envy::from_env()?;
+        let cfg: BuildConfig = utils::parse_from_env(&[])?;
 
         #[cfg(feature = "native")]
         let cfg = {
             use crate::native::cargo_driver::config::NativeConfig;
-            for var in utils::serde_introspect::<NativeConfig>() {
-                cargo::track_env_var(var.to_uppercase());
-            }
-
             BuildConfig {
-                native: envy::from_env()?,
+                native: NativeConfig::try_from_env()?,
                 ..cfg
             }
         };
@@ -128,7 +119,7 @@ impl BuildConfig {
         };
 
         // Deserialize the options from the `esp-idf-sys` object.
-        let InnerMetadata {
+        let EspIdfSys {
             v:
                 BuildConfig {
                     esp_idf_tools_install_dir,
@@ -138,7 +129,7 @@ impl BuildConfig {
                     native: _,
                     esp_idf_sys_root_crate: _,
                 },
-        } = InnerMetadata::deserialize(&root_package.metadata)?;
+        } = EspIdfSys::deserialize(&root_package.metadata)?;
 
         // Update all options that are currently [`None`].
         utils::set_when_none(&mut self.esp_idf_sdkconfig, esp_idf_sdkconfig);
@@ -160,10 +151,27 @@ impl BuildConfig {
 }
 
 /// A container to defer to the `esp-idf-sys` table of the metadata.
-#[derive(Deserialize)]
-pub struct InnerMetadata<T: Default> {
+#[derive(Deserialize, Default)]
+pub struct EspIdfSys<T: Default> {
     #[serde(default, rename = "esp-idf-sys")]
     pub v: T,
+}
+
+impl<'a, T> EspIdfSys<T>
+where
+    T: Default,
+    T: Deserialize<'a>,
+{
+    /// Deserialize an `esp-idf-sys` field.
+    pub fn deserialize<D>(de: D) -> Result<Self>
+    where
+        D: Deserializer<'a>,
+        D::Error: Send + Sync + std::error::Error + 'static,
+    {
+        let result = Option::<Self>::deserialize(de)
+            .with_context(|| anyhow!("could not read build config from manifest metadata"))?;
+        Ok(result.unwrap_or_default())
+    }
 }
 
 mod parse {
@@ -171,31 +179,36 @@ mod parse {
 
     use serde::{Deserialize, Deserializer};
 
+    use super::utils::ValueOrVec;
+
     pub fn sdkconfig_defaults<'d, D: Deserializer<'d>>(
         de: D,
     ) -> Result<Option<Vec<PathBuf>>, D::Error> {
-        #[derive(Deserialize)]
-        #[serde(untagged)]
-        enum StringOrVec {
-            Str(String),
-            Vec(Vec<PathBuf>),
-        }
-
-        Option::<StringOrVec>::deserialize(de).map(|val| match val {
-            Some(StringOrVec::Str(s)) => Some(
+        Option::<ValueOrVec<String, PathBuf>>::deserialize(de).map(|val| match val {
+            Some(ValueOrVec::Val(s)) => Some(
                 s.split(';')
                     .filter(|s| !s.is_empty())
                     .map(PathBuf::from)
                     .collect(),
             ),
-            Some(StringOrVec::Vec(v)) => Some(v),
+            Some(ValueOrVec::Vec(v)) => Some(v),
             None => None,
         })
     }
 }
 
 pub mod utils {
-    use serde::de::{self, Deserialize, Deserializer, Visitor};
+    use embuild::cargo;
+    use serde::de::{self, Deserializer, Visitor};
+    use serde::Deserialize;
+
+    /// A helper enum for deserializing a single value or a list of values.
+    #[derive(Deserialize, Debug)]
+    #[serde(untagged)]
+    pub enum ValueOrVec<V, E = V> {
+        Val(V),
+        Vec(Vec<E>),
+    }
 
     /// Gets the serialization names for structs.
     ///
@@ -252,5 +265,24 @@ pub mod utils {
         if val.is_none() {
             *val = new;
         }
+    }
+
+    /// Parse the value from the environment variables and exclude all fields of `T` that
+    /// are in `exclude_list`.
+    pub fn parse_from_env<T>(exclude_list: &[&str]) -> envy::Result<T>
+    where
+        T: for<'d> Deserialize<'d>,
+    {
+        let var_filter = |k: &str| !exclude_list.contains(&k);
+
+        for var in serde_introspect::<T>()
+            .into_iter()
+            .filter(|s| var_filter(s))
+        {
+            cargo::track_env_var(var.to_uppercase());
+        }
+
+        let vars = std::env::vars().filter(|(key, _)| var_filter(&key.to_lowercase()));
+        envy::from_iter(vars)
     }
 }
