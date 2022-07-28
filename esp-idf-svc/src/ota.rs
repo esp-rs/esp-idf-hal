@@ -109,6 +109,8 @@ impl io::Io for EspSlot {
 }
 
 impl ota::OtaSlot for EspSlot {
+    type Error = EspIOError;
+
     fn get_label(&self) -> Result<&str, Self::Error> {
         Ok(from_cstr_ptr(&self.0.label as *const _ as *const _))
     }

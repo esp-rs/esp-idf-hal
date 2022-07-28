@@ -473,15 +473,10 @@ impl EspWebSocketClient {
     fn send_data(
         &mut self,
         frame_type: FrameType,
-        frame_data: Option<&[u8]>,
+        frame_data: &[u8],
     ) -> Result<usize, <EspWebSocketClient as ErrorType>::Error> {
-        let mut content = core::ptr::null();
-        let mut content_length: usize = 0;
-
-        if let Some(data) = frame_data {
-            content = data.as_ref().as_ptr();
-            content_length = data.as_ref().len();
-        }
+        let content = frame_data.as_ref().as_ptr();
+        let content_length = frame_data.as_ref().len();
 
         Self::check(match frame_type {
             FrameType::Binary(false) => unsafe {
@@ -521,11 +516,7 @@ impl ErrorType for EspWebSocketClient {
 }
 
 impl Sender for EspWebSocketClient {
-    fn send(
-        &mut self,
-        frame_type: FrameType,
-        frame_data: Option<&[u8]>,
-    ) -> Result<(), Self::Error> {
+    fn send(&mut self, frame_type: FrameType, frame_data: &[u8]) -> Result<(), Self::Error> {
         // NOTE: fragmented sending, as well as Closing or Continuing a connection, is not
         // supported by the underlying C library and/or happen implicitly, e.g. when the
         // `EspWebSocketClient` is dropped.

@@ -1,20 +1,21 @@
 pub mod asynch {
-    #[cfg(all(feature = "isr-async-executor", feature = "alloc"))]
-    pub mod isr {
+    #[cfg(all(
+        feature = "embedded-async-executor",
+        feature = "alloc",
+        target_has_atomic = "ptr"
+    ))]
+    pub mod embedded {
         use core::sync::atomic::{AtomicPtr, Ordering};
         use core::{mem, ptr};
 
         extern crate alloc;
         use alloc::sync::{Arc, Weak};
 
-        use embedded_svc::utils::asynch::executor::isr::*;
+        use embedded_svc::utils::asynch::executor::embedded::{
+            Notify, NotifyFactory, RunContextFactory, Wait,
+        };
 
         use esp_idf_hal::interrupt;
-
-        pub type EspLocalExecutor<'a, const C: usize> =
-            ISRExecutor<'a, C, TaskHandle, CurrentTaskWait, Local>;
-        pub type EspExecutor<'a, const C: usize> =
-            ISRExecutor<'a, C, TaskHandle, CurrentTaskWait, Sendable>;
 
         pub struct CurrentTaskWait;
 
@@ -82,36 +83,6 @@ pub mod asynch {
                     }
                 }
             }
-        }
-
-        pub fn local<'a, const C: usize>() -> EspLocalExecutor<'a, C> {
-            ISRExecutor::<C, _, _, Local>::new(TaskHandle::new(), CurrentTaskWait)
-        }
-
-        pub fn executor<'a, const C: usize>() -> EspExecutor<'a, C> {
-            ISRExecutor::<C, _, _, Sendable>::new(TaskHandle::new(), CurrentTaskWait)
-        }
-
-        pub fn local_tasks_spawner<'a, const C: usize, T>(
-        ) -> embedded_svc::utils::asynch::executor::spawn::TasksSpawner<
-            'a,
-            C,
-            EspLocalExecutor<'a, C>,
-            T,
-        > {
-            embedded_svc::utils::asynch::executor::spawn::TasksSpawner::<'a, C, _, T>::new(local::<
-                'a,
-                C,
-            >(
-            ))
-        }
-
-        pub fn tasks_spawner<'a, const C: usize, T>(
-        ) -> embedded_svc::utils::asynch::executor::spawn::TasksSpawner<'a, C, EspExecutor<'a, C>, T>
-        {
-            embedded_svc::utils::asynch::executor::spawn::TasksSpawner::<'a, C, _, T>::new(
-                executor::<'a, C>(),
-            )
         }
     }
 }

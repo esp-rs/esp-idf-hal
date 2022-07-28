@@ -1,7 +1,12 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 #![feature(cfg_version)]
 #![feature(const_btree_new)]
+<<<<<<< HEAD
 #![cfg_attr(not(version("1.65")), feature(generic_associated_types))] // For mutex, http, http::client, http::server, ota
+=======
+#![feature(generic_associated_types)] // For mutex, http, http::client, http::server, ota
+#![feature(cfg_target_has_atomic)] // Soon to be stabilized
+>>>>>>> fb3c23f0... compat with latest traits
 #![cfg_attr(version("1.61"), allow(deprecated_where_clause_location))]
 #![allow(unused_imports)]
 #[cfg(any(feature = "alloc"))]

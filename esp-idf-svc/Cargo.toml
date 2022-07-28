@@ -17,7 +17,7 @@ default = ["std"]
 
 std = ["alloc", "anyhow/std", "log/std", "esp-idf-sys/std", "esp-idf-hal/std", "embedded-svc/std"]
 alloc = ["cstr_core/alloc", "anyhow", "esp-idf-hal/alloc", "embedded-svc/alloc"]
-isr-async-executor = ["embedded-svc/isr-async-executor", "alloc", "experimental"]
+embedded-async-executor = ["embedded-svc/embedded-async-executor", "alloc", "experimental"]
 experimental = ["embedded-svc/experimental", "esp-idf-hal/experimental", "uncased"]
 
 [dependencies]
