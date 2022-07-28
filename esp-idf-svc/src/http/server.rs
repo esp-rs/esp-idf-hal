@@ -600,6 +600,8 @@ impl<'a> EspHttpResponseHeaders {
 
         esp!(unsafe { httpd_resp_set_status(raw_req, c_status.as_ptr() as _) })?;
 
+        self.names.push(c_status);
+
         for (key, value) in &self.headers {
             if key == "Content-Type" {
                 esp!(unsafe { httpd_resp_set_type(raw_req, value.as_ptr()) })?;
