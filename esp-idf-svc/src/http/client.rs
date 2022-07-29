@@ -319,7 +319,7 @@ impl Connection for EspHttpConnection {
 
     type RawConnection = Self;
 
-    fn into_request<'a>(
+    fn initiate_request<'a>(
         &'a mut self,
         method: Method,
         uri: &'a str,
@@ -381,7 +381,7 @@ impl Connection for EspHttpConnection {
         }
     }
 
-    fn into_response(&mut self) -> Result<(), Self::Error> {
+    fn initiate_response(&mut self) -> Result<(), Self::Error> {
         self.fetch_headers()?;
 
         self.state = State::Response;

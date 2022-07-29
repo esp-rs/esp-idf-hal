@@ -516,7 +516,7 @@ impl<'a> EspHttpConnection<'a> {
     where
         E: Display,
     {
-        self.into_response(500, Some("Internal Error"), &[content_type("text/html")])?;
+        self.initiate_response(500, Some("Internal Error"), &[content_type("text/html")])?;
 
         self.write_all(
             format!(
@@ -858,7 +858,7 @@ impl<'b> Connection for EspHttpConnection<'b> {
         }
     }
 
-    fn into_response<'a>(
+    fn initiate_response<'a>(
         &'a mut self,
         status: u16,
         message: Option<&'a str>,
