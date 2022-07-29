@@ -832,7 +832,7 @@ impl<P: InputPin, C: HwChannel> Receive<P, C> {
                     filter_ticks_thresh: config.filter_ticks_thresh,
                     filter_en: config.filter_en,
                     #[cfg(not(any(esp32, esp32c2)))]
-                    carrier_rm,
+                    rm_carrier: carrier_en,
                     #[cfg(not(any(esp32, esp32c2)))]
                     carrier_freq_hz: carrier.frequency.into(),
                     #[cfg(not(any(esp32, esp32c2)))]
