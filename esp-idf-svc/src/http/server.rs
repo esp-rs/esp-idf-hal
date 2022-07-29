@@ -14,7 +14,9 @@ use embedded_svc::http::headers::content_type;
 use embedded_svc::utils::http::server::registration::{ChainHandler, ChainRoot};
 use log::{info, warn};
 
-use embedded_svc::http::server::{Connection, Handler, HandlerError};
+use embedded_svc::http::server::{
+    handler, Connection, Handler, HandlerError, HandlerResult, Request,
+};
 use embedded_svc::http::*;
 use embedded_svc::io::{Io, Read, Write};
 
@@ -242,6 +244,22 @@ impl EspHttpServer {
         Ok(self)
     }
 
+    pub fn fn_handler_chain<C>(&mut self, chain: C) -> Result<&mut Self, EspError>
+    where
+        C: EspHttpFnTraversableChain,
+    {
+        chain.accept(self)?;
+
+        Ok(self)
+    }
+
+    pub fn fn_handler<F>(&mut self, uri: &str, method: Method, f: F) -> Result<&mut Self, EspError>
+    where
+        F: for<'a> Fn(Request<&mut EspHttpConnection<'a>>) -> HandlerResult + Send + 'static,
+    {
+        self.handler(uri, method, handler(f))
+    }
+
     fn to_native_handler<H>(&self, handler: H) -> Box<dyn Fn(*mut httpd_req_t) -> c_types::c_int>
     where
         H: for<'a, 'b> Handler<&'a mut EspHttpConnection<'b>> + 'static,
@@ -326,6 +344,30 @@ where
     }
 }
 
+pub trait EspHttpFnTraversableChain {
+    fn accept(self, server: &mut EspHttpServer) -> Result<(), EspError>;
+}
+
+impl EspHttpFnTraversableChain for ChainRoot {
+    fn accept(self, _server: &mut EspHttpServer) -> Result<(), EspError> {
+        Ok(())
+    }
+}
+
+impl<F, N> EspHttpFnTraversableChain for ChainHandler<F, N>
+where
+    F: for<'a> Fn(Request<&mut EspHttpConnection<'a>>) -> HandlerResult + Send + 'static,
+    N: EspHttpFnTraversableChain,
+{
+    fn accept(self, server: &mut EspHttpServer) -> Result<(), EspError> {
+        self.next.accept(server)?;
+
+        server.fn_handler(self.path, self.method, self.handler)?;
+
+        Ok(())
+    }
+}
+
 pub struct EspHttpRequest<'a>(&'a mut httpd_req_t);
 
 impl<'a> Io for EspHttpRequest<'a> {
@@ -387,7 +429,7 @@ impl<'a> EspHttpConnection<'a> {
 
     fn handle<'b, H>(&'b mut self, handler: &'b H) -> Result<(), HandlerError>
     where
-        H: Handler<&'b mut EspHttpConnection<'a>>,
+        H: Handler<&'b mut Self>,
     {
         // TODO info!("About to handle query string {:?}", self.query_string());
 
