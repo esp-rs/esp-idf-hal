@@ -1,8 +1,8 @@
 use core::cell::UnsafeCell;
 use core::fmt::{Debug, Display};
-use core::ptr;
 use core::sync::atomic::{AtomicBool, Ordering};
 use core::time::*;
+use core::{mem, ptr};
 
 extern crate alloc;
 use alloc::collections::BTreeMap;
@@ -28,7 +28,7 @@ use uncased::{Uncased, UncasedStr};
 
 use crate::errors::EspIOError;
 use crate::private::common::Newtype;
-use crate::private::cstr::CString;
+use crate::private::cstr::{CStr, CString};
 
 #[derive(Copy, Clone, Debug)]
 pub struct Configuration {
@@ -84,6 +84,48 @@ impl From<&Configuration> for Newtype<httpd_config_t> {
             close_fn: None,
             uri_match_fn: None,
         })
+    }
+}
+
+#[allow(non_upper_case_globals)]
+impl From<Newtype<c_types::c_uint>> for Method {
+    fn from(method: Newtype<c_types::c_uint>) -> Self {
+        match method.0 {
+            http_method_HTTP_GET => Method::Get,
+            http_method_HTTP_POST => Method::Post,
+            http_method_HTTP_DELETE => Method::Delete,
+            http_method_HTTP_HEAD => Method::Head,
+            http_method_HTTP_PUT => Method::Put,
+            http_method_HTTP_CONNECT => Method::Connect,
+            http_method_HTTP_OPTIONS => Method::Options,
+            http_method_HTTP_TRACE => Method::Trace,
+            http_method_HTTP_COPY => Method::Copy,
+            http_method_HTTP_LOCK => Method::Lock,
+            http_method_HTTP_MKCOL => Method::MkCol,
+            http_method_HTTP_MOVE => Method::Move,
+            http_method_HTTP_PROPFIND => Method::Propfind,
+            http_method_HTTP_PROPPATCH => Method::Proppatch,
+            http_method_HTTP_SEARCH => Method::Search,
+            http_method_HTTP_UNLOCK => Method::Unlock,
+            http_method_HTTP_BIND => Method::Bind,
+            http_method_HTTP_REBIND => Method::Rebind,
+            http_method_HTTP_UNBIND => Method::Unbind,
+            http_method_HTTP_ACL => Method::Acl,
+            http_method_HTTP_REPORT => Method::Report,
+            http_method_HTTP_MKACTIVITY => Method::MkActivity,
+            http_method_HTTP_CHECKOUT => Method::Checkout,
+            http_method_HTTP_MERGE => Method::Merge,
+            http_method_HTTP_MSEARCH => Method::MSearch,
+            http_method_HTTP_NOTIFY => Method::Notify,
+            http_method_HTTP_SUBSCRIBE => Method::Subscribe,
+            http_method_HTTP_UNSUBSCRIBE => Method::Unsubscribe,
+            http_method_HTTP_PATCH => Method::Patch,
+            http_method_HTTP_PURGE => Method::Purge,
+            http_method_HTTP_MKCALENDAR => Method::MkCalendar,
+            http_method_HTTP_LINK => Method::Link,
+            http_method_HTTP_UNLINK => Method::Unlink,
+            _ => unreachable!(),
+        }
     }
 }
 
@@ -404,10 +446,7 @@ impl<'a> Write for EspHttpRequest<'a> {
     }
 }
 
-struct EspHttpHeaders {
-    query_string: Option<String>,
-    headers: BTreeMap<Uncased<'static>, String>,
-}
+type EspHttpHeaders = BTreeMap<Uncased<'static>, String>;
 
 pub struct EspHttpConnection<'a> {
     request: EspHttpRequest<'a>,
@@ -419,10 +458,7 @@ impl<'a> EspHttpConnection<'a> {
     fn new(raw_req: &'a mut httpd_req_t) -> Self {
         Self {
             request: EspHttpRequest(raw_req),
-            headers: Some(UnsafeCell::new(EspHttpHeaders {
-                query_string: None,
-                headers: BTreeMap::new(),
-            })),
+            headers: Some(UnsafeCell::new(EspHttpHeaders::new())),
             response_headers: None,
         }
     }
@@ -504,52 +540,16 @@ impl<'a> EspHttpConnection<'a> {
 }
 
 impl<'a> Query for EspHttpConnection<'a> {
-    fn query(&self) -> &str {
-        let headers = self.headers.as_ref().unwrap();
+    fn uri(&self) -> &str {
+        let c_uri = unsafe {
+            CStr::from_bytes_with_nul_unchecked(mem::transmute(self.request.0.uri.as_slice()))
+        };
 
-        if let Some(query_string) = unsafe { headers.get().as_ref().unwrap() }
-            .query_string
-            .as_ref()
-        {
-            query_string.as_ref()
-        } else {
-            let raw_req = self.request.0 as *const httpd_req_t as *mut httpd_req_t;
+        c_uri.to_str().unwrap()
+    }
 
-            match unsafe { httpd_req_get_url_query_len(raw_req) } as usize {
-                0 => "",
-                len => {
-                    // TODO: Would've been much more effective, if ESP-IDF was capable of returning a
-                    // pointer to the header value that is in the scratch buffer
-                    //
-                    // Check if we can implement it ourselves vy traversing the scratch buffer manually
-
-                    let mut buf: Vec<u8> = Vec::with_capacity(len + 1);
-
-                    esp_nofail!(unsafe {
-                        httpd_req_get_url_query_str(
-                            raw_req,
-                            buf.as_mut_ptr() as *mut _,
-                            (len + 1) as size_t,
-                        )
-                    });
-
-                    unsafe {
-                        buf.set_len(len + 1);
-                    }
-
-                    // TODO: Replace with a proper conversion from ISO-8859-1 to UTF8
-                    let query_string = String::from_utf8_lossy(&buf[..len]).into_owned();
-
-                    unsafe { headers.get().as_mut().unwrap() }.query_string = Some(query_string);
-
-                    unsafe { headers.get().as_ref().unwrap() }
-                        .query_string
-                        .as_ref()
-                        .unwrap()
-                        .as_ref()
-                }
-            }
-        }
+    fn method(&self) -> Method {
+        Method::from(Newtype(self.request.0.method as u32))
     }
 }
 
@@ -557,10 +557,7 @@ impl<'a> Headers for EspHttpConnection<'a> {
     fn header(&self, name: &str) -> Option<&str> {
         let headers = self.headers.as_ref().unwrap();
 
-        if let Some(value) = unsafe { headers.get().as_ref().unwrap() }
-            .headers
-            .get(UncasedStr::new(name))
-        {
+        if let Some(value) = unsafe { headers.get().as_ref().unwrap() }.get(UncasedStr::new(name)) {
             Some(value.as_ref())
         } else {
             let raw_req = self.request.0 as *const httpd_req_t as *mut httpd_req_t;
@@ -593,11 +590,9 @@ impl<'a> Headers for EspHttpConnection<'a> {
                     // TODO: Replace with a proper conversion from ISO-8859-1 to UTF8
                     let value = String::from_utf8_lossy(&buf[..len]).into_owned();
                     unsafe { headers.get().as_mut().unwrap() }
-                        .headers
                         .insert(Uncased::from(name.to_owned()), value);
 
                     unsafe { headers.get().as_ref().unwrap() }
-                        .headers
                         .get(UncasedStr::new(name))
                         .map(|s| s.as_ref())
                 }
