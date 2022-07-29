@@ -14,3 +14,7 @@ idf_build_get_property(aliases BUILD_COMPONENT_ALIASES)
 add_executable(libespidf.elf main.c)
 target_link_libraries(libespidf.elf PUBLIC "${aliases}")
 idf_build_executable(libespidf.elf)
+
+# used to query the components in the build script
+idf_build_get_property(comps BUILD_COMPONENTS)
+set(BUILD_COMPONENTS ${comps} CACHE STRING "all esp-idf components" FORCE)

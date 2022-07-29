@@ -293,7 +293,7 @@ pub fn build() -> Result<EspIdfBuildOutput> {
     let query = cmake::Query::new(
         &cmake_build_dir,
         "cargo",
-        &[ObjKind::Codemodel, ObjKind::Toolchains],
+        &[ObjKind::Codemodel, ObjKind::Toolchains, ObjKind::Cache],
     )?;
 
     let mut cmake_config = cmake::Config::new(&out_dir);
@@ -359,6 +359,21 @@ pub fn build() -> Result<EspIdfBuildOutput> {
     // easily retrieved by tools that need it.
     build_info.save_json(out_dir.join(espidf::BUILD_INFO_FILENAME))?;
 
+    // Get all component names built by the esp-idf (cached by `CMakeLists.txt`).
+    let components = replies
+        .get_cache()?
+        .entries
+        .iter()
+        .find(|e| e.name == "BUILD_COMPONENTS")
+        .ok_or_else(|| Error::msg("could not get built esp-idf components from cmake"))?
+        .value
+        .split(';')
+        .filter_map(|comp| match comp.trim() {
+            c if c.is_empty() => None,
+            c => Some(c.to_string()),
+        })
+        .collect::<Vec<_>>();
+
     let sdkconfig_json = path_buf![&cmake_build_dir, "config", "sdkconfig.json"];
     let build_output = EspIdfBuildOutput {
         cincl_args: build::CInclArgs::try_from(&target.compile_groups[0])?,
@@ -370,7 +385,7 @@ pub fn build() -> Result<EspIdfBuildOutput> {
                 .build()?,
         ),
         bindgen: bindgen::Factory::from_cmake(&target.compile_groups[0])?.with_linker(&compiler),
-        components: EspIdfComponents::from_esp_idf(&build_info.esp_idf_dir)?,
+        components: EspIdfComponents::from(components),
         kconfig_args: Box::new(
             kconfig::try_from_json_file(sdkconfig_json.clone())
                 .with_context(|| anyhow!("Failed to read '{:?}'", sdkconfig_json))?,

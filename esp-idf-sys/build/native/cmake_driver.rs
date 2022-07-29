@@ -1,5 +1,5 @@
-use std::env;
 use std::path::PathBuf;
+use std::{env, iter};
 
 use anyhow::{anyhow, Context, Result};
 use embuild::bindgen;
@@ -22,7 +22,10 @@ pub fn build() -> Result<EspIdfBuildOutput> {
                 // Check this comment for more info:
                 // https://github.com/esp-rs/esp-idf-sys/pull/17#discussion_r723133416
                 c.strip_prefix("__idf_")
-            }),
+            })
+            // For some reason, the "driver" component is not returned
+            // by the ESP-IDF CMake build, yet it is always enabled
+            .chain(iter::once("driver")),
     );
 
     let sdkconfig = PathBuf::from(env::var(CARGO_CMAKE_BUILD_SDKCONFIG_VAR)?);

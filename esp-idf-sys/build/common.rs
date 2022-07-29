@@ -37,10 +37,12 @@ impl EspIdfComponents {
         Self(components)
     }
 
+    #[allow(dead_code)]
     pub fn from_esp_idf(esp_idf: &Path) -> Result<Self> {
         Self::from_dirs(&[esp_idf.join("components")])
     }
 
+    #[allow(dead_code)]
     pub fn from_dirs(dirs: impl IntoIterator<Item = impl AsRef<Path>>) -> Result<Self> {
         let components = dirs
             .into_iter()
@@ -51,25 +53,9 @@ impl EspIdfComponents {
         Ok(Self::new(components))
     }
 
-    #[allow(dead_code)]
-    pub fn from<I, S>(enabled: I) -> Self
-    where
-        I: Iterator<Item = S>,
-        S: Into<String>,
-    {
+    pub fn from(enabled: impl IntoIterator<Item = impl Into<String>>) -> Self {
         // NOTE: The components which are always enabled by ESP-IDF's CMake build (for ESP-IDF V4.4) are as follows:
-        // cxx;
-        // newlib;
-        // freertos;
-        // esp_hw_support;
-        // heap;
-        // log;
-        // lwip;
-        // soc;
-        // hal;
-        // esp_rom;
-        // esp_common;
-        // esp_system;
+        // cxx; newlib; freertos; esp_hw_support; heap; log; lwip; soc; hal; esp_rom; esp_common; esp_system;
         // esp32; <- Depends on the selected MCU
         //
         // Note also, that for now you always have to explicitly include the `pthread` component,
@@ -78,10 +64,9 @@ impl EspIdfComponents {
         // `pthread` is also mandatory when compiling with Rust STD enabled, or else you'll get linker errors
         Self::new(
             enabled
+                .into_iter()
                 .map(Into::into)
-                // For some reason, the "driver" component is not returned
-                // by the ESP-IDF CMake build, yet it is always enabled
-                .chain(iter::once("driver".to_owned()))
+                // deduplicate the components
                 .collect::<HashSet<_>>()
                 .into_iter()
                 .collect::<Vec<_>>(),
