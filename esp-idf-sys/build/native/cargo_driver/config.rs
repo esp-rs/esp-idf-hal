@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::path::PathBuf;
 
 use anyhow::{anyhow, bail, Context, Result};
@@ -108,6 +109,63 @@ impl NativeConfig {
                 }
                 Ok(results)
             })
+    }
+
+    /// Get all bindings C headers of extra components where the bindings will be
+    /// generated combined with the normal `esp-idf` bindings
+    /// (all extra components where [`ExtraComponent::bindings_module`] is [`None`]).
+    ///
+    /// This method will validate that all returned C header files exist.
+    pub fn combined_bindings_headers(&self) -> Result<Vec<PathBuf>> {
+        let mut results = Vec::new();
+        for comp in &self.extra_components {
+            // Skip all extra components with separate bindings.
+            if comp.bindings_module.is_some() {
+                continue;
+            }
+
+            if let Some(header) = &comp.bindings_header {
+                let header_path = header.abspath_relative_to(&comp.manifest_dir);
+
+                if !header_path.exists() {
+                    bail!(
+                        "extra components C header file '{}' specified by crate '{}' does not exists",
+                        header_path.display(), comp.manifest_dir.display()
+                    );
+                }
+                results.push(header_path);
+            }
+        }
+        Ok(results)
+    }
+
+    /// Get all bindings C headers grouped by the [`ExtraComponent::bindings_module`] name.
+    ///
+    /// This method will validate that all returned C header files exist and also that the
+    /// module name only contains ACII alphanumeric and `_` characters.
+    pub fn module_bindings_headers(&self) -> Result<HashMap<&str, Vec<PathBuf>>> {
+        let headers = self.extra_components.iter().filter_map(|comp| {
+            match (&comp.bindings_header, &comp.bindings_module) {
+                (Some(header), Some(module)) => {
+                    Some((header.abspath_relative_to(&comp.manifest_dir), module, comp))
+                }
+                _ => None,
+            }
+        });
+        let mut map = HashMap::<&str, Vec<PathBuf>>::new();
+
+        for (header_path, module_name, comp) in headers {
+            if !header_path.exists() {
+                bail!(
+                    "extra components C header file '{}' specified by crate '{}' does not exists",
+                    header_path.display(),
+                    comp.manifest_dir.display()
+                );
+            }
+            validate_module_name(module_name, comp)?;
+            map.entry(&*module_name).or_default().push(header_path);
+        }
+        Ok(map)
     }
 
     pub fn with_cargo_metadata(&mut self, root: &Package, metadata: &Metadata) -> Result<()> {
@@ -228,15 +286,17 @@ pub struct ExtraComponent {
     /// Otherwise, if absent, the component bindings will be added to the existing
     /// `esp-idf` bindings (which are available in the crate root).
     ///
-    /// To put the bindings into its own module, a separate bindgen instanace will generate
-    /// the bindings. Note that this will result in duplicate `esp-idf` bindings if the same
-    /// `esp-idf` headers are included by the component(s) that were already processed for
-    /// the `esp-idf` bindings.
+    /// To put the bindings into its own module, a separate bindgen instance will generate
+    /// the bindings. Note that this will result in duplicate `esp-idf` bindings if the
+    /// same `esp-idf` headers that were already processed for the `esp-idf` bindings are
+    /// included by the component(s).
     ///
     /// Optional
     #[serde(default)]
     pub bindings_module: Option<String>,
 
+    /// Internal field; the path of the directory containing the manifest (`Cargo.toml`)
+    /// that defined this [`ExtraComponent`].
     #[serde(skip)]
     pub manifest_dir: PathBuf,
 }
@@ -244,11 +304,10 @@ pub struct ExtraComponent {
 mod parse {
     use std::str::FromStr;
 
-    use embuild::{cmake, git};
-    use serde::{Deserialize, Deserializer};
+    use serde::Deserializer;
     use strum::IntoEnumIterator;
 
-    use super::DEFAULT_CMAKE_GENERATOR;
+    use super::*;
     use crate::config::utils::ValueOrVec;
 
     /// Parse a cmake generator, either `default` or one of [`cmake::Generator`].
@@ -293,4 +352,32 @@ mod parse {
             ValueOrVec::Vec(vec) => vec,
         })
     }
+}
+
+/// A extra component module name can only contain ASCII alphanumeric and `_` characters.
+/// Additionally it must not start with a digit.
+pub fn validate_module_name(module_name: &str, comp: &ExtraComponent) -> Result<()> {
+    if module_name.is_empty() {
+        bail!(
+            "extra component module name '{}' specified by crate '{}' cannot be empty",
+            module_name,
+            comp.manifest_dir.display()
+        );
+    }
+
+    let mut chars = module_name.chars();
+    let first_char = chars.next().unwrap();
+
+    let first_char_valid = first_char.is_ascii_alphabetic() || first_char == '_';
+    let other_valid = chars.all(|c| c.is_ascii_alphanumeric() || c == '_');
+
+    if !first_char_valid || !other_valid {
+        bail!(
+            "extra component module name '{}' specified by crate '{}' can only contain \
+             ASCII alphanumeric or `_` characters and must be a valid Rust module name",
+            module_name,
+            comp.manifest_dir.display()
+        );
+    }
+    Ok(())
 }

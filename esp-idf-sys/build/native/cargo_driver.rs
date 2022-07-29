@@ -392,6 +392,7 @@ pub fn build() -> Result<EspIdfBuildOutput> {
         ),
         env_path: Some(idf.exported_path.try_to_str()?.to_owned()),
         esp_idf: build_info.esp_idf_dir,
+        config,
     };
 
     Ok(build_output)

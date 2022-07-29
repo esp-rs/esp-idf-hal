@@ -58,6 +58,7 @@ pub fn build() -> Result<EspIdfBuildOutput> {
             ),
         env_path: None,
         esp_idf: PathBuf::from(env::var(CARGO_CMAKE_BUILD_ESP_IDF_VAR)?),
+        config: Default::default(),
     };
 
     Ok(build_output)

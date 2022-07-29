@@ -11,6 +11,8 @@ use embuild::utils::{OsStrExt, PathExt};
 use embuild::{bindgen, build, kconfig};
 use strum::{Display, EnumDiscriminants, EnumString};
 
+use crate::config::BuildConfig;
+
 #[allow(dead_code)]
 pub const V_4_3_2_PATCHES: &[&str] = &[
     "patches/missing_riscv_atomics_fix.diff",
@@ -28,6 +30,7 @@ pub struct EspIdfBuildOutput {
     pub bindgen: bindgen::Factory,
     pub env_path: Option<String>,
     pub esp_idf: PathBuf,
+    pub config: BuildConfig,
 }
 
 pub struct EspIdfComponents(Vec<String>);

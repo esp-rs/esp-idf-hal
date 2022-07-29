@@ -1,13 +1,16 @@
 #[cfg(not(any(feature = "pio", feature = "native")))]
 compile_error!("One of the features `pio` or `native` must be selected.");
 
+use std::fs;
+use std::io::{BufWriter, Write};
 use std::iter::once;
 
-use ::bindgen::callbacks::{IntKind, ParseCallbacks};
 use anyhow::*;
+use bindgen::callbacks::{IntKind, ParseCallbacks};
 use common::*;
+use embuild::bindgen::BindgenExt;
 use embuild::utils::OsStrExt;
-use embuild::{bindgen, build, cargo, kconfig, path_buf};
+use embuild::{bindgen as bindgen_utils, build, cargo, kconfig, path_buf};
 
 mod common;
 mod config;
@@ -94,13 +97,12 @@ fn main() -> anyhow::Result<()> {
 
     cargo::track_file(&header_file);
 
-    let bindings_file = bindgen::run(
-        build_output
-            .bindgen
-            .builder()?
+    // Because we have multiple bindgen invocations and we can't clone a bindgen::Builder,
+    // we have to set the options every time.
+    let configure_bindgen = |bindgen: bindgen::Builder| {
+        Ok(bindgen
             .parse_callbacks(Box::new(BindgenCallbacks))
             .ctypes_prefix("c_types")
-            .header(header_file.try_to_str()?)
             .blocklist_function("strtold")
             .blocklist_function("_strtold_r")
             .blocklist_function("v.*printf")
@@ -118,8 +120,62 @@ fn main() -> anyhow::Result<()> {
                     // We don't really have a similar issue with Xtensa, but we pass it explicitly as well just in case
                     "xtensa"
                 },
-            ]),
-    )?;
+            ]))
+    };
+
+    let bindings_file = bindgen_utils::default_bindings_file()?;
+    let bindgen_err = || {
+        anyhow!(
+            "failed to generate bindings in file '{}'",
+            bindings_file.display()
+        )
+    };
+    let mut headers = vec![header_file];
+
+    #[cfg(feature = "native")]
+    // Add additional headers from extra components.
+    headers.extend(
+        build_output
+            .config
+            .native
+            .combined_bindings_headers()?
+            .into_iter()
+            .inspect(|h| cargo::track_file(h)),
+    );
+
+    configure_bindgen(build_output.bindgen.clone().builder()?)?
+        .headers(headers)?
+        .generate()
+        .with_context(bindgen_err)?
+        .write_to_file(&bindings_file)
+        .with_context(bindgen_err)?;
+
+    // Generate bindings separately for each unique module name.
+    #[cfg(feature = "native")]
+    (|| {
+        let mut output_file =
+            BufWriter::new(fs::File::options().append(true).open(&bindings_file)?);
+
+        for (module_name, headers) in build_output.config.native.module_bindings_headers()? {
+            let bindings = configure_bindgen(build_output.bindgen.clone().builder()?)?
+                .headers(headers.into_iter().inspect(|h| cargo::track_file(h)))?
+                .generate()?;
+
+            writeln!(
+                &mut output_file,
+                "pub mod {} {{\
+                     use crate::c_types;\
+                     {}\
+                 }}",
+                module_name, bindings
+            )?;
+        }
+        Ok(())
+    })()
+    .with_context(bindgen_err)?;
+
+    // Cargo fmt generated bindings.
+    bindgen_utils::cargo_fmt_file(&bindings_file);
 
     let cfg_args = build::CfgArgs {
         args: cfg_args
@@ -130,7 +186,6 @@ fn main() -> anyhow::Result<()> {
             .chain(once(mcu))
             .collect(),
     };
-
     cfg_args.propagate();
     cfg_args.output();
 
@@ -139,13 +194,14 @@ fn main() -> anyhow::Result<()> {
 
     // In case other crates need to have access to the ESP-IDF toolchains
     if let Some(env_path) = build_output.env_path {
-        // TODO: Replace with embuild::build::VAR_ENV_PATH once we have a new embuild release
-        cargo::set_metadata("EMBUILD_ENV_PATH", env_path);
+        cargo::set_metadata(embuild::build::ENV_PATH_VAR, env_path);
     }
 
     // In case other crates need to the ESP-IDF SDK
-    // TODO: Replace with embuild::espidf::XXX paths once we have a new embuild release
-    cargo::set_metadata("EMBUILD_ESP_IDF_PATH", build_output.esp_idf.try_to_str()?);
+    cargo::set_metadata(
+        embuild::build::ESP_IDF_PATH_VAR,
+        build_output.esp_idf.try_to_str()?,
+    );
 
     build_output.cincl_args.propagate();
 
