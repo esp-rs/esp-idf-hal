@@ -10,7 +10,7 @@ use embedded_svc::timer::{self, ErrorType, OnceTimer, PeriodicTimer, Timer, Time
 
 use esp_idf_sys::*;
 
-#[cfg(feature = "experimental")]
+#[cfg(all(feature = "nightly", feature = "experimental"))]
 pub use asyncify::*;
 
 #[cfg(esp_idf_esp_timer_supports_isr_dispatch_method)]
@@ -231,18 +231,17 @@ mod isr {
     }
 }
 
-#[cfg(feature = "experimental")]
+#[cfg(all(feature = "nightly", feature = "experimental"))]
 mod asyncify {
-    use embedded_svc::utils::asynch::signal::AtomicSignal;
     use embedded_svc::utils::asyncify::timer::AsyncTimerService;
     use embedded_svc::utils::asyncify::Asyncify;
 
     impl Asyncify for super::EspTimerService<super::Task> {
-        type AsyncWrapper<S> = AsyncTimerService<S, AtomicSignal<()>>;
+        type AsyncWrapper<S> = AsyncTimerService<S>;
     }
 
     #[cfg(esp_idf_esp_timer_supports_isr_dispatch_method)]
     impl Asyncify for super::EspTimerService<super::ISR> {
-        type AsyncWrapper<S> = AsyncTimerService<S, AtomicSignal<()>>;
+        type AsyncWrapper<S> = AsyncTimerService<S>;
     }
 }

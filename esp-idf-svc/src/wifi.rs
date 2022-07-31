@@ -26,7 +26,7 @@ use crate::private::cstr::*;
 use crate::private::waitable::*;
 use crate::sysloop::*;
 
-#[cfg(feature = "experimental")]
+#[cfg(all(feature = "nightly", feature = "experimental"))]
 pub use asyncify::*;
 
 impl From<AuthMethod> for Newtype<wifi_auth_mode_t> {
@@ -1138,7 +1138,7 @@ impl EventBus<()> for EspWifi {
     }
 }
 
-#[cfg(feature = "experimental")]
+#[cfg(all(feature = "nightly", feature = "experimental"))]
 mod asyncify {
     use embedded_svc::utils::asyncify::{event_bus::AsyncEventBus, Asyncify};
 

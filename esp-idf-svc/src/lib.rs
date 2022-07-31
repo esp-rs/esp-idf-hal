@@ -1,14 +1,8 @@
 #![cfg_attr(not(feature = "std"), no_std)]
-#![feature(cfg_version)]
-#![feature(const_btree_new)]
-<<<<<<< HEAD
-#![cfg_attr(not(version("1.65")), feature(generic_associated_types))] // For mutex, http, http::client, http::server, ota
-=======
-#![feature(generic_associated_types)] // For mutex, http, http::client, http::server, ota
-#![feature(cfg_target_has_atomic)] // Soon to be stabilized
->>>>>>> fb3c23f0... compat with latest traits
-#![cfg_attr(version("1.61"), allow(deprecated_where_clause_location))]
-#![allow(unused_imports)]
+#![cfg_attr(feature = "nightly", feature(generic_associated_types))]
+#![cfg_attr(feature = "nightly", feature(type_alias_impl_trait))]
+#![feature(const_btree_new)] // Need to get rid of BTreeMaps in const initializers
+
 #[cfg(any(feature = "alloc"))]
 #[macro_use]
 extern crate alloc;
@@ -39,7 +33,6 @@ pub mod espnow;
 pub mod eth;
 #[cfg(all(feature = "alloc", esp_idf_comp_esp_event_enabled))]
 pub mod eventloop;
-pub mod executor;
 #[cfg(all(feature = "experimental", feature = "alloc"))]
 pub mod http;
 #[cfg(all(feature = "std", esp_idf_comp_esp_http_server_enabled))]

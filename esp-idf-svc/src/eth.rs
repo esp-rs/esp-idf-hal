@@ -38,7 +38,7 @@ use crate::private::common::UnsafeCellSendSync;
 use crate::private::waitable::*;
 use crate::sysloop::*;
 
-#[cfg(feature = "experimental")]
+#[cfg(all(feature = "nightly", feature = "experimental"))]
 pub use asyncify::*;
 
 #[cfg(all(esp32, esp_idf_eth_use_esp32_emac))]
@@ -1143,7 +1143,7 @@ impl<P> EventBus<()> for EspEth<P> {
     }
 }
 
-#[cfg(feature = "experimental")]
+#[cfg(all(feature = "nightly", feature = "experimental"))]
 mod asyncify {
     use embedded_svc::utils::asyncify::{event_bus::AsyncEventBus, Asyncify};
 

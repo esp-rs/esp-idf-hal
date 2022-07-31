@@ -30,6 +30,9 @@ use crate::errors::EspIOError;
 use crate::private::common::Newtype;
 use crate::private::cstr::{CStr, CString};
 
+#[cfg(all(feature = "nightly", feature = "experimental"))]
+pub use asyncify::*;
+
 #[derive(Copy, Clone, Debug)]
 pub struct Configuration {
     pub http_port: u16,
@@ -1309,8 +1312,8 @@ pub mod ws {
         }
     }
 
-    #[cfg(feature = "experimental")]
-    pub mod asynch {
+    #[cfg(all(feature = "nightly", feature = "experimental"))]
+    pub mod asyncify {
         use embedded_svc::utils::asyncify::ws::server::{
             AsyncAcceptor, AsyncConnection, Processor,
         };

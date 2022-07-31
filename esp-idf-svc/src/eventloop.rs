@@ -23,7 +23,7 @@ use esp_idf_sys::*;
 
 use crate::private::cstr::RawCstrs;
 
-#[cfg(feature = "experimental")]
+#[cfg(all(feature = "nightly", feature = "experimental"))]
 pub use asyncify::*;
 
 pub type EspSystemSubscription = EspSubscription<System>;
@@ -899,7 +899,7 @@ where
     }
 }
 
-#[cfg(feature = "experimental")]
+#[cfg(all(feature = "nightly", feature = "experimental"))]
 mod asyncify {
     use embedded_svc::utils::asyncify::event_bus::AsyncEventBus;
     use embedded_svc::utils::asyncify::{Asyncify, UnblockingAsyncify};
