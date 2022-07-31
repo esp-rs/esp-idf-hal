@@ -338,48 +338,20 @@ pub fn free<R>(f: impl FnOnce() -> R) -> R {
 }
 
 #[cfg(feature = "critical-section")]
-mod embassy_cs {
+mod critical_section {
     static CS: super::CriticalSection = super::CriticalSection::new();
 
-    struct EmbassyCriticalSectionImpl {}
+    struct EspCriticalSection {}
 
-    critical_section::custom_impl!(EmbassyCriticalSectionImpl);
+    critical_section::custom_impl!(EspCriticalSection);
 
-    unsafe impl critical_section::Impl for EmbassyCriticalSectionImpl {
-        unsafe fn acquire() -> u8 {
+    unsafe impl critical_section::Impl for EspCriticalSection {
+        unsafe fn acquire() {
             super::enter(&CS);
-            return 1;
         }
 
-        unsafe fn release(token: u8) {
-            if token != 0 {
-                super::exit(&CS);
-            }
-        }
-    }
-}
-
-#[cfg(feature = "embassy")]
-pub mod embassy {
-    pub enum CriticalSectionMutexKind {}
-
-    impl embassy::blocking_mutex::kind::MutexKind for CriticalSectionMutexKind {
-        type Mutex<T> = super::Mutex<T>;
-    }
-
-    impl<'a, T> embassy::blocking_mutex::Mutex for super::Mutex<T> {
-        type Data = T;
-
-        fn new(data: Self::Data) -> Self {
-            super::Mutex::new(data)
-        }
-
-        #[inline(always)]
-        #[link_section = ".iram1.interrupt_embmutex_lock"]
-        fn lock<R>(&self, f: impl FnOnce(&Self::Data) -> R) -> R {
-            let mut guard = super::Mutex::lock(self);
-
-            f(&mut guard)
+        unsafe fn release(token: ()) {
+            super::exit(&CS);
         }
     }
 }
