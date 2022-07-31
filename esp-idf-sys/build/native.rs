@@ -1,4 +1,5 @@
 //! Install tools and build the `esp-idf` using native tooling.
+#![cfg_attr(feature = "pio", allow(unused))]
 
 use super::common::EspIdfBuildOutput;
 use anyhow::Result;

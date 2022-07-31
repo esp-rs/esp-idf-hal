@@ -129,7 +129,7 @@ impl NativeConfig {
 
                 if !header_path.exists() {
                     bail!(
-                        "extra components C header file '{}' specified by crate '{}' does not exists",
+                        "extra components C header file '{}' specified by crate '{}' does not exist",
                         header_path.display(), comp.manifest_dir.display()
                     );
                 }
@@ -157,7 +157,7 @@ impl NativeConfig {
         for (header_path, module_name, comp) in headers {
             if !header_path.exists() {
                 bail!(
-                    "extra components C header file '{}' specified by crate '{}' does not exists",
+                    "extra components C header file '{}' specified by crate '{}' does not exist",
                     header_path.display(),
                     comp.manifest_dir.display()
                 );
@@ -168,6 +168,10 @@ impl NativeConfig {
         Ok(map)
     }
 
+    /// Get the configuration from the `package.metadata.esp-idf-sys` object of the root
+    /// crate's manifest, and update all options that are [`None`].
+    /// Extend [`Self::extra_components`] with all [`ExtraComponent`]s
+    /// specified in the root crate's and all direct dependencies' manifest.
     pub fn with_cargo_metadata(&mut self, root: &Package, metadata: &Metadata) -> Result<()> {
         let EspIdfSys {
             v:
@@ -247,41 +251,46 @@ impl NativeConfig {
     }
 }
 
+/// An extra component to be built, bindings to generate.
+///
+/// An [`ExtraComponent`] may be used to:
+/// - build an extra esp-idf component with [`Self::component_dirs`];
+/// - generate the bindings of the header specified by [`Self::bindings_header`].
+///
+/// Note that it is also possible to only build a component, or only generate bindings.
+/// This can be used to generate extra bindings of esp-idf headers.
+///
+/// ## Example
+/// ```toml
+/// [[package.metadata.esp-idf-sys.extra-components]]
+/// component_dirs = ["rainmaker/components/esp-insights/components", "rainmaker/components"]
+/// bindings_header = "bindings.h"
+/// bindings_module = "module_name"
+/// ```
 #[derive(Debug, Deserialize, Clone, Default)]
 #[serde(default)]
 pub struct ExtraComponent {
-    /// A single path or a list of paths to a component directory, or directory containing components.
+    /// A single path or a list of paths to a component directory or directory containing components.
     ///
     /// Each path can be absolute or relative. Relative paths will be relative to the
     /// folder containg the defining `Cargo.toml`.
     ///
-    /// ## Examples
-    /// Multiple component dirs:
-    /// ```toml
-    /// [[package.metadata.esp-idf-sys.extra-components]]
-    /// component_dirs = ["rainmaker/components/esp-insights/components", "rainmaker/components"]
-    /// ```
-    ///
-    /// A single dir that contains one or more esp-idf components:
-    /// ```toml
-    /// [[package.metadata.esp-idf-sys.extra-components]]
-    /// component_dirs = "extra_components"
-    /// ```
-    ///
-    /// A single component:
-    /// ```toml
-    /// [[package.metadata.esp-idf-sys.extra-components]]
-    /// component_dirs = "my_component"
-    /// ```
-    #[serde(deserialize_with = "parse::value_or_list")]
+    /// **This field is optional.** No component will be built if this field is absent, though
+    /// the bindings of the `[Self::bindings_header`] will still be generated.
+    #[serde(default, deserialize_with = "parse::value_or_list")]
     pub component_dirs: Vec<PathBuf>,
 
     /// The path to the C header to generate the bindings with. If this option is absent,
     /// **no** bindings will be generated.
+    ///
+    /// The path can be absolute or relative. A relative paths will be relative to the
+    /// folder containg the defining `Cargo.toml`.
+    ///
+    /// **This field is optional.**
     #[serde(default)]
     pub bindings_header: Option<PathBuf>,
 
-    /// If this option is present, the component bindings will be generated separately from
+    /// If this field is present, the component bindings will be generated separately from
     /// the `esp-idf` bindings and put into their own module inside the `esp-idf-sys` crate.
     /// Otherwise, if absent, the component bindings will be added to the existing
     /// `esp-idf` bindings (which are available in the crate root).
@@ -291,7 +300,7 @@ pub struct ExtraComponent {
     /// same `esp-idf` headers that were already processed for the `esp-idf` bindings are
     /// included by the component(s).
     ///
-    /// Optional
+    /// **This field is optional.**
     #[serde(default)]
     pub bindings_module: Option<String>,
 

@@ -35,8 +35,8 @@ pub fn build() -> Result<EspIdfBuildOutput> {
     })?;
     config.print();
 
-    let chip = if let Some(mcu) = config.mcu.clone() {
-        Chip::from_str(&mcu)?
+    let chip = if let Some(mcu) = &config.mcu {
+        Chip::from_str(mcu)?
     } else {
         Chip::detect(&target)?
     };
@@ -76,10 +76,10 @@ pub fn build() -> Result<EspIdfBuildOutput> {
         Ok(tools)
     };
 
-    // Get the install dir from the $ESP_IDF_TOOLS_INSTALL_DIR, if unset use
-    // "workspace" and allow esp-idf from the environment.
+    // Get the install dir location from the build config, or use
+    // [`crate::config::DEFAULT_TOOLS_INSTALL_DIR`] if unset.
     let (install_dir, allow_from_env) = config.esp_idf_tools_install_dir()?;
-    // EspIdf must come from the environment if $ESP_IDF_TOOLS_INSTALL_DIR == "fromenv".
+    // EspIdf must come from the environment if `esp_idf_tools_install_dir` == `fromenv`".
     let require_from_env = install_dir.is_from_env();
     let maybe_from_env = require_from_env || allow_from_env;
 
@@ -131,14 +131,14 @@ pub fn build() -> Result<EspIdfBuildOutput> {
         },
         (Ok(idf), false) => {
                 cargo::print_warning(format_args!(
-                    "Ignoring activated esp-idf environment: ${ESP_IDF_TOOLS_INSTALL_DIR_VAR} != {}", InstallDir::FromEnv
+                    "Ignoring activated esp-idf environment: {ESP_IDF_TOOLS_INSTALL_DIR_VAR} != {}", InstallDir::FromEnv
                 ));
                 install(EspIdfOrigin::Custom(idf.repository))?
         },
         (Err(FromEnvError::NotActivated { source: err, .. }), true) |
         (Err(FromEnvError::NoRepo(err)), true) if require_from_env => {
             return Err(err.context(
-                format!("activated esp-idf environment not found but required by ${ESP_IDF_TOOLS_INSTALL_DIR_VAR} == {install_dir}")
+                format!("activated esp-idf environment not found but required by {ESP_IDF_TOOLS_INSTALL_DIR_VAR} == {install_dir}")
             ))
         }
         (Err(FromEnvError::NoRepo(_)), _) => {

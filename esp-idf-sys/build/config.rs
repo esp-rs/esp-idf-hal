@@ -89,17 +89,17 @@ impl BuildConfig {
             .unwrap_or_else(|| vec![DEFAULT_SDKCONFIG_DEFAULTS_FILE.into()])
     }
 
-    /// Get the configuration from the `package.metadata.esp-idf-sys` table of the root
-    /// crate's manifest, and update all options that are unset.
+    /// Get the configuration from the `package.metadata.esp-idf-sys` object of the root
+    /// crate's manifest, and update all options that are [`None`].
     ///
     /// This has the effect that currently set values (coming from
     /// [`BuildConfig::try_from_env`]) take precedence over config options coming from
     /// cargo metadata, meaning environment variables take precedence over cargo metadata.
     ///
-    /// This will execute `cargo metadata --frozen --offline` in the [`workspace_dir`] and
-    /// use the manifest's metadata of the [root crate], or if `cargo metadata` doesn't
-    /// give a root crate, the crate given by the `ESP_IDF_SYS_ROOT_CRATE` environment
-    /// variable ([`BuildConfig::esp_idf_sys_root_crate`]).
+    /// This will execute `cargo metadata` in the [`workspace_dir`] and use the manifest's
+    /// metadata of the [root crate], or if `cargo metadata` doesn't give a root crate,
+    /// the crate given by the `ESP_IDF_SYS_ROOT_CRATE` environment variable
+    /// ([`BuildConfig::esp_idf_sys_root_crate`]).
     ///
     /// [root crate]: https://doc.rust-lang.org/cargo/reference/workspaces.html#root-package
     pub fn with_cargo_metadata(&mut self) -> Result<()> {

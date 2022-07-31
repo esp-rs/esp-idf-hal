@@ -5,6 +5,7 @@ use std::path::PathBuf;
 use std::{env, fs};
 
 use anyhow::*;
+use embuild::cargo::IntoWarning;
 use embuild::pio::project;
 use embuild::utils::PathExt;
 use embuild::{bindgen, build, cargo, kconfig, path_buf, pio};
@@ -18,11 +19,11 @@ pub const TOOLS_DIR: &str = "platformio";
 const ESP_IDF_PIO_CONF_VAR_PREFIX: &str = "ESP_IDF_PIO_CONF";
 
 pub fn build() -> Result<EspIdfBuildOutput> {
-    let (pio_scons_vars, link_args) =
+    let (pio_scons_vars, link_args, config) =
         if let Some(pio_scons_vars) = project::SconsVariables::from_piofirst() {
             println!("cargo:info=PIO->Cargo build detected: generating bindings only");
 
-            (pio_scons_vars, None)
+            (pio_scons_vars, None, Default::default())
         } else {
             let config = BuildConfig::try_from_env().map(|mut config| {
                 config.with_cargo_metadata().into_warning();
@@ -35,7 +36,7 @@ pub fn build() -> Result<EspIdfBuildOutput> {
             let profile = build_profile();
 
             let (install_dir, allow_from_env) = config.esp_idf_tools_install_dir()?;
-            // Pio must come from the environment if $ESP_IDF_TOOLS_INSTALL_DIR == "fromenv".
+            // Pio must come from the environment if `esp_idf_tools_install_dir` == `fromenv`.
             let require_from_env = install_dir.is_from_env();
             let maybe_from_env = require_from_env || allow_from_env;
 
@@ -61,15 +62,15 @@ pub fn build() -> Result<EspIdfBuildOutput> {
                 }
                 (Some(_), false) => {
                     cargo::print_warning(format_args!(
-                    "Ignoring platformio in environment: ${ESP_IDF_TOOLS_INSTALL_DIR_VAR} != {}",
-                    InstallDir::FromEnv
-                ));
+                        "Ignoring platformio in environment: {ESP_IDF_TOOLS_INSTALL_DIR_VAR} != {}",
+                        InstallDir::FromEnv
+                    ));
                     install(&install_dir)?
                 }
                 (None, true) if require_from_env => {
                     bail!(
                         "platformio not found in environment ($PATH) \
-                       but required by ${ESP_IDF_TOOLS_INSTALL_DIR_VAR} == {install_dir}"
+                       but required by {ESP_IDF_TOOLS_INSTALL_DIR_VAR} == {install_dir}"
                     );
                 }
                 (None, _) => install(&install_dir)?,
@@ -138,7 +139,7 @@ pub fn build() -> Result<EspIdfBuildOutput> {
 
             let link_args = build::LinkArgsBuilder::try_from(&pio_scons_vars)?.build()?;
 
-            (pio_scons_vars, Some(link_args))
+            (pio_scons_vars, Some(link_args), config)
         };
 
     let sdkconfig = path_buf![
@@ -171,7 +172,7 @@ pub fn build() -> Result<EspIdfBuildOutput> {
                 }),
         ),
         esp_idf,
-        config: Default::default(),
+        config,
     };
 
     Ok(build_output)
