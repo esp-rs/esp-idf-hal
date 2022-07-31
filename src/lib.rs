@@ -1,12 +1,5 @@
 #![cfg_attr(not(feature = "std"), no_std)]
-#![feature(cfg_version)]
-#![cfg_attr(not(version("1.65")), feature(generic_associated_types))] // For mutex
-#![cfg_attr(version("1.61"), allow(deprecated_where_clause_location))]
-#![cfg_attr(not(version("1.59")), feature(asm))]
-#![cfg_attr(
-    all(version("1.58"), target_arch = "xtensa"),
-    feature(asm_experimental_arch)
-)]
+#![cfg_attr(target_arch = "xtensa", feature(asm_experimental_arch))]
 
 #[cfg(all(not(feature = "riscv-ulp-hal"), not(esp_idf_comp_driver_enabled)))]
 compile_error!("esp-idf-hal requires the `driver` ESP-IDF component to be enabled");
@@ -54,6 +47,13 @@ pub mod units;
 
 #[cfg(feature = "riscv-ulp-hal")]
 pub use crate::riscv_ulp_hal::delay;
+
+#[cfg(all(
+    feature = "edge-executor",
+    feature = "alloc",
+    target_has_atomic = "ptr"
+))]
+pub mod executor;
 
 // This is used to create `embedded_hal` compatible error structs
 // that preserve original `EspError`.
