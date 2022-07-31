@@ -32,7 +32,7 @@ pio = ["embuild/pio"]
 paste = "1"
 
 [build-dependencies]
-embuild = { version = "0.30", features = ["glob", "kconfig"] }
+embuild = { version = "0.30.2", features = ["glob", "kconfig"] }
 anyhow = "1"
 regex = "1.5"
 bindgen = "0.60"
