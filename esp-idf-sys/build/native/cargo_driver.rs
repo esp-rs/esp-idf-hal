@@ -230,7 +230,7 @@ pub fn build() -> Result<EspIdfBuildOutput> {
             config
                 .esp_idf_sdkconfig_defaults()
                 .into_iter()
-                .map(|v| {
+                .flat_map(|v| {
                     list_specific_sdkconfigs(
                         v.abspath_relative_to(&workspace_dir),
                         &profile,
@@ -240,8 +240,7 @@ pub fn build() -> Result<EspIdfBuildOutput> {
                     // specific defaults come last.
                     .rev()
                     .inspect(|p| cargo::track_file(p))
-                })
-                .flatten(),
+                }),
         );
         result
     };

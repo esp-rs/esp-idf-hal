@@ -274,10 +274,7 @@ pub mod utils {
     {
         let var_filter = |k: &str| !exclude_list.contains(&k);
 
-        for var in serde_introspect::<T>()
-            .into_iter()
-            .filter(|s| var_filter(s))
-        {
+        for var in serde_introspect::<T>().iter().filter(|s| var_filter(s)) {
             cargo::track_env_var(var.to_uppercase());
         }
 

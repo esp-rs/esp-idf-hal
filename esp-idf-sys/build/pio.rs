@@ -106,7 +106,7 @@ pub fn build() -> Result<EspIdfBuildOutput> {
             let sdkconfig_defaults = config
                 .esp_idf_sdkconfig_defaults()
                 .into_iter()
-                .map(|v| {
+                .flat_map(|v| {
                     list_specific_sdkconfigs(
                         v.abspath_relative_to(&workspace_dir),
                         &profile,
@@ -116,7 +116,6 @@ pub fn build() -> Result<EspIdfBuildOutput> {
                     // defaults come last.
                     .rev()
                 })
-                .flatten()
                 .map(|path| {
                     cargo::track_file(&path);
                     let file_name = PathBuf::from(path.file_name().unwrap());

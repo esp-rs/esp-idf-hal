@@ -163,7 +163,7 @@ impl NativeConfig {
                 );
             }
             validate_module_name(module_name, comp)?;
-            map.entry(&*module_name).or_default().push(header_path);
+            map.entry(module_name).or_default().push(header_path);
         }
         Ok(map)
     }
@@ -189,9 +189,9 @@ impl NativeConfig {
         set_when_none(&mut self.esp_idf_cmake_generator, esp_idf_cmake_generator);
         set_when_none(&mut self.idf_path, idf_path);
 
-        fn make_processor<'a>(
-            package: &'a Package,
-        ) -> impl Fn(ExtraComponent) -> Option<ExtraComponent> + 'a {
+        fn make_processor(
+            package: &Package,
+        ) -> impl Fn(ExtraComponent) -> Option<ExtraComponent> + '_ {
             // Filter empty extra components and set manifest path.
             |mut comp| {
                 if comp.bindings_header.is_none() && comp.component_dirs.is_empty() {
