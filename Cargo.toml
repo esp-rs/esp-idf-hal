@@ -11,21 +11,16 @@ repository = "https://github.com/esp-rs/esp-idf-hal"
 license = "MIT OR Apache-2.0"
 readme = "README.md"
 documentation = "https://esp-rs.github.io/esp-idf-hal/"
+rust-version = "1.61"
 
 [features]
 default = ["std", "alloc", "esp-idf-sys"]
-
 std = ["alloc", "esp-idf-sys/std", "embedded-svc/std"]
-
 alloc = ["embedded-svc/alloc"]
-
 riscv-ulp-hal = []
-
-experimental = ["embedded-svc/experimental"]
 
 [dependencies]
 nb = "0.1.2"
-mutex-trait = { version = "0.2", optional = true, default-features = false }
 embedded-hal = "=1.0.0-alpha.8"
 embedded-hal-0-2 = { package = "embedded-hal", version = "0.2.7", features = ["unproven"] }
 embedded-svc = { version = "0.22", optional = true, default-features = false }

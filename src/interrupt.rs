@@ -337,6 +337,9 @@ pub fn free<R>(f: impl FnOnce() -> R) -> R {
     f()
 }
 
+/// A raw mutex based on critical sections
+pub struct RawMutex(CriticalSection);
+
 impl RawMutex {
     #[inline(always)]
     #[link_section = ".iram1.interrupt_mutex_new"]
