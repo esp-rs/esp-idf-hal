@@ -4,15 +4,23 @@ use core::{mem, ptr};
 extern crate alloc;
 use alloc::sync::{Arc, Weak};
 
-use edge_executor::{Notify, NotifyFactory, RunContextFactory, Wait};
-
 use crate::interrupt;
 
-pub struct CurrentTaskWait;
+pub use edge_executor::*;
+
+pub type EspExecutor<'a, const C: usize, S> = Executor<'a, C, TaskHandle, CurrentTaskWait, S>;
+
+pub struct CurrentTaskWait(());
 
 impl CurrentTaskWait {
-    pub fn new() -> Self {
-        Self
+    pub const fn new() -> Self {
+        Self(())
+    }
+}
+
+impl Default for CurrentTaskWait {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
@@ -27,6 +35,12 @@ pub struct TaskHandle(Arc<AtomicPtr<esp_idf_sys::tskTaskControlBlock>>);
 impl TaskHandle {
     pub fn new() -> Self {
         Self(Arc::new(AtomicPtr::new(ptr::null_mut())))
+    }
+}
+
+impl Default for TaskHandle {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
