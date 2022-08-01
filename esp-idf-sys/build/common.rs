@@ -1,23 +1,17 @@
 use std::collections::HashSet;
+use std::ffi::OsStr;
 use std::fmt::Display;
-use std::iter;
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
-use std::{env, error, fs};
+use std::{error, fs, iter};
 
 use anyhow::{anyhow, bail, Result};
 use embuild::cargo::{self, IntoWarning};
 use embuild::utils::{OsStrExt, PathExt};
 use embuild::{bindgen, build, kconfig};
+use strum::{Display, EnumDiscriminants, EnumString};
 
-pub const ESP_IDF_TOOLS_INSTALL_DIR_VAR: &str = "ESP_IDF_TOOLS_INSTALL_DIR";
-pub const ESP_IDF_GLOB_VAR_PREFIX: &str = "ESP_IDF_GLOB";
-pub const ESP_IDF_SDKCONFIG_DEFAULTS_VAR: &str = "ESP_IDF_SDKCONFIG_DEFAULTS";
-pub const ESP_IDF_SDKCONFIG_VAR: &str = "ESP_IDF_SDKCONFIG";
-pub const MCU_VAR: &str = "MCU";
-
-pub const SDKCONFIG_FILE: &str = "sdkconfig";
-pub const SDKCONFIG_DEFAULTS_FILE: &str = "sdkconfig.defaults";
+use crate::config::BuildConfig;
 
 #[allow(dead_code)]
 pub const V_4_3_2_PATCHES: &[&str] = &[
@@ -36,6 +30,7 @@ pub struct EspIdfBuildOutput {
     pub bindgen: bindgen::Factory,
     pub env_path: Option<String>,
     pub esp_idf: PathBuf,
+    pub config: BuildConfig,
 }
 
 pub struct EspIdfComponents(Vec<String>);
@@ -45,10 +40,12 @@ impl EspIdfComponents {
         Self(components)
     }
 
+    #[allow(dead_code)]
     pub fn from_esp_idf(esp_idf: &Path) -> Result<Self> {
         Self::from_dirs(&[esp_idf.join("components")])
     }
 
+    #[allow(dead_code)]
     pub fn from_dirs(dirs: impl IntoIterator<Item = impl AsRef<Path>>) -> Result<Self> {
         let components = dirs
             .into_iter()
@@ -59,25 +56,9 @@ impl EspIdfComponents {
         Ok(Self::new(components))
     }
 
-    #[allow(dead_code)]
-    pub fn from<I, S>(enabled: I) -> Self
-    where
-        I: Iterator<Item = S>,
-        S: Into<String>,
-    {
+    pub fn from(enabled: impl IntoIterator<Item = impl Into<String>>) -> Self {
         // NOTE: The components which are always enabled by ESP-IDF's CMake build (for ESP-IDF V4.4) are as follows:
-        // cxx;
-        // newlib;
-        // freertos;
-        // esp_hw_support;
-        // heap;
-        // log;
-        // lwip;
-        // soc;
-        // hal;
-        // esp_rom;
-        // esp_common;
-        // esp_system;
+        // cxx; newlib; freertos; esp_hw_support; heap; log; lwip; soc; hal; esp_rom; esp_common; esp_system;
         // esp32; <- Depends on the selected MCU
         //
         // Note also, that for now you always have to explicitly include the `pthread` component,
@@ -86,10 +67,9 @@ impl EspIdfComponents {
         // `pthread` is also mandatory when compiling with Rust STD enabled, or else you'll get linker errors
         Self::new(
             enabled
+                .into_iter()
                 .map(Into::into)
-                // For some reason, the "driver" component is not returned
-                // by the ESP-IDF CMake build, yet it is always enabled
-                .chain(iter::once("driver".to_owned()))
+                // deduplicate the components
                 .collect::<HashSet<_>>()
                 .into_iter()
                 .collect::<Vec<_>>(),
@@ -259,7 +239,9 @@ pub fn list_specific_sdkconfigs(
         })
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, EnumDiscriminants)]
+#[strum_discriminants(name(InstallDirLocation), derive(Display, EnumString))]
+#[strum_discriminants(strum(serialize_all = "lowercase"))]
 pub enum InstallDir {
     Global,
     Workspace(PathBuf),
@@ -273,34 +255,31 @@ impl InstallDir {
     ///
     /// If this env variable is unset or empty uses `default_install_dir` instead.
     /// On success returns `(install_dir as InstallDir, is_default as bool)`.
-    pub fn from_env_or(
-        default_install_dir: &str,
-        builder_name: &str,
-    ) -> Result<(InstallDir, bool)> {
-        let location = env::var_os(ESP_IDF_TOOLS_INSTALL_DIR_VAR);
-        let (location, is_default) = match &location {
-            None => (default_install_dir, true),
+    pub fn try_from(location: Option<&str>) -> Result<InstallDir> {
+        let (location, path) = match &location {
+            None => (crate::config::DEFAULT_TOOLS_INSTALL_DIR, None),
             Some(val) => {
-                let val = val.try_to_str()?.trim();
-                if val.is_empty() {
-                    (default_install_dir, true)
-                } else {
-                    (val, false)
-                }
+                let (loc, path) = val
+                    .split_once(':')
+                    .map(|(l, r)| (l, Some(r)))
+                    .unwrap_or((val, None));
+                (InstallDirLocation::from_str(&loc.to_lowercase())?, path)
             }
         };
-        let install_dir = match location.to_lowercase().as_str() {
-            "global" => Self::Global,
-            "workspace" => Self::Workspace(
+        let install_dir = match location {
+            InstallDirLocation::Global => Self::Global,
+            InstallDirLocation::Workspace => Self::Workspace(
                 workspace_dir()?
                     .join(TOOLS_WORKSPACE_INSTALL_DIR)
-                    .join(builder_name),
+                    .join(crate::build_driver::TOOLS_DIR),
             ),
-            "out" => Self::Out(cargo::out_dir().join(builder_name)),
-            "fromenv" => Self::FromEnv,
+            InstallDirLocation::Out => {
+                Self::Out(cargo::out_dir().join(crate::build_driver::TOOLS_DIR))
+            }
+            InstallDirLocation::FromEnv => Self::FromEnv,
             _ => Self::Custom({
-                if let Some(suffix) = location.strip_prefix("custom:") {
-                    Path::new(suffix).abspath_relative_to(&workspace_dir()?)
+                if let Some(path) = path {
+                    Path::new(path).abspath_relative_to(&workspace_dir()?)
                 } else {
                     bail!(
                         "Invalid installation directory format. \
@@ -309,7 +288,7 @@ impl InstallDir {
                 }
             }),
         };
-        Ok((install_dir, is_default))
+        Ok(install_dir)
     }
 
     pub fn is_from_env(&self) -> bool {
@@ -323,6 +302,15 @@ impl InstallDir {
             Self::Out(ref path) => Some(path.as_ref()),
             Self::Custom(ref path) => Some(path.as_ref()),
         }
+    }
+}
+
+impl<'d> serde::Deserialize<'d> for InstallDir {
+    fn deserialize<D>(de: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'d>,
+    {
+        InstallDir::try_from(Some(&String::deserialize(de)?)).map_err(serde::de::Error::custom)
     }
 }
 
@@ -340,4 +328,40 @@ impl Display for InstallDir {
 
 pub fn workspace_dir() -> Result<PathBuf> {
     cargo::workspace_dir().ok_or_else(|| anyhow!("Cannot fetch crate's workspace dir"))
+}
+
+pub fn manifest_dir() -> Result<PathBuf> {
+    std::env::var_os("CARGO_MANIFEST_DIR")
+        .ok_or_else(|| {
+            anyhow!(
+                "Environment variable `CARGO_MANIFEST_DIR` unavailable: not in cargo build script"
+            )
+        })
+        .map(PathBuf::from)
+}
+
+/// Create a cmake list (`;`-separated strings), escape all `;` and on Windows make sure
+/// paths don't contain `\`.
+pub fn to_cmake_path_list(iter: impl IntoIterator<Item = impl AsRef<OsStr>>) -> Result<String> {
+    let mut accu = String::new();
+    for p in iter {
+        let p: &str = p.as_ref().try_to_str()?;
+        if !accu.is_empty() {
+            accu.push(';');
+        }
+
+        // Escape all `;` since cmake uses them as separators.
+        let p = p.replace(';', "\\;");
+
+        accu.push_str(
+            // Windows uses `\` as directory separators which cmake can't deal with, so we
+            // convert all back-slashes to forward-slashes here.
+            &if cfg!(windows) {
+                p.replace('\\', "/")
+            } else {
+                p
+            },
+        );
+    }
+    Ok(accu)
 }
