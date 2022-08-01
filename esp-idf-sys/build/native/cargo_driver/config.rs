@@ -273,7 +273,7 @@ pub struct ExtraComponent {
     /// A single path or a list of paths to a component directory or directory containing components.
     ///
     /// Each path can be absolute or relative. Relative paths will be relative to the
-    /// folder containg the defining `Cargo.toml`.
+    /// folder containing the defining `Cargo.toml`.
     ///
     /// **This field is optional.** No component will be built if this field is absent, though
     /// the bindings of the `[Self::bindings_header`] will still be generated.
@@ -283,8 +283,8 @@ pub struct ExtraComponent {
     /// The path to the C header to generate the bindings with. If this option is absent,
     /// **no** bindings will be generated.
     ///
-    /// The path can be absolute or relative. A relative paths will be relative to the
-    /// folder containg the defining `Cargo.toml`.
+    /// The path can be absolute or relative. A relative path will be relative to the
+    /// folder containing the defining `Cargo.toml`.
     ///
     /// **This field is optional.**
     #[serde(default)]

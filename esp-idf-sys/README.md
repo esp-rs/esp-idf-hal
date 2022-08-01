@@ -6,7 +6,7 @@
 
 ## Background
 
-The ESP-IDF API in Rust, with support for each ESP chip (ESP32, ESP32S2, ESP32S3, ESP32C3 etc.) based on the Rust target.
+The ESP-IDF API in Rust, with support for each ESP chip (ESP32, ESP32S2, ESP32S3, ESP32C3, etc.) based on the Rust target.
 
 For more information, check out:
 * The [Rust on ESP Book](https://esp-rs.github.io/book/)
@@ -19,7 +19,7 @@ For more information, check out:
 ## Build
 
 - To build this crate, please follow all the build requirements specified in the [ESP-IDF Rust Hello World template crate](https://github.com/esp-rs/esp-idf-template)
-- The relevant Espressif toolchain, as well as the ESP-IDF framework itself are all automatically
+- The relevant Espressif toolchain, as well as the ESP-IDF framework itself, are all automatically
   downloaded during the build:
     - With feature `native` (default): utilizing native ESP-IDF tooling via the [embuild](https://github.com/ivmarkov/embuild) crate or
     - With feature `pio` (backup): utilizing [PlatformIO](https://platformio.org/) (also via the [embuild](https://github.com/ivmarkov/embuild) crate).
@@ -167,7 +167,7 @@ The following configuration options are available:
   > &#128712; **Note**  
    > The [ESP-IDF git repository](https://github.com/espressif/esp-idf) will be cloned
    > *inside* the tooling directory. The *native* builder will use the esp-idf at
-   > [*`idf_path`*](#idfpath-or-idfpath-native-builder-only) of available.
+   > [*`idf_path`*](#idfpath-idfpath-native-builder-only) of available.
       
 - ### *`idf_path`*, `$IDF_PATH` (*native* builder only)
   A path to a user-provided local clone of the [esp-idf](https://github.com/espressif/esp-idf),
@@ -205,13 +205,13 @@ The following configuration options are available:
 
   A pair of environment variable prefixes that enable copying files and directory trees that match a certain glob mask into the native C project used for building the ESP-IDF framework:
   - `ESP_IDF_GLOB[_XXX]_BASE` specifies the base directory which will be glob-ed for resources to be copied
-  - `ESP_IDF_GLOB[_XXX]_BASE_YYY` specifies one or more environment variables that represent the glob masks of resources to be searched for and copied, using the directory designated by the `ESP_IDF_GLOB[_XXX]_BASE` environment variable as the root. For example, if the follwing variables are specified:
+  - `ESP_IDF_GLOB[_XXX]_BASE_YYY` specifies one or more environment variables that represent the glob masks of resources to be searched for and copied, using the directory designated by the `ESP_IDF_GLOB[_XXX]_BASE` environment variable as the root. For example, if the following variables are specified:
     - `ESP_IDF_GLOB_HOMEDIR_BASE=/home/someuser`
     - `ESP_IDF_GLOB_HOMEDIR_FOO=foo*`
     - `ESP_IDF_GLOB_HOMEDIR_BAR=bar*`
-    ... then all files and directories matching 'foo*' or 'bar*' from the home directory of the user will be copied in theESP-IDF C project.
+    ... then all files and directories matching 'foo*' or 'bar*' from the home directory of the user will be copied into the ESP-IDF C project.
 
-    Note also that `_HOMEDIR` in the above example is optional, and is just a mechanism allowing the user to specify more than base directory and its glob patterns.
+    Note also that `_HOMEDIR` in the above example is optional, and is just a mechanism allowing the user to specify more than one base directory and its glob patterns.
 
 
 - ### `$ESP_IDF_PIO_CONF_XXX` (*pio* builder only):
@@ -258,7 +258,7 @@ and generate bindings for them.
 
 This is possible by adding an object to the
 `package.metadata.esp-idf-sys.extra_components` array of the `Cargo.toml`. *esp-idf-sys*
-will honour all such extra components in the *root crate*'s and all **direct**
+will honor all such extra components in the *root crate*'s and all **direct**
 dependencies' `Cargo.toml`.
 
 > &#128712; **Note**  
@@ -273,7 +273,7 @@ An extra component can be specified like this:
 # A single path or a list of paths to a component directory or directory containing components.
 # 
 # Each path can be absolute or relative. Relative paths will be relative to the
-# folder containg the defining `Cargo.toml`.
+# folder containing the defining `Cargo.toml`.
 # 
 # **This field is optional.** No component will be built if this field is absent, though
 # the bindings of the `[Self::bindings_header]` will still be generated.
@@ -282,8 +282,8 @@ component_dirs = ["dir1", "dir2"] # or "dir"
 # The path to the C header to generate the bindings with. If this option is absent,
 # **no** bindings will be generated.
 #
-# The path can be absolute or relative. A relative paths will be relative to the
-# folder containg the defining `Cargo.toml`.
+# The path can be absolute or relative. A relative path will be relative to the
+# folder containing the defining `Cargo.toml`.
 #
 # This field is optional.
 bindings_header = "bindings.h"
@@ -312,5 +312,5 @@ extra_components = [
 
 ## More info
 
-If you are interested how it all works under the hood, check the [build.rs](build/build.rs)
+If you are interested in how it all works under the hood, check the [build.rs](build/build.rs)
 build script of this crate.
