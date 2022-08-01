@@ -30,9 +30,6 @@ use crate::errors::EspIOError;
 use crate::private::common::Newtype;
 use crate::private::cstr::{CStr, CString};
 
-#[cfg(all(feature = "nightly", feature = "experimental"))]
-pub use asyncify::*;
-
 #[derive(Copy, Clone, Debug)]
 pub struct Configuration {
     pub http_port: u16,
@@ -610,18 +607,22 @@ impl<'a> Io for EspHttpConnection<'a> {
 
 impl<'a> Read for EspHttpConnection<'a> {
     fn read(&mut self, buf: &mut [u8]) -> Result<usize, Self::Error> {
-        unsafe {
-            let len = httpd_req_recv(
-                self.request.0,
-                buf.as_mut_ptr() as *mut _,
-                buf.len() as size_t,
-            );
+        if self.headers.is_some() {
+            unsafe {
+                let len = httpd_req_recv(
+                    self.request.0,
+                    buf.as_mut_ptr() as *mut _,
+                    buf.len() as size_t,
+                );
 
-            if len < 0 {
-                esp!(len)?;
+                if len < 0 {
+                    esp!(len)?;
+                }
+
+                Ok(len as usize)
             }
-
-            Ok(len as usize)
+        } else {
+            Err(EspIOError(EspError::from(ESP_FAIL).unwrap()))
         }
     }
 }
@@ -810,23 +811,31 @@ impl<'a> Write for EspHttpResponseWrite<'a> {
 impl<'a> Write for EspHttpConnection<'a> {
 >>>>>>> 6da375c8a (compat with latest traits)
     fn write(&mut self, buf: &[u8]) -> Result<usize, Self::Error> {
-        if !buf.is_empty() {
-            esp!(unsafe {
-                httpd_resp_send_chunk(
-                    self.request.0,
-                    buf.as_ptr() as *const _,
-                    buf.len() as ssize_t,
-                )
-            })?;
+        if self.headers.is_none() {
+            if !buf.is_empty() {
+                esp!(unsafe {
+                    httpd_resp_send_chunk(
+                        self.request.0,
+                        buf.as_ptr() as *const _,
+                        buf.len() as ssize_t,
+                    )
+                })?;
 
-            self.response_headers = None;
+                self.response_headers = None;
+            }
+
+            Ok(buf.len())
+        } else {
+            Err(EspIOError(EspError::from(ESP_FAIL).unwrap()))
         }
-
-        Ok(buf.len())
     }
 
     fn flush(&mut self) -> Result<(), Self::Error> {
-        Ok(())
+        if self.headers.is_none() {
+            Ok(())
+        } else {
+            Err(EspIOError(EspError::from(ESP_FAIL).unwrap()))
+        }
     }
 }
 
@@ -834,8 +843,6 @@ impl<'b> Connection for EspHttpConnection<'b> {
     type Headers = Self;
 
     type Read = Self;
-
-    type Write = Self;
 
     type RawConnectionError = EspIOError;
 
@@ -849,7 +856,7 @@ impl<'b> Connection for EspHttpConnection<'b> {
         }
     }
 
-    fn request<'a>(&'a mut self) -> Result<(&'a Self::Headers, &'a mut Self::Read), Self::Error> {
+    fn split<'a>(&'a mut self) -> Result<(&'a Self::Headers, &'a mut Self::Read), Self::Error> {
         if self.headers.is_some() {
             let headers_ptr: *const EspHttpConnection<'b> = self as *const _;
 
@@ -857,7 +864,7 @@ impl<'b> Connection for EspHttpConnection<'b> {
 
             Ok((headers, self))
         } else {
-            Err(EspIOError(EspError::from(ESP_ERR_TIMEOUT).unwrap()))
+            Err(EspIOError(EspError::from(ESP_FAIL).unwrap()))
         }
     }
 
@@ -916,11 +923,11 @@ impl<'b> Connection for EspHttpConnection<'b> {
         Ok(())
     }
 
-    fn response<'a>(&'a mut self) -> Result<&'a mut Self::Write, Self::Error> {
+    fn assert_response(&mut self) -> Result<(), Self::Error> {
         if self.headers.is_none() {
-            Ok(self)
+            Ok(())
         } else {
-            Err(EspIOError(EspError::from(ESP_ERR_TIMEOUT).unwrap()))
+            Err(EspIOError(EspError::from(ESP_FAIL).unwrap()))
         }
     }
 
@@ -953,6 +960,9 @@ pub mod ws {
     use super::EspHttpServer;
     use super::CLOSE_HANDLERS;
     use super::OPEN_SESSIONS;
+
+    #[cfg(all(feature = "nightly", feature = "experimental"))]
+    pub use asyncify::*;
 
     pub enum EspHttpWsConnection {
         New(httpd_handle_t, *mut httpd_req_t),

@@ -281,30 +281,47 @@ impl Io for EspHttpConnection {
 
 impl Read for EspHttpConnection {
     fn read(&mut self, buf: &mut [u8]) -> Result<usize, Self::Error> {
-        let result = unsafe {
-            esp_http_client_read_response(self.raw_client, buf.as_mut_ptr() as _, buf.len() as _)
-        };
-        if result < 0 {
-            esp!(result)?;
-        }
+        if self.state == State::Response {
+            let result = unsafe {
+                esp_http_client_read_response(
+                    self.raw_client,
+                    buf.as_mut_ptr() as _,
+                    buf.len() as _,
+                )
+            };
+            if result < 0 {
+                esp!(result)?;
+            }
 
-        Ok(result as _)
+            Ok(result as _)
+        } else {
+            Err(EspError::from(ESP_FAIL).unwrap().into())
+        }
     }
 }
 
 impl Write for EspHttpConnection {
     fn write(&mut self, buf: &[u8]) -> Result<usize, Self::Error> {
-        let result =
-            unsafe { esp_http_client_write(self.raw_client, buf.as_ptr() as _, buf.len() as _) };
-        if result < 0 {
-            esp!(result)?;
-        }
+        if self.state == State::Request {
+            let result = unsafe {
+                esp_http_client_write(self.raw_client, buf.as_ptr() as _, buf.len() as _)
+            };
+            if result < 0 {
+                esp!(result)?;
+            }
 
-        Ok(result as _)
+            Ok(result as _)
+        } else {
+            Err(EspError::from(ESP_FAIL).unwrap().into())
+        }
     }
 
     fn flush(&mut self) -> Result<(), Self::Error> {
-        Ok(())
+        if self.state == State::Request {
+            Ok(())
+        } else {
+            Err(EspError::from(ESP_FAIL).unwrap().into())
+        }
     }
 }
 
@@ -312,8 +329,6 @@ impl Connection for EspHttpConnection {
     type Headers = Self;
 
     type Read = Self;
-
-    type Write = Self;
 
     type RawConnectionError = EspIOError;
 
@@ -373,9 +388,9 @@ impl Connection for EspHttpConnection {
         Ok(())
     }
 
-    fn request(&mut self) -> Result<&mut Self::Write, Self::Error> {
+    fn assert_request(&mut self) -> Result<(), Self::Error> {
         if self.state == State::Request {
-            Ok(self)
+            Ok(())
         } else {
             Err(EspError::from(ESP_FAIL).unwrap().into())
         }
@@ -389,7 +404,7 @@ impl Connection for EspHttpConnection {
         Ok(())
     }
 
-    fn response(&mut self) -> Result<(&Self::Headers, &mut Self::Read), Self::Error> {
+    fn split(&mut self) -> Result<(&Self::Headers, &mut Self::Read), Self::Error> {
         if self.state == State::Response {
             let headers_ptr: *const EspHttpConnection = self as *const _;
 

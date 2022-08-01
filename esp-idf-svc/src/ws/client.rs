@@ -299,7 +299,7 @@ impl UnsafeCallback {
     }
 }
 
-#[cfg_attr(version("1.60"), allow(suspicious_auto_trait_impls))]
+#[allow(suspicious_auto_trait_impls)]
 unsafe impl Send for Newtype<*mut esp_websocket_event_data_t> {}
 
 struct EspWebSocketConnectionState {
