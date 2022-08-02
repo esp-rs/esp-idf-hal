@@ -4,8 +4,6 @@
 [![CI](https://github.com/esp-rs/esp-idf-sys/actions/workflows/ci.yml/badge.svg)](https://github.com/esp-rs/esp-idf-sys/actions/workflows/ci.yml)
 [![Documentation](https://img.shields.io/badge/docs-esp--rs-brightgreen)](https://esp-rs.github.io/esp-idf-sys/esp_idf_sys/index.html)
 
-## Background
-
 The ESP-IDF API in Rust, with support for each ESP chip (ESP32, ESP32S2, ESP32S3, ESP32C3, etc.) based on the Rust target.
 
 For more information, check out:
@@ -15,6 +13,15 @@ For more information, check out:
 * The [esp-idf-hal](https://github.com/esp-rs/esp-idf-hal) project
 * The [Rust for Xtensa toolchain](https://github.com/esp-rs/rust-build)
 * The [Rust-with-STD demo](https://github.com/ivmarkov/rust-esp32-std-demo) project
+
+**Table of contents**
+- [Build](#build)
+- [Features](#features)
+- [sdkconfig](#sdkconfig)
+- [Build configuration](#build-configuration)
+- [Extra esp-idf components](#extra-esp-idf-components)
+- [Conditional compilation](#conditional-compilation)
+- [More info](#more-info)
 
 ## Build
 
@@ -26,34 +33,43 @@ For more information, check out:
 - Check the [ESP-IDF Rust Hello World template crate](https://github.com/esp-rs/esp-idf-template) for a "Hello, world!" Rust template demonstrating how to use and build this crate.
 - Check the [demo](https://github.com/ivmarkov/rust-esp32-std-demo) crate for a more comprehensive example in terms of capabilities.
 
-## Feature `native`
-This is the default feature for downloading all tools and building the ESP-IDF framework using the framework's "native" (own) tooling.
-It relies on build and installation utilities available in the [embuild](https://github.com/ivmarkov/embuild) crate.
+## Features
+- ### `native`
+  This is the default feature for downloading all tools and building the ESP-IDF framework using the framework's "native" (own) tooling.
+  It relies on build and installation utilities available in the [embuild](https://github.com/ivmarkov/embuild) crate.
 
-The `native` builder installs all needed tools to compile this crate as well as the ESP-IDF framework itself. 
+  The `native` builder installs all needed tools to compile this crate as well as the ESP-IDF framework itself. 
 
-### (Native builder only) Using cargo-idf to interactively modify ESP-IDF's `sdkconfig` file
+- ### `pio`
+
+  This is a backup feature for installing all build tools and building the ESP-IDF framework. It uses [PlatformIO](https://platformio.org/) via the
+  [embuild](https://github.com/ivmarkov/embuild) crate.
+
+  Similarly to the `native` builder, the `pio` builder also automatically installs all needed tools (PlatformIO packages and frameworks in this case) to compile this crate as well as the ESP-IDF framework itself. 
+
+  > ⚠️ The `pio` builder is less flexible than the default `native` builder in that it can work with only **one, specific** version of ESP-IDF. At the time of writing, this is V4.3.2.
+
+## sdkconfig
+
+The esp-idf makes use of an [sdkconfig](#espidfsdkconfig-espidfsdkconfig) file for its
+compile-time component configuration (see the [esp-idf
+docs](https://docs.espressif.com/projects/esp-idf/en/latest/esp32/api-reference/kconfig.html#project-configuration)
+for more information). This config is separate from the [build configuration](#build-configuration).
+
+### (*native* builder only) Using cargo-idf to interactively modify ESP-IDF's `sdkconfig` file
 
 TBD: Upcoming
 
-## Feature `pio`
-This is a backup feature for installing all build tools and building the ESP-IDF framework. It uses [PlatformIO](https://platformio.org/) via the
-[embuild](https://github.com/ivmarkov/embuild) crate.
-
-Similarly to the `native` builder, the `pio` builder also automatically installs all needed tools (PlatformIO packages and frameworks in this case) to compile this crate as well as the ESP-IDF framework itself. 
-
-**NOTE:** The `pio` builder is less flexible than the default `native` builder in that it can work with only **one, specific** version of ESP-IDF. At the time of writing, this is V4.3.2.
-
-### (PIO builder only) Using cargo-pio to interactively modify ESP-IDF's `sdkconfig` file
+### (*pio* builder only) Using cargo-pio to interactively modify ESP-IDF's `sdkconfig` file
 
 To enable Bluetooth, or do other configurations to the ESP-IDF sdkconfig you might take advantage of the cargo-pio Cargo subcommand:
 * To install it, issue `cargo install cargo-pio --git https://github.com/ivmarkov/cargo-pio`
 * To open the ESP-IDF interactive menuconfig system, issue `cargo pio espidf menuconfig` in the root of your **binary crate** project
 * To use the generated/updated `sdkconfig` file, follow the steps described in the "Bluetooth Support" section
 
-## Configuration
+## Build configuration
 
-There are two ways to configure how the ESP-IDF framework is compiled.
+There are two ways to configure how the ESP-IDF framework is compiled:
 1. Environment variables, denoted by `$VARIABLE`;
 
    > The environment variables can be passed on the command line, or put into the `[env]`
@@ -70,11 +86,15 @@ There are two ways to configure how the ESP-IDF framework is compiled.
 
     > ⚠️ Environment variables always take precedence over `Cargo.toml` metadata.
 
-> &#128712; **Note**: *workspace directory*
+> &#128712; **Note**: *workspace directory*  
+> The workspace directory mentioned here is always the directory containing the
+> `Cargo.lock` file and the `target` directory (where the build artifacts are stored). It
+> can be overridden with the `CARGO_WORKSPACE_DIR` environment variable, should this not
+> be the right directory.  
+> (See
+> [`embuild::cargo::workspace_dir`](https://docs.rs/embuild/latest/embuild/cargo/fn.workspace_dir.html)
+> for more information).
 >
-> The workspace directory mentioned here is always the
-> directory containing the `Cargo.lock` file and the `target` directory (where the build
-> artifacts are stored).  
 > There is no need to explicitly add a 
 > [`[workspace]`](https://doc.rust-lang.org/cargo/reference/workspaces.html#the-workspace-section)
 > section to the `Cargo.toml` of the workspace directory.
@@ -89,6 +109,8 @@ The following configuration options are available:
     relative, it will be relative to the *workspace directory*.
     
     Defaults to `sdkconfig.defaults`.
+    
+    In case of the environment variable, multiple elements should be `;`-separated.
     
     > &#128712; **Note**  
     > For each defaults file in this list, a more specific file will also be searched and
@@ -131,7 +153,7 @@ The following configuration options are available:
   > determine the compiler optimizations of the `esp-idf`, **however** if the compiler
   > optimization options are already set in the `sdkconfig` **they will be used instead.**
 
-- ### *`esp_idf_tools_install_dir`*, `$ESP_IDF_TOOLS_INSTALL_DIR`:
+- ### *`esp_idf_tools_install_dir`*, `$ESP_IDF_TOOLS_INSTALL_DIR`
 
   The install location for the ESP-IDF framework tooling.
 
@@ -147,7 +169,7 @@ The following configuration options are available:
       directory](https://doc.rust-lang.org/cargo/reference/build-scripts.html#outputs-of-the-build-script),
       and will be deleted when `cargo clean` is invoked;
     - `global` - the tooling will be installed or used in its standard directory
-      (`~/.platformio` for PlatformIO, and `~./espressif` for the native ESP-IDF toolset);
+      (`~/.platformio` for PlatformIO, and `~/.espressif` for the native ESP-IDF toolset);
     - `custom:<dir>` -  the tooling will be installed or used in the directory specified by
       `<dir>`. If this directory is a relative location, it is assumed to be relative to
       the *workspace directory*;
@@ -164,7 +186,7 @@ The following configuration options are available:
    > the builder will install the tooling in `<dir>` without using any additional `platformio` or `espressif` subdirectories, so if you are not careful, you might end up with 
    > both PlatformIO, as well as the ESP-IDF native tooling intermingled together in a single folder.
 
-  > &#128712; **Note**  
+   > &#128712; **Note**  
    > The [ESP-IDF git repository](https://github.com/espressif/esp-idf) will be cloned
    > *inside* the tooling directory. The *native* builder will use the esp-idf at
    > [*`idf_path`*](#idfpath-idfpath-native-builder-only) of available.
@@ -173,7 +195,7 @@ The following configuration options are available:
   A path to a user-provided local clone of the [esp-idf](https://github.com/espressif/esp-idf),
   that will be used instead of the one downloaded by the build script.
 
-- ### *`esp_idf_version`*, `$ESP_IDF_VERSION` (*native* builder only):
+- ### *`esp_idf_version`*, `$ESP_IDF_VERSION` (*native* builder only)
 
   The version used for the `esp-idf`, can be one of the following:
   - `commit:<hash>`: Uses the commit `<hash>` of the `esp-idf` repository.
@@ -185,7 +207,7 @@ The following configuration options are available:
 
   Defaults to `v4.4.1`.
 
-- ### *`esp_idf_repository`*, `$ESP_IDF_REPOSITORY` (*native* builder only): 
+- ### *`esp_idf_repository`*, `$ESP_IDF_REPOSITORY` (*native* builder only)
 
   The URL to the git repository of the `esp-idf`, defaults to <https://github.com/espressif/esp-idf.git>.
   
@@ -201,7 +223,7 @@ The following configuration options are available:
   >  its own ESP-IDF distribution, so the user-provided ESP-IDF branch may or may not compile. The current 
   >  PlatformIO tooling is suitable for compiling ESP-IDF branches derived from versions 4.3.X and 4.4.X.
 
-- ### `$ESP_IDF_GLOB[_XXX]_BASE` and `$ESP_IDF_GLOB[_XXX]_YYY`:
+- ### `$ESP_IDF_GLOB[_XXX]_BASE` and `$ESP_IDF_GLOB[_XXX]_YYY`
 
   A pair of environment variable prefixes that enable copying files and directory trees that match a certain glob mask into the native C project used for building the ESP-IDF framework:
   - `ESP_IDF_GLOB[_XXX]_BASE` specifies the base directory which will be glob-ed for resources to be copied
@@ -214,7 +236,7 @@ The following configuration options are available:
     Note also that `_HOMEDIR` in the above example is optional, and is just a mechanism allowing the user to specify more than one base directory and its glob patterns.
 
 
-- ### `$ESP_IDF_PIO_CONF_XXX` (*pio* builder only):
+- ### `$ESP_IDF_PIO_CONF_XXX` (*pio* builder only)
 
   A PlatformIO setting (or multiple settings separated by a newline) that will be passed
   as-is to the `platformio.ini` file of the C project that compiles the ESP-IDF.
@@ -228,7 +250,7 @@ The following configuration options are available:
   > starting with `ESP_IDF_PIO_CONF_`. For example, passing `ESP_IDF_PIO_CONF_1` as well as
   > `ESP_IDF_PIO_CONF_FOO` is valid and all such variables will be honored.
 
-- ### *`esp_idf_cmake_generator`*, `$ESP_IDF_CMAKE_GENERATOR` (*native* builder only):
+- ### *`esp_idf_cmake_generator`*, `$ESP_IDF_CMAKE_GENERATOR` (*native* builder only)
 
   The CMake generator to be used when building the ESP-IDF.
   
@@ -241,14 +263,26 @@ The following configuration options are available:
   supports](https://cmake.org/cmake/help/latest/manual/cmake-generators.7.html#cmake-generators)
   with **spaces and hyphens removed**.
 
-- ### *`mcu`*, `$MCU`:
+- ### *`mcu`*, `$MCU`
 
    The MCU name (i.e. `esp32`, `esp32s2`, `esp32s3` `esp32c3` and `esp32h2`). 
    
    If not set this will be automatically detected from the cargo target.
 
    > ⚠️
-   > [Older ESP-IDF versions might not support all MCUs from above](https://github.com/espressif/esp-idf#esp-idf-release-and-soc-compatibility).
+   > [Older ESP-IDF versions might not support all MCUs from above.](https://github.com/espressif/esp-idf#esp-idf-release-and-soc-compatibility)
+   
+### Example
+
+An example of the `[package.metadata.esp-idf-sys]` section of the `Cargo.toml`.
+```toml
+[package.metadata.esp-idf-sys]
+esp_idf_tools_install_dir = "global"
+esp_idf_sdkconfig = "sdkconfig"
+esp_idf_sdkconfig_defaults = ["sdkconfig.defaults", "sdkconfig.defaults.ble"]
+# native builder only
+esp_idf_version = "branch:release/v4.4"
+```
 
 ## Extra esp-idf components
 
@@ -309,6 +343,39 @@ extra_components = [
     { component_dirs = [ "dir1", "dir2" ], bindings_header = "bindings.h", bindings_module = "name" }
 ]
 ```
+
+## Conditional compilation
+
+The *esp-idf-sys* build script will set [rustc *cfg*s](https://doc.rust-lang.org/reference/conditional-compilation.html)
+available for its sources.
+
+> ⚠️ If an upstream crate also wants to have access to the *cfg*s it must:
+> - have `esp-idf-sys` as a dependency, and
+> - propagate the *cfg*s in its [build
+>   script](https://doc.rust-lang.org/cargo/reference/build-scripts.html) with
+> 
+>   ```rust
+>   embuild::build::CfgArgs::output_propagated("ESP_IDF").expect("no esp-idf-sys cfgs");
+>   ```
+>   using the [embuild](https://crates.io/crates/embuild) crate.
+
+The list of available *cfg*s:
+- `esp_idf_comp_{component}_enabled` for each [component](#espidfcomponents-espidfcomponents-native-builder-only)
+- `esp_idf_version="{major}.{minor}"`
+- `esp_idf_version_full="{major}.{minor}.{patch}"`
+- `esp_idf_version_major="{major}"`
+- `esp_idf_version_minor="{minor}"`
+- `esp_idf_version_patch="{patch}"`
+- `esp_idf_{sdkconfig_option}`
+
+  Each [sdkconfig
+  setting](https://docs.espressif.com/projects/esp-idf/en/latest/esp32/api-reference/kconfig.html#configuration-options-reference)
+  where `{sdkconfig_option}` corresponds to the option set in the sdkconfig **lowercased**
+  and **without** the `CONFIG_` prefix. Only options set to `y` will get a *cfg*.
+
+- `{mcu}`
+
+  Corresponds to the [mcu](#mcu-mcu) for which the esp-idf is compiled for.
 
 ## More info
 
