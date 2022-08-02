@@ -303,6 +303,7 @@ pub fn build() -> Result<EspIdfBuildOutput> {
         .no_build_target(true)
         .define("CMAKE_TOOLCHAIN_FILE", &cmake_toolchain_file)
         .define("CMAKE_BUILD_TYPE", "")
+        .define("PYTHON", to_cmake_path_list([&idf.venv_python])?)
         .always_configure(true)
         .pic(false)
         .asmflag(asm_flags)
@@ -318,9 +319,9 @@ pub fn build() -> Result<EspIdfBuildOutput> {
         cmake_config.env("IDF_TOOLS_PATH", install_dir);
     }
 
-    // specify the components that should be built
+    // Specify the components that should be built.
     if let Some(components) = &config.native.esp_idf_components {
-        cmake_config.env("COMPONENTS", components.join(";"));
+        cmake_config.env("ESP_IDF_COMPONENTS", components.join(";"));
     }
 
     // Build the esp-idf.
