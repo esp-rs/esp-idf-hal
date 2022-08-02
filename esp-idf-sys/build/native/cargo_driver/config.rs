@@ -48,8 +48,19 @@ pub struct NativeConfig {
     ///
     /// Can be specified in the root crate's `package.metadata.esp-idf-sys` and all direct
     /// dependencies'.
+    ///
+    /// This option is not available as an environment variable.
     #[serde(alias = "extra-components")]
     pub extra_components: Vec<ExtraComponent>,
+
+    /// A list of esp-idf components (names) that should be built. This list is used to
+    /// trim the esp-idf build. Any component that is a dependency of a component in this
+    /// list will also automatically be built.
+    ///
+    /// If this option is not specified, all components will be built. Note though that
+    /// some components must be explicitly enabled in the sdkconfig.
+    #[serde(default, deserialize_with = "parse::list")]
+    pub esp_idf_components: Option<Vec<String>>,
 }
 
 impl NativeConfig {
@@ -181,6 +192,7 @@ impl NativeConfig {
                     esp_idf_cmake_generator,
                     idf_path,
                     extra_components,
+                    esp_idf_components,
                 },
         } = EspIdfSys::deserialize(&root.metadata)?;
 
@@ -188,6 +200,7 @@ impl NativeConfig {
         set_when_none(&mut self.esp_idf_repository, esp_idf_repository);
         set_when_none(&mut self.esp_idf_cmake_generator, esp_idf_cmake_generator);
         set_when_none(&mut self.idf_path, idf_path);
+        set_when_none(&mut self.esp_idf_components, esp_idf_components);
 
         fn make_processor(
             package: &Package,
@@ -317,6 +330,7 @@ mod parse {
     use strum::IntoEnumIterator;
 
     use super::*;
+    pub use crate::config::parse::*;
     use crate::config::utils::ValueOrVec;
 
     /// Parse a cmake generator, either `default` or one of [`cmake::Generator`].

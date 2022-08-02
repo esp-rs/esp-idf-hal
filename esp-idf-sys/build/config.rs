@@ -23,7 +23,7 @@ pub struct BuildConfig {
     esp_idf_sdkconfig: Option<PathBuf>,
 
     /// One or more paths to sdkconfig.defaults files used by the esp-idf.
-    #[serde(deserialize_with = "parse::sdkconfig_defaults")]
+    #[serde(deserialize_with = "parse::list")]
     esp_idf_sdkconfig_defaults: Option<Vec<PathBuf>>,
 
     /// The MCU (esp32, esp32s2, esp32s3, esp32c3, ...) to compile for if unset will be
@@ -173,21 +173,22 @@ where
     }
 }
 
-mod parse {
-    use std::path::PathBuf;
-
+pub mod parse {
     use serde::{Deserialize, Deserializer};
 
     use super::utils::ValueOrVec;
 
-    pub fn sdkconfig_defaults<'d, D: Deserializer<'d>>(
-        de: D,
-    ) -> Result<Option<Vec<PathBuf>>, D::Error> {
-        Option::<ValueOrVec<String, PathBuf>>::deserialize(de).map(|val| match val {
+    /// Parse a string into a `;`-separated list of `T`s or parse a list of `T`s directly.
+    pub fn list<'d, T, D>(de: D) -> Result<Option<Vec<T>>, D::Error>
+    where
+        D: Deserializer<'d>,
+        T: for<'s> From<&'s str> + Deserialize<'d>,
+    {
+        Option::<ValueOrVec<String, T>>::deserialize(de).map(|val| match val {
             Some(ValueOrVec::Val(s)) => Some(
                 s.split(';')
                     .filter(|s| !s.is_empty())
-                    .map(PathBuf::from)
+                    .map(Into::into)
                     .collect(),
             ),
             Some(ValueOrVec::Vec(v)) => Some(v),

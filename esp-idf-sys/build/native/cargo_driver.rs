@@ -317,6 +317,11 @@ pub fn build() -> Result<EspIdfBuildOutput> {
         cmake_config.env("IDF_TOOLS_PATH", install_dir);
     }
 
+    // specify the components that should be built
+    if let Some(components) = &config.native.esp_idf_components {
+        cmake_config.env("COMPONENTS", components.join(";"));
+    }
+
     // Build the esp-idf.
     cmake_config.build();
 
@@ -372,6 +377,8 @@ pub fn build() -> Result<EspIdfBuildOutput> {
             c => Some(c.to_string()),
         })
         .collect::<Vec<_>>();
+
+    eprintln!("Built components: {}", components.join(", "));
 
     let sdkconfig_json = path_buf![&cmake_build_dir, "config", "sdkconfig.json"];
     let build_output = EspIdfBuildOutput {

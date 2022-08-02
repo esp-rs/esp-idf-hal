@@ -8,7 +8,12 @@ foreach(component_dir IN ITEMS $ENV{EXTRA_COMPONENT_DIRS})
     idf_build_component(${component_dir})
 endforeach()
 
-idf_build_process($ENV{IDF_TARGET} SDKCONFIG $ENV{SDKCONFIG} SDKCONFIG_DEFAULTS $ENV{SDKCONFIG_DEFAULTS})
+if(DEFINED ENV{COMPONENTS})
+    idf_build_process($ENV{IDF_TARGET} SDKCONFIG $ENV{SDKCONFIG} SDKCONFIG_DEFAULTS $ENV{SDKCONFIG_DEFAULTS} COMPONENTS $ENV{COMPONENTS})
+else()
+    idf_build_process($ENV{IDF_TARGET} SDKCONFIG $ENV{SDKCONFIG} SDKCONFIG_DEFAULTS $ENV{SDKCONFIG_DEFAULTS})
+endif()
+
 idf_build_get_property(aliases BUILD_COMPONENT_ALIASES)
 
 add_executable(libespidf.elf main.c)

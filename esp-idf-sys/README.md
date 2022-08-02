@@ -272,6 +272,19 @@ The following configuration options are available:
    > ⚠️
    > [Older ESP-IDF versions might not support all MCUs from above.](https://github.com/espressif/esp-idf#esp-idf-release-and-soc-compatibility)
    
+- ### *`esp_idf_components`*, `$ESP_IDF_COMPONENTS` (*native* builder only)
+
+    The list of esp-idf components (names) that should be built. This list is used to
+    trim the esp-idf build. Any component that is a dependency of a component in this
+    list will also automatically be built.
+    
+    Defaults to all components being built.
+    
+    > &#128712; **Note**  
+    > Some components must be explicitly enabled in the sdkconfig.  
+    > [Extra components](#extra-esp-idf-components) must also be added to this list if
+    > they are to be built.
+
 ### Example
 
 An example of the `[package.metadata.esp-idf-sys]` section of the `Cargo.toml`.
