@@ -56,6 +56,7 @@ impl EspIdfComponents {
         Ok(Self::new(components))
     }
 
+    #[allow(dead_code)]
     pub fn from(enabled: impl IntoIterator<Item = impl Into<String>>) -> Self {
         // NOTE: The components which are always enabled by ESP-IDF's CMake build (for ESP-IDF V4.4) are as follows:
         // cxx; newlib; freertos; esp_hw_support; heap; log; lwip; soc; hal; esp_rom; esp_common; esp_system;
@@ -338,30 +339,4 @@ pub fn manifest_dir() -> Result<PathBuf> {
             )
         })
         .map(PathBuf::from)
-}
-
-/// Create a cmake list (`;`-separated strings), escape all `;` and on Windows make sure
-/// paths don't contain `\`.
-pub fn to_cmake_path_list(iter: impl IntoIterator<Item = impl AsRef<OsStr>>) -> Result<String> {
-    let mut accu = String::new();
-    for p in iter {
-        let p: &str = p.as_ref().try_to_str()?;
-        if !accu.is_empty() {
-            accu.push(';');
-        }
-
-        // Escape all `;` since cmake uses them as separators.
-        let p = p.replace(';', "\\;");
-
-        accu.push_str(
-            // Windows uses `\` as directory separators which cmake can't deal with, so we
-            // convert all back-slashes to forward-slashes here.
-            &if cfg!(windows) {
-                p.replace('\\', "/")
-            } else {
-                p
-            },
-        );
-    }
-    Ok(accu)
 }

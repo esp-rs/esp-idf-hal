@@ -1,4 +1,5 @@
 use std::convert::TryFrom;
+use std::ffi::OsStr;
 use std::path::Path;
 use std::str::FromStr;
 use std::{env, fs};
@@ -15,8 +16,8 @@ use embuild::{bindgen, build, cargo, cmake, espidf, git, kconfig, path_buf};
 
 use self::chip::Chip;
 use crate::common::{
-    self, list_specific_sdkconfigs, manifest_dir, to_cmake_path_list, workspace_dir,
-    EspIdfBuildOutput, EspIdfComponents, InstallDir, V_4_3_2_PATCHES,
+    self, list_specific_sdkconfigs, manifest_dir, workspace_dir, EspIdfBuildOutput,
+    EspIdfComponents, InstallDir, V_4_3_2_PATCHES,
 };
 use crate::config::{BuildConfig, ESP_IDF_GLOB_VAR_PREFIX, ESP_IDF_TOOLS_INSTALL_DIR_VAR};
 
@@ -430,4 +431,30 @@ fn generate_sdkconfig_defaults() -> Result<String> {
         .enumerate()
         .map(|(i, s)| format!("{}={}\n", s, if i == opt_index { 'y' } else { 'n' }))
         .collect::<String>())
+}
+
+/// Create a cmake list (`;`-separated strings), escape all `;` and on Windows make sure
+/// paths don't contain `\`.
+pub fn to_cmake_path_list(iter: impl IntoIterator<Item = impl AsRef<OsStr>>) -> Result<String> {
+    let mut accu = String::new();
+    for p in iter {
+        let p: &str = p.as_ref().try_to_str()?;
+        if !accu.is_empty() {
+            accu.push(';');
+        }
+
+        // Escape all `;` since cmake uses them as separators.
+        let p = p.replace(';', "\\;");
+
+        accu.push_str(
+            // Windows uses `\` as directory separators which cmake can't deal with, so we
+            // convert all back-slashes to forward-slashes here.
+            &if cfg!(windows) {
+                p.replace('\\', "/")
+            } else {
+                p
+            },
+        );
+    }
+    Ok(accu)
 }

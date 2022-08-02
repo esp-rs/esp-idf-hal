@@ -1,8 +1,5 @@
 #[cfg(not(any(feature = "pio", feature = "native")))]
 compile_error!("One of the features `pio` or `native` must be selected.");
-
-use std::fs;
-use std::io::{BufWriter, Write};
 use std::iter::once;
 
 use anyhow::*;
@@ -130,9 +127,11 @@ fn main() -> anyhow::Result<()> {
             bindings_file.display()
         )
     };
+
+    #[allow(unused_mut)]
     let mut headers = vec![header_file];
 
-    #[cfg(feature = "native")]
+    #[cfg(all(feature = "native", not(feature = "pio")))]
     // Add additional headers from extra components.
     headers.extend(
         build_output
@@ -151,8 +150,11 @@ fn main() -> anyhow::Result<()> {
         .with_context(bindgen_err)?;
 
     // Generate bindings separately for each unique module name.
-    #[cfg(feature = "native")]
+    #[cfg(all(feature = "native", not(feature = "pio")))]
     (|| {
+        use std::fs;
+        use std::io::{BufWriter, Write};
+
         let mut output_file =
             BufWriter::new(fs::File::options().append(true).open(&bindings_file)?);
 
