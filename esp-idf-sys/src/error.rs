@@ -1,39 +1,50 @@
-#![allow(non_upper_case_globals)]
-#![allow(non_camel_case_types)]
-#![allow(non_snake_case)]
-
 use core::{fmt, slice, str};
 
-use crate::*;
+use crate::{c_types, esp_err_t, esp_err_to_name, ESP_OK};
 
+/// A wrapped [`esp_err_t`] to check if an error occurred.
+///
+/// An [`esp_err_t`] is returned from most esp-idf APIs as a status code. If it is equal
+/// to [`ESP_OK`] it means **no** error occurred.
 #[derive(Copy, Clone, Eq, PartialEq, Hash, Debug)]
 pub struct EspError(esp_err_t);
 
 impl EspError {
-    pub fn from(error: esp_err_t) -> Option<Self> {
-        if error == 0 {
+    /// Wrap an [`esp_err_t`], return [`Some`] if `error` is **not** [`ESP_OK`].
+    pub const fn from(error: esp_err_t) -> Option<Self> {
+        if error == ESP_OK {
             None
         } else {
             Some(EspError(error))
         }
     }
 
+    /// Convert `error` into a [`Result`] with `Ok(value)` if no error occurred.
+    ///
+    /// If `error` is [`ESP_OK`] return [`Ok`] of `value` otherwise return [`Err`] of
+    /// wrapped `error`.
     pub fn check_and_return<T>(error: esp_err_t, value: T) -> Result<T, Self> {
-        if error == 0 {
+        if error == ESP_OK {
             Ok(value)
         } else {
             Err(EspError(error))
         }
     }
 
+    /// Convert `error` into a [`Result`] with `Ok(())` if not error occurred..
+    ///
+    /// If `error` equals to [`ESP_OK`] return [`Ok`], otherwise return [`Err`] with the
+    /// wrapped [`esp_err_t`].
     pub fn convert(error: esp_err_t) -> Result<(), Self> {
         EspError::check_and_return(error, ())
     }
 
+    /// Panic with a specific error message of the contained [`esp_err_t`].
     pub fn panic(&self) {
         panic!("ESP-IDF ERROR: {}", self);
     }
 
+    /// Get the wrapped [`esp_err_t`].
     pub fn code(&self) -> esp_err_t {
         self.0
     }
@@ -60,24 +71,35 @@ impl fmt::Display for EspError {
     }
 }
 
+/// Convert an [`esp_err_t`] into a [`Result<(), EspError>`](Result).
+///
+/// See [`EspError::convert`].
 #[macro_export]
 macro_rules! esp {
     ($err:expr) => {{
-        esp_idf_sys::EspError::convert($err as esp_idf_sys::esp_err_t)
+        $crate::EspError::convert($err as $crate::esp_err_t)
     }};
 }
 
+/// Convert an [`esp_err_t`] into a [`Result<T, EspError>`](Result).
+///
+/// See [`EspError::check_and_return`].
 #[macro_export]
 macro_rules! esp_result {
     ($err:expr, $value:expr) => {{
-        esp_idf_sys::EspError::check_and_return($err as esp_idf_sys::esp_err_t, $value)
+        $crate::EspError::check_and_return($err as $crate::esp_err_t, $value)
     }};
 }
 
+/// Panic with an error-specific message if `err` is not [`ESP_OK`].
+///
+/// See [`EspError::from`] and [`EspError::panic`].
 #[macro_export]
 macro_rules! esp_nofail {
     ($err:expr) => {{
-        if let Some(error) = esp_idf_sys::EspError::from($err as esp_idf_sys::esp_err_t) {
+        if let ::core::option::Option::Some(error) =
+            $crate::EspError::from($err as $crate::esp_err_t)
+        {
             error.panic();
         }
     }};

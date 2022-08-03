@@ -48,6 +48,25 @@ For more information, check out:
   Similarly to the `native` builder, the `pio` builder also automatically installs all needed tools (PlatformIO packages and frameworks in this case) to compile this crate as well as the ESP-IDF framework itself. 
 
   > ⚠️ The `pio` builder is less flexible than the default `native` builder in that it can work with only **one, specific** version of ESP-IDF. At the time of writing, this is V4.3.2.
+  
+- ### `binstart`
+
+  Defines the esp-idf entry-point for when the root crate is a [binary
+  crate](https://doc.rust-lang.org/cargo/reference/cargo-targets.html#binaries) that
+  defines a
+  [`main`](https://doc.rust-lang.org/reference/crates-and-source-files.html?highlight=main#main-functions)
+  function.
+
+- ### `libstart`
+
+  Defines the esp-idf entry-point for when the root crate is a [library
+  crate](https://doc.rust-lang.org/cargo/reference/cargo-targets.html#library). the root
+  crate is expected to provide a
+  ```rust
+  #[no_mangle]
+  fn main() {}
+  ```
+  function.
 
 ## sdkconfig
 
@@ -77,7 +96,7 @@ There are two ways to configure how the ESP-IDF framework is compiled:
 
 2. The `[package.metadata.esp-idf-sys]` section of the `Cargo.toml`, denoted by *`field`*.
 
-   > &#128712; **Note**  
+   > **Note**  
    > Configuration can only come from the **root crate's** `Cargo.toml`. The root crate
    > is the package in the *workspace directory*. If there is not root crate in case of a
    > [virtual
@@ -86,7 +105,7 @@ There are two ways to configure how the ESP-IDF framework is compiled:
 
     > ⚠️ Environment variables always take precedence over `Cargo.toml` metadata.
 
-> &#128712; **Note**: *workspace directory*  
+> **Note**: *workspace directory*  
 > The workspace directory mentioned here is always the directory containing the
 > `Cargo.lock` file and the `target` directory (where the build artifacts are stored). It
 > can be overridden with the `CARGO_WORKSPACE_DIR` environment variable, should this not
@@ -112,7 +131,7 @@ The following configuration options are available:
     
     In case of the environment variable, multiple elements should be `;`-separated.
     
-    > &#128712; **Note**  
+    > **Note**  
     > For each defaults file in this list, a more specific file will also be searched and
     > used. This happens with the following patterns and order (least to most specific):
     >
@@ -137,7 +156,7 @@ The following configuration options are available:
   
   Defaults to `sdkconfig`.
   
-  > &#128712; **Note**  
+  > **Note**  
   > Similar to the `sdkconfig.defaults`-file a more specific `sdkconfig`-file will be
   > selected if available. This happens with the following patterns and precedence:
   >
@@ -148,7 +167,7 @@ The following configuration options are available:
   >
   > &nbsp;
 
-  > &#128712; **Note**: *native* builder only  
+  > **Note**: *native* builder only  
   > The cargo optimization options (`debug` and `opt-level`) are used by default to
   > determine the compiler optimizations of the `esp-idf`, **however** if the compiler
   > optimization options are already set in the `sdkconfig` **they will be used instead.**
@@ -157,7 +176,7 @@ The following configuration options are available:
 
   The install location for the ESP-IDF framework tooling.
 
-  > &#128712; **Note**  
+  > **Note**  
   > The framework tooling is either [PlatformIO](https://platformio.org/) when the `pio` builder is used, or the ESP-IDF
   > native toolset when the `native` builder is used (default).
 
@@ -186,7 +205,7 @@ The following configuration options are available:
    > the builder will install the tooling in `<dir>` without using any additional `platformio` or `espressif` subdirectories, so if you are not careful, you might end up with 
    > both PlatformIO, as well as the ESP-IDF native tooling intermingled together in a single folder.
 
-   > &#128712; **Note**  
+   > **Note**  
    > The [ESP-IDF git repository](https://github.com/espressif/esp-idf) will be cloned
    > *inside* the tooling directory. The *native* builder will use the esp-idf at
    > [*`idf_path`*](#idfpath-idfpath-native-builder-only) of available.
@@ -211,7 +230,7 @@ The following configuration options are available:
 
   The URL to the git repository of the `esp-idf`, defaults to <https://github.com/espressif/esp-idf.git>.
   
-  > &#128712; **Note**  
+  > **Note**  
   > When the `pio` builder is used, it is possible to achieve something similar to
   > `ESP_IDF_VERSION` and `ESP_IDF_REPOSITORY` by using the
   > [`platform_packages`](https://docs.platformio.org/en/latest/projectconf/section_env_platform.html#platform-packages)
@@ -245,7 +264,7 @@ The following configuration options are available:
   documentation](https://docs.platformio.org/en/latest/projectconf/index.html) for more
   information as to what settings you can pass via this variable.
   
-  > &#128712; **Note**  
+  > **Note**  
   > This is not one variable, but rather a family of variables all
   > starting with `ESP_IDF_PIO_CONF_`. For example, passing `ESP_IDF_PIO_CONF_1` as well as
   > `ESP_IDF_PIO_CONF_FOO` is valid and all such variables will be honored.
@@ -274,13 +293,13 @@ The following configuration options are available:
    
 - ### *`esp_idf_components`*, `$ESP_IDF_COMPONENTS` (*native* builder only)
 
-    The list of esp-idf components (names) that should be built. This list is used to
-    trim the esp-idf build. Any component that is a dependency of a component in this
-    list will also automatically be built.
+    The (`;`-separated for the environment variable) list of esp-idf component names that
+    should be built. This list is used to trim the esp-idf build. Any component that is a
+    dependency of a component in this list will also automatically be built.
     
     Defaults to all components being built.
     
-    > &#128712; **Note**  
+    > **Note**  
     > Some components must be explicitly enabled in the sdkconfig.  
     > [Extra components](#extra-esp-idf-components) must also be added to this list if
     > they are to be built.
@@ -295,6 +314,7 @@ esp_idf_sdkconfig = "sdkconfig"
 esp_idf_sdkconfig_defaults = ["sdkconfig.defaults", "sdkconfig.defaults.ble"]
 # native builder only
 esp_idf_version = "branch:release/v4.4"
+esp_idf_components = ["pthread"]
 ```
 
 ## Extra esp-idf components
@@ -308,7 +328,7 @@ This is possible by adding an object to the
 will honor all such extra components in the *root crate*'s and all **direct**
 dependencies' `Cargo.toml`.
 
-> &#128712; **Note**  
+> **Note**  
 > By only specifying the `bindings_header` field, one can extend the set of *esp-idf*
 > bindings that were generated from
 > [src/include/esp-idf/bindings.h](src/include/esp-idf/bindings.h).
