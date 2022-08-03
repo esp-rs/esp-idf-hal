@@ -1,6 +1,6 @@
 [package]
 name = "esp-idf-sys"
-version = "0.31.6"
+version = "0.31.7"
 authors = ["Alexey Arbuzov <aarbuzov@termt.com>", "sapir <yasapir@gmail.com>", "Ivan Markov <ivan.markov@gmail.com>", "Dominik Gschwind <dominik.gschwind99@gmail.com>"]
 edition = "2021"
 resolver = "2"
@@ -29,7 +29,6 @@ native = ["embuild/cmake", "embuild/espidf"]
 pio = ["embuild/pio"]
 
 [dependencies]
-paste = "1"
 
 [build-dependencies]
 embuild = { version = "0.30.2", features = ["glob", "kconfig"] }
