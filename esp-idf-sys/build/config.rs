@@ -105,6 +105,7 @@ impl BuildConfig {
     pub fn with_cargo_metadata(&mut self) -> Result<()> {
         let metadata = cargo_metadata::MetadataCommand::new()
             .current_dir(workspace_dir()?)
+            .other_options(vec!["--locked".into()])
             .exec()?;
 
         let root_package = match (metadata.root_package(), &self.esp_idf_sys_root_crate) {
