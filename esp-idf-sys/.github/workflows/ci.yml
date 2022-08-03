@@ -7,6 +7,9 @@ on:
   pull_request:
   schedule:
     - cron: '50 4 * * *'
+    
+env:
+  rust_nightly_toolchain: nightly-2022-08-01
 
 jobs:
   compile:
@@ -29,12 +32,12 @@ jobs:
         uses: actions-rs/toolchain@v1
         with:
           default: true
-          toolchain: nightly
+          toolchain: ${{ env.rust_nightly_toolchain }}
           components: rustfmt, clippy
         if: matrix.target == 'riscv32imc-esp-espidf'
 
       - name: Setup | Std
-        run: rustup component add rust-src --toolchain nightly-x86_64-unknown-linux-gnu
+        run: rustup component add rust-src --toolchain ${{ env.rust_nightly_toolchain }}-x86_64-unknown-linux-gnu
         if: matrix.target == 'riscv32imc-esp-espidf'
 
       - name: Install Rust for Xtensa
