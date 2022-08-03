@@ -4,7 +4,7 @@ on:
   workflow_dispatch
 
 env:
-  rust_toolchain: nightly
+  rust_toolchain: nightly-2022-08-01
   CRATE_NAME: esp-idf-sys
 
 jobs:
