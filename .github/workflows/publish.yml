@@ -5,6 +5,7 @@ on:
 
 env:
   rust_toolchain: nightly-2022-04-07
+  crate_name: esp-idf-hal
 
 jobs:
   publish:
@@ -54,3 +55,14 @@ jobs:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           force_orphan: true
           publish_dir: ./docs
+
+      - name: Get the crate version from cargo
+        run: |
+          version=$(cargo metadata --format-version=1 --no-deps | jq -r ".packages[] | select(.name == \"${{env.crate_name}}\") | .version")
+          echo "crate_version=$version" >> $GITHUB_ENV
+          echo "${{env.crate_name}} version: $version"
+      - name: Tag the new release
+        uses: rickstaa/action-create-tag@v1
+        with:
+          tag: v${{env.crate_version}}
+          message: "Release v${{env.crate_version}}"
