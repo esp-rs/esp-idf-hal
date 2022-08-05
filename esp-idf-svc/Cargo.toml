@@ -18,7 +18,7 @@ default = ["std"]
 
 std = ["alloc", "anyhow/std", "log/std", "esp-idf-sys/std", "esp-idf-hal/std", "embedded-svc/std"]
 alloc = ["cstr_core/alloc", "anyhow", "esp-idf-hal/alloc", "embedded-svc/alloc"]
-nightly = ["embedded-svc/nightly"]
+nightly = ["embedded-svc/nightly", "esp-idf-hal/nightly"]
 experimental = ["embedded-svc/experimental"]
 
 [dependencies]
