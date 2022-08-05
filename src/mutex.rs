@@ -20,12 +20,14 @@ impl RawMutex {
     }
 
     #[inline(always)]
+    #[allow(clippy::missing_safety_doc)]
     pub unsafe fn lock(&self) {
         let r = pthread_mutex_lock(self.0.get());
         debug_assert_eq!(r, 0);
     }
 
     #[inline(always)]
+    #[allow(clippy::missing_safety_doc)]
     pub unsafe fn unlock(&self) {
         let r = pthread_mutex_unlock(self.0.get());
         debug_assert_eq!(r, 0);
@@ -68,11 +70,13 @@ impl RawCondvar {
         Self(UnsafeCell::new(cond))
     }
 
+    #[allow(clippy::missing_safety_doc)]
     pub unsafe fn wait(&self, mutex: &RawMutex) {
         let r = pthread_cond_wait(self.0.get(), mutex.0.get());
         debug_assert_eq!(r, 0);
     }
 
+    #[allow(clippy::missing_safety_doc)]
     pub unsafe fn wait_timeout(&self, mutex: &RawMutex, duration: Duration) -> bool {
         let mut now: timeval = core::mem::zeroed();
         gettimeofday(&mut now, core::ptr::null_mut());
