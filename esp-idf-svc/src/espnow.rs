@@ -2,15 +2,18 @@ use ::log::info;
 
 use alloc::boxed::Box;
 
-use esp_idf_hal::mutex::{Mutex, RawMutex};
+use esp_idf_hal::mutex::RawMutex;
+use esp_idf_hal::utils::mutex::Mutex;
 use esp_idf_sys::*;
 
 type Singleton<T> = Mutex<Option<Box<T>>>;
 
 #[allow(clippy::type_complexity)]
-static RECV_CALLBACK: Singleton<dyn FnMut(&[u8], &[u8]) + Send> = Mutex::new(None);
+static RECV_CALLBACK: Singleton<dyn FnMut(&[u8], &[u8]) + Send> =
+    Mutex::wrap(RawMutex::new(), None);
 #[allow(clippy::type_complexity)]
-static SEND_CALLBACK: Singleton<dyn FnMut(&[u8], SendStatus) + Send> = Mutex::new(None);
+static SEND_CALLBACK: Singleton<dyn FnMut(&[u8], SendStatus) + Send> =
+    Mutex::wrap(RawMutex::new(), None);
 
 pub static BROADCAST: [u8; 6] = [0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF];
 static TAKEN: Mutex<bool> = Mutex::wrap(RawMutex::new(), false);

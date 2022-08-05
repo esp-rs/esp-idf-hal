@@ -4,6 +4,7 @@
 #![feature(const_btree_new)] // Need to get rid of BTreeMaps in const initializers
 
 #[cfg(any(feature = "alloc"))]
+#[allow(unused_imports)]
 #[macro_use]
 extern crate alloc;
 
