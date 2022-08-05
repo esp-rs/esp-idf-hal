@@ -180,8 +180,8 @@ fn enable_isr_service() -> Result<(), EspError> {
         esp!(unsafe { esp_idf_sys::gpio_install_isr_service(0) })?;
 
         *service_enabled = true;
-        Ok(())
     }
+
     Ok(())
 }
 
