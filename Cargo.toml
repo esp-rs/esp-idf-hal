@@ -18,6 +18,7 @@ default = ["std", "alloc", "esp-idf-sys"]
 std = ["alloc", "esp-idf-sys/std", "embedded-svc/std"]
 alloc = ["embedded-svc/alloc"]
 riscv-ulp-hal = []
+nightly = ["embedded-svc/nightly"]
 
 [dependencies]
 nb = "0.1.2"
