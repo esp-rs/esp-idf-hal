@@ -6,7 +6,7 @@ on:
     - cron: '50 5 * * *'
 
 env:
-  rust_toolchain: nightly-2022-04-07
+  rust_toolchain: nightly
 
 jobs:
   compile:
