@@ -78,16 +78,19 @@ fn main() -> anyhow::Result<()> {
 
     println!("Starting duty-cycle loop");
 
-    for &x in [0.0, 20.0, 40.0, 60.0, 80.0, 100.0].iter().cycle() {
-        println!("Duty {}%", x);
-        operator.set_duty_a(x)?;
-        operator.set_duty_b(100.0 - x)?;
-        FreeRtos.delay_ms(2000)?;
+    for x in (0..10000u16).cycle() {
+        let duty = f32::from(x) * 0.01;
+
+        if x % 100 == 0 {
+            println!("Duty {}%", duty);
+        }
+
+        operator.set_duty_a(duty)?;
+        operator.set_duty_b(100.0 - duty)?;
+        FreeRtos.delay_ms(10)?;
     }
 
-    loop {
-        FreeRtos.delay_ms(1000)?;
-    }
+    unreachable!()
 }
 
 #[cfg(not(any(esp32, esp32s3)))]
