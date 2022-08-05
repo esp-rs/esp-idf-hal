@@ -45,6 +45,10 @@ unsafe impl Sync for RawMutex {}
 unsafe impl Send for RawMutex {}
 
 impl embedded_svc::mutex::RawMutex for RawMutex {
+    #[cfg(feature = "nightly")] // Remove "nightly" condition once 1.64 is out
+    #[allow(clippy::declare_interior_mutable_const)]
+    const INIT: Self = RawMutex::new();
+
     fn new() -> Self {
         RawMutex::new()
     }
