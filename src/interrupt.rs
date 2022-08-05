@@ -355,6 +355,7 @@ impl RawMutex {
 
     #[inline(always)]
     #[link_section = ".iram1.interrupt_mutex_unlock"]
+    #[allow(clippy::missing_safety_doc)]
     pub unsafe fn unlock(&self) {
         exit(&self.0);
     }
