@@ -7,7 +7,9 @@ use esp_idf_sys::*;
 
 type Singleton<T> = Mutex<Option<Box<T>>>;
 
+#[allow(clippy::type_complexity)]
 static RECV_CALLBACK: Singleton<dyn FnMut(&[u8], &[u8]) + Send> = Mutex::new(None);
+#[allow(clippy::type_complexity)]
 static SEND_CALLBACK: Singleton<dyn FnMut(&[u8], SendStatus) + Send> = Mutex::new(None);
 
 pub static BROADCAST: [u8; 6] = [0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF];

@@ -18,7 +18,7 @@ use crate::eventloop::{EspTypedEventDeserializer, EspTypedEventSource};
 use crate::private::common::*;
 use crate::private::cstr::*;
 
-#[derive(Copy, Clone, Debug, PartialEq)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
 #[cfg_attr(feature = "std", derive(Hash))]
 #[cfg_attr(feature = "use_serde", derive(Serialize, Deserialize))]
 pub enum InterfaceStack {

@@ -140,7 +140,7 @@ pub struct EspEventPostData {
     pub payload_len: usize,
 }
 
-impl<'a> EspEventPostData {
+impl EspEventPostData {
     /// # Safety
     ///
     /// Care should be taken to only call this function with payload reference that lives at least as long as
