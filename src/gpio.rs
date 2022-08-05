@@ -177,11 +177,10 @@ unsafe extern "C" fn irq_handler(unsafe_callback: *mut esp_idf_sys::c_types::c_v
 fn enable_isr_service() -> Result<(), EspError> {
     let mut service_enabled = ISR_SERVICE_ENABLED.lock();
     if !*service_enabled {
-        if let Err(e) = esp!(unsafe { esp_idf_sys::gpio_install_isr_service(0) }) {
-            return Err(e);
-        } else {
-            *service_enabled = true;
-        }
+        esp!(unsafe { esp_idf_sys::gpio_install_isr_service(0) })?;
+
+        *service_enabled = true;
+        Ok(())
     }
     Ok(())
 }

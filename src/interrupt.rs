@@ -428,7 +428,7 @@ impl<'a, T> Deref for MutexGuard<'a, T> {
     #[inline(always)]
     #[link_section = ".iram1.interrupt_mutexg_deref"]
     fn deref(&self) -> &Self::Target {
-        &*self.1
+        &self.1
     }
 }
 
@@ -436,7 +436,7 @@ impl<'a, T> DerefMut for MutexGuard<'a, T> {
     #[inline(always)]
     #[link_section = ".iram1.interrupt_mutexg_derefmut"]
     fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut *self.1
+        &mut self.1
     }
 }
 
