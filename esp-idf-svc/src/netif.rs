@@ -45,14 +45,14 @@ impl InterfaceStack {
     }
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 #[cfg_attr(feature = "use_serde", derive(Serialize, Deserialize))]
 pub enum InterfaceIpConfiguration {
     Client(ipv4::ClientConfiguration),
     Router(ipv4::RouterConfiguration),
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 #[cfg_attr(feature = "use_serde", derive(Serialize, Deserialize))]
 pub struct InterfaceConfiguration {
     pub key: heapless::String<32>,
