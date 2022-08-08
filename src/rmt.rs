@@ -55,14 +55,16 @@ extern crate alloc;
 
 #[cfg(feature = "alloc")]
 use alloc::vec::Vec;
+use core::cell::UnsafeCell;
+use core::convert::TryFrom;
+use core::time::Duration;
+
+pub use chip::*;
+use config::TransmitConfig;
+use esp_idf_sys::*;
 
 use crate::gpio::OutputPin;
 use crate::units::Hertz;
-pub use chip::*;
-use config::TransmitConfig;
-use core::convert::TryFrom;
-use core::time::Duration;
-use esp_idf_sys::*;
 
 /// A `Low` (0) or `High` (1) state for a pin.
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
@@ -182,9 +184,10 @@ pub fn duration_to_ticks(ticks_hz: Hertz, duration: &Duration) -> Result<u128, E
 ///
 /// ```
 pub mod config {
+    use esp_idf_sys::{EspError, ESP_ERR_INVALID_ARG};
+
     use super::PinState;
     use crate::units::{FromValueType, Hertz};
-    use esp_idf_sys::{EspError, ESP_ERR_INVALID_ARG};
 
     /// A percentage from 0 to 100%, used to specify the duty percentage in [`CarrierConfig`].
     #[derive(Debug, Copy, Clone, Eq, PartialEq)]
@@ -420,7 +423,129 @@ impl<P: OutputPin, C: HwChannel> Transmit<P, C> {
         S: Signal,
     {
         let items = signal.as_slice();
-        esp!(unsafe { rmt_write_items(C::channel(), items.as_ptr(), items.len() as i32, block,) })
+        esp!(unsafe { rmt_write_items(C::channel(), items.as_ptr(), items.len() as i32, block) })
+    }
+
+    /// Transmit all items in `iter` without blocking.
+    ///
+    /// Note that this requires `iter` to be [`Box`]ed for an allocation free version see [`Self::start_iter_blocking`].
+    ///
+    /// ### Warning
+    ///
+    /// Iteration of `iter` happens inside an interrupt handler so beware of side-effects
+    /// that don't work in interrupt handlers. Iteration must also be fast so that there
+    /// are no time-gaps between successive transmissions where the perhipheral has to
+    /// wait for items. This can cause weird behavior and can be counteracted with
+    /// increasing [`TransmitConfig::mem_block_num`] or making iteration more efficient.
+    #[cfg(feature = "std")]
+    pub fn start_iter<T>(&mut self, iter: T) -> Result<(), EspError>
+    where
+        T: Iterator<Item = rmt_item32_t> + Send + 'static,
+    {
+        let iter = Box::new(UnsafeCell::new(iter));
+        unsafe {
+            esp!(rmt_translator_init(
+                C::channel(),
+                Some(Self::translate_iterator::<T, true>),
+            ))?;
+
+            esp!(rmt_write_sample(
+                C::channel(),
+                Box::leak(iter) as *const _ as _,
+                1,
+                false
+            ))
+        }
+    }
+
+    /// Transmit all items in `iter`, blocking until all items are transmitted.
+    ///
+    /// This method does not require any allocations since the thread is paused until all
+    /// items are transmitted. The iterator lives on the stack and will be dropped after
+    /// all items are written and before this method returns.
+    ///
+    /// ### Warning
+    ///
+    /// Iteration of `iter` happens inside an interrupt handler so beware of side-effects
+    /// that don't work in interrupt handlers. Iteration must also be fast so that there
+    /// are no time-gaps between successive transmissions where the perhipheral has to
+    /// wait for items. This can cause weird behavior and can be counteracted with
+    /// increasing [`TransmitConfig::mem_block_num`] or making iteration more efficient.
+    pub fn start_iter_blocking<T>(&mut self, iter: T) -> Result<(), EspError>
+    where
+        T: Iterator<Item = rmt_item32_t> + Send,
+    {
+        let iter = UnsafeCell::new(iter);
+        unsafe {
+            // TODO: maybe use a separate struct so that we don't have to do this when
+            // transmitting the same iterator type.
+            esp!(rmt_translator_init(
+                C::channel(),
+                Some(Self::translate_iterator::<T, false>),
+            ))?;
+            esp!(rmt_write_sample(
+                C::channel(),
+                &iter as *const _ as _,
+                24,
+                true
+            ))
+        }
+    }
+
+    /// The translator that turns an iterator into `rmt_item32_t` elements. Most of the
+    /// magic happens here.
+    ///
+    /// The general idea is that we can fill a buffer (`dest`) of `rmt_item32_t` items of
+    /// length `wanted_num` with the items that we get from the iterator. Then we can tell
+    /// the peripheral driver how many items we filled in by setting `item_num`. The
+    /// driver will call this function over-and-over until `translated_size` is equal to
+    /// `src_size` so when the iterator returns [`None`] we set `translated_size` to
+    /// `src_size` to signal that there are no more items to translate.
+    ///
+    /// The compiler will generate this function for every different call to
+    /// [`Self::start_iter_blocking`] and [`Self::start_iter`] with different iterator
+    /// types because of the type parameter. This is done to avoid the double indirection
+    /// that we'd have to do when using a trait object since references to trait objects
+    /// are fat-pointers (2 `usize` wide) and we only get a narrow pointer (`src`).
+    /// Using a trait object has the addional overhead that every call to `Iterator::next`
+    /// would also be indirect (through the `vtable`) and couldn't be inlined.
+    unsafe extern "C" fn translate_iterator<T, const DEALLOC_ITER: bool>(
+        src: *const c_types::c_void,
+        mut dest: *mut rmt_item32_t,
+        src_size: size_t,
+        wanted_num: size_t,
+        translated_size: *mut size_t,
+        item_num: *mut size_t,
+    ) where
+        T: Iterator<Item = rmt_item32_t>,
+    {
+        // An `UnsafeCell` is needed here because we're casting a `*const` to a `*mut`.
+        // Safe because this is the only existing reference.
+        let iter = &mut *UnsafeCell::raw_get(src as *const UnsafeCell<T>);
+
+        let mut i = 0;
+        let finished = loop {
+            if i >= wanted_num {
+                break 0;
+            }
+
+            if let Some(item) = iter.next() {
+                *dest = item;
+                dest = dest.add(1);
+                i += 1;
+            } else {
+                // Only deallocate the iter if the const generics argument is `true`
+                // otherwise we could be deallocating stack memory.
+                #[cfg(feature = "std")]
+                if DEALLOC_ITER {
+                    drop(Box::from_raw(iter));
+                }
+                break src_size;
+            }
+        };
+
+        *item_num = i;
+        *translated_size = finished;
     }
 
     /// Stop transmitting.
@@ -632,6 +757,7 @@ impl Signal for VariableLengthSignal {
 
 mod chip {
     use core::marker::PhantomData;
+
     use esp_idf_sys::*;
 
     /// RMT peripheral channel.
