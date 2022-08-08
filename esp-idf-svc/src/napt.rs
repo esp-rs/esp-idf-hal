@@ -26,7 +26,7 @@ impl Protocol {
     }
 }
 
-static TAKEN: mutex::Mutex<bool> = mutex::Mutex::new(false);
+static TAKEN: mutex::Mutex<bool> = mutex::Mutex::wrap(mutex::RawMutex::new(), false);
 
 impl EspNapt {
     pub fn new() -> Result<Self, EspError> {

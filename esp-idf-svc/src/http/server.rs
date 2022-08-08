@@ -10,17 +10,17 @@ use alloc::string::String;
 use alloc::sync::Arc;
 use alloc::vec::Vec;
 
-use embedded_svc::http::headers::content_type;
-use embedded_svc::utils::http::server::registration::{ChainHandler, ChainRoot};
-use log::{info, warn};
+use ::log::{info, warn};
 
+use embedded_svc::http::headers::content_type;
 use embedded_svc::http::server::{
     handler, Connection, Handler, HandlerError, HandlerResult, Request,
 };
 use embedded_svc::http::*;
 use embedded_svc::io::{Io, Read, Write};
+use embedded_svc::utils::http::server::registration::{ChainHandler, ChainRoot};
 
-use esp_idf_hal::mutex;
+use esp_idf_hal::mutex::{Mutex, RawMutex};
 
 use esp_idf_sys::*;
 
@@ -169,11 +169,12 @@ impl From<Method> for Newtype<c_types::c_uint> {
     }
 }
 
-static OPEN_SESSIONS: mutex::Mutex<BTreeMap<(u32, c_types::c_int), Arc<AtomicBool>>> =
-    mutex::Mutex::wrap(mutex::RawMutex::new(), BTreeMap::new());
 #[allow(clippy::type_complexity)]
-static mut CLOSE_HANDLERS: mutex::Mutex<BTreeMap<u32, Vec<Box<dyn Fn(c_types::c_int)>>>> =
-    mutex::Mutex::wrap(mutex::RawMutex::new(), BTreeMap::new());
+static OPEN_SESSIONS: Mutex<BTreeMap<(u32, c_types::c_int), Arc<AtomicBool>>> =
+    Mutex::wrap(RawMutex::new(), BTreeMap::new());
+#[allow(clippy::type_complexity)]
+static mut CLOSE_HANDLERS: Mutex<BTreeMap<u32, Vec<Box<dyn Fn(c_types::c_int)>>>> =
+    Mutex::wrap(RawMutex::new(), BTreeMap::new());
 
 pub struct EspHttpServer {
     sd: httpd_handle_t,
@@ -702,13 +703,13 @@ impl<'b> Connection for EspHttpConnection<'b> {
         c_headers.push(c_status);
 
         for (key, value) in headers {
-            if UncasedStr::new(key) == UncasedStr::new("Content-Type") {
+            if key.eq_ignore_ascii_case("Content-Type") {
                 let c_type = CString::new(*value).unwrap();
 
                 esp!(unsafe { httpd_resp_set_type(self.request.0, c_type.as_c_str().as_ptr()) })?;
 
                 c_headers.push(c_type);
-            } else if UncasedStr::new(key) == UncasedStr::new("Content-Length") {
+            } else if key.eq_ignore_ascii_case("Content-Length") {
                 let c_len = CString::new(*value).unwrap();
 
                 //esp!(unsafe { httpd_resp_set_len(self.raw_req, c_len.as_c_str().as_ptr()) })?;
@@ -758,7 +759,7 @@ pub mod ws {
     extern crate alloc;
     use alloc::sync::Arc;
 
-    use log::*;
+    use ::log::*;
 
     use embedded_svc::http::Method;
     use embedded_svc::utils::mutex::{Condvar, Mutex};

@@ -353,7 +353,7 @@ impl Connection for EspHttpConnection {
         let mut content_len = None;
 
         for (name, value) in headers {
-            if UncasedStr::new(name) == UncasedStr::new("Content-Length") {
+            if name.eq_ignore_ascii_case("Content-Length") {
                 if let Ok(len) = value.parse::<u64>() {
                     content_len = Some(len);
                 }
