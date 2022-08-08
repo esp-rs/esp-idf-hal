@@ -82,7 +82,7 @@ fn main() -> anyhow::Result<()> {
         let duty = f32::from(x) * 0.01;
 
         if x % 100 == 0 {
-            println!("Duty {}%", duty);
+            println!("Duty {}%", x / 100);
         }
 
         operator.set_duty_a(duty)?;
