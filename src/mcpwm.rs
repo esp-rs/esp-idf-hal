@@ -192,6 +192,9 @@ pub enum DeadtimeConfig {
     // TODO: Figure out what all of those options do and give them nice descriptions
     /// MCPWM_BYPASS_RED
     ///
+    /// Note that `MCPWMXB in` will be completely ignored. This means `Operator::set_duty_b` will
+    /// have no effect with this dead time mode
+    ///
     /// ```
     ///               .                    .   .
     ///               .                    .   .
@@ -221,6 +224,9 @@ pub enum DeadtimeConfig {
 
     /// MCPWM_BYPASS_FED
     ///
+    /// Note that `MCPWMXB in` will be completely ignored. This means `Operator::set_duty_b` will
+    /// have no effect with this dead time mode
+    ///
     /// ```
     ///               .   .                .
     ///               .   .                .
@@ -249,6 +255,9 @@ pub enum DeadtimeConfig {
     BypassFallingEdge { rising_edge_delay: u16 },
 
     /// MCPWM_ACTIVE_HIGH_MODE
+    ///
+    /// Note that `MCPWMXB in` will be completely ignored. This means `Operator::set_duty_b` will
+    /// have no effect with this dead time mode
     ///
     /// ```
     ///               .   .                .   .
@@ -282,6 +291,9 @@ pub enum DeadtimeConfig {
 
     /// MCPWM_ACTIVE_LOW_MODE
     ///
+    /// Note that `MCPWMXB in` will be completely ignored. This means `Operator::set_duty_b` will
+    /// have no effect with this dead time mode
+    ///
     /// ```
     ///               .   .                .   .
     ///               .   .                .   .
@@ -313,6 +325,9 @@ pub enum DeadtimeConfig {
     },
 
     /// MCPWM_ACTIVE_HIGH_COMPLIMENT_MODE
+    ///
+    /// Note that `MCPWMXB in` will be completely ignored. This means `Operator::set_duty_b` will
+    /// have no effect with this dead time mode
     ///
     /// ```
     ///               .   .                .   .
@@ -346,6 +361,9 @@ pub enum DeadtimeConfig {
 
     /// MCPWM_ACTIVE_LOW_COMPLIMENT_MODE
     ///
+    /// Note that `MCPWMXB in` will be completely ignored. This means `Operator::set_duty_b` will
+    /// have no effect with this dead time mode
+    ///
     /// ```
     ///               .   .                .   .
     ///               .   .                .   .
@@ -377,12 +395,18 @@ pub enum DeadtimeConfig {
     },
 
     /// MCPWM_ACTIVE_RED_FED_FROM_PWMXA
+    ///
+    /// Note that `MCPWMXB in` will be completely ignored. This means `Operator::set_duty_b` will
+    /// have no effect with this dead time mode
     ActiveRedFedFromPwmxa {
         rising_edge_delay: u16,
         falling_edge_delay: u16,
     },
 
     /// MCPWM_ACTIVE_RED_FED_FROM_PWMXB
+    ///
+    /// Note that `MCPWMXA in` will be completely ignored. This means `Operator::set_duty_a` will
+    /// have no effect with this dead time mode
     ActiveRedFedFromPwmxb {
         rising_edge_delay: u16,
         falling_edge_delay: u16,
