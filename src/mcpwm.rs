@@ -659,7 +659,7 @@ impl<U: Unit> Mcpwm<U> {
             MAX_PWM_TIMER_PRESCALE * MAX_PWM_TIMER_PERIOD * u32::from(lowest_frequency);
         let group_pre_scale = MCPWM_CLOCK_SOURCE_FREQUENCY / operator_source_frequency;
         if !(1..=256).contains(&group_pre_scale) {
-            return Err(EspError::from(ESP_ERR_INVALID_ARG).unwrap());
+            esp!(ESP_ERR_INVALID_ARG)?;
         }
 
         esp!(unsafe { mcpwm_group_set_resolution(U::unit(), operator_source_frequency) })?;
@@ -686,7 +686,7 @@ impl<U: Unit> Mcpwm<U> {
         // TODO: Do we care about frequency < 1Hz?
         let group_pre_scale = MCPWM_CLOCK_SOURCE_FREQUENCY / frequency;
         if !(1..=256).contains(&group_pre_scale) {
-            return Err(EspError::from(ESP_ERR_INVALID_ARG).unwrap());
+            esp!(ESP_ERR_INVALID_ARG)?;
         }
 
         esp!(unsafe { mcpwm_group_set_resolution(U::unit(), frequency) })?;
@@ -803,13 +803,13 @@ where
                 // Can not specify a clock frequency lower then what has
                 // been configured as the lowest clock frequency
                 // Use `OperatorConfig::lowest_frequency` to enable lower frequencies
-                return Err(EspError::from(ESP_ERR_INVALID_ARG).unwrap());
+                esp!(ESP_ERR_INVALID_ARG)?;
             }
 
             if config.lowest_frequency > mcpwm_module.borrow().operator_source_frequency.Hz() {
                 // Can not specify a lowest_frequency larger than the corresponding value for
                 // the parent MCPWM module. Use `Mcpwm::lowest_frequency` to enable higher frequencies
-                return Err(EspError::from(ESP_ERR_INVALID_ARG).unwrap());
+                esp!(ESP_ERR_INVALID_ARG)?;
             }
 
             let resolution = u32::from(config.lowest_frequency) * MAX_PWM_TIMER_PERIOD;
@@ -884,23 +884,18 @@ where
         // mcpwm_stop will only fail when invalid args are given
         esp!(unsafe { mcpwm_stop(U::unit(), O::timer()) }).unwrap();
 
-        // TODO: Test and verify if this is the right way
-        if self._pin_a.is_some() {
-            // TODO: How to unset pin?
-            // let io_signal = O::signal_a();
-            // mcpwm_gpio_init(U::unit(), io_signal, -1)
-            // does not seem to be it...
-            todo!();
+        // Detatch pins from MCPWM operator
+        if let Some(_pin) = &self._pin_a {
+            // TODO
+            //pin.reset();
         }
 
-        if self._pin_b.is_some() {
-            // TODO: How to unset pin?
-            // let io_signal = O::signal_b();
-            // mcpwm_gpio_init(U::unit(), io_signal, -1)
-            // does not seem to be it...
-
-            todo!();
+        // Detatch pins from MCPWM operator
+        if let Some(_pin) = &self._pin_b {
+            // TODO
+            //pin.reset();
         }
+
         // TODO: Do we need to reset any more state here such as dead time config?
         (self._instance, self._pin_a, self._pin_b)
     }
