@@ -570,14 +570,10 @@ impl EspWifi {
 
             shared.operating = false;
 
-            esp!(unsafe { esp_wifi_disconnect() }).or_else(|err| {
-                if err.code() == esp_idf_sys::ESP_ERR_WIFI_NOT_STARTED as esp_err_t {
-                    Ok(())
-                } else {
-                    Err(err)
-                }
-            })?;
-            info!("Disconnect requested");
+            if let Status(ClientStatus::Started(_), _) = shared.status {
+                esp!(unsafe { esp_wifi_disconnect() })?;
+                info!("Disconnect requested");
+            }
 
             esp!(unsafe { esp_wifi_stop() })?;
             info!("Stop requested");
