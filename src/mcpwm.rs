@@ -947,7 +947,7 @@ where
     }
 
     /// Set PWM frequency
-    pub fn set_frequency(frequency: Hertz) -> Result<(), EspError> {
+    pub fn set_frequency(&mut self, frequency: Hertz) -> Result<(), EspError> {
         unsafe {
             esp!(esp_idf_sys::mcpwm_set_frequency(
                 U::unit(),
@@ -957,7 +957,7 @@ where
         }
     }
 
-    pub fn get_frequency() -> Hertz {
+    pub fn get_frequency(&self) -> Hertz {
         Hertz::from(unsafe { esp_idf_sys::mcpwm_get_frequency(U::unit(), O::timer()) })
     }
 }
