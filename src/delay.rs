@@ -133,7 +133,7 @@ impl FreeRtos {
 
     fn delay_ms_internal(&mut self, ms: u32) {
         // divide by tick length, rounding up
-        let ticks = (ms + portTICK_PERIOD_MS - 1) / portTICK_PERIOD_MS;
+        let ticks = ms.saturating_add(portTICK_PERIOD_MS - 1) / portTICK_PERIOD_MS;
 
         unsafe {
             vTaskDelay(ticks);

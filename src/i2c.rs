@@ -420,7 +420,7 @@ where
                             AckType::Ack
                         };
                         command_link
-                            .master_read(*buf, ack)
+                            .master_read(buf, ack)
                             .map_err(I2cError::other)?;
                     }
                 }
