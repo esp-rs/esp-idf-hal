@@ -58,20 +58,13 @@ use alloc::vec::Vec;
 use core::cell::UnsafeCell;
 use core::convert::TryFrom;
 use core::time::Duration;
-
-<<<<<<< HEAD
 use crate::gpio::InputPin;
 use crate::gpio::OutputPin;
 use crate::units::Hertz;
-=======
->>>>>>> 3a5538bc0c784e2843820fff437b1543d8c58407
 pub use chip::*;
 use config::ReceiveConfig;
 use config::TransmitConfig;
 use esp_idf_sys::*;
-
-use crate::gpio::OutputPin;
-use crate::units::Hertz;
 
 /// A `Low` (0) or `High` (1) state for a pin.
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
