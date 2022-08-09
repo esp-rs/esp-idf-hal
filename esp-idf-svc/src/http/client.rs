@@ -234,7 +234,7 @@ impl<'a> EspHttpRequestWrite<'a> {
                         // TODO: Replace with a proper conversion from ISO-8859-1 to UTF8
 
                         headers_ptr.as_mut().unwrap().insert(
-                            Uncased::from(from_cstr_ptr(event.header_key)),
+                            Uncased::from(from_cstr_ptr(event.header_key).to_string()),
                             from_cstr_ptr(event.header_value).to_string(),
                         );
                     }
