@@ -19,6 +19,9 @@ pub const V_4_3_2_PATCHES: &[&str] = &[
     "patches/pthread_destructor_fix.diff",
 ];
 
+#[allow(dead_code)]
+pub const MASTER_PATCHES: &[&str] = &["patches/i2s_types_master.diff"];
+
 const TOOLS_WORKSPACE_INSTALL_DIR: &str = ".embuild";
 
 pub struct EspIdfBuildOutput {
