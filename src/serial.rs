@@ -607,7 +607,11 @@ impl<UART: Uart> Rx<UART> {
     }
 
     /// Read multiple bytes into a slice; block until specified timeout
-    pub fn read_bytes_blocking(&mut self, buf: &mut [u8], timeout: Duration) -> Result<usize, EspError> {
+    pub fn read_bytes_blocking(
+        &mut self,
+        buf: &mut [u8],
+        timeout: Duration,
+    ) -> Result<usize, EspError> {
         // uart_read_bytes() returns error (-1) or how many bytes were read out
         // 0 means timeout and nothing is yet read out
         match unsafe {
