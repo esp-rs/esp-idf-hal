@@ -41,7 +41,9 @@
 
 use core::marker::PhantomData;
 use core::ptr;
+use core::time::Duration;
 
+use crate::delay::TickType;
 use crate::gpio::*;
 use crate::units::*;
 
@@ -597,6 +599,19 @@ impl<UART: Uart> Rx<UART> {
 
     /// Read multiple bytes into a slice
     pub fn read_bytes(&mut self, buf: &mut [u8]) -> nb::Result<usize, SerialError> {
+        match self.read_bytes_blocking(buf, Duration::ZERO) {
+            Ok(0) => Err(nb::Error::WouldBlock),
+            Ok(len) => Ok(len),
+            Err(e) => Err(nb::Error::Other(SerialError::other(e))),
+        }
+    }
+
+    /// Read multiple bytes into a slice; block until specified timeout
+    pub fn read_bytes_blocking(
+        &mut self,
+        buf: &mut [u8],
+        timeout: Duration,
+    ) -> Result<usize, EspError> {
         // uart_read_bytes() returns error (-1) or how many bytes were read out
         // 0 means timeout and nothing is yet read out
         match unsafe {
@@ -604,14 +619,11 @@ impl<UART: Uart> Rx<UART> {
                 UART::port(),
                 buf.as_mut_ptr() as *mut _,
                 buf.len() as u32,
-                0,
+                TickType::from(timeout).0,
             )
         } {
-            len if len > 0 => Ok(len as usize),
-            0 => Err(nb::Error::WouldBlock),
-            _ => Err(nb::Error::Other(SerialError::other(
-                EspError::from(ESP_ERR_INVALID_STATE).unwrap(),
-            ))),
+            len if len >= 0 => Ok(len as usize),
+            _ => Err(EspError::from(ESP_ERR_INVALID_STATE).unwrap()),
         }
     }
 
@@ -619,6 +631,11 @@ impl<UART: Uart> Rx<UART> {
     // pub fn is_idle(&self) -> bool {
     //     unsafe { (*UART::ptr()).status.read().st_urx_out().is_rx_idle() }
     // }
+
+    pub fn flush(&self) -> Result<(), EspError> {
+        esp!(unsafe { uart_flush_input(UART::port()) })?;
+        Ok(())
+    }
 }
 
 impl<UART: Uart> embedded_hal_0_2::serial::Read<u8> for Rx<UART> {
