@@ -1,4 +1,8 @@
-/// # x = 10
+/// Simple example showing how MCPWM may be used to generate two synchronized pwm signals with varying duty.
+/// The duty on the pin4 will increase from 0% all the way up to 100% and repeat. At the same time the duty
+/// on pin 5 will go from 100% down to 0%
+///
+/// # duty = 10
 ///
 ///               .                               .
 ///               .                               .
@@ -17,7 +21,7 @@
 ///               .                               .
 ///
 ///
-/// # x = 50
+/// # duty = 50
 ///               .                               .
 ///               .                               .
 ///               .---------------.               .---------------.
@@ -35,7 +39,7 @@
 ///               .                               .
 ///
 ///
-/// # x = 90
+/// # duty = 90
 ///               .                               .
 ///               .                               .
 ///               .------------------------.      .------------------------.
