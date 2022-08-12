@@ -218,7 +218,7 @@ pub enum DeadtimeConfig {
     ///               |                    .   |
     /// --------------.                    .   -----------------
     ///               .                    .   .
-    ///               .   .                .   .
+    ///               .                    .   .
     /// ```
     BypassRisingEdge { falling_edge_delay: u16 },
 
@@ -250,7 +250,7 @@ pub enum DeadtimeConfig {
     ///               |   .                |
     /// ---------------   .                ---------------------
     ///               .   .                .
-    ///               .   .                .   .
+    ///               .   .                .
     /// ```
     BypassFallingEdge { rising_edge_delay: u16 },
 
@@ -378,7 +378,7 @@ pub enum DeadtimeConfig {
     ///          red >.   |<               |   .
     /// MCPWMXA out   .   |                |   .
     ///               .   |                |   .
-    ///               .   ------------------
+    ///               .   ------------------   .
     ///               .   .                .   .
     ///               .   .                .   .
     ///               .------------------------.
@@ -398,6 +398,32 @@ pub enum DeadtimeConfig {
     ///
     /// Note that `MCPWMXB in` will be completely ignored. This means `Operator::set_duty_b` will
     /// have no effect with this dead time mode
+    ///
+    /// ```
+    ///               .   .                .   .
+    ///               .   .                .   .
+    ///               .--------------------.   .
+    ///               |   .                |   .
+    /// MCPWMXA in    |   .                |   .
+    ///               |   .                |   .
+    /// ---------------   .                ---------------------
+    ///               .   .                .   .
+    ///               .   .                .   .
+    ///               .   .--------------------.
+    ///          red >.   |<               .   |
+    /// MCPWMXA out   .   |                .   |
+    ///               .   |                .   |
+    /// -------------------                .   ---------------------
+    ///               .   .                .   .
+    ///               .   .                .   .
+    ///               .   .--------------------.
+    ///          red >.   |<               .   |
+    /// MCPWMXB out   .   |                .   |
+    ///               .   |                .   |
+    /// -------------------                .   ---------------------
+    ///               .   .                .   .
+    ///               .   .                .   .
+    /// ```
     ActiveRedFedFromPwmxa {
         rising_edge_delay: u16,
         falling_edge_delay: u16,
@@ -407,6 +433,31 @@ pub enum DeadtimeConfig {
     ///
     /// Note that `MCPWMXA in` will be completely ignored. This means `Operator::set_duty_a` will
     /// have no effect with this dead time mode
+    /// ```
+    ///               .   .                .   .
+    ///               .   .                .   .
+    ///               .--------------------.   .
+    ///               |   .                |   .
+    /// MCPWMXB in    |   .                |   .
+    ///               |   .                |   .
+    /// ---------------   .                ---------------------
+    ///               .   .                .   .
+    ///               .   .                .   .
+    ///               .   .--------------------.
+    ///          red >.   |<               .   |
+    /// MCPWMXA out   .   |                .   |
+    ///               .   |                .   |
+    /// -------------------                .   ---------------------
+    ///               .   .                .   .
+    ///               .   .                .   .
+    ///               .   .--------------------.
+    ///          red >.   |<               .   |
+    /// MCPWMXB out   .   |                .   |
+    ///               .   |                .   |
+    /// -------------------                .   ---------------------
+    ///               .   .                .   .
+    ///               .   .                .   .
+    /// ```
     ActiveRedFedFromPwmxb {
         rising_edge_delay: u16,
         falling_edge_delay: u16,
@@ -765,7 +816,6 @@ impl_operator!(
 );
 
 // TODO: How do we want syncing to fit in to this?
-// TODO: How do we want dead time to fit into this?
 // TODO: How do we want carrier to fit into this?
 // TODO: How do we want capture to fit into this?
 
@@ -880,7 +930,7 @@ where
         })
     }
 
-    pub fn release(self) -> (O, Option<PA>, Option<PB>) {
+    /*pub fn release(self) -> (O, Option<PA>, Option<PB>) {
         // mcpwm_stop will only fail when invalid args are given
         esp!(unsafe { mcpwm_stop(U::unit(), O::timer()) }).unwrap();
 
@@ -898,7 +948,7 @@ where
 
         // TODO: Do we need to reset any more state here such as dead time config?
         (self._instance, self._pin_a, self._pin_b)
-    }
+    }*/
 
     /// Get duty as percentage between 0.0 and 100.0 for output A
     pub fn get_duty_a(&self) -> Duty {
@@ -957,6 +1007,7 @@ where
         }
     }
 
+    /// Get PWM frequency
     pub fn get_frequency(&self) -> Hertz {
         Hertz::from(unsafe { esp_idf_sys::mcpwm_get_frequency(U::unit(), O::timer()) })
     }
