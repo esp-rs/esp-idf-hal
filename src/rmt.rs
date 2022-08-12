@@ -53,17 +53,18 @@
 
 extern crate alloc;
 
-#[cfg(feature = "alloc")]
-use alloc::vec::Vec;
-use core::cell::UnsafeCell;
-use core::convert::TryFrom;
-use core::time::Duration;
 use crate::gpio::InputPin;
 use crate::gpio::OutputPin;
 use crate::units::Hertz;
+
+#[cfg(feature = "alloc")]
+use alloc::vec::Vec;
 pub use chip::*;
 use config::ReceiveConfig;
 use config::TransmitConfig;
+use core::cell::UnsafeCell;
+use core::convert::TryFrom;
+use core::time::Duration;
 use esp_idf_sys::*;
 
 /// A `Low` (0) or `High` (1) state for a pin.
