@@ -915,13 +915,19 @@ mod chip {
 /// Use [`Receive::start()`] to receive pulses.
 ///
 /// See the [rmt module][crate::rmt] for more information.
+#[cfg(feature = "std")]
 use std::convert::TryInto;
+
+#[derive(Clone, Default)]
+#[cfg(feature = "alloc")]
+
 pub struct Receive<P: InputPin, C: HwChannel> {
     pub pin: P,
     pub channel: C,
     pub pulse_pair_vec: Vec<PulsePair>,
 }
 
+#[cfg(feature = "alloc")]
 impl<P: InputPin, C: HwChannel> Receive<P, C> {
     /// Initialise the rmt module with the specified pin, channel and configuration.
     ///
