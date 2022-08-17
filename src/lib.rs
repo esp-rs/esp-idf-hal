@@ -4,14 +4,19 @@
 #[cfg(all(not(feature = "riscv-ulp-hal"), not(esp_idf_comp_driver_enabled)))]
 compile_error!("esp-idf-hal requires the `driver` ESP-IDF component to be enabled");
 
-#[cfg(all(feature = "std", feature = "riscv-ulp-hal"))]
-compile_error!("Feature `std` is not compatible with feature `ulp`");
-
-#[cfg(all(feature = "embedded-svc-mutex", feature = "riscv-ulp-hal"))]
-compile_error!("Feature `embedded-svc-mutex` is not compatible with feature `ulp`");
+#[cfg(all(
+    any(
+        feature = "std",
+        feature = "alloc",
+        feature = "critical-section-interrupt",
+        feature = "critical-section-mutex"
+    ),
+    feature = "riscv-ulp-hal"
+))]
+compile_error!("Enabling feature `riscv-ulp-hal` implies no other feature is enabled");
 
 #[cfg(all(feature = "riscv-ulp-hal", not(esp32s2)))]
-compile_error!("Feature `ulp` is currently only supported on esp32s2");
+compile_error!("Feature `riscv-ulp-hal` is currently only supported on esp32s2");
 
 #[macro_use]
 pub mod riscv_ulp_hal;
@@ -22,6 +27,8 @@ pub mod can;
 #[cfg(not(feature = "riscv-ulp-hal"))]
 pub mod cpu;
 #[cfg(not(feature = "riscv-ulp-hal"))]
+pub mod cs;
+#[cfg(not(feature = "riscv-ulp-hal"))]
 pub mod delay;
 pub mod gpio;
 #[cfg(all(esp32, esp_idf_version_major = "4"))]
@@ -30,9 +37,12 @@ pub mod hall;
 pub mod i2c;
 #[cfg(not(feature = "riscv-ulp-hal"))]
 pub mod interrupt;
+#[cfg(not(feature = "riscv-ulp-hal"))]
 pub mod ledc;
 #[cfg(not(feature = "riscv-ulp-hal"))]
-pub mod mutex;
+pub mod mac;
+#[cfg(not(feature = "riscv-ulp-hal"))]
+pub mod modem;
 pub mod peripherals;
 pub mod prelude;
 #[cfg(not(feature = "riscv-ulp-hal"))]
@@ -41,6 +51,8 @@ pub mod rmt;
 pub mod serial;
 #[cfg(not(feature = "riscv-ulp-hal"))]
 pub mod spi;
+#[cfg(not(feature = "riscv-ulp-hal"))]
+pub mod task;
 #[cfg(all(any(esp32, esp32s2, esp32s3), not(feature = "riscv-ulp-hal")))]
 pub mod ulp;
 pub mod units;

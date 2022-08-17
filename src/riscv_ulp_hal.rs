@@ -9,6 +9,4 @@ pub mod sys;
 #[cfg(feature = "riscv-ulp-hal")]
 pub mod delay;
 #[cfg(feature = "riscv-ulp-hal")]
-pub mod mutex;
-#[cfg(feature = "riscv-ulp-hal")]
 pub mod start;

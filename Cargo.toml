@@ -14,13 +14,15 @@ documentation = "https://esp-rs.github.io/esp-idf-hal/"
 rust-version = "1.61"
 
 [features]
-default = ["std", "alloc", "esp-idf-sys"]
-std = ["alloc", "esp-idf-sys/std", "embedded-svc/std"]
-alloc = ["embedded-svc/alloc"]
+default = ["std", "alloc", "esp-idf-sys", "critical-section-mutex"]
+std = ["alloc", "esp-idf-sys/std"]
+alloc = []
+critical-section-interrupt = []
+critical-section-mutex = []
 riscv-ulp-hal = []
-nightly = ["embedded-svc/nightly"]
 
 [dependencies]
+critical-section = "1"
 nb = "0.1.2"
 embedded-hal = "=1.0.0-alpha.8"
 embedded-hal-0-2 = { package = "embedded-hal", version = "0.2.7", features = ["unproven"] }
