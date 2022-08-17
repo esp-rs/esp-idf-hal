@@ -12,7 +12,7 @@ pub fn do_yield() {
     if interrupt::active() {
         #[cfg(esp32c3)]
         unsafe {
-            if let Some(yielder) = super::get_isr_yielder() {
+            if let Some(yielder) = interrupt::get_isr_yielder() {
                 yielder();
             } else {
                 vPortYieldFromISR();
