@@ -1,9 +1,3 @@
-#[cfg(not(feature = "riscv-ulp-hal"))]
-use crate::mutex;
-
-#[cfg(feature = "riscv-ulp-hal")]
-use crate::riscv_ulp_hal::mutex;
-
 use crate::adc;
 #[cfg(not(feature = "riscv-ulp-hal"))]
 use crate::can;
@@ -12,6 +6,10 @@ use crate::gpio;
 use crate::i2c;
 #[cfg(not(feature = "riscv-ulp-hal"))]
 use crate::ledc;
+#[cfg(all(esp32, not(feature = "riscv-ulp-hal")))]
+use crate::mac;
+#[cfg(not(feature = "riscv-ulp-hal"))]
+use crate::modem;
 #[cfg(not(feature = "riscv-ulp-hal"))]
 use crate::rmt;
 #[cfg(not(feature = "riscv-ulp-hal"))]
@@ -59,19 +57,48 @@ pub struct Peripherals {
         esp_idf_comp_ulp_enabled
     ))]
     pub ulp: ulp::ULP,
+    #[cfg(all(esp32, not(feature = "riscv-ulp-hal")))]
+    pub mac: mac::Mac,
+    #[cfg(not(feature = "riscv-ulp-hal"))]
+    pub modem: modem::Modem,
 }
 
-static TAKEN: mutex::Mutex<bool> = mutex::Mutex::wrap(mutex::RawMutex::new(), false);
+#[cfg(feature = "riscv-ulp-hal")]
+static mut TAKEN: bool = false;
+
+#[cfg(not(feature = "riscv-ulp-hal"))]
+static TAKEN: core::sync::atomic::AtomicBool = core::sync::atomic::AtomicBool::new(false);
+
+#[cfg(not(feature = "riscv-ulp-hal"))]
+static TAKEN_CS: crate::cs::CriticalSection = crate::cs::CriticalSection::new();
 
 impl Peripherals {
+    #[cfg(feature = "riscv-ulp-hal")]
     pub fn take() -> Option<Self> {
-        let mut taken = TAKEN.lock();
-
-        if *taken {
+        if unsafe { TAKEN } {
             None
         } else {
-            *taken = true;
+            unsafe {
+                TAKEN = true;
+            }
             Some(unsafe { Peripherals::new() })
+        }
+    }
+
+    #[cfg(not(feature = "riscv-ulp-hal"))]
+    pub fn take() -> Option<Self> {
+        if TAKEN.load(core::sync::atomic::Ordering::SeqCst) {
+            None
+        } else {
+            let _ = TAKEN_CS.enter();
+
+            if !TAKEN.load(core::sync::atomic::Ordering::SeqCst) {
+                TAKEN.store(true, core::sync::atomic::Ordering::SeqCst);
+
+                Some(unsafe { Peripherals::new() })
+            } else {
+                None
+            }
         }
     }
 
@@ -113,6 +140,10 @@ impl Peripherals {
                 esp_idf_comp_ulp_enabled
             ))]
             ulp: ulp::ULP::new(),
+            #[cfg(all(esp32, not(feature = "riscv-ulp-hal")))]
+            mac: mac::Mac::new(),
+            #[cfg(not(feature = "riscv-ulp-hal"))]
+            modem: modem::Modem::new(),
         }
     }
 }

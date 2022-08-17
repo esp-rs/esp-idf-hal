@@ -1,5 +1,3 @@
-#![cfg(not(feature = "riscv-ulp-hal"))]
-
 //! LED Control peripheral (which also creates PWM signals for other purposes)
 //!
 //! Interface to the [LED Control (LEDC)
@@ -28,12 +26,14 @@
 //!
 //! See the `examples/` folder of this repository for more.
 
-use core::{borrow::Borrow, marker::PhantomData};
+use core::borrow::Borrow;
+use core::marker::PhantomData;
+use core::sync::atomic::{AtomicBool, Ordering};
 
 use esp_idf_sys::*;
 
+use crate::cs::CriticalSection;
 use crate::gpio::OutputPin;
-use crate::mutex::{Mutex, RawMutex};
 
 pub use chip::*;
 
@@ -41,7 +41,8 @@ type Duty = u32;
 
 const IDLE_LEVEL: u32 = 0;
 
-static FADE_FUNC_INSTALLED: Mutex<bool> = Mutex::wrap(RawMutex::new(), false);
+static FADE_FUNC_INSTALLED: AtomicBool = AtomicBool::new(false);
+static FADE_FUNC_INSTALLED_CS: CriticalSection = CriticalSection::new();
 
 /// Types for configuring the LED Control peripheral
 pub mod config {
@@ -171,18 +172,21 @@ impl<C: HwChannel, H: HwTimer, T: Borrow<Timer<H>>, P: OutputPin> Channel<C, H, 
             ..Default::default()
         };
 
-        let mut installed = FADE_FUNC_INSTALLED.lock();
-        if !*installed {
-            // It looks like ledc_channel_config requires the face function to
-            // be installed. I don't see why this is nescessary yet but hey,
-            // let the Wookie win for now.
-            //
-            // TODO: Check whether it's worth to track its install status and
-            // remove it if no longer needed.
-            esp!(unsafe { ledc_fade_func_install(0) })?;
-            *installed = true;
+        if !FADE_FUNC_INSTALLED.load(Ordering::SeqCst) {
+            let _ = FADE_FUNC_INSTALLED_CS.enter();
+
+            if !FADE_FUNC_INSTALLED.load(Ordering::SeqCst) {
+                // It looks like ledc_channel_config requires the face function to
+                // be installed. I don't see why this is nescessary yet but hey,
+                // let the Wookie win for now.
+                //
+                // TODO: Check whether it's worth to track its install status and
+                // remove it if no longer needed.
+                esp!(unsafe { ledc_fade_func_install(0) })?;
+
+                FADE_FUNC_INSTALLED.store(true, Ordering::SeqCst);
+            }
         }
-        drop(installed);
 
         // SAFETY: As long as we have borrowed the timer, we are safe to use
         // it.

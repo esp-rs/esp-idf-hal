@@ -4,7 +4,7 @@ use core::{mem, ptr};
 extern crate alloc;
 use alloc::sync::{Arc, Weak};
 
-use crate::interrupt;
+use crate::task;
 
 pub use edge_executor::*;
 
@@ -26,7 +26,7 @@ impl Default for CurrentTaskWait {
 
 impl Wait for CurrentTaskWait {
     fn wait(&self) {
-        interrupt::task::wait_any_notification();
+        task::wait_any_notification();
     }
 }
 
@@ -69,7 +69,7 @@ impl NotifyFactory for TaskHandle {
 
 impl RunContextFactory for TaskHandle {
     fn prerun(&self) {
-        let current_task = interrupt::task::current().unwrap();
+        let current_task = task::current().unwrap();
         let stored_task = self.0.load(Ordering::SeqCst);
 
         if stored_task.is_null() {
@@ -89,7 +89,7 @@ impl Notify for SharedTaskHandle {
 
             if !freertos_task.is_null() {
                 unsafe {
-                    interrupt::task::notify(freertos_task, 1);
+                    task::notify(freertos_task, 1);
                 }
             }
         }
