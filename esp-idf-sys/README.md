@@ -337,7 +337,8 @@ An extra component can be specified like this:
 
 ```toml
 [[package.metadata.esp-idf-sys.extra_components]]
-# A single path or a list of paths to a component directory or directory containing components.
+# A single path or a list of paths to a component directory or directory 
+# containing components.
 # 
 # Each path can be absolute or relative. Relative paths will be relative to the
 # folder containing the defining `Cargo.toml`.
