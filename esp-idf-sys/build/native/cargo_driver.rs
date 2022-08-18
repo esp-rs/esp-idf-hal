@@ -163,9 +163,11 @@ pub fn build() -> Result<EspIdfBuildOutput> {
     if idf.is_managed_espidf {
         let patch_set = match idf.version.map(|v| (v.major, v.minor, v.patch)) {
             // master branch
-            _ if idf.repository.get_default_branch()? == idf.repository.get_branch_name()? => &[],
+            _ if idf.repository.get_default_branch()? == idf.repository.get_branch_name()? => {
+                MASTER_PATCHES
+            }
+            Ok((5, _, _)) => MASTER_PATCHES,
             Ok((4, 4, _)) => &[],
-            Ok((4, 3, patch)) if patch > 2 => MASTER_PATCHES,
             Ok((4, 3, patch)) if patch == 2 => V_4_3_2_PATCHES,
             Ok((major, minor, patch)) => {
                 cargo::print_warning(format_args!(
