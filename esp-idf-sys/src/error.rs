@@ -40,6 +40,7 @@ impl EspError {
     }
 
     /// Panic with a specific error message of the contained [`esp_err_t`].
+    #[track_caller]
     pub fn panic(&self) {
         panic!("ESP-IDF ERROR: {}", self);
     }
