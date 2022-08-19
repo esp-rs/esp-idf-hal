@@ -295,7 +295,7 @@ impl<ADC: Adc> PoweredAdc<ADC> {
         Ok(self.raw_to_voltage(measurement, atten)?)
     }
 
-    #[cfg(esp32)]
+    #[cfg(all(esp32, esp_idf_version_major = "4"))]
     fn read_hall(&mut self) -> nb::Result<u16, EspError> {
         let measurement = unsafe { hall_sensor_read() };
 
