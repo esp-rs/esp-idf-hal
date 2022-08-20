@@ -14,7 +14,7 @@ use std::time::Duration;
 
 use embedded_hal::i2c::blocking::I2c;
 
-use esp_idf_hal::i2c;
+use esp_idf_hal::i2c::*;
 use esp_idf_hal::peripherals::Peripherals;
 use esp_idf_hal::prelude::*;
 
@@ -30,8 +30,8 @@ fn main() -> anyhow::Result<()> {
 
     println!("Starting I2C SSD1306 test");
 
-    let config = <i2c::config::MasterConfig as Default>::default().baudrate(100.kHz().into());
-    let mut i2c = i2c::Master::<i2c::I2C0, _, _>::new(i2c, i2c::MasterPins { sda, scl }, config)?;
+    let config = config::MasterConfig::new().baudrate(100.kHz().into());
+    let mut i2c = I2cMasterDriver::new(i2c, sda, scl, &config)?;
 
     // initialze the display - don't worry about the meaning of these bytes - it's specific to SSD1306
     i2c.write(SSD1306_ADDRESS, &[0, 0xae])?;

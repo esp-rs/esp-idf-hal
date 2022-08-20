@@ -16,7 +16,7 @@ use embedded_hal::serial::nb::{Read, Write};
 
 use esp_idf_hal::peripherals::Peripherals;
 use esp_idf_hal::prelude::*;
-use esp_idf_hal::serial;
+use esp_idf_hal::uart::*;
 
 fn main() -> anyhow::Result<()> {
     esp_idf_sys::link_patches();
@@ -26,18 +26,8 @@ fn main() -> anyhow::Result<()> {
     let rx = peripherals.pins.gpio6;
 
     println!("Starting UART loopback test");
-    let config = serial::config::Config::default().baudrate(Hertz(115_200));
-    let mut serial: serial::Serial<serial::UART1, _, _> = serial::Serial::new(
-        peripherals.uart1,
-        serial::Pins {
-            tx,
-            rx,
-            cts: None,
-            rts: None,
-        },
-        config,
-    )
-    .unwrap();
+    let config = config::Config::new().baudrate(Hertz(115_200));
+    let mut serial = UartDriver::new(peripherals.uart1, tx, rx, None, None, &config).unwrap();
 
     loop {
         // we are using thread::sleep here to make sure the watchdog isn't triggered

@@ -18,7 +18,7 @@ use embedded_hal::spi::blocking::SpiDevice;
 
 use esp_idf_hal::peripherals::Peripherals;
 use esp_idf_hal::prelude::*;
-use esp_idf_hal::spi;
+use esp_idf_hal::spi::*;
 
 fn main() -> anyhow::Result<()> {
     esp_idf_sys::link_patches();
@@ -27,22 +27,13 @@ fn main() -> anyhow::Result<()> {
     let spi = peripherals.spi2;
 
     let sclk = peripherals.pins.gpio6;
-    let serial_in = peripherals.pins.gpio2; //SDI
-    let serial_out = peripherals.pins.gpio7; //SDO
+    let serial_in = peripherals.pins.gpio2; // SDI
+    let serial_out = peripherals.pins.gpio7; // SDO
     let cs = peripherals.pins.gpio10;
 
     println!("Starting SPI loopback test");
-    let config = <spi::config::Config as Default>::default().baudrate(26.MHz().into());
-    let mut spi = spi::Master::<spi::SPI2, _, _, _, _>::new(
-        spi,
-        spi::Pins {
-            sclk,
-            sdo: serial_out,
-            sdi: Some(serial_in),
-            cs: Some(cs),
-        },
-        config,
-    )?;
+    let config = config::Config::new().baudrate(26.MHz().into());
+    let mut spi = SpiMasterDriver::new(spi, sclk, serial_out, Some(serial_in), Some(cs), &config)?;
 
     let mut read = [0u8; 4];
     let write = [0xde, 0xad, 0xbe, 0xef];
