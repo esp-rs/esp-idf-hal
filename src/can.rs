@@ -22,7 +22,7 @@
 //!
 //! let timing = can::config::Timing::B500K;
 //! let config = can::config::Config::new().filter(filter).timing(timing);
-//! let mut can = can::CanBus::new(peripherals.can, pins.gpio5, pins.gpio4, config).unwrap();
+//! let mut can = can::CanDriver::new(peripherals.can, pins.gpio5, pins.gpio4, &config).unwrap();
 //!
 //! let tx_frame = can::Frame::new(StandardId::new(0x042).unwrap(), &[0, 1, 2, 3, 4, 5, 6, 7]).unwrap();
 //! nb::block!(can.transmit(&tx_frame)).unwrap();
@@ -32,12 +32,11 @@
 //! }
 //! ```
 
-use core::marker::PhantomData;
-
 use esp_idf_sys::*;
 
 use crate::delay::portMAX_DELAY;
 use crate::gpio::*;
+use crate::peripheral::{Peripheral, PeripheralRef};
 
 crate::embedded_hal_error!(
     CanError,
@@ -234,16 +233,19 @@ pub mod config {
 }
 
 /// CAN abstraction
-pub struct CanBus<TX: OutputPin, RX: InputPin> {
-    can: CAN,
-    tx: TX,
-    rx: RX,
-}
+pub struct CanDriver<'d>(PeripheralRef<'d, CAN>);
 
-unsafe impl<TX: OutputPin, RX: InputPin> Send for CanBus<TX, RX> {}
+unsafe impl<'d> Send for CanDriver<'d> {}
 
-impl<TX: OutputPin, RX: InputPin> CanBus<TX, RX> {
-    pub fn new(can: CAN, tx: TX, rx: RX, config: config::Config) -> Result<Self, EspError> {
+impl<'d> CanDriver<'d> {
+    pub fn new(
+        can: impl Peripheral<P = CAN> + 'd,
+        tx: impl Peripheral<P = impl OutputPin> + 'd,
+        rx: impl Peripheral<P = impl OutputPin> + 'd,
+        config: &config::Config,
+    ) -> Result<Self, EspError> {
+        crate::into_ref!(can, tx, rx);
+
         let general_config = twai_general_config_t {
             mode: twai_mode_t_TWAI_MODE_NORMAL,
             tx_io: tx.pin(),
@@ -276,14 +278,7 @@ impl<TX: OutputPin, RX: InputPin> CanBus<TX, RX> {
         esp!(unsafe { twai_driver_install(&general_config, &timing_config, &filter_config) })?;
         esp!(unsafe { twai_start() })?;
 
-        Ok(Self { can, tx, rx })
-    }
-
-    pub fn release(self) -> Result<(CAN, TX, RX), EspError> {
-        esp!(unsafe { twai_stop() })?;
-        esp!(unsafe { twai_driver_uninstall() })?;
-
-        Ok((self.can, self.tx, self.rx))
+        Ok(Self(can))
     }
 
     fn transmit_internal(&mut self, frame: &Frame, delay: TickType_t) -> Result<(), EspError> {
@@ -302,7 +297,14 @@ impl<TX: OutputPin, RX: InputPin> CanBus<TX, RX> {
     }
 }
 
-impl<TX: OutputPin, RX: InputPin> embedded_hal_0_2::blocking::can::Can for CanBus<TX, RX> {
+impl<'d> Drop for CanDriver<'d> {
+    fn drop(&mut self) {
+        esp!(unsafe { twai_stop() }).unwrap();
+        esp!(unsafe { twai_driver_uninstall() }).unwrap();
+    }
+}
+
+impl<'d> embedded_hal_0_2::blocking::can::Can for CanDriver<'d> {
     type Frame = Frame;
     type Error = Can02Error;
 
@@ -317,7 +319,7 @@ impl<TX: OutputPin, RX: InputPin> embedded_hal_0_2::blocking::can::Can for CanBu
     }
 }
 
-impl<TX: OutputPin, RX: InputPin> embedded_hal::can::blocking::Can for CanBus<TX, RX> {
+impl<'d> embedded_hal::can::blocking::Can for CanDriver<'d> {
     type Frame = Frame;
     type Error = CanError;
 
@@ -332,7 +334,7 @@ impl<TX: OutputPin, RX: InputPin> embedded_hal::can::blocking::Can for CanBus<TX
     }
 }
 
-impl<TX: OutputPin, RX: InputPin> embedded_hal_0_2::can::nb::Can for CanBus<TX, RX> {
+impl<'d> embedded_hal_0_2::can::nb::Can for CanDriver<'d> {
     type Frame = Frame;
     type Error = Can02Error;
 
@@ -354,7 +356,7 @@ impl<TX: OutputPin, RX: InputPin> embedded_hal_0_2::can::nb::Can for CanBus<TX, 
     }
 }
 
-impl<TX: OutputPin, RX: InputPin> embedded_hal::can::nb::Can for CanBus<TX, RX> {
+impl<'d> embedded_hal::can::nb::Can for CanDriver<'d> {
     type Frame = Frame;
     type Error = CanError;
 
@@ -581,15 +583,4 @@ impl embedded_hal::can::Frame for Frame {
     }
 }
 
-pub struct CAN(PhantomData<*const ()>);
-
-impl CAN {
-    /// # Safety
-    ///
-    /// Care should be taken not to instnatiate this CAN instance, if it is already instantiated and used elsewhere
-    pub unsafe fn new() -> Self {
-        CAN(PhantomData)
-    }
-}
-
-unsafe impl Send for CAN {}
+crate::impl_peripheral!(CAN);

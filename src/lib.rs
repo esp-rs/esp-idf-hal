@@ -39,20 +39,24 @@ pub mod i2c;
 pub mod interrupt;
 #[cfg(not(feature = "riscv-ulp-hal"))]
 pub mod ledc;
-#[cfg(not(feature = "riscv-ulp-hal"))]
+#[cfg(all(
+    any(all(esp32, esp_idf_eth_use_esp32_emac), esp_idf_eth_use_openeth),
+    not(feature = "riscv-ulp-hal")
+))]
 pub mod mac;
 #[cfg(not(feature = "riscv-ulp-hal"))]
 pub mod modem;
+pub mod peripheral;
 pub mod peripherals;
 pub mod prelude;
 #[cfg(not(feature = "riscv-ulp-hal"))]
 pub mod rmt;
 #[cfg(not(feature = "riscv-ulp-hal"))]
-pub mod serial;
-#[cfg(not(feature = "riscv-ulp-hal"))]
 pub mod spi;
 #[cfg(not(feature = "riscv-ulp-hal"))]
 pub mod task;
+#[cfg(not(feature = "riscv-ulp-hal"))]
+pub mod uart;
 #[cfg(all(any(esp32, esp32s2, esp32s3), not(feature = "riscv-ulp-hal")))]
 pub mod ulp;
 pub mod units;
@@ -124,5 +128,55 @@ macro_rules! embedded_hal_error {
     };
 }
 
+#[allow(unused_macros)]
+macro_rules! into_ref {
+    ($($name:ident),*) => {
+        $(
+            let $name = $name.into_ref();
+        )*
+    }
+}
+
+#[allow(unused_macros)]
+macro_rules! impl_peripheral_trait {
+    ($type:ident) => {
+        unsafe impl Send for $type {}
+
+        impl $crate::peripheral::Peripheral for $type {
+            type P = $type;
+
+            #[inline]
+            unsafe fn clone_unchecked(&mut self) -> Self::P {
+                $type { ..*self }
+            }
+        }
+    };
+}
+
+#[allow(unused_macros)]
+macro_rules! impl_peripheral {
+    ($type:ident) => {
+        pub struct $type(::core::marker::PhantomData<*const ()>);
+
+        impl $type {
+            /// # Safety
+            ///
+            /// Care should be taken not to instnatiate this peripheralinstance, if it is already instantiated and used elsewhere
+            #[inline(always)]
+            pub unsafe fn new() -> Self {
+                $type(::core::marker::PhantomData)
+            }
+        }
+
+        $crate::impl_peripheral_trait!($type);
+    };
+}
+
 #[allow(unused_imports)]
 pub(crate) use embedded_hal_error;
+#[allow(unused_imports)]
+pub(crate) use impl_peripheral;
+#[allow(unused_imports)]
+pub(crate) use impl_peripheral_trait;
+#[allow(unused_imports)]
+pub(crate) use into_ref;

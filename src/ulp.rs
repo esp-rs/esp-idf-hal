@@ -1,4 +1,4 @@
-use core::marker::PhantomData;
+use crate::peripheral::{Peripheral, PeripheralRef};
 
 #[derive(Copy, Clone, Eq, PartialEq, Debug)]
 pub enum SleepTimer {
@@ -77,18 +77,21 @@ impl Word {
     }
 }
 
-pub struct ULP(PhantomData<*const ()>);
-
-unsafe impl Send for ULP {}
-
-impl ULP {
-    /// # Safety
-    ///
-    /// Care should be taken not to instantiate the ULP instance, if it is already instantiated and used elsewhere
-    pub unsafe fn new() -> Self {
-        Self(PhantomData)
-    }
-}
+#[cfg(any(
+    all(not(esp_idf_version_major = "4"), esp_idf_ulp_coproc_enabled),
+    all(esp_idf_version_major = "4", esp32, esp_idf_esp32_ulp_coproc_enabled),
+    all(
+        esp_idf_version_major = "4",
+        esp32s2,
+        esp_idf_esp32s2_ulp_coproc_enabled
+    ),
+    all(
+        esp_idf_version_major = "4",
+        esp32s3,
+        esp_idf_esp32s3_ulp_coproc_enabled
+    )
+))]
+pub struct UlpDriver<'d>(PeripheralRef<'d, ULP>);
 
 #[cfg(any(
     all(not(esp_idf_version_major = "4"), esp_idf_ulp_coproc_enabled),
@@ -104,41 +107,19 @@ impl ULP {
         esp_idf_esp32s3_ulp_coproc_enabled
     )
 ))]
-impl ULP {
-    const RTC_SLOW_MEM: u32 = 0x5000_0000_u32;
+impl<'d> UlpDriver<'d> {
+    pub fn new(ulp: impl Peripheral<P = ULP> + 'd) -> Result<Self, esp_idf_sys::EspError> {
+        crate::into_ref!(ulp);
 
-    pub const MEM_START_ULP: *mut core::ffi::c_void = 0_u32 as _;
-
-    pub const MEM_START: *mut core::ffi::c_void = Self::RTC_SLOW_MEM as _;
-
-    #[cfg(all(esp32, esp_idf_version_major = "4"))]
-    pub const MEM_SIZE: usize = esp_idf_sys::CONFIG_ESP32_ULP_COPROC_RESERVE_MEM as _;
-
-    #[cfg(all(esp32s2, esp_idf_version_major = "4"))]
-    pub const MEM_SIZE: usize = esp_idf_sys::CONFIG_ESP32S2_ULP_COPROC_RESERVE_MEM as _;
-
-    #[cfg(all(esp32s3, esp_idf_version_major = "4"))]
-    pub const MEM_SIZE: usize = esp_idf_sys::CONFIG_ESP32S3_ULP_COPROC_RESERVE_MEM as _;
-
-    #[cfg(not(esp_idf_version_major = "4"))]
-    pub const MEM_SIZE: usize = esp_idf_sys::CONFIG_ULP_COPROC_RESERVE_MEM as _;
-
-    #[cfg(esp32)]
-    const TIMER_REG: *mut u32 = esp_idf_sys::RTC_CNTL_STATE0_REG as _;
-
-    #[cfg(any(esp32s2, esp32s3))]
-    const TIMER_REG: *mut u32 = esp_idf_sys::RTC_CNTL_ULP_CP_TIMER_REG as _;
-
-    #[cfg(any(esp32, esp32s2, esp32s3))]
-    const TIMER_EN_BIT: u32 =
-        esp_idf_sys::RTC_CNTL_ULP_CP_SLP_TIMER_EN_V << esp_idf_sys::RTC_CNTL_ULP_CP_SLP_TIMER_EN_S;
+        Ok(Self(ulp))
+    }
 
     pub fn stop(&mut self) -> Result<(), esp_idf_sys::EspError> {
         unsafe {
             // disable ULP timer
             core::ptr::write_volatile(
-                Self::TIMER_REG,
-                core::ptr::read_volatile(Self::TIMER_REG) & !Self::TIMER_EN_BIT,
+                ULP::TIMER_REG,
+                core::ptr::read_volatile(ULP::TIMER_REG) & !ULP::TIMER_EN_BIT,
             );
 
             // wait for at least 1 RTC_SLOW_CLK cycle
@@ -150,7 +131,7 @@ impl ULP {
 
     pub fn is_started(&self) -> Result<bool, esp_idf_sys::EspError> {
         unsafe {
-            let enabled = (core::ptr::read_volatile(Self::TIMER_REG) & Self::TIMER_EN_BIT) != 0;
+            let enabled = (core::ptr::read_volatile(ULP::TIMER_REG) & ULP::TIMER_EN_BIT) != 0;
 
             Ok(enabled)
         }
@@ -180,12 +161,11 @@ impl ULP {
 
     fn check_boundaries<T>(ptr: *const T) -> Result<(), esp_idf_sys::EspError> {
         let ptr = ptr as *const u8;
-        let mem_start = Self::MEM_START as *const u8;
+        let mem_start = ULP::MEM_START as *const u8;
 
         unsafe {
             if ptr < mem_start
-                || ptr.offset(core::mem::size_of::<T>() as _)
-                    > mem_start.offset(Self::MEM_SIZE as _)
+                || ptr.offset(core::mem::size_of::<T>() as _) > mem_start.offset(ULP::MEM_SIZE as _)
             {
                 esp_idf_sys::esp!(esp_idf_sys::ESP_ERR_INVALID_SIZE)?;
             }
@@ -215,7 +195,7 @@ impl ULP {
         not(esp_idf_esp32s3_ulp_coproc_riscv)
     )
 ))]
-impl ULP {
+impl<'d> UlpDriver<'d> {
     pub unsafe fn load_at_ulp_address(
         &mut self,
         address: *mut core::ffi::c_void,
@@ -240,7 +220,7 @@ impl ULP {
     }
 
     pub unsafe fn load(&mut self, program: &[u8]) -> Result<(), esp_idf_sys::EspError> {
-        self.load_at_ulp_address(Self::MEM_START_ULP, program)
+        self.load_at_ulp_address(ULP::MEM_START_ULP, program)
     }
 
     pub unsafe fn start(&mut self, address: *const u32) -> Result<(), esp_idf_sys::EspError> {
@@ -316,7 +296,7 @@ impl ULP {
         esp_idf_esp32s3_ulp_coproc_riscv
     )
 ))]
-impl ULP {
+impl<'d> UlpDriver<'d> {
     pub unsafe fn load(&mut self, program: &[u8]) -> Result<(), esp_idf_sys::EspError> {
         esp_idf_sys::esp!(esp_idf_sys::ulp_riscv_load_binary(
             program.as_ptr(),
@@ -357,4 +337,64 @@ impl ULP {
 
         Ok(old_value)
     }
+}
+
+#[cfg(any(
+    all(not(esp_idf_version_major = "4"), esp_idf_ulp_coproc_enabled),
+    all(esp_idf_version_major = "4", esp32, esp_idf_esp32_ulp_coproc_enabled),
+    all(
+        esp_idf_version_major = "4",
+        esp32s2,
+        esp_idf_esp32s2_ulp_coproc_enabled
+    ),
+    all(
+        esp_idf_version_major = "4",
+        esp32s3,
+        esp_idf_esp32s3_ulp_coproc_enabled
+    )
+))]
+crate::impl_peripheral!(ULP);
+
+#[cfg(any(
+    all(not(esp_idf_version_major = "4"), esp_idf_ulp_coproc_enabled),
+    all(esp_idf_version_major = "4", esp32, esp_idf_esp32_ulp_coproc_enabled),
+    all(
+        esp_idf_version_major = "4",
+        esp32s2,
+        esp_idf_esp32s2_ulp_coproc_enabled
+    ),
+    all(
+        esp_idf_version_major = "4",
+        esp32s3,
+        esp_idf_esp32s3_ulp_coproc_enabled
+    )
+))]
+impl ULP {
+    const RTC_SLOW_MEM: u32 = 0x5000_0000_u32;
+
+    pub const MEM_START_ULP: *mut core::ffi::c_void = 0_u32 as _;
+
+    pub const MEM_START: *mut core::ffi::c_void = Self::RTC_SLOW_MEM as _;
+
+    #[cfg(all(esp32, esp_idf_version_major = "4"))]
+    pub const MEM_SIZE: usize = esp_idf_sys::CONFIG_ESP32_ULP_COPROC_RESERVE_MEM as _;
+
+    #[cfg(all(esp32s2, esp_idf_version_major = "4"))]
+    pub const MEM_SIZE: usize = esp_idf_sys::CONFIG_ESP32S2_ULP_COPROC_RESERVE_MEM as _;
+
+    #[cfg(all(esp32s3, esp_idf_version_major = "4"))]
+    pub const MEM_SIZE: usize = esp_idf_sys::CONFIG_ESP32S3_ULP_COPROC_RESERVE_MEM as _;
+
+    #[cfg(not(esp_idf_version_major = "4"))]
+    pub const MEM_SIZE: usize = esp_idf_sys::CONFIG_ULP_COPROC_RESERVE_MEM as _;
+
+    #[cfg(esp32)]
+    const TIMER_REG: *mut u32 = esp_idf_sys::RTC_CNTL_STATE0_REG as _;
+
+    #[cfg(any(esp32s2, esp32s3))]
+    const TIMER_REG: *mut u32 = esp_idf_sys::RTC_CNTL_ULP_CP_TIMER_REG as _;
+
+    #[cfg(any(esp32, esp32s2, esp32s3))]
+    const TIMER_EN_BIT: u32 =
+        esp_idf_sys::RTC_CNTL_ULP_CP_SLP_TIMER_EN_V << esp_idf_sys::RTC_CNTL_ULP_CP_SLP_TIMER_EN_S;
 }
