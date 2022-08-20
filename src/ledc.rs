@@ -56,6 +56,10 @@ pub mod config {
     }
 
     impl TimerConfig {
+        pub fn new() -> Self {
+            Default::default()
+        }
+
         #[must_use]
         pub fn frequency(mut self, f: Hertz) -> Self {
             self.frequency = f;

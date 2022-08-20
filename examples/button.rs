@@ -13,15 +13,16 @@ use std::time::Duration;
 use embedded_hal::digital::blocking::InputPin;
 use embedded_hal::digital::blocking::OutputPin;
 
-use esp_idf_hal::gpio::Pull;
+use esp_idf_hal::gpio::*;
 use esp_idf_hal::peripherals::Peripherals;
 
 fn main() -> anyhow::Result<()> {
     esp_idf_sys::link_patches();
 
     let peripherals = Peripherals::take().unwrap();
-    let mut led = peripherals.pins.gpio4.into_output()?;
-    let mut button = peripherals.pins.gpio9.into_input()?;
+    let mut led = PinDriver::new(peripherals.pins.gpio4).into_output()?;
+    let mut button = PinDriver::new(peripherals.pins.gpio9).into_input()?;
+
     button.set_pull_down()?;
 
     loop {

@@ -12,20 +12,22 @@
 //! https://cdn-shop.adafruit.com/datasheets/WS2812.pdf
 
 use core::time::Duration;
+
 use embedded_hal::delay::blocking::DelayUs;
+
 use esp_idf_hal::delay::Ets;
 use esp_idf_hal::peripherals::Peripherals;
 use esp_idf_hal::rmt::config::TransmitConfig;
-use esp_idf_hal::rmt::{FixedLengthSignal, PinState, Pulse, Transmit};
+use esp_idf_hal::rmt::*;
 
 fn main() -> anyhow::Result<()> {
     esp_idf_sys::link_patches();
 
     let peripherals = Peripherals::take().unwrap();
-    let led = peripherals.pins.gpio18.into_output()?;
+    let led = peripherals.pins.gpio18;
     let channel = peripherals.rmt.channel0;
     let config = TransmitConfig::new().clock_divider(1);
-    let mut tx = Transmit::new(led, channel, &config)?;
+    let mut tx = RmtDriver::new(led, channel, &config)?;
 
     let rgbs = [0xff0000, 0xffff00, 0x00ffff, 0x00ff00, 0xa000ff];
     loop {

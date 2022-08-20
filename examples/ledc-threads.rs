@@ -40,7 +40,7 @@ fn main() -> anyhow::Result<()> {
     println!("Setting up PWM output channels");
 
     let mut peripherals = Peripherals::take().unwrap();
-    let config = config::TimerConfig::default().frequency(25.kHz().into());
+    let config = config::TimerConfig::new().frequency(25.kHz().into());
     let timer = Arc::new(Timer::new(peripherals.ledc.timer0, &config)?);
     let timer0 = timer.clone();
     let timer1 = timer.clone();
