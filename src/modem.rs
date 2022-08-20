@@ -1,18 +1,33 @@
+use core::marker::PhantomData;
+
+use crate::peripheral::Peripheral;
+
 #[cfg(not(esp32s2))]
 pub use split::*;
 
-pub trait WifiModemCap {}
+pub trait WifiModemPeripheral: Peripheral<P = Self> {}
 
-pub trait BluetoothModemCap {}
+#[cfg(not(esp32s2))]
+pub trait BluetoothModemPeripheral: Peripheral<P = Self> {}
 
-pub struct Modem(::core::marker::PhantomData<*const ()>);
+#[cfg(not(esp32s2))]
+pub struct Modem(PhantomData<*const ()>, WifiModem, BluetoothModem);
+
+#[cfg(esp32s2)]
+pub struct Modem(PhantomData<*const ()>);
 
 impl Modem {
     /// # Safety
     ///
     /// Care should be taken not to instnatiate this Mac instance, if it is already instantiated and used elsewhere
     pub unsafe fn new() -> Self {
-        Modem(::core::marker::PhantomData)
+        #[cfg(not(esp32s2))]
+        let this = Modem(PhantomData, WifiModem::new(), BluetoothModem::new());
+
+        #[cfg(esp32s2)]
+        let this = Modem(PhantomData);
+
+        this
     }
 
     #[cfg(all(not(esp32s2), esp_idf_esp32_wifi_sw_coexist_enable))]
@@ -21,29 +36,33 @@ impl Modem {
     }
 
     #[cfg(all(not(esp32s2), esp_idf_esp32_wifi_sw_coexist_enable))]
-    pub fn combine(_wifi_modem: WifiModem, _bt_modem: BluetoothModem) -> Self {
-        unsafe { Self::new() }
+    pub fn split_ref(&mut self) -> (&mut WifiModem, &mut BluetoothModem) {
+        unsafe { (WifiModem(PhantomData), BluetoothModem(PhantomData)) }
     }
 }
 
 unsafe impl Send for Modem {}
 
-impl WifiModemCap for Modem {}
+impl Peripheral for Modem {
+    type P = Self;
+
+    unsafe fn clone_unchecked(&mut self) -> Self::P {
+        Self::new()
+    }
+}
+
+impl WifiModemPeripheral for Modem {}
 
 #[cfg(not(esp32s2))]
-impl BluetoothModemCap for Modem {}
+impl BluetoothModemPeripheral for Modem {}
 
 #[cfg(not(esp32s2))]
 mod split {
-    pub struct WifiModem(::core::marker::PhantomData<*const ()>);
+    crate::impl_peripheral!(WifiModem);
 
-    unsafe impl Send for WifiModem {}
+    impl super::WifiModemPeripheral for WifiModem {}
 
-    impl super::WifiModemCap for WifiModem {}
+    crate::impl_peripheral!(BluetoothModem);
 
-    pub struct BluetoothModem(::core::marker::PhantomData<*const ()>);
-
-    unsafe impl Send for BluetoothModem {}
-
-    impl super::BluetoothModemCap for BluetoothModem {}
+    impl super::BluetoothModemPeripheral for BluetoothModem {}
 }
