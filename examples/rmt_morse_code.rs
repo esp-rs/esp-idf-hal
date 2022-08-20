@@ -12,24 +12,24 @@
 //! * A carrier signal.
 //! * Looping.
 //! * Background sending.
-//! * Stopping/releasing a [`Pin`] and [`Channel`], to be used again.
+//! * Taking a [`Pin`] and [`Channel`] by ref mut, so that they can be used again later.
 //!
 use embedded_hal::delay::blocking::DelayUs;
 use embedded_hal::digital::blocking::InputPin;
+
 use esp_idf_hal::delay::Ets;
-use esp_idf_hal::gpio::{Gpio16, Gpio17, Input, Output, Pin};
+use esp_idf_hal::gpio::*;
 use esp_idf_hal::peripherals::Peripherals;
 use esp_idf_hal::rmt::config::{CarrierConfig, DutyPercent, Loop, TransmitConfig};
-use esp_idf_hal::rmt::VariableLengthSignal; // This example requires `alloc` feature.
-use esp_idf_hal::rmt::{PinState, Pulse, PulseTicks, Transmit, CHANNEL0};
+use esp_idf_hal::rmt::*;
 use esp_idf_hal::units::FromValueType;
 
 fn main() -> anyhow::Result<()> {
     esp_idf_sys::link_patches();
 
     let peripherals = Peripherals::take().unwrap();
-    let led: Gpio17<Output> = peripherals.pins.gpio17.into_output()?;
-    let stop: Gpio16<Input> = peripherals.pins.gpio16.into_input()?;
+    let led = peripherals.pins.gpio17;
+    let stop = peripherals.pins.gpio16;
     let channel = peripherals.rmt.channel0;
 
     let carrier = CarrierConfig::new()
@@ -40,7 +40,7 @@ fn main() -> anyhow::Result<()> {
         .looping(Loop::Endless)
         .clock_divider(255);
 
-    let tx = send_morse_code(&config, led, channel, "HELLO ")?;
+    let tx = send_morse_code(&config, &mut led, &mut channel, "HELLO ")?;
 
     println!("Keep sending until pin {} is set low.", stop.pin());
     while stop.is_high()? {
@@ -49,7 +49,7 @@ fn main() -> anyhow::Result<()> {
     println!("Pin {} is set to low--stopping message.", stop.pin());
 
     // Release pin and channel so we can use them again.
-    let (led, channel) = tx.release()?;
+    drop(tx);
 
     // Wait so the messages don't get garbled.
     Ets.delay_ms(3000)?;
@@ -62,12 +62,12 @@ fn main() -> anyhow::Result<()> {
     Ok(())
 }
 
-fn send_morse_code(
+fn send_morse_code<'d>(
     config: &TransmitConfig,
-    led: Gpio17<Output>,
-    channel: CHANNEL0,
+    led: impl Peripheral<P = impl OutputPin> + 'd,
+    channel: impl Peripheral<P = CHANNEL0> + 'd,
     message: &str,
-) -> anyhow::Result<Transmit<Gpio17<Output>, CHANNEL0>> {
+) -> anyhow::Result<LedcDriver<'d, CHANNEL0>> {
     println!("Sending morse message '{}' to pin {}.", message, led.pin());
 
     let mut signal = VariableLengthSignal::new();
@@ -76,7 +76,7 @@ fn send_morse_code(
     let pulses: Vec<&Pulse> = pulses.iter().collect();
     signal.push(pulses)?;
 
-    let mut tx = Transmit::new(led, channel, config)?;
+    let mut tx = LedcDriver::new(led, channel, &config)?;
     tx.start(signal)?;
 
     // Return `tx` so we can release the pin and channel later.

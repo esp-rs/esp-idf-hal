@@ -5,22 +5,25 @@
 //! Based off the ESP-IDF rmt musical buzzer example:
 //! https://github.com/espressif/esp-idf/blob/b092fa073047c957545a0ae9504f04972a8c6d74/examples/peripherals/rmt/musical_buzzer/main/musical_buzzer_example_main.c
 use core::time::Duration;
+
 use embedded_hal::delay::blocking::DelayUs;
+
 use esp_idf_hal::delay::Ets;
 use esp_idf_hal::gpio::OutputPin;
 use esp_idf_hal::peripherals::Peripherals;
 use esp_idf_hal::rmt::config::{Loop, TransmitConfig};
-use esp_idf_hal::rmt::{FixedLengthSignal, HwChannel, PinState, Pulse, PulseTicks, Transmit};
+use esp_idf_hal::rmt::*;
+
 use notes::*;
 
 fn main() -> anyhow::Result<()> {
     esp_idf_sys::link_patches();
 
     let peripherals = Peripherals::take().unwrap();
-    let led = peripherals.pins.gpio17.into_output()?;
+    let led = peripherals.pins.gpio17;
     let channel = peripherals.rmt.channel0;
     let config = TransmitConfig::new().looping(Loop::Endless);
-    let mut tx = Transmit::new(led, channel, &config)?;
+    let mut tx: RmtDriver<'static, _> = RmtDriver::new(led, channel, &config)?;
 
     loop {
         play_song(&mut tx, ODE_TO_JOY)?;
@@ -28,8 +31,8 @@ fn main() -> anyhow::Result<()> {
     }
 }
 
-pub fn play_song<P: OutputPin, C: HwChannel>(
-    tx: &mut Transmit<P, C>,
+pub fn play_song(
+    tx: &mut RmtDriver<'static, impl RmtChannel>,
     song: &[NoteValue],
 ) -> anyhow::Result<()> {
     for note_value in song {
@@ -38,8 +41,8 @@ pub fn play_song<P: OutputPin, C: HwChannel>(
     Ok(())
 }
 
-pub fn play_note<P: OutputPin, C: HwChannel>(
-    tx: &mut Transmit<P, C>,
+pub fn play_note(
+    tx: &mut RmtDriver<'static, impl RmtChannel>,
     pitch: u16,
     duration: Duration,
 ) -> anyhow::Result<()> {
