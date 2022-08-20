@@ -16,21 +16,19 @@
 //! let peripherals = Peripherals::take().unwrap();
 //! let pins = peripherals.pins;
 //!
-//! let config = serial::config::Config::default().baudrate(Hertz(115_200));
+//! let config = uart::config::Config::default().baudrate(Hertz(115_200));
 //!
-//! let mut serial: serial::Serial<serial::UART1, _, _> = serial::Serial::new(
+//! let mut uart: uart::UartDriver = uart::UartDriver::new(
 //!     peripherals.uart1,
-//!     serial::Pins {
-//!         tx: pins.gpio1,
-//!         rx: pins.gpio3,
-//!         cts: None,
-//!         rts: None,
-//!     },
-//!     config
+//!     pins.gpio1,
+//!     pins.gpio3,
+//!     None,
+//!     None,
+//!     &config
 //! ).unwrap();
 //!
 //! for i in 0..10 {
-//!     writeln!(serial, "{:}", format!("count {:}", i)).unwrap();
+//!     writeln!(uart, "{:}", format!("count {:}", i)).unwrap();
 //! }
 //! ```
 //!
@@ -49,17 +47,9 @@ use crate::units::*;
 
 use esp_idf_sys::*;
 
-const UART_FIFO_SIZE: i32 = 128;
+use crate::peripheral::{Peripheral, PeripheralRef};
 
-// /// Interrupt event
-// pub enum Event {
-//     /// New data has been received
-//     Rxne,
-//     /// New data can be sent
-//     Txe,
-//     /// Idle line state detected
-//     Idle,
-// }
+const UART_FIFO_SIZE: i32 = 128;
 
 /// UART configuration
 pub mod config {
@@ -67,7 +57,7 @@ pub mod config {
     use esp_idf_sys::*;
 
     /// Number of data bits
-    #[derive(PartialEq, Eq, Hash, Copy, Clone, Debug)]
+    #[derive(PartialEq, Eq, Copy, Clone, Debug)]
     pub enum DataBits {
         DataBits5,
         DataBits6,
@@ -100,7 +90,7 @@ pub mod config {
     }
 
     /// Number of data bits
-    #[derive(PartialEq, Eq, Hash, Copy, Clone, Debug)]
+    #[derive(PartialEq, Eq, Copy, Clone, Debug)]
     pub enum FlowControl {
         None,
         RTS,
@@ -136,7 +126,7 @@ pub mod config {
     }
 
     /// Parity check
-    #[derive(PartialEq, Eq, Hash, Copy, Clone, Debug)]
+    #[derive(PartialEq, Eq, Copy, Clone, Debug)]
     pub enum Parity {
         ParityNone,
         ParityEven,
@@ -280,22 +270,6 @@ pub mod config {
     }
 }
 
-/// Pins used by the UART interface
-///
-/// Note that any two pins may be used
-pub struct Pins<
-    TX: OutputPin,
-    RX: InputPin,
-    // default pins to allow type inference
-    CTS: InputPin = crate::gpio::Gpio1<crate::gpio::Input>,
-    RTS: OutputPin = crate::gpio::Gpio2<crate::gpio::Output>,
-> {
-    pub tx: TX,
-    pub rx: RX,
-    pub cts: Option<CTS>,
-    pub rts: Option<RTS>,
-}
-
 pub trait Uart {
     fn port() -> uart_port_t;
 }
@@ -308,39 +282,37 @@ crate::embedded_hal_error!(
 
 /// Serial abstraction
 ///
-pub struct Serial<
-    UART: Uart,
-    TX: OutputPin,
-    RX: InputPin,
-    // default pins to allow type inference
-    CTS: InputPin = crate::gpio::Gpio1<crate::gpio::Input>,
-    RTS: OutputPin = crate::gpio::Gpio2<crate::gpio::Output>,
-> {
-    uart: UART,
-    pins: Pins<TX, RX, CTS, RTS>,
-    rx: Rx<UART>,
-    tx: Tx<UART>,
+pub struct UartDriver<'d, UART: Uart> {
+    _uart: PeripheralRef<'d, UART>,
+    rx: UartRxDriver<'d, UART>,
+    tx: UartTxDriver<'d, UART>,
 }
 
 /// Serial receiver
-pub struct Rx<UART: Uart> {
-    _uart: PhantomData<UART>,
+pub struct UartRxDriver<'d, UART: Uart> {
+    _uart: PhantomData<&'d UART>,
 }
 
 /// Serial transmitter
-pub struct Tx<UART: Uart> {
-    _uart: PhantomData<UART>,
+pub struct UartTxDriver<'d, UART: Uart> {
+    _uart: PhantomData<&'d UART>,
 }
 
-impl<UART: Uart, TX: OutputPin, RX: InputPin, CTS: InputPin, RTS: OutputPin>
-    Serial<UART, TX, RX, CTS, RTS>
-{
+impl<'d, UART: Uart> UartDriver<'d, UART> {
     /// Create a new serial driver
     pub fn new(
-        uart: UART,
-        pins: Pins<TX, RX, CTS, RTS>,
-        config: config::Config,
+        uart: impl Peripheral<P = UART> + 'd,
+        tx: impl Peripheral<P = impl OutputPin> + 'd,
+        rx: impl Peripheral<P = impl InputPin> + 'd,
+        cts: Option<impl Peripheral<P = impl InputPin> + 'd>,
+        rts: Option<impl Peripheral<P = impl OutputPin> + 'd>,
+        config: &config::Config,
     ) -> Result<Self, EspError> {
+        crate::into_ref!(uart, tx, rx);
+
+        let cts = cts.map(|cts| cts.into_ref());
+        let rts = rts.map(|rts| rts.into_ref());
+
         let uart_config = uart_config_t {
             baud_rate: config.baudrate.0 as i32,
             data_bits: config.data_bits.into(),
@@ -356,10 +328,10 @@ impl<UART: Uart, TX: OutputPin, RX: InputPin, CTS: InputPin, RTS: OutputPin>
         esp!(unsafe {
             uart_set_pin(
                 UART::port(),
-                pins.tx.pin(),
-                pins.rx.pin(),
-                pins.rts.as_ref().map_or(-1, |p| p.pin()),
-                pins.cts.as_ref().map_or(-1, |p| p.pin()),
+                tx.pin(),
+                rx.pin(),
+                rts.as_ref().map_or(-1, |p| p.pin()),
+                cts.as_ref().map_or(-1, |p| p.pin()),
             )
         })?;
 
@@ -375,10 +347,9 @@ impl<UART: Uart, TX: OutputPin, RX: InputPin, CTS: InputPin, RTS: OutputPin>
         })?;
 
         Ok(Self {
-            uart,
-            pins,
-            rx: Rx { _uart: PhantomData },
-            tx: Tx { _uart: PhantomData },
+            _uart: uart,
+            rx: UartRxDriver { _uart: PhantomData },
+            tx: UartTxDriver { _uart: PhantomData },
         })
     }
 
@@ -490,19 +461,8 @@ impl<UART: Uart, TX: OutputPin, RX: InputPin, CTS: InputPin, RTS: OutputPin>
     // }
 
     /// Split the serial driver in separate TX and RX drivers
-    pub fn split(self) -> (Tx<UART>, Rx<UART>) {
-        (self.tx, self.rx)
-    }
-
-    /// Release the UART and GPIO resources
-    #[allow(clippy::type_complexity)]
-    pub fn release(self) -> Result<(UART, Pins<TX, RX, CTS, RTS>), EspError> {
-        esp!(unsafe { uart_driver_delete(UART::port()) })?;
-
-        // self.pins.tx.reset()?;
-        // self.pins.rx.reset()?;
-
-        Ok((self.uart, self.pins))
+    pub fn split(&mut self) -> (&mut UartTxDriver<'d, UART>, &mut UartRxDriver<'d, UART>) {
+        (&mut self.tx, &mut self.rx)
     }
 
     // pub fn reset_rx_fifo(&mut self) {
@@ -521,15 +481,17 @@ impl<UART: Uart, TX: OutputPin, RX: InputPin, CTS: InputPin, RTS: OutputPin>
     // }
 }
 
-impl<UART: Uart, TX: OutputPin, RX: InputPin, CTS: InputPin, RTS: OutputPin>
-    embedded_hal::serial::ErrorType for Serial<UART, TX, RX, CTS, RTS>
-{
+impl<'d, UART: Uart> Drop for UartDriver<'d, UART> {
+    fn drop(&mut self) {
+        esp!(unsafe { uart_driver_delete(UART::port()) }).unwrap();
+    }
+}
+
+impl<'d, UART: Uart> embedded_hal::serial::ErrorType for UartDriver<'d, UART> {
     type Error = SerialError;
 }
 
-impl<UART: Uart, TX: OutputPin, RX: InputPin, CTS: InputPin, RTS: OutputPin>
-    embedded_hal_0_2::serial::Read<u8> for Serial<UART, TX, RX, CTS, RTS>
-{
+impl<'d, UART: Uart> embedded_hal_0_2::serial::Read<u8> for UartDriver<'d, UART> {
     type Error = SerialError;
 
     fn read(&mut self) -> nb::Result<u8, Self::Error> {
@@ -537,17 +499,13 @@ impl<UART: Uart, TX: OutputPin, RX: InputPin, CTS: InputPin, RTS: OutputPin>
     }
 }
 
-impl<UART: Uart, TX: OutputPin, RX: InputPin, CTS: InputPin, RTS: OutputPin>
-    embedded_hal::serial::nb::Read<u8> for Serial<UART, TX, RX, CTS, RTS>
-{
+impl<'d, UART: Uart> embedded_hal::serial::nb::Read<u8> for UartDriver<'d, UART> {
     fn read(&mut self) -> nb::Result<u8, Self::Error> {
         self.rx.read()
     }
 }
 
-impl<UART: Uart, TX: OutputPin, RX: InputPin, CTS: InputPin, RTS: OutputPin>
-    embedded_hal_0_2::serial::Write<u8> for Serial<UART, TX, RX, CTS, RTS>
-{
+impl<'d, UART: Uart> embedded_hal_0_2::serial::Write<u8> for UartDriver<'d, UART> {
     type Error = SerialError;
 
     fn flush(&mut self) -> nb::Result<(), Self::Error> {
@@ -559,9 +517,7 @@ impl<UART: Uart, TX: OutputPin, RX: InputPin, CTS: InputPin, RTS: OutputPin>
     }
 }
 
-impl<UART: Uart, TX: OutputPin, RX: InputPin, CTS: InputPin, RTS: OutputPin>
-    embedded_hal::serial::nb::Write<u8> for Serial<UART, TX, RX, CTS, RTS>
-{
+impl<'d, UART: Uart> embedded_hal::serial::nb::Write<u8> for UartDriver<'d, UART> {
     fn flush(&mut self) -> nb::Result<(), Self::Error> {
         self.tx.flush()
     }
@@ -571,9 +527,7 @@ impl<UART: Uart, TX: OutputPin, RX: InputPin, CTS: InputPin, RTS: OutputPin>
     }
 }
 
-impl<UART: Uart, TX: OutputPin, RX: InputPin, CTS: InputPin, RTS: OutputPin> core::fmt::Write
-    for Serial<UART, TX, RX, CTS, RTS>
-{
+impl<'d, UART: Uart> core::fmt::Write for UartDriver<'d, UART> {
     fn write_str(&mut self, s: &str) -> core::fmt::Result {
         use embedded_hal::serial::nb::Write;
         s.as_bytes()
@@ -583,11 +537,11 @@ impl<UART: Uart, TX: OutputPin, RX: InputPin, CTS: InputPin, RTS: OutputPin> cor
     }
 }
 
-impl<UART: Uart> embedded_hal::serial::ErrorType for Rx<UART> {
+impl<'d, UART: Uart> embedded_hal::serial::ErrorType for UartRxDriver<'d, UART> {
     type Error = SerialError;
 }
 
-impl<UART: Uart> Rx<UART> {
+impl<'d, UART: Uart> UartRxDriver<'d, UART> {
     /// Get count of bytes in the receive FIFO
     pub fn count(&self) -> Result<u8, EspError> {
         let mut size = 0_u32;
@@ -638,7 +592,7 @@ impl<UART: Uart> Rx<UART> {
     }
 }
 
-impl<UART: Uart> embedded_hal_0_2::serial::Read<u8> for Rx<UART> {
+impl<'d, UART: Uart> embedded_hal_0_2::serial::Read<u8> for UartRxDriver<'d, UART> {
     type Error = SerialError;
 
     fn read(&mut self) -> nb::Result<u8, Self::Error> {
@@ -656,7 +610,7 @@ impl<UART: Uart> embedded_hal_0_2::serial::Read<u8> for Rx<UART> {
     }
 }
 
-impl<UART: Uart> embedded_hal::serial::nb::Read<u8> for Rx<UART> {
+impl<'d, UART: Uart> embedded_hal::serial::nb::Read<u8> for UartRxDriver<'d, UART> {
     fn read(&mut self) -> nb::Result<u8, Self::Error> {
         let mut buf: u8 = 0;
 
@@ -672,7 +626,7 @@ impl<UART: Uart> embedded_hal::serial::nb::Read<u8> for Rx<UART> {
     }
 }
 
-impl<UART: Uart> Tx<UART> {
+impl<'d, UART: Uart> UartTxDriver<'d, UART> {
     /// Write multiple bytes from a slice
     pub fn write_bytes(&mut self, bytes: &[u8]) -> nb::Result<usize, SerialError> {
         // `uart_write_bytes()` returns error (-1) or how many bytes were written
@@ -698,11 +652,11 @@ impl<UART: Uart> Tx<UART> {
     //     }
 }
 
-impl<UART: Uart> embedded_hal::serial::ErrorType for Tx<UART> {
+impl<'d, UART: Uart> embedded_hal::serial::ErrorType for UartTxDriver<'d, UART> {
     type Error = SerialError;
 }
 
-impl<UART: Uart> embedded_hal_0_2::serial::Write<u8> for Tx<UART> {
+impl<'d, UART: Uart> embedded_hal_0_2::serial::Write<u8> for UartTxDriver<'d, UART> {
     type Error = SerialError;
 
     fn flush(&mut self) -> nb::Result<(), Self::Error> {
@@ -726,7 +680,7 @@ impl<UART: Uart> embedded_hal_0_2::serial::Write<u8> for Tx<UART> {
     }
 }
 
-impl<UART: Uart> embedded_hal::serial::nb::Write<u8> for Tx<UART> {
+impl<'d, UART: Uart> embedded_hal::serial::nb::Write<u8> for UartTxDriver<'d, UART> {
     fn flush(&mut self) -> nb::Result<(), Self::Error> {
         match unsafe { uart_wait_tx_done(UART::port(), 0) } {
             ESP_OK => Ok(()),
@@ -748,9 +702,9 @@ impl<UART: Uart> embedded_hal::serial::nb::Write<u8> for Tx<UART> {
     }
 }
 
-impl<UART: Uart> core::fmt::Write for Tx<UART>
+impl<'d, UART: Uart> core::fmt::Write for UartTxDriver<'d, UART>
 where
-    Tx<UART>: embedded_hal::serial::nb::Write<u8>,
+    UartTxDriver<'d, UART>: embedded_hal::serial::nb::Write<u8>,
 {
     fn write_str(&mut self, s: &str) -> core::fmt::Result {
         use embedded_hal::serial::nb::Write;
@@ -763,16 +717,7 @@ where
 
 macro_rules! impl_uart {
     ($uart:ident: $port:expr) => {
-        pub struct $uart;
-
-        impl $uart {
-            /// # Safety
-            ///
-            /// Care should be taken not to instantiate this UART instance, if it is already instantiated and used elsewhere
-            pub unsafe fn new() -> Self {
-                $uart {}
-            }
-        }
+        crate::impl_peripheral!($uart);
 
         impl Uart for $uart {
             fn port() -> uart_port_t {
@@ -784,6 +729,5 @@ macro_rules! impl_uart {
 
 impl_uart!(UART0: 0);
 impl_uart!(UART1: 1);
-
 #[cfg(esp32)]
 impl_uart!(UART2: 2);

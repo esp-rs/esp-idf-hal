@@ -6,49 +6,47 @@ use esp_idf_sys::*;
 #[cfg(feature = "riscv-ulp-hal")]
 use crate::riscv_ulp_hal::sys::*;
 
+#[cfg(not(feature = "riscv-ulp-hal"))]
+use crate::gpio::ADCPin;
+
+#[cfg(not(feature = "riscv-ulp-hal"))]
+use crate::peripheral::{Peripheral, PeripheralRef};
+
+#[cfg(not(feature = "riscv-ulp-hal"))]
+pub type AdcConfig = config::Config;
+
 pub trait Adc: Send {
     fn unit() -> adc_unit_t;
 }
 
-pub trait Analog<ADC: Adc>: Send {
+pub trait Attenuation<ADC: Adc>: Send {
     fn attenuation() -> adc_atten_t;
 }
 
-pub struct Atten0dB<ADC: Adc> {
-    _adc: PhantomData<ADC>,
-}
+pub struct Atten0dB<ADC: Adc>(PhantomData<ADC>);
+pub struct Atten2p5dB<ADC: Adc>(PhantomData<ADC>);
+pub struct Atten6dB<ADC: Adc>(PhantomData<ADC>);
+pub struct Atten11dB<ADC: Adc>(PhantomData<ADC>);
 
-pub struct Atten2p5dB<ADC: Adc> {
-    _adc: PhantomData<ADC>,
-}
-
-pub struct Atten6dB<ADC: Adc> {
-    _adc: PhantomData<ADC>,
-}
-
-pub struct Atten11dB<ADC: Adc> {
-    _adc: PhantomData<ADC>,
-}
-
-impl<ADC: Adc> Analog<ADC> for Atten0dB<ADC> {
+impl<ADC: Adc> Attenuation<ADC> for Atten0dB<ADC> {
     fn attenuation() -> adc_atten_t {
         adc_atten_t_ADC_ATTEN_DB_0
     }
 }
 
-impl<ADC: Adc> Analog<ADC> for Atten2p5dB<ADC> {
+impl<ADC: Adc> Attenuation<ADC> for Atten2p5dB<ADC> {
     fn attenuation() -> adc_atten_t {
         adc_atten_t_ADC_ATTEN_DB_2_5
     }
 }
 
-impl<ADC: Adc> Analog<ADC> for Atten6dB<ADC> {
+impl<ADC: Adc> Attenuation<ADC> for Atten6dB<ADC> {
     fn attenuation() -> adc_atten_t {
         adc_atten_t_ADC_ATTEN_DB_6
     }
 }
 
-impl<ADC: Adc> Analog<ADC> for Atten11dB<ADC> {
+impl<ADC: Adc> Attenuation<ADC> for Atten11dB<ADC> {
     fn attenuation() -> adc_atten_t {
         adc_atten_t_ADC_ATTEN_DB_11
     }
@@ -131,8 +129,57 @@ pub mod config {
 }
 
 #[cfg(not(feature = "riscv-ulp-hal"))]
-pub struct PoweredAdc<ADC: Adc> {
-    adc: ADC,
+pub struct AdcChannelDriver<'d, T: ADCPin, ATTEN> {
+    pin: PeripheralRef<'d, T>,
+    _atten: PhantomData<ATTEN>,
+}
+
+#[cfg(not(feature = "riscv-ulp-hal"))]
+impl<'d, T: ADCPin, ATTEN> AdcChannelDriver<'d, T, ATTEN>
+where
+    ATTEN: Attenuation<T::Adc>,
+{
+    #[inline]
+    pub fn new(
+        pin: impl Peripheral<P = T> + 'd,
+    ) -> Result<AdcChannelDriver<'d, T, ATTEN>, EspError> {
+        crate::into_ref!(pin);
+
+        unsafe {
+            crate::gpio::rtc_reset_pin(pin.pin())?;
+        }
+
+        if T::Adc::unit() == adc_unit_t_ADC_UNIT_1 {
+            esp!(unsafe { adc1_config_channel_atten(pin.adc_channel(), ATTEN::attenuation()) })?;
+        } else {
+            esp!(unsafe { adc2_config_channel_atten(pin.adc_channel(), ATTEN::attenuation()) })?;
+        }
+
+        Ok(Self {
+            pin,
+            _atten: PhantomData,
+        })
+    }
+
+    fn pin(&mut self) -> &mut PeripheralRef<'d, T> {
+        &mut self.pin
+    }
+}
+
+#[cfg(not(feature = "riscv-ulp-hal"))]
+impl<'d, T: ADCPin, ATTEN> embedded_hal_0_2::adc::Channel<ATTEN>
+    for AdcChannelDriver<'d, T, ATTEN>
+{
+    type ID = u8;
+
+    fn channel() -> Self::ID {
+        T::CHANNEL as _
+    }
+}
+
+#[cfg(not(feature = "riscv-ulp-hal"))]
+pub struct AdcDriver<'d, ADC: Adc> {
+    _adc: PeripheralRef<'d, ADC>,
     resolution: config::Resolution,
     #[cfg(any(esp_idf_comp_esp_adc_cal_enabled, esp_idf_comp_esp_adc_enabled))]
     cal_characteristics:
@@ -140,10 +187,10 @@ pub struct PoweredAdc<ADC: Adc> {
 }
 
 #[cfg(not(feature = "riscv-ulp-hal"))]
-unsafe impl<ADC: Adc> Send for PoweredAdc<ADC> {}
+unsafe impl<'d, ADC: Adc> Send for AdcDriver<'d, ADC> {}
 
 #[cfg(not(feature = "riscv-ulp-hal"))]
-impl<ADC: Adc> PoweredAdc<ADC> {
+impl<'d, ADC: Adc> AdcDriver<'d, ADC> {
     #[cfg(all(
         esp32,
         any(esp_idf_comp_esp_adc_cal_enabled, esp_idf_comp_esp_adc_enabled)
@@ -169,7 +216,12 @@ impl<ADC: Adc> PoweredAdc<ADC> {
     #[cfg(esp32s2)]
     const MAX_READING: u32 = 8191;
 
-    pub fn new(adc: ADC, config: config::Config) -> Result<Self, EspError> {
+    pub fn new(
+        adc: impl Peripheral<P = ADC> + 'd,
+        config: &config::Config,
+    ) -> Result<Self, EspError> {
+        crate::into_ref!(adc);
+
         #[cfg(any(esp_idf_comp_esp_adc_cal_enabled, esp_idf_comp_esp_adc_enabled))]
         if config.calibration {
             esp!(unsafe { esp_adc_cal_check_efuse(Self::CALIBRATION_SCHEME) })?;
@@ -180,7 +232,7 @@ impl<ADC: Adc> PoweredAdc<ADC> {
         }
 
         Ok(Self {
-            adc,
+            _adc: adc,
             resolution: config.resolution,
             #[cfg(any(esp_idf_comp_esp_adc_cal_enabled, esp_idf_comp_esp_adc_enabled))]
             cal_characteristics: if config.calibration {
@@ -191,8 +243,44 @@ impl<ADC: Adc> PoweredAdc<ADC> {
         })
     }
 
-    pub fn release(self) -> ADC {
-        self.adc
+    pub fn read<'c, T, ATTEN>(
+        &mut self,
+        pin: &mut AdcChannelDriver<'c, T, ATTEN>,
+    ) -> Result<u16, EspError>
+    where
+        T: ADCPin,
+        ATTEN: Attenuation<T::Adc>,
+    {
+        self.read_internal(ADC::unit(), pin.pin().adc_channel(), ATTEN::attenuation())
+    }
+
+    #[cfg(all(esp32, esp_idf_version_major = "4"))]
+    pub fn read_hall(
+        &mut self,
+        _hall_sensor: &mut crate::hall::HallSensor,
+    ) -> Result<u16, EspError> {
+        let measurement = unsafe { hall_sensor_read() };
+
+        Ok(self.raw_to_voltage(measurement, adc_atten_t_ADC_ATTEN_DB_0)?)
+    }
+
+    fn read_internal(
+        &mut self,
+        unit: adc_unit_t,
+        channel: adc_channel_t,
+        atten: adc_atten_t,
+    ) -> Result<u16, EspError> {
+        let mut measurement = 0_i32;
+
+        if unit == adc_unit_t_ADC_UNIT_1 {
+            measurement = unsafe { adc1_get_raw(channel) };
+        } else {
+            esp!(unsafe {
+                adc2_get_raw(channel, self.resolution.into(), &mut measurement as *mut _)
+            })?;
+        };
+
+        self.raw_to_voltage(measurement, atten)
     }
 
     fn raw_to_voltage(
@@ -275,81 +363,49 @@ impl<ADC: Adc> PoweredAdc<ADC> {
             Ok(None)
         }
     }
-
-    fn read(
-        &mut self,
-        unit: adc_unit_t,
-        channel: adc_channel_t,
-        atten: adc_atten_t,
-    ) -> nb::Result<u16, EspError> {
-        let mut measurement = 0_i32;
-
-        if unit == adc_unit_t_ADC_UNIT_1 {
-            measurement = unsafe { adc1_get_raw(channel) };
-        } else {
-            let res = unsafe {
-                adc2_get_raw(channel, self.resolution.into(), &mut measurement as *mut _)
-            };
-
-            if res == ESP_ERR_INVALID_STATE as i32 {
-                return Err(nb::Error::WouldBlock);
-            } else if res < 0 {
-                return Err(nb::Error::Other(EspError::from(res).unwrap()));
-            }
-        };
-
-        Ok(self.raw_to_voltage(measurement, atten)?)
-    }
-
-    #[cfg(all(esp32, esp_idf_version_major = "4"))]
-    fn read_hall(&mut self) -> nb::Result<u16, EspError> {
-        let measurement = unsafe { hall_sensor_read() };
-
-        Ok(self.raw_to_voltage(measurement, adc_atten_t_ADC_ATTEN_DB_0)?)
-    }
 }
 
 #[cfg(not(feature = "riscv-ulp-hal"))]
-impl<ADC, AN, PIN> embedded_hal_0_2::adc::OneShot<AN, u16, PIN> for PoweredAdc<ADC>
+impl<'d, ADC, ATTEN, PIN> embedded_hal_0_2::adc::OneShot<ATTEN, u16, PIN> for AdcDriver<'d, ADC>
 where
     ADC: Adc,
-    AN: Analog<ADC>,
-    PIN: embedded_hal_0_2::adc::Channel<AN, ID = u8>,
+    ATTEN: Attenuation<ADC>,
+    PIN: embedded_hal_0_2::adc::Channel<ATTEN, ID = u8>,
 {
     type Error = EspError;
 
     fn read(&mut self, _pin: &mut PIN) -> nb::Result<u16, Self::Error> {
-        self.read(
+        self.read_internal(
             ADC::unit(),
             PIN::channel() as adc_channel_t,
-            AN::attenuation(),
+            ATTEN::attenuation(),
         )
+        .map_err(to_nb_err)
     }
 }
 
 #[cfg(all(esp32, esp_idf_version_major = "4", not(feature = "riscv-ulp-hal")))]
-impl embedded_hal_0_2::adc::OneShot<ADC1, u16, crate::hall::HallSensor> for PoweredAdc<ADC1> {
+impl<'d> embedded_hal_0_2::adc::OneShot<ADC1, u16, crate::hall::HallSensor>
+    for AdcDriver<'d, ADC1>
+{
     type Error = EspError;
 
-    fn read(&mut self, _hall_sensor: &mut crate::hall::HallSensor) -> nb::Result<u16, Self::Error> {
-        self.read_hall()
+    fn read(&mut self, hall_sensor: &mut crate::hall::HallSensor) -> nb::Result<u16, Self::Error> {
+        AdcDriver::read_hall(self, hall_sensor).map_err(to_nb_err)
+    }
+}
+
+fn to_nb_err(err: EspError) -> nb::Error<EspError> {
+    if err.code() == ESP_ERR_INVALID_STATE as i32 {
+        nb::Error::WouldBlock
+    } else {
+        nb::Error::Other(err)
     }
 }
 
 macro_rules! impl_adc {
     ($adc:ident: $unit:expr) => {
-        pub struct $adc(::core::marker::PhantomData<*const ()>);
-
-        impl $adc {
-            /// # Safety
-            ///
-            /// Care should be taken not to instnatiate this ADC instance, if it is already instantiated and used elsewhere
-            pub unsafe fn new() -> Self {
-                $adc(::core::marker::PhantomData)
-            }
-        }
-
-        unsafe impl Send for $adc {}
+        crate::impl_peripheral!($adc);
 
         impl Adc for $adc {
             #[inline(always)]
