@@ -1056,6 +1056,7 @@ impl<P: InputPin, C: HwChannel> Receive<P, C> {
     }
 }
 
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub struct PulsePair {
     pub level0: PinState,
     pub duration0: PulseTicks,
