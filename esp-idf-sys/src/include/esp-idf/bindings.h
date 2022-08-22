@@ -209,6 +209,12 @@
 #include "esp_pthread.h"
 #endif
 
+#ifdef ESP_IDF_COMP_USB_ENABLED
+#ifdef CONFIG_USB_OTG_SUPPORTED
+#include "usb/usb_host.h"
+#endif
+#endif
+
 #ifdef ESP_IDF_COMP_ULP_ENABLED
 #if (ESP_IDF_VERSION_MAJOR > 4)
 // ESP-IDF V5+
