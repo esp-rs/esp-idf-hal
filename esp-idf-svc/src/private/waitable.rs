@@ -1,6 +1,6 @@
 use core::time::Duration;
 
-use esp_idf_hal::mutex::{Condvar, Mutex};
+use super::mutex::{Condvar, Mutex};
 
 #[cfg(not(feature = "std"))]
 use esp_idf_sys::*;

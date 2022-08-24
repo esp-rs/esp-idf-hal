@@ -17,11 +17,12 @@ use embedded_svc::event_bus::{self, ErrorType};
 use esp_idf_hal::cpu::Core;
 use esp_idf_hal::delay::TickType;
 use esp_idf_hal::interrupt;
-use esp_idf_hal::mutex;
+use esp_idf_hal::task;
 
 use esp_idf_sys::*;
 
 use crate::private::cstr::RawCstrs;
+use crate::private::mutex;
 
 #[cfg(all(feature = "nightly", feature = "experimental"))]
 pub use asyncify::*;
@@ -299,6 +300,17 @@ where
     }
 }
 
+impl<T> RawHandle for EspSubscription<User<T>>
+where
+    T: EspEventLoopType,
+{
+    type Handle = esp_event_handler_instance_t;
+
+    unsafe fn handle(&self) -> Handle {
+        self.handler_instance
+    }
+}
+
 #[derive(Debug)]
 struct EventLoopHandle<T>(T)
 where
@@ -506,7 +518,7 @@ where
         };
 
         if higher_prio_task_woken != 0 {
-            interrupt::task::do_yield();
+            task::do_yield();
         }
 
         if result == ESP_FAIL {
@@ -527,8 +539,16 @@ where
     }
 }
 
+impl<T> RawHandle for EspEventLoop<User<T>> {
+    type Handle = esp_event_loop_handle_t;
+
+    unsafe fn handle(&self) -> Handle {
+        self.0
+    }
+}
+
 impl EspEventLoop<System> {
-    pub fn new() -> Result<Self, EspError> {
+    pub fn take() -> Result<Self, EspError> {
         Ok(Self(Arc::new(EventLoopHandle::<System>::new()?)))
     }
 }
@@ -904,7 +924,7 @@ mod asyncify {
     use embedded_svc::utils::asyncify::event_bus::AsyncEventBus;
     use embedded_svc::utils::asyncify::{Asyncify, UnblockingAsyncify};
 
-    use esp_idf_hal::mutex::RawCondvar;
+    use crate::private::mutex::RawCondvar;
 
     impl<T> Asyncify for super::EspEventLoop<T>
     where

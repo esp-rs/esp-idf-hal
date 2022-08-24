@@ -7,10 +7,7 @@ use esp_idf_sys::*;
 use crate::private::common::*;
 
 #[derive(Debug)]
-struct PrivateData;
-
-#[derive(Debug)]
-pub struct EspNapt(PrivateData);
+pub struct EspNapt(());
 
 pub enum Protocol {
     UDP,
@@ -37,7 +34,7 @@ impl EspNapt {
         }
 
         *taken = true;
-        Ok(Self(PrivateData))
+        Ok(Self(()))
     }
 
     pub fn add_portmap(

@@ -16,6 +16,8 @@ pub use asyncify::*;
 #[cfg(esp_idf_esp_timer_supports_isr_dispatch_method)]
 pub use isr::*;
 
+use crate::handle::RawHandle;
+
 struct UnsafeCallback(*mut Box<dyn FnMut()>);
 
 impl UnsafeCallback {
@@ -72,6 +74,14 @@ impl Drop for EspTimer {
         while unsafe { esp_timer_delete(self.handle) } != ESP_OK {
             // Timer is still running, busy-loop
         }
+    }
+}
+
+impl RawHandle for EspTimer {
+    type Handle = esp_timer_handle_t;
+
+    unsafe fn handle(&self) -> Handle {
+        self.handle
     }
 }
 

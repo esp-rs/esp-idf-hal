@@ -7,13 +7,13 @@ use alloc::sync::Arc;
 use embedded_svc::ws::{ErrorType, FrameType, Sender};
 
 use esp_idf_hal::delay::TickType;
-use esp_idf_hal::mutex::{Condvar, Mutex};
 
 use esp_idf_sys::*;
 
 use crate::errors::EspIOError;
 use crate::private::common::Newtype;
 use crate::private::cstr::RawCstrs;
+use crate::private::mutex::{Condvar, Mutex};
 
 #[derive(Copy, Clone, Eq, PartialEq, Debug)]
 pub enum EspWebSocketTransport {
@@ -508,6 +508,14 @@ impl Drop for EspWebSocketClient {
         esp!(unsafe { esp_websocket_client_destroy(self.handle) }).unwrap();
 
         // timeout and callback dropped automatically
+    }
+}
+
+impl RawHandle for EspWebSocketClient {
+    type Handle = esp_websocket_client_handle_t;
+
+    unsafe fn handle(&self) -> Handle {
+        self.handle
     }
 }
 

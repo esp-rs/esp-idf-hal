@@ -20,8 +20,6 @@ use embedded_svc::http::*;
 use embedded_svc::io::{Io, Read, Write};
 use embedded_svc::utils::http::server::registration::{ChainHandler, ChainRoot};
 
-use esp_idf_hal::mutex::{Mutex, RawMutex};
-
 use esp_idf_sys::*;
 
 use uncased::{Uncased, UncasedStr};
@@ -29,6 +27,7 @@ use uncased::{Uncased, UncasedStr};
 use crate::errors::EspIOError;
 use crate::private::common::Newtype;
 use crate::private::cstr::{CStr, CString};
+use crate::private::mutex::{Mutex, RawMutex};
 
 #[derive(Copy, Clone, Debug)]
 pub struct Configuration {
@@ -359,6 +358,14 @@ impl Drop for EspHttpServer {
     }
 }
 
+impl RawHandle for EspHttpServer {
+    type Handle = httpd_handle_t;
+
+    unsafe fn handle(&self) -> Handle {
+        self.sd
+    }
+}
+
 pub trait EspHttpTraversableChain {
     fn accept(self, server: &mut EspHttpServer) -> Result<(), EspError>;
 }
@@ -408,6 +415,14 @@ where
 }
 
 pub struct EspHttpRequest<'a>(&'a mut httpd_req_t);
+
+impl RawHandle for EspHttpRequest {
+    type Handle = *mut httpd_req_t;
+
+    unsafe fn handle(&self) -> Handle {
+        self.0.as_ptr()
+    }
+}
 
 impl<'a> Io for EspHttpRequest<'a> {
     type Error = EspIOError;
@@ -533,6 +548,14 @@ impl<'a> EspHttpConnection<'a> {
         )?;
 
         Ok(())
+    }
+}
+
+impl<'a> RawHandle for EspHttpConnection<'a> {
+    type Handle = *mut httpd_req_t;
+
+    unsafe fn handle(&self) -> Handle {
+        self.request.handle()
     }
 }
 
@@ -767,10 +790,9 @@ pub mod ws {
 
     use esp_idf_sys::*;
 
-    use esp_idf_hal::mutex::{RawCondvar, RawMutex};
-
     use crate::private::common::Newtype;
     use crate::private::cstr::CString;
+    use crate::private::mutex::{RawCondvar, RawMutex};
 
     use super::EspHttpServer;
     use super::CLOSE_HANDLERS;
@@ -1144,12 +1166,12 @@ pub mod ws {
         };
 
         pub type EspHttpWsProcessor<const N: usize, const F: usize> =
-            Processor<N, F, esp_idf_hal::mutex::RawCondvar, super::EspHttpWsConnection>;
+            Processor<N, F, crate::private::mutex::RawCondvar, super::EspHttpWsConnection>;
 
         pub type EspHttpWsAsyncAcceptor<U> =
-            AsyncAcceptor<U, esp_idf_hal::mutex::RawCondvar, super::EspHttpWsDetachedSender>;
+            AsyncAcceptor<U, crate::private::mutex::RawCondvar, super::EspHttpWsDetachedSender>;
 
         pub type EspHttpWsAsyncConnection<U> =
-            AsyncConnection<U, esp_idf_hal::mutex::RawCondvar, super::EspHttpWsDetachedSender>;
+            AsyncConnection<U, crate::private::mutex::RawCondvar, super::EspHttpWsDetachedSender>;
     }
 }

@@ -2,9 +2,10 @@ use ::log::info;
 
 use alloc::boxed::Box;
 
-use esp_idf_hal::mutex::{Mutex, RawMutex};
-
 use esp_idf_sys::*;
+
+use crate::private::mutex::{Mutex, RawMutex};
+use crate::wifi::WifiDriver;
 
 type Singleton<T> = Mutex<Option<Box<T>>>;
 
@@ -36,20 +37,10 @@ impl From<u32> for SendStatus {
 
 pub type PeerInfo = esp_now_peer_info_t;
 
-#[derive(Debug)]
-struct PrivateData;
+pub struct EspNow(());
 
-#[derive(Debug)]
-pub struct EspNowClient(PrivateData);
-
-impl EspNowClient {
+impl EspNow {
     pub fn new() -> Result<Self, EspError> {
-        let mut taken = TAKEN.lock();
-
-        if *taken {
-            esp!(ESP_ERR_INVALID_STATE as i32)?;
-        }
-
         // disable modem sleep, otherwise messages queue up and we're not able
         // to send any esp-now data after a few messages
         // esp-idf bug report: https://github.com/espressif/esp-idf/issues/7496
@@ -58,8 +49,7 @@ impl EspNowClient {
         info!("Initializing ESP NOW");
         esp!(unsafe { esp_now_init() })?;
 
-        *taken = true;
-        Ok(Self(PrivateData))
+        Ok(Self(()))
     }
 
     pub fn send(&self, peer_addr: [u8; 6], data: &[u8]) -> Result<(), EspError> {
@@ -172,9 +162,10 @@ impl EspNowClient {
     }
 }
 
-impl Drop for EspNowClient {
+impl Drop for EspNow {
     fn drop(&mut self) {
         esp!(unsafe { esp_now_deinit() }).unwrap();
+
         let send_cb = &mut *SEND_CALLBACK.lock();
         if send_cb.is_some() {
             *send_cb = None;

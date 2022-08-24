@@ -1,25 +1,39 @@
+use core::cmp::min;
+use core::ptr;
+
 extern crate alloc;
+use alloc::sync::Arc;
 
 use ::log::*;
+
+use embedded_svc::storage::{RawStorage, StorageBase};
 
 use esp_idf_hal::mutex;
 
 use esp_idf_sys::*;
 
+use crate::handle::RawHandle;
 use crate::private::cstr::*;
 
 static DEFAULT_TAKEN: mutex::Mutex<bool> = mutex::Mutex::wrap(mutex::RawMutex::new(), false);
 static NONDEFAULT_LOCKED: mutex::Mutex<alloc::collections::BTreeSet<CString>> =
     mutex::Mutex::wrap(mutex::RawMutex::new(), alloc::collections::BTreeSet::new());
 
-#[derive(Debug)]
-struct PrivateData;
+pub type EspDefaultNvsPartition = EspNvsPartition<Default>;
+pub type EspCustomNvsPartition = EspNvsPartition<Custom>;
 
-#[derive(Debug)]
-pub struct EspDefaultNvs(PrivateData);
+pub trait NvsPartitionId {
+    fn is_default(&self) -> bool {
+        self.name() == b""
+    }
 
-impl EspDefaultNvs {
-    pub fn new() -> Result<Self, EspError> {
+    fn name(&self) -> &CStr;
+}
+
+pub struct Default;
+
+impl Default {
+    fn new() -> Result<Self, EspError> {
         let mut taken = DEFAULT_TAKEN.lock();
 
         if *taken {
@@ -43,11 +57,11 @@ impl EspDefaultNvs {
             }
         }
 
-        Ok(Self(PrivateData))
+        Ok(Self(()))
     }
 }
 
-impl Drop for EspDefaultNvs {
+impl Drop for Default {
     fn drop(&mut self) {
         //esp!(nvs_flash_deinit()).unwrap(); TODO: To be checked why it fails
         *DEFAULT_TAKEN.lock() = false;
@@ -56,18 +70,23 @@ impl Drop for EspDefaultNvs {
     }
 }
 
-#[derive(Debug)]
-pub struct EspNvs(pub(crate) CString);
+impl NvsPartitionId for Default {
+    fn name(&self) -> &CStr {
+        b""
+    }
+}
 
-impl EspNvs {
-    pub fn new(partition: impl AsRef<str>) -> Result<Self, EspError> {
+pub struct Custom(CString);
+
+impl Custom {
+    fn new(partition: &str) -> Result<Self, EspError> {
         let mut registrations = NONDEFAULT_LOCKED.lock();
 
         Self::init(partition, &mut registrations)
     }
 
     fn init(
-        partition: impl AsRef<str>,
+        partition: &str,
         registrations: &mut alloc::collections::BTreeSet<CString>,
     ) -> Result<Self, EspError> {
         let c_partition = CString::new(partition.as_ref()).unwrap();
@@ -94,7 +113,7 @@ impl EspNvs {
     }
 }
 
-impl Drop for EspNvs {
+impl Drop for Custom {
     fn drop(&mut self) {
         {
             let mut registrations = NONDEFAULT_LOCKED.lock();
@@ -104,5 +123,255 @@ impl Drop for EspNvs {
         }
 
         info!("Dropped");
+    }
+}
+
+impl NvsPartitionId for Custom {
+    fn name(&self) -> &CStr {
+        self.0.as_str()
+    }
+}
+
+#[derive(Debug)]
+pub struct EspNvsPartition<T: NvsPartitionId>(Arc<T>);
+
+impl EspNvsPartition<Default> {
+    pub fn take() -> Result<Self, EspError> {
+        Ok(Self(Arc::new(Default::new()?)))
+    }
+}
+
+impl EspNvsPartition<Custom> {
+    pub fn take(partition: &str) -> Result<Self, EspError> {
+        Ok(Self(Arc::new(Custom::new(partition)?)))
+    }
+}
+
+impl<T> Clone for EspNvsPartition<T>
+where
+    T: NvsPartitionId,
+{
+    fn clone(&self) -> Self {
+        Self(self.0.clone())
+    }
+}
+
+impl RawHandle for EspNvsPartition<Custom> {
+    type Handle = &CStr;
+
+    unsafe fn handle(&self) -> Handle {
+        self.0.name().as_str()
+    }
+}
+
+pub type EspDefaultNvs = EspNvs<Default>;
+pub type EspCustomNvs = EspNvs<Custom>;
+
+pub struct EspNvs<T: NvsPartitionId>(EspNvsPartition<T>, nvs_handle_t);
+
+impl<T: NvsPartitionId> EspNvs<T> {
+    pub fn new(partition: EspNvs<T>, namespace: &str, read_write: bool) -> Result<Self, EspError> {
+        let c_namespace = CString::new(namespace.as_ref()).unwrap();
+
+        let mut handle: nvs_handle_t = 0;
+
+        if partition.is_default() {
+            esp!(unsafe {
+                nvs_open(
+                    c_namespace.as_ptr(),
+                    if read_write {
+                        nvs_open_mode_t_NVS_READWRITE
+                    } else {
+                        nvs_open_mode_t_NVS_READONLY
+                    },
+                    &mut handle as *mut _,
+                )
+            })?;
+        } else {
+            esp!(unsafe {
+                nvs_open_from_partition(
+                    nvs.0.as_ptr(),
+                    c_namespace.as_ptr(),
+                    if read_write {
+                        nvs_open_mode_t_NVS_READWRITE
+                    } else {
+                        nvs_open_mode_t_NVS_READONLY
+                    },
+                    &mut handle as *mut _,
+                )
+            })?;
+        }
+
+        Ok(Self(partition, handle))
+    }
+}
+
+impl<T: NvsPartitionId> Drop for EspNvs<T> {
+    fn drop(&mut self) {
+        unsafe {
+            nvs_close(self.1);
+        }
+    }
+}
+
+impl RawHandle for EspNvs<Custom> {
+    type Handle = nvs_handle_t;
+
+    unsafe fn handle(&self) -> Handle {
+        self.1
+    }
+}
+
+impl<T: NvsPartitionId> StorageBase for EspNvs<T> {
+    type Error = EspError;
+
+    fn contains(&self, name: &str) -> Result<bool, Self::Error> {
+        self.len(name).map(|v| v.is_some())
+    }
+
+    fn remove(&mut self, name: &str) -> Result<bool, Self::Error> {
+        let c_key = CString::new(name).unwrap();
+
+        // nvs_erase_key is not scoped by datatype
+        let result = unsafe { nvs_erase_key(self.1, c_key.as_ptr()) };
+
+        if result == ESP_ERR_NVS_NOT_FOUND as i32 {
+            Ok(false)
+        } else {
+            esp!(result)?;
+            esp!(unsafe { nvs_commit(self.1) })?;
+
+            Ok(true)
+        }
+    }
+}
+
+impl<T: NvsPartitionId> RawStorage for EspNvs<T> {
+    fn len(&self, name: &str) -> Result<Option<usize>, Self::Error> {
+        let c_key = CString::new(name).unwrap();
+
+        let mut value: u_int64_t = 0;
+
+        // check for u64 value
+        match unsafe { nvs_get_u64(self.1, c_key.as_ptr(), &mut value as *mut _) } {
+            ESP_ERR_NVS_NOT_FOUND => {
+                // check for blob value, by getting blob length
+                let mut len: size_t = 0;
+                match unsafe {
+                    nvs_get_blob(self.1, c_key.as_ptr(), ptr::null_mut(), &mut len as *mut _)
+                } {
+                    ESP_ERR_NVS_NOT_FOUND => Ok(None),
+                    err => {
+                        // bail on error
+                        esp!(err)?;
+
+                        Ok(Some(len as _))
+                    }
+                }
+            }
+            err => {
+                // bail on error
+                esp!(err)?;
+
+                // u64 value was found, decode it
+                let len: u8 = (value & 0xff) as u8;
+
+                Ok(Some(len as _))
+            }
+        }
+    }
+
+    fn get_raw<'a>(
+        &self,
+        name: &str,
+        buf: &'a mut [u8],
+    ) -> Result<Option<(&'a [u8], usize)>, Self::Error> {
+        let c_key = CString::new(name).unwrap();
+
+        let mut u64value: u_int64_t = 0;
+
+        // check for u64 value
+        match unsafe { nvs_get_u64(self.1, c_key.as_ptr(), &mut u64value as *mut _) } {
+            ESP_ERR_NVS_NOT_FOUND => {
+                // check for blob value, by getting blob length
+                let mut len: size_t = 0;
+                match unsafe {
+                    nvs_get_blob(self.1, c_key.as_ptr(), ptr::null_mut(), &mut len as *mut _)
+                } {
+                    ESP_ERR_NVS_NOT_FOUND => Ok(None),
+                    err => {
+                        // bail on error
+                        esp!(err)?;
+
+                        // fetch value if no error
+                        esp!(unsafe {
+                            nvs_get_blob(
+                                self.1,
+                                c_key.as_ptr(),
+                                buf.as_mut_ptr() as *mut _,
+                                &mut len as *mut _,
+                            )
+                        })?;
+
+                        Ok(Some((&buf[..min(buf.len(), len as usize)], len as _)))
+                    }
+                }
+            }
+            err => {
+                // bail on error
+                esp!(err)?;
+
+                // u64 value was found, decode it
+                let len: u8 = (u64value & 0xff) as u8;
+                u64value >>= 8;
+
+                let array: [u8; 7] = [
+                    (u64value & 0xff) as u8,
+                    ((u64value >> 8) & 0xff) as u8,
+                    ((u64value >> 16) & 0xff) as u8,
+                    ((u64value >> 24) & 0xff) as u8,
+                    ((u64value >> 32) & 0xff) as u8,
+                    ((u64value >> 40) & 0xff) as u8,
+                    ((u64value >> 48) & 0xff) as u8,
+                ];
+
+                buf.copy_from_slice(&array[..min(buf.len(), len as usize)]);
+
+                Ok(Some((&buf[..min(buf.len(), len as usize)], len as _)))
+            }
+        }
+    }
+
+    fn put_raw(&mut self, name: &str, buf: &[u8]) -> Result<bool, Self::Error> {
+        let c_key = CString::new(name).unwrap();
+        let mut u64value: u_int64_t = 0;
+
+        // start by just clearing this key
+        unsafe { nvs_erase_key(self.1, c_key.as_ptr()) };
+
+        if buf.len() < 8 {
+            for v in buf.iter().rev() {
+                u64value <<= 8;
+                u64value |= *v as u_int64_t;
+            }
+
+            u64value <<= 8;
+            u64value |= buf.len() as u_int64_t;
+
+            esp!(unsafe { nvs_set_u64(self.1, c_key.as_ptr(), u64value) })?;
+        } else {
+            esp!(unsafe {
+                nvs_set_blob(
+                    self.1,
+                    c_key.as_ptr(),
+                    buf.as_ptr() as *mut _,
+                    buf.len() as u32,
+                )
+            })?;
+        }
+
+        esp!(unsafe { nvs_commit(self.1) })?;
+
+        Ok(true)
     }
 }

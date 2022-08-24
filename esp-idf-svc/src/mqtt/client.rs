@@ -8,12 +8,13 @@ extern crate alloc;
 use alloc::boxed::Box;
 use alloc::sync::Arc;
 
-use embedded_svc::mqtt::client::utils::{ConnState, ConnStateGuard, Connection, Postbox};
 use embedded_svc::mqtt::client::{self, ErrorType, Message, MessageImpl};
-
-use esp_idf_hal::mutex::RawCondvar;
+use embedded_svc::utils::mqtt::client::{ConnState, ConnStateGuard, Connection, Postbox};
 
 use esp_idf_sys::*;
+
+use crate::handle::RawHandle;
+use crate::private::mutex::RawCondvar;
 
 #[cfg(all(feature = "nightly", feature = "experimental"))]
 pub use asyncify::*;
@@ -285,6 +286,14 @@ pub struct EspMqttClient<S = ()> {
     raw_client: esp_mqtt_client_handle_t,
     conn_state_guard: Option<Arc<ConnStateGuard<RawCondvar, S>>>,
     _boxed_raw_callback: Box<dyn FnMut(esp_mqtt_event_handle_t)>,
+}
+
+impl<S> RawHandle for EspMqttClient<S> {
+    type Handle = esp_mqtt_client_handle_t;
+
+    unsafe fn handle(&self) -> Handle {
+        self.raw_client
+    }
 }
 
 impl EspMqttClient<ConnState<MessageImpl, EspError>> {
@@ -646,17 +655,17 @@ mod asyncify {
 
     use alloc::sync::Arc;
 
-    use embedded_svc::mqtt::client::MessageImpl;
-    use embedded_svc::mqtt::client::{self, utils::ConnStateGuard};
+    use embedded_svc::mqtt::client::{self, MessageImpl};
     use embedded_svc::utils::asyncify::mqtt::client::{
         AsyncClient, AsyncConnState, AsyncConnection, AsyncPostbox, Blocking, Publishing,
     };
     use embedded_svc::utils::asyncify::{Asyncify, UnblockingAsyncify};
+    use embedded_svc::utils::mqtt::client::ConnStateGuard;
     use embedded_svc::utils::mutex::Mutex;
 
-    use esp_idf_hal::mutex::{RawCondvar, RawMutex};
-
     use esp_idf_sys::EspError;
+
+    use crate::private::mutex::{RawCondvar, RawMutex};
 
     use super::{EspMqttClient, EspMqttMessage, MqttClientConfiguration};
 

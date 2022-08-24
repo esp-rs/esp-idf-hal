@@ -16,6 +16,7 @@ use esp_idf_sys::*;
 use uncased::{Uncased, UncasedStr};
 
 use crate::errors::EspIOError;
+use crate::handle::RawHandle;
 use crate::private::common::Newtype;
 use crate::private::cstr::*;
 
@@ -92,10 +93,6 @@ pub struct EspHttpConnection {
 }
 
 impl EspHttpConnection {
-    pub fn new_default() -> Result<Self, EspError> {
-        Self::new(&Default::default())
-    }
-
     pub fn new(configuration: &Configuration) -> Result<Self, EspError> {
         let event_handler = Box::new(None);
 
@@ -237,6 +234,14 @@ impl Drop for EspHttpConnection {
     fn drop(&mut self) {
         esp!(unsafe { esp_http_client_cleanup(self.raw_client) })
             .expect("Unable to stop the client cleanly");
+    }
+}
+
+impl RawHandle for EspHttpConnection {
+    type Handle = esp_http_client_handle_t;
+
+    unsafe fn handle(&self) -> Handle {
+        self.raw_client
     }
 }
 
