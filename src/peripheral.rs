@@ -160,7 +160,7 @@ pub trait Peripheral: Sized {
     }
 }
 
-impl<'b, T: DerefMut> Peripheral for T
+impl<T: DerefMut> Peripheral for T
 where
     T::Target: Peripheral,
 {
