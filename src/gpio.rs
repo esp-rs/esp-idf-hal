@@ -19,7 +19,7 @@ use crate::peripheral::{Peripheral, PeripheralRef};
 
 pub use chip::*;
 
-/// A trait implemented by every pin insance
+/// A trait implemented by every pin instance
 pub trait Pin: Peripheral<P = Self> + Sized + Send + 'static {
     fn pin(&self) -> i32;
 }
@@ -582,6 +582,10 @@ impl<'d, T: Pin, MODE> PinDriver<'d, T, MODE> {
         )
     }
 
+    /// # Safety
+    ///
+    /// Care should be taken not to call STD, libc or FreeRTOS APIs (except for a few allowed ones)
+    /// in the callback passed to this function, as it is executed in an ISR context.
     #[cfg(all(not(feature = "riscv-ulp-hal"), feature = "alloc"))]
     pub unsafe fn subscribe(
         &mut self,
@@ -865,6 +869,24 @@ macro_rules! impl_input {
         }
 
         impl InputPin for $pxi {}
+
+        impl From<$pxi> for AnyInputPin {
+            fn from(pin: $pxi) -> Self {
+                unsafe { Self::new(pin.pin()) }
+            }
+        }
+    };
+}
+
+macro_rules! impl_input_only {
+    ($pxi:ident: $pin:expr) => {
+        impl_input!($pxi: $pin);
+
+        impl $pxi {
+            pub fn downgrade(self) -> AnyInputPin {
+                self.into()
+            }
+        }
     };
 }
 
@@ -873,6 +895,18 @@ macro_rules! impl_input_output {
         impl_input!($pxi: $pin);
 
         impl OutputPin for $pxi {}
+
+        impl From<$pxi> for AnyPin {
+            fn from(pin: $pxi) -> Self {
+                unsafe { Self::new(pin.pin()) }
+            }
+        }
+
+        impl $pxi {
+            pub fn downgrade(self) -> AnyPin {
+                self.into()
+            }
+        }
     };
 }
 
@@ -948,7 +982,7 @@ macro_rules! impl_touch {
 
 macro_rules! pin {
     ($pxi:ident: $pin:expr, Input, $rtc:ident: $rtcno:expr, $adc:ident: $adcno:expr, $dac:ident: $dacno:expr, $touch:ident: $touchno:expr) => {
-        impl_input!($pxi: $pin);
+        impl_input_only!($pxi: $pin);
         impl_rtc!($pxi: $pin, $rtc: $rtcno);
         impl_adc!($pxi: $pin, $adc: $adcno);
         impl_dac!($pxi: $pin, $dac: $dacno);
