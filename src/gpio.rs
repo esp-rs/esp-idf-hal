@@ -878,6 +878,7 @@ macro_rules! impl_input {
     };
 }
 
+#[allow(unused)]
 macro_rules! impl_input_only {
     ($pxi:ident: $pin:expr) => {
         impl_input!($pxi: $pin);
