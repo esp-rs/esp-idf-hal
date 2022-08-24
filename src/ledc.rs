@@ -153,27 +153,32 @@ impl<'d, T: LedcTimer> Drop for LedcTimerDriver<'d, T> {
 }
 
 /// LED Control driver
-pub struct LedcDriver<'d, C: LedcChannel, B, T>
+pub struct LedcDriver<'d, C, B>
 where
-    B: Borrow<LedcTimerDriver<'d, T>>,
-    T: LedcTimer,
+    C: LedcChannel,
 {
     _channel: PeripheralRef<'d, C>,
-    timer_driver: B,
+    _timer_driver: B,
     duty: Duty,
+    speed_mode: ledc_mode_t,
+    max_duty: Duty,
 }
 
 // TODO: Stop channel when the instance gets dropped. It seems that we can't
 // have both at the same time: a method for releasing its hardware resources
 // and implementing Drop.
-impl<'d, C: LedcChannel, B: Borrow<LedcTimerDriver<'d, T>>, T: LedcTimer> LedcDriver<'d, C, B, T> {
+impl<'d, C: LedcChannel, B> LedcDriver<'d, C, B> {
     /// Creates a new LED Control driver
-    pub fn new(
+    pub fn new<T>(
         channel: impl Peripheral<P = C> + 'd,
         timer_driver: B,
         pin: impl Peripheral<P = impl OutputPin> + 'd,
         config: &config::TimerConfig,
-    ) -> Result<Self, EspError> {
+    ) -> Result<Self, EspError>
+    where
+        B: Borrow<LedcTimerDriver<'d, T>>,
+        T: LedcTimer + 'd,
+    {
         crate::into_ref!(channel, pin);
 
         let duty = 0;
@@ -209,9 +214,11 @@ impl<'d, C: LedcChannel, B: Borrow<LedcTimerDriver<'d, T>>, T: LedcTimer> LedcDr
         esp!(unsafe { ledc_channel_config(&channel_config) })?;
 
         Ok(LedcDriver {
-            _channel: channel,
-            timer_driver,
             duty,
+            speed_mode: timer_driver.borrow().speed_mode,
+            max_duty: timer_driver.borrow().max_duty,
+            _channel: channel,
+            _timer_driver: timer_driver,
         })
     }
 
@@ -220,7 +227,7 @@ impl<'d, C: LedcChannel, B: Borrow<LedcTimerDriver<'d, T>>, T: LedcTimer> LedcDr
     }
 
     pub fn get_max_duty(&self) -> Duty {
-        self.timer_driver.borrow().max_duty
+        self.max_duty
     }
 
     pub fn disable(&mut self) -> Result<(), EspError> {
@@ -247,20 +254,14 @@ impl<'d, C: LedcChannel, B: Borrow<LedcTimerDriver<'d, T>>, T: LedcTimer> LedcDr
     }
 
     fn stop(&mut self) -> Result<(), EspError> {
-        esp!(unsafe {
-            ledc_stop(
-                self.timer_driver.borrow().speed_mode,
-                C::channel(),
-                IDLE_LEVEL,
-            )
-        })?;
+        esp!(unsafe { ledc_stop(self.speed_mode, C::channel(), IDLE_LEVEL,) })?;
         Ok(())
     }
 
     fn update_duty(&mut self, duty: Duty) -> Result<(), EspError> {
         esp!(unsafe {
             ledc_set_duty_and_update(
-                self.timer_driver.borrow().speed_mode,
+                self.speed_mode,
                 C::channel(),
                 duty as u32,
                 Default::default(),
@@ -270,7 +271,7 @@ impl<'d, C: LedcChannel, B: Borrow<LedcTimerDriver<'d, T>>, T: LedcTimer> LedcDr
     }
 }
 
-impl<'d, C: LedcChannel, T: LedcTimer> Drop for LedcDriver<'d, C, T> {
+impl<'d, C: LedcChannel, B> Drop for LedcDriver<'d, C, B> {
     fn drop(&mut self) {
         self.stop().unwrap();
     }
@@ -302,9 +303,7 @@ impl<'d, C: LedcChannel, T: LedcTimer> Drop for LedcDriver<'d, C, T> {
 //     }
 // }
 
-impl<'d, C: LedcChannel, B: Borrow<LedcTimerDriver<'d, T>>, T: LedcTimer> embedded_hal_0_2::PwmPin
-    for LedcDriver<'d, C, B, T>
-{
+impl<'d, C: LedcChannel, B> embedded_hal_0_2::PwmPin for LedcDriver<'d, C, B> {
     type Duty = Duty;
 
     fn disable(&mut self) {
