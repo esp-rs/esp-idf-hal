@@ -1,5 +1,3 @@
-use crate::peripheral::{Peripheral, PeripheralRef};
-
 #[derive(Copy, Clone, Eq, PartialEq, Debug)]
 pub enum SleepTimer {
     First = 0,
@@ -91,7 +89,7 @@ impl Word {
         esp_idf_esp32s3_ulp_coproc_enabled
     )
 ))]
-pub struct UlpDriver<'d>(PeripheralRef<'d, ULP>);
+pub struct UlpDriver<'d>(crate::peripheral::PeripheralRef<'d, ULP>);
 
 #[cfg(any(
     all(not(esp_idf_version_major = "4"), esp_idf_ulp_coproc_enabled),
@@ -108,7 +106,9 @@ pub struct UlpDriver<'d>(PeripheralRef<'d, ULP>);
     )
 ))]
 impl<'d> UlpDriver<'d> {
-    pub fn new(ulp: impl Peripheral<P = ULP> + 'd) -> Result<Self, esp_idf_sys::EspError> {
+    pub fn new(
+        ulp: impl crate::peripheral::Peripheral<P = ULP> + 'd,
+    ) -> Result<Self, esp_idf_sys::EspError> {
         crate::into_ref!(ulp);
 
         Ok(Self(ulp))
@@ -339,20 +339,6 @@ impl<'d> UlpDriver<'d> {
     }
 }
 
-#[cfg(any(
-    all(not(esp_idf_version_major = "4"), esp_idf_ulp_coproc_enabled),
-    all(esp_idf_version_major = "4", esp32, esp_idf_esp32_ulp_coproc_enabled),
-    all(
-        esp_idf_version_major = "4",
-        esp32s2,
-        esp_idf_esp32s2_ulp_coproc_enabled
-    ),
-    all(
-        esp_idf_version_major = "4",
-        esp32s3,
-        esp_idf_esp32s3_ulp_coproc_enabled
-    )
-))]
 crate::impl_peripheral!(ULP);
 
 #[cfg(any(
