@@ -15,6 +15,8 @@ pub type dac_channel_t = i32;
 pub type touch_pad_t = i32;
 #[allow(non_camel_case_types)]
 pub type adc_atten_t = i32;
+#[allow(non_camel_case_types)]
+pub type gpio_pull_mode_t = u8;
 
 #[allow(non_upper_case_globals)]
 pub const adc_unit_t_ADC_UNIT_1: adc_unit_t = 0;
