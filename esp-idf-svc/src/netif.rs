@@ -1,19 +1,22 @@
+use core::borrow::Borrow;
 use core::convert::TryInto;
 use core::ptr;
+use core::time::Duration;
 
 use ::log::*;
+use embedded_svc::event_bus::{ErrorType, EventBus};
 
 use embedded_svc::ipv4;
 
 use esp_idf_hal::mutex;
-use esp_idf_hal::peripheral::Peripheral;
 
 use esp_idf_sys::*;
 
-use crate::eventloop::{EspTypedEventDeserializer, EspTypedEventSource};
+use crate::eventloop::{EspSubscription, EspTypedEventDeserializer, EspTypedEventSource, System};
 use crate::handle::RawHandle;
 use crate::private::common::*;
 use crate::private::cstr::*;
+use crate::private::waitable::Waitable;
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 #[cfg_attr(feature = "std", derive(Hash))]
@@ -128,7 +131,7 @@ impl NetifConfiguration {
             key: "WIFI_AP_DEF".into(),
             description: "ap".into(),
             route_priority: 10,
-            ip_configuration: InterfaceIpConfiguration::Router(Default::default()),
+            ip_configuration: ipv4::Configuration::Router(Default::default()),
             stack: NetifStack::Ap,
             custom_mac: None,
         }
@@ -140,7 +143,7 @@ impl NetifConfiguration {
             key: "PPP_CL_DEF".into(),
             description: "ppp".into(),
             route_priority: 30,
-            ip_configuration: InterfaceIpConfiguration::Client(Default::default()),
+            ip_configuration: ipv4::Configuration::Client(Default::default()),
             stack: NetifStack::Ppp,
             custom_mac: None,
         }
@@ -221,7 +224,7 @@ impl EspNetif {
         let initial_mac = if let Some(custom_mac) = conf.custom_mac {
             custom_mac
         } else {
-            stack.default_mac()?.unwrap_or([0; 6])
+            conf.stack.default_mac()?.unwrap_or([0; 6])
         };
 
         let (mut esp_inherent_config, ip_info, dhcps, dns, secondary_dns, hostname) = match conf
@@ -500,7 +503,7 @@ impl Drop for EspNetif {
 impl RawHandle for EspNetif {
     type Handle = esp_netif_t;
 
-    unsafe fn handle(&self) -> Handle {
+    unsafe fn handle(&self) -> Self::Handle {
         self.0
     }
 }
@@ -538,7 +541,7 @@ pub enum IpEvent {
 }
 
 impl IpEvent {
-    pub fn is_for(&self, raw_handle: &impl RawHandle<netif_handle_t>) -> bool {
+    pub fn is_for(&self, raw_handle: &impl RawHandle<esp_netif_t>) -> bool {
         self.handle()
             .map(|handle| handle == unsafe { raw_handle.handle() })
             .unwrap_or(false)
@@ -670,7 +673,7 @@ where
     }
 
     fn on_ip_event(
-        handle: netif_handle_t,
+        handle: esp_netif_t,
         waitable: &Waitable<Status>,
         event: &IpEvent,
     ) -> Result<bool, EspError> {
@@ -715,15 +718,12 @@ impl EventBus<()> for EspNetifStatus {
     ) -> Result<Self::Subscription, Self::Error> {
         let handle = self.handle;
         let waitable = self.waitable.clone();
-        let cb = Arc::new(UnsafeCellSendSync(UnsafeCell::new(callback)));
 
         let subscription = self.sys_loop.subscribe(move |event: &IpEvent| {
             let notify = self.on_ip_event(handle, &waitable, event);
 
             if notify {
-                let cb_ref = unsafe { cb.0.get().as_mut().unwrap() };
-
-                (cb_ref)(&());
+                callback(&());
             }
         })?;
 

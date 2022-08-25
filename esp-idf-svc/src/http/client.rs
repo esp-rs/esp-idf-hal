@@ -240,7 +240,7 @@ impl Drop for EspHttpConnection {
 impl RawHandle for EspHttpConnection {
     type Handle = esp_http_client_handle_t;
 
-    unsafe fn handle(&self) -> Handle {
+    unsafe fn handle(&self) -> Self::Handle {
         self.raw_client
     }
 }

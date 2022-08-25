@@ -13,6 +13,7 @@ use esp_idf_hal::task;
 
 use esp_idf_sys::*;
 
+use crate::handle::RawHandle;
 use crate::private::cstr::RawCstrs;
 use crate::private::mutex::Mutex;
 
@@ -209,7 +210,7 @@ impl Clone for EspNotify {
 impl RawHandle for EspNotify {
     type Handle = TaskHandle_t;
 
-    unsafe fn handle(&self) -> Handle {
+    unsafe fn handle(&self) -> Self::Handle {
         self.task
     }
 }

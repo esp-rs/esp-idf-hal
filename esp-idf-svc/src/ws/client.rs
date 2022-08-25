@@ -11,6 +11,7 @@ use esp_idf_hal::delay::TickType;
 use esp_idf_sys::*;
 
 use crate::errors::EspIOError;
+use crate::handle::RawHandle;
 use crate::private::common::Newtype;
 use crate::private::cstr::RawCstrs;
 use crate::private::mutex::{Condvar, Mutex};
@@ -514,7 +515,7 @@ impl Drop for EspWebSocketClient {
 impl RawHandle for EspWebSocketClient {
     type Handle = esp_websocket_client_handle_t;
 
-    unsafe fn handle(&self) -> Handle {
+    unsafe fn handle(&self) -> Self::Handle {
         self.handle
     }
 }

@@ -80,7 +80,7 @@ impl Drop for EspTimer {
 impl RawHandle for EspTimer {
     type Handle = esp_timer_handle_t;
 
-    unsafe fn handle(&self) -> Handle {
+    unsafe fn handle(&self) -> Self::Handle {
         self.handle
     }
 }

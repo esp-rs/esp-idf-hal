@@ -291,7 +291,7 @@ pub struct EspMqttClient<S = ()> {
 impl<S> RawHandle for EspMqttClient<S> {
     type Handle = esp_mqtt_client_handle_t;
 
-    unsafe fn handle(&self) -> Handle {
+    unsafe fn handle(&self) -> Self::Handle {
         self.raw_client
     }
 }

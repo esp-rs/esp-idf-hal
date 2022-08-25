@@ -21,6 +21,7 @@ use esp_idf_hal::task;
 
 use esp_idf_sys::*;
 
+use crate::handle::RawHandle;
 use crate::private::cstr::RawCstrs;
 use crate::private::mutex;
 
@@ -306,7 +307,7 @@ where
 {
     type Handle = esp_event_handler_instance_t;
 
-    unsafe fn handle(&self) -> Handle {
+    unsafe fn handle(&self) -> Self::Handle {
         self.handler_instance
     }
 }
@@ -542,7 +543,7 @@ where
 impl<T> RawHandle for EspEventLoop<User<T>> {
     type Handle = esp_event_loop_handle_t;
 
-    unsafe fn handle(&self) -> Handle {
+    unsafe fn handle(&self) -> Self::Handle {
         self.0
     }
 }

@@ -5,7 +5,6 @@ use alloc::boxed::Box;
 use esp_idf_sys::*;
 
 use crate::private::mutex::{Mutex, RawMutex};
-use crate::wifi::WifiDriver;
 
 type Singleton<T> = Mutex<Option<Box<T>>>;
 

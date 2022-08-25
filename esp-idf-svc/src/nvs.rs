@@ -159,7 +159,7 @@ where
 impl RawHandle for EspNvsPartition<Custom> {
     type Handle = &CStr;
 
-    unsafe fn handle(&self) -> Handle {
+    unsafe fn handle(&self) -> Self::Handle {
         self.0.name().as_str()
     }
 }
@@ -190,7 +190,7 @@ impl<T: NvsPartitionId> EspNvs<T> {
         } else {
             esp!(unsafe {
                 nvs_open_from_partition(
-                    nvs.0.as_ptr(),
+                    partition.0.as_ptr(),
                     c_namespace.as_ptr(),
                     if read_write {
                         nvs_open_mode_t_NVS_READWRITE
@@ -217,7 +217,7 @@ impl<T: NvsPartitionId> Drop for EspNvs<T> {
 impl RawHandle for EspNvs<Custom> {
     type Handle = nvs_handle_t;
 
-    unsafe fn handle(&self) -> Handle {
+    unsafe fn handle(&self) -> Self::Handle {
         self.1
     }
 }

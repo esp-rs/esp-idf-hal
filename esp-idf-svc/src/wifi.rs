@@ -1,18 +1,16 @@
+use core::borrow::Borrow;
 use core::cell::UnsafeCell;
 use core::cmp;
 use core::ptr;
-use core::time::Duration;
 
 extern crate alloc;
 use alloc::sync::Arc;
 
 use ::log::*;
-use esp_idf_hal::peripheral::PeripheralRef;
 
 use enumset::*;
 
 use embedded_svc::event_bus::{ErrorType, EventBus};
-use embedded_svc::ipv4;
 use embedded_svc::wifi::*;
 
 use esp_idf_hal::modem::WifiModemPeripheral;
@@ -20,12 +18,12 @@ use esp_idf_hal::peripheral::{Peripheral, PeripheralRef};
 
 use esp_idf_sys::*;
 
+use crate::eventloop::EspEventLoop;
 use crate::eventloop::{
     EspSubscription, EspSystemEventLoop, EspTypedEventDeserializer, EspTypedEventSource, System,
 };
 use crate::netif::*;
-use crate::nvs::EspDefaultNvs;
-use crate::nvs::EspNvsPartition;
+use crate::nvs::EspDefaultNvsPartition;
 use crate::private::common::*;
 use crate::private::cstr::*;
 use crate::private::waitable::*;
@@ -198,11 +196,11 @@ pub struct WifiDriver<'d, M: WifiModemPeripheral> {
 impl<'d, M: WifiModemPeripheral> WifiDriver<'d, M> {
     #[cfg(all(feature = "alloc", esp_idf_comp_nvs_flash_enabled))]
     pub fn new(
-        modem: PeripheralRef<'a, M>,
+        modem: PeripheralRef<'d, M>,
         sysloop: EspSystemEventLoop,
         nvs: Option<EspDefaultNvsPartition>,
     ) -> Result<Self, EspError> {
-        crate::into_ref!(modem);
+        esp_idf_hal::into_ref!(modem);
 
         Self::init(nvs.is_sone())?;
 
@@ -341,8 +339,6 @@ impl<'d, M: WifiModemPeripheral> WifiDriver<'d, M> {
                     esp!(esp_wifi_set_mode(wifi_mode_t_WIFI_MODE_NULL))?;
                 }
                 info!("Wifi mode NULL set");
-
-                Status(ClientStatus::Stopped, ApStatus::Stopped)
             }
             Configuration::AccessPoint(ap_conf) => {
                 unsafe {
@@ -351,7 +347,6 @@ impl<'d, M: WifiModemPeripheral> WifiDriver<'d, M> {
                 info!("Wifi mode AP set");
 
                 self.set_ap_conf(ap_conf)?;
-                Status(ClientStatus::Stopped, ApStatus::Starting)
             }
             Configuration::Client(client_conf) => {
                 unsafe {
@@ -360,7 +355,6 @@ impl<'d, M: WifiModemPeripheral> WifiDriver<'d, M> {
                 info!("Wifi mode STA set");
 
                 self.set_client_conf(client_conf)?;
-                Status(ClientStatus::Starting, ApStatus::Stopped)
             }
             Configuration::Mixed(client_conf, ap_conf) => {
                 unsafe {
@@ -370,7 +364,6 @@ impl<'d, M: WifiModemPeripheral> WifiDriver<'d, M> {
 
                 self.set_client_conf(client_conf)?;
                 self.set_ap_conf(ap_conf)?;
-                Status(ClientStatus::Starting, ApStatus::Starting)
             }
         }
 
@@ -530,7 +523,7 @@ impl<'d, M: WifiModemPeripheral> WifiDriver<'d, M> {
     }
 }
 
-unsafe impl<'d, M: WifiModemPeripheral> Send for WifiDriver<d, M> {}
+unsafe impl<'d, M: WifiModemPeripheral> Send for WifiDriver<'d, M> {}
 
 impl<'d, M: WifiModemPeripheral> Drop for WifiDriver<'d, M> {
     fn drop(&mut self) {
@@ -574,7 +567,7 @@ pub struct EspWifi<'d, M>
 where
     M: WifiModemPeripheral,
 {
-    driver: EthDriver<'d, M>,
+    driver: WifiDriver<'d, M>,
     sta_netif: EspNetif,
     ap_netif: EspNetif,
 }
@@ -584,7 +577,7 @@ impl<'d, M> EspWifi<'d, M>
 where
     M: WifiModemPeripheral,
 {
-    pub fn new(driver: B) -> Result<Self, EspError> {
+    pub fn new(driver: WifiDriver<'d, M>) -> Result<Self, EspError> {
         Self::wrap(
             driver,
             EspNetif::new(&NetifStack::Sta.default_configuration()),
@@ -592,7 +585,11 @@ where
         )
     }
 
-    pub fn wrap(driver: B, sta_netif: EspNetif, ap_netif: EspNetif) -> Result<Self, EspError> {
+    pub fn wrap(
+        driver: WifiDriver<'d, M>,
+        sta_netif: EspNetif,
+        ap_netif: EspNetif,
+    ) -> Result<Self, EspError> {
         let glue_handle = unsafe { esp_eth_new_netif_glue(driver.handle()) };
 
         let this = Self {
@@ -610,11 +607,11 @@ where
         Ok(this)
     }
 
-    pub fn driver(&self) -> &EthDriver<'d, P> {
+    pub fn driver(&self) -> &WifiDriver<'d, M> {
         &self.driver
     }
 
-    pub fn driver_mut(&mut self) -> &mut EspNetif {
+    pub fn driver_mut(&mut self) -> &mut WifiDriver<'d, M> {
         &mut self.netif
     }
 
@@ -818,11 +815,11 @@ impl<'d, B, M: WifiModemPeripheral> WifiDriverStaStatus<'d, B, M>
 where
     B: Borrow<WifiDriver<'d, M>>,
 {
-    pub fn new(driver: B) -> Result<Self, EspError> {
+    pub fn new(driver: B, sysloop: &EspEventLoop<System>) -> Result<Self, EspError> {
         let waitable: Arc<Waitable<Shared>> = Arc::new(Waitable::new(Status::Unknown));
 
         let wifi_waitable = waitable.clone();
-        let wifi_subscription = sys_loop.subscribe(move |event: &WifiEvent| {
+        let wifi_subscription = sysloop.subscribe(move |event: &WifiEvent| {
             let mut status = wifi_waitable.state.lock();
 
             if Self::on_wifi_event(&mut status, event).unwrap() {
@@ -915,19 +912,13 @@ impl<'a> ErrorType for WifiDriver<'a> {
 }
 
 impl<'b> EventBus<()> for WifiDriver<'b> {
-    type Subscription = (EspSubscription<System>, EspSubscription<System>);
+    type Subscription = EspSubscription<System>;
 
     fn subscribe(
         &mut self,
         callback: impl for<'a> FnMut(&'a ()) + Send + 'static,
     ) -> Result<Self::Subscription, Self::Error> {
-        let wifi_cb = Arc::new(UnsafeCellSendSync(UnsafeCell::new(callback)));
-        let wifi_last_status = Arc::new(UnsafeCellSendSync(UnsafeCell::new(self.get_status())));
-        let wifi_waitable = self.waitable.clone();
-
-        let ip_cb = wifi_cb.clone();
-        let ip_last_status = wifi_last_status.clone();
-        let ip_waitable = wifi_waitable.clone();
+        let waitable = self.waitable.clone();
 
         let subscription1 =
             self.sys_loop

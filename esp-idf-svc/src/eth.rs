@@ -1,22 +1,21 @@
-use core::cell::UnsafeCell;
+use core::borrow::Borrow;
 use core::fmt::Debug;
 use core::ptr;
 use core::time::Duration;
 
 use ::log::*;
-
-use enumset::*;
+use esp_idf_hal::gpio::{InputPin, OutputPin};
 
 extern crate alloc;
 use alloc::sync::Arc;
 
 use embedded_svc::eth::*;
-use embedded_svc::event_bus::{ErrorType, EventBus};
-use embedded_svc::ipv4;
+use embedded_svc::event_bus::EventBus;
 
 use esp_idf_hal::mac::MAC;
 use esp_idf_hal::peripheral::{Peripheral, PeripheralRef};
 
+use crate::handle::RawHandle;
 #[cfg(esp_idf_comp_esp_netif_enabled)]
 use crate::netif::*;
 
@@ -39,10 +38,11 @@ use esp_idf_hal::{spi, units::Hertz};
 use esp_idf_sys::*;
 
 use crate::eventloop::{
-    EspSubscription, EspSystemEventLoop, EspTypedEventDeserializer, EspTypedEventSource, System,
+    EspEventLoop, EspSubscription, EspSystemEventLoop, EspTypedEventDeserializer,
+    EspTypedEventSource, System,
 };
+#[cfg(esp_idf_comp_esp_netif_enabled)]
 use crate::netif::*;
-use crate::private::common::UnsafeCellSendSync;
 use crate::private::waitable::*;
 
 #[cfg(all(feature = "nightly", feature = "experimental"))]
@@ -156,11 +156,11 @@ impl<'d> EthDriver<'d, MAC> {
         phy_addr: Option<u32>,
         sysloop: EspSystemEventLoop,
     ) -> Result<Self, EspError> {
-        crate::into_ref!(mac);
+        esp_idf_hal::into_ref!(mac);
 
         let eth = Self::init(
             mac,
-            Self::rmii_mac(clk_config),
+            Self::rmii_mac(&rmii_ref_clk_config),
             Self::rmii_phy(chipset, &rst, phy_addr)?,
             None,
             None,
@@ -437,7 +437,7 @@ impl<'d, P: Spi> EthDriver<'d, P> {
 
 impl<'d, P> EthDriver<'d, P> {
     fn init(
-        peripheral: PeripheralRef<P = P> + 'd,
+        peripheral: PeripheralRef<'d, P>,
         mac: *mut esp_eth_mac_t,
         phy: *mut esp_eth_phy_t,
         mac_addr: Option<&[u8; 6]>,
@@ -476,7 +476,7 @@ impl<'d, P> EthDriver<'d, P> {
     }
 
     pub fn start(&mut self) -> Result<(), EspError> {
-        esp!(unsafe { esp_eth_start(shared.handle) })?;
+        esp!(unsafe { esp_eth_start(self.handle) })?;
 
         info!("Start requested");
 
@@ -486,7 +486,7 @@ impl<'d, P> EthDriver<'d, P> {
     pub fn stop(&mut self) -> Result<(), EspError> {
         info!("Stopping");
 
-        let err = unsafe { esp_eth_stop(shared.handle) };
+        let err = unsafe { esp_eth_stop(self.handle) };
         if err != ESP_ERR_INVALID_STATE as i32 {
             esp!(err)?;
         }
@@ -564,10 +564,20 @@ impl<'d, P> EthDriver<'d, P> {
     }
 }
 
-impl<'a> Eth for EthDriver<'a> {
+impl<'d, P> Eth for EthDriver<'d, P> {
     type Error = EspError;
 
-    // TODO
+    fn start(&mut self) -> Result<(), Self::Error> {
+        EthDriver::start(self)
+    }
+
+    fn stop(&mut self) -> Result<(), Self::Error> {
+        EthDriver::stop(self)
+    }
+
+    fn is_up(&self) -> Result<bool, Self::Error> {
+        EthDriver::is_up(self)
+    }
 }
 
 unsafe impl<'d, P> Send for EthDriver<'d, P> {}
@@ -586,7 +596,7 @@ impl<'d, P> Drop for EthDriver<'d, P> {
 }
 
 impl<'d, P> RawHandle for EthDriver<'d, P> {
-    type Handle = eth_handle_t;
+    type Handle = esp_eth_handle_t;
 
     fn handle(&self) -> Self::Handle {
         self.handle
@@ -602,11 +612,11 @@ pub struct EspEth<'d, P> {
 
 #[cfg(esp_idf_comp_esp_netif_enabled)]
 impl<'d, P> EspEth<'d, P> {
-    pub fn new(driver: B) -> Result<Self, EspError> {
+    pub fn new(driver: EthDriver<'d, P>) -> Result<Self, EspError> {
         Self::wrap(driver, EspNetif::new(NetifStack::Eth))
     }
 
-    pub fn wrap(driver: B, netif: EspNetif) -> Result<Self, EspError> {
+    pub fn wrap(driver: EthDriver<'d, P>, netif: EspNetif) -> Result<Self, EspError> {
         let glue_handle = unsafe { esp_eth_new_netif_glue(driver.handle()) };
 
         let this = Self {
@@ -615,7 +625,7 @@ impl<'d, P> EspEth<'d, P> {
             glue_handle,
         };
 
-        esp!(unsafe { esp_netif_attach(netif.1, self.glue_handle) })?;
+        esp!(unsafe { esp_netif_attach(netif.1, glue_handle) })?;
 
         Ok(this)
     }
@@ -650,7 +660,7 @@ impl<'d, P> Drop for EspEth<'d, P> {
 impl<'d, P> RawHandle for EspEth<'d, P> {
     type Handle = *mut esp_eth_netif_glue_t;
 
-    unsafe fn handle(&self) -> Handle {
+    unsafe fn handle(&self) -> Self::Handle {
         self.glue_handle
     }
 }
@@ -684,7 +694,7 @@ pub struct EspRawEth<'d, P> {
 }
 
 impl<'d, P> EspRawEth<'d, P> {
-    pub fn new<C>(driver: B, callback: C) -> Result<Self, EspError>
+    pub fn new<C>(driver: EthDriver<'d, P>, callback: C) -> Result<Self, EspError>
     where
         C: for<'a> FnMut(&[u8]),
     {
@@ -693,7 +703,7 @@ impl<'d, P> EspRawEth<'d, P> {
         let unsafe_callback = UnsafeCallback::from(&mut callback);
 
         unsafe {
-            esp_eth_update_input_path(driver.handle(), handle, unsafe_callback.as_ptr());
+            esp_eth_update_input_path(driver.handle(), Self::handle, unsafe_callback.as_ptr());
         }
 
         Ok(Self {
@@ -723,25 +733,25 @@ impl<'d, P> EspRawEth<'d, P> {
         event_handler_arg: *const c_types::c_void,
     ) {
         unsafe {
-            UnsafeCallback::from_ptr(event_handler_arg).call(slice::from_raw_parts(buf, len));
+            UnsafeCallback::from_ptr(event_handler_arg).call(core::slice::from_raw_parts(buf, len));
         }
     }
 }
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub enum EthEvent {
-    Started(eth_handle_t),
-    Stopped(eth_handle_t),
-    Connected(eth_handle_t),
-    Disconnected(eth_handle_t),
+    Started(esp_eth_handle_t),
+    Stopped(esp_eth_handle_t),
+    Connected(esp_eth_handle_t),
+    Disconnected(esp_eth_handle_t),
 }
 
 impl EthEvent {
-    pub fn is_for(&self, raw_handle: impl RawHandle<Handle = eth_handle_t>) -> bool {
-        self.handle() == raw_handle.handle()
+    pub fn is_for(&self, raw_handle: impl RawHandle<Handle = esp_eth_handle_t>) -> bool {
+        self.handle() == unsafe { raw_handle.handle() }
     }
 
-    pub fn handle(&self) -> eth_handle_t {
+    pub fn handle(&self) -> esp_eth_handle_t {
         let handle = match self {
             Self::Started(handle) => *handle,
             Self::Stopped(handle) => *handle,
@@ -749,7 +759,7 @@ impl EthEvent {
             Self::Disconnected(handle) => *handle,
         };
 
-        handle as eth_handle_t
+        handle as esp_eth_handle_t
     }
 }
 
@@ -788,25 +798,25 @@ impl EspTypedEventDeserializer<EthEvent> for EthEvent {
 pub struct EthStatus<B, R>
 where
     B: Borrow<R>,
-    R: RawHandle<Handle = eth_handle_t>,
+    R: RawHandle<Handle = esp_eth_handle_t>,
 {
     driver: B,
-    waitable: Arc<Waitable<Status>>,
+    waitable: Arc<Waitable<bool>>,
     _subscription: EspSubscription<System>,
 }
 
 impl<B, R> EthStatus<B, R>
 where
     B: Borrow<R>,
-    R: RawHandle<Handle = eth_handle_t>,
+    R: RawHandle<Handle = esp_eth_handle_t>,
 {
-    pub fn new(driver: B) -> Result<Self, EspError> {
+    pub fn new(driver: B, sysloop: &EspEventLoop<System>) -> Result<Self, EspError> {
         let waitable: Arc<Waitable<Status>> = Arc::new(Waitable::new(Status::Disconnected));
 
         let eth_waitable = waitable.clone();
         let driver_handle = driver.handle;
 
-        let subscription = sys_loop.subscribe(move |event: &EthEvent| {
+        let subscription = sysloop.subscribe(move |event: &EthEvent| {
             let mut status = eth_waitable.state.lock();
 
             if Self::on_eth_event(driver_handle, &mut status, event).unwrap() {
@@ -882,27 +892,25 @@ where
 impl<B, R> EventBus<()> for EthStatus<B, R>
 where
     B: Borrow<R>,
-    R: RawHandle<Handle = eth_handle_t>,
+    R: RawHandle<Handle = esp_eth_handle_t>,
 {
     type Subscription = (EspSubscription<System>, EspSubscription<System>);
 
     fn subscribe(
-        &mut self,
+        &self,
         callback: impl for<'a> FnMut(&'a ()) + Send + 'static,
     ) -> Result<Self::Subscription, Self::Error> {
         let handle = unsafe { self.driver.handle() };
-        let cb = Arc::new(UnsafeCellSendSync(UnsafeCell::new(callback)));
         let waitable = self.waitable.clone();
+        let mut last_up = self.is_up();
 
         let subscription = self.sys_loop.subscribe(move |event: &EthEvent| {
             let notify = {
                 if handle == event.handle() {
-                    let guard = eth_waitable.state.lock();
+                    let guard = waitable.state.lock();
 
-                    let last_status_ref = unsafe { eth_last_status.0.get().as_mut().unwrap() };
-
-                    if *last_status_ref != shared.status {
-                        *last_status_ref = shared.status.clone();
+                    if last_up != *guard {
+                        last_up = *guard;
 
                         true
                     } else {
@@ -914,55 +922,11 @@ where
             };
 
             if notify {
-                let cb_ref = unsafe { eth_cb.0.get().as_mut().unwrap() };
-
-                (cb_ref)(&());
+                callback(&());
             }
         })?;
 
         Ok(subscription)
-    }
-}
-
-pub struct EspEth<'d, P> {
-    driver: EthDriver<'d, P>,
-    bridge: EthNetifBridge<UnsafeHandle<eth_handle_t>, UnsafeHandle<eth_handle_t>>,
-    status: EthStatus<UnsafeHandle<eth_handle_t>, UnsafeHandle<eth_handle_t>>,
-    netif_status: NetifStatus<UnsafeHandle<netif_handle_t>, UnsafeHandle<netif_handle_t>>,
-}
-
-impl<'d, P> EspEth<'d, P> {
-    pub fn driver(&mut self) -> &mut EthDriver<'d, P> {
-        &mut self.driver
-    }
-
-    pub fn status(
-        &mut self,
-    ) -> &mut EthStatus<impl RawHandle<Handle = eth_handle_t>, impl RawHandle<Handle = eth_handle_t>>
-    {
-        &mut self.status
-    }
-
-    pub fn netif(&mut self) -> &mut EspNetif {
-        self.bridge.netif()
-    }
-
-    pub fn netif_status(
-        &mut self,
-    ) -> &mut EthStatus<
-        impl RawHandle<Handle = netif_handle_t>,
-        impl RawHandle<Handle = netif_handle_t>,
-    > {
-        &mut self.status
-    }
-}
-
-impl<'d, P> Drop for EspEth<'d, P> {
-    fn drop(&mut self) {
-        drop(netif_status);
-        drop(status);
-        drop(bridge);
-        drop(driver);
     }
 }
 

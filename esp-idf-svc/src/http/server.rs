@@ -25,6 +25,7 @@ use esp_idf_sys::*;
 use uncased::{Uncased, UncasedStr};
 
 use crate::errors::EspIOError;
+use crate::handle::RawHandle;
 use crate::private::common::Newtype;
 use crate::private::cstr::{CStr, CString};
 use crate::private::mutex::{Mutex, RawMutex};
@@ -309,7 +310,7 @@ impl EspHttpServer {
         Box::new(move |raw_req| {
             let mut connection = EspHttpConnection::new(unsafe { raw_req.as_mut().unwrap() });
 
-            let mut result = connection.handle(&handler);
+            let mut result = EspHttpConnection::handle(&mut connection, &handler);
 
             if result.is_ok() {
                 result = connection.complete();
@@ -361,7 +362,7 @@ impl Drop for EspHttpServer {
 impl RawHandle for EspHttpServer {
     type Handle = httpd_handle_t;
 
-    unsafe fn handle(&self) -> Handle {
+    unsafe fn handle(&self) -> Self::Handle {
         self.sd
     }
 }
@@ -416,10 +417,10 @@ where
 
 pub struct EspHttpRequest<'a>(&'a mut httpd_req_t);
 
-impl RawHandle for EspHttpRequest {
+impl<'a> RawHandle for EspHttpRequest<'a> {
     type Handle = *mut httpd_req_t;
 
-    unsafe fn handle(&self) -> Handle {
+    unsafe fn handle(&self) -> Self::Handle {
         self.0.as_ptr()
     }
 }
@@ -554,7 +555,7 @@ impl<'a> EspHttpConnection<'a> {
 impl<'a> RawHandle for EspHttpConnection<'a> {
     type Handle = *mut httpd_req_t;
 
-    unsafe fn handle(&self) -> Handle {
+    unsafe fn handle(&self) -> Self::Handle {
         self.request.handle()
     }
 }
