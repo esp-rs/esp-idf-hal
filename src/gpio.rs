@@ -233,19 +233,62 @@ impl From<Level> for bool {
     }
 }
 
-pub trait InputMode {}
-pub trait OutputMode {}
+pub trait InputMode {
+    const RTC: bool;
+}
+
+pub trait OutputMode {
+    const RTC: bool;
+}
 
 pub struct Disabled;
 pub struct Input;
 pub struct Output;
 pub struct InputOutput;
+#[cfg(all(not(feature = "riscv-ulp-hal"), not(esp32c3)))]
+pub struct RtcDisabled;
+#[cfg(all(not(feature = "riscv-ulp-hal"), not(esp32c3)))]
+pub struct RtcInput;
+#[cfg(all(not(feature = "riscv-ulp-hal"), not(esp32c3)))]
+pub struct RtcOutput;
+#[cfg(all(not(feature = "riscv-ulp-hal"), not(esp32c3)))]
+pub struct RtcInputOutput;
 
-impl InputMode for Input {}
-impl InputMode for InputOutput {}
+impl InputMode for Input {
+    const RTC: bool = false;
+}
 
-impl OutputMode for Output {}
-impl OutputMode for InputOutput {}
+impl InputMode for InputOutput {
+    const RTC: bool = false;
+}
+
+impl OutputMode for Output {
+    const RTC: bool = false;
+}
+
+impl OutputMode for InputOutput {
+    const RTC: bool = false;
+}
+
+#[cfg(all(not(feature = "riscv-ulp-hal"), not(esp32c3)))]
+impl InputMode for RtcInput {
+    const RTC: bool = true;
+}
+
+#[cfg(all(not(feature = "riscv-ulp-hal"), not(esp32c3)))]
+impl InputMode for RtcInputOutput {
+    const RTC: bool = true;
+}
+
+#[cfg(all(not(feature = "riscv-ulp-hal"), not(esp32c3)))]
+impl OutputMode for RtcOutput {
+    const RTC: bool = true;
+}
+
+#[cfg(all(not(feature = "riscv-ulp-hal"), not(esp32c3)))]
+impl OutputMode for RtcInputOutput {
+    const RTC: bool = true;
+}
 
 /// A driver for a GPIO pin.
 ///
@@ -275,7 +318,10 @@ impl<'d, T: Pin, MODE> PinDriver<'d, T, MODE> {
         .into_disabled()
     }
 
+    /// Put the pin into disabled mode.
     pub fn into_disabled(mut self) -> Result<PinDriver<'d, T, Disabled>, EspError> {
+        self.reset()?;
+
         esp!(unsafe { gpio_set_direction(self.pin.pin(), gpio_mode_t_GPIO_MODE_DISABLE) })?;
 
         Ok(PinDriver {
@@ -386,6 +432,142 @@ impl<'d, T: Pin, MODE> PinDriver<'d, T, MODE> {
         })
     }
 
+    /// Put the pin into RTC disabled mode.
+    #[inline]
+    #[cfg(all(not(feature = "riscv-ulp-hal"), not(esp32c3)))]
+    pub fn into_rtc_disabled(mut self) -> Result<PinDriver<'d, T, RtcDisabled>, EspError> {
+        self.rtc_reset()?;
+
+        esp!(unsafe {
+            rtc_gpio_set_direction(self.pin.pin(), rtc_gpio_mode_t_RTC_GPIO_MODE_DISABLED)
+        })?;
+
+        Ok(PinDriver {
+            pin: unsafe { self.pin.clone_unchecked() },
+            _mode: PhantomData,
+        })
+    }
+
+    /// Put the pin into RTC input mode.
+    #[inline]
+    #[cfg(all(not(feature = "riscv-ulp-hal"), not(esp32c3)))]
+    pub fn into_rtc_input(mut self) -> Result<PinDriver<'d, T, RtcInput>, EspError>
+    where
+        T: InputPin,
+    {
+        self.rtc_reset()?;
+
+        esp!(unsafe {
+            rtc_gpio_set_direction(self.pin.pin(), rtc_gpio_mode_t_RTC_GPIO_MODE_INPUT_ONLY)
+        })?;
+
+        Ok(PinDriver {
+            pin: unsafe { self.pin.clone_unchecked() },
+            _mode: PhantomData,
+        })
+    }
+
+    /// Put the pin into RTC input + output mode.
+    ///
+    /// This is commonly used for "open drain" mode.
+    /// the hardware will drive the line low if you set it to low, and will leave it floating if you set
+    /// it to high, in which case you can read the input to figure out whether another device
+    /// is driving the line low.
+    ///
+    /// The pin level will be whatever was set before (or low by default). If you want it to begin
+    /// at a specific level, call `set_high`/`set_low` on the pin first.
+    #[inline]
+    #[cfg(all(not(feature = "riscv-ulp-hal"), not(esp32c3)))]
+    pub fn into_rtc_input_output(mut self) -> Result<PinDriver<'d, T, RtcInputOutput>, EspError>
+    where
+        T: InputPin + OutputPin + RTCPin,
+    {
+        self.rtc_reset()?;
+
+        esp!(unsafe {
+            rtc_gpio_set_direction(self.pin.pin(), rtc_gpio_mode_t_RTC_GPIO_MODE_INPUT_OUTPUT)
+        })?;
+
+        Ok(PinDriver {
+            pin: unsafe { self.pin.clone_unchecked() },
+            _mode: PhantomData,
+        })
+    }
+
+    /// Put the pin into RTC input + output Open Drain mode.
+    ///
+    /// This is commonly used for "open drain" mode.
+    /// the hardware will drive the line low if you set it to low, and will leave it floating if you set
+    /// it to high, in which case you can read the input to figure out whether another device
+    /// is driving the line low.
+    ///
+    /// The pin level will be whatever was set before (or low by default). If you want it to begin
+    /// at a specific level, call `set_high`/`set_low` on the pin first.
+    #[inline]
+    #[cfg(all(not(feature = "riscv-ulp-hal"), not(esp32c3)))]
+    pub fn into_rtc_input_output_od(mut self) -> Result<PinDriver<'d, T, RtcInputOutput>, EspError>
+    where
+        T: InputPin + OutputPin + RTCPin,
+    {
+        self.rtc_reset()?;
+
+        esp!(unsafe {
+            rtc_gpio_set_direction(
+                self.pin.pin(),
+                rtc_gpio_mode_t_RTC_GPIO_MODE_INPUT_OUTPUT_OD,
+            )
+        })?;
+
+        Ok(PinDriver {
+            pin: unsafe { self.pin.clone_unchecked() },
+            _mode: PhantomData,
+        })
+    }
+
+    /// Put the pin into RTC output mode.
+    ///
+    /// The pin level will be whatever was set before (or low by default). If you want it to begin
+    /// at a specific level, call `set_high`/`set_low` on the pin first.
+    #[inline]
+    #[cfg(all(not(feature = "riscv-ulp-hal"), not(esp32c3)))]
+    pub fn into_rtc_output(mut self) -> Result<PinDriver<'d, T, RtcOutput>, EspError>
+    where
+        T: OutputPin + RTCPin,
+    {
+        self.rtc_reset()?;
+
+        esp!(unsafe {
+            rtc_gpio_set_direction(self.pin.pin(), rtc_gpio_mode_t_RTC_GPIO_MODE_OUTPUT_ONLY)
+        })?;
+
+        Ok(PinDriver {
+            pin: unsafe { self.pin.clone_unchecked() },
+            _mode: PhantomData,
+        })
+    }
+
+    /// Put the pin into RTC output Open Drain mode.
+    ///
+    /// The pin level will be whatever was set before (or low by default). If you want it to begin
+    /// at a specific level, call `set_high`/`set_low` on the pin first.
+    #[inline]
+    #[cfg(all(not(feature = "riscv-ulp-hal"), not(esp32c3)))]
+    pub fn into_rtc_output_od(mut self) -> Result<PinDriver<'d, T, RtcOutput>, EspError>
+    where
+        T: OutputPin + RTCPin,
+    {
+        self.rtc_reset()?;
+
+        esp!(unsafe {
+            rtc_gpio_set_direction(self.pin.pin(), rtc_gpio_mode_t_RTC_GPIO_MODE_OUTPUT_OD)
+        })?;
+
+        Ok(PinDriver {
+            pin: unsafe { self.pin.clone_unchecked() },
+            _mode: PhantomData,
+        })
+    }
+
     #[inline]
     #[cfg(not(feature = "riscv-ulp-hal"))]
     pub fn get_drive_strength(&self) -> Result<DriveStrength, EspError>
@@ -394,7 +576,15 @@ impl<'d, T: Pin, MODE> PinDriver<'d, T, MODE> {
     {
         let mut cap: gpio_drive_cap_t = 0;
 
-        esp!(unsafe { gpio_get_drive_capability(self.pin.pin(), &mut cap as *mut _) })?;
+        if MODE::RTC {
+            #[cfg(all(not(feature = "riscv-ulp-hal"), not(esp32c3)))]
+            esp!(unsafe { rtc_gpio_get_drive_capability(self.pin.pin(), &mut cap as *mut _) })?;
+
+            #[cfg(any(feature = "riscv-ulp-hal", esp32c3))]
+            unreachable!();
+        } else {
+            esp!(unsafe { gpio_get_drive_capability(self.pin.pin(), &mut cap as *mut _) })?;
+        }
 
         Ok(cap.into())
     }
@@ -405,10 +595,17 @@ impl<'d, T: Pin, MODE> PinDriver<'d, T, MODE> {
     where
         MODE: OutputMode,
     {
-        esp_result!(
-            unsafe { gpio_set_drive_capability(self.pin.pin(), strength.into()) },
-            ()
-        )
+        if MODE::RTC {
+            #[cfg(all(not(feature = "riscv-ulp-hal"), not(esp32c3)))]
+            esp!(unsafe { rtc_gpio_set_drive_capability(self.pin.pin(), strength.into()) })?;
+
+            #[cfg(any(feature = "riscv-ulp-hal", esp32c3))]
+            unreachable!();
+        } else {
+            esp!(unsafe { gpio_set_drive_capability(self.pin.pin(), strength.into()) })?;
+        }
+
+        Ok(())
     }
 
     #[inline]
@@ -432,7 +629,19 @@ impl<'d, T: Pin, MODE> PinDriver<'d, T, MODE> {
     where
         MODE: InputMode,
     {
-        if unsafe { gpio_get_level(self.pin.pin()) } != 0 {
+        if MODE::RTC {
+            #[cfg(all(not(feature = "riscv-ulp-hal"), not(esp32c3)))]
+            let mode = if unsafe { rtc_gpio_get_level(self.pin.pin()) } != 0 {
+                Level::High
+            } else {
+                Level::Low
+            };
+
+            #[cfg(any(feature = "riscv-ulp-hal", esp32c3))]
+            let mode = unreachable!();
+
+            mode
+        } else if unsafe { gpio_get_level(self.pin.pin()) } != 0 {
             Level::High
         } else {
             Level::Low
@@ -463,6 +672,8 @@ impl<'d, T: Pin, MODE> PinDriver<'d, T, MODE> {
     where
         MODE: OutputMode,
     {
+        // TODO: Implement for RTC mode
+
         let pin = self.pin.pin() as u32;
 
         #[cfg(esp32c3)]
@@ -524,7 +735,17 @@ impl<'d, T: Pin, MODE> PinDriver<'d, T, MODE> {
             Level::High => 1,
         };
 
-        esp_result!(unsafe { gpio_set_level(self.pin.pin(), on) }, ())
+        if MODE::RTC {
+            #[cfg(all(not(feature = "riscv-ulp-hal"), not(esp32c3)))]
+            esp!(unsafe { rtc_gpio_set_level(self.pin.pin(), on) })?;
+
+            #[cfg(any(feature = "riscv-ulp-hal", esp32c3))]
+            unreachable!();
+        } else {
+            esp!(unsafe { gpio_set_level(self.pin.pin(), on) })?;
+        }
+
+        Ok(())
     }
 
     /// Toggle pin output
@@ -576,10 +797,36 @@ impl<'d, T: Pin, MODE> PinDriver<'d, T, MODE> {
         T: InputPin + OutputPin,
         MODE: InputMode,
     {
-        esp_result!(
-            unsafe { gpio_set_pull_mode(self.pin.pin(), pull.into()) },
-            ()
-        )
+        if MODE::RTC {
+            #[cfg(all(not(feature = "riscv-ulp-hal"), not(esp32c3)))]
+            unsafe {
+                match pull {
+                    Pull::Down => {
+                        esp!(rtc_gpio_pulldown_en(self.pin.pin()))?;
+                        esp!(rtc_gpio_pullup_dis(self.pin.pin()))?;
+                    }
+                    Pull::Up => {
+                        esp!(rtc_gpio_pulldown_dis(self.pin.pin()))?;
+                        esp!(rtc_gpio_pullup_en(self.pin.pin()))?;
+                    }
+                    Pull::UpDown => {
+                        esp!(rtc_gpio_pulldown_en(self.pin.pin()))?;
+                        esp!(rtc_gpio_pullup_en(self.pin.pin()))?;
+                    }
+                    Pull::Floating => {
+                        esp!(rtc_gpio_pulldown_dis(self.pin.pin()))?;
+                        esp!(rtc_gpio_pullup_dis(self.pin.pin()))?;
+                    }
+                }
+            }
+
+            #[cfg(any(feature = "riscv-ulp-hal", esp32c3))]
+            unreachable!();
+        } else {
+            esp!(unsafe { gpio_set_pull_mode(self.pin.pin(), pull.into()) })?;
+        }
+
+        Ok(())
     }
 
     /// # Safety
@@ -625,18 +872,33 @@ impl<'d, T: Pin, MODE> PinDriver<'d, T, MODE> {
         res
     }
 
-    // fn set_analog_atten(&mut self, atten: adc_atten_t) -> Result<(), EspError> {
-    //     self.reset()?;
-    //     esp!(unsafe { adc1_config_channel_atten($adc, atten) })?;
-
-    //     Ok(())
-    // }
+    #[cfg(not(feature = "riscv-ulp-hal"))]
+    fn rtc_reset(&mut self) -> Result<(), EspError> {
+        rtc_reset_pin(self.pin.pin())
+    }
 }
 
 impl<'d, T: Pin, MODE> Drop for PinDriver<'d, T, MODE> {
     fn drop(&mut self) {
         esp!(unsafe { gpio_set_direction(self.pin.pin(), gpio_mode_t_GPIO_MODE_DISABLE) }).unwrap();
     }
+}
+
+#[cfg(not(feature = "riscv-ulp-hal"))]
+pub(crate) fn rtc_reset_pin(pin: i32) -> Result<(), EspError> {
+    #[cfg(feature = "alloc")]
+    {
+        esp!(unsafe { gpio_intr_disable(pin) })?;
+        esp!(unsafe { gpio_set_intr_type(pin, gpio_int_type_t_GPIO_INTR_DISABLE) })?;
+        unsafe { unregister_irq_handler(pin as usize) };
+    }
+
+    esp!(unsafe { gpio_reset_pin(pin) })?;
+
+    #[cfg(all(not(feature = "riscv-ulp-hal"), not(esp32c3)))]
+    esp!(unsafe { rtc_gpio_init(pin) })?;
+
+    Ok(())
 }
 
 impl<'d, T: Pin, MODE> embedded_hal_0_2::digital::v2::InputPin for PinDriver<'d, T, MODE>

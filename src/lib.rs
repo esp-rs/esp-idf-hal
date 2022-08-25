@@ -128,6 +128,7 @@ macro_rules! embedded_hal_error {
     };
 }
 
+#[macro_export]
 #[allow(unused_macros)]
 macro_rules! into_ref {
     ($($name:ident),*) => {
@@ -178,5 +179,3 @@ pub(crate) use embedded_hal_error;
 pub(crate) use impl_peripheral;
 #[allow(unused_imports)]
 pub(crate) use impl_peripheral_trait;
-#[allow(unused_imports)]
-pub(crate) use into_ref;
