@@ -245,13 +245,13 @@ pub struct Disabled;
 pub struct Input;
 pub struct Output;
 pub struct InputOutput;
-#[cfg(not(feature = "riscv-ulp-hal"))]
+#[cfg(all(not(feature = "riscv-ulp-hal"), not(esp32c3)))]
 pub struct RtcDisabled;
-#[cfg(not(feature = "riscv-ulp-hal"))]
+#[cfg(all(not(feature = "riscv-ulp-hal"), not(esp32c3)))]
 pub struct RtcInput;
-#[cfg(not(feature = "riscv-ulp-hal"))]
+#[cfg(all(not(feature = "riscv-ulp-hal"), not(esp32c3)))]
 pub struct RtcOutput;
-#[cfg(not(feature = "riscv-ulp-hal"))]
+#[cfg(all(not(feature = "riscv-ulp-hal"), not(esp32c3)))]
 pub struct RtcInputOutput;
 
 impl InputMode for Input {
@@ -434,7 +434,7 @@ impl<'d, T: Pin, MODE> PinDriver<'d, T, MODE> {
 
     /// Put the pin into RTC disabled mode.
     #[inline]
-    #[cfg(not(feature = "riscv-ulp-hal"))]
+    #[cfg(all(not(feature = "riscv-ulp-hal"), not(esp32c3)))]
     pub fn into_rtc_disabled(mut self) -> Result<PinDriver<'d, T, RtcDisabled>, EspError> {
         self.rtc_reset()?;
 
@@ -450,7 +450,7 @@ impl<'d, T: Pin, MODE> PinDriver<'d, T, MODE> {
 
     /// Put the pin into RTC input mode.
     #[inline]
-    #[cfg(not(feature = "riscv-ulp-hal"))]
+    #[cfg(all(not(feature = "riscv-ulp-hal"), not(esp32c3)))]
     pub fn into_rtc_input(mut self) -> Result<PinDriver<'d, T, RtcInput>, EspError>
     where
         T: InputPin,
@@ -477,7 +477,7 @@ impl<'d, T: Pin, MODE> PinDriver<'d, T, MODE> {
     /// The pin level will be whatever was set before (or low by default). If you want it to begin
     /// at a specific level, call `set_high`/`set_low` on the pin first.
     #[inline]
-    #[cfg(not(feature = "riscv-ulp-hal"))]
+    #[cfg(all(not(feature = "riscv-ulp-hal"), not(esp32c3)))]
     pub fn into_rtc_input_output(mut self) -> Result<PinDriver<'d, T, RtcInputOutput>, EspError>
     where
         T: InputPin + OutputPin + RTCPin,
@@ -504,7 +504,7 @@ impl<'d, T: Pin, MODE> PinDriver<'d, T, MODE> {
     /// The pin level will be whatever was set before (or low by default). If you want it to begin
     /// at a specific level, call `set_high`/`set_low` on the pin first.
     #[inline]
-    #[cfg(not(feature = "riscv-ulp-hal"))]
+    #[cfg(all(not(feature = "riscv-ulp-hal"), not(esp32c3)))]
     pub fn into_rtc_input_output_od(mut self) -> Result<PinDriver<'d, T, RtcInputOutput>, EspError>
     where
         T: InputPin + OutputPin + RTCPin,
@@ -529,7 +529,7 @@ impl<'d, T: Pin, MODE> PinDriver<'d, T, MODE> {
     /// The pin level will be whatever was set before (or low by default). If you want it to begin
     /// at a specific level, call `set_high`/`set_low` on the pin first.
     #[inline]
-    #[cfg(not(feature = "riscv-ulp-hal"))]
+    #[cfg(all(not(feature = "riscv-ulp-hal"), not(esp32c3)))]
     pub fn into_rtc_output(mut self) -> Result<PinDriver<'d, T, RtcOutput>, EspError>
     where
         T: OutputPin + RTCPin,
@@ -551,7 +551,7 @@ impl<'d, T: Pin, MODE> PinDriver<'d, T, MODE> {
     /// The pin level will be whatever was set before (or low by default). If you want it to begin
     /// at a specific level, call `set_high`/`set_low` on the pin first.
     #[inline]
-    #[cfg(not(feature = "riscv-ulp-hal"))]
+    #[cfg(all(not(feature = "riscv-ulp-hal"), not(esp32c3)))]
     pub fn into_rtc_output_od(mut self) -> Result<PinDriver<'d, T, RtcOutput>, EspError>
     where
         T: OutputPin + RTCPin,
@@ -577,7 +577,11 @@ impl<'d, T: Pin, MODE> PinDriver<'d, T, MODE> {
         let mut cap: gpio_drive_cap_t = 0;
 
         if MODE::RTC {
+            #[cfg(not(esp32c3))]
             esp!(unsafe { rtc_gpio_get_drive_capability(self.pin.pin(), &mut cap as *mut _) })?;
+
+            #[cfg(esp32c3)]
+            unreachable!();
         } else {
             esp!(unsafe { gpio_get_drive_capability(self.pin.pin(), &mut cap as *mut _) })?;
         }
@@ -592,16 +596,16 @@ impl<'d, T: Pin, MODE> PinDriver<'d, T, MODE> {
         MODE: OutputMode,
     {
         if MODE::RTC {
-            esp_result!(
-                unsafe { rtc_gpio_set_drive_capability(self.pin.pin(), strength.into()) },
-                ()
-            )
+            #[cfg(not(esp32c3))]
+            esp!(unsafe { rtc_gpio_set_drive_capability(self.pin.pin(), strength.into()) })?;
+
+            #[cfg(esp32c3)]
+            unreachable!();
         } else {
-            esp_result!(
-                unsafe { gpio_set_drive_capability(self.pin.pin(), strength.into()) },
-                ()
-            )
+            esp!(unsafe { gpio_set_drive_capability(self.pin.pin(), strength.into()) })?;
         }
+
+        Ok(())
     }
 
     #[inline]
@@ -626,17 +630,21 @@ impl<'d, T: Pin, MODE> PinDriver<'d, T, MODE> {
         MODE: InputMode,
     {
         if MODE::RTC {
-            if unsafe { rtc_gpio_get_level(self.pin.pin()) } != 0 {
+            #[cfg(not(esp32c3))]
+            let mode = if unsafe { rtc_gpio_get_level(self.pin.pin()) } != 0 {
                 Level::High
             } else {
                 Level::Low
-            }
+            };
+
+            #[cfg(esp32c3)]
+            let mode = unreachable!();
+
+            mode
+        } else if unsafe { gpio_get_level(self.pin.pin()) } != 0 {
+            Level::High
         } else {
-            if unsafe { gpio_get_level(self.pin.pin()) } != 0 {
-                Level::High
-            } else {
-                Level::Low
-            }
+            Level::Low
         }
     }
 
@@ -728,10 +736,16 @@ impl<'d, T: Pin, MODE> PinDriver<'d, T, MODE> {
         };
 
         if MODE::RTC {
-            esp_result!(unsafe { rtc_gpio_set_level(self.pin.pin(), on) }, ())
+            #[cfg(not(esp32c3))]
+            esp!(unsafe { rtc_gpio_set_level(self.pin.pin(), on) })?;
+
+            #[cfg(esp32c3)]
+            unreachable!();
         } else {
-            esp_result!(unsafe { gpio_set_level(self.pin.pin(), on) }, ())
+            esp!(unsafe { gpio_set_level(self.pin.pin(), on) })?;
         }
+
+        Ok(())
     }
 
     /// Toggle pin output
@@ -784,6 +798,7 @@ impl<'d, T: Pin, MODE> PinDriver<'d, T, MODE> {
         MODE: InputMode,
     {
         if MODE::RTC {
+            #[cfg(not(esp32c3))]
             unsafe {
                 match pull {
                     Pull::Down => {
@@ -805,13 +820,13 @@ impl<'d, T: Pin, MODE> PinDriver<'d, T, MODE> {
                 }
             }
 
-            Ok(())
+            #[cfg(esp32c3)]
+            unreachable!();
         } else {
-            esp_result!(
-                unsafe { gpio_set_pull_mode(self.pin.pin(), pull.into()) },
-                ()
-            )
+            esp!(unsafe { gpio_set_pull_mode(self.pin.pin(), pull.into()) })?;
         }
+
+        Ok(())
     }
 
     /// # Safety
@@ -879,6 +894,8 @@ pub(crate) fn rtc_reset_pin(pin: i32) -> Result<(), EspError> {
     }
 
     esp!(unsafe { gpio_reset_pin(pin) })?;
+
+    #[cfg(not(esp32c3))]
     esp!(unsafe { rtc_gpio_init(pin) })?;
 
     Ok(())
