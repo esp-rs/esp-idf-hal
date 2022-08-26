@@ -127,6 +127,10 @@
 #include "esp_http_server.h"
 #endif
 
+#ifdef CONFIG_ESP_HTTPS_SERVER_ENABLE
+#include "esp_https_server.h"
+#endif
+
 #ifdef ESP_IDF_COMP_ESP_WEBSOCKET_CLIENT_ENABLED
 #include "esp_websocket_client.h"
 #endif
