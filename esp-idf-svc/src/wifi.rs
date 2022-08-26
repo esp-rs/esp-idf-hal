@@ -1,7 +1,6 @@
-use core::borrow::Borrow;
-use core::cell::UnsafeCell;
 use core::cmp;
 use core::ptr;
+use core::time::Duration;
 
 extern crate alloc;
 use alloc::sync::Arc;
@@ -10,7 +9,7 @@ use ::log::*;
 
 use enumset::*;
 
-use embedded_svc::event_bus::{ErrorType, EventBus};
+use embedded_svc::event_bus::EventBus;
 use embedded_svc::wifi::*;
 
 use esp_idf_hal::modem::WifiModemPeripheral;
@@ -22,17 +21,16 @@ use crate::eventloop::EspEventLoop;
 use crate::eventloop::{
     EspSubscription, EspSystemEventLoop, EspTypedEventDeserializer, EspTypedEventSource, System,
 };
+use crate::handle::RawHandle;
 use crate::netif::*;
 use crate::nvs::EspDefaultNvsPartition;
 use crate::private::common::*;
 use crate::private::cstr::*;
+use crate::private::mutex;
 use crate::private::waitable::*;
 
 #[cfg(esp_idf_comp_esp_netif_enabled)]
 use crate::netif::*;
-
-#[cfg(all(feature = "nightly", feature = "experimental"))]
-pub use asyncify::*;
 
 impl From<AuthMethod> for Newtype<wifi_auth_mode_t> {
     fn from(method: AuthMethod) -> Self {
@@ -188,7 +186,8 @@ impl From<Newtype<&wifi_ap_record_t>> for AccessPointInfo {
 
 pub struct WifiDriver<'d, M: WifiModemPeripheral> {
     _modem: PeripheralRef<'d, M>,
-    _sysloop: EspSystemEventLoop,
+    status: Arc<mutex::Mutex<(WifiEvent, WifiEvent)>>,
+    _subscription: EspSubscription<System>,
     #[cfg(all(feature = "alloc", esp_idf_comp_nvs_flash_enabled))]
     _nvs: Option<EspDefaultNvsPartition>,
 }
@@ -202,11 +201,14 @@ impl<'d, M: WifiModemPeripheral> WifiDriver<'d, M> {
     ) -> Result<Self, EspError> {
         esp_idf_hal::into_ref!(modem);
 
-        Self::init(nvs.is_sone())?;
+        Self::init(nvs.is_some())?;
+
+        let (status, subscription) = Self::subscribe(&sysloop)?;
 
         Ok(Self {
             _modem: modem,
-            _sysloop: sysloop,
+            status,
+            _subscription: subscription,
             _nvs: nvs,
         })
     }
@@ -217,13 +219,47 @@ impl<'d, M: WifiModemPeripheral> WifiDriver<'d, M> {
 
         Self::init(false)?;
 
+        let (status, subscription) = Self::subscribe(&sysloop)?;
+
         Ok(Self {
             _modem: modem,
-            _sysloop: sysloop,
+            status,
+            _subscription: subscription,
         })
     }
 
-    #[cfg(all(feature = "alloc", esp_idf_comp_nvs_flash_enabled))]
+    fn subscribe(
+        sysloop: &EspEventLoop<System>,
+    ) -> Result<
+        (
+            Arc<mutex::Mutex<(WifiEvent, WifiEvent)>>,
+            EspSubscription<System>,
+        ),
+        EspError,
+    > {
+        let status = Arc::new(mutex::Mutex::wrap(
+            mutex::RawMutex::new(),
+            (WifiEvent::StaStopped, WifiEvent::ApStopped),
+        ));
+        let s_status = status.clone();
+
+        let subscription = sysloop.subscribe(move |event: &WifiEvent| {
+            let mut guard = s_status.lock();
+
+            match event {
+                WifiEvent::ApStarted => guard.1 = WifiEvent::ApStarted,
+                WifiEvent::ApStopped => guard.1 = WifiEvent::ApStopped,
+                WifiEvent::StaStarted => guard.0 = WifiEvent::StaStarted,
+                WifiEvent::StaStopped => guard.0 = WifiEvent::StaStopped,
+                WifiEvent::StaConnected => guard.0 = WifiEvent::StaConnected,
+                WifiEvent::StaDisconnected => guard.0 = WifiEvent::StaDisconnected,
+                _ => (),
+            };
+        })?;
+
+        Ok((status, subscription))
+    }
+
     fn init(nvs_enabled: bool) -> Result<(), EspError> {
         #[allow(clippy::needless_update)]
         let cfg = wifi_init_config_t {
@@ -260,7 +296,7 @@ impl<'d, M: WifiModemPeripheral> WifiDriver<'d, M> {
         Ok(())
     }
 
-    pub fn get_capabilities(&self) -> Result<EnumSet<Capability>, Self::Error> {
+    pub fn get_capabilities(&self) -> Result<EnumSet<Capability>, EspError> {
         let caps = Capability::Client | Capability::AccessPoint | Capability::Mixed;
 
         info!("Providing capabilities: {:?}", caps);
@@ -302,32 +338,85 @@ impl<'d, M: WifiModemPeripheral> WifiDriver<'d, M> {
         Ok(())
     }
 
-    #[allow(non_upper_case_globals)]
-    pub fn get_configuration(&self) -> Result<Configuration, Self::Error> {
-        info!("Getting configuration");
+    pub fn is_ap_enabled(&self) -> Result<bool, EspError> {
+        let mut mode: wifi_mode_t = 0;
+        esp!(unsafe { esp_wifi_get_mode(&mut mode) })?;
 
-        unsafe {
-            let mut mode: wifi_mode_t = 0;
+        Ok(mode == wifi_mode_t_WIFI_MODE_AP || mode == wifi_mode_t_WIFI_MODE_APSTA)
+    }
 
-            esp!(esp_wifi_get_mode(&mut mode))?;
+    pub fn is_sta_enabled(&self) -> Result<bool, EspError> {
+        let mut mode: wifi_mode_t = 0;
+        esp!(unsafe { esp_wifi_get_mode(&mut mode) })?;
 
-            let conf = match mode {
-                wifi_mode_t_WIFI_MODE_NULL => Configuration::None,
-                wifi_mode_t_WIFI_MODE_AP => Configuration::AccessPoint(self.get_ap_conf()?),
-                wifi_mode_t_WIFI_MODE_STA => Configuration::Client(self.get_client_conf()?),
-                wifi_mode_t_WIFI_MODE_APSTA => {
-                    Configuration::Mixed(self.get_client_conf()?, self.get_ap_conf()?)
-                }
-                _ => panic!(),
-            };
+        Ok(mode == wifi_mode_t_WIFI_MODE_STA || mode == wifi_mode_t_WIFI_MODE_APSTA)
+    }
 
-            info!("Configuration gotten: {:?}", &conf);
+    pub fn is_ap_started(&self) -> Result<bool, EspError> {
+        Ok(self.status.lock().1 == WifiEvent::ApStarted)
+    }
 
-            Ok(conf)
+    pub fn is_sta_started(&self) -> Result<bool, EspError> {
+        Ok(self.status.lock().0 == WifiEvent::StaStarted
+            || self.status.lock().0 == WifiEvent::StaConnected
+            || self.status.lock().0 == WifiEvent::StaDisconnected)
+    }
+
+    pub fn is_sta_connected(&self) -> Result<bool, EspError> {
+        Ok(self.status.lock().0 == WifiEvent::StaConnected)
+    }
+
+    pub fn is_started(&self) -> Result<bool, EspError> {
+        let ap_enabled = self.is_ap_enabled()?;
+        let sta_enabled = self.is_sta_enabled()?;
+
+        if !ap_enabled && !sta_enabled {
+            Ok(false)
+        } else {
+            Ok(
+                (!ap_enabled || self.is_ap_started()?)
+                    && (!sta_enabled || self.is_sta_started()?),
+            )
         }
     }
 
-    pub fn set_configuration(&mut self, conf: &Configuration) -> Result<(), Self::Error> {
+    pub fn is_up(&self) -> Result<bool, EspError> {
+        let ap_enabled = self.is_ap_enabled()?;
+        let sta_enabled = self.is_sta_enabled()?;
+
+        if !ap_enabled && !sta_enabled {
+            Ok(false)
+        } else {
+            let guard = self.status.lock();
+
+            Ok((!ap_enabled || guard.1 == WifiEvent::ApStarted)
+                && (!sta_enabled || guard.0 == WifiEvent::StaConnected))
+        }
+    }
+
+    #[allow(non_upper_case_globals)]
+    pub fn get_configuration(&self) -> Result<Configuration, EspError> {
+        info!("Getting configuration");
+
+        let mut mode: wifi_mode_t = 0;
+        esp!(unsafe { esp_wifi_get_mode(&mut mode) })?;
+
+        let conf = match mode {
+            wifi_mode_t_WIFI_MODE_NULL => Configuration::None,
+            wifi_mode_t_WIFI_MODE_AP => Configuration::AccessPoint(self.get_ap_conf()?),
+            wifi_mode_t_WIFI_MODE_STA => Configuration::Client(self.get_sta_conf()?),
+            wifi_mode_t_WIFI_MODE_APSTA => {
+                Configuration::Mixed(self.get_sta_conf()?, self.get_ap_conf()?)
+            }
+            _ => panic!(),
+        };
+
+        info!("Configuration gotten: {:?}", &conf);
+
+        Ok(conf)
+    }
+
+    pub fn set_configuration(&mut self, conf: &Configuration) -> Result<(), EspError> {
         info!("Setting configuration: {:?}", conf);
 
         let _ = self.disconnect();
@@ -354,7 +443,7 @@ impl<'d, M: WifiModemPeripheral> WifiDriver<'d, M> {
                 }
                 info!("Wifi mode STA set");
 
-                self.set_client_conf(client_conf)?;
+                self.set_sta_conf(client_conf)?;
             }
             Configuration::Mixed(client_conf, ap_conf) => {
                 unsafe {
@@ -362,7 +451,7 @@ impl<'d, M: WifiModemPeripheral> WifiDriver<'d, M> {
                 }
                 info!("Wifi mode APSTA set");
 
-                self.set_client_conf(client_conf)?;
+                self.set_sta_conf(client_conf)?;
                 self.set_ap_conf(ap_conf)?;
             }
         }
@@ -375,7 +464,7 @@ impl<'d, M: WifiModemPeripheral> WifiDriver<'d, M> {
     #[allow(non_upper_case_globals)]
     pub fn scan_n<const N: usize>(
         &mut self,
-    ) -> Result<(heapless::Vec<AccessPointInfo, N>, usize), Self::Error> {
+    ) -> Result<(heapless::Vec<AccessPointInfo, N>, usize), EspError> {
         let total_count = self.do_scan()?;
 
         let mut ap_infos_raw: heapless::Vec<wifi_ap_record_t, N> = heapless::Vec::new();
@@ -396,7 +485,7 @@ impl<'d, M: WifiModemPeripheral> WifiDriver<'d, M> {
     }
 
     #[allow(non_upper_case_globals)]
-    pub fn scan(&mut self) -> Result<alloc::vec::Vec<AccessPointInfo>, Self::Error> {
+    pub fn scan(&mut self) -> Result<alloc::vec::Vec<AccessPointInfo>, EspError> {
         let total_count = self.do_scan()?;
 
         let mut ap_infos_raw: alloc::vec::Vec<wifi_ap_record_t> =
@@ -440,8 +529,6 @@ impl<'d, M: WifiModemPeripheral> WifiDriver<'d, M> {
         };
 
         esp!(unsafe { esp_wifi_set_config(wifi_interface_t_WIFI_IF_STA, &mut wifi_config) })?;
-
-        self.set_client_ip_conf(&conf.ip_conf)?;
 
         info!("STA configuration done");
 
@@ -527,7 +614,7 @@ unsafe impl<'d, M: WifiModemPeripheral> Send for WifiDriver<'d, M> {}
 
 impl<'d, M: WifiModemPeripheral> Drop for WifiDriver<'d, M> {
     fn drop(&mut self) {
-        self.clear_all()?;
+        self.clear_all().unwrap();
 
         info!("Dropped");
     }
@@ -541,6 +628,14 @@ where
 
     fn get_capabilities(&self) -> Result<EnumSet<Capability>, Self::Error> {
         WifiDriver::get_capabilities(self)
+    }
+
+    fn is_started(&self) -> Result<bool, Self::Error> {
+        WifiDriver::is_started(self)
+    }
+
+    fn is_up(&self) -> Result<bool, Self::Error> {
+        WifiDriver::is_up(self)
     }
 
     fn get_configuration(&self) -> Result<Configuration, Self::Error> {
@@ -580,8 +675,8 @@ where
     pub fn new(driver: WifiDriver<'d, M>) -> Result<Self, EspError> {
         Self::wrap(
             driver,
-            EspNetif::new(&NetifStack::Sta.default_configuration()),
-            EspNetif::new(&NetifStack::Ap.default_configuration()),
+            EspNetif::new(NetifStack::Sta)?,
+            EspNetif::new(NetifStack::Ap)?,
         )
     }
 
@@ -590,21 +685,17 @@ where
         sta_netif: EspNetif,
         ap_netif: EspNetif,
     ) -> Result<Self, EspError> {
-        let glue_handle = unsafe { esp_eth_new_netif_glue(driver.handle()) };
-
-        let this = Self {
-            driver,
-            sta_netif,
-            ap_netif,
-        };
-
         esp!(unsafe { esp_netif_attach_wifi_ap(ap_netif.handle()) })?;
         esp!(unsafe { esp_wifi_set_default_wifi_ap_handlers() })?;
 
         esp!(unsafe { esp_netif_attach_wifi_station(sta_netif.handle()) })?;
         esp!(unsafe { esp_wifi_set_default_wifi_sta_handlers() })?;
 
-        Ok(this)
+        Ok(Self {
+            driver,
+            sta_netif,
+            ap_netif,
+        })
     }
 
     pub fn driver(&self) -> &WifiDriver<'d, M> {
@@ -612,7 +703,7 @@ where
     }
 
     pub fn driver_mut(&mut self) -> &mut WifiDriver<'d, M> {
-        &mut self.netif
+        &mut self.driver
     }
 
     pub fn sta_netif(&self) -> &EspNetif {
@@ -633,6 +724,22 @@ where
 
     pub fn get_capabilities(&self) -> Result<EnumSet<Capability>, EspError> {
         self.driver().get_capabilities()
+    }
+
+    pub fn is_started(&self) -> Result<bool, EspError> {
+        self.driver().is_started()
+    }
+
+    pub fn is_up(&self) -> Result<bool, EspError> {
+        if !self.driver().is_up()? {
+            Ok(false)
+        } else {
+            let ap_enabled = self.driver().is_ap_enabled()?;
+            let sta_enabled = self.driver().is_sta_enabled()?;
+
+            Ok((!ap_enabled || self.ap_netif().is_up()?)
+                && (!sta_enabled || self.sta_netif().is_up()?))
+        }
     }
 
     pub fn get_configuration(&self) -> Result<Configuration, EspError> {
@@ -671,7 +778,7 @@ where
             esp_wifi_clear_default_wifi_driver_and_handlers(
                 self.sta_netif.handle() as *mut c_types::c_void
             )
-        })?
+        })
         .unwrap();
     }
 }
@@ -685,6 +792,14 @@ where
 
     fn get_capabilities(&self) -> Result<EnumSet<Capability>, Self::Error> {
         EspWifi::get_capabilities(self)
+    }
+
+    fn is_started(&self) -> Result<bool, Self::Error> {
+        EspWifi::is_started(self)
+    }
+
+    fn is_up(&self) -> Result<bool, Self::Error> {
+        EspWifi::is_up(self)
     }
 
     fn get_configuration(&self) -> Result<Configuration, Self::Error> {
@@ -801,193 +916,62 @@ impl EspTypedEventDeserializer<WifiEvent> for WifiEvent {
     }
 }
 
-pub struct WifiDriverStaStatus<'d, B, M: WifiModemPeripheral>
-where
-    B: Borrow<WifiDriver<'d, M>>,
-{
-    driver: B,
-    waitable: Arc<Waitable<Status>>,
-
+pub struct WifiWait {
+    waitable: Arc<Waitable<()>>,
     _subscription: EspSubscription<System>,
 }
 
-impl<'d, B, M: WifiModemPeripheral> WifiDriverStaStatus<'d, B, M>
-where
-    B: Borrow<WifiDriver<'d, M>>,
-{
-    pub fn new(driver: B, sysloop: &EspEventLoop<System>) -> Result<Self, EspError> {
-        let waitable: Arc<Waitable<Shared>> = Arc::new(Waitable::new(Status::Unknown));
+impl WifiWait {
+    pub fn new(sysloop: &EspEventLoop<System>) -> Result<Self, EspError> {
+        let waitable: Arc<Waitable<()>> = Arc::new(Waitable::new(()));
 
-        let wifi_waitable = waitable.clone();
-        let wifi_subscription = sysloop.subscribe(move |event: &WifiEvent| {
-            let mut status = wifi_waitable.state.lock();
+        let s_waitable = waitable.clone();
+        let subscription =
+            sysloop.subscribe(move |event: &WifiEvent| Self::on_wifi_event(&s_waitable, event))?;
 
-            if Self::on_wifi_event(&mut status, event).unwrap() {
-                wifi_waitable.cvar.notify_all();
-            }
-        })?;
+        Ok(Self {
+            waitable,
+            _subscription: subscription,
+        })
     }
 
-    fn on_wifi_event(shared: &mut Shared, event: &WifiEvent) -> Result<bool, EspError> {
+    pub fn wait(&self, matcher: impl Fn() -> bool) {
+        info!("About to wait");
+
+        self.waitable.wait_while(|_| !matcher());
+
+        info!("Waiting done - success");
+    }
+
+    pub fn wait_with_timeout(&self, dur: Duration, matcher: impl Fn() -> bool) -> Result<(), ()> {
+        info!("About to wait for duration {:?}", dur);
+
+        let (timeout, status) =
+            self.waitable
+                .wait_timeout_while_and_get(dur, |_| !matcher(), |_| ());
+
+        if !timeout {
+            info!("Waiting done - success");
+            Ok(())
+        } else {
+            info!("Timeout while waiting");
+            Err(status)
+        }
+    }
+
+    fn on_wifi_event(waitable: &Waitable<()>, event: &WifiEvent) {
         info!("Got wifi event: {:?}", event);
 
-        let status = match event {
-            WifiEvent::StaStarted => Some(Status::Started),
-            WifiEvent::StaStopped => Some(Status::Stopped),
-            WifiEvent::StaConnected => Some(Status::Connected),
-            WifiEvent::StaDisconnected => Some(Status::Started),
-            _ => None,
-        };
-
-        if let Some(status) = status {
-            if *current_status != status {
-                *current_status = status;
-
-                info!("STA event {:?} handled, set status: {:?}", event, status);
-
-                return Ok(true);
-            }
+        if matches!(
+            event,
+            WifiEvent::ApStarted
+                | WifiEvent::ApStopped
+                | WifiEvent::StaStarted
+                | WifiEvent::StaStopped
+                | WifiEvent::StaConnected
+                | WifiEvent::StaDisconnected
+        ) {
+            waitable.cvar.notify_all();
         }
-
-        info!("STA event {:?} skipped", event);
-
-        Ok(false)
-    }
-}
-
-pub struct WifiDriverApStatus<'d, B, M: WifiModemPeripheral>
-where
-    B: Borrow<WifiDriver<'d, M>>,
-{
-    driver: B,
-    waitable: Arc<Waitable<Status>>,
-
-    _subscription: EspSubscription<System>,
-}
-
-impl<'d, B, M: WifiModemPeripheral> WifiDriverApStatus<'d, B, M>
-where
-    B: Borrow<WifiDriver<'d, M>>,
-{
-    pub fn new(driver: B) -> Result<Self, EspError> {
-        let waitable: Arc<Waitable<Shared>> = Arc::new(Waitable::new(Status::Unknown));
-
-        let wifi_waitable = waitable.clone();
-        let wifi_subscription = sys_loop.subscribe(move |event: &WifiEvent| {
-            let mut status = wifi_waitable.state.lock();
-
-            if Self::on_wifi_event(&mut status, event).unwrap() {
-                wifi_waitable.cvar.notify_all();
-            }
-        })?;
-    }
-
-    fn on_wifi_event(current_status: &mut Status, event: &WifiEvent) -> Result<bool, EspError> {
-        info!("Got wifi event: {:?}", event);
-
-        let status = match event {
-            WifiEvent::ApStarted => Some(ApStatus::Started),
-            WifiEvent::ApStopped => Some(ApStatus::Stopped),
-            _ => None,
-        };
-
-        if let Some(status) = status {
-            if *current_status != status {
-                *current_status = status;
-
-                info!("AP event {:?} handled, set status: {:?}", event, status);
-
-                return Ok(true);
-            }
-        }
-
-        info!("AP event {:?} skipped", event);
-
-        Ok(false)
-    }
-}
-
-impl<'a> ErrorType for WifiDriver<'a> {
-    type Error = EspError;
-}
-
-impl<'b> EventBus<()> for WifiDriver<'b> {
-    type Subscription = EspSubscription<System>;
-
-    fn subscribe(
-        &mut self,
-        callback: impl for<'a> FnMut(&'a ()) + Send + 'static,
-    ) -> Result<Self::Subscription, Self::Error> {
-        let waitable = self.waitable.clone();
-
-        let subscription1 =
-            self.sys_loop
-                .get_loop()
-                .clone()
-                .subscribe(move |_event: &WifiEvent| {
-                    let notify = {
-                        let shared = wifi_waitable.state.lock();
-
-                        let last_status_ref = unsafe { wifi_last_status.0.get().as_mut().unwrap() };
-
-                        if *last_status_ref != shared.status {
-                            *last_status_ref = shared.status.clone();
-
-                            true
-                        } else {
-                            false
-                        }
-                    };
-
-                    if notify {
-                        let cb_ref = unsafe { wifi_cb.0.get().as_mut().unwrap() };
-
-                        (cb_ref)(&());
-                    }
-                })?;
-
-        let subscription2 =
-            self.sys_loop
-                .get_loop()
-                .clone()
-                .subscribe(move |event: &IpEvent| {
-                    let notify = {
-                        let shared = ip_waitable.state.lock();
-
-                        if shared.is_our_sta_ip_event(event) || shared.is_our_ap_ip_event(event) {
-                            let last_status_ref =
-                                unsafe { ip_last_status.0.get().as_mut().unwrap() };
-
-                            if *last_status_ref != shared.status {
-                                *last_status_ref = shared.status.clone();
-
-                                true
-                            } else {
-                                false
-                            }
-                        } else {
-                            false
-                        }
-                    };
-
-                    if notify {
-                        let cb_ref = unsafe { ip_cb.0.get().as_mut().unwrap() };
-
-                        (cb_ref)(&());
-                    }
-                })?;
-
-        Ok((subscription1, subscription2))
-    }
-}
-
-#[cfg(all(feature = "nightly", feature = "experimental"))]
-mod asyncify {
-    use embedded_svc::utils::asyncify::{event_bus::AsyncEventBus, Asyncify};
-
-    use crate::private::mutex::RawCondvar;
-
-    impl<'a> Asyncify for super::WifiDriver<'a> {
-        type AsyncWrapper<S> = AsyncEventBus<(), RawCondvar, S>;
     }
 }

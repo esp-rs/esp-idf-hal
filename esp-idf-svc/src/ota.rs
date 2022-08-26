@@ -9,12 +9,10 @@ use embedded_svc::ota::Slot;
 use embedded_svc::io;
 use embedded_svc::ota;
 
-use esp_idf_hal::mutex;
-
 use esp_idf_sys::*;
 
 use crate::errors::EspIOError;
-use crate::private::{common::*, cstr::*};
+use crate::private::{common::*, cstr::*, mutex};
 
 static TAKEN: mutex::Mutex<bool> = mutex::Mutex::wrap(mutex::RawMutex::new(), false);
 

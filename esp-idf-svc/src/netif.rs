@@ -1,22 +1,18 @@
-use core::borrow::Borrow;
 use core::convert::TryInto;
 use core::ptr;
-use core::time::Duration;
-
-use ::log::*;
-use embedded_svc::event_bus::{ErrorType, EventBus};
 
 use embedded_svc::ipv4;
 
-use esp_idf_hal::mutex;
-
 use esp_idf_sys::*;
 
-use crate::eventloop::{EspSubscription, EspTypedEventDeserializer, EspTypedEventSource, System};
+use crate::eventloop::{EspTypedEventDeserializer, EspTypedEventSource};
 use crate::handle::RawHandle;
 use crate::private::common::*;
 use crate::private::cstr::*;
-use crate::private::waitable::Waitable;
+use crate::private::mutex;
+
+#[cfg(feature = "alloc")]
+pub use status::*;
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 #[cfg_attr(feature = "std", derive(Hash))]
@@ -45,18 +41,18 @@ impl NetifStack {
     }
 
     fn default_mac(&self) -> Result<Option<[u8; 6]>, EspError> {
-        if let Some(mac_type) = self.get_default_mac_raw_type() {
+        if let Some(mac_type) = self.default_mac_raw_type() {
             let mut mac = [0; 6];
-            Ok(Some(esp!(unsafe {
-                esp_read_mac(mac.as_mut_ptr() as *mut _, mac_type)
-            })?))
+            esp!(unsafe { esp_read_mac(mac.as_mut_ptr() as *mut _, mac_type) })?;
+
+            Ok(Some(mac))
         } else {
             Ok(None)
         }
     }
 
     fn default_mac_raw_type(&self) -> Option<esp_mac_type_t> {
-        match Self {
+        match self {
             Self::Sta => Some(esp_mac_type_t_ESP_MAC_WIFI_STA),
             Self::Ap => Some(esp_mac_type_t_ESP_MAC_WIFI_SOFTAP),
             Self::Eth => Some(esp_mac_type_t_ESP_MAC_ETH),
@@ -66,9 +62,9 @@ impl NetifStack {
         }
     }
 
-    fn default_raw_stack(&self) -> *mut esp_netif_netstack_config_t {
+    fn default_raw_stack(&self) -> *const esp_netif_netstack_config_t {
         unsafe {
-            match Self {
+            match self {
                 Self::Sta => _g_esp_netif_netstack_default_wifi_sta,
                 Self::Ap => _g_esp_netif_netstack_default_wifi_ap,
                 Self::Eth => _g_esp_netif_netstack_default_eth,
@@ -188,7 +184,7 @@ impl NetifConfiguration {
 
 static INITALIZED: mutex::Mutex<bool> = mutex::Mutex::wrap(mutex::RawMutex::new(), false);
 
-fn initialize_netif_stack() -> Result<EspError, ()> {
+fn initialize_netif_stack() -> Result<(), EspError> {
     let mut guard = INITALIZED.lock();
 
     if !*guard {
@@ -200,15 +196,8 @@ fn initialize_netif_stack() -> Result<EspError, ()> {
     Ok(())
 }
 
-#[derive(Copy, Clone, Debug, Eq, PartialEq)]
-pub enum Status {
-    None,
-    DhcpAssigned,
-    DhcpDeassigned,
-}
-
 #[derive(Debug)]
-pub struct EspNetif(esp_netif_t);
+pub struct EspNetif(*mut esp_netif_t);
 
 impl EspNetif {
     pub fn new(stack: NetifStack) -> Result<Self, EspError> {
@@ -346,7 +335,7 @@ impl EspNetif {
 
                 esp!(unsafe {
                     esp_netif_dhcps_option(
-                        handle.1,
+                        handle.0,
                         esp_netif_dhcp_option_mode_t_ESP_NETIF_OP_SET,
                         esp_netif_dhcp_option_id_t_ESP_NETIF_DOMAIN_NAME_SERVER,
                         &mut dhcps_dns_value as *mut _ as *mut _,
@@ -367,9 +356,8 @@ impl EspNetif {
         Ok(handle)
     }
 
-    pub fn is_up(&self) -> bool {
-        // TODO
-        todo!()
+    pub fn is_up(&self) -> Result<bool, EspError> {
+        Ok(unsafe { esp_netif_is_netif_up(self.0) })
     }
 
     pub fn get_ip_info(&self) -> Result<ipv4::IpInfo, EspError> {
@@ -378,17 +366,17 @@ impl EspNetif {
     }
 
     pub fn get_key(&self) -> heapless::String<32> {
-        from_cstr_ptr(unsafe { esp_netif_get_ifkey(self.1) }).into()
+        from_cstr_ptr(unsafe { esp_netif_get_ifkey(self.0) }).into()
     }
 
     pub fn get_index(&self) -> u32 {
-        unsafe { esp_netif_get_netif_impl_index(self.1) as _ }
+        unsafe { esp_netif_get_netif_impl_index(self.0) as _ }
     }
 
     pub fn get_name(&self) -> heapless::String<6> {
         let mut netif_name = [0u8; 7];
 
-        esp!(unsafe { esp_netif_get_netif_impl_name(self.1, netif_name.as_mut_ptr() as *mut _) })
+        esp!(unsafe { esp_netif_get_netif_impl_name(self.0, netif_name.as_mut_ptr() as *mut _) })
             .unwrap();
 
         from_cstr(&netif_name).into()
@@ -397,12 +385,12 @@ impl EspNetif {
     pub fn get_mac(&self) -> Result<[u8; 6], EspError> {
         let mut mac = [0u8; 6];
 
-        esp!(unsafe { esp_netif_get_mac(self.1, mac.as_mut_ptr() as *mut _) })?;
+        esp!(unsafe { esp_netif_get_mac(self.0, mac.as_mut_ptr() as *mut _) })?;
         Ok(mac)
     }
 
     pub fn set_mac(&mut self, mac: &[u8; 6]) -> Result<(), EspError> {
-        esp!(unsafe { esp_netif_set_mac(self.1, mac.as_ptr() as *mut _) })?;
+        esp!(unsafe { esp_netif_set_mac(self.0, mac.as_ptr() as *mut _) })?;
         Ok(())
     }
 
@@ -411,7 +399,7 @@ impl EspNetif {
 
         unsafe {
             esp!(esp_netif_get_dns_info(
-                self.1,
+                self.0,
                 esp_netif_dns_type_t_ESP_NETIF_DNS_MAIN,
                 &mut dns_info
             ))
@@ -428,7 +416,7 @@ impl EspNetif {
             dns_info.ip.u_addr.ip4 = Newtype::<esp_ip4_addr_t>::from(dns).0;
 
             esp!(esp_netif_set_dns_info(
-                self.1,
+                self.0,
                 esp_netif_dns_type_t_ESP_NETIF_DNS_MAIN,
                 &mut dns_info
             ))
@@ -441,7 +429,7 @@ impl EspNetif {
 
         unsafe {
             esp!(esp_netif_get_dns_info(
-                self.1,
+                self.0,
                 esp_netif_dns_type_t_ESP_NETIF_DNS_BACKUP,
                 &mut dns_info
             ))
@@ -458,7 +446,7 @@ impl EspNetif {
             dns_info.ip.u_addr.ip4 = Newtype::<esp_ip4_addr_t>::from(secondary_dns).0;
 
             esp!(esp_netif_set_dns_info(
-                self.1,
+                self.0,
                 esp_netif_dns_type_t_ESP_NETIF_DNS_BACKUP,
                 &mut dns_info
             ))
@@ -468,14 +456,14 @@ impl EspNetif {
 
     pub fn get_hostname(&self) -> Result<heapless::String<30>, EspError> {
         let mut ptr: *const c_types::c_char = core::ptr::null();
-        esp!(unsafe { esp_netif_get_hostname(self.1, &mut ptr) })?;
+        esp!(unsafe { esp_netif_get_hostname(self.0, &mut ptr) })?;
 
         Ok(from_cstr_ptr(ptr).into())
     }
 
     fn set_hostname(&mut self, hostname: &str) -> Result<(), EspError> {
         if let Ok(hostname) = CString::new(hostname) {
-            esp!(unsafe { esp_netif_set_hostname(self.1, hostname.as_ptr() as *const _) })?;
+            esp!(unsafe { esp_netif_set_hostname(self.0, hostname.as_ptr() as *const _) })?;
         } else {
             esp!(ESP_ERR_INVALID_ARG)?;
         }
@@ -487,7 +475,7 @@ impl EspNetif {
     pub fn enable_napt(&mut self, enable: bool) {
         unsafe {
             esp_idf_sys::ip_napt_enable_no(
-                (esp_netif_get_netif_impl_index(self.1) - 1) as u8,
+                (esp_netif_get_netif_impl_index(self.0) - 1) as u8,
                 if enable { 1 } else { 0 },
             )
         };
@@ -496,19 +484,17 @@ impl EspNetif {
 
 impl Drop for EspNetif {
     fn drop(&mut self) {
-        unsafe { esp_netif_destroy(self.1) };
+        unsafe { esp_netif_destroy(self.0) };
     }
 }
 
 impl RawHandle for EspNetif {
-    type Handle = esp_netif_t;
+    type Handle = *mut esp_netif_t;
 
     unsafe fn handle(&self) -> Self::Handle {
         self.0
     }
 }
-
-pub type NetifHandle = *const core::ffi::c_void;
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub struct ApStaIpAssignment {
@@ -519,14 +505,14 @@ pub struct ApStaIpAssignment {
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub struct DhcpIpAssignment {
-    pub netif_handle: NetifHandle,
-    pub ip_settings: ipv4::ClientSettings,
+    pub netif_handle: *mut esp_netif_t,
+    pub ip_settings: ipv4::IpInfo,
     pub ip_changed: bool,
 }
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub struct DhcpIp6Assignment {
-    pub netif_handle: NetifHandle,
+    pub netif_handle: *mut esp_netif_t,
     pub ip: [u32; 4],
     pub ip_zone: u8,
     pub ip_index: u32,
@@ -537,22 +523,26 @@ pub enum IpEvent {
     ApStaIpAssigned(ApStaIpAssignment),
     DhcpIpAssigned(DhcpIpAssignment),
     DhcpIp6Assigned(DhcpIp6Assignment),
-    DhcpIpDeassigned(NetifHandle),
+    DhcpIpDeassigned(*mut esp_netif_t),
 }
 
 impl IpEvent {
-    pub fn is_for(&self, raw_handle: &impl RawHandle<esp_netif_t>) -> bool {
+    pub fn is_for(&self, raw_handle: &impl RawHandle<Handle = *mut esp_netif_t>) -> bool {
+        self.is_for_handle(unsafe { raw_handle.handle() })
+    }
+
+    pub fn is_for_handle(&self, handle: *mut esp_netif_t) -> bool {
         self.handle()
-            .map(|handle| handle == unsafe { raw_handle.handle() })
+            .map(|event_handle| event_handle == handle)
             .unwrap_or(false)
     }
 
-    pub fn handle(&self) -> Option<NetifHandle> {
+    pub fn handle(&self) -> Option<*mut esp_netif_t> {
         match self {
             Self::ApStaIpAssigned(_) => None,
-            Self::DhcpIpAssigned(assignment) => Some(assignment.netif_handle),
-            Self::DhcpIp6Assigned(assignment) => Some(assignment.netif_handle),
-            Self::DhcpIpDeassigned(handle) => Some(*handle),
+            Self::DhcpIpAssigned(assignment) => Some(assignment.netif_handle as _),
+            Self::DhcpIp6Assigned(assignment) => Some(assignment.netif_handle as _),
+            Self::DhcpIpDeassigned(handle) => Some(*handle as _),
         }
     }
 }
@@ -618,9 +608,9 @@ impl EspTypedEventDeserializer<IpEvent> for IpEvent {
         } else if event_id == ip_event_t_IP_EVENT_STA_LOST_IP
             || event_id == ip_event_t_IP_EVENT_PPP_LOST_IP
         {
-            let netif_handle_ref = unsafe { (data.payload as *const *mut esp_netif_obj).as_ref() };
+            let netif_handle_mut = unsafe { (data.payload as *mut esp_netif_t).as_mut().unwrap() };
 
-            IpEvent::DhcpIpDeassigned(*netif_handle_ref.unwrap() as _)
+            IpEvent::DhcpIpDeassigned(netif_handle_mut as *mut _)
         } else {
             panic!("Unknown event ID: {}", event_id);
         };
@@ -629,104 +619,95 @@ impl EspTypedEventDeserializer<IpEvent> for IpEvent {
     }
 }
 
-pub struct EspNetifStatus<B>
-where
-    B: Borrow<EspNetif>,
-{
-    netif: B,
-    status: Waitable<Status>,
-    _subscription: EspSubscription<System>,
-}
+#[cfg(feature = "alloc")]
+mod status {
+    use core::borrow::Borrow;
+    use core::time::Duration;
 
-impl<B> EspNetifStatus<B>
-where
-    B: Borrow<EspNetif>,
-{
-    pub fn wait_status(&self, matcher: impl Fn(&Status) -> bool) {
-        info!("About to wait for status");
+    use alloc::sync::Arc;
 
-        self.waitable.wait_while(|status| !matcher(&status));
+    use embedded_svc::event_bus::EventBus;
+    use log::info;
 
-        info!("Waiting for status done - success");
+    use esp_idf_sys::*;
+
+    use crate::eventloop::{EspEventLoop, EspSubscription, System};
+    use crate::handle::RawHandle;
+    use crate::private::waitable::Waitable;
+
+    use super::IpEvent;
+
+    struct UnsafeHandle(*mut esp_netif_t);
+
+    unsafe impl Send for UnsafeHandle {}
+
+    pub struct EspNetifWait<B> {
+        _netif: B,
+        waitable: Arc<Waitable<()>>,
+        _subscription: EspSubscription<System>,
     }
 
-    pub fn wait_status_with_timeout(
-        &self,
-        dur: Duration,
-        matcher: impl Fn(&Status) -> bool,
-    ) -> Result<(), Status> {
-        info!("About to wait {:?} for status", dur);
+    #[cfg(feature = "alloc")]
+    impl<B> EspNetifWait<B> {
+        pub fn new<R>(netif: B, sysloop: &EspEventLoop<System>) -> Result<Self, EspError>
+        where
+            B: Borrow<R>,
+            R: RawHandle<Handle = *mut esp_netif_t>,
+        {
+            let waitable = Arc::new(Waitable::new(()));
 
-        let (timeout, status) = self.waitable.wait_timeout_while_and_get(
-            dur,
-            |status| !matcher(status),
-            |status| status.clone(),
-        );
+            let s_waitable = waitable.clone();
+            let handle = UnsafeHandle(unsafe { netif.borrow().handle() });
 
-        if !timeout {
-            info!("Waiting for status done - success");
-            Ok(())
-        } else {
-            info!("Timeout while waiting for status");
-            Err(status)
+            let subscription = sysloop.subscribe(move |event: &IpEvent| {
+                Self::on_ip_event(handle.0, &s_waitable, event)
+            })?;
+
+            Ok(Self {
+                _netif: netif,
+                waitable,
+                _subscription: subscription,
+            })
         }
-    }
 
-    fn on_ip_event(
-        handle: esp_netif_t,
-        waitable: &Waitable<Status>,
-        event: &IpEvent,
-    ) -> Result<bool, EspError> {
-        if event.handle() == handle as _ {
-            info!("Got IP event: {:?}", event);
+        pub fn wait(&self, matcher: impl Fn() -> bool) {
+            info!("About to wait");
 
-            let status = match event {
-                IpEvent::DhcpIpAssigned(_) => Some(Status::DhcpAssigned),
-                IpEvent::DhcpIpDeassigned(_) => Some(Status::DhcpDeassigned),
-                _ => None,
-            };
+            self.waitable.wait_while(|_| !matcher());
 
-            if let Some(status) = status {
-                let mut guard = waitable.state.lock();
-
-                if *guard != status {
-                    *guard = status;
-
-                    info!("IP event {:?} handled, set status: {:?}", event, status);
-
-                    return Ok(true);
-                }
-            }
-
-            info!("IP event {:?} skipped", event);
-
-            Ok(false)
+            info!("Waiting done - success");
         }
-    }
-}
 
-impl ErrorType for EspNetifStatus {
-    type Error = EspError;
-}
+        pub fn wait_with_timeout(
+            &self,
+            dur: Duration,
+            matcher: impl Fn() -> bool,
+        ) -> Result<(), ()> {
+            info!("About to wait for duration {:?}", dur);
 
-impl EventBus<()> for EspNetifStatus {
-    type Subscription = EspSubscription<System>;
+            let (timeout, status) =
+                self.waitable
+                    .wait_timeout_while_and_get(dur, |_| !matcher(), |_| ());
 
-    fn subscribe(
-        &self,
-        callback: impl for<'a> FnMut(&'a ()) + Send + 'static,
-    ) -> Result<Self::Subscription, Self::Error> {
-        let handle = self.handle;
-        let waitable = self.waitable.clone();
-
-        let subscription = self.sys_loop.subscribe(move |event: &IpEvent| {
-            let notify = self.on_ip_event(handle, &waitable, event);
-
-            if notify {
-                callback(&());
+            if !timeout {
+                info!("Waiting done - success");
+                Ok(())
+            } else {
+                info!("Timeout while waiting");
+                Err(status)
             }
-        })?;
+        }
 
-        Ok(subscription)
+        fn on_ip_event(handle: *mut esp_netif_t, waitable: &Waitable<()>, event: &IpEvent) {
+            if event
+                .handle()
+                .map(|event_handle| event_handle == handle)
+                .unwrap_or(false)
+            {
+                info!("Got IP event: {:?}", event);
+
+                waitable.cvar.notify_all();
+            }
+        }
     }
 }

@@ -421,7 +421,7 @@ impl<'a> RawHandle for EspHttpRequest<'a> {
     type Handle = *mut httpd_req_t;
 
     unsafe fn handle(&self) -> Self::Handle {
-        self.0.as_ptr()
+        self.0 as *const _ as *mut _
     }
 }
 

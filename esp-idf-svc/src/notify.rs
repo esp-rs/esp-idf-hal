@@ -211,7 +211,7 @@ impl RawHandle for EspNotify {
     type Handle = TaskHandle_t;
 
     unsafe fn handle(&self) -> Self::Handle {
-        self.task
+        *self.task
     }
 }
 

@@ -8,6 +8,8 @@ use crate::private::mutex::{Mutex, RawMutex};
 
 type Singleton<T> = Mutex<Option<Box<T>>>;
 
+pub const BROADCAST: [u8; 6] = [0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF];
+
 #[allow(clippy::type_complexity)]
 static RECV_CALLBACK: Singleton<dyn FnMut(&[u8], &[u8]) + Send> =
     Mutex::wrap(RawMutex::new(), None);
@@ -15,7 +17,6 @@ static RECV_CALLBACK: Singleton<dyn FnMut(&[u8], &[u8]) + Send> =
 static SEND_CALLBACK: Singleton<dyn FnMut(&[u8], SendStatus) + Send> =
     Mutex::wrap(RawMutex::new(), None);
 
-pub static BROADCAST: [u8; 6] = [0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF];
 static TAKEN: Mutex<bool> = Mutex::wrap(RawMutex::new(), false);
 
 #[derive(Debug)]
@@ -39,7 +40,13 @@ pub type PeerInfo = esp_now_peer_info_t;
 pub struct EspNow(());
 
 impl EspNow {
-    pub fn new() -> Result<Self, EspError> {
+    pub fn take() -> Result<Self, EspError> {
+        let mut taken = TAKEN.lock();
+
+        if *taken {
+            esp!(ESP_ERR_INVALID_STATE as i32)?;
+        }
+
         // disable modem sleep, otherwise messages queue up and we're not able
         // to send any esp-now data after a few messages
         // esp-idf bug report: https://github.com/espressif/esp-idf/issues/7496
@@ -47,6 +54,8 @@ impl EspNow {
 
         info!("Initializing ESP NOW");
         esp!(unsafe { esp_now_init() })?;
+
+        *taken = true;
 
         Ok(Self(()))
     }
@@ -163,6 +172,8 @@ impl EspNow {
 
 impl Drop for EspNow {
     fn drop(&mut self) {
+        let mut taken = TAKEN.lock();
+
         esp!(unsafe { esp_now_deinit() }).unwrap();
 
         let send_cb = &mut *SEND_CALLBACK.lock();
@@ -174,5 +185,7 @@ impl Drop for EspNow {
         if recv_cb.is_some() {
             *recv_cb = None;
         }
+
+        *taken = false;
     }
 }

@@ -1,3 +1,5 @@
+#![allow(deprecated)]
+
 use core::{marker::PhantomData, ptr};
 
 extern crate alloc;

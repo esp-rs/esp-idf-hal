@@ -2,11 +2,10 @@ use core::cmp::min;
 
 use ::log::*;
 
-use esp_idf_hal::mutex;
-
 use esp_idf_sys::*;
 
 use crate::private::cstr::CString;
+use crate::private::mutex;
 
 const SNTP_SERVER_NUM: usize = SNTP_MAX_SERVERS as usize;
 

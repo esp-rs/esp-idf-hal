@@ -4,7 +4,6 @@ use core::ptr;
 use core::time::Duration;
 
 use ::log::*;
-use esp_idf_hal::gpio::{InputPin, OutputPin};
 
 extern crate alloc;
 use alloc::sync::Arc;
@@ -12,12 +11,14 @@ use alloc::sync::Arc;
 use embedded_svc::eth::*;
 use embedded_svc::event_bus::EventBus;
 
+use esp_idf_hal::gpio::{InputPin, OutputPin};
 use esp_idf_hal::mac::MAC;
 use esp_idf_hal::peripheral::{Peripheral, PeripheralRef};
 
 use crate::handle::RawHandle;
 #[cfg(esp_idf_comp_esp_netif_enabled)]
 use crate::netif::*;
+use crate::private::*;
 
 #[cfg(any(
     all(esp32, esp_idf_eth_use_esp32_emac),
@@ -45,9 +46,6 @@ use crate::eventloop::{
 use crate::netif::*;
 use crate::private::waitable::*;
 
-#[cfg(all(feature = "nightly", feature = "experimental"))]
-pub use asyncify::*;
-
 #[cfg(all(esp32, esp_idf_eth_use_esp32_emac))]
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub enum RmiiEthChipset {
@@ -64,11 +62,11 @@ pub enum RmiiEthChipset {
 }
 
 #[cfg(all(esp32, esp_idf_eth_use_esp32_emac))]
-pub enum RmiiClockConfig<'d, GPIO0, GPIO16, GPIO17>
+pub enum RmiiClockConfig<GPIO0, GPIO16, GPIO17>
 where
-    GPIO0: Peripheral<P = gpio::Gpio0> + 'd,
-    GPIO16: Peripheral<P = gpio::Gpio16> + 'd,
-    GPIO17: Peripheral<P = gpio::Gpio17> + 'd,
+    GPIO0: Peripheral<P = gpio::Gpio0>,
+    GPIO16: Peripheral<P = gpio::Gpio16>,
+    GPIO17: Peripheral<P = gpio::Gpio17>,
 {
     Input(GPIO0),
     #[cfg(not(esp_idf_version = "4.3"))]
@@ -81,11 +79,11 @@ where
 }
 
 #[cfg(all(esp32, esp_idf_eth_use_esp32_emac, not(esp_idf_version = "4.3")))]
-impl<'d, GPIO0, GPIO16, GPIO17> RmiiClockConfig<'d, GPIO0, GPIO16, GPIO17>
+impl<GPIO0, GPIO16, GPIO17> RmiiClockConfig<GPIO0, GPIO16, GPIO17>
 where
-    GPIO0: Peripheral<P = gpio::Gpio0> + 'd,
-    GPIO16: Peripheral<P = gpio::Gpio16> + 'd,
-    GPIO17: Peripheral<P = gpio::Gpio17> + 'd,
+    GPIO0: Peripheral<P = gpio::Gpio0>,
+    GPIO16: Peripheral<P = gpio::Gpio16>,
+    GPIO17: Peripheral<P = gpio::Gpio17>,
 {
     fn eth_mac_clock_config(&self) -> eth_mac_clock_config_t {
         let rmii = match self {
@@ -126,27 +124,39 @@ pub enum SpiEthChipset {
     KSZ8851SNL,
 }
 
+struct UnsafeHandle(esp_eth_handle_t);
+
+unsafe impl Send for UnsafeHandle {}
+
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+enum Status {
+    Stopped,
+    Started,
+    Connected,
+    Disconnected,
+}
+
 pub struct EthDriver<'d, P> {
-    peripheral: PeripheralRef<'d, P>,
+    _peripheral: PeripheralRef<'d, P>,
     spi: Option<(spi_device_handle_t, spi_host_device_t)>,
     handle: esp_eth_handle_t,
-    _sysloop: EspSystemEventLoop,
+    status: Arc<mutex::Mutex<Status>>,
+    _subscription: EspSubscription<System>,
 }
 
 #[cfg(all(esp32, esp_idf_eth_use_esp32_emac))]
 impl<'d> EthDriver<'d, MAC> {
     pub fn new_rmii(
         mac: impl Peripheral<P = MAC> + 'd,
-        rmii_rdx0: impl Peripheral<P = gpio::Gpio25> + 'd,
-        rmii_rdx1: impl Peripheral<P = gpio::Gpio26> + 'd,
-        rmii_crs_dv: impl Peripheral<P = gpio::Gpio27> + 'd,
+        _rmii_rdx0: impl Peripheral<P = gpio::Gpio25> + 'd,
+        _rmii_rdx1: impl Peripheral<P = gpio::Gpio26> + 'd,
+        _rmii_crs_dv: impl Peripheral<P = gpio::Gpio27> + 'd,
         rmii_mdc: impl Peripheral<P = impl OutputPin> + 'd,
-        rmii_txd1: impl Peripheral<P = gpio::Gpio22> + 'd,
-        rmii_tx_en: impl Peripheral<P = gpio::Gpio21> + 'd,
-        rmii_txd0: impl Peripheral<P = gpio::Gpio19> + 'd,
+        _rmii_txd1: impl Peripheral<P = gpio::Gpio22> + 'd,
+        _rmii_tx_en: impl Peripheral<P = gpio::Gpio21> + 'd,
+        _rmii_txd0: impl Peripheral<P = gpio::Gpio19> + 'd,
         rmii_mdio: impl Peripheral<P = impl InputPin + OutputPin> + 'd,
         rmii_ref_clk_config: RmiiClockConfig<
-            'd,
             impl Peripheral<P = gpio::Gpio0> + 'd,
             impl Peripheral<P = gpio::Gpio16> + 'd,
             impl Peripheral<P = gpio::Gpio17> + 'd,
@@ -156,12 +166,14 @@ impl<'d> EthDriver<'d, MAC> {
         phy_addr: Option<u32>,
         sysloop: EspSystemEventLoop,
     ) -> Result<Self, EspError> {
-        esp_idf_hal::into_ref!(mac);
+        esp_idf_hal::into_ref!(mac, rmii_mdc, rmii_mdio);
+
+        let rst = rst.map(|rst| rst.into_ref().pin());
 
         let eth = Self::init(
             mac,
-            Self::rmii_mac(&rmii_ref_clk_config),
-            Self::rmii_phy(chipset, &rst, phy_addr)?,
+            Self::rmii_mac(rmii_mdc.pin(), rmii_mdio.pin(), &rmii_ref_clk_config),
+            Self::rmii_phy(chipset, rst, phy_addr)?,
             None,
             None,
             sysloop,
@@ -172,10 +184,10 @@ impl<'d> EthDriver<'d, MAC> {
 
     fn rmii_phy(
         chipset: RmiiEthChipset,
-        reset: &Option<impl Peripheral<P = impl OutputPin> + 'd>,
+        reset: Option<i32>,
         phy_addr: Option<u32>,
     ) -> Result<*mut esp_eth_phy_t, EspError> {
-        let phy_cfg = Self::eth_phy_default_config(reset.as_ref().map(|p| p.pin()), phy_addr);
+        let phy_cfg = Self::eth_phy_default_config(reset.map(|pin| pin), phy_addr);
 
         let phy = match chipset {
             RmiiEthChipset::IP101 => unsafe { esp_eth_phy_new_ip101(&phy_cfg) },
@@ -197,8 +209,9 @@ impl<'d> EthDriver<'d, MAC> {
     }
 
     fn rmii_mac(
+        mdc: i32,
+        mdio: i32,
         clk_config: &RmiiClockConfig<
-            'd,
             impl Peripheral<P = gpio::Gpio0> + 'd,
             impl Peripheral<P = gpio::Gpio16> + 'd,
             impl Peripheral<P = gpio::Gpio17> + 'd,
@@ -206,7 +219,7 @@ impl<'d> EthDriver<'d, MAC> {
     ) -> *mut esp_eth_mac_t {
         #[cfg(esp_idf_version_major = "4")]
         let mac = {
-            let mut config = Self::eth_mac_default_config();
+            let mut config = Self::eth_mac_default_config(mdc, mdio);
 
             #[cfg(not(esp_idf_version = "4.3"))]
             {
@@ -221,7 +234,7 @@ impl<'d> EthDriver<'d, MAC> {
             let mut esp32_config = Self::eth_esp32_emac_default_config();
             esp32_config.clock_config = clk_config.eth_mac_clock_config();
 
-            let config = Self::eth_mac_default_config();
+            let config = Self::eth_mac_default_config(mdc, mdio);
 
             unsafe { esp_eth_mac_new_esp32(&esp32_config, &config) }
         };
@@ -239,7 +252,7 @@ impl<'d> EthDriver<'d, MAC> {
         crate::into_ref!(mac);
 
         let eth = Self::init(
-            unsafe { esp_eth_mac_new_openeth(&Self::eth_mac_default_config()) },
+            unsafe { esp_eth_mac_new_openeth(&Self::eth_mac_default_config(0, 0)) },
             unsafe { esp_eth_phy_new_dp83848(&Self::eth_phy_default_config(None, None)) },
             None,
             (),
@@ -309,7 +322,7 @@ impl<'d, P: Spi> EthDriver<'d, P> {
     ) -> Result<(*mut esp_eth_mac_t, *mut esp_eth_phy_t, spi_device_handle_t), EspError> {
         Self::init_spi_bus(sclk, sdo, sdi)?;
 
-        let mac_cfg = EthDriver::eth_mac_default_config();
+        let mac_cfg = EthDriver::eth_mac_default_config(0, 0);
         let phy_cfg = EthDriver::eth_phy_default_config(rst.map(|pin| pin), phy_addr);
 
         let (mac, phy, spi_handle) = match chipset {
@@ -463,16 +476,58 @@ impl<'d, P> EthDriver<'d, P> {
             info!("Attached MAC address: {:?}", mac_addr);
         }
 
+        let (waitable, subscription) = Self::subscribe(handle, &sysloop)?;
+
         let eth = Self {
-            peripheral,
+            _peripheral: peripheral,
             handle,
             spi,
-            _sysloop: sysloop,
+            status: waitable,
+            _subscription: subscription,
         };
 
         info!("Initialization complete");
 
         Ok(eth)
+    }
+
+    fn subscribe(
+        handle: esp_eth_handle_t,
+        sysloop: &EspEventLoop<System>,
+    ) -> Result<(Arc<mutex::Mutex<Status>>, EspSubscription<System>), EspError> {
+        let status = Arc::new(mutex::Mutex::wrap(mutex::RawMutex::new(), Status::Stopped));
+        let s_status = status.clone();
+
+        let handle = UnsafeHandle(handle);
+
+        let subscription = sysloop.subscribe(move |event: &EthEvent| {
+            if event.is_for_handle(handle.0) {
+                let mut guard = s_status.lock();
+
+                match event {
+                    EthEvent::Started(_) => *guard = Status::Started,
+                    EthEvent::Stopped(_) => *guard = Status::Stopped,
+                    EthEvent::Connected(_) => *guard = Status::Connected,
+                    EthEvent::Disconnected(_) => *guard = Status::Disconnected,
+                }
+            }
+        })?;
+
+        Ok((status, subscription))
+    }
+
+    pub fn is_started(&self) -> Result<bool, EspError> {
+        let guard = self.status.lock();
+
+        Ok(*guard == Status::Started
+            || *guard == Status::Connected
+            || *guard == Status::Disconnected)
+    }
+
+    pub fn is_up(&self) -> Result<bool, EspError> {
+        let guard = self.status.lock();
+
+        Ok(*guard == Status::Connected)
     }
 
     pub fn start(&mut self) -> Result<(), EspError> {
@@ -543,11 +598,13 @@ impl<'d, P> EthDriver<'d, P> {
     }
 
     #[cfg(not(esp_idf_version_major = "4"))]
-    fn eth_mac_default_config(_mdc: i32, _mdio: i32) -> eth_mac_config_t {
+    fn eth_mac_default_config(mdc: i32, mdio: i32) -> eth_mac_config_t {
         eth_mac_config_t {
             sw_reset_timeout_ms: 100,
             rx_task_stack_size: 2048,
             rx_task_prio: 15,
+            smi_mdc_gpio_num: 23,
+            smi_mdio_gpio_num: 18,
             flags: 0,
             ..Default::default()
         }
@@ -575,6 +632,10 @@ impl<'d, P> Eth for EthDriver<'d, P> {
         EthDriver::stop(self)
     }
 
+    fn is_started(&self) -> Result<bool, Self::Error> {
+        EthDriver::is_started(self)
+    }
+
     fn is_up(&self) -> Result<bool, Self::Error> {
         EthDriver::is_up(self)
     }
@@ -598,7 +659,7 @@ impl<'d, P> Drop for EthDriver<'d, P> {
 impl<'d, P> RawHandle for EthDriver<'d, P> {
     type Handle = esp_eth_handle_t;
 
-    fn handle(&self) -> Self::Handle {
+    unsafe fn handle(&self) -> Self::Handle {
         self.handle
     }
 }
@@ -613,29 +674,27 @@ pub struct EspEth<'d, P> {
 #[cfg(esp_idf_comp_esp_netif_enabled)]
 impl<'d, P> EspEth<'d, P> {
     pub fn new(driver: EthDriver<'d, P>) -> Result<Self, EspError> {
-        Self::wrap(driver, EspNetif::new(NetifStack::Eth))
+        Self::wrap(driver, EspNetif::new(NetifStack::Eth)?)
     }
 
     pub fn wrap(driver: EthDriver<'d, P>, netif: EspNetif) -> Result<Self, EspError> {
         let glue_handle = unsafe { esp_eth_new_netif_glue(driver.handle()) };
 
-        let this = Self {
+        esp!(unsafe { esp_netif_attach(netif.handle(), glue_handle as *mut _) })?;
+
+        Ok(Self {
             driver,
             netif,
             glue_handle,
-        };
-
-        esp!(unsafe { esp_netif_attach(netif.1, glue_handle) })?;
-
-        Ok(this)
+        })
     }
 
     pub fn driver(&self) -> &EthDriver<'d, P> {
         &self.driver
     }
 
-    pub fn driver_mut(&mut self) -> &mut EspNetif {
-        &mut self.netif
+    pub fn driver_mut(&mut self) -> &mut EthDriver<'d, P> {
+        &mut self.driver
     }
 
     pub fn netif(&self) -> &EspNetif {
@@ -662,6 +721,26 @@ impl<'d, P> RawHandle for EspEth<'d, P> {
 
     unsafe fn handle(&self) -> Self::Handle {
         self.glue_handle
+    }
+}
+
+impl<'d, P> Eth for EspEth<'d, P> {
+    type Error = EspError;
+
+    fn start(&mut self) -> Result<(), Self::Error> {
+        self.driver_mut().start()
+    }
+
+    fn stop(&mut self) -> Result<(), Self::Error> {
+        self.driver_mut().stop()
+    }
+
+    fn is_started(&self) -> Result<bool, Self::Error> {
+        Ok(self.driver().is_started()?)
+    }
+
+    fn is_up(&self) -> Result<bool, Self::Error> {
+        Ok(self.driver().is_up()? && self.netif().is_up()?)
     }
 }
 
@@ -694,16 +773,21 @@ pub struct EspRawEth<'d, P> {
 }
 
 impl<'d, P> EspRawEth<'d, P> {
-    pub fn new<C>(driver: EthDriver<'d, P>, callback: C) -> Result<Self, EspError>
+    pub fn new<C>(driver: EthDriver<'d, P>, mut callback: C) -> Result<Self, EspError>
     where
-        C: for<'a> FnMut(&[u8]),
+        C: for<'a> FnMut(&[u8]) + Send + 'static,
     {
-        let callback: Box<dyn FnMut(&[u8]) + 'static> = Box::new(move |data| callback(data));
+        let mut callback: Box<Box<dyn FnMut(&[u8]) + 'static>> =
+            Box::new(Box::new(move |data| callback(data)));
 
         let unsafe_callback = UnsafeCallback::from(&mut callback);
 
         unsafe {
-            esp_eth_update_input_path(driver.handle(), Self::handle, unsafe_callback.as_ptr());
+            esp_eth_update_input_path(
+                driver.handle(),
+                Some(Self::handle),
+                unsafe_callback.as_ptr(),
+            );
         }
 
         Ok(Self {
@@ -716,25 +800,52 @@ impl<'d, P> EspRawEth<'d, P> {
         &self.driver
     }
 
-    pub fn driver_mut(&mut self) -> &mut EspNetif {
-        &mut self.netif
+    pub fn driver_mut(&mut self) -> &mut EthDriver<'d, P> {
+        &mut self.driver
     }
 
     pub fn send(&mut self, frame: &[u8]) -> Result<(), EspError> {
-        esp!(unsafe { esp_eth_transmit(self.driver.handle(), frame.as_ptr(), frame.len()) })?;
+        esp!(unsafe {
+            esp_eth_transmit(
+                self.driver.handle(),
+                frame.as_ptr() as *mut _,
+                frame.len() as _,
+            )
+        })?;
 
         Ok(())
     }
 
-    extern "C" fn handle(
+    unsafe extern "C" fn handle(
         _handle: esp_eth_handle_t,
-        buf: *const u8,
-        len: usize,
-        event_handler_arg: *const c_types::c_void,
-    ) {
-        unsafe {
-            UnsafeCallback::from_ptr(event_handler_arg).call(core::slice::from_raw_parts(buf, len));
-        }
+        buf: *mut u8,
+        len: u32,
+        event_handler_arg: *mut c_types::c_void,
+    ) -> i32 {
+        UnsafeCallback::from_ptr(event_handler_arg as *mut _)
+            .call(core::slice::from_raw_parts(buf, len as _));
+
+        0 // TODO
+    }
+}
+
+impl<'d, P> Eth for EspRawEth<'d, P> {
+    type Error = EspError;
+
+    fn start(&mut self) -> Result<(), Self::Error> {
+        self.driver_mut().start()
+    }
+
+    fn stop(&mut self) -> Result<(), Self::Error> {
+        self.driver_mut().stop()
+    }
+
+    fn is_started(&self) -> Result<bool, Self::Error> {
+        self.driver().is_started()
+    }
+
+    fn is_up(&self) -> Result<bool, Self::Error> {
+        self.driver().is_up()
     }
 }
 
@@ -748,7 +859,11 @@ pub enum EthEvent {
 
 impl EthEvent {
     pub fn is_for(&self, raw_handle: impl RawHandle<Handle = esp_eth_handle_t>) -> bool {
-        self.handle() == unsafe { raw_handle.handle() }
+        self.is_for_handle(unsafe { raw_handle.handle() })
+    }
+
+    pub fn is_for_handle(&self, handle: esp_eth_handle_t) -> bool {
+        self.handle() == handle
     }
 
     pub fn handle(&self) -> esp_eth_handle_t {
@@ -795,146 +910,62 @@ impl EspTypedEventDeserializer<EthEvent> for EthEvent {
     }
 }
 
-pub struct EthStatus<B, R>
-where
-    B: Borrow<R>,
-    R: RawHandle<Handle = esp_eth_handle_t>,
-{
-    driver: B,
-    waitable: Arc<Waitable<bool>>,
+pub struct EthWait<B> {
+    _driver: B,
+    waitable: Arc<Waitable<()>>,
     _subscription: EspSubscription<System>,
 }
 
-impl<B, R> EthStatus<B, R>
-where
-    B: Borrow<R>,
-    R: RawHandle<Handle = esp_eth_handle_t>,
-{
-    pub fn new(driver: B, sysloop: &EspEventLoop<System>) -> Result<Self, EspError> {
-        let waitable: Arc<Waitable<Status>> = Arc::new(Waitable::new(Status::Disconnected));
+impl<B> EthWait<B> {
+    pub fn new<R>(driver: B, sysloop: &EspEventLoop<System>) -> Result<Self, EspError>
+    where
+        B: Borrow<R>,
+        R: RawHandle<Handle = esp_eth_handle_t>,
+    {
+        let waitable: Arc<Waitable<()>> = Arc::new(Waitable::new(()));
 
-        let eth_waitable = waitable.clone();
-        let driver_handle = driver.handle;
+        let s_waitable = waitable.clone();
+        let handle = UnsafeHandle(unsafe { driver.borrow().handle() });
 
-        let subscription = sysloop.subscribe(move |event: &EthEvent| {
-            let mut status = eth_waitable.state.lock();
-
-            if Self::on_eth_event(driver_handle, &mut status, event).unwrap() {
-                eth_waitable.cvar.notify_all();
-            }
-        })?;
+        let subscription = sysloop
+            .subscribe(move |event: &EthEvent| Self::on_eth_event(handle.0, &*s_waitable, event))?;
 
         Ok(Self {
-            driver,
+            _driver: driver,
             waitable,
             _subscription: subscription,
         })
     }
 
-    pub fn get_status(&self) -> Status {
-        return self.waitable.state.lock().clone();
+    pub fn wait(&self, matcher: impl Fn() -> bool) {
+        info!("About to wait");
+
+        self.waitable.wait_while(|_| !matcher());
+
+        info!("Waiting done - success");
     }
 
-    pub fn wait_status(&self, matcher: impl Fn(&Status) -> bool) {
-        info!("About to wait for status");
+    pub fn wait_with_timeout(&self, dur: Duration, matcher: impl Fn() -> bool) -> Result<(), ()> {
+        info!("About to wait for duration {:?}", dur);
 
-        self.waitable.wait_while(|status| !matcher(status));
-
-        info!("Waiting for status done - success");
-    }
-
-    pub fn wait_status_with_timeout(
-        &self,
-        dur: Duration,
-        matcher: impl Fn(&Status) -> bool,
-    ) -> Result<(), Status> {
-        info!("About to wait {:?} for status", dur);
-
-        let (timeout, status) = self.waitable.wait_timeout_while_and_get(
-            dur,
-            |status| !matcher(status),
-            |status| status.clone(),
-        );
+        let (timeout, status) =
+            self.waitable
+                .wait_timeout_while_and_get(dur, |_| !matcher(), |_| ());
 
         if !timeout {
-            info!("Waiting for status done - success");
+            info!("Waiting done - success");
             Ok(())
         } else {
-            info!("Timeout while waiting for status");
+            info!("Timeout while waiting");
             Err(status)
         }
     }
 
-    fn on_eth_event(
-        driver_handle: esp_eth_handle_t,
-        status: &mut Status,
-        event: &EthEvent,
-    ) -> Result<bool, EspError> {
-        if driver_handle == event.handle() as _ {
+    fn on_eth_event(handle: esp_eth_handle_t, waitable: &Waitable<()>, event: &EthEvent) {
+        if event.is_for_handle(handle) {
             info!("Got eth event: {:?} ", event);
 
-            *status = match event {
-                EthEvent::Stopped(_) => Status::Stopped,
-                EthEvent::Started(_) => Status::Started,
-                EthEvent::Connected(_) => Status::Connected,
-                EthEvent::Disconnected(_) => Status::Started,
-            };
-
-            info!("Eth event {:?} handled, set status: {:?}", event, status);
-
-            Ok(true)
-        } else {
-            Ok(false)
+            waitable.cvar.notify_all();
         }
-    }
-}
-
-impl<B, R> EventBus<()> for EthStatus<B, R>
-where
-    B: Borrow<R>,
-    R: RawHandle<Handle = esp_eth_handle_t>,
-{
-    type Subscription = (EspSubscription<System>, EspSubscription<System>);
-
-    fn subscribe(
-        &self,
-        callback: impl for<'a> FnMut(&'a ()) + Send + 'static,
-    ) -> Result<Self::Subscription, Self::Error> {
-        let handle = unsafe { self.driver.handle() };
-        let waitable = self.waitable.clone();
-        let mut last_up = self.is_up();
-
-        let subscription = self.sys_loop.subscribe(move |event: &EthEvent| {
-            let notify = {
-                if handle == event.handle() {
-                    let guard = waitable.state.lock();
-
-                    if last_up != *guard {
-                        last_up = *guard;
-
-                        true
-                    } else {
-                        false
-                    }
-                } else {
-                    false
-                }
-            };
-
-            if notify {
-                callback(&());
-            }
-        })?;
-
-        Ok(subscription)
-    }
-}
-
-#[cfg(all(feature = "nightly", feature = "experimental"))]
-mod asyncify {
-    use embedded_svc::utils::asyncify::{event_bus::AsyncEventBus, Asyncify};
-
-    impl<'d, P> Asyncify for super::EthDriver<'d, P> {
-        type AsyncWrapper<S> = AsyncEventBus<(), crate::private::mutex::RawCondvar, S>;
     }
 }

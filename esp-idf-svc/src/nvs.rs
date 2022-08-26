@@ -8,12 +8,11 @@ use ::log::*;
 
 use embedded_svc::storage::{RawStorage, StorageBase};
 
-use esp_idf_hal::mutex;
-
 use esp_idf_sys::*;
 
 use crate::handle::RawHandle;
 use crate::private::cstr::*;
+use crate::private::mutex;
 
 static DEFAULT_TAKEN: mutex::Mutex<bool> = mutex::Mutex::wrap(mutex::RawMutex::new(), false);
 static NONDEFAULT_LOCKED: mutex::Mutex<alloc::collections::BTreeSet<CString>> =
@@ -24,13 +23,13 @@ pub type EspCustomNvsPartition = EspNvsPartition<Custom>;
 
 pub trait NvsPartitionId {
     fn is_default(&self) -> bool {
-        self.name() == b""
+        self.name().to_bytes().len() == 0
     }
 
     fn name(&self) -> &CStr;
 }
 
-pub struct Default;
+pub struct Default(());
 
 impl Default {
     fn new() -> Result<Self, EspError> {
@@ -72,7 +71,7 @@ impl Drop for Default {
 
 impl NvsPartitionId for Default {
     fn name(&self) -> &CStr {
-        b""
+        CStr::from_bytes_with_nul(b"\0").unwrap()
     }
 }
 
@@ -89,7 +88,7 @@ impl Custom {
         partition: &str,
         registrations: &mut alloc::collections::BTreeSet<CString>,
     ) -> Result<Self, EspError> {
-        let c_partition = CString::new(partition.as_ref()).unwrap();
+        let c_partition = CString::new(partition).unwrap();
 
         if registrations.contains(c_partition.as_ref()) {
             return Err(EspError::from(ESP_ERR_INVALID_STATE as i32).unwrap());
@@ -128,7 +127,7 @@ impl Drop for Custom {
 
 impl NvsPartitionId for Custom {
     fn name(&self) -> &CStr {
-        self.0.as_str()
+        self.0.as_c_str()
     }
 }
 
@@ -157,10 +156,10 @@ where
 }
 
 impl RawHandle for EspNvsPartition<Custom> {
-    type Handle = &CStr;
+    type Handle = *const u8;
 
     unsafe fn handle(&self) -> Self::Handle {
-        self.0.name().as_str()
+        self.0.name().as_ptr() as *const _
     }
 }
 
@@ -170,12 +169,16 @@ pub type EspCustomNvs = EspNvs<Custom>;
 pub struct EspNvs<T: NvsPartitionId>(EspNvsPartition<T>, nvs_handle_t);
 
 impl<T: NvsPartitionId> EspNvs<T> {
-    pub fn new(partition: EspNvs<T>, namespace: &str, read_write: bool) -> Result<Self, EspError> {
-        let c_namespace = CString::new(namespace.as_ref()).unwrap();
+    pub fn new(
+        partition: EspNvsPartition<T>,
+        namespace: &str,
+        read_write: bool,
+    ) -> Result<Self, EspError> {
+        let c_namespace = CString::new(namespace).unwrap();
 
         let mut handle: nvs_handle_t = 0;
 
-        if partition.is_default() {
+        if partition.0.is_default() {
             esp!(unsafe {
                 nvs_open(
                     c_namespace.as_ptr(),
@@ -190,7 +193,7 @@ impl<T: NvsPartitionId> EspNvs<T> {
         } else {
             esp!(unsafe {
                 nvs_open_from_partition(
-                    partition.0.as_ptr(),
+                    partition.0.name().as_ptr(),
                     c_namespace.as_ptr(),
                     if read_write {
                         nvs_open_mode_t_NVS_READWRITE
