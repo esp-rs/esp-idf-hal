@@ -270,22 +270,22 @@ impl OutputMode for InputOutput {
     const RTC: bool = false;
 }
 
-#[cfg(not(feature = "riscv-ulp-hal"))]
+#[cfg(all(not(feature = "riscv-ulp-hal"), not(esp32c3)))]
 impl InputMode for RtcInput {
     const RTC: bool = true;
 }
 
-#[cfg(not(feature = "riscv-ulp-hal"))]
+#[cfg(all(not(feature = "riscv-ulp-hal"), not(esp32c3)))]
 impl InputMode for RtcInputOutput {
     const RTC: bool = true;
 }
 
-#[cfg(not(feature = "riscv-ulp-hal"))]
+#[cfg(all(not(feature = "riscv-ulp-hal"), not(esp32c3)))]
 impl OutputMode for RtcOutput {
     const RTC: bool = true;
 }
 
-#[cfg(not(feature = "riscv-ulp-hal"))]
+#[cfg(all(not(feature = "riscv-ulp-hal"), not(esp32c3)))]
 impl OutputMode for RtcInputOutput {
     const RTC: bool = true;
 }
