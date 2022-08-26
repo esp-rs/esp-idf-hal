@@ -196,7 +196,6 @@ pub enum Pull {
     UpDown,
 }
 
-#[cfg(not(feature = "riscv-ulp-hal"))]
 impl From<Pull> for gpio_pull_mode_t {
     fn from(pull: Pull) -> gpio_pull_mode_t {
         match pull {
@@ -629,23 +628,27 @@ impl<'d, T: Pin, MODE> PinDriver<'d, T, MODE> {
     where
         MODE: InputMode,
     {
+        let res;
+
         if MODE::RTC {
             #[cfg(all(not(feature = "riscv-ulp-hal"), not(esp32c3)))]
-            let mode = if unsafe { rtc_gpio_get_level(self.pin.pin()) } != 0 {
-                Level::High
-            } else {
-                Level::Low
-            };
+            {
+                res = if unsafe { rtc_gpio_get_level(self.pin.pin()) } != 0 {
+                    Level::High
+                } else {
+                    Level::Low
+                };
+            }
 
             #[cfg(any(feature = "riscv-ulp-hal", esp32c3))]
-            let mode = unreachable!();
-
-            mode
+            unreachable!();
         } else if unsafe { gpio_get_level(self.pin.pin()) } != 0 {
-            Level::High
+            res = Level::High;
         } else {
-            Level::Low
+            res = Level::Low;
         }
+
+        res
     }
 
     #[inline]
@@ -872,7 +875,7 @@ impl<'d, T: Pin, MODE> PinDriver<'d, T, MODE> {
         res
     }
 
-    #[cfg(not(feature = "riscv-ulp-hal"))]
+    #[cfg(all(not(feature = "riscv-ulp-hal"), not(esp32c3)))]
     fn rtc_reset(&mut self) -> Result<(), EspError> {
         rtc_reset_pin(self.pin.pin())
     }
