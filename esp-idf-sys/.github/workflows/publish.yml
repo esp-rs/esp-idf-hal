@@ -5,7 +5,7 @@ on:
 
 env:
   rust_toolchain: nightly-2022-08-01
-  CRATE_NAME: esp-idf-sys
+  crate_name: esp-idf-sys
 
 jobs:
   publish:
@@ -37,9 +37,9 @@ jobs:
           publish_dir: ./docs
       - name: Get the crate version from cargo
         run: |
-          version=$(cargo metadata --format-version=1 --no-deps | jq -r ".packages[] | select(.name == \"${{env.CRATE_NAME}}\") | .version")
+          version=$(cargo metadata --format-version=1 --no-deps | jq -r ".packages[] | select(.name == \"${{env.crate_name}}\") | .version")
           echo "crate_version=$version" >> $GITHUB_ENV
-          echo "${{env.CRATE_NAME}} version: $version"
+          echo "${{env.crate_name}} version: $version"
       - name: Tag the new release
         uses: rickstaa/action-create-tag@v1
         with:
