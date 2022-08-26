@@ -628,21 +628,27 @@ impl<'d, T: Pin, MODE> PinDriver<'d, T, MODE> {
     where
         MODE: InputMode,
     {
+        let res;
+
         if MODE::RTC {
             #[cfg(all(not(feature = "riscv-ulp-hal"), not(esp32c3)))]
-            if unsafe { rtc_gpio_get_level(self.pin.pin()) } != 0 {
-                return Level::High;
-            } else {
-                return Level::Low;
+            {
+                res = if unsafe { rtc_gpio_get_level(self.pin.pin()) } != 0 {
+                    Level::High
+                } else {
+                    Level::Low
+                };
             }
 
             #[cfg(any(feature = "riscv-ulp-hal", esp32c3))]
             unreachable!();
         } else if unsafe { gpio_get_level(self.pin.pin()) } != 0 {
-            Level::High
+            res = Level::High;
         } else {
-            Level::Low
+            res = Level::Low;
         }
+
+        res
     }
 
     #[inline]
