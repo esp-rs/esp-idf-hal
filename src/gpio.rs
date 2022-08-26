@@ -869,7 +869,7 @@ impl<'d, T: Pin, MODE> PinDriver<'d, T, MODE> {
         res
     }
 
-    #[cfg(not(feature = "riscv-ulp-hal"))]
+    #[cfg(all(not(feature = "riscv-ulp-hal"), not(esp32c3)))]
     fn rtc_reset(&mut self) -> Result<(), EspError> {
         rtc_reset_pin(self.pin.pin())
     }
