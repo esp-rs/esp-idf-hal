@@ -18,15 +18,15 @@
 //!
 //! ```
 //! // Prepare the config.
-//! let config = TransmitConfig::new().clock_divider(1);
+//! let config = Config::new().clock_divider(1);
 //!
 //! // Retrieve the output pin and channel from peripherals.
 //! let peripherals = Peripherals::take().unwrap();
-//! let pin = peripherals.pins.gpio18.into_output()?;
 //! let channel = peripherals.rmt.channel0;
+//! let pin = peripherals.pins.gpio18;
 //!
 //! // Create an RMT transmitter.
-//! let tx = RmtDriver::new(pin, channel, &config)?;
+//! let tx = RmtDriver::new(channel, pin, &config)?;
 //!
 //! // Prepare signal pulse signal to be sent.
 //! let low = Pulse::new(PinState::Low, PulseTicks::new(10)?);
@@ -80,7 +80,7 @@ pub enum PinState {
 
 /// A `Pulse` contains a pin state and a tick count, used in creating a [`Signal`].
 ///
-/// The real time duration of a tick depends on the [`TransmitConfig::clock_divider`] setting.
+/// The real time duration of a tick depends on the [`Config::clock_divider`] setting.
 ///
 /// You can create a `Pulse` with a [`Duration`] by using [`Pulse::new_with_duration`].
 ///
@@ -114,7 +114,7 @@ impl Pulse {
     /// # let peripherals = Peripherals::take()?;
     /// # let led = peripherals.pins.gpio18.into_output()?;
     /// # let channel = peripherals.rmt.channel0;
-    /// # let config = TransmitConfig::new()?;
+    /// # let config = Config::new()?;
     /// let tx = Transmit::new(led, channel, &config)?;
     /// let ticks_hz = tx.counter_clock()?;
     /// let pulse = Pulse::new_with_duration(ticks_hz, PinState::High, Duration::from_nanos(500))?;
@@ -173,7 +173,7 @@ pub fn duration_to_ticks(ticks_hz: Hertz, duration: &Duration) -> Result<u128, E
 
 /// Types used for configuring the [`rmt`][crate::rmt] module.
 ///
-/// [`TransmitConfig`] is used when creating a [`Transmit`][crate::rmt::Transmit] instance.
+/// [`Config`] is used when creating a [`Transmit`][crate::rmt::Transmit] instance.
 ///
 /// # Example
 /// ```
@@ -182,7 +182,7 @@ pub fn duration_to_ticks(ticks_hz: Hertz, duration: &Duration) -> Result<u128, E
 ///     .duty_percent(DutyPercent::new(50)?)
 ///     .frequency(611.Hz());
 ///
-/// let config = TransmitConfig::new()
+/// let config = Config::new()
 ///     .carrier(Some(carrier))
 ///     .looping(Loop::Endless)
 ///     .clock_divider(255);
@@ -445,7 +445,7 @@ impl<'d, C: RmtChannel> RmtDriver<'d, C> {
     /// that don't work in interrupt handlers. Iteration must also be fast so that there
     /// are no time-gaps between successive transmissions where the perhipheral has to
     /// wait for items. This can cause weird behavior and can be counteracted with
-    /// increasing [`TransmitConfig::mem_block_num`] or making iteration more efficient.
+    /// increasing [`Config::mem_block_num`] or making iteration more efficient.
     #[cfg(feature = "std")]
     pub fn start_iter<T>(&mut self, iter: T) -> Result<(), EspError>
     where
@@ -479,7 +479,7 @@ impl<'d, C: RmtChannel> RmtDriver<'d, C> {
     /// that don't work in interrupt handlers. Iteration must also be fast so that there
     /// are no time-gaps between successive transmissions where the perhipheral has to
     /// wait for items. This can cause weird behavior and can be counteracted with
-    /// increasing [`TransmitConfig::mem_block_num`] or making iteration more efficient.
+    /// increasing [`Config::mem_block_num`] or making iteration more efficient.
     pub fn start_iter_blocking<T>(&mut self, iter: T) -> Result<(), EspError>
     where
         T: Iterator<Item = rmt_item32_t> + Send,

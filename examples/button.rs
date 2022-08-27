@@ -10,9 +10,6 @@
 use std::thread;
 use std::time::Duration;
 
-use embedded_hal::digital::blocking::InputPin;
-use embedded_hal::digital::blocking::OutputPin;
-
 use esp_idf_hal::gpio::*;
 use esp_idf_hal::peripherals::Peripherals;
 
@@ -20,16 +17,16 @@ fn main() -> anyhow::Result<()> {
     esp_idf_sys::link_patches();
 
     let peripherals = Peripherals::take().unwrap();
-    let mut led = PinDriver::new(peripherals.pins.gpio4).into_output()?;
-    let mut button = PinDriver::new(peripherals.pins.gpio9).into_input()?;
+    let mut led = PinDriver::new(peripherals.pins.gpio4)?.into_output()?;
+    let mut button = PinDriver::new(peripherals.pins.gpio9)?.into_input()?;
 
-    button.set_pull_down()?;
+    button.set_pull(Pull::Down)?;
 
     loop {
         // we are using thread::sleep here to make sure the watchdog isn't triggered
         thread::sleep(Duration::from_millis(10));
 
-        if button.is_high()? {
+        if button.is_high() {
             led.set_low()?;
         } else {
             led.set_high()?;
