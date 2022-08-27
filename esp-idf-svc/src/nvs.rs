@@ -23,7 +23,7 @@ pub type EspCustomNvsPartition = EspNvsPartition<Custom>;
 
 pub trait NvsPartitionId {
     fn is_default(&self) -> bool {
-        self.name().to_bytes().len() == 0
+        self.name().to_bytes().is_empty()
     }
 
     fn name(&self) -> &CStr;

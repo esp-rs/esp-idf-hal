@@ -226,6 +226,7 @@ impl<'d, M: WifiModemPeripheral> WifiDriver<'d, M> {
         })
     }
 
+    #[allow(clippy::type_complexity)]
     fn subscribe(
         sysloop: &EspEventLoop<System>,
     ) -> Result<
@@ -941,19 +942,19 @@ impl WifiWait {
         info!("Waiting done - success");
     }
 
-    pub fn wait_with_timeout(&self, dur: Duration, matcher: impl Fn() -> bool) -> Result<(), ()> {
+    pub fn wait_with_timeout(&self, dur: Duration, matcher: impl Fn() -> bool) -> bool {
         info!("About to wait for duration {:?}", dur);
 
-        let (timeout, status) =
-            self.waitable
-                .wait_timeout_while_and_get(dur, |_| !matcher(), |_| ());
+        let (timeout, _) = self
+            .waitable
+            .wait_timeout_while_and_get(dur, |_| !matcher(), |_| ());
 
         if !timeout {
             info!("Waiting done - success");
-            Ok(())
+            true
         } else {
             info!("Timeout while waiting");
-            Err(status)
+            false
         }
     }
 
