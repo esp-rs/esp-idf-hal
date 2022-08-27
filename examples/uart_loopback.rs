@@ -27,15 +27,23 @@ fn main() -> anyhow::Result<()> {
 
     println!("Starting UART loopback test");
     let config = config::Config::new().baudrate(Hertz(115_200));
-    let mut serial = UartDriver::new(peripherals.uart1, tx, rx, None, None, &config).unwrap();
+    let mut uart = UartDriver::new(
+        peripherals.uart1,
+        tx,
+        rx,
+        Option::<gpio::Gpio0>::None,
+        Option::<gpio::Gpio1>::None,
+        &config,
+    )
+    .unwrap();
 
     loop {
         // we are using thread::sleep here to make sure the watchdog isn't triggered
         thread::sleep(Duration::from_millis(500));
-        nb::block!(serial.write(0xaa))?;
+        nb::block!(uart.write(0xaa))?;
 
         // note: this will block - if you don't connect RX and TX you will see the watchdog kick in
-        let byte = nb::block!(serial.read())?;
+        let byte = nb::block!(uart.read())?;
         println!("Written 0xaa, read 0x{:02x}", byte);
     }
 }

@@ -19,8 +19,9 @@ use embedded_hal::digital::blocking::InputPin;
 
 use esp_idf_hal::delay::Ets;
 use esp_idf_hal::gpio::*;
+use esp_idf_hal::peripheral::*;
 use esp_idf_hal::peripherals::Peripherals;
-use esp_idf_hal::rmt::config::{CarrierConfig, DutyPercent, Loop, TransmitConfig};
+use esp_idf_hal::rmt::config::{CarrierConfig, Config, DutyPercent, Loop};
 use esp_idf_hal::rmt::*;
 use esp_idf_hal::units::FromValueType;
 
@@ -28,19 +29,19 @@ fn main() -> anyhow::Result<()> {
     esp_idf_sys::link_patches();
 
     let peripherals = Peripherals::take().unwrap();
+    let channel = peripherals.rmt.channel0;
     let led = peripherals.pins.gpio17;
     let stop = peripherals.pins.gpio16;
-    let channel = peripherals.rmt.channel0;
 
     let carrier = CarrierConfig::new()
         .duty_percent(DutyPercent::new(50)?)
         .frequency(611.Hz());
-    let mut config = TransmitConfig::new()
+    let mut config = Config::new()
         .carrier(Some(carrier))
         .looping(Loop::Endless)
         .clock_divider(255);
 
-    let tx = send_morse_code(&config, &mut led, &mut channel, "HELLO ")?;
+    let tx = send_morse_code(&mut channel, &mut led, &config, "HELLO ")?;
 
     println!("Keep sending until pin {} is set low.", stop.pin());
     while stop.is_high()? {
@@ -57,17 +58,17 @@ fn main() -> anyhow::Result<()> {
     // Now send a single message and stop.
     println!("Saying GOODBYE!");
     config.looping = Loop::None;
-    send_morse_code(&config, led, channel, "GOODBYE")?;
+    send_morse_code(channel, led, &config, "GOODBYE")?;
 
     Ok(())
 }
 
 fn send_morse_code<'d>(
-    config: &TransmitConfig,
-    led: impl Peripheral<P = impl OutputPin> + 'd,
     channel: impl Peripheral<P = CHANNEL0> + 'd,
+    led: impl Peripheral<P = impl OutputPin> + 'd,
+    config: &Config,
     message: &str,
-) -> anyhow::Result<LedcDriver<'d, CHANNEL0>> {
+) -> anyhow::Result<RmtDriver<'d, CHANNEL0>> {
     println!("Sending morse message '{}' to pin {}.", message, led.pin());
 
     let mut signal = VariableLengthSignal::new();
@@ -76,7 +77,7 @@ fn send_morse_code<'d>(
     let pulses: Vec<&Pulse> = pulses.iter().collect();
     signal.push(pulses)?;
 
-    let mut tx = LedcDriver::new(led, channel, &config)?;
+    let mut tx = RmtDriver::new(channel, led, &config)?;
     tx.start(signal)?;
 
     // Return `tx` so we can release the pin and channel later.

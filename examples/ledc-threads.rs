@@ -1,6 +1,6 @@
-use std::{borrow::Borrow, sync::Arc, time::Duration};
+use std::{sync::Arc, time::Duration};
 
-use embedded_hal_0_2::pwn::*;
+use embedded_hal_0_2::pwm::*;
 
 use esp_idf_hal::gpio::OutputPin;
 use esp_idf_hal::ledc::*;
