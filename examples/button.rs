@@ -20,13 +20,13 @@ fn main() -> anyhow::Result<()> {
     let mut led = PinDriver::new(peripherals.pins.gpio4)?.into_output()?;
     let mut button = PinDriver::new(peripherals.pins.gpio9)?.into_input()?;
 
-    button.set_pull_down()?;
+    button.set_pull(Pull::Down)?;
 
     loop {
         // we are using thread::sleep here to make sure the watchdog isn't triggered
         thread::sleep(Duration::from_millis(10));
 
-        if button.is_high()? {
+        if button.is_high() {
             led.set_low()?;
         } else {
             led.set_high()?;
