@@ -19,6 +19,7 @@ use embedded_hal::digital::blocking::InputPin;
 
 use esp_idf_hal::delay::Ets;
 use esp_idf_hal::gpio::*;
+use esp_idf_hal::peripheral::*;
 use esp_idf_hal::peripherals::Peripherals;
 use esp_idf_hal::rmt::config::{CarrierConfig, Config, DutyPercent, Loop};
 use esp_idf_hal::rmt::*;
@@ -67,7 +68,7 @@ fn send_morse_code<'d>(
     led: impl Peripheral<P = impl OutputPin> + 'd,
     config: &Config,
     message: &str,
-) -> anyhow::Result<LedcDriver<'d, CHANNEL0>> {
+) -> anyhow::Result<RmtDriver<'d, CHANNEL0>> {
     println!("Sending morse message '{}' to pin {}.", message, led.pin());
 
     let mut signal = VariableLengthSignal::new();
@@ -76,7 +77,7 @@ fn send_morse_code<'d>(
     let pulses: Vec<&Pulse> = pulses.iter().collect();
     signal.push(pulses)?;
 
-    let mut tx = LedcDriver::new(channel, led, &config)?;
+    let mut tx = RmtDriver::new(channel, led, &config)?;
     tx.start(signal)?;
 
     // Return `tx` so we can release the pin and channel later.
