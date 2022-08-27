@@ -15,11 +15,6 @@ use esp_idf_hal::gpio::{InputPin, OutputPin};
 use esp_idf_hal::mac::MAC;
 use esp_idf_hal::peripheral::{Peripheral, PeripheralRef};
 
-use crate::handle::RawHandle;
-#[cfg(esp_idf_comp_esp_netif_enabled)]
-use crate::netif::*;
-use crate::private::*;
-
 #[cfg(any(
     all(esp32, esp_idf_eth_use_esp32_emac),
     any(
@@ -42,9 +37,11 @@ use crate::eventloop::{
     EspEventLoop, EspSubscription, EspSystemEventLoop, EspTypedEventDeserializer,
     EspTypedEventSource, System,
 };
+use crate::handle::RawHandle;
 #[cfg(esp_idf_comp_esp_netif_enabled)]
 use crate::netif::*;
 use crate::private::waitable::*;
+use crate::private::*;
 
 #[cfg(all(esp32, esp_idf_eth_use_esp32_emac))]
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]

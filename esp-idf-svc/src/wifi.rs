@@ -22,15 +22,13 @@ use crate::eventloop::{
     EspSubscription, EspSystemEventLoop, EspTypedEventDeserializer, EspTypedEventSource, System,
 };
 use crate::handle::RawHandle;
+#[cfg(esp_idf_comp_esp_netif_enabled)]
 use crate::netif::*;
 use crate::nvs::EspDefaultNvsPartition;
 use crate::private::common::*;
 use crate::private::cstr::*;
 use crate::private::mutex;
 use crate::private::waitable::*;
-
-#[cfg(esp_idf_comp_esp_netif_enabled)]
-use crate::netif::*;
 
 impl From<AuthMethod> for Newtype<wifi_auth_mode_t> {
     fn from(method: AuthMethod) -> Self {
