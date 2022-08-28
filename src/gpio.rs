@@ -305,7 +305,7 @@ pub struct PinDriver<'d, T: Pin, MODE> {
 }
 
 impl<'d, T: Pin> PinDriver<'d, T, Disabled> {
-    /// Wrap the pin in a `Flex`.
+    /// Creates the driver for a pin.
     ///
     /// The pin remains disconnected. The initial output level is unspecified, but can be changed
     /// before the pin is put into output mode.
