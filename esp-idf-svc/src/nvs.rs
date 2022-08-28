@@ -18,8 +18,8 @@ static DEFAULT_TAKEN: mutex::Mutex<bool> = mutex::Mutex::wrap(mutex::RawMutex::n
 static NONDEFAULT_LOCKED: mutex::Mutex<alloc::collections::BTreeSet<CString>> =
     mutex::Mutex::wrap(mutex::RawMutex::new(), alloc::collections::BTreeSet::new());
 
-pub type EspDefaultNvsPartition = EspNvsPartition<Default>;
-pub type EspCustomNvsPartition = EspNvsPartition<Custom>;
+pub type EspDefaultNvsPartition = EspNvsPartition<NvsDefault>;
+pub type EspCustomNvsPartition = EspNvsPartition<NvsCustom>;
 
 pub trait NvsPartitionId {
     fn is_default(&self) -> bool {
@@ -29,9 +29,9 @@ pub trait NvsPartitionId {
     fn name(&self) -> &CStr;
 }
 
-pub struct Default(());
+pub struct NvsDefault(());
 
-impl Default {
+impl NvsDefault {
     fn new() -> Result<Self, EspError> {
         let mut taken = DEFAULT_TAKEN.lock();
 
@@ -60,7 +60,7 @@ impl Default {
     }
 }
 
-impl Drop for Default {
+impl Drop for NvsDefault {
     fn drop(&mut self) {
         //esp!(nvs_flash_deinit()).unwrap(); TODO: To be checked why it fails
         *DEFAULT_TAKEN.lock() = false;
@@ -69,15 +69,15 @@ impl Drop for Default {
     }
 }
 
-impl NvsPartitionId for Default {
+impl NvsPartitionId for NvsDefault {
     fn name(&self) -> &CStr {
         CStr::from_bytes_with_nul(b"\0").unwrap()
     }
 }
 
-pub struct Custom(CString);
+pub struct NvsCustom(CString);
 
-impl Custom {
+impl NvsCustom {
     fn new(partition: &str) -> Result<Self, EspError> {
         let mut registrations = NONDEFAULT_LOCKED.lock();
 
@@ -112,7 +112,7 @@ impl Custom {
     }
 }
 
-impl Drop for Custom {
+impl Drop for NvsCustom {
     fn drop(&mut self) {
         {
             let mut registrations = NONDEFAULT_LOCKED.lock();
@@ -125,7 +125,7 @@ impl Drop for Custom {
     }
 }
 
-impl NvsPartitionId for Custom {
+impl NvsPartitionId for NvsCustom {
     fn name(&self) -> &CStr {
         self.0.as_c_str()
     }
@@ -134,15 +134,15 @@ impl NvsPartitionId for Custom {
 #[derive(Debug)]
 pub struct EspNvsPartition<T: NvsPartitionId>(Arc<T>);
 
-impl EspNvsPartition<Default> {
+impl EspNvsPartition<NvsDefault> {
     pub fn take() -> Result<Self, EspError> {
-        Ok(Self(Arc::new(Default::new()?)))
+        Ok(Self(Arc::new(NvsDefault::new()?)))
     }
 }
 
-impl EspNvsPartition<Custom> {
+impl EspNvsPartition<NvsCustom> {
     pub fn take(partition: &str) -> Result<Self, EspError> {
-        Ok(Self(Arc::new(Custom::new(partition)?)))
+        Ok(Self(Arc::new(NvsCustom::new(partition)?)))
     }
 }
 
@@ -155,7 +155,7 @@ where
     }
 }
 
-impl RawHandle for EspNvsPartition<Custom> {
+impl RawHandle for EspNvsPartition<NvsCustom> {
     type Handle = *const u8;
 
     unsafe fn handle(&self) -> Self::Handle {
@@ -163,8 +163,8 @@ impl RawHandle for EspNvsPartition<Custom> {
     }
 }
 
-pub type EspDefaultNvs = EspNvs<Default>;
-pub type EspCustomNvs = EspNvs<Custom>;
+pub type EspDefaultNvs = EspNvs<NvsDefault>;
+pub type EspCustomNvs = EspNvs<NvsCustom>;
 
 pub struct EspNvs<T: NvsPartitionId>(EspNvsPartition<T>, nvs_handle_t);
 
@@ -217,7 +217,7 @@ impl<T: NvsPartitionId> Drop for EspNvs<T> {
     }
 }
 
-impl RawHandle for EspNvs<Custom> {
+impl RawHandle for EspNvs<NvsCustom> {
     type Handle = nvs_handle_t;
 
     unsafe fn handle(&self) -> Self::Handle {
