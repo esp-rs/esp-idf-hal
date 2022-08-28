@@ -15,7 +15,6 @@
 //! * Taking a [`Pin`] and [`Channel`] by ref mut, so that they can be used again later.
 //!
 use embedded_hal::delay::blocking::DelayUs;
-use embedded_hal::digital::blocking::InputPin;
 
 use esp_idf_hal::delay::Ets;
 use esp_idf_hal::gpio::*;
@@ -44,10 +43,11 @@ fn main() -> anyhow::Result<()> {
     let tx = send_morse_code(&mut channel, &mut led, &config, "HELLO ")?;
 
     println!("Keep sending until pin {} is set low.", stop.pin());
-    while stop.is_high()? {
+    let stop = PinDriver::new(stop)?.into_input()?;
+    while stop.is_high() {
         Ets.delay_ms(100)?;
     }
-    println!("Pin {} is set to low--stopping message.", stop.pin());
+    println!("Pin {} is set to low-stopping message.", stop.pin());
 
     // Release pin and channel so we can use them again.
     drop(tx);
