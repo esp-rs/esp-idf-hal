@@ -770,37 +770,6 @@ impl<'d, T: Pin, MODE> PinDriver<'d, T, MODE> {
         }
     }
 
-    #[cfg(all(not(feature = "riscv-ulp-hal"), feature = "alloc"))]
-    pub fn enable_interrupt(&mut self) -> Result<(), EspError>
-    where
-        MODE: InputMode,
-    {
-        esp_result!(unsafe { gpio_intr_enable(self.pin.pin()) }, ())
-    }
-
-    #[cfg(all(not(feature = "riscv-ulp-hal"), feature = "alloc"))]
-    pub fn disable_interrupt(&mut self) -> Result<(), EspError>
-    where
-        MODE: InputMode,
-    {
-        esp!(unsafe { gpio_intr_disable(self.pin.pin()) })?;
-        esp!(unsafe { gpio_set_intr_type(self.pin.pin(), gpio_int_type_t_GPIO_INTR_DISABLE) })?;
-        unsafe { unregister_irq_handler(self.pin.pin() as usize) };
-
-        Ok(())
-    }
-
-    #[cfg(all(not(feature = "riscv-ulp-hal"), feature = "alloc"))]
-    pub fn set_interrupt_type(&mut self, interrupt_type: InterruptType) -> Result<(), EspError>
-    where
-        MODE: InputMode,
-    {
-        esp_result!(
-            unsafe { gpio_set_intr_type(self.pin.pin(), interrupt_type.into()) },
-            ()
-        )
-    }
-
     pub fn set_pull(&mut self, pull: Pull) -> Result<(), EspError>
     where
         T: InputPin + OutputPin,
@@ -857,6 +826,47 @@ impl<'d, T: Pin, MODE> PinDriver<'d, T, MODE> {
         self.enable_interrupt()?;
 
         Ok(())
+    }
+
+    #[cfg(all(not(feature = "riscv-ulp-hal"), feature = "alloc"))]
+    pub fn unsubscribe(&mut self) -> Result<(), EspError>
+    where
+        MODE: InputMode,
+    {
+        esp!(unsafe { gpio_intr_disable(self.pin.pin()) })?;
+        esp!(unsafe { gpio_set_intr_type(self.pin.pin(), gpio_int_type_t_GPIO_INTR_DISABLE) })?;
+        unsafe { unregister_irq_handler(self.pin.pin() as usize) };
+
+        Ok(())
+    }
+
+    #[cfg(all(not(feature = "riscv-ulp-hal"), feature = "alloc"))]
+    pub fn enable_interrupt(&mut self) -> Result<(), EspError>
+    where
+        MODE: InputMode,
+    {
+        esp_result!(unsafe { gpio_intr_enable(self.pin.pin()) }, ())
+    }
+
+    #[cfg(all(not(feature = "riscv-ulp-hal"), feature = "alloc"))]
+    pub fn disable_interrupt(&mut self) -> Result<(), EspError>
+    where
+        MODE: InputMode,
+    {
+        esp!(unsafe { gpio_intr_disable(self.pin.pin()) })?;
+
+        Ok(())
+    }
+
+    #[cfg(all(not(feature = "riscv-ulp-hal"), feature = "alloc"))]
+    pub fn set_interrupt_type(&mut self, interrupt_type: InterruptType) -> Result<(), EspError>
+    where
+        MODE: InputMode,
+    {
+        esp_result!(
+            unsafe { gpio_set_intr_type(self.pin.pin(), interrupt_type.into()) },
+            ()
+        )
     }
 
     fn reset(&mut self) -> Result<(), EspError> {
