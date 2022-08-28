@@ -193,7 +193,7 @@ pub struct WifiDriver<'d, M: WifiModemPeripheral> {
 impl<'d, M: WifiModemPeripheral> WifiDriver<'d, M> {
     #[cfg(all(feature = "alloc", esp_idf_comp_nvs_flash_enabled))]
     pub fn new(
-        modem: PeripheralRef<'d, M>,
+        modem: impl Peripheral<P = M> + 'd,
         sysloop: EspSystemEventLoop,
         nvs: Option<EspDefaultNvsPartition>,
     ) -> Result<Self, EspError> {
@@ -212,7 +212,10 @@ impl<'d, M: WifiModemPeripheral> WifiDriver<'d, M> {
     }
 
     #[cfg(not(all(feature = "alloc", esp_idf_comp_nvs_flash_enabled)))]
-    pub fn new(modem: PeripheralRef<'a, M>, sysloop: EspSystemEventLoop) -> Result<Self, EspError> {
+    pub fn new(
+        modem: impl Peripheral<P = M> + 'd,
+        sysloop: EspSystemEventLoop,
+    ) -> Result<Self, EspError> {
         crate::into_ref!(modem);
 
         Self::init(false)?;
