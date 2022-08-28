@@ -32,6 +32,8 @@ pub trait InputPin: Pin {}
 /// operating as an output pin
 pub trait OutputPin: Pin {}
 
+/// A marker trait designating a pin which is capable of
+/// operating as an RTC pin
 pub trait RTCPin: Pin {
     fn rtc_pin(&self) -> i32;
 }
@@ -291,17 +293,19 @@ impl OutputMode for RtcInputOutput {
 
 /// A driver for a GPIO pin.
 ///
-/// The driver can set the pin as a disconnected/disabled one, input, or output pin, or both or analog. Depending
-/// on the current operating mode, different sets of functions are available.
+/// The driver can set the pin as a disconnected/disabled one, input, or output pin, or both or analog.
+/// On some chips (i.e. esp32 and esp32s*), the driver can also set the pin in RTC IO mode.
+/// Depending on the current operating mode, different sets of functions are available.
 ///
-/// The mode-setting depends on the capabilities of the pin as well, i.e. input-only pins cannot be set into output mode.
+/// The mode-setting depends on the capabilities of the pin as well, i.e. input-only pins cannot be set
+/// into output or input-output mode.
 pub struct PinDriver<'d, T: Pin, MODE> {
     pin: PeripheralRef<'d, T>,
     _mode: PhantomData<MODE>,
 }
 
 impl<'d, T: Pin> PinDriver<'d, T, Disabled> {
-    /// Wrap the pin in a `Flex`.
+    /// Creates the driver for a pin.
     ///
     /// The pin remains disconnected. The initial output level is unspecified, but can be changed
     /// before the pin is put into output mode.
