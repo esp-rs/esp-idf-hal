@@ -42,12 +42,15 @@ fn main() -> anyhow::Result<()> {
 
     let tx = send_morse_code(&mut channel, &mut led, &config, "HELLO ")?;
 
-    println!("Keep sending until pin {} is set low.", stop.pin());
     let stop = PinDriver::new(stop)?.into_input()?;
+
+    println!("Keep sending until pin {} is set low.", stop.pin());
+
     while stop.is_high() {
         Ets.delay_ms(100)?;
     }
-    println!("Pin {} is set to low-stopping message.", stop.pin());
+
+    println!("Pin {} set to low. Stopped.", stop.pin());
 
     // Release pin and channel so we can use them again.
     drop(tx);
