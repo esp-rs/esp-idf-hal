@@ -31,7 +31,7 @@ pub mod cpu;
 #[cfg(not(feature = "riscv-ulp-hal"))]
 pub mod delay;
 pub mod gpio;
-#[cfg(esp32)]
+#[cfg(all(esp32, esp_idf_version_major = "4"))]
 pub mod hall;
 #[cfg(not(feature = "riscv-ulp-hal"))]
 pub mod i2c;
