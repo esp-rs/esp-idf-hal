@@ -286,7 +286,7 @@ impl<'d> SpiMasterDriver<'d, SPI1> {
         sdo: impl Peripheral<P = gpio::Gpio7> + 'd,
         sdi: Option<impl Peripheral<P = gpio::Gpio8> + 'd>,
         cs: Option<impl Peripheral<P = impl OutputPin> + 'd>,
-        config: config::Config,
+        config: &config::Config,
     ) -> Result<Self, EspError> {
         SpiMasterDriver::new_internal(spi, sclk, sdo, sdi, cs, config)
     }
@@ -300,7 +300,7 @@ impl<'d> SpiMasterDriver<'d, SPI2> {
         sdo: impl Peripheral<P = impl OutputPin> + 'd,
         sdi: Option<impl Peripheral<P = impl InputPin + OutputPin> + 'd>,
         cs: Option<impl Peripheral<P = impl OutputPin> + 'd>,
-        config: config::Config,
+        config: &config::Config,
     ) -> Result<Self, EspError> {
         SpiMasterDriver::new_internal(spi, sclk, sdo, sdi, cs, config)
     }
@@ -315,7 +315,7 @@ impl<'d> SpiMasterDriver<'d, SPI3> {
         sdo: impl Peripheral<P = impl OutputPin> + 'd,
         sdi: Option<impl Peripheral<P = impl InputPin + OutputPin> + 'd>,
         cs: Option<impl Peripheral<P = impl OutputPin> + 'd>,
-        config: config::Config,
+        config: &config::Config,
     ) -> Result<Self, EspError> {
         SpiMasterDriver::new_internal(spi, sclk, sdo, sdi, cs, config)
     }
@@ -329,7 +329,7 @@ impl<'d, SPI: Spi> SpiMasterDriver<'d, SPI> {
         sdo: impl Peripheral<P = impl OutputPin> + 'd,
         sdi: Option<impl Peripheral<P = impl InputPin + OutputPin> + 'd>,
         cs: Option<impl Peripheral<P = impl OutputPin> + 'd>,
-        config: config::Config,
+        config: &config::Config,
     ) -> Result<Self, EspError> {
         crate::into_ref!(spi, sclk, sdo);
 
