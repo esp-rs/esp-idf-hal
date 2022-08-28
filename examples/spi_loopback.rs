@@ -33,7 +33,8 @@ fn main() -> anyhow::Result<()> {
 
     println!("Starting SPI loopback test");
     let config = config::Config::new().baudrate(26.MHz().into());
-    let mut spi = SpiMasterDriver::new(spi, sclk, serial_out, Some(serial_in), Some(cs), &config)?;
+    let mut spi =
+        SpiMasterDriver::<SPI2>::new(spi, sclk, serial_out, Some(serial_in), Some(cs), &config)?;
 
     let mut read = [0u8; 4];
     let write = [0xde, 0xad, 0xbe, 0xef];
