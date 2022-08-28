@@ -300,14 +300,14 @@ pub struct PinDriver<'d, T: Pin, MODE> {
     _mode: PhantomData<MODE>,
 }
 
-impl<'d, T: Pin, MODE> PinDriver<'d, T, MODE> {
+impl<'d, T: Pin> PinDriver<'d, T, Disabled> {
     /// Wrap the pin in a `Flex`.
     ///
     /// The pin remains disconnected. The initial output level is unspecified, but can be changed
     /// before the pin is put into output mode.
     ///
     #[inline]
-    pub fn new(pin: impl Peripheral<P = T> + 'd) -> Result<PinDriver<'d, T, Disabled>, EspError> {
+    pub fn new(pin: impl Peripheral<P = T> + 'd) -> Result<Self, EspError> {
         let pin = pin.into_ref();
 
         Self {
@@ -316,7 +316,9 @@ impl<'d, T: Pin, MODE> PinDriver<'d, T, MODE> {
         }
         .into_disabled()
     }
+}
 
+impl<'d, T: Pin, MODE> PinDriver<'d, T, MODE> {
     /// Put the pin into disabled mode.
     pub fn into_disabled(mut self) -> Result<PinDriver<'d, T, Disabled>, EspError> {
         self.reset()?;
