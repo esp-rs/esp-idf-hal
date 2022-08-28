@@ -323,6 +323,11 @@ impl<'d, T: Pin> PinDriver<'d, T, Disabled> {
 }
 
 impl<'d, T: Pin, MODE> PinDriver<'d, T, MODE> {
+    /// Returns the pin number.
+    pub fn pin(&self) -> i32 {
+        self.pin.pin()
+    }
+
     /// Put the pin into disabled mode.
     pub fn into_disabled(mut self) -> Result<PinDriver<'d, T, Disabled>, EspError> {
         self.reset()?;
