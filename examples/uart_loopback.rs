@@ -14,6 +14,7 @@ use std::time::Duration;
 
 use embedded_hal::serial::nb::{Read, Write};
 
+use esp_idf_hal::gpio;
 use esp_idf_hal::peripherals::Peripherals;
 use esp_idf_hal::prelude::*;
 use esp_idf_hal::uart::*;
