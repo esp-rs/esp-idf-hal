@@ -50,6 +50,8 @@ pub mod peripheral;
 pub mod peripherals;
 pub mod prelude;
 #[cfg(not(feature = "riscv-ulp-hal"))]
+pub mod reset_reason;
+#[cfg(not(feature = "riscv-ulp-hal"))]
 pub mod rmt;
 #[cfg(not(feature = "riscv-ulp-hal"))]
 pub mod spi;
