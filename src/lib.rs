@@ -143,6 +143,8 @@ macro_rules! impl_peripheral_trait {
     ($type:ident) => {
         unsafe impl Send for $type {}
 
+        impl $crate::peripheral::sealed::Sealed for $type {}
+
         impl $crate::peripheral::Peripheral for $type {
             type P = $type;
 

@@ -1,6 +1,6 @@
 use core::marker::PhantomData;
 
-use crate::peripheral::Peripheral;
+use crate::peripheral::{sealed, Peripheral};
 
 #[cfg(not(esp32s2))]
 pub use split::*;
@@ -42,6 +42,8 @@ impl Modem {
 }
 
 unsafe impl Send for Modem {}
+
+impl sealed::Sealed for Modem {}
 
 impl Peripheral for Modem {
     type P = Self;
