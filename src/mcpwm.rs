@@ -564,6 +564,20 @@ impl OperatorConfig {
         self
     }
 
+    /// Set initual duty cycle for output A as percentage
+    #[must_use]
+    pub fn duty_a(mut self, duty: Duty) -> Self {
+        self.duty_a = duty;
+        self
+    }
+
+    /// Set initual duty cycle for output B as percentage
+    #[must_use]
+    pub fn duty_b(mut self, duty: Duty) -> Self {
+        self.duty_b = duty;
+        self
+    }
+
     /// Lowest frequency which the operator needs to be able to reach
     ///
     /// This setting will limit what frequency range the operator can reach.
