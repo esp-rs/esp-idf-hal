@@ -187,7 +187,7 @@ impl From<CounterMode> for mcpwm_counter_type_t {
 /// `rising_edge_delay` and `falling_edge_delay` is time as in number of clock cycles after the MCPWM modules group prescaler.
 ///
 /// Note that the dead times are calculated from MCPWMXA's flanks unless explicitly stated otherwise
-#[derive(Copy, Clone, PartialEq, Debug)]
+#[derive(Copy, Clone, PartialEq, Eq, Debug)]
 pub enum DeadtimeConfig {
     // TODO: Figure out what all of those options do and give them nice descriptions
     /// MCPWM_BYPASS_RED
@@ -759,6 +759,10 @@ impl<U: Unit> Mcpwm<U> {
 
         Ok(self)
     }
+
+    pub fn unit(&self) -> mcpwm_unit_t {
+        U::unit()
+    }
 }
 
 // The hardware for ESP32 and ESP32-S3 can associate any operator(within the mcpwm module) with any
@@ -1026,5 +1030,9 @@ where
     /// Get PWM frequency
     pub fn get_frequency(&self) -> Hertz {
         Hertz::from(unsafe { esp_idf_sys::mcpwm_get_frequency(U::unit(), O::timer()) })
+    }
+
+    pub fn timer(&self) -> mcpwm_timer_t {
+        O::timer()
     }
 }
