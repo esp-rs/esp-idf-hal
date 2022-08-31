@@ -50,6 +50,8 @@ crate::embedded_hal_error!(
     embedded_hal_0_2::can::ErrorKind
 );
 
+pub type CanConfig = config::Config;
+
 pub mod config {
     use esp_idf_sys::*;
 

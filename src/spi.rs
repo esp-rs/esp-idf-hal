@@ -77,6 +77,8 @@ impl Dma {
     }
 }
 
+pub type SpiMasterConfig = config::Config;
+
 /// SPI configuration
 pub mod config {
     use crate::spi::Dma;

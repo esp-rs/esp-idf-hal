@@ -15,6 +15,9 @@ crate::embedded_hal_error!(
     embedded_hal::i2c::ErrorKind
 );
 
+pub type I2cMasterConfig = config::MasterConfig;
+pub type I2cSlaveConfig = config::SlaveConfig;
+
 /// I2C configuration
 pub mod config {
     use crate::units::*;
