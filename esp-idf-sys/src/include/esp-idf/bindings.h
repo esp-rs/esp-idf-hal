@@ -61,6 +61,7 @@
 #include "esp_wifi_netif.h"
 #endif
 #include "esp_now.h"
+#include "esp_mesh.h"
 #endif
 
 #ifdef ESP_IDF_COMP_ESP_ETH_ENABLED
