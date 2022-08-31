@@ -171,6 +171,8 @@ pub fn duration_to_ticks(ticks_hz: Hertz, duration: &Duration) -> Result<u128, E
         / 1_000_000_000)
 }
 
+pub type RmtConfig = config::Config;
+
 /// Types used for configuring the [`rmt`][crate::rmt] module.
 ///
 /// [`Config`] is used when creating a [`Transmit`][crate::rmt::Transmit] instance.

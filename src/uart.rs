@@ -51,6 +51,8 @@ use crate::peripheral::{Peripheral, PeripheralRef};
 
 const UART_FIFO_SIZE: i32 = 128;
 
+pub type UartConfig = config::Config;
+
 /// UART configuration
 pub mod config {
     use crate::units::*;
