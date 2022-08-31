@@ -870,13 +870,15 @@ where
                 esp!(ESP_ERR_INVALID_ARG)?;
             }
 
-            if config.lowest_frequency > mcpwm_module.borrow().operator_source_frequency.Hz() {
+            let operator_source_frequency = mcpwm_module.borrow().operator_source_frequency;
+            if config.lowest_frequency > operator_source_frequency.Hz() {
                 // Can not specify a lowest_frequency larger than the corresponding value for
                 // the parent MCPWM module. Use `Mcpwm::lowest_frequency` to enable higher frequencies
                 esp!(ESP_ERR_INVALID_ARG)?;
             }
 
             let resolution = u32::from(config.lowest_frequency) * MAX_PWM_TIMER_PERIOD;
+            let resolution = resolution.min(operator_source_frequency);
             unsafe {
                 esp_idf_sys::mcpwm_timer_set_resolution(U::unit(), O::timer(), resolution);
             }
