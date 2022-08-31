@@ -674,15 +674,32 @@ impl<'d, M> EspWifi<'d, M>
 where
     M: WifiModemPeripheral,
 {
-    pub fn new(driver: WifiDriver<'d, M>) -> Result<Self, EspError> {
-        Self::wrap(
+    #[cfg(all(feature = "alloc", esp_idf_comp_nvs_flash_enabled))]
+    pub fn new<C>(
+        modem: impl Peripheral<P = M> + 'd,
+        sysloop: EspSystemEventLoop,
+        nvs: Option<EspDefaultNvsPartition>,
+    ) -> Result<Self, EspError> {
+        Self::wrap(WifiDriver::new(modem, sysloop, nvs)?)
+    }
+
+    #[cfg(not(all(feature = "alloc", esp_idf_comp_nvs_flash_enabled)))]
+    pub fn new<C>(
+        modem: impl Peripheral<P = M> + 'd,
+        sysloop: EspSystemEventLoop,
+    ) -> Result<Self, EspError> {
+        Self::wrap(WifiDriver::new(modem, sysloop)?)
+    }
+
+    pub fn wrap(driver: WifiDriver<'d, M>) -> Result<Self, EspError> {
+        Self::wrap_all(
             driver,
             EspNetif::new(NetifStack::Sta)?,
             EspNetif::new(NetifStack::Ap)?,
         )
     }
 
-    pub fn wrap(
+    pub fn wrap_all(
         driver: WifiDriver<'d, M>,
         sta_netif: EspNetif,
         ap_netif: EspNetif,
@@ -820,6 +837,237 @@ where
 
     fn scan(&mut self) -> Result<alloc::vec::Vec<AccessPointInfo>, Self::Error> {
         EspWifi::scan(self)
+    }
+}
+
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+pub enum WifiDeviceId {
+    Ap,
+    Sta,
+}
+
+impl From<WifiDeviceId> for wifi_interface_t {
+    fn from(id: WifiDeviceId) -> Self {
+        match id {
+            WifiDeviceId::Ap => wifi_interface_t_WIFI_IF_AP,
+            WifiDeviceId::Sta => wifi_interface_t_WIFI_IF_STA,
+        }
+    }
+}
+
+extern "C" {
+    fn esp_wifi_internal_reg_rxcb(
+        ifx: wifi_interface_t,
+        rxcb: Option<
+            unsafe extern "C" fn(
+                buffer: *mut c_types::c_void,
+                len: u16,
+                eb: *mut c_types::c_void,
+            ) -> esp_err_t,
+        >,
+    ) -> esp_err_t;
+
+    fn esp_wifi_internal_free_rx_buffer(buffer: *mut c_types::c_void);
+
+    fn esp_wifi_internal_tx(
+        wifi_if: wifi_interface_t,
+        buffer: *mut c_types::c_void,
+        len: u16,
+    ) -> esp_err_t;
+}
+
+static mut RECV_CALLBACK: Option<Box<dyn FnMut(WifiDeviceId, &[u8]) + 'static>> = None;
+
+pub struct EspRawWifi<'d, M>
+where
+    M: WifiModemPeripheral,
+{
+    driver: WifiDriver<'d, M>,
+}
+
+impl<'d, M> EspRawWifi<'d, M>
+where
+    M: WifiModemPeripheral + 'd,
+{
+    #[cfg(all(feature = "alloc", esp_idf_comp_nvs_flash_enabled))]
+    pub fn new<C>(
+        modem: impl Peripheral<P = M> + 'd,
+        sysloop: EspSystemEventLoop,
+        nvs: Option<EspDefaultNvsPartition>,
+        callback: C,
+    ) -> Result<Self, EspError>
+    where
+        C: for<'a> FnMut(WifiDeviceId, &[u8]) + Send + 'static,
+    {
+        Self::wrap(WifiDriver::new(modem, sysloop, nvs)?, callback)
+    }
+
+    #[cfg(not(all(feature = "alloc", esp_idf_comp_nvs_flash_enabled)))]
+    pub fn new<C>(
+        modem: impl Peripheral<P = M> + 'd,
+        sysloop: EspSystemEventLoop,
+        callback: C,
+    ) -> Result<Self, EspError>
+    where
+        C: for<'a> FnMut(WifiDeviceId, &[u8]) + Send + 'static,
+    {
+        Self::wrap(WifiDriver::new(modem, sysloop)?, callback)
+    }
+
+    pub fn wrap<C>(mut driver: WifiDriver<'d, M>, mut callback: C) -> Result<Self, EspError>
+    where
+        C: for<'a> FnMut(WifiDeviceId, &[u8]) + Send + 'static,
+    {
+        let _ = driver.stop();
+
+        let callback: Box<Box<dyn FnMut(WifiDeviceId, &[u8]) + 'static>> =
+            Box::new(Box::new(move |device_id, data| callback(device_id, data)));
+
+        unsafe {
+            RECV_CALLBACK = Some(callback);
+
+            esp!(esp_wifi_internal_reg_rxcb(
+                WifiDeviceId::Ap.into(),
+                Some(Self::handle_ap),
+            ))?;
+
+            esp!(esp_wifi_internal_reg_rxcb(
+                WifiDeviceId::Sta.into(),
+                Some(Self::handle_sta),
+            ))?;
+        }
+
+        Ok(Self { driver })
+    }
+
+    pub fn driver(&self) -> &WifiDriver<'d, M> {
+        &self.driver
+    }
+
+    pub fn driver_mut(&mut self) -> &mut WifiDriver<'d, M> {
+        &mut self.driver
+    }
+
+    pub fn get_capabilities(&self) -> Result<EnumSet<Capability>, EspError> {
+        self.driver().get_capabilities()
+    }
+
+    pub fn is_started(&self) -> Result<bool, EspError> {
+        self.driver().is_started()
+    }
+
+    pub fn is_up(&self) -> Result<bool, EspError> {
+        self.driver().is_up()
+    }
+
+    pub fn get_configuration(&self) -> Result<Configuration, EspError> {
+        self.driver().get_configuration()
+    }
+
+    pub fn set_configuration(&mut self, conf: &Configuration) -> Result<(), EspError> {
+        self.driver_mut().set_configuration(conf)
+    }
+
+    pub fn scan_n<const N: usize>(
+        &mut self,
+    ) -> Result<(heapless::Vec<AccessPointInfo, N>, usize), EspError> {
+        self.driver_mut().scan_n()
+    }
+
+    pub fn scan(&mut self) -> Result<alloc::vec::Vec<AccessPointInfo>, EspError> {
+        self.driver_mut().scan()
+    }
+
+    pub fn send(&mut self, device_id: WifiDeviceId, frame: &[u8]) -> Result<(), EspError> {
+        esp!(unsafe {
+            esp_wifi_internal_tx(device_id.into(), frame.as_ptr() as *mut _, frame.len() as _)
+        })
+    }
+
+    unsafe extern "C" fn handle_ap(
+        buf: *mut c_types::c_void,
+        len: u16,
+        eb: *mut c_types::c_void,
+    ) -> esp_err_t {
+        Self::handle(WifiDeviceId::Ap, buf, len, eb)
+    }
+
+    unsafe extern "C" fn handle_sta(
+        buf: *mut c_types::c_void,
+        len: u16,
+        eb: *mut c_types::c_void,
+    ) -> esp_err_t {
+        Self::handle(WifiDeviceId::Sta, buf, len, eb)
+    }
+
+    unsafe fn handle(
+        device_id: WifiDeviceId,
+        buf: *mut c_types::c_void,
+        len: u16,
+        eb: *mut c_types::c_void,
+    ) -> esp_err_t {
+        RECV_CALLBACK.as_mut().unwrap()(
+            device_id,
+            core::slice::from_raw_parts(buf as *mut _, len as usize),
+        );
+
+        esp_wifi_internal_free_rx_buffer(eb);
+
+        ESP_OK
+    }
+}
+
+impl<'d, M> Drop for EspRawWifi<'d, M>
+where
+    M: WifiModemPeripheral,
+{
+    fn drop(&mut self) {
+        drop(&mut self.driver);
+
+        unsafe {
+            RECV_CALLBACK = None;
+
+            esp!(esp_wifi_internal_reg_rxcb(WifiDeviceId::Ap.into(), None,)).unwrap();
+
+            esp!(esp_wifi_internal_reg_rxcb(WifiDeviceId::Sta.into(), None,)).unwrap();
+        }
+    }
+}
+
+impl<'d, M> Wifi for EspRawWifi<'d, M>
+where
+    M: WifiModemPeripheral,
+{
+    type Error = EspError;
+
+    fn get_capabilities(&self) -> Result<EnumSet<Capability>, Self::Error> {
+        EspRawWifi::get_capabilities(self)
+    }
+
+    fn is_started(&self) -> Result<bool, Self::Error> {
+        EspRawWifi::is_started(self)
+    }
+
+    fn is_up(&self) -> Result<bool, Self::Error> {
+        EspRawWifi::is_up(self)
+    }
+
+    fn get_configuration(&self) -> Result<Configuration, Self::Error> {
+        EspRawWifi::get_configuration(self)
+    }
+
+    fn set_configuration(&mut self, conf: &Configuration) -> Result<(), Self::Error> {
+        EspRawWifi::set_configuration(self, conf)
+    }
+
+    fn scan_n<const N: usize>(
+        &mut self,
+    ) -> Result<(heapless::Vec<AccessPointInfo, N>, usize), Self::Error> {
+        EspRawWifi::scan_n(self)
+    }
+
+    fn scan(&mut self) -> Result<alloc::vec::Vec<AccessPointInfo>, Self::Error> {
+        EspRawWifi::scan(self)
     }
 }
 

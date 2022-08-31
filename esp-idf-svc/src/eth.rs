@@ -670,11 +670,11 @@ pub struct EspEth<'d, P> {
 
 #[cfg(esp_idf_comp_esp_netif_enabled)]
 impl<'d, P> EspEth<'d, P> {
-    pub fn new(driver: EthDriver<'d, P>) -> Result<Self, EspError> {
-        Self::wrap(driver, EspNetif::new(NetifStack::Eth)?)
+    pub fn wrap(driver: EthDriver<'d, P>) -> Result<Self, EspError> {
+        Self::wrap_all(driver, EspNetif::new(NetifStack::Eth)?)
     }
 
-    pub fn wrap(driver: EthDriver<'d, P>, netif: EspNetif) -> Result<Self, EspError> {
+    pub fn wrap_all(driver: EthDriver<'d, P>, netif: EspNetif) -> Result<Self, EspError> {
         let glue_handle = unsafe { esp_eth_new_netif_glue(driver.handle()) };
 
         esp!(unsafe { esp_netif_attach(netif.handle(), glue_handle as *mut _) })?;
@@ -770,7 +770,7 @@ pub struct EspRawEth<'d, P> {
 }
 
 impl<'d, P> EspRawEth<'d, P> {
-    pub fn new<C>(driver: EthDriver<'d, P>, mut callback: C) -> Result<Self, EspError>
+    pub fn wrap<C>(driver: EthDriver<'d, P>, mut callback: C) -> Result<Self, EspError>
     where
         C: for<'a> FnMut(&[u8]) + Send + 'static,
     {
@@ -818,11 +818,11 @@ impl<'d, P> EspRawEth<'d, P> {
         buf: *mut u8,
         len: u32,
         event_handler_arg: *mut c_types::c_void,
-    ) -> i32 {
+    ) -> esp_err_t {
         UnsafeCallback::from_ptr(event_handler_arg as *mut _)
             .call(core::slice::from_raw_parts(buf, len as _));
 
-        0 // TODO
+        ESP_OK
     }
 }
 
