@@ -131,7 +131,7 @@ impl<'a, T> DerefMut for PeripheralRef<'a, T> {
 ///
 /// `.into_ref()` on an owned `T` yields a `PeripheralRef<'static, T>`.
 /// `.into_ref()` on an `&'a mut T` yields a `PeripheralRef<'a, T>`.
-pub trait Peripheral: Sized {
+pub trait Peripheral: Sized + sealed::Sealed {
     /// Peripheral singleton type
     type P;
 
@@ -160,6 +160,8 @@ pub trait Peripheral: Sized {
     }
 }
 
+impl<T: DerefMut> sealed::Sealed for T {}
+
 impl<T: DerefMut> Peripheral for T
 where
     T::Target: Peripheral,
@@ -170,4 +172,8 @@ where
     unsafe fn clone_unchecked(&mut self) -> Self::P {
         self.deref_mut().clone_unchecked()
     }
+}
+
+pub(crate) mod sealed {
+    pub trait Sealed {}
 }
