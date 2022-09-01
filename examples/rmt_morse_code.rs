@@ -28,8 +28,8 @@ fn main() -> anyhow::Result<()> {
     esp_idf_sys::link_patches();
 
     let peripherals = Peripherals::take().unwrap();
-    let channel = peripherals.rmt.channel0;
-    let led = peripherals.pins.gpio17;
+    let mut channel = peripherals.rmt.channel0;
+    let mut led = peripherals.pins.gpio17;
     let stop = peripherals.pins.gpio16;
 
     let carrier = CarrierConfig::new()
