@@ -159,13 +159,7 @@ pub mod thread_spawn {
 
     impl Default for ThreadSpawnConfiguration {
         fn default() -> Self {
-            Self {
-                name: b"thread\0",
-                stack_size: PTHREAD_STACK_MIN as usize * 4,
-                priority: 0,
-                inherit: false,
-                pin_to_core: None,
-            }
+            get_default_conf()
         }
     }
 
@@ -205,7 +199,7 @@ pub mod thread_spawn {
         }
     }
 
-    pub fn get_default_conf() -> ThreadSpawnConfiguration {
+    fn get_default_conf() -> ThreadSpawnConfiguration {
         unsafe { esp_pthread_get_default_config() }.into()
     }
 
