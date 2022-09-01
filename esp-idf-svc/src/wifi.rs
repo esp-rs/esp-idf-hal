@@ -704,17 +704,30 @@ where
         sta_netif: EspNetif,
         ap_netif: EspNetif,
     ) -> Result<Self, EspError> {
-        esp!(unsafe { esp_netif_attach_wifi_ap(ap_netif.handle()) })?;
-        esp!(unsafe { esp_wifi_set_default_wifi_ap_handlers() })?;
-
-        esp!(unsafe { esp_netif_attach_wifi_station(sta_netif.handle()) })?;
-        esp!(unsafe { esp_wifi_set_default_wifi_sta_handlers() })?;
-
-        Ok(Self {
+        let mut this = Self {
             driver,
             sta_netif,
             ap_netif,
-        })
+        };
+
+        this.attach_netif()?;
+
+        Ok(this)
+    }
+
+    pub fn swap_netif(
+        &mut self,
+        sta_netif: EspNetif,
+        ap_netif: EspNetif,
+    ) -> Result<(EspNetif, EspNetif), EspError> {
+        self.detach_netif()?;
+
+        let old_sta = core::mem::replace(&mut self.sta_netif, sta_netif);
+        let old_ap = core::mem::replace(&mut self.ap_netif, ap_netif);
+
+        self.attach_netif()?;
+
+        Ok((old_sta, old_ap))
     }
 
     pub fn driver(&self) -> &WifiDriver<'d, M> {
@@ -778,6 +791,36 @@ where
     pub fn scan(&mut self) -> Result<alloc::vec::Vec<AccessPointInfo>, EspError> {
         self.driver_mut().scan()
     }
+
+    fn attach_netif(&mut self) -> Result<(), EspError> {
+        let _ = self.driver.stop();
+
+        esp!(unsafe { esp_netif_attach_wifi_ap(self.ap_netif.handle()) })?;
+        esp!(unsafe { esp_wifi_set_default_wifi_ap_handlers() })?;
+
+        esp!(unsafe { esp_netif_attach_wifi_station(self.sta_netif.handle()) })?;
+        esp!(unsafe { esp_wifi_set_default_wifi_sta_handlers() })?;
+
+        Ok(())
+    }
+
+    fn detach_netif(&mut self) -> Result<(), EspError> {
+        let _ = self.driver.stop();
+
+        esp!(unsafe {
+            esp_wifi_clear_default_wifi_driver_and_handlers(
+                self.ap_netif.handle() as *mut c_types::c_void
+            )
+        })?;
+
+        esp!(unsafe {
+            esp_wifi_clear_default_wifi_driver_and_handlers(
+                self.sta_netif.handle() as *mut c_types::c_void
+            )
+        })?;
+
+        Ok(())
+    }
 }
 
 #[cfg(esp_idf_comp_esp_netif_enabled)]
@@ -786,19 +829,7 @@ where
     M: WifiModemPeripheral,
 {
     fn drop(&mut self) {
-        esp!(unsafe {
-            esp_wifi_clear_default_wifi_driver_and_handlers(
-                self.ap_netif.handle() as *mut c_types::c_void
-            )
-        })
-        .unwrap();
-
-        esp!(unsafe {
-            esp_wifi_clear_default_wifi_driver_and_handlers(
-                self.sta_netif.handle() as *mut c_types::c_void
-            )
-        })
-        .unwrap();
+        self.detach_netif().unwrap();
     }
 }
 
@@ -876,6 +907,7 @@ extern "C" {
     ) -> esp_err_t;
 }
 
+#[allow(clippy::type_complexity)]
 static mut RECV_CALLBACK: Option<Box<dyn FnMut(WifiDeviceId, &[u8]) + 'static>> = None;
 
 pub struct EspRawWifi<'d, M>
@@ -920,6 +952,7 @@ where
     {
         let _ = driver.stop();
 
+        #[allow(clippy::type_complexity)]
         let callback: Box<Box<dyn FnMut(WifiDeviceId, &[u8]) + 'static>> =
             Box::new(Box::new(move |device_id, data| callback(device_id, data)));
 
@@ -1022,14 +1055,14 @@ where
     M: WifiModemPeripheral,
 {
     fn drop(&mut self) {
-        drop(&mut self.driver);
+        let _ = self.driver.stop();
 
         unsafe {
             RECV_CALLBACK = None;
 
-            esp!(esp_wifi_internal_reg_rxcb(WifiDeviceId::Ap.into(), None,)).unwrap();
+            esp!(esp_wifi_internal_reg_rxcb(WifiDeviceId::Ap.into(), None)).unwrap();
 
-            esp!(esp_wifi_internal_reg_rxcb(WifiDeviceId::Sta.into(), None,)).unwrap();
+            esp!(esp_wifi_internal_reg_rxcb(WifiDeviceId::Sta.into(), None)).unwrap();
         }
     }
 }

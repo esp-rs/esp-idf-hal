@@ -675,15 +675,25 @@ impl<'d, P> EspEth<'d, P> {
     }
 
     pub fn wrap_all(driver: EthDriver<'d, P>, netif: EspNetif) -> Result<Self, EspError> {
-        let glue_handle = unsafe { esp_eth_new_netif_glue(driver.handle()) };
-
-        esp!(unsafe { esp_netif_attach(netif.handle(), glue_handle as *mut _) })?;
-
-        Ok(Self {
+        let mut this = Self {
             driver,
             netif,
-            glue_handle,
-        })
+            glue_handle: core::ptr::null_mut(),
+        };
+
+        this.attach_netif()?;
+
+        Ok(this)
+    }
+
+    pub fn swap_netif(&mut self, netif: EspNetif) -> Result<EspNetif, EspError> {
+        self.detach_netif()?;
+
+        let old_netif = core::mem::replace(&mut self.netif, netif);
+
+        self.attach_netif()?;
+
+        Ok(old_netif)
     }
 
     pub fn driver(&self) -> &EthDriver<'d, P> {
@@ -701,14 +711,34 @@ impl<'d, P> EspEth<'d, P> {
     pub fn netif_mut(&mut self) -> &mut EspNetif {
         &mut self.netif
     }
+
+    fn attach_netif(&mut self) -> Result<(), EspError> {
+        let _ = self.driver.stop();
+
+        let glue_handle = unsafe { esp_eth_new_netif_glue(self.driver.handle()) };
+
+        esp!(unsafe { esp_netif_attach(self.netif.handle(), glue_handle as *mut _) })?;
+
+        self.glue_handle = glue_handle;
+
+        Ok(())
+    }
+
+    fn detach_netif(&mut self) -> Result<(), EspError> {
+        let _ = self.driver.stop();
+
+        esp!(unsafe { esp_eth_del_netif_glue(self.glue_handle as *mut _) })?;
+
+        self.glue_handle = core::ptr::null_mut();
+
+        Ok(())
+    }
 }
 
 #[cfg(esp_idf_comp_esp_netif_enabled)]
 impl<'d, P> Drop for EspEth<'d, P> {
     fn drop(&mut self) {
-        unsafe {
-            esp!(esp_eth_del_netif_glue(self.glue_handle as *mut _)).unwrap();
-        }
+        self.detach_netif().unwrap();
     }
 }
 
