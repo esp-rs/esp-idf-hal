@@ -9,6 +9,7 @@ use crate::task;
 pub use edge_executor::*;
 
 pub type EspExecutor<'a, const C: usize, S> = Executor<'a, C, TaskHandle, CurrentTaskWait, S>;
+pub type EspBlocker = Blocker<TaskHandle, CurrentTaskWait>;
 
 pub struct CurrentTaskWait(());
 
