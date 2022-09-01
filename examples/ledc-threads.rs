@@ -2,7 +2,6 @@ use std::{sync::Arc, time::Duration};
 
 use embedded_hal_0_2::PwmPin;
 
-use esp_idf_hal::gpio::OutputPin;
 use esp_idf_hal::ledc::*;
 use esp_idf_hal::peripherals::Peripherals;
 use esp_idf_hal::prelude::*;
@@ -14,15 +13,21 @@ fn main() -> anyhow::Result<()> {
 
     println!("Setting up PWM output channels");
 
-    let mut peripherals = Peripherals::take().unwrap();
+    let peripherals = Peripherals::take().unwrap();
     let config = config::TimerConfig::new().frequency(25.kHz().into());
-    let timer = Arc::new(LedcTimerDriver::new(peripherals.ledc.timer0, &config))?;
+    let timer = Arc::new(LedcTimerDriver::new(peripherals.ledc.timer0, &config)?);
     let channel0 = LedcDriver::new(
         peripherals.ledc.channel0,
         timer.clone(),
         peripherals.pins.gpio4,
+        &config,
     )?;
-    let channel1 = LedcDriver::new(peripherals.ledc.channel1, timer, peripherals.pins.gpio5)?;
+    let channel1 = LedcDriver::new(
+        peripherals.ledc.channel1,
+        timer,
+        peripherals.pins.gpio5,
+        &config,
+    )?;
 
     println!("Spawning PWM threads");
 
@@ -40,14 +45,6 @@ fn main() -> anyhow::Result<()> {
 
     println!("Joined PWM threads");
 
-    if let Ok(timer) = Arc::try_unwrap(timer) {
-        println!("Unwrapped timer");
-        if let Ok(hw_timer) = timer.release() {
-            println!("Recovered HW timer");
-            peripherals.ledc.timer0 = hw_timer;
-        }
-    }
-
     println!("Done");
 
     loop {
@@ -56,12 +53,10 @@ fn main() -> anyhow::Result<()> {
     }
 }
 
-fn cycle_duty(
-    mut pwm: impl PwmPin,
-    times: usize,
-    log_prefix: &str,
-    sleep: Duration,
-) -> anyhow::Result<()> {
+fn cycle_duty<P>(mut pwm: P, times: usize, log_prefix: &str, sleep: Duration) -> anyhow::Result<()>
+where
+    P: PwmPin<Duty = u32>,
+{
     let max_duty = pwm.get_max_duty();
 
     for cycle in 0..times {
@@ -69,7 +64,7 @@ fn cycle_duty(
 
         for numerator in [0, 1, 2, 3, 4, 5].iter() {
             println!("{} duty: {}/5", log_prefix, numerator);
-            pwm.set_duty(max_duty * numerator / 5)?;
+            pwm.set_duty(max_duty * numerator / 5);
             std::thread::sleep(sleep);
         }
     }

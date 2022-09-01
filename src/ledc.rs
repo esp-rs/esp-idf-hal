@@ -277,6 +277,8 @@ impl<'d, C: LedcChannel, B> Drop for LedcDriver<'d, C, B> {
     }
 }
 
+unsafe impl<'d, C: LedcChannel, B> Send for LedcDriver<'d, C, B> {}
+
 // PwmPin temporarily removed from embedded-hal-1.0.alpha7 in anticipation of e-hal 1.0 release
 // impl<'d, C: LedcChannel, B: Borrow<LedcTimerDriver<'d, T>>, T: LedcTimer> embedded_hal::pwm::blocking::PwmPin for LedcDriver<'d, C, B, T> {
 //     type Duty = Duty;
