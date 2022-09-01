@@ -2,7 +2,6 @@ use std::{sync::Arc, time::Duration};
 
 use embedded_hal_0_2::PwmPin;
 
-use esp_idf_hal::gpio::OutputPin;
 use esp_idf_hal::ledc::*;
 use esp_idf_hal::peripherals::Peripherals;
 use esp_idf_hal::prelude::*;
@@ -23,7 +22,12 @@ fn main() -> anyhow::Result<()> {
         peripherals.pins.gpio4,
         &config,
     )?;
-    let channel1 = LedcDriver::new(peripherals.ledc.channel1, timer, peripherals.pins.gpio5)?;
+    let channel1 = LedcDriver::new(
+        peripherals.ledc.channel1,
+        timer,
+        peripherals.pins.gpio5,
+        &config,
+    )?;
 
     println!("Spawning PWM threads");
 
@@ -40,14 +44,6 @@ fn main() -> anyhow::Result<()> {
     thread1.join().unwrap()?;
 
     println!("Joined PWM threads");
-
-    if let Ok(timer) = Arc::try_unwrap(timer) {
-        println!("Unwrapped timer");
-        if let Ok(hw_timer) = timer.release() {
-            println!("Recovered HW timer");
-            peripherals.ledc.timer0 = hw_timer;
-        }
-    }
 
     println!("Done");
 
