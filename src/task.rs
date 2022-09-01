@@ -149,7 +149,7 @@ pub mod thread_spawn {
     use crate::cpu::Core;
 
     #[derive(Debug)]
-    pub struct ThreadSpawnConfiguration {
+    pub struct Configuration {
         pub name: &'static [u8],
         pub stack_size: usize,
         pub priority: u8,
@@ -157,14 +157,14 @@ pub mod thread_spawn {
         pub pin_to_core: Option<Core>,
     }
 
-    impl Default for ThreadSpawnConfiguration {
+    impl Default for Configuration {
         fn default() -> Self {
             get_default_conf()
         }
     }
 
-    impl From<&ThreadSpawnConfiguration> for esp_pthread_cfg_t {
-        fn from(conf: &ThreadSpawnConfiguration) -> Self {
+    impl From<&Configuration> for esp_pthread_cfg_t {
+        fn from(conf: &Configuration) -> Self {
             Self {
                 thread_name: conf.name.as_ptr() as _,
                 stack_size: conf.stack_size as _,
@@ -178,7 +178,7 @@ pub mod thread_spawn {
         }
     }
 
-    impl From<esp_pthread_cfg_t> for ThreadSpawnConfiguration {
+    impl From<esp_pthread_cfg_t> for Configuration {
         fn from(conf: esp_pthread_cfg_t) -> Self {
             Self {
                 name: unsafe {
@@ -199,11 +199,11 @@ pub mod thread_spawn {
         }
     }
 
-    fn get_default_conf() -> ThreadSpawnConfiguration {
+    fn get_default_conf() -> Configuration {
         unsafe { esp_pthread_get_default_config() }.into()
     }
 
-    pub fn get_conf() -> Option<ThreadSpawnConfiguration> {
+    pub fn get_conf() -> Option<Configuration> {
         let mut conf: esp_pthread_cfg_t = Default::default();
 
         let res = unsafe { esp_pthread_get_cfg(&mut conf as _) };
@@ -215,7 +215,7 @@ pub mod thread_spawn {
         }
     }
 
-    pub fn set_conf(conf: &ThreadSpawnConfiguration) -> Result<(), EspError> {
+    pub fn set_conf(conf: &Configuration) -> Result<(), EspError> {
         esp!(unsafe { esp_pthread_set_cfg(&conf.into()) })?;
 
         Ok(())
