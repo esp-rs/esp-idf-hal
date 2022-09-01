@@ -59,8 +59,7 @@ fn main() -> anyhow::Result<()> {
 
 fn cycle_duty<P>(mut pwm: P, times: usize, log_prefix: &str, sleep: Duration) -> anyhow::Result<()>
 where
-    P: PwmPin,
-    P::Duty: u32,
+    P: PwmPin<Duty = u32>,
 {
     let max_duty = pwm.get_max_duty();
 
