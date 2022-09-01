@@ -143,13 +143,13 @@ pub unsafe fn notify(task: TaskHandle_t, notification: u32) -> bool {
 }
 
 #[cfg(esp_idf_comp_pthread_enabled)]
-pub mod thread_spawn {
+pub mod thread {
     use esp_idf_sys::*;
 
     use crate::cpu::Core;
 
     #[derive(Debug)]
-    pub struct Configuration {
+    pub struct ThreadSpawnConfiguration {
         pub name: &'static [u8],
         pub stack_size: usize,
         pub priority: u8,
@@ -157,14 +157,24 @@ pub mod thread_spawn {
         pub pin_to_core: Option<Core>,
     }
 
-    impl Default for Configuration {
+    impl ThreadSpawnConfiguration {
+        pub fn get() -> Option<Self> {
+            get_conf()
+        }
+
+        pub fn set(&self) -> Result<(), EspError> {
+            set_conf(self)
+        }
+    }
+
+    impl Default for ThreadSpawnConfiguration {
         fn default() -> Self {
             get_default_conf()
         }
     }
 
-    impl From<&Configuration> for esp_pthread_cfg_t {
-        fn from(conf: &Configuration) -> Self {
+    impl From<&ThreadSpawnConfiguration> for esp_pthread_cfg_t {
+        fn from(conf: &ThreadSpawnConfiguration) -> Self {
             Self {
                 thread_name: conf.name.as_ptr() as _,
                 stack_size: conf.stack_size as _,
@@ -178,7 +188,7 @@ pub mod thread_spawn {
         }
     }
 
-    impl From<esp_pthread_cfg_t> for Configuration {
+    impl From<esp_pthread_cfg_t> for ThreadSpawnConfiguration {
         fn from(conf: esp_pthread_cfg_t) -> Self {
             Self {
                 name: unsafe {
@@ -199,11 +209,11 @@ pub mod thread_spawn {
         }
     }
 
-    fn get_default_conf() -> Configuration {
+    fn get_default_conf() -> ThreadSpawnConfiguration {
         unsafe { esp_pthread_get_default_config() }.into()
     }
 
-    pub fn get_conf() -> Option<Configuration> {
+    fn get_conf() -> Option<ThreadSpawnConfiguration> {
         let mut conf: esp_pthread_cfg_t = Default::default();
 
         let res = unsafe { esp_pthread_get_cfg(&mut conf as _) };
@@ -215,7 +225,7 @@ pub mod thread_spawn {
         }
     }
 
-    pub fn set_conf(conf: &Configuration) -> Result<(), EspError> {
+    fn set_conf(conf: &ThreadSpawnConfiguration) -> Result<(), EspError> {
         esp!(unsafe { esp_pthread_set_cfg(&conf.into()) })?;
 
         Ok(())
