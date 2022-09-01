@@ -16,11 +16,12 @@ fn main() -> anyhow::Result<()> {
 
     let mut peripherals = Peripherals::take().unwrap();
     let config = config::TimerConfig::new().frequency(25.kHz().into());
-    let timer = Arc::new(LedcTimerDriver::new(peripherals.ledc.timer0, &config))?;
+    let timer = Arc::new(LedcTimerDriver::new(peripherals.ledc.timer0, &config)?);
     let channel0 = LedcDriver::new(
         peripherals.ledc.channel0,
         timer.clone(),
         peripherals.pins.gpio4,
+        &config,
     )?;
     let channel1 = LedcDriver::new(peripherals.ledc.channel1, timer, peripherals.pins.gpio5)?;
 
@@ -56,12 +57,11 @@ fn main() -> anyhow::Result<()> {
     }
 }
 
-fn cycle_duty(
-    mut pwm: impl PwmPin,
-    times: usize,
-    log_prefix: &str,
-    sleep: Duration,
-) -> anyhow::Result<()> {
+fn cycle_duty<P>(mut pwm: P, times: usize, log_prefix: &str, sleep: Duration) -> anyhow::Result<()>
+where
+    P: PwmPin,
+    P::Duty: u32,
+{
     let max_duty = pwm.get_max_duty();
 
     for cycle in 0..times {
@@ -69,7 +69,7 @@ fn cycle_duty(
 
         for numerator in [0, 1, 2, 3, 4, 5].iter() {
             println!("{} duty: {}/5", log_prefix, numerator);
-            pwm.set_duty(max_duty * numerator / 5)?;
+            pwm.set_duty(max_duty * numerator / 5);
             std::thread::sleep(sleep);
         }
     }
