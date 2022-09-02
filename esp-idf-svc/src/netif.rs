@@ -488,6 +488,8 @@ impl Drop for EspNetif {
     }
 }
 
+unsafe impl Send for EspNetif {}
+
 impl RawHandle for EspNetif {
     type Handle = *mut esp_netif_t;
 

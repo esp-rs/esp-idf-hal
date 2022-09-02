@@ -742,6 +742,8 @@ impl<'d, P> Drop for EspEth<'d, P> {
     }
 }
 
+unsafe impl<'d, P> Send for EspEth<'d, P> {}
+
 #[cfg(esp_idf_comp_esp_netif_enabled)]
 impl<'d, P> RawHandle for EspEth<'d, P> {
     type Handle = *mut esp_eth_netif_glue_t;
@@ -875,6 +877,8 @@ impl<'d, P> Eth for EspRawEth<'d, P> {
         self.driver().is_up()
     }
 }
+
+unsafe impl<'d, P> Send for EspRawEth<'d, P> {}
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub enum EthEvent {

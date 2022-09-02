@@ -833,6 +833,8 @@ where
     }
 }
 
+unsafe impl<'d, M: WifiModemPeripheral> Send for EspWifi<'d, M> {}
+
 #[cfg(esp_idf_comp_esp_netif_enabled)]
 impl<'d, M> Wifi for EspWifi<'d, M>
 where
@@ -1066,6 +1068,8 @@ where
         }
     }
 }
+
+unsafe impl<'d, M: WifiModemPeripheral> Send for EspRawWifi<'d, M> {}
 
 impl<'d, M> Wifi for EspRawWifi<'d, M>
 where

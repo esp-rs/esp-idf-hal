@@ -217,6 +217,8 @@ impl<T: NvsPartitionId> Drop for EspNvs<T> {
     }
 }
 
+unsafe impl<T: NvsPartitionId> Send for EspNvs<T> {}
+
 impl RawHandle for EspNvs<NvsCustom> {
     type Handle = nvs_handle_t;
 
