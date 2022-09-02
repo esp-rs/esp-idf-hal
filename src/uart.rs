@@ -489,6 +489,8 @@ impl<'d, UART: Uart> Drop for UartDriver<'d, UART> {
     }
 }
 
+unsafe impl<'d, UART: Uart> Send for UartDriver<'d, UART> {}
+
 impl<'d, UART: Uart> embedded_hal::serial::ErrorType for UartDriver<'d, UART> {
     type Error = SerialError;
 }

@@ -590,6 +590,8 @@ impl<'d, C: RmtChannel> Drop for RmtDriver<'d, C> {
     }
 }
 
+unsafe impl<'d, C: RmtChannel> Send for RmtDriver<'d, C> {}
+
 /// Signal storage for [`Transmit`] in a format ready for the RMT driver.
 pub trait Signal {
     fn as_slice(&self) -> &[rmt_item32_t];
