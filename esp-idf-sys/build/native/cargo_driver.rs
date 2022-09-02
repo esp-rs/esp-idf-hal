@@ -211,7 +211,7 @@ pub fn build() -> Result<EspIdfBuildOutput> {
         fs::create_dir_all(dest_path.parent().unwrap())?;
         // TODO: Maybe warn if this overwrites a critical file (e.g. CMakeLists.txt).
         // It could be useful for the user to explicitly overwrite our files.
-        copy_file_if_different(&file.0, &out_dir)?;
+        copy_file_if_different(&file.0, &dest_path)?;
     }
 
     // Resolve the `sdkconfig` and all `sdkconfig.defaults` files specified in the build
