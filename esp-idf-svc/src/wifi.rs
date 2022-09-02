@@ -460,6 +460,10 @@ impl<'d, M: WifiModemPeripheral> WifiDriver<'d, M> {
 
         info!("Configuration set");
 
+        if !matches!(conf, Configuration::None) {
+            self.start()?;
+        }
+
         Ok(())
     }
 
@@ -675,7 +679,7 @@ where
     M: WifiModemPeripheral,
 {
     #[cfg(all(feature = "alloc", esp_idf_comp_nvs_flash_enabled))]
-    pub fn new<C>(
+    pub fn new(
         modem: impl Peripheral<P = M> + 'd,
         sysloop: EspSystemEventLoop,
         nvs: Option<EspDefaultNvsPartition>,
@@ -684,7 +688,7 @@ where
     }
 
     #[cfg(not(all(feature = "alloc", esp_idf_comp_nvs_flash_enabled)))]
-    pub fn new<C>(
+    pub fn new(
         modem: impl Peripheral<P = M> + 'd,
         sysloop: EspSystemEventLoop,
     ) -> Result<Self, EspError> {
