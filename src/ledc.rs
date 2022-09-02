@@ -152,6 +152,8 @@ impl<'d, T: LedcTimer> Drop for LedcTimerDriver<'d, T> {
     }
 }
 
+unsafe impl<'d, T: LedcTimer> Send for LedcTimerDriver<'d, T> {}
+
 /// LED Control driver
 pub struct LedcDriver<'d, C, B>
 where

@@ -908,6 +908,8 @@ impl<'d, T: Pin, MODE> Drop for PinDriver<'d, T, MODE> {
     }
 }
 
+unsafe impl<'d, T: Pin, MODE> Send for PinDriver<'d, T, MODE> {}
+
 #[cfg(not(feature = "riscv-ulp-hal"))]
 pub(crate) fn rtc_reset_pin(pin: i32) -> Result<(), EspError> {
     #[cfg(feature = "alloc")]
