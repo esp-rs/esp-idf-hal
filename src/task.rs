@@ -150,7 +150,7 @@ pub mod thread {
 
     #[derive(Debug)]
     pub struct ThreadSpawnConfiguration {
-        pub name: &'static [u8],
+        pub name: Option<&'static [u8]>,
         pub stack_size: usize,
         pub priority: u8,
         pub inherit: bool,
@@ -176,7 +176,10 @@ pub mod thread {
     impl From<&ThreadSpawnConfiguration> for esp_pthread_cfg_t {
         fn from(conf: &ThreadSpawnConfiguration) -> Self {
             Self {
-                thread_name: conf.name.as_ptr() as _,
+                thread_name: conf
+                    .name
+                    .map(|name| name.as_ptr() as _)
+                    .unwrap_or(core::ptr::null()),
                 stack_size: conf.stack_size as _,
                 prio: conf.priority as _,
                 inherit_cfg: conf.inherit,
@@ -191,11 +194,15 @@ pub mod thread {
     impl From<esp_pthread_cfg_t> for ThreadSpawnConfiguration {
         fn from(conf: esp_pthread_cfg_t) -> Self {
             Self {
-                name: unsafe {
-                    core::slice::from_raw_parts(
-                        conf.thread_name as _,
-                        strlen(conf.thread_name) as usize + 1,
-                    )
+                name: if conf.thread_name.is_null() {
+                    None
+                } else {
+                    Some(unsafe {
+                        core::slice::from_raw_parts(
+                            conf.thread_name as _,
+                            strlen(conf.thread_name) as usize + 1,
+                        )
+                    })
                 },
                 stack_size: conf.stack_size as _,
                 priority: conf.prio as _,
