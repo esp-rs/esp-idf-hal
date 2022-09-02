@@ -105,6 +105,22 @@ pub struct UlpDriver<'d>(crate::peripheral::PeripheralRef<'d, ULP>);
         esp_idf_esp32s3_ulp_coproc_enabled
     )
 ))]
+unsafe impl<'d> Send for UlpDriver<'d> {}
+
+#[cfg(any(
+    all(not(esp_idf_version_major = "4"), esp_idf_ulp_coproc_enabled),
+    all(esp_idf_version_major = "4", esp32, esp_idf_esp32_ulp_coproc_enabled),
+    all(
+        esp_idf_version_major = "4",
+        esp32s2,
+        esp_idf_esp32s2_ulp_coproc_enabled
+    ),
+    all(
+        esp_idf_version_major = "4",
+        esp32s3,
+        esp_idf_esp32s3_ulp_coproc_enabled
+    )
+))]
 impl<'d> UlpDriver<'d> {
     pub fn new(
         ulp: impl crate::peripheral::Peripheral<P = ULP> + 'd,
