@@ -286,11 +286,7 @@ impl<T: NvsPartitionId> RawStorage for EspNvs<T> {
         }
     }
 
-    fn get_raw<'a>(
-        &self,
-        name: &str,
-        buf: &'a mut [u8],
-    ) -> Result<Option<(&'a [u8], usize)>, Self::Error> {
+    fn get_raw<'a>(&self, name: &str, buf: &'a mut [u8]) -> Result<Option<&'a [u8]>, Self::Error> {
         let c_key = CString::new(name).unwrap();
 
         let mut u64value: u_int64_t = 0;
@@ -308,6 +304,8 @@ impl<T: NvsPartitionId> RawStorage for EspNvs<T> {
                         // bail on error
                         esp!(err)?;
 
+                        len = buf.len() as _;
+
                         // fetch value if no error
                         esp!(unsafe {
                             nvs_get_blob(
@@ -318,7 +316,7 @@ impl<T: NvsPartitionId> RawStorage for EspNvs<T> {
                             )
                         })?;
 
-                        Ok(Some((&buf[..min(buf.len(), len as usize)], len as _)))
+                        Ok(Some(&buf[..len as usize]))
                     }
                 }
             }
@@ -328,6 +326,12 @@ impl<T: NvsPartitionId> RawStorage for EspNvs<T> {
 
                 // u64 value was found, decode it
                 let len: u8 = (u64value & 0xff) as u8;
+
+                if buf.len() < len as _ {
+                    // Buffer not large enough
+                    return Err(EspError::from(ESP_ERR_NVS_INVALID_LENGTH).unwrap());
+                }
+
                 u64value >>= 8;
 
                 let array: [u8; 7] = [
@@ -340,9 +344,9 @@ impl<T: NvsPartitionId> RawStorage for EspNvs<T> {
                     ((u64value >> 48) & 0xff) as u8,
                 ];
 
-                buf.copy_from_slice(&array[..min(buf.len(), len as usize)]);
+                buf.copy_from_slice(&array[..len as usize]);
 
-                Ok(Some((&buf[..min(buf.len(), len as usize)], len as _)))
+                Ok(Some(&buf[..len as usize]))
             }
         }
     }
