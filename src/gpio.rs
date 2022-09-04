@@ -133,6 +133,7 @@ impl InputPin for AnyInputPin {}
 
 /// Interrupt types
 #[cfg(all(not(feature = "riscv-ulp-hal"), feature = "alloc"))]
+#[derive(Debug, Eq, PartialEq, Copy, Clone)]
 pub enum InterruptType {
     PosEdge,
     NegEdge,
@@ -156,6 +157,7 @@ impl From<InterruptType> for gpio_int_type_t {
 
 /// Drive strength (values are approximates)
 #[cfg(not(feature = "riscv-ulp-hal"))]
+#[derive(Debug, Eq, PartialEq, Copy, Clone)]
 pub enum DriveStrength {
     I5mA = 0,
     I10mA = 1,
@@ -305,20 +307,176 @@ pub struct PinDriver<'d, T: Pin, MODE> {
 }
 
 impl<'d, T: Pin> PinDriver<'d, T, Disabled> {
-    /// Creates the driver for a pin.
-    ///
-    /// The pin remains disconnected. The initial output level is unspecified, but can be changed
-    /// before the pin is put into output mode.
-    ///
+    /// Creates the driver for a pin in disabled state.
     #[inline]
-    pub fn new(pin: impl Peripheral<P = T> + 'd) -> Result<Self, EspError> {
-        let pin = pin.into_ref();
+    pub fn disabled(pin: impl Peripheral<P = T> + 'd) -> Result<Self, EspError> {
+        crate::into_ref!(pin);
 
         Self {
             pin,
             _mode: PhantomData,
         }
         .into_disabled()
+    }
+}
+
+impl<'d, T: InputPin> PinDriver<'d, T, Input> {
+    /// Creates the driver for a pin in input state.
+    #[inline]
+    pub fn input(pin: impl Peripheral<P = T> + 'd) -> Result<Self, EspError> {
+        crate::into_ref!(pin);
+
+        Self {
+            pin,
+            _mode: PhantomData,
+        }
+        .into_input()
+    }
+}
+
+impl<'d, T: InputPin + OutputPin> PinDriver<'d, T, InputOutput> {
+    /// Creates the driver for a pin in input-output state.
+    #[inline]
+    pub fn input_output(pin: impl Peripheral<P = T> + 'd) -> Result<Self, EspError> {
+        crate::into_ref!(pin);
+
+        Self {
+            pin,
+            _mode: PhantomData,
+        }
+        .into_input_output()
+    }
+}
+
+impl<'d, T: InputPin + OutputPin> PinDriver<'d, T, InputOutput> {
+    /// Creates the driver for a pin in input-output open-drain state.
+    #[inline]
+    pub fn input_output_od(pin: impl Peripheral<P = T> + 'd) -> Result<Self, EspError> {
+        crate::into_ref!(pin);
+
+        Self {
+            pin,
+            _mode: PhantomData,
+        }
+        .into_input_output_od()
+    }
+}
+
+impl<'d, T: OutputPin> PinDriver<'d, T, Output> {
+    /// Creates the driver for a pin in output state.
+    #[inline]
+    pub fn output(pin: impl Peripheral<P = T> + 'd) -> Result<Self, EspError> {
+        crate::into_ref!(pin);
+
+        Self {
+            pin,
+            _mode: PhantomData,
+        }
+        .into_output()
+    }
+}
+
+impl<'d, T: OutputPin> PinDriver<'d, T, Output> {
+    /// Creates the driver for a pin in output open-drain state.
+    #[inline]
+    pub fn output_od(pin: impl Peripheral<P = T> + 'd) -> Result<Self, EspError> {
+        crate::into_ref!(pin);
+
+        Self {
+            pin,
+            _mode: PhantomData,
+        }
+        .into_output_od()
+    }
+}
+
+#[cfg(all(not(feature = "riscv-ulp-hal"), not(esp32c3)))]
+impl<'d, T: Pin + RTCPin> PinDriver<'d, T, RtcDisabled> {
+    /// Creates the driver for a pin in disabled state.
+    #[inline]
+    pub fn rtc_disabled(pin: impl Peripheral<P = T> + 'd) -> Result<Self, EspError> {
+        crate::into_ref!(pin);
+
+        Self {
+            pin,
+            _mode: PhantomData,
+        }
+        .into_rtc_disabled()
+    }
+}
+
+#[cfg(all(not(feature = "riscv-ulp-hal"), not(esp32c3)))]
+impl<'d, T: InputPin + RTCPin> PinDriver<'d, T, RtcInput> {
+    /// Creates the driver for a pin in RTC input state.
+    #[inline]
+    pub fn rtc_input(pin: impl Peripheral<P = T> + 'd) -> Result<Self, EspError> {
+        crate::into_ref!(pin);
+
+        Self {
+            pin,
+            _mode: PhantomData,
+        }
+        .into_rtc_input()
+    }
+}
+
+#[cfg(all(not(feature = "riscv-ulp-hal"), not(esp32c3)))]
+impl<'d, T: InputPin + OutputPin + RTCPin> PinDriver<'d, T, RtcInputOutput> {
+    /// Creates the driver for a pin in RTC input-output state.
+    #[inline]
+    pub fn rtc_input_output(pin: impl Peripheral<P = T> + 'd) -> Result<Self, EspError> {
+        crate::into_ref!(pin);
+
+        Self {
+            pin,
+            _mode: PhantomData,
+        }
+        .into_rtc_input_output()
+    }
+}
+
+#[cfg(all(not(feature = "riscv-ulp-hal"), not(esp32c3)))]
+impl<'d, T: InputPin + OutputPin + RTCPin> PinDriver<'d, T, RtcInputOutput> {
+    /// Creates the driver for a pin in RTC input-output open-drain state.
+    #[inline]
+    pub fn rtc_input_output_od(pin: impl Peripheral<P = T> + 'd) -> Result<Self, EspError> {
+        crate::into_ref!(pin);
+
+        Self {
+            pin,
+            _mode: PhantomData,
+        }
+        .into_rtc_input_output_od()
+    }
+}
+
+#[cfg(all(not(feature = "riscv-ulp-hal"), not(esp32c3)))]
+impl<'d, T: OutputPin + RTCPin> PinDriver<'d, T, RtcOutput> {
+    /// Creates the driver for a pin in RTC output state.
+    #[inline]
+    pub fn rtc_output(pin: impl Peripheral<P = T> + 'd) -> Result<Self, EspError> {
+        crate::into_ref!(pin);
+
+        Self {
+            pin,
+            _mode: PhantomData,
+        }
+        .into_rtc_output()
+    }
+}
+
+#[cfg(all(not(feature = "riscv-ulp-hal"), not(esp32c3)))]
+impl<'d, T: OutputPin + RTCPin> PinDriver<'d, T, RtcOutput> {
+    /// Creates the driver for a pin in RTC output open-drain state.
+    #[inline]
+    pub fn rtc_output_od(pin: impl Peripheral<P = T> + 'd) -> Result<Self, EspError> {
+        crate::into_ref!(pin);
+
+        Self {
+            pin,
+            _mode: PhantomData,
+        }
+        .into_rtc_output_od()
     }
 }
 
@@ -329,31 +487,17 @@ impl<'d, T: Pin, MODE> PinDriver<'d, T, MODE> {
     }
 
     /// Put the pin into disabled mode.
-    pub fn into_disabled(mut self) -> Result<PinDriver<'d, T, Disabled>, EspError> {
-        self.reset()?;
-
-        esp!(unsafe { gpio_set_direction(self.pin.pin(), gpio_mode_t_GPIO_MODE_DISABLE) })?;
-
-        Ok(PinDriver {
-            pin: unsafe { self.pin.clone_unchecked() },
-            _mode: PhantomData,
-        })
+    pub fn into_disabled(self) -> Result<PinDriver<'d, T, Disabled>, EspError> {
+        self.into_mode(gpio_mode_t_GPIO_MODE_DISABLE)
     }
 
     /// Put the pin into input mode.
     #[inline]
-    pub fn into_input(mut self) -> Result<PinDriver<'d, T, Input>, EspError>
+    pub fn into_input(self) -> Result<PinDriver<'d, T, Input>, EspError>
     where
         T: InputPin,
     {
-        self.reset()?;
-
-        esp!(unsafe { gpio_set_direction(self.pin.pin(), gpio_mode_t_GPIO_MODE_INPUT) })?;
-
-        Ok(PinDriver {
-            pin: unsafe { self.pin.clone_unchecked() },
-            _mode: PhantomData,
-        })
+        self.into_mode(gpio_mode_t_GPIO_MODE_INPUT)
     }
 
     /// Put the pin into input + output mode.
@@ -366,18 +510,11 @@ impl<'d, T: Pin, MODE> PinDriver<'d, T, MODE> {
     /// The pin level will be whatever was set before (or low by default). If you want it to begin
     /// at a specific level, call `set_high`/`set_low` on the pin first.
     #[inline]
-    pub fn into_input_output(mut self) -> Result<PinDriver<'d, T, InputOutput>, EspError>
+    pub fn into_input_output(self) -> Result<PinDriver<'d, T, InputOutput>, EspError>
     where
         T: InputPin + OutputPin,
     {
-        self.reset()?;
-
-        esp!(unsafe { gpio_set_direction(self.pin.pin(), gpio_mode_t_GPIO_MODE_INPUT_OUTPUT) })?;
-
-        Ok(PinDriver {
-            pin: unsafe { self.pin.clone_unchecked() },
-            _mode: PhantomData,
-        })
+        self.into_mode(gpio_mode_t_GPIO_MODE_INPUT_OUTPUT)
     }
 
     /// Put the pin into input + output Open Drain mode.
@@ -390,18 +527,11 @@ impl<'d, T: Pin, MODE> PinDriver<'d, T, MODE> {
     /// The pin level will be whatever was set before (or low by default). If you want it to begin
     /// at a specific level, call `set_high`/`set_low` on the pin first.
     #[inline]
-    pub fn into_input_output_od(mut self) -> Result<PinDriver<'d, T, InputOutput>, EspError>
+    pub fn into_input_output_od(self) -> Result<PinDriver<'d, T, InputOutput>, EspError>
     where
         T: InputPin + OutputPin,
     {
-        self.reset()?;
-
-        esp!(unsafe { gpio_set_direction(self.pin.pin(), gpio_mode_t_GPIO_MODE_INPUT_OUTPUT_OD) })?;
-
-        Ok(PinDriver {
-            pin: unsafe { self.pin.clone_unchecked() },
-            _mode: PhantomData,
-        })
+        self.into_mode(gpio_mode_t_GPIO_MODE_INPUT_OUTPUT_OD)
     }
 
     /// Put the pin into output mode.
@@ -409,18 +539,11 @@ impl<'d, T: Pin, MODE> PinDriver<'d, T, MODE> {
     /// The pin level will be whatever was set before (or low by default). If you want it to begin
     /// at a specific level, call `set_high`/`set_low` on the pin first.
     #[inline]
-    pub fn into_output(mut self) -> Result<PinDriver<'d, T, Output>, EspError>
+    pub fn into_output(self) -> Result<PinDriver<'d, T, Output>, EspError>
     where
         T: OutputPin,
     {
-        self.reset()?;
-
-        esp!(unsafe { gpio_set_direction(self.pin.pin(), gpio_mode_t_GPIO_MODE_OUTPUT) })?;
-
-        Ok(PinDriver {
-            pin: unsafe { self.pin.clone_unchecked() },
-            _mode: PhantomData,
-        })
+        self.into_mode(gpio_mode_t_GPIO_MODE_OUTPUT)
     }
 
     /// Put the pin into output Open Drain mode.
@@ -428,53 +551,31 @@ impl<'d, T: Pin, MODE> PinDriver<'d, T, MODE> {
     /// The pin level will be whatever was set before (or low by default). If you want it to begin
     /// at a specific level, call `set_high`/`set_low` on the pin first.
     #[inline]
-    pub fn into_output_od(mut self) -> Result<PinDriver<'d, T, Output>, EspError>
+    pub fn into_output_od(self) -> Result<PinDriver<'d, T, Output>, EspError>
     where
         T: OutputPin,
     {
-        self.reset()?;
-
-        esp!(unsafe { gpio_set_direction(self.pin.pin(), gpio_mode_t_GPIO_MODE_OUTPUT_OD) })?;
-
-        Ok(PinDriver {
-            pin: unsafe { self.pin.clone_unchecked() },
-            _mode: PhantomData,
-        })
+        self.into_mode(gpio_mode_t_GPIO_MODE_OUTPUT_OD)
     }
 
     /// Put the pin into RTC disabled mode.
     #[inline]
     #[cfg(all(not(feature = "riscv-ulp-hal"), not(esp32c3)))]
-    pub fn into_rtc_disabled(mut self) -> Result<PinDriver<'d, T, RtcDisabled>, EspError> {
-        self.rtc_reset()?;
-
-        esp!(unsafe {
-            rtc_gpio_set_direction(self.pin.pin(), rtc_gpio_mode_t_RTC_GPIO_MODE_DISABLED)
-        })?;
-
-        Ok(PinDriver {
-            pin: unsafe { self.pin.clone_unchecked() },
-            _mode: PhantomData,
-        })
+    pub fn into_rtc_disabled(self) -> Result<PinDriver<'d, T, RtcDisabled>, EspError>
+    where
+        T: RTCPin,
+    {
+        self.into_rtc_mode(rtc_gpio_mode_t_RTC_GPIO_MODE_DISABLED)
     }
 
     /// Put the pin into RTC input mode.
     #[inline]
     #[cfg(all(not(feature = "riscv-ulp-hal"), not(esp32c3)))]
-    pub fn into_rtc_input(mut self) -> Result<PinDriver<'d, T, RtcInput>, EspError>
+    pub fn into_rtc_input(self) -> Result<PinDriver<'d, T, RtcInput>, EspError>
     where
-        T: InputPin,
+        T: InputPin + RTCPin,
     {
-        self.rtc_reset()?;
-
-        esp!(unsafe {
-            rtc_gpio_set_direction(self.pin.pin(), rtc_gpio_mode_t_RTC_GPIO_MODE_INPUT_ONLY)
-        })?;
-
-        Ok(PinDriver {
-            pin: unsafe { self.pin.clone_unchecked() },
-            _mode: PhantomData,
-        })
+        self.into_rtc_mode(rtc_gpio_mode_t_RTC_GPIO_MODE_INPUT_ONLY)
     }
 
     /// Put the pin into RTC input + output mode.
@@ -488,20 +589,11 @@ impl<'d, T: Pin, MODE> PinDriver<'d, T, MODE> {
     /// at a specific level, call `set_high`/`set_low` on the pin first.
     #[inline]
     #[cfg(all(not(feature = "riscv-ulp-hal"), not(esp32c3)))]
-    pub fn into_rtc_input_output(mut self) -> Result<PinDriver<'d, T, RtcInputOutput>, EspError>
+    pub fn into_rtc_input_output(self) -> Result<PinDriver<'d, T, RtcInputOutput>, EspError>
     where
         T: InputPin + OutputPin + RTCPin,
     {
-        self.rtc_reset()?;
-
-        esp!(unsafe {
-            rtc_gpio_set_direction(self.pin.pin(), rtc_gpio_mode_t_RTC_GPIO_MODE_INPUT_OUTPUT)
-        })?;
-
-        Ok(PinDriver {
-            pin: unsafe { self.pin.clone_unchecked() },
-            _mode: PhantomData,
-        })
+        self.into_rtc_mode(rtc_gpio_mode_t_RTC_GPIO_MODE_INPUT_OUTPUT)
     }
 
     /// Put the pin into RTC input + output Open Drain mode.
@@ -515,23 +607,11 @@ impl<'d, T: Pin, MODE> PinDriver<'d, T, MODE> {
     /// at a specific level, call `set_high`/`set_low` on the pin first.
     #[inline]
     #[cfg(all(not(feature = "riscv-ulp-hal"), not(esp32c3)))]
-    pub fn into_rtc_input_output_od(mut self) -> Result<PinDriver<'d, T, RtcInputOutput>, EspError>
+    pub fn into_rtc_input_output_od(self) -> Result<PinDriver<'d, T, RtcInputOutput>, EspError>
     where
         T: InputPin + OutputPin + RTCPin,
     {
-        self.rtc_reset()?;
-
-        esp!(unsafe {
-            rtc_gpio_set_direction(
-                self.pin.pin(),
-                rtc_gpio_mode_t_RTC_GPIO_MODE_INPUT_OUTPUT_OD,
-            )
-        })?;
-
-        Ok(PinDriver {
-            pin: unsafe { self.pin.clone_unchecked() },
-            _mode: PhantomData,
-        })
+        self.into_rtc_mode(rtc_gpio_mode_t_RTC_GPIO_MODE_INPUT_OUTPUT_OD)
     }
 
     /// Put the pin into RTC output mode.
@@ -540,20 +620,11 @@ impl<'d, T: Pin, MODE> PinDriver<'d, T, MODE> {
     /// at a specific level, call `set_high`/`set_low` on the pin first.
     #[inline]
     #[cfg(all(not(feature = "riscv-ulp-hal"), not(esp32c3)))]
-    pub fn into_rtc_output(mut self) -> Result<PinDriver<'d, T, RtcOutput>, EspError>
+    pub fn into_rtc_output(self) -> Result<PinDriver<'d, T, RtcOutput>, EspError>
     where
         T: OutputPin + RTCPin,
     {
-        self.rtc_reset()?;
-
-        esp!(unsafe {
-            rtc_gpio_set_direction(self.pin.pin(), rtc_gpio_mode_t_RTC_GPIO_MODE_OUTPUT_ONLY)
-        })?;
-
-        Ok(PinDriver {
-            pin: unsafe { self.pin.clone_unchecked() },
-            _mode: PhantomData,
-        })
+        self.into_rtc_mode(rtc_gpio_mode_t_RTC_GPIO_MODE_OUTPUT_ONLY)
     }
 
     /// Put the pin into RTC output Open Drain mode.
@@ -562,18 +633,50 @@ impl<'d, T: Pin, MODE> PinDriver<'d, T, MODE> {
     /// at a specific level, call `set_high`/`set_low` on the pin first.
     #[inline]
     #[cfg(all(not(feature = "riscv-ulp-hal"), not(esp32c3)))]
-    pub fn into_rtc_output_od(mut self) -> Result<PinDriver<'d, T, RtcOutput>, EspError>
+    pub fn into_rtc_output_od(self) -> Result<PinDriver<'d, T, RtcOutput>, EspError>
     where
         T: OutputPin + RTCPin,
     {
-        self.rtc_reset()?;
+        self.into_rtc_mode(rtc_gpio_mode_t_RTC_GPIO_MODE_OUTPUT_OD)
+    }
 
-        esp!(unsafe {
-            rtc_gpio_set_direction(self.pin.pin(), rtc_gpio_mode_t_RTC_GPIO_MODE_OUTPUT_OD)
-        })?;
+    #[inline]
+    fn into_mode<M>(mut self, mode: gpio_mode_t) -> Result<PinDriver<'d, T, M>, EspError>
+    where
+        T: Pin,
+    {
+        let pin = unsafe { self.pin.clone_unchecked() };
+
+        drop(self);
+
+        if mode != gpio_mode_t_GPIO_MODE_DISABLE {
+            esp!(unsafe { gpio_set_direction(pin.pin(), mode) })?;
+        }
 
         Ok(PinDriver {
-            pin: unsafe { self.pin.clone_unchecked() },
+            pin,
+            _mode: PhantomData,
+        })
+    }
+
+    #[inline]
+    #[cfg(all(not(feature = "riscv-ulp-hal"), not(esp32c3)))]
+    fn into_rtc_mode<M>(mut self, mode: rtc_gpio_mode_t) -> Result<PinDriver<'d, T, M>, EspError>
+    where
+        T: RTCPin,
+    {
+        let pin = unsafe { self.pin.clone_unchecked() };
+
+        drop(self);
+
+        #[cfg(all(not(feature = "riscv-ulp-hal"), not(esp32c3)))]
+        {
+            esp!(unsafe { rtc_gpio_init(pin.pin()) })?;
+            esp!(unsafe { rtc_gpio_set_direction(pin.pin(), mode) })?;
+        }
+
+        Ok(PinDriver {
+            pin,
             _mode: PhantomData,
         })
     }
@@ -873,38 +976,11 @@ impl<'d, T: Pin, MODE> PinDriver<'d, T, MODE> {
             ()
         )
     }
-
-    fn reset(&mut self) -> Result<(), EspError> {
-        #[cfg(not(feature = "riscv-ulp-hal"))]
-        let res = {
-            #[cfg(feature = "alloc")]
-            {
-                esp!(unsafe { gpio_intr_disable(self.pin.pin()) })?;
-                esp!(unsafe {
-                    gpio_set_intr_type(self.pin.pin(), gpio_int_type_t_GPIO_INTR_DISABLE)
-                })?;
-                unsafe { unregister_irq_handler(self.pin.pin() as usize) };
-            }
-
-            esp!(unsafe { gpio_reset_pin(self.pin.pin()) })?;
-            Ok(())
-        };
-
-        #[cfg(feature = "riscv-ulp-hal")]
-        let res = Ok(());
-
-        res
-    }
-
-    #[cfg(all(not(feature = "riscv-ulp-hal"), not(esp32c3)))]
-    fn rtc_reset(&mut self) -> Result<(), EspError> {
-        rtc_reset_pin(self.pin.pin())
-    }
 }
 
 impl<'d, T: Pin, MODE> Drop for PinDriver<'d, T, MODE> {
     fn drop(&mut self) {
-        esp!(unsafe { gpio_set_direction(self.pin.pin(), gpio_mode_t_GPIO_MODE_DISABLE) }).unwrap();
+        reset_pin(self.pin.pin(), gpio_mode_t_GPIO_MODE_DISABLE).unwrap();
     }
 }
 
@@ -912,19 +988,34 @@ unsafe impl<'d, T: Pin, MODE> Send for PinDriver<'d, T, MODE> {}
 
 #[cfg(not(feature = "riscv-ulp-hal"))]
 pub(crate) fn rtc_reset_pin(pin: i32) -> Result<(), EspError> {
-    #[cfg(feature = "alloc")]
-    {
-        esp!(unsafe { gpio_intr_disable(pin) })?;
-        esp!(unsafe { gpio_set_intr_type(pin, gpio_int_type_t_GPIO_INTR_DISABLE) })?;
-        unsafe { unregister_irq_handler(pin as usize) };
-    }
-
-    esp!(unsafe { gpio_reset_pin(pin) })?;
+    reset_pin(pin, gpio_mode_t_GPIO_MODE_DISABLE)?;
 
     #[cfg(all(not(feature = "riscv-ulp-hal"), not(esp32c3)))]
     esp!(unsafe { rtc_gpio_init(pin) })?;
 
     Ok(())
+}
+
+fn reset_pin(pin: i32, mode: gpio_mode_t) -> Result<(), EspError> {
+    #[cfg(not(feature = "riscv-ulp-hal"))]
+    let res = {
+        #[cfg(feature = "alloc")]
+        {
+            esp!(unsafe { gpio_intr_disable(pin) })?;
+            esp!(unsafe { gpio_set_intr_type(pin, gpio_int_type_t_GPIO_INTR_DISABLE) })?;
+            unsafe { unregister_irq_handler(pin as usize) };
+        }
+
+        esp!(unsafe { gpio_reset_pin(pin) })?;
+        esp!(unsafe { gpio_set_direction(pin, mode) })?;
+
+        Ok(())
+    };
+
+    #[cfg(feature = "riscv-ulp-hal")]
+    let res = Ok(());
+
+    res
 }
 
 impl<'d, T: Pin, MODE> embedded_hal_0_2::digital::v2::InputPin for PinDriver<'d, T, MODE>
