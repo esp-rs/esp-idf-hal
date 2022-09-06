@@ -17,8 +17,8 @@ fn main() -> anyhow::Result<()> {
     esp_idf_sys::link_patches();
 
     let peripherals = Peripherals::take().unwrap();
-    let mut led = PinDriver::new(peripherals.pins.gpio4)?.into_output()?;
-    let mut button = PinDriver::new(peripherals.pins.gpio9)?.into_input()?;
+    let mut led = PinDriver::output(peripherals.pins.gpio4)?;
+    let mut button = PinDriver::input(peripherals.pins.gpio9)?;
 
     button.set_pull(Pull::Down)?;
 
