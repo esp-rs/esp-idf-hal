@@ -42,7 +42,7 @@ fn main() -> anyhow::Result<()> {
 
     let tx = send_morse_code(&mut channel, &mut led, &config, "HELLO ")?;
 
-    let stop = PinDriver::new(stop)?.into_input()?;
+    let stop = PinDriver::input(stop)?;
 
     println!("Keep sending until pin {} is set low.", stop.pin());
 
