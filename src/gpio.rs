@@ -26,11 +26,27 @@ pub trait Pin: Peripheral<P = Self> + Sized + Send + 'static {
 
 /// A marker trait designating a pin which is capable of
 /// operating as an input pin
-pub trait InputPin: Pin {}
+pub trait InputPin: Pin + Into<AnyInputPin> {
+    fn downgrade_input(self) -> AnyInputPin {
+        self.into()
+    }
+}
 
 /// A marker trait designating a pin which is capable of
 /// operating as an output pin
-pub trait OutputPin: Pin {}
+pub trait OutputPin: Pin + Into<AnyOutputPin> {
+    fn downgrade_output(self) -> AnyOutputPin {
+        self.into()
+    }
+}
+
+/// A marker trait designating a pin which is capable of
+/// operating as an input and output pin
+pub trait IOPin: InputPin + OutputPin + Into<AnyIOPin> {
+    fn downgrade(self) -> AnyIOPin {
+        self.into()
+    }
+}
 
 /// A marker trait designating a pin which is capable of
 /// operating as an RTC pin
@@ -71,12 +87,12 @@ pub trait TouchPin: Pin {
 }
 
 /// Generic Gpio input-output pin
-pub struct AnyPin {
+pub struct AnyIOPin {
     pin: i32,
     _p: PhantomData<*const ()>,
 }
 
-impl AnyPin {
+impl AnyIOPin {
     /// # Safety
     ///
     /// Care should be taken not to instantiate this Pin, if it is
@@ -90,16 +106,17 @@ impl AnyPin {
     }
 }
 
-crate::impl_peripheral_trait!(AnyPin);
+crate::impl_peripheral_trait!(AnyIOPin);
 
-impl Pin for AnyPin {
+impl Pin for AnyIOPin {
     fn pin(&self) -> i32 {
         self.pin
     }
 }
 
-impl InputPin for AnyPin {}
-impl OutputPin for AnyPin {}
+impl InputPin for AnyIOPin {}
+impl OutputPin for AnyIOPin {}
+impl IOPin for AnyIOPin {}
 
 /// Generic Gpio input pin
 pub struct AnyInputPin {
@@ -130,6 +147,48 @@ impl Pin for AnyInputPin {
 }
 
 impl InputPin for AnyInputPin {}
+
+impl From<AnyIOPin> for AnyInputPin {
+    fn from(pin: AnyIOPin) -> Self {
+        unsafe { Self::new(pin.pin()) }
+    }
+}
+
+/// Generic Gpio output pin
+pub struct AnyOutputPin {
+    pin: i32,
+    _p: PhantomData<*const ()>,
+}
+
+impl AnyOutputPin {
+    /// # Safety
+    ///
+    /// Care should be taken not to instantiate this Pin, if it is
+    /// already instantiated and used elsewhere, or if it is not set
+    /// already in the mode of operation which is being instantiated
+    pub unsafe fn new(pin: i32) -> Self {
+        Self {
+            pin,
+            _p: PhantomData,
+        }
+    }
+}
+
+crate::impl_peripheral_trait!(AnyOutputPin);
+
+impl Pin for AnyOutputPin {
+    fn pin(&self) -> i32 {
+        self.pin
+    }
+}
+
+impl OutputPin for AnyOutputPin {}
+
+impl From<AnyIOPin> for AnyOutputPin {
+    fn from(pin: AnyIOPin) -> Self {
+        unsafe { Self::new(pin.pin()) }
+    }
+}
 
 /// Interrupt types
 #[cfg(all(not(feature = "riscv-ulp-hal"), feature = "alloc"))]
@@ -1257,34 +1316,23 @@ macro_rules! impl_input {
     };
 }
 
-#[allow(unused)]
-macro_rules! impl_input_only {
-    ($pxi:ident: $pin:expr) => {
-        impl_input!($pxi: $pin);
-
-        impl $pxi {
-            pub fn downgrade(self) -> AnyInputPin {
-                self.into()
-            }
-        }
-    };
-}
-
 macro_rules! impl_input_output {
     ($pxi:ident: $pin:expr) => {
         impl_input!($pxi: $pin);
 
         impl OutputPin for $pxi {}
 
-        impl From<$pxi> for AnyPin {
+        impl IOPin for $pxi {}
+
+        impl From<$pxi> for AnyOutputPin {
             fn from(pin: $pxi) -> Self {
                 unsafe { Self::new(pin.pin()) }
             }
         }
 
-        impl $pxi {
-            pub fn downgrade(self) -> AnyPin {
-                self.into()
+        impl From<$pxi> for AnyIOPin {
+            fn from(pin: $pxi) -> Self {
+                unsafe { Self::new(pin.pin()) }
             }
         }
     };
@@ -1362,7 +1410,7 @@ macro_rules! impl_touch {
 
 macro_rules! pin {
     ($pxi:ident: $pin:expr, Input, $rtc:ident: $rtcno:expr, $adc:ident: $adcno:expr, $dac:ident: $dacno:expr, $touch:ident: $touchno:expr) => {
-        impl_input_only!($pxi: $pin);
+        impl_input!($pxi: $pin);
         impl_rtc!($pxi: $pin, $rtc: $rtcno);
         impl_adc!($pxi: $pin, $adc: $adcno);
         impl_dac!($pxi: $pin, $dac: $dacno);
