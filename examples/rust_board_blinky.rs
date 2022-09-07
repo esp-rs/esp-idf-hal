@@ -1,14 +1,10 @@
-//! Blinks an LED
-//!
-//! This assumes that a LED is connected to GPIO4.
-//! Depending on your target and the board you are using you should change the pin.
-//! If your board doesn't have on-board LEDs don't forget to add an appropriate resistor.
+//! Blinks the embedded LED on the esp-rust-board
 //!
 
 use std::thread;
 use std::time::Duration;
 
-use embedded_hal::digital::blocking::OutputPin;
+use embedded_hal::digital::v2::OutputPin;
 
 use esp_idf_hal::peripherals::Peripherals;
 
@@ -16,7 +12,7 @@ fn main() -> anyhow::Result<()> {
     esp_idf_sys::link_patches();
 
     let peripherals = Peripherals::take().unwrap();
-    let mut led = peripherals.pins.gpio4.into_output()?;
+    let mut led = peripherals.pins.gpio7.into_output()?;
 
     loop {
         led.set_high()?;
