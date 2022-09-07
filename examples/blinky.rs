@@ -8,7 +8,7 @@
 use std::thread;
 use std::time::Duration;
 
-use embedded_hal::digital::blocking::OutputPin;
+use embedded_hal::digital::v2::OutputPin;
 
 use esp_idf_hal::peripherals::Peripherals;
 
