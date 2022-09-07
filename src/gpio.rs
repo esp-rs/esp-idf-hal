@@ -295,6 +295,17 @@ impl From<Level> for bool {
     }
 }
 
+impl core::ops::Not for Level {
+    type Output = Level;
+
+    fn not(self) -> Self::Output {
+        match self {
+            Level::Low => Level::High,
+            Level::High => Level::Low,
+        }
+    }
+}
+
 pub trait InputMode {
     const RTC: bool;
 }
@@ -785,7 +796,7 @@ impl<'d, T: Pin, MODE> PinDriver<'d, T, MODE> {
     where
         MODE: InputMode,
     {
-        !self.is_low()
+        self.get_level().into()
     }
 
     #[inline]
@@ -793,7 +804,7 @@ impl<'d, T: Pin, MODE> PinDriver<'d, T, MODE> {
     where
         MODE: InputMode,
     {
-        self.get_level().into()
+        !self.is_high()
     }
 
     #[inline]
@@ -1084,11 +1095,11 @@ where
     type Error = EspError;
 
     fn is_high(&self) -> Result<bool, Self::Error> {
-        Ok(self.get_level().into())
+        Ok(PinDriver::is_high(self))
     }
 
     fn is_low(&self) -> Result<bool, Self::Error> {
-        Ok(!bool::from(self.get_level()))
+        Ok(PinDriver::is_low(self))
     }
 }
 
@@ -1101,11 +1112,11 @@ where
     MODE: InputMode,
 {
     fn is_high(&self) -> Result<bool, Self::Error> {
-        Ok(self.get_level().into())
+        Ok(PinDriver::is_high(self))
     }
 
     fn is_low(&self) -> Result<bool, Self::Error> {
-        Ok(!bool::from(self.get_level()))
+        Ok(PinDriver::is_low(self))
     }
 }
 
