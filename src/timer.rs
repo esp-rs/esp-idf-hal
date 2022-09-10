@@ -1,13 +1,6 @@
-use core::marker::PhantomData;
-
-use embedded_hal::i2c::{ErrorKind, NoAcknowledgeSource};
-
 use esp_idf_sys::*;
 
-use crate::delay::*;
-use crate::gpio::*;
 use crate::peripheral::{Peripheral, PeripheralRef};
-use crate::units::*;
 
 crate::embedded_hal_error!(
     TimerError,
@@ -19,9 +12,6 @@ pub type TimerConfig = config::Config;
 
 /// Timer configuration
 pub mod config {
-    use crate::units::*;
-    use core::time::Duration;
-
     #[derive(Copy, Clone)]
     pub struct Config {
         pub divider: u32,
