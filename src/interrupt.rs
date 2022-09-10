@@ -1,5 +1,4 @@
-use core::ptr;
-use core::sync::atomic::{AtomicPtr, Ordering};
+use core::sync::atomic::{AtomicU64, Ordering};
 
 use esp_idf_sys::*;
 
@@ -10,17 +9,42 @@ pub fn active() -> bool {
     unsafe { xPortInIsrContext() != 0 }
 }
 
-static ISR_YIELDER: AtomicPtr<c_types::c_void> = AtomicPtr::new(ptr::null_mut());
+pub fn with_isr_yield_signal(cb: impl FnOnce()) -> bool {
+    if !active() {
+        panic!("with_isr_yield_signal() can only be called from an ISR context");
+    }
+
+    let mut signaled = false;
+
+    let prev_yielder =
+        unsafe { set_isr_yielder(Some((do_yield_signal, &mut signaled as *mut _ as _))) };
+
+    cb();
+
+    unsafe { set_isr_yielder(prev_yielder) };
+
+    signaled
+}
+
+unsafe fn do_yield_signal(arg: *mut ()) {
+    let signaled = (arg as *mut bool).as_mut().unwrap();
+
+    *signaled = true
+}
+
+static ISR_YIELDER: AtomicU64 = AtomicU64::new(0);
 
 #[inline(always)]
 #[link_section = ".iram1.interrupt_get_isr_yielder"]
-pub(crate) unsafe fn get_isr_yielder() -> Option<unsafe fn()> {
+pub(crate) unsafe fn get_isr_yielder() -> Option<(unsafe fn(*mut ()), *mut ())> {
     if active() {
-        let ptr = ISR_YIELDER.load(Ordering::SeqCst);
-        if ptr.is_null() {
+        let value = ISR_YIELDER.load(Ordering::SeqCst);
+        if value == 0 {
             None
         } else {
-            Some(core::mem::transmute(ptr))
+            let func = core::mem::transmute((value >> 32) as u32);
+            let arg = core::mem::transmute((value & 0xffffffff) as u32);
+            Some((func, arg))
         }
     } else {
         None
@@ -40,21 +64,23 @@ pub(crate) unsafe fn get_isr_yielder() -> Option<unsafe fn()> {
 /// ISR handler was invoked.
 #[inline(always)]
 #[link_section = ".iram1.interrupt_set_isr_yielder"]
-pub unsafe fn set_isr_yielder(yielder: Option<unsafe fn()>) -> Option<unsafe fn()> {
+pub unsafe fn set_isr_yielder(
+    yielder: Option<(unsafe fn(*mut ()), *mut ())>,
+) -> Option<(unsafe fn(*mut ()), *mut ())> {
     if active() {
-        let ptr = if let Some(yielder) = yielder {
-            #[allow(clippy::transmutes_expressible_as_ptr_casts)]
-            core::mem::transmute(yielder)
+        let value = if let Some((func, arg)) = yielder {
+            ((func as u32 as u64) << 32) | (arg as u32 as u64)
         } else {
-            ptr::null_mut()
+            0
         };
 
-        let ptr = ISR_YIELDER.swap(ptr, Ordering::SeqCst);
-
-        if ptr.is_null() {
+        let value = ISR_YIELDER.swap(value, Ordering::SeqCst);
+        if value == 0 {
             None
         } else {
-            Some(core::mem::transmute(ptr))
+            let func = core::mem::transmute((value >> 32) as u32);
+            let arg = core::mem::transmute((value & 0xffffffff) as u32);
+            Some((func, arg))
         }
     } else {
         None

@@ -56,6 +56,8 @@ pub mod spi;
 #[cfg(not(feature = "riscv-ulp-hal"))]
 pub mod task;
 #[cfg(not(feature = "riscv-ulp-hal"))]
+pub mod timer;
+#[cfg(not(feature = "riscv-ulp-hal"))]
 pub mod uart;
 #[cfg(all(any(esp32, esp32s2, esp32s3), not(feature = "riscv-ulp-hal")))]
 pub mod ulp;
