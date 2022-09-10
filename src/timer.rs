@@ -270,9 +270,16 @@ static mut ISR_HANDLERS: [Option<Box<Box<dyn FnMut() -> bool>>>; 2] = [None, Non
 #[cfg(not(esp32c3))]
 static mut ISR_HANDLERS: [Option<Box<Box<dyn FnMut() -> bool>>>; 4] = [None, None, None, None];
 
+#[cfg(esp32c3)]
+impl_timer!(TIMER0: timer_group_t_TIMER_GROUP_0, timer_idx_t_TIMER_0);
+#[cfg(esp32c3)]
+impl_timer!(TIMER1: timer_group_t_TIMER_GROUP_1, timer_idx_t_TIMER_0);
+
+#[cfg(not(esp32c3))]
 impl_timer!(TIMER00: timer_group_t_TIMER_GROUP_0, timer_idx_t_TIMER_0);
 #[cfg(not(esp32c3))]
 impl_timer!(TIMER01: timer_group_t_TIMER_GROUP_0, timer_idx_t_TIMER_1);
+#[cfg(not(esp32c3))]
 impl_timer!(TIMER10: timer_group_t_TIMER_GROUP_1, timer_idx_t_TIMER_0);
 #[cfg(not(esp32c3))]
 impl_timer!(TIMER11: timer_group_t_TIMER_GROUP_1, timer_idx_t_TIMER_0);
