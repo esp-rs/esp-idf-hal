@@ -2,12 +2,6 @@ use esp_idf_sys::*;
 
 use crate::peripheral::{Peripheral, PeripheralRef};
 
-crate::embedded_hal_error!(
-    TimerError,
-    embedded_hal::i2c::Error,
-    embedded_hal::i2c::ErrorKind
-);
-
 pub type TimerConfig = config::Config;
 
 /// Timer configuration
