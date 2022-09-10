@@ -150,6 +150,61 @@ where
 
         Ok(())
     }
+
+    pub fn enable_interrupt(&mut self) -> Result<(), EspError> {
+        esp!(unsafe { timer_enable_intr(TIMER::group(), TIMER::index()) })?;
+
+        Ok(())
+    }
+
+    pub fn disable_interrupt(&mut self) -> Result<(), EspError> {
+        esp!(unsafe { timer_disable_intr(TIMER::group(), TIMER::index()) })?;
+
+        Ok(())
+    }
+
+    pub unsafe fn subscribe(
+        &mut self,
+        callback: impl FnMut() -> bool + Send + 'static,
+    ) -> Result<(), EspError> {
+        self.unsubscribe()?;
+
+        let callback: Box<dyn FnMut() -> bool + 'static> = Box::new(callback);
+
+        ISR_HANDLERS[(TIMER::group() * timer_group_t_TIMER_GROUP_MAX + TIMER::index()) as usize] =
+            Some(Box::new(callback));
+
+        esp!(timer_isr_callback_add(
+            TIMER::group(),
+            TIMER::index(),
+            Some(Self::handle_isr),
+            UnsafeCallback::from(
+                ISR_HANDLERS
+                    [(TIMER::group() * timer_group_t_TIMER_GROUP_MAX + TIMER::index()) as usize]
+                    .as_mut()
+                    .unwrap(),
+            )
+            .as_ptr(),
+            0
+        ))?;
+
+        self.enable_interrupt()?;
+
+        Ok(())
+    }
+
+    pub fn unsubscribe(&mut self) -> Result<(), EspError> {
+        unsafe {
+            unsubscribe_timer(TIMER::group(), TIMER::index())?;
+        }
+
+        Ok(())
+    }
+
+    unsafe extern "C" fn handle_isr(unsafe_callback: *mut c_types::c_void) -> bool {
+        let mut unsafe_callback = UnsafeCallback::from_ptr(unsafe_callback);
+        unsafe_callback.call()
+    }
 }
 
 impl<'d, TIMER: Timer> Drop for TimerDriver<'d, TIMER> {
@@ -159,6 +214,43 @@ impl<'d, TIMER: Timer> Drop for TimerDriver<'d, TIMER> {
 }
 
 unsafe impl<'d, TIMER: Timer> Send for TimerDriver<'d, TIMER> {}
+
+unsafe fn unsubscribe_timer(group: timer_group_t, index: timer_idx_t) -> Result<(), EspError> {
+    let subscribed =
+        ISR_HANDLERS[(group * timer_group_t_TIMER_GROUP_MAX + index) as usize].is_some();
+
+    if subscribed {
+        esp!(timer_disable_intr(group, index))?;
+        esp!(timer_isr_callback_remove(group, index))?;
+
+        ISR_HANDLERS[(group * timer_group_t_TIMER_GROUP_MAX + index) as usize] = None;
+    }
+
+    Ok(())
+}
+
+struct UnsafeCallback(*mut Box<dyn FnMut() -> bool + 'static>);
+
+impl UnsafeCallback {
+    #[allow(clippy::type_complexity)]
+    pub fn from(boxed: &mut Box<Box<dyn FnMut() -> bool + 'static>>) -> Self {
+        Self(boxed.as_mut())
+    }
+
+    pub unsafe fn from_ptr(ptr: *mut c_types::c_void) -> Self {
+        Self(ptr as *mut _)
+    }
+
+    pub fn as_ptr(&self) -> *mut c_types::c_void {
+        self.0 as *mut _
+    }
+
+    pub unsafe fn call(&mut self) -> bool {
+        let reference = self.0.as_mut().unwrap();
+
+        (reference)()
+    }
+}
 
 macro_rules! impl_timer {
     ($timer:ident: $group:expr, $index:expr) => {
@@ -177,6 +269,12 @@ macro_rules! impl_timer {
         }
     };
 }
+
+#[cfg(esp32c3)]
+static mut ISR_HANDLERS: [Option<Box<Box<dyn FnMut() -> bool>>>; 2] = [None, None];
+
+#[cfg(not(esp32c3))]
+static mut ISR_HANDLERS: [Option<Box<Box<dyn FnMut() -> bool>>>; 4] = [None, None, None, None];
 
 impl_timer!(TIMER00: timer_group_t_TIMER_GROUP_0, timer_idx_t_TIMER_0);
 #[cfg(not(esp32c3))]

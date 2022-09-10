@@ -1038,7 +1038,9 @@ impl<'d, T: Pin, MODE> PinDriver<'d, T, MODE> {
     where
         MODE: InputMode,
     {
-        esp_result!(unsafe { gpio_intr_enable(self.pin.pin()) }, ())
+        esp!(unsafe { gpio_intr_enable(self.pin.pin()) })?;
+
+        Ok(())
     }
 
     #[cfg(all(not(feature = "riscv-ulp-hal"), feature = "alloc"))]
@@ -1056,14 +1058,13 @@ impl<'d, T: Pin, MODE> PinDriver<'d, T, MODE> {
     where
         MODE: InputMode,
     {
-        esp_result!(
-            unsafe { gpio_set_intr_type(self.pin.pin(), interrupt_type.into()) },
-            ()
-        )
+        esp!(unsafe { gpio_set_intr_type(self.pin.pin(), interrupt_type.into()) })?;
+
+        Ok(())
     }
 
     #[cfg(all(not(feature = "riscv-ulp-hal"), feature = "alloc"))]
-    unsafe extern "C" fn handle_isr(unsafe_callback: *mut esp_idf_sys::c_types::c_void) {
+    unsafe extern "C" fn handle_isr(unsafe_callback: *mut c_types::c_void) {
         let mut unsafe_callback = UnsafeCallback::from_ptr(unsafe_callback);
         unsafe_callback.call();
     }
