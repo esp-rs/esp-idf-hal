@@ -111,7 +111,7 @@ fn main() -> anyhow::Result<()> {
 
     loop {
 
-        // you can change the refresh rate by modifying the sleep duration
+        // you can change the sleep duration depending on how often you want to sample
         thread::sleep(Duration::from_millis(200));
 
         //clears the specified area on the screen 
