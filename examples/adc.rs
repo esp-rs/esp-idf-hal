@@ -1,4 +1,4 @@
-//! ADC example 
+//! ADC example, reading a value form a pin and printing it on the terminal
 //!
 
 use esp_idf_sys::{self as _}; // If using the `binstart` feature of `esp-idf-sys`, always keep this module imported
@@ -9,7 +9,7 @@ use std::time::Duration;
 use embedded_hal_0_2::adc::OneShot;
 
 use esp_idf_hal::peripherals::Peripherals;
-use esp_idf_hal::adc::*;
+use esp_idf_hal::adc::PoweredAdc;
 use esp_idf_hal::adc::config::Config;
 
 fn main() -> anyhow::Result<()> {
