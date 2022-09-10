@@ -999,7 +999,7 @@ impl<'d, T: Pin, MODE> PinDriver<'d, T, MODE> {
     {
         let callback = PinNotifySubscription::subscribe(self.pin.pin(), callback)?;
 
-        register_irq_handler(self.pin.pin() as usize, callback);
+        register_isr_handler(self.pin.pin() as usize, callback);
 
         self.enable_interrupt()?;
 
@@ -1013,7 +1013,7 @@ impl<'d, T: Pin, MODE> PinDriver<'d, T, MODE> {
     {
         esp!(unsafe { gpio_intr_disable(self.pin.pin()) })?;
         esp!(unsafe { gpio_set_intr_type(self.pin.pin(), gpio_int_type_t_GPIO_INTR_DISABLE) })?;
-        unsafe { unregister_irq_handler(self.pin.pin() as usize) };
+        unsafe { unregister_isr_handler(self.pin.pin() as usize) };
 
         Ok(())
     }
@@ -1073,7 +1073,7 @@ fn reset_pin(pin: i32, mode: gpio_mode_t) -> Result<(), EspError> {
         {
             esp!(unsafe { gpio_intr_disable(pin) })?;
             esp!(unsafe { gpio_set_intr_type(pin, gpio_int_type_t_GPIO_INTR_DISABLE) })?;
-            unsafe { unregister_irq_handler(pin as usize) };
+            unsafe { unregister_isr_handler(pin as usize) };
         }
 
         esp!(unsafe { gpio_reset_pin(pin) })?;
@@ -1228,7 +1228,7 @@ static ISR_SERVICE_ENABLED: core::sync::atomic::AtomicBool =
 static ISR_SERVICE_ENABLED_CS: crate::cs::CriticalSection = crate::cs::CriticalSection::new();
 
 #[cfg(all(not(feature = "riscv-ulp-hal"), feature = "alloc"))]
-unsafe extern "C" fn irq_handler(unsafe_callback: *mut esp_idf_sys::c_types::c_void) {
+unsafe extern "C" fn isr_handler(unsafe_callback: *mut esp_idf_sys::c_types::c_void) {
     let mut unsafe_callback = UnsafeCallback::from_ptr(unsafe_callback);
     unsafe_callback.call();
 }
@@ -1270,7 +1270,7 @@ impl PinNotifySubscription {
         let unsafe_callback = UnsafeCallback::from(&mut callback);
 
         esp!(unsafe {
-            esp_idf_sys::gpio_isr_handler_add(pin, Some(irq_handler), unsafe_callback.as_ptr())
+            esp_idf_sys::gpio_isr_handler_add(pin, Some(isr_handler), unsafe_callback.as_ptr())
         })?;
 
         Ok(Self(pin, callback))
@@ -1286,25 +1286,25 @@ impl Drop for PinNotifySubscription {
 
 /// # Safety
 ///
-/// - Access to `IRQ_HANDLERS` is not guarded because we only call register
+/// - Access to `ISR_HANDLERS` is not guarded because we only call register
 ///   from the context of Pin which is owned and in the rights state
 ///
 // Clippy in the CI seems to wrongfully catch a only_used_in_recursion
 // lint error in this function. We'll ignore it until it's fixed.
 #[allow(clippy::only_used_in_recursion)]
 #[cfg(all(not(feature = "riscv-ulp-hal"), feature = "alloc"))]
-unsafe fn register_irq_handler(pin_number: usize, p: PinNotifySubscription) {
-    chip::IRQ_HANDLERS[pin_number] = Some(p);
+unsafe fn register_isr_handler(pin_number: usize, p: PinNotifySubscription) {
+    chip::ISR_HANDLERS[pin_number] = Some(p);
 }
 
 /// # Safety
 ///
-/// - Access to `IRQ_HANDLERS` is not guarded because we only call register
+/// - Access to `ISR_HANDLERS` is not guarded because we only call register
 ///   from the context of Pin which is owned and in the rights state
 ///
 #[cfg(all(not(feature = "riscv-ulp-hal"), feature = "alloc"))]
-unsafe fn unregister_irq_handler(pin_number: usize) {
-    chip::IRQ_HANDLERS[pin_number].take();
+unsafe fn unregister_isr_handler(pin_number: usize) {
+    chip::ISR_HANDLERS[pin_number].take();
 }
 
 macro_rules! impl_input {
@@ -1450,7 +1450,7 @@ mod chip {
     use super::*;
 
     #[cfg(all(not(feature = "riscv-ulp-hal"), feature = "alloc"))]
-    pub(crate) static mut IRQ_HANDLERS: [Option<PinNotifySubscription>; 40] = [
+    pub(crate) static mut ISR_HANDLERS: [Option<PinNotifySubscription>; 40] = [
         None, None, None, None, None, None, None, None, None, None, None, None, None, None, None,
         None, None, None, None, None, None, None, None, None, None, None, None, None, None, None,
         None, None, None, None, None, None, None, None, None, None,
@@ -1634,7 +1634,7 @@ mod chip {
     use super::*;
 
     #[cfg(all(not(feature = "riscv-ulp-hal"), feature = "alloc"))]
-    pub(crate) static mut IRQ_HANDLERS: [Option<PinNotifySubscription>; 49] = [
+    pub(crate) static mut ISR_HANDLERS: [Option<PinNotifySubscription>; 49] = [
         None, None, None, None, None, None, None, None, None, None, None, None, None, None, None,
         None, None, None, None, None, None, None, None, None, None, None, None, None, None, None,
         None, None, None, None, None, None, None, None, None, None, None, None, None, None, None,
@@ -1882,7 +1882,7 @@ mod chip {
     use super::*;
 
     #[cfg(feature = "alloc")]
-    pub(crate) static mut IRQ_HANDLERS: [Option<PinNotifySubscription>; 22] = [
+    pub(crate) static mut ISR_HANDLERS: [Option<PinNotifySubscription>; 22] = [
         None, None, None, None, None, None, None, None, None, None, None, None, None, None, None,
         None, None, None, None, None, None, None,
     ];
