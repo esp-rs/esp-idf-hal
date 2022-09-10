@@ -106,9 +106,12 @@ fn main() -> anyhow::Result<()> {
     // defining area to be refreshed to avoid refreshing the entire screen
     let area = Rectangle::new(Point::zero(), Size::new(40, 20));
 
+    // clears the display
+    display.clear(Rgb565::BLACK).unwrap();
+
     loop {
 
-        // you can change the sleep duration depending on how often you want to sample
+        // you can change the refresh rate by modifying the sleep duration
         thread::sleep(Duration::from_millis(200));
 
         //clears the specified area on the screen 
