@@ -990,16 +990,28 @@ impl<'d, T: Pin, MODE> PinDriver<'d, T, MODE> {
     /// Care should be taken not to call STD, libc or FreeRTOS APIs (except for a few allowed ones)
     /// in the callback passed to this function, as it is executed in an ISR context.
     #[cfg(all(not(feature = "riscv-ulp-hal"), feature = "alloc"))]
-    pub unsafe fn subscribe(
-        &mut self,
-        callback: impl FnMut() + Send + 'static,
-    ) -> Result<(), EspError>
+    pub unsafe fn subscribe(&mut self, callback: impl FnMut() + 'static) -> Result<(), EspError>
     where
         MODE: InputMode,
     {
-        let callback = PinNotifySubscription::subscribe(self.pin.pin(), callback)?;
+        enable_isr_service()?;
 
-        register_irq_handler(self.pin.pin() as usize, callback);
+        self.unsubscribe()?;
+
+        let callback: Box<dyn FnMut() + 'static> = Box::new(callback);
+
+        chip::ISR_HANDLERS[self.pin.pin() as usize] = Some(Box::new(callback));
+
+        esp!(gpio_isr_handler_add(
+            self.pin.pin(),
+            Some(Self::handle_isr),
+            UnsafeCallback::from(
+                chip::ISR_HANDLERS[self.pin.pin() as usize]
+                    .as_mut()
+                    .unwrap(),
+            )
+            .as_ptr(),
+        ))?;
 
         self.enable_interrupt()?;
 
@@ -1011,9 +1023,9 @@ impl<'d, T: Pin, MODE> PinDriver<'d, T, MODE> {
     where
         MODE: InputMode,
     {
-        esp!(unsafe { gpio_intr_disable(self.pin.pin()) })?;
-        esp!(unsafe { gpio_set_intr_type(self.pin.pin(), gpio_int_type_t_GPIO_INTR_DISABLE) })?;
-        unsafe { unregister_irq_handler(self.pin.pin() as usize) };
+        unsafe {
+            unsubscribe_pin(self.pin.pin())?;
+        }
 
         Ok(())
     }
@@ -1023,7 +1035,9 @@ impl<'d, T: Pin, MODE> PinDriver<'d, T, MODE> {
     where
         MODE: InputMode,
     {
-        esp_result!(unsafe { gpio_intr_enable(self.pin.pin()) }, ())
+        esp!(unsafe { gpio_intr_enable(self.pin.pin()) })?;
+
+        Ok(())
     }
 
     #[cfg(all(not(feature = "riscv-ulp-hal"), feature = "alloc"))]
@@ -1041,43 +1055,44 @@ impl<'d, T: Pin, MODE> PinDriver<'d, T, MODE> {
     where
         MODE: InputMode,
     {
-        esp_result!(
-            unsafe { gpio_set_intr_type(self.pin.pin(), interrupt_type.into()) },
-            ()
-        )
+        esp!(unsafe { gpio_set_intr_type(self.pin.pin(), interrupt_type.into()) })?;
+
+        Ok(())
+    }
+
+    #[cfg(all(not(feature = "riscv-ulp-hal"), feature = "alloc"))]
+    unsafe extern "C" fn handle_isr(unsafe_callback: *mut c_types::c_void) {
+        let mut unsafe_callback = UnsafeCallback::from_ptr(unsafe_callback);
+        unsafe_callback.call();
     }
 }
 
 impl<'d, T: Pin, MODE> Drop for PinDriver<'d, T, MODE> {
     fn drop(&mut self) {
-        reset_pin(self.pin.pin(), gpio_mode_t_GPIO_MODE_DISABLE).unwrap();
+        unsafe { reset_pin(self.pin.pin(), gpio_mode_t_GPIO_MODE_DISABLE) }.unwrap();
     }
 }
 
 unsafe impl<'d, T: Pin, MODE> Send for PinDriver<'d, T, MODE> {}
 
 #[cfg(not(feature = "riscv-ulp-hal"))]
-pub(crate) fn rtc_reset_pin(pin: i32) -> Result<(), EspError> {
+pub(crate) unsafe fn rtc_reset_pin(pin: i32) -> Result<(), EspError> {
     reset_pin(pin, gpio_mode_t_GPIO_MODE_DISABLE)?;
 
     #[cfg(all(not(feature = "riscv-ulp-hal"), not(esp32c3)))]
-    esp!(unsafe { rtc_gpio_init(pin) })?;
+    esp!(rtc_gpio_init(pin))?;
 
     Ok(())
 }
 
-fn reset_pin(pin: i32, mode: gpio_mode_t) -> Result<(), EspError> {
+unsafe fn reset_pin(pin: i32, mode: gpio_mode_t) -> Result<(), EspError> {
     #[cfg(not(feature = "riscv-ulp-hal"))]
     let res = {
         #[cfg(feature = "alloc")]
-        {
-            esp!(unsafe { gpio_intr_disable(pin) })?;
-            esp!(unsafe { gpio_set_intr_type(pin, gpio_int_type_t_GPIO_INTR_DISABLE) })?;
-            unsafe { unregister_irq_handler(pin as usize) };
-        }
+        unsubscribe_pin(pin)?;
 
-        esp!(unsafe { gpio_reset_pin(pin) })?;
-        esp!(unsafe { gpio_set_direction(pin, mode) })?;
+        esp!(gpio_reset_pin(pin))?;
+        esp!(gpio_set_direction(pin, mode))?;
 
         Ok(())
     };
@@ -1086,6 +1101,21 @@ fn reset_pin(pin: i32, mode: gpio_mode_t) -> Result<(), EspError> {
     let res = Ok(());
 
     res
+}
+
+#[cfg(all(not(feature = "riscv-ulp-hal"), feature = "alloc"))]
+unsafe fn unsubscribe_pin(pin: i32) -> Result<(), EspError> {
+    let subscribed = chip::ISR_HANDLERS[pin as usize].is_some();
+
+    if subscribed {
+        esp!(gpio_intr_disable(pin))?;
+        esp!(gpio_set_intr_type(pin, gpio_int_type_t_GPIO_INTR_DISABLE))?;
+        esp!(gpio_isr_handler_remove(pin))?;
+
+        chip::ISR_HANDLERS[pin as usize] = None;
+    }
+
+    Ok(())
 }
 
 impl<'d, T: Pin, MODE> embedded_hal_0_2::digital::v2::InputPin for PinDriver<'d, T, MODE>
@@ -1228,12 +1258,6 @@ static ISR_SERVICE_ENABLED: core::sync::atomic::AtomicBool =
 static ISR_SERVICE_ENABLED_CS: crate::cs::CriticalSection = crate::cs::CriticalSection::new();
 
 #[cfg(all(not(feature = "riscv-ulp-hal"), feature = "alloc"))]
-unsafe extern "C" fn irq_handler(unsafe_callback: *mut esp_idf_sys::c_types::c_void) {
-    let mut unsafe_callback = UnsafeCallback::from_ptr(unsafe_callback);
-    unsafe_callback.call();
-}
-
-#[cfg(all(not(feature = "riscv-ulp-hal"), feature = "alloc"))]
 fn enable_isr_service() -> Result<(), EspError> {
     use core::sync::atomic::Ordering;
 
@@ -1241,70 +1265,13 @@ fn enable_isr_service() -> Result<(), EspError> {
         let _ = ISR_SERVICE_ENABLED_CS.enter();
 
         if !ISR_SERVICE_ENABLED.load(Ordering::SeqCst) {
-            esp!(unsafe { esp_idf_sys::gpio_install_isr_service(0) })?;
+            esp!(unsafe { gpio_install_isr_service(0) })?;
 
             ISR_SERVICE_ENABLED.store(true, Ordering::SeqCst);
         }
     }
 
     Ok(())
-}
-
-#[cfg(all(not(feature = "riscv-ulp-hal"), feature = "alloc"))]
-type ClosureBox = Box<Box<dyn FnMut()>>;
-
-/// The PinNotifySubscription represents the association between an InputPin and
-/// a registered isr handler.
-/// When the PinNotifySubscription is dropped, the isr handler is unregistered.
-#[cfg(all(not(feature = "riscv-ulp-hal"), feature = "alloc"))]
-pub(crate) struct PinNotifySubscription(i32, ClosureBox);
-
-#[cfg(all(not(feature = "riscv-ulp-hal"), feature = "alloc"))]
-impl PinNotifySubscription {
-    fn subscribe(pin: i32, callback: impl FnMut() + 'static) -> Result<Self, EspError> {
-        enable_isr_service()?;
-
-        let callback: Box<dyn FnMut() + 'static> = Box::new(callback);
-        let mut callback = Box::new(callback);
-
-        let unsafe_callback = UnsafeCallback::from(&mut callback);
-
-        esp!(unsafe {
-            esp_idf_sys::gpio_isr_handler_add(pin, Some(irq_handler), unsafe_callback.as_ptr())
-        })?;
-
-        Ok(Self(pin, callback))
-    }
-}
-
-#[cfg(all(not(feature = "riscv-ulp-hal"), feature = "alloc"))]
-impl Drop for PinNotifySubscription {
-    fn drop(self: &mut PinNotifySubscription) {
-        esp!(unsafe { esp_idf_sys::gpio_isr_handler_remove(self.0) }).expect("Error unsubscribing");
-    }
-}
-
-/// # Safety
-///
-/// - Access to `IRQ_HANDLERS` is not guarded because we only call register
-///   from the context of Pin which is owned and in the rights state
-///
-// Clippy in the CI seems to wrongfully catch a only_used_in_recursion
-// lint error in this function. We'll ignore it until it's fixed.
-#[allow(clippy::only_used_in_recursion)]
-#[cfg(all(not(feature = "riscv-ulp-hal"), feature = "alloc"))]
-unsafe fn register_irq_handler(pin_number: usize, p: PinNotifySubscription) {
-    chip::IRQ_HANDLERS[pin_number] = Some(p);
-}
-
-/// # Safety
-///
-/// - Access to `IRQ_HANDLERS` is not guarded because we only call register
-///   from the context of Pin which is owned and in the rights state
-///
-#[cfg(all(not(feature = "riscv-ulp-hal"), feature = "alloc"))]
-unsafe fn unregister_irq_handler(pin_number: usize) {
-    chip::IRQ_HANDLERS[pin_number].take();
 }
 
 macro_rules! impl_input {
@@ -1450,7 +1417,7 @@ mod chip {
     use super::*;
 
     #[cfg(all(not(feature = "riscv-ulp-hal"), feature = "alloc"))]
-    pub(crate) static mut IRQ_HANDLERS: [Option<PinNotifySubscription>; 40] = [
+    pub(crate) static mut ISR_HANDLERS: [Option<Box<Box<dyn FnMut()>>>; 40] = [
         None, None, None, None, None, None, None, None, None, None, None, None, None, None, None,
         None, None, None, None, None, None, None, None, None, None, None, None, None, None, None,
         None, None, None, None, None, None, None, None, None, None,
@@ -1634,7 +1601,7 @@ mod chip {
     use super::*;
 
     #[cfg(all(not(feature = "riscv-ulp-hal"), feature = "alloc"))]
-    pub(crate) static mut IRQ_HANDLERS: [Option<PinNotifySubscription>; 49] = [
+    pub(crate) static mut ISR_HANDLERS: [Option<Box<Box<dyn FnMut()>>>; 49] = [
         None, None, None, None, None, None, None, None, None, None, None, None, None, None, None,
         None, None, None, None, None, None, None, None, None, None, None, None, None, None, None,
         None, None, None, None, None, None, None, None, None, None, None, None, None, None, None,
@@ -1882,7 +1849,7 @@ mod chip {
     use super::*;
 
     #[cfg(feature = "alloc")]
-    pub(crate) static mut IRQ_HANDLERS: [Option<PinNotifySubscription>; 22] = [
+    pub(crate) static mut ISR_HANDLERS: [Option<Box<Box<dyn FnMut()>>>; 22] = [
         None, None, None, None, None, None, None, None, None, None, None, None, None, None, None,
         None, None, None, None, None, None, None,
     ];
