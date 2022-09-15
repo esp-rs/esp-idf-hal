@@ -35,7 +35,7 @@ pub mod config {
     impl Default for Config {
         fn default() -> Self {
             Self {
-                divider: 2,
+                divider: 80,
                 #[cfg(any(esp32s2, esp32s3, esp32c3))]
                 xtal: false,
             }
@@ -121,7 +121,7 @@ where
                 TIMER::group(),
                 TIMER::index(),
                 if enable {
-                    timer_alarm_t_TIMER_ALARM_DIS
+                    timer_alarm_t_TIMER_ALARM_EN
                 } else {
                     timer_alarm_t_TIMER_ALARM_DIS
                 },
@@ -157,13 +157,10 @@ where
         Ok(())
     }
 
-    pub unsafe fn subscribe(
-        &mut self,
-        callback: impl FnMut() -> bool + Send + 'static,
-    ) -> Result<(), EspError> {
+    pub unsafe fn subscribe(&mut self, callback: impl FnMut() + 'static) -> Result<(), EspError> {
         self.unsubscribe()?;
 
-        let callback: Box<dyn FnMut() -> bool + 'static> = Box::new(callback);
+        let callback: Box<dyn FnMut() + 'static> = Box::new(callback);
 
         ISR_HANDLERS[(TIMER::group() * timer_group_t_TIMER_GROUP_MAX + TIMER::index()) as usize] =
             Some(Box::new(callback));
@@ -196,8 +193,9 @@ where
     }
 
     unsafe extern "C" fn handle_isr(unsafe_callback: *mut c_types::c_void) -> bool {
-        let mut unsafe_callback = UnsafeCallback::from_ptr(unsafe_callback);
-        unsafe_callback.call()
+        crate::interrupt::with_isr_yield_signal(move || {
+            UnsafeCallback::from_ptr(unsafe_callback).call();
+        })
     }
 }
 
@@ -223,11 +221,11 @@ unsafe fn unsubscribe_timer(group: timer_group_t, index: timer_idx_t) -> Result<
     Ok(())
 }
 
-struct UnsafeCallback(*mut Box<dyn FnMut() -> bool + 'static>);
+struct UnsafeCallback(*mut Box<dyn FnMut() + 'static>);
 
 impl UnsafeCallback {
     #[allow(clippy::type_complexity)]
-    pub fn from(boxed: &mut Box<Box<dyn FnMut() -> bool + 'static>>) -> Self {
+    pub fn from(boxed: &mut Box<Box<dyn FnMut() + 'static>>) -> Self {
         Self(boxed.as_mut())
     }
 
@@ -239,10 +237,10 @@ impl UnsafeCallback {
         self.0 as *mut _
     }
 
-    pub unsafe fn call(&mut self) -> bool {
+    pub unsafe fn call(&mut self) {
         let reference = self.0.as_mut().unwrap();
 
-        (reference)()
+        (reference)();
     }
 }
 
@@ -265,21 +263,91 @@ macro_rules! impl_timer {
 }
 
 #[cfg(esp32c3)]
-static mut ISR_HANDLERS: [Option<Box<Box<dyn FnMut() -> bool>>>; 2] = [None, None];
+static mut ISR_HANDLERS: [Option<Box<Box<dyn FnMut()>>>; 2] = [None, None];
 
 #[cfg(not(esp32c3))]
-static mut ISR_HANDLERS: [Option<Box<Box<dyn FnMut() -> bool>>>; 4] = [None, None, None, None];
+static mut ISR_HANDLERS: [Option<Box<Box<dyn FnMut()>>>; 4] = [None, None, None, None];
 
-#[cfg(esp32c3)]
-impl_timer!(TIMER0: timer_group_t_TIMER_GROUP_0, timer_idx_t_TIMER_0);
-#[cfg(esp32c3)]
-impl_timer!(TIMER1: timer_group_t_TIMER_GROUP_1, timer_idx_t_TIMER_0);
-
-#[cfg(not(esp32c3))]
 impl_timer!(TIMER00: timer_group_t_TIMER_GROUP_0, timer_idx_t_TIMER_0);
 #[cfg(not(esp32c3))]
 impl_timer!(TIMER01: timer_group_t_TIMER_GROUP_0, timer_idx_t_TIMER_1);
-#[cfg(not(esp32c3))]
 impl_timer!(TIMER10: timer_group_t_TIMER_GROUP_1, timer_idx_t_TIMER_0);
 #[cfg(not(esp32c3))]
 impl_timer!(TIMER11: timer_group_t_TIMER_GROUP_1, timer_idx_t_TIMER_0);
+
+#[cfg(any(
+    feature = "embassy-time-timer00",
+    feature = "embassy-time-timer01",
+    feature = "embassy-time-timer10",
+    feature = "embassy-time-timer11"
+))]
+mod embassy_time {
+    use core::cell::UnsafeCell;
+    use core::sync::atomic::{AtomicBool, Ordering};
+
+    use esp_idf_sys::esp_timer_get_time;
+
+    #[cfg(any(feature = "embassy-time-timer01", feature = "embassy-time-timer11"))]
+    compile_error!("Features `embassy-time-timer01` and `embassy-time-timer11`");
+
+    #[cfg(feature = "embassy-time-timer00")]
+    type TIMER = super::TIMER00;
+    #[cfg(feature = "embassy-time-timer01")]
+    type TIMER = super::TIMER01;
+    #[cfg(feature = "embassy-time-timer10")]
+    type TIMER = super::TIMER10;
+    #[cfg(feature = "embassy-time-timer11")]
+    type TIMER = super::TIMER11;
+
+    use ::embassy_time::driver::{AlarmHandle, Driver};
+
+    static TAKEN: AtomicBool = AtomicBool::new(false);
+
+    struct EspDriver(UnsafeCell<Option<super::TimerDriver<'static, TIMER>>>);
+
+    impl EspDriver {
+        pub const fn new() -> Self {
+            Self(UnsafeCell::new(None))
+        }
+
+        unsafe fn driver(&self) -> &mut super::TimerDriver<'static, TIMER> {
+            self.0.get().as_mut().unwrap().as_mut().unwrap()
+        }
+    }
+
+    unsafe impl Send for EspDriver {}
+    unsafe impl Sync for EspDriver {}
+
+    impl Driver for EspDriver {
+        fn now(&self) -> u64 {
+            unsafe { esp_timer_get_time() as _ }
+        }
+
+        unsafe fn allocate_alarm(&self) -> Option<AlarmHandle> {
+            if TAKEN.swap(true, Ordering::SeqCst) {
+                None
+            } else {
+                let mut timer =
+                    super::TimerDriver::new(TIMER::new(), &super::TimerConfig::new()).unwrap();
+
+                timer.set_counter(0).unwrap();
+
+                *self.0.get().as_mut().unwrap() = Some(timer);
+
+                Some(AlarmHandle::new(0))
+            }
+        }
+
+        fn set_alarm_callback(&self, _alarm: AlarmHandle, callback: fn(*mut ()), ctx: *mut ()) {
+            unsafe {
+                self.driver().subscribe(move || callback(ctx)).unwrap();
+            }
+        }
+
+        fn set_alarm(&self, _alarm: AlarmHandle, timestamp: u64) {
+            unsafe { self.driver() }.set_alarm(timestamp).unwrap();
+        }
+    }
+
+    embassy_time::time_driver_impl!(static DRIVER: EspDriver = EspDriver::new());
+}

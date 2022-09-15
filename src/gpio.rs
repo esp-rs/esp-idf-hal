@@ -990,10 +990,7 @@ impl<'d, T: Pin, MODE> PinDriver<'d, T, MODE> {
     /// Care should be taken not to call STD, libc or FreeRTOS APIs (except for a few allowed ones)
     /// in the callback passed to this function, as it is executed in an ISR context.
     #[cfg(all(not(feature = "riscv-ulp-hal"), feature = "alloc"))]
-    pub unsafe fn subscribe(
-        &mut self,
-        callback: impl FnMut() + Send + 'static,
-    ) -> Result<(), EspError>
+    pub unsafe fn subscribe(&mut self, callback: impl FnMut() + 'static) -> Result<(), EspError>
     where
         MODE: InputMode,
     {

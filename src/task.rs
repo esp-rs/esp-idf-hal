@@ -10,24 +10,17 @@ use crate::interrupt;
 #[link_section = ".iram1.interrupt_task_do_yield"]
 pub fn do_yield() {
     if interrupt::active() {
-        #[cfg(esp32c3)]
         unsafe {
-            if let Some(yielder) = interrupt::get_isr_yielder() {
-                yielder();
+            if let Some((yielder, arg)) = interrupt::get_isr_yielder() {
+                yielder(arg);
             } else {
+                #[cfg(esp32c3)]
                 vPortYieldFromISR();
-            }
-        }
 
-        #[cfg(not(esp32c3))]
-        unsafe {
-            if let Some(yielder) = interrupt::get_isr_yielder() {
-                yielder();
-            } else {
-                #[cfg(esp_idf_version_major = "4")]
+                #[cfg(all(not(esp32c3), esp_idf_version_major = "4"))]
                 vPortEvaluateYieldFromISR(0);
 
-                #[cfg(esp_idf_version_major = "5")]
+                #[cfg(all(not(esp32c3), esp_idf_version_major = "5"))]
                 _frxt_setup_switch();
             }
         }
