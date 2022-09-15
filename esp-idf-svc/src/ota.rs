@@ -102,10 +102,60 @@ impl ota::FirmwareInfoLoader for EspFirmwareInfoLoader {
 }
 
 #[derive(Debug)]
-pub struct EspOta {
+pub struct EspOtaUpdate {
     update_partition: *const esp_partition_t,
     update_handle: esp_ota_handle_t,
 }
+
+impl EspOtaUpdate {
+    pub fn write(&mut self, buf: &[u8]) -> Result<usize, EspError> {
+        self.check_write()?;
+
+        esp!(unsafe { esp_ota_write(self.update_handle, buf.as_ptr() as _, buf.len() as _) })?;
+
+        Ok(buf.len())
+    }
+
+    pub fn flush(&mut self) -> Result<(), EspError> {
+        self.check_write()?;
+
+        Ok(())
+    }
+
+    pub fn complete(&mut self) -> Result<(), EspError> {
+        self.check_write()?;
+
+        esp!(unsafe { esp_ota_end(self.update_handle) })?;
+        esp!(unsafe { esp_ota_set_boot_partition(self.update_partition) })?;
+
+        self.update_partition = core::ptr::null();
+        self.update_handle = 0;
+
+        Ok(())
+    }
+
+    pub fn abort(&mut self) -> Result<(), EspError> {
+        self.check_write()?;
+
+        esp!(unsafe { esp_ota_abort(self.update_handle) })?;
+
+        self.update_partition = core::ptr::null();
+        self.update_handle = 0;
+
+        Ok(())
+    }
+
+    fn check_write(&self) -> Result<(), EspError> {
+        if !self.update_partition.is_null() {
+            Ok(())
+        } else {
+            Err(EspError::from(ESP_FAIL).unwrap())
+        }
+    }
+}
+
+#[derive(Debug)]
+pub struct EspOta(EspOtaUpdate);
 
 impl EspOta {
     pub fn new() -> Result<Self, EspError> {
@@ -116,10 +166,81 @@ impl EspOta {
         }
 
         *taken = true;
-        Ok(Self {
+        Ok(Self(EspOtaUpdate {
             update_partition: core::ptr::null(),
             update_handle: 0,
+        }))
+    }
+
+    pub fn get_boot_slot(&self) -> Result<Slot, EspError> {
+        self.check_read()?;
+
+        self.get_slot(unsafe { esp_ota_get_boot_partition().as_ref().unwrap() })
+    }
+
+    pub fn get_running_slot(&self) -> Result<Slot, EspError> {
+        self.check_read()?;
+
+        self.get_slot(unsafe { esp_ota_get_boot_partition().as_ref().unwrap() })
+    }
+
+    pub fn get_update_slot(&self) -> Result<Slot, EspError> {
+        self.check_read()?;
+
+        self.get_slot(unsafe {
+            esp_ota_get_next_update_partition(ptr::null())
+                .as_ref()
+                .unwrap()
         })
+    }
+
+    pub fn is_factory_reset_supported(&self) -> Result<bool, EspError> {
+        self.check_read()?;
+
+        Ok(self
+            .get_factory_partition()
+            .map(|factory| !factory.is_null())?)
+    }
+
+    pub fn factory_reset(&mut self) -> Result<(), EspError> {
+        self.check_read()?;
+
+        let factory = self.get_factory_partition()?;
+
+        esp!(unsafe { esp_ota_set_boot_partition(factory) })?;
+
+        Ok(())
+    }
+
+    pub fn initiate_update(&mut self) -> Result<&mut EspOtaUpdate, EspError> {
+        self.check_read()?;
+
+        let partition = unsafe { esp_ota_get_next_update_partition(ptr::null()) };
+
+        let mut handle: esp_ota_handle_t = Default::default();
+
+        esp!(unsafe { esp_ota_begin(partition, OTA_SIZE_UNKNOWN, &mut handle as *mut _) })?;
+
+        self.0.update_partition = partition;
+        self.0.update_handle = handle;
+
+        Ok(&mut self.0)
+    }
+
+    pub fn mark_running_slot_valid(&mut self) -> Result<(), EspError> {
+        self.check_read()?;
+
+        Ok(esp!(unsafe { esp_ota_mark_app_valid_cancel_rollback() })?)
+    }
+
+    pub fn mark_running_slot_invalid_and_reboot(&mut self) -> EspError {
+        if let Err(err) = self.check_read() {
+            err.into()
+        } else if let Err(err) = esp!(unsafe { esp_ota_mark_app_invalid_rollback_and_reboot() }) {
+            err.into()
+        } else {
+            unreachable!()
+        }
     }
 
     fn get_factory_partition(&self) -> Result<*const esp_partition_t, EspError> {
@@ -144,7 +265,7 @@ impl EspOta {
         Ok(partition)
     }
 
-    fn get_slot(&self, partition: &esp_partition_t) -> Result<Slot, EspIOError> {
+    fn get_slot(&self, partition: &esp_partition_t) -> Result<Slot, EspError> {
         self.check_read()?;
 
         Ok(Slot {
@@ -154,7 +275,7 @@ impl EspOta {
         })
     }
 
-    fn get_state(&self, partition: &esp_partition_t) -> Result<ota::SlotState, EspIOError> {
+    fn get_state(&self, partition: &esp_partition_t) -> Result<ota::SlotState, EspError> {
         let mut state: esp_ota_img_states_t = Default::default();
 
         let err =
@@ -181,7 +302,7 @@ impl EspOta {
     fn get_firmware_info(
         &self,
         partition: &esp_partition_t,
-    ) -> Result<Option<ota::FirmwareInfo>, EspIOError> {
+    ) -> Result<Option<ota::FirmwareInfo>, EspError> {
         let mut app_desc: esp_app_desc_t = Default::default();
 
         let err =
@@ -197,15 +318,7 @@ impl EspOta {
     }
 
     fn check_read(&self) -> Result<(), EspError> {
-        if self.update_partition.is_null() {
-            Ok(())
-        } else {
-            Err(EspError::from(ESP_FAIL).unwrap())
-        }
-    }
-
-    fn check_write(&self) -> Result<(), EspError> {
-        if !self.update_partition.is_null() {
+        if self.0.update_partition.is_null() {
             Ok(())
         } else {
             Err(EspError::from(ESP_FAIL).unwrap())
@@ -226,116 +339,68 @@ impl io::Io for EspOta {
 }
 
 impl ota::Ota for EspOta {
-    type Update = Self;
+    type Update = EspOtaUpdate;
 
     fn get_boot_slot(&self) -> Result<Slot, Self::Error> {
-        self.check_read()?;
-
-        self.get_slot(unsafe { esp_ota_get_boot_partition().as_ref().unwrap() })
+        EspOta::get_boot_slot(self).map_err(EspIOError)
     }
 
     fn get_running_slot(&self) -> Result<Slot, Self::Error> {
-        self.check_read()?;
-
-        self.get_slot(unsafe { esp_ota_get_boot_partition().as_ref().unwrap() })
+        EspOta::get_running_slot(self).map_err(EspIOError)
     }
 
     fn get_update_slot(&self) -> Result<Slot, Self::Error> {
-        self.check_read()?;
-
-        self.get_slot(unsafe {
-            esp_ota_get_next_update_partition(ptr::null())
-                .as_ref()
-                .unwrap()
-        })
+        EspOta::get_update_slot(self).map_err(EspIOError)
     }
 
     fn is_factory_reset_supported(&self) -> Result<bool, Self::Error> {
-        self.check_read()?;
-
-        Ok(self
-            .get_factory_partition()
-            .map(|factory| !factory.is_null())?)
+        EspOta::is_factory_reset_supported(self).map_err(EspIOError)
     }
 
     fn factory_reset(&mut self) -> Result<(), Self::Error> {
-        self.check_read()?;
-
-        let factory = self.get_factory_partition()?;
-
-        esp!(unsafe { esp_ota_set_boot_partition(factory) })?;
-
-        Ok(())
+        EspOta::factory_reset(self).map_err(EspIOError)
     }
 
     fn initiate_update(&mut self) -> Result<&mut Self::Update, Self::Error> {
-        self.check_read()?;
-
-        let partition = unsafe { esp_ota_get_next_update_partition(ptr::null()) };
-
-        let mut handle: esp_ota_handle_t = Default::default();
-
-        esp!(unsafe { esp_ota_begin(partition, OTA_SIZE_UNKNOWN, &mut handle as *mut _) })?;
-
-        self.update_partition = partition;
-        self.update_handle = handle;
-
-        Ok(self)
+        EspOta::initiate_update(self).map_err(EspIOError)
     }
 
     fn mark_running_slot_valid(&mut self) -> Result<(), Self::Error> {
-        self.check_read()?;
-
-        Ok(esp!(unsafe { esp_ota_mark_app_valid_cancel_rollback() })?)
+        EspOta::mark_running_slot_valid(self).map_err(EspIOError)
     }
 
     fn mark_running_slot_invalid_and_reboot(&mut self) -> Self::Error {
-        if let Err(err) = self.check_read() {
-            err.into()
-        } else if let Err(err) = esp!(unsafe { esp_ota_mark_app_invalid_rollback_and_reboot() }) {
-            err.into()
-        } else {
-            unreachable!()
-        }
+        EspIOError(EspOta::mark_running_slot_invalid_and_reboot(self))
     }
 }
 
-impl ota::OtaUpdate for EspOta {
+impl io::Io for EspOtaUpdate {
+    type Error = EspIOError;
+}
+
+impl ota::OtaUpdate for EspOtaUpdate {
     fn complete(&mut self) -> Result<(), Self::Error> {
-        self.check_write()?;
-
-        esp!(unsafe { esp_ota_end(self.update_handle) })?;
-        esp!(unsafe { esp_ota_set_boot_partition(self.update_partition) })?;
-
-        self.update_partition = core::ptr::null();
-        self.update_handle = 0;
+        EspOtaUpdate::complete(self)?;
 
         Ok(())
     }
 
     fn abort(&mut self) -> Result<(), Self::Error> {
-        self.check_write()?;
-
-        esp!(unsafe { esp_ota_abort(self.update_handle) })?;
-
-        self.update_partition = core::ptr::null();
-        self.update_handle = 0;
+        EspOtaUpdate::abort(self)?;
 
         Ok(())
     }
 }
 
-impl io::Write for EspOta {
+impl io::Write for EspOtaUpdate {
     fn write(&mut self, buf: &[u8]) -> Result<usize, Self::Error> {
-        self.check_write()?;
+        let size = EspOtaUpdate::write(self, buf)?;
 
-        esp!(unsafe { esp_ota_write(self.update_handle, buf.as_ptr() as _, buf.len() as _) })?;
-
-        Ok(buf.len())
+        Ok(size)
     }
 
     fn flush(&mut self) -> Result<(), Self::Error> {
-        self.check_write()?;
+        EspOtaUpdate::flush(self)?;
 
         Ok(())
     }

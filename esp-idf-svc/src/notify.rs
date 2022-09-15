@@ -194,6 +194,22 @@ impl EspNotify {
             vTaskDelete(ptr::null_mut());
         }
     }
+
+    pub fn subscribe(
+        &self,
+        callback: impl for<'a> FnMut(&'a u32) + Send + 'static,
+    ) -> Result<EspSubscription, EspError> {
+        self.registry
+            .subscribe(callback)
+            .map(|subscription_id| EspSubscription {
+                subscription_id,
+                state: self.registry.clone(),
+            })
+    }
+
+    pub fn post(&self, payload: &u32) -> Result<bool, EspError> {
+        Ok(unsafe { task::notify(*self.task, *payload) })
+    }
 }
 
 unsafe impl Send for EspNotify {}
@@ -226,18 +242,13 @@ impl EventBus<u32> for EspNotify {
         &self,
         callback: impl for<'a> FnMut(&'a u32) + Send + 'static,
     ) -> Result<Self::Subscription, Self::Error> {
-        self.registry
-            .subscribe(callback)
-            .map(|subscription_id| EspSubscription {
-                subscription_id,
-                state: self.registry.clone(),
-            })
+        EspNotify::subscribe(self, callback)
     }
 }
 
 impl Postbox<u32> for EspNotify {
     fn post(&self, payload: &u32, _wait: Option<Duration>) -> Result<bool, Self::Error> {
-        Ok(unsafe { task::notify(*self.task, *payload) })
+        EspNotify::post(self, payload)
     }
 }
 

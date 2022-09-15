@@ -9,7 +9,6 @@ extern crate alloc;
 use alloc::sync::Arc;
 
 use embedded_svc::eth::*;
-use embedded_svc::event_bus::EventBus;
 
 use esp_idf_hal::gpio::{InputPin, OutputPin};
 use esp_idf_hal::mac::MAC;

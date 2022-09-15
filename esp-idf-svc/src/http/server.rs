@@ -476,6 +476,195 @@ impl<'a> EspHttpConnection<'a> {
         }
     }
 
+    pub fn uri(&self) -> &str {
+        let c_uri = unsafe {
+            CStr::from_bytes_with_nul_unchecked(mem::transmute(self.request.0.uri.as_slice()))
+        };
+
+        c_uri.to_str().unwrap()
+    }
+
+    pub fn method(&self) -> Method {
+        Method::from(Newtype(self.request.0.method as u32))
+    }
+
+    pub fn header(&self, name: &str) -> Option<&str> {
+        let headers = self.headers.as_ref().unwrap();
+
+        if let Some(value) = unsafe { headers.get().as_ref().unwrap() }.get(UncasedStr::new(name)) {
+            Some(value.as_ref())
+        } else {
+            let raw_req = self.request.0 as *const httpd_req_t as *mut httpd_req_t;
+
+            let c_name = CString::new(name).unwrap();
+
+            match unsafe { httpd_req_get_hdr_value_len(raw_req, c_name.as_ptr() as _) } as usize {
+                0 => None,
+                len => {
+                    // TODO: Would've been much more effective, if ESP-IDF was capable of returning a
+                    // pointer to the header value that is in the scratch buffer
+                    //
+                    // Check if we can implement it ourselves vy traversing the scratch buffer manually
+
+                    let mut buf: Vec<u8> = Vec::with_capacity(len + 1);
+
+                    esp_nofail!(unsafe {
+                        httpd_req_get_hdr_value_str(
+                            raw_req,
+                            c_name.as_ptr() as _,
+                            buf.as_mut_ptr() as *mut _,
+                            (len + 1) as size_t,
+                        )
+                    });
+
+                    unsafe {
+                        buf.set_len(len + 1);
+                    }
+
+                    // TODO: Replace with a proper conversion from ISO-8859-1 to UTF8
+                    let value = String::from_utf8_lossy(&buf[..len]).into_owned();
+                    unsafe { headers.get().as_mut().unwrap() }
+                        .insert(Uncased::from(name.to_owned()), value);
+
+                    unsafe { headers.get().as_ref().unwrap() }
+                        .get(UncasedStr::new(name))
+                        .map(|s| s.as_ref())
+                }
+            }
+        }
+    }
+
+    pub fn headers<'b>(&'b self) -> Result<&'b Self, EspError> {
+        if self.headers.is_some() {
+            Ok(self)
+        } else {
+            Err(EspError::from(ESP_ERR_TIMEOUT).unwrap())
+        }
+    }
+
+    pub fn split<'b>(&'b mut self) -> Result<(&'b EspHttpConnection, &'b mut Self), EspError> {
+        if self.headers.is_some() {
+            let headers_ptr: *const EspHttpConnection<'b> = self as *const _;
+
+            let headers = unsafe { headers_ptr.as_ref().unwrap() };
+
+            Ok((headers, self))
+        } else {
+            Err(EspError::from(ESP_FAIL).unwrap())
+        }
+    }
+
+    pub fn initiate_response<'b>(
+        &'b mut self,
+        status: u16,
+        message: Option<&'b str>,
+        headers: &'b [(&'b str, &'b str)],
+    ) -> Result<(), EspError> {
+        let mut c_headers = Vec::new();
+
+        let status = if let Some(message) = message {
+            format!("{} {}", status, message)
+        } else {
+            status.to_string()
+        };
+
+        let c_status = CString::new(status.as_str()).unwrap();
+        esp!(unsafe { httpd_resp_set_status(self.request.0, c_status.as_ptr() as _) })?;
+
+        c_headers.push(c_status);
+
+        for (key, value) in headers {
+            if key.eq_ignore_ascii_case("Content-Type") {
+                let c_type = CString::new(*value).unwrap();
+
+                esp!(unsafe { httpd_resp_set_type(self.request.0, c_type.as_c_str().as_ptr()) })?;
+
+                c_headers.push(c_type);
+            } else if key.eq_ignore_ascii_case("Content-Length") {
+                let c_len = CString::new(*value).unwrap();
+
+                //esp!(unsafe { httpd_resp_set_len(self.raw_req, c_len.as_c_str().as_ptr()) })?;
+
+                c_headers.push(c_len);
+            } else {
+                let name = CString::new(*key).unwrap();
+                let value = CString::new(*value).unwrap();
+
+                esp!(unsafe {
+                    httpd_resp_set_hdr(
+                        self.request.0,
+                        name.as_c_str().as_ptr() as _,
+                        value.as_c_str().as_ptr() as _,
+                    )
+                })?;
+
+                c_headers.push(name);
+                c_headers.push(value);
+            }
+        }
+
+        self.response_headers = Some(c_headers);
+        self.headers = None;
+
+        Ok(())
+    }
+
+    pub fn assert_response(&mut self) -> Result<(), EspError> {
+        if self.headers.is_none() {
+            Ok(())
+        } else {
+            Err(EspError::from(ESP_FAIL).unwrap())
+        }
+    }
+
+    pub fn read(&mut self, buf: &mut [u8]) -> Result<usize, EspError> {
+        if self.headers.is_some() {
+            unsafe {
+                let len = httpd_req_recv(
+                    self.request.0,
+                    buf.as_mut_ptr() as *mut _,
+                    buf.len() as size_t,
+                );
+
+                if len < 0 {
+                    esp!(len)?;
+                }
+
+                Ok(len as usize)
+            }
+        } else {
+            Err(EspError::from(ESP_FAIL).unwrap())
+        }
+    }
+
+    pub fn write(&mut self, buf: &[u8]) -> Result<usize, EspError> {
+        if self.headers.is_none() {
+            if !buf.is_empty() {
+                esp!(unsafe {
+                    httpd_resp_send_chunk(
+                        self.request.0,
+                        buf.as_ptr() as *const _,
+                        buf.len() as ssize_t,
+                    )
+                })?;
+
+                self.response_headers = None;
+            }
+
+            Ok(buf.len())
+        } else {
+            Err(EspError::from(ESP_FAIL).unwrap())
+        }
+    }
+
+    pub fn flush(&mut self) -> Result<(), EspError> {
+        if self.headers.is_none() {
+            Ok(())
+        } else {
+            Err(EspError::from(ESP_FAIL).unwrap())
+        }
+    }
+
     fn handle<'b, H>(&'b mut self, handler: &'b H) -> Result<(), HandlerError>
     where
         H: Handler<&'b mut Self>,
@@ -562,63 +751,17 @@ impl<'a> RawHandle for EspHttpConnection<'a> {
 
 impl<'a> Query for EspHttpConnection<'a> {
     fn uri(&self) -> &str {
-        let c_uri = unsafe {
-            CStr::from_bytes_with_nul_unchecked(mem::transmute(self.request.0.uri.as_slice()))
-        };
-
-        c_uri.to_str().unwrap()
+        EspHttpConnection::uri(self)
     }
 
     fn method(&self) -> Method {
-        Method::from(Newtype(self.request.0.method as u32))
+        EspHttpConnection::method(self)
     }
 }
 
 impl<'a> Headers for EspHttpConnection<'a> {
     fn header(&self, name: &str) -> Option<&str> {
-        let headers = self.headers.as_ref().unwrap();
-
-        if let Some(value) = unsafe { headers.get().as_ref().unwrap() }.get(UncasedStr::new(name)) {
-            Some(value.as_ref())
-        } else {
-            let raw_req = self.request.0 as *const httpd_req_t as *mut httpd_req_t;
-
-            let c_name = CString::new(name).unwrap();
-
-            match unsafe { httpd_req_get_hdr_value_len(raw_req, c_name.as_ptr() as _) } as usize {
-                0 => None,
-                len => {
-                    // TODO: Would've been much more effective, if ESP-IDF was capable of returning a
-                    // pointer to the header value that is in the scratch buffer
-                    //
-                    // Check if we can implement it ourselves vy traversing the scratch buffer manually
-
-                    let mut buf: Vec<u8> = Vec::with_capacity(len + 1);
-
-                    esp_nofail!(unsafe {
-                        httpd_req_get_hdr_value_str(
-                            raw_req,
-                            c_name.as_ptr() as _,
-                            buf.as_mut_ptr() as *mut _,
-                            (len + 1) as size_t,
-                        )
-                    });
-
-                    unsafe {
-                        buf.set_len(len + 1);
-                    }
-
-                    // TODO: Replace with a proper conversion from ISO-8859-1 to UTF8
-                    let value = String::from_utf8_lossy(&buf[..len]).into_owned();
-                    unsafe { headers.get().as_mut().unwrap() }
-                        .insert(Uncased::from(name.to_owned()), value);
-
-                    unsafe { headers.get().as_ref().unwrap() }
-                        .get(UncasedStr::new(name))
-                        .map(|s| s.as_ref())
-                }
-            }
-        }
+        EspHttpConnection::header(self, name)
     }
 }
 
@@ -628,53 +771,17 @@ impl<'a> Io for EspHttpConnection<'a> {
 
 impl<'a> Read for EspHttpConnection<'a> {
     fn read(&mut self, buf: &mut [u8]) -> Result<usize, Self::Error> {
-        if self.headers.is_some() {
-            unsafe {
-                let len = httpd_req_recv(
-                    self.request.0,
-                    buf.as_mut_ptr() as *mut _,
-                    buf.len() as size_t,
-                );
-
-                if len < 0 {
-                    esp!(len)?;
-                }
-
-                Ok(len as usize)
-            }
-        } else {
-            Err(EspIOError(EspError::from(ESP_FAIL).unwrap()))
-        }
+        EspHttpConnection::read(self, buf).map_err(EspIOError)
     }
 }
 
 impl<'a> Write for EspHttpConnection<'a> {
     fn write(&mut self, buf: &[u8]) -> Result<usize, Self::Error> {
-        if self.headers.is_none() {
-            if !buf.is_empty() {
-                esp!(unsafe {
-                    httpd_resp_send_chunk(
-                        self.request.0,
-                        buf.as_ptr() as *const _,
-                        buf.len() as ssize_t,
-                    )
-                })?;
-
-                self.response_headers = None;
-            }
-
-            Ok(buf.len())
-        } else {
-            Err(EspIOError(EspError::from(ESP_FAIL).unwrap()))
-        }
+        EspHttpConnection::write(self, buf).map_err(EspIOError)
     }
 
     fn flush(&mut self) -> Result<(), Self::Error> {
-        if self.headers.is_none() {
-            Ok(())
-        } else {
-            Err(EspIOError(EspError::from(ESP_FAIL).unwrap()))
-        }
+        EspHttpConnection::flush(self).map_err(EspIOError)
     }
 }
 
@@ -809,6 +916,82 @@ pub mod ws {
     }
 
     impl EspHttpWsConnection {
+        pub fn session(&self) -> i32 {
+            match self {
+                Self::New(_, raw_req) | Self::Open(_, raw_req) => unsafe {
+                    httpd_req_to_sockfd(*raw_req)
+                },
+                Self::Closed(fd) => *fd,
+            }
+        }
+
+        pub fn is_new(&self) -> bool {
+            matches!(self, Self::New(_, _))
+        }
+
+        pub fn is_closed(&self) -> bool {
+            matches!(self, Self::Closed(_))
+        }
+
+        pub fn create_detached_sender(&self) -> Result<EspHttpWsDetachedSender, EspError> {
+            match self {
+                Self::Open(sd, raw_req) => {
+                    let fd = unsafe { httpd_req_to_sockfd(*raw_req) };
+
+                    let mut sessions = OPEN_SESSIONS.lock();
+
+                    let closed = sessions
+                        .entry((*sd as u32, fd))
+                        .or_insert_with(|| Arc::new(AtomicBool::new(false)));
+
+                    Ok(EspHttpWsDetachedSender::new(*sd, fd, closed.clone()))
+                }
+                Self::New(_, _) | Self::Closed(_) => Err(EspError::from(ESP_FAIL).unwrap().into()),
+            }
+        }
+
+        pub fn send(&mut self, frame_type: FrameType, frame_data: &[u8]) -> Result<(), EspError> {
+            match self {
+                Self::Open(_, raw_req) => {
+                    let raw_frame = Self::create_raw_frame(frame_type, frame_data);
+
+                    esp!(unsafe {
+                        httpd_ws_send_frame(*raw_req, &raw_frame as *const _ as *mut _)
+                    })?;
+
+                    Ok(())
+                }
+                _ => {
+                    esp!(ESP_FAIL)?;
+
+                    Ok(())
+                }
+            }
+        }
+
+        pub fn recv(&mut self, frame_data_buf: &mut [u8]) -> Result<(FrameType, usize), EspError> {
+            match self {
+                Self::New(_, _) => Err(EspError::from(ESP_FAIL).unwrap().into()),
+                Self::Open(_, raw_req) => {
+                    let mut raw_frame: httpd_ws_frame_t = Default::default();
+
+                    esp!(unsafe { httpd_ws_recv_frame(*raw_req, &mut raw_frame as *mut _, 0) })?;
+
+                    let (frame_type, len) = Self::create_frame_type(&raw_frame);
+
+                    if frame_data_buf.len() >= len {
+                        raw_frame.payload = frame_data_buf.as_mut_ptr() as *mut _;
+                        esp!(unsafe {
+                            httpd_ws_recv_frame(*raw_req, &mut raw_frame as *mut _, len as _)
+                        })?;
+                    }
+
+                    Ok((frame_type, len))
+                }
+                Self::Closed(_) => Ok((FrameType::SocketClose, 0)),
+            }
+        }
+
         fn create_raw_frame(frame_type: FrameType, frame_data: &[u8]) -> httpd_ws_frame_t {
             httpd_ws_frame_t {
                 type_: match frame_type {
@@ -854,47 +1037,13 @@ pub mod ws {
 
     impl Sender for EspHttpWsConnection {
         fn send(&mut self, frame_type: FrameType, frame_data: &[u8]) -> Result<(), Self::Error> {
-            match self {
-                Self::Open(_, raw_req) => {
-                    let raw_frame = Self::create_raw_frame(frame_type, frame_data);
-
-                    esp!(unsafe {
-                        httpd_ws_send_frame(*raw_req, &raw_frame as *const _ as *mut _)
-                    })?;
-
-                    Ok(())
-                }
-                _ => {
-                    esp!(ESP_FAIL)?;
-
-                    Ok(())
-                }
-            }
+            EspHttpWsConnection::send(self, frame_type, frame_data)
         }
     }
 
     impl Receiver for EspHttpWsConnection {
         fn recv(&mut self, frame_data_buf: &mut [u8]) -> Result<(FrameType, usize), Self::Error> {
-            match self {
-                Self::New(_, _) => Err(EspError::from(ESP_FAIL).unwrap().into()),
-                Self::Open(_, raw_req) => {
-                    let mut raw_frame: httpd_ws_frame_t = Default::default();
-
-                    esp!(unsafe { httpd_ws_recv_frame(*raw_req, &mut raw_frame as *mut _, 0) })?;
-
-                    let (frame_type, len) = Self::create_frame_type(&raw_frame);
-
-                    if frame_data_buf.len() >= len {
-                        raw_frame.payload = frame_data_buf.as_mut_ptr() as *mut _;
-                        esp!(unsafe {
-                            httpd_ws_recv_frame(*raw_req, &mut raw_frame as *mut _, len as _)
-                        })?;
-                    }
-
-                    Ok((frame_type, len))
-                }
-                Self::Closed(_) => Ok((FrameType::SocketClose, 0)),
-            }
+            EspHttpWsConnection::recv(self, frame_data_buf)
         }
     }
 
@@ -902,20 +1051,7 @@ pub mod ws {
         type Sender = EspHttpWsDetachedSender;
 
         fn create(&self) -> Result<Self::Sender, Self::Error> {
-            match self {
-                Self::Open(sd, raw_req) => {
-                    let fd = unsafe { httpd_req_to_sockfd(*raw_req) };
-
-                    let mut sessions = OPEN_SESSIONS.lock();
-
-                    let closed = sessions
-                        .entry((*sd as u32, fd))
-                        .or_insert_with(|| Arc::new(AtomicBool::new(false)));
-
-                    Ok(EspHttpWsDetachedSender::new(*sd, fd, closed.clone()))
-                }
-                Self::New(_, _) | Self::Closed(_) => Err(EspError::from(ESP_FAIL).unwrap().into()),
-            }
+            EspHttpWsConnection::create_detached_sender(self)
         }
     }
 
@@ -923,20 +1059,15 @@ pub mod ws {
         type Session = c_types::c_int;
 
         fn session(&self) -> Self::Session {
-            match self {
-                Self::New(_, raw_req) | Self::Open(_, raw_req) => unsafe {
-                    httpd_req_to_sockfd(*raw_req)
-                },
-                Self::Closed(fd) => *fd,
-            }
+            EspHttpWsConnection::session(self)
         }
 
         fn is_new(&self) -> bool {
-            matches!(self, Self::New(_, _))
+            EspHttpWsConnection::is_new(self)
         }
 
         fn is_closed(&self) -> bool {
-            matches!(self, Self::Closed(_))
+            EspHttpWsConnection::is_closed(self)
         }
     }
 
@@ -961,6 +1092,56 @@ pub mod ws {
     impl EspHttpWsDetachedSender {
         fn new(sd: httpd_handle_t, fd: c_types::c_int, closed: Arc<AtomicBool>) -> Self {
             Self { sd, fd, closed }
+        }
+
+        pub fn session(&self) -> i32 {
+            self.fd
+        }
+
+        pub fn is_new(&self) -> bool {
+            false
+        }
+
+        pub fn is_closed(&self) -> bool {
+            self.closed.load(Ordering::SeqCst)
+        }
+
+        pub fn send(&mut self, frame_type: FrameType, frame_data: &[u8]) -> Result<(), EspError> {
+            if !self.closed.load(Ordering::SeqCst) {
+                let raw_frame = EspHttpWsConnection::create_raw_frame(frame_type, frame_data);
+
+                let send_request = EspWsDetachedSendRequest {
+                    sd: self.sd,
+                    fd: self.fd,
+
+                    closed: self.closed.clone(),
+
+                    raw_frame: &raw_frame as *const _,
+
+                    error_code: Mutex::new(None),
+                    condvar: Condvar::new(),
+                };
+
+                esp!(unsafe {
+                    httpd_queue_work(
+                        self.sd,
+                        Some(Self::enqueue),
+                        &send_request as *const _ as *mut _,
+                    )
+                })?;
+
+                let mut guard = send_request.error_code.lock();
+
+                while guard.is_none() {
+                    guard = send_request.condvar.wait(guard);
+                }
+
+                esp!((*guard).unwrap())?;
+            } else {
+                esp!(ESP_FAIL)?;
+            }
+
+            Ok(())
         }
 
         extern "C" fn enqueue(arg: *mut c_types::c_void) {
@@ -1001,41 +1182,7 @@ pub mod ws {
 
     impl Sender for EspHttpWsDetachedSender {
         fn send(&mut self, frame_type: FrameType, frame_data: &[u8]) -> Result<(), Self::Error> {
-            if !self.closed.load(Ordering::SeqCst) {
-                let raw_frame = EspHttpWsConnection::create_raw_frame(frame_type, frame_data);
-
-                let send_request = EspWsDetachedSendRequest {
-                    sd: self.sd,
-                    fd: self.fd,
-
-                    closed: self.closed.clone(),
-
-                    raw_frame: &raw_frame as *const _,
-
-                    error_code: Mutex::new(None),
-                    condvar: Condvar::new(),
-                };
-
-                esp!(unsafe {
-                    httpd_queue_work(
-                        self.sd,
-                        Some(Self::enqueue),
-                        &send_request as *const _ as *mut _,
-                    )
-                })?;
-
-                let mut guard = send_request.error_code.lock();
-
-                while guard.is_none() {
-                    guard = send_request.condvar.wait(guard);
-                }
-
-                esp!((*guard).unwrap())?;
-            } else {
-                esp!(ESP_FAIL)?;
-            }
-
-            Ok(())
+            EspHttpWsDetachedSender::send(self, frame_type, frame_data)
         }
     }
 
@@ -1043,15 +1190,15 @@ pub mod ws {
         type Session = c_types::c_int;
 
         fn session(&self) -> Self::Session {
-            self.fd
+            EspHttpWsDetachedSender::session(self)
         }
 
         fn is_new(&self) -> bool {
-            false
+            EspHttpWsDetachedSender::is_new(self)
         }
 
         fn is_closed(&self) -> bool {
-            self.closed.load(Ordering::SeqCst)
+            EspHttpWsDetachedSender::is_closed(self)
         }
     }
 

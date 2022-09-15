@@ -9,7 +9,6 @@ use ::log::*;
 
 use enumset::*;
 
-use embedded_svc::event_bus::EventBus;
 use embedded_svc::wifi::*;
 
 use esp_idf_hal::modem::WifiModemPeripheral;

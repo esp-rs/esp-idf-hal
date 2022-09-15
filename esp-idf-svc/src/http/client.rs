@@ -135,6 +135,169 @@ impl EspHttpConnection {
         }
     }
 
+    pub fn status(&self) -> u16 {
+        unsafe { esp_http_client_get_status_code(self.raw_client) as _ }
+    }
+
+    pub fn status_message(&self) -> Option<&str> {
+        None
+    }
+
+    pub fn header(&self, name: &str) -> Option<&str> {
+        if name.eq_ignore_ascii_case("Content-Length") {
+            if let Some(content_len_opt) =
+                unsafe { self.content_len_header.get().as_mut().unwrap() }.as_ref()
+            {
+                content_len_opt.as_ref().map(|s| s.as_str())
+            } else {
+                let content_len = unsafe { esp_http_client_get_content_length(self.raw_client) };
+                *unsafe { self.content_len_header.get().as_mut().unwrap() } = if content_len >= 0 {
+                    Some(Some(content_len.to_string()))
+                } else {
+                    None
+                };
+
+                unsafe { self.content_len_header.get().as_mut().unwrap() }
+                    .as_ref()
+                    .and_then(|s| s.as_ref().map(|s| s.as_ref()))
+            }
+        } else {
+            self.headers.get(UncasedStr::new(name)).map(|s| s.as_str())
+        }
+    }
+
+    pub fn initiate_request<'a>(
+        &'a mut self,
+        method: Method,
+        uri: &'a str,
+        headers: &'a [(&'a str, &'a str)],
+    ) -> Result<(), EspError> {
+        let c_uri = CString::new(uri).unwrap();
+
+        esp!(unsafe { esp_http_client_set_url(self.raw_client, c_uri.as_ptr() as _) })?;
+        esp!(unsafe {
+            esp_http_client_set_method(
+                self.raw_client,
+                Newtype::<(esp_http_client_method_t, ())>::from(method).0 .0,
+            )
+        })?;
+
+        let mut content_len = None;
+
+        for (name, value) in headers {
+            if name.eq_ignore_ascii_case("Content-Length") {
+                if let Ok(len) = value.parse::<u64>() {
+                    content_len = Some(len);
+                }
+            }
+
+            let c_name = CString::new(*name).unwrap();
+
+            // TODO: Replace with a proper conversion from UTF8 to ISO-8859-1
+            let c_value = CString::new(*value).unwrap();
+
+            esp!(unsafe {
+                esp_http_client_set_header(
+                    self.raw_client,
+                    c_name.as_ptr() as _,
+                    c_value.as_ptr() as _,
+                )
+            })?;
+        }
+
+        self.follow_redirects = match self.follow_redirects_policy {
+            FollowRedirectsPolicy::FollowAll => true,
+            FollowRedirectsPolicy::FollowGetHead => method == Method::Get || method == Method::Head,
+            _ => false,
+        };
+
+        self.request_content_len = content_len.unwrap_or(0);
+
+        esp!(unsafe { esp_http_client_open(self.raw_client, self.request_content_len as _) })?;
+
+        self.state = State::Request;
+
+        Ok(())
+    }
+
+    pub fn assert_request(&mut self) -> Result<(), EspError> {
+        if self.state == State::Request {
+            Ok(())
+        } else {
+            Err(EspError::from(ESP_FAIL).unwrap().into())
+        }
+    }
+
+    pub fn initiate_response(&mut self) -> Result<(), EspError> {
+        self.fetch_headers()?;
+
+        self.state = State::Response;
+
+        Ok(())
+    }
+
+    pub fn split(&mut self) -> Result<(&EspHttpConnection, &mut Self), EspError> {
+        if self.state == State::Response {
+            let headers_ptr: *const EspHttpConnection = self as *const _;
+
+            let headers = unsafe { headers_ptr.as_ref().unwrap() };
+
+            Ok((headers, self))
+        } else {
+            Err(EspError::from(ESP_FAIL).unwrap())
+        }
+    }
+
+    pub fn headers(&self) -> Result<&Self, EspError> {
+        if self.state == State::Response {
+            Ok(self)
+        } else {
+            Err(EspError::from(ESP_FAIL).unwrap())
+        }
+    }
+
+    pub fn read(&mut self, buf: &mut [u8]) -> Result<usize, EspError> {
+        if self.state == State::Response {
+            let result = unsafe {
+                esp_http_client_read_response(
+                    self.raw_client,
+                    buf.as_mut_ptr() as _,
+                    buf.len() as _,
+                )
+            };
+            if result < 0 {
+                esp!(result)?;
+            }
+
+            Ok(result as _)
+        } else {
+            Err(EspError::from(ESP_FAIL).unwrap())
+        }
+    }
+
+    pub fn write(&mut self, buf: &[u8]) -> Result<usize, EspError> {
+        if self.state == State::Request {
+            let result = unsafe {
+                esp_http_client_write(self.raw_client, buf.as_ptr() as _, buf.len() as _)
+            };
+            if result < 0 {
+                esp!(result)?;
+            }
+
+            Ok(result as _)
+        } else {
+            Err(EspError::from(ESP_FAIL).unwrap().into())
+        }
+    }
+
+    pub fn flush(&mut self) -> Result<(), EspError> {
+        if self.state == State::Request {
+            Ok(())
+        } else {
+            Err(EspError::from(ESP_FAIL).unwrap())
+        }
+    }
+
     extern "C" fn on_events(event: *mut esp_http_client_event_t) -> esp_err_t {
         match unsafe { event.as_mut() } {
             Some(event) => {
@@ -152,7 +315,7 @@ impl EspHttpConnection {
         }
     }
 
-    fn fetch_headers(&mut self) -> Result<(), EspIOError> {
+    fn fetch_headers(&mut self) -> Result<(), EspError> {
         self.headers.clear();
         *self.content_len_header.get_mut() = None;
 
@@ -247,36 +410,17 @@ impl RawHandle for EspHttpConnection {
 
 impl Status for EspHttpConnection {
     fn status(&self) -> u16 {
-        unsafe { esp_http_client_get_status_code(self.raw_client) as _ }
+        EspHttpConnection::status(self)
     }
 
     fn status_message(&self) -> Option<&str> {
-        None
+        EspHttpConnection::status_message(self)
     }
 }
 
 impl Headers for EspHttpConnection {
     fn header(&self, name: &str) -> Option<&str> {
-        if name.eq_ignore_ascii_case("Content-Length") {
-            if let Some(content_len_opt) =
-                unsafe { self.content_len_header.get().as_mut().unwrap() }.as_ref()
-            {
-                content_len_opt.as_ref().map(|s| s.as_str())
-            } else {
-                let content_len = unsafe { esp_http_client_get_content_length(self.raw_client) };
-                *unsafe { self.content_len_header.get().as_mut().unwrap() } = if content_len >= 0 {
-                    Some(Some(content_len.to_string()))
-                } else {
-                    None
-                };
-
-                unsafe { self.content_len_header.get().as_mut().unwrap() }
-                    .as_ref()
-                    .and_then(|s| s.as_ref().map(|s| s.as_ref()))
-            }
-        } else {
-            self.headers.get(UncasedStr::new(name)).map(|s| s.as_str())
-        }
+        EspHttpConnection::header(self, name)
     }
 }
 
@@ -286,47 +430,21 @@ impl Io for EspHttpConnection {
 
 impl Read for EspHttpConnection {
     fn read(&mut self, buf: &mut [u8]) -> Result<usize, Self::Error> {
-        if self.state == State::Response {
-            let result = unsafe {
-                esp_http_client_read_response(
-                    self.raw_client,
-                    buf.as_mut_ptr() as _,
-                    buf.len() as _,
-                )
-            };
-            if result < 0 {
-                esp!(result)?;
-            }
+        let size = EspHttpConnection::read(self, buf)?;
 
-            Ok(result as _)
-        } else {
-            Err(EspError::from(ESP_FAIL).unwrap().into())
-        }
+        Ok(size)
     }
 }
 
 impl Write for EspHttpConnection {
     fn write(&mut self, buf: &[u8]) -> Result<usize, Self::Error> {
-        if self.state == State::Request {
-            let result = unsafe {
-                esp_http_client_write(self.raw_client, buf.as_ptr() as _, buf.len() as _)
-            };
-            if result < 0 {
-                esp!(result)?;
-            }
+        let size = EspHttpConnection::write(self, buf)?;
 
-            Ok(result as _)
-        } else {
-            Err(EspError::from(ESP_FAIL).unwrap().into())
-        }
+        Ok(size)
     }
 
     fn flush(&mut self) -> Result<(), Self::Error> {
-        if self.state == State::Request {
-            Ok(())
-        } else {
-            Err(EspError::from(ESP_FAIL).unwrap().into())
-        }
+        EspHttpConnection::flush(self).map_err(EspIOError)
     }
 }
 
@@ -345,88 +463,23 @@ impl Connection for EspHttpConnection {
         uri: &'a str,
         headers: &'a [(&'a str, &'a str)],
     ) -> Result<(), Self::Error> {
-        let c_uri = CString::new(uri).unwrap();
-
-        esp!(unsafe { esp_http_client_set_url(self.raw_client, c_uri.as_ptr() as _) })?;
-        esp!(unsafe {
-            esp_http_client_set_method(
-                self.raw_client,
-                Newtype::<(esp_http_client_method_t, ())>::from(method).0 .0,
-            )
-        })?;
-
-        let mut content_len = None;
-
-        for (name, value) in headers {
-            if name.eq_ignore_ascii_case("Content-Length") {
-                if let Ok(len) = value.parse::<u64>() {
-                    content_len = Some(len);
-                }
-            }
-
-            let c_name = CString::new(*name).unwrap();
-
-            // TODO: Replace with a proper conversion from UTF8 to ISO-8859-1
-            let c_value = CString::new(*value).unwrap();
-
-            esp!(unsafe {
-                esp_http_client_set_header(
-                    self.raw_client,
-                    c_name.as_ptr() as _,
-                    c_value.as_ptr() as _,
-                )
-            })?;
-        }
-
-        self.follow_redirects = match self.follow_redirects_policy {
-            FollowRedirectsPolicy::FollowAll => true,
-            FollowRedirectsPolicy::FollowGetHead => method == Method::Get || method == Method::Head,
-            _ => false,
-        };
-
-        self.request_content_len = content_len.unwrap_or(0);
-
-        esp!(unsafe { esp_http_client_open(self.raw_client, self.request_content_len as _) })?;
-
-        self.state = State::Request;
-
-        Ok(())
+        EspHttpConnection::initiate_request(self, method, uri, headers).map_err(EspIOError)
     }
 
     fn assert_request(&mut self) -> Result<(), Self::Error> {
-        if self.state == State::Request {
-            Ok(())
-        } else {
-            Err(EspError::from(ESP_FAIL).unwrap().into())
-        }
+        EspHttpConnection::assert_request(self).map_err(EspIOError)
     }
 
     fn initiate_response(&mut self) -> Result<(), Self::Error> {
-        self.fetch_headers()?;
-
-        self.state = State::Response;
-
-        Ok(())
+        EspHttpConnection::initiate_response(self).map_err(EspIOError)
     }
 
     fn split(&mut self) -> Result<(&Self::Headers, &mut Self::Read), Self::Error> {
-        if self.state == State::Response {
-            let headers_ptr: *const EspHttpConnection = self as *const _;
-
-            let headers = unsafe { headers_ptr.as_ref().unwrap() };
-
-            Ok((headers, self))
-        } else {
-            Err(EspError::from(ESP_FAIL).unwrap().into())
-        }
+        EspHttpConnection::split(self).map_err(EspIOError)
     }
 
     fn headers(&self) -> Result<&Self::Headers, Self::Error> {
-        if self.state == State::Response {
-            Ok(self)
-        } else {
-            Err(EspError::from(ESP_FAIL).unwrap().into())
-        }
+        EspHttpConnection::headers(self).map_err(EspIOError)
     }
 
     fn raw_connection(&mut self) -> Result<&mut Self::RawConnection, Self::Error> {

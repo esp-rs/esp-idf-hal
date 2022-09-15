@@ -628,7 +628,6 @@ mod status {
 
     use alloc::sync::Arc;
 
-    use embedded_svc::event_bus::EventBus;
     use log::info;
 
     use esp_idf_sys::*;

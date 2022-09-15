@@ -206,34 +206,12 @@ impl<T: NvsPartitionId> EspNvs<T> {
 
         Ok(Self(partition, handle))
     }
-}
 
-impl<T: NvsPartitionId> Drop for EspNvs<T> {
-    fn drop(&mut self) {
-        unsafe {
-            nvs_close(self.1);
-        }
-    }
-}
-
-unsafe impl<T: NvsPartitionId> Send for EspNvs<T> {}
-
-impl RawHandle for EspNvs<NvsCustom> {
-    type Handle = nvs_handle_t;
-
-    unsafe fn handle(&self) -> Self::Handle {
-        self.1
-    }
-}
-
-impl<T: NvsPartitionId> StorageBase for EspNvs<T> {
-    type Error = EspError;
-
-    fn contains(&self, name: &str) -> Result<bool, Self::Error> {
+    pub fn contains(&self, name: &str) -> Result<bool, EspError> {
         self.len(name).map(|v| v.is_some())
     }
 
-    fn remove(&mut self, name: &str) -> Result<bool, Self::Error> {
+    pub fn remove(&mut self, name: &str) -> Result<bool, EspError> {
         let c_key = CString::new(name).unwrap();
 
         // nvs_erase_key is not scoped by datatype
@@ -248,10 +226,8 @@ impl<T: NvsPartitionId> StorageBase for EspNvs<T> {
             Ok(true)
         }
     }
-}
 
-impl<T: NvsPartitionId> RawStorage for EspNvs<T> {
-    fn len(&self, name: &str) -> Result<Option<usize>, Self::Error> {
+    fn len(&self, name: &str) -> Result<Option<usize>, EspError> {
         let c_key = CString::new(name).unwrap();
 
         let mut value: u_int64_t = 0;
@@ -285,7 +261,7 @@ impl<T: NvsPartitionId> RawStorage for EspNvs<T> {
         }
     }
 
-    fn get_raw<'a>(&self, name: &str, buf: &'a mut [u8]) -> Result<Option<&'a [u8]>, Self::Error> {
+    pub fn get_raw<'a>(&self, name: &str, buf: &'a mut [u8]) -> Result<Option<&'a [u8]>, EspError> {
         let c_key = CString::new(name).unwrap();
 
         let mut u64value: u_int64_t = 0;
@@ -350,7 +326,7 @@ impl<T: NvsPartitionId> RawStorage for EspNvs<T> {
         }
     }
 
-    fn put_raw(&mut self, name: &str, buf: &[u8]) -> Result<bool, Self::Error> {
+    fn put_raw(&mut self, name: &str, buf: &[u8]) -> Result<bool, EspError> {
         let c_key = CString::new(name).unwrap();
         let mut u64value: u_int64_t = 0;
 
@@ -381,5 +357,49 @@ impl<T: NvsPartitionId> RawStorage for EspNvs<T> {
         esp!(unsafe { nvs_commit(self.1) })?;
 
         Ok(true)
+    }
+}
+
+impl<T: NvsPartitionId> Drop for EspNvs<T> {
+    fn drop(&mut self) {
+        unsafe {
+            nvs_close(self.1);
+        }
+    }
+}
+
+unsafe impl<T: NvsPartitionId> Send for EspNvs<T> {}
+
+impl RawHandle for EspNvs<NvsCustom> {
+    type Handle = nvs_handle_t;
+
+    unsafe fn handle(&self) -> Self::Handle {
+        self.1
+    }
+}
+
+impl<T: NvsPartitionId> StorageBase for EspNvs<T> {
+    type Error = EspError;
+
+    fn contains(&self, name: &str) -> Result<bool, Self::Error> {
+        EspNvs::contains(self, name)
+    }
+
+    fn remove(&mut self, name: &str) -> Result<bool, Self::Error> {
+        EspNvs::remove(self, name)
+    }
+}
+
+impl<T: NvsPartitionId> RawStorage for EspNvs<T> {
+    fn len(&self, name: &str) -> Result<Option<usize>, Self::Error> {
+        EspNvs::len(self, name)
+    }
+
+    fn get_raw<'a>(&self, name: &str, buf: &'a mut [u8]) -> Result<Option<&'a [u8]>, Self::Error> {
+        EspNvs::get_raw(self, name, buf)
+    }
+
+    fn put_raw(&mut self, name: &str, buf: &[u8]) -> Result<bool, Self::Error> {
+        EspNvs::put_raw(self, name, buf)
     }
 }

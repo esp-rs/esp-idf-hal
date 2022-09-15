@@ -452,6 +452,32 @@ impl EspWebSocketClient {
         Ok(client)
     }
 
+    pub fn send(&mut self, frame_type: FrameType, frame_data: &[u8]) -> Result<(), EspError> {
+        // NOTE: fragmented sending, as well as Closing or Continuing a connection, is not
+        // supported by the underlying C library and/or happen implicitly, e.g. when the
+        // `EspWebSocketClient` is dropped.
+        match frame_type {
+            FrameType::Binary(false) | FrameType::Text(false) => {
+                self.send_data(frame_type, frame_data)?;
+            }
+            FrameType::Binary(true) | FrameType::Text(true) => {
+                panic!("Unsupported operation: Sending of fragmented data")
+            }
+            FrameType::Ping | FrameType::Pong => {
+                panic!("Unsupported operation: Sending of Ping/Pong frames")
+            }
+            FrameType::Close => panic!(
+                "Unsupported operation: Closing a connection manually (drop the client instead)"
+            ),
+            FrameType::SocketClose => panic!(
+                "Unsupported operation: Closing a connection manually (drop the client instead)"
+            ),
+            FrameType::Continue(_) => panic!("Unsupported operation: Sending of fragmented data"),
+        }
+
+        Ok(())
+    }
+
     extern "C" fn handle(
         event_handler_arg: *mut c_types::c_void,
         _event_base: esp_event_base_t,
@@ -463,7 +489,7 @@ impl EspWebSocketClient {
         }
     }
 
-    fn check(result: c_types::c_int) -> Result<usize, EspIOError> {
+    fn check(result: c_types::c_int) -> Result<usize, EspError> {
         if result < 0 {
             esp!(result)?;
         }
@@ -471,11 +497,7 @@ impl EspWebSocketClient {
         Ok(result as _)
     }
 
-    fn send_data(
-        &mut self,
-        frame_type: FrameType,
-        frame_data: &[u8],
-    ) -> Result<usize, <EspWebSocketClient as ErrorType>::Error> {
+    fn send_data(&mut self, frame_type: FrameType, frame_data: &[u8]) -> Result<usize, EspError> {
         let content = frame_data.as_ref().as_ptr();
         let content_length = frame_data.as_ref().len();
 
@@ -526,29 +548,7 @@ impl ErrorType for EspWebSocketClient {
 
 impl Sender for EspWebSocketClient {
     fn send(&mut self, frame_type: FrameType, frame_data: &[u8]) -> Result<(), Self::Error> {
-        // NOTE: fragmented sending, as well as Closing or Continuing a connection, is not
-        // supported by the underlying C library and/or happen implicitly, e.g. when the
-        // `EspWebSocketClient` is dropped.
-        match frame_type {
-            FrameType::Binary(false) | FrameType::Text(false) => {
-                self.send_data(frame_type, frame_data)?
-            }
-            FrameType::Binary(true) | FrameType::Text(true) => {
-                panic!("Unsupported operation: Sending of fragmented data")
-            }
-            FrameType::Ping | FrameType::Pong => {
-                panic!("Unsupported operation: Sending of Ping/Pong frames")
-            }
-            FrameType::Close => {
-                panic!("Unsupported operation: Closing a connection manually (drop the client instead)")
-            }
-            FrameType::SocketClose => {
-                panic!("Unsupported operation: Closing a connection manually (drop the client instead)")
-            }
-            FrameType::Continue(_) => panic!("Unsupported operation: Sending of fragmented data"),
-        };
-
-        Ok(())
+        EspWebSocketClient::send(self, frame_type, frame_data).map_err(EspIOError)
     }
 }
 
