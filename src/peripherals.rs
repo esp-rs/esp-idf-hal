@@ -8,7 +8,7 @@ use crate::adc;
 #[cfg(not(feature = "riscv-ulp-hal"))]
 use crate::can;
 use crate::gpio;
-#[cfg(esp32)]
+#[cfg(all(esp32, esp_idf_version_major = "4"))]
 use crate::hall;
 #[cfg(not(feature = "riscv-ulp-hal"))]
 use crate::i2c;
@@ -47,7 +47,7 @@ pub struct Peripherals {
     pub spi3: spi::SPI3,
     pub adc1: adc::ADC1,
     pub adc2: adc::ADC2,
-    #[cfg(esp32)]
+    #[cfg(all(esp32, esp_idf_version_major = "4"))]
     pub hall_sensor: hall::HallSensor,
     #[cfg(not(feature = "riscv-ulp-hal"))]
     pub can: can::CAN,
@@ -101,7 +101,7 @@ impl Peripherals {
             spi3: spi::SPI3::new(),
             adc1: adc::ADC1::new(),
             adc2: adc::ADC2::new(),
-            #[cfg(esp32)]
+            #[cfg(all(esp32, esp_idf_version_major = "4"))]
             hall_sensor: hall::HallSensor::new(),
             #[cfg(not(feature = "riscv-ulp-hal"))]
             can: can::CAN::new(),
