@@ -13,6 +13,7 @@
 #include "esp_task_wdt.h"
 #include "esp_interface.h"
 #include "esp_ipc.h"
+#include "esp_mac.h"
 
 #if ESP_IDF_VERSION_MAJOR == 4
 #include "esp_int_wdt.h"

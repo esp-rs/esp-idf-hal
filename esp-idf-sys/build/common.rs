@@ -20,7 +20,7 @@ pub const V_4_3_2_PATCHES: &[&str] = &[
 ];
 
 #[allow(dead_code)]
-pub const MASTER_PATCHES: &[&str] = &["patches/i2s_types_master.diff"];
+pub const MASTER_PATCHES: &[&str] = &[];
 
 const TOOLS_WORKSPACE_INSTALL_DIR: &str = ".embuild";
 
