@@ -80,7 +80,7 @@ where
                     clk_src: if config.xtal {
                         timer_src_clk_t_TIMER_SRC_CLK_XTAL
                     } else {
-                        timer_src_clk_t_TIMER_SRC_CLK_ARB
+                        timer_src_clk_t_TIMER_SRC_CLK_APB
                     },
                 },
             )
