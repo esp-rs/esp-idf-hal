@@ -34,7 +34,7 @@
 
 use esp_idf_sys::*;
 
-use crate::delay::portMAX_DELAY;
+use crate::delay::BLOCK;
 use crate::gpio::*;
 use crate::peripheral::{Peripheral, PeripheralRef};
 
@@ -283,11 +283,11 @@ impl<'d> CanDriver<'d> {
         Ok(Self(can))
     }
 
-    fn transmit_internal(&mut self, frame: &Frame, delay: TickType_t) -> Result<(), EspError> {
+    pub fn transmit(&mut self, frame: &Frame, delay: TickType_t) -> Result<(), EspError> {
         esp!(unsafe { twai_transmit(&frame.0, delay) })
     }
 
-    fn receive_internal(&mut self, delay: TickType_t) -> Result<Frame, EspError> {
+    pub fn receive(&mut self, delay: TickType_t) -> Result<Frame, EspError> {
         let mut rx_msg = twai_message_t {
             ..Default::default()
         };
@@ -311,13 +311,11 @@ impl<'d> embedded_hal_0_2::blocking::can::Can for CanDriver<'d> {
     type Error = Can02Error;
 
     fn transmit(&mut self, frame: &Self::Frame) -> Result<(), Self::Error> {
-        self.transmit_internal(frame, portMAX_DELAY)
-            .map_err(Can02Error::other)
+        self.transmit(frame, BLOCK).map_err(Can02Error::other)
     }
 
     fn receive(&mut self) -> Result<Self::Frame, Self::Error> {
-        self.receive_internal(portMAX_DELAY)
-            .map_err(Can02Error::other)
+        self.receive(BLOCK).map_err(Can02Error::other)
     }
 }
 
@@ -326,13 +324,11 @@ impl<'d> embedded_hal::can::blocking::Can for CanDriver<'d> {
     type Error = CanError;
 
     fn transmit(&mut self, frame: &Self::Frame) -> Result<(), Self::Error> {
-        self.transmit_internal(frame, portMAX_DELAY)
-            .map_err(CanError::other)
+        self.transmit(frame, BLOCK).map_err(CanError::other)
     }
 
     fn receive(&mut self) -> Result<Self::Frame, Self::Error> {
-        self.receive_internal(portMAX_DELAY)
-            .map_err(CanError::other)
+        self.receive(BLOCK).map_err(CanError::other)
     }
 }
 
@@ -341,7 +337,7 @@ impl<'d> embedded_hal_0_2::can::nb::Can for CanDriver<'d> {
     type Error = Can02Error;
 
     fn transmit(&mut self, frame: &Self::Frame) -> nb::Result<Option<Self::Frame>, Self::Error> {
-        match self.transmit_internal(frame, 0) {
+        match self.transmit(frame, 0) {
             Ok(_) => Ok(None),
             Err(e) if e.code() == ESP_FAIL => Err(nb::Error::WouldBlock),
             Err(e) if e.code() == ESP_ERR_TIMEOUT as i32 => Err(nb::Error::WouldBlock),
@@ -350,7 +346,7 @@ impl<'d> embedded_hal_0_2::can::nb::Can for CanDriver<'d> {
     }
 
     fn receive(&mut self) -> nb::Result<Self::Frame, Self::Error> {
-        match self.receive_internal(0) {
+        match self.receive(0) {
             Ok(frame) => Ok(frame),
             Err(e) if e.code() == ESP_ERR_TIMEOUT as i32 => Err(nb::Error::WouldBlock),
             Err(e) => Err(nb::Error::Other(Can02Error::other(e))),
@@ -363,7 +359,7 @@ impl<'d> embedded_hal::can::nb::Can for CanDriver<'d> {
     type Error = CanError;
 
     fn transmit(&mut self, frame: &Self::Frame) -> nb::Result<Option<Self::Frame>, Self::Error> {
-        match self.transmit_internal(frame, 0) {
+        match self.transmit(frame, 0) {
             Ok(_) => Ok(None),
             Err(e) if e.code() == ESP_FAIL => Err(nb::Error::WouldBlock),
             Err(e) if e.code() == ESP_ERR_TIMEOUT as i32 => Err(nb::Error::WouldBlock),
@@ -372,7 +368,7 @@ impl<'d> embedded_hal::can::nb::Can for CanDriver<'d> {
     }
 
     fn receive(&mut self) -> nb::Result<Self::Frame, Self::Error> {
-        match self.receive_internal(0) {
+        match self.receive(0) {
             Ok(frame) => Ok(frame),
             Err(e) if e.code() == ESP_ERR_TIMEOUT as i32 => Err(nb::Error::WouldBlock),
             Err(e) => Err(nb::Error::Other(CanError::other(e))),
@@ -383,7 +379,7 @@ impl<'d> embedded_hal::can::nb::Can for CanDriver<'d> {
 pub struct Frame(twai_message_t);
 
 impl Frame {
-    fn new(id: u32, extended: bool, data: &[u8]) -> Option<Self> {
+    pub fn new(id: u32, extended: bool, data: &[u8]) -> Option<Self> {
         let dlc = data.len();
 
         if dlc <= 8 {
@@ -413,7 +409,7 @@ impl Frame {
         }
     }
 
-    fn new_remote(id: u32, extended: bool, dlc: usize) -> Option<Self> {
+    pub fn new_remote(id: u32, extended: bool, dlc: usize) -> Option<Self> {
         if dlc <= 8 {
             // unions are not very well supported in rust
             // therefore setting those union flags is quite hairy
@@ -439,24 +435,24 @@ impl Frame {
         }
     }
 
-    fn get_extended(&self) -> bool {
+    pub fn is_extended(&self) -> bool {
         unsafe { self.0.__bindgen_anon_1.__bindgen_anon_1.extd() == 1 }
     }
 
-    fn get_remote_frame(&self) -> bool {
+    pub fn is_remote_frame(&self) -> bool {
         unsafe { self.0.__bindgen_anon_1.__bindgen_anon_1.rtr() == 1 }
     }
 
-    fn get_identifier(&self) -> u32 {
+    pub fn identifier(&self) -> u32 {
         self.0.identifier
     }
 
-    fn get_dlc(&self) -> usize {
+    pub fn dlc(&self) -> usize {
         self.0.data_length_code as usize
     }
 
-    fn get_data(&self) -> &[u8] {
-        &self.0.data[..self.get_dlc()]
+    pub fn data(&self) -> &[u8] {
+        &self.0.data[..self.dlc()]
     }
 }
 
@@ -465,9 +461,9 @@ impl core::fmt::Display for Frame {
         write!(
             f,
             "Frame {{ id: {}, remote: {}, data: {:?} }}",
-            self.get_identifier(),
-            self.get_remote_frame(),
-            self.get_data()
+            self.identifier(),
+            self.is_remote_frame(),
+            self.data()
         )
     }
 }
@@ -492,7 +488,7 @@ impl embedded_hal_0_2::can::Frame for Frame {
     }
 
     fn is_extended(&self) -> bool {
-        self.get_extended()
+        Frame::is_extended(self)
     }
 
     fn is_standard(&self) -> bool {
@@ -500,7 +496,7 @@ impl embedded_hal_0_2::can::Frame for Frame {
     }
 
     fn is_remote_frame(&self) -> bool {
-        self.get_remote_frame()
+        Frame::is_remote_frame(self)
     }
 
     fn is_data_frame(&self) -> bool {
@@ -510,22 +506,21 @@ impl embedded_hal_0_2::can::Frame for Frame {
     fn id(&self) -> embedded_hal_0_2::can::Id {
         if self.is_standard() {
             let id = unsafe {
-                embedded_hal_0_2::can::StandardId::new_unchecked(self.get_identifier() as u16)
+                embedded_hal_0_2::can::StandardId::new_unchecked(self.identifier() as u16)
             };
             embedded_hal_0_2::can::Id::Standard(id)
         } else {
-            let id =
-                unsafe { embedded_hal_0_2::can::ExtendedId::new_unchecked(self.get_identifier()) };
+            let id = unsafe { embedded_hal_0_2::can::ExtendedId::new_unchecked(self.identifier()) };
             embedded_hal_0_2::can::Id::Extended(id)
         }
     }
 
     fn dlc(&self) -> usize {
-        self.get_dlc()
+        Frame::dlc(self)
     }
 
     fn data(&self) -> &[u8] {
-        self.get_data()
+        Frame::data(self)
     }
 }
 
@@ -549,7 +544,7 @@ impl embedded_hal::can::Frame for Frame {
     }
 
     fn is_extended(&self) -> bool {
-        self.get_extended()
+        Frame::is_extended(self)
     }
 
     fn is_standard(&self) -> bool {
@@ -557,7 +552,7 @@ impl embedded_hal::can::Frame for Frame {
     }
 
     fn is_remote_frame(&self) -> bool {
-        self.get_remote_frame()
+        Frame::is_remote_frame(self)
     }
 
     fn is_data_frame(&self) -> bool {
@@ -566,22 +561,21 @@ impl embedded_hal::can::Frame for Frame {
 
     fn id(&self) -> embedded_hal::can::Id {
         if self.is_standard() {
-            let id = unsafe {
-                embedded_hal::can::StandardId::new_unchecked(self.get_identifier() as u16)
-            };
+            let id =
+                unsafe { embedded_hal::can::StandardId::new_unchecked(self.identifier() as u16) };
             embedded_hal::can::Id::Standard(id)
         } else {
-            let id = unsafe { embedded_hal::can::ExtendedId::new_unchecked(self.get_identifier()) };
+            let id = unsafe { embedded_hal::can::ExtendedId::new_unchecked(self.identifier()) };
             embedded_hal::can::Id::Extended(id)
         }
     }
 
     fn dlc(&self) -> usize {
-        self.get_dlc()
+        Frame::dlc(self)
     }
 
     fn data(&self) -> &[u8] {
-        self.get_data()
+        Frame::data(self)
     }
 }
 

@@ -39,9 +39,8 @@
 
 use core::marker::PhantomData;
 use core::ptr;
-use core::time::Duration;
 
-use crate::delay::TickType;
+use crate::delay::NON_BLOCK;
 use crate::gpio::*;
 use crate::units::*;
 
@@ -423,11 +422,6 @@ impl<'d, UART: Uart> UartDriver<'d, UART> {
         )
     }
 
-    // /// Returns if the reference or APB clock is used
-    // pub fn is_clock_apb(&self) -> bool {
-    //     self.uart.conf0.read().tick_ref_always_on().bit_is_set()
-    // }
-
     /// Returns the current baudrate
     pub fn baudrate(&self) -> Result<Hertz, EspError> {
         let mut baudrate: u32 = 0;
@@ -437,50 +431,28 @@ impl<'d, UART: Uart> UartDriver<'d, UART> {
         )
     }
 
-    /// Read multiple bytes into a slice
-    pub fn read_bytes(&mut self, buf: &mut [u8]) -> nb::Result<usize, SerialError> {
-        self.rx.read_bytes(buf)
-    }
-
-    /// Write multiple bytes from a slice
-    pub fn write_bytes(&mut self, buf: &[u8]) -> nb::Result<usize, SerialError> {
-        self.tx.write_bytes(buf)
-    }
-
-    // /// Stop listening for an interrupt event
-    // pub fn unlisten(&mut self, _event: Event) {
-    //     unimplemented!();
-    // }
-
-    // /// Return true if the receiver is idle
-    // pub fn is_rx_idle(&self) -> bool {
-    //     self.uart.status.read().st_urx_out().is_rx_idle()
-    // }
-
-    // /// Return true if the transmitter is idle
-    // pub fn is_tx_idle(&self) -> bool {
-    //     self.uart.status.read().st_utx_out().is_tx_idle()
-    // }
-
     /// Split the serial driver in separate TX and RX drivers
     pub fn split(&mut self) -> (&mut UartTxDriver<'d, UART>, &mut UartRxDriver<'d, UART>) {
         (&mut self.tx, &mut self.rx)
     }
 
-    // pub fn reset_rx_fifo(&mut self) {
-    //     // Hardware issue: rxfifo_rst does not work properly;
-    //     while self.uart.status.read().rxfifo_cnt().bits() != 0
-    //         || (self.uart.mem_rx_status.read().mem_rx_rd_addr().bits()
-    //             != self.uart.mem_rx_status.read().mem_rx_wr_addr().bits())
-    //     {
-    //         self.rx.read().unwrap();
-    //     }
-    // }
+    /// Read multiple bytes into a slice
+    pub fn read(&mut self, buf: &mut [u8], delay: TickType_t) -> Result<usize, EspError> {
+        self.rx.read(buf, delay)
+    }
 
-    // pub fn reset_tx_fifo(&self) {
-    //     self.uart.conf0.write(|w| w.txfifo_rst().set_bit());
-    //     self.uart.conf0.write(|w| w.txfifo_rst().clear_bit());
-    // }
+    /// Write multiple bytes from a slice
+    pub fn write(&mut self, buf: &[u8]) -> Result<usize, EspError> {
+        self.tx.write(buf)
+    }
+
+    pub fn flush_read(&mut self) -> Result<(), EspError> {
+        self.rx.flush()
+    }
+
+    pub fn flush_write(&mut self) -> Result<(), EspError> {
+        self.tx.flush()
+    }
 }
 
 impl<'d, UART: Uart> Drop for UartDriver<'d, UART> {
@@ -499,13 +471,13 @@ impl<'d, UART: Uart> embedded_hal_0_2::serial::Read<u8> for UartDriver<'d, UART>
     type Error = SerialError;
 
     fn read(&mut self) -> nb::Result<u8, Self::Error> {
-        self.rx.read()
+        embedded_hal_0_2::serial::Read::read(&mut self.rx)
     }
 }
 
 impl<'d, UART: Uart> embedded_hal::serial::nb::Read<u8> for UartDriver<'d, UART> {
     fn read(&mut self) -> nb::Result<u8, Self::Error> {
-        self.rx.read()
+        embedded_hal::serial::nb::Read::read(&mut self.rx)
     }
 }
 
@@ -513,31 +485,27 @@ impl<'d, UART: Uart> embedded_hal_0_2::serial::Write<u8> for UartDriver<'d, UART
     type Error = SerialError;
 
     fn flush(&mut self) -> nb::Result<(), Self::Error> {
-        self.tx.flush()
+        embedded_hal_0_2::serial::Write::flush(&mut self.tx)
     }
 
     fn write(&mut self, byte: u8) -> nb::Result<(), Self::Error> {
-        self.tx.write(byte)
+        embedded_hal_0_2::serial::Write::write(&mut self.tx, byte)
     }
 }
 
 impl<'d, UART: Uart> embedded_hal::serial::nb::Write<u8> for UartDriver<'d, UART> {
     fn flush(&mut self) -> nb::Result<(), Self::Error> {
-        self.tx.flush()
+        embedded_hal::serial::nb::Write::flush(&mut self.tx)
     }
 
     fn write(&mut self, byte: u8) -> nb::Result<(), Self::Error> {
-        self.tx.write(byte)
+        embedded_hal::serial::nb::Write::write(&mut self.tx, byte)
     }
 }
 
 impl<'d, UART: Uart> core::fmt::Write for UartDriver<'d, UART> {
     fn write_str(&mut self, s: &str) -> core::fmt::Result {
-        use embedded_hal::serial::nb::Write;
-        s.as_bytes()
-            .iter()
-            .try_for_each(|c| nb::block!(self.write(*c)))
-            .map_err(|_| core::fmt::Error)
+        self.tx.write_str(s)
     }
 }
 
@@ -555,43 +523,29 @@ impl<'d, UART: Uart> UartRxDriver<'d, UART> {
         )
     }
 
-    /// Read multiple bytes into a slice
-    pub fn read_bytes(&mut self, buf: &mut [u8]) -> nb::Result<usize, SerialError> {
-        match self.read_bytes_blocking(buf, Duration::ZERO) {
-            Ok(0) => Err(nb::Error::WouldBlock),
-            Ok(len) => Ok(len),
-            Err(e) => Err(nb::Error::Other(SerialError::other(e))),
-        }
-    }
-
     /// Read multiple bytes into a slice; block until specified timeout
-    pub fn read_bytes_blocking(
-        &mut self,
-        buf: &mut [u8],
-        timeout: Duration,
-    ) -> Result<usize, EspError> {
+    pub fn read(&mut self, buf: &mut [u8], delay: TickType_t) -> Result<usize, EspError> {
         // uart_read_bytes() returns error (-1) or how many bytes were read out
         // 0 means timeout and nothing is yet read out
-        match unsafe {
+        let len = unsafe {
             uart_read_bytes(
                 UART::port(),
                 buf.as_mut_ptr() as *mut _,
                 buf.len() as u32,
-                TickType::from(timeout).0,
+                delay,
             )
-        } {
-            len if len >= 0 => Ok(len as usize),
-            _ => Err(EspError::from(ESP_ERR_INVALID_STATE).unwrap()),
+        };
+
+        if len >= 0 {
+            Ok(len as usize)
+        } else {
+            Err(EspError::from(ESP_ERR_INVALID_STATE).unwrap())
         }
     }
 
-    // /// Check if the receivers is idle
-    // pub fn is_idle(&self) -> bool {
-    //     unsafe { (*UART::ptr()).status.read().st_urx_out().is_rx_idle() }
-    // }
-
     pub fn flush(&self) -> Result<(), EspError> {
         esp!(unsafe { uart_flush_input(UART::port()) })?;
+
         Ok(())
     }
 }
@@ -600,60 +554,44 @@ impl<'d, UART: Uart> embedded_hal_0_2::serial::Read<u8> for UartRxDriver<'d, UAR
     type Error = SerialError;
 
     fn read(&mut self) -> nb::Result<u8, Self::Error> {
-        let mut buf: u8 = 0;
+        let mut buf = [0_u8];
 
-        // uart_read_bytes() returns error (-1) or how many bytes were read out
-        // 0 means timeout and nothing is yet read out
-        match unsafe { uart_read_bytes(UART::port(), &mut buf as *mut u8 as *mut _, 1, 0) } {
-            1 => Ok(buf),
-            0 => Err(nb::Error::WouldBlock),
-            _ => Err(nb::Error::Other(SerialError::other(
-                EspError::from(ESP_ERR_INVALID_STATE).unwrap(),
-            ))),
-        }
+        let result = self.read(&mut buf, NON_BLOCK);
+
+        check_nb(result, buf[0])
     }
 }
 
 impl<'d, UART: Uart> embedded_hal::serial::nb::Read<u8> for UartRxDriver<'d, UART> {
     fn read(&mut self) -> nb::Result<u8, Self::Error> {
-        let mut buf: u8 = 0;
+        let mut buf = [0_u8];
 
-        // uart_read_bytes() returns error (-1) or how many bytes were read out
-        // 0 means timeout and nothing is yet read out
-        match unsafe { uart_read_bytes(UART::port(), &mut buf as *mut u8 as *mut _, 1, 0) } {
-            1 => Ok(buf),
-            0 => Err(nb::Error::WouldBlock),
-            _ => Err(nb::Error::Other(SerialError::other(
-                EspError::from(ESP_ERR_INVALID_STATE).unwrap(),
-            ))),
-        }
+        let result = self.read(&mut buf, NON_BLOCK);
+
+        check_nb(result, buf[0])
     }
 }
 
 impl<'d, UART: Uart> UartTxDriver<'d, UART> {
     /// Write multiple bytes from a slice
-    pub fn write_bytes(&mut self, bytes: &[u8]) -> nb::Result<usize, SerialError> {
+    pub fn write(&mut self, bytes: &[u8]) -> Result<usize, EspError> {
         // `uart_write_bytes()` returns error (-1) or how many bytes were written
-        match unsafe {
+        let len = unsafe {
             uart_write_bytes(UART::port(), bytes.as_ptr() as *const _, bytes.len() as u32)
-        } {
-            len if len > 0 => Ok(len as usize),
-            0 => Err(nb::Error::WouldBlock),
-            _ => Err(nb::Error::Other(SerialError::other(
-                EspError::from(ESP_ERR_INVALID_STATE).unwrap(),
-            ))),
+        };
+
+        if len >= 0 {
+            Ok(len as usize)
+        } else {
+            Err(EspError::from(ESP_ERR_INVALID_STATE).unwrap())
         }
     }
 
-    //     /// Get count of bytes in the transmitter FIFO
-    //     pub fn count(&self) -> u8 {
-    //         unsafe { (*UART::ptr()).status.read().txfifo_cnt().bits() }
-    //     }
+    pub fn flush(&mut self) -> Result<(), EspError> {
+        esp!(unsafe { uart_wait_tx_done(UART::port(), 0) })?;
 
-    //     /// Check if the transmitter is idle
-    //     pub fn is_idle(&self) -> bool {
-    //         unsafe { (*UART::ptr()).status.read().st_utx_out().is_tx_idle() }
-    //     }
+        Ok(())
+    }
 }
 
 impl<'d, UART: Uart> embedded_hal::serial::ErrorType for UartTxDriver<'d, UART> {
@@ -664,58 +602,34 @@ impl<'d, UART: Uart> embedded_hal_0_2::serial::Write<u8> for UartTxDriver<'d, UA
     type Error = SerialError;
 
     fn flush(&mut self) -> nb::Result<(), Self::Error> {
-        match unsafe { uart_wait_tx_done(UART::port(), 0) } {
-            ESP_OK => Ok(()),
-            ESP_ERR_TIMEOUT => Err(nb::Error::WouldBlock),
-            _ => Err(nb::Error::Other(SerialError::other(
-                EspError::from(ESP_ERR_INVALID_STATE).unwrap(),
-            ))),
-        }
+        UartTxDriver::flush(self).map_err(to_nb_err)
     }
 
     fn write(&mut self, byte: u8) -> nb::Result<(), Self::Error> {
-        // `uart_write_bytes()` returns error (-1) or how many bytes were written
-        match unsafe { uart_write_bytes(UART::port(), &byte as *const u8 as *const _, 1) } {
-            1 => Ok(()),
-            _ => Err(nb::Error::Other(SerialError::other(
-                EspError::from(ESP_ERR_INVALID_STATE).unwrap(),
-            ))),
-        }
+        check_nb(self.write(&[byte]), ())
     }
 }
 
 impl<'d, UART: Uart> embedded_hal::serial::nb::Write<u8> for UartTxDriver<'d, UART> {
     fn flush(&mut self) -> nb::Result<(), Self::Error> {
-        match unsafe { uart_wait_tx_done(UART::port(), 0) } {
-            ESP_OK => Ok(()),
-            ESP_ERR_TIMEOUT => Err(nb::Error::WouldBlock),
-            _ => Err(nb::Error::Other(SerialError::other(
-                EspError::from(ESP_ERR_INVALID_STATE).unwrap(),
-            ))),
-        }
+        UartTxDriver::flush(self).map_err(to_nb_err)
     }
 
     fn write(&mut self, byte: u8) -> nb::Result<(), Self::Error> {
-        // `uart_write_bytes()` returns error (-1) or how many bytes were written
-        match unsafe { uart_write_bytes(UART::port(), &byte as *const u8 as *const _, 1) } {
-            1 => Ok(()),
-            _ => Err(nb::Error::Other(SerialError::other(
-                EspError::from(ESP_ERR_INVALID_STATE).unwrap(),
-            ))),
-        }
+        check_nb(self.write(&[byte]), ())
     }
 }
 
-impl<'d, UART: Uart> core::fmt::Write for UartTxDriver<'d, UART>
-where
-    UartTxDriver<'d, UART>: embedded_hal::serial::nb::Write<u8>,
-{
+impl<'d, UART: Uart> core::fmt::Write for UartTxDriver<'d, UART> {
     fn write_str(&mut self, s: &str) -> core::fmt::Result {
-        use embedded_hal::serial::nb::Write;
-        s.as_bytes()
-            .iter()
-            .try_for_each(|c| nb::block!(self.write(*c)))
-            .map_err(|_| core::fmt::Error)
+        let buf = s.as_bytes();
+        let mut offset = 0;
+
+        while offset < buf.len() {
+            offset += self.write(buf).map_err(|_| core::fmt::Error)?
+        }
+
+        Ok(())
     }
 }
 
@@ -729,6 +643,23 @@ macro_rules! impl_uart {
             }
         }
     };
+}
+
+fn to_nb_err(err: EspError) -> nb::Error<SerialError> {
+    if err.code() == ESP_ERR_TIMEOUT as i32 {
+        nb::Error::WouldBlock
+    } else {
+        nb::Error::Other(SerialError::from(err))
+    }
+}
+
+fn check_nb<T>(result: Result<usize, EspError>, value: T) -> nb::Result<T, SerialError> {
+    match result {
+        Ok(1) => Ok(value),
+        Ok(0) => Err(nb::Error::WouldBlock),
+        Ok(_) => unreachable!(),
+        Err(err) => Err(nb::Error::Other(SerialError::other(err))),
+    }
 }
 
 impl_uart!(UART0: 0);
