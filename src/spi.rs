@@ -28,7 +28,7 @@ use embedded_hal::spi::blocking::{SpiBus, SpiBusFlush, SpiBusRead, SpiBusWrite, 
 
 use esp_idf_sys::*;
 
-use crate::delay::portMAX_DELAY;
+use crate::delay::BLOCK;
 use crate::gpio::{self, InputPin, OutputPin};
 use crate::peripheral::{Peripheral, PeripheralRef};
 
@@ -177,62 +177,23 @@ pub struct SpiBusMasterDriver<'d> {
 }
 
 impl<'d> SpiBusMasterDriver<'d> {
-    fn polling_transmit(
-        &mut self,
-        read: *mut u8,
-        write: *const u8,
-        transaction_length: usize,
-        rx_length: usize,
-    ) -> Result<(), SpiError> {
-        polling_transmit(
-            self.handle,
-            read,
-            write,
-            transaction_length,
-            rx_length,
-            true,
-        )
-    }
-
-    /// Empty transaction to de-assert CS.
-    fn finish(&mut self) -> Result<(), SpiError> {
-        polling_transmit(self.handle, ptr::null_mut(), ptr::null(), 0, 0, false)
-    }
-}
-
-impl<'d> embedded_hal::spi::ErrorType for SpiBusMasterDriver<'d> {
-    type Error = SpiError;
-}
-
-impl<'d> SpiBusFlush for SpiBusMasterDriver<'d> {
-    fn flush(&mut self) -> Result<(), Self::Error> {
-        // Since we use polling transactions, flushing isn't required.
-        // In future, when DMA is available spi_device_get_trans_result
-        // will be called here.
-        Ok(())
-    }
-}
-
-impl<'d> SpiBusRead for SpiBusMasterDriver<'d> {
-    fn read(&mut self, words: &mut [u8]) -> Result<(), Self::Error> {
+    pub fn read(&mut self, words: &mut [u8]) -> Result<(), EspError> {
         for chunk in words.chunks_mut(self.trans_len) {
             self.polling_transmit(chunk.as_mut_ptr(), ptr::null(), chunk.len(), chunk.len())?;
         }
+
         Ok(())
     }
-}
 
-impl<'d> SpiBusWrite for SpiBusMasterDriver<'d> {
-    fn write(&mut self, words: &[u8]) -> Result<(), Self::Error> {
+    pub fn write(&mut self, words: &[u8]) -> Result<(), EspError> {
         for chunk in words.chunks(self.trans_len) {
             self.polling_transmit(ptr::null_mut(), chunk.as_ptr(), chunk.len(), 0)?;
         }
+
         Ok(())
     }
-}
 
-impl<'d> SpiBus for SpiBusMasterDriver<'d> {
-    fn transfer(&mut self, read: &mut [u8], write: &[u8]) -> Result<(), Self::Error> {
+    pub fn transfer(&mut self, read: &mut [u8], write: &[u8]) -> Result<(), EspError> {
         let common_length = min(read.len(), write.len());
         let common_read = read[0..common_length].chunks_mut(self.trans_len);
         let common_write = write[0..common_length].chunks(self.trans_len);
@@ -261,13 +222,75 @@ impl<'d> SpiBus for SpiBusMasterDriver<'d> {
         Ok(())
     }
 
-    fn transfer_in_place(&mut self, words: &mut [u8]) -> Result<(), Self::Error> {
+    pub fn transfer_in_place(&mut self, words: &mut [u8]) -> Result<(), EspError> {
         for chunk in words.chunks_mut(self.trans_len) {
             let ptr = chunk.as_mut_ptr();
             let len = chunk.len();
             self.polling_transmit(ptr, ptr, len, len)?;
         }
+
         Ok(())
+    }
+
+    pub fn flush(&mut self) -> Result<(), EspError> {
+        // Since we use polling transactions, flushing isn't required.
+        // In future, when DMA is available spi_device_get_trans_result
+        // will be called here.
+        Ok(())
+    }
+
+    fn polling_transmit(
+        &mut self,
+        read: *mut u8,
+        write: *const u8,
+        transaction_length: usize,
+        rx_length: usize,
+    ) -> Result<(), EspError> {
+        polling_transmit(
+            self.handle,
+            read,
+            write,
+            transaction_length,
+            rx_length,
+            true,
+        )
+    }
+
+    /// Empty transaction to de-assert CS.
+    fn finish(&mut self) -> Result<(), EspError> {
+        polling_transmit(self.handle, ptr::null_mut(), ptr::null(), 0, 0, false)
+    }
+}
+
+impl<'d> embedded_hal::spi::ErrorType for SpiBusMasterDriver<'d> {
+    type Error = SpiError;
+}
+
+impl<'d> SpiBusFlush for SpiBusMasterDriver<'d> {
+    fn flush(&mut self) -> Result<(), Self::Error> {
+        SpiBusMasterDriver::flush(self).map_err(to_spi_err)
+    }
+}
+
+impl<'d> SpiBusRead for SpiBusMasterDriver<'d> {
+    fn read(&mut self, words: &mut [u8]) -> Result<(), Self::Error> {
+        SpiBusMasterDriver::read(self, words).map_err(to_spi_err)
+    }
+}
+
+impl<'d> SpiBusWrite for SpiBusMasterDriver<'d> {
+    fn write(&mut self, words: &[u8]) -> Result<(), Self::Error> {
+        SpiBusMasterDriver::write(self, words).map_err(to_spi_err)
+    }
+}
+
+impl<'d> SpiBus for SpiBusMasterDriver<'d> {
+    fn transfer(&mut self, read: &mut [u8], write: &[u8]) -> Result<(), Self::Error> {
+        SpiBusMasterDriver::transfer(self, read, write).map_err(to_spi_err)
+    }
+
+    fn transfer_in_place(&mut self, words: &mut [u8]) -> Result<(), Self::Error> {
+        SpiBusMasterDriver::transfer_in_place(self, words).map_err(to_spi_err)
     }
 }
 
@@ -412,8 +435,40 @@ impl<'d, SPI: Spi> SpiMasterDriver<'d, SPI> {
         })
     }
 
-    fn lock_bus(&mut self) -> Result<Lock, SpiError> {
-        Lock::new(self.device).map_err(SpiError::other)
+    pub fn transaction<R, E>(
+        &mut self,
+        f: impl FnOnce(&mut SpiBusMasterDriver<'d>) -> Result<R, E>,
+    ) -> Result<R, E>
+    where
+        E: From<EspError>,
+    {
+        let mut bus = SpiBusMasterDriver {
+            handle: self.device,
+            trans_len: self.max_transfer_size,
+            _p: PhantomData,
+        };
+
+        let lock = self.lock_bus()?;
+
+        let trans_result = f(&mut bus);
+
+        let finish_result = bus.finish();
+
+        // Flush whatever is pending.
+        // Note that this is done even when an error is returned from the transaction.
+        let flush_result = bus.flush();
+
+        core::mem::drop(lock);
+
+        let result = trans_result?;
+        finish_result?;
+        flush_result?;
+
+        Ok(result)
+    }
+
+    fn lock_bus(&mut self) -> Result<Lock, EspError> {
+        Lock::new(self.device)
     }
 }
 
@@ -437,27 +492,7 @@ impl<'d, SPI: Spi> SpiDevice for SpiMasterDriver<'d, SPI> {
         &mut self,
         f: impl FnOnce(&mut Self::Bus) -> Result<R, <Self::Bus as embedded_hal::spi::ErrorType>::Error>,
     ) -> Result<R, Self::Error> {
-        let mut bus = SpiBusMasterDriver {
-            handle: self.device,
-            trans_len: self.max_transfer_size,
-            _p: PhantomData,
-        };
-
-        let lock = self.lock_bus()?;
-        let trans_result = f(&mut bus);
-
-        let finish_result = bus.finish();
-
-        // Flush whatever is pending.
-        // Note that this is done even when an error is returned from the transaction.
-        let flush_result = bus.flush();
-
-        core::mem::drop(lock);
-
-        let result = trans_result?;
-        finish_result?;
-        flush_result?;
-        Ok(result)
+        SpiMasterDriver::transaction(self, f)
     }
 }
 
@@ -467,6 +502,7 @@ impl<'d, SPI: Spi> embedded_hal_0_2::blocking::spi::Transfer<u8> for SpiMasterDr
     fn transfer<'w>(&mut self, words: &'w mut [u8]) -> Result<&'w [u8], Self::Error> {
         let _lock = self.lock_bus();
         let mut chunks = words.chunks_mut(self.max_transfer_size).peekable();
+
         while let Some(chunk) = chunks.next() {
             let ptr = chunk.as_mut_ptr();
             let len = chunk.len();
@@ -483,6 +519,7 @@ impl<'d, SPI: Spi> embedded_hal_0_2::blocking::spi::Write<u8> for SpiMasterDrive
     fn write(&mut self, words: &[u8]) -> Result<(), Self::Error> {
         let _lock = self.lock_bus();
         let mut chunks = words.chunks(self.max_transfer_size).peekable();
+
         while let Some(chunk) = chunks.next() {
             polling_transmit(
                 self.device,
@@ -493,6 +530,7 @@ impl<'d, SPI: Spi> embedded_hal_0_2::blocking::spi::Write<u8> for SpiMasterDrive
                 chunks.peek().is_some(),
             )?;
         }
+
         Ok(())
     }
 }
@@ -505,7 +543,6 @@ impl<'d, SPI: Spi> embedded_hal_0_2::blocking::spi::WriteIter<u8> for SpiMasterD
         WI: IntoIterator<Item = u8>,
     {
         let mut words = words.into_iter();
-
         let mut buf = [0_u8; TRANS_LEN];
 
         self.transaction(|bus| {
@@ -527,6 +564,7 @@ impl<'d, SPI: Spi> embedded_hal_0_2::blocking::spi::WriteIter<u8> for SpiMasterD
 
                 bus.write(&buf[..offset])?;
             }
+
             Ok(())
         })
     }
@@ -548,9 +586,14 @@ impl<'d, SPI: Spi> embedded_hal_0_2::blocking::spi::Transactional<u8> for SpiMas
                     }
                 }?;
             }
+
             Ok(())
         })
     }
+}
+
+fn to_spi_err(err: EspError) -> SpiError {
+    SpiError::other(err)
 }
 
 // Limit to 64, as we sometimes allocate a buffer of size TRANS_LEN on the stack, so we have to keep it small
@@ -565,7 +608,7 @@ struct Lock(spi_device_handle_t);
 
 impl Lock {
     fn new(device: spi_device_handle_t) -> Result<Self, EspError> {
-        esp!(unsafe { spi_device_acquire_bus(device, portMAX_DELAY) })?;
+        esp!(unsafe { spi_device_acquire_bus(device, BLOCK) })?;
 
         Ok(Self(device))
     }
@@ -587,7 +630,7 @@ fn polling_transmit(
     transaction_length: usize,
     rx_length: usize,
     _keep_cs_active: bool,
-) -> Result<(), SpiError> {
+) -> Result<(), EspError> {
     #[cfg(esp_idf_version = "4.3")]
     let flags = 0;
 
@@ -614,7 +657,6 @@ fn polling_transmit(
     };
 
     esp!(unsafe { spi_device_polling_transmit(handle, &mut transaction as *mut _) })
-        .map_err(SpiError::other)
 }
 
 macro_rules! impl_spi {
