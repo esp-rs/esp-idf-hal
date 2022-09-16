@@ -31,7 +31,7 @@ fn enter(cs: &CriticalSection) {
     unsafe {
         xQueueTakeMutexRecursive(
             cs.0.get().as_mut().unwrap().as_mut_ptr() as *mut _,
-            crate::delay::portMAX_DELAY,
+            crate::delay::BLOCK,
         );
     }
 }

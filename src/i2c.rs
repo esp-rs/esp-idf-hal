@@ -9,6 +9,8 @@ use crate::gpio::*;
 use crate::peripheral::{Peripheral, PeripheralRef};
 use crate::units::*;
 
+pub use embedded_hal::i2c::blocking::Operation;
+
 crate::embedded_hal_error!(
     I2cError,
     embedded_hal::i2c::Error,
@@ -193,25 +195,122 @@ where
         })
     }
 
+    fn read(&mut self, addr: u8, buffer: &mut [u8]) -> Result<(), EspError> {
+        let mut command_link = CommandLink::new()?;
+
+        command_link.master_start()?;
+        command_link.master_write_byte((addr << 1) | (i2c_rw_t_I2C_MASTER_READ as u8), true)?;
+
+        if !buffer.is_empty() {
+            command_link.master_read(buffer, AckType::LastNack)?;
+        }
+
+        command_link.master_stop()?;
+
+        self.cmd_begin(&command_link, self.timeout)
+    }
+
+    fn write(&mut self, addr: u8, bytes: &[u8]) -> Result<(), EspError> {
+        let mut command_link = CommandLink::new()?;
+
+        command_link.master_start()?;
+        command_link.master_write_byte((addr << 1) | (i2c_rw_t_I2C_MASTER_WRITE as u8), true)?;
+
+        if !bytes.is_empty() {
+            command_link.master_write(bytes, true)?;
+        }
+
+        command_link.master_stop()?;
+
+        self.cmd_begin(&command_link, self.timeout)
+    }
+
+    fn write_read(&mut self, addr: u8, bytes: &[u8], buffer: &mut [u8]) -> Result<(), EspError> {
+        let mut command_link = CommandLink::new()?;
+
+        command_link.master_start()?;
+        command_link.master_write_byte((addr << 1) | (i2c_rw_t_I2C_MASTER_WRITE as u8), true)?;
+
+        if !bytes.is_empty() {
+            command_link.master_write(bytes, true)?;
+        }
+
+        command_link.master_start()?;
+        command_link.master_write_byte((addr << 1) | (i2c_rw_t_I2C_MASTER_READ as u8), true)?;
+
+        if !buffer.is_empty() {
+            command_link.master_read(buffer, AckType::LastNack)?;
+        }
+
+        command_link.master_stop()?;
+
+        self.cmd_begin(&command_link, self.timeout)
+    }
+
+    fn transaction<'a>(
+        &mut self,
+        address: u8,
+        operations: &mut [Operation<'a>],
+    ) -> Result<(), EspError> {
+        let mut command_link = CommandLink::new()?;
+
+        command_link.master_start()?;
+
+        let last_op_index = operations.len() - 1;
+        let mut prev_was_read = None;
+
+        for (i, operation) in operations.iter_mut().enumerate() {
+            match operation {
+                Operation::Read(buf) => {
+                    if let Some(false) = prev_was_read {
+                        command_link.master_start()?;
+                    }
+                    prev_was_read = Some(true);
+
+                    command_link.master_write_byte(
+                        (address << 1) | (i2c_rw_t_I2C_MASTER_READ as u8),
+                        true,
+                    )?;
+
+                    if !buf.is_empty() {
+                        let ack = if i == last_op_index {
+                            AckType::LastNack
+                        } else {
+                            AckType::Ack
+                        };
+
+                        command_link.master_read(buf, ack)?;
+                    }
+                }
+                Operation::Write(buf) => {
+                    if let Some(true) = prev_was_read {
+                        command_link.master_start()?;
+                    }
+                    prev_was_read = Some(false);
+
+                    command_link.master_write_byte(
+                        (address << 1) | (i2c_rw_t_I2C_MASTER_WRITE as u8),
+                        true,
+                    )?;
+
+                    if !buf.is_empty() {
+                        command_link.master_write(buf, true)?;
+                    }
+                }
+            }
+        }
+
+        command_link.master_stop()?;
+
+        self.cmd_begin(&command_link, self.timeout)
+    }
+
     fn cmd_begin(
         &mut self,
         command_link: &CommandLink,
         timeout: TickType_t,
     ) -> Result<(), EspError> {
         esp!(unsafe { i2c_master_cmd_begin(I2C::port(), command_link.0, timeout) })
-    }
-
-    fn submit(&mut self, command_link: &CommandLink) -> Result<(), I2cError> {
-        if let Err(err) = self.cmd_begin(command_link, self.timeout) {
-            let err = if err.code() == ESP_FAIL {
-                I2cError::new(ErrorKind::NoAcknowledge(NoAcknowledgeSource::Unknown), err)
-            } else {
-                I2cError::other(err)
-            };
-            Err(err)
-        } else {
-            Ok(())
-        }
     }
 }
 
@@ -230,7 +329,7 @@ where
     type Error = I2cError;
 
     fn read(&mut self, addr: u8, buffer: &mut [u8]) -> Result<(), Self::Error> {
-        embedded_hal::i2c::blocking::I2c::read(self, addr, buffer)
+        I2cMasterDriver::read(self, addr, buffer).map_err(to_i2c_err)
     }
 }
 
@@ -241,7 +340,7 @@ where
     type Error = I2cError;
 
     fn write(&mut self, addr: u8, bytes: &[u8]) -> Result<(), Self::Error> {
-        embedded_hal::i2c::blocking::I2c::write(self, addr, bytes)
+        I2cMasterDriver::write(self, addr, bytes).map_err(to_i2c_err)
     }
 }
 
@@ -252,7 +351,7 @@ where
     type Error = I2cError;
 
     fn write_read(&mut self, addr: u8, bytes: &[u8], buffer: &mut [u8]) -> Result<(), Self::Error> {
-        embedded_hal::i2c::blocking::I2c::write_read(self, addr, bytes, buffer)
+        I2cMasterDriver::write_read(self, addr, bytes, buffer).map_err(to_i2c_err)
     }
 }
 
@@ -269,67 +368,15 @@ where
     I2C: I2c,
 {
     fn read(&mut self, addr: u8, buffer: &mut [u8]) -> Result<(), Self::Error> {
-        let mut command_link = CommandLink::new().map_err(I2cError::other)?;
-
-        command_link.master_start().map_err(I2cError::other)?;
-        command_link
-            .master_write_byte((addr << 1) | (i2c_rw_t_I2C_MASTER_READ as u8), true)
-            .map_err(I2cError::other)?;
-        if !buffer.is_empty() {
-            command_link
-                .master_read(buffer, AckType::LastNack)
-                .map_err(I2cError::other)?;
-        }
-        command_link.master_stop().map_err(I2cError::other)?;
-
-        self.submit(&command_link)
+        I2cMasterDriver::read(self, addr, buffer).map_err(to_i2c_err)
     }
 
     fn write(&mut self, addr: u8, bytes: &[u8]) -> Result<(), Self::Error> {
-        let mut command_link = CommandLink::new().map_err(I2cError::other)?;
-
-        command_link.master_start().map_err(I2cError::other)?;
-
-        command_link
-            .master_write_byte((addr << 1) | (i2c_rw_t_I2C_MASTER_WRITE as u8), true)
-            .map_err(I2cError::other)?;
-
-        if !bytes.is_empty() {
-            command_link
-                .master_write(bytes, true)
-                .map_err(I2cError::other)?;
-        }
-        command_link.master_stop().map_err(I2cError::other)?;
-
-        self.submit(&command_link)
+        I2cMasterDriver::write(self, addr, bytes).map_err(to_i2c_err)
     }
 
     fn write_read(&mut self, addr: u8, bytes: &[u8], buffer: &mut [u8]) -> Result<(), Self::Error> {
-        let mut command_link = CommandLink::new().map_err(I2cError::other)?;
-
-        command_link.master_start().map_err(I2cError::other)?;
-        command_link
-            .master_write_byte((addr << 1) | (i2c_rw_t_I2C_MASTER_WRITE as u8), true)
-            .map_err(I2cError::other)?;
-        if !bytes.is_empty() {
-            command_link
-                .master_write(bytes, true)
-                .map_err(I2cError::other)?;
-        }
-
-        command_link.master_start().map_err(I2cError::other)?;
-        command_link
-            .master_write_byte((addr << 1) | (i2c_rw_t_I2C_MASTER_READ as u8), true)
-            .map_err(I2cError::other)?;
-        if !buffer.is_empty() {
-            command_link
-                .master_read(buffer, AckType::LastNack)
-                .map_err(I2cError::other)?;
-        }
-
-        command_link.master_stop().map_err(I2cError::other)?;
-
-        self.submit(&command_link)
+        I2cMasterDriver::write_read(self, addr, bytes, buffer).map_err(to_i2c_err)
     }
 
     fn write_iter<B>(&mut self, _address: u8, _bytes: B) -> Result<(), Self::Error>
@@ -356,58 +403,7 @@ where
         address: u8,
         operations: &mut [embedded_hal::i2c::blocking::Operation<'a>],
     ) -> Result<(), Self::Error> {
-        use embedded_hal::i2c::blocking::Operation;
-
-        let mut command_link = CommandLink::new().map_err(I2cError::other)?;
-
-        command_link.master_start().map_err(I2cError::other)?;
-
-        let last_op_index = operations.len() - 1;
-        let mut prev_was_read = None;
-
-        for (i, operation) in operations.iter_mut().enumerate() {
-            match operation {
-                Operation::Read(buf) => {
-                    if let Some(false) = prev_was_read {
-                        command_link.master_start().map_err(I2cError::other)?;
-                    }
-                    prev_was_read = Some(true);
-
-                    command_link
-                        .master_write_byte((address << 1) | (i2c_rw_t_I2C_MASTER_READ as u8), true)
-                        .map_err(I2cError::other)?;
-                    if !buf.is_empty() {
-                        let ack = if i == last_op_index {
-                            AckType::LastNack
-                        } else {
-                            AckType::Ack
-                        };
-                        command_link
-                            .master_read(buf, ack)
-                            .map_err(I2cError::other)?;
-                    }
-                }
-                Operation::Write(buf) => {
-                    if let Some(true) = prev_was_read {
-                        command_link.master_start().map_err(I2cError::other)?;
-                    }
-                    prev_was_read = Some(false);
-
-                    command_link
-                        .master_write_byte((address << 1) | (i2c_rw_t_I2C_MASTER_WRITE as u8), true)
-                        .map_err(I2cError::other)?;
-                    if !buf.is_empty() {
-                        command_link
-                            .master_write(buf, true)
-                            .map_err(I2cError::other)?;
-                    }
-                }
-            }
-        }
-
-        command_link.master_stop().map_err(I2cError::other)?;
-
-        self.submit(&command_link)
+        I2cMasterDriver::transaction(self, address, operations).map_err(to_i2c_err)
     }
 
     fn transaction_iter<'a, O>(&mut self, _address: u8, _operations: O) -> Result<(), Self::Error>
@@ -415,6 +411,14 @@ where
         O: IntoIterator<Item = embedded_hal::i2c::blocking::Operation<'a>>,
     {
         todo!()
+    }
+}
+
+fn to_i2c_err(err: EspError) -> I2cError {
+    if err.code() == ESP_FAIL {
+        I2cError::new(ErrorKind::NoAcknowledge(NoAcknowledgeSource::Unknown), err)
+    } else {
+        I2cError::other(err)
     }
 }
 
