@@ -172,7 +172,11 @@
 #include "driver/i2c.h"
 #include "driver/i2s.h"
 #include "driver/ledc.h"
+#if ESP_IDF_VERSION_MAJOR > 4
+#include "driver/mcpwm_prelude.h"
+#else
 #include "driver/mcpwm.h"
+#endif
 #ifndef CONFIG_IDF_TARGET_ESP32C3
 #include "driver/pcnt.h"
 #endif
