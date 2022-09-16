@@ -673,103 +673,112 @@ impl Unit for UnitOne {
     }
 }
 
-// TODO: How do we want fault module to fit into this?
-/// Motor Control PWM module abstraction
-pub struct Mcpwm<U: Unit> {
-    #[cfg(not(esp_idf_version = "4.3"))]
-    /// This is the frequency of the clock signal passed on as clock source for the operators timers
-    /// Those timers in turn have their own prescalers to scale this down even further
-    ///
-    /// NOTE: This is only to be set by calling Self::lowest_frequency
-    operator_source_frequency: u32,
-    _instance: MCPWM<U>,
+struct Timer<U: Unit, T: HwTimer> {
+
 }
 
-impl<U: Unit> Mcpwm<U> {
-    pub fn new(instance: MCPWM<U>) -> Result<Self, EspError> {
-        let res = Self {
-            #[cfg(not(esp_idf_version = "4.3"))]
-            operator_source_frequency: 0,
-            _instance: instance,
-        };
-
-        #[cfg(not(esp_idf_version = "4.3"))]
-        {
-            // TODO: Do we want to make this into something more builder-pattern like to
-            // avoid this potentially redundant function call?
-            res.operator_source_frequency(10.MHz())
-        }
-
-        #[cfg(esp_idf_version = "4.3")]
-        {
-            Ok(res)
-        }
+impl Timer {
+    /// Set PWM frequency
+    pub fn set_frequency(&mut self, frequency: Hertz) -> Result<(), EspError> {
+        todo!()
     }
 
-    pub fn release(self) -> MCPWM<U> {
-        // TODO: Do we need to reset any state here such as group_prescaler?
-        self._instance
+    /// Get PWM frequency
+    pub fn get_frequency(&self) -> Hertz {
+        todo!()
     }
 
-    /// Specify lowest reachable frequency
-    ///
-    /// The lower this is set, the lower frequencies will be reachable. However, this is at the cost of worse
-    /// resolution at higher frequencies.
-    ///
-    /// Same thing goes for the other way. The higher value set here, the more resolution and so on.
-    #[cfg(not(esp_idf_version = "4.3"))]
-    pub fn lowest_frequency(mut self, lowest_frequency: Hertz) -> Result<Self, EspError> {
-        // TODO: Do we care about frequency < 1Hz?
-        let operator_source_frequency =
-            MAX_PWM_TIMER_PRESCALE * MAX_PWM_TIMER_PERIOD * u32::from(lowest_frequency);
-        let group_pre_scale = MCPWM_CLOCK_SOURCE_FREQUENCY / operator_source_frequency;
-        if !(1..=256).contains(&group_pre_scale) {
-            esp!(ESP_ERR_INVALID_ARG)?;
+    pub fn timer(&self) -> mcpwm_timer_t {
+        T::timer()
+    }
+}
+
+trait OptionalOperator<U: Unit, O: HwOperator<U>> {
+
+}
+struct NoOperator;
+impl<U: Unit, O: HwOperator> OptionalOperator<U, O> for NoOperator {}
+
+// TODO: How do we want fault module to fit into this?
+/// Motor Control PWM module abstraction
+pub struct TimerConnection<U: Unit, T: HwTimer<U>, O0, O1, O2>
+    where
+        O0: OptionalOperator<U, OPERATOR0>,
+        O1: OptionalOperator<U, OPERATOR1>,
+        O2: OptionalOperator<U, OPERATOR2>,
+{
+    timer: Timer<T>,
+    operator0: O0<U, OPERATOR0>,
+    operator1: O1<U, OPERATOR1>,
+    operator2: O2<U, OPERATOR2>
+}
+
+// Since there can only ever by one instance of every operator type (except NoOperator)
+// we know that there can be no mem::swap or similar to cause any problems.
+//
+// Thus we know that after split is called nothing can be added/removed while still having access to
+// the individual objects. We also garantuee that the operators wont live longer than the timer
+impl<U, T, O0: OptionalOperator<U, OPERATOR0>, O1: OptionalOperator<U, OPERATOR1>, O2: OptionalOperator<U, OPERATOR2>> TimerConnection<U, T, O0, O1, O2> {
+    fn split(&mut self) -> (&mut timer, &mut O0, &mut O1, &mut O2) {
+        (
+            &mut self.timer,
+            &mut self.operator0,
+            &mut self.operator1,
+            &mut self.operator2,
+        )
+    }
+}
+
+impl<U, T> TimerConnection<U, T, NoOperator, NoOperator, NoOperator> {
+    fn new(timer: T) -> Self {
+        Self {
+            timer,
+            operator0: NoOperator,
+            operator1: NoOperator,
+            operator2: NoOperator
         }
-
-        esp!(unsafe { mcpwm_group_set_resolution(U::unit(), operator_source_frequency) })?;
-        self.operator_source_frequency = operator_source_frequency;
-
-        Ok(self)
     }
-
-    /// Specify frequency passed to operators timers as clock source
-    ///
-    /// The timers of the operators can then in turn scale this frequency down further.
-    ///
-    /// The lower this is set, the lower frequencies will be reachable. However, this is
-    /// at the cost of worse resolution at higher frequencies. Same thing goes for the
-    /// other way. The higher value set here, the more resolution and so on.
-    #[cfg(not(esp_idf_version = "4.3"))]
-    pub fn operator_source_frequency(
-        mut self,
-        frequency: impl Into<Hertz>,
-    ) -> Result<Self, EspError> {
-        let frequency: Hertz = frequency.into();
-        let frequency: u32 = frequency.into();
-
-        // TODO: Do we care about frequency < 1Hz?
-        let group_pre_scale = MCPWM_CLOCK_SOURCE_FREQUENCY / frequency;
-        if !(1..=256).contains(&group_pre_scale) {
-            esp!(ESP_ERR_INVALID_ARG)?;
+}
+impl<U, T, O1, O2> TimerConnection<U, T, NoOperator, O1, O2> {
+    fn attatch_operator0<O: OperatorConfig<U, T>>(mut self, operator_cfg: O) -> TimerConnection<U, T, O, O1, O2> {
+        let operator = self.init_and_attach_operator(operator_cfg);
+        TimerConnection {
+            timer: self.timer,
+            operator0: operator,
+            operator1: self.operator1,
+            operator2: self.operator2
         }
-
-        esp!(unsafe { mcpwm_group_set_resolution(U::unit(), frequency) })?;
-        self.operator_source_frequency = frequency;
-
-        Ok(self)
     }
+}
 
-    pub fn unit(&self) -> mcpwm_unit_t {
-        U::unit()
+impl<U, T, O0, O2> TimerConnection<U, T, O0, NoOperator, O2> {
+    fn attatch_operator1<O: OperatorConfig<U, T>>(mut self, operator: O) -> TimerConnection<U, T, O0, O, O2> {
+        let operator = self.init_and_attach_operator(operator_cfg);
+        TimerConnection {
+            timer: self.timer,
+            operator0: self.operator0,
+            operator1: operator,
+            operator2: self.operator2
+        }
+    }
+}
+
+impl<U, T, O0, O1> TimerConnection<U, T, O0, O1, NoOperator> {
+    fn attatch_operator2<O: OperatorConfig<U, T>>(mut self, operator: O) -> TimerConnection<U, T, O0, O1, O> {
+        let operator = self.init_and_attach_operator(operator_cfg);
+        TimerConnection {
+            timer: self.timer,
+            operator0: self.operator0,
+            operator1: self.operator1,
+            operator2: operator
+        }
     }
 }
 
 // The hardware for ESP32 and ESP32-S3 can associate any operator(within the mcpwm module) with any
 // timer(within the mcpwm module) for example allowing using the same timer for all three operators.
 // However at least as of IDF v4.4 timer0 is hardcoded to operator0 and timer1 to operator1 and so on...
-pub trait HwOperator<U: Unit> {
-    fn timer() -> mcpwm_timer_t;
+pub trait HwOperator<U: Unit>: Into<Operator<U, Self>> {
     fn signal_a() -> mcpwm_io_signals_t;
     fn signal_b() -> mcpwm_io_signals_t;
     fn unit() -> mcpwm_unit_t {
@@ -780,10 +789,6 @@ pub trait HwOperator<U: Unit> {
 macro_rules! impl_operator_helper {
     ($instance:ident: $timer:expr, $signal_a:expr, $signal_b:expr, $unit:ty) => {
         impl HwOperator<$unit> for $instance<$unit> {
-            fn timer() -> mcpwm_timer_t {
-                $timer
-            }
-
             fn signal_a() -> mcpwm_io_signals_t {
                 $signal_a
             }
@@ -808,6 +813,16 @@ macro_rules! impl_operator {
             pub unsafe fn new() -> Self {
                 $instance {
                     _unit: U::default(),
+                }
+            }
+        }
+
+        impl<U: Unit> Into<Operator<U>> for $instance<U> {
+            fn into(self) -> Operator<U> {
+                Operator {
+                    _instance: self,
+                    pin_a: NoPin,
+                    pin_b: NoPin,
                 }
             }
         }
@@ -841,13 +856,14 @@ impl_operator!(
 ///
 /// Every Motor Control module has three operators. Every operator can generate two output signals called A and B.
 /// A and B share the same timer and thus frequency and phase but can have induvidual duty set.
-pub struct Operator<U: Unit, O: HwOperator<U>, M: Borrow<Mcpwm<U>>, PA: OutputPin, PB: OutputPin> {
+pub struct Operator<U: Unit, O: HwOperator<U>, M: Borrow<Mcpwm<U>>, PA: OptionalPin, PB: OptionalPin, D> {
+    handle: mcpwm_operator_t,
     _instance: O,
-    _unit: U,
-    _mcpwm_module: M,
 
-    _pin_a: Option<PA>,
-    _pin_b: Option<PB>,
+    _pin_a: PA,
+    _pin_b: PB,
+
+    deadtime: D
 }
 
 impl<U, O, M, PA, PB> Operator<U, O, M, PA, PB>
@@ -856,183 +872,34 @@ where
     O: HwOperator<U>,
     M: Borrow<Mcpwm<U>>,
     PA: OutputPin,
-    PB: OutputPin,
+    PB: OptionalOutputPin,
 {
-    pub fn new<A: Into<Option<PA>>, B: Into<Option<PB>>>(
-        operator: O,
-        mcpwm_module: M,
-        config: &OperatorConfig,
-        pin_a: A,
-        pin_b: B,
-    ) -> Result<Self, EspError> {
-        #[cfg(not(esp_idf_version = "4.3"))]
-        {
-            if config.frequency < config.lowest_frequency {
-                // Can not specify a clock frequency lower then what has
-                // been configured as the lowest clock frequency
-                // Use `OperatorConfig::lowest_frequency` to enable lower frequencies
-                esp!(ESP_ERR_INVALID_ARG)?;
-            }
-
-            let operator_source_frequency = mcpwm_module.borrow().operator_source_frequency;
-            if config.lowest_frequency > operator_source_frequency.Hz() {
-                // Can not specify a lowest_frequency larger than the corresponding value for
-                // the parent MCPWM module. Use `Mcpwm::lowest_frequency` to enable higher frequencies
-                esp!(ESP_ERR_INVALID_ARG)?;
-            }
-
-            let resolution = u32::from(config.lowest_frequency) * MAX_PWM_TIMER_PERIOD;
-            let resolution = resolution.min(operator_source_frequency);
-            unsafe {
-                esp_idf_sys::mcpwm_timer_set_resolution(U::unit(), O::timer(), resolution);
-            }
-        }
-
-        // TODO: Handle/document half pwm frequency when counter_mode = UpDown?
-
-        esp!(unsafe {
-            esp_idf_sys::mcpwm_init(
-                U::unit(),
-                O::timer(),
-                &mcpwm_config_t {
-                    frequency: config.frequency.into(),
-                    cmpr_a: config.duty_a,
-                    cmpr_b: config.duty_b,
-                    duty_mode: config.duty_mode.into(),
-                    counter_mode: config.counter_mode.into(),
-                },
-            )
-        })?;
-
-        match config.deadtime {
-            None => unsafe {
-                // Only way this can faild is if an invalid timer or unit is specified
-                // which we know can not happen. So we don't have to check for errors
-                mcpwm_deadtime_disable(U::unit(), O::timer());
-            },
-            Some(config) => {
-                let DeadtimeArgs {
-                    rising_edge_delay,
-                    falling_edge_delay,
-                    mode,
-                } = config.as_args();
-                unsafe {
-                    mcpwm_deadtime_enable(
-                        U::unit(),
-                        O::timer(),
-                        mode,
-                        rising_edge_delay.into(),
-                        falling_edge_delay.into(),
-                    );
-                }
-            }
-        }
-
-        let pin_a: Option<PA> = pin_a.into();
-        let pin_b: Option<PB> = pin_b.into();
-
-        if let Some(pin_a) = &pin_a {
-            let io_signal = O::signal_a();
-            esp!(unsafe { esp_idf_sys::mcpwm_gpio_init(U::unit(), io_signal, pin_a.pin()) })?;
-        }
-
-        if let Some(pin_b) = &pin_b {
-            let io_signal = O::signal_b();
-            esp!(unsafe { esp_idf_sys::mcpwm_gpio_init(U::unit(), io_signal, pin_b.pin()) })?;
-        }
-
-        Ok(Self {
-            _instance: operator,
-            _unit: U::default(),
-            _mcpwm_module: mcpwm_module,
-            _pin_a: pin_a,
-            _pin_b: pin_b,
-        })
-    }
-
-    /*pub fn release(self) -> (O, Option<PA>, Option<PB>) {
-        // mcpwm_stop will only fail when invalid args are given
-        esp!(unsafe { mcpwm_stop(U::unit(), O::timer()) }).unwrap();
-
-        // Detatch pins from MCPWM operator
-        if let Some(_pin) = &self._pin_a {
-            // TODO
-            //pin.reset();
-        }
-
-        // Detatch pins from MCPWM operator
-        if let Some(_pin) = &self._pin_b {
-            // TODO
-            //pin.reset();
-        }
-
-        // TODO: Do we need to reset any more state here such as dead time config?
-        (self._instance, self._pin_a, self._pin_b)
-    }*/
-
     /// Get duty as percentage between 0.0 and 100.0 for output A
     pub fn get_duty_a(&self) -> Duty {
-        unsafe {
-            esp_idf_sys::mcpwm_get_duty(
-                U::unit(),
-                O::timer(),
-                esp_idf_sys::mcpwm_generator_t_MCPWM_GEN_A,
-            )
-        }
-    }
-
-    /// Get duty as percentage between 0.0 and 100.0 for output B
-    pub fn get_duty_b(&self) -> Duty {
-        unsafe {
-            esp_idf_sys::mcpwm_get_duty(
-                U::unit(),
-                O::timer(),
-                esp_idf_sys::mcpwm_generator_t_MCPWM_GEN_B,
-            )
-        }
+        todo!()
     }
 
     /// Set duty as percentage between 0.0 and 100.0 for output A
     pub fn set_duty_a(&mut self, duty: Duty) -> Result<(), EspError> {
-        unsafe {
-            esp!(esp_idf_sys::mcpwm_set_duty(
-                U::unit(),
-                O::timer(),
-                esp_idf_sys::mcpwm_generator_t_MCPWM_GEN_A,
-                duty
-            ))
-        }
+        todo!()
+    }
+}
+
+impl<U, O, M, PA, PB> Operator<U, O, M, PA, PB>
+where
+    U: Unit,
+    O: HwOperator<U>,
+    M: Borrow<Mcpwm<U>>,
+    PA: OptionalOutputPin,
+    PB: OutputPin,
+{
+    /// Get duty as percentage between 0.0 and 100.0 for output B
+    pub fn get_duty_b(&self) -> Duty {
+        todo!()
     }
 
     /// Set duty as percentage between 0.0 and 100.0 for output B
     pub fn set_duty_b(&mut self, duty: Duty) -> Result<(), EspError> {
-        unsafe {
-            esp!(esp_idf_sys::mcpwm_set_duty(
-                U::unit(),
-                O::timer(),
-                esp_idf_sys::mcpwm_generator_t_MCPWM_GEN_B,
-                duty
-            ))
-        }
-    }
-
-    /// Set PWM frequency
-    pub fn set_frequency(&mut self, frequency: Hertz) -> Result<(), EspError> {
-        unsafe {
-            esp!(esp_idf_sys::mcpwm_set_frequency(
-                U::unit(),
-                O::timer(),
-                frequency.into()
-            ))
-        }
-    }
-
-    /// Get PWM frequency
-    pub fn get_frequency(&self) -> Hertz {
-        Hertz::from(unsafe { esp_idf_sys::mcpwm_get_frequency(U::unit(), O::timer()) })
-    }
-
-    pub fn timer(&self) -> mcpwm_timer_t {
-        O::timer()
+        todo!()
     }
 }
