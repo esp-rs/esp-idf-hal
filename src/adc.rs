@@ -6,9 +6,6 @@ use esp_idf_sys::*;
 #[cfg(feature = "riscv-ulp-hal")]
 use crate::riscv_ulp_hal::sys::*;
 
-#[cfg(all(esp32, not(feature = "riscv-ulp-hal")))]
-use crate::hall;
-
 pub trait Adc: Send {
     fn unit() -> adc_unit_t;
 }
@@ -321,11 +318,11 @@ where
     }
 }
 
-#[cfg(all(esp32, not(feature = "riscv-ulp-hal")))]
-impl embedded_hal_0_2::adc::OneShot<ADC1, u16, hall::HallSensor> for PoweredAdc<ADC1> {
+#[cfg(all(esp32, esp_idf_version_major = "4", not(feature = "riscv-ulp-hal")))]
+impl embedded_hal_0_2::adc::OneShot<ADC1, u16, crate::hall::HallSensor> for PoweredAdc<ADC1> {
     type Error = EspError;
 
-    fn read(&mut self, _hall_sensor: &mut hall::HallSensor) -> nb::Result<u16, Self::Error> {
+    fn read(&mut self, _hall_sensor: &mut crate::hall::HallSensor) -> nb::Result<u16, Self::Error> {
         self.read_hall()
     }
 }

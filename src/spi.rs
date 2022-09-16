@@ -467,17 +467,10 @@ impl<SPI: Spi, SCLK: OutputPin, SDO: OutputPin, SDI: InputPin + OutputPin, CS: O
         let device_config = spi_device_interface_config_t {
             spics_io_num: pins.cs.as_ref().map_or(-1, |p| p.pin()),
             clock_speed_hz: config.baudrate.0 as i32,
-            mode: (if config.data_mode.polarity == embedded_hal::spi::Polarity::IdleHigh {
-                2
-            } else {
-                0
-            }) | (if config.data_mode.phase
-                == embedded_hal::spi::Phase::CaptureOnSecondTransition
-            {
-                1
-            } else {
-                0
-            }),
+            mode: (((config.data_mode.polarity == embedded_hal::spi::Polarity::IdleHigh) as u8)
+                << 1)
+                | ((config.data_mode.phase == embedded_hal::spi::Phase::CaptureOnSecondTransition)
+                    as u8),
             queue_size: 64,
             flags: if config.write_only {
                 SPI_DEVICE_NO_DUMMY
