@@ -319,6 +319,7 @@ mod embassy_time {
         initialized: AtomicBool,
         cs_mutex: crate::cs::CriticalSection,
         cs_inter: crate::interrupt::CriticalSection,
+        #[allow(clippy::type_complexity)]
         callback: Cell<(fn(*mut ()), *mut ())>,
     }
 
