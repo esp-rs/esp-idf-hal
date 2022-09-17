@@ -132,14 +132,8 @@ impl Condvar {
         let mut now: timeval = unsafe { core::mem::zeroed() };
         unsafe { gettimeofday(&mut now, core::ptr::null_mut()) };
 
-        #[cfg(not(esp_idf_version_major = "4"))]
-        type TvSec = i64;
-
-        #[cfg(esp_idf_version_major = "4")]
-        type TvSec = i32;
-
         let abstime = timespec {
-            tv_sec: now.tv_sec + duration.as_secs() as TvSec,
+            tv_sec: now.tv_sec + duration.as_secs() as esp_idf_sys::time_t,
             tv_nsec: (now.tv_usec * 1000) + duration.subsec_nanos() as i32,
         };
 
