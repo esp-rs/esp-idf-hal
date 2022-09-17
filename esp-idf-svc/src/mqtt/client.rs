@@ -386,7 +386,15 @@ impl<S> EspMqttClient<S> {
 
         let (mut c_conf, mut cstrs) = conf.into();
 
-        c_conf.uri = cstrs.as_ptr(url);
+        #[cfg(esp_idf_version_major = "4")]
+        {
+            c_conf.uri = cstrs.as_ptr(url);
+        }
+
+        #[cfg(not(esp_idf_version_major = "4"))]
+        {
+            c_conf.broker.address.uri = cstrs.as_ptr(url);
+        }
 
         let raw_client = unsafe { esp_mqtt_client_init(&c_conf as *const _) };
         if raw_client.is_null() {
