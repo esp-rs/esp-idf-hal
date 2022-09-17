@@ -445,7 +445,7 @@ where
     ) -> Result<Self, EspError> {
         crate::into_ref!(i2c, sda, scl);
 
-        #[cfg(any(esp_idf_version = "4.4", esp_idf_version_major = "5"))]
+        #[cfg(not(esp_idf_version = "4.3"))]
         let sys_config = i2c_config_t {
             mode: i2c_mode_t_I2C_MODE_SLAVE,
             sda_io_num: sda.pin(),
@@ -462,7 +462,7 @@ where
             ..Default::default()
         };
 
-        #[cfg(not(any(esp_idf_version = "4.4", esp_idf_version_major = "5")))]
+        #[cfg(esp_idf_version = "4.3")]
         let sys_config = i2c_config_t {
             mode: i2c_mode_t_I2C_MODE_SLAVE,
             sda_io_num: pins.sda.pin(),
