@@ -28,9 +28,9 @@ cstr_core = "0.2"
 uncased = { version = "0.9.6", optional = true }
 anyhow = { version = "1", default-features = false, optional = true } # Only used by the deprecated httpd module
 embedded-svc = { version = "0.22", default-features = false }
-esp-idf-sys = { version = "0.31.5", default-features = false, features = ["native"] }
+esp-idf-sys = { version = "0.31.9", default-features = false, features = ["native"] }
 esp-idf-hal = { version = "0.38", default-features = false, features = ["esp-idf-sys", "embedded-svc"] }
 
 [build-dependencies]
-embuild = "0.29"
+embuild = "0.30.3"
 anyhow = "1"

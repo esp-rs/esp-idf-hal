@@ -118,6 +118,7 @@ impl<'a> Default for MqttClientConfiguration<'a> {
     }
 }
 
+#[cfg(esp_idf_version_major = "4")]
 impl<'a> From<&'a MqttClientConfiguration<'a>> for (esp_mqtt_client_config_t, RawCstrs) {
     fn from(conf: &'a MqttClientConfiguration<'a>) -> Self {
         let mut cstrs = RawCstrs::new();
@@ -171,6 +172,87 @@ impl<'a> From<&'a MqttClientConfiguration<'a>> for (esp_mqtt_client_config_t, Ra
             c_conf.lwt_msg_len = lwt.payload.len() as _;
             c_conf.lwt_qos = lwt.qos as _;
             c_conf.lwt_retain = lwt.retain as _;
+        }
+
+        (c_conf, cstrs)
+    }
+}
+
+#[cfg(not(esp_idf_version_major = "4"))]
+impl<'a> From<&'a MqttClientConfiguration<'a>> for (esp_mqtt_client_config_t, RawCstrs) {
+    fn from(conf: &'a MqttClientConfiguration<'a>) -> Self {
+        let mut cstrs = RawCstrs::new();
+
+        let mut c_conf = esp_mqtt_client_config_t {
+            broker: esp_mqtt_client_config_t_broker_t {
+                verification: esp_mqtt_client_config_t_broker_t_verification_t {
+                    use_global_ca_store: conf.use_global_ca_store,
+                    skip_cert_common_name_check: conf.skip_cert_common_name_check,
+                    #[cfg(not(esp_idf_version = "4.3"))]
+                    crt_bundle_attach: conf.crt_bundle_attach,
+                    ..Default::default()
+                },
+                ..Default::default()
+            },
+            credentials: esp_mqtt_client_config_t_credentials_t {
+                client_id: cstrs.as_nptr(conf.client_id),
+                set_null_client_id: conf.client_id.is_none(),
+                username: cstrs.as_nptr(conf.username),
+                authentication: esp_mqtt_client_config_t_credentials_t_authentication_t {
+                    password: cstrs.as_nptr(conf.password),
+                    ..Default::default()
+                },
+                ..Default::default()
+            },
+            session: esp_mqtt_client_config_t_session_t {
+                protocol_ver: if let Some(protocol_version) = conf.protocol_version {
+                    protocol_version.into()
+                } else {
+                    esp_mqtt_protocol_ver_t_MQTT_PROTOCOL_UNDEFINED
+                },
+                disable_clean_session: conf.disable_clean_session as _,
+                ..Default::default()
+            },
+            network: esp_mqtt_client_config_t_network_t {
+                refresh_connection_after_ms: conf.connection_refresh_interval.as_millis() as _,
+                timeout_ms: conf.network_timeout.as_millis() as _,
+                ..Default::default()
+            },
+            task: esp_mqtt_client_config_t_task_t {
+                priority: conf.task_prio as _,
+                stack_size: conf.task_stack as _,
+                ..Default::default()
+            },
+            buffer: esp_mqtt_client_config_t_buffer_t {
+                size: conf.buffer_size as _,
+                out_size: conf.out_buffer_size as _,
+                ..Default::default()
+            },
+        };
+
+        if let Some(keep_alive_interval) = conf.keep_alive_interval {
+            c_conf.session.keepalive = keep_alive_interval.as_secs() as _;
+            c_conf.session.disable_keepalive = false;
+        } else {
+            c_conf.session.disable_keepalive = true;
+        }
+
+        if let Some(reconnect_timeout) = conf.reconnect_timeout {
+            c_conf.network.reconnect_timeout_ms = reconnect_timeout.as_millis() as _;
+            c_conf.network.disable_auto_reconnect = false;
+        } else {
+            c_conf.network.disable_auto_reconnect = true;
+        }
+
+        if let Some(lwt) = conf.lwt.as_ref() {
+            c_conf.session.last_will = esp_mqtt_client_config_t_session_t_last_will_t {
+                topic: cstrs.as_ptr(lwt.topic),
+                msg: lwt.payload.as_ptr() as _,
+                msg_len: lwt.payload.len() as _,
+                qos: lwt.qos as _,
+                retain: lwt.retain as _,
+                ..Default::default()
+            };
         }
 
         (c_conf, cstrs)

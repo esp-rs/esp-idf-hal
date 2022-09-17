@@ -220,6 +220,8 @@ where
         let (mac, phy) = Self::initialize(
             chipset,
             &peripherals.rst,
+            &peripherals.mdc,
+            &peripherals.mdio,
             phy_addr,
             &peripherals.rmii_ref_clk_config,
         )?;
@@ -246,10 +248,13 @@ where
     fn initialize(
         chipset: RmiiEthChipset,
         reset: &Option<RST>,
+        mdc: &MDC,
+        mdio: &MDIO,
         phy_addr: Option<u32>,
         clk_config: &RmiiClockConfig,
     ) -> Result<(*mut esp_eth_mac_t, *mut esp_eth_phy_t), EspError> {
-        let mac = EspEth::<RmiiEthPeripherals<MDC, MDIO>>::eth_mac_new(clk_config);
+        let mac =
+            EspEth::<RmiiEthPeripherals<MDC, MDIO>>::eth_mac_new(mdc.pin(), mdio.pin(), clk_config);
 
         let phy_cfg = EspEth::<RmiiEthPeripherals<MDC, MDIO>>::eth_phy_default_config(
             reset.as_ref().map(|p| p.pin()),
@@ -276,8 +281,8 @@ where
     }
 
     #[cfg(esp_idf_version_major = "4")]
-    fn eth_mac_new(clk_config: &RmiiClockConfig) -> *mut esp_eth_mac_t {
-        let mut config = Self::eth_mac_default_config();
+    fn eth_mac_new(mdc: i32, mdio: i32, clk_config: &RmiiClockConfig) -> *mut esp_eth_mac_t {
+        let mut config = Self::eth_mac_default_config(mdc, mdio);
 
         #[cfg(not(esp_idf_version = "4.3"))]
         {
@@ -288,11 +293,11 @@ where
     }
 
     #[cfg(not(esp_idf_version_major = "4"))]
-    fn eth_mac_new(clk_config: &RmiiClockConfig) -> *mut esp_eth_mac_t {
-        let mut esp32_config = Self::eth_esp32_emac_default_config();
+    fn eth_mac_new(mdc: i32, mdio: i32, clk_config: &RmiiClockConfig) -> *mut esp_eth_mac_t {
+        let mut esp32_config = Self::eth_esp32_emac_default_config(mdc, mdio);
         esp32_config.clock_config = clk_config.eth_mac_clock_config();
 
-        let config = Self::eth_mac_default_config();
+        let config = Self::eth_mac_default_config(mdc, mdio);
 
         unsafe { esp_eth_mac_new_esp32(&esp32_config, &config) }
     }
@@ -902,13 +907,13 @@ impl<P> EspEth<P> {
     }
 
     #[cfg(esp_idf_version_major = "4")]
-    fn eth_mac_default_config() -> eth_mac_config_t {
+    fn eth_mac_default_config(mdc: i32, mdio: i32) -> eth_mac_config_t {
         eth_mac_config_t {
             sw_reset_timeout_ms: 100,
             rx_task_stack_size: 2048,
             rx_task_prio: 15,
-            smi_mdc_gpio_num: 23,
-            smi_mdio_gpio_num: 18,
+            smi_mdc_gpio_num: mdc,
+            smi_mdio_gpio_num: mdio,
             flags: 0,
             #[cfg(esp_idf_version = "4.4")]
             interface: eth_data_interface_t_EMAC_DATA_INTERFACE_RMII,
@@ -917,7 +922,7 @@ impl<P> EspEth<P> {
     }
 
     #[cfg(not(esp_idf_version_major = "4"))]
-    fn eth_mac_default_config() -> eth_mac_config_t {
+    fn eth_mac_default_config(_mdc: i32, _mdio: i32) -> eth_mac_config_t {
         eth_mac_config_t {
             sw_reset_timeout_ms: 100,
             rx_task_stack_size: 2048,
@@ -928,10 +933,10 @@ impl<P> EspEth<P> {
     }
 
     #[cfg(not(esp_idf_version_major = "4"))]
-    fn eth_esp32_emac_default_config() -> eth_esp32_emac_config_t {
+    fn eth_esp32_emac_default_config(mdc: i32, mdio: i32) -> eth_esp32_emac_config_t {
         eth_esp32_emac_config_t {
-            smi_mdc_gpio_num: 23,
-            smi_mdio_gpio_num: 18,
+            smi_mdc_gpio_num: mdc,
+            smi_mdio_gpio_num: mdio,
             interface: eth_data_interface_t_EMAC_DATA_INTERFACE_RMII,
             ..Default::default()
         }
