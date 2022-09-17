@@ -32,10 +32,10 @@ const ESP_IDF_TIME64_CHECK: ::std::os::espidf::raw::time_t = 0 as crate::time_t;
 #[allow(unused)]
 const ESP_IDF_TIME64_CHECK_LIBC: ::libc::time_t = 0 as crate::time_t;
 
-/// A hack to make sure that the rwlock implementation and the esp32c3 atomics are linked to the final executable
-/// Call this function once e.g. in the beginning of your main function
+/// A hack to make sure that a few patches to the ESP-IDF which are implemented in Rust
+/// are linked to the final executable
 ///
-/// This function will become no-op once ESP-IDF V4.4 is released
+/// Call this function once at the beginning of your main function
 pub fn link_patches() -> PatchesRef {
     patches::link_patches()
 }

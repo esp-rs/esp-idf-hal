@@ -1,6 +1,6 @@
 [package]
 name = "esp-idf-sys"
-version = "0.31.8"
+version = "0.31.9"
 authors = ["Alexey Arbuzov <aarbuzov@termt.com>", "sapir <yasapir@gmail.com>", "Ivan Markov <ivan.markov@gmail.com>", "Dominik Gschwind <dominik.gschwind99@gmail.com>"]
 edition = "2021"
 resolver = "2"
@@ -32,7 +32,7 @@ pio = ["embuild/pio"]
 libc = "0.2" # Only to check if the rustc flag `-cfg espidf_time64` is properly defined
 
 [build-dependencies]
-embuild = { version = "0.30.2", features = ["glob", "kconfig"] }
+embuild = { version = "0.30.3", features = ["glob", "kconfig"] }
 anyhow = "1"
 regex = "1.5"
 bindgen = "0.60"
