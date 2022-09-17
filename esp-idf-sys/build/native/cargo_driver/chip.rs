@@ -3,6 +3,8 @@
 use anyhow::{bail, Result};
 use strum::{Display, EnumString};
 
+use embuild::espidf::EspIdfVersion;
+
 #[derive(Clone, Copy, PartialEq, Eq, Debug, Display, EnumString)]
 #[repr(u32)]
 pub enum Chip {
@@ -37,7 +39,7 @@ impl Chip {
     }
 
     /// The name of the gcc toolchain (to compile the `esp-idf`) for `idf_tools.py`.
-    pub fn gcc_toolchain(self) -> &'static str {
+    pub fn gcc_toolchain(&self) -> &'static str {
         match self {
             Self::ESP32 => "xtensa-esp32-elf",
             Self::ESP32S2 => "xtensa-esp32s2-elf",
@@ -48,10 +50,23 @@ impl Chip {
 
     /// The name of the gcc toolchain for the ultra low-power co-processor for
     /// `idf_tools.py`.
-    pub fn ulp_gcc_toolchain(self) -> Option<&'static str> {
+    pub fn ulp_gcc_toolchain(&self, version: Option<&EspIdfVersion>) -> Option<&'static str> {
         match self {
             Self::ESP32 => Some("esp32ulp-elf"),
-            Self::ESP32S2 | Self::ESP32S3 => Some("esp32s2ulp-elf"),
+            Self::ESP32S2 | Self::ESP32S3 => Some(
+                if version
+                    .map(|version| {
+                        version.major > 4
+                            || version.major == 4 && version.minor > 4
+                            || version.major == 4 && version.minor == 4 && version.patch >= 2
+                    })
+                    .unwrap_or(true)
+                {
+                    "esp32ulp-elf"
+                } else {
+                    "esp32s2ulp-elf"
+                },
+            ),
             _ => None,
         }
     }

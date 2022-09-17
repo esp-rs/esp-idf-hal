@@ -70,7 +70,7 @@ pub fn build() -> Result<EspIdfBuildOutput> {
             subtools.push("ninja")
         }
         if !cfg!(target_os = "linux") || !cfg!(target_arch = "aarch64") {
-            subtools.extend(chip.ulp_gcc_toolchain());
+            subtools.extend(chip.ulp_gcc_toolchain(version.as_ref().ok()));
         }
         tools.push(espidf::Tools::new(subtools));
 
