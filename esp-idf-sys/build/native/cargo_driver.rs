@@ -314,7 +314,7 @@ pub fn build() -> Result<EspIdfBuildOutput> {
         .cflag(c_flags)
         .cxxflag(cxx_flags)
         .env("EXTRA_COMPONENT_DIRS", extra_component_dirs)
-        .env("IDF_PATH", &idf.repository.worktree())
+        .env("IDF_PATH", idf.repository.worktree())
         .env("PATH", &idf.exported_path)
         .env("SDKCONFIG_DEFAULTS", defaults_files)
         .env("IDF_TARGET", &chip_name);
