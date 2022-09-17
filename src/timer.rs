@@ -76,12 +76,14 @@ where
                     auto_reload: timer_autoreload_t_TIMER_AUTORELOAD_DIS,
                     intr_type: timer_intr_mode_t_TIMER_INTR_LEVEL,
                     divider: config.divider,
-                    #[cfg(any(esp32s2, esp32s3, esp32c3))]
+                    #[cfg(all(any(esp32s2, esp32s3, esp32c3), esp_idf_version_major = "4"))]
                     clk_src: if config.xtal {
                         timer_src_clk_t_TIMER_SRC_CLK_XTAL
                     } else {
                         timer_src_clk_t_TIMER_SRC_CLK_APB
                     },
+                    #[cfg(not(esp_idf_version_major = "4"))]
+                    clk_src: 0,
                 },
             )
         })?;
@@ -351,12 +353,13 @@ mod embassy_time {
                                 auto_reload: timer_autoreload_t_TIMER_AUTORELOAD_DIS,
                                 intr_type: timer_intr_mode_t_TIMER_INTR_LEVEL,
                                 divider: 80,
-                                #[cfg(any(esp32s2, esp32s3, esp32c3))]
-                                clk_src: if config.xtal {
-                                    timer_src_clk_t_TIMER_SRC_CLK_XTAL
-                                } else {
-                                    timer_src_clk_t_TIMER_SRC_CLK_APB
-                                },
+                                #[cfg(all(
+                                    any(esp32s2, esp32s3, esp32c3),
+                                    esp_idf_version_major = "4"
+                                ))]
+                                clk_src: timer_src_clk_t_TIMER_SRC_CLK_APB,
+                                #[cfg(not(esp_idf_version_major = "4"))]
+                                clk_src: 0,
                             },
                         )
                     })
