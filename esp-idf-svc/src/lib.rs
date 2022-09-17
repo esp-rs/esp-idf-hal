@@ -1,5 +1,9 @@
 #![cfg_attr(not(feature = "std"), no_std)]
-#![cfg_attr(feature = "nightly", feature(generic_associated_types))]
+#![feature(cfg_version)]
+#![cfg_attr(
+    all(feature = "nightly", not(version("1.65"))),
+    feature(generic_associated_types)
+)]
 #![cfg_attr(feature = "nightly", feature(type_alias_impl_trait))]
 #![feature(const_btree_new)] // Need to get rid of BTreeMaps in const initializers
 
