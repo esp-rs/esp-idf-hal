@@ -220,52 +220,6 @@ pub fn free<R>(f: impl FnOnce() -> R) -> R {
     f()
 }
 
-<<<<<<< HEAD
-/// A raw mutex based on critical sections
-pub struct RawMutex(CriticalSection);
-
-impl RawMutex {
-    #[inline(always)]
-    #[link_section = ".iram1.interrupt_mutex_new"]
-    pub const fn new() -> Self {
-        Self(CriticalSection::new())
-    }
-
-    #[inline(always)]
-    #[link_section = ".iram1.interrupt_mutex_lock"]
-    pub fn lock(&self) {
-        enter(&self.0);
-    }
-
-    #[inline(always)]
-    #[link_section = ".iram1.interrupt_mutex_unlock"]
-    #[allow(clippy::missing_safety_doc)]
-    pub unsafe fn unlock(&self) {
-        exit(&self.0);
-    }
-}
-
-unsafe impl Sync for RawMutex {}
-unsafe impl Send for RawMutex {}
-
-pub type Mutex<T> = embedded_svc::utils::mutex::Mutex<RawMutex, T>;
-
-impl embedded_svc::mutex::RawMutex for RawMutex {
-    #[cfg(feature = "nightly")] // Remove "nightly" condition once 1.64 is out
-    #[allow(clippy::declare_interior_mutable_const)]
-    const INIT: Self = RawMutex::new();
-
-    fn new() -> Self {
-        RawMutex::new()
-    }
-
-    unsafe fn lock(&self) {
-        RawMutex::lock(self);
-    }
-
-    unsafe fn unlock(&self) {
-        RawMutex::unlock(self);
-=======
 #[cfg(feature = "critical-section-interrupt")]
 mod critical_section {
     static CS: super::CriticalSection = super::CriticalSection::new();
@@ -282,6 +236,5 @@ mod critical_section {
         unsafe fn release(_token: ()) {
             super::exit(&CS);
         }
->>>>>>> d7fd24a303... Remove embedded-svc dep, compat with critical-section, modem and mac peripherals
     }
 }

@@ -2,6 +2,12 @@ use esp_idf_sys::*;
 
 use crate::peripheral::{Peripheral, PeripheralRef};
 
+#[cfg(feature = "alloc")]
+extern crate alloc;
+
+#[cfg(feature = "alloc")]
+use alloc::boxed::Box;
+
 pub type TimerConfig = config::Config;
 
 /// Timer configuration
@@ -163,6 +169,7 @@ where
     ///
     /// Care should be taken not to call STD, libc or FreeRTOS APIs (except for a few allowed ones)
     /// in the callback passed to this function, as it is executed in an ISR context.
+    #[cfg(feature = "alloc")]
     pub unsafe fn subscribe(&mut self, callback: impl FnMut() + 'static) -> Result<(), EspError> {
         self.unsubscribe()?;
 
@@ -190,14 +197,27 @@ where
         Ok(())
     }
 
+    #[cfg(feature = "alloc")]
     pub fn unsubscribe(&mut self) -> Result<(), EspError> {
         unsafe {
-            unsubscribe_timer(TIMER::group(), TIMER::index())?;
+            let subscribed = ISR_HANDLERS
+                [(TIMER::group() * timer_group_t_TIMER_GROUP_MAX + TIMER::index()) as usize]
+                .is_some();
+
+            if subscribed {
+                esp!(timer_disable_intr(TIMER::group(), TIMER::index()))?;
+                esp!(timer_isr_callback_remove(TIMER::group(), TIMER::index()))?;
+
+                ISR_HANDLERS
+                    [(TIMER::group() * timer_group_t_TIMER_GROUP_MAX + TIMER::index()) as usize] =
+                    None;
+            }
         }
 
         Ok(())
     }
 
+    #[cfg(feature = "alloc")]
     unsafe extern "C" fn handle_isr(unsafe_callback: *mut c_types::c_void) -> bool {
         crate::interrupt::with_isr_yield_signal(move || {
             UnsafeCallback::from_ptr(unsafe_callback).call();
@@ -207,28 +227,21 @@ where
 
 impl<'d, TIMER: Timer> Drop for TimerDriver<'d, TIMER> {
     fn drop(&mut self) {
+        #[cfg(feature = "alloc")]
+        {
+            self.unsubscribe().unwrap();
+        }
+
         esp!(unsafe { timer_deinit(TIMER::group(), TIMER::index()) }).unwrap();
     }
 }
 
 unsafe impl<'d, TIMER: Timer> Send for TimerDriver<'d, TIMER> {}
 
-unsafe fn unsubscribe_timer(group: timer_group_t, index: timer_idx_t) -> Result<(), EspError> {
-    let subscribed =
-        ISR_HANDLERS[(group * timer_group_t_TIMER_GROUP_MAX + index) as usize].is_some();
-
-    if subscribed {
-        esp!(timer_disable_intr(group, index))?;
-        esp!(timer_isr_callback_remove(group, index))?;
-
-        ISR_HANDLERS[(group * timer_group_t_TIMER_GROUP_MAX + index) as usize] = None;
-    }
-
-    Ok(())
-}
-
+#[cfg(feature = "alloc")]
 struct UnsafeCallback(*mut Box<dyn FnMut() + 'static>);
 
+#[cfg(feature = "alloc")]
 impl UnsafeCallback {
     #[allow(clippy::type_complexity)]
     pub fn from(boxed: &mut Box<Box<dyn FnMut() + 'static>>) -> Self {
@@ -270,10 +283,12 @@ macro_rules! impl_timer {
 
 #[allow(clippy::type_complexity)]
 #[cfg(esp32c3)]
+#[cfg(feature = "alloc")]
 static mut ISR_HANDLERS: [Option<Box<Box<dyn FnMut()>>>; 2] = [None, None];
 
 #[allow(clippy::type_complexity)]
 #[cfg(not(esp32c3))]
+#[cfg(feature = "alloc")]
 static mut ISR_HANDLERS: [Option<Box<Box<dyn FnMut()>>>; 4] = [None, None, None, None];
 
 impl_timer!(TIMER00: timer_group_t_TIMER_GROUP_0, timer_idx_t_TIMER_0);
@@ -319,6 +334,7 @@ mod embassy_time {
         initialized: AtomicBool,
         cs_mutex: crate::cs::CriticalSection,
         cs_inter: crate::interrupt::CriticalSection,
+        #[allow(clippy::type_complexity)]
         callback: Cell<(fn(*mut ()), *mut ())>,
     }
 
