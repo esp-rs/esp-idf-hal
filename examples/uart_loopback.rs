@@ -12,8 +12,7 @@
 use std::thread;
 use std::time::Duration;
 
-use embedded_hal::serial::nb::{Read, Write};
-
+use esp_idf_hal::delay::BLOCK;
 use esp_idf_hal::gpio;
 use esp_idf_hal::peripherals::Peripherals;
 use esp_idf_hal::prelude::*;
@@ -39,12 +38,11 @@ fn main() -> anyhow::Result<()> {
     .unwrap();
 
     loop {
-        // we are using thread::sleep here to make sure the watchdog isn't triggered
-        thread::sleep(Duration::from_millis(500));
-        nb::block!(uart.write(0xaa))?;
+        uart.write(&[0xaa])?;
 
-        // note: this will block - if you don't connect RX and TX you will see the watchdog kick in
-        let byte = nb::block!(uart.read())?;
-        println!("Written 0xaa, read 0x{:02x}", byte);
+        let mut buf = [0_u8; 1];
+        uart.read(&mut buf, BLOCK)?;
+
+        println!("Written 0xaa, read 0x{:02x}", buf[0]);
     }
 }
