@@ -63,11 +63,11 @@ pub enum RmiiEthChipset {
     RTL8201,
     LAN87XX,
     DP83848,
-    #[cfg(not(esp_idf_version_major = "5"))]
+    #[cfg(esp_idf_version_major = "4")]
     KSZ8041,
     #[cfg(esp_idf_version = "4.4")]
     KSZ8081,
-    #[cfg(esp_idf_version_major = "5")]
+    #[cfg(not(esp_idf_version_major = "4"))]
     KSZ80XX,
 }
 
@@ -259,16 +259,16 @@ where
         let phy = match chipset {
             RmiiEthChipset::IP101 => unsafe { esp_eth_phy_new_ip101(&phy_cfg) },
             RmiiEthChipset::RTL8201 => unsafe { esp_eth_phy_new_rtl8201(&phy_cfg) },
-            #[cfg(any(esp_idf_version = "4.4", esp_idf_version_major = "5"))]
+            #[cfg(not(esp_idf_version = "4.3"))]
             RmiiEthChipset::LAN87XX => unsafe { esp_eth_phy_new_lan87xx(&phy_cfg) },
-            #[cfg(not(any(esp_idf_version = "4.4", esp_idf_version_major = "5")))]
+            #[cfg(esp_idf_version = "4.3")]
             RmiiEthChipset::LAN87XX => unsafe { esp_eth_phy_new_lan8720(&phy_cfg) },
             RmiiEthChipset::DP83848 => unsafe { esp_eth_phy_new_dp83848(&phy_cfg) },
-            #[cfg(not(esp_idf_version_major = "5"))]
+            #[cfg(esp_idf_version_major = "4")]
             RmiiEthChipset::KSZ8041 => unsafe { esp_eth_phy_new_ksz8041(&phy_cfg) },
             #[cfg(esp_idf_version = "4.4")]
             RmiiEthChipset::KSZ8081 => unsafe { esp_eth_phy_new_ksz8081(&phy_cfg) },
-            #[cfg(esp_idf_version_major = "5")]
+            #[cfg(not(esp_idf_version_major = "4"))]
             RmiiEthChipset::KSZ80XX => unsafe { esp_eth_phy_new_ksz80xx(&phy_cfg) },
         };
 
@@ -489,7 +489,7 @@ where
     ) -> Result<(), EspError> {
         unsafe { gpio_install_isr_service(0) };
 
-        #[cfg(any(esp_idf_version = "4.4", esp_idf_version_major = "5"))]
+        #[cfg(not(esp_idf_version = "4.3"))]
         let bus_config = spi_bus_config_t {
             flags: SPICOMMON_BUSFLAG_MASTER,
             sclk_io_num: sclk_pin.pin(),
@@ -518,7 +518,7 @@ where
             ..Default::default()
         };
 
-        #[cfg(not(any(esp_idf_version = "4.4", esp_idf_version_major = "5")))]
+        #[cfg(esp_idf_version = "4.3")]
         let bus_config = spi_bus_config_t {
             flags: SPICOMMON_BUSFLAG_MASTER,
             sclk_io_num: sclk_pin.pin(),

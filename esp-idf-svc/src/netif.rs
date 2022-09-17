@@ -272,6 +272,8 @@ impl EspNetif {
                     if_key: c_if_key.as_c_str().as_ptr() as _,
                     if_desc: c_if_description.as_c_str().as_ptr() as _,
                     route_prio: conf.route_priority as _,
+                    #[cfg(not(esp_idf_version_major = "4"))]
+                    bridge_info: ptr::null_mut(),
                 },
                 match ip_conf {
                     ipv4::ClientConfiguration::DHCP(_) => None,
@@ -309,6 +311,8 @@ impl EspNetif {
                     if_key: c_if_key.as_c_str().as_ptr() as _,
                     if_desc: c_if_description.as_c_str().as_ptr() as _,
                     route_prio: conf.route_priority as _,
+                    #[cfg(not(esp_idf_version_major = "4"))]
+                    bridge_info: ptr::null_mut(),
                 },
                 Some(esp_netif_ip_info_t {
                     ip: Newtype::<esp_ip4_addr_t>::from(ip_conf.subnet.gateway).0,
@@ -352,7 +356,7 @@ impl EspNetif {
                 let mut dhcps_dns_value: dhcps_offer_t = dhcps_offer_option_OFFER_DNS as _;
 
                 // Strangely dhcps_offer_t and dhcps_offer_option_* are not included in ESP-IDF V5's bindings
-                #[cfg(esp_idf_version_major = "5")]
+                #[cfg(not(esp_idf_version_major = "4"))]
                 let mut dhcps_dns_value: u8 = 2_u8;
 
                 esp!(unsafe {
