@@ -227,7 +227,7 @@ impl<'d> EthDriver<'d, MAC> {
 
         #[cfg(not(esp_idf_version_major = "4"))]
         let mac = {
-            let mut esp32_config = Self::eth_esp32_emac_default_config();
+            let mut esp32_config = Self::eth_esp32_emac_default_config(mdc, mdio);
             esp32_config.clock_config = clk_config.eth_mac_clock_config();
 
             let config = Self::eth_mac_default_config(mdc, mdio);
@@ -594,13 +594,11 @@ impl<'d, P> EthDriver<'d, P> {
     }
 
     #[cfg(not(esp_idf_version_major = "4"))]
-    fn eth_mac_default_config(mdc: i32, mdio: i32) -> eth_mac_config_t {
+    fn eth_mac_default_config(_mdc: i32, _mdio: i32) -> eth_mac_config_t {
         eth_mac_config_t {
             sw_reset_timeout_ms: 100,
             rx_task_stack_size: 2048,
             rx_task_prio: 15,
-            smi_mdc_gpio_num: 23,
-            smi_mdio_gpio_num: 18,
             flags: 0,
             ..Default::default()
         }
