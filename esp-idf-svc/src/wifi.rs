@@ -174,7 +174,7 @@ impl From<Newtype<&wifi_ap_record_t>> for AccessPointInfo {
                 wifi_second_chan_t_WIFI_SECOND_CHAN_BELOW => SecondaryChannel::Below,
                 _ => panic!(),
             },
-            signal_strength: a.rssi as u8,
+            signal_strength: a.rssi as i8,
             protocols: EnumSet::<Protocol>::empty(), // TODO
             auth_method: AuthMethod::from(Newtype::<wifi_auth_mode_t>(a.authmode)),
         }
