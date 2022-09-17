@@ -106,7 +106,7 @@ pub mod config {
     #[derive(Debug, Copy, Clone, Default)]
     pub struct Config {
         pub resolution: Resolution,
-        #[cfg(esp_idf_comp_esp_adc_cal_enabled)]
+        #[cfg(any(esp_idf_comp_esp_adc_cal_enabled, esp_idf_comp_esp_adc_enabled))]
         pub calibration: bool,
     }
 
@@ -121,7 +121,7 @@ pub mod config {
             self
         }
 
-        #[cfg(esp_idf_comp_esp_adc_cal_enabled)]
+        #[cfg(any(esp_idf_comp_esp_adc_cal_enabled, esp_idf_comp_esp_adc_enabled))]
         #[must_use]
         pub fn calibration(mut self, calibration: bool) -> Self {
             self.calibration = calibration;
@@ -134,7 +134,7 @@ pub mod config {
 pub struct PoweredAdc<ADC: Adc> {
     adc: ADC,
     resolution: config::Resolution,
-    #[cfg(esp_idf_comp_esp_adc_cal_enabled)]
+    #[cfg(any(esp_idf_comp_esp_adc_cal_enabled, esp_idf_comp_esp_adc_enabled))]
     cal_characteristics:
         Option<[Option<esp_adc_cal_characteristics_t>; adc_atten_t_ADC_ATTEN_DB_11 as usize + 1]>,
 }
@@ -144,13 +144,22 @@ unsafe impl<ADC: Adc> Send for PoweredAdc<ADC> {}
 
 #[cfg(not(feature = "riscv-ulp-hal"))]
 impl<ADC: Adc> PoweredAdc<ADC> {
-    #[cfg(all(esp32, esp_idf_comp_esp_adc_cal_enabled))]
+    #[cfg(all(
+        esp32,
+        any(esp_idf_comp_esp_adc_cal_enabled, esp_idf_comp_esp_adc_enabled)
+    ))]
     const CALIBRATION_SCHEME: esp_adc_cal_value_t = esp_adc_cal_value_t_ESP_ADC_CAL_VAL_EFUSE_VREF;
 
-    #[cfg(all(any(esp32c3, esp32s2), esp_idf_comp_esp_adc_cal_enabled))]
+    #[cfg(all(
+        any(esp32c3, esp32s2),
+        any(esp_idf_comp_esp_adc_cal_enabled, esp_idf_comp_esp_adc_enabled)
+    ))]
     const CALIBRATION_SCHEME: esp_adc_cal_value_t = esp_adc_cal_value_t_ESP_ADC_CAL_VAL_EFUSE_TP;
 
-    #[cfg(all(esp32s3, esp_idf_comp_esp_adc_cal_enabled))]
+    #[cfg(all(
+        esp32s3,
+        any(esp_idf_comp_esp_adc_cal_enabled, esp_idf_comp_esp_adc_enabled)
+    ))]
     const CALIBRATION_SCHEME: esp_adc_cal_value_t =
         esp_adc_cal_value_t_ESP_ADC_CAL_VAL_EFUSE_TP_FIT;
 
@@ -161,7 +170,7 @@ impl<ADC: Adc> PoweredAdc<ADC> {
     const MAX_READING: u32 = 8191;
 
     pub fn new(adc: ADC, config: config::Config) -> Result<Self, EspError> {
-        #[cfg(esp_idf_comp_esp_adc_cal_enabled)]
+        #[cfg(any(esp_idf_comp_esp_adc_cal_enabled, esp_idf_comp_esp_adc_enabled))]
         if config.calibration {
             esp!(unsafe { esp_adc_cal_check_efuse(Self::CALIBRATION_SCHEME) })?;
         }
@@ -173,7 +182,7 @@ impl<ADC: Adc> PoweredAdc<ADC> {
         Ok(Self {
             adc,
             resolution: config.resolution,
-            #[cfg(esp_idf_comp_esp_adc_cal_enabled)]
+            #[cfg(any(esp_idf_comp_esp_adc_cal_enabled, esp_idf_comp_esp_adc_enabled))]
             cal_characteristics: if config.calibration {
                 Some(Default::default())
             } else {
@@ -191,14 +200,14 @@ impl<ADC: Adc> PoweredAdc<ADC> {
         measurement: c_types::c_int,
         attenuation: adc_atten_t,
     ) -> Result<u16, EspError> {
-        #[cfg(esp_idf_comp_esp_adc_cal_enabled)]
+        #[cfg(any(esp_idf_comp_esp_adc_cal_enabled, esp_idf_comp_esp_adc_enabled))]
         let mv = if let Some(cal) = self.get_cal_characteristics(attenuation)? {
             unsafe { esp_adc_cal_raw_to_voltage(measurement as u32, &cal as *const _) as u16 }
         } else {
             (measurement as u32 * Self::get_max_mv(attenuation) / Self::MAX_READING) as u16
         };
 
-        #[cfg(not(esp_idf_comp_esp_adc_cal_enabled))]
+        #[cfg(not(any(esp_idf_comp_esp_adc_cal_enabled, esp_idf_comp_esp_adc_enabled)))]
         let mv = (measurement as u32 * Self::get_max_mv(attenuation) / Self::MAX_READING) as u16;
 
         Ok(mv)
@@ -236,7 +245,7 @@ impl<ADC: Adc> PoweredAdc<ADC> {
         mv
     }
 
-    #[cfg(esp_idf_comp_esp_adc_cal_enabled)]
+    #[cfg(any(esp_idf_comp_esp_adc_cal_enabled, esp_idf_comp_esp_adc_enabled))]
     fn get_cal_characteristics(
         &mut self,
         attenuation: adc_atten_t,

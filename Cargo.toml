@@ -28,13 +28,13 @@ nb = "0.1.2"
 mutex-trait = { version = "0.2", optional = true, default-features = false }
 embedded-hal = "=1.0.0-alpha.8"
 embedded-hal-0-2 = { package = "embedded-hal", version = "0.2.7", features = ["unproven"] }
-embedded-svc = { version = "0.22.0", optional = true, default-features = false }
-esp-idf-sys = { version = "0.31.4", optional = true, default-features = false, features = ["native"] }
+embedded-svc = { version = "0.22", optional = true, default-features = false }
+esp-idf-sys = { version = "0.31.9", optional = true, default-features = false, features = ["native"] }
 
 [build-dependencies]
-embuild = "0.29"
+embuild = "0.30.3"
 anyhow = "1"
 
 [dev-dependencies]
 anyhow = "1"
-esp-idf-sys = { version = "0.31.4", features = ["native", "binstart"] }
+esp-idf-sys = { version = "0.31.9", features = ["native", "binstart"] }
