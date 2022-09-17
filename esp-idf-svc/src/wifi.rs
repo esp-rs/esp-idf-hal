@@ -278,7 +278,7 @@ impl<'d, M: WifiModemPeripheral> WifiDriver<'d, M> {
             ampdu_rx_enable: WIFI_AMPDU_RX_ENABLED as _,
             ampdu_tx_enable: WIFI_AMPDU_TX_ENABLED as _,
             amsdu_tx_enable: WIFI_AMSDU_TX_ENABLED as _,
-            nvs_enable: if nvs_enabled { 1 } else { 0 },
+            nvs_enable: i32::from(nvs_enabled),
             nano_enable: WIFI_NANO_FORMAT_ENABLED as _,
             //tx_ba_win: WIFI_DEFAULT_TX_BA_WIN as _,
             rx_ba_win: WIFI_DEFAULT_RX_BA_WIN as _,

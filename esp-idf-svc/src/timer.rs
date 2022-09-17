@@ -341,7 +341,7 @@ mod embassy_time {
         }
 
         fn set_callback(&self, callback: fn(*mut ()), ctx: *mut ()) {
-            let ptr: u64 = ((callback as u32 as u64) << 32) | (ctx as u32 as u64);
+            let ptr: u64 = ((callback as usize as u64) << 32) | (ctx as u32 as u64);
 
             self.callback.store(ptr, Ordering::SeqCst);
         }
@@ -356,7 +356,7 @@ mod embassy_time {
             if ptr != 0 {
                 unsafe {
                     let func: fn(*mut ()) = core::mem::transmute((ptr >> 32) as u32);
-                    let arg: *mut () = core::mem::transmute((ptr & 0xffffffff) as u32);
+                    let arg: *mut () = (ptr & 0xffffffff) as u32 as *mut ();
 
                     func(arg);
                 }
@@ -376,10 +376,6 @@ mod embassy_time {
                 cs: CriticalSection::new(),
             }
         }
-
-        unsafe fn alarms(&self) -> &mut Vec<Alarm, MAX_ALARMS> {
-            self.alarms.get().as_mut().unwrap()
-        }
     }
 
     unsafe impl<const MAX_ALARMS: usize> Send for EspDriver<MAX_ALARMS> {}
@@ -394,7 +390,7 @@ mod embassy_time {
             let mut id = {
                 let _guard = self.cs.enter();
 
-                self.alarms().len() as u8
+                self.alarms.get().as_mut().unwrap().len() as u8
             };
 
             if (id as usize) < MAX_ALARMS {
@@ -403,13 +399,18 @@ mod embassy_time {
                 {
                     let _guard = self.cs.enter();
 
-                    id = self.alarms().len() as u8;
+                    id = self.alarms.get().as_mut().unwrap().len() as u8;
 
                     if (id as usize) == MAX_ALARMS {
                         return None;
                     }
 
-                    self.alarms().push(alarm).unwrap_or_else(|_| unreachable!());
+                    self.alarms
+                        .get()
+                        .as_mut()
+                        .unwrap()
+                        .push(alarm)
+                        .unwrap_or_else(|_| unreachable!());
                 }
 
                 Some(AlarmHandle::new(id))
@@ -419,13 +420,13 @@ mod embassy_time {
         }
 
         fn set_alarm_callback(&self, handle: AlarmHandle, callback: fn(*mut ()), ctx: *mut ()) {
-            let alarm = unsafe { &self.alarms()[handle.id() as usize] };
+            let alarm = unsafe { &self.alarms.get().as_mut().unwrap()[handle.id() as usize] };
 
             alarm.set_callback(callback, ctx);
         }
 
         fn set_alarm(&self, handle: AlarmHandle, timestamp: u64) {
-            let alarm = unsafe { &self.alarms()[handle.id() as usize] };
+            let alarm = unsafe { &self.alarms.get().as_mut().unwrap()[handle.id() as usize] };
 
             let now = self.now();
 
