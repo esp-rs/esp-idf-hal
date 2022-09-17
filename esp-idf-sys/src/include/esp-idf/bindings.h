@@ -117,6 +117,10 @@
 #include "esp_tls.h"
 #endif
 
+#ifdef ESP_IDF_COMP_BOOTLOADER_SUPPORT_ENABLED
+#include "bootloader_common.h"
+#endif
+
 #ifdef ESP_IDF_COMP_APP_UPDATE_ENABLED
 #include "esp_ota_ops.h"
 #endif

@@ -21,7 +21,7 @@ mod start;
 /// (look for this file in the root of your binary crate):
 /// ```
 /// [build]
-/// rustcflags = "-cfg espidf_time64"
+/// rustflags = "--cfg espidf_time64"
 /// ```
 ///
 /// When compiling against ESP-IDF V4.X, you need to remove the above flag
