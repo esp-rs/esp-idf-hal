@@ -112,7 +112,7 @@ impl<'d, T: LedcTimer> LedcTimerDriver<'d, T> {
             __bindgen_anon_1: ledc_timer_config_t__bindgen_ty_1 {
                 duty_resolution: config.resolution.timer_bits(),
             },
-            #[cfg(esp_idf_version_major = "5")]
+            #[cfg(not(esp_idf_version_major = "4"))]
             duty_resolution: config.resolution.timer_bits(),
             freq_hz: config.frequency.into(),
             clk_cfg: ledc_clk_cfg_t_LEDC_AUTO_CLK,

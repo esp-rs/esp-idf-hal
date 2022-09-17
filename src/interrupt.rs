@@ -34,6 +34,7 @@ unsafe fn do_yield_signal(arg: *mut ()) {
 
 static ISR_YIELDER: AtomicU64 = AtomicU64::new(0);
 
+#[allow(clippy::type_complexity)]
 #[inline(always)]
 #[link_section = ".iram1.interrupt_get_isr_yielder"]
 pub(crate) unsafe fn get_isr_yielder() -> Option<(unsafe fn(*mut ()), *mut ())> {
@@ -43,7 +44,7 @@ pub(crate) unsafe fn get_isr_yielder() -> Option<(unsafe fn(*mut ()), *mut ())> 
             None
         } else {
             let func = core::mem::transmute((value >> 32) as u32);
-            let arg = core::mem::transmute((value & 0xffffffff) as u32);
+            let arg = (value & 0xffffffff) as u32 as *mut ();
             Some((func, arg))
         }
     } else {
@@ -62,6 +63,7 @@ pub(crate) unsafe fn get_isr_yielder() -> Option<(unsafe fn(*mut ()), *mut ())> 
 /// Users should not forget to call again `set_isr_yielder` at the end of the
 /// ISR handler so as to reastore the yield function which was valid before the
 /// ISR handler was invoked.
+#[allow(clippy::type_complexity)]
 #[inline(always)]
 #[link_section = ".iram1.interrupt_set_isr_yielder"]
 pub unsafe fn set_isr_yielder(
@@ -69,7 +71,7 @@ pub unsafe fn set_isr_yielder(
 ) -> Option<(unsafe fn(*mut ()), *mut ())> {
     if active() {
         let value = if let Some((func, arg)) = yielder {
-            ((func as u32 as u64) << 32) | (arg as u32 as u64)
+            ((func as usize as u64) << 32) | (arg as u32 as u64)
         } else {
             0
         };
@@ -79,7 +81,7 @@ pub unsafe fn set_isr_yielder(
             None
         } else {
             let func = core::mem::transmute((value >> 32) as u32);
-            let arg = core::mem::transmute((value & 0xffffffff) as u32);
+            let arg = (value & 0xffffffff) as u32 as *mut ();
             Some((func, arg))
         }
     } else {

@@ -53,7 +53,7 @@ impl From<TickType> for Option<Duration> {
 pub struct Ets;
 
 // No longer available in the generated bindings for ESP-IDF 5
-#[cfg(esp_idf_version_major = "5")]
+#[cfg(not(esp_idf_version_major = "4"))]
 extern "C" {
     pub fn ets_delay_us(us: u32);
 }
