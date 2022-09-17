@@ -261,7 +261,7 @@ impl<'d, ADC: Adc> AdcDriver<'d, ADC> {
     ) -> Result<u16, EspError> {
         let measurement = unsafe { hall_sensor_read() };
 
-        Ok(self.raw_to_voltage(measurement, adc_atten_t_ADC_ATTEN_DB_0)?)
+        self.raw_to_voltage(measurement, adc_atten_t_ADC_ATTEN_DB_0)
     }
 
     fn read_internal(
@@ -395,6 +395,7 @@ impl<'d> embedded_hal_0_2::adc::OneShot<ADC1, u16, crate::hall::HallSensor>
     }
 }
 
+#[cfg(not(feature = "riscv-ulp-hal"))]
 fn to_nb_err(err: EspError) -> nb::Error<EspError> {
     if err.code() == ESP_ERR_INVALID_STATE as i32 {
         nb::Error::WouldBlock
