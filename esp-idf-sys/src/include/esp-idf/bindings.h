@@ -44,7 +44,7 @@
 #include "esp_partition.h"
 #endif
 
-#ifdef ESP_IDF_COMP_ESP_ADC_CAL_ENABLED
+#if defined(ESP_IDF_COMP_ESP_ADC_CAL_ENABLED) || defined(ESP_IDF_COMP_ESP_ADC_ENABLED)
 #include "esp_adc_cal.h"
 #endif
 
