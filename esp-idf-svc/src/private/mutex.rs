@@ -85,8 +85,14 @@ impl RawCondvar {
         let mut now: timeval = core::mem::zeroed();
         gettimeofday(&mut now, core::ptr::null_mut());
 
+        #[cfg(not(esp_idf_version_major = "4"))]
+        type TvSec = i64;
+
+        #[cfg(esp_idf_version_major = "4")]
+        type TvSec = i32;
+
         let abstime = timespec {
-            tv_sec: now.tv_sec + duration.as_secs() as i32,
+            tv_sec: now.tv_sec + duration.as_secs() as TvSec,
             tv_nsec: (now.tv_usec * 1000) + duration.subsec_nanos() as i32,
         };
 
