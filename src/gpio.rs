@@ -1416,6 +1416,7 @@ mod chip {
 
     use super::*;
 
+    #[allow(clippy::type_complexity)]
     #[cfg(all(not(feature = "riscv-ulp-hal"), feature = "alloc"))]
     pub(crate) static mut ISR_HANDLERS: [Option<Box<Box<dyn FnMut()>>>; 40] = [
         None, None, None, None, None, None, None, None, None, None, None, None, None, None, None,
@@ -1600,6 +1601,7 @@ mod chip {
 
     use super::*;
 
+    #[allow(clippy::type_complexity)]
     #[cfg(all(not(feature = "riscv-ulp-hal"), feature = "alloc"))]
     pub(crate) static mut ISR_HANDLERS: [Option<Box<Box<dyn FnMut()>>>; 49] = [
         None, None, None, None, None, None, None, None, None, None, None, None, None, None, None,
@@ -1848,6 +1850,7 @@ mod chip {
 
     use super::*;
 
+    #[allow(clippy::type_complexity)]
     #[cfg(feature = "alloc")]
     pub(crate) static mut ISR_HANDLERS: [Option<Box<Box<dyn FnMut()>>>; 22] = [
         None, None, None, None, None, None, None, None, None, None, None, None, None, None, None,

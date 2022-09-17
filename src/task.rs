@@ -20,7 +20,7 @@ pub fn do_yield() {
                 #[cfg(all(not(esp32c3), esp_idf_version_major = "4"))]
                 vPortEvaluateYieldFromISR(0);
 
-                #[cfg(all(not(esp32c3), esp_idf_version_major = "5"))]
+                #[cfg(all(not(esp32c3), not(esp_idf_version_major = "4")))]
                 _frxt_setup_switch();
             }
         }

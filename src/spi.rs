@@ -361,7 +361,7 @@ impl<'d, SPI: Spi> SpiMasterDriver<'d, SPI> {
         let sdi = sdi.map(|sdi| sdi.into_ref());
         let cs = cs.map(|cs| cs.into_ref());
 
-        #[cfg(any(esp_idf_version = "4.4", esp_idf_version_major = "5"))]
+        #[cfg(not(esp_idf_version = "4.3"))]
         let bus_config = spi_bus_config_t {
             flags: SPICOMMON_BUSFLAG_MASTER,
             sclk_io_num: sclk.pin(),
@@ -390,7 +390,7 @@ impl<'d, SPI: Spi> SpiMasterDriver<'d, SPI> {
             ..Default::default()
         };
 
-        #[cfg(not(any(esp_idf_version = "4.4", esp_idf_version_major = "5")))]
+        #[cfg(esp_idf_version = "4.3")]
         let bus_config = spi_bus_config_t {
             flags: SPICOMMON_BUSFLAG_MASTER,
             sclk_io_num: sclk.pin(),

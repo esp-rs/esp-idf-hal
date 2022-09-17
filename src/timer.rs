@@ -157,6 +157,10 @@ where
         Ok(())
     }
 
+    /// # Safety
+    ///
+    /// Care should be taken not to call STD, libc or FreeRTOS APIs (except for a few allowed ones)
+    /// in the callback passed to this function, as it is executed in an ISR context.
     pub unsafe fn subscribe(&mut self, callback: impl FnMut() + 'static) -> Result<(), EspError> {
         self.unsubscribe()?;
 
@@ -262,9 +266,11 @@ macro_rules! impl_timer {
     };
 }
 
+#[allow(clippy::type_complexity)]
 #[cfg(esp32c3)]
 static mut ISR_HANDLERS: [Option<Box<Box<dyn FnMut()>>>; 2] = [None, None];
 
+#[allow(clippy::type_complexity)]
 #[cfg(not(esp32c3))]
 static mut ISR_HANDLERS: [Option<Box<Box<dyn FnMut()>>>; 4] = [None, None, None, None];
 
@@ -282,36 +288,115 @@ impl_timer!(TIMER11: timer_group_t_TIMER_GROUP_1, timer_idx_t_TIMER_0);
     feature = "embassy-time-timer11"
 ))]
 mod embassy_time {
-    use core::cell::UnsafeCell;
+    use core::cell::Cell;
     use core::sync::atomic::{AtomicBool, Ordering};
 
-    use esp_idf_sys::esp_timer_get_time;
+    use esp_idf_sys::*;
 
-    #[cfg(any(feature = "embassy-time-timer01", feature = "embassy-time-timer11"))]
-    compile_error!("Features `embassy-time-timer01` and `embassy-time-timer11`");
+    #[cfg(all(
+        esp32c3,
+        any(feature = "embassy-time-timer01", feature = "embassy-time-timer11")
+    ))]
+    compile_error!("Features `embassy-time-timer01` and `embassy-time-timer11` are not available for `esp32c3`");
 
     #[cfg(feature = "embassy-time-timer00")]
-    type TIMER = super::TIMER00;
+    type EmbassyTimer = super::TIMER00;
     #[cfg(feature = "embassy-time-timer01")]
-    type TIMER = super::TIMER01;
+    type EmbassyTimer = super::TIMER01;
     #[cfg(feature = "embassy-time-timer10")]
-    type TIMER = super::TIMER10;
+    type EmbassyTimer = super::TIMER10;
     #[cfg(feature = "embassy-time-timer11")]
-    type TIMER = super::TIMER11;
+    type EmbassyTimer = super::TIMER11;
 
     use ::embassy_time::driver::{AlarmHandle, Driver};
 
-    static TAKEN: AtomicBool = AtomicBool::new(false);
+    use super::Timer;
 
-    struct EspDriver(UnsafeCell<Option<super::TimerDriver<'static, TIMER>>>);
+    struct EspDriver {
+        alarm_taken: AtomicBool,
+        initialized: AtomicBool,
+        cs_mutex: crate::cs::CriticalSection,
+        cs_inter: crate::interrupt::CriticalSection,
+        callback: Cell<(fn(*mut ()), *mut ())>,
+    }
 
     impl EspDriver {
         pub const fn new() -> Self {
-            Self(UnsafeCell::new(None))
+            Self {
+                alarm_taken: AtomicBool::new(false),
+                initialized: AtomicBool::new(false),
+                cs_mutex: crate::cs::CriticalSection::new(),
+                cs_inter: crate::interrupt::CriticalSection::new(),
+                callback: Cell::new((Self::noop, core::ptr::null_mut())),
+            }
         }
 
-        unsafe fn driver(&self) -> &mut super::TimerDriver<'static, TIMER> {
-            self.0.get().as_mut().unwrap().as_mut().unwrap()
+        fn initialize(&self) {
+            if !self.initialized.load(Ordering::SeqCst) {
+                if crate::interrupt::active() {
+                    unreachable!();
+                }
+
+                let _guard = self.cs_mutex.enter();
+
+                if !self.initialized.load(Ordering::SeqCst) {
+                    esp!(unsafe {
+                        timer_init(
+                            EmbassyTimer::group(),
+                            EmbassyTimer::index(),
+                            &timer_config_t {
+                                alarm_en: timer_alarm_t_TIMER_ALARM_EN,
+                                counter_en: timer_start_t_TIMER_START,
+                                counter_dir: timer_count_dir_t_TIMER_COUNT_UP,
+                                auto_reload: timer_autoreload_t_TIMER_AUTORELOAD_DIS,
+                                intr_type: timer_intr_mode_t_TIMER_INTR_LEVEL,
+                                divider: 80,
+                                #[cfg(any(esp32s2, esp32s3, esp32c3))]
+                                clk_src: if config.xtal {
+                                    timer_src_clk_t_TIMER_SRC_CLK_XTAL
+                                } else {
+                                    timer_src_clk_t_TIMER_SRC_CLK_APB
+                                },
+                            },
+                        )
+                    })
+                    .unwrap();
+
+                    esp!(unsafe {
+                        timer_isr_callback_add(
+                            EmbassyTimer::group(),
+                            EmbassyTimer::index(),
+                            Some(Self::handle_isr),
+                            self as *const _ as *mut _,
+                            0,
+                        )
+                    })
+                    .unwrap();
+
+                    esp!(unsafe {
+                        timer_enable_intr(EmbassyTimer::group(), EmbassyTimer::index())
+                    })
+                    .unwrap();
+
+                    self.initialized.store(true, Ordering::SeqCst);
+                }
+            }
+        }
+
+        fn noop(_ctx: *mut ()) {}
+
+        unsafe extern "C" fn handle_isr(this: *mut c_types::c_void) -> bool {
+            crate::interrupt::with_isr_yield_signal(move || {
+                let this = (this as *const Self).as_ref().unwrap();
+
+                let (func, arg) = {
+                    let _guard = this.cs_inter.enter();
+
+                    this.callback.get()
+                };
+
+                func(arg);
+            })
         }
     }
 
@@ -320,32 +405,47 @@ mod embassy_time {
 
     impl Driver for EspDriver {
         fn now(&self) -> u64 {
-            unsafe { esp_timer_get_time() as _ }
+            self.initialize();
+
+            let mut value = 0_u64;
+
+            esp!(unsafe {
+                timer_get_counter_value(
+                    EmbassyTimer::group(),
+                    EmbassyTimer::index(),
+                    &mut value as *mut _,
+                )
+            })
+            .unwrap();
+
+            value
         }
 
         unsafe fn allocate_alarm(&self) -> Option<AlarmHandle> {
-            if TAKEN.swap(true, Ordering::SeqCst) {
+            self.initialize();
+
+            if self.alarm_taken.swap(true, Ordering::SeqCst) {
                 None
             } else {
-                let mut timer =
-                    super::TimerDriver::new(TIMER::new(), &super::TimerConfig::new()).unwrap();
-
-                timer.set_counter(0).unwrap();
-
-                *self.0.get().as_mut().unwrap() = Some(timer);
-
                 Some(AlarmHandle::new(0))
             }
         }
 
         fn set_alarm_callback(&self, _alarm: AlarmHandle, callback: fn(*mut ()), ctx: *mut ()) {
-            unsafe {
-                self.driver().subscribe(move || callback(ctx)).unwrap();
-            }
+            self.initialize();
+
+            let _guard = self.cs_inter.enter();
+
+            self.callback.set((callback, ctx));
         }
 
         fn set_alarm(&self, _alarm: AlarmHandle, timestamp: u64) {
-            unsafe { self.driver() }.set_alarm(timestamp).unwrap();
+            self.initialize();
+
+            esp!(unsafe {
+                timer_set_alarm_value(EmbassyTimer::group(), EmbassyTimer::index(), timestamp)
+            })
+            .unwrap();
         }
     }
 
