@@ -16,6 +16,16 @@ mod panic;
 mod patches;
 mod start;
 
+/// If the line below does not compile, you have not properly setup the rustc flag `espidf_time64`:
+/// When compiling against ESP-IDF V5.X or later, you need to define the following in your `.config/cargo.toml` file:
+/// ```
+/// [build]
+/// rustcflags = "-cfg espidf_time64"
+/// ```
+///
+/// When compiling against ESP-IDF V4.X, you need to remove the above flag
+const ESP_IDF_TIME64_CHECK: ::libc::time_t = 0 as crate::time_t;
+
 /// A hack to make sure that the rwlock implementation and the esp32c3 atomics are linked to the final executable
 /// Call this function once e.g. in the beginning of your main function
 ///
