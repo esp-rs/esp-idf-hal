@@ -92,7 +92,7 @@ pub mod task {
                     #[cfg(esp_idf_version_major = "4")]
                     vPortEvaluateYieldFromISR(0);
 
-                    #[cfg(esp_idf_version_major = "5")]
+                    #[cfg(not(esp_idf_version_major = "4"))]
                     _frxt_setup_switch();
                 }
             }
