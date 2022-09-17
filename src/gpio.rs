@@ -1085,14 +1085,14 @@ pub(crate) unsafe fn rtc_reset_pin(pin: i32) -> Result<(), EspError> {
     Ok(())
 }
 
-unsafe fn reset_pin(pin: i32, mode: gpio_mode_t) -> Result<(), EspError> {
+unsafe fn reset_pin(_pin: i32, _mode: gpio_mode_t) -> Result<(), EspError> {
     #[cfg(not(feature = "riscv-ulp-hal"))]
     let res = {
         #[cfg(feature = "alloc")]
-        unsubscribe_pin(pin)?;
+        unsubscribe_pin(_pin)?;
 
-        esp!(gpio_reset_pin(pin))?;
-        esp!(gpio_set_direction(pin, mode))?;
+        esp!(gpio_reset_pin(_pin))?;
+        esp!(gpio_set_direction(_pin, _mode))?;
 
         Ok(())
     };
