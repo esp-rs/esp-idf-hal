@@ -74,14 +74,22 @@ impl EspTimer {
 
     extern "C" fn handle(arg: *mut c_types::c_void) {
         if esp_idf_hal::interrupt::active() {
-            let signaled = esp_idf_hal::interrupt::with_isr_yield_signal(move || unsafe {
-                UnsafeCallback::from_ptr(arg).call();
-            });
+            #[cfg(esp_idf_esp_timer_supports_isr_dispatch_method)]
+            {
+                let signaled = esp_idf_hal::interrupt::with_isr_yield_signal(move || unsafe {
+                    UnsafeCallback::from_ptr(arg).call();
+                });
 
-            if signaled {
-                unsafe {
-                    esp_idf_sys::esp_timer_isr_dispatch_need_yield();
+                if signaled {
+                    unsafe {
+                        esp_idf_sys::esp_timer_isr_dispatch_need_yield();
+                    }
                 }
+            }
+
+            #[cfg(not(esp_idf_esp_timer_supports_isr_dispatch_method))]
+            {
+                unreachable!();
             }
         } else {
             unsafe {
