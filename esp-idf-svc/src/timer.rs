@@ -292,6 +292,7 @@ mod asyncify {
     }
 }
 
+#[cfg(feature = "embassy-time")]
 mod embassy_time {
     use core::cell::UnsafeCell;
     use core::sync::atomic::{AtomicU64, Ordering};
