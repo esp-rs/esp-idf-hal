@@ -14,7 +14,7 @@ documentation = "https://esp-rs.github.io/esp-idf-hal/"
 rust-version = "1.61"
 
 [features]
-default = ["std", "alloc", "esp-idf-sys", "embassy-time-timer00"]
+default = ["std", "alloc", "esp-idf-sys"]
 std = ["alloc", "esp-idf-sys/std", "edge-executor?/std"]
 alloc = []
 critical-section-interrupt = ["critical-section"]
@@ -31,7 +31,7 @@ embedded-hal = "=1.0.0-alpha.8"
 embedded-hal-0-2 = { package = "embedded-hal", version = "0.2.7", features = ["unproven"] }
 esp-idf-sys = { version = "0.31.9", optional = true, default-features = false, features = ["native"] }
 critical-section = { version = "1.1", optional = true }
-embassy-time = { version = "0.1", optional = true, features = ["tick-hz-1_000_000"], git = "https://github.com/embassy-rs/embassy" }
+embassy-time = { version = "0.1", optional = true, features = ["tick-hz-1_000_000"], git = "https://github.com/ivmarkov/embassy" }
 edge-executor = { version = "0.2", optional = true, default-features = false }
 
 [build-dependencies]

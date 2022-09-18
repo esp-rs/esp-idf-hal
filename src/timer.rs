@@ -539,5 +539,5 @@ mod embassy_time {
         }
     }
 
-    embassy_time::time_driver_impl!(static DRIVER: EspDriver = EspDriver::new());
+    ::embassy_time::time_driver_impl!(static DRIVER: EspDriver = EspDriver::new());
 }
