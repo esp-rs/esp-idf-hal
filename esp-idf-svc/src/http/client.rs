@@ -136,14 +136,18 @@ impl EspHttpConnection {
     }
 
     pub fn status(&self) -> u16 {
+        self.assert_response();
         unsafe { esp_http_client_get_status_code(self.raw_client) as _ }
     }
 
     pub fn status_message(&self) -> Option<&str> {
+        self.assert_response();
         None
     }
 
     pub fn header(&self, name: &str) -> Option<&str> {
+        self.assert_response();
+
         if name.eq_ignore_ascii_case("Content-Length") {
             if let Some(content_len_opt) =
                 unsafe { self.content_len_header.get().as_mut().unwrap() }.as_ref()
@@ -172,6 +176,8 @@ impl EspHttpConnection {
         uri: &'a str,
         headers: &'a [(&'a str, &'a str)],
     ) -> Result<(), EspError> {
+        self.assert_initial();
+
         let c_uri = CString::new(uri).unwrap();
 
         esp!(unsafe { esp_http_client_set_url(self.raw_client, c_uri.as_ptr() as _) })?;
@@ -220,15 +226,13 @@ impl EspHttpConnection {
         Ok(())
     }
 
-    pub fn assert_request(&mut self) -> Result<(), EspError> {
-        if self.state == State::Request {
-            Ok(())
-        } else {
-            Err(EspError::from(ESP_FAIL).unwrap().into())
-        }
+    pub fn is_request_initiated(&self) -> bool {
+        self.state == State::Request
     }
 
     pub fn initiate_response(&mut self) -> Result<(), EspError> {
+        self.assert_request();
+
         self.fetch_headers()?;
 
         self.state = State::Response;
@@ -236,66 +240,49 @@ impl EspHttpConnection {
         Ok(())
     }
 
-    pub fn split(&mut self) -> Result<(&EspHttpConnection, &mut Self), EspError> {
-        if self.state == State::Response {
-            let headers_ptr: *const EspHttpConnection = self as *const _;
-
-            let headers = unsafe { headers_ptr.as_ref().unwrap() };
-
-            Ok((headers, self))
-        } else {
-            Err(EspError::from(ESP_FAIL).unwrap())
-        }
+    pub fn is_response_initiated(&self) -> bool {
+        self.state == State::Response
     }
 
-    pub fn headers(&self) -> Result<&Self, EspError> {
-        if self.state == State::Response {
-            Ok(self)
-        } else {
-            Err(EspError::from(ESP_FAIL).unwrap())
-        }
+    pub fn split(&mut self) -> (&EspHttpConnection, &mut Self) {
+        self.assert_response();
+
+        let headers_ptr: *const EspHttpConnection = self as *const _;
+
+        let headers = unsafe { headers_ptr.as_ref().unwrap() };
+
+        (headers, self)
     }
 
     pub fn read(&mut self, buf: &mut [u8]) -> Result<usize, EspError> {
-        if self.state == State::Response {
-            let result = unsafe {
-                esp_http_client_read_response(
-                    self.raw_client,
-                    buf.as_mut_ptr() as _,
-                    buf.len() as _,
-                )
-            };
-            if result < 0 {
-                esp!(result)?;
-            }
+        self.assert_response();
 
-            Ok(result as _)
-        } else {
-            Err(EspError::from(ESP_FAIL).unwrap())
+        let result = unsafe {
+            esp_http_client_read_response(self.raw_client, buf.as_mut_ptr() as _, buf.len() as _)
+        };
+        if result < 0 {
+            esp!(result)?;
         }
+
+        Ok(result as _)
     }
 
     pub fn write(&mut self, buf: &[u8]) -> Result<usize, EspError> {
-        if self.state == State::Request {
-            let result = unsafe {
-                esp_http_client_write(self.raw_client, buf.as_ptr() as _, buf.len() as _)
-            };
-            if result < 0 {
-                esp!(result)?;
-            }
+        self.assert_request();
 
-            Ok(result as _)
-        } else {
-            Err(EspError::from(ESP_FAIL).unwrap().into())
+        let result =
+            unsafe { esp_http_client_write(self.raw_client, buf.as_ptr() as _, buf.len() as _) };
+        if result < 0 {
+            esp!(result)?;
         }
+
+        Ok(result as _)
     }
 
     pub fn flush(&mut self) -> Result<(), EspError> {
-        if self.state == State::Request {
-            Ok(())
-        } else {
-            Err(EspError::from(ESP_FAIL).unwrap())
-        }
+        self.assert_request();
+
+        Ok(())
     }
 
     extern "C" fn on_events(event: *mut esp_http_client_event_t) -> esp_err_t {
@@ -391,6 +378,24 @@ impl EspHttpConnection {
     fn deregister_handler(&mut self) {
         *self.event_handler = None;
     }
+
+    fn assert_initial(&self) {
+        if self.state != State::New && self.state != State::Response {
+            panic!("connection is not in initial phase");
+        }
+    }
+
+    fn assert_request(&self) {
+        if self.state != State::Request {
+            panic!("connection is not in request phase");
+        }
+    }
+
+    fn assert_response(&self) {
+        if self.state != State::Response {
+            panic!("connection is not in response phase");
+        }
+    }
 }
 
 impl Drop for EspHttpConnection {
@@ -466,20 +471,20 @@ impl Connection for EspHttpConnection {
         EspHttpConnection::initiate_request(self, method, uri, headers).map_err(EspIOError)
     }
 
-    fn assert_request(&mut self) -> Result<(), Self::Error> {
-        EspHttpConnection::assert_request(self).map_err(EspIOError)
+    fn is_request_initiated(&self) -> bool {
+        EspHttpConnection::is_request_initiated(self)
     }
 
     fn initiate_response(&mut self) -> Result<(), Self::Error> {
         EspHttpConnection::initiate_response(self).map_err(EspIOError)
     }
 
-    fn split(&mut self) -> Result<(&Self::Headers, &mut Self::Read), Self::Error> {
-        EspHttpConnection::split(self).map_err(EspIOError)
+    fn is_response_initiated(&self) -> bool {
+        EspHttpConnection::is_response_initiated(self)
     }
 
-    fn headers(&self) -> Result<&Self::Headers, Self::Error> {
-        EspHttpConnection::headers(self).map_err(EspIOError)
+    fn split(&mut self) -> (&Self::Headers, &mut Self::Read) {
+        EspHttpConnection::split(self)
     }
 
     fn raw_connection(&mut self) -> Result<&mut Self::RawConnection, Self::Error> {

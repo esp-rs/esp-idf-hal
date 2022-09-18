@@ -477,6 +477,8 @@ impl<'a> EspHttpConnection<'a> {
     }
 
     pub fn uri(&self) -> &str {
+        self.assert_request();
+
         let c_uri = unsafe {
             CStr::from_bytes_with_nul_unchecked(mem::transmute(self.request.0.uri.as_slice()))
         };
@@ -485,10 +487,14 @@ impl<'a> EspHttpConnection<'a> {
     }
 
     pub fn method(&self) -> Method {
+        self.assert_request();
+
         Method::from(Newtype(self.request.0.method as u32))
     }
 
     pub fn header(&self, name: &str) -> Option<&str> {
+        self.assert_request();
+
         let headers = self.headers.as_ref().unwrap();
 
         if let Some(value) = unsafe { headers.get().as_ref().unwrap() }.get(UncasedStr::new(name)) {
@@ -534,24 +540,14 @@ impl<'a> EspHttpConnection<'a> {
         }
     }
 
-    pub fn headers<'b>(&'b self) -> Result<&'b Self, EspError> {
-        if self.headers.is_some() {
-            Ok(self)
-        } else {
-            Err(EspError::from(ESP_ERR_TIMEOUT).unwrap())
-        }
-    }
+    pub fn split(&mut self) -> (&EspHttpConnection<'a>, &mut Self) {
+        self.assert_request();
 
-    pub fn split<'b>(&'b mut self) -> Result<(&'b EspHttpConnection, &'b mut Self), EspError> {
-        if self.headers.is_some() {
-            let headers_ptr: *const EspHttpConnection<'b> = self as *const _;
+        let headers_ptr: *const EspHttpConnection<'a> = self as *const _;
 
-            let headers = unsafe { headers_ptr.as_ref().unwrap() };
+        let headers = unsafe { headers_ptr.as_ref().unwrap() };
 
-            Ok((headers, self))
-        } else {
-            Err(EspError::from(ESP_FAIL).unwrap())
-        }
+        (headers, self)
     }
 
     pub fn initiate_response<'b>(
@@ -560,6 +556,8 @@ impl<'a> EspHttpConnection<'a> {
         message: Option<&'b str>,
         headers: &'b [(&'b str, &'b str)],
     ) -> Result<(), EspError> {
+        self.assert_request();
+
         let mut c_headers = Vec::new();
 
         let status = if let Some(message) = message {
@@ -609,60 +607,54 @@ impl<'a> EspHttpConnection<'a> {
         Ok(())
     }
 
-    pub fn assert_response(&mut self) -> Result<(), EspError> {
-        if self.headers.is_none() {
-            Ok(())
-        } else {
-            Err(EspError::from(ESP_FAIL).unwrap())
-        }
+    pub fn is_response_initiated(&self) -> bool {
+        self.headers.is_none()
     }
 
     pub fn read(&mut self, buf: &mut [u8]) -> Result<usize, EspError> {
-        if self.headers.is_some() {
-            unsafe {
-                let len = httpd_req_recv(
-                    self.request.0,
-                    buf.as_mut_ptr() as *mut _,
-                    buf.len() as size_t,
-                );
+        self.assert_request();
 
-                if len < 0 {
-                    esp!(len)?;
-                }
+        unsafe {
+            let len = httpd_req_recv(
+                self.request.0,
+                buf.as_mut_ptr() as *mut _,
+                buf.len() as size_t,
+            );
 
-                Ok(len as usize)
+            if len < 0 {
+                esp!(len)?;
             }
-        } else {
-            Err(EspError::from(ESP_FAIL).unwrap())
+
+            Ok(len as usize)
         }
     }
 
     pub fn write(&mut self, buf: &[u8]) -> Result<usize, EspError> {
-        if self.headers.is_none() {
-            if !buf.is_empty() {
-                esp!(unsafe {
-                    httpd_resp_send_chunk(
-                        self.request.0,
-                        buf.as_ptr() as *const _,
-                        buf.len() as ssize_t,
-                    )
-                })?;
+        self.assert_response();
 
-                self.response_headers = None;
-            }
+        if !buf.is_empty() {
+            esp!(unsafe {
+                httpd_resp_send_chunk(
+                    self.request.0,
+                    buf.as_ptr() as *const _,
+                    buf.len() as ssize_t,
+                )
+            })?;
 
-            Ok(buf.len())
-        } else {
-            Err(EspError::from(ESP_FAIL).unwrap())
+            self.response_headers = None;
         }
+
+        Ok(buf.len())
     }
 
     pub fn flush(&mut self) -> Result<(), EspError> {
-        if self.headers.is_none() {
-            Ok(())
-        } else {
-            Err(EspError::from(ESP_FAIL).unwrap())
-        }
+        self.assert_response();
+
+        Ok(())
+    }
+
+    pub fn raw_connection(&mut self) -> Result<&mut EspHttpRequest<'a>, EspError> {
+        Ok(&mut self.request)
     }
 
     fn handle<'b, H>(&'b mut self, handler: &'b H) -> Result<(), HandlerError>
@@ -739,6 +731,18 @@ impl<'a> EspHttpConnection<'a> {
 
         Ok(())
     }
+
+    fn assert_request(&self) {
+        if self.headers.is_none() {
+            panic!("connection is not in request phase");
+        }
+    }
+
+    fn assert_response(&self) {
+        if self.headers.is_some() {
+            panic!("connection is not in response phase");
+        }
+    }
 }
 
 impl<'a> RawHandle for EspHttpConnection<'a> {
@@ -794,24 +798,8 @@ impl<'b> Connection for EspHttpConnection<'b> {
 
     type RawConnection = EspHttpRequest<'b>;
 
-    fn headers<'a>(&'a self) -> Result<&'a Self::Headers, Self::Error> {
-        if self.headers.is_some() {
-            Ok(self)
-        } else {
-            Err(EspIOError(EspError::from(ESP_ERR_TIMEOUT).unwrap()))
-        }
-    }
-
-    fn split<'a>(&'a mut self) -> Result<(&'a Self::Headers, &'a mut Self::Read), Self::Error> {
-        if self.headers.is_some() {
-            let headers_ptr: *const EspHttpConnection<'b> = self as *const _;
-
-            let headers = unsafe { headers_ptr.as_ref().unwrap() };
-
-            Ok((headers, self))
-        } else {
-            Err(EspIOError(EspError::from(ESP_FAIL).unwrap()))
-        }
+    fn split(&mut self) -> (&Self::Headers, &mut Self::Read) {
+        EspHttpConnection::split(self)
     }
 
     fn initiate_response<'a>(
@@ -820,65 +808,15 @@ impl<'b> Connection for EspHttpConnection<'b> {
         message: Option<&'a str>,
         headers: &'a [(&'a str, &'a str)],
     ) -> Result<(), Self::Error> {
-        let mut c_headers = Vec::new();
-
-        let status = if let Some(message) = message {
-            format!("{} {}", status, message)
-        } else {
-            status.to_string()
-        };
-
-        let c_status = CString::new(status.as_str()).unwrap();
-        esp!(unsafe { httpd_resp_set_status(self.request.0, c_status.as_ptr() as _) })?;
-
-        c_headers.push(c_status);
-
-        for (key, value) in headers {
-            if key.eq_ignore_ascii_case("Content-Type") {
-                let c_type = CString::new(*value).unwrap();
-
-                esp!(unsafe { httpd_resp_set_type(self.request.0, c_type.as_c_str().as_ptr()) })?;
-
-                c_headers.push(c_type);
-            } else if key.eq_ignore_ascii_case("Content-Length") {
-                let c_len = CString::new(*value).unwrap();
-
-                //esp!(unsafe { httpd_resp_set_len(self.raw_req, c_len.as_c_str().as_ptr()) })?;
-
-                c_headers.push(c_len);
-            } else {
-                let name = CString::new(*key).unwrap();
-                let value = CString::new(*value).unwrap();
-
-                esp!(unsafe {
-                    httpd_resp_set_hdr(
-                        self.request.0,
-                        name.as_c_str().as_ptr() as _,
-                        value.as_c_str().as_ptr() as _,
-                    )
-                })?;
-
-                c_headers.push(name);
-                c_headers.push(value);
-            }
-        }
-
-        self.response_headers = Some(c_headers);
-        self.headers = None;
-
-        Ok(())
+        EspHttpConnection::initiate_response(self, status, message, headers).map_err(EspIOError)
     }
 
-    fn assert_response(&mut self) -> Result<(), Self::Error> {
-        if self.headers.is_none() {
-            Ok(())
-        } else {
-            Err(EspIOError(EspError::from(ESP_FAIL).unwrap()))
-        }
+    fn is_response_initiated(&self) -> bool {
+        EspHttpConnection::is_response_initiated(self)
     }
 
     fn raw_connection(&mut self) -> Result<&mut Self::RawConnection, Self::Error> {
-        Ok(&mut self.request)
+        EspHttpConnection::raw_connection(self).map_err(EspIOError)
     }
 }
 
