@@ -28,9 +28,9 @@ log = { version = "0.4", default-features = false }
 cstr_core = "0.2"
 uncased = "0.9.6"
 anyhow = { version = "1", default-features = false, optional = true } # Only used by the deprecated httpd module
-embedded-svc = { version = "0.22", default-features = false, git = "https://github.com/esp-rs/embedded-svc", branch = "next" }
+embedded-svc = { version = "0.23", default-features = false, git = "https://github.com/esp-rs/embedded-svc" }
 esp-idf-sys = { version = "0.31.9", default-features = false, features = ["native"] }
-esp-idf-hal = { version = "0.38", default-features = false, features = ["esp-idf-sys"], git = "https://github.com/esp-rs/esp-idf-hal", branch = "next" }
+esp-idf-hal = { version = "0.39", default-features = false, features = ["esp-idf-sys"], git = "https://github.com/esp-rs/esp-idf-hal" }
 embassy-time = { version = "0.1", optional = false, git = "https://github.com/embassy-rs/embassy" }
 
 [build-dependencies]
