@@ -305,8 +305,8 @@ impl_timer!(TIMER11: timer_group_t_TIMER_GROUP_1, timer_idx_t_TIMER_0);
     feature = "embassy-time-timer11"
 ))]
 mod embassy_time {
-    use core::cell::Cell;
-    use core::sync::atomic::{AtomicBool, Ordering};
+    use core::cell::UnsafeCell;
+    use core::sync::atomic::{AtomicBool, AtomicU8, Ordering};
 
     use esp_idf_sys::*;
 
@@ -329,23 +329,41 @@ mod embassy_time {
 
     use super::Timer;
 
-    struct EspDriver {
-        alarm_taken: AtomicBool,
+    #[derive(Copy, Clone)]
+    struct Alarm {
+        timestamp: u64,
+        callback: fn(*mut ()),
+        ctx: *mut (),
+    }
+
+    impl Alarm {
+        const fn new() -> Self {
+            Self {
+                timestamp: u64::MAX,
+                callback: Self::noop,
+                ctx: core::ptr::null_mut(),
+            }
+        }
+
+        fn noop(_ctx: *mut ()) {}
+    }
+
+    struct EspDriver<const N: usize> {
+        alarms: UnsafeCell<[Alarm; N]>,
+        next_alarm: AtomicU8,
         initialized: AtomicBool,
         cs_mutex: crate::cs::CriticalSection,
         cs_inter: crate::interrupt::CriticalSection,
-        #[allow(clippy::type_complexity)]
-        callback: Cell<(fn(*mut ()), *mut ())>,
     }
 
-    impl EspDriver {
+    impl<const N: usize> EspDriver<N> {
         pub const fn new() -> Self {
             Self {
-                alarm_taken: AtomicBool::new(false),
+                alarms: UnsafeCell::new([Alarm::new(); N]),
+                next_alarm: AtomicU8::new(0),
                 initialized: AtomicBool::new(false),
                 cs_mutex: crate::cs::CriticalSection::new(),
                 cs_inter: crate::interrupt::CriticalSection::new(),
-                callback: Cell::new((Self::noop, core::ptr::null_mut())),
             }
         }
 
@@ -402,71 +420,124 @@ mod embassy_time {
             }
         }
 
-        fn noop(_ctx: *mut ()) {}
+        fn update_timer_alarm(&self) {
+            let alarms = unsafe { &mut self.alarms.get().as_mut().unwrap() };
 
-        unsafe extern "C" fn handle_isr(this: *mut c_types::c_void) -> bool {
-            crate::interrupt::with_isr_yield_signal(move || {
-                let this = (this as *const Self).as_ref().unwrap();
-
-                let (func, arg) = {
-                    let _guard = this.cs_inter.enter();
-
-                    this.callback.get()
-                };
-
-                func(arg);
-            })
-        }
-    }
-
-    unsafe impl Send for EspDriver {}
-    unsafe impl Sync for EspDriver {}
-
-    impl Driver for EspDriver {
-        fn now(&self) -> u64 {
-            self.initialize();
-
-            let mut value = 0_u64;
-
-            esp!(unsafe {
-                timer_get_counter_value(
-                    EmbassyTimer::group(),
-                    EmbassyTimer::index(),
-                    &mut value as *mut _,
-                )
-            })
-            .unwrap();
-
-            value
-        }
-
-        unsafe fn allocate_alarm(&self) -> Option<AlarmHandle> {
-            self.initialize();
-
-            if self.alarm_taken.swap(true, Ordering::SeqCst) {
-                None
-            } else {
-                Some(AlarmHandle::new(0))
-            }
-        }
-
-        fn set_alarm_callback(&self, _alarm: AlarmHandle, callback: fn(*mut ()), ctx: *mut ()) {
-            self.initialize();
-
-            let _guard = self.cs_inter.enter();
-
-            self.callback.set((callback, ctx));
-        }
-
-        fn set_alarm(&self, _alarm: AlarmHandle, timestamp: u64) {
-            self.initialize();
+            let timestamp = alarms
+                .iter()
+                .min_by_key(|alarm| alarm.timestamp)
+                .unwrap()
+                .timestamp;
 
             esp!(unsafe {
                 timer_set_alarm_value(EmbassyTimer::group(), EmbassyTimer::index(), timestamp)
             })
             .unwrap();
         }
+
+        fn handle_alarm(&self) {
+            let mut now = 0_u64;
+
+            esp!(unsafe {
+                timer_get_counter_value(
+                    EmbassyTimer::group(),
+                    EmbassyTimer::index(),
+                    &mut now as *mut _,
+                )
+            })
+            .unwrap();
+
+            let alarms = unsafe { &mut self.alarms.get().as_mut().unwrap() };
+
+            loop {
+                let next_alarm = alarms
+                    .iter_mut()
+                    .min_by_key(|alarm| alarm.timestamp)
+                    .unwrap();
+
+                if next_alarm.timestamp < now {
+                    next_alarm.timestamp = u64::MAX;
+                    (next_alarm.callback)(next_alarm.ctx);
+                } else {
+                    break;
+                }
+            }
+
+            self.update_timer_alarm();
+        }
+
+        unsafe extern "C" fn handle_isr(this: *mut c_types::c_void) -> bool {
+            crate::interrupt::with_isr_yield_signal(move || {
+                let this = (this as *const Self).as_ref().unwrap();
+
+                this.handle_alarm();
+            })
+        }
     }
 
-    embassy_time::time_driver_impl!(static DRIVER: EspDriver = EspDriver::new());
+    unsafe impl<const N: usize> Send for EspDriver<N> {}
+    unsafe impl<const N: usize> Sync for EspDriver<N> {}
+
+    impl<const N: usize> Driver for EspDriver<N> {
+        fn now(&self) -> u64 {
+            self.initialize();
+
+            let mut now = 0_u64;
+
+            esp!(unsafe {
+                timer_get_counter_value(
+                    EmbassyTimer::group(),
+                    EmbassyTimer::index(),
+                    &mut now as *mut _,
+                )
+            })
+            .unwrap();
+
+            now
+        }
+
+        unsafe fn allocate_alarm(&self) -> Option<AlarmHandle> {
+            self.initialize();
+
+            let id = self
+                .next_alarm
+                .fetch_update(Ordering::AcqRel, Ordering::Acquire, |x| {
+                    if x < N as u8 {
+                        Some(x + 1)
+                    } else {
+                        None
+                    }
+                });
+
+            match id {
+                Ok(id) => Some(AlarmHandle::new(id)),
+                Err(_) => None,
+            }
+        }
+
+        fn set_alarm_callback(&self, alarm: AlarmHandle, callback: fn(*mut ()), ctx: *mut ()) {
+            self.initialize();
+
+            let _guard = self.cs_inter.enter();
+
+            let alarms = unsafe { &mut self.alarms.get().as_mut().unwrap() };
+
+            alarms[alarm.id() as usize].callback = callback;
+            alarms[alarm.id() as usize].ctx = ctx;
+        }
+
+        fn set_alarm(&self, alarm: AlarmHandle, timestamp: u64) {
+            self.initialize();
+
+            let _guard = self.cs_inter.enter();
+
+            let alarms = unsafe { &mut self.alarms.get().as_mut().unwrap() };
+
+            alarms[alarm.id() as usize].timestamp = timestamp;
+
+            self.update_timer_alarm();
+        }
+    }
+
+    embassy_time::time_driver_impl!(static DRIVER: EspDriver<16> = EspDriver::new());
 }
