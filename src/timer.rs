@@ -348,18 +348,18 @@ mod embassy_time {
         fn noop(_ctx: *mut ()) {}
     }
 
-    struct EspDriver<const N: usize> {
-        alarms: UnsafeCell<[Alarm; N]>,
+    struct EspDriver<const MAX_ALARMS: usize = 16> {
+        alarms: UnsafeCell<[Alarm; MAX_ALARMS]>,
         next_alarm: AtomicU8,
         initialized: AtomicBool,
         cs_mutex: crate::cs::CriticalSection,
         cs_inter: crate::interrupt::CriticalSection,
     }
 
-    impl<const N: usize> EspDriver<N> {
+    impl<const MAX_ALARMS: usize> EspDriver<MAX_ALARMS> {
         pub const fn new() -> Self {
             Self {
-                alarms: UnsafeCell::new([Alarm::new(); N]),
+                alarms: UnsafeCell::new([Alarm::new(); MAX_ALARMS]),
                 next_alarm: AtomicU8::new(0),
                 initialized: AtomicBool::new(false),
                 cs_mutex: crate::cs::CriticalSection::new(),
@@ -475,10 +475,10 @@ mod embassy_time {
         }
     }
 
-    unsafe impl<const N: usize> Send for EspDriver<N> {}
-    unsafe impl<const N: usize> Sync for EspDriver<N> {}
+    unsafe impl<const MAX_ALARMS: usize> Send for EspDriver<MAX_ALARMS> {}
+    unsafe impl<const MAX_ALARMS: usize> Sync for EspDriver<MAX_ALARMS> {}
 
-    impl<const N: usize> Driver for EspDriver<N> {
+    impl<const MAX_ALARMS: usize> Driver for EspDriver<MAX_ALARMS> {
         fn now(&self) -> u64 {
             self.initialize();
 
@@ -502,7 +502,7 @@ mod embassy_time {
             let id = self
                 .next_alarm
                 .fetch_update(Ordering::AcqRel, Ordering::Acquire, |x| {
-                    if x < N as u8 {
+                    if x < MAX_ALARMS as u8 {
                         Some(x + 1)
                     } else {
                         None
@@ -539,5 +539,5 @@ mod embassy_time {
         }
     }
 
-    embassy_time::time_driver_impl!(static DRIVER: EspDriver<16> = EspDriver::new());
+    embassy_time::time_driver_impl!(static DRIVER: EspDriver = EspDriver::new());
 }
