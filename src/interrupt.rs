@@ -220,13 +220,11 @@ pub fn free<R>(f: impl FnOnce() -> R) -> R {
     f()
 }
 
-#[cfg(feature = "critical-section-interrupt")]
-mod critical_section {
+#[cfg(feature = "critical-section")]
+pub mod critical_section {
     static CS: super::CriticalSection = super::CriticalSection::new();
 
-    struct EspCriticalSection {}
-
-    critical_section::set_impl!(EspCriticalSection);
+    pub struct EspCriticalSection {}
 
     unsafe impl critical_section::Impl for EspCriticalSection {
         unsafe fn acquire() {
@@ -237,4 +235,7 @@ mod critical_section {
             super::exit(&CS);
         }
     }
+
+    #[cfg(feature = "critical-section-interrupt")]
+    critical_section::set_impl!(EspCriticalSection);
 }

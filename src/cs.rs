@@ -89,13 +89,11 @@ impl<'a> Drop for CriticalSectionGuard<'a> {
     }
 }
 
-#[cfg(feature = "critical-section-mutex")]
-mod critical_section {
+#[cfg(feature = "critical-section")]
+pub mod critical_section {
     static CS: super::CriticalSection = super::CriticalSection::new();
 
-    struct EspCriticalSection {}
-
-    critical_section::set_impl!(EspCriticalSection);
+    pub struct EspCriticalSection {}
 
     unsafe impl critical_section::Impl for EspCriticalSection {
         unsafe fn acquire() {
@@ -106,4 +104,7 @@ mod critical_section {
             super::exit(&CS);
         }
     }
+
+    #[cfg(feature = "critical-section-mutex")]
+    critical_section::set_impl!(EspCriticalSection);
 }
