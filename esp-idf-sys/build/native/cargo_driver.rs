@@ -166,7 +166,7 @@ pub fn build() -> Result<EspIdfBuildOutput> {
             _ if {
                 let default_branch = idf.repository.get_default_branch()?;
                 let curr_branch = idf.repository.get_branch_name()?;
-                default_branch == curr_branch && !default_branch.is_none()
+                default_branch == curr_branch && default_branch.is_some()
             } =>
             {
                 MASTER_PATCHES
