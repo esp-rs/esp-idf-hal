@@ -293,7 +293,7 @@ mod asyncify {
 }
 
 #[cfg(feature = "embassy-time")]
-mod embassy_time {
+pub mod embassy_time {
     use core::cell::UnsafeCell;
     use core::sync::atomic::{AtomicU64, Ordering};
 
@@ -365,7 +365,7 @@ mod embassy_time {
         }
     }
 
-    struct EspDriver<const MAX_ALARMS: usize = 16> {
+    pub struct EspDriver<const MAX_ALARMS: usize = 16> {
         alarms: UnsafeCell<Vec<Alarm, MAX_ALARMS>>,
         cs: CriticalSection,
     }
@@ -439,5 +439,6 @@ mod embassy_time {
         }
     }
 
+    #[cfg(feature = "embassy-time-driver")]
     ::embassy_time::time_driver_impl!(static DRIVER: EspDriver = EspDriver::new());
 }
