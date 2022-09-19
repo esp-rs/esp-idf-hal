@@ -342,7 +342,7 @@ pub mod embassy_time {
         }
 
         fn set_callback(&self, callback: fn(*mut ()), ctx: *mut ()) {
-            let ptr: u64 = ((callback as usize as u64) << 32) | (ctx as u32 as u64);
+            let ptr: u64 = ((callback as usize as u64) << 32) | (ctx as usize as u64);
 
             self.callback.store(ptr, Ordering::SeqCst);
         }
@@ -356,8 +356,8 @@ pub mod embassy_time {
 
             if ptr != 0 {
                 unsafe {
-                    let func: fn(*mut ()) = core::mem::transmute((ptr >> 32) as u32);
-                    let arg: *mut () = (ptr & 0xffffffff) as u32 as *mut ();
+                    let func: fn(*mut ()) = core::mem::transmute((ptr >> 32) as usize);
+                    let arg: *mut () = (ptr & 0xffffffff) as usize as *mut ();
 
                     func(arg);
                 }
