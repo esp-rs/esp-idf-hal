@@ -163,7 +163,12 @@ pub fn build() -> Result<EspIdfBuildOutput> {
     if idf.is_managed_espidf {
         let patch_set = match idf.version.map(|v| (v.major, v.minor, v.patch)) {
             // master branch
-            _ if idf.repository.get_default_branch()? == idf.repository.get_branch_name()? => {
+            _ if {
+                let default_branch = idf.repository.get_default_branch()?;
+                let curr_branch = idf.repository.get_branch_name()?;
+                default_branch == curr_branch && !default_branch.is_none()
+            } =>
+            {
                 MASTER_PATCHES
             }
             Ok((5, _, _)) => MASTER_PATCHES,
