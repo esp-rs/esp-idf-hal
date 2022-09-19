@@ -304,7 +304,7 @@ impl_timer!(TIMER11: timer_group_t_TIMER_GROUP_1, timer_idx_t_TIMER_0);
     feature = "embassy-time-timer10",
     feature = "embassy-time-timer11"
 ))]
-mod embassy_time {
+pub mod embassy_time {
     use core::cell::UnsafeCell;
     use core::sync::atomic::{AtomicBool, AtomicU8, Ordering};
 
@@ -348,7 +348,7 @@ mod embassy_time {
         fn noop(_ctx: *mut ()) {}
     }
 
-    struct EspDriver<const MAX_ALARMS: usize = 16> {
+    pub struct EspDriver<const MAX_ALARMS: usize = 16> {
         alarms: UnsafeCell<[Alarm; MAX_ALARMS]>,
         next_alarm: AtomicU8,
         initialized: AtomicBool,
@@ -539,5 +539,6 @@ mod embassy_time {
         }
     }
 
+    #[cfg(feature = "embassy-time-driver")]
     ::embassy_time::time_driver_impl!(static DRIVER: EspDriver = EspDriver::new());
 }

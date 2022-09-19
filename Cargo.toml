@@ -24,6 +24,7 @@ embassy-time-timer00 = ["embassy-time"]
 embassy-time-timer01 = ["embassy-time"]
 embassy-time-timer10 = ["embassy-time"]
 embassy-time-timer11 = ["embassy-time"]
+embassy-time-driver = ["embassy-time"]
 
 [dependencies]
 nb = "0.1.2"
