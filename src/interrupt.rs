@@ -2,6 +2,8 @@ use core::sync::atomic::{AtomicU64, Ordering};
 
 use esp_idf_sys::*;
 
+pub(crate) static CS: CriticalSection = CriticalSection::new();
+
 /// Returns true if the currently active core is executing an ISR request
 #[inline(always)]
 #[link_section = ".iram1.interrupt_active"]
@@ -214,28 +216,60 @@ impl<'a> Drop for CriticalSectionGuard<'a> {
 #[inline(always)]
 #[link_section = ".iram1.interrupt_free"]
 pub fn free<R>(f: impl FnOnce() -> R) -> R {
-    let cs = CriticalSection::new();
-    let _guard = cs.enter();
+    let _guard = CS.enter();
 
     f()
 }
 
 #[cfg(feature = "critical-section")]
 pub mod critical_section {
-    static CS: super::CriticalSection = super::CriticalSection::new();
-
     pub struct EspCriticalSection {}
 
     unsafe impl critical_section::Impl for EspCriticalSection {
         unsafe fn acquire() {
-            super::enter(&CS);
+            super::enter(&super::CS);
         }
 
         unsafe fn release(_token: ()) {
-            super::exit(&CS);
+            super::exit(&super::CS);
         }
     }
 
     #[cfg(feature = "critical-section-interrupt")]
     critical_section::set_impl!(EspCriticalSection);
+}
+
+#[cfg(feature = "embassy-sync")]
+pub mod embassy_sync {
+    use core::marker::PhantomData;
+
+    use embassy_sync::blocking_mutex::raw::RawMutex;
+
+    /// A mutex that allows borrowing data across executors and interrupts.
+    ///
+    /// # Safety
+    ///
+    /// This mutex is safe to share between different executors and interrupts.
+    pub struct CriticalSectionRawMutex {
+        _phantom: PhantomData<()>,
+    }
+    unsafe impl Send for CriticalSectionRawMutex {}
+    unsafe impl Sync for CriticalSectionRawMutex {}
+
+    impl CriticalSectionRawMutex {
+        /// Create a new `CriticalSectionRawMutex`.
+        pub const fn new() -> Self {
+            Self {
+                _phantom: PhantomData,
+            }
+        }
+    }
+
+    unsafe impl RawMutex for CriticalSectionRawMutex {
+        const INIT: Self = Self::new();
+
+        fn lock<R>(&self, f: impl FnOnce() -> R) -> R {
+            super::free(f)
+        }
+    }
 }

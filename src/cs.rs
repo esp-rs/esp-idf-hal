@@ -108,3 +108,35 @@ pub mod critical_section {
     #[cfg(feature = "critical-section-mutex")]
     critical_section::set_impl!(EspCriticalSection);
 }
+
+#[cfg(feature = "embassy-sync")]
+pub mod embassy_sync {
+    use embassy_sync::blocking_mutex::raw::RawMutex;
+
+    /// A mutex that allows borrowing data across executors but NOT accross interrupts.
+    ///
+    /// # Safety
+    ///
+    /// This mutex is safe to share between different executors.
+    pub struct CriticalSectionRawMutex(super::CriticalSection);
+
+    unsafe impl Send for CriticalSectionRawMutex {}
+    unsafe impl Sync for CriticalSectionRawMutex {}
+
+    impl CriticalSectionRawMutex {
+        /// Create a new `CriticalSectionRawMutex`.
+        pub const fn new() -> Self {
+            Self(super::CriticalSection::new())
+        }
+    }
+
+    unsafe impl RawMutex for CriticalSectionRawMutex {
+        const INIT: Self = Self::new();
+
+        fn lock<R>(&self, f: impl FnOnce() -> R) -> R {
+            let _guard = self.0.enter();
+
+            f()
+        }
+    }
+}
