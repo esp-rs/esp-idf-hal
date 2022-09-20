@@ -45,8 +45,8 @@ pub(crate) unsafe fn get_isr_yielder() -> Option<(unsafe fn(*mut ()), *mut ())> 
         if value == 0 {
             None
         } else {
-            let func = core::mem::transmute((value >> 32) as u32);
-            let arg = (value & 0xffffffff) as u32 as *mut ();
+            let func: fn(*mut ()) = core::mem::transmute((value >> 32) as usize);
+            let arg = (value & 0xffffffff) as usize as *mut ();
             Some((func, arg))
         }
     } else {
@@ -73,7 +73,7 @@ pub unsafe fn set_isr_yielder(
 ) -> Option<(unsafe fn(*mut ()), *mut ())> {
     if active() {
         let value = if let Some((func, arg)) = yielder {
-            ((func as usize as u64) << 32) | (arg as u32 as u64)
+            ((func as usize as u64) << 32) | (arg as usize as u64)
         } else {
             0
         };
@@ -82,8 +82,8 @@ pub unsafe fn set_isr_yielder(
         if value == 0 {
             None
         } else {
-            let func = core::mem::transmute((value >> 32) as u32);
-            let arg = (value & 0xffffffff) as u32 as *mut ();
+            let func: fn(*mut ()) = core::mem::transmute((value >> 32) as usize);
+            let arg = (value & 0xffffffff) as usize as *mut ();
             Some((func, arg))
         }
     } else {
