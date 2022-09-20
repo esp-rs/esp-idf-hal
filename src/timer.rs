@@ -98,6 +98,8 @@ where
     }
 
     pub fn enable(&mut self, enable: bool) -> Result<(), EspError> {
+        self.check();
+
         if enable {
             esp!(unsafe { timer_start(TIMER::group(), TIMER::index()) })?;
         } else {
@@ -108,38 +110,58 @@ where
     }
 
     pub fn counter(&self) -> Result<u64, EspError> {
-        let mut value = 0_u64;
+        let value = if crate::interrupt::active() {
+            unsafe { timer_group_get_counter_value_in_isr(TIMER::group(), TIMER::index()) }
+        } else {
+            let mut value = 0_u64;
 
-        esp!(unsafe {
-            timer_get_counter_value(TIMER::group(), TIMER::index(), &mut value as *mut _)
-        })?;
+            esp!(unsafe {
+                timer_get_counter_value(TIMER::group(), TIMER::index(), &mut value as *mut _)
+            })?;
+
+            value
+        };
 
         Ok(value)
     }
 
     pub fn set_counter(&mut self, value: u64) -> Result<(), EspError> {
+        self.check();
+
         esp!(unsafe { timer_set_counter_value(TIMER::group(), TIMER::index(), value) })?;
 
         Ok(())
     }
 
     pub fn enable_alarm(&mut self, enable: bool) -> Result<(), EspError> {
-        esp!(unsafe {
-            timer_set_alarm(
-                TIMER::group(),
-                TIMER::index(),
-                if enable {
-                    timer_alarm_t_TIMER_ALARM_EN
-                } else {
-                    timer_alarm_t_TIMER_ALARM_DIS
-                },
-            )
-        })?;
+        if crate::interrupt::active() {
+            if enable {
+                unsafe {
+                    timer_group_enable_alarm_in_isr(TIMER::group(), TIMER::index());
+                }
+            } else {
+                panic!("Disabling alarm from an ISR is not supported");
+            }
+        } else {
+            esp!(unsafe {
+                timer_set_alarm(
+                    TIMER::group(),
+                    TIMER::index(),
+                    if enable {
+                        timer_alarm_t_TIMER_ALARM_EN
+                    } else {
+                        timer_alarm_t_TIMER_ALARM_DIS
+                    },
+                )
+            })?;
+        }
 
         Ok(())
     }
 
     pub fn alarm(&self) -> Result<u64, EspError> {
+        self.check();
+
         let mut value = 0_u64;
 
         esp!(unsafe { timer_get_alarm_value(TIMER::group(), TIMER::index(), &mut value) })?;
@@ -148,18 +170,28 @@ where
     }
 
     pub fn set_alarm(&mut self, value: u64) -> Result<(), EspError> {
-        esp!(unsafe { timer_set_alarm_value(TIMER::group(), TIMER::index(), value) })?;
+        if crate::interrupt::active() {
+            unsafe {
+                timer_group_set_alarm_value_in_isr(TIMER::group(), TIMER::index(), value);
+            }
+        } else {
+            esp!(unsafe { timer_set_alarm_value(TIMER::group(), TIMER::index(), value) })?;
+        }
 
         Ok(())
     }
 
     pub fn enable_interrupt(&mut self) -> Result<(), EspError> {
+        self.check();
+
         esp!(unsafe { timer_enable_intr(TIMER::group(), TIMER::index()) })?;
 
         Ok(())
     }
 
     pub fn disable_interrupt(&mut self) -> Result<(), EspError> {
+        self.check();
+
         esp!(unsafe { timer_disable_intr(TIMER::group(), TIMER::index()) })?;
 
         Ok(())
@@ -171,6 +203,8 @@ where
     /// in the callback passed to this function, as it is executed in an ISR context.
     #[cfg(feature = "alloc")]
     pub unsafe fn subscribe(&mut self, callback: impl FnMut() + 'static) -> Result<(), EspError> {
+        self.check();
+
         self.unsubscribe()?;
 
         let callback: Box<dyn FnMut() + 'static> = Box::new(callback);
@@ -199,6 +233,8 @@ where
 
     #[cfg(feature = "alloc")]
     pub fn unsubscribe(&mut self) -> Result<(), EspError> {
+        self.check();
+
         unsafe {
             let subscribed = ISR_HANDLERS
                 [(TIMER::group() * timer_group_t_TIMER_GROUP_MAX + TIMER::index()) as usize]
@@ -215,6 +251,12 @@ where
         }
 
         Ok(())
+    }
+
+    fn check(&self) {
+        if crate::interrupt::active() {
+            panic!("This function cannot be called from an ISR");
+        }
     }
 
     #[cfg(feature = "alloc")]
@@ -376,17 +418,17 @@ pub mod embassy_time {
                 let _guard = self.cs_mutex.enter();
 
                 if !self.initialized.load(Ordering::SeqCst) {
-                    esp!(unsafe {
-                        timer_init(
+                    unsafe {
+                        esp!(timer_init(
                             EmbassyTimer::group(),
                             EmbassyTimer::index(),
                             &timer_config_t {
-                                alarm_en: timer_alarm_t_TIMER_ALARM_EN,
+                                alarm_en: timer_alarm_t_TIMER_ALARM_DIS,
                                 counter_en: timer_start_t_TIMER_START,
                                 counter_dir: timer_count_dir_t_TIMER_COUNT_UP,
                                 auto_reload: timer_autoreload_t_TIMER_AUTORELOAD_DIS,
                                 intr_type: timer_intr_mode_t_TIMER_INTR_LEVEL,
-                                divider: 80,
+                                divider: rtc_clk_apb_freq_get() / 1_000_000,
                                 #[cfg(all(
                                     any(esp32s2, esp32s3, esp32c3),
                                     esp_idf_version_major = "4"
@@ -395,25 +437,24 @@ pub mod embassy_time {
                                 #[cfg(not(esp_idf_version_major = "4"))]
                                 clk_src: 0,
                             },
-                        )
-                    })
-                    .unwrap();
+                        ))
+                        .unwrap();
 
-                    esp!(unsafe {
-                        timer_isr_callback_add(
+                        esp!(timer_isr_callback_add(
                             EmbassyTimer::group(),
                             EmbassyTimer::index(),
                             Some(Self::handle_isr),
                             self as *const _ as *mut _,
                             0,
-                        )
-                    })
-                    .unwrap();
+                        ))
+                        .unwrap();
 
-                    esp!(unsafe {
-                        timer_enable_intr(EmbassyTimer::group(), EmbassyTimer::index())
-                    })
-                    .unwrap();
+                        esp!(timer_enable_intr(
+                            EmbassyTimer::group(),
+                            EmbassyTimer::index()
+                        ))
+                        .unwrap();
+                    }
 
                     self.initialized.store(true, Ordering::SeqCst);
                 }
@@ -421,7 +462,7 @@ pub mod embassy_time {
         }
 
         fn update_timer_alarm(&self) {
-            let alarms = unsafe { &mut self.alarms.get().as_mut().unwrap() };
+            let alarms = unsafe { self.alarms.get().as_mut().unwrap() };
 
             let timestamp = alarms
                 .iter()
@@ -429,25 +470,13 @@ pub mod embassy_time {
                 .unwrap()
                 .timestamp;
 
-            esp!(unsafe {
-                timer_set_alarm_value(EmbassyTimer::group(), EmbassyTimer::index(), timestamp)
-            })
-            .unwrap();
+            self.set_alarm(timestamp);
         }
 
         fn handle_alarm(&self) {
-            let mut now = 0_u64;
+            let now = self.counter();
 
-            esp!(unsafe {
-                timer_get_counter_value(
-                    EmbassyTimer::group(),
-                    EmbassyTimer::index(),
-                    &mut now as *mut _,
-                )
-            })
-            .unwrap();
-
-            let alarms = unsafe { &mut self.alarms.get().as_mut().unwrap() };
+            let alarms = unsafe { self.alarms.get().as_mut().unwrap() };
 
             loop {
                 let next_alarm = alarms
@@ -455,7 +484,7 @@ pub mod embassy_time {
                     .min_by_key(|alarm| alarm.timestamp)
                     .unwrap();
 
-                if next_alarm.timestamp < now {
+                if next_alarm.timestamp <= now {
                     next_alarm.timestamp = u64::MAX;
                     (next_alarm.callback)(next_alarm.ctx);
                 } else {
@@ -464,6 +493,79 @@ pub mod embassy_time {
             }
 
             self.update_timer_alarm();
+        }
+
+        fn set_alarm(&self, timestamp: u64) {
+            if crate::interrupt::active() {
+                if timestamp < u64::MAX {
+                    unsafe {
+                        timer_group_set_alarm_value_in_isr(
+                            EmbassyTimer::group(),
+                            EmbassyTimer::index(),
+                            timestamp,
+                        );
+                    }
+                    unsafe {
+                        timer_group_enable_alarm_in_isr(
+                            EmbassyTimer::group(),
+                            EmbassyTimer::index(),
+                        );
+                    }
+                }
+            } else {
+                esp!(unsafe {
+                    timer_set_alarm(
+                        EmbassyTimer::group(),
+                        EmbassyTimer::index(),
+                        timer_alarm_t_TIMER_ALARM_DIS,
+                    )
+                })
+                .unwrap();
+
+                if timestamp < u64::MAX {
+                    esp!(unsafe {
+                        timer_set_alarm_value(
+                            EmbassyTimer::group(),
+                            EmbassyTimer::index(),
+                            timestamp,
+                        )
+                    })
+                    .unwrap();
+
+                    esp!(unsafe {
+                        timer_set_alarm(
+                            EmbassyTimer::group(),
+                            EmbassyTimer::index(),
+                            timer_alarm_t_TIMER_ALARM_EN,
+                        )
+                    })
+                    .unwrap();
+                }
+            }
+        }
+
+        fn counter(&self) -> u64 {
+            if crate::interrupt::active() {
+                unsafe {
+                    timer_group_get_counter_value_in_isr(
+                        EmbassyTimer::group(),
+                        EmbassyTimer::index(),
+                    )
+                }
+            } else {
+                let mut timestamp = 0_u64;
+
+                esp!(unsafe {
+                    timer_get_counter_value(
+                        EmbassyTimer::group(),
+                        EmbassyTimer::index(),
+                        &mut timestamp as *mut _,
+                    )
+                })
+                .unwrap();
+
+                timestamp
+            }
         }
 
         unsafe extern "C" fn handle_isr(this: *mut c_types::c_void) -> bool {
@@ -520,7 +622,7 @@ pub mod embassy_time {
 
             let _guard = self.cs_inter.enter();
 
-            let alarms = unsafe { &mut self.alarms.get().as_mut().unwrap() };
+            let alarms = unsafe { self.alarms.get().as_mut().unwrap() };
 
             alarms[alarm.id() as usize].callback = callback;
             alarms[alarm.id() as usize].ctx = ctx;
@@ -531,7 +633,7 @@ pub mod embassy_time {
 
             let _guard = self.cs_inter.enter();
 
-            let alarms = unsafe { &mut self.alarms.get().as_mut().unwrap() };
+            let alarms = unsafe { self.alarms.get().as_mut().unwrap() };
 
             alarms[alarm.id() as usize].timestamp = timestamp;
 
