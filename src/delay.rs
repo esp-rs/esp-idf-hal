@@ -124,10 +124,12 @@ impl embedded_hal::delay::blocking::DelayUs for Ets {
     }
 }
 
-/// FreeRTOS-based delay provider
-pub struct FreeRtos;
+pub type FreeRtos = Rtos;
 
-impl FreeRtos {
+/// RTOS-based delay provider
+pub struct Rtos;
+
+impl Rtos {
     fn delay_us_internal(&mut self, us: u32) {
         let ms = us / 1000;
 
@@ -144,43 +146,43 @@ impl FreeRtos {
     }
 }
 
-impl embedded_hal_0_2::blocking::delay::DelayUs<u32> for FreeRtos {
+impl embedded_hal_0_2::blocking::delay::DelayUs<u32> for Rtos {
     fn delay_us(&mut self, us: u32) {
         self.delay_us_internal(us);
     }
 }
 
-impl embedded_hal_0_2::blocking::delay::DelayUs<u16> for FreeRtos {
+impl embedded_hal_0_2::blocking::delay::DelayUs<u16> for Rtos {
     fn delay_us(&mut self, us: u16) {
         self.delay_us_internal(us as _);
     }
 }
 
-impl embedded_hal_0_2::blocking::delay::DelayUs<u8> for FreeRtos {
+impl embedded_hal_0_2::blocking::delay::DelayUs<u8> for Rtos {
     fn delay_us(&mut self, us: u8) {
         self.delay_us_internal(us as _);
     }
 }
 
-impl embedded_hal_0_2::blocking::delay::DelayMs<u32> for FreeRtos {
+impl embedded_hal_0_2::blocking::delay::DelayMs<u32> for Rtos {
     fn delay_ms(&mut self, ms: u32) {
         self.delay_ms_internal(ms);
     }
 }
 
-impl embedded_hal_0_2::blocking::delay::DelayMs<u16> for FreeRtos {
+impl embedded_hal_0_2::blocking::delay::DelayMs<u16> for Rtos {
     fn delay_ms(&mut self, ms: u16) {
         self.delay_ms_internal(ms as _);
     }
 }
 
-impl embedded_hal_0_2::blocking::delay::DelayMs<u8> for FreeRtos {
+impl embedded_hal_0_2::blocking::delay::DelayMs<u8> for Rtos {
     fn delay_ms(&mut self, ms: u8) {
         self.delay_ms_internal(ms as _);
     }
 }
 
-impl embedded_hal::delay::blocking::DelayUs for FreeRtos {
+impl embedded_hal::delay::blocking::DelayUs for Rtos {
     type Error = Infallible;
 
     fn delay_us(&mut self, us: u32) -> Result<(), Self::Error> {
