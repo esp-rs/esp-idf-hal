@@ -254,23 +254,18 @@ where
     ) -> Result<(), EspError> {
         let mut command_link = CommandLink::new()?;
 
-        command_link.master_start()?;
-
         let last_op_index = operations.len() - 1;
         let mut prev_was_read = None;
 
         for (i, operation) in operations.iter_mut().enumerate() {
             match operation {
                 Operation::Read(buf) => {
-                    if let Some(false) = prev_was_read {
+                    if Some(true) != prev_was_read {
                         command_link.master_start()?;
+                        command_link
+                            .master_write_byte((address << 1) | (i2c_rw_t_I2C_MASTER_READ as u8), true)?;
                     }
                     prev_was_read = Some(true);
-
-                    command_link.master_write_byte(
-                        (address << 1) | (i2c_rw_t_I2C_MASTER_READ as u8),
-                        true,
-                    )?;
 
                     if !buf.is_empty() {
                         let ack = if i == last_op_index {
@@ -283,15 +278,12 @@ where
                     }
                 }
                 Operation::Write(buf) => {
-                    if let Some(true) = prev_was_read {
+                    if Some(false) != prev_was_read {
                         command_link.master_start()?;
+                        command_link
+                            .master_write_byte((address << 1) | (i2c_rw_t_I2C_MASTER_WRITE as u8), true)?;
                     }
                     prev_was_read = Some(false);
-
-                    command_link.master_write_byte(
-                        (address << 1) | (i2c_rw_t_I2C_MASTER_WRITE as u8),
-                        true,
-                    )?;
 
                     if !buf.is_empty() {
                         command_link.master_write(buf, true)?;
