@@ -61,3 +61,9 @@ impl ResetReason {
         rr.into()
     }
 }
+
+pub fn restart() {
+    unsafe {
+        esp_restart();
+    }
+}
