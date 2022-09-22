@@ -21,8 +21,8 @@ pub fn set_str(buf: &mut [u8], s: &str) {
     buf[..ss.len()].copy_from_slice(ss);
 }
 
-pub fn from_cstr_ptr<'a>(ptr: *const c_types::c_char) -> &'a str {
-    unsafe { CStr::from_ptr(ptr) }.to_str().unwrap()
+pub unsafe fn from_cstr_ptr<'a>(ptr: *const c_types::c_char) -> &'a str {
+    CStr::from_ptr(ptr).to_str().unwrap()
 }
 
 pub fn from_cstr(buf: &[u8]) -> &str {

@@ -21,18 +21,18 @@ impl From<Newtype<&esp_app_desc_t>> for ota::FirmwareInfo {
         let app_desc = app_desc.0;
 
         let mut result = Self {
-            version: from_cstr_ptr(&app_desc.version as *const _).into(),
+            version: unsafe { from_cstr_ptr(&app_desc.version as *const _).into() },
             signature: Some(heapless::Vec::from_slice(&app_desc.app_elf_sha256).unwrap()),
             released: "".into(),
-            description: Some(from_cstr_ptr(&app_desc.project_name as *const _).into()),
+            description: Some(unsafe { from_cstr_ptr(&app_desc.project_name as *const _).into() }),
             download_id: None,
         };
 
         write!(
             &mut result.released,
             "{}{}",
-            from_cstr_ptr(&app_desc.date as *const _),
-            from_cstr_ptr(&app_desc.time as *const _)
+            unsafe { from_cstr_ptr(&app_desc.date as *const _) },
+            unsafe { from_cstr_ptr(&app_desc.time as *const _) }
         )
         .unwrap();
 
@@ -269,7 +269,7 @@ impl EspOta {
         self.check_read()?;
 
         Ok(Slot {
-            label: from_cstr_ptr(&partition.label as *const _ as *const _).into(),
+            label: unsafe { from_cstr_ptr(&partition.label as *const _ as *const _).into() },
             state: self.get_state(partition)?,
             firmware: self.get_firmware_info(partition)?,
         })

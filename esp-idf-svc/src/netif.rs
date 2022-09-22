@@ -366,7 +366,7 @@ impl EspNetif {
     }
 
     pub fn get_key(&self) -> heapless::String<32> {
-        from_cstr_ptr(unsafe { esp_netif_get_ifkey(self.0) }).into()
+        unsafe { from_cstr_ptr(esp_netif_get_ifkey(self.0)) }.into()
     }
 
     pub fn get_index(&self) -> u32 {
@@ -458,7 +458,7 @@ impl EspNetif {
         let mut ptr: *const c_types::c_char = core::ptr::null();
         esp!(unsafe { esp_netif_get_hostname(self.0, &mut ptr) })?;
 
-        Ok(from_cstr_ptr(ptr).into())
+        Ok(unsafe { from_cstr_ptr(ptr).into() })
     }
 
     fn set_hostname(&mut self, hostname: &str) -> Result<(), EspError> {
