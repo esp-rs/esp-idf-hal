@@ -3,7 +3,7 @@ name: CI
 on:
   push:
     branches:
-      - master
+      - release/v0.42
   pull_request:
   schedule:
     - cron: '50 4 * * *'
@@ -18,6 +18,8 @@ jobs:
     steps:
       - name: Setup | Checkout
         uses: actions/checkout@v2
+        with:
+          ref: 'release/v0.42'
       - name: Setup | Rust
         uses: actions-rs/toolchain@v1
         with:

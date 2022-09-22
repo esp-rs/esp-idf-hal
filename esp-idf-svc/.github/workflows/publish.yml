@@ -14,6 +14,8 @@ jobs:
     steps:
       - name: Setup | Checkout
         uses: actions/checkout@v2
+        with:
+          ref: 'release/v0.42'
       - name: Setup | Rust
         uses: actions-rs/toolchain@v1
         with:
