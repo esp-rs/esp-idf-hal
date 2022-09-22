@@ -1015,7 +1015,7 @@ where
         R: FnMut(WifiDeviceId, &[u8]) -> Result<(), EspError> + Send + 'static,
         T: FnMut(WifiDeviceId, &[u8], bool) + Send + 'static,
     {
-        Self::wrap(WifiDriver::new(modem, sysloop)?, rx_callback)
+        Self::wrap(WifiDriver::new(modem, sysloop)?, rx_callback, tx_callback)
     }
 
     pub fn wrap<R, T>(
