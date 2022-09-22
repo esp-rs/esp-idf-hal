@@ -1,6 +1,6 @@
 [package]
 name = "esp-idf-hal"
-version = "0.38.0"
+version = "0.39.0"
 authors = ["sapir <yasapir@gmail.com>", "Ivan Markov <ivan.markov@gmail.com>"]
 edition = "2018"
 resolver = "2"
@@ -11,34 +11,35 @@ repository = "https://github.com/esp-rs/esp-idf-hal"
 license = "MIT OR Apache-2.0"
 readme = "README.md"
 documentation = "https://esp-rs.github.io/esp-idf-hal/"
+rust-version = "1.61"
 
 [features]
-default = ["std", "alloc", "esp-idf-sys", "embedded-svc"]
-
-std = ["alloc", "esp-idf-sys/std", "embedded-svc?/std"]
-
-alloc = ["embedded-svc?/alloc"]
-
+default = ["std", "alloc", "esp-idf-sys"]
+std = ["alloc", "esp-idf-sys/std", "edge-executor?/std"]
+alloc = []
+critical-section-interrupt = ["critical-section"]
+critical-section-mutex = ["critical-section"]
 riscv-ulp-hal = []
-
-experimental = ["embedded-svc?/experimental"]
+embassy-time-timer00 = ["embassy-time"]
+embassy-time-timer01 = ["embassy-time"]
+embassy-time-timer10 = ["embassy-time"]
+embassy-time-timer11 = ["embassy-time"]
+embassy-time-driver = ["embassy-time"]
 
 [dependencies]
 nb = "0.1.2"
-mutex-trait = { version = "0.2", optional = true, default-features = false }
 embedded-hal = "=1.0.0-alpha.8"
 embedded-hal-0-2 = { package = "embedded-hal", version = "0.2.7", features = ["unproven"] }
-embedded-svc = { version = "0.22.0", optional = true, default-features = false }
-esp-idf-sys = { version = "0.31.4", optional = true, default-features = false, features = ["native"] }
-critical-section = { version = "0.2.5", optional = true, features = ["custom-impl"] }
-embassy = { version = "0", optional = true }
-# The real version is this one and it needs to be patched into the binary crate:
-#embassy = { version = "0.1", git = "https://github.com/embassy-rs/embassy", optional = true, features = ["executor-agnostic"] }
+esp-idf-sys = { version = "0.31.9", optional = true, default-features = false, features = ["native"] }
+critical-section = { version = "1.1", optional = true }
+embassy-sync = { version = "0.1", optional = true, git = "https://github.com/ivmarkov/embassy" }
+embassy-time = { version = "0.1", optional = true, features = ["tick-hz-1_000_000"], git = "https://github.com/ivmarkov/embassy" }
+edge-executor = { version = "0.2", optional = true, default-features = false }
 
 [build-dependencies]
-embuild = "0.29"
+embuild = "0.30.3"
 anyhow = "1"
 
 [dev-dependencies]
 anyhow = "1"
-esp-idf-sys = { version = "0.31.4", features = ["native", "binstart"] }
+esp-idf-sys = { version = "0.31.9", features = ["native", "binstart"] }

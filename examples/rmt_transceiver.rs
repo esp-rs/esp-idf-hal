@@ -1,26 +1,24 @@
 //! A simple example that sets up a RMT transmiiter and an RMT receiver
 //!
-//! GPIO pin 36 is input and GPIO pin 25 is output
+//! GPIO pin 2 is input and GPIO pin 4 is output
 //!
 //!    TYPICAL OUTPUT
-//! E (1378) mcpwm_test: Tx Loop
-//! W (1378) mcpwm_test: Rx Loop
-//! W (1378) mcpwm_test: level0 = High   dur0 = PulseTicks(620)   level1 = Low   dur1 = PulseTicks(620)
-//! W (1378) mcpwm_test: level0 = High   dur0 = PulseTicks(620)   level1 = Low   dur1 = PulseTicks(620)
-//! W (1388) mcpwm_test: level0 = High   dur0 = PulseTicks(210)   level1 = Low   dur1 = PulseTicks(410)
-//! W (1398) mcpwm_test: level0 = High   dur0 = PulseTicks(410)   level1 = Low   dur1 = PulseTicks(210)
-//! W (1408) mcpwm_test: level0 = High   dur0 = PulseTicks(210)   level1 = Low   dur1 = PulseTicks(0)
-//! W (1918) mcpwm_test: Rx Loop
-//! W (1918) mcpwm_test: level0 = High   dur0 = PulseTicks(620)   level1 = Low   dur1 = PulseTicks(620)
-//! W (1918) mcpwm_test: level0 = High   dur0 = PulseTicks(620)   level1 = Low   dur1 = PulseTicks(620)
-//! W (1928) mcpwm_test: level0 = High   dur0 = PulseTicks(210)   level1 = Low   dur1 = PulseTicks(410)
-//! W (1938) mcpwm_test: level0 = High   dur0 = PulseTicks(410)   level1 = Low   dur1 = PulseTicks(210)
-//! W (1948) mcpwm_test: level0 = High   dur0 = PulseTicks(210)   level1 = Low   dur1 = PulseTicks(0)
-//! E (2378) mcpwm_test: Tx Loop
+//! Tx Loop
+//! Rx Loop
+//! level0 = High   dur0 = PulseTicks(620)   level1 = Low   dur1 = PulseTicks(620)
+//! level0 = High   dur0 = PulseTicks(620)   level1 = Low   dur1 = PulseTicks(620)
+//! level0 = High   dur0 = PulseTicks(210)   level1 = Low   dur1 = PulseTicks(410)
+//! level0 = High   dur0 = PulseTicks(410)   level1 = Low   dur1 = PulseTicks(210)
+//! level0 = High   dur0 = PulseTicks(210)   level1 = Low   dur1 = PulseTicks(0)
+//! Rx Loop
+//! level0 = High   dur0 = PulseTicks(620)   level1 = Low   dur1 = PulseTicks(620)
+//! level0 = High   dur0 = PulseTicks(620)   level1 = Low   dur1 = PulseTicks(620)
+//! level0 = High   dur0 = PulseTicks(210)   level1 = Low   dur1 = PulseTicks(410)
+//! level0 = High   dur0 = PulseTicks(410)   level1 = Low   dur1 = PulseTicks(210)
+//! level0 = High   dur0 = PulseTicks(210)   level1 = Low   dur1 = PulseTicks(0)
+//! Tx Loop
 
 use esp_idf_sys::{self as _}; // If using the `binstart` feature of `esp-idf-sys`, always keep this module imported
-
-use log::*;
 
 use esp_idf_hal::peripherals::Peripherals;
 use std::thread;
@@ -32,24 +30,21 @@ use esp_idf_hal::rmt::{
 };
 
 fn main() -> anyhow::Result<()> {
-    // Bind the log crate to the ESP Logging facilities
-    esp_idf_svc::log::EspLogger::initialize_default();
-
-    info!("Starting APP!");
+    println!("Starting APP!");
 
     let peripherals = Peripherals::take().unwrap();
 
     /*
      *********************** SET UP RMT RECEIVER ******************************
      */
-    let input_pin = peripherals.pins.gpio36.into_input()?;
+    let input_pin = peripherals.pins.gpio2.into_input()?;
     let rx_rmt_channel: CHANNEL2 = peripherals.rmt.channel2;
     let rx_config = ReceiveConfig::new().idle_threshold(700u16);
     let mut rx = Receive::new(input_pin, rx_rmt_channel, &rx_config, 1000)?;
     let _rx_start = rx.start().unwrap();
 
     let _receive_task = thread::spawn(move || loop {
-        warn!("Rx Loop");
+        println!("Rx Loop");
 
         // See sdkconfig.defaults to determine the tick time value ( default is one tick = 10 milliseconds)
         // Set ticks_to_wait to 0 for non-blocking
@@ -58,7 +53,7 @@ fn main() -> anyhow::Result<()> {
 
         if length != 0 {
             for n in 0..length / 4 {
-                warn!(
+                println!(
                     "level0 = {:?}   dur0 = {:?}   level1 = {:?}   dur1 = {:?}",
                     rx.pulse_pair_vec[n as usize].level0,
                     rx.pulse_pair_vec[n as usize].duration0,
@@ -74,7 +69,7 @@ fn main() -> anyhow::Result<()> {
     /*
      *********************** SET UP RMT TRANSMITTER ******************************
      */
-    let output_pin = peripherals.pins.gpio25.into_output()?;
+    let output_pin = peripherals.pins.gpio4.into_output()?;
     let tx_rmt_channel: CHANNEL0 = peripherals.rmt.channel0;
 
     // Prepare the tx_config
@@ -91,7 +86,7 @@ fn main() -> anyhow::Result<()> {
     let sync_high = Pulse::new(PinState::High, PulseTicks::new(620)?);
 
     let _transmit_task = thread::spawn(move || loop {
-        error!("Tx Loop");
+        println!("Tx Loop");
 
         // Create a sequence
         let mut signal = FixedLengthSignal::<5>::new();

@@ -18,15 +18,15 @@
 //!
 //! ```
 //! // Prepare the config.
-//! let config = TransmitConfig::new().clock_divider(1);
+//! let config = Config::new().clock_divider(1);
 //!
 //! // Retrieve the output pin and channel from peripherals.
 //! let peripherals = Peripherals::take().unwrap();
-//! let pin = peripherals.pins.gpio18.into_output()?;
 //! let channel = peripherals.rmt.channel0;
+//! let pin = peripherals.pins.gpio18;
 //!
 //! // Create an RMT transmitter.
-//! let tx = Transmit::new(pin, channel, &config)?;
+//! let tx = RmtDriver::new(channel, pin, &config)?;
 //!
 //! // Prepare signal pulse signal to be sent.
 //! let low = Pulse::new(PinState::Low, PulseTicks::new(10)?);
@@ -51,6 +51,10 @@
 //! [VariableLengthSignal] allows you to use the heap and incrementally add pulse items without knowing the size
 //! ahead of time.
 
+use core::convert::TryFrom;
+use core::time::Duration;
+
+#[cfg(feature = "alloc")]
 extern crate alloc;
 
 use crate::gpio::InputPin;
@@ -67,6 +71,17 @@ use core::convert::TryFrom;
 use core::time::Duration;
 use esp_idf_sys::*;
 
+
+use esp_idf_sys::*;
+
+use crate::gpio::OutputPin;
+use crate::peripheral::{Peripheral, PeripheralRef};
+use crate::units::Hertz;
+
+use config::Config;
+
+pub use chip::*;
+
 /// A `Low` (0) or `High` (1) state for a pin.
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum PinState {
@@ -76,7 +91,7 @@ pub enum PinState {
 
 /// A `Pulse` contains a pin state and a tick count, used in creating a [`Signal`].
 ///
-/// The real time duration of a tick depends on the [`TransmitConfig::clock_divider`] setting.
+/// The real time duration of a tick depends on the [`Config::clock_divider`] setting.
 ///
 /// You can create a `Pulse` with a [`Duration`] by using [`Pulse::new_with_duration`].
 ///
@@ -110,7 +125,7 @@ impl Pulse {
     /// # let peripherals = Peripherals::take()?;
     /// # let led = peripherals.pins.gpio18.into_output()?;
     /// # let channel = peripherals.rmt.channel0;
-    /// # let config = TransmitConfig::new()?;
+    /// # let config = Config::new()?;
     /// let tx = Transmit::new(led, channel, &config)?;
     /// let ticks_hz = tx.counter_clock()?;
     /// let pulse = Pulse::new_with_duration(ticks_hz, PinState::High, Duration::from_nanos(500))?;
@@ -167,9 +182,11 @@ pub fn duration_to_ticks(ticks_hz: Hertz, duration: &Duration) -> Result<u128, E
         / 1_000_000_000)
 }
 
+pub type RmtConfig = config::Config;
+
 /// Types used for configuring the [`rmt`][crate::rmt] module.
 ///
-/// [`TransmitConfig`] is used when creating a [`Transmit`][crate::rmt::Transmit] instance.
+/// [`Config`] is used when creating a [`Transmit`][crate::rmt::Transmit] instance.
 ///
 /// # Example
 /// ```
@@ -178,7 +195,7 @@ pub fn duration_to_ticks(ticks_hz: Hertz, duration: &Duration) -> Result<u128, E
 ///     .duty_percent(DutyPercent::new(50)?)
 ///     .frequency(611.Hz());
 ///
-/// let config = TransmitConfig::new()
+/// let config = Config::new()
 ///     .carrier(Some(carrier))
 ///     .looping(Loop::Endless)
 ///     .clock_divider(255);
@@ -218,20 +235,13 @@ pub mod config {
         pub duty_percent: DutyPercent,
     }
 
-    impl Default for CarrierConfig {
-        /// Defaults from `<https://github.com/espressif/esp-idf/blob/master/components/driver/include/driver/rmt.h#L101>`
-        fn default() -> Self {
+    impl CarrierConfig {
+        pub fn new() -> Self {
             Self {
                 frequency: 38.kHz().into(),
                 carrier_level: PinState::High,
                 duty_percent: DutyPercent(33),
             }
-        }
-    }
-
-    impl CarrierConfig {
-        pub fn new() -> Self {
-            Default::default()
         }
 
         pub fn frequency(mut self, hz: Hertz) -> Self {
@@ -250,6 +260,13 @@ pub mod config {
         }
     }
 
+    impl Default for CarrierConfig {
+        /// Defaults from `<https://github.com/espressif/esp-idf/blob/master/components/driver/include/driver/rmt.h#L101>`
+        fn default() -> Self {
+            Self::new()
+        }
+    }
+
     /// Configuration setting for looping a signal.
     #[derive(Copy, Clone, Debug, PartialEq, Eq)]
     pub enum Loop {
@@ -260,7 +277,7 @@ pub mod config {
     }
 
     /// Used when creating a [`Transmit`][crate::rmt::Transmit] instance.
-    pub struct TransmitConfig {
+    pub struct Config {
         pub clock_divider: u8,
         pub mem_block_num: u8,
         pub carrier: Option<CarrierConfig>,
@@ -277,9 +294,8 @@ pub mod config {
         pub aware_dfs: bool,
     }
 
-    impl Default for TransmitConfig {
-        /// Defaults from `<https://github.com/espressif/esp-idf/blob/master/components/driver/include/driver/rmt.h#L101>`
-        fn default() -> Self {
+    impl Config {
+        pub fn new() -> Self {
             Self {
                 aware_dfs: false,
                 mem_block_num: 1,
@@ -288,12 +304,6 @@ pub mod config {
                 carrier: None,
                 idle: Some(PinState::Low),
             }
-        }
-    }
-
-    impl TransmitConfig {
-        pub fn new() -> Self {
-            Self::default()
         }
 
         pub fn aware_dfs(mut self, enable: bool) -> Self {
@@ -385,27 +395,37 @@ pub mod config {
             self.carrier = carrier;
             self
         }
+        
+    impl Default for Config {
+        /// Defaults from `<https://github.com/espressif/esp-idf/blob/master/components/driver/include/driver/rmt.h#L101>`
+        fn default() -> Self {
+            Self::new()
+        }
     }
 }
 
-/// The RMT transmitter.
+/// The RMT transmitter driver.
 ///
-/// Use [`Transmit::start()`] or [`Transmit::start_blocking()`] to transmit pulses.
+/// Use [`RmtDriver::start()`] or [`RmtDriver::start_blocking()`] to transmit pulses.
 ///
 /// See the [rmt module][crate::rmt] for more information.
-pub struct Transmit<P: OutputPin, C: HwChannel> {
-    pin: P,
-    channel: C,
+pub struct RmtDriver<'d, C: RmtChannel> {
+    _channel: PeripheralRef<'d, C>,
 }
 
-impl<P: OutputPin, C: HwChannel> Transmit<P, C> {
+impl<'d, C: RmtChannel> RmtDriver<'d, C> {
     /// Initialise the rmt module with the specified pin, channel and configuration.
     ///
-    /// To uninstall the driver and return ownership of the `channel` and `pin` use
-    /// [`Transmit::release()`].
+    /// To uninstall the driver just drop it.
     ///
     /// Internally this calls `rmt_config()` and `rmt_driver_install()`.
-    pub fn new(pin: P, channel: C, config: &TransmitConfig) -> Result<Self, EspError> {
+    pub fn new(
+        channel: impl Peripheral<P = C> + 'd,
+        pin: impl Peripheral<P = impl OutputPin> + 'd,
+        config: &Config,
+    ) -> Result<Self, EspError> {
+        crate::into_ref!(channel, pin);
+
         let mut flags = 0;
         if config.aware_dfs {
             flags |= RMT_CHANNEL_FLAGS_AWARE_DFS;
@@ -444,7 +464,7 @@ impl<P: OutputPin, C: HwChannel> Transmit<P, C> {
             esp!(rmt_driver_install(C::channel(), 0, 0))?;
         }
 
-        Ok(Self { pin, channel })
+        Ok(Self { _channel: channel })
     }
 
     /// Get speed of the channel’s internal counter clock.
@@ -497,7 +517,7 @@ impl<P: OutputPin, C: HwChannel> Transmit<P, C> {
     /// that don't work in interrupt handlers. Iteration must also be fast so that there
     /// are no time-gaps between successive transmissions where the perhipheral has to
     /// wait for items. This can cause weird behavior and can be counteracted with
-    /// increasing [`TransmitConfig::mem_block_num`] or making iteration more efficient.
+    /// increasing [`Config::mem_block_num`] or making iteration more efficient.
     #[cfg(feature = "std")]
     pub fn start_iter<T>(&mut self, iter: T) -> Result<(), EspError>
     where
@@ -531,7 +551,7 @@ impl<P: OutputPin, C: HwChannel> Transmit<P, C> {
     /// that don't work in interrupt handlers. Iteration must also be fast so that there
     /// are no time-gaps between successive transmissions where the perhipheral has to
     /// wait for items. This can cause weird behavior and can be counteracted with
-    /// increasing [`TransmitConfig::mem_block_num`] or making iteration more efficient.
+    /// increasing [`Config::mem_block_num`] or making iteration more efficient.
     pub fn start_iter_blocking<T>(&mut self, iter: T) -> Result<(), EspError>
     where
         T: Iterator<Item = rmt_item32_t> + Send,
@@ -614,15 +634,6 @@ impl<P: OutputPin, C: HwChannel> Transmit<P, C> {
         esp!(unsafe { rmt_tx_stop(C::channel()) })
     }
 
-    /// Stop transmitting and release the driver.
-    ///
-    /// This will return the pin and channel.
-    pub fn release(mut self) -> Result<(P, C), EspError> {
-        self.stop()?;
-        esp!(unsafe { rmt_driver_uninstall(C::channel()) })?;
-        Ok((self.pin, self.channel))
-    }
-
     pub fn set_looping(&mut self, looping: config::Loop) -> Result<(), EspError> {
         esp!(unsafe { rmt_set_tx_loop_mode(C::channel(), looping != config::Loop::None) })?;
 
@@ -640,6 +651,16 @@ impl<P: OutputPin, C: HwChannel> Transmit<P, C> {
         Ok(())
     }
 }
+
+impl<'d, C: RmtChannel> Drop for RmtDriver<'d, C> {
+    /// Stop transmitting and release the driver.
+    fn drop(&mut self) {
+        self.stop().unwrap();
+        esp!(unsafe { rmt_driver_uninstall(C::channel()) }).unwrap();
+    }
+}
+
+unsafe impl<'d, C: RmtChannel> Send for RmtDriver<'d, C> {}
 
 /// Signal storage for [`Transmit`] in a format ready for the RMT driver.
 pub trait Signal {
@@ -817,33 +838,18 @@ impl Signal for VariableLengthSignal {
 }
 
 mod chip {
-    use core::marker::PhantomData;
-
     use esp_idf_sys::*;
 
     /// RMT peripheral channel.
-    pub trait HwChannel {
+    pub trait RmtChannel {
         fn channel() -> rmt_channel_t;
     }
 
     macro_rules! impl_channel {
         ($instance:ident: $channel:expr) => {
-            pub struct $instance {
-                _marker: PhantomData<rmt_channel_t>,
-            }
+            crate::impl_peripheral!($instance);
 
-            impl $instance {
-                /// # Safety
-                ///
-                /// It is safe to instantiate this channel exactly one time.
-                pub unsafe fn new() -> Self {
-                    $instance {
-                        _marker: PhantomData,
-                    }
-                }
-            }
-
-            impl HwChannel for $instance {
+            impl RmtChannel for $instance {
                 fn channel() -> rmt_channel_t {
                     $channel
                 }
@@ -866,7 +872,7 @@ mod chip {
     #[cfg(any(esp32, esp32s3))]
     impl_channel!(CHANNEL7: rmt_channel_t_RMT_CHANNEL_7);
 
-    pub struct Peripheral {
+    pub struct RMT {
         pub channel0: CHANNEL0,
         pub channel1: CHANNEL1,
         pub channel2: CHANNEL2,
@@ -881,7 +887,7 @@ mod chip {
         pub channel7: CHANNEL7,
     }
 
-    impl Peripheral {
+    impl RMT {
         /// Creates a new instance of the RMT peripheral. Typically one wants
         /// to use the instance [`rmt`](crate::peripherals::Peripherals::rmt) from
         /// the device peripherals obtained via

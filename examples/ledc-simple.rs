@@ -1,7 +1,7 @@
 use embedded_hal::delay::blocking::DelayUs;
 
 use esp_idf_hal::delay::FreeRtos;
-use esp_idf_hal::ledc::{config::TimerConfig, Channel, Timer};
+use esp_idf_hal::ledc::*;
 use esp_idf_hal::peripherals::Peripherals;
 use esp_idf_hal::prelude::*;
 
@@ -11,9 +11,13 @@ fn main() -> anyhow::Result<()> {
     println!("Configuring output channel");
 
     let peripherals = Peripherals::take().unwrap();
-    let config = TimerConfig::default().frequency(25.kHz().into());
-    let timer = Timer::new(peripherals.ledc.timer0, &config)?;
-    let mut channel = Channel::new(peripherals.ledc.channel0, &timer, peripherals.pins.gpio4)?;
+    let config = config::TimerConfig::new().frequency(25.kHz().into());
+    let mut channel = LedcDriver::new(
+        peripherals.ledc.channel0,
+        LedcTimerDriver::new(peripherals.ledc.timer0, &config)?,
+        peripherals.pins.gpio4,
+        &config,
+    )?;
 
     println!("Starting duty-cycle loop");
 

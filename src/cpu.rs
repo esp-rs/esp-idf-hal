@@ -22,6 +22,23 @@ impl Core {
     }
 }
 
+impl From<Core> for i32 {
+    fn from(core: Core) -> Self {
+        core as _
+    }
+}
+
+impl From<i32> for Core {
+    fn from(core: i32) -> Self {
+        match core {
+            0 => Core::Core0,
+            #[cfg(any(esp32, esp32s3))]
+            1 => Core::Core1,
+            _ => panic!(),
+        }
+    }
+}
+
 /// Returns the currently active core ID
 /// On single-core systems, like esp32s2 and esp32c3 this function always returns 0
 ///
