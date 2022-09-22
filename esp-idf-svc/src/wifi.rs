@@ -655,6 +655,14 @@ where
         WifiDriver::stop(self)
     }
 
+    fn connect(&mut self) -> Result<(), Self::Error> {
+        WifiDriver::connect(self)
+    }
+
+    fn disconnect(&mut self) -> Result<(), Self::Error> {
+        WifiDriver::disconnect(self)
+    }
+
     fn scan_n<const N: usize>(
         &mut self,
     ) -> Result<(heapless::Vec<AccessPointInfo, N>, usize), Self::Error> {
@@ -797,6 +805,14 @@ where
         self.driver_mut().stop()
     }
 
+    fn connect(&mut self) -> Result<(), EspError> {
+        self.driver_mut().connect()
+    }
+
+    fn disconnect(&mut self) -> Result<(), EspError> {
+        self.driver_mut().disconnect()
+    }
+
     pub fn scan_n<const N: usize>(
         &mut self,
     ) -> Result<(heapless::Vec<AccessPointInfo, N>, usize), EspError> {
@@ -883,6 +899,14 @@ where
 
     fn stop(&mut self) -> Result<(), Self::Error> {
         EspWifi::stop(self)
+    }
+
+    fn connect(&mut self) -> Result<(), Self::Error> {
+        EspWifi::connect(self)
+    }
+
+    fn disconnect(&mut self) -> Result<(), Self::Error> {
+        EspWifi::disconnect(self)
     }
 
     fn scan_n<const N: usize>(
@@ -1074,6 +1098,14 @@ where
         self.driver_mut().stop()
     }
 
+    fn connect(&mut self) -> Result<(), EspError> {
+        self.driver_mut().connect()
+    }
+
+    fn disconnect(&mut self) -> Result<(), EspError> {
+        self.driver_mut().disconnect()
+    }
+
     pub fn scan_n<const N: usize>(
         &mut self,
     ) -> Result<(heapless::Vec<AccessPointInfo, N>, usize), EspError> {
@@ -1185,6 +1217,14 @@ where
 
     fn stop(&mut self) -> Result<(), Self::Error> {
         EspRawWifi::stop(self)
+    }
+
+    fn connect(&mut self) -> Result<(), Self::Error> {
+        EspRawWifi::connect(self)
+    }
+
+    fn disconnect(&mut self) -> Result<(), Self::Error> {
+        EspRawWifi::disconnect(self)
     }
 
     fn scan_n<const N: usize>(
