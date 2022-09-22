@@ -425,6 +425,7 @@ impl EspWifi {
         {
             let mut shared = self.waitable.state.lock();
             Self::netif_unbind(shared.sta_netif.as_mut())?;
+            shared.sta_netif = None;
         }
 
         let netif = if let Some(conf) = conf {
@@ -463,6 +464,7 @@ impl EspWifi {
         {
             let mut shared = self.waitable.state.lock();
             Self::netif_unbind(shared.ap_netif.as_mut())?;
+            shared.ap_netif = None;
         }
 
         let netif = if let Some(conf) = conf {
