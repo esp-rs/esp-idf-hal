@@ -262,8 +262,10 @@ where
                 Operation::Read(buf) => {
                     if Some(true) != prev_was_read {
                         command_link.master_start()?;
-                        command_link
-                            .master_write_byte((address << 1) | (i2c_rw_t_I2C_MASTER_READ as u8), true)?;
+                        command_link.master_write_byte(
+                            (address << 1) | (i2c_rw_t_I2C_MASTER_READ as u8),
+                            true,
+                        )?;
                     }
                     prev_was_read = Some(true);
 
@@ -280,8 +282,10 @@ where
                 Operation::Write(buf) => {
                     if Some(false) != prev_was_read {
                         command_link.master_start()?;
-                        command_link
-                            .master_write_byte((address << 1) | (i2c_rw_t_I2C_MASTER_WRITE as u8), true)?;
+                        command_link.master_write_byte(
+                            (address << 1) | (i2c_rw_t_I2C_MASTER_WRITE as u8),
+                            true,
+                        )?;
                     }
                     prev_was_read = Some(false);
 
