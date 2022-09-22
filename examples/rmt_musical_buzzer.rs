@@ -10,7 +10,7 @@ use embedded_hal::delay::blocking::DelayUs;
 
 use esp_idf_hal::delay::Ets;
 use esp_idf_hal::peripherals::Peripherals;
-use esp_idf_hal::rmt::config::{Config, Loop};
+use esp_idf_hal::rmt::config::{Loop, TransmitConfig};
 use esp_idf_hal::rmt::*;
 
 use notes::*;
@@ -21,7 +21,7 @@ fn main() -> anyhow::Result<()> {
     let peripherals = Peripherals::take().unwrap();
     let led = peripherals.pins.gpio17;
     let channel = peripherals.rmt.channel0;
-    let config = Config::new().looping(Loop::Endless);
+    let config = TransmitConfig::new().looping(Loop::Endless);
     let mut tx: RmtDriver<'static, _> = RmtDriver::new(channel, led, &config)?;
 
     loop {

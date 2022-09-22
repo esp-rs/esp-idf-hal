@@ -67,9 +67,11 @@ use crate::gpio::OutputPin;
 use crate::peripheral::{Peripheral, PeripheralRef};
 use crate::units::Hertz;
 
-use config::Config;
+use config::TransmitConfig;
 
 pub use chip::*;
+
+pub type RmtTransmitConfig = config::TransmitConfig;
 
 /// A `Low` (0) or `High` (1) state for a pin.
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
@@ -171,7 +173,7 @@ pub fn duration_to_ticks(ticks_hz: Hertz, duration: &Duration) -> Result<u128, E
         / 1_000_000_000)
 }
 
-pub type RmtConfig = config::Config;
+pub type RmtConfig = config::TransmitConfig;
 
 /// Types used for configuring the [`rmt`][crate::rmt] module.
 ///
@@ -266,7 +268,7 @@ pub mod config {
     }
 
     /// Used when creating a [`Transmit`][crate::rmt::Transmit] instance.
-    pub struct Config {
+    pub struct TransmitConfig {
         pub clock_divider: u8,
         pub mem_block_num: u8,
         pub carrier: Option<CarrierConfig>,
@@ -283,7 +285,7 @@ pub mod config {
         pub aware_dfs: bool,
     }
 
-    impl Config {
+    impl TransmitConfig {
         pub fn new() -> Self {
             Self {
                 aware_dfs: false,
@@ -326,7 +328,7 @@ pub mod config {
         }
     }
 
-    impl Default for Config {
+    impl Default for TransmitConfig {
         /// Defaults from `<https://github.com/espressif/esp-idf/blob/master/components/driver/include/driver/rmt.h#L101>`
         fn default() -> Self {
             Self::new()
@@ -352,7 +354,7 @@ impl<'d, C: RmtChannel> RmtDriver<'d, C> {
     pub fn new(
         channel: impl Peripheral<P = C> + 'd,
         pin: impl Peripheral<P = impl OutputPin> + 'd,
-        config: &Config,
+        config: &TransmitConfig,
     ) -> Result<Self, EspError> {
         crate::into_ref!(channel, pin);
 

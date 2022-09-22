@@ -17,7 +17,7 @@ use embedded_hal::delay::blocking::DelayUs;
 
 use esp_idf_hal::delay::Ets;
 use esp_idf_hal::peripherals::Peripherals;
-use esp_idf_hal::rmt::config::Config;
+use esp_idf_hal::rmt::config::TransmitConfig;
 use esp_idf_hal::rmt::*;
 
 fn main() -> anyhow::Result<()> {
@@ -26,7 +26,7 @@ fn main() -> anyhow::Result<()> {
     let peripherals = Peripherals::take().unwrap();
     let led = peripherals.pins.gpio18;
     let channel = peripherals.rmt.channel0;
-    let config = Config::new().clock_divider(1);
+    let config = TransmitConfig::new().clock_divider(1);
     let mut tx = RmtDriver::new(channel, led, &config)?;
 
     let rgbs = [0xff0000, 0xffff00, 0x00ffff, 0x00ff00, 0xa000ff];
