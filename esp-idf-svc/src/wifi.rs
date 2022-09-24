@@ -181,6 +181,60 @@ impl From<Newtype<&wifi_ap_record_t>> for AccessPointInfo {
     }
 }
 
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+pub enum WifiDeviceId {
+    Ap,
+    Sta,
+}
+
+impl From<WifiDeviceId> for wifi_interface_t {
+    fn from(id: WifiDeviceId) -> Self {
+        match id {
+            WifiDeviceId::Ap => wifi_interface_t_WIFI_IF_AP,
+            WifiDeviceId::Sta => wifi_interface_t_WIFI_IF_STA,
+        }
+    }
+}
+
+#[allow(non_upper_case_globals)]
+impl From<wifi_interface_t> for WifiDeviceId {
+    fn from(id: wifi_interface_t) -> Self {
+        match id {
+            wifi_interface_t_WIFI_IF_AP => WifiDeviceId::Ap,
+            wifi_interface_t_WIFI_IF_STA => WifiDeviceId::Sta,
+            _ => unreachable!(),
+        }
+    }
+}
+
+extern "C" {
+    fn esp_wifi_internal_reg_rxcb(
+        ifx: wifi_interface_t,
+        rxcb: Option<
+            unsafe extern "C" fn(
+                buffer: *mut c_types::c_void,
+                len: u16,
+                eb: *mut c_types::c_void,
+            ) -> esp_err_t,
+        >,
+    ) -> esp_err_t;
+
+    fn esp_wifi_internal_free_rx_buffer(buffer: *mut c_types::c_void);
+
+    fn esp_wifi_internal_tx(
+        wifi_if: wifi_interface_t,
+        buffer: *mut c_types::c_void,
+        len: u16,
+    ) -> esp_err_t;
+}
+
+#[allow(clippy::type_complexity)]
+static mut RX_CALLBACK: Option<
+    Box<dyn FnMut(WifiDeviceId, &[u8]) -> Result<(), EspError> + 'static>,
+> = None;
+#[allow(clippy::type_complexity)]
+static mut TX_CALLBACK: Option<Box<dyn FnMut(WifiDeviceId, &[u8], bool) + 'static>> = None;
+
 pub struct WifiDriver<'d, M: WifiModemPeripheral> {
     _modem: PeripheralRef<'d, M>,
     status: Arc<mutex::Mutex<(WifiEvent, WifiEvent)>>,
@@ -189,7 +243,7 @@ pub struct WifiDriver<'d, M: WifiModemPeripheral> {
     _nvs: Option<EspDefaultNvsPartition>,
 }
 
-impl<'d, M: WifiModemPeripheral> WifiDriver<'d, M> {
+impl<'d, M: WifiModemPeripheral + 'd> WifiDriver<'d, M> {
     #[cfg(all(feature = "alloc", esp_idf_comp_nvs_flash_enabled))]
     pub fn new(
         modem: impl Peripheral<P = M> + 'd,
@@ -511,6 +565,57 @@ impl<'d, M: WifiModemPeripheral> WifiDriver<'d, M> {
         Ok(result)
     }
 
+    pub fn set_callbacks<R, T>(
+        &mut self,
+        mut rx_callback: R,
+        mut tx_callback: T,
+    ) -> Result<(), EspError>
+    where
+        R: FnMut(WifiDeviceId, &[u8]) -> Result<(), EspError> + Send + 'static,
+        T: FnMut(WifiDeviceId, &[u8], bool) + Send + 'static,
+    {
+        let _ = self.disconnect();
+        let _ = self.stop();
+
+        #[allow(clippy::type_complexity)]
+        let rx_callback: Box<
+            Box<dyn FnMut(WifiDeviceId, &[u8]) -> Result<(), EspError> + 'static>,
+        > = Box::new(Box::new(move |device_id, data| {
+            rx_callback(device_id, data)
+        }));
+
+        #[allow(clippy::type_complexity)]
+        let tx_callback: Box<Box<dyn FnMut(WifiDeviceId, &[u8], bool) + 'static>> =
+            Box::new(Box::new(move |device_id, data, status| {
+                tx_callback(device_id, data, status)
+            }));
+
+        unsafe {
+            RX_CALLBACK = Some(rx_callback);
+            TX_CALLBACK = Some(tx_callback);
+
+            esp!(esp_wifi_internal_reg_rxcb(
+                WifiDeviceId::Ap.into(),
+                Some(Self::handle_rx_ap),
+            ))?;
+
+            esp!(esp_wifi_internal_reg_rxcb(
+                WifiDeviceId::Sta.into(),
+                Some(Self::handle_rx_sta),
+            ))?;
+
+            esp!(esp_wifi_set_tx_done_cb(Some(Self::handle_tx)))?;
+        }
+
+        Ok(())
+    }
+
+    pub fn send(&mut self, device_id: WifiDeviceId, frame: &[u8]) -> Result<(), EspError> {
+        esp!(unsafe {
+            esp_wifi_internal_tx(device_id.into(), frame.as_ptr() as *mut _, frame.len() as _)
+        })
+    }
+
     fn get_sta_conf(&self) -> Result<ClientConfiguration, EspError> {
         let mut wifi_config: wifi_config_t = Default::default();
         esp!(unsafe { esp_wifi_get_config(wifi_interface_t_WIFI_IF_STA, &mut wifi_config) })?;
@@ -562,10 +667,19 @@ impl<'d, M: WifiModemPeripheral> WifiDriver<'d, M> {
     }
 
     fn clear_all(&mut self) -> Result<(), EspError> {
+        let _ = self.disconnect();
         let _ = self.stop();
 
         unsafe {
             esp!(esp_wifi_deinit())?;
+        }
+
+        unsafe {
+            RX_CALLBACK = None;
+            TX_CALLBACK = None;
+
+            esp!(esp_wifi_internal_reg_rxcb(WifiDeviceId::Ap.into(), None)).unwrap();
+            esp!(esp_wifi_internal_reg_rxcb(WifiDeviceId::Sta.into(), None)).unwrap();
         }
 
         info!("Driver deinitialized");
@@ -608,6 +722,49 @@ impl<'d, M: WifiModemPeripheral> WifiDriver<'d, M> {
         info!("Got info for {} access points", ap_count);
 
         Ok(ap_count as usize)
+    }
+
+    unsafe extern "C" fn handle_rx_ap(
+        buf: *mut c_types::c_void,
+        len: u16,
+        eb: *mut c_types::c_void,
+    ) -> esp_err_t {
+        Self::handle_rx(WifiDeviceId::Ap, buf, len, eb)
+    }
+
+    unsafe extern "C" fn handle_rx_sta(
+        buf: *mut c_types::c_void,
+        len: u16,
+        eb: *mut c_types::c_void,
+    ) -> esp_err_t {
+        Self::handle_rx(WifiDeviceId::Sta, buf, len, eb)
+    }
+
+    unsafe fn handle_rx(
+        device_id: WifiDeviceId,
+        buf: *mut c_types::c_void,
+        len: u16,
+        eb: *mut c_types::c_void,
+    ) -> esp_err_t {
+        let res = RX_CALLBACK.as_mut().unwrap()(
+            device_id,
+            core::slice::from_raw_parts(buf as *mut _, len as usize),
+        );
+
+        esp_wifi_internal_free_rx_buffer(eb);
+
+        match res {
+            Ok(_) => ESP_OK,
+            Err(e) => e.code(),
+        }
+    }
+
+    unsafe extern "C" fn handle_tx(ifidx: u8, data: *mut u8, len: *mut u16, tx_status: bool) {
+        TX_CALLBACK.as_mut().unwrap()(
+            (ifidx as wifi_interface_t).into(),
+            core::slice::from_raw_parts(data as *const _, len as usize),
+            tx_status,
+        );
     }
 }
 
@@ -917,324 +1074,6 @@ where
 
     fn scan(&mut self) -> Result<alloc::vec::Vec<AccessPointInfo>, Self::Error> {
         EspWifi::scan(self)
-    }
-}
-
-#[derive(Copy, Clone, Debug, Eq, PartialEq)]
-pub enum WifiDeviceId {
-    Ap,
-    Sta,
-}
-
-impl From<WifiDeviceId> for wifi_interface_t {
-    fn from(id: WifiDeviceId) -> Self {
-        match id {
-            WifiDeviceId::Ap => wifi_interface_t_WIFI_IF_AP,
-            WifiDeviceId::Sta => wifi_interface_t_WIFI_IF_STA,
-        }
-    }
-}
-
-#[allow(non_upper_case_globals)]
-impl From<wifi_interface_t> for WifiDeviceId {
-    fn from(id: wifi_interface_t) -> Self {
-        match id {
-            wifi_interface_t_WIFI_IF_AP => WifiDeviceId::Ap,
-            wifi_interface_t_WIFI_IF_STA => WifiDeviceId::Sta,
-            _ => unreachable!(),
-        }
-    }
-}
-
-extern "C" {
-    fn esp_wifi_internal_reg_rxcb(
-        ifx: wifi_interface_t,
-        rxcb: Option<
-            unsafe extern "C" fn(
-                buffer: *mut c_types::c_void,
-                len: u16,
-                eb: *mut c_types::c_void,
-            ) -> esp_err_t,
-        >,
-    ) -> esp_err_t;
-
-    fn esp_wifi_internal_free_rx_buffer(buffer: *mut c_types::c_void);
-
-    fn esp_wifi_internal_tx(
-        wifi_if: wifi_interface_t,
-        buffer: *mut c_types::c_void,
-        len: u16,
-    ) -> esp_err_t;
-}
-
-#[allow(clippy::type_complexity)]
-static mut RX_CALLBACK: Option<
-    Box<dyn FnMut(WifiDeviceId, &[u8]) -> Result<(), EspError> + 'static>,
-> = None;
-#[allow(clippy::type_complexity)]
-static mut TX_CALLBACK: Option<Box<dyn FnMut(WifiDeviceId, &[u8], bool) + 'static>> = None;
-
-pub struct EspRawWifi<'d, M>
-where
-    M: WifiModemPeripheral,
-{
-    driver: WifiDriver<'d, M>,
-}
-
-impl<'d, M> EspRawWifi<'d, M>
-where
-    M: WifiModemPeripheral + 'd,
-{
-    #[cfg(all(feature = "alloc", esp_idf_comp_nvs_flash_enabled))]
-    pub fn new<R, T>(
-        modem: impl Peripheral<P = M> + 'd,
-        sysloop: EspSystemEventLoop,
-        nvs: Option<EspDefaultNvsPartition>,
-        rx_callback: R,
-        tx_callback: T,
-    ) -> Result<Self, EspError>
-    where
-        R: FnMut(WifiDeviceId, &[u8]) -> Result<(), EspError> + Send + 'static,
-        T: FnMut(WifiDeviceId, &[u8], bool) + Send + 'static,
-    {
-        Self::wrap(
-            WifiDriver::new(modem, sysloop, nvs)?,
-            rx_callback,
-            tx_callback,
-        )
-    }
-
-    #[cfg(not(all(feature = "alloc", esp_idf_comp_nvs_flash_enabled)))]
-    pub fn new<R>(
-        modem: impl Peripheral<P = M> + 'd,
-        sysloop: EspSystemEventLoop,
-        rx_callback: R,
-        tx_callback: T,
-    ) -> Result<Self, EspError>
-    where
-        R: FnMut(WifiDeviceId, &[u8]) -> Result<(), EspError> + Send + 'static,
-        T: FnMut(WifiDeviceId, &[u8], bool) + Send + 'static,
-    {
-        Self::wrap(WifiDriver::new(modem, sysloop)?, rx_callback, tx_callback)
-    }
-
-    pub fn wrap<R, T>(
-        mut driver: WifiDriver<'d, M>,
-        mut rx_callback: R,
-        mut tx_callback: T,
-    ) -> Result<Self, EspError>
-    where
-        R: FnMut(WifiDeviceId, &[u8]) -> Result<(), EspError> + Send + 'static,
-        T: FnMut(WifiDeviceId, &[u8], bool) + Send + 'static,
-    {
-        let _ = driver.stop();
-
-        #[allow(clippy::type_complexity)]
-        let rx_callback: Box<
-            Box<dyn FnMut(WifiDeviceId, &[u8]) -> Result<(), EspError> + 'static>,
-        > = Box::new(Box::new(move |device_id, data| {
-            rx_callback(device_id, data)
-        }));
-
-        #[allow(clippy::type_complexity)]
-        let tx_callback: Box<Box<dyn FnMut(WifiDeviceId, &[u8], bool) + 'static>> =
-            Box::new(Box::new(move |device_id, data, status| {
-                tx_callback(device_id, data, status)
-            }));
-
-        unsafe {
-            RX_CALLBACK = Some(rx_callback);
-            TX_CALLBACK = Some(tx_callback);
-
-            esp!(esp_wifi_internal_reg_rxcb(
-                WifiDeviceId::Ap.into(),
-                Some(Self::handle_rx_ap),
-            ))?;
-
-            esp!(esp_wifi_internal_reg_rxcb(
-                WifiDeviceId::Sta.into(),
-                Some(Self::handle_rx_sta),
-            ))?;
-
-            esp!(esp_wifi_set_tx_done_cb(Some(Self::handle_tx)))?;
-        }
-
-        Ok(Self { driver })
-    }
-
-    pub fn driver(&self) -> &WifiDriver<'d, M> {
-        &self.driver
-    }
-
-    pub fn driver_mut(&mut self) -> &mut WifiDriver<'d, M> {
-        &mut self.driver
-    }
-
-    pub fn get_capabilities(&self) -> Result<EnumSet<Capability>, EspError> {
-        self.driver().get_capabilities()
-    }
-
-    pub fn is_started(&self) -> Result<bool, EspError> {
-        self.driver().is_started()
-    }
-
-    pub fn is_up(&self) -> Result<bool, EspError> {
-        self.driver().is_connected()
-    }
-
-    pub fn get_configuration(&self) -> Result<Configuration, EspError> {
-        self.driver().get_configuration()
-    }
-
-    pub fn set_configuration(&mut self, conf: &Configuration) -> Result<(), EspError> {
-        self.driver_mut().set_configuration(conf)
-    }
-
-    pub fn start(&mut self) -> Result<(), EspError> {
-        self.driver_mut().start()
-    }
-
-    pub fn stop(&mut self) -> Result<(), EspError> {
-        self.driver_mut().stop()
-    }
-
-    fn connect(&mut self) -> Result<(), EspError> {
-        self.driver_mut().connect()
-    }
-
-    fn disconnect(&mut self) -> Result<(), EspError> {
-        self.driver_mut().disconnect()
-    }
-
-    pub fn scan_n<const N: usize>(
-        &mut self,
-    ) -> Result<(heapless::Vec<AccessPointInfo, N>, usize), EspError> {
-        self.driver_mut().scan_n()
-    }
-
-    pub fn scan(&mut self) -> Result<alloc::vec::Vec<AccessPointInfo>, EspError> {
-        self.driver_mut().scan()
-    }
-
-    pub fn send(&mut self, device_id: WifiDeviceId, frame: &[u8]) -> Result<(), EspError> {
-        esp!(unsafe {
-            esp_wifi_internal_tx(device_id.into(), frame.as_ptr() as *mut _, frame.len() as _)
-        })
-    }
-
-    unsafe extern "C" fn handle_rx_ap(
-        buf: *mut c_types::c_void,
-        len: u16,
-        eb: *mut c_types::c_void,
-    ) -> esp_err_t {
-        Self::handle_rx(WifiDeviceId::Ap, buf, len, eb)
-    }
-
-    unsafe extern "C" fn handle_rx_sta(
-        buf: *mut c_types::c_void,
-        len: u16,
-        eb: *mut c_types::c_void,
-    ) -> esp_err_t {
-        Self::handle_rx(WifiDeviceId::Sta, buf, len, eb)
-    }
-
-    unsafe fn handle_rx(
-        device_id: WifiDeviceId,
-        buf: *mut c_types::c_void,
-        len: u16,
-        eb: *mut c_types::c_void,
-    ) -> esp_err_t {
-        let res = RX_CALLBACK.as_mut().unwrap()(
-            device_id,
-            core::slice::from_raw_parts(buf as *mut _, len as usize),
-        );
-
-        esp_wifi_internal_free_rx_buffer(eb);
-
-        match res {
-            Ok(_) => ESP_OK,
-            Err(e) => e.code(),
-        }
-    }
-
-    unsafe extern "C" fn handle_tx(ifidx: u8, data: *mut u8, len: *mut u16, tx_status: bool) {
-        TX_CALLBACK.as_mut().unwrap()(
-            (ifidx as wifi_interface_t).into(),
-            core::slice::from_raw_parts(data as *const _, len as usize),
-            tx_status,
-        );
-    }
-}
-
-impl<'d, M> Drop for EspRawWifi<'d, M>
-where
-    M: WifiModemPeripheral,
-{
-    fn drop(&mut self) {
-        let _ = self.driver.stop();
-
-        unsafe {
-            RX_CALLBACK = None;
-            TX_CALLBACK = None;
-
-            esp!(esp_wifi_internal_reg_rxcb(WifiDeviceId::Ap.into(), None)).unwrap();
-            esp!(esp_wifi_internal_reg_rxcb(WifiDeviceId::Sta.into(), None)).unwrap();
-        }
-    }
-}
-
-unsafe impl<'d, M: WifiModemPeripheral> Send for EspRawWifi<'d, M> {}
-
-impl<'d, M> Wifi for EspRawWifi<'d, M>
-where
-    M: WifiModemPeripheral,
-{
-    type Error = EspError;
-
-    fn get_capabilities(&self) -> Result<EnumSet<Capability>, Self::Error> {
-        EspRawWifi::get_capabilities(self)
-    }
-
-    fn is_started(&self) -> Result<bool, Self::Error> {
-        EspRawWifi::is_started(self)
-    }
-
-    fn is_connected(&self) -> Result<bool, Self::Error> {
-        EspRawWifi::is_up(self)
-    }
-
-    fn get_configuration(&self) -> Result<Configuration, Self::Error> {
-        EspRawWifi::get_configuration(self)
-    }
-
-    fn set_configuration(&mut self, conf: &Configuration) -> Result<(), Self::Error> {
-        EspRawWifi::set_configuration(self, conf)
-    }
-
-    fn start(&mut self) -> Result<(), Self::Error> {
-        EspRawWifi::start(self)
-    }
-
-    fn stop(&mut self) -> Result<(), Self::Error> {
-        EspRawWifi::stop(self)
-    }
-
-    fn connect(&mut self) -> Result<(), Self::Error> {
-        EspRawWifi::connect(self)
-    }
-
-    fn disconnect(&mut self) -> Result<(), Self::Error> {
-        EspRawWifi::disconnect(self)
-    }
-
-    fn scan_n<const N: usize>(
-        &mut self,
-    ) -> Result<(heapless::Vec<AccessPointInfo, N>, usize), Self::Error> {
-        EspRawWifi::scan_n(self)
-    }
-
-    fn scan(&mut self) -> Result<alloc::vec::Vec<AccessPointInfo>, Self::Error> {
-        EspRawWifi::scan(self)
     }
 }
 

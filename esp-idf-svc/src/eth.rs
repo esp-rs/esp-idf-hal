@@ -124,6 +124,29 @@ struct UnsafeHandle(esp_eth_handle_t);
 
 unsafe impl Send for UnsafeHandle {}
 
+struct UnsafeCallback(*mut Box<dyn FnMut(&[u8]) + 'static>);
+
+impl UnsafeCallback {
+    #[allow(clippy::type_complexity)]
+    fn from(boxed: &mut Box<Box<dyn for<'a> FnMut(&[u8]) + 'static>>) -> Self {
+        Self(boxed.as_mut())
+    }
+
+    unsafe fn from_ptr(ptr: *mut c_types::c_void) -> Self {
+        Self(ptr as *mut _)
+    }
+
+    fn as_ptr(&self) -> *mut c_types::c_void {
+        self.0 as *mut _
+    }
+
+    unsafe fn call(&self, data: &[u8]) {
+        let reference = self.0.as_mut().unwrap();
+
+        (reference)(data);
+    }
+}
+
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 enum Status {
     Stopped,
@@ -138,6 +161,7 @@ pub struct EthDriver<'d, P> {
     handle: esp_eth_handle_t,
     status: Arc<mutex::Mutex<Status>>,
     _subscription: EspSubscription<System>,
+    callback: Option<Box<Box<dyn FnMut(&[u8]) + 'static>>>,
 }
 
 #[cfg(all(esp32, esp_idf_eth_use_esp32_emac))]
@@ -480,6 +504,7 @@ impl<'d, P> EthDriver<'d, P> {
             spi,
             status: waitable,
             _subscription: subscription,
+            callback: None,
         };
 
         info!("Initialization complete");
@@ -545,6 +570,46 @@ impl<'d, P> EthDriver<'d, P> {
         info!("Stop requested");
 
         Ok(())
+    }
+
+    pub fn set_rx_callback<C>(&mut self, mut callback: C) -> Result<(), EspError>
+    where
+        C: for<'a> FnMut(&[u8]) + Send + 'static,
+    {
+        let _ = self.stop()?;
+
+        let mut callback: Box<Box<dyn FnMut(&[u8]) + 'static>> =
+            Box::new(Box::new(move |data| callback(data)));
+
+        let unsafe_callback = UnsafeCallback::from(&mut callback);
+
+        unsafe {
+            esp_eth_update_input_path(self.handle(), Some(Self::handle), unsafe_callback.as_ptr());
+        }
+
+        self.callback = Some(callback);
+
+        Ok(())
+    }
+
+    pub fn send(&mut self, frame: &[u8]) -> Result<(), EspError> {
+        esp!(unsafe {
+            esp_eth_transmit(self.handle(), frame.as_ptr() as *mut _, frame.len() as _)
+        })?;
+
+        Ok(())
+    }
+
+    unsafe extern "C" fn handle(
+        _handle: esp_eth_handle_t,
+        buf: *mut u8,
+        len: u32,
+        event_handler_arg: *mut c_types::c_void,
+    ) -> esp_err_t {
+        UnsafeCallback::from_ptr(event_handler_arg as *mut _)
+            .call(core::slice::from_raw_parts(buf, len as _));
+
+        ESP_OK
     }
 
     fn clear_all(&mut self) -> Result<(), EspError> {
@@ -769,113 +834,6 @@ impl<'d, P> Eth for EspEth<'d, P> {
         Ok(self.driver().is_up()? && self.netif().is_up()?)
     }
 }
-
-struct UnsafeCallback(*mut Box<dyn FnMut(&[u8]) + 'static>);
-
-impl UnsafeCallback {
-    #[allow(clippy::type_complexity)]
-    fn from(boxed: &mut Box<Box<dyn for<'a> FnMut(&[u8]) + 'static>>) -> Self {
-        Self(boxed.as_mut())
-    }
-
-    unsafe fn from_ptr(ptr: *mut c_types::c_void) -> Self {
-        Self(ptr as *mut _)
-    }
-
-    fn as_ptr(&self) -> *mut c_types::c_void {
-        self.0 as *mut _
-    }
-
-    unsafe fn call(&self, data: &[u8]) {
-        let reference = self.0.as_mut().unwrap();
-
-        (reference)(data);
-    }
-}
-
-pub struct EspRawEth<'d, P> {
-    driver: EthDriver<'d, P>,
-    _callback: Box<Box<dyn FnMut(&[u8]) + 'static>>,
-}
-
-impl<'d, P> EspRawEth<'d, P> {
-    pub fn wrap<C>(driver: EthDriver<'d, P>, mut callback: C) -> Result<Self, EspError>
-    where
-        C: for<'a> FnMut(&[u8]) + Send + 'static,
-    {
-        let mut callback: Box<Box<dyn FnMut(&[u8]) + 'static>> =
-            Box::new(Box::new(move |data| callback(data)));
-
-        let unsafe_callback = UnsafeCallback::from(&mut callback);
-
-        unsafe {
-            esp_eth_update_input_path(
-                driver.handle(),
-                Some(Self::handle),
-                unsafe_callback.as_ptr(),
-            );
-        }
-
-        Ok(Self {
-            driver,
-            _callback: callback,
-        })
-    }
-
-    pub fn driver(&self) -> &EthDriver<'d, P> {
-        &self.driver
-    }
-
-    pub fn driver_mut(&mut self) -> &mut EthDriver<'d, P> {
-        &mut self.driver
-    }
-
-    pub fn send(&mut self, frame: &[u8]) -> Result<(), EspError> {
-        esp!(unsafe {
-            esp_eth_transmit(
-                self.driver.handle(),
-                frame.as_ptr() as *mut _,
-                frame.len() as _,
-            )
-        })?;
-
-        Ok(())
-    }
-
-    unsafe extern "C" fn handle(
-        _handle: esp_eth_handle_t,
-        buf: *mut u8,
-        len: u32,
-        event_handler_arg: *mut c_types::c_void,
-    ) -> esp_err_t {
-        UnsafeCallback::from_ptr(event_handler_arg as *mut _)
-            .call(core::slice::from_raw_parts(buf, len as _));
-
-        ESP_OK
-    }
-}
-
-impl<'d, P> Eth for EspRawEth<'d, P> {
-    type Error = EspError;
-
-    fn start(&mut self) -> Result<(), Self::Error> {
-        self.driver_mut().start()
-    }
-
-    fn stop(&mut self) -> Result<(), Self::Error> {
-        self.driver_mut().stop()
-    }
-
-    fn is_started(&self) -> Result<bool, Self::Error> {
-        self.driver().is_started()
-    }
-
-    fn is_up(&self) -> Result<bool, Self::Error> {
-        self.driver().is_up()
-    }
-}
-
-unsafe impl<'d, P> Send for EspRawEth<'d, P> {}
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub enum EthEvent {
