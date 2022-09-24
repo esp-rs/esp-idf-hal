@@ -83,79 +83,93 @@ pub fn build() -> Result<EspIdfBuildOutput> {
     // But this variable is also present when using git-bash.
     env::remove_var("MSYSTEM");
 
-    // Get the install dir location from the build config, or use
-    // [`crate::config::DEFAULT_TOOLS_INSTALL_DIR`] if unset.
-    let (install_dir, allow_from_env) = config.esp_idf_tools_install_dir()?;
-    // EspIdf must come from the environment if `esp_idf_tools_install_dir` == `fromenv`".
-    let require_from_env = install_dir.is_from_env();
-    let maybe_from_env = require_from_env || allow_from_env;
+    // Install the esp-idf and its tools.
+    let (idf, tools_install_dir) = {
+        // Get the install dir location from the build config, or use
+        // [`crate::config::DEFAULT_TOOLS_INSTALL_DIR`] if unset.
+        let (install_dir, is_default_install_dir) = config.esp_idf_tools_install_dir()?;
+        // EspIdf must come from the environment if `esp_idf_tools_install_dir` == `fromenv`.
+        let require_from_env = install_dir.is_from_env();
+        let maybe_from_env = require_from_env || is_default_install_dir;
 
-    // Closure to install the esp-idf using `embuild::espidf::Installer`.
-    let install = |esp_idf_origin: EspIdfOrigin| -> Result<espidf::EspIdf> {
-        match &esp_idf_origin {
-            EspIdfOrigin::Custom(repo) => {
-                eprintln!(
+        // Closure to install the esp-idf using `embuild::espidf::Installer`.
+        let install = |esp_idf_origin: EspIdfOrigin| -> Result<(espidf::EspIdf, InstallDir)> {
+            match &esp_idf_origin {
+                EspIdfOrigin::Custom(repo) => {
+                    eprintln!(
                     "Using custom user-supplied esp-idf repository at '{}' (detected from env variable `{}`)",
                     repo.worktree().display(),
                     espidf::IDF_PATH_VAR
                 );
-                if let Some(custom_url) = &config.native.esp_idf_repository {
-                    cargo::print_warning(format_args!(
+                    if let Some(custom_url) = &config.native.esp_idf_repository {
+                        cargo::print_warning(format_args!(
                         "Ignoring configuration setting `{ESP_IDF_REPOSITORY_VAR}=\"{custom_url}\"`: \
                          custom esp-idf repository detected via ${}",
                         espidf::IDF_PATH_VAR
                     ));
-                }
-                if let Some(custom_version) = &config.native.esp_idf_version {
-                    cargo::print_warning(format_args!(
+                    }
+                    if let Some(custom_version) = &config.native.esp_idf_version {
+                        cargo::print_warning(format_args!(
                         "Ignoring configuration setting `{ESP_IDF_VERSION_VAR}` ({custom_version}): \
                          custom esp-idf repository detected via ${}",
                         espidf::IDF_PATH_VAR
                     ));
+                    }
                 }
-            }
-            EspIdfOrigin::Managed(remote) => {
-                eprintln!("Using managed esp-idf repository: {remote:?}");
-            }
+                EspIdfOrigin::Managed(remote) => {
+                    eprintln!("Using managed esp-idf repository: {remote:?}");
+                }
+            };
+
+            let idf = espidf::Installer::new(esp_idf_origin)
+                .install_dir(install_dir.path().map(Into::into))
+                .with_tools(make_tools)
+                .install()
+                .context("Could not install esp-idf")?;
+            Ok((idf, install_dir.clone()))
         };
 
-        espidf::Installer::new(esp_idf_origin)
-            .install_dir(install_dir.path().map(Into::into))
-            .with_tools(make_tools)
-            .install()
-            .context("Could not install esp-idf")
-    };
+        // 1. Try to use the activated esp-idf environment if `esp_idf_tools_install_dir`
+        //    is `fromenv` or unset.
+        // 2. Use a custom esp-idf repository specified by `$IDF_PATH`/`idf_path` if
+        //    available and install the tools using `embuild::espidf::Installer` in
+        //    `install_dir`.
+        // 3. Install the esp-idf and its tools in `install_dir`.
+        match (espidf::EspIdf::try_from_env(), maybe_from_env) {
+            (Ok(idf), true) => {
+                eprintln!(
+                    "Using activated esp-idf {} environment at '{}'",
+                    espidf::EspIdfVersion::format(&idf.version),
+                    idf.repository.worktree().display()
+                );
 
-    let idf = match (espidf::EspIdf::try_from_env(), maybe_from_env) {
-        (Ok(idf), true) => {
-            eprintln!(
-                "Using activated esp-idf {} environment at '{}'",
-                espidf::EspIdfVersion::format(&idf.version),
-                idf.repository.worktree().display()
-            );
-
-            idf
-        },
-        (Ok(idf), false) => {
-                cargo::print_warning(format_args!(
-                    "Ignoring activated esp-idf environment: {ESP_IDF_TOOLS_INSTALL_DIR_VAR} != {}", InstallDir::FromEnv
-                ));
-                install(EspIdfOrigin::Custom(idf.repository))?
-        },
-        (Err(FromEnvError::NotActivated { source: err, .. }), true) |
-        (Err(FromEnvError::NoRepo(err)), true) if require_from_env => {
-            return Err(err.context(
-                format!("activated esp-idf environment not found but required by {ESP_IDF_TOOLS_INSTALL_DIR_VAR} == {install_dir}")
-            ))
-        }
-        (Err(FromEnvError::NoRepo(_)), _) => {
-            install(EspIdfOrigin::Managed(EspIdfRemote {
-                git_ref: config.native.esp_idf_version(),
-                repo_url: config.native.esp_idf_repository.clone()
-            }))?
-        },
-        (Err(FromEnvError::NotActivated { esp_idf_repo, .. }), _) => {
-            install(EspIdfOrigin::Custom(esp_idf_repo))?
+                (idf, InstallDir::FromEnv)
+            },
+            (Ok(idf), false) => {
+                    cargo::print_warning(format_args!(
+                        "Ignoring activated esp-idf environment: {ESP_IDF_TOOLS_INSTALL_DIR_VAR} != {}", InstallDir::FromEnv
+                    ));
+                    install(EspIdfOrigin::Custom(idf.repository))?
+            },
+            (Err(FromEnvError::NotActivated { source: err, .. }), true) |
+            (Err(FromEnvError::NoRepo(err)), true) if require_from_env => {
+                return Err(err.context(
+                    format!("activated esp-idf environment not found but required by {ESP_IDF_TOOLS_INSTALL_DIR_VAR} == {install_dir}")
+                ))
+            }
+            (Err(FromEnvError::NotActivated { esp_idf_repo, .. }), _) => {
+                install(EspIdfOrigin::Custom(esp_idf_repo))?
+            },
+            (Err(FromEnvError::NoRepo(_)), _) => {
+                let origin = match &config.native.idf_path {
+                    Some(idf_path) => EspIdfOrigin::Custom(git::Repository::open(idf_path)?),
+                    None => EspIdfOrigin::Managed(EspIdfRemote {
+                        git_ref: config.native.esp_idf_version(),
+                        repo_url: config.native.esp_idf_repository.clone()
+                    })
+                };
+                install(origin)?
+            },
         }
     };
 
@@ -324,8 +338,18 @@ pub fn build() -> Result<EspIdfBuildOutput> {
         .env("SDKCONFIG_DEFAULTS", defaults_files)
         .env("IDF_TARGET", &chip_name);
 
-    if let Some(install_dir) = install_dir.path() {
-        cmake_config.env("IDF_TOOLS_PATH", install_dir);
+    match &tools_install_dir {
+        InstallDir::Custom(dir) | InstallDir::Out(dir) | InstallDir::Workspace(dir) => {
+            cmake_config.env(espidf::IDF_TOOLS_PATH_VAR, dir);
+        }
+        InstallDir::Global => {
+            cmake_config.env(
+                espidf::IDF_TOOLS_PATH_VAR,
+                espidf::Installer::global_install_dir(),
+            );
+        }
+        // Not setting it will forward the environment variable.
+        InstallDir::FromEnv => (),
     }
 
     // Specify the components that should be built.

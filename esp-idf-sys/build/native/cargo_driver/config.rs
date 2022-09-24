@@ -42,7 +42,7 @@ pub struct NativeConfig {
     esp_idf_cmake_generator: Option<cmake::Generator>,
 
     /// The path to the esp-idf repository.
-    idf_path: Option<PathBuf>,
+    pub idf_path: Option<PathBuf>,
 
     /// Additional components to build and maybe generate bindings for.
     ///
