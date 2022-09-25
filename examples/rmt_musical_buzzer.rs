@@ -26,7 +26,7 @@ fn main() -> anyhow::Result<()> {
 
     loop {
         play_song(&mut tx, ODE_TO_JOY)?;
-        Ets.delay_ms(3000)?;
+        Ets::delay_ms(3000)?;
     }
 }
 
@@ -58,11 +58,11 @@ pub fn play_note(
 
     // Play the note for the 80% of the duration.
     tx.start(signal)?;
-    Ets.delay_ms((80 * duration.as_millis() / 100) as u32)?;
+    Ets::delay_ms((80 * duration.as_millis() / 100) as u32)?;
 
     // Small pause between notes, 20% of the specified duration.
     tx.stop()?;
-    Ets.delay_ms((20 * duration.as_millis() / 100) as u32)?;
+    Ets::delay_ms((20 * duration.as_millis() / 100) as u32)?;
 
     Ok(())
 }

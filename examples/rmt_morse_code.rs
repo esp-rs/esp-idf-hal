@@ -47,7 +47,7 @@ fn main() -> anyhow::Result<()> {
     println!("Keep sending until pin {} is set low.", stop.pin());
 
     while stop.is_high() {
-        Ets.delay_ms(100)?;
+        Ets::delay_ms(100)?;
     }
 
     println!("Pin {} set to low. Stopped.", stop.pin());
@@ -56,7 +56,7 @@ fn main() -> anyhow::Result<()> {
     drop(tx);
 
     // Wait so the messages don't get garbled.
-    Ets.delay_ms(3000)?;
+    Ets::delay_ms(3000)?;
 
     // Now send a single message and stop.
     println!("Saying GOODBYE!");

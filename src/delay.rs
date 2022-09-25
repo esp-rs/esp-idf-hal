@@ -49,7 +49,9 @@ impl From<TickType> for Option<Duration> {
     }
 }
 
-/// Espressif Task Scheduler-based delay provider
+/// Espressif built-in delay provider
+/// Use only for very small delays (us or a few ms at most), or else the FreeRTOS IDLE tasks' might starve and
+/// the IDLE tasks' watchdog will trigger
 pub struct Ets;
 
 // No longer available in the generated bindings for ESP-IDF 5
@@ -59,13 +61,13 @@ extern "C" {
 }
 
 impl Ets {
-    fn delay_us_internal(&mut self, us: u32) {
+    pub fn delay_us(us: u32) {
         unsafe {
             ets_delay_us(us);
         }
     }
 
-    fn delay_ms_internal(&mut self, ms: u32) {
+    pub fn delay_ms(ms: u32) {
         unsafe {
             ets_delay_us(ms * 1000);
         }
@@ -74,37 +76,37 @@ impl Ets {
 
 impl embedded_hal_0_2::blocking::delay::DelayUs<u32> for Ets {
     fn delay_us(&mut self, us: u32) {
-        self.delay_us_internal(us);
+        Ets::delay_us(us);
     }
 }
 
 impl embedded_hal_0_2::blocking::delay::DelayUs<u16> for Ets {
     fn delay_us(&mut self, us: u16) {
-        self.delay_us_internal(us as _);
+        Ets::delay_us(us as _);
     }
 }
 
 impl embedded_hal_0_2::blocking::delay::DelayUs<u8> for Ets {
     fn delay_us(&mut self, us: u8) {
-        self.delay_us_internal(us as _);
+        Ets::delay_us(us as _);
     }
 }
 
 impl embedded_hal_0_2::blocking::delay::DelayMs<u32> for Ets {
     fn delay_ms(&mut self, ms: u32) {
-        self.delay_ms_internal(ms);
+        Ets::delay_ms(ms);
     }
 }
 
 impl embedded_hal_0_2::blocking::delay::DelayMs<u16> for Ets {
     fn delay_ms(&mut self, ms: u16) {
-        self.delay_ms_internal(ms as _);
+        Ets::delay_ms(ms as _);
     }
 }
 
 impl embedded_hal_0_2::blocking::delay::DelayMs<u8> for Ets {
     fn delay_ms(&mut self, ms: u8) {
-        self.delay_ms_internal(ms as _);
+        Ets::delay_ms(ms as _);
     }
 }
 
@@ -112,29 +114,32 @@ impl embedded_hal::delay::blocking::DelayUs for Ets {
     type Error = Infallible;
 
     fn delay_us(&mut self, us: u32) -> Result<(), Self::Error> {
-        self.delay_us_internal(us);
+        Ets::delay_us(us);
 
         Ok(())
     }
 
     fn delay_ms(&mut self, ms: u32) -> Result<(), Self::Error> {
-        self.delay_ms_internal(ms);
+        Ets::delay_ms(ms);
 
         Ok(())
     }
 }
 
 /// FreeRTOS-based delay provider
+/// Use for delays larger than 10ms (delays smaller than 10ms used in a loop would
+/// starve the FreeRTOS IDLE tasks' as they are low prio tasks and hence the
+/// the IDLE tasks' watchdog will trigger)
 pub struct FreeRtos;
 
 impl FreeRtos {
-    fn delay_us_internal(&mut self, us: u32) {
+    fn delay_us(us: u32) {
         let ms = us / 1000;
 
-        Self::delay_ms_internal(self, ms);
+        Self::delay_ms(ms);
     }
 
-    fn delay_ms_internal(&mut self, ms: u32) {
+    fn delay_ms(ms: u32) {
         // divide by tick length, rounding up
         let ticks = ms.saturating_add(portTICK_PERIOD_MS - 1) / portTICK_PERIOD_MS;
 
@@ -146,37 +151,37 @@ impl FreeRtos {
 
 impl embedded_hal_0_2::blocking::delay::DelayUs<u32> for FreeRtos {
     fn delay_us(&mut self, us: u32) {
-        self.delay_us_internal(us);
+        FreeRtos::delay_us(us);
     }
 }
 
 impl embedded_hal_0_2::blocking::delay::DelayUs<u16> for FreeRtos {
     fn delay_us(&mut self, us: u16) {
-        self.delay_us_internal(us as _);
+        FreeRtos::delay_us(us as _);
     }
 }
 
 impl embedded_hal_0_2::blocking::delay::DelayUs<u8> for FreeRtos {
     fn delay_us(&mut self, us: u8) {
-        self.delay_us_internal(us as _);
+        FreeRtos::delay_us(us as _);
     }
 }
 
 impl embedded_hal_0_2::blocking::delay::DelayMs<u32> for FreeRtos {
     fn delay_ms(&mut self, ms: u32) {
-        self.delay_ms_internal(ms);
+        FreeRtos::delay_ms(ms);
     }
 }
 
 impl embedded_hal_0_2::blocking::delay::DelayMs<u16> for FreeRtos {
     fn delay_ms(&mut self, ms: u16) {
-        self.delay_ms_internal(ms as _);
+        FreeRtos::delay_ms(ms as _);
     }
 }
 
 impl embedded_hal_0_2::blocking::delay::DelayMs<u8> for FreeRtos {
     fn delay_ms(&mut self, ms: u8) {
-        self.delay_ms_internal(ms as _);
+        FreeRtos::delay_ms(ms as _);
     }
 }
 
@@ -184,13 +189,13 @@ impl embedded_hal::delay::blocking::DelayUs for FreeRtos {
     type Error = Infallible;
 
     fn delay_us(&mut self, us: u32) -> Result<(), Self::Error> {
-        self.delay_us_internal(us);
+        FreeRtos::delay_us(us);
 
         Ok(())
     }
 
     fn delay_ms(&mut self, ms: u32) -> Result<(), Self::Error> {
-        self.delay_ms_internal(ms);
+        FreeRtos::delay_ms(ms);
 
         Ok(())
     }

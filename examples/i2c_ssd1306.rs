@@ -70,9 +70,9 @@ fn main() -> anyhow::Result<()> {
 
     loop {
         // we are sleeping here to make sure the watchdog isn't triggered
-        FreeRtos.delay_ms(500);
+        FreeRtos::delay_ms(500);
         i2c.write(SSD1306_ADDRESS, &[0, 0xa6], BLOCK)?;
-        FreeRtos.delay_ms(500);
+        FreeRtos::delay_ms(500);
         i2c.write(SSD1306_ADDRESS, &[0, 0xa7], BLOCK)?;
     }
 }
