@@ -435,6 +435,10 @@ impl<'d, SPI: Spi> SpiMasterDriver<'d, SPI> {
         })
     }
 
+    pub fn device_handle(&mut self) -> spi_device_handle_t {
+        self.device
+    }
+
     pub fn transaction<R, E>(
         &mut self,
         f: impl FnOnce(&mut SpiBusMasterDriver<'d>) -> Result<R, E>,
