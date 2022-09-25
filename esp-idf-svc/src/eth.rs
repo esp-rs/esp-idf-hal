@@ -165,6 +165,7 @@ pub struct EthDriver<'d, P> {
 
 #[cfg(all(esp32, esp_idf_eth_use_esp32_emac))]
 impl<'d> EthDriver<'d, MAC> {
+    #[allow(clippy::too_many_arguments)]
     pub fn new_rmii(
         mac: impl Peripheral<P = MAC> + 'd,
         _rmii_rdx0: impl Peripheral<P = gpio::Gpio25> + 'd,
@@ -206,7 +207,7 @@ impl<'d> EthDriver<'d, MAC> {
         reset: Option<i32>,
         phy_addr: Option<u32>,
     ) -> Result<*mut esp_eth_phy_t, EspError> {
-        let phy_cfg = Self::eth_phy_default_config(reset.map(|pin| pin), phy_addr);
+        let phy_cfg = Self::eth_phy_default_config(reset, phy_addr);
 
         let phy = match chipset {
             RmiiEthChipset::IP101 => unsafe { esp_eth_phy_new_ip101(&phy_cfg) },
@@ -638,7 +639,6 @@ impl<'d, P> EthDriver<'d, P> {
             reset_timeout_ms: 100,
             autonego_timeout_ms: 4000,
             reset_gpio_num: reset_pin.unwrap_or(-1),
-            ..Default::default()
         }
     }
 
@@ -826,7 +826,7 @@ impl<'d, P> Eth for EspEth<'d, P> {
     }
 
     fn is_started(&self) -> Result<bool, Self::Error> {
-        Ok(self.driver().is_started()?)
+        self.driver().is_started()
     }
 
     fn is_up(&self) -> Result<bool, Self::Error> {
