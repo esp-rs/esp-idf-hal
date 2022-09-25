@@ -34,7 +34,7 @@ pub struct Peripherals {
     pub uart0: uart::UART0,
     #[cfg(not(feature = "riscv-ulp-hal"))]
     pub uart1: uart::UART1,
-    #[cfg(all(esp32, not(feature = "riscv-ulp-hal")))]
+    #[cfg(all(any(esp32, esp32s3), not(feature = "riscv-ulp-hal")))]
     pub uart2: uart::UART2,
     #[cfg(not(feature = "riscv-ulp-hal"))]
     pub i2c0: i2c::I2C0,
@@ -142,7 +142,7 @@ impl Peripherals {
             uart0: uart::UART0::new(),
             #[cfg(not(feature = "riscv-ulp-hal"))]
             uart1: uart::UART1::new(),
-            #[cfg(all(esp32, not(feature = "riscv-ulp-hal")))]
+            #[cfg(all(any(esp32, esp32s3), not(feature = "riscv-ulp-hal")))]
             uart2: uart::UART2::new(),
             #[cfg(not(feature = "riscv-ulp-hal"))]
             i2c0: i2c::I2C0::new(),
