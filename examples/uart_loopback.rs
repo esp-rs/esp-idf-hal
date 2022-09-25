@@ -9,9 +9,6 @@
 //! This example transfers data via UART.
 //! Connect TX and RX pins to see the outgoing data is read as incoming data.
 
-use std::thread;
-use std::time::Duration;
-
 use esp_idf_hal::delay::BLOCK;
 use esp_idf_hal::gpio;
 use esp_idf_hal::peripherals::Peripherals;
