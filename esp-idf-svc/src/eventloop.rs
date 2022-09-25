@@ -302,7 +302,7 @@ where
 {
     type Handle = esp_event_handler_instance_t;
 
-    unsafe fn handle(&self) -> Self::Handle {
+    fn handle(&self) -> Self::Handle {
         self.handler_instance
     }
 }
@@ -573,7 +573,7 @@ impl<T> EspEventLoop<User<T>> {
 impl<T> RawHandle for EspEventLoop<User<T>> {
     type Handle = esp_event_loop_handle_t;
 
-    unsafe fn handle(&self) -> Self::Handle {
+    fn handle(&self) -> Self::Handle {
         self.0 .0 .0
     }
 }

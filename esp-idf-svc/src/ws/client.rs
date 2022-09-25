@@ -537,7 +537,7 @@ impl Drop for EspWebSocketClient {
 impl RawHandle for EspWebSocketClient {
     type Handle = esp_websocket_client_handle_t;
 
-    unsafe fn handle(&self) -> Self::Handle {
+    fn handle(&self) -> Self::Handle {
         self.handle
     }
 }

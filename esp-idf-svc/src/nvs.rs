@@ -157,7 +157,7 @@ where
 impl RawHandle for EspNvsPartition<NvsCustom> {
     type Handle = *const u8;
 
-    unsafe fn handle(&self) -> Self::Handle {
+    fn handle(&self) -> Self::Handle {
         self.0.name().as_ptr() as *const _
     }
 }
@@ -373,7 +373,7 @@ unsafe impl<T: NvsPartitionId> Send for EspNvs<T> {}
 impl RawHandle for EspNvs<NvsCustom> {
     type Handle = nvs_handle_t;
 
-    unsafe fn handle(&self) -> Self::Handle {
+    fn handle(&self) -> Self::Handle {
         self.1
     }
 }

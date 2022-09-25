@@ -493,7 +493,7 @@ unsafe impl Send for EspNetif {}
 impl RawHandle for EspNetif {
     type Handle = *mut esp_netif_t;
 
-    unsafe fn handle(&self) -> Self::Handle {
+    fn handle(&self) -> Self::Handle {
         self.0
     }
 }
@@ -530,7 +530,7 @@ pub enum IpEvent {
 
 impl IpEvent {
     pub fn is_for(&self, raw_handle: &impl RawHandle<Handle = *mut esp_netif_t>) -> bool {
-        self.is_for_handle(unsafe { raw_handle.handle() })
+        self.is_for_handle(raw_handle.handle())
     }
 
     pub fn is_for_handle(&self, handle: *mut esp_netif_t) -> bool {
@@ -638,9 +638,9 @@ mod status {
 
     use super::IpEvent;
 
-    struct UnsafeHandle(*mut esp_netif_t);
+    struct RawHandleImpl(*mut esp_netif_t);
 
-    unsafe impl Send for UnsafeHandle {}
+    unsafe impl Send for RawHandleImpl {}
 
     pub struct EspNetifWait<B> {
         _netif: B,
@@ -658,7 +658,7 @@ mod status {
             let waitable = Arc::new(Waitable::new(()));
 
             let s_waitable = waitable.clone();
-            let handle = UnsafeHandle(unsafe { netif.borrow().handle() });
+            let handle = RawHandleImpl(netif.borrow().handle());
 
             let subscription = sysloop.subscribe(move |event: &IpEvent| {
                 Self::on_ip_event(handle.0, &s_waitable, event)

@@ -226,7 +226,7 @@ impl Clone for EspNotify {
 impl RawHandle for EspNotify {
     type Handle = TaskHandle_t;
 
-    unsafe fn handle(&self) -> Self::Handle {
+    fn handle(&self) -> Self::Handle {
         *self.task
     }
 }

@@ -1,4 +1,3 @@
-use core::borrow::Borrow;
 use core::fmt::Debug;
 use core::ptr;
 use core::time::Duration;
@@ -120,9 +119,9 @@ pub enum SpiEthChipset {
     KSZ8851SNL,
 }
 
-struct UnsafeHandle(esp_eth_handle_t);
+struct RawHandleImpl(esp_eth_handle_t);
 
-unsafe impl Send for UnsafeHandle {}
+unsafe impl Send for RawHandleImpl {}
 
 struct UnsafeCallback(*mut Box<dyn FnMut(&[u8]) + 'static>);
 
@@ -519,7 +518,7 @@ impl<'d, P> EthDriver<'d, P> {
         let status = Arc::new(mutex::Mutex::wrap(mutex::RawMutex::new(), Status::Stopped));
         let s_status = status.clone();
 
-        let handle = UnsafeHandle(handle);
+        let handle = RawHandleImpl(handle);
 
         let subscription = sysloop.subscribe(move |event: &EthEvent| {
             if event.is_for_handle(handle.0) {
@@ -718,7 +717,7 @@ impl<'d, P> Drop for EthDriver<'d, P> {
 impl<'d, P> RawHandle for EthDriver<'d, P> {
     type Handle = esp_eth_handle_t;
 
-    unsafe fn handle(&self) -> Self::Handle {
+    fn handle(&self) -> Self::Handle {
         self.handle
     }
 }
@@ -810,7 +809,7 @@ unsafe impl<'d, P> Send for EspEth<'d, P> {}
 impl<'d, P> RawHandle for EspEth<'d, P> {
     type Handle = *mut esp_eth_netif_glue_t;
 
-    unsafe fn handle(&self) -> Self::Handle {
+    fn handle(&self) -> Self::Handle {
         self.glue_handle
     }
 }
@@ -845,7 +844,7 @@ pub enum EthEvent {
 
 impl EthEvent {
     pub fn is_for(&self, raw_handle: impl RawHandle<Handle = esp_eth_handle_t>) -> bool {
-        self.is_for_handle(unsafe { raw_handle.handle() })
+        self.is_for_handle(raw_handle.handle())
     }
 
     pub fn is_for_handle(&self, handle: esp_eth_handle_t) -> bool {
@@ -896,22 +895,21 @@ impl EspTypedEventDeserializer<EthEvent> for EthEvent {
     }
 }
 
-pub struct EthWait<B> {
-    _driver: B,
+pub struct EthWait<R> {
+    _driver: R,
     waitable: Arc<Waitable<()>>,
     _subscription: EspSubscription<System>,
 }
 
-impl<B> EthWait<B> {
-    pub fn new<R>(driver: B, sysloop: &EspEventLoop<System>) -> Result<Self, EspError>
+impl<R> EthWait<R> {
+    pub fn new(driver: R, sysloop: &EspEventLoop<System>) -> Result<Self, EspError>
     where
-        B: Borrow<R>,
         R: RawHandle<Handle = esp_eth_handle_t>,
     {
         let waitable: Arc<Waitable<()>> = Arc::new(Waitable::new(()));
 
         let s_waitable = waitable.clone();
-        let handle = UnsafeHandle(unsafe { driver.borrow().handle() });
+        let handle = RawHandleImpl(driver.handle());
 
         let subscription = sysloop
             .subscribe(move |event: &EthEvent| Self::on_eth_event(handle.0, &*s_waitable, event))?;

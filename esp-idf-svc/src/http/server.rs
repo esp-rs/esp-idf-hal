@@ -362,7 +362,7 @@ impl Drop for EspHttpServer {
 impl RawHandle for EspHttpServer {
     type Handle = httpd_handle_t;
 
-    unsafe fn handle(&self) -> Self::Handle {
+    fn handle(&self) -> Self::Handle {
         self.sd
     }
 }
@@ -420,7 +420,7 @@ pub struct EspHttpRequest<'a>(&'a mut httpd_req_t);
 impl<'a> RawHandle for EspHttpRequest<'a> {
     type Handle = *mut httpd_req_t;
 
-    unsafe fn handle(&self) -> Self::Handle {
+    fn handle(&self) -> Self::Handle {
         self.0 as *const _ as *mut _
     }
 }
@@ -748,7 +748,7 @@ impl<'a> EspHttpConnection<'a> {
 impl<'a> RawHandle for EspHttpConnection<'a> {
     type Handle = *mut httpd_req_t;
 
-    unsafe fn handle(&self) -> Self::Handle {
+    fn handle(&self) -> Self::Handle {
         self.request.handle()
     }
 }
