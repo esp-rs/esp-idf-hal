@@ -382,13 +382,21 @@ impl<'d, M: WifiModemPeripheral + 'd> WifiDriver<'d, M> {
     }
 
     pub fn connect(&mut self) -> Result<(), EspError> {
+        info!("Connect requested");
+
         esp!(unsafe { esp_wifi_connect() })?;
+
+        info!("Connecting");
 
         Ok(())
     }
 
     pub fn disconnect(&mut self) -> Result<(), EspError> {
+        info!("Disconnect requested");
+
         esp!(unsafe { esp_wifi_disconnect() })?;
+
+        info!("Disconnecting");
 
         Ok(())
     }
@@ -412,9 +420,11 @@ impl<'d, M: WifiModemPeripheral + 'd> WifiDriver<'d, M> {
     }
 
     pub fn is_sta_started(&self) -> Result<bool, EspError> {
-        Ok(self.status.lock().0 == WifiEvent::StaStarted
-            || self.status.lock().0 == WifiEvent::StaConnected
-            || self.status.lock().0 == WifiEvent::StaDisconnected)
+        let guard = self.status.lock();
+
+        Ok(guard.0 == WifiEvent::StaStarted
+            || guard.0 == WifiEvent::StaConnected
+            || guard.0 == WifiEvent::StaDisconnected)
     }
 
     pub fn is_sta_connected(&self) -> Result<bool, EspError> {
