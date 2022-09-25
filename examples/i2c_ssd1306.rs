@@ -14,6 +14,7 @@ use std::time::Duration;
 
 use embedded_hal::i2c::blocking::I2c;
 
+use esp_idf_hal::delay::{FreeRtos, BLOCK};
 use esp_idf_hal::i2c::*;
 use esp_idf_hal::peripherals::Peripherals;
 use esp_idf_hal::prelude::*;
@@ -34,29 +35,29 @@ fn main() -> anyhow::Result<()> {
     let mut i2c = I2cMasterDriver::new(i2c, sda, scl, &config)?;
 
     // initialze the display - don't worry about the meaning of these bytes - it's specific to SSD1306
-    i2c.write(SSD1306_ADDRESS, &[0, 0xae])?;
-    i2c.write(SSD1306_ADDRESS, &[0, 0xd4])?;
-    i2c.write(SSD1306_ADDRESS, &[0, 0x80])?;
-    i2c.write(SSD1306_ADDRESS, &[0, 0xa8])?;
-    i2c.write(SSD1306_ADDRESS, &[0, 0x3f])?;
-    i2c.write(SSD1306_ADDRESS, &[0, 0xd3])?;
-    i2c.write(SSD1306_ADDRESS, &[0, 0x00])?;
-    i2c.write(SSD1306_ADDRESS, &[0, 0x40])?;
-    i2c.write(SSD1306_ADDRESS, &[0, 0x8d])?;
-    i2c.write(SSD1306_ADDRESS, &[0, 0x14])?;
-    i2c.write(SSD1306_ADDRESS, &[0, 0xa1])?;
-    i2c.write(SSD1306_ADDRESS, &[0, 0xc8])?;
-    i2c.write(SSD1306_ADDRESS, &[0, 0xda])?;
-    i2c.write(SSD1306_ADDRESS, &[0, 0x12])?;
-    i2c.write(SSD1306_ADDRESS, &[0, 0x81])?;
-    i2c.write(SSD1306_ADDRESS, &[0, 0xcf])?;
-    i2c.write(SSD1306_ADDRESS, &[0, 0xf1])?;
-    i2c.write(SSD1306_ADDRESS, &[0, 0xdb])?;
-    i2c.write(SSD1306_ADDRESS, &[0, 0x40])?;
-    i2c.write(SSD1306_ADDRESS, &[0, 0xa4])?;
-    i2c.write(SSD1306_ADDRESS, &[0, 0xa6])?;
-    i2c.write(SSD1306_ADDRESS, &[0, 0xaf])?;
-    i2c.write(SSD1306_ADDRESS, &[0, 0x20, 0x00])?;
+    i2c.write(SSD1306_ADDRESS, &[0, 0xae], BLOCK)?;
+    i2c.write(SSD1306_ADDRESS, &[0, 0xd4], BLOCK)?;
+    i2c.write(SSD1306_ADDRESS, &[0, 0x80], BLOCK)?;
+    i2c.write(SSD1306_ADDRESS, &[0, 0xa8], BLOCK)?;
+    i2c.write(SSD1306_ADDRESS, &[0, 0x3f], BLOCK)?;
+    i2c.write(SSD1306_ADDRESS, &[0, 0xd3], BLOCK)?;
+    i2c.write(SSD1306_ADDRESS, &[0, 0x00], BLOCK)?;
+    i2c.write(SSD1306_ADDRESS, &[0, 0x40], BLOCK)?;
+    i2c.write(SSD1306_ADDRESS, &[0, 0x8d], BLOCK)?;
+    i2c.write(SSD1306_ADDRESS, &[0, 0x14], BLOCK)?;
+    i2c.write(SSD1306_ADDRESS, &[0, 0xa1], BLOCK)?;
+    i2c.write(SSD1306_ADDRESS, &[0, 0xc8], BLOCK)?;
+    i2c.write(SSD1306_ADDRESS, &[0, 0xda], BLOCK)?;
+    i2c.write(SSD1306_ADDRESS, &[0, 0x12], BLOCK)?;
+    i2c.write(SSD1306_ADDRESS, &[0, 0x81], BLOCK)?;
+    i2c.write(SSD1306_ADDRESS, &[0, 0xcf], BLOCK)?;
+    i2c.write(SSD1306_ADDRESS, &[0, 0xf1], BLOCK)?;
+    i2c.write(SSD1306_ADDRESS, &[0, 0xdb], BLOCK)?;
+    i2c.write(SSD1306_ADDRESS, &[0, 0x40], BLOCK)?;
+    i2c.write(SSD1306_ADDRESS, &[0, 0xa4], BLOCK)?;
+    i2c.write(SSD1306_ADDRESS, &[0, 0xa6], BLOCK)?;
+    i2c.write(SSD1306_ADDRESS, &[0, 0xaf], BLOCK)?;
+    i2c.write(SSD1306_ADDRESS, &[0, 0x20, 0x00], BLOCK)?;
 
     // fill the display
     for _ in 0..64 {
@@ -64,14 +65,14 @@ fn main() -> anyhow::Result<()> {
             0x40, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
             0xff, 0xff, 0xff,
         ];
-        i2c.write(SSD1306_ADDRESS, &data)?;
+        i2c.write(SSD1306_ADDRESS, &data, BLOCK)?;
     }
 
     loop {
-        // we are using thread::sleep here to make sure the watchdog isn't triggered
-        thread::sleep(Duration::from_millis(500));
-        i2c.write(SSD1306_ADDRESS, &[0, 0xa6])?;
-        thread::sleep(Duration::from_millis(500));
-        i2c.write(SSD1306_ADDRESS, &[0, 0xa7])?;
+        // we are sleeping here to make sure the watchdog isn't triggered
+        FreeRtos.delay_ms(500);
+        i2c.write(SSD1306_ADDRESS, &[0, 0xa6], BLOCK)?;
+        FreeRtos.delay_ms(500);
+        i2c.write(SSD1306_ADDRESS, &[0, 0xa7], BLOCK)?;
     }
 }
