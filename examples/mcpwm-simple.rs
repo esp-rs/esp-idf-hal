@@ -70,22 +70,24 @@ fn main() -> anyhow::Result<()> {
     println!("Configuring MCPWM");
 
     let peripherals = Peripherals::take().unwrap();
-    let config = OperatorConfig::default().frequency(25.kHz());
-    let mcpwm = Mcpwm::new(peripherals.mcpwm0.mcpwm)?;
-    let mut operator = Operator::new(
-        peripherals.mcpwm0.operator0,
-        &mcpwm,
-        &config,
-        peripherals.pins.gpio4,
-        peripherals.pins.gpio5,
-    )?;
+    let timer_config = TimerConfig::default().frequency(25.kHz());
+    let operator_config = OperatorConfig::default();
+    let timer = Mcpwm::new(peripherals.mcpwm0.timer, timer_config)?;
+
+    let timer = timer.into_connection()
+        .attatch_operator0(
+            peripherals.mcpwm0.operator0,
+            operator_config,
+            peripherals.pins.gpio4,
+            peripherals.pins.gpio5,
+        )?;
+
+    let (timer, operator, _, _) = timer.split();
 
     println!("Starting duty-cycle loop");
 
-    for x in (0..10000u16).cycle() {
-        let duty = f32::from(x) * 0.01;
-
-        if x % 100 == 0 {
+    for duty in (0..timer.get_top_value()).cycle() {
+        if duty % 100 == 0 {
             println!("Duty {}%", x / 100);
         }
 
