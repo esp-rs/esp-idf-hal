@@ -133,13 +133,13 @@ impl embedded_hal::delay::blocking::DelayUs for Ets {
 pub struct FreeRtos;
 
 impl FreeRtos {
-    fn delay_us(us: u32) {
+    pub fn delay_us(us: u32) {
         let ms = us / 1000;
 
         Self::delay_ms(ms);
     }
 
-    fn delay_ms(ms: u32) {
+    pub fn delay_ms(ms: u32) {
         // divide by tick length, rounding up
         let ticks = ms.saturating_add(portTICK_PERIOD_MS - 1) / portTICK_PERIOD_MS;
 

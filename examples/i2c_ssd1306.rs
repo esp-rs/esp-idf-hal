@@ -9,11 +9,6 @@
 //! For this example you need to hook up an SSD1306 I2C display.
 //! The display will flash black and white.
 
-use std::thread;
-use std::time::Duration;
-
-use embedded_hal::i2c::blocking::I2c;
-
 use esp_idf_hal::delay::{FreeRtos, BLOCK};
 use esp_idf_hal::i2c::*;
 use esp_idf_hal::peripherals::Peripherals;
