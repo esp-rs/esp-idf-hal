@@ -849,14 +849,14 @@ pub mod ws {
 
     pub enum EspHttpWsConnection {
         New(httpd_handle_t, *mut httpd_req_t),
-        Open(httpd_handle_t, *mut httpd_req_t),
+        Receiving(httpd_handle_t, *mut httpd_req_t),
         Closed(c_types::c_int),
     }
 
     impl EspHttpWsConnection {
         pub fn session(&self) -> i32 {
             match self {
-                Self::New(_, raw_req) | Self::Open(_, raw_req) => unsafe {
+                Self::New(_, raw_req) | Self::Receiving(_, raw_req) => unsafe {
                     httpd_req_to_sockfd(*raw_req)
                 },
                 Self::Closed(fd) => *fd,
@@ -873,7 +873,7 @@ pub mod ws {
 
         pub fn create_detached_sender(&self) -> Result<EspHttpWsDetachedSender, EspError> {
             match self {
-                Self::Open(sd, raw_req) => {
+                Self::New(sd, raw_req) | Self::Receiving(sd, raw_req) => {
                     let fd = unsafe { httpd_req_to_sockfd(*raw_req) };
 
                     let mut sessions = OPEN_SESSIONS.lock();
@@ -890,7 +890,7 @@ pub mod ws {
 
         pub fn send(&mut self, frame_type: FrameType, frame_data: &[u8]) -> Result<(), EspError> {
             match self {
-                Self::Open(_, raw_req) => {
+                Self::New(_, raw_req) | Self::Receiving(_, raw_req) => {
                     let raw_frame = Self::create_raw_frame(frame_type, frame_data);
 
                     esp!(unsafe {
@@ -910,7 +910,7 @@ pub mod ws {
         pub fn recv(&mut self, frame_data_buf: &mut [u8]) -> Result<(FrameType, usize), EspError> {
             match self {
                 Self::New(_, _) => Err(EspError::from(ESP_FAIL).unwrap().into()),
-                Self::Open(_, raw_req) => {
+                Self::Receiving(_, raw_req) => {
                     let mut raw_frame: httpd_ws_frame_t = Default::default();
 
                     esp!(unsafe { httpd_ws_recv_frame(*raw_req, &mut raw_frame as *mut _, 0) })?;
@@ -1232,7 +1232,7 @@ pub mod ws {
                     (boxed_handler)(if req.method == http_method_HTTP_GET as i32 {
                         EspHttpWsConnection::New(server_handle.clone(), raw_req)
                     } else {
-                        EspHttpWsConnection::Open(server_handle.clone(), raw_req)
+                        EspHttpWsConnection::Receiving(server_handle.clone(), raw_req)
                     })
                 })
             };
