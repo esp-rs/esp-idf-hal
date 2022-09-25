@@ -664,5 +664,5 @@ fn check_nb<T>(result: Result<usize, EspError>, value: T) -> nb::Result<T, Seria
 
 impl_uart!(UART0: 0);
 impl_uart!(UART1: 1);
-#[cfg(esp32)]
+#[cfg(any(esp32, esp32s3))]
 impl_uart!(UART2: 2);
