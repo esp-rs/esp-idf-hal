@@ -1,9 +1,8 @@
-use core::cell::{RefCell, RefMut};
-use core::ops::{Deref, DerefMut};
-use core::ptr;
-use core::sync::atomic::{AtomicPtr, Ordering};
+use core::sync::atomic::{AtomicU64, Ordering};
 
 use esp_idf_sys::*;
+
+pub(crate) static CS: CriticalSection = CriticalSection::new();
 
 /// Returns true if the currently active core is executing an ISR request
 #[inline(always)]
@@ -12,17 +11,43 @@ pub fn active() -> bool {
     unsafe { xPortInIsrContext() != 0 }
 }
 
-static ISR_YIELDER: AtomicPtr<c_types::c_void> = AtomicPtr::new(ptr::null_mut());
+pub fn with_isr_yield_signal(cb: impl FnOnce()) -> bool {
+    if !active() {
+        panic!("with_isr_yield_signal() can only be called from an ISR context");
+    }
 
+    let mut signaled = false;
+
+    let prev_yielder =
+        unsafe { set_isr_yielder(Some((do_yield_signal, &mut signaled as *mut _ as _))) };
+
+    cb();
+
+    unsafe { set_isr_yielder(prev_yielder) };
+
+    signaled
+}
+
+unsafe fn do_yield_signal(arg: *mut ()) {
+    let signaled = (arg as *mut bool).as_mut().unwrap();
+
+    *signaled = true
+}
+
+static ISR_YIELDER: AtomicU64 = AtomicU64::new(0);
+
+#[allow(clippy::type_complexity)]
 #[inline(always)]
 #[link_section = ".iram1.interrupt_get_isr_yielder"]
-unsafe fn get_isr_yielder() -> Option<unsafe fn()> {
+pub(crate) unsafe fn get_isr_yielder() -> Option<(unsafe fn(*mut ()), *mut ())> {
     if active() {
-        let ptr = ISR_YIELDER.load(Ordering::SeqCst);
-        if ptr.is_null() {
+        let value = ISR_YIELDER.load(Ordering::SeqCst);
+        if value == 0 {
             None
         } else {
-            Some(core::mem::transmute(ptr))
+            let func: fn(*mut ()) = core::mem::transmute((value >> 32) as usize);
+            let arg = (value & 0xffffffff) as usize as *mut ();
+            Some((func, arg))
         }
     } else {
         None
@@ -40,171 +65,29 @@ unsafe fn get_isr_yielder() -> Option<unsafe fn()> {
 /// Users should not forget to call again `set_isr_yielder` at the end of the
 /// ISR handler so as to reastore the yield function which was valid before the
 /// ISR handler was invoked.
+#[allow(clippy::type_complexity)]
 #[inline(always)]
 #[link_section = ".iram1.interrupt_set_isr_yielder"]
-pub unsafe fn set_isr_yielder(yielder: Option<unsafe fn()>) -> Option<unsafe fn()> {
+pub unsafe fn set_isr_yielder(
+    yielder: Option<(unsafe fn(*mut ()), *mut ())>,
+) -> Option<(unsafe fn(*mut ()), *mut ())> {
     if active() {
-        let ptr = if let Some(yielder) = yielder {
-            #[allow(clippy::transmutes_expressible_as_ptr_casts)]
-            core::mem::transmute(yielder)
+        let value = if let Some((func, arg)) = yielder {
+            ((func as usize as u64) << 32) | (arg as usize as u64)
         } else {
-            ptr::null_mut()
+            0
         };
 
-        let ptr = ISR_YIELDER.swap(ptr, Ordering::SeqCst);
-
-        if ptr.is_null() {
+        let value = ISR_YIELDER.swap(value, Ordering::SeqCst);
+        if value == 0 {
             None
         } else {
-            Some(core::mem::transmute(ptr))
+            let func: fn(*mut ()) = core::mem::transmute((value >> 32) as usize);
+            let arg = (value & 0xffffffff) as usize as *mut ();
+            Some((func, arg))
         }
     } else {
         None
-    }
-}
-
-pub mod task {
-    use core::ptr;
-    use core::time::Duration;
-
-    use esp_idf_sys::*;
-
-    use crate::delay::TickType;
-
-    #[inline(always)]
-    #[link_section = ".iram1.interrupt_task_do_yield"]
-    pub fn do_yield() {
-        if super::active() {
-            #[cfg(esp32c3)]
-            unsafe {
-                if let Some(yielder) = super::get_isr_yielder() {
-                    yielder();
-                } else {
-                    vPortYieldFromISR();
-                }
-            }
-
-            #[cfg(not(esp32c3))]
-            unsafe {
-                if let Some(yielder) = super::get_isr_yielder() {
-                    yielder();
-                } else {
-                    #[cfg(esp_idf_version_major = "4")]
-                    vPortEvaluateYieldFromISR(0);
-
-                    #[cfg(esp_idf_version_major = "5")]
-                    _frxt_setup_switch();
-                }
-            }
-        } else {
-            unsafe {
-                vPortYield();
-            }
-        }
-    }
-
-    #[inline(always)]
-    #[link_section = ".iram1.interrupt_task_current"]
-    pub fn current() -> Option<TaskHandle_t> {
-        if super::active() {
-            None
-        } else {
-            Some(unsafe { xTaskGetCurrentTaskHandle() })
-        }
-    }
-
-    pub fn wait_any_notification() {
-        loop {
-            if let Some(notification) = wait_notification(None) {
-                if notification != 0 {
-                    break;
-                }
-            }
-        }
-    }
-
-    pub fn wait_notification(duration: Option<Duration>) -> Option<u32> {
-        let mut notification = 0_u32;
-
-        #[cfg(esp_idf_version = "4.3")]
-        let notified = unsafe {
-            xTaskNotifyWait(
-                0,
-                u32::MAX,
-                &mut notification as *mut _,
-                TickType::from(duration).0,
-            )
-        } != 0;
-
-        #[cfg(not(esp_idf_version = "4.3"))]
-        let notified = unsafe {
-            xTaskGenericNotifyWait(
-                0,
-                0,
-                u32::MAX,
-                &mut notification as *mut _,
-                TickType::from(duration).0,
-            )
-        } != 0;
-
-        if notified {
-            Some(notification)
-        } else {
-            None
-        }
-    }
-
-    /// # Safety
-    ///
-    /// When calling this function care should be taken to pass a valid
-    /// FreeRTOS task handle. Moreover, the FreeRTOS task should be valid
-    /// when this function is being called.
-    pub unsafe fn notify(task: TaskHandle_t, notification: u32) -> bool {
-        let notified = if super::active() {
-            let mut higher_prio_task_woken: BaseType_t = Default::default();
-
-            #[cfg(esp_idf_version = "4.3")]
-            let notified = xTaskGenericNotifyFromISR(
-                task,
-                notification,
-                eNotifyAction_eSetBits,
-                ptr::null_mut(),
-                &mut higher_prio_task_woken as *mut _,
-            );
-
-            #[cfg(not(esp_idf_version = "4.3"))]
-            let notified = xTaskGenericNotifyFromISR(
-                task,
-                0,
-                notification,
-                eNotifyAction_eSetBits,
-                ptr::null_mut(),
-                &mut higher_prio_task_woken as *mut _,
-            );
-
-            if higher_prio_task_woken != 0 {
-                do_yield();
-            }
-
-            notified
-        } else {
-            #[cfg(esp_idf_version = "4.3")]
-            let notified =
-                xTaskGenericNotify(task, notification, eNotifyAction_eSetBits, ptr::null_mut());
-
-            #[cfg(not(esp_idf_version = "4.3"))]
-            let notified = xTaskGenericNotify(
-                task,
-                0,
-                notification,
-                eNotifyAction_eSetBits,
-                ptr::null_mut(),
-            );
-
-            notified
-        };
-
-        notified != 0
     }
 }
 
@@ -333,171 +216,60 @@ impl<'a> Drop for CriticalSectionGuard<'a> {
 #[inline(always)]
 #[link_section = ".iram1.interrupt_free"]
 pub fn free<R>(f: impl FnOnce() -> R) -> R {
-    let cs = CriticalSection::new();
-    let _guard = cs.enter();
+    let _guard = CS.enter();
 
     f()
 }
 
 #[cfg(feature = "critical-section")]
-mod embassy_cs {
-    static CS: super::CriticalSection = super::CriticalSection::new();
+pub mod critical_section {
+    pub struct EspCriticalSection {}
 
-    struct EmbassyCriticalSectionImpl {}
-    critical_section::custom_impl!(EmbassyCriticalSectionImpl);
-
-    unsafe impl critical_section::Impl for EmbassyCriticalSectionImpl {
-        unsafe fn acquire() -> u8 {
-            super::enter(&CS);
-            return 1;
+    unsafe impl critical_section::Impl for EspCriticalSection {
+        unsafe fn acquire() {
+            super::enter(&super::CS);
         }
 
-        unsafe fn release(token: u8) {
-            if token != 0 {
-                super::exit(&CS);
+        unsafe fn release(_token: ()) {
+            super::exit(&super::CS);
+        }
+    }
+
+    #[cfg(feature = "critical-section-interrupt")]
+    critical_section::set_impl!(EspCriticalSection);
+}
+
+#[cfg(feature = "embassy-sync")]
+pub mod embassy_sync {
+    use core::marker::PhantomData;
+
+    use embassy_sync::blocking_mutex::raw::RawMutex;
+
+    /// A mutex that allows borrowing data across executors and interrupts.
+    ///
+    /// # Safety
+    ///
+    /// This mutex is safe to share between different executors and interrupts.
+    pub struct CriticalSectionRawMutex {
+        _phantom: PhantomData<()>,
+    }
+    unsafe impl Send for CriticalSectionRawMutex {}
+    unsafe impl Sync for CriticalSectionRawMutex {}
+
+    impl CriticalSectionRawMutex {
+        /// Create a new `CriticalSectionRawMutex`.
+        pub const fn new() -> Self {
+            Self {
+                _phantom: PhantomData,
             }
         }
     }
-}
 
-#[cfg(feature = "embassy")]
-pub mod embassy {
-    pub enum CriticalSectionMutexKind {}
-    impl embassy::blocking_mutex::kind::MutexKind for CriticalSectionMutexKind {
-        type Mutex<T> = super::Mutex<T>;
-    }
+    unsafe impl RawMutex for CriticalSectionRawMutex {
+        const INIT: Self = Self::new();
 
-    impl<'a, T> embassy::blocking_mutex::Mutex for super::Mutex<T> {
-        type Data = T;
-
-        fn new(data: Self::Data) -> Self {
-            super::Mutex::new(data)
+        fn lock<R>(&self, f: impl FnOnce() -> R) -> R {
+            super::free(f)
         }
-
-        #[inline(always)]
-        #[link_section = ".iram1.interrupt_embmutex_lock"]
-        fn lock<R>(&self, f: impl FnOnce(&Self::Data) -> R) -> R {
-            let mut guard = super::Mutex::lock(self);
-
-            f(&mut guard)
-        }
-    }
-}
-
-/// A mutex based on critical sections
-pub struct Mutex<T> {
-    cs: CriticalSection,
-    data: RefCell<T>,
-}
-
-impl<T> Mutex<T> {
-    #[inline(always)]
-    #[link_section = ".iram1.interrupt_mutex_new"]
-    pub const fn new(data: T) -> Self {
-        Self {
-            cs: CriticalSection::new(),
-            data: RefCell::new(data),
-        }
-    }
-
-    #[inline(always)]
-    #[link_section = ".iram1.interrupt_mutex_lock"]
-    pub fn lock(&self) -> MutexGuard<'_, T> {
-        MutexGuard::new(self)
-    }
-}
-
-unsafe impl<T> Sync for Mutex<T> where T: Send {}
-unsafe impl<T> Send for Mutex<T> where T: Send {}
-
-pub struct MutexGuard<'a, T: 'a>(CriticalSectionGuard<'a>, RefMut<'a, T>);
-
-impl<'a, T> MutexGuard<'a, T> {
-    #[inline(always)]
-    #[link_section = ".iram1.interrupt_mutexg_new"]
-    fn new(mutex: &'a Mutex<T>) -> Self {
-        Self(mutex.cs.enter(), mutex.data.borrow_mut())
-    }
-}
-
-unsafe impl<T> Sync for MutexGuard<'_, T> where T: Sync {}
-
-impl<'a, T> Deref for MutexGuard<'a, T> {
-    type Target = T;
-
-    #[inline(always)]
-    #[link_section = ".iram1.interrupt_mutexg_deref"]
-    fn deref(&self) -> &Self::Target {
-        &self.1
-    }
-}
-
-impl<'a, T> DerefMut for MutexGuard<'a, T> {
-    #[inline(always)]
-    #[link_section = ".iram1.interrupt_mutexg_derefmut"]
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.1
-    }
-}
-
-#[cfg(feature = "mutex-trait")]
-impl<'a, T> mutex_trait::Mutex for &'a Mutex<T> {
-    type Data = T;
-
-    #[inline(always)]
-    #[link_section = ".iram1.interrupt_mutext_lock"]
-    fn lock<R>(&mut self, f: impl FnOnce(&mut Self::Data) -> R) -> R {
-        let mut guard = Mutex::lock(self);
-
-        f(&mut guard)
-    }
-}
-
-#[cfg(feature = "embedded-svc")]
-pub struct MutexFamily;
-
-#[cfg(feature = "embedded-svc")]
-impl embedded_svc::mutex::MutexFamily for MutexFamily {
-    type Mutex<T> = Mutex<T>;
-}
-
-#[cfg(all(feature = "experimental", feature = "embedded-svc"))]
-impl embedded_svc::signal::asynch::SignalFamily for MutexFamily {
-    type Signal<T> = embedded_svc::utils::asynch::signal::MutexSignal<
-        Mutex<embedded_svc::utils::asynch::signal::State<T>>,
-        T,
-    >;
-}
-
-#[cfg(all(feature = "experimental", feature = "embedded-svc"))]
-impl embedded_svc::signal::asynch::SendSyncSignalFamily for MutexFamily {
-    type Signal<T>
-    where
-        T: Send,
-    = embedded_svc::utils::asynch::signal::MutexSignal<
-        Mutex<embedded_svc::utils::asynch::signal::State<T>>,
-        T,
-    >;
-}
-
-#[cfg(feature = "embedded-svc")]
-impl<T> embedded_svc::mutex::Mutex for Mutex<T> {
-    type Data = T;
-
-    type Guard<'a>
-    where
-        T: 'a,
-    = MutexGuard<'a, T>;
-
-    #[inline(always)]
-    #[link_section = ".iram1.interrupt_mutexe_new"]
-    fn new(data: Self::Data) -> Self {
-        Mutex::new(data)
-    }
-
-    #[inline(always)]
-    #[link_section = ".iram1.interrupt_mutexe_lock"]
-    fn lock(&self) -> Self::Guard<'_> {
-        Mutex::lock(self)
     }
 }
