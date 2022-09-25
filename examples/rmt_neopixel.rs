@@ -45,7 +45,7 @@ fn main() -> anyhow::Result<()> {
                 signal.set(i as usize, &(high_pulse, low_pulse))?;
             }
             tx.start_blocking(&signal)?;
-            Ets::delay_ms(1000)?;
+            Ets::delay_ms(1000);
         }
     }
 }
