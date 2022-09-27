@@ -221,24 +221,6 @@ pub fn free<R>(f: impl FnOnce() -> R) -> R {
     f()
 }
 
-#[cfg(feature = "critical-section")]
-pub mod critical_section {
-    pub struct EspCriticalSection {}
-
-    unsafe impl critical_section::Impl for EspCriticalSection {
-        unsafe fn acquire() {
-            super::enter(&super::CS);
-        }
-
-        unsafe fn release(_token: ()) {
-            super::exit(&super::CS);
-        }
-    }
-
-    #[cfg(feature = "critical-section-interrupt")]
-    critical_section::set_impl!(EspCriticalSection);
-}
-
 #[cfg(feature = "embassy-sync")]
 pub mod embassy_sync {
     use core::marker::PhantomData;

@@ -69,20 +69,26 @@ pub struct Peripherals {
     pub mac: mac::MAC,
     #[cfg(not(feature = "riscv-ulp-hal"))]
     pub modem: modem::Modem,
-    #[cfg(all(not(feature = "riscv-ulp-hal"), not(feature = "embassy-time-timer-00")))]
+    #[cfg(all(
+        not(feature = "riscv-ulp-hal"),
+        not(feature = "embassy-time-isr-queue-timer00")
+    ))]
     pub timer00: timer::TIMER00,
     #[cfg(all(
         not(esp32c3),
         not(feature = "riscv-ulp-hal"),
-        not(feature = "embassy-time-timer-01")
+        not(feature = "embassy-time-isr-queue-timer01")
     ))]
     pub timer01: timer::TIMER01,
-    #[cfg(all(not(feature = "riscv-ulp-hal"), not(feature = "embassy-time-timer-10")))]
+    #[cfg(all(
+        not(feature = "riscv-ulp-hal"),
+        not(feature = "embassy-time-isr-queue-timer10")
+    ))]
     pub timer10: timer::TIMER10,
     #[cfg(all(
         not(esp32c3),
         not(feature = "riscv-ulp-hal"),
-        not(feature = "embassy-time-timer-11")
+        not(feature = "embassy-time-isr-queue-timer11")
     ))]
     pub timer11: timer::TIMER11,
 }
@@ -171,20 +177,26 @@ impl Peripherals {
             mac: mac::MAC::new(),
             #[cfg(not(feature = "riscv-ulp-hal"))]
             modem: modem::Modem::new(),
-            #[cfg(all(not(feature = "riscv-ulp-hal"), not(feature = "embassy-time-timer-00")))]
+            #[cfg(all(
+                not(feature = "riscv-ulp-hal"),
+                not(feature = "embassy-time-isr-queue-timer00")
+            ))]
             timer00: timer::TIMER00::new(),
             #[cfg(all(
                 not(esp32c3),
                 not(feature = "riscv-ulp-hal"),
-                not(feature = "embassy-time-timer-01")
+                not(feature = "embassy-time-isr-queue-timer01")
             ))]
             timer01: timer::TIMER01::new(),
-            #[cfg(all(not(feature = "riscv-ulp-hal"), not(feature = "embassy-time-timer-10")))]
+            #[cfg(all(
+                not(feature = "riscv-ulp-hal"),
+                not(feature = "embassy-time-isr-queue-timer10")
+            ))]
             timer10: timer::TIMER10::new(),
             #[cfg(all(
                 not(esp32c3),
                 not(feature = "riscv-ulp-hal"),
-                not(feature = "embassy-time-timer-11")
+                not(feature = "embassy-time-isr-queue-timer11")
             ))]
             timer11: timer::TIMER11::new(),
         }
