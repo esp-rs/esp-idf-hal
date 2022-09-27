@@ -41,7 +41,6 @@ pub struct Configuration {
     pub max_uri_handlers: usize,
     pub max_resp_handlers: usize,
     pub lru_purge_enable: bool,
-    pub session_cookie_name: &'static str,
     #[cfg(esp_idf_esp_https_server_enable)]
     pub server_certificate: Option<&'static str>,
     #[cfg(esp_idf_esp_https_server_enable)]
@@ -63,7 +62,6 @@ impl Default for Configuration {
             max_uri_handlers: 32,
             max_resp_handlers: 8,
             lru_purge_enable: true,
-            session_cookie_name: "SESSIONID",
             #[cfg(esp_idf_esp_https_server_enable)]
             server_certificate: None,
             #[cfg(esp_idf_esp_https_server_enable)]
@@ -156,8 +154,8 @@ impl From<&Configuration> for Newtype<httpd_ssl_config_t> {
         Self(httpd_ssl_config_t {
             httpd: http_config.0,
             session_tickets: false,
-            port_secure: 443,
-            port_insecure: 80,
+            port_secure: conf.https_port,
+            port_insecure: conf.http_port,
             transport_mode,
             cacert_pem: ptr::null(),
             cacert_len: 0,
