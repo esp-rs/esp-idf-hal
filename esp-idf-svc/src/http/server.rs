@@ -884,7 +884,7 @@ pub mod ws {
 
                     Ok(EspHttpWsDetachedSender::new(*sd, fd, closed.clone()))
                 }
-                Self::New(_, _) | Self::Closed(_) => Err(EspError::from(ESP_FAIL).unwrap().into()),
+                Self::Closed(_) => Err(EspError::from(ESP_FAIL).unwrap().into()),
             }
         }
 

@@ -292,153 +292,154 @@ mod asyncify {
     }
 }
 
-#[cfg(feature = "embassy-time")]
 pub mod embassy_time {
-    use core::cell::UnsafeCell;
-    use core::sync::atomic::{AtomicU64, Ordering};
+    #[cfg(feature = "embassy-time-driver")]
+    pub mod driver {
+        use core::cell::UnsafeCell;
+        use core::sync::atomic::{AtomicU64, Ordering};
 
-    extern crate alloc;
-    use alloc::sync::{Arc, Weak};
+        extern crate alloc;
+        use alloc::sync::{Arc, Weak};
 
-    use heapless::Vec;
+        use heapless::Vec;
 
-    use ::embassy_time::driver::{AlarmHandle, Driver};
+        use ::embassy_time::driver::{AlarmHandle, Driver};
 
-    use esp_idf_hal::interrupt::CriticalSection;
+        use esp_idf_hal::interrupt::CriticalSection;
 
-    use esp_idf_sys::*;
+        use esp_idf_sys::*;
 
-    use super::*;
+        use crate::timer::*;
 
-    struct Alarm {
-        timer: super::EspTimer,
-        callback: Arc<AtomicU64>,
-    }
-
-    impl Alarm {
-        fn new() -> Result<Self, EspError> {
-            let callback = Arc::new(AtomicU64::new(0));
-            let timer_callback = Arc::downgrade(&callback);
-
-            #[cfg(esp_idf_esp_timer_supports_isr_dispatch_method)]
-            let service = unsafe { EspTimerService::<ISR>::new()? };
-
-            #[cfg(not(esp_idf_esp_timer_supports_isr_dispatch_method))]
-            let service = EspTimerService::<Task>::new()?;
-
-            let timer = service.timer(move || {
-                if let Some(callback) = Weak::upgrade(&timer_callback) {
-                    Self::call(&callback);
-                }
-            })?;
-
-            Ok(Self { timer, callback })
+        struct Alarm {
+            timer: EspTimer,
+            callback: Arc<AtomicU64>,
         }
 
-        fn set_alarm(&self, duration: u64) -> Result<(), EspError> {
-            self.timer.after(Duration::from_micros(duration))?;
+        impl Alarm {
+            fn new() -> Result<Self, EspError> {
+                let callback = Arc::new(AtomicU64::new(0));
+                let timer_callback = Arc::downgrade(&callback);
 
-            Ok(())
-        }
+                let service = EspTimerService::<Task>::new()?;
 
-        fn set_callback(&self, callback: fn(*mut ()), ctx: *mut ()) {
-            let ptr: u64 = ((callback as usize as u64) << 32) | (ctx as usize as u64);
+                let timer = service.timer(move || {
+                    if let Some(callback) = Weak::upgrade(&timer_callback) {
+                        Self::call(&callback);
+                    }
+                })?;
 
-            self.callback.store(ptr, Ordering::SeqCst);
-        }
+                Ok(Self { timer, callback })
+            }
 
-        fn invoke(&self) {
-            Self::call(&self.callback);
-        }
+            fn set_alarm(&self, duration: u64) -> Result<(), EspError> {
+                self.timer.after(Duration::from_micros(duration))?;
 
-        fn call(callback: &AtomicU64) {
-            let ptr: u64 = callback.load(Ordering::SeqCst);
+                Ok(())
+            }
 
-            if ptr != 0 {
-                unsafe {
-                    let func: fn(*mut ()) = core::mem::transmute((ptr >> 32) as usize);
-                    let arg: *mut () = (ptr & 0xffffffff) as usize as *mut ();
+            fn set_callback(&self, callback: fn(*mut ()), ctx: *mut ()) {
+                let ptr: u64 = ((callback as usize as u64) << 32) | (ctx as usize as u64);
 
-                    func(arg);
+                self.callback.store(ptr, Ordering::SeqCst);
+            }
+
+            fn invoke(&self) {
+                Self::call(&self.callback);
+            }
+
+            fn call(callback: &AtomicU64) {
+                let ptr: u64 = callback.load(Ordering::SeqCst);
+
+                if ptr != 0 {
+                    unsafe {
+                        let func: fn(*mut ()) = core::mem::transmute((ptr >> 32) as usize);
+                        let arg: *mut () = (ptr & 0xffffffff) as usize as *mut ();
+
+                        func(arg);
+                    }
                 }
             }
         }
-    }
 
-    pub struct EspDriver<const MAX_ALARMS: usize = 16> {
-        alarms: UnsafeCell<Vec<Alarm, MAX_ALARMS>>,
-        cs: CriticalSection,
-    }
+        struct EspDriver<const MAX_ALARMS: usize = 16> {
+            alarms: UnsafeCell<Vec<Alarm, MAX_ALARMS>>,
+            cs: CriticalSection,
+        }
 
-    impl<const MAX_ALARMS: usize> EspDriver<MAX_ALARMS> {
-        pub const fn new() -> Self {
-            Self {
-                alarms: UnsafeCell::new(Vec::new()),
-                cs: CriticalSection::new(),
+        impl<const MAX_ALARMS: usize> EspDriver<MAX_ALARMS> {
+            const fn new() -> Self {
+                Self {
+                    alarms: UnsafeCell::new(Vec::new()),
+                    cs: CriticalSection::new(),
+                }
             }
         }
-    }
 
-    unsafe impl<const MAX_ALARMS: usize> Send for EspDriver<MAX_ALARMS> {}
-    unsafe impl<const MAX_ALARMS: usize> Sync for EspDriver<MAX_ALARMS> {}
+        unsafe impl<const MAX_ALARMS: usize> Send for EspDriver<MAX_ALARMS> {}
+        unsafe impl<const MAX_ALARMS: usize> Sync for EspDriver<MAX_ALARMS> {}
 
-    impl<const MAX_ALARMS: usize> Driver for EspDriver<MAX_ALARMS> {
-        fn now(&self) -> u64 {
-            unsafe { esp_timer_get_time() as _ }
-        }
+        impl<const MAX_ALARMS: usize> Driver for EspDriver<MAX_ALARMS> {
+            fn now(&self) -> u64 {
+                unsafe { esp_timer_get_time() as _ }
+            }
 
-        unsafe fn allocate_alarm(&self) -> Option<AlarmHandle> {
-            let mut id = {
-                let _guard = self.cs.enter();
-
-                self.alarms.get().as_mut().unwrap().len() as u8
-            };
-
-            if (id as usize) < MAX_ALARMS {
-                let alarm = Alarm::new().unwrap();
-
-                {
+            unsafe fn allocate_alarm(&self) -> Option<AlarmHandle> {
+                let mut id = {
                     let _guard = self.cs.enter();
 
-                    id = self.alarms.get().as_mut().unwrap().len() as u8;
+                    self.alarms.get().as_mut().unwrap().len() as u8
+                };
 
-                    if (id as usize) == MAX_ALARMS {
-                        return None;
+                if (id as usize) < MAX_ALARMS {
+                    let alarm = Alarm::new().unwrap();
+
+                    {
+                        let _guard = self.cs.enter();
+
+                        id = self.alarms.get().as_mut().unwrap().len() as u8;
+
+                        if (id as usize) == MAX_ALARMS {
+                            return None;
+                        }
+
+                        self.alarms
+                            .get()
+                            .as_mut()
+                            .unwrap()
+                            .push(alarm)
+                            .unwrap_or_else(|_| unreachable!());
                     }
 
-                    self.alarms
-                        .get()
-                        .as_mut()
-                        .unwrap()
-                        .push(alarm)
-                        .unwrap_or_else(|_| unreachable!());
+                    Some(AlarmHandle::new(id))
+                } else {
+                    None
                 }
+            }
 
-                Some(AlarmHandle::new(id))
-            } else {
-                None
+            fn set_alarm_callback(&self, handle: AlarmHandle, callback: fn(*mut ()), ctx: *mut ()) {
+                let alarm = unsafe { &self.alarms.get().as_mut().unwrap()[handle.id() as usize] };
+
+                alarm.set_callback(callback, ctx);
+            }
+
+            fn set_alarm(&self, handle: AlarmHandle, timestamp: u64) {
+                let alarm = unsafe { &self.alarms.get().as_mut().unwrap()[handle.id() as usize] };
+
+                let now = self.now();
+
+                if now < timestamp {
+                    alarm.set_alarm(timestamp - now).unwrap();
+                } else {
+                    alarm.invoke();
+                }
             }
         }
 
-        fn set_alarm_callback(&self, handle: AlarmHandle, callback: fn(*mut ()), ctx: *mut ()) {
-            let alarm = unsafe { &self.alarms.get().as_mut().unwrap()[handle.id() as usize] };
-
-            alarm.set_callback(callback, ctx);
+        pub fn link() -> i32 {
+            42
         }
 
-        fn set_alarm(&self, handle: AlarmHandle, timestamp: u64) {
-            let alarm = unsafe { &self.alarms.get().as_mut().unwrap()[handle.id() as usize] };
-
-            let now = self.now();
-
-            if now < timestamp {
-                alarm.set_alarm(timestamp - now).unwrap();
-            } else {
-                alarm.invoke();
-            }
-        }
+        ::embassy_time::time_driver_impl!(static DRIVER: EspDriver = EspDriver::new());
     }
-
-    #[cfg(feature = "embassy-time-driver")]
-    ::embassy_time::time_driver_impl!(static DRIVER: EspDriver = EspDriver::new());
 }
