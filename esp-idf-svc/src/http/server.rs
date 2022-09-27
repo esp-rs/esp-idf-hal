@@ -42,6 +42,10 @@ pub struct Configuration {
     pub max_resp_handlers: usize,
     pub lru_purge_enable: bool,
     pub session_cookie_name: &'static str,
+    #[cfg(esp_idf_esp_https_server_enable)]
+    pub server_certificate: Option<&'static str>,
+    #[cfg(esp_idf_esp_https_server_enable)]
+    pub private_key: Option<&'static str>,
 }
 
 impl Default for Configuration {
@@ -51,12 +55,19 @@ impl Default for Configuration {
             https_port: 443,
             max_sessions: 16,
             session_timeout: Duration::from_secs(20 * 60),
+            #[cfg(not(esp_idf_esp_https_server_enable))]
             stack_size: 6144,
+            #[cfg(esp_idf_esp_https_server_enable)]
+            stack_size: 10240,
             max_open_sockets: 4,
             max_uri_handlers: 32,
             max_resp_handlers: 8,
             lru_purge_enable: true,
             session_cookie_name: "SESSIONID",
+            #[cfg(esp_idf_esp_https_server_enable)]
+            server_certificate: None,
+            #[cfg(esp_idf_esp_https_server_enable)]
+            private_key: None,
         }
     }
 }
@@ -129,6 +140,36 @@ impl From<Newtype<c_types::c_uint>> for Method {
     }
 }
 
+#[cfg(esp_idf_esp_https_server_enable)]
+impl From<&Configuration> for Newtype<httpd_ssl_config_t> {
+    fn from(conf: &Configuration) -> Self {
+        let http_config: Newtype<httpd_config_t> = conf.into();
+        // start in insecure mode if no certificates are set
+        let transport_mode = match (conf.server_certificate, conf.private_key) {
+            (Some(_), Some(_)) => httpd_ssl_transport_mode_t_HTTPD_SSL_TRANSPORT_SECURE,
+            _ => {
+                warn!("Starting server in insecure mode because no certificates were set in the http config.");
+                httpd_ssl_transport_mode_t_HTTPD_SSL_TRANSPORT_INSECURE
+            }
+        };
+        // Default values taken from: https://github.com/espressif/esp-idf/blob/master/components/esp_https_server/include/esp_https_server.h#L114
+        Self(httpd_ssl_config_t {
+            httpd: http_config.0,
+            session_tickets: false,
+            port_secure: 443,
+            port_insecure: 80,
+            transport_mode,
+            cacert_pem: ptr::null(),
+            cacert_len: 0,
+            prvtkey_pem: ptr::null(),
+            prvtkey_len: 0,
+            client_verify_cert_pem: ptr::null(),
+            client_verify_cert_len: 0,
+            user_cb: None,
+        })
+    }
+}
+
 impl From<Method> for Newtype<c_types::c_uint> {
     fn from(method: Method) -> Self {
         Self(match method {
@@ -183,13 +224,39 @@ pub struct EspHttpServer {
 
 impl EspHttpServer {
     pub fn new(conf: &Configuration) -> Result<Self, EspIOError> {
-        let mut config: Newtype<httpd_config_t> = conf.into();
-        config.0.close_fn = Some(Self::close_fn);
-
         let mut handle: httpd_handle_t = ptr::null_mut();
         let handle_ref = &mut handle;
 
-        esp!(unsafe { httpd_start(handle_ref, &config.0 as *const _) })?;
+        #[cfg(not(esp_idf_esp_https_server_enable))]
+        {
+            let mut config: Newtype<httpd_config_t> = conf.into();
+            config.0.close_fn = Some(Self::close_fn);
+            esp!(unsafe { httpd_start(handle_ref, &config.0 as *const _) })?;
+        }
+
+        #[cfg(esp_idf_esp_https_server_enable)]
+        {
+            let mut config: Newtype<httpd_ssl_config_t> = conf.into();
+            config.0.httpd.close_fn = Some(Self::close_fn);
+
+            if let (Some(cert), Some(private_key)) = (conf.server_certificate, conf.private_key) {
+                // Converting into CString has to happen in the same scope as calling http_ssl_start,
+                // since the pointer passed to http_conf_t is valid only as long as the underlying bytes are in scope and valid.
+                // Passing an invalid pointer causes the null byte to be overwritten, which mbedtls requires to parse the certificate.
+                let cert = CString::new(cert).unwrap().into_bytes_with_nul();
+                let private_key = CString::new(private_key).unwrap().into_bytes_with_nul();
+
+                config.0.cacert_pem = cert.as_ptr();
+                config.0.cacert_len = cert.len() as u32;
+
+                config.0.prvtkey_pem = private_key.as_ptr() as _;
+                config.0.prvtkey_len = private_key.len() as u32;
+
+                esp!(unsafe { httpd_ssl_start(handle_ref, &mut config.0) })?;
+            } else {
+                esp!(unsafe { httpd_ssl_start(handle_ref, &mut config.0) })?;
+            }
+        }
 
         info!("Started Httpd server with config {:?}", conf);
 
@@ -232,8 +299,18 @@ impl EspHttpServer {
 
                 self.unregister(uri, registration)?;
             }
-
+            // Maybe its better to always call httpd_stop because httpd_ssl_stop directly wraps httpd_stop anyways
+            // https://github.com/espressif/esp-idf/blob/e6fda46a02c41777f1d116a023fbec6a1efaffb9/components/esp_https_server/src/https_server.c#L268
+            #[cfg(not(esp_idf_esp_https_server_enable))]
             esp!(unsafe { esp_idf_sys::httpd_stop(self.sd) })?;
+            // httpd_ssl_stop doesn't return EspErr for some reason. It returns void.
+            #[cfg(all(esp_idf_esp_https_server_enable, not(esp_idf_version_major = "5")))]
+            unsafe {
+                esp_idf_sys::httpd_ssl_stop(self.sd)
+            };
+            // esp-idf version 5 does return EspErr
+            #[cfg(all(esp_idf_esp_https_server_enable, esp_idf_version_major = "5"))]
+            esp!(unsafe { esp_idf_sys::httpd_ssl_stop(self.sd) })?;
 
             unsafe { CLOSE_HANDLERS.lock() }.remove(&(self.sd as u32));
 
