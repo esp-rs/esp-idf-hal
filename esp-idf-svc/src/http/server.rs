@@ -302,12 +302,12 @@ impl EspHttpServer {
             #[cfg(not(esp_idf_esp_https_server_enable))]
             esp!(unsafe { esp_idf_sys::httpd_stop(self.sd) })?;
             // httpd_ssl_stop doesn't return EspErr for some reason. It returns void.
-            #[cfg(all(esp_idf_esp_https_server_enable, not(esp_idf_version_major = "5")))]
+            #[cfg(all(esp_idf_esp_https_server_enable, esp_idf_version_major = "4"))]
             unsafe {
                 esp_idf_sys::httpd_ssl_stop(self.sd)
             };
             // esp-idf version 5 does return EspErr
-            #[cfg(all(esp_idf_esp_https_server_enable, esp_idf_version_major = "5"))]
+            #[cfg(all(esp_idf_esp_https_server_enable, not(esp_idf_version_major = "4")))]
             esp!(unsafe { esp_idf_sys::httpd_ssl_stop(self.sd) })?;
 
             unsafe { CLOSE_HANDLERS.lock() }.remove(&(self.sd as u32));
