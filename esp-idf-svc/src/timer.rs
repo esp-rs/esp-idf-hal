@@ -442,4 +442,84 @@ pub mod embassy_time {
 
         ::embassy_time::time_driver_impl!(static DRIVER: EspDriver = EspDriver::new());
     }
+
+    #[cfg(feature = "embassy-time-isr-queue")]
+    pub mod queue {
+        use esp_idf_hal::timer::embassy_time::*;
+
+        use esp_idf_sys::*;
+
+        struct AlarmImpl(esp_timer_handle_t);
+
+        impl AlarmImpl {
+            unsafe extern "C" fn handle_isr(alarm_context: *mut c_types::c_void) {
+                let alarm_context = (alarm_context as *const AlarmContext).as_ref().unwrap();
+
+                if esp_idf_hal::interrupt::active() {
+                    #[cfg(esp_idf_esp_timer_supports_isr_dispatch_method)]
+                    {
+                        let signaled = esp_idf_hal::interrupt::with_isr_yield_signal(move || {
+                            (alarm_context.callback)(alarm_context.ctx);
+                        });
+
+                        if signaled {
+                            esp_idf_sys::esp_timer_isr_dispatch_need_yield();
+                        }
+                    }
+
+                    #[cfg(not(esp_idf_esp_timer_supports_isr_dispatch_method))]
+                    unreachable!();
+                } else {
+                    (alarm_context.callback)(alarm_context.ctx);
+                }
+            }
+        }
+
+        unsafe impl Send for AlarmImpl {}
+
+        impl Alarm for AlarmImpl {
+            fn new(context: &AlarmContext) -> Self {
+                #[cfg(esp_idf_esp_timer_supports_isr_dispatch_method)]
+                let dispatch_method = esp_timer_dispatch_t_ESP_TIMER_ISR;
+
+                #[cfg(not(esp_idf_esp_timer_supports_isr_dispatch_method))]
+                let dispatch_method = esp_timer_dispatch_t_ESP_TIMER_TASK;
+
+                let mut handle: esp_timer_handle_t = core::ptr::null_mut();
+
+                esp!(unsafe {
+                    esp_timer_create(
+                        &esp_timer_create_args_t {
+                            callback: Some(AlarmImpl::handle_isr),
+                            name: b"embassy-time-queue\0" as *const _ as *const _,
+                            arg: context as *const _ as *mut _,
+                            dispatch_method,
+                            skip_unhandled_events: false,
+                        },
+                        &mut handle as *mut _,
+                    )
+                })
+                .unwrap();
+
+                Self(handle)
+            }
+
+            fn schedule(&mut self, timestamp: u64) {
+                let now = unsafe { esp_timer_get_time() as _ };
+                let after = if timestamp < now { 0 } else { timestamp - now };
+
+                unsafe {
+                    esp_timer_stop(self.0);
+                }
+
+                esp!(unsafe { esp_timer_start_once(self.0, after as _) }).unwrap();
+            }
+        }
+
+        pub fn link() -> i32 {
+            42
+        }
+
+        ::embassy_time::timer_queue_impl!(static QUEUE: Queue<AlarmImpl> = Queue::new());
+    }
 }
