@@ -17,10 +17,13 @@ pub const V_4_3_2_PATCHES: &[&str] = &[
     "patches/missing_riscv_atomics_fix.diff",
     "patches/missing_xtensa_atomics_fix.diff",
     "patches/pthread_destructor_fix.diff",
+    "patches/esp_app_format_weak.diff",
 ];
 
 #[allow(dead_code)]
-pub const MASTER_PATCHES: &[&str] = &[];
+pub const MASTER_PATCHES: &[&str] = &[
+    "patches/esp_app_format_weak.diff",
+];
 
 const TOOLS_WORKSPACE_INSTALL_DIR: &str = ".embuild";
 

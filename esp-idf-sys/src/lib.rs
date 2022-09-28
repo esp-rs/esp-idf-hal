@@ -15,6 +15,7 @@ mod error;
 mod panic;
 mod patches;
 mod start;
+mod app_desc;
 
 /// If any of the two constants below do not compile, you have not properly setup the rustc cfg flag `espidf_time64`:
 /// When compiling against ESP-IDF V5.X or later, you need to define the following in your `.config/cargo.toml` file
