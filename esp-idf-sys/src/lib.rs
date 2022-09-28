@@ -9,6 +9,7 @@ pub use error::*;
 
 #[doc(hidden)]
 pub use patches::PatchesRef;
+pub use app_desc::*;
 
 mod alloc;
 mod error;
