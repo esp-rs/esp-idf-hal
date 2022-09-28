@@ -578,7 +578,7 @@ impl<'d, P> EthDriver<'d, P> {
     where
         C: for<'a> FnMut(&[u8]) + Send + 'static,
     {
-        self.stop()?;
+        let _ = self.stop();
 
         let mut callback: Box<RawCallback> = Box::new(Box::new(move |data| callback(data)));
 
