@@ -30,7 +30,7 @@ impl From<Newtype<&esp_app_desc_t>> for ota::FirmwareInfo {
 
         write!(
             &mut result.released,
-            "{}{}",
+            "{} {}",
             unsafe { from_cstr_ptr(&app_desc.date as *const _) },
             unsafe { from_cstr_ptr(&app_desc.time as *const _) }
         )
