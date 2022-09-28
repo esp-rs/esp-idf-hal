@@ -1323,8 +1323,9 @@ pub mod ws {
     #[cfg(all(feature = "nightly", feature = "experimental"))]
     pub mod asyncify {
         use embedded_svc::utils::asyncify::ws::server::{
-            AsyncAcceptor, AsyncConnection, Processor,
+            AsyncAcceptor, AsyncReceiver, AsyncSender, Processor,
         };
+        use esp_idf_sys::EspError;
 
         pub type EspHttpWsProcessor<const N: usize, const F: usize> =
             Processor<N, F, crate::private::mutex::RawCondvar, super::EspHttpWsConnection>;
@@ -1332,7 +1333,9 @@ pub mod ws {
         pub type EspHttpWsAsyncAcceptor<U> =
             AsyncAcceptor<U, crate::private::mutex::RawCondvar, super::EspHttpWsDetachedSender>;
 
-        pub type EspHttpWsAsyncConnection<U> =
-            AsyncConnection<U, crate::private::mutex::RawCondvar, super::EspHttpWsDetachedSender>;
+        pub type EspHttpWsAsyncSender<U> = AsyncSender<U, super::EspHttpWsDetachedSender>;
+
+        pub type EspHttpWsAsyncReceiver =
+            AsyncReceiver<crate::private::mutex::RawCondvar, EspError>;
     }
 }
