@@ -42,6 +42,10 @@ pub trait Spi: Send {
     fn device() -> spi_host_device_t;
 }
 
+/// A marker interface implemented by all SPI peripherals except SPI1 which
+/// should use a fixed set of pins
+pub trait SpiAnyPins: Spi {}
+
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum Dma {
     Disabled,
@@ -305,7 +309,7 @@ impl<'d> SpiMasterDriver<'d, SPI1> {
     /// Create new instance of SPI controller for SPI1
     ///
     /// SPI1 can only use fixed pin for SCLK, SDO and SDI as they are shared with SPI0.
-    pub fn new(
+    pub fn new_spi1(
         spi: impl Peripheral<P = SPI1> + 'd,
         sclk: impl Peripheral<P = gpio::Gpio6> + 'd,
         sdo: impl Peripheral<P = gpio::Gpio7> + 'd,
@@ -317,25 +321,10 @@ impl<'d> SpiMasterDriver<'d, SPI1> {
     }
 }
 
-impl<'d> SpiMasterDriver<'d, SPI2> {
-    /// Create new instance of SPI controller for SPI2
+impl<'d, SPI: SpiAnyPins> SpiMasterDriver<'d, SPI> {
+    /// Create new instance of SPI controller for all others
     pub fn new(
-        spi: impl Peripheral<P = SPI2> + 'd,
-        sclk: impl Peripheral<P = impl OutputPin> + 'd,
-        sdo: impl Peripheral<P = impl OutputPin> + 'd,
-        sdi: Option<impl Peripheral<P = impl InputPin + OutputPin> + 'd>,
-        cs: Option<impl Peripheral<P = impl OutputPin> + 'd>,
-        config: &config::Config,
-    ) -> Result<Self, EspError> {
-        SpiMasterDriver::new_internal(spi, sclk, sdo, sdi, cs, config)
-    }
-}
-
-#[cfg(not(esp32c3))]
-impl<'d> SpiMasterDriver<'d, SPI3> {
-    /// Create new instance of SPI controller for SPI3
-    pub fn new(
-        spi: impl Peripheral<P = SPI3> + 'd,
+        spi: impl Peripheral<P = SPI> + 'd,
         sclk: impl Peripheral<P = impl OutputPin> + 'd,
         sdo: impl Peripheral<P = impl OutputPin> + 'd,
         sdi: Option<impl Peripheral<P = impl InputPin + OutputPin> + 'd>,
@@ -676,7 +665,17 @@ macro_rules! impl_spi {
     };
 }
 
+macro_rules! impl_spi_any_pins {
+    ($spi:ident) => {
+        impl SpiAnyPins for $spi {}
+    };
+}
+
 impl_spi!(SPI1: spi_host_device_t_SPI1_HOST);
 impl_spi!(SPI2: spi_host_device_t_SPI2_HOST);
 #[cfg(not(esp32c3))]
 impl_spi!(SPI3: spi_host_device_t_SPI3_HOST);
+
+impl_spi_any_pins!(SPI2);
+#[cfg(not(esp32c3))]
+impl_spi_any_pins!(SPI3);
