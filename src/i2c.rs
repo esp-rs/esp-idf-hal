@@ -23,13 +23,11 @@ pub type I2cSlaveConfig = config::SlaveConfig;
 /// I2C configuration
 pub mod config {
     use crate::units::*;
-    use core::time::Duration;
 
     /// I2C Master configuration
     #[derive(Copy, Clone)]
     pub struct MasterConfig {
         pub baudrate: Hertz,
-        pub timeout: Option<Duration>,
         pub sda_pullup_enabled: bool,
         pub scl_pullup_enabled: bool,
     }
@@ -42,12 +40,6 @@ pub mod config {
         #[must_use]
         pub fn baudrate(mut self, baudrate: Hertz) -> Self {
             self.baudrate = baudrate;
-            self
-        }
-
-        #[must_use]
-        pub fn timeout(mut self, timeout: Option<Duration>) -> Self {
-            self.timeout = timeout;
             self
         }
 
@@ -68,7 +60,6 @@ pub mod config {
         fn default() -> Self {
             Self {
                 baudrate: Hertz(1_000_000),
-                timeout: None,
                 sda_pullup_enabled: true,
                 scl_pullup_enabled: true,
             }
@@ -78,7 +69,6 @@ pub mod config {
     /// I2C Slave configuration
     #[derive(Copy, Clone)]
     pub struct SlaveConfig {
-        pub timeout: Option<Duration>,
         pub sda_pullup_enabled: bool,
         pub scl_pullup_enabled: bool,
         pub rx_buf_len: usize,
@@ -88,12 +78,6 @@ pub mod config {
     impl SlaveConfig {
         pub fn new() -> Self {
             Default::default()
-        }
-
-        #[must_use]
-        pub fn timeout(mut self, timeout: Option<Duration>) -> Self {
-            self.timeout = timeout;
-            self
         }
 
         #[must_use]
@@ -124,7 +108,6 @@ pub mod config {
     impl Default for SlaveConfig {
         fn default() -> Self {
             Self {
-                timeout: None,
                 sda_pullup_enabled: true,
                 scl_pullup_enabled: true,
                 rx_buf_len: 0,
@@ -143,7 +126,6 @@ where
     I2C: I2c,
 {
     _i2c: PeripheralRef<'d, I2C>,
-    timeout: TickType_t,
 }
 
 impl<'d, I2C> I2cMasterDriver<'d, I2C>
@@ -189,13 +171,15 @@ where
             ) // TODO: set flags
         })?;
 
-        Ok(I2cMasterDriver {
-            _i2c: i2c,
-            timeout: TickType::from(config.timeout).0,
-        })
+        Ok(I2cMasterDriver { _i2c: i2c })
     }
 
-    fn read(&mut self, addr: u8, buffer: &mut [u8]) -> Result<(), EspError> {
+    pub fn read(
+        &mut self,
+        addr: u8,
+        buffer: &mut [u8],
+        timeout: TickType_t,
+    ) -> Result<(), EspError> {
         let mut command_link = CommandLink::new()?;
 
         command_link.master_start()?;
@@ -207,10 +191,10 @@ where
 
         command_link.master_stop()?;
 
-        self.cmd_begin(&command_link, self.timeout)
+        self.cmd_begin(&command_link, timeout)
     }
 
-    fn write(&mut self, addr: u8, bytes: &[u8]) -> Result<(), EspError> {
+    pub fn write(&mut self, addr: u8, bytes: &[u8], timeout: TickType_t) -> Result<(), EspError> {
         let mut command_link = CommandLink::new()?;
 
         command_link.master_start()?;
@@ -222,10 +206,16 @@ where
 
         command_link.master_stop()?;
 
-        self.cmd_begin(&command_link, self.timeout)
+        self.cmd_begin(&command_link, timeout)
     }
 
-    fn write_read(&mut self, addr: u8, bytes: &[u8], buffer: &mut [u8]) -> Result<(), EspError> {
+    pub fn write_read(
+        &mut self,
+        addr: u8,
+        bytes: &[u8],
+        buffer: &mut [u8],
+        timeout: TickType_t,
+    ) -> Result<(), EspError> {
         let mut command_link = CommandLink::new()?;
 
         command_link.master_start()?;
@@ -244,13 +234,14 @@ where
 
         command_link.master_stop()?;
 
-        self.cmd_begin(&command_link, self.timeout)
+        self.cmd_begin(&command_link, timeout)
     }
 
-    fn transaction<'a>(
+    pub fn transaction<'a>(
         &mut self,
         address: u8,
         operations: &mut [Operation<'a>],
+        timeout: TickType_t,
     ) -> Result<(), EspError> {
         let mut command_link = CommandLink::new()?;
 
@@ -298,7 +289,7 @@ where
 
         command_link.master_stop()?;
 
-        self.cmd_begin(&command_link, self.timeout)
+        self.cmd_begin(&command_link, timeout)
     }
 
     fn cmd_begin(
@@ -325,7 +316,7 @@ where
     type Error = I2cError;
 
     fn read(&mut self, addr: u8, buffer: &mut [u8]) -> Result<(), Self::Error> {
-        I2cMasterDriver::read(self, addr, buffer).map_err(to_i2c_err)
+        I2cMasterDriver::read(self, addr, buffer, BLOCK).map_err(to_i2c_err)
     }
 }
 
@@ -336,7 +327,7 @@ where
     type Error = I2cError;
 
     fn write(&mut self, addr: u8, bytes: &[u8]) -> Result<(), Self::Error> {
-        I2cMasterDriver::write(self, addr, bytes).map_err(to_i2c_err)
+        I2cMasterDriver::write(self, addr, bytes, BLOCK).map_err(to_i2c_err)
     }
 }
 
@@ -347,7 +338,7 @@ where
     type Error = I2cError;
 
     fn write_read(&mut self, addr: u8, bytes: &[u8], buffer: &mut [u8]) -> Result<(), Self::Error> {
-        I2cMasterDriver::write_read(self, addr, bytes, buffer).map_err(to_i2c_err)
+        I2cMasterDriver::write_read(self, addr, bytes, buffer, BLOCK).map_err(to_i2c_err)
     }
 }
 
@@ -364,15 +355,15 @@ where
     I2C: I2c,
 {
     fn read(&mut self, addr: u8, buffer: &mut [u8]) -> Result<(), Self::Error> {
-        I2cMasterDriver::read(self, addr, buffer).map_err(to_i2c_err)
+        I2cMasterDriver::read(self, addr, buffer, BLOCK).map_err(to_i2c_err)
     }
 
     fn write(&mut self, addr: u8, bytes: &[u8]) -> Result<(), Self::Error> {
-        I2cMasterDriver::write(self, addr, bytes).map_err(to_i2c_err)
+        I2cMasterDriver::write(self, addr, bytes, BLOCK).map_err(to_i2c_err)
     }
 
     fn write_read(&mut self, addr: u8, bytes: &[u8], buffer: &mut [u8]) -> Result<(), Self::Error> {
-        I2cMasterDriver::write_read(self, addr, bytes, buffer).map_err(to_i2c_err)
+        I2cMasterDriver::write_read(self, addr, bytes, buffer, BLOCK).map_err(to_i2c_err)
     }
 
     fn write_iter<B>(&mut self, _address: u8, _bytes: B) -> Result<(), Self::Error>
@@ -399,7 +390,7 @@ where
         address: u8,
         operations: &mut [embedded_hal::i2c::blocking::Operation<'a>],
     ) -> Result<(), Self::Error> {
-        I2cMasterDriver::transaction(self, address, operations).map_err(to_i2c_err)
+        I2cMasterDriver::transaction(self, address, operations, BLOCK).map_err(to_i2c_err)
     }
 
     fn transaction_iter<'a, O>(&mut self, _address: u8, _operations: O) -> Result<(), Self::Error>
@@ -423,7 +414,6 @@ where
     I2C: I2c,
 {
     _i2c: PeripheralRef<'d, I2C>,
-    timeout: TickType_t,
 }
 
 unsafe impl<'d, I2C: I2c> Send for I2cSlaveDriver<'d, I2C> {}
@@ -486,19 +476,16 @@ where
             )
         })?;
 
-        Ok(Self {
-            _i2c: i2c,
-            timeout: TickType::from(config.timeout).0,
-        })
+        Ok(Self { _i2c: i2c })
     }
 
-    pub fn read(&mut self, buffer: &mut [u8]) -> Result<usize, EspError> {
+    pub fn read(&mut self, buffer: &mut [u8], timeout: TickType_t) -> Result<usize, EspError> {
         let n = unsafe {
             i2c_slave_read_buffer(
                 I2C::port(),
                 buffer.as_mut_ptr(),
                 buffer.len() as u32,
-                self.timeout,
+                timeout,
             )
         };
 
@@ -509,13 +496,13 @@ where
         }
     }
 
-    pub fn write(&mut self, bytes: &[u8]) -> Result<usize, EspError> {
+    pub fn write(&mut self, bytes: &[u8], timeout: TickType_t) -> Result<usize, EspError> {
         let n = unsafe {
             i2c_slave_write_buffer(
                 I2C::port(),
                 bytes.as_ptr() as *const u8 as *mut u8,
                 bytes.len() as i32,
-                self.timeout,
+                timeout,
             )
         };
 

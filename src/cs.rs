@@ -105,7 +105,10 @@ pub mod critical_section {
         }
     }
 
-    #[cfg(feature = "critical-section-mutex")]
+    pub fn link() -> i32 {
+        42
+    }
+
     critical_section::set_impl!(EspCriticalSection);
 }
 

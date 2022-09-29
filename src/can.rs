@@ -283,16 +283,16 @@ impl<'d> CanDriver<'d> {
         Ok(Self(can))
     }
 
-    pub fn transmit(&mut self, frame: &Frame, delay: TickType_t) -> Result<(), EspError> {
-        esp!(unsafe { twai_transmit(&frame.0, delay) })
+    pub fn transmit(&mut self, frame: &Frame, timeout: TickType_t) -> Result<(), EspError> {
+        esp!(unsafe { twai_transmit(&frame.0, timeout) })
     }
 
-    pub fn receive(&mut self, delay: TickType_t) -> Result<Frame, EspError> {
+    pub fn receive(&mut self, timeout: TickType_t) -> Result<Frame, EspError> {
         let mut rx_msg = twai_message_t {
             ..Default::default()
         };
 
-        match esp_result!(unsafe { twai_receive(&mut rx_msg, delay) }, ()) {
+        match esp_result!(unsafe { twai_receive(&mut rx_msg, timeout) }, ()) {
             Ok(_) => Ok(Frame(rx_msg)),
             Err(err) => Err(err),
         }
