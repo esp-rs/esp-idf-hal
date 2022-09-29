@@ -57,30 +57,22 @@ use core::time::Duration;
 #[cfg(feature = "alloc")]
 extern crate alloc;
 
-use crate::gpio::InputPin;
-use crate::gpio::OutputPin;
-use crate::units::Hertz;
-
 #[cfg(feature = "alloc")]
 use alloc::vec::Vec;
-pub use chip::*;
-use config::ReceiveConfig;
-use config::TransmitConfig;
 use core::cell::UnsafeCell;
-use core::convert::TryFrom;
-use core::time::Duration;
-use esp_idf_sys::*;
-
 
 use esp_idf_sys::*;
 
+use crate::gpio::InputPin;
 use crate::gpio::OutputPin;
 use crate::peripheral::{Peripheral, PeripheralRef};
 use crate::units::Hertz;
 
-use config::Config;
+use config::TransmitConfig;
 
 pub use chip::*;
+
+pub type RmtTransmitConfig = config::TransmitConfig;
 
 /// A `Low` (0) or `High` (1) state for a pin.
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
@@ -182,7 +174,7 @@ pub fn duration_to_ticks(ticks_hz: Hertz, duration: &Duration) -> Result<u128, E
         / 1_000_000_000)
 }
 
-pub type RmtConfig = config::Config;
+pub type RmtConfig = config::TransmitConfig;
 
 /// Types used for configuring the [`rmt`][crate::rmt] module.
 ///
@@ -294,7 +286,7 @@ pub mod config {
         pub aware_dfs: bool,
     }
 
-    impl Config {
+    impl TransmitConfig {
         pub fn new() -> Self {
             Self {
                 aware_dfs: false,
@@ -422,7 +414,7 @@ impl<'d, C: RmtChannel> RmtDriver<'d, C> {
     pub fn new(
         channel: impl Peripheral<P = C> + 'd,
         pin: impl Peripheral<P = impl OutputPin> + 'd,
-        config: &Config,
+        config: &TransmitConfig,
     ) -> Result<Self, EspError> {
         crate::into_ref!(channel, pin);
 

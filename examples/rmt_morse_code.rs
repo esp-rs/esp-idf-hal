@@ -20,7 +20,7 @@ use esp_idf_hal::delay::Ets;
 use esp_idf_hal::gpio::*;
 use esp_idf_hal::peripheral::*;
 use esp_idf_hal::peripherals::Peripherals;
-use esp_idf_hal::rmt::config::{CarrierConfig, Config, DutyPercent, Loop};
+use esp_idf_hal::rmt::config::{CarrierConfig, DutyPercent, Loop, TransmitConfig};
 use esp_idf_hal::rmt::*;
 use esp_idf_hal::units::FromValueType;
 
@@ -69,7 +69,7 @@ fn main() -> anyhow::Result<()> {
 fn send_morse_code<'d>(
     channel: impl Peripheral<P = CHANNEL0> + 'd,
     led: impl Peripheral<P = impl OutputPin> + 'd,
-    config: &Config,
+    config: &TransmitConfig,
     message: &str,
 ) -> anyhow::Result<RmtDriver<'d, CHANNEL0>> {
     println!("Sending morse message '{}'.", message);
