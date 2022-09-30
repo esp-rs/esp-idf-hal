@@ -361,8 +361,10 @@ impl EspNetif {
     }
 
     pub fn get_ip_info(&self) -> Result<ipv4::IpInfo, EspError> {
-        // TODO
-        todo!()
+        let mut ip_info = Default::default();
+
+        unsafe { esp!(esp_netif_get_ip_info(self.0, &mut ip_info)) }?;
+        Ok(Newtype(ip_info).into())
     }
 
     pub fn get_key(&self) -> heapless::String<32> {
