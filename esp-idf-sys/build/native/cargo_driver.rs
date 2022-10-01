@@ -17,7 +17,7 @@ use embuild::{bindgen, build, cargo, cmake, espidf, git, kconfig, path_buf};
 use self::chip::Chip;
 use crate::common::{
     self, list_specific_sdkconfigs, manifest_dir, workspace_dir, EspIdfBuildOutput,
-    EspIdfComponents, InstallDir, MASTER_PATCHES, V_4_3_2_PATCHES,
+    EspIdfComponents, InstallDir, MASTER_PATCHES, V_4_3_2_PATCHES, V_4_4_2_PATCHES,
 };
 use crate::config::{BuildConfig, ESP_IDF_GLOB_VAR_PREFIX, ESP_IDF_TOOLS_INSTALL_DIR_VAR};
 
@@ -186,7 +186,7 @@ pub fn build() -> Result<EspIdfBuildOutput> {
                 MASTER_PATCHES
             }
             Ok((5, _, _)) => MASTER_PATCHES,
-            Ok((4, 4, _)) => &[],
+            Ok((4, 4, _)) => V_4_4_2_PATCHES,
             Ok((4, 3, patch)) if patch == 2 => V_4_3_2_PATCHES,
             Ok((major, minor, patch)) => {
                 cargo::print_warning(format_args!(

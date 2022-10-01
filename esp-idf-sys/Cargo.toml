@@ -30,6 +30,8 @@ pio = ["embuild/pio"]
 
 [dependencies]
 libc = "0.2" # Only to check if the rustc flag `-cfg espidf_time64` is properly defined
+build-time = "0.1.2"
+const_format = "0.2.26"
 
 [build-dependencies]
 embuild = { version = "0.30.4", features = ["glob", "kconfig"] }
