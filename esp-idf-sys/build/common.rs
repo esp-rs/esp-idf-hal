@@ -21,15 +21,10 @@ pub const V_4_3_2_PATCHES: &[&str] = &[
 ];
 
 #[allow(dead_code)]
-pub const MASTER_PATCHES: &[&str] = &[
-    "patches/esp_app_format_weak.diff",
-];
+pub const MASTER_PATCHES: &[&str] = &["patches/esp_app_format_weak.diff"];
 
 #[allow(dead_code)]
-pub const V_4_4_2_PATCHES: &[&str] = &[
-    "patches/esp_app_format_weak.diff",
-];
-
+pub const V_4_4_2_PATCHES: &[&str] = &["patches/esp_app_format_weak.diff"];
 
 const TOOLS_WORKSPACE_INSTALL_DIR: &str = ".embuild";
 

@@ -1,4 +1,3 @@
-
 pub const fn str_to_cstr_array<const C: usize>(s: &str) -> [i8; C] {
     let mut ret = [0i8; C];
     let mut i = 0;
@@ -19,9 +18,9 @@ pub const fn str_to_cstr_array<const C: usize>(s: &str) -> [i8; C] {
 #[macro_export]
 macro_rules! esp_app_desc {
     () => {
+        use esp_idf_sys::*;
         use $crate::build_time::build_time_utc;
         use $crate::const_format::formatcp;
-        use esp_idf_sys::*;
 
         #[no_mangle]
         #[used]
@@ -35,9 +34,14 @@ macro_rules! esp_app_desc {
             project_name: str_to_cstr_array(env!("CARGO_PKG_NAME")),
             time: str_to_cstr_array(build_time_utc!("%Y-%m-%d")),
             date: str_to_cstr_array(build_time_utc!("%H:%M:%S")),
-            idf_ver: str_to_cstr_array(formatcp!("{}.{}.{}", ESP_IDF_VERSION_MAJOR, ESP_IDF_VERSION_MINOR, ESP_IDF_VERSION_PATCH)),
+            idf_ver: str_to_cstr_array(formatcp!(
+                "{}.{}.{}",
+                ESP_IDF_VERSION_MAJOR,
+                ESP_IDF_VERSION_MINOR,
+                ESP_IDF_VERSION_PATCH
+            )),
             app_elf_sha256: [0; 32],
             reserv2: [0; 20],
         };
-    }
+    };
 }
