@@ -182,32 +182,49 @@ pub struct SpiBusMasterDriver<'d> {
 
 impl<'d> SpiBusMasterDriver<'d> {
     pub fn read(&mut self, words: &mut [u8]) -> Result<(), EspError> {
-        for chunk in words.chunks_mut(self.trans_len) {
-            self.polling_transmit(chunk.as_mut_ptr(), ptr::null(), chunk.len(), chunk.len())?;
+        let mut chunks = words.chunks_mut(self.trans_len).peekable();
+        while let Some(chunk) = chunks.next() {
+            self.polling_transmit(
+                chunk.as_mut_ptr(),
+                ptr::null(),
+                chunk.len(),
+                chunk.len(),
+                chunks.peek().is_some(),
+            )?;
         }
 
         Ok(())
     }
 
     pub fn write(&mut self, words: &[u8]) -> Result<(), EspError> {
-        for chunk in words.chunks(self.trans_len) {
-            self.polling_transmit(ptr::null_mut(), chunk.as_ptr(), chunk.len(), 0)?;
+        let mut chunks = words.chunks(self.trans_len).peekable();
+        while let Some(chunk) = chunks.next() {
+            self.polling_transmit(
+                ptr::null_mut(),
+                chunk.as_ptr(),
+                chunk.len(),
+                0,
+                chunks.peek().is_some(),
+            )?;
         }
 
         Ok(())
     }
 
     pub fn transfer(&mut self, read: &mut [u8], write: &[u8]) -> Result<(), EspError> {
+        let same_length_q = write.len() == read.len();
         let common_length = min(read.len(), write.len());
         let common_read = read[0..common_length].chunks_mut(self.trans_len);
         let common_write = write[0..common_length].chunks(self.trans_len);
 
-        for (read_chunk, write_chunk) in common_read.zip(common_write) {
+        let mut chunks = common_read.zip(common_write).peekable();
+        while let Some((read_chunk, write_chunk)) = chunks.next() {
             self.polling_transmit(
                 read_chunk.as_mut_ptr(),
                 write_chunk.as_ptr(),
                 max(read_chunk.len(), write_chunk.len()),
                 read_chunk.len(),
+                same_length_q && chunks.peek().is_some(),
             )?;
         }
 
@@ -227,10 +244,11 @@ impl<'d> SpiBusMasterDriver<'d> {
     }
 
     pub fn transfer_in_place(&mut self, words: &mut [u8]) -> Result<(), EspError> {
-        for chunk in words.chunks_mut(self.trans_len) {
+        let mut chunks = words.chunks_mut(self.trans_len).peekable();
+        while let Some(chunk) = chunks.next() {
             let ptr = chunk.as_mut_ptr();
             let len = chunk.len();
-            self.polling_transmit(ptr, ptr, len, len)?;
+            self.polling_transmit(ptr, ptr, len, len, chunks.peek().is_some())?;
         }
 
         Ok(())
@@ -249,6 +267,7 @@ impl<'d> SpiBusMasterDriver<'d> {
         write: *const u8,
         transaction_length: usize,
         rx_length: usize,
+        keep_cs_active: bool,
     ) -> Result<(), EspError> {
         polling_transmit(
             self.handle,
@@ -256,13 +275,8 @@ impl<'d> SpiBusMasterDriver<'d> {
             write,
             transaction_length,
             rx_length,
-            true,
+            keep_cs_active,
         )
-    }
-
-    /// Empty transaction to de-assert CS.
-    fn finish(&mut self) -> Result<(), EspError> {
-        polling_transmit(self.handle, ptr::null_mut(), ptr::null(), 0, 0, false)
     }
 }
 
@@ -444,8 +458,6 @@ impl<'d, SPI: Spi> SpiMasterDriver<'d, SPI> {
         let lock = self.lock_bus()?;
 
         let trans_result = f(&mut bus);
-
-        let finish_result = bus.finish();
 
         // Flush whatever is pending.
         // Note that this is done even when an error is returned from the transaction.
