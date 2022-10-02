@@ -418,6 +418,10 @@ impl Server {
             open_fn: None,
             close_fn: None,
             uri_match_fn: None,
+            // Latest 4.4 and master branches have options to control SO linger,
+            // but these are not released yet so we cannot (yet) support these
+            // conditionally
+            ..Default::default()
         }
     }
 }
