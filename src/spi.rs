@@ -466,7 +466,6 @@ impl<'d, SPI: Spi> SpiMasterDriver<'d, SPI> {
         core::mem::drop(lock);
 
         let result = trans_result?;
-        finish_result?;
         flush_result?;
 
         Ok(result)
