@@ -364,7 +364,7 @@ impl EspHttpConnection {
             if self.follow_redirects {
                 let status = unsafe { esp_http_client_get_status_code(self.raw_client) as u16 };
 
-                if status::REDIRECT.contains(&status) {
+                if status::REDIRECT.contains(&status) && status != 304 {
                     info!("Got response {}, about to follow redirect", status);
 
                     let mut len = 0_i32;
