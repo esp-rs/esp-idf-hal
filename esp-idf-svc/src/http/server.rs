@@ -71,6 +71,7 @@ impl Default for Configuration {
 }
 
 impl From<&Configuration> for Newtype<httpd_config_t> {
+    #[allow(clippy::needless_update)]
     fn from(conf: &Configuration) -> Self {
         Self(httpd_config_t {
             task_priority: 5,
