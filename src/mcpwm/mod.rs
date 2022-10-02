@@ -59,6 +59,7 @@ use core::borrow::Borrow;
 
 use crate::gpio::OutputPin;
 use crate::units::{FromValueType, Hertz};
+use crate::mcpwm::operator::{HwOperator, OPERATOR0, OPERATOR1, OPERATOR2};
 use esp_idf_sys::*;
 
 // MCPWM clock source frequency for ESP32 and ESP32-s3
@@ -116,23 +117,13 @@ impl<U: Unit> MCPWM<U> {
 }
 
 pub trait Unit: Default {
-    fn unit() -> mcpwm_unit_t;
+    const ID: mcpwm_unit_t;
 }
 
 impl Unit for UnitZero {
-    fn unit() -> mcpwm_unit_t {
-        mcpwm_unit_t_MCPWM_UNIT_0
-    }
+    const ID: mcpwm_unit_t = mcpwm_unit_t_MCPWM_UNIT_0;
 }
 
 impl Unit for UnitOne {
-    fn unit() -> mcpwm_unit_t {
-        mcpwm_unit_t_MCPWM_UNIT_1
-    }
+    const ID: mcpwm_unit_t = mcpwm_unit_t_MCPWM_UNIT_1;
 }
-
-trait OptionalOperator<U: Unit, O: HwOperator<U>> {}
-
-struct NoOperator;
-impl<U: Unit, O: HwOperator> OptionalOperator<U, O> for NoOperator {}
-

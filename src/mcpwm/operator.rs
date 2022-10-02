@@ -1,24 +1,28 @@
+use std::borrow::Borrow;
+
+use esp_idf_sys::{mcpwm_io_signals_t, mcpwm_unit_t, mcpwm_operator_t,
+    mcpwm_io_signals_t_MCPWM0A, mcpwm_io_signals_t_MCPWM0B,
+    mcpwm_io_signals_t_MCPWM1A, mcpwm_io_signals_t_MCPWM1B,
+    mcpwm_io_signals_t_MCPWM2A, mcpwm_io_signals_t_MCPWM2B, EspError
+};
+
+use crate::{mcpwm::{Unit, UnitZero, UnitOne}, gpio::OutputPin};
+
+use super::{Duty, timer_connection::OptionalOutputPin};
+
 // The hardware for ESP32 and ESP32-S3 can associate any operator(within the mcpwm module) with any
 // timer(within the mcpwm module) for example allowing using the same timer for all three operators.
-// However at least as of IDF v4.4 timer0 is hardcoded to operator0 and timer1 to operator1 and so on...
-pub trait HwOperator<U: Unit>: Into<Operator<U, Self>> {
-    fn signal_a() -> mcpwm_io_signals_t;
-    fn signal_b() -> mcpwm_io_signals_t;
-    fn unit() -> mcpwm_unit_t {
-        U::unit()
-    }
+pub trait HwOperator<U: Unit> {
+    const SIGNAL_A: mcpwm_io_signals_t;
+    const SIGNAL_B: mcpwm_io_signals_t;
+    const UNIT_ID: mcpwm_unit_t = U::ID;
 }
 
 macro_rules! impl_operator_helper {
     ($instance:ident: $timer:expr, $signal_a:expr, $signal_b:expr, $unit:ty) => {
         impl HwOperator<$unit> for $instance<$unit> {
-            fn signal_a() -> mcpwm_io_signals_t {
-                $signal_a
-            }
-
-            fn signal_b() -> mcpwm_io_signals_t {
-                $signal_b
-            }
+            const SIGNAL_A: mcpwm_io_signals_t = $signal_a;
+            const SIGNAL_B: mcpwm_io_signals_t = $signal_b;
         }
     };
 }
@@ -36,16 +40,6 @@ macro_rules! impl_operator {
             pub unsafe fn new() -> Self {
                 $instance {
                     _unit: U::default(),
-                }
-            }
-        }
-
-        impl<U: Unit> Into<Operator<U>> for $instance<U> {
-            fn into(self) -> Operator<U> {
-                Operator {
-                    _instance: self,
-                    pin_a: NoPin,
-                    pin_b: NoPin,
                 }
             }
         }
@@ -79,21 +73,20 @@ impl_operator!(
 ///
 /// Every Motor Control module has three operators. Every operator can generate two output signals called A and B.
 /// A and B share the same timer and thus frequency and phase but can have induvidual duty set.
-pub struct Operator<U: Unit, O: HwOperator<U>, M: Borrow<Mcpwm<U>>, PA: OptionalPin, PB: OptionalPin, D> {
+pub struct Operator<U: Unit, O: HwOperator<U>, PA: OptionalOutputPin, PB: OptionalOutputPin> {
     handle: mcpwm_operator_t,
     _instance: O,
 
     _pin_a: PA,
     _pin_b: PB,
 
-    deadtime: D
+    //deadtime: D
 }
 
-impl<U, O, M, PA, PB> Operator<U, O, M, PA, PB>
+impl<U, O, PA, PB> Operator<U, O, PA, PB>
 where
     U: Unit,
     O: HwOperator<U>,
-    M: Borrow<Mcpwm<U>>,
     PA: OutputPin,
     PB: OptionalOutputPin,
 {
@@ -108,11 +101,10 @@ where
     }
 }
 
-impl<U, O, M, PA, PB> Operator<U, O, M, PA, PB>
+impl<U, O, PA, PB> Operator<U, O, PA, PB>
 where
     U: Unit,
     O: HwOperator<U>,
-    M: Borrow<Mcpwm<U>>,
     PA: OptionalOutputPin,
     PB: OutputPin,
 {
@@ -134,7 +126,7 @@ pub struct OperatorConfig {
 
     duty_mode: DutyMode,
 
-    deadtime: Option<DeadtimeConfig>,
+    //deadtime: Option<DeadtimeConfig>,
 }
 
 impl OperatorConfig {
@@ -159,26 +151,22 @@ impl OperatorConfig {
         self
     }
 
-    #[must_use]
+    /*#[must_use]
     pub fn deadtime(mut self, deadtime: impl Into<Option<DeadtimeConfig>>) -> Self {
         self.deadtime = deadtime.into();
         self
-    }
+    }*/
 }
 
 impl Default for OperatorConfig {
     fn default() -> Self {
         Self {
-            frequency: 1000.Hz(),
-            duty_a: 50.0,
-            duty_b: 50.0,
-
-            #[cfg(not(esp_idf_version = "4.3"))]
-            lowest_frequency: 16.Hz(),
+            duty_a: 0.0,
+            duty_b: 0.0,
 
             duty_mode: DutyMode::ActiveHigh,
 
-            deadtime: None,
+            //deadtime: None,
         }
     }
 }
@@ -198,6 +186,13 @@ pub enum DutyMode {
     /// Setting duty =   0% will result in a constant high output
     ActiveLow,
 }
+
+pub trait OptionalOperator<U: Unit, O: HwOperator<U>> {}
+
+pub struct NoOperator;
+impl<U: Unit, O: HwOperator<U>> OptionalOperator<U, O> for NoOperator {}
+
+/*
 
 #[derive(Default, Clone)]
 struct DutyConfig {
@@ -226,23 +221,30 @@ impl Default for GeneratorAction {
     }
 }
 
-impl From<DutyMode> for DutyConfig {
-    fn from(val: DutyMode) -> Self {
+impl DutyMode {
+    fn into_duty_cfg<G: Generator>(self) -> DutyConfig<G> {
         match val {
             DutyMode::ActiveHigh => {
                 let mut duty_config: DutyConfig = Default::default();
                 duty_config.on_is_empty.counting_up = GeneratorAction::SetHigh;
-                duty_config.on_matches_cmp_a.counting_up = GeneratorAction::SetLow;
-                
+                if G::IS_A {
+                    duty_config.on_matches_cmp_a.counting_up = GeneratorAction::SetLow;
+                } else {
+                    duty_config.on_matches_cmp_b.counting_up = GeneratorAction::SetLow;
+                }
                 duty_config
             },
             DutyMode::ActiveLow => {
                 let mut duty_config: DutyConfig = Default::default();
                 duty_config.on_is_empty.counting_up = GeneratorAction::SetLow;
-                duty_config.on_matches_cmp_a.counting_up = GeneratorAction::SetHigh;
+                if G::IS_A {
+                    duty_config.on_matches_cmp_a.counting_up = GeneratorAction::SetHigh;
+                } else {
+                    duty_config.on_matches_cmp_b.counting_up = GeneratorAction::SetHigh;
+                }
                 
                 duty_config
             },
         }
     }
-}
+} */

@@ -1,15 +1,19 @@
+use crate::{mcpwm::Unit, gpio::OutputPin};
+
+use super::operator::{OptionalOperator, OPERATOR0, OperatorConfig, NoOperator, OPERATOR2, OPERATOR1};
+
 // TODO: How do we want fault module to fit into this?
 /// Created by `Timer::into_connection()`
 pub struct TimerConnection<U: Unit, T: HwTimer<U>, O0, O1, O2>
     where
-        O0: OptionalOperator<U, OPERATOR0>,
-        O1: OptionalOperator<U, OPERATOR1>,
-        O2: OptionalOperator<U, OPERATOR2>,
+        O0: OptionalOperator<U, OPERATOR0<U>>,
+        O1: OptionalOperator<U, OPERATOR1<U>>,
+        O2: OptionalOperator<U, OPERATOR2<U>>,
 {
     timer: Timer<T>,
-    operator0: O0<U, OPERATOR0>,
-    operator1: O1<U, OPERATOR1>,
-    operator2: O2<U, OPERATOR2>
+    operator0: O0,
+    operator1: O1,
+    operator2: O2
 }
 
 impl<U, T> TimerConnection<U, T, NoOperator, NoOperator, NoOperator> {
@@ -38,9 +42,9 @@ impl<U, T, O0: OptionalOperator<U, OPERATOR0>, O1: OptionalOperator<U, OPERATOR1
         )
     }
 }
-
+// TODO: Do something more builder-pattern like for making the operator?
 impl<U, T, O1, O2> TimerConnection<U, T, NoOperator, O1, O2> {
-    fn attatch_operator0<O: OperatorConfig<U, T>>(mut self, operator_cfg: O) -> TimerConnection<U, T, O, O1, O2> {
+    fn attatch_operator0<PA: OptionalOutputPin, PB: OptionalOutputPin>(mut self, operator_handle: OPERATOR0<U>, operator_cfg: OperatorConfig, pin_a: PA, pin_b: PB) -> TimerConnection<U, T, O, O1, O2> {
         let operator = self.init_and_attach_operator(operator_cfg, pin_a, pin_b);
         TimerConnection {
             timer: self.timer,
@@ -52,7 +56,7 @@ impl<U, T, O1, O2> TimerConnection<U, T, NoOperator, O1, O2> {
 }
 
 impl<U, T, O0, O2> TimerConnection<U, T, O0, NoOperator, O2> {
-    fn attatch_operator1<O: OperatorConfig<U, T>>(mut self, operator: O) -> TimerConnection<U, T, O0, O, O2> {
+    fn attatch_operator1<PA: OptionalOutputPin, PB: OptionalOutputPin>(mut self, operator_handle: OPERATOR1<U>, operator_cfg: OperatorConfig, pin_a: PA, pin_b: PB) -> TimerConnection<U, T, O0, O, O2> {
         let operator = self.init_and_attach_operator(operator_cfg, pin_a, pin_b);
         TimerConnection {
             timer: self.timer,
@@ -64,7 +68,7 @@ impl<U, T, O0, O2> TimerConnection<U, T, O0, NoOperator, O2> {
 }
 
 impl<U, T, O0, O1> TimerConnection<U, T, O0, O1, NoOperator> {
-    fn attatch_operator2<O: OperatorConfig<U, T>>(mut self, operator: O) -> TimerConnection<U, T, O0, O1, O> {
+    fn attatch_operator2<PA: OptionalOutputPin, PB: OptionalOutputPin>(mut self, operator_handle: OPERATOR2<U>, operator_cfg: OperatorConfig, pin_a: PA, pin_b: PB) -> TimerConnection<U, T, O0, O1, O> {
         let operator = self.init_and_attach_operator(operator_cfg, pin_a, pin_b);
         TimerConnection {
             timer: self.timer,
@@ -74,3 +78,7 @@ impl<U, T, O0, O1> TimerConnection<U, T, O0, O1, NoOperator> {
         }
     }
 }
+
+pub struct NoPin;
+
+pub trait OptionalOutputPin {}

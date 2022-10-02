@@ -1,3 +1,14 @@
+use std::ptr;
+
+use esp_idf_sys::{mcpwm_counter_type_t_MCPWM_UP_DOWN_COUNTER, mcpwm_counter_type_t_MCPWM_DOWN_COUNTER, mcpwm_counter_type_t_MCPWM_UP_COUNTER, mcpwm_timer_t, mcpwm_timer_handle_t, mcpwm_timer_enable, mcpwm_timer_t_MCPWM_TIMER_0, mcpwm_timer_t_MCPWM_TIMER_1, mcpwm_timer_t_MCPWM_TIMER_2, mcpwm_counter_type_t};
+
+use crate::units::Hertz;
+use crate::mcpwm::Unit;
+
+use super::operator::NoOperator;
+use super::timer_connection::TimerConnection;
+
+
 #[derive(Clone, Copy, Debug)]
 struct TimerConfig {
     frequency: Hertz,
@@ -5,9 +16,9 @@ struct TimerConfig {
     counter_mode: CounterMode,
 
     // TODO
-    // on_full,
-    // on_empty,
-    // on_stop,
+    // on_full: FF,
+    // on_empty: FE,
+    // on_stop: FS,
 }
 
 impl TimerConfig {
@@ -40,12 +51,12 @@ impl TimerConfig {
     //}
 //}
 
-struct Timer<U: Unit, T: HwTimer<U>> {
+pub struct Timer<U: Unit, T: HwTimer<U>> {
     handle: mcpwm_timer_handle_t,
     _timer: T,
 }
 
-impl Timer {
+impl<U: Unit, T: HwTimer<U>> Timer {
     pub fn new(timer: T, config: TimerConfig) -> Self {
         let config = mcpwm_timer_config_t {
             resolution
@@ -71,7 +82,7 @@ impl Timer {
     }
 
     pub fn timer(&self) -> mcpwm_timer_t {
-        T::timer()
+        T::ID
     }
 
     pub fn release(self) -> T {
@@ -88,7 +99,7 @@ impl Timer {
     }
 }
 
-impl Drop for Timer {
+impl<U: Unit, T: HwTimer<U>> Drop for Timer<U, T> {
     fn drop(self) {
         mcpwm_del_timer(self.handle)
     }
@@ -99,8 +110,8 @@ impl Drop for Timer {
 #[derive(Clone, Copy, Debug)]
 pub enum CounterMode {
     /// Timer is frozen or paused
-    #[cfg(not(esp_idf_version = "4.3"))]
-    Frozen,
+    //#[cfg(not(esp_idf_version = "4.3"))]
+    //Frozen,
     /// Edge aligned. The counter will start from its lowest value and increment every clock cycle until the period is reached.
     ///
     /// The wave form will end up looking something like the following:
@@ -158,11 +169,27 @@ pub enum CounterMode {
 impl From<CounterMode> for mcpwm_counter_type_t {
     fn from(val: CounterMode) -> Self {
         match val {
-            #[cfg(not(esp_idf_version = "4.3"))]
-            CounterMode::Frozen => mcpwm_counter_type_t_MCPWM_FREEZE_COUNTER,
+            //CounterMode::Frozen => mcpwm_counter_type_t_MCPWM_FREEZE_COUNTER,
             CounterMode::Up => mcpwm_counter_type_t_MCPWM_UP_COUNTER,
             CounterMode::Down => mcpwm_counter_type_t_MCPWM_DOWN_COUNTER,
             CounterMode::UpDown => mcpwm_counter_type_t_MCPWM_UP_DOWN_COUNTER,
         }
     }
 }
+
+unsafe trait HwTimer<U: Unit> {
+    const ID: mcpwm_timer_t;
+}
+
+macro_rules! impl_timer {
+    ($t:ident, $id:expr) => {
+        struct $t;
+        impl<U: Unit> HwTimer<U> for $t {
+            const ID: mcpwm_timer_t = $id;
+        }
+    };
+}
+
+impl_timer!(TIMER0, mcpwm_timer_t_MCPWM_TIMER_0);
+impl_timer!(TIMER1, mcpwm_timer_t_MCPWM_TIMER_1);
+impl_timer!(TIMER2, mcpwm_timer_t_MCPWM_TIMER_2);
