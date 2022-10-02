@@ -326,7 +326,7 @@ impl<T: NvsPartitionId> EspNvs<T> {
         }
     }
 
-    fn put_raw(&mut self, name: &str, buf: &[u8]) -> Result<bool, EspError> {
+    fn set_raw(&mut self, name: &str, buf: &[u8]) -> Result<bool, EspError> {
         let c_key = CString::new(name).unwrap();
         let mut u64value: u_int64_t = 0;
 
@@ -399,7 +399,7 @@ impl<T: NvsPartitionId> RawStorage for EspNvs<T> {
         EspNvs::get_raw(self, name, buf)
     }
 
-    fn put_raw(&mut self, name: &str, buf: &[u8]) -> Result<bool, Self::Error> {
-        EspNvs::put_raw(self, name, buf)
+    fn set_raw(&mut self, name: &str, buf: &[u8]) -> Result<bool, Self::Error> {
+        EspNvs::set_raw(self, name, buf)
     }
 }
