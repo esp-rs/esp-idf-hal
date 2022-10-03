@@ -635,7 +635,7 @@ mod status {
 
     use alloc::sync::Arc;
 
-    use log::info;
+    use ::log::info;
 
     use esp_idf_sys::*;
 
