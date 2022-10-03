@@ -315,7 +315,7 @@ impl EspEth<()> {
             esp!(ESP_ERR_INVALID_STATE as i32)?;
         }
 
-        let mac = unsafe { esp_eth_mac_new_openeth(&Self::eth_mac_default_config()) };
+        let mac = unsafe { esp_eth_mac_new_openeth(&Self::eth_mac_default_config(0, 0)) };
         let phy = unsafe { esp_eth_phy_new_dp83848(&Self::eth_phy_default_config(None, None)) };
 
         let eth = Self::init(netif_stack, sys_loop_stack, mac, phy, None, ())?;
@@ -409,6 +409,7 @@ where
 
         let mac_cfg =
             EspEth::<SpiEthPeripherals<INT, SPI, SCLK, SDO, SDI, CS, RST>>::eth_mac_default_config(
+                0, 0,
             );
         let phy_cfg =
             EspEth::<SpiEthPeripherals<INT, SPI, SCLK, SDO, SDI, CS, RST>>::eth_phy_default_config(
