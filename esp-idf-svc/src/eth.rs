@@ -220,8 +220,8 @@ where
         let (mac, phy) = Self::initialize(
             chipset,
             &peripherals.rst,
-            &peripherals.mdc,
-            &peripherals.mdio,
+            &peripherals.rmii_mdc,
+            &peripherals.rmii_mdio,
             phy_addr,
             &peripherals.rmii_ref_clk_config,
         )?;
