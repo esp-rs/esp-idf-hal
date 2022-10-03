@@ -14,8 +14,6 @@ pub use const_format;
 #[doc(hidden)]
 pub use patches::PatchesRef;
 
-pub use app_desc::*;
-
 mod alloc;
 mod app_desc;
 mod error;
