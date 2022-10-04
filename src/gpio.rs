@@ -896,24 +896,24 @@ impl<'d, T: Pin, MODE> PinDriver<'d, T, MODE> {
     }
 
     #[inline]
-    pub fn set_high(&mut self) -> Result<(), EspError>
+    pub fn set_high(&mut self)
     where
         MODE: OutputMode,
     {
-        self.set_level(Level::High)
+        self.set_level(Level::High);
     }
 
     /// Set the output as low.
     #[inline]
-    pub fn set_low(&mut self) -> Result<(), EspError>
+    pub fn set_low(&mut self)
     where
         MODE: OutputMode,
     {
-        self.set_level(Level::Low)
+        self.set_level(Level::Low);
     }
 
     #[inline]
-    pub fn set_level(&mut self, level: Level) -> Result<(), EspError>
+    pub fn set_level(&mut self, level: Level)
     where
         MODE: OutputMode,
     {
@@ -924,27 +924,25 @@ impl<'d, T: Pin, MODE> PinDriver<'d, T, MODE> {
 
         if MODE::RTC {
             #[cfg(all(not(feature = "riscv-ulp-hal"), not(esp32c3)))]
-            esp!(unsafe { rtc_gpio_set_level(self.pin.pin(), on) })?;
+            esp!(unsafe { rtc_gpio_set_level(self.pin.pin(), on) }).unwrap();
 
             #[cfg(any(feature = "riscv-ulp-hal", esp32c3))]
             unreachable!();
         } else {
-            esp!(unsafe { gpio_set_level(self.pin.pin(), on) })?;
+            esp!(unsafe { gpio_set_level(self.pin.pin(), on) }).unwrap();
         }
-
-        Ok(())
     }
 
     /// Toggle pin output
     #[inline]
-    pub fn toggle(&mut self) -> Result<(), EspError>
+    pub fn toggle(&mut self)
     where
         MODE: OutputMode,
     {
         if self.is_set_low() {
-            self.set_high()
+            self.set_high();
         } else {
-            self.set_low()
+            self.set_low();
         }
     }
 
@@ -1157,11 +1155,13 @@ where
     type Error = EspError;
 
     fn set_high(&mut self) -> Result<(), Self::Error> {
-        self.set_level(Level::High)
+        self.set_level(Level::High);
+        Ok(())
     }
 
     fn set_low(&mut self) -> Result<(), Self::Error> {
-        self.set_level(Level::Low)
+        self.set_level(Level::Low);
+        Ok(())
     }
 }
 
@@ -1170,11 +1170,13 @@ where
     MODE: OutputMode,
 {
     fn set_high(&mut self) -> Result<(), Self::Error> {
-        self.set_level(Level::High)
+        self.set_level(Level::High);
+        Ok(())
     }
 
     fn set_low(&mut self) -> Result<(), Self::Error> {
-        self.set_level(Level::Low)
+        self.set_level(Level::Low);
+        Ok(())
     }
 }
 
@@ -1211,7 +1213,8 @@ where
     type Error = EspError;
 
     fn toggle(&mut self) -> Result<(), Self::Error> {
-        self.set_level(Level::from(!bool::from(self.get_output_level())))
+        self.toggle();
+        Ok(())
     }
 }
 
@@ -1221,7 +1224,9 @@ where
     MODE: OutputMode,
 {
     fn toggle(&mut self) -> Result<(), Self::Error> {
-        self.set_level(Level::from(!bool::from(self.get_output_level())))
+        
+        self.toggle();
+        Ok(())
     }
 }
 
