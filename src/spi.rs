@@ -224,7 +224,7 @@ impl<'d> SpiBusMasterDriver<'d> {
                 write_chunk.as_ptr(),
                 max(read_chunk.len(), write_chunk.len()),
                 read_chunk.len(),
-                same_length_q && chunks.peek().is_some(),
+                !(same_length_q && !chunks.peek().is_some()),
             )?;
         }
 
@@ -417,6 +417,7 @@ impl<'d, SPI: Spi> SpiMasterDriver<'d, SPI> {
                 | ((config.data_mode.phase == embedded_hal::spi::Phase::CaptureOnSecondTransition)
                     as u8),
             queue_size: 64,
+            input_delay_ns: 80,
             flags: if config.write_only {
                 SPI_DEVICE_NO_DUMMY
             } else {
