@@ -1,5 +1,6 @@
 //! GPIO and pin configuration
 
+use core::convert::Infallible;
 use core::marker::PhantomData;
 
 #[cfg(feature = "alloc")]
@@ -1120,7 +1121,7 @@ impl<'d, T: Pin, MODE> embedded_hal_0_2::digital::v2::InputPin for PinDriver<'d,
 where
     MODE: InputMode,
 {
-    type Error = EspError;
+    type Error = Infallible;
 
     fn is_high(&self) -> Result<bool, Self::Error> {
         Ok(PinDriver::is_high(self))
@@ -1132,7 +1133,7 @@ where
 }
 
 impl<'d, T: Pin, MODE> embedded_hal::digital::ErrorType for PinDriver<'d, T, MODE> {
-    type Error = EspError;
+    type Error = Infallible;
 }
 
 impl<'d, T: Pin, MODE> embedded_hal::digital::blocking::InputPin for PinDriver<'d, T, MODE>
@@ -1152,7 +1153,7 @@ impl<'d, T: Pin, MODE> embedded_hal_0_2::digital::v2::OutputPin for PinDriver<'d
 where
     MODE: OutputMode,
 {
-    type Error = EspError;
+    type Error = Infallible;
 
     fn set_high(&mut self) -> Result<(), Self::Error> {
         self.set_level(Level::High);
@@ -1210,7 +1211,7 @@ impl<'d, T: Pin, MODE> embedded_hal_0_2::digital::v2::ToggleableOutputPin for Pi
 where
     MODE: OutputMode,
 {
-    type Error = EspError;
+    type Error = Infallible;
 
     fn toggle(&mut self) -> Result<(), Self::Error> {
         self.toggle();
