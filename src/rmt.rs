@@ -269,7 +269,7 @@ pub mod config {
     }
 
     /// Used when creating a [`Transmit`][crate::rmt::Transmit] instance.
-    pub struct Config {
+    pub struct TransmitConfig {
         pub clock_divider: u8,
         pub mem_block_num: u8,
         pub carrier: Option<CarrierConfig>,
@@ -329,6 +329,13 @@ pub mod config {
         }
     }
 
+    impl Default for TransmitConfig {
+        /// Defaults from `<https://github.com/espressif/esp-idf/blob/master/components/driver/include/driver/rmt.h#L101>`
+        fn default() -> Self {
+            Self::new()
+        }
+    }
+
     /// Used when creating a [`Receive`][crate::rmt::Receive] instance.
     pub struct ReceiveConfig {
         pub clock_divider: u8,
@@ -337,20 +344,6 @@ pub mod config {
         pub filter_ticks_thresh: u8,
         pub filter_en: bool,
         pub carrier: Option<CarrierConfig>,
-    }
-
-    impl Default for ReceiveConfig {
-        /// Defaults from `<https://github.com/espressif/esp-idf/blob/master/components/driver/include/driver/rmt.h#L110>`
-        fn default() -> Self {
-            Self {
-                clock_divider: 80,        // one microsecond clock period
-                mem_block_num: 1, // maximum of 448 rmt items can be captured (mem_block_num=0 will have max 512 rmt items)
-                idle_threshold: 12000, // 1.2 milliseconds, pulse greater than this will generate interrupt
-                filter_ticks_thresh: 100, // 100 microseconds, pulses less than this will be ignored
-                filter_en: true,
-                carrier: None,
-            }
-        }
     }
 
     impl ReceiveConfig {
@@ -387,11 +380,19 @@ pub mod config {
             self.carrier = carrier;
             self
         }
-        
-    impl Default for Config {
-        /// Defaults from `<https://github.com/espressif/esp-idf/blob/master/components/driver/include/driver/rmt.h#L101>`
+    }
+
+    impl Default for ReceiveConfig {
+        /// Defaults from `<https://github.com/espressif/esp-idf/blob/master/components/driver/include/driver/rmt.h#L110>`
         fn default() -> Self {
-            Self::new()
+            Self {
+                clock_divider: 80,        // one microsecond clock period
+                mem_block_num: 1, // maximum of 448 rmt items can be captured (mem_block_num=0 will have max 512 rmt items)
+                idle_threshold: 12000, // 1.2 milliseconds, pulse greater than this will generate interrupt
+                filter_ticks_thresh: 100, // 100 microseconds, pulses less than this will be ignored
+                filter_en: true,
+                carrier: None,
+            }
         }
     }
 }
@@ -937,7 +938,7 @@ impl<P: InputPin, C: HwChannel> Receive<P, C> {
     pub fn new(
         pin: P,
         channel: C,
-        config: &ReceiveConfig,
+        config: &config::ReceiveConfig,
         rx_buffer_size_in_bytes: u32,
     ) -> Result<Self, EspError> {
         let flags = 0;
