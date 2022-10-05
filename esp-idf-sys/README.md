@@ -146,7 +146,9 @@ The following configuration options are available:
 
     > ⚠️
     > A setting contained in a more specific defaults file will override the
-    > same setting specified in a less specific one.
+    > same setting specified in a less specific one. For example, in a debug
+    > build, flags in `sdkconfig.debug` override those in `sdkconfig.defaults`.
+    
 
 - ### *`esp_idf_sdkconfig`*, `$ESP_IDF_SDKCONFIG`
 
