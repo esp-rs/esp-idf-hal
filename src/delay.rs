@@ -110,7 +110,7 @@ impl embedded_hal_0_2::blocking::delay::DelayMs<u8> for Ets {
     }
 }
 
-impl embedded_hal::delay::blocking::DelayUs for Ets {
+impl embedded_hal::delay::DelayUs for Ets {
     type Error = Infallible;
 
     fn delay_us(&mut self, us: u32) -> Result<(), Self::Error> {
@@ -185,7 +185,7 @@ impl embedded_hal_0_2::blocking::delay::DelayMs<u8> for FreeRtos {
     }
 }
 
-impl embedded_hal::delay::blocking::DelayUs for FreeRtos {
+impl embedded_hal::delay::DelayUs for FreeRtos {
     type Error = Infallible;
 
     fn delay_us(&mut self, us: u32) -> Result<(), Self::Error> {
