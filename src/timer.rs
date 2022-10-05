@@ -340,307 +340,340 @@ impl_timer!(TIMER10: timer_group_t_TIMER_GROUP_1, timer_idx_t_TIMER_0);
 #[cfg(not(esp32c3))]
 impl_timer!(TIMER11: timer_group_t_TIMER_GROUP_1, timer_idx_t_TIMER_0);
 
-#[cfg(any(
-    feature = "embassy-time-timer00",
-    feature = "embassy-time-timer01",
-    feature = "embassy-time-timer10",
-    feature = "embassy-time-timer11"
-))]
+#[cfg(feature = "embassy-time")]
 pub mod embassy_time {
-    use core::cell::UnsafeCell;
-    use core::sync::atomic::{AtomicBool, AtomicU8, Ordering};
+    use core::cell::RefCell;
+    use core::cmp::Ordering;
+    use core::task::Waker;
 
-    use esp_idf_sys::*;
+    use embassy_sync::blocking_mutex::Mutex;
 
-    #[cfg(all(
-        esp32c3,
-        any(feature = "embassy-time-timer01", feature = "embassy-time-timer11")
-    ))]
-    compile_error!("Features `embassy-time-timer01` and `embassy-time-timer11` are not available for `esp32c3`");
+    use embassy_time::queue::TimerQueue;
+    use embassy_time::Instant;
 
-    #[cfg(feature = "embassy-time-timer00")]
-    type EmbassyTimer = super::TIMER00;
-    #[cfg(feature = "embassy-time-timer01")]
-    type EmbassyTimer = super::TIMER01;
-    #[cfg(feature = "embassy-time-timer10")]
-    type EmbassyTimer = super::TIMER10;
-    #[cfg(feature = "embassy-time-timer11")]
-    type EmbassyTimer = super::TIMER11;
+    use heapless::sorted_linked_list::{LinkedIndexU8, Min, SortedLinkedList};
 
-    use ::embassy_time::driver::{AlarmHandle, Driver};
+    use crate::interrupt::embassy_sync::CriticalSectionRawMutex;
 
-    use super::Timer;
-
-    #[derive(Copy, Clone)]
-    struct Alarm {
-        timestamp: u64,
-        callback: fn(*mut ()),
-        ctx: *mut (),
+    #[derive(Debug)]
+    struct Timer {
+        at: Instant,
+        waker: Waker,
     }
 
-    impl Alarm {
+    impl PartialEq for Timer {
+        fn eq(&self, other: &Self) -> bool {
+            self.at == other.at
+        }
+    }
+
+    impl Eq for Timer {}
+
+    impl PartialOrd for Timer {
+        fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+            self.at.partial_cmp(&other.at)
+        }
+    }
+
+    impl Ord for Timer {
+        fn cmp(&self, other: &Self) -> Ordering {
+            self.at.cmp(&other.at)
+        }
+    }
+
+    pub struct AlarmContext {
+        pub callback: fn(*mut ()),
+        pub ctx: *mut (),
+    }
+
+    impl AlarmContext {
         const fn new() -> Self {
             Self {
-                timestamp: u64::MAX,
                 callback: Self::noop,
                 ctx: core::ptr::null_mut(),
             }
         }
 
+        fn set(&mut self, callback: fn(*mut ()), ctx: *mut ()) {
+            self.callback = callback;
+            self.ctx = ctx;
+        }
+
         fn noop(_ctx: *mut ()) {}
     }
 
-    pub struct EspDriver<const MAX_ALARMS: usize = 16> {
-        alarms: UnsafeCell<[Alarm; MAX_ALARMS]>,
-        next_alarm: AtomicU8,
-        initialized: AtomicBool,
-        cs_mutex: crate::cs::CriticalSection,
-        cs_inter: crate::interrupt::CriticalSection,
+    unsafe impl Send for AlarmContext {}
+
+    pub trait Alarm {
+        fn new(context: &AlarmContext) -> Self;
+        fn schedule(&mut self, timestamp: u64);
     }
 
-    impl<const MAX_ALARMS: usize> EspDriver<MAX_ALARMS> {
+    struct InnerQueue<A> {
+        queue: SortedLinkedList<Timer, LinkedIndexU8, Min, 128>,
+        alarm: Option<A>,
+        alarm_context: AlarmContext,
+        alarm_at: Instant,
+    }
+
+    impl<A: Alarm> InnerQueue<A> {
+        const fn new() -> Self {
+            Self {
+                queue: SortedLinkedList::new_u8(),
+                alarm: None,
+                alarm_context: AlarmContext::new(),
+                alarm_at: Instant::MAX,
+            }
+        }
+
+        fn schedule_wake(&mut self, at: Instant, waker: &Waker) {
+            self.initialize();
+
+            self.queue
+                .find_mut(|timer| timer.waker.will_wake(waker))
+                .map(|mut timer| {
+                    timer.at = at;
+                    timer.finish();
+                })
+                .unwrap_or_else(|| {
+                    let mut timer = Timer {
+                        waker: waker.clone(),
+                        at,
+                    };
+
+                    loop {
+                        match self.queue.push(timer) {
+                            Ok(()) => break,
+                            Err(e) => timer = e,
+                        }
+
+                        self.queue.pop().unwrap().waker.wake();
+                    }
+                });
+
+            // Don't wait for the alarm callback to trigger and directly
+            // dispatch all timers that are already due
+            //
+            // Then update the alarm if necessary
+            self.dispatch();
+        }
+
+        fn dispatch(&mut self) {
+            let now = Instant::now();
+
+            while self.queue.peek().filter(|timer| timer.at <= now).is_some() {
+                self.queue.pop().unwrap().waker.wake();
+            }
+
+            self.update_alarm();
+        }
+
+        fn update_alarm(&mut self) {
+            if let Some(timer) = self.queue.peek() {
+                let new_at = timer.at;
+
+                if self.alarm_at != new_at {
+                    self.alarm_at = new_at;
+                    self.alarm.as_mut().unwrap().schedule(new_at.as_ticks());
+                }
+            } else {
+                self.alarm_at = Instant::MAX;
+                self.alarm
+                    .as_mut()
+                    .unwrap()
+                    .schedule(Instant::MAX.as_ticks());
+            }
+        }
+
+        fn handle_alarm(&mut self) {
+            self.alarm_at = Instant::MAX;
+
+            self.dispatch();
+        }
+
+        fn initialize(&mut self) {
+            if self.alarm.is_none() {
+                self.alarm = Some(A::new(&self.alarm_context));
+            }
+        }
+    }
+
+    pub struct Queue<A: Alarm> {
+        inner: Mutex<CriticalSectionRawMutex, RefCell<InnerQueue<A>>>,
+    }
+
+    impl<A: Alarm> Queue<A> {
         pub const fn new() -> Self {
             Self {
-                alarms: UnsafeCell::new([Alarm::new(); MAX_ALARMS]),
-                next_alarm: AtomicU8::new(0),
-                initialized: AtomicBool::new(false),
-                cs_mutex: crate::cs::CriticalSection::new(),
-                cs_inter: crate::interrupt::CriticalSection::new(),
+                inner: Mutex::new(RefCell::new(InnerQueue::new())),
             }
         }
 
-        fn initialize(&self) {
-            if !self.initialized.load(Ordering::SeqCst) {
-                if crate::interrupt::active() {
-                    unreachable!();
-                }
-
-                let _guard = self.cs_mutex.enter();
-
-                if !self.initialized.load(Ordering::SeqCst) {
-                    unsafe {
-                        esp!(timer_init(
-                            EmbassyTimer::group(),
-                            EmbassyTimer::index(),
-                            &timer_config_t {
-                                alarm_en: timer_alarm_t_TIMER_ALARM_DIS,
-                                counter_en: timer_start_t_TIMER_START,
-                                counter_dir: timer_count_dir_t_TIMER_COUNT_UP,
-                                auto_reload: timer_autoreload_t_TIMER_AUTORELOAD_DIS,
-                                intr_type: timer_intr_mode_t_TIMER_INTR_LEVEL,
-                                divider: rtc_clk_apb_freq_get() / 1_000_000,
-                                #[cfg(all(
-                                    any(esp32s2, esp32s3, esp32c3),
-                                    esp_idf_version_major = "4"
-                                ))]
-                                clk_src: timer_src_clk_t_TIMER_SRC_CLK_APB,
-                                #[cfg(not(esp_idf_version_major = "4"))]
-                                clk_src: 0,
-                            },
-                        ))
-                        .unwrap();
-
-                        esp!(timer_isr_callback_add(
-                            EmbassyTimer::group(),
-                            EmbassyTimer::index(),
-                            Some(Self::handle_isr),
-                            self as *const _ as *mut _,
-                            0,
-                        ))
-                        .unwrap();
-
-                        esp!(timer_enable_intr(
-                            EmbassyTimer::group(),
-                            EmbassyTimer::index()
-                        ))
-                        .unwrap();
-                    }
-
-                    self.initialized.store(true, Ordering::SeqCst);
-                }
-            }
-        }
-
-        fn update_timer_alarm(&self) {
-            let alarms = unsafe { self.alarms.get().as_mut().unwrap() };
-
-            let timestamp = alarms
-                .iter()
-                .min_by_key(|alarm| alarm.timestamp)
-                .unwrap()
-                .timestamp;
-
-            self.set_alarm(timestamp);
+        fn schedule_wake(&'static self, at: Instant, waker: &Waker) {
+            self.inner.lock(|inner| {
+                let mut inner = inner.borrow_mut();
+                inner
+                    .alarm_context
+                    .set(Self::handle_alarm_callback, self as *const _ as _);
+                inner.schedule_wake(at, waker);
+            });
         }
 
         fn handle_alarm(&self) {
-            let now = self.counter();
-
-            let alarms = unsafe { self.alarms.get().as_mut().unwrap() };
-
-            loop {
-                let next_alarm = alarms
-                    .iter_mut()
-                    .min_by_key(|alarm| alarm.timestamp)
-                    .unwrap();
-
-                if next_alarm.timestamp <= now {
-                    next_alarm.timestamp = u64::MAX;
-                    (next_alarm.callback)(next_alarm.ctx);
-                } else {
-                    break;
-                }
-            }
-
-            self.update_timer_alarm();
+            self.inner.lock(|inner| inner.borrow_mut().handle_alarm());
         }
 
-        fn set_alarm(&self, timestamp: u64) {
-            if crate::interrupt::active() {
-                if timestamp < u64::MAX {
-                    unsafe {
-                        timer_group_set_alarm_value_in_isr(
-                            EmbassyTimer::group(),
-                            EmbassyTimer::index(),
-                            timestamp,
-                        );
-                    }
-                    unsafe {
-                        timer_group_enable_alarm_in_isr(
-                            EmbassyTimer::group(),
-                            EmbassyTimer::index(),
-                        );
-                    }
-                }
-            } else {
-                esp!(unsafe {
-                    timer_set_alarm(
+        fn handle_alarm_callback(ctx: *mut ()) {
+            unsafe { (ctx as *const Self).as_ref().unwrap() }.handle_alarm();
+        }
+    }
+
+    impl<A: Alarm> TimerQueue for Queue<A> {
+        fn schedule_wake(&'static self, at: Instant, waker: &Waker) {
+            Queue::schedule_wake(self, at, waker);
+        }
+    }
+
+    #[cfg(any(
+        feature = "embassy-time-isr-queue-timer00",
+        feature = "embassy-time-isr-queue-timer01",
+        feature = "embassy-time-isr-queue-timer10",
+        feature = "embassy-time-isr-queue-timer11",
+    ))]
+    pub mod queue {
+        use esp_idf_sys::*;
+
+        use crate::timer::Timer;
+
+        #[cfg(all(
+            esp32c3,
+            any(
+                feature = "embassy-time-isr-queue-timer01",
+                feature = "embassy-time-isr-queue-timer11"
+            )
+        ))]
+        compile_error!("Features `embassy-time-isr-queue-timer01` and `embassy-time-isr-queue-timer11` are not available for `esp32c3`");
+
+        #[cfg(feature = "embassy-time-isr-queue-timer00")]
+        type EmbassyTimer = crate::timer::TIMER00;
+        #[cfg(feature = "embassy-time-isr-queue-timer01")]
+        type EmbassyTimer = crate::timer::TIMER01;
+        #[cfg(feature = "embassy-time-isr-queue-timer10")]
+        type EmbassyTimer = crate::timer::TIMER10;
+        #[cfg(feature = "embassy-time-isr-queue-timer11")]
+        type EmbassyTimer = crate::timer::TIMER11;
+
+        struct AlarmImpl;
+
+        impl AlarmImpl {
+            unsafe extern "C" fn handle_isr(alarm_context: *mut c_types::c_void) -> bool {
+                crate::interrupt::with_isr_yield_signal(move || {
+                    let alarm_context = (alarm_context as *const super::AlarmContext)
+                        .as_ref()
+                        .unwrap();
+
+                    (alarm_context.callback)(alarm_context.ctx);
+                })
+            }
+        }
+
+        impl super::Alarm for AlarmImpl {
+            fn new(context: &super::AlarmContext) -> Self {
+                unsafe {
+                    esp!(timer_init(
                         EmbassyTimer::group(),
                         EmbassyTimer::index(),
-                        timer_alarm_t_TIMER_ALARM_DIS,
-                    )
-                })
-                .unwrap();
-
-                if timestamp < u64::MAX {
-                    esp!(unsafe {
-                        timer_set_alarm_value(
-                            EmbassyTimer::group(),
-                            EmbassyTimer::index(),
-                            timestamp,
-                        )
-                    })
+                        &timer_config_t {
+                            alarm_en: timer_alarm_t_TIMER_ALARM_DIS,
+                            counter_en: timer_start_t_TIMER_START,
+                            counter_dir: timer_count_dir_t_TIMER_COUNT_UP,
+                            auto_reload: timer_autoreload_t_TIMER_AUTORELOAD_DIS,
+                            intr_type: timer_intr_mode_t_TIMER_INTR_LEVEL,
+                            divider: rtc_clk_apb_freq_get() / 1_000_000,
+                            #[cfg(all(
+                                any(esp32s2, esp32s3, esp32c3),
+                                esp_idf_version_major = "4"
+                            ))]
+                            clk_src: timer_src_clk_t_TIMER_SRC_CLK_APB,
+                            #[cfg(not(esp_idf_version_major = "4"))]
+                            clk_src: 0,
+                        },
+                    ))
                     .unwrap();
 
+                    esp!(timer_isr_callback_add(
+                        EmbassyTimer::group(),
+                        EmbassyTimer::index(),
+                        Some(Self::handle_isr),
+                        context as *const _ as *mut _,
+                        0,
+                    ))
+                    .unwrap();
+
+                    esp!(timer_enable_intr(
+                        EmbassyTimer::group(),
+                        EmbassyTimer::index()
+                    ))
+                    .unwrap();
+                }
+
+                Self
+            }
+
+            fn schedule(&mut self, timestamp: u64) {
+                if crate::interrupt::active() {
+                    if timestamp < u64::MAX {
+                        unsafe {
+                            timer_group_set_alarm_value_in_isr(
+                                EmbassyTimer::group(),
+                                EmbassyTimer::index(),
+                                timestamp,
+                            );
+                        }
+                        unsafe {
+                            timer_group_enable_alarm_in_isr(
+                                EmbassyTimer::group(),
+                                EmbassyTimer::index(),
+                            );
+                        }
+                    }
+                } else {
                     esp!(unsafe {
                         timer_set_alarm(
                             EmbassyTimer::group(),
                             EmbassyTimer::index(),
-                            timer_alarm_t_TIMER_ALARM_EN,
+                            timer_alarm_t_TIMER_ALARM_DIS,
                         )
                     })
                     .unwrap();
-                }
-            }
-        }
 
-        fn counter(&self) -> u64 {
-            if crate::interrupt::active() {
-                unsafe {
-                    timer_group_get_counter_value_in_isr(
-                        EmbassyTimer::group(),
-                        EmbassyTimer::index(),
-                    )
-                }
-            } else {
-                let mut timestamp = 0_u64;
+                    if timestamp < u64::MAX {
+                        esp!(unsafe {
+                            timer_set_alarm_value(
+                                EmbassyTimer::group(),
+                                EmbassyTimer::index(),
+                                timestamp,
+                            )
+                        })
+                        .unwrap();
 
-                esp!(unsafe {
-                    timer_get_counter_value(
-                        EmbassyTimer::group(),
-                        EmbassyTimer::index(),
-                        &mut timestamp as *mut _,
-                    )
-                })
-                .unwrap();
-
-                timestamp
-            }
-        }
-
-        unsafe extern "C" fn handle_isr(this: *mut c_types::c_void) -> bool {
-            crate::interrupt::with_isr_yield_signal(move || {
-                let this = (this as *const Self).as_ref().unwrap();
-
-                this.handle_alarm();
-            })
-        }
-    }
-
-    unsafe impl<const MAX_ALARMS: usize> Send for EspDriver<MAX_ALARMS> {}
-    unsafe impl<const MAX_ALARMS: usize> Sync for EspDriver<MAX_ALARMS> {}
-
-    impl<const MAX_ALARMS: usize> Driver for EspDriver<MAX_ALARMS> {
-        fn now(&self) -> u64 {
-            self.initialize();
-
-            let mut now = 0_u64;
-
-            esp!(unsafe {
-                timer_get_counter_value(
-                    EmbassyTimer::group(),
-                    EmbassyTimer::index(),
-                    &mut now as *mut _,
-                )
-            })
-            .unwrap();
-
-            now
-        }
-
-        unsafe fn allocate_alarm(&self) -> Option<AlarmHandle> {
-            self.initialize();
-
-            let id = self
-                .next_alarm
-                .fetch_update(Ordering::AcqRel, Ordering::Acquire, |x| {
-                    if x < MAX_ALARMS as u8 {
-                        Some(x + 1)
-                    } else {
-                        None
+                        esp!(unsafe {
+                            timer_set_alarm(
+                                EmbassyTimer::group(),
+                                EmbassyTimer::index(),
+                                timer_alarm_t_TIMER_ALARM_EN,
+                            )
+                        })
+                        .unwrap();
                     }
-                });
-
-            match id {
-                Ok(id) => Some(AlarmHandle::new(id)),
-                Err(_) => None,
+                }
             }
         }
 
-        fn set_alarm_callback(&self, alarm: AlarmHandle, callback: fn(*mut ()), ctx: *mut ()) {
-            self.initialize();
-
-            let _guard = self.cs_inter.enter();
-
-            let alarms = unsafe { self.alarms.get().as_mut().unwrap() };
-
-            alarms[alarm.id() as usize].callback = callback;
-            alarms[alarm.id() as usize].ctx = ctx;
+        pub fn link() -> i32 {
+            42
         }
 
-        fn set_alarm(&self, alarm: AlarmHandle, timestamp: u64) {
-            self.initialize();
-
-            let _guard = self.cs_inter.enter();
-
-            let alarms = unsafe { self.alarms.get().as_mut().unwrap() };
-
-            alarms[alarm.id() as usize].timestamp = timestamp;
-
-            self.update_timer_alarm();
-        }
+        embassy_time::timer_queue_impl!(static QUEUE: super::Queue<AlarmImpl> = super::Queue::new());
     }
-
-    #[cfg(feature = "embassy-time-driver")]
-    ::embassy_time::time_driver_impl!(static DRIVER: EspDriver = EspDriver::new());
 }
