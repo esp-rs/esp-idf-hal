@@ -475,9 +475,9 @@ impl<'d, UART: Uart> embedded_hal_0_2::serial::Read<u8> for UartDriver<'d, UART>
     }
 }
 
-impl<'d, UART: Uart> embedded_hal::serial::nb::Read<u8> for UartDriver<'d, UART> {
+impl<'d, UART: Uart> embedded_hal_nb::serial::Read<u8> for UartDriver<'d, UART> {
     fn read(&mut self) -> nb::Result<u8, Self::Error> {
-        embedded_hal::serial::nb::Read::read(&mut self.rx)
+        embedded_hal_nb::serial::Read::read(&mut self.rx)
     }
 }
 
@@ -493,13 +493,13 @@ impl<'d, UART: Uart> embedded_hal_0_2::serial::Write<u8> for UartDriver<'d, UART
     }
 }
 
-impl<'d, UART: Uart> embedded_hal::serial::nb::Write<u8> for UartDriver<'d, UART> {
+impl<'d, UART: Uart> embedded_hal_nb::serial::Write<u8> for UartDriver<'d, UART> {
     fn flush(&mut self) -> nb::Result<(), Self::Error> {
-        embedded_hal::serial::nb::Write::flush(&mut self.tx)
+        embedded_hal_nb::serial::Write::flush(&mut self.tx)
     }
 
     fn write(&mut self, byte: u8) -> nb::Result<(), Self::Error> {
-        embedded_hal::serial::nb::Write::write(&mut self.tx, byte)
+        embedded_hal_nb::serial::Write::write(&mut self.tx, byte)
     }
 }
 
@@ -562,7 +562,7 @@ impl<'d, UART: Uart> embedded_hal_0_2::serial::Read<u8> for UartRxDriver<'d, UAR
     }
 }
 
-impl<'d, UART: Uart> embedded_hal::serial::nb::Read<u8> for UartRxDriver<'d, UART> {
+impl<'d, UART: Uart> embedded_hal_nb::serial::Read<u8> for UartRxDriver<'d, UART> {
     fn read(&mut self) -> nb::Result<u8, Self::Error> {
         let mut buf = [0_u8];
 
@@ -610,7 +610,7 @@ impl<'d, UART: Uart> embedded_hal_0_2::serial::Write<u8> for UartTxDriver<'d, UA
     }
 }
 
-impl<'d, UART: Uart> embedded_hal::serial::nb::Write<u8> for UartTxDriver<'d, UART> {
+impl<'d, UART: Uart> embedded_hal_nb::serial::Write<u8> for UartTxDriver<'d, UART> {
     fn flush(&mut self) -> nb::Result<(), Self::Error> {
         UartTxDriver::flush(self).map_err(to_nb_err)
     }

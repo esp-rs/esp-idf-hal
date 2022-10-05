@@ -6,9 +6,9 @@
 //!
 //! Create a CAN peripheral and then transmit and receive a message.
 //! ```
-//! use embedded_hal::can::nb::Can;
-//! use embedded_hal::can::Frame;
-//! use embedded_hal::can::StandardId;
+//! use embedded_can::nb::Can;
+//! use embedded_can::Frame;
+//! use embedded_can::StandardId;
 //! use esp_idf_hal::prelude::*;
 //! use esp_idf_hal::can;
 //!
@@ -38,11 +38,7 @@ use crate::delay::{BLOCK, NON_BLOCK};
 use crate::gpio::*;
 use crate::peripheral::{Peripheral, PeripheralRef};
 
-crate::embedded_hal_error!(
-    CanError,
-    embedded_hal::can::Error,
-    embedded_hal::can::ErrorKind
-);
+crate::embedded_hal_error!(CanError, embedded_can::Error, embedded_can::ErrorKind);
 
 crate::embedded_hal_error!(
     Can02Error,
@@ -319,7 +315,7 @@ impl<'d> embedded_hal_0_2::blocking::can::Can for CanDriver<'d> {
     }
 }
 
-impl<'d> embedded_hal::can::blocking::Can for CanDriver<'d> {
+impl<'d> embedded_can::blocking::Can for CanDriver<'d> {
     type Frame = Frame;
     type Error = CanError;
 
@@ -354,7 +350,7 @@ impl<'d> embedded_hal_0_2::can::nb::Can for CanDriver<'d> {
     }
 }
 
-impl<'d> embedded_hal::can::nb::Can for CanDriver<'d> {
+impl<'d> embedded_can::nb::Can for CanDriver<'d> {
     type Frame = Frame;
     type Error = CanError;
 
@@ -524,20 +520,20 @@ impl embedded_hal_0_2::can::Frame for Frame {
     }
 }
 
-impl embedded_hal::can::Frame for Frame {
-    fn new(id: impl Into<embedded_hal::can::Id>, data: &[u8]) -> Option<Self> {
+impl embedded_can::Frame for Frame {
+    fn new(id: impl Into<embedded_can::Id>, data: &[u8]) -> Option<Self> {
         let (id, extended) = match id.into() {
-            embedded_hal::can::Id::Standard(id) => (id.as_raw() as u32, false),
-            embedded_hal::can::Id::Extended(id) => (id.as_raw(), true),
+            embedded_can::Id::Standard(id) => (id.as_raw() as u32, false),
+            embedded_can::Id::Extended(id) => (id.as_raw(), true),
         };
 
         Self::new(id, extended, data)
     }
 
-    fn new_remote(id: impl Into<embedded_hal::can::Id>, dlc: usize) -> Option<Self> {
+    fn new_remote(id: impl Into<embedded_can::Id>, dlc: usize) -> Option<Self> {
         let (id, extended) = match id.into() {
-            embedded_hal::can::Id::Standard(id) => (id.as_raw() as u32, false),
-            embedded_hal::can::Id::Extended(id) => (id.as_raw(), true),
+            embedded_can::Id::Standard(id) => (id.as_raw() as u32, false),
+            embedded_can::Id::Extended(id) => (id.as_raw(), true),
         };
 
         Self::new_remote(id, extended, dlc)
@@ -559,14 +555,13 @@ impl embedded_hal::can::Frame for Frame {
         !self.is_remote_frame()
     }
 
-    fn id(&self) -> embedded_hal::can::Id {
+    fn id(&self) -> embedded_can::Id {
         if self.is_standard() {
-            let id =
-                unsafe { embedded_hal::can::StandardId::new_unchecked(self.identifier() as u16) };
-            embedded_hal::can::Id::Standard(id)
+            let id = unsafe { embedded_can::StandardId::new_unchecked(self.identifier() as u16) };
+            embedded_can::Id::Standard(id)
         } else {
-            let id = unsafe { embedded_hal::can::ExtendedId::new_unchecked(self.identifier()) };
-            embedded_hal::can::Id::Extended(id)
+            let id = unsafe { embedded_can::ExtendedId::new_unchecked(self.identifier()) };
+            embedded_can::Id::Extended(id)
         }
     }
 
