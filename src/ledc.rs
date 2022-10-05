@@ -10,16 +10,15 @@
 //!
 //! Create a 25 kHz PWM signal with 75 % duty cycle on GPIO 1
 //! ```
-//! use embedded_hal::pwm::blocking::PwmPin;
-//! use esp_idf_hal::ledc::{config::TimerConfig, Channel, Timer};
+//! use esp_idf_hal::ledc::{config::TimerConfig, Channel, LedcDriver, Timer};
 //! use esp_idf_hal::peripherals::Peripherals;
 //! use esp_idf_hal::prelude::*;
 //!
 //! let peripherals = Peripherals::take().unwrap();
-//! let driver = LedcDriver::new(peripherals.ledc.channel0, peripherals.ledc.timer0, peripherals.pins.gpio1, &TimerConfig::default().frequency(25.kHz().into()))?;
+//! let mut driver = LedcDriver::new(peripherals.ledc.channel0, peripherals.ledc.timer0, peripherals.pins.gpio1, &TimerConfig::default().frequency(25.kHz().into()))?;
 //!
 //! let max_duty = driver.get_max_duty()?;
-//! driver.set_duty(max_duty * 3 / 4);
+//! driver.set_duty(max_duty * 3 / 4)?;
 //! ```
 //!
 //! See the `examples/` folder of this repository for more.
