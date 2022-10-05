@@ -14,8 +14,6 @@
 //! * Background sending.
 //! * Taking a [`Pin`] and [`Channel`] by ref mut, so that they can be used again later.
 //!
-use embedded_hal::delay::blocking::DelayUs;
-
 use esp_idf_hal::delay::Ets;
 use esp_idf_hal::gpio::*;
 use esp_idf_hal::peripheral::*;
@@ -80,7 +78,7 @@ fn send_morse_code<'d>(
     let pulses: Vec<&Pulse> = pulses.iter().collect();
     signal.push(pulses)?;
 
-    let mut tx = RmtDriver::new(channel, led, &config)?;
+    let mut tx = RmtDriver::new(channel, led, config)?;
     tx.start(signal)?;
 
     // Return `tx` so we can release the pin and channel later.
