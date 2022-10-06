@@ -26,7 +26,7 @@
 //! let pin = peripherals.pins.gpio18;
 //!
 //! // Create an RMT transmitter.
-//! let tx = RmtDriver::new(channel, pin, &config)?;
+//! let tx = TxRmtDriver::new(channel, pin, &config)?;
 //!
 //! // Prepare signal pulse signal to be sent.
 //! let low = Pulse::new(PinState::Low, PulseTicks::new(10)?);
@@ -174,7 +174,8 @@ pub fn duration_to_ticks(ticks_hz: Hertz, duration: &Duration) -> Result<u128, E
         / 1_000_000_000)
 }
 
-pub type RmtConfig = config::TransmitConfig;
+pub type TxRmtConfig = config::TransmitConfig;
+pub type RxRmtConfig = config::ReceiveConfig;
 
 /// Types used for configuring the [`rmt`][crate::rmt] module.
 ///
@@ -399,14 +400,14 @@ pub mod config {
 
 /// The RMT transmitter driver.
 ///
-/// Use [`RmtDriver::start()`] or [`RmtDriver::start_blocking()`] to transmit pulses.
+/// Use [`TxRmtDriver::start()`] or [`TxRmtDriver::start_blocking()`] to transmit pulses.
 ///
 /// See the [rmt module][crate::rmt] for more information.
-pub struct RmtDriver<'d, C: RmtChannel> {
+pub struct TxRmtDriver<'d, C: RmtChannel> {
     _channel: PeripheralRef<'d, C>,
 }
 
-impl<'d, C: RmtChannel> RmtDriver<'d, C> {
+impl<'d, C: RmtChannel> TxRmtDriver<'d, C> {
     /// Initialise the rmt module with the specified pin, channel and configuration.
     ///
     /// To uninstall the driver just drop it.
@@ -645,7 +646,7 @@ impl<'d, C: RmtChannel> RmtDriver<'d, C> {
     }
 }
 
-impl<'d, C: RmtChannel> Drop for RmtDriver<'d, C> {
+impl<'d, C: RmtChannel> Drop for TxRmtDriver<'d, C> {
     /// Stop transmitting and release the driver.
     fn drop(&mut self) {
         self.stop().unwrap();
@@ -653,7 +654,7 @@ impl<'d, C: RmtChannel> Drop for RmtDriver<'d, C> {
     }
 }
 
-unsafe impl<'d, C: RmtChannel> Send for RmtDriver<'d, C> {}
+unsafe impl<'d, C: RmtChannel> Send for TxRmtDriver<'d, C> {}
 
 /// Signal storage for [`Transmit`] in a format ready for the RMT driver.
 pub trait Signal {
@@ -911,7 +912,7 @@ mod chip {
 
 /// The RMT receiver.
 ///
-/// Use [`Receive::start()`] to receive pulses.
+/// Use [`RxRmtDriver::start()`] to receive pulses.
 ///
 /// See the [rmt module][crate::rmt] for more information.
 #[cfg(feature = "std")]
@@ -920,24 +921,22 @@ use std::convert::TryInto;
 #[derive(Clone, Default)]
 #[cfg(feature = "alloc")]
 
-pub struct Receive<P: InputPin, C: HwChannel> {
-    pub pin: P,
-    pub channel: C,
+pub struct RxRmtDriver<'d, C: RmtChannel> {
+    _channel: PeripheralRef<'d, C>,
     pub pulse_pair_vec: Vec<PulsePair>,
 }
 
 #[cfg(feature = "alloc")]
-impl<P: InputPin, C: HwChannel> Receive<P, C> {
+impl<'d, C: RmtChannel> RxRmtDriver<'d, C> {
     /// Initialise the rmt module with the specified pin, channel and configuration.
     ///
-    /// To uninstall the driver and return ownership of the `channel` and `pin` use
-    /// [`Receiver::release()`].
+    /// To uninstall the driver just drop it.
     ///
     /// Internally this calls `rmt_config()` and `rmt_driver_install()`.
 
     pub fn new(
-        pin: P,
-        channel: C,
+        channel: impl Peripheral<P = C> + 'd,
+        pin: impl Peripheral<P = impl InputPin> + 'd,
         config: &config::ReceiveConfig,
         rx_buffer_size_in_bytes: u32,
     ) -> Result<Self, EspError> {
@@ -983,8 +982,7 @@ impl<P: InputPin, C: HwChannel> Receive<P, C> {
         }
 
         Ok(Self {
-            pin,
-            channel,
+            _channel: channel,
             pulse_pair_vec,
         })
     }
@@ -997,15 +995,6 @@ impl<P: InputPin, C: HwChannel> Receive<P, C> {
     /// Stop receiving
     pub fn stop(&self) -> Result<(), EspError> {
         esp!(unsafe { rmt_rx_stop(C::channel()) })
-    }
-
-    /// Stop receiving and release the driver.
-    ///
-    /// This will return the pin and channel.
-    pub fn release(self) -> Result<(P, C), EspError> {
-        self.stop()?;
-        esp!(unsafe { rmt_driver_uninstall(C::channel()) })?;
-        Ok((self.pin, self.channel))
     }
 
     // Set ticks_to_wait to 0 for non-blocking.
@@ -1054,6 +1043,16 @@ impl<P: InputPin, C: HwChannel> Receive<P, C> {
         Ok(length)
     }
 }
+
+impl<'d, C: RmtChannel> Drop for RxRmtDriver<'d, C> {
+    /// Stop receiving and release the driver.
+    fn drop(&mut self) {
+        self.stop().unwrap();
+        esp!(unsafe { rmt_driver_uninstall(C::channel()) }).unwrap();
+    }
+}
+
+unsafe impl<'d, C: RmtChannel> Send for RxRmtDriver<'d, C> {}
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub struct PulsePair {

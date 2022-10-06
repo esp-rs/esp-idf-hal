@@ -22,7 +22,7 @@ fn main() -> anyhow::Result<()> {
     let led = peripherals.pins.gpio17;
     let channel = peripherals.rmt.channel0;
     let config = TransmitConfig::new().looping(Loop::Endless);
-    let mut tx: RmtDriver<'static, _> = RmtDriver::new(channel, led, &config)?;
+    let mut tx: TxRmtDriver<'static, _> = TxRmtDriver::new(channel, led, &config)?;
 
     loop {
         play_song(&mut tx, ODE_TO_JOY)?;
@@ -31,7 +31,7 @@ fn main() -> anyhow::Result<()> {
 }
 
 pub fn play_song(
-    tx: &mut RmtDriver<'static, impl RmtChannel>,
+    tx: &mut TxRmtDriver<'static, impl RmtChannel>,
     song: &[NoteValue],
 ) -> anyhow::Result<()> {
     for note_value in song {
@@ -41,7 +41,7 @@ pub fn play_song(
 }
 
 pub fn play_note(
-    tx: &mut RmtDriver<'static, impl RmtChannel>,
+    tx: &mut TxRmtDriver<'static, impl RmtChannel>,
     pitch: u16,
     duration: Duration,
 ) -> anyhow::Result<()> {

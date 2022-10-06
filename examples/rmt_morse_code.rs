@@ -71,7 +71,7 @@ fn send_morse_code<'d>(
     led: impl Peripheral<P = impl OutputPin> + 'd,
     config: &TransmitConfig,
     message: &str,
-) -> anyhow::Result<RmtDriver<'d, CHANNEL0>> {
+) -> anyhow::Result<TxRmtDriver<'d, CHANNEL0>> {
     println!("Sending morse message '{}'.", message);
 
     let mut signal = VariableLengthSignal::new();
@@ -80,7 +80,7 @@ fn send_morse_code<'d>(
     let pulses: Vec<&Pulse> = pulses.iter().collect();
     signal.push(pulses)?;
 
-    let mut tx = RmtDriver::new(channel, led, &config)?;
+    let mut tx = TxRmtDriver::new(channel, led, &config)?;
     tx.start(signal)?;
 
     // Return `tx` so we can release the pin and channel later.

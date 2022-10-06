@@ -26,7 +26,7 @@ use std::time::Duration;
 
 use esp_idf_hal::rmt::{
     config::ReceiveConfig, config::TransmitConfig, FixedLengthSignal, PinState, Pulse, PulseTicks,
-    Receive, Transmit, CHANNEL0, CHANNEL2,
+    RxRmtDriver, TxRmtDriver, CHANNEL0, CHANNEL2,
 };
 
 fn main() -> anyhow::Result<()> {
@@ -40,7 +40,7 @@ fn main() -> anyhow::Result<()> {
     let input_pin = peripherals.pins.gpio2.into_input()?;
     let rx_rmt_channel: CHANNEL2 = peripherals.rmt.channel2;
     let rx_config = ReceiveConfig::new().idle_threshold(700u16);
-    let mut rx = Receive::new(input_pin, rx_rmt_channel, &rx_config, 1000)?;
+    let mut rx = RxRmtDriver::new(rx_rmt_channel, input_pin, &rx_config, 1000)?;
     let _rx_start = rx.start().unwrap();
 
     let _receive_task = thread::spawn(move || loop {
@@ -75,7 +75,7 @@ fn main() -> anyhow::Result<()> {
     // Prepare the tx_config
     // The default uses one memory block or 64 signals and clock divider set to 80 (1us tick)
     let tx_config = TransmitConfig::new();
-    let mut tx = Transmit::new(output_pin, tx_rmt_channel, &tx_config)?;
+    let mut tx = TxRmtDriver::new(tx_rmt_channel, output_pin, &tx_config)?;
 
     // Prepare signal pulse signal to be sent.
     let one_low = Pulse::new(PinState::Low, PulseTicks::new(410)?);
