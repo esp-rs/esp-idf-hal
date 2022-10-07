@@ -73,6 +73,7 @@ use config::TransmitConfig;
 pub use chip::*;
 
 pub type RmtTransmitConfig = config::TransmitConfig;
+pub type RmtReceiveConfig = config::ReceiveConfig;
 
 /// A `Low` (0) or `High` (1) state for a pin.
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
@@ -174,8 +175,8 @@ pub fn duration_to_ticks(ticks_hz: Hertz, duration: &Duration) -> Result<u128, E
         / 1_000_000_000)
 }
 
-pub type TxRmtConfig = config::TransmitConfig;
-pub type RxRmtConfig = config::ReceiveConfig;
+//pub type TxRmtConfig = config::TransmitConfig;
+//pub type RxRmtConfig = config::ReceiveConfig;
 
 /// Types used for configuring the [`rmt`][crate::rmt] module.
 ///
@@ -918,7 +919,9 @@ mod chip {
 #[cfg(feature = "std")]
 use std::convert::TryInto;
 
-#[derive(Clone, Default)]
+use self::config::ReceiveConfig;
+
+//#[derive(Clone, Default)]
 #[cfg(feature = "alloc")]
 
 pub struct RxRmtDriver<'d, C: RmtChannel> {
@@ -937,9 +940,11 @@ impl<'d, C: RmtChannel> RxRmtDriver<'d, C> {
     pub fn new(
         channel: impl Peripheral<P = C> + 'd,
         pin: impl Peripheral<P = impl InputPin> + 'd,
-        config: &config::ReceiveConfig,
+        config: &ReceiveConfig,
         rx_buffer_size_in_bytes: u32,
     ) -> Result<Self, EspError> {
+        crate::into_ref!(channel, pin);
+
         let flags = 0;
 
         #[cfg(not(any(esp32, esp32c2)))]
