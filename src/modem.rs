@@ -37,7 +37,7 @@ impl Modem {
 
     #[cfg(all(not(esp32s2), esp_idf_esp32_wifi_sw_coexist_enable))]
     pub fn split_ref(&mut self) -> (&mut WifiModem, &mut BluetoothModem) {
-        unsafe { (WifiModem(PhantomData), BluetoothModem(PhantomData)) }
+        (&mut self.1, &mut self.2)
     }
 }
 

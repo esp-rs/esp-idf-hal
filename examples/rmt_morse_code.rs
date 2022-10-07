@@ -14,8 +14,6 @@
 //! * Background sending.
 //! * Taking a [`Pin`] and [`Channel`] by ref mut, so that they can be used again later.
 //!
-use embedded_hal::delay::blocking::DelayUs;
-
 use esp_idf_hal::delay::Ets;
 use esp_idf_hal::gpio::*;
 use esp_idf_hal::peripheral::*;

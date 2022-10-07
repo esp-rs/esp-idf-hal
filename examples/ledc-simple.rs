@@ -1,5 +1,3 @@
-use embedded_hal::delay::blocking::DelayUs;
-
 use esp_idf_hal::delay::FreeRtos;
 use esp_idf_hal::ledc::*;
 use esp_idf_hal::peripherals::Peripherals;

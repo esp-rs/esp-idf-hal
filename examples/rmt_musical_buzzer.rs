@@ -6,8 +6,6 @@
 //! https://github.com/espressif/esp-idf/blob/b092fa073047c957545a0ae9504f04972a8c6d74/examples/peripherals/rmt/musical_buzzer/main/musical_buzzer_example_main.c
 use core::time::Duration;
 
-use embedded_hal::delay::blocking::DelayUs;
-
 use esp_idf_hal::delay::Ets;
 use esp_idf_hal::peripherals::Peripherals;
 use esp_idf_hal::rmt::config::{Loop, TransmitConfig};
