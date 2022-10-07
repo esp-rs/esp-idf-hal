@@ -80,7 +80,7 @@ fn send_morse_code<'d>(
     let pulses: Vec<&Pulse> = pulses.iter().collect();
     signal.push(pulses)?;
 
-    let mut tx = TxRmtDriver::new(channel, led, &config)?;
+    let mut tx = TxRmtDriver::new(channel, led, config)?;
     tx.start(signal)?;
 
     // Return `tx` so we can release the pin and channel later.
