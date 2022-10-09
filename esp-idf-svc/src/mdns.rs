@@ -4,12 +4,15 @@ extern crate alloc;
 use alloc::string::String;
 use alloc::vec::Vec;
 
+use ::log::info;
+
 use embedded_svc::ipv4::Ipv4Addr;
 use std::net::{IpAddr, Ipv6Addr};
 
 use esp_idf_sys::*;
 
 use crate::private::cstr::{CStr, CString};
+use crate::private::mutex::{Mutex, RawMutex};
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub enum Interface {
@@ -110,49 +113,24 @@ impl From<mdns_result_t> for QueryResult {
     }
 }
 
-fn copy_query_results(src: Box<mdns_result_t>, dst: &mut [QueryResult]) -> usize {
-    let src = Box::into_raw(src);
-    let mut p = src;
-    let mut i = 0;
-    while !p.is_null() && (i < dst.len()) {
-        dst[i] = QueryResult::from(unsafe { *p });
-        p = unsafe { (*p).next };
-        i += 1;
-    }
+static TAKEN: Mutex<bool> = Mutex::wrap(RawMutex::new(), false);
 
-    unsafe { mdns_query_results_free(src) };
-
-    i
-}
-
-fn from_esp_ip4_addr_t(addr: &esp_ip4_addr_t) -> Ipv4Addr {
-    Ipv4Addr::from(addr.addr.to_le_bytes())
-}
-
-fn from_esp_ip6_addr_t(addr: &esp_ip6_addr_t) -> Ipv6Addr {
-    let mut buf = [0u8; 16];
-    let mut i = 0;
-    for e in addr.addr.iter() {
-        for e in e.to_le_bytes().iter() {
-            buf[i] = *e;
-            i += 1;
-        }
-    }
-    Ipv6Addr::from(buf)
-}
-
-pub struct EspMdns {}
-
-impl Drop for EspMdns {
-    fn drop(&mut self) {
-        unsafe { mdns_free() };
-    }
-}
+pub struct EspMdns(());
 
 impl EspMdns {
-    pub fn new() -> Result<Self, EspError> {
+    pub fn take() -> Result<Self, EspError> {
+        let mut taken = TAKEN.lock();
+
+        if *taken {
+            esp!(ESP_ERR_INVALID_STATE)?;
+        }
+
+        info!("Initializing MDNS");
         esp!(unsafe { mdns_init() })?;
-        Ok(Self {})
+
+        *taken = true;
+
+        Ok(Self(()))
     }
 
     pub fn hostname_set(&mut self, hostname: impl AsRef<str>) -> Result<(), EspError> {
@@ -330,8 +308,8 @@ impl EspMdns {
         let name = name.map(|x| CString::new(x.to_string()).unwrap());
         let service_type = service_type.map(|x| CString::new(x.to_string()).unwrap());
         let proto = proto.map(|x| CString::new(x.to_string()).unwrap());
-        let mut result = std::ptr::null_mut();
 
+        let mut result = std::ptr::null_mut();
         esp!(unsafe {
             mdns_query(
                 name.as_ref().map_or(std::ptr::null(), |x| x.as_ptr()),
@@ -345,6 +323,7 @@ impl EspMdns {
                 &mut result,
             )
         })?;
+
         Ok(copy_query_results(
             unsafe { Box::from_raw(result) },
             results,
@@ -399,6 +378,7 @@ impl EspMdns {
                 &mut result,
             )
         })?;
+
         Ok(copy_query_results(
             unsafe { Box::from_raw(result) },
             results,
@@ -427,6 +407,7 @@ impl EspMdns {
                 &mut result,
             )
         })?;
+
         Ok(copy_query_results(
             unsafe { Box::from_raw(result) },
             results,
@@ -454,9 +435,51 @@ impl EspMdns {
                 &mut result,
             )
         })?;
+
         Ok(copy_query_results(
             unsafe { Box::from_raw(result) },
             results,
         ))
     }
+}
+
+impl Drop for EspMdns {
+    fn drop(&mut self) {
+        let mut taken = TAKEN.lock();
+
+        unsafe { mdns_free() };
+
+        *taken = false;
+    }
+}
+
+fn copy_query_results(src: Box<mdns_result_t>, dst: &mut [QueryResult]) -> usize {
+    let src = Box::into_raw(src);
+    let mut p = src;
+    let mut i = 0;
+    while !p.is_null() && i < dst.len() {
+        dst[i] = QueryResult::from(unsafe { *p });
+        p = unsafe { (*p).next };
+        i += 1;
+    }
+
+    unsafe { mdns_query_results_free(src) };
+
+    i
+}
+
+fn from_esp_ip4_addr_t(addr: &esp_ip4_addr_t) -> Ipv4Addr {
+    Ipv4Addr::from(addr.addr.to_le_bytes())
+}
+
+fn from_esp_ip6_addr_t(addr: &esp_ip6_addr_t) -> Ipv6Addr {
+    let mut buf = [0u8; 16];
+    let mut i = 0;
+    for e in addr.addr.iter() {
+        for e in e.to_le_bytes().iter() {
+            buf[i] = *e;
+            i += 1;
+        }
+    }
+    Ipv6Addr::from(buf)
 }

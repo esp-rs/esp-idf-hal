@@ -68,21 +68,25 @@ impl EspNow {
                 data.len() as size_t,
             )
         })?;
+
         Ok(())
     }
 
     pub fn add_peer(&self, peer_info: PeerInfo) -> Result<(), EspError> {
         esp!(unsafe { esp_now_add_peer(&peer_info) })?;
+
         Ok(())
     }
 
     pub fn del_peer(&self, peer_addr: [u8; 6]) -> Result<(), EspError> {
         esp!(unsafe { esp_now_del_peer(&peer_addr as *const u8) })?;
+
         Ok(())
     }
 
     pub fn mod_peer(&self, peer_info: PeerInfo) -> Result<(), EspError> {
         esp!(unsafe { esp_now_mod_peer(&peer_info) })?;
+
         Ok(())
     }
 
@@ -94,6 +98,7 @@ impl EspNow {
                 &mut peer_info as *mut esp_now_peer_info_t,
             )
         })?;
+
         Ok(peer_info)
     }
 
@@ -109,6 +114,7 @@ impl EspNow {
 
     pub fn set_pmk(&self, pmk: &[u8]) -> Result<(), EspError> {
         esp!(unsafe { esp_now_set_pmk(pmk.as_ptr()) })?;
+
         Ok(())
     }
 
@@ -124,12 +130,14 @@ impl EspNow {
     ) -> Result<(), EspError> {
         *RECV_CALLBACK.lock() = Some(Box::new(callback));
         esp!(unsafe { esp_now_register_recv_cb(Some(Self::recv_callback)) })?;
+
         Ok(())
     }
 
     pub fn unregister_recv_cb(&self) -> Result<(), EspError> {
         esp!(unsafe { esp_now_unregister_recv_cb() })?;
         *RECV_CALLBACK.lock() = None;
+
         Ok(())
     }
 
@@ -139,12 +147,14 @@ impl EspNow {
     ) -> Result<(), EspError> {
         *SEND_CALLBACK.lock() = Some(Box::new(callback));
         esp!(unsafe { esp_now_register_send_cb(Some(Self::send_callback)) })?;
+
         Ok(())
     }
 
     pub fn unregister_send_cb(&self) -> Result<(), EspError> {
         esp!(unsafe { esp_now_unregister_send_cb() })?;
         *SEND_CALLBACK.lock() = None;
+
         Ok(())
     }
 
