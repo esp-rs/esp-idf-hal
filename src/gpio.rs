@@ -1225,7 +1225,6 @@ where
     MODE: OutputMode,
 {
     fn toggle(&mut self) -> Result<(), Self::Error> {
-        
         self.toggle();
         Ok(())
     }
