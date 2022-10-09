@@ -35,7 +35,7 @@ impl NvsDefault {
         let mut taken = DEFAULT_TAKEN.lock();
 
         if *taken {
-            esp!(ESP_ERR_INVALID_STATE as i32)?;
+            esp!(ESP_ERR_INVALID_STATE)?;
         }
 
         let default_nvs = Self::init()?;
@@ -90,7 +90,7 @@ impl NvsCustom {
         let c_partition = CString::new(partition).unwrap();
 
         if registrations.contains(c_partition.as_ref()) {
-            return Err(EspError::from(ESP_ERR_INVALID_STATE as i32).unwrap());
+            return Err(EspError::from(ESP_ERR_INVALID_STATE).unwrap());
         }
 
         unsafe {
@@ -217,7 +217,7 @@ impl<T: NvsPartitionId> EspNvs<T> {
         // nvs_erase_key is not scoped by datatype
         let result = unsafe { nvs_erase_key(self.1, c_key.as_ptr()) };
 
-        if result == ESP_ERR_NVS_NOT_FOUND as i32 {
+        if result == ESP_ERR_NVS_NOT_FOUND {
             Ok(false)
         } else {
             esp!(result)?;

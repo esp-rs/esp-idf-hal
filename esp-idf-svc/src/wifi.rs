@@ -174,7 +174,7 @@ impl From<Newtype<&wifi_ap_record_t>> for AccessPointInfo {
                 wifi_second_chan_t_WIFI_SECOND_CHAN_BELOW => SecondaryChannel::Below,
                 _ => panic!(),
             },
-            signal_strength: a.rssi as i8,
+            signal_strength: a.rssi,
             protocols: EnumSet::<Protocol>::empty(), // TODO
             auth_method: AuthMethod::from(Newtype::<wifi_auth_mode_t>(a.authmode)),
         }
@@ -554,12 +554,12 @@ impl<'d, M: WifiModemPeripheral + 'd> WifiDriver<'d, M> {
         let total_count = self.do_scan()?;
 
         let mut ap_infos_raw: alloc::vec::Vec<wifi_ap_record_t> =
-            alloc::vec::Vec::with_capacity(total_count as usize);
+            alloc::vec::Vec::with_capacity(total_count);
 
         #[allow(clippy::uninit_vec)]
         // ... because we are filling it in on the next line and only reading the initialized members
         unsafe {
-            ap_infos_raw.set_len(total_count as usize)
+            ap_infos_raw.set_len(total_count)
         };
 
         let real_count = self.do_get_scan_infos(&mut ap_infos_raw)?;

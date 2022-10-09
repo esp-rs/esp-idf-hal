@@ -317,7 +317,7 @@ impl EventLoopHandle<System> {
         let mut taken = TAKEN.lock();
 
         if *taken {
-            esp!(ESP_ERR_INVALID_STATE as i32)?;
+            esp!(ESP_ERR_INVALID_STATE)?;
         }
 
         esp!(unsafe { esp_event_loop_create_default() })?;

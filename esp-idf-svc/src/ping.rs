@@ -186,8 +186,8 @@ impl EspPing {
                 &Reply::Success(Info {
                     addr,
                     seqno: seqno as u32,
-                    ttl: ttl as u8,
-                    recv_len: recv_len as u32,
+                    ttl,
+                    recv_len,
                     elapsed_time: Duration::from_millis(elapsed_time as u64),
                 }),
             );
