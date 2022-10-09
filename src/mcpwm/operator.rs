@@ -1,69 +1,47 @@
-use std::borrow::Borrow;
+use esp_idf_sys::{EspError, mcpwm_oper_handle_t};
 
-use esp_idf_sys::{mcpwm_io_signals_t, mcpwm_unit_t, mcpwm_operator_t,
-    mcpwm_io_signals_t_MCPWM0A, mcpwm_io_signals_t_MCPWM0B,
-    mcpwm_io_signals_t_MCPWM1A, mcpwm_io_signals_t_MCPWM1B,
-    mcpwm_io_signals_t_MCPWM2A, mcpwm_io_signals_t_MCPWM2B, EspError
-};
-
-use crate::{mcpwm::{Unit, UnitZero, UnitOne}, gpio::OutputPin};
+use crate::{mcpwm::{Group, Group0, Group1}, gpio::OutputPin};
 
 use super::{Duty, timer_connection::OptionalOutputPin};
 
+use core::ffi;
+
 // The hardware for ESP32 and ESP32-S3 can associate any operator(within the mcpwm module) with any
 // timer(within the mcpwm module) for example allowing using the same timer for all three operators.
-pub trait HwOperator<U: Unit> {
-    const SIGNAL_A: mcpwm_io_signals_t;
-    const SIGNAL_B: mcpwm_io_signals_t;
-    const UNIT_ID: mcpwm_unit_t = U::ID;
-}
-
-macro_rules! impl_operator_helper {
-    ($instance:ident: $timer:expr, $signal_a:expr, $signal_b:expr, $unit:ty) => {
-        impl HwOperator<$unit> for $instance<$unit> {
-            const SIGNAL_A: mcpwm_io_signals_t = $signal_a;
-            const SIGNAL_B: mcpwm_io_signals_t = $signal_b;
-        }
-    };
+pub trait HwOperator<U: Group> {
+    const GROUP_ID: ffi::c_int = U::ID;
 }
 
 macro_rules! impl_operator {
-    ($instance:ident: $timer:expr, $signal_a:expr, $signal_b:expr) => {
-        pub struct $instance<U: Unit> {
-            _unit: U,
-        }
+    ($t:ident, $g:ty) => {
+        crate::impl_peripheral!($t);
 
-        impl<U: Unit> $instance<U> {
-            /// # Safety
-            ///
-            /// It is safe to instantiate this operator exactly one time per Unit.
-            pub unsafe fn new() -> Self {
-                $instance {
-                    _unit: U::default(),
-                }
-            }
-        }
-
-        impl_operator_helper!($instance: $timer, $signal_a, $signal_b, UnitZero);
-        impl_operator_helper!($instance: $timer, $signal_a, $signal_b, UnitOne);
+        impl HwOperator<$g> for $t {}
     };
 }
 
-impl_operator!(
-    OPERATOR0: mcpwm_timer_t_MCPWM_TIMER_0,
-    mcpwm_io_signals_t_MCPWM0A,
-    mcpwm_io_signals_t_MCPWM0B
-);
-impl_operator!(
-    OPERATOR1: mcpwm_timer_t_MCPWM_TIMER_1,
-    mcpwm_io_signals_t_MCPWM1A,
-    mcpwm_io_signals_t_MCPWM1B
-);
-impl_operator!(
-    OPERATOR2: mcpwm_timer_t_MCPWM_TIMER_2,
-    mcpwm_io_signals_t_MCPWM2A,
-    mcpwm_io_signals_t_MCPWM2B
-);
+pub trait HwOperator0<G: Group>: HwOperator<G> {}
+pub trait HwOperator1<G: Group>: HwOperator<G> {}
+pub trait HwOperator2<G: Group>: HwOperator<G> {}
+
+// Group 0
+impl_operator!(OPERATOR00, Group0);
+impl_operator!(OPERATOR01, Group0);
+impl_operator!(OPERATOR02, Group0);
+
+// Group 1
+impl_operator!(OPERATOR10, Group1);
+impl_operator!(OPERATOR11, Group1);
+impl_operator!(OPERATOR12, Group1);
+
+impl HwOperator0<Group0> for OPERATOR00 {}
+impl HwOperator0<Group1> for OPERATOR10 {}
+
+impl HwOperator1<Group0> for OPERATOR01 {}
+impl HwOperator1<Group1> for OPERATOR11 {}
+
+impl HwOperator2<Group0> for OPERATOR02 {}
+impl HwOperator2<Group1> for OPERATOR12 {}
 
 // TODO: How do we want syncing to fit in to this?
 // TODO: How do we want carrier to fit into this?
@@ -73,8 +51,8 @@ impl_operator!(
 ///
 /// Every Motor Control module has three operators. Every operator can generate two output signals called A and B.
 /// A and B share the same timer and thus frequency and phase but can have induvidual duty set.
-pub struct Operator<U: Unit, O: HwOperator<U>, PA: OptionalOutputPin, PB: OptionalOutputPin> {
-    handle: mcpwm_operator_t,
+pub struct Operator<U: Group, O: HwOperator<U>, PA: OptionalOutputPin, PB: OptionalOutputPin> {
+    handle: mcpwm_oper_handle_t,
     _instance: O,
 
     _pin_a: PA,
@@ -85,7 +63,7 @@ pub struct Operator<U: Unit, O: HwOperator<U>, PA: OptionalOutputPin, PB: Option
 
 impl<U, O, PA, PB> Operator<U, O, PA, PB>
 where
-    U: Unit,
+    U: Group,
     O: HwOperator<U>,
     PA: OutputPin,
     PB: OptionalOutputPin,
@@ -103,7 +81,7 @@ where
 
 impl<U, O, PA, PB> Operator<U, O, PA, PB>
 where
-    U: Unit,
+    U: Group,
     O: HwOperator<U>,
     PA: OptionalOutputPin,
     PB: OutputPin,
@@ -187,10 +165,10 @@ pub enum DutyMode {
     ActiveLow,
 }
 
-pub trait OptionalOperator<U: Unit, O: HwOperator<U>> {}
+pub trait OptionalOperator<U: Group, O: HwOperator<U>> {}
 
 pub struct NoOperator;
-impl<U: Unit, O: HwOperator<U>> OptionalOperator<U, O> for NoOperator {}
+impl<U: Group, O: HwOperator<U>> OptionalOperator<U, O> for NoOperator {}
 
 /*
 

@@ -1,9 +1,9 @@
 use std::ptr;
 
-use esp_idf_sys::{mcpwm_counter_type_t_MCPWM_UP_DOWN_COUNTER, mcpwm_counter_type_t_MCPWM_DOWN_COUNTER, mcpwm_counter_type_t_MCPWM_UP_COUNTER, mcpwm_timer_t, mcpwm_timer_handle_t, mcpwm_timer_enable, mcpwm_timer_t_MCPWM_TIMER_0, mcpwm_timer_t_MCPWM_TIMER_1, mcpwm_timer_t_MCPWM_TIMER_2, mcpwm_counter_type_t};
+use esp_idf_sys::{mcpwm_timer_t, mcpwm_timer_handle_t, mcpwm_timer_enable, mcpwm_timer_config_t, mcpwm_new_timer, mcpwm_del_timer, esp, EspError};
 
 use crate::units::Hertz;
-use crate::mcpwm::Unit;
+use crate::mcpwm::{Group, Group0, Group1};
 
 use super::operator::NoOperator;
 use super::timer_connection::TimerConnection;
@@ -51,23 +51,30 @@ impl TimerConfig {
     //}
 //}
 
-pub struct Timer<U: Unit, T: HwTimer<U>> {
+pub struct Timer<U: Group, T: HwTimer<U>> {
     handle: mcpwm_timer_handle_t,
     _timer: T,
 }
 
-impl<U: Unit, T: HwTimer<U>> Timer {
+impl<U: Group, T: HwTimer<U>> Timer<U, T> {
     pub fn new(timer: T, config: TimerConfig) -> Self {
         let config = mcpwm_timer_config_t {
-            resolution
+            group_id: todo!(),
+            clk_src: todo!(),
+            resolution_hz: todo!(),
+            count_mode: todo!(),
+            period_ticks: todo!(),
+            flags: todo!(),
         };
         let mut handle = ptr::null();
-        mcpwm_new_timer(config, &mut handle);
-
+        unsafe {
+            esp!(mcpwm_new_timer(config, &mut handle));
+        }
         // TODO: note that this has to be called before mcpwm_timer_enable
         // mcpwm_timer_register_event_callbacks()
-
-        mcpwm_timer_enable();
+        unsafe {
+            esp!(mcpwm_timer_enable(*handle)).unwrap();
+        }
 
         Self { handle, _timer: timer }
     }
@@ -81,8 +88,8 @@ impl<U: Unit, T: HwTimer<U>> Timer {
         todo!()
     }
 
-    pub fn timer(&self) -> mcpwm_timer_t {
-        T::ID
+    pub fn timer(&self) -> mcpwm_timer_handle_t {
+        self.handle
     }
 
     pub fn release(self) -> T {
@@ -90,7 +97,9 @@ impl<U: Unit, T: HwTimer<U>> Timer {
             _timer,
             handle
         } = self;
-        mcpwm_del_timer(handle);
+        unsafe {
+            esp!(mcpwm_del_timer(handle)).unwrap();
+        }
         _timer
     }
 
@@ -99,9 +108,13 @@ impl<U: Unit, T: HwTimer<U>> Timer {
     }
 }
 
-impl<U: Unit, T: HwTimer<U>> Drop for Timer<U, T> {
+impl<U: Group, T: HwTimer<U>> Drop for Timer<U, T> {
     fn drop(self) {
-        mcpwm_del_timer(self.handle)
+        unsafe {
+            unsafe {
+                esp!(mcpwm_del_timer(self.handle)).unwrap();
+            }
+        }
     }
 }
 
@@ -166,6 +179,7 @@ pub enum CounterMode {
     UpDown,
 }
 
+/*
 impl From<CounterMode> for mcpwm_counter_type_t {
     fn from(val: CounterMode) -> Self {
         match val {
@@ -175,21 +189,25 @@ impl From<CounterMode> for mcpwm_counter_type_t {
             CounterMode::UpDown => mcpwm_counter_type_t_MCPWM_UP_DOWN_COUNTER,
         }
     }
-}
+}*/
 
-unsafe trait HwTimer<U: Unit> {
+pub unsafe trait HwTimer<U: Group> {
     const ID: mcpwm_timer_t;
 }
 
 macro_rules! impl_timer {
-    ($t:ident, $id:expr) => {
-        struct $t;
-        impl<U: Unit> HwTimer<U> for $t {
-            const ID: mcpwm_timer_t = $id;
-        }
+    ($t:ident, $g:ty) => {
+        crate::impl_peripheral!($t);
+        impl HwTimer<$g> for $t {}
     };
 }
 
-impl_timer!(TIMER0, mcpwm_timer_t_MCPWM_TIMER_0);
-impl_timer!(TIMER1, mcpwm_timer_t_MCPWM_TIMER_1);
-impl_timer!(TIMER2, mcpwm_timer_t_MCPWM_TIMER_2);
+// Group 0
+impl_timer!(TIMER00, Group0);
+impl_timer!(TIMER01, Group0);
+impl_timer!(TIMER02, Group0);
+
+// Group 1
+impl_timer!(TIMER10, Group1);
+impl_timer!(TIMER11, Group1);
+impl_timer!(TIMER12, Group1);

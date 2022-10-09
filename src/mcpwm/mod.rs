@@ -55,12 +55,18 @@ mod timer;
 mod operator;
 mod timer_connection;
 
-use core::borrow::Borrow;
+use core::ffi;
 
-use crate::gpio::OutputPin;
-use crate::units::{FromValueType, Hertz};
-use crate::mcpwm::operator::{HwOperator, OPERATOR0, OPERATOR1, OPERATOR2};
-use esp_idf_sys::*;
+use crate::mcpwm::operator::{
+    HwOperator0, HwOperator1, HwOperator2, 
+    OPERATOR00, OPERATOR01, OPERATOR02,
+    OPERATOR10, OPERATOR11, OPERATOR12
+};
+
+use crate::mcpwm::timer::{
+    TIMER00, TIMER01, TIMER02,
+    TIMER10, TIMER11, TIMER12
+};
 
 // MCPWM clock source frequency for ESP32 and ESP32-s3
 const MCPWM_CLOCK_SOURCE_FREQUENCY: u32 = 160_000_000;
@@ -72,58 +78,75 @@ const MAX_PWM_TIMER_PRESCALE: u32 = 0x1_00;
 const MAX_PWM_TIMER_PERIOD: u32 = 0x1_00_00;
 
 /// The Motor Control Pulse Width Modulator peripheral
-pub struct Peripheral<U: Unit> {
-    pub mcpwm: MCPWM<U>,
-    pub operator0: OPERATOR0<U>,
-    pub operator1: OPERATOR1<U>,
-    pub operator2: OPERATOR2<U>,
+pub struct MCPWM0 {
+    timer0: TIMER00,
+    timer1: TIMER01,
+    timer2: TIMER02,
+
+    pub operator0: OPERATOR00,
+    pub operator1: OPERATOR01,
+    pub operator2: OPERATOR02,
 }
 
-impl<U: Unit> Peripheral<U> {
+impl MCPWM0 {
     /// # Safety
     ///
-    /// It is safe to instantiate this exactly one time per `Unit`.
+    /// It is safe to instantiate this exactly one time per `Group`.
     pub unsafe fn new() -> Self {
         Self {
-            mcpwm: MCPWM::new(),
-            operator0: OPERATOR0::new(),
-            operator1: OPERATOR1::new(),
-            operator2: OPERATOR2::new(),
+            timer0: TIMER00::new(),
+            timer1: TIMER01::new(),
+            timer2: TIMER02::new(),
+            operator0: OPERATOR00::new(),
+            operator1: OPERATOR01::new(),
+            operator2: OPERATOR02::new(),
+        }
+    }
+}
+
+pub struct MCPWM1 {
+    timer0: TIMER10,
+    timer1: TIMER11,
+    timer2: TIMER12,
+
+    pub operator0: OPERATOR10,
+    pub operator1: OPERATOR11,
+    pub operator2: OPERATOR12,
+}
+
+impl MCPWM1 {
+    /// # Safety
+    ///
+    /// It is safe to instantiate this exactly one time per `Group`.
+    pub unsafe fn new() -> Self {
+        Self {
+            timer0: TIMER10::new(),
+            timer1: TIMER11::new(),
+            timer2: TIMER12::new(),
+            operator0: OPERATOR10::new(),
+            operator1: OPERATOR11::new(),
+            operator2: OPERATOR12::new(),
         }
     }
 }
 
 #[derive(Default)]
-pub struct UnitZero;
+pub struct Group0;
 
 #[derive(Default)]
-pub struct UnitOne;
+pub struct Group1;
 
 pub type Duty = u16;
 
-pub struct MCPWM<U: Unit> {
-    _unit: U,
+// Note this was called `Unit` in IDF < 5.0
+pub trait Group: Default {
+    const ID: ffi::c_int;
 }
 
-impl<U: Unit> MCPWM<U> {
-    /// # Safety
-    ///
-    /// It is safe to instantiate this exactly one time per `Unit`.
-    unsafe fn new() -> Self {
-        Self {
-            _unit: U::default(),
-        }
-    }
+impl Group for Group0 {
+    const ID: ffi::c_int = 0;
 }
 
-pub trait Unit: Default {
-    const ID: mcpwm_unit_t;
-}
-
-impl Unit for UnitZero {
-    const ID: mcpwm_unit_t = mcpwm_unit_t_MCPWM_UNIT_0;
-}
-
-impl Unit for UnitOne {
-    const ID: mcpwm_unit_t = mcpwm_unit_t_MCPWM_UNIT_1;
+impl Group for Group1 {
+    const ID: ffi::c_int = 1;
 }

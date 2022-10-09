@@ -55,15 +55,11 @@ pub struct Peripherals {
     #[cfg(not(feature = "riscv-ulp-hal"))]
     pub can: can::CAN,
     #[cfg(not(feature = "riscv-ulp-hal"))]
-<<<<<<< HEAD
     pub ledc: ledc::LEDC,
-=======
-    pub ledc: ledc::Peripheral,
     #[cfg(all(any(esp32, esp32s3), not(feature = "riscv-ulp-hal")))]
-    pub mcpwm0: mcpwm::Peripheral<mcpwm::UnitZero>,
+    pub mcpwm0: mcpwm::MCPWM0,
     #[cfg(all(any(esp32, esp32s3), not(feature = "riscv-ulp-hal")))]
-    pub mcpwm1: mcpwm::Peripheral<mcpwm::UnitOne>,
->>>>>>> The beginning of a first rough draft...
+    pub mcpwm1: mcpwm::MCPWM1,
     #[cfg(not(feature = "riscv-ulp-hal"))]
     pub rmt: rmt::RMT,
     #[cfg(all(
@@ -171,15 +167,11 @@ impl Peripherals {
             #[cfg(not(feature = "riscv-ulp-hal"))]
             can: can::CAN::new(),
             #[cfg(not(feature = "riscv-ulp-hal"))]
-<<<<<<< HEAD
             ledc: ledc::LEDC::new(),
-=======
-            ledc: ledc::Peripheral::new(),
             #[cfg(any(esp32, esp32s3))]
-            mcpwm0: mcpwm::Peripheral::new(),
+            mcpwm0: mcpwm::MCPWM0::new(),
             #[cfg(any(esp32, esp32s3))]
-            mcpwm1: mcpwm::Peripheral::new(),
->>>>>>> The beginning of a first rough draft...
+            mcpwm1: mcpwm::MCPWM1::new(),
             #[cfg(not(feature = "riscv-ulp-hal"))]
             rmt: rmt::RMT::new(),
             #[cfg(all(
