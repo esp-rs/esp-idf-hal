@@ -133,19 +133,19 @@ impl EspMdns {
         Ok(Self(()))
     }
 
-    pub fn hostname_set(&mut self, hostname: impl AsRef<str>) -> Result<(), EspError> {
+    pub fn set_hostname(&mut self, hostname: impl AsRef<str>) -> Result<(), EspError> {
         let hostname = CString::new(hostname.as_ref()).unwrap();
 
         esp!(unsafe { mdns_hostname_set(hostname.as_ptr()) })
     }
 
-    pub fn instance_name_set(&mut self, instance_name: impl AsRef<str>) -> Result<(), EspError> {
+    pub fn set_instance_name(&mut self, instance_name: impl AsRef<str>) -> Result<(), EspError> {
         let instance_name = CString::new(instance_name.as_ref()).unwrap();
 
         esp!(unsafe { mdns_instance_name_set(instance_name.as_ptr()) })
     }
 
-    pub fn service_add(
+    pub fn add_service(
         &mut self,
         instance_name: Option<&str>,
         service_type: impl AsRef<str>,
@@ -182,7 +182,7 @@ impl EspMdns {
         })
     }
 
-    pub fn service_port_set(
+    pub fn set_service_port(
         &mut self,
         service_type: impl AsRef<str>,
         proto: impl AsRef<str>,
@@ -194,7 +194,7 @@ impl EspMdns {
         esp!(unsafe { mdns_service_port_set(service_type.as_ptr(), proto.as_ptr(), port) })
     }
 
-    pub fn service_instance_name_set(
+    pub fn set_service_instance_name(
         &mut self,
         service_type: impl AsRef<str>,
         proto: impl AsRef<str>,
@@ -213,7 +213,7 @@ impl EspMdns {
         })
     }
 
-    pub fn service_txt_item_set(
+    pub fn set_service_txt_item(
         &mut self,
         service_type: impl AsRef<str>,
         proto: impl AsRef<str>,
@@ -235,7 +235,7 @@ impl EspMdns {
         })
     }
 
-    pub fn service_txt_item_remove(
+    pub fn remove_service_txt_item(
         &mut self,
         service_type: impl AsRef<str>,
         proto: impl AsRef<str>,
@@ -250,7 +250,7 @@ impl EspMdns {
         })
     }
 
-    pub fn service_txt_set(
+    pub fn set_service_txt(
         &mut self,
         service_type: impl AsRef<str>,
         proto: impl AsRef<str>,
@@ -258,8 +258,10 @@ impl EspMdns {
     ) -> Result<(), EspError> {
         let service_type = CString::new(service_type.as_ref()).unwrap();
         let proto = CString::new(proto.as_ref()).unwrap();
+
         let mut txtcstr = Vec::with_capacity(txt.len());
         let mut txtptr = Vec::with_capacity(txt.len());
+
         for e in txt.iter() {
             let key = CString::new(e.0.as_bytes()).unwrap();
             let value = CString::new(e.1.as_bytes()).unwrap();
@@ -280,7 +282,7 @@ impl EspMdns {
         })
     }
 
-    pub fn service_remove(
+    pub fn remove_service(
         &mut self,
         service_type: impl AsRef<str>,
         proto: impl AsRef<str>,
@@ -291,12 +293,13 @@ impl EspMdns {
         esp!(unsafe { mdns_service_remove(service_type.as_ptr(), proto.as_ptr()) })
     }
 
-    pub fn service_remove_all(&mut self) -> Result<(), EspError> {
+    pub fn remove_services(&mut self) -> Result<(), EspError> {
         esp!(unsafe { mdns_service_remove_all() })
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub fn query(
-        &mut self,
+        &self,
         name: Option<&str>,
         service_type: Option<&str>,
         proto: Option<&str>,
@@ -331,7 +334,7 @@ impl EspMdns {
     }
 
     pub fn query_a(
-        &mut self,
+        &self,
         hostname: impl AsRef<str>,
         timeout: Duration,
     ) -> Result<Ipv4Addr, EspError> {
@@ -344,7 +347,7 @@ impl EspMdns {
     }
 
     pub fn query_aaaa(
-        &mut self,
+        &self,
         hostname: impl AsRef<str>,
         timeout: Duration,
     ) -> Result<Ipv6Addr, EspError> {
@@ -357,7 +360,7 @@ impl EspMdns {
     }
 
     pub fn query_txt(
-        &mut self,
+        &self,
         instance_name: impl AsRef<str>,
         service_type: impl AsRef<str>,
         proto: impl AsRef<str>,
@@ -386,7 +389,7 @@ impl EspMdns {
     }
 
     pub fn query_srv(
-        &mut self,
+        &self,
         instance_name: impl AsRef<str>,
         service_type: impl AsRef<str>,
         proto: impl AsRef<str>,
@@ -415,7 +418,7 @@ impl EspMdns {
     }
 
     pub fn query_ptr(
-        &mut self,
+        &self,
         service_type: impl AsRef<str>,
         proto: impl AsRef<str>,
         timeout: Duration,
