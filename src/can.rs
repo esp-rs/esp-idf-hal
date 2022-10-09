@@ -336,7 +336,7 @@ impl<'d> embedded_hal_0_2::can::nb::Can for CanDriver<'d> {
         match self.transmit(frame, NON_BLOCK) {
             Ok(_) => Ok(None),
             Err(e) if e.code() == ESP_FAIL => Err(nb::Error::WouldBlock),
-            Err(e) if e.code() == ESP_ERR_TIMEOUT as i32 => Err(nb::Error::WouldBlock),
+            Err(e) if e.code() == ESP_ERR_TIMEOUT => Err(nb::Error::WouldBlock),
             Err(e) => Err(nb::Error::Other(Can02Error::other(e))),
         }
     }
@@ -344,7 +344,7 @@ impl<'d> embedded_hal_0_2::can::nb::Can for CanDriver<'d> {
     fn receive(&mut self) -> nb::Result<Self::Frame, Self::Error> {
         match self.receive(NON_BLOCK) {
             Ok(frame) => Ok(frame),
-            Err(e) if e.code() == ESP_ERR_TIMEOUT as i32 => Err(nb::Error::WouldBlock),
+            Err(e) if e.code() == ESP_ERR_TIMEOUT => Err(nb::Error::WouldBlock),
             Err(e) => Err(nb::Error::Other(Can02Error::other(e))),
         }
     }
@@ -358,7 +358,7 @@ impl<'d> embedded_can::nb::Can for CanDriver<'d> {
         match self.transmit(frame, NON_BLOCK) {
             Ok(_) => Ok(None),
             Err(e) if e.code() == ESP_FAIL => Err(nb::Error::WouldBlock),
-            Err(e) if e.code() == ESP_ERR_TIMEOUT as i32 => Err(nb::Error::WouldBlock),
+            Err(e) if e.code() == ESP_ERR_TIMEOUT => Err(nb::Error::WouldBlock),
             Err(e) => Err(nb::Error::Other(CanError::other(e))),
         }
     }
@@ -366,7 +366,7 @@ impl<'d> embedded_can::nb::Can for CanDriver<'d> {
     fn receive(&mut self) -> nb::Result<Self::Frame, Self::Error> {
         match self.receive(NON_BLOCK) {
             Ok(frame) => Ok(frame),
-            Err(e) if e.code() == ESP_ERR_TIMEOUT as i32 => Err(nb::Error::WouldBlock),
+            Err(e) if e.code() == ESP_ERR_TIMEOUT => Err(nb::Error::WouldBlock),
             Err(e) => Err(nb::Error::Other(CanError::other(e))),
         }
     }

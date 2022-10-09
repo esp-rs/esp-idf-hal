@@ -190,7 +190,7 @@ impl<'d, C: LedcChannel, B> LedcDriver<'d, C, B> {
             timer_sel: T::timer(),
             intr_type: ledc_intr_type_t_LEDC_INTR_DISABLE,
             gpio_num: pin.pin(),
-            duty: duty as u32,
+            duty,
             ..Default::default()
         };
 
@@ -261,12 +261,7 @@ impl<'d, C: LedcChannel, B> LedcDriver<'d, C, B> {
 
     fn update_duty(&mut self, duty: Duty) -> Result<(), EspError> {
         esp!(unsafe {
-            ledc_set_duty_and_update(
-                self.speed_mode,
-                C::channel(),
-                duty as u32,
-                Default::default(),
-            )
+            ledc_set_duty_and_update(self.speed_mode, C::channel(), duty, Default::default())
         })?;
         Ok(())
     }

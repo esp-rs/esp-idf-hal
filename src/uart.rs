@@ -646,7 +646,7 @@ macro_rules! impl_uart {
 }
 
 fn to_nb_err(err: EspError) -> nb::Error<SerialError> {
-    if err.code() == ESP_ERR_TIMEOUT as i32 {
+    if err.code() == ESP_ERR_TIMEOUT {
         nb::Error::WouldBlock
     } else {
         nb::Error::Other(SerialError::from(err))
