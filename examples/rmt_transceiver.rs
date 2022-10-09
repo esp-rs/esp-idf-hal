@@ -25,7 +25,7 @@ use std::thread;
 use std::time::Duration;
 
 use esp_idf_hal::rmt::{
-    RmtReceiveConfig, RmtTransmitConfig, FixedLengthSignal, PinState, Pulse, PulseTicks,
+    FixedLengthSignal, PinState, Pulse, PulseTicks, RmtReceiveConfig, RmtTransmitConfig,
     RxRmtDriver, TxRmtDriver, CHANNEL0, CHANNEL2,
 };
 
