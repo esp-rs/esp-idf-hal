@@ -143,7 +143,7 @@ impl PulseTicks {
     /// returned.
     pub fn new(v: u16) -> Result<Self, EspError> {
         if v > Self::MAX {
-            Err(EspError::from(ESP_ERR_INVALID_ARG as i32).unwrap())
+            Err(EspError::from(ESP_ERR_INVALID_ARG).unwrap())
         } else {
             Ok(Self(v))
         }
@@ -206,7 +206,7 @@ pub mod config {
         /// Must be between 0 and 100, otherwise an error is returned.
         pub fn new(v: u8) -> Result<Self, EspError> {
             if v > 100 {
-                Err(EspError::from(ESP_ERR_INVALID_ARG as i32).unwrap())
+                Err(EspError::from(ESP_ERR_INVALID_ARG).unwrap())
             } else {
                 Ok(Self(v))
             }

@@ -39,7 +39,7 @@ impl embedded_hal_0_2::blocking::delay::DelayMs<u8> for Ulp {
     }
 }
 
-impl embedded_hal::delay::blocking::DelayUs for Ulp {
+impl embedded_hal::delay::DelayUs for Ulp {
     type Error = core::convert::Infallible;
 
     fn delay_us(&mut self, us: u32) -> Result<(), Self::Error> {
