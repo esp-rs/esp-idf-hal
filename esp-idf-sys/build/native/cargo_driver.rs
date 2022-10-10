@@ -187,7 +187,7 @@ pub fn build() -> Result<EspIdfBuildOutput> {
             }
             Ok((5, _, _)) => MASTER_PATCHES,
             Ok((4, 4, _)) => V_4_4_2_PATCHES,
-            Ok((4, 3, patch)) if patch == 2 => V_4_3_2_PATCHES,
+            Ok((4, 3, 2)) => V_4_3_2_PATCHES,
             Ok((major, minor, patch)) => {
                 cargo::print_warning(format_args!(
                     "esp-idf version ({major}.{minor}.{patch}) not officially supported by `esp-idf-sys`. \
