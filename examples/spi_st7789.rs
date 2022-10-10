@@ -18,9 +18,9 @@ use std::thread;
 use std::time::Duration;
 
 use embedded_hal::spi::MODE_3;
-use embedded_hal_0_2::digital::v2::OutputPin;
 
-use esp_idf_hal::spi;
+use esp_idf_hal::spi::*;
+use esp_idf_hal::gpio::*;
 use esp_idf_hal::peripherals::Peripherals;
 use esp_idf_hal::units::FromValueType;
 use esp_idf_hal::delay::Ets;
@@ -38,9 +38,9 @@ fn main() -> anyhow::Result<()> {
     let peripherals = Peripherals::take().unwrap();
     let spi = peripherals.spi2;
 
-    let rst = peripherals.pins.gpio3.into_output()?;
-    let dc = peripherals.pins.gpio4.into_output()?;
-    let mut backlight = peripherals.pins.gpio5.into_output()?;
+    let rst = PinDriver::output(peripherals.pins.gpio3)?;
+    let dc = PinDriver::output(peripherals.pins.gpio4)?;
+    let mut backlight = PinDriver::output(peripherals.pins.gpio5)?;
     let sclk = peripherals.pins.gpio6;
     let sda = peripherals.pins.gpio7;
     let sdi = peripherals.pins.gpio8;
@@ -49,17 +49,11 @@ fn main() -> anyhow::Result<()> {
     let mut delay = Ets;
 
     // configuring the spi interface, note that in order for the ST7789 to work, the data_mode needs to be set to MODE_3
-    let config = <spi::config::Config as Default>::default().baudrate(26.MHz().into()).data_mode(MODE_3);
-    let spi = spi::Master::<spi::SPI2, _, _, _, _>::new(
-        spi,
-        spi::Pins {
-            sclk,
-            sdo: sda,
-            sdi: Some(sdi),
-            cs: Some(cs),
-        },
-        config,
-    )?;
+    let config = config::Config::new().baudrate(26.MHz().into()).data_mode(MODE_3);
+
+    
+    let spi =
+        SpiMasterDriver::<SPI2>::new(spi, sclk, sda, Some(sdi), Some(cs), &config)?;
 
     // display interface abstraction from SPI and DC
     let di = SPIInterfaceNoCS::new(spi, dc);
