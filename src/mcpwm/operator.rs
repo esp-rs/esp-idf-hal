@@ -4,44 +4,38 @@ use crate::{mcpwm::{Group, Group0, Group1}, gpio::OutputPin};
 
 use super::{Duty, timer_connection::OptionalOutputPin};
 
-use core::ffi;
+use core::{ffi, marker::PhantomData};
 
-// The hardware for ESP32 and ESP32-S3 can associate any operator(within the mcpwm module) with any
-// timer(within the mcpwm module) for example allowing using the same timer for all three operators.
-pub trait HwOperator<U: Group> {
-    const GROUP_ID: ffi::c_int = U::ID;
+pub struct OPERATOR<const N: u8, G: Group>{
+    _ptr: PhantomData<*const ()>,
+    _group: PhantomData<G>
 }
 
-macro_rules! impl_operator {
-    ($t:ident, $g:ty) => {
-        crate::impl_peripheral!($t);
-
-        impl HwOperator<$g> for $t {}
-    };
+impl<const N: u8, G: Group> OPERATOR<N, G> {
+    /// # Safety
+    ///
+    /// Care should be taken not to instnatiate this peripheralinstance, if it is already instantiated and used elsewhere
+    #[inline(always)]
+    pub unsafe fn new() -> Self {
+        Self {
+            _ptr: PhantomData,
+            _group: PhantomData
+        }
+    }
 }
 
-pub trait HwOperator0<G: Group>: HwOperator<G> {}
-pub trait HwOperator1<G: Group>: HwOperator<G> {}
-pub trait HwOperator2<G: Group>: HwOperator<G> {}
+unsafe impl<const N: u8, G: Group> Send for OPERATOR<N, G> {}
 
-// Group 0
-impl_operator!(OPERATOR00, Group0);
-impl_operator!(OPERATOR01, Group0);
-impl_operator!(OPERATOR02, Group0);
+impl<const N: u8, G: Group> crate::peripheral::sealed::Sealed for OPERATOR<N, G> {}
 
-// Group 1
-impl_operator!(OPERATOR10, Group1);
-impl_operator!(OPERATOR11, Group1);
-impl_operator!(OPERATOR12, Group1);
+impl<const N: u8, G: Group> crate::peripheral::Peripheral for OPERATOR<N, G> {
+    type P = Self;
 
-impl HwOperator0<Group0> for OPERATOR00 {}
-impl HwOperator0<Group1> for OPERATOR10 {}
-
-impl HwOperator1<Group0> for OPERATOR01 {}
-impl HwOperator1<Group1> for OPERATOR11 {}
-
-impl HwOperator2<Group0> for OPERATOR02 {}
-impl HwOperator2<Group1> for OPERATOR12 {}
+    #[inline]
+    unsafe fn clone_unchecked(&mut self) -> Self::P {
+        Self { ..*self }
+    }
+}
 
 // TODO: How do we want syncing to fit in to this?
 // TODO: How do we want carrier to fit into this?
@@ -51,9 +45,10 @@ impl HwOperator2<Group1> for OPERATOR12 {}
 ///
 /// Every Motor Control module has three operators. Every operator can generate two output signals called A and B.
 /// A and B share the same timer and thus frequency and phase but can have induvidual duty set.
-pub struct Operator<U: Group, O: HwOperator<U>, PA: OptionalOutputPin, PB: OptionalOutputPin> {
+pub struct Operator<const N: u8, G: Group, PA: OptionalOutputPin, PB: OptionalOutputPin> {
+    _group: PhantomData<G>,
     handle: mcpwm_oper_handle_t,
-    _instance: O,
+    _instance: OPERATOR<N, G>,
 
     _pin_a: PA,
     _pin_b: PB,
@@ -61,10 +56,9 @@ pub struct Operator<U: Group, O: HwOperator<U>, PA: OptionalOutputPin, PB: Optio
     //deadtime: D
 }
 
-impl<U, O, PA, PB> Operator<U, O, PA, PB>
+impl<const N: u8, G, PA, PB> Operator<N, G, PA, PB>
 where
-    U: Group,
-    O: HwOperator<U>,
+    G: Group,
     PA: OutputPin,
     PB: OptionalOutputPin,
 {
@@ -79,10 +73,9 @@ where
     }
 }
 
-impl<U, O, PA, PB> Operator<U, O, PA, PB>
+impl<const N: u8, G, PA, PB> Operator<N, G, PA, PB>
 where
-    U: Group,
-    O: HwOperator<U>,
+    G: Group,
     PA: OptionalOutputPin,
     PB: OutputPin,
 {
@@ -139,8 +132,8 @@ impl OperatorConfig {
 impl Default for OperatorConfig {
     fn default() -> Self {
         Self {
-            duty_a: 0.0,
-            duty_b: 0.0,
+            duty_a: 0,
+            duty_b: 0,
 
             duty_mode: DutyMode::ActiveHigh,
 
@@ -165,10 +158,12 @@ pub enum DutyMode {
     ActiveLow,
 }
 
-pub trait OptionalOperator<U: Group, O: HwOperator<U>> {}
+pub trait OptionalOperator<const N: u8, G: Group> {}
+impl<const N: u8, G: Group> OptionalOperator<N, G> for OPERATOR<N, G> {}
 
 pub struct NoOperator;
-impl<U: Group, O: HwOperator<U>> OptionalOperator<U, O> for NoOperator {}
+impl<const N: u8, G: Group> OptionalOperator<N, G> for NoOperator {}
+
 
 /*
 

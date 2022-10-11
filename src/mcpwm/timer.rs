@@ -1,3 +1,4 @@
+use core::marker::PhantomData;
 use std::ptr;
 
 use esp_idf_sys::{mcpwm_timer_t, mcpwm_timer_handle_t, mcpwm_timer_enable, mcpwm_timer_config_t, mcpwm_new_timer, mcpwm_del_timer, esp, EspError};
@@ -51,13 +52,14 @@ impl TimerConfig {
     //}
 //}
 
-pub struct Timer<U: Group, T: HwTimer<U>> {
+pub struct Timer<const N: u8, G: Group> {
+    _group: G,
     handle: mcpwm_timer_handle_t,
-    _timer: T,
+    _timer: TIMER<N, G>,
 }
 
-impl<U: Group, T: HwTimer<U>> Timer<U, T> {
-    pub fn new(timer: T, config: TimerConfig) -> Self {
+impl<const N: u8, G: Group> Timer<N, G> {
+    pub fn new(timer: TIMER<N, G>, config: TimerConfig) -> Self {
         let config = mcpwm_timer_config_t {
             group_id: todo!(),
             clk_src: todo!(),
@@ -66,17 +68,17 @@ impl<U: Group, T: HwTimer<U>> Timer<U, T> {
             period_ticks: todo!(),
             flags: todo!(),
         };
-        let mut handle = ptr::null();
+        let mut handle: mcpwm_timer_handle_t = ptr::null_mut();
         unsafe {
-            esp!(mcpwm_new_timer(config, &mut handle));
+            esp!(mcpwm_new_timer(&config, &mut handle));
         }
         // TODO: note that this has to be called before mcpwm_timer_enable
         // mcpwm_timer_register_event_callbacks()
         unsafe {
-            esp!(mcpwm_timer_enable(*handle)).unwrap();
+            esp!(mcpwm_timer_enable(handle)).unwrap();
         }
 
-        Self { handle, _timer: timer }
+        Self { _group: G::default(), handle, _timer: timer }
     }
     /// Set PWM frequency
     pub fn set_frequency(&mut self, frequency: Hertz) -> Result<(), EspError> {
@@ -92,8 +94,9 @@ impl<U: Group, T: HwTimer<U>> Timer<U, T> {
         self.handle
     }
 
-    pub fn release(self) -> T {
+    pub fn release(self) -> TIMER<N, G> {
         let Self {
+            _group,
             _timer,
             handle
         } = self;
@@ -103,13 +106,13 @@ impl<U: Group, T: HwTimer<U>> Timer<U, T> {
         _timer
     }
 
-    fn into_connection(timer: T) -> TimerConnection<U, T, NoOperator, NoOperator, NoOperator> {
-        TimerConnection::new(timer)
+    fn into_connection(self) -> TimerConnection<N, G, NoOperator, NoOperator, NoOperator> {
+        TimerConnection::new(self)
     }
 }
 
-impl<U: Group, T: HwTimer<U>> Drop for Timer<U, T> {
-    fn drop(self) {
+impl<const N: u8, G: Group> Drop for Timer<N, G> {
+    fn drop(&mut self) {
         unsafe {
             unsafe {
                 esp!(mcpwm_del_timer(self.handle)).unwrap();
@@ -191,23 +194,33 @@ impl From<CounterMode> for mcpwm_counter_type_t {
     }
 }*/
 
-pub unsafe trait HwTimer<U: Group> {
-    const ID: mcpwm_timer_t;
+pub struct TIMER<const N: u8, G: Group>{
+    _ptr: PhantomData<*const ()>,
+    _group: PhantomData<G>
 }
 
-macro_rules! impl_timer {
-    ($t:ident, $g:ty) => {
-        crate::impl_peripheral!($t);
-        impl HwTimer<$g> for $t {}
-    };
+impl<const N: u8, G: Group> TIMER<N, G> {
+    /// # Safety
+    ///
+    /// Care should be taken not to instnatiate this peripheralinstance, if it is already instantiated and used elsewhere
+    #[inline(always)]
+    pub unsafe fn new() -> Self {
+        Self {
+            _ptr: PhantomData,
+            _group: PhantomData
+        }
+    }
 }
 
-// Group 0
-impl_timer!(TIMER00, Group0);
-impl_timer!(TIMER01, Group0);
-impl_timer!(TIMER02, Group0);
+unsafe impl<const N: u8, G: Group> Send for TIMER<N, G> {}
 
-// Group 1
-impl_timer!(TIMER10, Group1);
-impl_timer!(TIMER11, Group1);
-impl_timer!(TIMER12, Group1);
+impl<const N: u8, G: Group> crate::peripheral::sealed::Sealed for TIMER<N, G> {}
+
+impl<const N: u8, G: Group> crate::peripheral::Peripheral for TIMER<N, G> {
+    type P = Self;
+
+    #[inline]
+    unsafe fn clone_unchecked(&mut self) -> Self::P {
+        Self { ..*self }
+    }
+}

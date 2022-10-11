@@ -57,16 +57,7 @@ mod timer_connection;
 
 use core::ffi;
 
-use crate::mcpwm::operator::{
-    HwOperator0, HwOperator1, HwOperator2, 
-    OPERATOR00, OPERATOR01, OPERATOR02,
-    OPERATOR10, OPERATOR11, OPERATOR12
-};
-
-use crate::mcpwm::timer::{
-    TIMER00, TIMER01, TIMER02,
-    TIMER10, TIMER11, TIMER12
-};
+use self::{operator::OPERATOR, timer::TIMER};
 
 // MCPWM clock source frequency for ESP32 and ESP32-s3
 const MCPWM_CLOCK_SOURCE_FREQUENCY: u32 = 160_000_000;
@@ -78,54 +69,28 @@ const MAX_PWM_TIMER_PRESCALE: u32 = 0x1_00;
 const MAX_PWM_TIMER_PERIOD: u32 = 0x1_00_00;
 
 /// The Motor Control Pulse Width Modulator peripheral
-pub struct MCPWM0 {
-    timer0: TIMER00,
-    timer1: TIMER01,
-    timer2: TIMER02,
+pub struct MCPWM<G: Group> {
+    timer0: TIMER<0, G>,
+    timer1: TIMER<1, G>,
+    timer2: TIMER<2, G>,
 
-    pub operator0: OPERATOR00,
-    pub operator1: OPERATOR01,
-    pub operator2: OPERATOR02,
+    pub operator0: OPERATOR<0, G>,
+    pub operator1: OPERATOR<1, G>,
+    pub operator2: OPERATOR<2, G>,
 }
 
-impl MCPWM0 {
+impl<G: Group> MCPWM<G> {
     /// # Safety
     ///
     /// It is safe to instantiate this exactly one time per `Group`.
     pub unsafe fn new() -> Self {
         Self {
-            timer0: TIMER00::new(),
-            timer1: TIMER01::new(),
-            timer2: TIMER02::new(),
-            operator0: OPERATOR00::new(),
-            operator1: OPERATOR01::new(),
-            operator2: OPERATOR02::new(),
-        }
-    }
-}
-
-pub struct MCPWM1 {
-    timer0: TIMER10,
-    timer1: TIMER11,
-    timer2: TIMER12,
-
-    pub operator0: OPERATOR10,
-    pub operator1: OPERATOR11,
-    pub operator2: OPERATOR12,
-}
-
-impl MCPWM1 {
-    /// # Safety
-    ///
-    /// It is safe to instantiate this exactly one time per `Group`.
-    pub unsafe fn new() -> Self {
-        Self {
-            timer0: TIMER10::new(),
-            timer1: TIMER11::new(),
-            timer2: TIMER12::new(),
-            operator0: OPERATOR10::new(),
-            operator1: OPERATOR11::new(),
-            operator2: OPERATOR12::new(),
+            timer0: TIMER::new(),
+            timer1: TIMER::new(),
+            timer2: TIMER::new(),
+            operator0: OPERATOR::new(),
+            operator1: OPERATOR::new(),
+            operator2: OPERATOR::new(),
         }
     }
 }
