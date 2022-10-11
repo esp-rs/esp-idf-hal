@@ -35,6 +35,7 @@ use crate::peripheral::{Peripheral, PeripheralRef};
 pub use chip::*;
 
 type Duty = u32;
+type HPoint = Duty;
 
 const IDLE_LEVEL: u32 = 0;
 
@@ -161,6 +162,7 @@ where
     _channel: PeripheralRef<'d, C>,
     _timer_driver: B,
     duty: Duty,
+    hpoint: HPoint,
     speed_mode: ledc_mode_t,
     max_duty: Duty,
 }
@@ -183,6 +185,7 @@ impl<'d, C: LedcChannel, B> LedcDriver<'d, C, B> {
         crate::into_ref!(channel, pin);
 
         let duty = 0;
+        let hpoint = 0;
 
         let channel_config = ledc_channel_config_t {
             speed_mode: config.speed_mode,
@@ -191,6 +194,7 @@ impl<'d, C: LedcChannel, B> LedcDriver<'d, C, B> {
             intr_type: ledc_intr_type_t_LEDC_INTR_DISABLE,
             gpio_num: pin.pin(),
             duty,
+            hpoint: hpoint as _,
             ..Default::default()
         };
 
@@ -216,6 +220,7 @@ impl<'d, C: LedcChannel, B> LedcDriver<'d, C, B> {
 
         Ok(LedcDriver {
             duty,
+            hpoint,
             speed_mode: timer_driver.borrow().speed_mode,
             max_duty: timer_driver.borrow().max_duty,
             _channel: channel,
@@ -227,30 +232,40 @@ impl<'d, C: LedcChannel, B> LedcDriver<'d, C, B> {
         self.duty
     }
 
+    pub fn get_hpoint(&self) -> HPoint {
+        self.hpoint
+    }
+
     pub fn get_max_duty(&self) -> Duty {
         self.max_duty
     }
 
     pub fn disable(&mut self) -> Result<(), EspError> {
-        self.update_duty(0)?;
+        self.update_duty(0, 0)?;
         Ok(())
     }
 
     pub fn enable(&mut self) -> Result<(), EspError> {
-        self.update_duty(self.duty)?;
+        self.update_duty(self.duty, self.hpoint)?;
         Ok(())
     }
 
     pub fn set_duty(&mut self, duty: Duty) -> Result<(), EspError> {
+        self.set_duty_with_hpoint(duty, self.hpoint)
+    }
+
+    pub fn set_hpoint(&mut self, hpoint: HPoint) -> Result<(), EspError> {
+        self.set_duty_with_hpoint(self.duty, hpoint)
+    }
+
+    pub fn set_duty_with_hpoint(&mut self, duty: Duty, hpoint: HPoint) -> Result<(), EspError> {
         // Clamp the actual duty cycle to the current maximum as done by other
         // Pwm/PwmPin implementations.
-        //
-        // TODO: Why does calling self.get_max_duty() result in the compiler
-        // error 'expected `u32`, found enum `Result`' when our method returns
-        // Duty?
-        let clamped = duty.min(self.max_duty);
-        self.duty = clamped;
-        self.update_duty(clamped)?;
+        let clamped_duty = duty.min(self.get_max_duty());
+        let clamped_hpoint = hpoint.min(clamped_duty);
+        self.duty = clamped_duty;
+        self.hpoint = clamped_hpoint;
+        self.update_duty(clamped_duty, clamped_hpoint)?;
         Ok(())
     }
 
@@ -259,10 +274,8 @@ impl<'d, C: LedcChannel, B> LedcDriver<'d, C, B> {
         Ok(())
     }
 
-    fn update_duty(&mut self, duty: Duty) -> Result<(), EspError> {
-        esp!(unsafe {
-            ledc_set_duty_and_update(self.speed_mode, C::channel(), duty, Default::default())
-        })?;
+    fn update_duty(&mut self, duty: Duty, hpoint: HPoint) -> Result<(), EspError> {
+        esp!(unsafe { ledc_set_duty_and_update(self.speed_mode, C::channel(), duty, hpoint) })?;
         Ok(())
     }
 }
