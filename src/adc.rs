@@ -397,7 +397,7 @@ impl<'d> embedded_hal_0_2::adc::OneShot<ADC1, u16, crate::hall::HallSensor>
 
 #[cfg(not(feature = "riscv-ulp-hal"))]
 fn to_nb_err(err: EspError) -> nb::Error<EspError> {
-    if err.code() == ESP_ERR_INVALID_STATE as i32 {
+    if err.code() == ESP_ERR_INVALID_STATE {
         nb::Error::WouldBlock
     } else {
         nb::Error::Other(err)
