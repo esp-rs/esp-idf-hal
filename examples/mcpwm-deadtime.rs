@@ -1,9 +1,7 @@
-/// Simple example showing how MCPWM may be used to generate two synchronized pwm signals with varying duty.
-/// The duty on the pin4 will increase from 0% all the way up to 100% and repeat. At the same time the duty
-/// on pin 5 will go from 100% down to 0%
-///
-/// # duty = 10
-///
+// TODO: Update those graphs with measured results
+
+/// # x = 10
+///              
 ///               .                               .
 ///               .                               .
 ///               .------.                        .------.
@@ -21,7 +19,7 @@
 ///               .                               .
 ///
 ///
-/// # duty = 50
+/// # x = 50
 ///               .                               .
 ///               .                               .
 ///               .---------------.               .---------------.
@@ -39,7 +37,7 @@
 ///               .                               .
 ///
 ///
-/// # duty = 90
+/// # x = 90
 ///               .                               .
 ///               .                               .
 ///               .------------------------.      .------------------------.
@@ -61,7 +59,7 @@ fn main() -> anyhow::Result<()> {
     use embedded_hal::delay::blocking::DelayUs;
 
     use esp_idf_hal::delay::FreeRtos;
-    use esp_idf_hal::mcpwm::{Operator, OperatorConfig, Timer, TimerConfig};
+    use esp_idf_hal::mcpwm::{DeadtimeConfig, Mcpwm, Operator, OperatorConfig};
     use esp_idf_hal::prelude::Peripherals;
     use esp_idf_hal::units::FromValueType;
 
@@ -70,31 +68,32 @@ fn main() -> anyhow::Result<()> {
     println!("Configuring MCPWM");
 
     let peripherals = Peripherals::take().unwrap();
-    let timer_config = TimerConfig::default().frequency(25.kHz());
-    let operator_config = OperatorConfig::default();
-    let timer = Timer::new(peripherals.mcpwm0.timer0, timer_config);
-
-    let mut timer = timer.into_connection().attatch_operator0(
+    let config = OperatorConfig::default().frequency(1.kHz()).deadtime(
+        DeadtimeConfig::ActiveHighComplement {
+            rising_edge_delay: 1500,  // 1500*100ns=150us or 15% of the period
+            falling_edge_delay: 3000, // 3000*100ns=300us or 30% of the period
+        },
+    );
+    let mcpwm = Mcpwm::new(peripherals.mcpwm0.mcpwm)?;
+    let mut operator = Operator::new(
         peripherals.mcpwm0.operator0,
-        operator_config,
+        &mcpwm,
+        &config,
         peripherals.pins.gpio4,
         peripherals.pins.gpio5,
-    );
-
-    let (timer, operator, _, _) = timer.split();
+    )?;
 
     println!("Starting duty-cycle loop");
 
-    let period_ticks = timer.get_period_peak();
+    for x in (0..10000u16).cycle() {
+        let duty = f32::from(x) * 0.01;
 
-    // TODO: Will this work as expected in UP_DOWN counter mode?
-    for duty in (0..period_ticks).cycle() {
-        if duty % 100 == 0 {
-            println!("Duty {}%", 100 * duty / period_ticks);
+        if x % 100 == 0 {
+            println!("Duty {}%", duty);
         }
 
         operator.set_duty_a(duty)?;
-        operator.set_duty_b(period_ticks - duty)?;
+        operator.set_duty_b(0.0)?;
         FreeRtos.delay_ms(10)?;
     }
 
@@ -104,6 +103,4 @@ fn main() -> anyhow::Result<()> {
 #[cfg(not(any(esp32, esp32s3)))]
 fn main() {
     esp_idf_sys::link_patches();
-
-    println!("Sorry MCPWM is only supported on ESP32 and ESP32-S3");
 }

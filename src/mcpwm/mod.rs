@@ -28,7 +28,7 @@
 //! let timer_config = TimerConfig::default().frequency(25.kHz());
 //! let operator_config = OperatorConfig::default();
 //! let timer = Mcpwm::new(peripherals.mcpwm0.timer, timer_config)?;
-//! 
+//!
 //! let timer = timer.into_connection()
 //!     .attatch_operator0(
 //!         peripherals.mcpwm0.operator0,
@@ -36,7 +36,7 @@
 //!         peripherals.pins.gpio4,
 //!         peripherals.pins.gpio5,
 //!     )?;
-//! 
+//!
 //! let (timer, operator, _, _) = timer.split();
 //!
 //! println!("Starting duty-cycle loop");
@@ -51,26 +51,16 @@
 //!
 //! See the `examples/` folder of this repository for more.
 
-mod timer;
 mod operator;
+mod timer;
 mod timer_connection;
 
 use core::ffi;
 
 pub use self::{
-    operator::{
-        OPERATOR,
-        Operator,
-        OperatorConfig,
-    },
-    timer::{
-        TIMER,
-        Timer,
-        TimerConfig
-    },
-    timer_connection::{
-        TimerConnection
-    }
+    operator::{Operator, OperatorConfig, OPERATOR},
+    timer::{Timer, TimerConfig, TIMER},
+    timer_connection::TimerConnection,
 };
 
 // MCPWM clock source frequency for ESP32 and ESP32-s3

@@ -57,9 +57,9 @@ pub struct Peripherals {
     #[cfg(not(feature = "riscv-ulp-hal"))]
     pub ledc: ledc::LEDC,
     #[cfg(all(any(esp32, esp32s3), not(feature = "riscv-ulp-hal")))]
-    pub mcpwm0: mcpwm::MCPWM::<mcpwm::Group0>,
+    pub mcpwm0: mcpwm::MCPWM<mcpwm::Group0>,
     #[cfg(all(any(esp32, esp32s3), not(feature = "riscv-ulp-hal")))]
-    pub mcpwm1: mcpwm::MCPWM::<mcpwm::Group1>,
+    pub mcpwm1: mcpwm::MCPWM<mcpwm::Group1>,
     #[cfg(not(feature = "riscv-ulp-hal"))]
     pub rmt: rmt::RMT,
     #[cfg(all(

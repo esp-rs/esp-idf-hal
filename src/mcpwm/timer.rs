@@ -70,12 +70,12 @@ pub struct Timer<const N: u8, G: Group> {
     handle: mcpwm_timer_handle_t,
     _timer: TIMER<N, G>,
     /// Number of ticks within a period
-    /// 
+    ///
     /// See `Self::get_period_ticks` for more info
     period_ticks: u32,
 
     /// This is the maximum value that the comparator will see
-    /// 
+    ///
     /// See `Self::get_period_peak` for more info
     period_peak: u16,
 }
@@ -111,15 +111,15 @@ impl<const N: u8, G: Group> Timer<N, G> {
             handle,
             _timer: timer,
             period_ticks: cfg.period_ticks,
-            period_peak
+            period_peak,
         }
     }
 
     // TODO: make sure this description is accurate
     /// Get number of ticks per period
-    /// 
+    ///
     /// Use this when working with the frequency or the period
-    /// 
+    ///
     /// NOTE: This will be the same as `Self::get_period_peak` for all `CounterMode` except for
     /// `CounterMode::UpDown` where the period will be twice as large as the peak value since
     /// the timer will count from zero to peak and then down to zero again
@@ -129,9 +129,9 @@ impl<const N: u8, G: Group> Timer<N, G> {
 
     // TODO: make sure this description is accurate
     /// This is the maximum value that the comparator will see
-    /// 
+    ///
     /// Use this working with the duty
-    /// 
+    ///
     /// NOTE: This will not be the same as `Self::get_period_ticks` when using `CounterMode::UpDown`
     /// See `Self::get_period_ticks` for more info
     pub fn get_period_peak(&self) -> u16 {

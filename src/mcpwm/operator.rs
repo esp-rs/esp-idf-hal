@@ -67,7 +67,7 @@ where
     }
 
     /// Set duty as in the range 0 to timers peak value
-    /// 
+    ///
     /// NOTE: The compare value shouldn’t exceed timer’s count peak, otherwise, the compare event will never got triggered.
     pub fn set_duty_a(&mut self, duty: Duty) -> Result<(), EspError> {
         todo!()
