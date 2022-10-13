@@ -63,15 +63,6 @@ pub use self::{
     timer_connection::TimerConnection,
 };
 
-// MCPWM clock source frequency for ESP32 and ESP32-s3
-const MCPWM_CLOCK_SOURCE_FREQUENCY: u32 = 160_000_000;
-
-// Max PWM timer prescaler
-const MAX_PWM_TIMER_PRESCALE: u32 = 0x1_00;
-
-// Max PWM timer period
-const MAX_PWM_TIMER_PERIOD: u32 = 0x1_00_00;
-
 /// The Motor Control Pulse Width Modulator peripheral
 pub struct MCPWM<G: Group> {
     pub timer0: TIMER<0, G>,

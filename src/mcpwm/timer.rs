@@ -4,7 +4,7 @@ use std::ptr;
 
 use esp_idf_sys::{
     esp, mcpwm_del_timer, mcpwm_new_timer, mcpwm_timer_config_t, mcpwm_timer_enable,
-    mcpwm_timer_handle_t, EspError,
+    mcpwm_timer_handle_t,
 };
 
 use crate::mcpwm::Group;
@@ -14,7 +14,7 @@ use crate::units::Hertz;
 use super::operator::NoOperator;
 use super::timer_connection::TimerConnection;
 
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct TimerConfig {
     frequency: Hertz,
     //resolution: Hertz,
@@ -92,7 +92,7 @@ impl<const N: u8, G: Group> Timer<N, G> {
         };
         let mut handle: mcpwm_timer_handle_t = ptr::null_mut();
         unsafe {
-            esp!(mcpwm_new_timer(&cfg, &mut handle));
+            esp!(mcpwm_new_timer(&cfg, &mut handle)).unwrap();
         }
         // TODO: note that this has to be called before mcpwm_timer_enable
         // mcpwm_timer_register_event_callbacks()
@@ -173,7 +173,7 @@ impl<const N: u8, G: Group> Drop for Timer<N, G> {
 
 /// Counter mode for operator's timer for generating PWM signal
 // TODO: For UpDown, frequency is half of MCPWM frequency set
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum CountMode {
     /// Timer is frozen or paused
     //#[cfg(not(esp_idf_version = "4.3"))]

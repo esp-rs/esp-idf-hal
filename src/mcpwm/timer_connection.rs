@@ -2,7 +2,7 @@ use crate::mcpwm::Group;
 
 use super::{
     operator::{NoOperator, OperatorConfig, OptionalOperator, OPERATOR},
-    timer::{Timer, TIMER},
+    timer::Timer,
     Operator,
 };
 
@@ -114,8 +114,10 @@ impl<const N: u8, G: Group, O0: OptionalOperator<0, G>, O1: OptionalOperator<1, 
     }
 }
 
+// TODO: Should this be moved somewhere else?
 pub struct NoPin;
 
+// TODO: Should this be moved somewhere else?
 pub trait OptionalOutputPin {}
 
 impl<P: crate::gpio::OutputPin> OptionalOutputPin for P {}
