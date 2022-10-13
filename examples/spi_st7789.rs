@@ -1,8 +1,8 @@
-//! SPI example with the ST7789 using the ESP-RUST-BOARD 
+//! SPI example with the ST7789 using the ESP-RUST-BOARD
 //!
 //! Folowing pins are used:
 //! RST       GPIO3
-//! DC        GPIO4 
+//! DC        GPIO4
 //! BACKLIGHT GPIO5
 //! SCLK      GPIO6
 //! SDA       GPIO7
@@ -19,11 +19,11 @@ use std::time::Duration;
 
 use embedded_hal::spi::MODE_3;
 
-use esp_idf_hal::spi::*;
+use esp_idf_hal::delay::Ets;
 use esp_idf_hal::gpio::*;
 use esp_idf_hal::peripherals::Peripherals;
+use esp_idf_hal::spi::*;
 use esp_idf_hal::units::FromValueType;
-use esp_idf_hal::delay::Ets;
 
 use display_interface_spi::SPIInterfaceNoCS;
 
@@ -34,7 +34,6 @@ use embedded_graphics::prelude::*;
 use st7789::{Orientation, ST7789};
 
 fn main() -> anyhow::Result<()> {
-
     let peripherals = Peripherals::take().unwrap();
     let spi = peripherals.spi2;
 
@@ -49,11 +48,11 @@ fn main() -> anyhow::Result<()> {
     let mut delay = Ets;
 
     // configuring the spi interface, note that in order for the ST7789 to work, the data_mode needs to be set to MODE_3
-    let config = config::Config::new().baudrate(26.MHz().into()).data_mode(MODE_3);
+    let config = config::Config::new()
+        .baudrate(26.MHz().into())
+        .data_mode(MODE_3);
 
-    
-    let spi =
-        SpiMasterDriver::<SPI2>::new(spi, sclk, sda, Some(sdi), Some(cs), &config)?;
+    let spi = SpiMasterDriver::<SPI2>::new(spi, sclk, sda, Some(sdi), Some(cs), &config)?;
 
     // display interface abstraction from SPI and DC
     let di = SPIInterfaceNoCS::new(spi, dc);
