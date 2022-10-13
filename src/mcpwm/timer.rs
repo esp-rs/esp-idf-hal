@@ -115,6 +115,7 @@ impl<const N: u8, G: Group> Timer<N, G> {
         }
     }
 
+    // TODO: make sure this description is accurate
     /// Get number of ticks per period
     /// 
     /// Use this when working with the frequency or the period
@@ -126,6 +127,7 @@ impl<const N: u8, G: Group> Timer<N, G> {
         self.period_ticks
     }
 
+    // TODO: make sure this description is accurate
     /// This is the maximum value that the comparator will see
     /// 
     /// Use this working with the duty

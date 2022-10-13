@@ -66,8 +66,9 @@ where
         todo!()
     }
 
-    // TODO: make sure the peak related description is accurate
     /// Set duty as in the range 0 to timers peak value
+    /// 
+    /// NOTE: The compare value shouldn’t exceed timer’s count peak, otherwise, the compare event will never got triggered.
     pub fn set_duty_a(&mut self, duty: Duty) -> Result<(), EspError> {
         todo!()
     }
@@ -84,7 +85,7 @@ where
         todo!()
     }
 
-    /// Set duty as percentage between 0.0 and 100.0 for output B
+    /// NOTE: The compare value shouldn’t exceed timer’s count peak, otherwise, the compare event will never got triggered.
     pub fn set_duty_b(&mut self, duty: Duty) -> Result<(), EspError> {
         todo!()
     }
