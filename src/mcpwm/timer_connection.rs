@@ -4,7 +4,7 @@ use super::{
     operator::{
         NoOperator, OperatorConfig, OptionalOperator, OPERATOR,
     },
-    timer::{Timer, TIMER},
+    timer::{Timer, TIMER}, Operator,
 };
 
 // TODO: How do we want fault module to fit into this?
@@ -40,7 +40,7 @@ impl<const N: u8, G: Group> TimerConnection<N, G, NoOperator, NoOperator, NoOper
 impl<const N: u8, G: Group, O0: OptionalOperator<0, G>, O1: OptionalOperator<1, G>, O2: OptionalOperator<2, G>>
     TimerConnection<N, G, O0, O1, O2>
 {
-    fn split(&mut self) -> (&mut Timer<N, G>, &mut O0, &mut O1, &mut O2) {
+    pub fn split(&mut self) -> (&mut Timer<N, G>, &mut O0, &mut O1, &mut O2) {
         (
             &mut self.timer,
             &mut self.operator0,
@@ -51,13 +51,13 @@ impl<const N: u8, G: Group, O0: OptionalOperator<0, G>, O1: OptionalOperator<1, 
 }
 // TODO: Do something more builder-pattern like for making the operator?
 impl<const N: u8, G: Group, O1: OptionalOperator<1, G>, O2: OptionalOperator<2, G>> TimerConnection<N, G, NoOperator, O1, O2> {
-    fn attatch_operator0<PA: OptionalOutputPin, PB: OptionalOutputPin>(
-        mut self,
+    pub fn attatch_operator0<PA: OptionalOutputPin, PB: OptionalOutputPin>(
+        self,
         operator_handle: OPERATOR<0, G>,
         operator_cfg: OperatorConfig,
         pin_a: PA,
         pin_b: PB,
-    ) -> TimerConnection<N, G, OPERATOR<0, G>, O1, O2> {
+    ) -> TimerConnection<N, G, Operator<0, G, PA, PB>, O1, O2> {
         let operator = todo!();//self.init_and_attach_operator(operator_cfg, pin_a, pin_b);
         TimerConnection {
             timer: self.timer,
@@ -69,13 +69,13 @@ impl<const N: u8, G: Group, O1: OptionalOperator<1, G>, O2: OptionalOperator<2, 
 }
 
 impl<const N: u8, G: Group, O0: OptionalOperator<0, G>, O2: OptionalOperator<2, G>> TimerConnection<N, G, O0, NoOperator, O2> {
-    fn attatch_operator1<PA: OptionalOutputPin, PB: OptionalOutputPin>(
-        mut self,
+    pub fn attatch_operator1<PA: OptionalOutputPin, PB: OptionalOutputPin>(
+        self,
         operator_handle: OPERATOR<1, G>,
         operator_cfg: OperatorConfig,
         pin_a: PA,
         pin_b: PB,
-    ) -> TimerConnection<N, G, O0, OPERATOR<1, G>, O2> {
+    ) -> TimerConnection<N, G, O0, Operator<1, G, PA, PB>, O2> {
         let operator = todo!();//self.init_and_attach_operator(operator_cfg, pin_a, pin_b);
         TimerConnection {
             timer: self.timer,
@@ -87,13 +87,13 @@ impl<const N: u8, G: Group, O0: OptionalOperator<0, G>, O2: OptionalOperator<2, 
 }
 
 impl<const N: u8, G: Group, O0: OptionalOperator<0, G>, O1: OptionalOperator<1, G>> TimerConnection<N, G, O0, O1, NoOperator> {
-    fn attatch_operator2<PA: OptionalOutputPin, PB: OptionalOutputPin>(
-        mut self,
+    pub fn attatch_operator2<PA: OptionalOutputPin, PB: OptionalOutputPin>(
+        self,
         operator_handle: OPERATOR<2, G>,
         operator_cfg: OperatorConfig,
         pin_a: PA,
         pin_b: PB,
-    ) -> TimerConnection<N, G, O0, O1, OPERATOR<2, G>> {
+    ) -> TimerConnection<N, G, O0, O1, Operator<2, G, PA, PB>> {
         let operator = todo!();//self.init_and_attach_operator(operator_cfg, pin_a, pin_b);
         TimerConnection {
             timer: self.timer,

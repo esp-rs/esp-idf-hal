@@ -57,7 +57,21 @@ mod timer_connection;
 
 use core::ffi;
 
-use self::{operator::OPERATOR, timer::TIMER};
+pub use self::{
+    operator::{
+        OPERATOR,
+        Operator,
+        OperatorConfig,
+    },
+    timer::{
+        TIMER,
+        Timer,
+        TimerConfig
+    },
+    timer_connection::{
+        TimerConnection
+    }
+};
 
 // MCPWM clock source frequency for ESP32 and ESP32-s3
 const MCPWM_CLOCK_SOURCE_FREQUENCY: u32 = 160_000_000;
@@ -70,9 +84,9 @@ const MAX_PWM_TIMER_PERIOD: u32 = 0x1_00_00;
 
 /// The Motor Control Pulse Width Modulator peripheral
 pub struct MCPWM<G: Group> {
-    timer0: TIMER<0, G>,
-    timer1: TIMER<1, G>,
-    timer2: TIMER<2, G>,
+    pub timer0: TIMER<0, G>,
+    pub timer1: TIMER<1, G>,
+    pub timer2: TIMER<2, G>,
 
     pub operator0: OPERATOR<0, G>,
     pub operator1: OPERATOR<1, G>,

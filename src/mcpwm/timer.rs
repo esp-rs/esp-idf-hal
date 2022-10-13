@@ -1,33 +1,46 @@
+use core::convert::TryInto;
 use core::marker::PhantomData;
 use std::ptr;
 
-use esp_idf_sys::{mcpwm_timer_t, mcpwm_timer_handle_t, mcpwm_timer_enable, mcpwm_timer_config_t, mcpwm_new_timer, mcpwm_del_timer, esp, EspError};
+use esp_idf_sys::{
+    esp, mcpwm_del_timer, mcpwm_new_timer, mcpwm_timer_config_t, mcpwm_timer_enable,
+    mcpwm_timer_handle_t, EspError,
+};
 
+use crate::mcpwm::Group;
+use crate::prelude::FromValueType;
 use crate::units::Hertz;
-use crate::mcpwm::{Group, Group0, Group1};
 
 use super::operator::NoOperator;
 use super::timer_connection::TimerConnection;
 
-
-#[derive(Clone, Copy, Debug)]
-struct TimerConfig {
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct TimerConfig {
     frequency: Hertz,
-    resolution: Hertz,
-    counter_mode: CounterMode,
-
+    //resolution: Hertz,
+    count_mode: CountMode,
     // TODO
     // on_full: FF,
     // on_empty: FE,
     // on_stop: FS,
 }
 
+impl Default for TimerConfig {
+    fn default() -> Self {
+        Self {
+            frequency: 1_u32.kHz().into(),
+            //resolution: Default::default(),
+            count_mode: CountMode::Up,
+        }
+    }
+}
+
 impl TimerConfig {
-    #[must_use]
+    /*#[must_use]
     pub fn resolution(mut self, resolution: impl Into<Hertz>) -> Self {
         self.resolution = resolution.into();
         self
-    }
+    }*/
 
     /// Frequency which the operator will run at, can also be changed live later
     #[must_use]
@@ -37,30 +50,39 @@ impl TimerConfig {
     }
 
     #[must_use]
-    pub fn counter_mode(mut self, counter_mode: CounterMode) -> Self {
-        self.counter_mode = counter_mode;
+    pub fn counter_mode(mut self, counter_mode: CountMode) -> Self {
+        self.count_mode = counter_mode;
         self
     }
 }
 
 //TODO
 //impl<G, H> TimerConfig<NoCb, G, H> {
-    //#[must_use]
-    //pub fn on_full(mut self, on_full: CB) -> Self<CB, _, _> {
-    //    self.on_full = on_full;
-    //    self
-    //}
+//#[must_use]
+//pub fn on_full(mut self, on_full: CB) -> Self<CB, _, _> {
+//    self.on_full = on_full;
+//    self
+//}
 //}
 
 pub struct Timer<const N: u8, G: Group> {
     _group: G,
     handle: mcpwm_timer_handle_t,
     _timer: TIMER<N, G>,
+    /// Number of ticks within a period
+    /// 
+    /// See `Self::get_period_ticks` for more info
+    period_ticks: u32,
+
+    /// This is the maximum value that the comparator will see
+    /// 
+    /// See `Self::get_period_peak` for more info
+    period_peak: u16,
 }
 
 impl<const N: u8, G: Group> Timer<N, G> {
     pub fn new(timer: TIMER<N, G>, config: TimerConfig) -> Self {
-        let config = mcpwm_timer_config_t {
+        let cfg = mcpwm_timer_config_t {
             group_id: todo!(),
             clk_src: todo!(),
             resolution_hz: todo!(),
@@ -70,7 +92,7 @@ impl<const N: u8, G: Group> Timer<N, G> {
         };
         let mut handle: mcpwm_timer_handle_t = ptr::null_mut();
         unsafe {
-            esp!(mcpwm_new_timer(&config, &mut handle));
+            esp!(mcpwm_new_timer(&cfg, &mut handle));
         }
         // TODO: note that this has to be called before mcpwm_timer_enable
         // mcpwm_timer_register_event_callbacks()
@@ -78,22 +100,50 @@ impl<const N: u8, G: Group> Timer<N, G> {
             esp!(mcpwm_timer_enable(handle)).unwrap();
         }
 
-        Self { _group: G::default(), handle, _timer: timer }
-    }
-    /// Set PWM frequency
-    pub fn set_frequency(&mut self, frequency: Hertz) -> Result<(), EspError> {
-        todo!()
+        let period_peak = if config.count_mode == CountMode::UpDown {
+            (cfg.period_ticks / 2).try_into().unwrap()
+        } else {
+            cfg.period_ticks.try_into().unwrap()
+        };
+
+        Self {
+            _group: G::default(),
+            handle,
+            _timer: timer,
+            period_ticks: cfg.period_ticks,
+            period_peak
+        }
     }
 
-    /// Get PWM frequency
-    pub fn get_frequency(&self) -> Hertz {
-        todo!()
+    /// Get number of ticks per period
+    /// 
+    /// Use this when working with the frequency or the period
+    /// 
+    /// NOTE: This will be the same as `Self::get_period_peak` for all `CounterMode` except for
+    /// `CounterMode::UpDown` where the period will be twice as large as the peak value since
+    /// the timer will count from zero to peak and then down to zero again
+    pub fn get_period_ticks(&self) -> u32 {
+        self.period_ticks
+    }
+
+    /// This is the maximum value that the comparator will see
+    /// 
+    /// Use this working with the duty
+    /// 
+    /// NOTE: This will not be the same as `Self::get_period_ticks` when using `CounterMode::UpDown`
+    /// See `Self::get_period_ticks` for more info
+    pub fn get_period_peak(&self) -> u16 {
+        self.period_peak
     }
 
     pub fn timer(&self) -> mcpwm_timer_handle_t {
         self.handle
     }
 
+    // TODO: It seems that we can't have both at the same time:
+    // a method for releasing its hardware resources
+    // and implementing Drop.
+    /*
     pub fn release(self) -> TIMER<N, G> {
         let Self {
             _group,
@@ -104,9 +154,9 @@ impl<const N: u8, G: Group> Timer<N, G> {
             esp!(mcpwm_del_timer(handle)).unwrap();
         }
         _timer
-    }
+    }*/
 
-    fn into_connection(self) -> TimerConnection<N, G, NoOperator, NoOperator, NoOperator> {
+    pub fn into_connection(self) -> TimerConnection<N, G, NoOperator, NoOperator, NoOperator> {
         TimerConnection::new(self)
     }
 }
@@ -114,17 +164,15 @@ impl<const N: u8, G: Group> Timer<N, G> {
 impl<const N: u8, G: Group> Drop for Timer<N, G> {
     fn drop(&mut self) {
         unsafe {
-            unsafe {
-                esp!(mcpwm_del_timer(self.handle)).unwrap();
-            }
+            esp!(mcpwm_del_timer(self.handle)).unwrap();
         }
     }
 }
 
 /// Counter mode for operator's timer for generating PWM signal
 // TODO: For UpDown, frequency is half of MCPWM frequency set
-#[derive(Clone, Copy, Debug)]
-pub enum CounterMode {
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum CountMode {
     /// Timer is frozen or paused
     //#[cfg(not(esp_idf_version = "4.3"))]
     //Frozen,
@@ -194,9 +242,9 @@ impl From<CounterMode> for mcpwm_counter_type_t {
     }
 }*/
 
-pub struct TIMER<const N: u8, G: Group>{
+pub struct TIMER<const N: u8, G: Group> {
     _ptr: PhantomData<*const ()>,
-    _group: PhantomData<G>
+    _group: PhantomData<G>,
 }
 
 impl<const N: u8, G: Group> TIMER<N, G> {
@@ -207,7 +255,7 @@ impl<const N: u8, G: Group> TIMER<N, G> {
     pub unsafe fn new() -> Self {
         Self {
             _ptr: PhantomData,
-            _group: PhantomData
+            _group: PhantomData,
         }
     }
 }

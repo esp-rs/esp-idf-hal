@@ -1,14 +1,14 @@
-use esp_idf_sys::{EspError, mcpwm_oper_handle_t};
+use esp_idf_sys::{mcpwm_oper_handle_t, EspError};
 
-use crate::{mcpwm::{Group, Group0, Group1}, gpio::OutputPin};
+use crate::{gpio::OutputPin, mcpwm::Group};
 
-use super::{Duty, timer_connection::OptionalOutputPin};
+use super::{timer_connection::OptionalOutputPin, Duty};
 
 use core::{ffi, marker::PhantomData};
 
-pub struct OPERATOR<const N: u8, G: Group>{
+pub struct OPERATOR<const N: u8, G: Group> {
     _ptr: PhantomData<*const ()>,
-    _group: PhantomData<G>
+    _group: PhantomData<G>,
 }
 
 impl<const N: u8, G: Group> OPERATOR<N, G> {
@@ -19,7 +19,7 @@ impl<const N: u8, G: Group> OPERATOR<N, G> {
     pub unsafe fn new() -> Self {
         Self {
             _ptr: PhantomData,
-            _group: PhantomData
+            _group: PhantomData,
         }
     }
 }
@@ -52,7 +52,6 @@ pub struct Operator<const N: u8, G: Group, PA: OptionalOutputPin, PB: OptionalOu
 
     _pin_a: PA,
     _pin_b: PB,
-
     //deadtime: D
 }
 
@@ -67,7 +66,8 @@ where
         todo!()
     }
 
-    /// Set duty as percentage between 0.0 and 100.0 for output A
+    // TODO: make sure the peak related description is accurate
+    /// Set duty as in the range 0 to timers peak value
     pub fn set_duty_a(&mut self, duty: Duty) -> Result<(), EspError> {
         todo!()
     }
@@ -96,7 +96,6 @@ pub struct OperatorConfig {
     duty_b: Duty,
 
     duty_mode: DutyMode,
-
     //deadtime: Option<DeadtimeConfig>,
 }
 
@@ -136,7 +135,6 @@ impl Default for OperatorConfig {
             duty_b: 0,
 
             duty_mode: DutyMode::ActiveHigh,
-
             //deadtime: None,
         }
     }
@@ -159,11 +157,13 @@ pub enum DutyMode {
 }
 
 pub trait OptionalOperator<const N: u8, G: Group> {}
-impl<const N: u8, G: Group> OptionalOperator<N, G> for OPERATOR<N, G> {}
+impl<const N: u8, G: Group, PA: OptionalOutputPin, PB: OptionalOutputPin> OptionalOperator<N, G>
+    for Operator<N, G, PA, PB>
+{
+}
 
 pub struct NoOperator;
 impl<const N: u8, G: Group> OptionalOperator<N, G> for NoOperator {}
-
 
 /*
 
@@ -215,7 +215,7 @@ impl DutyMode {
                 } else {
                     duty_config.on_matches_cmp_b.counting_up = GeneratorAction::SetHigh;
                 }
-                
+
                 duty_config
             },
         }
