@@ -535,6 +535,8 @@ pub enum IpEvent {
     DhcpIpDeassigned(*mut esp_netif_t),
 }
 
+unsafe impl Send for IpEvent {}
+
 impl IpEvent {
     pub fn is_for(&self, raw_handle: &impl RawHandle<Handle = *mut esp_netif_t>) -> bool {
         self.is_for_handle(raw_handle.handle())
@@ -549,9 +551,9 @@ impl IpEvent {
     pub fn handle(&self) -> Option<*mut esp_netif_t> {
         match self {
             Self::ApStaIpAssigned(_) => None,
-            Self::DhcpIpAssigned(assignment) => Some(assignment.netif_handle as _),
-            Self::DhcpIp6Assigned(assignment) => Some(assignment.netif_handle as _),
-            Self::DhcpIpDeassigned(handle) => Some(*handle as _),
+            Self::DhcpIpAssigned(assignment) => Some(assignment.netif_handle),
+            Self::DhcpIp6Assigned(assignment) => Some(assignment.netif_handle),
+            Self::DhcpIpDeassigned(handle) => Some(*handle),
         }
     }
 }
