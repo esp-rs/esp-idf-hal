@@ -459,11 +459,16 @@ impl<S> EspMqttClient<S> {
     ) -> Result<client::MessageId, EspError> {
         let c_topic = CString::new(topic).unwrap();
 
+        let payload_ptr = match payload.len() {
+            0 => core::ptr::null(),
+            _ => payload.as_ptr(),
+        };
+
         Self::check(unsafe {
             esp_mqtt_client_publish(
                 self.raw_client,
                 c_topic.as_ptr(),
-                payload.as_ptr() as _,
+                payload_ptr as _,
                 payload.len() as _,
                 qos as _,
                 retain as _,
@@ -480,11 +485,16 @@ impl<S> EspMqttClient<S> {
     ) -> Result<client::MessageId, EspError> {
         let c_topic = CString::new(topic).unwrap();
 
+        let payload_ptr = match payload.len() {
+            0 => core::ptr::null(),
+            _ => payload.as_ptr(),
+        };
+
         Self::check(unsafe {
             esp_mqtt_client_enqueue(
                 self.raw_client,
                 c_topic.as_ptr(),
-                payload.as_ptr() as _,
+                payload_ptr as _,
                 payload.len() as _,
                 qos as _,
                 retain as _,
