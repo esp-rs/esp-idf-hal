@@ -536,6 +536,10 @@ impl<'d, M: WifiModemPeripheral + 'd> WifiDriver<'d, M> {
 
         let real_count = self.do_get_scan_infos(&mut ap_infos_raw)?;
 
+        unsafe {
+            ap_infos_raw.set_len(real_count);
+        }
+
         let mut result = heapless::Vec::<_, N>::new();
         for ap_info_raw in ap_infos_raw.iter().take(real_count) {
             let ap_info: AccessPointInfo = Newtype(ap_info_raw).into();
@@ -972,11 +976,11 @@ where
         self.driver_mut().stop()
     }
 
-    fn connect(&mut self) -> Result<(), EspError> {
+    pub fn connect(&mut self) -> Result<(), EspError> {
         self.driver_mut().connect()
     }
 
-    fn disconnect(&mut self) -> Result<(), EspError> {
+    pub fn disconnect(&mut self) -> Result<(), EspError> {
         self.driver_mut().disconnect()
     }
 

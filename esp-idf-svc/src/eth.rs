@@ -774,6 +774,22 @@ impl<'d, P> EspEth<'d, P> {
         &mut self.netif
     }
 
+    pub fn start(&mut self) -> Result<(), EspError> {
+        self.driver_mut().start()
+    }
+
+    pub fn stop(&mut self) -> Result<(), EspError> {
+        self.driver_mut().stop()
+    }
+
+    pub fn is_started(&self) -> Result<bool, EspError> {
+        self.driver().is_started()
+    }
+
+    pub fn is_up(&self) -> Result<bool, EspError> {
+        Ok(self.driver().is_up()? && self.netif().is_up()?)
+    }
+
     fn attach_netif(&mut self) -> Result<(), EspError> {
         let _ = self.driver.stop();
 
@@ -819,19 +835,19 @@ impl<'d, P> Eth for EspEth<'d, P> {
     type Error = EspError;
 
     fn start(&mut self) -> Result<(), Self::Error> {
-        self.driver_mut().start()
+        EspEth::start(self)
     }
 
     fn stop(&mut self) -> Result<(), Self::Error> {
-        self.driver_mut().stop()
+        EspEth::stop(self)
     }
 
     fn is_started(&self) -> Result<bool, Self::Error> {
-        self.driver().is_started()
+        EspEth::is_started(self)
     }
 
     fn is_up(&self) -> Result<bool, Self::Error> {
-        Ok(self.driver().is_up()? && self.netif().is_up()?)
+        EspEth::is_up(self)
     }
 }
 
