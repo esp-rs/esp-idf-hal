@@ -231,3 +231,85 @@ pub mod thread {
         Ok(())
     }
 }
+
+#[cfg(all(
+    feature = "edge-executor",
+    feature = "alloc",
+    target_has_atomic = "ptr"
+))]
+pub mod executor {
+    use core::sync::atomic::{AtomicPtr, Ordering};
+    use core::{mem, ptr};
+
+    extern crate alloc;
+    use alloc::sync::{Arc, Weak};
+
+    use crate::task;
+
+    pub use edge_executor::*;
+
+    pub type EspExecutor<'a, const C: usize, S> = Executor<'a, C, FreeRtosMonitor, S>;
+    pub type EspBlocker = Blocker<FreeRtosMonitor>;
+
+    pub struct FreeRtosMonitor(Arc<AtomicPtr<esp_idf_sys::tskTaskControlBlock>>, *const ());
+
+    impl FreeRtosMonitor {
+        pub fn new() -> Self {
+            Self(
+                Arc::new(AtomicPtr::new(task::current().unwrap())),
+                core::ptr::null(),
+            )
+        }
+    }
+
+    impl Default for FreeRtosMonitor {
+        fn default() -> Self {
+            Self::new()
+        }
+    }
+
+    impl Drop for FreeRtosMonitor {
+        fn drop(&mut self) {
+            let mut arc = mem::replace(&mut self.0, Arc::new(AtomicPtr::new(ptr::null_mut())));
+
+            // Busy loop until we can destroy the Arc - which means that nobody is actively holding a strong reference to it
+            // and thus trying to notify our FreeRtos task, which will likely be destroyed afterwards
+            loop {
+                arc = match Arc::try_unwrap(arc) {
+                    Ok(_) => break,
+                    Err(a) => a,
+                }
+            }
+        }
+    }
+
+    impl Monitor for FreeRtosMonitor {
+        type Notify = FreeRtosMonitorNotify;
+
+        fn notifier(&self) -> Self::Notify {
+            FreeRtosMonitorNotify(Arc::downgrade(&self.0))
+        }
+    }
+
+    impl Wait for FreeRtosMonitor {
+        fn wait(&self) {
+            task::wait_any_notification();
+        }
+    }
+
+    pub struct FreeRtosMonitorNotify(Weak<AtomicPtr<esp_idf_sys::tskTaskControlBlock>>);
+
+    impl Notify for FreeRtosMonitorNotify {
+        fn notify(&self) {
+            if let Some(notify) = self.0.upgrade() {
+                let freertos_task = notify.load(Ordering::SeqCst);
+
+                if !freertos_task.is_null() {
+                    unsafe {
+                        task::notify(freertos_task, 1);
+                    }
+                }
+            }
+        }
+    }
+}

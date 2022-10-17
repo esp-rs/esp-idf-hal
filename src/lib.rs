@@ -68,13 +68,6 @@ pub mod units;
 #[cfg(feature = "riscv-ulp-hal")]
 pub use crate::riscv_ulp_hal::delay;
 
-#[cfg(all(
-    feature = "edge-executor",
-    feature = "alloc",
-    target_has_atomic = "ptr"
-))]
-pub mod executor;
-
 // This is used to create `embedded_hal` compatible error structs
 // that preserve original `EspError`.
 //
