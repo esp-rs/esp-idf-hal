@@ -859,6 +859,8 @@ pub enum EthEvent {
     Disconnected(esp_eth_handle_t),
 }
 
+unsafe impl Send for EthEvent {}
+
 impl EthEvent {
     pub fn is_for(&self, raw_handle: impl RawHandle<Handle = esp_eth_handle_t>) -> bool {
         self.is_for_handle(raw_handle.handle())
