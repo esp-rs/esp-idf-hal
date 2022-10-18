@@ -293,7 +293,7 @@ mod asyncify {
 }
 
 pub mod embassy_time {
-    #[cfg(feature = "embassy-time-driver")]
+    #[cfg(any(feature = "embassy-time-driver", feature = "embassy-time-isr-queue"))]
     pub mod driver {
         use core::cell::UnsafeCell;
         use core::sync::atomic::{AtomicU64, Ordering};
@@ -450,7 +450,7 @@ pub mod embassy_time {
 
         #[cfg(not(esp_idf_esp_timer_supports_isr_dispatch_method))]
         use esp_idf_hal::task::embassy_sync::CriticalSectionRawMutex;
-        
+
         use esp_idf_sys::*;
 
         use generic_queue::*;
@@ -525,7 +525,7 @@ pub mod embassy_time {
         }
 
         pub fn link() -> i32 {
-            42
+            super::driver::link()
         }
 
         ::embassy_time::timer_queue_impl!(static QUEUE: Queue<CriticalSectionRawMutex, AlarmImpl> = Queue::new());
@@ -534,45 +534,45 @@ pub mod embassy_time {
             use core::cell::RefCell;
             use core::cmp::Ordering;
             use core::task::Waker;
-    
+
             use embassy_sync::blocking_mutex::{raw::RawMutex, Mutex};
-    
+
             use embassy_time::queue::TimerQueue;
             use embassy_time::Instant;
-    
+
             use heapless::sorted_linked_list::{LinkedIndexU8, Min, SortedLinkedList};
-    
+
             #[derive(Debug)]
             struct Timer {
                 at: Instant,
                 waker: Waker,
             }
-    
+
             impl PartialEq for Timer {
                 fn eq(&self, other: &Self) -> bool {
                     self.at == other.at
                 }
             }
-    
+
             impl Eq for Timer {}
-    
+
             impl PartialOrd for Timer {
                 fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
                     self.at.partial_cmp(&other.at)
                 }
             }
-    
+
             impl Ord for Timer {
                 fn cmp(&self, other: &Self) -> Ordering {
                     self.at.cmp(&other.at)
                 }
             }
-    
+
             pub struct AlarmContext {
                 pub callback: fn(*mut ()),
                 pub ctx: *mut (),
             }
-    
+
             impl AlarmContext {
                 const fn new() -> Self {
                     Self {
@@ -580,29 +580,29 @@ pub mod embassy_time {
                         ctx: core::ptr::null_mut(),
                     }
                 }
-    
+
                 fn set(&mut self, callback: fn(*mut ()), ctx: *mut ()) {
                     self.callback = callback;
                     self.ctx = ctx;
                 }
-    
+
                 fn noop(_ctx: *mut ()) {}
             }
-    
+
             unsafe impl Send for AlarmContext {}
-    
+
             pub trait Alarm {
                 fn new(context: &AlarmContext) -> Self;
                 fn schedule(&mut self, timestamp: u64);
             }
-    
+
             struct InnerQueue<A> {
                 queue: SortedLinkedList<Timer, LinkedIndexU8, Min, 128>,
                 alarm: Option<A>,
                 alarm_context: AlarmContext,
                 alarm_at: Instant,
             }
-    
+
             impl<A: Alarm> InnerQueue<A> {
                 const fn new() -> Self {
                     Self {
@@ -612,10 +612,10 @@ pub mod embassy_time {
                         alarm_at: Instant::MAX,
                     }
                 }
-    
+
                 fn schedule_wake(&mut self, at: Instant, waker: &Waker) {
                     self.initialize();
-    
+
                     self.queue
                         .find_mut(|timer| timer.waker.will_wake(waker))
                         .map(|mut timer| {
@@ -627,38 +627,38 @@ pub mod embassy_time {
                                 waker: waker.clone(),
                                 at,
                             };
-    
+
                             loop {
                                 match self.queue.push(timer) {
                                     Ok(()) => break,
                                     Err(e) => timer = e,
                                 }
-    
+
                                 self.queue.pop().unwrap().waker.wake();
                             }
                         });
-    
+
                     // Don't wait for the alarm callback to trigger and directly
                     // dispatch all timers that are already due
                     //
                     // Then update the alarm if necessary
                     self.dispatch();
                 }
-    
+
                 fn dispatch(&mut self) {
                     let now = Instant::now();
-    
+
                     while self.queue.peek().filter(|timer| timer.at <= now).is_some() {
                         self.queue.pop().unwrap().waker.wake();
                     }
-    
+
                     self.update_alarm();
                 }
-    
+
                 fn update_alarm(&mut self) {
                     if let Some(timer) = self.queue.peek() {
                         let new_at = timer.at;
-    
+
                         if self.alarm_at != new_at {
                             self.alarm_at = new_at;
                             self.alarm.as_mut().unwrap().schedule(new_at.as_ticks());
@@ -671,31 +671,31 @@ pub mod embassy_time {
                             .schedule(Instant::MAX.as_ticks());
                     }
                 }
-    
+
                 fn handle_alarm(&mut self) {
                     self.alarm_at = Instant::MAX;
-    
+
                     self.dispatch();
                 }
-    
+
                 fn initialize(&mut self) {
                     if self.alarm.is_none() {
                         self.alarm = Some(A::new(&self.alarm_context));
                     }
                 }
             }
-    
+
             pub struct Queue<R: RawMutex, A: Alarm> {
                 inner: Mutex<R, RefCell<InnerQueue<A>>>,
             }
-    
+
             impl<R: RawMutex, A: Alarm> Queue<R, A> {
                 pub const fn new() -> Self {
                     Self {
                         inner: Mutex::new(RefCell::new(InnerQueue::new())),
                     }
                 }
-    
+
                 fn schedule_wake(&'static self, at: Instant, waker: &Waker) {
                     self.inner.lock(|inner| {
                         let mut inner = inner.borrow_mut();
@@ -705,16 +705,16 @@ pub mod embassy_time {
                         inner.schedule_wake(at, waker);
                     });
                 }
-    
+
                 fn handle_alarm(&self) {
                     self.inner.lock(|inner| inner.borrow_mut().handle_alarm());
                 }
-    
+
                 fn handle_alarm_callback(ctx: *mut ()) {
                     unsafe { (ctx as *const Self).as_ref().unwrap() }.handle_alarm();
                 }
             }
-    
+
             impl<R: RawMutex, A: Alarm> TimerQueue for Queue<R, A> {
                 fn schedule_wake(&'static self, at: Instant, waker: &Waker) {
                     Queue::schedule_wake(self, at, waker);
