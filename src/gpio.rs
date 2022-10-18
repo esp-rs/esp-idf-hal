@@ -1254,7 +1254,7 @@ static ISR_SERVICE_ENABLED: core::sync::atomic::AtomicBool =
     core::sync::atomic::AtomicBool::new(false);
 
 #[cfg(all(not(feature = "riscv-ulp-hal"), feature = "alloc"))]
-static ISR_SERVICE_ENABLED_CS: crate::cs::CriticalSection = crate::cs::CriticalSection::new();
+static ISR_SERVICE_ENABLED_CS: crate::task::CriticalSection = crate::task::CriticalSection::new();
 
 #[cfg(all(not(feature = "riscv-ulp-hal"), feature = "alloc"))]
 fn enable_isr_service() -> Result<(), EspError> {

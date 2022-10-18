@@ -346,14 +346,12 @@ pub mod embassy_time {
     use core::cmp::Ordering;
     use core::task::Waker;
 
-    use embassy_sync::blocking_mutex::Mutex;
+    use embassy_sync::blocking_mutex::{raw::RawMutex, Mutex};
 
     use embassy_time::queue::TimerQueue;
     use embassy_time::Instant;
 
     use heapless::sorted_linked_list::{LinkedIndexU8, Min, SortedLinkedList};
-
-    use crate::interrupt::embassy_sync::CriticalSectionRawMutex;
 
     #[derive(Debug)]
     struct Timer {
@@ -498,11 +496,11 @@ pub mod embassy_time {
         }
     }
 
-    pub struct Queue<A: Alarm> {
-        inner: Mutex<CriticalSectionRawMutex, RefCell<InnerQueue<A>>>,
+    pub struct Queue<R: RawMutex, A: Alarm> {
+        inner: Mutex<R, RefCell<InnerQueue<A>>>,
     }
 
-    impl<A: Alarm> Queue<A> {
+    impl<R: RawMutex, A: Alarm> Queue<R, A> {
         pub const fn new() -> Self {
             Self {
                 inner: Mutex::new(RefCell::new(InnerQueue::new())),
@@ -528,7 +526,7 @@ pub mod embassy_time {
         }
     }
 
-    impl<A: Alarm> TimerQueue for Queue<A> {
+    impl<R: RawMutex, A: Alarm> TimerQueue for Queue<R, A> {
         fn schedule_wake(&'static self, at: Instant, waker: &Waker) {
             Queue::schedule_wake(self, at, waker);
         }
@@ -543,6 +541,7 @@ pub mod embassy_time {
     pub mod queue {
         use esp_idf_sys::*;
 
+        use crate::interrupt::embassy_sync::CriticalSectionRawMutex;
         use crate::timer::Timer;
 
         #[cfg(all(
@@ -674,6 +673,6 @@ pub mod embassy_time {
             42
         }
 
-        embassy_time::timer_queue_impl!(static QUEUE: super::Queue<AlarmImpl> = super::Queue::new());
+        embassy_time::timer_queue_impl!(static QUEUE: super::Queue<CriticalSectionRawMutex, AlarmImpl> = super::Queue::new());
     }
 }

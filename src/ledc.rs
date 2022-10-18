@@ -28,9 +28,9 @@ use core::sync::atomic::{AtomicBool, Ordering};
 
 use esp_idf_sys::*;
 
-use crate::cs::CriticalSection;
 use crate::gpio::OutputPin;
 use crate::peripheral::{Peripheral, PeripheralRef};
+use crate::task::CriticalSection;
 
 pub use chip::*;
 

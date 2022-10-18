@@ -27,8 +27,6 @@ pub mod can;
 #[cfg(not(feature = "riscv-ulp-hal"))]
 pub mod cpu;
 #[cfg(not(feature = "riscv-ulp-hal"))]
-pub mod cs;
-#[cfg(not(feature = "riscv-ulp-hal"))]
 pub mod delay;
 pub mod gpio;
 #[cfg(all(esp32, esp_idf_version_major = "4"))]
