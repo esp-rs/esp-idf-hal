@@ -51,15 +51,11 @@
 //! [VariableLengthSignal] allows you to use the heap and incrementally add pulse items without knowing the size
 //! ahead of time.
 
+use core::cell::UnsafeCell;
 use core::convert::TryFrom;
 use core::time::Duration;
 
-#[cfg(feature = "alloc")]
 extern crate alloc;
-
-#[cfg(feature = "alloc")]
-use alloc::vec::Vec;
-use core::cell::UnsafeCell;
 
 use esp_idf_sys::*;
 
@@ -175,8 +171,8 @@ pub fn duration_to_ticks(ticks_hz: Hertz, duration: &Duration) -> Result<u128, E
         / 1_000_000_000)
 }
 
-//pub type TxRmtConfig = config::TransmitConfig;
-//pub type RxRmtConfig = config::ReceiveConfig;
+pub type TxRmtConfig = config::TransmitConfig;
+pub type RxRmtConfig = config::ReceiveConfig;
 
 /// Types used for configuring the [`rmt`][crate::rmt] module.
 ///
@@ -404,6 +400,7 @@ pub mod config {
 /// Use [`TxRmtDriver::start()`] or [`TxRmtDriver::start_blocking()`] to transmit pulses.
 ///
 /// See the [rmt module][crate::rmt] for more information.
+
 pub struct TxRmtDriver<'d, C: RmtChannel> {
     _channel: PeripheralRef<'d, C>,
 }
@@ -547,6 +544,7 @@ impl<'d, C: RmtChannel> TxRmtDriver<'d, C> {
     /// are no time-gaps between successive transmissions where the perhipheral has to
     /// wait for items. This can cause weird behavior and can be counteracted with
     /// increasing [`Config::mem_block_num`] or making iteration more efficient.
+
     pub fn start_iter_blocking<T>(&mut self, iter: T) -> Result<(), EspError>
     where
         T: Iterator<Item = rmt_item32_t> + Send,
@@ -749,7 +747,6 @@ impl<const N: usize> Default for FixedLengthSignal<N> {
 /// ```
 
 #[derive(Clone, Default)]
-#[cfg(feature = "alloc")]
 pub struct VariableLengthSignal {
     items: Vec<rmt_item32_t>,
 
@@ -758,7 +755,6 @@ pub struct VariableLengthSignal {
     next_item_is_new: bool,
 }
 
-#[cfg(feature = "alloc")]
 impl VariableLengthSignal {
     pub fn new() -> Self {
         Self {
@@ -911,25 +907,21 @@ mod chip {
     }
 }
 
+use self::config::ReceiveConfig;
 /// The RMT receiver.
 ///
 /// Use [`RxRmtDriver::start()`] to receive pulses.
 ///
 /// See the [rmt module][crate::rmt] for more information.
-#[cfg(feature = "std")]
-use std::convert::TryInto;
-
-use self::config::ReceiveConfig;
-
-//#[derive(Clone, Default)]
-#[cfg(feature = "alloc")]
+use alloc::vec::Vec;
+use core::convert::TryInto;
+use core::ptr;
 
 pub struct RxRmtDriver<'d, C: RmtChannel> {
     _channel: PeripheralRef<'d, C>,
     pub pulse_pair_vec: Vec<PulsePair>,
 }
 
-#[cfg(feature = "alloc")]
 impl<'d, C: RmtChannel> RxRmtDriver<'d, C> {
     /// Initialise the rmt module with the specified pin, channel and configuration.
     ///
@@ -1004,7 +996,8 @@ impl<'d, C: RmtChannel> RxRmtDriver<'d, C> {
 
     // Set ticks_to_wait to 0 for non-blocking.
     pub fn get_rmt_items(&mut self, ticks_to_wait: u32) -> Result<u32, EspError> {
-        let mut rmt_handle: RingbufHandle_t = std::ptr::null_mut();
+        //let mut rmt_handle: RingbufHandle_t = std::ptr::null_mut();
+        let mut rmt_handle: RingbufHandle_t = ptr::null_mut();
         let mut length: u32 = 0;
 
         unsafe {
