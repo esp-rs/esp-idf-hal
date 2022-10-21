@@ -37,9 +37,9 @@ fn main() -> anyhow::Result<()> {
     /*
      *********************** SET UP RMT RECEIVER ******************************
      */
-    let input_pin = peripherals.pins.gpio2.into_input()?;
+    let input_pin = peripherals.pins.gpio2;
     let rx_rmt_channel: CHANNEL2 = peripherals.rmt.channel2;
-    let rx_config = ReceiveConfig::new().idle_threshold(700u16);
+    let rx_config = RmtReceiveConfig::new().idle_threshold(700u16);
     let mut rx = RxRmtDriver::new(rx_rmt_channel, input_pin, &rx_config, 1000)?;
     let _rx_start = rx.start().unwrap();
 
@@ -69,12 +69,12 @@ fn main() -> anyhow::Result<()> {
     /*
      *********************** SET UP RMT TRANSMITTER ******************************
      */
-    let output_pin = peripherals.pins.gpio4.into_output()?;
+    let output_pin = peripherals.pins.gpio4;
     let tx_rmt_channel: CHANNEL0 = peripherals.rmt.channel0;
 
     // Prepare the tx_config
     // The default uses one memory block or 64 signals and clock divider set to 80 (1us tick)
-    let tx_config = TransmitConfig::new();
+    let tx_config = RmtTransmitConfig::new();
     let mut tx = TxRmtDriver::new(tx_rmt_channel, output_pin, &tx_config)?;
 
     // Prepare signal pulse signal to be sent.

@@ -33,7 +33,7 @@ fn main() -> anyhow::Result<()> {
     let carrier = CarrierConfig::new()
         .duty_percent(DutyPercent::new(50)?)
         .frequency(611.Hz());
-    let mut config = Config::new()
+    let mut config = TransmitConfig::new()
         .carrier(Some(carrier))
         .looping(Loop::Endless)
         .clock_divider(255);
