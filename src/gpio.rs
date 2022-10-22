@@ -571,9 +571,6 @@ impl<'d, T: Pin, MODE> PinDriver<'d, T, MODE> {
     }
 
     /// Put the pin into input + output mode.
-    ///
-    /// The pin level will be whatever was set before (or low by default). If you want it to begin
-    /// at a specific level, call `set_high`/`set_low` on the pin first.
     #[inline]
     pub fn into_input_output(self) -> Result<PinDriver<'d, T, InputOutput>, EspError>
     where
@@ -588,9 +585,6 @@ impl<'d, T: Pin, MODE> PinDriver<'d, T, MODE> {
     /// the hardware will drive the line low if you set it to low, and will leave it floating if you set
     /// it to high, in which case you can read the input to figure out whether another device
     /// is driving the line low.
-    ///
-    /// The pin level will be whatever was set before (or low by default). If you want it to begin
-    /// at a specific level, call `set_high`/`set_low` on the pin first.
     #[inline]
     pub fn into_input_output_od(self) -> Result<PinDriver<'d, T, InputOutput>, EspError>
     where
@@ -600,9 +594,6 @@ impl<'d, T: Pin, MODE> PinDriver<'d, T, MODE> {
     }
 
     /// Put the pin into output mode.
-    ///
-    /// The pin level will be whatever was set before (or low by default). If you want it to begin
-    /// at a specific level, call `set_high`/`set_low` on the pin first.
     #[inline]
     pub fn into_output(self) -> Result<PinDriver<'d, T, Output>, EspError>
     where
@@ -612,9 +603,6 @@ impl<'d, T: Pin, MODE> PinDriver<'d, T, MODE> {
     }
 
     /// Put the pin into output Open Drain mode.
-    ///
-    /// The pin level will be whatever was set before (or low by default). If you want it to begin
-    /// at a specific level, call `set_high`/`set_low` on the pin first.
     #[inline]
     pub fn into_output_od(self) -> Result<PinDriver<'d, T, Output>, EspError>
     where
@@ -649,9 +637,6 @@ impl<'d, T: Pin, MODE> PinDriver<'d, T, MODE> {
     /// the hardware will drive the line low if you set it to low, and will leave it floating if you set
     /// it to high, in which case you can read the input to figure out whether another device
     /// is driving the line low.
-    ///
-    /// The pin level will be whatever was set before (or low by default). If you want it to begin
-    /// at a specific level, call `set_high`/`set_low` on the pin first.
     #[inline]
     #[cfg(all(not(feature = "riscv-ulp-hal"), not(esp32c3)))]
     pub fn into_rtc_input_output(self) -> Result<PinDriver<'d, T, RtcInputOutput>, EspError>
@@ -667,9 +652,6 @@ impl<'d, T: Pin, MODE> PinDriver<'d, T, MODE> {
     /// the hardware will drive the line low if you set it to low, and will leave it floating if you set
     /// it to high, in which case you can read the input to figure out whether another device
     /// is driving the line low.
-    ///
-    /// The pin level will be whatever was set before (or low by default). If you want it to begin
-    /// at a specific level, call `set_high`/`set_low` on the pin first.
     #[inline]
     #[cfg(all(not(feature = "riscv-ulp-hal"), not(esp32c3)))]
     pub fn into_rtc_input_output_od(self) -> Result<PinDriver<'d, T, RtcInputOutput>, EspError>
@@ -680,9 +662,6 @@ impl<'d, T: Pin, MODE> PinDriver<'d, T, MODE> {
     }
 
     /// Put the pin into RTC output mode.
-    ///
-    /// The pin level will be whatever was set before (or low by default). If you want it to begin
-    /// at a specific level, call `set_high`/`set_low` on the pin first.
     #[inline]
     #[cfg(all(not(feature = "riscv-ulp-hal"), not(esp32c3)))]
     pub fn into_rtc_output(self) -> Result<PinDriver<'d, T, RtcOutput>, EspError>
@@ -693,9 +672,6 @@ impl<'d, T: Pin, MODE> PinDriver<'d, T, MODE> {
     }
 
     /// Put the pin into RTC output Open Drain mode.
-    ///
-    /// The pin level will be whatever was set before (or low by default). If you want it to begin
-    /// at a specific level, call `set_high`/`set_low` on the pin first.
     #[inline]
     #[cfg(all(not(feature = "riscv-ulp-hal"), not(esp32c3)))]
     pub fn into_rtc_output_od(self) -> Result<PinDriver<'d, T, RtcOutput>, EspError>
