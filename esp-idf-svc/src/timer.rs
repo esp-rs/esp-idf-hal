@@ -423,15 +423,16 @@ pub mod embassy_time {
                 alarm.set_callback(callback, ctx);
             }
 
-            fn set_alarm(&self, handle: AlarmHandle, timestamp: u64) {
+            fn set_alarm(&self, handle: AlarmHandle, timestamp: u64) -> bool {
                 let alarm = unsafe { &self.alarms.get().as_mut().unwrap()[handle.id() as usize] };
 
                 let now = self.now();
 
                 if now < timestamp {
                     alarm.set_alarm(timestamp - now).unwrap();
+                    true
                 } else {
-                    alarm.invoke();
+                    false
                 }
             }
         }
