@@ -34,6 +34,7 @@ heapless = "0.7"
 embassy-sync = { version = "0.1", optional = true, git = "https://github.com/ivmarkov/embassy" }
 embassy-time = { version = "0.1", optional = true, features = ["tick-hz-1_000_000"], git = "https://github.com/ivmarkov/embassy" }
 edge-executor = { version = "0.2", optional = true, default-features = false }
+once_cell ={ version = "1.15"}
 
 #[patch.'https://github.com/rust-embedded/embedded-hal']
 #embedded-hal-n = { path = "../embedded-hal" }

@@ -1,23 +1,28 @@
-
+#![feature(associated_type_bounds)]
 // dma is not implemented currently because a bus can only have
 // one max_transfer_size but every channel on the bus could have
 // different values -> need additional checks for it
 
 // TODO: improve: need lot of cloning in RefCell handle
 
+use crate::delay::BLOCK;
+use crate::gpio::{AnyIOPin, InputPin, OutputPin};
+use crate::peripheral::{Peripheral, PeripheralRef};
+use crate::prelude::Peripherals;
+use crate::spi::{config, Dma};
 use embedded_hal_n::spi::{SpiBus, SpiBusFlush, SpiBusRead, SpiBusWrite};
 use esp_idf_sys::*;
-use crate::peripheral::{Peripheral, PeripheralRef};
-use crate::gpio::{InputPin, OutputPin};
-use crate::spi::{config, Dma};
-use crate::delay::BLOCK;
+use once_cell::sync::Lazy;
 
 use std::cell::RefCell;
+use std::rc::Rc;
+use std::sync::{Arc, Mutex};
+
+use core::cmp::{max, min, Ordering};
+use core::marker::PhantomData;
+use core::{panic, ptr};
 use std::collections::{HashMap, VecDeque};
 use std::hash::{Hash, Hasher};
-use core::{ptr, panic};
-use core::marker::PhantomData;
-use core::cmp::{max, min, Ordering};
 
 crate::embedded_hal_error!(
     SpiError,
@@ -26,6 +31,20 @@ crate::embedded_hal_error!(
 );
 
 const ESP_MAX_SPI_DEVICES: usize = 3;
+
+struct Master{
+    //bus: Mutex<Option<SpiMasterDriver< 'd, SPI>>>,
+    bus: Option<SpiMaster2>,
+    devices: HashMap<i32, RefCell<SpiSlave>>,
+    devices_with_handle: VecDeque<i32>,
+}
+
+static MASTER: Lazy<Arc<Mutex<Master>>> = Lazy::new(|| {
+    let bus = None;
+    let devices = HashMap::new();
+    let devices_with_handle = VecDeque::new();
+    Arc::new(Mutex::new(Master { bus, devices, devices_with_handle }))
+});
 pub trait Spi: Send {
     fn device() -> spi_host_device_t;
 }
@@ -164,23 +183,48 @@ impl<'d> SpiBus for SpiBusMasterDriver<'d> {
 pub struct SpiSlave {
     handle: RefCell<Option<spi_device_handle_t>>,
     config: spi_device_interface_config_t,
-    cs_pin: i32,
+    slave_id: i32,
 }
 
 // the implemantation of new ensures that an cs_pin is unique
 // by taking a "impl Peripheral<P = impl OutputPin"
 // so it should be enough to use cs_pin for a unique hash
 impl Hash for SpiSlave{
-    fn hash<H: Hasher>(&self, state: &mut H){
-        self.cs_pin.hash(state);
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.slave_id.hash(state);
     }
 }
-
+unsafe impl Send for SpiSlave {}
 impl SpiSlave {
-    fn new(
-        cs: i32,
+
+    pub fn new(
+        cs: impl Peripheral<P = impl InputPin + OutputPin>,
         config: config::Config,
     ) -> Result<SpiSlave, EspError> {
+        let mut me  = Self::old_new(cs, config);
+
+        // free handle space ? -> add ourself
+        let mut master = MASTER.lock();
+        match master {
+            Ok(master) => {
+                if master.devices_with_handle.len() < ESP_MAX_SPI_DEVICES {
+                    if let Some(bus) = &master.bus {
+                        me.add_to_bus(bus.host_handle.unwrap());
+                    } else {
+                        println!("Error First initialize SpiMaster2 before using!!")
+                    }  
+                }
+            }
+            Err(_) => println!("Poison Error on MASTER usage in SpiSlave::new() call")
+        }
+        Ok(me)
+    }
+
+    pub fn old_new(
+        cs: impl Peripheral<P = impl InputPin + OutputPin>,
+        config: config::Config,
+    ) -> SpiSlave{
+        let cs: i32 = cs.into_ref().pin();
         let device_config = spi_device_interface_config_t {
             spics_io_num: cs,
             clock_speed_hz: config.baudrate.0 as i32,
@@ -196,118 +240,89 @@ impl SpiSlave {
             },
             ..Default::default()
         };
-        Ok(
-            SpiSlave{
-                handle: RefCell::new(None),
-                config: device_config,
-                cs_pin: cs
-            }
-        )
+        Self {
+            handle: RefCell::new(None),
+            config: device_config,
+            slave_id: cs,
+        }
+    }  
+    
+    fn add_to_bus(&self, host_handle: spi_host_device_t) -> Result<(), EspError> {
+        let mut device_handle: spi_device_handle_t = ptr::null_mut();
+        esp!(unsafe {
+            spi_bus_add_device(host_handle, &self.config, &mut device_handle as *mut _)
+        })?;
+
+        self.handle.replace(Some(device_handle));
+        Ok(())
     }
-}
-pub struct SpiMasterDriver<'d, SPI: Spi> {
-    _spi: PeripheralRef<'d, SPI>,
-    pub devices: HashMap<i32, SpiSlave>,
-    devices_holding_handle: VecDeque<i32>,
-}
 
-impl<'d, SPI: SpiAnyPins> SpiMasterDriver<'d, SPI> {
-
-    pub fn new(
-        spi: impl Peripheral<P = SPI> + 'd,
-        sclk: impl Peripheral<P = impl OutputPin> + 'd,
-        sdo: impl Peripheral<P = impl OutputPin> + 'd,
-        sdi: Option<impl Peripheral<P = impl InputPin + OutputPin> + 'd>,
-        cs_list: Vec<impl Peripheral<P = impl InputPin + OutputPin>>,
-        config_list: Vec<config::Config>,
-    ) -> Result<Self, EspError>
-    {
-        let spi = SpiMasterDriver::new_internal_bus(spi, sclk, sdo, sdi)?;
-
-        let cs_list = std::iter::zip(cs_list, config_list);
-        // always get a valid spi_device_handle_t if only 3 or less devices used
-        let mut devices = HashMap::new();
-        let mut devices_holding_handle = VecDeque::with_capacity(ESP_MAX_SPI_DEVICES);
-        if cs_list.len() <= ESP_MAX_SPI_DEVICES {
-            for (cs, config) in cs_list {
-                let cs: i32 = cs.into_ref().pin();
-                let device = SpiSlave::new(cs, config)?;
-                Self::device_add_to_bus(&device)?;
-                devices.insert(cs, device);
-                devices_holding_handle.push_back(cs);
+    fn rm_from_bus(&self) -> Result<(), EspError>{
+        let handle = self.handle.replace(None);
+        match handle {
+            Some(handle) => {
+                esp!(unsafe { spi_bus_remove_device(handle) })?;
+            }
+            None => {
+                println!("SPI MASTER ERROR: Removed handle from slave who had already no handle")
             }
         }
-        else {
-            for (cs, config) in cs_list {
-                let cs: i32 = cs.into_ref().pin();
-                let device = SpiSlave::new(cs, config)?;
-                // first 3 devices can directly get a valid handle
-                if devices_holding_handle.len() < ESP_MAX_SPI_DEVICES {
-                    Self::device_add_to_bus(&device)?;
-                    devices_holding_handle.push_back(cs);
+        Ok(())
+    }
+
+    pub fn get_id(&self) -> i32 {
+        self.slave_id
+    }
+
+    // TODO! Error propagation
+    fn give_handle(& self) {
+        // get list of all how currently have handle
+        let lock = MASTER.lock();
+        match lock {
+            Ok(mut master) => {
+                // is room for free handle ?
+                // normaly == should suffice( should be impossible to have it >= ...)
+                if master.devices_with_handle.len() >= ESP_MAX_SPI_DEVICES { // make room
+                    let oldest_id = master.devices_with_handle.pop_front().unwrap(); 
+                    if let Some(oldest) = master.devices.get(&oldest_id) {
+                        oldest.borrow().rm_from_bus();
+                        if master.devices_with_handle.len() >= ESP_MAX_SPI_DEVICES {
+                            println!("ERROR: after poping from device_with_handle it still has to much devices !!");
+                            unreachable!();
+                        }                        
+                    }                    
                 }
-                devices.insert(cs, device);
+                if let Some(spi) = &master.bus {
+                    self.add_to_bus(spi.host_handle.unwrap());
+                    master.devices_with_handle.push_back(self.slave_id);
+                }
             }
+            Err(_) => println!("Poison Error on global MASTER <-  give_handle() call")
         }
-        Ok(Self { _spi: spi, devices, devices_holding_handle })
     }
 
-    pub fn transaction<R, E>(
+    pub fn transaction<'d, R, E>(
         &mut self,
-        device_id: i32,
         f: impl FnOnce(&mut SpiBusMasterDriver<'d>) -> Result<R, E>,
-    ) -> Result<R, E> 
-    where 
+    ) -> Result<R, E>
+    where
         E: From<EspError>,
     {
-        // TODO clean up nested matches/ if else
-        // check if there is a valid device id, otherwise error out
-        let device = self.devices.get(&device_id);
-        if let Some(device) = device{
-            // we have a valid handle
-            if let Some(handle) = device.handle.clone().into_inner() {
-                // do nothing
-            } else { // get valid handle
-                // if free handle space than just get handle
-                if self.devices_holding_handle.len() <= ESP_MAX_SPI_DEVICES {
-                    Self::device_add_to_bus(&device)?;
-                    self.devices_holding_handle.push_back(device.cs_pin);
-                }
-                // otherwise delete oldest handle from other device and push new handle
-
-                // TODO: further check potential risk of removing old devices from bus
-                // before old devices finished doing stuff on bus
-                // maybe an aditional lock is needed
-                else {
-                    // we checked already that it is non_empty -> unwrap
-                    let oldest = self.devices_holding_handle.pop_front().unwrap();
-                    if let Some(oldest) = self.devices.get(&oldest){
-                        Self::device_rm_from_bus(oldest)?;
-                        Self::device_add_to_bus(&device)?;
-                        self.devices_holding_handle.push_back(device.cs_pin);                 
-                    } else {
-                        // TODO better error 
-                        println!("SPI MASTER ERROR: An Device ID was in device_with_handle list ...");
-                        println!("SPI MASTER ERROR: .. but no such device was found in device list ");
-                        // potentially unrechable?
-                        unreachable!()
-                    }
-                }
-            }
-        } else { //no valid device_id
-            // TODO handle case with msg to user but no panic !!
-            println!("SPI MASTER ERROR: Unknown Device ID {} used in transaction", device_id);
-            panic!()
+        // check if our handle is valid and was not deleted by someone else
+        let has_handle = self.handle.borrow();
+        if let None = *has_handle {
+            self.give_handle();
         }
-        let device = device.unwrap();
+
+        let handle = self.handle.clone().into_inner().unwrap();
         let mut bus = SpiBusMasterDriver {
-                // we made above sure that we have a valid handle -> unwrap
-                handle: device.handle.clone().into_inner().unwrap(),
-                trans_len: SOC_SPI_MAXIMUM_BUFFER_SIZE as usize ,
-                _p: PhantomData,
+            // we made above sure that we have a valid handle -> unwrap
+            handle: handle,
+            trans_len: SOC_SPI_MAXIMUM_BUFFER_SIZE as usize,
+            _p: PhantomData,
         };
-        
-        let lock = Self::lock_bus(device.handle.clone().into_inner().unwrap())?;
+
+        let lock = Self::lock_bus(self.handle.clone().into_inner().unwrap())?;
 
         let trans_result = f(&mut bus);
 
@@ -326,36 +341,60 @@ impl<'d, SPI: SpiAnyPins> SpiMasterDriver<'d, SPI> {
         Ok(result)
     }
 
-    pub fn transfer(& mut self,device_id: i32, read: &mut [u8], write: &[u8]) -> Result<(), EspError> 
-    {
-        self.transaction(device_id, |bus| bus.transfer(read, write))
-    }
-    
-    pub fn write(& mut self,device_id: i32,  write: &[u8]) -> Result<(), EspError> 
-    {
-        self.transaction(device_id, |bus| bus.write( write))
+    pub fn transfer(&mut self, read: &mut [u8], write: &[u8]) -> Result<(), EspError> {
+        self.transaction(|bus| bus.transfer(read, write))
     }
 
-    pub fn read(& mut self,device_id: i32, read: &mut [u8]) -> Result<(), EspError> 
-    {
-        self.transaction(device_id, |bus| bus.read(read))
+    pub fn write(&mut self, write: &[u8]) -> Result<(), EspError> {
+        self.transaction(|bus| bus.write(write))
     }
 
-    pub fn transfer_in_place(& mut self,device_id: i32, buf: &mut [u8]) -> Result<(), EspError> 
-    {
-        self.transaction(device_id, |bus| bus.transfer_in_place(buf))
+    pub fn read(&mut self, read: &mut [u8]) -> Result<(), EspError> {
+        self.transaction(|bus| bus.read(read))
+    }
+
+    pub fn transfer_in_place(&mut self, buf: &mut [u8]) -> Result<(), EspError> {
+        self.transaction(|bus| bus.transfer_in_place(buf))
     }
 
     fn lock_bus(handle: spi_device_handle_t) -> Result<Lock, EspError> {
         Lock::new(handle)
     }
-    fn new_internal_bus(
-        spi: impl Peripheral<P = SPI> + 'd,
-        sclk: impl Peripheral<P = impl OutputPin> + 'd,
-        sdo: impl Peripheral<P = impl OutputPin> + 'd,
-        sdi: Option<impl Peripheral<P = impl InputPin + OutputPin> + 'd>,
-    ) -> Result<(PeripheralRef<'d, SPI>), EspError> {
-        crate::into_ref!(spi, sclk, sdo);
+}
+
+impl Drop for SpiSlave {
+    fn drop(&mut self) {
+        if let Ok(mut master) = MASTER.lock() {
+            master.devices.remove(&self.slave_id);
+        }
+    }
+}
+
+pub struct SpiMaster2 {
+    host_handle: Option<spi_host_device_t>,
+}
+unsafe impl Send for SpiMaster2 {}
+
+impl SpiMaster2{
+    pub fn new<SPI: SpiAnyPins>(
+        _spi: impl Peripheral<P = SPI>,
+        sclk: impl Peripheral<P = impl OutputPin> ,
+        sdo: impl Peripheral<P = impl OutputPin> ,
+        sdi: Option<impl Peripheral<P = impl InputPin + OutputPin> >,
+    ) -> Self {
+        let host_handle = SPI::device();
+        Self::new_internal_bus::<SPI>(sclk, sdo, sdi);
+        Self{
+            host_handle: Some(host_handle)
+        }
+        
+    }
+    fn new_internal_bus<SPI: SpiAnyPins>(
+        sclk: impl Peripheral<P = impl OutputPin>,
+        sdo: impl Peripheral<P = impl OutputPin> ,
+        sdi: Option<impl Peripheral<P = impl InputPin + OutputPin>>,
+    ) -> Result<(), EspError> {
+        crate::into_ref!(sclk, sdo);
         let sdi = sdi.map(|sdi| sdi.into_ref());
 
         #[cfg(not(esp_idf_version = "4.3"))]
@@ -400,49 +439,32 @@ impl<'d, SPI: SpiAnyPins> SpiMasterDriver<'d, SPI> {
         };
 
         esp!(unsafe { spi_bus_initialize(SPI::device(), &bus_config, Dma::Disabled.into()) })?;
-        Ok(spi)
-
-    }
-
-
-    // alternative name just add_to_bus // rm_to_bus
-    fn device_add_to_bus(device: &SpiSlave) -> Result<(), EspError> {
-        let mut device_handle: spi_device_handle_t = ptr::null_mut();
-        esp!(unsafe {
-            spi_bus_add_device(SPI::device(), &device.config, &mut device_handle as *mut _)
-        })?;
-
-        device.handle.replace(Some(device_handle));
-        Ok(()) 
-    }
-
-    fn device_rm_from_bus(device: & SpiSlave) -> Result<(), EspError>  {
-        // make sure its only get called with valid handle
-        if let Some(handle) = device.handle.clone().into_inner() {
-            esp!(unsafe { spi_bus_remove_device(handle) })?;
-            device.handle.replace(None);
-        } else {
-            println!("SPI MASTER ERROR: Cant remove non existing handle from Bus. Spi device id {} ", device.cs_pin)
-        }
-
         Ok(())
     }
+    pub fn init_master(self){
+        if let Ok(mut master) = MASTER.lock() {
+            master.bus = Some(self)
+        }
+    } 
 }
 
-impl<'d, SPI: Spi> Drop for SpiMasterDriver<'d, SPI> {
+impl Drop for SpiMaster2 {
     fn drop(&mut self) {
-        for device in &self.devices_holding_handle{
-            let device = self.devices.get(device).unwrap();
-            if let Some(handle) = device.handle.clone().into_inner() {
-                esp!(unsafe { spi_bus_remove_device(handle) }).unwrap();
-                device.handle.replace(None);
+        if let Ok(mut master) = MASTER.lock() {
+            for dev_id in &master.devices_with_handle {
+                if let Some(device) = master.devices.get(dev_id) {
+                    if let Some(handle) = device.borrow().handle.replace(None) {
+                        esp!(unsafe { spi_bus_remove_device(handle) }).unwrap();
+                    }
+                }
             }
-        }        
-        esp!(unsafe { spi_bus_free(SPI::device()) }).unwrap();
+            master.devices_with_handle.clear();
+        }
+        if let Some( host_handle) = self.host_handle {
+            esp!(unsafe { spi_bus_free(host_handle) }).unwrap();
+        }
     }
 }
-
-unsafe impl<'d, SPI: Spi> Send for SpiMasterDriver<'d, SPI> {}
 
 fn to_spi_err(err: EspError) -> SpiError {
     SpiError::other(err)
