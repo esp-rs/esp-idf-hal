@@ -432,10 +432,7 @@ impl<'d, T> EspSpiDevice<'d, T> {
         Ok(me)
     }
 
-    fn create_conf(
-        cs: i32,
-        config: &config::Config,
-    ) -> spi_device_interface_config_t {
+    fn create_conf(cs: i32, config: &config::Config) -> spi_device_interface_config_t {
         spi_device_interface_config_t {
             spics_io_num: cs,
             clock_speed_hz: config.baudrate.0 as i32,
@@ -485,7 +482,7 @@ impl<'d, T> EspSpiDevice<'d, T> {
 
     pub fn transaction<R, E>(
         &self,
-        f: impl FnOnce(&mut SpiBusMasterDriver) -> Result<R, E>,
+        f: impl FnOnce(&mut SpiBusMasterDriver<'d>) -> Result<R, E>,
     ) -> Result<R, E>
     where
         E: From<EspError>,
@@ -552,6 +549,24 @@ impl<'d, T> EspSpiDevice<'d, T> {
 
     fn lock_bus(handle: spi_device_handle_t) -> Result<Lock, EspError> {
         Lock::new(handle)
+    }
+}
+
+impl<'d, T> embedded_hal::spi::ErrorType for EspSpiDevice<'d, T> {
+    type Error = SpiError;
+}
+
+impl<'d, T> SpiDevice for EspSpiDevice<'d, T>
+where
+    T: Borrow<SpiMasterDriver<'d>> + 'd,
+{
+    type Bus = SpiBusMasterDriver<'d>;
+
+    fn transaction<R>(
+        &mut self,
+        f: impl FnOnce(&mut Self::Bus) -> Result<R, <Self::Bus as embedded_hal::spi::ErrorType>::Error>,
+    ) -> Result<R, Self::Error> {
+        EspSpiDevice::<'d, T>::transaction(self, f)
     }
 }
 
