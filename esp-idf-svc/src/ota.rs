@@ -374,6 +374,8 @@ impl ota::Ota for EspOta {
     }
 }
 
+unsafe impl Send for EspOtaUpdate {}
+
 impl io::Io for EspOtaUpdate {
     type Error = EspIOError;
 }
