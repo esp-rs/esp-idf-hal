@@ -9,7 +9,7 @@ use crate::gpio::{self, InputPin, OutputPin, Pins,Output,InputOutput};
 use crate::peripheral::{Peripheral, PeripheralRef};
 use crate::spi::{config, Dma};
 
-use embedded_hal_n::spi::{SpiBus, SpiBusFlush, SpiBusRead, SpiBusWrite, SpiDevice};
+use embedded_hal::spi::{SpiBus, SpiBusFlush, SpiBusRead, SpiBusWrite, SpiDevice};
 use esp_idf_sys::*;
 
 use core::cmp::{max, min, Ordering};
@@ -24,8 +24,8 @@ use std::sync::{Arc, Mutex, Weak};
 
 crate::embedded_hal_error!(
     SpiError,
-    embedded_hal_n::spi::Error,
-    embedded_hal_n::spi::ErrorKind
+    embedded_hal::spi::Error,
+    embedded_hal::spi::ErrorKind
 );
 #[cfg(not(esp32c3))]
 const ESP_MAX_SPI_DEVICES: usize = 3;
@@ -131,7 +131,7 @@ impl SpiBusMasterDriver {
     }
 }
 
-impl embedded_hal_n::spi::ErrorType for SpiBusMasterDriver {
+impl embedded_hal::spi::ErrorType for SpiBusMasterDriver {
     type Error = SpiError;
 }
 
@@ -383,7 +383,7 @@ impl EspSpiDevice {
     }
 }
 
-impl embedded_hal_n::spi::ErrorType for EspSpiDevice {
+impl embedded_hal::spi::ErrorType for EspSpiDevice {
     type Error = SpiError;
 }
 
@@ -394,7 +394,7 @@ impl SpiDevice for EspSpiDevice {
         &mut self,
         f: impl FnOnce(
             &mut Self::Bus,
-        ) -> Result<R, <Self::Bus as embedded_hal_n::spi::ErrorType>::Error>,
+        ) -> Result<R, <Self::Bus as embedded_hal::spi::ErrorType>::Error>,
     ) -> Result<R, Self::Error> {
         EspSpiDevice::transaction(self, f)
     }
@@ -407,13 +407,13 @@ impl Drop for EspSpiDevice {
         }
     }
 }
-//#[derive(Clone)]
+
 pub struct SpiMasterDriver {
     devices: HashMap<i32, RefCell<Weak<EspSpiDevice>>>,
     devices_with_handle: VecDeque<i32>,
     handle: spi_host_device_t,
 }
-//unsafe impl Send for SpiMaster2 {}
+
 impl SpiMasterDriver {
     pub fn new_spi1<SPI: Spi>(
         _spi: impl Peripheral<P = SPI1>,
