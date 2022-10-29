@@ -24,7 +24,7 @@ use core::cmp::{max, min, Ordering};
 use core::marker::PhantomData;
 use core::ptr;
 
-use embedded_hal::spi::blocking::{SpiBus, SpiBusFlush, SpiBusRead, SpiBusWrite, SpiDevice};
+use embedded_hal::spi::{SpiBus, SpiBusFlush, SpiBusRead, SpiBusWrite, SpiDevice};
 
 use esp_idf_sys::*;
 

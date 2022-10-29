@@ -9,7 +9,7 @@ use crate::gpio::*;
 use crate::peripheral::{Peripheral, PeripheralRef};
 use crate::units::*;
 
-pub use embedded_hal::i2c::blocking::Operation;
+pub use embedded_hal::i2c::Operation;
 
 crate::embedded_hal_error!(
     I2cError,
@@ -140,7 +140,7 @@ where
     ) -> Result<I2cMasterDriver<'d, I2C>, EspError> {
         // i2c_config_t documentation says that clock speed must be no higher than 1 MHz
         if config.baudrate > 1.MHz().into() {
-            return Err(EspError::from(ESP_ERR_INVALID_ARG as i32).unwrap());
+            return Err(EspError::from(ESP_ERR_INVALID_ARG).unwrap());
         }
 
         crate::into_ref!(i2c, sda, scl);
@@ -349,7 +349,7 @@ where
     type Error = I2cError;
 }
 
-impl<'d, I2C> embedded_hal::i2c::blocking::I2c<embedded_hal::i2c::SevenBitAddress>
+impl<'d, I2C> embedded_hal::i2c::I2c<embedded_hal::i2c::SevenBitAddress>
     for I2cMasterDriver<'d, I2C>
 where
     I2C: I2c,
@@ -388,14 +388,14 @@ where
     fn transaction<'a>(
         &mut self,
         address: u8,
-        operations: &mut [embedded_hal::i2c::blocking::Operation<'a>],
+        operations: &mut [embedded_hal::i2c::Operation<'a>],
     ) -> Result<(), Self::Error> {
         I2cMasterDriver::transaction(self, address, operations, BLOCK).map_err(to_i2c_err)
     }
 
     fn transaction_iter<'a, O>(&mut self, _address: u8, _operations: O) -> Result<(), Self::Error>
     where
-        O: IntoIterator<Item = embedded_hal::i2c::blocking::Operation<'a>>,
+        O: IntoIterator<Item = embedded_hal::i2c::Operation<'a>>,
     {
         todo!()
     }
@@ -492,7 +492,7 @@ where
         if n > 0 {
             Ok(n as usize)
         } else {
-            Err(EspError::from(ESP_ERR_TIMEOUT as i32).unwrap())
+            Err(EspError::from(ESP_ERR_TIMEOUT).unwrap())
         }
     }
 
@@ -509,7 +509,7 @@ where
         if n > 0 {
             Ok(n as usize)
         } else {
-            Err(EspError::from(ESP_ERR_TIMEOUT as i32).unwrap())
+            Err(EspError::from(ESP_ERR_TIMEOUT).unwrap())
         }
     }
 }
@@ -529,7 +529,7 @@ impl<'buffers> CommandLink<'buffers> {
         let handle = unsafe { i2c_cmd_link_create() };
 
         if handle.is_null() {
-            return Err(EspError::from(ESP_ERR_NO_MEM as i32).unwrap());
+            return Err(EspError::from(ESP_ERR_NO_MEM).unwrap());
         }
 
         Ok(CommandLink(handle, PhantomData))

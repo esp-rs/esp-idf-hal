@@ -1137,7 +1137,7 @@ impl<'d, T: Pin, MODE> embedded_hal::digital::ErrorType for PinDriver<'d, T, MOD
     type Error = EspError;
 }
 
-impl<'d, T: Pin, MODE> embedded_hal::digital::blocking::InputPin for PinDriver<'d, T, MODE>
+impl<'d, T: Pin, MODE> embedded_hal::digital::InputPin for PinDriver<'d, T, MODE>
 where
     MODE: InputMode,
 {
@@ -1165,7 +1165,7 @@ where
     }
 }
 
-impl<'d, T: Pin, MODE> embedded_hal::digital::blocking::OutputPin for PinDriver<'d, T, MODE>
+impl<'d, T: Pin, MODE> embedded_hal::digital::OutputPin for PinDriver<'d, T, MODE>
 where
     MODE: OutputMode,
 {
@@ -1178,7 +1178,7 @@ where
     }
 }
 
-impl<'d, T: Pin, MODE> embedded_hal::digital::blocking::StatefulOutputPin for PinDriver<'d, T, MODE>
+impl<'d, T: Pin, MODE> embedded_hal::digital::StatefulOutputPin for PinDriver<'d, T, MODE>
 where
     MODE: OutputMode,
 {
@@ -1215,8 +1215,7 @@ where
     }
 }
 
-impl<'d, T: Pin, MODE> embedded_hal::digital::blocking::ToggleableOutputPin
-    for PinDriver<'d, T, MODE>
+impl<'d, T: Pin, MODE> embedded_hal::digital::ToggleableOutputPin for PinDriver<'d, T, MODE>
 where
     MODE: OutputMode,
 {
@@ -1255,7 +1254,7 @@ static ISR_SERVICE_ENABLED: core::sync::atomic::AtomicBool =
     core::sync::atomic::AtomicBool::new(false);
 
 #[cfg(all(not(feature = "riscv-ulp-hal"), feature = "alloc"))]
-static ISR_SERVICE_ENABLED_CS: crate::cs::CriticalSection = crate::cs::CriticalSection::new();
+static ISR_SERVICE_ENABLED_CS: crate::task::CriticalSection = crate::task::CriticalSection::new();
 
 #[cfg(all(not(feature = "riscv-ulp-hal"), feature = "alloc"))]
 fn enable_isr_service() -> Result<(), EspError> {
