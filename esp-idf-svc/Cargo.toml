@@ -28,14 +28,14 @@ heapless = { version = "0.7", default-features = false }
 enumset = { version = "1", default-features = false }
 log = { version = "0.4", default-features = false }
 cstr_core = "0.2"
-uncased = "0.9.6"
+uncased = "0.9.7"
 anyhow = { version = "1", default-features = false, optional = true } # Only used by the deprecated httpd module
 embedded-svc = { version = "0.23", default-features = false, git = "https://github.com/esp-rs/embedded-svc" }
-esp-idf-sys = { version = "0.31.9", default-features = false, features = ["native"] }
+esp-idf-sys = { version = "0.31.10", default-features = false, features = ["native"] }
 esp-idf-hal = { version = "0.39", default-features = false, features = ["esp-idf-sys"], git = "https://github.com/esp-rs/esp-idf-hal" }
 embassy-sync = { version = "0.1", optional = true }
 embassy-time = { version = "0.1", optional = true, features = ["tick-hz-1_000_000"] }
 
 [build-dependencies]
-embuild = "0.30.3"
+embuild = "0.30.4"
 anyhow = "1"
