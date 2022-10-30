@@ -41,6 +41,7 @@ pub struct Configuration {
     pub max_uri_handlers: usize,
     pub max_resp_handlers: usize,
     pub lru_purge_enable: bool,
+    pub uri_match_wildcard: bool,
     #[cfg(esp_idf_esp_https_server_enable)]
     pub server_certificate: Option<&'static str>,
     #[cfg(esp_idf_esp_https_server_enable)]
@@ -62,6 +63,7 @@ impl Default for Configuration {
             max_uri_handlers: 32,
             max_resp_handlers: 8,
             lru_purge_enable: true,
+            uri_match_wildcard: false,
             #[cfg(esp_idf_esp_https_server_enable)]
             server_certificate: None,
             #[cfg(esp_idf_esp_https_server_enable)]
@@ -92,7 +94,7 @@ impl From<&Configuration> for Newtype<httpd_config_t> {
             global_transport_ctx_free_fn: None,
             open_fn: None,
             close_fn: None,
-            uri_match_fn: None,
+            uri_match_fn: conf.uri_match_wildcard.then_some(httpd_uri_match_wildcard),
             // Latest 4.4 and master branches have options to control SO linger,
             // but these are not released yet so we cannot (yet) support these
             // conditionally
