@@ -42,7 +42,7 @@ pub mod http;
 #[cfg(all(feature = "std", esp_idf_comp_esp_http_server_enabled))]
 pub mod httpd;
 pub mod log;
-#[cfg(feature = "alloc")]
+#[cfg(all(feature = "alloc", esp_idf_comp_mdns_enabled))]
 pub mod mdns;
 #[cfg(all(
     feature = "alloc",
