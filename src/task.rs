@@ -30,137 +30,137 @@ impl Task {
     pub fn sys_task_handle(&self) -> TaskHandle_t {
         self.sys_handle
     }
-}
 
-#[inline(always)]
-#[link_section = ".iram1.interrupt_task_do_yield"]
-pub fn do_yield() {
-    if interrupt::active() {
-        unsafe {
-            if let Some((yielder, arg)) = interrupt::get_isr_yielder() {
-                yielder(arg);
-            } else {
-                #[cfg(esp32c3)]
-                vPortYieldFromISR();
+    #[inline(always)]
+    #[link_section = ".iram1.interrupt_task_do_yield"]
+    pub fn do_yield() {
+        if interrupt::active() {
+            unsafe {
+                if let Some((yielder, arg)) = interrupt::get_isr_yielder() {
+                    yielder(arg);
+                } else {
+                    #[cfg(esp32c3)]
+                    vPortYieldFromISR();
 
-                #[cfg(all(not(esp32c3), esp_idf_version_major = "4"))]
-                vPortEvaluateYieldFromISR(0);
+                    #[cfg(all(not(esp32c3), esp_idf_version_major = "4"))]
+                    vPortEvaluateYieldFromISR(0);
 
-                #[cfg(all(not(esp32c3), not(esp_idf_version_major = "4")))]
-                _frxt_setup_switch();
+                    #[cfg(all(not(esp32c3), not(esp_idf_version_major = "4")))]
+                    _frxt_setup_switch();
+                }
             }
-        }
-    } else {
-        unsafe {
-            vPortYield();
-        }
-    }
-}
-
-#[inline(always)]
-#[link_section = ".iram1.interrupt_task_current"]
-pub fn current() -> Option<Task> {
-    if interrupt::active() {
-        None
-    } else {
-        Some(Task::new(unsafe { xTaskGetCurrentTaskHandle() }))
-    }
-}
-
-pub fn wait_any_notification() {
-    loop {
-        if let Some(notification) = wait_notification(None) {
-            if notification != 0 {
-                break;
+        } else {
+            unsafe {
+                vPortYield();
             }
         }
     }
-}
 
-pub fn wait_notification(duration: Option<Duration>) -> Option<u32> {
-    let mut notification = 0_u32;
-
-    #[cfg(esp_idf_version = "4.3")]
-    let notified = unsafe {
-        xTaskNotifyWait(
-            0,
-            u32::MAX,
-            &mut notification as *mut _,
-            TickType::from(duration).0,
-        )
-    } != 0;
-
-    #[cfg(not(esp_idf_version = "4.3"))]
-    let notified = unsafe {
-        xTaskGenericNotifyWait(
-            0,
-            0,
-            u32::MAX,
-            &mut notification as *mut _,
-            TickType::from(duration).0,
-        )
-    } != 0;
-
-    if notified {
-        Some(notification)
-    } else {
-        None
-    }
-}
-
-/// # Safety
-///
-/// When calling this function care should be taken that the FreeRTOS task is valid.
-pub unsafe fn notify(task: Task, notification: u32) -> bool {
-    let notified = if interrupt::active() {
-        let mut higher_prio_task_woken: BaseType_t = Default::default();
-
-        #[cfg(esp_idf_version = "4.3")]
-        let notified = xTaskGenericNotifyFromISR(
-            task.sys_task_handle(),
-            notification,
-            eNotifyAction_eSetBits,
-            ptr::null_mut(),
-            &mut higher_prio_task_woken as *mut _,
-        );
-
-        #[cfg(not(esp_idf_version = "4.3"))]
-        let notified = xTaskGenericNotifyFromISR(
-            task.sys_task_handle(),
-            0,
-            notification,
-            eNotifyAction_eSetBits,
-            ptr::null_mut(),
-            &mut higher_prio_task_woken as *mut _,
-        );
-
-        if higher_prio_task_woken != 0 {
-            do_yield();
+    #[inline(always)]
+    #[link_section = ".iram1.interrupt_task_current"]
+    pub fn current() -> Option<Task> {
+        if interrupt::active() {
+            None
+        } else {
+            Some(Task::new(unsafe { xTaskGetCurrentTaskHandle() }))
         }
+    }
 
-        notified
-    } else {
+    pub fn wait_any_notification() {
+        loop {
+            if let Some(notification) = Self::wait_notification(None) {
+                if notification != 0 {
+                    break;
+                }
+            }
+        }
+    }
+
+    pub fn wait_notification(duration: Option<Duration>) -> Option<u32> {
+        let mut notification = 0_u32;
+
         #[cfg(esp_idf_version = "4.3")]
-        let notified = xTaskGenericNotify(
-            task.sys_task_handle(),
-            notification,
-            eNotifyAction_eSetBits,
-            ptr::null_mut()
-        );
+        let notified = unsafe {
+            xTaskNotifyWait(
+                0,
+                u32::MAX,
+                &mut notification as *mut _,
+                TickType::from(duration).0,
+            )
+        } != 0;
 
         #[cfg(not(esp_idf_version = "4.3"))]
-        let notified = xTaskGenericNotify(
-            task.sys_task_handle(),
-            0,
-            notification,
-            eNotifyAction_eSetBits,
-            ptr::null_mut(),
-        );
+        let notified = unsafe {
+            xTaskGenericNotifyWait(
+                0,
+                0,
+                u32::MAX,
+                &mut notification as *mut _,
+                TickType::from(duration).0,
+            )
+        } != 0;
 
-        notified
-    };
+        if notified {
+            Some(notification)
+        } else {
+            None
+        }
+    }
 
-    notified != 0
+    /// # Safety
+    ///
+    /// When calling this function care should be taken that the FreeRTOS task is valid.
+    pub unsafe fn notify(&self, notification: u32) -> bool {
+        let notified = if interrupt::active() {
+            let mut higher_prio_task_woken: BaseType_t = Default::default();
+
+            #[cfg(esp_idf_version = "4.3")]
+            let notified = xTaskGenericNotifyFromISR(
+                self.sys_task_handle(),
+                notification,
+                eNotifyAction_eSetBits,
+                ptr::null_mut(),
+                &mut higher_prio_task_woken as *mut _,
+            );
+
+            #[cfg(not(esp_idf_version = "4.3"))]
+            let notified = xTaskGenericNotifyFromISR(
+                self.sys_task_handle(),
+                0,
+                notification,
+                eNotifyAction_eSetBits,
+                ptr::null_mut(),
+                &mut higher_prio_task_woken as *mut _,
+            );
+
+            if higher_prio_task_woken != 0 {
+                Self::do_yield();
+            }
+
+            notified
+        } else {
+            #[cfg(esp_idf_version = "4.3")]
+            let notified = xTaskGenericNotify(
+                self.sys_task_handle(),
+                notification,
+                eNotifyAction_eSetBits,
+                ptr::null_mut()
+            );
+
+            #[cfg(not(esp_idf_version = "4.3"))]
+            let notified = xTaskGenericNotify(
+                self.sys_task_handle(),
+                0,
+                notification,
+                eNotifyAction_eSetBits,
+                ptr::null_mut(),
+            );
+
+            notified
+        };
+
+        notified != 0
+    }
 }
 
 #[cfg(esp_idf_comp_pthread_enabled)]
