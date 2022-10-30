@@ -48,7 +48,7 @@ impl EspIdfComponents {
 
     #[allow(dead_code)]
     pub fn from_esp_idf(esp_idf: &Path) -> Result<Self> {
-        Self::from_dirs(&[esp_idf.join("components")])
+        Self::from_dirs([esp_idf.join("components")])
     }
 
     #[allow(dead_code)]
@@ -286,7 +286,7 @@ impl InstallDir {
             InstallDirLocation::FromEnv => Self::FromEnv,
             _ => Self::Custom({
                 if let Some(path) = path {
-                    Path::new(path).abspath_relative_to(&workspace_dir()?)
+                    Path::new(path).abspath_relative_to(workspace_dir()?)
                 } else {
                     bail!(
                         "Invalid installation directory format. \
