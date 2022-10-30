@@ -88,14 +88,16 @@ impl From<mdns_result_t> for QueryResult {
             p = unsafe { (*p).next };
         }
 
-        #[cfg(esp_idf_version_major = "5")]
+        #[cfg(not(esp_idf_version_major = "4"))]
         let interface = match unsafe { CStr::from_ptr(esp_netif_get_desc(result.esp_netif)) }
             .to_bytes_with_nul()
         {
             b"sta\0" => Interface::STA,
             b"ap\0" => Interface::AP,
             b"eth\0" => Interface::ETH,
-            _ => unimplemented!(),
+            // TODO: the above are only the default descriptions, and can be overridden, and there are several more
+            // interfaces. Is there a way in `esp_netif` to get an enumerated IF type?
+            _ => todo!("unknown interface type"),
         };
 
         #[cfg(esp_idf_version_major = "4")]

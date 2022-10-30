@@ -161,7 +161,7 @@ impl From<&Configuration> for Newtype<httpd_ssl_config_t> {
         Self(httpd_ssl_config_t {
             httpd: http_config.0,
             session_tickets: false,
-            #[cfg(esp_idf_version_major = "5")]
+            #[cfg(not(esp_idf_version_major = "4"))]
             use_secure_element: false,
             port_secure: conf.https_port,
             port_insecure: conf.http_port,
@@ -174,9 +174,9 @@ impl From<&Configuration> for Newtype<httpd_ssl_config_t> {
             client_verify_cert_pem: ptr::null(),
             #[cfg(esp_idf_version_major = "4")]
             client_verify_cert_len: 0,
-            #[cfg(esp_idf_version_major = "5")]
+            #[cfg(not(esp_idf_version_major = "4"))]
             servercert: ptr::null(),
-            #[cfg(esp_idf_version_major = "5")]
+            #[cfg(not(esp_idf_version_major = "4"))]
             servercert_len: 0,
             user_cb: None,
         })
@@ -262,10 +262,10 @@ impl EspHttpServer {
                 #[cfg(esp_idf_version_major = "4")]
                 {
                     config.0.client_verify_cert_pem = cert.as_ptr();
-                    config.0.servercert_len = cert.len() as u32;
+                    config.0.client_verify_cert_len = cert.len() as u32;
                 }
 
-                #[cfg(esp_idf_version_major = "5")]
+                #[cfg(not(esp_idf_version_major = "4"))]
                 {
                     config.0.servercert = cert.as_ptr();
                     config.0.servercert_len = cert.len() as u32;
