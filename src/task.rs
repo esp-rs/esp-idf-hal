@@ -9,6 +9,29 @@ use esp_idf_sys::*;
 use crate::delay::TickType;
 use crate::interrupt;
 
+/// OS task handle.
+pub struct Task {
+    sys_handle: TaskHandle_t,
+}
+
+impl Task {
+    /// Create a new hal task handle.
+    /// This method is not public.
+    /// Use a function like [esp_idf_hal::task::current] or similar to retrieve a handle.
+    #[inline]
+    fn new(sys_handle: TaskHandle_t) -> Self {
+        Self {
+            sys_handle,
+        }
+    }
+
+    /// Get the [esp_idf_sys] TaskHandle_t that corresponds to this Task handle.
+    #[inline]
+    pub fn sys_task_handle(&self) -> TaskHandle_t {
+        self.sys_handle
+    }
+}
+
 #[inline(always)]
 #[link_section = ".iram1.interrupt_task_do_yield"]
 pub fn do_yield() {
@@ -36,11 +59,11 @@ pub fn do_yield() {
 
 #[inline(always)]
 #[link_section = ".iram1.interrupt_task_current"]
-pub fn current() -> Option<TaskHandle_t> {
+pub fn current() -> Option<Task> {
     if interrupt::active() {
         None
     } else {
-        Some(unsafe { xTaskGetCurrentTaskHandle() })
+        Some(Task::new(unsafe { xTaskGetCurrentTaskHandle() }))
     }
 }
 
@@ -87,16 +110,14 @@ pub fn wait_notification(duration: Option<Duration>) -> Option<u32> {
 
 /// # Safety
 ///
-/// When calling this function care should be taken to pass a valid
-/// FreeRTOS task handle. Moreover, the FreeRTOS task should be valid
-/// when this function is being called.
-pub unsafe fn notify(task: TaskHandle_t, notification: u32) -> bool {
+/// When calling this function care should be taken that the FreeRTOS task is valid.
+pub unsafe fn notify(task: Task, notification: u32) -> bool {
     let notified = if interrupt::active() {
         let mut higher_prio_task_woken: BaseType_t = Default::default();
 
         #[cfg(esp_idf_version = "4.3")]
         let notified = xTaskGenericNotifyFromISR(
-            task,
+            task.sys_task_handle(),
             notification,
             eNotifyAction_eSetBits,
             ptr::null_mut(),
@@ -105,7 +126,7 @@ pub unsafe fn notify(task: TaskHandle_t, notification: u32) -> bool {
 
         #[cfg(not(esp_idf_version = "4.3"))]
         let notified = xTaskGenericNotifyFromISR(
-            task,
+            task.sys_task_handle(),
             0,
             notification,
             eNotifyAction_eSetBits,
@@ -120,12 +141,16 @@ pub unsafe fn notify(task: TaskHandle_t, notification: u32) -> bool {
         notified
     } else {
         #[cfg(esp_idf_version = "4.3")]
-        let notified =
-            xTaskGenericNotify(task, notification, eNotifyAction_eSetBits, ptr::null_mut());
+        let notified = xTaskGenericNotify(
+            task.sys_task_handle(),
+            notification,
+            eNotifyAction_eSetBits,
+            ptr::null_mut()
+        );
 
         #[cfg(not(esp_idf_version = "4.3"))]
         let notified = xTaskGenericNotify(
-            task,
+            task.sys_task_handle(),
             0,
             notification,
             eNotifyAction_eSetBits,
