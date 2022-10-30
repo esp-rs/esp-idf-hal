@@ -1,8 +1,8 @@
 use core::cell::UnsafeCell;
 use core::fmt::{Debug, Display};
+use core::ptr;
 use core::sync::atomic::{AtomicBool, Ordering};
 use core::time::*;
-use core::{mem, ptr};
 
 extern crate alloc;
 use alloc::collections::BTreeMap;
@@ -559,9 +559,7 @@ impl<'a> EspHttpConnection<'a> {
     pub fn uri(&self) -> &str {
         self.assert_request();
 
-        let c_uri = unsafe {
-            CStr::from_bytes_with_nul_unchecked(mem::transmute(self.request.0.uri.as_slice()))
-        };
+        let c_uri = unsafe { CStr::from_ptr(self.request.0.uri.as_ptr()) };
 
         c_uri.to_str().unwrap()
     }
