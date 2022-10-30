@@ -1,5 +1,5 @@
 diff --git a/components/app_update/esp_app_desc.c b/components/app_update/esp_app_desc.c
-index e0fdfd6418..66ad3a3dbf 100644
+index e0fdfd6418..982dfd1da3 100644
 --- a/components/app_update/esp_app_desc.c
 +++ b/components/app_update/esp_app_desc.c
 @@ -11,7 +11,7 @@
