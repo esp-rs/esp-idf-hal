@@ -3,7 +3,7 @@ macro_rules! esp_app_desc {
     () => {
         #[no_mangle]
         #[used]
-        #[link_section = ".rodata.desc"]
+        #[link_section = ".rodata_desc"]
         #[allow(non_upper_case_globals)]
         pub static esp_app_desc: $crate::esp_app_desc_t = {
             const fn str_to_cstr_array<const C: usize>(s: &str) -> [$crate::c_types::c_char; C] {
