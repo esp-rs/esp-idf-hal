@@ -9,17 +9,17 @@ use std::time::Duration;
 use esp_idf_hal::adc::config::Config;
 use esp_idf_hal::adc::Atten11dB;
 use esp_idf_hal::adc::*;
-use esp_idf_hal::gpio::Gpio0;
+use esp_idf_hal::gpio::Gpio1;
 use esp_idf_hal::peripherals::Peripherals;
 
 fn main() -> anyhow::Result<()> {
     let peripherals = Peripherals::take().unwrap();
     let mut adc1 = AdcDriver::new(peripherals.adc1, &Config::new().calibration(true))?;
 
-    // configuring pin0 to analog read, you can regulate the adc input voltage range depending on your need
+    // Configuring pin1 to analog read, you can regulate the adc input voltage range depending on your need
     // for this example we use the attenuation of 11db which sets the input voltage range to around 0-3.6V
-    let mut adc_pin: esp_idf_hal::adc::AdcChannelDriver<'_, Gpio0, Atten11dB<_>> =
-        AdcChannelDriver::new(peripherals.pins.gpio0)?;
+    let mut adc_pin: esp_idf_hal::adc::AdcChannelDriver<'_, Gpio1, Atten11dB<_>> =
+        AdcChannelDriver::new(peripherals.pins.gpio1)?;
 
     loop {
         // you can change the sleep duration depending on how often you want to sample
