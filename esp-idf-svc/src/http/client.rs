@@ -66,6 +66,7 @@ impl Default for FollowRedirectsPolicy {
 pub struct Configuration<'a> {
     pub buffer_size: Option<usize>,
     pub buffer_size_tx: Option<usize>,
+    pub timeout: Option<std::time::Duration>,
     pub follow_redirects_policy: FollowRedirectsPolicy,
     pub client_cert_pem: Option<&'a str>,
     pub client_key_pem: Option<&'a str>,
@@ -122,6 +123,10 @@ impl EspHttpConnection {
 
         if let Some(buffer_size_tx) = configuration.buffer_size_tx {
             native_config.buffer_size_tx = buffer_size_tx as _;
+        }
+
+        if let Some(timeout) = configuration.timeout {
+            native_config.timeout_ms = timeout.as_millis() as _;
         }
 
         if let (Some(cert), Some(key)) =
