@@ -100,7 +100,7 @@ static mut TAKEN: bool = false;
 static TAKEN: core::sync::atomic::AtomicBool = core::sync::atomic::AtomicBool::new(false);
 
 #[cfg(not(feature = "riscv-ulp-hal"))]
-static TAKEN_CS: crate::cs::CriticalSection = crate::cs::CriticalSection::new();
+static TAKEN_CS: crate::task::CriticalSection = crate::task::CriticalSection::new();
 
 impl Peripherals {
     #[cfg(feature = "riscv-ulp-hal")]
