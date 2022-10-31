@@ -66,7 +66,7 @@ impl Default for FollowRedirectsPolicy {
 pub struct Configuration<'a> {
     pub buffer_size: Option<usize>,
     pub buffer_size_tx: Option<usize>,
-    pub timeout: Option<std::time::Duration>,
+    pub timeout: Option<core::time::Duration>,
     pub follow_redirects_policy: FollowRedirectsPolicy,
     pub client_cert_pem: Option<&'a str>,
     pub client_key_pem: Option<&'a str>,
