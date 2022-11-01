@@ -6,7 +6,7 @@ use esp_idf_sys::*;
 
 use crate::delay::*;
 use crate::gpio::*;
-use crate::peripheral::{Peripheral, PeripheralRef};
+use crate::peripheral::Peripheral;
 use crate::units::*;
 
 pub use embedded_hal::i2c::Operation;
@@ -121,29 +121,24 @@ pub trait I2c: Send {
     fn port() -> i2c_port_t;
 }
 
-pub struct I2cMasterDriver<'d, I2C>
-where
-    I2C: I2c,
-{
-    _i2c: PeripheralRef<'d, I2C>,
+pub struct I2cMasterDriver<'d> {
+    i2c: u8,
+    _p: PhantomData<&'d ()>,
 }
 
-impl<'d, I2C> I2cMasterDriver<'d, I2C>
-where
-    I2C: I2c,
-{
-    pub fn new(
-        i2c: impl Peripheral<P = I2C> + 'd,
+impl<'d> I2cMasterDriver<'d> {
+    pub fn new<I2C: I2c>(
+        _i2c: impl Peripheral<P = I2C> + 'd,
         sda: impl Peripheral<P = impl InputPin + OutputPin> + 'd,
         scl: impl Peripheral<P = impl InputPin + OutputPin> + 'd,
         config: &config::MasterConfig,
-    ) -> Result<I2cMasterDriver<'d, I2C>, EspError> {
+    ) -> Result<Self, EspError> {
         // i2c_config_t documentation says that clock speed must be no higher than 1 MHz
         if config.baudrate > 1.MHz().into() {
             return Err(EspError::from(ESP_ERR_INVALID_ARG).unwrap());
         }
 
-        crate::into_ref!(i2c, sda, scl);
+        crate::into_ref!(sda, scl);
 
         let sys_config = i2c_config_t {
             mode: i2c_mode_t_I2C_MODE_MASTER,
@@ -171,7 +166,10 @@ where
             ) // TODO: set flags
         })?;
 
-        Ok(I2cMasterDriver { _i2c: i2c })
+        Ok(I2cMasterDriver {
+            i2c: I2C::port() as _,
+            _p: PhantomData,
+        })
     }
 
     pub fn read(
@@ -297,22 +295,23 @@ where
         command_link: &CommandLink,
         timeout: TickType_t,
     ) -> Result<(), EspError> {
-        esp!(unsafe { i2c_master_cmd_begin(I2C::port(), command_link.0, timeout) })
+        esp!(unsafe { i2c_master_cmd_begin(self.port(), command_link.0, timeout) })
+    }
+
+    pub fn port(&self) -> i2c_port_t {
+        self.i2c as _
     }
 }
 
-impl<'d, I2C: I2c> Drop for I2cMasterDriver<'d, I2C> {
+impl<'d> Drop for I2cMasterDriver<'d> {
     fn drop(&mut self) {
-        esp!(unsafe { i2c_driver_delete(I2C::port()) }).unwrap();
+        esp!(unsafe { i2c_driver_delete(self.port()) }).unwrap();
     }
 }
 
-unsafe impl<'d, I2C: I2c> Send for I2cMasterDriver<'d, I2C> {}
+unsafe impl<'d> Send for I2cMasterDriver<'d> {}
 
-impl<'d, I2C> embedded_hal_0_2::blocking::i2c::Read for I2cMasterDriver<'d, I2C>
-where
-    I2C: I2c,
-{
+impl<'d> embedded_hal_0_2::blocking::i2c::Read for I2cMasterDriver<'d> {
     type Error = I2cError;
 
     fn read(&mut self, addr: u8, buffer: &mut [u8]) -> Result<(), Self::Error> {
@@ -320,10 +319,7 @@ where
     }
 }
 
-impl<'d, I2C> embedded_hal_0_2::blocking::i2c::Write for I2cMasterDriver<'d, I2C>
-where
-    I2C: I2c,
-{
+impl<'d> embedded_hal_0_2::blocking::i2c::Write for I2cMasterDriver<'d> {
     type Error = I2cError;
 
     fn write(&mut self, addr: u8, bytes: &[u8]) -> Result<(), Self::Error> {
@@ -331,10 +327,7 @@ where
     }
 }
 
-impl<'d, I2C> embedded_hal_0_2::blocking::i2c::WriteRead for I2cMasterDriver<'d, I2C>
-where
-    I2C: I2c,
-{
+impl<'d> embedded_hal_0_2::blocking::i2c::WriteRead for I2cMasterDriver<'d> {
     type Error = I2cError;
 
     fn write_read(&mut self, addr: u8, bytes: &[u8], buffer: &mut [u8]) -> Result<(), Self::Error> {
@@ -342,18 +335,11 @@ where
     }
 }
 
-impl<'d, I2C> embedded_hal::i2c::ErrorType for I2cMasterDriver<'d, I2C>
-where
-    I2C: I2c,
-{
+impl<'d> embedded_hal::i2c::ErrorType for I2cMasterDriver<'d> {
     type Error = I2cError;
 }
 
-impl<'d, I2C> embedded_hal::i2c::I2c<embedded_hal::i2c::SevenBitAddress>
-    for I2cMasterDriver<'d, I2C>
-where
-    I2C: I2c,
-{
+impl<'d> embedded_hal::i2c::I2c<embedded_hal::i2c::SevenBitAddress> for I2cMasterDriver<'d> {
     fn read(&mut self, addr: u8, buffer: &mut [u8]) -> Result<(), Self::Error> {
         I2cMasterDriver::read(self, addr, buffer, BLOCK).map_err(to_i2c_err)
     }
@@ -409,27 +395,22 @@ fn to_i2c_err(err: EspError) -> I2cError {
     }
 }
 
-pub struct I2cSlaveDriver<'d, I2C>
-where
-    I2C: I2c,
-{
-    _i2c: PeripheralRef<'d, I2C>,
+pub struct I2cSlaveDriver<'d> {
+    i2c: u8,
+    _p: PhantomData<&'d ()>,
 }
 
-unsafe impl<'d, I2C: I2c> Send for I2cSlaveDriver<'d, I2C> {}
+unsafe impl<'d> Send for I2cSlaveDriver<'d> {}
 
-impl<'d, I2C> I2cSlaveDriver<'d, I2C>
-where
-    I2C: I2c,
-{
-    pub fn new(
-        i2c: impl Peripheral<P = I2C> + 'd,
+impl<'d> I2cSlaveDriver<'d> {
+    pub fn new<I2C: I2c>(
+        _i2c: impl Peripheral<P = I2C> + 'd,
         sda: impl Peripheral<P = impl InputPin + OutputPin> + 'd,
         scl: impl Peripheral<P = impl InputPin + OutputPin> + 'd,
         slave_addr: u8,
         config: &config::SlaveConfig,
     ) -> Result<Self, EspError> {
-        crate::into_ref!(i2c, sda, scl);
+        crate::into_ref!(sda, scl);
 
         #[cfg(not(esp_idf_version = "4.3"))]
         let sys_config = i2c_config_t {
@@ -476,13 +457,16 @@ where
             )
         })?;
 
-        Ok(Self { _i2c: i2c })
+        Ok(Self {
+            i2c: I2C::port() as _,
+            _p: PhantomData,
+        })
     }
 
     pub fn read(&mut self, buffer: &mut [u8], timeout: TickType_t) -> Result<usize, EspError> {
         let n = unsafe {
             i2c_slave_read_buffer(
-                I2C::port(),
+                self.port(),
                 buffer.as_mut_ptr(),
                 buffer.len() as u32,
                 timeout,
@@ -499,7 +483,7 @@ where
     pub fn write(&mut self, bytes: &[u8], timeout: TickType_t) -> Result<usize, EspError> {
         let n = unsafe {
             i2c_slave_write_buffer(
-                I2C::port(),
+                self.port(),
                 bytes.as_ptr() as *const u8 as *mut u8,
                 bytes.len() as i32,
                 timeout,
@@ -511,6 +495,16 @@ where
         } else {
             Err(EspError::from(ESP_ERR_TIMEOUT).unwrap())
         }
+    }
+
+    pub fn port(&self) -> i2c_port_t {
+        self.i2c as _
+    }
+}
+
+impl<'d> Drop for I2cSlaveDriver<'d> {
+    fn drop(&mut self) {
+        esp!(unsafe { i2c_driver_delete(self.port()) }).unwrap();
     }
 }
 

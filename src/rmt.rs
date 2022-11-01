@@ -52,6 +52,7 @@
 //! ahead of time.
 
 use core::convert::TryFrom;
+use core::marker::PhantomData;
 use core::time::Duration;
 
 #[cfg(feature = "alloc")]
@@ -64,7 +65,7 @@ use core::cell::UnsafeCell;
 use esp_idf_sys::*;
 
 use crate::gpio::OutputPin;
-use crate::peripheral::{Peripheral, PeripheralRef};
+use crate::peripheral::Peripheral;
 use crate::units::Hertz;
 
 use config::TransmitConfig;
@@ -341,22 +342,23 @@ pub mod config {
 /// Use [`RmtDriver::start()`] or [`RmtDriver::start_blocking()`] to transmit pulses.
 ///
 /// See the [rmt module][crate::rmt] for more information.
-pub struct RmtDriver<'d, C: RmtChannel> {
-    _channel: PeripheralRef<'d, C>,
+pub struct RmtDriver<'d> {
+    channel: u8,
+    _p: PhantomData<&'d ()>,
 }
 
-impl<'d, C: RmtChannel> RmtDriver<'d, C> {
+impl<'d> RmtDriver<'d> {
     /// Initialise the rmt module with the specified pin, channel and configuration.
     ///
     /// To uninstall the driver just drop it.
     ///
     /// Internally this calls `rmt_config()` and `rmt_driver_install()`.
-    pub fn new(
-        channel: impl Peripheral<P = C> + 'd,
+    pub fn new<C: RmtChannel>(
+        _channel: impl Peripheral<P = C> + 'd,
         pin: impl Peripheral<P = impl OutputPin> + 'd,
         config: &TransmitConfig,
     ) -> Result<Self, EspError> {
-        crate::into_ref!(channel, pin);
+        crate::into_ref!(pin);
 
         let mut flags = 0;
         if config.aware_dfs {
@@ -396,7 +398,10 @@ impl<'d, C: RmtChannel> RmtDriver<'d, C> {
             esp!(rmt_driver_install(C::channel(), 0, 0))?;
         }
 
-        Ok(Self { _channel: channel })
+        Ok(Self {
+            channel: C::channel() as _,
+            _p: PhantomData,
+        })
     }
 
     /// Get speed of the channel’s internal counter clock.
@@ -409,7 +414,7 @@ impl<'d, C: RmtChannel> RmtDriver<'d, C> {
     /// [rmt_get_counter_clock]: https://docs.espressif.com/projects/esp-idf/en/latest/esp32/api-reference/peripherals/rmt.html#_CPPv421rmt_get_counter_clock13rmt_channel_tP8uint32_t
     pub fn counter_clock(&self) -> Result<Hertz, EspError> {
         let mut ticks_hz: u32 = 0;
-        esp!(unsafe { rmt_get_counter_clock(C::channel(), &mut ticks_hz) })?;
+        esp!(unsafe { rmt_get_counter_clock(self.channel(), &mut ticks_hz) })?;
         Ok(ticks_hz.into())
     }
 
@@ -436,7 +441,7 @@ impl<'d, C: RmtChannel> RmtDriver<'d, C> {
         S: Signal,
     {
         let items = signal.as_slice();
-        esp!(unsafe { rmt_write_items(C::channel(), items.as_ptr(), items.len() as i32, block) })
+        esp!(unsafe { rmt_write_items(self.channel(), items.as_ptr(), items.len() as i32, block) })
     }
 
     /// Transmit all items in `iter` without blocking.
@@ -458,12 +463,12 @@ impl<'d, C: RmtChannel> RmtDriver<'d, C> {
         let iter = Box::new(UnsafeCell::new(iter));
         unsafe {
             esp!(rmt_translator_init(
-                C::channel(),
+                self.channel(),
                 Some(Self::translate_iterator::<T, true>),
             ))?;
 
             esp!(rmt_write_sample(
-                C::channel(),
+                self.channel(),
                 Box::leak(iter) as *const _ as _,
                 1,
                 false
@@ -493,11 +498,11 @@ impl<'d, C: RmtChannel> RmtDriver<'d, C> {
             // TODO: maybe use a separate struct so that we don't have to do this when
             // transmitting the same iterator type.
             esp!(rmt_translator_init(
-                C::channel(),
+                self.channel(),
                 Some(Self::translate_iterator::<T, false>),
             ))?;
             esp!(rmt_write_sample(
-                C::channel(),
+                self.channel(),
                 &iter as *const _ as _,
                 24,
                 true
@@ -563,16 +568,16 @@ impl<'d, C: RmtChannel> RmtDriver<'d, C> {
 
     /// Stop transmitting.
     pub fn stop(&mut self) -> Result<(), EspError> {
-        esp!(unsafe { rmt_tx_stop(C::channel()) })
+        esp!(unsafe { rmt_tx_stop(self.channel()) })
     }
 
     pub fn set_looping(&mut self, looping: config::Loop) -> Result<(), EspError> {
-        esp!(unsafe { rmt_set_tx_loop_mode(C::channel(), looping != config::Loop::None) })?;
+        esp!(unsafe { rmt_set_tx_loop_mode(self.channel(), looping != config::Loop::None) })?;
 
         #[cfg(not(any(esp32, esp32c2)))]
         esp!(unsafe {
             rmt_set_tx_loop_count(
-                C::channel(),
+                self.channel(),
                 match looping {
                     config::Loop::Count(count) if count > 0 && count < 1024 => count,
                     _ => 0,
@@ -582,17 +587,21 @@ impl<'d, C: RmtChannel> RmtDriver<'d, C> {
 
         Ok(())
     }
-}
 
-impl<'d, C: RmtChannel> Drop for RmtDriver<'d, C> {
-    /// Stop transmitting and release the driver.
-    fn drop(&mut self) {
-        self.stop().unwrap();
-        esp!(unsafe { rmt_driver_uninstall(C::channel()) }).unwrap();
+    pub fn channel(&self) -> rmt_channel_t {
+        self.channel as _
     }
 }
 
-unsafe impl<'d, C: RmtChannel> Send for RmtDriver<'d, C> {}
+impl<'d> Drop for RmtDriver<'d> {
+    /// Stop transmitting and release the driver.
+    fn drop(&mut self) {
+        self.stop().unwrap();
+        esp!(unsafe { rmt_driver_uninstall(self.channel()) }).unwrap();
+    }
+}
+
+unsafe impl<'d> Send for RmtDriver<'d> {}
 
 /// Signal storage for [`Transmit`] in a format ready for the RMT driver.
 pub trait Signal {

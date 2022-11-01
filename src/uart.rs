@@ -46,7 +46,7 @@ use crate::units::*;
 
 use esp_idf_sys::*;
 
-use crate::peripheral::{Peripheral, PeripheralRef};
+use crate::peripheral::Peripheral;
 
 const UART_FIFO_SIZE: i32 = 128;
 
@@ -283,33 +283,34 @@ crate::embedded_hal_error!(
 
 /// Serial abstraction
 ///
-pub struct UartDriver<'d, UART: Uart> {
-    _uart: PeripheralRef<'d, UART>,
-    rx: UartRxDriver<'d, UART>,
-    tx: UartTxDriver<'d, UART>,
+pub struct UartDriver<'d> {
+    port: u8,
+    _p: PhantomData<&'d ()>,
 }
 
 /// Serial receiver
-pub struct UartRxDriver<'d, UART: Uart> {
-    _uart: PhantomData<&'d UART>,
+pub struct UartRxDriver<'d> {
+    port: u8,
+    _p: PhantomData<&'d ()>,
 }
 
 /// Serial transmitter
-pub struct UartTxDriver<'d, UART: Uart> {
-    _uart: PhantomData<&'d UART>,
+pub struct UartTxDriver<'d> {
+    port: u8,
+    _p: PhantomData<&'d ()>,
 }
 
-impl<'d, UART: Uart> UartDriver<'d, UART> {
+impl<'d> UartDriver<'d> {
     /// Create a new serial driver
-    pub fn new(
-        uart: impl Peripheral<P = UART> + 'd,
+    pub fn new<UART: Uart>(
+        _uart: impl Peripheral<P = UART> + 'd,
         tx: impl Peripheral<P = impl OutputPin> + 'd,
         rx: impl Peripheral<P = impl InputPin> + 'd,
         cts: Option<impl Peripheral<P = impl InputPin> + 'd>,
         rts: Option<impl Peripheral<P = impl OutputPin> + 'd>,
         config: &config::Config,
     ) -> Result<Self, EspError> {
-        crate::into_ref!(uart, tx, rx);
+        crate::into_ref!(tx, rx);
 
         let cts = cts.map(|cts| cts.into_ref());
         let rts = rts.map(|rts| rts.into_ref());
@@ -348,16 +349,15 @@ impl<'d, UART: Uart> UartDriver<'d, UART> {
         })?;
 
         Ok(Self {
-            _uart: uart,
-            rx: UartRxDriver { _uart: PhantomData },
-            tx: UartTxDriver { _uart: PhantomData },
+            port: UART::port() as _,
+            _p: PhantomData,
         })
     }
 
     /// Change the number of stop bits
     pub fn change_stop_bits(&mut self, stop_bits: config::StopBits) -> Result<&mut Self, EspError> {
         esp_result!(
-            unsafe { uart_set_stop_bits(UART::port(), stop_bits.into()) },
+            unsafe { uart_set_stop_bits(self.port(), stop_bits.into()) },
             self
         )
     }
@@ -366,7 +366,7 @@ impl<'d, UART: Uart> UartDriver<'d, UART> {
     pub fn stop_bits(&self) -> Result<config::StopBits, EspError> {
         let mut stop_bits: uart_stop_bits_t = 0;
         esp_result!(
-            unsafe { uart_get_stop_bits(UART::port(), &mut stop_bits) },
+            unsafe { uart_get_stop_bits(self.port(), &mut stop_bits) },
             stop_bits.into()
         )
     }
@@ -374,7 +374,7 @@ impl<'d, UART: Uart> UartDriver<'d, UART> {
     /// Change the number of data bits
     pub fn change_data_bits(&mut self, data_bits: config::DataBits) -> Result<&mut Self, EspError> {
         esp_result!(
-            unsafe { uart_set_word_length(UART::port(), data_bits.into()) },
+            unsafe { uart_set_word_length(self.port(), data_bits.into()) },
             self
         )
     }
@@ -383,24 +383,21 @@ impl<'d, UART: Uart> UartDriver<'d, UART> {
     pub fn data_bits(&self) -> Result<config::DataBits, EspError> {
         let mut data_bits: uart_word_length_t = 0;
         esp_result!(
-            unsafe { uart_get_word_length(UART::port(), &mut data_bits) },
+            unsafe { uart_get_word_length(self.port(), &mut data_bits) },
             data_bits.into()
         )
     }
 
     /// Change the type of parity checking
     pub fn change_parity(&mut self, parity: config::Parity) -> Result<&mut Self, EspError> {
-        esp_result!(
-            unsafe { uart_set_parity(UART::port(), parity.into()) },
-            self
-        )
+        esp_result!(unsafe { uart_set_parity(self.port(), parity.into()) }, self)
     }
 
     /// Returns the current type of parity checking
     pub fn parity(&self) -> Result<config::Parity, EspError> {
         let mut parity: uart_parity_t = 0;
         esp_result!(
-            unsafe { uart_get_parity(UART::port(), &mut parity) },
+            unsafe { uart_get_parity(self.port(), &mut parity) },
             parity.into()
         )
     }
@@ -417,7 +414,7 @@ impl<'d, UART: Uart> UartDriver<'d, UART> {
         baudrate: T,
     ) -> Result<&mut Self, EspError> {
         esp_result!(
-            unsafe { uart_set_baudrate(UART::port(), baudrate.into().into()) },
+            unsafe { uart_set_baudrate(self.port(), baudrate.into().into()) },
             self
         )
     }
@@ -426,99 +423,117 @@ impl<'d, UART: Uart> UartDriver<'d, UART> {
     pub fn baudrate(&self) -> Result<Hertz, EspError> {
         let mut baudrate: u32 = 0;
         esp_result!(
-            unsafe { uart_get_baudrate(UART::port(), &mut baudrate) },
+            unsafe { uart_get_baudrate(self.port(), &mut baudrate) },
             baudrate.into()
         )
     }
 
     /// Split the serial driver in separate TX and RX drivers
-    pub fn split(&mut self) -> (&mut UartTxDriver<'d, UART>, &mut UartRxDriver<'d, UART>) {
-        (&mut self.tx, &mut self.rx)
+    pub fn split(mut self) -> (UartTxDriver<'d>, UartRxDriver<'d>) {
+        (self.tx(), self.rx())
     }
 
     /// Read multiple bytes into a slice
     pub fn read(&mut self, buf: &mut [u8], delay: TickType_t) -> Result<usize, EspError> {
-        self.rx.read(buf, delay)
+        self.rx().read(buf, delay)
     }
 
     /// Write multiple bytes from a slice
     pub fn write(&mut self, buf: &[u8]) -> Result<usize, EspError> {
-        self.tx.write(buf)
+        self.tx().write(buf)
     }
 
     pub fn flush_read(&mut self) -> Result<(), EspError> {
-        self.rx.flush()
+        self.rx().flush()
     }
 
     pub fn flush_write(&mut self) -> Result<(), EspError> {
-        self.tx.flush()
+        self.tx().flush()
+    }
+
+    pub fn port(&self) -> uart_port_t {
+        self.port as _
+    }
+
+    fn rx(&mut self) -> UartRxDriver<'d> {
+        UartRxDriver {
+            port: self.port() as _,
+            _p: PhantomData,
+        }
+    }
+
+    fn tx(&mut self) -> UartTxDriver<'d> {
+        UartTxDriver {
+            port: self.port() as _,
+            _p: PhantomData,
+        }
     }
 }
 
-impl<'d, UART: Uart> Drop for UartDriver<'d, UART> {
+impl<'d> Drop for UartDriver<'d> {
     fn drop(&mut self) {
-        esp!(unsafe { uart_driver_delete(UART::port()) }).unwrap();
+        esp!(unsafe { uart_driver_delete(self.port()) }).unwrap();
     }
 }
 
-unsafe impl<'d, UART: Uart> Send for UartDriver<'d, UART> {}
+unsafe impl<'d> Send for UartDriver<'d> {}
 
-impl<'d, UART: Uart> embedded_hal::serial::ErrorType for UartDriver<'d, UART> {
+impl<'d> embedded_hal::serial::ErrorType for UartDriver<'d> {
     type Error = SerialError;
 }
 
-impl<'d, UART: Uart> embedded_hal_0_2::serial::Read<u8> for UartDriver<'d, UART> {
+impl<'d> embedded_hal_0_2::serial::Read<u8> for UartDriver<'d> {
     type Error = SerialError;
 
     fn read(&mut self) -> nb::Result<u8, Self::Error> {
-        embedded_hal_0_2::serial::Read::read(&mut self.rx)
+        embedded_hal_0_2::serial::Read::read(&mut self.rx())
     }
 }
 
-impl<'d, UART: Uart> embedded_hal_nb::serial::Read<u8> for UartDriver<'d, UART> {
+impl<'d> embedded_hal_nb::serial::Read<u8> for UartDriver<'d> {
     fn read(&mut self) -> nb::Result<u8, Self::Error> {
-        embedded_hal_nb::serial::Read::read(&mut self.rx)
+        embedded_hal_nb::serial::Read::read(&mut self.rx())
     }
 }
 
-impl<'d, UART: Uart> embedded_hal_0_2::serial::Write<u8> for UartDriver<'d, UART> {
+impl<'d> embedded_hal_0_2::serial::Write<u8> for UartDriver<'d> {
     type Error = SerialError;
 
     fn flush(&mut self) -> nb::Result<(), Self::Error> {
-        embedded_hal_0_2::serial::Write::flush(&mut self.tx)
+        embedded_hal_0_2::serial::Write::flush(&mut self.tx())
     }
 
     fn write(&mut self, byte: u8) -> nb::Result<(), Self::Error> {
-        embedded_hal_0_2::serial::Write::write(&mut self.tx, byte)
+        embedded_hal_0_2::serial::Write::write(&mut self.tx(), byte)
     }
 }
 
-impl<'d, UART: Uart> embedded_hal_nb::serial::Write<u8> for UartDriver<'d, UART> {
+impl<'d> embedded_hal_nb::serial::Write<u8> for UartDriver<'d> {
     fn flush(&mut self) -> nb::Result<(), Self::Error> {
-        embedded_hal_nb::serial::Write::flush(&mut self.tx)
+        embedded_hal_nb::serial::Write::flush(&mut self.tx())
     }
 
     fn write(&mut self, byte: u8) -> nb::Result<(), Self::Error> {
-        embedded_hal_nb::serial::Write::write(&mut self.tx, byte)
+        embedded_hal_nb::serial::Write::write(&mut self.tx(), byte)
     }
 }
 
-impl<'d, UART: Uart> core::fmt::Write for UartDriver<'d, UART> {
+impl<'d> core::fmt::Write for UartDriver<'d> {
     fn write_str(&mut self, s: &str) -> core::fmt::Result {
-        self.tx.write_str(s)
+        self.tx().write_str(s)
     }
 }
 
-impl<'d, UART: Uart> embedded_hal::serial::ErrorType for UartRxDriver<'d, UART> {
+impl<'d> embedded_hal::serial::ErrorType for UartRxDriver<'d> {
     type Error = SerialError;
 }
 
-impl<'d, UART: Uart> UartRxDriver<'d, UART> {
+impl<'d> UartRxDriver<'d> {
     /// Get count of bytes in the receive FIFO
     pub fn count(&self) -> Result<u8, EspError> {
         let mut size = 0_u32;
         esp_result!(
-            unsafe { uart_get_buffered_data_len(UART::port(), &mut size) },
+            unsafe { uart_get_buffered_data_len(self.port(), &mut size) },
             size as u8
         )
     }
@@ -529,7 +544,7 @@ impl<'d, UART: Uart> UartRxDriver<'d, UART> {
         // 0 means timeout and nothing is yet read out
         let len = unsafe {
             uart_read_bytes(
-                UART::port(),
+                self.port(),
                 buf.as_mut_ptr() as *mut _,
                 buf.len() as u32,
                 delay,
@@ -544,13 +559,17 @@ impl<'d, UART: Uart> UartRxDriver<'d, UART> {
     }
 
     pub fn flush(&self) -> Result<(), EspError> {
-        esp!(unsafe { uart_flush_input(UART::port()) })?;
+        esp!(unsafe { uart_flush_input(self.port()) })?;
 
         Ok(())
     }
+
+    pub fn port(&self) -> uart_port_t {
+        self.port as _
+    }
 }
 
-impl<'d, UART: Uart> embedded_hal_0_2::serial::Read<u8> for UartRxDriver<'d, UART> {
+impl<'d> embedded_hal_0_2::serial::Read<u8> for UartRxDriver<'d> {
     type Error = SerialError;
 
     fn read(&mut self) -> nb::Result<u8, Self::Error> {
@@ -562,7 +581,7 @@ impl<'d, UART: Uart> embedded_hal_0_2::serial::Read<u8> for UartRxDriver<'d, UAR
     }
 }
 
-impl<'d, UART: Uart> embedded_hal_nb::serial::Read<u8> for UartRxDriver<'d, UART> {
+impl<'d> embedded_hal_nb::serial::Read<u8> for UartRxDriver<'d> {
     fn read(&mut self) -> nb::Result<u8, Self::Error> {
         let mut buf = [0_u8];
 
@@ -572,12 +591,12 @@ impl<'d, UART: Uart> embedded_hal_nb::serial::Read<u8> for UartRxDriver<'d, UART
     }
 }
 
-impl<'d, UART: Uart> UartTxDriver<'d, UART> {
+impl<'d> UartTxDriver<'d> {
     /// Write multiple bytes from a slice
     pub fn write(&mut self, bytes: &[u8]) -> Result<usize, EspError> {
         // `uart_write_bytes()` returns error (-1) or how many bytes were written
         let len = unsafe {
-            uart_write_bytes(UART::port(), bytes.as_ptr() as *const _, bytes.len() as u32)
+            uart_write_bytes(self.port(), bytes.as_ptr() as *const _, bytes.len() as u32)
         };
 
         if len >= 0 {
@@ -588,17 +607,21 @@ impl<'d, UART: Uart> UartTxDriver<'d, UART> {
     }
 
     pub fn flush(&mut self) -> Result<(), EspError> {
-        esp!(unsafe { uart_wait_tx_done(UART::port(), 0) })?;
+        esp!(unsafe { uart_wait_tx_done(self.port(), 0) })?;
 
         Ok(())
     }
+
+    pub fn port(&self) -> uart_port_t {
+        self.port as _
+    }
 }
 
-impl<'d, UART: Uart> embedded_hal::serial::ErrorType for UartTxDriver<'d, UART> {
+impl<'d> embedded_hal::serial::ErrorType for UartTxDriver<'d> {
     type Error = SerialError;
 }
 
-impl<'d, UART: Uart> embedded_hal_0_2::serial::Write<u8> for UartTxDriver<'d, UART> {
+impl<'d> embedded_hal_0_2::serial::Write<u8> for UartTxDriver<'d> {
     type Error = SerialError;
 
     fn flush(&mut self) -> nb::Result<(), Self::Error> {
@@ -610,7 +633,7 @@ impl<'d, UART: Uart> embedded_hal_0_2::serial::Write<u8> for UartTxDriver<'d, UA
     }
 }
 
-impl<'d, UART: Uart> embedded_hal_nb::serial::Write<u8> for UartTxDriver<'d, UART> {
+impl<'d> embedded_hal_nb::serial::Write<u8> for UartTxDriver<'d> {
     fn flush(&mut self) -> nb::Result<(), Self::Error> {
         UartTxDriver::flush(self).map_err(to_nb_err)
     }
@@ -620,7 +643,7 @@ impl<'d, UART: Uart> embedded_hal_nb::serial::Write<u8> for UartTxDriver<'d, UAR
     }
 }
 
-impl<'d, UART: Uart> core::fmt::Write for UartTxDriver<'d, UART> {
+impl<'d> core::fmt::Write for UartTxDriver<'d> {
     fn write_str(&mut self, s: &str) -> core::fmt::Result {
         let buf = s.as_bytes();
         let mut offset = 0;

@@ -1,6 +1,8 @@
+use core::marker::PhantomData;
+
 use esp_idf_sys::*;
 
-use crate::peripheral::{Peripheral, PeripheralRef};
+use crate::peripheral::Peripheral;
 
 #[cfg(feature = "alloc")]
 extern crate alloc;
@@ -54,23 +56,16 @@ pub trait Timer: Send {
     fn index() -> timer_idx_t;
 }
 
-pub struct TimerDriver<'d, TIMER>
-where
-    TIMER: Timer,
-{
-    _timer: PeripheralRef<'d, TIMER>,
+pub struct TimerDriver<'d> {
+    timer: u8,
+    _p: PhantomData<&'d ()>,
 }
 
-impl<'d, TIMER> TimerDriver<'d, TIMER>
-where
-    TIMER: Timer,
-{
-    pub fn new(
-        timer: impl Peripheral<P = TIMER> + 'd,
+impl<'d> TimerDriver<'d> {
+    pub fn new<TIMER: Timer>(
+        _timer: impl Peripheral<P = TIMER> + 'd,
         config: &config::Config,
-    ) -> Result<TimerDriver<'d, TIMER>, EspError> {
-        crate::into_ref!(timer);
-
+    ) -> Result<Self, EspError> {
         esp!(unsafe {
             timer_init(
                 TIMER::group(),
@@ -94,16 +89,19 @@ where
             )
         })?;
 
-        Ok(TimerDriver { _timer: timer })
+        Ok(TimerDriver {
+            timer: ((TIMER::group() as u8) << 4) | (TIMER::index() as u8),
+            _p: PhantomData,
+        })
     }
 
     pub fn enable(&mut self, enable: bool) -> Result<(), EspError> {
         self.check();
 
         if enable {
-            esp!(unsafe { timer_start(TIMER::group(), TIMER::index()) })?;
+            esp!(unsafe { timer_start(self.group(), self.index()) })?;
         } else {
-            esp!(unsafe { timer_pause(TIMER::group(), TIMER::index()) })?;
+            esp!(unsafe { timer_pause(self.group(), self.index()) })?;
         }
 
         Ok(())
@@ -111,12 +109,12 @@ where
 
     pub fn counter(&self) -> Result<u64, EspError> {
         let value = if crate::interrupt::active() {
-            unsafe { timer_group_get_counter_value_in_isr(TIMER::group(), TIMER::index()) }
+            unsafe { timer_group_get_counter_value_in_isr(self.group(), self.index()) }
         } else {
             let mut value = 0_u64;
 
             esp!(unsafe {
-                timer_get_counter_value(TIMER::group(), TIMER::index(), &mut value as *mut _)
+                timer_get_counter_value(self.group(), self.index(), &mut value as *mut _)
             })?;
 
             value
@@ -128,7 +126,7 @@ where
     pub fn set_counter(&mut self, value: u64) -> Result<(), EspError> {
         self.check();
 
-        esp!(unsafe { timer_set_counter_value(TIMER::group(), TIMER::index(), value) })?;
+        esp!(unsafe { timer_set_counter_value(self.group(), self.index(), value) })?;
 
         Ok(())
     }
@@ -137,7 +135,7 @@ where
         if crate::interrupt::active() {
             if enable {
                 unsafe {
-                    timer_group_enable_alarm_in_isr(TIMER::group(), TIMER::index());
+                    timer_group_enable_alarm_in_isr(self.group(), self.index());
                 }
             } else {
                 panic!("Disabling alarm from an ISR is not supported");
@@ -145,8 +143,8 @@ where
         } else {
             esp!(unsafe {
                 timer_set_alarm(
-                    TIMER::group(),
-                    TIMER::index(),
+                    self.group(),
+                    self.index(),
                     if enable {
                         timer_alarm_t_TIMER_ALARM_EN
                     } else {
@@ -164,7 +162,7 @@ where
 
         let mut value = 0_u64;
 
-        esp!(unsafe { timer_get_alarm_value(TIMER::group(), TIMER::index(), &mut value) })?;
+        esp!(unsafe { timer_get_alarm_value(self.group(), self.index(), &mut value) })?;
 
         Ok(value)
     }
@@ -172,10 +170,10 @@ where
     pub fn set_alarm(&mut self, value: u64) -> Result<(), EspError> {
         if crate::interrupt::active() {
             unsafe {
-                timer_group_set_alarm_value_in_isr(TIMER::group(), TIMER::index(), value);
+                timer_group_set_alarm_value_in_isr(self.group(), self.index(), value);
             }
         } else {
-            esp!(unsafe { timer_set_alarm_value(TIMER::group(), TIMER::index(), value) })?;
+            esp!(unsafe { timer_set_alarm_value(self.group(), self.index(), value) })?;
         }
 
         Ok(())
@@ -184,7 +182,7 @@ where
     pub fn enable_interrupt(&mut self) -> Result<(), EspError> {
         self.check();
 
-        esp!(unsafe { timer_enable_intr(TIMER::group(), TIMER::index()) })?;
+        esp!(unsafe { timer_enable_intr(self.group(), self.index()) })?;
 
         Ok(())
     }
@@ -192,7 +190,7 @@ where
     pub fn disable_interrupt(&mut self) -> Result<(), EspError> {
         self.check();
 
-        esp!(unsafe { timer_disable_intr(TIMER::group(), TIMER::index()) })?;
+        esp!(unsafe { timer_disable_intr(self.group(), self.index()) })?;
 
         Ok(())
     }
@@ -209,16 +207,16 @@ where
 
         let callback: Box<dyn FnMut() + 'static> = Box::new(callback);
 
-        ISR_HANDLERS[(TIMER::group() * timer_group_t_TIMER_GROUP_MAX + TIMER::index()) as usize] =
+        ISR_HANDLERS[(self.group() * timer_group_t_TIMER_GROUP_MAX + self.index()) as usize] =
             Some(Box::new(callback));
 
         esp!(timer_isr_callback_add(
-            TIMER::group(),
-            TIMER::index(),
+            self.group(),
+            self.index(),
             Some(Self::handle_isr),
             UnsafeCallback::from(
                 ISR_HANDLERS
-                    [(TIMER::group() * timer_group_t_TIMER_GROUP_MAX + TIMER::index()) as usize]
+                    [(self.group() * timer_group_t_TIMER_GROUP_MAX + self.index()) as usize]
                     .as_mut()
                     .unwrap(),
             )
@@ -237,16 +235,15 @@ where
 
         unsafe {
             let subscribed = ISR_HANDLERS
-                [(TIMER::group() * timer_group_t_TIMER_GROUP_MAX + TIMER::index()) as usize]
+                [(self.group() * timer_group_t_TIMER_GROUP_MAX + self.index()) as usize]
                 .is_some();
 
             if subscribed {
-                esp!(timer_disable_intr(TIMER::group(), TIMER::index()))?;
-                esp!(timer_isr_callback_remove(TIMER::group(), TIMER::index()))?;
+                esp!(timer_disable_intr(self.group(), self.index()))?;
+                esp!(timer_isr_callback_remove(self.group(), self.index()))?;
 
                 ISR_HANDLERS
-                    [(TIMER::group() * timer_group_t_TIMER_GROUP_MAX + TIMER::index()) as usize] =
-                    None;
+                    [(self.group() * timer_group_t_TIMER_GROUP_MAX + self.index()) as usize] = None;
             }
         }
 
@@ -265,20 +262,28 @@ where
             UnsafeCallback::from_ptr(unsafe_callback).call();
         })
     }
+
+    pub fn group(&self) -> timer_group_t {
+        (self.timer >> 4) as _
+    }
+
+    pub fn index(&self) -> timer_idx_t {
+        (self.timer & 0xf) as _
+    }
 }
 
-impl<'d, TIMER: Timer> Drop for TimerDriver<'d, TIMER> {
+impl<'d> Drop for TimerDriver<'d> {
     fn drop(&mut self) {
         #[cfg(feature = "alloc")]
         {
             self.unsubscribe().unwrap();
         }
 
-        esp!(unsafe { timer_deinit(TIMER::group(), TIMER::index()) }).unwrap();
+        esp!(unsafe { timer_deinit(self.group(), self.index()) }).unwrap();
     }
 }
 
-unsafe impl<'d, TIMER: Timer> Send for TimerDriver<'d, TIMER> {}
+unsafe impl<'d> Send for TimerDriver<'d> {}
 
 #[cfg(feature = "alloc")]
 struct UnsafeCallback(*mut Box<dyn FnMut() + 'static>);

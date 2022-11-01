@@ -24,12 +24,13 @@
 //! See the `examples/` folder of this repository for more.
 
 use core::borrow::Borrow;
+use core::marker::PhantomData;
 use core::sync::atomic::{AtomicBool, Ordering};
 
 use esp_idf_sys::*;
 
 use crate::gpio::OutputPin;
-use crate::peripheral::{Peripheral, PeripheralRef};
+use crate::peripheral::Peripheral;
 use crate::task::CriticalSection;
 
 pub use chip::*;
@@ -92,19 +93,18 @@ pub mod config {
 }
 
 /// LED Control timer driver
-pub struct LedcTimerDriver<'d, T: LedcTimer> {
-    _timer: PeripheralRef<'d, T>,
+pub struct LedcTimerDriver<'d> {
+    timer: u8,
     speed_mode: ledc_mode_t,
     max_duty: Duty,
+    _p: PhantomData<&'d ()>,
 }
 
-impl<'d, T: LedcTimer> LedcTimerDriver<'d, T> {
-    pub fn new(
-        timer: impl Peripheral<P = T> + 'd,
+impl<'d> LedcTimerDriver<'d> {
+    pub fn new<T: LedcTimer>(
+        _timer: impl Peripheral<P = T> + 'd,
         config: &config::TimerConfig,
     ) -> Result<Self, EspError> {
-        crate::into_ref!(timer);
-
         let timer_config = ledc_timer_config_t {
             speed_mode: config.speed_mode,
             timer_num: T::timer(),
@@ -122,67 +122,66 @@ impl<'d, T: LedcTimer> LedcTimerDriver<'d, T> {
         esp!(unsafe { ledc_timer_config(&timer_config) })?;
 
         Ok(Self {
-            _timer: timer,
+            timer: T::timer() as _,
             speed_mode: config.speed_mode,
             max_duty: config.resolution.max_duty(),
+            _p: PhantomData,
         })
     }
 
     /// Pauses the timer. Operation can be resumed with [`resume_timer()`].
     pub fn pause(&mut self) -> Result<(), EspError> {
-        esp!(unsafe { ledc_timer_pause(self.speed_mode, T::timer()) })?;
+        esp!(unsafe { ledc_timer_pause(self.speed_mode, self.timer()) })?;
         Ok(())
     }
 
     /// Resumes the operation of the previously paused timer
     pub fn resume(&mut self) -> Result<(), EspError> {
-        esp!(unsafe { ledc_timer_resume(self.speed_mode, T::timer()) })?;
+        esp!(unsafe { ledc_timer_resume(self.speed_mode, self.timer()) })?;
         Ok(())
     }
 
     fn reset(&mut self) -> Result<(), EspError> {
-        esp!(unsafe { ledc_timer_rst(self.speed_mode, T::timer()) })?;
+        esp!(unsafe { ledc_timer_rst(self.speed_mode, self.timer()) })?;
         Ok(())
+    }
+
+    pub fn timer(&self) -> ledc_timer_t {
+        self.timer as _
     }
 }
 
-impl<'d, T: LedcTimer> Drop for LedcTimerDriver<'d, T> {
+impl<'d> Drop for LedcTimerDriver<'d> {
     fn drop(&mut self) {
         self.reset().unwrap();
     }
 }
 
-unsafe impl<'d, T: LedcTimer> Send for LedcTimerDriver<'d, T> {}
+unsafe impl<'d> Send for LedcTimerDriver<'d> {}
 
 /// LED Control driver
-pub struct LedcDriver<'d, C, B>
-where
-    C: LedcChannel,
-{
-    _channel: PeripheralRef<'d, C>,
-    _timer_driver: B,
+pub struct LedcDriver<'d> {
+    channel: u8,
+    timer: u8,
     duty: Duty,
     hpoint: HPoint,
     speed_mode: ledc_mode_t,
     max_duty: Duty,
+    _p: PhantomData<&'d ()>,
 }
 
 // TODO: Stop channel when the instance gets dropped. It seems that we can't
 // have both at the same time: a method for releasing its hardware resources
 // and implementing Drop.
-impl<'d, C: LedcChannel, B> LedcDriver<'d, C, B> {
+impl<'d> LedcDriver<'d> {
     /// Creates a new LED Control driver
-    pub fn new<T>(
-        channel: impl Peripheral<P = C> + 'd,
+    pub fn new<C: LedcChannel, B: Borrow<LedcTimerDriver<'d>>>(
+        _channel: impl Peripheral<P = C> + 'd,
         timer_driver: B,
         pin: impl Peripheral<P = impl OutputPin> + 'd,
         config: &config::TimerConfig,
-    ) -> Result<Self, EspError>
-    where
-        B: Borrow<LedcTimerDriver<'d, T>>,
-        T: LedcTimer + 'd,
-    {
-        crate::into_ref!(channel, pin);
+    ) -> Result<Self, EspError> {
+        crate::into_ref!(pin);
 
         let duty = 0;
         let hpoint = 0;
@@ -190,7 +189,7 @@ impl<'d, C: LedcChannel, B> LedcDriver<'d, C, B> {
         let channel_config = ledc_channel_config_t {
             speed_mode: config.speed_mode,
             channel: C::channel(),
-            timer_sel: T::timer(),
+            timer_sel: timer_driver.borrow().timer(),
             intr_type: ledc_intr_type_t_LEDC_INTR_DISABLE,
             gpio_num: pin.pin(),
             duty,
@@ -223,8 +222,9 @@ impl<'d, C: LedcChannel, B> LedcDriver<'d, C, B> {
             hpoint,
             speed_mode: timer_driver.borrow().speed_mode,
             max_duty: timer_driver.borrow().max_duty,
-            _channel: channel,
-            _timer_driver: timer_driver,
+            timer: timer_driver.borrow().timer() as _,
+            channel: C::channel() as _,
+            _p: PhantomData,
         })
     }
 
@@ -270,26 +270,34 @@ impl<'d, C: LedcChannel, B> LedcDriver<'d, C, B> {
     }
 
     fn stop(&mut self) -> Result<(), EspError> {
-        esp!(unsafe { ledc_stop(self.speed_mode, C::channel(), IDLE_LEVEL,) })?;
+        esp!(unsafe { ledc_stop(self.speed_mode, self.channel(), IDLE_LEVEL,) })?;
         Ok(())
     }
 
     fn update_duty(&mut self, duty: Duty, hpoint: HPoint) -> Result<(), EspError> {
-        esp!(unsafe { ledc_set_duty_and_update(self.speed_mode, C::channel(), duty, hpoint) })?;
+        esp!(unsafe { ledc_set_duty_and_update(self.speed_mode, self.channel(), duty, hpoint) })?;
         Ok(())
+    }
+
+    pub fn channel(&self) -> ledc_channel_t {
+        self.channel as _
+    }
+
+    pub fn timer(&self) -> ledc_timer_t {
+        self.timer as _
     }
 }
 
-impl<'d, C: LedcChannel, B> Drop for LedcDriver<'d, C, B> {
+impl<'d> Drop for LedcDriver<'d> {
     fn drop(&mut self) {
         self.stop().unwrap();
     }
 }
 
-unsafe impl<'d, C: LedcChannel, B> Send for LedcDriver<'d, C, B> {}
+unsafe impl<'d> Send for LedcDriver<'d> {}
 
 // PwmPin temporarily removed from embedded-hal-1.0.alpha7 in anticipation of e-hal 1.0 release
-// impl<'d, C: LedcChannel, B: Borrow<LedcTimerDriver<'d, T>>, T: LedcTimer> embedded_hal::pwm::blocking::PwmPin for LedcDriver<'d, C, B, T> {
+// impl<'d> embedded_hal::pwm::blocking::PwmPin for LedcDriver<'d> {
 //     type Duty = Duty;
 //     type Error = EspError;
 
@@ -314,7 +322,7 @@ unsafe impl<'d, C: LedcChannel, B> Send for LedcDriver<'d, C, B> {}
 //     }
 // }
 
-impl<'d, C: LedcChannel, B> embedded_hal_0_2::PwmPin for LedcDriver<'d, C, B> {
+impl<'d> embedded_hal_0_2::PwmPin for LedcDriver<'d> {
     type Duty = Duty;
 
     fn disable(&mut self) {
