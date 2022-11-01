@@ -87,6 +87,7 @@ pub type SpiMasterConfig = config::Config;
 pub mod config {
     use crate::spi::Dma;
     use crate::units::*;
+    use esp_idf_sys::*;
 
     pub struct V02Type<T>(pub T);
 
@@ -121,6 +122,26 @@ pub mod config {
         }
     }
 
+    /// Specify the communication mode with the device
+    #[derive(Copy, Clone)]
+    pub enum Duplex {
+        /// Full duplex is the default
+        Full,
+        /// Half duplex in some cases
+        Half,
+        /// Use MOSI (=spid) for both sending and receiving data (implies half duplex)
+        Half3Wire,
+    }
+    impl Duplex {
+        pub fn as_flags(&self) -> u32 {
+            match self {
+                Duplex::Full => 0,
+                Duplex::Half => SPI_DEVICE_HALFDUPLEX,
+                Duplex::Half3Wire => SPI_DEVICE_HALFDUPLEX | SPI_DEVICE_3WIRE,
+            }
+        }
+    }
+
     /// SPI configuration
     #[derive(Copy, Clone)]
     pub struct Config {
@@ -132,6 +153,7 @@ pub mod config {
         /// See https://docs.espressif.com/projects/esp-idf/en/latest/esp32/api-reference/peripherals/spi_master.html#timing-considerations
         pub write_only: bool,
         pub dma: Dma,
+        pub duplex: Duplex,
     }
 
     impl Config {
@@ -160,6 +182,11 @@ pub mod config {
             self.dma = dma;
             self
         }
+
+        pub fn duplex(mut self, duplex: Duplex) -> Self {
+            self.duplex = duplex;
+            self
+        }
     }
 
     impl Default for Config {
@@ -169,6 +196,7 @@ pub mod config {
                 data_mode: embedded_hal::spi::MODE_0,
                 write_only: false,
                 dma: Dma::Disabled,
+                duplex: Duplex::Full,
             }
         }
     }
@@ -404,7 +432,7 @@ impl<'d> SpiMasterDriver<'d> {
                 SPI_DEVICE_NO_DUMMY
             } else {
                 0_u32
-            },
+            } | config.duplex.as_flags(),
             ..Default::default()
         };
 
