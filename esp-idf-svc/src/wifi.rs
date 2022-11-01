@@ -1,4 +1,5 @@
 use core::cmp;
+use core::marker::PhantomData;
 use core::ptr;
 use core::time::Duration;
 
@@ -12,7 +13,7 @@ use enumset::*;
 use embedded_svc::wifi::*;
 
 use esp_idf_hal::modem::WifiModemPeripheral;
-use esp_idf_hal::peripheral::{Peripheral, PeripheralRef};
+use esp_idf_hal::peripheral::Peripheral;
 
 use esp_idf_sys::*;
 
@@ -235,50 +236,46 @@ static mut RX_CALLBACK: Option<
 #[allow(clippy::type_complexity)]
 static mut TX_CALLBACK: Option<Box<dyn FnMut(WifiDeviceId, &[u8], bool) + 'static>> = None;
 
-pub struct WifiDriver<'d, M: WifiModemPeripheral> {
-    _modem: PeripheralRef<'d, M>,
+pub struct WifiDriver<'d> {
     status: Arc<mutex::Mutex<(WifiEvent, WifiEvent)>>,
     _subscription: EspSubscription<System>,
     #[cfg(all(feature = "alloc", esp_idf_comp_nvs_flash_enabled))]
     _nvs: Option<EspDefaultNvsPartition>,
+    _p: PhantomData<&'d mut ()>,
 }
 
-impl<'d, M: WifiModemPeripheral + 'd> WifiDriver<'d, M> {
+impl<'d> WifiDriver<'d> {
     #[cfg(all(feature = "alloc", esp_idf_comp_nvs_flash_enabled))]
-    pub fn new(
-        modem: impl Peripheral<P = M> + 'd,
+    pub fn new<M: WifiModemPeripheral>(
+        _modem: impl Peripheral<P = M> + 'd,
         sysloop: EspSystemEventLoop,
         nvs: Option<EspDefaultNvsPartition>,
     ) -> Result<Self, EspError> {
-        esp_idf_hal::into_ref!(modem);
-
         Self::init(nvs.is_some())?;
 
         let (status, subscription) = Self::subscribe(&sysloop)?;
 
         Ok(Self {
-            _modem: modem,
             status,
             _subscription: subscription,
             _nvs: nvs,
+            _p: PhantomData,
         })
     }
 
     #[cfg(not(all(feature = "alloc", esp_idf_comp_nvs_flash_enabled)))]
-    pub fn new(
-        modem: impl Peripheral<P = M> + 'd,
+    pub fn new<M: WifiModemPeripheral>(
+        _modem: impl Peripheral<P = M> + 'd,
         sysloop: EspSystemEventLoop,
     ) -> Result<Self, EspError> {
-        crate::into_ref!(modem);
-
         Self::init(false)?;
 
         let (status, subscription) = Self::subscribe(&sysloop)?;
 
         Ok(Self {
-            _modem: modem,
             status,
             _subscription: subscription,
+            _p: PhantomData,
         })
     }
 
@@ -782,9 +779,9 @@ impl<'d, M: WifiModemPeripheral + 'd> WifiDriver<'d, M> {
     }
 }
 
-unsafe impl<'d, M: WifiModemPeripheral> Send for WifiDriver<'d, M> {}
+unsafe impl<'d> Send for WifiDriver<'d> {}
 
-impl<'d, M: WifiModemPeripheral> Drop for WifiDriver<'d, M> {
+impl<'d> Drop for WifiDriver<'d> {
     fn drop(&mut self) {
         self.clear_all().unwrap();
 
@@ -792,10 +789,7 @@ impl<'d, M: WifiModemPeripheral> Drop for WifiDriver<'d, M> {
     }
 }
 
-impl<'d, M> Wifi for WifiDriver<'d, M>
-where
-    M: WifiModemPeripheral,
-{
+impl<'d> Wifi for WifiDriver<'d> {
     type Error = EspError;
 
     fn get_capabilities(&self) -> Result<EnumSet<Capability>, Self::Error> {
@@ -846,22 +840,16 @@ where
 }
 
 #[cfg(esp_idf_comp_esp_netif_enabled)]
-pub struct EspWifi<'d, M>
-where
-    M: WifiModemPeripheral,
-{
-    driver: WifiDriver<'d, M>,
+pub struct EspWifi<'d> {
+    driver: WifiDriver<'d>,
     sta_netif: EspNetif,
     ap_netif: EspNetif,
 }
 
 #[cfg(esp_idf_comp_esp_netif_enabled)]
-impl<'d, M> EspWifi<'d, M>
-where
-    M: WifiModemPeripheral,
-{
+impl<'d> EspWifi<'d> {
     #[cfg(all(feature = "alloc", esp_idf_comp_nvs_flash_enabled))]
-    pub fn new(
+    pub fn new<M: WifiModemPeripheral>(
         modem: impl Peripheral<P = M> + 'd,
         sysloop: EspSystemEventLoop,
         nvs: Option<EspDefaultNvsPartition>,
@@ -870,14 +858,14 @@ where
     }
 
     #[cfg(not(all(feature = "alloc", esp_idf_comp_nvs_flash_enabled)))]
-    pub fn new(
+    pub fn new<M: WifiModemPeripheral>(
         modem: impl Peripheral<P = M> + 'd,
         sysloop: EspSystemEventLoop,
     ) -> Result<Self, EspError> {
         Self::wrap(WifiDriver::new(modem, sysloop)?)
     }
 
-    pub fn wrap(driver: WifiDriver<'d, M>) -> Result<Self, EspError> {
+    pub fn wrap(driver: WifiDriver<'d>) -> Result<Self, EspError> {
         Self::wrap_all(
             driver,
             EspNetif::new(NetifStack::Sta)?,
@@ -886,7 +874,7 @@ where
     }
 
     pub fn wrap_all(
-        driver: WifiDriver<'d, M>,
+        driver: WifiDriver<'d>,
         sta_netif: EspNetif,
         ap_netif: EspNetif,
     ) -> Result<Self, EspError> {
@@ -916,11 +904,11 @@ where
         Ok((old_sta, old_ap))
     }
 
-    pub fn driver(&self) -> &WifiDriver<'d, M> {
+    pub fn driver(&self) -> &WifiDriver<'d> {
         &self.driver
     }
 
-    pub fn driver_mut(&mut self) -> &mut WifiDriver<'d, M> {
+    pub fn driver_mut(&mut self) -> &mut WifiDriver<'d> {
         &mut self.driver
     }
 
@@ -1026,22 +1014,16 @@ where
 }
 
 #[cfg(esp_idf_comp_esp_netif_enabled)]
-impl<'d, M> Drop for EspWifi<'d, M>
-where
-    M: WifiModemPeripheral,
-{
+impl<'d> Drop for EspWifi<'d> {
     fn drop(&mut self) {
         self.detach_netif().unwrap();
     }
 }
 
-unsafe impl<'d, M: WifiModemPeripheral> Send for EspWifi<'d, M> {}
+unsafe impl<'d> Send for EspWifi<'d> {}
 
 #[cfg(esp_idf_comp_esp_netif_enabled)]
-impl<'d, M> Wifi for EspWifi<'d, M>
-where
-    M: WifiModemPeripheral,
-{
+impl<'d> Wifi for EspWifi<'d> {
     type Error = EspError;
 
     fn get_capabilities(&self) -> Result<EnumSet<Capability>, Self::Error> {

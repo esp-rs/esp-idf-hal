@@ -1,4 +1,5 @@
 use core::fmt::Debug;
+use core::marker::PhantomData;
 use core::ptr;
 use core::time::Duration;
 
@@ -156,17 +157,17 @@ enum Status {
     Disconnected,
 }
 
-pub struct EthDriver<'d, P> {
-    _peripheral: PeripheralRef<'d, P>,
+pub struct EthDriver<'d> {
     spi: Option<(spi_device_handle_t, spi_host_device_t)>,
     handle: esp_eth_handle_t,
     status: Arc<mutex::Mutex<Status>>,
     _subscription: EspSubscription<System>,
     callback: Option<Box<RawCallback>>,
+    _p: PhantomData<&'d mut ()>,
 }
 
 #[cfg(all(esp32, esp_idf_eth_use_esp32_emac))]
-impl<'d> EthDriver<'d, MAC> {
+impl<'d> EthDriver<'d> {
     #[allow(clippy::too_many_arguments)]
     pub fn new_rmii(
         mac: impl Peripheral<P = MAC> + 'd,
@@ -266,7 +267,7 @@ impl<'d> EthDriver<'d, MAC> {
 }
 
 #[cfg(esp_idf_eth_use_openeth)]
-impl<'d> EthDriver<'d, MAC> {
+impl<'d> EthDriver<'d> {
     pub fn new_openeth(
         mac: esp_idf_hal::mac::Mac,
         sysloop: EspSystemEventLoop,
@@ -290,8 +291,8 @@ impl<'d> EthDriver<'d, MAC> {
     esp_idf_eth_spi_ethernet_w5500,
     esp_idf_eth_spi_ethernet_ksz8851snl
 ))]
-impl<'d, P: Spi> EthDriver<'d, P> {
-    pub fn new_spi(
+impl<'d> EthDriver<'d> {
+    pub fn new_spi<P: Spi>(
         spi: impl Peripheral<P = P> + 'd,
         int: impl Peripheral<P = impl gpio::InputPin> + 'd,
         sclk: impl Peripheral<P = impl gpio::OutputPin> + 'd,
@@ -470,9 +471,9 @@ impl<'d, P: Spi> EthDriver<'d, P> {
     }
 }
 
-impl<'d, P> EthDriver<'d, P> {
-    fn init(
-        peripheral: PeripheralRef<'d, P>,
+impl<'d> EthDriver<'d> {
+    fn init<P>(
+        _peripheral: PeripheralRef<'d, P>,
         mac: *mut esp_eth_mac_t,
         phy: *mut esp_eth_phy_t,
         mac_addr: Option<&[u8; 6]>,
@@ -501,12 +502,12 @@ impl<'d, P> EthDriver<'d, P> {
         let (waitable, subscription) = Self::subscribe(handle, &sysloop)?;
 
         let eth = Self {
-            _peripheral: peripheral,
             handle,
             spi,
             status: waitable,
             _subscription: subscription,
             callback: None,
+            _p: PhantomData,
         };
 
         info!("Initialization complete");
@@ -680,7 +681,7 @@ impl<'d, P> EthDriver<'d, P> {
     }
 }
 
-impl<'d, P> Eth for EthDriver<'d, P> {
+impl<'d> Eth for EthDriver<'d> {
     type Error = EspError;
 
     fn start(&mut self) -> Result<(), Self::Error> {
@@ -700,9 +701,9 @@ impl<'d, P> Eth for EthDriver<'d, P> {
     }
 }
 
-unsafe impl<'d, P> Send for EthDriver<'d, P> {}
+unsafe impl<'d> Send for EthDriver<'d> {}
 
-impl<'d, P> Drop for EthDriver<'d, P> {
+impl<'d> Drop for EthDriver<'d> {
     fn drop(&mut self) {
         self.clear_all().unwrap();
 
@@ -715,7 +716,7 @@ impl<'d, P> Drop for EthDriver<'d, P> {
     }
 }
 
-impl<'d, P> RawHandle for EthDriver<'d, P> {
+impl<'d> RawHandle for EthDriver<'d> {
     type Handle = esp_eth_handle_t;
 
     fn handle(&self) -> Self::Handle {
@@ -724,19 +725,19 @@ impl<'d, P> RawHandle for EthDriver<'d, P> {
 }
 
 #[cfg(esp_idf_comp_esp_netif_enabled)]
-pub struct EspEth<'d, P> {
-    driver: EthDriver<'d, P>,
+pub struct EspEth<'d> {
+    driver: EthDriver<'d>,
     netif: EspNetif,
     glue_handle: *mut esp_eth_netif_glue_t,
 }
 
 #[cfg(esp_idf_comp_esp_netif_enabled)]
-impl<'d, P> EspEth<'d, P> {
-    pub fn wrap(driver: EthDriver<'d, P>) -> Result<Self, EspError> {
+impl<'d> EspEth<'d> {
+    pub fn wrap(driver: EthDriver<'d>) -> Result<Self, EspError> {
         Self::wrap_all(driver, EspNetif::new(NetifStack::Eth)?)
     }
 
-    pub fn wrap_all(driver: EthDriver<'d, P>, netif: EspNetif) -> Result<Self, EspError> {
+    pub fn wrap_all(driver: EthDriver<'d>, netif: EspNetif) -> Result<Self, EspError> {
         let mut this = Self {
             driver,
             netif,
@@ -758,11 +759,11 @@ impl<'d, P> EspEth<'d, P> {
         Ok(old_netif)
     }
 
-    pub fn driver(&self) -> &EthDriver<'d, P> {
+    pub fn driver(&self) -> &EthDriver<'d> {
         &self.driver
     }
 
-    pub fn driver_mut(&mut self) -> &mut EthDriver<'d, P> {
+    pub fn driver_mut(&mut self) -> &mut EthDriver<'d> {
         &mut self.driver
     }
 
@@ -814,16 +815,16 @@ impl<'d, P> EspEth<'d, P> {
 }
 
 #[cfg(esp_idf_comp_esp_netif_enabled)]
-impl<'d, P> Drop for EspEth<'d, P> {
+impl<'d> Drop for EspEth<'d> {
     fn drop(&mut self) {
         self.detach_netif().unwrap();
     }
 }
 
-unsafe impl<'d, P> Send for EspEth<'d, P> {}
+unsafe impl<'d> Send for EspEth<'d> {}
 
 #[cfg(esp_idf_comp_esp_netif_enabled)]
-impl<'d, P> RawHandle for EspEth<'d, P> {
+impl<'d> RawHandle for EspEth<'d> {
     type Handle = *mut esp_eth_netif_glue_t;
 
     fn handle(&self) -> Self::Handle {
@@ -831,7 +832,7 @@ impl<'d, P> RawHandle for EspEth<'d, P> {
     }
 }
 
-impl<'d, P> Eth for EspEth<'d, P> {
+impl<'d> Eth for EspEth<'d> {
     type Error = EspError;
 
     fn start(&mut self) -> Result<(), Self::Error> {
