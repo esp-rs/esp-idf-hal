@@ -97,7 +97,7 @@ pub struct LedcTimerDriver<'d> {
     timer: u8,
     speed_mode: ledc_mode_t,
     max_duty: Duty,
-    _p: PhantomData<&'d ()>,
+    _p: PhantomData<&'d mut ()>,
 }
 
 impl<'d> LedcTimerDriver<'d> {
@@ -167,7 +167,7 @@ pub struct LedcDriver<'d> {
     hpoint: HPoint,
     speed_mode: ledc_mode_t,
     max_duty: Duty,
-    _p: PhantomData<&'d ()>,
+    _p: PhantomData<&'d mut ()>,
 }
 
 // TODO: Stop channel when the instance gets dropped. It seems that we can't

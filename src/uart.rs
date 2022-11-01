@@ -285,19 +285,19 @@ crate::embedded_hal_error!(
 ///
 pub struct UartDriver<'d> {
     port: u8,
-    _p: PhantomData<&'d ()>,
+    _p: PhantomData<&'d mut ()>,
 }
 
 /// Serial receiver
 pub struct UartRxDriver<'d> {
     port: u8,
-    _p: PhantomData<&'d ()>,
+    _p: PhantomData<&'d mut ()>,
 }
 
 /// Serial transmitter
 pub struct UartTxDriver<'d> {
     port: u8,
-    _p: PhantomData<&'d ()>,
+    _p: PhantomData<&'d mut ()>,
 }
 
 impl<'d> UartDriver<'d> {

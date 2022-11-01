@@ -344,7 +344,7 @@ pub mod config {
 /// See the [rmt module][crate::rmt] for more information.
 pub struct RmtDriver<'d> {
     channel: u8,
-    _p: PhantomData<&'d ()>,
+    _p: PhantomData<&'d mut ()>,
 }
 
 impl<'d> RmtDriver<'d> {

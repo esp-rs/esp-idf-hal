@@ -205,7 +205,7 @@ pub mod config {
 pub struct SpiBusMasterDriver<'d> {
     handle: spi_device_handle_t,
     trans_len: usize,
-    _p: PhantomData<&'d ()>,
+    _p: PhantomData<&'d mut ()>,
 }
 
 impl<'d> SpiBusMasterDriver<'d> {
@@ -331,7 +331,7 @@ pub struct SpiMasterDriver<'d> {
     host: u8,
     device: spi_device_handle_t,
     max_transfer_size: usize,
-    _p: PhantomData<&'d ()>,
+    _p: PhantomData<&'d mut ()>,
 }
 
 impl<'d> SpiMasterDriver<'d> {

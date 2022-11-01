@@ -123,7 +123,7 @@ pub trait I2c: Send {
 
 pub struct I2cMasterDriver<'d> {
     i2c: u8,
-    _p: PhantomData<&'d ()>,
+    _p: PhantomData<&'d mut ()>,
 }
 
 impl<'d> I2cMasterDriver<'d> {
@@ -397,7 +397,7 @@ fn to_i2c_err(err: EspError) -> I2cError {
 
 pub struct I2cSlaveDriver<'d> {
     i2c: u8,
-    _p: PhantomData<&'d ()>,
+    _p: PhantomData<&'d mut ()>,
 }
 
 unsafe impl<'d> Send for I2cSlaveDriver<'d> {}

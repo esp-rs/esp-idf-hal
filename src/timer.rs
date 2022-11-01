@@ -58,7 +58,7 @@ pub trait Timer: Send {
 
 pub struct TimerDriver<'d> {
     timer: u8,
-    _p: PhantomData<&'d ()>,
+    _p: PhantomData<&'d mut ()>,
 }
 
 impl<'d> TimerDriver<'d> {
