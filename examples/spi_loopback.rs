@@ -11,11 +11,9 @@
 //! This example transfers data via SPI.
 //! Connect SDI and SDO pins to see the outgoing data is read as incoming data.
 
-use std::thread;
-use std::time::Duration;
-
 use embedded_hal::spi::SpiDevice;
 
+use esp_idf_hal::delay::FreeRtos;
 use esp_idf_hal::peripherals::Peripherals;
 use esp_idf_hal::prelude::*;
 use esp_idf_hal::spi::*;
@@ -34,14 +32,14 @@ fn main() -> anyhow::Result<()> {
     println!("Starting SPI loopback test");
     let config = config::Config::new().baudrate(26.MHz().into());
     let mut spi =
-        SpiMasterDriver::<SPI2>::new(spi, sclk, serial_out, Some(serial_in), Some(cs), &config)?;
+        SpiMasterDriver::new::<SPI2>(spi, sclk, serial_out, Some(serial_in), Some(cs), &config)?;
 
     let mut read = [0u8; 4];
     let write = [0xde, 0xad, 0xbe, 0xef];
 
     loop {
         // we are using thread::sleep here to make sure the watchdog isn't triggered
-        thread::sleep(Duration::from_millis(500));
+        FreeRtos::delay_ms(500);
         spi.transfer(&mut read, &write)?;
         println!("Wrote {:x?}, read {:x?}", write, read);
     }

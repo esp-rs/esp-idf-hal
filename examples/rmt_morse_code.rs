@@ -65,11 +65,11 @@ fn main() -> anyhow::Result<()> {
 }
 
 fn send_morse_code<'d>(
-    channel: impl Peripheral<P = CHANNEL0> + 'd,
+    channel: impl Peripheral<P = impl RmtChannel> + 'd,
     led: impl Peripheral<P = impl OutputPin> + 'd,
     config: &TransmitConfig,
     message: &str,
-) -> anyhow::Result<RmtDriver<'d, CHANNEL0>> {
+) -> anyhow::Result<RmtDriver<'d>> {
     println!("Sending morse message '{}'.", message);
 
     let mut signal = VariableLengthSignal::new();
