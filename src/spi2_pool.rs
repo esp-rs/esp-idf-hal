@@ -15,9 +15,14 @@ use esp_idf_sys::*;
 // needed to makte SpiBusMasterDriver fields pub because different module
 // needed to make SpiBusMasterDriver flush fn pub
 
+// TODO after interupt support of spi driver->
+// try utilize transaction_cb_t pre_cb transaction_cb_t post_cb
+// for software cs to boost performance
+
+
 // performance measurment on esp32c3 -> 
 // debug build: 50 uS deley between cs low -> first clk out
-// release build : 15 uS deley between cs low -> first cll out
+// release build : 15 uS deley between cs low -> first clk out
 
 // debug build: 4uS delay between last clk out -> cs pin high
 // release build: 3uS delay between last clk out -> cs pin high

@@ -183,6 +183,7 @@ pub mod config {
     }
 }
 
+// make fields pub (crate) ? 
 pub struct SpiBusMasterDriver<'d> {
     pub handle: spi_device_handle_t,
     pub trans_len: usize,
