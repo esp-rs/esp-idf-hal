@@ -54,7 +54,7 @@ pub mod config {
     pub struct TimerConfig {
         pub frequency: Hertz,
         pub resolution: Resolution,
-        pub speed_mode: ledc_mode_t,
+        pub speed_mode: SpeedMode,
     }
 
     impl TimerConfig {
@@ -75,7 +75,7 @@ pub mod config {
         }
 
         #[must_use]
-        pub fn speed_mode(mut self, mode: ledc_mode_t) -> Self {
+        pub fn speed_mode(mut self, mode: SpeedMode) -> Self {
             self.speed_mode = mode;
             self
         }
@@ -86,7 +86,7 @@ pub mod config {
             TimerConfig {
                 frequency: 1000.Hz(),
                 resolution: Resolution::Bits8,
-                speed_mode: ledc_mode_t_LEDC_LOW_SPEED_MODE,
+                speed_mode: SpeedMode::LowSpeed,
             }
         }
     }
@@ -95,7 +95,7 @@ pub mod config {
 /// LED Control timer driver
 pub struct LedcTimerDriver<'d> {
     timer: u8,
-    speed_mode: ledc_mode_t,
+    speed_mode: SpeedMode,
     max_duty: Duty,
     _p: PhantomData<&'d mut ()>,
 }
@@ -106,7 +106,7 @@ impl<'d> LedcTimerDriver<'d> {
         config: &config::TimerConfig,
     ) -> Result<Self, EspError> {
         let timer_config = ledc_timer_config_t {
-            speed_mode: config.speed_mode,
+            speed_mode: config.speed_mode.into(),
             timer_num: T::timer(),
             #[cfg(esp_idf_version_major = "4")]
             __bindgen_anon_1: ledc_timer_config_t__bindgen_ty_1 {
@@ -131,18 +131,18 @@ impl<'d> LedcTimerDriver<'d> {
 
     /// Pauses the timer. Operation can be resumed with [`resume_timer()`].
     pub fn pause(&mut self) -> Result<(), EspError> {
-        esp!(unsafe { ledc_timer_pause(self.speed_mode, self.timer()) })?;
+        esp!(unsafe { ledc_timer_pause(self.speed_mode.into(), self.timer()) })?;
         Ok(())
     }
 
     /// Resumes the operation of the previously paused timer
     pub fn resume(&mut self) -> Result<(), EspError> {
-        esp!(unsafe { ledc_timer_resume(self.speed_mode, self.timer()) })?;
+        esp!(unsafe { ledc_timer_resume(self.speed_mode.into(), self.timer()) })?;
         Ok(())
     }
 
     fn reset(&mut self) -> Result<(), EspError> {
-        esp!(unsafe { ledc_timer_rst(self.speed_mode, self.timer()) })?;
+        esp!(unsafe { ledc_timer_rst(self.speed_mode.into(), self.timer()) })?;
         Ok(())
     }
 
@@ -165,7 +165,7 @@ pub struct LedcDriver<'d> {
     timer: u8,
     duty: Duty,
     hpoint: HPoint,
-    speed_mode: ledc_mode_t,
+    speed_mode: SpeedMode,
     max_duty: Duty,
     _p: PhantomData<&'d mut ()>,
 }
@@ -187,7 +187,7 @@ impl<'d> LedcDriver<'d> {
         let hpoint = 0;
 
         let channel_config = ledc_channel_config_t {
-            speed_mode: config.speed_mode,
+            speed_mode: config.speed_mode.into(),
             channel: C::channel(),
             timer_sel: timer_driver.borrow().timer(),
             intr_type: ledc_intr_type_t_LEDC_INTR_DISABLE,
@@ -261,8 +261,9 @@ impl<'d> LedcDriver<'d> {
     pub fn set_duty_with_hpoint(&mut self, duty: Duty, hpoint: HPoint) -> Result<(), EspError> {
         // Clamp the actual duty cycle to the current maximum as done by other
         // Pwm/PwmPin implementations.
-        let clamped_duty = duty.min(self.get_max_duty());
-        let clamped_hpoint = hpoint.min(clamped_duty);
+        let max_duty = self.get_max_duty();
+        let clamped_duty = duty.min(max_duty);
+        let clamped_hpoint = hpoint.min(max_duty);
         self.duty = clamped_duty;
         self.hpoint = clamped_hpoint;
         self.update_duty(clamped_duty, clamped_hpoint)?;
@@ -270,12 +271,14 @@ impl<'d> LedcDriver<'d> {
     }
 
     fn stop(&mut self) -> Result<(), EspError> {
-        esp!(unsafe { ledc_stop(self.speed_mode, self.channel(), IDLE_LEVEL,) })?;
+        esp!(unsafe { ledc_stop(self.speed_mode.into(), self.channel(), IDLE_LEVEL,) })?;
         Ok(())
     }
 
     fn update_duty(&mut self, duty: Duty, hpoint: HPoint) -> Result<(), EspError> {
-        esp!(unsafe { ledc_set_duty_and_update(self.speed_mode, self.channel(), duty, hpoint) })?;
+        esp!(unsafe {
+            ledc_set_duty_and_update(self.speed_mode.into(), self.channel(), duty, hpoint)
+        })?;
         Ok(())
     }
 
@@ -449,6 +452,27 @@ mod chip {
                 Resolution::Bits19 => ledc_timer_bit_t_LEDC_TIMER_19_BIT,
                 #[cfg(esp32)]
                 Resolution::Bits20 => ledc_timer_bit_t_LEDC_TIMER_20_BIT,
+            }
+        }
+    }
+
+    /// Ledc Speed Mode
+    #[derive(PartialEq, Eq, Copy, Clone, Debug, Default)]
+    pub enum SpeedMode {
+        #[cfg(esp_idf_soc_ledc_support_hs_mode)]
+        /// High Speed Mode. Currently only supported on the ESP32.
+        HighSpeed,
+        /// Low Speed Mode. The only configuration supported on ESP32S2, ESP32S3, ESP32C2 and ESP32C3.
+        #[default]
+        LowSpeed,
+    }
+
+    impl From<SpeedMode> for ledc_mode_t {
+        fn from(speed_mode: SpeedMode) -> Self {
+            match speed_mode {
+                #[cfg(esp_idf_soc_ledc_support_hs_mode)]
+                SpeedMode::HighSpeed => ledc_mode_t_LEDC_HIGH_SPEED_MODE,
+                SpeedMode::LowSpeed => ledc_mode_t_LEDC_LOW_SPEED_MODE,
             }
         }
     }
