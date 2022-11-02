@@ -94,8 +94,8 @@ pub type SpiMasterConfig = config::Config;
 
 /// SPI configuration
 pub mod config {
-    use crate::spi::Dma;
     use crate::units::*;
+    use esp_idf_sys::*;
 
     pub struct V02Type<T>(pub T);
 
@@ -130,6 +130,26 @@ pub mod config {
         }
     }
 
+    /// Specify the communication mode with the device
+    #[derive(Copy, Clone)]
+    pub enum Duplex {
+        /// Full duplex is the default
+        Full,
+        /// Half duplex in some cases
+        Half,
+        /// Use MOSI (=spid) for both sending and receiving data (implies half duplex)
+        Half3Wire,
+    }
+    impl Duplex {
+        pub fn as_flags(&self) -> u32 {
+            match self {
+                Duplex::Full => 0,
+                Duplex::Half => SPI_DEVICE_HALFDUPLEX,
+                Duplex::Half3Wire => SPI_DEVICE_HALFDUPLEX | SPI_DEVICE_3WIRE,
+            }
+        }
+    }
+
     /// SPI configuration
     #[derive(Copy, Clone)]
     pub struct Config {
@@ -140,7 +160,7 @@ pub mod config {
         /// it will unlock the possibility of using 80Mhz as the bus freq
         /// See https://docs.espressif.com/projects/esp-idf/en/latest/esp32/api-reference/peripherals/spi_master.html#timing-considerations
         pub write_only: bool,
-        pub dma: Dma,
+        pub duplex: Duplex,
     }
 
     impl Config {
@@ -165,8 +185,8 @@ pub mod config {
             self
         }
 
-        pub fn dma(mut self, dma: Dma) -> Self {
-            self.dma = dma;
+        pub fn duplex(mut self, duplex: Duplex) -> Self {
+            self.duplex = duplex;
             self
         }
     }
@@ -177,7 +197,7 @@ pub mod config {
                 baudrate: Hertz(1_000_000),
                 data_mode: embedded_hal::spi::MODE_0,
                 write_only: false,
-                dma: Dma::Disabled,
+                duplex: Duplex::Full,
             }
         }
     }
@@ -311,6 +331,7 @@ impl<'d> SpiBus for SpiBusMasterDriver<'d> {
 
 pub struct SpiMasterDriver<'d> {
     pub handle: Mutex<spi_host_device_t>,
+    max_transfer_size: usize,
     _p: PhantomData<&'d ()>,
 }
 
@@ -320,10 +341,12 @@ impl<'d> SpiMasterDriver<'d> {
         sclk: impl Peripheral<P = gpio::Gpio6> + 'd,
         sdo: impl Peripheral<P = gpio::Gpio7> + 'd,
         sdi: Option<impl Peripheral<P = gpio::Gpio8> + 'd>,
+        dma: Option<Dma>,
     ) -> Result<Self, EspError> {
-        Self::new_internal_bus::<SPI>(sclk, sdo, sdi)?;
+        let max_transfer_size = Self::new_internal_bus::<SPI>(sclk, sdo, sdi, dma)?;
         Ok(Self {
             handle: Mutex::new(SPI::device()),
+            max_transfer_size,
             _p: PhantomData,
         })
     }
@@ -333,10 +356,12 @@ impl<'d> SpiMasterDriver<'d> {
         sclk: impl Peripheral<P = impl OutputPin> + 'd,
         sdo: impl Peripheral<P = impl OutputPin> + 'd,
         sdi: Option<impl Peripheral<P = impl InputPin + OutputPin> + 'd>,
+        dma: Option<Dma>,
     ) -> Result<Self, EspError> {
-        Self::new_internal_bus::<SPI>(sclk, sdo, sdi)?;
+        let max_transfer_size = Self::new_internal_bus::<SPI>(sclk, sdo, sdi, dma)?;
         Ok(Self {
             handle: Mutex::new(SPI::device()),
+            max_transfer_size,
             _p: PhantomData,
         })
     }
@@ -344,9 +369,17 @@ impl<'d> SpiMasterDriver<'d> {
         sclk: impl Peripheral<P = impl OutputPin> + 'd,
         sdo: impl Peripheral<P = impl OutputPin> + 'd,
         sdi: Option<impl Peripheral<P = impl InputPin + OutputPin> + 'd>,
-    ) -> Result<(), EspError> {
+        dma: Option<Dma>,
+    ) -> Result<usize, EspError> {
         crate::into_ref!(sclk, sdo);
         let sdi = sdi.map(|sdi| sdi.into_ref());
+
+        let mut max_transfer_sz = TRANS_LEN;
+        let mut dma_chan: spi_dma_chan_t = Dma::Disabled.into();
+        if dma.is_some() {
+            max_transfer_sz = dma.unwrap().max_transfer_size();
+            dma_chan = dma.unwrap().into();
+        }
 
         #[cfg(not(esp_idf_version = "4.3"))]
         let bus_config = spi_bus_config_t {
@@ -373,6 +406,7 @@ impl<'d> SpiMasterDriver<'d> {
                 quadhd_io_num: -1,
                 //data3_io_num: -1,
             },
+            max_transfer_sz: max_transfer_sz as i32,
             ..Default::default()
         };
 
@@ -386,11 +420,12 @@ impl<'d> SpiMasterDriver<'d> {
             quadwp_io_num: -1,
             quadhd_io_num: -1,
 
+            max_transfer_sz: max_transfer_sz as i32,
             ..Default::default()
         };
 
-        esp!(unsafe { spi_bus_initialize(SPI::device(), &bus_config, Dma::Disabled.into()) })?;
-        Ok(())
+        esp!(unsafe { spi_bus_initialize(SPI::device(), &bus_config, dma_chan) })?;
+        Ok(max_transfer_sz)
     }
 
 }
@@ -499,13 +534,16 @@ impl<'d, T> EspSpiDevice<'d, T> {
     {
         // lock the bus through the mutex in SpiMasterDriver
         let master: &SpiMasterDriver = self.driver.borrow();
+
+        // if DMA used -> get trans length info from master
+        let trans_len = master.max_transfer_size;
         // should we check for poison here?
         let driver_lock = master.handle.lock().unwrap();
 
         let handle = self.handle.clone().into_inner().unwrap();
         let mut bus = SpiBusMasterDriver {
             handle,
-            trans_len: SOC_SPI_MAXIMUM_BUFFER_SIZE as usize,
+            trans_len: trans_len,
             hardware_cs: true,
             _p: PhantomData,
         };
