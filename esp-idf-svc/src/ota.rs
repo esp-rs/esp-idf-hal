@@ -283,6 +283,8 @@ impl EspOta {
 
         Ok(if err == ESP_ERR_NOT_FOUND as i32 {
             ota::SlotState::Unknown
+        } else if err == ESP_ERR_NOT_SUPPORTED as i32 {
+            ota::SlotState::Factory
         } else {
             esp!(err)?;
 
