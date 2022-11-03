@@ -53,6 +53,7 @@
 
 use core::cell::UnsafeCell;
 use core::convert::TryFrom;
+use core::marker::PhantomData;
 use core::time::Duration;
 
 extern crate alloc;
@@ -61,7 +62,7 @@ use esp_idf_sys::*;
 
 use crate::gpio::InputPin;
 use crate::gpio::OutputPin;
-use crate::peripheral::{Peripheral, PeripheralRef};
+use crate::peripheral::Peripheral;
 use crate::units::Hertz;
 
 use config::TransmitConfig;
@@ -401,22 +402,23 @@ pub mod config {
 ///
 /// See the [rmt module][crate::rmt] for more information.
 
-pub struct TxRmtDriver<'d, C: RmtChannel> {
-    _channel: PeripheralRef<'d, C>,
+pub struct TxRmtDriver<'d> {
+    channel: u8,
+    _p: PhantomData<&'d mut ()>,
 }
 
-impl<'d, C: RmtChannel> TxRmtDriver<'d, C> {
+impl<'d> TxRmtDriver<'d> {
     /// Initialise the rmt module with the specified pin, channel and configuration.
     ///
     /// To uninstall the driver just drop it.
     ///
     /// Internally this calls `rmt_config()` and `rmt_driver_install()`.
-    pub fn new(
-        channel: impl Peripheral<P = C> + 'd,
+    pub fn new<C: RmtChannel>(
+        _channel: impl Peripheral<P = C> + 'd,
         pin: impl Peripheral<P = impl OutputPin> + 'd,
         config: &TransmitConfig,
     ) -> Result<Self, EspError> {
-        crate::into_ref!(channel, pin);
+        crate::into_ref!(pin);
 
         let mut flags = 0;
         if config.aware_dfs {
@@ -456,7 +458,10 @@ impl<'d, C: RmtChannel> TxRmtDriver<'d, C> {
             esp!(rmt_driver_install(C::channel(), 0, 0))?;
         }
 
-        Ok(Self { _channel: channel })
+        Ok(Self {
+            channel: C::channel() as _,
+            _p: PhantomData,
+        })
     }
 
     /// Get speed of the channel’s internal counter clock.
@@ -469,7 +474,7 @@ impl<'d, C: RmtChannel> TxRmtDriver<'d, C> {
     /// [rmt_get_counter_clock]: https://docs.espressif.com/projects/esp-idf/en/latest/esp32/api-reference/peripherals/rmt.html#_CPPv421rmt_get_counter_clock13rmt_channel_tP8uint32_t
     pub fn counter_clock(&self) -> Result<Hertz, EspError> {
         let mut ticks_hz: u32 = 0;
-        esp!(unsafe { rmt_get_counter_clock(C::channel(), &mut ticks_hz) })?;
+        esp!(unsafe { rmt_get_counter_clock(self.channel(), &mut ticks_hz) })?;
         Ok(ticks_hz.into())
     }
 
@@ -496,7 +501,7 @@ impl<'d, C: RmtChannel> TxRmtDriver<'d, C> {
         S: Signal,
     {
         let items = signal.as_slice();
-        esp!(unsafe { rmt_write_items(C::channel(), items.as_ptr(), items.len() as i32, block) })
+        esp!(unsafe { rmt_write_items(self.channel(), items.as_ptr(), items.len() as i32, block) })
     }
 
     /// Transmit all items in `iter` without blocking.
@@ -518,12 +523,12 @@ impl<'d, C: RmtChannel> TxRmtDriver<'d, C> {
         let iter = Box::new(UnsafeCell::new(iter));
         unsafe {
             esp!(rmt_translator_init(
-                C::channel(),
+                self.channel(),
                 Some(Self::translate_iterator::<T, true>),
             ))?;
 
             esp!(rmt_write_sample(
-                C::channel(),
+                self.channel(),
                 Box::leak(iter) as *const _ as _,
                 1,
                 false
@@ -554,11 +559,11 @@ impl<'d, C: RmtChannel> TxRmtDriver<'d, C> {
             // TODO: maybe use a separate struct so that we don't have to do this when
             // transmitting the same iterator type.
             esp!(rmt_translator_init(
-                C::channel(),
+                self.channel(),
                 Some(Self::translate_iterator::<T, false>),
             ))?;
             esp!(rmt_write_sample(
-                C::channel(),
+                self.channel(),
                 &iter as *const _ as _,
                 24,
                 true
@@ -624,16 +629,16 @@ impl<'d, C: RmtChannel> TxRmtDriver<'d, C> {
 
     /// Stop transmitting.
     pub fn stop(&mut self) -> Result<(), EspError> {
-        esp!(unsafe { rmt_tx_stop(C::channel()) })
+        esp!(unsafe { rmt_tx_stop(self.channel()) })
     }
 
     pub fn set_looping(&mut self, looping: config::Loop) -> Result<(), EspError> {
-        esp!(unsafe { rmt_set_tx_loop_mode(C::channel(), looping != config::Loop::None) })?;
+        esp!(unsafe { rmt_set_tx_loop_mode(self.channel(), looping != config::Loop::None) })?;
 
         #[cfg(not(any(esp32, esp32c2)))]
         esp!(unsafe {
             rmt_set_tx_loop_count(
-                C::channel(),
+                self.channel(),
                 match looping {
                     config::Loop::Count(count) if count > 0 && count < 1024 => count,
                     _ => 0,
@@ -643,17 +648,21 @@ impl<'d, C: RmtChannel> TxRmtDriver<'d, C> {
 
         Ok(())
     }
-}
 
-impl<'d, C: RmtChannel> Drop for TxRmtDriver<'d, C> {
-    /// Stop transmitting and release the driver.
-    fn drop(&mut self) {
-        self.stop().unwrap();
-        esp!(unsafe { rmt_driver_uninstall(C::channel()) }).unwrap();
+    pub fn channel(&self) -> rmt_channel_t {
+        self.channel as _
     }
 }
 
-unsafe impl<'d, C: RmtChannel> Send for TxRmtDriver<'d, C> {}
+impl<'d> Drop for TxRmtDriver<'d> {
+    /// Stop transmitting and release the driver.
+    fn drop(&mut self) {
+        self.stop().unwrap();
+        esp!(unsafe { rmt_driver_uninstall(self.channel()) }).unwrap();
+    }
+}
+
+unsafe impl<'d> Send for TxRmtDriver<'d> {}
 
 /// Signal storage for [`Transmit`] in a format ready for the RMT driver.
 pub trait Signal {
@@ -917,25 +926,26 @@ use alloc::vec::Vec;
 use core::convert::TryInto;
 use core::ptr;
 
-pub struct RxRmtDriver<'d, C: RmtChannel> {
-    _channel: PeripheralRef<'d, C>,
+pub struct RxRmtDriver<'d> {
+    channel: u8,
+    _p: PhantomData<&'d mut ()>,
     pub pulse_pair_vec: Vec<PulsePair>,
 }
 
-impl<'d, C: RmtChannel> RxRmtDriver<'d, C> {
+impl<'d> RxRmtDriver<'d> {
     /// Initialise the rmt module with the specified pin, channel and configuration.
     ///
     /// To uninstall the driver just drop it.
     ///
     /// Internally this calls `rmt_config()` and `rmt_driver_install()`.
 
-    pub fn new(
-        channel: impl Peripheral<P = C> + 'd,
+    pub fn new<C: RmtChannel>(
+        _channel: impl Peripheral<P = C> + 'd,
         pin: impl Peripheral<P = impl InputPin> + 'd,
         config: &ReceiveConfig,
         rx_buffer_size_in_bytes: u32,
     ) -> Result<Self, EspError> {
-        crate::into_ref!(channel, pin);
+        crate::into_ref!(pin);
 
         let flags = 0;
 
@@ -979,19 +989,24 @@ impl<'d, C: RmtChannel> RxRmtDriver<'d, C> {
         }
 
         Ok(Self {
-            _channel: channel,
+            channel: C::channel() as _,
+            _p: PhantomData,
             pulse_pair_vec,
         })
     }
 
+    pub fn channel(&self) -> rmt_channel_t {
+        self.channel as _
+    }
+
     /// Start receiving
     pub fn start(&self) -> Result<(), EspError> {
-        esp!(unsafe { rmt_rx_start(C::channel(), true) })
+        esp!(unsafe { rmt_rx_start(self.channel(), true) })
     }
 
     /// Stop receiving
     pub fn stop(&self) -> Result<(), EspError> {
-        esp!(unsafe { rmt_rx_stop(C::channel()) })
+        esp!(unsafe { rmt_rx_stop(self.channel()) })
     }
 
     // Set ticks_to_wait to 0 for non-blocking.
@@ -1001,7 +1016,7 @@ impl<'d, C: RmtChannel> RxRmtDriver<'d, C> {
         let mut length: u32 = 0;
 
         unsafe {
-            esp!(rmt_get_ringbuf_handle(C::channel(), &mut rmt_handle))
+            esp!(rmt_get_ringbuf_handle(self.channel(), &mut rmt_handle))
                 .expect("Failed to get ringbuffer handle");
 
             let rmt_items = xRingbufferReceive(rmt_handle as *mut _, &mut length, ticks_to_wait)
@@ -1042,15 +1057,15 @@ impl<'d, C: RmtChannel> RxRmtDriver<'d, C> {
     }
 }
 
-impl<'d, C: RmtChannel> Drop for RxRmtDriver<'d, C> {
+impl<'d> Drop for RxRmtDriver<'d> {
     /// Stop receiving and release the driver.
     fn drop(&mut self) {
         self.stop().unwrap();
-        esp!(unsafe { rmt_driver_uninstall(C::channel()) }).unwrap();
+        esp!(unsafe { rmt_driver_uninstall(self.channel()) }).unwrap();
     }
 }
 
-unsafe impl<'d, C: RmtChannel> Send for RxRmtDriver<'d, C> {}
+unsafe impl<'d> Send for RxRmtDriver<'d> {}
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub struct PulsePair {
