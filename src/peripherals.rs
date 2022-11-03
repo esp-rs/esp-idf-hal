@@ -17,8 +17,6 @@ use crate::modem;
 use crate::rmt;
 #[cfg(not(feature = "riscv-ulp-hal"))]
 use crate::spi;
-use crate::spi2;
-use crate::spi_v2;
 #[cfg(not(feature = "riscv-ulp-hal"))]
 use crate::timer;
 #[cfg(not(feature = "riscv-ulp-hal"))]
@@ -46,8 +44,6 @@ pub struct Peripherals {
     pub spi1: spi::SPI1,
     #[cfg(not(feature = "riscv-ulp-hal"))]
     pub spi2: spi::SPI2,
-    pub spi22: spi2::SPI2,
-    pub spi2v2: spi_v2::SPI2,
     #[cfg(all(not(esp32c3), not(feature = "riscv-ulp-hal")))]
     pub spi3: spi::SPI3,
     pub adc1: adc::ADC1,
@@ -156,8 +152,6 @@ impl Peripherals {
             spi1: spi::SPI1::new(),
             #[cfg(not(feature = "riscv-ulp-hal"))]
             spi2: spi::SPI2::new(),
-            spi22: spi2::SPI2::new(),
-            spi2v2: spi_v2::SPI2::new(),
             #[cfg(all(not(esp32c3), not(feature = "riscv-ulp-hal")))]
             spi3: spi::SPI3::new(),
             adc1: adc::ADC1::new(),

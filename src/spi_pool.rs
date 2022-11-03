@@ -1,6 +1,6 @@
 use crate::gpio::{AnyOutputPin, InputPin, Output, OutputPin, PinDriver};
 use crate::peripheral::{Peripheral, PeripheralRef};
-use crate::spi2::{config, SpiBusMasterDriver, SpiMasterDriver};
+use crate::spi::{config, SpiBusMasterDriver, SpiMasterDriver};
 
 use std::borrow::Borrow;
 use std::collections::HashMap;
