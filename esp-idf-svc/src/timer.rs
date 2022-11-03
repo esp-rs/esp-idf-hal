@@ -344,10 +344,6 @@ pub mod embassy_time {
                 self.callback.store(ptr, Ordering::SeqCst);
             }
 
-            fn invoke(&self) {
-                Self::call(&self.callback);
-            }
-
             fn call(callback: &AtomicU64) {
                 let ptr: u64 = callback.load(Ordering::SeqCst);
 
@@ -447,10 +443,10 @@ pub mod embassy_time {
     #[cfg(feature = "embassy-time-isr-queue")]
     pub mod queue {
         #[cfg(esp_idf_esp_timer_supports_isr_dispatch_method)]
-        use esp_idf_hal::interrupt::embassy_sync::CriticalSectionRawMutex;
+        use esp_idf_hal::interrupt::embassy_sync::IsrRawMutex as RawMutexImpl;
 
         #[cfg(not(esp_idf_esp_timer_supports_isr_dispatch_method))]
-        use esp_idf_hal::task::embassy_sync::CriticalSectionRawMutex;
+        use esp_idf_hal::task::embassy_sync::EspRawMutex as RawMutexImpl;
 
         use esp_idf_sys::*;
 
@@ -529,7 +525,7 @@ pub mod embassy_time {
             super::driver::link()
         }
 
-        ::embassy_time::timer_queue_impl!(static QUEUE: Queue<CriticalSectionRawMutex, AlarmImpl> = Queue::new());
+        ::embassy_time::timer_queue_impl!(static QUEUE: Queue<RawMutexImpl, AlarmImpl> = Queue::new());
 
         mod generic_queue {
             use core::cell::RefCell;
