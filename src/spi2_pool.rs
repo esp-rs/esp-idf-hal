@@ -5,6 +5,7 @@ use crate::spi2::{config, SpiBusMasterDriver, SpiMasterDriver};
 use std::borrow::Borrow;
 use std::collections::HashMap;
 use std::marker::PhantomData;
+use heapless::Vec;
 
 use core::ptr;
 
@@ -19,8 +20,7 @@ use esp_idf_sys::*;
 // try utilize transaction_cb_t pre_cb transaction_cb_t post_cb
 // for software cs to boost performance
 
-
-// performance measurment on esp32c3 -> 
+// performance measurment on esp32c3 ->
 // debug build: 50 uS deley between cs low -> first clk out
 // release build : 15 uS deley between cs low -> first clk out
 
@@ -33,33 +33,35 @@ const ESP_MAX_SPI_DEVICES: usize = 3;
 const ESP_MAX_SPI_DEVICES: usize = 6;
 
 pub struct SpiConfigPool<'d, T> {
-    shared_handles: HashMap<u32, spi_device_handle_t>,
+    shared_handles: [(u32, spi_device_handle_t); ESP_MAX_SPI_DEVICES],
     master: T,
     _p: PhantomData<&'d ()>,
 }
 
-impl<'d, T> SpiConfigPool<'d, T> {
-    pub fn new(master: T, device_configs: HashMap<u32, config::Config>) -> Result<Self, EspError>
+impl<'d, T> SpiConfigPool<'d, T> {   
+    pub fn new(master: T, device_configs: &[(u32, config::Config)]) -> Result<Self, EspError>
     where
         T: Borrow<SpiMasterDriver<'d>> + 'd,
     {
         if device_configs.len() > ESP_MAX_SPI_DEVICES {
-            //let bla = Err::<EspError,&str>("Provided more than the maximum device configs");
-            println!("Provided more than the maximum allowed device configs");
+            panic!("Provided more than the maximum allowed device configs");
         }
-        let mut shared_handles: HashMap<u32, spi_device_handle_t> = HashMap::new();
-        let mut shared_configs: HashMap<u32, spi_device_interface_config_t> = HashMap::new();
-        for (id, config) in device_configs {
-            let config = Self::create_conf(&config);
-            shared_configs.insert(id, config);
+        let mut shared_handles: [(u32, spi_device_handle_t); ESP_MAX_SPI_DEVICES] = [(0,ptr::null_mut());ESP_MAX_SPI_DEVICES];
+        let mut shared_configs:Vec<(u32, spi_device_interface_config_t),ESP_MAX_SPI_DEVICES> = Vec::new();
+        for (idx, (id,config)) in device_configs.iter().enumerate() {
+
+            let config = Self::create_conf(config);
+            shared_configs.push((*id, config));
         }
 
         let master_ref: &SpiMasterDriver = master.borrow();
-        if let Ok(lock) = master_ref.handle.lock() {
-            for (id, config) in shared_configs {
-                let handle = Self::register_bus_config(*lock, config)?;
-                shared_handles.insert(id, handle);
+        {
+            let _lock = master_ref.lock.enter();
+            for (idx, (id, config)) in shared_configs.into_iter().enumerate() {
+                let handle = Self::register_bus_config(master_ref.handle, config)?;
+                shared_handles[idx] = (id, handle);
             }
+
         }
         Ok(Self {
             shared_handles,
@@ -112,8 +114,8 @@ impl<'d, T> Drop for SpiConfigPool<'d, T> {
 
 pub struct SpiPoolDevice<'d, T> {
     pool: T,
-    pub pin_driver: PinDriver<'d, AnyOutputPin, Output>,
-    config_id: u32,
+    pin_driver: PinDriver<'d, AnyOutputPin, Output>,
+    pool_config_id: u32,
     _p: PhantomData<&'d ()>,
 }
 
@@ -123,16 +125,17 @@ where
 {
     pub fn new(
         pool: T,
-        config_id: u32,
+        pool_config_id: u32,
         cs_pin: impl Peripheral<P = impl InputPin + OutputPin> + 'd,
     ) -> Result<Self, EspError> {
         let cs: PeripheralRef<AnyOutputPin> = cs_pin.into_ref().map_into();
         let mut pin_driver = PinDriver::output(cs)?;
+        // driver assumes here cs active low -> Todo impl SPI_DEVICE_POSITIVE_CS
         pin_driver.set_high()?;
         Ok(Self {
             pool,
             pin_driver,
-            config_id,
+            pool_config_id,
             _p: PhantomData,
         })
     }
@@ -143,28 +146,41 @@ where
     ) -> Result<R, E>
     where
         E: From<EspError>,
-        //X: Borrow<&SpiMasterDriver<'d>> + 'd,
     {
         // get config_handle for our device
         let pool: &SpiConfigPool<&SpiMasterDriver> = self.pool.borrow();
         // create error here when device has wrong id
-        let device_handle:&spi_device_handle_t = pool.shared_handles.get(&self.config_id).unwrap();
+        // find handle in list of handles 
+        let mut device_handle: Option<spi_device_handle_t> = None;
+        //pool.shared_handles.get(&self.pool_config_id).unwrap();
+        for (id,handle) in pool.shared_handles {
+            if id == self.pool_config_id {
+                device_handle = Some(handle);
+                break;
+            }
+        }
+        if device_handle.is_none() {
+            panic!("Stored Config ID not found in SpiConfPool")
+        }
 
-        // lock the bus through the mutex in SpiMasterDriver
+        // ensure exlusive usage through the CriticalSection in SpiMasterDriver
         let master: &SpiMasterDriver = pool.master.borrow();
-        // should we check for poison here?
-        let driver_lock = master.handle.lock().unwrap();
+        let _guard = master.lock.enter();
 
-        //self.pin_driver.set_low()?;
+        // if DMA used -> get trans length info from master
+        let trans_len = master.max_transfer_size;
 
-        //let handle = self.handle.clone().into_inner().unwrap();
         let mut bus = SpiBusMasterDriver {
-            handle: *device_handle,
-            trans_len: SOC_SPI_MAXIMUM_BUFFER_SIZE as usize,
+            handle: device_handle.unwrap(),
+            trans_len,
             hardware_cs: false,
             _p: PhantomData,
         };
-        self.pin_driver.set_low()?;
+        // assuming the driver got init correctly ->
+        // we just need to toggle and can allow both Modes
+        // without an editional Mode check
+        // where  Modes: ( cs active low or high )
+        self.pin_driver.toggle()?;
         let trans_result = f(&mut bus);
 
         let finish_result = bus.finish();
@@ -173,44 +189,34 @@ where
         // Note that this is done even when an error is returned from the transaction.
         let flush_result = bus.flush();
 
-        self.pin_driver.set_high()?;
+        self.pin_driver.toggle()?;
 
-        drop(driver_lock);
-        println!("after lock drop");
+        drop(_guard);
+
         let result = trans_result?;
-        println!("after trans result");
         flush_result?;
-        println!("flush and finish");
         finish_result?;
-        println!("end Transaction");
+
         Ok(result)
     }
 
-    pub fn transfer(&mut self, read: &mut [u8], write: &[u8]) -> Result<(), EspError>
-    where
-        T: Borrow<SpiMasterDriver<'d>> + 'd,
-    {
+    pub fn transfer(&mut self, read: &mut [u8], write: &[u8]) -> Result<(), EspError> {
         self.transaction(|bus| bus.transfer(read, write))
     }
 
-    pub fn write(&mut self, write: &[u8]) -> Result<(), EspError>
-    where
-        T: Borrow<SpiMasterDriver<'d>> + 'd,
-    {
+    pub fn write(&mut self, write: &[u8]) -> Result<(), EspError> {
         self.transaction(|bus| bus.write(write))
     }
 
-    pub fn read(&mut self, read: &mut [u8]) -> Result<(), EspError>
-    where
-        T: Borrow<SpiMasterDriver<'d>> + 'd,
-    {
+    pub fn read(&mut self, read: &mut [u8]) -> Result<(), EspError> {
         self.transaction(|bus| bus.read(read))
     }
 
-    pub fn transfer_in_place(&mut self, buf: &mut [u8]) -> Result<(), EspError>
-    where
-        T: Borrow<SpiMasterDriver<'d>> + 'd,
-    {
+    pub fn transfer_in_place(&mut self, buf: &mut [u8]) -> Result<(), EspError> {
         self.transaction(|bus| bus.transfer_in_place(buf))
+    }
+
+    pub fn cs_gpio_number(&self) -> i32 {
+        self.pin_driver.pin()
     }
 }
