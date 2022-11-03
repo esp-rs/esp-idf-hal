@@ -457,14 +457,19 @@ mod chip {
     }
 
     /// Ledc Speed Mode
-    #[derive(PartialEq, Eq, Copy, Clone, Debug, Default)]
+    #[derive(PartialEq, Eq, Copy, Clone, Debug)]
     pub enum SpeedMode {
         #[cfg(esp_idf_soc_ledc_support_hs_mode)]
         /// High Speed Mode. Currently only supported on the ESP32.
         HighSpeed,
         /// Low Speed Mode. The only configuration supported on ESP32S2, ESP32S3, ESP32C2 and ESP32C3.
-        #[default]
         LowSpeed,
+    }
+
+    impl Default for SpeedMode {
+        fn default() -> Self {
+            Self::LowSpeed
+        }
     }
 
     impl From<SpeedMode> for ledc_mode_t {

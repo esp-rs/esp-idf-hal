@@ -350,19 +350,19 @@ pub mod embassy_sync {
     /// # Safety
     ///
     /// This mutex is safe to share between different executors.
-    pub struct CriticalSectionRawMutex(super::CriticalSection);
+    pub struct EspRawMutex(super::CriticalSection);
 
-    unsafe impl Send for CriticalSectionRawMutex {}
-    unsafe impl Sync for CriticalSectionRawMutex {}
+    unsafe impl Send for EspRawMutex {}
+    unsafe impl Sync for EspRawMutex {}
 
-    impl CriticalSectionRawMutex {
-        /// Create a new `CriticalSectionRawMutex`.
+    impl EspRawMutex {
+        /// Create a new `EspRawMutex`.
         pub const fn new() -> Self {
             Self(super::CriticalSection::new())
         }
     }
 
-    unsafe impl RawMutex for CriticalSectionRawMutex {
+    unsafe impl RawMutex for EspRawMutex {
         const INIT: Self = Self::new();
 
         fn lock<R>(&self, f: impl FnOnce() -> R) -> R {
