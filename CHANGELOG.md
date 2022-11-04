@@ -15,6 +15,7 @@ The main themes of the 0.39 release are:
 * Restore drop semantics for all drivers
 * Simpler driver types (little to no generics)
 * Unified naming
+* Public API
 * Completely revamped GPIO metaphor
 * Timer driver
 * Support for the `critical-section` crate by providing a `CriticalSection` implementation
@@ -44,6 +45,13 @@ The main themes of the 0.39 release are:
 * The one exception is the GPIO subsystem, where the driver is not named `GpioDriver`, but the simpler `PinDriver` instead, even if the concrete peripheral struct type might be e.g. `Gpio12`
 * In case there are multiple drivers per peripheral - as in - say - a master and a slave protocol driver - the driver name contains the `Master` / `Slave` word in its name, as in e.g. `SpiMasterDriver` and `SpiSlaveDriver`
 * NOTE: We are NOT fond of still using offensive terms like "master" and "slave". Unfortunately, the embedded industry itself has not yet agreed (to our knowledge) on a good replacement for these terms, hence they are still around
+
+### Public API
+
+In addition to implementing the `embedded-hal` traits where possible, all drivers now have public API. While the public API loosely follows the APIs from `embedded-hal`, it deviates where appropriate so that the native underlying ESP IDF driver is better utilized.
+
+These public APIs mean that the user is no longer required to depend on the `embedded-hal` crate so as to consume the `esp-idf-hal` drivers.
+Consuming the drivers via the `embedded-hal` traits is now only necessary when the user is targetting cross-platform portability of their application code.
 
 ### Completely revamped GPIO metaphor
 
