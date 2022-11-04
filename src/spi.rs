@@ -44,14 +44,13 @@ use core::ptr;
 
 use crate::task::CriticalSection;
 use core::borrow::Borrow;
-use core::cell::RefCell;
 
 use embedded_hal::spi::{SpiBus, SpiBusFlush, SpiBusRead, SpiBusWrite, SpiDevice};
 
 use esp_idf_sys::*;
 
 use crate::delay::BLOCK;
-use crate::gpio::{self, AnyOutputPin, InputPin, Output, OutputPin, Pin, PinDriver};
+use crate::gpio::{self, AnyOutputPin, InputPin, OutputPin, Pin};
 use crate::peripheral::{Peripheral, PeripheralRef};
 
 crate::embedded_hal_error!(
@@ -217,10 +216,10 @@ pub mod config {
 }
 
 pub struct SpiBusMasterDriver<'d> {
-    pub (crate) handle: spi_device_handle_t,
-    pub (crate) trans_len: usize,
-    pub (crate) hardware_cs: bool,
-    pub (crate) _p: PhantomData<&'d ()>,
+    pub(crate) handle: spi_device_handle_t,
+    pub(crate) trans_len: usize,
+    pub(crate) hardware_cs: bool,
+    pub(crate) _p: PhantomData<&'d ()>,
 }
 
 impl<'d> SpiBusMasterDriver<'d> {
@@ -304,7 +303,7 @@ impl<'d> SpiBusMasterDriver<'d> {
     }
 
     /// Empty transaction to de-assert CS.
-    pub (crate) fn finish(&mut self) -> Result<(), EspError> {
+    pub(crate) fn finish(&mut self) -> Result<(), EspError> {
         polling_transmit(self.handle, ptr::null_mut(), ptr::null(), 0, 0, false)
     }
 }
@@ -349,7 +348,7 @@ pub struct SpiMasterDriver<'d> {
 }
 
 impl<'d> SpiMasterDriver<'d> {
-     /// Create new instance of SPI controller for SPI1
+    /// Create new instance of SPI controller for SPI1
     ///
     /// SPI1 can only use fixed pin for SCLK, SDO and SDI as they are shared with SPI0.
     pub fn new_spi1<SPI: Spi>(
@@ -456,31 +455,29 @@ impl<'d> Drop for SpiMasterDriver<'d> {
 }
 
 pub struct EspSpiDevice<'d, T> {
-    handle: RefCell<Option<spi_device_handle_t>>,
+    handle: Option<spi_device_handle_t>,
     cs_pin_ref: PeripheralRef<'d, AnyOutputPin>,
-    config: config::Config,
-    con: spi_device_interface_config_t,
+    config: spi_device_interface_config_t,
     driver: T,
     _p: PhantomData<&'d ()>,
 }
 
-impl<'d, T> EspSpiDevice<'d, T> {
+impl<'d, T> EspSpiDevice<'d, T>
+where
+    T: Borrow<SpiMasterDriver<'d>> + 'd,
+{
     pub fn new(
         driver: T,
         cs: impl Peripheral<P = impl InputPin + OutputPin> + 'd,
         config: config::Config,
-    ) -> Result<EspSpiDevice<'d, T>, EspError>
-    where
-        T: Borrow<SpiMasterDriver<'d>> + 'd,
-    {
+    ) -> Result<EspSpiDevice<'d, T>, EspError> {
         let cs_pin_ref: PeripheralRef<AnyOutputPin> = cs.into_ref().map_into();
         let cs_pin = cs_pin_ref.pin();
-        let con = Self::create_conf(cs_pin, &config);
-        let me = Self {
-            handle: RefCell::new(None),
+        let config = Self::create_conf(cs_pin, &config);
+        let mut me = Self {
+            handle: None,
             cs_pin_ref,
             config,
-            con,
             driver,
             _p: PhantomData,
         };
@@ -511,24 +508,21 @@ impl<'d, T> EspSpiDevice<'d, T> {
         self.cs_pin_ref.pin()
     }
 
-    pub fn add_to_bus(&self) -> Result<(), EspError>
-    where
-        T: Borrow<SpiMasterDriver<'d>> + 'd,
-    {
+    pub fn add_to_bus(&mut self) -> Result<(), EspError> {
         let master: &SpiMasterDriver = self.driver.borrow();
         let _guard = master.lock.enter();
 
         let mut device_handle: spi_device_handle_t = ptr::null_mut();
         esp!(unsafe {
-            spi_bus_add_device(master.handle, &self.con, &mut device_handle as *mut _)
+            spi_bus_add_device(master.handle, &self.config, &mut device_handle as *mut _)
         })?;
-        self.handle.replace(Some(device_handle));
+        self.handle = Some(device_handle);
 
         Ok(())
     }
 
     pub fn rm_from_bus(&self) -> Result<(), EspError> {
-        let handle = self.handle.replace(None);
+        let handle = self.handle;
         match handle {
             Some(handle) => {
                 esp!(unsafe { spi_bus_remove_device(handle) })?;
@@ -540,25 +534,22 @@ impl<'d, T> EspSpiDevice<'d, T> {
         Ok(())
     }
 
-    pub fn get_config(&self) -> config::Config {
-        self.config
-    }
-
-    /// Usage Warning:
-    /// Updating the config may release the CS pin for a very short time
-    /// Potentialy driving it low. Make sure your connected Device doesn't care
-    pub fn update_config(&mut self, config: config::Config) -> Result<(), EspError>
-    where
-        T: Borrow<SpiMasterDriver<'d>> + 'd,
-    {
-        let cs = self.cs_gpio_number();
-        self.config = config;
-        self.con = Self::create_conf(cs, &self.config);
-        self.rm_from_bus()?;
-        self.add_to_bus()?;
-        
-        Ok(())
-    }
+//    pub fn get_config(&self) -> config::Config {
+//        self.config
+//    }
+//
+//    /// Usage Warning:
+//    /// Updating the config may release the CS pin for a very short time
+//    /// Potentialy driving it low. Make sure your connected Device doesn't care
+//    pub fn update_config(&mut self, config: config::Config) -> Result<(), EspError> {
+//        let cs = self.cs_gpio_number();
+//        self.config = config;
+//        self.con = Self::create_conf(cs, &self.config);
+//        self.rm_from_bus()?;
+//        self.add_to_bus()?;
+//
+//        Ok(())
+//    }
 
     pub fn transaction<R, E>(
         &mut self,
@@ -566,7 +557,6 @@ impl<'d, T> EspSpiDevice<'d, T> {
     ) -> Result<R, E>
     where
         E: From<EspError>,
-        T: Borrow<SpiMasterDriver<'d>> + 'd,
     {
         // ensure exlusive usage through the CriticalSection in SpiMasterDriver
         let master: &SpiMasterDriver = self.driver.borrow();
@@ -576,7 +566,7 @@ impl<'d, T> EspSpiDevice<'d, T> {
         // if DMA used -> get trans length info from master
         let trans_len = master.max_transfer_size;
 
-        let handle = self.handle.clone().into_inner().unwrap();
+        let handle = self.handle.unwrap();
         let mut bus = SpiBusMasterDriver {
             handle,
             trans_len,
@@ -584,7 +574,7 @@ impl<'d, T> EspSpiDevice<'d, T> {
             _p: PhantomData,
         };
 
-        let lock = Self::lock_bus(self.handle.clone().into_inner().unwrap())?;
+        let lock = Self::lock_bus(self.handle.unwrap())?;
 
         let trans_result = f(&mut bus);
 
@@ -603,37 +593,23 @@ impl<'d, T> EspSpiDevice<'d, T> {
         Ok(result)
     }
 
-    pub fn transfer(&mut self, read: &mut [u8], write: &[u8]) -> Result<(), EspError>
-    where
-        T: Borrow<SpiMasterDriver<'d>> + 'd,
-    {
+    pub fn transfer(&mut self, read: &mut [u8], write: &[u8]) -> Result<(), EspError> {
         self.transaction(|bus| bus.transfer(read, write))
     }
 
-    pub fn write(&mut self, write: &[u8]) -> Result<(), EspError>
-    where
-        T: Borrow<SpiMasterDriver<'d>> + 'd,
-    {
+    pub fn write(&mut self, write: &[u8]) -> Result<(), EspError> {
         self.transaction(|bus| bus.write(write))
     }
 
-    pub fn read(&mut self, read: &mut [u8]) -> Result<(), EspError>
-    where
-        T: Borrow<SpiMasterDriver<'d>> + 'd,
-    {
+    pub fn read(&mut self, read: &mut [u8]) -> Result<(), EspError> {
         self.transaction(|bus| bus.read(read))
     }
 
-    pub fn transfer_in_place(&mut self, buf: &mut [u8]) -> Result<(), EspError>
-    where
-        T: Borrow<SpiMasterDriver<'d>> + 'd,
-    {
+    pub fn transfer_in_place(&mut self, buf: &mut [u8]) -> Result<(), EspError> {
         self.transaction(|bus| bus.transfer_in_place(buf))
     }
 
-    fn lock_bus(handle: spi_device_handle_t) -> Result<Lock, EspError>
-    where
-    T: Borrow<SpiMasterDriver<'d>> + 'd, {
+    fn lock_bus(handle: spi_device_handle_t) -> Result<Lock, EspError> {
         Lock::new(handle)
     }
 }
@@ -652,17 +628,18 @@ where
         &mut self,
         f: impl FnOnce(&mut Self::Bus) -> Result<R, <Self::Bus as embedded_hal::spi::ErrorType>::Error>,
     ) -> Result<R, Self::Error> {
-        EspSpiDevice::<'d, T>::transaction(self, f)
+        Self::transaction(self, f)
     }
 }
 
-impl<'d, T> embedded_hal_0_2::blocking::spi::Transfer<u8> for EspSpiDevice<'d,T>
+impl<'d, T> embedded_hal_0_2::blocking::spi::Transfer<u8> for EspSpiDevice<'d, T>
 where
-    T: Borrow<SpiMasterDriver<'d>> + 'd, {
+    T: Borrow<SpiMasterDriver<'d>> + 'd,
+{
     type Error = SpiError;
 
     fn transfer<'w>(&mut self, words: &'w mut [u8]) -> Result<&'w [u8], Self::Error> {
-        let master:&SpiMasterDriver = self.driver.borrow();
+        let master: &SpiMasterDriver = self.driver.borrow();
         let _guard = master.lock.enter();
         let handle = self.handle.borrow().unwrap();
         let _lock = Self::lock_bus(handle)?;
@@ -671,20 +648,28 @@ where
         while let Some(chunk) = chunks.next() {
             let ptr = chunk.as_mut_ptr();
             let len = chunk.len();
-            polling_transmit(self.handle.borrow().unwrap(), ptr, ptr, len, len, chunks.peek().is_some())?;
+            polling_transmit(
+                self.handle.borrow().unwrap(),
+                ptr,
+                ptr,
+                len,
+                len,
+                chunks.peek().is_some(),
+            )?;
         }
 
         Ok(words)
     }
 }
 
-impl<'d, T> embedded_hal_0_2::blocking::spi::Write<u8> for EspSpiDevice<'d,T>
+impl<'d, T> embedded_hal_0_2::blocking::spi::Write<u8> for EspSpiDevice<'d, T>
 where
-    T: Borrow<SpiMasterDriver<'d>> + 'd, {
+    T: Borrow<SpiMasterDriver<'d>> + 'd,
+{
     type Error = SpiError;
 
     fn write(&mut self, words: &[u8]) -> Result<(), Self::Error> {
-        let master:&SpiMasterDriver = self.driver.borrow();
+        let master: &SpiMasterDriver = self.driver.borrow();
         let _guard = master.lock.enter();
         let handle = self.handle.borrow().unwrap();
         let _lock = Self::lock_bus(handle)?;
@@ -705,9 +690,10 @@ where
     }
 }
 
-impl<'d,T> embedded_hal_0_2::blocking::spi::WriteIter<u8> for EspSpiDevice<'d,T>
+impl<'d, T> embedded_hal_0_2::blocking::spi::WriteIter<u8> for EspSpiDevice<'d, T>
 where
-    T: Borrow<SpiMasterDriver<'d>> + 'd,  {
+    T: Borrow<SpiMasterDriver<'d>> + 'd,
+{
     type Error = SpiError;
 
     fn write_iter<WI>(&mut self, words: WI) -> Result<(), Self::Error>
@@ -742,9 +728,10 @@ where
     }
 }
 
-impl<'d,T> embedded_hal_0_2::blocking::spi::Transactional<u8> for EspSpiDevice<'d,T>
+impl<'d, T> embedded_hal_0_2::blocking::spi::Transactional<u8> for EspSpiDevice<'d, T>
 where
-    T: Borrow<SpiMasterDriver<'d>> + 'd,   {
+    T: Borrow<SpiMasterDriver<'d>> + 'd,
+{
     type Error = SpiError;
 
     fn exec<'a>(
@@ -768,7 +755,9 @@ where
 
 impl<'d, T> Drop for EspSpiDevice<'d, T> {
     fn drop(&mut self) {
-        self.rm_from_bus().unwrap();
+        if let Some(handle) = self.handle.borrow().clone() {
+            esp!(unsafe { spi_bus_remove_device(handle) }).unwrap();
+        }
     }
 }
 
