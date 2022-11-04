@@ -181,6 +181,7 @@ impl<'a> From<&'a MqttClientConfiguration<'a>> for (esp_mqtt_client_config_t, Ra
     }
 }
 
+#[allow(clippy::needless_update)]
 #[cfg(not(esp_idf_version_major = "4"))]
 impl<'a> From<&'a MqttClientConfiguration<'a>> for (esp_mqtt_client_config_t, RawCstrs) {
     fn from(conf: &'a MqttClientConfiguration<'a>) -> Self {

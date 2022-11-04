@@ -270,7 +270,9 @@ mod isr {
 
     pub type EspISRTimerService = super::EspTimerService<ISR>;
 
-    impl super::EspTimerService<ISR> {
+    impl EspISRTimerService {
+        /// # Safety
+        /// TODO
         pub unsafe fn new() -> Result<Self, EspError> {
             Ok(Self(ISR))
         }

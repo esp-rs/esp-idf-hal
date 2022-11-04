@@ -230,8 +230,11 @@ impl From<Method> for Newtype<c_types::c_uint> {
 static OPEN_SESSIONS: Mutex<BTreeMap<(u32, c_types::c_int), Arc<AtomicBool>>> =
     Mutex::wrap(RawMutex::new(), BTreeMap::new());
 #[allow(clippy::type_complexity)]
-static mut CLOSE_HANDLERS: Mutex<BTreeMap<u32, Vec<Box<dyn Fn(c_types::c_int)>>>> =
+static mut CLOSE_HANDLERS: Mutex<BTreeMap<u32, Vec<CloseHandler>>> =
     Mutex::wrap(RawMutex::new(), BTreeMap::new());
+
+type NativeHandler = Box<dyn Fn(*mut httpd_req_t) -> c_types::c_int>;
+type CloseHandler = Box<dyn Fn(c_types::c_int)>;
 
 pub struct EspHttpServer {
     sd: httpd_handle_t,
@@ -405,7 +408,7 @@ impl EspHttpServer {
         self.handler(uri, method, handler(f))
     }
 
-    fn to_native_handler<H>(&self, handler: H) -> Box<dyn Fn(*mut httpd_req_t) -> c_types::c_int>
+    fn to_native_handler<H>(&self, handler: H) -> NativeHandler
     where
         H: for<'a, 'b> Handler<&'a mut EspHttpConnection<'b>> + 'static,
     {
@@ -427,8 +430,7 @@ impl EspHttpServer {
     }
 
     extern "C" fn handle_req(raw_req: *mut httpd_req_t) -> c_types::c_int {
-        let handler_ptr =
-            (unsafe { *raw_req }).user_ctx as *mut Box<dyn Fn(*mut httpd_req_t) -> c_types::c_int>;
+        let handler_ptr = (unsafe { *raw_req }).user_ctx as *mut NativeHandler;
 
         let handler = unsafe { handler_ptr.as_ref() }.unwrap();
 
@@ -448,7 +450,7 @@ impl EspHttpServer {
 
         let close_handlers = all_close_handlers.get(&(sd as u32)).unwrap();
 
-        for close_handler in &*close_handlers {
+        for close_handler in close_handlers {
             (close_handler)(sockfd);
         }
         esp_nofail!(unsafe { close(sockfd) });
@@ -943,6 +945,7 @@ pub mod ws {
     use super::EspHttpServer;
     use super::CLOSE_HANDLERS;
     use super::OPEN_SESSIONS;
+    use super::{CloseHandler, NativeHandler};
 
     #[cfg(all(feature = "nightly", feature = "experimental"))]
     pub use asyncify::*;
@@ -984,7 +987,7 @@ pub mod ws {
 
                     Ok(EspHttpWsDetachedSender::new(*sd, fd, closed.clone()))
                 }
-                Self::Closed(_) => Err(EspError::from(ESP_FAIL).unwrap().into()),
+                Self::Closed(_) => Err(EspError::from(ESP_FAIL).unwrap()),
             }
         }
 
@@ -1009,7 +1012,7 @@ pub mod ws {
 
         pub fn recv(&mut self, frame_data_buf: &mut [u8]) -> Result<(FrameType, usize), EspError> {
             match self {
-                Self::New(_, _) => Err(EspError::from(ESP_FAIL).unwrap().into()),
+                Self::New(_, _) => Err(EspError::from(ESP_FAIL).unwrap()),
                 Self::Receiving(_, raw_req) => {
                     let mut raw_frame: httpd_ws_frame_t = Default::default();
 
@@ -1207,8 +1210,8 @@ pub mod ws {
     impl Clone for EspHttpWsDetachedSender {
         fn clone(&self) -> Self {
             Self {
-                sd: self.sd.clone(),
-                fd: self.fd.clone(),
+                sd: self.sd,
+                fd: self.fd,
                 closed: self.closed.clone(),
             }
         }
@@ -1248,7 +1251,7 @@ pub mod ws {
         {
             let c_str = CString::new(uri).unwrap();
 
-            let (req_handler, close_handler) = self.to_native_ws_handler(self.sd.clone(), handler);
+            let (req_handler, close_handler) = self.to_native_ws_handler(self.sd, handler);
 
             let conf = httpd_uri_t {
                 uri: c_str.as_ptr() as _,
@@ -1293,7 +1296,7 @@ pub mod ws {
             Ok(())
         }
 
-        fn handle_ws_error<'a, E>(error: E) -> c_types::c_int
+        fn handle_ws_error<E>(error: E) -> c_types::c_int
         where
             E: Debug,
         {
@@ -1306,10 +1309,7 @@ pub mod ws {
             &self,
             server_handle: httpd_handle_t,
             handler: H,
-        ) -> (
-            Box<dyn Fn(*mut httpd_req_t) -> c_types::c_int>,
-            Box<dyn Fn(c_types::c_int)>,
-        )
+        ) -> (NativeHandler, CloseHandler)
         where
             H: for<'a> Fn(&'a mut EspHttpWsConnection) -> Result<(), E> + 'static,
             E: Debug,
@@ -1330,9 +1330,9 @@ pub mod ws {
                     let req = unsafe { raw_req.as_ref() }.unwrap();
 
                     (boxed_handler)(if req.method == http_method_HTTP_GET as i32 {
-                        EspHttpWsConnection::New(server_handle.clone(), raw_req)
+                        EspHttpWsConnection::New(server_handle, raw_req)
                     } else {
-                        EspHttpWsConnection::Receiving(server_handle.clone(), raw_req)
+                        EspHttpWsConnection::Receiving(server_handle, raw_req)
                     })
                 })
             };

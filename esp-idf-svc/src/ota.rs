@@ -197,9 +197,8 @@ impl EspOta {
     pub fn is_factory_reset_supported(&self) -> Result<bool, EspError> {
         self.check_read()?;
 
-        Ok(self
-            .get_factory_partition()
-            .map(|factory| !factory.is_null())?)
+        self.get_factory_partition()
+            .map(|factory| !factory.is_null())
     }
 
     pub fn factory_reset(&mut self) -> Result<(), EspError> {
@@ -235,9 +234,9 @@ impl EspOta {
 
     pub fn mark_running_slot_invalid_and_reboot(&mut self) -> EspError {
         if let Err(err) = self.check_read() {
-            err.into()
+            err
         } else if let Err(err) = esp!(unsafe { esp_ota_mark_app_invalid_rollback_and_reboot() }) {
-            err.into()
+            err
         } else {
             unreachable!()
         }
