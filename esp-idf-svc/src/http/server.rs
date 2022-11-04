@@ -158,6 +158,8 @@ impl From<&Configuration> for Newtype<httpd_ssl_config_t> {
             }
         };
         // Default values taken from: https://github.com/espressif/esp-idf/blob/master/components/esp_https_server/include/esp_https_server.h#L114
+
+        #[allow(clippy::needless_update)]
         Self(httpd_ssl_config_t {
             httpd: http_config.0,
             session_tickets: false,
@@ -179,6 +181,7 @@ impl From<&Configuration> for Newtype<httpd_ssl_config_t> {
             #[cfg(not(esp_idf_version_major = "4"))]
             servercert_len: 0,
             user_cb: None,
+            ..Default::default()
         })
     }
 }
