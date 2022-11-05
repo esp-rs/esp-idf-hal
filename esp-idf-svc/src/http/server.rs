@@ -226,15 +226,13 @@ impl From<Method> for Newtype<c_types::c_uint> {
     }
 }
 
-#[allow(clippy::type_complexity)]
 static OPEN_SESSIONS: Mutex<BTreeMap<(u32, c_types::c_int), Arc<AtomicBool>>> =
     Mutex::wrap(RawMutex::new(), BTreeMap::new());
-#[allow(clippy::type_complexity)]
-static mut CLOSE_HANDLERS: Mutex<BTreeMap<u32, Vec<CloseHandler>>> =
+static CLOSE_HANDLERS: Mutex<BTreeMap<u32, Vec<CloseHandler>>> =
     Mutex::wrap(RawMutex::new(), BTreeMap::new());
 
 type NativeHandler = Box<dyn Fn(*mut httpd_req_t) -> c_types::c_int>;
-type CloseHandler = Box<dyn Fn(c_types::c_int)>;
+type CloseHandler = Box<dyn Fn(c_types::c_int) + Send>;
 
 pub struct EspHttpServer {
     sd: httpd_handle_t,
@@ -293,9 +291,7 @@ impl EspHttpServer {
             registrations: Vec::new(),
         };
 
-        unsafe {
-            CLOSE_HANDLERS.lock().insert(server.sd as _, Vec::new());
-        }
+        CLOSE_HANDLERS.lock().insert(server.sd as _, Vec::new());
 
         Ok(server)
     }
@@ -340,7 +336,7 @@ impl EspHttpServer {
             #[cfg(all(esp_idf_esp_https_server_enable, not(esp_idf_version_major = "4")))]
             esp!(unsafe { esp_idf_sys::httpd_ssl_stop(self.sd) })?;
 
-            unsafe { CLOSE_HANDLERS.lock() }.remove(&(self.sd as u32));
+            CLOSE_HANDLERS.lock().remove(&(self.sd as u32));
 
             self.sd = ptr::null_mut();
         }
@@ -446,7 +442,7 @@ impl EspHttpServer {
             }
         }
 
-        let all_close_handlers = unsafe { CLOSE_HANDLERS.lock() };
+        let all_close_handlers = CLOSE_HANDLERS.lock();
 
         let close_handlers = all_close_handlers.get(&(sd as u32)).unwrap();
 
@@ -1246,7 +1242,7 @@ pub mod ws {
     impl EspHttpServer {
         pub fn ws_handler<H, E>(&mut self, uri: &str, handler: H) -> Result<&mut Self, EspError>
         where
-            H: for<'a> Fn(&'a mut EspHttpWsConnection) -> Result<(), E> + 'static,
+            H: for<'a> Fn(&'a mut EspHttpWsConnection) -> Result<(), E> + Send + Sync + 'static,
             E: Debug,
         {
             let c_str = CString::new(uri).unwrap();
@@ -1266,7 +1262,7 @@ pub mod ws {
             esp!(unsafe { esp_idf_sys::httpd_register_uri_handler(self.sd, &conf) })?;
 
             {
-                let mut all_close_handlers = unsafe { CLOSE_HANDLERS.lock() };
+                let mut all_close_handlers = CLOSE_HANDLERS.lock();
 
                 let close_handlers = all_close_handlers.get_mut(&(self.sd as u32)).unwrap();
 
@@ -1311,7 +1307,7 @@ pub mod ws {
             handler: H,
         ) -> (NativeHandler, CloseHandler)
         where
-            H: for<'a> Fn(&'a mut EspHttpWsConnection) -> Result<(), E> + 'static,
+            H: for<'a> Fn(&'a mut EspHttpWsConnection) -> Result<(), E> + Send + Sync + 'static,
             E: Debug,
         {
             let boxed_handler = Arc::new(move |mut connection: EspHttpWsConnection| {
