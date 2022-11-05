@@ -92,7 +92,11 @@ impl<'d, T> SpiConfigPool<'d, T> {
                 SPI_DEVICE_NO_DUMMY
             } else {
                 0_u32
-            },
+            } | if config.inverted_chip_select {
+                SPI_DEVICE_POSITIVE_CS
+            } else {
+                0_u32
+            } | config.duplex.as_flags(),
             ..Default::default()
         }
     }
@@ -130,7 +134,8 @@ where
     ) -> Result<Self, EspError> {
         let cs: PeripheralRef<AnyOutputPin> = cs_pin.into_ref().map_into();
         let mut pin_driver = PinDriver::output(cs)?;
-        // driver assumes here cs active low -> Todo impl SPI_DEVICE_POSITIVE_CS
+        // driver assumes here cs active low -> because we dont store the config we cant now
+        // Todo impl SPI_DEVICE_POSITIVE_CS
         pin_driver.set_high()?;
         Ok(Self {
             pool,

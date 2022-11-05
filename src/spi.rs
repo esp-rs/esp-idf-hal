@@ -172,6 +172,7 @@ pub mod config {
         /// See https://docs.espressif.com/projects/esp-idf/en/latest/esp32/api-reference/peripherals/spi_master.html#timing-considerations
         pub write_only: bool,
         pub duplex: Duplex,
+        pub inverted_chip_select: bool,
     }
 
     impl Config {
@@ -200,6 +201,11 @@ pub mod config {
             self.duplex = duplex;
             self
         }
+
+        pub fn invert_cs(mut self) -> Self {
+            self.inverted_chip_select = true;
+            self
+        }
     }
 
     impl Default for Config {
@@ -208,6 +214,7 @@ pub mod config {
                 baudrate: Hertz(1_000_000),
                 data_mode: embedded_hal::spi::MODE_0,
                 write_only: false,
+                inverted_chip_select: false,
                 duplex: Duplex::Full,
             }
         }
@@ -488,6 +495,10 @@ where
             queue_size: 64,
             flags: if config.write_only {
                 SPI_DEVICE_NO_DUMMY
+            } else {
+                0_u32
+            } | if config.inverted_chip_select {
+                SPI_DEVICE_POSITIVE_CS
             } else {
                 0_u32
             } | config.duplex.as_flags(),
