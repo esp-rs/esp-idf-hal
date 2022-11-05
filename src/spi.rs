@@ -42,7 +42,7 @@ use core::cmp::{self, max, min};
 use core::marker::PhantomData;
 use core::ptr;
 
-use crate::task::CriticalSection;
+
 use core::borrow::Borrow;
 
 use embedded_hal::spi::{SpiBus, SpiBusFlush, SpiBusRead, SpiBusWrite, SpiDevice};
@@ -342,7 +342,6 @@ impl<'d> SpiBus for SpiBusMasterDriver<'d> {
 
 pub struct SpiMasterDriver<'d> {
     pub(crate) handle: spi_host_device_t,
-    pub(crate) lock: CriticalSection,
     pub(crate) max_transfer_size: usize,
     _p: PhantomData<&'d ()>,
 }
@@ -361,7 +360,6 @@ impl<'d> SpiMasterDriver<'d> {
         let max_transfer_size = Self::new_internal_bus::<SPI>(sclk, sdo, sdi, dma)?;
         Ok(Self {
             handle: SPI::device(),
-            lock: CriticalSection::new(),
             max_transfer_size,
             _p: PhantomData,
         })
@@ -377,7 +375,6 @@ impl<'d> SpiMasterDriver<'d> {
         let max_transfer_size = Self::new_internal_bus::<SPI>(sclk, sdo, sdi, dma)?;
         Ok(Self {
             handle: SPI::device(),
-            lock: CriticalSection::new(),
             max_transfer_size,
             _p: PhantomData,
         })
@@ -444,8 +441,6 @@ impl<'d> SpiMasterDriver<'d> {
 
 impl<'d> Drop for SpiMasterDriver<'d> {
     fn drop(&mut self) {
-        // should we drop without checking the lock?
-        let guard = self.lock.enter();
         esp!(unsafe { spi_bus_free(self.handle) }).unwrap();
     }
 }
@@ -506,8 +501,6 @@ where
 
     pub fn add_to_bus(&mut self) -> Result<(), EspError> {
         let master: &SpiMasterDriver = self.driver.borrow();
-        let _guard = master.lock.enter();
-
         let mut device_handle: spi_device_handle_t = ptr::null_mut();
         esp!(unsafe {
             spi_bus_add_device(master.handle, &self.config, &mut device_handle as *mut _)
@@ -554,11 +547,8 @@ where
     where
         E: From<EspError>,
     {
-        // ensure exlusive usage through the CriticalSection in SpiMasterDriver
+        
         let master: &SpiMasterDriver = self.driver.borrow();
-
-        let _lock = master.lock.enter();
-
         // if DMA used -> get trans length info from master
         let trans_len = master.max_transfer_size;
 
@@ -581,7 +571,6 @@ where
         let flush_result = bus.flush();
 
         core::mem::drop(lock);
-        drop(_lock);
         let result = trans_result?;
         finish_result?;
         flush_result?;
@@ -636,7 +625,6 @@ where
 
     fn transfer<'w>(&mut self, words: &'w mut [u8]) -> Result<&'w [u8], Self::Error> {
         let master: &SpiMasterDriver = self.driver.borrow();
-        let _guard = master.lock.enter();
         let handle = self.handle.borrow().unwrap();
         let _lock = Self::lock_bus(handle)?;
         let mut chunks = words.chunks_mut(master.max_transfer_size).peekable();
@@ -666,7 +654,6 @@ where
 
     fn write(&mut self, words: &[u8]) -> Result<(), Self::Error> {
         let master: &SpiMasterDriver = self.driver.borrow();
-        let _guard = master.lock.enter();
         let handle = self.handle.borrow().unwrap();
         let _lock = Self::lock_bus(handle)?;
         let mut chunks = words.chunks(master.max_transfer_size).peekable();

@@ -1,6 +1,7 @@
 use crate::gpio::{AnyOutputPin, InputPin, Output, OutputPin, PinDriver};
 use crate::peripheral::{Peripheral, PeripheralRef};
 use crate::spi::{config, SpiBusMasterDriver, SpiMasterDriver};
+use crate::task::CriticalSection;
 
 use core::borrow::Borrow;
 use core::marker::PhantomData;
@@ -34,6 +35,7 @@ const ESP_MAX_SPI_DEVICES: usize = 6;
 pub struct SpiConfigPool<'d, T> {
     shared_handles: [(u32, spi_device_handle_t); ESP_MAX_SPI_DEVICES],
     master: T,
+    lock: CriticalSection,
     _p: PhantomData<&'d ()>,
 }
 
@@ -47,15 +49,15 @@ impl<'d, T> SpiConfigPool<'d, T> {
         }
         let mut shared_handles: [(u32, spi_device_handle_t); ESP_MAX_SPI_DEVICES] = [(0,ptr::null_mut());ESP_MAX_SPI_DEVICES];
         let mut shared_configs:Vec<(u32, spi_device_interface_config_t),ESP_MAX_SPI_DEVICES> = Vec::new();
-        for (idx, (id,config)) in device_configs.iter().enumerate() {
+        for (id,config) in device_configs{
 
             let config = Self::create_conf(config);
-            shared_configs.push((*id, config));
+            // vector should be always big enough because we cannot push more than ESP_MAX_SPI_DEVICES -> unwrap
+            shared_configs.push((*id, config)).unwrap();
         }
 
         let master_ref: &SpiMasterDriver = master.borrow();
-        {
-            let _lock = master_ref.lock.enter();
+        {            
             for (idx, (id, config)) in shared_configs.into_iter().enumerate() {
                 let handle = Self::register_bus_config(master_ref.handle, config)?;
                 shared_handles[idx] = (id, handle);
@@ -65,6 +67,7 @@ impl<'d, T> SpiConfigPool<'d, T> {
         Ok(Self {
             shared_handles,
             master,
+            lock: CriticalSection::new(),
             _p: PhantomData,
         })
     }
@@ -97,7 +100,7 @@ impl<'d, T> SpiConfigPool<'d, T> {
     }
 
     fn rm_from_bus(&self) -> Result<(), EspError> {
-        for (id, handle) in &self.shared_handles {
+        for (_id, handle) in &self.shared_handles {
             let inner: spi_device_handle_t = *handle;
             esp!(unsafe { spi_bus_remove_device(inner) })?;
         }
@@ -162,9 +165,9 @@ where
             panic!("Stored Config ID not found in SpiConfPool")
         }
 
-        // ensure exlusive usage through the CriticalSection in SpiMasterDriver
+        // ensure exlusive usage through the CriticalSection in ConfigPool
+        let _guard = pool.lock.enter();
         let master: &SpiMasterDriver = pool.master.borrow();
-        let _guard = master.lock.enter();
 
         // if DMA used -> get trans length info from master
         let trans_len = master.max_transfer_size;
