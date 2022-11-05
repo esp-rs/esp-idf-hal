@@ -42,7 +42,6 @@ use core::cmp::{self, max, min};
 use core::marker::PhantomData;
 use core::ptr;
 
-
 use core::borrow::Borrow;
 
 use embedded_hal::spi::{SpiBus, SpiBusFlush, SpiBusRead, SpiBusWrite, SpiDevice};
@@ -467,9 +466,7 @@ where
 
         let master: &SpiMasterDriver = driver.borrow();
         let mut device_handle: spi_device_handle_t = ptr::null_mut();
-        esp!(unsafe {
-            spi_bus_add_device(master.handle, &config, &mut device_handle as *mut _)
-        })?;
+        esp!(unsafe { spi_bus_add_device(master.handle, &config, &mut device_handle as *mut _) })?;
 
         let me = Self {
             handle: device_handle,
@@ -509,7 +506,6 @@ where
     where
         E: From<EspError>,
     {
-        
         let master: &SpiMasterDriver = self.driver.borrow();
         // if DMA used -> get trans length info from master
         let trans_len = master.max_transfer_size;
@@ -593,14 +589,7 @@ where
         while let Some(chunk) = chunks.next() {
             let ptr = chunk.as_mut_ptr();
             let len = chunk.len();
-            polling_transmit(
-                self.handle,
-                ptr,
-                ptr,
-                len,
-                len,
-                chunks.peek().is_some(),
-            )?;
+            polling_transmit(self.handle, ptr, ptr, len, len, chunks.peek().is_some())?;
         }
 
         Ok(words)
@@ -698,7 +687,7 @@ where
 
 impl<'d, T> Drop for EspSpiDevice<'d, T> {
     fn drop(&mut self) {
-        esp!(unsafe { spi_bus_remove_device(self.handle) }).unwrap();        
+        esp!(unsafe { spi_bus_remove_device(self.handle) }).unwrap();
     }
 }
 

@@ -39,7 +39,7 @@ pub struct SpiConfigPool<'d, T> {
     _p: PhantomData<&'d ()>,
 }
 
-impl<'d, T> SpiConfigPool<'d, T> {   
+impl<'d, T> SpiConfigPool<'d, T> {
     pub fn new(master: T, device_configs: &[(u32, config::Config)]) -> Result<Self, EspError>
     where
         T: Borrow<SpiMasterDriver<'d>> + 'd,
@@ -47,23 +47,29 @@ impl<'d, T> SpiConfigPool<'d, T> {
         if device_configs.len() > ESP_MAX_SPI_DEVICES {
             panic!("Provided more than the maximum allowed device configs");
         }
-        let mut shared_handles: [(u32, spi_device_handle_t); ESP_MAX_SPI_DEVICES] = [(0,ptr::null_mut());ESP_MAX_SPI_DEVICES];
-        let mut shared_configs:Vec<(u32, spi_device_interface_config_t),ESP_MAX_SPI_DEVICES> = Vec::new();
-        for (id,config) in device_configs{
-
+        //let mut shared_handles: [(u32, spi_device_handle_t); ESP_MAX_SPI_DEVICES] = [(0,ptr::null_mut());ESP_MAX_SPI_DEVICES];
+        let mut shared_configs: Vec<(u32, spi_device_interface_config_t), ESP_MAX_SPI_DEVICES> =
+            Vec::new();
+        for (id, config) in device_configs {
             let config = Self::create_conf(config);
             // vector should be always big enough because we cannot push more than ESP_MAX_SPI_DEVICES -> unwrap
             shared_configs.push((*id, config)).unwrap();
         }
 
         let master_ref: &SpiMasterDriver = master.borrow();
-        {            
-            for (idx, (id, config)) in shared_configs.into_iter().enumerate() {
-                let handle = Self::register_bus_config(master_ref.handle, config)?;
-                shared_handles[idx] = (id, handle);
-            }
-
-        }
+        let shared_handles: [(u32, spi_device_handle_t); ESP_MAX_SPI_DEVICES] =
+            core::array::from_fn(|idx| {
+                let (id, config) = shared_configs[idx];
+                let handle = Self::register_bus_config(master_ref.handle, config).unwrap();
+                (id, handle)
+            });
+        //        {
+        //            for (idx, (id, config)) in shared_configs.into_iter().enumerate() {
+        //                let handle = Self::register_bus_config(master_ref.handle, config)?;
+        //                shared_handles[idx] = (id, handle);
+        //            }
+        //
+        //        }
         Ok(Self {
             shared_handles,
             master,
@@ -151,11 +157,9 @@ where
     {
         // get config_handle for our device
         let pool: &SpiConfigPool<&SpiMasterDriver> = self.pool.borrow();
-        // create error here when device has wrong id
-        // find handle in list of handles 
+        // find handle in list of handles
         let mut device_handle: Option<spi_device_handle_t> = None;
-        //pool.shared_handles.get(&self.pool_config_id).unwrap();
-        for (id,handle) in pool.shared_handles {
+        for (id, handle) in pool.shared_handles {
             if id == self.pool_config_id {
                 device_handle = Some(handle);
                 break;
