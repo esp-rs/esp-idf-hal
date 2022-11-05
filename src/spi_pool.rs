@@ -11,7 +11,7 @@ use core::ptr;
 
 use esp_idf_sys::*;
 
-// TODO -> custom error that wraps around esperror
+// TODO
 // cs default high low setting -
 // needed to makte SpiBusMasterDriver fields pub because different module
 // needed to make SpiBusMasterDriver flush fn pub
@@ -47,7 +47,6 @@ impl<'d, T> SpiConfigPool<'d, T> {
         if device_configs.len() > ESP_MAX_SPI_DEVICES {
             panic!("Provided more than the maximum allowed device configs");
         }
-        //let mut shared_handles: [(u32, spi_device_handle_t); ESP_MAX_SPI_DEVICES] = [(0,ptr::null_mut());ESP_MAX_SPI_DEVICES];
         let mut shared_configs: Vec<(u32, spi_device_interface_config_t), ESP_MAX_SPI_DEVICES> =
             Vec::new();
         for (id, config) in device_configs {
@@ -63,13 +62,6 @@ impl<'d, T> SpiConfigPool<'d, T> {
                 let handle = Self::register_bus_config(master_ref.handle, config).unwrap();
                 (id, handle)
             });
-        //        {
-        //            for (idx, (id, config)) in shared_configs.into_iter().enumerate() {
-        //                let handle = Self::register_bus_config(master_ref.handle, config)?;
-        //                shared_handles[idx] = (id, handle);
-        //            }
-        //
-        //        }
         Ok(Self {
             shared_handles,
             master,

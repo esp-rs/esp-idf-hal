@@ -127,10 +127,12 @@ This is now addressed in that the `esp-idf-hal` crate models two new peripherals
 
 ### SPI Driver rework
 
-The SpiDriver is now splitt into two parts
-* The `SpiMasterDriver` manage the access to the underlying SPI hardware 
+The SpiDriver is now split into two parts
+* The `SpiMasterDriver` manages access to the underlying SPI hardware 
 * The new `EspSpiDevice` is an abstraction for the "connected Devices" on the given SPI hardware. 
   
 This allows for the creation of more than one Devices per SPI hardware. (Up to 6 for the esp32c* variants and 3 for all others).
-Creation and Deleation of the EspSpiDevices is independet from SpiMasterDriver. To allow for a more flexibale usage an EspSpiDevices can get reference to the SpiMasterDriver by `T`, `&T`, `&mut T`, `Rc(T)`, `Arc(T)` where `T` is SpiMasterDriver.
+Creation and Deletion of the EspSpiDevices is independent from SpiMasterDriver. To allow for a more flexible usage an EspSpiDevices can get reference to the SpiMasterDriver by `T`, `&T`, `&mut T`, `Rc(T)`, `Arc(T)` where `T` is SpiMasterDriver.
 EspSpiDevice implements the SpiDevice from `embedded-hal`
+
+A second wrapper implementation is now provided in `spi_pool.rs`, to allow more concurrent SpiDevices per SPI Hardware (No hardware limit of 3 / 6). `SpiConfigPool` can take up to 3 / 6 different device configurations. These configurations can be shared with an arbitrary number of `SpiPoolDevice`s, or can be used on one Device to change its configuration on the fly. 
