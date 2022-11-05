@@ -22,6 +22,7 @@ The main themes of the 0.39 release are:
 * Support for the `embassy-sync` crate by providing two types of raw mutexes
 * Support for the `edge-executor` crate
 * Modem and Mac peripherals
+* SPI Driver rework
 
 ### Major changes elaboration
 
@@ -123,3 +124,13 @@ This is now addressed in that the `esp-idf-hal` crate models two new peripherals
   * By implementing both of the above traits, the `modem::Modem` peripheral should be usable by both the Wifi driver in `esp-idf-svc`, as well as the future Bluetooth driver
   * `modem::Modem` is splittable into two other peripherals: `modem::WifiModem` (implementing only the `modem::WifiModemPeripheral` trait) and `modem::BluetoothModem` (implementing only the `modem::BluetoothModemPeripheral` trait) so that in future the simultaneous operation of the Wifi and Bluetooth drivers to be possible
 * `mac::MAC`: models the EMAC hardware available on the original ESP32 chip. The Ethernet driver implementation - just like the Wifi driver implementation - is still in the `esp-idf-svc` crate which better aligns with the underlying ESP-IDF implementations, yet the new Wifi and Ethernet drivers in `esp-idf-svc` now expect their corresponding peripherals to be supplied during construction time
+
+### SPI Driver rework
+
+The SpiDriver is now splitt into two parts
+* The `SpiMasterDriver` manage the access to the underlying SPI hardware 
+* The new `EspSpiDevice` is an abstraction for the "connected Devices" on the given SPI hardware. 
+  
+This allows for the creation of more than one Devices per SPI hardware. (Up to 6 for the esp32c* variants and 3 for all others).
+Creation and Deleation of the EspSpiDevices is independet from SpiMasterDriver. To allow for a more flexibale usage an EspSpiDevices can get reference to the SpiMasterDriver by `T`, `&T`, `&mut T`, `Rc(T)`, `Arc(T)` where `T` is SpiMasterDriver.
+EspSpiDevice implements the SpiDevice from `embedded-hal`
