@@ -356,7 +356,7 @@ impl<'d> SpiMasterDriver<'d> {
         sclk: impl Peripheral<P = gpio::Gpio6> + 'd,
         sdo: impl Peripheral<P = gpio::Gpio7> + 'd,
         sdi: Option<impl Peripheral<P = gpio::Gpio8> + 'd>,
-        dma: Option<Dma>,
+        dma: Dma,
     ) -> Result<Self, EspError> {
         let max_transfer_size = Self::new_internal_bus::<SPI>(sclk, sdo, sdi, dma)?;
         Ok(Self {
@@ -372,7 +372,7 @@ impl<'d> SpiMasterDriver<'d> {
         sclk: impl Peripheral<P = impl OutputPin> + 'd,
         sdo: impl Peripheral<P = impl OutputPin> + 'd,
         sdi: Option<impl Peripheral<P = impl InputPin + OutputPin> + 'd>,
-        dma: Option<Dma>,
+        dma: Dma,
     ) -> Result<Self, EspError> {
         let max_transfer_size = Self::new_internal_bus::<SPI>(sclk, sdo, sdi, dma)?;
         Ok(Self {
@@ -386,17 +386,13 @@ impl<'d> SpiMasterDriver<'d> {
         sclk: impl Peripheral<P = impl OutputPin> + 'd,
         sdo: impl Peripheral<P = impl OutputPin> + 'd,
         sdi: Option<impl Peripheral<P = impl InputPin + OutputPin> + 'd>,
-        dma: Option<Dma>,
+        dma: Dma,
     ) -> Result<usize, EspError> {
         crate::into_ref!(sclk, sdo);
         let sdi = sdi.map(|sdi| sdi.into_ref());
 
-        let mut max_transfer_sz = TRANS_LEN;
-        let mut dma_chan: spi_dma_chan_t = Dma::Disabled.into();
-        if dma.is_some() {
-            max_transfer_sz = dma.unwrap().max_transfer_size();
-            dma_chan = dma.unwrap().into();
-        }
+        let max_transfer_sz = dma.max_transfer_size();
+        let dma_chan: spi_dma_chan_t = dma.into();
 
         #[cfg(not(esp_idf_version = "4.3"))]
         let bus_config = spi_bus_config_t {
