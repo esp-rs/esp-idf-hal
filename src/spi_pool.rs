@@ -2,9 +2,8 @@ use crate::gpio::{AnyOutputPin, InputPin, Output, OutputPin, PinDriver};
 use crate::peripheral::{Peripheral, PeripheralRef};
 use crate::spi::{config, SpiBusMasterDriver, SpiMasterDriver};
 
-use std::borrow::Borrow;
-use std::collections::HashMap;
-use std::marker::PhantomData;
+use core::borrow::Borrow;
+use core::marker::PhantomData;
 use heapless::Vec;
 
 use core::ptr;
