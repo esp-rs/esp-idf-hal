@@ -446,7 +446,7 @@ impl<'d> Drop for SpiMasterDriver<'d> {
 }
 
 pub struct EspSpiDevice<'d, T> {
-    handle: Option<spi_device_handle_t>,
+    handle: spi_device_handle_t,
     cs_pin_ref: PeripheralRef<'d, AnyOutputPin>,
     config: spi_device_interface_config_t,
     driver: T,
@@ -465,15 +465,20 @@ where
         let cs_pin_ref: PeripheralRef<AnyOutputPin> = cs.into_ref().map_into();
         let cs_pin = cs_pin_ref.pin();
         let config = Self::create_conf(cs_pin, &config);
+
+        let master: &SpiMasterDriver = driver.borrow();
+        let mut device_handle: spi_device_handle_t = ptr::null_mut();
+        esp!(unsafe {
+            spi_bus_add_device(master.handle, &config, &mut device_handle as *mut _)
+        })?;
+
         let mut me = Self {
-            handle: None,
+            handle: device_handle,
             cs_pin_ref,
             config,
             driver,
             _p: PhantomData,
         };
-        me.add_to_bus()?;
-
         Ok(me)
     }
 
@@ -499,47 +504,6 @@ where
         self.cs_pin_ref.pin()
     }
 
-    pub fn add_to_bus(&mut self) -> Result<(), EspError> {
-        let master: &SpiMasterDriver = self.driver.borrow();
-        let mut device_handle: spi_device_handle_t = ptr::null_mut();
-        esp!(unsafe {
-            spi_bus_add_device(master.handle, &self.config, &mut device_handle as *mut _)
-        })?;
-        self.handle = Some(device_handle);
-
-        Ok(())
-    }
-
-    pub fn rm_from_bus(&self) -> Result<(), EspError> {
-        let handle = self.handle;
-        match handle {
-            Some(handle) => {
-                esp!(unsafe { spi_bus_remove_device(handle) })?;
-            }
-            None => {
-                println!("SPI MASTER ERROR: Removed handle from slave who had already no handle")
-            }
-        }
-        Ok(())
-    }
-
-//    pub fn get_config(&self) -> config::Config {
-//        self.config
-//    }
-//
-//    /// Usage Warning:
-//    /// Updating the config may release the CS pin for a very short time
-//    /// Potentialy driving it low. Make sure your connected Device doesn't care
-//    pub fn update_config(&mut self, config: config::Config) -> Result<(), EspError> {
-//        let cs = self.cs_gpio_number();
-//        self.config = config;
-//        self.con = Self::create_conf(cs, &self.config);
-//        self.rm_from_bus()?;
-//        self.add_to_bus()?;
-//
-//        Ok(())
-//    }
-
     pub fn transaction<R, E>(
         &mut self,
         f: impl FnOnce(&mut SpiBusMasterDriver<'d>) -> Result<R, E>,
@@ -552,7 +516,7 @@ where
         // if DMA used -> get trans length info from master
         let trans_len = master.max_transfer_size;
 
-        let handle = self.handle.unwrap();
+        let handle = self.handle;
         let mut bus = SpiBusMasterDriver {
             handle,
             trans_len,
@@ -560,7 +524,7 @@ where
             _p: PhantomData,
         };
 
-        let lock = Self::lock_bus(self.handle.unwrap())?;
+        let lock = Self::lock_bus(self.handle)?;
 
         let trans_result = f(&mut bus);
 
@@ -625,15 +589,14 @@ where
 
     fn transfer<'w>(&mut self, words: &'w mut [u8]) -> Result<&'w [u8], Self::Error> {
         let master: &SpiMasterDriver = self.driver.borrow();
-        let handle = self.handle.borrow().unwrap();
-        let _lock = Self::lock_bus(handle)?;
+        let _lock = Self::lock_bus(self.handle)?;
         let mut chunks = words.chunks_mut(master.max_transfer_size).peekable();
 
         while let Some(chunk) = chunks.next() {
             let ptr = chunk.as_mut_ptr();
             let len = chunk.len();
             polling_transmit(
-                self.handle.borrow().unwrap(),
+                self.handle,
                 ptr,
                 ptr,
                 len,
@@ -654,13 +617,12 @@ where
 
     fn write(&mut self, words: &[u8]) -> Result<(), Self::Error> {
         let master: &SpiMasterDriver = self.driver.borrow();
-        let handle = self.handle.borrow().unwrap();
-        let _lock = Self::lock_bus(handle)?;
+        let _lock = Self::lock_bus(self.handle)?;
         let mut chunks = words.chunks(master.max_transfer_size).peekable();
 
         while let Some(chunk) = chunks.next() {
             polling_transmit(
-                self.handle.borrow().unwrap(),
+                self.handle,
                 ptr::null_mut(),
                 chunk.as_ptr(),
                 chunk.len(),
@@ -738,9 +700,7 @@ where
 
 impl<'d, T> Drop for EspSpiDevice<'d, T> {
     fn drop(&mut self) {
-        if let Some(handle) = self.handle.borrow().clone() {
-            esp!(unsafe { spi_bus_remove_device(handle) }).unwrap();
-        }
+        esp!(unsafe { spi_bus_remove_device(self.handle) }).unwrap();        
     }
 }
 
