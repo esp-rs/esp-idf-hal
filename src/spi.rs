@@ -448,7 +448,6 @@ impl<'d> Drop for SpiMasterDriver<'d> {
 pub struct EspSpiDevice<'d, T> {
     handle: spi_device_handle_t,
     cs_pin_ref: PeripheralRef<'d, AnyOutputPin>,
-    config: spi_device_interface_config_t,
     driver: T,
     _p: PhantomData<&'d ()>,
 }
@@ -472,10 +471,9 @@ where
             spi_bus_add_device(master.handle, &config, &mut device_handle as *mut _)
         })?;
 
-        let mut me = Self {
+        let me = Self {
             handle: device_handle,
             cs_pin_ref,
-            config,
             driver,
             _p: PhantomData,
         };
