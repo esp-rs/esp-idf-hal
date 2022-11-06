@@ -46,6 +46,8 @@ pub mod mac;
 pub mod modem;
 pub mod peripheral;
 pub mod peripherals;
+#[cfg(not(feature = "riscv-ulp-hal"))]
+pub mod pcnt;
 pub mod prelude;
 #[cfg(not(feature = "riscv-ulp-hal"))]
 pub mod reset;
