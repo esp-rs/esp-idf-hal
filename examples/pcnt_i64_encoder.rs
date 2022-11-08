@@ -10,7 +10,7 @@ use std::{sync::{atomic::{Ordering, AtomicI64}, Arc}, cmp::min};
 use anyhow;
 use anyhow::Context;
 use embedded_hal_0_2::blocking::delay::DelayMs;
-use esp_idf_hal::{delay::FreeRtos as delay};
+use esp_idf_hal::delay::FreeRtos as delay;
 use esp_idf_hal::prelude::*;
 use esp_idf_hal::gpio::Pull;
 use tracing::{info, Level};
@@ -40,13 +40,13 @@ fn main() -> anyhow::Result<()> {
     let m1_enc1_pin = PcntPin::new(m1_enc1_pin, Pull::Up)?;
     let m1_enc2_pin = PcntPin::new(m1_enc2_pin, Pull::Up)?;
     info!("creating pcnt unit 0");
-    let mut pcnt = Pcnt::new(PcntUnit::Unit0);
+    let mut pcnt = Pcnt::new()?;
     info!("configure pcnt chanel 0");
     const POS_LIMIT: i16 = 100;
     const NEG_LIMIT: i16 = -100;
     let mut config = PcntConfig {
-        pulse_pin: Some(m1_enc1_pin.clone()),
-        ctrl_pin: Some(m1_enc2_pin.clone()),
+        pulse_pin: Some(&m1_enc1_pin),
+        ctrl_pin: Some(&m1_enc2_pin),
         lctrl_mode: PcntControlMode::Reverse,
         hctrl_mode: PcntControlMode::Keep,
         pos_mode: PcntCountMode::Decrement,
@@ -54,16 +54,17 @@ fn main() -> anyhow::Result<()> {
         counter_h_lim: POS_LIMIT,
         counter_l_lim: NEG_LIMIT,
         channel: PcntChannel::Channel0,
+        _p: std::marker::PhantomData,
     };
-    pcnt.config(&config).context("configuring CHANNEL0")?;
+    pcnt.config(&mut config).context("configuring CHANNEL0")?;
 
     info!("configure pcnt chanel 1");
     config.channel = PcntChannel::Channel1;
-    config.pulse_pin = Some(m1_enc2_pin.clone());
-    config.ctrl_pin = Some(m1_enc1_pin.clone());
+    config.pulse_pin = Some(&m1_enc2_pin);
+    config.ctrl_pin = Some(&m1_enc1_pin);
     config.pos_mode = PcntCountMode::Increment;
     config.neg_mode = PcntCountMode::Decrement;
-    pcnt.config(&config).context("configuring CHANNEL1")?;
+    pcnt.config(&mut config).context("configuring CHANNEL1")?;
     pcnt.set_filter_value(min(10*80, 1023))?;
     pcnt.filter_enable()?;
     let value = Arc::new(AtomicI64::new(0));
