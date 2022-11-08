@@ -2,7 +2,7 @@ use core::sync::atomic::{AtomicU64, Ordering};
 
 use esp_idf_sys::*;
 
-pub(crate) static CS: CriticalSection = CriticalSection::new();
+pub(crate) static CS: IsrCriticalSection = IsrCriticalSection::new();
 
 /// Returns true if the currently active core is executing an ISR request
 #[inline(always)]
@@ -93,15 +93,15 @@ pub unsafe fn set_isr_yielder(
 
 /// A critical section allows the user to disable interrupts
 #[cfg(not(esp32c3))]
-pub struct CriticalSection(core::cell::UnsafeCell<portMUX_TYPE>);
+pub struct IsrCriticalSection(core::cell::UnsafeCell<portMUX_TYPE>);
 
 #[cfg(esp32c3)]
-pub struct CriticalSection(core::marker::PhantomData<*const ()>);
+pub struct IsrCriticalSection(core::marker::PhantomData<*const ()>);
 
 #[cfg(esp32c3)]
 #[inline(always)]
 #[link_section = ".iram1.interrupt_enter"]
-fn enter(_cs: &CriticalSection) {
+fn enter(_cs: &IsrCriticalSection) {
     unsafe {
         vPortEnterCritical();
     }
@@ -110,7 +110,7 @@ fn enter(_cs: &CriticalSection) {
 #[cfg(not(esp32c3))]
 #[inline(always)]
 #[link_section = ".iram1.interrupt_enter"]
-fn enter(cs: &CriticalSection) {
+fn enter(cs: &IsrCriticalSection) {
     #[cfg(esp_idf_version = "4.3")]
     unsafe {
         vPortEnterCritical(cs.0.get());
@@ -125,7 +125,7 @@ fn enter(cs: &CriticalSection) {
 #[cfg(esp32c3)]
 #[inline(always)]
 #[link_section = ".iram1.interrupt_exit"]
-fn exit(_cs: &CriticalSection) {
+fn exit(_cs: &IsrCriticalSection) {
     unsafe {
         vPortExitCritical();
     }
@@ -134,14 +134,14 @@ fn exit(_cs: &CriticalSection) {
 #[cfg(not(esp32c3))]
 #[inline(always)]
 #[link_section = ".iram1.interrupt_exit"]
-fn exit(cs: &CriticalSection) {
+fn exit(cs: &IsrCriticalSection) {
     unsafe {
         vPortExitCritical(cs.0.get());
     }
 }
 
-impl CriticalSection {
-    /// Constructs a new `CriticalSection` instance
+impl IsrCriticalSection {
+    /// Constructs a new `IsrCriticalSection` instance
     #[inline(always)]
     #[link_section = ".iram1.interrupt_cs_new"]
     pub const fn new() -> Self {
@@ -166,25 +166,25 @@ impl CriticalSection {
     /// This method is also safe to call from ISR routines.
     ///
     /// NOTE: On dual-core esp32* chips, interrupts will be disabled only on one of
-    /// the cores (the one where `CriticalSection::enter` is called), while the other
-    /// core will continue its execution. Moreover, if the same `CriticalSection` instance
+    /// the cores (the one where `IsrCriticalSection::enter` is called), while the other
+    /// core will continue its execution. Moreover, if the same `IsrCriticalSection` instance
     /// is shared across multiple threads, where some of these happen to be scheduled on
     /// the second core (which has its interrupts enabled), the second core will then spinlock
-    /// (busy-wait) in `CriticalSection::enter`, until the first CPU releases the critical
+    /// (busy-wait) in `IsrCriticalSection::enter`, until the first CPU releases the critical
     /// section and re-enables its interrupts. The second core will then - in turn - disable
     /// its interrupts and own the spinlock.
     ///
     /// For more information, refer to https://docs.espressif.com/projects/esp-idf/en/latest/esp32/api-guides/freertos-smp.html#critical-sections
     #[inline(always)]
     #[link_section = ".iram1.interrupt_cs_enter"]
-    pub fn enter(&self) -> CriticalSectionGuard {
+    pub fn enter(&self) -> IsrCriticalSectionGuard {
         enter(self);
 
-        CriticalSectionGuard(self)
+        IsrCriticalSectionGuard(self)
     }
 }
 
-impl Default for CriticalSection {
+impl Default for IsrCriticalSection {
     #[inline(always)]
     #[link_section = ".iram1.interrupt_cs_default"]
     fn default() -> Self {
@@ -192,16 +192,16 @@ impl Default for CriticalSection {
     }
 }
 
-unsafe impl Send for CriticalSection {}
-unsafe impl Sync for CriticalSection {}
+unsafe impl Send for IsrCriticalSection {}
+unsafe impl Sync for IsrCriticalSection {}
 
-pub struct CriticalSectionGuard<'a>(&'a CriticalSection);
+pub struct IsrCriticalSectionGuard<'a>(&'a IsrCriticalSection);
 
-impl<'a> Drop for CriticalSectionGuard<'a> {
+impl<'a> Drop for IsrCriticalSectionGuard<'a> {
     /// Drops the critical section guard thus potentially re-enabling
     /// al interrupts for the currently active core.
     ///
-    /// Note that - due to the fact that calling `CriticalSection::enter`
+    /// Note that - due to the fact that calling `IsrCriticalSection::enter`
     /// multiple times on the same or multiple critical sections is supported -
     /// interrupts for the core will be re-enabled only when the last guard that
     /// disabled interrupts for the concrete core is dropped.
@@ -232,14 +232,14 @@ pub mod embassy_sync {
     /// # Safety
     ///
     /// This mutex is safe to share between different executors and interrupts.
-    pub struct CriticalSectionRawMutex {
+    pub struct IsrRawMutex {
         _phantom: PhantomData<()>,
     }
-    unsafe impl Send for CriticalSectionRawMutex {}
-    unsafe impl Sync for CriticalSectionRawMutex {}
+    unsafe impl Send for IsrRawMutex {}
+    unsafe impl Sync for IsrRawMutex {}
 
-    impl CriticalSectionRawMutex {
-        /// Create a new `CriticalSectionRawMutex`.
+    impl IsrRawMutex {
+        /// Create a new `IsrRawMutex`.
         pub const fn new() -> Self {
             Self {
                 _phantom: PhantomData,
@@ -247,7 +247,7 @@ pub mod embassy_sync {
         }
     }
 
-    unsafe impl RawMutex for CriticalSectionRawMutex {
+    unsafe impl RawMutex for IsrRawMutex {
         const INIT: Self = Self::new();
 
         fn lock<R>(&self, f: impl FnOnce() -> R) -> R {
