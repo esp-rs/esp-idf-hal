@@ -52,7 +52,7 @@ fn main() -> anyhow::Result<()> {
         .baudrate(26.MHz().into())
         .data_mode(MODE_3);
 
-    let spi = SpiMasterDriver::<SPI2>::new(spi, sclk, sda, Some(sdi), Some(cs), &config)?;
+    let spi = SpiMasterDriver::new(spi, sclk, sda, Some(sdi), Some(cs), &config)?;
 
     // display interface abstraction from SPI and DC
     let di = SPIInterfaceNoCS::new(spi, dc);
@@ -68,7 +68,7 @@ fn main() -> anyhow::Result<()> {
 
     // turn on the backlight
     backlight.set_high()?;
-    let raw_image_data = ImageRawLE::new(include_bytes!("../examples/assets/ferris.raw"), 86);
+    let raw_image_data = ImageRawLE::new(include_bytes!("../assets/ferris.raw"), 86);
     let ferris = Image::new(&raw_image_data, Point::new(0, 0));
 
     // draw image on black background
