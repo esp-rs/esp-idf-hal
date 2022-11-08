@@ -18,6 +18,11 @@ use crate::gpio::Pull;
 use crate::peripheral::Peripheral;
 use crate::peripheral::PeripheralRef;
 
+#[cfg(esp_idf_version_major = "4")]
+type UnitHandle = pcnt_unit_t;
+#[cfg(esp_idf_version_major = "5")]
+type UnitHandle = pcnt_unit_handle_t;
+
 #[allow(dead_code)]
 #[derive(Debug, Copy, Clone)]
 pub enum PcntChannel {
@@ -34,43 +39,7 @@ impl Into<esp_idf_sys::pcnt_channel_t> for PcntChannel {
     }
 }
 
-#[allow(dead_code)]
-#[derive(Debug, Clone, Copy)]
-pub enum PcntUnit {
-    Unit0,
-    Unit1,
-    Unit2,
-    Unit3,
-    #[cfg(not(esp32s3))]
-    Unit4,
-    #[cfg(not(esp32s3))]
-    Unit5,
-    #[cfg(not(esp32s3))]
-    Unit6,
-    #[cfg(not(esp32s3))]
-    Unit7,
-}
 
-impl Into<esp_idf_sys::pcnt_unit_t> for PcntUnit {
-    fn into(self) -> esp_idf_sys::pcnt_unit_t {
-        match self {
-            PcntUnit::Unit0 => esp_idf_sys::pcnt_unit_t_PCNT_UNIT_0,
-            PcntUnit::Unit1 => esp_idf_sys::pcnt_unit_t_PCNT_UNIT_1,
-            PcntUnit::Unit2 => esp_idf_sys::pcnt_unit_t_PCNT_UNIT_2,
-            PcntUnit::Unit3 => esp_idf_sys::pcnt_unit_t_PCNT_UNIT_3,
-            #[cfg(not(esp32s3))]
-            PcntUnit::Unit4 => esp_idf_sys::pcnt_unit_t_PCNT_UNIT_4,
-            #[cfg(not(esp32s3))]
-            PcntUnit::Unit5 => esp_idf_sys::pcnt_unit_t_PCNT_UNIT_5,
-            #[cfg(not(esp32s3))]
-            PcntUnit::Unit6 => esp_idf_sys::pcnt_unit_t_PCNT_UNIT_6,
-            #[cfg(not(esp32s3))]
-            PcntUnit::Unit7 => esp_idf_sys::pcnt_unit_t_PCNT_UNIT_7,
-        }
-    }
-}
-
-#[allow(dead_code)]
 #[derive(Debug, Copy, Clone)]
 pub enum PcntCountMode {
     Hold,
@@ -94,7 +63,6 @@ impl Into<esp_idf_sys::pcnt_count_mode_t> for PcntCountMode {
     }
 }
 
-#[allow(dead_code)]
 #[derive(Debug, Copy, Clone)]
 pub enum PcntControlMode {
     Keep,
@@ -187,20 +155,18 @@ struct PcntChannelPins <'d, T: Borrow<PcntPin<'d>>>
     _p: PhantomData<&'d ()>,
 }
 
-#[allow(dead_code)]
 #[derive(Debug)]
 pub struct Pcnt<'d, T: Borrow<PcntPin<'d>>> {
     unit: pcnt_unit_t,
     channel_pins: [PcntChannelPins<'d, T>; esp_idf_sys::pcnt_channel_t_PCNT_CHANNEL_MAX as usize]
 }
 
-#[allow(dead_code)]
 impl<'d, T: Borrow<PcntPin<'d>>> Pcnt<'d, T> {
-    pub fn new(unit: PcntUnit) -> Pcnt<'d, T> {
-        Pcnt {
-            unit: unit.into(),
+    pub fn new() -> Result<Self, EspError> {
+        Ok(Pcnt {
+            unit: unit_allocate()?,
             channel_pins: [PcntChannelPins { pulse: None, ctrl: None, _p: PhantomData::default() }, PcntChannelPins { pulse: None, ctrl: None, _p: PhantomData::default() }],
-        }
+        })
     }
 
     pub fn config(&mut self, pconfig: &mut PcntConfig<'d, T>) -> Result<(), EspError> {
@@ -398,19 +364,26 @@ impl<'d, T: Borrow<PcntPin<'d>>> Pcnt<'d, T> {
     }
 }
 
+impl<'d, T: Borrow<PcntPin<'d>>> Drop for Pcnt<'d, T> {
+    fn drop(&mut self) {
+        let _ = self.intr_disable();
+        unsafe {ISR_HANDLERS[self.unit as usize] = None};
+        unit_deallocate(self.unit)
+    }
+}
+
 #[cfg(all(not(feature = "riscv-ulp-hal"), feature = "alloc"))]
 static ISR_SERVICE_ENABLED: core::sync::atomic::AtomicBool =
     core::sync::atomic::AtomicBool::new(false);
 
 #[cfg(all(not(feature = "riscv-ulp-hal"), feature = "alloc"))]
-static ISR_SERVICE_ENABLED_CS: crate::task::CriticalSection = crate::task::CriticalSection::new();
+static PCNT_CS: crate::task::CriticalSection = crate::task::CriticalSection::new();
 
-#[allow(dead_code)]
 fn enable_isr_service() -> Result<(), EspError> {
     use core::sync::atomic::Ordering;
 
     if !ISR_SERVICE_ENABLED.load(Ordering::SeqCst) {
-        let _ = ISR_SERVICE_ENABLED_CS.enter();
+        let _ = PCNT_CS.enter();
 
         if !ISR_SERVICE_ENABLED.load(Ordering::SeqCst) {
             esp!(unsafe { esp_idf_sys::pcnt_isr_service_install(0) })?;
@@ -422,7 +395,6 @@ fn enable_isr_service() -> Result<(), EspError> {
     Ok(())
 }
 
-#[allow(dead_code)]
 static mut ISR_HANDLERS: [Option<Box<dyn FnMut(u32)>>; esp_idf_sys::pcnt_unit_t_PCNT_UNIT_MAX as usize] = [
     None, None, None, None, 
     #[cfg(not(esp32s3))]
@@ -435,9 +407,36 @@ static mut ISR_HANDLERS: [Option<Box<dyn FnMut(u32)>>; esp_idf_sys::pcnt_unit_t_
     None, 
 ];
 
-impl<'d, T: Borrow<PcntPin<'d>>> Drop for Pcnt<'d, T> {
-    fn drop(&mut self) {
-        let _ = self.intr_disable();
-        unsafe {ISR_HANDLERS[self.unit as usize] = None};
+#[cfg(esp_idf_version_major = "4")]
+static mut PCNT_UNITS: [Option<UnitHandle>; esp_idf_sys::pcnt_unit_t_PCNT_UNIT_MAX as usize] = [
+    Some(esp_idf_sys::pcnt_unit_t_PCNT_UNIT_0),
+    Some(esp_idf_sys::pcnt_unit_t_PCNT_UNIT_1),
+    Some(esp_idf_sys::pcnt_unit_t_PCNT_UNIT_2),
+    Some(esp_idf_sys::pcnt_unit_t_PCNT_UNIT_3),
+    #[cfg(not(esp32s3))]
+    Some(esp_idf_sys::pcnt_unit_t_PCNT_UNIT_4),
+    #[cfg(not(esp32s3))]
+    Some(esp_idf_sys::pcnt_unit_t_PCNT_UNIT_5),
+    #[cfg(not(esp32s3))]
+    Some(esp_idf_sys::pcnt_unit_t_PCNT_UNIT_6),
+    #[cfg(not(esp32s3))]
+    Some(esp_idf_sys::pcnt_unit_t_PCNT_UNIT_7),
+];
+#[cfg(esp_idf_version_major = "4")]
+fn unit_allocate() -> Result<pcnt_unit_t, EspError> {
+    let _ = PCNT_CS.enter();
+    for i in 0..esp_idf_sys::pcnt_unit_t_PCNT_UNIT_MAX {
+        if let Some(unit) = unsafe { PCNT_UNITS[i as usize].take() } {
+            return Ok(unit);
+        }
+    }
+    Err(EspError::from(esp_idf_sys::ESP_ERR_NO_MEM as esp_idf_sys::esp_err_t).unwrap())
+}
+
+#[cfg(esp_idf_version_major = "4")]
+fn unit_deallocate(unit: UnitHandle) {
+    let _ = PCNT_CS.enter();
+    unsafe {
+        PCNT_UNITS[unit as usize] = Some(unit);
     }
 }
