@@ -1070,9 +1070,9 @@ unsafe impl<'d> Send for RxRmtDriver<'d> {}
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub struct PulsePair {
     pub level0: PinState,
-    pub duration0: PulseTicks,
+    pub duration0: u16,
     pub level1: PinState,
-    pub duration1: PulseTicks,
+    pub duration1: u16,
 }
 
 impl PulsePair {
@@ -1082,14 +1082,16 @@ impl PulsePair {
             _ => PinState::High,
         };
 
-        let duration0: PulseTicks = PulseTicks::new(dur0 as u16).unwrap();
+        //let duration0: PulseTicks = PulseTicks::new(dur0 as u16).unwrap();
+        let duration0 = dur0 as u16;
 
         let level1 = match lvl1 {
             0 => PinState::Low,
             _ => PinState::High,
         };
 
-        let duration1: PulseTicks = PulseTicks::new(dur1 as u16).unwrap();
+        //let duration1: PulseTicks = PulseTicks::new(dur1 as u16).unwrap();
+        let duration1 = dur1 as u16;
 
         PulsePair {
             level0,
