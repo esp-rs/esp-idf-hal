@@ -19,7 +19,7 @@ pub struct Modem(PhantomData<*const ()>);
 impl Modem {
     /// # Safety
     ///
-    /// Care should be taken not to instnatiate this Mac instance, if it is already instantiated and used elsewhere
+    /// Care should be taken not to instantiate this Mac instance, if it is already instantiated and used elsewhere
     pub unsafe fn new() -> Self {
         #[cfg(not(esp32s2))]
         let this = Modem(PhantomData, WifiModem::new(), BluetoothModem::new());
