@@ -38,11 +38,11 @@
 // because its only set on spi_bus_initilize
 // and not per device
 
-use core::cmp::{Ordering, max, min};
+use core::cmp::{max, min, Ordering};
 use core::marker::PhantomData;
 use core::ptr;
 
-use core::borrow::{Borrow};
+use core::borrow::Borrow;
 
 use embedded_hal::spi::{SpiBus, SpiBusFlush, SpiBusRead, SpiBusWrite, SpiDevice};
 
@@ -473,12 +473,11 @@ where
         cs: Option<impl Peripheral<P = impl InputPin + OutputPin> + 'd>,
         config: config::Config,
     ) -> Result<EspSpiDevice<'d, T>, EspError> {
-
-        let (cs_pin ,with_cs_pin)= if cs.is_none() {
+        let (cs_pin, with_cs_pin) = if cs.is_none() {
             (-1_i32, false)
         } else {
             let cs_pin_ref: PeripheralRef<AnyOutputPin> = cs.unwrap().into_ref().map_into();
-            (cs_pin_ref.pin(),true)
+            (cs_pin_ref.pin(), true)
         };
         let config = Self::create_conf(cs_pin, &config);
 
@@ -806,40 +805,47 @@ impl_spi_any_pins!(SPI2);
 #[cfg(not(esp32c3))]
 impl_spi_any_pins!(SPI3);
 
-use crate::gpio::{Output, Level};
+use crate::gpio::{Level, Output};
 use crate::task::CriticalSection;
 
-pub struct GuardedSpiDevice <'d, DRIVER: Borrow<SpiMasterDriver<'d>> >{
-    device: EspSpiDevice<'d,DRIVER>,
+pub struct GuardedSpiDevice<'d, DRIVER: Borrow<SpiMasterDriver<'d>>> {
+    device: EspSpiDevice<'d, DRIVER>,
     mutex: CriticalSection,
 }
 
-impl<'d, DRIVER> GuardedSpiDevice <'d, DRIVER>
+impl<'d, DRIVER> GuardedSpiDevice<'d, DRIVER>
 where
     DRIVER: Borrow<SpiMasterDriver<'d>> + 'd,
 {
-    pub fn new(device: EspSpiDevice<'d,DRIVER> ) -> Self {
-        Self { device, mutex: CriticalSection::new(), }
+    pub fn new(device: EspSpiDevice<'d, DRIVER>) -> Self {
+        Self {
+            device,
+            mutex: CriticalSection::new(),
+        }
     }
-} 
-pub struct EspSCSSpiDevice <'d, DEVICE,DRIVER: Borrow<SpiMasterDriver<'d>> > {
+}
+pub struct EspSCSSpiDevice<'d, DEVICE, DRIVER: Borrow<SpiMasterDriver<'d>>> {
     shared_device: DEVICE,
-    cs_pin: PinDriver<'d,AnyOutputPin, Output>,
+    cs_pin: PinDriver<'d, AnyOutputPin, Output>,
     _p: PhantomData<&'d DRIVER>,
 }
 
-impl<'d,DEVICE,DRIVER> EspSCSSpiDevice<'d,DEVICE, DRIVER> 
+impl<'d, DEVICE, DRIVER> EspSCSSpiDevice<'d, DEVICE, DRIVER>
 where
     DEVICE: Borrow<GuardedSpiDevice<'d, DRIVER>>,
     DRIVER: Borrow<SpiMasterDriver<'d>>,
 {
     pub fn new(
         shared_device: DEVICE,
-        cs: impl Peripheral<P = impl InputPin + OutputPin> + 'd
+        cs: impl Peripheral<P = impl InputPin + OutputPin> + 'd,
     ) -> Result<Self, EspError> {
         let cs_ref: PeripheralRef<AnyOutputPin> = cs.into_ref().map_into();
         let cs_pin = PinDriver::output(cs_ref)?;
-        Ok(Self{shared_device, cs_pin, _p: PhantomData})    
+        Ok(Self {
+            shared_device,
+            cs_pin,
+            _p: PhantomData,
+        })
     }
 
     #[must_use]
@@ -853,9 +859,9 @@ where
         f: impl FnOnce(&mut SpiBusMasterDriver<'d>) -> Result<R, E>,
     ) -> Result<R, E>
     where
-        E: From<EspError>
-    {         
-        let shared_device:&GuardedSpiDevice<'d,DRIVER> = self.shared_device.borrow();
+        E: From<EspError>,
+    {
+        let shared_device: &GuardedSpiDevice<'d, DRIVER> = self.shared_device.borrow();
         let _lock = shared_device.mutex.enter();
         let device: &EspSpiDevice<'d, DRIVER> = shared_device.device.borrow();
         self.cs_pin.toggle()?;
@@ -884,15 +890,15 @@ where
         self.cs_pin.pin()
     }
 }
-impl<'d, DEVICE,DRIVER> embedded_hal::spi::ErrorType for EspSCSSpiDevice<'d, DEVICE, DRIVER>
+impl<'d, DEVICE, DRIVER> embedded_hal::spi::ErrorType for EspSCSSpiDevice<'d, DEVICE, DRIVER>
 where
     DEVICE: Borrow<GuardedSpiDevice<'d, DRIVER>> + 'd,
-    DRIVER: Borrow<SpiMasterDriver<'d>> + 'd, 
-    {
+    DRIVER: Borrow<SpiMasterDriver<'d>> + 'd,
+{
     type Error = SpiError;
 }
 
-impl<'d, DEVICE,DRIVER> SpiDevice for EspSCSSpiDevice<'d, DEVICE, DRIVER>
+impl<'d, DEVICE, DRIVER> SpiDevice for EspSCSSpiDevice<'d, DEVICE, DRIVER>
 where
     DEVICE: Borrow<GuardedSpiDevice<'d, DRIVER>> + 'd,
     DRIVER: Borrow<SpiMasterDriver<'d>> + 'd,
