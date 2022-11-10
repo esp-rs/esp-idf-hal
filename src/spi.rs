@@ -807,6 +807,7 @@ impl_spi_any_pins!(SPI3);
 
 use crate::gpio::{Level, Output};
 use crate::task::CriticalSection;
+use crate::delay::Ets;
 
 pub struct GuardedSpiDevice<'d, DRIVER: Borrow<SpiMasterDriver<'d>>> {
     device: EspSpiDevice<'d, DRIVER>,
@@ -827,6 +828,8 @@ where
 pub struct EspSCSSpiDevice<'d, DEVICE, DRIVER: Borrow<SpiMasterDriver<'d>>> {
     shared_device: DEVICE,
     cs_pin: PinDriver<'d, AnyOutputPin, Output>,
+    pre_delay: Option<u32>,
+    post_delay: Option<u32>,
     _p: PhantomData<&'d DRIVER>,
 }
 
@@ -838,21 +841,33 @@ where
     pub fn new(
         shared_device: DEVICE,
         cs: impl Peripheral<P = impl InputPin + OutputPin> + 'd,
+        cs_level: Level,
     ) -> Result<Self, EspError> {
         let cs_ref: PeripheralRef<AnyOutputPin> = cs.into_ref().map_into();
-        let cs_pin = PinDriver::output(cs_ref)?;
+        let mut cs_pin = PinDriver::output(cs_ref)?;
+        cs_pin.set_level(cs_level)?;
         Ok(Self {
             shared_device,
             cs_pin,
             _p: PhantomData,
+            pre_delay: None,
+            post_delay: None,
         })
     }
-
-    #[must_use]
-    pub fn cs_level(mut self, level: Level) -> Result<Self, EspError> {
-        self.cs_pin.set_level(level)?;
-        Ok(self)
+    /// Add an aditional delay of x in uSeconds before transaction
+    /// between chip select and first clk out
+    pub fn cs_pre_delay(mut self, delay: u32) -> Self {
+        self.pre_delay = Some(delay);
+        self
     }
+
+    /// Add an aditional delay of x in uSeconds after transaction
+    /// between last clk out and chip select
+    pub fn cs_post_delay(mut self, delay: u32) -> Self {
+        self.post_delay = Some(delay);
+        self
+    }
+
 
     pub fn transaction<R, E>(
         &mut self,
@@ -865,7 +880,13 @@ where
         let _lock = shared_device.mutex.enter();
         let device: &EspSpiDevice<'d, DRIVER> = shared_device.device.borrow();
         self.cs_pin.toggle()?;
+        if let Some(delay) = self.pre_delay {
+            Ets::delay_us(delay);
+        }
         let result = device.transaction(f)?;
+        if let Some(delay) = self.post_delay {
+            Ets::delay_us(delay);
+        }
         self.cs_pin.toggle()?;
         Ok(result)
     }
