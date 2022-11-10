@@ -38,3 +38,6 @@ anyhow = "1"
 [dev-dependencies]
 anyhow = "1"
 esp-idf-sys = { version = "0.31.10", features = ["native", "binstart"] }
+st7789 = "0.6.1"
+display-interface-spi = "0.4.1"
+embedded-graphics = "0.7.1"
