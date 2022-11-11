@@ -1,13 +1,25 @@
 //! SPI peripheral control
 //!
-//! Currently only implements full duplex controller mode support.
-//!
 //! SPI0 is reserved for accessing flash and sram and therefore not usable for other purposes.
 //! SPI1 shares its external pins with SPI0 and therefore has severe restrictions in use.
 //!
 //! SPI2 & 3 can be used freely.
 //!
-//! The CS pin is controlled by hardware on esp32 (contrary to the description of embedded_hal).
+//! The CS pin can be controlled by hardware on esp32 variants (contrary to the description of embedded_hal).
+//!
+//! Look at the following table to determine which driver best suits your requirements:
+//!
+//! |   |                  | SpiDeviceDriver::new | SpiDeviceDriver::new_no_cs | SpiSoftCsDeviceDriver::new |   |
+//! |---|------------------|----------------------|----------------------------|----------------------------|---|
+//! |   | managed cs       |       hardware       |              -             |      software triggerd     |   |
+//! |   | 1 device         |           x          |              x             |              x             |   |
+//! |   | 1-3 devices      |           x          |              -             |              x             |   |
+//! |   | 4-6 devices      |    only on esp32c*   |              -             |              x             |   |
+//! |   | 6 - infinit      |           -          |              -             |              x             |   |
+//! |   | Dma              |           -          |              -             |              -             |   |
+//! |   | polling transmit |           x          |              x             |              x             |   |
+//! |   | isr transmit     |           -          |              -             |              -             |   |
+//! |   | async ready      |           -          |              -             |              -             |   |
 //!
 //! The [Transfer::transfer], [Write::write] and [WriteIter::write_iter] functions lock the
 //! APB frequency and therefore the requests are always run at the requested baudrate.
@@ -18,11 +30,12 @@
 //! - Quad SPI
 //! - DMA
 
+use core::cell::UnsafeCell;
 use core::cmp::{max, min, Ordering};
 use core::marker::PhantomData;
 use core::ptr;
 
-use core::borrow::Borrow;
+use core::borrow::{Borrow, BorrowMut};
 
 use embedded_hal::spi::{SpiBus, SpiBusFlush, SpiBusRead, SpiBusWrite, SpiDevice};
 
@@ -152,7 +165,7 @@ pub mod config {
         /// See https://docs.espressif.com/projects/esp-idf/en/latest/esp32/api-reference/peripherals/spi_master.html#timing-considerations
         pub write_only: bool,
         pub duplex: Duplex,
-        pub inverted_chip_select: bool,
+        pub cs_active_high: bool,
     }
 
     impl Config {
@@ -182,8 +195,8 @@ pub mod config {
             self
         }
 
-        pub fn invert_cs(mut self) -> Self {
-            self.inverted_chip_select = true;
+        pub fn cs_active_high(mut self) -> Self {
+            self.cs_active_high = true;
             self
         }
     }
@@ -194,7 +207,7 @@ pub mod config {
                 baudrate: Hertz(1_000_000),
                 data_mode: embedded_hal::spi::MODE_0,
                 write_only: false,
-                inverted_chip_select: false,
+                cs_active_high: false,
                 duplex: Duplex::Full,
             }
         }
@@ -438,7 +451,6 @@ impl<'d> Drop for SpiDriver<'d> {
 
 pub struct SpiDeviceDriver<'d, T> {
     handle: spi_device_handle_t,
-    //cs_pin_ref: Option<PeripheralRef<'d, AnyOutputPin>>,
     driver: T,
     with_cs_pin: bool,
     _p: PhantomData<&'d ()>,
@@ -450,28 +462,39 @@ where
 {
     pub fn new(
         driver: T,
-        cs: Option<impl Peripheral<P = impl InputPin + OutputPin> + 'd>,
-        config: config::Config,
+        cs: impl Peripheral<P = impl InputPin + OutputPin> + 'd,
+        config: &config::Config,
     ) -> Result<SpiDeviceDriver<'d, T>, EspError> {
-        let (cs_pin, with_cs_pin) = if cs.is_none() {
-            (-1_i32, false)
-        } else {
-            let cs_pin_ref: PeripheralRef<AnyOutputPin> = cs.unwrap().into_ref().map_into();
-            (cs_pin_ref.pin(), true)
-        };
+        crate::into_ref!(cs);
+        let cs_ref: PeripheralRef<AnyOutputPin> = cs.into_ref().map_into();
+        let cs_pin = cs_ref.pin();
+
         let config = Self::create_conf(cs_pin, &config);
 
         let master: &SpiDriver = driver.borrow();
         let mut device_handle: spi_device_handle_t = ptr::null_mut();
         esp!(unsafe { spi_bus_add_device(master.host(), &config, &mut device_handle as *mut _) })?;
 
-        let me = Self {
+        Ok(Self {
             handle: device_handle,
             driver,
-            with_cs_pin,
+            with_cs_pin: true,
             _p: PhantomData,
-        };
-        Ok(me)
+        })
+    }
+    pub fn new_no_cs(driver: T, config: &config::Config) -> Result<SpiDeviceDriver<'d, T>, EspError> {
+        let config = Self::create_conf(-1, &config);
+
+        let master: &SpiDriver = driver.borrow();
+        let mut device_handle: spi_device_handle_t = ptr::null_mut();
+        esp!(unsafe { spi_bus_add_device(master.host(), &config, &mut device_handle as *mut _) })?;
+
+        Ok(Self {
+            handle: device_handle,
+            driver,
+            with_cs_pin: false,
+            _p: PhantomData,
+        })
     }
 
     fn create_conf(cs: i32, config: &config::Config) -> spi_device_interface_config_t {
@@ -487,7 +510,7 @@ where
                 SPI_DEVICE_NO_DUMMY
             } else {
                 0_u32
-            } | if config.inverted_chip_select {
+            } | if config.cs_active_high {
                 SPI_DEVICE_POSITIVE_CS
             } else {
                 0_u32
@@ -500,7 +523,7 @@ where
         self.handle
     }
     pub fn transaction<R, E>(
-        &self,
+        &mut self,
         f: impl FnOnce(&mut SpiBusDriver<'d>) -> Result<R, E>,
     ) -> Result<R, E>
     where
@@ -540,19 +563,19 @@ where
         Ok(result)
     }
 
-    pub fn transfer(&self, read: &mut [u8], write: &[u8]) -> Result<(), EspError> {
+    pub fn transfer(&mut self, read: &mut [u8], write: &[u8]) -> Result<(), EspError> {
         self.transaction(|bus| bus.transfer(read, write))
     }
 
-    pub fn write(&self, write: &[u8]) -> Result<(), EspError> {
+    pub fn write(&mut self, write: &[u8]) -> Result<(), EspError> {
         self.transaction(|bus| bus.write(write))
     }
 
-    pub fn read(&self, read: &mut [u8]) -> Result<(), EspError> {
+    pub fn read(&mut self, read: &mut [u8]) -> Result<(), EspError> {
         self.transaction(|bus| bus.read(read))
     }
 
-    pub fn transfer_in_place(&self, buf: &mut [u8]) -> Result<(), EspError> {
+    pub fn transfer_in_place(&mut self, buf: &mut [u8]) -> Result<(), EspError> {
         self.transaction(|bus| bus.transfer_in_place(buf))
     }
 
@@ -794,8 +817,8 @@ use crate::delay::Ets;
 use crate::gpio::{Level, Output};
 use crate::task::CriticalSection;
 
-pub struct SpiSharedDeviceDriver<'d, DRIVER: Borrow<SpiDriver<'d>>> {
-    device: SpiDeviceDriver<'d, DRIVER>,
+pub struct SpiSharedDeviceDriver<'d, DRIVER> {
+    driver: UnsafeCell<SpiDeviceDriver<'d, DRIVER>>,
     mutex: CriticalSection,
 }
 
@@ -805,26 +828,32 @@ where
 {
     pub fn new(device: SpiDeviceDriver<'d, DRIVER>) -> Self {
         Self {
-            device,
+            driver: UnsafeCell::new(device),
             mutex: CriticalSection::new(),
         }
     }
+
+    pub fn lock<R>(&self, f: impl FnOnce(&mut SpiDeviceDriver<'d, DRIVER>) -> R) -> R {
+        let dev = unsafe { &mut *self.driver.get() };
+        let result = f(dev);
+        result
+    }
 }
-pub struct SpiSoftCsDeviceDriver<'d, DEVICE, DRIVER: Borrow<SpiDriver<'d>>> {
-    shared_device: DEVICE,
+pub struct SpiSoftCsDeviceDriver<'d, SHARED, DRIVER: Borrow<SpiDriver<'d>>> {
+    shared_device: SHARED,
     cs_pin: PinDriver<'d, AnyOutputPin, Output>,
-    pre_delay: Option<u32>,
-    post_delay: Option<u32>,
+    pre_delay_us: Option<u32>,
+    post_delay_us: Option<u32>,
     _p: PhantomData<&'d DRIVER>,
 }
 
-impl<'d, DEVICE, DRIVER> SpiSoftCsDeviceDriver<'d, DEVICE, DRIVER>
+impl<'d, SHARED, DRIVER> SpiSoftCsDeviceDriver<'d, SHARED, DRIVER>
 where
-    DEVICE: Borrow<SpiSharedDeviceDriver<'d, DRIVER>>,
+    SHARED: Borrow<SpiSharedDeviceDriver<'d, DRIVER>>,
     DRIVER: Borrow<SpiDriver<'d>>,
 {
     pub fn new(
-        shared_device: DEVICE,
+        shared_device: SHARED,
         cs: impl Peripheral<P = impl InputPin + OutputPin> + 'd,
         cs_level: Level,
     ) -> Result<Self, EspError> {
@@ -835,22 +864,26 @@ where
             shared_device,
             cs_pin,
             _p: PhantomData,
-            pre_delay: None,
-            post_delay: None,
+            pre_delay_us: None,
+            post_delay_us: None,
         })
     }
     /// Add an aditional delay of x in uSeconds before transaction
     /// between chip select and first clk out
-    pub fn cs_pre_delay(mut self, delay: u32) -> Self {
-        self.pre_delay = Some(delay);
+    pub fn cs_pre_delay_us(mut self, delay_us: u32) -> Self {
+        self.pre_delay_us = Some(delay_us);
         self
     }
 
     /// Add an aditional delay of x in uSeconds after transaction
     /// between last clk out and chip select
-    pub fn cs_post_delay(mut self, delay: u32) -> Self {
-        self.post_delay = Some(delay);
+    pub fn cs_post_delay_us(mut self, delay_us: u32) -> Self {
+        self.post_delay_us = Some(delay_us);
         self
+    }
+
+    pub fn update_shared_driver(&mut self, shared_device: SHARED) {
+        self.shared_device = shared_device;
     }
 
     pub fn transaction<R, E>(
@@ -862,16 +895,17 @@ where
     {
         let shared_device: &SpiSharedDeviceDriver<'d, DRIVER> = self.shared_device.borrow();
         let _lock = shared_device.mutex.enter();
-        let device: &SpiDeviceDriver<'d, DRIVER> = shared_device.device.borrow();
+
         self.cs_pin.toggle()?;
-        if let Some(delay) = self.pre_delay {
+        if let Some(delay) = self.pre_delay_us {
             Ets::delay_us(delay);
         }
-        let result = device.transaction(f)?;
-        if let Some(delay) = self.post_delay {
+        let trans_result = shared_device.lock(|driver| driver.transaction(f));
+        if let Some(delay) = self.post_delay_us {
             Ets::delay_us(delay);
         }
         self.cs_pin.toggle()?;
+        let result = trans_result?;
         Ok(result)
     }
 
