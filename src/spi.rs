@@ -833,7 +833,7 @@ where
         }
     }
 
-    pub fn lock<R>(&self, f: impl FnOnce(&mut SpiDeviceDriver<'d, DRIVER>) -> R) -> R {
+    pub (crate)fn lock<R>(&self, f: impl FnOnce(&mut SpiDeviceDriver<'d, DRIVER>) -> R) -> R {
         let dev = unsafe { &mut *self.driver.get() };
         let result = f(dev);
         result
