@@ -35,7 +35,7 @@ use core::cmp::{max, min, Ordering};
 use core::marker::PhantomData;
 use core::ptr;
 
-use core::borrow::{Borrow, BorrowMut};
+use core::borrow::Borrow;
 
 use embedded_hal::spi::{SpiBus, SpiBusFlush, SpiBusRead, SpiBusWrite, SpiDevice};
 
@@ -218,7 +218,7 @@ pub struct SpiBusDriver<'d> {
     handle: spi_device_handle_t,
     trans_len: usize,
     hardware_cs: bool,
-    _p: PhantomData<&'d ()>,
+    _p: PhantomData<&'d mut ()>,
 }
 
 impl<'d> SpiBusDriver<'d> {
@@ -482,7 +482,10 @@ where
             _p: PhantomData,
         })
     }
-    pub fn new_no_cs(driver: T, config: &config::Config) -> Result<SpiDeviceDriver<'d, T>, EspError> {
+    pub fn new_no_cs(
+        driver: T,
+        config: &config::Config,
+    ) -> Result<SpiDeviceDriver<'d, T>, EspError> {
         let config = Self::create_conf(-1, &config);
 
         let master: &SpiDriver = driver.borrow();
@@ -540,7 +543,7 @@ where
             _p: PhantomData,
         };
 
-        let lock = Self::lock_bus(self.handle)?;
+        let lock = self.lock_bus()?;
 
         let trans_result = f(&mut bus);
 
@@ -579,8 +582,8 @@ where
         self.transaction(|bus| bus.transfer_in_place(buf))
     }
 
-    fn lock_bus(handle: spi_device_handle_t) -> Result<Lock, EspError> {
-        Lock::new(handle)
+    fn lock_bus(&self) -> Result<Lock, EspError> {
+        Lock::new(self.handle)
     }
 }
 
@@ -610,7 +613,7 @@ where
 
     fn transfer<'w>(&mut self, words: &'w mut [u8]) -> Result<&'w [u8], Self::Error> {
         let master: &SpiDriver = self.driver.borrow();
-        let _lock = Self::lock_bus(self.handle)?;
+        let _lock = self.lock_bus()?;
         let mut chunks = words.chunks_mut(master.max_transfer_size).peekable();
 
         while let Some(chunk) = chunks.next() {
@@ -631,7 +634,7 @@ where
 
     fn write(&mut self, words: &[u8]) -> Result<(), Self::Error> {
         let master: &SpiDriver = self.driver.borrow();
-        let _lock = Self::lock_bus(self.handle)?;
+        let _lock = self.lock_bus()?;
         let mut chunks = words.chunks(master.max_transfer_size).peekable();
 
         while let Some(chunk) = chunks.next() {
@@ -833,7 +836,7 @@ where
         }
     }
 
-    pub (crate)fn lock<R>(&self, f: impl FnOnce(&mut SpiDeviceDriver<'d, DRIVER>) -> R) -> R {
+    pub(crate) fn lock<R>(&self, f: impl FnOnce(&mut SpiDeviceDriver<'d, DRIVER>) -> R) -> R {
         let dev = unsafe { &mut *self.driver.get() };
         let result = f(dev);
         result
