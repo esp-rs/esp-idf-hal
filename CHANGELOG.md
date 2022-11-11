@@ -44,7 +44,7 @@ The main themes of the 0.39 release are:
 
 * Each driver is named `<Peripheral>Driver`, where `<Peripheral>` is the name of the peripheral. E.g. the driver for the `Uart` peripheral is named `UartDriver`, the driver for the `Adc` peripheral is named `AdcDriver` and so on
 * The one exception is the GPIO subsystem, where the driver is not named `GpioDriver`, but the simpler `PinDriver` instead, even if the concrete peripheral struct type might be e.g. `Gpio12`
-* In case there are multiple drivers per peripheral - as in - say - a master and a slave protocol driver - the driver name contains the `Master` / `Slave` word in its name, as in e.g. `SpiDriver` and `SpiSlaveDriver`
+* In case there are multiple drivers per peripheral - as in - say - a master and a slave protocol driver - only the `Slave` contains itself in its name, as in e.g. `SpiDriver` and `SpiSlaveDriver`
 * NOTE: We are NOT fond of still using offensive terms like "master" and "slave". Unfortunately, the embedded industry itself has not yet agreed (to our knowledge) on a good replacement for these terms, hence they are still around
 
 ### Public API
@@ -133,6 +133,6 @@ The SpiDriver is now split into two parts
   
 This allows for the creation of more than one Devices per SPI hardware. (Up to 6 for the esp32c* variants and 3 for all others).
 Creation and Deletion of the SpiDeviceDrivers is independent from SpiDriver. To allow for a more flexible usage an SpiDeviceDrivers can get reference to the SpiDriver by `T`, `&T`, `&mut T`, `Rc(T)`, `Arc(T)` where `T` is SpiDriver.
-SpiDeviceDriver implements the SpiDevice from `embedded-hal`
+`SpiDeviceDriver` implements the SpiDevice from `embedded-hal`
 
-A second wrapper implementation is now provided in `spi_pool.rs`, to allow more concurrent SpiDevices per SPI Hardware (No hardware limit of 3 / 6). `SpiConfigPool` can take up to 3 / 6 different device configurations. These configurations can be shared with an arbitrary number of `SpiPoolDevice`s, or can be used on one Device to change its configuration on the fly. 
+A second wrapper implementation is now also provided: `SpiSoftCsDeviceDriver` It allows for more concurrent SpiDevices per SPI Hardware (No hardware limit of 3 / 6). To use it one wrapps an instance of an `SpiDeviceDriver` into an `SpiSharedDeviceDriver`. This shared driver can now be used in an arbitrary number of `SpiSoftCsDeviceDriver`. To easily change an configuration of an `SpiSoftCsDeviceDriver` simply point it to another `SpiSharedDeviceDriver`. 
