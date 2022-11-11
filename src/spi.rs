@@ -541,7 +541,8 @@ where
 
         let trans_result = f(&mut bus);
 
-        let finish_result = bus.finish();
+        // #99 is partially resolved by allowing software CS to ignore this bus.finish() work around
+        let finish_result = if self.with_cs_pin{ bus.finish() } else {Ok(())};
 
         // Flush whatever is pending.
         // Note that this is done even when an error is returned from the transaction.
