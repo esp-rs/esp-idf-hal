@@ -41,7 +41,7 @@ use embedded_hal::spi::{SpiBus, SpiBusFlush, SpiBusRead, SpiBusWrite, SpiDevice}
 use esp_idf_sys::*;
 
 use crate::delay::{Ets, BLOCK};
-use crate::gpio::{self, AnyOutputPin, InputPin, Level, Output, OutputPin, PinDriver};
+use crate::gpio::{AnyOutputPin, InputPin, Level, Output, OutputPin, PinDriver};
 use crate::peripheral::Peripheral;
 use crate::task::CriticalSection;
 
@@ -353,9 +353,9 @@ impl<'d> SpiDriver<'d> {
     #[cfg(esp32)]
     pub fn new_spi1(
         _spi: impl Peripheral<P = SPI1> + 'd,
-        sclk: impl Peripheral<P = gpio::Gpio6> + 'd,
-        sdo: impl Peripheral<P = gpio::Gpio7> + 'd,
-        sdi: Option<impl Peripheral<P = gpio::Gpio8> + 'd>,
+        sclk: impl Peripheral<P = crate::gpio::Gpio6> + 'd,
+        sdo: impl Peripheral<P = crate::gpio::Gpio7> + 'd,
+        sdi: Option<impl Peripheral<P = crate::gpio::Gpio8> + 'd>,
         dma: Dma,
     ) -> Result<Self, EspError> {
         let max_transfer_size = Self::new_internal::<SPI1>(sclk, sdo, sdi, dma)?;
@@ -465,9 +465,9 @@ impl<'d> SpiDeviceDriver<'d, SpiDriver<'d>> {
     #[cfg(esp32)]
     pub fn new_single_spi1(
         spi: impl Peripheral<P = SPI1> + 'd,
-        sclk: impl Peripheral<P = gpio::Gpio6> + 'd,
-        sdo: impl Peripheral<P = gpio::Gpio7> + 'd,
-        sdi: Option<impl Peripheral<P = gpio::Gpio8> + 'd>,
+        sclk: impl Peripheral<P = crate::gpio::Gpio6> + 'd,
+        sdo: impl Peripheral<P = crate::gpio::Gpio7> + 'd,
+        sdi: Option<impl Peripheral<P = crate::gpio::Gpio8> + 'd>,
         dma: Dma,
         cs: Option<impl Peripheral<P = impl OutputPin> + 'd>,
         config: &config::Config,
