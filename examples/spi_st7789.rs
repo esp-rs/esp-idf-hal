@@ -52,7 +52,8 @@ fn main() -> anyhow::Result<()> {
         .baudrate(26.MHz().into())
         .data_mode(MODE_3);
 
-    let spi = SpiMasterDriver::new(spi, sclk, sda, Some(sdi), Some(cs), &config)?;
+    let device =
+        SpiDeviceDriver::new_single(spi, sclk, sda, Some(sdi), Dma::Disabled, Some(cs), &config)?;
 
     // display interface abstraction from SPI and DC
     let di = SPIInterfaceNoCS::new(spi, dc);

@@ -350,20 +350,21 @@ impl<'d> SpiDriver<'d> {
     /// Create new instance of SPI controller for SPI1
     ///
     /// SPI1 can only use fixed pin for SCLK, SDO and SDI as they are shared with SPI0.
-    pub fn new_spi1<SPI: Spi>(
+    pub fn new_spi1(
         _spi: impl Peripheral<P = SPI1> + 'd,
         sclk: impl Peripheral<P = gpio::Gpio6> + 'd,
         sdo: impl Peripheral<P = gpio::Gpio7> + 'd,
         sdi: Option<impl Peripheral<P = gpio::Gpio8> + 'd>,
         dma: Dma,
     ) -> Result<Self, EspError> {
-        let max_transfer_size = Self::new_internal::<SPI>(sclk, sdo, sdi, dma)?;
+        let max_transfer_size = Self::new_internal::<SPI1>(sclk, sdo, sdi, dma)?;
         Ok(Self {
-            host: SPI::device() as _,
+            host: SPI1::device() as _,
             max_transfer_size,
             _p: PhantomData,
         })
     }
+
     /// Create new instance of SPI controller for all others
     pub fn new<SPI: SpiAnyPins>(
         _spi: impl Peripheral<P = SPI> + 'd,
@@ -450,11 +451,39 @@ impl<'d> Drop for SpiDriver<'d> {
     }
 }
 
+pub type SpiSingleDeviceDriver<'d> = SpiDeviceDriver<'d, SpiDriver<'d>>;
+
 pub struct SpiDeviceDriver<'d, T> {
     handle: spi_device_handle_t,
     driver: T,
     with_cs_pin: bool,
     _p: PhantomData<&'d ()>,
+}
+
+impl<'d> SpiDeviceDriver<'d, SpiDriver<'d>> {
+    pub fn new_single_spi1(
+        spi: impl Peripheral<P = SPI1> + 'd,
+        sclk: impl Peripheral<P = gpio::Gpio6> + 'd,
+        sdo: impl Peripheral<P = gpio::Gpio7> + 'd,
+        sdi: Option<impl Peripheral<P = gpio::Gpio8> + 'd>,
+        dma: Dma,
+        cs: Option<impl Peripheral<P = impl OutputPin> + 'd>,
+        config: &config::Config,
+    ) -> Result<Self, EspError> {
+        Self::new(SpiDriver::new_spi1(spi, sclk, sdo, sdi, dma)?, cs, config)
+    }
+
+    pub fn new_single<SPI: SpiAnyPins>(
+        spi: impl Peripheral<P = SPI> + 'd,
+        sclk: impl Peripheral<P = impl OutputPin> + 'd,
+        sdo: impl Peripheral<P = impl OutputPin> + 'd,
+        sdi: Option<impl Peripheral<P = impl InputPin + OutputPin> + 'd>,
+        dma: Dma,
+        cs: Option<impl Peripheral<P = impl OutputPin> + 'd>,
+        config: &config::Config,
+    ) -> Result<Self, EspError> {
+        Self::new(SpiDriver::new(spi, sclk, sdo, sdi, dma)?, cs, config)
+    }
 }
 
 impl<'d, T> SpiDeviceDriver<'d, T>

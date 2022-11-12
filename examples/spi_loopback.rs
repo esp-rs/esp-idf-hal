@@ -50,18 +50,9 @@ fn main() -> anyhow::Result<()> {
         // we are using thread::sleep here to make sure the watchdog isn't triggered
         FreeRtos::delay_ms(500);
         device_1.transfer(&mut read, &write)?;
-        println!(
-            "Device {:?} : Wrote {:x?}, read {:x?}",
-            device_1.cs_gpio_number(),
-            write,
-            read
-        );
+        println!("Device 1: Wrote {:x?}, read {:x?}", write, read);
 
-        println!(
-            "Device {:?} : To Write {:x?} ... ",
-            device_2.cs_gpio_number(),
-            in_place_buf
-        );
+        println!("Device 2: To write {:x?} ... ", in_place_buf);
         device_2.transaction(|bus| bus.transfer_in_place(&mut in_place_buf));
         println!("... read {:x?}", in_place_buf);
     }
