@@ -24,7 +24,7 @@ use esp_idf_hal::delay::FreeRtos;
 use esp_idf_hal::peripherals::Peripherals;
 use esp_idf_hal::rmt::{
     FixedLengthSignal, PinState, Pulse, PulseTicks, RmtReceiveConfig, RmtTransmitConfig,
-    RxRmtDriver, TxRmtDriver, CHANNEL0, CHANNEL2,
+    RxRmtDriver, TxRmtDriver,
 };
 
 fn main() -> anyhow::Result<()> {
@@ -47,7 +47,7 @@ fn main() -> anyhow::Result<()> {
     let _ = std::thread::spawn(move || loop {
         println!("Rx Loop");
 
-        let mut pulses: [(Puse, Pulse); 250];
+        let mut pulses: [(Pulse, Pulse); 250];
 
         // See sdkconfig.defaults to determine the tick time value ( default is one tick = 10 milliseconds)
         // Set ticks_to_wait to 0 for non-blocking
@@ -56,7 +56,7 @@ fn main() -> anyhow::Result<()> {
 
         if !pulses.is_empty() {
             for (pulse0, pulse1) in pulses {
-                println!("0={:?}, 1={:?}", puse0, pulse1);
+                println!("0={:?}, 1={:?}", pulse0, pulse1);
             }
         }
 
@@ -66,13 +66,14 @@ fn main() -> anyhow::Result<()> {
     /*
      *********************** SET UP RMT TRANSMITTER ******************************
      */
-    let output_pin = peripherals.pins.gpio4;
-    let tx_rmt_channel: CHANNEL0 = peripherals.rmt.channel0;
 
     // Prepare the tx_config
     // The default uses one memory block or 64 signals and clock divider set to 80 (1us tick)
-    let tx_config = RmtTransmitConfig::new();
-    let mut tx = TxRmtDriver::new(tx_rmt_channel, output_pin, &tx_config)?;
+    let mut tx = TxRmtDriver::new(
+        peripherals.rmt.channel0,
+        peripherals.pins.gpio4,
+        &RmtTransmitConfig::new(),
+    )?;
 
     // Prepare signal pulse signal to be sent.
     let one_low = Pulse::new(PinState::Low, PulseTicks::new(410)?);
@@ -82,7 +83,7 @@ fn main() -> anyhow::Result<()> {
     let sync_low = Pulse::new(PinState::Low, PulseTicks::new(620)?);
     let sync_high = Pulse::new(PinState::High, PulseTicks::new(620)?);
 
-    let _transmit_task = thread::spawn(move || loop {
+    let _ = std::thread::spawn(move || loop {
         println!("Tx Loop");
 
         // Create a sequence
