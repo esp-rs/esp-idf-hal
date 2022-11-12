@@ -21,9 +21,6 @@
 use esp_idf_sys::{self as _}; // If using the `binstart` feature of `esp-idf-sys`, always keep this module imported
 
 use esp_idf_hal::peripherals::Peripherals;
-use std::thread;
-use std::time::Duration;
-
 use esp_idf_hal::rmt::{
     FixedLengthSignal, PinState, Pulse, PulseTicks, RmtReceiveConfig, RmtTransmitConfig,
     RxRmtDriver, TxRmtDriver, CHANNEL0, CHANNEL2,
@@ -43,7 +40,7 @@ fn main() -> anyhow::Result<()> {
     let mut rx = RxRmtDriver::new(rx_rmt_channel, input_pin, &rx_config, 1000)?;
     let _rx_start = rx.start().unwrap();
 
-    let _receive_task = thread::spawn(move || loop {
+    let _ = std::thread::spawn(move || loop {
         println!("Rx Loop");
 
         // See sdkconfig.defaults to determine the tick time value ( default is one tick = 10 milliseconds)
@@ -63,7 +60,7 @@ fn main() -> anyhow::Result<()> {
             }
         }
 
-        thread::sleep(Duration::from_millis(500));
+        FreeRtos::delay_ms(500);
     });
 
     /*
@@ -99,10 +96,10 @@ fn main() -> anyhow::Result<()> {
         // Transmit the signal (send sequence)
         tx.start(signal).unwrap();
 
-        thread::sleep(Duration::from_secs(1));
+        FreeRtos::delay_ms(1000);
     });
 
     loop {
-        thread::sleep(Duration::from_secs(3));
+        FreeRtos::delay_ms(3000);
     }
 }
