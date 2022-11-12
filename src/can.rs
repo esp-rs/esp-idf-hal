@@ -73,6 +73,7 @@ pub mod config {
                     tseg_2: 8,
                     sjw: 3,
                     triple_sampling: false,
+                    ..Default::default()
                 },
                 Timing::B50K => twai_timing_config_t {
                     brp: 80,
@@ -80,6 +81,7 @@ pub mod config {
                     tseg_2: 4,
                     sjw: 3,
                     triple_sampling: false,
+                    ..Default::default()
                 },
                 Timing::B100K => twai_timing_config_t {
                     brp: 40,
@@ -87,6 +89,7 @@ pub mod config {
                     tseg_2: 4,
                     sjw: 3,
                     triple_sampling: false,
+                    ..Default::default()
                 },
                 Timing::B125K => twai_timing_config_t {
                     brp: 32,
@@ -94,6 +97,7 @@ pub mod config {
                     tseg_2: 4,
                     sjw: 3,
                     triple_sampling: false,
+                    ..Default::default()
                 },
                 Timing::B250K => twai_timing_config_t {
                     brp: 16,
@@ -101,6 +105,7 @@ pub mod config {
                     tseg_2: 4,
                     sjw: 3,
                     triple_sampling: false,
+                    ..Default::default()
                 },
                 Timing::B500K => twai_timing_config_t {
                     brp: 8,
@@ -108,6 +113,7 @@ pub mod config {
                     tseg_2: 4,
                     sjw: 3,
                     triple_sampling: false,
+                    ..Default::default()
                 },
                 Timing::B800K => twai_timing_config_t {
                     brp: 4,
@@ -115,6 +121,7 @@ pub mod config {
                     tseg_2: 8,
                     sjw: 3,
                     triple_sampling: false,
+                    ..Default::default()
                 },
                 Timing::B1M => twai_timing_config_t {
                     brp: 4,
@@ -122,6 +129,7 @@ pub mod config {
                     tseg_2: 4,
                     sjw: 3,
                     triple_sampling: false,
+                    ..Default::default()
                 },
             }
         }
