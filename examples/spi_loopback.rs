@@ -36,10 +36,10 @@ fn main() -> anyhow::Result<()> {
     let mut spi = SpiDriver::new::<SPI2>(spi, sclk, serial_out, Some(serial_in), Dma::Disabled)?;
 
     let config_1 = config::Config::new().baudrate(26.MHz().into());
-    let mut device_1 = SpiDeviceDriver::new(&spi, cs_1, &config_2)?;
+    let mut device_1 = SpiDeviceDriver::new(&spi, Some(cs_1), &config_1)?;
 
     let config_2 = config::Config::new().baudrate(13.MHz().into());
-    let mut device_2 = SpiDeviceDriver::new(&spi, cs_2, &config_2)?;
+    let mut device_2 = SpiDeviceDriver::new(&spi, Some(cs_2), &config_2)?;
 
     let mut read = [0u8; 4];
     let write = [0xde, 0xad, 0xbe, 0xef];
