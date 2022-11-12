@@ -26,7 +26,7 @@
 //! let pin = peripherals.pins.gpio18;
 //!
 //! // Create an RMT transmitter.
-//! let tx = RmtDriver::new(channel, pin, &config)?;
+//! let tx = TxRmtDriver::new(channel, pin, &config)?;
 //!
 //! // Prepare signal pulse signal to be sent.
 //! let low = Pulse::new(PinState::Low, PulseTicks::new(10)?);
@@ -51,19 +51,16 @@
 //! [VariableLengthSignal] allows you to use the heap and incrementally add pulse items without knowing the size
 //! ahead of time.
 
+use core::cell::UnsafeCell;
 use core::convert::TryFrom;
 use core::marker::PhantomData;
 use core::time::Duration;
 
-#[cfg(feature = "alloc")]
 extern crate alloc;
-
-#[cfg(feature = "alloc")]
-use alloc::vec::Vec;
-use core::cell::UnsafeCell;
 
 use esp_idf_sys::*;
 
+use crate::gpio::InputPin;
 use crate::gpio::OutputPin;
 use crate::peripheral::Peripheral;
 use crate::units::Hertz;
@@ -73,6 +70,7 @@ use config::TransmitConfig;
 pub use chip::*;
 
 pub type RmtTransmitConfig = config::TransmitConfig;
+pub type RmtReceiveConfig = config::ReceiveConfig;
 
 /// A `Low` (0) or `High` (1) state for a pin.
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
@@ -174,7 +172,8 @@ pub fn duration_to_ticks(ticks_hz: Hertz, duration: &Duration) -> Result<u128, E
         / 1_000_000_000)
 }
 
-pub type RmtConfig = config::TransmitConfig;
+pub type TxRmtConfig = config::TransmitConfig;
+pub type RxRmtConfig = config::ReceiveConfig;
 
 /// Types used for configuring the [`rmt`][crate::rmt] module.
 ///
@@ -335,19 +334,80 @@ pub mod config {
             Self::new()
         }
     }
+
+    /// Used when creating a [`Receive`][crate::rmt::Receive] instance.
+    pub struct ReceiveConfig {
+        pub clock_divider: u8,
+        pub mem_block_num: u8,
+        pub idle_threshold: u16,
+        pub filter_ticks_thresh: u8,
+        pub filter_en: bool,
+        pub carrier: Option<CarrierConfig>,
+    }
+
+    impl ReceiveConfig {
+        pub fn new() -> Self {
+            Self::default()
+        }
+
+        pub fn clock_divider(mut self, divider: u8) -> Self {
+            self.clock_divider = divider;
+            self
+        }
+
+        pub fn mem_block_num(mut self, mem_block_num: u8) -> Self {
+            self.mem_block_num = mem_block_num;
+            self
+        }
+
+        pub fn idle_threshold(mut self, threshold: u16) -> Self {
+            self.idle_threshold = threshold;
+            self
+        }
+
+        pub fn filter_ticks_thresh(mut self, threshold: u8) -> Self {
+            self.filter_ticks_thresh = threshold;
+            self
+        }
+
+        pub fn filter_en(mut self, enable: bool) -> Self {
+            self.filter_en = enable;
+            self
+        }
+
+        pub fn carrier(mut self, carrier: Option<CarrierConfig>) -> Self {
+            self.carrier = carrier;
+            self
+        }
+    }
+
+    impl Default for ReceiveConfig {
+        /// Defaults from `<https://github.com/espressif/esp-idf/blob/master/components/driver/include/driver/rmt.h#L110>`
+        fn default() -> Self {
+            Self {
+                clock_divider: 80,        // one microsecond clock period
+                mem_block_num: 1, // maximum of 448 rmt items can be captured (mem_block_num=0 will have max 512 rmt items)
+                idle_threshold: 12000, // 1.2 milliseconds, pulse greater than this will generate interrupt
+                filter_ticks_thresh: 100, // 100 microseconds, pulses less than this will be ignored
+                filter_en: true,
+                carrier: None,
+            }
+        }
+    }
 }
 
 /// The RMT transmitter driver.
 ///
-/// Use [`RmtDriver::start()`] or [`RmtDriver::start_blocking()`] to transmit pulses.
+/// Use [`TxRmtDriver::start()`] or [`TxRmtDriver::start_blocking()`] to transmit pulses.
 ///
 /// See the [rmt module][crate::rmt] for more information.
-pub struct RmtDriver<'d> {
+
+pub struct TxRmtDriver<'d> {
     channel: u8,
     _p: PhantomData<&'d mut ()>,
 }
 
-impl<'d> RmtDriver<'d> {
+impl<'d> TxRmtDriver<'d> {
     /// Initialise the rmt module with the specified pin, channel and configuration.
     ///
     /// To uninstall the driver just drop it.
@@ -489,6 +549,7 @@ impl<'d> RmtDriver<'d> {
     /// are no time-gaps between successive transmissions where the perhipheral has to
     /// wait for items. This can cause weird behavior and can be counteracted with
     /// increasing [`Config::mem_block_num`] or making iteration more efficient.
+
     pub fn start_iter_blocking<T>(&mut self, iter: T) -> Result<(), EspError>
     where
         T: Iterator<Item = rmt_item32_t> + Send,
@@ -593,7 +654,7 @@ impl<'d> RmtDriver<'d> {
     }
 }
 
-impl<'d> Drop for RmtDriver<'d> {
+impl<'d> Drop for TxRmtDriver<'d> {
     /// Stop transmitting and release the driver.
     fn drop(&mut self) {
         self.stop().unwrap();
@@ -601,7 +662,7 @@ impl<'d> Drop for RmtDriver<'d> {
     }
 }
 
-unsafe impl<'d> Send for RmtDriver<'d> {}
+unsafe impl<'d> Send for TxRmtDriver<'d> {}
 
 /// Signal storage for [`Transmit`] in a format ready for the RMT driver.
 pub trait Signal {
@@ -695,7 +756,6 @@ impl<const N: usize> Default for FixedLengthSignal<N> {
 /// ```
 
 #[derive(Clone, Default)]
-#[cfg(feature = "alloc")]
 pub struct VariableLengthSignal {
     items: Vec<rmt_item32_t>,
 
@@ -704,7 +764,6 @@ pub struct VariableLengthSignal {
     next_item_is_new: bool,
 }
 
-#[cfg(feature = "alloc")]
 impl VariableLengthSignal {
     pub fn new() -> Self {
         Self {
@@ -853,6 +912,192 @@ mod chip {
                 #[cfg(any(esp32, esp32s3))]
                 channel7: CHANNEL7::new(),
             }
+        }
+    }
+}
+
+use self::config::ReceiveConfig;
+/// The RMT receiver.
+///
+/// Use [`RxRmtDriver::start()`] to receive pulses.
+///
+/// See the [rmt module][crate::rmt] for more information.
+use alloc::vec::Vec;
+use core::convert::TryInto;
+use core::ptr;
+
+pub struct RxRmtDriver<'d> {
+    channel: u8,
+    _p: PhantomData<&'d mut ()>,
+    pub pulse_pair_vec: Vec<PulsePair>,
+}
+
+impl<'d> RxRmtDriver<'d> {
+    /// Initialise the rmt module with the specified pin, channel and configuration.
+    ///
+    /// To uninstall the driver just drop it.
+    ///
+    /// Internally this calls `rmt_config()` and `rmt_driver_install()`.
+
+    pub fn new<C: RmtChannel>(
+        _channel: impl Peripheral<P = C> + 'd,
+        pin: impl Peripheral<P = impl InputPin> + 'd,
+        config: &ReceiveConfig,
+        rx_buffer_size_in_bytes: u32,
+    ) -> Result<Self, EspError> {
+        crate::into_ref!(pin);
+
+        let flags = 0;
+
+        #[cfg(not(any(esp32, esp32c2)))]
+        let carrier_en = config.carrier.is_some();
+
+        #[cfg(not(any(esp32, esp32c2)))]
+        let carrier = config.carrier.unwrap_or_default();
+
+        let sys_config = rmt_config_t {
+            rmt_mode: rmt_mode_t_RMT_MODE_RX,
+            channel: C::channel(),
+            gpio_num: pin.pin(),
+            clk_div: config.clock_divider,
+            mem_block_num: config.mem_block_num,
+            flags,
+            __bindgen_anon_1: rmt_config_t__bindgen_ty_1 {
+                rx_config: rmt_rx_config_t {
+                    idle_threshold: config.idle_threshold,
+                    filter_ticks_thresh: config.filter_ticks_thresh,
+                    filter_en: config.filter_en,
+                    #[cfg(not(any(esp32, esp32c2)))]
+                    rm_carrier: carrier_en,
+                    #[cfg(not(any(esp32, esp32c2)))]
+                    carrier_freq_hz: carrier.frequency.into(),
+                    #[cfg(not(any(esp32, esp32c2)))]
+                    carrier_level: carrier.carrier_level as u32,
+                    #[cfg(not(any(esp32, esp32c2)))]
+                    carrier_duty_percent: carrier.duty_percent.0,
+                },
+            },
+        };
+
+        let pulse_pair_size: u32 = rx_buffer_size_in_bytes / 4;
+        let pulse_pair_vec: Vec<PulsePair> =
+            Vec::with_capacity(pulse_pair_size.try_into().unwrap());
+
+        unsafe {
+            esp!(rmt_config(&sys_config))?;
+            esp!(rmt_driver_install(C::channel(), rx_buffer_size_in_bytes, 0))?;
+        }
+
+        Ok(Self {
+            channel: C::channel() as _,
+            _p: PhantomData,
+            pulse_pair_vec,
+        })
+    }
+
+    pub fn channel(&self) -> rmt_channel_t {
+        self.channel as _
+    }
+
+    /// Start receiving
+    pub fn start(&self) -> Result<(), EspError> {
+        esp!(unsafe { rmt_rx_start(self.channel(), true) })
+    }
+
+    /// Stop receiving
+    pub fn stop(&self) -> Result<(), EspError> {
+        esp!(unsafe { rmt_rx_stop(self.channel()) })
+    }
+
+    // Set ticks_to_wait to 0 for non-blocking.
+    pub fn get_rmt_items(&mut self, ticks_to_wait: u32) -> Result<u32, EspError> {
+        //let mut rmt_handle: RingbufHandle_t = std::ptr::null_mut();
+        let mut rmt_handle: RingbufHandle_t = ptr::null_mut();
+        let mut length: u32 = 0;
+
+        unsafe {
+            esp!(rmt_get_ringbuf_handle(self.channel(), &mut rmt_handle))
+                .expect("Failed to get ringbuffer handle");
+
+            let rmt_items = xRingbufferReceive(rmt_handle as *mut _, &mut length, ticks_to_wait)
+                as *mut rmt_item32_t;
+
+            if length > 0 {
+                let rmt_item_qty: u32 = length / 4;
+
+                self.pulse_pair_vec.clear();
+
+                for n in 0..rmt_item_qty {
+                    let lvl0: u32 = (*rmt_items.offset(n.try_into().unwrap()))
+                        .__bindgen_anon_1
+                        .__bindgen_anon_1
+                        .level0();
+                    let dur0: u32 = (*rmt_items.offset(n.try_into().unwrap()))
+                        .__bindgen_anon_1
+                        .__bindgen_anon_1
+                        .duration0();
+                    let lvl1: u32 = (*rmt_items.offset(n.try_into().unwrap()))
+                        .__bindgen_anon_1
+                        .__bindgen_anon_1
+                        .level1();
+                    let dur1: u32 = (*rmt_items.offset(n.try_into().unwrap()))
+                        .__bindgen_anon_1
+                        .__bindgen_anon_1
+                        .duration1();
+
+                    self.pulse_pair_vec
+                        .push(PulsePair::new(lvl0, dur0, lvl1, dur1));
+                }
+
+                vRingbufferReturnItem(rmt_handle, rmt_items as *mut c_types::c_void);
+            }
+        }
+
+        Ok(length)
+    }
+}
+
+impl<'d> Drop for RxRmtDriver<'d> {
+    /// Stop receiving and release the driver.
+    fn drop(&mut self) {
+        self.stop().unwrap();
+        esp!(unsafe { rmt_driver_uninstall(self.channel()) }).unwrap();
+    }
+}
+
+unsafe impl<'d> Send for RxRmtDriver<'d> {}
+
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+pub struct PulsePair {
+    pub level0: PinState,
+    pub duration0: u16,
+    pub level1: PinState,
+    pub duration1: u16,
+}
+
+impl PulsePair {
+    pub fn new(lvl0: u32, dur0: u32, lvl1: u32, dur1: u32) -> Self {
+        let level0 = match lvl0 {
+            0 => PinState::Low,
+            _ => PinState::High,
+        };
+
+        //let duration0: PulseTicks = PulseTicks::new(dur0 as u16).unwrap();
+        let duration0 = dur0 as u16;
+
+        let level1 = match lvl1 {
+            0 => PinState::Low,
+            _ => PinState::High,
+        };
+
+        //let duration1: PulseTicks = PulseTicks::new(dur1 as u16).unwrap();
+        let duration1 = dur1 as u16;
+
+        PulsePair {
+            level0,
+            duration0,
+            level1,
+            duration1,
         }
     }
 }

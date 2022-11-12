@@ -25,7 +25,7 @@ fn main() -> anyhow::Result<()> {
     let led = peripherals.pins.gpio18;
     let channel = peripherals.rmt.channel0;
     let config = TransmitConfig::new().clock_divider(1);
-    let mut tx = RmtDriver::new(channel, led, &config)?;
+    let mut tx = TxRmtDriver::new(channel, led, &config)?;
 
     let rgbs = [0xff0000, 0xffff00, 0x00ffff, 0x00ff00, 0xa000ff];
     loop {
