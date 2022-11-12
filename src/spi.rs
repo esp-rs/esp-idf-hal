@@ -1,13 +1,25 @@
 //! SPI peripheral control
 //!
-//! Currently only implements full duplex controller mode support.
-//!
 //! SPI0 is reserved for accessing flash and sram and therefore not usable for other purposes.
 //! SPI1 shares its external pins with SPI0 and therefore has severe restrictions in use.
 //!
 //! SPI2 & 3 can be used freely.
 //!
-//! The CS pin is controlled by hardware on esp32 (contrary to the description of embedded_hal).
+//! The CS pin can be controlled by hardware on esp32 variants (contrary to the description of embedded_hal).
+//!
+//! Look at the following table to determine which driver best suits your requirements:
+//!
+//! |   |                  | SpiDeviceDriver::new | SpiDeviceDriver::new_no_cs | SpiSoftCsDeviceDriver::new |   |
+//! |---|------------------|----------------------|----------------------------|----------------------------|---|
+//! |   | managed cs       |       hardware       |              -             |      software triggerd     |   |
+//! |   | 1 device         |           x          |              x             |              x             |   |
+//! |   | 1-3 devices      |           x          |              -             |              x             |   |
+//! |   | 4-6 devices      |    only on esp32c*   |              -             |              x             |   |
+//! |   | 6 - infinit      |           -          |              -             |              x             |   |
+//! |   | Dma              |           -          |              -             |              -             |   |
+//! |   | polling transmit |           x          |              x             |              x             |   |
+//! |   | isr transmit     |           -          |              -             |              -             |   |
+//! |   | async ready      |           -          |              -             |              -             |   |
 //!
 //! The [Transfer::transfer], [Write::write] and [WriteIter::write_iter] functions lock the
 //! APB frequency and therefore the requests are always run at the requested baudrate.
@@ -17,20 +29,21 @@
 //! # TODO
 //! - Quad SPI
 //! - DMA
-//! - Multiple CS pins
-//! - Slave
 
+use core::cell::UnsafeCell;
 use core::cmp::{max, min, Ordering};
 use core::marker::PhantomData;
 use core::ptr;
+
+use core::borrow::Borrow;
 
 use embedded_hal::spi::{SpiBus, SpiBusFlush, SpiBusRead, SpiBusWrite, SpiDevice};
 
 use esp_idf_sys::*;
 
 use crate::delay::BLOCK;
-use crate::gpio::{self, InputPin, OutputPin};
-use crate::peripheral::Peripheral;
+use crate::gpio::{self, AnyOutputPin, InputPin, OutputPin, Pin, PinDriver};
+use crate::peripheral::{Peripheral, PeripheralRef};
 
 crate::embedded_hal_error!(
     SpiError,
@@ -85,7 +98,6 @@ pub type SpiMasterConfig = config::Config;
 
 /// SPI configuration
 pub mod config {
-    use crate::spi::Dma;
     use crate::units::*;
     use esp_idf_sys::*;
 
@@ -142,7 +154,7 @@ pub mod config {
         }
     }
 
-    /// SPI configuration
+    /// SPI Device configuration
     #[derive(Copy, Clone)]
     pub struct Config {
         pub baudrate: Hertz,
@@ -152,8 +164,8 @@ pub mod config {
         /// it will unlock the possibility of using 80Mhz as the bus freq
         /// See https://docs.espressif.com/projects/esp-idf/en/latest/esp32/api-reference/peripherals/spi_master.html#timing-considerations
         pub write_only: bool,
-        pub dma: Dma,
         pub duplex: Duplex,
+        pub cs_active_high: bool,
     }
 
     impl Config {
@@ -178,13 +190,13 @@ pub mod config {
             self
         }
 
-        pub fn dma(mut self, dma: Dma) -> Self {
-            self.dma = dma;
+        pub fn duplex(mut self, duplex: Duplex) -> Self {
+            self.duplex = duplex;
             self
         }
 
-        pub fn duplex(mut self, duplex: Duplex) -> Self {
-            self.duplex = duplex;
+        pub fn cs_active_high(mut self) -> Self {
+            self.cs_active_high = true;
             self
         }
     }
@@ -195,20 +207,21 @@ pub mod config {
                 baudrate: Hertz(1_000_000),
                 data_mode: embedded_hal::spi::MODE_0,
                 write_only: false,
-                dma: Dma::Disabled,
+                cs_active_high: false,
                 duplex: Duplex::Full,
             }
         }
     }
 }
 
-pub struct SpiBusMasterDriver<'d> {
+pub struct SpiBusDriver<'d> {
     handle: spi_device_handle_t,
     trans_len: usize,
+    hardware_cs: bool,
     _p: PhantomData<&'d mut ()>,
 }
 
-impl<'d> SpiBusMasterDriver<'d> {
+impl<'d> SpiBusDriver<'d> {
     pub fn read(&mut self, words: &mut [u8]) -> Result<(), EspError> {
         for chunk in words.chunks_mut(self.trans_len) {
             self.polling_transmit(chunk.as_mut_ptr(), ptr::null(), chunk.len(), chunk.len())?;
@@ -284,7 +297,7 @@ impl<'d> SpiBusMasterDriver<'d> {
             write,
             transaction_length,
             rx_length,
-            true,
+            self.hardware_cs,
         )
     }
 
@@ -294,86 +307,93 @@ impl<'d> SpiBusMasterDriver<'d> {
     }
 }
 
-impl<'d> embedded_hal::spi::ErrorType for SpiBusMasterDriver<'d> {
+impl<'d> embedded_hal::spi::ErrorType for SpiBusDriver<'d> {
     type Error = SpiError;
 }
 
-impl<'d> SpiBusFlush for SpiBusMasterDriver<'d> {
+impl<'d> SpiBusFlush for SpiBusDriver<'d> {
     fn flush(&mut self) -> Result<(), Self::Error> {
-        SpiBusMasterDriver::flush(self).map_err(to_spi_err)
+        SpiBusDriver::flush(self).map_err(to_spi_err)
     }
 }
 
-impl<'d> SpiBusRead for SpiBusMasterDriver<'d> {
+impl<'d> SpiBusRead for SpiBusDriver<'d> {
     fn read(&mut self, words: &mut [u8]) -> Result<(), Self::Error> {
-        SpiBusMasterDriver::read(self, words).map_err(to_spi_err)
+        SpiBusDriver::read(self, words).map_err(to_spi_err)
     }
 }
 
-impl<'d> SpiBusWrite for SpiBusMasterDriver<'d> {
+impl<'d> SpiBusWrite for SpiBusDriver<'d> {
     fn write(&mut self, words: &[u8]) -> Result<(), Self::Error> {
-        SpiBusMasterDriver::write(self, words).map_err(to_spi_err)
+        SpiBusDriver::write(self, words).map_err(to_spi_err)
     }
 }
 
-impl<'d> SpiBus for SpiBusMasterDriver<'d> {
+impl<'d> SpiBus for SpiBusDriver<'d> {
     fn transfer(&mut self, read: &mut [u8], write: &[u8]) -> Result<(), Self::Error> {
-        SpiBusMasterDriver::transfer(self, read, write).map_err(to_spi_err)
+        SpiBusDriver::transfer(self, read, write).map_err(to_spi_err)
     }
 
     fn transfer_in_place(&mut self, words: &mut [u8]) -> Result<(), Self::Error> {
-        SpiBusMasterDriver::transfer_in_place(self, words).map_err(to_spi_err)
+        SpiBusDriver::transfer_in_place(self, words).map_err(to_spi_err)
     }
 }
 
-/// Master SPI abstraction
-pub struct SpiMasterDriver<'d> {
+pub struct SpiDriver<'d> {
     host: u8,
-    device: spi_device_handle_t,
     max_transfer_size: usize,
     _p: PhantomData<&'d mut ()>,
 }
 
-impl<'d> SpiMasterDriver<'d> {
+impl<'d> SpiDriver<'d> {
     /// Create new instance of SPI controller for SPI1
     ///
     /// SPI1 can only use fixed pin for SCLK, SDO and SDI as they are shared with SPI0.
-    pub fn new_spi1(
-        spi: impl Peripheral<P = SPI1> + 'd,
+    pub fn new_spi1<SPI: Spi>(
+        _spi: impl Peripheral<P = SPI1> + 'd,
         sclk: impl Peripheral<P = gpio::Gpio6> + 'd,
         sdo: impl Peripheral<P = gpio::Gpio7> + 'd,
         sdi: Option<impl Peripheral<P = gpio::Gpio8> + 'd>,
-        cs: Option<impl Peripheral<P = impl OutputPin> + 'd>,
-        config: &config::Config,
+        dma: Dma,
     ) -> Result<Self, EspError> {
-        SpiMasterDriver::new_internal(spi, sclk, sdo, sdi, cs, config)
+        let max_transfer_size = Self::new_internal::<SPI>(sclk, sdo, sdi, dma)?;
+        Ok(Self {
+            host: SPI::device() as _,
+            max_transfer_size,
+            _p: PhantomData,
+        })
     }
-
     /// Create new instance of SPI controller for all others
     pub fn new<SPI: SpiAnyPins>(
-        spi: impl Peripheral<P = SPI> + 'd,
-        sclk: impl Peripheral<P = impl OutputPin> + 'd,
-        sdo: impl Peripheral<P = impl OutputPin> + 'd,
-        sdi: Option<impl Peripheral<P = impl InputPin + OutputPin> + 'd>,
-        cs: Option<impl Peripheral<P = impl OutputPin> + 'd>,
-        config: &config::Config,
-    ) -> Result<Self, EspError> {
-        SpiMasterDriver::new_internal(spi, sclk, sdo, sdi, cs, config)
-    }
-
-    /// Internal implementation of new shared by all SPI controllers
-    fn new_internal<SPI: Spi>(
         _spi: impl Peripheral<P = SPI> + 'd,
         sclk: impl Peripheral<P = impl OutputPin> + 'd,
         sdo: impl Peripheral<P = impl OutputPin> + 'd,
         sdi: Option<impl Peripheral<P = impl InputPin + OutputPin> + 'd>,
-        cs: Option<impl Peripheral<P = impl OutputPin> + 'd>,
-        config: &config::Config,
+        dma: Dma,
     ) -> Result<Self, EspError> {
-        crate::into_ref!(sclk, sdo);
+        let max_transfer_size = Self::new_internal::<SPI>(sclk, sdo, sdi, dma)?;
+        Ok(Self {
+            host: SPI::device() as _,
+            max_transfer_size,
+            _p: PhantomData,
+        })
+    }
 
+    pub fn host(&self) -> spi_host_device_t {
+        self.host as _
+    }
+
+    fn new_internal<SPI: Spi>(
+        sclk: impl Peripheral<P = impl OutputPin> + 'd,
+        sdo: impl Peripheral<P = impl OutputPin> + 'd,
+        sdi: Option<impl Peripheral<P = impl InputPin + OutputPin> + 'd>,
+        dma: Dma,
+    ) -> Result<usize, EspError> {
+        crate::into_ref!(sclk, sdo);
         let sdi = sdi.map(|sdi| sdi.into_ref());
-        let cs = cs.map(|cs| cs.into_ref());
+
+        let max_transfer_sz = dma.max_transfer_size();
+        let dma_chan: spi_dma_chan_t = dma.into();
 
         #[cfg(not(esp_idf_version = "4.3"))]
         let bus_config = spi_bus_config_t {
@@ -400,7 +420,7 @@ impl<'d> SpiMasterDriver<'d> {
                 quadhd_io_num: -1,
                 //data3_io_num: -1,
             },
-            max_transfer_sz: config.dma.max_transfer_size() as i32,
+            max_transfer_sz: max_transfer_sz as i32,
             ..Default::default()
         };
 
@@ -414,14 +434,75 @@ impl<'d> SpiMasterDriver<'d> {
             quadwp_io_num: -1,
             quadhd_io_num: -1,
 
-            max_transfer_sz: config.dma.max_transfer_size() as i32,
+            max_transfer_sz: max_transfer_sz as i32,
             ..Default::default()
         };
 
-        esp!(unsafe { spi_bus_initialize(SPI::device(), &bus_config, config.dma.into()) })?;
+        esp!(unsafe { spi_bus_initialize(SPI::device(), &bus_config, dma_chan) })?;
+        Ok(max_transfer_sz)
+    }
+}
 
-        let device_config = spi_device_interface_config_t {
-            spics_io_num: cs.as_ref().map_or(-1, |p| p.pin()),
+impl<'d> Drop for SpiDriver<'d> {
+    fn drop(&mut self) {
+        esp!(unsafe { spi_bus_free(self.host()) }).unwrap();
+    }
+}
+
+pub struct SpiDeviceDriver<'d, T> {
+    handle: spi_device_handle_t,
+    driver: T,
+    with_cs_pin: bool,
+    _p: PhantomData<&'d ()>,
+}
+
+impl<'d, T> SpiDeviceDriver<'d, T>
+where
+    T: Borrow<SpiDriver<'d>> + 'd,
+{
+    pub fn new(
+        driver: T,
+        cs: impl Peripheral<P = impl InputPin + OutputPin> + 'd,
+        config: &config::Config,
+    ) -> Result<SpiDeviceDriver<'d, T>, EspError> {
+        crate::into_ref!(cs);
+        let cs_ref: PeripheralRef<AnyOutputPin> = cs.into_ref().map_into();
+        let cs_pin = cs_ref.pin();
+
+        let config = Self::create_conf(cs_pin, &config);
+
+        let master: &SpiDriver = driver.borrow();
+        let mut device_handle: spi_device_handle_t = ptr::null_mut();
+        esp!(unsafe { spi_bus_add_device(master.host(), &config, &mut device_handle as *mut _) })?;
+
+        Ok(Self {
+            handle: device_handle,
+            driver,
+            with_cs_pin: true,
+            _p: PhantomData,
+        })
+    }
+    pub fn new_no_cs(
+        driver: T,
+        config: &config::Config,
+    ) -> Result<SpiDeviceDriver<'d, T>, EspError> {
+        let config = Self::create_conf(-1, &config);
+
+        let master: &SpiDriver = driver.borrow();
+        let mut device_handle: spi_device_handle_t = ptr::null_mut();
+        esp!(unsafe { spi_bus_add_device(master.host(), &config, &mut device_handle as *mut _) })?;
+
+        Ok(Self {
+            handle: device_handle,
+            driver,
+            with_cs_pin: false,
+            _p: PhantomData,
+        })
+    }
+
+    fn create_conf(cs: i32, config: &config::Config) -> spi_device_interface_config_t {
+        spi_device_interface_config_t {
+            spics_io_num: cs,
             clock_speed_hz: config.baudrate.0 as i32,
             mode: (((config.data_mode.polarity == embedded_hal::spi::Polarity::IdleHigh) as u8)
                 << 1)
@@ -432,42 +513,33 @@ impl<'d> SpiMasterDriver<'d> {
                 SPI_DEVICE_NO_DUMMY
             } else {
                 0_u32
+            } | if config.cs_active_high {
+                SPI_DEVICE_POSITIVE_CS
+            } else {
+                0_u32
             } | config.duplex.as_flags(),
             ..Default::default()
-        };
-
-        let mut device_handle: spi_device_handle_t = ptr::null_mut();
-
-        esp!(unsafe {
-            spi_bus_add_device(SPI::device(), &device_config, &mut device_handle as *mut _)
-        })?;
-
-        Ok(Self {
-            host: SPI::device() as _,
-            device: device_handle,
-            max_transfer_size: config.dma.max_transfer_size(),
-            _p: PhantomData,
-        })
+        }
     }
 
     pub fn device(&self) -> spi_device_handle_t {
-        self.device
+        self.handle
     }
-
-    pub fn host(&self) -> spi_host_device_t {
-        self.host as _
-    }
-
     pub fn transaction<R, E>(
         &mut self,
-        f: impl FnOnce(&mut SpiBusMasterDriver<'d>) -> Result<R, E>,
+        f: impl FnOnce(&mut SpiBusDriver<'d>) -> Result<R, E>,
     ) -> Result<R, E>
     where
         E: From<EspError>,
     {
-        let mut bus = SpiBusMasterDriver {
-            handle: self.device,
-            trans_len: self.max_transfer_size,
+        let master: &SpiDriver = self.driver.borrow();
+        // if DMA used -> get trans length info from master
+        let trans_len = master.max_transfer_size;
+
+        let mut bus = SpiBusDriver {
+            handle: self.handle,
+            trans_len,
+            hardware_cs: self.with_cs_pin,
             _p: PhantomData,
         };
 
@@ -475,14 +547,18 @@ impl<'d> SpiMasterDriver<'d> {
 
         let trans_result = f(&mut bus);
 
-        let finish_result = bus.finish();
+        // #99 is partially resolved by allowing software CS to ignore this bus.finish() work around
+        let finish_result = if self.with_cs_pin {
+            bus.finish()
+        } else {
+            Ok(())
+        };
 
         // Flush whatever is pending.
         // Note that this is done even when an error is returned from the transaction.
         let flush_result = bus.flush();
 
         core::mem::drop(lock);
-
         let result = trans_result?;
         finish_result?;
         flush_result?;
@@ -490,62 +566,80 @@ impl<'d> SpiMasterDriver<'d> {
         Ok(result)
     }
 
-    fn lock_bus(&mut self) -> Result<Lock, EspError> {
-        Lock::new(self.device)
+    pub fn transfer(&mut self, read: &mut [u8], write: &[u8]) -> Result<(), EspError> {
+        self.transaction(|bus| bus.transfer(read, write))
+    }
+
+    pub fn write(&mut self, write: &[u8]) -> Result<(), EspError> {
+        self.transaction(|bus| bus.write(write))
+    }
+
+    pub fn read(&mut self, read: &mut [u8]) -> Result<(), EspError> {
+        self.transaction(|bus| bus.read(read))
+    }
+
+    pub fn transfer_in_place(&mut self, buf: &mut [u8]) -> Result<(), EspError> {
+        self.transaction(|bus| bus.transfer_in_place(buf))
+    }
+
+    fn lock_bus(&self) -> Result<Lock, EspError> {
+        Lock::new(self.handle)
     }
 }
 
-impl<'d> Drop for SpiMasterDriver<'d> {
-    fn drop(&mut self) {
-        esp!(unsafe { spi_bus_remove_device(self.device) }).unwrap();
-        esp!(unsafe { spi_bus_free(self.host()) }).unwrap();
-    }
-}
-
-unsafe impl<'d> Send for SpiMasterDriver<'d> {}
-
-impl<'d> embedded_hal::spi::ErrorType for SpiMasterDriver<'d> {
+impl<'d, T> embedded_hal::spi::ErrorType for SpiDeviceDriver<'d, T> {
     type Error = SpiError;
 }
 
-impl<'d> SpiDevice for SpiMasterDriver<'d> {
-    type Bus = SpiBusMasterDriver<'d>;
+impl<'d, T> SpiDevice for SpiDeviceDriver<'d, T>
+where
+    T: Borrow<SpiDriver<'d>> + 'd,
+{
+    type Bus = SpiBusDriver<'d>;
 
     fn transaction<R>(
         &mut self,
         f: impl FnOnce(&mut Self::Bus) -> Result<R, <Self::Bus as embedded_hal::spi::ErrorType>::Error>,
     ) -> Result<R, Self::Error> {
-        SpiMasterDriver::transaction(self, f)
+        Self::transaction(self, f)
     }
 }
 
-impl<'d> embedded_hal_0_2::blocking::spi::Transfer<u8> for SpiMasterDriver<'d> {
+impl<'d, T> embedded_hal_0_2::blocking::spi::Transfer<u8> for SpiDeviceDriver<'d, T>
+where
+    T: Borrow<SpiDriver<'d>> + 'd,
+{
     type Error = SpiError;
 
     fn transfer<'w>(&mut self, words: &'w mut [u8]) -> Result<&'w [u8], Self::Error> {
-        let _lock = self.lock_bus();
-        let mut chunks = words.chunks_mut(self.max_transfer_size).peekable();
+        let master: &SpiDriver = self.driver.borrow();
+        let _lock = self.lock_bus()?;
+        let mut chunks = words.chunks_mut(master.max_transfer_size).peekable();
 
         while let Some(chunk) = chunks.next() {
             let ptr = chunk.as_mut_ptr();
             let len = chunk.len();
-            polling_transmit(self.device, ptr, ptr, len, len, chunks.peek().is_some())?;
+            polling_transmit(self.handle, ptr, ptr, len, len, chunks.peek().is_some())?;
         }
 
         Ok(words)
     }
 }
 
-impl<'d> embedded_hal_0_2::blocking::spi::Write<u8> for SpiMasterDriver<'d> {
+impl<'d, T> embedded_hal_0_2::blocking::spi::Write<u8> for SpiDeviceDriver<'d, T>
+where
+    T: Borrow<SpiDriver<'d>> + 'd,
+{
     type Error = SpiError;
 
     fn write(&mut self, words: &[u8]) -> Result<(), Self::Error> {
-        let _lock = self.lock_bus();
-        let mut chunks = words.chunks(self.max_transfer_size).peekable();
+        let master: &SpiDriver = self.driver.borrow();
+        let _lock = self.lock_bus()?;
+        let mut chunks = words.chunks(master.max_transfer_size).peekable();
 
         while let Some(chunk) = chunks.next() {
             polling_transmit(
-                self.device,
+                self.handle,
                 ptr::null_mut(),
                 chunk.as_ptr(),
                 chunk.len(),
@@ -558,7 +652,10 @@ impl<'d> embedded_hal_0_2::blocking::spi::Write<u8> for SpiMasterDriver<'d> {
     }
 }
 
-impl<'d> embedded_hal_0_2::blocking::spi::WriteIter<u8> for SpiMasterDriver<'d> {
+impl<'d, T> embedded_hal_0_2::blocking::spi::WriteIter<u8> for SpiDeviceDriver<'d, T>
+where
+    T: Borrow<SpiDriver<'d>> + 'd,
+{
     type Error = SpiError;
 
     fn write_iter<WI>(&mut self, words: WI) -> Result<(), Self::Error>
@@ -593,7 +690,10 @@ impl<'d> embedded_hal_0_2::blocking::spi::WriteIter<u8> for SpiMasterDriver<'d> 
     }
 }
 
-impl<'d> embedded_hal_0_2::blocking::spi::Transactional<u8> for SpiMasterDriver<'d> {
+impl<'d, T> embedded_hal_0_2::blocking::spi::Transactional<u8> for SpiDeviceDriver<'d, T>
+where
+    T: Borrow<SpiDriver<'d>> + 'd,
+{
     type Error = SpiError;
 
     fn exec<'a>(
@@ -612,6 +712,12 @@ impl<'d> embedded_hal_0_2::blocking::spi::Transactional<u8> for SpiMasterDriver<
 
             Ok(())
         })
+    }
+}
+
+impl<'d, T> Drop for SpiDeviceDriver<'d, T> {
+    fn drop(&mut self) {
+        esp!(unsafe { spi_bus_remove_device(self.handle) }).unwrap();
     }
 }
 
@@ -709,3 +815,142 @@ impl_spi!(SPI3: spi_host_device_t_SPI3_HOST);
 impl_spi_any_pins!(SPI2);
 #[cfg(not(esp32c3))]
 impl_spi_any_pins!(SPI3);
+
+use crate::delay::Ets;
+use crate::gpio::{Level, Output};
+use crate::task::CriticalSection;
+
+pub struct SpiSharedDeviceDriver<'d, DRIVER> {
+    driver: UnsafeCell<SpiDeviceDriver<'d, DRIVER>>,
+    mutex: CriticalSection,
+}
+
+impl<'d, DRIVER> SpiSharedDeviceDriver<'d, DRIVER>
+where
+    DRIVER: Borrow<SpiDriver<'d>> + 'd,
+{
+    pub fn new(device: SpiDeviceDriver<'d, DRIVER>) -> Self {
+        Self {
+            driver: UnsafeCell::new(device),
+            mutex: CriticalSection::new(),
+        }
+    }
+
+    pub(crate) fn lock<R>(&self, f: impl FnOnce(&mut SpiDeviceDriver<'d, DRIVER>) -> R) -> R {
+        let dev = unsafe { &mut *self.driver.get() };
+        let result = f(dev);
+        result
+    }
+}
+pub struct SpiSoftCsDeviceDriver<'d, SHARED, DRIVER: Borrow<SpiDriver<'d>>> {
+    shared_device: SHARED,
+    cs_pin: PinDriver<'d, AnyOutputPin, Output>,
+    pre_delay_us: Option<u32>,
+    post_delay_us: Option<u32>,
+    _p: PhantomData<&'d DRIVER>,
+}
+
+impl<'d, SHARED, DRIVER> SpiSoftCsDeviceDriver<'d, SHARED, DRIVER>
+where
+    SHARED: Borrow<SpiSharedDeviceDriver<'d, DRIVER>>,
+    DRIVER: Borrow<SpiDriver<'d>>,
+{
+    pub fn new(
+        shared_device: SHARED,
+        cs: impl Peripheral<P = impl InputPin + OutputPin> + 'd,
+        cs_level: Level,
+    ) -> Result<Self, EspError> {
+        let cs_ref: PeripheralRef<AnyOutputPin> = cs.into_ref().map_into();
+        let mut cs_pin = PinDriver::output(cs_ref)?;
+        cs_pin.set_level(cs_level)?;
+        Ok(Self {
+            shared_device,
+            cs_pin,
+            _p: PhantomData,
+            pre_delay_us: None,
+            post_delay_us: None,
+        })
+    }
+    /// Add an aditional delay of x in uSeconds before transaction
+    /// between chip select and first clk out
+    pub fn cs_pre_delay_us(mut self, delay_us: u32) -> Self {
+        self.pre_delay_us = Some(delay_us);
+        self
+    }
+
+    /// Add an aditional delay of x in uSeconds after transaction
+    /// between last clk out and chip select
+    pub fn cs_post_delay_us(mut self, delay_us: u32) -> Self {
+        self.post_delay_us = Some(delay_us);
+        self
+    }
+
+    pub fn update_shared_driver(&mut self, shared_device: SHARED) {
+        self.shared_device = shared_device;
+    }
+
+    pub fn transaction<R, E>(
+        &mut self,
+        f: impl FnOnce(&mut SpiBusDriver<'d>) -> Result<R, E>,
+    ) -> Result<R, E>
+    where
+        E: From<EspError>,
+    {
+        let shared_device: &SpiSharedDeviceDriver<'d, DRIVER> = self.shared_device.borrow();
+        let _lock = shared_device.mutex.enter();
+
+        self.cs_pin.toggle()?;
+        if let Some(delay) = self.pre_delay_us {
+            Ets::delay_us(delay);
+        }
+        let trans_result = shared_device.lock(|driver| driver.transaction(f));
+        if let Some(delay) = self.post_delay_us {
+            Ets::delay_us(delay);
+        }
+        self.cs_pin.toggle()?;
+        let result = trans_result?;
+        Ok(result)
+    }
+
+    pub fn transfer(&mut self, read: &mut [u8], write: &[u8]) -> Result<(), EspError> {
+        self.transaction(|bus| bus.transfer(read, write))
+    }
+
+    pub fn write(&mut self, write: &[u8]) -> Result<(), EspError> {
+        self.transaction(|bus| bus.write(write))
+    }
+
+    pub fn read(&mut self, read: &mut [u8]) -> Result<(), EspError> {
+        self.transaction(|bus| bus.read(read))
+    }
+
+    pub fn transfer_in_place(&mut self, buf: &mut [u8]) -> Result<(), EspError> {
+        self.transaction(|bus| bus.transfer_in_place(buf))
+    }
+
+    pub fn cs_gpio_num(&self) -> i32 {
+        self.cs_pin.pin()
+    }
+}
+impl<'d, DEVICE, DRIVER> embedded_hal::spi::ErrorType for SpiSoftCsDeviceDriver<'d, DEVICE, DRIVER>
+where
+    DEVICE: Borrow<SpiSharedDeviceDriver<'d, DRIVER>> + 'd,
+    DRIVER: Borrow<SpiDriver<'d>> + 'd,
+{
+    type Error = SpiError;
+}
+
+impl<'d, DEVICE, DRIVER> SpiDevice for SpiSoftCsDeviceDriver<'d, DEVICE, DRIVER>
+where
+    DEVICE: Borrow<SpiSharedDeviceDriver<'d, DRIVER>> + 'd,
+    DRIVER: Borrow<SpiDriver<'d>> + 'd,
+{
+    type Bus = SpiBusDriver<'d>;
+
+    fn transaction<R>(
+        &mut self,
+        f: impl FnOnce(&mut Self::Bus) -> Result<R, <Self::Bus as embedded_hal::spi::ErrorType>::Error>,
+    ) -> Result<R, Self::Error> {
+        Self::transaction(self, f)
+    }
+}
