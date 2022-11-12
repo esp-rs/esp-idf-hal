@@ -94,7 +94,7 @@ impl Dma {
     }
 }
 
-pub type SpiMasterConfig = config::Config;
+pub type SpiConfig = config::Config;
 
 /// SPI configuration
 pub mod config {
@@ -541,9 +541,8 @@ where
     where
         E: From<EspError>,
     {
-        let master: &SpiDriver = self.driver.borrow();
-        // if DMA used -> get trans length info from master
-        let trans_len = master.max_transfer_size;
+        // if DMA used -> get trans length info from driver
+        let trans_len = self.driver.borrow().max_transfer_size;
 
         let mut bus = SpiBusDriver {
             handle: self.handle,
@@ -622,9 +621,10 @@ where
     type Error = SpiError;
 
     fn transfer<'w>(&mut self, words: &'w mut [u8]) -> Result<&'w [u8], Self::Error> {
-        let master: &SpiDriver = self.driver.borrow();
         let _lock = self.lock_bus()?;
-        let mut chunks = words.chunks_mut(master.max_transfer_size).peekable();
+        let mut chunks = words
+            .chunks_mut(self.driver.borrow().max_transfer_size)
+            .peekable();
 
         while let Some(chunk) = chunks.next() {
             let ptr = chunk.as_mut_ptr();
@@ -643,9 +643,10 @@ where
     type Error = SpiError;
 
     fn write(&mut self, words: &[u8]) -> Result<(), Self::Error> {
-        let master: &SpiDriver = self.driver.borrow();
         let _lock = self.lock_bus()?;
-        let mut chunks = words.chunks(master.max_transfer_size).peekable();
+        let mut chunks = words
+            .chunks(self.driver.borrow().max_transfer_size)
+            .peekable();
 
         while let Some(chunk) = chunks.next() {
             polling_transmit(
