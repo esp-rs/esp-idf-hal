@@ -52,7 +52,7 @@
 //! ahead of time.
 
 use core::cell::UnsafeCell;
-use core::convert::TryFrom;
+use core::convert::{TryFrom, TryInto};
 use core::marker::PhantomData;
 use core::ptr;
 use core::time::Duration;
@@ -82,6 +82,16 @@ pub enum PinState {
     High,
 }
 
+impl From<u32> for PinState {
+    fn from(state: u32) -> Self {
+        if state == 0 {
+            Self::Low
+        } else {
+            Self::High
+        }
+    }
+}
+
 /// A `Pulse` contains a pin state and a tick count, used in creating a [`Signal`].
 ///
 /// The real time duration of a tick depends on the [`Config::clock_divider`] setting.
@@ -100,7 +110,7 @@ pub struct Pulse {
 }
 
 impl Pulse {
-    pub fn new(pin_state: PinState, ticks: PulseTicks) -> Self {
+    pub const fn new(pin_state: PinState, ticks: PulseTicks) -> Self {
         Pulse { pin_state, ticks }
     }
 
@@ -152,7 +162,7 @@ impl PulseTicks {
     }
 
     /// Use the maximum value of 32767.
-    pub fn max() -> Self {
+    pub const fn max() -> Self {
         Self(Self::MAX)
     }
 
@@ -928,7 +938,7 @@ impl<'d> RxRmtDriver<'d> {
 
     pub fn receive(
         &mut self,
-        buf: &mut [PulsePair],
+        buf: &mut [(Pulse, Pulse)],
         ticks_to_wait: TickType_t,
     ) -> Result<usize, EspError> {
         let mut rmt_handle = ptr::null_mut();
@@ -952,11 +962,15 @@ impl<'d> RxRmtDriver<'d> {
             for (index, item) in items.iter().enumerate() {
                 let item = unsafe { item.__bindgen_anon_1.__bindgen_anon_1 };
 
-                buf[index] = PulsePair::new(
-                    item.level0(),
-                    item.duration0(),
-                    item.level1(),
-                    item.duration1(),
+                buf[index] = (
+                    Pulse::new(
+                        item.level0().into(),
+                        PulseTicks::new(item.duration0().try_into().unwrap()).unwrap(),
+                    ),
+                    Pulse::new(
+                        item.level1().into(),
+                        PulseTicks::new(item.duration1().try_into().unwrap()).unwrap(),
+                    ),
                 );
             }
 
@@ -980,41 +994,6 @@ impl<'d> Drop for RxRmtDriver<'d> {
 }
 
 unsafe impl<'d> Send for RxRmtDriver<'d> {}
-
-#[derive(Debug, Copy, Clone, Eq, PartialEq)]
-pub struct PulsePair {
-    pub level0: PinState,
-    pub duration0: u16,
-    pub level1: PinState,
-    pub duration1: u16,
-}
-
-impl PulsePair {
-    fn new(lvl0: u32, dur0: u32, lvl1: u32, dur1: u32) -> Self {
-        let level0 = match lvl0 {
-            0 => PinState::Low,
-            _ => PinState::High,
-        };
-
-        //let duration0: PulseTicks = PulseTicks::new(dur0 as u16).unwrap();
-        let duration0 = dur0 as u16;
-
-        let level1 = match lvl1 {
-            0 => PinState::Low,
-            _ => PinState::High,
-        };
-
-        //let duration1: PulseTicks = PulseTicks::new(dur1 as u16).unwrap();
-        let duration1 = dur1 as u16;
-
-        PulsePair {
-            level0,
-            duration0,
-            level1,
-            duration1,
-        }
-    }
-}
 
 mod chip {
     use esp_idf_sys::*;

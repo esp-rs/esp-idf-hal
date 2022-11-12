@@ -34,29 +34,28 @@ fn main() -> anyhow::Result<()> {
     /*
      *********************** SET UP RMT RECEIVER ******************************
      */
-    let input_pin = peripherals.pins.gpio2;
-    let rx_rmt_channel: CHANNEL2 = peripherals.rmt.channel2;
-    let rx_config = RmtReceiveConfig::new().idle_threshold(700u16);
-    let mut rx = RxRmtDriver::new(rx_rmt_channel, input_pin, &rx_config, 1000)?;
-    let _rx_start = rx.start().unwrap();
+    let mut rx = RxRmtDriver::new(
+        peripherals.rmt.channel2,
+        peripherals.pins.gpio2,
+        &RmtReceiveConfig::new().idle_threshold(700u16),
+        250,
+    )?;
+
+    rx.start().unwrap();
 
     let _ = std::thread::spawn(move || loop {
         println!("Rx Loop");
 
+        let mut pulses: [(Puse, Pulse); 250];
+
         // See sdkconfig.defaults to determine the tick time value ( default is one tick = 10 milliseconds)
         // Set ticks_to_wait to 0 for non-blocking
-        let ticks_to_wait = 0;
-        let length = rx.get_rmt_items(ticks_to_wait).unwrap();
+        let length = rx.receive(&mut pulses, 0).unwrap();
+        let pulses = &pulses[..length];
 
-        if length != 0 {
-            for n in 0..length / 4 {
-                println!(
-                    "level0 = {:?}   dur0 = {:?}   level1 = {:?}   dur1 = {:?}",
-                    rx.pulse_pair_vec[n as usize].level0,
-                    rx.pulse_pair_vec[n as usize].duration0,
-                    rx.pulse_pair_vec[n as usize].level1,
-                    rx.pulse_pair_vec[n as usize].duration1
-                );
+        if !pulses.is_empty() {
+            for (pulse0, pulse1) in pulses {
+                println!("0={:?}, 1={:?}", puse0, pulse1);
             }
         }
 
