@@ -12,8 +12,6 @@
 //! This example transfers data via SPI.
 //! Connect SDI and SDO pins to see the outgoing data is read as incoming data.
 
-use embedded_hal::spi::SpiDevice;
-
 use esp_idf_hal::delay::FreeRtos;
 use esp_idf_hal::peripherals::Peripherals;
 use esp_idf_hal::prelude::*;
@@ -33,13 +31,13 @@ fn main() -> anyhow::Result<()> {
 
     println!("Starting SPI loopback test");
 
-    let mut spi = SpiDriver::new::<SPI2>(spi, sclk, serial_out, Some(serial_in), Dma::Disabled)?;
+    let driver = SpiDriver::new::<SPI2>(spi, sclk, serial_out, Some(serial_in), Dma::Disabled)?;
 
     let config_1 = config::Config::new().baudrate(26.MHz().into());
-    let mut device_1 = SpiDeviceDriver::new(&spi, Some(cs_1), &config_1)?;
+    let mut device_1 = SpiDeviceDriver::new(&driver, Some(cs_1), &config_1)?;
 
     let config_2 = config::Config::new().baudrate(13.MHz().into());
-    let mut device_2 = SpiDeviceDriver::new(&spi, Some(cs_2), &config_2)?;
+    let mut device_2 = SpiDeviceDriver::new(&driver, Some(cs_2), &config_2)?;
 
     let mut read = [0u8; 4];
     let write = [0xde, 0xad, 0xbe, 0xef];
@@ -53,7 +51,7 @@ fn main() -> anyhow::Result<()> {
         println!("Device 1: Wrote {:x?}, read {:x?}", write, read);
 
         println!("Device 2: To write {:x?} ... ", in_place_buf);
-        device_2.transaction(|bus| bus.transfer_in_place(&mut in_place_buf));
+        device_2.transaction(|bus| bus.transfer_in_place(&mut in_place_buf))?;
         println!("... read {:x?}", in_place_buf);
     }
 }
