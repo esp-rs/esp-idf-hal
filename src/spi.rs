@@ -15,7 +15,7 @@
 //! |   | 1 device         |           x          |              x               |              x             |   |
 //! |   | 1-3 devices      |           x          |              -               |              x             |   |
 //! |   | 4-6 devices      |    only on esp32c*   |              -               |              x             |   |
-//! |   | 6 - infinit      |           -          |              -               |              x             |   |
+//! |   | more than 6      |           -          |              -               |              x             |   |
 //! |   | Dma              |           -          |              -               |              -             |   |
 //! |   | polling transmit |           x          |              x               |              x             |   |
 //! |   | isr transmit     |           -          |              -               |              -             |   |
