@@ -9,17 +9,17 @@
 //!
 //! Look at the following table to determine which driver best suits your requirements:
 //!
-//! |   |                  | SpiDeviceDriver::new | SpiDeviceDriver::new_no_cs | SpiSoftCsDeviceDriver::new |   |
-//! |---|------------------|----------------------|----------------------------|----------------------------|---|
-//! |   | managed cs       |       hardware       |              -             |      software triggerd     |   |
-//! |   | 1 device         |           x          |              x             |              x             |   |
-//! |   | 1-3 devices      |           x          |              -             |              x             |   |
-//! |   | 4-6 devices      |    only on esp32c*   |              -             |              x             |   |
-//! |   | 6 - infinit      |           -          |              -             |              x             |   |
-//! |   | Dma              |           -          |              -             |              -             |   |
-//! |   | polling transmit |           x          |              x             |              x             |   |
-//! |   | isr transmit     |           -          |              -             |              -             |   |
-//! |   | async ready      |           -          |              -             |              -             |   |
+//! |   |                  | SpiDeviceDriver::new | SpiDeviceDriver::new (no CS) | SpiSoftCsDeviceDriver::new |   |
+//! |---|------------------|----------------------|------------------------------|----------------------------|---|
+//! |   | managed cs       |       hardware       |              -               |      software triggerd     |   |
+//! |   | 1 device         |           x          |              x               |              x             |   |
+//! |   | 1-3 devices      |           x          |              -               |              x             |   |
+//! |   | 4-6 devices      |    only on esp32c*   |              -               |              x             |   |
+//! |   | 6 - infinit      |           -          |              -               |              x             |   |
+//! |   | Dma              |           -          |              -               |              -             |   |
+//! |   | polling transmit |           x          |              x               |              x             |   |
+//! |   | isr transmit     |           -          |              -               |              -             |   |
+//! |   | async ready      |           -          |              -               |              -             |   |
 //!
 //! The [Transfer::transfer], [Write::write] and [WriteIter::write_iter] functions lock the
 //! APB frequency and therefore the requests are always run at the requested baudrate.
