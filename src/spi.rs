@@ -452,6 +452,8 @@ impl<'d> Drop for SpiDriver<'d> {
     }
 }
 
+unsafe impl<'d> Send for SpiDriver<'d> {}
+
 pub type SpiSingleDeviceDriver<'d> = SpiDeviceDriver<'d, SpiDriver<'d>>;
 
 pub struct SpiDeviceDriver<'d, T> {
@@ -595,6 +597,8 @@ where
         Lock::new(self.handle)
     }
 }
+
+unsafe impl<'d, T> Send for SpiDeviceDriver<'d, T> where T: Send {}
 
 impl<'d, T> embedded_hal::spi::ErrorType for SpiDeviceDriver<'d, T> {
     type Error = SpiError;
@@ -762,6 +766,10 @@ where
         let device = unsafe { &mut *self.driver.get() };
 
         f(device)
+    }
+
+    pub fn release(self) -> SpiDeviceDriver<'d, T> {
+        self.driver.into_inner()
     }
 }
 
