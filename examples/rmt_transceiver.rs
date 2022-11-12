@@ -1,4 +1,4 @@
-//! A simple example that sets up a RMT transmiiter and an RMT receiver
+//! A simple example that sets up a RMT transmitter and an RMT receiver
 //!
 //! GPIO pin 2 is input and GPIO pin 4 is output
 //!
