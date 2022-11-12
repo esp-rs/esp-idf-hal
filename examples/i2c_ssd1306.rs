@@ -26,8 +26,8 @@ fn main() -> anyhow::Result<()> {
 
     println!("Starting I2C SSD1306 test");
 
-    let config = config::MasterConfig::new().baudrate(100.kHz().into());
-    let mut i2c = I2cMasterDriver::new(i2c, sda, scl, &config)?;
+    let config = I2cConfig::new().baudrate(100.kHz().into());
+    let mut i2c = I2cDriver::new(i2c, sda, scl, &config)?;
 
     // initialze the display - don't worry about the meaning of these bytes - it's specific to SSD1306
     i2c.write(SSD1306_ADDRESS, &[0, 0xae], BLOCK)?;

@@ -17,7 +17,7 @@ crate::embedded_hal_error!(
     embedded_hal::i2c::ErrorKind
 );
 
-pub type I2cMasterConfig = config::MasterConfig;
+pub type I2cConfig = config::Config;
 pub type I2cSlaveConfig = config::SlaveConfig;
 
 /// I2C configuration
@@ -26,13 +26,13 @@ pub mod config {
 
     /// I2C Master configuration
     #[derive(Copy, Clone)]
-    pub struct MasterConfig {
+    pub struct Config {
         pub baudrate: Hertz,
         pub sda_pullup_enabled: bool,
         pub scl_pullup_enabled: bool,
     }
 
-    impl MasterConfig {
+    impl Config {
         pub fn new() -> Self {
             Default::default()
         }
@@ -56,7 +56,7 @@ pub mod config {
         }
     }
 
-    impl Default for MasterConfig {
+    impl Default for Config {
         fn default() -> Self {
             Self {
                 baudrate: Hertz(1_000_000),
@@ -121,17 +121,17 @@ pub trait I2c: Send {
     fn port() -> i2c_port_t;
 }
 
-pub struct I2cMasterDriver<'d> {
+pub struct I2cDriver<'d> {
     i2c: u8,
     _p: PhantomData<&'d mut ()>,
 }
 
-impl<'d> I2cMasterDriver<'d> {
+impl<'d> I2cDriver<'d> {
     pub fn new<I2C: I2c>(
         _i2c: impl Peripheral<P = I2C> + 'd,
         sda: impl Peripheral<P = impl InputPin + OutputPin> + 'd,
         scl: impl Peripheral<P = impl InputPin + OutputPin> + 'd,
-        config: &config::MasterConfig,
+        config: &config::Config,
     ) -> Result<Self, EspError> {
         // i2c_config_t documentation says that clock speed must be no higher than 1 MHz
         if config.baudrate > 1.MHz().into() {
@@ -166,7 +166,7 @@ impl<'d> I2cMasterDriver<'d> {
             ) // TODO: set flags
         })?;
 
-        Ok(I2cMasterDriver {
+        Ok(I2cDriver {
             i2c: I2C::port() as _,
             _p: PhantomData,
         })
@@ -303,53 +303,53 @@ impl<'d> I2cMasterDriver<'d> {
     }
 }
 
-impl<'d> Drop for I2cMasterDriver<'d> {
+impl<'d> Drop for I2cDriver<'d> {
     fn drop(&mut self) {
         esp!(unsafe { i2c_driver_delete(self.port()) }).unwrap();
     }
 }
 
-unsafe impl<'d> Send for I2cMasterDriver<'d> {}
+unsafe impl<'d> Send for I2cDriver<'d> {}
 
-impl<'d> embedded_hal_0_2::blocking::i2c::Read for I2cMasterDriver<'d> {
+impl<'d> embedded_hal_0_2::blocking::i2c::Read for I2cDriver<'d> {
     type Error = I2cError;
 
     fn read(&mut self, addr: u8, buffer: &mut [u8]) -> Result<(), Self::Error> {
-        I2cMasterDriver::read(self, addr, buffer, BLOCK).map_err(to_i2c_err)
+        I2cDriver::read(self, addr, buffer, BLOCK).map_err(to_i2c_err)
     }
 }
 
-impl<'d> embedded_hal_0_2::blocking::i2c::Write for I2cMasterDriver<'d> {
+impl<'d> embedded_hal_0_2::blocking::i2c::Write for I2cDriver<'d> {
     type Error = I2cError;
 
     fn write(&mut self, addr: u8, bytes: &[u8]) -> Result<(), Self::Error> {
-        I2cMasterDriver::write(self, addr, bytes, BLOCK).map_err(to_i2c_err)
+        I2cDriver::write(self, addr, bytes, BLOCK).map_err(to_i2c_err)
     }
 }
 
-impl<'d> embedded_hal_0_2::blocking::i2c::WriteRead for I2cMasterDriver<'d> {
+impl<'d> embedded_hal_0_2::blocking::i2c::WriteRead for I2cDriver<'d> {
     type Error = I2cError;
 
     fn write_read(&mut self, addr: u8, bytes: &[u8], buffer: &mut [u8]) -> Result<(), Self::Error> {
-        I2cMasterDriver::write_read(self, addr, bytes, buffer, BLOCK).map_err(to_i2c_err)
+        I2cDriver::write_read(self, addr, bytes, buffer, BLOCK).map_err(to_i2c_err)
     }
 }
 
-impl<'d> embedded_hal::i2c::ErrorType for I2cMasterDriver<'d> {
+impl<'d> embedded_hal::i2c::ErrorType for I2cDriver<'d> {
     type Error = I2cError;
 }
 
-impl<'d> embedded_hal::i2c::I2c<embedded_hal::i2c::SevenBitAddress> for I2cMasterDriver<'d> {
+impl<'d> embedded_hal::i2c::I2c<embedded_hal::i2c::SevenBitAddress> for I2cDriver<'d> {
     fn read(&mut self, addr: u8, buffer: &mut [u8]) -> Result<(), Self::Error> {
-        I2cMasterDriver::read(self, addr, buffer, BLOCK).map_err(to_i2c_err)
+        I2cDriver::read(self, addr, buffer, BLOCK).map_err(to_i2c_err)
     }
 
     fn write(&mut self, addr: u8, bytes: &[u8]) -> Result<(), Self::Error> {
-        I2cMasterDriver::write(self, addr, bytes, BLOCK).map_err(to_i2c_err)
+        I2cDriver::write(self, addr, bytes, BLOCK).map_err(to_i2c_err)
     }
 
     fn write_read(&mut self, addr: u8, bytes: &[u8], buffer: &mut [u8]) -> Result<(), Self::Error> {
-        I2cMasterDriver::write_read(self, addr, bytes, buffer, BLOCK).map_err(to_i2c_err)
+        I2cDriver::write_read(self, addr, bytes, buffer, BLOCK).map_err(to_i2c_err)
     }
 
     fn write_iter<B>(&mut self, _address: u8, _bytes: B) -> Result<(), Self::Error>
@@ -376,7 +376,7 @@ impl<'d> embedded_hal::i2c::I2c<embedded_hal::i2c::SevenBitAddress> for I2cMaste
         address: u8,
         operations: &mut [embedded_hal::i2c::Operation<'a>],
     ) -> Result<(), Self::Error> {
-        I2cMasterDriver::transaction(self, address, operations, BLOCK).map_err(to_i2c_err)
+        I2cDriver::transaction(self, address, operations, BLOCK).map_err(to_i2c_err)
     }
 
     fn transaction_iter<'a, O>(&mut self, _address: u8, _operations: O) -> Result<(), Self::Error>
