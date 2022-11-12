@@ -350,6 +350,7 @@ impl<'d> SpiDriver<'d> {
     /// Create new instance of SPI controller for SPI1
     ///
     /// SPI1 can only use fixed pin for SCLK, SDO and SDI as they are shared with SPI0.
+    #[cfg(esp32)]
     pub fn new_spi1(
         _spi: impl Peripheral<P = SPI1> + 'd,
         sclk: impl Peripheral<P = gpio::Gpio6> + 'd,
@@ -461,6 +462,7 @@ pub struct SpiDeviceDriver<'d, T> {
 }
 
 impl<'d> SpiDeviceDriver<'d, SpiDriver<'d>> {
+    #[cfg(esp32)]
     pub fn new_single_spi1(
         spi: impl Peripheral<P = SPI1> + 'd,
         sclk: impl Peripheral<P = gpio::Gpio6> + 'd,
