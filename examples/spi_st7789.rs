@@ -56,7 +56,7 @@ fn main() -> anyhow::Result<()> {
         SpiDeviceDriver::new_single(spi, sclk, sda, Some(sdi), Dma::Disabled, Some(cs), &config)?;
 
     // display interface abstraction from SPI and DC
-    let di = SPIInterfaceNoCS::new(spi, dc);
+    let di = SPIInterfaceNoCS::new(device, dc);
 
     // create driver
     let mut display = ST7789::new(di, rst, 240, 240);
