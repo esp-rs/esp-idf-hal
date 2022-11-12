@@ -808,7 +808,7 @@ where
 
             cs_pin.toggle()?;
 
-            Ok(trans_result?)
+            trans_result
         })
     }
 
