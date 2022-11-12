@@ -47,7 +47,7 @@ fn main() -> anyhow::Result<()> {
     let _ = std::thread::spawn(move || loop {
         println!("Rx Loop");
 
-        let mut pulses: [(Pulse, Pulse); 250];
+        let mut pulses: [(Pulse::zero(), Pulse::zero()); 250];
 
         // See sdkconfig.defaults to determine the tick time value ( default is one tick = 10 milliseconds)
         // Set ticks_to_wait to 0 for non-blocking

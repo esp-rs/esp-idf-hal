@@ -110,6 +110,10 @@ pub struct Pulse {
 }
 
 impl Pulse {
+    pub const fn zero() -> Self {
+        Self::new(PinState::Low, PulseTicks::zero())
+    }
+
     pub const fn new(pin_state: PinState, ticks: PulseTicks) -> Self {
         Pulse { pin_state, ticks }
     }
@@ -144,12 +148,27 @@ impl Pulse {
     }
 }
 
+impl Default for Pulse {
+    fn default() -> Self {
+        Self::zero()
+    }
+}
+
 /// Number of ticks, restricting the range to 0 to 32,767.
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub struct PulseTicks(u16);
 
 impl PulseTicks {
     const MAX: u16 = 32767;
+
+    pub const fn zero() -> Self {
+        Self(0)
+    }
+
+    /// Use the maximum value of 32767.
+    pub const fn max() -> Self {
+        Self(Self::MAX)
+    }
 
     /// Needs to be unsigned 15 bits: 0-32767 inclusive, otherwise an [ESP_ERR_INVALID_ARG] is
     /// returned.
@@ -161,11 +180,6 @@ impl PulseTicks {
         }
     }
 
-    /// Use the maximum value of 32767.
-    pub const fn max() -> Self {
-        Self(Self::MAX)
-    }
-
     /// Convert a `Duration` into `PulseTicks`.
     ///
     /// See `Pulse::new_with_duration()` for details.
@@ -173,6 +187,12 @@ impl PulseTicks {
         let ticks = duration_to_ticks(ticks_hz, duration)?;
         let ticks = u16::try_from(ticks).map_err(|_| EspError::from(EOVERFLOW as i32).unwrap())?;
         Self::new(ticks)
+    }
+}
+
+impl Default for PulseTicks {
+    fn default() -> Self {
+        Self::zero()
     }
 }
 
