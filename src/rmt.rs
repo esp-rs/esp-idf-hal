@@ -57,6 +57,9 @@ use core::marker::PhantomData;
 use core::ptr;
 use core::time::Duration;
 
+#[cfg(feature = "alloc")]
+extern crate alloc;
+
 use esp_idf_sys::*;
 
 use crate::gpio::InputPin;
@@ -755,19 +758,21 @@ impl<const N: usize> Default for FixedLengthSignal<N> {
 /// signal.push(Pulse::new(PinState::Low, PulseTicks::new(9)));
 /// ```
 
+#[cfg(feature = "alloc")]
 #[derive(Clone, Default)]
 pub struct VariableLengthSignal {
-    items: Vec<rmt_item32_t>,
+    items: alloc::vec::Vec<rmt_item32_t>,
 
     // Items contain two pulses. Track if we're adding a new pulse to the first one (true) or if
     // we're changing the second one (false).
     next_item_is_new: bool,
 }
 
+#[cfg(feature = "alloc")]
 impl VariableLengthSignal {
-    pub fn new() -> Self {
+    pub const fn new() -> Self {
         Self {
-            items: Vec::new(),
+            items: alloc::vec::Vec::new(),
             next_item_is_new: true,
         }
     }
