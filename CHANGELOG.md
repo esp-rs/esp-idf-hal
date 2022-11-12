@@ -22,7 +22,7 @@ The main themes of the 0.39 release are:
 * Support for the `embassy-sync` crate by providing two types of raw mutexes
 * Support for the `edge-executor` crate
 * Modem and Mac peripherals
-* SPI Driver rework
+* SPI driver rework
 
 ### Major changes elaboration
 
@@ -125,14 +125,13 @@ This is now addressed in that the `esp-idf-hal` crate models two new peripherals
   * `modem::Modem` is splittable into two other peripherals: `modem::WifiModem` (implementing only the `modem::WifiModemPeripheral` trait) and `modem::BluetoothModem` (implementing only the `modem::BluetoothModemPeripheral` trait) so that in future the simultaneous operation of the Wifi and Bluetooth drivers to be possible
 * `mac::MAC`: models the EMAC hardware available on the original ESP32 chip. The Ethernet driver implementation - just like the Wifi driver implementation - is still in the `esp-idf-svc` crate which better aligns with the underlying ESP-IDF implementations, yet the new Wifi and Ethernet drivers in `esp-idf-svc` now expect their corresponding peripherals to be supplied during construction time
 
-### SPI Driver rework
+### SPI driver rework
 
-The SpiDriver is now split into two parts
-* The `SpiDriver` manages access to the underlying SPI hardware 
-* The new `SpiDeviceDriver` is an abstraction for the "connected Devices" on the given SPI hardware. 
+The SPI driver is now split into two structures
+* `SpiDriver` - represents an initialized SPI bus and manages access to the underlying SPI hardware 
+* `SpiDeviceDriver` (new) - an abstraction for rach device connected to the SPI bus
   
-This allows for the creation of more than one Devices per SPI hardware. (Up to 6 for the esp32c* variants and 3 for all others).
-Creation and Deletion of the SpiDeviceDrivers is independent from SpiDriver. To allow for a more flexible usage an SpiDeviceDrivers can get reference to the SpiDriver by `T`, `&T`, `&mut T`, `Rc(T)`, `Arc(T)` where `T` is SpiDriver.
-`SpiDeviceDriver` implements the SpiDevice from `embedded-hal`
+The above split allows for the creation of more than one device per SPI bus. (Up to 6 for the esp32c* variants and 3 for all others).
+When creating an `SpiDeviceDriver` instance, user is required to provide a `Borrow` to the `SpiDriver` instance (as in `SpiDriver`, `&SpiDriver`, `&mut SpiDriver`, `Rc(SpiDriver)` or `Arc(SpiDriver)`), so that the SPI bus stays initialized throughout the liftime of all devices.
 
-A second wrapper implementation is now also provided: `SpiSoftCsDeviceDriver` It allows for more concurrent SpiDevices per SPI Hardware (No hardware limit of 3 / 6). To use it one wrapps an instance of an `SpiDeviceDriver` into an `SpiSharedDeviceDriver`. This shared driver can now be used in an arbitrary number of `SpiSoftCsDeviceDriver`. To easily change an configuration of an `SpiSoftCsDeviceDriver` simply point it to another `SpiSharedDeviceDriver`. 
+A second wrapper implementation is now also provided: `SpiSoftCsDeviceDriver` It allows for more devices per SPI bus (i.e. above the 3/6 limit). This is implemented by operating the CS pin in software mode.
