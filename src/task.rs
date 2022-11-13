@@ -195,7 +195,7 @@ pub mod thread {
                     Some(unsafe {
                         core::slice::from_raw_parts(
                             conf.thread_name as _,
-                            c_strlen(conf.thread_name) + 1,
+                            c_strlen(conf.thread_name as *const c_types::c_void as *const _) + 1,
                         )
                     })
                 },
@@ -233,7 +233,7 @@ pub mod thread {
         Ok(())
     }
 
-    fn c_strlen(c_str: *const i8) -> usize {
+    fn c_strlen(c_str: *const u8) -> usize {
         let mut offset = 0;
 
         loop {
