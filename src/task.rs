@@ -196,7 +196,7 @@ pub mod thread {
                     Some(unsafe {
                         core::slice::from_raw_parts(
                             conf.thread_name as _,
-                            strlen(conf.thread_name) as usize + 1,
+                            c_strlen(conf.thread_name) + 1,
                         )
                     })
                 },
@@ -232,6 +232,18 @@ pub mod thread {
         esp!(unsafe { esp_pthread_set_cfg(&conf.into()) })?;
 
         Ok(())
+    }
+
+    fn c_strlen(c_str: *const i8) -> usize {
+        let mut offset = 0;
+
+        loop {
+            if *unsafe { c_str.offset(offset).as_ref() }.unwrap() == 0 {
+                return offset as _;
+            }
+
+            offset += 1;
+        }
     }
 }
 
@@ -334,8 +346,15 @@ pub mod critical_section {
         }
     }
 
-    pub fn link() -> i32 {
-        42
+    pub type LinkWorkaround = [*mut (); 2];
+
+    static mut __INTERNAL_REFERENCE: LinkWorkaround = [
+        _critical_section_1_0_acquire as *mut _,
+        _critical_section_1_0_release as *mut _,
+    ];
+
+    pub fn link() -> LinkWorkaround {
+        unsafe { __INTERNAL_REFERENCE }
     }
 
     critical_section::set_impl!(EspCriticalSection);
