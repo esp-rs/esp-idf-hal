@@ -358,7 +358,8 @@ impl<'d> SpiDriver<'d> {
         sdi: Option<impl Peripheral<P = crate::gpio::Gpio8> + 'd>,
         dma: Dma,
     ) -> Result<Self, EspError> {
-        let max_transfer_size = Self::new_internal::<SPI1>(sclk, sdo, sdi, dma)?;
+        let max_transfer_size = Self::new_internal(SPI1::device(), sclk, sdo, sdi, dma)?;
+
         Ok(Self {
             host: SPI1::device() as _,
             max_transfer_size,
@@ -374,7 +375,8 @@ impl<'d> SpiDriver<'d> {
         sdi: Option<impl Peripheral<P = impl InputPin + OutputPin> + 'd>,
         dma: Dma,
     ) -> Result<Self, EspError> {
-        let max_transfer_size = Self::new_internal::<SPI>(sclk, sdo, sdi, dma)?;
+        let max_transfer_size = Self::new_internal(SPI::device(), sclk, sdo, sdi, dma)?;
+
         Ok(Self {
             host: SPI::device() as _,
             max_transfer_size,
@@ -386,7 +388,8 @@ impl<'d> SpiDriver<'d> {
         self.host as _
     }
 
-    fn new_internal<SPI: Spi>(
+    fn new_internal(
+        host: spi_host_device_t,
         sclk: impl Peripheral<P = impl OutputPin> + 'd,
         sdo: impl Peripheral<P = impl OutputPin> + 'd,
         sdi: Option<impl Peripheral<P = impl InputPin + OutputPin> + 'd>,
@@ -441,7 +444,8 @@ impl<'d> SpiDriver<'d> {
             ..Default::default()
         };
 
-        esp!(unsafe { spi_bus_initialize(SPI::device(), &bus_config, dma_chan) })?;
+        esp!(unsafe { spi_bus_initialize(host, &bus_config, dma_chan) })?;
+
         Ok(max_transfer_sz)
     }
 }
