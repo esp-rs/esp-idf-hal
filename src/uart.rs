@@ -429,8 +429,17 @@ impl<'d> UartDriver<'d> {
     }
 
     /// Split the serial driver in separate TX and RX drivers
-    pub fn split(mut self) -> (UartTxDriver<'d>, UartRxDriver<'d>) {
-        (self.tx(), self.rx())
+    pub fn split<'s>(&'s mut self) -> (UartTxDriver<'s>, UartRxDriver<'s>) {
+        (
+            UartTxDriver {
+                port: self.port() as _,
+                _p: PhantomData,
+            },
+            UartRxDriver {
+                port: self.port() as _,
+                _p: PhantomData,
+            },
+        )
     }
 
     /// Read multiple bytes into a slice
@@ -455,14 +464,14 @@ impl<'d> UartDriver<'d> {
         self.port as _
     }
 
-    fn rx(&mut self) -> UartRxDriver<'d> {
+    fn rx<'s>(&'s mut self) -> UartRxDriver<'s> {
         UartRxDriver {
             port: self.port() as _,
             _p: PhantomData,
         }
     }
 
-    fn tx(&mut self) -> UartTxDriver<'d> {
+    fn tx<'s>(&'s mut self) -> UartTxDriver<'s> {
         UartTxDriver {
             port: self.port() as _,
             _p: PhantomData,
