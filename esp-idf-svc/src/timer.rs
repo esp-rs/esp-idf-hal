@@ -435,8 +435,17 @@ pub mod embassy_time {
             }
         }
 
-        pub fn link() -> i32 {
-            42
+        pub type LinkWorkaround = [*mut (); 4];
+
+        static mut __INTERNAL_REFERENCE: LinkWorkaround = [
+            _embassy_time_now as *mut _,
+            _embassy_time_allocate_alarm as *mut _,
+            _embassy_time_set_alarm_callback as *mut _,
+            _embassy_time_set_alarm as *mut _,
+        ];
+
+        pub fn link() -> LinkWorkaround {
+            unsafe { __INTERNAL_REFERENCE }
         }
 
         ::embassy_time::time_driver_impl!(static DRIVER: EspDriver = EspDriver::new());
@@ -523,8 +532,12 @@ pub mod embassy_time {
             }
         }
 
-        pub fn link() -> i32 {
-            super::driver::link()
+        pub type LinkWorkaround = [*mut (); 1];
+
+        static mut __INTERNAL_REFERENCE: LinkWorkaround = [_embassy_time_schedule_wake as *mut _];
+
+        pub fn link() -> (LinkWorkaround, super::driver::LinkWorkaround) {
+            (unsafe { __INTERNAL_REFERENCE }, super::driver::link())
         }
 
         ::embassy_time::timer_queue_impl!(static QUEUE: Queue<RawMutexImpl, AlarmImpl> = Queue::new());
