@@ -5,3 +5,4 @@
 /Cargo.lock
 **/*.rs.bk
 ulp/ulp_start.o
+install-rust-toolchain.sh

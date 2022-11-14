@@ -1,24 +1,22 @@
 #![cfg_attr(not(feature = "std"), no_std)]
-#![feature(cfg_version)]
-#![feature(generic_associated_types)] // For mutex
-#![cfg_attr(version("1.61"), allow(deprecated_where_clause_location))]
-#![cfg_attr(not(version("1.59")), feature(asm))]
-#![cfg_attr(
-    all(version("1.58"), target_arch = "xtensa"),
-    feature(asm_experimental_arch)
-)]
+#![cfg_attr(target_arch = "xtensa", feature(asm_experimental_arch))]
 
 #[cfg(all(not(feature = "riscv-ulp-hal"), not(esp_idf_comp_driver_enabled)))]
 compile_error!("esp-idf-hal requires the `driver` ESP-IDF component to be enabled");
 
-#[cfg(all(feature = "std", feature = "riscv-ulp-hal"))]
-compile_error!("Feature `std` is not compatible with feature `ulp`");
-
-#[cfg(all(feature = "embedded-svc-mutex", feature = "riscv-ulp-hal"))]
-compile_error!("Feature `embedded-svc-mutex` is not compatible with feature `ulp`");
+#[cfg(all(
+    any(
+        feature = "std",
+        feature = "alloc",
+        feature = "critical-section-interrupt",
+        feature = "critical-section-mutex"
+    ),
+    feature = "riscv-ulp-hal"
+))]
+compile_error!("Enabling feature `riscv-ulp-hal` implies no other feature is enabled");
 
 #[cfg(all(feature = "riscv-ulp-hal", not(esp32s2)))]
-compile_error!("Feature `ulp` is currently only supported on esp32s2");
+compile_error!("Feature `riscv-ulp-hal` is currently only supported on esp32s2");
 
 #[macro_use]
 pub mod riscv_ulp_hal;
@@ -31,25 +29,38 @@ pub mod cpu;
 #[cfg(not(feature = "riscv-ulp-hal"))]
 pub mod delay;
 pub mod gpio;
-#[cfg(esp32)]
+#[cfg(all(esp32, esp_idf_version_major = "4"))]
 pub mod hall;
 #[cfg(not(feature = "riscv-ulp-hal"))]
 pub mod i2c;
 #[cfg(not(feature = "riscv-ulp-hal"))]
 pub mod interrupt;
+#[cfg(not(feature = "riscv-ulp-hal"))]
 pub mod ledc;
+#[cfg(all(
+    any(all(esp32, esp_idf_eth_use_esp32_emac), esp_idf_eth_use_openeth),
+    not(feature = "riscv-ulp-hal")
+))]
+pub mod mac;
 #[cfg(all(any(esp32, esp32s3), not(feature = "riscv-ulp-hal")))]
 pub mod mcpwm;
 #[cfg(not(feature = "riscv-ulp-hal"))]
-pub mod mutex;
+pub mod modem;
+pub mod peripheral;
 pub mod peripherals;
 pub mod prelude;
 #[cfg(not(feature = "riscv-ulp-hal"))]
+pub mod reset;
+#[cfg(not(feature = "riscv-ulp-hal"))]
 pub mod rmt;
 #[cfg(not(feature = "riscv-ulp-hal"))]
-pub mod serial;
-#[cfg(not(feature = "riscv-ulp-hal"))]
 pub mod spi;
+#[cfg(not(feature = "riscv-ulp-hal"))]
+pub mod task;
+#[cfg(not(feature = "riscv-ulp-hal"))]
+pub mod timer;
+#[cfg(not(feature = "riscv-ulp-hal"))]
+pub mod uart;
 #[cfg(all(any(esp32, esp32s2, esp32s3), not(feature = "riscv-ulp-hal")))]
 pub mod ulp;
 pub mod units;
@@ -114,5 +125,56 @@ macro_rules! embedded_hal_error {
     };
 }
 
+#[macro_export]
+#[allow(unused_macros)]
+macro_rules! into_ref {
+    ($($name:ident),*) => {
+        $(
+            let $name = $name.into_ref();
+        )*
+    }
+}
+
+#[allow(unused_macros)]
+macro_rules! impl_peripheral_trait {
+    ($type:ident) => {
+        unsafe impl Send for $type {}
+
+        impl $crate::peripheral::sealed::Sealed for $type {}
+
+        impl $crate::peripheral::Peripheral for $type {
+            type P = $type;
+
+            #[inline]
+            unsafe fn clone_unchecked(&mut self) -> Self::P {
+                $type { ..*self }
+            }
+        }
+    };
+}
+
+#[allow(unused_macros)]
+macro_rules! impl_peripheral {
+    ($type:ident) => {
+        pub struct $type(::core::marker::PhantomData<*const ()>);
+
+        impl $type {
+            /// # Safety
+            ///
+            /// Care should be taken not to instnatiate this peripheralinstance, if it is already instantiated and used elsewhere
+            #[inline(always)]
+            pub unsafe fn new() -> Self {
+                $type(::core::marker::PhantomData)
+            }
+        }
+
+        $crate::impl_peripheral_trait!($type);
+    };
+}
+
 #[allow(unused_imports)]
 pub(crate) use embedded_hal_error;
+#[allow(unused_imports)]
+pub(crate) use impl_peripheral;
+#[allow(unused_imports)]
+pub(crate) use impl_peripheral_trait;

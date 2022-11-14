@@ -1,27 +1,28 @@
-#[cfg(not(feature = "riscv-ulp-hal"))]
-use crate::mutex;
-
-#[cfg(feature = "riscv-ulp-hal")]
-use crate::riscv_ulp_hal::mutex;
-
 use crate::adc;
 #[cfg(not(feature = "riscv-ulp-hal"))]
 use crate::can;
 use crate::gpio;
-#[cfg(esp32)]
-use crate::hall;
 #[cfg(not(feature = "riscv-ulp-hal"))]
 use crate::i2c;
 #[cfg(not(feature = "riscv-ulp-hal"))]
 use crate::ledc;
+#[cfg(all(
+    any(all(esp32, esp_idf_eth_use_esp32_emac), esp_idf_eth_use_openeth),
+    not(feature = "riscv-ulp-hal")
+))]
+use crate::mac;
 #[cfg(all(any(esp32, esp32s3), not(feature = "riscv-ulp-hal")))]
 use crate::mcpwm;
 #[cfg(not(feature = "riscv-ulp-hal"))]
+use crate::modem;
+#[cfg(not(feature = "riscv-ulp-hal"))]
 use crate::rmt;
 #[cfg(not(feature = "riscv-ulp-hal"))]
-use crate::serial;
-#[cfg(not(feature = "riscv-ulp-hal"))]
 use crate::spi;
+#[cfg(not(feature = "riscv-ulp-hal"))]
+use crate::timer;
+#[cfg(not(feature = "riscv-ulp-hal"))]
+use crate::uart;
 #[cfg(all(
     any(esp32, esp32s2, esp32s3),
     not(feature = "riscv-ulp-hal"),
@@ -32,11 +33,11 @@ use crate::ulp;
 pub struct Peripherals {
     pub pins: gpio::Pins,
     #[cfg(not(feature = "riscv-ulp-hal"))]
-    pub uart0: serial::UART0,
+    pub uart0: uart::UART0,
     #[cfg(not(feature = "riscv-ulp-hal"))]
-    pub uart1: serial::UART1,
-    #[cfg(all(esp32, not(feature = "riscv-ulp-hal")))]
-    pub uart2: serial::UART2,
+    pub uart1: uart::UART1,
+    #[cfg(all(any(esp32, esp32s3), not(feature = "riscv-ulp-hal")))]
+    pub uart2: uart::UART2,
     #[cfg(not(feature = "riscv-ulp-hal"))]
     pub i2c0: i2c::I2C0,
     #[cfg(all(not(esp32c3), not(feature = "riscv-ulp-hal")))]
@@ -49,37 +50,91 @@ pub struct Peripherals {
     pub spi3: spi::SPI3,
     pub adc1: adc::ADC1,
     pub adc2: adc::ADC2,
-    #[cfg(esp32)]
-    pub hall_sensor: hall::HallSensor,
+    #[cfg(all(esp32, esp_idf_version_major = "4"))]
+    pub hall_sensor: crate::hall::HallSensor,
     #[cfg(not(feature = "riscv-ulp-hal"))]
     pub can: can::CAN,
     #[cfg(not(feature = "riscv-ulp-hal"))]
-    pub ledc: ledc::Peripheral,
+    pub ledc: ledc::LEDC,
     #[cfg(all(any(esp32, esp32s3), not(feature = "riscv-ulp-hal")))]
     pub mcpwm0: mcpwm::Peripheral<mcpwm::UnitZero>,
     #[cfg(all(any(esp32, esp32s3), not(feature = "riscv-ulp-hal")))]
     pub mcpwm1: mcpwm::Peripheral<mcpwm::UnitOne>,
     #[cfg(not(feature = "riscv-ulp-hal"))]
-    pub rmt: rmt::Peripheral,
+    pub rmt: rmt::RMT,
     #[cfg(all(
         any(esp32, esp32s2, esp32s3),
         not(feature = "riscv-ulp-hal"),
         esp_idf_comp_ulp_enabled
     ))]
     pub ulp: ulp::ULP,
+    #[cfg(all(
+        any(all(esp32, esp_idf_eth_use_esp32_emac), esp_idf_eth_use_openeth),
+        not(feature = "riscv-ulp-hal")
+    ))]
+    pub mac: mac::MAC,
+    #[cfg(not(feature = "riscv-ulp-hal"))]
+    pub modem: modem::Modem,
+    #[cfg(all(
+        not(feature = "riscv-ulp-hal"),
+        not(feature = "embassy-time-isr-queue-timer00")
+    ))]
+    pub timer00: timer::TIMER00,
+    #[cfg(all(
+        not(esp32c3),
+        not(feature = "riscv-ulp-hal"),
+        not(feature = "embassy-time-isr-queue-timer01")
+    ))]
+    pub timer01: timer::TIMER01,
+    #[cfg(all(
+        not(feature = "riscv-ulp-hal"),
+        not(feature = "embassy-time-isr-queue-timer10")
+    ))]
+    pub timer10: timer::TIMER10,
+    #[cfg(all(
+        not(esp32c3),
+        not(feature = "riscv-ulp-hal"),
+        not(feature = "embassy-time-isr-queue-timer11")
+    ))]
+    pub timer11: timer::TIMER11,
 }
 
-static TAKEN: mutex::Mutex<bool> = mutex::Mutex::new(false);
+#[cfg(feature = "riscv-ulp-hal")]
+static mut TAKEN: bool = false;
+
+#[cfg(not(feature = "riscv-ulp-hal"))]
+static TAKEN: core::sync::atomic::AtomicBool = core::sync::atomic::AtomicBool::new(false);
+
+#[cfg(not(feature = "riscv-ulp-hal"))]
+static TAKEN_CS: crate::task::CriticalSection = crate::task::CriticalSection::new();
 
 impl Peripherals {
+    #[cfg(feature = "riscv-ulp-hal")]
     pub fn take() -> Option<Self> {
-        let mut taken = TAKEN.lock();
-
-        if *taken {
+        if unsafe { TAKEN } {
             None
         } else {
-            *taken = true;
+            unsafe {
+                TAKEN = true;
+            }
             Some(unsafe { Peripherals::new() })
+        }
+    }
+
+    #[cfg(not(feature = "riscv-ulp-hal"))]
+    pub fn take() -> Option<Self> {
+        if TAKEN.load(core::sync::atomic::Ordering::SeqCst) {
+            None
+        } else {
+            let _ = TAKEN_CS.enter();
+
+            if !TAKEN.load(core::sync::atomic::Ordering::SeqCst) {
+                TAKEN.store(true, core::sync::atomic::Ordering::SeqCst);
+
+                Some(unsafe { Peripherals::new() })
+            } else {
+                None
+            }
         }
     }
 
@@ -90,11 +145,11 @@ impl Peripherals {
         Self {
             pins: gpio::Pins::new(),
             #[cfg(not(feature = "riscv-ulp-hal"))]
-            uart0: serial::UART0::new(),
+            uart0: uart::UART0::new(),
             #[cfg(not(feature = "riscv-ulp-hal"))]
-            uart1: serial::UART1::new(),
-            #[cfg(all(esp32, not(feature = "riscv-ulp-hal")))]
-            uart2: serial::UART2::new(),
+            uart1: uart::UART1::new(),
+            #[cfg(all(any(esp32, esp32s3), not(feature = "riscv-ulp-hal")))]
+            uart2: uart::UART2::new(),
             #[cfg(not(feature = "riscv-ulp-hal"))]
             i2c0: i2c::I2C0::new(),
             #[cfg(all(not(esp32c3), not(feature = "riscv-ulp-hal")))]
@@ -107,24 +162,53 @@ impl Peripherals {
             spi3: spi::SPI3::new(),
             adc1: adc::ADC1::new(),
             adc2: adc::ADC2::new(),
-            #[cfg(esp32)]
-            hall_sensor: hall::HallSensor::new(),
+            #[cfg(all(esp32, esp_idf_version_major = "4"))]
+            hall_sensor: crate::hall::HallSensor::new(),
             #[cfg(not(feature = "riscv-ulp-hal"))]
             can: can::CAN::new(),
             #[cfg(not(feature = "riscv-ulp-hal"))]
-            ledc: ledc::Peripheral::new(),
+            ledc: ledc::LEDC::new(),
             #[cfg(any(esp32, esp32s3))]
             mcpwm0: mcpwm::Peripheral::new(),
             #[cfg(any(esp32, esp32s3))]
             mcpwm1: mcpwm::Peripheral::new(),
             #[cfg(not(feature = "riscv-ulp-hal"))]
-            rmt: rmt::Peripheral::new(),
+            rmt: rmt::RMT::new(),
             #[cfg(all(
                 any(esp32, esp32s2, esp32s3),
                 not(feature = "riscv-ulp-hal"),
                 esp_idf_comp_ulp_enabled
             ))]
             ulp: ulp::ULP::new(),
+            #[cfg(all(
+                any(all(esp32, esp_idf_eth_use_esp32_emac), esp_idf_eth_use_openeth),
+                not(feature = "riscv-ulp-hal")
+            ))]
+            mac: mac::MAC::new(),
+            #[cfg(not(feature = "riscv-ulp-hal"))]
+            modem: modem::Modem::new(),
+            #[cfg(all(
+                not(feature = "riscv-ulp-hal"),
+                not(feature = "embassy-time-isr-queue-timer00")
+            ))]
+            timer00: timer::TIMER00::new(),
+            #[cfg(all(
+                not(esp32c3),
+                not(feature = "riscv-ulp-hal"),
+                not(feature = "embassy-time-isr-queue-timer01")
+            ))]
+            timer01: timer::TIMER01::new(),
+            #[cfg(all(
+                not(feature = "riscv-ulp-hal"),
+                not(feature = "embassy-time-isr-queue-timer10")
+            ))]
+            timer10: timer::TIMER10::new(),
+            #[cfg(all(
+                not(esp32c3),
+                not(feature = "riscv-ulp-hal"),
+                not(feature = "embassy-time-isr-queue-timer11")
+            ))]
+            timer11: timer::TIMER11::new(),
         }
     }
 }

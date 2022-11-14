@@ -6,9 +6,9 @@
 //!
 //! Create a CAN peripheral and then transmit and receive a message.
 //! ```
-//! use embedded_hal::can::nb::Can;
-//! use embedded_hal::can::Frame;
-//! use embedded_hal::can::StandardId;
+//! use embedded_can::nb::Can;
+//! use embedded_can::Frame;
+//! use embedded_can::StandardId;
 //! use esp_idf_hal::prelude::*;
 //! use esp_idf_hal::can;
 //!
@@ -22,7 +22,7 @@
 //!
 //! let timing = can::config::Timing::B500K;
 //! let config = can::config::Config::new().filter(filter).timing(timing);
-//! let mut can = can::CanBus::new(peripherals.can, pins.gpio5, pins.gpio4, config).unwrap();
+//! let mut can = can::CanDriver::new(peripherals.can, pins.gpio5, pins.gpio4, &config).unwrap();
 //!
 //! let tx_frame = can::Frame::new(StandardId::new(0x042).unwrap(), &[0, 1, 2, 3, 4, 5, 6, 7]).unwrap();
 //! nb::block!(can.transmit(&tx_frame)).unwrap();
@@ -32,24 +32,21 @@
 //! }
 //! ```
 
-use core::marker::PhantomData;
-
 use esp_idf_sys::*;
 
-use crate::delay::portMAX_DELAY;
+use crate::delay::{BLOCK, NON_BLOCK};
 use crate::gpio::*;
+use crate::peripheral::{Peripheral, PeripheralRef};
 
-crate::embedded_hal_error!(
-    CanError,
-    embedded_hal::can::Error,
-    embedded_hal::can::ErrorKind
-);
+crate::embedded_hal_error!(CanError, embedded_can::Error, embedded_can::ErrorKind);
 
 crate::embedded_hal_error!(
     Can02Error,
     embedded_hal_0_2::can::Error,
     embedded_hal_0_2::can::ErrorKind
 );
+
+pub type CanConfig = config::Config;
 
 pub mod config {
     use esp_idf_sys::*;
@@ -68,6 +65,7 @@ pub mod config {
     }
 
     impl From<Timing> for twai_timing_config_t {
+        #[allow(clippy::needless_update)]
         fn from(resolution: Timing) -> Self {
             match resolution {
                 Timing::B25K => twai_timing_config_t {
@@ -76,6 +74,7 @@ pub mod config {
                     tseg_2: 8,
                     sjw: 3,
                     triple_sampling: false,
+                    ..Default::default()
                 },
                 Timing::B50K => twai_timing_config_t {
                     brp: 80,
@@ -83,6 +82,7 @@ pub mod config {
                     tseg_2: 4,
                     sjw: 3,
                     triple_sampling: false,
+                    ..Default::default()
                 },
                 Timing::B100K => twai_timing_config_t {
                     brp: 40,
@@ -90,6 +90,7 @@ pub mod config {
                     tseg_2: 4,
                     sjw: 3,
                     triple_sampling: false,
+                    ..Default::default()
                 },
                 Timing::B125K => twai_timing_config_t {
                     brp: 32,
@@ -97,6 +98,7 @@ pub mod config {
                     tseg_2: 4,
                     sjw: 3,
                     triple_sampling: false,
+                    ..Default::default()
                 },
                 Timing::B250K => twai_timing_config_t {
                     brp: 16,
@@ -104,6 +106,7 @@ pub mod config {
                     tseg_2: 4,
                     sjw: 3,
                     triple_sampling: false,
+                    ..Default::default()
                 },
                 Timing::B500K => twai_timing_config_t {
                     brp: 8,
@@ -111,6 +114,7 @@ pub mod config {
                     tseg_2: 4,
                     sjw: 3,
                     triple_sampling: false,
+                    ..Default::default()
                 },
                 Timing::B800K => twai_timing_config_t {
                     brp: 4,
@@ -118,6 +122,7 @@ pub mod config {
                     tseg_2: 8,
                     sjw: 3,
                     triple_sampling: false,
+                    ..Default::default()
                 },
                 Timing::B1M => twai_timing_config_t {
                     brp: 4,
@@ -125,6 +130,7 @@ pub mod config {
                     tseg_2: 4,
                     sjw: 3,
                     triple_sampling: false,
+                    ..Default::default()
                 },
             }
         }
@@ -234,16 +240,19 @@ pub mod config {
 }
 
 /// CAN abstraction
-pub struct CanBus<TX: OutputPin, RX: InputPin> {
-    can: CAN,
-    tx: TX,
-    rx: RX,
-}
+pub struct CanDriver<'d>(PeripheralRef<'d, CAN>);
 
-unsafe impl<TX: OutputPin, RX: InputPin> Send for CanBus<TX, RX> {}
+unsafe impl<'d> Send for CanDriver<'d> {}
 
-impl<TX: OutputPin, RX: InputPin> CanBus<TX, RX> {
-    pub fn new(can: CAN, tx: TX, rx: RX, config: config::Config) -> Result<Self, EspError> {
+impl<'d> CanDriver<'d> {
+    pub fn new(
+        can: impl Peripheral<P = CAN> + 'd,
+        tx: impl Peripheral<P = impl OutputPin> + 'd,
+        rx: impl Peripheral<P = impl OutputPin> + 'd,
+        config: &config::Config,
+    ) -> Result<Self, EspError> {
+        crate::into_ref!(can, tx, rx);
+
         let general_config = twai_general_config_t {
             mode: twai_mode_t_TWAI_MODE_NORMAL,
             tx_io: tx.pin(),
@@ -276,101 +285,97 @@ impl<TX: OutputPin, RX: InputPin> CanBus<TX, RX> {
         esp!(unsafe { twai_driver_install(&general_config, &timing_config, &filter_config) })?;
         esp!(unsafe { twai_start() })?;
 
-        Ok(Self { can, tx, rx })
+        Ok(Self(can))
     }
 
-    pub fn release(self) -> Result<(CAN, TX, RX), EspError> {
-        esp!(unsafe { twai_stop() })?;
-        esp!(unsafe { twai_driver_uninstall() })?;
-
-        Ok((self.can, self.tx, self.rx))
+    pub fn transmit(&mut self, frame: &Frame, timeout: TickType_t) -> Result<(), EspError> {
+        esp!(unsafe { twai_transmit(&frame.0, timeout) })
     }
 
-    fn transmit_internal(&mut self, frame: &Frame, delay: TickType_t) -> Result<(), EspError> {
-        esp!(unsafe { twai_transmit(&frame.0, delay) })
-    }
-
-    fn receive_internal(&mut self, delay: TickType_t) -> Result<Frame, EspError> {
+    pub fn receive(&mut self, timeout: TickType_t) -> Result<Frame, EspError> {
         let mut rx_msg = twai_message_t {
             ..Default::default()
         };
 
-        match esp_result!(unsafe { twai_receive(&mut rx_msg, delay) }, ()) {
+        match esp_result!(unsafe { twai_receive(&mut rx_msg, timeout) }, ()) {
             Ok(_) => Ok(Frame(rx_msg)),
             Err(err) => Err(err),
         }
     }
 }
 
-impl<TX: OutputPin, RX: InputPin> embedded_hal_0_2::blocking::can::Can for CanBus<TX, RX> {
+impl<'d> Drop for CanDriver<'d> {
+    fn drop(&mut self) {
+        esp!(unsafe { twai_stop() }).unwrap();
+        esp!(unsafe { twai_driver_uninstall() }).unwrap();
+    }
+}
+
+impl<'d> embedded_hal_0_2::blocking::can::Can for CanDriver<'d> {
     type Frame = Frame;
     type Error = Can02Error;
 
     fn transmit(&mut self, frame: &Self::Frame) -> Result<(), Self::Error> {
-        self.transmit_internal(frame, portMAX_DELAY)
-            .map_err(Can02Error::other)
+        self.transmit(frame, BLOCK).map_err(Can02Error::other)
     }
 
     fn receive(&mut self) -> Result<Self::Frame, Self::Error> {
-        self.receive_internal(portMAX_DELAY)
-            .map_err(Can02Error::other)
+        self.receive(BLOCK).map_err(Can02Error::other)
     }
 }
 
-impl<TX: OutputPin, RX: InputPin> embedded_hal::can::blocking::Can for CanBus<TX, RX> {
+impl<'d> embedded_can::blocking::Can for CanDriver<'d> {
     type Frame = Frame;
     type Error = CanError;
 
     fn transmit(&mut self, frame: &Self::Frame) -> Result<(), Self::Error> {
-        self.transmit_internal(frame, portMAX_DELAY)
-            .map_err(CanError::other)
+        self.transmit(frame, BLOCK).map_err(CanError::other)
     }
 
     fn receive(&mut self) -> Result<Self::Frame, Self::Error> {
-        self.receive_internal(portMAX_DELAY)
-            .map_err(CanError::other)
+        self.receive(BLOCK).map_err(CanError::other)
     }
 }
 
-impl<TX: OutputPin, RX: InputPin> embedded_hal_0_2::can::nb::Can for CanBus<TX, RX> {
+impl<'d> embedded_hal_0_2::can::nb::Can for CanDriver<'d> {
     type Frame = Frame;
     type Error = Can02Error;
 
     fn transmit(&mut self, frame: &Self::Frame) -> nb::Result<Option<Self::Frame>, Self::Error> {
-        match self.transmit_internal(frame, 0) {
+        match self.transmit(frame, NON_BLOCK) {
             Ok(_) => Ok(None),
             Err(e) if e.code() == ESP_FAIL => Err(nb::Error::WouldBlock),
-            Err(e) if e.code() == ESP_ERR_TIMEOUT as i32 => Err(nb::Error::WouldBlock),
+            Err(e) if e.code() == ESP_ERR_TIMEOUT => Err(nb::Error::WouldBlock),
             Err(e) => Err(nb::Error::Other(Can02Error::other(e))),
         }
     }
 
     fn receive(&mut self) -> nb::Result<Self::Frame, Self::Error> {
-        match self.receive_internal(0) {
+        match self.receive(NON_BLOCK) {
             Ok(frame) => Ok(frame),
-            Err(e) if e.code() == ESP_ERR_TIMEOUT as i32 => Err(nb::Error::WouldBlock),
+            Err(e) if e.code() == ESP_ERR_TIMEOUT => Err(nb::Error::WouldBlock),
             Err(e) => Err(nb::Error::Other(Can02Error::other(e))),
         }
     }
 }
 
-impl<TX: OutputPin, RX: InputPin> embedded_hal::can::nb::Can for CanBus<TX, RX> {
+impl<'d> embedded_can::nb::Can for CanDriver<'d> {
     type Frame = Frame;
     type Error = CanError;
 
     fn transmit(&mut self, frame: &Self::Frame) -> nb::Result<Option<Self::Frame>, Self::Error> {
-        match self.transmit_internal(frame, 0) {
+        match self.transmit(frame, NON_BLOCK) {
             Ok(_) => Ok(None),
             Err(e) if e.code() == ESP_FAIL => Err(nb::Error::WouldBlock),
-            Err(e) if e.code() == ESP_ERR_TIMEOUT as i32 => Err(nb::Error::WouldBlock),
+            Err(e) if e.code() == ESP_ERR_TIMEOUT => Err(nb::Error::WouldBlock),
             Err(e) => Err(nb::Error::Other(CanError::other(e))),
         }
     }
 
     fn receive(&mut self) -> nb::Result<Self::Frame, Self::Error> {
-        match self.receive_internal(0) {
+        match self.receive(NON_BLOCK) {
             Ok(frame) => Ok(frame),
-            Err(e) if e.code() == ESP_ERR_TIMEOUT as i32 => Err(nb::Error::WouldBlock),
+            Err(e) if e.code() == ESP_ERR_TIMEOUT => Err(nb::Error::WouldBlock),
             Err(e) => Err(nb::Error::Other(CanError::other(e))),
         }
     }
@@ -379,7 +384,7 @@ impl<TX: OutputPin, RX: InputPin> embedded_hal::can::nb::Can for CanBus<TX, RX> 
 pub struct Frame(twai_message_t);
 
 impl Frame {
-    fn new(id: u32, extended: bool, data: &[u8]) -> Option<Self> {
+    pub fn new(id: u32, extended: bool, data: &[u8]) -> Option<Self> {
         let dlc = data.len();
 
         if dlc <= 8 {
@@ -409,7 +414,7 @@ impl Frame {
         }
     }
 
-    fn new_remote(id: u32, extended: bool, dlc: usize) -> Option<Self> {
+    pub fn new_remote(id: u32, extended: bool, dlc: usize) -> Option<Self> {
         if dlc <= 8 {
             // unions are not very well supported in rust
             // therefore setting those union flags is quite hairy
@@ -435,24 +440,24 @@ impl Frame {
         }
     }
 
-    fn get_extended(&self) -> bool {
+    pub fn is_extended(&self) -> bool {
         unsafe { self.0.__bindgen_anon_1.__bindgen_anon_1.extd() == 1 }
     }
 
-    fn get_remote_frame(&self) -> bool {
+    pub fn is_remote_frame(&self) -> bool {
         unsafe { self.0.__bindgen_anon_1.__bindgen_anon_1.rtr() == 1 }
     }
 
-    fn get_identifier(&self) -> u32 {
+    pub fn identifier(&self) -> u32 {
         self.0.identifier
     }
 
-    fn get_dlc(&self) -> usize {
+    pub fn dlc(&self) -> usize {
         self.0.data_length_code as usize
     }
 
-    fn get_data(&self) -> &[u8] {
-        &self.0.data[..self.get_dlc()]
+    pub fn data(&self) -> &[u8] {
+        &self.0.data[..self.dlc()]
     }
 }
 
@@ -461,9 +466,9 @@ impl core::fmt::Display for Frame {
         write!(
             f,
             "Frame {{ id: {}, remote: {}, data: {:?} }}",
-            self.get_identifier(),
-            self.get_remote_frame(),
-            self.get_data()
+            self.identifier(),
+            self.is_remote_frame(),
+            self.data()
         )
     }
 }
@@ -488,7 +493,7 @@ impl embedded_hal_0_2::can::Frame for Frame {
     }
 
     fn is_extended(&self) -> bool {
-        self.get_extended()
+        Frame::is_extended(self)
     }
 
     fn is_standard(&self) -> bool {
@@ -496,7 +501,7 @@ impl embedded_hal_0_2::can::Frame for Frame {
     }
 
     fn is_remote_frame(&self) -> bool {
-        self.get_remote_frame()
+        Frame::is_remote_frame(self)
     }
 
     fn is_data_frame(&self) -> bool {
@@ -506,46 +511,45 @@ impl embedded_hal_0_2::can::Frame for Frame {
     fn id(&self) -> embedded_hal_0_2::can::Id {
         if self.is_standard() {
             let id = unsafe {
-                embedded_hal_0_2::can::StandardId::new_unchecked(self.get_identifier() as u16)
+                embedded_hal_0_2::can::StandardId::new_unchecked(self.identifier() as u16)
             };
             embedded_hal_0_2::can::Id::Standard(id)
         } else {
-            let id =
-                unsafe { embedded_hal_0_2::can::ExtendedId::new_unchecked(self.get_identifier()) };
+            let id = unsafe { embedded_hal_0_2::can::ExtendedId::new_unchecked(self.identifier()) };
             embedded_hal_0_2::can::Id::Extended(id)
         }
     }
 
     fn dlc(&self) -> usize {
-        self.get_dlc()
+        Frame::dlc(self)
     }
 
     fn data(&self) -> &[u8] {
-        self.get_data()
+        Frame::data(self)
     }
 }
 
-impl embedded_hal::can::Frame for Frame {
-    fn new(id: impl Into<embedded_hal::can::Id>, data: &[u8]) -> Option<Self> {
+impl embedded_can::Frame for Frame {
+    fn new(id: impl Into<embedded_can::Id>, data: &[u8]) -> Option<Self> {
         let (id, extended) = match id.into() {
-            embedded_hal::can::Id::Standard(id) => (id.as_raw() as u32, false),
-            embedded_hal::can::Id::Extended(id) => (id.as_raw(), true),
+            embedded_can::Id::Standard(id) => (id.as_raw() as u32, false),
+            embedded_can::Id::Extended(id) => (id.as_raw(), true),
         };
 
         Self::new(id, extended, data)
     }
 
-    fn new_remote(id: impl Into<embedded_hal::can::Id>, dlc: usize) -> Option<Self> {
+    fn new_remote(id: impl Into<embedded_can::Id>, dlc: usize) -> Option<Self> {
         let (id, extended) = match id.into() {
-            embedded_hal::can::Id::Standard(id) => (id.as_raw() as u32, false),
-            embedded_hal::can::Id::Extended(id) => (id.as_raw(), true),
+            embedded_can::Id::Standard(id) => (id.as_raw() as u32, false),
+            embedded_can::Id::Extended(id) => (id.as_raw(), true),
         };
 
         Self::new_remote(id, extended, dlc)
     }
 
     fn is_extended(&self) -> bool {
-        self.get_extended()
+        Frame::is_extended(self)
     }
 
     fn is_standard(&self) -> bool {
@@ -553,43 +557,30 @@ impl embedded_hal::can::Frame for Frame {
     }
 
     fn is_remote_frame(&self) -> bool {
-        self.get_remote_frame()
+        Frame::is_remote_frame(self)
     }
 
     fn is_data_frame(&self) -> bool {
         !self.is_remote_frame()
     }
 
-    fn id(&self) -> embedded_hal::can::Id {
+    fn id(&self) -> embedded_can::Id {
         if self.is_standard() {
-            let id = unsafe {
-                embedded_hal::can::StandardId::new_unchecked(self.get_identifier() as u16)
-            };
-            embedded_hal::can::Id::Standard(id)
+            let id = unsafe { embedded_can::StandardId::new_unchecked(self.identifier() as u16) };
+            embedded_can::Id::Standard(id)
         } else {
-            let id = unsafe { embedded_hal::can::ExtendedId::new_unchecked(self.get_identifier()) };
-            embedded_hal::can::Id::Extended(id)
+            let id = unsafe { embedded_can::ExtendedId::new_unchecked(self.identifier()) };
+            embedded_can::Id::Extended(id)
         }
     }
 
     fn dlc(&self) -> usize {
-        self.get_dlc()
+        Frame::dlc(self)
     }
 
     fn data(&self) -> &[u8] {
-        self.get_data()
+        Frame::data(self)
     }
 }
 
-pub struct CAN(PhantomData<*const ()>);
-
-impl CAN {
-    /// # Safety
-    ///
-    /// Care should be taken not to instnatiate this CAN instance, if it is already instantiated and used elsewhere
-    pub unsafe fn new() -> Self {
-        CAN(PhantomData)
-    }
-}
-
-unsafe impl Send for CAN {}
+crate::impl_peripheral!(CAN);

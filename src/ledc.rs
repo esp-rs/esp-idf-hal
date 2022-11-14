@@ -1,5 +1,3 @@
-#![cfg(not(feature = "riscv-ulp-hal"))]
-
 //! LED Control peripheral (which also creates PWM signals for other purposes)
 //!
 //! Interface to the [LED Control (LEDC)
@@ -12,36 +10,38 @@
 //!
 //! Create a 25 kHz PWM signal with 75 % duty cycle on GPIO 1
 //! ```
-//! use embedded_hal::pwm::blocking::PwmPin;
-//! use esp_idf_hal::ledc::{config::TimerConfig, Channel, Timer};
+//! use esp_idf_hal::ledc::{config::TimerConfig, Channel, LedcDriver, Timer};
 //! use esp_idf_hal::peripherals::Peripherals;
 //! use esp_idf_hal::prelude::*;
 //!
 //! let peripherals = Peripherals::take().unwrap();
-//! let config = TimerConfig::default().frequency(25.kHz().into());
-//! let timer = Timer::new(peripherals.ledc.timer0, &config)?;
-//! let channel = Channel::new(peripherals.ledc.channel0, &timer, peripherals.pins.gpio1)?;
+//! let mut driver = LedcDriver::new(peripherals.ledc.channel0, peripherals.ledc.timer0, peripherals.pins.gpio1, &TimerConfig::default().frequency(25.kHz().into()))?;
 //!
-//! let max_duty = channel.get_max_duty()?;
-//! channel.set_duty(max_duty * 3 / 4);
+//! let max_duty = driver.get_max_duty()?;
+//! driver.set_duty(max_duty * 3 / 4)?;
 //! ```
 //!
 //! See the `examples/` folder of this repository for more.
 
-use core::{borrow::Borrow, marker::PhantomData};
+use core::borrow::Borrow;
+use core::marker::PhantomData;
+use core::sync::atomic::{AtomicBool, Ordering};
 
 use esp_idf_sys::*;
 
 use crate::gpio::OutputPin;
-use crate::mutex::Mutex;
+use crate::peripheral::Peripheral;
+use crate::task::CriticalSection;
 
 pub use chip::*;
 
 type Duty = u32;
+type HPoint = Duty;
 
 const IDLE_LEVEL: u32 = 0;
 
-static FADE_FUNC_INSTALLED: Mutex<bool> = Mutex::new(false);
+static FADE_FUNC_INSTALLED: AtomicBool = AtomicBool::new(false);
+static FADE_FUNC_INSTALLED_CS: CriticalSection = CriticalSection::new();
 
 /// Types for configuring the LED Control peripheral
 pub mod config {
@@ -50,13 +50,18 @@ pub mod config {
 
     pub use chip::Resolution;
 
+    #[derive(Clone, Debug, Eq, PartialEq)]
     pub struct TimerConfig {
         pub frequency: Hertz,
         pub resolution: Resolution,
-        pub speed_mode: ledc_mode_t,
+        pub speed_mode: SpeedMode,
     }
 
     impl TimerConfig {
+        pub fn new() -> Self {
+            Default::default()
+        }
+
         #[must_use]
         pub fn frequency(mut self, f: Hertz) -> Self {
             self.frequency = f;
@@ -70,7 +75,7 @@ pub mod config {
         }
 
         #[must_use]
-        pub fn speed_mode(mut self, mode: ledc_mode_t) -> Self {
+        pub fn speed_mode(mut self, mode: SpeedMode) -> Self {
             self.speed_mode = mode;
             self
         }
@@ -81,30 +86,33 @@ pub mod config {
             TimerConfig {
                 frequency: 1000.Hz(),
                 resolution: Resolution::Bits8,
-                speed_mode: ledc_mode_t_LEDC_LOW_SPEED_MODE,
+                speed_mode: SpeedMode::LowSpeed,
             }
         }
     }
 }
 
-/// LED Control timer abstraction
-pub struct Timer<T: HwTimer> {
-    instance: T,
-    speed_mode: ledc_mode_t,
+/// LED Control timer driver
+pub struct LedcTimerDriver<'d> {
+    timer: u8,
+    speed_mode: SpeedMode,
     max_duty: Duty,
+    _p: PhantomData<&'d mut ()>,
 }
 
-impl<T: HwTimer> Timer<T> {
-    /// Creates a new LED Control timer abstraction
-    pub fn new(instance: T, config: &config::TimerConfig) -> Result<Self, EspError> {
+impl<'d> LedcTimerDriver<'d> {
+    pub fn new<T: LedcTimer>(
+        _timer: impl Peripheral<P = T> + 'd,
+        config: &config::TimerConfig,
+    ) -> Result<Self, EspError> {
         let timer_config = ledc_timer_config_t {
-            speed_mode: config.speed_mode,
+            speed_mode: config.speed_mode.into(),
             timer_num: T::timer(),
             #[cfg(esp_idf_version_major = "4")]
             __bindgen_anon_1: ledc_timer_config_t__bindgen_ty_1 {
                 duty_resolution: config.resolution.timer_bits(),
             },
-            #[cfg(esp_idf_version_major = "5")]
+            #[cfg(not(esp_idf_version_major = "4"))]
             duty_resolution: config.resolution.timer_bits(),
             freq_hz: config.frequency.into(),
             clk_cfg: ledc_clk_cfg_t_LEDC_AUTO_CLK,
@@ -113,148 +121,186 @@ impl<T: HwTimer> Timer<T> {
         // SAFETY: We own the instance and therefor are safe to configure it.
         esp!(unsafe { ledc_timer_config(&timer_config) })?;
 
-        Ok(Timer {
-            instance,
+        Ok(Self {
+            timer: T::timer() as _,
             speed_mode: config.speed_mode,
             max_duty: config.resolution.max_duty(),
+            _p: PhantomData,
         })
     }
 
-    /// Pauses the timer. Operation can be resumed with
-    /// [`resume()`](Timer::resume()).
+    /// Pauses the timer. Operation can be resumed with [`resume_timer()`].
     pub fn pause(&mut self) -> Result<(), EspError> {
-        esp!(unsafe { ledc_timer_pause(self.speed_mode, T::timer()) })?;
+        esp!(unsafe { ledc_timer_pause(self.speed_mode.into(), self.timer()) })?;
         Ok(())
     }
 
-    /// Stops the timer and releases its hardware resource
-    pub fn release(mut self) -> Result<T, EspError> {
-        self.reset()?;
-        Ok(self.instance)
+    /// Resumes the operation of the previously paused timer
+    pub fn resume(&mut self) -> Result<(), EspError> {
+        esp!(unsafe { ledc_timer_resume(self.speed_mode.into(), self.timer()) })?;
+        Ok(())
     }
 
     fn reset(&mut self) -> Result<(), EspError> {
-        esp!(unsafe { ledc_timer_rst(self.speed_mode, T::timer()) })?;
+        esp!(unsafe { ledc_timer_rst(self.speed_mode.into(), self.timer()) })?;
         Ok(())
     }
 
-    /// Resumes the operation of a previously paused timer
-    pub fn resume(&mut self) -> Result<(), EspError> {
-        esp!(unsafe { ledc_timer_resume(self.speed_mode, T::timer()) })?;
-        Ok(())
+    pub fn timer(&self) -> ledc_timer_t {
+        self.timer as _
     }
 }
 
-/// LED Control output channel abstraction
-pub struct Channel<C: HwChannel, H: HwTimer, T: Borrow<Timer<H>>, P: OutputPin> {
-    instance: C,
-    _hw_timer: PhantomData<H>,
-    timer: T,
-    pin: P,
+impl<'d> Drop for LedcTimerDriver<'d> {
+    fn drop(&mut self) {
+        self.reset().unwrap();
+    }
+}
+
+unsafe impl<'d> Send for LedcTimerDriver<'d> {}
+
+/// LED Control driver
+pub struct LedcDriver<'d> {
+    channel: u8,
+    timer: u8,
     duty: Duty,
+    hpoint: HPoint,
+    speed_mode: SpeedMode,
+    max_duty: Duty,
+    _p: PhantomData<&'d mut ()>,
 }
 
 // TODO: Stop channel when the instance gets dropped. It seems that we can't
 // have both at the same time: a method for releasing its hardware resources
 // and implementing Drop.
-impl<C: HwChannel, H: HwTimer, T: Borrow<Timer<H>>, P: OutputPin> Channel<C, H, T, P> {
-    /// Creates a new LED Control output channel abstraction
-    pub fn new(instance: C, timer: T, pin: P) -> Result<Self, EspError> {
+impl<'d> LedcDriver<'d> {
+    /// Creates a new LED Control driver
+    pub fn new<C: LedcChannel, B: Borrow<LedcTimerDriver<'d>>>(
+        _channel: impl Peripheral<P = C> + 'd,
+        timer_driver: B,
+        pin: impl Peripheral<P = impl OutputPin> + 'd,
+        config: &config::TimerConfig,
+    ) -> Result<Self, EspError> {
+        crate::into_ref!(pin);
+
         let duty = 0;
+        let hpoint = 0;
+
         let channel_config = ledc_channel_config_t {
-            speed_mode: timer.borrow().speed_mode,
+            speed_mode: config.speed_mode.into(),
             channel: C::channel(),
-            timer_sel: H::timer(),
+            timer_sel: timer_driver.borrow().timer(),
             intr_type: ledc_intr_type_t_LEDC_INTR_DISABLE,
             gpio_num: pin.pin(),
-            duty: duty as u32,
+            duty,
+            hpoint: hpoint as _,
             ..Default::default()
         };
 
-        let mut installed = FADE_FUNC_INSTALLED.lock();
-        if !*installed {
-            // It looks like ledc_channel_config requires the face function to
-            // be installed. I don't see why this is nescessary yet but hey,
-            // let the Wookie win for now.
-            //
-            // TODO: Check whether it's worth to track its install status and
-            // remove it if no longer needed.
-            esp!(unsafe { ledc_fade_func_install(0) })?;
-            *installed = true;
+        if !FADE_FUNC_INSTALLED.load(Ordering::SeqCst) {
+            let _ = FADE_FUNC_INSTALLED_CS.enter();
+
+            if !FADE_FUNC_INSTALLED.load(Ordering::SeqCst) {
+                // It looks like ledc_channel_config requires the face function to
+                // be installed. I don't see why this is nescessary yet but hey,
+                // let the Wookie win for now.
+                //
+                // TODO: Check whether it's worth to track its install status and
+                // remove it if no longer needed.
+                esp!(unsafe { ledc_fade_func_install(0) })?;
+
+                FADE_FUNC_INSTALLED.store(true, Ordering::SeqCst);
+            }
         }
-        drop(installed);
 
         // SAFETY: As long as we have borrowed the timer, we are safe to use
         // it.
         esp!(unsafe { ledc_channel_config(&channel_config) })?;
 
-        Ok(Channel {
-            instance,
-            _hw_timer: PhantomData,
-            timer,
-            pin,
+        Ok(LedcDriver {
             duty,
+            hpoint,
+            speed_mode: timer_driver.borrow().speed_mode,
+            max_duty: timer_driver.borrow().max_duty,
+            timer: timer_driver.borrow().timer() as _,
+            channel: C::channel() as _,
+            _p: PhantomData,
         })
-    }
-
-    /// Stops the output channel and releases its hardware resource and GPIO
-    /// pin
-    pub fn release(mut self) -> Result<(C, P), EspError> {
-        self.stop()?;
-        Ok((self.instance, self.pin))
     }
 
     pub fn get_duty(&self) -> Duty {
         self.duty
     }
 
+    pub fn get_hpoint(&self) -> HPoint {
+        self.hpoint
+    }
+
     pub fn get_max_duty(&self) -> Duty {
-        self.timer.borrow().max_duty
+        self.max_duty
     }
 
     pub fn disable(&mut self) -> Result<(), EspError> {
-        self.update_duty(0)?;
+        self.update_duty(0, 0)?;
         Ok(())
     }
 
     pub fn enable(&mut self) -> Result<(), EspError> {
-        self.update_duty(self.duty)?;
+        self.update_duty(self.duty, self.hpoint)?;
         Ok(())
     }
 
     pub fn set_duty(&mut self, duty: Duty) -> Result<(), EspError> {
+        self.set_duty_with_hpoint(duty, self.hpoint)
+    }
+
+    pub fn set_hpoint(&mut self, hpoint: HPoint) -> Result<(), EspError> {
+        self.set_duty_with_hpoint(self.duty, hpoint)
+    }
+
+    pub fn set_duty_with_hpoint(&mut self, duty: Duty, hpoint: HPoint) -> Result<(), EspError> {
         // Clamp the actual duty cycle to the current maximum as done by other
         // Pwm/PwmPin implementations.
-        //
-        // TODO: Why does calling self.get_max_duty() result in the compiler
-        // error 'expected `u32`, found enum `Result`' when our method returns
-        // Duty?
-        let clamped = duty.min(self.timer.borrow().max_duty);
-        self.duty = clamped;
-        self.update_duty(clamped)?;
+        let max_duty = self.get_max_duty();
+        let clamped_duty = duty.min(max_duty);
+        let clamped_hpoint = hpoint.min(max_duty);
+        self.duty = clamped_duty;
+        self.hpoint = clamped_hpoint;
+        self.update_duty(clamped_duty, clamped_hpoint)?;
         Ok(())
     }
 
     fn stop(&mut self) -> Result<(), EspError> {
-        esp!(unsafe { ledc_stop(self.timer.borrow().speed_mode, C::channel(), IDLE_LEVEL) })?;
+        esp!(unsafe { ledc_stop(self.speed_mode.into(), self.channel(), IDLE_LEVEL,) })?;
         Ok(())
     }
 
-    fn update_duty(&mut self, duty: Duty) -> Result<(), EspError> {
+    fn update_duty(&mut self, duty: Duty, hpoint: HPoint) -> Result<(), EspError> {
         esp!(unsafe {
-            ledc_set_duty_and_update(
-                self.timer.borrow().speed_mode,
-                C::channel(),
-                duty as u32,
-                Default::default(),
-            )
+            ledc_set_duty_and_update(self.speed_mode.into(), self.channel(), duty, hpoint)
         })?;
         Ok(())
     }
+
+    pub fn channel(&self) -> ledc_channel_t {
+        self.channel as _
+    }
+
+    pub fn timer(&self) -> ledc_timer_t {
+        self.timer as _
+    }
 }
 
+impl<'d> Drop for LedcDriver<'d> {
+    fn drop(&mut self) {
+        self.stop().unwrap();
+    }
+}
+
+unsafe impl<'d> Send for LedcDriver<'d> {}
+
 // PwmPin temporarily removed from embedded-hal-1.0.alpha7 in anticipation of e-hal 1.0 release
-// impl<C: HwChannel, H: HwTimer, T: Borrow<Timer<H>>, P: OutputPin> embedded_hal::pwm::blocking::PwmPin for Channel<C, H, T, P> {
+// impl<'d> embedded_hal::pwm::blocking::PwmPin for LedcDriver<'d> {
 //     type Duty = Duty;
 //     type Error = EspError;
 
@@ -279,9 +325,7 @@ impl<C: HwChannel, H: HwTimer, T: Borrow<Timer<H>>, P: OutputPin> Channel<C, H, 
 //     }
 // }
 
-impl<C: HwChannel, H: HwTimer, T: Borrow<Timer<H>>, P: OutputPin> embedded_hal_0_2::PwmPin
-    for Channel<C, H, T, P>
-{
+impl<'d> embedded_hal_0_2::PwmPin for LedcDriver<'d> {
     type Duty = Duty;
 
     fn disable(&mut self) {
@@ -312,9 +356,9 @@ impl<C: HwChannel, H: HwTimer, T: Borrow<Timer<H>>, P: OutputPin> embedded_hal_0
 }
 
 mod chip {
-    use core::marker::PhantomData;
     use esp_idf_sys::*;
 
+    #[derive(Debug, Copy, Clone, Eq, PartialEq)]
     pub enum Resolution {
         Bits1,
         Bits2,
@@ -412,34 +456,47 @@ mod chip {
         }
     }
 
+    /// Ledc Speed Mode
+    #[derive(PartialEq, Eq, Copy, Clone, Debug)]
+    pub enum SpeedMode {
+        #[cfg(esp_idf_soc_ledc_support_hs_mode)]
+        /// High Speed Mode. Currently only supported on the ESP32.
+        HighSpeed,
+        /// Low Speed Mode. The only configuration supported on ESP32S2, ESP32S3, ESP32C2 and ESP32C3.
+        LowSpeed,
+    }
+
+    impl Default for SpeedMode {
+        fn default() -> Self {
+            Self::LowSpeed
+        }
+    }
+
+    impl From<SpeedMode> for ledc_mode_t {
+        fn from(speed_mode: SpeedMode) -> Self {
+            match speed_mode {
+                #[cfg(esp_idf_soc_ledc_support_hs_mode)]
+                SpeedMode::HighSpeed => ledc_mode_t_LEDC_HIGH_SPEED_MODE,
+                SpeedMode::LowSpeed => ledc_mode_t_LEDC_LOW_SPEED_MODE,
+            }
+        }
+    }
+
     /// LED Control peripheral timer
-    pub trait HwTimer {
+    pub trait LedcTimer {
         fn timer() -> ledc_timer_t;
     }
 
     /// LED Control peripheral output channel
-    pub trait HwChannel {
+    pub trait LedcChannel {
         fn channel() -> ledc_channel_t;
     }
 
     macro_rules! impl_timer {
         ($instance:ident: $timer:expr) => {
-            pub struct $instance {
-                _marker: PhantomData<ledc_timer_t>,
-            }
+            crate::impl_peripheral!($instance);
 
-            impl $instance {
-                /// # Safety
-                ///
-                /// It is safe to instantiate this timer exactly one time.
-                pub unsafe fn new() -> Self {
-                    $instance {
-                        _marker: PhantomData,
-                    }
-                }
-            }
-
-            impl HwTimer for $instance {
+            impl LedcTimer for $instance {
                 fn timer() -> ledc_timer_t {
                     $timer
                 }
@@ -454,23 +511,9 @@ mod chip {
 
     macro_rules! impl_channel {
         ($instance:ident: $channel:expr) => {
-            pub struct $instance {
-                _marker: PhantomData<ledc_channel_t>,
-            }
+            crate::impl_peripheral!($instance);
 
-            impl $instance {
-                /// # Safety
-                ///
-                /// It is safe to instantiate this output channel exactly one
-                /// time.
-                pub unsafe fn new() -> Self {
-                    $instance {
-                        _marker: PhantomData,
-                    }
-                }
-            }
-
-            impl HwChannel for $instance {
+            impl LedcChannel for $instance {
                 fn channel() -> ledc_channel_t {
                     $channel
                 }
@@ -490,7 +533,7 @@ mod chip {
     impl_channel!(CHANNEL7: ledc_channel_t_LEDC_CHANNEL_7);
 
     /// The LED Control device peripheral
-    pub struct Peripheral {
+    pub struct LEDC {
         pub timer0: TIMER0,
         pub timer1: TIMER1,
         pub timer2: TIMER2,
@@ -507,7 +550,7 @@ mod chip {
         pub channel7: CHANNEL7,
     }
 
-    impl Peripheral {
+    impl LEDC {
         /// Creates a new instance of the LEDC peripheral. Typically one wants
         /// to use the instance [`ledc`](crate::peripherals::Peripherals::ledc) from
         /// the device peripherals obtained via
