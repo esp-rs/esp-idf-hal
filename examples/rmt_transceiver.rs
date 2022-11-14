@@ -23,7 +23,7 @@ use esp_idf_sys::{self as _}; // If using the `binstart` feature of `esp-idf-sys
 use esp_idf_hal::delay::FreeRtos;
 use esp_idf_hal::peripherals::Peripherals;
 use esp_idf_hal::rmt::{
-    FixedLengthSignal, PinState, Pulse, PulseTicks, RmtReceiveConfig, RmtTransmitConfig,
+    FixedLengthSignal, PinState, Pulse, PulseTicks, Receive, RmtReceiveConfig, RmtTransmitConfig,
     RxRmtDriver, TxRmtDriver,
 };
 
@@ -53,10 +53,11 @@ fn main() -> anyhow::Result<()> {
 
             // See sdkconfig.defaults to determine the tick time value ( default is one tick = 10 milliseconds)
             // Set ticks_to_wait to 0 for non-blocking
-            let length = rx.receive(&mut pulses, 0).unwrap();
-            let pulses = &pulses[..length];
+            let receive = rx.receive(&mut pulses, 0).unwrap();
 
-            if !pulses.is_empty() {
+            if let Receive::Read(length) = receive {
+                let pulses = &pulses[..length];
+
                 for (pulse0, pulse1) in pulses {
                     println!("0={:?}, 1={:?}", pulse0, pulse1);
                 }
