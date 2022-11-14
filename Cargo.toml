@@ -13,6 +13,9 @@ readme = "README.md"
 documentation = "https://esp-rs.github.io/esp-idf-hal/"
 rust-version = "1.61"
 
+[patch.crates-io]
+esp-idf-sys = { git = "https://github.com/esp-rs/esp-idf-sys", branch = "master" }
+
 [features]
 default = ["std", "alloc", "esp-idf-sys"]
 std = ["alloc", "esp-idf-sys/std", "edge-executor?/std"]
