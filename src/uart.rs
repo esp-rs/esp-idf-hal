@@ -189,6 +189,85 @@ pub mod config {
         }
     }
 
+    /// UART clock source
+    #[derive(PartialEq, Eq, Copy, Clone, Debug)]
+    pub enum SourceClock {
+        /// UART source clock from `APB`
+        APB,
+        /// UART source clock from `RTC`
+        #[cfg(esp_idf_soc_uart_support_rtc_clk)]
+        RTC,
+        /// UART source clock from `XTAL`
+        #[cfg(esp_idf_soc_uart_support_xtal_clk)]
+        Crystal,
+        /// UART source clock from `REF_TICK`
+        #[cfg(esp_idf_soc_uart_support_ref_tick)]
+        RefTick,
+    }
+
+    impl Default for SourceClock {
+        fn default() -> Self {
+            #[cfg(not(esp_idf_version_major = "4"))]
+            let source_clock = soc_periph_uart_clk_src_legacy_t_UART_SCLK_DEFAULT;
+            #[cfg(esp_idf_version_major = "4")]
+            let source_clock = uart_sclk_t_UART_SCLK_APB;
+            Self::from(source_clock)
+        }
+    }
+
+    impl From<SourceClock> for uart_sclk_t {
+        fn from(source_clock: SourceClock) -> Self {
+            #[cfg(not(esp_idf_version_major = "4"))]
+            match source_clock {
+                SourceClock::APB => soc_periph_uart_clk_src_legacy_t_UART_SCLK_APB,
+                #[cfg(esp_idf_soc_uart_support_rtc_clk)]
+                SourceClock::RTC => soc_periph_uart_clk_src_legacy_t_UART_SCLK_RTC,
+                #[cfg(esp_idf_soc_uart_support_xtal_clk)]
+                SourceClock::Crystal => soc_periph_uart_clk_src_legacy_t_UART_SCLK_XTAL,
+                #[cfg(esp_idf_soc_uart_support_ref_tick)]
+                SourceClock::RefTick => soc_periph_uart_clk_src_legacy_t_UART_SCLK_REF_TICK,
+            }
+            #[cfg(esp_idf_version_major = "4")]
+            match source_clock {
+                SourceClock::APB => uart_sclk_t_UART_SCLK_APB,
+                #[cfg(esp_idf_soc_uart_support_rtc_clk)]
+                SourceClock::RTC => uart_sclk_t_UART_SCLK_RTC,
+                #[cfg(esp_idf_soc_uart_support_xtal_clk)]
+                SourceClock::Crystal => uart_sclk_t_UART_SCLK_XTAL,
+                #[cfg(esp_idf_soc_uart_support_ref_tick)]
+                SourceClock::RefTick => uart_sclk_t_UART_SCLK_REF_TICK,
+            }
+        }
+    }
+
+    impl From<uart_sclk_t> for SourceClock {
+        #[allow(non_upper_case_globals)]
+        fn from(source_clock: uart_sclk_t) -> Self {
+            #[cfg(not(esp_idf_version_major = "4"))]
+            match source_clock {
+                soc_periph_uart_clk_src_legacy_t_UART_SCLK_DEFAULT => SourceClock::APB,
+                #[cfg(esp_idf_soc_uart_support_rtc_clk)]
+                soc_periph_uart_clk_src_legacy_t_UART_SCLK_RTC => SourceClock::RTC,
+                #[cfg(esp_idf_soc_uart_support_xtal_clk)]
+                soc_periph_uart_clk_src_legacy_t_UART_SCLK_XTAL => SourceClock::Crystal,
+                #[cfg(esp_idf_soc_uart_support_ref_tick)]
+                soc_periph_uart_clk_src_legacy_t_UART_SCLK_REF_TICK => SourceClock::RefTick,
+                _ => unreachable!(),
+            }
+            #[cfg(esp_idf_version_major = "4")]
+            match source_clock {
+                uart_sclk_t_UART_SCLK_APB => SourceClock::APB,
+                #[cfg(esp_idf_soc_uart_support_rtc_clk)]
+                uart_sclk_t_UART_SCLK_RTC => SourceClock::RTC,
+                #[cfg(esp_idf_soc_uart_support_xtal_clk)]
+                uart_sclk_t_UART_SCLK_XTAL => SourceClock::Crystal,
+                #[cfg(esp_idf_soc_uart_support_ref_tick)]
+                uart_sclk_t_UART_SCLK_REF_TICK => SourceClock::RefTick,
+                _ => unreachable!(),
+            }
+        }
+    }
+
     /// UART configuration
     #[derive(Debug, Copy, Clone)]
     pub struct Config {
@@ -198,6 +277,7 @@ pub mod config {
         pub stop_bits: StopBits,
         pub flow_control: FlowControl,
         pub flow_control_rts_threshold: u8,
+        pub source_clock: SourceClock,
     }
 
     impl Config {
@@ -255,6 +335,12 @@ pub mod config {
             self.flow_control_rts_threshold = flow_control_rts_threshold;
             self
         }
+
+        #[must_use]
+        pub fn source_clock(mut self, source_clock: SourceClock) -> Self {
+            self.source_clock = source_clock;
+            self
+        }
     }
 
     impl Default for Config {
@@ -266,6 +352,7 @@ pub mod config {
                 stop_bits: StopBits::STOP1,
                 flow_control: FlowControl::None,
                 flow_control_rts_threshold: 122,
+                source_clock: SourceClock::default(),
             }
         }
     }
@@ -282,124 +369,60 @@ crate::embedded_hal_error!(
 );
 
 /// Serial abstraction
-///
-pub struct UartDriver<'d> {
-    port: u8,
-    _p: PhantomData<&'d mut ()>,
-}
+pub struct UartDriver<'d>(Port<'d, Owned>);
 
 /// Serial receiver
-pub struct UartRxDriver<'d> {
-    port: u8,
-    _p: PhantomData<&'d mut ()>,
-}
+pub struct UartRxDriver<'d, P: sealed::AsPort = Owned>(Port<'d, P>);
 
 /// Serial transmitter
-pub struct UartTxDriver<'d> {
-    port: u8,
-    _p: PhantomData<&'d mut ()>,
-}
+pub struct UartTxDriver<'d, P: sealed::AsPort = Owned>(Port<'d, P>);
 
 impl<'d> UartDriver<'d> {
     /// Create a new serial driver
     pub fn new<UART: Uart>(
-        _uart: impl Peripheral<P = UART> + 'd,
+        uart: impl Peripheral<P = UART> + 'd,
         tx: impl Peripheral<P = impl OutputPin> + 'd,
         rx: impl Peripheral<P = impl InputPin> + 'd,
         cts: Option<impl Peripheral<P = impl InputPin> + 'd>,
         rts: Option<impl Peripheral<P = impl OutputPin> + 'd>,
         config: &config::Config,
     ) -> Result<Self, EspError> {
-        crate::into_ref!(tx, rx);
+        new_common(uart, Some(tx), Some(rx), cts, rts, config)?;
 
-        let cts = cts.map(|cts| cts.into_ref());
-        let rts = rts.map(|rts| rts.into_ref());
-
-        let uart_config = uart_config_t {
-            baud_rate: config.baudrate.0 as i32,
-            data_bits: config.data_bits.into(),
-            parity: config.parity.into(),
-            stop_bits: config.stop_bits.into(),
-            flow_ctrl: config.flow_control.into(),
-            rx_flow_ctrl_thresh: config.flow_control_rts_threshold,
-            ..Default::default()
-        };
-
-        esp!(unsafe { uart_param_config(UART::port(), &uart_config) })?;
-
-        esp!(unsafe {
-            uart_set_pin(
-                UART::port(),
-                tx.pin(),
-                rx.pin(),
-                rts.as_ref().map_or(-1, |p| p.pin()),
-                cts.as_ref().map_or(-1, |p| p.pin()),
-            )
-        })?;
-
-        esp!(unsafe {
-            uart_driver_install(
-                UART::port(),
-                UART_FIFO_SIZE * 2,
-                UART_FIFO_SIZE * 2,
-                0,
-                ptr::null_mut(),
-                0,
-            )
-        })?;
-
-        Ok(Self {
-            port: UART::port() as _,
+        Ok(Self(Port {
+            port: Owned(UART::port() as _),
             _p: PhantomData,
-        })
+        }))
     }
 
     /// Change the number of stop bits
     pub fn change_stop_bits(&mut self, stop_bits: config::StopBits) -> Result<&mut Self, EspError> {
-        esp_result!(
-            unsafe { uart_set_stop_bits(self.port(), stop_bits.into()) },
-            self
-        )
+        self.0.change_stop_bits(stop_bits).map(|_| self)
     }
 
-    /// Retruns the current number of stop bits
+    /// Returns the current number of stop bits
     pub fn stop_bits(&self) -> Result<config::StopBits, EspError> {
-        let mut stop_bits: uart_stop_bits_t = 0;
-        esp_result!(
-            unsafe { uart_get_stop_bits(self.port(), &mut stop_bits) },
-            stop_bits.into()
-        )
+        self.0.stop_bits()
     }
 
     /// Change the number of data bits
     pub fn change_data_bits(&mut self, data_bits: config::DataBits) -> Result<&mut Self, EspError> {
-        esp_result!(
-            unsafe { uart_set_word_length(self.port(), data_bits.into()) },
-            self
-        )
+        self.0.change_data_bits(data_bits).map(|_| self)
     }
 
     /// Return the current number of data bits
     pub fn data_bits(&self) -> Result<config::DataBits, EspError> {
-        let mut data_bits: uart_word_length_t = 0;
-        esp_result!(
-            unsafe { uart_get_word_length(self.port(), &mut data_bits) },
-            data_bits.into()
-        )
+        self.0.data_bits()
     }
 
     /// Change the type of parity checking
     pub fn change_parity(&mut self, parity: config::Parity) -> Result<&mut Self, EspError> {
-        esp_result!(unsafe { uart_set_parity(self.port(), parity.into()) }, self)
+        self.0.change_parity(parity).map(|_| self)
     }
 
     /// Returns the current type of parity checking
     pub fn parity(&self) -> Result<config::Parity, EspError> {
-        let mut parity: uart_parity_t = 0;
-        esp_result!(
-            unsafe { uart_get_parity(self.port(), &mut parity) },
-            parity.into()
-        )
+        self.0.parity()
     }
 
     /// Change the baudrate.
@@ -413,33 +436,17 @@ impl<'d> UartDriver<'d> {
         &mut self,
         baudrate: T,
     ) -> Result<&mut Self, EspError> {
-        esp_result!(
-            unsafe { uart_set_baudrate(self.port(), baudrate.into().into()) },
-            self
-        )
+        self.0.change_baudrate(baudrate).map(|_| self)
     }
 
     /// Returns the current baudrate
     pub fn baudrate(&self) -> Result<Hertz, EspError> {
-        let mut baudrate: u32 = 0;
-        esp_result!(
-            unsafe { uart_get_baudrate(self.port(), &mut baudrate) },
-            baudrate.into()
-        )
+        self.0.baudrate()
     }
 
     /// Split the serial driver in separate TX and RX drivers
-    pub fn split(&mut self) -> (UartTxDriver<'_>, UartRxDriver<'_>) {
-        (
-            UartTxDriver {
-                port: self.port() as _,
-                _p: PhantomData,
-            },
-            UartRxDriver {
-                port: self.port() as _,
-                _p: PhantomData,
-            },
-        )
+    pub fn split(&mut self) -> (UartTxDriver<'_, Borrowed>, UartRxDriver<'_, Borrowed>) {
+        (UartTxDriver(self.0.borrow()), UartRxDriver(self.0.borrow()))
     }
 
     /// Read multiple bytes into a slice
@@ -461,27 +468,15 @@ impl<'d> UartDriver<'d> {
     }
 
     pub fn port(&self) -> uart_port_t {
-        self.port as _
+        self.0.port()
     }
 
-    fn rx(&mut self) -> UartRxDriver<'_> {
-        UartRxDriver {
-            port: self.port() as _,
-            _p: PhantomData,
-        }
+    fn rx(&mut self) -> UartRxDriver<'_, Borrowed> {
+        UartRxDriver(self.0.borrow())
     }
 
-    fn tx(&mut self) -> UartTxDriver<'_> {
-        UartTxDriver {
-            port: self.port() as _,
-            _p: PhantomData,
-        }
-    }
-}
-
-impl<'d> Drop for UartDriver<'d> {
-    fn drop(&mut self) {
-        esp!(unsafe { uart_driver_delete(self.port()) }).unwrap();
+    fn tx(&mut self) -> UartTxDriver<'_, Borrowed> {
+        UartTxDriver(self.0.borrow())
     }
 }
 
@@ -533,11 +528,29 @@ impl<'d> core::fmt::Write for UartDriver<'d> {
     }
 }
 
-impl<'d> embedded_hal::serial::ErrorType for UartRxDriver<'d> {
+impl<'d, P: sealed::AsPort> embedded_hal::serial::ErrorType for UartRxDriver<'d, P> {
     type Error = SerialError;
 }
 
 impl<'d> UartRxDriver<'d> {
+    /// Create a new serial receiver
+    pub fn new<UART: Uart>(
+        uart: impl Peripheral<P = UART> + 'd,
+        rx: impl Peripheral<P = impl InputPin> + 'd,
+        cts: Option<impl Peripheral<P = impl InputPin> + 'd>,
+        rts: Option<impl Peripheral<P = impl OutputPin> + 'd>,
+        config: &config::Config,
+    ) -> Result<Self, EspError> {
+        new_common(uart, None::<AnyOutputPin>, Some(rx), cts, rts, config)?;
+
+        Ok(Self(Port {
+            port: Owned(UART::port() as _),
+            _p: PhantomData,
+        }))
+    }
+}
+
+impl<'d, P: sealed::AsPort> UartRxDriver<'d, P> {
     /// Get count of bytes in the receive FIFO
     pub fn count(&self) -> Result<u8, EspError> {
         let mut size = 0_u32;
@@ -574,11 +587,11 @@ impl<'d> UartRxDriver<'d> {
     }
 
     pub fn port(&self) -> uart_port_t {
-        self.port as _
+        self.0.port()
     }
 }
 
-impl<'d> embedded_hal_0_2::serial::Read<u8> for UartRxDriver<'d> {
+impl<'d, P: sealed::AsPort> embedded_hal_0_2::serial::Read<u8> for UartRxDriver<'d, P> {
     type Error = SerialError;
 
     fn read(&mut self) -> nb::Result<u8, Self::Error> {
@@ -590,7 +603,7 @@ impl<'d> embedded_hal_0_2::serial::Read<u8> for UartRxDriver<'d> {
     }
 }
 
-impl<'d> embedded_hal_nb::serial::Read<u8> for UartRxDriver<'d> {
+impl<'d, P: sealed::AsPort> embedded_hal_nb::serial::Read<u8> for UartRxDriver<'d, P> {
     fn read(&mut self) -> nb::Result<u8, Self::Error> {
         let mut buf = [0_u8];
 
@@ -601,6 +614,24 @@ impl<'d> embedded_hal_nb::serial::Read<u8> for UartRxDriver<'d> {
 }
 
 impl<'d> UartTxDriver<'d> {
+    /// Create a new serial transmitter
+    pub fn new<UART: Uart>(
+        uart: impl Peripheral<P = UART> + 'd,
+        tx: impl Peripheral<P = impl OutputPin> + 'd,
+        cts: Option<impl Peripheral<P = impl InputPin> + 'd>,
+        rts: Option<impl Peripheral<P = impl OutputPin> + 'd>,
+        config: &config::Config,
+    ) -> Result<Self, EspError> {
+        new_common(uart, Some(tx), None::<AnyInputPin>, cts, rts, config)?;
+
+        Ok(Self(Port {
+            port: Owned(UART::port() as _),
+            _p: PhantomData,
+        }))
+    }
+}
+
+impl<'d, P: sealed::AsPort> UartTxDriver<'d, P> {
     /// Write multiple bytes from a slice
     pub fn write(&mut self, bytes: &[u8]) -> Result<usize, EspError> {
         // `uart_write_bytes()` returns error (-1) or how many bytes were written
@@ -616,21 +647,21 @@ impl<'d> UartTxDriver<'d> {
     }
 
     pub fn flush(&mut self) -> Result<(), EspError> {
-        esp!(unsafe { uart_wait_tx_done(self.port(), 0) })?;
+        esp!(unsafe { uart_wait_tx_done(self.port(), 100) })?;
 
         Ok(())
     }
 
     pub fn port(&self) -> uart_port_t {
-        self.port as _
+        self.0.port()
     }
 }
 
-impl<'d> embedded_hal::serial::ErrorType for UartTxDriver<'d> {
+impl<'d, P: sealed::AsPort> embedded_hal::serial::ErrorType for UartTxDriver<'d, P> {
     type Error = SerialError;
 }
 
-impl<'d> embedded_hal_0_2::serial::Write<u8> for UartTxDriver<'d> {
+impl<'d, P: sealed::AsPort> embedded_hal_0_2::serial::Write<u8> for UartTxDriver<'d, P> {
     type Error = SerialError;
 
     fn flush(&mut self) -> nb::Result<(), Self::Error> {
@@ -642,7 +673,7 @@ impl<'d> embedded_hal_0_2::serial::Write<u8> for UartTxDriver<'d> {
     }
 }
 
-impl<'d> embedded_hal_nb::serial::Write<u8> for UartTxDriver<'d> {
+impl<'d, P: sealed::AsPort> embedded_hal_nb::serial::Write<u8> for UartTxDriver<'d, P> {
     fn flush(&mut self) -> nb::Result<(), Self::Error> {
         UartTxDriver::flush(self).map_err(to_nb_err)
     }
@@ -652,7 +683,7 @@ impl<'d> embedded_hal_nb::serial::Write<u8> for UartTxDriver<'d> {
     }
 }
 
-impl<'d> core::fmt::Write for UartTxDriver<'d> {
+impl<'d, P: sealed::AsPort> core::fmt::Write for UartTxDriver<'d, P> {
     fn write_str(&mut self, s: &str) -> core::fmt::Result {
         let buf = s.as_bytes();
         let mut offset = 0;
@@ -662,6 +693,217 @@ impl<'d> core::fmt::Write for UartTxDriver<'d> {
         }
 
         Ok(())
+    }
+}
+
+fn new_common<UART: Uart>(
+    _uart: impl Peripheral<P = UART>,
+    tx: Option<impl Peripheral<P = impl OutputPin>>,
+    rx: Option<impl Peripheral<P = impl InputPin>>,
+    cts: Option<impl Peripheral<P = impl InputPin>>,
+    rts: Option<impl Peripheral<P = impl OutputPin>>,
+    config: &config::Config,
+) -> Result<(), EspError> {
+    let tx = tx.map(|tx| tx.into_ref());
+    let rx = rx.map(|rx| rx.into_ref());
+    let cts = cts.map(|cts| cts.into_ref());
+    let rts = rts.map(|rts| rts.into_ref());
+
+    #[allow(clippy::needless_update)]
+    let uart_config = uart_config_t {
+        baud_rate: config.baudrate.0 as i32,
+        data_bits: config.data_bits.into(),
+        parity: config.parity.into(),
+        stop_bits: config.stop_bits.into(),
+        flow_ctrl: config.flow_control.into(),
+        rx_flow_ctrl_thresh: config.flow_control_rts_threshold,
+        source_clk: config.source_clock.into(),
+        ..Default::default()
+    };
+
+    esp!(unsafe { uart_param_config(UART::port(), &uart_config) })?;
+
+    esp!(unsafe {
+        uart_set_pin(
+            UART::port(),
+            tx.as_ref().map_or(-1, |p| p.pin()),
+            rx.as_ref().map_or(-1, |p| p.pin()),
+            rts.as_ref().map_or(-1, |p| p.pin()),
+            cts.as_ref().map_or(-1, |p| p.pin()),
+        )
+    })?;
+
+    esp!(unsafe {
+        uart_driver_install(
+            UART::port(),
+            UART_FIFO_SIZE * 2 * (tx.is_some() as i32),
+            UART_FIFO_SIZE * 2 * (rx.is_some() as i32),
+            0,
+            ptr::null_mut(),
+            0,
+        )
+    })?;
+
+    Ok(())
+}
+
+struct Port<'d, P: sealed::AsPort> {
+    port: P,
+    _p: PhantomData<&'d mut ()>,
+}
+
+impl<'d, P: sealed::AsPort> Port<'d, P> {
+    fn port(&self) -> uart_port_t {
+        self.port.port()
+    }
+
+    fn stop_bits(&self) -> Result<config::StopBits, EspError> {
+        let mut stop_bits: uart_stop_bits_t = 0;
+        esp_result!(
+            unsafe { uart_get_stop_bits(self.port(), &mut stop_bits) },
+            stop_bits.into()
+        )
+    }
+
+    fn data_bits(&self) -> Result<config::DataBits, EspError> {
+        let mut data_bits: uart_word_length_t = 0;
+        esp_result!(
+            unsafe { uart_get_word_length(self.port(), &mut data_bits) },
+            data_bits.into()
+        )
+    }
+
+    fn parity(&self) -> Result<config::Parity, EspError> {
+        let mut parity: uart_parity_t = 0;
+        esp_result!(
+            unsafe { uart_get_parity(self.port(), &mut parity) },
+            parity.into()
+        )
+    }
+
+    fn baudrate(&self) -> Result<Hertz, EspError> {
+        let mut baudrate: u32 = 0;
+        esp_result!(
+            unsafe { uart_get_baudrate(self.port(), &mut baudrate) },
+            baudrate.into()
+        )
+    }
+}
+
+impl<'d> Port<'d, Owned> {
+    fn borrow(&mut self) -> Port<'d, Borrowed> {
+        Port {
+            port: Borrowed(self.port() as _),
+            _p: PhantomData,
+        }
+    }
+
+    fn change_stop_bits(&mut self, stop_bits: config::StopBits) -> Result<(), EspError> {
+        esp!(unsafe { uart_set_stop_bits(self.port(), stop_bits.into()) })
+    }
+
+    fn change_data_bits(&mut self, data_bits: config::DataBits) -> Result<(), EspError> {
+        esp!(unsafe { uart_set_word_length(self.port(), data_bits.into()) })
+    }
+
+    fn change_parity(&mut self, parity: config::Parity) -> Result<(), EspError> {
+        esp!(unsafe { uart_set_parity(self.port(), parity.into()) })
+    }
+
+    fn change_baudrate<T: Into<Hertz> + Copy>(&mut self, baudrate: T) -> Result<(), EspError> {
+        esp!(unsafe { uart_set_baudrate(self.port(), baudrate.into().into()) })
+    }
+}
+
+mod sealed {
+    pub trait AsPort {
+        fn port(&self) -> esp_idf_sys::uart_port_t;
+    }
+}
+
+pub struct Owned(u8);
+
+impl sealed::AsPort for Owned {
+    fn port(&self) -> uart_port_t {
+        self.0 as _
+    }
+}
+
+impl Drop for Owned {
+    fn drop(&mut self) {
+        esp!(unsafe { uart_driver_delete(self.0 as _) }).unwrap()
+    }
+}
+
+pub struct Borrowed(u8);
+
+impl sealed::AsPort for Borrowed {
+    fn port(&self) -> uart_port_t {
+        self.0 as _
+    }
+}
+
+#[cfg(feature = "alloc")]
+mod shared {
+    use super::*;
+
+    extern crate alloc;
+    use alloc::sync::Arc;
+
+    pub struct Shared(Arc<Owned>);
+
+    impl<'d> UartDriver<'d> {
+        /// Split the serial driver in separate TX and RX drivers.
+        ///
+        /// Unlike [`split`], the halves are owned, at the cost of an allocation.
+        pub fn into_split(self) -> (UartTxDriver<'d, Shared>, UartRxDriver<'d, Shared>) {
+            let shared = self.0.into_shared();
+            (UartTxDriver(shared.clone()), UartRxDriver(shared))
+        }
+
+        /// Merge the shared TX and RX halves into an owned [`UartDriver`].
+        ///
+        /// The parts must be produced from the same call to [`into_split`].
+        pub fn merge_split(
+            tx: UartTxDriver<'d, Shared>,
+            rx: UartRxDriver<'d, Shared>,
+        ) -> Result<Self, EspError> {
+            if !Arc::ptr_eq(&tx.0.port.0, &rx.0.port.0) {
+                return Err(EspError::from(ESP_ERR_INVALID_STATE).unwrap());
+            }
+            drop(tx);
+            let port = Arc::try_unwrap(rx.0.port.0)
+                .map_err(|_| EspError::from(ESP_ERR_INVALID_STATE).unwrap())?;
+
+            Ok(Self(Port {
+                port,
+                _p: PhantomData,
+            }))
+        }
+    }
+
+    impl<'d> Port<'d, Owned> {
+        fn into_shared(self) -> Port<'d, Shared> {
+            Port {
+                port: Shared(Arc::new(self.port)),
+                _p: PhantomData,
+            }
+        }
+    }
+
+    impl<'d> Clone for Port<'d, Shared> {
+        fn clone(&self) -> Self {
+            Self {
+                port: Shared(self.port.0.clone()),
+                _p: self._p,
+            }
+        }
+    }
+
+    impl sealed::AsPort for Shared {
+        fn port(&self) -> uart_port_t {
+            self.0.port()
+        }
     }
 }
 
