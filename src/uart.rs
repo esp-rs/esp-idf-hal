@@ -193,7 +193,11 @@ pub mod config {
     #[derive(PartialEq, Eq, Copy, Clone, Debug)]
     pub enum SourceClock {
         /// UART source clock from `APB`
-        #[cfg(esp_idf_soc_uart_support_apb_clk)]
+        #[cfg(any(
+            esp_idf_soc_uart_support_apb_clk,
+            esp_idf_soc_uart_support_pll_f40m_clk,
+            esp_idf_version_major = "4",
+        ))]
         APB,
         /// UART source clock from `RTC`
         #[cfg(esp_idf_soc_uart_support_rtc_clk)]
@@ -219,7 +223,13 @@ pub mod config {
 
     #[cfg(all(not(esp_idf_version_major = "4"), esp_idf_soc_uart_support_apb_clk))]
     const APB_SCLK: uart_sclk_t = soc_periph_uart_clk_src_legacy_t_UART_SCLK_APB;
-    #[cfg(all(esp_idf_version_major = "4", esp_idf_soc_uart_support_apb_clk))]
+    #[cfg(all(
+        not(esp_idf_version_major = "4"),
+        not(esp_idf_soc_uart_support_apb_clk),
+        esp_idf_soc_uart_support_pll_f40m_clk,
+    ))]
+    const APB_SCLK: uart_sclk_t = soc_periph_uart_clk_src_legacy_t_UART_SCLK_PLL_F40M;
+    #[cfg(esp_idf_version_major = "4")]
     const APB_SCLK: uart_sclk_t = uart_sclk_t_UART_SCLK_APB;
 
     #[cfg(all(not(esp_idf_version_major = "4"), esp_idf_soc_uart_support_rtc_clk))]
@@ -250,7 +260,11 @@ pub mod config {
     impl From<SourceClock> for uart_sclk_t {
         fn from(source_clock: SourceClock) -> Self {
             match source_clock {
-                #[cfg(esp_idf_soc_uart_support_apb_clk)]
+                #[cfg(any(
+                    esp_idf_soc_uart_support_apb_clk,
+                    esp_idf_soc_uart_support_pll_f40m_clk,
+                    esp_idf_version_major = "4",
+                ))]
                 SourceClock::APB => APB_SCLK,
                 #[cfg(esp_idf_soc_uart_support_rtc_clk)]
                 SourceClock::RTC => RTC_SCLK,
@@ -263,10 +277,13 @@ pub mod config {
     }
 
     impl From<uart_sclk_t> for SourceClock {
-        #[allow(non_upper_case_globals)]
         fn from(source_clock: uart_sclk_t) -> Self {
             match source_clock {
-                #[cfg(esp_idf_soc_uart_support_apb_clk)]
+                #[cfg(any(
+                    esp_idf_soc_uart_support_apb_clk,
+                    esp_idf_soc_uart_support_pll_f40m_clk,
+                    esp_idf_version_major = "4",
+                ))]
                 APB_SCLK => SourceClock::APB,
                 #[cfg(esp_idf_soc_uart_support_rtc_clk)]
                 RTC_SCLK => SourceClock::RTC,
