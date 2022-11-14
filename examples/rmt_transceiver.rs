@@ -44,24 +44,26 @@ fn main() -> anyhow::Result<()> {
 
     rx.start().unwrap();
 
-    let _ = std::thread::spawn(move || loop {
-        println!("Rx Loop");
+    let _ = std::thread::Builder::new()
+        .stack_size(10000)
+        .spawn(move || loop {
+            println!("Rx Loop");
 
-        let mut pulses = [(Pulse::zero(), Pulse::zero()); 250];
+            let mut pulses = [(Pulse::zero(), Pulse::zero()); 250];
 
-        // See sdkconfig.defaults to determine the tick time value ( default is one tick = 10 milliseconds)
-        // Set ticks_to_wait to 0 for non-blocking
-        let length = rx.receive(&mut pulses, 0).unwrap();
-        let pulses = &pulses[..length];
+            // See sdkconfig.defaults to determine the tick time value ( default is one tick = 10 milliseconds)
+            // Set ticks_to_wait to 0 for non-blocking
+            let length = rx.receive(&mut pulses, 0).unwrap();
+            let pulses = &pulses[..length];
 
-        if !pulses.is_empty() {
-            for (pulse0, pulse1) in pulses {
-                println!("0={:?}, 1={:?}", pulse0, pulse1);
+            if !pulses.is_empty() {
+                for (pulse0, pulse1) in pulses {
+                    println!("0={:?}, 1={:?}", pulse0, pulse1);
+                }
             }
-        }
 
-        FreeRtos::delay_ms(500);
-    });
+            FreeRtos::delay_ms(500);
+        });
 
     /*
      *********************** SET UP RMT TRANSMITTER ******************************
