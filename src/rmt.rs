@@ -172,11 +172,11 @@ impl PulseTicks {
 
     /// Needs to be unsigned 15 bits: 0-32767 inclusive, otherwise an [ESP_ERR_INVALID_ARG] is
     /// returned.
-    pub fn new(v: u16) -> Result<Self, EspError> {
-        if v > Self::MAX {
+    pub fn new(ticks: u16) -> Result<Self, EspError> {
+        if ticks > Self::MAX {
             Err(EspError::from(ESP_ERR_INVALID_ARG).unwrap())
         } else {
-            Ok(Self(v))
+            Ok(Self(ticks))
         }
     }
 
@@ -184,9 +184,15 @@ impl PulseTicks {
     ///
     /// See `Pulse::new_with_duration()` for details.
     pub fn new_with_duration(ticks_hz: Hertz, duration: &Duration) -> Result<Self, EspError> {
-        let ticks = duration_to_ticks(ticks_hz, duration)?;
-        let ticks = u16::try_from(ticks).map_err(|_| EspError::from(EOVERFLOW as i32).unwrap())?;
-        Self::new(ticks)
+        Self::new(duration_to_ticks(ticks_hz, duration)?)
+    }
+
+    pub fn ticks(&self) -> u16 {
+        self.0
+    }
+
+    pub fn duration(&self, ticks_hz: Hertz) -> Result<Duration, EspError> {
+        ticks_to_duration(ticks_hz, self.ticks())
     }
 }
 
@@ -197,12 +203,26 @@ impl Default for PulseTicks {
 }
 
 /// A utility to convert a duration into ticks, depending on the clock ticks.
-pub fn duration_to_ticks(ticks_hz: Hertz, duration: &Duration) -> Result<u128, EspError> {
-    Ok(duration
+pub fn duration_to_ticks(ticks_hz: Hertz, duration: &Duration) -> Result<u16, EspError> {
+    let ticks = duration
         .as_nanos()
         .checked_mul(u32::from(ticks_hz) as u128)
         .ok_or_else(|| EspError::from(EOVERFLOW as i32).unwrap())?
-        / 1_000_000_000)
+        / 1_000_000_000;
+
+    u16::try_from(ticks).map_err(|_| EspError::from(EOVERFLOW as i32).unwrap())
+}
+
+/// A utility to convert ticks into duration, depending on the clock ticks.
+pub fn ticks_to_duration(ticks_hz: Hertz, ticks: u16) -> Result<Duration, EspError> {
+    let duration = 1_000_000_000_u128
+        .checked_mul(ticks as u128)
+        .ok_or_else(|| EspError::from(EOVERFLOW as i32).unwrap())?
+        / u32::from(ticks_hz) as u128;
+
+    u64::try_from(duration)
+        .map(Duration::from_nanos)
+        .map_err(|_| EspError::from(EOVERFLOW as i32).unwrap())
 }
 
 pub type TxRmtConfig = config::TransmitConfig;
