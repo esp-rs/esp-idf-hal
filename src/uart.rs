@@ -480,8 +480,6 @@ impl<'d> UartDriver<'d> {
     }
 }
 
-unsafe impl<'d> Send for UartDriver<'d> {}
-
 impl<'d> embedded_hal::serial::ErrorType for UartDriver<'d> {
     type Error = SerialError;
 }
@@ -548,6 +546,35 @@ impl<'d> UartRxDriver<'d> {
             _p: PhantomData,
         }))
     }
+
+    /// Change the number of stop bits
+    pub fn change_stop_bits(&mut self, stop_bits: config::StopBits) -> Result<&mut Self, EspError> {
+        self.0.change_stop_bits(stop_bits).map(|_| self)
+    }
+
+    /// Change the number of data bits
+    pub fn change_data_bits(&mut self, data_bits: config::DataBits) -> Result<&mut Self, EspError> {
+        self.0.change_data_bits(data_bits).map(|_| self)
+    }
+
+    /// Change the type of parity checking
+    pub fn change_parity(&mut self, parity: config::Parity) -> Result<&mut Self, EspError> {
+        self.0.change_parity(parity).map(|_| self)
+    }
+
+    /// Change the baudrate.
+    ///
+    /// Will automatically select the clock source. When possible the reference clock (1MHz) will
+    /// be used, because this is constant when the clock source/frequency changes.
+    /// However if one of the clock frequencies is below 10MHz or if the baudrate is above
+    /// the reference clock or if the baudrate cannot be set within 1.5%
+    /// then use the APB clock.
+    pub fn change_baudrate<T: Into<Hertz> + Copy>(
+        &mut self,
+        baudrate: T,
+    ) -> Result<&mut Self, EspError> {
+        self.0.change_baudrate(baudrate).map(|_| self)
+    }
 }
 
 impl<'d, P: sealed::AsPort> UartRxDriver<'d, P> {
@@ -558,6 +585,26 @@ impl<'d, P: sealed::AsPort> UartRxDriver<'d, P> {
             unsafe { uart_get_buffered_data_len(self.port(), &mut size) },
             size as u8
         )
+    }
+
+    /// Returns the current number of stop bits
+    pub fn stop_bits(&self) -> Result<config::StopBits, EspError> {
+        self.0.stop_bits()
+    }
+
+    /// Return the current number of data bits
+    pub fn data_bits(&self) -> Result<config::DataBits, EspError> {
+        self.0.data_bits()
+    }
+
+    /// Returns the current type of parity checking
+    pub fn parity(&self) -> Result<config::Parity, EspError> {
+        self.0.parity()
+    }
+
+    /// Returns the current baudrate
+    pub fn baudrate(&self) -> Result<Hertz, EspError> {
+        self.0.baudrate()
     }
 
     /// Read multiple bytes into a slice; block until specified timeout
@@ -629,9 +676,58 @@ impl<'d> UartTxDriver<'d> {
             _p: PhantomData,
         }))
     }
+
+    /// Change the number of stop bits
+    pub fn change_stop_bits(&mut self, stop_bits: config::StopBits) -> Result<&mut Self, EspError> {
+        self.0.change_stop_bits(stop_bits).map(|_| self)
+    }
+
+    /// Change the number of data bits
+    pub fn change_data_bits(&mut self, data_bits: config::DataBits) -> Result<&mut Self, EspError> {
+        self.0.change_data_bits(data_bits).map(|_| self)
+    }
+
+    /// Change the type of parity checking
+    pub fn change_parity(&mut self, parity: config::Parity) -> Result<&mut Self, EspError> {
+        self.0.change_parity(parity).map(|_| self)
+    }
+
+    /// Change the baudrate.
+    ///
+    /// Will automatically select the clock source. When possible the reference clock (1MHz) will
+    /// be used, because this is constant when the clock source/frequency changes.
+    /// However if one of the clock frequencies is below 10MHz or if the baudrate is above
+    /// the reference clock or if the baudrate cannot be set within 1.5%
+    /// then use the APB clock.
+    pub fn change_baudrate<T: Into<Hertz> + Copy>(
+        &mut self,
+        baudrate: T,
+    ) -> Result<&mut Self, EspError> {
+        self.0.change_baudrate(baudrate).map(|_| self)
+    }
 }
 
 impl<'d, P: sealed::AsPort> UartTxDriver<'d, P> {
+    /// Returns the current number of stop bits
+    pub fn stop_bits(&self) -> Result<config::StopBits, EspError> {
+        self.0.stop_bits()
+    }
+
+    /// Return the current number of data bits
+    pub fn data_bits(&self) -> Result<config::DataBits, EspError> {
+        self.0.data_bits()
+    }
+
+    /// Returns the current type of parity checking
+    pub fn parity(&self) -> Result<config::Parity, EspError> {
+        self.0.parity()
+    }
+
+    /// Returns the current baudrate
+    pub fn baudrate(&self) -> Result<Hertz, EspError> {
+        self.0.baudrate()
+    }
+
     /// Write multiple bytes from a slice
     pub fn write(&mut self, bytes: &[u8]) -> Result<usize, EspError> {
         // `uart_write_bytes()` returns error (-1) or how many bytes were written
