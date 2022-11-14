@@ -892,6 +892,13 @@ impl Signal for VariableLengthSignal {
     }
 }
 
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+pub enum Receive {
+    Read(usize),
+    Overflow(usize),
+    Timeout,
+}
+
 /// The RMT receiver.
 ///
 /// Use [`RxRmtDriver::start()`] to receive pulses.
@@ -899,6 +906,7 @@ impl Signal for VariableLengthSignal {
 /// See the [rmt module][crate::rmt] for more information.
 pub struct RxRmtDriver<'d> {
     channel: u8,
+    next_ringbuf_item: Option<(*mut rmt_item32_t, usize)>,
     _p: PhantomData<&'d mut ()>,
 }
 
@@ -958,6 +966,7 @@ impl<'d> RxRmtDriver<'d> {
 
         Ok(Self {
             channel: C::channel() as _,
+            next_ringbuf_item: None,
             _p: PhantomData,
         })
     }
@@ -980,48 +989,81 @@ impl<'d> RxRmtDriver<'d> {
         &mut self,
         buf: &mut [(Pulse, Pulse)],
         ticks_to_wait: TickType_t,
-    ) -> Result<usize, EspError> {
-        let mut rmt_handle = ptr::null_mut();
-        let mut length = 0;
+    ) -> Result<Receive, EspError> {
+        if let Some(items) = self.fetch_ringbuf_next_item(ticks_to_wait)? {
+            if items.len() <= buf.len() {
+                for (index, item) in items.iter().enumerate() {
+                    let item = unsafe { item.__bindgen_anon_1.__bindgen_anon_1 };
 
-        let rmt_items = unsafe {
-            esp!(rmt_get_ringbuf_handle(self.channel(), &mut rmt_handle))
-                .expect("Failed to get ringbuffer handle");
+                    buf[index] = (
+                        Pulse::new(
+                            item.level0().into(),
+                            PulseTicks::new(item.duration0().try_into().unwrap()).unwrap(),
+                        ),
+                        Pulse::new(
+                            item.level1().into(),
+                            PulseTicks::new(item.duration1().try_into().unwrap()).unwrap(),
+                        ),
+                    );
+                }
 
-            xRingbufferReceiveUpTo(
-                rmt_handle as *mut _,
-                &mut length,
-                ticks_to_wait,
-                buf.len() as _,
-            ) as *mut rmt_item32_t
-        };
+                let len = items.len();
 
-        if !rmt_items.is_null() {
-            let items = unsafe { core::slice::from_raw_parts(rmt_items, length as usize / 4) };
+                self.return_ringbuf_item()?;
 
-            for (index, item) in items.iter().enumerate() {
-                let item = unsafe { item.__bindgen_anon_1.__bindgen_anon_1 };
-
-                buf[index] = (
-                    Pulse::new(
-                        item.level0().into(),
-                        PulseTicks::new(item.duration0().try_into().unwrap()).unwrap(),
-                    ),
-                    Pulse::new(
-                        item.level1().into(),
-                        PulseTicks::new(item.duration1().try_into().unwrap()).unwrap(),
-                    ),
-                );
+                Ok(Receive::Read(len))
+            } else {
+                Ok(Receive::Overflow(items.len()))
             }
-
-            unsafe {
-                vRingbufferReturnItem(rmt_handle, rmt_items as *mut _);
-            }
-
-            Ok(items.len())
         } else {
-            Ok(0)
+            Ok(Receive::Timeout)
         }
+    }
+
+    fn fetch_ringbuf_next_item(
+        &mut self,
+        ticks_to_wait: TickType_t,
+    ) -> Result<Option<&[rmt_item32_t]>, EspError> {
+        if let Some((rmt_items, length)) = self.next_ringbuf_item {
+            Ok(Some(unsafe {
+                core::slice::from_raw_parts(rmt_items, length)
+            }))
+        } else {
+            let mut ringbuf_handle = ptr::null_mut();
+            esp!(unsafe { rmt_get_ringbuf_handle(self.channel(), &mut ringbuf_handle) })?;
+
+            let mut length = 0;
+            let rmt_items = unsafe {
+                xRingbufferReceive(ringbuf_handle as *mut _, &mut length, ticks_to_wait)
+                    as *mut rmt_item32_t
+            };
+
+            if rmt_items.is_null() {
+                Ok(None)
+            } else {
+                let length = length as usize / 4;
+                self.next_ringbuf_item = Some((rmt_items, length));
+
+                Ok(Some(unsafe {
+                    core::slice::from_raw_parts(rmt_items, length)
+                }))
+            }
+        }
+    }
+
+    fn return_ringbuf_item(&mut self) -> Result<(), EspError> {
+        let mut ringbuf_handle = ptr::null_mut();
+        esp!(unsafe { rmt_get_ringbuf_handle(self.channel(), &mut ringbuf_handle) })?;
+
+        if let Some((rmt_items, _)) = core::mem::replace(&mut self.next_ringbuf_item, None) {
+            unsafe {
+                vRingbufferReturnItem(ringbuf_handle, rmt_items as *mut _);
+            }
+        } else {
+            unreachable!();
+        }
+
+        Ok(())
     }
 }
 
