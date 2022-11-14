@@ -189,10 +189,11 @@ pub mod config {
         }
     }
 
-    /// UART clock source
+    /// UART source clock
     #[derive(PartialEq, Eq, Copy, Clone, Debug)]
     pub enum SourceClock {
         /// UART source clock from `APB`
+        #[cfg(esp_idf_soc_uart_support_apb_clk)]
         APB,
         /// UART source clock from `RTC`
         #[cfg(esp_idf_soc_uart_support_rtc_clk)]
@@ -205,37 +206,58 @@ pub mod config {
         RefTick,
     }
 
+    impl SourceClock {
+        #[cfg(not(esp_idf_version_major = "4"))]
+        pub fn frequency(self) -> Result<Hertz, EspError> {
+            let mut frequency: u32 = 0;
+            esp_result! {
+                unsafe { uart_get_sclk_freq(self.into(), &mut frequency) },
+                Hertz(frequency)
+            }
+        }
+    }
+
+    #[cfg(all(not(esp_idf_version_major = "4"), esp_idf_soc_uart_support_apb_clk))]
+    const APB_SCLK: uart_sclk_t = soc_periph_uart_clk_src_legacy_t_UART_SCLK_APB;
+    #[cfg(all(esp_idf_version_major = "4", esp_idf_soc_uart_support_apb_clk))]
+    const APB_SCLK: uart_sclk_t = uart_sclk_t_UART_SCLK_APB;
+
+    #[cfg(all(not(esp_idf_version_major = "4"), esp_idf_soc_uart_support_rtc_clk))]
+    const RTC_SCLK: uart_sclk_t = soc_periph_uart_clk_src_legacy_t_UART_SCLK_RTC;
+    #[cfg(all(esp_idf_version_major = "4", esp_idf_soc_uart_support_rtc_clk))]
+    const RTC_SCLK: uart_sclk_t = uart_sclk_t_UART_SCLK_RTC;
+
+    #[cfg(all(not(esp_idf_version_major = "4"), esp_idf_soc_uart_support_xtal_clk))]
+    const XTAL_SCLK: uart_sclk_t = soc_periph_uart_clk_src_legacy_t_UART_SCLK_XTAL;
+    #[cfg(all(esp_idf_version_major = "4", esp_idf_soc_uart_support_xtal_clk))]
+    const XTAL_SCLK: uart_sclk_t = uart_sclk_t_UART_SCLK_XTAL;
+
+    #[cfg(all(not(esp_idf_version_major = "4"), esp_idf_soc_uart_support_ref_tick))]
+    const REF_TICK_SCLK: uart_sclk_t = soc_periph_uart_clk_src_legacy_t_UART_SCLK_REF_TICK;
+    #[cfg(all(esp_idf_version_major = "4", esp_idf_soc_uart_support_ref_tick))]
+    const REF_TICK_SCLK: uart_sclk_t = uart_sclk_t_UART_SCLK_REF_TICK;
+
     impl Default for SourceClock {
         fn default() -> Self {
             #[cfg(not(esp_idf_version_major = "4"))]
-            let source_clock = soc_periph_uart_clk_src_legacy_t_UART_SCLK_DEFAULT;
+            const DEFAULT: uart_sclk_t = soc_periph_uart_clk_src_legacy_t_UART_SCLK_DEFAULT;
             #[cfg(esp_idf_version_major = "4")]
-            let source_clock = uart_sclk_t_UART_SCLK_APB;
-            Self::from(source_clock)
+            const DEFAULT: uart_sclk_t = uart_sclk_t_UART_SCLK_APB;
+            Self::from(DEFAULT)
         }
     }
 
     impl From<SourceClock> for uart_sclk_t {
         fn from(source_clock: SourceClock) -> Self {
-            #[cfg(not(esp_idf_version_major = "4"))]
             match source_clock {
-                SourceClock::APB => soc_periph_uart_clk_src_legacy_t_UART_SCLK_APB,
+                #[cfg(esp_idf_soc_uart_support_apb_clk)]
+                SourceClock::APB => APB_SCLK,
                 #[cfg(esp_idf_soc_uart_support_rtc_clk)]
-                SourceClock::RTC => soc_periph_uart_clk_src_legacy_t_UART_SCLK_RTC,
+                SourceClock::RTC => RTC_SCLK,
                 #[cfg(esp_idf_soc_uart_support_xtal_clk)]
-                SourceClock::Crystal => soc_periph_uart_clk_src_legacy_t_UART_SCLK_XTAL,
+                SourceClock::Crystal => XTAL_SCLK,
                 #[cfg(esp_idf_soc_uart_support_ref_tick)]
-                SourceClock::RefTick => soc_periph_uart_clk_src_legacy_t_UART_SCLK_REF_TICK,
-            }
-            #[cfg(esp_idf_version_major = "4")]
-            match source_clock {
-                SourceClock::APB => uart_sclk_t_UART_SCLK_APB,
-                #[cfg(esp_idf_soc_uart_support_rtc_clk)]
-                SourceClock::RTC => uart_sclk_t_UART_SCLK_RTC,
-                #[cfg(esp_idf_soc_uart_support_xtal_clk)]
-                SourceClock::Crystal => uart_sclk_t_UART_SCLK_XTAL,
-                #[cfg(esp_idf_soc_uart_support_ref_tick)]
-                SourceClock::RefTick => uart_sclk_t_UART_SCLK_REF_TICK,
+                SourceClock::RefTick => REF_TICK_SCLK,
             }
         }
     }
@@ -243,26 +265,15 @@ pub mod config {
     impl From<uart_sclk_t> for SourceClock {
         #[allow(non_upper_case_globals)]
         fn from(source_clock: uart_sclk_t) -> Self {
-            #[cfg(not(esp_idf_version_major = "4"))]
             match source_clock {
-                soc_periph_uart_clk_src_legacy_t_UART_SCLK_DEFAULT => SourceClock::APB,
+                #[cfg(esp_idf_soc_uart_support_apb_clk)]
+                APB_SCLK => SourceClock::APB,
                 #[cfg(esp_idf_soc_uart_support_rtc_clk)]
-                soc_periph_uart_clk_src_legacy_t_UART_SCLK_RTC => SourceClock::RTC,
+                RTC_SCLK => SourceClock::RTC,
                 #[cfg(esp_idf_soc_uart_support_xtal_clk)]
-                soc_periph_uart_clk_src_legacy_t_UART_SCLK_XTAL => SourceClock::Crystal,
+                XTAL_SCLK => SourceClock::Crystal,
                 #[cfg(esp_idf_soc_uart_support_ref_tick)]
-                soc_periph_uart_clk_src_legacy_t_UART_SCLK_REF_TICK => SourceClock::RefTick,
-                _ => unreachable!(),
-            }
-            #[cfg(esp_idf_version_major = "4")]
-            match source_clock {
-                uart_sclk_t_UART_SCLK_APB => SourceClock::APB,
-                #[cfg(esp_idf_soc_uart_support_rtc_clk)]
-                uart_sclk_t_UART_SCLK_RTC => SourceClock::RTC,
-                #[cfg(esp_idf_soc_uart_support_xtal_clk)]
-                uart_sclk_t_UART_SCLK_XTAL => SourceClock::Crystal,
-                #[cfg(esp_idf_soc_uart_support_ref_tick)]
-                uart_sclk_t_UART_SCLK_REF_TICK => SourceClock::RefTick,
+                REF_TICK_SCLK => SourceClock::RefTick,
                 _ => unreachable!(),
             }
         }
@@ -813,7 +824,12 @@ fn new_common<UART: Uart>(
         stop_bits: config.stop_bits.into(),
         flow_ctrl: config.flow_control.into(),
         rx_flow_ctrl_thresh: config.flow_control_rts_threshold,
+        #[cfg(not(esp_idf_version_major = "4"))]
         source_clk: config.source_clock.into(),
+        #[cfg(esp_idf_version_major = "4")]
+        __bindgen_anon_1: uart_config_t__bindgen_ty_1 {
+            source_clk: config.source_clock.into(),
+        },
         ..Default::default()
     };
 
