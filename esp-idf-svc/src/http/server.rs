@@ -265,8 +265,8 @@ impl EspHttpServer {
 
                 #[cfg(esp_idf_version_major = "4")]
                 {
-                    config.0.client_verify_cert_pem = cert.as_ptr();
-                    config.0.client_verify_cert_len = cert.len() as u32;
+                    config.0.cacert_pem = cert.as_ptr();
+                    config.0.cacert_len = cert.len() as u32;
                 }
 
                 #[cfg(not(esp_idf_version_major = "4"))]
