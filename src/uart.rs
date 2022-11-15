@@ -48,7 +48,7 @@ use esp_idf_sys::*;
 
 use crate::peripheral::Peripheral;
 
-const UART_FIFO_SIZE: i32 = 128;
+const UART_FIFO_SIZE: i32 = SOC_UART_FIFO_LEN as i32;
 
 pub type UartConfig = config::Config;
 
@@ -865,8 +865,8 @@ fn new_common<UART: Uart>(
     esp!(unsafe {
         uart_driver_install(
             UART::port(),
-            UART_FIFO_SIZE * 2 * (tx.is_some() as i32),
-            UART_FIFO_SIZE * 2 * (rx.is_some() as i32),
+            UART_FIFO_SIZE * 2,
+            if tx.is_some() { UART_FIFO_SIZE * 2 } else { 0 },
             0,
             ptr::null_mut(),
             0,
