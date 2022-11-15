@@ -771,7 +771,7 @@ impl<'d, P: sealed::AsPort> UartTxDriver<'d, P> {
     }
 
     pub fn flush(&mut self) -> Result<(), EspError> {
-        esp!(unsafe { uart_wait_tx_done(self.port(), 100) })?;
+        esp!(unsafe { uart_wait_tx_done(self.port(), 0) })?;
 
         Ok(())
     }
