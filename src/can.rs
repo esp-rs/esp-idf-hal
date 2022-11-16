@@ -65,6 +65,13 @@ pub mod config {
         B500K,
         B800K,
         B1M,
+        Custom {
+            baudrate_prescaler: u32,
+            timing_segment_1: u8,
+            timing_segment_2: u8,
+            synchronization_jump_width: u8,
+            triple_sampling: bool,
+        },
     }
 
     impl From<Timing> for twai_timing_config_t {
@@ -125,6 +132,19 @@ pub mod config {
                     tseg_2: 4,
                     sjw: 3,
                     triple_sampling: false,
+                },
+                Timing::Custom {
+                    baudrate_prescaler,
+                    timing_segment_1,
+                    timing_segment_2,
+                    synchronization_jump_width,
+                    triple_sampling,
+                } => twai_timing_config_t {
+                    brp: baudrate_prescaler,
+                    tseg_1: timing_segment_1,
+                    tseg_2: timing_segment_2,
+                    sjw: synchronization_jump_width,
+                    triple_sampling,
                 },
             }
         }
