@@ -362,7 +362,6 @@ impl<'d> SpiBus for SpiBusDriver<'d> {
 
 pub struct SpiDriver<'d> {
     host: u8,
-    //    max_transfer_size: usize,
     dma: Dma,
     _p: PhantomData<&'d mut ()>,
 }
@@ -383,7 +382,7 @@ impl<'d> SpiDriver<'d> {
 
         Ok(Self {
             host: SPI1::device() as _,
-            max_transfer_size,
+            dma,
             _p: PhantomData,
         })
     }
@@ -460,7 +459,7 @@ impl<'d> SpiDriver<'d> {
             quadwp_io_num: -1,
             quadhd_io_num: -1,
 
-            max_transfer_sz: max_transfer_sz as i32,
+            max_transfer_sz: dma.max_transfer_size() as i32,
             ..Default::default()
         };
 
