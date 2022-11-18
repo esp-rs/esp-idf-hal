@@ -39,6 +39,7 @@
 
 use core::marker::PhantomData;
 use core::ptr;
+use core::sync::atomic::{AtomicU8, Ordering};
 
 use crate::delay::NON_BLOCK;
 use crate::gpio::*;
@@ -397,13 +398,24 @@ crate::embedded_hal_error!(
 );
 
 /// Serial abstraction
-pub struct UartDriver<'d>(Port<'d, Owned>);
+pub struct UartDriver<'d> {
+    port: u8,
+    _p: PhantomData<&'d mut ()>,
+}
 
 /// Serial receiver
-pub struct UartRxDriver<'d, P: sealed::AsPort = Owned>(Port<'d, P>);
+pub struct UartRxDriver<'d> {
+    port: u8,
+    owner: Owner,
+    _p: PhantomData<&'d mut ()>,
+}
 
 /// Serial transmitter
-pub struct UartTxDriver<'d, P: sealed::AsPort = Owned>(Port<'d, P>);
+pub struct UartTxDriver<'d> {
+    port: u8,
+    owner: Owner,
+    _p: PhantomData<&'d mut ()>,
+}
 
 impl<'d> UartDriver<'d> {
     /// Create a new serial driver
@@ -417,40 +429,40 @@ impl<'d> UartDriver<'d> {
     ) -> Result<Self, EspError> {
         new_common(uart, Some(tx), Some(rx), cts, rts, config)?;
 
-        Ok(Self(Port {
-            port: Owned(UART::port() as _),
+        Ok(Self {
+            port: UART::port() as _,
             _p: PhantomData,
-        }))
+        })
     }
 
     /// Change the number of stop bits
-    pub fn change_stop_bits(&mut self, stop_bits: config::StopBits) -> Result<&mut Self, EspError> {
-        self.0.change_stop_bits(stop_bits).map(|_| self)
+    pub fn change_stop_bits(&self, stop_bits: config::StopBits) -> Result<&Self, EspError> {
+        change_stop_bits(self.port(), stop_bits).map(|_| self)
     }
 
     /// Returns the current number of stop bits
     pub fn stop_bits(&self) -> Result<config::StopBits, EspError> {
-        self.0.stop_bits()
+        stop_bits(self.port())
     }
 
     /// Change the number of data bits
-    pub fn change_data_bits(&mut self, data_bits: config::DataBits) -> Result<&mut Self, EspError> {
-        self.0.change_data_bits(data_bits).map(|_| self)
+    pub fn change_data_bits(&self, data_bits: config::DataBits) -> Result<&Self, EspError> {
+        change_data_bits(self.port(), data_bits).map(|_| self)
     }
 
     /// Return the current number of data bits
     pub fn data_bits(&self) -> Result<config::DataBits, EspError> {
-        self.0.data_bits()
+        data_bits(self.port())
     }
 
     /// Change the type of parity checking
-    pub fn change_parity(&mut self, parity: config::Parity) -> Result<&mut Self, EspError> {
-        self.0.change_parity(parity).map(|_| self)
+    pub fn change_parity(&self, parity: config::Parity) -> Result<&Self, EspError> {
+        change_parity(self.port(), parity).map(|_| self)
     }
 
     /// Returns the current type of parity checking
     pub fn parity(&self) -> Result<config::Parity, EspError> {
-        self.0.parity()
+        parity(self.port())
     }
 
     /// Change the baudrate.
@@ -460,51 +472,81 @@ impl<'d> UartDriver<'d> {
     /// However if one of the clock frequencies is below 10MHz or if the baudrate is above
     /// the reference clock or if the baudrate cannot be set within 1.5%
     /// then use the APB clock.
-    pub fn change_baudrate<T: Into<Hertz> + Copy>(
-        &mut self,
-        baudrate: T,
-    ) -> Result<&mut Self, EspError> {
-        self.0.change_baudrate(baudrate).map(|_| self)
+    pub fn change_baudrate<T: Into<Hertz> + Copy>(&self, baudrate: T) -> Result<&Self, EspError> {
+        change_baudrate(self.port(), baudrate).map(|_| self)
     }
 
     /// Returns the current baudrate
     pub fn baudrate(&self) -> Result<Hertz, EspError> {
-        self.0.baudrate()
+        baudrate(self.port())
     }
 
     /// Split the serial driver in separate TX and RX drivers
-    pub fn split(&mut self) -> (UartTxDriver<'_, Borrowed>, UartRxDriver<'_, Borrowed>) {
-        (UartTxDriver(self.0.borrow()), UartRxDriver(self.0.borrow()))
+    pub fn split(&self) -> (UartTxDriver<'_>, UartRxDriver<'_>) {
+        (self.tx(), self.rx())
+    }
+
+    /// Split the serial driver in separate TX and RX drivers.
+    ///
+    /// Unlike [`split`], the halves are owned and reference counted.
+    pub fn into_split(self) -> (UartTxDriver<'d>, UartRxDriver<'d>) {
+        REFS[self.port() as usize].fetch_add(2, Ordering::SeqCst);
+        (
+            UartTxDriver {
+                port: self.port,
+                owner: Owner::Shared,
+                _p: PhantomData,
+            },
+            UartRxDriver {
+                port: self.port,
+                owner: Owner::Shared,
+                _p: PhantomData,
+            },
+        )
     }
 
     /// Read multiple bytes into a slice
-    pub fn read(&mut self, buf: &mut [u8], delay: TickType_t) -> Result<usize, EspError> {
+    pub fn read(&self, buf: &mut [u8], delay: TickType_t) -> Result<usize, EspError> {
         self.rx().read(buf, delay)
     }
 
     /// Write multiple bytes from a slice
-    pub fn write(&mut self, buf: &[u8]) -> Result<usize, EspError> {
+    pub fn write(&self, buf: &[u8]) -> Result<usize, EspError> {
         self.tx().write(buf)
     }
 
-    pub fn flush_read(&mut self) -> Result<(), EspError> {
+    pub fn flush_read(&self) -> Result<(), EspError> {
         self.rx().flush()
     }
 
-    pub fn flush_write(&mut self) -> Result<(), EspError> {
+    pub fn flush_write(&self) -> Result<(), EspError> {
         self.tx().flush()
     }
 
     pub fn port(&self) -> uart_port_t {
-        self.0.port()
+        self.port as _
     }
 
-    fn rx(&mut self) -> UartRxDriver<'_, Borrowed> {
-        UartRxDriver(self.0.borrow())
+    fn rx(&self) -> UartRxDriver<'_> {
+        UartRxDriver {
+            port: self.port,
+            owner: Owner::Borrowed,
+            _p: PhantomData,
+        }
     }
 
-    fn tx(&mut self) -> UartTxDriver<'_, Borrowed> {
-        UartTxDriver(self.0.borrow())
+    fn tx(&self) -> UartTxDriver<'_> {
+        UartTxDriver {
+            port: self.port,
+            owner: Owner::Borrowed,
+            _p: PhantomData,
+        }
+    }
+}
+
+impl<'d> Drop for UartDriver<'d> {
+    fn drop(&mut self) {
+        delete_driver(self.port()).unwrap();
     }
 }
 
@@ -554,7 +596,7 @@ impl<'d> core::fmt::Write for UartDriver<'d> {
     }
 }
 
-impl<'d, P: sealed::AsPort> embedded_hal::serial::ErrorType for UartRxDriver<'d, P> {
+impl<'d> embedded_hal::serial::ErrorType for UartRxDriver<'d> {
     type Error = SerialError;
 }
 
@@ -569,25 +611,41 @@ impl<'d> UartRxDriver<'d> {
     ) -> Result<Self, EspError> {
         new_common(uart, None::<AnyOutputPin>, Some(rx), cts, rts, config)?;
 
-        Ok(Self(Port {
-            port: Owned(UART::port() as _),
+        Ok(Self {
+            port: UART::port() as _,
+            owner: Owner::Owned,
             _p: PhantomData,
-        }))
+        })
     }
 
     /// Change the number of stop bits
-    pub fn change_stop_bits(&mut self, stop_bits: config::StopBits) -> Result<&mut Self, EspError> {
-        self.0.change_stop_bits(stop_bits).map(|_| self)
+    pub fn change_stop_bits(&self, stop_bits: config::StopBits) -> Result<&Self, EspError> {
+        change_stop_bits(self.port(), stop_bits).map(|_| self)
+    }
+
+    /// Returns the current number of stop bits
+    pub fn stop_bits(&self) -> Result<config::StopBits, EspError> {
+        stop_bits(self.port())
     }
 
     /// Change the number of data bits
-    pub fn change_data_bits(&mut self, data_bits: config::DataBits) -> Result<&mut Self, EspError> {
-        self.0.change_data_bits(data_bits).map(|_| self)
+    pub fn change_data_bits(&self, data_bits: config::DataBits) -> Result<&Self, EspError> {
+        change_data_bits(self.port(), data_bits).map(|_| self)
+    }
+
+    /// Return the current number of data bits
+    pub fn data_bits(&self) -> Result<config::DataBits, EspError> {
+        data_bits(self.port())
     }
 
     /// Change the type of parity checking
-    pub fn change_parity(&mut self, parity: config::Parity) -> Result<&mut Self, EspError> {
-        self.0.change_parity(parity).map(|_| self)
+    pub fn change_parity(&self, parity: config::Parity) -> Result<&Self, EspError> {
+        change_parity(self.port(), parity).map(|_| self)
+    }
+
+    /// Returns the current type of parity checking
+    pub fn parity(&self) -> Result<config::Parity, EspError> {
+        parity(self.port())
     }
 
     /// Change the baudrate.
@@ -597,46 +655,17 @@ impl<'d> UartRxDriver<'d> {
     /// However if one of the clock frequencies is below 10MHz or if the baudrate is above
     /// the reference clock or if the baudrate cannot be set within 1.5%
     /// then use the APB clock.
-    pub fn change_baudrate<T: Into<Hertz> + Copy>(
-        &mut self,
-        baudrate: T,
-    ) -> Result<&mut Self, EspError> {
-        self.0.change_baudrate(baudrate).map(|_| self)
-    }
-}
-
-impl<'d, P: sealed::AsPort> UartRxDriver<'d, P> {
-    /// Get count of bytes in the receive FIFO
-    pub fn count(&self) -> Result<u8, EspError> {
-        let mut size = 0_u32;
-        esp_result!(
-            unsafe { uart_get_buffered_data_len(self.port(), &mut size) },
-            size as u8
-        )
-    }
-
-    /// Returns the current number of stop bits
-    pub fn stop_bits(&self) -> Result<config::StopBits, EspError> {
-        self.0.stop_bits()
-    }
-
-    /// Return the current number of data bits
-    pub fn data_bits(&self) -> Result<config::DataBits, EspError> {
-        self.0.data_bits()
-    }
-
-    /// Returns the current type of parity checking
-    pub fn parity(&self) -> Result<config::Parity, EspError> {
-        self.0.parity()
+    pub fn change_baudrate<T: Into<Hertz> + Copy>(&self, baudrate: T) -> Result<&Self, EspError> {
+        change_baudrate(self.port(), baudrate).map(|_| self)
     }
 
     /// Returns the current baudrate
     pub fn baudrate(&self) -> Result<Hertz, EspError> {
-        self.0.baudrate()
+        baudrate(self.port())
     }
 
     /// Read multiple bytes into a slice; block until specified timeout
-    pub fn read(&mut self, buf: &mut [u8], delay: TickType_t) -> Result<usize, EspError> {
+    pub fn read(&self, buf: &mut [u8], delay: TickType_t) -> Result<usize, EspError> {
         // uart_read_bytes() returns error (-1) or how many bytes were read out
         // 0 means timeout and nothing is yet read out
         let len = unsafe {
@@ -662,27 +691,33 @@ impl<'d, P: sealed::AsPort> UartRxDriver<'d, P> {
     }
 
     pub fn port(&self) -> uart_port_t {
-        self.0.port()
+        self.port as _
     }
 }
 
-impl<'d, P: sealed::AsPort> embedded_hal_0_2::serial::Read<u8> for UartRxDriver<'d, P> {
+impl<'d> Drop for UartRxDriver<'d> {
+    fn drop(&mut self) {
+        self.owner.drop_impl(self.port()).unwrap()
+    }
+}
+
+impl<'d> embedded_hal_0_2::serial::Read<u8> for UartRxDriver<'d> {
     type Error = SerialError;
 
     fn read(&mut self) -> nb::Result<u8, Self::Error> {
         let mut buf = [0_u8];
 
-        let result = self.read(&mut buf, NON_BLOCK);
+        let result = UartRxDriver::read(self, &mut buf, NON_BLOCK);
 
         check_nb(result, buf[0])
     }
 }
 
-impl<'d, P: sealed::AsPort> embedded_hal_nb::serial::Read<u8> for UartRxDriver<'d, P> {
+impl<'d> embedded_hal_nb::serial::Read<u8> for UartRxDriver<'d> {
     fn read(&mut self) -> nb::Result<u8, Self::Error> {
         let mut buf = [0_u8];
 
-        let result = self.read(&mut buf, NON_BLOCK);
+        let result = UartRxDriver::read(self, &mut buf, NON_BLOCK);
 
         check_nb(result, buf[0])
     }
@@ -699,25 +734,41 @@ impl<'d> UartTxDriver<'d> {
     ) -> Result<Self, EspError> {
         new_common(uart, Some(tx), None::<AnyInputPin>, cts, rts, config)?;
 
-        Ok(Self(Port {
-            port: Owned(UART::port() as _),
+        Ok(Self {
+            port: UART::port() as _,
+            owner: Owner::Owned,
             _p: PhantomData,
-        }))
+        })
     }
 
     /// Change the number of stop bits
-    pub fn change_stop_bits(&mut self, stop_bits: config::StopBits) -> Result<&mut Self, EspError> {
-        self.0.change_stop_bits(stop_bits).map(|_| self)
+    pub fn change_stop_bits(&self, stop_bits: config::StopBits) -> Result<&Self, EspError> {
+        change_stop_bits(self.port(), stop_bits).map(|_| self)
+    }
+
+    /// Returns the current number of stop bits
+    pub fn stop_bits(&self) -> Result<config::StopBits, EspError> {
+        stop_bits(self.port())
     }
 
     /// Change the number of data bits
-    pub fn change_data_bits(&mut self, data_bits: config::DataBits) -> Result<&mut Self, EspError> {
-        self.0.change_data_bits(data_bits).map(|_| self)
+    pub fn change_data_bits(&self, data_bits: config::DataBits) -> Result<&Self, EspError> {
+        change_data_bits(self.port(), data_bits).map(|_| self)
+    }
+
+    /// Return the current number of data bits
+    pub fn data_bits(&self) -> Result<config::DataBits, EspError> {
+        data_bits(self.port())
     }
 
     /// Change the type of parity checking
-    pub fn change_parity(&mut self, parity: config::Parity) -> Result<&mut Self, EspError> {
-        self.0.change_parity(parity).map(|_| self)
+    pub fn change_parity(&self, parity: config::Parity) -> Result<&Self, EspError> {
+        change_parity(self.port(), parity).map(|_| self)
+    }
+
+    /// Returns the current type of parity checking
+    pub fn parity(&self) -> Result<config::Parity, EspError> {
+        parity(self.port())
     }
 
     /// Change the baudrate.
@@ -727,33 +778,13 @@ impl<'d> UartTxDriver<'d> {
     /// However if one of the clock frequencies is below 10MHz or if the baudrate is above
     /// the reference clock or if the baudrate cannot be set within 1.5%
     /// then use the APB clock.
-    pub fn change_baudrate<T: Into<Hertz> + Copy>(
-        &mut self,
-        baudrate: T,
-    ) -> Result<&mut Self, EspError> {
-        self.0.change_baudrate(baudrate).map(|_| self)
-    }
-}
-
-impl<'d, P: sealed::AsPort> UartTxDriver<'d, P> {
-    /// Returns the current number of stop bits
-    pub fn stop_bits(&self) -> Result<config::StopBits, EspError> {
-        self.0.stop_bits()
-    }
-
-    /// Return the current number of data bits
-    pub fn data_bits(&self) -> Result<config::DataBits, EspError> {
-        self.0.data_bits()
-    }
-
-    /// Returns the current type of parity checking
-    pub fn parity(&self) -> Result<config::Parity, EspError> {
-        self.0.parity()
+    pub fn change_baudrate<T: Into<Hertz> + Copy>(&self, baudrate: T) -> Result<&Self, EspError> {
+        change_baudrate(self.port(), baudrate).map(|_| self)
     }
 
     /// Returns the current baudrate
     pub fn baudrate(&self) -> Result<Hertz, EspError> {
-        self.0.baudrate()
+        baudrate(self.port())
     }
 
     /// Write multiple bytes from a slice
@@ -777,15 +808,21 @@ impl<'d, P: sealed::AsPort> UartTxDriver<'d, P> {
     }
 
     pub fn port(&self) -> uart_port_t {
-        self.0.port()
+        self.port as _
     }
 }
 
-impl<'d, P: sealed::AsPort> embedded_hal::serial::ErrorType for UartTxDriver<'d, P> {
+impl<'d> Drop for UartTxDriver<'d> {
+    fn drop(&mut self) {
+        self.owner.drop_impl(self.port()).unwrap()
+    }
+}
+
+impl<'d> embedded_hal::serial::ErrorType for UartTxDriver<'d> {
     type Error = SerialError;
 }
 
-impl<'d, P: sealed::AsPort> embedded_hal_0_2::serial::Write<u8> for UartTxDriver<'d, P> {
+impl<'d> embedded_hal_0_2::serial::Write<u8> for UartTxDriver<'d> {
     type Error = SerialError;
 
     fn flush(&mut self) -> nb::Result<(), Self::Error> {
@@ -797,7 +834,7 @@ impl<'d, P: sealed::AsPort> embedded_hal_0_2::serial::Write<u8> for UartTxDriver
     }
 }
 
-impl<'d, P: sealed::AsPort> embedded_hal_nb::serial::Write<u8> for UartTxDriver<'d, P> {
+impl<'d> embedded_hal_nb::serial::Write<u8> for UartTxDriver<'d> {
     fn flush(&mut self) -> nb::Result<(), Self::Error> {
         UartTxDriver::flush(self).map_err(to_nb_err)
     }
@@ -807,7 +844,7 @@ impl<'d, P: sealed::AsPort> embedded_hal_nb::serial::Write<u8> for UartTxDriver<
     }
 }
 
-impl<'d, P: sealed::AsPort> core::fmt::Write for UartTxDriver<'d, P> {
+impl<'d> core::fmt::Write for UartTxDriver<'d> {
     fn write_str(&mut self, s: &str) -> core::fmt::Result {
         let buf = s.as_bytes();
         let mut offset = 0;
@@ -876,163 +913,69 @@ fn new_common<UART: Uart>(
     Ok(())
 }
 
-struct Port<'d, P: sealed::AsPort> {
-    port: P,
-    _p: PhantomData<&'d mut ()>,
+fn stop_bits(port: uart_port_t) -> Result<config::StopBits, EspError> {
+    let mut stop_bits: uart_stop_bits_t = 0;
+    esp_result!(
+        unsafe { uart_get_stop_bits(port, &mut stop_bits) },
+        stop_bits.into()
+    )
 }
 
-impl<'d, P: sealed::AsPort> Port<'d, P> {
-    fn port(&self) -> uart_port_t {
-        self.port.port()
-    }
-
-    fn stop_bits(&self) -> Result<config::StopBits, EspError> {
-        let mut stop_bits: uart_stop_bits_t = 0;
-        esp_result!(
-            unsafe { uart_get_stop_bits(self.port(), &mut stop_bits) },
-            stop_bits.into()
-        )
-    }
-
-    fn data_bits(&self) -> Result<config::DataBits, EspError> {
-        let mut data_bits: uart_word_length_t = 0;
-        esp_result!(
-            unsafe { uart_get_word_length(self.port(), &mut data_bits) },
-            data_bits.into()
-        )
-    }
-
-    fn parity(&self) -> Result<config::Parity, EspError> {
-        let mut parity: uart_parity_t = 0;
-        esp_result!(
-            unsafe { uart_get_parity(self.port(), &mut parity) },
-            parity.into()
-        )
-    }
-
-    fn baudrate(&self) -> Result<Hertz, EspError> {
-        let mut baudrate: u32 = 0;
-        esp_result!(
-            unsafe { uart_get_baudrate(self.port(), &mut baudrate) },
-            baudrate.into()
-        )
-    }
+fn change_stop_bits(port: uart_port_t, stop_bits: config::StopBits) -> Result<(), EspError> {
+    esp!(unsafe { uart_set_stop_bits(port, stop_bits.into()) })
 }
 
-impl<'d> Port<'d, Owned> {
-    fn borrow(&mut self) -> Port<'d, Borrowed> {
-        Port {
-            port: Borrowed(self.port() as _),
-            _p: PhantomData,
-        }
-    }
-
-    fn change_stop_bits(&mut self, stop_bits: config::StopBits) -> Result<(), EspError> {
-        esp!(unsafe { uart_set_stop_bits(self.port(), stop_bits.into()) })
-    }
-
-    fn change_data_bits(&mut self, data_bits: config::DataBits) -> Result<(), EspError> {
-        esp!(unsafe { uart_set_word_length(self.port(), data_bits.into()) })
-    }
-
-    fn change_parity(&mut self, parity: config::Parity) -> Result<(), EspError> {
-        esp!(unsafe { uart_set_parity(self.port(), parity.into()) })
-    }
-
-    fn change_baudrate<T: Into<Hertz> + Copy>(&mut self, baudrate: T) -> Result<(), EspError> {
-        esp!(unsafe { uart_set_baudrate(self.port(), baudrate.into().into()) })
-    }
+fn data_bits(port: uart_port_t) -> Result<config::DataBits, EspError> {
+    let mut data_bits: uart_word_length_t = 0;
+    esp_result!(
+        unsafe { uart_get_word_length(port, &mut data_bits) },
+        data_bits.into()
+    )
 }
 
-mod sealed {
-    pub trait AsPort {
-        fn port(&self) -> esp_idf_sys::uart_port_t;
-    }
+fn change_data_bits(port: uart_port_t, data_bits: config::DataBits) -> Result<(), EspError> {
+    esp!(unsafe { uart_set_word_length(port, data_bits.into()) })
 }
 
-pub struct Owned(u8);
-
-impl sealed::AsPort for Owned {
-    fn port(&self) -> uart_port_t {
-        self.0 as _
-    }
+fn parity(port: uart_port_t) -> Result<config::Parity, EspError> {
+    let mut parity: uart_parity_t = 0;
+    esp_result!(unsafe { uart_get_parity(port, &mut parity) }, parity.into())
 }
 
-impl Drop for Owned {
-    fn drop(&mut self) {
-        esp!(unsafe { uart_driver_delete(self.0 as _) }).unwrap()
-    }
+fn change_parity(port: uart_port_t, parity: config::Parity) -> Result<(), EspError> {
+    esp!(unsafe { uart_set_parity(port, parity.into()) })
 }
 
-pub struct Borrowed(u8);
-
-impl sealed::AsPort for Borrowed {
-    fn port(&self) -> uart_port_t {
-        self.0 as _
-    }
+fn baudrate(port: uart_port_t) -> Result<Hertz, EspError> {
+    let mut baudrate: u32 = 0;
+    esp_result!(
+        unsafe { uart_get_baudrate(port, &mut baudrate) },
+        baudrate.into()
+    )
 }
 
-#[cfg(feature = "alloc")]
-mod shared {
-    use super::*;
+fn change_baudrate<T: Into<Hertz> + Copy>(port: uart_port_t, baudrate: T) -> Result<(), EspError> {
+    esp!(unsafe { uart_set_baudrate(port, baudrate.into().into()) })
+}
 
-    extern crate alloc;
-    use alloc::sync::Arc;
+fn delete_driver(port: uart_port_t) -> Result<(), EspError> {
+    esp!(unsafe { uart_driver_delete(port) })
+}
 
-    pub struct Shared(Arc<Owned>);
+pub enum Owner {
+    Owned,
+    Borrowed,
+    Shared,
+}
 
-    impl<'d> UartDriver<'d> {
-        /// Split the serial driver in separate TX and RX drivers.
-        ///
-        /// Unlike [`split`], the halves are owned, at the cost of an allocation.
-        pub fn into_split(self) -> (UartTxDriver<'d, Shared>, UartRxDriver<'d, Shared>) {
-            let shared = self.0.into_shared();
-            (UartTxDriver(shared.clone()), UartRxDriver(shared))
-        }
-
-        /// Merge the shared TX and RX halves into an owned [`UartDriver`].
-        ///
-        /// The parts must be produced from the same call to [`into_split`].
-        pub fn merge_split(
-            tx: UartTxDriver<'d, Shared>,
-            rx: UartRxDriver<'d, Shared>,
-        ) -> Result<Self, EspError> {
-            if !Arc::ptr_eq(&tx.0.port.0, &rx.0.port.0) {
-                return Err(EspError::from(ESP_ERR_INVALID_STATE).unwrap());
-            }
-            drop(tx);
-            let port = Arc::try_unwrap(rx.0.port.0)
-                .map_err(|_| EspError::from(ESP_ERR_INVALID_STATE).unwrap())?;
-
-            Ok(Self(Port {
-                port,
-                _p: PhantomData,
-            }))
-        }
-    }
-
-    impl<'d> Port<'d, Owned> {
-        fn into_shared(self) -> Port<'d, Shared> {
-            Port {
-                port: Shared(Arc::new(self.port)),
-                _p: PhantomData,
-            }
-        }
-    }
-
-    impl<'d> Clone for Port<'d, Shared> {
-        fn clone(&self) -> Self {
-            Self {
-                port: Shared(self.port.0.clone()),
-                _p: self._p,
-            }
-        }
-    }
-
-    impl sealed::AsPort for Shared {
-        fn port(&self) -> uart_port_t {
-            self.0.port()
-        }
+impl Owner {
+    fn drop_impl(&self, port: uart_port_t) -> Result<(), EspError> {
+        let needs_drop = match self {
+            Owner::Owned => true,
+            Owner::Borrowed => false,
+            Owner::Shared => REFS[port as usize].fetch_sub(1, Ordering::SeqCst) == 0,
+        };
+        needs_drop.then(|| delete_driver(port)).unwrap_or(Ok(()))
     }
 }
 
@@ -1069,3 +1012,7 @@ impl_uart!(UART0: 0);
 impl_uart!(UART1: 1);
 #[cfg(any(esp32, esp32s3))]
 impl_uart!(UART2: 2);
+
+#[allow(clippy::declare_interior_mutable_const)]
+const NO_REFS: AtomicU8 = AtomicU8::new(0);
+static REFS: [AtomicU8; UART_NUM_MAX as usize] = [NO_REFS; UART_NUM_MAX as usize];
