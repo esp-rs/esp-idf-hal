@@ -155,6 +155,16 @@ pub mod config {
         }
     }
 
+    #[derive(Copy, Clone)]
+    pub enum Chunk {
+        EightBits = 1,
+        SixteenBits = 2,
+        TwentyFourBits = 3,
+        ThirtyTwoBits = 4,
+        FourtyEightBits = 6,
+        SixtyFourBits = 8,
+    }
+
     /// SPI Device configuration
     #[derive(Copy, Clone)]
     pub struct Config {
@@ -167,6 +177,10 @@ pub mod config {
         pub write_only: bool,
         pub duplex: Duplex,
         pub cs_active_high: bool,
+        /// How many bits should be in one transfer unit e.g 8bit 32bit.
+        /// A transfer unit is an continoues clkout signal without a gap.
+        /// Some Devices can only work with 8bit transfer units
+        pub chunk_size: Chunk,
     }
 
     impl Config {
@@ -200,6 +214,11 @@ pub mod config {
             self.cs_active_high = true;
             self
         }
+
+        pub fn transfer_by_chunk(mut self, chunk_size: Chunk) -> Self {
+            self.chunk_size = chunk_size;
+            self
+        }
     }
 
     impl Default for Config {
@@ -210,6 +229,7 @@ pub mod config {
                 write_only: false,
                 cs_active_high: false,
                 duplex: Duplex::Full,
+                chunk_size: Chunk::SixtyFourBits,
             }
         }
     }
@@ -342,7 +362,8 @@ impl<'d> SpiBus for SpiBusDriver<'d> {
 
 pub struct SpiDriver<'d> {
     host: u8,
-    max_transfer_size: usize,
+    //    max_transfer_size: usize,
+    dma: Dma,
     _p: PhantomData<&'d mut ()>,
 }
 
@@ -379,7 +400,7 @@ impl<'d> SpiDriver<'d> {
 
         Ok(Self {
             host: SPI::device() as _,
-            max_transfer_size,
+            dma,
             _p: PhantomData,
         })
     }
@@ -464,6 +485,7 @@ pub struct SpiDeviceDriver<'d, T> {
     handle: spi_device_handle_t,
     driver: T,
     with_cs_pin: bool,
+    transfer_unit_size: u8,
     _p: PhantomData<&'d ()>,
 }
 
@@ -505,6 +527,9 @@ where
     ) -> Result<Self, EspError> {
         let cs = cs.map(|cs| cs.into_ref().pin()).unwrap_or(-1);
 
+        println!("Current chunk_size: {:?}", config.chunk_size as u8);
+        let transfer_unit_size = config.chunk_size as u8;
+
         let conf = spi_device_interface_config_t {
             spics_io_num: cs,
             clock_speed_hz: config.baudrate.0 as i32,
@@ -532,6 +557,7 @@ where
             handle,
             driver,
             with_cs_pin: cs >= 0,
+            transfer_unit_size,
             _p: PhantomData,
         })
     }
@@ -548,7 +574,11 @@ where
         E: From<EspError>,
     {
         // if DMA used -> get trans length info from driver
-        let trans_len = self.driver.borrow().max_transfer_size;
+        let trans_len = if self.driver.borrow().dma == Dma::Disabled {
+            self.transfer_unit_size as usize
+        } else {
+            self.driver.borrow().dma.max_transfer_size()
+        };
 
         let mut bus = SpiBusDriver {
             handle: self.handle,
@@ -630,9 +660,12 @@ where
 
     fn transfer<'w>(&mut self, words: &'w mut [u8]) -> Result<&'w [u8], Self::Error> {
         let _lock = self.lock_bus()?;
-        let mut chunks = words
-            .chunks_mut(self.driver.borrow().max_transfer_size)
-            .peekable();
+        let trans_len = if self.driver.borrow().dma == Dma::Disabled {
+            self.transfer_unit_size as usize
+        } else {
+            self.driver.borrow().dma.max_transfer_size()
+        };
+        let mut chunks = words.chunks_mut(trans_len).peekable();
 
         while let Some(chunk) = chunks.next() {
             let ptr = chunk.as_mut_ptr();
@@ -652,9 +685,12 @@ where
 
     fn write(&mut self, words: &[u8]) -> Result<(), Self::Error> {
         let _lock = self.lock_bus()?;
-        let mut chunks = words
-            .chunks(self.driver.borrow().max_transfer_size)
-            .peekable();
+        let trans_len = if self.driver.borrow().dma == Dma::Disabled {
+            self.transfer_unit_size as usize
+        } else {
+            self.driver.borrow().dma.max_transfer_size()
+        };
+        let mut chunks = words.chunks(trans_len).peekable();
 
         while let Some(chunk) = chunks.next() {
             polling_transmit(
@@ -941,11 +977,12 @@ fn polling_transmit(
     // This unfortunately means that this implementation is incorrect for esp-idf < 4.4.
     // The CS pin should be kept active through transactions.
     #[cfg(not(esp_idf_version = "4.3"))]
-    let flags = if _keep_cs_active {
+    let mut flags = if _keep_cs_active {
         SPI_TRANS_CS_KEEP_ACTIVE
     } else {
         0
     };
+    //flags = flags | SPI_TRANS_MODE_OCT;
 
     let mut transaction = spi_transaction_t {
         flags,
