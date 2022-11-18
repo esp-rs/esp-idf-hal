@@ -490,15 +490,17 @@ impl<'d> UartDriver<'d> {
     ///
     /// Unlike [`split`], the halves are owned and reference counted.
     pub fn into_split(self) -> (UartTxDriver<'d>, UartRxDriver<'d>) {
-        REFS[self.port() as usize].fetch_add(2, Ordering::SeqCst);
+        let port = self.port;
+        let _ = core::mem::ManuallyDrop::new(self);
+        REFS[port as usize].fetch_add(2, Ordering::SeqCst);
         (
             UartTxDriver {
-                port: self.port,
+                port,
                 owner: Owner::Shared,
                 _p: PhantomData,
             },
             UartRxDriver {
-                port: self.port,
+                port,
                 owner: Owner::Shared,
                 _p: PhantomData,
             },
