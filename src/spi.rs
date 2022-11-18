@@ -975,7 +975,7 @@ fn polling_transmit(
     // This unfortunately means that this implementation is incorrect for esp-idf < 4.4.
     // The CS pin should be kept active through transactions.
     #[cfg(not(esp_idf_version = "4.3"))]
-    let mut flags = if _keep_cs_active {
+    let flags = if _keep_cs_active {
         SPI_TRANS_CS_KEEP_ACTIVE
     } else {
         0
