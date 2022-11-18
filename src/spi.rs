@@ -396,7 +396,7 @@ impl<'d> SpiDriver<'d> {
         sdi: Option<impl Peripheral<P = impl InputPin + OutputPin> + 'd>,
         dma: Dma,
     ) -> Result<Self, EspError> {
-        let max_transfer_size = Self::new_internal(SPI::device(), sclk, sdo, sdi, dma)?;
+        Self::new_internal(SPI::device(), sclk, sdo, sdi, dma)?;
 
         Ok(Self {
             host: SPI::device() as _,
@@ -415,11 +415,10 @@ impl<'d> SpiDriver<'d> {
         sdo: impl Peripheral<P = impl OutputPin> + 'd,
         sdi: Option<impl Peripheral<P = impl InputPin + OutputPin> + 'd>,
         dma: Dma,
-    ) -> Result<usize, EspError> {
+    ) -> Result<(), EspError> {
         crate::into_ref!(sclk, sdo);
         let sdi = sdi.map(|sdi| sdi.into_ref());
 
-        let max_transfer_sz = dma.max_transfer_size();
         let dma_chan: spi_dma_chan_t = dma.into();
 
         #[cfg(not(esp_idf_version = "4.3"))]
@@ -447,7 +446,7 @@ impl<'d> SpiDriver<'d> {
                 quadhd_io_num: -1,
                 //data3_io_num: -1,
             },
-            max_transfer_sz: max_transfer_sz as i32,
+            max_transfer_sz: dma.max_transfer_size() as i32,
             ..Default::default()
         };
 
@@ -467,7 +466,7 @@ impl<'d> SpiDriver<'d> {
 
         esp!(unsafe { spi_bus_initialize(host, &bus_config, dma_chan) })?;
 
-        Ok(max_transfer_sz)
+        Ok(())
     }
 }
 
@@ -527,7 +526,6 @@ where
     ) -> Result<Self, EspError> {
         let cs = cs.map(|cs| cs.into_ref().pin()).unwrap_or(-1);
 
-        println!("Current chunk_size: {:?}", config.chunk_size as u8);
         let transfer_unit_size = config.chunk_size as u8;
 
         let conf = spi_device_interface_config_t {
@@ -982,7 +980,6 @@ fn polling_transmit(
     } else {
         0
     };
-    //flags = flags | SPI_TRANS_MODE_OCT;
 
     let mut transaction = spi_transaction_t {
         flags,
