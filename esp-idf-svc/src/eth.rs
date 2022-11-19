@@ -292,13 +292,13 @@ impl<'d> EthDriver<'d> {
     esp_idf_eth_spi_ethernet_ksz8851snl
 ))]
 impl<'d> EthDriver<'d> {
-    pub fn new_spi<P: Spi>(
+    pub fn new_spi<P: spi::Spi + 'd>(
         spi: impl Peripheral<P = P> + 'd,
         int: impl Peripheral<P = impl gpio::InputPin> + 'd,
         sclk: impl Peripheral<P = impl gpio::OutputPin> + 'd,
         sdo: impl Peripheral<P = impl gpio::OutputPin> + 'd,
-        sdi: Option<impl Peripheral<P = impl gpio::InputPin + gpio::OutputPin> + 'd>,
-        cs: impl Peripheral<P = impl gpio::OutputPin> + 'd,
+        sdi: impl Peripheral<P = impl gpio::InputPin + gpio::OutputPin> + 'd,
+        cs: Option<impl Peripheral<P = impl gpio::OutputPin> + 'd>,
         rst: Option<impl Peripheral<P = impl gpio::OutputPin> + 'd>,
         chipset: SpiEthChipset,
         baudrate: Hertz,
@@ -306,17 +306,17 @@ impl<'d> EthDriver<'d> {
         phy_addr: Option<u32>,
         sysloop: EspSystemEventLoop,
     ) -> Result<Self, EspError> {
-        crate::into_ref!(spi);
+        esp_idf_hal::into_ref!(spi, int, sclk, sdo, sdi);
 
-        let (mac, phy, spi_handle) = Self::init_spi(
+        let (mac, phy, spi_handle) = Self::init_spi::<P>(
             chipset,
             baudrate,
             int.pin(),
             sclk.pin(),
             sdo.pin(),
-            sdi.map(|pin| pin.pin()),
-            cs.pin(),
-            rst.map(|pin| pin.pin()),
+            sdi.pin(),
+            cs.map(|pin| pin.into_ref().pin()),
+            rst.map(|pin| pin.into_ref().pin()),
             phy_addr,
         )?;
 
@@ -332,18 +332,18 @@ impl<'d> EthDriver<'d> {
         Ok(eth)
     }
 
-    fn init_spi(
+    fn init_spi<P: spi::Spi>(
         chipset: SpiEthChipset,
         baudrate: Hertz,
         int: i32,
         sclk: i32,
         sdo: i32,
-        sdi: Option<i32>,
-        cs: i32,
+        sdi: i32,
+        cs: Option<i32>,
         rst: Option<i32>,
         phy_addr: Option<u32>,
     ) -> Result<(*mut esp_eth_mac_t, *mut esp_eth_phy_t, spi_device_handle_t), EspError> {
-        Self::init_spi_bus(sclk, sdo, sdi)?;
+        Self::init_spi_bus::<P>(sclk, sdo, sdi)?;
 
         let mac_cfg = EthDriver::eth_mac_default_config(0, 0);
         let phy_cfg = EthDriver::eth_phy_default_config(rst.map(|pin| pin), phy_addr);
@@ -351,11 +351,11 @@ impl<'d> EthDriver<'d> {
         let (mac, phy, spi_handle) = match chipset {
             #[cfg(esp_idf_eth_spi_ethernet_dm9051)]
             SpiEthChipset::DM9051 => {
-                let spi_handle = Self::init_spi_device(cs, 1, 7, baudrate)?;
+                let spi_handle = Self::init_spi_device::<P>(cs, 1, 7, baudrate)?;
 
                 let dm9051_cfg = eth_dm9051_config_t {
                     spi_hdl: spi_handle as *mut _,
-                    int_gpio_num: int_pin,
+                    int_gpio_num: int,
                 };
 
                 let mac = unsafe { esp_eth_mac_new_dm9051(&dm9051_cfg, &mac_cfg) };
@@ -365,11 +365,11 @@ impl<'d> EthDriver<'d> {
             }
             #[cfg(esp_idf_eth_spi_ethernet_w5500)]
             SpiEthChipset::W5500 => {
-                let spi_handle = Self::init_spi_device(cs, 16, 8, baudrate)?;
+                let spi_handle = Self::init_spi_device::<P>(cs, 16, 8, baudrate)?;
 
                 let w5500_cfg = eth_w5500_config_t {
                     spi_hdl: spi_handle as *mut _,
-                    int_gpio_num: int_pin,
+                    int_gpio_num: int,
                 };
 
                 let mac = unsafe { esp_eth_mac_new_w5500(&w5500_cfg, &mac_cfg) };
@@ -379,11 +379,11 @@ impl<'d> EthDriver<'d> {
             }
             #[cfg(esp_idf_eth_spi_ethernet_ksz8851snl)]
             SpiEthChipset::KSZ8851SNL => {
-                let spi_handle = Self::init_spi_device(cs, 0, 0, baudrate)?;
+                let spi_handle = Self::init_spi_device::<P>(cs, 0, 0, baudrate)?;
 
                 let ksz8851snl_cfg = eth_ksz8851snl_config_t {
                     spi_hdl: spi_handle as *mut _,
-                    int_gpio_num: int_pin,
+                    int_gpio_num: int,
                 };
 
                 let mac = unsafe { esp_eth_mac_new_ksz8851snl(&ksz8851snl_cfg, &mac_cfg) };
@@ -396,7 +396,7 @@ impl<'d> EthDriver<'d> {
         Ok((mac, phy, spi_handle))
     }
 
-    fn init_spi_device(
+    fn init_spi_device<P: spi::Spi>(
         cs_pin: Option<i32>,
         command_bits: u8,
         address_bits: u8,
@@ -419,7 +419,11 @@ impl<'d> EthDriver<'d> {
         Ok(spi_handle)
     }
 
-    fn init_spi_bus(sclk_pin: i32, sdo_pin: i32, sdi_pin: Option<i32>) -> Result<(), EspError> {
+    fn init_spi_bus<P: spi::Spi>(
+        sclk_pin: i32,
+        sdo_pin: i32,
+        sdi_pin: i32,
+    ) -> Result<(), EspError> {
         unsafe { gpio_install_isr_service(0) };
 
         #[cfg(not(esp_idf_version = "4.3"))]
@@ -436,7 +440,7 @@ impl<'d> EthDriver<'d> {
                 //data0_io_num: -1,
             },
             __bindgen_anon_2: spi_bus_config_t__bindgen_ty_2 {
-                miso_io_num: sdi_pin.map(|pin| pin).unwrap_or(-1),
+                miso_io_num: sdi_pin,
                 //data1_io_num: -1,
             },
             __bindgen_anon_3: spi_bus_config_t__bindgen_ty_3 {
