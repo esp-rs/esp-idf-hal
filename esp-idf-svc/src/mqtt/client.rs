@@ -20,6 +20,7 @@ use crate::private::mutex::RawCondvar;
 pub use asyncify::*;
 
 use crate::private::cstr::*;
+use crate::tls::X509;
 
 pub use client::{Details, MessageId};
 
@@ -73,18 +74,16 @@ pub struct MqttClientConfiguration<'a> {
     pub skip_cert_common_name_check: bool,
     #[cfg(not(esp_idf_version = "4.3"))]
     pub crt_bundle_attach: Option<unsafe extern "C" fn(conf: *mut c_types::c_void) -> esp_err_t>,
+
+    pub server_certificate: Option<X509<'static>>,
+
+    pub client_certificate: Option<X509<'static>>,
+    pub private_key: Option<X509<'static>>,
+    pub private_key_password: Option<&'a str>,
     // TODO: Future
-
-    // pub cert_pem: &'a [u8],
-    // pub client_cert_pem: &'a [u8],
-    // pub client_key_pem: &'a [u8],
-
     // pub psk_hint_key: KeyHint,
     // pub alpn_protos: &'a [&'a str],
-
-    // pub clientkey_password: &'a str,
     // pub use_secure_element: bool,
-
     // void *ds_data;                          /*!< carrier of handle for digital signature parameters */
 }
 
@@ -117,6 +116,12 @@ impl<'a> Default for MqttClientConfiguration<'a> {
 
             #[cfg(not(esp_idf_version = "4.3"))]
             crt_bundle_attach: Default::default(),
+
+            server_certificate: None,
+
+            client_certificate: None,
+            private_key: None,
+            private_key_password: None,
         }
     }
 }
@@ -175,6 +180,24 @@ impl<'a> From<&'a MqttClientConfiguration<'a>> for (esp_mqtt_client_config_t, Ra
             c_conf.lwt_msg_len = lwt.payload.len() as _;
             c_conf.lwt_qos = lwt.qos as _;
             c_conf.lwt_retain = lwt.retain as _;
+        }
+
+        if let Some(cert) = conf.server_certificate {
+            c_conf.cert_pem = cert.as_raw_ptr() as _;
+            c_conf.cert_len = cert.as_raw_len();
+        }
+
+        if let (Some(cert), Some(private_key)) = (conf.client_certificate, conf.private_key) {
+            c_conf.client_cert_pem = cert.as_raw_ptr() as _;
+            c_conf.client_cert_len = cert.as_raw_len();
+
+            c_conf.client_key_pem = private_key.as_raw_ptr() as _;
+            c_conf.client_key_len = private_key.as_raw_len();
+
+            if let Some(pass) = conf.private_key_password {
+                c_conf.clientkey_password = pass.as_ptr() as _;
+                c_conf.clientkey_password_len = pass.len() as _;
+            }
         }
 
         (c_conf, cstrs)
@@ -257,6 +280,24 @@ impl<'a> From<&'a MqttClientConfiguration<'a>> for (esp_mqtt_client_config_t, Ra
                 retain: lwt.retain as _,
                 ..Default::default()
             };
+        }
+
+        if let Some(cert) = conf.server_certificate {
+            c_conf.broker.verification.certificate = cert.as_raw_ptr() as _;
+            c_conf.broker.verification.certificate_len = cert.as_raw_len();
+        }
+
+        if let (Some(cert), Some(private_key)) = (conf.client_certificate, conf.private_key) {
+            c_conf.credentials.authentication.certificate = cert.as_raw_ptr() as _;
+            c_conf.credentials.authentication.certificate_len = cert.as_raw_len();
+
+            c_conf.credentials.authentication.key = private_key.as_raw_ptr() as _;
+            c_conf.credentials.authentication.key_len = private_key.as_raw_len();
+
+            if let Some(pass) = conf.private_key_password {
+                c_conf.credentials.authentication.key_password = pass.as_ptr() as _;
+                c_conf.credentials.authentication.key_password_len = pass.len() as _;
+            }
         }
 
         (c_conf, cstrs)

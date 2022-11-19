@@ -29,6 +29,8 @@ use crate::handle::RawHandle;
 use crate::private::common::Newtype;
 use crate::private::cstr::{CStr, CString};
 use crate::private::mutex::{Mutex, RawMutex};
+#[cfg(esp_idf_esp_https_server_enable)]
+use crate::tls::X509;
 
 #[derive(Copy, Clone, Debug)]
 pub struct Configuration {
@@ -43,9 +45,9 @@ pub struct Configuration {
     pub lru_purge_enable: bool,
     pub uri_match_wildcard: bool,
     #[cfg(esp_idf_esp_https_server_enable)]
-    pub server_certificate: Option<&'static str>,
+    pub server_certificate: Option<X509<'static>>,
     #[cfg(esp_idf_esp_https_server_enable)]
-    pub private_key: Option<&'static str>,
+    pub private_key: Option<X509<'static>>,
 }
 
 impl Default for Configuration {
@@ -257,26 +259,20 @@ impl EspHttpServer {
             config.0.httpd.close_fn = Some(Self::close_fn);
 
             if let (Some(cert), Some(private_key)) = (conf.server_certificate, conf.private_key) {
-                // Converting into CString has to happen in the same scope as calling http_ssl_start,
-                // since the pointer passed to http_conf_t is valid only as long as the underlying bytes are in scope and valid.
-                // Passing an invalid pointer causes the null byte to be overwritten, which mbedtls requires to parse the certificate.
-                let cert = CString::new(cert).unwrap().into_bytes_with_nul();
-                let private_key = CString::new(private_key).unwrap().into_bytes_with_nul();
-
                 #[cfg(esp_idf_version_major = "4")]
                 {
-                    config.0.cacert_pem = cert.as_ptr();
-                    config.0.cacert_len = cert.len() as u32;
+                    config.0.cacert_pem = cert.as_raw_ptr() as _;
+                    config.0.cacert_len = cert.as_raw_len();
                 }
 
                 #[cfg(not(esp_idf_version_major = "4"))]
                 {
-                    config.0.servercert = cert.as_ptr();
-                    config.0.servercert_len = cert.len() as u32;
+                    config.0.servercert = cert.as_raw_ptr() as _;
+                    config.0.servercert_len = cert.as_raw_len();
                 }
 
-                config.0.prvtkey_pem = private_key.as_ptr() as _;
-                config.0.prvtkey_len = private_key.len() as u32;
+                config.0.prvtkey_pem = private_key.as_raw_ptr() as _;
+                config.0.prvtkey_len = private_key.as_raw_len();
 
                 esp!(unsafe { httpd_ssl_start(handle_ref, &mut config.0) })?;
             } else {

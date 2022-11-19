@@ -19,6 +19,7 @@ use crate::errors::EspIOError;
 use crate::handle::RawHandle;
 use crate::private::common::Newtype;
 use crate::private::cstr::*;
+use crate::tls::X509;
 
 impl From<Method> for Newtype<(esp_http_client_method_t, ())> {
     fn from(method: Method) -> Self {
@@ -63,13 +64,13 @@ impl Default for FollowRedirectsPolicy {
 }
 
 #[derive(Copy, Clone, Debug, Default)]
-pub struct Configuration<'a> {
+pub struct Configuration {
     pub buffer_size: Option<usize>,
     pub buffer_size_tx: Option<usize>,
     pub timeout: Option<core::time::Duration>,
     pub follow_redirects_policy: FollowRedirectsPolicy,
-    pub client_cert_pem: Option<&'a str>,
-    pub client_key_pem: Option<&'a str>,
+    pub client_certificate: Option<X509<'static>>,
+    pub private_key: Option<X509<'static>>,
 
     pub use_global_ca_store: bool,
     #[cfg(not(esp_idf_version = "4.3"))]
@@ -93,15 +94,11 @@ pub struct EspHttpConnection {
     follow_redirects: bool,
     headers: BTreeMap<Uncased<'static>, String>,
     content_len_header: UnsafeCell<Option<Option<String>>>,
-    _client_cert_pem: Option<CString>,
-    _client_key_pem: Option<CString>,
 }
 
 impl EspHttpConnection {
     pub fn new(configuration: &Configuration) -> Result<Self, EspError> {
         let event_handler = Box::new(None);
-        let mut client_cert_pem: Option<CString> = None;
-        let mut client_key_pem: Option<CString> = None;
 
         let mut native_config = esp_http_client_config_t {
             // The ESP-IDF HTTP client is really picky on being initialized with a valid URL
@@ -129,20 +126,14 @@ impl EspHttpConnection {
             native_config.timeout_ms = timeout.as_millis() as _;
         }
 
-        if let (Some(cert), Some(key)) =
-            (configuration.client_cert_pem, configuration.client_key_pem)
+        if let (Some(cert), Some(private_key)) =
+            (configuration.client_certificate, configuration.private_key)
         {
-            // Convert client cert and key to CString
-            client_cert_pem = Some(CString::new(cert).unwrap());
-            client_key_pem = Some(CString::new(key).unwrap());
+            native_config.client_cert_pem = cert.as_raw_ptr() as _;
+            native_config.client_cert_len = cert.as_raw_len();
 
-            // Sets pointer for client cert
-            native_config.client_cert_pem = client_cert_pem.as_ref().unwrap().as_ptr();
-            native_config.client_cert_len = 0;
-
-            // Sets pointer for client key
-            native_config.client_key_pem = client_key_pem.as_ref().unwrap().as_ptr();
-            native_config.client_key_len = 0;
+            native_config.client_key_pem = private_key.as_raw_ptr() as _;
+            native_config.client_key_len = private_key.as_raw_len();
         }
 
         let raw_client = unsafe { esp_http_client_init(&native_config) };
@@ -158,8 +149,6 @@ impl EspHttpConnection {
                 follow_redirects: false,
                 headers: BTreeMap::new(),
                 content_len_header: UnsafeCell::new(None),
-                _client_cert_pem: client_cert_pem,
-                _client_key_pem: client_key_pem,
             })
         }
     }

@@ -71,6 +71,7 @@ pub mod sntp;
 pub mod systime;
 #[cfg(all(feature = "alloc", esp_idf_comp_esp_timer_enabled))]
 pub mod timer;
+pub mod tls;
 #[cfg(all(
     feature = "alloc",
     esp_idf_comp_esp_wifi_enabled,
