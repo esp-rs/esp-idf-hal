@@ -1,47 +1,40 @@
-use core::cmp::min;
-
-use esp_idf_sys::c_types;
+use core::ffi::{c_char, CStr};
 
 #[derive(Copy, Clone, Eq, PartialEq, Debug)]
-pub enum X509<'a> {
-    Der(&'a [u8]),
-    Pem(&'a [u8]),
-}
+pub struct X509<'a>(&'a [u8]);
 
 impl<'a> X509<'a> {
-    const SCAN_LAST_BYTES: usize = 16;
-
-    pub fn data(&self) -> &[u8] {
-        match self {
-            Self::Der(data) => data,
-            Self::Pem(data) => data,
-        }
+    pub fn pem(cstr: &'a CStr) -> Self {
+        Self(cstr.to_bytes_with_nul())
     }
 
-    pub(crate) fn as_esp_idf_raw_ptr(&self) -> *const c_types::c_char {
-        self.check();
+    pub const fn pem_until_nul(bytes: &'a [u8]) -> Self {
+        // TODO: replace with `CStr::from_bytes_until_nul` when stabilized
+        let mut nul_pos = 0;
+        while nul_pos < bytes.len() {
+            if bytes[nul_pos] == 0 {
+                // TODO: replace with `<[u8]>::split_at(nul_pos + 1)` when const stabilized
+                let slice = unsafe { core::slice::from_raw_parts(bytes.as_ptr(), nul_pos + 1) };
+                return Self(slice);
+            }
+            nul_pos += 1;
+        }
+        panic!("PEM certificates should end with a NIL (`\\0`) ASCII character.")
+    }
+
+    pub const fn der(bytes: &'a [u8]) -> Self {
+        Self(bytes)
+    }
+
+    pub fn data(&self) -> &[u8] {
+        self.0
+    }
+
+    pub(crate) fn as_esp_idf_raw_ptr(&self) -> *const c_char {
         self.data().as_ptr() as _
     }
 
     pub(crate) fn as_esp_idf_raw_len(&self) -> u32 {
-        match self {
-            Self::Der(data) => data.len() as _,
-            Self::Pem(_) => 0,
-        }
-    }
-
-    fn check(&self) {
-        if matches!(self, Self::Pem(_)) {
-            let data = self.data();
-
-            if !data
-                .iter()
-                .rev()
-                .take(min(Self::SCAN_LAST_BYTES, data.len()))
-                .any(|c| *c == 0)
-            {
-                panic!("PEM certificates should end with a NIL (`\\0`) ASCII character. No NIL found in the last {} bytes", Self::SCAN_LAST_BYTES);
-            }
-        }
+        self.data().len() as _
     }
 }

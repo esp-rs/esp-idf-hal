@@ -267,17 +267,17 @@ impl EspHttpServer {
                 #[cfg(esp_idf_version_major = "4")]
                 {
                     config.0.cacert_pem = cert.as_esp_idf_raw_ptr() as _;
-                    config.0.cacert_len = cert.data().len() as _;
+                    config.0.cacert_len = cert.as_esp_idf_raw_len();
                 }
 
                 #[cfg(not(esp_idf_version_major = "4"))]
                 {
                     config.0.servercert = cert.as_esp_idf_raw_ptr() as _;
-                    config.0.servercert_len = cert.data().len() as _;
+                    config.0.servercert_len = cert.as_esp_idf_raw_len();
                 }
 
                 config.0.prvtkey_pem = private_key.as_esp_idf_raw_ptr() as _;
-                config.0.prvtkey_len = private_key.data().len() as _;
+                config.0.prvtkey_len = private_key.as_esp_idf_raw_len();
 
                 esp!(unsafe { httpd_ssl_start(handle_ref, &mut config.0) })?;
             } else {
