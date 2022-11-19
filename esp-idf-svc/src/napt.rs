@@ -1,6 +1,6 @@
 use embedded_svc::ipv4;
 
-use esp_idf_hal::mutex;
+use crate::private::mutex::{Mutex, RawMutex};
 
 use esp_idf_sys::*;
 
@@ -23,7 +23,7 @@ impl Protocol {
     }
 }
 
-static TAKEN: mutex::Mutex<bool> = mutex::Mutex::wrap(mutex::RawMutex::new(), false);
+static TAKEN: Mutex<bool> = Mutex::wrap(RawMutex::new(), false);
 
 impl EspNapt {
     pub fn new() -> Result<Self, EspError> {
