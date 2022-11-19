@@ -38,6 +38,7 @@
 //! - Address errata 3.17: UART fifo_cnt is inconsistent with FIFO pointer
 
 use core::marker::PhantomData;
+use core::mem::ManuallyDrop;
 use core::ptr;
 use core::sync::atomic::{AtomicU8, Ordering};
 
@@ -483,7 +484,18 @@ impl<'d> UartDriver<'d> {
 
     /// Split the serial driver in separate TX and RX drivers
     pub fn split(&self) -> (UartTxDriver<'_>, UartRxDriver<'_>) {
-        (self.tx(), self.rx())
+        (
+            UartTxDriver {
+                port: self.port,
+                owner: Owner::Borrowed,
+                _p: PhantomData,
+            },
+            UartRxDriver {
+                port: self.port,
+                owner: Owner::Borrowed,
+                _p: PhantomData,
+            },
+        )
     }
 
     /// Split the serial driver in separate TX and RX drivers.
@@ -491,7 +503,7 @@ impl<'d> UartDriver<'d> {
     /// Unlike [`split`], the halves are owned and reference counted.
     pub fn into_split(self) -> (UartTxDriver<'d>, UartRxDriver<'d>) {
         let port = self.port;
-        let _ = core::mem::ManuallyDrop::new(self);
+        let _ = ManuallyDrop::new(self);
         REFS[port as usize].fetch_add(2, Ordering::SeqCst);
         (
             UartTxDriver {
@@ -529,20 +541,30 @@ impl<'d> UartDriver<'d> {
         self.port as _
     }
 
-    fn rx(&self) -> UartRxDriver<'_> {
-        UartRxDriver {
-            port: self.port,
-            owner: Owner::Borrowed,
-            _p: PhantomData,
-        }
+    /// Get count of remaining bytes in the receive ring buffer
+    pub fn remaining_read(&self) -> Result<u32, EspError> {
+        remaining_unread_bytes(self.port())
     }
 
-    fn tx(&self) -> UartTxDriver<'_> {
-        UartTxDriver {
+    /// Get count of remaining capacity in the transmit ring buffer
+    pub fn remaining_write(&self) -> Result<u32, EspError> {
+        remaining_write_capacity(self.port())
+    }
+
+    fn rx(&self) -> ManuallyDrop<UartRxDriver<'_>> {
+        ManuallyDrop::new(UartRxDriver {
             port: self.port,
             owner: Owner::Borrowed,
             _p: PhantomData,
-        }
+        })
+    }
+
+    fn tx(&self) -> ManuallyDrop<UartTxDriver<'_>> {
+        ManuallyDrop::new(UartTxDriver {
+            port: self.port,
+            owner: Owner::Borrowed,
+            _p: PhantomData,
+        })
     }
 }
 
@@ -560,13 +582,13 @@ impl<'d> embedded_hal_0_2::serial::Read<u8> for UartDriver<'d> {
     type Error = SerialError;
 
     fn read(&mut self) -> nb::Result<u8, Self::Error> {
-        embedded_hal_0_2::serial::Read::read(&mut self.rx())
+        embedded_hal_0_2::serial::Read::read(&mut *self.rx())
     }
 }
 
 impl<'d> embedded_hal_nb::serial::Read<u8> for UartDriver<'d> {
     fn read(&mut self) -> nb::Result<u8, Self::Error> {
-        embedded_hal_nb::serial::Read::read(&mut self.rx())
+        embedded_hal_nb::serial::Read::read(&mut *self.rx())
     }
 }
 
@@ -574,21 +596,21 @@ impl<'d> embedded_hal_0_2::serial::Write<u8> for UartDriver<'d> {
     type Error = SerialError;
 
     fn flush(&mut self) -> nb::Result<(), Self::Error> {
-        embedded_hal_0_2::serial::Write::flush(&mut self.tx())
+        embedded_hal_0_2::serial::Write::flush(&mut *self.tx())
     }
 
     fn write(&mut self, byte: u8) -> nb::Result<(), Self::Error> {
-        embedded_hal_0_2::serial::Write::write(&mut self.tx(), byte)
+        embedded_hal_0_2::serial::Write::write(&mut *self.tx(), byte)
     }
 }
 
 impl<'d> embedded_hal_nb::serial::Write<u8> for UartDriver<'d> {
     fn flush(&mut self) -> nb::Result<(), Self::Error> {
-        embedded_hal_nb::serial::Write::flush(&mut self.tx())
+        embedded_hal_nb::serial::Write::flush(&mut *self.tx())
     }
 
     fn write(&mut self, byte: u8) -> nb::Result<(), Self::Error> {
-        embedded_hal_nb::serial::Write::write(&mut self.tx(), byte)
+        embedded_hal_nb::serial::Write::write(&mut *self.tx(), byte)
     }
 }
 
@@ -694,6 +716,11 @@ impl<'d> UartRxDriver<'d> {
 
     pub fn port(&self) -> uart_port_t {
         self.port as _
+    }
+
+    /// Get count of remaining bytes in the receive ring buffer
+    pub fn count(&self) -> Result<u32, EspError> {
+        remaining_unread_bytes(self.port())
     }
 }
 
@@ -812,6 +839,11 @@ impl<'d> UartTxDriver<'d> {
     pub fn port(&self) -> uart_port_t {
         self.port as _
     }
+
+    /// Get count of remaining capacity in the transmit ring buffer
+    pub fn count(&self) -> Result<u32, EspError> {
+        remaining_write_capacity(self.port())
+    }
 }
 
 impl<'d> Drop for UartTxDriver<'d> {
@@ -832,7 +864,7 @@ impl<'d> embedded_hal_0_2::serial::Write<u8> for UartTxDriver<'d> {
     }
 
     fn write(&mut self, byte: u8) -> nb::Result<(), Self::Error> {
-        check_nb(self.write(&[byte]), ())
+        check_nb(UartTxDriver::write(self, &[byte]), ())
     }
 }
 
@@ -842,7 +874,7 @@ impl<'d> embedded_hal_nb::serial::Write<u8> for UartTxDriver<'d> {
     }
 
     fn write(&mut self, byte: u8) -> nb::Result<(), Self::Error> {
-        check_nb(self.write(&[byte]), ())
+        check_nb(UartTxDriver::write(self, &[byte]), ())
     }
 }
 
@@ -964,7 +996,20 @@ fn delete_driver(port: uart_port_t) -> Result<(), EspError> {
     esp!(unsafe { uart_driver_delete(port) })
 }
 
-pub enum Owner {
+pub fn remaining_unread_bytes(port: uart_port_t) -> Result<u32, EspError> {
+    let mut size = 0_u32;
+    esp_result!(unsafe { uart_get_buffered_data_len(port, &mut size) }, size)
+}
+
+pub fn remaining_write_capacity(port: uart_port_t) -> Result<u32, EspError> {
+    let mut size = 0_u32;
+    esp_result!(
+        unsafe { uart_get_tx_buffer_free_size(port, &mut size) },
+        size
+    )
+}
+
+enum Owner {
     Owned,
     Borrowed,
     Shared,
