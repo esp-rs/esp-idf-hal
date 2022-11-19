@@ -686,11 +686,9 @@ impl<'d> WifiDriver<'d> {
         }
 
         unsafe {
+            // Callbacks are already deregistered by `esp_wifi_deinit`, just null-ify our own refs
             RX_CALLBACK = None;
             TX_CALLBACK = None;
-
-            esp!(esp_wifi_internal_reg_rxcb(WifiDeviceId::Ap.into(), None)).unwrap();
-            esp!(esp_wifi_internal_reg_rxcb(WifiDeviceId::Sta.into(), None)).unwrap();
         }
 
         info!("Driver deinitialized");
