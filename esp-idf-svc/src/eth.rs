@@ -397,7 +397,7 @@ impl<'d> EthDriver<'d> {
     }
 
     fn init_spi_device<P: spi::Spi>(
-        cs_pin: Option<i32>,
+        cs: Option<i32>,
         command_bits: u8,
         address_bits: u8,
         baudrate: Hertz,
@@ -407,7 +407,7 @@ impl<'d> EthDriver<'d> {
             address_bits,
             mode: 0,
             clock_speed_hz: baudrate.0 as i32,
-            spics_io_num: cs_pin.map(|pin| pin).unwrap_or(-1),
+            spics_io_num: cs.map(|pin| pin).unwrap_or(-1),
             queue_size: 20,
             ..Default::default()
         };
@@ -419,28 +419,24 @@ impl<'d> EthDriver<'d> {
         Ok(spi_handle)
     }
 
-    fn init_spi_bus<P: spi::Spi>(
-        sclk_pin: i32,
-        sdo_pin: i32,
-        sdi_pin: i32,
-    ) -> Result<(), EspError> {
+    fn init_spi_bus<P: spi::Spi>(sclk: i32, sdo: i32, sdi: i32) -> Result<(), EspError> {
         unsafe { gpio_install_isr_service(0) };
 
         #[cfg(not(esp_idf_version = "4.3"))]
         let bus_config = spi_bus_config_t {
             flags: SPICOMMON_BUSFLAG_MASTER,
-            sclk_io_num: sclk_pin,
+            sclk_io_num: sclk,
 
             data4_io_num: -1,
             data5_io_num: -1,
             data6_io_num: -1,
             data7_io_num: -1,
             __bindgen_anon_1: spi_bus_config_t__bindgen_ty_1 {
-                mosi_io_num: sdo_pin,
+                mosi_io_num: sdo,
                 //data0_io_num: -1,
             },
             __bindgen_anon_2: spi_bus_config_t__bindgen_ty_2 {
-                miso_io_num: sdi_pin,
+                miso_io_num: sdi,
                 //data1_io_num: -1,
             },
             __bindgen_anon_3: spi_bus_config_t__bindgen_ty_3 {
@@ -458,10 +454,10 @@ impl<'d> EthDriver<'d> {
         #[cfg(esp_idf_version = "4.3")]
         let bus_config = spi_bus_config_t {
             flags: SPICOMMON_BUSFLAG_MASTER,
-            sclk_io_num: sclk_pin,
+            sclk_io_num: sclk,
 
-            mosi_io_num: sdo_pin,
-            miso_io_num: sdi_pin.map(|pin| pin).unwrap_or(-1),
+            mosi_io_num: sdo,
+            miso_io_num: sdi.map(|pin| pin).unwrap_or(-1),
             quadwp_io_num: -1,
             quadhd_io_num: -1,
 
