@@ -177,8 +177,8 @@ pub mod config {
         pub write_only: bool,
         pub duplex: Duplex,
         pub cs_active_high: bool,
-        /// How many bits should be in one transfer unit e.g 8bit 32bit.
-        /// A transfer unit is an continoues clkout signal without a gap.
+        /// Number of bits in a transfer unit e.g 8bit 32bit.
+        /// A transfer unit is a continoues clkout signal without a gap.
         /// Some Devices can only work with 8bit transfer units
         pub chunk_size: Chunk,
     }

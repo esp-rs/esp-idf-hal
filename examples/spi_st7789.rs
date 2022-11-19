@@ -31,7 +31,7 @@ use embedded_graphics::image::*;
 use embedded_graphics::pixelcolor::Rgb565;
 use embedded_graphics::prelude::*;
 
-use st7789::{Orientation, ST7789};
+use mipidsi::{Builder, Orientation};
 
 fn main() -> anyhow::Result<()> {
     let peripherals = Peripherals::take().unwrap();
@@ -59,13 +59,13 @@ fn main() -> anyhow::Result<()> {
     let di = SPIInterfaceNoCS::new(device, dc);
 
     // create driver
-    let mut display = ST7789::new(di, rst, 240, 240);
-
-    // initialize
-    display.init(&mut delay).unwrap();
-
-    // set default orientation
-    display.set_orientation(Orientation::Portrait).unwrap();
+    let mut display = Builder::st7789(di)
+        .with_display_size(240, 240)
+        // set default orientation
+        .with_orientation(Orientation::Portrait(false))
+        // initialize
+        .init(&mut delay, Some(rst))
+        .unwrap();
 
     // turn on the backlight
     backlight.set_high()?;

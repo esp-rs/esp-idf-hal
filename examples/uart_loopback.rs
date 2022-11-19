@@ -24,7 +24,7 @@ fn main() -> anyhow::Result<()> {
 
     println!("Starting UART loopback test");
     let config = config::Config::new().baudrate(Hertz(115_200));
-    let mut uart = UartDriver::new(
+    let uart = UartDriver::new(
         peripherals.uart1,
         tx,
         rx,
