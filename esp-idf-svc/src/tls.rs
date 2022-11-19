@@ -9,7 +9,7 @@ pub enum X509<'a> {
 }
 
 impl<'a> X509<'a> {
-    const SCAN_LAST_CHARS: usize = 16;
+    const SCAN_LAST_BYTES: usize = 16;
 
     pub(crate) fn as_raw_ptr(&self) -> *const c_types::c_char {
         match self {
@@ -37,10 +37,10 @@ impl<'a> X509<'a> {
         if !data
             .iter()
             .rev()
-            .take(min(Self::SCAN_LAST_CHARS, data.len()))
+            .take(min(Self::SCAN_LAST_BYTES, data.len()))
             .any(|c| **c == 0)
         {
-            panic!("PEM certificates should end with a NIL (`\\0`) ASCII character. No NIL found in the last {} bytes", Self::SCAN_LAST_CHARS);
+            panic!("PEM certificates should end with a NIL (`\\0`) ASCII character. No NIL found in the last {} bytes", Self::SCAN_LAST_BYTES);
         }
     }
 }
