@@ -375,6 +375,7 @@ pub mod embassy_sync {
     }
 
     unsafe impl RawMutex for EspRawMutex {
+        #[allow(clippy::declare_interior_mutable_const)]
         const INIT: Self = Self::new();
 
         fn lock<R>(&self, f: impl FnOnce() -> R) -> R {
