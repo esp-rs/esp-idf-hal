@@ -38,7 +38,7 @@ impl<'a> X509<'a> {
             .iter()
             .rev()
             .take(min(Self::SCAN_LAST_BYTES, data.len()))
-            .any(|c| **c == 0)
+            .any(|c| *c == 0)
         {
             panic!("PEM certificates should end with a NIL (`\\0`) ASCII character. No NIL found in the last {} bytes", Self::SCAN_LAST_BYTES);
         }
