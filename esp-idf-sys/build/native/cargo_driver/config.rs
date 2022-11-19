@@ -15,7 +15,7 @@ use crate::config::EspIdfSys;
 pub const ESP_IDF_VERSION_VAR: &str = "ESP_IDF_VERSION";
 pub const ESP_IDF_REPOSITORY_VAR: &str = "ESP_IDF_REPOSITORY";
 
-pub const DEFAULT_ESP_IDF_VERSION: &str = "v4.4.1";
+pub const DEFAULT_ESP_IDF_VERSION: &str = "v4.4.3";
 pub const DEFAULT_CMAKE_GENERATOR: cmake::Generator = {
     // No Ninja builds for linux=aarch64 from Espressif yet
     #[cfg(all(target_os = "linux", target_arch = "aarch64"))]
