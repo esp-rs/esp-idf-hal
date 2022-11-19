@@ -259,20 +259,25 @@ impl EspHttpServer {
             config.0.httpd.close_fn = Some(Self::close_fn);
 
             if let (Some(cert), Some(private_key)) = (conf.server_certificate, conf.private_key) {
+                // NOTE: Contrary to other components in ESP IDF (HTTP & MQTT client),
+                // HTTP server does allocate internal buffers for the certificates
+                // Moreover - due to internal implementation details - it needs the
+                // full length of the certificate, even for the PEM case
+
                 #[cfg(esp_idf_version_major = "4")]
                 {
-                    config.0.cacert_pem = cert.as_raw_ptr() as _;
-                    config.0.cacert_len = cert.as_raw_len();
+                    config.0.cacert_pem = cert.as_esp_idf_raw_ptr() as _;
+                    config.0.cacert_len = cert.data().len() as _;
                 }
 
                 #[cfg(not(esp_idf_version_major = "4"))]
                 {
-                    config.0.servercert = cert.as_raw_ptr() as _;
-                    config.0.servercert_len = cert.as_raw_len();
+                    config.0.servercert = cert.as_esp_idf_raw_ptr() as _;
+                    config.0.servercert_len = cert.data().len() as _;
                 }
 
-                config.0.prvtkey_pem = private_key.as_raw_ptr() as _;
-                config.0.prvtkey_len = private_key.as_raw_len();
+                config.0.prvtkey_pem = private_key.as_esp_idf_raw_ptr() as _;
+                config.0.prvtkey_len = private_key.data().len() as _;
 
                 esp!(unsafe { httpd_ssl_start(handle_ref, &mut config.0) })?;
             } else {

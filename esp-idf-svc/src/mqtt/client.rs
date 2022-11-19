@@ -183,16 +183,16 @@ impl<'a> From<&'a MqttClientConfiguration<'a>> for (esp_mqtt_client_config_t, Ra
         }
 
         if let Some(cert) = conf.server_certificate {
-            c_conf.cert_pem = cert.as_raw_ptr() as _;
-            c_conf.cert_len = cert.as_raw_len();
+            c_conf.cert_pem = cert.as_esp_idf_raw_ptr() as _;
+            c_conf.cert_len = cert.as_esp_idf_raw_len();
         }
 
         if let (Some(cert), Some(private_key)) = (conf.client_certificate, conf.private_key) {
-            c_conf.client_cert_pem = cert.as_raw_ptr() as _;
-            c_conf.client_cert_len = cert.as_raw_len();
+            c_conf.client_cert_pem = cert.as_esp_idf_raw_ptr() as _;
+            c_conf.client_cert_len = cert.as_esp_idf_raw_len();
 
-            c_conf.client_key_pem = private_key.as_raw_ptr() as _;
-            c_conf.client_key_len = private_key.as_raw_len();
+            c_conf.client_key_pem = private_key.as_esp_idf_raw_ptr() as _;
+            c_conf.client_key_len = private_key.as_esp_idf_raw_len();
 
             if let Some(pass) = conf.private_key_password {
                 c_conf.clientkey_password = pass.as_ptr() as _;
@@ -283,16 +283,16 @@ impl<'a> From<&'a MqttClientConfiguration<'a>> for (esp_mqtt_client_config_t, Ra
         }
 
         if let Some(cert) = conf.server_certificate {
-            c_conf.broker.verification.certificate = cert.as_raw_ptr() as _;
-            c_conf.broker.verification.certificate_len = cert.as_raw_len();
+            c_conf.broker.verification.certificate = cert.as_esp_idf_raw_ptr() as _;
+            c_conf.broker.verification.certificate_len = cert.as_esp_idf_raw_len();
         }
 
         if let (Some(cert), Some(private_key)) = (conf.client_certificate, conf.private_key) {
-            c_conf.credentials.authentication.certificate = cert.as_raw_ptr() as _;
-            c_conf.credentials.authentication.certificate_len = cert.as_raw_len();
+            c_conf.credentials.authentication.certificate = cert.as_esp_idf_raw_ptr() as _;
+            c_conf.credentials.authentication.certificate_len = cert.as_esp_idf_raw_len();
 
-            c_conf.credentials.authentication.key = private_key.as_raw_ptr() as _;
-            c_conf.credentials.authentication.key_len = private_key.as_raw_len();
+            c_conf.credentials.authentication.key = private_key.as_esp_idf_raw_ptr() as _;
+            c_conf.credentials.authentication.key_len = private_key.as_esp_idf_raw_len();
 
             if let Some(pass) = conf.private_key_password {
                 c_conf.credentials.authentication.key_password = pass.as_ptr() as _;

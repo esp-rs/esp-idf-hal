@@ -129,11 +129,11 @@ impl EspHttpConnection {
         if let (Some(cert), Some(private_key)) =
             (configuration.client_certificate, configuration.private_key)
         {
-            native_config.client_cert_pem = cert.as_raw_ptr() as _;
-            native_config.client_cert_len = cert.as_raw_len();
+            native_config.client_cert_pem = cert.as_esp_idf_raw_ptr() as _;
+            native_config.client_cert_len = cert.as_esp_idf_raw_len();
 
-            native_config.client_key_pem = private_key.as_raw_ptr() as _;
-            native_config.client_key_len = private_key.as_raw_len();
+            native_config.client_key_pem = private_key.as_esp_idf_raw_ptr() as _;
+            native_config.client_key_len = private_key.as_esp_idf_raw_len();
         }
 
         let raw_client = unsafe { esp_http_client_init(&native_config) };
