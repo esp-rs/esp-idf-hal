@@ -1,5 +1,5 @@
-use core::cell::UnsafeCell;
-use core::ptr;
+use core::cell::Cell;
+use core::ptr::{self, NonNull};
 use core::sync::atomic::{AtomicBool, Ordering};
 use core::time::Duration;
 
@@ -246,7 +246,7 @@ pub mod thread {
     }
 }
 
-pub struct CriticalSection(UnsafeCell<QueueHandle_t>, AtomicBool);
+pub struct CriticalSection(Cell<Option<NonNull<QueueDefinition>>>, AtomicBool);
 
 // Not available in the esp-idf-sys bindings
 const QUEUE_TYPE_RECURSIVE_MUTEX: u8 = 4;
@@ -257,16 +257,15 @@ fn enter(cs: &CriticalSection) {
     if !cs.1.load(Ordering::SeqCst) {
         interrupt::free(|| {
             if !cs.1.load(Ordering::SeqCst) {
-                unsafe {
-                    *cs.0.get().as_mut().unwrap() = xQueueCreateMutex(QUEUE_TYPE_RECURSIVE_MUTEX);
-                }
+                let ptr = unsafe { xQueueCreateMutex(QUEUE_TYPE_RECURSIVE_MUTEX) };
+                cs.0.set(NonNull::new(ptr));
                 cs.1.store(true, Ordering::SeqCst);
             }
         });
     }
 
     unsafe {
-        xQueueTakeMutexRecursive(*cs.0.get().as_mut().unwrap(), crate::delay::BLOCK);
+        xQueueTakeMutexRecursive(cs.0.get().unwrap().as_ptr(), crate::delay::BLOCK);
     }
 }
 
@@ -278,7 +277,7 @@ fn exit(cs: &CriticalSection) {
     }
 
     unsafe {
-        xQueueGiveMutexRecursive(*cs.0.get().as_mut().unwrap());
+        xQueueGiveMutexRecursive(cs.0.get().unwrap().as_ptr());
     }
 }
 
@@ -287,10 +286,7 @@ impl CriticalSection {
     #[inline(always)]
     #[link_section = ".iram1.cs_new"]
     pub const fn new() -> Self {
-        Self(
-            UnsafeCell::new(core::ptr::null_mut()),
-            AtomicBool::new(false),
-        )
+        Self(Cell::new(None), AtomicBool::new(false))
     }
 
     #[inline(always)]
@@ -411,7 +407,7 @@ pub mod executor {
         pub fn new() -> Self {
             Self(
                 Arc::new(AtomicPtr::new(task::current().unwrap())),
-                core::ptr::null(),
+                ptr::null(),
             )
         }
     }
