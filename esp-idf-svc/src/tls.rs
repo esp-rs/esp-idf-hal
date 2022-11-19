@@ -34,12 +34,11 @@ impl<'a> X509<'a> {
     }
 
     fn check_pem(data: &[u8]) {
-        if data
+        if !data
             .iter()
             .rev()
             .take(min(Self::SCAN_LAST_CHARS, data.len()))
-            .find(|c| **c == 0)
-            .is_none()
+            .any(|c| **c == 0)
         {
             panic!("PEM certificates should end with a NIL (`\\0`) ASCII character. No NIL found in the last {} bytes", Self::SCAN_LAST_CHARS);
         }
