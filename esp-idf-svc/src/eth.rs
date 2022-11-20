@@ -11,7 +11,6 @@ use alloc::sync::Arc;
 use embedded_svc::eth::*;
 
 use esp_idf_hal::gpio::{InputPin, OutputPin};
-use esp_idf_hal::mac::MAC;
 use esp_idf_hal::peripheral::{Peripheral, PeripheralRef};
 
 #[cfg(any(
@@ -170,7 +169,7 @@ pub struct EthDriver<'d> {
 impl<'d> EthDriver<'d> {
     #[allow(clippy::too_many_arguments)]
     pub fn new_rmii(
-        mac: impl Peripheral<P = MAC> + 'd,
+        mac: impl Peripheral<P = esp_idf_hal::mac::MAC> + 'd,
         _rmii_rdx0: impl Peripheral<P = gpio::Gpio25> + 'd,
         _rmii_rdx1: impl Peripheral<P = gpio::Gpio26> + 'd,
         _rmii_crs_dv: impl Peripheral<P = gpio::Gpio27> + 'd,
@@ -269,7 +268,7 @@ impl<'d> EthDriver<'d> {
 #[cfg(esp_idf_eth_use_openeth)]
 impl<'d> EthDriver<'d> {
     pub fn new_openeth(
-        mac: impl Peripheral<P = MAC> + 'd,
+        mac: impl Peripheral<P = esp_idf_hal::mac::MAC> + 'd,
         sysloop: EspSystemEventLoop,
     ) -> Result<Self, EspError> {
         esp_idf_hal::into_ref!(mac);
