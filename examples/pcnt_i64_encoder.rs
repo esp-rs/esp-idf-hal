@@ -9,12 +9,10 @@ use std::{sync::{atomic::{Ordering, AtomicI64}, Arc}, cmp::min};
 
 use anyhow;
 use anyhow::Context;
-use embedded_hal_0_2::blocking::delay::DelayMs;
+use embedded_hal::delay::DelayUs;
 use esp_idf_hal::delay::FreeRtos as delay;
 use esp_idf_hal::prelude::*;
 use esp_idf_hal::gpio::Pull;
-use tracing::{info, Level};
-use tracing_subscriber::FmtSubscriber;
 use esp_idf_sys as _; // If using the `binstart` feature of `esp-idf-sys`, always keep this module imported
 use esp_idf_hal::pcnt::*;
 
@@ -23,30 +21,20 @@ fn main() -> anyhow::Result<()> {
     // or else some patches to the runtime implemented by esp-idf-sys might not link properly.
     esp_idf_sys::link_patches();
 
-    let subscriber = FmtSubscriber::builder()
-    // all spans/events with a level higher than TRACE (e.g, debug, info, warn, etc.)
-    // will be written to stdout.
-    .with_max_level(Level::TRACE)
-    // completes the builder.
-    .finish();
-
-    tracing::subscriber::set_global_default(subscriber)
-        .expect("setting default subscriber failed");
-
-    info!("setup pins");
+    println!("setup pins");
     let peripherals = Peripherals::take().context("failed to take Peripherals")?;
     let m1_enc1_pin = peripherals.pins.gpio5;
     let m1_enc2_pin = peripherals.pins.gpio6;
     let m1_enc1_pin = PcntPin::new(m1_enc1_pin, Pull::Up)?;
     let m1_enc2_pin = PcntPin::new(m1_enc2_pin, Pull::Up)?;
-    info!("creating pcnt unit 0");
+    println!("creating pcnt unit 0");
     let mut pcnt = Pcnt::new()?;
-    info!("configure pcnt chanel 0");
+    println!("configure pcnt chanel 0");
     const POS_LIMIT: i16 = 100;
     const NEG_LIMIT: i16 = -100;
     let mut config = PcntConfig {
-        pulse_pin: Some(&m1_enc1_pin),
-        ctrl_pin: Some(&m1_enc2_pin),
+        pulse_pin: Some(m1_enc1_pin.clone()),
+        ctrl_pin: Some(m1_enc2_pin.clone()),
         lctrl_mode: PcntControlMode::Reverse,
         hctrl_mode: PcntControlMode::Keep,
         pos_mode: PcntCountMode::Decrement,
@@ -54,14 +42,13 @@ fn main() -> anyhow::Result<()> {
         counter_h_lim: POS_LIMIT,
         counter_l_lim: NEG_LIMIT,
         channel: PcntChannel::Channel0,
-        _p: std::marker::PhantomData,
     };
     pcnt.config(&mut config).context("configuring CHANNEL0")?;
 
-    info!("configure pcnt chanel 1");
+    println!("configure pcnt chanel 1");
     config.channel = PcntChannel::Channel1;
-    config.pulse_pin = Some(&m1_enc2_pin);
-    config.ctrl_pin = Some(&m1_enc1_pin);
+    config.pulse_pin = Some(m1_enc2_pin);
+    config.ctrl_pin = Some(m1_enc1_pin);
     config.pos_mode = PcntCountMode::Increment;
     config.neg_mode = PcntCountMode::Decrement;
     pcnt.config(&mut config).context("configuring CHANNEL1")?;
@@ -85,7 +72,7 @@ fn main() -> anyhow::Result<()> {
     }
     pcnt.event_enable(PcntEventType::H_LIM)?;
     pcnt.event_enable(PcntEventType::L_LIM)?;
-    info!("starting pcnt counter");
+    println!("starting pcnt counter");
     pcnt.counter_pause()?;
     pcnt.counter_clear()?;
     pcnt.counter_resume()?;
@@ -96,9 +83,9 @@ fn main() -> anyhow::Result<()> {
         let acc_value = value.load(Ordering::SeqCst);
         let value = acc_value + pcnt_value;
         if value != last_value {
-            info!("value: {value} pct={pcnt_value} acc={acc_value}");
+            println!("value: {value} pct={pcnt_value} acc={acc_value}");
             last_value = value;
         }
-        delay.delay_ms(100u32);
+        delay.delay_ms(100u32)?;
     }
 }
