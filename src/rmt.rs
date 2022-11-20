@@ -836,7 +836,7 @@ impl VariableLengthSignal {
         // half the size, rounding up, because each entry in the [`Vec`] holds upto 2 pulses each
         let vec_size = (capacity + 1) / 2;
         Self {
-            items: Vec::with_capacity(vec_size),
+            items: alloc::vec::Vec::with_capacity(vec_size),
             next_item_is_new: true,
         }
     }
