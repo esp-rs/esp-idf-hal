@@ -1,7 +1,7 @@
-use core::borrow::Borrow;
 use core::fmt;
 use core::fmt::Debug;
-use core::marker::PhantomData;
+use std::sync::Mutex;
+use std::sync::Arc;
 
 use esp_idf_sys::esp;
 use esp_idf_sys::pcnt_config_t;
@@ -100,11 +100,11 @@ bitflags! {
 
 #[doc = " @brief Pulse Counter configuration for a single channel"]
 #[derive(Debug)]
-pub struct PcntConfig<'d, T: Borrow<PcntPin<'d>>> {
+pub struct PcntConfig<'d> {
     #[doc = "< Pulse input GPIO number, if you want to use GPIO16, enter pulse_gpio_num = 16, a negative value will be ignored"]
-    pub pulse_pin: Option<T>,
+    pub pulse_pin: Option<PcntPin<'d>>,
     #[doc = "< Control signal input GPIO number, a negative value will be ignored"]
-    pub ctrl_pin: Option<T>,
+    pub ctrl_pin: Option<PcntPin<'d>>,
     #[doc = "< PCNT low control mode"]
     pub lctrl_mode: PcntControlMode,
     #[doc = "< PCNT high control mode"]
@@ -119,11 +119,11 @@ pub struct PcntConfig<'d, T: Borrow<PcntPin<'d>>> {
     pub counter_l_lim: i16,
     #[doc = "< the PCNT channel"]
     pub channel: PcntChannel,
-    pub _p: PhantomData<&'d ()>,
 }
 
+#[derive(Clone)]
 pub struct PcntPin<'d> {
-    pin: PinDriver<'d, AnyIOPin, Input>
+    pin: Arc<Mutex<PinDriver<'d, AnyIOPin, Input>>>
 }
 
 impl<'d> PcntPin<'d> {
@@ -132,12 +132,14 @@ impl<'d> PcntPin<'d> {
         let pin: PeripheralRef<AnyIOPin> = pin.into_ref().map_into();
         let mut pin = PinDriver::input(pin)?;
         pin.set_pull(pull_mode)?;
-        Ok(Self{pin})
+        Ok(Self {
+            pin: Arc::new(Mutex::new(pin))
+        })
     
     }
 
     fn pin_num(&self) -> i32 {
-        self.pin.pin()
+        self.pin.lock().unwrap().pin()
     }
 }
 
@@ -148,35 +150,34 @@ impl<'d> Debug for PcntPin<'d> {
 }
 
 #[derive(Debug)]
-struct PcntChannelPins <'d, T: Borrow<PcntPin<'d>>>
+struct PcntChannelPins<'d>
 {
-    pulse: Option<T>,
-    ctrl: Option<T>,
-    _p: PhantomData<&'d ()>,
+    pulse: Option<PcntPin<'d>>,
+    ctrl: Option<PcntPin<'d>>,
 }
 
 #[derive(Debug)]
-pub struct Pcnt<'d, T: Borrow<PcntPin<'d>>> {
+pub struct Pcnt<'d> {
     unit: pcnt_unit_t,
-    channel_pins: [PcntChannelPins<'d, T>; esp_idf_sys::pcnt_channel_t_PCNT_CHANNEL_MAX as usize]
+    channel_pins: [PcntChannelPins<'d>; esp_idf_sys::pcnt_channel_t_PCNT_CHANNEL_MAX as usize]
 }
 
-impl<'d, T: Borrow<PcntPin<'d>>> Pcnt<'d, T> {
+impl<'d> Pcnt<'d> {
     pub fn new() -> Result<Self, EspError> {
         Ok(Pcnt {
             unit: unit_allocate()?,
-            channel_pins: [PcntChannelPins { pulse: None, ctrl: None, _p: PhantomData::default() }, PcntChannelPins { pulse: None, ctrl: None, _p: PhantomData::default() }],
+            channel_pins: [PcntChannelPins { pulse: None, ctrl: None }, PcntChannelPins { pulse: None, ctrl: None }],
         })
     }
 
-    pub fn config(&mut self, pconfig: &mut PcntConfig<'d, T>) -> Result<(), EspError> {
-        let mut config =         pcnt_config_t {
+    pub fn config(&mut self, pconfig: &mut PcntConfig<'d>) -> Result<(), EspError> {
+        let config = pcnt_config_t {
             pulse_gpio_num: match &pconfig.pulse_pin {
-                Some(pin) => pin.borrow().pin_num(),
+                Some(pin) => pin.pin_num(),
                 None => esp_idf_sys::PCNT_PIN_NOT_USED,
             },
             ctrl_gpio_num: match &pconfig.ctrl_pin {
-                Some(pin) => pin.borrow().pin_num(),
+                Some(pin) => pin.pin_num(),
                 None => esp_idf_sys::PCNT_PIN_NOT_USED,
             },
             lctrl_mode: pconfig.lctrl_mode.into(),
@@ -186,9 +187,9 @@ impl<'d, T: Borrow<PcntPin<'d>>> Pcnt<'d, T> {
             counter_h_lim: pconfig.counter_h_lim,
             counter_l_lim: pconfig.counter_l_lim,
             channel: pconfig.channel.into(),
-            ..Default::default()
+            unit: self.unit,
         };
-        config.unit = self.unit.into();
+
         self.channel_pins[config.channel as usize].pulse = pconfig.pulse_pin.take();
         self.channel_pins[config.channel as usize].ctrl = pconfig.pulse_pin.take();
         unsafe {
@@ -283,15 +284,15 @@ impl<'d, T: Borrow<PcntPin<'d>>> Pcnt<'d, T> {
     pub fn set_pin(
         &mut self,
         channel: PcntChannel,
-        pulse_pin: Option<T>,
-        ctrl_pin: Option<T>,
+        pulse_pin: Option<PcntPin<'d>>,
+        ctrl_pin: Option<PcntPin<'d>>,
     ) -> Result<(), EspError> {
         let pulse_io_num = match &pulse_pin {
-            Some(pin) => pin.borrow().pin_num(),
+            Some(pin) => pin.pin_num(),
             None => esp_idf_sys::PCNT_PIN_NOT_USED,
         };
         let ctrl_io_num = match &ctrl_pin {
-            Some(pin) => pin.borrow().pin_num(),
+            Some(pin) => pin.pin_num(),
             None => esp_idf_sys::PCNT_PIN_NOT_USED,
         };
         self.channel_pins[channel as usize].pulse = pulse_pin;
@@ -364,7 +365,7 @@ impl<'d, T: Borrow<PcntPin<'d>>> Pcnt<'d, T> {
     }
 }
 
-impl<'d, T: Borrow<PcntPin<'d>>> Drop for Pcnt<'d, T> {
+impl<'d> Drop for Pcnt<'d> {
     fn drop(&mut self) {
         let _ = self.intr_disable();
         unsafe {ISR_HANDLERS[self.unit as usize] = None};
