@@ -269,16 +269,17 @@ impl<'d> EthDriver<'d> {
 #[cfg(esp_idf_eth_use_openeth)]
 impl<'d> EthDriver<'d> {
     pub fn new_openeth(
-        mac: esp_idf_hal::mac::Mac,
+        mac: impl Peripheral<P = MAC> + 'd,
         sysloop: EspSystemEventLoop,
     ) -> Result<Self, EspError> {
-        crate::into_ref!(mac);
+        esp_idf_hal::into_ref!(mac);
 
         let eth = Self::init(
+            mac,
             unsafe { esp_eth_mac_new_openeth(&Self::eth_mac_default_config(0, 0)) },
             unsafe { esp_eth_phy_new_dp83848(&Self::eth_phy_default_config(None, None)) },
             None,
-            (),
+            None,
             sysloop,
         )?;
 
