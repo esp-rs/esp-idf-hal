@@ -506,7 +506,7 @@ impl Drop for Device {
 
 pub struct SpiDriver<'d> {
     host: u8,
-    max_transfer_size: usize,
+    pub(crate) max_transfer_size: usize,
     _p: PhantomData<&'d mut ()>,
 }
 
@@ -770,7 +770,7 @@ where
         self.transaction(&mut [Operation::TransferInPlace(buf)])
     }
 
-    fn lock_bus(&self) -> Result<Lock, EspError> {
+    pub(crate) fn lock_bus(&self) -> Result<Lock, EspError> {
         Lock::new(self.handle.0)
     }
 }
@@ -1236,7 +1236,7 @@ where
     }
 }
 
-fn to_spi_err(err: EspError) -> SpiError {
+pub(crate) fn to_spi_err(err: EspError) -> SpiError {
     SpiError::other(err)
 }
 
@@ -1248,10 +1248,10 @@ const TRANS_LEN: usize = if SOC_SPI_MAXIMUM_BUFFER_SIZE < 64_u32 {
     64_usize
 };
 
-struct Lock(spi_device_handle_t);
+pub(crate) struct Lock(spi_device_handle_t);
 
 impl Lock {
-    fn new(device: spi_device_handle_t) -> Result<Self, EspError> {
+    pub(crate) fn new(device: spi_device_handle_t) -> Result<Self, EspError> {
         esp!(unsafe { spi_device_acquire_bus(device, BLOCK) })?;
 
         Ok(Self(device))

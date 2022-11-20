@@ -1,3 +1,4 @@
+#![feature(stmt_expr_attributes)]
 #![cfg_attr(not(feature = "std"), no_std)]
 #![cfg_attr(target_arch = "xtensa", feature(asm_experimental_arch))]
 #![cfg_attr(
@@ -66,6 +67,8 @@ pub mod rmt;
 pub mod rom;
 #[cfg(not(feature = "riscv-ulp-hal"))]
 pub mod spi;
+#[cfg(not(feature = "riscv-ulp-hal"))]
+pub mod spi_async;
 #[cfg(not(feature = "riscv-ulp-hal"))]
 pub mod task;
 #[cfg(not(feature = "riscv-ulp-hal"))]
