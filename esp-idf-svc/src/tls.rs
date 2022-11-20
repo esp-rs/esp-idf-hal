@@ -1,6 +1,7 @@
 use core::ffi::{c_char, CStr};
+use core::fmt::Debug;
 
-#[derive(Copy, Clone, Eq, PartialEq, Debug)]
+#[derive(Copy, Clone, Eq, PartialEq)]
 pub struct X509<'a>(&'a [u8]);
 
 impl<'a> X509<'a> {
@@ -36,5 +37,11 @@ impl<'a> X509<'a> {
 
     pub(crate) fn as_esp_idf_raw_len(&self) -> u32 {
         self.data().len() as _
+    }
+}
+
+impl<'a> Debug for X509<'a> {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> Result<(), core::fmt::Error> {
+        write!(f, "X509(...)")
     }
 }
