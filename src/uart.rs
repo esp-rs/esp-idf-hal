@@ -547,16 +547,13 @@ impl<'d> UartDriver<'d> {
     }
 
     /// Get count of remaining capacity in the transmit ring buffer
-    #[cfg(not(all(
-        esp_idf_version_major = "4",
-        any(
-            esp_idf_version_minor = "3",
-            all(
-                esp_idf_version_minor = "4",
-                any(esp_idf_version_patch = "0", esp_idf_version_patch = "1")
-            )
-        )
-    )))]
+    #[cfg(any(
+        not(esp_idf_version_major = "4"),
+        all(
+            esp_idf_version_minor = "4",
+            not(any(esp_idf_version_patch = "0", esp_idf_version_patch = "1")),
+        ),
+    ))]
     pub fn remaining_write(&self) -> Result<u32, EspError> {
         remaining_write_capacity(self.port())
     }
@@ -851,16 +848,13 @@ impl<'d> UartTxDriver<'d> {
     }
 
     /// Get count of remaining capacity in the transmit ring buffer
-    #[cfg(not(all(
-        esp_idf_version_major = "4",
-        any(
-            esp_idf_version_minor = "3",
-            all(
-                esp_idf_version_minor = "4",
-                any(esp_idf_version_patch = "0", esp_idf_version_patch = "1")
-            )
-        )
-    )))]
+    #[cfg(any(
+        not(esp_idf_version_major = "4"),
+        all(
+            esp_idf_version_minor = "4",
+            not(any(esp_idf_version_patch = "0", esp_idf_version_patch = "1")),
+        ),
+    ))]
     pub fn count(&self) -> Result<u32, EspError> {
         remaining_write_capacity(self.port())
     }
@@ -1021,16 +1015,13 @@ pub fn remaining_unread_bytes(port: uart_port_t) -> Result<u32, EspError> {
     esp_result!(unsafe { uart_get_buffered_data_len(port, &mut size) }, size)
 }
 
-#[cfg(not(all(
-    esp_idf_version_major = "4",
-    any(
-        esp_idf_version_minor = "3",
-        all(
-            esp_idf_version_minor = "4",
-            any(esp_idf_version_patch = "0", esp_idf_version_patch = "1")
-        )
-    )
-)))]
+#[cfg(any(
+    not(esp_idf_version_major = "4"),
+    all(
+        esp_idf_version_minor = "4",
+        not(any(esp_idf_version_patch = "0", esp_idf_version_patch = "1")),
+    ),
+))]
 pub fn remaining_write_capacity(port: uart_port_t) -> Result<u32, EspError> {
     let mut size = 0_u32;
     esp_result!(
