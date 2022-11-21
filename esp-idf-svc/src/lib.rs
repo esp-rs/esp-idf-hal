@@ -41,6 +41,7 @@ pub mod handle;
 pub mod http;
 #[cfg(all(feature = "std", esp_idf_comp_esp_http_server_enabled))]
 pub mod httpd;
+#[cfg(feature = "alloc")]
 pub mod log;
 #[cfg(all(feature = "alloc", esp_idf_comp_mdns_enabled))]
 pub mod mdns;
@@ -52,7 +53,7 @@ pub mod mdns;
 pub mod mqtt;
 #[cfg(esp_idf_lwip_ipv4_napt)]
 pub mod napt;
-#[cfg(esp_idf_comp_esp_netif_enabled)]
+#[cfg(all(feature = "alloc", esp_idf_comp_esp_netif_enabled))]
 pub mod netif;
 #[cfg(all(feature = "experimental", feature = "alloc"))]
 pub mod notify;
@@ -66,7 +67,7 @@ pub mod nvs;
 pub mod ota;
 #[cfg(esp_idf_comp_esp_netif_enabled)]
 pub mod ping;
-#[cfg(esp_idf_comp_esp_netif_enabled)]
+#[cfg(all(feature = "alloc", esp_idf_comp_esp_netif_enabled))]
 pub mod sntp;
 pub mod systime;
 #[cfg(all(feature = "alloc", esp_idf_comp_esp_timer_enabled))]

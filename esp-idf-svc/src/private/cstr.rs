@@ -9,7 +9,6 @@ pub use cstr_core::CString;
 
 #[cfg(feature = "alloc")]
 extern crate alloc;
-use alloc::vec::Vec;
 
 use esp_idf_sys::c_types;
 
@@ -42,7 +41,7 @@ pub struct RawCstrs(alloc::vec::Vec<CString>);
 impl RawCstrs {
     #[allow(dead_code)]
     pub fn new() -> Self {
-        Self(Vec::new())
+        Self(alloc::vec::Vec::new())
     }
 
     #[allow(dead_code)]
