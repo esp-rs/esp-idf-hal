@@ -6,6 +6,7 @@ use core::time::Duration;
 use ::log::*;
 
 extern crate alloc;
+use alloc::boxed::Box;
 use alloc::sync::Arc;
 
 use embedded_svc::eth::*;
