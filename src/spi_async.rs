@@ -139,18 +139,28 @@ impl<'a, T, Op: Operation> Future for SpiFuture<'a, T, Op> {
     }
 }
 
+#[allow(dead_code)]
+#[derive(Copy, Clone)]
+enum CsRule {
+    NoCs,
+    KeepCsActiveAfter,
+    DeAssertCsAfter,
+}
+
 pub trait Operation {
     fn fill(&mut self, transaction: &mut spi_transaction_t) -> bool;
 }
 
 pub struct Read<'a> {
     chunks: ChunksMut<'a, u8>,
+    cs_rule: CsRule,
 }
 
 impl<'a> Read<'a> {
-    fn new(words: &'a mut [u8], chunk_size: usize) -> Self {
+    fn new(words: &'a mut [u8], chunk_size: usize, cs_rule: CsRule) -> Self {
         Self {
             chunks: words.chunks_mut(chunk_size),
+            cs_rule,
         }
     }
 }
@@ -158,13 +168,19 @@ impl<'a> Read<'a> {
 impl<'a> Operation for Read<'a> {
     fn fill(&mut self, transaction: &mut spi_transaction_t) -> bool {
         if let Some(chunk) = self.chunks.next() {
+            let keep_cs_active = match self.cs_rule {
+                CsRule::NoCs => false,
+                CsRule::DeAssertCsAfter => !self.chunks.is_empty(),
+                CsRule::KeepCsActiveAfter => true,
+            };
+
             fill(
                 transaction,
                 chunk.as_mut_ptr(),
                 core::ptr::null(),
                 chunk.len(),
                 chunk.len(),
-                true,
+                keep_cs_active,
             );
             true
         } else {
@@ -175,12 +191,14 @@ impl<'a> Operation for Read<'a> {
 
 pub struct Write<'a> {
     chunks: Chunks<'a, u8>,
+    cs_rule: CsRule,
 }
 
 impl<'a> Write<'a> {
-    fn new(words: &'a [u8], chunk_size: usize) -> Self {
+    fn new(words: &'a [u8], chunk_size: usize, cs_rule: CsRule) -> Self {
         Self {
             chunks: words.chunks(chunk_size),
+            cs_rule,
         }
     }
 }
@@ -188,13 +206,18 @@ impl<'a> Write<'a> {
 impl<'a> Operation for Write<'a> {
     fn fill(&mut self, transaction: &mut spi_transaction_t) -> bool {
         if let Some(chunk) = self.chunks.next() {
+            let keep_cs_active = match self.cs_rule {
+                CsRule::NoCs => false,
+                CsRule::DeAssertCsAfter => !self.chunks.is_empty(),
+                CsRule::KeepCsActiveAfter => true,
+            };
             fill(
                 transaction,
                 core::ptr::null_mut(),
                 chunk.as_ptr(),
                 chunk.len(),
                 0,
-                true,
+                keep_cs_active,
             );
             true
         } else {
@@ -205,12 +228,14 @@ impl<'a> Operation for Write<'a> {
 
 pub struct TransferInPlace<'a> {
     chunks: ChunksMut<'a, u8>,
+    cs_rule: CsRule,
 }
 
 impl<'a> TransferInPlace<'a> {
-    fn new(words: &'a mut [u8], chunk_size: usize) -> Self {
+    fn new(words: &'a mut [u8], chunk_size: usize, cs_rule: CsRule) -> Self {
         Self {
             chunks: words.chunks_mut(chunk_size),
+            cs_rule,
         }
     }
 }
@@ -218,9 +243,14 @@ impl<'a> TransferInPlace<'a> {
 impl<'a> Operation for TransferInPlace<'a> {
     fn fill(&mut self, transaction: &mut spi_transaction_t) -> bool {
         if let Some(chunk) = self.chunks.next() {
+            let keep_cs_active = match self.cs_rule {
+                CsRule::NoCs => false,
+                CsRule::DeAssertCsAfter => !self.chunks.is_empty(),
+                CsRule::KeepCsActiveAfter => true,
+            };
             let ptr = chunk.as_mut_ptr();
             let len = chunk.len();
-            fill(transaction, ptr, ptr, len, len, true);
+            fill(transaction, ptr, ptr, len, len, keep_cs_active);
             true
         } else {
             false
@@ -231,6 +261,7 @@ impl<'a> Operation for TransferInPlace<'a> {
 pub struct Transfer<'a> {
     chunks: Zip<ChunksMut<'a, u8>, Chunks<'a, u8>>,
     trail: TransferTrail<'a>,
+    cs_rule: CsRule,
 }
 
 enum TransferTrail<'a> {
@@ -240,7 +271,7 @@ enum TransferTrail<'a> {
 }
 
 impl<'a> Transfer<'a> {
-    fn new(read: &'a mut [u8], write: &'a [u8], chunk_size: usize) -> Self {
+    fn new(read: &'a mut [u8], write: &'a [u8], chunk_size: usize, cs_rule: CsRule) -> Self {
         match read.len().cmp(&write.len()) {
             Ordering::Equal => {
                 let read = read.chunks_mut(chunk_size);
@@ -248,6 +279,7 @@ impl<'a> Transfer<'a> {
                 Transfer {
                     chunks: read.zip(write),
                     trail: TransferTrail::None,
+                    cs_rule,
                 }
             }
             Ordering::Greater => {
@@ -256,7 +288,8 @@ impl<'a> Transfer<'a> {
                 let write = write.chunks(chunk_size);
                 Transfer {
                     chunks: read.zip(write),
-                    trail: TransferTrail::Read(Read::new(read_trail, chunk_size)),
+                    trail: TransferTrail::Read(Read::new(read_trail, chunk_size, cs_rule)),
+                    cs_rule,
                 }
             }
             Ordering::Less => {
@@ -265,7 +298,8 @@ impl<'a> Transfer<'a> {
                 let write = write.chunks(chunk_size);
                 Transfer {
                     chunks: read.zip(write),
-                    trail: TransferTrail::Write(Write::new(write_trail, chunk_size)),
+                    trail: TransferTrail::Write(Write::new(write_trail, chunk_size, cs_rule)),
+                    cs_rule,
                 }
             }
         }
@@ -275,13 +309,21 @@ impl<'a> Transfer<'a> {
 impl<'a> Operation for Transfer<'a> {
     fn fill(&mut self, transaction: &mut spi_transaction_t) -> bool {
         if let Some((read_chunk, write_chunk)) = self.chunks.next() {
+            let keep_cs_active = match self.cs_rule {
+                CsRule::NoCs => false,
+                CsRule::DeAssertCsAfter => match self.trail {
+                    TransferTrail::None => !self.chunks.is_empty(),
+                    _ => true,
+                },
+                CsRule::KeepCsActiveAfter => true,
+            };
             fill(
                 transaction,
                 read_chunk.as_mut_ptr(),
                 write_chunk.as_ptr(),
                 max(read_chunk.len(), write_chunk.len()),
                 read_chunk.len(),
-                true,
+                keep_cs_active,
             );
             return true;
         }
@@ -360,11 +402,11 @@ impl<'d, T: BorrowMut<SpiDriver<'d>>> SpiBusDriver<T> {
     }
 
     pub fn read<'a>(&'a mut self, words: &'a mut [u8]) -> SpiFuture<'a, T, Read<'a>> {
-        self.future_op(Read::new(words, self.trans_len))
+        self.future_op(Read::new(words, self.trans_len, CsRule::NoCs))
     }
 
     pub fn write<'a>(&'a mut self, words: &'a [u8]) -> SpiFuture<'a, T, Write<'a>> {
-        self.future_op(Write::new(words, self.trans_len))
+        self.future_op(Write::new(words, self.trans_len, CsRule::NoCs))
     }
 
     pub fn transfer<'a>(
@@ -372,14 +414,14 @@ impl<'d, T: BorrowMut<SpiDriver<'d>>> SpiBusDriver<T> {
         read: &'a mut [u8],
         write: &'a [u8],
     ) -> SpiFuture<'a, T, Transfer<'a>> {
-        self.future_op(Transfer::new(read, write, self.trans_len))
+        self.future_op(Transfer::new(read, write, self.trans_len, CsRule::NoCs))
     }
 
     pub fn transfer_in_place<'a>(
         &'a mut self,
         words: &'a mut [u8],
     ) -> SpiFuture<'a, T, TransferInPlace<'a>> {
-        self.future_op(TransferInPlace::new(words, self.trans_len))
+        self.future_op(TransferInPlace::new(words, self.trans_len, CsRule::NoCs))
     }
 
     pub fn flush(&mut self) -> SpiFuture<T, Noop> {

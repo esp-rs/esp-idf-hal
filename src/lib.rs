@@ -1,4 +1,5 @@
 #![feature(stmt_expr_attributes)]
+#![feature(exact_size_is_empty)]
 #![cfg_attr(not(feature = "std"), no_std)]
 #![cfg_attr(target_arch = "xtensa", feature(asm_experimental_arch))]
 #![cfg_attr(
