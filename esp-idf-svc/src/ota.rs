@@ -158,11 +158,12 @@ impl EspOtaUpdate {
 pub struct EspOta(EspOtaUpdate);
 
 impl EspOta {
+    #[allow(clippy::unnecessary_cast)]
     pub fn new() -> Result<Self, EspError> {
         let mut taken = TAKEN.lock();
 
         if *taken {
-            esp!(ESP_ERR_INVALID_STATE as _)?;
+            esp!(ESP_ERR_INVALID_STATE as i32)?;
         }
 
         *taken = true;
