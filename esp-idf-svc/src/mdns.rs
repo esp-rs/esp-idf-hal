@@ -1,13 +1,14 @@
 use core::time::Duration;
 
 extern crate alloc;
+use alloc::boxed::Box;
 use alloc::string::String;
+use alloc::string::ToString;
 use alloc::vec::Vec;
 
 use ::log::info;
 
-use embedded_svc::ipv4::Ipv4Addr;
-use std::net::{IpAddr, Ipv6Addr};
+use embedded_svc::ipv4::{IpAddr, Ipv4Addr, Ipv6Addr};
 
 use esp_idf_sys::*;
 
@@ -185,7 +186,7 @@ impl EspMdns {
             mdns_service_add(
                 instance_name
                     .as_ref()
-                    .map_or(std::ptr::null(), |x| x.as_ptr()),
+                    .map_or(core::ptr::null(), |x| x.as_ptr()),
                 service_type.as_ptr(),
                 proto.as_ptr(),
                 port,
@@ -325,14 +326,14 @@ impl EspMdns {
         let service_type = service_type.map(|x| CString::new(x.to_string()).unwrap());
         let proto = proto.map(|x| CString::new(x.to_string()).unwrap());
 
-        let mut result = std::ptr::null_mut();
+        let mut result = core::ptr::null_mut();
         esp!(unsafe {
             mdns_query(
-                name.as_ref().map_or(std::ptr::null(), |x| x.as_ptr()),
+                name.as_ref().map_or(core::ptr::null(), |x| x.as_ptr()),
                 service_type
                     .as_ref()
-                    .map_or(std::ptr::null(), |x| x.as_ptr()),
-                proto.as_ref().map_or(std::ptr::null(), |x| x.as_ptr()),
+                    .map_or(core::ptr::null(), |x| x.as_ptr()),
+                proto.as_ref().map_or(core::ptr::null(), |x| x.as_ptr()),
                 mdns_type as _,
                 timeout.as_millis() as _,
                 max_results as _,
@@ -383,7 +384,7 @@ impl EspMdns {
         let instance_name = CString::new(instance_name.as_ref()).unwrap();
         let service_type = CString::new(service_type.as_ref()).unwrap();
         let proto = CString::new(proto.as_ref()).unwrap();
-        let mut result = std::ptr::null_mut();
+        let mut result = core::ptr::null_mut();
 
         esp!(unsafe {
             mdns_query_txt(
@@ -412,7 +413,7 @@ impl EspMdns {
         let instance_name = CString::new(instance_name.as_ref()).unwrap();
         let service_type = CString::new(service_type.as_ref()).unwrap();
         let proto = CString::new(proto.as_ref()).unwrap();
-        let mut result = std::ptr::null_mut();
+        let mut result = core::ptr::null_mut();
 
         esp!(unsafe {
             mdns_query_srv(
@@ -440,7 +441,7 @@ impl EspMdns {
     ) -> Result<usize, EspError> {
         let service_type = CString::new(service_type.as_ref()).unwrap();
         let proto = CString::new(proto.as_ref()).unwrap();
-        let mut result = std::ptr::null_mut();
+        let mut result = core::ptr::null_mut();
 
         esp!(unsafe {
             mdns_query_ptr(
