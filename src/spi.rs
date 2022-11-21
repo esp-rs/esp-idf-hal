@@ -9,17 +9,17 @@
 //!
 //! Look at the following table to determine which driver best suits your requirements:
 //!
-//! |   |                  | SpiDeviceDriver::new | SpiDeviceDriver::new (no CS) | SpiSoftCsDeviceDriver::new |   |
-//! |---|------------------|----------------------|------------------------------|----------------------------|---|
-//! |   | managed cs       |       hardware       |              -               |      software triggerd     |   |
-//! |   | 1 device         |           x          |              x               |              x             |   |
-//! |   | 1-3 devices      |           x          |              -               |              x             |   |
-//! |   | 4-6 devices      |    only on esp32c*   |              -               |              x             |   |
-//! |   | more than 6      |           -          |              -               |              x             |   |
-//! |   | Dma              |           -          |              -               |              -             |   |
-//! |   | polling transmit |           x          |              x               |              x             |   |
-//! |   | isr transmit     |           -          |              -               |              -             |   |
-//! |   | async ready      |           -          |              -               |              -             |   |
+//! |   |                  | SpiDeviceDriver::new | SpiDeviceDriver::new (no CS) | SpiSoftCsDeviceDriver::new | SpiBusDriver::new |
+//! |---|------------------|----------------------|------------------------------|----------------------------|-------------------|
+//! |   | managed cs       |       hardware       |              -               |     software triggered     |         -         |
+//! |   | 1 device         |           x          |              x               |              x             |         x         |
+//! |   | 1-3 devices      |           x          |              -               |              x             |         -         |
+//! |   | 4-6 devices      |    only on esp32c*   |              -               |              x             |         -         |
+//! |   | more than 6      |           -          |              -               |              x             |         -         |
+//! |   | Dma              |           -          |              -               |              -             |         -         |
+//! |   | polling transmit |           x          |              x               |              x             |         x         |
+//! |   | isr transmit     |           -          |              -               |              -             |         -         |
+//! |   | async ready      |           -          |              -               |              -             |         -         |
 //!
 //! The [Transfer::transfer], [Write::write] and [WriteIter::write_iter] functions lock the
 //! APB frequency and therefore the requests are always run at the requested baudrate.
@@ -30,7 +30,7 @@
 //! - Quad SPI
 //! - Slave SPI
 
-use core::borrow::Borrow;
+use core::borrow::{Borrow, BorrowMut};
 use core::cell::UnsafeCell;
 use core::cmp::{max, min, Ordering};
 use core::marker::PhantomData;
@@ -340,6 +340,119 @@ impl<'d> SpiBus for SpiSharedBusDriver<'d> {
     }
 }
 
+struct Device(spi_device_handle_t);
+
+impl Drop for Device {
+    fn drop(&mut self) {
+        esp!(unsafe { spi_bus_remove_device(self.0) }).unwrap();
+    }
+}
+
+pub struct SpiBusDriver<T> {
+    _lock: Lock,
+    device: Device,
+    _driver: T,
+    trans_len: usize, // Copied from driver to reduce generics.
+}
+
+impl<T> SpiBusDriver<T> {
+    pub fn new<'d>(driver: T, config: &config::Config) -> Result<Self, EspError>
+    where
+        T: BorrowMut<SpiDriver<'d>>,
+    {
+        let conf = spi_device_interface_config_t {
+            spics_io_num: -1,
+            clock_speed_hz: config.baudrate.0 as i32,
+            mode: data_mode_to_u8(config.data_mode),
+            queue_size: 1,
+            flags: if config.write_only {
+                SPI_DEVICE_NO_DUMMY
+            } else {
+                0_u32
+            } | config.duplex.as_flags(),
+            ..Default::default()
+        };
+
+        let mut handle: spi_device_handle_t = ptr::null_mut();
+        esp!(unsafe { spi_bus_add_device(driver.borrow().host(), &conf, &mut handle as *mut _) })?;
+
+        let device = Device(handle);
+
+        let lock = Lock::new(handle)?;
+
+        let trans_len = driver.borrow().max_transfer_size;
+
+        Ok(Self {
+            _lock: lock,
+            device,
+            _driver: driver,
+            trans_len,
+        })
+    }
+
+    pub fn read(&mut self, words: &mut [u8]) -> Result<(), EspError> {
+        self.bus().read(words)
+    }
+
+    pub fn write(&mut self, words: &[u8]) -> Result<(), EspError> {
+        self.bus().write(words)
+    }
+
+    pub fn transfer(&mut self, read: &mut [u8], write: &[u8]) -> Result<(), EspError> {
+        self.bus().transfer(read, write)
+    }
+
+    pub fn transfer_in_place(&mut self, words: &mut [u8]) -> Result<(), EspError> {
+        self.bus().transfer_in_place(words)
+    }
+
+    pub fn flush(&mut self) -> Result<(), EspError> {
+        // No buffering so there's nothing to flush.
+        Ok(())
+    }
+
+    fn bus(&self) -> SpiSharedBusDriver<'static> {
+        SpiSharedBusDriver {
+            handle: self.device.0,
+            trans_len: self.trans_len,
+            hardware_cs: false,
+            _p: PhantomData,
+        }
+    }
+}
+
+impl<T> embedded_hal::spi::ErrorType for SpiBusDriver<T> {
+    type Error = SpiError;
+}
+
+impl<T> SpiBusFlush for SpiBusDriver<T> {
+    fn flush(&mut self) -> Result<(), Self::Error> {
+        SpiBusDriver::flush(self).map_err(to_spi_err)
+    }
+}
+
+impl<T> SpiBusRead for SpiBusDriver<T> {
+    fn read(&mut self, words: &mut [u8]) -> Result<(), Self::Error> {
+        SpiBusDriver::read(self, words).map_err(to_spi_err)
+    }
+}
+
+impl<T> SpiBusWrite for SpiBusDriver<T> {
+    fn write(&mut self, words: &[u8]) -> Result<(), Self::Error> {
+        SpiBusDriver::write(self, words).map_err(to_spi_err)
+    }
+}
+
+impl<T> SpiBus for SpiBusDriver<T> {
+    fn transfer(&mut self, read: &mut [u8], write: &[u8]) -> Result<(), Self::Error> {
+        SpiBusDriver::transfer(self, read, write).map_err(to_spi_err)
+    }
+
+    fn transfer_in_place(&mut self, words: &mut [u8]) -> Result<(), Self::Error> {
+        SpiBusDriver::transfer_in_place(self, words).map_err(to_spi_err)
+    }
+}
+
 pub struct SpiDriver<'d> {
     host: u8,
     max_transfer_size: usize,
@@ -508,10 +621,7 @@ where
         let conf = spi_device_interface_config_t {
             spics_io_num: cs,
             clock_speed_hz: config.baudrate.0 as i32,
-            mode: (((config.data_mode.polarity == embedded_hal::spi::Polarity::IdleHigh) as u8)
-                << 1)
-                | ((config.data_mode.phase == embedded_hal::spi::Phase::CaptureOnSecondTransition)
-                    as u8),
+            mode: data_mode_to_u8(config.data_mode),
             queue_size: 64,
             flags: if config.write_only {
                 SPI_DEVICE_NO_DUMMY
@@ -961,6 +1071,11 @@ fn polling_transmit(
     };
 
     esp!(unsafe { spi_device_polling_transmit(handle, &mut transaction as *mut _) })
+}
+
+fn data_mode_to_u8(data_mode: embedded_hal::spi::Mode) -> u8 {
+    (((data_mode.polarity == embedded_hal::spi::Polarity::IdleHigh) as u8) << 1)
+        | ((data_mode.phase == embedded_hal::spi::Phase::CaptureOnSecondTransition) as u8)
 }
 
 macro_rules! impl_spi {
