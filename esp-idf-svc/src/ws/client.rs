@@ -2,6 +2,7 @@ use core::convert::{TryFrom, TryInto};
 use core::time;
 
 extern crate alloc;
+use alloc::boxed::Box;
 use alloc::sync::Arc;
 
 use embedded_svc::ws::{ErrorType, FrameType, Sender};
