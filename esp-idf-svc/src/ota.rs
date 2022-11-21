@@ -162,7 +162,7 @@ impl EspOta {
         let mut taken = TAKEN.lock();
 
         if *taken {
-            esp!(ESP_ERR_INVALID_STATE as i32)?;
+            esp!(ESP_ERR_INVALID_STATE as _)?;
         }
 
         *taken = true;
@@ -280,9 +280,9 @@ impl EspOta {
         let err =
             unsafe { esp_ota_get_state_partition(partition as *const _, &mut state as *mut _) };
 
-        Ok(if err == ESP_ERR_NOT_FOUND as i32 {
+        Ok(if err == ESP_ERR_NOT_FOUND as _ {
             ota::SlotState::Unknown
-        } else if err == ESP_ERR_NOT_SUPPORTED as i32 {
+        } else if err == ESP_ERR_NOT_SUPPORTED as _ {
             ota::SlotState::Factory
         } else {
             esp!(err)?;
@@ -309,7 +309,7 @@ impl EspOta {
         let err =
             unsafe { esp_ota_get_partition_description(partition as *const _, &mut app_desc) };
 
-        Ok(if err == ESP_ERR_NOT_FOUND as i32 {
+        Ok(if err == ESP_ERR_NOT_FOUND as _ {
             None
         } else {
             esp!(err)?;
