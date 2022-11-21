@@ -56,7 +56,13 @@ impl<'a, T, Op: Operation> Drop for SpiFuture<'a, T, Op> {
     fn drop(&mut self) {
         // If the future is dropped before the transaction is complete, we need to block until it
         // is done to prevent undefined behaviour.
-        todo!()
+        if let State::Processing(_, _) = self.state {
+            let mut ret_trans: *mut spi_transaction_t = core::ptr::null_mut();
+            esp!(unsafe {
+                spi_device_get_trans_result(self.driver.handle, &mut ret_trans as *mut _, 0)
+            })
+            .unwrap();
+        }
     }
 }
 
