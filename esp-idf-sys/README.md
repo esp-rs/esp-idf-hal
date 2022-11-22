@@ -2,6 +2,7 @@
 (Espressif's IoT Development Framework)
 
 [![CI](https://github.com/esp-rs/esp-idf-sys/actions/workflows/ci.yml/badge.svg)](https://github.com/esp-rs/esp-idf-sys/actions/workflows/ci.yml)
+![crates.io](https://img.shields.io/crates/v/esp-idf-sys.svg)
 [![Documentation](https://img.shields.io/badge/docs-esp--rs-brightgreen)](https://esp-rs.github.io/esp-idf-sys/esp_idf_sys/index.html)
 
 The ESP-IDF API in Rust, with support for each ESP chip (ESP32, ESP32S2, ESP32S3, ESP32C3, etc.) based on the Rust target.
