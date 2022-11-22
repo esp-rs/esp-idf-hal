@@ -523,7 +523,7 @@ impl<'d> EthDriver<'d> {
             ..Default::default()
         };
 
-        esp!(unsafe { spi_bus_initialize(P::device(), &bus_config, 1) })?; // SPI_DMA_CH_AUTO
+        esp!(unsafe { spi_bus_initialize(P::device(), &bus_config, 3) })?; // SPI_DMA_CH_AUTO
 
         Ok(())
     }
