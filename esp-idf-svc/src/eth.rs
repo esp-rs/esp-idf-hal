@@ -301,6 +301,7 @@ impl<'d> EthDriver<'d> {
         sclk: impl Peripheral<P = impl gpio::OutputPin> + 'd,
         sdo: impl Peripheral<P = impl gpio::OutputPin> + 'd,
         sdi: impl Peripheral<P = impl gpio::InputPin + gpio::OutputPin> + 'd,
+        dma: esp_idf_hal::spi::Dma,
         cs: Option<impl Peripheral<P = impl gpio::OutputPin> + 'd>,
         rst: Option<impl Peripheral<P = impl gpio::OutputPin> + 'd>,
         chipset: SpiEthChipset,
@@ -318,6 +319,7 @@ impl<'d> EthDriver<'d> {
             sclk.pin(),
             sdo.pin(),
             sdi.pin(),
+            dma,
             cs.map(|pin| pin.into_ref().pin()),
             rst.map(|pin| pin.into_ref().pin()),
             phy_addr,
@@ -343,6 +345,7 @@ impl<'d> EthDriver<'d> {
         sclk: i32,
         sdo: i32,
         sdi: i32,
+        dma: esp_idf_hal::spi::Dma,
         cs: Option<i32>,
         rst: Option<i32>,
         phy_addr: Option<u32>,
@@ -354,7 +357,7 @@ impl<'d> EthDriver<'d> {
         ),
         EspError,
     > {
-        Self::init_spi_bus::<P>(sclk, sdo, sdi)?;
+        Self::init_spi_bus::<P>(sclk, sdo, sdi, dma)?;
 
         let mac_cfg = EthDriver::eth_mac_default_config(0, 0);
         let phy_cfg = EthDriver::eth_phy_default_config(rst.map(|pin| pin), phy_addr);
@@ -477,7 +480,12 @@ impl<'d> EthDriver<'d> {
         Ok(spi_handle)
     }
 
-    fn init_spi_bus<P: spi::Spi>(sclk: i32, sdo: i32, sdi: i32) -> Result<(), EspError> {
+    fn init_spi_bus<P: spi::Spi>(
+        sclk: i32,
+        sdo: i32,
+        sdi: i32,
+        dma: esp_idf_hal::spi::Dma,
+    ) -> Result<(), EspError> {
         unsafe { gpio_install_isr_service(0) };
 
         #[cfg(not(esp_idf_version = "4.3"))]
@@ -505,7 +513,7 @@ impl<'d> EthDriver<'d> {
                 quadhd_io_num: -1,
                 //data3_io_num: -1,
             },
-            //max_transfer_sz: SPI_MAX_TRANSFER_SIZE,
+            max_transfer_sz: dma.max_transfer_size(),
             ..Default::default()
         };
 
@@ -515,15 +523,15 @@ impl<'d> EthDriver<'d> {
             sclk_io_num: sclk,
 
             mosi_io_num: sdo,
-            miso_io_num: sdi.map(|pin| pin).unwrap_or(-1),
+            miso_io_num: sdi,
             quadwp_io_num: -1,
             quadhd_io_num: -1,
 
-            //max_transfer_sz: SPI_MAX_TRANSFER_SIZE,
+            max_transfer_sz: dma.max_transfer_size(),
             ..Default::default()
         };
 
-        esp!(unsafe { spi_bus_initialize(P::device(), &bus_config, 3) })?; // SPI_DMA_CH_AUTO
+        esp!(unsafe { spi_bus_initialize(P::device(), &bus_config, dma.into()) })?;
 
         Ok(())
     }
