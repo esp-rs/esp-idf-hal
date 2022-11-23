@@ -308,7 +308,7 @@ impl EspHttpServer {
                 conf.method
             ))?;
 
-            let _drop = Box::from_raw(conf.user_ctx as *mut _);
+            let _drop = Box::from_raw(conf.user_ctx as *mut NativeHandler);
         };
 
         info!(

@@ -282,6 +282,7 @@ impl Server {
         Ok(())
     }
 
+    #[allow(clippy::from_raw_with_void_ptr)]
     fn unregister(&mut self, uri: CString, conf: esp_idf_sys::httpd_uri_t) -> Result<()> {
         unsafe {
             esp!(esp_idf_sys::httpd_unregister_uri_handler(
