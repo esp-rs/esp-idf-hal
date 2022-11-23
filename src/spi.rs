@@ -79,7 +79,7 @@ impl From<Dma> for spi_dma_chan_t {
 }
 
 impl Dma {
-    const fn max_transfer_size(&self) -> usize {
+    pub const fn max_transfer_size(&self) -> usize {
         let max_transfer_size = match self {
             Dma::Disabled => TRANS_LEN,
             Dma::Channel1(size) | Dma::Channel2(size) | Dma::Auto(size) => *size,
