@@ -1,6 +1,7 @@
 # An [embedded-hal](https://github.com/rust-embedded/embedded-hal) implementation for ESP32[-XX] + ESP-IDF
 
 [![CI](https://github.com/esp-rs/esp-idf-hal/actions/workflows/ci.yml/badge.svg)](https://github.com/esp-rs/esp-idf-hal/actions/workflows/ci.yml)
+![crates.io](https://img.shields.io/crates/v/esp-idf-hal.svg)
 [![Documentation](https://img.shields.io/badge/docs-esp--rs-brightgreen)](https://esp-rs.github.io/esp-idf-hal/esp_idf_hal/index.html)
 
 * This crate is intended for usage in ESP32[-XX] embedded projects that utilize and link with the **ESP-IDF SDK**.
