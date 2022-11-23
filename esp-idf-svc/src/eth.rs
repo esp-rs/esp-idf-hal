@@ -513,7 +513,7 @@ impl<'d> EthDriver<'d> {
                 quadhd_io_num: -1,
                 //data3_io_num: -1,
             },
-            max_transfer_sz: dma.max_transfer_size(),
+            max_transfer_sz: dma.max_transfer_size() as _,
             ..Default::default()
         };
 
@@ -527,7 +527,7 @@ impl<'d> EthDriver<'d> {
             quadwp_io_num: -1,
             quadhd_io_num: -1,
 
-            max_transfer_sz: dma.max_transfer_size(),
+            max_transfer_sz: dma.max_transfer_size() as _,
             ..Default::default()
         };
 
