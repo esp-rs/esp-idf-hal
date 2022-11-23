@@ -715,9 +715,9 @@ where
 {
     type Error = SpiError;
 
-    fn exec<'a>(
+    fn exec(
         &mut self,
-        operations: &mut [embedded_hal_0_2::blocking::spi::Operation<'a, u8>],
+        operations: &mut [embedded_hal_0_2::blocking::spi::Operation<'_, u8>],
     ) -> Result<(), Self::Error> {
         self.transaction(|bus| {
             for operation in operations {

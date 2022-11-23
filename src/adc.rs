@@ -243,9 +243,9 @@ impl<'d, ADC: Adc> AdcDriver<'d, ADC> {
         })
     }
 
-    pub fn read<'c, T, ATTEN>(
+    pub fn read<T, ATTEN>(
         &mut self,
-        pin: &mut AdcChannelDriver<'c, T, ATTEN>,
+        pin: &mut AdcChannelDriver<'_, T, ATTEN>,
     ) -> Result<u16, EspError>
     where
         T: ADCPin,

@@ -235,10 +235,10 @@ impl<'d> I2cDriver<'d> {
         self.cmd_begin(&command_link, timeout)
     }
 
-    pub fn transaction<'a>(
+    pub fn transaction(
         &mut self,
         address: u8,
-        operations: &mut [Operation<'a>],
+        operations: &mut [Operation<'_>],
         timeout: TickType_t,
     ) -> Result<(), EspError> {
         let mut command_link = CommandLink::new()?;
@@ -371,10 +371,10 @@ impl<'d> embedded_hal::i2c::I2c<embedded_hal::i2c::SevenBitAddress> for I2cDrive
         todo!()
     }
 
-    fn transaction<'a>(
+    fn transaction(
         &mut self,
         address: u8,
-        operations: &mut [embedded_hal::i2c::Operation<'a>],
+        operations: &mut [embedded_hal::i2c::Operation<'_>],
     ) -> Result<(), Self::Error> {
         I2cDriver::transaction(self, address, operations, BLOCK).map_err(to_i2c_err)
     }
