@@ -55,7 +55,7 @@ Subject says it all, so to say.
 ### Merge the `nvs_storage` module into `nvs`
 
 * The previous distinction of two separate modules was awkward and is thus removed
-* The other notable change here is that the ESP IDF implementation actually only implements the `RawStorage` trait, which provides facilities for reading / writing blobs. It is up to the user to layer a `Storage` implementation on top of the `RawStorage` implementation, but the benefit of that is that user is in control of how their structures are serialized/deserialized into binary. To ease the layering, users may take advantage of the `ServiceImpl` structure from `embedded-svc` and only provide a `Serde` trait implementation which abstracts away the concrete Rust SerDe implementation (i.e. `serde-json`, `postcard`, etc.)
+* The other notable change here is that the ESP IDF implementation actually only implements the `RawStorage` trait, which provides facilities for reading / writing blobs. It is up to the user to layer a `Storage` implementation on top of the `RawStorage` implementation, but the benefit of that is that user is in control of how their structures are serialized/deserialized into binary. To ease the layering, users may take advantage of the `StorageImpl` structure from `embedded-svc` and only provide a `Serde` trait implementation which abstracts away the concrete Rust SerDe implementation (i.e. `serde-json`, `postcard`, etc.)
 
 ### Support for the `embassy-time` crate by providing alarm implementation
 
