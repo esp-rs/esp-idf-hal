@@ -4,17 +4,20 @@ use esp_idf_sys::{
     mcpwm_generator_config_t__bindgen_ty_1, mcpwm_generator_set_actions_on_compare_event,
     mcpwm_generator_set_actions_on_timer_event, mcpwm_new_comparator, mcpwm_new_generator,
     mcpwm_oper_handle_t, mcpwm_operator_config_t, mcpwm_operator_config_t__bindgen_ty_1,
-    mcpwm_timer_direction_t_MCPWM_TIMER_DIRECTION_DOWN,
+    mcpwm_operator_connect_timer, mcpwm_timer_direction_t_MCPWM_TIMER_DIRECTION_DOWN,
     mcpwm_timer_direction_t_MCPWM_TIMER_DIRECTION_UP, mcpwm_timer_event_t_MCPWM_TIMER_EVENT_EMPTY,
-    mcpwm_timer_event_t_MCPWM_TIMER_EVENT_FULL, EspError,
+    mcpwm_timer_event_t_MCPWM_TIMER_EVENT_FULL, mcpwm_timer_handle_t, EspError,
 };
 
-use crate::{gpio::OutputPin, mcpwm::Group};
+use crate::mcpwm::Group;
 
 use super::{
-    comparator::{Comparator, ComparatorConfig, NoCmp, OptionalCmp},
-    generator::{GenA, GenB, Generator, GeneratorConfig, NoGen, OptionalGen, GeneratorChannel},
-    timer_connection::OptionalOutputPin,
+    comparator::{Comparator, ComparatorConfig, NoCmp, OptionalCmp, OptionalCmpCfg},
+    generator::{
+        GenA, GenB, GenInit, NoGen, OptionalGen,
+        ToGenCfg,
+    },
+    OperatorConfig,
 };
 
 use core::{marker::PhantomData, ptr};
@@ -67,26 +70,47 @@ pub struct Operator<
     GEN_B: OptionalGen,
 > {
     _instance: OPERATOR<N, G>,
-    handle: mcpwm_oper_handle_t,
+    _handle: mcpwm_oper_handle_t,
 
     comparator_x: CMP_X, // SOC_MCPWM_COMPARATORS_PER_OPERATOR is 2 for ESP32 and ESP32-S3
     comparator_y: CMP_Y,
 
-    generator_a: GEN_A, // One generator per pin, with a maximum of two generators per Operator
-    generator_b: GEN_B,
+    _generator_a: GEN_A, // One generator per pin, with a maximum of two generators per Operator
+    _generator_b: GEN_B,
     //deadtime: D
 }
 
-impl<const N: u8, G: Group> Operator<N, G, NoCmp, NoCmp, NoGen, NoGen> {
-    pub fn default<PA: OutputPin, PB: OutputPin>(instance: OPERATOR<N, G>, pin_a: PA, pin_b: PB, cfg: OperatorConfig) -> Operator<N, G, Comparator, Comparator, Generator<PA>, Generator<PB>> {
-        Operator::custom(instance, cfg)
-            .cmp_x(Default::default())
-            .cmp_y(Default::default())
-            .gen_a(pin_a, GeneratorConfig::active_high())
-            .gen_b(pin_b, GeneratorConfig::active_high())
-    }
+impl<'a, const N: u8, G: Group, CMP_X, CMP_Y, GEN_A, GEN_B>
+    Operator<N, G, CMP_X, CMP_Y, GEN_A, GEN_B>
+where
+    CMP_X: OptionalCmp,
+    CMP_Y: OptionalCmp,
 
-    pub fn custom(instance: OPERATOR<N, G>, cfg: OperatorConfig) -> Self {
+    GEN_A: OptionalGen,
+    GEN_B: OptionalGen,
+    (CMP_X, CMP_Y, GenA, GEN_A): ToGenCfg, // TODO: Is there a less hacky way to do this?
+    (CMP_X, CMP_Y, GenB, GEN_B): ToGenCfg,
+    (
+        &'a mut CMP_X,
+        &'a mut CMP_Y,
+        <(CMP_X, CMP_Y, GenA, GEN_A) as ToGenCfg>::Cfg,
+    ): GenInit<Gen = GEN_A> + 'a,
+    (
+        &'a mut CMP_X,
+        &'a mut CMP_Y,
+        <(CMP_X, CMP_Y, GenB, GEN_B) as ToGenCfg>::Cfg,
+    ): GenInit<Gen = GEN_B> + 'a,
+{
+    pub unsafe fn new(
+        instance: OPERATOR<N, G>,
+        timer_handle: mcpwm_timer_handle_t,
+        cfg: OperatorConfig<
+            CMP_X::Cfg,
+            CMP_Y::Cfg,
+            <(CMP_X, CMP_Y, GenA, GEN_A) as ToGenCfg>::Cfg,
+            <(CMP_X, CMP_Y, GenB, GEN_B) as ToGenCfg>::Cfg,
+        >,
+    ) -> Self {
         let mut handle = ptr::null_mut();
         let mut flags: mcpwm_operator_config_t__bindgen_ty_1 = Default::default();
 
@@ -97,28 +121,37 @@ impl<const N: u8, G: Group> Operator<N, G, NoCmp, NoCmp, NoGen, NoGen> {
         flags.set_update_dead_time_on_tez(todo!());
         flags.set_update_dead_time_on_tep(todo!());
         flags.set_update_dead_time_on_sync(todo!());
-        
+
         let config = mcpwm_operator_config_t {
             group_id: G::ID,
             flags,
         };
 
         unsafe {
-            esp!(esp_idf_sys::mcpwm_new_operator(
-                &config,
-                &mut handle,
-            ))
-            .unwrap();
+            esp!(esp_idf_sys::mcpwm_new_operator(&config, &mut handle,)).unwrap();
+        }
+
+        let comparator_x = unsafe { cfg.comparator_x.init(handle) };
+        let comparator_y = unsafe { cfg.comparator_y.init(handle) };
+
+        let generator_a =
+            unsafe { (&mut comparator_x, &mut comparator_y, cfg.generator_a).init(handle) };
+        let generator_b =
+            unsafe { (&mut comparator_x, &mut comparator_y, cfg.generator_b).init(handle) };
+
+        // Connect operator to timer
+        unsafe {
+            esp!(mcpwm_operator_connect_timer(handle, timer_handle)).unwrap();
         }
 
         Operator {
             _instance: instance,
-            handle,
-            comparator_x: NoCmp, // SOC_MCPWM_COMPARATORS_PER_OPERATOR is 2 for ESP32 and ESP32-S3
-            comparator_y: NoCmp,
+            _handle: handle,
+            comparator_x,
+            comparator_y,
 
-            generator_a: NoGen, // One generator per pin, with a maximum of two generators per Operator
-            generator_b: NoGen,
+            _generator_a: generator_a,
+            _generator_b: generator_b,
         }
     }
 }
@@ -133,166 +166,20 @@ impl<const N: u8, CMP_Y: OptionalCmp, G: Group> Operator<N, G, NoCmp, CMP_Y, NoG
         let cfg = mcpwm_comparator_config_t { flags };
         let mut cmp = ptr::null_mut();
         unsafe {
-            esp!(mcpwm_new_comparator(self.handle, &cfg, &mut cmp)).unwrap();
+            esp!(mcpwm_new_comparator(self._handle, &cfg, &mut cmp)).unwrap();
         }
         let comparator_x = Comparator(cmp);
 
         Operator {
             _instance: self._instance,
-            handle: self.handle,
+            _handle: self._handle,
             comparator_x,
             comparator_y: self.comparator_y,
 
-            generator_a: self.generator_a,
-            generator_b: self.generator_b,
+            _generator_a: self._generator_a,
+            _generator_b: self._generator_b,
         }
     }
-}
-
-impl<const N: u8, CMP_X: OptionalCmp, G: Group> Operator<N, G, CMP_X, NoCmp, NoGen, NoGen> {
-    fn cmp_y(self, config: ComparatorConfig) -> Operator<N, G, CMP_X, Comparator, NoGen, NoGen> {
-        let mut flags: mcpwm_comparator_config_t__bindgen_ty_1 = Default::default();
-        flags.set_update_cmp_on_tep(todo!());
-        flags.set_update_cmp_on_tez(todo!());
-        flags.set_update_cmp_on_sync(todo!());
-
-        let cfg = mcpwm_comparator_config_t { flags };
-        let mut cmp = ptr::null_mut();
-        unsafe {
-            esp!(mcpwm_new_comparator(self.handle, &cfg, &mut cmp)).unwrap();
-        }
-
-        let comparator_y = Comparator(cmp);
-
-        Operator {
-            _instance: self._instance,
-            handle: self.handle,
-            comparator_x: self.comparator_x,
-            comparator_y,
-
-            generator_a: self.generator_a,
-            generator_b: self.generator_b,
-        }
-    }
-}
-
-// TODO: Make sure that a generator config can only refer to comparators that are assigned to the operator
-// TODO: Is there any point in letting the user provide the comparators or should two (the only two available
-// for that operator in hardware) be automatically assigned in `Operator::new`?
-
-impl<const N: u8, G: Group, CMP_X: OptionalCmp, CMP_Y: OptionalCmp, GEN_B: OptionalGen,>
-    Operator<N, G, CMP_X, CMP_Y, NoGen, GEN_B>
-{
-    fn gen_a<P: OutputPin>(
-        mut self,
-        pin: P,
-        config: GeneratorConfig<GenA, CMP_X::OnMatchCfg, CMP_Y::OnMatchCfg>,
-    ) -> Operator<N, G, CMP_X, CMP_Y, Generator<P>, GEN_B> {
-        let generator_a = setup_generator(
-            &mut self.handle,
-            &mut self.comparator_x,
-            &mut self.comparator_y,
-            pin,
-            config,
-        );
-
-        Operator {
-            _instance: self._instance,
-            handle: self.handle,
-            comparator_x: self.comparator_x,
-            comparator_y: self.comparator_y,
-
-            generator_a,
-            generator_b: self.generator_b,
-        }
-    }
-}
-
-impl<const N: u8, G: Group, CMP_X: OptionalCmp, CMP_Y: OptionalCmp, GEN_A: OptionalGen>
-    Operator<N, G, CMP_X, CMP_Y, GEN_A, NoGen>
-{
-    fn gen_b<P: OutputPin>(
-        mut self,
-        pin: P,
-        config: GeneratorConfig<GenB, CMP_X::OnMatchCfg, CMP_Y::OnMatchCfg>,
-    ) -> Operator<N, G, CMP_X, CMP_Y, GEN_A, Generator<P>> {
-        let generator_b = setup_generator(
-            &mut self.handle,
-            &mut self.comparator_x,
-            &mut self.comparator_y,
-            pin,
-            config,
-        );
-
-        Operator {
-            _instance: self._instance,
-            handle: self.handle,
-            comparator_x: self.comparator_x,
-            comparator_y: self.comparator_y,
-
-            generator_a: self.generator_a,
-            generator_b,
-        }
-    }
-}
-
-fn setup_generator<G: GeneratorChannel, CMP_X: OptionalCmp, CMP_Y: OptionalCmp, P: OutputPin>(
-    operator: &mut mcpwm_oper_handle_t,
-    comparator_x: &mut CMP_X,
-    comparator_y: &mut CMP_Y,
-    pin: P,
-    config: GeneratorConfig<G, CMP_X::OnMatchCfg, CMP_Y::OnMatchCfg>,
-) -> Generator<P> {
-    let mut flags: mcpwm_generator_config_t__bindgen_ty_1 = Default::default();
-    flags.set_invert_pwm(config.invert.into());
-    flags.set_io_loop_back(0);
-    let cfg = mcpwm_generator_config_t {
-        gen_gpio_num: pin.pin(),
-        flags,
-    };
-    let mut gen = ptr::null_mut();
-    unsafe {
-        esp!(mcpwm_new_generator(*operator, &cfg, &mut gen)).unwrap();
-
-        // TODO: "must be terminated by MCPWM_GEN_TIMER_EVENT_ACTION_END()"
-        esp!(mcpwm_generator_set_actions_on_timer_event(
-            gen,
-            mcpwm_gen_timer_event_action_t {
-                direction: mcpwm_timer_direction_t_MCPWM_TIMER_DIRECTION_UP,
-                event: mcpwm_timer_event_t_MCPWM_TIMER_EVENT_EMPTY,
-                action: config.on_is_empty.counting_up.into(),
-            }
-        )).unwrap();
-        esp!(mcpwm_generator_set_actions_on_timer_event(
-            gen,
-            mcpwm_gen_timer_event_action_t {
-                direction: mcpwm_timer_direction_t_MCPWM_TIMER_DIRECTION_DOWN,
-                event: mcpwm_timer_event_t_MCPWM_TIMER_EVENT_EMPTY,
-                action: config.on_is_empty.counting_down.into(),
-            }
-        )).unwrap();
-        esp!(mcpwm_generator_set_actions_on_timer_event(
-            gen,
-            mcpwm_gen_timer_event_action_t {
-                direction: mcpwm_timer_direction_t_MCPWM_TIMER_DIRECTION_UP,
-                event: mcpwm_timer_event_t_MCPWM_TIMER_EVENT_FULL,
-                action: config.on_is_full.counting_up.into(),
-            }
-        )).unwrap();
-        esp!(mcpwm_generator_set_actions_on_timer_event(
-            gen,
-            mcpwm_gen_timer_event_action_t {
-                direction: mcpwm_timer_direction_t_MCPWM_TIMER_DIRECTION_DOWN,
-                event: mcpwm_timer_event_t_MCPWM_TIMER_EVENT_FULL,
-                action: config.on_is_full.counting_down.into(),
-            }
-        )).unwrap();
-
-        comparator_x._configure(&mut *gen, config.on_matches_cmp_x);
-        comparator_y._configure(&mut *gen, config.on_matches_cmp_y);
-    }
-
-    Generator { handle: gen, pin }
 }
 
 impl<const N: u8, G, GEN_A, GEN_B, CMP_Y> Operator<N, G, Comparator, CMP_Y, GEN_A, GEN_B>
@@ -381,13 +268,7 @@ where
     GEN_A: OptionalGen,
     GEN_B: OptionalGen,
 {
-    // TODO:
 }
 
 pub struct NoOperator;
 impl<const N: u8, G: Group> OptionalOperator<N, G> for NoOperator {}
-
-#[derive(Default)]
-pub struct OperatorConfig {
-    _todo: (),
-}

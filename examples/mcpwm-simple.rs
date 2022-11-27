@@ -61,7 +61,7 @@ fn main() -> anyhow::Result<()> {
     use embedded_hal::delay::DelayUs;
 
     use esp_idf_hal::delay::FreeRtos;
-    use esp_idf_hal::mcpwm::{Operator, Timer, TimerConfig, OperatorConfig};
+    use esp_idf_hal::mcpwm::{Operator, OperatorConfig, Timer, TimerConfig};
     use esp_idf_hal::prelude::Peripherals;
     use esp_idf_hal::units::FromValueType;
 
@@ -71,15 +71,12 @@ fn main() -> anyhow::Result<()> {
 
     let peripherals = Peripherals::take().unwrap();
     let timer_config = TimerConfig::default().frequency(25.kHz());
-    let operator_config = OperatorConfig::default();
+    let operator_config = OperatorConfig::default(peripherals.pins.gpio4, peripherals.pins.gpio5);
     let timer = Timer::new(peripherals.mcpwm0.timer0, timer_config);
 
-    let mut timer = timer.into_connection().attatch_operator0(
-        peripherals.mcpwm0.operator0,
-        operator_config,
-        peripherals.pins.gpio4,
-        peripherals.pins.gpio5,
-    );
+    let mut timer = timer
+        .into_connection()
+        .attatch_operator0(peripherals.mcpwm0.operator0, operator_config);
 
     let (timer, operator, _, _) = timer.split();
 

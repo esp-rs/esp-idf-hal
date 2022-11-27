@@ -3,9 +3,9 @@ use crate::mcpwm::Group;
 use super::{
     comparator::OptionalCmp,
     generator::OptionalGen,
-    operator::{NoOperator, OperatorConfig, OptionalOperator, OPERATOR},
+    operator::{NoOperator, OptionalOperator, OPERATOR},
     timer::Timer,
-    Operator,
+    Operator, OperatorConfig,
 };
 
 // TODO: How do we want fault module to fit into this?
@@ -65,9 +65,7 @@ where
     pub fn attatch_operator0<CMP_X, CMP_Y, GEN_A, GEN_B, PA, PB>(
         self,
         operator_handle: OPERATOR<0, G>,
-        operator_cfg: OperatorConfig,
-        pin_a: PA,
-        pin_b: PB,
+        operator_cfg: OperatorConfig<CMP_X, CMP_Y, GEN_A, GEN_B>,
     ) -> TimerConnection<N, G, Operator<0, G, CMP_X, CMP_Y, GEN_A, GEN_B>, O1, O2>
     where
         CMP_X: OptionalCmp,
@@ -77,7 +75,7 @@ where
         PA: OptionalOutputPin,
         PB: OptionalOutputPin,
     {
-        let operator = todo!(); //self.init_and_attach_operator(operator_cfg, pin_a, pin_b);
+        let operator = unsafe { Operator::new(operator_handle, self.timer.timer(), operator_config) };
         TimerConnection {
             timer: self.timer,
             operator0: operator,
@@ -96,7 +94,7 @@ where
     pub fn attatch_operator1<CMP_X, CMP_Y, GEN_A, GEN_B, PA, PB>(
         self,
         operator_handle: OPERATOR<1, G>,
-        operator_cfg: OperatorConfig,
+        operator_cfg: OperatorConfig<CMP_X, CMP_Y, GEN_A, GEN_B>,
         pin_a: PA,
         pin_b: PB,
     ) -> TimerConnection<N, G, O0, Operator<1, G, CMP_X, CMP_Y, GEN_A, GEN_B>, O2>
@@ -127,7 +125,7 @@ where
     pub fn attatch_operator2<CMP_X, CMP_Y, GEN_A, GEN_B, PA, PB>(
         self,
         operator_handle: OPERATOR<2, G>,
-        operator_cfg: OperatorConfig,
+        operator_cfg: OperatorConfig<CMP_X, CMP_Y, GEN_A, GEN_B>,
         pin_a: PA,
         pin_b: PB,
     ) -> TimerConnection<N, G, O0, O1, Operator<2, G, CMP_X, CMP_Y, GEN_A, GEN_B>>

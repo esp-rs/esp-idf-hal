@@ -77,6 +77,7 @@
 //! See the `examples/` folder of this repository for more.
 
 mod operator;
+mod operator_config;
 mod generator;
 mod comparator;
 mod timer;
@@ -85,7 +86,8 @@ mod timer_connection;
 use core::ffi;
 
 pub use self::{
-    operator::{Operator, OPERATOR, OperatorConfig},
+    operator::{Operator, OPERATOR},
+    operator_config::OperatorConfig,
     timer::{Timer, TimerConfig, TIMER},
     timer_connection::TimerConnection,
 };
