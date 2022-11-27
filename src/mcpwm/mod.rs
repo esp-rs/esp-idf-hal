@@ -85,7 +85,7 @@ mod timer_connection;
 use core::ffi;
 
 pub use self::{
-    operator::{Operator, OperatorConfig, OPERATOR},
+    operator::{Operator, OPERATOR, OperatorConfig},
     timer::{Timer, TimerConfig, TIMER},
     timer_connection::TimerConnection,
 };

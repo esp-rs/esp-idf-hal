@@ -58,10 +58,10 @@
 
 #[cfg(any(esp32, esp32s3))]
 fn main() -> anyhow::Result<()> {
-    use embedded_hal::delay::blocking::DelayUs;
+    use embedded_hal::delay::DelayUs;
 
     use esp_idf_hal::delay::FreeRtos;
-    use esp_idf_hal::mcpwm::{Operator, OperatorConfig, Timer, TimerConfig};
+    use esp_idf_hal::mcpwm::{Operator, Timer, TimerConfig, OperatorConfig};
     use esp_idf_hal::prelude::Peripherals;
     use esp_idf_hal::units::FromValueType;
 
@@ -93,8 +93,8 @@ fn main() -> anyhow::Result<()> {
             println!("Duty {}%", 100 * duty / period_ticks);
         }
 
-        operator.set_duty_a(duty)?;
-        operator.set_duty_b(period_ticks - duty)?;
+        operator.set_compare_value_x(duty)?;
+        operator.set_compare_value_y(period_ticks - duty)?;
         FreeRtos.delay_ms(10)?;
     }
 

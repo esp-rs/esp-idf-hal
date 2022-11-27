@@ -1,6 +1,8 @@
 use crate::mcpwm::Group;
 
 use super::{
+    comparator::OptionalCmp,
+    generator::OptionalGen,
     operator::{NoOperator, OperatorConfig, OptionalOperator, OPERATOR},
     timer::Timer,
     Operator,
@@ -54,16 +56,27 @@ impl<
     }
 }
 // TODO: Do something more builder-pattern like for making the operator?
-impl<const N: u8, G: Group, O1: OptionalOperator<1, G>, O2: OptionalOperator<2, G>>
-    TimerConnection<N, G, NoOperator, O1, O2>
+impl<const N: u8, G, O1, O2> TimerConnection<N, G, NoOperator, O1, O2>
+where
+    G: Group,
+    O1: OptionalOperator<1, G>,
+    O2: OptionalOperator<2, G>,
 {
-    pub fn attatch_operator0<PA: OptionalOutputPin, PB: OptionalOutputPin>(
+    pub fn attatch_operator0<CMP_X, CMP_Y, GEN_A, GEN_B, PA, PB>(
         self,
         operator_handle: OPERATOR<0, G>,
         operator_cfg: OperatorConfig,
         pin_a: PA,
         pin_b: PB,
-    ) -> TimerConnection<N, G, Operator<0, G, PA, PB>, O1, O2> {
+    ) -> TimerConnection<N, G, Operator<0, G, CMP_X, CMP_Y, GEN_A, GEN_B>, O1, O2>
+    where
+        CMP_X: OptionalCmp,
+        CMP_Y: OptionalCmp,
+        GEN_A: OptionalGen,
+        GEN_B: OptionalGen,
+        PA: OptionalOutputPin,
+        PB: OptionalOutputPin,
+    {
         let operator = todo!(); //self.init_and_attach_operator(operator_cfg, pin_a, pin_b);
         TimerConnection {
             timer: self.timer,
@@ -74,16 +87,27 @@ impl<const N: u8, G: Group, O1: OptionalOperator<1, G>, O2: OptionalOperator<2, 
     }
 }
 
-impl<const N: u8, G: Group, O0: OptionalOperator<0, G>, O2: OptionalOperator<2, G>>
-    TimerConnection<N, G, O0, NoOperator, O2>
+impl<const N: u8, G, O0, O2> TimerConnection<N, G, O0, NoOperator, O2>
+where
+    G: Group,
+    O0: OptionalOperator<0, G>,
+    O2: OptionalOperator<2, G>,
 {
-    pub fn attatch_operator1<PA: OptionalOutputPin, PB: OptionalOutputPin>(
+    pub fn attatch_operator1<CMP_X, CMP_Y, GEN_A, GEN_B, PA, PB>(
         self,
         operator_handle: OPERATOR<1, G>,
         operator_cfg: OperatorConfig,
         pin_a: PA,
         pin_b: PB,
-    ) -> TimerConnection<N, G, O0, Operator<1, G, PA, PB>, O2> {
+    ) -> TimerConnection<N, G, O0, Operator<1, G, CMP_X, CMP_Y, GEN_A, GEN_B>, O2>
+    where
+        CMP_X: OptionalCmp,
+        CMP_Y: OptionalCmp,
+        GEN_A: OptionalGen,
+        GEN_B: OptionalGen,
+        PA: OptionalOutputPin,
+        PB: OptionalOutputPin,
+    {
         let operator = todo!(); //self.init_and_attach_operator(operator_cfg, pin_a, pin_b);
         TimerConnection {
             timer: self.timer,
@@ -94,16 +118,27 @@ impl<const N: u8, G: Group, O0: OptionalOperator<0, G>, O2: OptionalOperator<2, 
     }
 }
 
-impl<const N: u8, G: Group, O0: OptionalOperator<0, G>, O1: OptionalOperator<1, G>>
-    TimerConnection<N, G, O0, O1, NoOperator>
+impl<const N: u8, G, O0, O1> TimerConnection<N, G, O0, O1, NoOperator>
+where
+    G: Group,
+    O0: OptionalOperator<0, G>,
+    O1: OptionalOperator<1, G>,
 {
-    pub fn attatch_operator2<PA: OptionalOutputPin, PB: OptionalOutputPin>(
+    pub fn attatch_operator2<CMP_X, CMP_Y, GEN_A, GEN_B, PA, PB>(
         self,
         operator_handle: OPERATOR<2, G>,
         operator_cfg: OperatorConfig,
         pin_a: PA,
         pin_b: PB,
-    ) -> TimerConnection<N, G, O0, O1, Operator<2, G, PA, PB>> {
+    ) -> TimerConnection<N, G, O0, O1, Operator<2, G, CMP_X, CMP_Y, GEN_A, GEN_B>>
+    where
+        CMP_X: OptionalCmp,
+        CMP_Y: OptionalCmp,
+        GEN_A: OptionalGen,
+        GEN_B: OptionalGen,
+        PA: OptionalOutputPin,
+        PB: OptionalOutputPin,
+    {
         let operator = todo!(); //self.init_and_attach_operator(operator_cfg, pin_a, pin_b);
         TimerConnection {
             timer: self.timer,
