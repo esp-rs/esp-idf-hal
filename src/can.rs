@@ -151,6 +151,7 @@ pub mod config {
                     tseg_2: timing_segment_2,
                     sjw: synchronization_jump_width,
                     triple_sampling,
+                    ..Default::default()
                 },
             }
         }
