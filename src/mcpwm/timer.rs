@@ -4,7 +4,8 @@ use std::ptr;
 
 use esp_idf_sys::{
     esp, mcpwm_del_timer, mcpwm_new_timer, mcpwm_timer_config_t,
-    mcpwm_timer_config_t__bindgen_ty_1, mcpwm_timer_count_mode_t, mcpwm_timer_count_mode_t_MCPWM_TIMER_COUNT_MODE_DOWN,
+    mcpwm_timer_config_t__bindgen_ty_1, mcpwm_timer_count_mode_t,
+    mcpwm_timer_count_mode_t_MCPWM_TIMER_COUNT_MODE_DOWN,
     mcpwm_timer_count_mode_t_MCPWM_TIMER_COUNT_MODE_PAUSE,
     mcpwm_timer_count_mode_t_MCPWM_TIMER_COUNT_MODE_UP,
     mcpwm_timer_count_mode_t_MCPWM_TIMER_COUNT_MODE_UP_DOWN, mcpwm_timer_enable,

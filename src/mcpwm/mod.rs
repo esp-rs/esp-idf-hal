@@ -86,9 +86,9 @@ mod timer_connection;
 use core::ffi;
 
 pub use self::{
+    generator::{GeneratorAction, GeneratorConfig},
     operator::{Operator, OPERATOR},
     operator_config::OperatorConfig,
-    generator::{GeneratorConfig, GeneratorAction},
     timer::{Timer, TimerConfig, TIMER},
     timer_connection::TimerConnection,
 };
