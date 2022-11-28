@@ -1,33 +1,31 @@
-use core::ptr;
 
-use esp_idf_sys::{esp, mcpwm_operator_config_t__bindgen_ty_1};
+use esp_idf_sys::mcpwm_operator_config_t__bindgen_ty_1;
 
 use crate::gpio::OutputPin;
 
 use super::{
     comparator::{ComparatorConfig, NoCmpCfg, OptionalCmpCfg},
     generator::{GenA, GenB, GeneratorConfig, NoGenCfg, OptionalGenCfg, CountingDirection},
-    OPERATOR,
 };
 
 #[derive(Default)]
-pub struct OperatorConfig<CMP_X, CMP_Y, GEN_A, GEN_B> {
+pub struct OperatorConfig<CMPX, CMPY, GENA, GENB> {
     // TODO: When, how and who should set the flags?
     // Should that be done automagically, manually or does some specific setting cover all cases?
     /// Flags for Operator
     pub(crate) flags: mcpwm_operator_config_t__bindgen_ty_1,
 
     /// Configuration for Comparator X
-    pub(crate) comparator_x: CMP_X,
+    pub(crate) comparator_x: CMPX,
 
     /// Configuration for Comparator Y
-    pub(crate) comparator_y: CMP_Y,
+    pub(crate) comparator_y: CMPY,
 
     /// Configuration for Generator A
-    pub(crate) generator_a: GEN_A,
+    pub(crate) generator_a: GENA,
 
     /// Configuration for Generator B
-    pub(crate) generator_b: GEN_B,
+    pub(crate) generator_b: GENB,
 }
 
 impl OperatorConfig<NoCmpCfg, NoCmpCfg, NoGenCfg, NoGenCfg> {
@@ -70,14 +68,14 @@ impl OperatorConfig<NoCmpCfg, NoCmpCfg, NoGenCfg, NoGenCfg> {
     }
 }
 
-impl<CMP_X, CMP_Y, GEN_A, GEN_B> OperatorConfig<CMP_X, CMP_Y, GEN_A, GEN_B>
+impl<CMPX, CMPY, GENA, GENB> OperatorConfig<CMPX, CMPY, GENA, GENB>
 where
-    CMP_X: OptionalCmpCfg,
-    CMP_Y: OptionalCmpCfg,
-    GEN_A: OptionalGenCfg,
-    GEN_B: OptionalGenCfg,
+    CMPX: OptionalCmpCfg,
+    CMPY: OptionalCmpCfg,
+    GENA: OptionalGenCfg,
+    GENB: OptionalGenCfg,
 {
-    fn set_update_dead_time_on_tez(mut self, update_dead_time_on_tez: bool) -> Self {
+    /*fn set_update_dead_time_on_tez(mut self, update_dead_time_on_tez: bool) -> Self {
         self.flags
             .set_update_dead_time_on_tez(update_dead_time_on_tez.into());
         self
@@ -111,14 +109,14 @@ where
         self.flags
             .set_update_gen_action_on_sync(update_gen_action_on_sync.into());
         self
-    }
+    }*/
 }
 
-impl<CMP_Y: OptionalCmpCfg> OperatorConfig<NoCmpCfg, CMP_Y, NoGenCfg, NoGenCfg> {
+impl<CMPY: OptionalCmpCfg> OperatorConfig<NoCmpCfg, CMPY, NoGenCfg, NoGenCfg> {
     fn cmp_x(
         self,
         config: ComparatorConfig,
-    ) -> OperatorConfig<ComparatorConfig, CMP_Y, NoGenCfg, NoGenCfg> {
+    ) -> OperatorConfig<ComparatorConfig, CMPY, NoGenCfg, NoGenCfg> {
         /*
         let mut flags: mcpwm_comparator_config_t__bindgen_ty_1 = Default::default();
         flags.set_update_cmp_on_tep(todo!());
@@ -144,11 +142,11 @@ impl<CMP_Y: OptionalCmpCfg> OperatorConfig<NoCmpCfg, CMP_Y, NoGenCfg, NoGenCfg> 
     }
 }
 
-impl<CMP_X: OptionalCmpCfg> OperatorConfig<CMP_X, NoCmpCfg, NoGenCfg, NoGenCfg> {
+impl<CMPX: OptionalCmpCfg> OperatorConfig<CMPX, NoCmpCfg, NoGenCfg, NoGenCfg> {
     fn cmp_y(
         self,
         config: ComparatorConfig,
-    ) -> OperatorConfig<CMP_X, ComparatorConfig, NoGenCfg, NoGenCfg> {
+    ) -> OperatorConfig<CMPX, ComparatorConfig, NoGenCfg, NoGenCfg> {
         /*let mut flags: mcpwm_comparator_config_t__bindgen_ty_1 = Default::default();
         flags.set_update_cmp_on_tep(todo!());
         flags.set_update_cmp_on_tez(todo!());
@@ -177,17 +175,17 @@ impl<CMP_X: OptionalCmpCfg> OperatorConfig<CMP_X, NoCmpCfg, NoGenCfg, NoGenCfg> 
 // TODO: Is there any point in letting the user provide the comparators or should two (the only two available
 // for that operator in hardware) be automatically assigned in `Operator::new`?
 
-impl<CMP_X: OptionalCmpCfg, CMP_Y: OptionalCmpCfg, GEN_B: OptionalGenCfg>
-    OperatorConfig<CMP_X, CMP_Y, NoGenCfg, GEN_B>
+impl<CMPX: OptionalCmpCfg, CMPY: OptionalCmpCfg, GENB: OptionalGenCfg>
+    OperatorConfig<CMPX, CMPY, NoGenCfg, GENB>
 {
     fn gen_a<P: OutputPin>(
-        mut self,
-        config: GeneratorConfig<GenA, CMP_X::OnMatchCfg, CMP_Y::OnMatchCfg, P>,
+        self,
+        config: GeneratorConfig<GenA, CMPX::OnMatchCfg, CMPY::OnMatchCfg, P>,
     ) -> OperatorConfig<
-        CMP_X,
-        CMP_Y,
-        GeneratorConfig<GenA, CMP_X::OnMatchCfg, CMP_Y::OnMatchCfg, P>,
-        GEN_B,
+        CMPX,
+        CMPY,
+        GeneratorConfig<GenA, CMPX::OnMatchCfg, CMPY::OnMatchCfg, P>,
+        GENB,
     > {
         OperatorConfig {
             flags: self.flags,
@@ -200,17 +198,17 @@ impl<CMP_X: OptionalCmpCfg, CMP_Y: OptionalCmpCfg, GEN_B: OptionalGenCfg>
     }
 }
 
-impl<CMP_X: OptionalCmpCfg, CMP_Y: OptionalCmpCfg, GEN_A: OptionalGenCfg>
-    OperatorConfig<CMP_X, CMP_Y, GEN_A, NoGenCfg>
+impl<CMPX: OptionalCmpCfg, CMPY: OptionalCmpCfg, GENA: OptionalGenCfg>
+    OperatorConfig<CMPX, CMPY, GENA, NoGenCfg>
 {
     fn gen_b<P: OutputPin>(
-        mut self,
-        config: GeneratorConfig<GenB, CMP_X::OnMatchCfg, CMP_Y::OnMatchCfg, P>,
+        self,
+        config: GeneratorConfig<GenB, CMPX::OnMatchCfg, CMPY::OnMatchCfg, P>,
     ) -> OperatorConfig<
-        CMP_X,
-        CMP_Y,
-        GEN_A,
-        GeneratorConfig<GenB, CMP_X::OnMatchCfg, CMP_Y::OnMatchCfg, P>,
+        CMPX,
+        CMPY,
+        GENA,
+        GeneratorConfig<GenB, CMPX::OnMatchCfg, CMPY::OnMatchCfg, P>,
     > {
         OperatorConfig {
             flags: self.flags,

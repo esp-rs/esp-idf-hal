@@ -1,19 +1,14 @@
 use esp_idf_sys::{
-    esp, mcpwm_comparator_config_t, mcpwm_comparator_config_t__bindgen_ty_1,
-    mcpwm_comparator_set_compare_value, mcpwm_gen_timer_event_action_t, mcpwm_generator_config_t,
-    mcpwm_generator_config_t__bindgen_ty_1, mcpwm_generator_set_actions_on_compare_event,
-    mcpwm_generator_set_actions_on_timer_event, mcpwm_new_comparator, mcpwm_new_generator,
-    mcpwm_oper_handle_t, mcpwm_operator_config_t, mcpwm_operator_config_t__bindgen_ty_1,
-    mcpwm_operator_connect_timer, mcpwm_timer_direction_t_MCPWM_TIMER_DIRECTION_DOWN,
-    mcpwm_timer_direction_t_MCPWM_TIMER_DIRECTION_UP, mcpwm_timer_event_t_MCPWM_TIMER_EVENT_EMPTY,
-    mcpwm_timer_event_t_MCPWM_TIMER_EVENT_FULL, mcpwm_timer_handle_t, EspError,
+    esp, mcpwm_comparator_set_compare_value, mcpwm_oper_handle_t, mcpwm_operator_config_t,
+    mcpwm_operator_config_t__bindgen_ty_1, mcpwm_operator_connect_timer, mcpwm_timer_handle_t,
+    EspError,
 };
 
 use crate::mcpwm::Group;
 
 use super::{
-    comparator::{Comparator, ComparatorConfig, NoCmp, OptionalCmp, OptionalCmpCfg},
-    generator::{GenA, GenB, GenInit, NoGen, OptionalGen, OptionalGenCfg},
+    comparator::{Comparator, OptionalCmp, OptionalCmpCfg},
+    generator::{OptionalGen, OptionalGenCfg},
     OperatorConfig,
 };
 
@@ -61,45 +56,46 @@ impl<const N: u8, G: Group> crate::peripheral::Peripheral for OPERATOR<N, G> {
 pub struct Operator<
     const N: u8,
     G: Group,
-    CMP_X: OptionalCmp,
-    CMP_Y: OptionalCmp,
-    GEN_A: OptionalGen,
-    GEN_B: OptionalGen,
+    CMPX: OptionalCmp,
+    CMPY: OptionalCmp,
+    GENA: OptionalGen,
+    GENB: OptionalGen,
 > {
     _instance: OPERATOR<N, G>,
     _handle: mcpwm_oper_handle_t,
 
-    comparator_x: CMP_X, // SOC_MCPWM_COMPARATORS_PER_OPERATOR is 2 for ESP32 and ESP32-S3
-    comparator_y: CMP_Y,
+    comparator_x: CMPX, // SOC_MCPWM_COMPARATORS_PER_OPERATOR is 2 for ESP32 and ESP32-S3
+    comparator_y: CMPY,
 
-    _generator_a: GEN_A, // One generator per pin, with a maximum of two generators per Operator
-    _generator_b: GEN_B,
+    _generator_a: GENA, // One generator per pin, with a maximum of two generators per Operator
+    _generator_b: GENB,
     //deadtime: D
 }
 
-pub unsafe fn new<const N: u8, G, CMP_X, CMP_Y, GEN_A, GEN_B>(
+pub unsafe fn new<const N: u8, G, CMPX, CMPY, GENA, GENB>(
     instance: OPERATOR<N, G>,
     timer_handle: mcpwm_timer_handle_t,
-    cfg: OperatorConfig<CMP_X, CMP_Y, GEN_A, GEN_B>,
-) -> Operator<N, G, CMP_X::Cmp, CMP_Y::Cmp, GEN_A::Gen, GEN_B::Gen>
+    cfg: OperatorConfig<CMPX, CMPY, GENA, GENB>,
+) -> Operator<N, G, CMPX::Cmp, CMPY::Cmp, GENA::Gen, GENB::Gen>
 where
     G: Group,
-    CMP_X: OptionalCmpCfg,
-    CMP_Y: OptionalCmpCfg,
+    CMPX: OptionalCmpCfg,
+    CMPY: OptionalCmpCfg,
 
-    GEN_A: OptionalGenCfg,
-    GEN_B: OptionalGenCfg,
+    GENA: OptionalGenCfg,
+    GENB: OptionalGenCfg,
 {
     let mut handle = ptr::null_mut();
     let mut flags: mcpwm_operator_config_t__bindgen_ty_1 = Default::default();
 
-    flags.set_update_gen_action_on_tez(todo!());
-    flags.set_update_gen_action_on_tep(todo!());
-    flags.set_update_gen_action_on_sync(todo!());
+    // TODO: What should these be set to?
+    flags.set_update_gen_action_on_tez(1);
+    flags.set_update_gen_action_on_tep(1);
+    flags.set_update_gen_action_on_sync(1);
 
-    flags.set_update_dead_time_on_tez(todo!());
-    flags.set_update_dead_time_on_tep(todo!());
-    flags.set_update_dead_time_on_sync(todo!());
+    flags.set_update_dead_time_on_tez(1);
+    flags.set_update_dead_time_on_tep(1);
+    flags.set_update_dead_time_on_sync(1);
 
     let config = mcpwm_operator_config_t {
         group_id: G::ID,
@@ -110,8 +106,8 @@ where
         esp!(esp_idf_sys::mcpwm_new_operator(&config, &mut handle,)).unwrap();
     }
 
-    let comparator_x = unsafe { cfg.comparator_x.init(handle) };
-    let comparator_y = unsafe { cfg.comparator_y.init(handle) };
+    let mut comparator_x = unsafe { cfg.comparator_x.init(handle) };
+    let mut comparator_y = unsafe { cfg.comparator_y.init(handle) };
 
     let generator_a = unsafe {
         cfg.generator_a.init(
@@ -144,38 +140,12 @@ where
     }
 }
 
-impl<const N: u8, CMP_Y: OptionalCmp, G: Group> Operator<N, G, NoCmp, CMP_Y, NoGen, NoGen> {
-    fn cmp_x(self, config: ComparatorConfig) -> Operator<N, G, Comparator, CMP_Y, NoGen, NoGen> {
-        let mut flags: mcpwm_comparator_config_t__bindgen_ty_1 = Default::default();
-        flags.set_update_cmp_on_tep(todo!());
-        flags.set_update_cmp_on_tez(todo!());
-        flags.set_update_cmp_on_sync(todo!());
-
-        let cfg = mcpwm_comparator_config_t { flags };
-        let mut cmp = ptr::null_mut();
-        unsafe {
-            esp!(mcpwm_new_comparator(self._handle, &cfg, &mut cmp)).unwrap();
-        }
-        let comparator_x = Comparator(cmp);
-
-        Operator {
-            _instance: self._instance,
-            _handle: self._handle,
-            comparator_x,
-            comparator_y: self.comparator_y,
-
-            _generator_a: self._generator_a,
-            _generator_b: self._generator_b,
-        }
-    }
-}
-
-impl<const N: u8, G, GEN_A, GEN_B, CMP_Y> Operator<N, G, Comparator, CMP_Y, GEN_A, GEN_B>
+impl<const N: u8, G, GENA, GENB, CMPY> Operator<N, G, Comparator, CMPY, GENA, GENB>
 where
     G: Group,
-    CMP_Y: OptionalCmp,
-    GEN_A: OptionalGen,
-    GEN_B: OptionalGen,
+    CMPY: OptionalCmp,
+    GENA: OptionalGen,
+    GENB: OptionalGen,
 {
     // TODO: Note that this is the comparator we are affecting, not the generator. Generator A may not necessarily have
     // anything to do with comparator A. How do we best convay that? Should we call them Generator X/Y and Comparator A/B?
@@ -213,12 +183,12 @@ where
     }
 }
 
-impl<const N: u8, G, GEN_A, GEN_B, CMP_X> Operator<N, G, CMP_X, Comparator, GEN_A, GEN_B>
+impl<const N: u8, G, GENA, GENB, CMPX> Operator<N, G, CMPX, Comparator, GENA, GENB>
 where
     G: Group,
-    CMP_X: OptionalCmp,
-    GEN_A: OptionalGen,
-    GEN_B: OptionalGen,
+    CMPX: OptionalCmp,
+    GENA: OptionalGen,
+    GENB: OptionalGen,
 {
     /// Get compare value, often times same as the duty for output B.
     ///
@@ -247,14 +217,14 @@ where
 }
 
 pub trait OptionalOperator<const N: u8, G: Group> {}
-impl<const N: u8, G, CMP_X, CMP_Y, GEN_A, GEN_B> OptionalOperator<N, G>
-    for Operator<N, G, CMP_X, CMP_Y, GEN_A, GEN_B>
+impl<const N: u8, G, CMPX, CMPY, GENA, GENB> OptionalOperator<N, G>
+    for Operator<N, G, CMPX, CMPY, GENA, GENB>
 where
     G: Group,
-    CMP_X: OptionalCmp,
-    CMP_Y: OptionalCmp,
-    GEN_A: OptionalGen,
-    GEN_B: OptionalGen,
+    CMPX: OptionalCmp,
+    CMPY: OptionalCmp,
+    GENA: OptionalGen,
+    GENB: OptionalGen,
 {
 }
 

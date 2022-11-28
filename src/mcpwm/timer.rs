@@ -4,7 +4,7 @@ use std::ptr;
 
 use esp_idf_sys::{
     esp, mcpwm_del_timer, mcpwm_new_timer, mcpwm_timer_config_t, mcpwm_timer_enable,
-    mcpwm_timer_handle_t,
+    mcpwm_timer_handle_t, mcpwm_timer_config_t__bindgen_ty_1, mcpwm_timer_sync_src_config_t__bindgen_ty_1, soc_periph_mcpwm_timer_clk_src_t_MCPWM_TIMER_CLK_SRC_DEFAULT, mcpwm_timer_count_mode_t_MCPWM_TIMER_COUNT_MODE_UP,
 };
 
 use crate::mcpwm::Group;
@@ -82,13 +82,19 @@ pub struct Timer<const N: u8, G: Group> {
 
 impl<const N: u8, G: Group> Timer<N, G> {
     pub fn new(timer: TIMER<N, G>, config: TimerConfig) -> Self {
+        let mut flags: mcpwm_timer_config_t__bindgen_ty_1 = Default::default();
+        
+        // TODO: What should these be set to?
+        flags.set_update_period_on_empty(1);
+        flags.set_update_period_on_sync(0);
+
         let cfg = mcpwm_timer_config_t {
-            group_id: todo!(),
-            clk_src: todo!(),
-            resolution_hz: todo!(),
-            count_mode: todo!(),
-            period_ticks: todo!(),
-            flags: todo!(),
+            group_id: G::ID,
+            clk_src:  soc_periph_mcpwm_timer_clk_src_t_MCPWM_TIMER_CLK_SRC_DEFAULT,
+            resolution_hz: 160_000_000, // 160MHz
+            count_mode: mcpwm_timer_count_mode_t_MCPWM_TIMER_COUNT_MODE_UP,
+            period_ticks: 16_000, // 10kHz
+            flags,
         };
         let mut handle: mcpwm_timer_handle_t = ptr::null_mut();
         unsafe {
@@ -163,6 +169,8 @@ impl<const N: u8, G: Group> Timer<N, G> {
     }
 }
 
+// TODO: Should this be done in TimerConnection instead to ensure everything is taken down
+// in the correct order?
 impl<const N: u8, G: Group> Drop for Timer<N, G> {
     fn drop(&mut self) {
         unsafe {

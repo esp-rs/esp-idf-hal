@@ -1,9 +1,9 @@
 use crate::mcpwm::Group;
 
 use super::{
-    comparator::{OptionalCmp, OptionalCmpCfg},
-    generator::{OptionalGen, GenA, GenB, GenInit, OptionalGenCfg},
-    operator::{NoOperator, OptionalOperator, OPERATOR, self},
+    comparator::OptionalCmpCfg,
+    generator::OptionalGenCfg,
+    operator::{self, NoOperator, OptionalOperator, OPERATOR},
     timer::Timer,
     Operator, OperatorConfig,
 };
@@ -62,24 +62,18 @@ where
     O1: OptionalOperator<1, G>,
     O2: OptionalOperator<2, G>,
 {
-    pub fn attatch_operator0<CMP_X, CMP_Y, GEN_A, GEN_B>(
+    pub fn attatch_operator0<CMPX, CMPY, GENA, GENB>(
         self,
         operator_handle: OPERATOR<0, G>,
-        operator_cfg: OperatorConfig<
-            CMP_X,
-            CMP_Y,
-            GEN_A,
-            GEN_B,
-        >,
-    ) -> TimerConnection<N, G, Operator<0, G, CMP_X::Cmp, CMP_Y::Cmp, GEN_A::Gen, GEN_B::Gen>, O1, O2>
-    where// TODO: Any ideas on how to simplify this mess?
-        CMP_X: OptionalCmpCfg,
-        CMP_Y: OptionalCmpCfg,
-        GEN_A: OptionalGenCfg,
-        GEN_B: OptionalGenCfg,
+        operator_cfg: OperatorConfig<CMPX, CMPY, GENA, GENB>,
+    ) -> TimerConnection<N, G, Operator<0, G, CMPX::Cmp, CMPY::Cmp, GENA::Gen, GENB::Gen>, O1, O2>
+    where
+        CMPX: OptionalCmpCfg,
+        CMPY: OptionalCmpCfg,
+        GENA: OptionalGenCfg,
+        GENB: OptionalGenCfg,
     {
-        let operator =
-            unsafe { operator::new(operator_handle, self.timer.timer(), operator_cfg) };
+        let operator = unsafe { operator::new(operator_handle, self.timer.timer(), operator_cfg) };
         TimerConnection {
             timer: self.timer,
             operator0: operator,
@@ -95,22 +89,18 @@ where
     O0: OptionalOperator<0, G>,
     O2: OptionalOperator<2, G>,
 {
-    pub fn attatch_operator1<CMP_X, CMP_Y, GEN_A, GEN_B, PA, PB>(
+    pub fn attatch_operator1<CMPX, CMPY, GENA, GENB>(
         self,
         operator_handle: OPERATOR<1, G>,
-        operator_cfg: OperatorConfig<CMP_X, CMP_Y, GEN_A, GEN_B>,
-        pin_a: PA,
-        pin_b: PB,
-    ) -> TimerConnection<N, G, O0, Operator<1, G, CMP_X, CMP_Y, GEN_A, GEN_B>, O2>
+        operator_cfg: OperatorConfig<CMPX, CMPY, GENA, GENB>,
+    ) -> TimerConnection<N, G, O0, Operator<1, G, CMPX::Cmp, CMPY::Cmp, GENA::Gen, GENB::Gen>, O2>
     where
-        CMP_X: OptionalCmp,
-        CMP_Y: OptionalCmp,
-        GEN_A: OptionalGen,
-        GEN_B: OptionalGen,
-        PA: OptionalOutputPin,
-        PB: OptionalOutputPin,
+        CMPX: OptionalCmpCfg,
+        CMPY: OptionalCmpCfg,
+        GENA: OptionalGenCfg,
+        GENB: OptionalGenCfg,
     {
-        let operator = todo!(); //self.init_and_attach_operator(operator_cfg, pin_a, pin_b);
+        let operator = unsafe { operator::new(operator_handle, self.timer.timer(), operator_cfg) };
         TimerConnection {
             timer: self.timer,
             operator0: self.operator0,
@@ -126,22 +116,18 @@ where
     O0: OptionalOperator<0, G>,
     O1: OptionalOperator<1, G>,
 {
-    pub fn attatch_operator2<CMP_X, CMP_Y, GEN_A, GEN_B, PA, PB>(
+    pub fn attatch_operator2<CMPX, CMPY, GENA, GENB>(
         self,
         operator_handle: OPERATOR<2, G>,
-        operator_cfg: OperatorConfig<CMP_X, CMP_Y, GEN_A, GEN_B>,
-        pin_a: PA,
-        pin_b: PB,
-    ) -> TimerConnection<N, G, O0, O1, Operator<2, G, CMP_X, CMP_Y, GEN_A, GEN_B>>
+        operator_cfg: OperatorConfig<CMPX, CMPY, GENA, GENB>,
+    ) -> TimerConnection<N, G, O0, O1, Operator<2, G, CMPX::Cmp, CMPY::Cmp, GENA::Gen, GENB::Gen>>
     where
-        CMP_X: OptionalCmp,
-        CMP_Y: OptionalCmp,
-        GEN_A: OptionalGen,
-        GEN_B: OptionalGen,
-        PA: OptionalOutputPin,
-        PB: OptionalOutputPin,
+        CMPX: OptionalCmpCfg,
+        CMPY: OptionalCmpCfg,
+        GENA: OptionalGenCfg,
+        GENB: OptionalGenCfg,
     {
-        let operator = todo!(); //self.init_and_attach_operator(operator_cfg, pin_a, pin_b);
+        let operator = unsafe { operator::new(operator_handle, self.timer.timer(), operator_cfg) };
         TimerConnection {
             timer: self.timer,
             operator0: self.operator0,
@@ -151,8 +137,20 @@ where
     }
 }
 
-// TODO: Should this be moved somewhere else?
-pub struct NoPin;
+/*
+// TODO: Adding this prevents moving values out of the type as is done in attatch_operator()
+// how do we make this work?
+impl<const N: u8, G, O0, O1, O2> Drop for TimerConnection<N, G, O0, O1, O2>
+    where G: Group,
+    O0: OptionalOperator<0, G>,
+    O1: OptionalOperator<1, G>,
+    O2: OptionalOperator<2, G>,
+{
+    fn drop(&mut self) {
+        todo!()
+    }
+}
+*/
 
 // TODO: Should this be moved somewhere else?
 pub trait OptionalOutputPin {}

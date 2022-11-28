@@ -8,7 +8,7 @@ use esp_idf_sys::{
     mcpwm_generator_set_actions_on_timer_event,
     mcpwm_new_generator, mcpwm_oper_handle_t, mcpwm_timer_direction_t_MCPWM_TIMER_DIRECTION_DOWN,
     mcpwm_timer_direction_t_MCPWM_TIMER_DIRECTION_UP, mcpwm_timer_event_t_MCPWM_TIMER_EVENT_EMPTY,
-    mcpwm_timer_event_t_MCPWM_TIMER_EVENT_FULL,
+    mcpwm_timer_event_t_MCPWM_TIMER_EVENT_FULL, mcpwm_generator_config_t__bindgen_ty_1,
 };
 
 use crate::gpio::OutputPin;
@@ -24,11 +24,11 @@ impl OptionalGen for NoGen {
 pub trait OptionalGen {
 }
 
-impl<G, CMP_X, CMP_Y, P> OptionalGen for Generator<G, CMP_X, CMP_Y, P>
+impl<G, CMPX, CMPY, P> OptionalGen for Generator<G, CMPX, CMPY, P>
 where
     G: GeneratorChannel,
-    CMP_X: OnMatchCfg,
-    CMP_Y: OnMatchCfg,
+    CMPX: OnMatchCfg,
+    CMPY: OnMatchCfg,
     P: OutputPin,
 {
 }
@@ -48,19 +48,19 @@ impl GeneratorChannel for GenB {
 }
 
 // TODO: Allow OptionalOutputPin?
-pub struct Generator<G, CMP_X, CMP_Y, P: OutputPin> {
+pub struct Generator<G, CMPX, CMPY, P: OutputPin> {
     channel: PhantomData<G>,
-    cmp_x: PhantomData<CMP_X>,
-    cmp_y: PhantomData<CMP_Y>,
-    pub(crate) handle: mcpwm_gen_handle_t,
-    pub(crate) pin: P,
+    cmp_x: PhantomData<CMPX>,
+    cmp_y: PhantomData<CMPY>,
+    pub(crate) _handle: mcpwm_gen_handle_t,
+    pub(crate) _pin: P,
 }
 
-pub struct GeneratorConfig<G: GeneratorChannel, CMP_X, CMP_Y, P> {
+pub struct GeneratorConfig<G: GeneratorChannel, CMPX, CMPY, P> {
     _channel: PhantomData<G>,
-    pub(crate) invert: bool,
-    pub(crate) on_matches_cmp_x: CMP_X,
-    pub(crate) on_matches_cmp_y: CMP_Y,
+    pub(crate) flags: mcpwm_generator_config_t__bindgen_ty_1,
+    pub(crate) on_matches_cmp_x: CMPX,
+    pub(crate) on_matches_cmp_y: CMPY,
     pub(crate) on_is_empty: CountingDirection,
     pub(crate) on_is_full: CountingDirection,
     pub(crate) pin: P,
@@ -93,10 +93,10 @@ impl OptionalGenCfg for NoGenCfg {
     }
 }
 
-impl<G: GeneratorChannel, CMP_X: OnMatchCfg, CMP_Y: OnMatchCfg, P: OutputPin> OptionalGenCfg
-    for GeneratorConfig<G, CMP_X, CMP_Y, P>
+impl<G: GeneratorChannel, CMPX: OnMatchCfg, CMPY: OnMatchCfg, P: OutputPin> OptionalGenCfg
+    for GeneratorConfig<G, CMPX, CMPY, P>
 {
-    type Gen = Generator<G, CMP_X, CMP_Y, P>;
+    type Gen = Generator<G, CMPX, CMPY, P>;
 
     unsafe fn init(
         self,
@@ -106,7 +106,7 @@ impl<G: GeneratorChannel, CMP_X: OnMatchCfg, CMP_Y: OnMatchCfg, P: OutputPin> Op
     ) -> Self::Gen {
         let cfg = mcpwm_generator_config_t {
             gen_gpio_num: self.pin.pin(),
-            flags: todo!(), //generator_config.flags,
+            flags: self.flags,
         };
         let mut gen = ptr::null_mut();
         unsafe {
@@ -163,8 +163,8 @@ impl<G: GeneratorChannel, CMP_X: OnMatchCfg, CMP_Y: OnMatchCfg, P: OutputPin> Op
             channel: PhantomData,
             cmp_x: PhantomData,
             cmp_y: PhantomData,
-            handle: gen,
-            pin: self.pin,
+            _handle: gen,
+            _pin: self.pin,
         }
     }
 }
@@ -176,14 +176,14 @@ pub trait GenInit {
     unsafe fn init(self, operator_handle: mcpwm_oper_handle_t) -> Self::Gen;
 }
 
-impl<CMP_X, CMP_Y> GenInit for (&mut CMP_X, &mut CMP_Y, NoGenCfg)
+impl<CMPX, CMPY> GenInit for (&mut CMPX, &mut CMPY, NoGenCfg)
 where
-    CMP_X: OptionalCmp,
-    CMP_Y: OptionalCmp,
+    CMPX: OptionalCmp,
+    CMPY: OptionalCmp,
 {
     type Gen = NoGen;
 
-    unsafe fn init(self, operator_handle: mcpwm_oper_handle_t) -> Self::Gen {
+    unsafe fn init(self, _operator_handle: mcpwm_oper_handle_t) -> Self::Gen {
         NoGen
     }
 }
@@ -214,16 +214,20 @@ impl<G: GeneratorChannel, P> GeneratorConfig<G, CountingDirection, CountingDirec
 }
 
 // TODO: Do we have any use for this?
-impl<G, CMP_X, CMP_Y, P> GeneratorConfig<G, CMP_X, CMP_Y, P>
+impl<G, CMPX, CMPY, P> GeneratorConfig<G, CMPX, CMPY, P>
 where
     G: GeneratorChannel,
-    CMP_X: OnMatchCfg,
-    CMP_Y: OnMatchCfg,
+    CMPX: OnMatchCfg,
+    CMPY: OnMatchCfg,
 {
     fn empty(pin: P) -> Self {
+        let mut flags: mcpwm_generator_config_t__bindgen_ty_1 = Default::default();
+        flags.set_invert_pwm(0);
+        flags.set_io_loop_back(0);
+
         GeneratorConfig {
             _channel: PhantomData,
-            invert: false,
+            flags,
             on_matches_cmp_x: OnMatchCfg::empty(),
             on_matches_cmp_y: OnMatchCfg::empty(),
             on_is_empty: CountingDirection {
