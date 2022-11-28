@@ -76,10 +76,10 @@
 //!
 //! See the `examples/` folder of this repository for more.
 
+mod comparator;
+mod generator;
 mod operator;
 mod operator_config;
-mod generator;
-mod comparator;
 mod timer;
 mod timer_connection;
 
@@ -88,6 +88,7 @@ use core::ffi;
 pub use self::{
     operator::{Operator, OPERATOR},
     operator_config::OperatorConfig,
+    generator::{GeneratorConfig, GeneratorAction},
     timer::{Timer, TimerConfig, TIMER},
     timer_connection::TimerConnection,
 };

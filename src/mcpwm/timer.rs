@@ -3,21 +3,23 @@ use core::marker::PhantomData;
 use std::ptr;
 
 use esp_idf_sys::{
-    esp, mcpwm_del_timer, mcpwm_new_timer, mcpwm_timer_config_t, mcpwm_timer_enable,
-    mcpwm_timer_handle_t, mcpwm_timer_config_t__bindgen_ty_1, mcpwm_timer_sync_src_config_t__bindgen_ty_1, soc_periph_mcpwm_timer_clk_src_t_MCPWM_TIMER_CLK_SRC_DEFAULT, mcpwm_timer_count_mode_t_MCPWM_TIMER_COUNT_MODE_UP,
+    esp, mcpwm_del_timer, mcpwm_new_timer, mcpwm_timer_config_t,
+    mcpwm_timer_config_t__bindgen_ty_1, mcpwm_timer_count_mode_t, mcpwm_timer_count_mode_t_MCPWM_TIMER_COUNT_MODE_DOWN,
+    mcpwm_timer_count_mode_t_MCPWM_TIMER_COUNT_MODE_PAUSE,
+    mcpwm_timer_count_mode_t_MCPWM_TIMER_COUNT_MODE_UP,
+    mcpwm_timer_count_mode_t_MCPWM_TIMER_COUNT_MODE_UP_DOWN, mcpwm_timer_enable,
+    mcpwm_timer_handle_t, soc_periph_mcpwm_timer_clk_src_t_MCPWM_TIMER_CLK_SRC_DEFAULT,
 };
 
 use crate::mcpwm::Group;
-use crate::prelude::FromValueType;
-use crate::units::Hertz;
 
 use super::operator::NoOperator;
 use super::timer_connection::TimerConnection;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct TimerConfig {
-    frequency: Hertz,
-    //resolution: Hertz,
+    resolution: u32,
+    period_ticks: u16,
     count_mode: CountMode,
     // TODO
     // on_full: FF,
@@ -28,7 +30,8 @@ pub struct TimerConfig {
 impl Default for TimerConfig {
     fn default() -> Self {
         Self {
-            frequency: 1_u32.kHz().into(),
+            resolution: 160_000_000,
+            period_ticks: 16_000, // 10kHz
             //resolution: Default::default(),
             count_mode: CountMode::Up,
         }
@@ -44,13 +47,13 @@ impl TimerConfig {
 
     /// Frequency which the operator will run at, can also be changed live later
     #[must_use]
-    pub fn frequency(mut self, frequency: impl Into<Hertz>) -> Self {
-        self.frequency = frequency.into();
+    pub fn period_ticks(mut self, period_ticks: u16) -> Self {
+        self.period_ticks = period_ticks;
         self
     }
 
     #[must_use]
-    pub fn counter_mode(mut self, counter_mode: CountMode) -> Self {
+    pub fn count_mode(mut self, counter_mode: CountMode) -> Self {
         self.count_mode = counter_mode;
         self
     }
@@ -83,17 +86,17 @@ pub struct Timer<const N: u8, G: Group> {
 impl<const N: u8, G: Group> Timer<N, G> {
     pub fn new(timer: TIMER<N, G>, config: TimerConfig) -> Self {
         let mut flags: mcpwm_timer_config_t__bindgen_ty_1 = Default::default();
-        
+
         // TODO: What should these be set to?
         flags.set_update_period_on_empty(1);
         flags.set_update_period_on_sync(0);
 
         let cfg = mcpwm_timer_config_t {
             group_id: G::ID,
-            clk_src:  soc_periph_mcpwm_timer_clk_src_t_MCPWM_TIMER_CLK_SRC_DEFAULT,
-            resolution_hz: 160_000_000, // 160MHz
-            count_mode: mcpwm_timer_count_mode_t_MCPWM_TIMER_COUNT_MODE_UP,
-            period_ticks: 16_000, // 10kHz
+            clk_src: soc_periph_mcpwm_timer_clk_src_t_MCPWM_TIMER_CLK_SRC_DEFAULT,
+            resolution_hz: config.resolution,
+            count_mode: config.count_mode.into(),
+            period_ticks: config.period_ticks.into(),
             flags,
         };
         let mut handle: mcpwm_timer_handle_t = ptr::null_mut();
@@ -238,19 +241,22 @@ pub enum CountMode {
     /// ```
     /// NOTE: That in this mode, the frequency will be half of that specified
     UpDown,
+
+    /// Timer paused
+    Pause,
 }
 
-/*
-impl From<CounterMode> for mcpwm_counter_type_t {
-    fn from(val: CounterMode) -> Self {
+impl From<CountMode> for mcpwm_timer_count_mode_t {
+    fn from(val: CountMode) -> Self {
         match val {
             //CounterMode::Frozen => mcpwm_counter_type_t_MCPWM_FREEZE_COUNTER,
-            CounterMode::Up => mcpwm_counter_type_t_MCPWM_UP_COUNTER,
-            CounterMode::Down => mcpwm_counter_type_t_MCPWM_DOWN_COUNTER,
-            CounterMode::UpDown => mcpwm_counter_type_t_MCPWM_UP_DOWN_COUNTER,
+            CountMode::Up => mcpwm_timer_count_mode_t_MCPWM_TIMER_COUNT_MODE_UP,
+            CountMode::Down => mcpwm_timer_count_mode_t_MCPWM_TIMER_COUNT_MODE_DOWN,
+            CountMode::UpDown => mcpwm_timer_count_mode_t_MCPWM_TIMER_COUNT_MODE_UP_DOWN,
+            CountMode::Pause => mcpwm_timer_count_mode_t_MCPWM_TIMER_COUNT_MODE_PAUSE,
         }
     }
-}*/
+}
 
 pub struct TIMER<const N: u8, G: Group> {
     _ptr: PhantomData<*const ()>,

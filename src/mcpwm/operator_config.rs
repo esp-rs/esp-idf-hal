@@ -1,11 +1,10 @@
-
 use esp_idf_sys::mcpwm_operator_config_t__bindgen_ty_1;
 
 use crate::gpio::OutputPin;
 
 use super::{
     comparator::{ComparatorConfig, NoCmpCfg, OptionalCmpCfg},
-    generator::{GenA, GenB, GeneratorConfig, NoGenCfg, OptionalGenCfg, CountingDirection},
+    generator::{CountingDirection, GenA, GenB, GeneratorConfig, NoGenCfg, OptionalGenCfg},
 };
 
 #[derive(Default)]

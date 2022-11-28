@@ -5,24 +5,20 @@ use esp_idf_sys::{
     mcpwm_generator_action_t_MCPWM_GEN_ACTION_HIGH, mcpwm_generator_action_t_MCPWM_GEN_ACTION_KEEP,
     mcpwm_generator_action_t_MCPWM_GEN_ACTION_LOW,
     mcpwm_generator_action_t_MCPWM_GEN_ACTION_TOGGLE, mcpwm_generator_config_t,
-    mcpwm_generator_set_actions_on_timer_event,
+    mcpwm_generator_config_t__bindgen_ty_1, mcpwm_generator_set_actions_on_timer_event,
     mcpwm_new_generator, mcpwm_oper_handle_t, mcpwm_timer_direction_t_MCPWM_TIMER_DIRECTION_DOWN,
     mcpwm_timer_direction_t_MCPWM_TIMER_DIRECTION_UP, mcpwm_timer_event_t_MCPWM_TIMER_EVENT_EMPTY,
-    mcpwm_timer_event_t_MCPWM_TIMER_EVENT_FULL, mcpwm_generator_config_t__bindgen_ty_1,
+    mcpwm_timer_event_t_MCPWM_TIMER_EVENT_FULL,
 };
 
 use crate::gpio::OutputPin;
 
-use super::{
-    comparator::{Comparator, OptionalCmp},
-};
+use super::comparator::{Comparator, OptionalCmp};
 
 pub struct NoGen;
 
-impl OptionalGen for NoGen {
-}
-pub trait OptionalGen {
-}
+impl OptionalGen for NoGen {}
+pub trait OptionalGen {}
 
 impl<G, CMPX, CMPY, P> OptionalGen for Generator<G, CMPX, CMPY, P>
 where
@@ -286,9 +282,9 @@ pub trait OnMatchCfg {
     fn to_counting_direction(self) -> CountingDirection;
 }
 
-impl Into<mcpwm_generator_action_t> for GeneratorAction {
-    fn into(self) -> mcpwm_generator_action_t {
-        match self {
+impl From<GeneratorAction> for mcpwm_generator_action_t {
+    fn from(val: GeneratorAction) -> Self {
+        match val {
             GeneratorAction::Nothing => mcpwm_generator_action_t_MCPWM_GEN_ACTION_KEEP,
             GeneratorAction::SetLow => mcpwm_generator_action_t_MCPWM_GEN_ACTION_LOW,
             GeneratorAction::SetHigh => mcpwm_generator_action_t_MCPWM_GEN_ACTION_HIGH,
@@ -297,7 +293,7 @@ impl Into<mcpwm_generator_action_t> for GeneratorAction {
     }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum GeneratorAction {
     Nothing,
     SetLow,
