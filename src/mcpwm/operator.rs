@@ -13,10 +13,7 @@ use crate::mcpwm::Group;
 
 use super::{
     comparator::{Comparator, ComparatorConfig, NoCmp, OptionalCmp, OptionalCmpCfg},
-    generator::{
-        GenA, GenB, GenInit, NoGen, OptionalGen,
-        ToGenCfg,
-    },
+    generator::{GenA, GenB, GenInit, NoGen, OptionalGen, OptionalGenCfg},
     OperatorConfig,
 };
 
@@ -80,79 +77,70 @@ pub struct Operator<
     //deadtime: D
 }
 
-impl<'a, const N: u8, G: Group, CMP_X, CMP_Y, GEN_A, GEN_B>
-    Operator<N, G, CMP_X, CMP_Y, GEN_A, GEN_B>
+pub unsafe fn new<const N: u8, G, CMP_X, CMP_Y, GEN_A, GEN_B>(
+    instance: OPERATOR<N, G>,
+    timer_handle: mcpwm_timer_handle_t,
+    cfg: OperatorConfig<CMP_X, CMP_Y, GEN_A, GEN_B>,
+) -> Operator<N, G, CMP_X::Cmp, CMP_Y::Cmp, GEN_A::Gen, GEN_B::Gen>
 where
-    CMP_X: OptionalCmp,
-    CMP_Y: OptionalCmp,
+    G: Group,
+    CMP_X: OptionalCmpCfg,
+    CMP_Y: OptionalCmpCfg,
 
-    GEN_A: OptionalGen,
-    GEN_B: OptionalGen,
-    (CMP_X, CMP_Y, GenA, GEN_A): ToGenCfg, // TODO: Is there a less hacky way to do this?
-    (CMP_X, CMP_Y, GenB, GEN_B): ToGenCfg,
-    (
-        &'a mut CMP_X,
-        &'a mut CMP_Y,
-        <(CMP_X, CMP_Y, GenA, GEN_A) as ToGenCfg>::Cfg,
-    ): GenInit<Gen = GEN_A> + 'a,
-    (
-        &'a mut CMP_X,
-        &'a mut CMP_Y,
-        <(CMP_X, CMP_Y, GenB, GEN_B) as ToGenCfg>::Cfg,
-    ): GenInit<Gen = GEN_B> + 'a,
+    GEN_A: OptionalGenCfg,
+    GEN_B: OptionalGenCfg,
 {
-    pub unsafe fn new(
-        instance: OPERATOR<N, G>,
-        timer_handle: mcpwm_timer_handle_t,
-        cfg: OperatorConfig<
-            CMP_X::Cfg,
-            CMP_Y::Cfg,
-            <(CMP_X, CMP_Y, GenA, GEN_A) as ToGenCfg>::Cfg,
-            <(CMP_X, CMP_Y, GenB, GEN_B) as ToGenCfg>::Cfg,
-        >,
-    ) -> Self {
-        let mut handle = ptr::null_mut();
-        let mut flags: mcpwm_operator_config_t__bindgen_ty_1 = Default::default();
+    let mut handle = ptr::null_mut();
+    let mut flags: mcpwm_operator_config_t__bindgen_ty_1 = Default::default();
 
-        flags.set_update_gen_action_on_tez(todo!());
-        flags.set_update_gen_action_on_tep(todo!());
-        flags.set_update_gen_action_on_sync(todo!());
+    flags.set_update_gen_action_on_tez(todo!());
+    flags.set_update_gen_action_on_tep(todo!());
+    flags.set_update_gen_action_on_sync(todo!());
 
-        flags.set_update_dead_time_on_tez(todo!());
-        flags.set_update_dead_time_on_tep(todo!());
-        flags.set_update_dead_time_on_sync(todo!());
+    flags.set_update_dead_time_on_tez(todo!());
+    flags.set_update_dead_time_on_tep(todo!());
+    flags.set_update_dead_time_on_sync(todo!());
 
-        let config = mcpwm_operator_config_t {
-            group_id: G::ID,
-            flags,
-        };
+    let config = mcpwm_operator_config_t {
+        group_id: G::ID,
+        flags,
+    };
 
-        unsafe {
-            esp!(esp_idf_sys::mcpwm_new_operator(&config, &mut handle,)).unwrap();
-        }
+    unsafe {
+        esp!(esp_idf_sys::mcpwm_new_operator(&config, &mut handle,)).unwrap();
+    }
 
-        let comparator_x = unsafe { cfg.comparator_x.init(handle) };
-        let comparator_y = unsafe { cfg.comparator_y.init(handle) };
+    let comparator_x = unsafe { cfg.comparator_x.init(handle) };
+    let comparator_y = unsafe { cfg.comparator_y.init(handle) };
 
-        let generator_a =
-            unsafe { (&mut comparator_x, &mut comparator_y, cfg.generator_a).init(handle) };
-        let generator_b =
-            unsafe { (&mut comparator_x, &mut comparator_y, cfg.generator_b).init(handle) };
+    let generator_a = unsafe {
+        cfg.generator_a.init(
+            handle,
+            comparator_x.get_comparator_mut(),
+            comparator_y.get_comparator_mut(),
+        )
+    };
+    let generator_b = unsafe {
+        cfg.generator_b.init(
+            handle,
+            comparator_x.get_comparator_mut(),
+            comparator_y.get_comparator_mut(),
+        )
+    };
 
-        // Connect operator to timer
-        unsafe {
-            esp!(mcpwm_operator_connect_timer(handle, timer_handle)).unwrap();
-        }
+    // Connect operator to timer
+    unsafe {
+        esp!(mcpwm_operator_connect_timer(handle, timer_handle)).unwrap();
+    }
 
-        Operator {
-            _instance: instance,
-            _handle: handle,
-            comparator_x,
-            comparator_y,
+    Operator {
+        _instance: instance,
+        _handle: handle,
+        comparator_x,
+        comparator_y,
 
-            _generator_a: generator_a,
-            _generator_b: generator_b,
-        }
+        _generator_a: generator_a,
+        _generator_b: generator_b,
     }
 }
 

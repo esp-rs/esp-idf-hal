@@ -1,9 +1,9 @@
 use crate::mcpwm::Group;
 
 use super::{
-    comparator::OptionalCmp,
-    generator::OptionalGen,
-    operator::{NoOperator, OptionalOperator, OPERATOR},
+    comparator::{OptionalCmp, OptionalCmpCfg},
+    generator::{OptionalGen, GenA, GenB, GenInit, OptionalGenCfg},
+    operator::{NoOperator, OptionalOperator, OPERATOR, self},
     timer::Timer,
     Operator, OperatorConfig,
 };
@@ -62,20 +62,24 @@ where
     O1: OptionalOperator<1, G>,
     O2: OptionalOperator<2, G>,
 {
-    pub fn attatch_operator0<CMP_X, CMP_Y, GEN_A, GEN_B, PA, PB>(
+    pub fn attatch_operator0<CMP_X, CMP_Y, GEN_A, GEN_B>(
         self,
         operator_handle: OPERATOR<0, G>,
-        operator_cfg: OperatorConfig<CMP_X, CMP_Y, GEN_A, GEN_B>,
-    ) -> TimerConnection<N, G, Operator<0, G, CMP_X, CMP_Y, GEN_A, GEN_B>, O1, O2>
-    where
-        CMP_X: OptionalCmp,
-        CMP_Y: OptionalCmp,
-        GEN_A: OptionalGen,
-        GEN_B: OptionalGen,
-        PA: OptionalOutputPin,
-        PB: OptionalOutputPin,
+        operator_cfg: OperatorConfig<
+            CMP_X,
+            CMP_Y,
+            GEN_A,
+            GEN_B,
+        >,
+    ) -> TimerConnection<N, G, Operator<0, G, CMP_X::Cmp, CMP_Y::Cmp, GEN_A::Gen, GEN_B::Gen>, O1, O2>
+    where// TODO: Any ideas on how to simplify this mess?
+        CMP_X: OptionalCmpCfg,
+        CMP_Y: OptionalCmpCfg,
+        GEN_A: OptionalGenCfg,
+        GEN_B: OptionalGenCfg,
     {
-        let operator = unsafe { Operator::new(operator_handle, self.timer.timer(), operator_config) };
+        let operator =
+            unsafe { operator::new(operator_handle, self.timer.timer(), operator_cfg) };
         TimerConnection {
             timer: self.timer,
             operator0: operator,

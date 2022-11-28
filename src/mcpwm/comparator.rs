@@ -1,11 +1,15 @@
 use core::ptr;
 
-use esp_idf_sys::{mcpwm_cmpr_handle_t, mcpwm_gen_t, mcpwm_generator_set_actions_on_compare_event, mcpwm_timer_direction_t_MCPWM_TIMER_DIRECTION_UP, mcpwm_generator_action_t_MCPWM_GEN_ACTION_KEEP, mcpwm_timer_direction_t_MCPWM_TIMER_DIRECTION_DOWN, mcpwm_comparator_config_t__bindgen_ty_1, esp, mcpwm_comparator_config_t, mcpwm_new_comparator, mcpwm_oper_handle_t};
+use esp_idf_sys::{
+    esp, mcpwm_cmpr_handle_t, mcpwm_comparator_config_t, mcpwm_comparator_config_t__bindgen_ty_1,
+    mcpwm_gen_t, mcpwm_generator_set_actions_on_compare_event, mcpwm_new_comparator,
+    mcpwm_oper_handle_t, mcpwm_timer_direction_t_MCPWM_TIMER_DIRECTION_DOWN,
+    mcpwm_timer_direction_t_MCPWM_TIMER_DIRECTION_UP,
+};
 
-use super::generator::{CountingDirection, OnMatchCfg, NoCmpMatchConfig};
+use super::generator::{CountingDirection, NoCmpMatchConfig, OnMatchCfg};
 
-
-trait ComparatorChannel{}
+trait ComparatorChannel {}
 
 pub struct CmpX;
 impl ComparatorChannel for CmpX {}
@@ -15,22 +19,17 @@ impl ComparatorChannel for CmpY {}
 
 pub trait OptionalCmp {
     type OnMatchCfg: OnMatchCfg;
-    type Cfg: OptionalCmpCfg<Cmp=Self>;
-    unsafe fn _configure(&mut self, gen: &mut mcpwm_gen_t, cfg: Self::OnMatchCfg);
+    type Cfg: OptionalCmpCfg<Cmp = Self>;
+
+    fn get_comparator_mut(&mut self) -> Option<&mut Comparator>;
 }
 
 impl OptionalCmp for Comparator {
     type OnMatchCfg = super::generator::CountingDirection;
     type Cfg = ComparatorConfig;
 
-    unsafe fn _configure(&mut self, gen: &mut mcpwm_gen_t, cfg: Self::OnMatchCfg) {
-        // TODO: "must be terminated by MCPWM_GEN_TIMER_EVENT_ACTION_END()"
-        mcpwm_generator_set_actions_on_compare_event(gen, esp_idf_sys::mcpwm_gen_compare_event_action_t {
-            direction: mcpwm_timer_direction_t_MCPWM_TIMER_DIRECTION_UP, comparator: self.0, action: cfg.counting_up.into()
-        });
-        mcpwm_generator_set_actions_on_compare_event(gen, esp_idf_sys::mcpwm_gen_compare_event_action_t {
-            direction: mcpwm_timer_direction_t_MCPWM_TIMER_DIRECTION_DOWN, comparator: self.0, action: cfg.counting_down.into()
-        });
+    fn get_comparator_mut(&mut self) -> Option<&mut Comparator> {
+        Some(self)
     }
 }
 
@@ -39,12 +38,34 @@ impl OptionalCmp for NoCmp {
     type OnMatchCfg = super::generator::NoCmpMatchConfig;
     type Cfg = NoCmpCfg;
 
-    unsafe fn _configure(&mut self, gen: &mut mcpwm_gen_t, cfg: Self::OnMatchCfg) {
-        // Do nothing
+    fn get_comparator_mut(&mut self) -> Option<&mut Comparator> {
+        None
     }
 }
 
-pub struct Comparator(pub(crate)mcpwm_cmpr_handle_t);
+pub struct Comparator(pub(crate) mcpwm_cmpr_handle_t);
+
+impl Comparator {
+    pub(crate) unsafe fn configure(&mut self, gen: &mut mcpwm_gen_t, cfg: CountingDirection) {
+        // TODO: "must be terminated by MCPWM_GEN_TIMER_EVENT_ACTION_END()"
+        mcpwm_generator_set_actions_on_compare_event(
+            gen,
+            esp_idf_sys::mcpwm_gen_compare_event_action_t {
+                direction: mcpwm_timer_direction_t_MCPWM_TIMER_DIRECTION_UP,
+                comparator: self.0,
+                action: cfg.counting_up.into(),
+            },
+        );
+        mcpwm_generator_set_actions_on_compare_event(
+            gen,
+            esp_idf_sys::mcpwm_gen_compare_event_action_t {
+                direction: mcpwm_timer_direction_t_MCPWM_TIMER_DIRECTION_DOWN,
+                comparator: self.0,
+                action: cfg.counting_down.into(),
+            },
+        );
+    }
+}
 
 #[derive(Debug, Clone, Copy)]
 pub struct ComparatorConfig {
@@ -63,7 +84,7 @@ impl Default for ComparatorConfig {
 
 pub struct NoCmpCfg;
 
-pub trait OptionalCmpCfg{
+pub trait OptionalCmpCfg {
     type OnMatchCfg: OnMatchCfg;
     type Cmp: OptionalCmp;
     unsafe fn init(self, operator_handle: mcpwm_oper_handle_t) -> Self::Cmp;
@@ -77,7 +98,7 @@ impl OptionalCmpCfg for NoCmpCfg {
         NoCmp
     }
 }
-impl OptionalCmpCfg for ComparatorConfig{
+impl OptionalCmpCfg for ComparatorConfig {
     type OnMatchCfg = CountingDirection;
     type Cmp = Comparator;
 
@@ -88,7 +109,7 @@ impl OptionalCmpCfg for ComparatorConfig{
         unsafe {
             esp!(mcpwm_new_comparator(operator_handle, &cfg, &mut cmp)).unwrap();
         }
-        
+
         Comparator(cmp)
     }
 }

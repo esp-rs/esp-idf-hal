@@ -5,7 +5,7 @@ use esp_idf_sys::{
     mcpwm_generator_action_t_MCPWM_GEN_ACTION_HIGH, mcpwm_generator_action_t_MCPWM_GEN_ACTION_KEEP,
     mcpwm_generator_action_t_MCPWM_GEN_ACTION_LOW,
     mcpwm_generator_action_t_MCPWM_GEN_ACTION_TOGGLE, mcpwm_generator_config_t,
-    mcpwm_generator_config_t__bindgen_ty_1, mcpwm_generator_set_actions_on_timer_event,
+    mcpwm_generator_set_actions_on_timer_event,
     mcpwm_new_generator, mcpwm_oper_handle_t, mcpwm_timer_direction_t_MCPWM_TIMER_DIRECTION_DOWN,
     mcpwm_timer_direction_t_MCPWM_TIMER_DIRECTION_UP, mcpwm_timer_event_t_MCPWM_TIMER_EVENT_EMPTY,
     mcpwm_timer_event_t_MCPWM_TIMER_EVENT_FULL,
@@ -14,29 +14,23 @@ use esp_idf_sys::{
 use crate::gpio::OutputPin;
 
 use super::{
-    comparator::OptionalCmp,
-    timer_connection::{NoPin, OptionalOutputPin},
+    comparator::{Comparator, OptionalCmp},
 };
 
 pub struct NoGen;
 
-impl OptionalGen for NoGen {}
-pub trait OptionalGen {}
-
-impl<P: OutputPin> OptionalGen for Generator<P> {}
-
-pub trait ToGenCfg {
-    type Cfg: OptionalGenCfg;
+impl OptionalGen for NoGen {
+}
+pub trait OptionalGen {
 }
 
-impl<G: GeneratorChannel, CMP_X: OnMatchCfg, CMP_Y: OnMatchCfg, P: OutputPin> ToGenCfg
-    for (CMP_X, CMP_Y, G, Generator<P>)
+impl<G, CMP_X, CMP_Y, P> OptionalGen for Generator<G, CMP_X, CMP_Y, P>
+where
+    G: GeneratorChannel,
+    CMP_X: OnMatchCfg,
+    CMP_Y: OnMatchCfg,
+    P: OutputPin,
 {
-    type Cfg = GeneratorConfig<G, CMP_X, CMP_Y, P>;
-}
-
-impl<G: GeneratorChannel, CMP_X: OnMatchCfg, CMP_Y: OnMatchCfg> ToGenCfg for (CMP_X, CMP_Y, G, NoGenCfg) {
-    type Cfg = NoGenCfg;
 }
 
 pub trait GeneratorChannel {
@@ -54,7 +48,10 @@ impl GeneratorChannel for GenB {
 }
 
 // TODO: Allow OptionalOutputPin?
-pub struct Generator<P: OutputPin> {
+pub struct Generator<G, CMP_X, CMP_Y, P: OutputPin> {
+    channel: PhantomData<G>,
+    cmp_x: PhantomData<CMP_X>,
+    cmp_y: PhantomData<CMP_Y>,
     pub(crate) handle: mcpwm_gen_handle_t,
     pub(crate) pin: P,
 }
@@ -71,57 +68,45 @@ pub struct GeneratorConfig<G: GeneratorChannel, CMP_X, CMP_Y, P> {
 
 pub struct NoGenCfg;
 
-pub trait OptionalGenCfg {}
-
-impl OptionalGenCfg for NoGenCfg {}
-
-impl<G: GeneratorChannel, CMP_X: OnMatchCfg, CMP_Y: OnMatchCfg, P> OptionalGenCfg
-    for GeneratorConfig<G, CMP_X, CMP_Y, P>
-{
-}
-
-pub trait GenInit {
+pub trait OptionalGenCfg {
     type Gen: OptionalGen;
 
     /// This is only to be used internally by esp-idf-hal
-    unsafe fn init(self, operator_handle: mcpwm_oper_handle_t) -> Self::Gen;
+    unsafe fn init(
+        self,
+        operator_handle: mcpwm_oper_handle_t,
+        cmp_x: Option<&mut Comparator>,
+        cmp_y: Option<&mut Comparator>,
+    ) -> Self::Gen;
 }
 
-impl<CMP_X, CMP_Y> GenInit
-    for (
-        &mut CMP_X,
-        &mut CMP_Y,
-        NoGenCfg,
-    )
-where
-    CMP_X: OptionalCmp,
-    CMP_Y: OptionalCmp,
-{
+impl OptionalGenCfg for NoGenCfg {
     type Gen = NoGen;
 
-    unsafe fn init(self, operator_handle: mcpwm_oper_handle_t) -> Self::Gen {
+    unsafe fn init(
+        self,
+        _operator_handle: mcpwm_oper_handle_t,
+        _cmp_x: Option<&mut Comparator>,
+        _cmp_y: Option<&mut Comparator>,
+    ) -> NoGen {
         NoGen
     }
 }
 
-impl<G: GeneratorChannel, CMP_X, CMP_Y, P: OutputPin> GenInit
-    for (
-        &mut CMP_X,
-        &mut CMP_Y,
-        GeneratorConfig<G, CMP_X::OnMatchCfg, CMP_Y::OnMatchCfg, P>,
-    )
-where
-    CMP_X: OptionalCmp,
-    CMP_Y: OptionalCmp,
+impl<G: GeneratorChannel, CMP_X: OnMatchCfg, CMP_Y: OnMatchCfg, P: OutputPin> OptionalGenCfg
+    for GeneratorConfig<G, CMP_X, CMP_Y, P>
 {
-    type Gen = Generator<P>;
+    type Gen = Generator<G, CMP_X, CMP_Y, P>;
 
-    unsafe fn init(mut self, operator_handle: mcpwm_oper_handle_t) -> Generator<P> {
-        let (cmp_x, cmp_y, generator_config) = self;
-
+    unsafe fn init(
+        self,
+        operator_handle: mcpwm_oper_handle_t,
+        cmp_x: Option<&mut Comparator>,
+        cmp_y: Option<&mut Comparator>,
+    ) -> Self::Gen {
         let cfg = mcpwm_generator_config_t {
-            gen_gpio_num: generator_config.pin.pin(),
-            flags: todo!(),//generator_config.flags,
+            gen_gpio_num: self.pin.pin(),
+            flags: todo!(), //generator_config.flags,
         };
         let mut gen = ptr::null_mut();
         unsafe {
@@ -133,7 +118,7 @@ where
                 mcpwm_gen_timer_event_action_t {
                     direction: mcpwm_timer_direction_t_MCPWM_TIMER_DIRECTION_UP,
                     event: mcpwm_timer_event_t_MCPWM_TIMER_EVENT_EMPTY,
-                    action: generator_config.on_is_empty.counting_up.into(),
+                    action: self.on_is_empty.counting_up.into(),
                 }
             ))
             .unwrap();
@@ -142,7 +127,7 @@ where
                 mcpwm_gen_timer_event_action_t {
                     direction: mcpwm_timer_direction_t_MCPWM_TIMER_DIRECTION_DOWN,
                     event: mcpwm_timer_event_t_MCPWM_TIMER_EVENT_EMPTY,
-                    action: generator_config.on_is_empty.counting_down.into(),
+                    action: self.on_is_empty.counting_down.into(),
                 }
             ))
             .unwrap();
@@ -151,7 +136,7 @@ where
                 mcpwm_gen_timer_event_action_t {
                     direction: mcpwm_timer_direction_t_MCPWM_TIMER_DIRECTION_UP,
                     event: mcpwm_timer_event_t_MCPWM_TIMER_EVENT_FULL,
-                    action: generator_config.on_is_full.counting_up.into(),
+                    action: self.on_is_full.counting_up.into(),
                 }
             ))
             .unwrap();
@@ -160,19 +145,46 @@ where
                 mcpwm_gen_timer_event_action_t {
                     direction: mcpwm_timer_direction_t_MCPWM_TIMER_DIRECTION_DOWN,
                     event: mcpwm_timer_event_t_MCPWM_TIMER_EVENT_FULL,
-                    action: generator_config.on_is_full.counting_down.into(),
+                    action: self.on_is_full.counting_down.into(),
                 }
             ))
             .unwrap();
 
-            cmp_x._configure(&mut *gen, generator_config.on_matches_cmp_x);
-            cmp_y._configure(&mut *gen, generator_config.on_matches_cmp_y);
+            if let Some(cmp_x) = cmp_x {
+                cmp_x.configure(&mut *gen, self.on_matches_cmp_x.to_counting_direction());
+            }
+
+            if let Some(cmp_y) = cmp_y {
+                cmp_y.configure(&mut *gen, self.on_matches_cmp_y.to_counting_direction());
+            }
         }
 
         Generator {
+            channel: PhantomData,
+            cmp_x: PhantomData,
+            cmp_y: PhantomData,
             handle: gen,
-            pin: generator_config.pin,
+            pin: self.pin,
         }
+    }
+}
+
+pub trait GenInit {
+    type Gen: OptionalGen;
+
+    /// This is only to be used internally by esp-idf-hal
+    unsafe fn init(self, operator_handle: mcpwm_oper_handle_t) -> Self::Gen;
+}
+
+impl<CMP_X, CMP_Y> GenInit for (&mut CMP_X, &mut CMP_Y, NoGenCfg)
+where
+    CMP_X: OptionalCmp,
+    CMP_Y: OptionalCmp,
+{
+    type Gen = NoGen;
+
+    unsafe fn init(self, operator_handle: mcpwm_oper_handle_t) -> Self::Gen {
+        NoGen
     }
 }
 
@@ -233,6 +245,10 @@ impl OnMatchCfg for NoCmpMatchConfig {
     fn empty() -> Self {
         NoCmpMatchConfig
     }
+
+    fn to_counting_direction(self) -> CountingDirection {
+        CountingDirection::empty()
+    }
 }
 
 // TODO: Come up with better name
@@ -255,10 +271,15 @@ impl OnMatchCfg for CountingDirection {
     fn empty() -> Self {
         CountingDirection::empty()
     }
+
+    fn to_counting_direction(self) -> CountingDirection {
+        self
+    }
 }
 
 pub trait OnMatchCfg {
     fn empty() -> Self;
+    fn to_counting_direction(self) -> CountingDirection;
 }
 
 impl Into<mcpwm_generator_action_t> for GeneratorAction {
