@@ -72,7 +72,7 @@ pub struct Operator<
     //deadtime: D
 }
 
-pub unsafe fn new<const N: u8, G, CMPX, CMPY, GENA, GENB>(
+pub(crate) unsafe fn new<const N: u8, G, CMPX, CMPY, GENA, GENB>(
     instance: OPERATOR<N, G>,
     timer_handle: mcpwm_timer_handle_t,
     cfg: OperatorConfig<CMPX, CMPY, GENA, GENB>,
@@ -197,7 +197,7 @@ where
         todo!()
     }
 
-    /// Set compare value, often times same as the duty for output A.
+    /// Set compare value, often times same as the duty for output B.
     ///
     /// Depending on how the generators are configured this is, using the most common configuration, the duty of output A.
     /// `value` is from the range 0 to timers peak value. However do note that if using a custom configuration this might

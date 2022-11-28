@@ -13,13 +13,14 @@ use esp_idf_sys::{
 };
 
 use crate::mcpwm::Group;
+use crate::prelude::{Hertz, FromValueType};
 
 use super::operator::NoOperator;
 use super::timer_connection::TimerConnection;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct TimerConfig {
-    resolution: u32,
+    resolution: Hertz,
     period_ticks: u16,
     count_mode: CountMode,
     // TODO
@@ -31,9 +32,8 @@ pub struct TimerConfig {
 impl Default for TimerConfig {
     fn default() -> Self {
         Self {
-            resolution: 160_000_000,
+            resolution: 160.MHz().into(),
             period_ticks: 16_000, // 10kHz
-            //resolution: Default::default(),
             count_mode: CountMode::Up,
         }
     }
@@ -95,7 +95,7 @@ impl<const N: u8, G: Group> Timer<N, G> {
         let cfg = mcpwm_timer_config_t {
             group_id: G::ID,
             clk_src: soc_periph_mcpwm_timer_clk_src_t_MCPWM_TIMER_CLK_SRC_DEFAULT,
-            resolution_hz: config.resolution,
+            resolution_hz: config.resolution.0,
             count_mode: config.count_mode.into(),
             period_ticks: config.period_ticks.into(),
             flags,
