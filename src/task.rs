@@ -7,6 +7,46 @@ use esp_idf_sys::*;
 
 use crate::delay::TickType;
 use crate::interrupt;
+use crate::watchdog::task::TaskWatchdog;
+
+#[derive(Debug)]
+pub struct Task(TaskHandle_t);
+
+impl Task {
+    fn new(raw_handle: TaskHandle_t) -> Self {
+        Self(raw_handle)
+    }
+
+    pub fn current() -> Option<Self> {
+        current().map(Task::new)
+    }
+
+    pub fn raw_handle(&self) -> TaskHandle_t {
+        self.0
+    }
+}
+
+#[cfg(esp_idf_esp_task_wdt)]
+impl Task {
+    pub fn set_watchdog(
+        &mut self,
+        watchdog: &mut crate::watchdog::task::TaskWatchdog,
+    ) -> Result<(), EspError> {
+        watchdog.add_task(self.0)
+    }
+
+    pub fn unset_watchdog(&mut self, watchdog: &mut crate::watchdog::task::TaskWatchdog) {
+        watchdog.remove_task(self.0)
+    }
+
+    pub fn has_watchdog(&mut self, watchdog: &crate::watchdog::task::TaskWatchdog) -> bool {
+        watchdog.is_enabled_for_task(self.0)
+    }
+
+    pub fn reset_watchdog(&mut self) -> Result<(), EspError> {
+        TaskWatchdog::reset_current()
+    }
+}
 
 #[inline(always)]
 #[link_section = ".iram1.interrupt_task_do_yield"]
