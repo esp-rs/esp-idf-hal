@@ -62,6 +62,7 @@ where
     O1: OptionalOperator<1, G>,
     O2: OptionalOperator<2, G>,
 {
+    #[allow(clippy::type_complexity)]
     pub fn attatch_operator0<CMPX, CMPY, GENA, GENB>(
         self,
         operator_handle: OPERATOR<0, G>,
@@ -89,6 +90,7 @@ where
     O0: OptionalOperator<0, G>,
     O2: OptionalOperator<2, G>,
 {
+    #[allow(clippy::type_complexity)]
     pub fn attatch_operator1<CMPX, CMPY, GENA, GENB>(
         self,
         operator_handle: OPERATOR<1, G>,
@@ -116,6 +118,7 @@ where
     O0: OptionalOperator<0, G>,
     O1: OptionalOperator<1, G>,
 {
+    #[allow(clippy::type_complexity)]
     pub fn attatch_operator2<CMPX, CMPY, GENA, GENB>(
         self,
         operator_handle: OPERATOR<2, G>,

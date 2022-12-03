@@ -252,7 +252,7 @@ impl OnMatchCfg for NoCmpMatchConfig {
 }
 
 // TODO: Come up with better name
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct CountingDirection {
     pub(crate) counting_up: GeneratorAction,
     pub(crate) counting_down: GeneratorAction,

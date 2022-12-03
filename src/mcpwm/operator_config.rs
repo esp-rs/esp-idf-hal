@@ -7,6 +7,9 @@ use super::{
     generator::{CountingDirection, GenA, GenB, GeneratorConfig, NoGenCfg, OptionalGenCfg},
 };
 
+type DefaultGeneratorConfigA<PA> = GeneratorConfig<GenA, CountingDirection, CountingDirection, PA>;
+type DefaultGeneratorConfigB<PB> = GeneratorConfig<GenB, CountingDirection, CountingDirection, PB>;
+
 #[derive(Default)]
 pub struct OperatorConfig<CMPX, CMPY, GENA, GENB> {
     // TODO: When, how and who should set the flags?
@@ -34,8 +37,8 @@ impl OperatorConfig<NoCmpCfg, NoCmpCfg, NoGenCfg, NoGenCfg> {
     ) -> OperatorConfig<
         ComparatorConfig,
         ComparatorConfig,
-        GeneratorConfig<GenA, CountingDirection, CountingDirection, PA>,
-        GeneratorConfig<GenB, CountingDirection, CountingDirection, PB>,
+        DefaultGeneratorConfigA<PA>,
+        DefaultGeneratorConfigB<PB>,
     > {
         OperatorConfig::empty()
             .cmp_x(Default::default())
@@ -67,69 +70,11 @@ impl OperatorConfig<NoCmpCfg, NoCmpCfg, NoGenCfg, NoGenCfg> {
     }
 }
 
-impl<CMPX, CMPY, GENA, GENB> OperatorConfig<CMPX, CMPY, GENA, GENB>
-where
-    CMPX: OptionalCmpCfg,
-    CMPY: OptionalCmpCfg,
-    GENA: OptionalGenCfg,
-    GENB: OptionalGenCfg,
-{
-    /*fn set_update_dead_time_on_tez(mut self, update_dead_time_on_tez: bool) -> Self {
-        self.flags
-            .set_update_dead_time_on_tez(update_dead_time_on_tez.into());
-        self
-    }
-
-    fn set_update_dead_time_on_tep(mut self, set_update_dead_time_on_tep: bool) -> Self {
-        self.flags
-            .set_update_dead_time_on_tep(set_update_dead_time_on_tep.into());
-        self
-    }
-
-    fn set_update_dead_time_on_sync(mut self, update_dead_time_on_sync: bool) -> Self {
-        self.flags
-            .set_update_dead_time_on_sync(update_dead_time_on_sync.into());
-        self
-    }
-
-    fn set_update_gen_action_on_tez(mut self, update_gen_action_on_tez: bool) -> Self {
-        self.flags
-            .set_update_gen_action_on_tez(update_gen_action_on_tez.into());
-        self
-    }
-
-    fn set_update_gen_action_on_tep(mut self, set_update_gen_action_on_tep: bool) -> Self {
-        self.flags
-            .set_update_gen_action_on_tep(set_update_gen_action_on_tep.into());
-        self
-    }
-
-    fn set_update_gen_action_on_sync(mut self, update_gen_action_on_sync: bool) -> Self {
-        self.flags
-            .set_update_gen_action_on_sync(update_gen_action_on_sync.into());
-        self
-    }*/
-}
-
 impl<CMPY: OptionalCmpCfg> OperatorConfig<NoCmpCfg, CMPY, NoGenCfg, NoGenCfg> {
     fn cmp_x(
         self,
         config: ComparatorConfig,
     ) -> OperatorConfig<ComparatorConfig, CMPY, NoGenCfg, NoGenCfg> {
-        /*
-        let mut flags: mcpwm_comparator_config_t__bindgen_ty_1 = Default::default();
-        flags.set_update_cmp_on_tep(todo!());
-        flags.set_update_cmp_on_tez(todo!());
-        flags.set_update_cmp_on_sync(todo!());
-
-        let cfg = mcpwm_comparator_config_t { flags };
-
-        let mut cmp = ptr::null_mut();
-        unsafe {
-            esp!(mcpwm_new_comparator(self.handle, &cfg, &mut cmp)).unwrap();
-        }
-        let comparator_x = Comparator(cmp);*/
-
         OperatorConfig {
             flags: self.flags,
             comparator_x: config,
@@ -146,19 +91,6 @@ impl<CMPX: OptionalCmpCfg> OperatorConfig<CMPX, NoCmpCfg, NoGenCfg, NoGenCfg> {
         self,
         config: ComparatorConfig,
     ) -> OperatorConfig<CMPX, ComparatorConfig, NoGenCfg, NoGenCfg> {
-        /*let mut flags: mcpwm_comparator_config_t__bindgen_ty_1 = Default::default();
-        flags.set_update_cmp_on_tep(todo!());
-        flags.set_update_cmp_on_tez(todo!());
-        flags.set_update_cmp_on_sync(todo!());
-
-        let cfg = mcpwm_comparator_config_t { flags };
-        let mut cmp = ptr::null_mut();
-        unsafe {
-            esp!(mcpwm_new_comparator(self.handle, &cfg, &mut cmp)).unwrap();
-        }
-        let comparator_y = Comparator(cmp);
-        */
-
         OperatorConfig {
             flags: self.flags,
             comparator_x: self.comparator_x,
@@ -170,13 +102,10 @@ impl<CMPX: OptionalCmpCfg> OperatorConfig<CMPX, NoCmpCfg, NoGenCfg, NoGenCfg> {
     }
 }
 
-// TODO: Make sure that a generator config can only refer to comparators that are assigned to the operator
-// TODO: Is there any point in letting the user provide the comparators or should two (the only two available
-// for that operator in hardware) be automatically assigned in `Operator::new`?
-
 impl<CMPX: OptionalCmpCfg, CMPY: OptionalCmpCfg, GENB: OptionalGenCfg>
     OperatorConfig<CMPX, CMPY, NoGenCfg, GENB>
 {
+    #[allow(clippy::type_complexity)]
     fn gen_a<P: OutputPin>(
         self,
         config: GeneratorConfig<GenA, CMPX::OnMatchCfg, CMPY::OnMatchCfg, P>,
@@ -200,6 +129,7 @@ impl<CMPX: OptionalCmpCfg, CMPY: OptionalCmpCfg, GENB: OptionalGenCfg>
 impl<CMPX: OptionalCmpCfg, CMPY: OptionalCmpCfg, GENA: OptionalGenCfg>
     OperatorConfig<CMPX, CMPY, GENA, NoGenCfg>
 {
+    #[allow(clippy::type_complexity)]
     fn gen_b<P: OutputPin>(
         self,
         config: GeneratorConfig<GenB, CMPX::OnMatchCfg, CMPY::OnMatchCfg, P>,
