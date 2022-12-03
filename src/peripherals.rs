@@ -11,7 +11,11 @@ use crate::ledc;
     not(feature = "riscv-ulp-hal")
 ))]
 use crate::mac;
-#[cfg(all(any(esp32, esp32s3), esp_idf_version_major = "5", not(feature = "riscv-ulp-hal")))]
+#[cfg(all(
+    any(esp32, esp32s3),
+    esp_idf_version_major = "5",
+    not(feature = "riscv-ulp-hal")
+))]
 use crate::mcpwm;
 #[cfg(not(feature = "riscv-ulp-hal"))]
 use crate::modem;
@@ -56,9 +60,17 @@ pub struct Peripherals {
     pub can: can::CAN,
     #[cfg(not(feature = "riscv-ulp-hal"))]
     pub ledc: ledc::LEDC,
-    #[cfg(all(any(esp32, esp32s3), esp_idf_version_major = "5", not(feature = "riscv-ulp-hal")))]
+    #[cfg(all(
+        any(esp32, esp32s3),
+        esp_idf_version_major = "5",
+        not(feature = "riscv-ulp-hal")
+    ))]
     pub mcpwm0: mcpwm::MCPWM<mcpwm::Group0>,
-    #[cfg(all(any(esp32, esp32s3), esp_idf_version_major = "5", not(feature = "riscv-ulp-hal")))]
+    #[cfg(all(
+        any(esp32, esp32s3),
+        esp_idf_version_major = "5",
+        not(feature = "riscv-ulp-hal")
+    ))]
     pub mcpwm1: mcpwm::MCPWM<mcpwm::Group1>,
     #[cfg(not(feature = "riscv-ulp-hal"))]
     pub rmt: rmt::RMT,
