@@ -46,6 +46,9 @@ jobs:
         with:
           default: true
         if: matrix.target != 'riscv32imc-esp-espidf'
+      
+      - name: Temp fix for clang error
+        run: sudo apt-get install libncurses5
 
       - name: Build | Fmt Check
         run: cargo fmt -- --check
