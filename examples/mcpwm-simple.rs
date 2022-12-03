@@ -56,7 +56,7 @@
 ///           -----      --------------------------      --------------------------
 ///               .                               .
 
-#[cfg(any(esp32, esp32s3))]
+#[cfg(all(any(esp32, esp32s3), esp_idf_version_major = "5"))]
 fn main() -> anyhow::Result<()> {
     use embedded_hal::delay::DelayUs;
 
@@ -98,7 +98,7 @@ fn main() -> anyhow::Result<()> {
     unreachable!()
 }
 
-#[cfg(not(any(esp32, esp32s3)))]
+#[cfg(not(all(any(esp32, esp32s3), esp_idf_version_major = "5")))]
 fn main() {
     esp_idf_sys::link_patches();
 
