@@ -42,7 +42,7 @@ jobs:
         if: matrix.target == 'riscv32imc-esp-espidf'
 
       - name: Install Rust for Xtensa
-        uses: esp-rs/xtensa-toolchain@v1.2.0
+        uses: esp-rs/xtensa-toolchain@v1.4.0
         with:
           default: true
         if: matrix.target != 'riscv32imc-esp-espidf'
