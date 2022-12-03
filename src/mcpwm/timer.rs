@@ -46,7 +46,20 @@ impl TimerConfig {
         self
     }*/
 
-    /// Frequency which the operator will run at, can also be changed live later
+    // TODO: make sure this description is accurate
+    /// Set number of ticks per period
+    ///
+    /// This is inversely proportional to the frequency of the signal
+    /// 
+    /// You can calculate the frequency as
+    /// `frequency = resolution / period_ticks`
+    /// 
+    /// For example a resolution of 160MHz and a period_ticks of 16_000:
+    /// `10kHz = 160MHz / 16_000`
+    ///
+    /// NOTE: This will be the same as `Self::get_period_peak` for all `CounterMode` except for
+    /// `CounterMode::UpDown` where the period will be twice as large as the peak value since
+    /// the timer will count from zero to peak and then down to zero again
     #[must_use]
     pub fn period_ticks(mut self, period_ticks: u16) -> Self {
         self.period_ticks = period_ticks;
@@ -59,15 +72,6 @@ impl TimerConfig {
         self
     }
 }
-
-//TODO
-//impl<G, H> TimerConfig<NoCb, G, H> {
-//#[must_use]
-//pub fn on_full(mut self, on_full: CB) -> Self<CB, _, _> {
-//    self.on_full = on_full;
-//    self
-//}
-//}
 
 pub struct Timer<const N: u8, G: Group> {
     _group: G,

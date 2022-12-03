@@ -77,6 +77,7 @@ fn main() -> anyhow::Result<()> {
         .into_connection()
         .attatch_operator0(peripherals.mcpwm0.operator0, operator_config);
 
+    // Borrow references to the contained timer and operator
     let (timer, operator, _, _) = timer.split();
 
     println!("Starting duty-cycle loop");
