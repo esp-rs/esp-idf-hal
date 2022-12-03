@@ -13,7 +13,7 @@ use esp_idf_sys::{
 };
 
 use crate::mcpwm::Group;
-use crate::prelude::{Hertz, FromValueType};
+use crate::prelude::{FromValueType, Hertz};
 
 use super::operator::NoOperator;
 use super::timer_connection::TimerConnection;
@@ -50,10 +50,10 @@ impl TimerConfig {
     /// Set number of ticks per period
     ///
     /// This is inversely proportional to the frequency of the signal
-    /// 
+    ///
     /// You can calculate the frequency as
     /// `frequency = resolution / period_ticks`
-    /// 
+    ///
     /// For example a resolution of 160MHz and a period_ticks of 16_000:
     /// `10kHz = 160MHz / 16_000`
     ///
