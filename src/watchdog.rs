@@ -101,7 +101,7 @@ pub mod task {
         }
 
         // will fail in isr
-        pub fn watch_current_task<'a>(&'a mut self) -> Result<WatchdogSubscription<'a>, EspError> {
+        pub fn watch_current_task(&mut self) -> Result<WatchdogSubscription<'_>, EspError> {
             add_task(core::ptr::null_mut())?;
             Ok(WatchdogSubscription::new())
         }
