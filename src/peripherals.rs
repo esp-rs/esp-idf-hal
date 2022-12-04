@@ -27,6 +27,11 @@ use crate::uart;
     esp_idf_comp_ulp_enabled
 ))]
 use crate::ulp;
+#[cfg(all(
+    not(feature = "riscv-ulp-hal"),
+    any(esp_idf_esp_task_wdt, esp_idf_esp_int_wdt)
+))]
+use crate::watchdog;
 
 pub struct Peripherals {
     pub pins: gpio::Pins,
@@ -91,6 +96,8 @@ pub struct Peripherals {
         not(feature = "embassy-time-isr-queue-timer11")
     ))]
     pub timer11: timer::TIMER11,
+    #[cfg(all(not(feature = "riscv-ulp-hal"), esp_idf_esp_task_wdt))]
+    pub twdt: watchdog::task::TWDT,
 }
 
 #[cfg(feature = "riscv-ulp-hal")]
@@ -199,6 +206,8 @@ impl Peripherals {
                 not(feature = "embassy-time-isr-queue-timer11")
             ))]
             timer11: timer::TIMER11::new(),
+            #[cfg(all(not(feature = "riscv-ulp-hal"), esp_idf_esp_task_wdt))]
+            twdt: watchdog::task::TWDT::new(),
         }
     }
 }
