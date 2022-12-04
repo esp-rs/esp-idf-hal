@@ -684,7 +684,7 @@ impl<'d> EthDriver<'d> {
     }
 
     fn clear_all(&mut self) -> Result<(), EspError> {
-        self.stop()?;
+        let _ = self.stop(); // Driver might be stopped already
 
         unsafe {
             esp!(esp_eth_driver_uninstall(self.handle))?;
