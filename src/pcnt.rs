@@ -1,7 +1,5 @@
-use core::fmt;
 use core::fmt::Debug;
-use std::sync::Mutex;
-use std::sync::Arc;
+
 
 use esp_idf_sys::esp;
 use esp_idf_sys::pcnt_config_t;
@@ -10,18 +8,10 @@ use esp_idf_sys::EspError;
 
 use bitflags::bitflags;
 
-use crate::gpio::AnyIOPin;
-use crate::gpio::IOPin;
-use crate::gpio::Input;
-use crate::gpio::PinDriver;
-use crate::gpio::Pull;
-use crate::peripheral::Peripheral;
-use crate::peripheral::PeripheralRef;
+use crate::gpio::AnyInputPin;
+use crate::gpio::Pin;
 
-#[cfg(esp_idf_version_major = "4")]
 type UnitHandle = pcnt_unit_t;
-#[cfg(esp_idf_version_major = "5")]
-type UnitHandle = pcnt_unit_handle_t;
 
 #[allow(dead_code)]
 #[derive(Debug, Copy, Clone)]
@@ -99,12 +89,11 @@ bitflags! {
 }
 
 #[doc = " @brief Pulse Counter configuration for a single channel"]
-#[derive(Debug)]
 pub struct PcntConfig<'d> {
     #[doc = "< Pulse input GPIO number, if you want to use GPIO16, enter pulse_gpio_num = 16, a negative value will be ignored"]
-    pub pulse_pin: Option<PcntPin<'d>>,
+    pub pulse_pin: Option<&'d AnyInputPin>,
     #[doc = "< Control signal input GPIO number, a negative value will be ignored"]
-    pub ctrl_pin: Option<PcntPin<'d>>,
+    pub ctrl_pin: Option<&'d AnyInputPin>,
     #[doc = "< PCNT low control mode"]
     pub lctrl_mode: PcntControlMode,
     #[doc = "< PCNT high control mode"]
@@ -121,63 +110,26 @@ pub struct PcntConfig<'d> {
     pub channel: PcntChannel,
 }
 
-#[derive(Clone)]
-pub struct PcntPin<'d> {
-    pin: Arc<Mutex<PinDriver<'d, AnyIOPin, Input>>>
-}
-
-impl<'d> PcntPin<'d> {
-    pub fn new(pin: impl Peripheral<P = impl IOPin> + 'd, pull_mode: Pull) -> Result<Self, EspError>
-    {
-        let pin: PeripheralRef<AnyIOPin> = pin.into_ref().map_into();
-        let mut pin = PinDriver::input(pin)?;
-        pin.set_pull(pull_mode)?;
-        Ok(Self {
-            pin: Arc::new(Mutex::new(pin))
-        })
-    
-    }
-
-    fn pin_num(&self) -> i32 {
-        self.pin.lock().unwrap().pin()
-    }
-}
-
-impl<'d> Debug for PcntPin<'d> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "PcntPin: {{pin: {}}}", self.pin_num())
-    }
-}
-
 #[derive(Debug)]
-struct PcntChannelPins<'d>
-{
-    pulse: Option<PcntPin<'d>>,
-    ctrl: Option<PcntPin<'d>>,
-}
-
-#[derive(Debug)]
-pub struct Pcnt<'d> {
+pub struct Pcnt {
     unit: pcnt_unit_t,
-    channel_pins: [PcntChannelPins<'d>; esp_idf_sys::pcnt_channel_t_PCNT_CHANNEL_MAX as usize]
 }
 
-impl<'d> Pcnt<'d> {
+impl<'d> Pcnt {
     pub fn new() -> Result<Self, EspError> {
         Ok(Pcnt {
             unit: unit_allocate()?,
-            channel_pins: [PcntChannelPins { pulse: None, ctrl: None }, PcntChannelPins { pulse: None, ctrl: None }],
         })
     }
 
-    pub fn config(&mut self, pconfig: &mut PcntConfig<'d>) -> Result<(), EspError> {
+    pub fn config(&mut self, pconfig: & PcntConfig) -> Result<(), EspError> {
         let config = pcnt_config_t {
-            pulse_gpio_num: match &pconfig.pulse_pin {
-                Some(pin) => pin.pin_num(),
+            pulse_gpio_num: match pconfig.pulse_pin {
+                Some(pin) => pin.pin(),
                 None => esp_idf_sys::PCNT_PIN_NOT_USED,
             },
-            ctrl_gpio_num: match &pconfig.ctrl_pin {
-                Some(pin) => pin.pin_num(),
+            ctrl_gpio_num: match pconfig.ctrl_pin {
+                Some(pin) => pin.pin(),
                 None => esp_idf_sys::PCNT_PIN_NOT_USED,
             },
             lctrl_mode: pconfig.lctrl_mode.into(),
@@ -190,8 +142,6 @@ impl<'d> Pcnt<'d> {
             unit: self.unit,
         };
 
-        self.channel_pins[config.channel as usize].pulse = pconfig.pulse_pin.take();
-        self.channel_pins[config.channel as usize].ctrl = pconfig.pulse_pin.take();
         unsafe {
             esp!(esp_idf_sys::pcnt_unit_config(
                 &config as *const pcnt_config_t
@@ -284,19 +234,17 @@ impl<'d> Pcnt<'d> {
     pub fn set_pin(
         &mut self,
         channel: PcntChannel,
-        pulse_pin: Option<PcntPin<'d>>,
-        ctrl_pin: Option<PcntPin<'d>>,
+        pulse_pin: Option<&AnyInputPin>,
+        ctrl_pin: Option<&AnyInputPin>,
     ) -> Result<(), EspError> {
-        let pulse_io_num = match &pulse_pin {
-            Some(pin) => pin.pin_num(),
+        let pulse_io_num = match pulse_pin {
+            Some(pin) => pin.pin(),
             None => esp_idf_sys::PCNT_PIN_NOT_USED,
         };
-        let ctrl_io_num = match &ctrl_pin {
-            Some(pin) => pin.pin_num(),
+        let ctrl_io_num = match ctrl_pin {
+            Some(pin) => pin.pin(),
             None => esp_idf_sys::PCNT_PIN_NOT_USED,
         };
-        self.channel_pins[channel as usize].pulse = pulse_pin;
-        self.channel_pins[channel as usize].ctrl = ctrl_pin;
         unsafe {
             esp!(esp_idf_sys::pcnt_set_pin(
                 self.unit,
@@ -365,8 +313,9 @@ impl<'d> Pcnt<'d> {
     }
 }
 
-impl<'d> Drop for Pcnt<'d> {
+impl Drop for Pcnt {
     fn drop(&mut self) {
+        let _ = self.counter_pause();
         let _ = self.intr_disable();
         unsafe {ISR_HANDLERS[self.unit as usize] = None};
         unit_deallocate(self.unit)
@@ -408,7 +357,6 @@ static mut ISR_HANDLERS: [Option<Box<dyn FnMut(u32)>>; esp_idf_sys::pcnt_unit_t_
     None, 
 ];
 
-#[cfg(esp_idf_version_major = "4")]
 static mut PCNT_UNITS: [Option<UnitHandle>; esp_idf_sys::pcnt_unit_t_PCNT_UNIT_MAX as usize] = [
     Some(esp_idf_sys::pcnt_unit_t_PCNT_UNIT_0),
     Some(esp_idf_sys::pcnt_unit_t_PCNT_UNIT_1),
@@ -423,7 +371,7 @@ static mut PCNT_UNITS: [Option<UnitHandle>; esp_idf_sys::pcnt_unit_t_PCNT_UNIT_M
     #[cfg(not(esp32s3))]
     Some(esp_idf_sys::pcnt_unit_t_PCNT_UNIT_7),
 ];
-#[cfg(esp_idf_version_major = "4")]
+
 fn unit_allocate() -> Result<pcnt_unit_t, EspError> {
     let _ = PCNT_CS.enter();
     for i in 0..esp_idf_sys::pcnt_unit_t_PCNT_UNIT_MAX {
@@ -434,7 +382,6 @@ fn unit_allocate() -> Result<pcnt_unit_t, EspError> {
     Err(EspError::from(esp_idf_sys::ESP_ERR_NO_MEM as esp_idf_sys::esp_err_t).unwrap())
 }
 
-#[cfg(esp_idf_version_major = "4")]
 fn unit_deallocate(unit: UnitHandle) {
     let _ = PCNT_CS.enter();
     unsafe {
