@@ -109,17 +109,14 @@ pub mod task {
 
     impl Drop for TWDTDriver<'_> {
         fn drop(&mut self) {
-            let drop = TWDT_DRIVER_REF_COUNT
+            let _drop = TWDT_DRIVER_REF_COUNT
                 .fetch_update(
                     core::sync::atomic::Ordering::Relaxed,
                     core::sync::atomic::Ordering::Relaxed,
                     |count| if count == 0 { None } else { Some(count - 1) },
                 )
                 .is_err();
-            if drop {
-                // TODO: maybe deinit twdt from idf (only if not initialized by idf)
-                println!("TWDTDriver dropped")
-            }
+            // TODO: maybe deinit twdt from idf (only if not initialized by idf)
         }
     }
 
