@@ -26,6 +26,9 @@ jobs:
       - name: Setup | Checkout
         uses: actions/checkout@v2
 
+      - name: Setup | libncurses5
+        run: sudo apt-get install libncurses5
+
       - name: Setup | Rust
         uses: actions-rs/toolchain@v1
         with:
