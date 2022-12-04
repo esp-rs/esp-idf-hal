@@ -9,6 +9,14 @@ use crate::delay::TickType;
 use crate::interrupt;
 use crate::watchdog::task::TaskWatchdog;
 
+#[repr(C)]
+#[derive(Copy, Clone, Eq, PartialEq, Debug)]
+pub enum IdleTask {
+    Core0 = 0,
+    #[cfg(any(esp32, esp32s3))]
+    Core1 = 1,
+}
+
 #[derive(Debug)]
 pub struct Task(TaskHandle_t);
 
