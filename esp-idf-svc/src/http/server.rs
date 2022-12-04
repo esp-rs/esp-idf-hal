@@ -663,7 +663,7 @@ impl<'a> EspHttpConnection<'a> {
         let mut c_headers = Vec::new();
 
         let status = if let Some(message) = message {
-            format!("{} {}", status, message)
+            format!("{status} {message}")
         } else {
             status.to_string()
         };
@@ -822,11 +822,10 @@ impl<'a> EspHttpConnection<'a> {
                         <body style="font-family: Verdana, Sans;">
                             <h1>INTERNAL ERROR</h1>
                             <hr>
-                            <pre>{}</pre>
+                            <pre>{error}</pre>
                         <body>
                     </html>
-                "#,
-                error
+                "#
             )
             .as_bytes(),
         )?;
