@@ -690,6 +690,14 @@ impl<'d> EthDriver<'d> {
             esp!(esp_eth_driver_uninstall(self.handle))?;
         }
 
+        if let Some(device) = self.spi_device {
+            esp!(unsafe { spi_bus_remove_device(device) }).unwrap();
+        }
+
+        if let Some(bus) = self.spi_bus {
+            esp!(unsafe { spi_bus_free(bus) }).unwrap();
+        }
+
         info!("Driver deinitialized");
 
         Ok(())
@@ -776,14 +784,6 @@ impl<'d> Drop for EthDriver<'d> {
     fn drop(&mut self) {
         self.clear_all().unwrap();
 
-        if let Some(device) = self.spi_device {
-            esp!(unsafe { spi_bus_remove_device(device) }).unwrap();
-        }
-
-        if let Some(bus) = self.spi_bus {
-            esp!(unsafe { spi_bus_free(bus) }).unwrap();
-        }
-
         info!("Dropped");
     }
 }
@@ -798,9 +798,9 @@ impl<'d> RawHandle for EthDriver<'d> {
 
 #[cfg(esp_idf_comp_esp_netif_enabled)]
 pub struct EspEth<'d> {
-    driver: EthDriver<'d>,
-    netif: EspNetif,
     glue_handle: *mut esp_eth_netif_glue_t,
+    netif: EspNetif,
+    driver: EthDriver<'d>,
 }
 
 #[cfg(esp_idf_comp_esp_netif_enabled)]
@@ -988,9 +988,9 @@ impl EspTypedEventDeserializer<EthEvent> for EthEvent {
 }
 
 pub struct EthWait<R> {
-    _driver: R,
-    waitable: Arc<Waitable<()>>,
     _subscription: EspSubscription<System>,
+    waitable: Arc<Waitable<()>>,
+    _driver: R,
 }
 
 impl<R> EthWait<R> {

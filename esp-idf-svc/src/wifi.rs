@@ -840,9 +840,9 @@ impl<'d> Wifi for WifiDriver<'d> {
 
 #[cfg(esp_idf_comp_esp_netif_enabled)]
 pub struct EspWifi<'d> {
-    driver: WifiDriver<'d>,
-    sta_netif: EspNetif,
     ap_netif: EspNetif,
+    sta_netif: EspNetif,
+    driver: WifiDriver<'d>,
 }
 
 #[cfg(esp_idf_comp_esp_netif_enabled)]
@@ -1168,8 +1168,8 @@ impl EspTypedEventDeserializer<WifiEvent> for WifiEvent {
 }
 
 pub struct WifiWait {
-    waitable: Arc<Waitable<()>>,
     _subscription: EspSubscription<System>,
+    waitable: Arc<Waitable<()>>,
 }
 
 impl WifiWait {
