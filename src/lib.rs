@@ -46,9 +46,9 @@ pub mod mac;
 pub mod modem;
 pub mod peripheral;
 pub mod peripherals;
-#[cfg(all(not(feature = "riscv-ulp-hal"), feature = "pcnt4"))]
+#[cfg(all(not(feature = "riscv-ulp-hal"), any(feature = "pcnt4", esp_idf_version_major = "4")))]
 pub mod pcnt;
-#[cfg(all(not(feature = "riscv-ulp-hal"), not(feature = "pcnt4")))]
+#[cfg(all(not(feature = "riscv-ulp-hal"), not(feature = "pcnt4"), not(esp_idf_version_major = "4")))]
 pub mod pulse_cnt;
 pub mod prelude;
 #[cfg(not(feature = "riscv-ulp-hal"))]
