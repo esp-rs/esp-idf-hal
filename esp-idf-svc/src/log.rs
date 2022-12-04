@@ -95,7 +95,7 @@ impl EspLogger {
     }
 
     pub fn get_max_level(&self) -> LevelFilter {
-        LevelFilter::from(Newtype(CONFIG_LOG_DEFAULT_LEVEL))
+        LevelFilter::from(Newtype(CONFIG_LOG_MAXIMUM_LEVEL))
     }
 
     pub fn set_target_level(&self, target: impl AsRef<str>, level_filter: LevelFilter) {
@@ -154,7 +154,7 @@ impl EspLogger {
 
 impl ::log::Log for EspLogger {
     fn enabled(&self, metadata: &Metadata) -> bool {
-        metadata.level() <= LevelFilter::from(Newtype(CONFIG_LOG_DEFAULT_LEVEL))
+        metadata.level() <= LevelFilter::from(Newtype(CONFIG_LOG_MAXIMUM_LEVEL))
     }
 
     fn log(&self, record: &Record) {
