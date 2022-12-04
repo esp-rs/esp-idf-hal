@@ -62,7 +62,7 @@ impl BuildConfig {
 
     /// Print the build configuration to stderr.
     pub fn print(&self) {
-        eprintln!("Build configuration: {:#?}", self);
+        eprintln!("Build configuration: {self:#?}");
     }
 
     /// Get the [`InstallDir`] and whether it was **not** specified by the user.

@@ -223,8 +223,8 @@ pub fn list_specific_sdkconfigs(
     path.file_name()
         .and_then(|filename| filename.try_to_str().into_warning())
         .map(|filename| {
-            let profile_specific = format!("{}.{}", filename, profile);
-            let chip_specific = format!("{}.{}", filename, chip);
+            let profile_specific = format!("{filename}.{profile}");
+            let chip_specific = format!("{filename}.{chip}");
             let profile_chip_specific = format!("{}.{}", &profile_specific, chip);
 
             [

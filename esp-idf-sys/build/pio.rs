@@ -99,7 +99,7 @@ pub fn build() -> Result<EspIdfBuildOutput> {
                 cfg.map(|path| {
                     cargo::track_file(&path);
 
-                    (path, format!("sdkconfig.{}", profile).into())
+                    (path, format!("sdkconfig.{profile}").into())
                 })
             };
 

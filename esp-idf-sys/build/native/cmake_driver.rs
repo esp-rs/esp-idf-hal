@@ -53,7 +53,7 @@ pub fn build() -> Result<EspIdfBuildOutput> {
             .with_clang_args(
                 env::var(CARGO_CMAKE_BUILD_INCLUDES_VAR)?
                     .split(';')
-                    .map(|dir| format!("-I{}", dir))
+                    .map(|dir| format!("-I{dir}"))
                     .collect::<Vec<_>>(),
             ),
         env_path: None,

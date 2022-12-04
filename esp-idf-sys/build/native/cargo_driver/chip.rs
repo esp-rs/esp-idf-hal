@@ -72,6 +72,6 @@ impl Chip {
     }
 
     pub fn cmake_toolchain_file(self) -> String {
-        format!("toolchain-{}.cmake", self)
+        format!("toolchain-{self}.cmake")
     }
 }
