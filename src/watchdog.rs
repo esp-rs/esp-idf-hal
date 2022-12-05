@@ -37,6 +37,30 @@ pub mod task {
         pub subscribed_idle_tasks: heapless::Vec<crate::task::IdleTask, 2>,
     }
 
+    impl WatchdogConfig {
+        #[cfg(not(esp_idf_version_major = "4"))]
+        pub const fn new(
+            duration: core::time::Duration,
+            panic_on_trigger: bool,
+            subscribed_idle_tasks: heapless::Vec<crate::task::IdleTask, 2>,
+        ) -> Self {
+            Self {
+                duration,
+                panic_on_trigger,
+                #[cfg(not(esp_idf_version_major = "4"))]
+                subscribed_idle_tasks,
+            }
+        }
+
+        #[cfg(esp_idf_version_major = "4")]
+        pub const fn new(duration: core::time::Duration, panic_on_trigger: bool) -> Self {
+            Self {
+                duration,
+                panic_on_trigger,
+            }
+        }
+    }
+
     impl Default for WatchdogConfig {
         fn default() -> Self {
             Self {
@@ -94,7 +118,7 @@ pub mod task {
     impl<'d> TWDTDriver<'d> {
         pub fn new(
             _twdt: impl Peripheral<P = TWDT> + 'd,
-            config: WatchdogConfig,
+            config: &WatchdogConfig,
         ) -> Result<Self, EspError> {
             init_or_reconfigure(config)?;
             Ok(Self(Default::default()))
@@ -143,7 +167,7 @@ pub mod task {
     crate::impl_peripheral!(TWDT);
     impl Twdt for TWDT {}
 
-    fn init_or_reconfigure(config: WatchdogConfig) -> Result<(), EspError> {
+    fn init_or_reconfigure(config: &WatchdogConfig) -> Result<(), EspError> {
         unsafe {
             esp!(esp_task_wdt_init(
                 config.duration.as_secs() as u32,
