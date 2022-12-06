@@ -2,7 +2,7 @@ use core::ptr;
 
 use esp_idf_sys::{
     esp, mcpwm_cmpr_handle_t, mcpwm_comparator_config_t, mcpwm_comparator_config_t__bindgen_ty_1,
-    mcpwm_gen_t, mcpwm_generator_set_actions_on_compare_event, mcpwm_new_comparator,
+    mcpwm_gen_compare_event_action_t, mcpwm_gen_handle_t, mcpwm_gen_t, mcpwm_new_comparator,
     mcpwm_oper_handle_t, mcpwm_timer_direction_t_MCPWM_TIMER_DIRECTION_DOWN,
     mcpwm_timer_direction_t_MCPWM_TIMER_DIRECTION_UP,
 };
@@ -47,23 +47,37 @@ pub struct Comparator(pub(crate) mcpwm_cmpr_handle_t);
 
 impl Comparator {
     pub(crate) unsafe fn configure(&mut self, gen: &mut mcpwm_gen_t, cfg: CountingDirection) {
-        // TODO: "must be terminated by MCPWM_GEN_TIMER_EVENT_ACTION_END()"
-        mcpwm_generator_set_actions_on_compare_event(
-            gen,
-            esp_idf_sys::mcpwm_gen_compare_event_action_t {
-                direction: mcpwm_timer_direction_t_MCPWM_TIMER_DIRECTION_UP,
-                comparator: self.0,
-                action: cfg.counting_up.into(),
-            },
-        );
-        mcpwm_generator_set_actions_on_compare_event(
-            gen,
-            esp_idf_sys::mcpwm_gen_compare_event_action_t {
-                direction: mcpwm_timer_direction_t_MCPWM_TIMER_DIRECTION_DOWN,
-                comparator: self.0,
-                action: cfg.counting_down.into(),
-            },
-        );
+        extern "C" {
+            fn mcpwm_generator_set_actions_on_compare_event(
+                gen: mcpwm_gen_handle_t,
+                ev_act: mcpwm_gen_compare_event_action_t,
+                ev_act_end: mcpwm_gen_compare_event_action_t,
+            ) -> esp_idf_sys::esp_err_t;
+        }
+
+        let mut set_actions_on_compare_event = |action| {
+            esp!(mcpwm_generator_set_actions_on_compare_event(
+                gen,    // mcpwm_generator_set_actions_on_compare_event
+                action, // is a variadic function in C.
+                mcpwm_gen_compare_event_action_t {
+                    // <-- This marks the last argument in the variadic list
+                    comparator: ptr::null_mut(),
+                    ..Default::default()
+                }
+            ))
+            .unwrap()
+        };
+
+        set_actions_on_compare_event(mcpwm_gen_compare_event_action_t {
+            direction: mcpwm_timer_direction_t_MCPWM_TIMER_DIRECTION_UP,
+            comparator: self.0,
+            action: cfg.counting_up.into(),
+        });
+        set_actions_on_compare_event(mcpwm_gen_compare_event_action_t {
+            direction: mcpwm_timer_direction_t_MCPWM_TIMER_DIRECTION_DOWN,
+            comparator: self.0,
+            action: cfg.counting_down.into(),
+        });
     }
 }
 
