@@ -467,9 +467,7 @@ pub mod watchdog {
             })?;
 
             #[cfg(esp_idf_version_major = "4")]
-            if !init_by_idf {
-                Self::subscribe_idle_tasks(config.subscribed_idle_tasks)?;
-            }
+            Self::subscribe_idle_tasks(config.subscribed_idle_tasks);
 
             Ok(Self {
                 init_by_idf,
@@ -482,13 +480,11 @@ pub mod watchdog {
             Ok(WatchdogSubscription::new())
         }
 
-        fn subscribe_idle_tasks(cores: enumset::EnumSet<Core>) -> Result<(), EspError> {
+        fn subscribe_idle_tasks(cores: enumset::EnumSet<Core>) {
             for core in cores {
                 let task = get_idle_task(core);
-                esp!(unsafe { esp_task_wdt_add(task) })?;
+                let _ = esp!(unsafe { esp_task_wdt_add(task) });
             }
-
-            Ok(())
         }
 
         fn unsubscribe_idle_tasks() {
