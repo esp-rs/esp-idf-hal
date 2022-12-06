@@ -1,5 +1,6 @@
 
 
+
 use esp_idf_sys::esp;
 use esp_idf_sys::pcnt_chan_config_t;
 // channel flags
@@ -11,20 +12,91 @@ use esp_idf_sys::pcnt_channel_set_edge_action;
 use esp_idf_sys::pcnt_channel_set_level_action;
 use esp_idf_sys::pcnt_del_channel;
 use esp_idf_sys::pcnt_del_unit;
+use esp_idf_sys::pcnt_event_callbacks_t;
+use esp_idf_sys::pcnt_glitch_filter_config_t;
 use esp_idf_sys::pcnt_new_channel;
 use esp_idf_sys::pcnt_new_unit;
+use esp_idf_sys::pcnt_unit_add_watch_point;
+use esp_idf_sys::pcnt_unit_clear_count;
 use esp_idf_sys::pcnt_unit_config_t;
+// unit flags
 use esp_idf_sys::pcnt_unit_config_t__bindgen_ty_1;
 use esp_idf_sys::pcnt_unit_disable;
 use esp_idf_sys::pcnt_unit_enable;
 use esp_idf_sys::pcnt_unit_get_count;
 use esp_idf_sys::pcnt_unit_handle_t;
 use esp_idf_sys::EspError;
+use esp_idf_sys::pcnt_unit_register_event_callbacks;
+use esp_idf_sys::pcnt_unit_remove_watch_point;
+use esp_idf_sys::pcnt_unit_set_glitch_filter;
 use esp_idf_sys::pcnt_unit_start;
 use esp_idf_sys::pcnt_unit_stop;
+use esp_idf_sys::pcnt_unit_zero_cross_mode_t;
+use esp_idf_sys::pcnt_watch_event_data_t;
 
 use crate::gpio::AnyInputPin;
 use crate::gpio::Pin;
+
+#[doc = " @brief PCNT glitch filter configuration"]
+#[derive(Debug, Default, Copy, Clone)]
+pub struct PcntFilterConfig {
+    #[doc = "< Pulse width smaller than this threshold will be treated as glitch and ignored, in the unit of ns"]
+    pub max_glitch_ns: u32,
+}
+
+impl Into<pcnt_glitch_filter_config_t> for &PcntFilterConfig {
+    fn into(self) -> pcnt_glitch_filter_config_t {
+        pcnt_glitch_filter_config_t {
+            max_glitch_ns: self.max_glitch_ns
+        }
+    }
+}
+
+#[doc = " @brief PCNT unit zero cross mode"]
+#[derive(Debug, Copy, Clone)]
+pub enum PcntZeroCrossMode {
+    #[doc = "< start from positive value, end to zero, i.e. +N->0"]
+    PosZero,
+    #[doc = "< start from negative value, end to zero, i.e. -N->0"]
+    NegZero,
+    #[doc = "< start from negative value, end to positive value, i.e. -N->+M"]
+    NegPos,
+    #[doc = "< start from positive value, end to negative value, i.e. +N->-M"]
+    PosNeg,
+}
+
+impl From<pcnt_unit_zero_cross_mode_t> for PcntZeroCrossMode {
+    fn from(x: pcnt_unit_zero_cross_mode_t) -> Self {
+        match x {
+            esp_idf_sys::pcnt_unit_zero_cross_mode_t_PCNT_UNIT_ZERO_CROSS_POS_ZERO => PcntZeroCrossMode::PosZero,
+            esp_idf_sys::pcnt_unit_zero_cross_mode_t_PCNT_UNIT_ZERO_CROSS_NEG_ZERO => PcntZeroCrossMode::NegZero,
+            esp_idf_sys::pcnt_unit_zero_cross_mode_t_PCNT_UNIT_ZERO_CROSS_NEG_POS => PcntZeroCrossMode::NegPos,
+            esp_idf_sys::pcnt_unit_zero_cross_mode_t_PCNT_UNIT_ZERO_CROSS_POS_NEG => PcntZeroCrossMode::PosNeg,
+            _ => panic!("unknown pcnt_unit_zero_cross_mode_t value {}", x),
+        }
+    }
+}
+
+#[doc = " @brief PCNT watch event data"]
+#[derive(Debug, Copy, Clone)]
+#[allow(dead_code)]
+pub struct PcntWatchEventData {
+    #[doc = "< Watch point value that triggered the event"]
+    pub watch_point_value: i32,
+    #[doc = "< Zero cross mode"]
+    pub zero_cross_mode: PcntZeroCrossMode,
+}
+
+impl From<*const pcnt_watch_event_data_t> for PcntWatchEventData {
+    fn from(x: *const pcnt_watch_event_data_t) -> Self {
+        unsafe {
+            Self {
+                watch_point_value: (*x).watch_point_value,
+                zero_cross_mode: (*x).zero_cross_mode.into(),
+            }
+        }
+    }
+}
 
 #[derive(Debug, Copy, Clone)]
 pub enum PcntEdgeAction {
@@ -207,7 +279,9 @@ pub struct PcntUnitConfig {
 
 #[doc = " @brief PCNT unit"]
 #[derive(Debug)]
-pub struct PcntUnit(pcnt_unit_handle_t);
+pub struct PcntUnit {
+    unit: pcnt_unit_handle_t,
+}
 
 impl PcntUnit {
     #[doc = " @brief Create a new PCNT unit"]
@@ -228,7 +302,29 @@ impl PcntUnit {
         unsafe {
             esp!(pcnt_new_unit(&config, &mut unit))?;
         }
-        Ok(Self(unit))
+        Ok(Self {
+            unit,
+        })
+    }
+
+    #[doc = " @brief Set glitch filter for PCNT unit"]
+    #[doc = ""]
+    #[doc = " @note The glitch filter module is clocked from APB, and APB frequency can be changed during DFS, which in return make the filter out of action."]
+    #[doc = "       So this function will lazy-install a PM lock internally when the power management is enabled. With this lock, the APB frequency won't be changed."]
+    #[doc = "       The PM lock can be uninstalled when the unit is dropped."]
+    #[doc = " @note This function should be called when the PCNT unit is in the init state (i.e. before calling `enable()`)"]
+    #[doc = ""]
+    #[doc = " @param[in] config PCNT filter configuration, set config to None means disabling the filter function"]
+    #[doc = " @return"]
+    #[doc = "      - (): on success"]
+    #[doc = "      - EspError: on failure"]
+    pub fn set_filter(&self, config: Option<&PcntFilterConfig>) -> Result<(), EspError> {
+        unsafe {
+            esp!(pcnt_unit_set_glitch_filter(self.unit, match config {
+                Some(x) => &x.into(),
+                None => std::ptr::null(),
+            }))
+        }
     }
 
     #[doc = " @brief Enable the PCNT unit"]
@@ -243,7 +339,7 @@ impl PcntUnit {
     #[doc = "      - EspError: on failure"]
     pub fn enable(&self) -> Result<(), EspError> {
         unsafe {
-            esp!(pcnt_unit_enable(self.0))
+            esp!(pcnt_unit_enable(self.unit))
         }
     }
 
@@ -257,7 +353,7 @@ impl PcntUnit {
     #[doc = "      - EspError: on failure"]
     pub fn disable(&self) -> Result<(), EspError> {
         unsafe {
-            esp!(pcnt_unit_disable(self.0))
+            esp!(pcnt_unit_disable(self.unit))
         }
     }
 
@@ -272,7 +368,7 @@ impl PcntUnit {
     #[doc = "      - EspError: on failure"]
     pub fn start(&self) -> Result<(), EspError> {
         unsafe {
-            esp!(pcnt_unit_start(self.0))
+            esp!(pcnt_unit_start(self.unit))
         }
     }
 
@@ -288,10 +384,24 @@ impl PcntUnit {
     #[doc = "      - EspError: on failure"]
     pub fn stop(&self) -> Result<(), EspError> {
         unsafe {
-            esp!(pcnt_unit_stop(self.0))
+            esp!(pcnt_unit_stop(self.unit))
         }
     }
 
+    #[doc = " @brief Clear PCNT pulse count value to zero"]
+    #[doc = ""]
+    #[doc = " @note It's recommended to call this function after adding a watch point by `pcnt_unit_add_watch_point()`, so that the newly added watch point is effective immediately."]
+    #[doc = " @note This function is allowed to run within ISR context"]
+    #[doc = " @note This function will be placed into IRAM if `CONFIG_PCNT_CTRL_FUNC_IN_IRAM`, so that it's allowed to be executed when Cache is disabled"]
+    #[doc = ""]
+    #[doc = " @return"]
+    #[doc = "      - (): on success"]
+    #[doc = "      - EspError: on failure"]
+    pub fn clear_count(&self) -> Result<(), EspError> {
+        unsafe {
+            esp!(pcnt_unit_clear_count(self.unit))
+        }
+    }
 
     #[doc = " @brief Get PCNT count value"]
     #[doc = ""]
@@ -304,12 +414,65 @@ impl PcntUnit {
     #[doc = "      - EspError: on failure"]
     pub fn get_count(&self) -> Result<i32, EspError> {
         let mut value: esp_idf_sys::c_types::c_int = 0;
-        unsafe {
-            esp!(pcnt_unit_get_count(self.0, &mut value))?;
-        }
+        unsafe { esp!(pcnt_unit_get_count(self.unit, &mut value))?; }
         Ok(value)
     }
 
+    #[doc = " @brief Add a watch point for PCNT unit, PCNT will generate an event when the counter value reaches the watch point value"]
+    #[doc = ""]
+    #[doc = " @param[in] watch_point Value to be watched"]
+    #[doc = " @return"]
+    #[doc = "      - value: on success"]
+    #[doc = "      - EspError: on failure"]
+    pub fn add_watch_point(&self, watch_point: i32) -> Result<(), EspError> {
+        unsafe {esp!(pcnt_unit_add_watch_point(self.unit, watch_point))}
+    }
+
+    #[doc = " @brief Remove a watch point for PCNT unit"]
+    #[doc = ""]
+    #[doc = " @param[in] watch_point Watch point value"]
+    #[doc = " @return"]
+    #[doc = "      - value: on success"]
+    #[doc = "      - EspError: on failure"]
+    pub fn remove_watch_point(&self, watch_point: i32) -> Result<(), EspError> {
+        unsafe {esp!(pcnt_unit_remove_watch_point(self.unit, watch_point))}
+    }
+
+    #[doc = " @brief subscribe to PCNT events"]
+    #[doc = ""]
+    #[doc = " @note User registered callbacks are expected to be runnable within ISR context"]
+    #[doc = " @note The first call to this function needs to be before the call to `pcnt_unit_enable`"]
+    #[doc = " @note User can deregister a previously registered callback by calling this function and passing None."]
+    #[doc = ""]
+    #[doc = " @return"]
+    #[doc = "      - value: on success"]
+    #[doc = "      - EspError: on failure"]
+    pub fn subscribe<F>(&self, callback: F ) -> Result<(), EspError>
+    where
+        F: FnMut(PcntWatchEventData)->bool + Send + 'static
+    {
+        let mut closure = callback;
+        let cbs = pcnt_event_callbacks_t {
+            on_reach: Self::get_trampoline(&closure),
+        };
+        let data = &mut closure as *mut _ as *mut esp_idf_sys::c_types::c_void;
+        unsafe {esp!(pcnt_unit_register_event_callbacks(self.unit, &cbs, data as *mut esp_idf_sys::c_types::c_void))}
+    }
+
+    pub fn get_trampoline<F>(_closure: &F) -> esp_idf_sys::pcnt_watch_cb_t
+        where
+            F: FnMut(PcntWatchEventData)->bool
+    {
+        Some(Self::trampoline::<F>)
+    }
+        
+    unsafe extern "C" fn trampoline<F>(_unit: pcnt_unit_handle_t, edata: *const pcnt_watch_event_data_t, data: *mut esp_idf_sys::c_types::c_void) -> bool
+    where
+        F: FnMut(PcntWatchEventData)->bool
+    {
+        let f = &mut *(data as *mut F);
+        f(edata.into())
+    }
     #[doc = " @brief Create PCNT channel for specific unit, each PCNT has several channels associated with it"]
     #[doc = ""]
     #[doc = " @note This function should be called when the unit is in init state (i.e. before calling `pcnt_unit_enable()`)"]
@@ -332,7 +495,7 @@ impl PcntUnit {
         };
         let mut channel: pcnt_channel_handle_t = std::ptr::null_mut();
         unsafe {
-            esp!(pcnt_new_channel(self.0, &config, &mut channel))?;
+            esp!(pcnt_new_channel(self.unit, &config, &mut channel))?;
         }
         Ok(PcntChannel(channel))
     }
@@ -341,7 +504,7 @@ impl PcntUnit {
 impl Drop for PcntUnit {
     fn drop(&mut self) {
         unsafe {
-            esp!(pcnt_del_unit(self.0)).unwrap();
+            esp!(pcnt_del_unit(self.unit)).unwrap();
         }
     }
 }
