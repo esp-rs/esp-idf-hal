@@ -50,34 +50,31 @@ impl Comparator {
         extern "C" {
             fn mcpwm_generator_set_actions_on_compare_event(
                 gen: mcpwm_gen_handle_t,
-                ev_act: mcpwm_gen_compare_event_action_t,
+                ev_act0: mcpwm_gen_compare_event_action_t,
+                ev_act1: mcpwm_gen_compare_event_action_t,
                 ev_act_end: mcpwm_gen_compare_event_action_t,
             ) -> esp_idf_sys::esp_err_t;
         }
 
-        let mut set_actions_on_compare_event = |action| {
-            esp!(mcpwm_generator_set_actions_on_compare_event(
-                gen,    // mcpwm_generator_set_actions_on_compare_event
-                action, // is a variadic function in C.
-                mcpwm_gen_compare_event_action_t {
-                    // <-- This marks the last argument in the variadic list
-                    comparator: ptr::null_mut(),
-                    ..Default::default()
-                }
-            ))
-            .unwrap()
-        };
-
-        set_actions_on_compare_event(mcpwm_gen_compare_event_action_t {
-            direction: mcpwm_timer_direction_t_MCPWM_TIMER_DIRECTION_UP,
-            comparator: self.0,
-            action: cfg.counting_up.into(),
-        });
-        set_actions_on_compare_event(mcpwm_gen_compare_event_action_t {
-            direction: mcpwm_timer_direction_t_MCPWM_TIMER_DIRECTION_DOWN,
-            comparator: self.0,
-            action: cfg.counting_down.into(),
-        });
+        esp!(mcpwm_generator_set_actions_on_compare_event(
+            gen,
+            mcpwm_gen_compare_event_action_t {
+                direction: mcpwm_timer_direction_t_MCPWM_TIMER_DIRECTION_UP,
+                comparator: self.0,
+                action: cfg.counting_up.into(),
+            },
+            mcpwm_gen_compare_event_action_t {
+                direction: mcpwm_timer_direction_t_MCPWM_TIMER_DIRECTION_DOWN,
+                comparator: self.0,
+                action: cfg.counting_down.into(),
+            },
+            mcpwm_gen_compare_event_action_t {
+                // <-- This marks the last argument in the variadic list
+                comparator: ptr::null_mut(),
+                ..Default::default()
+            }
+        ))
+        .unwrap();
     }
 }
 

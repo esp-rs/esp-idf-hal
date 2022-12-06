@@ -5,8 +5,8 @@ use esp_idf_sys::{
     mcpwm_generator_action_t_MCPWM_GEN_ACTION_HIGH, mcpwm_generator_action_t_MCPWM_GEN_ACTION_KEEP,
     mcpwm_generator_action_t_MCPWM_GEN_ACTION_LOW,
     mcpwm_generator_action_t_MCPWM_GEN_ACTION_TOGGLE, mcpwm_generator_config_t,
-    mcpwm_generator_config_t__bindgen_ty_1,
-    mcpwm_new_generator, mcpwm_oper_handle_t, mcpwm_timer_direction_t_MCPWM_TIMER_DIRECTION_DOWN,
+    mcpwm_generator_config_t__bindgen_ty_1, mcpwm_new_generator, mcpwm_oper_handle_t,
+    mcpwm_timer_direction_t_MCPWM_TIMER_DIRECTION_DOWN,
     mcpwm_timer_direction_t_MCPWM_TIMER_DIRECTION_UP, mcpwm_timer_event_t_MCPWM_TIMER_EVENT_EMPTY,
     mcpwm_timer_event_t_MCPWM_TIMER_EVENT_FULL, mcpwm_timer_event_t_MCPWM_TIMER_EVENT_INVALID,
 };
@@ -109,7 +109,11 @@ impl<G: GeneratorChannel, CMPX: OnMatchCfg, CMPY: OnMatchCfg, P: OutputPin> Opti
         extern "C" {
             fn mcpwm_generator_set_actions_on_timer_event(
                 gen: mcpwm_gen_handle_t,
-                ev_act: mcpwm_gen_timer_event_action_t,
+                ev_act0: mcpwm_gen_timer_event_action_t,
+                ev_act1: mcpwm_gen_timer_event_action_t,
+                ev_act2: mcpwm_gen_timer_event_action_t,
+                ev_act3: mcpwm_gen_timer_event_action_t,
+
                 ev_act_end: mcpwm_gen_timer_event_action_t,
             ) -> esp_idf_sys::esp_err_t;
         }
@@ -117,45 +121,35 @@ impl<G: GeneratorChannel, CMPX: OnMatchCfg, CMPY: OnMatchCfg, P: OutputPin> Opti
         unsafe {
             esp!(mcpwm_new_generator(operator_handle, &cfg, &mut gen)).unwrap();
 
-            let set_actions_on_timer_event = |action| {
-                esp!(mcpwm_generator_set_actions_on_timer_event(
-                    gen,                             // mcpwm_generator_set_actions_on_timer_event
-                    action,                          // is a variadic function in C.
-                    mcpwm_gen_timer_event_action_t { // <-- This marks the last argument in the variadic list
-                        event: mcpwm_timer_event_t_MCPWM_TIMER_EVENT_INVALID,
-                        ..Default::default()
-                    }
-                )).unwrap()
-            };
-
-            set_actions_on_timer_event(
+            esp!(mcpwm_generator_set_actions_on_timer_event(
+                gen,
                 mcpwm_gen_timer_event_action_t {
                     direction: mcpwm_timer_direction_t_MCPWM_TIMER_DIRECTION_UP,
                     event: mcpwm_timer_event_t_MCPWM_TIMER_EVENT_EMPTY,
                     action: self.on_is_empty.counting_up.into(),
-                }
-            );
-            set_actions_on_timer_event(
+                },
                 mcpwm_gen_timer_event_action_t {
                     direction: mcpwm_timer_direction_t_MCPWM_TIMER_DIRECTION_DOWN,
                     event: mcpwm_timer_event_t_MCPWM_TIMER_EVENT_EMPTY,
                     action: self.on_is_empty.counting_down.into(),
-                }
-            );
-            set_actions_on_timer_event(
+                },
                 mcpwm_gen_timer_event_action_t {
                     direction: mcpwm_timer_direction_t_MCPWM_TIMER_DIRECTION_UP,
                     event: mcpwm_timer_event_t_MCPWM_TIMER_EVENT_FULL,
                     action: self.on_is_full.counting_up.into(),
-                }
-            );
-            set_actions_on_timer_event(
+                },
                 mcpwm_gen_timer_event_action_t {
                     direction: mcpwm_timer_direction_t_MCPWM_TIMER_DIRECTION_DOWN,
                     event: mcpwm_timer_event_t_MCPWM_TIMER_EVENT_FULL,
                     action: self.on_is_full.counting_down.into(),
+                },
+                mcpwm_gen_timer_event_action_t {
+                    // <-- This marks the last argument in the variadic list
+                    event: mcpwm_timer_event_t_MCPWM_TIMER_EVENT_INVALID,
+                    ..Default::default()
                 }
-            );
+            ))
+            .unwrap();
 
             if let Some(cmp_x) = cmp_x {
                 cmp_x.configure(&mut *gen, self.on_matches_cmp_x.to_counting_direction());
