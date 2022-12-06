@@ -70,7 +70,7 @@ fn send_morse_code<'d>(
     config: &TransmitConfig,
     message: &str,
 ) -> anyhow::Result<TxRmtDriver<'d>> {
-    println!("Sending morse message '{}'.", message);
+    println!("Sending morse message '{message}'.");
 
     let mut signal = VariableLengthSignal::new();
     let pulses = str_pulses(message);

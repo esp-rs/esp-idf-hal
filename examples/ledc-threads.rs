@@ -60,10 +60,10 @@ where
     let max_duty = pwm.get_max_duty();
 
     for cycle in 0..times {
-        println!("{} cycle: {}", log_prefix, cycle);
+        println!("{log_prefix} cycle: {cycle}");
 
         for numerator in [0, 1, 2, 3, 4, 5].iter() {
-            println!("{} duty: {}/5", log_prefix, numerator);
+            println!("{log_prefix} duty: {numerator}/5");
             pwm.set_duty(max_duty * numerator / 5);
             std::thread::sleep(sleep);
         }

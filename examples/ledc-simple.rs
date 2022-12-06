@@ -21,7 +21,7 @@ fn main() -> anyhow::Result<()> {
 
     let max_duty = channel.get_max_duty();
     for numerator in [0, 1, 2, 3, 4, 5].iter().cycle() {
-        println!("Duty {}/5", numerator);
+        println!("Duty {numerator}/5");
         channel.set_duty(max_duty * numerator / 5)?;
         FreeRtos::delay_ms(2000);
     }
