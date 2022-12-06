@@ -542,7 +542,7 @@ impl<'d> UartDriver<'d> {
     }
 
     /// Get count of remaining bytes in the receive ring buffer
-    pub fn remaining_read(&self) -> Result<u32, EspError> {
+    pub fn remaining_read(&self) -> Result<usize, EspError> {
         remaining_unread_bytes(self.port())
     }
 
@@ -554,7 +554,7 @@ impl<'d> UartDriver<'d> {
             not(any(esp_idf_version_patch = "0", esp_idf_version_patch = "1")),
         ),
     ))]
-    pub fn remaining_write(&self) -> Result<u32, EspError> {
+    pub fn remaining_write(&self) -> Result<usize, EspError> {
         remaining_write_capacity(self.port())
     }
 
@@ -702,7 +702,7 @@ impl<'d> UartRxDriver<'d> {
         let len = unsafe {
             uart_read_bytes(
                 self.port(),
-                buf.as_mut_ptr() as *mut _,
+                buf.as_mut_ptr().cast(),
                 buf.len() as u32,
                 delay,
             )
@@ -726,7 +726,7 @@ impl<'d> UartRxDriver<'d> {
     }
 
     /// Get count of remaining bytes in the receive ring buffer
-    pub fn count(&self) -> Result<u32, EspError> {
+    pub fn count(&self) -> Result<usize, EspError> {
         remaining_unread_bytes(self.port())
     }
 }
@@ -826,9 +826,7 @@ impl<'d> UartTxDriver<'d> {
     /// Write multiple bytes from a slice
     pub fn write(&mut self, bytes: &[u8]) -> Result<usize, EspError> {
         // `uart_write_bytes()` returns error (-1) or how many bytes were written
-        let len = unsafe {
-            uart_write_bytes(self.port(), bytes.as_ptr() as *const _, bytes.len() as u32)
-        };
+        let len = unsafe { uart_write_bytes(self.port(), bytes.as_ptr().cast(), bytes.len()) };
 
         if len >= 0 {
             Ok(len as usize)
@@ -855,7 +853,7 @@ impl<'d> UartTxDriver<'d> {
             not(any(esp_idf_version_patch = "0", esp_idf_version_patch = "1")),
         ),
     ))]
-    pub fn count(&self) -> Result<u32, EspError> {
+    pub fn count(&self) -> Result<usize, EspError> {
         remaining_write_capacity(self.port())
     }
 }
@@ -1010,8 +1008,8 @@ fn delete_driver(port: uart_port_t) -> Result<(), EspError> {
     esp!(unsafe { uart_driver_delete(port) })
 }
 
-pub fn remaining_unread_bytes(port: uart_port_t) -> Result<u32, EspError> {
-    let mut size = 0_u32;
+pub fn remaining_unread_bytes(port: uart_port_t) -> Result<usize, EspError> {
+    let mut size = 0;
     esp_result!(unsafe { uart_get_buffered_data_len(port, &mut size) }, size)
 }
 
@@ -1022,8 +1020,8 @@ pub fn remaining_unread_bytes(port: uart_port_t) -> Result<u32, EspError> {
         not(any(esp_idf_version_patch = "0", esp_idf_version_patch = "1")),
     ),
 ))]
-pub fn remaining_write_capacity(port: uart_port_t) -> Result<u32, EspError> {
-    let mut size = 0_u32;
+pub fn remaining_write_capacity(port: uart_port_t) -> Result<usize, EspError> {
+    let mut size = 0;
     esp_result!(
         unsafe { uart_get_tx_buffer_free_size(port, &mut size) },
         size

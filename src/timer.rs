@@ -1,4 +1,4 @@
-use core::marker::PhantomData;
+use core::{ffi::c_void, marker::PhantomData};
 
 use esp_idf_sys::*;
 
@@ -113,9 +113,7 @@ impl<'d> TimerDriver<'d> {
         } else {
             let mut value = 0_u64;
 
-            esp!(unsafe {
-                timer_get_counter_value(self.group(), self.index(), &mut value as *mut _)
-            })?;
+            esp!(unsafe { timer_get_counter_value(self.group(), self.index(), &mut value) })?;
 
             value
         };
@@ -257,7 +255,7 @@ impl<'d> TimerDriver<'d> {
     }
 
     #[cfg(feature = "alloc")]
-    unsafe extern "C" fn handle_isr(unsafe_callback: *mut c_types::c_void) -> bool {
+    unsafe extern "C" fn handle_isr(unsafe_callback: *mut c_void) -> bool {
         crate::interrupt::with_isr_yield_signal(move || {
             UnsafeCallback::from_ptr(unsafe_callback).call();
         })
@@ -295,12 +293,12 @@ impl UnsafeCallback {
         Self(boxed.as_mut())
     }
 
-    pub unsafe fn from_ptr(ptr: *mut c_types::c_void) -> Self {
-        Self(ptr as *mut _)
+    pub unsafe fn from_ptr(ptr: *mut c_void) -> Self {
+        Self(ptr.cast())
     }
 
-    pub fn as_ptr(&self) -> *mut c_types::c_void {
-        self.0 as *mut _
+    pub fn as_ptr(&self) -> *mut c_void {
+        self.0.cast()
     }
 
     pub unsafe fn call(&mut self) {

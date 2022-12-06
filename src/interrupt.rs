@@ -29,7 +29,7 @@ pub fn with_isr_yield_signal(cb: impl FnOnce()) -> bool {
 }
 
 unsafe fn do_yield_signal(arg: *mut ()) {
-    let signaled = (arg as *mut bool).as_mut().unwrap();
+    let signaled = arg.cast::<bool>().as_mut().unwrap();
 
     *signaled = true
 }
