@@ -159,7 +159,7 @@ macro_rules! impl_peripheral {
         impl $type {
             /// # Safety
             ///
-            /// Care should be taken not to instnatiate this peripheralinstance, if it is already instantiated and used elsewhere
+            /// Care should be taken not to instantiate this peripheral instance, if it is already instantiated and used elsewhere
             #[inline(always)]
             pub unsafe fn new() -> Self {
                 $type(::core::marker::PhantomData)
