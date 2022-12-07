@@ -5,87 +5,191 @@
 //! Note that PCNT only track a singed 16bit value.  We use interrupts to detect a LOW and HIGH
 //! threshold and track how much that accounts for and provide an i64 value result
 //!
-use std::{sync::{atomic::{Ordering, AtomicI64}, Arc}, cmp::min};
 
 use anyhow;
 use anyhow::Context;
-use embedded_hal::delay::DelayUs;
-use esp_idf_hal::delay::FreeRtos as delay;
+
+use esp_idf_hal::delay::FreeRtos; 
+use esp_idf_hal::gpio::AnyInputPin;
 use esp_idf_hal::prelude::*;
-use esp_idf_hal::gpio::Pull;
-use esp_idf_sys as _; // If using the `binstart` feature of `esp-idf-sys`, always keep this module imported
-use esp_idf_hal::pcnt::*;
+
+use encoder::Encoder;
 
 fn main() -> anyhow::Result<()> {
     // Temporary. Will disappear once ESP-IDF 4.4 is released, but for now it is necessary to call this function once,
     // or else some patches to the runtime implemented by esp-idf-sys might not link properly.
     esp_idf_sys::link_patches();
 
-    println!("setup pins");
-    let peripherals = Peripherals::take().context("failed to take Peripherals")?;
-    let m1_enc1_pin = peripherals.pins.gpio5;
-    let m1_enc2_pin = peripherals.pins.gpio6;
-    let m1_enc1_pin = PcntPin::new(m1_enc1_pin, Pull::Up)?;
-    let m1_enc2_pin = PcntPin::new(m1_enc2_pin, Pull::Up)?;
-    println!("creating pcnt unit 0");
-    let mut pcnt = Pcnt::new()?;
-    println!("configure pcnt chanel 0");
-    const POS_LIMIT: i16 = 100;
-    const NEG_LIMIT: i16 = -100;
-    let mut config = PcntConfig {
-        pulse_pin: Some(m1_enc1_pin.clone()),
-        ctrl_pin: Some(m1_enc2_pin.clone()),
-        lctrl_mode: PcntControlMode::Reverse,
-        hctrl_mode: PcntControlMode::Keep,
-        pos_mode: PcntCountMode::Decrement,
-        neg_mode: PcntCountMode::Increment,
-        counter_h_lim: POS_LIMIT,
-        counter_l_lim: NEG_LIMIT,
-        channel: PcntChannel::Channel0,
-    };
-    pcnt.config(&mut config).context("configuring CHANNEL0")?;
+    // Bind the log crate to the ESP Logging facilities
+    esp_idf_svc::log::EspLogger::initialize_default();
 
-    println!("configure pcnt chanel 1");
-    config.channel = PcntChannel::Channel1;
-    config.pulse_pin = Some(m1_enc2_pin);
-    config.ctrl_pin = Some(m1_enc1_pin);
-    config.pos_mode = PcntCountMode::Increment;
-    config.neg_mode = PcntCountMode::Decrement;
-    pcnt.config(&mut config).context("configuring CHANNEL1")?;
-    pcnt.set_filter_value(min(10*80, 1023))?;
-    pcnt.filter_enable()?;
-    let value = Arc::new(AtomicI64::new(0));
-    // unsafe interrupt code to catch the upper and lower limits from the encoder
-    // and track the overflow in `value: Arc<AtomicI64>` - I plan to use this for 
-    // a wheeled robot's odomerty
-    unsafe {
-        let value = value.clone();
-        pcnt.subscribe(move |status| {
-            let status = PcntEventType::from_bits_retain(status);
-            if status.contains(PcntEventType::H_LIM) {
-                value.fetch_add(POS_LIMIT as i64, Ordering::SeqCst);
-            }
-            if status.contains(PcntEventType::L_LIM) {
-                value.fetch_add(NEG_LIMIT as i64, Ordering::SeqCst);
-            }
-        })?;
-    }
-    pcnt.event_enable(PcntEventType::H_LIM)?;
-    pcnt.event_enable(PcntEventType::L_LIM)?;
-    println!("starting pcnt counter");
-    pcnt.counter_pause()?;
-    pcnt.counter_clear()?;
-    pcnt.counter_resume()?;
+    let peripherals = Peripherals::take().context("failed to take Peripherals")?;
+    let pin_a: AnyInputPin = peripherals.pins.gpio5.into();
+    let pin_b: AnyInputPin = peripherals.pins.gpio6.into();
+
+    let encoder = Encoder::new(&pin_a, &pin_b)?;
 
     let mut last_value = 0i64;
     loop {
-        let pcnt_value = pcnt.get_counter_value()? as i64;
-        let acc_value = value.load(Ordering::SeqCst);
-        let value = acc_value + pcnt_value;
+        let value = encoder.get_value()?;
         if value != last_value {
-            println!("value: {value} pct={pcnt_value} acc={acc_value}");
+            println!("value: {value}");
             last_value = value;
         }
-        delay.delay_ms(100u32)?;
+        FreeRtos::delay_ms(100u32);
+    }
+}
+
+
+// esp-idf encoder implementation using v4 pcnt api
+#[cfg(any(feature = "pcnt4", esp_idf_version_major = "4"))]
+mod encoder {
+    use std::cmp::min;
+    use std::sync::Arc;
+    use std::sync::atomic::AtomicI64;
+    use std::sync::atomic::Ordering;
+
+    use esp_idf_hal::gpio::AnyInputPin;
+    use esp_idf_hal::pcnt::*;
+    use esp_idf_sys::EspError;
+
+    const LOW_LIMIT: i16 = -100;
+    const HIGH_LIMIT: i16 = 100;
+
+    pub struct Encoder {
+        unit: Pcnt,
+        approx_value: Arc<AtomicI64>,
+    }
+
+    impl Encoder {
+        pub fn new(pin_a: &AnyInputPin, pin_b: &AnyInputPin) -> Result<Self, EspError> {
+            let mut unit = Pcnt::new()?;
+            unit.config(&mut PcntConfig {
+                pulse_pin: Some(pin_a),
+                ctrl_pin: Some(pin_b),
+                lctrl_mode: PcntControlMode::Reverse,
+                hctrl_mode: PcntControlMode::Keep,
+                pos_mode: PcntCountMode::Decrement,
+                neg_mode: PcntCountMode::Increment,
+                counter_h_lim: HIGH_LIMIT,
+                counter_l_lim: LOW_LIMIT,
+                channel: PcntChannel::Channel0,
+            })?;
+            unit.config(&mut PcntConfig {
+                pulse_pin: Some(pin_b),
+                ctrl_pin: Some(pin_a),
+                lctrl_mode: PcntControlMode::Reverse,
+                hctrl_mode: PcntControlMode::Keep,
+                pos_mode: PcntCountMode::Increment,
+                neg_mode: PcntCountMode::Decrement,
+                counter_h_lim: HIGH_LIMIT,
+                counter_l_lim: LOW_LIMIT,
+                channel: PcntChannel::Channel1,
+            })?;
+            unit.set_filter_value(min(10 * 80, 1023))?;
+            unit.filter_enable()?;
+        
+            let approx_value = Arc::new(AtomicI64::new(0));
+            // unsafe interrupt code to catch the upper and lower limits from the encoder
+            // and track the overflow in `value: Arc<AtomicI64>` - I plan to use this for
+            // a wheeled robot's odomerty
+            unsafe {
+                let approx_value = approx_value.clone();
+                unit.subscribe(move |status| {
+                    let status = PcntEventType::from_bits_retain(status);
+                    if status.contains(PcntEventType::H_LIM) {
+                        approx_value.fetch_add(HIGH_LIMIT as i64, Ordering::SeqCst);
+                    }
+                    if status.contains(PcntEventType::L_LIM) {
+                        approx_value.fetch_add(LOW_LIMIT as i64, Ordering::SeqCst);
+                    }
+                })?;
+            }
+            unit.event_enable(PcntEventType::H_LIM)?;
+            unit.event_enable(PcntEventType::L_LIM)?;
+            unit.counter_pause()?;
+            unit.counter_clear()?;
+            unit.counter_resume()?;
+
+            Ok(Self {
+                unit,
+                approx_value,
+            })
+        }
+
+        pub fn get_value(&self) -> Result<i64, EspError> {
+            let value = self.approx_value.load(Ordering::Relaxed) + self.unit.get_counter_value()? as i64;    
+            Ok(value)
+        }
+    }
+}
+
+// esp-idf v5 encoder implementation using pulse_cnt api
+#[cfg(not(any(feature = "pcnt4", esp_idf_version_major = "4")))]
+mod encoder {
+    use std::sync::Arc;
+    use std::sync::atomic::AtomicI64;
+    use std::sync::atomic::Ordering;
+
+    use esp_idf_hal::gpio::AnyInputPin;
+    use esp_idf_hal::pulse_cnt::*;
+    use esp_idf_sys::EspError;
+
+    const LOW_LIMIT: i32 = -100;
+    const HIGH_LIMIT: i32 = 100;
+
+    pub struct Encoder {
+        unit: PcntUnit,
+        _channels: [PcntChannel; 2], // we don't use but don't want to drop
+        approx_value: Arc<AtomicI64>,
+    }
+
+    impl Encoder {
+        pub fn new(pin_a: &AnyInputPin, pin_b: &AnyInputPin) -> Result<Self, EspError> {
+            let mut unit = PcntUnit::new(&PcntUnitConfig {
+                low_limit: LOW_LIMIT,
+                high_limit: HIGH_LIMIT,
+                ..Default::default()
+            })?;
+            let channel0 = unit.channel(&PcntChanConfig {
+                edge_pin: Some(&pin_a),
+                level_pin: Some(&pin_b),
+                ..Default::default()
+            })?;
+            channel0.set_level_action(PcntLevelAction::Keep, PcntLevelAction::Inverse)?;
+            channel0.set_edge_action(PcntEdgeAction::Decrease, PcntEdgeAction::Increase)?;
+            let channel1 = unit.channel(&PcntChanConfig {
+                edge_pin: Some(&pin_b),
+                level_pin: Some(&pin_a),
+                ..Default::default()
+            })?;
+            channel1.set_level_action(PcntLevelAction::Keep, PcntLevelAction::Inverse)?;
+            channel1.set_edge_action(PcntEdgeAction::Increase, PcntEdgeAction::Decrease)?;
+
+            unit.add_watch_point(LOW_LIMIT)?;
+            unit.add_watch_point(HIGH_LIMIT)?;
+
+            let approx_value = Arc::new(AtomicI64::new(0));
+            {
+                let approx_value = approx_value.clone();
+                unit.subscribe(move |event| {
+                    approx_value.fetch_add(event.watch_point_value.into(), Ordering::SeqCst);
+                    false // no high priority task woken
+                })?;
+            }
+
+            unit.enable()?;
+            unit.start()?;
+        
+            Ok(Self {
+                unit,
+                _channels: [channel0, channel1],
+                approx_value,
+            })
+        }
+
+        pub fn get_value(&self) -> Result<i64, EspError> {
+            Ok(self.approx_value.load(Ordering::SeqCst) + self.unit.get_count()? as i64)
+        }
     }
 }

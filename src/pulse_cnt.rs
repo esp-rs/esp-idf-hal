@@ -281,6 +281,7 @@ pub struct PcntUnitConfig {
 #[derive(Debug)]
 pub struct PcntUnit {
     unit: pcnt_unit_handle_t,
+    isr_id: Option<usize>,
 }
 
 impl PcntUnit {
@@ -304,6 +305,7 @@ impl PcntUnit {
         }
         Ok(Self {
             unit,
+            isr_id: None,
         })
     }
 
@@ -447,32 +449,52 @@ impl PcntUnit {
     #[doc = " @return"]
     #[doc = "      - value: on success"]
     #[doc = "      - EspError: on failure"]
-    pub fn subscribe<F>(&self, callback: F ) -> Result<(), EspError>
+    pub fn subscribe<F>(&mut self, callback: F ) -> Result<(), EspError>
     where
         F: FnMut(PcntWatchEventData)->bool + Send + 'static
     {
-        let mut closure = callback;
-        let cbs = pcnt_event_callbacks_t {
-            on_reach: Self::get_trampoline(&closure),
+        let id = match self.isr_id {
+            Some(x) => x,
+            None => {
+                let x = allocate_isr_id(callback);
+                self.isr_id = Some(x);
+                x
+            }
         };
-        let data = &mut closure as *mut _ as *mut esp_idf_sys::c_types::c_void;
+        let cbs = pcnt_event_callbacks_t {
+            on_reach: Some(Self::handle_isr),
+        };
+        let data = id as *mut esp_idf_sys::c_types::c_void;
         unsafe {esp!(pcnt_unit_register_event_callbacks(self.unit, &cbs, data as *mut esp_idf_sys::c_types::c_void))}
     }
 
-    pub fn get_trampoline<F>(_closure: &F) -> esp_idf_sys::pcnt_watch_cb_t
-        where
-            F: FnMut(PcntWatchEventData)->bool
-    {
-        Some(Self::trampoline::<F>)
+    unsafe extern "C" fn handle_isr(_unit: pcnt_unit_handle_t, edata: *const pcnt_watch_event_data_t, data: *mut esp_idf_sys::c_types::c_void) -> bool {
+        let id = data as usize;
+        match &mut ISR_HANDLERS[id] {
+            Some(f) => f(edata.into()),
+            None => panic!("isr handler called with no ISR!"),
+        }
     }
-        
-    unsafe extern "C" fn trampoline<F>(_unit: pcnt_unit_handle_t, edata: *const pcnt_watch_event_data_t, data: *mut esp_idf_sys::c_types::c_void) -> bool
-    where
-        F: FnMut(PcntWatchEventData)->bool
-    {
-        let f = &mut *(data as *mut F);
-        f(edata.into())
+
+    #[doc = " @brief Unsubscribe to PCNT events"]
+    #[doc = ""]
+    #[doc = " @param unit PCNT unit number"]
+    #[doc = ""]
+    #[doc = " @return"]
+    #[doc = "      - value: on success"]
+    #[doc = "      - EspError: on failure"]
+    pub fn unsubscribe(&mut self) -> Result<(), EspError> {
+        if let Some(id) = self.isr_id.take() {
+            unsafe {
+                esp!(pcnt_unit_register_event_callbacks(self.unit, &pcnt_event_callbacks_t {
+                    on_reach: None,
+                }, 0 as *mut esp_idf_sys::c_types::c_void))?;
+            }
+            free_isr_id(id);
+        }
+        Ok(())
     }
+
     #[doc = " @brief Create PCNT channel for specific unit, each PCNT has several channels associated with it"]
     #[doc = ""]
     #[doc = " @note This function should be called when the unit is in init state (i.e. before calling `pcnt_unit_enable()`)"]
@@ -506,5 +528,43 @@ impl Drop for PcntUnit {
         unsafe {
             esp!(pcnt_del_unit(self.unit)).unwrap();
         }
+    }
+}
+
+static PCNT_CS: crate::task::CriticalSection = crate::task::CriticalSection::new();
+
+#[cfg(esp32s3)]
+const PCNT_UNIT_MAX: usize = 4;
+#[cfg(not(esp32s3))]
+const PCNT_UNIT_MAX: usize = 8;
+
+static mut ISR_HANDLERS: [Option<Box<dyn FnMut(PcntWatchEventData)->bool>>; PCNT_UNIT_MAX] = [
+    None, None, None, None, 
+    #[cfg(not(esp32s3))]
+    None,
+    #[cfg(not(esp32s3))]
+    None,
+    #[cfg(not(esp32s3))]
+    None,
+    #[cfg(not(esp32s3))]
+    None, 
+];
+
+fn allocate_isr_id(callback: impl FnMut(PcntWatchEventData)->bool + 'static ) -> usize {
+    let _ = PCNT_CS.enter();
+    for i in 0..PCNT_UNIT_MAX {
+        unsafe {
+            if ISR_HANDLERS[i].is_none() {
+                ISR_HANDLERS[i] = Some(Box::new(callback));
+                return i;
+            }
+        }
+    }
+    panic!("all ISR slots are full!");
+}
+
+fn free_isr_id(id: usize) {
+    unsafe {
+        ISR_HANDLERS[id] = None;
     }
 }
