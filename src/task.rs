@@ -307,7 +307,7 @@ impl Drop for CriticalSection {
     fn drop(&mut self) {
         if self.1.load(Ordering::SeqCst) {
             unsafe {
-                vSemaphoreDelete(self.0.get().unwrap().as_ptr());
+                vQueueDelete(self.0.get().unwrap().as_ptr());
             }
         }
     }
