@@ -20,9 +20,6 @@ fn main() -> anyhow::Result<()> {
     // or else some patches to the runtime implemented by esp-idf-sys might not link properly.
     esp_idf_sys::link_patches();
 
-    // Bind the log crate to the ESP Logging facilities
-    esp_idf_svc::log::EspLogger::initialize_default();
-
     let peripherals = Peripherals::take().context("failed to take Peripherals")?;
     let pin_a: AnyInputPin = peripherals.pins.gpio5.into();
     let pin_b: AnyInputPin = peripherals.pins.gpio6.into();
