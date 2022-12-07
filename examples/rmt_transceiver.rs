@@ -59,7 +59,7 @@ fn main() -> anyhow::Result<()> {
                 let pulses = &pulses[..length];
 
                 for (pulse0, pulse1) in pulses {
-                    println!("0={:?}, 1={:?}", pulse0, pulse1);
+                    println!("0={pulse0:?}, 1={pulse1:?}");
                 }
             }
 
