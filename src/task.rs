@@ -264,8 +264,8 @@ fn enter(cs: &CriticalSection) {
         });
     }
 
-    let res = unsafe { xQueueTakeMutexRecursive(cs.0.get().unwrap().as_ptr(), crate::delay::BLOCK) }
-        as bool;
+    let res =
+        unsafe { xQueueTakeMutexRecursive(cs.0.get().unwrap().as_ptr(), crate::delay::BLOCK) } != 0;
 
     if !res {
         unreachable!();
@@ -279,7 +279,7 @@ fn exit(cs: &CriticalSection) {
         panic!("Called exit() without matching enter()");
     }
 
-    let res = unsafe { xQueueGiveMutexRecursive(cs.0.get().unwrap().as_ptr()) } as bool;
+    let res = unsafe { xQueueGiveMutexRecursive(cs.0.get().unwrap().as_ptr()) } != 0;
 
     if !res {
         unreachable!();
