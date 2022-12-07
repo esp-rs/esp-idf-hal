@@ -298,6 +298,16 @@ impl CriticalSection {
     }
 }
 
+impl Drop for CriticalSection {
+    fn drop(&mut self) {
+        if cs.1.load(Ordering::SeqCst) {
+            unsafe {
+                vSemaphoreDelete(cs.0.get().unwrap().as_ptr());
+            }
+        }
+    }
+}
+
 impl Default for CriticalSection {
     #[inline(always)]
     #[link_section = ".iram1.cs_default"]
