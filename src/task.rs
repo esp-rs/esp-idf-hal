@@ -264,8 +264,11 @@ fn enter(cs: &CriticalSection) {
         });
     }
 
-    unsafe {
-        xQueueTakeMutexRecursive(cs.0.get().unwrap().as_ptr(), crate::delay::BLOCK);
+    let res =
+        unsafe { xQueueTakeMutexRecursive(cs.0.get().unwrap().as_ptr(), crate::delay::BLOCK) } != 0;
+
+    if !res {
+        unreachable!();
     }
 }
 
@@ -276,8 +279,10 @@ fn exit(cs: &CriticalSection) {
         panic!("Called exit() without matching enter()");
     }
 
-    unsafe {
-        xQueueGiveMutexRecursive(cs.0.get().unwrap().as_ptr());
+    let res = unsafe { xQueueGiveMutexRecursive(cs.0.get().unwrap().as_ptr()) } != 0;
+
+    if !res {
+        unreachable!();
     }
 }
 
@@ -295,6 +300,16 @@ impl CriticalSection {
         enter(self);
 
         CriticalSectionGuard(self)
+    }
+}
+
+impl Drop for CriticalSection {
+    fn drop(&mut self) {
+        if self.1.load(Ordering::SeqCst) {
+            unsafe {
+                vQueueDelete(self.0.get().unwrap().as_ptr());
+            }
+        }
     }
 }
 
