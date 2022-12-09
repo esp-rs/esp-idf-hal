@@ -11,7 +11,6 @@ use alloc::sync::Arc;
 
 use embedded_svc::eth::*;
 
-use esp_idf_hal::gpio::{InputPin, OutputPin};
 use esp_idf_hal::peripheral::{Peripheral, PeripheralRef};
 
 #[cfg(any(
@@ -175,17 +174,17 @@ impl<'d> EthDriver<'d> {
         _rmii_rdx0: impl Peripheral<P = gpio::Gpio25> + 'd,
         _rmii_rdx1: impl Peripheral<P = gpio::Gpio26> + 'd,
         _rmii_crs_dv: impl Peripheral<P = gpio::Gpio27> + 'd,
-        rmii_mdc: impl Peripheral<P = impl OutputPin> + 'd,
+        rmii_mdc: impl Peripheral<P = impl gpio::OutputPin> + 'd,
         _rmii_txd1: impl Peripheral<P = gpio::Gpio22> + 'd,
         _rmii_tx_en: impl Peripheral<P = gpio::Gpio21> + 'd,
         _rmii_txd0: impl Peripheral<P = gpio::Gpio19> + 'd,
-        rmii_mdio: impl Peripheral<P = impl InputPin + OutputPin> + 'd,
+        rmii_mdio: impl Peripheral<P = impl gpio::InputPin + gpio::OutputPin> + 'd,
         rmii_ref_clk_config: RmiiClockConfig<
             impl Peripheral<P = gpio::Gpio0> + 'd,
             impl Peripheral<P = gpio::Gpio16> + 'd,
             impl Peripheral<P = gpio::Gpio17> + 'd,
         >,
-        rst: Option<impl Peripheral<P = impl OutputPin> + 'd>,
+        rst: Option<impl Peripheral<P = impl gpio::OutputPin> + 'd>,
         chipset: RmiiEthChipset,
         phy_addr: Option<u32>,
         sysloop: EspSystemEventLoop,
