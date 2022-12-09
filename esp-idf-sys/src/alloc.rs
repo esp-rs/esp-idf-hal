@@ -11,10 +11,7 @@ static HEAP: Esp32Alloc = Esp32Alloc;
 #[cfg_attr(not(feature = "std"), alloc_error_handler)]
 #[allow(dead_code)]
 fn on_oom(_layout: Layout) -> ! {
-    unsafe {
-        crate::abort();
-        core::hint::unreachable_unchecked();
-    }
+    unsafe { abort() }
 }
 
 struct Esp32Alloc;

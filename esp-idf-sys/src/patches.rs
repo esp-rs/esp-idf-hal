@@ -6,7 +6,7 @@ mod pthread_rwlock;
 #[cfg(feature = "std")]
 mod lstat;
 
-pub struct PatchesRef(*mut crate::c_types::c_void, *mut crate::c_types::c_void);
+pub struct PatchesRef(*mut core::ffi::c_void, *mut core::ffi::c_void);
 
 /// A hack to make sure that the rwlock implementation is linked to the final executable
 /// Call this function once e.g. in the beginning of your main function

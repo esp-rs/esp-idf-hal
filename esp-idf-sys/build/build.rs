@@ -99,7 +99,8 @@ fn main() -> anyhow::Result<()> {
     let configure_bindgen = |bindgen: bindgen::Builder| {
         Ok(bindgen
             .parse_callbacks(Box::new(BindgenCallbacks))
-            .ctypes_prefix("c_types")
+            .use_core()
+            .enable_function_attribute_detection()
             .blocklist_function("strtold")
             .blocklist_function("_strtold_r")
             .blocklist_function("v.*printf")

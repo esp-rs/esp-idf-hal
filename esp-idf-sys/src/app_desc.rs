@@ -6,8 +6,8 @@ macro_rules! esp_app_desc {
         #[link_section = ".rodata_desc"]
         #[allow(non_upper_case_globals)]
         pub static esp_app_desc: $crate::esp_app_desc_t = {
-            const fn str_to_cstr_array<const C: usize>(s: &str) -> [$crate::c_types::c_char; C] {
-                let mut ret: [$crate::c_types::c_char; C] = [0; C];
+            const fn str_to_cstr_array<const C: usize>(s: &str) -> [::core::ffi::c_char; C] {
+                let mut ret: [::core::ffi::c_char; C] = [0; C];
 
                 let mut i = 0;
                 while i < C {

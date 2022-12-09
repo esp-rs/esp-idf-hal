@@ -1,6 +1,6 @@
-use core::{fmt, slice, str};
+use core::{ffi, fmt, slice, str};
 
-use crate::{c_types, esp_err_t, esp_err_to_name, ESP_OK};
+use crate::{esp_err_t, esp_err_to_name, ESP_OK};
 
 /// A wrapped [`esp_err_t`] to check if an error occurred.
 ///
@@ -56,7 +56,7 @@ impl std::error::Error for EspError {}
 
 impl fmt::Display for EspError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        unsafe fn strlen(c_s: *const c_types::c_char) -> usize {
+        unsafe fn strlen(c_s: *const ffi::c_char) -> usize {
             let mut len = 0;
             while *c_s.offset(len) != 0 {
                 len += 1;
