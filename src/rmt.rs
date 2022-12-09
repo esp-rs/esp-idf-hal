@@ -582,7 +582,7 @@ impl<'d> TxRmtDriver<'d> {
 
             esp!(rmt_write_sample(
                 self.channel(),
-                Box::leak(iter) as *const _ as _,
+                alloc::boxed::Box::leak(iter) as *const _ as _,
                 1,
                 false
             ))
