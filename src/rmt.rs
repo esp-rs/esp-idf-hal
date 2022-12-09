@@ -1036,7 +1036,7 @@ impl<'d> RxRmtDriver<'d> {
             if rmt_items.is_null() {
                 Ok(None)
             } else {
-                let length = length as usize / 4;
+                let length = length / 4;
                 self.next_ringbuf_item = Some((rmt_items, length));
 
                 Ok(Some(unsafe {
