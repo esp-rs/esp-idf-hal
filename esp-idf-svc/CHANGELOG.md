@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.43.3, 0.43.4, 0.43.5] - 2022-12-08
+
+Patch releases:
+* Eth driver:
+  * SPI drivers now work with ESP IDF 5+
+  * DMA channel is now configurable
+* Clippy fixes
+
 ## [0.43.1, 0.43.2] - 2022-11-21
 
 Patch releases to fix compilation errors under no_std.
