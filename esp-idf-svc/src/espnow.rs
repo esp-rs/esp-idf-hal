@@ -61,13 +61,7 @@ impl EspNow {
     }
 
     pub fn send(&self, peer_addr: [u8; 6], data: &[u8]) -> Result<(), EspError> {
-        esp!(unsafe {
-            esp_idf_sys::esp_now_send(
-                peer_addr.as_ptr() as *const u8,
-                data.as_ptr() as *const u8,
-                data.len() as size_t,
-            )
-        })?;
+        esp!(unsafe { esp_idf_sys::esp_now_send(peer_addr.as_ptr(), data.as_ptr(), data.len(),) })?;
 
         Ok(())
     }
@@ -168,7 +162,7 @@ impl EspNow {
         }
     }
 
-    extern "C" fn recv_callback(mac_addr: *const u8, data: *const u8, data_len: c_types::c_int) {
+    extern "C" fn recv_callback(mac_addr: *const u8, data: *const u8, data_len: core::ffi::c_int) {
         let c_mac = unsafe { core::slice::from_raw_parts(mac_addr, 6usize) };
         let c_data = unsafe { core::slice::from_raw_parts(data, data_len as usize) };
 

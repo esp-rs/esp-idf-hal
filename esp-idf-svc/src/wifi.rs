@@ -1,7 +1,6 @@
-use core::cmp;
 use core::marker::PhantomData;
-use core::ptr;
 use core::time::Duration;
+use core::{cmp, ffi, ptr};
 
 extern crate alloc;
 use alloc::boxed::Box;
@@ -214,18 +213,18 @@ extern "C" {
         ifx: wifi_interface_t,
         rxcb: Option<
             unsafe extern "C" fn(
-                buffer: *mut c_types::c_void,
+                buffer: *mut ffi::c_void,
                 len: u16,
-                eb: *mut c_types::c_void,
+                eb: *mut ffi::c_void,
             ) -> esp_err_t,
         >,
     ) -> esp_err_t;
 
-    fn esp_wifi_internal_free_rx_buffer(buffer: *mut c_types::c_void);
+    fn esp_wifi_internal_free_rx_buffer(buffer: *mut ffi::c_void);
 
     fn esp_wifi_internal_tx(
         wifi_if: wifi_interface_t,
-        buffer: *mut c_types::c_void,
+        buffer: *mut ffi::c_void,
         len: u16,
     ) -> esp_err_t;
 }
@@ -735,26 +734,26 @@ impl<'d> WifiDriver<'d> {
     }
 
     unsafe extern "C" fn handle_rx_ap(
-        buf: *mut c_types::c_void,
+        buf: *mut ffi::c_void,
         len: u16,
-        eb: *mut c_types::c_void,
+        eb: *mut ffi::c_void,
     ) -> esp_err_t {
         Self::handle_rx(WifiDeviceId::Ap, buf, len, eb)
     }
 
     unsafe extern "C" fn handle_rx_sta(
-        buf: *mut c_types::c_void,
+        buf: *mut ffi::c_void,
         len: u16,
-        eb: *mut c_types::c_void,
+        eb: *mut ffi::c_void,
     ) -> esp_err_t {
         Self::handle_rx(WifiDeviceId::Sta, buf, len, eb)
     }
 
     unsafe fn handle_rx(
         device_id: WifiDeviceId,
-        buf: *mut c_types::c_void,
+        buf: *mut ffi::c_void,
         len: u16,
-        eb: *mut c_types::c_void,
+        eb: *mut ffi::c_void,
     ) -> esp_err_t {
         let res = RX_CALLBACK.as_mut().unwrap()(
             device_id,
@@ -998,13 +997,13 @@ impl<'d> EspWifi<'d> {
 
         esp!(unsafe {
             esp_wifi_clear_default_wifi_driver_and_handlers(
-                self.ap_netif.handle() as *mut c_types::c_void
+                self.ap_netif.handle() as *mut ffi::c_void
             )
         })?;
 
         esp!(unsafe {
             esp_wifi_clear_default_wifi_driver_and_handlers(
-                self.sta_netif.handle() as *mut c_types::c_void
+                self.sta_netif.handle() as *mut ffi::c_void
             )
         })?;
 
@@ -1104,7 +1103,7 @@ pub enum WifiEvent {
 }
 
 impl EspTypedEventSource for WifiEvent {
-    fn source() -> *const c_types::c_char {
+    fn source() -> *const ffi::c_char {
         unsafe { WIFI_EVENT }
     }
 }

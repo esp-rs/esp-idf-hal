@@ -60,7 +60,7 @@ impl From<mdns_result_t> for QueryResult {
             .map(|p| unsafe { CStr::from_ptr(p) }.to_str().unwrap().to_string());
         let port = result.port;
 
-        let mut txt = Vec::with_capacity(result.txt_count as usize);
+        let mut txt = Vec::with_capacity(result.txt_count);
         for i in 0..result.txt_count as _ {
             let p = unsafe { result.txt.offset(i) };
             let key = unsafe { CStr::from_ptr((*p).key) }

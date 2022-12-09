@@ -1,5 +1,5 @@
 use core::convert::{TryFrom, TryInto};
-use core::time;
+use core::{ffi, time};
 
 extern crate alloc;
 use alloc::boxed::Box;
@@ -204,7 +204,7 @@ impl<'a> TryFrom<&'a EspWebSocketClientConfig<'a>> for (esp_websocket_client_con
             username: cstrs.as_nptr(conf.username),
             password: cstrs.as_nptr(conf.password),
             disable_auto_reconnect: conf.disable_auto_reconnect,
-            // TODO user_context: *mut c_types::c_void,
+            // TODO user_context: *mut ffi::c_void,
             user_context: core::ptr::null_mut(),
 
             task_prio: conf.task_prio as _,
@@ -246,7 +246,7 @@ impl<'a> TryFrom<&'a EspWebSocketClientConfig<'a>> for (esp_websocket_client_con
             if !(if_name.len() == 6 && if_name.is_ascii()) {
                 return Err(EspError::from(ESP_ERR_INVALID_ARG).unwrap().into());
             }
-            let mut s: [c_types::c_char; 6] = [c_types::c_char::default(); 6];
+            let mut s: [ffi::c_char; 6] = [ffi::c_char::default(); 6];
             for (i, c) in if_name.chars().enumerate() {
                 s[i] = c as _;
             }
@@ -286,11 +286,11 @@ impl UnsafeCallback {
         Self(boxed.as_mut())
     }
 
-    unsafe fn from_ptr(ptr: *mut c_types::c_void) -> Self {
+    unsafe fn from_ptr(ptr: *mut ffi::c_void) -> Self {
         Self(ptr as *mut _)
     }
 
-    fn as_ptr(&self) -> *mut c_types::c_void {
+    fn as_ptr(&self) -> *mut ffi::c_void {
         self.0 as *mut _
     }
 
@@ -480,17 +480,17 @@ impl EspWebSocketClient {
     }
 
     extern "C" fn handle(
-        event_handler_arg: *mut c_types::c_void,
+        event_handler_arg: *mut ffi::c_void,
         _event_base: esp_event_base_t,
         event_id: i32,
-        event_data: *mut c_types::c_void,
+        event_data: *mut ffi::c_void,
     ) {
         unsafe {
             UnsafeCallback::from_ptr(event_handler_arg).call(event_id, event_data as _);
         }
     }
 
-    fn check(result: c_types::c_int) -> Result<usize, EspError> {
+    fn check(result: ffi::c_int) -> Result<usize, EspError> {
         if result < 0 {
             esp!(result)?;
         }

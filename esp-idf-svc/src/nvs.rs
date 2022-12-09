@@ -236,7 +236,7 @@ impl<T: NvsPartitionId> EspNvs<T> {
         match unsafe { nvs_get_u64(self.1, c_key.as_ptr(), &mut value as *mut _) } {
             ESP_ERR_NVS_NOT_FOUND => {
                 // check for blob value, by getting blob length
-                let mut len: size_t = 0;
+                let mut len = 0;
                 match unsafe {
                     nvs_get_blob(self.1, c_key.as_ptr(), ptr::null_mut(), &mut len as *mut _)
                 } {
@@ -245,7 +245,7 @@ impl<T: NvsPartitionId> EspNvs<T> {
                         // bail on error
                         esp!(err)?;
 
-                        Ok(Some(len as _))
+                        Ok(Some(len))
                     }
                 }
             }
@@ -270,7 +270,7 @@ impl<T: NvsPartitionId> EspNvs<T> {
         match unsafe { nvs_get_u64(self.1, c_key.as_ptr(), &mut u64value as *mut _) } {
             ESP_ERR_NVS_NOT_FOUND => {
                 // check for blob value, by getting blob length
-                let mut len: size_t = 0;
+                let mut len = 0;
                 match unsafe {
                     nvs_get_blob(self.1, c_key.as_ptr(), ptr::null_mut(), &mut len as *mut _)
                 } {
@@ -279,7 +279,7 @@ impl<T: NvsPartitionId> EspNvs<T> {
                         // bail on error
                         esp!(err)?;
 
-                        len = buf.len() as _;
+                        len = buf.len();
 
                         // fetch value if no error
                         esp!(unsafe {
@@ -291,7 +291,7 @@ impl<T: NvsPartitionId> EspNvs<T> {
                             )
                         })?;
 
-                        Ok(Some(&buf[..len as usize]))
+                        Ok(Some(&buf[..len]))
                     }
                 }
             }
@@ -344,14 +344,7 @@ impl<T: NvsPartitionId> EspNvs<T> {
 
             esp!(unsafe { nvs_set_u64(self.1, c_key.as_ptr(), u64value) })?;
         } else {
-            esp!(unsafe {
-                nvs_set_blob(
-                    self.1,
-                    c_key.as_ptr(),
-                    buf.as_ptr() as *mut _,
-                    buf.len() as u32,
-                )
-            })?;
+            esp!(unsafe { nvs_set_blob(self.1, c_key.as_ptr(), buf.as_ptr().cast(), buf.len()) })?;
         }
 
         esp!(unsafe { nvs_commit(self.1) })?;

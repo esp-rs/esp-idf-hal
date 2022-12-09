@@ -1,8 +1,8 @@
-use esp_idf_sys::c_types;
+use core::ffi;
 
 // TODO: Figure out which library references this
 #[no_mangle]
-pub extern "C" fn timegm(_: c_types::c_void) -> c_types::c_int {
+pub extern "C" fn timegm(_: ffi::c_void) -> ffi::c_int {
     // Not supported but don't crash just in case
     0
 }
@@ -10,9 +10,9 @@ pub extern "C" fn timegm(_: c_types::c_void) -> c_types::c_int {
 // Called by the rand crate
 #[no_mangle]
 pub extern "C" fn pthread_atfork(
-    _: *const c_types::c_void,
-    _: *const c_types::c_void,
-    _: *const c_types::c_void,
-) -> c_types::c_int {
+    _: *const ffi::c_void,
+    _: *const ffi::c_void,
+    _: *const ffi::c_void,
+) -> ffi::c_int {
     0
 }

@@ -1,4 +1,4 @@
-use core::{mem, ptr, time::Duration};
+use core::{ffi, mem, ptr, time::Duration};
 
 use ::log::*;
 
@@ -82,14 +82,14 @@ impl EspPing {
             on_ping_success: Some(EspPing::on_ping_success::<F>),
             on_ping_timeout: Some(EspPing::on_ping_timeout::<F>),
             on_ping_end: Some(EspPing::on_ping_end::<F>),
-            cb_args: tracker as *mut Tracker<F> as *mut c_types::c_void,
+            cb_args: tracker as *mut Tracker<F> as *mut ffi::c_void,
         };
 
         let mut handle: esp_ping_handle_t = ptr::null_mut();
         let handle_ref = &mut handle;
 
         esp!(unsafe {
-            esp_ping_new_session(&config, &callbacks, handle_ref as *mut *mut c_types::c_void)
+            esp_ping_new_session(&config, &callbacks, handle_ref as *mut *mut ffi::c_void)
         })?;
 
         if handle.is_null() {
@@ -122,26 +122,26 @@ impl EspPing {
 
     unsafe extern "C" fn on_ping_success<F: Fn(&Summary, &Reply)>(
         handle: esp_ping_handle_t,
-        args: *mut c_types::c_void,
+        args: *mut ffi::c_void,
     ) {
         info!("Ping success callback invoked");
 
         let tracker_ptr: *mut Tracker<F> = args as _;
         let tracker = tracker_ptr.as_mut().unwrap();
 
-        let mut seqno: c_types::c_ushort = 0;
+        let mut seqno: ffi::c_ushort = 0;
         esp_ping_get_profile(
             handle,
             esp_ping_profile_t_ESP_PING_PROF_SEQNO,
-            &mut seqno as *mut c_types::c_ushort as *mut c_types::c_void,
+            &mut seqno as *mut ffi::c_ushort as *mut ffi::c_void,
             mem::size_of_val(&seqno) as u32,
         );
 
-        let mut ttl: c_types::c_uchar = 0;
+        let mut ttl: ffi::c_uchar = 0;
         esp_ping_get_profile(
             handle,
             esp_ping_profile_t_ESP_PING_PROF_TTL,
-            &mut ttl as *mut c_types::c_uchar as *mut c_types::c_void,
+            &mut ttl as *mut ffi::c_uchar as *mut ffi::c_void,
             mem::size_of_val(&ttl) as u32,
         );
 
@@ -151,23 +151,23 @@ impl EspPing {
         esp_ping_get_profile(
             handle,
             esp_ping_profile_t_ESP_PING_PROF_IPADDR,
-            target_addr as *mut ip_addr_t as *mut c_types::c_void,
+            target_addr as *mut ip_addr_t as *mut ffi::c_void,
             mem::size_of::<ip_addr_t>() as _,
         );
 
-        let mut elapsed_time: c_types::c_uint = 0;
+        let mut elapsed_time: ffi::c_uint = 0;
         esp_ping_get_profile(
             handle,
             esp_ping_profile_t_ESP_PING_PROF_TIMEGAP,
-            &mut elapsed_time as *mut c_types::c_uint as *mut c_types::c_void,
+            &mut elapsed_time as *mut ffi::c_uint as *mut ffi::c_void,
             mem::size_of_val(&elapsed_time) as u32,
         );
 
-        let mut recv_len: c_types::c_uint = 0;
+        let mut recv_len: ffi::c_uint = 0;
         esp_ping_get_profile(
             handle,
             esp_ping_profile_t_ESP_PING_PROF_SIZE,
-            &mut recv_len as *mut c_types::c_uint as *mut c_types::c_void,
+            &mut recv_len as *mut ffi::c_uint as *mut ffi::c_void,
             mem::size_of_val(&recv_len) as u32,
         );
 
@@ -196,18 +196,18 @@ impl EspPing {
 
     unsafe extern "C" fn on_ping_timeout<F: Fn(&Summary, &Reply)>(
         handle: esp_ping_handle_t,
-        args: *mut c_types::c_void,
+        args: *mut ffi::c_void,
     ) {
         info!("Ping timeout callback invoked");
 
         let tracker_ptr: *mut Tracker<F> = args as _;
         let tracker = tracker_ptr.as_mut().unwrap();
 
-        let mut seqno: c_types::c_ushort = 0;
+        let mut seqno: ffi::c_ushort = 0;
         esp_ping_get_profile(
             handle,
             esp_ping_profile_t_ESP_PING_PROF_SEQNO,
-            &mut seqno as *mut c_types::c_ushort as *mut c_types::c_void,
+            &mut seqno as *mut ffi::c_ushort as *mut ffi::c_void,
             mem::size_of_val(&seqno) as u32,
         );
 
@@ -217,7 +217,7 @@ impl EspPing {
         esp_ping_get_profile(
             handle,
             esp_ping_profile_t_ESP_PING_PROF_IPADDR,
-            target_addr as *mut ip_addr_t as *mut c_types::c_void,
+            target_addr as *mut ip_addr_t as *mut ffi::c_void,
             mem::size_of::<ip_addr_t>() as _,
         );
 
@@ -233,7 +233,7 @@ impl EspPing {
     #[allow(clippy::mutex_atomic)]
     unsafe extern "C" fn on_ping_end<F: Fn(&Summary, &Reply)>(
         handle: esp_ping_handle_t,
-        args: *mut c_types::c_void,
+        args: *mut ffi::c_void,
     ) {
         info!("Ping end callback invoked");
 
@@ -256,27 +256,27 @@ impl EspPing {
     }
 
     unsafe fn update_summary(handle: esp_ping_handle_t, summary: &mut Summary) {
-        let mut transmitted: c_types::c_uint = 0;
+        let mut transmitted: ffi::c_uint = 0;
         esp_ping_get_profile(
             handle,
             esp_ping_profile_t_ESP_PING_PROF_REQUEST,
-            &mut transmitted as *mut c_types::c_uint as *mut c_types::c_void,
+            &mut transmitted as *mut ffi::c_uint as *mut ffi::c_void,
             mem::size_of_val(&transmitted) as u32,
         );
 
-        let mut received: c_types::c_uint = 0;
+        let mut received: ffi::c_uint = 0;
         esp_ping_get_profile(
             handle,
             esp_ping_profile_t_ESP_PING_PROF_REPLY,
-            &mut received as *mut c_types::c_uint as *mut c_types::c_void,
+            &mut received as *mut ffi::c_uint as *mut ffi::c_void,
             mem::size_of_val(&received) as u32,
         );
 
-        let mut total_time: c_types::c_uint = 0;
+        let mut total_time: ffi::c_uint = 0;
         esp_ping_get_profile(
             handle,
             esp_ping_profile_t_ESP_PING_PROF_DURATION,
-            &mut total_time as *mut c_types::c_uint as *mut c_types::c_void,
+            &mut total_time as *mut ffi::c_uint as *mut ffi::c_void,
             mem::size_of_val(&total_time) as u32,
         );
 

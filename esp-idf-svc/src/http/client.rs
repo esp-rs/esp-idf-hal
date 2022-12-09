@@ -75,7 +75,7 @@ pub struct Configuration {
 
     pub use_global_ca_store: bool,
     #[cfg(not(esp_idf_version = "4.3"))]
-    pub crt_bundle_attach: Option<unsafe extern "C" fn(conf: *mut c_types::c_void) -> esp_err_t>,
+    pub crt_bundle_attach: Option<unsafe extern "C" fn(conf: *mut core::ffi::c_void) -> esp_err_t>,
 }
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
@@ -106,7 +106,7 @@ impl EspHttpConnection {
             // So we set something here, which will be changed later anyway, in the request() method
             url: b"http://127.0.0.1\0".as_ptr() as *const _,
             event_handler: Some(Self::on_events),
-            user_data: &*event_handler as *const _ as *mut c_types::c_void,
+            user_data: &*event_handler as *const _ as *mut core::ffi::c_void,
 
             use_global_ca_store: configuration.use_global_ca_store,
             #[cfg(not(esp_idf_version = "4.3"))]

@@ -1,5 +1,5 @@
 use core::convert::TryInto;
-use core::ptr;
+use core::{ffi, ptr};
 
 use embedded_svc::ipv4;
 
@@ -462,7 +462,7 @@ impl EspNetif {
     }
 
     pub fn get_hostname(&self) -> Result<heapless::String<30>, EspError> {
-        let mut ptr: *const c_types::c_char = core::ptr::null();
+        let mut ptr: *const ffi::c_char = ptr::null();
         esp!(unsafe { esp_netif_get_hostname(self.0, &mut ptr) })?;
 
         Ok(unsafe { from_cstr_ptr(ptr).into() })
@@ -559,7 +559,7 @@ impl IpEvent {
 }
 
 impl EspTypedEventSource for IpEvent {
-    fn source() -> *const c_types::c_char {
+    fn source() -> *const ffi::c_char {
         unsafe { IP_EVENT }
     }
 }

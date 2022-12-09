@@ -1,8 +1,8 @@
 use core::cell::UnsafeCell;
 use core::fmt::{Debug, Display};
-use core::ptr;
 use core::sync::atomic::{AtomicBool, Ordering};
 use core::time::*;
+use core::{ffi, ptr};
 
 extern crate alloc;
 use alloc::borrow::ToOwned;
@@ -83,7 +83,7 @@ impl From<&Configuration> for Newtype<httpd_config_t> {
         Self(httpd_config_t {
             task_priority: 5,
             stack_size: conf.stack_size as _,
-            core_id: core::i32::MAX,
+            core_id: i32::MAX,
             server_port: conf.http_port,
             ctrl_port: 32768,
             max_open_sockets: conf.max_open_sockets as _,
@@ -109,8 +109,8 @@ impl From<&Configuration> for Newtype<httpd_config_t> {
 }
 
 #[allow(non_upper_case_globals)]
-impl From<Newtype<c_types::c_uint>> for Method {
-    fn from(method: Newtype<c_types::c_uint>) -> Self {
+impl From<Newtype<ffi::c_uint>> for Method {
+    fn from(method: Newtype<ffi::c_uint>) -> Self {
         match method.0 {
             http_method_HTTP_GET => Method::Get,
             http_method_HTTP_POST => Method::Post,
@@ -191,7 +191,7 @@ impl From<&Configuration> for Newtype<httpd_ssl_config_t> {
     }
 }
 
-impl From<Method> for Newtype<c_types::c_uint> {
+impl From<Method> for Newtype<ffi::c_uint> {
     fn from(method: Method) -> Self {
         Self(match method {
             Method::Get => http_method_HTTP_GET,
@@ -231,13 +231,13 @@ impl From<Method> for Newtype<c_types::c_uint> {
     }
 }
 
-static OPEN_SESSIONS: Mutex<BTreeMap<(u32, c_types::c_int), Arc<AtomicBool>>> =
+static OPEN_SESSIONS: Mutex<BTreeMap<(u32, ffi::c_int), Arc<AtomicBool>>> =
     Mutex::wrap(RawMutex::new(), BTreeMap::new());
 static CLOSE_HANDLERS: Mutex<BTreeMap<u32, Vec<CloseHandler>>> =
     Mutex::wrap(RawMutex::new(), BTreeMap::new());
 
-type NativeHandler = Box<dyn Fn(*mut httpd_req_t) -> c_types::c_int>;
-type CloseHandler = Box<dyn Fn(c_types::c_int) + Send>;
+type NativeHandler = Box<dyn Fn(*mut httpd_req_t) -> ffi::c_int>;
+type CloseHandler = Box<dyn Fn(ffi::c_int) + Send>;
 
 pub struct EspHttpServer {
     sd: httpd_handle_t,
@@ -373,7 +373,7 @@ impl EspHttpServer {
         #[allow(clippy::needless_update)]
         let conf = httpd_uri_t {
             uri: c_str.as_ptr() as _,
-            method: Newtype::<c_types::c_uint>::from(method).0,
+            method: Newtype::<ffi::c_uint>::from(method).0,
             user_ctx: Box::into_raw(Box::new(self.to_native_handler(handler))) as *mut _,
             handler: Some(EspHttpServer::handle_req),
             ..Default::default()
@@ -429,7 +429,7 @@ impl EspHttpServer {
         })
     }
 
-    extern "C" fn handle_req(raw_req: *mut httpd_req_t) -> c_types::c_int {
+    extern "C" fn handle_req(raw_req: *mut httpd_req_t) -> ffi::c_int {
         let handler_ptr = (unsafe { *raw_req }).user_ctx as *mut NativeHandler;
 
         let handler = unsafe { handler_ptr.as_ref() }.unwrap();
@@ -437,7 +437,7 @@ impl EspHttpServer {
         (handler)(raw_req)
     }
 
-    extern "C" fn close_fn(sd: httpd_handle_t, sockfd: c_types::c_int) {
+    extern "C" fn close_fn(sd: httpd_handle_t, sockfd: ffi::c_int) {
         {
             let mut sessions = OPEN_SESSIONS.lock();
 
@@ -606,7 +606,7 @@ impl<'a> EspHttpConnection<'a> {
 
             let c_name = CString::new(name).unwrap();
 
-            match unsafe { httpd_req_get_hdr_value_len(raw_req, c_name.as_ptr() as _) } as usize {
+            match unsafe { httpd_req_get_hdr_value_len(raw_req, c_name.as_ptr() as _) } {
                 0 => None,
                 len => {
                     // TODO: Would've been much more effective, if ESP-IDF was capable of returning a
@@ -619,9 +619,9 @@ impl<'a> EspHttpConnection<'a> {
                     esp_nofail!(unsafe {
                         httpd_req_get_hdr_value_str(
                             raw_req,
-                            c_name.as_ptr() as _,
-                            buf.as_mut_ptr() as *mut _,
-                            (len + 1) as size_t,
+                            c_name.as_ptr(),
+                            buf.as_mut_ptr().cast(),
+                            len + 1,
                         )
                     });
 
@@ -717,11 +717,7 @@ impl<'a> EspHttpConnection<'a> {
         self.assert_request();
 
         unsafe {
-            let len = httpd_req_recv(
-                self.request.0,
-                buf.as_mut_ptr() as *mut _,
-                buf.len() as size_t,
-            );
+            let len = httpd_req_recv(self.request.0, buf.as_mut_ptr() as *mut _, buf.len());
 
             if len < 0 {
                 esp!(len)?;
@@ -736,11 +732,7 @@ impl<'a> EspHttpConnection<'a> {
 
         if !buf.is_empty() {
             esp!(unsafe {
-                httpd_resp_send_chunk(
-                    self.request.0,
-                    buf.as_ptr() as *const _,
-                    buf.len() as ssize_t,
-                )
+                httpd_resp_send_chunk(self.request.0, buf.as_ptr().cast(), buf.len() as isize)
             })?;
 
             self.response_headers = None;
@@ -923,6 +915,7 @@ impl<'b> Connection for EspHttpConnection<'b> {
 
 #[cfg(esp_idf_httpd_ws_support)]
 pub mod ws {
+    use core::ffi;
     use core::fmt::Debug;
     use core::sync::atomic::{AtomicBool, Ordering};
 
@@ -952,7 +945,7 @@ pub mod ws {
     pub enum EspHttpWsConnection {
         New(httpd_handle_t, *mut httpd_req_t),
         Receiving(httpd_handle_t, *mut httpd_req_t),
-        Closed(c_types::c_int),
+        Closed(ffi::c_int),
     }
 
     impl EspHttpWsConnection {
@@ -1096,7 +1089,7 @@ pub mod ws {
     }
 
     impl SessionProvider for EspHttpWsConnection {
-        type Session = c_types::c_int;
+        type Session = ffi::c_int;
 
         fn session(&self) -> Self::Session {
             EspHttpWsConnection::session(self)
@@ -1113,7 +1106,7 @@ pub mod ws {
 
     pub struct EspWsDetachedSendRequest {
         sd: httpd_handle_t,
-        fd: c_types::c_int,
+        fd: ffi::c_int,
 
         closed: Arc<AtomicBool>,
 
@@ -1125,12 +1118,12 @@ pub mod ws {
 
     pub struct EspHttpWsDetachedSender {
         sd: httpd_handle_t,
-        fd: c_types::c_int,
+        fd: ffi::c_int,
         closed: Arc<AtomicBool>,
     }
 
     impl EspHttpWsDetachedSender {
-        fn new(sd: httpd_handle_t, fd: c_types::c_int, closed: Arc<AtomicBool>) -> Self {
+        fn new(sd: httpd_handle_t, fd: ffi::c_int, closed: Arc<AtomicBool>) -> Self {
             Self { sd, fd, closed }
         }
 
@@ -1184,7 +1177,7 @@ pub mod ws {
             Ok(())
         }
 
-        extern "C" fn enqueue(arg: *mut c_types::c_void) {
+        extern "C" fn enqueue(arg: *mut ffi::c_void) {
             let request = unsafe { (arg as *const EspWsDetachedSendRequest).as_ref().unwrap() };
 
             let ret = if !request.closed.load(Ordering::SeqCst) {
@@ -1227,7 +1220,7 @@ pub mod ws {
     }
 
     impl SessionProvider for EspHttpWsDetachedSender {
-        type Session = c_types::c_int;
+        type Session = ffi::c_int;
 
         fn session(&self) -> Self::Session {
             EspHttpWsDetachedSender::session(self)
@@ -1254,7 +1247,7 @@ pub mod ws {
 
             let conf = httpd_uri_t {
                 uri: c_str.as_ptr() as _,
-                method: Newtype::<c_types::c_uint>::from(Method::Get).0,
+                method: Newtype::<ffi::c_uint>::from(Method::Get).0,
                 user_ctx: Box::into_raw(Box::new(req_handler)) as *mut _,
                 handler: Some(EspHttpServer::handle_req),
                 is_websocket: true,
@@ -1295,7 +1288,7 @@ pub mod ws {
             Ok(())
         }
 
-        fn handle_ws_error<E>(error: E) -> c_types::c_int
+        fn handle_ws_error<E>(error: E) -> ffi::c_int
         where
             E: Debug,
         {

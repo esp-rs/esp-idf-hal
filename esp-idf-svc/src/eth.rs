@@ -1,7 +1,7 @@
 use core::fmt::Debug;
 use core::marker::PhantomData;
-use core::ptr;
 use core::time::Duration;
+use core::{ffi, ptr};
 
 use ::log::*;
 
@@ -134,12 +134,12 @@ impl UnsafeCallback {
         Self(boxed.as_mut())
     }
 
-    unsafe fn from_ptr(ptr: *mut c_types::c_void) -> Self {
-        Self(ptr as *mut _)
+    unsafe fn from_ptr(ptr: *mut ffi::c_void) -> Self {
+        Self(ptr.cast())
     }
 
-    fn as_ptr(&self) -> *mut c_types::c_void {
-        self.0 as *mut _
+    fn as_ptr(&self) -> *mut ffi::c_void {
+        self.0.cast()
     }
 
     unsafe fn call(&self, data: &[u8]) {
@@ -675,7 +675,7 @@ impl<'d> EthDriver<'d> {
         _handle: esp_eth_handle_t,
         buf: *mut u8,
         len: u32,
-        event_handler_arg: *mut c_types::c_void,
+        event_handler_arg: *mut ffi::c_void,
     ) -> esp_err_t {
         UnsafeCallback::from_ptr(event_handler_arg as *mut _)
             .call(core::slice::from_raw_parts(buf, len as _));
@@ -956,7 +956,7 @@ impl EthEvent {
 }
 
 impl EspTypedEventSource for EthEvent {
-    fn source() -> *const c_types::c_char {
+    fn source() -> *const ffi::c_char {
         unsafe { ETH_EVENT }
     }
 }

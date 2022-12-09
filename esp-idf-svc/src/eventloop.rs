@@ -1,10 +1,8 @@
 use core::fmt::Debug;
 use core::marker::PhantomData;
-use core::mem;
-use core::ptr;
 use core::result::Result;
-use core::slice;
 use core::time::Duration;
+use core::{ffi, mem, ptr, slice};
 
 extern crate alloc;
 use alloc::boxed::Box;
@@ -131,9 +129,9 @@ impl<T> EspEventLoopType for User<T> {
 }
 
 pub struct EspEventPostData {
-    pub source: *const c_types::c_char,
+    pub source: *const ffi::c_char,
     pub event_id: i32,
-    pub payload: *const c_types::c_void,
+    pub payload: *const ffi::c_void,
     pub payload_len: usize,
 }
 
@@ -143,7 +141,7 @@ impl EspEventPostData {
     /// Care should be taken to only call this function with payload reference that lives at least as long as
     /// the call that will post this data to the event loop
     pub unsafe fn new<P: Copy>(
-        source: *const c_types::c_char,
+        source: *const ffi::c_char,
         event_id: Option<i32>,
         payload: &P,
     ) -> EspEventPostData {
@@ -160,7 +158,7 @@ impl EspEventPostData {
     /// Care should be taken to only call this function with payload reference that lives at least as long as
     /// the call that will post this data to the event loop
     pub unsafe fn new_raw(
-        source: *const c_types::c_char,
+        source: *const ffi::c_char,
         event_id: Option<i32>,
         payload: &[u32],
     ) -> EspEventPostData {
@@ -174,9 +172,9 @@ impl EspEventPostData {
 }
 
 pub struct EspEventFetchData {
-    pub source: *const c_types::c_char,
+    pub source: *const ffi::c_char,
     pub event_id: i32,
-    pub payload: *const c_types::c_void,
+    pub payload: *const ffi::c_void,
 }
 
 impl EspEventFetchData {
@@ -213,11 +211,11 @@ impl UnsafeCallback {
         Self(boxed.as_mut())
     }
 
-    unsafe fn from_ptr(ptr: *mut c_types::c_void) -> Self {
+    unsafe fn from_ptr(ptr: *mut ffi::c_void) -> Self {
         Self(ptr as *mut _)
     }
 
-    fn as_ptr(&self) -> *mut c_types::c_void {
+    fn as_ptr(&self) -> *mut ffi::c_void {
         self.0 as *mut _
     }
 
@@ -234,7 +232,7 @@ where
 {
     event_loop_handle: Arc<EventLoopHandle<T>>,
     handler_instance: esp_event_handler_instance_t,
-    source: *const c_types::c_char,
+    source: *const ffi::c_char,
     event_id: i32,
     #[allow(clippy::type_complexity)]
     _callback: Box<Box<dyn for<'a> FnMut(&'a EspEventFetchData) + 'static>>,
@@ -245,10 +243,10 @@ where
     T: EspEventLoopType,
 {
     extern "C" fn handle(
-        event_handler_arg: *mut c_types::c_void,
+        event_handler_arg: *mut ffi::c_void,
         event_base: esp_event_base_t,
         event_id: i32,
-        event_data: *mut c_types::c_void,
+        event_data: *mut ffi::c_void,
     ) {
         let data = EspEventFetchData {
             source: event_base,
@@ -390,7 +388,7 @@ where
     #[allow(clippy::not_unsafe_ptr_arg_deref)]
     pub fn subscribe_raw(
         &self,
-        source: *const c_types::c_char,
+        source: *const ffi::c_char,
         event_id: i32,
         mut callback: impl for<'a> FnMut(&EspEventFetchData) + 'static,
     ) -> Result<EspSubscription<T>, EspError> {
@@ -626,7 +624,7 @@ impl<T> event_bus::Spin for EspEventLoop<User<T>> {
 }
 
 pub trait EspTypedEventSource {
-    fn source() -> *const c_types::c_char;
+    fn source() -> *const ffi::c_char;
 
     fn event_id() -> Option<i32> {
         None

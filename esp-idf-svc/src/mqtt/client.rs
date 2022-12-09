@@ -1,8 +1,7 @@
 use core::convert::TryInto;
+use core::ffi::c_void;
 use core::fmt::{self, Debug};
-use core::mem;
-use core::slice;
-use core::time;
+use core::{mem, slice, time};
 
 extern crate alloc;
 use alloc::boxed::Box;
@@ -73,7 +72,7 @@ pub struct MqttClientConfiguration<'a> {
     pub use_global_ca_store: bool,
     pub skip_cert_common_name_check: bool,
     #[cfg(not(esp_idf_version = "4.3"))]
-    pub crt_bundle_attach: Option<unsafe extern "C" fn(conf: *mut c_types::c_void) -> esp_err_t>,
+    pub crt_bundle_attach: Option<unsafe extern "C" fn(conf: *mut c_void) -> esp_err_t>,
 
     pub server_certificate: Option<X509<'static>>,
 
@@ -311,11 +310,11 @@ impl UnsafeCallback {
         Self(boxed.as_mut())
     }
 
-    unsafe fn from_ptr(ptr: *mut c_types::c_void) -> Self {
+    unsafe fn from_ptr(ptr: *mut c_void) -> Self {
         Self(ptr as *mut _)
     }
 
-    fn as_ptr(&self) -> *mut c_types::c_void {
+    fn as_ptr(&self) -> *mut c_void {
         self.0 as *mut _
     }
 
@@ -546,10 +545,10 @@ impl<S> EspMqttClient<S> {
     }
 
     extern "C" fn handle(
-        event_handler_arg: *mut c_types::c_void,
+        event_handler_arg: *mut c_void,
         _event_base: esp_event_base_t,
         _event_id: i32,
-        event_data: *mut c_types::c_void,
+        event_data: *mut c_void,
     ) {
         unsafe {
             UnsafeCallback::from_ptr(event_handler_arg).call(event_data as _);

@@ -1,6 +1,6 @@
-use core::ptr;
 use core::result::Result;
 use core::time::Duration;
+use core::{ffi, ptr};
 
 extern crate alloc;
 use alloc::boxed::Box;
@@ -25,11 +25,11 @@ impl UnsafeCallback {
         Self(boxed)
     }
 
-    unsafe fn from_ptr(ptr: *mut c_types::c_void) -> Self {
+    unsafe fn from_ptr(ptr: *mut ffi::c_void) -> Self {
         Self(ptr as *mut _)
     }
 
-    fn as_ptr(&self) -> *mut c_types::c_void {
+    fn as_ptr(&self) -> *mut ffi::c_void {
         self.0 as *mut _
     }
 
@@ -72,7 +72,7 @@ impl EspTimer {
         Ok(())
     }
 
-    extern "C" fn handle(arg: *mut c_types::c_void) {
+    extern "C" fn handle(arg: *mut ffi::c_void) {
         if esp_idf_hal::interrupt::active() {
             #[cfg(esp_idf_esp_timer_supports_isr_dispatch_method)]
             {
@@ -466,7 +466,7 @@ pub mod embassy_time {
         struct AlarmImpl(esp_timer_handle_t);
 
         impl AlarmImpl {
-            unsafe extern "C" fn handle_isr(alarm_context: *mut c_types::c_void) {
+            unsafe extern "C" fn handle_isr(alarm_context: *mut core::ffi::c_void) {
                 let alarm_context = (alarm_context as *const AlarmContext).as_ref().unwrap();
 
                 if esp_idf_hal::interrupt::active() {

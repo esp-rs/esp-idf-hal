@@ -158,12 +158,11 @@ impl EspOtaUpdate {
 pub struct EspOta(EspOtaUpdate);
 
 impl EspOta {
-    #[allow(clippy::unnecessary_cast)]
     pub fn new() -> Result<Self, EspError> {
         let mut taken = TAKEN.lock();
 
         if *taken {
-            esp!(ESP_ERR_INVALID_STATE as i32)?;
+            esp!(ESP_ERR_INVALID_STATE)?;
         }
 
         *taken = true;
@@ -219,7 +218,7 @@ impl EspOta {
 
         let mut handle: esp_ota_handle_t = Default::default();
 
-        esp!(unsafe { esp_ota_begin(partition, OTA_SIZE_UNKNOWN, &mut handle as *mut _) })?;
+        esp!(unsafe { esp_ota_begin(partition, OTA_SIZE_UNKNOWN as usize, &mut handle) })?;
 
         self.0.update_partition = partition;
         self.0.update_handle = handle;
@@ -281,7 +280,7 @@ impl EspOta {
         let err =
             unsafe { esp_ota_get_state_partition(partition as *const _, &mut state as *mut _) };
 
-        Ok(if err == ESP_ERR_NOT_FOUND as _ {
+        Ok(if err == ESP_ERR_NOT_FOUND {
             ota::SlotState::Unknown
         } else if err == ESP_ERR_NOT_SUPPORTED as _ {
             ota::SlotState::Factory
@@ -310,7 +309,7 @@ impl EspOta {
         let err =
             unsafe { esp_ota_get_partition_description(partition as *const _, &mut app_desc) };
 
-        Ok(if err == ESP_ERR_NOT_FOUND as _ {
+        Ok(if err == ESP_ERR_NOT_FOUND {
             None
         } else {
             esp!(err)?;

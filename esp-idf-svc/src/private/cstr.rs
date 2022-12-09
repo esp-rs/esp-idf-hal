@@ -1,16 +1,10 @@
-#[cfg(feature = "std")]
-pub use std::ffi::{CStr, CString};
-
-#[cfg(not(feature = "std"))]
-pub use cstr_core::CStr;
-
-#[cfg(all(not(feature = "std"), feature = "alloc"))]
-pub use cstr_core::CString;
-
 #[cfg(feature = "alloc")]
 extern crate alloc;
 
-use esp_idf_sys::c_types;
+#[cfg(feature = "alloc")]
+pub use alloc::ffi::CString;
+
+pub use core::ffi::{c_char, CStr};
 
 #[cfg(feature = "alloc")]
 pub fn set_str(buf: &mut [u8], s: &str) {
@@ -20,7 +14,7 @@ pub fn set_str(buf: &mut [u8], s: &str) {
     buf[..ss.len()].copy_from_slice(ss);
 }
 
-pub unsafe fn from_cstr_ptr<'a>(ptr: *const c_types::c_char) -> &'a str {
+pub unsafe fn from_cstr_ptr<'a>(ptr: *const c_char) -> &'a str {
     CStr::from_ptr(ptr).to_str().unwrap()
 }
 
@@ -45,7 +39,7 @@ impl RawCstrs {
     }
 
     #[allow(dead_code)]
-    pub fn as_ptr(&mut self, s: impl AsRef<str>) -> *const c_types::c_char {
+    pub fn as_ptr(&mut self, s: impl AsRef<str>) -> *const c_char {
         let cs = CString::new(s.as_ref()).unwrap();
 
         let cstr_ptr = cs.as_ptr();
@@ -56,7 +50,7 @@ impl RawCstrs {
     }
 
     #[allow(dead_code)]
-    pub fn as_nptr<S>(&mut self, s: Option<S>) -> *const c_types::c_char
+    pub fn as_nptr<S>(&mut self, s: Option<S>) -> *const c_char
     where
         S: AsRef<str>,
     {

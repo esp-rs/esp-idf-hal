@@ -32,11 +32,11 @@ impl<'a> X509<'a> {
     }
 
     pub(crate) fn as_esp_idf_raw_ptr(&self) -> *const c_char {
-        self.data().as_ptr() as _
+        self.data().as_ptr().cast()
     }
 
-    pub(crate) fn as_esp_idf_raw_len(&self) -> u32 {
-        self.data().len() as _
+    pub(crate) fn as_esp_idf_raw_len(&self) -> usize {
+        self.data().len()
     }
 }
 

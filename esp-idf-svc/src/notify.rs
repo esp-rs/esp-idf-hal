@@ -174,7 +174,7 @@ impl EspNotify {
         }
     }
 
-    extern "C" fn background_loop(registry: *mut c_types::c_void) {
+    extern "C" fn background_loop(registry: *mut core::ffi::c_void) {
         let registry: *const EspSubscriptionsRegistry = registry as *const _;
         let registry = unsafe { Weak::from_raw(registry) };
 
