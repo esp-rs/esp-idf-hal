@@ -642,12 +642,12 @@ impl<'d> TxRmtDriver<'d> {
     /// Using a trait object has the addional overhead that every call to `Iterator::next`
     /// would also be indirect (through the `vtable`) and couldn't be inlined.
     unsafe extern "C" fn translate_iterator<T, const DEALLOC_ITER: bool>(
-        src: *const c_types::c_void,
+        src: *const core::ffi::c_void,
         mut dest: *mut rmt_item32_t,
-        src_size: size_t,
-        wanted_num: size_t,
-        translated_size: *mut size_t,
-        item_num: *mut size_t,
+        src_size: usize,
+        wanted_num: usize,
+        translated_size: *mut usize,
+        item_num: *mut usize,
     ) where
         T: Iterator<Item = rmt_item32_t>,
     {
@@ -957,11 +957,7 @@ impl<'d> RxRmtDriver<'d> {
 
         unsafe {
             esp!(rmt_config(&config))?;
-            esp!(rmt_driver_install(
-                C::channel(),
-                ring_buf_size as u32 * 4,
-                0
-            ))?;
+            esp!(rmt_driver_install(C::channel(), ring_buf_size * 4, 0))?;
         }
 
         Ok(Self {
@@ -1033,9 +1029,8 @@ impl<'d> RxRmtDriver<'d> {
             esp!(unsafe { rmt_get_ringbuf_handle(self.channel(), &mut ringbuf_handle) })?;
 
             let mut length = 0;
-            let rmt_items = unsafe {
-                xRingbufferReceive(ringbuf_handle as *mut _, &mut length, ticks_to_wait)
-                    as *mut rmt_item32_t
+            let rmt_items: *mut rmt_item32_t = unsafe {
+                xRingbufferReceive(ringbuf_handle.cast(), &mut length, ticks_to_wait).cast()
             };
 
             if rmt_items.is_null() {
@@ -1057,7 +1052,7 @@ impl<'d> RxRmtDriver<'d> {
 
         if let Some((rmt_items, _)) = core::mem::replace(&mut self.next_ringbuf_item, None) {
             unsafe {
-                vRingbufferReturnItem(ringbuf_handle, rmt_items as *mut _);
+                vRingbufferReturnItem(ringbuf_handle, rmt_items.cast());
             }
         } else {
             unreachable!();

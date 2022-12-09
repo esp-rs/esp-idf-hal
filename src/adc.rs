@@ -275,9 +275,7 @@ impl<'d, ADC: Adc> AdcDriver<'d, ADC> {
         if unit == adc_unit_t_ADC_UNIT_1 {
             measurement = unsafe { adc1_get_raw(channel) };
         } else {
-            esp!(unsafe {
-                adc2_get_raw(channel, self.resolution.into(), &mut measurement as *mut _)
-            })?;
+            esp!(unsafe { adc2_get_raw(channel, self.resolution.into(), &mut measurement) })?;
         };
 
         self.raw_to_voltage(measurement, atten)
@@ -285,12 +283,12 @@ impl<'d, ADC: Adc> AdcDriver<'d, ADC> {
 
     fn raw_to_voltage(
         &mut self,
-        measurement: c_types::c_int,
+        measurement: core::ffi::c_int,
         attenuation: adc_atten_t,
     ) -> Result<u16, EspError> {
         #[cfg(any(esp_idf_comp_esp_adc_cal_enabled, esp_idf_comp_esp_adc_enabled))]
         let mv = if let Some(cal) = self.get_cal_characteristics(attenuation)? {
-            unsafe { esp_adc_cal_raw_to_voltage(measurement as u32, &cal as *const _) as u16 }
+            unsafe { esp_adc_cal_raw_to_voltage(measurement as u32, &cal) as u16 }
         } else {
             (measurement as u32 * Self::get_max_mv(attenuation) / Self::MAX_READING) as u16
         };
@@ -351,7 +349,7 @@ impl<'d, ADC: Adc> AdcDriver<'d, ADC> {
                         attenuation,
                         self.resolution.into(),
                         0,
-                        &mut cal as *mut _,
+                        &mut cal,
                     )
                 };
 
