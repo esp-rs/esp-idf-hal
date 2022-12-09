@@ -568,12 +568,12 @@ impl<'d> TxRmtDriver<'d> {
     /// are no time-gaps between successive transmissions where the perhipheral has to
     /// wait for items. This can cause weird behavior and can be counteracted with
     /// increasing [`Config::mem_block_num`] or making iteration more efficient.
-    #[cfg(feature = "std")]
+    #[cfg(feature = "alloc")]
     pub fn start_iter<T>(&mut self, iter: T) -> Result<(), EspError>
     where
         T: Iterator<Item = rmt_item32_t> + Send + 'static,
     {
-        let iter = Box::new(UnsafeCell::new(iter));
+        let iter = alloc::boxed::Box::new(UnsafeCell::new(iter));
         unsafe {
             esp!(rmt_translator_init(
                 self.channel(),
@@ -668,9 +668,9 @@ impl<'d> TxRmtDriver<'d> {
             } else {
                 // Only deallocate the iter if the const generics argument is `true`
                 // otherwise we could be deallocating stack memory.
-                #[cfg(feature = "std")]
+                #[cfg(feature = "alloc")]
                 if DEALLOC_ITER {
-                    drop(Box::from_raw(iter));
+                    drop(alloc::boxed::Box::from_raw(iter));
                 }
                 break src_size;
             }
