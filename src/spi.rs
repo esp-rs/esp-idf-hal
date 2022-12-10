@@ -35,6 +35,7 @@ use core::cell::UnsafeCell;
 use core::cmp::{max, min, Ordering};
 use core::marker::PhantomData;
 use core::ptr;
+use std::borrow::Cow;
 
 use embedded_hal::spi::{SpiBus, SpiBusFlush, SpiBusRead, SpiBusWrite, SpiDevice};
 
@@ -215,14 +216,50 @@ pub mod config {
     }
 }
 
-pub struct SpiSharedBusDriver<'d> {
-    handle: spi_device_handle_t,
+pub struct SpiBusDriver<'d, T> {
+    _lock: Lock,
+    handle: Cow<'d, Device>,
+    _driver: T,
     trans_len: usize,
     hardware_cs: bool,
-    _p: PhantomData<&'d mut ()>,
 }
 
-impl<'d> SpiSharedBusDriver<'d> {
+impl<'d, T> SpiBusDriver<'d, T> {
+    pub fn new<'d>(driver: T, config: &config::Config) -> Result<Self, EspError>
+    where
+        T: BorrowMut<SpiDriver<'d>>,
+    {
+        let conf = spi_device_interface_config_t {
+            spics_io_num: -1,
+            clock_speed_hz: config.baudrate.0 as i32,
+            mode: data_mode_to_u8(config.data_mode),
+            queue_size: 1,
+            flags: if config.write_only {
+                SPI_DEVICE_NO_DUMMY
+            } else {
+                0_u32
+            } | config.duplex.as_flags(),
+            ..Default::default()
+        };
+
+        let mut handle: spi_device_handle_t = ptr::null_mut();
+        esp!(unsafe { spi_bus_add_device(driver.borrow().host(), &conf, &mut handle as *mut _) })?;
+
+        let device = Device(handle);
+
+        let lock = Lock::new(handle)?;
+
+        let trans_len = driver.borrow().max_transfer_size;
+
+        Ok(Self {
+            _lock: lock,
+            handle: Cow::Owned(device),
+            _driver: driver,
+            trans_len,
+            hardware_cs: false,
+        })
+    }
+
     pub fn read(&mut self, words: &mut [u8]) -> Result<(), EspError> {
         for chunk in words.chunks_mut(self.trans_len) {
             self.polling_transmit(chunk.as_mut_ptr(), ptr::null(), chunk.len(), chunk.len())?;
@@ -293,7 +330,7 @@ impl<'d> SpiSharedBusDriver<'d> {
         rx_length: usize,
     ) -> Result<(), EspError> {
         polling_transmit(
-            self.handle,
+            self.handle.0,
             read,
             write,
             transaction_length,
@@ -304,39 +341,39 @@ impl<'d> SpiSharedBusDriver<'d> {
 
     /// Empty transaction to de-assert CS.
     fn finish(&mut self) -> Result<(), EspError> {
-        polling_transmit(self.handle, ptr::null_mut(), ptr::null(), 0, 0, false)
+        polling_transmit(self.handle.0, ptr::null_mut(), ptr::null(), 0, 0, false)
     }
 }
 
-impl<'d> embedded_hal::spi::ErrorType for SpiSharedBusDriver<'d> {
+impl<'d, T> embedded_hal::spi::ErrorType for SpiBusDriver<'d, T> {
     type Error = SpiError;
 }
 
-impl<'d> SpiBusFlush for SpiSharedBusDriver<'d> {
+impl<'d, T> SpiBusFlush for SpiBusDriver<'d, T> {
     fn flush(&mut self) -> Result<(), Self::Error> {
-        SpiSharedBusDriver::flush(self).map_err(to_spi_err)
+        SpiBusDriver::flush(self).map_err(to_spi_err)
     }
 }
 
-impl<'d> SpiBusRead for SpiSharedBusDriver<'d> {
+impl<'d, T> SpiBusRead for SpiBusDriver<'d, T> {
     fn read(&mut self, words: &mut [u8]) -> Result<(), Self::Error> {
-        SpiSharedBusDriver::read(self, words).map_err(to_spi_err)
+        SpiBusDriver::read(self, words).map_err(to_spi_err)
     }
 }
 
-impl<'d> SpiBusWrite for SpiSharedBusDriver<'d> {
+impl<'d, T> SpiBusWrite for SpiBusDriver<'d, T> {
     fn write(&mut self, words: &[u8]) -> Result<(), Self::Error> {
-        SpiSharedBusDriver::write(self, words).map_err(to_spi_err)
+        SpiBusDriver::write(self, words).map_err(to_spi_err)
     }
 }
 
-impl<'d> SpiBus for SpiSharedBusDriver<'d> {
+impl<'d, T> SpiBus for SpiBusDriver<'d, T> {
     fn transfer(&mut self, read: &mut [u8], write: &[u8]) -> Result<(), Self::Error> {
-        SpiSharedBusDriver::transfer(self, read, write).map_err(to_spi_err)
+        SpiBusDriver::transfer(self, read, write).map_err(to_spi_err)
     }
 
     fn transfer_in_place(&mut self, words: &mut [u8]) -> Result<(), Self::Error> {
-        SpiSharedBusDriver::transfer_in_place(self, words).map_err(to_spi_err)
+        SpiBusDriver::transfer_in_place(self, words).map_err(to_spi_err)
     }
 }
 
@@ -345,111 +382,6 @@ struct Device(spi_device_handle_t);
 impl Drop for Device {
     fn drop(&mut self) {
         esp!(unsafe { spi_bus_remove_device(self.0) }).unwrap();
-    }
-}
-
-pub struct SpiBusDriver<T> {
-    _lock: Lock,
-    device: Device,
-    _driver: T,
-    trans_len: usize, // Copied from driver to reduce generics.
-}
-
-impl<T> SpiBusDriver<T> {
-    pub fn new<'d>(driver: T, config: &config::Config) -> Result<Self, EspError>
-    where
-        T: BorrowMut<SpiDriver<'d>>,
-    {
-        let conf = spi_device_interface_config_t {
-            spics_io_num: -1,
-            clock_speed_hz: config.baudrate.0 as i32,
-            mode: data_mode_to_u8(config.data_mode),
-            queue_size: 1,
-            flags: if config.write_only {
-                SPI_DEVICE_NO_DUMMY
-            } else {
-                0_u32
-            } | config.duplex.as_flags(),
-            ..Default::default()
-        };
-
-        let mut handle: spi_device_handle_t = ptr::null_mut();
-        esp!(unsafe { spi_bus_add_device(driver.borrow().host(), &conf, &mut handle as *mut _) })?;
-
-        let device = Device(handle);
-
-        let lock = Lock::new(handle)?;
-
-        let trans_len = driver.borrow().max_transfer_size;
-
-        Ok(Self {
-            _lock: lock,
-            device,
-            _driver: driver,
-            trans_len,
-        })
-    }
-
-    pub fn read(&mut self, words: &mut [u8]) -> Result<(), EspError> {
-        self.bus().read(words)
-    }
-
-    pub fn write(&mut self, words: &[u8]) -> Result<(), EspError> {
-        self.bus().write(words)
-    }
-
-    pub fn transfer(&mut self, read: &mut [u8], write: &[u8]) -> Result<(), EspError> {
-        self.bus().transfer(read, write)
-    }
-
-    pub fn transfer_in_place(&mut self, words: &mut [u8]) -> Result<(), EspError> {
-        self.bus().transfer_in_place(words)
-    }
-
-    pub fn flush(&mut self) -> Result<(), EspError> {
-        // No buffering so there's nothing to flush.
-        Ok(())
-    }
-
-    fn bus(&self) -> SpiSharedBusDriver<'static> {
-        SpiSharedBusDriver {
-            handle: self.device.0,
-            trans_len: self.trans_len,
-            hardware_cs: false,
-            _p: PhantomData,
-        }
-    }
-}
-
-impl<T> embedded_hal::spi::ErrorType for SpiBusDriver<T> {
-    type Error = SpiError;
-}
-
-impl<T> SpiBusFlush for SpiBusDriver<T> {
-    fn flush(&mut self) -> Result<(), Self::Error> {
-        SpiBusDriver::flush(self).map_err(to_spi_err)
-    }
-}
-
-impl<T> SpiBusRead for SpiBusDriver<T> {
-    fn read(&mut self, words: &mut [u8]) -> Result<(), Self::Error> {
-        SpiBusDriver::read(self, words).map_err(to_spi_err)
-    }
-}
-
-impl<T> SpiBusWrite for SpiBusDriver<T> {
-    fn write(&mut self, words: &[u8]) -> Result<(), Self::Error> {
-        SpiBusDriver::write(self, words).map_err(to_spi_err)
-    }
-}
-
-impl<T> SpiBus for SpiBusDriver<T> {
-    fn transfer(&mut self, read: &mut [u8], write: &[u8]) -> Result<(), Self::Error> {
-        SpiBusDriver::transfer(self, read, write).map_err(to_spi_err)
-    }
-
-    fn transfer_in_place(&mut self, words: &mut [u8]) -> Result<(), Self::Error> {
-        SpiBusDriver::transfer_in_place(self, words).map_err(to_spi_err)
     }
 }
 
@@ -574,7 +506,7 @@ unsafe impl<'d> Send for SpiDriver<'d> {}
 pub type SpiSingleDeviceDriver<'d> = SpiDeviceDriver<'d, SpiDriver<'d>>;
 
 pub struct SpiDeviceDriver<'d, T> {
-    handle: spi_device_handle_t,
+    handle: Device,
     driver: T,
     with_cs_pin: bool,
     _p: PhantomData<&'d ()>,
@@ -639,7 +571,7 @@ where
         esp!(unsafe { spi_bus_add_device(driver.borrow().host(), &conf, &mut handle as *mut _) })?;
 
         Ok(Self {
-            handle,
+            handle: Device(handle),
             driver,
             with_cs_pin: cs >= 0,
             _p: PhantomData,
@@ -647,12 +579,12 @@ where
     }
 
     pub fn device(&self) -> spi_device_handle_t {
-        self.handle
+        self.handle.0
     }
 
     pub fn transaction<R, E>(
         &mut self,
-        f: impl FnOnce(&mut SpiSharedBusDriver<'d>) -> Result<R, E>,
+        f: impl FnOnce(&mut SpiBusDriver<'d, ()>) -> Result<R, E>,
     ) -> Result<R, E>
     where
         E: From<EspError>,
@@ -660,14 +592,13 @@ where
         // if DMA used -> get trans length info from driver
         let trans_len = self.driver.borrow().max_transfer_size;
 
-        let mut bus = SpiSharedBusDriver {
-            handle: self.handle,
+        let mut bus = SpiBusDriver {
+            _lock: self.lock_bus()?,
+            handle: Cow::Borrowed(&self.handle),
+            _driver: (),
             trans_len,
             hardware_cs: self.with_cs_pin,
-            _p: PhantomData,
         };
-
-        let lock = self.lock_bus()?;
 
         let trans_result = f(&mut bus);
 
@@ -682,7 +613,7 @@ where
         // Note that this is done even when an error is returned from the transaction.
         let flush_result = bus.flush();
 
-        core::mem::drop(lock);
+        drop(bus);
 
         let result = trans_result?;
         finish_result?;
@@ -708,7 +639,7 @@ where
     }
 
     fn lock_bus(&self) -> Result<Lock, EspError> {
-        Lock::new(self.handle)
+        Lock::new(self.handle.0)
     }
 }
 
@@ -722,7 +653,7 @@ impl<'d, T> SpiDevice for SpiDeviceDriver<'d, T>
 where
     T: Borrow<SpiDriver<'d>> + 'd,
 {
-    type Bus = SpiSharedBusDriver<'d>;
+    type Bus = SpiBusDriver<'d, ()>;
 
     fn transaction<R>(
         &mut self,
@@ -747,7 +678,7 @@ where
         while let Some(chunk) = chunks.next() {
             let ptr = chunk.as_mut_ptr();
             let len = chunk.len();
-            polling_transmit(self.handle, ptr, ptr, len, len, chunks.peek().is_some())?;
+            polling_transmit(self.handle.0, ptr, ptr, len, len, chunks.peek().is_some())?;
         }
 
         Ok(words)
@@ -768,7 +699,7 @@ where
 
         while let Some(chunk) = chunks.next() {
             polling_transmit(
-                self.handle,
+                self.handle.0,
                 ptr::null_mut(),
                 chunk.as_ptr(),
                 chunk.len(),
@@ -938,7 +869,7 @@ where
 
     pub fn transaction<R, E>(
         &mut self,
-        f: impl FnOnce(&mut SpiSharedBusDriver<'d>) -> Result<R, E>,
+        f: impl FnOnce(&mut SpiBusDriver<'d, ()>) -> Result<R, E>,
     ) -> Result<R, E>
     where
         E: From<EspError>,
@@ -996,7 +927,7 @@ where
     DEVICE: Borrow<SpiSharedDeviceDriver<'d, DRIVER>> + 'd,
     DRIVER: Borrow<SpiDriver<'d>> + 'd,
 {
-    type Bus = SpiSharedBusDriver<'d>;
+    type Bus = SpiBusDriver<'d, ()>;
 
     fn transaction<R>(
         &mut self,
