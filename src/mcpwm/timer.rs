@@ -1,6 +1,6 @@
-use code::ptr;
 use core::convert::TryInto;
 use core::marker::PhantomData;
+use core::ptr;
 
 use esp_idf_sys::{
     esp, mcpwm_del_timer, mcpwm_new_timer, mcpwm_timer_config_t,
