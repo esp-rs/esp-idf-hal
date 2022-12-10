@@ -166,10 +166,7 @@ impl<'d> UlpDriver<'d> {
         duration: core::time::Duration,
     ) -> Result<(), esp_idf_sys::EspError> {
         esp_idf_sys::esp!(unsafe {
-            esp_idf_sys::ulp_set_wakeup_period(
-                timer as esp_idf_sys::size_t,
-                duration.as_micros() as u32,
-            )
+            esp_idf_sys::ulp_set_wakeup_period(timer as usize, duration.as_micros() as u32)
         })?;
 
         Ok(())
@@ -229,7 +226,7 @@ impl<'d> UlpDriver<'d> {
         esp_idf_sys::esp!(esp_idf_sys::ulp_load_binary(
             (address / core::mem::size_of::<u32>()) as u32,
             program.as_ptr(),
-            (program.len() / core::mem::size_of::<u32>()) as u32
+            program.len() / core::mem::size_of::<u32>()
         ))?;
 
         Ok(())
