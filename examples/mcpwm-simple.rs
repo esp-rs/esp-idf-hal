@@ -83,7 +83,6 @@ fn main() -> anyhow::Result<()> {
     println!("Starting duty-cycle loop");
 
     let period_ticks = timer.get_period_peak();
-    println!("period_ticks: {period_ticks}");
 
     // TODO: Will this work as expected in UP_DOWN counter mode?
     for duty in (0..period_ticks).step_by(10).cycle() {

@@ -108,7 +108,6 @@ impl<const N: u8, G: Group> Timer<N, G> {
         };
         let mut handle: mcpwm_timer_handle_t = ptr::null_mut();
         unsafe {
-            println!("cfg: {cfg:?}");
             esp!(mcpwm_new_timer(&cfg, &mut handle)).unwrap();
         }
         // TODO: note that this has to be called before mcpwm_timer_enable
