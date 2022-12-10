@@ -69,7 +69,7 @@ fn main() -> anyhow::Result<()> {
     println!("Configuring MCPWM");
 
     let peripherals = Peripherals::take().unwrap();
-    let timer_config = TimerConfig::default().period_ticks(16_000); // 10kHz
+    let timer_config = TimerConfig::default().period_ticks(8_000); // 10kHz
     let operator_config = OperatorConfig::default(peripherals.pins.gpio4, peripherals.pins.gpio5);
     let timer = Timer::new(peripherals.mcpwm0.timer0, timer_config);
 
@@ -83,11 +83,16 @@ fn main() -> anyhow::Result<()> {
     println!("Starting duty-cycle loop");
 
     let period_ticks = timer.get_period_peak();
+    println!("period_ticks: {period_ticks}");
 
     // TODO: Will this work as expected in UP_DOWN counter mode?
-    for duty in (0..period_ticks).cycle() {
+    for duty in (0..period_ticks).step_by(10).cycle() {
         if duty % 100 == 0 {
-            println!("Duty {}%", 100 * duty / period_ticks);
+            println!(
+                "cmp: {}, duty {}%",
+                duty,
+                100 * u32::from(duty) / u32::from(period_ticks)
+            );
         }
 
         operator.set_compare_value_x(duty)?; // In this configuration this controls the duty on pin4

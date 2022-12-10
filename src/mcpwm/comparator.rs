@@ -87,9 +87,9 @@ impl Default for ComparatorConfig {
     fn default() -> Self {
         let mut flags: mcpwm_comparator_config_t__bindgen_ty_1 = Default::default();
         // TODO: What should be set here?
-        flags.set_update_cmp_on_tep(1);
+        flags.set_update_cmp_on_tep(0);
         flags.set_update_cmp_on_tez(1);
-        flags.set_update_cmp_on_sync(1);
+        flags.set_update_cmp_on_sync(0);
         Self { flags }
     }
 }

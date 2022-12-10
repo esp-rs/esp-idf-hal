@@ -9,7 +9,9 @@ use esp_idf_sys::{
     mcpwm_timer_count_mode_t_MCPWM_TIMER_COUNT_MODE_PAUSE,
     mcpwm_timer_count_mode_t_MCPWM_TIMER_COUNT_MODE_UP,
     mcpwm_timer_count_mode_t_MCPWM_TIMER_COUNT_MODE_UP_DOWN, mcpwm_timer_enable,
-    mcpwm_timer_handle_t, soc_periph_mcpwm_timer_clk_src_t_MCPWM_TIMER_CLK_SRC_DEFAULT,
+    mcpwm_timer_handle_t, mcpwm_timer_start_stop,
+    mcpwm_timer_start_stop_cmd_t_MCPWM_TIMER_START_NO_STOP,
+    soc_periph_mcpwm_timer_clk_src_t_MCPWM_TIMER_CLK_SRC_DEFAULT,
 };
 
 use crate::mcpwm::Group;
@@ -32,8 +34,8 @@ pub struct TimerConfig {
 impl Default for TimerConfig {
     fn default() -> Self {
         Self {
-            resolution: 160.MHz().into(),
-            period_ticks: 16_000, // 10kHz
+            resolution: 80.MHz().into(),
+            period_ticks: 8_000, // 10kHz
             count_mode: CountMode::Up,
         }
     }
@@ -54,8 +56,8 @@ impl TimerConfig {
     /// You can calculate the frequency as
     /// `frequency = resolution / period_ticks`
     ///
-    /// For example a resolution of 160MHz and a period_ticks of 16_000:
-    /// `10kHz = 160MHz / 16_000`
+    /// For example a resolution of 80MHz and a period_ticks of 8_000:
+    /// `10kHz = 80MHz / 8_000`
     ///
     /// NOTE: This will be the same as `Self::get_period_peak` for all `CounterMode` except for
     /// `CounterMode::UpDown` where the period will be twice as large as the peak value since
@@ -106,12 +108,18 @@ impl<const N: u8, G: Group> Timer<N, G> {
         };
         let mut handle: mcpwm_timer_handle_t = ptr::null_mut();
         unsafe {
+            println!("cfg: {cfg:?}");
             esp!(mcpwm_new_timer(&cfg, &mut handle)).unwrap();
         }
         // TODO: note that this has to be called before mcpwm_timer_enable
         // mcpwm_timer_register_event_callbacks()
         unsafe {
             esp!(mcpwm_timer_enable(handle)).unwrap();
+            esp!(mcpwm_timer_start_stop(
+                handle,
+                mcpwm_timer_start_stop_cmd_t_MCPWM_TIMER_START_NO_STOP
+            ))
+            .unwrap();
         }
 
         let period_peak = if config.count_mode == CountMode::UpDown {

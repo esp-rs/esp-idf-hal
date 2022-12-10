@@ -89,13 +89,13 @@ where
     let mut flags: mcpwm_operator_config_t__bindgen_ty_1 = Default::default();
 
     // TODO: What should these be set to?
-    flags.set_update_gen_action_on_tez(1);
-    flags.set_update_gen_action_on_tep(1);
-    flags.set_update_gen_action_on_sync(1);
+    flags.set_update_gen_action_on_tez(0);
+    flags.set_update_gen_action_on_tep(0);
+    flags.set_update_gen_action_on_sync(0);
 
-    flags.set_update_dead_time_on_tez(1);
-    flags.set_update_dead_time_on_tep(1);
-    flags.set_update_dead_time_on_sync(1);
+    flags.set_update_dead_time_on_tez(0);
+    flags.set_update_dead_time_on_tep(0);
+    flags.set_update_dead_time_on_sync(0);
 
     let config = mcpwm_operator_config_t {
         group_id: G::ID,
@@ -108,6 +108,11 @@ where
 
     let mut comparator_x = unsafe { cfg.comparator_x.init(handle) };
     let mut comparator_y = unsafe { cfg.comparator_y.init(handle) };
+
+    // Connect operator to timer
+    unsafe {
+        esp!(mcpwm_operator_connect_timer(handle, timer_handle)).unwrap();
+    }
 
     let generator_a = unsafe {
         cfg.generator_a.init(
@@ -123,11 +128,6 @@ where
             comparator_y.get_comparator_mut(),
         )
     };
-
-    // Connect operator to timer
-    unsafe {
-        esp!(mcpwm_operator_connect_timer(handle, timer_handle)).unwrap();
-    }
 
     Operator {
         _instance: instance,
@@ -173,6 +173,8 @@ where
     /// TODO: what about CountMode::UpDown?
     ///
     /// NOTE: The compare value shouldn’t exceed timer’s count peak, otherwise, the compare event will never got triggered.
+    /// NOTE: This function is safe to from an ISR context
+    #[inline(always)]
     pub fn set_compare_value_x(&mut self, value: u16) -> Result<(), EspError> {
         unsafe {
             esp!(mcpwm_comparator_set_compare_value(
@@ -206,6 +208,8 @@ where
     /// TODO: what about CountMode::UpDown?
     ///
     /// NOTE: The compare value shouldn’t exceed timer’s count peak, otherwise, the compare event will never got triggered.
+    /// NOTE: This function is safe to from an ISR context
+    #[inline(always)]
     pub fn set_compare_value_y(&mut self, value: u16) -> Result<(), EspError> {
         unsafe {
             esp!(mcpwm_comparator_set_compare_value(
