@@ -1,4 +1,4 @@
-use core::{ffi, fmt, slice, str};
+use core::{ffi, fmt, num::NonZeroI32, slice, str};
 
 use crate::{esp_err_t, esp_err_to_name, ESP_OK};
 
@@ -6,17 +6,39 @@ use crate::{esp_err_t, esp_err_to_name, ESP_OK};
 ///
 /// An [`esp_err_t`] is returned from most esp-idf APIs as a status code. If it is equal
 /// to [`ESP_OK`] it means **no** error occurred.
+#[repr(transparent)]
 #[derive(Copy, Clone, Eq, PartialEq, Hash, Debug)]
-pub struct EspError(esp_err_t);
+pub struct EspError(NonZeroI32);
+
+const _: () = if ESP_OK != 0 {
+    panic!("ESP_OK *has* to be 0")
+};
 
 impl EspError {
     /// Wrap an [`esp_err_t`], return [`Some`] if `error` is **not** [`ESP_OK`].
     pub const fn from(error: esp_err_t) -> Option<Self> {
-        if error == ESP_OK {
-            None
-        } else {
-            Some(EspError(error))
+        match NonZeroI32::new(error) {
+            None => None,
+            Some(err) => Some(Self(err)),
         }
+    }
+
+    /// Wrap a [`NonZeroI32`]. Since [`ESP_OK`] is 0, this can never fail;
+    pub const fn from_non_zero(error: NonZeroI32) -> Self {
+        Self(error)
+    }
+
+    /// Wrap an [`esp_err_t`], throw a compile time error if `error` is [`ESP_OK`].
+    pub const fn from_infallible<const E: esp_err_t>() -> Self {
+        // workaround until feature(inline_const) is stabilized: https://github.com/rust-lang/rust/pull/104087
+        struct Dummy<const D: esp_err_t>;
+        impl<const D: esp_err_t> Dummy<D> {
+            pub const ERR: EspError = match EspError::from(D) {
+                Some(err) => err,
+                None => panic!("ESP_OK can't be an error"),
+            };
+        }
+        Dummy::<E>::ERR
     }
 
     /// Convert `error` into a [`Result`] with `Ok(value)` if no error occurred.
@@ -24,10 +46,9 @@ impl EspError {
     /// If `error` is [`ESP_OK`] return [`Ok`] of `value` otherwise return [`Err`] of
     /// wrapped `error`.
     pub fn check_and_return<T>(error: esp_err_t, value: T) -> Result<T, Self> {
-        if error == ESP_OK {
-            Ok(value)
-        } else {
-            Err(EspError(error))
+        match NonZeroI32::new(error) {
+            None => Ok(value),
+            Some(err) => Err(Self(err)),
         }
     }
 
@@ -47,7 +68,7 @@ impl EspError {
 
     /// Get the wrapped [`esp_err_t`].
     pub fn code(&self) -> esp_err_t {
-        self.0
+        self.0.get()
     }
 }
 
