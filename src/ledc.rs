@@ -150,10 +150,6 @@ impl<'d> LedcTimerDriver<'d> {
     pub fn timer(&self) -> ledc_timer_t {
         self.timer as _
     }
-
-    pub fn speed_mode(&self) -> SpeedMode {
-        self.speed_mode
-    }
 }
 
 impl<'d> Drop for LedcTimerDriver<'d> {
@@ -191,7 +187,7 @@ impl<'d> LedcDriver<'d> {
         let hpoint = 0;
 
         let channel_config = ledc_channel_config_t {
-            speed_mode: timer_driver.borrow().speed_mode().into(),
+            speed_mode: timer_driver.borrow().speed_mode.into(),
             channel: C::channel(),
             timer_sel: timer_driver.borrow().timer(),
             intr_type: ledc_intr_type_t_LEDC_INTR_DISABLE,
