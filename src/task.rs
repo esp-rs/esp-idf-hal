@@ -495,7 +495,7 @@ pub mod watchdog {
         }
 
         fn unsubscribe_idle_tasks() -> Result<(), EspError> {
-            for core in Core::all() {
+            for core in enumset::EnumSet::<Core>::all() {
                 let task = get_idle_task(core);
                 esp!(unsafe { esp_task_wdt_delete(task) })?;
             }
