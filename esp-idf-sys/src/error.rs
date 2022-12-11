@@ -6,6 +6,7 @@ use crate::{esp_err_t, esp_err_to_name, ESP_OK};
 ///
 /// An [`esp_err_t`] is returned from most esp-idf APIs as a status code. If it is equal
 /// to [`ESP_OK`] it means **no** error occurred.
+#[repr(transparent)]
 #[derive(Copy, Clone, Eq, PartialEq, Hash, Debug)]
 pub struct EspError(NonZeroI32);
 
