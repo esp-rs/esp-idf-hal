@@ -467,7 +467,12 @@ pub mod watchdog {
             })?;
 
             #[cfg(esp_idf_version_major = "4")]
-            Self::subscribe_idle_tasks(config.subscribed_idle_tasks);
+            if let Err(e) = Self::subscribe_idle_tasks(config.subscribed_idle_tasks) {
+                // error task already subscribed could occur but it's ok (not checking if tasks already subscribed before)
+                if e.code() != ESP_ERR_INVALID_ARG {
+                    return Err(e);
+                }
+            }
 
             Ok(Self {
                 init_by_idf,
@@ -480,18 +485,22 @@ pub mod watchdog {
             Ok(WatchdogSubscription::new())
         }
 
-        fn subscribe_idle_tasks(cores: enumset::EnumSet<Core>) {
+        fn subscribe_idle_tasks(cores: enumset::EnumSet<Core>) -> Result<(), EspError> {
             for core in cores {
                 let task = get_idle_task(core);
-                let _ = esp!(unsafe { esp_task_wdt_add(task) });
+                esp!(unsafe { esp_task_wdt_add(task) })?;
             }
+
+            Ok(())
         }
 
-        fn unsubscribe_idle_tasks() {
+        fn unsubscribe_idle_tasks() -> Result<(), EspError> {
             for core in Core::all() {
                 let task = get_idle_task(core);
-                let _ = esp!(unsafe { esp_task_wdt_delete(task) });
+                esp!(unsafe { esp_task_wdt_delete(task) })?;
             }
+
+            Ok(())
         }
 
         fn watchdog_is_init_by_idf() -> bool {
@@ -509,12 +518,19 @@ pub mod watchdog {
             }
         }
 
-        fn deinit(&self) {
+        fn deinit(&self) -> Result<(), EspError> {
             if !self.init_by_idf {
                 #[cfg(esp_idf_version_major = "4")]
-                Self::unsubscribe_idle_tasks();
+                if let Err(e) = Self::unsubscribe_idle_tasks() {
+                    // error task not subscribed could occur but it's ok (not checking if tasks subscribed before)
+                    if e.code() != ESP_ERR_INVALID_ARG {
+                        return Err(e);
+                    }
+                }
                 esp!(unsafe { esp_task_wdt_deinit() }).unwrap();
             }
+
+            Ok(())
         }
     }
 
@@ -532,7 +548,7 @@ pub mod watchdog {
         fn drop(&mut self) {
             let refcnt = TWDT_DRIVER_REF_COUNT.fetch_sub(1, Ordering::SeqCst);
             match refcnt {
-                1 => self.deinit(),
+                1 => self.deinit().unwrap(),
                 r if r < 1 => unreachable!(), // Bug, should never happen
                 _ => (),
             }
@@ -548,14 +564,14 @@ pub mod watchdog {
             Self(Default::default())
         }
 
-        pub fn feed(&mut self) {
-            esp!(unsafe { esp_task_wdt_reset() }).unwrap()
+        pub fn feed(&mut self) -> Result<(), EspError> {
+            esp!(unsafe { esp_task_wdt_reset() })
         }
     }
 
     impl embedded_hal_0_2::watchdog::Watchdog for WatchdogSubscription<'_> {
         fn feed(&mut self) {
-            Self::feed(self)
+            Self::feed(self).unwrap()
         }
     }
 
