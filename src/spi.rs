@@ -163,6 +163,7 @@ pub mod config {
         ThirtyTwoBits = 4,
         FourtyEightBits = 6,
         SixtyFourBits = 8,
+        None = 64,
     }
 
     /// SPI Device configuration
@@ -229,7 +230,7 @@ pub mod config {
                 write_only: false,
                 cs_active_high: false,
                 duplex: Duplex::Full,
-                chunk_size: Chunk::SixtyFourBits,
+                chunk_size: Chunk::None,
             }
         }
     }
