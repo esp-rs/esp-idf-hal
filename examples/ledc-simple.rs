@@ -9,19 +9,20 @@ fn main() -> anyhow::Result<()> {
     println!("Configuring output channel");
 
     let peripherals = Peripherals::take().unwrap();
-    let config = config::TimerConfig::new().frequency(25.kHz().into());
     let mut channel = LedcDriver::new(
         peripherals.ledc.channel0,
-        LedcTimerDriver::new(peripherals.ledc.timer0, &config)?,
+        LedcTimerDriver::new(
+            peripherals.ledc.timer0,
+            &config::TimerConfig::new().frequency(25.kHz().into()),
+        )?,
         peripherals.pins.gpio4,
-        &config,
     )?;
 
     println!("Starting duty-cycle loop");
 
     let max_duty = channel.get_max_duty();
     for numerator in [0, 1, 2, 3, 4, 5].iter().cycle() {
-        println!("Duty {}/5", numerator);
+        println!("Duty {numerator}/5");
         channel.set_duty(max_duty * numerator / 5)?;
         FreeRtos::delay_ms(2000);
     }

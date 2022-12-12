@@ -57,14 +57,8 @@ pub fn wait_notification(duration: Option<Duration>) -> Option<u32> {
     let mut notification = 0_u32;
 
     #[cfg(esp_idf_version = "4.3")]
-    let notified = unsafe {
-        xTaskNotifyWait(
-            0,
-            u32::MAX,
-            &mut notification as *mut _,
-            TickType::from(duration).0,
-        )
-    } != 0;
+    let notified =
+        unsafe { xTaskNotifyWait(0, u32::MAX, &mut notification, TickType::from(duration).0) } != 0;
 
     #[cfg(not(esp_idf_version = "4.3"))]
     let notified = unsafe {
@@ -72,7 +66,7 @@ pub fn wait_notification(duration: Option<Duration>) -> Option<u32> {
             0,
             0,
             u32::MAX,
-            &mut notification as *mut _,
+            &mut notification,
             TickType::from(duration).0,
         )
     } != 0;
@@ -99,7 +93,7 @@ pub unsafe fn notify(task: TaskHandle_t, notification: u32) -> bool {
             notification,
             eNotifyAction_eSetBits,
             ptr::null_mut(),
-            &mut higher_prio_task_woken as *mut _,
+            &mut higher_prio_task_woken,
         );
 
         #[cfg(not(esp_idf_version = "4.3"))]
@@ -109,7 +103,7 @@ pub unsafe fn notify(task: TaskHandle_t, notification: u32) -> bool {
             notification,
             eNotifyAction_eSetBits,
             ptr::null_mut(),
-            &mut higher_prio_task_woken as *mut _,
+            &mut higher_prio_task_woken,
         );
 
         if higher_prio_task_woken != 0 {
@@ -211,7 +205,7 @@ pub mod thread {
                     Some(unsafe {
                         core::slice::from_raw_parts(
                             conf.thread_name as _,
-                            c_strlen(conf.thread_name as *const c_types::c_void as *const _) + 1,
+                            c_strlen(conf.thread_name.cast()) + 1,
                         )
                     })
                 },
@@ -280,8 +274,11 @@ fn enter(cs: &CriticalSection) {
         });
     }
 
-    unsafe {
-        xQueueTakeMutexRecursive(cs.0.get().unwrap().as_ptr(), crate::delay::BLOCK);
+    let res =
+        unsafe { xQueueTakeMutexRecursive(cs.0.get().unwrap().as_ptr(), crate::delay::BLOCK) } != 0;
+
+    if !res {
+        unreachable!();
     }
 }
 
@@ -292,8 +289,10 @@ fn exit(cs: &CriticalSection) {
         panic!("Called exit() without matching enter()");
     }
 
-    unsafe {
-        xQueueGiveMutexRecursive(cs.0.get().unwrap().as_ptr());
+    let res = unsafe { xQueueGiveMutexRecursive(cs.0.get().unwrap().as_ptr()) } != 0;
+
+    if !res {
+        unreachable!();
     }
 }
 
@@ -311,6 +310,16 @@ impl CriticalSection {
         enter(self);
 
         CriticalSectionGuard(self)
+    }
+}
+
+impl Drop for CriticalSection {
+    fn drop(&mut self) {
+        if self.1.load(Ordering::SeqCst) {
+            unsafe {
+                vQueueDelete(self.0.get().unwrap().as_ptr());
+            }
+        }
     }
 }
 
