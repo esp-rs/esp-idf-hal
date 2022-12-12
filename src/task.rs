@@ -387,6 +387,8 @@ pub mod watchdog {
     pub mod config {
         use crate::cpu::Core;
 
+        use esp_idf_sys::*;
+
         #[derive(Clone)]
         pub struct Config {
             pub duration: core::time::Duration,
