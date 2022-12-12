@@ -20,14 +20,8 @@ fn main() -> anyhow::Result<()> {
         peripherals.ledc.channel0,
         timer.clone(),
         peripherals.pins.gpio4,
-        &config,
     )?;
-    let channel1 = LedcDriver::new(
-        peripherals.ledc.channel1,
-        timer,
-        peripherals.pins.gpio5,
-        &config,
-    )?;
+    let channel1 = LedcDriver::new(peripherals.ledc.channel1, timer, peripherals.pins.gpio5)?;
 
     println!("Spawning PWM threads");
 

@@ -9,12 +9,13 @@ fn main() -> anyhow::Result<()> {
     println!("Configuring output channel");
 
     let peripherals = Peripherals::take().unwrap();
-    let config = config::TimerConfig::new().frequency(25.kHz().into());
     let mut channel = LedcDriver::new(
         peripherals.ledc.channel0,
-        LedcTimerDriver::new(peripherals.ledc.timer0, &config)?,
+        LedcTimerDriver::new(
+            peripherals.ledc.timer0,
+            &config::TimerConfig::new().frequency(25.kHz().into()),
+        )?,
         peripherals.pins.gpio4,
-        &config,
     )?;
 
     println!("Starting duty-cycle loop");
