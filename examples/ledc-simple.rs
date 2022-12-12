@@ -11,7 +11,10 @@ fn main() -> anyhow::Result<()> {
     let peripherals = Peripherals::take().unwrap();
     let mut channel = LedcDriver::new(
         peripherals.ledc.channel0,
-        LedcTimerDriver::new(peripherals.ledc.timer0, &config::TimerConfig::new().frequency(25.kHz().into()))?,
+        LedcTimerDriver::new(
+            peripherals.ledc.timer0,
+            &config::TimerConfig::new().frequency(25.kHz().into()),
+        )?,
         peripherals.pins.gpio4,
     )?;
 
