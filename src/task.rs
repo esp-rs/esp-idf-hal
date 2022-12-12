@@ -387,6 +387,7 @@ pub mod watchdog {
     pub mod config {
         use crate::cpu::Core;
 
+        #[cfg(not(esp_idf_version_major = "4"))]
         use esp_idf_sys::*;
 
         #[derive(Clone)]
