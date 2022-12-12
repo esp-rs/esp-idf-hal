@@ -1,6 +1,6 @@
 [package]
 name = "esp-idf-hal"
-version = "0.39.4"
+version = "0.40.0"
 authors = ["sapir <yasapir@gmail.com>", "Ivan Markov <ivan.markov@gmail.com>"]
 edition = "2018"
 resolver = "2"
@@ -25,19 +25,19 @@ embedded-can = "0.4.1"
 embedded-hal = "=1.0.0-alpha.9"
 embedded-hal-0-2 = { package = "embedded-hal", version = "0.2.7", features = ["unproven"] }
 embedded-hal-nb = "=1.0.0-alpha.1"
-esp-idf-sys = { version = "0.31.11", optional = true, default-features = false, features = ["native"] }
+esp-idf-sys = { version = "0.32", optional = true, default-features = false, features = ["native"] }
 critical-section = { version = "1.1", optional = true }
 heapless = "0.7"
 embassy-sync = { version = "0.1", optional = true }
 edge-executor = { version = "0.3", optional = true, default-features = false }
 
 [build-dependencies]
-embuild = "0.30.4"
+embuild = "0.31"
 anyhow = "1"
 
 [dev-dependencies]
 anyhow = "1"
-esp-idf-sys = { version = "0.31.11", features = ["native", "binstart"] }
+esp-idf-sys = { version = "0.32", features = ["native", "binstart"] }
 mipidsi = "0.5.0"
 display-interface-spi = "0.4.1"
 embedded-graphics = "0.7.1"

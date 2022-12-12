@@ -451,8 +451,8 @@ impl<'d> I2cSlaveDriver<'d> {
             i2c_driver_install(
                 I2C::port(),
                 i2c_mode_t_I2C_MODE_SLAVE,
-                config.rx_buf_len as u32,
-                config.tx_buf_len as u32,
+                config.rx_buf_len,
+                config.tx_buf_len,
                 0, // TODO: set flags
             )
         })?;
@@ -465,12 +465,7 @@ impl<'d> I2cSlaveDriver<'d> {
 
     pub fn read(&mut self, buffer: &mut [u8], timeout: TickType_t) -> Result<usize, EspError> {
         let n = unsafe {
-            i2c_slave_read_buffer(
-                self.port(),
-                buffer.as_mut_ptr(),
-                buffer.len() as u32,
-                timeout,
-            )
+            i2c_slave_read_buffer(self.port(), buffer.as_mut_ptr(), buffer.len(), timeout)
         };
 
         if n > 0 {
@@ -482,12 +477,7 @@ impl<'d> I2cSlaveDriver<'d> {
 
     pub fn write(&mut self, bytes: &[u8], timeout: TickType_t) -> Result<usize, EspError> {
         let n = unsafe {
-            i2c_slave_write_buffer(
-                self.port(),
-                bytes.as_ptr() as *const u8 as *mut u8,
-                bytes.len() as i32,
-                timeout,
-            )
+            i2c_slave_write_buffer(self.port(), bytes.as_ptr(), bytes.len() as i32, timeout)
         };
 
         if n > 0 {
@@ -542,25 +532,11 @@ impl<'buffers> CommandLink<'buffers> {
     }
 
     fn master_write(&mut self, buf: &'buffers [u8], ack_en: bool) -> Result<(), EspError> {
-        esp!(unsafe {
-            i2c_master_write(
-                self.0,
-                buf.as_ptr() as *const u8 as *mut u8,
-                buf.len() as u32,
-                ack_en,
-            )
-        })
+        esp!(unsafe { i2c_master_write(self.0, buf.as_ptr(), buf.len(), ack_en,) })
     }
 
     fn master_read(&mut self, buf: &'buffers mut [u8], ack: AckType) -> Result<(), EspError> {
-        esp!(unsafe {
-            i2c_master_read(
-                self.0,
-                buf.as_ptr() as *const u8 as *mut u8,
-                buf.len() as u32,
-                ack as u32,
-            )
-        })
+        esp!(unsafe { i2c_master_read(self.0, buf.as_mut_ptr().cast(), buf.len(), ack as u32,) })
     }
 }
 

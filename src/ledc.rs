@@ -10,12 +10,13 @@
 //!
 //! Create a 25 kHz PWM signal with 75 % duty cycle on GPIO 1
 //! ```
-//! use esp_idf_hal::ledc::{config::TimerConfig, Channel, LedcDriver, Timer};
+//! use esp_idf_hal::ledc::{config::TimerConfig, Channel, LedcDriver, LedcTimerDriver, Timer};
 //! use esp_idf_hal::peripherals::Peripherals;
 //! use esp_idf_hal::prelude::*;
 //!
 //! let peripherals = Peripherals::take().unwrap();
-//! let mut driver = LedcDriver::new(peripherals.ledc.channel0, peripherals.ledc.timer0, peripherals.pins.gpio1, &TimerConfig::default().frequency(25.kHz().into()))?;
+//! let timer_driver = LedcTimerDriver::new(peripherals.ledc.timer0, &TimerConfig::default().frequency(25.kHz().into()));
+//! let mut driver = LedcDriver::new(peripherals.ledc.channel0, timer_driver, peripherals.pins.gpio1)?;
 //!
 //! let max_duty = driver.get_max_duty()?;
 //! driver.set_duty(max_duty * 3 / 4)?;
@@ -179,7 +180,6 @@ impl<'d> LedcDriver<'d> {
         _channel: impl Peripheral<P = C> + 'd,
         timer_driver: B,
         pin: impl Peripheral<P = impl OutputPin> + 'd,
-        config: &config::TimerConfig,
     ) -> Result<Self, EspError> {
         crate::into_ref!(pin);
 
@@ -187,7 +187,7 @@ impl<'d> LedcDriver<'d> {
         let hpoint = 0;
 
         let channel_config = ledc_channel_config_t {
-            speed_mode: config.speed_mode.into(),
+            speed_mode: timer_driver.borrow().speed_mode.into(),
             channel: C::channel(),
             timer_sel: timer_driver.borrow().timer(),
             intr_type: ledc_intr_type_t_LEDC_INTR_DISABLE,
