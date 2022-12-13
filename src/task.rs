@@ -440,8 +440,8 @@ pub mod watchdog {
         }
 
         #[cfg(not(esp_idf_version_major = "4"))]
-        impl From<Config> for esp_task_wdt_config_t {
-            fn from(config: Config) -> Self {
+        impl From<&Config> for esp_task_wdt_config_t {
+            fn from(config: &Config) -> Self {
                 esp_task_wdt_config_t {
                     timeout_ms: config.duration.as_millis() as u32,
                     trigger_panic: config.panic_on_trigger,
@@ -468,9 +468,11 @@ pub mod watchdog {
 
             #[cfg(not(esp_idf_version_major = "4"))]
             if !init_by_idf {
-                esp!(unsafe { esp_task_wdt_init(config.into()) })?;
+                esp!(unsafe { esp_task_wdt_init(&config.into() as *const esp_task_wdt_config_t) })?;
             } else {
-                esp!(unsafe { esp_task_wdt_reconfigure(config.into()) })?;
+                esp!(unsafe {
+                    esp_task_wdt_reconfigure(&config.into() as *const esp_task_wdt_config_t)
+                })?;
             }
 
             #[cfg(esp_idf_version_major = "4")]
