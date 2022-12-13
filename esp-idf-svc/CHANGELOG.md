@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.45] - 2022-12-13
+
+HTTP server:
+* Compatibility with `embedded-svc` V0.24
+* New function - `fn_handler` that addresses HRTB lifetime issues when converting a Fn closure to a `Handler` instance
+* Remove `EspHttpFnTraversableChain`; it is not necessary, now that the `fn_handler` function from above does exist
+
 ## [0.44] - 2022-12-09
 
 Rebase on top of `esp-idf-sys` 0.32:

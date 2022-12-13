@@ -17,7 +17,7 @@ use ::log::{info, warn};
 
 use embedded_svc::http::headers::content_type;
 use embedded_svc::http::server::{
-    handler, Connection, Handler, HandlerError, HandlerResult, Request,
+    Connection, FnHandler, Handler, HandlerError, HandlerResult, Request,
 };
 use embedded_svc::http::*;
 use embedded_svc::io::{Io, Read, Write};
@@ -366,7 +366,7 @@ impl EspHttpServer {
         handler: H,
     ) -> Result<&mut Self, EspError>
     where
-        H: for<'a, 'b> Handler<&'a mut EspHttpConnection<'b>> + 'static,
+        H: for<'a> Handler<EspHttpConnection<'a>> + 'static,
     {
         let c_str = CString::new(uri).unwrap();
 
@@ -392,25 +392,16 @@ impl EspHttpServer {
         Ok(self)
     }
 
-    pub fn fn_handler_chain<C>(&mut self, chain: C) -> Result<&mut Self, EspError>
-    where
-        C: EspHttpFnTraversableChain,
-    {
-        chain.accept(self)?;
-
-        Ok(self)
-    }
-
     pub fn fn_handler<F>(&mut self, uri: &str, method: Method, f: F) -> Result<&mut Self, EspError>
     where
         F: for<'a> Fn(Request<&mut EspHttpConnection<'a>>) -> HandlerResult + Send + 'static,
     {
-        self.handler(uri, method, handler(f))
+        self.handler(uri, method, FnHandler::new(f))
     }
 
     fn to_native_handler<H>(&self, handler: H) -> NativeHandler
     where
-        H: for<'a, 'b> Handler<&'a mut EspHttpConnection<'b>> + 'static,
+        H: for<'a> Handler<EspHttpConnection<'a>> + 'static,
     {
         Box::new(move |raw_req| {
             let mut connection = EspHttpConnection::new(unsafe { raw_req.as_mut().unwrap() });
@@ -471,6 +462,13 @@ impl RawHandle for EspHttpServer {
     }
 }
 
+pub fn fn_handler<F>(f: F) -> FnHandler<F>
+where
+    F: for<'a> Fn(Request<&mut EspHttpConnection<'a>>) -> HandlerResult + Send + 'static,
+{
+    FnHandler::new(f)
+}
+
 pub trait EspHttpTraversableChain {
     fn accept(self, server: &mut EspHttpServer) -> Result<(), EspError>;
 }
@@ -483,37 +481,13 @@ impl EspHttpTraversableChain for ChainRoot {
 
 impl<H, N> EspHttpTraversableChain for ChainHandler<H, N>
 where
-    H: for<'a, 'b> Handler<&'a mut EspHttpConnection<'b>> + 'static,
+    H: for<'a> Handler<EspHttpConnection<'a>> + 'static,
     N: EspHttpTraversableChain,
 {
     fn accept(self, server: &mut EspHttpServer) -> Result<(), EspError> {
         self.next.accept(server)?;
 
         server.handler(self.path, self.method, self.handler)?;
-
-        Ok(())
-    }
-}
-
-pub trait EspHttpFnTraversableChain {
-    fn accept(self, server: &mut EspHttpServer) -> Result<(), EspError>;
-}
-
-impl EspHttpFnTraversableChain for ChainRoot {
-    fn accept(self, _server: &mut EspHttpServer) -> Result<(), EspError> {
-        Ok(())
-    }
-}
-
-impl<F, N> EspHttpFnTraversableChain for ChainHandler<F, N>
-where
-    F: for<'a> Fn(Request<&mut EspHttpConnection<'a>>) -> HandlerResult + Send + 'static,
-    N: EspHttpFnTraversableChain,
-{
-    fn accept(self, server: &mut EspHttpServer) -> Result<(), EspError> {
-        self.next.accept(server)?;
-
-        server.fn_handler(self.path, self.method, self.handler)?;
 
         Ok(())
     }
@@ -753,7 +727,7 @@ impl<'a> EspHttpConnection<'a> {
 
     fn handle<'b, H>(&'b mut self, handler: &'b H) -> Result<(), HandlerError>
     where
-        H: Handler<&'b mut Self>,
+        H: Handler<Self>,
     {
         // TODO info!("About to handle query string {:?}", self.query_string());
 
