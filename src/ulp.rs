@@ -180,7 +180,9 @@ impl<'d> UlpDriver<'d> {
             if ptr < mem_start
                 || ptr.offset(core::mem::size_of::<T>() as _) > mem_start.offset(ULP::MEM_SIZE as _)
             {
-                esp_idf_sys::esp!(esp_idf_sys::ESP_ERR_INVALID_SIZE)?;
+                return Err(esp_idf_sys::EspError::from_infallible::<
+                    { esp_idf_sys::ESP_ERR_INVALID_SIZE },
+                >());
             }
         }
 
@@ -216,11 +218,15 @@ impl<'d> UlpDriver<'d> {
     ) -> Result<(), esp_idf_sys::EspError> {
         let address: usize = core::mem::transmute(address);
         if address % core::mem::size_of::<u32>() != 0 {
-            esp_idf_sys::esp!(esp_idf_sys::ESP_ERR_INVALID_ARG)?;
+            return Err(esp_idf_sys::EspError::from_infallible::<
+                { esp_idf_sys::ESP_ERR_INVALID_ARG },
+            >());
         }
 
         if program.len() % core::mem::size_of::<u32>() != 0 {
-            esp_idf_sys::esp!(esp_idf_sys::ESP_ERR_INVALID_SIZE)?;
+            return Err(esp_idf_sys::EspError::from_infallible::<
+                { esp_idf_sys::ESP_ERR_INVALID_SIZE },
+            >());
         }
 
         esp_idf_sys::esp!(esp_idf_sys::ulp_load_binary(
@@ -283,7 +289,9 @@ impl<'d> UlpDriver<'d> {
         let ptr_usize: usize = unsafe { core::mem::transmute(ptr) };
 
         if ptr_usize % core::mem::size_of::<T>() != 0 {
-            esp_idf_sys::esp!(esp_idf_sys::ESP_ERR_INVALID_SIZE)?;
+            return Err(esp_idf_sys::EspError::from_infallible::<
+                { esp_idf_sys::ESP_ERR_INVALID_SIZE },
+            >());
         }
 
         Ok(())

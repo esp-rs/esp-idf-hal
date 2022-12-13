@@ -135,7 +135,7 @@ impl<'d> I2cDriver<'d> {
     ) -> Result<Self, EspError> {
         // i2c_config_t documentation says that clock speed must be no higher than 1 MHz
         if config.baudrate > 1.MHz().into() {
-            return Err(EspError::from(ESP_ERR_INVALID_ARG).unwrap());
+            return Err(EspError::from_infallible::<ESP_ERR_INVALID_ARG>());
         }
 
         crate::into_ref!(sda, scl);
@@ -471,7 +471,7 @@ impl<'d> I2cSlaveDriver<'d> {
         if n > 0 {
             Ok(n as usize)
         } else {
-            Err(EspError::from(ESP_ERR_TIMEOUT).unwrap())
+            Err(EspError::from_infallible::<ESP_ERR_TIMEOUT>())
         }
     }
 
@@ -483,7 +483,7 @@ impl<'d> I2cSlaveDriver<'d> {
         if n > 0 {
             Ok(n as usize)
         } else {
-            Err(EspError::from(ESP_ERR_TIMEOUT).unwrap())
+            Err(EspError::from_infallible::<ESP_ERR_TIMEOUT>())
         }
     }
 
@@ -513,7 +513,7 @@ impl<'buffers> CommandLink<'buffers> {
         let handle = unsafe { i2c_cmd_link_create() };
 
         if handle.is_null() {
-            return Err(EspError::from(ESP_ERR_NO_MEM).unwrap());
+            return Err(EspError::from_infallible::<ESP_ERR_NO_MEM>());
         }
 
         Ok(CommandLink(handle, PhantomData))
