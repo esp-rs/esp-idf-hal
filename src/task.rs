@@ -387,14 +387,11 @@ pub mod watchdog {
 
     use esp_idf_sys::*;
 
-    use crate::{cpu::Core, peripheral::Peripheral};
-
-    use super::get_idle_task;
+    use crate::peripheral::Peripheral;
 
     pub type TWDTConfig = config::Config;
 
     pub mod config {
-        use crate::cpu::Core;
 
         #[cfg(not(esp_idf_version_major = "4"))]
         use esp_idf_sys::*;
@@ -403,7 +400,7 @@ pub mod watchdog {
         pub struct Config {
             pub duration: core::time::Duration,
             pub panic_on_trigger: bool,
-            pub subscribed_idle_tasks: enumset::EnumSet<Core>,
+            pub subscribed_idle_tasks: enumset::EnumSet<crate::cpu::Core>,
         }
 
         impl Config {
@@ -421,11 +418,11 @@ pub mod watchdog {
                     subscribed_idle_tasks: {
                         let mut subscribed_idle_tasks = enumset::EnumSet::empty();
                         if cfg!(esp_idf_esp_task_wdt_check_idle_task_cpu0) {
-                            subscribed_idle_tasks |= Core::Core0;
+                            subscribed_idle_tasks |= crate::cpu::Core::Core0;
                         }
                         #[cfg(any(esp32, esp32s3))]
                         if cfg!(esp_idf_esp_task_wdt_check_idle_task_cpu1) {
-                            subscribed_idle_tasks |= Core::Core1;
+                            subscribed_idle_tasks |= crate::cpu::Core::Core1;
                         }
                         subscribed_idle_tasks
                     },
@@ -500,9 +497,9 @@ pub mod watchdog {
         }
 
         #[cfg(esp_idf_version_major = "4")]
-        fn subscribe_idle_tasks(cores: enumset::EnumSet<Core>) -> Result<(), EspError> {
+        fn subscribe_idle_tasks(cores: enumset::EnumSet<crate::cpu::Core>) -> Result<(), EspError> {
             for core in cores {
-                let task = get_idle_task(core);
+                let task = super::get_idle_task(core);
                 esp!(unsafe { esp_task_wdt_add(task) })?;
             }
 
@@ -511,8 +508,8 @@ pub mod watchdog {
 
         #[cfg(esp_idf_version_major = "4")]
         fn unsubscribe_idle_tasks() -> Result<(), EspError> {
-            for core in enumset::EnumSet::<Core>::all() {
-                let task = get_idle_task(core);
+            for core in enumset::EnumSet::<crate::cpu::Core>::all() {
+                let task = super::get_idle_task(core);
                 esp!(unsafe { esp_task_wdt_delete(task) })?;
             }
 
