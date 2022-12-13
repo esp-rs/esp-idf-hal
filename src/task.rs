@@ -328,7 +328,16 @@ impl<'a> Drop for CriticalSectionGuard<'a> {
     }
 }
 
-#[cfg(all(not(feature = "riscv-ulp-hal"), esp_idf_esp_task_wdt))]
+#[cfg(all(
+    not(feature = "riscv-ulp-hal"),
+    any(
+        all(
+            not(any(esp_idf_version_major = "4", esp_idf_version = "5.0")),
+            esp_idf_esp_task_wdt_en
+        ),
+        any(esp_idf_version_major = "4", esp_idf_version = "5.0")
+    )
+))]
 pub mod watchdog {
     //! ## Example
     //!
@@ -336,13 +345,14 @@ pub mod watchdog {
     //! # fn main() -> Result<()> {
     //! let peripherals = Peripherals::take().unwrap();
     //!
-    //! let mut driver = esp_idf_hal::watchdog::task::TWDTDriver::new(
+    //! let config = TWDTConfig {
+    //!     duration: Duration::from_secs(2),
+    //!     panic_on_trigger: true,
+    //!     ..Default::default()
+    //! };
+    //! let mut driver = esp_idf_hal::task::watchdog::TWDTDriver::new(
     //!     peripherals.twdt,
-    //!     WatchdogConfig {
-    //!         duration: Duration::from_secs(2),
-    //!         panic_on_trigger: true,
-    //!         ..Default::default()
-    //!     },
+    //!     &config,
     //! )?;
     //!
     //! let mut watchdog = driver.watch_current_task()?;
@@ -354,7 +364,10 @@ pub mod watchdog {
     //! # }
     //! ```
 
-    use core::{marker::PhantomData, sync::atomic::AtomicUsize};
+    use core::{
+        marker::PhantomData,
+        sync::atomic::{AtomicUsize, Ordering},
+    };
 
     use esp_idf_sys::*;
 
@@ -363,7 +376,6 @@ pub mod watchdog {
     pub type TWDTConfig = config::Config;
 
     mod config {
-
         #[derive(Copy, Clone)]
         pub struct Config {
             pub duration: core::time::Duration,
@@ -374,15 +386,19 @@ pub mod watchdog {
 
         impl Config {
             pub const fn new() -> Self {
-                Default::default()
+                Self::default()
             }
-        }
 
-        impl Default for Config {
-            fn default() -> Self {
+            const fn default() -> Self {
+                #[cfg(esp_idf_esp_task_wdt)]
+                let duration = core::time::Duration::from_secs(
+                    esp_idf_sys::CONFIG_ESP_TASK_WDT_TIMEOUT_S as u64,
+                );
+                #[cfg(not(esp_idf_esp_task_wdt))]
+                let duration = core::time::Duration::from_secs(5);
                 Self {
-                    duration: core::time::Duration::from_secs(CONFIG_ESP_TASK_WDT_TIMEOUT_S as u64),
-                    panic_on_trigger: cfg!(esp_idf_esp_task_wdt_panic), // CONFIG_ESP_TASK_WDT_PANIC
+                    duration,
+                    panic_on_trigger: cfg!(esp_idf_esp_task_wdt_panic),
                     #[cfg(not(esp_idf_version_major = "4"))]
                     subscribed_idle_tasks: {
                         let subscribed_idle_tasks = heapless::Vec::new();
@@ -396,6 +412,12 @@ pub mod watchdog {
                         subscribed_idle_tasks
                     },
                 }
+            }
+        }
+
+        impl Default for Config {
+            fn default() -> Self {
+                Self::default()
             }
         }
 
@@ -416,13 +438,16 @@ pub mod watchdog {
 
     pub trait Twdt {}
 
-    pub struct TWDTDriver<'d>(bool, PhantomData<&'d mut ()>);
+    pub struct TWDTDriver<'d> {
+        init_by_idf: bool,
+        _marker: PhantomData<&'d mut ()>,
+    }
 
     static TWDT_DRIVER_REF_COUNT: AtomicUsize = AtomicUsize::new(0);
 
     impl TWDTDriver<'_> {
         fn init(config: &config::Config) -> Result<Self, EspError> {
-            TWDT_DRIVER_REF_COUNT.fetch_add(1, core::sync::atomic::Ordering::SeqCst);
+            TWDT_DRIVER_REF_COUNT.fetch_add(1, Ordering::SeqCst);
             let init_by_idf = Self::watchdog_is_init_by_idf();
 
             #[cfg(not(esp_idf_version_major = "4"))]
@@ -444,7 +469,10 @@ pub mod watchdog {
                 ))?;
             }
 
-            Ok(Self(init_by_idf, Default::default()))
+            Ok(Self {
+                init_by_idf,
+                _marker: Default::default(),
+            })
         }
     }
 
@@ -462,34 +490,44 @@ pub mod watchdog {
         }
 
         fn watchdog_is_init_by_idf() -> bool {
-            !matches!(
-                unsafe { esp_task_wdt_status(core::ptr::null_mut()) },
-                ESP_ERR_INVALID_STATE
-            )
+            if cfg!(not(any(
+                esp_idf_version_major = "4",
+                esp_idf_version = "5.0"
+            ))) {
+                cfg!(esp_idf_esp_task_wdt_init)
+            } else {
+                #[cfg(any(esp_idf_version_major = "4", esp_idf_version = "5.0"))]
+                !matches!(
+                    unsafe { esp_task_wdt_status(core::ptr::null_mut()) },
+                    ESP_ERR_INVALID_STATE
+                )
+            }
         }
 
         fn deinit(&self) {
-            let init_by_idf = self.0;
-            if !init_by_idf {
-                unsafe { esp!(esp_task_wdt_deinit()) }
+            if !self.init_by_idf {
+                let _ = unsafe { esp!(esp_task_wdt_deinit()) };
             }
         }
     }
 
     impl Clone for TWDTDriver<'_> {
         fn clone(&self) -> Self {
-            TWDT_DRIVER_REF_COUNT.fetch_add(1, core::sync::atomic::Ordering::SeqCst);
-            Self(self.0, Default::default())
+            TWDT_DRIVER_REF_COUNT.fetch_add(1, Ordering::SeqCst);
+            Self {
+                init_by_idf: self.init_by_idf,
+                _marker: Default::default(),
+            }
         }
     }
 
     impl Drop for TWDTDriver<'_> {
         fn drop(&mut self) {
             let refcnt = TWDT_DRIVER_REF_COUNT.fetch_sub(1, Ordering::SeqCst);
-            if refcnt == 1 {
-                self.deinit();
-            } else if refcnt < 1 {
-                unreachable!(); // Bug, should never happen
+            match refcnt {
+                1 => self.deinit(),
+                r if r < 1 => unreachable!(), // Bug, should never happen
+                _ => (),
             }
         }
     }
@@ -516,7 +554,7 @@ pub mod watchdog {
 
     impl Drop for WatchdogSubscription<'_> {
         fn drop(&mut self) {
-            let _ = unsafe { esp_task_wdt_delete(task) };
+            let _ = unsafe { esp_task_wdt_delete(core::ptr::null_mut()) };
         }
     }
 
