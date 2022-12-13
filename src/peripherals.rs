@@ -27,10 +27,7 @@ use crate::uart;
     esp_idf_comp_ulp_enabled
 ))]
 use crate::ulp;
-#[cfg(all(
-    not(feature = "riscv-ulp-hal"),
-    any(esp_idf_esp_task_wdt, esp_idf_esp_int_wdt)
-))]
+#[cfg(all(not(feature = "riscv-ulp-hal"), esp_idf_esp_task_wdt))]
 use crate::watchdog;
 
 pub struct Peripherals {
