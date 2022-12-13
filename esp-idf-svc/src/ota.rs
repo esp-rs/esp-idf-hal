@@ -96,7 +96,7 @@ impl ota::FirmwareInfoLoader for EspFirmwareInfoLoader {
 
             Ok(Newtype(app_desc).into())
         } else {
-            Err(EspError::from(ESP_ERR_INVALID_SIZE as _).unwrap().into())
+            Err(EspError::from_infallible::<ESP_ERR_INVALID_SIZE>().into())
         }
     }
 }
@@ -149,7 +149,7 @@ impl EspOtaUpdate {
         if !self.update_partition.is_null() {
             Ok(())
         } else {
-            Err(EspError::from(ESP_FAIL).unwrap())
+            Err(EspError::from_infallible::<ESP_FAIL>())
         }
     }
 }
@@ -162,7 +162,7 @@ impl EspOta {
         let mut taken = TAKEN.lock();
 
         if *taken {
-            esp!(ESP_ERR_INVALID_STATE)?;
+            return Err(EspError::from_infallible::<ESP_ERR_INVALID_STATE>());
         }
 
         *taken = true;
@@ -254,7 +254,7 @@ impl EspOta {
         };
 
         if partition_iterator.is_null() {
-            esp!(ESP_ERR_NOT_SUPPORTED)?;
+            return Err(EspError::from_infallible::<ESP_ERR_NOT_SUPPORTED>());
         }
 
         let partition = unsafe { esp_partition_get(partition_iterator) };
@@ -322,7 +322,7 @@ impl EspOta {
         if self.0.update_partition.is_null() {
             Ok(())
         } else {
-            Err(EspError::from(ESP_FAIL).unwrap())
+            Err(EspError::from_infallible::<ESP_FAIL>())
         }
     }
 }

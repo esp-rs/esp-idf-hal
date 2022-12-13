@@ -450,7 +450,7 @@ impl<S> EspMqttClient<S> {
 
         let raw_client = unsafe { esp_mqtt_client_init(&c_conf as *const _) };
         if raw_client.is_null() {
-            esp!(ESP_FAIL)?;
+            return Err(EspError::from_infallible::<ESP_FAIL>());
         }
 
         let client = Self {
@@ -556,11 +556,10 @@ impl<S> EspMqttClient<S> {
     }
 
     fn check(result: i32) -> Result<client::MessageId, EspError> {
-        if result < 0 {
-            esp!(result)?;
+        match EspError::from(result) {
+            Some(err) if result < 0 => Err(err),
+            _ => Ok(result as _),
         }
-
-        Ok(result as _)
     }
 }
 
@@ -630,7 +629,7 @@ impl<'a> EspMqttMessage<'a> {
         event: &'a esp_mqtt_event_t,
     ) -> Result<client::Event<EspMqttMessage<'a>>, EspError> {
         match event.event_id {
-            esp_mqtt_event_id_t_MQTT_EVENT_ERROR => Err(EspError::from(ESP_FAIL).unwrap()), // TODO
+            esp_mqtt_event_id_t_MQTT_EVENT_ERROR => Err(EspError::from_infallible::<ESP_FAIL>()), // TODO
             esp_mqtt_event_id_t_MQTT_EVENT_BEFORE_CONNECT => Ok(client::Event::BeforeConnect),
             esp_mqtt_event_id_t_MQTT_EVENT_CONNECTED => {
                 Ok(client::Event::Connected(event.session_present != 0))

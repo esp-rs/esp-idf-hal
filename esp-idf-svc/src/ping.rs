@@ -93,7 +93,7 @@ impl EspPing {
         })?;
 
         if handle.is_null() {
-            return Err(EspError::from(ESP_ERR_INVALID_ARG as _).unwrap());
+            return Err(EspError::from_infallible::<ESP_ERR_INVALID_ARG>());
         }
 
         info!("Ping session established, got handle {:?}", handle);

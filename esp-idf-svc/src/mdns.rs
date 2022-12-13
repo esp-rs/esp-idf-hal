@@ -136,7 +136,7 @@ impl EspMdns {
         let mut taken = TAKEN.lock();
 
         if *taken {
-            esp!(ESP_ERR_INVALID_STATE)?;
+            return Err(EspError::from_infallible::<ESP_ERR_INVALID_STATE>());
         }
 
         info!("Initializing MDNS");

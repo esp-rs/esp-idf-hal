@@ -139,7 +139,7 @@ impl EspHttpConnection {
 
         let raw_client = unsafe { esp_http_client_init(&native_config) };
         if raw_client.is_null() {
-            Err(EspError::from(ESP_FAIL).unwrap())
+            Err(EspError::from_infallible::<ESP_FAIL>())
         } else {
             Ok(Self {
                 raw_client,
@@ -276,32 +276,30 @@ impl EspHttpConnection {
     pub fn read(&mut self, buf: &mut [u8]) -> Result<usize, EspError> {
         self.assert_response();
 
-        let result = unsafe {
+        Self::check(unsafe {
             esp_http_client_read_response(self.raw_client, buf.as_mut_ptr() as _, buf.len() as _)
-        };
-        if result < 0 {
-            esp!(result)?;
-        }
-
-        Ok(result as _)
+        })
     }
 
     pub fn write(&mut self, buf: &[u8]) -> Result<usize, EspError> {
         self.assert_request();
 
-        let result =
-            unsafe { esp_http_client_write(self.raw_client, buf.as_ptr() as _, buf.len() as _) };
-        if result < 0 {
-            esp!(result)?;
-        }
-
-        Ok(result as _)
+        Self::check(unsafe {
+            esp_http_client_write(self.raw_client, buf.as_ptr() as _, buf.len() as _)
+        })
     }
 
     pub fn flush(&mut self) -> Result<(), EspError> {
         self.assert_request();
 
         Ok(())
+    }
+
+    fn check(result: i32) -> Result<usize, EspError> {
+        match EspError::from(result) {
+            Some(err) if result < 0 => Err(err),
+            _ => Ok(result as _),
+        }
     }
 
     extern "C" fn on_events(event: *mut esp_http_client_event_t) -> esp_err_t {
@@ -350,9 +348,7 @@ impl EspHttpConnection {
 
             self.deregister_handler();
 
-            if result < 0 {
-                esp!(result)?;
-            }
+            Self::check(result as _)?;
 
             trace!("Fetched headers: {:?}", self.headers);
 
@@ -507,6 +503,6 @@ impl Connection for EspHttpConnection {
     }
 
     fn raw_connection(&mut self) -> Result<&mut Self::RawConnection, Self::Error> {
-        Err(EspError::from(ESP_FAIL).unwrap().into())
+        Err(EspError::from_infallible::<ESP_FAIL>().into())
     }
 }

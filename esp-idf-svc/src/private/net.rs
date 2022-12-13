@@ -66,7 +66,7 @@ impl TryFrom<Newtype<esp_ip4_addr_t>> for Mask {
         let ip: ipv4::Ipv4Addr = esp_ip.into();
 
         ip.try_into()
-            .map_err(|_| EspError::from(ESP_ERR_INVALID_ARG).unwrap())
+            .map_err(|_| EspError::from_infallible::<ESP_ERR_INVALID_ARG>())
     }
 }
 
@@ -85,7 +85,7 @@ impl TryFrom<Newtype<ip4_addr_t>> for Mask {
         let ip: ipv4::Ipv4Addr = esp_ip.into();
 
         ip.try_into()
-            .map_err(|_| EspError::from(ESP_ERR_INVALID_ARG).unwrap())
+            .map_err(|_| EspError::from_infallible::<ESP_ERR_INVALID_ARG>())
     }
 }
 

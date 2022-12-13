@@ -315,7 +315,7 @@ impl EventLoopHandle<System> {
         let mut taken = TAKEN.lock();
 
         if *taken {
-            esp!(ESP_ERR_INVALID_STATE)?;
+            return Err(EspError::from_infallible::<ESP_ERR_INVALID_STATE>());
         }
 
         esp!(unsafe { esp_event_loop_create_default() })?;
@@ -469,9 +469,7 @@ where
         if result == ESP_ERR_TIMEOUT {
             Ok(false)
         } else {
-            esp!(result)?;
-
-            Ok(true)
+            esp_result!(result, true)
         }
     }
 
@@ -544,7 +542,7 @@ where
             let result = {
                 panic!("Trying to post from an ISR handler. Enable `CONFIG_ESP_EVENT_POST_FROM_ISR` in `sdkconfig.defaults`");
 
-                Err(EspError::from(ESP_FAIL).unwrap())
+                Err(EspError::from_infallible::<ESP_FAIL>())
             };
 
             result

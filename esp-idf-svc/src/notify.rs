@@ -170,7 +170,7 @@ impl EspNotify {
         } else {
             unsafe { Weak::from_raw(registry_weak_ptr) };
 
-            Err(EspError::from(ESP_FAIL).unwrap())
+            Err(EspError::from_infallible::<ESP_FAIL>())
         }
     }
 

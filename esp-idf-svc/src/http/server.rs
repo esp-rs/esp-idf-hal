@@ -953,7 +953,7 @@ pub mod ws {
 
                     Ok(EspHttpWsDetachedSender::new(*sd, fd, closed.clone()))
                 }
-                Self::Closed(_) => Err(EspError::from(ESP_FAIL).unwrap()),
+                Self::Closed(_) => Err(EspError::from_infallible::<ESP_FAIL>()),
             }
         }
 
@@ -968,17 +968,13 @@ pub mod ws {
 
                     Ok(())
                 }
-                _ => {
-                    esp!(ESP_FAIL)?;
-
-                    Ok(())
-                }
+                _ => Err(EspError::from_infallible::<ESP_FAIL>()),
             }
         }
 
         pub fn recv(&mut self, frame_data_buf: &mut [u8]) -> Result<(FrameType, usize), EspError> {
             match self {
-                Self::New(_, _) => Err(EspError::from(ESP_FAIL).unwrap()),
+                Self::New(_, _) => Err(EspError::from_infallible::<ESP_FAIL>()),
                 Self::Receiving(_, raw_req) => {
                     let mut raw_frame: httpd_ws_frame_t = Default::default();
 
@@ -1145,7 +1141,7 @@ pub mod ws {
 
                 esp!((*guard).unwrap())?;
             } else {
-                esp!(ESP_FAIL)?;
+                return Err(EspError::from_infallible::<ESP_FAIL>());
             }
 
             Ok(())

@@ -30,7 +30,7 @@ log = { version = "0.4", default-features = false }
 uncased = "0.9.7"
 anyhow = { version = "1", default-features = false, optional = true } # Only used by the deprecated httpd module
 embedded-svc = { version = "0.24", default-features = false }
-esp-idf-sys = { version = "0.32", default-features = false, features = ["native"] }
+esp-idf-sys = { version = "0.32.1", default-features = false, features = ["native"] }
 esp-idf-hal = { version = "0.40", default-features = false, features = ["esp-idf-sys"] }
 embassy-sync = { version = "0.1", optional = true }
 embassy-time = { version = "0.1", optional = true, features = ["tick-hz-1_000_000"] }

@@ -103,7 +103,7 @@ impl WebSocketClosingReason {
             1009 => Ok(Self::MessageTooBig),
             1010 => Ok(Self::ExtensionNotReturned),
             1011 => Ok(Self::UnexpectedCondition),
-            _ => Err(EspError::from(ESP_ERR_NOT_SUPPORTED).unwrap().into()),
+            _ => Err(EspError::from_infallible::<ESP_ERR_NOT_SUPPORTED>().into()),
         }
     }
 }
@@ -123,7 +123,7 @@ impl<'a> WebSocketEventType<'a> {
         #[allow(non_upper_case_globals)]
         match event_id {
             esp_websocket_event_id_t_WEBSOCKET_EVENT_ERROR => {
-                Err(EspError::from(ESP_FAIL).unwrap().into())
+                Err(EspError::from_infallible::<ESP_FAIL>().into())
             }
             esp_websocket_event_id_t_WEBSOCKET_EVENT_CONNECTED => Ok(Self::Connected),
             esp_websocket_event_id_t_WEBSOCKET_EVENT_DISCONNECTED => Ok(Self::Disconnected),
@@ -137,7 +137,7 @@ impl<'a> WebSocketEventType<'a> {
                         );
                         core::str::from_utf8(slice)
                     }
-                    .map_err(|_| EspError::from(ESP_FAIL).unwrap().into())
+                    .map_err(|_| EspError::from_infallible::<ESP_FAIL>().into())
                     .map(Self::Text),
                     // Binary frame
                     2 => Ok(Self::Binary(unsafe {
@@ -155,11 +155,11 @@ impl<'a> WebSocketEventType<'a> {
                     } else {
                         None
                     })),
-                    _ => Err(EspError::from(ESP_ERR_NOT_FOUND).unwrap().into()),
+                    _ => Err(EspError::from_infallible::<ESP_ERR_NOT_FOUND>().into()),
                 }
             }
             esp_websocket_event_id_t_WEBSOCKET_EVENT_CLOSED => Ok(Self::Closed),
-            _ => Err(EspError::from(ESP_ERR_INVALID_ARG).unwrap().into()),
+            _ => Err(EspError::from_infallible::<ESP_ERR_INVALID_ARG>().into()),
         }
     }
 }
@@ -244,7 +244,7 @@ impl<'a> TryFrom<&'a EspWebSocketClientConfig<'a>> for (esp_websocket_client_con
         #[cfg(esp_idf_version = "4.4")]
         if let Some(if_name) = conf.if_name {
             if !(if_name.len() == 6 && if_name.is_ascii()) {
-                return Err(EspError::from(ESP_ERR_INVALID_ARG).unwrap().into());
+                return Err(EspError::from_infallible::<ESP_ERR_INVALID_ARG>().into());
             }
             let mut s: [ffi::c_char; 6] = [ffi::c_char::default(); 6];
             for (i, c) in if_name.chars().enumerate() {
@@ -430,7 +430,7 @@ impl EspWebSocketClient {
         let handle = unsafe { esp_websocket_client_init(&conf) };
 
         if handle.is_null() {
-            esp!(ESP_FAIL)?;
+            return Err(EspError::from_infallible::<ESP_FAIL>().into());
         }
 
         let client = Self {
@@ -491,11 +491,10 @@ impl EspWebSocketClient {
     }
 
     fn check(result: ffi::c_int) -> Result<usize, EspError> {
-        if result < 0 {
-            esp!(result)?;
+        match EspError::from(result) {
+            Some(err) if result < 0 => Err(err),
+            _ => Ok(result as _),
         }
-
-        Ok(result as _)
     }
 
     fn send_data(&mut self, frame_type: FrameType, frame_data: &[u8]) -> Result<usize, EspError> {

@@ -35,7 +35,7 @@ impl NvsDefault {
         let mut taken = DEFAULT_TAKEN.lock();
 
         if *taken {
-            esp!(ESP_ERR_INVALID_STATE)?;
+            return Err(EspError::from_infallible::<ESP_ERR_INVALID_STATE>());
         }
 
         let default_nvs = Self::init()?;
@@ -90,7 +90,7 @@ impl NvsCustom {
         let c_partition = CString::new(partition).unwrap();
 
         if registrations.contains(c_partition.as_ref()) {
-            return Err(EspError::from(ESP_ERR_INVALID_STATE).unwrap());
+            return Err(EspError::from_infallible::<ESP_ERR_INVALID_STATE>());
         }
 
         unsafe {
@@ -304,7 +304,7 @@ impl<T: NvsPartitionId> EspNvs<T> {
 
                 if buf.len() < len as _ {
                     // Buffer not large enough
-                    return Err(EspError::from(ESP_ERR_NVS_INVALID_LENGTH).unwrap());
+                    return Err(EspError::from_infallible::<ESP_ERR_NVS_INVALID_LENGTH>());
                 }
 
                 u64value >>= 8;

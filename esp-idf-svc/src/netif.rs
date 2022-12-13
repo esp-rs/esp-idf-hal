@@ -472,7 +472,7 @@ impl EspNetif {
         if let Ok(hostname) = CString::new(hostname) {
             esp!(unsafe { esp_netif_set_hostname(self.0, hostname.as_ptr() as *const _) })?;
         } else {
-            esp!(ESP_ERR_INVALID_ARG)?;
+            return Err(EspError::from_infallible::<ESP_ERR_INVALID_ARG>());
         }
 
         Ok(())
