@@ -131,7 +131,7 @@ pub unsafe fn notify(task: TaskHandle_t, notification: u32) -> bool {
     notified != 0
 }
 
-fn get_idle_task(core: crate::cpu::Core) -> TaskHandle_t {
+pub fn get_idle_task(core: crate::cpu::Core) -> TaskHandle_t {
     #[cfg(esp32c3)]
     {
         if matches!(core, crate::cpu::Core::Core0) {
@@ -499,6 +499,7 @@ pub mod watchdog {
             Ok(WatchdogSubscription::new())
         }
 
+        #[cfg(esp_idf_version_major = "4")]
         fn subscribe_idle_tasks(cores: enumset::EnumSet<Core>) -> Result<(), EspError> {
             for core in cores {
                 let task = get_idle_task(core);
@@ -508,6 +509,7 @@ pub mod watchdog {
             Ok(())
         }
 
+        #[cfg(esp_idf_version_major = "4")]
         fn unsubscribe_idle_tasks() -> Result<(), EspError> {
             for core in enumset::EnumSet::<Core>::all() {
                 let task = get_idle_task(core);
