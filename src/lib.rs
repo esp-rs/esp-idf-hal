@@ -62,6 +62,8 @@ pub mod uart;
 #[cfg(all(any(esp32, esp32s2, esp32s3), not(feature = "riscv-ulp-hal")))]
 pub mod ulp;
 pub mod units;
+#[cfg(esp_idf_esp_task_wdt)]
+pub mod watchdog;
 
 #[cfg(feature = "riscv-ulp-hal")]
 pub use crate::riscv_ulp_hal::delay;
