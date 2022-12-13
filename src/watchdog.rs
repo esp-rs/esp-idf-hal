@@ -25,73 +25,60 @@ pub mod task {
 
     use esp_idf_sys::*;
 
-    use crate::cpu::Core;
-
     pub struct WatchdogConfig {
         pub duration: core::time::Duration,
         pub panic_on_trigger: bool,
-        // unused by now
-        pub cores: heapless::Vec<Core, 2>,
+        #[cfg(not(esp_idf_version_major = "4"))]
+        pub subscribed_idle_tasks: heapless::Vec<crate::task::IdleTask, 2>,
     }
 
     impl Default for WatchdogConfig {
         fn default() -> Self {
-            let mut cores = heapless::Vec::new();
-            if CONFIG_ESP_TASK_WDT_CHECK_IDLE_TASK_CPU0 == 1 {
-                cores.push(Core::Core0).unwrap();
-            }
-            #[cfg(any(esp32, esp32s3))]
-            if CONFIG_ESP_TASK_WDT_CHECK_IDLE_TASK_CPU1 == 1 {
-                cores.push(Core::Core1).unwrap();
-            }
             Self {
                 duration: core::time::Duration::from_secs(CONFIG_ESP_TASK_WDT_TIMEOUT_S as u64),
                 panic_on_trigger: false, // CONFIG_ESP_TASK_WDT_PANIC
-                cores,
+                #[cfg(not(esp_idf_version_major = "4"))]
+                subscribed_idle_tasks: {
+                    let subscribed_idle_tasks = heapless::Vec::new();
+                    if cfg!(esp_idf_esp_task_wdt_check_idle_task_cpu0) {
+                        subscribed_idle_tasks
+                            .push(crate::task::IdleTask::Core0)
+                            .unwrap();
+                    }
+                    #[cfg(any(esp32, esp32s3))]
+                    if cfg!(esp_idf_esp_task_wdt_check_idle_task_cpu1) {
+                        subscribed_idle_tasks
+                            .push(crate::task::IdleTask::Core1)
+                            .unwrap();
+                    }
+                    subscribed_idle_tasks
+                },
             }
         }
     }
 
-    #[cfg(esp_idf_version = "master")]
+    #[cfg(not(esp_idf_version_major = "4"))]
     impl From<WatchdogConfig> for esp_task_wdt_config_t {
         fn from(value: WatchdogConfig) -> Self {
             esp_task_wdt_config_t {
                 timeout_ms: value.duration.as_millis() as u32,
                 trigger_panic: value.panic_on_trigger,
                 idle_core_mask: value
-                    .cores
+                    .subscribed_idle_tasks
                     .iter()
                     .fold(0u32, |mask, core| mask & (1 << (*core as u32))),
             }
         }
     }
 
-    #[cfg(feature = "riscv-ulp-hal")]
-    static mut TAKEN: bool = false;
-
-    #[cfg(not(feature = "riscv-ulp-hal"))]
     static TAKEN: core::sync::atomic::AtomicBool = core::sync::atomic::AtomicBool::new(false);
 
-    #[cfg(not(feature = "riscv-ulp-hal"))]
     static TAKEN_CS: crate::task::CriticalSection = crate::task::CriticalSection::new();
 
     #[derive(Debug, Clone)]
     pub struct TaskWatchdog;
 
     impl TaskWatchdog {
-        #[cfg(feature = "riscv-ulp-hal")]
-        pub fn take() -> Result<Option<Self>, EspError> {
-            if unsafe { TAKEN } {
-                None
-            } else {
-                unsafe {
-                    TAKEN = true;
-                }
-                Some(Self::init())
-            }
-        }
-
-        #[cfg(not(feature = "riscv-ulp-hal"))]
         pub fn take() -> Result<Option<Self>, EspError> {
             if TAKEN.load(core::sync::atomic::Ordering::SeqCst) {
                 Ok(None)
