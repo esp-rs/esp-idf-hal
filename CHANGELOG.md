@@ -5,6 +5,10 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.40.1] - 2022-12-13
+
+Fix the build when the ULP peripheral is enabled.
+
 ## [0.40] - 2022-12-09
 
 Rebase on top of `esp-idf-sys` 0.32:
