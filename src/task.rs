@@ -476,7 +476,9 @@ pub mod watchdog {
             })?;
 
             #[cfg(esp_idf_version_major = "4")]
-            Self::subscribe_idle_tasks(config.subscribed_idle_tasks)?;
+            if !init_by_idf {
+                Self::subscribe_idle_tasks(config.subscribed_idle_tasks)?;
+            }
 
             Ok(Self {
                 init_by_idf,
