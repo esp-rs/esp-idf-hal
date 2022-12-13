@@ -711,7 +711,7 @@ impl<'d> UartRxDriver<'d> {
         if len >= 0 {
             Ok(len as usize)
         } else {
-            Err(EspError::from(ESP_ERR_INVALID_STATE).unwrap())
+            Err(EspError::from_infallible::<ESP_ERR_INVALID_STATE>())
         }
     }
 
@@ -831,7 +831,7 @@ impl<'d> UartTxDriver<'d> {
         if len >= 0 {
             Ok(len as usize)
         } else {
-            Err(EspError::from(ESP_ERR_INVALID_STATE).unwrap())
+            Err(EspError::from_infallible::<ESP_ERR_INVALID_STATE>())
         }
     }
 
