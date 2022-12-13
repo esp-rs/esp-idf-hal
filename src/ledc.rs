@@ -198,7 +198,7 @@ impl<'d> LedcDriver<'d> {
         };
 
         if !FADE_FUNC_INSTALLED.load(Ordering::SeqCst) {
-            let _ = FADE_FUNC_INSTALLED_CS.enter();
+            let _guard = FADE_FUNC_INSTALLED_CS.enter();
 
             if !FADE_FUNC_INSTALLED.load(Ordering::SeqCst) {
                 // It looks like ledc_channel_config requires the face function to

@@ -1232,7 +1232,7 @@ fn enable_isr_service() -> Result<(), EspError> {
     use core::sync::atomic::Ordering;
 
     if !ISR_SERVICE_ENABLED.load(Ordering::SeqCst) {
-        let _ = ISR_SERVICE_ENABLED_CS.enter();
+        let _guard = ISR_SERVICE_ENABLED_CS.enter();
 
         if !ISR_SERVICE_ENABLED.load(Ordering::SeqCst) {
             esp!(unsafe { gpio_install_isr_service(0) })?;

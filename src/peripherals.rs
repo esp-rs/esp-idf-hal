@@ -120,7 +120,7 @@ impl Peripherals {
         if TAKEN.load(core::sync::atomic::Ordering::SeqCst) {
             None
         } else {
-            let _ = TAKEN_CS.enter();
+            let _guard = TAKEN_CS.enter();
 
             if !TAKEN.load(core::sync::atomic::Ordering::SeqCst) {
                 TAKEN.store(true, core::sync::atomic::Ordering::SeqCst);
