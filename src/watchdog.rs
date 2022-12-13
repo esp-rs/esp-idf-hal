@@ -177,9 +177,9 @@ pub mod task {
     }
 
     pub fn is_initialized() -> bool {
-        match unsafe { esp_task_wdt_status(core::ptr::null_mut()) } {
-            ESP_ERR_INVALID_STATE => false,
-            _ => true,
-        }
+        !matches!(
+            unsafe { esp_task_wdt_status(core::ptr::null_mut()) },
+            ESP_ERR_INVALID_STATE
+        )
     }
 }
