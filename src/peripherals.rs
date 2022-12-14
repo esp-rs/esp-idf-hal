@@ -17,6 +17,17 @@ use crate::modem;
 use crate::rmt;
 #[cfg(not(feature = "riscv-ulp-hal"))]
 use crate::spi;
+#[cfg(all(
+    not(feature = "riscv-ulp-hal"),
+    any(
+        all(
+            not(any(esp_idf_version_major = "4", esp_idf_version = "5.0")),
+            esp_idf_esp_task_wdt_en
+        ),
+        any(esp_idf_version_major = "4", esp_idf_version = "5.0")
+    )
+))]
+use crate::task::watchdog;
 #[cfg(not(feature = "riscv-ulp-hal"))]
 use crate::timer;
 #[cfg(not(feature = "riscv-ulp-hal"))]
@@ -91,6 +102,17 @@ pub struct Peripherals {
         not(feature = "embassy-time-isr-queue-timer11")
     ))]
     pub timer11: timer::TIMER11,
+    #[cfg(all(
+        not(feature = "riscv-ulp-hal"),
+        any(
+            all(
+                not(any(esp_idf_version_major = "4", esp_idf_version = "5.0")),
+                esp_idf_esp_task_wdt_en
+            ),
+            any(esp_idf_version_major = "4", esp_idf_version = "5.0")
+        )
+    ))]
+    pub twdt: watchdog::TWDT,
 }
 
 #[cfg(feature = "riscv-ulp-hal")]
@@ -199,6 +221,17 @@ impl Peripherals {
                 not(feature = "embassy-time-isr-queue-timer11")
             ))]
             timer11: timer::TIMER11::new(),
+            #[cfg(all(
+                not(feature = "riscv-ulp-hal"),
+                any(
+                    all(
+                        not(any(esp_idf_version_major = "4", esp_idf_version = "5.0")),
+                        esp_idf_esp_task_wdt_en
+                    ),
+                    any(esp_idf_version_major = "4", esp_idf_version = "5.0")
+                )
+            ))]
+            twdt: watchdog::TWDT::new(),
         }
     }
 }
