@@ -19,6 +19,14 @@ pub mod config {
         pub divider: u32,
         #[cfg(any(esp32s2, esp32s3, esp32c3))]
         pub xtal: bool,
+
+        /// Enable or disable counter reload function when alarm event occurs.
+        ///
+        /// Enabling this makes the hardware automatically reset the counter
+        /// to the value set by [`TimerDriver::set_counter`](super::TimerDriver::set_counter) when the alarm is fired.
+        /// This allows creating timers that automatically fire at a given interval
+        /// without the software having to do anything after the timer setup.
+        pub auto_reload: bool,
     }
 
     impl Config {
@@ -38,6 +46,12 @@ pub mod config {
             self.xtal = xtal;
             self
         }
+
+        #[must_use]
+        pub fn auto_reload(mut self, auto_reload: bool) -> Self {
+            self.auto_reload = auto_reload;
+            self
+        }
     }
 
     impl Default for Config {
@@ -46,6 +60,7 @@ pub mod config {
                 divider: 80,
                 #[cfg(any(esp32s2, esp32s3, esp32c3))]
                 xtal: false,
+                auto_reload: false,
             }
         }
     }
@@ -74,7 +89,11 @@ impl<'d> TimerDriver<'d> {
                     alarm_en: timer_alarm_t_TIMER_ALARM_DIS,
                     counter_en: timer_start_t_TIMER_PAUSE,
                     counter_dir: timer_count_dir_t_TIMER_COUNT_UP,
-                    auto_reload: timer_autoreload_t_TIMER_AUTORELOAD_DIS,
+                    auto_reload: if config.auto_reload {
+                        timer_autoreload_t_TIMER_AUTORELOAD_EN
+                    } else {
+                        timer_autoreload_t_TIMER_AUTORELOAD_DIS
+                    },
                     intr_type: timer_intr_mode_t_TIMER_INTR_LEVEL,
                     divider: config.divider,
                     #[cfg(all(any(esp32s2, esp32s3, esp32c3), esp_idf_version_major = "4"))]
