@@ -776,12 +776,6 @@ where
     }
 }
 
-impl<'d, T> Drop for SpiDeviceDriver<'d, T> {
-    fn drop(&mut self) {
-        esp!(unsafe { spi_bus_remove_device(self.handle) }).unwrap();
-    }
-}
-
 pub struct SpiSharedDeviceDriver<'d, T> {
     driver: UnsafeCell<SpiDeviceDriver<'d, T>>,
     cs: CriticalSection,
