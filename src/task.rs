@@ -131,6 +131,22 @@ pub unsafe fn notify(task: TaskHandle_t, notification: u32) -> bool {
     notified != 0
 }
 
+pub fn get_idle_task(core: crate::cpu::Core) -> TaskHandle_t {
+    #[cfg(esp32c3)]
+    {
+        if matches!(core, crate::cpu::Core::Core0) {
+            unsafe { xTaskGetIdleTaskHandle() }
+        } else {
+            unreachable!()
+        }
+    }
+
+    #[cfg(any(esp32, esp32s2, esp32s3))]
+    unsafe {
+        xTaskGetIdleTaskHandleForCPU(core as u32)
+    }
+}
+
 #[cfg(esp_idf_comp_pthread_enabled)]
 pub mod thread {
     use esp_idf_sys::*;
@@ -326,6 +342,259 @@ impl<'a> Drop for CriticalSectionGuard<'a> {
     fn drop(&mut self) {
         exit(self.0);
     }
+}
+
+#[cfg(all(
+    not(feature = "riscv-ulp-hal"),
+    any(
+        all(
+            not(any(esp_idf_version_major = "4", esp_idf_version = "5.0")),
+            esp_idf_esp_task_wdt_en
+        ),
+        any(esp_idf_version_major = "4", esp_idf_version = "5.0")
+    )
+))]
+pub mod watchdog {
+    //! ## Example
+    //!
+    //! ```rust, ignore
+    //! # fn main() -> Result<()> {
+    //! let peripherals = Peripherals::take().unwrap();
+    //!
+    //! let config = TWDTConfig {
+    //!     duration: Duration::from_secs(2),
+    //!     panic_on_trigger: true,
+    //!     subscribed_idle_tasks: enum_set!(Core::Core0)
+    //! };
+    //! let mut driver = esp_idf_hal::task::watchdog::TWDTDriver::new(
+    //!     peripherals.twdt,
+    //!     &config,
+    //! )?;
+    //!
+    //! let mut watchdog = driver.watch_current_task()?;
+    //!
+    //! loop {
+    //!     watchdog.feed();
+    //!     unsafe { vTaskDelay(1) };
+    //! }
+    //! # }
+    //! ```
+
+    use core::{
+        marker::PhantomData,
+        sync::atomic::{AtomicUsize, Ordering},
+    };
+
+    use esp_idf_sys::*;
+
+    use crate::peripheral::Peripheral;
+
+    pub type TWDTConfig = config::Config;
+
+    pub mod config {
+
+        #[cfg(not(esp_idf_version_major = "4"))]
+        use esp_idf_sys::*;
+
+        #[derive(Clone)]
+        pub struct Config {
+            pub duration: core::time::Duration,
+            pub panic_on_trigger: bool,
+            pub subscribed_idle_tasks: enumset::EnumSet<crate::cpu::Core>,
+        }
+
+        impl Config {
+            // Could be const if enumset operations are const
+            pub fn new() -> Self {
+                #[cfg(esp_idf_esp_task_wdt)]
+                let duration = core::time::Duration::from_secs(
+                    esp_idf_sys::CONFIG_ESP_TASK_WDT_TIMEOUT_S as u64,
+                );
+                #[cfg(not(esp_idf_esp_task_wdt))]
+                let duration = core::time::Duration::from_secs(5);
+                Self {
+                    duration,
+                    panic_on_trigger: cfg!(esp_idf_esp_task_wdt_panic),
+                    subscribed_idle_tasks: {
+                        let mut subscribed_idle_tasks = enumset::EnumSet::empty();
+                        if cfg!(esp_idf_esp_task_wdt_check_idle_task_cpu0) {
+                            subscribed_idle_tasks |= crate::cpu::Core::Core0;
+                        }
+                        #[cfg(any(esp32, esp32s3))]
+                        if cfg!(esp_idf_esp_task_wdt_check_idle_task_cpu1) {
+                            subscribed_idle_tasks |= crate::cpu::Core::Core1;
+                        }
+                        subscribed_idle_tasks
+                    },
+                }
+            }
+        }
+
+        impl Default for Config {
+            fn default() -> Self {
+                Self::new()
+            }
+        }
+
+        #[cfg(not(esp_idf_version_major = "4"))]
+        impl From<&Config> for esp_task_wdt_config_t {
+            fn from(config: &Config) -> Self {
+                esp_task_wdt_config_t {
+                    timeout_ms: config.duration.as_millis() as u32,
+                    trigger_panic: config.panic_on_trigger,
+                    idle_core_mask: config.subscribed_idle_tasks.as_u32(),
+                }
+            }
+        }
+    }
+
+    pub struct TWDTDriver<'d> {
+        init_by_idf: bool,
+        _marker: PhantomData<&'d mut ()>,
+    }
+
+    static TWDT_DRIVER_REF_COUNT: AtomicUsize = AtomicUsize::new(0);
+
+    impl<'d> TWDTDriver<'d> {
+        pub fn new(
+            _twdt: impl Peripheral<P = TWDT> + 'd,
+            config: &config::Config,
+        ) -> Result<Self, EspError> {
+            TWDT_DRIVER_REF_COUNT.fetch_add(1, Ordering::SeqCst);
+            let init_by_idf = Self::watchdog_is_init_by_idf();
+
+            #[cfg(not(esp_idf_version_major = "4"))]
+            if !init_by_idf {
+                esp!(unsafe { esp_task_wdt_init(&config.into() as *const esp_task_wdt_config_t) })?;
+            } else {
+                esp!(unsafe {
+                    esp_task_wdt_reconfigure(&config.into() as *const esp_task_wdt_config_t)
+                })?;
+            }
+
+            #[cfg(esp_idf_version_major = "4")]
+            esp!(unsafe {
+                esp_task_wdt_init(config.duration.as_secs() as u32, config.panic_on_trigger)
+            })?;
+
+            #[cfg(esp_idf_version_major = "4")]
+            if let Err(e) = Self::subscribe_idle_tasks(config.subscribed_idle_tasks) {
+                // error task already subscribed could occur but it's ok (not checking if tasks already subscribed before)
+                if e.code() != ESP_ERR_INVALID_ARG {
+                    return Err(e);
+                }
+            }
+
+            Ok(Self {
+                init_by_idf,
+                _marker: Default::default(),
+            })
+        }
+
+        pub fn watch_current_task(&mut self) -> Result<WatchdogSubscription<'_>, EspError> {
+            esp!(unsafe { esp_task_wdt_add(core::ptr::null_mut()) })?;
+            Ok(WatchdogSubscription::new())
+        }
+
+        #[cfg(esp_idf_version_major = "4")]
+        fn subscribe_idle_tasks(cores: enumset::EnumSet<crate::cpu::Core>) -> Result<(), EspError> {
+            for core in cores {
+                let task = super::get_idle_task(core);
+                esp!(unsafe { esp_task_wdt_add(task) })?;
+            }
+
+            Ok(())
+        }
+
+        #[cfg(esp_idf_version_major = "4")]
+        fn unsubscribe_idle_tasks() -> Result<(), EspError> {
+            for core in enumset::EnumSet::<crate::cpu::Core>::all() {
+                let task = super::get_idle_task(core);
+                esp!(unsafe { esp_task_wdt_delete(task) })?;
+            }
+
+            Ok(())
+        }
+
+        fn watchdog_is_init_by_idf() -> bool {
+            if cfg!(not(any(
+                esp_idf_version_major = "4",
+                esp_idf_version = "5.0"
+            ))) {
+                cfg!(esp_idf_esp_task_wdt_init)
+            } else {
+                #[cfg(any(esp_idf_version_major = "4", esp_idf_version = "5.0"))]
+                !matches!(
+                    unsafe { esp_task_wdt_status(core::ptr::null_mut()) },
+                    ESP_ERR_INVALID_STATE
+                )
+            }
+        }
+
+        fn deinit(&self) -> Result<(), EspError> {
+            if !self.init_by_idf {
+                #[cfg(esp_idf_version_major = "4")]
+                if let Err(e) = Self::unsubscribe_idle_tasks() {
+                    // error task not subscribed could occur but it's ok (not checking if tasks subscribed before)
+                    if e.code() != ESP_ERR_INVALID_ARG {
+                        return Err(e);
+                    }
+                }
+                esp!(unsafe { esp_task_wdt_deinit() }).unwrap();
+            }
+
+            Ok(())
+        }
+    }
+
+    impl Clone for TWDTDriver<'_> {
+        fn clone(&self) -> Self {
+            TWDT_DRIVER_REF_COUNT.fetch_add(1, Ordering::SeqCst);
+            Self {
+                init_by_idf: self.init_by_idf,
+                _marker: Default::default(),
+            }
+        }
+    }
+
+    impl Drop for TWDTDriver<'_> {
+        fn drop(&mut self) {
+            let refcnt = TWDT_DRIVER_REF_COUNT.fetch_sub(1, Ordering::SeqCst);
+            match refcnt {
+                1 => self.deinit().unwrap(),
+                r if r < 1 => unreachable!(), // Bug, should never happen
+                _ => (),
+            }
+        }
+    }
+
+    unsafe impl Send for TWDTDriver<'_> {}
+
+    pub struct WatchdogSubscription<'s>(PhantomData<&'s mut ()>);
+
+    impl WatchdogSubscription<'_> {
+        fn new() -> Self {
+            Self(Default::default())
+        }
+
+        pub fn feed(&mut self) -> Result<(), EspError> {
+            esp!(unsafe { esp_task_wdt_reset() })
+        }
+    }
+
+    impl embedded_hal_0_2::watchdog::Watchdog for WatchdogSubscription<'_> {
+        fn feed(&mut self) {
+            Self::feed(self).unwrap()
+        }
+    }
+
+    impl Drop for WatchdogSubscription<'_> {
+        fn drop(&mut self) {
+            esp!(unsafe { esp_task_wdt_delete(core::ptr::null_mut()) }).unwrap();
+        }
+    }
+
+    crate::impl_peripheral!(TWDT);
 }
 
 #[cfg(feature = "critical-section")]
