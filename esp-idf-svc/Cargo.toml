@@ -21,7 +21,7 @@ alloc = ["anyhow", "esp-idf-hal/alloc", "embedded-svc/alloc"]
 nightly = ["embedded-svc/nightly"]
 experimental = ["embedded-svc/experimental"]
 embassy-time-driver = ["embassy-time"]
-embassy-time-isr-queue = ["embassy-sync", "embassy-time"]
+embassy-time-isr-queue = ["embassy-sync", "embassy-time", "esp-idf-hal/embassy-sync"]
 
 [dependencies]
 heapless = { version = "0.7", default-features = false }
