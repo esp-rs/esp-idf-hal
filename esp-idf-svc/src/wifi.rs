@@ -160,14 +160,14 @@ impl From<&ClientConfiguration> for Newtype<wifi_sta_config_t> {
         let mut result = wifi_sta_config_t {
             ssid: [0; 32],
             password: [0; 64],
-            scan_method: wifi_scan_method_t_WIFI_FAST_SCAN,
+            scan_method: wifi_scan_method_t_WIFI_ALL_CHANNEL_SCAN,
             bssid_set: conf.bssid.is_some(),
             bssid,
             channel: conf.channel.unwrap_or(0u8),
             listen_interval: 0,
             sort_method: wifi_sort_method_t_WIFI_CONNECT_AP_BY_SIGNAL,
             threshold: wifi_scan_threshold_t {
-                rssi: 127,
+                rssi: -127,
                 authmode: Newtype::<wifi_auth_mode_t>::from(conf.auth_method).0,
             },
             pmf_cfg: wifi_pmf_config_t {
