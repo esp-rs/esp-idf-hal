@@ -1,6 +1,6 @@
 //! GPIO and pin configuration
 
-use core::{ffi::c_void, marker::PhantomData};
+use core::marker::PhantomData;
 
 #[cfg(feature = "alloc")]
 extern crate alloc;
@@ -1032,7 +1032,7 @@ impl<'d, T: Pin, MODE> PinDriver<'d, T, MODE> {
     }
 
     #[cfg(all(not(feature = "riscv-ulp-hal"), feature = "alloc"))]
-    unsafe extern "C" fn handle_isr(unsafe_callback: *mut c_void) {
+    unsafe extern "C" fn handle_isr(unsafe_callback: *mut ffi::c_void) {
         let mut unsafe_callback = UnsafeCallback::from_ptr(unsafe_callback);
         unsafe_callback.call();
     }
@@ -1205,11 +1205,11 @@ impl UnsafeCallback {
         Self(boxed.as_mut())
     }
 
-    pub unsafe fn from_ptr(ptr: *mut c_void) -> Self {
+    pub unsafe fn from_ptr(ptr: *mut ffi::c_void) -> Self {
         Self(ptr.cast())
     }
 
-    pub fn as_ptr(&self) -> *mut c_void {
+    pub fn as_ptr(&self) -> *mut ffi::c_void {
         self.0.cast()
     }
 
