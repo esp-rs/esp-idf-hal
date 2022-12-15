@@ -31,27 +31,21 @@ use crate::private::mutex;
 use crate::private::waitable::*;
 
 pub mod config {
+    use core::time::Duration;
 
     use esp_idf_sys::*;
 
-    #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-    #[repr(u32)]
+    #[derive(Clone, Debug, PartialEq, Eq)]
     pub enum ScanType {
-        Active = 0,
-        Passive = 1,
+        Active { min: Duration, max: Duration },
+        Passive(Duration),
     }
 
     impl ScanType {
         pub const fn new() -> Self {
-            Self::Active
-        }
-    }
-
-    impl From<ScanType> for u32 {
-        fn from(s: ScanType) -> Self {
-            match s {
-                ScanType::Active => 0,
-                ScanType::Passive => 1,
+            Self::Active {
+                min: Duration::from_secs(0),
+                max: Duration::from_secs(0),
             }
         }
     }
@@ -63,33 +57,11 @@ pub mod config {
     }
 
     #[derive(Clone, Debug, PartialEq, Eq)]
-    pub struct ScanTime {
-        pub active: (u32, u32),
-        pub passive: u32,
-    }
-
-    impl ScanTime {
-        pub const fn new() -> Self {
-            Self {
-                active: (0, 0),
-                passive: 0,
-            }
-        }
-    }
-
-    impl Default for ScanTime {
-        fn default() -> Self {
-            Self::new()
-        }
-    }
-
-    #[derive(Clone, Debug, PartialEq, Eq)]
     pub struct ScanConfig {
         pub bssid: Option<[u8; 6]>,
         pub ssid: Option<heapless::String<32>>,
         pub channel: Option<u8>,
         pub scan_type: ScanType,
-        pub scan_time: ScanTime,
         pub show_hidden: bool,
     }
 
@@ -100,7 +72,6 @@ pub mod config {
                 ssid: None,
                 channel: None,
                 scan_type: ScanType::new(),
-                scan_time: ScanTime::new(),
                 show_hidden: false,
             }
         }
@@ -119,13 +90,26 @@ pub mod config {
                 ssid: s.ssid.as_ref().map_or(core::ptr::null(), |v| v.as_ptr()) as *mut u8,
                 scan_time: wifi_scan_time_t {
                     active: wifi_active_scan_time_t {
-                        min: s.scan_time.active.0,
-                        max: s.scan_time.active.1,
+                        min: match s.scan_type {
+                            ScanType::Active { min, .. } => min.as_millis() as _,
+                            _ => 0,
+                        },
+                        max: match s.scan_type {
+                            ScanType::Active { max, .. } => max.as_millis() as _,
+                            _ => 0,
+                        },
                     },
-                    passive: s.scan_time.passive,
+                    passive: match s.scan_type {
+                        ScanType::Passive(time) => time.as_millis() as _,
+                        _ => 0,
+                    },
                 },
                 channel: s.channel.unwrap_or_default(),
-                scan_type: s.scan_type.into(),
+                scan_type: if matches!(s.scan_type, ScanType::Active { .. }) {
+                    0
+                } else {
+                    1
+                },
                 show_hidden: s.show_hidden,
             }
         }
@@ -625,35 +609,38 @@ impl<'d> WifiDriver<'d> {
 
     pub fn scan_n<const N: usize>(
         &mut self,
-        scan_config: &config::ScanConfig,
     ) -> Result<(heapless::Vec<AccessPointInfo, N>, usize), EspError> {
-        self.do_scan_blocking(scan_config)?;
+        self.start_scan(&Default::default(), true)?;
         self.get_scan_result_n()
     }
 
     #[cfg(feature = "alloc")]
-    pub fn scan(
-        &mut self,
-        scan_config: &config::ScanConfig,
-    ) -> Result<alloc::vec::Vec<AccessPointInfo>, EspError> {
-        self.do_scan_blocking(scan_config)?;
+    pub fn scan(&mut self) -> Result<alloc::vec::Vec<AccessPointInfo>, EspError> {
+        self.start_scan(&Default::default(), true)?;
         self.get_scan_result()
     }
 
-    pub fn start_scan(&mut self, scan_config: &config::ScanConfig) -> Result<(), EspError> {
+    pub fn start_scan(
+        &mut self,
+        scan_config: &config::ScanConfig,
+        blocking: bool,
+    ) -> Result<(), EspError> {
         info!("About to scan for access points");
+
         let scan_config: wifi_scan_config_t = scan_config.into();
-        esp!(unsafe { esp_wifi_scan_start(&scan_config as *const wifi_scan_config_t, false) })
+        esp!(unsafe { esp_wifi_scan_start(&scan_config as *const wifi_scan_config_t, blocking) })
     }
 
     pub fn stop_scan(&mut self) -> Result<(), EspError> {
+        info!("About to stop scan for access points");
+
         esp!(unsafe { esp_wifi_scan_stop() })
     }
 
     pub fn get_scan_result_n<const N: usize>(
         &mut self,
     ) -> Result<(heapless::Vec<AccessPointInfo, N>, usize), EspError> {
-        let scanned_count = self.do_get_scan_count()?;
+        let scanned_count = self.get_scan_count()?;
 
         let mut ap_infos_raw: heapless::Vec<wifi_ap_record_t, N> = heapless::Vec::new();
         unsafe {
@@ -673,7 +660,7 @@ impl<'d> WifiDriver<'d> {
 
     #[cfg(feature = "alloc")]
     pub fn get_scan_result(&mut self) -> Result<alloc::vec::Vec<AccessPointInfo>, EspError> {
-        let scanned_count = self.do_get_scan_count()?;
+        let scanned_count = self.get_scan_count()?;
 
         let mut ap_infos_raw: alloc::vec::Vec<wifi_ap_record_t> =
             alloc::vec::Vec::with_capacity(scanned_count);
@@ -814,27 +801,7 @@ impl<'d> WifiDriver<'d> {
         Ok(())
     }
 
-    fn do_scan_blocking(&mut self, scan_config: &config::ScanConfig) -> Result<(), EspError> {
-        info!("About to scan for access points");
-
-        let _ = self.disconnect();
-        let _ = self.stop();
-
-        unsafe {
-            esp!(esp_wifi_set_mode(wifi_mode_t_WIFI_MODE_STA))?;
-            esp!(esp_wifi_start())?;
-        }
-
-        let scan_config: wifi_scan_config_t = scan_config.into();
-        unsafe {
-            esp!(esp_wifi_scan_start(
-                &scan_config as *const wifi_scan_config_t,
-                true
-            ))
-        }
-    }
-
-    fn do_get_scan_count(&mut self) -> Result<usize, EspError> {
+    fn get_scan_count(&mut self) -> Result<usize, EspError> {
         let mut found_ap: u16 = 0;
         esp!(unsafe { esp_wifi_scan_get_ap_num(&mut found_ap as *mut _) })?;
 
@@ -954,12 +921,12 @@ impl<'d> Wifi for WifiDriver<'d> {
     fn scan_n<const N: usize>(
         &mut self,
     ) -> Result<(heapless::Vec<AccessPointInfo, N>, usize), Self::Error> {
-        WifiDriver::scan_n(self, &config::ScanConfig::default())
+        WifiDriver::scan_n(self)
     }
 
     #[cfg(feature = "alloc")]
     fn scan(&mut self) -> Result<alloc::vec::Vec<AccessPointInfo>, Self::Error> {
-        WifiDriver::scan(self, &config::ScanConfig::default())
+        WifiDriver::scan(self)
     }
 }
 
@@ -1096,23 +1063,25 @@ impl<'d> EspWifi<'d> {
         self.driver_mut().disconnect()
     }
 
+    // For backwards compatibility
     pub fn scan_n<const N: usize>(
         &mut self,
-        scan_config: &config::ScanConfig,
     ) -> Result<(heapless::Vec<AccessPointInfo, N>, usize), EspError> {
-        self.driver_mut().scan_n(scan_config)
+        self.driver_mut().scan_n()
     }
 
+    // For backwards compatibility
     #[cfg(feature = "alloc")]
-    pub fn scan(
+    pub fn scan(&mut self) -> Result<alloc::vec::Vec<AccessPointInfo>, EspError> {
+        self.driver_mut().scan()
+    }
+
+    pub fn start_scan(
         &mut self,
         scan_config: &config::ScanConfig,
-    ) -> Result<alloc::vec::Vec<AccessPointInfo>, EspError> {
-        self.driver_mut().scan(scan_config)
-    }
-
-    pub fn start_scan(&mut self, scan_config: &config::ScanConfig) -> Result<(), EspError> {
-        self.driver_mut().start_scan(scan_config)
+        blocking: bool,
+    ) -> Result<(), EspError> {
+        self.driver_mut().start_scan(scan_config, blocking)
     }
 
     pub fn stop_scan(&mut self) -> Result<(), EspError> {
@@ -1213,11 +1182,11 @@ impl<'d> Wifi for EspWifi<'d> {
     fn scan_n<const N: usize>(
         &mut self,
     ) -> Result<(heapless::Vec<AccessPointInfo, N>, usize), Self::Error> {
-        EspWifi::scan_n(self, &config::ScanConfig::default())
+        EspWifi::scan_n(self)
     }
 
     fn scan(&mut self) -> Result<alloc::vec::Vec<AccessPointInfo>, Self::Error> {
-        EspWifi::scan(self, &config::ScanConfig::default())
+        EspWifi::scan(self)
     }
 }
 
