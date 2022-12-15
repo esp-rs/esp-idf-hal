@@ -565,9 +565,6 @@ impl<'d> WifiDriver<'d> {
     pub fn set_configuration(&mut self, conf: &Configuration) -> Result<(), EspError> {
         info!("Setting configuration: {:?}", conf);
 
-        let _ = self.disconnect();
-        let _ = self.stop();
-
         match conf {
             Configuration::None => {
                 unsafe {
