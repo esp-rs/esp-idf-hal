@@ -523,7 +523,6 @@ pub mod watchdog {
             ))) {
                 cfg!(esp_idf_esp_task_wdt_init)
             } else {
-                #[cfg(any(esp_idf_version_major = "4", esp_idf_version = "5.0"))]
                 !matches!(
                     unsafe { esp_task_wdt_status(core::ptr::null_mut()) },
                     ESP_ERR_INVALID_STATE
