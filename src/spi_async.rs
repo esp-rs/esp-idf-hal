@@ -23,7 +23,6 @@ pub struct SpiBusDriver<T> {
     trans_len: usize,
 }
 
-// TODO: IRAM
 unsafe extern "C" fn post_transaction(transaction: *mut spi_transaction_t) {
     let transaction = unsafe { transaction.as_mut() }.unwrap();
 
@@ -516,7 +515,6 @@ struct IsrMutexGuard<'a, T: ?Sized + 'a> {
     mutex: &'a IsrMutex<T>,
 }
 
-// TODO: Make these interrupt safe. i.e. IRAM
 impl<T> IsrMutex<T> {
     fn new(data: T) -> Self {
         Self {
