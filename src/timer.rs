@@ -274,7 +274,7 @@ impl<'d> TimerDriver<'d> {
     }
 
     #[cfg(feature = "alloc")]
-    unsafe extern "C" fn handle_isr(unsafe_callback: *mut ffi::c_void) -> bool {
+    unsafe extern "C" fn handle_isr(unsafe_callback: *mut core::ffi::c_void) -> bool {
         crate::interrupt::with_isr_yield_signal(move || {
             UnsafeCallback::from_ptr(unsafe_callback).call();
         })
@@ -312,11 +312,11 @@ impl UnsafeCallback {
         Self(boxed.as_mut())
     }
 
-    pub unsafe fn from_ptr(ptr: *mut ffi::c_void) -> Self {
+    pub unsafe fn from_ptr(ptr: *mut core::ffi::c_void) -> Self {
         Self(ptr.cast())
     }
 
-    pub fn as_ptr(&self) -> *mut ffi::c_void {
+    pub fn as_ptr(&self) -> *mut core::ffi::c_void {
         self.0.cast()
     }
 
