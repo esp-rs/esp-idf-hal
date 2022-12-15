@@ -607,6 +607,7 @@ impl<'d> WifiDriver<'d> {
         Ok(())
     }
 
+    // For backwards compatibility
     pub fn scan_n<const N: usize>(
         &mut self,
     ) -> Result<(heapless::Vec<AccessPointInfo, N>, usize), EspError> {
@@ -614,6 +615,7 @@ impl<'d> WifiDriver<'d> {
         self.get_scan_result_n()
     }
 
+    // For backwards compatibility
     #[cfg(feature = "alloc")]
     pub fn scan(&mut self) -> Result<alloc::vec::Vec<AccessPointInfo>, EspError> {
         self.start_scan(&Default::default(), true)?;
@@ -1063,14 +1065,12 @@ impl<'d> EspWifi<'d> {
         self.driver_mut().disconnect()
     }
 
-    // For backwards compatibility
     pub fn scan_n<const N: usize>(
         &mut self,
     ) -> Result<(heapless::Vec<AccessPointInfo, N>, usize), EspError> {
         self.driver_mut().scan_n()
     }
 
-    // For backwards compatibility
     #[cfg(feature = "alloc")]
     pub fn scan(&mut self) -> Result<alloc::vec::Vec<AccessPointInfo>, EspError> {
         self.driver_mut().scan()
