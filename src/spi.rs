@@ -155,6 +155,17 @@ pub mod config {
         }
     }
 
+    #[derive(Copy, Clone)]
+    pub enum Chunk {
+        EightBits = 1,
+        SixteenBits = 2,
+        TwentyFourBits = 3,
+        ThirtyTwoBits = 4,
+        FourtyEightBits = 6,
+        SixtyFourBits = 8,
+        None = 64,
+    }
+
     /// SPI Device configuration
     #[derive(Copy, Clone)]
     pub struct Config {
@@ -167,6 +178,10 @@ pub mod config {
         pub write_only: bool,
         pub duplex: Duplex,
         pub cs_active_high: bool,
+        /// Number of bits in a transfer unit e.g 8bit 32bit.
+        /// A transfer unit is a continoues clkout signal without a gap.
+        /// Some Devices can only work with 8bit transfer units
+        pub chunk_size: Chunk,
     }
 
     impl Config {
@@ -200,6 +215,11 @@ pub mod config {
             self.cs_active_high = true;
             self
         }
+
+        pub fn transfer_by_chunk(mut self, chunk_size: Chunk) -> Self {
+            self.chunk_size = chunk_size;
+            self
+        }
     }
 
     impl Default for Config {
@@ -210,6 +230,7 @@ pub mod config {
                 write_only: false,
                 cs_active_high: false,
                 duplex: Duplex::Full,
+                chunk_size: Chunk::None,
             }
         }
     }
@@ -388,7 +409,7 @@ impl Drop for Device {
 
 pub struct SpiDriver<'d> {
     host: u8,
-    max_transfer_size: usize,
+    dma: Dma,
     _p: PhantomData<&'d mut ()>,
 }
 
@@ -404,11 +425,11 @@ impl<'d> SpiDriver<'d> {
         sdi: Option<impl Peripheral<P = crate::gpio::Gpio8> + 'd>,
         dma: Dma,
     ) -> Result<Self, EspError> {
-        let max_transfer_size = Self::new_internal(SPI1::device(), sclk, sdo, sdi, dma)?;
+        Self::new_internal(SPI1::device(), sclk, sdo, sdi, dma)?;
 
         Ok(Self {
             host: SPI1::device() as _,
-            max_transfer_size,
+            dma,
             _p: PhantomData,
         })
     }
@@ -421,11 +442,11 @@ impl<'d> SpiDriver<'d> {
         sdi: Option<impl Peripheral<P = impl InputPin + OutputPin> + 'd>,
         dma: Dma,
     ) -> Result<Self, EspError> {
-        let max_transfer_size = Self::new_internal(SPI::device(), sclk, sdo, sdi, dma)?;
+        Self::new_internal(SPI::device(), sclk, sdo, sdi, dma)?;
 
         Ok(Self {
             host: SPI::device() as _,
-            max_transfer_size,
+            dma,
             _p: PhantomData,
         })
     }
@@ -440,11 +461,10 @@ impl<'d> SpiDriver<'d> {
         sdo: impl Peripheral<P = impl OutputPin> + 'd,
         sdi: Option<impl Peripheral<P = impl InputPin + OutputPin> + 'd>,
         dma: Dma,
-    ) -> Result<usize, EspError> {
+    ) -> Result<(), EspError> {
         crate::into_ref!(sclk, sdo);
         let sdi = sdi.map(|sdi| sdi.into_ref());
 
-        let max_transfer_sz = dma.max_transfer_size();
         let dma_chan: spi_dma_chan_t = dma.into();
 
         #[cfg(not(esp_idf_version = "4.3"))]
@@ -472,7 +492,7 @@ impl<'d> SpiDriver<'d> {
                 quadhd_io_num: -1,
                 //data3_io_num: -1,
             },
-            max_transfer_sz: max_transfer_sz as i32,
+            max_transfer_sz: dma.max_transfer_size() as i32,
             ..Default::default()
         };
 
@@ -486,13 +506,13 @@ impl<'d> SpiDriver<'d> {
             quadwp_io_num: -1,
             quadhd_io_num: -1,
 
-            max_transfer_sz: max_transfer_sz as i32,
+            max_transfer_sz: dma.max_transfer_size() as i32,
             ..Default::default()
         };
 
         esp!(unsafe { spi_bus_initialize(host, &bus_config, dma_chan) })?;
 
-        Ok(max_transfer_sz)
+        Ok(())
     }
 }
 
@@ -510,6 +530,7 @@ pub struct SpiDeviceDriver<'d, T> {
     handle: Device,
     driver: T,
     with_cs_pin: bool,
+    transfer_unit_size: u8,
     _p: PhantomData<&'d ()>,
 }
 
@@ -551,6 +572,8 @@ where
     ) -> Result<Self, EspError> {
         let cs = cs.map(|cs| cs.into_ref().pin()).unwrap_or(-1);
 
+        let transfer_unit_size = config.chunk_size as u8;
+
         let conf = spi_device_interface_config_t {
             spics_io_num: cs,
             clock_speed_hz: config.baudrate.0 as i32,
@@ -575,6 +598,7 @@ where
             handle: Device(handle, true),
             driver,
             with_cs_pin: cs >= 0,
+            transfer_unit_size,
             _p: PhantomData,
         })
     }
@@ -591,7 +615,11 @@ where
         E: From<EspError>,
     {
         // if DMA used -> get trans length info from driver
-        let trans_len = self.driver.borrow().max_transfer_size;
+        let trans_len = if self.driver.borrow().dma == Dma::Disabled {
+            self.transfer_unit_size as usize
+        } else {
+            self.driver.borrow().dma.max_transfer_size()
+        };
 
         let mut bus = SpiBusDriver {
             _lock: self.lock_bus()?,
@@ -672,9 +700,12 @@ where
 
     fn transfer<'w>(&mut self, words: &'w mut [u8]) -> Result<&'w [u8], Self::Error> {
         let _lock = self.lock_bus()?;
-        let mut chunks = words
-            .chunks_mut(self.driver.borrow().max_transfer_size)
-            .peekable();
+        let trans_len = if self.driver.borrow().dma == Dma::Disabled {
+            self.transfer_unit_size as usize
+        } else {
+            self.driver.borrow().dma.max_transfer_size()
+        };
+        let mut chunks = words.chunks_mut(trans_len).peekable();
 
         while let Some(chunk) = chunks.next() {
             let ptr = chunk.as_mut_ptr();
@@ -694,9 +725,12 @@ where
 
     fn write(&mut self, words: &[u8]) -> Result<(), Self::Error> {
         let _lock = self.lock_bus()?;
-        let mut chunks = words
-            .chunks(self.driver.borrow().max_transfer_size)
-            .peekable();
+        let trans_len = if self.driver.borrow().dma == Dma::Disabled {
+            self.transfer_unit_size as usize
+        } else {
+            self.driver.borrow().dma.max_transfer_size()
+        };
+        let mut chunks = words.chunks(trans_len).peekable();
 
         while let Some(chunk) = chunks.next() {
             polling_transmit(
