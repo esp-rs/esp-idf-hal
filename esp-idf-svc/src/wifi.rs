@@ -1134,6 +1134,7 @@ impl<'d> Drop for EspWifi<'d> {
     }
 }
 
+#[cfg(esp_idf_comp_esp_netif_enabled)]
 unsafe impl<'d> Send for EspWifi<'d> {}
 
 #[cfg(esp_idf_comp_esp_netif_enabled)]
