@@ -463,7 +463,7 @@ pub mod watchdog {
             TWDT_DRIVER_REF_COUNT.fetch_add(1, Ordering::SeqCst);
             let init_by_idf = Self::watchdog_is_init_by_idf();
 
-            #[cfg(not(esp_idf_version_major = "4"))]
+            #[cfg(all(not(esp_idf_version_major = "4"), not(esp_idf_version = "5.0")))]
             if !init_by_idf {
                 esp!(unsafe { esp_task_wdt_init(&config.into() as *const esp_task_wdt_config_t) })?;
             } else {
@@ -471,6 +471,9 @@ pub mod watchdog {
                     esp_task_wdt_reconfigure(&config.into() as *const esp_task_wdt_config_t)
                 })?;
             }
+
+            #[cfg(esp_idf_version = "5.0")]
+            esp!(unsafe { esp_task_wdt_init(&config.into() as *const esp_task_wdt_config_t) })?;
 
             #[cfg(esp_idf_version_major = "4")]
             esp!(unsafe {
