@@ -167,6 +167,7 @@ pub mod config {
         pub write_only: bool,
         pub duplex: Duplex,
         pub cs_active_high: bool,
+        pub input_delay_ns: i32,
     }
 
     impl Config {
@@ -200,6 +201,11 @@ pub mod config {
             self.cs_active_high = true;
             self
         }
+
+        pub fn input_delay_ns(mut self, input_delay_ns: i32) -> Self {
+            self.input_delay_ns = input_delay_ns;
+            self
+        }
     }
 
     impl Default for Config {
@@ -210,6 +216,7 @@ pub mod config {
                 write_only: false,
                 cs_active_high: false,
                 duplex: Duplex::Full,
+                input_delay_ns: 0,
             }
         }
     }
@@ -556,6 +563,7 @@ where
             clock_speed_hz: config.baudrate.0 as i32,
             mode: data_mode_to_u8(config.data_mode),
             queue_size: 64,
+            input_delay_ns: config.input_delay_ns,
             flags: if config.write_only {
                 SPI_DEVICE_NO_DUMMY
             } else {
