@@ -11,7 +11,6 @@ use anyhow::Context;
 use log::*;
 
 use esp_idf_hal::delay::FreeRtos; 
-use esp_idf_hal::gpio::AnyInputPin;
 use esp_idf_hal::prelude::*;
 
 use encoder::Encoder;
@@ -26,11 +25,11 @@ fn main() -> anyhow::Result<()> {
 
     info!("setup pins");
     let peripherals = Peripherals::take().context("failed to take Peripherals")?;
-    let pin_a: AnyInputPin = peripherals.pins.gpio5.into();
-    let pin_b: AnyInputPin = peripherals.pins.gpio6.into();
+    let pin_a = peripherals.pins.gpio5;
+    let pin_b = peripherals.pins.gpio6;
 
     info!("setup encoder");
-    let encoder = Encoder::new(peripherals.pcnt0, &pin_a, &pin_b)?;
+    let encoder = Encoder::new(peripherals.pcnt0, pin_a, pin_b)?;
 
     let mut last_value = 0i64;
     loop {
@@ -52,7 +51,7 @@ mod encoder {
     use std::sync::atomic::AtomicI64;
     use std::sync::atomic::Ordering;
 
-    use esp_idf_hal::gpio::AnyInputPin;
+    use esp_idf_hal::gpio::InputPin;
     use esp_idf_hal::pcnt::*;
     use esp_idf_hal::peripheral::Peripheral;
     use esp_idf_sys::EspError;
@@ -66,12 +65,13 @@ mod encoder {
     }
 
     impl<'d> Encoder<'d> {
-        //pub fn new(unit: PcntDriver<'d>, pin_a: &AnyInputPin, pin_b: &AnyInputPin) -> Result<Self, EspError> {
-        pub fn new<PCNT: Pcnt>(pcnt: impl Peripheral<P = PCNT> + 'd, pin_a: &AnyInputPin, pin_b: &AnyInputPin) -> Result<Self, EspError> {
+        pub fn new<'a, PCNT: Pcnt>(
+            pcnt: impl Peripheral<P = PCNT> + 'd,
+            mut pin_a: impl Peripheral<P = impl InputPin>,
+            mut pin_b: impl Peripheral<P = impl InputPin>
+        ) -> Result<Self, EspError> {
             let mut unit = PcntDriver::new(pcnt)?;
-            unit.config(&mut PcntConfig {
-                pulse_pin: Some(pin_a),
-                ctrl_pin: Some(pin_b),
+            unit.config(Some(&mut pin_a), Some(&mut pin_b), &mut PcntConfig {
                 lctrl_mode: PcntControlMode::Reverse,
                 hctrl_mode: PcntControlMode::Keep,
                 pos_mode: PcntCountMode::Decrement,
@@ -80,9 +80,7 @@ mod encoder {
                 counter_l_lim: LOW_LIMIT,
                 channel: PcntChannel::Channel0,
             })?;
-            unit.config(&mut PcntConfig {
-                pulse_pin: Some(pin_b),
-                ctrl_pin: Some(pin_a),
+            unit.config(Some(&mut pin_b), Some(&mut pin_a), &mut PcntConfig {
                 lctrl_mode: PcntControlMode::Reverse,
                 hctrl_mode: PcntControlMode::Keep,
                 pos_mode: PcntCountMode::Increment,

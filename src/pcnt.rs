@@ -11,8 +11,7 @@ use esp_idf_sys::*;
 
 use enumset::EnumSetType;
 
-use crate::gpio::AnyInputPin;
-use crate::gpio::Pin;
+use crate::gpio::InputPin;
 use crate::peripheral::Peripheral;
 
 #[allow(dead_code)]
@@ -91,11 +90,7 @@ pub enum PcntEvent {
 pub type PcntEventType = enumset::EnumSet<PcntEvent>;
 
 /// Pulse Counter configuration for a single channel
-pub struct PcntConfig<'d> {
-    /// Pulse input GPIO number, if you want to use GPIO16, enter pulse_gpio_num = 16, a negative value will be ignored
-    pub pulse_pin: Option<&'d AnyInputPin>,
-    /// Control signal input GPIO number, a negative value will be ignored
-    pub ctrl_pin: Option<&'d AnyInputPin>,
+pub struct PcntConfig {
     /// PCNT low control mode
     pub lctrl_mode: PcntControlMode,
     /// PCNT high control mode
@@ -135,14 +130,26 @@ impl<'d> PcntDriver<'d> {
     /// returns
     /// - ()
     /// - EspError
-    pub fn config(&mut self, pconfig: & PcntConfig) -> Result<(), EspError> {
+    pub fn config<'a>(
+        &mut self,
+        pulse_pin: Option<impl Peripheral<P = impl InputPin> + 'a>,
+        ctrl_pin: Option<impl Peripheral<P = impl InputPin> + 'a>,
+        pconfig: & PcntConfig
+    ) -> Result<(), EspError> {
+
         let config = pcnt_config_t {
-            pulse_gpio_num: match pconfig.pulse_pin {
-                Some(pin) => pin.pin(),
+            pulse_gpio_num: match pulse_pin {
+                Some(pin) => {
+                    crate::into_ref!(pin);
+                    pin.pin()
+                },
                 None => PCNT_PIN_NOT_USED,
             },
-            ctrl_gpio_num: match pconfig.ctrl_pin {
-                Some(pin) => pin.pin(),
+            ctrl_gpio_num: match ctrl_pin {
+                Some(pin) => {
+                    crate::into_ref!(pin);
+                    pin.pin()
+                },
                 None => PCNT_PIN_NOT_USED,
             },
             lctrl_mode: pconfig.lctrl_mode.into(),
@@ -323,18 +330,24 @@ impl<'d> PcntDriver<'d> {
     /// returns
     /// - ()
     /// - EspError
-    pub fn set_pin(
+    pub fn set_pin<'a>(
         &mut self,
         channel: PcntChannel,
-        pulse_pin: Option<&AnyInputPin>,
-        ctrl_pin: Option<&AnyInputPin>,
+        pulse_pin: Option<impl Peripheral<P = impl InputPin> + 'a>,
+        ctrl_pin: Option<impl Peripheral<P = impl InputPin> + 'a>,
     ) -> Result<(), EspError> {
         let pulse_io_num = match pulse_pin {
-            Some(pin) => pin.pin(),
+            Some(pin) => {
+                crate::into_ref!(pin);
+                pin.pin()
+            },
             None => PCNT_PIN_NOT_USED,
         };
         let ctrl_io_num = match ctrl_pin {
-            Some(pin) => pin.pin(),
+            Some(pin) => {
+                crate::into_ref!(pin);
+                pin.pin()
+            },
             None => PCNT_PIN_NOT_USED,
         };
         unsafe {
