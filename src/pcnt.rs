@@ -26,14 +26,14 @@ impl From<PcntChannel> for pcnt_channel_t {
     }
 }
 
-#[doc = " @brief PCNT channel action on signal edge"]
+/// PCNT channel action on signal edge
 #[derive(Debug, Copy, Clone)]
 pub enum PcntCountMode {
-    #[doc = "< Hold current count value"]
+    /// Hold current count value
     Hold,
-    #[doc = "< Increase count value"]
+    /// Increase count value
     Increment,
-    #[doc = "< Decrease count value"]
+    /// Decrease count value
     Decrement,
 }
 
@@ -47,14 +47,14 @@ impl From<PcntCountMode> for pcnt_count_mode_t {
     }
 }
 
-#[doc = " @brief PCNT channel action on control level"]
+/// PCNT channel action on control level
 #[derive(Debug, Copy, Clone)]
 pub enum PcntControlMode {
-    #[doc = "< Keep current count mode"]
+    /// Keep current count mode
     Keep,
-    #[doc = "< Invert current count mode (increase -> decrease, decrease -> increase)"]
+    /// Invert current count mode (increase -> decrease, decrease -> increase)
     Reverse,
-    #[doc = "< Hold current count value"]
+    /// Hold current count value
     Disable,
 }
 
@@ -85,25 +85,25 @@ pub enum PcntEvent {
 
 pub type PcntEventType = enumset::EnumSet<PcntEvent>;
 
-#[doc = " @brief Pulse Counter configuration for a single channel"]
+/// Pulse Counter configuration for a single channel
 pub struct PcntConfig<'d> {
-    #[doc = "< Pulse input GPIO number, if you want to use GPIO16, enter pulse_gpio_num = 16, a negative value will be ignored"]
+    /// Pulse input GPIO number, if you want to use GPIO16, enter pulse_gpio_num = 16, a negative value will be ignored
     pub pulse_pin: Option<&'d AnyInputPin>,
-    #[doc = "< Control signal input GPIO number, a negative value will be ignored"]
+    /// Control signal input GPIO number, a negative value will be ignored
     pub ctrl_pin: Option<&'d AnyInputPin>,
-    #[doc = "< PCNT low control mode"]
+    /// PCNT low control mode
     pub lctrl_mode: PcntControlMode,
-    #[doc = "< PCNT high control mode"]
+    /// PCNT high control mode
     pub hctrl_mode: PcntControlMode,
-    #[doc = "< PCNT positive edge count mode"]
+    /// PCNT positive edge count mode
     pub pos_mode: PcntCountMode,
-    #[doc = "< PCNT negative edge count mode"]
+    /// PCNT negative edge count mode
     pub neg_mode: PcntCountMode,
-    #[doc = "< Maximum counter value"]
+    /// Maximum counter value
     pub counter_h_lim: i16,
-    #[doc = "< Minimum counter value"]
+    /// Minimum counter value
     pub counter_l_lim: i16,
-    #[doc = "< the PCNT channel"]
+    /// the PCNT channel
     pub channel: PcntChannel,
 }
 
@@ -119,15 +119,15 @@ impl<'d> Pcnt {
         })
     }
 
-    #[doc = " @brief Configure Pulse Counter unit"]
-    #[doc = "        @note"]
-    #[doc = "        This function will disable three events: PCNT_EVT_L_LIM, PCNT_EVT_H_LIM, PCNT_EVT_ZERO."]
-    #[doc = ""]
-    #[doc = " @param pconfig Reference of PcntConfig"]
-    #[doc = ""]
-    #[doc = " @return"]
-    #[doc = "     - ()"]
-    #[doc = "     - EspError"]
+    /// Configure Pulse Counter unit
+    ///       @note
+    ///       This function will disable three events: PCNT_EVT_L_LIM, PCNT_EVT_H_LIM, PCNT_EVT_ZERO.
+    /// 
+    /// @param pconfig Reference of PcntConfig
+    /// 
+    /// returns
+    /// - ()
+    /// - EspError
     pub fn config(&mut self, pconfig: & PcntConfig) -> Result<(), EspError> {
         let config = pcnt_config_t {
             pulse_gpio_num: match pconfig.pulse_pin {
@@ -155,11 +155,11 @@ impl<'d> Pcnt {
         }
     }
 
-    #[doc = " @brief Get pulse counter value"]
-    #[doc = ""]
-    #[doc = " @return"]
-    #[doc = "     - i16"]
-    #[doc = "     - EspError"]
+    /// Get pulse counter value
+    /// 
+    /// returns
+    /// - i16
+    /// - EspError
     pub fn get_counter_value(&self) -> Result<i16, EspError> {
         let mut value = 0i16;
         unsafe {
@@ -171,73 +171,73 @@ impl<'d> Pcnt {
         Ok(value)
     }
 
-    #[doc = " @brief Pause PCNT counter of PCNT unit"]
-    #[doc = ""]
-    #[doc = " @return"]
-    #[doc = "     - ()"]
-    #[doc = "     - EspError"]
+    /// Pause PCNT counter of PCNT unit
+    /// 
+    /// returns
+    /// - ()
+    /// - EspError
     pub fn counter_pause(&self) -> Result<(), EspError> {
         unsafe { esp!(pcnt_counter_pause(self.unit)) }
     }
 
-    #[doc = " @brief Resume counting for PCNT counter"]
-    #[doc = ""]
-    #[doc = " @return"]
-    #[doc = "     - ()"]
-    #[doc = "     - EspError"]
+    /// Resume counting for PCNT counter
+    /// 
+    /// returns
+    /// - ()
+    /// - EspError
     pub fn counter_resume(&self) -> Result<(), EspError> {
         unsafe { esp!(pcnt_counter_resume(self.unit)) }
     }
 
-    #[doc = " @brief Clear and reset PCNT counter value to zero"]
-    #[doc = ""]
-    #[doc = " @return"]
-    #[doc = "     - ()"]
-    #[doc = "     - EspError"]
+    /// Clear and reset PCNT counter value to zero
+    /// 
+    /// returns
+    /// - ()
+    /// - EspError
     pub fn counter_clear(&self) -> Result<(), EspError> {
         unsafe { esp!(pcnt_counter_clear(self.unit)) }
     }
 
-    #[doc = " @brief Enable PCNT interrupt for PCNT unit"]
-    #[doc = "        @note"]
-    #[doc = "        Each Pulse counter unit has five watch point events that share the same interrupt."]
-    #[doc = "        Configure events with pcnt_event_enable() and pcnt_event_disable()"]
-    #[doc = ""]
-    #[doc = " @return"]
-    #[doc = "     - ()"]
-    #[doc = "     - EspError"]
+    /// Enable PCNT interrupt for PCNT unit
+    ///       @note
+    ///       Each Pulse counter unit has five watch point events that share the same interrupt.
+    ///       Configure events with pcnt_event_enable() and pcnt_event_disable()
+    /// 
+    /// returns
+    /// - ()
+    /// - EspError
     pub fn intr_enable(&self) -> Result<(), EspError> {
         unsafe { esp!(pcnt_intr_enable(self.unit)) }
     }
 
-    #[doc = " @brief Disable PCNT interrupt for PCNT unit"]
-    #[doc = ""]
-    #[doc = " @return"]
-    #[doc = "     - ()"]
-    #[doc = "     - EspError"]
+    /// Disable PCNT interrupt for PCNT unit
+    /// 
+    /// returns
+    /// - ()
+    /// - EspError
     pub fn intr_disable(&self) -> Result<(), EspError> {
         unsafe { esp!(pcnt_intr_disable(self.unit)) }
     }
 
-    #[doc = " @brief Enable PCNT event of PCNT unit"]
-    #[doc = ""]
-    #[doc = " @param evt_type Watch point event type."]
-    #[doc = "                 All enabled events share the same interrupt (one interrupt per pulse counter unit)."]
-    #[doc = " @return"]
-    #[doc = "     - ()"]
-    #[doc = "     - EspError"]
+    /// Enable PCNT event of PCNT unit
+    /// 
+    /// @param evt_type Watch point event type.
+    ///                All enabled events share the same interrupt (one interrupt per pulse counter unit).
+    /// returns
+    /// - ()
+    /// - EspError
     pub fn event_enable(&self, evt_type: PcntEvent) -> Result<(), EspError> {
         let evt_type: pcnt_evt_type_t = PcntEventType::only(evt_type).as_repr();
         unsafe { esp!(pcnt_event_enable(self.unit, evt_type)) }
     }
 
-    #[doc = " @brief Disable PCNT event of PCNT unit"]
-    #[doc = ""]
-    #[doc = " @param evt_type Watch point event type."]
-    #[doc = "                 All enabled events share the same interrupt (one interrupt per pulse counter unit)."]
-    #[doc = " @return"]
-    #[doc = "     - ()"]
-    #[doc = "     - EspError"]
+    /// Disable PCNT event of PCNT unit
+    /// 
+    /// @param evt_type Watch point event type.
+    ///                All enabled events share the same interrupt (one interrupt per pulse counter unit).
+    /// returns
+    /// - ()
+    /// - EspError
     pub fn event_disable(&self, evt_type: PcntEvent) -> Result<(), EspError> {
         let evt_type: pcnt_evt_type_t = PcntEventType::only(evt_type).as_repr();
         unsafe { esp!(pcnt_event_disable(self.unit, evt_type)) }
@@ -250,14 +250,14 @@ impl<'d> Pcnt {
         }
     }
 
-    #[doc = " @brief Set PCNT event value of PCNT unit"]
-    #[doc = ""]
-    #[doc = " @param evt_type Watch point event type."]
-    #[doc = "                 All enabled events share the same interrupt (one interrupt per pulse counter unit)."]
-    #[doc = ""]
-    #[doc = " @return"]
-    #[doc = "     - ()"]
-    #[doc = "     - EspError"]
+    /// Set PCNT event value of PCNT unit
+    /// 
+    /// @param evt_type Watch point event type.
+    ///                All enabled events share the same interrupt (one interrupt per pulse counter unit).
+    /// 
+    /// returns
+    /// - ()
+    /// - EspError
     pub fn set_event_value(&self, evt_type: PcntEventType, value: i16) -> Result<(), EspError> {
         let evt_type = Self::only_one_event_type(evt_type)?;
         unsafe {
@@ -267,14 +267,14 @@ impl<'d> Pcnt {
         }
     }
 
-    #[doc = " @brief Get PCNT event value of PCNT unit"]
-    #[doc = ""]
-    #[doc = " @param evt_type Watch point event type."]
-    #[doc = "                 All enabled events share the same interrupt (one interrupt per pulse counter unit)."]
-    #[doc = ""]
-    #[doc = " @return"]
-    #[doc = "     - i16"]
-    #[doc = "     - EspError"]
+    /// Get PCNT event value of PCNT unit
+    /// 
+    /// @param evt_type Watch point event type.
+    ///                All enabled events share the same interrupt (one interrupt per pulse counter unit).
+    /// 
+    /// returns
+    /// - i16
+    /// - EspError
     pub fn get_event_value(&self, evt_type: PcntEventType) -> Result<i16, EspError> {
         let evt_type = Self::only_one_event_type(evt_type)?;
         let mut value = 0i16;
@@ -288,11 +288,11 @@ impl<'d> Pcnt {
         Ok(value)
     }
 
-    #[doc = " @brief Get PCNT event status of PCNT unit"]
-    #[doc = ""]
-    #[doc = " @return"]
-    #[doc = "     - i32"]
-    #[doc = "     - EspError"]
+    /// Get PCNT event status of PCNT unit
+    /// 
+    /// returns
+    /// - i32
+    /// - EspError
     // TODO: status is a bit field!
     pub fn get_event_status(&self) -> Result<u32, EspError> {
         let mut value = 0u32;
@@ -305,17 +305,17 @@ impl<'d> Pcnt {
         Ok(value)
     }
 
-    #[doc = " @brief Configure PCNT pulse signal input pin and control input pin"]
-    #[doc = ""]
-    #[doc = " @param channel PcntChannel"]
-    #[doc = " @param pulse_io Pulse signal input pin"]
-    #[doc = " @param ctrl_io Control signal input pin"]
-    #[doc = ""]
-    #[doc = " @note  Set the signal input to PCNT_PIN_NOT_USED if unused."]
-    #[doc = ""]
-    #[doc = " @return"]
-    #[doc = "     - ()"]
-    #[doc = "     - EspError"]
+    /// Configure PCNT pulse signal input pin and control input pin
+    /// 
+    /// @param channel PcntChannel
+    /// @param pulse_io Pulse signal input pin
+    /// @param ctrl_io Control signal input pin
+    /// 
+    /// @note  Set the signal input to PCNT_PIN_NOT_USED if unused.
+    /// 
+    /// returns
+    /// - ()
+    /// - EspError
     pub fn set_pin(
         &mut self,
         channel: PcntChannel,
@@ -340,43 +340,43 @@ impl<'d> Pcnt {
         }
     }
 
-    #[doc = " @brief Enable PCNT input filter"]
-    #[doc = ""]
-    #[doc = " @return"]
-    #[doc = "     - ()"]
-    #[doc = "     - EspError"]
+    /// Enable PCNT input filter
+    /// 
+    /// returns
+    /// - ()
+    /// - EspError
     pub fn filter_enable(&self) -> Result<(), EspError> {
         unsafe { esp!(pcnt_filter_enable(self.unit)) }
     }
 
-    #[doc = " @brief Disable PCNT input filter"]
-    #[doc = ""]
-    #[doc = " @return"]
-    #[doc = "     - ()"]
-    #[doc = "     - EspError"]
+    /// Disable PCNT input filter
+    /// 
+    /// returns
+    /// - ()
+    /// - EspError
     pub fn filter_disable(&self) -> Result<(), EspError> {
         unsafe { esp!(pcnt_filter_disable(self.unit)) }
     }
 
-    #[doc = " @brief Set PCNT filter value"]
-    #[doc = ""]
-    #[doc = " @param filter_val PCNT signal filter value, counter in APB_CLK cycles."]
-    #[doc = "        Any pulses lasting shorter than this will be ignored when the filter is enabled."]
-    #[doc = "        @note"]
-    #[doc = "        filter_val is a 10-bit value, so the maximum filter_val should be limited to 1023."]
-    #[doc = ""]
-    #[doc = " @return"]
-    #[doc = "     - ()"]
-    #[doc = "     - EspError"]
+    /// Set PCNT filter value
+    /// 
+    /// @param filter_val PCNT signal filter value, counter in APB_CLK cycles.
+    ///       Any pulses lasting shorter than this will be ignored when the filter is enabled.
+    ///       @note
+    ///       filter_val is a 10-bit value, so the maximum filter_val should be limited to 1023.
+    /// 
+    /// returns
+    /// - ()
+    /// - EspError
     pub fn set_filter_value(&self, value: u16) -> Result<(), EspError> {
         unsafe { esp!(pcnt_set_filter_value(self.unit, value)) }
     }
 
-    #[doc = " @brief Get PCNT filter value"]
-    #[doc = ""]
-    #[doc = " @return"]
-    #[doc = "     - i16"]
-    #[doc = "     - EspError"]
+    /// Get PCNT filter value
+    /// 
+    /// returns
+    /// - i16
+    /// - EspError
     pub fn get_filter_value(&self) -> Result<u16, EspError> {
         let mut value = 0u16;
         unsafe {
@@ -388,17 +388,17 @@ impl<'d> Pcnt {
         Ok(value)
     }
 
-    #[doc = " @brief Set PCNT counter mode"]
-    #[doc = ""]
-    #[doc = " @param channel PCNT channel number"]
-    #[doc = " @param pos_mode Counter mode when detecting positive edge"]
-    #[doc = " @param neg_mode Counter mode when detecting negative edge"]
-    #[doc = " @param hctrl_mode Counter mode when control signal is high level"]
-    #[doc = " @param lctrl_mode Counter mode when control signal is low level"]
-    #[doc = ""]
-    #[doc = " @return"]
-    #[doc = "     - ()"]
-    #[doc = "     - EspError"]
+    /// Set PCNT counter mode
+    /// 
+    /// @param channel PCNT channel number
+    /// @param pos_mode Counter mode when detecting positive edge
+    /// @param neg_mode Counter mode when detecting negative edge
+    /// @param hctrl_mode Counter mode when control signal is high level
+    /// @param lctrl_mode Counter mode when control signal is low level
+    /// 
+    /// returns
+    /// - ()
+    /// - EspError
     pub fn set_mode(&self,
         channel: PcntChannel,
         pos_mode: PcntCountMode,
@@ -410,18 +410,18 @@ impl<'d> Pcnt {
         }
     }
 
-    #[doc = " @brief Add ISR handler for specified unit."]
-    #[doc = ""]
-    #[doc = " This ISR handler will be called from an ISR. So there is a stack"]
-    #[doc = " size limit (configurable as \"ISR stack size\" in menuconfig). This"]
-    #[doc = " limit is smaller compared to a global PCNT interrupt handler due"]
-    #[doc = " to the additional level of indirection."]
-    #[doc = ""]
-    #[doc = " @param callback Interrupt handler function."]
-    #[doc = ""]
-    #[doc = " @return"]
-    #[doc = "     - ()"]
-    #[doc = "     - EspError"]
+    /// Add ISR handler for specified unit.
+    /// 
+    /// This ISR handler will be called from an ISR. So there is a stack
+    /// size limit (configurable as \"ISR stack size\" in menuconfig). This
+    /// limit is smaller compared to a global PCNT interrupt handler due
+    /// to the additional level of indirection.
+    /// 
+    /// @param callback Interrupt handler function.
+    /// 
+    /// returns
+    /// - ()
+    /// - EspError
     pub unsafe fn subscribe(&self, callback: impl FnMut(u32) + Send + 'static) -> Result<(), EspError> {
         enable_isr_service()?;
 
@@ -436,11 +436,11 @@ impl<'d> Pcnt {
         Ok(())
     }
 
-    #[doc = " @brief Remove ISR handler for specified unit."]
-    #[doc = ""]
-    #[doc = " @return"]
-    #[doc = "     - ()"]
-    #[doc = "     - EspError"]
+    /// Remove ISR handler for specified unit.
+    /// 
+    /// returns
+    /// - ()
+    /// - EspError
     pub fn unsubscribe(&self) -> Result<(), EspError> {
         unsafe {
             esp!(pcnt_isr_handler_remove(self.unit))?;
