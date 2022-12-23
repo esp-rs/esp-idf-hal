@@ -3,7 +3,7 @@ use core::fmt::Debug;
 
 use esp_idf_sys::*;
 
-use bitflags::bitflags;
+use enumset::EnumSetType;
 
 use crate::gpio::AnyInputPin;
 use crate::gpio::Pin;
@@ -68,22 +68,22 @@ impl From<PcntControlMode> for pcnt_ctrl_mode_t {
     }
 }
 
-bitflags! {
-    #[allow(dead_code)]
-    #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-    pub struct PcntEventType: u32 {
-        #[doc = "< PCNT watch point event: threshold1 value event"]
-        const THRES_1 = pcnt_evt_type_t_PCNT_EVT_THRES_1;
-        #[doc = "< PCNT watch point event: threshold0 value event"]
-        const THRES_0 = pcnt_evt_type_t_PCNT_EVT_THRES_0;
-        #[doc = "< PCNT watch point event: Minimum counter value"]
-        const L_LIM = pcnt_evt_type_t_PCNT_EVT_L_LIM;
-        #[doc = "< PCNT watch point event: Maximum counter value"]
-        const H_LIM = pcnt_evt_type_t_PCNT_EVT_H_LIM;
-        #[doc = "< PCNT watch point event: counter value zero event"]
-        const ZERO = pcnt_evt_type_t_PCNT_EVT_ZERO;
-    }
+#[derive(Debug, EnumSetType)]
+#[enumset(repr = "u32")]
+pub enum PcntEvent {
+    /// PCNT watch point event: threshold1 value event
+    Threshold1 = 2, // pcnt_evt_type_t_PCNT_EVT_THRES_1 = 0x04,
+    /// PCNT watch point event: threshold0 value event
+    Threshold0 = 3, // pcnt_evt_type_t_PCNT_EVT_THRES_0 = 0x08,
+    /// PCNT watch point event: Minimum counter value
+    LowLimit = 4, // pcnt_evt_type_t_PCNT_EVT_L_LIM = 0x10,
+    /// PCNT watch point event: Maximum counter value
+    HighLimit = 5, // pcnt_evt_type_t_PCNT_EVT_H_LIM = 0x20,
+    /// PCNT watch point event: counter value zero event
+    Zero = 6, // pcnt_evt_type_t_PCNT_EVT_ZERO = 0x40,
 }
+
+pub type PcntEventType = enumset::EnumSet<PcntEvent>;
 
 #[doc = " @brief Pulse Counter configuration for a single channel"]
 pub struct PcntConfig<'d> {
@@ -226,8 +226,8 @@ impl<'d> Pcnt {
     #[doc = " @return"]
     #[doc = "     - ()"]
     #[doc = "     - EspError"]
-    pub fn event_enable(&self, evt_type: PcntEventType) -> Result<(), EspError> {
-        let evt_type: pcnt_evt_type_t = evt_type.bits();
+    pub fn event_enable(&self, evt_type: PcntEvent) -> Result<(), EspError> {
+        let evt_type: pcnt_evt_type_t = PcntEventType::only(evt_type).as_repr();
         unsafe { esp!(pcnt_event_enable(self.unit, evt_type)) }
     }
 
@@ -238,14 +238,14 @@ impl<'d> Pcnt {
     #[doc = " @return"]
     #[doc = "     - ()"]
     #[doc = "     - EspError"]
-    pub fn event_disable(&self, evt_type: PcntEventType) -> Result<(), EspError> {
-        let evt_type: pcnt_evt_type_t = evt_type.bits();
+    pub fn event_disable(&self, evt_type: PcntEvent) -> Result<(), EspError> {
+        let evt_type: pcnt_evt_type_t = PcntEventType::only(evt_type).as_repr();
         unsafe { esp!(pcnt_event_disable(self.unit, evt_type)) }
     }
 
     fn only_one_event_type(evt_type: PcntEventType) -> Result<pcnt_evt_type_t, EspError> {
         match evt_type.iter().count() {
-            1 => Ok(evt_type.bits()),
+            1 => Ok(evt_type.as_repr()),
             _ =>Err(EspError::from(ESP_ERR_INVALID_ARG as esp_err_t).unwrap()),
         }
     }

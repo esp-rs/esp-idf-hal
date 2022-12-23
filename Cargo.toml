@@ -35,7 +35,6 @@ heapless = "0.7"
 embassy-sync = { version = "0.1", optional = true }
 edge-executor = { version = "0.3", optional = true, default-features = false }
 enumset = { version = "1", default-features = false }
-bitflags = "2.0.0-rc.1"
 
 [build-dependencies]
 embuild = "0.31"

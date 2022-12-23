@@ -8,6 +8,7 @@
 
 use anyhow;
 use anyhow::Context;
+use log::*;
 
 use esp_idf_hal::delay::FreeRtos; 
 use esp_idf_hal::gpio::AnyInputPin;
@@ -20,17 +21,22 @@ fn main() -> anyhow::Result<()> {
     // or else some patches to the runtime implemented by esp-idf-sys might not link properly.
     esp_idf_sys::link_patches();
 
+    // Bind the log crate to the ESP Logging facilities
+    esp_idf_svc::log::EspLogger::initialize_default();
+
+    info!("setup pins");
     let peripherals = Peripherals::take().context("failed to take Peripherals")?;
     let pin_a: AnyInputPin = peripherals.pins.gpio5.into();
     let pin_b: AnyInputPin = peripherals.pins.gpio6.into();
 
+    info!("setup encoder");
     let encoder = Encoder::new(&pin_a, &pin_b)?;
 
     let mut last_value = 0i64;
     loop {
         let value = encoder.get_value()?;
         if value != last_value {
-            println!("value: {value}");
+            info!("value: {value}");
             last_value = value;
         }
         FreeRtos::delay_ms(100u32);
@@ -39,7 +45,7 @@ fn main() -> anyhow::Result<()> {
 
 
 // esp-idf encoder implementation using v4 pcnt api
-#[cfg(any(feature = "pcnt4", esp_idf_version_major = "4"))]
+#[cfg(any(feature = "pcnt", esp_idf_version_major = "4"))]
 mod encoder {
     use std::cmp::min;
     use std::sync::Arc;
@@ -93,17 +99,17 @@ mod encoder {
             unsafe {
                 let approx_value = approx_value.clone();
                 unit.subscribe(move |status| {
-                    let status = PcntEventType::from_bits_retain(status);
-                    if status.contains(PcntEventType::H_LIM) {
+                    let status = PcntEventType::from_repr_truncated(status);
+                    if status.contains(PcntEvent::HighLimit) {
                         approx_value.fetch_add(HIGH_LIMIT as i64, Ordering::SeqCst);
                     }
-                    if status.contains(PcntEventType::L_LIM) {
+                    if status.contains(PcntEvent::LowLimit) {
                         approx_value.fetch_add(LOW_LIMIT as i64, Ordering::SeqCst);
                     }
                 })?;
             }
-            unit.event_enable(PcntEventType::H_LIM)?;
-            unit.event_enable(PcntEventType::L_LIM)?;
+            unit.event_enable(PcntEvent::HighLimit)?;
+            unit.event_enable(PcntEvent::LowLimit)?;
             unit.counter_pause()?;
             unit.counter_clear()?;
             unit.counter_resume()?;
@@ -122,7 +128,7 @@ mod encoder {
 }
 
 // esp-idf v5 encoder implementation using pulse_cnt api
-#[cfg(not(any(feature = "pcnt4", esp_idf_version_major = "4")))]
+#[cfg(not(any(feature = "pcnt", esp_idf_version_major = "4")))]
 mod encoder {
     use std::sync::Arc;
     use std::sync::atomic::AtomicI64;
