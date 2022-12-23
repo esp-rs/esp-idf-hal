@@ -17,9 +17,9 @@ pub enum PcntChannel {
     Channel1,
 }
 
-impl Into<pcnt_channel_t> for PcntChannel {
-    fn into(self) -> pcnt_channel_t {
-        match self {
+impl From<PcntChannel> for pcnt_channel_t {
+    fn from(value: PcntChannel) -> Self {
+        match value {
             PcntChannel::Channel0 => pcnt_channel_t_PCNT_CHANNEL_0,
             PcntChannel::Channel1 => pcnt_channel_t_PCNT_CHANNEL_1,
         }
@@ -37,9 +37,9 @@ pub enum PcntCountMode {
     Decrement,
 }
 
-impl Into<pcnt_count_mode_t> for PcntCountMode {
-    fn into(self) -> pcnt_count_mode_t {
-        match self {
+impl From<PcntCountMode> for pcnt_count_mode_t {
+    fn from(value: PcntCountMode) -> Self {
+        match value {
             PcntCountMode::Hold => pcnt_channel_edge_action_t_PCNT_CHANNEL_EDGE_ACTION_HOLD,
             PcntCountMode::Increment => pcnt_channel_edge_action_t_PCNT_CHANNEL_EDGE_ACTION_INCREASE,
             PcntCountMode::Decrement => pcnt_channel_edge_action_t_PCNT_CHANNEL_EDGE_ACTION_DECREASE,
@@ -58,9 +58,9 @@ pub enum PcntControlMode {
     Disable,
 }
 
-impl Into<pcnt_ctrl_mode_t> for PcntControlMode {
-    fn into(self) -> pcnt_ctrl_mode_t {
-        match self {
+impl From<PcntControlMode> for pcnt_ctrl_mode_t {
+    fn from(value: PcntControlMode) -> Self {
+        match value {
             PcntControlMode::Keep => pcnt_channel_level_action_t_PCNT_CHANNEL_LEVEL_ACTION_KEEP,
             PcntControlMode::Reverse => pcnt_channel_level_action_t_PCNT_CHANNEL_LEVEL_ACTION_INVERSE,
             PcntControlMode::Disable => pcnt_channel_level_action_t_PCNT_CHANNEL_LEVEL_ACTION_HOLD,
@@ -431,7 +431,7 @@ impl<'d> Pcnt {
         esp!(pcnt_isr_handler_add(
             self.unit,
             Some(Self::handle_isr),
-            self.unit as *mut c_types::c_void,
+            self.unit as *mut core::ffi::c_void,
         ))?;
         Ok(())
     }
@@ -449,7 +449,7 @@ impl<'d> Pcnt {
         Ok(())
     }
 
-    unsafe extern "C" fn handle_isr(data: *mut c_types::c_void) {
+    unsafe extern "C" fn handle_isr(data: *mut core::ffi::c_void) {
         let unit = data as pcnt_unit_t;
         if let Some(f) = &mut ISR_HANDLERS[unit as usize] {
             let mut value = 0u32;
