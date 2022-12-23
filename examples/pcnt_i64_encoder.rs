@@ -1,6 +1,6 @@
-//! PCNT decoding a rotery encoder
+//! PCNT decoding a rotary encoder
 //!
-//! To try this out, connect a rotery encoder to pins 5 and 6, the common should be grounded
+//! To try this out, connect a rotary encoder to pins 5 and 6, the common should be grounded
 //!
 //! Note that PCNT only track a singed 16bit value.  We use interrupts to detect a LOW and HIGH
 //! threshold and track how much that accounts for and provide an i64 value result
