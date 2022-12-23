@@ -30,11 +30,12 @@ impl From<PcntChannel> for pcnt_channel_t {
 }
 
 /// PCNT channel action on signal edge
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, Default)]
 pub enum PcntCountMode {
     /// Hold current count value
     Hold,
     /// Increase count value
+    #[default]
     Increment,
     /// Decrease count value
     Decrement,
@@ -51,11 +52,12 @@ impl From<PcntCountMode> for pcnt_count_mode_t {
 }
 
 /// PCNT channel action on control level
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, Default)]
 pub enum PcntControlMode {
     /// Keep current count mode
     Keep,
     /// Invert current count mode (increase -> decrease, decrease -> increase)
+    #[default]
     Reverse,
     /// Hold current count value
     Disable,
@@ -89,7 +91,8 @@ pub enum PcntEvent {
 pub type PcntEventType = enumset::EnumSet<PcntEvent>;
 
 /// Pulse Counter configuration for a single channel
-pub struct PcntConfig {
+#[derive(Debug, Copy, Clone, Default)]
+pub struct PcntChannelConfig {
     /// PCNT low control mode
     pub lctrl_mode: PcntControlMode,
     /// PCNT high control mode
@@ -102,8 +105,12 @@ pub struct PcntConfig {
     pub counter_h_lim: i16,
     /// Minimum counter value
     pub counter_l_lim: i16,
-    /// the PCNT channel
-    pub channel: PcntChannel,
+}
+
+impl PcntChannelConfig {
+    pub fn new() -> Self {
+        Default::default()
+    }
 }
 
 #[derive(Debug)]
@@ -120,12 +127,13 @@ impl<'d> PcntDriver<'d> {
         })
     }
 
-    /// Configure Pulse Counter unit
+    /// Configure Pulse Counter chanel
     ///       @note
     ///       This function will disable three events: PCNT_EVT_L_LIM, PCNT_EVT_H_LIM, PCNT_EVT_ZERO.
     /// 
-    /// @param pulse_io Pulse signal input pin
-    /// @param ctrl_io Control signal input pin
+    /// @param channel Channel to configure
+    /// @param pulse_pin Pulse signal input pin
+    /// @param ctrl_pin Control signal input pin
     /// @param pconfig Reference of PcntConfig
     /// 
     /// @note  Set the signal input to PCNT_PIN_NOT_USED if unused.
@@ -133,11 +141,12 @@ impl<'d> PcntDriver<'d> {
     /// returns
     /// - ()
     /// - EspError
-    pub fn config<'a>(
+    pub fn channel_config<'a>(
         &mut self,
+        channel: PcntChannel,
         pulse_pin: Option<impl Peripheral<P = impl InputPin> + 'a>,
         ctrl_pin: Option<impl Peripheral<P = impl InputPin> + 'a>,
-        pconfig: & PcntConfig
+        pconfig: &PcntChannelConfig
     ) -> Result<(), EspError> {
 
         let config = pcnt_config_t {
@@ -161,7 +170,7 @@ impl<'d> PcntDriver<'d> {
             neg_mode: pconfig.neg_mode.into(),
             counter_h_lim: pconfig.counter_h_lim,
             counter_l_lim: pconfig.counter_l_lim,
-            channel: pconfig.channel.into(),
+            channel: channel.into(),
             unit: self.unit,
         };
 

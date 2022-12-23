@@ -71,23 +71,21 @@ mod encoder {
             mut pin_b: impl Peripheral<P = impl InputPin>
         ) -> Result<Self, EspError> {
             let mut unit = PcntDriver::new(pcnt)?;
-            unit.config(Some(&mut pin_a), Some(&mut pin_b), &mut PcntConfig {
+            unit.channel_config(PcntChannel::Channel0, Some(&mut pin_a), Some(&mut pin_b), &mut PcntConfig {
                 lctrl_mode: PcntControlMode::Reverse,
                 hctrl_mode: PcntControlMode::Keep,
                 pos_mode: PcntCountMode::Decrement,
                 neg_mode: PcntCountMode::Increment,
                 counter_h_lim: HIGH_LIMIT,
                 counter_l_lim: LOW_LIMIT,
-                channel: PcntChannel::Channel0,
             })?;
-            unit.config(Some(&mut pin_b), Some(&mut pin_a), &mut PcntConfig {
+            unit.channel_config(PcntChannel::Channel1, Some(&mut pin_b), Some(&mut pin_a), &mut PcntConfig {
                 lctrl_mode: PcntControlMode::Reverse,
                 hctrl_mode: PcntControlMode::Keep,
                 pos_mode: PcntCountMode::Increment,
                 neg_mode: PcntCountMode::Decrement,
                 counter_h_lim: HIGH_LIMIT,
                 counter_l_lim: LOW_LIMIT,
-                channel: PcntChannel::Channel1,
             })?;
             unit.set_filter_value(min(10 * 80, 1023))?;
             unit.filter_enable()?;
