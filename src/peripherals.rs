@@ -14,6 +14,8 @@ use crate::mac;
 #[cfg(not(feature = "riscv-ulp-hal"))]
 use crate::modem;
 #[cfg(not(feature = "riscv-ulp-hal"))]
+use crate::pcnt;
+#[cfg(not(feature = "riscv-ulp-hal"))]
 use crate::rmt;
 #[cfg(not(feature = "riscv-ulp-hal"))]
 use crate::spi;
@@ -59,6 +61,22 @@ pub struct Peripherals {
     pub spi3: spi::SPI3,
     pub adc1: adc::ADC1,
     pub adc2: adc::ADC2,
+    #[cfg(all(not(feature = "riscv-ulp-hal"), any(feature = "pcnt4", esp_idf_version_major = "4")))]
+    pub pcnt0: pcnt::PCNT0,
+    #[cfg(all(not(feature = "riscv-ulp-hal"), any(feature = "pcnt4", esp_idf_version_major = "4")))]
+    pub pcnt1: pcnt::PCNT1,
+    #[cfg(all(not(feature = "riscv-ulp-hal"), any(feature = "pcnt4", esp_idf_version_major = "4")))]
+    pub pcnt2: pcnt::PCNT2,
+    #[cfg(all(not(feature = "riscv-ulp-hal"), any(feature = "pcnt4", esp_idf_version_major = "4")))]
+    pub pcnt3: pcnt::PCNT3,
+    #[cfg(all(not(esp32s3), not(feature = "riscv-ulp-hal"), any(feature = "pcnt4", esp_idf_version_major = "4")))]
+    pub pcnt4: pcnt::PCNT4,
+    #[cfg(all(not(esp32s3), not(feature = "riscv-ulp-hal"), any(feature = "pcnt4", esp_idf_version_major = "4")))]
+    pub pcnt5: pcnt::PCNT5,
+    #[cfg(all(not(esp32s3), not(feature = "riscv-ulp-hal"), any(feature = "pcnt4", esp_idf_version_major = "4")))]
+    pub pcnt6: pcnt::PCNT6,
+    #[cfg(all(not(esp32s3), not(feature = "riscv-ulp-hal"), any(feature = "pcnt4", esp_idf_version_major = "4")))]
+    pub pcnt7: pcnt::PCNT7,
     #[cfg(all(esp32, esp_idf_version_major = "4"))]
     pub hall_sensor: crate::hall::HallSensor,
     #[cfg(not(feature = "riscv-ulp-hal"))]
@@ -178,6 +196,22 @@ impl Peripherals {
             spi3: spi::SPI3::new(),
             adc1: adc::ADC1::new(),
             adc2: adc::ADC2::new(),
+            #[cfg(all(not(feature = "riscv-ulp-hal"), any(feature = "pcnt4", esp_idf_version_major = "4")))]
+            pcnt0: pcnt::PCNT0::new(),
+            #[cfg(all(not(feature = "riscv-ulp-hal"), any(feature = "pcnt4", esp_idf_version_major = "4")))]
+            pcnt1: pcnt::PCNT1::new(),
+            #[cfg(all(not(feature = "riscv-ulp-hal"), any(feature = "pcnt4", esp_idf_version_major = "4")))]
+            pcnt2: pcnt::PCNT2::new(),
+            #[cfg(all(not(feature = "riscv-ulp-hal"), any(feature = "pcnt4", esp_idf_version_major = "4")))]
+            pcnt3: pcnt::PCNT3::new(),
+            #[cfg(all(not(esp32s3), not(feature = "riscv-ulp-hal"), any(feature = "pcnt4", esp_idf_version_major = "4")))]
+            pcnt4: pcnt::PCNT4::new(),
+            #[cfg(all(not(esp32s3), not(feature = "riscv-ulp-hal"), any(feature = "pcnt4", esp_idf_version_major = "4")))]
+            pcnt5: pcnt::PCNT5::new(),
+            #[cfg(all(not(esp32s3), not(feature = "riscv-ulp-hal"), any(feature = "pcnt4", esp_idf_version_major = "4")))]
+            pcnt6: pcnt::PCNT6::new(),
+            #[cfg(all(not(esp32s3), not(feature = "riscv-ulp-hal"), any(feature = "pcnt4", esp_idf_version_major = "4")))]
+            pcnt7: pcnt::PCNT7::new(),
             #[cfg(all(esp32, esp_idf_version_major = "4"))]
             hall_sensor: crate::hall::HallSensor::new(),
             #[cfg(not(feature = "riscv-ulp-hal"))]

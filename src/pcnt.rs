@@ -1,4 +1,5 @@
 use core::fmt::Debug;
+use core::marker::PhantomData;
 
 #[cfg(feature = "alloc")]
 extern crate alloc;
@@ -12,8 +13,7 @@ use enumset::EnumSetType;
 
 use crate::gpio::AnyInputPin;
 use crate::gpio::Pin;
-
-type UnitHandle = pcnt_unit_t;
+use crate::peripheral::Peripheral;
 
 #[allow(dead_code)]
 #[derive(Debug, Copy, Clone)]
@@ -113,14 +113,16 @@ pub struct PcntConfig<'d> {
 }
 
 #[derive(Debug)]
-pub struct Pcnt {
+pub struct PcntDriver<'d> {
     unit: pcnt_unit_t,
+    _p: PhantomData<&'d mut ()>,
 }
 
-impl<'d> Pcnt {
-    pub fn new() -> Result<Self, EspError> {
-        Ok(Pcnt {
-            unit: unit_allocate()?,
+impl<'d> PcntDriver<'d> {
+    pub fn new<PCNT: Pcnt>(_pcnt: impl Peripheral<P = PCNT> + 'd) -> Result<Self, EspError> {
+        Ok(Self {
+            unit: PCNT::unit(),
+            _p: PhantomData,
         })
     }
 
@@ -475,12 +477,11 @@ impl<'d> Pcnt {
     }
 }
 
-impl Drop for Pcnt {
+impl Drop for PcntDriver<'_> {
     fn drop(&mut self) {
         let _ = self.counter_pause();
         let _ = self.intr_disable();
         unsafe {ISR_HANDLERS[self.unit as usize] = None};
-        unit_deallocate(self.unit)
     }
 }
 
@@ -521,34 +522,32 @@ static mut ISR_HANDLERS: [Option<Box<dyn FnMut(u32)>>; pcnt_unit_t_PCNT_UNIT_MAX
     None, 
 ];
 
-static mut PCNT_UNITS: [Option<UnitHandle>; pcnt_unit_t_PCNT_UNIT_MAX as usize] = [
-    Some(pcnt_unit_t_PCNT_UNIT_0),
-    Some(pcnt_unit_t_PCNT_UNIT_1),
-    Some(pcnt_unit_t_PCNT_UNIT_2),
-    Some(pcnt_unit_t_PCNT_UNIT_3),
-    #[cfg(not(esp32s3))]
-    Some(pcnt_unit_t_PCNT_UNIT_4),
-    #[cfg(not(esp32s3))]
-    Some(pcnt_unit_t_PCNT_UNIT_5),
-    #[cfg(not(esp32s3))]
-    Some(pcnt_unit_t_PCNT_UNIT_6),
-    #[cfg(not(esp32s3))]
-    Some(pcnt_unit_t_PCNT_UNIT_7),
-];
+pub trait Pcnt {
+    fn unit() -> pcnt_unit_t;
+}
 
-fn unit_allocate() -> Result<pcnt_unit_t, EspError> {
-    let _ = PCNT_CS.enter();
-    for i in 0..pcnt_unit_t_PCNT_UNIT_MAX {
-        if let Some(unit) = unsafe { PCNT_UNITS[i as usize].take() } {
-            return Ok(unit);
+macro_rules! impl_pcnt {
+    ($pcnt:ident: $unit:expr) => {
+        crate::impl_peripheral!($pcnt);
+
+        impl Pcnt for $pcnt {
+            #[inline(always)]
+            fn unit() -> pcnt_unit_t {
+                $unit
+            }
         }
-    }
-    Err(EspError::from(ESP_ERR_NO_MEM as esp_err_t).unwrap())
+    };
 }
 
-fn unit_deallocate(unit: UnitHandle) {
-    let _ = PCNT_CS.enter();
-    unsafe {
-        PCNT_UNITS[unit as usize] = Some(unit);
-    }
-}
+impl_pcnt!(PCNT0: pcnt_unit_t_PCNT_UNIT_0);
+impl_pcnt!(PCNT1: pcnt_unit_t_PCNT_UNIT_1);
+impl_pcnt!(PCNT2: pcnt_unit_t_PCNT_UNIT_2);
+impl_pcnt!(PCNT3: pcnt_unit_t_PCNT_UNIT_3);
+#[cfg(not(esp32s3))]
+impl_pcnt!(PCNT4: pcnt_unit_t_PCNT_UNIT_4);
+#[cfg(not(esp32s3))]
+impl_pcnt!(PCNT5: pcnt_unit_t_PCNT_UNIT_5);
+#[cfg(not(esp32s3))]
+impl_pcnt!(PCNT6: pcnt_unit_t_PCNT_UNIT_6);
+#[cfg(not(esp32s3))]
+impl_pcnt!(PCNT7: pcnt_unit_t_PCNT_UNIT_7);

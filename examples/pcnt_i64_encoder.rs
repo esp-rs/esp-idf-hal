@@ -30,7 +30,7 @@ fn main() -> anyhow::Result<()> {
     let pin_b: AnyInputPin = peripherals.pins.gpio6.into();
 
     info!("setup encoder");
-    let encoder = Encoder::new(&pin_a, &pin_b)?;
+    let encoder = Encoder::new(peripherals.pcnt0, &pin_a, &pin_b)?;
 
     let mut last_value = 0i64;
     loop {
@@ -54,19 +54,21 @@ mod encoder {
 
     use esp_idf_hal::gpio::AnyInputPin;
     use esp_idf_hal::pcnt::*;
+    use esp_idf_hal::peripheral::Peripheral;
     use esp_idf_sys::EspError;
 
     const LOW_LIMIT: i16 = -100;
     const HIGH_LIMIT: i16 = 100;
 
-    pub struct Encoder {
-        unit: Pcnt,
+    pub struct Encoder<'d> {
+        unit: PcntDriver<'d>,
         approx_value: Arc<AtomicI64>,
     }
 
-    impl Encoder {
-        pub fn new(pin_a: &AnyInputPin, pin_b: &AnyInputPin) -> Result<Self, EspError> {
-            let mut unit = Pcnt::new()?;
+    impl<'d> Encoder<'d> {
+        //pub fn new(unit: PcntDriver<'d>, pin_a: &AnyInputPin, pin_b: &AnyInputPin) -> Result<Self, EspError> {
+        pub fn new<PCNT: Pcnt>(pcnt: impl Peripheral<P = PCNT> + 'd, pin_a: &AnyInputPin, pin_b: &AnyInputPin) -> Result<Self, EspError> {
+            let mut unit = PcntDriver::new(pcnt)?;
             unit.config(&mut PcntConfig {
                 pulse_pin: Some(pin_a),
                 ctrl_pin: Some(pin_b),
