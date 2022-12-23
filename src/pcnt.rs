@@ -14,7 +14,6 @@ use enumset::EnumSetType;
 use crate::gpio::InputPin;
 use crate::peripheral::Peripheral;
 
-#[allow(dead_code)]
 #[derive(Debug, Copy, Clone)]
 pub enum PcntChannel {
     Channel0,
@@ -125,7 +124,11 @@ impl<'d> PcntDriver<'d> {
     ///       @note
     ///       This function will disable three events: PCNT_EVT_L_LIM, PCNT_EVT_H_LIM, PCNT_EVT_ZERO.
     /// 
+    /// @param pulse_io Pulse signal input pin
+    /// @param ctrl_io Control signal input pin
     /// @param pconfig Reference of PcntConfig
+    /// 
+    /// @note  Set the signal input to PCNT_PIN_NOT_USED if unused.
     /// 
     /// returns
     /// - ()
