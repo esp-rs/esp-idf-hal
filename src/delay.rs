@@ -4,10 +4,10 @@ use core::time::Duration;
 use esp_idf_sys::*;
 
 #[allow(non_upper_case_globals)]
-pub const BLOCK: TickType_t = TickType_t::max_value();
+pub const BLOCK: TickType_t = TickType_t::MAX;
 
 #[allow(non_upper_case_globals)]
-pub const NON_BLOCK: TickType_t = TickType_t::min_value();
+pub const NON_BLOCK: TickType_t = TickType_t::MIN;
 
 #[allow(non_upper_case_globals)]
 const portTICK_PERIOD_MS: u32 = 1000 / configTICK_RATE_HZ;

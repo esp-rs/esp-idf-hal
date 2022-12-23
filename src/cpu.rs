@@ -3,11 +3,13 @@ use core::arch::asm;
 
 use esp_idf_sys::*;
 
+use enumset::EnumSetType;
+
 /// Returns the number of cores supported by the esp32* chip
 pub const CORES: u32 = SOC_CPU_CORES_NUM;
 
+#[derive(Debug, EnumSetType)]
 #[repr(C)]
-#[derive(Copy, Clone, Eq, PartialEq, Debug)]
 pub enum Core {
     Core0 = 0, // PRO on dual-core systems, the one and only CPU on single-core systems
     #[cfg(any(esp32, esp32s3))]

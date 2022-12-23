@@ -19,6 +19,14 @@ pub mod config {
         pub divider: u32,
         #[cfg(any(esp32s2, esp32s3, esp32c3))]
         pub xtal: bool,
+
+        /// Enable or disable counter reload function when alarm event occurs.
+        ///
+        /// Enabling this makes the hardware automatically reset the counter
+        /// to the value set by [`TimerDriver::set_counter`](super::TimerDriver::set_counter) when the alarm is fired.
+        /// This allows creating timers that automatically fire at a given interval
+        /// without the software having to do anything after the timer setup.
+        pub auto_reload: bool,
     }
 
     impl Config {
@@ -38,6 +46,12 @@ pub mod config {
             self.xtal = xtal;
             self
         }
+
+        #[must_use]
+        pub fn auto_reload(mut self, auto_reload: bool) -> Self {
+            self.auto_reload = auto_reload;
+            self
+        }
     }
 
     impl Default for Config {
@@ -46,6 +60,7 @@ pub mod config {
                 divider: 80,
                 #[cfg(any(esp32s2, esp32s3, esp32c3))]
                 xtal: false,
+                auto_reload: false,
             }
         }
     }
@@ -74,7 +89,11 @@ impl<'d> TimerDriver<'d> {
                     alarm_en: timer_alarm_t_TIMER_ALARM_DIS,
                     counter_en: timer_start_t_TIMER_PAUSE,
                     counter_dir: timer_count_dir_t_TIMER_COUNT_UP,
-                    auto_reload: timer_autoreload_t_TIMER_AUTORELOAD_DIS,
+                    auto_reload: if config.auto_reload {
+                        timer_autoreload_t_TIMER_AUTORELOAD_EN
+                    } else {
+                        timer_autoreload_t_TIMER_AUTORELOAD_DIS
+                    },
                     intr_type: timer_intr_mode_t_TIMER_INTR_LEVEL,
                     divider: config.divider,
                     #[cfg(all(any(esp32s2, esp32s3, esp32c3), esp_idf_version_major = "4"))]
@@ -113,9 +132,7 @@ impl<'d> TimerDriver<'d> {
         } else {
             let mut value = 0_u64;
 
-            esp!(unsafe {
-                timer_get_counter_value(self.group(), self.index(), &mut value as *mut _)
-            })?;
+            esp!(unsafe { timer_get_counter_value(self.group(), self.index(), &mut value) })?;
 
             value
         };
@@ -257,7 +274,7 @@ impl<'d> TimerDriver<'d> {
     }
 
     #[cfg(feature = "alloc")]
-    unsafe extern "C" fn handle_isr(unsafe_callback: *mut c_types::c_void) -> bool {
+    unsafe extern "C" fn handle_isr(unsafe_callback: *mut core::ffi::c_void) -> bool {
         crate::interrupt::with_isr_yield_signal(move || {
             UnsafeCallback::from_ptr(unsafe_callback).call();
         })
@@ -295,12 +312,12 @@ impl UnsafeCallback {
         Self(boxed.as_mut())
     }
 
-    pub unsafe fn from_ptr(ptr: *mut c_types::c_void) -> Self {
-        Self(ptr as *mut _)
+    pub unsafe fn from_ptr(ptr: *mut core::ffi::c_void) -> Self {
+        Self(ptr.cast())
     }
 
-    pub fn as_ptr(&self) -> *mut c_types::c_void {
-        self.0 as *mut _
+    pub fn as_ptr(&self) -> *mut core::ffi::c_void {
+        self.0.cast()
     }
 
     pub unsafe fn call(&mut self) {

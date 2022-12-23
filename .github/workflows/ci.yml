@@ -22,6 +22,9 @@ jobs:
           - xtensa-esp32-espidf
           - xtensa-esp32s2-espidf
           - xtensa-esp32s3-espidf
+        idf-version:
+          - release/v4.4
+          - release/v5.0
     steps:
       - name: Setup | Checkout
         uses: actions/checkout@v2
@@ -42,28 +45,49 @@ jobs:
         if: matrix.target == 'riscv32imc-esp-espidf'
 
       - name: Install Rust for Xtensa
-        uses: esp-rs/xtensa-toolchain@v1.2.0
+        uses: esp-rs/xtensa-toolchain@v1.4.0
         with:
           default: true
         if: matrix.target != 'riscv32imc-esp-espidf'
+      
+      - name: Temp fix for clang error
+        run: sudo apt-get install libncurses5
 
       - name: Build | Fmt Check
         run: cargo fmt -- --check
 
       - name: Build | Clippy
-        run: export ESP_IDF_VERSION=release/v4.4; export ESP_IDF_SDKCONFIG_DEFAULTS=$(pwd)/.github/configs/sdkconfig.defaults; cargo clippy --no-deps --target ${{ matrix.target }} -Zbuild-std=std,panic_abort -Zbuild-std-features=panic_immediate_abort -- -Dwarnings
+        env:
+          ESP_IDF_VERSION: ${{ matrix.idf-version }}
+          ESP_IDF_SDKCONFIG_DEFAULTS: $(pwd)/.github/configs/sdkconfig.defaults
+          RUSTFLAGS: "${{ matrix.idf-version == 'release/v5.0' && '--cfg espidf_time64' || ''}}"
+        run: cargo clippy --no-deps --target ${{ matrix.target }} -Zbuild-std=std,panic_abort -Zbuild-std-features=panic_immediate_abort -- -Dwarnings
 
       - name: Build | Compile
-        run: export ESP_IDF_VERSION=release/v4.4; export ESP_IDF_SDKCONFIG_DEFAULTS=$(pwd)/.github/configs/sdkconfig.defaults; cargo build --target ${{ matrix.target }} -Zbuild-std=std,panic_abort -Zbuild-std-features=panic_immediate_abort
+        env:
+          ESP_IDF_VERSION: ${{ matrix.idf-version }}
+          ESP_IDF_SDKCONFIG_DEFAULTS: $(pwd)/.github/configs/sdkconfig.defaults
+          RUSTFLAGS: "${{ matrix.idf-version == 'release/v5.0' && '--cfg espidf_time64' || ''}}"
+        run: cargo build --target ${{ matrix.target }} -Zbuild-std=std,panic_abort -Zbuild-std-features=panic_immediate_abort
 
       - name: Build | RISCV-ULP-HAL feature
-        run: export ESP_IDF_VERSION=release/v4.4; cargo build --features riscv-ulp-hal --no-default-features --target riscv32imc-unknown-none-elf -Zbuild-std=core,panic_abort -Zbuild-std-features=panic_immediate_abort
+        env:
+          ESP_IDF_VERSION: ${{ matrix.idf-version }}
+        run: cargo build --features riscv-ulp-hal --no-default-features --target riscv32imc-unknown-none-elf -Zbuild-std=core,panic_abort -Zbuild-std-features=panic_immediate_abort
 
       - name: Build | Compile, no_std
-        run: export ESP_IDF_VERSION=release/v4.4; export ESP_IDF_SDKCONFIG_DEFAULTS=$(pwd)/.github/configs/sdkconfig.defaults; cargo build --features esp-idf-sys --no-default-features --target ${{ matrix.target }} -Zbuild-std=std,panic_abort -Zbuild-std-features=panic_immediate_abort
+        env:
+          ESP_IDF_VERSION: ${{ matrix.idf-version }}
+          ESP_IDF_SDKCONFIG_DEFAULTS: $(pwd)/.github/configs/sdkconfig.defaults
+          RUSTFLAGS: "${{ matrix.idf-version == 'release/v5.0' && '--cfg espidf_time64' || ''}}"
+        run: cargo build --features esp-idf-sys --no-default-features --target ${{ matrix.target }} -Zbuild-std=std,panic_abort -Zbuild-std-features=panic_immediate_abort
 
       - name: Build | Compile, no_std, alloc
-        run: export ESP_IDF_VERSION=release/v4.4; export ESP_IDF_SDKCONFIG_DEFAULTS=$(pwd)/.github/configs/sdkconfig.defaults; cargo build --features alloc,esp-idf-sys --no-default-features --target ${{ matrix.target }} -Zbuild-std=std,panic_abort -Zbuild-std-features=panic_immediate_abort
+        env:
+          ESP_IDF_VERSION: ${{ matrix.idf-version }}
+          ESP_IDF_SDKCONFIG_DEFAULTS: $(pwd)/.github/configs/sdkconfig.defaults
+          RUSTFLAGS: "${{ matrix.idf-version == 'release/v5.0' && '--cfg espidf_time64' || ''}}"
+        run: cargo build --features alloc,esp-idf-sys --no-default-features --target ${{ matrix.target }} -Zbuild-std=std,panic_abort -Zbuild-std-features=panic_immediate_abort
 
       - name: Setup | ldproxy
         uses: actions-rs/install@v0.1
@@ -73,4 +97,8 @@ jobs:
         if: matrix.target == 'riscv32imc-esp-espidf'
 
       - name: Build | Examples
-        run: export ESP_IDF_VERSION=release/v4.4; export ESP_IDF_SDKCONFIG_DEFAULTS=$(pwd)/.github/configs/sdkconfig.defaults; cargo build --examples --target ${{ matrix.target }} -Zbuild-std=std,panic_abort -Zbuild-std-features=panic_immediate_abort
+        env:
+          ESP_IDF_VERSION: ${{ matrix.idf-version }}
+          ESP_IDF_SDKCONFIG_DEFAULTS: $(pwd)/.github/configs/sdkconfig.defaults
+          RUSTFLAGS: "${{ matrix.idf-version == 'release/v5.0' && '--cfg espidf_time64' || ''}} ${{ matrix.target == 'riscv32imc-esp-espidf' && '-C default-linker-libraries' || ''}}"
+        run: cargo build --examples --target ${{ matrix.target }} -Zbuild-std=std,panic_abort -Zbuild-std-features=panic_immediate_abort
