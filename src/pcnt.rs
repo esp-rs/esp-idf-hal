@@ -1,5 +1,10 @@
 use core::fmt::Debug;
 
+#[cfg(feature = "alloc")]
+extern crate alloc;
+
+#[cfg(feature = "alloc")]
+use alloc::boxed::Box;
 
 use esp_idf_sys::*;
 
@@ -417,11 +422,17 @@ impl<'d> Pcnt {
     /// limit is smaller compared to a global PCNT interrupt handler due
     /// to the additional level of indirection.
     /// 
+    /// # Safety
+    ///
+    /// Care should be taken not to call STD, libc or FreeRTOS APIs (except for a few allowed ones)
+    /// in the callback passed to this function, as it is executed in an ISR context.
+    /// 
     /// @param callback Interrupt handler function.
     /// 
     /// returns
     /// - ()
     /// - EspError
+    #[cfg(feature = "alloc")]
     pub unsafe fn subscribe(&self, callback: impl FnMut(u32) + Send + 'static) -> Result<(), EspError> {
         enable_isr_service()?;
 
@@ -441,6 +452,7 @@ impl<'d> Pcnt {
     /// returns
     /// - ()
     /// - EspError
+    #[cfg(feature = "alloc")]
     pub fn unsubscribe(&self) -> Result<(), EspError> {
         unsafe {
             esp!(pcnt_isr_handler_remove(self.unit))?;
@@ -449,6 +461,7 @@ impl<'d> Pcnt {
         Ok(())
     }
 
+    #[cfg(feature = "alloc")]
     unsafe extern "C" fn handle_isr(data: *mut core::ffi::c_void) {
         let unit = data as pcnt_unit_t;
         if let Some(f) = &mut ISR_HANDLERS[unit as usize] {
@@ -478,6 +491,7 @@ static ISR_SERVICE_ENABLED: core::sync::atomic::AtomicBool =
 #[cfg(all(not(feature = "riscv-ulp-hal"), feature = "alloc"))]
 static PCNT_CS: crate::task::CriticalSection = crate::task::CriticalSection::new();
 
+#[cfg(feature = "alloc")]
 fn enable_isr_service() -> Result<(), EspError> {
     use core::sync::atomic::Ordering;
 
@@ -494,6 +508,7 @@ fn enable_isr_service() -> Result<(), EspError> {
     Ok(())
 }
 
+#[cfg(feature = "alloc")]
 static mut ISR_HANDLERS: [Option<Box<dyn FnMut(u32)>>; pcnt_unit_t_PCNT_UNIT_MAX as usize] = [
     None, None, None, None, 
     #[cfg(not(esp32s3))]
