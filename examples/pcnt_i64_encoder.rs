@@ -156,14 +156,10 @@ mod encoder {
                 high_limit: HIGH_LIMIT,
                 ..Default::default()
             })?;
-            let channel0 = unit.channel(Some(&mut pin_a), Some(&mut pin_b), &PcntChanConfig {
-                ..Default::default()
-            })?;
+            let channel0 = unit.channel(Some(&mut pin_a), Some(&mut pin_b), PcntChanFlags::default())?;
             channel0.set_level_action(PcntLevelAction::Keep, PcntLevelAction::Inverse)?;
             channel0.set_edge_action(PcntEdgeAction::Decrease, PcntEdgeAction::Increase)?;
-            let channel1 = unit.channel(Some(&mut pin_b), Some(&mut pin_a), &PcntChanConfig {
-                ..Default::default()
-            })?;
+            let channel1 = unit.channel(Some(&mut pin_b), Some(&mut pin_a), PcntChanFlags::default())?;
             channel1.set_level_action(PcntLevelAction::Keep, PcntLevelAction::Inverse)?;
             channel1.set_edge_action(PcntEdgeAction::Increase, PcntEdgeAction::Decrease)?;
 

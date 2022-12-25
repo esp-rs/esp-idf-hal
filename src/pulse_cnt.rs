@@ -159,14 +159,6 @@ impl PcntChanFlags {
     }
 }
 
-#[doc = " @brief PCNT channel configuration"]
-#[derive(Default)]
-pub struct PcntChanConfig {
-    #[doc = "< Channel config flags"]
-    pub flags: PcntChanFlags,
-}
-
-
 #[doc = " @brief PCNT channel"]
 #[derive(Debug)]
 pub struct PcntChannel(pcnt_channel_handle_t);
@@ -465,7 +457,12 @@ impl PcntUnit {
     #[doc = " @return"]
     #[doc = "      - PcntChannel: on success"]
     #[doc = "      - EspError: on failure"]
-    pub fn channel<'a>(&self, edge_pin: Option<impl Peripheral<P = impl InputPin>+'a>, level_pin: Option<impl Peripheral<P = impl InputPin>+'a>, config: &PcntChanConfig) -> Result<PcntChannel, EspError> {
+    pub fn channel<'a>(
+        &self,
+        edge_pin: Option<impl Peripheral<P = impl InputPin>+'a>,
+        level_pin: Option<impl Peripheral<P = impl InputPin>+'a>,
+        flags: PcntChanFlags
+    ) -> Result<PcntChannel, EspError> {
         let config = pcnt_chan_config_t {
             edge_gpio_num: match edge_pin {
                 Some(pin) => {
@@ -481,7 +478,7 @@ impl PcntUnit {
                 },
                 None => -1,
             },
-            flags: config.flags.0,
+            flags: flags.0,
         };
         let mut channel: pcnt_channel_handle_t = std::ptr::null_mut();
         unsafe {
