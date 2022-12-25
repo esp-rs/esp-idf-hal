@@ -1,41 +1,7 @@
 
-
-
-use esp_idf_sys::esp;
-use esp_idf_sys::pcnt_chan_config_t;
-// channel flags
-use esp_idf_sys::pcnt_chan_config_t__bindgen_ty_1;
-use esp_idf_sys::pcnt_channel_edge_action_t;
-use esp_idf_sys::pcnt_channel_handle_t;
-use esp_idf_sys::pcnt_channel_level_action_t;
-use esp_idf_sys::pcnt_channel_set_edge_action;
-use esp_idf_sys::pcnt_channel_set_level_action;
-use esp_idf_sys::pcnt_del_channel;
-use esp_idf_sys::pcnt_del_unit;
-use esp_idf_sys::pcnt_event_callbacks_t;
-use esp_idf_sys::pcnt_glitch_filter_config_t;
-use esp_idf_sys::pcnt_new_channel;
-use esp_idf_sys::pcnt_new_unit;
-use esp_idf_sys::pcnt_unit_add_watch_point;
-use esp_idf_sys::pcnt_unit_clear_count;
-use esp_idf_sys::pcnt_unit_config_t;
-// unit flags
-use esp_idf_sys::pcnt_unit_config_t__bindgen_ty_1;
-use esp_idf_sys::pcnt_unit_disable;
-use esp_idf_sys::pcnt_unit_enable;
-use esp_idf_sys::pcnt_unit_get_count;
-use esp_idf_sys::pcnt_unit_handle_t;
-use esp_idf_sys::EspError;
-use esp_idf_sys::pcnt_unit_register_event_callbacks;
-use esp_idf_sys::pcnt_unit_remove_watch_point;
-use esp_idf_sys::pcnt_unit_set_glitch_filter;
-use esp_idf_sys::pcnt_unit_start;
-use esp_idf_sys::pcnt_unit_stop;
-use esp_idf_sys::pcnt_unit_zero_cross_mode_t;
-use esp_idf_sys::pcnt_watch_event_data_t;
-
-use crate::gpio::AnyInputPin;
-use crate::gpio::Pin;
+use esp_idf_sys::*;
+use crate::gpio::InputPin;
+use crate::peripheral::Peripheral;
 
 #[doc = " @brief PCNT glitch filter configuration"]
 #[derive(Debug, Default, Copy, Clone)]
@@ -195,11 +161,7 @@ impl PcntChanFlags {
 
 #[doc = " @brief PCNT channel configuration"]
 #[derive(Default)]
-pub struct PcntChanConfig<'a> {
-    #[doc = "< GPIO number used by the edge signal, input mode with pull up enabled. Set to -1 if unused"]
-    pub edge_pin: Option<&'a AnyInputPin>,
-    #[doc = "< GPIO number used by the level signal, input mode with pull up enabled. Set to -1 if unused"]
-    pub level_pin: Option<&'a AnyInputPin>,
+pub struct PcntChanConfig {
     #[doc = "< Channel config flags"]
     pub flags: PcntChanFlags,
 }
@@ -415,7 +377,7 @@ impl PcntUnit {
     #[doc = "      - value: on success"]
     #[doc = "      - EspError: on failure"]
     pub fn get_count(&self) -> Result<i32, EspError> {
-        let mut value: esp_idf_sys::c_types::c_int = 0;
+        let mut value: core::ffi::c_int = 0;
         unsafe { esp!(pcnt_unit_get_count(self.unit, &mut value))?; }
         Ok(value)
     }
@@ -464,11 +426,11 @@ impl PcntUnit {
         let cbs = pcnt_event_callbacks_t {
             on_reach: Some(Self::handle_isr),
         };
-        let data = id as *mut esp_idf_sys::c_types::c_void;
-        unsafe {esp!(pcnt_unit_register_event_callbacks(self.unit, &cbs, data as *mut esp_idf_sys::c_types::c_void))}
+        let data = id as *mut core::ffi::c_void;
+        unsafe {esp!(pcnt_unit_register_event_callbacks(self.unit, &cbs, data as *mut core::ffi::c_void))}
     }
 
-    unsafe extern "C" fn handle_isr(_unit: pcnt_unit_handle_t, edata: *const pcnt_watch_event_data_t, data: *mut esp_idf_sys::c_types::c_void) -> bool {
+    unsafe extern "C" fn handle_isr(_unit: pcnt_unit_handle_t, edata: *const pcnt_watch_event_data_t, data: *mut core::ffi::c_void) -> bool {
         let id = data as usize;
         match &mut ISR_HANDLERS[id] {
             Some(f) => f(edata.into()),
@@ -488,7 +450,7 @@ impl PcntUnit {
             unsafe {
                 esp!(pcnt_unit_register_event_callbacks(self.unit, &pcnt_event_callbacks_t {
                     on_reach: None,
-                }, 0 as *mut esp_idf_sys::c_types::c_void))?;
+                }, 0 as *mut core::ffi::c_void))?;
             }
             free_isr_id(id);
         }
@@ -503,14 +465,20 @@ impl PcntUnit {
     #[doc = " @return"]
     #[doc = "      - PcntChannel: on success"]
     #[doc = "      - EspError: on failure"]
-    pub fn channel(&self, config: &PcntChanConfig) -> Result<PcntChannel, EspError> {
+    pub fn channel<'a>(&self, edge_pin: Option<impl Peripheral<P = impl InputPin>+'a>, level_pin: Option<impl Peripheral<P = impl InputPin>+'a>, config: &PcntChanConfig) -> Result<PcntChannel, EspError> {
         let config = pcnt_chan_config_t {
-            edge_gpio_num: match config.edge_pin {
-                Some(pin) => pin.pin(),
+            edge_gpio_num: match edge_pin {
+                Some(pin) => {
+                    crate::into_ref!(pin);
+                    pin.pin()
+                },
                 None => -1,
             },
-            level_gpio_num: match config.level_pin {
-                Some(pin) => pin.pin(),
+            level_gpio_num: match level_pin {
+                Some(pin) => {
+                    crate::into_ref!(pin);
+                    pin.pin()
+                },
                 None => -1,
             },
             flags: config.flags.0,

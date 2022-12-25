@@ -29,7 +29,10 @@ fn main() -> anyhow::Result<()> {
     let pin_b = peripherals.pins.gpio6;
 
     info!("setup encoder");
+    #[cfg(any(feature = "pcnt", esp_idf_version_major = "4"))]
     let encoder = Encoder::new(peripherals.pcnt0, pin_a, pin_b)?;
+    #[cfg(not(any(feature = "pcnt", esp_idf_version_major = "4")))]
+    let encoder = Encoder::new(pin_a, pin_b)?;
 
     let mut last_value = 0i64;
     loop {
@@ -71,7 +74,7 @@ mod encoder {
             mut pin_b: impl Peripheral<P = impl InputPin>
         ) -> Result<Self, EspError> {
             let mut unit = PcntDriver::new(pcnt)?;
-            unit.channel_config(PcntChannel::Channel0, Some(&mut pin_a), Some(&mut pin_b), &mut PcntConfig {
+            unit.channel_config(PcntChannel::Channel0, Some(&mut pin_a), Some(&mut pin_b), &mut PcntChannelConfig {
                 lctrl_mode: PcntControlMode::Reverse,
                 hctrl_mode: PcntControlMode::Keep,
                 pos_mode: PcntCountMode::Decrement,
@@ -79,7 +82,7 @@ mod encoder {
                 counter_h_lim: HIGH_LIMIT,
                 counter_l_lim: LOW_LIMIT,
             })?;
-            unit.channel_config(PcntChannel::Channel1, Some(&mut pin_b), Some(&mut pin_a), &mut PcntConfig {
+            unit.channel_config(PcntChannel::Channel1, Some(&mut pin_b), Some(&mut pin_a), &mut PcntChannelConfig {
                 lctrl_mode: PcntControlMode::Reverse,
                 hctrl_mode: PcntControlMode::Keep,
                 pos_mode: PcntCountMode::Increment,
@@ -132,7 +135,8 @@ mod encoder {
     use std::sync::atomic::AtomicI64;
     use std::sync::atomic::Ordering;
 
-    use esp_idf_hal::gpio::AnyInputPin;
+    use esp_idf_hal::gpio::InputPin;
+    use esp_idf_hal::peripheral::Peripheral;
     use esp_idf_hal::pulse_cnt::*;
     use esp_idf_sys::EspError;
 
@@ -146,22 +150,18 @@ mod encoder {
     }
 
     impl Encoder {
-        pub fn new(pin_a: &AnyInputPin, pin_b: &AnyInputPin) -> Result<Self, EspError> {
+        pub fn new(mut pin_a: impl Peripheral<P = impl InputPin>, mut pin_b: impl Peripheral<P = impl InputPin>) -> Result<Self, EspError> {
             let mut unit = PcntUnit::new(&PcntUnitConfig {
                 low_limit: LOW_LIMIT,
                 high_limit: HIGH_LIMIT,
                 ..Default::default()
             })?;
-            let channel0 = unit.channel(&PcntChanConfig {
-                edge_pin: Some(&pin_a),
-                level_pin: Some(&pin_b),
+            let channel0 = unit.channel(Some(&mut pin_a), Some(&mut pin_b), &PcntChanConfig {
                 ..Default::default()
             })?;
             channel0.set_level_action(PcntLevelAction::Keep, PcntLevelAction::Inverse)?;
             channel0.set_edge_action(PcntEdgeAction::Decrease, PcntEdgeAction::Increase)?;
-            let channel1 = unit.channel(&PcntChanConfig {
-                edge_pin: Some(&pin_b),
-                level_pin: Some(&pin_a),
+            let channel1 = unit.channel(Some(&mut pin_b), Some(&mut pin_a), &PcntChanConfig {
                 ..Default::default()
             })?;
             channel1.set_level_action(PcntLevelAction::Keep, PcntLevelAction::Inverse)?;
