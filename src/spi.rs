@@ -85,7 +85,7 @@ impl Dma {
             Dma::Channel1(size) | Dma::Channel2(size) | Dma::Auto(size) => *size,
         };
         if max_transfer_size % 4 != 0 {
-            panic!("The max transfer size must a multiple of 4")
+            panic!("The max transfer size must be a multiple of 4")
         } else if max_transfer_size > 4096 {
             4096
         } else {
