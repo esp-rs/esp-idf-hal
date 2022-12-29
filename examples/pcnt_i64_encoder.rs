@@ -25,14 +25,13 @@ fn main() -> anyhow::Result<()> {
 
     info!("setup pins");
     let peripherals = Peripherals::take().context("failed to take Peripherals")?;
-    let pin_a = peripherals.pins.gpio5;
-    let pin_b = peripherals.pins.gpio6;
-
+    let mut pin_a = peripherals.pins.gpio5;
+    let mut pin_b = peripherals.pins.gpio6;
     info!("setup encoder");
     #[cfg(any(feature = "pcnt", esp_idf_version_major = "4"))]
-    let encoder = Encoder::new(peripherals.pcnt0, pin_a, pin_b)?;
+    let encoder = Encoder::new(peripherals.pcnt0, &mut pin_a, &mut pin_b)?;
     #[cfg(not(any(feature = "pcnt", esp_idf_version_major = "4")))]
-    let encoder = Encoder::new(pin_a, pin_b)?;
+    let encoder = Encoder::new(&mut pin_a, &mut pin_b)?;
 
     let mut last_value = 0i64;
     loop {
@@ -90,9 +89,10 @@ mod encoder {
                 counter_h_lim: HIGH_LIMIT,
                 counter_l_lim: LOW_LIMIT,
             })?;
+
             unit.set_filter_value(min(10 * 80, 1023))?;
             unit.filter_enable()?;
-        
+
             let approx_value = Arc::new(AtomicI64::new(0));
             // unsafe interrupt code to catch the upper and lower limits from the encoder
             // and track the overflow in `value: Arc<AtomicI64>` - I plan to use this for
