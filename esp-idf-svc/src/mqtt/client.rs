@@ -1,3 +1,4 @@
+//! MQTT protocol client
 use core::convert::TryInto;
 use core::ffi::c_void;
 use core::fmt::{self, Debug};

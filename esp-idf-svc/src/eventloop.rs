@@ -1,3 +1,5 @@
+//! Event loop library
+
 use core::fmt::Debug;
 use core::marker::PhantomData;
 use core::result::Result;

@@ -1,3 +1,4 @@
+//! Wrapper around ESP-IDF raw handles
 pub trait RawHandle {
     type Handle;
 

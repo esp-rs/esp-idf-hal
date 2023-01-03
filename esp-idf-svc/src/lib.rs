@@ -1,3 +1,16 @@
+//! This crate contains wrappers which are mostly implementations of the
+//! abstractions defined in the [embedded-svc](../embedded_svc/index.html)
+//! project. It has features such as wifi, networking, httpd, logging.
+//!
+//! ## Features
+//!
+//! This crates specifies a few cargo features, including:
+//!
+//! - `std`: Enable the use of std. Enabled by default.
+//! - `experimental`: Enable the use of experimental features, including a HTTP
+//!   client.
+//! - `embassy-time-driver`
+//! - `embassy-time-isr-queue`
 #![cfg_attr(not(feature = "std"), no_std)]
 #![feature(cfg_version)]
 #![cfg_attr(

@@ -1,3 +1,4 @@
+//! Send ICMP echo requests (Ping)
 use core::{ffi, mem, ptr, time::Duration};
 
 use ::log::*;

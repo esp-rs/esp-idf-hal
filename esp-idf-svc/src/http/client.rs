@@ -1,3 +1,10 @@
+//! HTTP client
+//!
+//! This provides a set of APIs for making HTTP(S) requests.
+//!
+//! You can find a usage example at
+//! [`examples/http_request.rs`](https://github.com/esp-rs/esp-idf-svc/blob/master/examples/http_request.rs).
+
 use core::cell::UnsafeCell;
 
 extern crate alloc;

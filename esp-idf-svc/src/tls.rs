@@ -1,3 +1,4 @@
+//! TLS-related helper types
 use core::ffi::{c_char, CStr};
 use core::fmt::Debug;
 

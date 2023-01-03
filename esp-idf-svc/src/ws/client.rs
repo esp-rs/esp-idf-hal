@@ -1,3 +1,5 @@
+//! WebSocket client
+
 use core::convert::{TryFrom, TryInto};
 use core::{ffi, time};
 

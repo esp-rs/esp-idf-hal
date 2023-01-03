@@ -38,3 +38,7 @@ embassy-time = { version = "0.1", optional = true, features = ["tick-hz-1_000_00
 [build-dependencies]
 embuild = "0.31"
 anyhow = "1"
+
+[[example]]
+name = "http_request"
+required-features = ["experimental"]

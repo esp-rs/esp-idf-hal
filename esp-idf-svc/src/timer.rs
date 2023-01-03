@@ -1,3 +1,14 @@
+//! High resolution hardware timer based task scheduling
+//!
+//! Although FreeRTOS provides software timers, these timers have a few
+//! limitations:
+//!
+//! - Maximum resolution is equal to RTOS tick period
+//! - Timer callbacks are dispatched from a low-priority task
+//!
+//! EspTimer is a set of APIs that provides one-shot and periodic timers,
+//! microsecond time resolution, and 52-bit range.
+
 use core::result::Result;
 use core::time::Duration;
 use core::{ffi, ptr};

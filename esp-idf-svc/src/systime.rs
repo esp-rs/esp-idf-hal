@@ -1,12 +1,15 @@
+//! System time
 use core::time::Duration;
 
 use embedded_svc::sys_time::SystemTime;
 
 use esp_idf_sys::*;
 
+/// Client for the ESP system time
 pub struct EspSystemTime;
 
 impl EspSystemTime {
+    /// Return the current system time
     pub fn now(&self) -> Duration {
         let mut tv_now: timeval = Default::default();
 

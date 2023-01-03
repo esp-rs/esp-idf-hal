@@ -1,3 +1,4 @@
+//! Logging
 use core::fmt::Write;
 
 use ::log::{Level, LevelFilter, Metadata, Record};

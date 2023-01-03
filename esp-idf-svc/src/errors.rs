@@ -1,3 +1,5 @@
+//! Error types
+
 use core::fmt::{self, Display, Formatter};
 
 use embedded_svc::io::{Error, ErrorKind};

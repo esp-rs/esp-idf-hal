@@ -1,3 +1,9 @@
+//! Over The Air Updates (OTA)
+//!
+//! The OTA update mechanism allows a device to update itself based on data
+//! received while the normal firmware is running (for example, over Wi-Fi or
+//! Bluetooth.)
+
 use core::cmp::min;
 use core::fmt::Write;
 use core::mem;

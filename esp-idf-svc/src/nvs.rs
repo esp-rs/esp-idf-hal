@@ -1,3 +1,4 @@
+//! Non-Volatile Storage (NVS)
 use core::ptr;
 
 extern crate alloc;

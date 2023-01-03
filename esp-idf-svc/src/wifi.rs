@@ -1,3 +1,4 @@
+//! WiFi support
 use core::marker::PhantomData;
 use core::time::Duration;
 use core::{cmp, ffi};

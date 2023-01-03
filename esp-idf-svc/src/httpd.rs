@@ -1,3 +1,7 @@
+//! HTTP server
+//!
+//! The HTTP Server component provides an ability for running a lightweight web
+//! server on ESP32.
 #![allow(deprecated)]
 
 use core::{ffi::*, marker::PhantomData, ptr};

@@ -1,3 +1,4 @@
+//! HTTP server
 use core::cell::UnsafeCell;
 use core::fmt::{Debug, Display};
 use core::sync::atomic::{AtomicBool, Ordering};

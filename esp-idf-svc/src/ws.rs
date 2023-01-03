@@ -1,3 +1,5 @@
+//! WebSocket protocol
+
 #[cfg(all(
     feature = "alloc",
     feature = "experimental",

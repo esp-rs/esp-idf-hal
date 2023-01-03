@@ -1,3 +1,5 @@
+//! SNTP Time Synchronization
+
 use core::cmp::min;
 
 use ::log::*;

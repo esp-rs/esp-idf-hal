@@ -1,3 +1,5 @@
+//! mDNS Service
+
 use core::time::Duration;
 
 extern crate alloc;

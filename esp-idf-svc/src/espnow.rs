@@ -1,3 +1,11 @@
+//! ESP-NOW
+//!
+//! ESP-NOW is a kind of connectionless Wi-Fi communication protocol that is
+//! defined by Espressif. In ESP-NOW, application data is encapsulated in a
+//! vendor-specific action frame and then transmitted from one Wi-Fi device to
+//! another without connection. CTR with CBC-MAC Protocol(CCMP) is used to
+//! protect the action frame for security. ESP-NOW is widely used in smart
+//! light, remote controlling, sensor, etc.
 use ::log::info;
 
 use alloc::boxed::Box;

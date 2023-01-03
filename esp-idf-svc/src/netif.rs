@@ -1,3 +1,13 @@
+//! Network abstraction
+//!
+//! The purpose of ESP-NETIF library is twofold:
+//!
+//! - It provides an abstraction layer for the application on top of the TCP/IP
+//!   stack. This will allow applications to choose between IP stacks in the
+//!   future.
+//! - The APIs it provides are thread safe, even if the underlying TCP/IP
+//!   stack APIs are not.
+
 use core::convert::TryInto;
 use core::{ffi, ptr};
 
@@ -18,12 +28,17 @@ pub use status::*;
 #[cfg_attr(feature = "std", derive(Hash))]
 #[cfg_attr(feature = "use_serde", derive(Serialize, Deserialize))]
 pub enum NetifStack {
+    /// Station mode (WiFi client)
     Sta,
+    /// Access point mode (WiFi router)
     Ap,
+    /// Ethernet
     Eth,
     #[cfg(esp_idf_ppp_support)]
+    /// Point-to-Point Protocol (PPP)
     Ppp,
     #[cfg(esp_idf_slip_support)]
+    /// Serial Line Internet Protocol (SLIP)
     Slip,
 }
 
