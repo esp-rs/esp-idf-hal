@@ -634,7 +634,7 @@ impl<'d> EthDriver<'d> {
         info!("Stopping");
 
         let err = unsafe { esp_eth_stop(self.handle) };
-        if err != ESP_ERR_INVALID_STATE as i32 {
+        if err != ESP_ERR_INVALID_STATE {
             esp!(err)?;
         }
 
@@ -742,7 +742,6 @@ impl<'d> EthDriver<'d> {
             rx_task_stack_size: 2048,
             rx_task_prio: 15,
             flags: 0,
-            ..Default::default()
         }
     }
 
@@ -1003,7 +1002,7 @@ impl<R> EthWait<R> {
         let handle = RawHandleImpl(driver.handle());
 
         let subscription = sysloop
-            .subscribe(move |event: &EthEvent| Self::on_eth_event(handle.0, &*s_waitable, event))?;
+            .subscribe(move |event: &EthEvent| Self::on_eth_event(handle.0, &s_waitable, event))?;
 
         Ok(Self {
             _driver: driver,

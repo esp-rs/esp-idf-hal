@@ -171,13 +171,12 @@ impl EspNow {
     }
 
     extern "C" fn recv_callback(
-        #[cfg(any(esp_idf_version_major = "4", esp_idf_version_minor = "0"))] mac_addr: *const u8,
-        #[cfg(not(any(esp_idf_version_major = "4", esp_idf_version_minor = "0")))]
-        esp_now_info: *const esp_now_recv_info_t,
+        #[cfg(any(esp_idf_version_major = "4"))] mac_addr: *const u8,
+        #[cfg(not(any(esp_idf_version_major = "4")))] esp_now_info: *const esp_now_recv_info_t,
         data: *const u8,
         data_len: core::ffi::c_int,
     ) {
-        #[cfg(not(any(esp_idf_version_major = "4", esp_idf_version_minor = "0")))]
+        #[cfg(not(any(esp_idf_version_major = "4")))]
         let mac_addr = unsafe { *esp_now_info }.src_addr.cast_const();
         let c_mac = unsafe { core::slice::from_raw_parts(mac_addr, 6usize) };
         let c_data = unsafe { core::slice::from_raw_parts(data, data_len as usize) };
