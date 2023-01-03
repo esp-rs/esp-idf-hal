@@ -239,11 +239,17 @@ pub mod config {
     pub struct Config {
         pub timing: Timing,
         pub filter: Filter,
+        pub tx_queue_len: u32,
+        pub rx_queue_len: u32,
     }
 
     impl Config {
         pub fn new() -> Self {
-            Default::default()
+            Config {
+                tx_queue_len: 5,
+                rx_queue_len: 5,
+                ..Default::default()
+            }
         }
 
         #[must_use]
@@ -255,6 +261,16 @@ pub mod config {
         #[must_use]
         pub fn filter(mut self, filter: Filter) -> Self {
             self.filter = filter;
+            self
+        }
+
+        pub fn tx_queue_len(mut self, tx_queue_len: u32) -> Self {
+            self.tx_queue_len = tx_queue_len;
+            self
+        }
+
+        pub fn rx_queue_len(mut self, rx_queue_len: u32) -> Self {
+            self.rx_queue_len = rx_queue_len;
             self
         }
     }
@@ -280,8 +296,8 @@ impl<'d> CanDriver<'d> {
             rx_io: rx.pin(),
             clkout_io: -1,
             bus_off_io: -1,
-            tx_queue_len: 5,
-            rx_queue_len: 5,
+            tx_queue_len: config.tx_queue_len,
+            rx_queue_len: config.rx_queue_len,
             alerts_enabled: TWAI_ALERT_NONE,
             clkout_divider: 0,
             intr_flags: ESP_INTR_FLAG_LEVEL1 as i32,
