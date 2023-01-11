@@ -6,8 +6,8 @@ on:
       - master
   pull_request:
   schedule:
-    - cron: '50 4 * * *'
-    
+    - cron: "50 4 * * *"
+
 env:
   rust_nightly_toolchain: nightly
 
@@ -27,9 +27,6 @@ jobs:
     steps:
       - name: Setup | Checkout
         uses: actions/checkout@v2
-      
-      - name: Setup | libncurses5
-        run: sudo apt-get install libncurses5
 
       - name: Setup | Rust
         uses: actions-rs/toolchain@v1
@@ -44,7 +41,7 @@ jobs:
         if: matrix.target == 'riscv32imc-esp-espidf'
 
       - name: Install Rust for Xtensa
-        uses: esp-rs/xtensa-toolchain@v1.2.0
+        uses: esp-rs/xtensa-toolchain@v1.4.0
         with:
           default: true
         if: matrix.target != 'riscv32imc-esp-espidf'
