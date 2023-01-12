@@ -34,7 +34,6 @@ use core::borrow::{Borrow, BorrowMut};
 use core::cell::UnsafeCell;
 use core::cmp::{max, min, Ordering};
 use core::marker::PhantomData;
-use core::num::NonZeroUsize;
 use core::ptr;
 
 use embedded_hal::spi::{SpiBus, SpiBusFlush, SpiBusRead, SpiBusWrite, SpiDevice};
@@ -63,9 +62,9 @@ pub trait SpiAnyPins: Spi {}
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum Dma {
     Disabled,
-    Channel1(NonZeroUsize),
-    Channel2(NonZeroUsize),
-    Auto(NonZeroUsize),
+    Channel1(usize),
+    Channel2(usize),
+    Auto(usize),
 }
 
 impl From<Dma> for spi_dma_chan_t {
@@ -83,14 +82,13 @@ impl Dma {
     pub const fn max_transfer_size(&self) -> usize {
         let max_transfer_size = match self {
             Dma::Disabled => TRANS_LEN,
-            Dma::Channel1(size) | Dma::Channel2(size) | Dma::Auto(size) => (*size).get(),
+            Dma::Channel1(size) | Dma::Channel2(size) | Dma::Auto(size) => *size,
         };
-        if max_transfer_size % 4 != 0 {
-            panic!("The max transfer size must be a multiple of 4")
-        } else if max_transfer_size > 4096 {
-            4096
-        } else {
-            max_transfer_size
+        match max_transfer_size {
+            x if x % 4 != 0 => panic!("The max transfer size must be a multiple of 4"),
+            x if x == 0 => panic!("The max transfer size must be greater than 0"),
+            x if x > 4096 => 4096,
+            _ => max_transfer_size,
         }
     }
 }
