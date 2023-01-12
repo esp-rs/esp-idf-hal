@@ -91,15 +91,17 @@ impl ota::FirmwareInfoLoader for EspFirmwareInfoLoader {
 
     fn get_info(&self) -> Result<ota::FirmwareInfo, Self::Error> {
         if self.is_loaded() {
-            let app_desc_slice = &self.0[0..mem::size_of::<esp_image_header_t>()
-                + mem::size_of::<esp_image_segment_header_t>()];
+            let app_desc_slice = &self.0[mem::size_of::<esp_image_header_t>()
+                + mem::size_of::<esp_image_segment_header_t>()
+                ..mem::size_of::<esp_image_header_t>()
+                    + mem::size_of::<esp_image_segment_header_t>()
+                    + mem::size_of::<esp_app_desc_t>()];
 
             let app_desc = unsafe {
                 (app_desc_slice.as_ptr() as *const esp_app_desc_t)
                     .as_ref()
                     .unwrap()
             };
-
             Ok(Newtype(app_desc).into())
         } else {
             Err(EspError::from_infallible::<ESP_ERR_INVALID_SIZE>().into())
