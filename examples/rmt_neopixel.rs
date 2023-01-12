@@ -11,7 +11,6 @@
 
 use anyhow::{bail, Result};
 use core::time::Duration;
-use embedded_hal::delay::DelayUs;
 use esp_idf_hal::delay::FreeRtos;
 use esp_idf_hal::peripherals::Peripherals;
 use esp_idf_hal::rmt::config::TransmitConfig;
@@ -19,7 +18,6 @@ use esp_idf_hal::rmt::*;
 
 fn main() -> Result<()> {
     esp_idf_sys::link_patches();
-    esp_idf_svc::log::EspLogger::initialize_default();
 
     let peripherals = Peripherals::take().unwrap();
     // Onboard RGB LED pin
@@ -38,7 +36,7 @@ fn main() -> Result<()> {
         },
         &mut tx,
     )?;
-    FreeRtos.delay_ms(3000)?;
+    FreeRtos::delay_ms(3000);
 
     // rainbow loop at 20% brightness
     let mut i: u32 = 0;
@@ -49,7 +47,7 @@ fn main() -> Result<()> {
             i = 0;
         }
         i += 1;
-        FreeRtos.delay_ms(10)?;
+        FreeRtos::delay_ms(10);
     }
 }
 
