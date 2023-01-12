@@ -29,8 +29,15 @@ fn main() -> Result<()> {
     let config = TransmitConfig::new().clock_divider(1);
     let mut tx = TxRmtDriver::new(channel, led, &config)?;
 
-    // 3 seconds white at 10% brightness  
-    neopixel(RGB { r: 25, g: 25, b: 25 }, &mut tx)?;
+    // 3 seconds white at 10% brightness
+    neopixel(
+        RGB {
+            r: 25,
+            g: 25,
+            b: 25,
+        },
+        &mut tx,
+    )?;
     FreeRtos.delay_ms(3000)?;
 
     // rainbow loop at 20% brightness
@@ -71,11 +78,7 @@ fn neopixel(rgb: RGB, tx: &mut TxRmtDriver) -> Result<()> {
     for i in (0..24).rev() {
         let p = 2_u32.pow(i);
         let bit = p & color != 0;
-        let (high_pulse, low_pulse) = if bit {
-            (t1h, t1l)
-        } else {
-            (t0h, t0l)
-        };
+        let (high_pulse, low_pulse) = if bit { (t1h, t1l) } else { (t0h, t0l) };
         signal.set(23 - i as usize, &(high_pulse, low_pulse))?;
     }
     tx.start_blocking(&signal)?;
