@@ -10,6 +10,7 @@ on:
 
 env:
   rust_toolchain: nightly
+  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
 jobs:
   compile:
