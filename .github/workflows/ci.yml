@@ -6,16 +6,18 @@ on:
       - master
   pull_request:
   schedule:
-    - cron: '50 4 * * *'
+    - cron: "50 4 * * *"
 
 env:
   rust_toolchain: nightly
+  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
 jobs:
   compile:
     name: Compile
     runs-on: ubuntu-latest
     strategy:
+      fail-fast: false
       matrix:
         target:
           - riscv32imc-esp-espidf
@@ -45,13 +47,10 @@ jobs:
         if: matrix.target == 'riscv32imc-esp-espidf'
 
       - name: Install Rust for Xtensa
-        uses: esp-rs/xtensa-toolchain@v1.4.0
+        uses: esp-rs/xtensa-toolchain@v1.5
         with:
           default: true
         if: matrix.target != 'riscv32imc-esp-espidf'
-      
-      - name: Temp fix for clang error
-        run: sudo apt-get install libncurses5
 
       - name: Build | Fmt Check
         run: cargo fmt -- --check
