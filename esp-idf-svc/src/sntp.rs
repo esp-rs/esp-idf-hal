@@ -1,6 +1,7 @@
 //! SNTP Time Synchronization
 
 use core::cmp::min;
+use core::time::Duration;
 
 use ::log::*;
 
@@ -8,6 +9,9 @@ use esp_idf_sys::*;
 
 use crate::private::cstr::CString;
 use crate::private::mutex;
+
+#[cfg(feature = "alloc")]
+extern crate alloc;
 
 const SNTP_SERVER_NUM: usize = SNTP_MAX_SERVERS as usize;
 
@@ -115,6 +119,11 @@ impl<'a> Default for SntpConf<'a> {
     }
 }
 
+#[cfg(feature = "alloc")]
+type SyncCallback = alloc::boxed::Box<dyn FnMut(Duration) + Send + 'static>;
+#[cfg(feature = "alloc")]
+static SYNC_CB: mutex::Mutex<Option<SyncCallback>> =
+    mutex::Mutex::wrap(mutex::RawMutex::new(), None);
 static TAKEN: mutex::Mutex<bool> = mutex::Mutex::wrap(mutex::RawMutex::new(), false);
 
 pub struct EspSntp {
@@ -140,6 +149,24 @@ impl EspSntp {
         Ok(sntp)
     }
 
+    #[cfg(feature = "alloc")]
+    pub fn new_with_callback<F>(conf: &SntpConf, callback: F) -> Result<Self, EspError>
+    where
+        F: FnMut(Duration) + Send + 'static,
+    {
+        let mut taken = TAKEN.lock();
+
+        if *taken {
+            esp!(ESP_ERR_INVALID_STATE)?;
+        }
+
+        *SYNC_CB.lock() = Some(alloc::boxed::Box::new(callback));
+        let sntp = Self::init(conf)?;
+
+        *taken = true;
+        Ok(sntp)
+    }
+
     fn init(conf: &SntpConf) -> Result<Self, EspError> {
         info!("Initializing");
 
@@ -155,6 +182,7 @@ impl EspSntp {
 
         unsafe {
             sntp_set_time_sync_notification_cb(Some(Self::sync_cb));
+
             sntp_init();
         };
 
@@ -163,6 +191,11 @@ impl EspSntp {
         Ok(Self {
             _sntp_servers: c_servers,
         })
+    }
+
+    #[cfg(feature = "alloc")]
+    fn unsubscribe(&mut self) {
+        *SYNC_CB.lock() = None;
     }
 
     pub fn get_sync_status(&self) -> SyncStatus {
@@ -175,6 +208,14 @@ impl EspSntp {
             (*tv).tv_sec,
             (*tv).tv_usec,
         );
+
+        #[cfg(feature = "alloc")]
+        if let Some(cb) = &mut *SYNC_CB.lock() {
+            let duration = Duration::from_secs((*tv).tv_sec as u64)
+                + Duration::from_micros((*tv).tv_usec as u64);
+
+            cb(duration);
+        }
     }
 }
 
@@ -184,6 +225,10 @@ impl Drop for EspSntp {
             let mut taken = TAKEN.lock();
 
             unsafe { sntp_stop() };
+
+            #[cfg(feature = "alloc")]
+            self.unsubscribe();
+
             *taken = false;
         }
 
