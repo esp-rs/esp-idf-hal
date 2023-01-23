@@ -51,6 +51,8 @@ jobs:
         run: cargo fmt -- --check
 
       - name: Build | Clippy (PIO)
+        env:
+          RUSTFLAGS: "${{ '--cfg espidf_time64' }}"
         run: cargo clippy --features pio --no-deps --target ${{ matrix.target }} -Zbuild-std=std,panic_abort -Zbuild-std-features=panic_immediate_abort -- -Dwarnings
         if: matrix.target == 'riscv32imc-esp-espidf'
 
