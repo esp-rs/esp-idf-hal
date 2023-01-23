@@ -6,7 +6,7 @@ on:
       - master
   pull_request:
   schedule:
-    - cron: '50 4 * * *'
+    - cron: '50 6 * * *'
 
 env:
   rust_toolchain: nightly
@@ -45,7 +45,7 @@ jobs:
         if: matrix.target == 'riscv32imc-esp-espidf'
       
       - name: Install Rust for Xtensa
-        uses: esp-rs/xtensa-toolchain@main
+        uses: esp-rs/xtensa-toolchain@v1.5
         with:
           default: true
         if: matrix.target != 'riscv32imc-esp-espidf'
