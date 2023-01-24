@@ -457,17 +457,15 @@ impl<'d> PcntDriver<'d> {
     /// - ()
     /// - EspError
     #[cfg(feature = "alloc")]
-    pub unsafe fn subscribe(
-        &self,
-        callback: C,
-    ) -> Result<(), EspError>
+    pub unsafe fn subscribe(&self, callback: C) -> Result<(), EspError>
     where
-        C: FnMut(u32) + Send + 'static
+        C: FnMut(u32) + Send + 'static,
     {
         enable_isr_service()?;
 
         self.unsubscribe();
-        let callback: alloc::boxed::Box<dyn FnMut(u32) + 'static> = alloc::boxed::Box::new(callback);
+        let callback: alloc::boxed::Box<dyn FnMut(u32) + 'static> =
+            alloc::boxed::Box::new(callback);
         ISR_HANDLERS[self.unit as usize] = Some(callback);
         esp!(pcnt_isr_handler_add(
             self.unit,

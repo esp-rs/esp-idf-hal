@@ -1,7 +1,6 @@
-
-use esp_idf_sys::*;
 use crate::gpio::InputPin;
 use crate::peripheral::Peripheral;
+use esp_idf_sys::*;
 
 /// @brief PCNT glitch filter configuration
 #[derive(Debug, Default, Copy, Clone)]
@@ -13,7 +12,7 @@ pub struct PcntFilterConfig {
 impl From<&PcntFilterConfig> for pcnt_glitch_filter_config_t {
     fn from(value: &PcntFilterConfig) -> Self {
         pcnt_glitch_filter_config_t {
-            max_glitch_ns: value.max_glitch_ns
+            max_glitch_ns: value.max_glitch_ns,
         }
     }
 }
@@ -34,10 +33,18 @@ pub enum PcntZeroCrossMode {
 impl From<pcnt_unit_zero_cross_mode_t> for PcntZeroCrossMode {
     fn from(x: pcnt_unit_zero_cross_mode_t) -> Self {
         match x {
-            esp_idf_sys::pcnt_unit_zero_cross_mode_t_PCNT_UNIT_ZERO_CROSS_POS_ZERO => PcntZeroCrossMode::PosZero,
-            esp_idf_sys::pcnt_unit_zero_cross_mode_t_PCNT_UNIT_ZERO_CROSS_NEG_ZERO => PcntZeroCrossMode::NegZero,
-            esp_idf_sys::pcnt_unit_zero_cross_mode_t_PCNT_UNIT_ZERO_CROSS_NEG_POS => PcntZeroCrossMode::NegPos,
-            esp_idf_sys::pcnt_unit_zero_cross_mode_t_PCNT_UNIT_ZERO_CROSS_POS_NEG => PcntZeroCrossMode::PosNeg,
+            esp_idf_sys::pcnt_unit_zero_cross_mode_t_PCNT_UNIT_ZERO_CROSS_POS_ZERO => {
+                PcntZeroCrossMode::PosZero
+            }
+            esp_idf_sys::pcnt_unit_zero_cross_mode_t_PCNT_UNIT_ZERO_CROSS_NEG_ZERO => {
+                PcntZeroCrossMode::NegZero
+            }
+            esp_idf_sys::pcnt_unit_zero_cross_mode_t_PCNT_UNIT_ZERO_CROSS_NEG_POS => {
+                PcntZeroCrossMode::NegPos
+            }
+            esp_idf_sys::pcnt_unit_zero_cross_mode_t_PCNT_UNIT_ZERO_CROSS_POS_NEG => {
+                PcntZeroCrossMode::PosNeg
+            }
             _ => panic!("unknown pcnt_unit_zero_cross_mode_t value {}", x),
         }
     }
@@ -77,9 +84,15 @@ pub enum PcntEdgeAction {
 impl From<PcntEdgeAction> for pcnt_channel_edge_action_t {
     fn from(value: PcntEdgeAction) -> Self {
         match value {
-            PcntEdgeAction::Hold => esp_idf_sys::pcnt_channel_edge_action_t_PCNT_CHANNEL_EDGE_ACTION_HOLD,
-            PcntEdgeAction::Increase => esp_idf_sys::pcnt_channel_edge_action_t_PCNT_CHANNEL_EDGE_ACTION_INCREASE,
-            PcntEdgeAction::Decrease => esp_idf_sys::pcnt_channel_edge_action_t_PCNT_CHANNEL_EDGE_ACTION_DECREASE,
+            PcntEdgeAction::Hold => {
+                esp_idf_sys::pcnt_channel_edge_action_t_PCNT_CHANNEL_EDGE_ACTION_HOLD
+            }
+            PcntEdgeAction::Increase => {
+                esp_idf_sys::pcnt_channel_edge_action_t_PCNT_CHANNEL_EDGE_ACTION_INCREASE
+            }
+            PcntEdgeAction::Decrease => {
+                esp_idf_sys::pcnt_channel_edge_action_t_PCNT_CHANNEL_EDGE_ACTION_DECREASE
+            }
         }
     }
 }
@@ -97,9 +110,15 @@ pub enum PcntLevelAction {
 impl From<PcntLevelAction> for pcnt_channel_level_action_t {
     fn from(value: PcntLevelAction) -> Self {
         match value {
-            PcntLevelAction::Keep => esp_idf_sys::pcnt_channel_level_action_t_PCNT_CHANNEL_LEVEL_ACTION_KEEP,
-            PcntLevelAction::Inverse => esp_idf_sys::pcnt_channel_level_action_t_PCNT_CHANNEL_LEVEL_ACTION_INVERSE,
-            PcntLevelAction::Hold => esp_idf_sys::pcnt_channel_level_action_t_PCNT_CHANNEL_LEVEL_ACTION_HOLD,
+            PcntLevelAction::Keep => {
+                esp_idf_sys::pcnt_channel_level_action_t_PCNT_CHANNEL_LEVEL_ACTION_KEEP
+            }
+            PcntLevelAction::Inverse => {
+                esp_idf_sys::pcnt_channel_level_action_t_PCNT_CHANNEL_LEVEL_ACTION_INVERSE
+            }
+            PcntLevelAction::Hold => {
+                esp_idf_sys::pcnt_channel_level_action_t_PCNT_CHANNEL_LEVEL_ACTION_HOLD
+            }
         }
     }
 }
@@ -173,9 +192,17 @@ impl PcntChannel {
     /// @return
     ///      - (): on success
     ///      - EspError: on failure
-    pub fn set_edge_action(&self,pos_act: PcntEdgeAction, neg_act: PcntEdgeAction) -> Result<(), EspError> {
+    pub fn set_edge_action(
+        &self,
+        pos_act: PcntEdgeAction,
+        neg_act: PcntEdgeAction,
+    ) -> Result<(), EspError> {
         unsafe {
-            esp!(pcnt_channel_set_edge_action(self.0, pos_act.into(), neg_act.into()))
+            esp!(pcnt_channel_set_edge_action(
+                self.0,
+                pos_act.into(),
+                neg_act.into()
+            ))
         }
     }
 
@@ -189,9 +216,17 @@ impl PcntChannel {
     /// @return
     ///      - (): on success
     ///      - EspError: on failure
-    pub fn set_level_action(&self, high_act: PcntLevelAction, low_act: PcntLevelAction) -> Result<(), EspError> {
+    pub fn set_level_action(
+        &self,
+        high_act: PcntLevelAction,
+        low_act: PcntLevelAction,
+    ) -> Result<(), EspError> {
         unsafe {
-            esp!(pcnt_channel_set_level_action(self.0, high_act.into(), low_act.into()))
+            esp!(pcnt_channel_set_level_action(
+                self.0,
+                high_act.into(),
+                low_act.into()
+            ))
         }
     }
 }
@@ -255,10 +290,7 @@ impl PcntUnit {
         unsafe {
             esp!(pcnt_new_unit(&config, &mut unit))?;
         }
-        Ok(Self {
-            unit,
-            isr_id: None,
-        })
+        Ok(Self { unit, isr_id: None })
     }
 
     /// @brief Set glitch filter for PCNT unit
@@ -274,10 +306,13 @@ impl PcntUnit {
     ///      - EspError: on failure
     pub fn set_filter(&self, config: Option<&PcntFilterConfig>) -> Result<(), EspError> {
         unsafe {
-            esp!(pcnt_unit_set_glitch_filter(self.unit, match config {
-                Some(x) => &x.into(),
-                None => std::ptr::null(),
-            }))
+            esp!(pcnt_unit_set_glitch_filter(
+                self.unit,
+                match config {
+                    Some(x) => &x.into(),
+                    None => std::ptr::null(),
+                }
+            ))
         }
     }
 
@@ -292,9 +327,7 @@ impl PcntUnit {
     ///      - (): on success
     ///      - EspError: on failure
     pub fn enable(&self) -> Result<(), EspError> {
-        unsafe {
-            esp!(pcnt_unit_enable(self.unit))
-        }
+        unsafe { esp!(pcnt_unit_enable(self.unit)) }
     }
 
     /// @brief Disable the PCNT unit
@@ -306,9 +339,7 @@ impl PcntUnit {
     ///      - (): on success
     ///      - EspError: on failure
     pub fn disable(&self) -> Result<(), EspError> {
-        unsafe {
-            esp!(pcnt_unit_disable(self.unit))
-        }
+        unsafe { esp!(pcnt_unit_disable(self.unit)) }
     }
 
     /// @brief Start the PCNT unit, the counter will start to count according to the edge and/or level input signals
@@ -321,9 +352,7 @@ impl PcntUnit {
     ///      - (): on success
     ///      - EspError: on failure
     pub fn start(&self) -> Result<(), EspError> {
-        unsafe {
-            esp!(pcnt_unit_start(self.unit))
-        }
+        unsafe { esp!(pcnt_unit_start(self.unit)) }
     }
 
     /// @brief Stop PCNT from counting
@@ -337,9 +366,7 @@ impl PcntUnit {
     ///      - (): on success
     ///      - EspError: on failure
     pub fn stop(&self) -> Result<(), EspError> {
-        unsafe {
-            esp!(pcnt_unit_stop(self.unit))
-        }
+        unsafe { esp!(pcnt_unit_stop(self.unit)) }
     }
 
     /// @brief Clear PCNT pulse count value to zero
@@ -352,9 +379,7 @@ impl PcntUnit {
     ///      - (): on success
     ///      - EspError: on failure
     pub fn clear_count(&self) -> Result<(), EspError> {
-        unsafe {
-            esp!(pcnt_unit_clear_count(self.unit))
-        }
+        unsafe { esp!(pcnt_unit_clear_count(self.unit)) }
     }
 
     /// @brief Get PCNT count value
@@ -368,7 +393,9 @@ impl PcntUnit {
     ///      - EspError: on failure
     pub fn get_count(&self) -> Result<i32, EspError> {
         let mut value: core::ffi::c_int = 0;
-        unsafe { esp!(pcnt_unit_get_count(self.unit, &mut value))?; }
+        unsafe {
+            esp!(pcnt_unit_get_count(self.unit, &mut value))?;
+        }
         Ok(value)
     }
 
@@ -379,7 +406,7 @@ impl PcntUnit {
     ///      - value: on success
     ///      - EspError: on failure
     pub fn add_watch_point(&self, watch_point: i32) -> Result<(), EspError> {
-        unsafe {esp!(pcnt_unit_add_watch_point(self.unit, watch_point))}
+        unsafe { esp!(pcnt_unit_add_watch_point(self.unit, watch_point)) }
     }
 
     /// @brief Remove a watch point for PCNT unit
@@ -389,7 +416,7 @@ impl PcntUnit {
     ///      - value: on success
     ///      - EspError: on failure
     pub fn remove_watch_point(&self, watch_point: i32) -> Result<(), EspError> {
-        unsafe {esp!(pcnt_unit_remove_watch_point(self.unit, watch_point))}
+        unsafe { esp!(pcnt_unit_remove_watch_point(self.unit, watch_point)) }
     }
 
     /// @brief subscribe to PCNT events
@@ -401,9 +428,9 @@ impl PcntUnit {
     /// @return
     ///      - value: on success
     ///      - EspError: on failure
-    pub fn subscribe<F>(&mut self, callback: F ) -> Result<(), EspError>
+    pub fn subscribe<F>(&mut self, callback: F) -> Result<(), EspError>
     where
-        F: FnMut(PcntWatchEventData)->bool + Send + 'static
+        F: FnMut(PcntWatchEventData) -> bool + Send + 'static,
     {
         let id = match self.isr_id {
             Some(x) => x,
@@ -417,10 +444,20 @@ impl PcntUnit {
             on_reach: Some(Self::handle_isr),
         };
         let data = id as *mut core::ffi::c_void;
-        unsafe {esp!(pcnt_unit_register_event_callbacks(self.unit, &cbs, data as *mut core::ffi::c_void))}
+        unsafe {
+            esp!(pcnt_unit_register_event_callbacks(
+                self.unit,
+                &cbs,
+                data as *mut core::ffi::c_void
+            ))
+        }
     }
 
-    unsafe extern "C" fn handle_isr(_unit: pcnt_unit_handle_t, edata: *const pcnt_watch_event_data_t, data: *mut core::ffi::c_void) -> bool {
+    unsafe extern "C" fn handle_isr(
+        _unit: pcnt_unit_handle_t,
+        edata: *const pcnt_watch_event_data_t,
+        data: *mut core::ffi::c_void,
+    ) -> bool {
         let id = data as usize;
         match &mut ISR_HANDLERS[id] {
             Some(f) => f(edata.into()),
@@ -438,9 +475,11 @@ impl PcntUnit {
     pub fn unsubscribe(&mut self) -> Result<(), EspError> {
         if let Some(id) = self.isr_id.take() {
             unsafe {
-                esp!(pcnt_unit_register_event_callbacks(self.unit, &pcnt_event_callbacks_t {
-                    on_reach: None,
-                }, 0 as *mut core::ffi::c_void))?;
+                esp!(pcnt_unit_register_event_callbacks(
+                    self.unit,
+                    &pcnt_event_callbacks_t { on_reach: None },
+                    0 as *mut core::ffi::c_void
+                ))?;
             }
             free_isr_id(id);
         }
@@ -457,23 +496,23 @@ impl PcntUnit {
     ///      - EspError: on failure
     pub fn channel<'a>(
         &self,
-        edge_pin: Option<impl Peripheral<P = impl InputPin>+'a>,
-        level_pin: Option<impl Peripheral<P = impl InputPin>+'a>,
-        flags: PcntChanFlags
+        edge_pin: Option<impl Peripheral<P = impl InputPin> + 'a>,
+        level_pin: Option<impl Peripheral<P = impl InputPin> + 'a>,
+        flags: PcntChanFlags,
     ) -> Result<PcntChannel, EspError> {
         let config = pcnt_chan_config_t {
             edge_gpio_num: match edge_pin {
                 Some(pin) => {
                     crate::into_ref!(pin);
                     pin.pin()
-                },
+                }
                 None => -1,
             },
             level_gpio_num: match level_pin {
                 Some(pin) => {
                     crate::into_ref!(pin);
                     pin.pin()
-                },
+                }
                 None => -1,
             },
             flags: flags.0,
@@ -501,19 +540,22 @@ const PCNT_UNIT_MAX: usize = 4;
 #[cfg(not(esp32s3))]
 const PCNT_UNIT_MAX: usize = 8;
 
-static mut ISR_HANDLERS: [Option<Box<dyn FnMut(PcntWatchEventData)->bool>>; PCNT_UNIT_MAX] = [
-    None, None, None, None, 
-    #[cfg(not(esp32s3))]
+static mut ISR_HANDLERS: [Option<Box<dyn FnMut(PcntWatchEventData) -> bool>>; PCNT_UNIT_MAX] = [
+    None,
+    None,
+    None,
     None,
     #[cfg(not(esp32s3))]
     None,
     #[cfg(not(esp32s3))]
     None,
     #[cfg(not(esp32s3))]
-    None, 
+    None,
+    #[cfg(not(esp32s3))]
+    None,
 ];
 
-fn allocate_isr_id(callback: impl FnMut(PcntWatchEventData)->bool + 'static ) -> usize {
+fn allocate_isr_id(callback: impl FnMut(PcntWatchEventData) -> bool + 'static) -> usize {
     let _cs = PCNT_CS.enter();
     for i in 0..PCNT_UNIT_MAX {
         unsafe {
