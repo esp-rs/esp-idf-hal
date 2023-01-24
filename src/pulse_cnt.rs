@@ -127,6 +127,15 @@ impl From<PcntLevelAction> for pcnt_channel_level_action_t {
 pub struct PcntChanFlags(pcnt_chan_config_t__bindgen_ty_1);
 
 impl PcntChanFlags {
+    pub const fn new() -> Self {
+        // uglyness due to bindgen bitfield generation
+        Self(pcnt_chan_config_t__bindgen_ty_1 {
+            _bitfield_align_1: [0u8; 0],
+            _bitfield_1: __BindgenBitfieldUnit::new([0u8; 1]),
+            __bindgen_padding_0: [0u8; 3],
+        })
+    }
+
     #[inline]
     pub fn invert_edge_input(&self) -> u32 {
         self.0.invert_edge_input()
