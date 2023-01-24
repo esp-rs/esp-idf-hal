@@ -10,16 +10,16 @@ pub struct PcntFilterConfig {
     pub max_glitch_ns: u32,
 }
 
-impl Into<pcnt_glitch_filter_config_t> for &PcntFilterConfig {
-    fn into(self) -> pcnt_glitch_filter_config_t {
+impl From<&PcntFilterConfig> for pcnt_glitch_filter_config_t {
+    fn from(value: &PcntFilterConfig) -> Self {
         pcnt_glitch_filter_config_t {
-            max_glitch_ns: self.max_glitch_ns
+            max_glitch_ns: value.max_glitch_ns
         }
     }
 }
 
 /// @brief PCNT unit zero cross mode
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum PcntZeroCrossMode {
     ///< start from positive value, end to zero, i.e. +N->0
     PosZero,
@@ -64,7 +64,7 @@ impl From<*const pcnt_watch_event_data_t> for PcntWatchEventData {
     }
 }
 
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum PcntEdgeAction {
     ///< Hold current count value
     Hold,
@@ -74,9 +74,9 @@ pub enum PcntEdgeAction {
     Decrease,
 }
 
-impl Into<pcnt_channel_edge_action_t> for PcntEdgeAction {
-    fn into(self) -> pcnt_channel_edge_action_t {
-        match self {
+impl From<PcntEdgeAction> for pcnt_channel_edge_action_t {
+    fn from(value: PcntEdgeAction) -> Self {
+        match value {
             PcntEdgeAction::Hold => esp_idf_sys::pcnt_channel_edge_action_t_PCNT_CHANNEL_EDGE_ACTION_HOLD,
             PcntEdgeAction::Increase => esp_idf_sys::pcnt_channel_edge_action_t_PCNT_CHANNEL_EDGE_ACTION_INCREASE,
             PcntEdgeAction::Decrease => esp_idf_sys::pcnt_channel_edge_action_t_PCNT_CHANNEL_EDGE_ACTION_DECREASE,
@@ -84,7 +84,7 @@ impl Into<pcnt_channel_edge_action_t> for PcntEdgeAction {
     }
 }
 
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum PcntLevelAction {
     ///< Keep current count mode
     Keep,
@@ -94,9 +94,9 @@ pub enum PcntLevelAction {
     Hold,
 }
 
-impl Into<pcnt_channel_level_action_t> for PcntLevelAction {
-    fn into(self) -> pcnt_channel_edge_action_t {
-        match self {
+impl From<PcntLevelAction> for pcnt_channel_level_action_t {
+    fn from(value: PcntLevelAction) -> Self {
+        match value {
             PcntLevelAction::Keep => esp_idf_sys::pcnt_channel_level_action_t_PCNT_CHANNEL_LEVEL_ACTION_KEEP,
             PcntLevelAction::Inverse => esp_idf_sys::pcnt_channel_level_action_t_PCNT_CHANNEL_LEVEL_ACTION_INVERSE,
             PcntLevelAction::Hold => esp_idf_sys::pcnt_channel_level_action_t_PCNT_CHANNEL_LEVEL_ACTION_HOLD,
@@ -220,7 +220,7 @@ impl PcntUnitFlags {
 }
 
 /// @brief PCNT unit configuration
-#[derive(Debug, Default, Copy, Clone)]
+#[derive(Debug, Default, Clone)]
 pub struct PcntUnitConfig {
     /// @brief the low limit value, should be < 0
     pub low_limit: i32,
@@ -514,7 +514,7 @@ static mut ISR_HANDLERS: [Option<Box<dyn FnMut(PcntWatchEventData)->bool>>; PCNT
 ];
 
 fn allocate_isr_id(callback: impl FnMut(PcntWatchEventData)->bool + 'static ) -> usize {
-    let _ = PCNT_CS.enter();
+    let _cs = PCNT_CS.enter();
     for i in 0..PCNT_UNIT_MAX {
         unsafe {
             if ISR_HANDLERS[i].is_none() {
@@ -527,6 +527,7 @@ fn allocate_isr_id(callback: impl FnMut(PcntWatchEventData)->bool + 'static ) ->
 }
 
 fn free_isr_id(id: usize) {
+    let _cs = PCNT_CS.enter();
     unsafe {
         ISR_HANDLERS[id] = None;
     }

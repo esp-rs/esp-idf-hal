@@ -14,7 +14,7 @@ use enumset::EnumSetType;
 use crate::gpio::InputPin;
 use crate::peripheral::Peripheral;
 
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum PcntChannel {
     Channel0,
     Channel1,
@@ -30,7 +30,7 @@ impl From<PcntChannel> for pcnt_channel_t {
 }
 
 /// PCNT channel action on signal edge
-#[derive(Debug, Copy, Clone, Default)]
+#[derive(Debug, Copy, Clone, Default, Eq, PartialEq)]
 pub enum PcntCountMode {
     /// Hold current count value
     Hold,
@@ -45,14 +45,18 @@ impl From<PcntCountMode> for pcnt_count_mode_t {
     fn from(value: PcntCountMode) -> Self {
         match value {
             PcntCountMode::Hold => pcnt_channel_edge_action_t_PCNT_CHANNEL_EDGE_ACTION_HOLD,
-            PcntCountMode::Increment => pcnt_channel_edge_action_t_PCNT_CHANNEL_EDGE_ACTION_INCREASE,
-            PcntCountMode::Decrement => pcnt_channel_edge_action_t_PCNT_CHANNEL_EDGE_ACTION_DECREASE,
+            PcntCountMode::Increment => {
+                pcnt_channel_edge_action_t_PCNT_CHANNEL_EDGE_ACTION_INCREASE
+            }
+            PcntCountMode::Decrement => {
+                pcnt_channel_edge_action_t_PCNT_CHANNEL_EDGE_ACTION_DECREASE
+            }
         }
     }
 }
 
 /// PCNT channel action on control level
-#[derive(Debug, Copy, Clone, Default)]
+#[derive(Debug, Copy, Clone, Default, Eq, PartialEq)]
 pub enum PcntControlMode {
     /// Keep current count mode
     Keep,
@@ -67,7 +71,9 @@ impl From<PcntControlMode> for pcnt_ctrl_mode_t {
     fn from(value: PcntControlMode) -> Self {
         match value {
             PcntControlMode::Keep => pcnt_channel_level_action_t_PCNT_CHANNEL_LEVEL_ACTION_KEEP,
-            PcntControlMode::Reverse => pcnt_channel_level_action_t_PCNT_CHANNEL_LEVEL_ACTION_INVERSE,
+            PcntControlMode::Reverse => {
+                pcnt_channel_level_action_t_PCNT_CHANNEL_LEVEL_ACTION_INVERSE
+            }
             PcntControlMode::Disable => pcnt_channel_level_action_t_PCNT_CHANNEL_LEVEL_ACTION_HOLD,
         }
     }
@@ -130,14 +136,14 @@ impl<'d> PcntDriver<'d> {
     /// Configure Pulse Counter chanel
     ///       @note
     ///       This function will disable three events: PCNT_EVT_L_LIM, PCNT_EVT_H_LIM, PCNT_EVT_ZERO.
-    /// 
+    ///
     /// @param channel Channel to configure
     /// @param pulse_pin Pulse signal input pin
     /// @param ctrl_pin Control signal input pin
     /// @param pconfig Reference of PcntConfig
-    /// 
+    ///
     /// @note  Set the signal input to PCNT_PIN_NOT_USED if unused.
-    /// 
+    ///
     /// returns
     /// - ()
     /// - EspError
@@ -146,22 +152,21 @@ impl<'d> PcntDriver<'d> {
         channel: PcntChannel,
         pulse_pin: Option<impl Peripheral<P = impl InputPin> + 'a>,
         ctrl_pin: Option<impl Peripheral<P = impl InputPin> + 'a>,
-        pconfig: &PcntChannelConfig
+        pconfig: &PcntChannelConfig,
     ) -> Result<(), EspError> {
-
         let config = pcnt_config_t {
             pulse_gpio_num: match pulse_pin {
                 Some(pin) => {
                     crate::into_ref!(pin);
                     pin.pin()
-                },
+                }
                 None => PCNT_PIN_NOT_USED,
             },
             ctrl_gpio_num: match ctrl_pin {
                 Some(pin) => {
                     crate::into_ref!(pin);
                     pin.pin()
-                },
+                }
                 None => PCNT_PIN_NOT_USED,
             },
             lctrl_mode: pconfig.lctrl_mode.into(),
@@ -174,31 +179,24 @@ impl<'d> PcntDriver<'d> {
             unit: self.unit,
         };
 
-        unsafe {
-            esp!(pcnt_unit_config(
-                &config as *const pcnt_config_t
-            ))
-        }
+        unsafe { esp!(pcnt_unit_config(&config as *const pcnt_config_t)) }
     }
 
     /// Get pulse counter value
-    /// 
+    ///
     /// returns
     /// - i16
     /// - EspError
     pub fn get_counter_value(&self) -> Result<i16, EspError> {
         let mut value = 0i16;
         unsafe {
-            esp!(pcnt_get_counter_value(
-                self.unit,
-                &mut value as *mut i16
-            ))?;
+            esp!(pcnt_get_counter_value(self.unit, &mut value as *mut i16))?;
         }
         Ok(value)
     }
 
     /// Pause PCNT counter of PCNT unit
-    /// 
+    ///
     /// returns
     /// - ()
     /// - EspError
@@ -207,7 +205,7 @@ impl<'d> PcntDriver<'d> {
     }
 
     /// Resume counting for PCNT counter
-    /// 
+    ///
     /// returns
     /// - ()
     /// - EspError
@@ -216,7 +214,7 @@ impl<'d> PcntDriver<'d> {
     }
 
     /// Clear and reset PCNT counter value to zero
-    /// 
+    ///
     /// returns
     /// - ()
     /// - EspError
@@ -228,7 +226,7 @@ impl<'d> PcntDriver<'d> {
     ///       @note
     ///       Each Pulse counter unit has five watch point events that share the same interrupt.
     ///       Configure events with pcnt_event_enable() and pcnt_event_disable()
-    /// 
+    ///
     /// returns
     /// - ()
     /// - EspError
@@ -237,7 +235,7 @@ impl<'d> PcntDriver<'d> {
     }
 
     /// Disable PCNT interrupt for PCNT unit
-    /// 
+    ///
     /// returns
     /// - ()
     /// - EspError
@@ -246,7 +244,7 @@ impl<'d> PcntDriver<'d> {
     }
 
     /// Enable PCNT event of PCNT unit
-    /// 
+    ///
     /// @param evt_type Watch point event type.
     ///                All enabled events share the same interrupt (one interrupt per pulse counter unit).
     /// returns
@@ -258,7 +256,7 @@ impl<'d> PcntDriver<'d> {
     }
 
     /// Disable PCNT event of PCNT unit
-    /// 
+    ///
     /// @param evt_type Watch point event type.
     ///                All enabled events share the same interrupt (one interrupt per pulse counter unit).
     /// returns
@@ -272,32 +270,28 @@ impl<'d> PcntDriver<'d> {
     fn only_one_event_type(evt_type: PcntEventType) -> Result<pcnt_evt_type_t, EspError> {
         match evt_type.iter().count() {
             1 => Ok(evt_type.as_repr()),
-            _ =>Err(EspError::from(ESP_ERR_INVALID_ARG as esp_err_t).unwrap()),
+            _ => Err(EspError::from(ESP_ERR_INVALID_ARG as esp_err_t).unwrap()),
         }
     }
 
     /// Set PCNT event value of PCNT unit
-    /// 
+    ///
     /// @param evt_type Watch point event type.
     ///                All enabled events share the same interrupt (one interrupt per pulse counter unit).
-    /// 
+    ///
     /// returns
     /// - ()
     /// - EspError
     pub fn set_event_value(&self, evt_type: PcntEventType, value: i16) -> Result<(), EspError> {
         let evt_type = Self::only_one_event_type(evt_type)?;
-        unsafe {
-            esp!(pcnt_set_event_value(
-                self.unit, evt_type, value
-            ))
-        }
+        unsafe { esp!(pcnt_set_event_value(self.unit, evt_type, value)) }
     }
 
     /// Get PCNT event value of PCNT unit
-    /// 
+    ///
     /// @param evt_type Watch point event type.
     ///                All enabled events share the same interrupt (one interrupt per pulse counter unit).
-    /// 
+    ///
     /// returns
     /// - i16
     /// - EspError
@@ -315,7 +309,7 @@ impl<'d> PcntDriver<'d> {
     }
 
     /// Get PCNT event status of PCNT unit
-    /// 
+    ///
     /// returns
     /// - i32
     /// - EspError
@@ -323,22 +317,19 @@ impl<'d> PcntDriver<'d> {
     pub fn get_event_status(&self) -> Result<u32, EspError> {
         let mut value = 0u32;
         unsafe {
-            esp!(pcnt_get_event_status(
-                self.unit,
-                &mut value as *mut u32
-            ))?;
+            esp!(pcnt_get_event_status(self.unit, &mut value as *mut u32))?;
         }
         Ok(value)
     }
 
     /// Configure PCNT pulse signal input pin and control input pin
-    /// 
+    ///
     /// @param channel PcntChannel
     /// @param pulse_io Pulse signal input pin
     /// @param ctrl_io Control signal input pin
-    /// 
+    ///
     /// @note  Set the signal input to PCNT_PIN_NOT_USED if unused.
-    /// 
+    ///
     /// returns
     /// - ()
     /// - EspError
@@ -352,14 +343,14 @@ impl<'d> PcntDriver<'d> {
             Some(pin) => {
                 crate::into_ref!(pin);
                 pin.pin()
-            },
+            }
             None => PCNT_PIN_NOT_USED,
         };
         let ctrl_io_num = match ctrl_pin {
             Some(pin) => {
                 crate::into_ref!(pin);
                 pin.pin()
-            },
+            }
             None => PCNT_PIN_NOT_USED,
         };
         unsafe {
@@ -373,7 +364,7 @@ impl<'d> PcntDriver<'d> {
     }
 
     /// Enable PCNT input filter
-    /// 
+    ///
     /// returns
     /// - ()
     /// - EspError
@@ -382,7 +373,7 @@ impl<'d> PcntDriver<'d> {
     }
 
     /// Disable PCNT input filter
-    /// 
+    ///
     /// returns
     /// - ()
     /// - EspError
@@ -391,12 +382,12 @@ impl<'d> PcntDriver<'d> {
     }
 
     /// Set PCNT filter value
-    /// 
+    ///
     /// @param filter_val PCNT signal filter value, counter in APB_CLK cycles.
     ///       Any pulses lasting shorter than this will be ignored when the filter is enabled.
     ///       @note
     ///       filter_val is a 10-bit value, so the maximum filter_val should be limited to 1023.
-    /// 
+    ///
     /// returns
     /// - ()
     /// - EspError
@@ -405,66 +396,78 @@ impl<'d> PcntDriver<'d> {
     }
 
     /// Get PCNT filter value
-    /// 
+    ///
     /// returns
     /// - i16
     /// - EspError
     pub fn get_filter_value(&self) -> Result<u16, EspError> {
         let mut value = 0u16;
         unsafe {
-            esp!(pcnt_get_filter_value(
-                self.unit,
-                &mut value as *mut u16
-            ))?;
+            esp!(pcnt_get_filter_value(self.unit, &mut value as *mut u16))?;
         }
         Ok(value)
     }
 
     /// Set PCNT counter mode
-    /// 
+    ///
     /// @param channel PCNT channel number
     /// @param pos_mode Counter mode when detecting positive edge
     /// @param neg_mode Counter mode when detecting negative edge
     /// @param hctrl_mode Counter mode when control signal is high level
     /// @param lctrl_mode Counter mode when control signal is low level
-    /// 
+    ///
     /// returns
     /// - ()
     /// - EspError
-    pub fn set_mode(&self,
+    pub fn set_mode(
+        &self,
         channel: PcntChannel,
         pos_mode: PcntCountMode,
         neg_mode: PcntCountMode,
         hctrl_mode: PcntControlMode,
-        lctrl_mode: PcntControlMode) -> Result<(), EspError> {
+        lctrl_mode: PcntControlMode,
+    ) -> Result<(), EspError> {
         unsafe {
-            esp!(pcnt_set_mode(self.unit, channel.into(), pos_mode.into(), neg_mode.into(), hctrl_mode.into(), lctrl_mode.into()))
+            esp!(pcnt_set_mode(
+                self.unit,
+                channel.into(),
+                pos_mode.into(),
+                neg_mode.into(),
+                hctrl_mode.into(),
+                lctrl_mode.into()
+            ))
         }
     }
 
     /// Add ISR handler for specified unit.
-    /// 
+    ///
     /// This ISR handler will be called from an ISR. So there is a stack
     /// size limit (configurable as \"ISR stack size\" in menuconfig). This
     /// limit is smaller compared to a global PCNT interrupt handler due
     /// to the additional level of indirection.
-    /// 
+    ///
     /// # Safety
     ///
     /// Care should be taken not to call STD, libc or FreeRTOS APIs (except for a few allowed ones)
     /// in the callback passed to this function, as it is executed in an ISR context.
-    /// 
+    ///
     /// @param callback Interrupt handler function.
-    /// 
+    ///
     /// returns
     /// - ()
     /// - EspError
     #[cfg(feature = "alloc")]
-    pub unsafe fn subscribe(&self, callback: impl FnMut(u32) + Send + 'static) -> Result<(), EspError> {
+    pub unsafe fn subscribe(
+        &self,
+        callback: C,
+    ) -> Result<(), EspError>
+    where
+        C: FnMut(u32) + Send + 'static
+    {
         enable_isr_service()?;
 
-        //self.unsubscribe();
-        let callback: Box<dyn FnMut(u32) + 'static> = Box::new(callback);
+        self.unsubscribe();
+        let callback: alloc::boxed::Box<dyn FnMut(u32) + 'static> = alloc::boxed::Box::new(callback);
         ISR_HANDLERS[self.unit as usize] = Some(callback);
         esp!(pcnt_isr_handler_add(
             self.unit,
@@ -475,7 +478,7 @@ impl<'d> PcntDriver<'d> {
     }
 
     /// Remove ISR handler for specified unit.
-    /// 
+    ///
     /// returns
     /// - ()
     /// - EspError
@@ -493,10 +496,8 @@ impl<'d> PcntDriver<'d> {
         let unit = data as pcnt_unit_t;
         if let Some(f) = &mut ISR_HANDLERS[unit as usize] {
             let mut value = 0u32;
-            esp!(pcnt_get_event_status(
-                unit,
-                &mut value as *mut u32
-            )).expect("failed to fetch event status!");
+            esp!(pcnt_get_event_status(unit, &mut value as *mut u32))
+                .expect("failed to fetch event status!");
             f(value);
         }
     }
@@ -506,7 +507,7 @@ impl Drop for PcntDriver<'_> {
     fn drop(&mut self) {
         let _ = self.counter_pause();
         let _ = self.intr_disable();
-        unsafe {ISR_HANDLERS[self.unit as usize] = None};
+        unsafe { ISR_HANDLERS[self.unit as usize] = None };
     }
 }
 
@@ -522,7 +523,7 @@ fn enable_isr_service() -> Result<(), EspError> {
     use core::sync::atomic::Ordering;
 
     if !ISR_SERVICE_ENABLED.load(Ordering::SeqCst) {
-        let _ = PCNT_CS.enter();
+        let _cs = PCNT_CS.enter();
 
         if !ISR_SERVICE_ENABLED.load(Ordering::SeqCst) {
             esp!(unsafe { pcnt_isr_service_install(0) })?;
@@ -536,15 +537,18 @@ fn enable_isr_service() -> Result<(), EspError> {
 
 #[cfg(feature = "alloc")]
 static mut ISR_HANDLERS: [Option<Box<dyn FnMut(u32)>>; pcnt_unit_t_PCNT_UNIT_MAX as usize] = [
-    None, None, None, None, 
-    #[cfg(not(esp32s3))]
+    None,
+    None,
+    None,
     None,
     #[cfg(not(esp32s3))]
     None,
     #[cfg(not(esp32s3))]
     None,
     #[cfg(not(esp32s3))]
-    None, 
+    None,
+    #[cfg(not(esp32s3))]
+    None,
 ];
 
 pub trait Pcnt {
