@@ -133,6 +133,18 @@ pub struct PcntDriver<'d> {
     _p: PhantomData<&'d mut ()>,
 }
 
+macro_rules! pin_to_number {
+    ($pin:ident) => {
+        match $pin {
+            Some(pin) => {
+                crate::into_ref!(pin);
+                pin.pin()
+            },
+            None => PCNT_PIN_NOT_USED,
+        }
+    }
+}
+
 impl<'d> PcntDriver<'d> {
     pub fn new<PCNT: Pcnt>(
         _pcnt: impl Peripheral<P = PCNT> + 'd,
@@ -143,34 +155,10 @@ impl<'d> PcntDriver<'d> {
     ) -> Result<Self, EspError> {
         // consume the pins and keep only the pin number.
         let pins = [
-            match pin0 {
-                Some(pin) => {
-                    crate::into_ref!(pin);
-                    pin.pin()
-                }
-                None => PCNT_PIN_NOT_USED,
-            },
-            match pin1 {
-                Some(pin) => {
-                    crate::into_ref!(pin);
-                    pin.pin()
-                }
-                None => PCNT_PIN_NOT_USED,
-            },
-            match pin2 {
-                Some(pin) => {
-                    crate::into_ref!(pin);
-                    pin.pin()
-                }
-                None => PCNT_PIN_NOT_USED,
-            },
-            match pin3 {
-                Some(pin) => {
-                    crate::into_ref!(pin);
-                    pin.pin()
-                }
-                None => PCNT_PIN_NOT_USED,
-            },
+            pin_to_number!(pin0),
+            pin_to_number!(pin1),
+            pin_to_number!(pin2),
+            pin_to_number!(pin3),
         ];
         Ok(Self {
             unit: PCNT::unit(),
