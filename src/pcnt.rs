@@ -119,16 +119,62 @@ impl PcntChannelConfig {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+pub enum PinIndex {
+    Pin0 = 0,
+    Pin1 = 1,
+    Pin2 = 2,
+    Pin3 = 3,
+}
+
 pub struct PcntDriver<'d> {
     unit: pcnt_unit_t,
+    pins: [i32; 4],
     _p: PhantomData<&'d mut ()>,
 }
 
 impl<'d> PcntDriver<'d> {
-    pub fn new<PCNT: Pcnt>(_pcnt: impl Peripheral<P = PCNT> + 'd) -> Result<Self, EspError> {
+    pub fn new<PCNT: Pcnt>(
+        _pcnt: impl Peripheral<P = PCNT> + 'd,
+        pin0: Option<impl Peripheral<P = impl InputPin> + 'd>,
+        pin1: Option<impl Peripheral<P = impl InputPin> + 'd>,
+        pin2: Option<impl Peripheral<P = impl InputPin> + 'd>,
+        pin3: Option<impl Peripheral<P = impl InputPin> + 'd>,
+    ) -> Result<Self, EspError> {
+        // consume the pins and keep only the pin number.
+        let pins = [
+            match pin0 {
+                Some(pin) => {
+                    crate::into_ref!(pin);
+                    pin.pin()
+                }
+                None => PCNT_PIN_NOT_USED,
+            },
+            match pin1 {
+                Some(pin) => {
+                    crate::into_ref!(pin);
+                    pin.pin()
+                }
+                None => PCNT_PIN_NOT_USED,
+            },
+            match pin2 {
+                Some(pin) => {
+                    crate::into_ref!(pin);
+                    pin.pin()
+                }
+                None => PCNT_PIN_NOT_USED,
+            },
+            match pin3 {
+                Some(pin) => {
+                    crate::into_ref!(pin);
+                    pin.pin()
+                }
+                None => PCNT_PIN_NOT_USED,
+            },
+        ];
         Ok(Self {
             unit: PCNT::unit(),
+            pins,
             _p: PhantomData,
         })
     }
@@ -150,25 +196,13 @@ impl<'d> PcntDriver<'d> {
     pub fn channel_config<'a>(
         &mut self,
         channel: PcntChannel,
-        pulse_pin: Option<impl Peripheral<P = impl InputPin> + 'a>,
-        ctrl_pin: Option<impl Peripheral<P = impl InputPin> + 'a>,
+        pulse_pin: PinIndex,
+        ctrl_pin: PinIndex,
         pconfig: &PcntChannelConfig,
     ) -> Result<(), EspError> {
         let config = pcnt_config_t {
-            pulse_gpio_num: match pulse_pin {
-                Some(pin) => {
-                    crate::into_ref!(pin);
-                    pin.pin()
-                }
-                None => PCNT_PIN_NOT_USED,
-            },
-            ctrl_gpio_num: match ctrl_pin {
-                Some(pin) => {
-                    crate::into_ref!(pin);
-                    pin.pin()
-                }
-                None => PCNT_PIN_NOT_USED,
-            },
+            pulse_gpio_num: self.pins[pulse_pin as usize],
+            ctrl_gpio_num: self.pins[ctrl_pin as usize],
             lctrl_mode: pconfig.lctrl_mode.into(),
             hctrl_mode: pconfig.hctrl_mode.into(),
             pos_mode: pconfig.pos_mode.into(),
@@ -322,46 +356,26 @@ impl<'d> PcntDriver<'d> {
         Ok(value)
     }
 
-    /// Configure PCNT pulse signal input pin and control input pin
-    ///
-    /// @param channel PcntChannel
-    /// @param pulse_io Pulse signal input pin
-    /// @param ctrl_io Control signal input pin
-    ///
-    /// @note  Set the signal input to PCNT_PIN_NOT_USED if unused.
-    ///
-    /// returns
-    /// - ()
-    /// - EspError
-    pub fn set_pin<'a>(
-        &mut self,
-        channel: PcntChannel,
-        pulse_pin: Option<impl Peripheral<P = impl InputPin> + 'a>,
-        ctrl_pin: Option<impl Peripheral<P = impl InputPin> + 'a>,
-    ) -> Result<(), EspError> {
-        let pulse_io_num = match pulse_pin {
-            Some(pin) => {
-                crate::into_ref!(pin);
-                pin.pin()
-            }
-            None => PCNT_PIN_NOT_USED,
-        };
-        let ctrl_io_num = match ctrl_pin {
-            Some(pin) => {
-                crate::into_ref!(pin);
-                pin.pin()
-            }
-            None => PCNT_PIN_NOT_USED,
-        };
-        unsafe {
-            esp!(pcnt_set_pin(
-                self.unit,
-                channel.into(),
-                pulse_io_num,
-                ctrl_io_num
-            ))
-        }
-    }
+    // TODO: not implementing until we can do it safely! Will need to reconfigure channels?
+    //
+    // /// Configure PCNT pulse signal input pin and control input pin
+    // ///
+    // /// @param channel PcntChannel
+    // /// @param pulse_io Pulse signal input pin
+    // /// @param ctrl_io Control signal input pin
+    // ///
+    // /// @note  Set the signal input to PCNT_PIN_NOT_USED if unused.
+    // ///
+    // /// returns
+    // /// - ()
+    // /// - EspError
+    // pub fn set_pin<'a>(
+    //     &mut self,
+    //     channel: PcntChannel,
+    //     pulse_pin: Option<impl Peripheral<P = impl InputPin> + 'a>,
+    //     ctrl_pin: Option<impl Peripheral<P = impl InputPin> + 'a>,
+    // ) -> Result<(), EspError> {
+    // }
 
     /// Enable PCNT input filter
     ///
@@ -505,7 +519,10 @@ impl Drop for PcntDriver<'_> {
     fn drop(&mut self) {
         let _ = self.counter_pause();
         let _ = self.intr_disable();
-        unsafe { ISR_HANDLERS[self.unit as usize] = None };
+        unsafe {
+            pcnt_isr_handler_remove(self.unit);
+            ISR_HANDLERS[self.unit as usize] = None
+        };
     }
 }
 

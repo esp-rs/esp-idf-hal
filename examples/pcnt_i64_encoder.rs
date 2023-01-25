@@ -52,6 +52,7 @@ mod encoder {
     use std::sync::atomic::Ordering;
     use std::sync::Arc;
 
+    use esp_idf_hal::gpio::AnyInputPin;
     use esp_idf_hal::gpio::InputPin;
     use esp_idf_hal::pcnt::*;
     use esp_idf_hal::peripheral::Peripheral;
@@ -68,14 +69,20 @@ mod encoder {
     impl<'d> Encoder<'d> {
         pub fn new<'a, PCNT: Pcnt>(
             pcnt: impl Peripheral<P = PCNT> + 'd,
-            mut pin_a: impl Peripheral<P = impl InputPin>,
-            mut pin_b: impl Peripheral<P = impl InputPin>,
+            pin_a: impl Peripheral<P = impl InputPin> + 'd,
+            pin_b: impl Peripheral<P = impl InputPin> + 'd,
         ) -> Result<Self, EspError> {
-            let mut unit = PcntDriver::new(pcnt)?;
+            let mut unit = PcntDriver::new(
+                pcnt,
+                Some(pin_a),
+                Some(pin_b),
+                Option::<AnyInputPin>::None,
+                Option::<AnyInputPin>::None,
+            )?;
             unit.channel_config(
                 PcntChannel::Channel0,
-                Some(&mut pin_a),
-                Some(&mut pin_b),
+                PinIndex::Pin0,
+                PinIndex::Pin1,
                 &mut PcntChannelConfig {
                     lctrl_mode: PcntControlMode::Reverse,
                     hctrl_mode: PcntControlMode::Keep,
@@ -87,8 +94,8 @@ mod encoder {
             )?;
             unit.channel_config(
                 PcntChannel::Channel1,
-                Some(&mut pin_b),
-                Some(&mut pin_a),
+                PinIndex::Pin1,
+                PinIndex::Pin0,
                 &mut PcntChannelConfig {
                     lctrl_mode: PcntControlMode::Reverse,
                     hctrl_mode: PcntControlMode::Keep,
