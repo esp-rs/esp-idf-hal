@@ -89,7 +89,7 @@ pub use self::{
     generator::{GeneratorAction, GeneratorConfig},
     operator::{Operator, OPERATOR},
     operator_config::OperatorConfig,
-    timer::{Timer, TimerConfig, TIMER},
+    timer::{TimerConfig, TimerDriver, TIMER},
     timer_connection::TimerConnection,
 };
 

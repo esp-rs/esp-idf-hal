@@ -75,7 +75,7 @@ impl TimerConfig {
     }
 }
 
-pub struct Timer<const N: u8, G: Group> {
+pub struct TimerDriver<const N: u8, G: Group> {
     _group: G,
     handle: mcpwm_timer_handle_t,
     _timer: TIMER<N, G>,
@@ -90,7 +90,7 @@ pub struct Timer<const N: u8, G: Group> {
     period_peak: u16,
 }
 
-impl<const N: u8, G: Group> Timer<N, G> {
+impl<const N: u8, G: Group> TimerDriver<N, G> {
     pub fn new(timer: TIMER<N, G>, config: TimerConfig) -> Self {
         let mut flags: mcpwm_timer_config_t__bindgen_ty_1 = Default::default();
 
@@ -186,7 +186,7 @@ impl<const N: u8, G: Group> Timer<N, G> {
 
 // TODO: Should this be done in TimerConnection instead to ensure everything is taken down
 // in the correct order?
-impl<const N: u8, G: Group> Drop for Timer<N, G> {
+impl<const N: u8, G: Group> Drop for TimerDriver<N, G> {
     fn drop(&mut self) {
         unsafe {
             esp!(mcpwm_del_timer(self.handle)).unwrap();

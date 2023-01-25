@@ -61,7 +61,7 @@ fn main() -> anyhow::Result<()> {
     use embedded_hal::delay::DelayUs;
 
     use esp_idf_hal::delay::FreeRtos;
-    use esp_idf_hal::mcpwm::{OperatorConfig, Timer, TimerConfig};
+    use esp_idf_hal::mcpwm::{OperatorConfig, TimerConfig, TimerDriver};
     use esp_idf_hal::prelude::Peripherals;
 
     esp_idf_sys::link_patches();
@@ -71,11 +71,11 @@ fn main() -> anyhow::Result<()> {
     let peripherals = Peripherals::take().unwrap();
     let timer_config = TimerConfig::default().period_ticks(8_000); // 10kHz
     let operator_config = OperatorConfig::default(peripherals.pins.gpio4, peripherals.pins.gpio5);
-    let timer = Timer::new(peripherals.mcpwm0.timer0, timer_config);
+    let timer = TimerDriver::new(peripherals.mcpwm0.timer0, timer_config);
 
     let mut timer = timer
         .into_connection()
-        .attatch_operator0(peripherals.mcpwm0.operator0, operator_config);
+        .attach_operator0(peripherals.mcpwm0.operator0, operator_config);
 
     // Borrow references to the contained timer and operator
     let (timer, operator, _, _) = timer.split();

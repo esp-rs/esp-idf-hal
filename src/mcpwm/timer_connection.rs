@@ -4,7 +4,7 @@ use super::{
     comparator::OptionalCmpCfg,
     generator::OptionalGenCfg,
     operator::{self, NoOperator, OptionalOperator, OPERATOR},
-    timer::Timer,
+    timer::TimerDriver,
     Operator, OperatorConfig,
 };
 
@@ -16,14 +16,14 @@ where
     O1: OptionalOperator<1, G>,
     O2: OptionalOperator<2, G>,
 {
-    timer: Timer<N, G>,
+    timer: TimerDriver<N, G>,
     operator0: O0,
     operator1: O1,
     operator2: O2,
 }
 
 impl<const N: u8, G: Group> TimerConnection<N, G, NoOperator, NoOperator, NoOperator> {
-    pub(crate) fn new(timer: Timer<N, G>) -> Self {
+    pub(crate) fn new(timer: TimerDriver<N, G>) -> Self {
         Self {
             timer,
             operator0: NoOperator,
@@ -46,7 +46,7 @@ impl<
         O2: OptionalOperator<2, G>,
     > TimerConnection<N, G, O0, O1, O2>
 {
-    pub fn split(&mut self) -> (&mut Timer<N, G>, &mut O0, &mut O1, &mut O2) {
+    pub fn split(&mut self) -> (&mut TimerDriver<N, G>, &mut O0, &mut O1, &mut O2) {
         (
             &mut self.timer,
             &mut self.operator0,
@@ -63,7 +63,7 @@ where
     O2: OptionalOperator<2, G>,
 {
     #[allow(clippy::type_complexity)]
-    pub fn attatch_operator0<CMPX, CMPY, GENA, GENB>(
+    pub fn attach_operator0<CMPX, CMPY, GENA, GENB>(
         self,
         operator_handle: OPERATOR<0, G>,
         operator_cfg: OperatorConfig<CMPX, CMPY, GENA, GENB>,
@@ -91,7 +91,7 @@ where
     O2: OptionalOperator<2, G>,
 {
     #[allow(clippy::type_complexity)]
-    pub fn attatch_operator1<CMPX, CMPY, GENA, GENB>(
+    pub fn attach_operator1<CMPX, CMPY, GENA, GENB>(
         self,
         operator_handle: OPERATOR<1, G>,
         operator_cfg: OperatorConfig<CMPX, CMPY, GENA, GENB>,
@@ -119,7 +119,7 @@ where
     O1: OptionalOperator<1, G>,
 {
     #[allow(clippy::type_complexity)]
-    pub fn attatch_operator2<CMPX, CMPY, GENA, GENB>(
+    pub fn attach_operator2<CMPX, CMPY, GENA, GENB>(
         self,
         operator_handle: OPERATOR<2, G>,
         operator_cfg: OperatorConfig<CMPX, CMPY, GENA, GENB>,
@@ -154,8 +154,3 @@ impl<const N: u8, G, O0, O1, O2> Drop for TimerConnection<N, G, O0, O1, O2>
     }
 }
 */
-
-// TODO: Should this be moved somewhere else?
-pub trait OptionalOutputPin {}
-
-impl<P: crate::gpio::OutputPin> OptionalOutputPin for P {}

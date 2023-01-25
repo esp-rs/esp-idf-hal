@@ -180,9 +180,17 @@ impl Peripherals {
             can: can::CAN::new(),
             #[cfg(not(feature = "riscv-ulp-hal"))]
             ledc: ledc::LEDC::new(),
-            #[cfg(all(any(esp32, esp32s3), esp_idf_version_major = "5"))]
+            #[cfg(all(
+                any(esp32, esp32s3),
+                not(feature = "riscv-ulp-hal"),
+                esp_idf_version_major = "5"
+            ))]
             mcpwm0: mcpwm::MCPWM::<mcpwm::Group0>::new(),
-            #[cfg(all(any(esp32, esp32s3), esp_idf_version_major = "5"))]
+            #[cfg(all(
+                any(esp32, esp32s3),
+                not(feature = "riscv-ulp-hal"),
+                esp_idf_version_major = "5"
+            ))]
             mcpwm1: mcpwm::MCPWM::<mcpwm::Group1>::new(),
             #[cfg(not(feature = "riscv-ulp-hal"))]
             rmt: rmt::RMT::new(),
