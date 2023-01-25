@@ -232,6 +232,9 @@ impl EspOta {
     pub fn initiate_update(&mut self) -> Result<&mut EspOtaUpdate, EspError> {
         self.check_read()?;
 
+        // This might return a null pointer in case no valid partition can be found.
+        // We don't have to handle this error in here, as this will implicitly trigger an error
+        // as soon as the null pointer is provided to `esp_ota_begin`.
         let partition = unsafe { esp_ota_get_next_update_partition(ptr::null()) };
 
         let mut handle: esp_ota_handle_t = Default::default();
@@ -242,6 +245,17 @@ impl EspOta {
         self.0.update_handle = handle;
 
         Ok(&mut self.0)
+    }
+
+    /// Get a handle to the [EspOtaUpdate].
+    /// This is `None`, if [Self.initiate_update] hasn't been called yet or the update has
+    /// finished.
+    pub fn get_update(&mut self) -> Option<&mut EspOtaUpdate> {
+        if self.0.update_partition.is_null() {
+            None
+        } else {
+            Some(&mut self.0)
+        }
     }
 
     pub fn mark_running_slot_valid(&mut self) -> Result<(), EspError> {
