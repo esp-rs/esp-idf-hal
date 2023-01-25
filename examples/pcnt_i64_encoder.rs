@@ -67,7 +67,7 @@ mod encoder {
     }
 
     impl<'d> Encoder<'d> {
-        pub fn new<'a, PCNT: Pcnt>(
+        pub fn new<PCNT: Pcnt>(
             pcnt: impl Peripheral<P = PCNT> + 'd,
             pin_a: impl Peripheral<P = impl InputPin> + 'd,
             pin_b: impl Peripheral<P = impl InputPin> + 'd,
