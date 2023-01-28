@@ -139,10 +139,10 @@ macro_rules! pin_to_number {
             Some(pin) => {
                 crate::into_ref!(pin);
                 pin.pin()
-            },
+            }
             None => PCNT_PIN_NOT_USED,
         }
-    }
+    };
 }
 
 impl<'d> PcntDriver<'d> {
