@@ -3,25 +3,22 @@ use esp_idf_sys::mcpwm_operator_config_t__bindgen_ty_1;
 use crate::gpio::OutputPin;
 
 use super::{
-    comparator::{ComparatorConfig, NoCmpCfg, OptionalCmpCfg},
-    generator::{CountingDirection, GenA, GenB, GeneratorConfig, NoGenCfg, OptionalGenCfg},
+    comparator::ComparatorConfig,
+    generator::{GenA, GenB, GeneratorConfig, NoGenCfg, OptionalGenCfg},
 };
 
-type DefaultGeneratorConfigA<PA> = GeneratorConfig<GenA, CountingDirection, CountingDirection, PA>;
-type DefaultGeneratorConfigB<PB> = GeneratorConfig<GenB, CountingDirection, CountingDirection, PB>;
-
 #[derive(Default)]
-pub struct OperatorConfig<CMPX, CMPY, GENA, GENB> {
+pub struct OperatorConfig<GENA, GENB> {
     // TODO: When, how and who should set the flags?
     // Should that be done automagically, manually or does some specific setting cover all cases?
     /// Flags for Operator
     pub(crate) flags: mcpwm_operator_config_t__bindgen_ty_1,
 
     /// Configuration for Comparator X
-    pub(crate) comparator_x: CMPX,
+    pub(crate) comparator_x: ComparatorConfig,
 
     /// Configuration for Comparator Y
-    pub(crate) comparator_y: CMPY,
+    pub(crate) comparator_y: ComparatorConfig,
 
     /// Configuration for Generator A
     pub(crate) generator_a: GENA,
@@ -30,16 +27,11 @@ pub struct OperatorConfig<CMPX, CMPY, GENA, GENB> {
     pub(crate) generator_b: GENB,
 }
 
-impl OperatorConfig<NoCmpCfg, NoCmpCfg, NoGenCfg, NoGenCfg> {
+impl OperatorConfig<NoGenCfg, NoGenCfg> {
     pub fn default<PA: OutputPin, PB: OutputPin>(
         pin_a: PA,
         pin_b: PB,
-    ) -> OperatorConfig<
-        ComparatorConfig,
-        ComparatorConfig,
-        DefaultGeneratorConfigA<PA>,
-        DefaultGeneratorConfigB<PB>,
-    > {
+    ) -> OperatorConfig<GeneratorConfig<GenA, PA>, GeneratorConfig<GenB, PB>> {
         OperatorConfig::empty()
             .cmp_x(Default::default())
             .cmp_y(Default::default())
@@ -61,8 +53,8 @@ impl OperatorConfig<NoCmpCfg, NoCmpCfg, NoGenCfg, NoGenCfg> {
 
         OperatorConfig {
             flags,
-            comparator_x: NoCmpCfg, // SOC_MCPWM_COMPARATORS_PER_OPERATOR is 2 for ESP32 and ESP32-S3
-            comparator_y: NoCmpCfg,
+            comparator_x: Default::default(), // SOC_MCPWM_COMPARATORS_PER_OPERATOR is 2 for ESP32 and ESP32-S3
+            comparator_y: Default::default(),
 
             generator_a: NoGenCfg, // One generator per pin, with a maximum of two generators per Operator
             generator_b: NoGenCfg,
@@ -70,11 +62,8 @@ impl OperatorConfig<NoCmpCfg, NoCmpCfg, NoGenCfg, NoGenCfg> {
     }
 }
 
-impl<CMPY: OptionalCmpCfg> OperatorConfig<NoCmpCfg, CMPY, NoGenCfg, NoGenCfg> {
-    fn cmp_x(
-        self,
-        config: ComparatorConfig,
-    ) -> OperatorConfig<ComparatorConfig, CMPY, NoGenCfg, NoGenCfg> {
+impl OperatorConfig<NoGenCfg, NoGenCfg> {
+    fn cmp_x(self, config: ComparatorConfig) -> OperatorConfig<NoGenCfg, NoGenCfg> {
         OperatorConfig {
             flags: self.flags,
             comparator_x: config,
@@ -84,13 +73,8 @@ impl<CMPY: OptionalCmpCfg> OperatorConfig<NoCmpCfg, CMPY, NoGenCfg, NoGenCfg> {
             generator_b: self.generator_b,
         }
     }
-}
 
-impl<CMPX: OptionalCmpCfg> OperatorConfig<CMPX, NoCmpCfg, NoGenCfg, NoGenCfg> {
-    fn cmp_y(
-        self,
-        config: ComparatorConfig,
-    ) -> OperatorConfig<CMPX, ComparatorConfig, NoGenCfg, NoGenCfg> {
+    fn cmp_y(self, config: ComparatorConfig) -> OperatorConfig<NoGenCfg, NoGenCfg> {
         OperatorConfig {
             flags: self.flags,
             comparator_x: self.comparator_x,
@@ -102,19 +86,12 @@ impl<CMPX: OptionalCmpCfg> OperatorConfig<CMPX, NoCmpCfg, NoGenCfg, NoGenCfg> {
     }
 }
 
-impl<CMPX: OptionalCmpCfg, CMPY: OptionalCmpCfg, GENB: OptionalGenCfg>
-    OperatorConfig<CMPX, CMPY, NoGenCfg, GENB>
-{
+impl<GENB: OptionalGenCfg> OperatorConfig<NoGenCfg, GENB> {
     #[allow(clippy::type_complexity)]
     fn gen_a<P: OutputPin>(
         self,
-        config: GeneratorConfig<GenA, CMPX::OnMatchCfg, CMPY::OnMatchCfg, P>,
-    ) -> OperatorConfig<
-        CMPX,
-        CMPY,
-        GeneratorConfig<GenA, CMPX::OnMatchCfg, CMPY::OnMatchCfg, P>,
-        GENB,
-    > {
+        config: GeneratorConfig<GenA, P>,
+    ) -> OperatorConfig<GeneratorConfig<GenA, P>, GENB> {
         OperatorConfig {
             flags: self.flags,
             comparator_x: self.comparator_x,
@@ -126,19 +103,12 @@ impl<CMPX: OptionalCmpCfg, CMPY: OptionalCmpCfg, GENB: OptionalGenCfg>
     }
 }
 
-impl<CMPX: OptionalCmpCfg, CMPY: OptionalCmpCfg, GENA: OptionalGenCfg>
-    OperatorConfig<CMPX, CMPY, GENA, NoGenCfg>
-{
+impl<GENA: OptionalGenCfg> OperatorConfig<GENA, NoGenCfg> {
     #[allow(clippy::type_complexity)]
     fn gen_b<P: OutputPin>(
         self,
-        config: GeneratorConfig<GenB, CMPX::OnMatchCfg, CMPY::OnMatchCfg, P>,
-    ) -> OperatorConfig<
-        CMPX,
-        CMPY,
-        GENA,
-        GeneratorConfig<GenB, CMPX::OnMatchCfg, CMPY::OnMatchCfg, P>,
-    > {
+        config: GeneratorConfig<GenB, P>,
+    ) -> OperatorConfig<GENA, GeneratorConfig<GenB, P>> {
         OperatorConfig {
             flags: self.flags,
             comparator_x: self.comparator_x,

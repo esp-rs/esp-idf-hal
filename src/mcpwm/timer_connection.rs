@@ -1,7 +1,6 @@
 use crate::mcpwm::Group;
 
 use super::{
-    comparator::OptionalCmpCfg,
     generator::OptionalGenCfg,
     operator::{self, NoOperator, OptionalOperator, OPERATOR},
     timer::TimerDriver,
@@ -63,14 +62,12 @@ where
     O2: OptionalOperator<2, G>,
 {
     #[allow(clippy::type_complexity)]
-    pub fn attach_operator0<CMPX, CMPY, GENA, GENB>(
+    pub fn attach_operator0<GENA, GENB>(
         self,
         operator_handle: OPERATOR<0, G>,
-        operator_cfg: OperatorConfig<CMPX, CMPY, GENA, GENB>,
-    ) -> TimerConnection<N, G, Operator<0, G, CMPX::Cmp, CMPY::Cmp, GENA::Gen, GENB::Gen>, O1, O2>
+        operator_cfg: OperatorConfig<GENA, GENB>,
+    ) -> TimerConnection<N, G, Operator<0, G, GENA::Gen, GENB::Gen>, O1, O2>
     where
-        CMPX: OptionalCmpCfg,
-        CMPY: OptionalCmpCfg,
         GENA: OptionalGenCfg,
         GENB: OptionalGenCfg,
     {
@@ -91,14 +88,12 @@ where
     O2: OptionalOperator<2, G>,
 {
     #[allow(clippy::type_complexity)]
-    pub fn attach_operator1<CMPX, CMPY, GENA, GENB>(
+    pub fn attach_operator1<GENA, GENB>(
         self,
         operator_handle: OPERATOR<1, G>,
-        operator_cfg: OperatorConfig<CMPX, CMPY, GENA, GENB>,
-    ) -> TimerConnection<N, G, O0, Operator<1, G, CMPX::Cmp, CMPY::Cmp, GENA::Gen, GENB::Gen>, O2>
+        operator_cfg: OperatorConfig<GENA, GENB>,
+    ) -> TimerConnection<N, G, O0, Operator<1, G, GENA::Gen, GENB::Gen>, O2>
     where
-        CMPX: OptionalCmpCfg,
-        CMPY: OptionalCmpCfg,
         GENA: OptionalGenCfg,
         GENB: OptionalGenCfg,
     {
@@ -119,14 +114,12 @@ where
     O1: OptionalOperator<1, G>,
 {
     #[allow(clippy::type_complexity)]
-    pub fn attach_operator2<CMPX, CMPY, GENA, GENB>(
+    pub fn attach_operator2<GENA, GENB>(
         self,
         operator_handle: OPERATOR<2, G>,
-        operator_cfg: OperatorConfig<CMPX, CMPY, GENA, GENB>,
-    ) -> TimerConnection<N, G, O0, O1, Operator<2, G, CMPX::Cmp, CMPY::Cmp, GENA::Gen, GENB::Gen>>
+        operator_cfg: OperatorConfig<GENA, GENB>,
+    ) -> TimerConnection<N, G, O0, O1, Operator<2, G, GENA::Gen, GENB::Gen>>
     where
-        CMPX: OptionalCmpCfg,
-        CMPY: OptionalCmpCfg,
         GENA: OptionalGenCfg,
         GENB: OptionalGenCfg,
     {

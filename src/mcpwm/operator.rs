@@ -7,7 +7,7 @@ use esp_idf_sys::{
 use crate::mcpwm::Group;
 
 use super::{
-    comparator::{Comparator, OptionalCmp, OptionalCmpCfg},
+    comparator::Comparator,
     generator::{OptionalGen, OptionalGenCfg},
     OperatorConfig,
 };
@@ -53,34 +53,25 @@ impl<const N: u8, G: Group> crate::peripheral::Peripheral for OPERATOR<N, G> {
 ///
 /// Every Motor Control module has three operators. Every operator can generate two output signals called A and B.
 /// A and B share the same timer and thus frequency and phase but can have induvidual duty set.
-pub struct Operator<
-    const N: u8,
-    G: Group,
-    CMPX: OptionalCmp,
-    CMPY: OptionalCmp,
-    GENA: OptionalGen,
-    GENB: OptionalGen,
-> {
+pub struct Operator<const N: u8, G: Group, GENA: OptionalGen, GENB: OptionalGen> {
     _instance: OPERATOR<N, G>,
     _handle: mcpwm_oper_handle_t,
 
-    comparator_x: CMPX, // SOC_MCPWM_COMPARATORS_PER_OPERATOR is 2 for ESP32 and ESP32-S3
-    comparator_y: CMPY,
+    comparator_x: Comparator, // SOC_MCPWM_COMPARATORS_PER_OPERATOR is 2 for ESP32 and ESP32-S3
+    comparator_y: Comparator,
 
     _generator_a: GENA, // One generator per pin, with a maximum of two generators per Operator
     _generator_b: GENB,
     //deadtime: D
 }
 
-pub(crate) unsafe fn new<const N: u8, G, CMPX, CMPY, GENA, GENB>(
+pub(crate) unsafe fn new<const N: u8, G, GENA, GENB>(
     instance: OPERATOR<N, G>,
     timer_handle: mcpwm_timer_handle_t,
-    cfg: OperatorConfig<CMPX, CMPY, GENA, GENB>,
-) -> Operator<N, G, CMPX::Cmp, CMPY::Cmp, GENA::Gen, GENB::Gen>
+    cfg: OperatorConfig<GENA, GENB>,
+) -> Operator<N, G, GENA::Gen, GENB::Gen>
 where
     G: Group,
-    CMPX: OptionalCmpCfg,
-    CMPY: OptionalCmpCfg,
 
     GENA: OptionalGenCfg,
     GENB: OptionalGenCfg,
@@ -115,18 +106,12 @@ where
     }
 
     let generator_a = unsafe {
-        cfg.generator_a.init(
-            handle,
-            comparator_x.get_comparator_mut(),
-            comparator_y.get_comparator_mut(),
-        )
+        cfg.generator_a
+            .init(handle, &mut comparator_x, &mut comparator_y)
     };
     let generator_b = unsafe {
-        cfg.generator_b.init(
-            handle,
-            comparator_x.get_comparator_mut(),
-            comparator_y.get_comparator_mut(),
-        )
+        cfg.generator_b
+            .init(handle, &mut comparator_x, &mut comparator_y)
     };
 
     Operator {
@@ -140,10 +125,9 @@ where
     }
 }
 
-impl<const N: u8, G, GENA, GENB, CMPY> Operator<N, G, Comparator, CMPY, GENA, GENB>
+impl<const N: u8, G, GENA, GENB> Operator<N, G, GENA, GENB>
 where
     G: Group,
-    CMPY: OptionalCmp,
     GENA: OptionalGen,
     GENB: OptionalGen,
 {
@@ -185,10 +169,9 @@ where
     }
 }
 
-impl<const N: u8, G, GENA, GENB, CMPX> Operator<N, G, CMPX, Comparator, GENA, GENB>
+impl<const N: u8, G, GENA, GENB> Operator<N, G, GENA, GENB>
 where
     G: Group,
-    CMPX: OptionalCmp,
     GENA: OptionalGen,
     GENB: OptionalGen,
 {
@@ -221,12 +204,9 @@ where
 }
 
 pub trait OptionalOperator<const N: u8, G: Group> {}
-impl<const N: u8, G, CMPX, CMPY, GENA, GENB> OptionalOperator<N, G>
-    for Operator<N, G, CMPX, CMPY, GENA, GENB>
+impl<const N: u8, G, GENA, GENB> OptionalOperator<N, G> for Operator<N, G, GENA, GENB>
 where
     G: Group,
-    CMPX: OptionalCmp,
-    CMPY: OptionalCmp,
     GENA: OptionalGen,
     GENB: OptionalGen,
 {
