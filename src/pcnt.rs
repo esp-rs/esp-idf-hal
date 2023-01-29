@@ -546,13 +546,13 @@ static mut ISR_HANDLERS: [IsrHandler; pcnt_unit_t_PCNT_UNIT_MAX as usize] = [
     None,
     None,
     None,
-    #[cfg(not(esp32s3))]
+    #[cfg(esp32)]
     None,
-    #[cfg(not(esp32s3))]
+    #[cfg(esp32)]
     None,
-    #[cfg(not(esp32s3))]
+    #[cfg(esp32)]
     None,
-    #[cfg(not(esp32s3))]
+    #[cfg(esp32)]
     None,
 ];
 
@@ -577,11 +577,11 @@ impl_pcnt!(PCNT0: pcnt_unit_t_PCNT_UNIT_0);
 impl_pcnt!(PCNT1: pcnt_unit_t_PCNT_UNIT_1);
 impl_pcnt!(PCNT2: pcnt_unit_t_PCNT_UNIT_2);
 impl_pcnt!(PCNT3: pcnt_unit_t_PCNT_UNIT_3);
-#[cfg(not(esp32s3))]
+#[cfg(esp32)]
 impl_pcnt!(PCNT4: pcnt_unit_t_PCNT_UNIT_4);
-#[cfg(not(esp32s3))]
+#[cfg(esp32)]
 impl_pcnt!(PCNT5: pcnt_unit_t_PCNT_UNIT_5);
-#[cfg(not(esp32s3))]
+#[cfg(esp32)]
 impl_pcnt!(PCNT6: pcnt_unit_t_PCNT_UNIT_6);
-#[cfg(not(esp32s3))]
+#[cfg(esp32)]
 impl_pcnt!(PCNT7: pcnt_unit_t_PCNT_UNIT_7);

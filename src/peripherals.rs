@@ -13,10 +13,7 @@ use crate::ledc;
 use crate::mac;
 #[cfg(not(feature = "riscv-ulp-hal"))]
 use crate::modem;
-#[cfg(all(
-    not(feature = "riscv-ulp-hal"),
-    //any(feature = "pcnt4", esp_idf_version_major = "4")
-))]
+#[cfg(all(not(feature = "riscv-ulp-hal"), any(esp32, esp32s2, esp32s3)))]
 use crate::pcnt;
 #[cfg(not(feature = "riscv-ulp-hal"))]
 use crate::rmt;
