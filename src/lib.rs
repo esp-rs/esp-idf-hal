@@ -44,20 +44,11 @@ pub mod ledc;
 pub mod mac;
 #[cfg(not(feature = "riscv-ulp-hal"))]
 pub mod modem;
-#[cfg(all(
-    not(feature = "riscv-ulp-hal"),
-    any(feature = "pcnt4", esp_idf_version_major = "4")
-))]
+#[cfg(all(not(feature = "riscv-ulp-hal"), any(esp32, esp32s2, esp32s3)))]
 pub mod pcnt;
 pub mod peripheral;
 pub mod peripherals;
 pub mod prelude;
-#[cfg(all(
-    not(feature = "riscv-ulp-hal"),
-    not(feature = "pcnt4"),
-    not(esp_idf_version_major = "4")
-))]
-pub mod pulse_cnt;
 #[cfg(not(feature = "riscv-ulp-hal"))]
 pub mod reset;
 #[cfg(not(feature = "riscv-ulp-hal"))]

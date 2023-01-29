@@ -64,49 +64,21 @@ pub struct Peripherals {
     pub spi3: spi::SPI3,
     pub adc1: adc::ADC1,
     pub adc2: adc::ADC2,
-    #[cfg(all(
-        not(feature = "riscv-ulp-hal"),
-        any(feature = "pcnt4", esp_idf_version_major = "4")
-    ))]
+    #[cfg(all(not(feature = "riscv-ulp-hal"), any(esp32, esp32s2, esp32s3)))]
     pub pcnt0: pcnt::PCNT0,
-    #[cfg(all(
-        not(feature = "riscv-ulp-hal"),
-        any(feature = "pcnt4", esp_idf_version_major = "4")
-    ))]
+    #[cfg(all(not(feature = "riscv-ulp-hal"), any(esp32, esp32s2, esp32s3)))]
     pub pcnt1: pcnt::PCNT1,
-    #[cfg(all(
-        not(feature = "riscv-ulp-hal"),
-        any(feature = "pcnt4", esp_idf_version_major = "4")
-    ))]
+    #[cfg(all(not(feature = "riscv-ulp-hal"), any(esp32, esp32s2, esp32s3)))]
     pub pcnt2: pcnt::PCNT2,
-    #[cfg(all(
-        not(feature = "riscv-ulp-hal"),
-        any(feature = "pcnt4", esp_idf_version_major = "4")
-    ))]
+    #[cfg(all(not(feature = "riscv-ulp-hal"), any(esp32, esp32s2, esp32s3)))]
     pub pcnt3: pcnt::PCNT3,
-    #[cfg(all(
-        not(esp32s3),
-        not(feature = "riscv-ulp-hal"),
-        any(feature = "pcnt4", esp_idf_version_major = "4")
-    ))]
+    #[cfg(all(not(feature = "riscv-ulp-hal"), any(esp32)))]
     pub pcnt4: pcnt::PCNT4,
-    #[cfg(all(
-        not(esp32s3),
-        not(feature = "riscv-ulp-hal"),
-        any(feature = "pcnt4", esp_idf_version_major = "4")
-    ))]
+    #[cfg(all(not(feature = "riscv-ulp-hal"), any(esp32)))]
     pub pcnt5: pcnt::PCNT5,
-    #[cfg(all(
-        not(esp32s3),
-        not(feature = "riscv-ulp-hal"),
-        any(feature = "pcnt4", esp_idf_version_major = "4")
-    ))]
+    #[cfg(all(not(feature = "riscv-ulp-hal"), any(esp32)))]
     pub pcnt6: pcnt::PCNT6,
-    #[cfg(all(
-        not(esp32s3),
-        not(feature = "riscv-ulp-hal"),
-        any(feature = "pcnt4", esp_idf_version_major = "4")
-    ))]
+    #[cfg(all(not(feature = "riscv-ulp-hal"), any(esp32)))]
     pub pcnt7: pcnt::PCNT7,
     #[cfg(all(esp32, esp_idf_version_major = "4"))]
     pub hall_sensor: crate::hall::HallSensor,

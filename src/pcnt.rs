@@ -181,7 +181,7 @@ impl<'d> PcntDriver<'d> {
     /// returns
     /// - ()
     /// - EspError
-    pub fn channel_config<'a>(
+    pub fn channel_config(
         &mut self,
         channel: PcntChannel,
         pulse_pin: PinIndex,
@@ -539,7 +539,9 @@ fn enable_isr_service() -> Result<(), EspError> {
 }
 
 #[cfg(feature = "alloc")]
-static mut ISR_HANDLERS: [Option<Box<dyn FnMut(u32)>>; pcnt_unit_t_PCNT_UNIT_MAX as usize] = [
+type IsrHandler = Option<Box<dyn FnMut(u32)>>;
+#[cfg(feature = "alloc")]
+static mut ISR_HANDLERS: [IsrHandler; pcnt_unit_t_PCNT_UNIT_MAX as usize] = [
     None,
     None,
     None,

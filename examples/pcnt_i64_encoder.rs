@@ -28,10 +28,7 @@ fn main() -> anyhow::Result<()> {
     let mut pin_a = peripherals.pins.gpio5;
     let mut pin_b = peripherals.pins.gpio6;
     info!("setup encoder");
-    #[cfg(any(feature = "pcnt", esp_idf_version_major = "4"))]
     let encoder = Encoder::new(peripherals.pcnt0, &mut pin_a, &mut pin_b)?;
-    #[cfg(not(any(feature = "pcnt", esp_idf_version_major = "4")))]
-    let encoder = Encoder::new(&mut pin_a, &mut pin_b)?;
 
     let mut last_value = 0i64;
     loop {
@@ -45,7 +42,6 @@ fn main() -> anyhow::Result<()> {
 }
 
 // esp-idf encoder implementation using v4 pcnt api
-#[cfg(any(feature = "pcnt", esp_idf_version_major = "4"))]
 mod encoder {
     use std::cmp::min;
     use std::sync::atomic::AtomicI64;
@@ -138,74 +134,6 @@ mod encoder {
             let value =
                 self.approx_value.load(Ordering::Relaxed) + self.unit.get_counter_value()? as i64;
             Ok(value)
-        }
-    }
-}
-
-// esp-idf v5 encoder implementation using pulse_cnt api
-#[cfg(not(any(feature = "pcnt", esp_idf_version_major = "4")))]
-mod encoder {
-    use std::sync::atomic::AtomicI64;
-    use std::sync::atomic::Ordering;
-    use std::sync::Arc;
-
-    use esp_idf_hal::gpio::InputPin;
-    use esp_idf_hal::peripheral::Peripheral;
-    use esp_idf_hal::pulse_cnt::*;
-    use esp_idf_sys::EspError;
-
-    const LOW_LIMIT: i32 = -100;
-    const HIGH_LIMIT: i32 = 100;
-
-    pub struct Encoder {
-        unit: PcntUnit,
-        _channels: [PcntChannel; 2], // we don't use but don't want to drop
-        approx_value: Arc<AtomicI64>,
-    }
-
-    impl Encoder {
-        pub fn new(
-            mut pin_a: impl Peripheral<P = impl InputPin>,
-            mut pin_b: impl Peripheral<P = impl InputPin>,
-        ) -> Result<Self, EspError> {
-            let mut unit = PcntUnit::new(&PcntUnitConfig {
-                low_limit: LOW_LIMIT,
-                high_limit: HIGH_LIMIT,
-                ..Default::default()
-            })?;
-            let channel0 =
-                unit.channel(Some(&mut pin_a), Some(&mut pin_b), PcntChanFlags::default())?;
-            channel0.set_level_action(PcntLevelAction::Keep, PcntLevelAction::Inverse)?;
-            channel0.set_edge_action(PcntEdgeAction::Decrease, PcntEdgeAction::Increase)?;
-            let channel1 =
-                unit.channel(Some(&mut pin_b), Some(&mut pin_a), PcntChanFlags::default())?;
-            channel1.set_level_action(PcntLevelAction::Keep, PcntLevelAction::Inverse)?;
-            channel1.set_edge_action(PcntEdgeAction::Increase, PcntEdgeAction::Decrease)?;
-
-            unit.add_watch_point(LOW_LIMIT)?;
-            unit.add_watch_point(HIGH_LIMIT)?;
-
-            let approx_value = Arc::new(AtomicI64::new(0));
-            {
-                let approx_value = approx_value.clone();
-                unit.subscribe(move |event| {
-                    approx_value.fetch_add(event.watch_point_value.into(), Ordering::SeqCst);
-                    false // no high priority task woken
-                })?;
-            }
-
-            unit.enable()?;
-            unit.start()?;
-
-            Ok(Self {
-                unit,
-                _channels: [channel0, channel1],
-                approx_value,
-            })
-        }
-
-        pub fn get_value(&self) -> Result<i64, EspError> {
-            Ok(self.approx_value.load(Ordering::SeqCst) + self.unit.get_count()? as i64)
         }
     }
 }
