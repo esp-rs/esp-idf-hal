@@ -519,8 +519,8 @@ impl Drop for PcntDriver<'_> {
 static ISR_SERVICE_ENABLED: core::sync::atomic::AtomicBool =
     core::sync::atomic::AtomicBool::new(false);
 
-    #[cfg(feature = "alloc")]
-    static PCNT_CS: crate::task::CriticalSection = crate::task::CriticalSection::new();
+#[cfg(feature = "alloc")]
+static PCNT_CS: crate::task::CriticalSection = crate::task::CriticalSection::new();
 
 #[cfg(feature = "alloc")]
 fn enable_isr_service() -> Result<(), EspError> {
