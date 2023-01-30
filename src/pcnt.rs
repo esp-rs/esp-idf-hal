@@ -507,6 +507,7 @@ impl Drop for PcntDriver<'_> {
     fn drop(&mut self) {
         let _ = self.counter_pause();
         let _ = self.intr_disable();
+        #[cfg(feature = "alloc")]
         unsafe {
             pcnt_isr_handler_remove(self.unit);
             ISR_HANDLERS[self.unit as usize] = None
@@ -514,12 +515,12 @@ impl Drop for PcntDriver<'_> {
     }
 }
 
-#[cfg(all(not(feature = "riscv-ulp-hal"), feature = "alloc"))]
+#[cfg(feature = "alloc")]
 static ISR_SERVICE_ENABLED: core::sync::atomic::AtomicBool =
     core::sync::atomic::AtomicBool::new(false);
 
-#[cfg(all(not(feature = "riscv-ulp-hal"), feature = "alloc"))]
-static PCNT_CS: crate::task::CriticalSection = crate::task::CriticalSection::new();
+    #[cfg(feature = "alloc")]
+    static PCNT_CS: crate::task::CriticalSection = crate::task::CriticalSection::new();
 
 #[cfg(feature = "alloc")]
 fn enable_isr_service() -> Result<(), EspError> {
