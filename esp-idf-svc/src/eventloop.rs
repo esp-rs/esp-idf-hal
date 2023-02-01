@@ -17,7 +17,6 @@ use embedded_svc::event_bus::{self, ErrorType};
 use esp_idf_hal::cpu::Core;
 use esp_idf_hal::delay::TickType;
 use esp_idf_hal::interrupt;
-use esp_idf_hal::task;
 
 use esp_idf_sys::*;
 
@@ -506,7 +505,7 @@ where
         };
 
         if higher_prio_task_woken != 0 {
-            task::do_yield();
+            esp_idf_hal::task::do_yield();
         }
 
         if result == ESP_FAIL {
@@ -537,17 +536,11 @@ where
         P: EspTypedEventSerializer<P>,
     {
         if interrupt::active() {
-            #[cfg(esp_idf_esp_event_post_from_isr)]
-            let result = P::serialize(payload, |raw_event| self.isr_post_raw(raw_event));
-
             #[cfg(not(esp_idf_esp_event_post_from_isr))]
-            let result = {
-                panic!("Trying to post from an ISR handler. Enable `CONFIG_ESP_EVENT_POST_FROM_ISR` in `sdkconfig.defaults`");
+            panic!("Trying to post from an ISR handler. Enable `CONFIG_ESP_EVENT_POST_FROM_ISR` in `sdkconfig.defaults`");
 
-                Err(EspError::from_infallible::<ESP_FAIL>())
-            };
-
-            result
+            #[cfg(esp_idf_esp_event_post_from_isr)]
+            P::serialize(payload, |raw_event| self.isr_post_raw(raw_event))
         } else {
             P::serialize(payload, |raw_event| self.post_raw(raw_event, wait))
         }

@@ -83,7 +83,7 @@ impl From<&Configuration> for Newtype<httpd_config_t> {
     fn from(conf: &Configuration) -> Self {
         Self(httpd_config_t {
             task_priority: 5,
-            stack_size: conf.stack_size as _,
+            stack_size: conf.stack_size,
             core_id: i32::MAX,
             server_port: conf.http_port,
             ctrl_port: 32768,
@@ -512,7 +512,7 @@ impl<'a> Read for EspHttpRequest<'a> {
     fn read(&mut self, buf: &mut [u8]) -> Result<usize, Self::Error> {
         if !buf.is_empty() {
             let fd = unsafe { httpd_req_to_sockfd(self.0) };
-            let len = unsafe { esp_idf_sys::read(fd, buf.as_ptr() as *mut _, buf.len() as _) };
+            let len = unsafe { esp_idf_sys::read(fd, buf.as_ptr() as *mut _, buf.len()) };
 
             Ok(len as _)
         } else {
@@ -525,7 +525,7 @@ impl<'a> Write for EspHttpRequest<'a> {
     fn write(&mut self, buf: &[u8]) -> Result<usize, Self::Error> {
         if !buf.is_empty() {
             let fd = unsafe { httpd_req_to_sockfd(self.0) };
-            let len = unsafe { esp_idf_sys::write(fd, buf.as_ptr() as *const _, buf.len() as _) };
+            let len = unsafe { esp_idf_sys::write(fd, buf.as_ptr() as *const _, buf.len()) };
 
             Ok(len as _)
         } else {
@@ -986,7 +986,7 @@ pub mod ws {
                     if frame_data_buf.len() >= len {
                         raw_frame.payload = frame_data_buf.as_mut_ptr() as *mut _;
                         esp!(unsafe {
-                            httpd_ws_recv_frame(*raw_req, &mut raw_frame as *mut _, len as _)
+                            httpd_ws_recv_frame(*raw_req, &mut raw_frame as *mut _, len)
                         })?;
                     }
 
@@ -1010,22 +1010,21 @@ pub mod ws {
                 final_: frame_type.is_final(),
                 fragmented: frame_type.is_fragmented(),
                 payload: frame_data.as_ptr() as *const _ as *mut _,
-                len: frame_data.len() as _,
+                len: frame_data.len(),
             }
         }
 
         #[allow(non_upper_case_globals)]
         fn create_frame_type(raw_frame: &httpd_ws_frame_t) -> (FrameType, usize) {
             match raw_frame.type_ {
-                httpd_ws_type_t_HTTPD_WS_TYPE_TEXT => (
-                    FrameType::Text(raw_frame.fragmented),
-                    raw_frame.len as usize + 1,
-                ),
+                httpd_ws_type_t_HTTPD_WS_TYPE_TEXT => {
+                    (FrameType::Text(raw_frame.fragmented), raw_frame.len + 1)
+                }
                 httpd_ws_type_t_HTTPD_WS_TYPE_BINARY => {
-                    (FrameType::Binary(raw_frame.fragmented), raw_frame.len as _)
+                    (FrameType::Binary(raw_frame.fragmented), raw_frame.len)
                 }
                 httpd_ws_type_t_HTTPD_WS_TYPE_CONTINUE => {
-                    (FrameType::Continue(raw_frame.final_), raw_frame.len as _)
+                    (FrameType::Continue(raw_frame.final_), raw_frame.len)
                 }
                 httpd_ws_type_t_HTTPD_WS_TYPE_PING => (FrameType::Ping, 0),
                 httpd_ws_type_t_HTTPD_WS_TYPE_PONG => (FrameType::Pong, 0),
