@@ -7,15 +7,15 @@
 //!
 
 use anyhow;
-use anyhow::Context;
+use esp_idf_hal::delay::FreeRtos;
 use log::*;
 
-use esp_idf_hal::delay::FreeRtos;
-use esp_idf_hal::prelude::*;
-
-use encoder::Encoder;
-
+#[cfg(all(not(feature = "riscv-ulp-hal"), any(esp32, esp32s2, esp32s3)))]
 fn main() -> anyhow::Result<()> {
+    use anyhow::Context;
+    use encoder::Encoder;
+    use esp_idf_hal::prelude::*;
+
     // Temporary. Will disappear once ESP-IDF 4.4 is released, but for now it is necessary to call this function once,
     // or else some patches to the runtime implemented by esp-idf-sys might not link properly.
     esp_idf_sys::link_patches();
@@ -41,6 +41,15 @@ fn main() -> anyhow::Result<()> {
     }
 }
 
+#[cfg(not(all(not(feature = "riscv-ulp-hal"), any(esp32, esp32s2, esp32s3))))]
+fn main() -> anyhow::Result<()> {
+    error!("pcnt peripheral not supported on this device!");
+    loop {
+        FreeRtos::delay_ms(100u32);
+    }
+}
+
+#[cfg(all(not(feature = "riscv-ulp-hal"), any(esp32, esp32s2, esp32s3)))]
 // esp-idf encoder implementation using v4 pcnt api
 mod encoder {
     use std::cmp::min;
