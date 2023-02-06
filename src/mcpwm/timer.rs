@@ -11,7 +11,7 @@ use esp_idf_sys::{
     mcpwm_timer_count_mode_t_MCPWM_TIMER_COUNT_MODE_UP_DOWN, mcpwm_timer_enable,
     mcpwm_timer_handle_t, mcpwm_timer_start_stop,
     mcpwm_timer_start_stop_cmd_t_MCPWM_TIMER_START_NO_STOP,
-    soc_periph_mcpwm_timer_clk_src_t_MCPWM_TIMER_CLK_SRC_DEFAULT,
+    soc_periph_mcpwm_timer_clk_src_t_MCPWM_TIMER_CLK_SRC_DEFAULT, EspError,
 };
 
 use crate::mcpwm::Group;
@@ -91,7 +91,7 @@ pub struct TimerDriver<const N: u8, G: Group> {
 }
 
 impl<const N: u8, G: Group> TimerDriver<N, G> {
-    pub fn new(timer: TIMER<N, G>, config: TimerConfig) -> Self {
+    pub fn new(timer: TIMER<N, G>, config: TimerConfig) -> Result<Self, EspError> {
         let mut flags: mcpwm_timer_config_t__bindgen_ty_1 = Default::default();
 
         // TODO: What should these be set to?
@@ -108,17 +108,16 @@ impl<const N: u8, G: Group> TimerDriver<N, G> {
         };
         let mut handle: mcpwm_timer_handle_t = ptr::null_mut();
         unsafe {
-            esp!(mcpwm_new_timer(&cfg, &mut handle)).unwrap();
+            esp!(mcpwm_new_timer(&cfg, &mut handle))?;
         }
         // TODO: note that this has to be called before mcpwm_timer_enable
         // mcpwm_timer_register_event_callbacks()
         unsafe {
-            esp!(mcpwm_timer_enable(handle)).unwrap();
+            esp!(mcpwm_timer_enable(handle))?;
             esp!(mcpwm_timer_start_stop(
                 handle,
                 mcpwm_timer_start_stop_cmd_t_MCPWM_TIMER_START_NO_STOP
-            ))
-            .unwrap();
+            ))?;
         }
 
         let period_peak = if config.count_mode == CountMode::UpDown {
@@ -127,13 +126,13 @@ impl<const N: u8, G: Group> TimerDriver<N, G> {
             cfg.period_ticks.try_into().unwrap()
         };
 
-        Self {
+        Ok(Self {
             _group: G::default(),
             handle,
             _timer: timer,
             period_ticks: cfg.period_ticks,
             period_peak,
-        }
+        })
     }
 
     // TODO: make sure this description is accurate
@@ -162,22 +161,6 @@ impl<const N: u8, G: Group> TimerDriver<N, G> {
     pub fn timer(&self) -> mcpwm_timer_handle_t {
         self.handle
     }
-
-    // TODO: It seems that we can't have both at the same time:
-    // a method for releasing its hardware resources
-    // and implementing Drop.
-    /*
-    pub fn release(self) -> TIMER<N, G> {
-        let Self {
-            _group,
-            _timer,
-            handle
-        } = self;
-        unsafe {
-            esp!(mcpwm_del_timer(handle)).unwrap();
-        }
-        _timer
-    }*/
 
     pub fn into_connection(self) -> TimerConnection<N, G, NoOperator, NoOperator, NoOperator> {
         TimerConnection::new(self)

@@ -71,12 +71,13 @@ fn main() -> anyhow::Result<()> {
     let peripherals = Peripherals::take().unwrap();
     let timer_config = TimerConfig::default().period_ticks(8_000); // 10kHz
     let operator_config = OperatorConfig::default(peripherals.pins.gpio4, peripherals.pins.gpio5);
-    let timer = TimerDriver::new(peripherals.mcpwm0.timer0, timer_config);
+    let timer = TimerDriver::new(peripherals.mcpwm0.timer0, timer_config)
+    .expect("Failed to set up timer");
 
     let mut timer = timer
         .into_connection()
         .attach_operator0(peripherals.mcpwm0.operator0, operator_config)
-        .expect("Failed to set up timer connection");
+        .expect("Failed to set up operator and timer connection");
 
     // Borrow references to the contained timer and operator
     let (timer, operator, _, _) = timer.split();
