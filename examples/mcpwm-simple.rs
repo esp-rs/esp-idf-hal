@@ -71,8 +71,8 @@ fn main() -> anyhow::Result<()> {
     let peripherals = Peripherals::take().unwrap();
     let timer_config = TimerConfig::default().period_ticks(8_000); // 10kHz
     let operator_config = OperatorConfig::default(peripherals.pins.gpio4, peripherals.pins.gpio5);
-    let timer = TimerDriver::new(peripherals.mcpwm0.timer0, timer_config)
-    .expect("Failed to set up timer");
+    let timer =
+        TimerDriver::new(peripherals.mcpwm0.timer0, timer_config).expect("Failed to set up timer");
 
     let mut timer = timer
         .into_connection()
