@@ -1,7 +1,8 @@
+use esp_idf_sys::EspError;
+
 use crate::mcpwm::Group;
 
 use super::{
-    generator::OptionalGenCfg,
     operator::{self, NoOperator, OptionalOperator, OPERATOR},
     timer::TimerDriver,
     Operator, OperatorConfig,
@@ -62,22 +63,18 @@ where
     O2: OptionalOperator<2, G>,
 {
     #[allow(clippy::type_complexity)]
-    pub fn attach_operator0<GENA, GENB>(
+    pub fn attach_operator0(
         self,
         operator_handle: OPERATOR<0, G>,
-        operator_cfg: OperatorConfig<GENA, GENB>,
-    ) -> TimerConnection<N, G, Operator<0, G, GENA::Gen, GENB::Gen>, O1, O2>
-    where
-        GENA: OptionalGenCfg,
-        GENB: OptionalGenCfg,
-    {
-        let operator = unsafe { operator::new(operator_handle, self.timer.timer(), operator_cfg) };
-        TimerConnection {
+        operator_cfg: OperatorConfig<'_>,
+    ) -> Result<TimerConnection<N, G, Operator<'_, 0, G>, O1, O2>, EspError> {
+        let operator = unsafe { operator::new(operator_handle, self.timer.timer(), operator_cfg) }?;
+        Ok(TimerConnection {
             timer: self.timer,
             operator0: operator,
             operator1: self.operator1,
             operator2: self.operator2,
-        }
+        })
     }
 }
 
@@ -88,22 +85,18 @@ where
     O2: OptionalOperator<2, G>,
 {
     #[allow(clippy::type_complexity)]
-    pub fn attach_operator1<GENA, GENB>(
+    pub fn attach_operator1(
         self,
         operator_handle: OPERATOR<1, G>,
-        operator_cfg: OperatorConfig<GENA, GENB>,
-    ) -> TimerConnection<N, G, O0, Operator<1, G, GENA::Gen, GENB::Gen>, O2>
-    where
-        GENA: OptionalGenCfg,
-        GENB: OptionalGenCfg,
-    {
-        let operator = unsafe { operator::new(operator_handle, self.timer.timer(), operator_cfg) };
-        TimerConnection {
+        operator_cfg: OperatorConfig<'_>,
+    ) -> Result<TimerConnection<N, G, O0, Operator<'_, 1, G>, O2>, EspError> {
+        let operator = unsafe { operator::new(operator_handle, self.timer.timer(), operator_cfg) }?;
+        Ok(TimerConnection {
             timer: self.timer,
             operator0: self.operator0,
             operator1: operator,
             operator2: self.operator2,
-        }
+        })
     }
 }
 
@@ -114,22 +107,18 @@ where
     O1: OptionalOperator<1, G>,
 {
     #[allow(clippy::type_complexity)]
-    pub fn attach_operator2<GENA, GENB>(
+    pub fn attach_operator2(
         self,
         operator_handle: OPERATOR<2, G>,
-        operator_cfg: OperatorConfig<GENA, GENB>,
-    ) -> TimerConnection<N, G, O0, O1, Operator<2, G, GENA::Gen, GENB::Gen>>
-    where
-        GENA: OptionalGenCfg,
-        GENB: OptionalGenCfg,
-    {
-        let operator = unsafe { operator::new(operator_handle, self.timer.timer(), operator_cfg) };
-        TimerConnection {
+        operator_cfg: OperatorConfig<'_>,
+    ) -> Result<TimerConnection<N, G, O0, O1, Operator<'_, 2, G>>, EspError> {
+        let operator = unsafe { operator::new(operator_handle, self.timer.timer(), operator_cfg) }?;
+        Ok(TimerConnection {
             timer: self.timer,
             operator0: self.operator0,
             operator1: self.operator1,
             operator2: operator,
-        }
+        })
     }
 }
 

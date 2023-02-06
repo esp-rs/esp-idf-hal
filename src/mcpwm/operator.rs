@@ -6,11 +6,7 @@ use esp_idf_sys::{
 
 use crate::mcpwm::Group;
 
-use super::{
-    comparator::Comparator,
-    generator::{OptionalGen, OptionalGenCfg},
-    OperatorConfig,
-};
+use super::{comparator::Comparator, generator::Generator, OperatorConfig};
 
 use core::{marker::PhantomData, ptr};
 
@@ -53,28 +49,25 @@ impl<const N: u8, G: Group> crate::peripheral::Peripheral for OPERATOR<N, G> {
 ///
 /// Every Motor Control module has three operators. Every operator can generate two output signals called A and B.
 /// A and B share the same timer and thus frequency and phase but can have induvidual duty set.
-pub struct Operator<const N: u8, G: Group, GENA: OptionalGen, GENB: OptionalGen> {
+pub struct Operator<'d, const N: u8, G: Group> {
     _instance: OPERATOR<N, G>,
     _handle: mcpwm_oper_handle_t,
 
     comparator_x: Comparator, // SOC_MCPWM_COMPARATORS_PER_OPERATOR is 2 for ESP32 and ESP32-S3
     comparator_y: Comparator,
 
-    _generator_a: GENA, // One generator per pin, with a maximum of two generators per Operator
-    _generator_b: GENB,
+    _generator_a: Option<Generator<'d, G>>, // One generator per pin, with a maximum of two generators per Operator
+    _generator_b: Option<Generator<'d, G>>,
     //deadtime: D
 }
 
-pub(crate) unsafe fn new<const N: u8, G, GENA, GENB>(
+pub(crate) unsafe fn new<const N: u8, G>(
     instance: OPERATOR<N, G>,
     timer_handle: mcpwm_timer_handle_t,
-    cfg: OperatorConfig<GENA, GENB>,
-) -> Operator<N, G, GENA::Gen, GENB::Gen>
+    cfg: OperatorConfig,
+) -> Result<Operator<N, G>, EspError>
 where
     G: Group,
-
-    GENA: OptionalGenCfg,
-    GENB: OptionalGenCfg,
 {
     let mut handle = ptr::null_mut();
     let mut flags: mcpwm_operator_config_t__bindgen_ty_1 = Default::default();
@@ -94,27 +87,29 @@ where
     };
 
     unsafe {
-        esp!(esp_idf_sys::mcpwm_new_operator(&config, &mut handle,)).unwrap();
+        esp!(esp_idf_sys::mcpwm_new_operator(&config, &mut handle))?;
     }
 
-    let mut comparator_x = unsafe { cfg.comparator_x.init(handle) };
-    let mut comparator_y = unsafe { cfg.comparator_y.init(handle) };
+    let mut comparator_x = unsafe { cfg.comparator_x.init(handle)? };
+    let mut comparator_y = unsafe { cfg.comparator_y.init(handle)? };
 
     // Connect operator to timer
     unsafe {
-        esp!(mcpwm_operator_connect_timer(handle, timer_handle)).unwrap();
+        esp!(mcpwm_operator_connect_timer(handle, timer_handle))?;
     }
 
     let generator_a = unsafe {
         cfg.generator_a
-            .init(handle, &mut comparator_x, &mut comparator_y)
+            .map(|g| g.init(handle, &mut comparator_x, &mut comparator_y))
+            .transpose()?
     };
     let generator_b = unsafe {
         cfg.generator_b
-            .init(handle, &mut comparator_x, &mut comparator_y)
+            .map(|g| g.init(handle, &mut comparator_x, &mut comparator_y))
+            .transpose()?
     };
 
-    Operator {
+    Ok(Operator {
         _instance: instance,
         _handle: handle,
         comparator_x,
@@ -122,14 +117,12 @@ where
 
         _generator_a: generator_a,
         _generator_b: generator_b,
-    }
+    })
 }
 
-impl<const N: u8, G, GENA, GENB> Operator<N, G, GENA, GENB>
+impl<'d, const N: u8, G> Operator<'d, N, G>
 where
     G: Group,
-    GENA: OptionalGen,
-    GENB: OptionalGen,
 {
     // TODO: Note that this is the comparator we are affecting, not the generator. Generator A may not necessarily have
     // anything to do with comparator A. How do we best convay that? Should we call them Generator X/Y and Comparator A/B?
@@ -169,11 +162,9 @@ where
     }
 }
 
-impl<const N: u8, G, GENA, GENB> Operator<N, G, GENA, GENB>
+impl<'d, const N: u8, G> Operator<'d, N, G>
 where
     G: Group,
-    GENA: OptionalGen,
-    GENB: OptionalGen,
 {
     /// Get compare value, often times same as the duty for output B.
     ///
@@ -204,13 +195,7 @@ where
 }
 
 pub trait OptionalOperator<const N: u8, G: Group> {}
-impl<const N: u8, G, GENA, GENB> OptionalOperator<N, G> for Operator<N, G, GENA, GENB>
-where
-    G: Group,
-    GENA: OptionalGen,
-    GENB: OptionalGen,
-{
-}
+impl<'d, const N: u8, G> OptionalOperator<N, G> for Operator<'d, N, G> where G: Group {}
 
 pub struct NoOperator;
 impl<const N: u8, G: Group> OptionalOperator<N, G> for NoOperator {}

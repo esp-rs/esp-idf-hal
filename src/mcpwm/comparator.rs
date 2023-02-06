@@ -4,23 +4,19 @@ use esp_idf_sys::{
     esp, mcpwm_cmpr_handle_t, mcpwm_comparator_config_t, mcpwm_comparator_config_t__bindgen_ty_1,
     mcpwm_gen_compare_event_action_t, mcpwm_gen_handle_t, mcpwm_gen_t, mcpwm_new_comparator,
     mcpwm_oper_handle_t, mcpwm_timer_direction_t_MCPWM_TIMER_DIRECTION_DOWN,
-    mcpwm_timer_direction_t_MCPWM_TIMER_DIRECTION_UP,
+    mcpwm_timer_direction_t_MCPWM_TIMER_DIRECTION_UP, EspError,
 };
 
 use super::generator::CountingDirection;
 
-trait ComparatorChannel {}
-
-pub struct CmpX;
-impl ComparatorChannel for CmpX {}
-
-pub struct CmpY;
-impl ComparatorChannel for CmpY {}
-
 pub struct Comparator(pub(crate) mcpwm_cmpr_handle_t);
 
 impl Comparator {
-    pub(crate) unsafe fn configure(&mut self, gen: &mut mcpwm_gen_t, cfg: CountingDirection) {
+    pub(crate) unsafe fn configure(
+        &mut self,
+        gen: &mut mcpwm_gen_t,
+        cfg: CountingDirection,
+    ) -> Result<(), EspError> {
         extern "C" {
             fn mcpwm_generator_set_actions_on_compare_event(
                 gen: mcpwm_gen_handle_t,
@@ -48,7 +44,6 @@ impl Comparator {
                 ..Default::default()
             }
         ))
-        .unwrap();
     }
 }
 
@@ -58,15 +53,18 @@ pub struct ComparatorConfig {
 }
 
 impl ComparatorConfig {
-    pub(crate) unsafe fn init(self, operator_handle: mcpwm_oper_handle_t) -> Comparator {
+    pub(crate) unsafe fn init(
+        self,
+        operator_handle: mcpwm_oper_handle_t,
+    ) -> Result<Comparator, EspError> {
         let cfg = mcpwm_comparator_config_t { flags: self.flags };
 
         let mut cmp = ptr::null_mut();
         unsafe {
-            esp!(mcpwm_new_comparator(operator_handle, &cfg, &mut cmp)).unwrap();
+            esp!(mcpwm_new_comparator(operator_handle, &cfg, &mut cmp))?;
         }
 
-        Comparator(cmp)
+        Ok(Comparator(cmp))
     }
 }
 
