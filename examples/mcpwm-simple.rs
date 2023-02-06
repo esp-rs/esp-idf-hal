@@ -75,7 +75,8 @@ fn main() -> anyhow::Result<()> {
 
     let mut timer = timer
         .into_connection()
-        .attach_operator0(peripherals.mcpwm0.operator0, operator_config);
+        .attach_operator0(peripherals.mcpwm0.operator0, operator_config)
+        .expect("Failed to set up timer connection");
 
     // Borrow references to the contained timer and operator
     let (timer, operator, _, _) = timer.split();
