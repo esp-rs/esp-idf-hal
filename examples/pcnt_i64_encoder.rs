@@ -8,7 +8,6 @@
 
 use anyhow;
 use esp_idf_hal::delay::FreeRtos;
-use log::*;
 
 #[cfg(all(not(feature = "riscv-ulp-hal"), any(esp32, esp32s2, esp32s3)))]
 fn main() -> anyhow::Result<()> {
@@ -20,21 +19,18 @@ fn main() -> anyhow::Result<()> {
     // or else some patches to the runtime implemented by esp-idf-sys might not link properly.
     esp_idf_sys::link_patches();
 
-    // Bind the log crate to the ESP Logging facilities
-    esp_idf_svc::log::EspLogger::initialize_default();
-
-    info!("setup pins");
+    println!("setup pins");
     let peripherals = Peripherals::take().context("failed to take Peripherals")?;
     let mut pin_a = peripherals.pins.gpio5;
     let mut pin_b = peripherals.pins.gpio6;
-    info!("setup encoder");
+    println!("setup encoder");
     let encoder = Encoder::new(peripherals.pcnt0, &mut pin_a, &mut pin_b)?;
 
     let mut last_value = 0i64;
     loop {
         let value = encoder.get_value()?;
         if value != last_value {
-            info!("value: {value}");
+            println!("value: {value}");
             last_value = value;
         }
         FreeRtos::delay_ms(100u32);
