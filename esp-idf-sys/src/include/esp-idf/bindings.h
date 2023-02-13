@@ -66,6 +66,12 @@
 #include "esp_wpa2.h"
 #endif
 
+#ifdef ESP_IDF_COMP_WPA_SUPPLICANT_ENABLED
+#if defined(CONFIG_ESP_WIFI_DPP_SUPPORT) || defined(CONFIG_WPA_DPP_SUPPORT)
+#include "esp_dpp.h"
+#endif
+#endif
+
 #ifdef ESP_IDF_COMP_ESP_ETH_ENABLED
 #include "esp_eth.h"
 #ifdef ESP_IDF_COMP_ESP_NETIF_ENABLED
