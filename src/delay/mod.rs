@@ -1,7 +1,17 @@
+//! Delay providers.
+//!
+//! If you don't know how large your delays will be, you'll probably want to
+//! use [`Delay`]. Otherwise use [`Ets`] for delays <10ms and
+//! [`FreeRtos`] for delays >=10ms.
+
 use core::convert::Infallible;
 use core::time::Duration;
 
 use esp_idf_sys::*;
+
+mod general_purpose;
+
+pub use general_purpose::Delay;
 
 #[allow(non_upper_case_globals)]
 pub const BLOCK: TickType_t = TickType_t::MAX;
@@ -49,9 +59,11 @@ impl From<TickType> for Option<Duration> {
     }
 }
 
-/// Espressif built-in delay provider
-/// Use only for very small delays (us or a few ms at most), or else the FreeRTOS IDLE tasks' might starve and
-/// the IDLE tasks' watchdog will trigger
+/// Espressif built-in delay provider for small delays
+///
+/// Use only for very small delays (us or a few ms at most), or else the
+/// FreeRTOS IDLE tasks' might starve and the IDLE tasks' watchdog will
+/// trigger.
 pub struct Ets;
 
 // No longer available in the generated bindings for ESP-IDF 5
@@ -126,10 +138,11 @@ impl embedded_hal::delay::DelayUs for Ets {
     }
 }
 
-/// FreeRTOS-based delay provider
-/// Use for delays larger than 10ms (delays smaller than 10ms used in a loop would
-/// starve the FreeRTOS IDLE tasks' as they are low prio tasks and hence the
-/// the IDLE tasks' watchdog will trigger)
+/// FreeRTOS-based delay provider for delays larger than 10ms
+///
+/// Ddelays smaller than 10ms used in a loop would starve the FreeRTOS IDLE
+/// tasks' as they are low prio tasks and hence the the IDLE tasks' watchdog
+/// will trigger.
 pub struct FreeRtos;
 
 impl FreeRtos {
