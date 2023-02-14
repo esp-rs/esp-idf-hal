@@ -1272,6 +1272,8 @@ impl EspTypedEventDeserializer<WifiEvent> for WifiEvent {
             WifiEvent::ActionTxStatus
         } else if event_id == wifi_event_t_WIFI_EVENT_STA_BEACON_TIMEOUT {
             WifiEvent::StaBeaconTimeout
+        } else if event_id == wifi_event_t_WIFI_EVENT_ROC_DONE {
+            WifiEvent::RocDone
         } else {
             panic!("Unknown event ID: {}", event_id);
         };
