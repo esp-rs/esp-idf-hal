@@ -6,13 +6,11 @@
 //! threshold and track how much that accounts for and provide an i64 value result
 //!
 
-use anyhow;
-use esp_idf_hal::delay::FreeRtos;
-
 #[cfg(all(not(feature = "riscv-ulp-hal"), any(esp32, esp32s2, esp32s3)))]
 fn main() -> anyhow::Result<()> {
     use anyhow::Context;
     use encoder::Encoder;
+    use esp_idf_hal::delay::FreeRtos;
     use esp_idf_hal::prelude::*;
 
     // Temporary. Will disappear once ESP-IDF 4.4 is released, but for now it is necessary to call this function once,
@@ -38,8 +36,9 @@ fn main() -> anyhow::Result<()> {
 }
 
 #[cfg(not(all(not(feature = "riscv-ulp-hal"), any(esp32, esp32s2, esp32s3))))]
-fn main() -> anyhow::Result<()> {
-    error!("pcnt peripheral not supported on this device!");
+fn main() {
+    use esp_idf_hal::delay::FreeRtos;
+    println!("pcnt peripheral not supported on this device!");
     loop {
         FreeRtos::delay_ms(100u32);
     }
