@@ -44,6 +44,8 @@ pub mod ledc;
 pub mod mac;
 #[cfg(not(feature = "riscv-ulp-hal"))]
 pub mod modem;
+#[cfg(all(not(feature = "riscv-ulp-hal"), any(esp32, esp32s2, esp32s3)))]
+pub mod pcnt;
 pub mod peripheral;
 pub mod peripherals;
 pub mod prelude;
