@@ -23,8 +23,10 @@ const APB_TICK_PERIOD_NS: u32 = 1_000_000_000 / 80_000_000;
 pub struct APBTickType(::core::ffi::c_int);
 impl From<Duration> for APBTickType {
     fn from(duration: Duration) -> Self {
-        APBTickType(((duration.as_nanos() + APB_TICK_PERIOD_NS as u128 - 1) / APB_TICK_PERIOD_NS as u128)
-                as ::core::ffi::c_int)
+        APBTickType(
+            ((duration.as_nanos() + APB_TICK_PERIOD_NS as u128 - 1) / APB_TICK_PERIOD_NS as u128)
+                as ::core::ffi::c_int,
+        )
     }
 }
 
@@ -33,8 +35,8 @@ pub type I2cSlaveConfig = config::SlaveConfig;
 
 /// I2C configuration
 pub mod config {
-    use crate::units::*;
     use super::APBTickType;
+    use crate::units::*;
 
     /// I2C Master configuration
     #[derive(Copy, Clone)]
@@ -187,7 +189,7 @@ impl<'d> I2cDriver<'d> {
         })?;
 
         if let Some(timeout) = config.timeout {
-            esp!(unsafe{i2c_set_timeout(I2C::port(), timeout.0)})?;
+            esp!(unsafe { i2c_set_timeout(I2C::port(), timeout.0) })?;
         }
 
         Ok(I2cDriver {
