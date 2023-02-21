@@ -118,6 +118,8 @@ pub enum WebSocketEventType<'a> {
     Closed,
     Text(&'a str),
     Binary(&'a [u8]),
+    Ping,
+    Pong,
 }
 
 impl<'a> WebSocketEventType<'a> {
@@ -157,6 +159,8 @@ impl<'a> WebSocketEventType<'a> {
                     } else {
                         None
                     })),
+                    9 => Ok(Self::Ping),
+                    10 => Ok(Self::Pong),
                     _ => Err(EspError::from_infallible::<ESP_ERR_NOT_FOUND>().into()),
                 }
             }
