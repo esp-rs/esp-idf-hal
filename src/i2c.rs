@@ -1,4 +1,5 @@
 use core::marker::PhantomData;
+use core::time::Duration;
 
 use embedded_hal::i2c::{ErrorKind, NoAcknowledgeSource};
 
@@ -17,11 +18,24 @@ crate::embedded_hal_error!(
     embedded_hal::i2c::ErrorKind
 );
 
+const APB_TICK_PERIOD_NS: u32 = 1_000_000_000 / 80_000_000;
+#[derive(Copy, Clone, Debug)]
+pub struct APBTickType(::core::ffi::c_int);
+impl From<Duration> for APBTickType {
+    fn from(duration: Duration) -> Self {
+        APBTickType(
+            ((duration.as_nanos() + APB_TICK_PERIOD_NS as u128 - 1) / APB_TICK_PERIOD_NS as u128)
+                as ::core::ffi::c_int,
+        )
+    }
+}
+
 pub type I2cConfig = config::Config;
 pub type I2cSlaveConfig = config::SlaveConfig;
 
 /// I2C configuration
 pub mod config {
+    use super::APBTickType;
     use crate::units::*;
 
     /// I2C Master configuration
@@ -30,6 +44,7 @@ pub mod config {
         pub baudrate: Hertz,
         pub sda_pullup_enabled: bool,
         pub scl_pullup_enabled: bool,
+        pub timeout: Option<APBTickType>,
     }
 
     impl Config {
@@ -54,6 +69,12 @@ pub mod config {
             self.scl_pullup_enabled = enable;
             self
         }
+
+        #[must_use]
+        pub fn timeout(mut self, timeout: APBTickType) -> Self {
+            self.timeout = Some(timeout);
+            self
+        }
     }
 
     impl Default for Config {
@@ -62,6 +83,7 @@ pub mod config {
                 baudrate: Hertz(1_000_000),
                 sda_pullup_enabled: true,
                 scl_pullup_enabled: true,
+                timeout: None,
             }
         }
     }
@@ -165,6 +187,10 @@ impl<'d> I2cDriver<'d> {
                 0,
             ) // TODO: set flags
         })?;
+
+        if let Some(timeout) = config.timeout {
+            esp!(unsafe { i2c_set_timeout(I2C::port(), timeout.0) })?;
+        }
 
         Ok(I2cDriver {
             i2c: I2C::port() as _,
