@@ -327,7 +327,7 @@ impl<T: NvsPartitionId> EspNvs<T> {
         }
     }
 
-    fn set_raw(&mut self, name: &str, buf: &[u8]) -> Result<bool, EspError> {
+    pub fn set_raw(&mut self, name: &str, buf: &[u8]) -> Result<bool, EspError> {
         let c_key = CString::new(name).unwrap();
         let mut u64value: u_int64_t = 0;
 
