@@ -1,7 +1,6 @@
 name: Publish
 
-on:
-  workflow_dispatch
+on: workflow_dispatch
 
 env:
   rust_toolchain: nightly
@@ -13,15 +12,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Setup | Checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
       - name: Setup | Rust
-        uses: actions-rs/toolchain@v1
+        uses: dtolnay/rust-toolchain@v1
         with:
           toolchain: ${{ env.rust_toolchain }}
-      - name: Setup | Std
-        run: rustup component add rust-src --toolchain ${{ env.rust_toolchain }}-x86_64-unknown-linux-gnu
-      - name: Setup | Default to nightly
-        run: rustup default ${{ env.rust_toolchain }}
+          components: rust-src
       - name: Login
         run: cargo login ${{ secrets.crates_io_token }}
       - name: Build | Publish

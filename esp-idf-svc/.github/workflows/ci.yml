@@ -6,7 +6,7 @@ on:
       - master
   pull_request:
   schedule:
-    - cron: '50 6 * * *'
+    - cron: "50 6 * * *"
 
 env:
   rust_toolchain: nightly
@@ -28,28 +28,20 @@ jobs:
           - release/v5.0
     steps:
       - name: Setup | Checkout
-        uses: actions/checkout@v2
-
-      - name: Setup | libncurses5
-        run: sudo apt-get install libncurses5
+        uses: actions/checkout@v3
 
       - name: Setup | Rust
-        uses: actions-rs/toolchain@v1
+        if: matrix.target == 'riscv32imc-esp-espidf'
+        uses: dtolnay/rust-toolchain@v1
         with:
           toolchain: ${{ env.rust_toolchain }}
-          components: rustfmt, clippy
-          default: true
-        if: matrix.target == 'riscv32imc-esp-espidf'
+          components: rustfmt, clippy, rust-src
 
-      - name: Setup | Std
-        run: rustup component add rust-src --toolchain ${{ env.rust_toolchain }}-x86_64-unknown-linux-gnu
-        if: matrix.target == 'riscv32imc-esp-espidf'
-      
       - name: Install Rust for Xtensa
+        if: matrix.target != 'riscv32imc-esp-espidf'
         uses: esp-rs/xtensa-toolchain@v1.5
         with:
           default: true
-        if: matrix.target != 'riscv32imc-esp-espidf'
 
       - name: Build | Fmt Check
         run: cargo fmt -- --check
