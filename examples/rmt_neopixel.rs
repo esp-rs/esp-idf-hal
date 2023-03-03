@@ -21,7 +21,7 @@ fn main() -> Result<()> {
 
     let peripherals = Peripherals::take().unwrap();
     // Onboard RGB LED pin
-    // ESP32-C3-DevKitC-02 gpio8, esp-rs gpio2
+    // ESP32-C3-DevKitC-02 gpio8, ESP32-C3-DevKit-RUST-1 gpio2
     let led = peripherals.pins.gpio2;
     let channel = peripherals.rmt.channel0;
     let config = TransmitConfig::new().clock_divider(1);
