@@ -312,6 +312,8 @@
 #include "esp_bt_main.h"
 #include "esp_gap_bt_api.h"
 #include "esp_bt_device.h"
+#include "esp_a2dp_api.h"
+#include "esp_avrc_api.h"
 #endif
 
 #ifdef CONFIG_BT_NIMBLE_ENABLED
