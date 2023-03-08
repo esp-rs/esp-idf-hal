@@ -35,9 +35,9 @@ _\* When using Octal Flash and/or Octal PSRAM_
 
 ## Examples
 
-The examples could be built and flashed conveniently with [`cargo-espflash`](https://github.com/esp-rs/espflash/). To run `ledc-simple` on an ESP32-C3:
+The examples could be built and flashed conveniently with [`cargo-espflash`](https://github.com/esp-rs/espflash/). To run `ledc_simple` on an ESP32-C3:
 ```
-$ cargo espflash --release --target riscv32imc-esp-espidf --example ledc-simple --monitor /dev/ttyUSB0
+$ cargo espflash --release --target riscv32imc-esp-espidf --example ledc_simple --monitor /dev/ttyUSB0
 ```
 
 In order to run the examples on other chips you will most likely need to adapt at least the used pins.

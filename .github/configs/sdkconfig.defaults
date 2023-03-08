@@ -2,6 +2,6 @@
 #CONFIG_MBEDTLS_CERTIFICATE_BUNDLE=n
 #CONFIG_MBEDTLS_CERTIFICATE_BUNDLE_DEFAULT_FULL=n
 
-# Some examples (ledc-simple) require a larger than the default stack size for
+# Some examples (ledc_simple) require a larger than the default stack size for
 # the main thread.
 CONFIG_ESP_MAIN_TASK_STACK_SIZE=7000
