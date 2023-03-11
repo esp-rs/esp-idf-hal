@@ -601,6 +601,24 @@ impl<'d> WifiDriver<'d> {
         Ok(())
     }
 
+    /// Scan for nearby, visible access points.
+    ///
+    /// It scans for all available access points nearby, but returns only the first `N` access points found.
+    /// In addition, it returns the actual amount it found. The function blocks until the scan is done.
+    ///
+    /// Before calling this function the Wifi driver must be configured and started in either Client or Mixed mode.
+    ///
+    /// # Example
+    /// ```ignore
+    /// let mut wifi_driver = WifiDriver::new(peripherals.modem, sysloop.clone());
+    /// wifi_driver.set_configuration(
+    ///     &Configuration::Client(ClientConfiguration::default())
+    /// )
+    /// .unwrap();
+    /// wifi_driver.start().unwrap();
+    ///
+    /// let (scan_result, found_aps) = wifi_driver.scan_n::<10>().unwrap();
+    /// ```
     // For backwards compatibility
     pub fn scan_n<const N: usize>(
         &mut self,
@@ -609,6 +627,12 @@ impl<'d> WifiDriver<'d> {
         self.get_scan_result_n()
     }
 
+    /// Scan for nearby, visible access points.
+    ///
+    /// Unlike [`WifiDriver::scan_n()`], it returns all found access points by allocating memory
+    /// dynamically.
+    ///
+    /// For more details see [`WifiDriver::scan_n()`].
     // For backwards compatibility
     #[cfg(feature = "alloc")]
     pub fn scan(&mut self) -> Result<alloc::vec::Vec<AccessPointInfo>, EspError> {
@@ -616,6 +640,42 @@ impl<'d> WifiDriver<'d> {
         self.get_scan_result()
     }
 
+    /// Start scanning for nearby, visible access points.
+    ///
+    /// Unlike [`WifiDriver::scan_n()`] or [`WifiDriver::scan()`] it can be called as either blocking or not blocking.
+    /// A [`ScanConfig`] can be provided as well. To get the scan result call either [`WifiDriver::get_scan_result_n()`] or
+    /// [`WifiDriver::get_scan_result()`].
+    ///
+    /// This function can be used in `async` context, when the current thread shouldn't be blocked.
+    ///
+    /// # Example
+    ///
+    /// This example shows how to use it in a `async` context.
+    ///
+    /// ```ignore
+    /// let mut wifi_driver = WifiDriver::new(peripherals.modem, sysloop.clone());
+    /// wifi_driver.set_configuration(
+    ///     &Configuration::Client(ClientConfiguration::default())
+    /// )
+    /// .unwrap();
+    /// wifi_driver.start().unwrap();
+    ///
+    /// let scan_finish_signal = Arc::new(channel_bridge::notification::Notification::new());
+    /// let _sub = {
+    ///     let scan_finish_signal = scan_finish_signal.clone();
+    ///     sysloop.subscribe::<WifiEvent>(move |event| {
+    ///         if *event == WifiEvent::ScanDone {
+    ///             scan_finish_signal.notify();
+    ///         }
+    ///     }).unwrap()
+    /// };
+    ///
+    /// wifi_driver.start_scan(&ScanConfig::default(), false).unwrap();
+    ///
+    /// scan_finish_signal.wait().await;
+    ///
+    /// let res = wifi_driver.get_scan_result().unwrap();
+    /// ```
     pub fn start_scan(
         &mut self,
         scan_config: &config::ScanConfig,
@@ -627,12 +687,17 @@ impl<'d> WifiDriver<'d> {
         esp!(unsafe { esp_wifi_scan_start(&scan_config as *const wifi_scan_config_t, blocking) })
     }
 
+    /// Stops a previous started access point scan.
     pub fn stop_scan(&mut self) -> Result<(), EspError> {
         info!("About to stop scan for access points");
 
         esp!(unsafe { esp_wifi_scan_stop() })
     }
 
+    /// Get the results of an access point scan.
+    ///
+    /// This call returns a list of the first `N` found access points. A scan can be started with [`WifiDriver::start_scan()`].
+    /// As [`WifiDriver::scan_n()`] it returns the actual amount of found access points as well.
     pub fn get_scan_result_n<const N: usize>(
         &mut self,
     ) -> Result<(heapless::Vec<AccessPointInfo, N>, usize), EspError> {
@@ -654,6 +719,12 @@ impl<'d> WifiDriver<'d> {
         Ok((result, scanned_count))
     }
 
+    /// Get the results of an access point scan.
+    ///
+    /// Unlike [`WifiDriver::get_scan_result_n()`], it returns all found access points by allocating memory
+    /// dynamically.
+    ///
+    /// For more details see [`WifiDriver::get_scan_result_n()`].
     #[cfg(feature = "alloc")]
     pub fn get_scan_result(&mut self) -> Result<alloc::vec::Vec<AccessPointInfo>, EspError> {
         let scanned_count = self.get_scan_count()?;
@@ -1073,17 +1144,26 @@ impl<'d> EspWifi<'d> {
         self.driver_mut().disconnect()
     }
 
+    /// Scan for nearby, visible access points.
+    ///
+    /// For more details see [`WifiDriver::scan_n()`].
     pub fn scan_n<const N: usize>(
         &mut self,
     ) -> Result<(heapless::Vec<AccessPointInfo, N>, usize), EspError> {
         self.driver_mut().scan_n()
     }
 
+    /// Scan for nearby, visible access points.
+    ///
+    /// For more details see [`WifiDriver::scan()`].
     #[cfg(feature = "alloc")]
     pub fn scan(&mut self) -> Result<alloc::vec::Vec<AccessPointInfo>, EspError> {
         self.driver_mut().scan()
     }
 
+    /// Start scanning for nearby, visible access points.
+    ///
+    /// For more details see [`WifiDriver::start_scan()`].
     pub fn start_scan(
         &mut self,
         scan_config: &config::ScanConfig,
@@ -1092,16 +1172,23 @@ impl<'d> EspWifi<'d> {
         self.driver_mut().start_scan(scan_config, blocking)
     }
 
+    /// Stops a previous started access point scan.
     pub fn stop_scan(&mut self) -> Result<(), EspError> {
         self.driver_mut().stop_scan()
     }
 
+    /// Get the results of an access point scan.
+    ///
+    /// For more details see [`WifiDriver::get_scan_result_n()`].
     pub fn get_scan_result_n<const N: usize>(
         &mut self,
     ) -> Result<(heapless::Vec<AccessPointInfo, N>, usize), EspError> {
         self.driver_mut().get_scan_result_n()
     }
 
+    /// Get the results of an access point scan.
+    ///
+    /// For more details see [`WifiDriver::get_scan_result()`].
     #[cfg(feature = "alloc")]
     pub fn get_scan_result(&mut self) -> Result<alloc::vec::Vec<AccessPointInfo>, EspError> {
         self.driver_mut().get_scan_result()
