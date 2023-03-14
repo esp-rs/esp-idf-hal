@@ -236,11 +236,30 @@ pub mod config {
     }
 
     #[derive(Debug, Copy, Clone, Default)]
+    pub enum Mode {
+        #[default]
+        Normal,
+        NoAck,
+        ListenOnly,
+    }
+
+    impl From<Mode> for twai_mode_t {
+        fn from(val: Mode) -> Self {
+            match val {
+                Mode::Normal => twai_mode_t_TWAI_MODE_NORMAL,
+                Mode::NoAck => twai_mode_t_TWAI_MODE_NO_ACK,
+                Mode::ListenOnly => twai_mode_t_TWAI_MODE_LISTEN_ONLY,
+            }
+        }
+    }
+
+    #[derive(Debug, Copy, Clone, Default)]
     pub struct Config {
         pub timing: Timing,
         pub filter: Filter,
         pub tx_queue_len: u32,
         pub rx_queue_len: u32,
+        pub mode: Mode,
     }
 
     impl Config {
@@ -273,6 +292,11 @@ pub mod config {
             self.rx_queue_len = rx_queue_len;
             self
         }
+
+        pub fn mode(mut self, mode: Mode) -> Self {
+            self.mode = mode;
+            self
+        }
     }
 }
 
@@ -291,7 +315,7 @@ impl<'d> CanDriver<'d> {
         crate::into_ref!(can, tx, rx);
 
         let general_config = twai_general_config_t {
-            mode: twai_mode_t_TWAI_MODE_NORMAL,
+            mode: config.mode.into(),
             tx_io: tx.pin(),
             rx_io: rx.pin(),
             clkout_io: -1,
