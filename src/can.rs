@@ -308,112 +308,112 @@ pub mod config {
             }
         }
 
-        // Enable the `BELOW_ERR_WARN` alert: Both error counters have dropped below error warning limit. 
+        /// Enable the `BELOW_ERR_WARN` alert: Both error counters have dropped below error warning limit.
         pub fn below_err_warn(self) -> Self {
             Self {
                 value: self.value | Self::TWAI_ALERT_BELOW_ERR_WARN,
             }
         }
 
-        // Enable the `ERR_ACTIVE` alert: TWAI controller has become error active.
+        /// Enable the `ERR_ACTIVE` alert: TWAI controller has become error active.
         pub fn err_active(self) -> Self {
             Self {
                 value: self.value | Self::TWAI_ALERT_ERR_ACTIVE,
             }
         }
 
-        // Enable the `RECOVERY_IN_PROGRESS` alert: TWAI controller is undergoing bus recovery.
+        /// Enable the `RECOVERY_IN_PROGRESS` alert: TWAI controller is undergoing bus recovery.
         pub fn recovery_in_progress(self) -> Self {
             Self {
                 value: self.value | Self::TWAI_ALERT_RECOVERY_IN_PROGRESS,
             }
         }
 
-        // Enable the `BUS_RECOVERED` alert: TWAI controller has successfully completed bus recovery.
+        /// Enable the `BUS_RECOVERED` alert: TWAI controller has successfully completed bus recovery.
         pub fn bus_recovered(self) -> Self {
             Self {
                 value: self.value | Self::TWAI_ALERT_BUS_RECOVERED,
             }
         }
 
-        // Enable the `ARB_LOST` alert: The previous transmission lost arbitration.
+        /// Enable the `ARB_LOST` alert: The previous transmission lost arbitration.
         pub fn arb_lost(self) -> Self {
             Self {
                 value: self.value | Self::TWAI_ALERT_ARB_LOST,
             }
         }
 
-        // Enable the `ABOVE_ERR_WARN` alert: One of the error counters have exceeded the error warning limit.
+        /// Enable the `ABOVE_ERR_WARN` alert: One of the error counters have exceeded the error warning limit.
         pub fn above_err_warn(self) -> Self {
             Self {
                 value: self.value | Self::TWAI_ALERT_ABOVE_ERR_WARN,
             }
         }
 
-        // Enable the `BUS_ERROR` alert: A (Bit, Stuff, CRC, Form, ACK) error has occurred on the bus.
+        /// Enable the `BUS_ERROR` alert: A (Bit, Stuff, CRC, Form, ACK) error has occurred on the bus.
         pub fn bus_error(self) -> Self {
             Self {
                 value: self.value | Self::TWAI_ALERT_BUS_ERROR,
             }
         }
 
-        // Enable the `TX_FAILED` alert: The previous transmission has failed (for single shot transmission).
+        /// Enable the `TX_FAILED` alert: The previous transmission has failed (for single shot transmission).
         pub fn tx_failed(self) -> Self {
             Self {
                 value: self.value | Self::TWAI_ALERT_TX_FAILED,
             }
         }
 
-        // Enable the `RX_QUEUE_FULL` alert: The RX queue is full causing a frame to be lost.
+        /// Enable the `RX_QUEUE_FULL` alert: The RX queue is full causing a frame to be lost.
         pub fn rx_queue_full(self) -> Self {
             Self {
                 value: self.value | Self::TWAI_ALERT_RX_QUEUE_FULL,
             }
         }
 
-        // Enable the `ERR_PASS` alert: TWAI controller has become error passive.
+        /// Enable the `ERR_PASS` alert: TWAI controller has become error passive.
         pub fn err_pass(self) -> Self {
             Self {
                 value: self.value | Self::TWAI_ALERT_ERR_PASS,
             }
         }
 
-        // Enable the `BUS_OFF` alert: Bus-off condition occurred. TWAI controller can no longer influence bus.
+        /// Enable the `BUS_OFF` alert: Bus-off condition occurred. TWAI controller can no longer influence bus.
         pub fn bus_off(self) -> Self {
             Self {
                 value: self.value | Self::TWAI_ALERT_BUS_OFF,
             }
         }
 
-        // Enable the `RX_FIFO_OVERRUN` alert: An RX FIFO overrun has occurred.
+        /// Enable the `RX_FIFO_OVERRUN` alert: An RX FIFO overrun has occurred.
         pub fn rx_fifo_overrun(self) -> Self {
             Self {
                 value: self.value | Self::TWAI_ALERT_RX_FIFO_OVERRUN,
             }
         }
 
-        // Enable the `TX_RETRIED` alert: An message transmission was cancelled and retried due to an errata workaround.
+        /// Enable the `TX_RETRIED` alert: An message transmission was cancelled and retried due to an errata workaround.
         pub fn tx_retried(self) -> Self {
             Self {
                 value: self.value | Self::TWAI_ALERT_TX_RETRIED,
             }
         }
 
-        // Enable the `PERIPH_RESET` alert: The TWAI controller was reset.
+        /// Enable the `PERIPH_RESET` alert: The TWAI controller was reset.
         pub fn periph_reset(self) -> Self {
             Self {
                 value: self.value | Self::TWAI_ALERT_PERIPH_RESET,
             }
         }
 
-        // Enable all alerts.
+        /// Enable all alerts.
         pub fn all(self) -> Self {
             Self {
                 value: self.value | Self::TWAI_ALERT_ALL,
             }
         }
 
-        // Enable alert logging when they occur. Note that logging from the ISR is disabled if CONFIG_TWAI_ISR_IN_IRAM is enabled.
+        /// Enable alert logging when they occur. Note that logging from the ISR is disabled if CONFIG_TWAI_ISR_IN_IRAM is enabled.
         pub fn and_log(self) -> Self {
             Self {
                 value: self.value | Self::TWAI_ALERT_AND_LOG,
