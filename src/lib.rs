@@ -1,5 +1,12 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 #![cfg_attr(target_arch = "xtensa", feature(asm_experimental_arch))]
+#![cfg_attr(
+    feature = "async",
+    feature(async_fn_in_trait),
+    feature(impl_trait_projections),
+    // async_fn_in_trait is incomplete
+    allow(incomplete_features) 
+)]
 
 #[cfg(all(not(feature = "riscv-ulp-hal"), not(esp_idf_comp_driver_enabled)))]
 compile_error!("esp-idf-hal requires the `driver` ESP-IDF component to be enabled");
@@ -29,6 +36,7 @@ pub mod cpu;
 #[cfg(not(feature = "riscv-ulp-hal"))]
 pub mod delay;
 pub mod gpio;
+
 #[cfg(all(esp32, esp_idf_version_major = "4"))]
 pub mod hall;
 #[cfg(not(feature = "riscv-ulp-hal"))]

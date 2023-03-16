@@ -14,10 +14,11 @@ documentation = "https://esp-rs.github.io/esp-idf-hal/"
 rust-version = "1.61"
 
 [features]
-default = ["std", "alloc", "esp-idf-sys"]
+default = ["std", "alloc", "esp-idf-sys", "async"]
 std = ["alloc", "esp-idf-sys/std", "edge-executor?/std"]
 alloc = []
 riscv-ulp-hal = []
+async = []
 
 [dependencies]
 nb = "1.0.0"
@@ -31,6 +32,7 @@ heapless = "0.7"
 embassy-sync = { version = "0.1", optional = true }
 edge-executor = { version = "0.3", optional = true, default-features = false }
 enumset = { version = "1", default-features = false }
+embedded-hal-async = "0.2.0-alpha.0"
 
 [build-dependencies]
 embuild = "0.31"
