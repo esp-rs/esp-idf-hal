@@ -5,7 +5,7 @@
     feature(async_fn_in_trait),
     feature(impl_trait_projections),
     // async_fn_in_trait is incomplete
-    allow(incomplete_features) 
+    allow(incomplete_features)
 )]
 
 #[cfg(all(not(feature = "riscv-ulp-hal"), not(esp_idf_comp_driver_enabled)))]
