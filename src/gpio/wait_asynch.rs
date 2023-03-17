@@ -63,21 +63,20 @@ impl<'driver_ref, 'driver_struct, T: Pin, MODE: InputMode>
             processed_interrupt: Arc::new(AtomicBool::new(false)),
             atomic_waker: Arc::new(AtomicWaker::new()),
         };
-        unsafe {
-            let processed_interrupt = res.processed_interrupt.clone();
-            let cloned_waker = res.atomic_waker.clone();
-            let driver_pin = res.driver.pin();
-            let callback = move || {
-                // Mark that we processed the interrupt
-                processed_interrupt.store(true, Ordering::Relaxed);
-                // If we were not ready to be polled, we will have a waker to use
-                cloned_waker.wake();
-                // Disable interrupts on thet way out.
+        let processed_interrupt = res.processed_interrupt.clone();
+        let cloned_waker = res.atomic_waker.clone();
+        let driver_pin = res.driver.pin();
+        let callback = move || {
+            // Mark that we processed the interrupt
+            processed_interrupt.store(true, Ordering::Relaxed);
+            // If we were not ready to be polled, we will have a waker to use
+            cloned_waker.wake();
+            // Disable interrupts on thet way out.
+            unsafe {
                 esp_nofail!(gpio_intr_disable(driver_pin));
-            };
-
-            res.driver.subscribe(callback)?;
+            }
         };
+        unsafe { res.driver.subscribe(callback)? };
         Ok(res)
     }
 }
