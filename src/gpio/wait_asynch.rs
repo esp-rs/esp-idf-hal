@@ -1,13 +1,12 @@
 use core::{
-    cell::RefCell,
     future::Future,
     sync::atomic::{AtomicBool, Ordering},
-    task::{Poll, Waker},
+    task::Poll,
 };
-
 extern crate alloc;
 use crate::gpio::{InputMode, InterruptType, Pin, PinDriver};
 use alloc::sync::Arc;
+use atomic_waker::AtomicWaker;
 use esp_idf_sys::{esp_nofail, gpio_intr_disable, EspError};
 
 impl<T: Pin, MODE: InputMode> embedded_hal_async::digital::Wait for PinDriver<'_, T, MODE> {
@@ -45,9 +44,7 @@ pub(crate) struct InputFuture<'driver_ref, 'driver_struct, T: Pin, MODE: InputMo
     // forever.
     driver: &'driver_ref mut PinDriver<'driver_struct, T, MODE>,
     processed_interrupt: Arc<AtomicBool>,
-    // We don't need a mutex because the only possible data race is in the ISR
-    // and we can just disable interrupts.
-    optional_waker: Arc<RefCell<Option<Waker>>>,
+    atomic_waker: Arc<AtomicWaker>,
 }
 
 impl<'driver_ref, 'driver_struct, T: Pin, MODE: InputMode>
@@ -64,32 +61,17 @@ impl<'driver_ref, 'driver_struct, T: Pin, MODE: InputMode>
         let res = Self {
             driver,
             processed_interrupt: Arc::new(AtomicBool::new(false)),
-            optional_waker: Arc::new(RefCell::new(None)),
+            atomic_waker: Arc::new(AtomicWaker::new()),
         };
         unsafe {
             let processed_interrupt = res.processed_interrupt.clone();
-            let cloned_waker = res.optional_waker.clone();
+            let cloned_waker = res.atomic_waker.clone();
             let driver_pin = res.driver.pin();
             let callback = move || {
                 // Mark that we processed the interrupt
                 processed_interrupt.store(true, Ordering::Relaxed);
                 // If we were not ready to be polled, we will have a waker to use
-
-                // SAFETY - interrupts must be disabled while setting this
-                // option to Some. While it is likely to be a thread safe
-                // operation in practice anyway:
-                //
-                // a. there is no guarantee
-                //
-                // b. the compiler takes advantage of the fact that there is no
-                // need for thread safety.
-                //
-                // c. if we don't do it "right", a&b guarantee it will
-                // eventually break in some weird way some future person will be
-                // forced to track down.
-                if let Some(waker) = cloned_waker.borrow().as_ref() {
-                    waker.wake_by_ref();
-                }
+                cloned_waker.wake();
                 // Disable interrupts on thet way out.
                 esp_nofail!(gpio_intr_disable(driver_pin));
             };
@@ -121,17 +103,8 @@ impl<T: Pin, MODE: InputMode> Future for InputFuture<'_, '_, T, MODE> {
         if res.processed_interrupt.load(Ordering::Relaxed) {
             Poll::Ready(())
         } else {
-            // SAFETY: to ensure thread safety of setting the waker vs using the
-            // waker, we disable interrupts on the pin while setting the waker.
-            // This guarantees the interrupt handler will not try to read the
-            // option value while we are setting it.  It will either see it
-            // right before we disable interrupts, if a context switch happens,
-            // or right after we are done and re-enable interrupts.
-            res.driver.disable_interrupt().unwrap();
-            let mut mut_option = res.optional_waker.as_ref().borrow_mut();
-            *mut_option = Some(cx.waker().clone());
-            res.driver.enable_interrupt().unwrap();
-            Poll::Pending
+            res.atomic_waker.register(cx.waker());
+            return Poll::Pending;
         }
     }
 }
