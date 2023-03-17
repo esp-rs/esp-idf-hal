@@ -1,7 +1,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 #![cfg_attr(target_arch = "xtensa", feature(asm_experimental_arch))]
 #![cfg_attr(
-    feature = "async",
+    feature = "nightly",
     feature(async_fn_in_trait),
     feature(impl_trait_projections),
     allow(incomplete_features)
@@ -35,7 +35,6 @@ pub mod cpu;
 #[cfg(not(feature = "riscv-ulp-hal"))]
 pub mod delay;
 pub mod gpio;
-
 #[cfg(all(esp32, esp_idf_version_major = "4"))]
 pub mod hall;
 #[cfg(not(feature = "riscv-ulp-hal"))]

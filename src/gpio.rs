@@ -19,6 +19,9 @@ use crate::peripheral::{Peripheral, PeripheralRef};
 
 pub use chip::*;
 
+#[cfg(feature = "nightly")]
+use self::asynch::InputFuture;
+
 /// A trait implemented by every pin instance
 pub trait Pin: Peripheral<P = Self> + Sized + Send + 'static {
     fn pin(&self) -> i32;
@@ -1374,8 +1377,159 @@ macro_rules! pin {
     };
 }
 
-#[cfg(feature = "async")]
-mod wait_asynch;
+impl<T: Pin, MODE: InputMode> PinDriver<'_, T, MODE> {
+    async fn wait_for_high(&mut self) -> Result<(), EspError> {
+        InputFuture::new(self, InterruptType::HighLevel)?.await;
+        Ok(())
+    }
+
+    async fn wait_for_low(&mut self) -> Result<(), EspError> {
+        InputFuture::new(self, InterruptType::LowLevel)?.await;
+        Ok(())
+    }
+
+    async fn wait_for_rising_edge(&mut self) -> Result<(), EspError> {
+        InputFuture::new(self, InterruptType::PosEdge)?.await;
+        Ok(())
+    }
+
+    async fn wait_for_falling_edge(&mut self) -> Result<(), EspError> {
+        InputFuture::new(self, InterruptType::NegEdge)?.await;
+        Ok(())
+    }
+
+    async fn wait_for_any_edge(&mut self) -> Result<(), EspError> {
+        InputFuture::new(self, InterruptType::AnyEdge)?.await;
+        Ok(())
+    }
+}
+#[cfg(feature = "nightly")]
+mod atomic_notification {
+    use core::sync::atomic::{AtomicBool, Ordering};
+    use core::task::{Context, Poll};
+
+    use futures_util::task::AtomicWaker;
+
+    pub struct Notification {
+        waker: AtomicWaker,
+        triggered: AtomicBool,
+    }
+
+    impl Notification {
+        pub const fn new() -> Self {
+            Self {
+                waker: AtomicWaker::new(),
+                triggered: AtomicBool::new(false),
+            }
+        }
+        pub fn notify(&self) {
+            self.triggered.store(true, Ordering::SeqCst);
+            self.waker.wake();
+        }
+        pub fn poll_wait(&self, cx: &mut Context<'_>) -> Poll<()> {
+            self.waker.register(cx.waker());
+
+            if self.triggered.swap(false, Ordering::SeqCst) {
+                Poll::Ready(())
+            } else {
+                Poll::Pending
+            }
+        }
+    }
+}
+#[cfg(feature = "nightly")]
+mod asynch {
+    use crate::gpio::{gpio_intr_disable, PIN_NOTIFIERS};
+    use core::{future::Future, task::Poll};
+    extern crate alloc;
+    use esp_idf_sys::{esp_nofail, EspError};
+
+    use super::{atomic_notification::Notification, InputMode, InterruptType, Pin, PinDriver};
+
+    impl<T: Pin, MODE: InputMode> embedded_hal_async::digital::Wait for PinDriver<'_, T, MODE> {
+        async fn wait_for_high(&mut self) -> Result<(), Self::Error> {
+            self.wait_for_high().await
+        }
+
+        async fn wait_for_low(&mut self) -> Result<(), Self::Error> {
+            self.wait_for_low().await
+        }
+
+        async fn wait_for_rising_edge(&mut self) -> Result<(), Self::Error> {
+            self.wait_for_rising_edge().await
+        }
+
+        async fn wait_for_falling_edge(&mut self) -> Result<(), Self::Error> {
+            self.wait_for_falling_edge().await
+        }
+
+        async fn wait_for_any_edge(&mut self) -> Result<(), Self::Error> {
+            self.wait_for_any_edge().await
+        }
+    }
+
+    pub(crate) struct InputFuture<'driver_ref, 'driver_struct, T: Pin, MODE: InputMode> {
+        // Unfortunately, the Wait trait uses functions that are given a mutable
+        // reference to the pin driver with no explicit lifetime parameter.  Since
+        // the reference has a different lifetime than the struct, we must make this
+        // explicit, or else the borrow checker will believe the reference must live
+        // forever.
+        driver: &'driver_ref mut PinDriver<'driver_struct, T, MODE>,
+    }
+
+    impl<'driver_ref, 'driver_struct, T: Pin, MODE: InputMode>
+        InputFuture<'driver_ref, 'driver_struct, T, MODE>
+    {
+        pub(crate) fn new(
+            driver: &'driver_ref mut PinDriver<'driver_struct, T, MODE>,
+            interrupt_type: InterruptType,
+        ) -> Result<Self, EspError> {
+            driver.unsubscribe()?;
+            driver.disable_interrupt()?;
+            driver.set_interrupt_type(interrupt_type)?;
+            let driver_pin = driver.pin();
+            unsafe {
+                PIN_NOTIFIERS[driver_pin as usize] = Some(Box::new(Notification::new()));
+            }
+            let res = Self { driver };
+
+            unsafe {
+                res.driver.subscribe(move || {
+                    if let Some(notifier) = &PIN_NOTIFIERS[driver_pin as usize] {
+                        notifier.notify();
+                    }
+                    // Disable interrupts on thet way out.
+                    esp_nofail!(gpio_intr_disable(driver_pin));
+                })?
+            };
+            Ok(res)
+        }
+    }
+    impl<T: Pin, MODE: InputMode> Drop for InputFuture<'_, '_, T, MODE> {
+        fn drop(&mut self) {
+            self.driver.unsubscribe().unwrap();
+            unsafe { PIN_NOTIFIERS[self.driver.pin() as usize] = None }
+        }
+    }
+    impl<T: Pin, MODE: InputMode> Unpin for InputFuture<'_, '_, T, MODE> {}
+    impl<T: Pin, MODE: InputMode> Future for InputFuture<'_, '_, T, MODE> {
+        type Output = ();
+
+        fn poll(
+            self: core::pin::Pin<&mut Self>,
+            cx: &mut core::task::Context<'_>,
+        ) -> core::task::Poll<Self::Output> {
+            unsafe {
+                if let Some(notifier) = &PIN_NOTIFIERS[self.driver.pin() as usize] {
+                    notifier.poll_wait(cx)
+                } else {
+                    unreachable!("We should have allocated a notifier");
+                }
+            }
+        }
+    }
+}
+
 #[cfg(esp32)]
 mod chip {
     #[cfg(not(feature = "riscv-ulp-hal"))]
@@ -1387,10 +1541,19 @@ mod chip {
     use crate::adc::{ADC1, ADC2};
 
     use super::*;
+    use atomic_notification::Notification;
 
     #[allow(clippy::type_complexity)]
     #[cfg(all(not(feature = "riscv-ulp-hal"), feature = "alloc"))]
     pub(crate) static mut ISR_HANDLERS: [Option<Box<Box<dyn FnMut()>>>; 40] = [
+        None, None, None, None, None, None, None, None, None, None, None, None, None, None, None,
+        None, None, None, None, None, None, None, None, None, None, None, None, None, None, None,
+        None, None, None, None, None, None, None, None, None, None,
+    ];
+
+    #[allow(clippy::type_complexity)]
+    #[cfg(all(not(feature = "riscv-ulp-hal"), feature = "nightly"))]
+    pub(crate) static mut PIN_NOTIFIERS: [Option<Box<Notification>>; 40] = [
         None, None, None, None, None, None, None, None, None, None, None, None, None, None, None,
         None, None, None, None, None, None, None, None, None, None, None, None, None, None, None,
         None, None, None, None, None, None, None, None, None, None,
@@ -1572,10 +1735,20 @@ mod chip {
     use crate::adc::{ADC1, ADC2};
 
     use super::*;
+    use atomic_notification::Notification;
 
     #[allow(clippy::type_complexity)]
     #[cfg(all(not(feature = "riscv-ulp-hal"), feature = "alloc"))]
     pub(crate) static mut ISR_HANDLERS: [Option<Box<Box<dyn FnMut()>>>; 49] = [
+        None, None, None, None, None, None, None, None, None, None, None, None, None, None, None,
+        None, None, None, None, None, None, None, None, None, None, None, None, None, None, None,
+        None, None, None, None, None, None, None, None, None, None, None, None, None, None, None,
+        None, None, None, None,
+    ];
+
+    #[allow(clippy::type_complexity)]
+    #[cfg(all(not(feature = "riscv-ulp-hal"), feature = "nightly"))]
+    pub(crate) static mut PIN_NOTIFIERS: [Option<Box<Notification>>; 49] = [
         None, None, None, None, None, None, None, None, None, None, None, None, None, None, None,
         None, None, None, None, None, None, None, None, None, None, None, None, None, None, None,
         None, None, None, None, None, None, None, None, None, None, None, None, None, None, None,
@@ -1821,10 +1994,18 @@ mod chip {
     use crate::adc::{ADC1, ADC2};
 
     use super::*;
+    #[cfg(feature = "nightly")]
+    use atomic_notification::Notification;
 
     #[allow(clippy::type_complexity)]
     #[cfg(feature = "alloc")]
     pub(crate) static mut ISR_HANDLERS: [Option<Box<Box<dyn FnMut()>>>; 22] = [
+        None, None, None, None, None, None, None, None, None, None, None, None, None, None, None,
+        None, None, None, None, None, None, None,
+    ];
+
+    #[cfg(feature = "nightly")]
+    pub(crate) static mut PIN_NOTIFIERS: [Option<Box<Notification>>; 22] = [
         None, None, None, None, None, None, None, None, None, None, None, None, None, None, None,
         None, None, None, None, None, None, None,
     ];
