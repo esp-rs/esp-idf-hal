@@ -1375,7 +1375,7 @@ macro_rules! pin {
 }
 
 #[cfg(feature = "async")]
-mod wait_async;
+mod wait_asynch;
 #[cfg(esp32)]
 mod chip {
     #[cfg(not(feature = "riscv-ulp-hal"))]
