@@ -12,23 +12,28 @@ use esp_idf_sys::{esp_nofail, gpio_intr_disable, EspError};
 
 impl<T: Pin, MODE: InputMode> embedded_hal_async::digital::Wait for PinDriver<'_, T, MODE> {
     async fn wait_for_high(&mut self) -> Result<(), Self::Error> {
-        Ok(InputFuture::new(self, InterruptType::HighLevel)?.await)
+        InputFuture::new(self, InterruptType::HighLevel)?.await;
+        Ok(())
     }
 
     async fn wait_for_low(&mut self) -> Result<(), Self::Error> {
-        Ok(InputFuture::new(self, InterruptType::LowLevel)?.await)
+        InputFuture::new(self, InterruptType::LowLevel)?.await;
+        Ok(())
     }
 
     async fn wait_for_rising_edge(&mut self) -> Result<(), Self::Error> {
-        Ok(InputFuture::new(self, InterruptType::PosEdge)?.await)
+        InputFuture::new(self, InterruptType::PosEdge)?.await;
+        Ok(())
     }
 
     async fn wait_for_falling_edge(&mut self) -> Result<(), Self::Error> {
-        Ok(InputFuture::new(self, InterruptType::NegEdge)?.await)
+        InputFuture::new(self, InterruptType::NegEdge)?.await;
+        Ok(())
     }
 
     async fn wait_for_any_edge(&mut self) -> Result<(), Self::Error> {
-        Ok(InputFuture::new(self, InterruptType::AnyEdge)?.await)
+        InputFuture::new(self, InterruptType::AnyEdge)?.await;
+        Ok(())
     }
 }
 
@@ -90,7 +95,6 @@ impl<'driver_ref, 'driver_struct, T: Pin, MODE: InputMode>
             };
 
             res.driver.subscribe(callback)?;
-            res.driver.enable_interrupt()?;
         };
         Ok(res)
     }
@@ -115,7 +119,7 @@ impl<T: Pin, MODE: InputMode> Future for InputFuture<'_, '_, T, MODE> {
         // We could also look at the CPU to see if the interrupt was disabled, but
         // this is easier ATM.
         if res.processed_interrupt.load(Ordering::Relaxed) {
-            return Poll::Ready(());
+            Poll::Ready(())
         } else {
             // SAFETY: to ensure thread safety of setting the waker vs using the
             // waker, we disable interrupts on the pin while setting the waker.
@@ -127,7 +131,7 @@ impl<T: Pin, MODE: InputMode> Future for InputFuture<'_, '_, T, MODE> {
             let mut mut_option = res.optional_waker.as_ref().borrow_mut();
             *mut_option = Some(cx.waker().clone());
             res.driver.enable_interrupt().unwrap();
-            return Poll::Pending;
+            Poll::Pending
         }
     }
 }
