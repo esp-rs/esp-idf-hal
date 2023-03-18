@@ -1440,7 +1440,7 @@ mod atomic_notification {
 #[cfg(feature = "nightly")]
 mod asynch {
     use crate::gpio::{gpio_intr_disable, PIN_NOTIFIERS};
-    use core::{future::Future, task::Poll};
+    use core::future::Future;
     extern crate alloc;
     use esp_idf_sys::{esp_nofail, EspError};
 
