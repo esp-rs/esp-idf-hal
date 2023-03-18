@@ -1376,7 +1376,7 @@ macro_rules! pin {
         impl_touch!($pxi: $pin, $touch: $touchno);
     };
 }
-
+#[cfg(feature = "nightly")]
 impl<T: Pin, MODE: InputMode> PinDriver<'_, T, MODE> {
     async fn wait_for_high(&mut self) -> Result<(), EspError> {
         InputFuture::new(self, InterruptType::HighLevel)?.await;
@@ -1541,6 +1541,7 @@ mod chip {
     use crate::adc::{ADC1, ADC2};
 
     use super::*;
+    #[cfg(feature = "nightly")]
     use atomic_notification::Notification;
 
     #[allow(clippy::type_complexity)]
@@ -1735,6 +1736,7 @@ mod chip {
     use crate::adc::{ADC1, ADC2};
 
     use super::*;
+    #[cfg(feature = "nightly")]
     use atomic_notification::Notification;
 
     #[allow(clippy::type_complexity)]
