@@ -147,7 +147,9 @@ impl<'d> LedcTimerDriver<'d> {
 
     /// Set the frequency of the timer.
     pub fn set_frequency(&mut self, frequency: Hertz) -> Result<(), EspError> {
-        esp!(unsafe { ledc_set_freq(self.speed_mode.into(), self.timer.into(), frequency.into()) })?;
+        esp!(unsafe {
+            ledc_set_freq(self.speed_mode.into(), self.timer.into(), frequency.into())
+        })?;
         Ok(())
     }
 
