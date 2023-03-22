@@ -1038,8 +1038,15 @@ impl<'d, T: Pin, MODE> PinDriver<'d, T, MODE> {
     }
 }
 
+#[cfg(feature = "alloc")]
 impl<'d, T: Pin, MODE> Drop for PinDriver<'d, T, MODE> {
     fn drop(&mut self) {
+        unsafe { unsubscribe_pin(self.pin.pin()) }.unwrap();
+    }
+}
+
+impl<'d, T: Pin, MODE> PinDriver<'d, T, MODE> {
+    pub fn reset(&mut self) {
         unsafe { reset_pin(self.pin.pin(), gpio_mode_t_GPIO_MODE_DISABLE) }.unwrap();
     }
 }
