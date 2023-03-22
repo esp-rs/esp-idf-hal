@@ -101,6 +101,7 @@ fn main() -> anyhow::Result<()> {
             .parse_callbacks(Box::new(BindgenCallbacks))
             .use_core()
             .enable_function_attribute_detection()
+            .clang_arg("-DESP_PLATFORM")
             .blocklist_function("strtold")
             .blocklist_function("_strtold_r")
             .blocklist_function("v.*printf")
