@@ -19,7 +19,7 @@ use crate::peripheral::{Peripheral, PeripheralRef};
 
 pub use chip::*;
 
-#[cfg(feature = "nightly")]
+#[cfg(all(not(feature = "riscv-ulp-hal"), feature = "alloc"))]
 use self::asynch::InputFuture;
 
 /// A trait implemented by every pin instance
@@ -1376,34 +1376,36 @@ macro_rules! pin {
         impl_touch!($pxi: $pin, $touch: $touchno);
     };
 }
-#[cfg(feature = "nightly")]
+
+#[cfg(all(not(feature = "riscv-ulp-hal"), feature = "alloc"))]
 impl<T: Pin, MODE: InputMode> PinDriver<'_, T, MODE> {
-    async fn wait_for_high(&mut self) -> Result<(), EspError> {
+    pub async fn wait_for_high(&mut self) -> Result<(), EspError> {
         InputFuture::new(self, InterruptType::HighLevel)?.await;
         Ok(())
     }
 
-    async fn wait_for_low(&mut self) -> Result<(), EspError> {
+    pub async fn wait_for_low(&mut self) -> Result<(), EspError> {
         InputFuture::new(self, InterruptType::LowLevel)?.await;
         Ok(())
     }
 
-    async fn wait_for_rising_edge(&mut self) -> Result<(), EspError> {
+    pub async fn wait_for_rising_edge(&mut self) -> Result<(), EspError> {
         InputFuture::new(self, InterruptType::PosEdge)?.await;
         Ok(())
     }
 
-    async fn wait_for_falling_edge(&mut self) -> Result<(), EspError> {
+    pub async fn wait_for_falling_edge(&mut self) -> Result<(), EspError> {
         InputFuture::new(self, InterruptType::NegEdge)?.await;
         Ok(())
     }
 
-    async fn wait_for_any_edge(&mut self) -> Result<(), EspError> {
+    pub async fn wait_for_any_edge(&mut self) -> Result<(), EspError> {
         InputFuture::new(self, InterruptType::AnyEdge)?.await;
         Ok(())
     }
 }
-#[cfg(feature = "nightly")]
+
+#[cfg(all(not(feature = "riscv-ulp-hal"), feature = "alloc"))]
 mod atomic_notification {
     use core::sync::atomic::{AtomicBool, Ordering};
     use core::task::{Context, Poll};
@@ -1437,34 +1439,39 @@ mod atomic_notification {
         }
     }
 }
-#[cfg(feature = "nightly")]
+
+#[cfg(all(not(feature = "riscv-ulp-hal"), feature = "alloc"))]
 mod asynch {
-    use crate::gpio::{gpio_intr_disable, PIN_NOTIFIERS};
+    use super::*;
     use core::future::Future;
     extern crate alloc;
     use esp_idf_sys::{esp_nofail, EspError};
 
     use super::{atomic_notification::Notification, InputMode, InterruptType, Pin, PinDriver};
 
-    impl<T: Pin, MODE: InputMode> embedded_hal_async::digital::Wait for PinDriver<'_, T, MODE> {
-        async fn wait_for_high(&mut self) -> Result<(), Self::Error> {
-            self.wait_for_high().await
-        }
+    #[cfg(feature = "nightly")]
+    mod eha_wait_impl {
+        use super::*;
+        impl<T: Pin, MODE: InputMode> embedded_hal_async::digital::Wait for PinDriver<'_, T, MODE> {
+            async fn wait_for_high(&mut self) -> Result<(), Self::Error> {
+                self.wait_for_high().await
+            }
 
-        async fn wait_for_low(&mut self) -> Result<(), Self::Error> {
-            self.wait_for_low().await
-        }
+            async fn wait_for_low(&mut self) -> Result<(), Self::Error> {
+                self.wait_for_low().await
+            }
 
-        async fn wait_for_rising_edge(&mut self) -> Result<(), Self::Error> {
-            self.wait_for_rising_edge().await
-        }
+            async fn wait_for_rising_edge(&mut self) -> Result<(), Self::Error> {
+                self.wait_for_rising_edge().await
+            }
 
-        async fn wait_for_falling_edge(&mut self) -> Result<(), Self::Error> {
-            self.wait_for_falling_edge().await
-        }
+            async fn wait_for_falling_edge(&mut self) -> Result<(), Self::Error> {
+                self.wait_for_falling_edge().await
+            }
 
-        async fn wait_for_any_edge(&mut self) -> Result<(), Self::Error> {
-            self.wait_for_any_edge().await
+            async fn wait_for_any_edge(&mut self) -> Result<(), Self::Error> {
+                self.wait_for_any_edge().await
+            }
         }
     }
 
@@ -1489,7 +1496,7 @@ mod asynch {
             driver.set_interrupt_type(interrupt_type)?;
             let driver_pin = driver.pin();
             unsafe {
-                PIN_NOTIFIERS[driver_pin as usize] = Some(Box::new(Notification::new()));
+                PIN_NOTIFIERS[driver_pin as usize] = Some(Notification::new());
             }
             let res = Self { driver };
 
@@ -1541,7 +1548,7 @@ mod chip {
     use crate::adc::{ADC1, ADC2};
 
     use super::*;
-    #[cfg(feature = "nightly")]
+    #[cfg(all(not(feature = "riscv-ulp-hal"), feature = "alloc"))]
     use atomic_notification::Notification;
 
     #[allow(clippy::type_complexity)]
@@ -1553,8 +1560,8 @@ mod chip {
     ];
 
     #[allow(clippy::type_complexity)]
-    #[cfg(all(not(feature = "riscv-ulp-hal"), feature = "nightly"))]
-    pub(crate) static mut PIN_NOTIFIERS: [Option<Box<Notification>>; 40] = [
+    #[cfg(all(not(feature = "riscv-ulp-hal"), feature = "alloc"))]
+    pub(crate) static mut PIN_NOTIFIERS: [Option<Notification>; 40] = [
         None, None, None, None, None, None, None, None, None, None, None, None, None, None, None,
         None, None, None, None, None, None, None, None, None, None, None, None, None, None, None,
         None, None, None, None, None, None, None, None, None, None,
@@ -1736,7 +1743,7 @@ mod chip {
     use crate::adc::{ADC1, ADC2};
 
     use super::*;
-    #[cfg(feature = "nightly")]
+    #[cfg(all(not(feature = "riscv-ulp-hal"), feature = "alloc"))]
     use atomic_notification::Notification;
 
     #[allow(clippy::type_complexity)]
@@ -1749,8 +1756,8 @@ mod chip {
     ];
 
     #[allow(clippy::type_complexity)]
-    #[cfg(all(not(feature = "riscv-ulp-hal"), feature = "nightly"))]
-    pub(crate) static mut PIN_NOTIFIERS: [Option<Box<Notification>>; 49] = [
+    #[cfg(all(not(feature = "riscv-ulp-hal"), feature = "alloc"))]
+    pub(crate) static mut PIN_NOTIFIERS: [Option<Notification>; 49] = [
         None, None, None, None, None, None, None, None, None, None, None, None, None, None, None,
         None, None, None, None, None, None, None, None, None, None, None, None, None, None, None,
         None, None, None, None, None, None, None, None, None, None, None, None, None, None, None,
@@ -1996,7 +2003,7 @@ mod chip {
     use crate::adc::{ADC1, ADC2};
 
     use super::*;
-    #[cfg(feature = "nightly")]
+    #[cfg(all(not(feature = "riscv-ulp-hal"), feature = "alloc"))]
     use atomic_notification::Notification;
 
     #[allow(clippy::type_complexity)]
@@ -2006,8 +2013,8 @@ mod chip {
         None, None, None, None, None, None, None,
     ];
 
-    #[cfg(feature = "nightly")]
-    pub(crate) static mut PIN_NOTIFIERS: [Option<Box<Notification>>; 22] = [
+    #[cfg(all(not(feature = "riscv-ulp-hal"), feature = "alloc"))]
+    pub(crate) static mut PIN_NOTIFIERS: [Option<Notification>; 22] = [
         None, None, None, None, None, None, None, None, None, None, None, None, None, None, None,
         None, None, None, None, None, None, None,
     ];
