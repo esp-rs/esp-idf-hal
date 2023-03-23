@@ -458,6 +458,19 @@ pub mod config {
     }
 
     impl StdClkConfig {
+        /// Create a standard clock configuration with the specified rate in Hz.
+        /// 
+        /// # Note
+        /// Set the mclk_multiple to [MclkMultiple::M384] when using 24-bit data width. Otherwise, the sample rate
+        /// might be imprecise since the BCLK division is not an integer.
+        pub fn from_sample_rate_hz(rate: u32) -> Self {
+            Self {
+                sample_rate_hz: rate,
+                clk_src: ClockSource::default(),
+                mclk_multiple: MclkMultiple::M256,
+            }
+        }
+
         /// Convert to the ESP-IDF SDK `i2s_std_clk_config_t` representation.
         pub(crate) fn as_sdk(&self) -> i2s_std_clk_config_t {
             i2s_std_clk_config_t {
