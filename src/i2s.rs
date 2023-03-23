@@ -876,6 +876,14 @@ impl<'d> I2sDriver<'d> {
         })
     }
 
+    /// Open the receive channel.
+    /// 
+    /// # Errors
+    /// This will return an [EspError] with `ESP_ERR_NOT_FOUND` if the channel is already open or the I2S peripheral
+    /// was not configured to receive data.
+    /// 
+    /// # TODO
+    /// This currenly only supports the standard configuration mode.
     pub fn open_rx_channel<'c, C, Mclk, Bclk, Ws, Dout, Din>(
         &mut self,
         config: C,
@@ -913,8 +921,49 @@ impl<'d> I2sDriver<'d> {
         }
     }
 
-    pub fn get_tx_channel(&mut self) -> Result<I2sTxChannel<'d>, EspError> {
-        todo!()
+    /// Open the transmit channel.
+    /// 
+    /// # Errors
+    /// This will return an [EspError] with `ESP_ERR_NOT_FOUND` if the channel is already open or the I2S peripheral
+    /// was not configured to transmit data.
+    /// 
+    /// # TODO
+    /// This currenly only supports the standard configuration mode.
+    pub fn open_tx_channel<'c, C, Mclk, Bclk, Ws, Dout, Din>(
+        &mut self,
+        config: C,
+    ) -> Result<I2sTxChannel<'d>, EspError>
+    where
+        C: Into<config::ChanConfig<'c, Bclk, Din, Dout, Mclk, Ws>>,
+        Bclk: Pin + IOPin + 'static,
+        Din: Pin + InputPin + 'static,
+        Dout: Pin + OutputPin + 'static,
+        Mclk: Pin + OutputPin + 'static,
+        Ws: Pin + IOPin + 'static,
+    {
+        // Make sure the channel is available. Acquire to ensure the release in ::new is visible to us.
+        if !self.internal.tx_chan_available.swap(false, Ordering::Acquire) {
+            return Err(EspError::from(ESP_ERR_NOT_FOUND).unwrap());
+        }
+
+        let chan_config = config.into();
+        match chan_config {
+            config::ChanConfig::Std(config) => {
+                let ll_config = config.as_sdk();
+                match unsafe { esp!(i2s_channel_init_std_mode(self.internal.tx_chan_handle, &ll_config)) } {
+                    Ok(()) => Ok(I2sTxChannel {
+                        handle: self.internal.tx_chan_handle,
+                        available: &self.internal.tx_chan_available,
+                        _p: PhantomData,
+                    }),
+                    Err(e) => {
+                        // Release to match our acquire above.
+                        self.internal.tx_chan_available.store(true, Ordering::Release);
+                        Err(e)
+                    }
+                }
+            }
+        }
     }
 }
 
@@ -949,8 +998,28 @@ impl<'d> I2sChannel for I2sRxChannel<'d> {
 }
 
 pub struct I2sTxChannel<'d> {
-    driver: *mut I2sDriver<'d>,
+    handle: i2s_chan_handle_t,
+    available: *const AtomicBool,
     _p: PhantomData<&'d mut ()>,
+}
+
+impl<'d> Drop for I2sTxChannel<'d> {
+    fn drop(&mut self) {
+        // Mark the channel as being available to open again.
+        unsafe { (*self.available).store(true, Ordering::Release); }
+    }
+}
+
+impl<'d> I2sChannel for I2sTxChannel<'d> {
+    #[inline(always)]
+    fn enable(&mut self) -> Result<(), EspError> {
+        unsafe { esp!(i2s_channel_enable(self.handle)) }
+    }
+
+    #[inline(always)]
+    fn disable(&mut self) -> Result<(), EspError> {
+        unsafe { esp!(i2s_channel_disable(self.handle)) }
+    }
 }
 
 macro_rules! impl_i2s {
