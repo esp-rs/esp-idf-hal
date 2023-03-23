@@ -1,14 +1,15 @@
 use crate::{
     gpio::{IOPin, InputPin, OutputPin, Pin},
-    peripheral::{Peripheral, PeripheralRef},
+    peripheral::{Peripheral},
 };
 use core::{
     marker::PhantomData,
+    mem::{ManuallyDrop, MaybeUninit},
     ptr::null_mut,
     sync::atomic::{AtomicBool, Ordering},
 };
 use esp_idf_sys::{
-    esp, i2s_chan_handle_t, i2s_channel_disable, i2s_channel_enable, i2s_channel_init_std_mode,
+    esp, i2s_chan_config_t, i2s_chan_handle_t, i2s_channel_disable, i2s_channel_enable, i2s_channel_init_std_mode,
     i2s_new_channel, i2s_port_t, i2s_role_t, EspError, ESP_ERR_NOT_FOUND,
 };
 
@@ -509,6 +510,7 @@ pub mod config {
         Mclk: Pin + OutputPin + 'static,
         Ws: Pin + IOPin + 'static,
     {
+        #[allow(clippy::too_many_arguments)]
         pub fn new<BclkP, DinP, DoutP, MclkP, WsP>(
             bclk: BclkP,
             data_in: Option<DinP>,
@@ -532,20 +534,22 @@ pub mod config {
                 ws: ws.into_ref(),
                 data_out: data_out.map(|data_out| data_out.into_ref()),
                 data_in: data_in.map(|data_in| data_in.into_ref()),
-                mclk_invert: false,
-                bclk_invert: false,
-                ws_invert: false,
+                mclk_invert,
+                bclk_invert,
+                ws_invert,
             }
         }
 
         /// Convert to the ESP-IDF SDK `i2s_std_gpio_config_t` representation.
         pub(crate) fn as_sdk(&self) -> i2s_std_gpio_config_t {
-            let mut invert_flags = i2s_std_gpio_config_t__bindgen_ty_1::default();
-            invert_flags._bitfield_1 = i2s_std_gpio_config_t__bindgen_ty_1::new_bitfield_1(
-                self.mclk_invert as u32,
-                self.bclk_invert as u32,
-                self.ws_invert as u32,
-            );
+            let invert_flags = i2s_std_gpio_config_t__bindgen_ty_1 {
+                _bitfield_1: i2s_std_gpio_config_t__bindgen_ty_1::new_bitfield_1(
+                    self.mclk_invert as u32,
+                    self.bclk_invert as u32,
+                    self.ws_invert as u32,
+                ),
+                ..Default::default()
+            };
 
             i2s_std_gpio_config_t {
                 mclk: if let Some(mclk) = &self.mclk {
@@ -764,13 +768,29 @@ pub trait I2s: Send {
     fn port() -> i2s_port_t;
 }
 
-pub struct I2sDriver<'d> {
+/// The inner details about an I2S driver. This is allocated separately to prevent moving the atomics around.
+struct I2sDriverInternal {
     i2s: u8,
     config: config::Config,
     rx_chan_handle: i2s_chan_handle_t,
     tx_chan_handle: i2s_chan_handle_t,
     rx_chan_available: AtomicBool,
     tx_chan_available: AtomicBool,
+}
+
+/// Allow references for the driver to be send across threads.
+/// 
+/// This is necessary becuase i2s_chan_handle_t is a pointer, which is not Sync. However, the ESP-IDF API is thread
+/// safe here.
+/// 
+/// Note that we cannot implement Send. We do *not* want this struct to be sent between threads.
+unsafe impl Sync for I2sDriverInternal {}
+
+static mut I2S_DRIVERS: [MaybeUninit<I2sDriverInternal>; 2] = [MaybeUninit::uninit(), MaybeUninit::uninit()];
+
+/// The I2S driver for an I2S peripheral.
+pub struct I2sDriver<'d> {
+    internal: ManuallyDrop<Box<I2sDriverInternal>>,
     _p: PhantomData<&'d mut ()>,
 }
 
@@ -781,36 +801,50 @@ impl<'d> I2sDriver<'d> {
     ) -> Result<Self, EspError> {
         let port = I2S::port();
 
-        let ll_config = config.as_sdk(port);
-        let mut rx_ch: i2s_chan_handle_t = null_mut();
-        let mut tx_ch: i2s_chan_handle_t = null_mut();
+        let internal: *mut I2sDriverInternal = unsafe { I2S_DRIVERS[port as usize].as_mut_ptr() };
+        
+        // Initialize the interal side of the driver.
 
-        let (rx_p, tx_p): (*mut i2s_chan_handle_t, *mut i2s_chan_handle_t) = match config.channels {
-            config::ChannelOpen::Both => (&mut rx_ch, &mut tx_ch),
-            config::ChannelOpen::Rx => (&mut rx_ch, null_mut()),
-            config::ChannelOpen::Tx => (null_mut(), &mut tx_ch),
+        // Safety: We know that internal is properly aligned and non-null.
+        // We are initializing i2s here.
+        unsafe { (*internal).i2s = port as u8; }
+
+        let ll_config: i2s_chan_config_t = config.as_sdk(port);
+
+        // Safety: We initialize tx_chan_handle and rx_chan_handle to null where necessary, and return _pointers_ to
+        // them, not the uninitialized values, otherwise.
+        let (rx_p, tx_p): (*mut i2s_chan_handle_t, *mut i2s_chan_handle_t) = unsafe {
+            match config.channels {
+                config::ChannelOpen::Both => (&mut (*internal).rx_chan_handle, &mut (*internal).tx_chan_handle),
+                config::ChannelOpen::Rx => {
+                    (*internal).tx_chan_handle = null_mut();
+                    (&mut (*internal).rx_chan_handle, null_mut())
+                }
+                config::ChannelOpen::Tx => {
+                    (*internal).rx_chan_handle = null_mut();
+                    (null_mut(), &mut (*internal).tx_chan_handle)
+                }
+            }
         };
 
+        // We're done with config, so move it into the internal driver struct.
+        unsafe { (*internal).config = config; }
+
+        // Safety: &ll_config is a valid pointer to an i2s_chan_config_t. rx_p and tx_p are either valid pointers to
+        // the internal.rx_chan_handle and internal.tx_chan_handle, or null.
         unsafe { esp!(i2s_new_channel(&ll_config, rx_p, tx_p))? };
 
-        let (rx_chan_handle, rx_chan_available) = if rx_p.is_null() {
-            (0 as i2s_chan_handle_t, AtomicBool::new(false))
-        } else {
-            (unsafe { *rx_p }, AtomicBool::new(true))
-        };
-        let (tx_chan_handle, tx_chan_available) = if tx_p.is_null() {
-            (0 as i2s_chan_handle_t, AtomicBool::new(false))
-        } else {
-            (unsafe { *tx_p }, AtomicBool::new(true))
-        };
+        // At this point, everything except the available atomics is initialized. Initialize the atomics with Release
+        // ordering to ensure the above values are visible to other threads.
+        unsafe { (*internal).rx_chan_available.store(! rx_p.is_null(), Ordering::Release); }
+        unsafe { (*internal).tx_chan_available.store(! tx_p.is_null(), Ordering::Release); }
+
+        // Safety: Box would drop the internal driver (which is statically allocated), but we leak the box by wrapping
+        // it in a ManuallyDrop that we never drop.
+        let internal = ManuallyDrop::new(unsafe { Box::from_raw(internal) });
 
         Ok(Self {
-            i2s: port as u8,
-            config,
-            rx_chan_handle,
-            tx_chan_handle,
-            rx_chan_available,
-            tx_chan_available,
+            internal,
             _p: PhantomData,
         })
     }
@@ -827,8 +861,8 @@ impl<'d> I2sDriver<'d> {
         Mclk: Pin + OutputPin + 'static,
         Ws: Pin + IOPin + 'static,
     {
-        // Make sure the channel is available.
-        if !self.rx_chan_available.swap(false, Ordering::Relaxed) {
+        // Make sure the channel is available. Acquire to ensure the release in ::new is visible to us.
+        if !self.internal.rx_chan_available.swap(false, Ordering::Acquire) {
             return Err(EspError::from(ESP_ERR_NOT_FOUND).unwrap());
         }
 
@@ -836,13 +870,15 @@ impl<'d> I2sDriver<'d> {
         match chan_config {
             config::ChanConfig::Std(config) => {
                 let ll_config = config.as_sdk();
-                match unsafe { esp!(i2s_channel_init_std_mode(self.rx_chan_handle, &ll_config)) } {
+                match unsafe { esp!(i2s_channel_init_std_mode(self.internal.rx_chan_handle, &ll_config)) } {
                     Ok(()) => Ok(I2sRxChannel {
-                        driver: self,
+                        handle: self.internal.rx_chan_handle,
+                        available: &self.internal.rx_chan_available,
                         _p: PhantomData,
                     }),
                     Err(e) => {
-                        self.rx_chan_available.store(true, Ordering::Relaxed);
+                        // Release to match our acquire above.
+                        self.internal.rx_chan_available.store(true, Ordering::Release);
                         Err(e)
                     }
                 }
@@ -861,17 +897,25 @@ pub trait I2sChannel {
 }
 
 pub struct I2sRxChannel<'d> {
-    driver: *mut I2sDriver<'d>,
+    handle: i2s_chan_handle_t,
+    available: *const AtomicBool,
     _p: PhantomData<&'d mut ()>,
+}
+
+impl<'d> Drop for I2sRxChannel<'d> {
+    fn drop(&mut self) {
+        // Mark the channel as being available to open again.
+        unsafe { (*self.available).store(true, Ordering::Release); }
+    }
 }
 
 impl<'d> I2sChannel for I2sRxChannel<'d> {
     fn enable(&mut self) -> Result<(), EspError> {
-        unsafe { esp!(i2s_channel_enable((*self.driver).rx_chan_handle)) }
+        unsafe { esp!(i2s_channel_enable(self.handle)) }
     }
 
     fn disable(&mut self) -> Result<(), EspError> {
-        unsafe { esp!(i2s_channel_disable((*self.driver).rx_chan_handle)) }
+        unsafe { esp!(i2s_channel_disable(self.handle)) }
     }
 }
 
