@@ -1,6 +1,6 @@
 use crate::{
     gpio::{IOPin, InputPin, OutputPin, Pin},
-    peripheral::{Peripheral},
+    peripheral::Peripheral,
 };
 use core::{
     marker::PhantomData,
@@ -9,8 +9,9 @@ use core::{
     sync::atomic::{AtomicBool, Ordering},
 };
 use esp_idf_sys::{
-    esp, i2s_chan_config_t, i2s_chan_handle_t, i2s_channel_disable, i2s_channel_enable, i2s_channel_init_std_mode,
-    i2s_new_channel, i2s_port_t, i2s_role_t, EspError, ESP_ERR_NOT_FOUND,
+    esp, esp_err_to_name, esp_log_level_t_ESP_LOG_ERROR, esp_log_write, i2s_chan_config_t,
+    i2s_chan_handle_t, i2s_channel_disable, i2s_channel_enable, i2s_channel_init_std_mode,
+    i2s_del_channel, i2s_new_channel, i2s_port_t, i2s_role_t, EspError, ESP_ERR_NOT_FOUND,
 };
 
 /// I2S peripheral in controller (master) role, bclk and ws signal will be set to output.
@@ -18,6 +19,9 @@ const I2S_ROLE_CONTROLLER: i2s_role_t = 0;
 
 /// I2S peripheral in target (slave) role, bclk and ws signal will be set to input.
 const I2S_ROLE_TARGET: i2s_role_t = 1;
+
+/// Logging tag.
+const LOG_TAG: &[u8; 17] = b"esp-idf-hal::i2s\0";
 
 /// I2S configuration
 pub mod config {
@@ -103,16 +107,29 @@ pub mod config {
         }
     }
 
-    /// I2S channel configuration
-    #[derive(Clone, Default)]
+    /// I2S controller channel configuration.
+    ///
+    /// To create a custom configuration, use the builder pattern built-in to this struct. For example:
+    /// ```
+    /// use esp_idf_hal::i2s::config::{ChannelOpen, Config, Role};
+    /// let config = Config::default().role(Role::Target).channels(ChannelOpen::Rx);
+    /// ```
+    ///
+    /// The default configuration is:
+    /// * Role ([Config::role]): [Role::Controller] (master)
+    /// * DMA buffer number/descriptor number ([Config::dma_desc]): 6
+    /// * I2S frames in one DMA buffer ([Config::dma_frame]): 240
+    /// * Auto clear ([Config::auto_clear]): false
+    /// * Channels to open ([Config::channels]): [ChannelOpen::Both]
+    #[derive(Clone)]
     pub struct Config {
         /// The role of this channel: controller (master) or target (slave)
         role: Role,
 
-        /// The DMA buffer to use.
+        /// The DMA buffer number to use (also the DMA descriptor number).
         dma_desc: u32,
 
-        /// The I2S frame number in one DMA buffer.
+        /// The number of I2S frames in one DMA buffer.
         dma_frame: u32,
 
         /// If true, the transmit buffer will be automatically cleared upon sending.
@@ -120,6 +137,19 @@ pub mod config {
 
         /// The channels to open.
         pub(super) channels: ChannelOpen,
+    }
+
+    impl Default for Config {
+        #[inline(always)]
+        fn default() -> Self {
+            Self {
+                role: Role::Controller,
+                dma_desc: 6,
+                dma_frame: 240,
+                auto_clear: false,
+                channels: ChannelOpen::Both,
+            }
+        }
     }
 
     impl Config {
@@ -470,7 +500,7 @@ pub mod config {
 
     impl StdClkConfig {
         /// Create a standard clock configuration with the specified rate in Hz.
-        /// 
+        ///
         /// # Note
         /// Set the mclk_multiple to [MclkMultiple::M384] when using 24-bit data width. Otherwise, the sample rate
         /// might be imprecise since the BCLK division is not an integer.
@@ -893,14 +923,15 @@ struct I2sDriverInternal {
 }
 
 /// Allow references for the driver to be send across threads.
-/// 
+///
 /// This is necessary becuase i2s_chan_handle_t is a pointer, which is not Sync. However, the ESP-IDF API is thread
 /// safe here.
-/// 
+///
 /// Note that we cannot implement Send. We do *not* want this struct to be sent between threads.
 unsafe impl Sync for I2sDriverInternal {}
 
-static mut I2S_DRIVERS: [MaybeUninit<I2sDriverInternal>; 2] = [MaybeUninit::uninit(), MaybeUninit::uninit()];
+static mut I2S_DRIVERS: [MaybeUninit<I2sDriverInternal>; 2] =
+    [MaybeUninit::uninit(), MaybeUninit::uninit()];
 
 /// The I2S driver for an I2S peripheral.
 pub struct I2sDriver<'d> {
@@ -916,12 +947,14 @@ impl<'d> I2sDriver<'d> {
         let port = I2S::port();
 
         let internal: *mut I2sDriverInternal = unsafe { I2S_DRIVERS[port as usize].as_mut_ptr() };
-        
+
         // Initialize the interal side of the driver.
 
         // Safety: We know that internal is properly aligned and non-null.
         // We are initializing i2s here.
-        unsafe { (*internal).i2s = port as u8; }
+        unsafe {
+            (*internal).i2s = port as u8;
+        }
 
         let ll_config: i2s_chan_config_t = config.as_sdk(port);
 
@@ -929,7 +962,10 @@ impl<'d> I2sDriver<'d> {
         // them, not the uninitialized values, otherwise.
         let (rx_p, tx_p): (*mut i2s_chan_handle_t, *mut i2s_chan_handle_t) = unsafe {
             match config.channels {
-                config::ChannelOpen::Both => (&mut (*internal).rx_chan_handle, &mut (*internal).tx_chan_handle),
+                config::ChannelOpen::Both => (
+                    &mut (*internal).rx_chan_handle,
+                    &mut (*internal).tx_chan_handle,
+                ),
                 config::ChannelOpen::Rx => {
                     (*internal).tx_chan_handle = null_mut();
                     (&mut (*internal).rx_chan_handle, null_mut())
@@ -942,7 +978,9 @@ impl<'d> I2sDriver<'d> {
         };
 
         // We're done with config, so move it into the internal driver struct.
-        unsafe { (*internal).config = config; }
+        unsafe {
+            (*internal).config = config;
+        }
 
         // Safety: &ll_config is a valid pointer to an i2s_chan_config_t. rx_p and tx_p are either valid pointers to
         // the internal.rx_chan_handle and internal.tx_chan_handle, or null.
@@ -950,8 +988,16 @@ impl<'d> I2sDriver<'d> {
 
         // At this point, everything except the available atomics is initialized. Initialize the atomics with Release
         // ordering to ensure the above values are visible to other threads.
-        unsafe { (*internal).rx_chan_available.store(! rx_p.is_null(), Ordering::Release); }
-        unsafe { (*internal).tx_chan_available.store(! tx_p.is_null(), Ordering::Release); }
+        unsafe {
+            (*internal)
+                .rx_chan_available
+                .store(!rx_p.is_null(), Ordering::Release);
+        }
+        unsafe {
+            (*internal)
+                .tx_chan_available
+                .store(!tx_p.is_null(), Ordering::Release);
+        }
 
         // Safety: Box would drop the internal driver (which is statically allocated), but we leak the box by wrapping
         // it in a ManuallyDrop that we never drop.
@@ -964,11 +1010,11 @@ impl<'d> I2sDriver<'d> {
     }
 
     /// Open the receive channel.
-    /// 
+    ///
     /// # Errors
     /// This will return an [EspError] with `ESP_ERR_NOT_FOUND` if the channel is already open or the I2S peripheral
     /// was not configured to receive data.
-    /// 
+    ///
     /// # TODO
     /// This currenly only supports the standard configuration mode.
     pub fn open_rx_channel<'c, C, Mclk, Bclk, Ws, Dout, Din>(
@@ -984,7 +1030,11 @@ impl<'d> I2sDriver<'d> {
         Ws: Pin + IOPin + 'static,
     {
         // Make sure the channel is available. Acquire to ensure the release in ::new is visible to us.
-        if !self.internal.rx_chan_available.swap(false, Ordering::Acquire) {
+        if !self
+            .internal
+            .rx_chan_available
+            .swap(false, Ordering::Acquire)
+        {
             return Err(EspError::from(ESP_ERR_NOT_FOUND).unwrap());
         }
 
@@ -992,7 +1042,12 @@ impl<'d> I2sDriver<'d> {
         match chan_config {
             config::ChanConfig::Std(config) => {
                 let ll_config = config.as_sdk();
-                match unsafe { esp!(i2s_channel_init_std_mode(self.internal.rx_chan_handle, &ll_config)) } {
+                match unsafe {
+                    esp!(i2s_channel_init_std_mode(
+                        self.internal.rx_chan_handle,
+                        &ll_config
+                    ))
+                } {
                     Ok(()) => Ok(I2sRxChannel {
                         handle: self.internal.rx_chan_handle,
                         available: &self.internal.rx_chan_available,
@@ -1000,7 +1055,9 @@ impl<'d> I2sDriver<'d> {
                     }),
                     Err(e) => {
                         // Release to match our acquire above.
-                        self.internal.rx_chan_available.store(true, Ordering::Release);
+                        self.internal
+                            .rx_chan_available
+                            .store(true, Ordering::Release);
                         Err(e)
                     }
                 }
@@ -1009,11 +1066,11 @@ impl<'d> I2sDriver<'d> {
     }
 
     /// Open the transmit channel.
-    /// 
+    ///
     /// # Errors
     /// This will return an [EspError] with `ESP_ERR_NOT_FOUND` if the channel is already open or the I2S peripheral
     /// was not configured to transmit data.
-    /// 
+    ///
     /// # TODO
     /// This currenly only supports the standard configuration mode.
     pub fn open_tx_channel<'c, C, Mclk, Bclk, Ws, Dout, Din>(
@@ -1029,7 +1086,11 @@ impl<'d> I2sDriver<'d> {
         Ws: Pin + IOPin + 'static,
     {
         // Make sure the channel is available. Acquire to ensure the release in ::new is visible to us.
-        if !self.internal.tx_chan_available.swap(false, Ordering::Acquire) {
+        if !self
+            .internal
+            .tx_chan_available
+            .swap(false, Ordering::Acquire)
+        {
             return Err(EspError::from(ESP_ERR_NOT_FOUND).unwrap());
         }
 
@@ -1037,7 +1098,12 @@ impl<'d> I2sDriver<'d> {
         match chan_config {
             config::ChanConfig::Std(config) => {
                 let ll_config = config.as_sdk();
-                match unsafe { esp!(i2s_channel_init_std_mode(self.internal.tx_chan_handle, &ll_config)) } {
+                match unsafe {
+                    esp!(i2s_channel_init_std_mode(
+                        self.internal.tx_chan_handle,
+                        &ll_config
+                    ))
+                } {
                     Ok(()) => Ok(I2sTxChannel {
                         handle: self.internal.tx_chan_handle,
                         available: &self.internal.tx_chan_available,
@@ -1045,9 +1111,44 @@ impl<'d> I2sDriver<'d> {
                     }),
                     Err(e) => {
                         // Release to match our acquire above.
-                        self.internal.tx_chan_available.store(true, Ordering::Release);
+                        self.internal
+                            .tx_chan_available
+                            .store(true, Ordering::Release);
                         Err(e)
                     }
+                }
+            }
+        }
+    }
+}
+
+impl<'a> Drop for I2sDriver<'a> {
+    fn drop(&mut self) {
+        // Channels have been dropped, so we can delete them.
+        unsafe {
+            if !self.internal.rx_chan_handle.is_null() {
+                let result = i2s_del_channel(self.internal.rx_chan_handle);
+                if result != 0 {
+                    // This isn't fatal, so a panic isn't warranted, but we do want to be able to debug it.
+                    esp_log_write(
+                        esp_log_level_t_ESP_LOG_ERROR,
+                        LOG_TAG as *const u8 as *const i8,
+                        b"Failed to delete RX channel: %s\0" as *const u8 as *const i8,
+                        esp_err_to_name(result),
+                    );
+                }
+            }
+
+            if !self.internal.tx_chan_handle.is_null() {
+                let result = i2s_del_channel(self.internal.tx_chan_handle);
+                if result != 0 {
+                    // This isn't fatal, so a panic isn't warranted, but we do want to be able to debug it.
+                    esp_log_write(
+                        esp_log_level_t_ESP_LOG_ERROR,
+                        LOG_TAG as *const u8 as *const i8,
+                        b"Failed to delete TX channel: %s\0" as *const u8 as *const i8,
+                        esp_err_to_name(result),
+                    );
                 }
             }
         }
@@ -1068,7 +1169,9 @@ pub struct I2sRxChannel<'d> {
 impl<'d> Drop for I2sRxChannel<'d> {
     fn drop(&mut self) {
         // Mark the channel as being available to open again.
-        unsafe { (*self.available).store(true, Ordering::Release); }
+        unsafe {
+            (*self.available).store(true, Ordering::Release);
+        }
     }
 }
 
@@ -1093,7 +1196,9 @@ pub struct I2sTxChannel<'d> {
 impl<'d> Drop for I2sTxChannel<'d> {
     fn drop(&mut self) {
         // Mark the channel as being available to open again.
-        unsafe { (*self.available).store(true, Ordering::Release); }
+        unsafe {
+            (*self.available).store(true, Ordering::Release);
+        }
     }
 }
 
