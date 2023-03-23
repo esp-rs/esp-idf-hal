@@ -174,7 +174,7 @@ pub mod config {
     }
 
     /// Available data bit width in one slot.
-    #[derive(Clone, Copy, Eq, PartialEq)]
+    #[derive(Clone, Copy, Eq, Ord, PartialEq, PartialOrd)]
     pub enum DataBitWidth {
         /// Channel data bit width is 8 bits.
         Bits8,
@@ -638,10 +638,97 @@ pub mod config {
 
         /// Non-ESP32/ESP32S2: Enable LSB-first.
         #[cfg(not(any(esp32, esp32s2)))]
-        pub lsb_first: bool,
+        pub bit_order_lsb: bool,
     }
 
     impl StdSlotConfig {
+        /// Configure in Philips format in 2 slots.
+        pub fn philips_slot_default(bits_per_sample: DataBitWidth, slot_mode: SlotMode) -> Self {
+            let slot_mask = if slot_mode == SlotMode::Mono && cfg!(any(esp32, esp32s2)) {
+                StdSlotMask::Left
+            } else {
+                StdSlotMask::Both
+            };
+
+            Self {
+                data_bit_width: bits_per_sample,
+                slot_bit_width: SlotBitWidth::Auto,
+                slot_mode,
+                slot_mask,
+                ws_width: bits_per_sample as u32,
+                ws_polarity: false,
+                bit_shift: true,
+                #[cfg(esp32)]
+                msb_right: bits_per_sample <= DataBitWidth::Bits16,
+                #[cfg(esp32s2)]
+                msb_right: true,
+                #[cfg(not(any(esp32, esp32s2)))]
+                left_align: false,
+                #[cfg(not(any(esp32, esp32s2)))]
+                big_endian: false,
+                #[cfg(not(any(esp32, esp32s2)))]
+                bit_order_lsb: false,
+            }
+        }
+
+        /// Configure in PCM (short) format in 2 slots.
+        pub fn pcm_slot_default(bits_per_sample: DataBitWidth, slot_mode: SlotMode) -> Self {
+            let slot_mask = if slot_mode == SlotMode::Mono && cfg!(any(esp32, esp32s2)) {
+                StdSlotMask::Left
+            } else {
+                StdSlotMask::Both
+            };
+
+            Self {
+                data_bit_width: bits_per_sample,
+                slot_bit_width: SlotBitWidth::Auto,
+                slot_mode,
+                slot_mask,
+                ws_width: 1,
+                ws_polarity: true,
+                bit_shift: true,
+                #[cfg(esp32)]
+                msb_right: bits_per_sample <= DataBitWidth::Bits16,
+                #[cfg(esp32s2)]
+                msb_right: true,
+                #[cfg(not(any(esp32, esp32s2)))]
+                left_align: false,
+                #[cfg(not(any(esp32, esp32s2)))]
+                big_endian: false,
+                #[cfg(not(any(esp32, esp32s2)))]
+                bit_order_lsb: false,
+            }
+        }
+
+        /// Configure in MSB format in 2 slots.
+        pub fn msb_slot_default(bits_per_sample: DataBitWidth, slot_mode: SlotMode) -> Self {
+            let slot_mask = if slot_mode == SlotMode::Mono && cfg!(any(esp32, esp32s2)) {
+                StdSlotMask::Left
+            } else {
+                StdSlotMask::Both
+            };
+
+            Self {
+                data_bit_width: bits_per_sample,
+                slot_bit_width: SlotBitWidth::Auto,
+                slot_mode,
+                slot_mask,
+                ws_width: bits_per_sample as u32,
+                ws_polarity: false,
+                bit_shift: false,
+                #[cfg(esp32)]
+                msb_right: bits_per_sample <= DataBitWidth::Bits16,
+                #[cfg(esp32s2)]
+                msb_right: true,
+                #[cfg(not(any(esp32, esp32s2)))]
+                left_align: false,
+                #[cfg(not(any(esp32, esp32s2)))]
+                big_endian: false,
+                #[cfg(not(any(esp32, esp32s2)))]
+                bit_order_lsb: false,
+            }
+        }
+
         /// Convert to the ESP-IDF SDK `i2s_std_slot_config_t` representation.
         pub(crate) fn as_sdk(&self) -> i2s_std_slot_config_t {
             i2s_std_slot_config_t {
@@ -659,7 +746,7 @@ pub mod config {
                 #[cfg(not(any(esp32, esp32s2)))]
                 big_endian: self.big_endian,
                 #[cfg(not(any(esp32, esp32s2)))]
-                lsb_first: self.lsb_first,
+                bit_order_lsb: self.bit_order_lsb,
             }
         }
     }
