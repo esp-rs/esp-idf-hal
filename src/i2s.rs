@@ -123,12 +123,14 @@ pub mod config {
     }
 
     impl Config {
+        #[inline(always)]
         pub fn new() -> Self {
             Default::default()
         }
 
         /// Set the role of this channel: controller (master) or target (slave)
         #[must_use]
+        #[inline(always)]
         pub fn role(mut self, role: Role) -> Self {
             self.role = role;
             self
@@ -136,6 +138,7 @@ pub mod config {
 
         /// Set the DMA buffer to use.
         #[must_use]
+        #[inline(always)]
         pub fn dma_desc(mut self, dma_desc: u32) -> Self {
             self.dma_desc = dma_desc;
             self
@@ -143,6 +146,7 @@ pub mod config {
 
         /// Set the I2S frame number in one DMA buffer.
         #[must_use]
+        #[inline(always)]
         pub fn dma_frame(mut self, dma_frame: u32) -> Self {
             self.dma_frame = dma_frame;
             self
@@ -150,12 +154,14 @@ pub mod config {
 
         /// Set if the transmit buffer will be automatically cleared upon sending.
         #[must_use]
+        #[inline(always)]
         pub fn auto_clear(mut self, auto_clear: bool) -> Self {
             self.auto_clear = auto_clear;
             self
         }
 
         /// Convert to the ESP-IDF SDK `i2s_chan_config_t` representation.
+        #[inline(always)]
         pub(super) fn as_sdk(&self, id: i2s_port_t) -> i2s_chan_config_t {
             i2s_chan_config_t {
                 id,
@@ -185,6 +191,7 @@ pub mod config {
 
     impl DataBitWidth {
         /// Convert to the ESP-IDF SDK `i2s_data_bit_width_t` representation.
+        #[inline(always)]
         pub(super) fn as_sdk(&self) -> i2s_data_bit_width_t {
             match self {
                 Self::Bits8 => 8,
@@ -227,6 +234,7 @@ pub mod config {
 
     impl MclkMultiple {
         /// Convert to the ESP-IDF SDK `i2s_mclk_multiple_t` representation.
+        #[inline(always)]
         pub(super) fn as_sdk(&self) -> i2s_mclk_multiple_t {
             match self {
                 Self::M128 => i2s_mclk_multiple_t_I2S_MCLK_MULTIPLE_128,
@@ -238,6 +246,7 @@ pub mod config {
     }
 
     impl From<MclkMultiple> for u32 {
+        #[inline(always)]
         fn from(mclk_multiple: MclkMultiple) -> Self {
             match mclk_multiple {
                 MclkMultiple::M128 => 128,
@@ -354,6 +363,7 @@ pub mod config {
     #[cfg(esp_idf_soc_i2s_supports_pdm_tx)]
     impl PdmSignalScale {
         /// Convert to the ESP-IDF SDK `i2s_pdm_signal_scale_t` representation.
+        #[inline(always)]
         pub(crate) fn as_sdk(&self) -> esp_idf_sys::i2s_pdm_sig_scale_t {
             match self {
                 Self::Div2 => 0,
@@ -420,6 +430,7 @@ pub mod config {
         Ws: Pin + IOPin + 'static,
     {
         /// Convert to the ESP-IDF SDK `i2s_std_config_t` representation.
+        #[inline(always)]
         pub(crate) fn as_sdk(&self) -> i2s_std_config_t {
             i2s_std_config_t {
                 clk_cfg: self.clk_cfg.as_sdk(),
@@ -463,6 +474,7 @@ pub mod config {
         /// # Note
         /// Set the mclk_multiple to [MclkMultiple::M384] when using 24-bit data width. Otherwise, the sample rate
         /// might be imprecise since the BCLK division is not an integer.
+        #[inline(always)]
         pub fn from_sample_rate_hz(rate: u32) -> Self {
             Self {
                 sample_rate_hz: rate,
@@ -472,6 +484,7 @@ pub mod config {
         }
 
         /// Convert to the ESP-IDF SDK `i2s_std_clk_config_t` representation.
+        #[inline(always)]
         pub(crate) fn as_sdk(&self) -> i2s_std_clk_config_t {
             i2s_std_clk_config_t {
                 sample_rate_hz: self.sample_rate_hz,
@@ -768,6 +781,7 @@ pub mod config {
 
     impl SlotMode {
         /// Convert this to the underlying SDK type.
+        #[inline(always)]
         pub(crate) fn as_sdk(&self) -> i2s_slot_mode_t {
             match self {
                 Self::Mono => 0,
@@ -923,10 +937,12 @@ impl<'d> Drop for I2sRxChannel<'d> {
 }
 
 impl<'d> I2sChannel for I2sRxChannel<'d> {
+    #[inline(always)]
     fn enable(&mut self) -> Result<(), EspError> {
         unsafe { esp!(i2s_channel_enable(self.handle)) }
     }
 
+    #[inline(always)]
     fn disable(&mut self) -> Result<(), EspError> {
         unsafe { esp!(i2s_channel_disable(self.handle)) }
     }
