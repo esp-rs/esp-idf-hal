@@ -269,7 +269,8 @@ impl<T> SpiBusDriver<T> {
                 SPI_DEVICE_NO_DUMMY
             } else {
                 0_u32
-            } | config.duplex.as_flags() | config.bit_order.as_flags(),
+            } | config.duplex.as_flags()
+                | config.bit_order.as_flags(),
             ..Default::default()
         };
 
@@ -597,7 +598,8 @@ where
                 SPI_DEVICE_POSITIVE_CS
             } else {
                 0_u32
-            } | config.duplex.as_flags() | config.bit_order.as_flags(),
+            } | config.duplex.as_flags()
+                | config.bit_order.as_flags(),
             ..Default::default()
         };
 
