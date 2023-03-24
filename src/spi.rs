@@ -154,7 +154,7 @@ pub mod config {
         }
     }
 
-    /// Specifies the order in which the bits of data should be transfered
+    /// Specifies the order in which the bits of data should be transfered/received
     #[derive(Copy, Clone)]
     pub enum BitOrder {
         /// Most significant bit first (default)
