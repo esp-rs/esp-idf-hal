@@ -3,15 +3,20 @@ use crate::{
     peripheral::Peripheral,
 };
 use core::{
+    convert::TryInto,
+    ffi::c_void,
     marker::PhantomData,
     mem::{ManuallyDrop, MaybeUninit},
-    ptr::null_mut,
+    ptr::{null_mut, NonNull},
     sync::atomic::{AtomicBool, Ordering},
+    time::Duration,
 };
 use esp_idf_sys::{
     esp, esp_err_to_name, esp_log_level_t_ESP_LOG_ERROR, esp_log_write, i2s_chan_config_t,
     i2s_chan_handle_t, i2s_channel_disable, i2s_channel_enable, i2s_channel_init_std_mode,
-    i2s_del_channel, i2s_new_channel, i2s_port_t, i2s_role_t, EspError, ESP_ERR_NOT_FOUND,
+    i2s_channel_read, i2s_channel_register_event_callback, i2s_channel_write, i2s_del_channel,
+    i2s_event_callbacks_t, i2s_event_data_t, i2s_new_channel, i2s_port_t, i2s_role_t, EspError,
+    ESP_ERR_NOT_FOUND,
 };
 
 /// I2S peripheral in controller (master) role, bclk and ws signal will be set to output.
@@ -1011,6 +1016,8 @@ impl<'d> I2sDriver<'d> {
 
     /// Open the receive channel.
     ///
+    /// The returned channel will be in the `READY` state: initialized but not yet started.
+    ///
     /// # Errors
     /// This will return an [EspError] with `ESP_ERR_NOT_FOUND` if the channel is already open or the I2S peripheral
     /// was not configured to receive data.
@@ -1048,11 +1055,10 @@ impl<'d> I2sDriver<'d> {
                         &ll_config
                     ))
                 } {
-                    Ok(()) => Ok(I2sRxChannel {
-                        handle: self.internal.rx_chan_handle,
-                        available: &self.internal.rx_chan_available,
-                        _p: PhantomData,
-                    }),
+                    Ok(()) => Ok(I2sRxChannel::new(
+                        self.internal.rx_chan_handle,
+                        &self.internal.rx_chan_available,
+                    )),
                     Err(e) => {
                         // Release to match our acquire above.
                         self.internal
@@ -1066,6 +1072,8 @@ impl<'d> I2sDriver<'d> {
     }
 
     /// Open the transmit channel.
+    ///
+    /// The returned channel will be in the `READY` state: initialized but not yet started.
     ///
     /// # Errors
     /// This will return an [EspError] with `ESP_ERR_NOT_FOUND` if the channel is already open or the I2S peripheral
@@ -1104,11 +1112,10 @@ impl<'d> I2sDriver<'d> {
                         &ll_config
                     ))
                 } {
-                    Ok(()) => Ok(I2sTxChannel {
-                        handle: self.internal.tx_chan_handle,
-                        available: &self.internal.tx_chan_available,
-                        _p: PhantomData,
-                    }),
+                    Ok(()) => Ok(I2sTxChannel::new(
+                        self.internal.tx_chan_handle,
+                        &self.internal.tx_chan_available,
+                    )),
                     Err(e) => {
                         // Release to match our acquire above.
                         self.internal
@@ -1155,16 +1162,52 @@ impl<'a> Drop for I2sDriver<'a> {
     }
 }
 
+/// Core functions common to receive and transmit channels.
 pub trait I2sChannel {
+    /// Return the underlying handle for the channel.
+    ///
+    /// # Safety
+    /// The returned handle is only valid for the lifetime of the channel. The handle must not be disposed of outside
+    /// of the I2sChannel.
+    unsafe fn handle(&self) -> i2s_chan_handle_t;
+
+    /// Enable the I2S channel.
+    ///
+    /// # Note
+    /// This can only be called when the channel is in the `READY` state: initialized (as returned by
+    /// [I2sDriver::open_rx_channel] or [I2sDriver::open_tx_channel]), but not yet started, or disabled from the
+    /// `RUNNING` state via [I2sChannel::disable]. The channel will enter the `RUNNING` state if it is enabled
+    /// successfully.
+    ///
+    /// Enabling the channel will start I2S communications on the hardware. BCLK and WS signals will be generated if
+    /// this is a controller. MCLK will be generated once initialization is finished.
+    ///
+    /// # Errors
+    /// This will return an [EspError] with `ESP_ERR_INVALID_STATE` if the channel is not in the `READY` state.
     fn enable(&mut self) -> Result<(), EspError>;
+
+    /// Disable the I2S channel.
+    ///
+    /// # Note
+    /// This can only be called when the channel is in the `RUNNING` state: the channel has been previously enabled
+    /// via a call to [I2sChannel::enable]. The channel will enter the `READY` state if it is disabled successfully.
+    ///
+    /// Disabling the channel will stop I2S communications on the hardware. BCLK and WS signals will stop being
+    /// generated if this is a controller. MCLK will continue to be generated.
+    ///
+    /// # Errors
+    /// This will return an [EspError] with `ESP_ERR_INVALID_STATE` if the channel is not in the `RUNNING` state.
     fn disable(&mut self) -> Result<(), EspError>;
 }
 
 pub struct I2sRxChannel<'d> {
     handle: i2s_chan_handle_t,
     available: *const AtomicBool,
+    callback: Option<NonNull<dyn I2sRxCallback>>,
     _p: PhantomData<&'d mut ()>,
 }
+
+unsafe impl<'d> Sync for I2sRxChannel<'d> {}
 
 impl<'d> Drop for I2sRxChannel<'d> {
     fn drop(&mut self) {
@@ -1177,6 +1220,11 @@ impl<'d> Drop for I2sRxChannel<'d> {
 
 impl<'d> I2sChannel for I2sRxChannel<'d> {
     #[inline(always)]
+    unsafe fn handle(&self) -> i2s_chan_handle_t {
+        self.handle
+    }
+
+    #[inline(always)]
     fn enable(&mut self) -> Result<(), EspError> {
         unsafe { esp!(i2s_channel_enable(self.handle)) }
     }
@@ -1187,9 +1235,153 @@ impl<'d> I2sChannel for I2sRxChannel<'d> {
     }
 }
 
+impl<'d> I2sRxChannel<'d> {
+    /// Create a new I2S receive channel.
+    fn new(handle: i2s_chan_handle_t, available: *const AtomicBool) -> Self {
+        Self {
+            handle,
+            available,
+            callback: None,
+            _p: PhantomData,
+        }
+    }
+
+    /// Read data from the channel.
+    ///
+    /// This may be called only when the channel is in the `RUNNING` state.
+    ///
+    /// # Returns
+    /// This returns the number of bytes read, or an [EspError] if an error occurred.
+    pub fn read(&mut self, buffer: &mut [u8], timeout_ms: Duration) -> Result<usize, EspError> {
+        let mut bytes_read: usize = 0;
+        let timeout_ms: u32 = timeout_ms.as_millis().try_into().unwrap_or(u32::MAX);
+
+        unsafe {
+            esp!(i2s_channel_read(
+                self.handle,
+                buffer.as_mut_ptr() as *mut c_void,
+                buffer.len(),
+                &mut bytes_read,
+                timeout_ms
+            ))?
+        }
+
+        Ok(bytes_read)
+    }
+
+    /// Read data from the channel into an uninitalized buffer.
+    ///
+    /// This may be called only when the channel is in the `RUNNING` state.
+    ///
+    /// # Returns
+    /// This returns the number of bytes read, or an [EspError] if an error occurred.
+    ///
+    /// # Safety
+    /// Upon a successful return with `Ok(n_read)`, `buffer[..n_read]` will be initialized.
+    pub fn read_uninit(
+        &mut self,
+        buffer: &mut [MaybeUninit<u8>],
+        timeout_ms: Duration,
+    ) -> Result<usize, EspError> {
+        let mut bytes_read: usize = 0;
+        let timeout_ms: u32 = timeout_ms.as_millis().try_into().unwrap_or(u32::MAX);
+
+        unsafe {
+            esp!(i2s_channel_read(
+                self.handle,
+                buffer.as_mut_ptr() as *mut c_void,
+                buffer.len(),
+                &mut bytes_read,
+                timeout_ms
+            ))?
+        }
+
+        Ok(bytes_read)
+    }
+
+    /// Set callbacks for the channel.
+    ///
+    /// # Note
+    /// This can be called only when the channel is in a `READY` state, before it is running.
+    ///
+    /// The callbacks will be called from an interrupt handler. These callbacks should be short and are restricted
+    /// from performing any non-ISR safe operations.
+    ///
+    /// `CONFIG_I2S_ISR_IRAM_SAFE` is not currently supported. This requires that the callback and the functions called
+    /// by it must be in IRAM. Rust has no way to copy function bodies (in particular, it does not provide the means
+    /// to get the size of the function body), so this is not possible.
+    pub fn set_callback_handler(
+        &mut self,
+        callback: *mut dyn I2sRxCallback,
+    ) -> Result<(), EspError> {
+        unsafe {
+            self.callback = NonNull::new(callback);
+            let callbacks = i2s_event_callbacks_t {
+                on_recv: if callback.is_null() {
+                    None
+                } else {
+                    Some(dispatch_on_recv)
+                },
+                on_recv_q_ovf: if callback.is_null() {
+                    None
+                } else {
+                    Some(dispatch_on_recv_q_ovf)
+                },
+                on_sent: None,
+                on_send_q_ovf: None,
+            };
+
+            esp!(i2s_channel_register_event_callback(
+                self.handle,
+                &callbacks,
+                self as *const Self as *const c_void as *mut c_void
+            ))
+        }
+    }
+}
+
+/// C-facing ISR dispatcher for on_recv callbacks.
+extern "C" fn dispatch_on_recv(
+    _handle: i2s_chan_handle_t,
+    event: *mut i2s_event_data_t,
+    user_ctx: *mut c_void,
+) -> bool {
+    let channel: &I2sRxChannel<'static> =
+        unsafe { &*(user_ctx as *const c_void as *const I2sRxChannel) };
+    if let Some(mut callback) = channel.callback {
+        unsafe {
+            callback
+                .as_mut()
+                .on_receive(channel, &*(event as *const i2s_event_data_t))
+        }
+    } else {
+        false
+    }
+}
+
+/// C-facing ISR dispatcher for on_recv_q_ovf callbacks.
+extern "C" fn dispatch_on_recv_q_ovf(
+    _handle: i2s_chan_handle_t,
+    event: *mut i2s_event_data_t,
+    user_ctx: *mut c_void,
+) -> bool {
+    let channel: &I2sRxChannel<'static> =
+        unsafe { &*(user_ctx as *const c_void as *const I2sRxChannel) };
+    if let Some(mut callback) = channel.callback {
+        unsafe {
+            callback
+                .as_mut()
+                .on_receive_queue_overflow(channel, &*(event as *const i2s_event_data_t))
+        }
+    } else {
+        false
+    }
+}
+
 pub struct I2sTxChannel<'d> {
     handle: i2s_chan_handle_t,
     available: *const AtomicBool,
+    callback: Option<NonNull<dyn I2sTxCallback>>,
     _p: PhantomData<&'d mut ()>,
 }
 
@@ -1204,6 +1396,11 @@ impl<'d> Drop for I2sTxChannel<'d> {
 
 impl<'d> I2sChannel for I2sTxChannel<'d> {
     #[inline(always)]
+    unsafe fn handle(&self) -> i2s_chan_handle_t {
+        self.handle
+    }
+
+    #[inline(always)]
     fn enable(&mut self) -> Result<(), EspError> {
         unsafe { esp!(i2s_channel_enable(self.handle)) }
     }
@@ -1213,6 +1410,219 @@ impl<'d> I2sChannel for I2sTxChannel<'d> {
         unsafe { esp!(i2s_channel_disable(self.handle)) }
     }
 }
+
+impl<'d> I2sTxChannel<'d> {
+    /// Create a new I2S receive channel.
+    fn new(handle: i2s_chan_handle_t, available: *const AtomicBool) -> Self {
+        Self {
+            handle,
+            available,
+            callback: None,
+            _p: PhantomData,
+        }
+    }
+
+    /// Preload data into the transmit channel DMA buffer.
+    ///
+    /// This may be called only when the channel is in the `READY` state: initialized but not yet started.
+    ///
+    /// This is used to preload data into the DMA buffer so that valid data can be transmitted immediately after the
+    /// channel is enabled via [I2sChannel::enable]. If this function is not called before enabling the channel,
+    /// empty data will be transmitted.
+    ///
+    /// This function can be called multiple times before enabling the channel. Additional calls will concatenate the
+    /// data to the end of the buffer until the buffer is full.
+    ///
+    /// # Returns
+    /// This returns the number of bytes that have been loaded into the buffer. If this is less than the length of
+    /// the data provided, the buffer is full and no more data can be loaded.
+    #[cfg(all(esp_idf_version_major = "5", not(esp_idf_version_minor = "0")))]
+    pub fn preload_data(&mut self, data: &[u8]) -> Result<usize, EspError> {
+        let mut bytes_loaded: usize = 0;
+
+        unsafe {
+            esp!(esp_idf_sys::i2s_channel_preload_data(
+                self.handle,
+                data.as_ptr(),
+                data.len(),
+                &mut bytes_loaded as *mut usize
+            ));
+        }
+
+        Ok(bytes_loaded)
+    }
+
+    /// Write data to the channel.
+    ///
+    /// This may be called only when the channel is in the `RUNNING` state.
+    ///
+    /// # Returns
+    /// This returns the number of bytes sent. This may be less than the length of the data provided.
+    pub fn write(&mut self, data: &[u8], timeout: Duration) -> Result<usize, EspError> {
+        let timeout_ms: u32 = timeout.as_millis().try_into().unwrap_or(u32::MAX);
+        let mut bytes_written: usize = 0;
+
+        unsafe {
+            esp!(i2s_channel_write(
+                self.handle,
+                data.as_ptr() as *const c_void,
+                data.len(),
+                &mut bytes_written,
+                timeout_ms
+            ))?;
+        }
+
+        Ok(bytes_written)
+    }
+
+    /// Set callbacks for the channel.
+    ///
+    /// # Note
+    /// This can be called only when the channel is in a `READY` state, before it is running.
+    ///
+    /// The callbacks will be called from an interrupt handler. These callbacks should be short and are restricted
+    /// from performing any non-ISR safe operations.
+    ///
+    /// `CONFIG_I2S_ISR_IRAM_SAFE` is not currently supported. This requires that the callback and the functions called
+    /// by it must be in IRAM. Rust has no way to copy function bodies (in particular, it does not provide the means
+    /// to get the size of the function body), so this is not possible.
+    pub fn set_callback_handler(
+        &mut self,
+        callback: *mut dyn I2sTxCallback,
+    ) -> Result<(), EspError> {
+        unsafe {
+            self.callback = NonNull::new(callback);
+            let callbacks = i2s_event_callbacks_t {
+                on_recv: None,
+                on_recv_q_ovf: None,
+                on_sent: if callback.is_null() {
+                    None
+                } else {
+                    Some(dispatch_on_sent)
+                },
+                on_send_q_ovf: if callback.is_null() {
+                    None
+                } else {
+                    Some(dispatch_on_send_q_ovf)
+                },
+            };
+
+            esp!(i2s_channel_register_event_callback(
+                self.handle,
+                &callbacks,
+                self as *const Self as *const c_void as *mut c_void
+            ))
+        }
+    }
+}
+
+/// C-facing ISR dispatcher for on_sent callbacks.
+extern "C" fn dispatch_on_sent(
+    _handle: i2s_chan_handle_t,
+    event: *mut i2s_event_data_t,
+    user_ctx: *mut c_void,
+) -> bool {
+    let channel: &I2sTxChannel<'static> =
+        unsafe { &*(user_ctx as *const c_void as *const I2sTxChannel) };
+    if let Some(mut callback) = channel.callback {
+        unsafe {
+            callback
+                .as_mut()
+                .on_sent(channel, &*(event as *const i2s_event_data_t))
+        }
+    } else {
+        false
+    }
+}
+
+/// C-facing ISR dispatcher for on_send_q_ovf callbacks.
+extern "C" fn dispatch_on_send_q_ovf(
+    _handle: i2s_chan_handle_t,
+    event: *mut i2s_event_data_t,
+    user_ctx: *mut c_void,
+) -> bool {
+    let channel: &I2sTxChannel<'static> =
+        unsafe { &*(user_ctx as *const c_void as *const I2sTxChannel) };
+    if let Some(mut callback) = channel.callback {
+        unsafe {
+            callback
+                .as_mut()
+                .on_send_queue_overflow(channel, &*(event as *const i2s_event_data_t))
+        }
+    } else {
+        false
+    }
+}
+
+/// Callback handler for a receiver channel.
+///
+/// This runs in an interrupt context.
+pub trait I2sRxCallback {
+    /// Called when an I2S receive event occurs.
+    ///
+    /// # Parameters
+    /// * `rx_channel`: The channel on which the event occurred.
+    /// * `event`: Data associated with the event, including the DMA buffer address and the size that just finished
+    ///   receiving data.
+    ///
+    /// # Returns
+    /// Returns `true` if a high priority task has been woken upby this callback function, `false` otherwise.
+    #[allow(unused_variables)]
+    fn on_receive(&mut self, rx_channel: &I2sRxChannel<'_>, event: &I2sEvent) -> bool {
+        false
+    }
+
+    /// Called when an I2S receiving queue overflows.
+    ///
+    /// # Parameters
+    /// * `rx_channel`: The channel on which the event occurred.
+    /// * `event`: Data associated with the event, including the buffer size that has been overwritten.
+    ///
+    /// # Returns
+    /// Returns `true` if a high priority task has been woken upby this callback function, `false` otherwise.
+    #[allow(unused_variables)]
+    fn on_receive_queue_overflow(
+        &mut self,
+        rx_channel: &I2sRxChannel<'_>,
+        event: &I2sEvent,
+    ) -> bool {
+        false
+    }
+}
+
+/// Callback handler for a transmitter channel.
+///
+/// This runs in an interrupt context.
+pub trait I2sTxCallback {
+    /// Called when an I2S DMA buffer is finished sending.
+    ///
+    /// # Parameters
+    /// * `tx_channel`: The channel on which the event occurred.
+    /// * `event`: Data associated with the event, including the DMA buffer address and the size that just finished
+    ///   sending data.
+    ///
+    /// # Returns
+    /// Returns `true` if a high priority task has been woken upby this callback function, `false` otherwise.
+    #[allow(unused_variables)]
+    fn on_sent(&mut self, tx_channel: &I2sTxChannel<'_>, event: &I2sEvent) -> bool {
+        false
+    }
+
+    /// Called when an I2S sending queue overflows.
+    ///
+    /// # Parameters
+    /// * `tx_channel`: The channel on which the event occurred.
+    /// * `event`: Data associated with the event, including the buffer size that has been overwritten.
+    ///
+    /// # Returns
+    /// Returns `true` if a high priority task has been woken upby this callback function, `false` otherwise.
+    #[allow(unused_variables)]
+    fn on_send_queue_overflow(&mut self, tx_channel: &I2sTxChannel<'_>, event: &I2sEvent) -> bool {
+        false
+    }
+}
+
+pub type I2sEvent = i2s_event_data_t;
 
 macro_rules! impl_i2s {
     ($i2s:ident: $port:expr) => {
