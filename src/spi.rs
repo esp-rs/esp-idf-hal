@@ -32,7 +32,7 @@
 
 use core::borrow::{Borrow, BorrowMut};
 use core::cell::UnsafeCell;
-use core::cmp::{max, min, Ordering};
+use core::cmp::{min, Ordering};
 use core::marker::PhantomData;
 use core::ptr;
 
@@ -266,7 +266,7 @@ impl<T> SpiBusDriver<T> {
     }
 
     pub fn read(&mut self, words: &mut [u8]) -> Result<(), EspError> {
-        let mut it = words.chunks_mut(self.trans_len).into_iter().peekable();
+        let mut it = words.chunks_mut(self.trans_len).peekable();
         while let Some(read_chunk) = it.next() {
             self.polling_transmit(
                 read_chunk.as_mut_ptr(),
@@ -281,7 +281,7 @@ impl<T> SpiBusDriver<T> {
     }
 
     pub fn write(&mut self, words: &[u8]) -> Result<(), EspError> {
-        let mut it = words.chunks(self.trans_len).into_iter().peekable();
+        let mut it = words.chunks(self.trans_len).peekable();
         while let Some(write_chunk) = it.next() {
             self.polling_transmit(
                 ptr::null_mut(),
@@ -310,7 +310,7 @@ impl<T> SpiBusDriver<T> {
         let common_read = read[0..common_length].chunks_mut(self.trans_len);
         let common_write = write[0..common_length].chunks(self.trans_len);
 
-        let mut it = common_read.zip(common_write).into_iter().peekable();
+        let mut it = common_read.zip(common_write).peekable();
         while let Some((read_chunk, write_chunk)) = it.next() {
             self.polling_transmit(
                 read_chunk.as_mut_ptr(),
@@ -337,7 +337,7 @@ impl<T> SpiBusDriver<T> {
     }
 
     pub fn transfer_in_place(&mut self, words: &mut [u8]) -> Result<(), EspError> {
-        let mut it = words.chunks_mut(self.trans_len).into_iter().peekable();
+        let mut it = words.chunks_mut(self.trans_len).peekable();
         while let Some(chunk) = it.next() {
             let ptr = chunk.as_mut_ptr();
             let len = chunk.len();
