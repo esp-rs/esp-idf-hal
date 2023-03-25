@@ -266,32 +266,45 @@ impl<T> SpiBusDriver<T> {
     }
 
     pub fn read(&mut self, words: &mut [u8]) -> Result<(), EspError> {
-        for chunk in words.chunks_mut(self.trans_len) {
-            self.polling_transmit(chunk.as_mut_ptr(), ptr::null(), chunk.len(), chunk.len())?;
+
+        let mut it = words.chunks_mut(self.trans_len).into_iter().peekable();
+        while let Some(read_chunk) = it.next() {
+            self.polling_transmit(read_chunk.as_mut_ptr(), ptr::null(), read_chunk.len(), read_chunk.len(), it.peek().is_some())?;
+
         }
+        
 
         Ok(())
     }
 
     pub fn write(&mut self, words: &[u8]) -> Result<(), EspError> {
-        for chunk in words.chunks(self.trans_len) {
-            self.polling_transmit(ptr::null_mut(), chunk.as_ptr(), chunk.len(), 0)?;
+        let mut it = words.chunks(self.trans_len).into_iter().peekable();
+        while let Some(write_chunk) = it.next() {
+            self.polling_transmit(ptr::null_mut(), write_chunk.as_ptr(), write_chunk.len(), 0, it.peek().is_some())?;
         }
 
         Ok(())
     }
-
+    // In non-DMA mode will internaly split the transfers every 64 bytes (max_transf_len)
+    // Note 1 : If read and write buffer are not of the same length it will
+    // first transfer the common length and then (seperatly aliend) the remaining buffer.
+    // Note 2: Expect a delaytime between every internally splitted (64byte or remainder) package
     pub fn transfer(&mut self, read: &mut [u8], write: &[u8]) -> Result<(), EspError> {
         let common_length = min(read.len(), write.len());
         let common_read = read[0..common_length].chunks_mut(self.trans_len);
         let common_write = write[0..common_length].chunks(self.trans_len);
 
-        for (read_chunk, write_chunk) in common_read.zip(common_write) {
+        let mut it = common_read.zip(common_write).into_iter().peekable();
+        while let Some((read_chunk,write_chunk)) = it.next() {
+            // here read chunk_len and write_chunk_len should always be the same length
+            // implicitly because of commen_length
+            let common_chunk_len = max(read_chunk.len(),write_chunk.len());
             self.polling_transmit(
                 read_chunk.as_mut_ptr(),
                 write_chunk.as_ptr(),
-                max(read_chunk.len(), write_chunk.len()),
-                read_chunk.len(),
+                common_chunk_len,
+                common_chunk_len,
+                it.peek().is_some(),
             )?;
         }
 
@@ -311,10 +324,11 @@ impl<T> SpiBusDriver<T> {
     }
 
     pub fn transfer_in_place(&mut self, words: &mut [u8]) -> Result<(), EspError> {
-        for chunk in words.chunks_mut(self.trans_len) {
+        let mut it = words.chunks_mut(self.trans_len).into_iter().peekable();
+        while let Some(chunk) =  it.next() {
             let ptr = chunk.as_mut_ptr();
             let len = chunk.len();
-            self.polling_transmit(ptr, ptr, len, len)?;
+            self.polling_transmit(ptr, ptr, len, len, it.peek().is_some())?;
         }
 
         Ok(())
@@ -333,6 +347,7 @@ impl<T> SpiBusDriver<T> {
         write: *const u8,
         transaction_length: usize,
         rx_length: usize,
+        keep_cs_active: bool,
     ) -> Result<(), EspError> {
         polling_transmit(
             self.handle.0,
@@ -340,13 +355,8 @@ impl<T> SpiBusDriver<T> {
             write,
             transaction_length,
             rx_length,
-            self.hardware_cs,
+            self.hardware_cs & keep_cs_active,
         )
-    }
-
-    /// Empty transaction to de-assert CS.
-    fn finish(&mut self) -> Result<(), EspError> {
-        polling_transmit(self.handle.0, ptr::null_mut(), ptr::null(), 0, 0, false)
     }
 }
 
@@ -610,13 +620,6 @@ where
 
         let trans_result = f(&mut bus);
 
-        // #99 is partially resolved by allowing software CS to ignore this bus.finish() work around
-        let finish_result = if self.with_cs_pin {
-            bus.finish()
-        } else {
-            Ok(())
-        };
-
         // Flush whatever is pending.
         // Note that this is done even when an error is returned from the transaction.
         let flush_result = bus.flush();
@@ -624,7 +627,6 @@ where
         drop(bus);
 
         let result = trans_result?;
-        finish_result?;
         flush_result?;
 
         Ok(result)
