@@ -1,5 +1,11 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 #![cfg_attr(target_arch = "xtensa", feature(asm_experimental_arch))]
+#![cfg_attr(
+    feature = "nightly",
+    feature(async_fn_in_trait),
+    feature(impl_trait_projections),
+    allow(incomplete_features)
+)]
 
 #[cfg(all(not(feature = "riscv-ulp-hal"), not(esp_idf_comp_driver_enabled)))]
 compile_error!("esp-idf-hal requires the `driver` ESP-IDF component to be enabled");

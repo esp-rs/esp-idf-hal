@@ -33,6 +33,7 @@ use esp_idf_sys::*;
 use crate::gpio::OutputPin;
 use crate::peripheral::Peripheral;
 use crate::task::CriticalSection;
+use crate::units::*;
 
 pub use chip::*;
 
@@ -47,7 +48,6 @@ static FADE_FUNC_INSTALLED_CS: CriticalSection = CriticalSection::new();
 /// Types for configuring the LED Control peripheral
 pub mod config {
     use super::*;
-    use crate::units::*;
 
     pub use chip::Resolution;
 
@@ -142,6 +142,14 @@ impl<'d> LedcTimerDriver<'d> {
     /// Resumes the operation of the previously paused timer
     pub fn resume(&mut self) -> Result<(), EspError> {
         esp!(unsafe { ledc_timer_resume(self.speed_mode.into(), self.timer()) })?;
+        Ok(())
+    }
+
+    /// Set the frequency of the timer.
+    pub fn set_frequency(&mut self, frequency: Hertz) -> Result<(), EspError> {
+        esp!(unsafe {
+            ledc_set_freq(self.speed_mode.into(), self.timer.into(), frequency.into())
+        })?;
         Ok(())
     }
 
