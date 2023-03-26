@@ -265,6 +265,10 @@ impl<T> SpiBusDriver<T> {
         })
     }
 
+    // Note: In Full-Duplex Mode
+    // The internal hardware 16*4 u8 FIFO buffer (shared for read/write) is not cleared
+    // between transactions (read/write/transfer)
+    // This can lead to rewriting the internal buffer to MOSI on a read call
     pub fn read(&mut self, words: &mut [u8]) -> Result<(), EspError> {
         let mut it = words.chunks_mut(self.trans_len).peekable();
         while let Some(read_chunk) = it.next() {
@@ -280,6 +284,10 @@ impl<T> SpiBusDriver<T> {
         Ok(())
     }
 
+    // Note: In Full-Duplex Mode
+    // The internal hardware 16*4 u8 FIFO buffer (shared for read/write) is not cleared
+    // between transactions ( read/write/transfer)
+    // This can lead to re-reading the last internal buffer MOSI msg, in case the Slave failes to send a msg
     pub fn write(&mut self, words: &[u8]) -> Result<(), EspError> {
         let mut it = words.chunks(self.trans_len).peekable();
         while let Some(write_chunk) = it.next() {
@@ -294,16 +302,15 @@ impl<T> SpiBusDriver<T> {
 
         Ok(())
     }
-    // In non-DMA mode will internaly split the transfers every 64 bytes (max_transf_len)
-    // Note 1 : If read and write buffer are not of the same length it will
-    // first transfer the common length and then (seperatly aliend) the remaining buffer.
-    // Note 2: Expect a delaytime between every internally splitted (64byte or remainder) package
+    // In non-DMA mode, it will internally split the transfers every 64 bytes (max_transf_len).
+    // Note 1: If the read and write buffers are not of the same length, it will first transfer the common length
+    // and then (separately aligned) the remaining buffer.
+    // Note 2: Expect a delay time between every internally split (64-byte or remainder) package.
 
-    // Note 3: In Half-Duplex & Half-3-Duplex Mode data will be split in 64 byte write / read sections
-    // example write: [u8;96] - read [u8; 160]
-    // package 1: write 64, read 64 -> package 2: write 32 read:32 -> package 3: write 0, read 64
-    // Note 3.1 Note that the first "package" is an 128 byte clock out while the later are respectivly 64 byte
-
+    // Note 3: In Half-Duplex & Half-3-Duplex Mode, data will be split into 64-byte write/read sections.
+    // For example, write: [u8;96] - read [u8; 160].
+    // Package 1: write 64, read 64 -> Package 2: write 32, read 32 -> Package 3: write 0, read 64.
+    // Note 3.1: Note that the first "package" is a 128-byte clock out while the later are respectively 64 bytes.
     pub fn transfer(&mut self, read: &mut [u8], write: &[u8]) -> Result<(), EspError> {
         let more_chunks = read.len() != write.len();
         let common_length = min(read.len(), write.len());
