@@ -1,5 +1,7 @@
+//! Driver for the Inter-IC Sound (I2S) peripheral(s).
+
 use crate::{
-    gpio::{IOPin, InputPin, OutputPin, Pin},
+    gpio::{IOPin, Pin},
     peripheral::Peripheral,
 };
 use core::{
@@ -33,7 +35,7 @@ pub mod config {
     use super::{I2S_ROLE_CONTROLLER, I2S_ROLE_TARGET};
     use crate::{
         gpio::{IOPin, InputPin, OutputPin, Pin},
-        peripheral::{Peripheral, PeripheralRef},
+        peripheral::PeripheralRef,
     };
     use core::convert::TryFrom;
     use esp_idf_sys::{
@@ -49,9 +51,9 @@ pub mod config {
     pub enum ChanConfig<'a, Bclk, Din, Dout, Mclk, Ws>
     where
         Bclk: Pin + IOPin + 'static,
-        Din: Pin + InputPin + 'static,
-        Dout: Pin + OutputPin + 'static,
-        Mclk: Pin + OutputPin + 'static,
+        Din: MaybePin + 'static,
+        Dout: MaybePin + 'static,
+        Mclk: MaybePin + 'static,
         Ws: Pin + IOPin + 'static,
     {
         /// Standard mode channel configuration.
@@ -129,16 +131,16 @@ pub mod config {
     #[derive(Clone)]
     pub struct Config {
         /// The role of this channel: controller (master) or target (slave)
-        role: Role,
+        pub(super) role: Role,
 
         /// The DMA buffer number to use (also the DMA descriptor number).
-        dma_desc: u32,
+        pub(super) dma_desc: u32,
 
         /// The number of I2S frames in one DMA buffer.
-        dma_frame: u32,
+        pub(super) dma_frame: u32,
 
         /// If true, the transmit buffer will be automatically cleared upon sending.
-        auto_clear: bool,
+        pub(super) auto_clear: bool,
 
         /// The channels to open.
         pub(super) channels: ChannelOpen,
@@ -195,6 +197,14 @@ pub mod config {
             self
         }
 
+        /// Set the channels to open.
+        #[must_use]
+        #[inline(always)]
+        pub fn channels(mut self, channels: ChannelOpen) -> Self {
+            self.channels = channels;
+            self
+        }
+
         /// Convert to the ESP-IDF SDK `i2s_chan_config_t` representation.
         #[inline(always)]
         pub(super) fn as_sdk(&self, id: i2s_port_t) -> i2s_chan_config_t {
@@ -222,6 +232,18 @@ pub mod config {
 
         /// Channel data bit width is 32 bits.
         Bits32,
+    }
+
+    impl From<DataBitWidth> for u32 {
+        #[inline(always)]
+        fn from(value: DataBitWidth) -> Self {
+            match value {
+                DataBitWidth::Bits8 => 8,
+                DataBitWidth::Bits16 => 16,
+                DataBitWidth::Bits24 => 24,
+                DataBitWidth::Bits32 => 32,
+            }
+        }
     }
 
     impl DataBitWidth {
@@ -441,9 +463,9 @@ pub mod config {
     pub struct StdChanConfig<Bclk, Din, Dout, Mclk, Ws>
     where
         Bclk: Pin + IOPin + 'static,
-        Din: Pin + InputPin + 'static,
-        Dout: Pin + OutputPin + 'static,
-        Mclk: Pin + OutputPin + 'static,
+        Din: MaybePin + 'static,
+        Dout: MaybePin + 'static,
+        Mclk: MaybePin + 'static,
         Ws: Pin + IOPin + 'static,
     {
         /// Standard mode channel clock configuration.
@@ -459,11 +481,25 @@ pub mod config {
     impl<Bclk, Din, Dout, Mclk, Ws> StdChanConfig<Bclk, Din, Dout, Mclk, Ws>
     where
         Bclk: Pin + IOPin + 'static,
-        Din: Pin + InputPin + 'static,
-        Dout: Pin + OutputPin + 'static,
-        Mclk: Pin + OutputPin + 'static,
+        Din: MaybePin + 'static,
+        Dout: MaybePin + 'static,
+        Mclk: MaybePin + 'static,
         Ws: Pin + IOPin + 'static,
     {
+        /// Create a new standard mode channel configuration from the given clock configuration, slot configuration,
+        /// and GPIO configuration.
+        pub fn new(
+            clk_cfg: StdClkConfig,
+            slot_cfg: StdSlotConfig,
+            gpio_cfg: StdGpioConfig<Bclk, Din, Dout, Mclk, Ws>,
+        ) -> Self {
+            Self {
+                clk_cfg,
+                slot_cfg,
+                gpio_cfg,
+            }
+        }
+
         /// Convert to the ESP-IDF SDK `i2s_std_config_t` representation.
         #[inline(always)]
         pub(crate) fn as_sdk(&self) -> i2s_std_config_t {
@@ -479,9 +515,9 @@ pub mod config {
         for ChanConfig<'a, Bclk, Din, Dout, Mclk, Ws>
     where
         Bclk: Pin + IOPin + 'static,
-        Din: Pin + InputPin + 'static,
-        Dout: Pin + OutputPin + 'static,
-        Mclk: Pin + OutputPin + 'static,
+        Din: MaybePin + 'static,
+        Dout: MaybePin + 'static,
+        Mclk: MaybePin + 'static,
         Ws: Pin + IOPin + 'static,
     {
         #[inline(always)]
@@ -533,13 +569,13 @@ pub mod config {
     pub struct StdGpioConfig<Bclk, Din, Dout, Mclk, Ws>
     where
         Bclk: Pin + IOPin + 'static,
-        Din: Pin + InputPin + 'static,
-        Dout: Pin + OutputPin + 'static,
-        Mclk: Pin + OutputPin + 'static,
+        Din: MaybePin + 'static,
+        Dout: MaybePin + 'static,
+        Mclk: MaybePin + 'static,
         Ws: Pin + IOPin + 'static,
     {
         /// MCLK (master/controller clock) pin. Optional output.
-        mclk: Option<PeripheralRef<'static, Mclk>>,
+        mclk: Mclk,
 
         /// BCLK (bit clock) pin. Input in target/slave mode, output in controller/master mode.
         bclk: PeripheralRef<'static, Bclk>,
@@ -548,10 +584,10 @@ pub mod config {
         ws: PeripheralRef<'static, Ws>,
 
         /// Data output pin.
-        data_out: Option<PeripheralRef<'static, Dout>>,
+        data_out: Dout,
 
         /// Data input pin.
-        data_in: Option<PeripheralRef<'static, Din>>,
+        data_in: Din,
 
         /// Invert the MCLK signal.
         mclk_invert: bool,
@@ -566,41 +602,11 @@ pub mod config {
     impl<Bclk, Din, Dout, Mclk, Ws> StdGpioConfig<Bclk, Din, Dout, Mclk, Ws>
     where
         Bclk: Pin + IOPin + 'static,
-        Din: Pin + InputPin + 'static,
-        Dout: Pin + OutputPin + 'static,
-        Mclk: Pin + OutputPin + 'static,
+        Din: MaybePin + 'static,
+        Dout: MaybePin + 'static,
+        Mclk: MaybePin + 'static,
         Ws: Pin + IOPin + 'static,
     {
-        #[allow(clippy::too_many_arguments)]
-        pub fn new<BclkP, DinP, DoutP, MclkP, WsP>(
-            bclk: BclkP,
-            data_in: Option<DinP>,
-            data_out: Option<DoutP>,
-            mclk: Option<MclkP>,
-            ws: WsP,
-            bclk_invert: bool,
-            mclk_invert: bool,
-            ws_invert: bool,
-        ) -> Self
-        where
-            BclkP: Peripheral<P = Bclk> + 'static,
-            DinP: Peripheral<P = Din> + 'static,
-            DoutP: Peripheral<P = Dout> + 'static,
-            MclkP: Peripheral<P = Mclk> + 'static,
-            WsP: Peripheral<P = Ws> + 'static,
-        {
-            Self {
-                mclk: mclk.map(|mclk| mclk.into_ref()),
-                bclk: bclk.into_ref(),
-                ws: ws.into_ref(),
-                data_out: data_out.map(|data_out| data_out.into_ref()),
-                data_in: data_in.map(|data_in| data_in.into_ref()),
-                mclk_invert,
-                bclk_invert,
-                ws_invert,
-            }
-        }
-
         /// Convert to the ESP-IDF SDK `i2s_std_gpio_config_t` representation.
         pub(crate) fn as_sdk(&self) -> i2s_std_gpio_config_t {
             let invert_flags = i2s_std_gpio_config_t__bindgen_ty_1 {
@@ -613,24 +619,206 @@ pub mod config {
             };
 
             i2s_std_gpio_config_t {
-                mclk: if let Some(mclk) = &self.mclk {
-                    mclk.pin()
-                } else {
-                    -1
-                },
+                mclk: self.mclk.pin(),
                 bclk: self.bclk.pin(),
                 ws: self.ws.pin(),
-                dout: if let Some(data_out) = &self.data_out {
-                    data_out.pin()
-                } else {
-                    -1
-                },
-                din: if let Some(data_in) = &self.data_in {
-                    data_in.pin()
-                } else {
-                    -1
-                },
+                dout: self.data_out.pin(),
+                din: self.data_in.pin(),
                 invert_flags,
+            }
+        }
+    }
+
+    /// Incremental builder for a standard mode GPIO configuration.
+    pub struct StdGpioConfigBuilder<Bclk, Din, Dout, Mclk, Ws> {
+        bclk: Bclk,
+        data_in: Din,
+        data_out: Dout,
+        mclk: Mclk,
+        ws: Ws,
+        bclk_invert: bool,
+        mclk_invert: bool,
+        ws_invert: bool,
+    }
+
+    impl Default for StdGpioConfigBuilder<(), (), (), (), ()> {
+        fn default() -> Self {
+            Self {
+                bclk: (),
+                data_in: (),
+                data_out: (),
+                mclk: (),
+                ws: (),
+                bclk_invert: false,
+                mclk_invert: false,
+                ws_invert: false,
+            }
+        }
+    }
+
+    impl<Din, Dout, Mclk, Ws> StdGpioConfigBuilder<(), Din, Dout, Mclk, Ws> {
+        /// Set the bit clock (BCK) pin.
+        ///
+        /// This must be called before calling [StdGpioConfigBuilder::build].
+        #[must_use]
+        #[inline(always)]
+        pub fn bclk<Bclk: Pin + IOPin + 'static>(
+            self,
+            bclk: Bclk,
+        ) -> StdGpioConfigBuilder<PeripheralRef<'static, Bclk>, Din, Dout, Mclk, Ws> {
+            StdGpioConfigBuilder {
+                bclk: bclk.into_ref(),
+                data_in: self.data_in,
+                data_out: self.data_out,
+                mclk: self.mclk,
+                ws: self.ws,
+                bclk_invert: self.bclk_invert,
+                mclk_invert: self.mclk_invert,
+                ws_invert: self.ws_invert,
+            }
+        }
+    }
+
+    impl<Bclk, Dout, Mclk, Ws> StdGpioConfigBuilder<Bclk, (), Dout, Mclk, Ws> {
+        /// Set the data input (DIN) pin.
+        #[must_use]
+        #[inline(always)]
+        pub fn data_in<Din: Pin + InputPin + 'static>(
+            self,
+            data_in: Din,
+        ) -> StdGpioConfigBuilder<Bclk, PeripheralRef<'static, Din>, Dout, Mclk, Ws> {
+            StdGpioConfigBuilder {
+                bclk: self.bclk,
+                data_in: data_in.into_ref(),
+                data_out: self.data_out,
+                mclk: self.mclk,
+                ws: self.ws,
+                bclk_invert: self.bclk_invert,
+                mclk_invert: self.mclk_invert,
+                ws_invert: self.ws_invert,
+            }
+        }
+    }
+
+    impl<Bclk, Din, Mclk, Ws> StdGpioConfigBuilder<Bclk, Din, (), Mclk, Ws> {
+        /// Set the data output (DOUT) pin.
+        #[must_use]
+        #[inline(always)]
+        pub fn data_out<Dout: Pin + OutputPin + 'static>(
+            self,
+            data_out: Dout,
+        ) -> StdGpioConfigBuilder<Bclk, Din, PeripheralRef<'static, Dout>, Mclk, Ws> {
+            StdGpioConfigBuilder {
+                bclk: self.bclk,
+                data_in: self.data_in,
+                data_out: data_out.into_ref(),
+                mclk: self.mclk,
+                ws: self.ws,
+                bclk_invert: self.bclk_invert,
+                mclk_invert: self.mclk_invert,
+                ws_invert: self.ws_invert,
+            }
+        }
+    }
+
+    impl<Bclk, Din, Dout, Ws> StdGpioConfigBuilder<Bclk, Din, Dout, (), Ws> {
+        /// Set the master clock (MCK) pin.
+        #[must_use]
+        #[inline(always)]
+        pub fn mclk<Mclk: Pin + OutputPin + 'static>(
+            self,
+            mclk: Mclk,
+        ) -> StdGpioConfigBuilder<Bclk, Din, Dout, PeripheralRef<'static, Mclk>, Ws> {
+            StdGpioConfigBuilder {
+                bclk: self.bclk,
+                data_in: self.data_in,
+                data_out: self.data_out,
+                mclk: mclk.into_ref(),
+                ws: self.ws,
+                bclk_invert: self.bclk_invert,
+                mclk_invert: self.mclk_invert,
+                ws_invert: self.ws_invert,
+            }
+        }
+    }
+
+    impl<Bclk, Din, Dout, Mclk> StdGpioConfigBuilder<Bclk, Din, Dout, Mclk, ()> {
+        /// Set the word select (WS) pin.
+        ///
+        /// This must be called before calling [StdGpioConfigBuilder::build].
+        #[must_use]
+        #[inline(always)]
+        pub fn ws<Ws: Pin + IOPin + 'static>(
+            self,
+            ws: Ws,
+        ) -> StdGpioConfigBuilder<Bclk, Din, Dout, Mclk, PeripheralRef<'static, Ws>> {
+            StdGpioConfigBuilder {
+                bclk: self.bclk,
+                data_in: self.data_in,
+                data_out: self.data_out,
+                mclk: self.mclk,
+                ws: ws.into_ref(),
+                bclk_invert: self.bclk_invert,
+                mclk_invert: self.mclk_invert,
+                ws_invert: self.ws_invert,
+            }
+        }
+    }
+
+    impl<Bclk, Din, Dout, Mclk, Ws> StdGpioConfigBuilder<Bclk, Din, Dout, Mclk, Ws> {
+        /// Set the inversion state of the bit clock (BCK) pin.
+        #[must_use]
+        #[inline(always)]
+        pub fn bclk_invert(mut self, bclk_invert: bool) -> Self {
+            self.bclk_invert = bclk_invert;
+            self
+        }
+
+        /// Set the inversion state of the master clock (MCK) pin.
+        #[must_use]
+        #[inline(always)]
+        pub fn mclk_invert(mut self, mclk_invert: bool) -> Self {
+            self.mclk_invert = mclk_invert;
+            self
+        }
+
+        /// Set the inversion state of the word select (WS) pin.
+        #[must_use]
+        #[inline(always)]
+        pub fn ws_invert(mut self, ws_invert: bool) -> Self {
+            self.ws_invert = ws_invert;
+            self
+        }
+    }
+
+    impl<Bclk, Din, Dout, Mclk, Ws>
+        StdGpioConfigBuilder<
+            PeripheralRef<'static, Bclk>,
+            Din,
+            Dout,
+            Mclk,
+            PeripheralRef<'static, Ws>,
+        >
+    where
+        Bclk: Pin + IOPin + 'static,
+        Din: MaybePin + 'static,
+        Dout: MaybePin + 'static,
+        Mclk: MaybePin + 'static,
+        Ws: Pin + IOPin + 'static,
+    {
+        /// Create a new standard mode GPIO configuration.
+        ///
+        /// This will panic if the BCK or WS pins have not been set.
+        pub fn build(self) -> StdGpioConfig<Bclk, Din, Dout, Mclk, Ws> {
+            StdGpioConfig {
+                bclk: self.bclk,
+                data_in: self.data_in,
+                data_out: self.data_out,
+                mclk: self.mclk,
+                ws: self.ws,
+                bclk_invert: self.bclk_invert,
+                mclk_invert: self.mclk_invert,
+                ws_invert: self.ws_invert,
             }
         }
     }
@@ -690,7 +878,7 @@ pub mod config {
                 slot_bit_width: SlotBitWidth::Auto,
                 slot_mode,
                 slot_mask,
-                ws_width: bits_per_sample as u32,
+                ws_width: bits_per_sample.into(),
                 ws_polarity: false,
                 bit_shift: true,
                 #[cfg(esp32)]
@@ -748,7 +936,7 @@ pub mod config {
                 slot_bit_width: SlotBitWidth::Auto,
                 slot_mode,
                 slot_mask,
-                ws_width: bits_per_sample as u32,
+                ws_width: bits_per_sample.into(),
                 ws_polarity: false,
                 bit_shift: false,
                 #[cfg(esp32)]
@@ -911,6 +1099,22 @@ pub mod config {
             }
         }
     }
+
+    pub trait MaybePin {
+        fn pin(&self) -> i32;
+    }
+
+    impl MaybePin for () {
+        fn pin(&self) -> i32 {
+            -1
+        }
+    }
+
+    impl<T: Pin> MaybePin for PeripheralRef<'static, T> {
+        fn pin(&self) -> i32 {
+            <T as Pin>::pin(self)
+        }
+    }
 }
 
 pub trait I2s: Send {
@@ -989,7 +1193,7 @@ impl<'d> I2sDriver<'d> {
 
         // Safety: &ll_config is a valid pointer to an i2s_chan_config_t. rx_p and tx_p are either valid pointers to
         // the internal.rx_chan_handle and internal.tx_chan_handle, or null.
-        unsafe { esp!(i2s_new_channel(&ll_config, rx_p, tx_p))? };
+        unsafe { esp!(i2s_new_channel(&ll_config, tx_p, rx_p))? };
 
         // At this point, everything except the available atomics is initialized. Initialize the atomics with Release
         // ordering to ensure the above values are visible to other threads.
@@ -1031,9 +1235,9 @@ impl<'d> I2sDriver<'d> {
     where
         C: Into<config::ChanConfig<'c, Bclk, Din, Dout, Mclk, Ws>>,
         Bclk: Pin + IOPin + 'static,
-        Din: Pin + InputPin + 'static,
-        Dout: Pin + OutputPin + 'static,
-        Mclk: Pin + OutputPin + 'static,
+        Din: config::MaybePin + 'static,
+        Dout: config::MaybePin + 'static,
+        Mclk: config::MaybePin + 'static,
         Ws: Pin + IOPin + 'static,
     {
         // Make sure the channel is available. Acquire to ensure the release in ::new is visible to us.
@@ -1088,9 +1292,9 @@ impl<'d> I2sDriver<'d> {
     where
         C: Into<config::ChanConfig<'c, Bclk, Din, Dout, Mclk, Ws>>,
         Bclk: Pin + IOPin + 'static,
-        Din: Pin + InputPin + 'static,
-        Dout: Pin + OutputPin + 'static,
-        Mclk: Pin + OutputPin + 'static,
+        Din: config::MaybePin + 'static,
+        Dout: config::MaybePin + 'static,
+        Mclk: config::MaybePin + 'static,
         Ws: Pin + IOPin + 'static,
     {
         // Make sure the channel is available. Acquire to ensure the release in ::new is visible to us.
