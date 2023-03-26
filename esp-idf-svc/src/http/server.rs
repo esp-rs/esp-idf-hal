@@ -755,7 +755,7 @@ impl<'a> EspHttpConnection<'a> {
     where
         E: Display,
     {
-        if self.response_headers.is_some() {
+        if self.headers.is_some() {
             info!(
                 "About to handle internal error [{}], response not sent yet",
                 &error
