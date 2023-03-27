@@ -34,9 +34,12 @@ use core::borrow::{Borrow, BorrowMut};
 use core::cell::UnsafeCell;
 use core::cmp::{max, min, Ordering};
 use core::marker::PhantomData;
-use core::ptr;
+use core::{ptr, u8};
 
-use embedded_hal::spi::{Operation, SpiBus, SpiBusFlush, SpiBusRead, SpiBusWrite, SpiDevice, SpiDeviceRead,SpiDeviceWrite};
+use embedded_hal::spi::{
+    Operation, SpiBus, SpiBusFlush, SpiBusRead, SpiBusWrite, SpiDevice, SpiDeviceRead,
+    SpiDeviceWrite,
+};
 
 use esp_idf_sys::*;
 
@@ -345,11 +348,6 @@ impl<T> SpiBusDriver<T> {
             self.hardware_cs && self.keep_cs_active,
         )
     }
-
-    /// Empty transaction to de-assert CS.
-    fn finish(&mut self) -> Result<(), EspError> {
-        polling_transmit(self.handle.0, ptr::null_mut(), ptr::null(), 0, 0, false)
-    }
 }
 
 impl<T> embedded_hal::spi::ErrorType for SpiBusDriver<T> {
@@ -592,46 +590,6 @@ where
         self.handle.0
     }
 
-    /* pub fn transaction<R, E>(
-           &mut self,
-           f: impl FnOnce(&mut SpiBusDriver<()>) -> Result<R, E>,
-       ) -> Result<R, E>
-       where
-           E: From<EspError>,
-       {
-           // if DMA used -> get trans length info from driver
-           let trans_len = self.driver.borrow().max_transfer_size;
-
-           let mut bus = SpiBusDriver {
-               _lock: self.lock_bus()?,
-               handle: Device(self.handle.0, false),
-               _driver: (),
-               trans_len,
-               hardware_cs: self.with_cs_pin,
-           };
-
-           let trans_result = f(&mut bus);
-
-           // #99 is partially resolved by allowing software CS to ignore this bus.finish() work around
-           let finish_result = if self.with_cs_pin {
-               bus.finish()
-           } else {
-               Ok(())
-           };
-
-           // Flush whatever is pending.
-           // Note that this is done even when an error is returned from the transaction.
-           let flush_result = bus.flush();
-
-           drop(bus);
-
-           let result = trans_result?;
-           finish_result?;
-           flush_result?;
-
-           Ok(result)
-       }
-    */
     pub fn transaction<E>(&mut self, operations: &mut [Operation<'_, u8>]) -> Result<(), E>
     where
         E: From<EspError>,
@@ -649,9 +607,7 @@ where
         };
 
         let mut op_result = Ok(());
-        //let read_buf:[u8;24] = [0;24];
-        //let write_buf:[u8;24] = [0;24];
-        //let text = [Operation::Transfer(&read_buf, &write_buf);24];
+
         let mut it = operations.into_iter().peekable();
         while let Some(op) = it.next() {
             if it.peek().is_none() {
@@ -666,7 +622,7 @@ where
                 op_result = Err(e);
                 break;
             };
-        };
+        }
 
         // Flush whatever is pending.
         // Note that this is done even when an error is returned from the transaction.
@@ -681,7 +637,7 @@ where
     }
 
     pub fn transfer(&mut self, read: &mut [u8], write: &[u8]) -> Result<(), EspError> {
-        self.transaction(&mut [Operation::Transfer(read,write)])
+        self.transaction(&mut [Operation::Transfer(read, write)])
     }
 
     pub fn write(&mut self, write: &[u8]) -> Result<(), EspError> {
@@ -712,13 +668,47 @@ where
     T: Borrow<SpiDriver<'d>> + 'd,
 {
     fn read_transaction(&mut self, operations: &mut [&mut [u8]]) -> Result<(), Self::Error> {
+        // if DMA used -> get trans length info from driver
+        let trans_len = self.driver.borrow().max_transfer_size;
+        let mut bus = SpiBusDriver {
+            _lock: self.lock_bus()?,
+            handle: Device(self.handle.0, false),
+            _driver: (),
+            trans_len,
+            hardware_cs: self.with_cs_pin,
+            keep_cs_active: true,
+        };
+
+        let mut op_result = Ok(());
+
+        let mut it = operations.into_iter().peekable();
+        while let Some(op) = it.next() {
+            if it.peek().is_none() {
+                bus.keep_cs_active = false;
+            }
+            if let Err(e) = match op {
+                words => bus.read(words),
+            } {
+                op_result = Err(e);
+                break;
+            };
+        }
+
+        // Flush whatever is pending.
+        // Note that this is done even when an error is returned from the transaction.
+        let flush_result = bus.flush();
+
+        drop(bus);
+
+        flush_result?;
+        op_result?;
+
         Ok(())
     }
 
     fn read(&mut self, buf: &mut [u8]) -> Result<(), Self::Error> {
-        Ok(())
+        self.read_transaction(&mut [buf])
     }
-
 }
 
 impl<'d, T> SpiDeviceWrite for SpiDeviceDriver<'d, T>
@@ -726,28 +716,53 @@ where
     T: Borrow<SpiDriver<'d>> + 'd,
 {
     fn write_transaction(&mut self, operations: &[&[u8]]) -> Result<(), Self::Error> {
+        // if DMA used -> get trans length info from driver
+        let trans_len = self.driver.borrow().max_transfer_size;
+        let mut bus = SpiBusDriver {
+            _lock: self.lock_bus()?,
+            handle: Device(self.handle.0, false),
+            _driver: (),
+            trans_len,
+            hardware_cs: self.with_cs_pin,
+            keep_cs_active: true,
+        };
+
+        let mut op_result = Ok(());
+
+        let mut it = operations.into_iter().peekable();
+        while let Some(op) = it.next() {
+            if it.peek().is_none() {
+                bus.keep_cs_active = false;
+            }
+            if let Err(e) = match op {
+                words => bus.write(words),
+            } {
+                op_result = Err(e);
+                break;
+            };
+        }
+
+        // Flush whatever is pending.
+        // Note that this is done even when an error is returned from the transaction.
+        let flush_result = bus.flush();
+
+        drop(bus);
+
+        flush_result?;
+        op_result?;
+
         Ok(())
     }
 
     fn write(&mut self, buf: &[u8]) -> Result<(), Self::Error> {
-        Ok(())
+        self.write_transaction(&[buf])
     }
-
 }
-
 
 impl<'d, T> SpiDevice for SpiDeviceDriver<'d, T>
 where
     T: Borrow<SpiDriver<'d>> + 'd,
 {
-    //    type Bus = SpiBusDriver<()>;
-    //
-    //    fn transaction<R>(
-    //        &mut self,
-    //        f: impl FnOnce(&mut Self::Bus) -> Result<R, <Self::Bus as embedded_hal::spi::ErrorType>::Error>,
-    //    ) -> Result<R, Self::Error> {
-    //        Self::transaction(self, f)
-    //    }
     fn transaction(&mut self, operations: &mut [Operation<'_, u8>]) -> Result<(), Self::Error> {
         Self::transaction(self, operations)
     }
@@ -837,8 +852,7 @@ where
     }
 }
 
-
-// TODO make this useful
+// TODO make this a thing
 //pub struct V02Operation<T>(pub T);
 //
 //impl From<&mut V02Operation<embedded_hal_0_2::blocking::spi::Operation<'_,u8>>> for &mut embedded_hal::spi::Operation<'_,u8> {
@@ -850,7 +864,6 @@ where
 //    }
 //}
 
-
 impl<'d, T> embedded_hal_0_2::blocking::spi::Transactional<u8> for SpiDeviceDriver<'d, T>
 where
     T: Borrow<SpiDriver<'d>> + 'd,
@@ -861,12 +874,12 @@ where
         &mut self,
         operations: &mut [embedded_hal_0_2::blocking::spi::Operation<'_, u8>],
     ) -> Result<(), Self::Error> {
-
         for op in operations {
             match op {
                 embedded_hal_0_2::blocking::spi::Operation::Write(write) => self.write(write)?,
-                embedded_hal_0_2::blocking::spi::Operation::Transfer(words) => self.transfer_in_place(words)?,
-                
+                embedded_hal_0_2::blocking::spi::Operation::Transfer(words) => {
+                    self.transfer_in_place(words)?
+                }
             }
         }
         Ok(())
@@ -959,17 +972,13 @@ where
         self
     }
 
-    pub fn transaction<E>(
-        &mut self,
-        operations: &mut [Operation<'_, u8>],
-    ) -> Result<(), E>
+    pub fn transaction<E>(&mut self, operations: &mut [Operation<'_, u8>]) -> Result<(), E>
     where
         E: From<EspError>,
     {
         let cs_pin = &mut self.cs_pin;
         let pre_delay_us = self.pre_delay_us;
         let post_delay_us = self.post_delay_us;
-
 
         self.shared_device.borrow().lock(|device| {
             cs_pin.toggle()?;
@@ -991,7 +1000,7 @@ where
     }
 
     pub fn transfer(&mut self, read: &mut [u8], write: &[u8]) -> Result<(), EspError> {
-        self.transaction(&mut [Operation::Transfer(read,write)])
+        self.transaction(&mut [Operation::Transfer(read, write)])
     }
 
     pub fn write(&mut self, write: &[u8]) -> Result<(), EspError> {
@@ -1015,34 +1024,38 @@ where
     type Error = SpiError;
 }
 
-/* impl<'d, DEVICE, DRIVER> SpiDevice for SpiSoftCsDeviceDriver<'d, DEVICE, DRIVER>
-where
-    DEVICE: Borrow<SpiSharedDeviceDriver<'d, DRIVER>> + 'd,
-    DRIVER: Borrow<SpiDriver<'d>> + 'd,
-{
-    type Bus = SpiBusDriver<()>;
-
-    fn transaction<R>(
-        &mut self,
-        f: impl FnOnce(&mut Self::Bus) -> Result<R, <Self::Bus as embedded_hal::spi::ErrorType>::Error>,
-    ) -> Result<R, Self::Error> {
-        Self::transaction(self, f)
-    }
-} */
-
 impl<'d, DEVICE, DRIVER> SpiDeviceRead for SpiSoftCsDeviceDriver<'d, DEVICE, DRIVER>
 where
     DEVICE: Borrow<SpiSharedDeviceDriver<'d, DRIVER>> + 'd,
     DRIVER: Borrow<SpiDriver<'d>> + 'd,
 {
     fn read_transaction(&mut self, operations: &mut [&mut [u8]]) -> Result<(), Self::Error> {
-        Ok(())
+        let cs_pin = &mut self.cs_pin;
+        let pre_delay_us = self.pre_delay_us;
+        let post_delay_us = self.post_delay_us;
+
+        self.shared_device.borrow().lock(|device| {
+            cs_pin.toggle()?;
+
+            if let Some(delay) = pre_delay_us {
+                Ets::delay_us(delay);
+            }
+            let trans_result = device.read_transaction(operations);
+
+            if let Some(delay) = post_delay_us {
+                Ets::delay_us(delay);
+            }
+
+            cs_pin.toggle()?;
+
+            trans_result?;
+            Ok(())
+        })
     }
 
     fn read(&mut self, buf: &mut [u8]) -> Result<(), Self::Error> {
-        Ok(())
+        self.read_transaction(&mut [buf])
     }
-
 }
 
 impl<'d, DEVICE, DRIVER> SpiDeviceWrite for SpiSoftCsDeviceDriver<'d, DEVICE, DRIVER>
@@ -1051,22 +1064,39 @@ where
     DRIVER: Borrow<SpiDriver<'d>> + 'd,
 {
     fn write_transaction(&mut self, operations: &[&[u8]]) -> Result<(), Self::Error> {
-        Ok(())
+        let cs_pin = &mut self.cs_pin;
+        let pre_delay_us = self.pre_delay_us;
+        let post_delay_us = self.post_delay_us;
+
+        self.shared_device.borrow().lock(|device| {
+            cs_pin.toggle()?;
+
+            if let Some(delay) = pre_delay_us {
+                Ets::delay_us(delay);
+            }
+            let trans_result = device.write_transaction(operations);
+
+            if let Some(delay) = post_delay_us {
+                Ets::delay_us(delay);
+            }
+
+            cs_pin.toggle()?;
+
+            trans_result?;
+            Ok(())
+        })
     }
 
     fn write(&mut self, buf: &[u8]) -> Result<(), Self::Error> {
-        Ok(())
+        self.write_transaction(&[buf])
     }
-
 }
-
 
 impl<'d, DEVICE, DRIVER> SpiDevice for SpiSoftCsDeviceDriver<'d, DEVICE, DRIVER>
 where
     DEVICE: Borrow<SpiSharedDeviceDriver<'d, DRIVER>> + 'd,
     DRIVER: Borrow<SpiDriver<'d>> + 'd,
 {
-
     fn transaction(&mut self, operations: &mut [Operation<'_, u8>]) -> Result<(), Self::Error> {
         Self::transaction(self, operations)
     }
