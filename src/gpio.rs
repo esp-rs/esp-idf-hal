@@ -1106,9 +1106,22 @@ where
         Ok(PinDriver::is_low(self))
     }
 }
+use embedded_hal::digital::ErrorKind;
+use crate::embedded_hal_error;
+embedded_hal_error!(GpioError, embedded_hal::digital::Error, embedded_hal::digital::ErrorKind);
+fn to_gpio_err(err: EspError) -> GpioError {
+    GpioError::other(err)
+}
+
+//impl<'d, T: Pin, MODE> embedded_hal::digital::Error for PinDriver<'d, T, MODE> {
+//    //type Error = GpioError;
+//    //type Error= EspError;
+//    //embedded_hal_error!(I2cError, embedded_hal::digital::Error, embedded_hal::digital::ErrorKind);
+//}
 
 impl<'d, T: Pin, MODE> embedded_hal::digital::ErrorType for PinDriver<'d, T, MODE> {
-    type Error = EspError;
+    //type Error = EspError;
+    type Error = GpioError;
 }
 
 impl<'d, T: Pin, MODE> embedded_hal::digital::InputPin for PinDriver<'d, T, MODE>
@@ -1128,14 +1141,14 @@ impl<'d, T: Pin, MODE> embedded_hal_0_2::digital::v2::OutputPin for PinDriver<'d
 where
     MODE: OutputMode,
 {
-    type Error = EspError;
+    type Error = GpioError;
 
     fn set_high(&mut self) -> Result<(), Self::Error> {
-        self.set_level(Level::High)
+        self.set_level(Level::High).map_err(to_gpio_err)
     }
 
     fn set_low(&mut self) -> Result<(), Self::Error> {
-        self.set_level(Level::Low)
+        self.set_level(Level::Low).map_err(to_gpio_err)
     }
 }
 
@@ -1144,11 +1157,11 @@ where
     MODE: OutputMode,
 {
     fn set_high(&mut self) -> Result<(), Self::Error> {
-        self.set_level(Level::High)
+        self.set_level(Level::High).map_err(to_gpio_err)
     }
 
     fn set_low(&mut self) -> Result<(), Self::Error> {
-        self.set_level(Level::Low)
+        self.set_level(Level::Low).map_err(to_gpio_err)
     }
 }
 
@@ -1194,7 +1207,7 @@ where
     MODE: OutputMode,
 {
     fn toggle(&mut self) -> Result<(), Self::Error> {
-        self.set_level(Level::from(!bool::from(self.get_output_level())))
+        self.set_level(Level::from(!bool::from(self.get_output_level()))).map_err(to_gpio_err)
     }
 }
 
