@@ -123,18 +123,15 @@ impl embedded_hal_0_2::blocking::delay::DelayMs<u8> for Ets {
 }
 
 impl embedded_hal::delay::DelayUs for Ets {
-    type Error = Infallible;
+    //type Error = Infallible;
 
-    fn delay_us(&mut self, us: u32) -> Result<(), Self::Error> {
-        Ets::delay_us(us);
-
-        Ok(())
+    //fn delay_us(&mut self, us: u32) -> Result<(), Self::Error> {
+    fn delay_us(&mut self, us: u32) {
+        Ets::delay_us(us)
     }
 
-    fn delay_ms(&mut self, ms: u32) -> Result<(), Self::Error> {
-        Ets::delay_ms(ms);
-
-        Ok(())
+    fn delay_ms(&mut self, ms: u32) {
+        Ets::delay_ms(ms)
     }
 }
 
@@ -199,17 +196,14 @@ impl embedded_hal_0_2::blocking::delay::DelayMs<u8> for FreeRtos {
 }
 
 impl embedded_hal::delay::DelayUs for FreeRtos {
-    type Error = Infallible;
+    //type Error = Infallible;
 
-    fn delay_us(&mut self, us: u32) -> Result<(), Self::Error> {
-        FreeRtos::delay_us(us);
-
-        Ok(())
+    //fn delay_us(&mut self, us: u32) -> Result<(), Self::Error> {
+    fn delay_us(&mut self, us: u32){
+        FreeRtos::delay_us(us)
     }
 
-    fn delay_ms(&mut self, ms: u32) -> Result<(), Self::Error> {
-        FreeRtos::delay_ms(ms);
-
-        Ok(())
+    fn delay_ms(&mut self, ms: u32){
+        FreeRtos::delay_ms(ms)
     }
 }
