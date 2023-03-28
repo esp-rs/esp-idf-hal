@@ -540,9 +540,7 @@ impl<'d> CanDriver<'d> {
     }
 
     pub fn receive(&mut self, timeout: TickType_t) -> Result<Frame, EspError> {
-        let mut rx_msg = twai_message_t {
-            ..Default::default()
-        };
+        let mut rx_msg = Default::default();
 
         match esp_result!(unsafe { twai_receive(&mut rx_msg, timeout) }, ()) {
             Ok(_) => Ok(Frame(rx_msg)),
