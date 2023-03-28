@@ -221,6 +221,11 @@ pub mod config {
             self
         }
 
+        pub fn bit_order(mut self, bit_order: BitOrder) -> Self {
+            self.bit_order = bit_order;
+            self
+        }
+
         pub fn cs_active_high(mut self) -> Self {
             self.cs_active_high = true;
             self
