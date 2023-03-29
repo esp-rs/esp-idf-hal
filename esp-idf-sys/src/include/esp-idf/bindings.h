@@ -204,6 +204,11 @@
 #include "driver/i2s.h"
 #include "driver/ledc.h"
 #if ESP_IDF_VERSION_MAJOR > 4
+#include "driver/i2s_common.h"
+#include "driver/i2s_pdm.h"
+#include "driver/i2s_std.h"
+#include "driver/i2s_tdm.h"
+#include "driver/i2s_types.h"
 #include "driver/mcpwm_prelude.h"
 #else
 #include "driver/mcpwm.h"
