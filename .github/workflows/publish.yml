@@ -13,21 +13,23 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Setup | Checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
+
       - name: Setup | Rust
-        uses: actions-rs/toolchain@v1
+        uses: dtolnay/rust-toolchain@v1
         with:
           toolchain: ${{ env.rust_toolchain }}
-      - name: Setup | Std
-        run: rustup component add rust-src --toolchain ${{ env.rust_toolchain }}-x86_64-unknown-linux-gnu
-      - name: Setup | Default to nightly
-        run: rustup default ${{ env.rust_toolchain }}
+          components: rust-src
+
       - name: Login
         run: cargo login ${{ secrets.crates_io_token }}
+
       - name: Build | Publish
         run: export ESP_IDF_TOOLS_INSTALL_DIR=out; export ESP_IDF_SDKCONFIG_DEFAULTS=$(pwd)/.github/configs/sdkconfig.defaults; cargo publish --target riscv32imc-esp-espidf -Zbuild-std=std,panic_abort -Zbuild-std-features=panic_immediate_abort
+
       - name: Build Documentation
         run: cargo doc --features esp-idf-sys/native --target riscv32imc-esp-espidf -Zbuild-std=std,panic_abort -Zbuild-std-features=panic_immediate_abort; echo "<meta http-equiv=\"refresh\" content=\"0; url=esp_idf_hal\">" > target/riscv32imc-esp-espidf/doc/index.html; mv target/riscv32imc-esp-espidf/doc ./docs
+
       - name: Deploy Documentation
         if: ${{ github.ref == 'refs/heads/master' }}
         uses: peaceiris/actions-gh-pages@v3
@@ -35,11 +37,13 @@ jobs:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           force_orphan: true
           publish_dir: ./docs
+
       - name: Get the crate version from cargo
         run: |
           version=$(cargo metadata --format-version=1 --no-deps | jq -r ".packages[] | select(.name == \"${{env.crate_name}}\") | .version")
           echo "crate_version=$version" >> $GITHUB_ENV
           echo "${{env.crate_name}} version: $version"
+
       - name: Tag the new release
         uses: rickstaa/action-create-tag@v1
         with:

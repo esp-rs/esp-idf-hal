@@ -29,28 +29,23 @@ jobs:
           - release/v5.0
     steps:
       - name: Setup | Checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
 
       - name: Setup | libncurses5
         run: sudo apt-get install libncurses5
 
       - name: Setup | Rust
-        uses: actions-rs/toolchain@v1
+        if: matrix.target == 'riscv32imc-esp-espidf'
+        uses: dtolnay/rust-toolchain@v1
         with:
           toolchain: ${{ env.rust_toolchain }}
-          components: rustfmt, clippy
-          default: true
-        if: matrix.target == 'riscv32imc-esp-espidf'
-
-      - name: Setup | Std
-        run: rustup component add rust-src --toolchain ${{ env.rust_toolchain }}-x86_64-unknown-linux-gnu
-        if: matrix.target == 'riscv32imc-esp-espidf'
+          components: rustfmt, clippy, rust-src
 
       - name: Install Rust for Xtensa
+        if: matrix.target != 'riscv32imc-esp-espidf'
         uses: esp-rs/xtensa-toolchain@v1.5
         with:
           default: true
-        if: matrix.target != 'riscv32imc-esp-espidf'
 
       - name: Build | Fmt Check
         run: cargo fmt -- --check
@@ -89,11 +84,11 @@ jobs:
         run: cargo build --features alloc,esp-idf-sys --no-default-features --target ${{ matrix.target }} -Zbuild-std=std,panic_abort -Zbuild-std-features=panic_immediate_abort
 
       - name: Setup | ldproxy
-        uses: actions-rs/install@v0.1
-        with:
-          crate: ldproxy
-          version: latest
         if: matrix.target == 'riscv32imc-esp-espidf'
+        run: |
+          curl -L https://github.com/esp-rs/embuild/releases/latest/download/ldproxy-x86_64-unknown-linux-gnu.zip -o $HOME/.cargo/bin/ldproxy.zip
+          unzip "$HOME/.cargo/bin/ldproxy.zip" -d "$HOME/.cargo/bin/"
+          chmod a+x $HOME/.cargo/bin/ldproxy
 
       - name: Build | Examples
         env:
