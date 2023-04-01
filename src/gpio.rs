@@ -1119,7 +1119,7 @@ embedded_hal_error!(
 fn to_gpio_err(err: EspError) -> GpioError {
     GpioError::other(err)
 }
- 
+
 impl<'d, T: Pin, MODE> embedded_hal::digital::ErrorType for PinDriver<'d, T, MODE> {
     #[cfg(feature = "riscv-ulp-hal")]
     type Error = EspError;
@@ -1238,7 +1238,8 @@ where
 {
     #[cfg(not(feature = "riscv-ulp-hal"))]
     fn toggle(&mut self) -> Result<(), Self::Error> {
-        self.set_level(Level::from(!bool::from(self.get_output_level()))).map_err(to_gpio_err)
+        self.set_level(Level::from(!bool::from(self.get_output_level())))
+            .map_err(to_gpio_err)
     }
 
     #[cfg(feature = "riscv-ulp-hal")]
