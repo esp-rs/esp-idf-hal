@@ -361,6 +361,28 @@ impl<'d> embedded_hal_0_2::blocking::i2c::WriteRead for I2cDriver<'d> {
     }
 }
 
+impl<'d> embedded_hal_0_2::blocking::i2c::Transactional for I2cDriver<'d> {
+    type Error = I2cError;
+
+    fn exec<'a>(
+        &mut self,
+        address: u8,
+        operations: &mut [embedded_hal_0_2::blocking::i2c::Operation<'a>],
+    ) -> Result<(), Self::Error> {
+        for operation in operations {
+            match operation {
+                embedded_hal_0_2::blocking::i2c::Operation::Write(wr) => {
+                    self.write(address, wr, BLOCK)?
+                }
+                embedded_hal_0_2::blocking::i2c::Operation::Read(rd) => {
+                    self.read(address, rd, BLOCK)?
+                }
+            }
+        }
+        Ok(())
+    }
+}
+
 impl<'d> embedded_hal::i2c::ErrorType for I2cDriver<'d> {
     type Error = I2cError;
 }
