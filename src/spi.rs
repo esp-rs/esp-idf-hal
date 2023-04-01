@@ -590,10 +590,7 @@ where
         self.handle.0
     }
 
-    pub fn transaction<E>(&mut self, operations: &mut [Operation<'_, u8>]) -> Result<(), E>
-    where
-        E: From<EspError>,
-    {
+    pub fn transaction(&mut self, operations: &mut [Operation<'_, u8>]) -> Result<(), EspError> {
         // if DMA used -> get trans length info from driver
         let trans_len = self.driver.borrow().max_transfer_size;
 
@@ -760,7 +757,7 @@ where
     T: Borrow<SpiDriver<'d>> + 'd,
 {
     fn transaction(&mut self, operations: &mut [Operation<'_, u8>]) -> Result<(), Self::Error> {
-        Self::transaction(self, operations)
+        Self::transaction(self, operations).map_err(to_spi_err)
     }
 }
 
@@ -968,10 +965,7 @@ where
         self
     }
 
-    pub fn transaction<E>(&mut self, operations: &mut [Operation<'_, u8>]) -> Result<(), E>
-    where
-        E: From<EspError>,
-    {
+    pub fn transaction(&mut self, operations: &mut [Operation<'_, u8>]) -> Result<(), EspError> {
         let cs_pin = &mut self.cs_pin;
         let pre_delay_us = self.pre_delay_us;
         let post_delay_us = self.post_delay_us;
@@ -982,7 +976,7 @@ where
             if let Some(delay) = pre_delay_us {
                 Ets::delay_us(delay);
             }
-            let trans_result = device.transaction::<E>(operations);
+            let trans_result = device.transaction(operations);
 
             if let Some(delay) = post_delay_us {
                 Ets::delay_us(delay);
@@ -1094,7 +1088,7 @@ where
     DRIVER: Borrow<SpiDriver<'d>> + 'd,
 {
     fn transaction(&mut self, operations: &mut [Operation<'_, u8>]) -> Result<(), Self::Error> {
-        Self::transaction(self, operations)
+        Self::transaction(self, operations).map_err(to_spi_err)
     }
 }
 
