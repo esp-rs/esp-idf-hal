@@ -608,7 +608,7 @@ where
 
         let mut op_result = Ok(());
 
-        let mut it = operations.into_iter().peekable();
+        let mut it = operations.iter_mut().peekable();
         while let Some(op) = it.next() {
             if it.peek().is_none() {
                 bus.keep_cs_active = false;
@@ -681,17 +681,15 @@ where
 
         let mut op_result = Ok(());
 
-        let mut it = operations.into_iter().peekable();
+        let mut it = operations.iter_mut().peekable();
         while let Some(op) = it.next() {
             if it.peek().is_none() {
                 bus.keep_cs_active = false;
             }
-            if let Err(e) = match op {
-                words => bus.read(words),
-            } {
+            if let Err(e) = bus.read(op) {
                 op_result = Err(e);
                 break;
-            };
+            }
         }
 
         // Flush whatever is pending.
@@ -729,17 +727,15 @@ where
 
         let mut op_result = Ok(());
 
-        let mut it = operations.into_iter().peekable();
+        let mut it = operations.iter().peekable();
         while let Some(op) = it.next() {
             if it.peek().is_none() {
                 bus.keep_cs_active = false;
             }
-            if let Err(e) = match op {
-                words => bus.write(words),
-            } {
+            if let Err(e) = bus.write(op) {
                 op_result = Err(e);
                 break;
-            };
+            }
         }
 
         // Flush whatever is pending.
