@@ -27,34 +27,29 @@ jobs:
 
     steps:
       - name: Setup | Checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
 
       - name: Setup | Rust
-        uses: actions-rs/toolchain@v1
+        if: matrix.target == 'riscv32imc-esp-espidf'
+        uses: dtolnay/rust-toolchain@v1
         with:
-          default: true
           toolchain: ${{ env.rust_nightly_toolchain }}
-          components: rustfmt, clippy
-        if: matrix.target == 'riscv32imc-esp-espidf'
-
-      - name: Setup | Std
-        run: rustup component add rust-src --toolchain ${{ env.rust_nightly_toolchain }}-x86_64-unknown-linux-gnu
-        if: matrix.target == 'riscv32imc-esp-espidf'
+          components: rustfmt, clippy, rust-src
 
       - name: Install Rust for Xtensa
+        if: matrix.target != 'riscv32imc-esp-espidf'
         uses: esp-rs/xtensa-toolchain@v1.5.0
         with:
           default: true
-        if: matrix.target != 'riscv32imc-esp-espidf'
 
       - name: Build | Fmt Check
         run: cargo fmt -- --check
 
       - name: Build | Clippy (PIO)
+        if: matrix.target == 'riscv32imc-esp-espidf'
         env:
           RUSTFLAGS: "${{ '--cfg espidf_time64' }}"
         run: cargo clippy --features pio --no-deps --target ${{ matrix.target }} -Zbuild-std=std,panic_abort -Zbuild-std-features=panic_immediate_abort -- -Dwarnings
-        if: matrix.target == 'riscv32imc-esp-espidf'
 
       - name: Build | Compile (Native) / ESP-IDF V4.4
         run: cargo build --target ${{ matrix.target }} -Zbuild-std=std,panic_abort -Zbuild-std-features=panic_immediate_abort
