@@ -130,6 +130,7 @@
 
 #ifdef ESP_IDF_COMP_LWIP_ENABLED
 #include "lwip/lwip_napt.h"
+#include "lwip/sockets.h"
 #include "esp_sntp.h"
 #include "ping/ping_sock.h"
 #endif
