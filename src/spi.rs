@@ -32,9 +32,8 @@
 
 use core::borrow::{Borrow, BorrowMut};
 use core::cell::UnsafeCell;
-use core::cmp::{max, min, Ordering};
+use core::cmp::{min, Ordering};
 use core::marker::PhantomData;
-use core::ops::DerefMut;
 use core::{ptr, u8};
 
 use embedded_hal::spi::{
