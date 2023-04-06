@@ -669,7 +669,7 @@ where
         Ok(())
     }
 
-/*     pub fn transfer(&mut self, read: &mut [u8], write: &[u8]) -> Result<(), EspError> {
+    /*     pub fn transfer(&mut self, read: &mut [u8], write: &[u8]) -> Result<(), EspError> {
         self.transaction(&mut [Operation::Transfer(read, write)])
     } */
 
@@ -821,7 +821,7 @@ where
     }
 }
 
-/// Only use this in NON DMA Mode 
+/// Only use this in NON DMA Mode
 /// Reason -> All Data is chunked into max(iter.len(), 64)
 impl<'d, T> embedded_hal_0_2::blocking::spi::WriteIter<u8> for SpiDeviceDriver<'d, T>
 where
@@ -857,12 +857,12 @@ where
                 if let Some(word) = words.next() {
                     buf[offset] = word;
                     offset += 1;
-                    total_count +=1;
+                    total_count += 1;
                 } else {
                     break;
                 }
             }
-    
+
             if offset == 0 {
                 break;
             }
