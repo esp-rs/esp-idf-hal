@@ -668,9 +668,9 @@ where
         Ok(())
     }
 
-    /*     pub fn transfer(&mut self, read: &mut [u8], write: &[u8]) -> Result<(), EspError> {
+    pub fn transfer(&mut self, read: &mut [u8], write: &[u8]) -> Result<(), EspError> {
         self.transaction(&mut [Operation::Transfer(read, write)])
-    } */
+    }
 
     pub fn write(&mut self, write: &[u8]) -> Result<(), EspError> {
         self.transaction(&mut [Operation::Write(write)])
