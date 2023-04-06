@@ -848,7 +848,6 @@ where
 
         let mut words = words.into_iter().peekable();
         let mut buf = [0_u8; TRANS_LEN];
-        let mut total_count = 0_usize;
         loop {
             let mut offset = 0_usize;
 
@@ -856,7 +855,6 @@ where
                 if let Some(word) = words.next() {
                     buf[offset] = word;
                     offset += 1;
-                    total_count += 1;
                 } else {
                     break;
                 }
@@ -875,7 +873,6 @@ where
             }
         }
 
-        println!("Total count {total_count}");
         let flush_result = bus.flush();
 
         drop(bus);
@@ -1194,7 +1191,6 @@ fn polling_transmit(
 ) -> Result<(), EspError> {
     #[cfg(esp_idf_version = "4.3")]
     let flags = 0;
-    println!("Keep cs active: {_keep_cs_active}");
 
     // This unfortunately means that this implementation is incorrect for esp-idf < 4.4.
     // The CS pin should be kept active through transactions.
