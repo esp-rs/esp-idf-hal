@@ -9,7 +9,7 @@ use core::{
     ffi::c_void,
     marker::PhantomData,
     mem::{ManuallyDrop, MaybeUninit},
-    ptr::{null_mut, NonNull},
+    ptr::null_mut,
     sync::atomic::{AtomicBool, Ordering},
     time::Duration,
 };
@@ -1228,10 +1228,10 @@ impl<'d> I2sDriver<'d> {
     ///
     /// # TODO
     /// This currenly only supports the standard configuration mode.
-    pub fn open_rx_channel<'c, C, Mclk, Bclk, Ws, Dout, Din>(
+    pub fn open_rx_channel<'c, 'cb, C, Mclk, Bclk, Ws, Dout, Din>(
         &mut self,
         config: C,
-    ) -> Result<I2sRxChannel<'d>, EspError>
+    ) -> Result<I2sRxChannel<'cb, 'd>, EspError>
     where
         C: Into<config::ChanConfig<'c, Bclk, Din, Dout, Mclk, Ws>>,
         Bclk: Pin + IOPin + 'static,
@@ -1285,10 +1285,10 @@ impl<'d> I2sDriver<'d> {
     ///
     /// # TODO
     /// This currenly only supports the standard configuration mode.
-    pub fn open_tx_channel<'c, C, Mclk, Bclk, Ws, Dout, Din>(
+    pub fn open_tx_channel<'c, 'cb, C, Mclk, Bclk, Ws, Dout, Din>(
         &mut self,
         config: C,
-    ) -> Result<I2sTxChannel<'d>, EspError>
+    ) -> Result<I2sTxChannel<'cb, 'd>, EspError>
     where
         C: Into<config::ChanConfig<'c, Bclk, Din, Dout, Mclk, Ws>>,
         Bclk: Pin + IOPin + 'static,
@@ -1404,16 +1404,16 @@ pub trait I2sChannel {
     fn disable(&mut self) -> Result<(), EspError>;
 }
 
-pub struct I2sRxChannel<'d> {
+pub struct I2sRxChannel<'cb, 'd> {
     handle: i2s_chan_handle_t,
     available: *const AtomicBool,
-    callback: Option<NonNull<dyn I2sRxCallback>>,
+    callback: Option<&'cb dyn I2sRxCallback>,
     _p: PhantomData<&'d mut ()>,
 }
 
-unsafe impl<'d> Sync for I2sRxChannel<'d> {}
+unsafe impl<'cb, 'd> Sync for I2sRxChannel<'cb, 'd> {}
 
-impl<'d> Drop for I2sRxChannel<'d> {
+impl<'cb, 'd> Drop for I2sRxChannel<'cb, 'd> {
     fn drop(&mut self) {
         // Mark the channel as being available to open again.
         unsafe {
@@ -1422,7 +1422,7 @@ impl<'d> Drop for I2sRxChannel<'d> {
     }
 }
 
-impl<'d> I2sChannel for I2sRxChannel<'d> {
+impl<'cb, 'd> I2sChannel for I2sRxChannel<'cb, 'd> {
     #[inline(always)]
     unsafe fn handle(&self) -> i2s_chan_handle_t {
         self.handle
@@ -1439,7 +1439,10 @@ impl<'d> I2sChannel for I2sRxChannel<'d> {
     }
 }
 
-impl<'d> I2sRxChannel<'d> {
+impl<'cb, 'd> I2sRxChannel<'cb, 'd>
+where
+    'd: 'cb,
+{
     /// Create a new I2S receive channel.
     fn new(handle: i2s_chan_handle_t, available: *const AtomicBool) -> Self {
         Self {
@@ -1516,17 +1519,17 @@ impl<'d> I2sRxChannel<'d> {
     /// to get the size of the function body), so this is not possible.
     pub fn set_callback_handler(
         &mut self,
-        callback: *mut dyn I2sRxCallback,
+        callback: Option<&'cb dyn I2sRxCallback>,
     ) -> Result<(), EspError> {
         unsafe {
-            self.callback = NonNull::new(callback);
+            self.callback = callback;
             let callbacks = i2s_event_callbacks_t {
-                on_recv: if callback.is_null() {
+                on_recv: if self.callback.is_none() {
                     None
                 } else {
                     Some(dispatch_on_recv)
                 },
-                on_recv_q_ovf: if callback.is_null() {
+                on_recv_q_ovf: if self.callback.is_none() {
                     None
                 } else {
                     Some(dispatch_on_recv_q_ovf)
@@ -1550,14 +1553,9 @@ extern "C" fn dispatch_on_recv(
     event: *mut i2s_event_data_t,
     user_ctx: *mut c_void,
 ) -> bool {
-    let channel: &I2sRxChannel<'static> =
-        unsafe { &*(user_ctx as *const c_void as *const I2sRxChannel) };
-    if let Some(mut callback) = channel.callback {
-        unsafe {
-            callback
-                .as_mut()
-                .on_receive(channel, &*(event as *const i2s_event_data_t))
-        }
+    let channel: &I2sRxChannel<'static, 'static> = unsafe { &*(user_ctx as *const I2sRxChannel) };
+    if let Some(callback) = channel.callback {
+        unsafe { callback.on_receive(channel, &*(event as *const i2s_event_data_t)) }
     } else {
         false
     }
@@ -1569,27 +1567,22 @@ extern "C" fn dispatch_on_recv_q_ovf(
     event: *mut i2s_event_data_t,
     user_ctx: *mut c_void,
 ) -> bool {
-    let channel: &I2sRxChannel<'static> =
-        unsafe { &*(user_ctx as *const c_void as *const I2sRxChannel) };
-    if let Some(mut callback) = channel.callback {
-        unsafe {
-            callback
-                .as_mut()
-                .on_receive_queue_overflow(channel, &*(event as *const i2s_event_data_t))
-        }
+    let channel: &I2sRxChannel<'static, 'static> = unsafe { &*(user_ctx as *mut I2sRxChannel) };
+    if let Some(callback) = channel.callback {
+        unsafe { callback.on_receive_queue_overflow(channel, &*(event as *const i2s_event_data_t)) }
     } else {
         false
     }
 }
 
-pub struct I2sTxChannel<'d> {
+pub struct I2sTxChannel<'cb, 'd> {
     handle: i2s_chan_handle_t,
     available: *const AtomicBool,
-    callback: Option<NonNull<dyn I2sTxCallback>>,
+    callback: Option<&'cb dyn I2sTxCallback>,
     _p: PhantomData<&'d mut ()>,
 }
 
-impl<'d> Drop for I2sTxChannel<'d> {
+impl<'cb, 'd> Drop for I2sTxChannel<'cb, 'd> {
     fn drop(&mut self) {
         // Mark the channel as being available to open again.
         unsafe {
@@ -1598,7 +1591,7 @@ impl<'d> Drop for I2sTxChannel<'d> {
     }
 }
 
-impl<'d> I2sChannel for I2sTxChannel<'d> {
+impl<'cb, 'd> I2sChannel for I2sTxChannel<'cb, 'd> {
     #[inline(always)]
     unsafe fn handle(&self) -> i2s_chan_handle_t {
         self.handle
@@ -1615,7 +1608,10 @@ impl<'d> I2sChannel for I2sTxChannel<'d> {
     }
 }
 
-impl<'d> I2sTxChannel<'d> {
+impl<'cb, 'd> I2sTxChannel<'cb, 'd>
+where
+    'd: 'cb,
+{
     /// Create a new I2S receive channel.
     fn new(handle: i2s_chan_handle_t, available: *const AtomicBool) -> Self {
         Self {
@@ -1692,19 +1688,19 @@ impl<'d> I2sTxChannel<'d> {
     /// to get the size of the function body), so this is not possible.
     pub fn set_callback_handler(
         &mut self,
-        callback: *mut dyn I2sTxCallback,
+        callback: Option<&'d dyn I2sTxCallback>,
     ) -> Result<(), EspError> {
         unsafe {
-            self.callback = NonNull::new(callback);
+            self.callback = callback;
             let callbacks = i2s_event_callbacks_t {
                 on_recv: None,
                 on_recv_q_ovf: None,
-                on_sent: if callback.is_null() {
+                on_sent: if self.callback.is_none() {
                     None
                 } else {
                     Some(dispatch_on_sent)
                 },
-                on_send_q_ovf: if callback.is_null() {
+                on_send_q_ovf: if self.callback.is_none() {
                     None
                 } else {
                     Some(dispatch_on_send_q_ovf)
@@ -1726,14 +1722,9 @@ extern "C" fn dispatch_on_sent(
     event: *mut i2s_event_data_t,
     user_ctx: *mut c_void,
 ) -> bool {
-    let channel: &I2sTxChannel<'static> =
-        unsafe { &*(user_ctx as *const c_void as *const I2sTxChannel) };
-    if let Some(mut callback) = channel.callback {
-        unsafe {
-            callback
-                .as_mut()
-                .on_sent(channel, &*(event as *const i2s_event_data_t))
-        }
+    let channel: &I2sTxChannel<'static, 'static> = unsafe { &*(user_ctx as *mut I2sTxChannel) };
+    if let Some(callback) = channel.callback {
+        unsafe { callback.on_sent(channel, &*(event as *const i2s_event_data_t)) }
     } else {
         false
     }
@@ -1745,14 +1736,9 @@ extern "C" fn dispatch_on_send_q_ovf(
     event: *mut i2s_event_data_t,
     user_ctx: *mut c_void,
 ) -> bool {
-    let channel: &I2sTxChannel<'static> =
-        unsafe { &*(user_ctx as *const c_void as *const I2sTxChannel) };
-    if let Some(mut callback) = channel.callback {
-        unsafe {
-            callback
-                .as_mut()
-                .on_send_queue_overflow(channel, &*(event as *const i2s_event_data_t))
-        }
+    let channel: &I2sTxChannel<'static, 'static> = unsafe { &*(user_ctx as *const I2sTxChannel) };
+    if let Some(callback) = channel.callback {
+        unsafe { callback.on_send_queue_overflow(channel, &*(event as *const i2s_event_data_t)) }
     } else {
         false
     }
@@ -1772,7 +1758,7 @@ pub trait I2sRxCallback {
     /// # Returns
     /// Returns `true` if a high priority task has been woken upby this callback function, `false` otherwise.
     #[allow(unused_variables)]
-    fn on_receive(&mut self, rx_channel: &I2sRxChannel<'_>, event: &I2sEvent) -> bool {
+    fn on_receive(&self, rx_channel: &I2sRxChannel<'_, '_>, event: &I2sEvent) -> bool {
         false
     }
 
@@ -1786,8 +1772,8 @@ pub trait I2sRxCallback {
     /// Returns `true` if a high priority task has been woken upby this callback function, `false` otherwise.
     #[allow(unused_variables)]
     fn on_receive_queue_overflow(
-        &mut self,
-        rx_channel: &I2sRxChannel<'_>,
+        &self,
+        rx_channel: &I2sRxChannel<'_, '_>,
         event: &I2sEvent,
     ) -> bool {
         false
@@ -1808,7 +1794,7 @@ pub trait I2sTxCallback {
     /// # Returns
     /// Returns `true` if a high priority task has been woken upby this callback function, `false` otherwise.
     #[allow(unused_variables)]
-    fn on_sent(&mut self, tx_channel: &I2sTxChannel<'_>, event: &I2sEvent) -> bool {
+    fn on_sent(&self, tx_channel: &I2sTxChannel<'_, '_>, event: &I2sEvent) -> bool {
         false
     }
 
@@ -1821,7 +1807,7 @@ pub trait I2sTxCallback {
     /// # Returns
     /// Returns `true` if a high priority task has been woken upby this callback function, `false` otherwise.
     #[allow(unused_variables)]
-    fn on_send_queue_overflow(&mut self, tx_channel: &I2sTxChannel<'_>, event: &I2sEvent) -> bool {
+    fn on_send_queue_overflow(&self, tx_channel: &I2sTxChannel<'_, '_>, event: &I2sEvent) -> bool {
         false
     }
 }
