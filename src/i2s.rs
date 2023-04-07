@@ -346,6 +346,7 @@ pub mod config {
     impl PcmCompress {
         /// Convert to the ESP-IDF SDK `i2s_pcm_compress_t` representation.
         #[inline(always)]
+        #[allow(unused)] // TODO: remove when PCM is implemented.
         pub(super) fn as_sdk(&self) -> esp_idf_sys::i2s_pcm_compress_t {
             match self {
                 Self::Disable => 0,
@@ -383,6 +384,7 @@ pub mod config {
     impl PdmDownsample {
         /// Convert to the ESP-IDF SDK `i2s_pdm_downsample_t` representation.
         #[inline(always)]
+        #[allow(unused)] // TODO: remove when PDM is implemented.
         pub(super) fn as_sdk(&self) -> esp_idf_sys::i2s_pdm_dsr_t {
             match self {
                 Self::Samples8 => 0,
@@ -421,6 +423,7 @@ pub mod config {
     impl PdmSignalScale {
         /// Convert to the ESP-IDF SDK `i2s_pdm_signal_scale_t` representation.
         #[inline(always)]
+        #[allow(unused)] // TODO: remove when PDM is implemented.
         pub(crate) fn as_sdk(&self) -> esp_idf_sys::i2s_pdm_sig_scale_t {
             match self {
                 Self::Div2 => 0,
