@@ -270,7 +270,7 @@ impl<T> SpiBusDriver<T> {
         })
     }
 
-    // Note: In Full-Duplex Mode
+    // Full-Duplex Mode:
     // The internal hardware 16*4 u8 FIFO buffer (shared for read/write) is not cleared
     // between transactions (read/write/transfer)
     // This can lead to rewriting the internal buffer to MOSI on a read call
@@ -289,7 +289,7 @@ impl<T> SpiBusDriver<T> {
         Ok(())
     }
 
-    // Note: In Full-Duplex Mode
+    // Full-Duplex Mode:
     // The internal hardware 16*4 u8 FIFO buffer (shared for read/write) is not cleared
     // between transactions ( read/write/transfer)
     // This can lead to re-reading the last internal buffer MOSI msg, in case the Slave failes to send a msg
@@ -308,14 +308,15 @@ impl<T> SpiBusDriver<T> {
         Ok(())
     }
     // In non-DMA mode, it will internally split the transfers every 64 bytes (max_transf_len).
-    // Note 1: If the read and write buffers are not of the same length, it will first transfer the common length
+    // -1: If the read and write buffers are not of the same length, it will first transfer the common buffer length
     // and then (separately aligned) the remaining buffer.
-    // Note 2: Expect a delay time between every internally split (64-byte or remainder) package.
+    // -2: Expect a delay time between every internally split (64-byte or remainder) package.
 
-    // Note 3: In Half-Duplex & Half-3-Duplex Mode, data will be split into 64-byte write/read sections.
-    // For example, write: [u8;96] - read [u8; 160].
+    // Half-Duplex & Half-3-Duplex Mode:
+    // Data will be split into 64-byte write/read sections.
+    // Example: write: [u8;96] - read [u8; 160]
     // Package 1: write 64, read 64 -> Package 2: write 32, read 32 -> Package 3: write 0, read 64.
-    // Note 3.1: Note that the first "package" is a 128-byte clock out while the later are respectively 64 bytes.
+    // Note that the first "package" is a 128-byte clock out while the later are respectively 64 bytes.
     pub fn transfer(&mut self, read: &mut [u8], write: &[u8]) -> Result<(), EspError> {
         let more_chunks = read.len() != write.len();
         let common_length = min(read.len(), write.len());
