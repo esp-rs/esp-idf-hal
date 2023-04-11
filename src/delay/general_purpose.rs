@@ -23,6 +23,16 @@ impl Delay {
     }
 }
 
+impl embedded_hal::delay::DelayUs for Delay {
+    fn delay_us(&mut self, us: u32) {
+        Delay::delay_us(us)
+    }
+
+    fn delay_ms(&mut self, ms: u32) {
+        Delay::delay_ms(ms)
+    }
+}
+
 impl embedded_hal_0_2::blocking::delay::DelayUs<u16> for Delay {
     fn delay_us(&mut self, us: u16) {
         Delay::delay_us(us as _);
