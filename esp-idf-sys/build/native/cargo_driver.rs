@@ -60,7 +60,9 @@ pub fn build() -> Result<EspIdfBuildOutput> {
 
         // Use custom cmake for esp-idf<4.4, because we need at least cmake-3.20
         match version.as_ref().map(|v| (v.major, v.minor, v.patch)) {
-            Ok((major, minor, _)) if major >= 4 && minor >= 4 => subtools.push("cmake"),
+            Ok((major, minor, _)) if major > 4 || (major == 4 && minor >= 4) => {
+                subtools.push("cmake")
+            }
             _ => {
                 tools.push(espidf::Tools::cmake()?);
             }
