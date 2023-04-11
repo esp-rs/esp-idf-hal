@@ -241,7 +241,7 @@ pub mod thread {
 
     fn set_conf(conf: &ThreadSpawnConfiguration) -> Result<(), EspError> {
         if let Some(name) = conf.name {
-            let _str = CStr::from_bytes_until_nul(name)
+            let _str = CStr::from_bytes_with_nul(name)
                 .map_err(|_e| panic! {"Missing null byte in provided Thread-Name"});
         }
         if conf.priority as u32 >= configMAX_PRIORITIES {
