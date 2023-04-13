@@ -107,6 +107,12 @@ impl AnyIOPin {
             _p: PhantomData,
         }
     }
+
+    /// Creates an `Option<AnyIOPin>::None` for pins that are
+    /// optional in APIs.
+    pub const fn none() -> Option<Self> {
+        None
+    }
 }
 
 crate::impl_peripheral_trait!(AnyIOPin);
@@ -138,6 +144,12 @@ impl AnyInputPin {
             pin,
             _p: PhantomData,
         }
+    }
+
+    /// Creates an `Option<AnyInputPin>::None` for pins that are
+    /// optional in APIs.
+    pub const fn none() -> Option<Self> {
+        None
     }
 }
 
@@ -174,6 +186,12 @@ impl AnyOutputPin {
             pin,
             _p: PhantomData,
         }
+    }
+
+    /// Creates an `Option<AnyOutputPin>::None` for pins that are
+    /// optional in APIs.
+    pub const fn none() -> Option<Self> {
+        None
     }
 }
 
