@@ -514,10 +514,11 @@ pub trait I2sRxSupported {}
 /// ```
 /// use esp_idf_hal::i2s::{config::{StdModeConfig, DataBitWidth}, gpio::*};
 /// let std_config = StdModeConfig::philips(48000, DataBitWidth::Bits16);
-/// let bclk = unsafe { Gpio1::new() };
-/// let din = unsafe { Gpio4::new() };
+/// let periperhals = Peripherals::take().unwrap();
+/// let bclk = peripherals.pins.gpio1;
+/// let din = peripherals.pins.gpio4;
 /// let mclk = AnyIOPin::none();
-/// let ws = unsafe { Gpio2::new() };
+/// let ws = peripherals.pins.gpio2;
 /// let i2s = I2sStdModeDriver::<I2sRx>::new_rx(periperhals.i2s0, std_config, bclk, Some(din), mclk, ws, None).unwrap();
 /// ```
 pub struct I2sRx {}
@@ -532,10 +533,11 @@ pub trait I2sTxSupported {}
 /// ```
 /// use esp_idf_hal::i2s::{config::{StdModeConfig, DataBitWidth}, gpio::*};
 /// let std_config = StdModeConfig::philips(48000, DataBitWidth::Bits16);
-/// let bclk = unsafe { Gpio1::new() };
-/// let dout = unsafe { Gpio6::new() };
+/// let periperhals = Peripherals::take().unwrap();
+/// let bclk = peripherals.pins.gpio1;
+/// let dout = peripherals.pins.gpio6;
 /// let mclk = AnyIOPin::none();
-/// let ws = unsafe { Gpio2::new() };
+/// let ws = peripherals.pins.gpio2;
 /// let i2s = I2sStdModeDriver::<I2sTx>::new_tx(periperhals.i2s0, std_config, bclk, Some(dout), mclk, ws, None).unwrap();
 /// ```
 pub struct I2sTx {}
@@ -545,13 +547,14 @@ impl I2sTxSupported for I2sTx {}
 /// 
 /// Example usage:
 /// ```
-/// use esp_idf_hal::i2s::{config::{StdModeConfig, DataBitWidth}, gpio::*};
+/// use esp_idf_hal::i2s::{config::{StdModeConfig, DataBitWidth}, gpio::*, peripherals::Peripherals};
 /// let std_config = StdModeConfig::philips(48000, DataBitWidth::Bits16);
-/// let bclk = unsafe { Gpio1::new() };
-/// let din = unsafe { Gpio4::new() };
-/// let dout = unsafe { Gpio6::new() };
+/// let periperhals = Peripherals::take().unwrap();
+/// let bclk = peripherals.pins.gpio1;
+/// let din = peripherals.pins.gpio4;
+/// let dout = peripherals.pins.gpio6;
 /// let mclk = AnyIOPin::none();
-/// let ws = unsafe { Gpio2::new() };
+/// let ws = peripherals.pins.gpio2;
 /// let i2s = I2sStdModeDriver::<I2sBiDir>::new_bidir(periperhals.i2s0, std_config, bclk, Some(din), Some(dout), mclk, ws, None, None).unwrap();
 /// ```
 pub struct I2sBiDir {}
