@@ -149,6 +149,8 @@ pub fn get_idle_task(core: crate::cpu::Core) -> TaskHandle_t {
 
 #[cfg(esp_idf_comp_pthread_enabled)]
 pub mod thread {
+    use core::ffi::CStr;
+
     use esp_idf_sys::*;
 
     use crate::cpu::Core;
@@ -238,6 +240,17 @@ pub mod thread {
     }
 
     fn set_conf(conf: &ThreadSpawnConfiguration) -> Result<(), EspError> {
+        if let Some(name) = conf.name {
+            let _str = CStr::from_bytes_with_nul(name)
+                .map_err(|_e| panic! {"Missing null byte in provided Thread-Name"});
+        }
+        if conf.priority as u32 >= configMAX_PRIORITIES {
+            panic!(
+                "Thread priority {} set to high. Max: {}",
+                conf.priority,
+                configMAX_PRIORITIES - 1
+            );
+        }
         esp!(unsafe { esp_pthread_set_cfg(&conf.into()) })?;
 
         Ok(())
