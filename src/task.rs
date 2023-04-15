@@ -244,13 +244,11 @@ pub mod thread {
             let _str = CStr::from_bytes_with_nul(name)
                 .map_err(|_e| panic! {"Missing null byte in provided Thread-Name"});
         }
-        if conf.priority as u32 >= configMAX_PRIORITIES {
-            panic!(
-                "Thread priority {} set to high. Max: {}",
-                conf.priority,
-                configMAX_PRIORITIES - 1
-            );
+
+        if conf.priority < 1 || conf.priority as u32 >= configMAX_PRIORITIES {
+            panic!("Thread priority {} has to be [1 - 24]", conf.priority);
         }
+
         esp!(unsafe { esp_pthread_set_cfg(&conf.into()) })?;
 
         Ok(())
