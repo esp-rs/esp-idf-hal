@@ -23,6 +23,9 @@ experimental = ["embedded-svc/experimental"]
 embassy-time-driver = ["embassy-time"]
 embassy-time-isr-queue = ["embassy-sync", "embassy-time", "esp-idf-hal/embassy-sync"]
 
+[patch.crates-io]
+embedded-svc = { git = "https://github.com/esp-rs/embedded-svc.git" }
+
 [dependencies]
 heapless = { version = "0.7", default-features = false }
 enumset = { version = "1", default-features = false }

@@ -2,7 +2,7 @@
 use core::convert::TryInto;
 use core::ffi::c_void;
 use core::fmt::{self, Debug};
-use core::{mem, slice, time};
+use core::{slice, time};
 
 extern crate alloc;
 use alloc::boxed::Box;
@@ -566,7 +566,7 @@ impl<S> EspMqttClient<S> {
 
 impl<P> Drop for EspMqttClient<P> {
     fn drop(&mut self) {
-        let connection_state = mem::replace(&mut self.conn_state_guard, None);
+        let connection_state = self.conn_state_guard.take();
         if let Some(connection_state) = connection_state {
             connection_state.close();
         }
