@@ -154,6 +154,30 @@ pub mod config {
         }
     }
 
+    /// Specifies the order in which the bits of data should be transfered/received
+    #[derive(Copy, Clone)]
+    pub enum BitOrder {
+        /// Most significant bit first (default)
+        MsbFirst,
+        /// Least significant bit first
+        LsbFirst,
+        /// Least significant bit first, when sending
+        TxLsbFirst,
+        /// Least significant bit first, when receiving
+        RxLsbFirst,
+    }
+
+    impl BitOrder {
+        pub fn as_flags(&self) -> u32 {
+            match self {
+                Self::MsbFirst => 0,
+                Self::LsbFirst => SPI_DEVICE_BIT_LSBFIRST,
+                Self::TxLsbFirst => SPI_DEVICE_TXBIT_LSBFIRST,
+                Self::RxLsbFirst => SPI_DEVICE_RXBIT_LSBFIRST,
+            }
+        }
+    }
+
     /// SPI Device configuration
     #[derive(Copy, Clone)]
     pub struct Config {
@@ -165,6 +189,7 @@ pub mod config {
         /// See https://docs.espressif.com/projects/esp-idf/en/latest/esp32/api-reference/peripherals/spi_master.html#timing-considerations
         pub write_only: bool,
         pub duplex: Duplex,
+        pub bit_order: BitOrder,
         pub cs_active_high: bool,
         pub input_delay_ns: i32,
     }
@@ -196,6 +221,11 @@ pub mod config {
             self
         }
 
+        pub fn bit_order(mut self, bit_order: BitOrder) -> Self {
+            self.bit_order = bit_order;
+            self
+        }
+
         pub fn cs_active_high(mut self) -> Self {
             self.cs_active_high = true;
             self
@@ -215,6 +245,7 @@ pub mod config {
                 write_only: false,
                 cs_active_high: false,
                 duplex: Duplex::Full,
+                bit_order: BitOrder::MsbFirst,
                 input_delay_ns: 0,
             }
         }
@@ -243,7 +274,8 @@ impl<T> SpiBusDriver<T> {
                 SPI_DEVICE_NO_DUMMY
             } else {
                 0_u32
-            } | config.duplex.as_flags(),
+            } | config.duplex.as_flags()
+                | config.bit_order.as_flags(),
             ..Default::default()
         };
 
@@ -571,7 +603,8 @@ where
                 SPI_DEVICE_POSITIVE_CS
             } else {
                 0_u32
-            } | config.duplex.as_flags(),
+            } | config.duplex.as_flags()
+                | config.bit_order.as_flags(),
             ..Default::default()
         };
 
