@@ -1050,7 +1050,7 @@ impl<'d> RxRmtDriver<'d> {
         let mut ringbuf_handle = ptr::null_mut();
         esp!(unsafe { rmt_get_ringbuf_handle(self.channel(), &mut ringbuf_handle) })?;
 
-        if let Some((rmt_items, _)) = core::mem::replace(&mut self.next_ringbuf_item, None) {
+        if let Some((rmt_items, _)) = self.next_ringbuf_item.take() {
             unsafe {
                 vRingbufferReturnItem(ringbuf_handle, rmt_items.cast());
             }
