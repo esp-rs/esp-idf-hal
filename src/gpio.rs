@@ -2,6 +2,8 @@
 
 use core::marker::PhantomData;
 
+use enumset::EnumSetType;
+
 #[cfg(all(not(feature = "riscv-ulp-hal"), feature = "alloc"))]
 extern crate alloc;
 
@@ -81,6 +83,82 @@ pub trait DACPin: Pin {
 #[cfg(any(esp32, esp32s2, esp32s3))]
 pub trait TouchPin: Pin {
     fn touch_channel(&self) -> touch_pad_t;
+}
+
+#[derive(Debug, EnumSetType)]
+#[enumset(repr = "u32")]
+pub enum PinType {
+    InputPin,
+    OutputPin,
+    RtcPin,
+    Adc1Pin,
+    Adc2Pin,
+    DacPin,
+    TouchPin,
+}
+pub type PinTypes = enumset::EnumSet<PinType>;
+
+/// Generic Gpio pin
+pub struct AnyPin {
+    pin: i32,
+    pin_types: PinTypes,
+    _p: PhantomData<*const ()>,
+}
+
+impl AnyPin {
+    /// # Safety
+    ///
+    /// Care should be taken not to instantiate this Pin, if it is
+    /// already instantiated and used elsewhere, or if it is not set
+    /// already in the mode of operation which is being instantiated
+    pub unsafe fn new(pin: i32, pin_types: PinTypes) -> Self {
+        Self {
+            pin,
+            pin_types,
+            _p: PhantomData,
+        }
+    }
+    /// Gets a set of the types of pins this pin can be cast to
+    pub fn types(&self) -> PinTypes {
+        self.pin_types
+    }
+    /// Attempt to cast this pin to an IO pin. You can check [`AnyPin::types`] to see if this conversion will succeed.
+    pub fn try_into_input_output(self) -> Option<AnyIOPin> {
+        match self.pin_types.contains(PinType::InputPin) && self.pin_types.contains(PinType::OutputPin) {
+            true => Some(unsafe { AnyIOPin::new(self.pin) }),
+            false => None,
+        }
+    }
+    /// Attempt to cast this pin to an input pin. You can check [`AnyPin::types`] to see if this conversion will succeed.
+    pub fn try_into_input(self) -> Option<AnyInputPin> {
+        match self.pin_types.contains(PinType::InputPin) {
+            true => Some(unsafe { AnyInputPin::new(self.pin) }),
+            false => None,
+        }
+    }
+    /// Attempt to cast this pin to an output pin. You can check [`AnyPin::types`] to see if this conversion will succeed.
+    pub fn try_into_output(self) -> Option<AnyOutputPin> {
+        match self.pin_types.contains(PinType::OutputPin) {
+            true => Some(unsafe { AnyOutputPin::new(self.pin) }),
+            false => None,
+        }
+    }
+}
+
+impl From<AnyIOPin> for AnyPin {
+    fn from(pin: AnyIOPin) -> Self {
+        unsafe { AnyPin::new(pin.pin, PinType::InputPin | PinType::OutputPin) }
+    }
+}
+impl From<AnyInputPin> for AnyPin {
+    fn from(pin: AnyInputPin) -> Self {
+        unsafe { AnyPin::new(pin.pin, PinType::InputPin.into()) }
+    }
+}
+impl From<AnyOutputPin> for AnyPin {
+    fn from(pin: AnyOutputPin) -> Self {
+        unsafe { AnyPin::new(pin.pin, PinType::OutputPin.into()) }
+    }
 }
 
 /// Generic Gpio input-output pin
@@ -1599,8 +1677,35 @@ const PIN_ISR_INIT: Option<alloc::boxed::Box<dyn FnMut() + Send + 'static>> = No
 const PIN_NOTIF_INIT: crate::interrupt::asynch::HalIsrNotification =
     crate::interrupt::asynch::HalIsrNotification::new();
 
-macro_rules! impl_input {
-    ($pxi:ident: $pin:expr) => {
+macro_rules! impl_any {
+    ($pxi:ident: $pin:expr, $io:ident, $rtc: ident, $adc:ident, $dac:ident, $touch:ident) => {
+        impl From<$pxi> for AnyPin {
+            fn from(pin: $pxi) -> AnyPin {
+                let pin_types = impl_any!(@io: $io) | impl_any!(@rtc: $rtc) | impl_any!(@adc: $adc) | impl_any!(@dac: $dac);
+                unsafe { AnyPin::new(pin.pin(), pin_types) }
+            }
+        }
+    };
+
+    (@io: IO) => { PinType::InputPin | PinType::OutputPin };
+    (@io: Input) => { PinType::InputPin };
+
+    (@rtc: RTC) => { PinType::RtcPin };
+    (@rtc: NORTC) => { PinTypes::empty() };
+
+    (@adc: ADC1) => { PinType::Adc1Pin };
+    (@adc: ADC2) => { PinType::Adc2Pin };
+    (@adc: NOADC) => { PinTypes::empty() };
+
+    (@dac: DAC) => { PinType::DacPin };
+    (@dac: NODAC) => { PinTypes::empty() };
+
+    (@touch: TOUCH) => { PinType::TouchPin };
+    (@touch: NOTOUCH) => { PinTypes::empty() };
+}
+
+macro_rules! impl_input_output {
+    ($pxi:ident: $pin:expr, Input) => {
         crate::impl_peripheral!($pxi);
 
         impl Pin for $pxi {
@@ -1617,11 +1722,8 @@ macro_rules! impl_input {
             }
         }
     };
-}
-
-macro_rules! impl_input_output {
-    ($pxi:ident: $pin:expr) => {
-        impl_input!($pxi: $pin);
+    ($pxi:ident: $pin:expr, IO) => {
+        impl_input_output!($pxi: $pin, Input);
 
         impl OutputPin for $pxi {}
 
@@ -1713,16 +1815,9 @@ macro_rules! impl_touch {
 }
 
 macro_rules! pin {
-    ($pxi:ident: $pin:expr, Input, $rtc:ident: $rtcno:expr, $adc:ident: $adcno:expr, $dac:ident: $dacno:expr, $touch:ident: $touchno:expr) => {
-        impl_input!($pxi: $pin);
-        impl_rtc!($pxi: $pin, $rtc: $rtcno);
-        impl_adc!($pxi: $pin, $adc: $adcno);
-        impl_dac!($pxi: $pin, $dac: $dacno);
-        impl_touch!($pxi: $pin, $touch: $touchno);
-    };
-
-    ($pxi:ident: $pin:expr, IO, $rtc:ident: $rtcno:expr, $adc:ident: $adcno:expr, $dac:ident: $dacno:expr, $touch:ident: $touchno:expr) => {
-        impl_input_output!($pxi: $pin);
+    ($pxi:ident: $pin:expr, $io:ident, $rtc:ident: $rtcno:expr, $adc:ident: $adcno:expr, $dac:ident: $dacno:expr, $touch:ident: $touchno:expr) => {
+        impl_any!($pxi: $pin, $io, $rtc, $adc, $dac, $touch);
+        impl_input_output!($pxi: $pin, $io);
         impl_rtc!($pxi: $pin, $rtc: $rtcno);
         impl_adc!($pxi: $pin, $adc: $adcno);
         impl_dac!($pxi: $pin, $dac: $dacno);
