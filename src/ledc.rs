@@ -109,12 +109,14 @@ pub struct LedcTimerDriver<'d> {
 
 impl<'d> LedcTimerDriver<'d> {
     pub fn new<T: LedcTimer>(
-        _timer: impl Peripheral<P = T> + 'd,
+        timer: impl Peripheral<P = T> + 'd,
         config: &config::TimerConfig,
     ) -> Result<Self, EspError> {
+        crate::into_ref!(timer);
+
         let timer_config = ledc_timer_config_t {
             speed_mode: config.speed_mode.into(),
-            timer_num: T::timer(),
+            timer_num: timer.timer(),
             #[cfg(esp_idf_version_major = "4")]
             __bindgen_anon_1: ledc_timer_config_t__bindgen_ty_1 {
                 duty_resolution: config.resolution.timer_bits(),
@@ -138,7 +140,7 @@ impl<'d> LedcTimerDriver<'d> {
         esp!(unsafe { ledc_timer_config(&timer_config) })?;
 
         Ok(Self {
-            timer: T::timer() as _,
+            timer: timer.timer() as _,
             speed_mode: config.speed_mode,
             max_duty: config.resolution.max_duty(),
             _p: PhantomData,
@@ -522,7 +524,26 @@ mod chip {
 
     /// LED Control peripheral timer
     pub trait LedcTimer {
-        fn timer() -> ledc_timer_t;
+        fn timer(&self) -> ledc_timer_t;
+    }
+
+    pub struct AnyLedcTimer {
+        timer_id: ledc_timer_t,
+    }
+    impl AnyLedcTimer {
+        /// # Safety
+        ///
+        /// Care should be taken not to instantiate this timer
+        /// if it is already instantiated and used elsewhere
+        pub unsafe fn new(timer_id: ledc_timer_t) -> Self {
+            Self { timer_id }
+        }
+    }
+    crate::impl_peripheral_trait!(AnyLedcTimer);
+    impl LedcTimer for AnyLedcTimer {
+        fn timer(&self) -> ledc_timer_t {
+            self.timer_id
+        }
     }
 
     /// LED Control peripheral output channel
@@ -555,8 +576,14 @@ mod chip {
             crate::impl_peripheral!($instance);
 
             impl LedcTimer for $instance {
-                fn timer() -> ledc_timer_t {
+                fn timer(&self) -> ledc_timer_t {
                     $timer
+                }
+            }
+
+            impl From<$instance> for AnyLedcTimer {
+                fn from(_: $instance) -> Self {
+                    unsafe { Self::new($timer) }
                 }
             }
         };
