@@ -74,6 +74,13 @@ pub mod units;
 #[cfg(feature = "riscv-ulp-hal")]
 pub use crate::riscv_ulp_hal::delay;
 
+#[cfg(feature = "riscv-ulp-hal")]
+#[allow(unused_imports)]
+use crate::riscv_ulp_hal::sys::EspError;
+#[cfg(not(feature = "riscv-ulp-hal"))]
+#[allow(unused_imports)]
+use esp_idf_sys::EspError;
+
 // This is used to create `embedded_hal` compatible error structs
 // that preserve original `EspError`.
 //
@@ -85,25 +92,25 @@ macro_rules! embedded_hal_error {
         #[derive(Debug, Copy, Clone, Eq, PartialEq)]
         pub struct $error {
             kind: $kind,
-            cause: esp_idf_sys::EspError,
+            cause: EspError,
         }
 
         impl $error {
-            pub fn new(kind: $kind, cause: esp_idf_sys::EspError) -> Self {
+            pub fn new(kind: $kind, cause: EspError) -> Self {
                 Self { kind, cause }
             }
 
-            pub fn other(cause: esp_idf_sys::EspError) -> Self {
+            pub fn other(cause: EspError) -> Self {
                 Self::new(<$kind>::Other, cause)
             }
 
-            pub fn cause(&self) -> esp_idf_sys::EspError {
+            pub fn cause(&self) -> EspError {
                 self.cause
             }
         }
 
-        impl From<esp_idf_sys::EspError> for $error {
-            fn from(e: esp_idf_sys::EspError) -> Self {
+        impl From<EspError> for $error {
+            fn from(e: EspError) -> Self {
                 Self::other(e)
             }
         }
