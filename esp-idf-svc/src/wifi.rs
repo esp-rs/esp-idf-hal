@@ -421,6 +421,7 @@ impl<'d> WifiDriver<'d> {
             mgmt_sbuf_num: WIFI_MGMT_SBUF_NUM as _,
             feature_caps: unsafe { g_wifi_feature_caps },
             sta_disconnected_pm: WIFI_STA_DISCONNECTED_PM_ENABLED != 0,
+            espnow_max_encrypt_num: CONFIG_ESP_WIFI_ESPNOW_MAX_ENCRYPT_NUM as i32,
             magic: WIFI_INIT_CONFIG_MAGIC as _,
             ..Default::default()
         };
