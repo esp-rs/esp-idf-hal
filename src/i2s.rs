@@ -481,6 +481,19 @@ pub trait I2sRxChannel<'d> {
     /// Sets the receive callback for the channel.
     ///
     /// This may be called only when the channel is in the `REGISTERED` or `RUNNING` state.
+    /// 
+    /// # Bugs
+    /// This functionality appears to be fundamentally broken in ESP-IDF 5.0.*. This function is invoked by
+    /// [`i2s_dma_rx_callback`](https://github.com/espressif/esp-idf/blob/v5.0.1/components/driver/i2s/i2s_common.c#L562).
+    /// It expects the callback (or another mechanism) to mark the DMA buffer as ready for reuse, as
+    /// [`i2s_channel_read` does by calling `xQueueReceive`](https://github.com/espressif/esp-idf/blob/v5.0.1/components/driver/i2s/i2s_common.c#L1076).
+    /// Otherwise, the queue eventually fills up and [`xQueueIsQueueFullFromISR` returns true and the recieve buffer overflows](https://github.com/espressif/esp-idf/blob/v5.0.1/components/driver/i2s/i2s_common.c#L494).
+    /// 
+    /// However, it is impossible for non ESP-IDF code to call `xQueueReceive` on the queue because the queue is hidden behind the
+    /// opaque [`i2s_chan_handle_t` object](https://github.com/espressif/esp-idf/blob/v5.0.1/components/driver/include/driver/i2s_types.h#L66).
+    /// The actual definition is private in [`i2s_channel_obj_t.msg_queue`](https://github.com/espressif/esp-idf/blob/v5.0.1/components/driver/i2s/i2s_private.h#L71-L103).
+    /// 
+    /// This requires a fix in the ESP-IDF SDK to work properly.
     fn set_rx_callback<Rx: I2sRxCallback + 'static>(&mut self, callback: Rx) -> Result<(), EspError>;
 }
 
@@ -581,6 +594,19 @@ pub trait I2sTxChannel<'d> {
     /// Sets the transmit callback for the channel.
     ///
     /// This may be called only when the channel is in the `REGISTERED` or `RUNNING` state.
+    /// 
+    /// # Bugs
+    /// This functionality appears to be fundamentally broken in ESP-IDF 5.0.*. This function is invoked by
+    /// [`i2s_dma_tx_callback`](https://github.com/espressif/esp-idf/blob/v5.0.1/components/driver/i2s/i2s_common.c#L521).
+    /// It expects the callback (or another mechanism) to mark the DMA buffer as ready for reuse, as
+    /// [`i2s_channel_write` does by calling `xQueueReceive`](https://github.com/espressif/esp-idf/blob/v5.0.1/components/driver/i2s/i2s_common.c#L1038).
+    /// Otherwise, the queue eventually fills up and [`xQueueIsQueueFullFromISR` returns true and the recieve buffer overflows](https://github.com/espressif/esp-idf/blob/v5.0.1/components/driver/i2s/i2s_common.c#L523).
+    /// 
+    /// However, it is impossible for non ESP-IDF code to call `xQueueReceive` on the queue because the queue is hidden behind the
+    /// opaque [`i2s_chan_handle_t` object](https://github.com/espressif/esp-idf/blob/v5.0.1/components/driver/include/driver/i2s_types.h#L66).
+    /// The actual definition is private in [`i2s_channel_obj_t.msg_queue`](https://github.com/espressif/esp-idf/blob/v5.0.1/components/driver/i2s/i2s_private.h#L71-L103).
+    /// 
+    /// This requires a fix in the ESP-IDF SDK to work properly.
     fn set_tx_callback<Tx: I2sTxCallback + 'static>(&mut self, callback: Tx) -> Result<(), EspError>;
 }
 
