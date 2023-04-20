@@ -4,10 +4,82 @@
 ![crates.io](https://img.shields.io/crates/v/esp-idf-hal.svg)
 [![Documentation](https://img.shields.io/badge/docs-esp--rs-brightgreen)](https://esp-rs.github.io/esp-idf-hal/esp_idf_hal/index.html)
 
-* This crate is intended for usage in ESP32[-XX] embedded projects that utilize and link with the **ESP-IDF SDK**.
-* For embedded projects that don't need Rust STD support, WiFi or BLE (and thus don't link with the ESP-IDF SDK), please check [esp-hal](https://github.com/esp-rs/esp-hal).
+- Run ESP-IDF's FreeRTOS using safe Rust code
+- Provides wrappers and abstractions for ESP Peripherals like GPIO, SPI, I2C, TIMER, PWM etc..
+- Enables running Rust standard library code on a ESP
+- Contains implementations of portable embedded traits defined in the [embedded-hal](https://github.com/rust-embedded/embedded-hal) project
+- For embedded projects that don't need Rust STD support, please check [esp-hal](https://github.com/esp-rs/esp-hal).
 
-For more information, check out:
+
+
+# Getting Starded
+
+To get started quickly, you have two options:
+
+## Option 1: Zero Setup with the Wokwi Online Simulator
+
+You can use the [Wokwi online simulator](https://wokwi.com/projects/332188235906155092) to experiment with this crate.
+
+## Option 2: Use cargo-generate
+Please make sure you have installed all [prerequisites](https://github.com/esp-rs/esp-idf-template#prerequisites) first!
+### Generate
+```bash
+cargo generate --git https://github.com/esp-rs/esp-idf-template
+```
+### Build
+```bash 
+cd <your-project-name>
+cargo build
+```
+### Flash + Run + Monitor
+```bash
+cargo run
+```
+
+### Prerequisites
+
+To use this crate, you will need:
+
+1. Install Rust via rustup
+2. Install the `cargo-generate` and `ldproxy` tools via cargo
+    ```bash
+    cargo install cargo-generate ldproxy
+    ```
+3. (Linux & macOS) Install libuv
+    ```bash
+    # macOS
+    brew install libuv
+    # Debian/Ubuntu/etc.
+    apt-get install libuv-dev
+    # Fedora
+    dnf install systemd-devel
+    ```
+4. Install toolchain
+    *  For RISCV-based chips:
+        - Have Clang11 and Python 3.7 or greater installed
+        - Install the nightly Rust toolchain:
+            ```bash
+             rustup toolchain install nightly --component rust-src
+             ```
+    * For XTENSA-based chips:
+        - Install `espup` either by building it with Cargo or by downloading the binary from https://github.com/esp-rs/espup/releases
+            ```bash
+            cargo install espup
+            ```
+       - Run it
+            ```bash
+            espup install
+            ```
+
+For a comprehansive setup guide check out the [template](https://github.com/esp-rs/esp-idf-template#prerequisites) or the [book](https://esp-rs.github.io/book/)
+
+## Removing the project + toolchain
+To remove the project generated using cargo generate, simply delete the directory that was created. For the RISC-V case, no additional cleanup is needed.
+
+For the XTENSA case, you need to remove the XTENSA toolchain installed via espup. You can do this by running `espup uninstall`.
+
+# Aditional Information
+
 * The [Rust on ESP Book](https://esp-rs.github.io/book/)
 * The [embedded-hal](https://github.com/rust-embedded/embedded-hal) project
 * The [esp-hal](https://github.com/esp-rs/esp-hal) project
@@ -33,11 +105,3 @@ Please refer to the table below to determine the pins which are not recommended 
 
 _\* When using Octal Flash and/or Octal PSRAM_
 
-## Examples
-
-The examples could be built and flashed conveniently with [`cargo-espflash`](https://github.com/esp-rs/espflash/). To run `ledc_simple` on an ESP32-C3:
-```
-$ cargo espflash --release --target riscv32imc-esp-espidf --example ledc_simple --monitor /dev/ttyUSB0
-```
-
-In order to run the examples on other chips you will most likely need to adapt at least the used pins.
