@@ -1,7 +1,10 @@
 //! Driver for the Inter-IC Sound (I2S) peripheral(s).
 
-use core::{mem::MaybeUninit, time::Duration};
-use esp_idf_sys::{i2s_chan_handle_t, i2s_event_data_t, i2s_port_t, i2s_role_t, EspError};
+use core::{convert::TryInto, ffi::c_void, mem::MaybeUninit, time::Duration};
+use esp_idf_sys::{
+    esp, i2s_chan_handle_t, i2s_channel_disable, i2s_channel_enable, i2s_channel_read,
+    i2s_channel_write, i2s_event_data_t, i2s_port_t, i2s_role_t, EspError,
+};
 
 mod pcm;
 mod pdm;
@@ -382,7 +385,7 @@ pub trait I2s: Send {
 }
 
 /// Functions for receive channels.
-pub trait I2sRxChannel {
+pub trait I2sRxChannel<'d> {
     /// Return the underlying handle for the channel.
     ///
     /// # Safety
@@ -402,7 +405,9 @@ pub trait I2sRxChannel {
     ///
     /// # Errors
     /// This will return an [EspError] with `ESP_ERR_INVALID_STATE` if the channel is not in the `READY` state.
-    fn rx_enable(&mut self) -> Result<(), EspError>;
+    fn rx_enable(&mut self) -> Result<(), EspError> {
+        unsafe { esp!(i2s_channel_enable(self.rx_handle())) }
+    }
 
     /// Disable the I2S receive channel.
     ///
@@ -416,7 +421,9 @@ pub trait I2sRxChannel {
     ///
     /// # Errors
     /// This will return an [EspError] with `ESP_ERR_INVALID_STATE` if the channel is not in the `RUNNING` state.
-    fn rx_disable(&mut self) -> Result<(), EspError>;
+    fn rx_disable(&mut self) -> Result<(), EspError> {
+        unsafe { esp!(i2s_channel_disable(self.rx_handle())) }
+    }
 
     /// Read data from the channel.
     ///
@@ -424,7 +431,22 @@ pub trait I2sRxChannel {
     ///
     /// # Returns
     /// This returns the number of bytes read, or an [EspError] if an error occurred.
-    fn read(&mut self, buffer: &mut [u8], timeout_ms: Duration) -> Result<usize, EspError>;
+    fn read(&mut self, buffer: &mut [u8], timeout_ms: Duration) -> Result<usize, EspError> {
+        let mut bytes_read: usize = 0;
+        let timeout_ms: u32 = timeout_ms.as_millis().try_into().unwrap_or(u32::MAX);
+
+        unsafe {
+            esp!(i2s_channel_read(
+                self.rx_handle(),
+                buffer.as_mut_ptr() as *mut c_void,
+                buffer.len(),
+                &mut bytes_read,
+                timeout_ms
+            ))?
+        }
+
+        Ok(bytes_read)
+    }
 
     /// Read data from the channel into an uninitalized buffer.
     ///
@@ -439,11 +461,31 @@ pub trait I2sRxChannel {
         &mut self,
         buffer: &mut [MaybeUninit<u8>],
         timeout_ms: Duration,
-    ) -> Result<usize, EspError>;
+    ) -> Result<usize, EspError> {
+        let mut bytes_read: usize = 0;
+        let timeout_ms: u32 = timeout_ms.as_millis().try_into().unwrap_or(u32::MAX);
+
+        unsafe {
+            esp!(i2s_channel_read(
+                self.rx_handle(),
+                buffer.as_mut_ptr() as *mut c_void,
+                buffer.len(),
+                &mut bytes_read,
+                timeout_ms
+            ))?
+        }
+
+        Ok(bytes_read)
+    }
+
+    /// Sets the receive callback for the channel.
+    ///
+    /// This may be called only when the channel is in the `REGISTERED` or `RUNNING` state.
+    fn set_rx_callback<Rx: I2sRxCallback + 'static>(&mut self, callback: Rx) -> Result<(), EspError>;
 }
 
 /// Functions for transmit channels.
-pub trait I2sTxChannel {
+pub trait I2sTxChannel<'d> {
     /// Return the underlying handle for the transmit channel.
     ///
     /// # Safety
@@ -463,7 +505,9 @@ pub trait I2sTxChannel {
     ///
     /// # Errors
     /// This will return an [EspError] with `ESP_ERR_INVALID_STATE` if the channel is not in the `READY` state.
-    fn tx_enable(&mut self) -> Result<(), EspError>;
+    fn tx_enable(&mut self) -> Result<(), EspError> {
+        unsafe { esp!(i2s_channel_enable(self.tx_handle())) }
+    }
 
     /// Disable the I2S transmit channel.
     ///
@@ -477,7 +521,9 @@ pub trait I2sTxChannel {
     ///
     /// # Errors
     /// This will return an [EspError] with `ESP_ERR_INVALID_STATE` if the channel is not in the `RUNNING` state.
-    fn tx_disable(&mut self) -> Result<(), EspError>;
+    fn tx_disable(&mut self) -> Result<(), EspError> {
+        unsafe { esp!(i2s_channel_disable(self.tx_handle())) }
+    }
 
     /// Preload data into the transmit channel DMA buffer.
     ///
@@ -494,7 +540,20 @@ pub trait I2sTxChannel {
     /// This returns the number of bytes that have been loaded into the buffer. If this is less than the length of
     /// the data provided, the buffer is full and no more data can be loaded.
     #[cfg(all(esp_idf_version_major = "5", not(esp_idf_version_minor = "0")))]
-    fn preload_data(&mut self, data: &[u8]) -> Result<usize, EspError>;
+    fn preload_data(&mut self, data: &[u8]) -> Result<usize, EspError> {
+        let mut bytes_loaded: usize = 0;
+
+        unsafe {
+            esp!(esp_idf_sys::i2s_channel_preload_data(
+                self.tx_handle(),
+                data.as_ptr(),
+                data.len(),
+                &mut bytes_loaded as *mut usize
+            ));
+        }
+
+        Ok(bytes_loaded)
+    }
 
     /// Write data to the channel.
     ///
@@ -502,14 +561,34 @@ pub trait I2sTxChannel {
     ///
     /// # Returns
     /// This returns the number of bytes sent. This may be less than the length of the data provided.
-    fn write(&mut self, data: &[u8], timeout: Duration) -> Result<usize, EspError>;
+    fn write(&mut self, data: &[u8], timeout: Duration) -> Result<usize, EspError> {
+        let mut bytes_written: usize = 0;
+        let timeout_ms: u32 = timeout.as_millis().try_into().unwrap_or(u32::MAX);
+
+        unsafe {
+            esp!(i2s_channel_write(
+                self.tx_handle(),
+                data.as_ptr() as *mut c_void,
+                data.len(),
+                &mut bytes_written,
+                timeout_ms
+            ))?
+        }
+
+        Ok(bytes_written)
+    }
+
+    /// Sets the transmit callback for the channel.
+    ///
+    /// This may be called only when the channel is in the `REGISTERED` or `RUNNING` state.
+    fn set_tx_callback<Tx: I2sTxCallback + 'static>(&mut self, callback: Tx) -> Result<(), EspError>;
 }
 
 /// Marker trait indicating that a driver supports the [I2sRx] trait.
 pub trait I2sRxSupported {}
 
 /// Concrete implementation of [I2sRxSupported] for use in clients.
-/// 
+///
 /// Example usage:
 /// ```
 /// use esp_idf_hal::i2s::{config::{StdModeConfig, DataBitWidth}, gpio::*};
@@ -528,7 +607,7 @@ impl I2sRxSupported for I2sRx {}
 pub trait I2sTxSupported {}
 
 /// Concrete implementation of [I2sTxSupported] for use in clients.
-/// 
+///
 /// Example usage:
 /// ```
 /// use esp_idf_hal::i2s::{config::{StdModeConfig, DataBitWidth}, gpio::*};
@@ -544,7 +623,7 @@ pub struct I2sTx {}
 impl I2sTxSupported for I2sTx {}
 
 /// Concrete implementation of both [I2sRxSupported] and [I2sTxSupported] for use in clients.
-/// 
+///
 /// Example usage:
 /// ```
 /// use esp_idf_hal::i2s::{config::{StdModeConfig, DataBitWidth}, gpio::*, peripherals::Peripherals};
@@ -561,6 +640,70 @@ pub struct I2sBiDir {}
 impl I2sRxSupported for I2sBiDir {}
 impl I2sTxSupported for I2sBiDir {}
 
+/// Callback handler for a receiver channel.
+///
+/// This runs in an interrupt context.
+pub trait I2sRxCallback {
+    /// Called when an I2S receive event occurs.
+    ///
+    /// # Parameters
+    /// * `port`: The driver port (I2S peripheral number) associated with the event.
+    /// * `event`: Data associated with the event, including the DMA buffer address and the size that just finished
+    ///   receiving data.
+    ///
+    /// # Returns
+    /// Returns `true` if a high priority task has been woken up by this callback function, `false` otherwise.
+    #[allow(unused_variables)]
+    fn on_receive(&mut self, port: u8, event: &I2sRawEvent) -> bool {
+        false
+    }
+
+    /// Called when an I2S receiving queue overflows.
+    ///
+    /// # Parameters
+    /// * `port`: The driver port (I2S peripheral number) associated with the event.
+    /// * `event`: Data associated with the event, including the buffer size that has been overwritten.
+    ///
+    /// # Returns
+    /// Returns `true` if a high priority task has been woken up by this callback function, `false` otherwise.
+    #[allow(unused_variables)]
+    fn on_receive_queue_overflow(&mut self, port: u8, event: &I2sRawEvent) -> bool {
+        false
+    }
+}
+
+/// Callback handler for a transmitter channel.
+///
+/// This runs in an interrupt context.
+pub trait I2sTxCallback {
+    /// Called when an I2S DMA buffer is finished sending.
+    ///
+    /// # Parameters
+    /// * `port`: The driver port (I2S peripheral number) associated with the event.
+    /// * `event`: Data associated with the event, including the DMA buffer address and the size that just finished
+    ///   sending data.
+    ///
+    /// # Returns
+    /// Returns `true` if a high priority task has been woken up by this callback function, `false` otherwise.
+    #[allow(unused_variables)]
+    fn on_sent(&mut self, port: u8, event: &I2sRawEvent) -> bool {
+        false
+    }
+
+    /// Called when an I2S sending queue overflows.
+    ///
+    /// # Parameters
+    /// * `port`: The driver port (I2S peripheral number) associated with the event.
+    /// * `event`: Data associated with the event, including the buffer size that has been overwritten.
+    ///
+    /// # Returns
+    /// Returns `true` if a high priority task has been woken up by this callback function, `false` otherwise.
+    #[allow(unused_variables)]
+    fn on_send_queue_overflow(&mut self, port: u8, event: &I2sRawEvent) -> bool {
+        false
+    }
+}
+
 macro_rules! impl_i2s {
     ($i2s:ident: $port:expr) => {
         crate::impl_peripheral!($i2s);
@@ -574,7 +717,7 @@ macro_rules! impl_i2s {
     };
 }
 
-pub type I2sEvent = i2s_event_data_t;
+pub type I2sRawEvent = i2s_event_data_t;
 pub use self::std::*;
 
 impl_i2s!(I2S0: 0);

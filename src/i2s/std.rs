@@ -1,19 +1,18 @@
 //! Standard mode driver for the ESP32 I2S peripheral.
-use super::{I2s, I2sEvent, I2sRxChannel, I2sRxSupported, I2sTxChannel, I2sTxSupported, LOG_TAG};
+use super::{
+    I2s, I2sRxCallback, I2sRxChannel, I2sRxSupported, I2sTxCallback, I2sTxChannel, I2sTxSupported,
+    LOG_TAG,
+};
 use crate::{
     gpio::{AnyIOPin, InputPin, OutputPin},
     peripheral::{Peripheral, PeripheralRef},
 };
-use core::{
-    convert::TryInto, ffi::c_void, marker::PhantomData, mem::MaybeUninit, ptr::null_mut,
-    time::Duration,
-};
+use core::{ffi::c_void, marker::PhantomData, ptr::null_mut};
 use esp_idf_sys::{
     esp, esp_err_to_name, esp_log_level_t_ESP_LOG_ERROR, esp_log_write, i2s_chan_config_t,
-    i2s_chan_handle_t, i2s_channel_disable, i2s_channel_enable, i2s_channel_init_std_mode,
-    i2s_channel_read, i2s_channel_register_event_callback, i2s_channel_write, i2s_del_channel,
-    i2s_event_callbacks_t, i2s_event_data_t, i2s_new_channel, i2s_port_t, i2s_std_config_t,
-    EspError, ESP_OK,
+    i2s_chan_handle_t, i2s_channel_init_std_mode, i2s_channel_register_event_callback,
+    i2s_del_channel, i2s_event_callbacks_t, i2s_event_data_t, i2s_new_channel, i2s_port_t,
+    i2s_std_config_t, EspError, ESP_OK,
 };
 
 pub(super) mod config {
@@ -67,6 +66,30 @@ pub(super) mod config {
                 channel_cfg: Config::default(),
                 clk_cfg: StdClkConfig::from_sample_rate_hz(sample_rate_hz),
                 slot_cfg: StdSlotConfig::philips_slot_default(bits_per_sample, SlotMode::Stereo),
+                gpio_cfg: StdGpioConfig::default(),
+            }
+        }
+
+        /// Create a new standard mode channel configuration for the PCM I2S protocol with the specified sample rate
+        /// and bits per sample, in stereo mode, with MCLK set to 256 times the sample rate.
+        #[inline(always)]
+        pub fn pcm(sample_rate_hz: u32, bits_per_sample: DataBitWidth) -> Self {
+            Self {
+                channel_cfg: Config::default(),
+                clk_cfg: StdClkConfig::from_sample_rate_hz(sample_rate_hz),
+                slot_cfg: StdSlotConfig::pcm_slot_default(bits_per_sample, SlotMode::Stereo),
+                gpio_cfg: StdGpioConfig::default(),
+            }
+        }
+
+        /// Create a new standard mode channel configuration for the MSB I2S protocol with the specified sample rate
+        /// and bits per sample, in stereo mode, with MCLK set to 256 times the sample rate.
+        #[inline(always)]
+        pub fn msb(sample_rate_hz: u32, bits_per_sample: DataBitWidth) -> Self {
+            Self {
+                channel_cfg: Config::default(),
+                clk_cfg: StdClkConfig::from_sample_rate_hz(sample_rate_hz),
+                slot_cfg: StdSlotConfig::msb_slot_default(bits_per_sample, SlotMode::Stereo),
                 gpio_cfg: StdGpioConfig::default(),
             }
         }
@@ -236,7 +259,7 @@ pub(super) mod config {
     }
 
     /// Standard mode channel slot configuration.
-    /// 
+    ///
     /// To create a slot configuration, use [StdSlotConfig::philips_slot_default], [StdSlotConfig::pcm_slot_default], or
     /// [StdSlotConfig::msb_slot_default], then customize it as needed.
     #[derive(Clone)]
@@ -354,7 +377,7 @@ pub(super) mod config {
             self.bit_order_lsb = bit_order_lsb;
             self
         }
-        
+
         /// Configure in Philips format in 2 slots.
         pub fn philips_slot_default(bits_per_sample: DataBitWidth, slot_mode: SlotMode) -> Self {
             let slot_mask = if slot_mode == SlotMode::Mono && cfg!(any(esp32, esp32s2)) {
@@ -465,7 +488,7 @@ pub(super) mod config {
     }
 
     /// I2S slot selection in standard mode.
-    /// 
+    ///
     /// The default is `StdSlotMask::Both`.
     ///
     /// # Note
@@ -503,61 +526,27 @@ pub(super) mod config {
     }
 }
 
-/// The I2S standard mode driver.
-pub struct I2sStdDriver<'d, T> {
-    /// The channel handles and interrupt callbacks.
-    ///
-    /// This is pinned for the lifetime of the driver in order to service interrupts properly.
-    internal: core::pin::Pin<Box<I2sStdDriverInternal<'d>>>,
+/// Internals of the I2s standard mode driver for an Rx channel. This is pinned for the lifetime of the driver for
+/// interrupts to function properly.
+struct I2sStdChannel<Callback: ?Sized> {
+    /// The channel handle.
+    chan_handle: i2s_chan_handle_t,
 
-    /// The I2S peripheral number. Either 0 or 1 (ESP32 and ESP32S3 only).
+    /// The interrupt handler for channel events.
+    callback: Option<Box<Callback>>,
+
+    /// The port number.
     i2s: u8,
-
-    /// Driver lifetime -- mimics the lifetime of the peripheral.
-    _p: PhantomData<&'d ()>,
-
-    /// The direcationality of the driver.
-    _dir: PhantomData<T>,
 }
 
-unsafe impl<'d, T> Send for I2sStdDriver<'d, T> {}
-unsafe impl<'d, T> Sync for I2sStdDriver<'d, T> {}
+unsafe impl<Callback: ?Sized> Sync for I2sStdChannel<Callback> {}
 
-impl<'d, T> I2sStdDriver<'d, T> {
-    /// Returns the I2S port number of this driver.
-    pub fn port(&self) -> i2s_port_t {
-        self.i2s as u32
-    }
-}
-
-/// Internals of the I2s standard mode driver. This is pinned for the lifetime of the driver for interrupts
-/// to function properly.
-struct I2sStdDriverInternal<'d> {
-    /// The receive channel handle, possibly null.
-    rx_chan_handle: i2s_chan_handle_t,
-
-    /// The transmit channel handle, possibly null.
-    tx_chan_handle: i2s_chan_handle_t,
-
-    /// The interrupt handler for receive channel events.
-    rx_callback: Option<&'d dyn I2sStdRxCallback>,
-
-    /// The interrupt handler for transmit channel events.
-    tx_callback: Option<&'d dyn I2sStdTxCallback>,
-
-    /// The I2S peripheral number. Either 0 or 1 (ESP32 and ESP32S3 only).
-    i2s: u8,
-
-    /// Driver lifetime -- mimics the lifetime of the peripheral.
-    _p: PhantomData<&'d ()>,
-}
-
-impl<'d> Drop for I2sStdDriverInternal<'d> {
+impl<Callback: ?Sized> Drop for I2sStdChannel<Callback> {
     fn drop(&mut self) {
-        if !self.rx_chan_handle.is_null() {
+        if !self.chan_handle.is_null() {
             unsafe {
-                // Safety: rx_chan_handle is a valid, non-null i2s_chan_handle_t.
-                let result = i2s_del_channel(self.rx_chan_handle);
+                // Safety: chan_handle is a valid, non-null i2s_chan_handle_t.
+                let result = i2s_del_channel(self.chan_handle);
                 if result != ESP_OK {
                     // This isn't fatal so a panic isn't warranted, but we do want to be able to debug it.
                     esp_log_write(
@@ -567,21 +556,41 @@ impl<'d> Drop for I2sStdDriverInternal<'d> {
                         esp_err_to_name(result),
                     );
                 }
-                self.rx_chan_handle = null_mut();
-            }
-        }
-
-        if !self.tx_chan_handle.is_null() {
-            unsafe {
-                // Safety: tx_chan_handle is a valid, non-null i2s_chan_handle_t.
-                i2s_del_channel(self.tx_chan_handle);
-                self.tx_chan_handle = null_mut();
+                self.chan_handle = null_mut();
             }
         }
     }
 }
 
-impl<'d, T: I2sRxSupported + I2sTxSupported> I2sStdDriver<'d, T> {
+/// The I2S standard mode driver.
+pub struct I2sStdDriver<'d, Dir> {
+    /// The Rx channel, possibly null.
+    rx: *mut I2sStdChannel<dyn I2sRxCallback>,
+
+    /// The Tx channel, possibly null.
+    tx: *mut I2sStdChannel<dyn I2sTxCallback>,
+
+    /// The I2S peripheral number. Either 0 or 1 (ESP32 and ESP32S3 only).
+    i2s: u8,
+
+    /// Driver lifetime -- mimics the lifetime of the peripheral.
+    _p: PhantomData<&'d ()>,
+
+    /// Directionality -- mimics the directionality of the peripheral.
+    _dir: PhantomData<Dir>,
+}
+
+unsafe impl<'d, Dir> Send for I2sStdDriver<'d, Dir> {}
+unsafe impl<'d, Dir> Sync for I2sStdDriver<'d, Dir> {}
+
+impl<'d, Dir> I2sStdDriver<'d, Dir> {
+    /// Returns the I2S port number of this driver.
+    pub fn port(&self) -> i2s_port_t {
+        self.i2s as u32
+    }
+}
+
+impl<'d, Dir: I2sRxSupported + I2sTxSupported> I2sStdDriver<'d, Dir> {
     /// Create a new standard mode driver for the given I2S peripheral with both the receive and transmit channels open.
     #[allow(clippy::too_many_arguments)]
     pub fn new_bidir<I2S: I2s>(
@@ -592,8 +601,6 @@ impl<'d, T: I2sRxSupported + I2sTxSupported> I2sStdDriver<'d, T> {
         dout: Option<impl Peripheral<P = impl OutputPin> + 'd>,
         mclk: Option<impl Peripheral<P = impl InputPin + OutputPin> + 'd>,
         ws: impl Peripheral<P = impl InputPin + OutputPin> + 'd,
-        rx_callback: Option<&'d dyn I2sStdRxCallback>,
-        tx_callback: Option<&'d dyn I2sStdTxCallback>,
     ) -> Result<Self, EspError> {
         let port = I2S::port();
         let chan_cfg: i2s_chan_config_t = config.channel_cfg.as_sdk(port);
@@ -619,44 +626,20 @@ impl<'d, T: I2sRxSupported + I2sTxSupported> I2sStdDriver<'d, T> {
             panic!("Expected non-null rx channel handle");
         }
 
-        // Allocate the internal struct and pin it.
-        let internal = Box::pin(I2sStdDriverInternal {
-            rx_chan_handle,
-            tx_chan_handle,
-            rx_callback,
-            tx_callback,
+        // Allocate the internal channel structs.
+        let rx = Box::new(I2sStdChannel {
+            chan_handle: rx_chan_handle,
+            callback: None,
             i2s: port as u8,
-            _p: PhantomData,
         });
 
-        // At this point, dropping internal will clean up the channels.
+        let tx = Box::new(I2sStdChannel {
+            chan_handle: tx_chan_handle,
+            callback: None,
+            i2s: port as u8,
+        });
 
-        // Set up the interrupt callbacks.
-        if rx_callback.is_some() || tx_callback.is_some() {
-            let callbacks = i2s_event_callbacks_t {
-                on_recv: Some(dispatch_on_recv),
-                on_recv_q_ovf: Some(dispatch_on_recv_q_ovf),
-                on_sent: Some(dispatch_on_sent),
-                on_send_q_ovf: Some(dispatch_on_send_q_ovf),
-            };
-
-            // Safety: internal is a valid pointer to I2sStdDriverInternal, and is initialized.
-            unsafe {
-                let iref: &I2sStdDriverInternal<'d> = &internal;
-                esp!(i2s_channel_register_event_callback(
-                    internal.rx_chan_handle,
-                    &callbacks,
-                    iref as *const I2sStdDriverInternal<'d> as *mut c_void
-                ))?;
-                esp!(i2s_channel_register_event_callback(
-                    internal.tx_chan_handle,
-                    &callbacks,
-                    iref as *const I2sStdDriverInternal<'d> as *mut c_void
-                ))?;
-            }
-        }
-
-        // RX and TX interrupts could now be (theoretically) running.
+        // At this point, returning early will drop the rx and tx channels, closing them properly.
 
         // Create the channel configuration.
         let std_config: i2s_std_config_t = config.as_sdk(
@@ -667,31 +650,28 @@ impl<'d, T: I2sRxSupported + I2sTxSupported> I2sStdDriver<'d, T> {
             ws.into_ref(),
         );
 
-        // Safety: internal.rx/tx_chan_handle are valid, non-null i2s_chan_handle_t,
+        // Safety: rx/tx.chan_handle are valid, non-null i2s_chan_handle_t,
         // and &std_config is a valid pointer to an i2s_std_config_t.
         unsafe {
             // Open the RX channel.
-            esp!(i2s_channel_init_std_mode(
-                internal.rx_chan_handle,
-                &std_config
-            ))?;
+            esp!(i2s_channel_init_std_mode(rx.chan_handle, &std_config))?;
             // Open the TX channel.
-            esp!(i2s_channel_init_std_mode(
-                internal.tx_chan_handle,
-                &std_config
-            ))?;
+            esp!(i2s_channel_init_std_mode(tx.chan_handle, &std_config))?;
         }
 
+        // Now we leak the rx and tx channels so they are no longer managed. This pins them in memory in a way that
+        // is easily accessible to the ESP-IDF SDK.
         Ok(Self {
             i2s: port as u8,
-            internal,
+            rx: Box::leak(rx),
+            tx: Box::leak(tx),
             _p: PhantomData,
             _dir: PhantomData,
         })
     }
 }
 
-impl<'d, T: I2sRxSupported> I2sStdDriver<'d, T> {
+impl<'d, Dir: I2sRxSupported> I2sStdDriver<'d, Dir> {
     /// Create a new standard mode driver for the given I2S peripheral with only the receive channel open.
     #[allow(clippy::too_many_arguments)]
     pub fn new_rx<I2S: I2s>(
@@ -701,7 +681,6 @@ impl<'d, T: I2sRxSupported> I2sStdDriver<'d, T> {
         din: Option<impl Peripheral<P = impl InputPin> + 'd>,
         mclk: Option<impl Peripheral<P = impl InputPin + OutputPin> + 'd>,
         ws: impl Peripheral<P = impl InputPin + OutputPin> + 'd,
-        rx_callback: Option<&'d dyn I2sStdRxCallback>,
     ) -> Result<Self, EspError> {
         let port = I2S::port();
         let chan_cfg: i2s_chan_config_t = config.channel_cfg.as_sdk(port);
@@ -716,39 +695,14 @@ impl<'d, T: I2sRxSupported> I2sStdDriver<'d, T> {
             panic!("Expected non-null rx channel handle");
         }
 
-        // Allocate the internal struct and pin it.
-        let internal = Box::pin(I2sStdDriverInternal {
-            rx_chan_handle,
-            tx_chan_handle: null_mut(),
-            rx_callback,
-            tx_callback: None,
+        // Allocate the internal channel struct.
+        let rx = Box::new(I2sStdChannel {
+            chan_handle: rx_chan_handle,
+            callback: None,
             i2s: port as u8,
-            _p: PhantomData,
         });
 
-        // At this point, dropping internal will clean up the channels.
-
-        // Set up the interrupt callbacks.
-        if rx_callback.is_some() {
-            let callbacks = i2s_event_callbacks_t {
-                on_recv: Some(dispatch_on_recv),
-                on_recv_q_ovf: Some(dispatch_on_recv_q_ovf),
-                on_sent: None,
-                on_send_q_ovf: None,
-            };
-
-            // Safety: internal is a valid pointer to I2sStdDriverInternal, and is initialized.
-            unsafe {
-                let iref: &I2sStdDriverInternal<'d> = &internal;
-                esp!(i2s_channel_register_event_callback(
-                    internal.rx_chan_handle,
-                    &callbacks,
-                    iref as *const I2sStdDriverInternal<'d> as *mut c_void
-                ))?;
-            }
-        }
-
-        // RX interrupts could now be (theoretically) running.
+        // At this point, returning early will drop the rx channel, closing it properly.
 
         // Create the channel configuration.
         let dout: Option<PeripheralRef<'d, AnyIOPin>> = None;
@@ -760,26 +714,26 @@ impl<'d, T: I2sRxSupported> I2sStdDriver<'d, T> {
             ws.into_ref(),
         );
 
-        // Safety: internal.rx_chan_handle is a valid, non-null i2s_chan_handle_t,
+        // Safety: rx.chan_handle is a valid, non-null i2s_chan_handle_t,
         // and &std_config is a valid pointer to an i2s_std_config_t.
         unsafe {
             // Open the RX channel.
-            esp!(i2s_channel_init_std_mode(
-                internal.rx_chan_handle,
-                &std_config
-            ))?;
+            esp!(i2s_channel_init_std_mode(rx.chan_handle, &std_config))?;
         }
 
+        // Now we leak the rx channel so it is no longer managed. This pins it in memory in a way that
+        // is easily accessible to the ESP-IDF SDK.
         Ok(Self {
             i2s: port as u8,
-            internal,
+            rx: Box::leak(rx),
+            tx: null_mut(),
             _p: PhantomData,
             _dir: PhantomData,
         })
     }
 }
 
-impl<'d, T: I2sTxSupported> I2sStdDriver<'d, T> {
+impl<'d, Dir: I2sTxSupported> I2sStdDriver<'d, Dir> {
     /// Create a new standard mode driver for the given I2S peripheral with only the transmit channel open.
     #[allow(clippy::too_many_arguments)]
     pub fn new_tx<I2S: I2s>(
@@ -789,7 +743,6 @@ impl<'d, T: I2sTxSupported> I2sStdDriver<'d, T> {
         dout: Option<impl Peripheral<P = impl OutputPin> + 'd>,
         mclk: Option<impl Peripheral<P = impl InputPin + OutputPin> + 'd>,
         ws: impl Peripheral<P = impl InputPin + OutputPin> + 'd,
-        tx_callback: Option<&'d dyn I2sStdTxCallback>,
     ) -> Result<Self, EspError> {
         let port = I2S::port();
         let chan_cfg: i2s_chan_config_t = config.channel_cfg.as_sdk(port);
@@ -804,39 +757,14 @@ impl<'d, T: I2sTxSupported> I2sStdDriver<'d, T> {
             panic!("Expected non-null tx channel handle");
         }
 
-        // Allocate the internal struct and pin it.
-        let internal = Box::pin(I2sStdDriverInternal {
-            rx_chan_handle: null_mut(),
-            tx_chan_handle,
-            rx_callback: None,
-            tx_callback,
+        // Allocate the internal channel struct.
+        let tx = Box::new(I2sStdChannel {
+            chan_handle: tx_chan_handle,
+            callback: None,
             i2s: port as u8,
-            _p: PhantomData,
         });
 
-        // At this point, dropping internal will clean up the channels.
-
-        // Set up the interrupt callbacks.
-        if tx_callback.is_some() {
-            let callbacks = i2s_event_callbacks_t {
-                on_recv: None,
-                on_recv_q_ovf: None,
-                on_sent: Some(dispatch_on_sent),
-                on_send_q_ovf: Some(dispatch_on_send_q_ovf),
-            };
-
-            // Safety: internal is a valid pointer to I2sStdDriverInternal, and is initialized.
-            unsafe {
-                let iref: &I2sStdDriverInternal<'d> = &internal;
-                esp!(i2s_channel_register_event_callback(
-                    internal.tx_chan_handle,
-                    &callbacks,
-                    iref as *const I2sStdDriverInternal<'d> as *mut c_void
-                ))?;
-            }
-        }
-
-        // TX interrupts could now be (theoretically) running.
+        // At this point, returning early will drop the tx channel, closing it properly.
 
         // Create the channel configuration.
         let din: Option<PeripheralRef<'d, AnyIOPin>> = None;
@@ -848,185 +776,89 @@ impl<'d, T: I2sTxSupported> I2sStdDriver<'d, T> {
             ws.into_ref(),
         );
 
-        // Safety: internal.tx_chan_handle is a valid, non-null i2s_chan_handle_t,
+        // Safety: tx.chan_handle is a valid, non-null i2s_chan_handle_t,
         // and &std_config is a valid pointer to an i2s_std_config_t.
         unsafe {
             // Open the TX channel.
-            esp!(i2s_channel_init_std_mode(
-                internal.tx_chan_handle,
-                &std_config
-            ))?;
+            esp!(i2s_channel_init_std_mode(tx.chan_handle, &std_config))?;
         }
 
+        // Now we leak the tx channel so it is no longer managed. This pins it in memory in a way that
+        // is easily accessible to the ESP-IDF SDK.
         Ok(Self {
             i2s: port as u8,
-            internal,
+            rx: null_mut(),
+            tx: Box::leak(tx),
             _p: PhantomData,
             _dir: PhantomData,
         })
     }
 }
 
-/// Callback handler for a receiver channel.
-///
-/// This runs in an interrupt context.
-pub trait I2sStdRxCallback {
-    /// Called when an I2S receive event occurs.
-    ///
-    /// # Parameters
-    /// * `port`: The driver port (I2S peripheral number) associated with the event.
-    /// * `event`: Data associated with the event, including the DMA buffer address and the size that just finished
-    ///   receiving data.
-    ///
-    /// # Returns
-    /// Returns `true` if a high priority task has been woken upby this callback function, `false` otherwise.
-    #[allow(unused_variables)]
-    fn on_receive(&self, port: u8, event: &I2sEvent) -> bool {
-        false
-    }
-
-    /// Called when an I2S receiving queue overflows.
-    ///
-    /// # Parameters
-    /// * `port`: The driver port (I2S peripheral number) associated with the event.
-    /// * `event`: Data associated with the event, including the buffer size that has been overwritten.
-    ///
-    /// # Returns
-    /// Returns `true` if a high priority task has been woken upby this callback function, `false` otherwise.
-    #[allow(unused_variables)]
-    fn on_receive_queue_overflow(&self, port: u8, event: &I2sEvent) -> bool {
-        false
-    }
-}
-
-impl<'d, T: I2sRxSupported> I2sRxChannel for I2sStdDriver<'d, T> {
+impl<'d, Dir: I2sRxSupported> I2sRxChannel<'d> for I2sStdDriver<'d, Dir> {
     unsafe fn rx_handle(&self) -> i2s_chan_handle_t {
-        self.internal.rx_chan_handle
+        (*self.rx).chan_handle
     }
 
-    fn rx_enable(&mut self) -> Result<(), EspError> {
-        unsafe { esp!(i2s_channel_enable(self.internal.rx_chan_handle)) }
-    }
-
-    fn rx_disable(&mut self) -> Result<(), EspError> {
-        unsafe { esp!(i2s_channel_disable(self.internal.rx_chan_handle)) }
-    }
-
-    fn read(&mut self, buffer: &mut [u8], timeout_ms: Duration) -> Result<usize, EspError> {
-        let mut bytes_read: usize = 0;
-        let timeout_ms: u32 = timeout_ms.as_millis().try_into().unwrap_or(u32::MAX);
-
-        unsafe {
-            esp!(i2s_channel_read(
-                self.internal.rx_chan_handle,
-                buffer.as_mut_ptr() as *mut c_void,
-                buffer.len(),
-                &mut bytes_read,
-                timeout_ms
-            ))?
-        }
-
-        Ok(bytes_read)
-    }
-
-    fn read_uninit(
+    fn set_rx_callback<Rx: I2sRxCallback + 'static>(
         &mut self,
-        buffer: &mut [MaybeUninit<u8>],
-        timeout_ms: Duration,
-    ) -> Result<usize, EspError> {
-        let mut bytes_read: usize = 0;
-        let timeout_ms: u32 = timeout_ms.as_millis().try_into().unwrap_or(u32::MAX);
+        rx_callback: Rx,
+    ) -> Result<(), EspError> {
+        let callbacks = i2s_event_callbacks_t {
+            on_recv: Some(dispatch_on_recv),
+            on_recv_q_ovf: Some(dispatch_on_recv_q_ovf),
+            on_sent: None,
+            on_send_q_ovf: None,
+        };
 
+        // Safety: internal is a valid pointer to I2sStdDriverInternal and is initialized.
         unsafe {
-            esp!(i2s_channel_read(
-                self.internal.rx_chan_handle,
-                buffer.as_mut_ptr() as *mut c_void,
-                buffer.len(),
-                &mut bytes_read,
-                timeout_ms
-            ))?
+            esp!(i2s_channel_register_event_callback(
+                (*self.rx).chan_handle,
+                &callbacks,
+                self.rx as *mut c_void
+            ))?;
+
+            (*self.rx).callback = Some(Box::new(rx_callback));
         }
 
-        Ok(bytes_read)
+        Ok(())
     }
 }
 
-impl<'d, T: I2sTxSupported> I2sTxChannel for I2sStdDriver<'d, T> {
+impl<'d, Dir: I2sTxSupported> I2sTxChannel<'d> for I2sStdDriver<'d, Dir> {
     unsafe fn tx_handle(&self) -> i2s_chan_handle_t {
-        self.internal.tx_chan_handle
+        (*self.tx).chan_handle
     }
 
-    fn tx_enable(&mut self) -> Result<(), EspError> {
-        unsafe { esp!(i2s_channel_enable(self.internal.tx_chan_handle)) }
-    }
+    fn set_tx_callback<Tx: I2sTxCallback + 'static>(
+        &mut self,
+        tx_callback: Tx,
+    ) -> Result<(), EspError> {
+        let callbacks = i2s_event_callbacks_t {
+            on_recv: None,
+            on_recv_q_ovf: None,
+            on_sent: Some(dispatch_on_sent),
+            on_send_q_ovf: Some(dispatch_on_send_q_ovf),
+        };
 
-    fn tx_disable(&mut self) -> Result<(), EspError> {
-        unsafe { esp!(i2s_channel_disable(self.internal.tx_chan_handle)) }
-    }
-
-    #[cfg(all(esp_idf_version_major = "5", not(esp_idf_version_minor = "0")))]
-    fn preload_data(&mut self, data: &[u8]) -> Result<usize, EspError> {
-        let mut bytes_loaded: usize = 0;
-
+        // Safety: internal is a valid pointer to I2sStdDriverInternal and is initialized.
         unsafe {
-            esp!(esp_idf_sys::i2s_channel_preload_data(
-                self.handle,
-                data.as_ptr(),
-                data.len(),
-                &mut bytes_loaded as *mut usize
-            ));
+            let e = i2s_channel_register_event_callback(
+                (*self.tx).chan_handle,
+                &callbacks,
+                self.tx as *mut c_void
+            );
+
+            if e != ESP_OK {
+                println!("Failed to register TX callback: error code {e}");
+                esp!(e)?;
+            }
+
+            (*self.tx).callback = Some(Box::new(tx_callback));
         }
 
-        Ok(bytes_loaded)
-    }
-
-    fn write(&mut self, buffer: &[u8], timeout_ms: Duration) -> Result<usize, EspError> {
-        let mut bytes_written: usize = 0;
-        let timeout_ms: u32 = timeout_ms.as_millis().try_into().unwrap_or(u32::MAX);
-
-        unsafe {
-            esp!(i2s_channel_write(
-                self.internal.tx_chan_handle,
-                buffer.as_ptr() as *mut c_void,
-                buffer.len(),
-                &mut bytes_written,
-                timeout_ms
-            ))?
-        }
-
-        Ok(bytes_written)
-    }
-}
-
-/// Callback handler for a transmitter channel.
-///
-/// This runs in an interrupt context.
-pub trait I2sStdTxCallback {
-    /// Called when an I2S DMA buffer is finished sending.
-    ///
-    /// # Parameters
-    /// * `port`: The driver port (I2S peripheral number) associated with the event.
-    /// * `event`: Data associated with the event, including the DMA buffer address and the size that just finished
-    ///   sending data.
-    ///
-    /// # Returns
-    /// Returns `true` if a high priority task has been woken upby this callback function, `false` otherwise.
-    #[allow(unused_variables)]
-    fn on_sent(&self, port: u8, event: &I2sEvent) -> bool {
-        false
-    }
-
-    /// Called when an I2S sending queue overflows.
-    ///
-    /// # Parameters
-    /// * `port`: The driver port (I2S peripheral number) associated with the event.
-    /// * `event`: Data associated with the event, including the buffer size that has been overwritten.
-    ///
-    /// # Returns
-    /// Returns `true` if a high priority task has been woken upby this callback function, `false` otherwise.
-    #[allow(unused_variables)]
-    fn on_send_queue_overflow(&self, port: u8, event: &I2sEvent) -> bool {
-        false
+        Ok(())
     }
 }
 
@@ -1036,12 +868,10 @@ extern "C" fn dispatch_on_recv(
     event: *mut i2s_event_data_t,
     user_ctx: *mut c_void,
 ) -> bool {
-    // Safety: user_ctx is always a pointer to I2sStdDriverInternal.
-    // We don't know the actual lifetime, but as far as the interrupt handler is concerned it outlives the callback,
-    // so 'static is acceptable.
-    let internal: &I2sStdDriverInternal<'static> =
-        unsafe { &*(user_ctx as *const I2sStdDriverInternal) };
-    if let Some(callback) = internal.rx_callback {
+    // Safety: user_ctx is always a pointer to I2sStdDriverChannel.
+    let internal: &mut I2sStdChannel<dyn I2sRxCallback> =
+        unsafe { &mut *(user_ctx as *mut I2sStdChannel<dyn I2sRxCallback>) };
+    if let Some(callback) = &mut internal.callback {
         callback.on_receive(internal.i2s, unsafe {
             &*(event as *const i2s_event_data_t)
         })
@@ -1056,12 +886,10 @@ extern "C" fn dispatch_on_recv_q_ovf(
     event: *mut i2s_event_data_t,
     user_ctx: *mut c_void,
 ) -> bool {
-    // Safety: user_ctx is always a pointer to I2sStdDriverInternal.
-    // We don't know the actual lifetime, but as far as the interrupt handler is concerned it outlives the callback,
-    // so 'static is acceptable.
-    let internal: &I2sStdDriverInternal<'static> =
-        unsafe { &*(user_ctx as *const I2sStdDriverInternal) };
-    if let Some(callback) = internal.rx_callback {
+    // Safety: user_ctx is always a pointer to I2sStdDriverChannel.
+    let internal: &mut I2sStdChannel<dyn I2sRxCallback> =
+        unsafe { &mut *(user_ctx as *mut I2sStdChannel<dyn I2sRxCallback>) };
+    if let Some(callback) = &mut internal.callback {
         callback.on_receive_queue_overflow(internal.i2s, unsafe {
             &*(event as *const i2s_event_data_t)
         })
@@ -1076,12 +904,10 @@ extern "C" fn dispatch_on_sent(
     event: *mut i2s_event_data_t,
     user_ctx: *mut c_void,
 ) -> bool {
-    // Safety: user_ctx is always a pointer to I2sStdDriverInternal.
-    // We don't know the actual lifetime, but as far as the interrupt handler is concerned it outlives the callback,
-    // so 'static is acceptable.
-    let internal: &I2sStdDriverInternal<'static> =
-        unsafe { &*(user_ctx as *const I2sStdDriverInternal) };
-    if let Some(callback) = internal.tx_callback {
+    // Safety: user_ctx is always a pointer to I2sStdDriverChannel.
+    let internal: &mut I2sStdChannel<dyn I2sTxCallback> =
+        unsafe { &mut *(user_ctx as *mut I2sStdChannel<dyn I2sTxCallback>) };
+    if let Some(callback) = &mut internal.callback {
         callback.on_sent(internal.i2s, unsafe {
             &*(event as *const i2s_event_data_t)
         })
@@ -1096,12 +922,10 @@ extern "C" fn dispatch_on_send_q_ovf(
     event: *mut i2s_event_data_t,
     user_ctx: *mut c_void,
 ) -> bool {
-    // Safety: user_ctx is always a pointer to I2sStdDriverInternal.
-    // We don't know the actual lifetime, but as far as the interrupt handler is concerned it outlives the callback,
-    // so 'static is acceptable.
-    let internal: &I2sStdDriverInternal<'static> =
-        unsafe { &*(user_ctx as *const I2sStdDriverInternal) };
-    if let Some(callback) = internal.tx_callback {
+    // Safety: user_ctx is always a pointer to I2sStdDriverChannel.
+    let internal: &mut I2sStdChannel<dyn I2sTxCallback> =
+        unsafe { &mut *(user_ctx as *mut I2sStdChannel<dyn I2sTxCallback>) };
+    if let Some(callback) = &mut internal.callback {
         callback.on_send_queue_overflow(internal.i2s, unsafe {
             &*(event as *const i2s_event_data_t)
         })
