@@ -3,6 +3,7 @@
 [![CI](https://github.com/esp-rs/esp-idf-hal/actions/workflows/ci.yml/badge.svg)](https://github.com/esp-rs/esp-idf-hal/actions/workflows/ci.yml)
 ![crates.io](https://img.shields.io/crates/v/esp-idf-hal.svg)
 [![Documentation](https://img.shields.io/badge/docs-esp--rs-brightgreen)](https://esp-rs.github.io/esp-idf-hal/esp_idf_hal/index.html)
+[![Matrix](https://img.shields.io/matrix/esp-rs:matrix.org?label=join%20matrix&color=BEC5C9&logo=matrix)](https://matrix.to/#/#esp-rs:matrix.org)
 
 - Run ESP-IDF's FreeRTOS using safe Rust code
 - Provides wrappers and abstractions for ESP Peripherals like GPIO, SPI, I2C, TIMER, PWM etc..
@@ -77,6 +78,9 @@ For a comprehansive setup guide check out the [template](https://github.com/esp-
 To remove the project generated using cargo generate, simply delete the directory that was created. For the RISC-V case, no additional cleanup is needed.
 
 For the XTENSA case, you need to remove the XTENSA toolchain installed via espup. You can do this by running `espup uninstall`.
+
+# Chat
+Join the ESP-RS community on Matrix chat for help or questions: https://matrix.to/#/#esp-rs:matrix.org
 
 # Aditional Information
 
