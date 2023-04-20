@@ -4,6 +4,7 @@
 ![crates.io](https://img.shields.io/crates/v/esp-idf-hal.svg)
 [![Documentation](https://img.shields.io/badge/docs-esp--rs-brightgreen)](https://esp-rs.github.io/esp-idf-hal/esp_idf_hal/index.html)
 [![Matrix](https://img.shields.io/matrix/esp-rs:matrix.org?label=join%20matrix&color=BEC5C9&logo=matrix)](https://matrix.to/#/#esp-rs:matrix.org)
+[![Wokwi badge](Wokwi_badge.svg)](https://wokwi.com/projects/332188235906155092)
 
 - Run ESP-IDF's FreeRTOS using safe Rust code
 - Provides wrappers and abstractions for ESP Peripherals like GPIO, SPI, I2C, TIMER, PWM etc..
@@ -22,7 +23,7 @@ To get started quickly, you have two options:
 You can use the [Wokwi online simulator](https://wokwi.com/projects/332188235906155092) to experiment with this crate.
 
 ## Option 2: Use cargo-generate
-Please make sure you have installed all [prerequisites](https://github.com/esp-rs/esp-idf-template#prerequisites) first!
+Please make sure you have installed all [prerequisites](https://github.com/esp-rs/esp-idf-hal#prerequisites) first!
 ### Generate
 ```bash
 cargo generate --git https://github.com/esp-rs/esp-idf-template
