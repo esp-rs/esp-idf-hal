@@ -328,7 +328,7 @@ impl<T> SpiBusDriver<T> {
             self.polling_transmit(
                 read_chunk.as_mut_ptr(),
                 write_chunk.as_ptr(),
-                read_chunk.len(), //read/write chunk implicitly always same length because of commen_length
+                read_chunk.len(), //read/write chunk implicitly always same length because of common_length
                 read_chunk.len(),
                 it.peek().is_some() || more_chunks,
             )?;
