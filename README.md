@@ -1,7 +1,7 @@
 # An [embedded-hal](https://github.com/rust-embedded/embedded-hal) implementation for ESP32[-XX] + ESP-IDF
 
 [![CI](https://github.com/esp-rs/esp-idf-hal/actions/workflows/ci.yml/badge.svg)](https://github.com/esp-rs/esp-idf-hal/actions/workflows/ci.yml)
-![crates.io](https://img.shields.io/crates/v/esp-idf-hal.svg)
+[![crates.io](https://img.shields.io/crates/v/esp-idf-hal.svg)](https://crates.io/crates/esp-idf-hal)
 [![Documentation](https://img.shields.io/badge/docs-esp--rs-brightgreen)](https://esp-rs.github.io/esp-idf-hal/esp_idf_hal/index.html)
 [![Matrix](https://img.shields.io/matrix/esp-rs:matrix.org?label=join%20matrix&color=BEC5C9&logo=matrix)](https://matrix.to/#/#esp-rs:matrix.org)
 [![Wokwi](https://img.shields.io/endpoint?label=wokwi&url=https%3A%2F%2Fwokwi.com%2Fbadge%2Fsimulate-in-wokwi.json)]((https://wokwi.com/projects/332188235906155092))
