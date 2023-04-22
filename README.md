@@ -83,9 +83,21 @@ For the XTENSA case, you need to remove the XTENSA toolchain installed via espup
 # Chat
 Join the ESP-RS community on Matrix chat for help or questions: https://matrix.to/#/#esp-rs:matrix.org
 
+# Documentation
+Check out the `./examples/` folder for some basic examples.
+
+Please use either [this docs on github pages](https://esp-rs.github.io/esp-idf-hal/esp_idf_hal/index.html) or build the documentation yourself with 
+```
+cargo doc --target riscv32imc-esp-espidf -Zbuild-std=std,panic_abort -Zbuild-std-features=panic_immediate_abort
+```
+ to get a basic API overview, since current docs.rs have certain build limitations.
+
+ The current state of the documentation is pretty minimal, please try to check out the aditional information provided below. Feel free to ask questions around the API on the matrix chat. 
+
 # Aditional Information
 
 * The [Rust on ESP Book](https://esp-rs.github.io/book/)
+* The [ESP Embedded Training](https://github.com/esp-rs/espressif-trainings)
 * The [embedded-hal](https://github.com/rust-embedded/embedded-hal) project
 * The [esp-hal](https://github.com/esp-rs/esp-hal) project
 * The [esp-idf-template](https://github.com/esp-rs/esp-idf-template) project
