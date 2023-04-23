@@ -1,18 +1,17 @@
 //! Standard mode driver for the ESP32 I2S peripheral.
 use super::{
-    I2s, I2sRxCallback, I2sRxChannel, I2sRxSupported, I2sTxCallback, I2sTxChannel, I2sTxSupported,
-    LOG_TAG,
+    I2s, I2sChannel, I2sRxCallback, I2sRxChannel, I2sRxSupported, I2sTxCallback, I2sTxChannel,
+    I2sTxSupported,
 };
 use crate::{
     gpio::{AnyIOPin, InputPin, OutputPin},
     peripheral::{Peripheral, PeripheralRef},
 };
-use core::{ffi::c_void, marker::PhantomData, ptr::null_mut};
+use core::{marker::PhantomData, ptr::null_mut};
 use esp_idf_sys::{
-    esp, esp_err_to_name, esp_log_level_t_ESP_LOG_ERROR, esp_log_write, i2s_chan_config_t,
-    i2s_chan_handle_t, i2s_channel_init_std_mode, i2s_channel_register_event_callback,
-    i2s_del_channel, i2s_event_callbacks_t, i2s_event_data_t, i2s_new_channel, i2s_port_t,
-    i2s_std_config_t, EspError, ESP_OK,
+    esp, i2s_chan_config_t,
+    i2s_chan_handle_t, i2s_channel_init_std_mode, i2s_new_channel, i2s_port_t,
+    i2s_std_config_t, EspError,
 };
 
 pub(super) mod config {
@@ -526,51 +525,13 @@ pub(super) mod config {
     }
 }
 
-/// Internals of the I2S standard mode driver for a channel. This is pinned for the lifetime of the driver for
-/// interrupts to function properly.
-struct I2sStdChannel<Callback: ?Sized> {
-    /// The channel handle.
-    chan_handle: i2s_chan_handle_t,
-
-    /// The interrupt handler for channel events.
-    callback: Option<Box<Callback>>,
-
-    /// The port number.
-    i2s: u8,
-}
-
-unsafe impl<Callback: ?Sized> Sync for I2sStdChannel<Callback> {}
-
-// No Send impl -- this *must* be pinned in memory for the callback to function properly.
-
-impl<Callback: ?Sized> Drop for I2sStdChannel<Callback> {
-    fn drop(&mut self) {
-        if !self.chan_handle.is_null() {
-            unsafe {
-                // Safety: chan_handle is a valid, non-null i2s_chan_handle_t.
-                let result = i2s_del_channel(self.chan_handle);
-                if result != ESP_OK {
-                    // This isn't fatal so a panic isn't warranted, but we do want to be able to debug it.
-                    esp_log_write(
-                        esp_log_level_t_ESP_LOG_ERROR,
-                        LOG_TAG as *const u8 as *const i8,
-                        b"Failed to delete RX channel: %s\0" as *const u8 as *const i8,
-                        esp_err_to_name(result),
-                    );
-                }
-                self.chan_handle = null_mut();
-            }
-        }
-    }
-}
-
 /// The I2S standard mode driver.
 pub struct I2sStdDriver<'d, Dir> {
     /// The Rx channel, possibly null.
-    rx: *mut I2sStdChannel<dyn I2sRxCallback>,
+    rx: *mut I2sChannel<dyn I2sRxCallback>,
 
     /// The Tx channel, possibly null.
-    tx: *mut I2sStdChannel<dyn I2sTxCallback>,
+    tx: *mut I2sChannel<dyn I2sTxCallback>,
 
     /// The I2S peripheral number. Either 0 or 1 (ESP32 and ESP32S3 only).
     i2s: u8,
@@ -629,13 +590,13 @@ impl<'d, Dir: I2sRxSupported + I2sTxSupported> I2sStdDriver<'d, Dir> {
         }
 
         // Allocate the internal channel structs.
-        let rx = Box::new(I2sStdChannel {
+        let rx = Box::new(I2sChannel {
             chan_handle: rx_chan_handle,
             callback: None,
             i2s: port as u8,
         });
 
-        let tx = Box::new(I2sStdChannel {
+        let tx = Box::new(I2sChannel {
             chan_handle: tx_chan_handle,
             callback: None,
             i2s: port as u8,
@@ -698,7 +659,7 @@ impl<'d, Dir: I2sRxSupported> I2sStdDriver<'d, Dir> {
         }
 
         // Allocate the internal channel struct.
-        let rx = Box::new(I2sStdChannel {
+        let rx = Box::new(I2sChannel {
             chan_handle: rx_chan_handle,
             callback: None,
             i2s: port as u8,
@@ -760,7 +721,7 @@ impl<'d, Dir: I2sTxSupported> I2sStdDriver<'d, Dir> {
         }
 
         // Allocate the internal channel struct.
-        let tx = Box::new(I2sStdChannel {
+        let tx = Box::new(I2sChannel {
             chan_handle: tx_chan_handle,
             callback: None,
             i2s: port as u8,
@@ -806,25 +767,7 @@ impl<'d, Dir: I2sRxSupported> I2sRxChannel<'d> for I2sStdDriver<'d, Dir> {
         &mut self,
         rx_callback: Rx,
     ) -> Result<(), EspError> {
-        let callbacks = i2s_event_callbacks_t {
-            on_recv: Some(dispatch_on_recv),
-            on_recv_q_ovf: Some(dispatch_on_recv_q_ovf),
-            on_sent: None,
-            on_send_q_ovf: None,
-        };
-
-        // Safety: internal is a valid pointer to I2sStdDriverInternal and is initialized.
-        unsafe {
-            esp!(i2s_channel_register_event_callback(
-                (*self.rx).chan_handle,
-                &callbacks,
-                self.rx as *mut c_void
-            ))?;
-
-            (*self.rx).callback = Some(Box::new(rx_callback));
-        }
-
-        Ok(())
+        unsafe { &mut *self.rx }.set_rx_callback(Box::new(rx_callback))
     }
 }
 
@@ -837,101 +780,6 @@ impl<'d, Dir: I2sTxSupported> I2sTxChannel<'d> for I2sStdDriver<'d, Dir> {
         &mut self,
         tx_callback: Tx,
     ) -> Result<(), EspError> {
-        let callbacks = i2s_event_callbacks_t {
-            on_recv: None,
-            on_recv_q_ovf: None,
-            on_sent: Some(dispatch_on_sent),
-            on_send_q_ovf: Some(dispatch_on_send_q_ovf),
-        };
-
-        // Safety: internal is a valid pointer to I2sStdDriverInternal and is initialized.
-        unsafe {
-            let e = i2s_channel_register_event_callback(
-                (*self.tx).chan_handle,
-                &callbacks,
-                self.tx as *mut c_void
-            );
-
-            if e != ESP_OK {
-                println!("Failed to register TX callback: error code {e}");
-                esp!(e)?;
-            }
-
-            (*self.tx).callback = Some(Box::new(tx_callback));
-        }
-
-        Ok(())
-    }
-}
-
-/// C-facing ISR dispatcher for on_recv callbacks.
-extern "C" fn dispatch_on_recv(
-    _handle: i2s_chan_handle_t,
-    event: *mut i2s_event_data_t,
-    user_ctx: *mut c_void,
-) -> bool {
-    // Safety: user_ctx is always a pointer to I2sStdDriverChannel.
-    let internal: &mut I2sStdChannel<dyn I2sRxCallback> =
-        unsafe { &mut *(user_ctx as *mut I2sStdChannel<dyn I2sRxCallback>) };
-    if let Some(callback) = &mut internal.callback {
-        callback.on_receive(internal.i2s, unsafe {
-            &*(event as *const i2s_event_data_t)
-        })
-    } else {
-        false
-    }
-}
-
-/// C-facing ISR dispatcher for on_recv_q_ovf callbacks.
-extern "C" fn dispatch_on_recv_q_ovf(
-    _handle: i2s_chan_handle_t,
-    event: *mut i2s_event_data_t,
-    user_ctx: *mut c_void,
-) -> bool {
-    // Safety: user_ctx is always a pointer to I2sStdDriverChannel.
-    let internal: &mut I2sStdChannel<dyn I2sRxCallback> =
-        unsafe { &mut *(user_ctx as *mut I2sStdChannel<dyn I2sRxCallback>) };
-    if let Some(callback) = &mut internal.callback {
-        callback.on_receive_queue_overflow(internal.i2s, unsafe {
-            &*(event as *const i2s_event_data_t)
-        })
-    } else {
-        false
-    }
-}
-
-/// C-facing ISR dispatcher for on_sent callbacks.
-extern "C" fn dispatch_on_sent(
-    _handle: i2s_chan_handle_t,
-    event: *mut i2s_event_data_t,
-    user_ctx: *mut c_void,
-) -> bool {
-    // Safety: user_ctx is always a pointer to I2sStdDriverChannel.
-    let internal: &mut I2sStdChannel<dyn I2sTxCallback> =
-        unsafe { &mut *(user_ctx as *mut I2sStdChannel<dyn I2sTxCallback>) };
-    if let Some(callback) = &mut internal.callback {
-        callback.on_sent(internal.i2s, unsafe {
-            &*(event as *const i2s_event_data_t)
-        })
-    } else {
-        false
-    }
-}
-
-/// C-facing ISR dispatcher for on_send_q_ovf callbacks.
-extern "C" fn dispatch_on_send_q_ovf(
-    _handle: i2s_chan_handle_t,
-    event: *mut i2s_event_data_t,
-    user_ctx: *mut c_void,
-) -> bool {
-    // Safety: user_ctx is always a pointer to I2sStdDriverChannel.
-    let internal: &mut I2sStdChannel<dyn I2sTxCallback> =
-        unsafe { &mut *(user_ctx as *mut I2sStdChannel<dyn I2sTxCallback>) };
-    if let Some(callback) = &mut internal.callback {
-        callback.on_send_queue_overflow(internal.i2s, unsafe {
-            &*(event as *const i2s_event_data_t)
-        })
-    } else {
-        false
+        unsafe { &mut *self.tx }.set_tx_callback(Box::new(tx_callback))
     }
 }

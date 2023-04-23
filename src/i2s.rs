@@ -1,9 +1,11 @@
 //! Driver for the Inter-IC Sound (I2S) peripheral(s).
 
-use core::{convert::TryInto, ffi::c_void, mem::MaybeUninit, time::Duration};
+use core::{convert::TryInto, ffi::c_void, mem::MaybeUninit, ptr::null_mut, time::Duration};
 use esp_idf_sys::{
-    esp, i2s_chan_handle_t, i2s_channel_disable, i2s_channel_enable, i2s_channel_read,
-    i2s_channel_write, i2s_event_data_t, i2s_port_t, i2s_role_t, EspError,
+    esp, esp_err_to_name, esp_log_level_t_ESP_LOG_ERROR, esp_log_write, i2s_chan_handle_t,
+    i2s_channel_disable, i2s_channel_enable, i2s_channel_read, i2s_channel_register_event_callback,
+    i2s_channel_write, i2s_del_channel, i2s_event_callbacks_t, i2s_event_data_t, i2s_port_t,
+    i2s_role_t, EspError, ESP_OK,
 };
 
 mod pcm;
@@ -481,20 +483,23 @@ pub trait I2sRxChannel<'d> {
     /// Sets the receive callback for the channel.
     ///
     /// This may be called only when the channel is in the `REGISTERED` or `RUNNING` state.
-    /// 
+    ///
     /// # Bugs
     /// This functionality appears to be fundamentally broken in ESP-IDF 5.0.*. This function is invoked by
     /// [`i2s_dma_rx_callback`](https://github.com/espressif/esp-idf/blob/v5.0.1/components/driver/i2s/i2s_common.c#L562).
     /// It expects the callback (or another mechanism) to mark the DMA buffer as ready for reuse, as
     /// [`i2s_channel_read` does by calling `xQueueReceive`](https://github.com/espressif/esp-idf/blob/v5.0.1/components/driver/i2s/i2s_common.c#L1076).
     /// Otherwise, the queue eventually fills up and [`xQueueIsQueueFullFromISR` returns true and the recieve buffer overflows](https://github.com/espressif/esp-idf/blob/v5.0.1/components/driver/i2s/i2s_common.c#L494).
-    /// 
+    ///
     /// However, it is impossible for non ESP-IDF code to call `xQueueReceive` on the queue because the queue is hidden behind the
     /// opaque [`i2s_chan_handle_t` object](https://github.com/espressif/esp-idf/blob/v5.0.1/components/driver/include/driver/i2s_types.h#L66).
     /// The actual definition is private in [`i2s_channel_obj_t.msg_queue`](https://github.com/espressif/esp-idf/blob/v5.0.1/components/driver/i2s/i2s_private.h#L71-L103).
-    /// 
+    ///
     /// This requires a fix in the ESP-IDF SDK to work properly.
-    fn set_rx_callback<Rx: I2sRxCallback + 'static>(&mut self, callback: Rx) -> Result<(), EspError>;
+    fn set_rx_callback<Rx: I2sRxCallback + 'static>(
+        &mut self,
+        callback: Rx,
+    ) -> Result<(), EspError>;
 }
 
 /// Functions for transmit channels.
@@ -594,20 +599,23 @@ pub trait I2sTxChannel<'d> {
     /// Sets the transmit callback for the channel.
     ///
     /// This may be called only when the channel is in the `REGISTERED` or `RUNNING` state.
-    /// 
+    ///
     /// # Bugs
     /// This functionality appears to be fundamentally broken in ESP-IDF 5.0.*. This function is invoked by
     /// [`i2s_dma_tx_callback`](https://github.com/espressif/esp-idf/blob/v5.0.1/components/driver/i2s/i2s_common.c#L521).
     /// It expects the callback (or another mechanism) to mark the DMA buffer as ready for reuse, as
     /// [`i2s_channel_write` does by calling `xQueueReceive`](https://github.com/espressif/esp-idf/blob/v5.0.1/components/driver/i2s/i2s_common.c#L1038).
     /// Otherwise, the queue eventually fills up and [`xQueueIsQueueFullFromISR` returns true and the recieve buffer overflows](https://github.com/espressif/esp-idf/blob/v5.0.1/components/driver/i2s/i2s_common.c#L523).
-    /// 
+    ///
     /// However, it is impossible for non ESP-IDF code to call `xQueueReceive` on the queue because the queue is hidden behind the
     /// opaque [`i2s_chan_handle_t` object](https://github.com/espressif/esp-idf/blob/v5.0.1/components/driver/include/driver/i2s_types.h#L66).
     /// The actual definition is private in [`i2s_channel_obj_t.msg_queue`](https://github.com/espressif/esp-idf/blob/v5.0.1/components/driver/i2s/i2s_private.h#L71-L103).
-    /// 
+    ///
     /// This requires a fix in the ESP-IDF SDK to work properly.
-    fn set_tx_callback<Tx: I2sTxCallback + 'static>(&mut self, callback: Tx) -> Result<(), EspError>;
+    fn set_tx_callback<Tx: I2sTxCallback + 'static>(
+        &mut self,
+        callback: Tx,
+    ) -> Result<(), EspError>;
 }
 
 /// Marker trait indicating that a driver supports the [I2sRx] trait.
@@ -726,6 +734,171 @@ pub trait I2sTxCallback {
     /// Returns `true` if a high priority task has been woken up by this callback function, `false` otherwise.
     #[allow(unused_variables)]
     fn on_send_queue_overflow(&mut self, port: u8, event: &I2sRawEvent) -> bool {
+        false
+    }
+}
+
+/// Internals of the I2S driver for a channel. This is pinned for the lifetime of the driver for
+/// interrupts to function properly.
+struct I2sChannel<Callback: ?Sized> {
+    /// The channel handle.
+    chan_handle: i2s_chan_handle_t,
+
+    /// The interrupt handler for channel events.
+    callback: Option<Box<Callback>>,
+
+    /// The port number.
+    i2s: u8,
+}
+
+unsafe impl<Callback: ?Sized> Sync for I2sChannel<Callback> {}
+
+// No Send impl -- this *must* be pinned in memory for the callback to function properly.
+
+impl<Callback: ?Sized> Drop for I2sChannel<Callback> {
+    fn drop(&mut self) {
+        if !self.chan_handle.is_null() {
+            unsafe {
+                // Safety: chan_handle is a valid, non-null i2s_chan_handle_t.
+                let result = i2s_del_channel(self.chan_handle);
+                if result != ESP_OK {
+                    // This isn't fatal so a panic isn't warranted, but we do want to be able to debug it.
+                    esp_log_write(
+                        esp_log_level_t_ESP_LOG_ERROR,
+                        LOG_TAG as *const u8 as *const i8,
+                        b"Failed to delete RX channel: %s\0" as *const u8 as *const i8,
+                        esp_err_to_name(result),
+                    );
+                }
+                self.chan_handle = null_mut();
+            }
+        }
+    }
+}
+
+impl<Callback: I2sRxCallback + ?Sized> I2sChannel<Callback> {
+    /// Utility function to set RX callbacks for drivers.
+    fn set_rx_callback(&mut self, callback: Box<Callback>) -> Result<(), EspError> {
+        let callbacks = i2s_event_callbacks_t {
+            on_recv: Some(dispatch_on_recv),
+            on_recv_q_ovf: Some(dispatch_on_recv_q_ovf),
+            on_sent: None,
+            on_send_q_ovf: None,
+        };
+
+        // Safety: internal is a valid pointer to I2sStdDriverInternal and is initialized.
+        unsafe {
+            esp!(i2s_channel_register_event_callback(
+                self.chan_handle,
+                &callbacks,
+                self as *mut Self as *mut c_void
+            ))?;
+
+            self.callback = Some(callback);
+        }
+
+        Ok(())
+    }
+}
+
+impl<Callback: I2sTxCallback + ?Sized> I2sChannel<Callback> {
+    /// Utility function to set TX callbacks for drivers.
+    fn set_tx_callback(&mut self, callback: Box<Callback>) -> Result<(), EspError> {
+        let callbacks = i2s_event_callbacks_t {
+            on_recv: None,
+            on_recv_q_ovf: None,
+            on_sent: Some(dispatch_on_sent),
+            on_send_q_ovf: Some(dispatch_on_send_q_ovf),
+        };
+
+        // Safety: internal is a valid pointer to I2sStdDriverInternal and is initialized.
+        unsafe {
+            let e = i2s_channel_register_event_callback(
+                self.chan_handle,
+                &callbacks,
+                self as *mut Self as *mut c_void,
+            );
+
+            if e != ESP_OK {
+                println!("Failed to register TX callback: error code {e}");
+                esp!(e)?;
+            }
+
+            self.callback = Some(callback);
+        }
+
+        Ok(())
+    }
+}
+
+/// C-facing ISR dispatcher for on_recv callbacks.
+extern "C" fn dispatch_on_recv(
+    _handle: i2s_chan_handle_t,
+    event: *mut i2s_event_data_t,
+    user_ctx: *mut c_void,
+) -> bool {
+    // Safety: user_ctx is always a pointer to I2sStdDriverChannel.
+    let internal: &mut I2sChannel<dyn I2sRxCallback> =
+        unsafe { &mut *(user_ctx as *mut I2sChannel<dyn I2sRxCallback>) };
+    if let Some(callback) = &mut internal.callback {
+        callback.on_receive(internal.i2s, unsafe {
+            &*(event as *const i2s_event_data_t)
+        })
+    } else {
+        false
+    }
+}
+
+/// C-facing ISR dispatcher for on_recv_q_ovf callbacks.
+extern "C" fn dispatch_on_recv_q_ovf(
+    _handle: i2s_chan_handle_t,
+    event: *mut i2s_event_data_t,
+    user_ctx: *mut c_void,
+) -> bool {
+    // Safety: user_ctx is always a pointer to I2sStdDriverChannel.
+    let internal: &mut I2sChannel<dyn I2sRxCallback> =
+        unsafe { &mut *(user_ctx as *mut I2sChannel<dyn I2sRxCallback>) };
+    if let Some(callback) = &mut internal.callback {
+        callback.on_receive_queue_overflow(internal.i2s, unsafe {
+            &*(event as *const i2s_event_data_t)
+        })
+    } else {
+        false
+    }
+}
+
+/// C-facing ISR dispatcher for on_sent callbacks.
+extern "C" fn dispatch_on_sent(
+    _handle: i2s_chan_handle_t,
+    event: *mut i2s_event_data_t,
+    user_ctx: *mut c_void,
+) -> bool {
+    // Safety: user_ctx is always a pointer to I2sStdDriverChannel.
+    let internal: &mut I2sChannel<dyn I2sTxCallback> =
+        unsafe { &mut *(user_ctx as *mut I2sChannel<dyn I2sTxCallback>) };
+    if let Some(callback) = &mut internal.callback {
+        callback.on_sent(internal.i2s, unsafe {
+            &*(event as *const i2s_event_data_t)
+        })
+    } else {
+        false
+    }
+}
+
+/// C-facing ISR dispatcher for on_send_q_ovf callbacks.
+extern "C" fn dispatch_on_send_q_ovf(
+    _handle: i2s_chan_handle_t,
+    event: *mut i2s_event_data_t,
+    user_ctx: *mut c_void,
+) -> bool {
+    // Safety: user_ctx is always a pointer to I2sStdDriverChannel.
+    let internal: &mut I2sChannel<dyn I2sTxCallback> =
+        unsafe { &mut *(user_ctx as *mut I2sChannel<dyn I2sTxCallback>) };
+    if let Some(callback) = &mut internal.callback {
+        callback.on_send_queue_overflow(internal.i2s, unsafe {
+            &*(event as *const i2s_event_data_t)
+        })
+    } else {
         false
     }
 }
