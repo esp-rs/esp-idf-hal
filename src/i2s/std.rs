@@ -526,7 +526,7 @@ pub(super) mod config {
     }
 }
 
-/// Internals of the I2s standard mode driver for an Rx channel. This is pinned for the lifetime of the driver for
+/// Internals of the I2S standard mode driver for a channel. This is pinned for the lifetime of the driver for
 /// interrupts to function properly.
 struct I2sStdChannel<Callback: ?Sized> {
     /// The channel handle.
@@ -540,6 +540,8 @@ struct I2sStdChannel<Callback: ?Sized> {
 }
 
 unsafe impl<Callback: ?Sized> Sync for I2sStdChannel<Callback> {}
+
+// No Send impl -- this *must* be pinned in memory for the callback to function properly.
 
 impl<Callback: ?Sized> Drop for I2sStdChannel<Callback> {
     fn drop(&mut self) {
