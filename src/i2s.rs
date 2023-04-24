@@ -12,6 +12,8 @@ mod pcm;
 #[cfg(any(esp_idf_soc_i2s_supports_pdm_rx, esp_idf_soc_i2s_supports_pdm_tx))]
 mod pdm;
 mod std;
+#[cfg(esp_idf_soc_i2s_supports_tdm)]
+mod tdm;
 
 /// I2S peripheral in controller (master) role, bclk and ws signal will be set to output.
 const I2S_ROLE_CONTROLLER: i2s_role_t = 0;
@@ -28,6 +30,8 @@ pub mod config {
     #[cfg(any(esp_idf_soc_i2s_supports_pdm_rx, esp_idf_soc_i2s_supports_pdm_tx))]
     pub use super::pdm::config::*;
     pub use super::std::config::*;
+    #[cfg(esp_idf_soc_i2s_supports_tdm)]
+    pub use super::tdm::config::*;
     use super::{I2S_ROLE_CONTROLLER, I2S_ROLE_TARGET};
     use core::convert::TryFrom;
     use esp_idf_sys::{
@@ -922,6 +926,8 @@ pub type I2sRawEvent = i2s_event_data_t;
 #[cfg(any(esp_idf_soc_i2s_supports_pdm_rx, esp_idf_soc_i2s_supports_pdm_tx))]
 pub use self::pdm::*;
 pub use self::std::*;
+#[cfg(esp_idf_soc_i2s_supports_tdm)]
+pub use self::tdm::*;
 
 impl_i2s!(I2S0: 0);
 #[cfg(any(esp32, esp32s3))]
