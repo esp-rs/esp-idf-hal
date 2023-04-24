@@ -30,13 +30,13 @@ pub(super) mod config {
         pub(super) channel_cfg: Config,
 
         /// Standard mode channel clock configuration.
-        pub(super) clk_cfg: StdClkConfig,
+        clk_cfg: StdClkConfig,
 
         /// Standard mode channel slot configuration.
-        pub(super) slot_cfg: StdSlotConfig,
+        slot_cfg: StdSlotConfig,
 
         /// Standard mode channel GPIO configuration.
-        pub(super) gpio_cfg: StdGpioConfig,
+        gpio_cfg: StdGpioConfig,
     }
 
     impl StdConfig {
@@ -114,13 +114,13 @@ pub(super) mod config {
     #[derive(Clone)]
     pub struct StdClkConfig {
         /// I2S sample rate.
-        pub(super) sample_rate_hz: u32,
+        sample_rate_hz: u32,
 
         /// Clock source.
-        pub(super) clk_src: ClockSource,
+        clk_src: ClockSource,
 
         /// The multiple of MCLK to the sample rate.
-        pub(super) mclk_multiple: MclkMultiple,
+        mclk_multiple: MclkMultiple,
     }
 
     impl StdClkConfig {
@@ -179,13 +179,13 @@ pub(super) mod config {
     #[derive(Default)]
     pub struct StdGpioConfig {
         /// Invert the BCLK signal.
-        pub(super) bclk_invert: bool,
+        bclk_invert: bool,
 
         /// Invert the MCLK signal.
-        pub(super) mclk_invert: bool,
+        mclk_invert: bool,
 
         /// Invert the WS signal.
-        pub(super) ws_invert: bool,
+        ws_invert: bool,
     }
 
     impl StdGpioConfig {
@@ -263,41 +263,41 @@ pub(super) mod config {
     #[derive(Clone)]
     pub struct StdSlotConfig {
         /// I2S sample data bit width (valid data bits per sample).
-        pub(super) data_bit_width: DataBitWidth,
+        data_bit_width: DataBitWidth,
 
         /// I2S slot bit width (total bits per slot).
-        pub(super) slot_bit_width: SlotBitWidth,
+        slot_bit_width: SlotBitWidth,
 
         /// Mono or stereo mode operation.
-        pub(super) slot_mode: SlotMode,
+        slot_mode: SlotMode,
 
         /// Are we using the left, right, or both data slots?
-        pub(super) slot_mask: StdSlotMask,
+        slot_mask: StdSlotMask,
 
         /// The word select (WS) signal width, in terms of the bit clock (BCK) periods.
-        pub(super) ws_width: u32,
+        ws_width: u32,
 
         /// The word select signal polarity; true enables the light lever first.
-        pub(super) ws_polarity: bool,
+        ws_polarity: bool,
 
         /// Set to enable the additional bit-shift needed in Philips mode.
-        pub(super) bit_shift: bool,
+        bit_shift: bool,
 
         /// ESP32/ESP32S2 only: place the right slot data in the MSB in the FIFO.
         #[cfg(any(esp32, esp32s2))]
-        pub(super) msb_right: bool,
+        msb_right: bool,
 
         /// Non-ESP32/ESP32S2: enable left-alignment
         #[cfg(not(any(esp32, esp32s2)))]
-        pub(super) left_align: bool,
+        left_align: bool,
 
         /// Non-ESP32/ESP32S2: Enable big-endian.
         #[cfg(not(any(esp32, esp32s2)))]
-        pub(super) big_endian: bool,
+        big_endian: bool,
 
         /// Non-ESP32/ESP32S2: Enable LSB-first.
         #[cfg(not(any(esp32, esp32s2)))]
-        pub(super) bit_order_lsb: bool,
+        bit_order_lsb: bool,
     }
 
     impl StdSlotConfig {
