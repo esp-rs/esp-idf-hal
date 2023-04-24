@@ -9,6 +9,7 @@ use esp_idf_sys::{
 };
 
 mod pcm;
+#[cfg(any(esp_idf_soc_i2s_supports_pdm_rx, esp_idf_soc_i2s_supports_pdm_tx))]
 mod pdm;
 mod std;
 
@@ -24,6 +25,7 @@ const LOG_TAG: &[u8; 17] = b"esp-idf-hal::i2s\0";
 /// I2S configuration
 pub mod config {
     pub use super::pcm::config::*;
+    #[cfg(any(esp_idf_soc_i2s_supports_pdm_rx, esp_idf_soc_i2s_supports_pdm_tx))]
     pub use super::pdm::config::*;
     pub use super::std::config::*;
     use super::{I2S_ROLE_CONTROLLER, I2S_ROLE_TARGET};
@@ -917,6 +919,8 @@ macro_rules! impl_i2s {
 }
 
 pub type I2sRawEvent = i2s_event_data_t;
+#[cfg(any(esp_idf_soc_i2s_supports_pdm_rx, esp_idf_soc_i2s_supports_pdm_tx))]
+pub use self::pdm::*;
 pub use self::std::*;
 
 impl_i2s!(I2S0: 0);

@@ -9,9 +9,8 @@ use crate::{
 };
 use core::{marker::PhantomData, ptr::null_mut};
 use esp_idf_sys::{
-    esp, i2s_chan_config_t,
-    i2s_chan_handle_t, i2s_channel_init_std_mode, i2s_new_channel, i2s_port_t,
-    i2s_std_config_t, EspError,
+    esp, i2s_chan_config_t, i2s_chan_handle_t, i2s_channel_init_std_mode, i2s_new_channel,
+    i2s_port_t, i2s_std_config_t, EspError,
 };
 
 pub(super) mod config {
