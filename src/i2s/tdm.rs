@@ -1004,3 +1004,21 @@ impl<'d, Dir: I2sTxSupported> I2sTxChannel<'d> for I2sTdmDriver<'d, Dir> {
         unsafe { &mut *self.tx }.set_tx_callback(Box::new(tx_callback))
     }
 }
+
+#[cfg(esp_idf_version_major = "4")]
+impl<'d, Dir> Drop for I2sTdmDriver<'d, Dir> {
+    fn drop(&mut self) {
+        unsafe {
+            let result = i2s_driver_uninstall(self.i2s as u32);
+            if result != ESP_OK {
+                // This isn't fatal so a panic isn't warranted, but we do want to be able to debug it.
+                esp_log_write(
+                    esp_log_level_t_ESP_LOG_ERROR,
+                    LOG_TAG as *const u8 as *const i8,
+                    b"Failed to delete RX channel: %s\0" as *const u8 as *const i8,
+                    esp_err_to_name(result),
+                );
+            }
+        }       
+    }
+}

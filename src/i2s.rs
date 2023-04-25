@@ -1016,7 +1016,7 @@ impl<Callback: ?Sized> Drop for I2sChannel<Callback> {
                     esp_log_write(
                         esp_log_level_t_ESP_LOG_ERROR,
                         LOG_TAG as *const u8 as *const i8,
-                        b"Failed to delete RX channel: %s\0" as *const u8 as *const i8,
+                        b"Failed to delete channel: %s\0" as *const u8 as *const i8,
                         esp_err_to_name(result),
                     );
                 }
