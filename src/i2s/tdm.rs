@@ -1,28 +1,13 @@
 //! Time-division multiplexing (TDM) support for I2S.
-use super::{
-    I2s, I2sChannel, I2sRxCallback, I2sRxChannel, I2sRxSupported, I2sTxCallback, I2sTxChannel,
-    I2sTxSupported,
-};
-use crate::{
-    gpio::{AnyIOPin, InputPin, OutputPin},
-    peripheral::{Peripheral, PeripheralRef},
-};
+use super::*;
+use crate::{gpio::*, peripheral::*};
 use core::{marker::PhantomData, ptr::null_mut};
-use esp_idf_sys::{
-    esp, i2s_chan_config_t, i2s_chan_handle_t, i2s_channel_init_tdm_mode, i2s_new_channel,
-    i2s_port_t, EspError,
-};
+use esp_idf_sys::*;
 
 pub(super) mod config {
-    use crate::{
-        gpio::{InputPin, OutputPin},
-        i2s::config::{ClockSource, Config, DataBitWidth, MclkMultiple, SlotBitWidth, SlotMode},
-        peripheral::PeripheralRef,
-    };
-    use esp_idf_sys::{
-        i2s_tdm_clk_config_t, i2s_tdm_config_t, i2s_tdm_gpio_config_t,
-        i2s_tdm_gpio_config_t__bindgen_ty_1, i2s_tdm_slot_config_t, i2s_tdm_slot_mask_t,
-    };
+    #[allow(unused)]
+    use crate::{gpio::*, i2s::config::*, peripheral::*};
+    use esp_idf_sys::*;
 
     /// Automatic total number of slots, equivalent to the maximum active slot number.
     pub const TDM_AUTO_SLOT_NUM: u32 = 0;
@@ -42,6 +27,7 @@ pub(super) mod config {
         slot_cfg: TdmSlotConfig,
 
         /// TDM mode channel data configuration.
+        #[cfg(not(esp_idf_version_major = "4"))]
         gpio_cfg: TdmGpioConfig,
     }
 
@@ -53,17 +39,19 @@ pub(super) mod config {
             channel_cfg: Config,
             clk_cfg: TdmClkConfig,
             slot_cfg: TdmSlotConfig,
-            gpio_cfg: TdmGpioConfig,
+            #[cfg(not(esp_idf_version_major = "4"))] gpio_cfg: TdmGpioConfig,
         ) -> Self {
             Self {
                 channel_cfg,
                 clk_cfg,
                 slot_cfg,
+                #[cfg(not(esp_idf_version_major = "4"))]
                 gpio_cfg,
             }
         }
 
         /// Convert to the ESP-IDF SDK `i2s_tdm_config_t` representation.
+        #[cfg(not(esp_idf_version_major = "4"))]
         #[inline(always)]
         pub(super) fn as_sdk<'d>(
             &self,
@@ -77,6 +65,45 @@ pub(super) mod config {
                 clk_cfg: self.clk_cfg.as_sdk(),
                 slot_cfg: self.slot_cfg.as_sdk(),
                 gpio_cfg: self.gpio_cfg.as_sdk(bclk, din, dout, mclk, ws),
+            }
+        }
+
+        /// Convert to the ESP-IDF SDK `i2s_driver_config_t` representation.
+        ///
+        /// # Note
+        /// The mode field is not fully set by this function. Only the controller/target field is set. Before using,
+        /// the following bits must be considered: `I2S_MODE_TX`, `I2S_MODE_RX`. `I2S_MODE_DAC_BUILT_IN`, and
+        /// `I2S_MODE_ADC_BUILT_IN`, and `I2S_MODE_PDM` should not be used here.
+        #[cfg(esp_idf_version_major = "4")]
+        pub(crate) fn as_sdk(&self) -> i2s_driver_config_t {
+            let chan_fmt = match self.slot_cfg.slot_mode {
+                SlotMode::Stereo => i2s_channel_fmt_t_I2S_CHANNEL_FMT_MULTIPLE,
+                SlotMode::Mono => i2s_channel_fmt_t_I2S_CHANNEL_FMT_ONLY_LEFT, // Use channel 0
+            };
+
+            i2s_driver_config_t {
+                mode: self.channel_cfg.role.as_sdk(),
+                sample_rate: self.clk_cfg.sample_rate_hz,
+                bits_per_sample: self.slot_cfg.data_bit_width.as_sdk(),
+                channel_format: chan_fmt,
+                communication_format: self.slot_cfg.comm_fmt.as_sdk(),
+                intr_alloc_flags: 1 << 1, // ESP_INTR_FLAG_LEVEL1
+                dma_buf_count: self.channel_cfg.dma_desc as i32,
+                dma_buf_len: self.channel_cfg.frames as i32,
+                #[cfg(any(esp32, esp32s2))]
+                use_apll: matches!(self.clk_cfg.clk_src, ClockSource::Apll),
+                #[cfg(not(any(esp32, esp32s2)))]
+                use_apll: false,
+                tx_desc_auto_clear: self.channel_cfg.auto_clear,
+                fixed_mclk: 0,
+                mclk_multiple: self.clk_cfg.mclk_multiple.as_sdk(),
+                bits_per_chan: self.slot_cfg.slot_bit_width.as_sdk(),
+                chan_mask: self.slot_cfg.slot_mask.as_sdk(),
+                total_chan: self.slot_cfg.slot_mask.0.count_ones(),
+                left_align: self.slot_cfg.left_align,
+                big_edin: self.slot_cfg.big_endian,
+                bit_order_msb: !self.slot_cfg.bit_order_lsb,
+                skip_msk: self.slot_cfg.skip_mask,
             }
         }
     }
@@ -136,6 +163,7 @@ pub(super) mod config {
         }
 
         /// Convert to the ESP-IDF SDK `i2s_tdm_clk_config_t` representation.
+        #[cfg(not(esp_idf_version_major = "4"))]
         #[inline(always)]
         pub(crate) fn as_sdk(&self) -> i2s_tdm_clk_config_t {
             i2s_tdm_clk_config_t {
@@ -146,7 +174,11 @@ pub(super) mod config {
         }
     }
 
+    #[cfg(esp_idf_version_major = "4")]
+    pub type TdmCommFormat = crate::i2s::std::config::StdCommFormat;
+
     /// TDM mode GPIO (general purpose input/output) configuration.
+    #[cfg(not(esp_idf_version_major = "4"))]
     #[derive(Default)]
     pub struct TdmGpioConfig {
         /// Invert the BCLK signal.
@@ -159,6 +191,7 @@ pub(super) mod config {
         ws_invert: bool,
     }
 
+    #[cfg(not(esp_idf_version_major = "4"))]
     impl TdmGpioConfig {
         /// Create a new TDM mode GPIO configuration with the specified inversion flags for BCLK, MCLK, and WS.
         pub fn new(bclk_invert: bool, mclk_invert: bool, ws_invert: bool) -> Self {
@@ -246,13 +279,19 @@ pub(super) mod config {
         slot_mask: TdmSlotMask,
 
         /// The word select (WS) signal width, in terms of the bit clock (BCK) periods.
+        #[cfg(not(esp_idf_version_major = "4"))]
         ws_width: u32,
 
         /// The word select signal polarity; true enables the light lever first.
+        #[cfg(not(esp_idf_version_major = "4"))]
         ws_polarity: bool,
 
         /// Set to enable the additional bit-shift needed in Philips mode.
+        #[cfg(not(esp_idf_version_major = "4"))]
         bit_shift: bool,
+
+        #[cfg(esp_idf_version_major = "4")]
+        comm_fmt: TdmCommFormat,
 
         /// Enable left-alignment.
         left_align: bool,
@@ -296,6 +335,7 @@ pub(super) mod config {
         }
 
         /// Update the word select signal width on this TDM slot configuration.
+        #[cfg(not(esp_idf_version_major = "4"))]
         #[inline(always)]
         pub fn ws_width(mut self, ws_width: u32) -> Self {
             self.ws_width = ws_width;
@@ -303,6 +343,7 @@ pub(super) mod config {
         }
 
         /// Update the word select signal polarity on this TDM slot configuration.
+        #[cfg(not(esp_idf_version_major = "4"))]
         #[inline(always)]
         pub fn ws_polarity(mut self, ws_polarity: bool) -> Self {
             self.ws_polarity = ws_polarity;
@@ -310,9 +351,18 @@ pub(super) mod config {
         }
 
         /// Update the bit shift flag on this TDM slot configuration.
+        #[cfg(not(esp_idf_version_major = "4"))]
         #[inline(always)]
         pub fn bit_shift(mut self, bit_shift: bool) -> Self {
             self.bit_shift = bit_shift;
+            self
+        }
+
+        /// Update the communication format on this standard slot configuration.
+        #[cfg(esp_idf_version_major = "4")]
+        #[inline(always)]
+        pub fn comm_fmt(mut self, comm_fmt: TdmCommFormat) -> Self {
+            self.comm_fmt = comm_fmt;
             self
         }
 
@@ -363,9 +413,14 @@ pub(super) mod config {
                 slot_bit_width: SlotBitWidth::Auto,
                 slot_mode,
                 slot_mask,
+                #[cfg(not(esp_idf_version_major = "4"))]
                 ws_width: TDM_AUTO_WS_WIDTH,
+                #[cfg(not(esp_idf_version_major = "4"))]
                 ws_polarity: false,
+                #[cfg(not(esp_idf_version_major = "4"))]
                 bit_shift: true,
+                #[cfg(esp_idf_version_major = "4")]
+                comm_fmt: TdmCommFormat::Philips,
                 left_align: false,
                 big_endian: false,
                 bit_order_lsb: false,
@@ -386,9 +441,14 @@ pub(super) mod config {
                 slot_bit_width: SlotBitWidth::Auto,
                 slot_mode,
                 slot_mask,
+                #[cfg(not(esp_idf_version_major = "4"))]
                 ws_width: TDM_AUTO_WS_WIDTH,
+                #[cfg(not(esp_idf_version_major = "4"))]
                 ws_polarity: false,
+                #[cfg(not(esp_idf_version_major = "4"))]
                 bit_shift: false,
+                #[cfg(esp_idf_version_major = "4")]
+                comm_fmt: TdmCommFormat::Msb,
                 left_align: false,
                 big_endian: false,
                 bit_order_lsb: false,
@@ -408,9 +468,14 @@ pub(super) mod config {
                 slot_bit_width: SlotBitWidth::Auto,
                 slot_mode,
                 slot_mask,
+                #[cfg(not(esp_idf_version_major = "4"))]
                 ws_width: 1,
+                #[cfg(not(esp_idf_version_major = "4"))]
                 ws_polarity: true,
+                #[cfg(not(esp_idf_version_major = "4"))]
                 bit_shift: false,
+                #[cfg(esp_idf_version_major = "4")]
+                comm_fmt: TdmCommFormat::PcmShort,
                 left_align: false,
                 big_endian: false,
                 bit_order_lsb: false,
@@ -430,9 +495,14 @@ pub(super) mod config {
                 slot_bit_width: SlotBitWidth::Auto,
                 slot_mode,
                 slot_mask,
+                #[cfg(not(esp_idf_version_major = "4"))]
                 ws_width: bits_per_sample.into(),
+                #[cfg(not(esp_idf_version_major = "4"))]
                 ws_polarity: true,
+                #[cfg(not(esp_idf_version_major = "4"))]
                 bit_shift: false,
+                #[cfg(esp_idf_version_major = "4")]
+                comm_fmt: TdmCommFormat::PcmLong,
                 left_align: false,
                 big_endian: false,
                 bit_order_lsb: false,
@@ -442,6 +512,8 @@ pub(super) mod config {
         }
 
         /// Convert to the ESP-IDF SDK `i2s_tdm_slot_config_t` representation.
+        #[cfg(not(esp_idf_version_major = "4"))]
+        #[inline(always)]
         pub(crate) fn as_sdk(&self) -> i2s_tdm_slot_config_t {
             i2s_tdm_slot_config_t {
                 data_bit_width: self.data_bit_width.as_sdk(),
@@ -524,8 +596,18 @@ pub(super) mod config {
     }
 
     impl TdmSlotMask {
+        /// Converts this mask to an ESP-IDF SDK `i2s_tdm_slot_mask_t` value.
+        #[cfg(not(esp_idf_version_major = "4"))]
+        #[inline(always)]
         pub(super) fn as_sdk(&self) -> i2s_tdm_slot_mask_t {
             self.0 as i2s_tdm_slot_mask_t
+        }
+
+        /// Converts this mask to an ESP-IDF SDK `i2s_channel_t` value.
+        #[cfg(esp_idf_version_major = "4")]
+        #[inline(always)]
+        pub(super) fn as_sdk(&self) -> i2s_channel_t {
+            ((self.0 as u32) << 16) as i2s_channel_t
         }
     }
 }
@@ -533,9 +615,11 @@ pub(super) mod config {
 /// The I2S TDM mode driver.
 pub struct I2sTdmDriver<'d, Dir> {
     /// The Rx channel, possibly null.
+    #[cfg(not(esp_idf_version_major = "4"))]
     rx: *mut I2sChannel<dyn I2sRxCallback>,
 
     /// The Tx channel, possibly null.
+    #[cfg(not(esp_idf_version_major = "4"))]
     tx: *mut I2sChannel<dyn I2sTxCallback>,
 
     /// The I2S peripheral number. Either 0 or 1 (ESP32 and ESP32S3 only).
@@ -551,15 +635,16 @@ pub struct I2sTdmDriver<'d, Dir> {
 unsafe impl<'d, Dir> Send for I2sTdmDriver<'d, Dir> {}
 unsafe impl<'d, Dir> Sync for I2sTdmDriver<'d, Dir> {}
 
-impl<'d, Dir> I2sTdmDriver<'d, Dir> {
+impl<'d, Dir> I2sPort for I2sTdmDriver<'d, Dir> {
     /// Returns the I2S port number of this driver.
-    pub fn port(&self) -> i2s_port_t {
+    fn port(&self) -> i2s_port_t {
         self.i2s as u32
     }
 }
 
 impl<'d, Dir: I2sRxSupported + I2sTxSupported> I2sTdmDriver<'d, Dir> {
     /// Create a new TDM mode driver for the given I2S peripheral with both the receive and transmit channels open.
+    #[cfg(not(esp_idf_version_major = "4"))]
     #[allow(clippy::too_many_arguments)]
     pub fn new_bidir<I2S: I2s>(
         _i2s: impl Peripheral<P = I2S> + 'd,
@@ -571,7 +656,7 @@ impl<'d, Dir: I2sRxSupported + I2sTxSupported> I2sTdmDriver<'d, Dir> {
         ws: impl Peripheral<P = impl InputPin + OutputPin> + 'd,
     ) -> Result<Self, EspError> {
         let port = I2S::port();
-        let chan_cfg: i2s_chan_config_t = config.channel_cfg.as_sdk(port);
+        let chan_cfg = config.channel_cfg.as_sdk(port);
 
         let mut rx_chan_handle: i2s_chan_handle_t = null_mut();
         let mut tx_chan_handle: i2s_chan_handle_t = null_mut();
@@ -637,10 +722,54 @@ impl<'d, Dir: I2sRxSupported + I2sTxSupported> I2sTdmDriver<'d, Dir> {
             _dir: PhantomData,
         })
     }
+
+    /// Create a new standard mode driver for the given I2S peripheral with both the receive and transmit
+    /// channels open.
+    #[cfg(esp_idf_version_major = "4")]
+    #[allow(clippy::too_many_arguments)]
+    pub fn new_bdir<I2S: I2s>(
+        _i2s: impl Peripheral<P = I2S> + 'd,
+        config: config::TdmConfig,
+        bclk: impl Peripheral<P = impl InputPin + OutputPin> + 'd,
+        din: Option<impl Peripheral<P = impl InputPin> + 'd>,
+        dout: Option<impl Peripheral<P = impl OutputPin> + 'd>,
+        mclk: Option<impl Peripheral<P = impl InputPin + OutputPin> + 'd>,
+        ws: impl Peripheral<P = impl InputPin + OutputPin> + 'd,
+    ) -> Result<Self, EspError> {
+        let port = I2S::port();
+        let mut driver_cfg = config.as_sdk();
+        driver_cfg.mode |= i2s_mode_t_I2S_MODE_RX | i2s_mode_t_I2S_MODE_TX;
+
+        // Safety: &driver_cfg is a valid pointer to an i2s_driver_config_t.
+        unsafe {
+            esp!(i2s_driver_install(port, &driver_cfg, 0, null_mut()))?;
+        }
+
+        // Set the pin configuration.
+        let pin_cfg = i2s_pin_config_t {
+            bck_io_num: bclk.into_ref().pin(),
+            data_in_num: din.map(|din| din.into_ref().pin()).unwrap_or(-1),
+            data_out_num: dout.map(|dout| dout.into_ref().pin()).unwrap_or(-1),
+            mck_io_num: mclk.map(|mclk| mclk.into_ref().pin()).unwrap_or(-1),
+            ws_io_num: ws.into_ref().pin(),
+        };
+
+        // Safety: &pin_cfg is a valid pointer to an i2s_pin_config_t.
+        unsafe {
+            esp!(i2s_set_pin(port, &pin_cfg))?;
+        }
+
+        Ok(Self {
+            i2s: port as u8,
+            _p: PhantomData,
+            _dir: PhantomData,
+        })
+    }
 }
 
 impl<'d, Dir: I2sRxSupported> I2sTdmDriver<'d, Dir> {
     /// Create a new standard mode driver for the given I2S peripheral with only the receive channel open.
+    #[cfg(not(esp_idf_version_major = "4"))]
     #[allow(clippy::too_many_arguments)]
     pub fn new_rx<I2S: I2s>(
         _i2s: impl Peripheral<P = I2S> + 'd,
@@ -651,7 +780,7 @@ impl<'d, Dir: I2sRxSupported> I2sTdmDriver<'d, Dir> {
         ws: impl Peripheral<P = impl InputPin + OutputPin> + 'd,
     ) -> Result<Self, EspError> {
         let port = I2S::port();
-        let chan_cfg: i2s_chan_config_t = config.channel_cfg.as_sdk(port);
+        let chan_cfg = config.channel_cfg.as_sdk(port);
 
         let mut rx_chan_handle: i2s_chan_handle_t = null_mut();
 
@@ -699,10 +828,52 @@ impl<'d, Dir: I2sRxSupported> I2sTdmDriver<'d, Dir> {
             _dir: PhantomData,
         })
     }
+
+    /// Create a new standard mode driver for the given I2S peripheral with only the receive channel open.
+    #[cfg(esp_idf_version_major = "4")]
+    #[allow(clippy::too_many_arguments)]
+    pub fn new_rx<I2S: I2s>(
+        _i2s: impl Peripheral<P = I2S> + 'd,
+        config: config::TdmConfig,
+        bclk: impl Peripheral<P = impl InputPin + OutputPin> + 'd,
+        din: Option<impl Peripheral<P = impl InputPin> + 'd>,
+        mclk: Option<impl Peripheral<P = impl InputPin + OutputPin> + 'd>,
+        ws: impl Peripheral<P = impl InputPin + OutputPin> + 'd,
+    ) -> Result<Self, EspError> {
+        let port = I2S::port();
+        let mut driver_cfg = config.as_sdk();
+        driver_cfg.mode |= i2s_mode_t_I2S_MODE_RX;
+
+        // Safety: &driver_cfg is a valid pointer to an i2s_driver_config_t.
+        unsafe {
+            esp!(i2s_driver_install(port, &driver_cfg, 0, null_mut()))?;
+        }
+
+        // Set the pin configuration.
+        let pin_cfg = i2s_pin_config_t {
+            bck_io_num: bclk.into_ref().pin(),
+            data_in_num: din.map(|din| din.into_ref().pin()).unwrap_or(-1),
+            data_out_num: -1,
+            mck_io_num: mclk.map(|mclk| mclk.into_ref().pin()).unwrap_or(-1),
+            ws_io_num: ws.into_ref().pin(),
+        };
+
+        // Safety: &pin_cfg is a valid pointer to an i2s_pin_config_t.
+        unsafe {
+            esp!(i2s_set_pin(port, &pin_cfg))?;
+        }
+
+        Ok(Self {
+            i2s: port as u8,
+            _p: PhantomData,
+            _dir: PhantomData,
+        })
+    }
 }
 
 impl<'d, Dir: I2sTxSupported> I2sTdmDriver<'d, Dir> {
     /// Create a new standard mode driver for the given I2S peripheral with only the transmit channel open.
+    #[cfg(not(esp_idf_version_major = "4"))]
     #[allow(clippy::too_many_arguments)]
     pub fn new_tx<I2S: I2s>(
         _i2s: impl Peripheral<P = I2S> + 'd,
@@ -713,7 +884,7 @@ impl<'d, Dir: I2sTxSupported> I2sTdmDriver<'d, Dir> {
         ws: impl Peripheral<P = impl InputPin + OutputPin> + 'd,
     ) -> Result<Self, EspError> {
         let port = I2S::port();
-        let chan_cfg: i2s_chan_config_t = config.channel_cfg.as_sdk(port);
+        let chan_cfg = config.channel_cfg.as_sdk(port);
 
         let mut tx_chan_handle: i2s_chan_handle_t = null_mut();
 
@@ -761,13 +932,56 @@ impl<'d, Dir: I2sTxSupported> I2sTdmDriver<'d, Dir> {
             _dir: PhantomData,
         })
     }
+
+    /// Create a new standard mode driver for the given I2S peripheral with only the transmit channel open.
+    #[cfg(esp_idf_version_major = "4")]
+    #[allow(clippy::too_many_arguments)]
+    pub fn new_tx<I2S: I2s>(
+        _i2s: impl Peripheral<P = I2S> + 'd,
+        config: config::TdmConfig,
+        bclk: impl Peripheral<P = impl InputPin + OutputPin> + 'd,
+        dout: Option<impl Peripheral<P = impl OutputPin> + 'd>,
+        mclk: Option<impl Peripheral<P = impl InputPin + OutputPin> + 'd>,
+        ws: impl Peripheral<P = impl InputPin + OutputPin> + 'd,
+    ) -> Result<Self, EspError> {
+        let port = I2S::port();
+        let mut driver_cfg = config.as_sdk();
+        driver_cfg.mode |= i2s_mode_t_I2S_MODE_TX;
+
+        // Safety: &driver_cfg is a valid pointer to an i2s_driver_config_t.
+        unsafe {
+            esp!(i2s_driver_install(port, &driver_cfg, 0, null_mut()))?;
+        }
+
+        // Set the pin configuration.
+        let pin_cfg = i2s_pin_config_t {
+            bck_io_num: bclk.into_ref().pin(),
+            data_in_num: -1,
+            data_out_num: dout.map(|dout| dout.into_ref().pin()).unwrap_or(-1),
+            mck_io_num: mclk.map(|mclk| mclk.into_ref().pin()).unwrap_or(-1),
+            ws_io_num: ws.into_ref().pin(),
+        };
+
+        // Safety: &pin_cfg is a valid pointer to an i2s_pin_config_t.
+        unsafe {
+            esp!(i2s_set_pin(port, &pin_cfg))?;
+        }
+
+        Ok(Self {
+            i2s: port as u8,
+            _p: PhantomData,
+            _dir: PhantomData,
+        })
+    }
 }
 
 impl<'d, Dir: I2sRxSupported> I2sRxChannel<'d> for I2sTdmDriver<'d, Dir> {
+    #[cfg(not(esp_idf_version_major = "4"))]
     unsafe fn rx_handle(&self) -> i2s_chan_handle_t {
         (*self.rx).chan_handle
     }
 
+    #[cfg(not(esp_idf_version_major = "4"))]
     fn set_rx_callback<Rx: I2sRxCallback + 'static>(
         &mut self,
         rx_callback: Rx,
@@ -777,10 +991,12 @@ impl<'d, Dir: I2sRxSupported> I2sRxChannel<'d> for I2sTdmDriver<'d, Dir> {
 }
 
 impl<'d, Dir: I2sTxSupported> I2sTxChannel<'d> for I2sTdmDriver<'d, Dir> {
+    #[cfg(not(esp_idf_version_major = "4"))]
     unsafe fn tx_handle(&self) -> i2s_chan_handle_t {
         (*self.tx).chan_handle
     }
 
+    #[cfg(not(esp_idf_version_major = "4"))]
     fn set_tx_callback<Tx: I2sTxCallback + 'static>(
         &mut self,
         tx_callback: Tx,

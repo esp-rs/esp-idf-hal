@@ -1,45 +1,83 @@
 //! Driver for the Inter-IC Sound (I2S) peripheral(s).
 
-use core::{convert::TryInto, ffi::c_void, mem::MaybeUninit, ptr::null_mut, time::Duration};
-use esp_idf_sys::{
-    esp, esp_err_to_name, esp_log_level_t_ESP_LOG_ERROR, esp_log_write, i2s_chan_handle_t,
-    i2s_channel_disable, i2s_channel_enable, i2s_channel_read, i2s_channel_register_event_callback,
-    i2s_channel_write, i2s_del_channel, i2s_event_callbacks_t, i2s_event_data_t, i2s_port_t,
-    i2s_role_t, EspError, ESP_OK,
+use core::{convert::TryInto, ffi::c_void, mem::MaybeUninit, time::Duration};
+use esp_idf_sys::{esp, i2s_port_t, EspError};
+
+#[cfg(not(esp_idf_version_major = "4"))]
+use {
+    core::ptr::null_mut,
+    esp_idf_sys::{
+        esp_err_to_name, esp_log_level_t_ESP_LOG_ERROR, esp_log_write, i2s_chan_handle_t,
+        i2s_channel_disable, i2s_channel_enable, i2s_channel_read,
+        i2s_channel_register_event_callback, i2s_channel_write, i2s_del_channel,
+        i2s_event_callbacks_t, i2s_event_data_t, ESP_OK,
+    },
 };
 
+#[cfg(esp_idf_version_major = "4")]
+use esp_idf_sys::{configTICK_RATE_HZ, i2s_read, i2s_start, i2s_stop, i2s_write};
+
 mod pcm;
-#[cfg(any(esp_idf_soc_i2s_supports_pdm_rx, esp_idf_soc_i2s_supports_pdm_tx))]
+
+// For v5+, we rely configuration options for PDM/TDM support.
+// For v4, we have to examine the chip type.
+#[cfg(any(
+    all(
+        not(esp_idf_version_major = "4"),
+        any(esp_idf_soc_i2s_supports_pdm_rx, esp_idf_soc_i2s_supports_pdm_tx)
+    ),
+    all(esp_idf_version_major = "4", any(esp32, esp32s3, esp32c3, esp32c6))
+))]
 mod pdm;
+
 mod std;
-#[cfg(esp_idf_soc_i2s_supports_tdm)]
+
+#[cfg(any(
+    all(not(esp_idf_version_major = "4"), esp_idf_soc_i2s_supports_tdm),
+    all(esp_idf_version_major = "4", any(esp32s3, esp32c3, esp32c6))
+))]
 mod tdm;
 
-/// I2S peripheral in controller (master) role, bclk and ws signal will be set to output.
-const I2S_ROLE_CONTROLLER: i2s_role_t = 0;
-
-/// I2S peripheral in target (slave) role, bclk and ws signal will be set to input.
-const I2S_ROLE_TARGET: i2s_role_t = 1;
-
 /// Logging tag.
+#[allow(unused)]
 const LOG_TAG: &[u8; 17] = b"esp-idf-hal::i2s\0";
 
 /// I2S configuration
 pub mod config {
     pub use super::pcm::config::*;
-    #[cfg(any(esp_idf_soc_i2s_supports_pdm_rx, esp_idf_soc_i2s_supports_pdm_tx))]
+    #[cfg(any(
+        all(
+            not(esp_idf_version_major = "4"),
+            any(esp_idf_soc_i2s_supports_pdm_rx, esp_idf_soc_i2s_supports_pdm_tx)
+        ),
+        all(esp_idf_version_major = "4", any(esp32, esp32s3, esp32c3, esp32c6))
+    ))]
     pub use super::pdm::config::*;
     pub use super::std::config::*;
-    #[cfg(esp_idf_soc_i2s_supports_tdm)]
+
+    #[cfg(any(
+        all(not(esp_idf_version_major = "4"), esp_idf_soc_i2s_supports_tdm),
+        all(esp_idf_version_major = "4", any(esp32s3, esp32c3, esp32c6))
+    ))]
     pub use super::tdm::config::*;
-    use super::{I2S_ROLE_CONTROLLER, I2S_ROLE_TARGET};
     use core::convert::TryFrom;
     use esp_idf_sys::{
-        i2s_chan_config_t, i2s_clock_src_t, i2s_data_bit_width_t, i2s_mclk_multiple_t,
-        i2s_mclk_multiple_t_I2S_MCLK_MULTIPLE_128, i2s_mclk_multiple_t_I2S_MCLK_MULTIPLE_256,
-        i2s_mclk_multiple_t_I2S_MCLK_MULTIPLE_384, i2s_mclk_multiple_t_I2S_MCLK_MULTIPLE_512,
-        i2s_port_t, i2s_role_t, i2s_slot_bit_width_t, i2s_slot_mode_t, EspError,
-        ESP_ERR_INVALID_ARG,
+        i2s_mclk_multiple_t, i2s_mclk_multiple_t_I2S_MCLK_MULTIPLE_128,
+        i2s_mclk_multiple_t_I2S_MCLK_MULTIPLE_256, i2s_mclk_multiple_t_I2S_MCLK_MULTIPLE_384,
+        EspError, ESP_ERR_INVALID_ARG,
+    };
+
+    #[cfg(not(esp_idf_version_major = "4"))]
+    use esp_idf_sys::{
+        i2s_chan_config_t, i2s_clock_src_t, i2s_data_bit_width_t,
+        i2s_mclk_multiple_t_I2S_MCLK_MULTIPLE_512, i2s_port_t, i2s_role_t, i2s_slot_bit_width_t,
+        i2s_slot_mode_t,
+    };
+
+    #[cfg(esp_idf_version_major = "4")]
+    use esp_idf_sys::{
+        i2s_bits_per_chan_t, i2s_bits_per_sample_t, i2s_mode_t, i2s_mode_t_I2S_MODE_MASTER,
+        i2s_mode_t_I2S_MODE_SLAVE,
     };
 
     /// I2S clock source
@@ -51,10 +89,6 @@ pub mod config {
         /// Use APLL as the source clock
         #[cfg(any(esp32, esp32s2))]
         Apll,
-
-        /// Use XTAL as the source clock
-        #[cfg(any(esp32c3, esp32s3))]
-        Xtal,
     }
 
     impl Default for ClockSource {
@@ -65,13 +99,12 @@ pub mod config {
     }
 
     impl ClockSource {
+        #[cfg(not(esp_idf_version_major = "4"))]
         pub(super) fn as_sdk(&self) -> i2s_clock_src_t {
             match self {
                 Self::Pll160M => esp_idf_sys::soc_module_clk_t_SOC_MOD_CLK_PLL_F160M,
                 #[cfg(any(esp32, esp32s2))]
                 Self::Apll => esp_idf_sys::soc_module_clk_t_SOC_MOD_CLK_APLL,
-                #[cfg(any(esp32c3, esp32s3))]
-                Self::Xtal => esp_idf_sys::soc_module_clk_t_SOC_MOD_CLK_XTAL,
             }
         }
     }
@@ -161,6 +194,7 @@ pub mod config {
         }
 
         /// Convert to the ESP-IDF SDK `i2s_chan_config_t` representation.
+        #[cfg(not(esp_idf_version_major = "4"))]
         #[inline(always)]
         pub(super) fn as_sdk(&self, id: i2s_port_t) -> i2s_chan_config_t {
             i2s_chan_config_t {
@@ -203,8 +237,21 @@ pub mod config {
 
     impl DataBitWidth {
         /// Convert to the ESP-IDF SDK `i2s_data_bit_width_t` representation.
+        #[cfg(not(esp_idf_version_major = "4"))]
         #[inline(always)]
         pub(super) fn as_sdk(&self) -> i2s_data_bit_width_t {
+            match self {
+                Self::Bits8 => 8,
+                Self::Bits16 => 16,
+                Self::Bits24 => 24,
+                Self::Bits32 => 32,
+            }
+        }
+
+        /// Convert to the ESP-IDF SDK `i2s_bits_per_sample_t` representation.
+        #[cfg(esp_idf_version_major = "4")]
+        #[inline(always)]
+        pub(super) fn as_sdk(&self) -> i2s_bits_per_sample_t {
             match self {
                 Self::Bits8 => 8,
                 Self::Bits16 => 16,
@@ -241,6 +288,7 @@ pub mod config {
         M384,
 
         /// MCLK = sample rate * 512
+        #[cfg(not(esp_idf_version_major = "4"))]
         M512,
     }
 
@@ -252,6 +300,7 @@ pub mod config {
                 Self::M128 => i2s_mclk_multiple_t_I2S_MCLK_MULTIPLE_128,
                 Self::M256 => i2s_mclk_multiple_t_I2S_MCLK_MULTIPLE_256,
                 Self::M384 => i2s_mclk_multiple_t_I2S_MCLK_MULTIPLE_384,
+                #[cfg(not(esp_idf_version_major = "4"))]
                 Self::M512 => i2s_mclk_multiple_t_I2S_MCLK_MULTIPLE_512,
             }
         }
@@ -264,6 +313,7 @@ pub mod config {
                 MclkMultiple::M128 => 128,
                 MclkMultiple::M256 => 256,
                 MclkMultiple::M384 => 384,
+                #[cfg(not(esp_idf_version_major = "4"))]
                 MclkMultiple::M512 => 512,
             }
         }
@@ -286,13 +336,32 @@ pub mod config {
         }
     }
 
+    /// I2S peripheral in controller (master) role, bclk and ws signal will be set to output.
+    #[cfg(not(esp_idf_version_major = "4"))]
+    const I2S_ROLE_CONTROLLER: i2s_role_t = 0;
+
+    /// I2S peripheral in target (slave) role, bclk and ws signal will be set to input.
+    #[cfg(not(esp_idf_version_major = "4"))]
+    const I2S_ROLE_TARGET: i2s_role_t = 1;
+
     impl Role {
         /// Convert to the ESP-IDF SDK `i2s_role_t` representation.
+        #[cfg(not(esp_idf_version_major = "4"))]
         #[inline(always)]
         pub(super) fn as_sdk(&self) -> i2s_role_t {
             match self {
                 Self::Controller => I2S_ROLE_CONTROLLER,
                 Self::Target => I2S_ROLE_TARGET,
+            }
+        }
+
+        /// Convert to the ESP-IDF SDK `i2s_mode_t` representation.
+        #[cfg(esp_idf_version_major = "4")]
+        #[inline(always)]
+        pub(super) fn as_sdk(&self) -> i2s_mode_t {
+            match self {
+                Self::Controller => i2s_mode_t_I2S_MODE_MASTER,
+                Self::Target => i2s_mode_t_I2S_MODE_SLAVE,
             }
         }
     }
@@ -326,10 +395,16 @@ pub mod config {
         }
     }
 
+    #[cfg(not(esp_idf_version_major = "4"))]
+    type SlotBitWidthSdkType = i2s_slot_bit_width_t;
+
+    #[cfg(esp_idf_version_major = "4")]
+    type SlotBitWidthSdkType = i2s_bits_per_chan_t;
+
     impl SlotBitWidth {
-        /// Convert this to the underlying SDK type.
+        /// Convert this to the ESP-IDF SDK `i2s_slot_bit_width_t`/`i2s_bits_per_chan_t` representation.
         #[inline(always)]
-        pub(super) fn as_sdk(&self) -> i2s_slot_bit_width_t {
+        pub(super) fn as_sdk(&self) -> SlotBitWidthSdkType {
             match self {
                 Self::Auto => 0,
                 Self::Bits8 => 8,
@@ -377,7 +452,8 @@ pub mod config {
     }
 
     impl SlotMode {
-        /// Convert this to the underlying SDK type.
+        /// Convert this to the ESP-IDF SDK `i2s_slot_mode_t` representation.
+        #[cfg(not(esp_idf_version_major = "4"))]
         #[inline(always)]
         pub(super) fn as_sdk(&self) -> i2s_slot_mode_t {
             match self {
@@ -392,13 +468,19 @@ pub trait I2s: Send {
     fn port() -> i2s_port_t;
 }
 
+pub trait I2sPort {
+    /// Returns the I2S port number of this driver.
+    fn port(&self) -> i2s_port_t;
+}
+
 /// Functions for receive channels.
-pub trait I2sRxChannel<'d> {
+pub trait I2sRxChannel<'d>: I2sPort {
     /// Return the underlying handle for the channel.
     ///
     /// # Safety
     /// The returned handle is only valid for the lifetime of the channel. The handle must not be disposed of outside
     /// of the driver.
+    #[cfg(not(esp_idf_version_major = "4"))]
     unsafe fn rx_handle(&self) -> i2s_chan_handle_t;
 
     /// Enable the I2S receive channel.
@@ -413,6 +495,24 @@ pub trait I2sRxChannel<'d> {
     ///
     /// # Errors
     /// This will return an [EspError] with `ESP_ERR_INVALID_STATE` if the channel is not in the `READY` state.
+    #[cfg(esp_idf_version_major = "4")]
+    fn rx_enable(&mut self) -> Result<(), EspError> {
+        unsafe { esp!(i2s_start(self.port())) }
+    }
+
+    /// Enable the I2S receive channel.
+    ///
+    /// # Note
+    /// This can only be called when the channel is in the `READY` state: initialized but not yet started from a driver
+    /// constructor, or disabled from the `RUNNING` state via [I2sRxChannel::rx_disable]. The channel will enter the
+    /// `RUNNING` state if it is enabled successfully.
+    ///
+    /// Enabling the channel will start I2S communications on the hardware. BCLK and WS signals will be generated if
+    /// this is a controller. MCLK will be generated once initialization is finished.
+    ///
+    /// # Errors
+    /// This will return an [EspError] with `ESP_ERR_INVALID_STATE` if the channel is not in the `READY` state.
+    #[cfg(not(esp_idf_version_major = "4"))]
     fn rx_enable(&mut self) -> Result<(), EspError> {
         unsafe { esp!(i2s_channel_enable(self.rx_handle())) }
     }
@@ -429,6 +529,24 @@ pub trait I2sRxChannel<'d> {
     ///
     /// # Errors
     /// This will return an [EspError] with `ESP_ERR_INVALID_STATE` if the channel is not in the `RUNNING` state.
+    #[cfg(esp_idf_version_major = "4")]
+    fn rx_disable(&mut self) -> Result<(), EspError> {
+        unsafe { esp!(i2s_stop(self.port())) }
+    }
+
+    /// Disable the I2S receive channel.
+    ///
+    /// # Note
+    /// This can only be called when the channel is in the `RUNNING` state: the channel has been previously enabled
+    /// via a call to [I2sRxChannel::rx_enable]. The channel will enter the `READY` state if it is disabled
+    /// successfully.
+    ///
+    /// Disabling the channel will stop I2S communications on the hardware. BCLK and WS signals will stop being
+    /// generated if this is a controller. MCLK will continue to be generated.
+    ///
+    /// # Errors
+    /// This will return an [EspError] with `ESP_ERR_INVALID_STATE` if the channel is not in the `RUNNING` state.
+    #[cfg(not(esp_idf_version_major = "4"))]
     fn rx_disable(&mut self) -> Result<(), EspError> {
         unsafe { esp!(i2s_channel_disable(self.rx_handle())) }
     }
@@ -439,6 +557,31 @@ pub trait I2sRxChannel<'d> {
     ///
     /// # Returns
     /// This returns the number of bytes read, or an [EspError] if an error occurred.
+    #[cfg(esp_idf_version_major = "4")]
+    fn read(&mut self, buffer: &mut [u8], timeout_ms: Duration) -> Result<usize, EspError> {
+        let mut bytes_read: usize = 0;
+        let timeout_ms: u32 = timeout_ms.as_millis().try_into().unwrap_or(u32::MAX);
+        let ticks_to_wait = timeout_ms * configTICK_RATE_HZ / 1000;
+        unsafe {
+            esp!(i2s_read(
+                self.port(),
+                buffer.as_mut_ptr() as *mut c_void,
+                buffer.len(),
+                &mut bytes_read,
+                ticks_to_wait
+            ))?
+        }
+
+        Ok(bytes_read)
+    }
+
+    /// Read data from the channel.
+    ///
+    /// This may be called only when the channel is in the `RUNNING` state.
+    ///
+    /// # Returns
+    /// This returns the number of bytes read, or an [EspError] if an error occurred.
+    #[cfg(not(esp_idf_version_major = "4"))]
     fn read(&mut self, buffer: &mut [u8], timeout_ms: Duration) -> Result<usize, EspError> {
         let mut bytes_read: usize = 0;
         let timeout_ms: u32 = timeout_ms.as_millis().try_into().unwrap_or(u32::MAX);
@@ -465,6 +608,39 @@ pub trait I2sRxChannel<'d> {
     ///
     /// # Safety
     /// Upon a successful return with `Ok(n_read)`, `buffer[..n_read]` will be initialized.
+    #[cfg(esp_idf_version_major = "4")]
+    fn read_uninit(
+        &mut self,
+        buffer: &mut [MaybeUninit<u8>],
+        timeout_ms: Duration,
+    ) -> Result<usize, EspError> {
+        let mut bytes_read: usize = 0;
+        let timeout_ms: u32 = timeout_ms.as_millis().try_into().unwrap_or(u32::MAX);
+        let ticks_to_wait = timeout_ms * configTICK_RATE_HZ / 1000;
+
+        unsafe {
+            esp!(i2s_read(
+                self.port(),
+                buffer.as_mut_ptr() as *mut c_void,
+                buffer.len(),
+                &mut bytes_read,
+                ticks_to_wait
+            ))?
+        }
+
+        Ok(bytes_read)
+    }
+
+    /// Read data from the channel into an uninitalized buffer.
+    ///
+    /// This may be called only when the channel is in the `RUNNING` state.
+    ///
+    /// # Returns
+    /// This returns the number of bytes read, or an [EspError] if an error occurred.
+    ///
+    /// # Safety
+    /// Upon a successful return with `Ok(n_read)`, `buffer[..n_read]` will be initialized.
+    #[cfg(not(esp_idf_version_major = "4"))]
     fn read_uninit(
         &mut self,
         buffer: &mut [MaybeUninit<u8>],
@@ -502,6 +678,7 @@ pub trait I2sRxChannel<'d> {
     /// The actual definition is private in [`i2s_channel_obj_t.msg_queue`](https://github.com/espressif/esp-idf/blob/v5.0.1/components/driver/i2s/i2s_private.h#L71-L103).
     ///
     /// This requires a fix in the ESP-IDF SDK to work properly.
+    #[cfg(not(esp_idf_version_major = "4"))]
     fn set_rx_callback<Rx: I2sRxCallback + 'static>(
         &mut self,
         callback: Rx,
@@ -509,12 +686,13 @@ pub trait I2sRxChannel<'d> {
 }
 
 /// Functions for transmit channels.
-pub trait I2sTxChannel<'d> {
+pub trait I2sTxChannel<'d>: I2sPort {
     /// Return the underlying handle for the transmit channel.
     ///
     /// # Safety
     /// The returned handle is only valid for the lifetime of the channel. The handle must not be disposed of outside
     /// of the driver.
+    #[cfg(not(esp_idf_version_major = "4"))]
     unsafe fn tx_handle(&self) -> i2s_chan_handle_t;
 
     /// Enable the I2S transmit channel.
@@ -529,6 +707,24 @@ pub trait I2sTxChannel<'d> {
     ///
     /// # Errors
     /// This will return an [EspError] with `ESP_ERR_INVALID_STATE` if the channel is not in the `READY` state.
+    #[cfg(esp_idf_version_major = "4")]
+    fn tx_enable(&mut self) -> Result<(), EspError> {
+        unsafe { esp!(i2s_start(self.port())) }
+    }
+
+    /// Enable the I2S transmit channel.
+    ///
+    /// # Note
+    /// This can only be called when the channel is in the `READY` state: initialized but not yet started from a driver
+    /// constructor, or disabled from the `RUNNING` state via [I2sTxChannel::tx_disable]. The channel will enter the
+    /// `RUNNING` state if it is enabled successfully.
+    ///
+    /// Enabling the channel will start I2S communications on the hardware. BCLK and WS signals will be generated if
+    /// this is a controller. MCLK will be generated once initialization is finished.
+    ///
+    /// # Errors
+    /// This will return an [EspError] with `ESP_ERR_INVALID_STATE` if the channel is not in the `READY` state.
+    #[cfg(not(esp_idf_version_major = "4"))]
     fn tx_enable(&mut self) -> Result<(), EspError> {
         unsafe { esp!(i2s_channel_enable(self.tx_handle())) }
     }
@@ -545,6 +741,24 @@ pub trait I2sTxChannel<'d> {
     ///
     /// # Errors
     /// This will return an [EspError] with `ESP_ERR_INVALID_STATE` if the channel is not in the `RUNNING` state.
+    #[cfg(esp_idf_version_major = "4")]
+    fn tx_disable(&mut self) -> Result<(), EspError> {
+        unsafe { esp!(i2s_stop(self.port())) }
+    }
+
+    /// Disable the I2S transmit channel.
+    ///
+    /// # Note
+    /// This can only be called when the channel is in the `RUNNING` state: the channel has been previously enabled
+    /// via a call to [I2sTxChannel::tx_enable]. The channel will enter the `READY` state if it is disabled
+    /// successfully.
+    ///
+    /// Disabling the channel will stop I2S communications on the hardware. BCLK and WS signals will stop being
+    /// generated if this is a controller. MCLK will continue to be generated.
+    ///
+    /// # Errors
+    /// This will return an [EspError] with `ESP_ERR_INVALID_STATE` if the channel is not in the `RUNNING` state.
+    #[cfg(not(esp_idf_version_major = "4"))]
     fn tx_disable(&mut self) -> Result<(), EspError> {
         unsafe { esp!(i2s_channel_disable(self.tx_handle())) }
     }
@@ -585,10 +799,34 @@ pub trait I2sTxChannel<'d> {
     ///
     /// # Returns
     /// This returns the number of bytes sent. This may be less than the length of the data provided.
+    #[cfg(esp_idf_version_major = "4")]
     fn write(&mut self, data: &[u8], timeout: Duration) -> Result<usize, EspError> {
         let mut bytes_written: usize = 0;
         let timeout_ms: u32 = timeout.as_millis().try_into().unwrap_or(u32::MAX);
+        let ticks_to_wait = timeout_ms * configTICK_RATE_HZ / 1000;
+        unsafe {
+            esp!(i2s_write(
+                self.port(),
+                data.as_ptr() as *mut c_void,
+                data.len(),
+                &mut bytes_written,
+                ticks_to_wait,
+            ))?;
+        }
 
+        Ok(bytes_written)
+    }
+
+    /// Write data to the channel.
+    ///
+    /// This may be called only when the channel is in the `RUNNING` state.
+    ///
+    /// # Returns
+    /// This returns the number of bytes sent. This may be less than the length of the data provided.
+    #[cfg(not(esp_idf_version_major = "4"))]
+    fn write(&mut self, data: &[u8], timeout: Duration) -> Result<usize, EspError> {
+        let mut bytes_written: usize = 0;
+        let timeout_ms: u32 = timeout.as_millis().try_into().unwrap_or(u32::MAX);
         unsafe {
             esp!(i2s_channel_write(
                 self.tx_handle(),
@@ -596,7 +834,7 @@ pub trait I2sTxChannel<'d> {
                 data.len(),
                 &mut bytes_written,
                 timeout_ms
-            ))?
+            ))?;
         }
 
         Ok(bytes_written)
@@ -618,6 +856,7 @@ pub trait I2sTxChannel<'d> {
     /// The actual definition is private in [`i2s_channel_obj_t.msg_queue`](https://github.com/espressif/esp-idf/blob/v5.0.1/components/driver/i2s/i2s_private.h#L71-L103).
     ///
     /// This requires a fix in the ESP-IDF SDK to work properly.
+    #[cfg(not(esp_idf_version_major = "4"))]
     fn set_tx_callback<Tx: I2sTxCallback + 'static>(
         &mut self,
         callback: Tx,
@@ -683,6 +922,7 @@ impl I2sTxSupported for I2sBiDir {}
 /// Callback handler for a receiver channel.
 ///
 /// This runs in an interrupt context.
+#[cfg(not(esp_idf_version_major = "4"))]
 pub trait I2sRxCallback {
     /// Called when an I2S receive event occurs.
     ///
@@ -715,6 +955,7 @@ pub trait I2sRxCallback {
 /// Callback handler for a transmitter channel.
 ///
 /// This runs in an interrupt context.
+#[cfg(not(esp_idf_version_major = "4"))]
 pub trait I2sTxCallback {
     /// Called when an I2S DMA buffer is finished sending.
     ///
@@ -746,6 +987,7 @@ pub trait I2sTxCallback {
 
 /// Internals of the I2S driver for a channel. This is pinned for the lifetime of the driver for
 /// interrupts to function properly.
+#[cfg(not(esp_idf_version_major = "4"))]
 struct I2sChannel<Callback: ?Sized> {
     /// The channel handle.
     chan_handle: i2s_chan_handle_t,
@@ -757,10 +999,12 @@ struct I2sChannel<Callback: ?Sized> {
     i2s: u8,
 }
 
+#[cfg(not(esp_idf_version_major = "4"))]
 unsafe impl<Callback: ?Sized> Sync for I2sChannel<Callback> {}
 
 // No Send impl -- this *must* be pinned in memory for the callback to function properly.
 
+#[cfg(not(esp_idf_version_major = "4"))]
 impl<Callback: ?Sized> Drop for I2sChannel<Callback> {
     fn drop(&mut self) {
         if !self.chan_handle.is_null() {
@@ -782,6 +1026,7 @@ impl<Callback: ?Sized> Drop for I2sChannel<Callback> {
     }
 }
 
+#[cfg(not(esp_idf_version_major = "4"))]
 impl<Callback: I2sRxCallback + ?Sized> I2sChannel<Callback> {
     /// Utility function to set RX callbacks for drivers.
     fn set_rx_callback(&mut self, callback: Box<Callback>) -> Result<(), EspError> {
@@ -807,6 +1052,7 @@ impl<Callback: I2sRxCallback + ?Sized> I2sChannel<Callback> {
     }
 }
 
+#[cfg(not(esp_idf_version_major = "4"))]
 impl<Callback: I2sTxCallback + ?Sized> I2sChannel<Callback> {
     /// Utility function to set TX callbacks for drivers.
     fn set_tx_callback(&mut self, callback: Box<Callback>) -> Result<(), EspError> {
@@ -838,6 +1084,7 @@ impl<Callback: I2sTxCallback + ?Sized> I2sChannel<Callback> {
 }
 
 /// C-facing ISR dispatcher for on_recv callbacks.
+#[cfg(not(esp_idf_version_major = "4"))]
 extern "C" fn dispatch_on_recv(
     _handle: i2s_chan_handle_t,
     event: *mut i2s_event_data_t,
@@ -856,6 +1103,7 @@ extern "C" fn dispatch_on_recv(
 }
 
 /// C-facing ISR dispatcher for on_recv_q_ovf callbacks.
+#[cfg(not(esp_idf_version_major = "4"))]
 extern "C" fn dispatch_on_recv_q_ovf(
     _handle: i2s_chan_handle_t,
     event: *mut i2s_event_data_t,
@@ -874,6 +1122,7 @@ extern "C" fn dispatch_on_recv_q_ovf(
 }
 
 /// C-facing ISR dispatcher for on_sent callbacks.
+#[cfg(not(esp_idf_version_major = "4"))]
 extern "C" fn dispatch_on_sent(
     _handle: i2s_chan_handle_t,
     event: *mut i2s_event_data_t,
@@ -892,6 +1141,7 @@ extern "C" fn dispatch_on_sent(
 }
 
 /// C-facing ISR dispatcher for on_send_q_ovf callbacks.
+#[cfg(not(esp_idf_version_major = "4"))]
 extern "C" fn dispatch_on_send_q_ovf(
     _handle: i2s_chan_handle_t,
     event: *mut i2s_event_data_t,
@@ -922,11 +1172,24 @@ macro_rules! impl_i2s {
     };
 }
 
+#[cfg(not(esp_idf_version_major = "4"))]
 pub type I2sRawEvent = i2s_event_data_t;
-#[cfg(any(esp_idf_soc_i2s_supports_pdm_rx, esp_idf_soc_i2s_supports_pdm_tx))]
+
+#[cfg(any(
+    all(
+        not(esp_idf_version_major = "4"),
+        any(esp_idf_soc_i2s_supports_pdm_rx, esp_idf_soc_i2s_supports_pdm_tx)
+    ),
+    all(esp_idf_version_major = "4", any(esp32, esp32s3, esp32c3, esp32c6))
+))]
 pub use self::pdm::*;
+
 pub use self::std::*;
-#[cfg(esp_idf_soc_i2s_supports_tdm)]
+
+#[cfg(any(
+    all(not(esp_idf_version_major = "4"), esp_idf_soc_i2s_supports_tdm),
+    all(esp_idf_version_major = "4", any(esp32s3, esp32c3, esp32c6))
+))]
 pub use self::tdm::*;
 
 impl_i2s!(I2S0: 0);

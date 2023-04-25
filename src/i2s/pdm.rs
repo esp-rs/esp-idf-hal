@@ -1,30 +1,16 @@
 //! Pulse density modulation (PDM) driver for the ESP32 I2S peripheral.
-use super::{I2s, I2sChannel};
-use crate::{gpio::OutputPin, peripheral::Peripheral};
+use super::*;
+use crate::{gpio::*, peripheral::Peripheral};
 use core::{marker::PhantomData, ptr::null_mut};
-use esp_idf_sys::{esp, i2s_chan_handle_t, i2s_new_channel, i2s_port_t, EspError};
-
-#[cfg(esp_idf_soc_i2s_supports_pdm_rx)]
-use {
-    super::{I2sRxCallback, I2sRxChannel, I2sRxSupported},
-    crate::gpio::InputPin,
-};
-
-#[cfg(esp_idf_soc_i2s_supports_pdm_tx)]
-use super::{I2sTxCallback, I2sTxChannel, I2sTxSupported};
+use esp_idf_sys::*;
 
 pub(super) mod config {
-    use crate::{
-        gpio::OutputPin,
-        i2s::config::{ClockSource, DataBitWidth, MclkMultiple, SlotBitWidth, SlotMode},
-        peripheral::PeripheralRef,
-    };
-
-    #[cfg(esp_idf_soc_i2s_supports_pdm_rx)]
-    use crate::gpio::InputPin;
+    #[allow(unused)]
+    use crate::{gpio::*, i2s::config::*, peripheral::*};
+    use esp_idf_sys::*;
 
     /// I2S pulse density modulation (PDM) downsampling mode.
-    #[cfg(esp_idf_soc_i2s_supports_pdm_rx)]
+    #[cfg(any(esp_idf_soc_i2s_supports_pdm_rx, esp32, esp32s3))]
     #[derive(Clone, Copy, Eq, PartialEq)]
     pub enum PdmDownsample {
         /// Downsample 8 samples.
@@ -37,7 +23,7 @@ pub(super) mod config {
         Max,
     }
 
-    #[cfg(esp_idf_soc_i2s_supports_pdm_rx)]
+    #[cfg(any(esp_idf_soc_i2s_supports_pdm_rx, esp32, esp32s3))]
     impl Default for PdmDownsample {
         #[inline(always)]
         fn default() -> Self {
@@ -45,11 +31,11 @@ pub(super) mod config {
         }
     }
 
-    #[cfg(esp_idf_soc_i2s_supports_pdm_rx)]
+    #[cfg(any(esp_idf_soc_i2s_supports_pdm_rx, esp32, esp32s3))]
     impl PdmDownsample {
         /// Convert to the ESP-IDF SDK `i2s_pdm_downsample_t` representation.
         #[inline(always)]
-        pub(super) fn as_sdk(&self) -> esp_idf_sys::i2s_pdm_dsr_t {
+        pub(super) fn as_sdk(&self) -> i2s_pdm_dsr_t {
             match self {
                 Self::Samples8 => 0,
                 Self::Samples16 => 1,
@@ -59,10 +45,10 @@ pub(super) mod config {
     }
 
     /// THe I2S pulse density modulation (PDM) mode receive clock configuration for the I2S peripheral.
-    #[cfg(esp_idf_soc_i2s_supports_pdm_rx)]
+    #[cfg(any(esp_idf_soc_i2s_supports_pdm_rx, esp32, esp32s3))]
     pub struct PdmRxClkConfig {
         /// The sample rate in Hz.
-        sample_rate_hz: u32,
+        pub(super) sample_rate_hz: u32,
 
         /// The clock source.
         clk_src: ClockSource,
@@ -71,10 +57,10 @@ pub(super) mod config {
         mclk_multiple: MclkMultiple,
 
         /// Downsampling rate mode.
-        downsample_mode: PdmDownsample,
+        pub(super) downsample_mode: PdmDownsample,
     }
 
-    #[cfg(esp_idf_soc_i2s_supports_pdm_rx)]
+    #[cfg(any(esp_idf_soc_i2s_supports_pdm_rx, esp32, esp32s3))]
     impl PdmRxClkConfig {
         /// Create a PDM clock configuration with the specified sample rate in Hz. This will set the clock source to
         /// PLL_F160M, the MCLK multiple to 256 times the sample rate, and the downsampling mode to 8 samples.
@@ -109,9 +95,11 @@ pub(super) mod config {
             self
         }
 
+        /// Convert to the ESP-IDF SDK `i2s_pdm_rx_clk_config_t` representation.
+        #[cfg(not(esp_idf_version_major = "4"))]
         #[inline(always)]
-        pub(super) fn as_sdk(&self) -> esp_idf_sys::i2s_pdm_rx_clk_config_t {
-            esp_idf_sys::i2s_pdm_rx_clk_config_t {
+        pub(super) fn as_sdk(&self) -> i2s_pdm_rx_clk_config_t {
+            i2s_pdm_rx_clk_config_t {
                 sample_rate_hz: self.sample_rate_hz,
                 clk_src: self.clk_src.as_sdk(),
                 mclk_multiple: self.mclk_multiple.as_sdk(),
@@ -121,8 +109,11 @@ pub(super) mod config {
     }
 
     /// The I2S pulse density modulation (PDM) mode receive configuration for the I2S peripheral.
-    #[cfg(esp_idf_soc_i2s_supports_pdm_rx)]
+    #[cfg(any(esp_idf_soc_i2s_supports_pdm_rx, esp32, esp32s3))]
     pub struct PdmRxConfig {
+        /// The base channel configuration.
+        pub(super) channel_cfg: Config,
+
         /// PDM mode channel receive clock configuration.
         pub(super) clk_cfg: PdmRxClkConfig,
 
@@ -130,39 +121,96 @@ pub(super) mod config {
         pub(super) slot_cfg: PdmRxSlotConfig,
 
         /// PDM mode channel GPIO configuration.
+        #[cfg(not(esp_idf_version_major = "4"))]
         pub(super) gpio_cfg: PdmRxGpioConfig,
     }
 
-    #[cfg(esp_idf_soc_i2s_supports_pdm_rx)]
+    #[cfg(any(esp_idf_soc_i2s_supports_pdm_rx, esp32, esp32s3))]
     impl PdmRxConfig {
         /// Create a new PDM mode receive configuration from the specified clock, slot, and GPIO configurations.
         pub fn new(
+            channel_cfg: Config,
             clk_cfg: PdmRxClkConfig,
             slot_cfg: PdmRxSlotConfig,
-            gpio_cfg: PdmRxGpioConfig,
+            #[cfg(not(esp_idf_version_major = "4"))] gpio_cfg: PdmRxGpioConfig,
         ) -> Self {
             Self {
+                channel_cfg,
                 clk_cfg,
                 slot_cfg,
+                #[cfg(not(esp_idf_version_major = "4"))]
                 gpio_cfg,
             }
         }
 
         /// Convert this PDM mode receive configuration into the ESP-IDF SDK `i2s_pdm_rx_config_t` representation.
+        #[cfg(not(esp_idf_version_major = "4"))]
+        #[inline(always)]
         pub(super) fn as_sdk<'d>(
             &self,
             clk: PeripheralRef<'d, impl OutputPin>,
             din: PeripheralRef<'d, impl InputPin>,
-        ) -> esp_idf_sys::i2s_pdm_rx_config_t {
-            esp_idf_sys::i2s_pdm_rx_config_t {
+        ) -> i2s_pdm_rx_config_t {
+            i2s_pdm_rx_config_t {
                 clk_cfg: self.clk_cfg.as_sdk(),
                 slot_cfg: self.slot_cfg.as_sdk(),
                 gpio_cfg: self.gpio_cfg.as_sdk(clk, din),
             }
         }
+
+        /// Convert this PDM mode receive configuration into the ESP-IDF SDK `i2s_driver_config_t` representation.
+        #[cfg(esp_idf_version_major = "4")]
+        #[inline(always)]
+        pub(super) fn as_sdk(&self) -> i2s_driver_config_t {
+            let chan_fmt = match self.slot_cfg.slot_mode {
+                SlotMode::Stereo => i2s_channel_fmt_t_I2S_CHANNEL_FMT_RIGHT_LEFT,
+                SlotMode::Mono => match self.slot_cfg.slot_mask {
+                    PdmSlotMask::Both => i2s_channel_fmt_t_I2S_CHANNEL_FMT_RIGHT_LEFT,
+                    PdmSlotMask::Left => i2s_channel_fmt_t_I2S_CHANNEL_FMT_ONLY_LEFT,
+                    PdmSlotMask::Right => i2s_channel_fmt_t_I2S_CHANNEL_FMT_ONLY_RIGHT,
+                },
+            };
+
+            i2s_driver_config_t {
+                mode: self.channel_cfg.role.as_sdk()
+                    | i2s_mode_t_I2S_MODE_RX
+                    | i2s_mode_t_I2S_MODE_PDM,
+                sample_rate: self.clk_cfg.sample_rate_hz,
+                bits_per_sample: 16, // fixed for PDM,
+                channel_format: chan_fmt,
+                communication_format: 0,  // ?
+                intr_alloc_flags: 1 << 1, // ESP_INTR_FLAG_LEVEL1
+                dma_buf_count: self.channel_cfg.dma_desc as i32,
+                dma_buf_len: self.channel_cfg.frames as i32,
+                #[cfg(any(esp32, esp32s2))]
+                use_apll: matches!(self.clk_cfg.clk_src, ClockSource::Apll),
+                #[cfg(not(any(esp32, esp32s2)))]
+                use_apll: false,
+                tx_desc_auto_clear: self.channel_cfg.auto_clear,
+                fixed_mclk: 0,
+                mclk_multiple: self.clk_cfg.mclk_multiple.as_sdk(),
+                bits_per_chan: 16, // fixed for PDM
+
+                // The following are TDM-only fields and are not present on chips that don't support TDM mode.
+                // There's no cfg option for this (it's a constant in esp-idf-sys).
+                #[cfg(not(any(esp32, esp32s2)))]
+                chan_mask: 0,
+                #[cfg(not(any(esp32, esp32s2)))]
+                total_chan: 0,
+                #[cfg(not(any(esp32, esp32s2)))]
+                left_align: false,
+                #[cfg(not(any(esp32, esp32s2)))]
+                big_edin: false,
+                #[cfg(not(any(esp32, esp32s2)))]
+                bit_order_msb: false,
+                #[cfg(not(any(esp32, esp32s2)))]
+                skip_msk: true,
+            }
+        }
     }
 
     /// PDM mode GPIO (general purpose input/output) receive configuration.
+    // Not used in v4
     #[cfg(esp_idf_soc_i2s_supports_pdm_rx)]
     #[derive(Default)]
     pub struct PdmRxGpioConfig {
@@ -190,15 +238,15 @@ pub(super) mod config {
             &self,
             clk: PeripheralRef<'d, impl OutputPin>,
             din: PeripheralRef<'d, impl InputPin>,
-        ) -> esp_idf_sys::i2s_pdm_rx_gpio_config_t {
-            let invert_flags = esp_idf_sys::i2s_pdm_rx_gpio_config_t__bindgen_ty_1 {
-                _bitfield_1: esp_idf_sys::i2s_pdm_rx_gpio_config_t__bindgen_ty_1::new_bitfield_1(
+        ) -> i2s_pdm_rx_gpio_config_t {
+            let invert_flags = i2s_pdm_rx_gpio_config_t__bindgen_ty_1 {
+                _bitfield_1: i2s_pdm_rx_gpio_config_t__bindgen_ty_1::new_bitfield_1(
                     self.clk_inv as u32,
                 ),
                 ..Default::default()
             };
 
-            esp_idf_sys::i2s_pdm_rx_gpio_config_t {
+            i2s_pdm_rx_gpio_config_t {
                 clk: clk.pin(),
                 din: din.pin(),
                 invert_flags,
@@ -207,7 +255,7 @@ pub(super) mod config {
     }
 
     /// PDM mode channel receive slot configuration.
-    #[cfg(esp_idf_soc_i2s_supports_pdm_rx)]
+    #[cfg(any(esp_idf_soc_i2s_supports_pdm_rx, esp32, esp32s3))]
     #[derive(Clone)]
     pub struct PdmRxSlotConfig {
         /// I2S sample data bit width (valid data bits per sample).
@@ -223,7 +271,7 @@ pub(super) mod config {
         pub(super) slot_mask: PdmSlotMask,
     }
 
-    #[cfg(esp_idf_soc_i2s_supports_pdm_rx)]
+    #[cfg(any(esp_idf_soc_i2s_supports_pdm_rx, esp32, esp32s3))]
     impl PdmRxSlotConfig {
         /// Configure the PDM mode channel receive slot configuration for the specified bits per sample and slot mode
         /// in 2 slots.
@@ -268,9 +316,10 @@ pub(super) mod config {
         }
 
         /// Convert this PDM mode channel receive slot configuration into the ESP-IDF SDK `i2s_pdm_rx_slot_config_t` representation.
+        #[cfg(not(esp_idf_version_major = "4"))]
         #[inline(always)]
-        pub(super) fn as_sdk(&self) -> esp_idf_sys::i2s_pdm_rx_slot_config_t {
-            esp_idf_sys::i2s_pdm_rx_slot_config_t {
+        pub(super) fn as_sdk(&self) -> i2s_pdm_rx_slot_config_t {
+            i2s_pdm_rx_slot_config_t {
                 data_bit_width: self.data_bit_width.as_sdk(),
                 slot_bit_width: self.slot_bit_width.as_sdk(),
                 slot_mode: self.slot_mode.as_sdk(),
@@ -280,7 +329,7 @@ pub(super) mod config {
     }
 
     /// Pulse density modulation (PDM) transmit signal scaling mode.
-    #[cfg(esp_idf_soc_i2s_supports_pdm_tx)]
+    #[cfg(any(esp_idf_soc_i2s_supports_pdm_tx, esp32, esp32s3, esp32c3, esp32c6))]
     #[derive(Clone, Copy, Eq, PartialEq)]
     pub enum PdmSignalScale {
         /// Divide the PDM signal by 2.
@@ -296,7 +345,7 @@ pub(super) mod config {
         Mul4,
     }
 
-    #[cfg(esp_idf_soc_i2s_supports_pdm_tx)]
+    #[cfg(any(esp_idf_soc_i2s_supports_pdm_tx, esp32, esp32s3, esp32c3, esp32c6))]
     impl Default for PdmSignalScale {
         #[inline(always)]
         fn default() -> Self {
@@ -304,12 +353,12 @@ pub(super) mod config {
         }
     }
 
-    #[cfg(esp_idf_soc_i2s_supports_pdm_tx)]
+    #[cfg(any(esp_idf_soc_i2s_supports_pdm_tx, esp32, esp32s3, esp32c3, esp32c6))]
     impl PdmSignalScale {
         /// Convert to the ESP-IDF SDK `i2s_pdm_signal_scale_t` representation.
         #[inline(always)]
         #[allow(unused)] // TODO: remove when PDM is implemented.
-        pub(crate) fn as_sdk(&self) -> esp_idf_sys::i2s_pdm_sig_scale_t {
+        pub(crate) fn as_sdk(&self) -> i2s_pdm_sig_scale_t {
             match self {
                 Self::Div2 => 0,
                 Self::None => 1,
@@ -347,9 +396,10 @@ pub(super) mod config {
 
     impl PdmSlotMask {
         /// Convert to the ESP-IDF SDK `i2s_pdm_slot_mask_t` representation.
+        #[cfg(not(esp_idf_version_major = "4"))]
         #[inline(always)]
         #[allow(unused)]
-        pub(crate) fn as_sdk(&self) -> esp_idf_sys::i2s_pdm_slot_mask_t {
+        pub(crate) fn as_sdk(&self) -> i2s_pdm_slot_mask_t {
             match self {
                 Self::Left => 1 << 0,
                 Self::Right => 1 << 1,
@@ -367,16 +417,16 @@ pub(super) mod config {
     ///
     /// If the PDM receiver does not use the PDM serial clock, the first configuration should be used. Otherwise,
     /// use the second configuration.
-    #[cfg(esp_idf_soc_i2s_supports_pdm_tx)]
+    #[cfg(any(esp_idf_soc_i2s_supports_pdm_tx, esp32, esp32s3, esp32c3, esp32c6))]
     pub struct PdmTxClkConfig {
         /// I2S sample rate in Hz.
-        sample_rate_hz: u32,
+        pub(super) sample_rate_hz: u32,
 
         /// The clock source.
-        clk_src: ClockSource,
+        pub(super) clk_src: ClockSource,
 
         /// The multiple of MCLK to the sample rate.
-        mclk_multiple: MclkMultiple,
+        pub(super) mclk_multiple: MclkMultiple,
 
         /// Upsampling `fp` parameter.
         upsample_fp: u32,
@@ -385,7 +435,7 @@ pub(super) mod config {
         upsample_fs: u32,
     }
 
-    #[cfg(esp_idf_soc_i2s_supports_pdm_tx)]
+    #[cfg(any(esp_idf_soc_i2s_supports_pdm_tx, esp32, esp32s3, esp32c3, esp32c6))]
     impl PdmTxClkConfig {
         /// Create a new PDM mode transmit clock configuration from the specified sample rate in Hz. This will set the
         /// clock source to PLL_F160M, the MCLK multiple to 256 times the sample rate, `upsample_fp` to 960, and
@@ -431,9 +481,10 @@ pub(super) mod config {
         }
 
         /// Convert to the ESP-IDF SDK `i2s_pdm_tx_clk_config_t` representation.
+        #[cfg(not(esp_idf_version_major = "4"))]
         #[inline(always)]
-        pub(super) fn as_sdk(&self) -> esp_idf_sys::i2s_pdm_tx_clk_config_t {
-            esp_idf_sys::i2s_pdm_tx_clk_config_t {
+        pub(super) fn as_sdk(&self) -> i2s_pdm_tx_clk_config_t {
+            i2s_pdm_tx_clk_config_t {
                 sample_rate_hz: self.sample_rate_hz,
                 clk_src: self.clk_src.as_sdk(),
                 mclk_multiple: self.mclk_multiple.as_sdk(),
@@ -441,11 +492,25 @@ pub(super) mod config {
                 up_sample_fs: self.upsample_fs,
             }
         }
+
+        /// Convert to the ESP-IDF SDK `i2s_pdm_tx_upsample_cfg_t` representation.
+        #[cfg(esp_idf_version_major = "4")]
+        #[inline(always)]
+        pub(super) fn as_sdk(&self) -> i2s_pdm_tx_upsample_cfg_t {
+            i2s_pdm_tx_upsample_cfg_t {
+                sample_rate: self.sample_rate_hz as i32,
+                fp: self.upsample_fp as i32,
+                fs: self.upsample_fs as i32,
+            }
+        }
     }
 
     /// The I2S pulse density modulation (PDM) mode transmit configuration for the I2S peripheral.
-    #[cfg(esp_idf_soc_i2s_supports_pdm_tx)]
+    #[cfg(any(esp_idf_soc_i2s_supports_pdm_tx, esp32, esp32s3, esp32c3, esp32c6))]
     pub struct PdmTxConfig {
+        /// The base channel configuration.
+        pub(super) channel_cfg: Config,
+
         /// PDM mode channel transmit clock configuration.
         pub(super) clk_cfg: PdmTxClkConfig,
 
@@ -453,33 +518,37 @@ pub(super) mod config {
         pub(super) slot_cfg: PdmTxSlotConfig,
 
         /// PDM mode channel transmit GPIO configuration.
+        #[cfg(not(esp_idf_version_major = "4"))]
         pub(super) gpio_cfg: PdmTxGpioConfig,
     }
 
-    #[cfg(esp_idf_soc_i2s_supports_pdm_tx)]
+    #[cfg(any(esp_idf_soc_i2s_supports_pdm_tx, esp32, esp32s3, esp32c3, esp32c6))]
     impl PdmTxConfig {
         /// Create a new PDM mode transmit configuration from the specified clock, slot, and GPIO configurations.
         pub fn new(
+            channel_cfg: Config,
             clk_cfg: PdmTxClkConfig,
             slot_cfg: PdmTxSlotConfig,
-            gpio_cfg: PdmTxGpioConfig,
+            #[cfg(not(esp_idf_version_major = "4"))] gpio_cfg: PdmTxGpioConfig,
         ) -> Self {
             Self {
+                channel_cfg,
                 clk_cfg,
                 slot_cfg,
+                #[cfg(not(esp_idf_version_major = "4"))]
                 gpio_cfg,
             }
         }
 
         /// Convert to the ESP-IDF `i2s_pdm_tx_config_t` representation.
+        #[cfg(all(not(esp_idf_version_major = "4"), not(esp_idf_soc_i2s_hw_version_2)))]
         #[inline(always)]
-        #[cfg(not(esp_idf_soc_i2s_hw_version_2))]
         pub(crate) fn as_sdk<'d>(
             &self,
             clk: PeripheralRef<'d, impl OutputPin>,
             dout: PeripheralRef<'d, impl OutputPin>,
-        ) -> esp_idf_sys::i2s_pdm_tx_config_t {
-            esp_idf_sys::i2s_pdm_tx_config_t {
+        ) -> i2s_pdm_tx_config_t {
+            i2s_pdm_tx_config_t {
                 clk_cfg: self.clk_cfg.as_sdk(),
                 slot_cfg: self.slot_cfg.as_sdk(),
                 gpio_cfg: self.gpio_cfg.as_sdk(clk, dout),
@@ -487,23 +556,73 @@ pub(super) mod config {
         }
 
         /// Convert to the ESP-IDF `i2s_pdm_tx_config_t` representation.
-        #[inline(always)]
         #[cfg(esp_idf_soc_i2s_hw_version_2)]
+        #[inline(always)]
         pub(crate) fn as_sdk<'d>(
             &self,
             clk: PeripheralRef<'d, impl OutputPin>,
             dout: PeripheralRef<'d, impl OutputPin>,
             dout2: Option<PeripheralRef<'d, impl OutputPin>>,
-        ) -> esp_idf_sys::i2s_pdm_tx_config_t {
-            esp_idf_sys::i2s_pdm_tx_config_t {
+        ) -> i2s_pdm_tx_config_t {
+            i2s_pdm_tx_config_t {
                 clk_cfg: self.clk_cfg.as_sdk(),
                 slot_cfg: self.slot_cfg.as_sdk(),
                 gpio_cfg: self.gpio_cfg.as_sdk(clk, dout, dout2),
             }
         }
+
+        /// Convert to the ESP-IDF `i2s_driver_config_t` representation.
+        #[cfg(esp_idf_version_major = "4")]
+        pub(crate) fn as_sdk(&self) -> i2s_driver_config_t {
+            let chan_fmt = match self.slot_cfg.slot_mode {
+                SlotMode::Stereo => i2s_channel_fmt_t_I2S_CHANNEL_FMT_RIGHT_LEFT,
+                SlotMode::Mono => match self.slot_cfg.slot_mask {
+                    PdmSlotMask::Both => i2s_channel_fmt_t_I2S_CHANNEL_FMT_RIGHT_LEFT,
+                    PdmSlotMask::Left => i2s_channel_fmt_t_I2S_CHANNEL_FMT_ONLY_LEFT,
+                    PdmSlotMask::Right => i2s_channel_fmt_t_I2S_CHANNEL_FMT_ONLY_RIGHT,
+                },
+            };
+
+            i2s_driver_config_t {
+                mode: self.channel_cfg.role.as_sdk()
+                    | i2s_mode_t_I2S_MODE_TX
+                    | i2s_mode_t_I2S_MODE_PDM,
+                sample_rate: self.clk_cfg.sample_rate_hz,
+                bits_per_sample: 16, // fixed for PDM,
+                channel_format: chan_fmt,
+                communication_format: 0,  // ?
+                intr_alloc_flags: 1 << 1, // ESP_INTR_FLAG_LEVEL1
+                dma_buf_count: self.channel_cfg.dma_desc as i32,
+                dma_buf_len: self.channel_cfg.frames as i32,
+                #[cfg(any(esp32, esp32s2))]
+                use_apll: matches!(self.clk_cfg.clk_src, ClockSource::Apll),
+                #[cfg(not(any(esp32, esp32s2)))]
+                use_apll: false,
+                tx_desc_auto_clear: self.channel_cfg.auto_clear,
+                fixed_mclk: 0,
+                mclk_multiple: self.clk_cfg.mclk_multiple.as_sdk(),
+                bits_per_chan: 16, // fixed for PDM
+
+                // The following are TDM-only fields and are not present on chips that don't support TDM mode.
+                // There's no cfg option for this (it's a constant in esp-idf-sys).
+                #[cfg(not(any(esp32, esp32s2)))]
+                chan_mask: 0,
+                #[cfg(not(any(esp32, esp32s2)))]
+                total_chan: 0,
+                #[cfg(not(any(esp32, esp32s2)))]
+                left_align: false,
+                #[cfg(not(any(esp32, esp32s2)))]
+                big_edin: false,
+                #[cfg(not(any(esp32, esp32s2)))]
+                bit_order_msb: false,
+                #[cfg(not(any(esp32, esp32s2)))]
+                skip_msk: true,
+            }
+        }
     }
 
     /// PDM mode GPIO (general purpose input/output) transmit configuration.
+    // Not used in v4.
     #[cfg(esp_idf_soc_i2s_supports_pdm_tx)]
     #[derive(Default)]
     pub struct PdmTxGpioConfig {
@@ -527,19 +646,19 @@ pub(super) mod config {
         }
 
         /// Convert to the ESP-IDF SDK `i2s_pdm_tx_gpio_config_t` representation.
-        #[cfg(not(esp_idf_soc_i2s_hw_version_2))]
+        #[cfg(esp_idf_soc_i2s_hw_version_1)]
         pub(crate) fn as_sdk<'d>(
             &self,
             clk: PeripheralRef<'d, impl OutputPin>,
             dout: PeripheralRef<'d, impl OutputPin>,
-        ) -> esp_idf_sys::i2s_pdm_tx_gpio_config_t {
-            let invert_flags = esp_idf_sys::i2s_pdm_tx_gpio_config_t__bindgen_ty_1 {
-                _bitfield_1: esp_idf_sys::i2s_pdm_tx_gpio_config_t__bindgen_ty_1::new_bitfield_1(
+        ) -> i2s_pdm_tx_gpio_config_t {
+            let invert_flags = i2s_pdm_tx_gpio_config_t__bindgen_ty_1 {
+                _bitfield_1: i2s_pdm_tx_gpio_config_t__bindgen_ty_1::new_bitfield_1(
                     self.clk_inv as u32,
                 ),
                 ..Default::default()
             };
-            esp_idf_sys::i2s_pdm_tx_gpio_config_t {
+            i2s_pdm_tx_gpio_config_t {
                 clk: clk.pin(),
                 dout: dout.pin(),
                 invert_flags,
@@ -553,9 +672,9 @@ pub(super) mod config {
             clk: PeripheralRef<'d, impl OutputPin>,
             dout: PeripheralRef<'d, impl OutputPin>,
             dout2: Option<PeripheralRef<'d, impl OutputPin>>,
-        ) -> esp_idf_sys::i2s_pdm_tx_gpio_config_t {
-            let invert_flags = esp_idf_sys::i2s_pdm_tx_gpio_config_t__bindgen_ty_1 {
-                _bitfield_1: esp_idf_sys::i2s_pdm_tx_gpio_config_t__bindgen_ty_1::new_bitfield_1(
+        ) -> i2s_pdm_tx_gpio_config_t {
+            let invert_flags = i2s_pdm_tx_gpio_config_t__bindgen_ty_1 {
+                _bitfield_1: i2s_pdm_tx_gpio_config_t__bindgen_ty_1::new_bitfield_1(
                     self.clk_inv as u32,
                 ),
                 ..Default::default()
@@ -566,7 +685,7 @@ pub(super) mod config {
                 -1
             };
 
-            esp_idf_sys::i2s_pdm_tx_gpio_config_t {
+            i2s_pdm_tx_gpio_config_t {
                 clk: clk.pin(),
                 dout: dout.pin(),
                 dout2,
@@ -599,25 +718,25 @@ pub(super) mod config {
         /// Convert this to the ESP-IDF SDK `i2s_pdm_tx_line_mode_t` representation.
         #[cfg(esp_idf_soc_i2s_hw_version_2)]
         #[inline(always)]
-        pub(super) fn as_sdk(&self) -> esp_idf_sys::i2s_pdm_tx_line_mode_t {
+        pub(super) fn as_sdk(&self) -> i2s_pdm_tx_line_mode_t {
             match self {
-                Self::OneLineCodec => esp_idf_sys::i2s_pdm_tx_line_mode_t_I2S_PDM_TX_ONE_LINE_CODEC,
-                Self::OneLineDac => esp_idf_sys::i2s_pdm_tx_line_mode_t_I2S_PDM_TX_ONE_LINE_DAC,
-                Self::TwoLineDac => esp_idf_sys::i2s_pdm_tx_line_mode_t_I2S_PDM_TX_TWO_LINE_DAC,
+                Self::OneLineCodec => i2s_pdm_tx_line_mode_t_I2S_PDM_TX_ONE_LINE_CODEC,
+                Self::OneLineDac => i2s_pdm_tx_line_mode_t_I2S_PDM_TX_ONE_LINE_DAC,
+                Self::TwoLineDac => i2s_pdm_tx_line_mode_t_I2S_PDM_TX_TWO_LINE_DAC,
             }
         }
     }
 
     /// I2S pulse density modulation (PDM) transmit slot configuration.
-    #[cfg(esp_idf_soc_i2s_supports_pdm_tx)]
+    #[cfg(any(esp_idf_soc_i2s_supports_pdm_tx, esp32, esp32s3, esp32c3, esp32c6))]
     pub struct PdmTxSlotConfig {
         // data_bit_width and slot_bit_width are omitted; they are always 16 bits.
         /// Mono or stereo mode operation.
-        slot_mode: SlotMode,
+        pub(super) slot_mode: SlotMode,
 
         /// Slot mask to choose the left or right slot.
-        #[cfg(esp_idf_soc_i2s_hw_version_1)]
-        slot_mask: PdmSlotMask,
+        #[cfg(not(esp_idf_soc_i2s_hw_version_2))]
+        pub(super) slot_mask: PdmSlotMask,
 
         /// Sigma-delta filter prescale.
         sd_prescale: u32,
@@ -656,7 +775,7 @@ pub(super) mod config {
         sd_dither2: u32,
     }
 
-    #[cfg(esp_idf_soc_i2s_supports_pdm_tx)]
+    #[cfg(any(esp_idf_soc_i2s_supports_pdm_tx, esp32, esp32s3, esp32c3, esp32c6))]
     impl Default for PdmTxSlotConfig {
         #[inline(always)]
         fn default() -> Self {
@@ -664,7 +783,7 @@ pub(super) mod config {
         }
     }
 
-    #[cfg(esp_idf_soc_i2s_supports_pdm_tx)]
+    #[cfg(any(esp_idf_soc_i2s_supports_pdm_tx, esp32, esp32s3, esp32c3, esp32c6))]
     impl PdmTxSlotConfig {
         /// Configure the PDM mode channel transmit slot configuration for the specified slot mode in 2 slots.
         ///
@@ -677,11 +796,11 @@ pub(super) mod config {
         pub fn from_slot_mode(slot_mode: SlotMode) -> Self {
             Self {
                 slot_mode,
-                #[cfg(esp_idf_soc_i2s_hw_version_1)]
+                #[cfg(not(esp_idf_soc_i2s_hw_version_2))]
                 slot_mask: PdmSlotMask::Both,
                 sd_prescale: 0,
                 sd_scale: PdmSignalScale::None,
-                #[cfg(esp_idf_soc_i2s_hw_version_1)]
+                #[cfg(not(esp_idf_soc_i2s_hw_version_2))]
                 hp_scale: PdmSignalScale::None,
                 #[cfg(esp_idf_soc_i2s_hw_version_2)]
                 hp_scale: PdmSignalScale::Div2,
@@ -784,9 +903,10 @@ pub(super) mod config {
         }
 
         /// Convert this to the ESP-IDF SDK `i2s_pdm_tx_slot_config_t` type.
+        #[cfg(not(esp_idf_version_major = "4"))]
         #[inline(always)]
-        pub(super) fn as_sdk(&self) -> esp_idf_sys::i2s_pdm_tx_slot_config_t {
-            esp_idf_sys::i2s_pdm_tx_slot_config_t {
+        pub(super) fn as_sdk(&self) -> i2s_pdm_tx_slot_config_t {
+            i2s_pdm_tx_slot_config_t {
                 data_bit_width: DataBitWidth::Bits16.as_sdk(),
                 slot_bit_width: SlotBitWidth::Bits16.as_sdk(),
                 slot_mode: self.slot_mode.as_sdk(),
@@ -835,105 +955,10 @@ pub struct I2sPdmDriver<'d, Dir> {
 unsafe impl<'d, Dir> Send for I2sPdmDriver<'d, Dir> {}
 unsafe impl<'d, Dir> Sync for I2sPdmDriver<'d, Dir> {}
 
-impl<'d, Dir> I2sPdmDriver<'d, Dir> {
+impl<'d, Dir> I2sPort for I2sPdmDriver<'d, Dir> {
     /// Returns the I2S port number of this driver.
-    pub fn port(&self) -> i2s_port_t {
+    fn port(&self) -> i2s_port_t {
         self.i2s as u32
-    }
-}
-
-#[cfg(all(esp_idf_soc_i2s_supports_pdm_rx, esp_idf_soc_i2s_supports_pdm_tx))]
-impl<'d, Dir: I2sRxSupported + I2sTxSupported> I2sPdmDriver<'d, Dir> {
-    /// Create a new pulse density modulation (PDM) mode driver for the given I2S peripheral with both the receive and
-    /// transmit channels open.
-    #[allow(clippy::too_many_arguments)]
-    pub fn new_bidir<I2S: I2s>(
-        _i2s: impl Peripheral<P = I2S> + 'd,
-        chan_cfg: super::config::Config,
-        rx_cfg: config::PdmRxConfig,
-        tx_cfg: config::PdmTxConfig,
-        clk: impl Peripheral<P = impl InputPin + OutputPin> + 'd,
-        din: impl Peripheral<P = impl InputPin> + 'd,
-        dout: impl Peripheral<P = impl OutputPin> + 'd,
-        #[cfg(esp_idf_soc_i2s_hw_version_2)] dout2: Option<
-            impl Peripheral<P = impl OutputPin> + 'd,
-        >,
-    ) -> Result<Self, EspError> {
-        let port = I2S::port();
-        let chan_cfg = chan_cfg.as_sdk(port);
-
-        let mut rx_chan_handle: i2s_chan_handle_t = null_mut();
-        let mut tx_chan_handle: i2s_chan_handle_t = null_mut();
-
-        // Safety: &chan_cfg is a valid pointer to an i2s_chan_config_t.
-        // rx and tx are out pointers.
-        unsafe {
-            esp!(i2s_new_channel(
-                &chan_cfg,
-                &mut tx_chan_handle,
-                &mut rx_chan_handle
-            ))?
-        };
-
-        if tx_chan_handle.is_null() {
-            panic!("Expected non-null tx channel handle");
-        }
-
-        if rx_chan_handle.is_null() {
-            panic!("Expected non-null rx channel handle");
-        }
-
-        // Allocate the internal channel structs.
-        let rx = Box::new(I2sChannel {
-            chan_handle: rx_chan_handle,
-            callback: None,
-            i2s: port as u8,
-        });
-
-        let tx = Box::new(I2sChannel {
-            chan_handle: tx_chan_handle,
-            callback: None,
-            i2s: port as u8,
-        });
-
-        // At this point, returning early will drop the rx and tx channels, closing them properly.
-
-        let mut clk = clk.into_ref();
-
-        // Create the channel configurations.
-        let rx_cfg = rx_cfg.as_sdk(clk.reborrow(), din.into_ref());
-        let tx_cfg = tx_cfg.as_sdk(
-            clk,
-            dout.into_ref(),
-            #[cfg(esp_idf_soc_i2s_hw_version_2)]
-            dout2.map(|p| p.into_ref()),
-        );
-
-        // Safety: rx/tx.chan_handle are valid, non-null i2s_chan_handle_t,
-        // &rx_cfg is a valid pointer to i2s_pdm_rx_config_t, and
-        // &tx_cfg is a valid pointer to i2s_pdm_tx_config_t.
-        unsafe {
-            // Open the RX channel.
-            esp!(esp_idf_sys::i2s_channel_init_pdm_rx_mode(
-                rx.chan_handle,
-                &rx_cfg
-            ))?;
-            // Open the TX channel.
-            esp!(esp_idf_sys::i2s_channel_init_pdm_tx_mode(
-                tx.chan_handle,
-                &tx_cfg
-            ))?;
-        }
-
-        // Now we leak the rx and tx channels so they are no longer managed. This pins them in memory in a way that
-        // is easily accessible to the ESP-IDF SDK.
-        Ok(Self {
-            i2s: port as u8,
-            rx: Box::leak(rx),
-            tx: Box::leak(tx),
-            _p: PhantomData,
-            _dir: PhantomData,
-        })
     }
 }
 
@@ -944,13 +969,12 @@ impl<'d, Dir: I2sRxSupported> I2sPdmDriver<'d, Dir> {
     #[allow(clippy::too_many_arguments)]
     pub fn new_rx<I2S: I2s>(
         _i2s: impl Peripheral<P = I2S> + 'd,
-        chan_cfg: super::config::Config,
         rx_cfg: config::PdmRxConfig,
         clk: impl Peripheral<P = impl OutputPin> + 'd,
         din: impl Peripheral<P = impl InputPin> + 'd,
     ) -> Result<Self, EspError> {
         let port = I2S::port();
-        let chan_cfg = chan_cfg.as_sdk(port);
+        let chan_cfg = rx_cfg.channel_cfg.as_sdk(port);
 
         let mut rx_chan_handle: i2s_chan_handle_t = null_mut();
 
@@ -997,6 +1021,53 @@ impl<'d, Dir: I2sRxSupported> I2sPdmDriver<'d, Dir> {
     }
 }
 
+#[cfg(all(esp_idf_version_major = "4", any(esp32, esp32s3)))]
+impl<'d, Dir: I2sRxSupported> I2sPdmDriver<'d, Dir> {
+    /// Create a new pulse density modulation (PDM) mode driver for the given I2S peripheral with the receive channel
+    /// open.
+    #[allow(clippy::too_many_arguments)]
+    pub fn new_rx<I2S: I2s>(
+        _i2s: impl Peripheral<P = I2S> + 'd,
+        rx_cfg: config::PdmRxConfig,
+        clk: impl Peripheral<P = impl OutputPin> + 'd,
+        din: impl Peripheral<P = impl InputPin> + 'd,
+    ) -> Result<Self, EspError> {
+        let port = I2S::port();
+        let driver_cfg = rx_cfg.as_sdk();
+
+        // Safety: &driver_cfg is a valid pointer to an i2s_driver_config_t.
+        unsafe {
+            esp!(i2s_driver_install(port, &driver_cfg, 0, null_mut()))?;
+        }
+
+        // Set the rate and downsampling configuration.
+        let downsample = rx_cfg.clk_cfg.downsample_mode.as_sdk();
+        unsafe {
+            esp!(i2s_set_pdm_rx_down_sample(port, downsample))?;
+        }
+
+        // Set the pin configuration.
+        let pin_cfg = i2s_pin_config_t {
+            bck_io_num: clk.into_ref().pin(),
+            data_in_num: din.into_ref().pin(),
+            data_out_num: -1,
+            mck_io_num: -1,
+            ws_io_num: -1,
+        };
+
+        // Safety: &pin_cfg is a valid pointer to an i2s_pin_config_t.
+        unsafe {
+            esp!(i2s_set_pin(port, &pin_cfg))?;
+        }
+
+        Ok(Self {
+            i2s: port as u8,
+            _p: PhantomData,
+            _dir: PhantomData,
+        })
+    }
+}
+
 #[cfg(esp_idf_soc_i2s_supports_pdm_tx)]
 impl<'d, Dir: I2sTxSupported> I2sPdmDriver<'d, Dir> {
     /// Create a new pulse density modulation (PDM) mode driver for the given I2S peripheral with only the transmit
@@ -1004,7 +1075,6 @@ impl<'d, Dir: I2sTxSupported> I2sPdmDriver<'d, Dir> {
     #[allow(clippy::too_many_arguments)]
     pub fn new_tx<I2S: I2s>(
         _i2s: impl Peripheral<P = I2S> + 'd,
-        chan_cfg: super::config::Config,
         tx_cfg: config::PdmTxConfig,
         clk: impl Peripheral<P = impl OutputPin> + 'd,
         dout: impl Peripheral<P = impl OutputPin> + 'd,
@@ -1013,7 +1083,7 @@ impl<'d, Dir: I2sTxSupported> I2sPdmDriver<'d, Dir> {
         >,
     ) -> Result<Self, EspError> {
         let port = I2S::port();
-        let chan_cfg = chan_cfg.as_sdk(port);
+        let chan_cfg = tx_cfg.channel_cfg.as_sdk(port);
 
         let mut tx_chan_handle: i2s_chan_handle_t = null_mut();
 
@@ -1065,12 +1135,61 @@ impl<'d, Dir: I2sTxSupported> I2sPdmDriver<'d, Dir> {
     }
 }
 
-#[cfg(esp_idf_soc_i2s_supports_pdm_rx)]
+#[cfg(all(esp_idf_version_major = "4", any(esp32, esp32s3, esp32c3, esp32c6)))]
+impl<'d, Dir: I2sTxSupported> I2sPdmDriver<'d, Dir> {
+    /// Create a new pulse density modulation (PDM) mode driver for the given I2S peripheral with both the receive and
+    /// transmit channels open.
+    #[allow(clippy::too_many_arguments)]
+    pub fn new_tx<I2S: I2s>(
+        _i2s: impl Peripheral<P = I2S> + 'd,
+        tx_cfg: config::PdmTxConfig,
+        clk: impl Peripheral<P = impl OutputPin> + 'd,
+        dout: impl Peripheral<P = impl OutputPin> + 'd,
+    ) -> Result<Self, EspError> {
+        let port = I2S::port();
+        let driver_cfg = tx_cfg.as_sdk();
+
+        // Safety: &driver_cfg is a valid pointer to an i2s_driver_config_t.
+        unsafe {
+            esp!(i2s_driver_install(port, &driver_cfg, 0, null_mut()))?;
+        }
+
+        // Set the upsampling configuration.
+        let upsample = tx_cfg.clk_cfg.as_sdk();
+        unsafe {
+            esp!(i2s_set_pdm_tx_up_sample(port, &upsample))?;
+        }
+
+        // Set the pin configuration.
+        let pin_cfg = i2s_pin_config_t {
+            bck_io_num: clk.into_ref().pin(),
+            data_in_num: -1,
+            data_out_num: dout.into_ref().pin(),
+            mck_io_num: -1,
+            ws_io_num: -1,
+        };
+
+        // Safety: &pin_cfg is a valid pointer to an i2s_pin_config_t.
+        unsafe {
+            esp!(i2s_set_pin(port, &pin_cfg))?;
+        }
+
+        Ok(Self {
+            i2s: port as u8,
+            _p: PhantomData,
+            _dir: PhantomData,
+        })
+    }
+}
+
+#[cfg(any(esp_idf_soc_i2s_supports_pdm_rx, esp32, esp32s3))]
 impl<'d, Dir: I2sRxSupported> I2sRxChannel<'d> for I2sPdmDriver<'d, Dir> {
+    #[cfg(not(esp_idf_version_major = "4"))]
     unsafe fn rx_handle(&self) -> i2s_chan_handle_t {
         (*self.rx).chan_handle
     }
 
+    #[cfg(not(esp_idf_version_major = "4"))]
     fn set_rx_callback<Rx: I2sRxCallback + 'static>(
         &mut self,
         rx_callback: Rx,
@@ -1079,12 +1198,14 @@ impl<'d, Dir: I2sRxSupported> I2sRxChannel<'d> for I2sPdmDriver<'d, Dir> {
     }
 }
 
-#[cfg(esp_idf_soc_i2s_supports_pdm_tx)]
+#[cfg(any(esp_idf_soc_i2s_supports_pdm_tx, esp32, esp32s3, esp32c3, esp32c6))]
 impl<'d, Dir: I2sTxSupported> I2sTxChannel<'d> for I2sPdmDriver<'d, Dir> {
+    #[cfg(not(esp_idf_version_major = "4"))]
     unsafe fn tx_handle(&self) -> i2s_chan_handle_t {
         (*self.tx).chan_handle
     }
 
+    #[cfg(not(esp_idf_version_major = "4"))]
     fn set_tx_callback<Tx: I2sTxCallback + 'static>(
         &mut self,
         tx_callback: Tx,
