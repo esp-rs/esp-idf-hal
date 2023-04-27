@@ -25,9 +25,9 @@ fn main() -> anyhow::Result<()> {
         Delay::delay_ms(10);
 
         if button.is_high() {
-            led.set_low()?;
+            led.set_low();
         } else {
-            led.set_high()?;
+            led.set_high();
         }
     }
 }

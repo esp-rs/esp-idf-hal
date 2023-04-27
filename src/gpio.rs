@@ -1,5 +1,6 @@
 //! GPIO and pin configuration
 
+use core::convert::Infallible;
 use core::marker::PhantomData;
 
 #[cfg(feature = "alloc")]
@@ -870,24 +871,24 @@ impl<'d, T: Pin, MODE> PinDriver<'d, T, MODE> {
     }
 
     #[inline]
-    pub fn set_high(&mut self) -> Result<(), EspError>
+    pub fn set_high(&mut self)
     where
         MODE: OutputMode,
     {
-        self.set_level(Level::High)
+        self.set_level(Level::High);
     }
 
     /// Set the output as low.
     #[inline]
-    pub fn set_low(&mut self) -> Result<(), EspError>
+    pub fn set_low(&mut self)
     where
         MODE: OutputMode,
     {
-        self.set_level(Level::Low)
+        self.set_level(Level::Low);
     }
 
     #[inline]
-    pub fn set_level(&mut self, level: Level) -> Result<(), EspError>
+    pub fn set_level(&mut self, level: Level)
     where
         MODE: OutputMode,
     {
@@ -898,27 +899,25 @@ impl<'d, T: Pin, MODE> PinDriver<'d, T, MODE> {
 
         if MODE::RTC {
             #[cfg(all(not(feature = "riscv-ulp-hal"), not(esp32c3)))]
-            esp!(unsafe { rtc_gpio_set_level(self.pin.pin(), on) })?;
+            esp!(unsafe { rtc_gpio_set_level(self.pin.pin(), on) }).unwrap();
 
             #[cfg(any(feature = "riscv-ulp-hal", esp32c3))]
             unreachable!();
         } else {
-            esp!(unsafe { gpio_set_level(self.pin.pin(), on) })?;
+            esp!(unsafe { gpio_set_level(self.pin.pin(), on) }).unwrap();
         }
-
-        Ok(())
     }
 
     /// Toggle pin output
     #[inline]
-    pub fn toggle(&mut self) -> Result<(), EspError>
+    pub fn toggle(&mut self)
     where
         MODE: OutputMode,
     {
         if self.is_set_low() {
-            self.set_high()
+            self.set_high();
         } else {
-            self.set_low()
+            self.set_low();
         }
     }
 
@@ -1096,7 +1095,7 @@ impl<'d, T: Pin, MODE> embedded_hal_0_2::digital::v2::InputPin for PinDriver<'d,
 where
     MODE: InputMode,
 {
-    type Error = EspError;
+    type Error = Infallible;
 
     fn is_high(&self) -> Result<bool, Self::Error> {
         Ok(PinDriver::is_high(self))
@@ -1108,7 +1107,7 @@ where
 }
 
 impl<'d, T: Pin, MODE> embedded_hal::digital::ErrorType for PinDriver<'d, T, MODE> {
-    type Error = EspError;
+    type Error = Infallible;
 }
 
 impl<'d, T: Pin, MODE> embedded_hal::digital::InputPin for PinDriver<'d, T, MODE>
@@ -1128,14 +1127,16 @@ impl<'d, T: Pin, MODE> embedded_hal_0_2::digital::v2::OutputPin for PinDriver<'d
 where
     MODE: OutputMode,
 {
-    type Error = EspError;
+    type Error = Infallible;
 
     fn set_high(&mut self) -> Result<(), Self::Error> {
-        self.set_level(Level::High)
+        self.set_level(Level::High);
+        Ok(())
     }
 
     fn set_low(&mut self) -> Result<(), Self::Error> {
-        self.set_level(Level::Low)
+        self.set_level(Level::Low);
+        Ok(())
     }
 }
 
@@ -1144,11 +1145,13 @@ where
     MODE: OutputMode,
 {
     fn set_high(&mut self) -> Result<(), Self::Error> {
-        self.set_level(Level::High)
+        self.set_level(Level::High);
+        Ok(())
     }
 
     fn set_low(&mut self) -> Result<(), Self::Error> {
-        self.set_level(Level::Low)
+        self.set_level(Level::Low);
+        Ok(())
     }
 }
 
@@ -1182,10 +1185,11 @@ impl<'d, T: Pin, MODE> embedded_hal_0_2::digital::v2::ToggleableOutputPin for Pi
 where
     MODE: OutputMode,
 {
-    type Error = EspError;
+    type Error = Infallible;
 
     fn toggle(&mut self) -> Result<(), Self::Error> {
-        self.set_level(Level::from(!bool::from(self.get_output_level())))
+        self.toggle();
+        Ok(())
     }
 }
 
@@ -1194,7 +1198,8 @@ where
     MODE: OutputMode,
 {
     fn toggle(&mut self) -> Result<(), Self::Error> {
-        self.set_level(Level::from(!bool::from(self.get_output_level())))
+        self.toggle();
+        Ok(())
     }
 }
 
