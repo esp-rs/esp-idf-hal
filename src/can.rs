@@ -441,6 +441,7 @@ pub mod config {
         pub rx_queue_len: u32,
         pub mode: Mode,
         pub alerts: Alerts,
+        pub intr_flags: i32,
     }
 
     impl Config {
@@ -448,6 +449,7 @@ pub mod config {
             Config {
                 tx_queue_len: 5,
                 rx_queue_len: 5,
+                intr_flags: ESP_INTR_FLAG_LEVEL1 as i32,
                 ..Default::default()
             }
         }
@@ -483,6 +485,11 @@ pub mod config {
             self.alerts = alerts;
             self
         }
+
+        pub fn intr_flags(mut self, flags: i32) -> Self {
+            self.intr_flags = flags;
+            self
+        }
     }
 }
 
@@ -510,7 +517,7 @@ impl<'d> CanDriver<'d> {
             rx_queue_len: config.rx_queue_len,
             alerts_enabled: config.alerts.into(),
             clkout_divider: 0,
-            intr_flags: ESP_INTR_FLAG_LEVEL1 as i32,
+            intr_flags: config.intr_flags,
         };
 
         let timing_config = config.timing.into();
