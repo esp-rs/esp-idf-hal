@@ -1391,27 +1391,27 @@ macro_rules! pin {
 
 #[cfg(all(not(feature = "riscv-ulp-hal"), feature = "alloc"))]
 impl<T: Pin, MODE: InputMode> PinDriver<'_, T, MODE> {
-    pub async fn wait_for_high(&mut self) -> Result<(), EspError> {
+    pub async fn wait_for_high(&mut self) -> Result<(), GpioError> {
         InputFuture::new(self, InterruptType::HighLevel)?.await;
         Ok(())
     }
 
-    pub async fn wait_for_low(&mut self) -> Result<(), EspError> {
+    pub async fn wait_for_low(&mut self) -> Result<(), GpioError> {
         InputFuture::new(self, InterruptType::LowLevel)?.await;
         Ok(())
     }
 
-    pub async fn wait_for_rising_edge(&mut self) -> Result<(), EspError> {
+    pub async fn wait_for_rising_edge(&mut self) -> Result<(), GpioError> {
         InputFuture::new(self, InterruptType::PosEdge)?.await;
         Ok(())
     }
 
-    pub async fn wait_for_falling_edge(&mut self) -> Result<(), EspError> {
+    pub async fn wait_for_falling_edge(&mut self) -> Result<(), GpioError> {
         InputFuture::new(self, InterruptType::NegEdge)?.await;
         Ok(())
     }
 
-    pub async fn wait_for_any_edge(&mut self) -> Result<(), EspError> {
+    pub async fn wait_for_any_edge(&mut self) -> Result<(), GpioError> {
         InputFuture::new(self, InterruptType::AnyEdge)?.await;
         Ok(())
     }
@@ -1465,23 +1465,23 @@ mod asynch {
     mod eha_wait_impl {
         use super::*;
         impl<T: Pin, MODE: InputMode> embedded_hal_async::digital::Wait for PinDriver<'_, T, MODE> {
-            async fn wait_for_high(&mut self) -> Result<(), Self::Error> {
+            async fn wait_for_high(&mut self) -> Result<(), GpioError> {
                 self.wait_for_high().await
             }
 
-            async fn wait_for_low(&mut self) -> Result<(), Self::Error> {
+            async fn wait_for_low(&mut self) -> Result<(), GpioError> {
                 self.wait_for_low().await
             }
 
-            async fn wait_for_rising_edge(&mut self) -> Result<(), Self::Error> {
+            async fn wait_for_rising_edge(&mut self) -> Result<(), GpioError> {
                 self.wait_for_rising_edge().await
             }
 
-            async fn wait_for_falling_edge(&mut self) -> Result<(), Self::Error> {
+            async fn wait_for_falling_edge(&mut self) -> Result<(), GpioError> {
                 self.wait_for_falling_edge().await
             }
 
-            async fn wait_for_any_edge(&mut self) -> Result<(), Self::Error> {
+            async fn wait_for_any_edge(&mut self) -> Result<(), GpioError> {
                 self.wait_for_any_edge().await
             }
         }
