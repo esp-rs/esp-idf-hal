@@ -323,20 +323,21 @@ impl EspHttpServer {
 
     fn stop(&mut self) -> Result<(), EspIOError> {
         if !self.sd.is_null() {
-            while !self.registrations.is_empty() {
-                let (uri, registration) = self.registrations.pop().unwrap();
-
+            while let Some((uri, registration)) = self.registrations.pop() {
                 self.unregister(uri, registration)?;
             }
+
             // Maybe its better to always call httpd_stop because httpd_ssl_stop directly wraps httpd_stop anyways
             // https://github.com/espressif/esp-idf/blob/e6fda46a02c41777f1d116a023fbec6a1efaffb9/components/esp_https_server/src/https_server.c#L268
             #[cfg(not(esp_idf_esp_https_server_enable))]
             esp!(unsafe { esp_idf_sys::httpd_stop(self.sd) })?;
+
             // httpd_ssl_stop doesn't return EspErr for some reason. It returns void.
             #[cfg(all(esp_idf_esp_https_server_enable, esp_idf_version_major = "4"))]
             unsafe {
                 esp_idf_sys::httpd_ssl_stop(self.sd)
             };
+
             // esp-idf version 5 does return EspErr
             #[cfg(all(esp_idf_esp_https_server_enable, not(esp_idf_version_major = "4")))]
             esp!(unsafe { esp_idf_sys::httpd_ssl_stop(self.sd) })?;
