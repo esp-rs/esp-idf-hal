@@ -1,3 +1,5 @@
+#![allow(clippy::unused_unit)]
+
 #[cfg(any(esp32, esp32s3))]
 use core::arch::asm;
 
