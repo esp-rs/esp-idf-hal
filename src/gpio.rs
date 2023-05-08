@@ -1107,8 +1107,19 @@ where
     }
 }
 
+use crate::embedded_hal_error;
+embedded_hal_error!(
+    GpioError,
+    embedded_hal::digital::Error,
+    embedded_hal::digital::ErrorKind
+);
+
+fn to_gpio_err(err: EspError) -> GpioError {
+    GpioError::other(err)
+}
+
 impl<'d, T: Pin, MODE> embedded_hal::digital::ErrorType for PinDriver<'d, T, MODE> {
-    type Error = EspError;
+    type Error = GpioError;
 }
 
 impl<'d, T: Pin, MODE> embedded_hal::digital::InputPin for PinDriver<'d, T, MODE>
@@ -1128,14 +1139,14 @@ impl<'d, T: Pin, MODE> embedded_hal_0_2::digital::v2::OutputPin for PinDriver<'d
 where
     MODE: OutputMode,
 {
-    type Error = EspError;
+    type Error = GpioError;
 
     fn set_high(&mut self) -> Result<(), Self::Error> {
-        self.set_level(Level::High)
+        self.set_level(Level::High).map_err(to_gpio_err)
     }
 
     fn set_low(&mut self) -> Result<(), Self::Error> {
-        self.set_level(Level::Low)
+        self.set_level(Level::Low).map_err(to_gpio_err)
     }
 }
 
@@ -1144,11 +1155,11 @@ where
     MODE: OutputMode,
 {
     fn set_high(&mut self) -> Result<(), Self::Error> {
-        self.set_level(Level::High)
+        self.set_level(Level::High).map_err(to_gpio_err)
     }
 
     fn set_low(&mut self) -> Result<(), Self::Error> {
-        self.set_level(Level::Low)
+        self.set_level(Level::Low).map_err(to_gpio_err)
     }
 }
 
@@ -1195,6 +1206,7 @@ where
 {
     fn toggle(&mut self) -> Result<(), Self::Error> {
         self.set_level(Level::from(!bool::from(self.get_output_level())))
+            .map_err(to_gpio_err)
     }
 }
 
@@ -1379,27 +1391,27 @@ macro_rules! pin {
 
 #[cfg(all(not(feature = "riscv-ulp-hal"), feature = "alloc"))]
 impl<T: Pin, MODE: InputMode> PinDriver<'_, T, MODE> {
-    pub async fn wait_for_high(&mut self) -> Result<(), EspError> {
+    pub async fn wait_for_high(&mut self) -> Result<(), GpioError> {
         InputFuture::new(self, InterruptType::HighLevel)?.await;
         Ok(())
     }
 
-    pub async fn wait_for_low(&mut self) -> Result<(), EspError> {
+    pub async fn wait_for_low(&mut self) -> Result<(), GpioError> {
         InputFuture::new(self, InterruptType::LowLevel)?.await;
         Ok(())
     }
 
-    pub async fn wait_for_rising_edge(&mut self) -> Result<(), EspError> {
+    pub async fn wait_for_rising_edge(&mut self) -> Result<(), GpioError> {
         InputFuture::new(self, InterruptType::PosEdge)?.await;
         Ok(())
     }
 
-    pub async fn wait_for_falling_edge(&mut self) -> Result<(), EspError> {
+    pub async fn wait_for_falling_edge(&mut self) -> Result<(), GpioError> {
         InputFuture::new(self, InterruptType::NegEdge)?.await;
         Ok(())
     }
 
-    pub async fn wait_for_any_edge(&mut self) -> Result<(), EspError> {
+    pub async fn wait_for_any_edge(&mut self) -> Result<(), GpioError> {
         InputFuture::new(self, InterruptType::AnyEdge)?.await;
         Ok(())
     }
@@ -1453,23 +1465,23 @@ mod asynch {
     mod eha_wait_impl {
         use super::*;
         impl<T: Pin, MODE: InputMode> embedded_hal_async::digital::Wait for PinDriver<'_, T, MODE> {
-            async fn wait_for_high(&mut self) -> Result<(), Self::Error> {
+            async fn wait_for_high(&mut self) -> Result<(), GpioError> {
                 self.wait_for_high().await
             }
 
-            async fn wait_for_low(&mut self) -> Result<(), Self::Error> {
+            async fn wait_for_low(&mut self) -> Result<(), GpioError> {
                 self.wait_for_low().await
             }
 
-            async fn wait_for_rising_edge(&mut self) -> Result<(), Self::Error> {
+            async fn wait_for_rising_edge(&mut self) -> Result<(), GpioError> {
                 self.wait_for_rising_edge().await
             }
 
-            async fn wait_for_falling_edge(&mut self) -> Result<(), Self::Error> {
+            async fn wait_for_falling_edge(&mut self) -> Result<(), GpioError> {
                 self.wait_for_falling_edge().await
             }
 
-            async fn wait_for_any_edge(&mut self) -> Result<(), Self::Error> {
+            async fn wait_for_any_edge(&mut self) -> Result<(), GpioError> {
                 self.wait_for_any_edge().await
             }
         }

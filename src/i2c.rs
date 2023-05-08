@@ -378,38 +378,12 @@ impl<'d> embedded_hal::i2c::I2c<embedded_hal::i2c::SevenBitAddress> for I2cDrive
         I2cDriver::write_read(self, addr, bytes, buffer, BLOCK).map_err(to_i2c_err)
     }
 
-    fn write_iter<B>(&mut self, _address: u8, _bytes: B) -> Result<(), Self::Error>
-    where
-        B: IntoIterator<Item = u8>,
-    {
-        todo!()
-    }
-
-    fn write_iter_read<B>(
-        &mut self,
-        _address: u8,
-        _bytes: B,
-        _buffer: &mut [u8],
-    ) -> Result<(), Self::Error>
-    where
-        B: IntoIterator<Item = u8>,
-    {
-        todo!()
-    }
-
     fn transaction(
         &mut self,
         address: u8,
         operations: &mut [embedded_hal::i2c::Operation<'_>],
     ) -> Result<(), Self::Error> {
         I2cDriver::transaction(self, address, operations, BLOCK).map_err(to_i2c_err)
-    }
-
-    fn transaction_iter<'a, O>(&mut self, _address: u8, _operations: O) -> Result<(), Self::Error>
-    where
-        O: IntoIterator<Item = embedded_hal::i2c::Operation<'a>>,
-    {
-        todo!()
     }
 }
 

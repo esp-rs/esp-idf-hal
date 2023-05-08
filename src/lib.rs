@@ -79,6 +79,7 @@ pub use crate::riscv_ulp_hal::delay;
 //
 // Example:
 // embedded_hal_error!(I2cError, embedded_hal::i2c::Error, embedded_hal::i2c::ErrorKind)
+#[cfg(not(feature = "riscv-ulp-hal"))]
 #[allow(unused_macros)]
 macro_rules! embedded_hal_error {
     ($error:ident, $errortrait:ty, $kind:ty) => {
@@ -92,16 +93,13 @@ macro_rules! embedded_hal_error {
             pub fn new(kind: $kind, cause: esp_idf_sys::EspError) -> Self {
                 Self { kind, cause }
             }
-
             pub fn other(cause: esp_idf_sys::EspError) -> Self {
                 Self::new(<$kind>::Other, cause)
             }
-
             pub fn cause(&self) -> esp_idf_sys::EspError {
                 self.cause
             }
         }
-
         impl From<esp_idf_sys::EspError> for $error {
             fn from(e: esp_idf_sys::EspError) -> Self {
                 Self::other(e)
@@ -128,6 +126,53 @@ macro_rules! embedded_hal_error {
 
         #[cfg(feature = "std")]
         impl std::error::Error for $error {}
+    };
+}
+
+#[cfg(feature = "riscv-ulp-hal")]
+#[allow(unused_macros)]
+macro_rules! embedded_hal_error {
+    ($error:ident, $errortrait:ty, $kind:ty) => {
+        #[derive(Debug, Copy, Clone, Eq, PartialEq)]
+        pub struct $error {
+            kind: $kind,
+            cause: crate::riscv_ulp_hal::sys::EspError,
+        }
+
+        impl $error {
+            pub fn new(kind: $kind, cause: crate::riscv_ulp_hal::sys::EspError) -> Self {
+                Self { kind, cause }
+            }
+            pub fn other(cause: crate::riscv_ulp_hal::sys::EspError) -> Self {
+                Self::new(<$kind>::Other, cause)
+            }
+            pub fn cause(&self) -> crate::riscv_ulp_hal::sys::EspError {
+                self.cause
+            }
+        }
+        impl From<crate::riscv_ulp_hal::sys::EspError> for $error {
+            fn from(e: crate::riscv_ulp_hal::sys::EspError) -> Self {
+                Self::other(e)
+            }
+        }
+
+        impl $errortrait for $error {
+            fn kind(&self) -> $kind {
+                self.kind
+            }
+        }
+
+        impl core::fmt::Display for $error {
+            fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+                write!(
+                    f,
+                    "{} {{ kind: {}, cause: {} }}",
+                    stringify!($error),
+                    self.kind,
+                    self.cause()
+                )
+            }
+        }
     };
 }
 

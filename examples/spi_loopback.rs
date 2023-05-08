@@ -12,6 +12,7 @@
 //! This example transfers data via SPI.
 //! Connect SDI and SDO pins to see the outgoing data is read as incoming data.
 
+use embedded_hal::spi::Operation;
 use esp_idf_hal::delay::FreeRtos;
 use esp_idf_hal::peripherals::Peripherals;
 use esp_idf_hal::prelude::*;
@@ -42,16 +43,23 @@ fn main() -> anyhow::Result<()> {
     let mut read = [0u8; 4];
     let write = [0xde, 0xad, 0xbe, 0xef];
 
-    let mut in_place_buf = [0xde, 0xad, 0xbe, 0xef];
-
     loop {
         // we are using thread::sleep here to make sure the watchdog isn't triggered
         FreeRtos::delay_ms(500);
         device_1.transfer(&mut read, &write)?;
         println!("Device 1: Wrote {write:x?}, read {read:x?}");
 
-        println!("Device 2: To write {in_place_buf:x?} ... ");
-        device_2.transaction(|bus| bus.transfer_in_place(&mut in_place_buf))?;
-        println!("... read {in_place_buf:x?}");
+        let write_buf = [0xde, 0xad, 0xbe, 0xef];
+        let mut write_in_place_buf = [0xde, 0xad, 0xbe, 0xef];
+        let mut read_buf = [0; 8];
+
+        println!("Device 2: To write {write_in_place_buf:x?} ... ");
+        // cascade multiple operations with different buffer length into one transaction
+        device_2.transaction(&mut [
+            Operation::Write(&write_buf),
+            Operation::TransferInPlace(&mut write_in_place_buf),
+            Operation::Read(&mut read_buf),
+        ])?;
+        println!("... read {write_in_place_buf:x?}");
     }
 }

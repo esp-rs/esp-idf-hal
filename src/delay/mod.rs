@@ -4,7 +4,6 @@
 //! use [`Delay`]. Otherwise use [`Ets`] for delays <10ms and
 //! [`FreeRtos`] for delays >=10ms.
 
-use core::convert::Infallible;
 use core::time::Duration;
 
 use esp_idf_sys::*;
@@ -123,18 +122,12 @@ impl embedded_hal_0_2::blocking::delay::DelayMs<u8> for Ets {
 }
 
 impl embedded_hal::delay::DelayUs for Ets {
-    type Error = Infallible;
-
-    fn delay_us(&mut self, us: u32) -> Result<(), Self::Error> {
-        Ets::delay_us(us);
-
-        Ok(())
+    fn delay_us(&mut self, us: u32) {
+        Ets::delay_us(us)
     }
 
-    fn delay_ms(&mut self, ms: u32) -> Result<(), Self::Error> {
-        Ets::delay_ms(ms);
-
-        Ok(())
+    fn delay_ms(&mut self, ms: u32) {
+        Ets::delay_ms(ms)
     }
 }
 
@@ -199,17 +192,11 @@ impl embedded_hal_0_2::blocking::delay::DelayMs<u8> for FreeRtos {
 }
 
 impl embedded_hal::delay::DelayUs for FreeRtos {
-    type Error = Infallible;
-
-    fn delay_us(&mut self, us: u32) -> Result<(), Self::Error> {
-        FreeRtos::delay_us(us);
-
-        Ok(())
+    fn delay_us(&mut self, us: u32) {
+        FreeRtos::delay_us(us)
     }
 
-    fn delay_ms(&mut self, ms: u32) -> Result<(), Self::Error> {
-        FreeRtos::delay_ms(ms);
-
-        Ok(())
+    fn delay_ms(&mut self, ms: u32) {
+        FreeRtos::delay_ms(ms)
     }
 }
