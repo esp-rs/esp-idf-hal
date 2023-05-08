@@ -163,6 +163,68 @@ pub mod config {
         }
     }
 
+    /// Interrupt allocation flags.
+    /// These flags can be used to specify which interrupt qualities the code calling esp_intr_alloc* needs.
+    #[derive(Debug, Copy, Clone, Eq, PartialEq)]
+    pub enum IntrFlags {
+        // Accept a Level 1 interrupt vector (lowest priority)
+        Level1,
+        // Accept a Level 2 interrupt vector.
+        Level2,
+        // Accept a Level 3 interrupt vector.
+        Level3,
+        // Accept a Level 4 interrupt vector.
+        Level4,
+        // Accept a Level 5 interrupt vector.
+        Level5,
+        // Accept a Level 6 interrupt vector.
+        Level6,
+        // Accept a Level 7 interrupt vector (highest priority)
+        Nmi,
+        // Interrupt can be shared between ISRs.
+        Shared,
+        // Edge-triggered interrupt.
+        Edge,
+        // ISR can be called if cache is disabled.
+        // Must be used with a proper option *_ISR_IN_IRAM in SDKCONFIG
+        Iram,
+        // Return with this interrupt disabled.
+        IntrDisabled,
+        // Low and medium prio interrupts. These can be handled in C.
+        LowMed,
+        // High level interrupts. Need to be handled in assembly.
+        High,
+        // Mask for all level flags.
+        LevelMask,
+    }
+
+    impl From<IntrFlags> for u32 {
+        fn from(flag: IntrFlags) -> Self {
+            match flag {
+                IntrFlags::Level1 => esp_idf_sys::ESP_INTR_FLAG_LEVEL1,
+                IntrFlags::Level2 => esp_idf_sys::ESP_INTR_FLAG_LEVEL2,
+                IntrFlags::Level3 => esp_idf_sys::ESP_INTR_FLAG_LEVEL3,
+                IntrFlags::Level4 => esp_idf_sys::ESP_INTR_FLAG_LEVEL4,
+                IntrFlags::Level5 => esp_idf_sys::ESP_INTR_FLAG_LEVEL5,
+                IntrFlags::Level6 => esp_idf_sys::ESP_INTR_FLAG_LEVEL6,
+                IntrFlags::Nmi => esp_idf_sys::ESP_INTR_FLAG_NMI,
+                IntrFlags::Shared => esp_idf_sys::ESP_INTR_FLAG_SHARED,
+                IntrFlags::Edge => esp_idf_sys::ESP_INTR_FLAG_EDGE,
+                IntrFlags::Iram => esp_idf_sys::ESP_INTR_FLAG_IRAM,
+                IntrFlags::IntrDisabled => esp_idf_sys::ESP_INTR_FLAG_INTRDISABLED,
+                IntrFlags::LowMed => esp_idf_sys::ESP_INTR_FLAG_LOWMED,
+                IntrFlags::High => esp_idf_sys::ESP_INTR_FLAG_HIGH,
+                IntrFlags::LevelMask => esp_idf_sys::ESP_INTR_FLAG_LEVELMASK,
+            }
+        }
+    }
+
+    impl Default for IntrFlags {
+        fn default() -> Self {
+            Self::Level1
+        }
+    }
+
     /// Is used to filter out unwanted CAN IDs (messages).
     ///
     /// Notice that Espressif TWAI (CAN in rest of the world) acceptance filtering
@@ -441,7 +503,7 @@ pub mod config {
         pub rx_queue_len: u32,
         pub mode: Mode,
         pub alerts: Alerts,
-        pub intr_flags: i32,
+        pub intr_flags: IntrFlags,
     }
 
     impl Config {
@@ -449,7 +511,6 @@ pub mod config {
             Config {
                 tx_queue_len: 5,
                 rx_queue_len: 5,
-                intr_flags: ESP_INTR_FLAG_LEVEL1 as i32,
                 ..Default::default()
             }
         }
@@ -486,7 +547,7 @@ pub mod config {
             self
         }
 
-        pub fn intr_flags(mut self, flags: i32) -> Self {
+        pub fn intr_flags(mut self, flags: IntrFlags) -> Self {
             self.intr_flags = flags;
             self
         }
@@ -517,7 +578,7 @@ impl<'d> CanDriver<'d> {
             rx_queue_len: config.rx_queue_len,
             alerts_enabled: config.alerts.into(),
             clkout_divider: 0,
-            intr_flags: config.intr_flags,
+            intr_flags: config.intr_flags as i32,
         };
 
         let timing_config = config.timing.into();
