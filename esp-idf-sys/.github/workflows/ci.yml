@@ -52,6 +52,18 @@ jobs:
         run: cargo clippy --features pio --no-deps --target ${{ matrix.target }} -Zbuild-std=std,panic_abort -Zbuild-std-features=panic_immediate_abort -- -Dwarnings
 
       - name: Build | Compile (Native) / ESP-IDF V4.4
-        run: cargo build --target ${{ matrix.target }} -Zbuild-std=std,panic_abort -Zbuild-std-features=panic_immediate_abort
         env:
           ESP_IDF_VERSION: release/v4.4
+        run: cargo build --target ${{ matrix.target }} -Zbuild-std=std,panic_abort -Zbuild-std-features=panic_immediate_abort
+
+      - name: Build | Compile (Native) / ESP-IDF V5.0
+        env:
+          RUSTFLAGS: "${{ '--cfg espidf_time64' }}"
+          ESP_IDF_VERSION: release/v5.0
+        run: cargo build --target ${{ matrix.target }} -Zbuild-std=std,panic_abort -Zbuild-std-features=panic_immediate_abort
+
+      - name: Build | Compile (Native) / ESP-IDF V5.1
+        env:
+          RUSTFLAGS: "${{ '--cfg espidf_time64' }}"
+          ESP_IDF_VERSION: release/v5.1
+        run: cargo build --target ${{ matrix.target }} -Zbuild-std=std,panic_abort -Zbuild-std-features=panic_immediate_abort
