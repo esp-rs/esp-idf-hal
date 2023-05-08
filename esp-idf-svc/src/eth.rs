@@ -318,6 +318,16 @@ impl<'d> EthDriver<'d, RmiiEth> {
 
         mac
     }
+
+    #[cfg(not(esp_idf_version_major = "4"))]
+    fn eth_esp32_emac_default_config(mdc: i32, mdio: i32) -> eth_esp32_emac_config_t {
+        eth_esp32_emac_config_t {
+            smi_mdc_gpio_num: mdc,
+            smi_mdio_gpio_num: mdio,
+            interface: eth_data_interface_t_EMAC_DATA_INTERFACE_RMII,
+            ..Default::default()
+        }
+    }
 }
 
 #[cfg(esp_idf_eth_use_openeth)]
@@ -447,7 +457,7 @@ where
 
                 #[cfg(not(esp_idf_version_major = "4"))]
                 let dm9051_cfg = eth_dm9051_config_t {
-                    spi_host_id: P::device() as _,
+                    spi_host_id: host,
                     spi_devcfg: &spi_devcfg as *const _ as *mut _,
                     int_gpio_num: int,
                 };
@@ -475,7 +485,7 @@ where
 
                 #[cfg(not(esp_idf_version_major = "4"))]
                 let w5500_cfg = eth_w5500_config_t {
-                    spi_host_id: P::device() as _,
+                    spi_host_id: host,
                     spi_devcfg: &spi_devcfg as *const _ as *mut _,
                     int_gpio_num: int,
                 };
@@ -503,7 +513,7 @@ where
 
                 #[cfg(not(esp_idf_version_major = "4"))]
                 let ksz8851snl_cfg = eth_ksz8851snl_config_t {
-                    spi_host_id: P::device() as _,
+                    spi_host_id: host,
                     spi_devcfg: &spi_devcfg as *const _ as *mut _,
                     int_gpio_num: int,
                 };
@@ -742,16 +752,6 @@ impl<'d, T> EthDriver<'d, T> {
             rx_task_stack_size: 2048,
             rx_task_prio: 15,
             flags: 0,
-        }
-    }
-
-    #[cfg(not(esp_idf_version_major = "4"))]
-    fn eth_esp32_emac_default_config(mdc: i32, mdio: i32) -> eth_esp32_emac_config_t {
-        eth_esp32_emac_config_t {
-            smi_mdc_gpio_num: mdc,
-            smi_mdio_gpio_num: mdio,
-            interface: eth_data_interface_t_EMAC_DATA_INTERFACE_RMII,
-            ..Default::default()
         }
     }
 }
