@@ -60,10 +60,10 @@ jobs:
         env:
           RUSTFLAGS: "${{ '--cfg espidf_time64' }}"
           ESP_IDF_VERSION: release/v5.0
-        run: cargo build --target ${{ matrix.target }} -Zbuild-std=std,panic_abort -Zbuild-std-features=panic_immediate_abort
+        run: cargo clean; cargo build --target ${{ matrix.target }} -Zbuild-std=std,panic_abort -Zbuild-std-features=panic_immediate_abort
 
       - name: Build | Compile (Native) / ESP-IDF V5.1
         env:
           RUSTFLAGS: "${{ '--cfg espidf_time64' }}"
           ESP_IDF_VERSION: release/v5.1
-        run: cargo build --target ${{ matrix.target }} -Zbuild-std=std,panic_abort -Zbuild-std-features=panic_immediate_abort
+        run: cargo clean; cargo build --target ${{ matrix.target }} -Zbuild-std=std,panic_abort -Zbuild-std-features=panic_immediate_abort
