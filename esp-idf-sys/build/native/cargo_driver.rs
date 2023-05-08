@@ -39,8 +39,19 @@ pub fn build() -> Result<EspIdfBuildOutput> {
     let chip = if let Some(mcu) = &config.mcu {
         Chip::from_str(mcu)?
     } else {
-        Chip::detect(&target)?
+        let chips = Chip::detect(&target)?;
+        if chips.len() > 1 {
+            println!(
+                "cargo:warning=Configuring first supported MCU '{}' derived from the build target '{}' supporting MCUs [{}]; explicitly specify an MCU to resolve this ambiguity",
+                chips[0],
+                target,
+                chips.iter().map(|chip| format!("{chip}")).collect::<Vec<_>>().join(", ")
+            );
+        }
+
+        chips[0]
     };
+
     let chip_name = chip.to_string();
     let profile = common::build_profile();
     let cmake_generator = config.native.esp_idf_cmake_generator();
