@@ -197,7 +197,7 @@
 #ifdef ESP_IDF_COMP_DRIVER_ENABLED
 #include "driver/adc.h"
 #include "driver/twai.h"
-#if !defined(CONFIG_IDF_TARGET_ESP32C3) && !defined(CONFIG_IDF_TARGET_ESP32S3)
+#if defined(CONFIG_IDF_TARGET_ESP32) || defined(CONFIG_IDF_TARGET_ESP32S2)
 #include "driver/dac.h"
 #endif
 #include "driver/gpio.h"
@@ -214,7 +214,7 @@
 #else
 #include "driver/mcpwm.h"
 #endif
-#ifndef CONFIG_IDF_TARGET_ESP32C3
+#if defined(CONFIG_IDF_TARGET_ESP32) || defined(CONFIG_IDF_TARGET_ESP32S2) || defined(CONFIG_IDF_TARGET_ESP32S3) || defined(CONFIG_IDF_TARGET_ESP32H2) || defined(CONFIG_IDF_TARGET_ESP32C6) || defined(CONFIG_IDF_TARGET_ESP32P4)
 #include "driver/pcnt.h"
 #endif
 #include "driver/periph_ctrl.h"
@@ -234,7 +234,7 @@
 #include "driver/spi_slave.h"
 #include "driver/timer.h"
 
-#ifndef CONFIG_IDF_TARGET_ESP32C3
+#if defined(CONFIG_IDF_TARGET_ESP32) || defined(CONFIG_IDF_TARGET_ESP32S2) || defined(CONFIG_IDF_TARGET_ESP32S3)
 #include "driver/touch_pad.h"
 #endif
 
