@@ -562,5 +562,5 @@ macro_rules! impl_i2c {
 }
 
 impl_i2c!(I2C0: 0);
-#[cfg(not(esp32c3))]
+#[cfg(not(any(esp32c3, esp32c2, esp32c6)))]
 impl_i2c!(I2C1: 1);

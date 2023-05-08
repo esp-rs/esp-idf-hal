@@ -67,7 +67,10 @@ pub mod task;
 pub mod timer;
 #[cfg(not(feature = "riscv-ulp-hal"))]
 pub mod uart;
-#[cfg(all(any(esp32, esp32s2, esp32s3), not(feature = "riscv-ulp-hal")))]
+#[cfg(all(
+    any(esp32, esp32s2, esp32s3, esp32c6, esp32p4),
+    not(feature = "riscv-ulp-hal")
+))]
 pub mod ulp;
 pub mod units;
 

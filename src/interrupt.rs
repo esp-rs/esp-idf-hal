@@ -92,13 +92,13 @@ pub unsafe fn set_isr_yielder(
 }
 
 /// A critical section allows the user to disable interrupts
-#[cfg(not(esp32c3))]
+#[cfg(any(esp32, esp32s2, esp32s3, esp32p4))]
 pub struct IsrCriticalSection(core::cell::UnsafeCell<portMUX_TYPE>);
 
-#[cfg(esp32c3)]
+#[cfg(not(any(esp32, esp32s2, esp32s3, esp32p4)))]
 pub struct IsrCriticalSection(core::marker::PhantomData<*const ()>);
 
-#[cfg(esp32c3)]
+#[cfg(not(any(esp32, esp32s2, esp32s3, esp32p4)))]
 #[inline(always)]
 #[link_section = ".iram1.interrupt_enter"]
 fn enter(_cs: &IsrCriticalSection) {
@@ -107,7 +107,7 @@ fn enter(_cs: &IsrCriticalSection) {
     }
 }
 
-#[cfg(not(esp32c3))]
+#[cfg(any(esp32, esp32s2, esp32s3, esp32p4))]
 #[inline(always)]
 #[link_section = ".iram1.interrupt_enter"]
 fn enter(cs: &IsrCriticalSection) {
@@ -122,7 +122,7 @@ fn enter(cs: &IsrCriticalSection) {
     }
 }
 
-#[cfg(esp32c3)]
+#[cfg(not(any(esp32, esp32s2, esp32s3, esp32p4)))]
 #[inline(always)]
 #[link_section = ".iram1.interrupt_exit"]
 fn exit(_cs: &IsrCriticalSection) {
@@ -131,7 +131,7 @@ fn exit(_cs: &IsrCriticalSection) {
     }
 }
 
-#[cfg(not(esp32c3))]
+#[cfg(any(esp32, esp32s2, esp32s3, esp32p4))]
 #[inline(always)]
 #[link_section = ".iram1.interrupt_exit"]
 fn exit(cs: &IsrCriticalSection) {
@@ -145,7 +145,7 @@ impl IsrCriticalSection {
     #[inline(always)]
     #[link_section = ".iram1.interrupt_cs_new"]
     pub const fn new() -> Self {
-        #[cfg(not(esp32c3))]
+        #[cfg(any(esp32, esp32s2, esp32s3, esp32p4))]
         let mux = core::cell::UnsafeCell::new(portMUX_TYPE {
             owner: portMUX_FREE_VAL,
             count: 0,
@@ -155,7 +155,7 @@ impl IsrCriticalSection {
             lastLockedLine: -1,
         });
 
-        #[cfg(esp32c3)]
+        #[cfg(not(any(esp32, esp32s2, esp32s3, esp32p4)))]
         let mux = core::marker::PhantomData;
 
         Self(mux)

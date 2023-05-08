@@ -66,14 +66,14 @@ pub mod config {
         Resolution10Bit,
         #[cfg(esp32)]
         Resolution11Bit,
-        #[cfg(any(esp32, esp32c3, esp32s3))]
+        #[cfg(any(esp32, esp32c3, esp32s3, esp32c2, esp32h2, esp32c5, esp32c6, esp32p4))]
         Resolution12Bit,
         #[cfg(esp32s2)]
         Resolution13Bit,
     }
 
     impl Default for Resolution {
-        #[cfg(any(esp32, esp32c3, esp32s3))]
+        #[cfg(any(esp32, esp32c3, esp32s3, esp32c2, esp32h2, esp32c5, esp32c6, esp32p4))]
         fn default() -> Self {
             Self::Resolution12Bit
         }
@@ -93,7 +93,7 @@ pub mod config {
                 Resolution::Resolution10Bit => adc_bits_width_t_ADC_WIDTH_BIT_10,
                 #[cfg(esp32)]
                 Resolution::Resolution11Bit => adc_bits_width_t_ADC_WIDTH_BIT_11,
-                #[cfg(any(esp32, esp32s3, esp32c3))]
+                #[cfg(any(esp32, esp32s3, esp32c3, esp32c2, esp32h2, esp32c5, esp32c6, esp32p4))]
                 Resolution::Resolution12Bit => adc_bits_width_t_ADC_WIDTH_BIT_12,
                 #[cfg(esp32s2)]
                 Resolution::Resolution13Bit => adc_bits_width_t_ADC_WIDTH_BIT_13,
@@ -152,7 +152,11 @@ where
         if T::Adc::unit() == adc_unit_t_ADC_UNIT_1 {
             esp!(unsafe { adc1_config_channel_atten(pin.adc_channel(), ATTEN::attenuation()) })?;
         } else {
+            #[cfg(not(any(esp32c2, esp32h2, esp32c5, esp32c6, esp32p4)))]
             esp!(unsafe { adc2_config_channel_atten(pin.adc_channel(), ATTEN::attenuation()) })?;
+
+            #[cfg(any(esp32c2, esp32h2, esp32c5, esp32c6, esp32p4))]
+            unreachable!();
         }
 
         Ok(Self {
@@ -180,8 +184,12 @@ impl<'d, T: ADCPin, ATTEN> embedded_hal_0_2::adc::Channel<ATTEN>
 #[cfg(not(feature = "riscv-ulp-hal"))]
 pub struct AdcDriver<'d, ADC: Adc> {
     _adc: PeripheralRef<'d, ADC>,
+    #[allow(dead_code)]
     resolution: config::Resolution,
-    #[cfg(any(esp_idf_comp_esp_adc_cal_enabled, esp_idf_comp_esp_adc_enabled))]
+    #[cfg(all(
+        any(esp32, esp32s2, esp32s3, esp32c3),
+        any(esp_idf_comp_esp_adc_cal_enabled, esp_idf_comp_esp_adc_enabled)
+    ))]
     cal_characteristics:
         Option<[Option<esp_adc_cal_characteristics_t>; adc_atten_t_ADC_ATTEN_DB_11 as usize + 1]>,
 }
@@ -222,7 +230,10 @@ impl<'d, ADC: Adc> AdcDriver<'d, ADC> {
     ) -> Result<Self, EspError> {
         crate::into_ref!(adc);
 
-        #[cfg(any(esp_idf_comp_esp_adc_cal_enabled, esp_idf_comp_esp_adc_enabled))]
+        #[cfg(all(
+            any(esp32, esp32s2, esp32s3, esp32c3),
+            any(esp_idf_comp_esp_adc_cal_enabled, esp_idf_comp_esp_adc_enabled)
+        ))]
         if config.calibration {
             esp!(unsafe { esp_adc_cal_check_efuse(Self::CALIBRATION_SCHEME) })?;
         }
@@ -234,7 +245,10 @@ impl<'d, ADC: Adc> AdcDriver<'d, ADC> {
         Ok(Self {
             _adc: adc,
             resolution: config.resolution,
-            #[cfg(any(esp_idf_comp_esp_adc_cal_enabled, esp_idf_comp_esp_adc_enabled))]
+            #[cfg(all(
+                any(esp32, esp32s2, esp32s3, esp32c3),
+                any(esp_idf_comp_esp_adc_cal_enabled, esp_idf_comp_esp_adc_enabled)
+            ))]
             cal_characteristics: if config.calibration {
                 Some(Default::default())
             } else {
@@ -270,12 +284,17 @@ impl<'d, ADC: Adc> AdcDriver<'d, ADC> {
         channel: adc_channel_t,
         atten: adc_atten_t,
     ) -> Result<u16, EspError> {
+        #[allow(unused_assignments)]
         let mut measurement = 0_i32;
 
         if unit == adc_unit_t_ADC_UNIT_1 {
             measurement = unsafe { adc1_get_raw(channel) };
         } else {
+            #[cfg(not(any(esp32c2, esp32h2, esp32c5, esp32c6, esp32p4)))]
             esp!(unsafe { adc2_get_raw(channel, self.resolution.into(), &mut measurement) })?;
+
+            #[cfg(any(esp32c2, esp32h2, esp32c5, esp32c6, esp32p4))]
+            unreachable!();
         };
 
         self.raw_to_voltage(measurement, atten)
@@ -286,14 +305,20 @@ impl<'d, ADC: Adc> AdcDriver<'d, ADC> {
         measurement: core::ffi::c_int,
         attenuation: adc_atten_t,
     ) -> Result<u16, EspError> {
-        #[cfg(any(esp_idf_comp_esp_adc_cal_enabled, esp_idf_comp_esp_adc_enabled))]
+        #[cfg(all(
+            any(esp32, esp32s2, esp32s3, esp32c3),
+            any(esp_idf_comp_esp_adc_cal_enabled, esp_idf_comp_esp_adc_enabled)
+        ))]
         let mv = if let Some(cal) = self.get_cal_characteristics(attenuation)? {
             unsafe { esp_adc_cal_raw_to_voltage(measurement as u32, &cal) as u16 }
         } else {
             (measurement as u32 * Self::get_max_mv(attenuation) / Self::MAX_READING) as u16
         };
 
-        #[cfg(not(any(esp_idf_comp_esp_adc_cal_enabled, esp_idf_comp_esp_adc_enabled)))]
+        #[cfg(not(all(
+            any(esp32, esp32s2, esp32s3, esp32c3),
+            any(esp_idf_comp_esp_adc_cal_enabled, esp_idf_comp_esp_adc_enabled)
+        )))]
         let mv = (measurement as u32 * Self::get_max_mv(attenuation) / Self::MAX_READING) as u16;
 
         Ok(mv)
@@ -310,7 +335,7 @@ impl<'d, ADC: Adc> AdcDriver<'d, ADC> {
             other => panic!("Unknown attenuation: {}", other),
         };
 
-        #[cfg(any(esp32c3, esp32s2))]
+        #[cfg(any(esp32c3, esp32s2, esp32c2, esp32h2, esp32c5, esp32c6, esp32p4))]
         let mv = match attenuation {
             adc_atten_t_ADC_ATTEN_DB_0 => 750,
             adc_atten_t_ADC_ATTEN_DB_2_5 => 1050,
@@ -331,7 +356,10 @@ impl<'d, ADC: Adc> AdcDriver<'d, ADC> {
         mv
     }
 
-    #[cfg(any(esp_idf_comp_esp_adc_cal_enabled, esp_idf_comp_esp_adc_enabled))]
+    #[cfg(all(
+        any(esp32, esp32s2, esp32s3, esp32c3),
+        any(esp_idf_comp_esp_adc_cal_enabled, esp_idf_comp_esp_adc_enabled)
+    ))]
     fn get_cal_characteristics(
         &mut self,
         attenuation: adc_atten_t,
@@ -416,4 +444,5 @@ macro_rules! impl_adc {
 }
 
 impl_adc!(ADC1: adc_unit_t_ADC_UNIT_1);
+#[cfg(not(any(esp32c2, esp32h2, esp32c5, esp32c6, esp32p4)))] // TODO: CVheck for esp32c5 and esp32p4
 impl_adc!(ADC2: adc_unit_t_ADC_UNIT_2);
