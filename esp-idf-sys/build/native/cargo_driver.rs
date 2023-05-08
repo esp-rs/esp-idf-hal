@@ -36,20 +36,30 @@ pub fn build() -> Result<EspIdfBuildOutput> {
     })?;
     config.print();
 
+    let supported_chips = Chip::detect(&target)?;
+
     let chip = if let Some(mcu) = &config.mcu {
-        Chip::from_str(mcu)?
-    } else {
-        let chips = Chip::detect(&target)?;
-        if chips.len() > 1 {
-            println!(
-                "cargo:warning=Configuring first supported MCU '{}' derived from the build target '{}' supporting MCUs [{}]; explicitly specify an MCU to resolve this ambiguity",
-                chips[0],
-                target,
-                chips.iter().map(|chip| format!("{chip}")).collect::<Vec<_>>().join(", ")
+        let chip = Chip::from_str(mcu)?;
+
+        if !supported_chips.iter().any(|sc| *sc == chip) {
+            bail!(
+                "Specified MCU '{chip}' is not amongst the MCUs ([{}]) supported by the build target ('{target}')", 
+                supported_chips.iter().map(|chip| format!("{chip}")).collect::<Vec<_>>().join(", ")
             );
         }
 
-        chips[0]
+        chip
+    } else {
+        if supported_chips.len() > 1 {
+            println!(
+                "cargo:warning=Configuring first supported MCU '{}' derived from the build target '{}' supporting MCUs [{}]; explicitly specify an MCU to resolve this ambiguity",
+                supported_chips[0],
+                target,
+                supported_chips.iter().map(|chip| format!("{chip}")).collect::<Vec<_>>().join(", ")
+            );
+        }
+
+        supported_chips[0]
     };
 
     let chip_name = chip.to_string();
@@ -188,7 +198,7 @@ pub fn build() -> Result<EspIdfBuildOutput> {
 
     // Apply patches, only if the patches were not previously applied and if the esp-idf repo is managed.
     if idf.is_managed_espidf {
-        let patch_set = match idf.version.map(|v| (v.major, v.minor, v.patch)) {
+        let patch_set = match idf.version.as_ref().map(|v| (v.major, v.minor, v.patch)) {
             // master branch
             _ if {
                 let default_branch = idf.repository.get_default_branch()?;
@@ -211,8 +221,9 @@ pub fn build() -> Result<EspIdfBuildOutput> {
                 &[]
             }
             Err(err) => {
-                err.context("could not determine patch-set for esp-idf repository")
-                    .into_warning();
+                cargo::print_warning(format!(
+                    "Could not determine patch-set for esp-idf repository: {err}"
+                ));
                 &[]
             }
         };
@@ -335,6 +346,39 @@ pub fn build() -> Result<EspIdfBuildOutput> {
     )?;
 
     let mut cmake_config = cmake::Config::new(&out_dir);
+
+    let gcc12 = match idf.version.map(|v| (v.major, v.minor, v.patch)) {
+        Ok((major, minor, _)) => major > 5 || major == 5 && minor >= 1,
+        Err(err) => {
+            err.context("could not determine esp-idf version for target selection")
+                .into_warning();
+            false
+        }
+    };
+
+    if gcc12 {
+        // This code solves the following annoying issue:
+        // GCC-12+ follows the later V2.1 specification of the I riscv extension
+        // However LLVM and Rust are still on V2.0
+        //
+        // 2.1 is not backwards compatible with 2.0 in that zicsr and zifencei are no longer
+        // considered part of the I extension
+        //
+        // Therefore, explicitly tell GCC 12+ that we in fact want these extensions included
+        // This is done by passing a "made up" rustc target to cmake-rs (and tus to cc-rs)
+        // that happens to be parsed correctly and results in correct arguments passed
+        // downstream to GCC
+        //
+        // See these links for more info:
+        // https://github.com/esp-rs/esp-idf-sys/issues/176
+        // https://discourse.llvm.org/t/support-for-zicsr-and-zifencei-extensions/68369/3
+        if target == "riscv32imc-esp-espidf" {
+            cmake_config.target("riscv32imc_zicsr_zifencei-esp-espidf");
+        } else if target == "riscv32imac-esp-espidf" {
+            cmake_config.target("riscv32imac_zicsr_zifencei-esp-espidf");
+        }
+    }
+
     cmake_config
         .generator(cmake_generator.name())
         .out_dir(&out_dir)
