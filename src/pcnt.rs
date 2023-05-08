@@ -1,3 +1,5 @@
+#![allow(clippy::unused_unit)]
+
 use core::fmt::Debug;
 use core::marker::PhantomData;
 
