@@ -6,7 +6,7 @@
     feature(impl_trait_projections),
     allow(incomplete_features)
 )]
-#![allow(clippy::unused-unit)] // enumset
+#![allow(clippy::unused_unit)] // enumset
 
 #[cfg(all(not(feature = "riscv-ulp-hal"), not(esp_idf_comp_driver_enabled)))]
 compile_error!("esp-idf-hal requires the `driver` ESP-IDF component to be enabled");
