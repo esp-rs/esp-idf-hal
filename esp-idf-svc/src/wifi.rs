@@ -421,6 +421,23 @@ impl<'d> WifiDriver<'d> {
             mgmt_sbuf_num: WIFI_MGMT_SBUF_NUM as _,
             feature_caps: unsafe { g_wifi_feature_caps },
             sta_disconnected_pm: WIFI_STA_DISCONNECTED_PM_ENABLED != 0,
+            // Available since ESP IDF V4.4.4+
+            #[cfg(any(
+                not(esp_idf_version_major = "4"),
+                all(
+                    esp_idf_version_major = "4",
+                    not(esp_idf_version_minor = "3"),
+                    any(
+                        not(esp_idf_version_minor = "4"),
+                        all(
+                            not(esp_idf_version_patch = "0"),
+                            not(esp_idf_version_patch = "1"),
+                            not(esp_idf_version_patch = "2"),
+                            not(esp_idf_version_patch = "3")
+                        )
+                    )
+                )
+            ))]
             espnow_max_encrypt_num: CONFIG_ESP_WIFI_ESPNOW_MAX_ENCRYPT_NUM as i32,
             magic: WIFI_INIT_CONFIG_MAGIC as _,
             ..Default::default()
