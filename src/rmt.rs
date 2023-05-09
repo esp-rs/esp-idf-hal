@@ -316,7 +316,11 @@ pub mod config {
     pub enum Loop {
         None,
         Endless,
-        #[cfg(not(esp32))]
+        #[cfg(any(
+            all(not(esp_idf_version_major = "4"), not(esp_idf_version_major = "5")),
+            all(esp_idf_version_major = "5", not(esp_idf_version_minor = "0")),
+            not(esp32)
+        ))]
         Count(u32),
     }
 
@@ -497,7 +501,11 @@ impl<'d> TxRmtDriver<'d> {
                     idle_output_en: config.idle.is_some(),
                     idle_level: config.idle.map(|i| i as u32).unwrap_or(0),
                     loop_en: config.looping != config::Loop::None,
-                    #[cfg(not(esp32))]
+                    #[cfg(any(
+                        all(not(esp_idf_version_major = "4"), not(esp_idf_version_major = "5")),
+                        all(esp_idf_version_major = "5", not(esp_idf_version_minor = "0")),
+                        not(esp32)
+                    ))]
                     loop_count: match config.looping {
                         config::Loop::Count(count) if count > 0 && count < 1024 => count,
                         _ => 0,
