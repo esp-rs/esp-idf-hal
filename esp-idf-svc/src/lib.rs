@@ -31,6 +31,7 @@ extern crate alloc;
 
 pub mod errors;
 #[cfg(all(
+    not(esp32h2),
     feature = "alloc",
     esp_idf_comp_esp_wifi_enabled,
     esp_idf_comp_esp_event_enabled,
@@ -91,6 +92,7 @@ pub mod systime;
 pub mod timer;
 pub mod tls;
 #[cfg(all(
+    not(esp32h2),
     feature = "alloc",
     esp_idf_comp_esp_wifi_enabled,
     esp_idf_comp_esp_event_enabled,
