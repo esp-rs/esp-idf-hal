@@ -31,6 +31,7 @@ impl From<Duration> for APBTickType {
 }
 
 pub type I2cConfig = config::Config;
+#[cfg(not(esp32c2))]
 pub type I2cSlaveConfig = config::SlaveConfig;
 
 /// I2C configuration
@@ -89,6 +90,7 @@ pub mod config {
     }
 
     /// I2C Slave configuration
+    #[cfg(not(esp32c2))]
     #[derive(Copy, Clone)]
     pub struct SlaveConfig {
         pub sda_pullup_enabled: bool,
@@ -97,6 +99,7 @@ pub mod config {
         pub tx_buf_len: usize,
     }
 
+    #[cfg(not(esp32c2))]
     impl SlaveConfig {
         pub fn new() -> Self {
             Default::default()
@@ -127,6 +130,7 @@ pub mod config {
         }
     }
 
+    #[cfg(not(esp32c2))]
     impl Default for SlaveConfig {
         fn default() -> Self {
             Self {
@@ -395,13 +399,16 @@ fn to_i2c_err(err: EspError) -> I2cError {
     }
 }
 
+#[cfg(not(esp32c2))]
 pub struct I2cSlaveDriver<'d> {
     i2c: u8,
     _p: PhantomData<&'d mut ()>,
 }
 
+#[cfg(not(esp32c2))]
 unsafe impl<'d> Send for I2cSlaveDriver<'d> {}
 
+#[cfg(not(esp32c2))]
 impl<'d> I2cSlaveDriver<'d> {
     pub fn new<I2C: I2c>(
         _i2c: impl Peripheral<P = I2C> + 'd,
@@ -492,6 +499,7 @@ impl<'d> I2cSlaveDriver<'d> {
     }
 }
 
+#[cfg(not(esp32c2))]
 impl<'d> Drop for I2cSlaveDriver<'d> {
     fn drop(&mut self) {
         esp!(unsafe { i2c_driver_delete(self.port()) }).unwrap();

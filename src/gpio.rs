@@ -2092,7 +2092,7 @@ mod chip {
     }
 }
 
-#[cfg(any(esp32c3, esp32h2, esp32c2, esp32c5))] // TODO: Implement proper pin layout for esp32c2, esp32h2 and esp32c5
+#[cfg(any(esp32c3))]
 #[cfg(not(feature = "riscv-ulp-hal"))]
 mod chip {
     use esp_idf_sys::*;
@@ -2200,7 +2200,219 @@ mod chip {
     }
 }
 
-#[cfg(any(esp32c6, esp32p4))] // TODO: Implement proper pin layout for esp32p4
+#[cfg(any(esp32c2))]
+#[cfg(not(feature = "riscv-ulp-hal"))]
+mod chip {
+    use esp_idf_sys::*;
+
+    use crate::adc::ADC1;
+
+    use super::*;
+    #[cfg(all(not(feature = "riscv-ulp-hal"), feature = "alloc"))]
+    use atomic_notification::Notification;
+
+    #[allow(clippy::type_complexity)]
+    #[cfg(feature = "alloc")]
+    pub(crate) static mut ISR_HANDLERS: [Option<Box<Box<dyn FnMut()>>>; 20] = [
+        None, None, None, None, None, None, None, None, None, None, None, None, None, None, None,
+        None, None, None, None, None,
+    ];
+
+    #[cfg(all(not(feature = "riscv-ulp-hal"), feature = "alloc"))]
+    pub(crate) static mut PIN_NOTIFIERS: [Option<Notification>; 20] = [
+        None, None, None, None, None, None, None, None, None, None, None, None, None, None, None,
+        None, None, None, None, None,
+    ];
+
+    // NOTE: Gpio12 - Gpio17 are used by SPI0/SPI1 for external PSRAM/SPI Flash and
+    //       are not recommended for other uses
+    pin!(Gpio0:0,   IO,   RTC:0,  ADC1:0, NODAC:0, NOTOUCH:0);
+    pin!(Gpio1:1,   IO,   RTC:1,  ADC1:1, NODAC:0, NOTOUCH:0);
+    pin!(Gpio2:2,   IO,   RTC:2,  ADC1:2, NODAC:0, NOTOUCH:0);
+    pin!(Gpio3:3,   IO,   RTC:3,  ADC1:3, NODAC:0, NOTOUCH:0);
+    pin!(Gpio4:4,   IO,   RTC:4,  ADC1:4, NODAC:0, NOTOUCH:0);
+    pin!(Gpio5:5,   IO,   RTC:5, NOADC:0, NODAC:0, NOTOUCH:0);
+    pin!(Gpio6:6,   IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
+    pin!(Gpio7:7,   IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
+    pin!(Gpio8:8,   IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
+    pin!(Gpio9:9,   IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
+    pin!(Gpio10:10, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
+    pin!(Gpio11:11, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
+    pin!(Gpio12:12, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
+    pin!(Gpio13:13, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
+    pin!(Gpio14:14, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
+    pin!(Gpio15:15, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
+    pin!(Gpio16:16, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
+    pin!(Gpio17:17, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
+    pin!(Gpio18:18, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
+    pin!(Gpio19:19, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
+    pin!(Gpio20:20, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
+
+    pub struct Pins {
+        pub gpio0: Gpio0,
+        pub gpio1: Gpio1,
+        pub gpio2: Gpio2,
+        pub gpio3: Gpio3,
+        pub gpio4: Gpio4,
+        pub gpio5: Gpio5,
+        pub gpio6: Gpio6,
+        pub gpio7: Gpio7,
+        pub gpio8: Gpio8,
+        pub gpio9: Gpio9,
+        pub gpio10: Gpio10,
+        pub gpio11: Gpio11,
+        pub gpio12: Gpio12,
+        pub gpio13: Gpio13,
+        pub gpio14: Gpio14,
+        pub gpio15: Gpio15,
+        pub gpio16: Gpio16,
+        pub gpio17: Gpio17,
+        pub gpio18: Gpio18,
+        pub gpio19: Gpio19,
+        pub gpio20: Gpio20,
+    }
+
+    impl Pins {
+        /// # Safety
+        ///
+        /// Care should be taken not to instantiate the Pins structure, if it is
+        /// already instantiated and used elsewhere
+        pub unsafe fn new() -> Self {
+            Self {
+                gpio0: Gpio0::new(),
+                gpio1: Gpio1::new(),
+                gpio2: Gpio2::new(),
+                gpio3: Gpio3::new(),
+                gpio4: Gpio4::new(),
+                gpio5: Gpio5::new(),
+                gpio6: Gpio6::new(),
+                gpio7: Gpio7::new(),
+                gpio8: Gpio8::new(),
+                gpio9: Gpio9::new(),
+                gpio10: Gpio10::new(),
+                gpio11: Gpio11::new(),
+                gpio12: Gpio12::new(),
+                gpio13: Gpio13::new(),
+                gpio14: Gpio14::new(),
+                gpio15: Gpio15::new(),
+                gpio16: Gpio16::new(),
+                gpio17: Gpio17::new(),
+                gpio18: Gpio18::new(),
+                gpio19: Gpio19::new(),
+                gpio20: Gpio20::new(),
+            }
+        }
+    }
+}
+
+#[cfg(any(esp32h2))]
+#[cfg(not(feature = "riscv-ulp-hal"))]
+mod chip {
+    use esp_idf_sys::*;
+
+    use crate::adc::ADC1;
+
+    use super::*;
+    #[cfg(all(not(feature = "riscv-ulp-hal"), feature = "alloc"))]
+    use atomic_notification::Notification;
+
+    #[allow(clippy::type_complexity)]
+    #[cfg(feature = "alloc")]
+    pub(crate) static mut ISR_HANDLERS: [Option<Box<Box<dyn FnMut()>>>; 20] = [
+        None, None, None, None, None, None, None, None, None, None, None, None, None, None, None,
+        None, None, None, None, None,
+    ];
+
+    #[cfg(all(not(feature = "riscv-ulp-hal"), feature = "alloc"))]
+    pub(crate) static mut PIN_NOTIFIERS: [Option<Notification>; 20] = [
+        None, None, None, None, None, None, None, None, None, None, None, None, None, None, None,
+        None, None, None, None, None,
+    ];
+
+    // NOTE: Gpio12 - Gpio17 are used by SPI0/SPI1 for external PSRAM/SPI Flash and
+    //       are not recommended for other uses
+    pin!(Gpio0:0,   IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
+    pin!(Gpio1:1,   IO, NORTC:0,  ADC1:0, NODAC:0, NOTOUCH:0);
+    pin!(Gpio2:2,   IO, NORTC:0,  ADC1:1, NODAC:0, NOTOUCH:0);
+    pin!(Gpio3:3,   IO, NORTC:0,  ADC1:2, NODAC:0, NOTOUCH:0);
+    pin!(Gpio4:4,   IO, NORTC:0,  ADC1:3, NODAC:0, NOTOUCH:0);
+    pin!(Gpio5:5,   IO, NORTC:0,  ADC1:4, NODAC:0, NOTOUCH:0);
+    pin!(Gpio6:6,   IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
+    pin!(Gpio7:7,   IO,   RTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
+    pin!(Gpio8:8,   IO,   RTC:1, NOADC:0, NODAC:0, NOTOUCH:0);
+    pin!(Gpio9:9,   IO,   RTC:2, NOADC:0, NODAC:0, NOTOUCH:0);
+    pin!(Gpio10:10, IO,   RTC:3, NOADC:0, NODAC:0, NOTOUCH:0);
+    pin!(Gpio11:11, IO,   RTC:4, NOADC:0, NODAC:0, NOTOUCH:0);
+    pin!(Gpio12:12, IO,   RTC:5, NOADC:0, NODAC:0, NOTOUCH:0);
+    pin!(Gpio13:13, IO,   RTC:6, NOADC:0, NODAC:0, NOTOUCH:0);
+    pin!(Gpio14:14, IO,   RTC:7, NOADC:0, NODAC:0, NOTOUCH:0);
+    pin!(Gpio15:15, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
+    pin!(Gpio16:16, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
+    pin!(Gpio17:17, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
+    pin!(Gpio18:18, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
+    pin!(Gpio19:19, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
+    pin!(Gpio20:20, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
+
+    pub struct Pins {
+        pub gpio0: Gpio0,
+        pub gpio1: Gpio1,
+        pub gpio2: Gpio2,
+        pub gpio3: Gpio3,
+        pub gpio4: Gpio4,
+        pub gpio5: Gpio5,
+        pub gpio6: Gpio6,
+        pub gpio7: Gpio7,
+        pub gpio8: Gpio8,
+        pub gpio9: Gpio9,
+        pub gpio10: Gpio10,
+        pub gpio11: Gpio11,
+        pub gpio12: Gpio12,
+        pub gpio13: Gpio13,
+        pub gpio14: Gpio14,
+        pub gpio15: Gpio15,
+        pub gpio16: Gpio16,
+        pub gpio17: Gpio17,
+        pub gpio18: Gpio18,
+        pub gpio19: Gpio19,
+        pub gpio20: Gpio20,
+    }
+
+    impl Pins {
+        /// # Safety
+        ///
+        /// Care should be taken not to instantiate the Pins structure, if it is
+        /// already instantiated and used elsewhere
+        pub unsafe fn new() -> Self {
+            Self {
+                gpio0: Gpio0::new(),
+                gpio1: Gpio1::new(),
+                gpio2: Gpio2::new(),
+                gpio3: Gpio3::new(),
+                gpio4: Gpio4::new(),
+                gpio5: Gpio5::new(),
+                gpio6: Gpio6::new(),
+                gpio7: Gpio7::new(),
+                gpio8: Gpio8::new(),
+                gpio9: Gpio9::new(),
+                gpio10: Gpio10::new(),
+                gpio11: Gpio11::new(),
+                gpio12: Gpio12::new(),
+                gpio13: Gpio13::new(),
+                gpio14: Gpio14::new(),
+                gpio15: Gpio15::new(),
+                gpio16: Gpio16::new(),
+                gpio17: Gpio17::new(),
+                gpio18: Gpio18::new(),
+                gpio19: Gpio19::new(),
+                gpio20: Gpio20::new(),
+            }
+        }
+    }
+}
+
+// TODO: Implement esp32c6 glitch filters
+
+#[cfg(any(esp32c5, esp32c6, esp32p4))] // TODO: Implement proper pin layout for esp32c5 and esp32p4
 mod chip {
     #[cfg(not(feature = "riscv-ulp-hal"))]
     use esp_idf_sys::*;
@@ -2236,20 +2448,20 @@ mod chip {
     pin!(Gpio5:5, IO, RTC:5, ADC1:5, NODAC:0, NOTOUCH:0);
     pin!(Gpio6:6, IO, RTC:6, ADC1:6, NODAC:0, NOTOUCH:0);
     pin!(Gpio7:7, IO, RTC:7, NOADC:0, NODAC:0, NOTOUCH:0);
-    pin!(Gpio8:8, IO, RTC:8, NOADC:0, NODAC:0, NOTOUCH:0);
-    pin!(Gpio9:9, IO, RTC:9, NOADC:0, NODAC:0, NOTOUCH:0);
-    pin!(Gpio10:10, IO, RTC:10, NOADC:0, NODAC:0, NOTOUCH:0);
-    pin!(Gpio11:11, IO, RTC:11, NOADC:0, NODAC:0, NOTOUCH:0);
-    pin!(Gpio12:12, IO, RTC:12, NOADC:0, NODAC:0, NOTOUCH:0);
-    pin!(Gpio13:13, IO, RTC:13, NOADC:0, NODAC:0, NOTOUCH:0);
-    pin!(Gpio14:14, IO, RTC:14, NOADC:0, NODAC:0, NOTOUCH:0);
-    pin!(Gpio15:15, IO, RTC:15, NOADC:0, NODAC:0, NOTOUCH:0);
-    pin!(Gpio16:16, IO, RTC:16, NOADC:0, NODAC:0, NOTOUCH:0);
-    pin!(Gpio17:17, IO, RTC:17, NOADC:0, NODAC:0, NOTOUCH:0);
-    pin!(Gpio18:18, IO, RTC:18, NOADC:0, NODAC:0, NOTOUCH:0);
-    pin!(Gpio19:19, IO, RTC:19, NOADC:0, NODAC:0, NOTOUCH:0);
-    pin!(Gpio20:20, IO, RTC:20, NOADC:0, NODAC:0, NOTOUCH:0);
-    pin!(Gpio21:21, IO, RTC:21, NOADC:0, NODAC:0, NOTOUCH:0);
+    pin!(Gpio8:8, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
+    pin!(Gpio9:9, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
+    pin!(Gpio10:10, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
+    pin!(Gpio11:11, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
+    pin!(Gpio12:12, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
+    pin!(Gpio13:13, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
+    pin!(Gpio14:14, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
+    pin!(Gpio15:15, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
+    pin!(Gpio16:16, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
+    pin!(Gpio17:17, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
+    pin!(Gpio18:18, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
+    pin!(Gpio19:19, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
+    pin!(Gpio20:20, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
+    pin!(Gpio21:21, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
     #[cfg(not(feature = "riscv-ulp-hal"))]
     pin!(Gpio26:26, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
     #[cfg(not(feature = "riscv-ulp-hal"))]

@@ -316,7 +316,7 @@ pub mod config {
     pub enum Loop {
         None,
         Endless,
-        #[cfg(not(any(esp32, esp32c2)))]
+        #[cfg(not(esp32))]
         Count(u32),
     }
 
@@ -497,7 +497,7 @@ impl<'d> TxRmtDriver<'d> {
                     idle_output_en: config.idle.is_some(),
                     idle_level: config.idle.map(|i| i as u32).unwrap_or(0),
                     loop_en: config.looping != config::Loop::None,
-                    #[cfg(not(any(esp32, esp32c2)))]
+                    #[cfg(not(esp32))]
                     loop_count: match config.looping {
                         config::Loop::Count(count) if count > 0 && count < 1024 => count,
                         _ => 0,

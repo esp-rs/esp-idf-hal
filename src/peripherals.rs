@@ -113,6 +113,7 @@ pub struct Peripherals {
     ))]
     pub timer01: timer::TIMER01,
     #[cfg(all(
+        not(esp32c2),
         not(feature = "riscv-ulp-hal"),
         not(feature = "embassy-time-isr-queue-timer10")
     ))]
@@ -249,6 +250,7 @@ impl Peripherals {
             ))]
             timer01: timer::TIMER01::new(),
             #[cfg(all(
+                not(esp32c2),
                 not(feature = "riscv-ulp-hal"),
                 not(feature = "embassy-time-isr-queue-timer10")
             ))]
