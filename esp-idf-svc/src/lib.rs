@@ -23,7 +23,7 @@
     feature(impl_trait_in_assoc_type)
 )]
 #![cfg_attr(not(version("1.66")), feature(const_btree_new))]
-#![allow(clippy::unused-unit)] // enumset
+#![allow(clippy::unused_unit)] // enumset
 
 #[cfg(any(feature = "alloc"))]
 #[allow(unused_imports)]
