@@ -65,7 +65,7 @@ impl Drop for NvsDefault {
         //esp!(nvs_flash_deinit()).unwrap(); TODO: To be checked why it fails
         *DEFAULT_TAKEN.lock() = false;
 
-        info!("Dropped");
+        info!("NvsDefault dropped");
     }
 }
 
@@ -121,7 +121,7 @@ impl Drop for NvsCustom {
             registrations.remove(self.0.as_ref());
         }
 
-        info!("Dropped");
+        info!("NvsCustom dropped");
     }
 }
 
@@ -670,6 +670,8 @@ impl<T: NvsPartitionId> Drop for EspNvs<T> {
         unsafe {
             nvs_close(self.1);
         }
+
+        info!("EspNvs dropped");
     }
 }
 

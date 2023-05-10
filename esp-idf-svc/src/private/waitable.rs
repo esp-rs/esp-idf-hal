@@ -2,6 +2,7 @@ use core::time::Duration;
 
 use super::mutex::{Condvar, Mutex};
 
+use esp_idf_sys::EspError;
 #[cfg(not(feature = "std"))]
 use esp_idf_sys::*;
 
@@ -33,42 +34,50 @@ where
         getter(&mut state)
     }
 
-    pub fn wait_while(&self, condition: impl Fn(&T) -> bool) {
-        self.wait_while_and_get(condition, |_| ());
+    pub fn wait_while<F: Fn(&T) -> Result<bool, EspError>>(
+        &self,
+        condition: F,
+    ) -> Result<(), EspError> {
+        self.wait_while_and_get(condition, |_| ())
     }
 
     #[allow(dead_code)]
-    pub fn wait_timeout_while(&self, dur: Duration, condition: impl Fn(&T) -> bool) {
-        self.wait_timeout_while_and_get(dur, condition, |_| ());
+    pub fn wait_timeout_while<F: Fn(&T) -> Result<bool, EspError>>(
+        &self,
+        dur: Duration,
+        condition: F,
+    ) -> Result<bool, EspError> {
+        self.wait_timeout_while_and_get(dur, condition, |_| ())
+            .map(|(timeout, _)| timeout)
     }
 
-    pub fn wait_while_and_get<Q>(
+    pub fn wait_while_and_get<F: Fn(&T) -> Result<bool, EspError>, G: Fn(&T) -> Q, Q>(
         &self,
-        condition: impl Fn(&T) -> bool,
-        getter: impl Fn(&T) -> Q,
-    ) -> Q {
+        condition: F,
+        getter: G,
+    ) -> Result<Q, EspError> {
         let mut state = self.state.lock();
 
         loop {
-            if !condition(&state) {
-                return getter(&state);
+            if !condition(&state)? {
+                return Ok(getter(&state));
             }
 
             state = self.cvar.wait(state);
         }
     }
 
-    pub fn wait_timeout_while_and_get<Q>(
+    pub fn wait_timeout_while_and_get<F: Fn(&T) -> Result<bool, EspError>, G: Fn(&T) -> Q, Q>(
         &self,
         dur: Duration,
-        condition: impl Fn(&T) -> bool,
-        getter: impl Fn(&T) -> Q,
-    ) -> (bool, Q) {
+        condition: F,
+        getter: G,
+    ) -> Result<(bool, Q), EspError> {
         let mut state = self.state.lock();
 
         loop {
-            if !condition(&state) {
-                return (false, getter(&state));
+            if !condition(&state)? {
+                return Ok((false, getter(&state)));
             }
 
             let (new_state, timeout) = self.cvar.wait_timeout(state, dur);
@@ -76,7 +85,7 @@ where
             state = new_state;
 
             if timeout {
-                return (true, getter(&state));
+                return Ok((true, getter(&state)));
             }
         }
     }

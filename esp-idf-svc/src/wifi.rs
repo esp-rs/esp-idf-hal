@@ -1,4 +1,6 @@
 //! WiFi support
+#[cfg(feature = "nightly")]
+use core::future::Future;
 use core::marker::PhantomData;
 use core::time::Duration;
 use core::{cmp, ffi};
@@ -21,6 +23,7 @@ use esp_idf_sys::*;
 use crate::eventloop::EspEventLoop;
 use crate::eventloop::{
     EspSubscription, EspSystemEventLoop, EspTypedEventDeserializer, EspTypedEventSource, System,
+    Wait,
 };
 use crate::handle::RawHandle;
 #[cfg(esp_idf_comp_esp_netif_enabled)]
@@ -29,7 +32,8 @@ use crate::nvs::EspDefaultNvsPartition;
 use crate::private::common::*;
 use crate::private::cstr::*;
 use crate::private::mutex;
-use crate::private::waitable::*;
+#[cfg(feature = "experimental")]
+use crate::timer::EspTaskTimerService;
 
 pub mod config {
     use core::time::Duration;
@@ -319,6 +323,57 @@ static mut RX_CALLBACK: Option<
 #[allow(clippy::type_complexity)]
 static mut TX_CALLBACK: Option<Box<dyn FnMut(WifiDeviceId, &[u8], bool) + 'static>> = None;
 
+pub trait NonBlocking {
+    fn is_scan_done(&self) -> Result<bool, EspError>;
+
+    fn start_scan(
+        &mut self,
+        scan_config: &config::ScanConfig,
+        blocking: bool,
+    ) -> Result<(), EspError>;
+
+    fn stop_scan(&mut self) -> Result<(), EspError>;
+
+    fn get_scan_result_n<const N: usize>(
+        &mut self,
+    ) -> Result<(heapless::Vec<AccessPointInfo, N>, usize), EspError>;
+
+    #[cfg(feature = "alloc")]
+    fn get_scan_result(&mut self) -> Result<alloc::vec::Vec<AccessPointInfo>, EspError>;
+}
+
+impl<T> NonBlocking for &mut T
+where
+    T: NonBlocking,
+{
+    fn is_scan_done(&self) -> Result<bool, EspError> {
+        (**self).is_scan_done()
+    }
+
+    fn start_scan(
+        &mut self,
+        scan_config: &config::ScanConfig,
+        blocking: bool,
+    ) -> Result<(), EspError> {
+        (**self).start_scan(scan_config, blocking)
+    }
+
+    fn stop_scan(&mut self) -> Result<(), EspError> {
+        (**self).stop_scan()
+    }
+
+    fn get_scan_result_n<const N: usize>(
+        &mut self,
+    ) -> Result<(heapless::Vec<AccessPointInfo, N>, usize), EspError> {
+        (**self).get_scan_result_n()
+    }
+
+    #[cfg(feature = "alloc")]
+    fn get_scan_result(&mut self) -> Result<alloc::vec::Vec<AccessPointInfo>, EspError> {
+        (**self).get_scan_result()
+    }
+}
+
 pub struct WifiDriver<'d> {
     status: Arc<mutex::Mutex<(WifiEvent, WifiEvent)>>,
     _subscription: EspSubscription<System>,
@@ -388,6 +443,7 @@ impl<'d> WifiDriver<'d> {
                 WifiEvent::StaStopped => guard.0 = WifiEvent::StaStopped,
                 WifiEvent::StaConnected => guard.0 = WifiEvent::StaConnected,
                 WifiEvent::StaDisconnected => guard.0 = WifiEvent::StaDisconnected,
+                WifiEvent::ScanDone => guard.0 = WifiEvent::ScanDone,
                 _ => (),
             };
         })?;
@@ -444,7 +500,7 @@ impl<'d> WifiDriver<'d> {
         };
         esp!(unsafe { esp_wifi_init(&cfg) })?;
 
-        info!("Driver initialized");
+        debug!("Driver initialized");
 
         Ok(())
     }
@@ -452,47 +508,47 @@ impl<'d> WifiDriver<'d> {
     pub fn get_capabilities(&self) -> Result<EnumSet<Capability>, EspError> {
         let caps = Capability::Client | Capability::AccessPoint | Capability::Mixed;
 
-        info!("Providing capabilities: {:?}", caps);
+        debug!("Providing capabilities: {:?}", caps);
 
         Ok(caps)
     }
 
     pub fn start(&mut self) -> Result<(), EspError> {
-        info!("Start requested");
+        debug!("Start requested");
 
         esp!(unsafe { esp_wifi_start() })?;
 
-        info!("Starting");
+        debug!("Starting");
 
         Ok(())
     }
 
     pub fn stop(&mut self) -> Result<(), EspError> {
-        info!("Stop requested");
+        debug!("Stop requested");
 
         esp!(unsafe { esp_wifi_stop() })?;
 
-        info!("Stopping");
+        debug!("Stopping");
 
         Ok(())
     }
 
     pub fn connect(&mut self) -> Result<(), EspError> {
-        info!("Connect requested");
+        debug!("Connect requested");
 
         esp!(unsafe { esp_wifi_connect() })?;
 
-        info!("Connecting");
+        debug!("Connecting");
 
         Ok(())
     }
 
     pub fn disconnect(&mut self) -> Result<(), EspError> {
-        info!("Disconnect requested");
+        debug!("Disconnect requested");
 
         esp!(unsafe { esp_wifi_disconnect() })?;
 
-        info!("Disconnecting");
+        debug!("Disconnecting");
 
         Ok(())
     }
@@ -520,6 +576,7 @@ impl<'d> WifiDriver<'d> {
 
         Ok(guard.0 == WifiEvent::StaStarted
             || guard.0 == WifiEvent::StaConnected
+            || guard.0 == WifiEvent::ScanDone
             || guard.0 == WifiEvent::StaDisconnected)
     }
 
@@ -555,9 +612,15 @@ impl<'d> WifiDriver<'d> {
         }
     }
 
+    pub fn is_scan_done(&self) -> Result<bool, EspError> {
+        let guard = self.status.lock();
+
+        Ok(guard.0 == WifiEvent::ScanDone)
+    }
+
     #[allow(non_upper_case_globals)]
     pub fn get_configuration(&self) -> Result<Configuration, EspError> {
-        info!("Getting configuration");
+        debug!("Getting configuration");
 
         let mut mode: wifi_mode_t = 0;
         esp!(unsafe { esp_wifi_get_mode(&mut mode) })?;
@@ -572,26 +635,26 @@ impl<'d> WifiDriver<'d> {
             _ => panic!(),
         };
 
-        info!("Configuration gotten: {:?}", &conf);
+        debug!("Configuration gotten: {:?}", &conf);
 
         Ok(conf)
     }
 
     pub fn set_configuration(&mut self, conf: &Configuration) -> Result<(), EspError> {
-        info!("Setting configuration: {:?}", conf);
+        debug!("Setting configuration: {:?}", conf);
 
         match conf {
             Configuration::None => {
                 unsafe {
                     esp!(esp_wifi_set_mode(wifi_mode_t_WIFI_MODE_NULL))?;
                 }
-                info!("Wifi mode NULL set");
+                debug!("Wifi mode NULL set");
             }
             Configuration::AccessPoint(ap_conf) => {
                 unsafe {
                     esp!(esp_wifi_set_mode(wifi_mode_t_WIFI_MODE_AP))?;
                 }
-                info!("Wifi mode AP set");
+                debug!("Wifi mode AP set");
 
                 self.set_ap_conf(ap_conf)?;
             }
@@ -599,7 +662,7 @@ impl<'d> WifiDriver<'d> {
                 unsafe {
                     esp!(esp_wifi_set_mode(wifi_mode_t_WIFI_MODE_STA))?;
                 }
-                info!("Wifi mode STA set");
+                debug!("Wifi mode STA set");
 
                 self.set_sta_conf(client_conf)?;
             }
@@ -607,14 +670,14 @@ impl<'d> WifiDriver<'d> {
                 unsafe {
                     esp!(esp_wifi_set_mode(wifi_mode_t_WIFI_MODE_APSTA))?;
                 }
-                info!("Wifi mode APSTA set");
+                debug!("Wifi mode APSTA set");
 
                 self.set_sta_conf(client_conf)?;
                 self.set_ap_conf(ap_conf)?;
             }
         }
 
-        info!("Configuration set");
+        debug!("Configuration set");
 
         Ok(())
     }
@@ -699,7 +762,7 @@ impl<'d> WifiDriver<'d> {
         scan_config: &config::ScanConfig,
         blocking: bool,
     ) -> Result<(), EspError> {
-        info!("About to scan for access points");
+        debug!("About to scan for access points");
 
         let scan_config: wifi_scan_config_t = scan_config.into();
         esp!(unsafe { esp_wifi_scan_start(&scan_config as *const wifi_scan_config_t, blocking) })
@@ -707,7 +770,7 @@ impl<'d> WifiDriver<'d> {
 
     /// Stops a previous started access point scan.
     pub fn stop_scan(&mut self) -> Result<(), EspError> {
-        info!("About to stop scan for access points");
+        debug!("About to stop scan for access points");
 
         esp!(unsafe { esp_wifi_scan_stop() })
     }
@@ -731,7 +794,7 @@ impl<'d> WifiDriver<'d> {
         let result = ap_infos_raw[..fetched_count]
             .iter()
             .map::<AccessPointInfo, _>(|ap_info_raw| Newtype(ap_info_raw).into())
-            .inspect(|ap_info| info!("Found access point {:?}", ap_info))
+            .inspect(|ap_info| debug!("Found access point {:?}", ap_info))
             .collect();
 
         Ok((result, scanned_count))
@@ -760,7 +823,7 @@ impl<'d> WifiDriver<'d> {
         let result = ap_infos_raw[..fetched_count]
             .iter()
             .map::<AccessPointInfo, _>(|ap_info_raw| Newtype(ap_info_raw).into())
-            .inspect(|ap_info| info!("Found access point {:?}", ap_info))
+            .inspect(|ap_info| debug!("Found access point {:?}", ap_info))
             .collect();
 
         Ok(result)
@@ -874,17 +937,17 @@ impl<'d> WifiDriver<'d> {
 
         let result: ClientConfiguration = unsafe { Newtype(wifi_config.sta).into() };
 
-        info!("Providing STA configuration: {:?}", &result);
+        debug!("Providing STA configuration: {:?}", &result);
 
         Ok(result)
     }
 
     fn set_sta_conf(&mut self, conf: &ClientConfiguration) -> Result<(), EspError> {
-        info!("Checking current STA configuration");
+        debug!("Checking current STA configuration");
         let current_config = self.get_sta_conf()?;
 
         if current_config != *conf {
-            info!("Setting STA configuration: {:?}", conf);
+            debug!("Setting STA configuration: {:?}", conf);
 
             let mut wifi_config = wifi_config_t {
                 sta: Newtype::<wifi_sta_config_t>::from(conf).0,
@@ -892,10 +955,10 @@ impl<'d> WifiDriver<'d> {
 
             esp!(unsafe { esp_wifi_set_config(wifi_interface_t_WIFI_IF_STA, &mut wifi_config) })?;
         } else {
-            info!("Same STA configuration already present");
+            debug!("Same STA configuration already present");
         }
 
-        info!("STA configuration done");
+        debug!("STA configuration done");
 
         Ok(())
     }
@@ -906,17 +969,17 @@ impl<'d> WifiDriver<'d> {
 
         let result: AccessPointConfiguration = unsafe { Newtype(wifi_config.ap).into() };
 
-        info!("Providing AP configuration: {:?}", &result);
+        debug!("Providing AP configuration: {:?}", &result);
 
         Ok(result)
     }
 
     fn set_ap_conf(&mut self, conf: &AccessPointConfiguration) -> Result<(), EspError> {
-        info!("Checking current AP configuration");
+        debug!("Checking current AP configuration");
         let current_config = self.get_ap_conf()?;
 
         if current_config != *conf {
-            info!("Setting AP configuration: {:?}", conf);
+            debug!("Setting AP configuration: {:?}", conf);
 
             let mut wifi_config = wifi_config_t {
                 ap: Newtype::<wifi_ap_config_t>::from(conf).0,
@@ -924,10 +987,10 @@ impl<'d> WifiDriver<'d> {
 
             esp!(unsafe { esp_wifi_set_config(wifi_interface_t_WIFI_IF_AP, &mut wifi_config) })?;
         } else {
-            info!("Same AP configuration already present");
+            debug!("Same AP configuration already present");
         }
 
-        info!("AP configuration done");
+        debug!("AP configuration done");
 
         Ok(())
     }
@@ -946,7 +1009,7 @@ impl<'d> WifiDriver<'d> {
             TX_CALLBACK = None;
         }
 
-        info!("Driver deinitialized");
+        debug!("Driver deinitialized");
 
         Ok(())
     }
@@ -955,7 +1018,7 @@ impl<'d> WifiDriver<'d> {
         let mut found_ap: u16 = 0;
         esp!(unsafe { esp_wifi_scan_get_ap_num(&mut found_ap as *mut _) })?;
 
-        info!("Found {} access points", found_ap);
+        debug!("Found {} access points", found_ap);
 
         Ok(found_ap as usize)
     }
@@ -964,13 +1027,13 @@ impl<'d> WifiDriver<'d> {
         &mut self,
         ap_infos_raw: &mut [wifi_ap_record_t],
     ) -> Result<usize, EspError> {
-        info!("About to get info for found access points");
+        debug!("About to get info for found access points");
 
         let mut ap_count: u16 = ap_infos_raw.len() as u16;
 
         esp!(unsafe { esp_wifi_scan_get_ap_records(&mut ap_count, ap_infos_raw.as_mut_ptr(),) })?;
 
-        info!("Got info for {} access points", ap_count);
+        debug!("Got info for {} access points", ap_count);
 
         Ok(ap_count as usize)
     }
@@ -1021,11 +1084,40 @@ impl<'d> WifiDriver<'d> {
 
 unsafe impl<'d> Send for WifiDriver<'d> {}
 
+impl<'d> NonBlocking for WifiDriver<'d> {
+    fn is_scan_done(&self) -> Result<bool, EspError> {
+        WifiDriver::is_scan_done(self)
+    }
+
+    fn start_scan(
+        &mut self,
+        scan_config: &config::ScanConfig,
+        blocking: bool,
+    ) -> Result<(), EspError> {
+        WifiDriver::start_scan(self, scan_config, blocking)
+    }
+
+    fn stop_scan(&mut self) -> Result<(), EspError> {
+        WifiDriver::stop_scan(self)
+    }
+
+    fn get_scan_result_n<const N: usize>(
+        &mut self,
+    ) -> Result<(heapless::Vec<AccessPointInfo, N>, usize), EspError> {
+        WifiDriver::get_scan_result_n(self)
+    }
+
+    #[cfg(feature = "alloc")]
+    fn get_scan_result(&mut self) -> Result<alloc::vec::Vec<AccessPointInfo>, EspError> {
+        WifiDriver::get_scan_result(self)
+    }
+}
+
 impl<'d> Drop for WifiDriver<'d> {
     fn drop(&mut self) {
         self.clear_all().unwrap();
 
-        info!("Dropped");
+        debug!("WifiDriver Dropped");
     }
 }
 
@@ -1177,6 +1269,10 @@ impl<'d> EspWifi<'d> {
         self.driver().is_started()
     }
 
+    pub fn is_connected(&self) -> Result<bool, EspError> {
+        self.driver().is_connected()
+    }
+
     pub fn is_up(&self) -> Result<bool, EspError> {
         if !self.driver().is_connected()? {
             Ok(false)
@@ -1211,6 +1307,10 @@ impl<'d> EspWifi<'d> {
 
     pub fn disconnect(&mut self) -> Result<(), EspError> {
         self.driver_mut().disconnect()
+    }
+
+    pub fn is_scan_done(&self) -> Result<bool, EspError> {
+        self.driver().is_scan_done()
     }
 
     /// Scan for nearby, visible access points.
@@ -1298,11 +1398,43 @@ impl<'d> EspWifi<'d> {
 impl<'d> Drop for EspWifi<'d> {
     fn drop(&mut self) {
         self.detach_netif().unwrap();
+
+        info!("EspWifi dropped");
     }
 }
 
 #[cfg(esp_idf_comp_esp_netif_enabled)]
 unsafe impl<'d> Send for EspWifi<'d> {}
+
+#[cfg(esp_idf_comp_esp_netif_enabled)]
+impl<'d> NonBlocking for EspWifi<'d> {
+    fn is_scan_done(&self) -> Result<bool, EspError> {
+        EspWifi::is_scan_done(self)
+    }
+
+    fn start_scan(
+        &mut self,
+        scan_config: &config::ScanConfig,
+        blocking: bool,
+    ) -> Result<(), EspError> {
+        EspWifi::start_scan(self, scan_config, blocking)
+    }
+
+    fn stop_scan(&mut self) -> Result<(), EspError> {
+        EspWifi::stop_scan(self)
+    }
+
+    fn get_scan_result_n<const N: usize>(
+        &mut self,
+    ) -> Result<(heapless::Vec<AccessPointInfo, N>, usize), EspError> {
+        EspWifi::get_scan_result_n(self)
+    }
+
+    #[cfg(feature = "alloc")]
+    fn get_scan_result(&mut self) -> Result<alloc::vec::Vec<AccessPointInfo>, EspError> {
+        EspWifi::get_scan_result(self)
+    }
+}
 
 #[cfg(esp_idf_comp_esp_netif_enabled)]
 impl<'d> Wifi for EspWifi<'d> {
@@ -1317,7 +1449,7 @@ impl<'d> Wifi for EspWifi<'d> {
     }
 
     fn is_connected(&self) -> Result<bool, Self::Error> {
-        EspWifi::is_up(self)
+        EspWifi::is_connected(self)
     }
 
     fn get_configuration(&self) -> Result<Configuration, Self::Error> {
@@ -1355,11 +1487,16 @@ impl<'d> Wifi for EspWifi<'d> {
     }
 }
 
+impl<'d> NetifStatus for EspWifi<'d> {
+    fn is_up(&self) -> Result<bool, EspError> {
+        EspWifi::is_up(self)
+    }
+}
+
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub enum WifiEvent {
     Ready,
 
-    ScanStarted,
     ScanDone,
 
     StaStarted,
@@ -1452,62 +1589,416 @@ impl EspTypedEventDeserializer<WifiEvent> for WifiEvent {
     }
 }
 
-pub struct WifiWait {
-    _subscription: EspSubscription<System>,
-    waitable: Arc<Waitable<()>>,
+const CONNECT_TIMEOUT: Duration = Duration::from_secs(15);
+
+fn matches_wifi_event(event: &WifiEvent) -> bool {
+    matches!(
+        event,
+        WifiEvent::ApStarted
+            | WifiEvent::ApStopped
+            | WifiEvent::StaStarted
+            | WifiEvent::StaStopped
+            | WifiEvent::StaConnected
+            | WifiEvent::StaDisconnected
+            | WifiEvent::ScanDone
+    )
 }
 
-impl WifiWait {
-    pub fn new(sysloop: &EspEventLoop<System>) -> Result<Self, EspError> {
-        let waitable: Arc<Waitable<()>> = Arc::new(Waitable::new(()));
+pub struct BlockingWifi<T> {
+    wifi: T,
+    event_loop: crate::eventloop::EspSystemEventLoop,
+}
 
-        let s_waitable = waitable.clone();
-        let subscription =
-            sysloop.subscribe(move |event: &WifiEvent| Self::on_wifi_event(&s_waitable, event))?;
+impl<T> BlockingWifi<T>
+where
+    T: Wifi<Error = EspError> + NonBlocking,
+{
+    pub fn wrap(wifi: T, event_loop: EspSystemEventLoop) -> Result<Self, EspError> {
+        Ok(Self { wifi, event_loop })
+    }
 
+    pub fn wifi(&self) -> &T {
+        &self.wifi
+    }
+
+    pub fn wifi_mut(&mut self) -> &mut T {
+        &mut self.wifi
+    }
+
+    pub fn get_capabilities(&self) -> Result<EnumSet<Capability>, EspError> {
+        self.wifi.get_capabilities()
+    }
+
+    pub fn get_configuration(&self) -> Result<Configuration, EspError> {
+        self.wifi.get_configuration()
+    }
+
+    pub fn set_configuration(&mut self, conf: &Configuration) -> Result<(), EspError> {
+        self.wifi.set_configuration(conf)
+    }
+
+    pub fn is_started(&self) -> Result<bool, EspError> {
+        self.wifi.is_started()
+    }
+
+    pub fn is_connected(&self) -> Result<bool, EspError> {
+        self.wifi.is_connected()
+    }
+
+    pub fn start(&mut self) -> Result<(), EspError> {
+        self.wifi.start()?;
+        self.wifi_wait_while(|| self.wifi.is_started().map(|s| !s), None)
+    }
+
+    pub fn stop(&mut self) -> Result<(), EspError> {
+        self.wifi.stop()?;
+        self.wifi_wait_while(|| self.wifi.is_started(), None)
+    }
+
+    pub fn connect(&mut self) -> Result<(), EspError> {
+        self.wifi.connect()?;
+        self.wifi_wait_while(
+            || self.wifi.is_connected().map(|s| !s),
+            Some(CONNECT_TIMEOUT),
+        )
+    }
+
+    pub fn disconnect(&mut self) -> Result<(), EspError> {
+        self.wifi.disconnect()?;
+        self.wifi_wait_while(|| self.wifi.is_connected(), None)
+    }
+
+    pub fn scan_n<const N: usize>(
+        &mut self,
+    ) -> Result<(heapless::Vec<AccessPointInfo, N>, usize), EspError> {
+        self.wifi.scan_n()
+    }
+
+    #[cfg(feature = "alloc")]
+    pub fn scan(&mut self) -> Result<alloc::vec::Vec<AccessPointInfo>, EspError> {
+        self.wifi.scan()
+    }
+
+    pub fn wifi_wait_while<F: Fn() -> Result<bool, EspError>>(
+        &self,
+        matcher: F,
+        timeout: Option<Duration>,
+    ) -> Result<(), EspError> {
+        let wait = Wait::<WifiEvent, _>::new(&self.event_loop, matches_wifi_event)?;
+
+        wait.wait_while(matcher, timeout)
+    }
+}
+
+impl<T> BlockingWifi<T>
+where
+    T: NetifStatus,
+{
+    pub fn is_up(&self) -> Result<bool, EspError> {
+        self.wifi.is_up()
+    }
+
+    pub fn wait_netif_up(&self) -> Result<(), EspError> {
+        self.ip_wait_while(|| self.wifi.is_up().map(|s| !s), Some(CONNECT_TIMEOUT))
+    }
+
+    pub fn ip_wait_while<F: Fn() -> Result<bool, EspError>>(
+        &self,
+        matcher: F,
+        timeout: Option<core::time::Duration>,
+    ) -> Result<(), EspError> {
+        let wait = crate::eventloop::Wait::<IpEvent, _>::new(&self.event_loop, |_| true)?;
+
+        wait.wait_while(matcher, timeout)
+    }
+}
+
+impl<T> Wifi for BlockingWifi<T>
+where
+    T: Wifi<Error = EspError> + NonBlocking,
+{
+    type Error = EspError;
+
+    fn get_capabilities(&self) -> Result<EnumSet<Capability>, Self::Error> {
+        BlockingWifi::get_capabilities(self)
+    }
+
+    fn get_configuration(&self) -> Result<Configuration, Self::Error> {
+        BlockingWifi::get_configuration(self)
+    }
+
+    fn set_configuration(&mut self, conf: &Configuration) -> Result<(), Self::Error> {
+        BlockingWifi::set_configuration(self, conf)
+    }
+
+    fn is_started(&self) -> Result<bool, Self::Error> {
+        BlockingWifi::is_started(self)
+    }
+
+    fn is_connected(&self) -> Result<bool, Self::Error> {
+        BlockingWifi::is_connected(self)
+    }
+
+    fn start(&mut self) -> Result<(), Self::Error> {
+        BlockingWifi::start(self)
+    }
+
+    fn stop(&mut self) -> Result<(), Self::Error> {
+        BlockingWifi::stop(self)
+    }
+
+    fn connect(&mut self) -> Result<(), Self::Error> {
+        BlockingWifi::connect(self)
+    }
+
+    fn disconnect(&mut self) -> Result<(), Self::Error> {
+        BlockingWifi::disconnect(self)
+    }
+
+    fn scan_n<const N: usize>(
+        &mut self,
+    ) -> Result<(heapless::Vec<AccessPointInfo, N>, usize), Self::Error> {
+        BlockingWifi::scan_n(self)
+    }
+
+    #[cfg(feature = "alloc")]
+    fn scan(&mut self) -> Result<alloc::vec::Vec<AccessPointInfo>, Self::Error> {
+        BlockingWifi::scan(self)
+    }
+}
+
+impl<T> NetifStatus for BlockingWifi<T>
+where
+    T: NetifStatus,
+{
+    fn is_up(&self) -> Result<bool, EspError> {
+        BlockingWifi::is_up(self)
+    }
+}
+
+#[cfg(feature = "experimental")]
+pub struct AsyncWifi<T> {
+    wifi: T,
+    event_loop: crate::eventloop::EspSystemEventLoop,
+    timer_service: crate::timer::EspTaskTimerService,
+}
+
+#[cfg(feature = "experimental")]
+impl<T> AsyncWifi<T>
+where
+    T: Wifi<Error = EspError> + NonBlocking,
+{
+    pub fn wrap(
+        wifi: T,
+        event_loop: EspSystemEventLoop,
+        timer_service: EspTaskTimerService,
+    ) -> Result<Self, EspError> {
         Ok(Self {
-            waitable,
-            _subscription: subscription,
+            wifi,
+            event_loop,
+            timer_service,
         })
     }
 
-    pub fn wait(&self, matcher: impl Fn() -> bool) {
-        info!("About to wait");
-
-        self.waitable.wait_while(|_| !matcher());
-
-        info!("Waiting done - success");
+    pub fn wifi(&self) -> &T {
+        &self.wifi
     }
 
-    pub fn wait_with_timeout(&self, dur: Duration, matcher: impl Fn() -> bool) -> bool {
-        info!("About to wait for duration {:?}", dur);
-
-        let (timeout, _) = self
-            .waitable
-            .wait_timeout_while_and_get(dur, |_| !matcher(), |_| ());
-
-        if !timeout {
-            info!("Waiting done - success");
-            true
-        } else {
-            info!("Timeout while waiting");
-            false
-        }
+    pub fn wifi_mut(&mut self) -> &mut T {
+        &mut self.wifi
     }
 
-    fn on_wifi_event(waitable: &Waitable<()>, event: &WifiEvent) {
-        info!("Got wifi event: {:?}", event);
+    pub fn get_capabilities(&self) -> Result<EnumSet<Capability>, EspError> {
+        self.wifi.get_capabilities()
+    }
 
-        if matches!(
-            event,
-            WifiEvent::ApStarted
-                | WifiEvent::ApStopped
-                | WifiEvent::StaStarted
-                | WifiEvent::StaStopped
-                | WifiEvent::StaConnected
-                | WifiEvent::StaDisconnected
-        ) {
-            waitable.cvar.notify_all();
-        }
+    pub fn get_configuration(&self) -> Result<Configuration, EspError> {
+        self.wifi.get_configuration()
+    }
+
+    pub fn set_configuration(&mut self, conf: &Configuration) -> Result<(), EspError> {
+        self.wifi.set_configuration(conf)
+    }
+
+    pub fn is_started(&self) -> Result<bool, EspError> {
+        self.wifi.is_started()
+    }
+
+    pub fn is_connected(&self) -> Result<bool, EspError> {
+        self.wifi.is_connected()
+    }
+
+    pub async fn start(&mut self) -> Result<(), EspError> {
+        self.wifi.start()?;
+        self.wifi_wait(|| self.wifi.is_started().map(|s| !s), None)
+            .await
+    }
+
+    pub async fn stop(&mut self) -> Result<(), EspError> {
+        self.wifi.stop()?;
+        self.wifi_wait(|| self.wifi.is_started(), None).await
+    }
+
+    pub async fn connect(&mut self) -> Result<(), EspError> {
+        self.wifi.connect()?;
+        self.wifi_wait(
+            || self.wifi.is_connected().map(|s| !s),
+            Some(CONNECT_TIMEOUT),
+        )
+        .await
+    }
+
+    pub async fn disconnect(&mut self) -> Result<(), EspError> {
+        self.wifi.disconnect()?;
+        self.wifi_wait(|| self.wifi.is_connected(), None).await
+    }
+
+    pub async fn scan_n<const N: usize>(
+        &mut self,
+    ) -> Result<(heapless::Vec<AccessPointInfo, N>, usize), EspError> {
+        self.wifi.start_scan(&Default::default(), false)?;
+
+        self.wifi_wait(|| self.wifi.is_scan_done().map(|s| !s), None)
+            .await?;
+
+        self.wifi.get_scan_result_n()
+    }
+
+    #[cfg(feature = "alloc")]
+    pub async fn scan(&mut self) -> Result<alloc::vec::Vec<AccessPointInfo>, EspError> {
+        self.wifi.start_scan(&Default::default(), false)?;
+
+        self.wifi_wait(|| self.wifi.is_scan_done().map(|s| !s), None)
+            .await?;
+
+        self.wifi.get_scan_result()
+    }
+
+    pub async fn wifi_wait<F: Fn() -> Result<bool, EspError>>(
+        &self,
+        matcher: F,
+        timeout: Option<Duration>,
+    ) -> Result<(), EspError> {
+        let mut wait = crate::eventloop::AsyncWait::<WifiEvent, _>::new(
+            &self.event_loop,
+            &self.timer_service,
+        )?;
+
+        wait.wait_while(matcher, timeout).await
+    }
+}
+
+#[cfg(feature = "experimental")]
+impl<T> AsyncWifi<T>
+where
+    T: NetifStatus,
+{
+    pub fn is_up(&self) -> Result<bool, EspError> {
+        self.wifi.is_up()
+    }
+
+    pub async fn wait_netif_up(&self) -> Result<(), EspError> {
+        self.ip_wait_while(|| self.wifi.is_up().map(|s| !s), Some(CONNECT_TIMEOUT))
+            .await
+    }
+
+    pub async fn ip_wait_while<F: Fn() -> Result<bool, EspError>>(
+        &self,
+        matcher: F,
+        timeout: Option<core::time::Duration>,
+    ) -> Result<(), EspError> {
+        let mut wait =
+            crate::eventloop::AsyncWait::<IpEvent, _>::new(&self.event_loop, &self.timer_service)?;
+
+        wait.wait_while(matcher, timeout).await
+    }
+}
+
+#[cfg(all(feature = "nightly", feature = "experimental"))]
+impl<T> embedded_svc::wifi::asynch::Wifi for AsyncWifi<T>
+where
+    T: Wifi<Error = EspError> + NonBlocking,
+{
+    type Error = T::Error;
+
+    type GetCapabilitiesFuture<'a> = impl Future<Output = Result<EnumSet<Capability>, Self::Error>> + 'a where Self: 'a;
+    type GetConfigurationFuture<'a> = impl Future<Output = Result<Configuration, Self::Error>> + 'a where Self: 'a;
+    type SetConfigurationFuture<'a> = impl Future<Output = Result<(), Self::Error>> + 'a where Self: 'a;
+    type IsStartedFuture<'a> = impl Future<Output = Result<bool, Self::Error>> + 'a where Self: 'a;
+    type IsConnectedFuture<'a> = impl Future<Output = Result<bool, Self::Error>> + 'a where Self: 'a;
+    type StartFuture<'a> = impl Future<Output = Result<(), Self::Error>> + 'a where Self: 'a;
+    type StopFuture<'a> = impl Future<Output = Result<(), Self::Error>> + 'a where Self: 'a;
+    type ConnectFuture<'a> = impl Future<Output = Result<(), Self::Error>> + 'a where Self: 'a;
+    type DisconnectFuture<'a> = impl Future<Output = Result<(), Self::Error>> + 'a where Self: 'a;
+    type ScanNFuture<'a, const N: usize> = impl Future<Output = Result<(heapless::Vec<AccessPointInfo, N>, usize), Self::Error>> + 'a where Self: 'a;
+    type ScanFuture<'a> = impl Future<Output = Result<alloc::vec::Vec<AccessPointInfo>, Self::Error>> + 'a where Self: 'a;
+
+    fn get_capabilities(&self) -> Self::GetCapabilitiesFuture<'_> {
+        async move { AsyncWifi::get_capabilities(self) }
+    }
+
+    fn get_configuration(&self) -> Self::GetConfigurationFuture<'_> {
+        async move { AsyncWifi::get_configuration(self) }
+    }
+
+    fn set_configuration<'a>(
+        &'a mut self,
+        conf: &'a Configuration,
+    ) -> Self::SetConfigurationFuture<'a> {
+        async move { AsyncWifi::set_configuration(self, conf) }
+    }
+
+    fn start(&mut self) -> Self::StartFuture<'_> {
+        AsyncWifi::start(self)
+    }
+
+    fn stop(&mut self) -> Self::StopFuture<'_> {
+        AsyncWifi::stop(self)
+    }
+
+    fn connect(&mut self) -> Self::ConnectFuture<'_> {
+        AsyncWifi::connect(self)
+    }
+
+    fn disconnect(&mut self) -> Self::DisconnectFuture<'_> {
+        AsyncWifi::disconnect(self)
+    }
+
+    fn is_started(&self) -> Self::IsStartedFuture<'_> {
+        async move { AsyncWifi::is_started(self) }
+    }
+
+    fn is_connected(&self) -> Self::IsConnectedFuture<'_> {
+        async move { AsyncWifi::is_connected(self) }
+    }
+
+    fn scan_n<const N: usize>(&mut self) -> Self::ScanNFuture<'_, N> {
+        AsyncWifi::scan_n(self)
+    }
+
+    #[cfg(feature = "alloc")]
+    fn scan(&mut self) -> Self::ScanFuture<'_> {
+        AsyncWifi::scan(self)
+    }
+}
+
+#[cfg(all(feature = "nightly", feature = "experimental"))]
+impl<'d> crate::netif::asynch::NetifStatus for EspWifi<'d> {
+    type IsUpFuture<'a> = impl Future<Output = Result<bool, EspError>> + 'a where Self: 'a;
+
+    fn is_up(&self) -> Self::IsUpFuture<'_> {
+        async move { EspWifi::is_up(self) }
+    }
+}
+
+#[cfg(all(feature = "nightly", feature = "experimental"))]
+impl<T> crate::netif::asynch::NetifStatus for AsyncWifi<T>
+where
+    T: NetifStatus,
+{
+    type IsUpFuture<'a> = impl Future<Output = Result<bool, EspError>> + 'a where Self: 'a;
+
+    fn is_up(&self) -> Self::IsUpFuture<'_> {
+        async move { AsyncWifi::is_up(self) }
     }
 }

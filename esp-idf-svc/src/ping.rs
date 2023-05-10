@@ -109,7 +109,7 @@ impl EspPing {
 
         info!("Waiting for the ping session to complete");
 
-        tracker.waitable.wait_while(|running| *running);
+        tracker.waitable.wait_while(|running| Ok(*running))?;
 
         esp!(unsafe { esp_ping_stop(handle) })?;
         info!("Ping session stopped");

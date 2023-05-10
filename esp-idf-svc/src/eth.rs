@@ -38,7 +38,6 @@ use crate::eventloop::{
 use crate::handle::RawHandle;
 #[cfg(esp_idf_comp_esp_netif_enabled)]
 use crate::netif::*;
-use crate::private::waitable::*;
 use crate::private::*;
 
 #[cfg(all(esp32, esp_idf_eth_use_esp32_emac))]
@@ -169,6 +168,8 @@ impl<T> Drop for SpiEth<T> {
     fn drop(&mut self) {
         if let Some(device) = self.device {
             esp!(unsafe { spi_bus_remove_device(device) }).unwrap();
+
+            info!("SpiEth dropped");
         }
     }
 }
@@ -634,7 +635,7 @@ impl<'d, T> EthDriver<'d, T> {
             || *guard == Status::Disconnected)
     }
 
-    pub fn is_up(&self) -> Result<bool, EspError> {
+    pub fn is_connected(&self) -> Result<bool, EspError> {
         let guard = self.status.lock();
 
         Ok(*guard == Status::Connected)
@@ -771,8 +772,8 @@ impl<'d, T> Eth for EthDriver<'d, T> {
         EthDriver::is_started(self)
     }
 
-    fn is_up(&self) -> Result<bool, Self::Error> {
-        EthDriver::is_up(self)
+    fn is_connected(&self) -> Result<bool, Self::Error> {
+        EthDriver::is_connected(self)
     }
 }
 
@@ -782,7 +783,7 @@ impl<'d, T> Drop for EthDriver<'d, T> {
     fn drop(&mut self) {
         self.clear_all().unwrap();
 
-        info!("Dropped");
+        info!("EthDriver dropped");
     }
 }
 
@@ -857,8 +858,12 @@ impl<'d, T> EspEth<'d, T> {
         self.driver().is_started()
     }
 
+    pub fn is_connected(&self) -> Result<bool, EspError> {
+        self.driver().is_connected()
+    }
+
     pub fn is_up(&self) -> Result<bool, EspError> {
-        Ok(self.driver().is_up()? && self.netif().is_up()?)
+        Ok(self.is_connected()? && self.netif().is_up()?)
     }
 
     fn attach_netif(&mut self) -> Result<(), EspError> {
@@ -888,6 +893,8 @@ impl<'d, T> EspEth<'d, T> {
 impl<'d, T> Drop for EspEth<'d, T> {
     fn drop(&mut self) {
         self.detach_netif().unwrap();
+
+        info!("EspEth dropped");
     }
 }
 
@@ -917,7 +924,13 @@ impl<'d, T> Eth for EspEth<'d, T> {
         EspEth::is_started(self)
     }
 
-    fn is_up(&self) -> Result<bool, Self::Error> {
+    fn is_connected(&self) -> Result<bool, Self::Error> {
+        EspEth::is_connected(self)
+    }
+}
+
+impl<'d, T> NetifStatus for EspEth<'d, T> {
+    fn is_up(&self) -> Result<bool, EspError> {
         EspEth::is_up(self)
     }
 }
@@ -985,61 +998,263 @@ impl EspTypedEventDeserializer<EthEvent> for EthEvent {
     }
 }
 
-pub struct EthWait<R> {
-    _subscription: EspSubscription<System>,
-    waitable: Arc<Waitable<()>>,
-    _driver: R,
+const CONNECT_TIMEOUT: Duration = Duration::from_secs(15);
+
+pub struct BlockingEth<T> {
+    eth: T,
+    event_loop: crate::eventloop::EspSystemEventLoop,
 }
 
-impl<R> EthWait<R> {
-    pub fn new(driver: R, sysloop: &EspEventLoop<System>) -> Result<Self, EspError>
-    where
-        R: RawHandle<Handle = esp_eth_handle_t>,
-    {
-        let waitable: Arc<Waitable<()>> = Arc::new(Waitable::new(()));
+impl<T> BlockingEth<T>
+where
+    T: Eth<Error = EspError>,
+{
+    pub fn wrap(eth: T, event_loop: EspSystemEventLoop) -> Result<Self, EspError> {
+        Ok(Self { eth, event_loop })
+    }
 
-        let s_waitable = waitable.clone();
-        let handle = RawHandleImpl(driver.handle());
+    pub fn eth(&self) -> &T {
+        &self.eth
+    }
 
-        let subscription = sysloop
-            .subscribe(move |event: &EthEvent| Self::on_eth_event(handle.0, &s_waitable, event))?;
+    pub fn eth_mut(&mut self) -> &mut T {
+        &mut self.eth
+    }
 
+    pub fn is_started(&self) -> Result<bool, EspError> {
+        self.eth.is_started()
+    }
+
+    pub fn start(&mut self) -> Result<(), EspError> {
+        self.eth.start()?;
+        self.eth_wait_while(|| self.eth.is_started().map(|s| !s), None)
+    }
+
+    pub fn stop(&mut self) -> Result<(), EspError> {
+        self.eth.stop()?;
+        self.eth_wait_while(|| self.eth.is_started(), None)
+    }
+
+    pub fn is_connected(&self) -> Result<bool, EspError> {
+        self.eth.is_connected()
+    }
+
+    pub fn wait_connected(&self) -> Result<(), EspError> {
+        self.eth_wait_while(
+            || self.eth.is_connected().map(|s| !s),
+            Some(CONNECT_TIMEOUT),
+        )
+    }
+
+    pub fn eth_wait_while<F: Fn() -> Result<bool, EspError>>(
+        &self,
+        matcher: F,
+        timeout: Option<Duration>,
+    ) -> Result<(), EspError> {
+        let wait = crate::eventloop::Wait::<EthEvent, _>::new(&self.event_loop, |_| true)?;
+
+        wait.wait_while(matcher, timeout)
+    }
+}
+
+impl<T> BlockingEth<T>
+where
+    T: NetifStatus,
+{
+    pub fn is_up(&self) -> Result<bool, EspError> {
+        self.eth.is_up()
+    }
+
+    pub fn wait_netif_up(&self) -> Result<(), EspError> {
+        self.ip_wait_while(|| self.eth.is_up().map(|s| !s), Some(CONNECT_TIMEOUT))
+    }
+
+    pub fn ip_wait_while<F: Fn() -> Result<bool, EspError>>(
+        &self,
+        matcher: F,
+        timeout: Option<core::time::Duration>,
+    ) -> Result<(), EspError> {
+        let wait = crate::eventloop::Wait::<IpEvent, _>::new(&self.event_loop, |_| true)?;
+
+        wait.wait_while(matcher, timeout)
+    }
+}
+
+impl<T> Eth for BlockingEth<T>
+where
+    T: Eth<Error = EspError>,
+{
+    type Error = EspError;
+
+    fn is_started(&self) -> Result<bool, Self::Error> {
+        BlockingEth::is_started(self)
+    }
+
+    fn is_connected(&self) -> Result<bool, Self::Error> {
+        BlockingEth::is_connected(self)
+    }
+
+    fn start(&mut self) -> Result<(), Self::Error> {
+        BlockingEth::start(self)
+    }
+
+    fn stop(&mut self) -> Result<(), Self::Error> {
+        BlockingEth::stop(self)
+    }
+}
+
+impl<T> NetifStatus for BlockingEth<T>
+where
+    T: NetifStatus,
+{
+    fn is_up(&self) -> Result<bool, EspError> {
+        BlockingEth::is_up(self)
+    }
+}
+
+#[cfg(feature = "experimental")]
+pub struct AsyncEth<T> {
+    pub(crate) eth: T,
+    pub(crate) event_loop: crate::eventloop::EspSystemEventLoop,
+    pub(crate) timer_service: crate::timer::EspTaskTimerService,
+}
+
+#[cfg(feature = "experimental")]
+impl<T> AsyncEth<T>
+where
+    T: Eth<Error = EspError>,
+{
+    pub fn wrap(
+        eth: T,
+        event_loop: EspSystemEventLoop,
+        timer_service: crate::timer::EspTaskTimerService,
+    ) -> Result<Self, EspError> {
         Ok(Self {
-            _driver: driver,
-            waitable,
-            _subscription: subscription,
+            eth,
+            event_loop,
+            timer_service,
         })
     }
 
-    pub fn wait(&self, matcher: impl Fn() -> bool) {
-        info!("About to wait");
-
-        self.waitable.wait_while(|_| !matcher());
-
-        info!("Waiting done - success");
+    pub fn eth(&self) -> &T {
+        &self.eth
     }
 
-    pub fn wait_with_timeout(&self, dur: Duration, matcher: impl Fn() -> bool) -> bool {
-        info!("About to wait for duration {:?}", dur);
-
-        let (timeout, _) = self
-            .waitable
-            .wait_timeout_while_and_get(dur, |_| !matcher(), |_| ());
-
-        if !timeout {
-            info!("Waiting done - success");
-            true
-        } else {
-            info!("Timeout while waiting");
-            false
-        }
+    pub fn eth_mut(&mut self) -> &mut T {
+        &mut self.eth
     }
 
-    fn on_eth_event(handle: esp_eth_handle_t, waitable: &Waitable<()>, event: &EthEvent) {
-        if event.is_for_handle(handle) {
-            info!("Got eth event: {:?} ", event);
+    pub fn is_started(&self) -> Result<bool, EspError> {
+        self.eth.is_started()
+    }
 
-            waitable.cvar.notify_all();
-        }
+    pub fn is_connected(&self) -> Result<bool, EspError> {
+        self.eth.is_connected()
+    }
+
+    pub async fn start(&mut self) -> Result<(), EspError> {
+        self.eth.start()?;
+        self.eth_wait_while(|| self.eth.is_started().map(|s| !s), None)
+            .await
+    }
+
+    pub async fn stop(&mut self) -> Result<(), EspError> {
+        self.eth.stop()?;
+        self.eth_wait_while(|| self.eth.is_started(), None).await
+    }
+
+    pub async fn wait_connected(&self) -> Result<(), EspError> {
+        self.eth_wait_while(
+            || self.eth.is_connected().map(|s| !s),
+            Some(CONNECT_TIMEOUT),
+        )
+        .await
+    }
+
+    pub async fn eth_wait_while<F: Fn() -> Result<bool, EspError>>(
+        &self,
+        matcher: F,
+        timeout: Option<Duration>,
+    ) -> Result<(), EspError> {
+        let mut wait =
+            crate::eventloop::AsyncWait::<EthEvent, _>::new(&self.event_loop, &self.timer_service)?;
+
+        wait.wait_while(matcher, timeout).await
+    }
+}
+
+#[cfg(feature = "experimental")]
+impl<T> AsyncEth<T>
+where
+    T: NetifStatus,
+{
+    pub fn is_up(&self) -> Result<bool, EspError> {
+        self.eth.is_up()
+    }
+
+    pub async fn wait_netif_up(&self) -> Result<(), EspError> {
+        self.ip_wait_while(|| self.eth.is_up().map(|s| !s), Some(CONNECT_TIMEOUT))
+            .await
+    }
+
+    pub async fn ip_wait_while<F: Fn() -> Result<bool, EspError>>(
+        &self,
+        matcher: F,
+        timeout: Option<core::time::Duration>,
+    ) -> Result<(), EspError> {
+        let mut wait =
+            crate::eventloop::AsyncWait::<IpEvent, _>::new(&self.event_loop, &self.timer_service)?;
+
+        wait.wait_while(matcher, timeout).await
+    }
+}
+
+#[cfg(all(feature = "nightly", feature = "experimental"))]
+impl<T> embedded_svc::eth::asynch::Eth for AsyncEth<T>
+where
+    T: Eth<Error = EspError>,
+{
+    type Error = T::Error;
+
+    type IsStartedFuture<'a> = impl core::future::Future<Output = Result<bool, Self::Error>> + 'a where Self: 'a;
+    type StartFuture<'a> = impl core::future::Future<Output = Result<(), Self::Error>> + 'a where Self: 'a;
+    type StopFuture<'a> = impl core::future::Future<Output = Result<(), Self::Error>> + 'a where Self: 'a;
+    type IsConnectedFuture<'a> = impl core::future::Future<Output = Result<bool, Self::Error>> + 'a where Self: 'a;
+
+    fn start(&mut self) -> Self::StartFuture<'_> {
+        AsyncEth::start(self)
+    }
+
+    fn stop(&mut self) -> Self::StopFuture<'_> {
+        AsyncEth::stop(self)
+    }
+
+    fn is_started(&self) -> Self::IsStartedFuture<'_> {
+        async move { AsyncEth::is_started(self) }
+    }
+
+    fn is_connected(&self) -> Self::IsConnectedFuture<'_> {
+        async move { AsyncEth::is_connected(self) }
+    }
+}
+
+#[cfg(all(feature = "nightly", feature = "experimental"))]
+impl<'d, T> crate::netif::asynch::NetifStatus for EspEth<'d, T> {
+    type IsUpFuture<'a> = impl core::future::Future<Output = Result<bool, EspError>> + 'a where Self: 'a;
+
+    fn is_up(&self) -> Self::IsUpFuture<'_> {
+        async move { EspEth::is_up(self) }
+    }
+}
+
+#[cfg(all(feature = "nightly", feature = "experimental"))]
+impl<T> crate::netif::asynch::NetifStatus for AsyncEth<T>
+where
+    T: NetifStatus,
+{
+    type IsUpFuture<'a> = impl core::future::Future<Output = Result<bool, EspError>> + 'a where Self: 'a;
+
+    fn is_up(&self) -> Self::IsUpFuture<'_> {
+        async move { AsyncEth::is_up(self) }
     }
 }

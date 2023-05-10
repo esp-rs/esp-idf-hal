@@ -21,6 +21,8 @@ use embedded_svc::timer::{self, ErrorType, OnceTimer, PeriodicTimer, Timer, Time
 
 use esp_idf_sys::*;
 
+use ::log::info;
+
 #[cfg(all(feature = "nightly", feature = "experimental"))]
 pub use asyncify::*;
 
@@ -119,6 +121,8 @@ impl Drop for EspTimer {
         while unsafe { esp_timer_delete(self.handle) } != ESP_OK {
             // Timer is still running, busy-loop
         }
+
+        info!("Timer dropped");
     }
 }
 

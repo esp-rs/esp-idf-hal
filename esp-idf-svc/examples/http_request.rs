@@ -4,18 +4,16 @@
 //! Note: Requires `experimental` cargo feature to be enabled
 
 use embedded_svc::{
-    http::{client::Client as HttpClient, Method, Status},
+    http::{client::Client as HttpClient, Method},
     io::Write,
     utils::io,
 };
-use esp_idf_svc::http::client::{Configuration as HttpConfiguration, EspHttpConnection};
+use esp_idf_svc::http::client::EspHttpConnection;
+use esp_idf_sys::{self as _}; // If using the `binstart` feature of `esp-idf-sys`, always keep this module imported
 
 fn main() -> anyhow::Result<()> {
     // Create HTTP(S) client
-    let mut client = HttpClient::wrap(EspHttpConnection::new(&HttpConfiguration {
-        crt_bundle_attach: Some(esp_idf_sys::esp_crt_bundle_attach), // Needed for HTTPS support
-        ..Default::default()
-    })?);
+    let mut client = HttpClient::wrap(EspHttpConnection::new(&Default::default())?);
 
     // GET
     get_request(&mut client)?;

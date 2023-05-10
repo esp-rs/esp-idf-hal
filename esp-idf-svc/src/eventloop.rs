@@ -23,9 +23,13 @@ use esp_idf_sys::*;
 use crate::handle::RawHandle;
 use crate::private::cstr::RawCstrs;
 use crate::private::mutex;
+use crate::private::waitable::Waitable;
 
 #[cfg(all(feature = "nightly", feature = "experimental"))]
 pub use asyncify::*;
+
+#[cfg(feature = "experimental")]
+pub use async_wait::*;
 
 pub type EspSystemSubscription = EspSubscription<System>;
 pub type EspBackgroundSubscription = EspSubscription<User<Background>>;
@@ -364,6 +368,8 @@ where
             }
 
             *taken = false;
+
+            info!("System event loop dropped");
         } else {
             unsafe {
                 let handle: &T = &self.0;
@@ -371,9 +377,9 @@ where
 
                 esp!(esp_event_loop_delete(user.0)).unwrap();
             }
-        }
 
-        info!("Dropped");
+            info!("Event loop dropped");
+        }
     }
 }
 
@@ -899,5 +905,170 @@ mod asyncify {
 
     impl<M, P, L> UnblockingAsyncify for super::EspTypedEventLoop<M, P, L> {
         type AsyncWrapper<U, S> = AsyncEventBus<U, RawCondvar, S>;
+    }
+}
+
+pub struct Wait<E, T>
+where
+    T: EspEventLoopType,
+{
+    _subscription: EspSubscription<T>,
+    waitable: Arc<Waitable<()>>,
+    _event: PhantomData<fn() -> E>,
+}
+
+impl<E, T> Wait<E, T>
+where
+    E: EspTypedEventDeserializer<E> + Debug,
+    T: EspEventLoopType,
+{
+    pub fn new<F: Fn(&E) -> bool + Send + 'static>(
+        sysloop: &EspEventLoop<T>,
+        waiter: F,
+    ) -> Result<Self, EspError> {
+        let waitable: Arc<Waitable<()>> = Arc::new(Waitable::new(()));
+
+        let s_waitable = waitable.clone();
+        let subscription =
+            sysloop.subscribe(move |event: &E| Self::on_event(&s_waitable, event, &waiter))?;
+
+        Ok(Self {
+            waitable,
+            _subscription: subscription,
+            _event: PhantomData,
+        })
+    }
+
+    pub fn wait_while<F: Fn() -> Result<bool, EspError>>(
+        &self,
+        matcher: F,
+        duration: Option<Duration>,
+    ) -> Result<(), EspError> {
+        if let Some(duration) = duration {
+            debug!("About to wait for duration {:?}", duration);
+
+            let (timeout, _) =
+                self.waitable
+                    .wait_timeout_while_and_get(duration, |_| matcher(), |_| ())?;
+
+            if !timeout {
+                debug!("Waiting done - success");
+                Ok(())
+            } else {
+                debug!("Timeout while waiting");
+                esp!(ESP_ERR_TIMEOUT)
+            }
+        } else {
+            debug!("About to wait");
+
+            self.waitable.wait_while(|_| matcher())?;
+
+            debug!("Waiting done - success");
+
+            Ok(())
+        }
+    }
+
+    fn on_event<F: Fn(&E) -> bool>(waitable: &Waitable<()>, event: &E, waiter: &F) {
+        debug!("Got event: {:?}", event);
+
+        if waiter(event) {
+            waitable.cvar.notify_all();
+        }
+    }
+}
+
+#[cfg(feature = "experimental")]
+mod async_wait {
+    use core::fmt::Debug;
+    use core::marker::PhantomData;
+    use core::time::Duration;
+
+    use embedded_svc::utils::asyncify::event_bus::{AsyncEventBus, AsyncSubscription};
+    use embedded_svc::utils::asyncify::timer::{AsyncTimer, AsyncTimerService};
+
+    use esp_idf_sys::{esp, EspError, ESP_ERR_TIMEOUT};
+
+    use log::debug;
+
+    use crate::timer::{EspTaskTimerService, EspTimer};
+
+    pub struct AsyncWait<E, T>
+    where
+        E: super::EspTypedEventDeserializer<E> + Send,
+        T: super::EspEventLoopType,
+    {
+        subscription:
+            AsyncSubscription<crate::private::mutex::RawCondvar, E, super::EspSubscription<T>>,
+        timer: AsyncTimer<EspTimer>,
+        _event: PhantomData<fn() -> E>,
+    }
+
+    impl<E, T> AsyncWait<E, T>
+    where
+        E: super::EspTypedEventDeserializer<E> + Debug + Send + Clone + 'static,
+        T: super::EspEventLoopType + 'static,
+    {
+        pub fn new(
+            sysloop: &super::EspEventLoop<T>,
+            timer_service: &EspTaskTimerService,
+        ) -> Result<Self, EspError> {
+            Ok(Self {
+                subscription: AsyncEventBus::new((), sysloop.clone()).subscribe()?,
+                timer: AsyncTimerService::new(timer_service.clone()).timer()?,
+                _event: PhantomData,
+            })
+        }
+
+        pub async fn wait_while<F: Fn() -> Result<bool, EspError>>(
+            &mut self,
+            matcher: F,
+            duration: Option<Duration>,
+        ) -> Result<(), EspError> {
+            if let Some(duration) = duration {
+                debug!("About to wait for duration {:?}", duration);
+
+                let timer_wait = self.timer.after(duration)?;
+                let subscription_wait = Self::wait_sub(&mut self.subscription, matcher);
+
+                match embassy_futures::select::select(subscription_wait, timer_wait).await {
+                    embassy_futures::select::Either::First(_) => {
+                        debug!("Waiting done - success");
+                        Ok(())
+                    }
+                    embassy_futures::select::Either::Second(_) => {
+                        debug!("Timeout while waiting");
+                        esp!(ESP_ERR_TIMEOUT)
+                    }
+                }
+            } else {
+                debug!("About to wait");
+
+                Self::wait_sub(&mut self.subscription, matcher).await?;
+
+                debug!("Waiting done - success");
+
+                Ok(())
+            }
+        }
+
+        async fn wait_sub<EE, TT, F: Fn() -> Result<bool, EspError>>(
+            subscription: &mut AsyncSubscription<
+                crate::private::mutex::RawCondvar,
+                EE,
+                super::EspSubscription<TT>,
+            >,
+            matcher: F,
+        ) -> Result<(), EspError>
+        where
+            EE: Send + Clone,
+            TT: super::EspEventLoopType,
+        {
+            while matcher()? {
+                subscription.recv().await;
+            }
+
+            Ok(())
+        }
     }
 }

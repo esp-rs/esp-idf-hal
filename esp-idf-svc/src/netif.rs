@@ -15,14 +15,13 @@ use embedded_svc::ipv4;
 
 use esp_idf_sys::*;
 
+use ::log::info;
+
 use crate::eventloop::{EspTypedEventDeserializer, EspTypedEventSource};
 use crate::handle::RawHandle;
 use crate::private::common::*;
 use crate::private::cstr::*;
 use crate::private::mutex;
-
-#[cfg(feature = "alloc")]
-pub use status::*;
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 #[cfg_attr(feature = "std", derive(Hash))]
@@ -372,15 +371,22 @@ impl EspNetif {
     }
 
     pub fn is_up(&self) -> Result<bool, EspError> {
-        Ok(unsafe { esp_netif_is_netif_up(self.0) })
+        if !unsafe { esp_netif_is_netif_up(self.0) } {
+            Ok(false)
+        } else {
+            let mut ip_info = Default::default();
+            unsafe { esp!(esp_netif_get_ip_info(self.0, &mut ip_info)) }?;
+
+            Ok(ipv4::IpInfo::from(Newtype(ip_info)).ip != ipv4::Ipv4Addr::new(0, 0, 0, 0))
+        }
     }
 
     pub fn get_ip_info(&self) -> Result<ipv4::IpInfo, EspError> {
         let mut ip_info = Default::default();
-
         unsafe { esp!(esp_netif_get_ip_info(self.0, &mut ip_info)) }?;
+
         Ok(ipv4::IpInfo {
-            // Get the DNS informations
+            // Get the DNS information
             dns: Some(self.get_dns()),
             secondary_dns: Some(self.get_secondary_dns()),
             ..Newtype(ip_info).into()
@@ -507,6 +513,8 @@ impl EspNetif {
 impl Drop for EspNetif {
     fn drop(&mut self) {
         unsafe { esp_netif_destroy(self.0) };
+
+        info!("Dropped");
     }
 }
 
@@ -645,90 +653,174 @@ impl EspTypedEventDeserializer<IpEvent> for IpEvent {
     }
 }
 
-#[cfg(feature = "alloc")]
-mod status {
-    use core::borrow::Borrow;
-    use core::time::Duration;
+pub trait NetifStatus {
+    fn is_up(&self) -> Result<bool, EspError>;
+}
 
-    use alloc::sync::Arc;
+impl<T> NetifStatus for &T
+where
+    T: NetifStatus,
+{
+    fn is_up(&self) -> Result<bool, EspError> {
+        (**self).is_up()
+    }
+}
 
-    use ::log::info;
+impl<T> NetifStatus for &mut T
+where
+    T: NetifStatus,
+{
+    fn is_up(&self) -> Result<bool, EspError> {
+        (**self).is_up()
+    }
+}
 
-    use esp_idf_sys::*;
+impl NetifStatus for EspNetif {
+    fn is_up(&self) -> Result<bool, EspError> {
+        EspNetif::is_up(self)
+    }
+}
 
-    use crate::eventloop::{EspEventLoop, EspSubscription, System};
-    use crate::handle::RawHandle;
-    use crate::private::waitable::Waitable;
+const UP_TIMEOUT: core::time::Duration = core::time::Duration::from_secs(15);
 
-    use super::IpEvent;
+pub struct BlockingNetif<T> {
+    netif: T,
+    event_loop: crate::eventloop::EspSystemEventLoop,
+}
 
-    struct RawHandleImpl(*mut esp_netif_t);
-
-    unsafe impl Send for RawHandleImpl {}
-
-    pub struct EspNetifWait<B> {
-        _netif: B,
-        waitable: Arc<Waitable<()>>,
-        _subscription: EspSubscription<System>,
+impl<T> BlockingNetif<T>
+where
+    T: NetifStatus,
+{
+    pub fn wrap(netif: T, event_loop: crate::eventloop::EspSystemEventLoop) -> Self {
+        Self { netif, event_loop }
     }
 
-    #[cfg(feature = "alloc")]
-    impl<B> EspNetifWait<B> {
-        pub fn new<R>(netif: B, sysloop: &EspEventLoop<System>) -> Result<Self, EspError>
+    pub fn is_up(&self) -> Result<bool, EspError> {
+        self.netif.is_up()
+    }
+
+    pub fn wait_netif_up(&self) -> Result<(), EspError> {
+        self.ip_wait_while(|| self.netif.is_up().map(|s| !s), Some(UP_TIMEOUT))
+    }
+
+    pub fn ip_wait_while<F: Fn() -> Result<bool, EspError>>(
+        &self,
+        matcher: F,
+        timeout: Option<core::time::Duration>,
+    ) -> Result<(), EspError> {
+        let wait = crate::eventloop::Wait::<IpEvent, _>::new(&self.event_loop, |_| true)?;
+
+        wait.wait_while(matcher, timeout)
+    }
+}
+
+impl<T> NetifStatus for BlockingNetif<T>
+where
+    T: NetifStatus,
+{
+    fn is_up(&self) -> Result<bool, EspError> {
+        BlockingNetif::is_up(self)
+    }
+}
+
+#[cfg(feature = "experimental")]
+pub struct AsyncNetif<T> {
+    netif: T,
+    event_loop: crate::eventloop::EspSystemEventLoop,
+    timer_service: crate::timer::EspTaskTimerService,
+}
+
+#[cfg(feature = "experimental")]
+impl<T> AsyncNetif<T>
+where
+    T: NetifStatus,
+{
+    pub fn wrap(
+        netif: T,
+        event_loop: crate::eventloop::EspSystemEventLoop,
+        timer_service: crate::timer::EspTaskTimerService,
+    ) -> Self {
+        Self {
+            netif,
+            event_loop,
+            timer_service,
+        }
+    }
+
+    pub fn is_up(&self) -> Result<bool, EspError> {
+        self.netif.is_up()
+    }
+
+    pub async fn wait_netif_up(&self) -> Result<(), EspError> {
+        self.ip_wait_while(|| self.netif.is_up().map(|s| !s), Some(UP_TIMEOUT))
+            .await
+    }
+
+    pub async fn ip_wait_while<F: Fn() -> Result<bool, EspError>>(
+        &self,
+        matcher: F,
+        timeout: Option<core::time::Duration>,
+    ) -> Result<(), EspError> {
+        let mut wait =
+            crate::eventloop::AsyncWait::<IpEvent, _>::new(&self.event_loop, &self.timer_service)?;
+
+        wait.wait_while(matcher, timeout).await
+    }
+}
+
+#[cfg(all(feature = "nightly", feature = "experimental"))]
+pub mod asynch {
+    use core::future::Future;
+
+    use esp_idf_sys::EspError;
+
+    pub trait NetifStatus {
+        type IsUpFuture<'a>: Future<Output = Result<bool, EspError>>
         where
-            B: Borrow<R>,
-            R: RawHandle<Handle = *mut esp_netif_t>,
-        {
-            let waitable = Arc::new(Waitable::new(()));
+            Self: 'a;
 
-            let s_waitable = waitable.clone();
-            let handle = RawHandleImpl(netif.borrow().handle());
+        fn is_up(&self) -> Self::IsUpFuture<'_>;
+    }
 
-            let subscription = sysloop.subscribe(move |event: &IpEvent| {
-                Self::on_ip_event(handle.0, &s_waitable, event)
-            })?;
+    impl<T> NetifStatus for &T
+    where
+        T: NetifStatus,
+    {
+        type IsUpFuture<'a> = impl Future<Output = Result<bool, EspError>> + 'a where Self: 'a;
 
-            Ok(Self {
-                _netif: netif,
-                waitable,
-                _subscription: subscription,
-            })
+        fn is_up(&self) -> Self::IsUpFuture<'_> {
+            async move { (**self).is_up().await }
         }
+    }
 
-        pub fn wait(&self, matcher: impl Fn() -> bool) {
-            info!("About to wait");
+    impl<T> NetifStatus for &mut T
+    where
+        T: NetifStatus,
+    {
+        type IsUpFuture<'a> = impl Future<Output = Result<bool, EspError>> + 'a where Self: 'a;
 
-            self.waitable.wait_while(|_| !matcher());
-
-            info!("Waiting done - success");
+        fn is_up(&self) -> Self::IsUpFuture<'_> {
+            async move { (**self).is_up().await }
         }
+    }
 
-        pub fn wait_with_timeout(&self, dur: Duration, matcher: impl Fn() -> bool) -> bool {
-            info!("About to wait for duration {:?}", dur);
+    impl NetifStatus for super::EspNetif {
+        type IsUpFuture<'a> = impl Future<Output = Result<bool, EspError>> + 'a where Self: 'a;
 
-            let (timeout, _) =
-                self.waitable
-                    .wait_timeout_while_and_get(dur, |_| !matcher(), |_| ());
-
-            if !timeout {
-                info!("Waiting done - success");
-                true
-            } else {
-                info!("Timeout while waiting");
-                false
-            }
+        fn is_up(&self) -> Self::IsUpFuture<'_> {
+            async move { super::EspNetif::is_up(self) }
         }
+    }
 
-        fn on_ip_event(handle: *mut esp_netif_t, waitable: &Waitable<()>, event: &IpEvent) {
-            if event
-                .handle()
-                .map(|event_handle| event_handle == handle)
-                .unwrap_or(false)
-            {
-                info!("Got IP event: {:?}", event);
+    impl<T> NetifStatus for super::AsyncNetif<T>
+    where
+        T: super::NetifStatus,
+    {
+        type IsUpFuture<'a> = impl Future<Output = Result<bool, EspError>> + 'a where Self: 'a;
 
-                waitable.cvar.notify_all();
-            }
+        fn is_up(&self) -> Self::IsUpFuture<'_> {
+            async move { super::AsyncNetif::is_up(self) }
         }
     }
 }
