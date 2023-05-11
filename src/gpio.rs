@@ -1507,7 +1507,7 @@ mod atomic_notification {
     use core::sync::atomic::{AtomicBool, Ordering};
     use core::task::{Context, Poll};
 
-    use futures_util::task::AtomicWaker;
+    use atomic_waker::AtomicWaker;
 
     pub struct Notification {
         waker: AtomicWaker,
