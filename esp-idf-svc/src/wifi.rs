@@ -1507,6 +1507,7 @@ impl<'d> Wifi for EspWifi<'d> {
     }
 }
 
+#[cfg(esp_idf_comp_esp_netif_enabled)]
 impl<'d> NetifStatus for EspWifi<'d> {
     fn is_up(&self) -> Result<bool, EspError> {
         EspWifi::is_up(self)
@@ -1710,6 +1711,7 @@ where
     }
 }
 
+#[cfg(esp_idf_comp_esp_netif_enabled)]
 impl<T> BlockingWifi<T>
 where
     T: NetifStatus,
@@ -1787,6 +1789,7 @@ where
     }
 }
 
+#[cfg(esp_idf_comp_esp_netif_enabled)]
 impl<T> NetifStatus for BlockingWifi<T>
 where
     T: NetifStatus,
@@ -1909,6 +1912,7 @@ where
 }
 
 #[cfg(all(feature = "alloc", esp_idf_comp_esp_timer_enabled))]
+#[cfg(esp_idf_comp_esp_netif_enabled)]
 impl<T> AsyncWifi<T>
 where
     T: NetifStatus,
@@ -2003,6 +2007,7 @@ where
 }
 
 #[cfg(feature = "nightly")]
+#[cfg(esp_idf_comp_esp_netif_enabled)]
 impl<'d> crate::netif::asynch::NetifStatus for EspWifi<'d> {
     type IsUpFuture<'a> = impl Future<Output = Result<bool, EspError>> + 'a where Self: 'a;
 
@@ -2012,6 +2017,7 @@ impl<'d> crate::netif::asynch::NetifStatus for EspWifi<'d> {
 }
 
 #[cfg(all(feature = "nightly", feature = "alloc", esp_idf_comp_esp_timer_enabled))]
+#[cfg(esp_idf_comp_esp_netif_enabled)]
 impl<T> crate::netif::asynch::NetifStatus for AsyncWifi<T>
 where
     T: NetifStatus,

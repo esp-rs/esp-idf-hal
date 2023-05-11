@@ -898,6 +898,7 @@ impl<'d, T> Drop for EspEth<'d, T> {
     }
 }
 
+#[cfg(esp_idf_comp_esp_netif_enabled)]
 unsafe impl<'d, T> Send for EspEth<'d, T> {}
 
 #[cfg(esp_idf_comp_esp_netif_enabled)]
@@ -909,6 +910,7 @@ impl<'d, T> RawHandle for EspEth<'d, T> {
     }
 }
 
+#[cfg(esp_idf_comp_esp_netif_enabled)]
 impl<'d, T> Eth for EspEth<'d, T> {
     type Error = EspError;
 
@@ -929,6 +931,7 @@ impl<'d, T> Eth for EspEth<'d, T> {
     }
 }
 
+#[cfg(esp_idf_comp_esp_netif_enabled)]
 impl<'d, T> NetifStatus for EspEth<'d, T> {
     fn is_up(&self) -> Result<bool, EspError> {
         EspEth::is_up(self)
@@ -1057,6 +1060,7 @@ where
     }
 }
 
+#[cfg(esp_idf_comp_esp_netif_enabled)]
 impl<T> BlockingEth<T>
 where
     T: NetifStatus,
@@ -1103,6 +1107,7 @@ where
     }
 }
 
+#[cfg(esp_idf_comp_esp_netif_enabled)]
 impl<T> NetifStatus for BlockingEth<T>
 where
     T: NetifStatus,
@@ -1184,6 +1189,7 @@ where
 }
 
 #[cfg(all(feature = "alloc", esp_idf_comp_esp_timer_enabled))]
+#[cfg(esp_idf_comp_esp_netif_enabled)]
 impl<T> AsyncEth<T>
 where
     T: NetifStatus,
@@ -1239,6 +1245,7 @@ where
 }
 
 #[cfg(feature = "nightly")]
+#[cfg(esp_idf_comp_esp_netif_enabled)]
 impl<'d, T> crate::netif::asynch::NetifStatus for EspEth<'d, T> {
     type IsUpFuture<'a> = impl core::future::Future<Output = Result<bool, EspError>> + 'a where Self: 'a;
 
@@ -1248,6 +1255,7 @@ impl<'d, T> crate::netif::asynch::NetifStatus for EspEth<'d, T> {
 }
 
 #[cfg(all(feature = "nightly", feature = "alloc", esp_idf_comp_esp_timer_enabled))]
+#[cfg(esp_idf_comp_esp_netif_enabled)]
 impl<T> crate::netif::asynch::NetifStatus for AsyncEth<T>
 where
     T: NetifStatus,
