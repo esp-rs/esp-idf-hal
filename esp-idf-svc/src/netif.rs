@@ -33,10 +33,10 @@ pub enum NetifStack {
     Ap,
     /// Ethernet
     Eth,
-    #[cfg(esp_idf_ppp_support)]
+    #[cfg(esp_idf_lwip_ppp_support)]
     /// Point-to-Point Protocol (PPP)
     Ppp,
-    #[cfg(esp_idf_slip_support)]
+    #[cfg(esp_idf_lwip_slip_support)]
     /// Serial Line Internet Protocol (SLIP)
     Slip,
 }
@@ -47,9 +47,9 @@ impl NetifStack {
             Self::Sta => NetifConfiguration::wifi_default_client(),
             Self::Ap => NetifConfiguration::wifi_default_router(),
             Self::Eth => NetifConfiguration::eth_default_client(),
-            #[cfg(esp_idf_ppp_support)]
+            #[cfg(esp_idf_lwip_ppp_support)]
             Self::Ppp => NetifConfiguration::ppp_default_client(),
-            #[cfg(esp_idf_slip_support)]
+            #[cfg(esp_idf_lwip_slip_support)]
             Self::Slip => NetifConfiguration::slip_default_client(),
         }
     }
@@ -70,8 +70,7 @@ impl NetifStack {
             Self::Sta => Some(esp_mac_type_t_ESP_MAC_WIFI_STA),
             Self::Ap => Some(esp_mac_type_t_ESP_MAC_WIFI_SOFTAP),
             Self::Eth => Some(esp_mac_type_t_ESP_MAC_ETH),
-            #[cfg(esp_idf_slip_support)]
-            #[cfg(esp_idf_ppp_support)]
+            #[cfg(any(esp_idf_lwip_slip_support, esp_idf_lwip_ppp_support))]
             _ => None,
         }
     }
@@ -82,9 +81,9 @@ impl NetifStack {
                 Self::Sta => _g_esp_netif_netstack_default_wifi_sta,
                 Self::Ap => _g_esp_netif_netstack_default_wifi_ap,
                 Self::Eth => _g_esp_netif_netstack_default_eth,
-                #[cfg(esp_idf_ppp_support)]
+                #[cfg(esp_idf_lwip_ppp_support)]
                 Self::Ppp => _g_esp_netif_netstack_default_ppp,
-                #[cfg(esp_idf_slip_support)]
+                #[cfg(esp_idf_lwip_slip_support)]
                 Self::Slip => _g_esp_netif_netstack_default_slip,
             }
         }
@@ -147,7 +146,7 @@ impl NetifConfiguration {
         }
     }
 
-    #[cfg(esp_idf_ppp_support)]
+    #[cfg(esp_idf_lwip_ppp_support)]
     pub fn ppp_default_client() -> Self {
         Self {
             key: "PPP_CL_DEF".into(),
@@ -159,7 +158,7 @@ impl NetifConfiguration {
         }
     }
 
-    #[cfg(esp_idf_ppp_support)]
+    #[cfg(esp_idf_lwip_ppp_support)]
     pub fn ppp_default_router() -> Self {
         Self {
             key: "PPP_RT_DEF".into(),
@@ -171,7 +170,7 @@ impl NetifConfiguration {
         }
     }
 
-    #[cfg(esp_idf_slip_support)]
+    #[cfg(esp_idf_lwip_slip_support)]
     pub fn slip_default_client() -> Self {
         Self {
             key: "SLIP_CL_DEF".into(),
@@ -183,7 +182,7 @@ impl NetifConfiguration {
         }
     }
 
-    #[cfg(esp_idf_slip_support)]
+    #[cfg(esp_idf_lwip_slip_support)]
     pub fn slip_default_router() -> Self {
         Self {
             key: "SLIP_RT_DEF".into(),
