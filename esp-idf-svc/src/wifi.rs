@@ -931,6 +931,18 @@ impl<'d> WifiDriver<'d> {
         esp!(unsafe { esp_wifi_set_rssi_threshold(rssi_threshold.into()) })
     }
 
+    pub fn get_mac(&self, interface: WifiDeviceId) -> Result<[u8; 6], EspError> {
+        let mut mac = [0u8; 6];
+
+        esp!(unsafe { esp_wifi_get_mac(interface.into(), mac.as_mut_ptr() as *mut _) })?;
+
+        Ok(mac)
+    }
+
+    pub fn set_mac(&mut self, interface: WifiDeviceId, mac: [u8; 6]) -> Result<(), EspError> {
+        esp!(unsafe { esp_wifi_set_mac(interface.into(), mac.as_ptr() as *mut _) })
+    }
+
     fn get_sta_conf(&self) -> Result<ClientConfiguration, EspError> {
         let mut wifi_config: wifi_config_t = Default::default();
         esp!(unsafe { esp_wifi_get_config(wifi_interface_t_WIFI_IF_STA, &mut wifi_config) })?;
@@ -1361,6 +1373,14 @@ impl<'d> EspWifi<'d> {
     #[cfg(feature = "alloc")]
     pub fn get_scan_result(&mut self) -> Result<alloc::vec::Vec<AccessPointInfo>, EspError> {
         self.driver_mut().get_scan_result()
+    }
+
+    pub fn get_mac(&self, interface: WifiDeviceId) -> Result<[u8; 6], EspError> {
+        self.driver().get_mac(interface)
+    }
+
+    pub fn set_mac(&mut self, interface: WifiDeviceId, mac: [u8; 6]) -> Result<(), EspError> {
+        self.driver_mut().set_mac(interface, mac)
     }
 
     fn attach_netif(&mut self) -> Result<(), EspError> {

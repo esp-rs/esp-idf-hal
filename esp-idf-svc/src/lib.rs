@@ -7,8 +7,7 @@
 //! This crates specifies a few cargo features, including:
 //!
 //! - `std`: Enable the use of std. Enabled by default.
-//! - `experimental`: Enable the use of experimental features, including a HTTP
-//!   client.
+//! - `experimental`: Enable the use of experimental features.
 //! - `embassy-time-driver`
 //! - `embassy-time-isr-queue`
 #![cfg_attr(not(feature = "std"), no_std)]
