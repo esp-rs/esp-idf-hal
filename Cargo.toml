@@ -11,7 +11,7 @@ repository = "https://github.com/esp-rs/esp-idf-hal"
 license = "MIT OR Apache-2.0"
 readme = "README.md"
 documentation = "https://esp-rs.github.io/esp-idf-hal/"
-rust-version = "1.61"
+rust-version = "1.66"
 
 [features]
 default = ["std", "alloc", "esp-idf-sys"]
