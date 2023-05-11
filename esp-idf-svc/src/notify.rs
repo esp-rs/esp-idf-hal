@@ -17,7 +17,6 @@ use crate::handle::RawHandle;
 use crate::private::cstr::RawCstrs;
 use crate::private::mutex::Mutex;
 
-#[cfg(all(feature = "nightly", feature = "experimental"))]
 pub use asyncify::*;
 
 #[allow(clippy::type_complexity)]
@@ -260,7 +259,6 @@ impl PostboxProvider<u32> for EspNotify {
     }
 }
 
-#[cfg(all(feature = "nightly", feature = "experimental"))]
 mod asyncify {
     use embedded_svc::utils::asyncify::event_bus::AsyncEventBus;
     use embedded_svc::utils::asyncify::Asyncify;

@@ -32,7 +32,7 @@ use crate::nvs::EspDefaultNvsPartition;
 use crate::private::common::*;
 use crate::private::cstr::*;
 use crate::private::mutex;
-#[cfg(feature = "experimental")]
+#[cfg(all(feature = "alloc", esp_idf_comp_esp_timer_enabled))]
 use crate::timer::EspTaskTimerService;
 
 pub mod config {
@@ -1796,14 +1796,14 @@ where
     }
 }
 
-#[cfg(feature = "experimental")]
+#[cfg(all(feature = "alloc", esp_idf_comp_esp_timer_enabled))]
 pub struct AsyncWifi<T> {
     wifi: T,
     event_loop: crate::eventloop::EspSystemEventLoop,
     timer_service: crate::timer::EspTaskTimerService,
 }
 
-#[cfg(feature = "experimental")]
+#[cfg(all(feature = "alloc", esp_idf_comp_esp_timer_enabled))]
 impl<T> AsyncWifi<T>
 where
     T: Wifi<Error = EspError> + NonBlocking,
@@ -1908,7 +1908,7 @@ where
     }
 }
 
-#[cfg(feature = "experimental")]
+#[cfg(all(feature = "alloc", esp_idf_comp_esp_timer_enabled))]
 impl<T> AsyncWifi<T>
 where
     T: NetifStatus,
@@ -1934,7 +1934,7 @@ where
     }
 }
 
-#[cfg(all(feature = "nightly", feature = "experimental"))]
+#[cfg(all(feature = "nightly", feature = "alloc", esp_idf_comp_esp_timer_enabled))]
 impl<T> embedded_svc::wifi::asynch::Wifi for AsyncWifi<T>
 where
     T: Wifi<Error = EspError> + NonBlocking,
@@ -2002,7 +2002,7 @@ where
     }
 }
 
-#[cfg(all(feature = "nightly", feature = "experimental"))]
+#[cfg(feature = "nightly")]
 impl<'d> crate::netif::asynch::NetifStatus for EspWifi<'d> {
     type IsUpFuture<'a> = impl Future<Output = Result<bool, EspError>> + 'a where Self: 'a;
 
@@ -2011,7 +2011,7 @@ impl<'d> crate::netif::asynch::NetifStatus for EspWifi<'d> {
     }
 }
 
-#[cfg(all(feature = "nightly", feature = "experimental"))]
+#[cfg(all(feature = "nightly", feature = "alloc", esp_idf_comp_esp_timer_enabled))]
 impl<T> crate::netif::asynch::NetifStatus for AsyncWifi<T>
 where
     T: NetifStatus,

@@ -1112,14 +1112,14 @@ where
     }
 }
 
-#[cfg(feature = "experimental")]
+#[cfg(all(feature = "alloc", esp_idf_comp_esp_timer_enabled))]
 pub struct AsyncEth<T> {
     pub(crate) eth: T,
     pub(crate) event_loop: crate::eventloop::EspSystemEventLoop,
     pub(crate) timer_service: crate::timer::EspTaskTimerService,
 }
 
-#[cfg(feature = "experimental")]
+#[cfg(all(feature = "alloc", esp_idf_comp_esp_timer_enabled))]
 impl<T> AsyncEth<T>
 where
     T: Eth<Error = EspError>,
@@ -1183,7 +1183,7 @@ where
     }
 }
 
-#[cfg(feature = "experimental")]
+#[cfg(all(feature = "alloc", esp_idf_comp_esp_timer_enabled))]
 impl<T> AsyncEth<T>
 where
     T: NetifStatus,
@@ -1209,7 +1209,7 @@ where
     }
 }
 
-#[cfg(all(feature = "nightly", feature = "experimental"))]
+#[cfg(all(feature = "nightly", feature = "alloc", esp_idf_comp_esp_timer_enabled))]
 impl<T> embedded_svc::eth::asynch::Eth for AsyncEth<T>
 where
     T: Eth<Error = EspError>,
@@ -1238,7 +1238,7 @@ where
     }
 }
 
-#[cfg(all(feature = "nightly", feature = "experimental"))]
+#[cfg(feature = "nightly")]
 impl<'d, T> crate::netif::asynch::NetifStatus for EspEth<'d, T> {
     type IsUpFuture<'a> = impl core::future::Future<Output = Result<bool, EspError>> + 'a where Self: 'a;
 
@@ -1247,7 +1247,7 @@ impl<'d, T> crate::netif::asynch::NetifStatus for EspEth<'d, T> {
     }
 }
 
-#[cfg(all(feature = "nightly", feature = "experimental"))]
+#[cfg(all(feature = "nightly", feature = "alloc", esp_idf_comp_esp_timer_enabled))]
 impl<T> crate::netif::asynch::NetifStatus for AsyncEth<T>
 where
     T: NetifStatus,

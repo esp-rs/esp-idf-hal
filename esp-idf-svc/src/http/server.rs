@@ -915,7 +915,6 @@ pub mod ws {
     use super::OPEN_SESSIONS;
     use super::{CloseHandler, NativeHandler};
 
-    #[cfg(all(feature = "nightly", feature = "experimental"))]
     pub use asyncify::*;
 
     pub enum EspHttpWsConnection {
@@ -1308,7 +1307,6 @@ pub mod ws {
         }
     }
 
-    #[cfg(all(feature = "nightly", feature = "experimental"))]
     pub mod asyncify {
         use embedded_svc::utils::asyncify::ws::server::{
             AsyncAcceptor, AsyncReceiver, AsyncSender, Processor,

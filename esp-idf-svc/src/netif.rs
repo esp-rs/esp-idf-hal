@@ -723,14 +723,14 @@ where
     }
 }
 
-#[cfg(feature = "experimental")]
+#[cfg(all(feature = "alloc", esp_idf_comp_esp_timer_enabled))]
 pub struct AsyncNetif<T> {
     netif: T,
     event_loop: crate::eventloop::EspSystemEventLoop,
     timer_service: crate::timer::EspTaskTimerService,
 }
 
-#[cfg(feature = "experimental")]
+#[cfg(all(feature = "alloc", esp_idf_comp_esp_timer_enabled))]
 impl<T> AsyncNetif<T>
 where
     T: NetifStatus,
@@ -768,7 +768,7 @@ where
     }
 }
 
-#[cfg(all(feature = "nightly", feature = "experimental"))]
+#[cfg(feature = "nightly")]
 pub mod asynch {
     use core::future::Future;
 
@@ -812,6 +812,7 @@ pub mod asynch {
         }
     }
 
+    #[cfg(all(feature = "alloc", esp_idf_comp_esp_timer_enabled))]
     impl<T> NetifStatus for super::AsyncNetif<T>
     where
         T: super::NetifStatus,

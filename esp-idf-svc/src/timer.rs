@@ -23,7 +23,6 @@ use esp_idf_sys::*;
 
 use ::log::info;
 
-#[cfg(all(feature = "nightly", feature = "experimental"))]
 pub use asyncify::*;
 
 #[cfg(esp_idf_esp_timer_supports_isr_dispatch_method)]
@@ -294,7 +293,6 @@ mod isr {
     }
 }
 
-#[cfg(all(feature = "nightly", feature = "experimental"))]
 mod asyncify {
     use embedded_svc::utils::asyncify::timer::AsyncTimerService;
     use embedded_svc::utils::asyncify::Asyncify;

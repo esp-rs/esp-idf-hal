@@ -25,10 +25,9 @@ use crate::private::cstr::RawCstrs;
 use crate::private::mutex;
 use crate::private::waitable::Waitable;
 
-#[cfg(all(feature = "nightly", feature = "experimental"))]
 pub use asyncify::*;
 
-#[cfg(feature = "experimental")]
+#[cfg(all(feature = "alloc", esp_idf_comp_esp_timer_enabled))]
 pub use async_wait::*;
 
 pub type EspSystemSubscription = EspSubscription<System>;
@@ -878,7 +877,6 @@ where
     }
 }
 
-#[cfg(all(feature = "nightly", feature = "experimental"))]
 mod asyncify {
     use embedded_svc::utils::asyncify::event_bus::AsyncEventBus;
     use embedded_svc::utils::asyncify::{Asyncify, UnblockingAsyncify};
@@ -978,7 +976,7 @@ where
     }
 }
 
-#[cfg(feature = "experimental")]
+#[cfg(all(feature = "alloc", esp_idf_comp_esp_timer_enabled))]
 mod async_wait {
     use core::fmt::Debug;
     use core::marker::PhantomData;
