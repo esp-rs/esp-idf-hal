@@ -27,7 +27,10 @@ Please refer to the table below to determine the pins which are not recommended 
 | Chip         |       GPIOs        |
 | ------------ | :----------------: |
 | **ESP32**    |  6 - 11, 16 - 17   |
+| **ESP32-C2** |      12 - 17       |
 | **ESP32-C3** |      12 - 17       |
+| **ESP32-C6** |      24 - 30       |
+| **ESP32-H2** |      15 - 21       |
 | **ESP32-S2** |      26 - 32       |
 | **ESP32-S3** | 26 - 32, 33 - 37\* |
 
