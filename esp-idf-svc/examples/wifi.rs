@@ -8,7 +8,6 @@ use esp_idf_svc::log::EspLogger;
 use esp_idf_svc::wifi::{BlockingWifi, EspWifi};
 use esp_idf_svc::{eventloop::EspSystemEventLoop, nvs::EspDefaultNvsPartition};
 use esp_idf_sys::{self as _}; // If using the `binstart` feature of `esp-idf-sys`, always keep this module imported
-use futures::executor::block_on;
 use log::info;
 
 const SSID: &'static str = env!("WIFI_SSID");
