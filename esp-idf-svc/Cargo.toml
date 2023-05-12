@@ -13,6 +13,10 @@ readme = "README.md"
 documentation = "https://esp-rs.github.io/esp-idf-svc/"
 rust-version = "1.66"
 
+[patch.crates-io]
+esp-idf-sys = { git = "https://github.com/esp-rs/esp-idf-sys.git" }
+embedded-svc = { git = "https://github.com/esp-rs/embedded-svc.git" }
+
 [features]
 default = ["std"]
 
@@ -22,9 +26,6 @@ nightly = ["embedded-svc/nightly"]
 experimental = ["embedded-svc/experimental"]
 embassy-time-driver = ["embassy-time"]
 embassy-time-isr-queue = ["embassy-sync", "embassy-time", "esp-idf-hal/embassy-sync"]
-
-[patch.crates-io]
-embedded-svc = { git = "https://github.com/esp-rs/embedded-svc.git" }
 
 [dependencies]
 heapless = { version = "0.7", default-features = false }
@@ -40,7 +41,7 @@ embassy-time = { version = "0.1", optional = true, features = ["tick-hz-1_000_00
 embassy-futures = "0.1"
 
 [build-dependencies]
-embuild = "0.31"
+embuild = "0.31.2"
 anyhow = "1"
 
 [dev-dependencies]
@@ -50,12 +51,9 @@ futures = "0.3"
 
 [[example]]
 name = "http_request"
-required-features = ["experimental"]
 
 [[example]]
 name = "wifi"
-required-features = ["experimental"]
 
 [[example]]
 name = "wifi_async"
-required-features = ["experimental"]
