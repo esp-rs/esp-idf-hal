@@ -72,6 +72,10 @@ use config::TransmitConfig;
 
 pub use chip::*;
 
+// Might not always be available in the generated `esp-idf-sys` bindings
+const ERR_ERANGE: esp_err_t = 34;
+const ERR_EOVERFLOW: esp_err_t = 139;
+
 pub type RmtTransmitConfig = config::TransmitConfig;
 pub type RmtReceiveConfig = config::ReceiveConfig;
 
@@ -207,22 +211,22 @@ pub fn duration_to_ticks(ticks_hz: Hertz, duration: &Duration) -> Result<u16, Es
     let ticks = duration
         .as_nanos()
         .checked_mul(u32::from(ticks_hz) as u128)
-        .ok_or_else(|| EspError::from(EOVERFLOW as i32).unwrap())?
+        .ok_or_else(|| EspError::from(ERR_EOVERFLOW as i32).unwrap())?
         / 1_000_000_000;
 
-    u16::try_from(ticks).map_err(|_| EspError::from(EOVERFLOW as i32).unwrap())
+    u16::try_from(ticks).map_err(|_| EspError::from(ERR_EOVERFLOW as i32).unwrap())
 }
 
 /// A utility to convert ticks into duration, depending on the clock ticks.
 pub fn ticks_to_duration(ticks_hz: Hertz, ticks: u16) -> Result<Duration, EspError> {
     let duration = 1_000_000_000_u128
         .checked_mul(ticks as u128)
-        .ok_or_else(|| EspError::from(EOVERFLOW as i32).unwrap())?
+        .ok_or_else(|| EspError::from(ERR_EOVERFLOW as i32).unwrap())?
         / u32::from(ticks_hz) as u128;
 
     u64::try_from(duration)
         .map(Duration::from_nanos)
-        .map_err(|_| EspError::from(EOVERFLOW as i32).unwrap())
+        .map_err(|_| EspError::from(ERR_EOVERFLOW as i32).unwrap())
 }
 
 pub type TxRmtConfig = config::TransmitConfig;
@@ -777,7 +781,7 @@ impl<const N: usize> FixedLengthSignal<N> {
         let item = self
             .0
             .get_mut(index)
-            .ok_or_else(|| EspError::from(ERANGE as i32).unwrap())?;
+            .ok_or_else(|| EspError::from(ERR_ERANGE as i32).unwrap())?;
 
         // SAFETY: We're overriding all 32 bits, so it doesn't matter what was here before.
         let inner = unsafe { &mut item.__bindgen_anon_1.__bindgen_anon_1 };
