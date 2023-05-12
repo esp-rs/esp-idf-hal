@@ -695,7 +695,7 @@ pub mod executor {
     pub type EspExecutor<'a, const C: usize, S> = Executor<'a, C, FreeRtosMonitor, S>;
     pub type EspBlocker = Blocker<FreeRtosMonitor>;
 
-    pub struct FreeRtosMonitor(Arc<AtomicPtr<esp_idf_sys::tskTaskControlBlock>>, *const ());
+    pub struct FreeRtosMonitor(Arc<AtomicPtr<TaskHandle_t>>, *const ());
 
     impl FreeRtosMonitor {
         pub fn new() -> Self {
