@@ -3,6 +3,7 @@
 [![CI](https://github.com/esp-rs/esp-idf-svc/actions/workflows/ci.yml/badge.svg)](https://github.com/esp-rs/esp-idf-svc/actions/workflows/ci.yml)
 ![crates.io](https://img.shields.io/crates/v/esp-idf-svc.svg)
 [![Documentation](https://img.shields.io/badge/docs-esp--rs-brightgreen)](https://esp-rs.github.io/esp-idf-svc/esp_idf_svc/index.html)
+[![Matrix](https://img.shields.io/matrix/esp-rs:matrix.org?label=join%20matrix&color=BEC5C9&logo=matrix)](https://matrix.to/#/#esp-rs:matrix.org)
 
 This crate contains wrappers which are mostly implementations of the abstractions defined in the [embedded-svc](https://github.com/ivmarkov/embedded-svc) project. It has features such as wifi, networking, httpd, logging.
 
