@@ -3,6 +3,7 @@
 [![CI](https://github.com/esp-rs/esp-idf-hal/actions/workflows/ci.yml/badge.svg)](https://github.com/esp-rs/esp-idf-hal/actions/workflows/ci.yml)
 ![crates.io](https://img.shields.io/crates/v/esp-idf-hal.svg)
 [![Documentation](https://img.shields.io/badge/docs-esp--rs-brightgreen)](https://esp-rs.github.io/esp-idf-hal/esp_idf_hal/index.html)
+[![Matrix](https://img.shields.io/matrix/esp-rs:matrix.org?label=join%20matrix&color=BEC5C9&logo=matrix)](https://matrix.to/#/#esp-rs:matrix.org)
 
 * This crate is intended for usage in ESP32[-XX] embedded projects that utilize and link with the **ESP-IDF SDK**.
 * For embedded projects that don't need Rust STD support, WiFi or BLE (and thus don't link with the ESP-IDF SDK), please check [esp-hal](https://github.com/esp-rs/esp-hal).
