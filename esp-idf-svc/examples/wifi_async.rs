@@ -1,8 +1,6 @@
 //! Example of using async wifi.
 //!
 //! Add your own ssid and password
-//!
-//! Note: Requires `nightly` and `experimental` cargo feature to be enabled
 
 use embedded_svc::wifi::{AuthMethod, ClientConfiguration, Configuration};
 use esp_idf_hal::prelude::Peripherals;

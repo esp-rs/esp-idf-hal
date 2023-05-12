@@ -1,8 +1,6 @@
-//! Example of using async wifi.
+//! Example of using blocking wifi.
 //!
 //! Add your own ssid and password
-//!
-//! Note: Requires `nightly` and `experimental` cargo feature to be enabled
 
 use embedded_svc::wifi::{AuthMethod, ClientConfiguration, Configuration};
 use esp_idf_hal::prelude::Peripherals;
@@ -28,7 +26,7 @@ fn main() -> anyhow::Result<()> {
         sys_loop,
     )?;
 
-    block_on(connect_wifi(&mut wifi))?;
+    connect_wifi(&mut wifi)?;
 
     let ip_info = wifi.wifi().sta_netif().get_ip_info()?;
 
@@ -41,7 +39,7 @@ fn main() -> anyhow::Result<()> {
     Ok(())
 }
 
-async fn connect_wifi(wifi: &mut BlockingWifi<EspWifi<'static>>) -> anyhow::Result<()> {
+fn connect_wifi(wifi: &mut BlockingWifi<EspWifi<'static>>) -> anyhow::Result<()> {
     let wifi_configuration: Configuration = Configuration::Client(ClientConfiguration {
         ssid: SSID.into(),
         bssid: None,
