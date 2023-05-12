@@ -695,7 +695,11 @@ pub mod executor {
     pub type EspExecutor<'a, const C: usize, S> = Executor<'a, C, FreeRtosMonitor, S>;
     pub type EspBlocker = Blocker<FreeRtosMonitor>;
 
-    pub struct FreeRtosMonitor(Arc<AtomicPtr<TaskHandle_t>>, *const ());
+    #[cfg(esp_idf_version_major = "4")]
+    pub struct FreeRtosMonitor(Arc<AtomicPtr<core::ffi::c_void>>, *const ());
+
+    #[cfg(not(esp_idf_version_major = "4"))]
+    pub struct FreeRtosMonitor(Arc<AtomicPtr<esp_idf_sys::tskTaskControlBlock>>, *const ());
 
     impl FreeRtosMonitor {
         pub fn new() -> Self {
@@ -741,6 +745,10 @@ pub mod executor {
         }
     }
 
+    #[cfg(esp_idf_version_major = "4")]
+    pub struct FreeRtosMonitorNotify(Weak<AtomicPtr<core::ffi::c_void>>);
+
+    #[cfg(not(esp_idf_version_major = "4"))]
     pub struct FreeRtosMonitorNotify(Weak<AtomicPtr<esp_idf_sys::tskTaskControlBlock>>);
 
     impl Notify for FreeRtosMonitorNotify {
