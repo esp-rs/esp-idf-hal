@@ -29,7 +29,7 @@ fn main() -> Result<()> {
 
     // 3 seconds white at 10% brightness
     neopixel(
-        RGB {
+        Rgb {
             r: 25,
             g: 25,
             b: 25,
@@ -51,7 +51,7 @@ fn main() -> Result<()> {
     }
 }
 
-struct RGB {
+struct Rgb {
     r: u8,
     g: u8,
     b: u8,
@@ -61,7 +61,7 @@ fn ns(nanos: u64) -> Duration {
     Duration::from_nanos(nanos)
 }
 
-fn neopixel(rgb: RGB, tx: &mut TxRmtDriver) -> Result<()> {
+fn neopixel(rgb: Rgb, tx: &mut TxRmtDriver) -> Result<()> {
     // e.g. rgb: (1,2,4)
     // G        R        B
     // 7      0 7      0 7      0
@@ -85,7 +85,7 @@ fn neopixel(rgb: RGB, tx: &mut TxRmtDriver) -> Result<()> {
 }
 
 /// Converts hue, saturation, value to RGB
-fn hsv2rgb(h: u32, s: u32, v: u32) -> Result<RGB> {
+fn hsv2rgb(h: u32, s: u32, v: u32) -> Result<Rgb> {
     if h > 360 || s > 100 || v > 100 {
         bail!("The given HSV values are not in valid range");
     }
@@ -99,19 +99,19 @@ fn hsv2rgb(h: u32, s: u32, v: u32) -> Result<RGB> {
         r = c;
         g = x;
         b = 0.0;
-    } else if h >= 60 && h < 120 {
+    } else if (60..120).contains(&h) {
         r = x;
         g = c;
         b = 0.0;
-    } else if h >= 120 && h < 180 {
+    } else if (120..180).contains(&h) {
         r = 0.0;
         g = c;
         b = x;
-    } else if h >= 180 && h < 240 {
+    } else if (180..240).contains(&h) {
         r = 0.0;
         g = x;
         b = c;
-    } else if h >= 240 && h < 300 {
+    } else if (240..300).contains(&h) {
         r = x;
         g = 0.0;
         b = c;
@@ -121,7 +121,7 @@ fn hsv2rgb(h: u32, s: u32, v: u32) -> Result<RGB> {
         b = x;
     }
 
-    Ok(RGB {
+    Ok(Rgb {
         r: ((r + m) * 255.0) as u8,
         g: ((g + m) * 255.0) as u8,
         b: ((b + m) * 255.0) as u8,

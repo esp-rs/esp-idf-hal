@@ -1319,22 +1319,33 @@ impl UnsafeCallback {
     }
 }
 
-#[cfg(all(not(feature = "riscv-ulp-hal"), feature = "alloc"))]
+#[cfg(not(feature = "riscv-ulp-hal"))]
+static ISR_ALLOC_FLAGS: core::sync::atomic::AtomicU32 = core::sync::atomic::AtomicU32::new(0);
+
+#[cfg(not(feature = "riscv-ulp-hal"))]
 static ISR_SERVICE_ENABLED: core::sync::atomic::AtomicBool =
     core::sync::atomic::AtomicBool::new(false);
 
-#[cfg(all(not(feature = "riscv-ulp-hal"), feature = "alloc"))]
+#[cfg(not(feature = "riscv-ulp-hal"))]
 static ISR_SERVICE_ENABLED_CS: crate::task::CriticalSection = crate::task::CriticalSection::new();
 
-#[cfg(all(not(feature = "riscv-ulp-hal"), feature = "alloc"))]
-fn enable_isr_service() -> Result<(), EspError> {
+#[cfg(not(feature = "riscv-ulp-hal"))]
+pub fn init_isr_alloc_flags(flags: enumset::EnumSet<crate::interrupt::IntrFlags>) {
+    ISR_ALLOC_FLAGS.store(
+        crate::interrupt::IntrFlags::to_native(flags),
+        core::sync::atomic::Ordering::SeqCst,
+    );
+}
+
+#[cfg(not(feature = "riscv-ulp-hal"))]
+pub fn enable_isr_service() -> Result<(), EspError> {
     use core::sync::atomic::Ordering;
 
     if !ISR_SERVICE_ENABLED.load(Ordering::SeqCst) {
         let _guard = ISR_SERVICE_ENABLED_CS.enter();
 
         if !ISR_SERVICE_ENABLED.load(Ordering::SeqCst) {
-            esp!(unsafe { gpio_install_isr_service(0) })?;
+            esp!(unsafe { gpio_install_isr_service(ISR_ALLOC_FLAGS.load(Ordering::SeqCst) as _) })?;
 
             ISR_SERVICE_ENABLED.store(true, Ordering::SeqCst);
         }

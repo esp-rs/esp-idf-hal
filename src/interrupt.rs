@@ -1,6 +1,81 @@
 use core::sync::atomic::{AtomicU64, Ordering};
 
+use enumset::{EnumSet, EnumSetType};
 use esp_idf_sys::*;
+
+/// Interrupt allocation flags.
+/// These flags can be used to specify which interrupt qualities the code calling esp_intr_alloc* needs.
+#[derive(Debug, EnumSetType)]
+pub enum IntrFlags {
+    // Accept a Level 1 interrupt vector (lowest priority)
+    Level1,
+    // Accept a Level 2 interrupt vector.
+    Level2,
+    // Accept a Level 3 interrupt vector.
+    Level3,
+    // Accept a Level 4 interrupt vector.
+    Level4,
+    // Accept a Level 5 interrupt vector.
+    Level5,
+    // Accept a Level 6 interrupt vector.
+    Level6,
+    // Accept a Level 7 interrupt vector (highest priority)
+    Nmi,
+    // Interrupt can be shared between ISRs.
+    Shared,
+    // Edge-triggered interrupt.
+    Edge,
+    // ISR can be called if cache is disabled.
+    // Must be used with a proper option *_ISR_IN_IRAM in SDKCONFIG
+    Iram,
+    // Return with this interrupt disabled.
+    IntrDisabled,
+    // Low and medium prio interrupts. These can be handled in C.
+    LowMed,
+    // High level interrupts. Need to be handled in assembly.
+    High,
+}
+
+impl IntrFlags {
+    pub fn levels(&self) -> EnumSet<Self> {
+        Self::Level1
+            | Self::Level2
+            | Self::Level3
+            | Self::Level4
+            | Self::Level5
+            | Self::Level6
+            | Self::Nmi
+    }
+
+    pub(crate) fn to_native(flags: EnumSet<Self>) -> u32 {
+        let mut uflags: u32 = 0;
+        for flag in flags {
+            uflags |= u32::from(flag);
+        }
+
+        uflags
+    }
+}
+
+impl From<IntrFlags> for u32 {
+    fn from(flag: IntrFlags) -> Self {
+        match flag {
+            IntrFlags::Level1 => esp_idf_sys::ESP_INTR_FLAG_LEVEL1,
+            IntrFlags::Level2 => esp_idf_sys::ESP_INTR_FLAG_LEVEL2,
+            IntrFlags::Level3 => esp_idf_sys::ESP_INTR_FLAG_LEVEL3,
+            IntrFlags::Level4 => esp_idf_sys::ESP_INTR_FLAG_LEVEL4,
+            IntrFlags::Level5 => esp_idf_sys::ESP_INTR_FLAG_LEVEL5,
+            IntrFlags::Level6 => esp_idf_sys::ESP_INTR_FLAG_LEVEL6,
+            IntrFlags::Nmi => esp_idf_sys::ESP_INTR_FLAG_NMI,
+            IntrFlags::Shared => esp_idf_sys::ESP_INTR_FLAG_SHARED,
+            IntrFlags::Edge => esp_idf_sys::ESP_INTR_FLAG_EDGE,
+            IntrFlags::Iram => esp_idf_sys::ESP_INTR_FLAG_IRAM,
+            IntrFlags::IntrDisabled => esp_idf_sys::ESP_INTR_FLAG_INTRDISABLED,
+            IntrFlags::LowMed => esp_idf_sys::ESP_INTR_FLAG_LOWMED,
+            IntrFlags::High => esp_idf_sys::ESP_INTR_FLAG_HIGH,
+        }
+    }
+}
 
 pub(crate) static CS: IsrCriticalSection = IsrCriticalSection::new();
 

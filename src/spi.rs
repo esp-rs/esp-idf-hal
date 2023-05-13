@@ -45,6 +45,7 @@ use esp_idf_sys::*;
 
 use crate::delay::{Ets, BLOCK};
 use crate::gpio::{AnyOutputPin, InputPin, Level, Output, OutputPin, PinDriver};
+use crate::interrupt::IntrFlags;
 use crate::peripheral::Peripheral;
 use crate::task::CriticalSection;
 
@@ -96,12 +97,16 @@ impl Dma {
     }
 }
 
+pub type SpiDriverConfig = config::DriverConfig;
 pub type SpiConfig = config::Config;
 
 /// SPI configuration
 pub mod config {
-    use crate::units::*;
+    use crate::{interrupt::IntrFlags, units::*};
+    use enumset::EnumSet;
     use esp_idf_sys::*;
+
+    use super::Dma;
 
     pub struct V02Type<T>(pub T);
 
@@ -137,7 +142,7 @@ pub mod config {
     }
 
     /// Specify the communication mode with the device
-    #[derive(Copy, Clone)]
+    #[derive(Debug, Copy, Clone, Eq, PartialEq)]
     pub enum Duplex {
         /// Full duplex is the default
         Full,
@@ -158,7 +163,7 @@ pub mod config {
     }
 
     /// Specifies the order in which the bits of data should be transfered/received
-    #[derive(Copy, Clone)]
+    #[derive(Debug, Copy, Clone, Eq, PartialEq)]
     pub enum BitOrder {
         /// Most significant bit first (default)
         MsbFirst,
@@ -181,8 +186,42 @@ pub mod config {
         }
     }
 
+    /// SPI Driver configuration
+    #[derive(Debug, Clone)]
+    pub struct DriverConfig {
+        pub dma: Dma,
+        pub intr_flags: EnumSet<IntrFlags>,
+    }
+
+    impl DriverConfig {
+        pub fn new() -> Self {
+            Default::default()
+        }
+
+        #[must_use]
+        pub fn dma(mut self, dma: Dma) -> Self {
+            self.dma = dma;
+            self
+        }
+
+        #[must_use]
+        pub fn intr_flags(mut self, intr_flags: EnumSet<IntrFlags>) -> Self {
+            self.intr_flags = intr_flags;
+            self
+        }
+    }
+
+    impl Default for DriverConfig {
+        fn default() -> Self {
+            Self {
+                dma: Dma::Disabled,
+                intr_flags: EnumSet::<IntrFlags>::empty(),
+            }
+        }
+    }
+
     /// SPI Device configuration
-    #[derive(Copy, Clone)]
+    #[derive(Debug, Clone)]
     pub struct Config {
         pub baudrate: Hertz,
         pub data_mode: embedded_hal::spi::Mode,
@@ -214,26 +253,31 @@ pub mod config {
             self
         }
 
+        #[must_use]
         pub fn write_only(mut self, write_only: bool) -> Self {
             self.write_only = write_only;
             self
         }
 
+        #[must_use]
         pub fn duplex(mut self, duplex: Duplex) -> Self {
             self.duplex = duplex;
             self
         }
 
+        #[must_use]
         pub fn bit_order(mut self, bit_order: BitOrder) -> Self {
             self.bit_order = bit_order;
             self
         }
 
+        #[must_use]
         pub fn cs_active_high(mut self) -> Self {
             self.cs_active_high = true;
             self
         }
 
+        #[must_use]
         pub fn input_delay_ns(mut self, input_delay_ns: i32) -> Self {
             self.input_delay_ns = input_delay_ns;
             self
@@ -476,9 +520,9 @@ impl<'d> SpiDriver<'d> {
         sclk: impl Peripheral<P = crate::gpio::Gpio6> + 'd,
         sdo: impl Peripheral<P = crate::gpio::Gpio7> + 'd,
         sdi: Option<impl Peripheral<P = crate::gpio::Gpio8> + 'd>,
-        dma: Dma,
+        config: &config::DriverConfig,
     ) -> Result<Self, EspError> {
-        let max_transfer_size = Self::new_internal(SPI1::device(), sclk, sdo, sdi, dma)?;
+        let max_transfer_size = Self::new_internal(SPI1::device(), sclk, sdo, sdi, config)?;
 
         Ok(Self {
             host: SPI1::device() as _,
@@ -493,9 +537,9 @@ impl<'d> SpiDriver<'d> {
         sclk: impl Peripheral<P = impl OutputPin> + 'd,
         sdo: impl Peripheral<P = impl OutputPin> + 'd,
         sdi: Option<impl Peripheral<P = impl InputPin + OutputPin> + 'd>,
-        dma: Dma,
+        config: &config::DriverConfig,
     ) -> Result<Self, EspError> {
-        let max_transfer_size = Self::new_internal(SPI::device(), sclk, sdo, sdi, dma)?;
+        let max_transfer_size = Self::new_internal(SPI::device(), sclk, sdo, sdi, config)?;
 
         Ok(Self {
             host: SPI::device() as _,
@@ -513,14 +557,15 @@ impl<'d> SpiDriver<'d> {
         sclk: impl Peripheral<P = impl OutputPin> + 'd,
         sdo: impl Peripheral<P = impl OutputPin> + 'd,
         sdi: Option<impl Peripheral<P = impl InputPin + OutputPin> + 'd>,
-        dma: Dma,
+        config: &config::DriverConfig,
     ) -> Result<usize, EspError> {
         crate::into_ref!(sclk, sdo);
         let sdi = sdi.map(|sdi| sdi.into_ref());
 
-        let max_transfer_sz = dma.max_transfer_size();
-        let dma_chan: spi_dma_chan_t = dma.into();
+        let max_transfer_sz = config.dma.max_transfer_size();
+        let dma_chan: spi_dma_chan_t = config.dma.into();
 
+        #[allow(clippy::needless_update)]
         #[cfg(not(esp_idf_version = "4.3"))]
         let bus_config = spi_bus_config_t {
             flags: SPICOMMON_BUSFLAG_MASTER,
@@ -547,9 +592,11 @@ impl<'d> SpiDriver<'d> {
                 //data3_io_num: -1,
             },
             max_transfer_sz: max_transfer_sz as i32,
+            intr_flags: IntrFlags::to_native(config.intr_flags) as _,
             ..Default::default()
         };
 
+        #[allow(clippy::needless_update)]
         #[cfg(esp_idf_version = "4.3")]
         let bus_config = spi_bus_config_t {
             flags: SPICOMMON_BUSFLAG_MASTER,
@@ -561,6 +608,7 @@ impl<'d> SpiDriver<'d> {
             quadhd_io_num: -1,
 
             max_transfer_sz: max_transfer_sz as i32,
+            intr_flags: config.intr_flags.into() as _,
             ..Default::default()
         };
 
@@ -594,11 +642,15 @@ impl<'d> SpiDeviceDriver<'d, SpiDriver<'d>> {
         sclk: impl Peripheral<P = crate::gpio::Gpio6> + 'd,
         sdo: impl Peripheral<P = crate::gpio::Gpio7> + 'd,
         sdi: Option<impl Peripheral<P = crate::gpio::Gpio8> + 'd>,
-        dma: Dma,
         cs: Option<impl Peripheral<P = impl OutputPin> + 'd>,
+        bus_config: &config::DriverConfig,
         config: &config::Config,
     ) -> Result<Self, EspError> {
-        Self::new(SpiDriver::new_spi1(spi, sclk, sdo, sdi, dma)?, cs, config)
+        Self::new(
+            SpiDriver::new_spi1(spi, sclk, sdo, sdi, bus_config)?,
+            cs,
+            config,
+        )
     }
 
     pub fn new_single<SPI: SpiAnyPins>(
@@ -606,11 +658,11 @@ impl<'d> SpiDeviceDriver<'d, SpiDriver<'d>> {
         sclk: impl Peripheral<P = impl OutputPin> + 'd,
         sdo: impl Peripheral<P = impl OutputPin> + 'd,
         sdi: Option<impl Peripheral<P = impl InputPin + OutputPin> + 'd>,
-        dma: Dma,
         cs: Option<impl Peripheral<P = impl OutputPin> + 'd>,
+        bus_config: &config::DriverConfig,
         config: &config::Config,
     ) -> Result<Self, EspError> {
-        Self::new(SpiDriver::new(spi, sclk, sdo, sdi, dma)?, cs, config)
+        Self::new(SpiDriver::new(spi, sclk, sdo, sdi, bus_config)?, cs, config)
     }
 }
 

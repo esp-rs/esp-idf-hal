@@ -32,7 +32,13 @@ fn main() -> anyhow::Result<()> {
 
     println!("Starting SPI loopback test");
 
-    let driver = SpiDriver::new::<SPI2>(spi, sclk, serial_out, Some(serial_in), Dma::Disabled)?;
+    let driver = SpiDriver::new::<SPI2>(
+        spi,
+        sclk,
+        serial_out,
+        Some(serial_in),
+        &SpiDriverConfig::new(),
+    )?;
 
     let config_1 = config::Config::new().baudrate(26.MHz().into());
     let mut device_1 = SpiDeviceDriver::new(&driver, Some(cs_1), &config_1)?;

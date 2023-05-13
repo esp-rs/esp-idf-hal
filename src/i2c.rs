@@ -7,6 +7,7 @@ use esp_idf_sys::*;
 
 use crate::delay::*;
 use crate::gpio::*;
+use crate::interrupt::IntrFlags;
 use crate::peripheral::Peripheral;
 use crate::units::*;
 
@@ -36,16 +37,19 @@ pub type I2cSlaveConfig = config::SlaveConfig;
 
 /// I2C configuration
 pub mod config {
+    use enumset::EnumSet;
+
     use super::APBTickType;
-    use crate::units::*;
+    use crate::{interrupt::IntrFlags, units::*};
 
     /// I2C Master configuration
-    #[derive(Copy, Clone)]
+    #[derive(Debug, Clone)]
     pub struct Config {
         pub baudrate: Hertz,
         pub sda_pullup_enabled: bool,
         pub scl_pullup_enabled: bool,
         pub timeout: Option<APBTickType>,
+        pub intr_flags: EnumSet<IntrFlags>,
     }
 
     impl Config {
@@ -76,6 +80,12 @@ pub mod config {
             self.timeout = Some(timeout);
             self
         }
+
+        #[must_use]
+        pub fn intr_flags(mut self, flags: EnumSet<IntrFlags>) -> Self {
+            self.intr_flags = flags;
+            self
+        }
     }
 
     impl Default for Config {
@@ -85,18 +95,20 @@ pub mod config {
                 sda_pullup_enabled: true,
                 scl_pullup_enabled: true,
                 timeout: None,
+                intr_flags: EnumSet::<IntrFlags>::empty(),
             }
         }
     }
 
     /// I2C Slave configuration
     #[cfg(not(esp32c2))]
-    #[derive(Copy, Clone)]
+    #[derive(Debug, Clone)]
     pub struct SlaveConfig {
         pub sda_pullup_enabled: bool,
         pub scl_pullup_enabled: bool,
         pub rx_buf_len: usize,
         pub tx_buf_len: usize,
+        pub intr_flags: EnumSet<IntrFlags>,
     }
 
     #[cfg(not(esp32c2))]
@@ -128,6 +140,12 @@ pub mod config {
             self.tx_buf_len = len;
             self
         }
+
+        #[must_use]
+        pub fn intr_flags(mut self, flags: EnumSet<IntrFlags>) -> Self {
+            self.intr_flags = flags;
+            self
+        }
     }
 
     #[cfg(not(esp32c2))]
@@ -138,6 +156,7 @@ pub mod config {
                 scl_pullup_enabled: true,
                 rx_buf_len: 0,
                 tx_buf_len: 0,
+                intr_flags: EnumSet::<IntrFlags>::empty(),
             }
         }
     }
@@ -188,8 +207,8 @@ impl<'d> I2cDriver<'d> {
                 i2c_mode_t_I2C_MODE_MASTER,
                 0, // Not used in master mode
                 0, // Not used in master mode
-                0,
-            ) // TODO: set flags
+                IntrFlags::to_native(config.intr_flags) as _,
+            )
         })?;
 
         if let Some(timeout) = config.timeout {
@@ -460,7 +479,7 @@ impl<'d> I2cSlaveDriver<'d> {
                 i2c_mode_t_I2C_MODE_SLAVE,
                 config.rx_buf_len,
                 config.tx_buf_len,
-                0, // TODO: set flags
+                IntrFlags::to_native(config.intr_flags) as _,
             )
         })?;
 
