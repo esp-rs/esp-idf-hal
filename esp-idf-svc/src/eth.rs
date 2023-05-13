@@ -434,7 +434,7 @@ where
         ),
         EspError,
     > {
-        unsafe { gpio_install_isr_service(0) };
+        esp_idf_hal::gpio::enable_isr_service()?;
 
         let mac_cfg = Self::eth_mac_default_config(0, 0);
         let phy_cfg = Self::eth_phy_default_config(rst.map(|pin| pin), phy_addr);
