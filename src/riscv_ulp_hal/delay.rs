@@ -40,16 +40,12 @@ impl embedded_hal_0_2::blocking::delay::DelayMs<u8> for Ulp {
 }
 
 impl embedded_hal::delay::DelayUs for Ulp {
-    type Error = core::convert::Infallible;
-
-    fn delay_us(&mut self, us: u32) -> Result<(), Self::Error> {
-        delay_cycles(us * ULP_RISCV_CYCLES_PER_US_NUM / ULP_RISCV_CYCLES_PER_US_DENUM);
-        Ok(())
+    fn delay_us(&mut self, us: u32) {
+        delay_cycles(us * ULP_RISCV_CYCLES_PER_US_NUM / ULP_RISCV_CYCLES_PER_US_DENUM)
     }
 
-    fn delay_ms(&mut self, ms: u32) -> Result<(), Self::Error> {
-        delay_cycles(ms * ULP_RISCV_CYCLES_PER_MS);
-        Ok(())
+    fn delay_ms(&mut self, ms: u32) {
+        delay_cycles(ms * ULP_RISCV_CYCLES_PER_MS)
     }
 }
 

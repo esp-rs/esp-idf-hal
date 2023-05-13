@@ -44,6 +44,7 @@ use core::sync::atomic::{AtomicU8, Ordering};
 
 use crate::delay::NON_BLOCK;
 use crate::gpio::*;
+use crate::interrupt::IntrFlags;
 use crate::units::*;
 
 use esp_idf_sys::*;
@@ -56,7 +57,8 @@ pub type UartConfig = config::Config;
 
 /// UART configuration
 pub mod config {
-    use crate::units::*;
+    use crate::{interrupt::IntrFlags, units::*};
+    use enumset::EnumSet;
     use esp_idf_sys::*;
 
     /// Number of data bits
@@ -299,7 +301,7 @@ pub mod config {
     }
 
     /// UART configuration
-    #[derive(Debug, Copy, Clone)]
+    #[derive(Debug, Clone)]
     pub struct Config {
         pub baudrate: Hertz,
         pub data_bits: DataBits,
@@ -308,6 +310,7 @@ pub mod config {
         pub flow_control: FlowControl,
         pub flow_control_rts_threshold: u8,
         pub source_clock: SourceClock,
+        pub intr_flags: EnumSet<IntrFlags>,
     }
 
     impl Config {
@@ -383,6 +386,7 @@ pub mod config {
                 flow_control: FlowControl::None,
                 flow_control_rts_threshold: 122,
                 source_clock: SourceClock::default(),
+                intr_flags: EnumSet::<IntrFlags>::empty(),
             }
         }
     }
@@ -934,6 +938,7 @@ fn new_common<UART: Uart>(
     };
 
     esp!(unsafe { uart_param_config(UART::port(), &uart_config) })?;
+    esp!(unsafe { uart_intr_config(UART::port(), IntrFlags::to_native(config.intr_flags) as _) })?;
 
     esp!(unsafe {
         uart_set_pin(

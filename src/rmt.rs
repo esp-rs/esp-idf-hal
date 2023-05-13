@@ -64,6 +64,7 @@ use esp_idf_sys::*;
 
 use crate::gpio::InputPin;
 use crate::gpio::OutputPin;
+use crate::interrupt::IntrFlags;
 use crate::peripheral::Peripheral;
 use crate::units::Hertz;
 
@@ -71,6 +72,10 @@ use config::ReceiveConfig;
 use config::TransmitConfig;
 
 pub use chip::*;
+
+// Might not always be available in the generated `esp-idf-sys` bindings
+const ERR_ERANGE: esp_err_t = 34;
+const ERR_EOVERFLOW: esp_err_t = 139;
 
 pub type RmtTransmitConfig = config::TransmitConfig;
 pub type RmtReceiveConfig = config::ReceiveConfig;
@@ -207,22 +212,22 @@ pub fn duration_to_ticks(ticks_hz: Hertz, duration: &Duration) -> Result<u16, Es
     let ticks = duration
         .as_nanos()
         .checked_mul(u32::from(ticks_hz) as u128)
-        .ok_or_else(|| EspError::from(EOVERFLOW as i32).unwrap())?
+        .ok_or_else(|| EspError::from(ERR_EOVERFLOW).unwrap())?
         / 1_000_000_000;
 
-    u16::try_from(ticks).map_err(|_| EspError::from(EOVERFLOW as i32).unwrap())
+    u16::try_from(ticks).map_err(|_| EspError::from(ERR_EOVERFLOW).unwrap())
 }
 
 /// A utility to convert ticks into duration, depending on the clock ticks.
 pub fn ticks_to_duration(ticks_hz: Hertz, ticks: u16) -> Result<Duration, EspError> {
     let duration = 1_000_000_000_u128
         .checked_mul(ticks as u128)
-        .ok_or_else(|| EspError::from(EOVERFLOW as i32).unwrap())?
+        .ok_or_else(|| EspError::from(ERR_EOVERFLOW).unwrap())?
         / u32::from(ticks_hz) as u128;
 
     u64::try_from(duration)
         .map(Duration::from_nanos)
-        .map_err(|_| EspError::from(EOVERFLOW as i32).unwrap())
+        .map_err(|_| EspError::from(ERR_EOVERFLOW).unwrap())
 }
 
 pub type TxRmtConfig = config::TransmitConfig;
@@ -246,10 +251,14 @@ pub type RxRmtConfig = config::ReceiveConfig;
 ///
 /// ```
 pub mod config {
+    use enumset::EnumSet;
     use esp_idf_sys::{EspError, ESP_ERR_INVALID_ARG};
 
     use super::PinState;
-    use crate::units::{FromValueType, Hertz};
+    use crate::{
+        interrupt::IntrFlags,
+        units::{FromValueType, Hertz},
+    };
 
     /// A percentage from 0 to 100%, used to specify the duty percentage in [`CarrierConfig`].
     #[derive(Debug, Copy, Clone, Eq, PartialEq)]
@@ -288,16 +297,19 @@ pub mod config {
             }
         }
 
+        #[must_use]
         pub fn frequency(mut self, hz: Hertz) -> Self {
             self.frequency = hz;
             self
         }
 
+        #[must_use]
         pub fn carrier_level(mut self, state: PinState) -> Self {
             self.carrier_level = state;
             self
         }
 
+        #[must_use]
         pub fn duty_percent(mut self, duty: DutyPercent) -> Self {
             self.duty_percent = duty;
             self
@@ -316,11 +328,16 @@ pub mod config {
     pub enum Loop {
         None,
         Endless,
-        #[cfg(not(any(esp32, esp32c2)))]
+        #[cfg(any(
+            all(not(esp_idf_version_major = "4"), not(esp_idf_version_major = "5")),
+            all(esp_idf_version_major = "5", not(esp_idf_version_minor = "0")),
+            not(esp32)
+        ))]
         Count(u32),
     }
 
     /// Used when creating a [`Transmit`][crate::rmt::Transmit] instance.
+    #[derive(Debug, Clone)]
     pub struct TransmitConfig {
         pub clock_divider: u8,
         pub mem_block_num: u8,
@@ -336,6 +353,8 @@ pub mod config {
         /// When set, RMT channel will take REF_TICK or XTAL as source clock. The benefit is, RMT
         /// channel can continue work even when APB clock is changing.
         pub aware_dfs: bool,
+
+        pub intr_flags: EnumSet<IntrFlags>,
     }
 
     impl TransmitConfig {
@@ -347,36 +366,49 @@ pub mod config {
                 looping: Loop::None,
                 carrier: None,
                 idle: Some(PinState::Low),
+                intr_flags: EnumSet::<IntrFlags>::empty(),
             }
         }
 
+        #[must_use]
         pub fn aware_dfs(mut self, enable: bool) -> Self {
             self.aware_dfs = enable;
             self
         }
 
+        #[must_use]
         pub fn mem_block_num(mut self, mem_block_num: u8) -> Self {
             self.mem_block_num = mem_block_num;
             self
         }
 
+        #[must_use]
         pub fn clock_divider(mut self, divider: u8) -> Self {
             self.clock_divider = divider;
             self
         }
 
+        #[must_use]
         pub fn looping(mut self, looping: Loop) -> Self {
             self.looping = looping;
             self
         }
 
+        #[must_use]
         pub fn carrier(mut self, carrier: Option<CarrierConfig>) -> Self {
             self.carrier = carrier;
             self
         }
 
+        #[must_use]
         pub fn idle(mut self, idle: Option<PinState>) -> Self {
             self.idle = idle;
+            self
+        }
+
+        #[must_use]
+        pub fn intr_flags(mut self, flags: EnumSet<IntrFlags>) -> Self {
+            self.intr_flags = flags;
             self
         }
     }
@@ -389,6 +421,7 @@ pub mod config {
     }
 
     /// Used when creating a [`Receive`][crate::rmt::Receive] instance.
+    #[derive(Debug, Clone)]
     pub struct ReceiveConfig {
         pub clock_divider: u8,
         pub mem_block_num: u8,
@@ -396,6 +429,7 @@ pub mod config {
         pub filter_ticks_thresh: u8,
         pub filter_en: bool,
         pub carrier: Option<CarrierConfig>,
+        pub intr_flags: EnumSet<IntrFlags>,
     }
 
     impl ReceiveConfig {
@@ -403,33 +437,45 @@ pub mod config {
             Self::default()
         }
 
+        #[must_use]
         pub fn clock_divider(mut self, divider: u8) -> Self {
             self.clock_divider = divider;
             self
         }
 
+        #[must_use]
         pub fn mem_block_num(mut self, mem_block_num: u8) -> Self {
             self.mem_block_num = mem_block_num;
             self
         }
 
+        #[must_use]
         pub fn idle_threshold(mut self, threshold: u16) -> Self {
             self.idle_threshold = threshold;
             self
         }
 
+        #[must_use]
         pub fn filter_ticks_thresh(mut self, threshold: u8) -> Self {
             self.filter_ticks_thresh = threshold;
             self
         }
 
+        #[must_use]
         pub fn filter_en(mut self, enable: bool) -> Self {
             self.filter_en = enable;
             self
         }
 
+        #[must_use]
         pub fn carrier(mut self, carrier: Option<CarrierConfig>) -> Self {
             self.carrier = carrier;
+            self
+        }
+
+        #[must_use]
+        pub fn intr_flags(mut self, flags: EnumSet<IntrFlags>) -> Self {
+            self.intr_flags = flags;
             self
         }
     }
@@ -444,6 +490,7 @@ pub mod config {
                 filter_ticks_thresh: 100, // 100 microseconds, pulses less than this will be ignored
                 filter_en: true,
                 carrier: None,
+                intr_flags: EnumSet::<IntrFlags>::empty(),
             }
         }
     }
@@ -497,7 +544,11 @@ impl<'d> TxRmtDriver<'d> {
                     idle_output_en: config.idle.is_some(),
                     idle_level: config.idle.map(|i| i as u32).unwrap_or(0),
                     loop_en: config.looping != config::Loop::None,
-                    #[cfg(not(any(esp32, esp32c2)))]
+                    #[cfg(any(
+                        all(not(esp_idf_version_major = "4"), not(esp_idf_version_major = "5")),
+                        all(esp_idf_version_major = "5", not(esp_idf_version_minor = "0")),
+                        not(esp32)
+                    ))]
                     loop_count: match config.looping {
                         config::Loop::Count(count) if count > 0 && count < 1024 => count,
                         _ => 0,
@@ -508,7 +559,11 @@ impl<'d> TxRmtDriver<'d> {
 
         unsafe {
             esp!(rmt_config(&sys_config))?;
-            esp!(rmt_driver_install(C::channel(), 0, 0))?;
+            esp!(rmt_driver_install(
+                C::channel(),
+                0,
+                IntrFlags::to_native(config.intr_flags) as _
+            ))?;
         }
 
         Ok(Self {
@@ -769,7 +824,7 @@ impl<const N: usize> FixedLengthSignal<N> {
         let item = self
             .0
             .get_mut(index)
-            .ok_or_else(|| EspError::from(ERANGE as i32).unwrap())?;
+            .ok_or_else(|| EspError::from(ERR_ERANGE).unwrap())?;
 
         // SAFETY: We're overriding all 32 bits, so it doesn't matter what was here before.
         let inner = unsafe { &mut item.__bindgen_anon_1.__bindgen_anon_1 };
@@ -931,7 +986,7 @@ impl<'d> RxRmtDriver<'d> {
         #[cfg(not(any(esp32, esp32c2)))]
         let carrier = config.carrier.unwrap_or_default();
 
-        let config = rmt_config_t {
+        let sys_config = rmt_config_t {
             rmt_mode: rmt_mode_t_RMT_MODE_RX,
             channel: C::channel(),
             gpio_num: pin.pin(),
@@ -956,8 +1011,12 @@ impl<'d> RxRmtDriver<'d> {
         };
 
         unsafe {
-            esp!(rmt_config(&config))?;
-            esp!(rmt_driver_install(C::channel(), ring_buf_size * 4, 0))?;
+            esp!(rmt_config(&sys_config))?;
+            esp!(rmt_driver_install(
+                C::channel(),
+                ring_buf_size * 4,
+                IntrFlags::to_native(config.intr_flags) as _
+            ))?;
         }
 
         Ok(Self {
@@ -1050,7 +1109,7 @@ impl<'d> RxRmtDriver<'d> {
         let mut ringbuf_handle = ptr::null_mut();
         esp!(unsafe { rmt_get_ringbuf_handle(self.channel(), &mut ringbuf_handle) })?;
 
-        if let Some((rmt_items, _)) = core::mem::replace(&mut self.next_ringbuf_item, None) {
+        if let Some((rmt_items, _)) = self.next_ringbuf_item.take() {
             unsafe {
                 vRingbufferReturnItem(ringbuf_handle, rmt_items.cast());
             }

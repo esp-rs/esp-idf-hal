@@ -16,13 +16,19 @@ pub fn do_yield() {
             if let Some((yielder, arg)) = interrupt::get_isr_yielder() {
                 yielder(arg);
             } else {
-                #[cfg(esp32c3)]
+                #[cfg(any(esp32c3, esp32c2, esp32h2, esp32c5, esp32c6))]
                 vPortYieldFromISR();
 
-                #[cfg(all(not(esp32c3), esp_idf_version_major = "4"))]
+                #[cfg(all(
+                    not(any(esp32c3, esp32c2, esp32h2, esp32c5, esp32c6)),
+                    esp_idf_version_major = "4"
+                ))]
                 vPortEvaluateYieldFromISR(0);
 
-                #[cfg(all(not(esp32c3), not(esp_idf_version_major = "4")))]
+                #[cfg(all(
+                    not(any(esp32c3, esp32c2, esp32h2, esp32c5, esp32c6)),
+                    not(esp_idf_version_major = "4")
+                ))]
                 _frxt_setup_switch();
             }
         }
@@ -132,7 +138,7 @@ pub unsafe fn notify(task: TaskHandle_t, notification: u32) -> bool {
 }
 
 pub fn get_idle_task(core: crate::cpu::Core) -> TaskHandle_t {
-    #[cfg(esp32c3)]
+    #[cfg(any(esp32c3, esp32c2, esp32h2, esp32c5, esp32c6))]
     {
         if matches!(core, crate::cpu::Core::Core0) {
             unsafe { xTaskGetIdleTaskHandle() }
@@ -141,7 +147,7 @@ pub fn get_idle_task(core: crate::cpu::Core) -> TaskHandle_t {
         }
     }
 
-    #[cfg(any(esp32, esp32s2, esp32s3))]
+    #[cfg(not(any(esp32c3, esp32c2, esp32h2, esp32c5, esp32c6)))]
     unsafe {
         xTaskGetIdleTaskHandleForCPU(core as u32)
     }
@@ -149,6 +155,8 @@ pub fn get_idle_task(core: crate::cpu::Core) -> TaskHandle_t {
 
 #[cfg(esp_idf_comp_pthread_enabled)]
 pub mod thread {
+    use core::ffi::CStr;
+
     use esp_idf_sys::*;
 
     use crate::cpu::Core;
@@ -238,6 +246,15 @@ pub mod thread {
     }
 
     fn set_conf(conf: &ThreadSpawnConfiguration) -> Result<(), EspError> {
+        if let Some(name) = conf.name {
+            let _str = CStr::from_bytes_with_nul(name)
+                .map_err(|_e| panic! {"Missing null byte in provided Thread-Name"});
+        }
+
+        if conf.priority < 1 || conf.priority as u32 >= configMAX_PRIORITIES {
+            panic!("Thread priority {} has to be [1 - 24]", conf.priority);
+        }
+
         esp!(unsafe { esp_pthread_set_cfg(&conf.into()) })?;
 
         Ok(())
@@ -678,6 +695,10 @@ pub mod executor {
     pub type EspExecutor<'a, const C: usize, S> = Executor<'a, C, FreeRtosMonitor, S>;
     pub type EspBlocker = Blocker<FreeRtosMonitor>;
 
+    #[cfg(esp_idf_version_major = "4")]
+    pub struct FreeRtosMonitor(Arc<AtomicPtr<core::ffi::c_void>>, *const ());
+
+    #[cfg(not(esp_idf_version_major = "4"))]
     pub struct FreeRtosMonitor(Arc<AtomicPtr<esp_idf_sys::tskTaskControlBlock>>, *const ());
 
     impl FreeRtosMonitor {
@@ -724,6 +745,10 @@ pub mod executor {
         }
     }
 
+    #[cfg(esp_idf_version_major = "4")]
+    pub struct FreeRtosMonitorNotify(Weak<AtomicPtr<core::ffi::c_void>>);
+
+    #[cfg(not(esp_idf_version_major = "4"))]
     pub struct FreeRtosMonitorNotify(Weak<AtomicPtr<esp_idf_sys::tskTaskControlBlock>>);
 
     impl Notify for FreeRtosMonitorNotify {

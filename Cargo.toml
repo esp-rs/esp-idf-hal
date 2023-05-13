@@ -1,6 +1,6 @@
 [package]
 name = "esp-idf-hal"
-version = "0.40.1"
+version = "0.41.1"
 authors = ["sapir <yasapir@gmail.com>", "Ivan Markov <ivan.markov@gmail.com>"]
 edition = "2018"
 resolver = "2"
@@ -11,37 +11,38 @@ repository = "https://github.com/esp-rs/esp-idf-hal"
 license = "MIT OR Apache-2.0"
 readme = "README.md"
 documentation = "https://esp-rs.github.io/esp-idf-hal/"
-rust-version = "1.61"
+rust-version = "1.66"
 
 [features]
-default = ["std", "alloc", "esp-idf-sys"]
+default = ["std", "alloc"]
 std = ["alloc", "esp-idf-sys/std", "edge-executor?/std"]
 alloc = []
+esp-idf-sys = ["dep:esp-idf-sys", "atomic-waker"]
 riscv-ulp-hal = []
 nightly = ["embedded-hal-async"]
 
 [dependencies]
 nb = "1.0.0"
 embedded-can = "0.4.1"
-embedded-hal = "=1.0.0-alpha.9"
+embedded-hal = "=1.0.0-alpha.10"
 embedded-hal-0-2 = { package = "embedded-hal", version = "0.2.7", features = ["unproven"] }
-embedded-hal-nb = "=1.0.0-alpha.1"
-esp-idf-sys = { version = "0.32.1", optional = true, default-features = false, features = ["native"] }
-critical-section = { version = "1.1", optional = true }
+embedded-hal-nb = "=1.0.0-alpha.2"
+esp-idf-sys = { version = "0.33", optional = true, default-features = false, features = ["native"] }
+critical-section = { version = "1.1.1", optional = true }
 heapless = "0.7"
-embassy-sync = { version = "0.1", optional = true }
+embassy-sync = { version = "0.2", optional = true }
 edge-executor = { version = "0.3", optional = true, default-features = false }
 enumset = { version = "1", default-features = false }
-embedded-hal-async = { version = "0.2.0-alpha.0", optional = true }
-futures-util = { version = "0.3", default-features = false }
+embedded-hal-async = { version = "0.2.0-alpha.1", optional = true }
+atomic-waker = { version = "1.1.1", optional = true, default-features = false }
 
 [build-dependencies]
-embuild = "0.31"
+embuild = "0.31.2"
 anyhow = "1"
 
 [dev-dependencies]
 anyhow = "1"
-esp-idf-sys = { version = "0.32", features = ["native", "binstart"] }
+esp-idf-sys = { version = "0.33", features = ["native", "binstart"] }
 mipidsi = "0.5.0"
 display-interface-spi = "0.4.1"
 embedded-graphics = "0.7.1"

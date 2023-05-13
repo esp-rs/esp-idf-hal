@@ -7,6 +7,7 @@ use esp_idf_sys::*;
 
 use crate::delay::*;
 use crate::gpio::*;
+use crate::interrupt::IntrFlags;
 use crate::peripheral::Peripheral;
 use crate::units::*;
 
@@ -31,20 +32,24 @@ impl From<Duration> for APBTickType {
 }
 
 pub type I2cConfig = config::Config;
+#[cfg(not(esp32c2))]
 pub type I2cSlaveConfig = config::SlaveConfig;
 
 /// I2C configuration
 pub mod config {
+    use enumset::EnumSet;
+
     use super::APBTickType;
-    use crate::units::*;
+    use crate::{interrupt::IntrFlags, units::*};
 
     /// I2C Master configuration
-    #[derive(Copy, Clone)]
+    #[derive(Debug, Clone)]
     pub struct Config {
         pub baudrate: Hertz,
         pub sda_pullup_enabled: bool,
         pub scl_pullup_enabled: bool,
         pub timeout: Option<APBTickType>,
+        pub intr_flags: EnumSet<IntrFlags>,
     }
 
     impl Config {
@@ -75,6 +80,12 @@ pub mod config {
             self.timeout = Some(timeout);
             self
         }
+
+        #[must_use]
+        pub fn intr_flags(mut self, flags: EnumSet<IntrFlags>) -> Self {
+            self.intr_flags = flags;
+            self
+        }
     }
 
     impl Default for Config {
@@ -84,19 +95,23 @@ pub mod config {
                 sda_pullup_enabled: true,
                 scl_pullup_enabled: true,
                 timeout: None,
+                intr_flags: EnumSet::<IntrFlags>::empty(),
             }
         }
     }
 
     /// I2C Slave configuration
-    #[derive(Copy, Clone)]
+    #[cfg(not(esp32c2))]
+    #[derive(Debug, Clone)]
     pub struct SlaveConfig {
         pub sda_pullup_enabled: bool,
         pub scl_pullup_enabled: bool,
         pub rx_buf_len: usize,
         pub tx_buf_len: usize,
+        pub intr_flags: EnumSet<IntrFlags>,
     }
 
+    #[cfg(not(esp32c2))]
     impl SlaveConfig {
         pub fn new() -> Self {
             Default::default()
@@ -125,8 +140,15 @@ pub mod config {
             self.tx_buf_len = len;
             self
         }
+
+        #[must_use]
+        pub fn intr_flags(mut self, flags: EnumSet<IntrFlags>) -> Self {
+            self.intr_flags = flags;
+            self
+        }
     }
 
+    #[cfg(not(esp32c2))]
     impl Default for SlaveConfig {
         fn default() -> Self {
             Self {
@@ -134,6 +156,7 @@ pub mod config {
                 scl_pullup_enabled: true,
                 rx_buf_len: 0,
                 tx_buf_len: 0,
+                intr_flags: EnumSet::<IntrFlags>::empty(),
             }
         }
     }
@@ -184,8 +207,8 @@ impl<'d> I2cDriver<'d> {
                 i2c_mode_t_I2C_MODE_MASTER,
                 0, // Not used in master mode
                 0, // Not used in master mode
-                0,
-            ) // TODO: set flags
+                IntrFlags::to_native(config.intr_flags) as _,
+            )
         })?;
 
         if let Some(timeout) = config.timeout {
@@ -400,38 +423,12 @@ impl<'d> embedded_hal::i2c::I2c<embedded_hal::i2c::SevenBitAddress> for I2cDrive
         I2cDriver::write_read(self, addr, bytes, buffer, BLOCK).map_err(to_i2c_err)
     }
 
-    fn write_iter<B>(&mut self, _address: u8, _bytes: B) -> Result<(), Self::Error>
-    where
-        B: IntoIterator<Item = u8>,
-    {
-        todo!()
-    }
-
-    fn write_iter_read<B>(
-        &mut self,
-        _address: u8,
-        _bytes: B,
-        _buffer: &mut [u8],
-    ) -> Result<(), Self::Error>
-    where
-        B: IntoIterator<Item = u8>,
-    {
-        todo!()
-    }
-
     fn transaction(
         &mut self,
         address: u8,
         operations: &mut [embedded_hal::i2c::Operation<'_>],
     ) -> Result<(), Self::Error> {
         I2cDriver::transaction(self, address, operations, BLOCK).map_err(to_i2c_err)
-    }
-
-    fn transaction_iter<'a, O>(&mut self, _address: u8, _operations: O) -> Result<(), Self::Error>
-    where
-        O: IntoIterator<Item = embedded_hal::i2c::Operation<'a>>,
-    {
-        todo!()
     }
 }
 
@@ -443,13 +440,16 @@ fn to_i2c_err(err: EspError) -> I2cError {
     }
 }
 
+#[cfg(not(esp32c2))]
 pub struct I2cSlaveDriver<'d> {
     i2c: u8,
     _p: PhantomData<&'d mut ()>,
 }
 
+#[cfg(not(esp32c2))]
 unsafe impl<'d> Send for I2cSlaveDriver<'d> {}
 
+#[cfg(not(esp32c2))]
 impl<'d> I2cSlaveDriver<'d> {
     pub fn new<I2C: I2c>(
         _i2c: impl Peripheral<P = I2C> + 'd,
@@ -501,7 +501,7 @@ impl<'d> I2cSlaveDriver<'d> {
                 i2c_mode_t_I2C_MODE_SLAVE,
                 config.rx_buf_len,
                 config.tx_buf_len,
-                0, // TODO: set flags
+                IntrFlags::to_native(config.intr_flags) as _,
             )
         })?;
 
@@ -540,6 +540,7 @@ impl<'d> I2cSlaveDriver<'d> {
     }
 }
 
+#[cfg(not(esp32c2))]
 impl<'d> Drop for I2cSlaveDriver<'d> {
     fn drop(&mut self) {
         esp!(unsafe { i2c_driver_delete(self.port()) }).unwrap();
@@ -610,5 +611,5 @@ macro_rules! impl_i2c {
 }
 
 impl_i2c!(I2C0: 0);
-#[cfg(not(esp32c3))]
+#[cfg(not(any(esp32c3, esp32c2, esp32c6)))]
 impl_i2c!(I2C1: 1);

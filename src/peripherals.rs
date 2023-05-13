@@ -35,7 +35,7 @@ use crate::timer;
 #[cfg(not(feature = "riscv-ulp-hal"))]
 use crate::uart;
 #[cfg(all(
-    any(esp32, esp32s2, esp32s3),
+    any(esp32, esp32s2, esp32s3, esp32c6, esp32p4),
     not(feature = "riscv-ulp-hal"),
     esp_idf_comp_ulp_enabled
 ))]
@@ -51,16 +51,18 @@ pub struct Peripherals {
     pub uart2: uart::UART2,
     #[cfg(not(feature = "riscv-ulp-hal"))]
     pub i2c0: i2c::I2C0,
-    #[cfg(all(not(esp32c3), not(feature = "riscv-ulp-hal")))]
+    #[cfg(all(not(any(esp32c3, esp32c2, esp32c6)), not(feature = "riscv-ulp-hal")))]
     pub i2c1: i2c::I2C1,
     #[cfg(not(feature = "riscv-ulp-hal"))]
     pub spi1: spi::SPI1,
     #[cfg(not(feature = "riscv-ulp-hal"))]
     pub spi2: spi::SPI2,
-    #[cfg(all(not(esp32c3), not(feature = "riscv-ulp-hal")))]
+    #[cfg(all(any(esp32, esp32s2, esp32s3), not(feature = "riscv-ulp-hal")))]
     pub spi3: spi::SPI3,
     pub adc1: adc::ADC1,
+    #[cfg(any(esp32, esp32s2, esp32s3, esp32c3))]
     pub adc2: adc::ADC2,
+    // TODO: Check the pulse counter story for c2, h2, c5, c6, and p4
     #[cfg(all(not(feature = "riscv-ulp-hal"), any(esp32, esp32s2, esp32s3)))]
     pub pcnt0: pcnt::PCNT0,
     #[cfg(all(not(feature = "riscv-ulp-hal"), any(esp32, esp32s2, esp32s3)))]
@@ -86,7 +88,7 @@ pub struct Peripherals {
     #[cfg(not(feature = "riscv-ulp-hal"))]
     pub rmt: rmt::RMT,
     #[cfg(all(
-        any(esp32, esp32s2, esp32s3),
+        any(esp32, esp32s2, esp32s3, esp32c6, esp32p4),
         not(feature = "riscv-ulp-hal"),
         esp_idf_comp_ulp_enabled
     ))]
@@ -98,24 +100,26 @@ pub struct Peripherals {
     pub mac: mac::MAC,
     #[cfg(not(feature = "riscv-ulp-hal"))]
     pub modem: modem::Modem,
+    // TODO: Check the timer story for c2, h2, c5, c6, and p4
     #[cfg(all(
         not(feature = "riscv-ulp-hal"),
         not(feature = "embassy-time-isr-queue-timer00")
     ))]
     pub timer00: timer::TIMER00,
     #[cfg(all(
-        not(esp32c3),
+        any(esp32, esp32s2, esp32s3),
         not(feature = "riscv-ulp-hal"),
         not(feature = "embassy-time-isr-queue-timer01")
     ))]
     pub timer01: timer::TIMER01,
     #[cfg(all(
+        not(esp32c2),
         not(feature = "riscv-ulp-hal"),
         not(feature = "embassy-time-isr-queue-timer10")
     ))]
     pub timer10: timer::TIMER10,
     #[cfg(all(
-        not(esp32c3),
+        any(esp32, esp32s2, esp32s3),
         not(feature = "riscv-ulp-hal"),
         not(feature = "embassy-time-isr-queue-timer11")
     ))]
@@ -186,15 +190,16 @@ impl Peripherals {
             uart2: uart::UART2::new(),
             #[cfg(not(feature = "riscv-ulp-hal"))]
             i2c0: i2c::I2C0::new(),
-            #[cfg(all(not(esp32c3), not(feature = "riscv-ulp-hal")))]
+            #[cfg(all(not(any(esp32c3, esp32c2, esp32c6)), not(feature = "riscv-ulp-hal")))]
             i2c1: i2c::I2C1::new(),
             #[cfg(not(feature = "riscv-ulp-hal"))]
             spi1: spi::SPI1::new(),
             #[cfg(not(feature = "riscv-ulp-hal"))]
             spi2: spi::SPI2::new(),
-            #[cfg(all(not(esp32c3), not(feature = "riscv-ulp-hal")))]
+            #[cfg(all(any(esp32, esp32s2, esp32s3), not(feature = "riscv-ulp-hal")))]
             spi3: spi::SPI3::new(),
             adc1: adc::ADC1::new(),
+            #[cfg(any(esp32, esp32s2, esp32s3, esp32c3))]
             adc2: adc::ADC2::new(),
             #[cfg(all(not(feature = "riscv-ulp-hal"), any(esp32, esp32s2, esp32s3)))]
             pcnt0: pcnt::PCNT0::new(),
@@ -221,7 +226,7 @@ impl Peripherals {
             #[cfg(not(feature = "riscv-ulp-hal"))]
             rmt: rmt::RMT::new(),
             #[cfg(all(
-                any(esp32, esp32s2, esp32s3),
+                any(esp32, esp32s2, esp32s3, esp32c6, esp32p4),
                 not(feature = "riscv-ulp-hal"),
                 esp_idf_comp_ulp_enabled
             ))]
@@ -239,18 +244,19 @@ impl Peripherals {
             ))]
             timer00: timer::TIMER00::new(),
             #[cfg(all(
-                not(esp32c3),
+                any(esp32, esp32s2, esp32s3),
                 not(feature = "riscv-ulp-hal"),
                 not(feature = "embassy-time-isr-queue-timer01")
             ))]
             timer01: timer::TIMER01::new(),
             #[cfg(all(
+                not(esp32c2),
                 not(feature = "riscv-ulp-hal"),
                 not(feature = "embassy-time-isr-queue-timer10")
             ))]
             timer10: timer::TIMER10::new(),
             #[cfg(all(
-                not(esp32c3),
+                any(esp32, esp32s2, esp32s3),
                 not(feature = "riscv-ulp-hal"),
                 not(feature = "embassy-time-isr-queue-timer11")
             ))]

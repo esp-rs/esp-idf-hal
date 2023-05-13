@@ -515,12 +515,21 @@ impl Drop for PcntDriver<'_> {
     }
 }
 
+static ISR_ALLOC_FLAGS: core::sync::atomic::AtomicU32 = core::sync::atomic::AtomicU32::new(0);
+
 #[cfg(feature = "alloc")]
 static ISR_SERVICE_ENABLED: core::sync::atomic::AtomicBool =
     core::sync::atomic::AtomicBool::new(false);
 
 #[cfg(feature = "alloc")]
 static PCNT_CS: crate::task::CriticalSection = crate::task::CriticalSection::new();
+
+pub fn init_isr_alloc_flags(flags: enumset::EnumSet<crate::interrupt::IntrFlags>) {
+    ISR_ALLOC_FLAGS.store(
+        crate::interrupt::IntrFlags::to_native(flags),
+        core::sync::atomic::Ordering::SeqCst,
+    );
+}
 
 #[cfg(feature = "alloc")]
 fn enable_isr_service() -> Result<(), EspError> {
@@ -530,7 +539,7 @@ fn enable_isr_service() -> Result<(), EspError> {
         let _cs = PCNT_CS.enter();
 
         if !ISR_SERVICE_ENABLED.load(Ordering::SeqCst) {
-            esp!(unsafe { pcnt_isr_service_install(0) })?;
+            esp!(unsafe { pcnt_isr_service_install(ISR_ALLOC_FLAGS.load(Ordering::SeqCst) as _) })?;
 
             ISR_SERVICE_ENABLED.store(true, Ordering::SeqCst);
         }

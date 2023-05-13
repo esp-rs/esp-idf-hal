@@ -45,6 +45,12 @@ const IDLE_LEVEL: u32 = 0;
 static FADE_FUNC_INSTALLED: AtomicBool = AtomicBool::new(false);
 static FADE_FUNC_INSTALLED_CS: CriticalSection = CriticalSection::new();
 
+crate::embedded_hal_error!(
+    PwmError,
+    embedded_hal::pwm::Error,
+    embedded_hal::pwm::ErrorKind
+);
+
 /// Types for configuring the LED Control peripheral
 pub mod config {
     use super::*;
@@ -120,6 +126,11 @@ impl<'d> LedcTimerDriver<'d> {
             clk_cfg: ledc_clk_cfg_t_LEDC_AUTO_CLK,
             #[cfg(not(any(esp_idf_version_major = "4", esp_idf_version_minor = "0")))]
             clk_cfg: soc_periph_ledc_clk_src_legacy_t_LEDC_AUTO_CLK,
+            #[cfg(not(any(
+                esp_idf_version_major = "4",
+                all(esp_idf_version_major = "5", esp_idf_version_minor = "0")
+            )))]
+            deconfigure: false,
         };
 
         // SAFETY: We own the instance and therefor are safe to configure it.
@@ -310,31 +321,46 @@ impl<'d> Drop for LedcDriver<'d> {
 
 unsafe impl<'d> Send for LedcDriver<'d> {}
 
-// PwmPin temporarily removed from embedded-hal-1.0.alpha7 in anticipation of e-hal 1.0 release
-// impl<'d> embedded_hal::pwm::blocking::PwmPin for LedcDriver<'d> {
-//     type Duty = Duty;
-//     type Error = EspError;
+impl<'d> embedded_hal::pwm::ErrorType for LedcDriver<'d> {
+    type Error = PwmError;
+}
 
-//     fn disable(&mut self) -> Result<(), Self::Error> {
-//         self.disable()
-//     }
+fn to_pwm_err(err: EspError) -> PwmError {
+    PwmError::other(err)
+}
 
-//     fn enable(&mut self) -> Result<(), Self::Error> {
-//         self.enable()
-//     }
+impl<'d> embedded_hal::pwm::SetDutyCycle for LedcDriver<'d> {
+    fn get_max_duty_cycle(&self) -> u16 {
+        let duty = self.get_max_duty();
+        let duty_cap: u16 = if duty > u16::MAX as u32 {
+            u16::MAX
+        } else {
+            duty as u16
+        };
+        duty_cap
+    }
 
-//     fn get_duty(&self) -> Result<Self::Duty, Self::Error> {
-//         Ok(self.get_duty())
-//     }
+    fn set_duty_cycle(&mut self, duty: u16) -> Result<(), PwmError> {
+        self.set_duty(duty as u32).map_err(to_pwm_err)
+    }
 
-//     fn get_max_duty(&self) -> Result<Self::Duty, Self::Error> {
-//         Ok(self.get_max_duty())
-//     }
+    fn set_duty_cycle_fully_on(&mut self) -> Result<(), PwmError> {
+        self.set_duty(self.get_max_duty()).map_err(to_pwm_err)
+    }
 
-//     fn set_duty(&mut self, duty: Duty) -> Result<(), Self::Error> {
-//         self.set_duty(duty)
-//     }
-// }
+    fn set_duty_cycle_fully_off(&mut self) -> Result<(), PwmError> {
+        self.set_duty(0).map_err(to_pwm_err)
+    }
+
+    fn set_duty_cycle_fraction(&mut self, num: u16, denom: u16) -> Result<(), PwmError> {
+        let duty = num as u32 * self.get_max_duty_cycle() as u32 / denom as u32;
+        self.set_duty_cycle(duty as u16)
+    }
+
+    fn set_duty_cycle_percent(&mut self, percent: u8) -> Result<(), PwmError> {
+        self.set_duty_cycle_fraction(percent as u16, 100)
+    }
+}
 
 impl<'d> embedded_hal_0_2::PwmPin for LedcDriver<'d> {
     type Duty = Duty;

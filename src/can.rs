@@ -36,6 +36,7 @@ use esp_idf_sys::*;
 
 use crate::delay::{BLOCK, NON_BLOCK};
 use crate::gpio::*;
+use crate::interrupt::IntrFlags;
 use crate::peripheral::{Peripheral, PeripheralRef};
 
 crate::embedded_hal_error!(CanError, embedded_can::Error, embedded_can::ErrorKind);
@@ -49,7 +50,10 @@ crate::embedded_hal_error!(
 pub type CanConfig = config::Config;
 
 pub mod config {
+    use enumset::EnumSet;
     use esp_idf_sys::*;
+
+    use crate::interrupt::IntrFlags;
 
     /// CAN timing
     #[derive(Debug, Copy, Clone, Eq, PartialEq)]
@@ -433,7 +437,7 @@ pub mod config {
         }
     }
 
-    #[derive(Debug, Copy, Clone, Default)]
+    #[derive(Debug, Clone)]
     pub struct Config {
         pub timing: Timing,
         pub filter: Filter,
@@ -441,14 +445,19 @@ pub mod config {
         pub rx_queue_len: u32,
         pub mode: Mode,
         pub alerts: Alerts,
+        pub intr_flags: EnumSet<IntrFlags>,
     }
 
     impl Config {
         pub fn new() -> Self {
-            Config {
+            Self {
+                timing: Default::default(),
+                filter: Default::default(),
                 tx_queue_len: 5,
                 rx_queue_len: 5,
-                ..Default::default()
+                mode: Default::default(),
+                alerts: Default::default(),
+                intr_flags: EnumSet::<IntrFlags>::empty(),
             }
         }
 
@@ -464,24 +473,40 @@ pub mod config {
             self
         }
 
+        #[must_use]
         pub fn tx_queue_len(mut self, tx_queue_len: u32) -> Self {
             self.tx_queue_len = tx_queue_len;
             self
         }
 
+        #[must_use]
         pub fn rx_queue_len(mut self, rx_queue_len: u32) -> Self {
             self.rx_queue_len = rx_queue_len;
             self
         }
 
+        #[must_use]
         pub fn mode(mut self, mode: Mode) -> Self {
             self.mode = mode;
             self
         }
 
+        #[must_use]
         pub fn alerts(mut self, alerts: Alerts) -> Self {
             self.alerts = alerts;
             self
+        }
+
+        #[must_use]
+        pub fn intr_flags(mut self, flags: EnumSet<IntrFlags>) -> Self {
+            self.intr_flags = flags;
+            self
+        }
+    }
+
+    impl Default for Config {
+        fn default() -> Self {
+            Self::new()
         }
     }
 }
@@ -510,7 +535,7 @@ impl<'d> CanDriver<'d> {
             rx_queue_len: config.rx_queue_len,
             alerts_enabled: config.alerts.into(),
             clkout_divider: 0,
-            intr_flags: ESP_INTR_FLAG_LEVEL1 as i32,
+            intr_flags: IntrFlags::to_native(config.intr_flags) as _,
         };
 
         let timing_config = config.timing.into();

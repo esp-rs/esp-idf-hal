@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.41.0] - 2023-05-13
+
+* MSRV 1.66 (but MSRV 1.70 necessary if `nightly` is enabled)
+* Support for new chips: esp32c2, esp32h2, esp32c6 and future proofed for esp32c5 and esp32p4
+* Support for ESP IDF 5.0, 5.1 and 5.2 (master)
+* Support for `embedded-hal` 1.0-alpha.10 and `embedded-hal-async` 0.2.0-alpha.2 (API breakage in i2c and spi)
+* Async GPIO native API with support for `embedded-hal-async`
+* PCNT driver
+* Alerts and Mode support in the TWAI driver
+* Task Watchdog API
+* Configurable interrupt levels in all drivers (minor API breakage in `SpiDriver`)
+* `EspError::from_infallible`
+* Auto-reload support in the timer driver
+
 ## [0.40.1] - 2022-12-13
 
 Fix the build when the ULP peripheral is enabled.
