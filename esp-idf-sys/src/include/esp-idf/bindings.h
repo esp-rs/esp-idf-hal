@@ -162,7 +162,9 @@
 #include "esp_transport.h"
 #include "esp_transport_ssl.h"
 #include "esp_transport_tcp.h"
+#ifdef CONFIG_WS_TRANSPORT
 #include "esp_transport_ws.h"
+#endif
 #endif
 
 #ifdef ESP_IDF_COMP_ESP_HTTP_SERVER_ENABLED
