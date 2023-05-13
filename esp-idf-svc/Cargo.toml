@@ -13,11 +13,6 @@ readme = "README.md"
 documentation = "https://esp-rs.github.io/esp-idf-svc/"
 rust-version = "1.66"
 
-[patch.crates-io]
-esp-idf-sys = { git = "https://github.com/esp-rs/esp-idf-sys.git" }
-esp-idf-hal = { git = "https://github.com/esp-rs/esp-idf-hal.git" }
-embedded-svc = { git = "https://github.com/esp-rs/embedded-svc.git" }
-
 [features]
 default = ["std"]
 
