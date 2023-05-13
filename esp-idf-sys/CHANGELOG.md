@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.33.0] - 2023-05-13
+
+* (In theory) no API breakage, yet the minor version is raised just in case
+* Support for new chips: esp32c2, esp32h2, esp32c6 and future proofed for esp32c5 and esp32p4
+* Support for ESP IDF 5.0, 5.1 and 5.2 (master)
+* New raw bindings: esp-transport, himem, psram, esp-dpp, i2s, a2dp, wpa2
+
 ## [0.32.1] - 2022-12-13
 
 * Fix an erroneous cast to `u32` in `Esp32Alloc`, causing `no_std` builds using the allocator to fail (#158)
