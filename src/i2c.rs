@@ -395,10 +395,10 @@ impl<'d> embedded_hal_0_2::blocking::i2c::Transactional for I2cDriver<'d> {
         for operation in operations {
             match operation {
                 embedded_hal_0_2::blocking::i2c::Operation::Write(wr) => {
-                    self.write(address, wr, BLOCK)?
+                    self.write(address, wr, BLOCK)?;
                 }
                 embedded_hal_0_2::blocking::i2c::Operation::Read(rd) => {
-                    self.read(address, rd, BLOCK)?
+                    self.read(address, rd, BLOCK)?;
                 }
             }
         }
