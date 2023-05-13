@@ -130,6 +130,7 @@
 
 #ifdef ESP_IDF_COMP_LWIP_ENABLED
 #include "lwip/lwip_napt.h"
+#include "lwip/netdb.h"
 #include "lwip/sockets.h"
 #include "esp_sntp.h"
 #include "ping/ping_sock.h"
@@ -155,6 +156,13 @@
 
 #ifdef ESP_IDF_COMP_ESP_HTTP_CLIENT_ENABLED
 #include "esp_http_client.h"
+#endif
+
+#ifdef ESP_IDF_COMP_TCP_TRANSPORT_ENABLED
+#include "esp_transport.h"
+#include "esp_transport_ssl.h"
+#include "esp_transport_tcp.h"
+#include "esp_transport_ws.h"
 #endif
 
 #ifdef ESP_IDF_COMP_ESP_HTTP_SERVER_ENABLED
