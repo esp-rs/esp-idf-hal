@@ -1,6 +1,6 @@
 [package]
 name = "esp-idf-svc"
-version = "0.45.0"
+version = "0.46.0"
 authors = ["Ivan Markov <ivan.markov@gmail.com>"]
 edition = "2018"
 resolver = "2"
@@ -34,11 +34,11 @@ enumset = { version = "1", default-features = false }
 log = { version = "0.4", default-features = false }
 uncased = "0.9.7"
 anyhow = { version = "1", default-features = false, optional = true } # Only used by the deprecated httpd module
-embedded-svc = { version = "0.24", default-features = false }
-esp-idf-sys = { version = "0.32.1", default-features = false, features = ["native"] }
-esp-idf-hal = { version = "0.40", default-features = false, features = ["esp-idf-sys"] }
-embassy-sync = { version = "0.1", optional = true }
-embassy-time = { version = "0.1", optional = true, features = ["tick-hz-1_000_000"] }
+embedded-svc = { version = "0.25", default-features = false }
+esp-idf-sys = { version = "0.33", default-features = false, features = ["native"] }
+esp-idf-hal = { version = "0.41", default-features = false, features = ["esp-idf-sys"] }
+embassy-sync = { version = "0.2", optional = true }
+embassy-time = { version = "0.1.1", optional = true, features = ["tick-hz-1_000_000"] }
 embassy-futures = "0.1"
 
 [build-dependencies]
@@ -47,7 +47,7 @@ anyhow = "1"
 
 [dev-dependencies]
 anyhow = "1"
-esp-idf-sys = { version = "0.32", features = ["native", "binstart"] }
+esp-idf-sys = { version = "0.33", features = ["native", "binstart"] }
 futures = "0.3"
 
 [[example]]

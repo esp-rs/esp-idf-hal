@@ -5,14 +5,31 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.45] - 2022-12-13
+## [0.46.0] - 2023-05-13
+
+* MSRV 1.66
+* Support for ESP IDF 5.0, 5.1 and 5.2 (master)
+* Remove the `experimental` status from all formerly experimental features
+* Remove the `nightly` feature flag guard from all `asyncify` modules as Rust GATs are stable now
+* Async and blocking APIs for `Wifi`, `Eth` and `EspNetif` that abstract away the ESP IDF system event loop (for easier initial configuration) - API breakage in `netif`
+* `Eth` SPI driver rebased on top of `esp-idf-hal`'s `SpiDeviceDriver`; it can now either borrow or own the SPI device driver (API breakage)
+* `Eth` driver now supports SPI bus sharing with other SPI devices (API breakage)
+* `NVS` - additional APIs that support the serde format of the ESP IDF NVS C code
+* `SNTP` - new, callback API
+* `log` - support for setting target level per module
+* `OTA` - small API extensions
+* `netif` - compilation errors when PPP & SLIP support is enabled are addressed
+* HTTP client & server - various bugfixes
+* `EspError::from_infallible`
+
+## [0.45.0] - 2022-12-13
 
 HTTP server:
 * Compatibility with `embedded-svc` V0.24
 * New function - `fn_handler` that addresses HRTB lifetime issues when converting a Fn closure to a `Handler` instance
 * Remove `EspHttpFnTraversableChain`; it is not necessary, now that the `fn_handler` function from above does exist
 
-## [0.44] - 2022-12-09
+## [0.44.0] - 2022-12-09
 
 Rebase on top of `esp-idf-sys` 0.32:
 * Retire any usages of `esp-idf-sys::c_types` in favor of `core::ffi`
@@ -31,7 +48,7 @@ Patch releases:
 
 Patch releases to fix compilation errors under no_std.
 
-## [0.43] - 2022-11-01
+## [0.43.0] - 2022-11-01
 
 Release 0.43 is a backwards-incompatible release where almost all services were touched in one way or another.
 
