@@ -1,6 +1,6 @@
 [package]
 name = "esp-idf-hal"
-version = "0.41.0"
+version = "0.41.1"
 authors = ["sapir <yasapir@gmail.com>", "Ivan Markov <ivan.markov@gmail.com>"]
 edition = "2018"
 resolver = "2"
@@ -12,9 +12,6 @@ license = "MIT OR Apache-2.0"
 readme = "README.md"
 documentation = "https://esp-rs.github.io/esp-idf-hal/"
 rust-version = "1.66"
-
-[patch.crates-io]
-esp-idf-sys = { git = "https://github.com/esp-rs/esp-idf-sys.git" }
 
 [features]
 default = ["std", "alloc"]
