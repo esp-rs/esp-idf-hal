@@ -515,7 +515,7 @@ impl Drop for PcntDriver<'_> {
     }
 }
 
-static ISR_ALLOC_FLAGS: core::sync::AtomicU32 = core::sync::atomic::AtomicU32::new(0);
+static ISR_ALLOC_FLAGS: core::sync::atomic::AtomicU32 = core::sync::atomic::AtomicU32::new(0);
 
 #[cfg(feature = "alloc")]
 static ISR_SERVICE_ENABLED: core::sync::atomic::AtomicBool =
