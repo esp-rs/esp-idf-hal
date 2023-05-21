@@ -71,13 +71,13 @@ pub struct Peripherals {
     pub pcnt2: pcnt::PCNT2,
     #[cfg(all(not(feature = "riscv-ulp-hal"), any(esp32, esp32s2, esp32s3)))]
     pub pcnt3: pcnt::PCNT3,
-    #[cfg(all(not(feature = "riscv-ulp-hal"), any(esp32)))]
+    #[cfg(all(not(feature = "riscv-ulp-hal"), esp32))]
     pub pcnt4: pcnt::PCNT4,
-    #[cfg(all(not(feature = "riscv-ulp-hal"), any(esp32)))]
+    #[cfg(all(not(feature = "riscv-ulp-hal"), esp32))]
     pub pcnt5: pcnt::PCNT5,
-    #[cfg(all(not(feature = "riscv-ulp-hal"), any(esp32)))]
+    #[cfg(all(not(feature = "riscv-ulp-hal"), esp32))]
     pub pcnt6: pcnt::PCNT6,
-    #[cfg(all(not(feature = "riscv-ulp-hal"), any(esp32)))]
+    #[cfg(all(not(feature = "riscv-ulp-hal"), esp32))]
     pub pcnt7: pcnt::PCNT7,
     #[cfg(all(esp32, esp_idf_version_major = "4"))]
     pub hall_sensor: crate::hall::HallSensor,
@@ -209,13 +209,13 @@ impl Peripherals {
             pcnt2: pcnt::PCNT2::new(),
             #[cfg(all(not(feature = "riscv-ulp-hal"), any(esp32, esp32s2, esp32s3)))]
             pcnt3: pcnt::PCNT3::new(),
-            #[cfg(all(not(feature = "riscv-ulp-hal"), any(esp32)))]
+            #[cfg(all(not(feature = "riscv-ulp-hal"), esp32))]
             pcnt4: pcnt::PCNT4::new(),
-            #[cfg(all(not(feature = "riscv-ulp-hal"), any(esp32)))]
+            #[cfg(all(not(feature = "riscv-ulp-hal"), esp32))]
             pcnt5: pcnt::PCNT5::new(),
-            #[cfg(all(not(feature = "riscv-ulp-hal"), any(esp32)))]
+            #[cfg(all(not(feature = "riscv-ulp-hal"), esp32))]
             pcnt6: pcnt::PCNT6::new(),
-            #[cfg(all(not(feature = "riscv-ulp-hal"), any(esp32)))]
+            #[cfg(all(not(feature = "riscv-ulp-hal"), esp32))]
             pcnt7: pcnt::PCNT7::new(),
             #[cfg(all(esp32, esp_idf_version_major = "4"))]
             hall_sensor: crate::hall::HallSensor::new(),

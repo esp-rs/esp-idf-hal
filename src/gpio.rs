@@ -2103,7 +2103,7 @@ mod chip {
     }
 }
 
-#[cfg(any(esp32c3))]
+#[cfg(esp32c3)]
 #[cfg(not(feature = "riscv-ulp-hal"))]
 mod chip {
     use esp_idf_sys::*;
@@ -2211,7 +2211,7 @@ mod chip {
     }
 }
 
-#[cfg(any(esp32c2))]
+#[cfg(esp32c2)]
 #[cfg(not(feature = "riscv-ulp-hal"))]
 mod chip {
     use esp_idf_sys::*;
@@ -2316,7 +2316,7 @@ mod chip {
     }
 }
 
-#[cfg(any(esp32h2))]
+#[cfg(esp32h2)]
 #[cfg(not(feature = "riscv-ulp-hal"))]
 mod chip {
     use esp_idf_sys::*;
