@@ -44,7 +44,7 @@ use core::sync::atomic::{AtomicU8, Ordering};
 
 use crate::delay::NON_BLOCK;
 use crate::gpio::*;
-use crate::interrupt::IntrFlags;
+
 use crate::units::*;
 
 use esp_idf_sys::*;
@@ -938,7 +938,9 @@ fn new_common<UART: Uart>(
     };
 
     esp!(unsafe { uart_param_config(UART::port(), &uart_config) })?;
-    esp!(unsafe { uart_intr_config(UART::port(), IntrFlags::to_native(config.intr_flags) as _) })?;
+
+    // TODO: #250
+    //esp!(unsafe { uart_intr_config(UART::port(), IntrFlags::to_native(config.intr_flags) as _) })?;
 
     esp!(unsafe {
         uart_set_pin(
