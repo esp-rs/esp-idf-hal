@@ -5,7 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.41.0] - 2023-05-13
+## [0.41.1] - 2023-05-21
+
+* UART driver was broken - see #250 for more details
+* Removed a forgotten `[patch.crates-io]` section that was using `esp-idf-sys` from `master` (low impact, only relevant when building the examples)
+* Clippy fixes
+
+## [0.41.0] - 2023-05-13 (Yanked due to #250, see above)
 
 * MSRV 1.66 (but MSRV 1.70 necessary if `nightly` is enabled)
 * Support for new chips: esp32c2, esp32h2, esp32c6 and future proofed for esp32c5 and esp32p4
