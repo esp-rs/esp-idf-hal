@@ -171,8 +171,8 @@ impl EspNow {
     }
 
     extern "C" fn recv_callback(
-        #[cfg(any(esp_idf_version_major = "4"))] mac_addr: *const u8,
-        #[cfg(not(any(esp_idf_version_major = "4")))] esp_now_info: *const esp_now_recv_info_t,
+        #[cfg(esp_idf_version_major = "4")] mac_addr: *const u8,
+        #[cfg(not(esp_idf_version_major = "4"))] esp_now_info: *const esp_now_recv_info_t,
         data: *const u8,
         data_len: core::ffi::c_int,
     ) {

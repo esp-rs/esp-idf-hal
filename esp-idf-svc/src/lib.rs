@@ -19,7 +19,7 @@
 )]
 #![allow(clippy::unused_unit)] // enumset
 
-#[cfg(any(feature = "alloc"))]
+#[cfg(feature = "alloc")]
 #[allow(unused_imports)]
 #[macro_use]
 extern crate alloc;
