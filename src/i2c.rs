@@ -390,7 +390,7 @@ impl<'d> embedded_hal_0_2::blocking::i2c::Transactional for I2cDriver<'d> {
     fn exec<'a>(
         &mut self,
         address: u8,
-        operations: &mut [embedded_hal_0_2::blocking::i2c::Operation<'a>],
+        operations: &mut [embedded_hal_0_2::blocking::i2c::Operation<'_>],
     ) -> Result<(), Self::Error> {
         for operation in operations {
             match operation {
