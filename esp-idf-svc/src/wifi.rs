@@ -374,6 +374,13 @@ where
     }
 }
 
+/// This struct provides a safe wrapper over the ESP IDF Wifi C driver. The driver
+/// works on Layer 2 (Data Link) in the OSI model, in that it provides facilities
+/// for sending and receiving ethernet packets over the WiFi radio.
+///
+/// For most use cases, utilizing `EspWifi` - which provides a networking (IP)
+/// layer as well - should be preferred. Using `WifiDriver` directly is beneficial
+/// only when one would like to utilize a custom, non-STD network stack like `smoltcp`.
 pub struct WifiDriver<'d> {
     status: Arc<mutex::Mutex<(WifiEvent, WifiEvent)>>,
     _subscription: EspSubscription<System>,
@@ -505,6 +512,8 @@ impl<'d> WifiDriver<'d> {
         Ok(())
     }
 
+    /// Returns the set of [`Capabilities`] for this driver. In `esp-idf`, all
+    /// drivers always have Client, AP and Mixed capabilities.
     pub fn get_capabilities(&self) -> Result<EnumSet<Capability>, EspError> {
         let caps = Capability::Client | Capability::AccessPoint | Capability::Mixed;
 
@@ -513,6 +522,7 @@ impl<'d> WifiDriver<'d> {
         Ok(caps)
     }
 
+    /// As per [`esp_idf_sys::esp_wifi_start`](esp_idf_sys::esp_wifi_start)
     pub fn start(&mut self) -> Result<(), EspError> {
         debug!("Start requested");
 
@@ -523,6 +533,7 @@ impl<'d> WifiDriver<'d> {
         Ok(())
     }
 
+    /// As per [`esp_idf_sys::esp_wifi_stop`](esp_idf_sys::esp_wifi_stop)
     pub fn stop(&mut self) -> Result<(), EspError> {
         debug!("Stop requested");
 
@@ -533,6 +544,7 @@ impl<'d> WifiDriver<'d> {
         Ok(())
     }
 
+    /// As per [`esp_idf_sys::esp_wifi_connect`](esp_idf_sys::esp_wifi_connect)
     pub fn connect(&mut self) -> Result<(), EspError> {
         debug!("Connect requested");
 
@@ -543,6 +555,7 @@ impl<'d> WifiDriver<'d> {
         Ok(())
     }
 
+    /// As per [`esp_idf_sys::esp_wifi_disconnect`](esp_idf_sys::esp_wifi_disconnect)
     pub fn disconnect(&mut self) -> Result<(), EspError> {
         debug!("Disconnect requested");
 
@@ -553,6 +566,8 @@ impl<'d> WifiDriver<'d> {
         Ok(())
     }
 
+    /// Returns `true` if the driver is in Access Point (AP) mode, as reported by
+    /// [`esp_idf_sys::esp_wifi_get_mode`](esp_idf_sys::esp_wifi_get_mode)
     pub fn is_ap_enabled(&self) -> Result<bool, EspError> {
         let mut mode: wifi_mode_t = 0;
         esp!(unsafe { esp_wifi_get_mode(&mut mode) })?;
@@ -560,6 +575,8 @@ impl<'d> WifiDriver<'d> {
         Ok(mode == wifi_mode_t_WIFI_MODE_AP || mode == wifi_mode_t_WIFI_MODE_APSTA)
     }
 
+    /// Returns `true` if the driver is in Client (station or STA) mode, as
+    /// reported by [`esp_idf_sys::esp_wifi_get_mode`](esp_idf_sys::esp_wifi_get_mode)
     pub fn is_sta_enabled(&self) -> Result<bool, EspError> {
         let mut mode: wifi_mode_t = 0;
         esp!(unsafe { esp_wifi_get_mode(&mut mode) })?;
@@ -619,6 +636,7 @@ impl<'d> WifiDriver<'d> {
     }
 
     #[allow(non_upper_case_globals)]
+    /// Returns the <`Configuration`> currently in use
     pub fn get_configuration(&self) -> Result<Configuration, EspError> {
         debug!("Getting configuration");
 
@@ -640,6 +658,11 @@ impl<'d> WifiDriver<'d> {
         Ok(conf)
     }
 
+    /// Sets the <`Configuration`> (SSID, channel, etc). This also defines whether
+    /// the driver will work in AP mode, client mode, client+AP mode, or none.
+    ///
+    /// Calls [`esp_idf_sys::esp_wifi_set_mode`](esp_idf_sys::esp_wifi_set_mode)
+    /// and [`esp_idf_sys::esp_wifi_set_config`](esp_idf_sys::esp_wifi_set_config)
     pub fn set_configuration(&mut self, conf: &Configuration) -> Result<(), EspError> {
         debug!("Setting configuration: {:?}", conf);
 
@@ -829,6 +852,9 @@ impl<'d> WifiDriver<'d> {
         Ok(result)
     }
 
+    /// Sets callback functions for receiving and sending data, as per
+    /// [`esp_idf_sys::esp_wifi_internal_reg_rxcb`](esp_idf_sys::esp_wifi_internal_reg_rxcb) and
+    /// [`esp_idf_sys::esp_wifi_set_tx_done_cb`](esp_idf_sys::esp_wifi_set_tx_done_cb)
     pub fn set_callbacks<R, T>(
         &mut self,
         mut rx_callback: R,
@@ -874,6 +900,7 @@ impl<'d> WifiDriver<'d> {
         Ok(())
     }
 
+    /// As per [`esp_idf_sys::esp_wifi_internal_tx`](esp_idf_sys::esp_wifi_internal_tx)
     pub fn send(&mut self, device_id: WifiDeviceId, frame: &[u8]) -> Result<(), EspError> {
         esp!(unsafe {
             esp_wifi_internal_tx(device_id.into(), frame.as_ptr() as *mut _, frame.len() as _)
@@ -892,8 +919,9 @@ impl<'d> WifiDriver<'d> {
         Ok(ap_info)
     }
 
-    /// Set RSSI threshold below which APP will get an WifiEvent::StaBssRssiLow.
-    /// rssi_threshold: threshold value in dbm between -100 to 0
+    /// Set RSSI threshold below which APP will get an WifiEvent::StaBssRssiLow,
+    /// as per [`esp_idf_sys::esp_wifi_set_rssi_threshold`](esp_idf_sys::esp_wifi_set_rssi_threshold)
+    /// `rssi_threshold`: threshold value in dbm between -100 to 0
     ///
     /// # Example
     ///
@@ -931,6 +959,8 @@ impl<'d> WifiDriver<'d> {
         esp!(unsafe { esp_wifi_set_rssi_threshold(rssi_threshold.into()) })
     }
 
+    /// Returns the MAC address of the interface, as per
+    /// [`esp_idf_sys::esp_wifi_get_mac`](esp_idf_sys::esp_wifi_get_mac)
     pub fn get_mac(&self, interface: WifiDeviceId) -> Result<[u8; 6], EspError> {
         let mut mac = [0u8; 6];
 
@@ -939,6 +969,8 @@ impl<'d> WifiDriver<'d> {
         Ok(mac)
     }
 
+    /// Seta the MAC address of the interface, as per
+    /// [`esp_idf_sys::esp_wifi_set_mac`](esp_idf_sys::esp_wifi_set_mac)
     pub fn set_mac(&mut self, interface: WifiDeviceId, mac: [u8; 6]) -> Result<(), EspError> {
         esp!(unsafe { esp_wifi_set_mac(interface.into(), mac.as_ptr() as *mut _) })
     }
@@ -1184,6 +1216,15 @@ impl<'d> Wifi for WifiDriver<'d> {
     }
 }
 
+/// `EspWifi` wraps a `WifiDriver` Data Link layer instance, and binds the OSI
+/// Layer 3 (network) facilities of ESP IDF to it. In other words, it connects
+/// the ESP IDF AP and STA Netif interfaces to the Wifi driver. This allows users
+/// to utilize the Rust STD APIs for working with TCP and UDP sockets.
+///
+/// This struct should be the default option for a Wifi driver in all use cases
+/// but the niche one where bypassing the ESP IDF Netif and lwIP stacks is
+/// desirable. E.g., using `smoltcp` or other custom IP stacks on top of the
+/// ESP IDF Wifi radio.
 #[cfg(esp_idf_comp_esp_netif_enabled)]
 pub struct EspWifi<'d> {
     ap_netif: EspNetif,
@@ -1234,6 +1275,7 @@ impl<'d> EspWifi<'d> {
         Ok(this)
     }
 
+    /// Replaces the network interfaces with the given ones. Returns the old ones.
     pub fn swap_netif(
         &mut self,
         sta_netif: EspNetif,
@@ -1249,42 +1291,53 @@ impl<'d> EspWifi<'d> {
         Ok((old_sta, old_ap))
     }
 
+    /// Returns the underlying [`WifiDriver`]
     pub fn driver(&self) -> &WifiDriver<'d> {
         &self.driver
     }
 
+    /// Returns the underlying [`WifiDriver`], as mutable
     pub fn driver_mut(&mut self) -> &mut WifiDriver<'d> {
         &mut self.driver
     }
 
+    /// Returns the underlying [`EspNetif`] for client mode
     pub fn sta_netif(&self) -> &EspNetif {
         &self.sta_netif
     }
 
+    /// Returns the underlying [`EspNetif`] for client mode, as mutable
     pub fn sta_netif_mut(&mut self) -> &mut EspNetif {
         &mut self.sta_netif
     }
 
+    /// Returns the underlying [`EspNetif`] for AP mode
     pub fn ap_netif(&self) -> &EspNetif {
         &self.ap_netif
     }
 
+    /// Returns the underlying [`EspNetif`] for AP mode, as mutable
     pub fn ap_netif_mut(&mut self) -> &mut EspNetif {
         &mut self.ap_netif
     }
 
+    /// As per [`WifiDriver::get_capabilities()`]
     pub fn get_capabilities(&self) -> Result<EnumSet<Capability>, EspError> {
         self.driver().get_capabilities()
     }
 
+    /// As per [`WifiDriver::is_started()`]
     pub fn is_started(&self) -> Result<bool, EspError> {
         self.driver().is_started()
     }
 
+    /// As per [`WifiDriver::is_connected()`]
     pub fn is_connected(&self) -> Result<bool, EspError> {
         self.driver().is_connected()
     }
 
+    /// Returns `true` when the driver has a connection, it has enabled either
+    /// client or AP mode, and either the client or AP network interface is up.
     pub fn is_up(&self) -> Result<bool, EspError> {
         if !self.driver().is_connected()? {
             Ok(false)
@@ -1297,54 +1350,55 @@ impl<'d> EspWifi<'d> {
         }
     }
 
+    /// As per [`WifiDriver::get_configuration()`]
     pub fn get_configuration(&self) -> Result<Configuration, EspError> {
         self.driver().get_configuration()
     }
 
+    /// As per [`WifiDriver::set_configuration()`]
     pub fn set_configuration(&mut self, conf: &Configuration) -> Result<(), EspError> {
         self.driver_mut().set_configuration(conf)
     }
 
+    /// As per [`WifiDriver::start()`]
     pub fn start(&mut self) -> Result<(), EspError> {
         self.driver_mut().start()
     }
 
+    /// As per [`WifiDriver::stop()`]
     pub fn stop(&mut self) -> Result<(), EspError> {
         self.driver_mut().stop()
     }
 
+    /// As per [`WifiDriver::connect()`]
     pub fn connect(&mut self) -> Result<(), EspError> {
         self.driver_mut().connect()
     }
 
+    /// As per [`WifiDriver::disconnect()`]
     pub fn disconnect(&mut self) -> Result<(), EspError> {
         self.driver_mut().disconnect()
     }
 
+    /// As per [`WifiDriver::is_scan_done()`]
     pub fn is_scan_done(&self) -> Result<bool, EspError> {
         self.driver().is_scan_done()
     }
 
-    /// Scan for nearby, visible access points.
-    ///
-    /// For more details see [`WifiDriver::scan_n()`].
+    /// As per [`WifiDriver::scan_n()`]
     pub fn scan_n<const N: usize>(
         &mut self,
     ) -> Result<(heapless::Vec<AccessPointInfo, N>, usize), EspError> {
         self.driver_mut().scan_n()
     }
 
-    /// Scan for nearby, visible access points.
-    ///
-    /// For more details see [`WifiDriver::scan()`].
+    /// As per [`WifiDriver::scan()`]
     #[cfg(feature = "alloc")]
     pub fn scan(&mut self) -> Result<alloc::vec::Vec<AccessPointInfo>, EspError> {
         self.driver_mut().scan()
     }
 
-    /// Start scanning for nearby, visible access points.
-    ///
-    /// For more details see [`WifiDriver::start_scan()`].
+    /// As per [`WifiDriver::start_scan()`].
     pub fn start_scan(
         &mut self,
         scan_config: &config::ScanConfig,
@@ -1353,32 +1407,30 @@ impl<'d> EspWifi<'d> {
         self.driver_mut().start_scan(scan_config, blocking)
     }
 
-    /// Stops a previous started access point scan.
+    /// As per [`WifiDriver::stop_scan()`].
     pub fn stop_scan(&mut self) -> Result<(), EspError> {
         self.driver_mut().stop_scan()
     }
 
-    /// Get the results of an access point scan.
-    ///
-    /// For more details see [`WifiDriver::get_scan_result_n()`].
+    /// As per [`WifiDriver::get_scan_result_n()`].
     pub fn get_scan_result_n<const N: usize>(
         &mut self,
     ) -> Result<(heapless::Vec<AccessPointInfo, N>, usize), EspError> {
         self.driver_mut().get_scan_result_n()
     }
 
-    /// Get the results of an access point scan.
-    ///
-    /// For more details see [`WifiDriver::get_scan_result()`].
+    /// As per [`WifiDriver::get_scan_result()`].
     #[cfg(feature = "alloc")]
     pub fn get_scan_result(&mut self) -> Result<alloc::vec::Vec<AccessPointInfo>, EspError> {
         self.driver_mut().get_scan_result()
     }
 
+    /// As per [`WifiDriver::get_mac()`].
     pub fn get_mac(&self, interface: WifiDeviceId) -> Result<[u8; 6], EspError> {
         self.driver().get_mac(interface)
     }
 
+    /// As per [`WifiDriver::set_mac()`].
     pub fn set_mac(&mut self, interface: WifiDeviceId, mac: [u8; 6]) -> Result<(), EspError> {
         self.driver_mut().set_mac(interface, mac)
     }
@@ -1625,6 +1677,10 @@ fn matches_wifi_event(event: &WifiEvent) -> bool {
     )
 }
 
+/// Wraps a [`WifiDriver`] or [`EspWifi`], and offers strictly synchronous (blocking)
+/// function calls for their functionality.
+// TODO: add an example about wrapping an existing instance of wifidriver/espwifi,
+// as well as using that instance once the BlockingWifi drops it.
 pub struct BlockingWifi<T> {
     wifi: T,
     event_loop: crate::eventloop::EspSystemEventLoop,
@@ -1638,44 +1694,57 @@ where
         Ok(Self { wifi, event_loop })
     }
 
+    /// Returns the underlying [`WifiDriver`] or [`EspWifi`]
     pub fn wifi(&self) -> &T {
         &self.wifi
     }
 
+    /// Returns the underlying [`WifiDriver`] or [`EspWifi`], as mutable
     pub fn wifi_mut(&mut self) -> &mut T {
         &mut self.wifi
     }
 
+    /// As per [`WifiDriver::get_capabilities()`]
     pub fn get_capabilities(&self) -> Result<EnumSet<Capability>, EspError> {
         self.wifi.get_capabilities()
     }
 
+    /// As per [`WifiDriver::get_configuration()`]
     pub fn get_configuration(&self) -> Result<Configuration, EspError> {
         self.wifi.get_configuration()
     }
 
+    /// As per [`WifiDriver::set_configuration()`]
     pub fn set_configuration(&mut self, conf: &Configuration) -> Result<(), EspError> {
         self.wifi.set_configuration(conf)
     }
 
+    /// As per [`WifiDriver::is_started()`]
     pub fn is_started(&self) -> Result<bool, EspError> {
         self.wifi.is_started()
     }
 
+    /// As per [`WifiDriver::is_connected()`]
     pub fn is_connected(&self) -> Result<bool, EspError> {
         self.wifi.is_connected()
     }
 
+    /// As per [`WifiDriver::start()`], but as a blocking call that returns
+    /// once the wifi driver has started.
     pub fn start(&mut self) -> Result<(), EspError> {
         self.wifi.start()?;
         self.wifi_wait_while(|| self.wifi.is_started().map(|s| !s), None)
     }
 
+    /// As per [`WifiDriver::stop()`], but as a blocking call that returns
+    /// once the wifi driver has stopped.
     pub fn stop(&mut self) -> Result<(), EspError> {
         self.wifi.stop()?;
         self.wifi_wait_while(|| self.wifi.is_started(), None)
     }
 
+    /// As per [`WifiDriver::connect()`], but as a blocking call that returns
+    /// once the wifi driver is connected.
     pub fn connect(&mut self) -> Result<(), EspError> {
         self.wifi.connect()?;
         self.wifi_wait_while(
@@ -1684,22 +1753,38 @@ where
         )
     }
 
+    /// As per [`WifiDriver::disconnect()`], but as a blocking call that returns
+    /// once the wifi driver has disconnected.
     pub fn disconnect(&mut self) -> Result<(), EspError> {
         self.wifi.disconnect()?;
         self.wifi_wait_while(|| self.wifi.is_connected(), None)
     }
 
+    /// As per [`WifiDriver::scan_n()`]
     pub fn scan_n<const N: usize>(
         &mut self,
     ) -> Result<(heapless::Vec<AccessPointInfo, N>, usize), EspError> {
         self.wifi.scan_n()
     }
 
+    /// As per [`WifiDriver::scan()`]
     #[cfg(feature = "alloc")]
     pub fn scan(&mut self) -> Result<alloc::vec::Vec<AccessPointInfo>, EspError> {
         self.wifi.scan()
     }
 
+    /// Performs a blocking wait until certain condition provided by the user
+    /// in the form of a `matcher` callback becomes true. Most often than not
+    /// that condition would be related to the state of the Wifi driver. In
+    /// other words, whether the driver is started, stopped, (dis)connected and
+    /// so on.
+    ///
+    /// Note that the waiting is not done internally using busy-looping and/or
+    /// timeouts. Rather, the condition (`matcher`) is evaluated initially, and
+    /// if it returns `false`, it is re-evaluated each time the ESP IDF C Wifi
+    /// driver posts a Wifi event on the system event loop. The reasoning behind
+    /// this is that changes to the state of the Wifi driver are always
+    /// accompanied by posting Wifi events.
     pub fn wifi_wait_while<F: Fn() -> Result<bool, EspError>>(
         &self,
         matcher: F,
@@ -1716,14 +1801,18 @@ impl<T> BlockingWifi<T>
 where
     T: NetifStatus,
 {
+    /// As per [`EspWifi::is_up()`].
     pub fn is_up(&self) -> Result<bool, EspError> {
         self.wifi.is_up()
     }
 
+    /// Waits until the underlaying network interface is up.
     pub fn wait_netif_up(&self) -> Result<(), EspError> {
         self.ip_wait_while(|| self.wifi.is_up().map(|s| !s), Some(CONNECT_TIMEOUT))
     }
 
+    /// As [`BlockingWifi::wifi_wait_while()`], but for `EspWifi` events
+    /// related to the IP layer, instead of `WifiDriver` events on the data link layer.
     pub fn ip_wait_while<F: Fn() -> Result<bool, EspError>>(
         &self,
         matcher: F,
@@ -1799,6 +1888,8 @@ where
     }
 }
 
+/// Wraps a [`WifiDriver`] or [`EspWifi`], and offers strictly `async`
+/// (non-blocking) function calls for their functionality.
 #[cfg(all(feature = "alloc", esp_idf_comp_esp_timer_enabled))]
 pub struct AsyncWifi<T> {
     wifi: T,
@@ -1823,45 +1914,58 @@ where
         })
     }
 
+    /// Returns the underlying [`WifiDriver`] or [`EspWifi`]
     pub fn wifi(&self) -> &T {
         &self.wifi
     }
 
+    /// Returns the underlying [`WifiDriver`] or [`EspWifi`], as mutable
     pub fn wifi_mut(&mut self) -> &mut T {
         &mut self.wifi
     }
 
+    /// As per [`WifiDriver::get_capabilities()`]
     pub fn get_capabilities(&self) -> Result<EnumSet<Capability>, EspError> {
         self.wifi.get_capabilities()
     }
 
+    /// As per [`WifiDriver::get_configuration()`]
     pub fn get_configuration(&self) -> Result<Configuration, EspError> {
         self.wifi.get_configuration()
     }
 
+    /// As per [`WifiDriver::set_configuration()`]
     pub fn set_configuration(&mut self, conf: &Configuration) -> Result<(), EspError> {
         self.wifi.set_configuration(conf)
     }
 
+    /// As per [`WifiDriver::is_started()`]
     pub fn is_started(&self) -> Result<bool, EspError> {
         self.wifi.is_started()
     }
 
+    /// As per [`WifiDriver::is_connected()`]
     pub fn is_connected(&self) -> Result<bool, EspError> {
         self.wifi.is_connected()
     }
 
+    /// As per [`WifiDriver::start()`], but as an async call that awaits until
+    /// the wifi driver has started.
     pub async fn start(&mut self) -> Result<(), EspError> {
         self.wifi.start()?;
         self.wifi_wait(|| self.wifi.is_started().map(|s| !s), None)
             .await
     }
 
+    /// As per [`WifiDriver::stop()`], but as an async call that awaits until
+    /// the wifi driver has stopped.
     pub async fn stop(&mut self) -> Result<(), EspError> {
         self.wifi.stop()?;
         self.wifi_wait(|| self.wifi.is_started(), None).await
     }
 
+    /// As per [`WifiDriver::connect()`], but as an async call that awaits until
+    /// the wifi driver has connected.
     pub async fn connect(&mut self) -> Result<(), EspError> {
         self.wifi.connect()?;
         self.wifi_wait(
@@ -1871,11 +1975,15 @@ where
         .await
     }
 
+    /// As per [`WifiDriver::disconnect()`], but as an async call that awaits until
+    /// the wifi driver has disconnected.
     pub async fn disconnect(&mut self) -> Result<(), EspError> {
         self.wifi.disconnect()?;
         self.wifi_wait(|| self.wifi.is_connected(), None).await
     }
 
+    /// As per [`WifiDriver::start_scan()`] plus [`WifiDriver::get_scan_result_n()`],
+    /// as an async call that awaits until the scan is complete.
     pub async fn scan_n<const N: usize>(
         &mut self,
     ) -> Result<(heapless::Vec<AccessPointInfo, N>, usize), EspError> {
@@ -1887,6 +1995,8 @@ where
         self.wifi.get_scan_result_n()
     }
 
+    /// As per [`WifiDriver::start_scan()`] plus [`WifiDriver::get_scan_result()`],
+    /// as an async call that awaits until the scan is complete.
     #[cfg(feature = "alloc")]
     pub async fn scan(&mut self) -> Result<alloc::vec::Vec<AccessPointInfo>, EspError> {
         self.wifi.start_scan(&Default::default(), false)?;
@@ -1897,6 +2007,17 @@ where
         self.wifi.get_scan_result()
     }
 
+    /// Awaits for a certain condition provided by the user in the form of a
+    /// `matcher` callback to become true. Most often than not that condition
+    /// would be related to the state of the Wifi driver. In other words,
+    /// whether the driver is started, stopped, (dis)connected and so on.
+    ///
+    /// Note that the waiting is not done internally using busy-looping and/or
+    /// timeouts. Rather, the condition (`matcher`) is evaluated initially, and
+    /// if it returns `false`, it is re-evaluated each time the ESP IDF C Wifi
+    /// driver posts a Wifi event on the system event loop. The reasoning behind
+    /// this is that changes to the state of the Wifi driver are always
+    /// accompanied by posting Wifi events.
     pub async fn wifi_wait<F: Fn() -> Result<bool, EspError>>(
         &self,
         matcher: F,
@@ -1917,15 +2038,19 @@ impl<T> AsyncWifi<T>
 where
     T: NetifStatus,
 {
+    /// As per [`EspWifi::is_up()`].
     pub fn is_up(&self) -> Result<bool, EspError> {
         self.wifi.is_up()
     }
 
+    /// Waits until the underlaying network interface is up.
     pub async fn wait_netif_up(&self) -> Result<(), EspError> {
         self.ip_wait_while(|| self.wifi.is_up().map(|s| !s), Some(CONNECT_TIMEOUT))
             .await
     }
 
+    /// As [`AsyncWifi::wifi_wait()`], but for `EspWifi` events related to the
+    /// IP layer, instead of `WifiDriver` events on the data link layer.
     pub async fn ip_wait_while<F: Fn() -> Result<bool, EspError>>(
         &self,
         matcher: F,
