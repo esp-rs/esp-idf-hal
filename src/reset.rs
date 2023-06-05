@@ -78,6 +78,7 @@ impl From<esp_sleep_source_t> for WakeupReason {
     fn from(value: esp_sleep_source_t) -> Self {
         match value {
             esp_sleep_source_t_ESP_SLEEP_WAKEUP_UNDEFINED => Self::Unknown,
+            esp_sleep_source_t_ESP_SLEEP_WAKEUP_EXT0 => Self::Button,
             esp_sleep_source_t_ESP_SLEEP_WAKEUP_EXT1 => Self::Button,
             esp_sleep_source_t_ESP_SLEEP_WAKEUP_COCPU => Self::ULP,
             esp_sleep_source_t_ESP_SLEEP_WAKEUP_TIMER => Self::Timer,
