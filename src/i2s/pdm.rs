@@ -1228,6 +1228,6 @@ impl<'d, Dir> Drop for I2sPdmDriver<'d, Dir> {
                     esp_err_to_name(result),
                 );
             }
-        }       
+        }
     }
 }

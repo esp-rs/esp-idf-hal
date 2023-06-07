@@ -1038,6 +1038,6 @@ impl<'d, Dir> Drop for I2sStdDriver<'d, Dir> {
                     esp_err_to_name(result),
                 );
             }
-        }       
+        }
     }
 }
