@@ -222,6 +222,7 @@
 #include "driver/i2s_types.h"
 #include "driver/mcpwm_prelude.h"
 #else
+#include "driver/i2s.h"
 #include "driver/mcpwm.h"
 #endif
 #if defined(CONFIG_IDF_TARGET_ESP32) || defined(CONFIG_IDF_TARGET_ESP32S2) || defined(CONFIG_IDF_TARGET_ESP32S3) || defined(CONFIG_IDF_TARGET_ESP32H2) || defined(CONFIG_IDF_TARGET_ESP32C6) || defined(CONFIG_IDF_TARGET_ESP32P4)
