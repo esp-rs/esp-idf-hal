@@ -11,7 +11,7 @@
 //! ```
 //! use std::fmt::Write;
 //! use esp_idf_hal::prelude::*;
-//! use esp_idf_hal::serial;
+//! use esp_idf_hal::uart;
 //!
 //! let peripherals = Peripherals::take().unwrap();
 //! let pins = peripherals.pins;
@@ -22,8 +22,8 @@
 //!     peripherals.uart1,
 //!     pins.gpio1,
 //!     pins.gpio3,
-//!     None,
-//!     None,
+//!     Option::<AnyIOPin>::None,
+//!     Option::<AnyIOPin>::None,
 //!     &config
 //! ).unwrap();
 //!

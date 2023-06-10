@@ -128,7 +128,8 @@ impl<'d> LedcTimerDriver<'d> {
             clk_cfg: soc_periph_ledc_clk_src_legacy_t_LEDC_AUTO_CLK,
             #[cfg(not(any(
                 esp_idf_version_major = "4",
-                all(esp_idf_version_major = "5", esp_idf_version_minor = "0")
+                all(esp_idf_version_major = "5", esp_idf_version_minor = "0"),
+                all(esp_idf_version_major = "5", esp_idf_version_minor = "1")
             )))]
             deconfigure: false,
         };

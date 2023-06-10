@@ -1223,14 +1223,14 @@ impl<'d, T: Pin, MODE> embedded_hal_0_2::digital::v2::OutputPin for PinDriver<'d
 where
     MODE: OutputMode,
 {
-    type Error = GpioError;
+    type Error = EspError;
 
     fn set_high(&mut self) -> Result<(), Self::Error> {
-        self.set_level(Level::High).map_err(to_gpio_err)
+        self.set_level(Level::High)
     }
 
     fn set_low(&mut self) -> Result<(), Self::Error> {
-        self.set_level(Level::Low).map_err(to_gpio_err)
+        self.set_level(Level::Low)
     }
 }
 
