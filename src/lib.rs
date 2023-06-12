@@ -61,6 +61,8 @@ pub mod reset;
 #[cfg(not(feature = "riscv-ulp-hal"))]
 pub mod rmt;
 #[cfg(not(feature = "riscv-ulp-hal"))]
+pub mod rom;
+#[cfg(not(feature = "riscv-ulp-hal"))]
 pub mod spi;
 #[cfg(not(feature = "riscv-ulp-hal"))]
 pub mod task;
