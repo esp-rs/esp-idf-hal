@@ -119,11 +119,20 @@ pub(super) mod config {
 
         /// The multiple of MCLK to the sample rate.
         mclk_multiple: MclkMultiple,
+
+        /// The division from MCLK to BCLK. This is used only in I2S target (slave) mode. This should not be smaller
+        /// than TDM_BCLK_DIV_MIN (8). Increase this field if the target device is not able to transmit data in time.
+        #[cfg(all(esp_idf_version_major = "5", not(esp_idf_version_minor = "0")))]
+        bclk_div: u32,
     }
 
+    /// The minimum division from MCLK to BCLK.
+    pub const TDM_BCLK_DIV_MIN: u32 = 8;
+
     impl TdmClkConfig {
-        /// Create a standard clock configuration with the specified rate (in Hz), clock source, and MCLK multiple of
+        /// Create a TDM clock configuration with the specified rate (in Hz), clock source, and MCLK multiple of
         /// the sample rate.
+        #[cfg(any(esp_idf_version_major = "4", all(esp_idf_version_major = "5", esp_idf_version_minor = "0")))]
         #[inline(always)]
         pub fn new(sample_rate_hz: u32, clk_src: ClockSource, mclk_multiple: MclkMultiple) -> Self {
             Self {
@@ -133,12 +142,26 @@ pub(super) mod config {
             }
         }
 
-        /// Create a standard clock configuration with the specified rate in Hz. This will set the clock source to
+        /// Create a TDM clock configuration with the specified rate (in Hz), clock source, and MCLK multiple of
+        /// the sample rate.
+        #[cfg(all(esp_idf_version_major = "5", not(esp_idf_version_minor = "0")))]
+        #[inline(always)]
+        pub fn new(sample_rate_hz: u32, clk_src: ClockSource, mclk_multiple: MclkMultiple) -> Self {
+            Self {
+                sample_rate_hz,
+                clk_src,
+                mclk_multiple,
+                bclk_div: TDM_BCLK_DIV_MIN,
+            }
+        }
+
+        /// Create a TDM clock configuration with the specified rate in Hz. This will set the clock source to
         /// PLL_F160M and the MCLK multiple to 256 times the sample rate.
         ///
         /// # Note
         /// Set the mclk_multiple to [MclkMultiple::M384] when using 24-bit data width. Otherwise, the sample rate
         /// might be imprecise since the BCLK division is not an integer.
+        #[cfg(any(esp_idf_version_major = "4", all(esp_idf_version_major = "5", esp_idf_version_minor = "0")))]
         #[inline(always)]
         pub fn from_sample_rate_hz(rate: u32) -> Self {
             Self {
@@ -148,28 +171,65 @@ pub(super) mod config {
             }
         }
 
-        /// Set the clock source on this standard clock configuration.
+        /// Create a TDM clock configuration with the specified rate in Hz. This will set the clock source to
+        /// PLL_F160M, MCLK multiple to 256 times the sample rate, and MCLK to BCLK division to 8.
+        ///
+        /// # Note
+        /// Set the mclk_multiple to [MclkMultiple::M384] when using 24-bit data width. Otherwise, the sample rate
+        /// might be imprecise since the BCLK division is not an integer.
+        #[cfg(all(esp_idf_version_major = "5", not(esp_idf_version_minor = "0")))]
+        #[inline(always)]
+        pub fn from_sample_rate_hz(rate: u32) -> Self {
+            Self {
+                sample_rate_hz: rate,
+                clk_src: ClockSource::default(),
+                mclk_multiple: MclkMultiple::M256,
+                bclk_div: TDM_BCLK_DIV_MIN,
+            }
+        }
+
+        /// Set the clock source on this TDM clock configuration.
         #[inline(always)]
         pub fn clk_src(mut self, clk_src: ClockSource) -> Self {
             self.clk_src = clk_src;
             self
         }
 
-        /// Set the MCLK multiple on this standard clock configuration.
+        /// Set the MCLK multiple on this TDM clock configuration.
         #[inline(always)]
         pub fn mclk_multiple(mut self, mclk_multiple: MclkMultiple) -> Self {
             self.mclk_multiple = mclk_multiple;
             self
         }
 
+        /// Set the MCLK to BCLK division on this TDM clock configuration.
+        #[cfg(all(esp_idf_version_major = "5", not(esp_idf_version_minor = "0")))]
+        #[inline(always)]
+        pub fn bclk_div(mut self, bclk_div: u32) -> Self {
+            self.bclk_div = bclk_div;
+            self
+        }
+
         /// Convert to the ESP-IDF SDK `i2s_tdm_clk_config_t` representation.
-        #[cfg(not(esp_idf_version_major = "4"))]
+        #[cfg(all(esp_idf_version_major = "5", esp_idf_version_minor = "0"))]
         #[inline(always)]
         pub(crate) fn as_sdk(&self) -> i2s_tdm_clk_config_t {
             i2s_tdm_clk_config_t {
                 sample_rate_hz: self.sample_rate_hz,
                 clk_src: self.clk_src.as_sdk(),
                 mclk_multiple: self.mclk_multiple.as_sdk(),
+            }
+        }
+
+        /// Convert to the ESP-IDF SDK `i2s_tdm_clk_config_t` representation.
+        #[cfg(all(esp_idf_version_major = "5", not(esp_idf_version_minor = "0")))]
+        #[inline(always)]
+        pub(crate) fn as_sdk(&self) -> i2s_tdm_clk_config_t {
+            i2s_tdm_clk_config_t {
+                sample_rate_hz: self.sample_rate_hz,
+                clk_src: self.clk_src.as_sdk(),
+                mclk_multiple: self.mclk_multiple.as_sdk(),
+                bclk_div: self.bclk_div,
             }
         }
     }
@@ -358,7 +418,7 @@ pub(super) mod config {
             self
         }
 
-        /// Update the communication format on this standard slot configuration.
+        /// Update the communication format on this TDM slot configuration.
         #[cfg(esp_idf_version_major = "4")]
         #[inline(always)]
         pub fn comm_fmt(mut self, comm_fmt: TdmCommFormat) -> Self {
@@ -717,7 +777,7 @@ impl<'d, Dir: I2sRxSupported + I2sTxSupported> I2sTdmDriver<'d, Dir> {
         })
     }
 
-    /// Create a new standard mode driver for the given I2S peripheral with both the receive and transmit
+    /// Create a new TDM mode driver for the given I2S peripheral with both the receive and transmit
     /// channels open.
     #[cfg(esp_idf_version_major = "4")]
     #[allow(clippy::too_many_arguments)]
@@ -762,7 +822,7 @@ impl<'d, Dir: I2sRxSupported + I2sTxSupported> I2sTdmDriver<'d, Dir> {
 }
 
 impl<'d, Dir: I2sRxSupported> I2sTdmDriver<'d, Dir> {
-    /// Create a new standard mode driver for the given I2S peripheral with only the receive channel open.
+    /// Create a new TDM mode driver for the given I2S peripheral with only the receive channel open.
     #[cfg(not(esp_idf_version_major = "4"))]
     #[allow(clippy::too_many_arguments)]
     pub fn new_rx<I2S: I2s>(
@@ -823,7 +883,7 @@ impl<'d, Dir: I2sRxSupported> I2sTdmDriver<'d, Dir> {
         })
     }
 
-    /// Create a new standard mode driver for the given I2S peripheral with only the receive channel open.
+    /// Create a new TDM mode driver for the given I2S peripheral with only the receive channel open.
     #[cfg(esp_idf_version_major = "4")]
     #[allow(clippy::too_many_arguments)]
     pub fn new_rx<I2S: I2s>(
@@ -866,7 +926,7 @@ impl<'d, Dir: I2sRxSupported> I2sTdmDriver<'d, Dir> {
 }
 
 impl<'d, Dir: I2sTxSupported> I2sTdmDriver<'d, Dir> {
-    /// Create a new standard mode driver for the given I2S peripheral with only the transmit channel open.
+    /// Create a new TDM mode driver for the given I2S peripheral with only the transmit channel open.
     #[cfg(not(esp_idf_version_major = "4"))]
     #[allow(clippy::too_many_arguments)]
     pub fn new_tx<I2S: I2s>(
@@ -927,7 +987,7 @@ impl<'d, Dir: I2sTxSupported> I2sTdmDriver<'d, Dir> {
         })
     }
 
-    /// Create a new standard mode driver for the given I2S peripheral with only the transmit channel open.
+    /// Create a new TDM mode driver for the given I2S peripheral with only the transmit channel open.
     #[cfg(esp_idf_version_major = "4")]
     #[allow(clippy::too_many_arguments)]
     pub fn new_tx<I2S: I2s>(
