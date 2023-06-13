@@ -533,14 +533,8 @@ pub(super) mod config {
     }
 
     /// Mask of TDM slots to enable.
-    #[derive(Copy, Clone, Debug, Eq, PartialEq)]
+    #[derive(Copy, Clone, Debug, Default, Eq, PartialEq)]
     pub struct TdmSlotMask(u16);
-
-    impl Default for TdmSlotMask {
-        fn default() -> Self {
-            Self(0)
-        }
-    }
 
     pub const SLOT0: TdmSlotMask = TdmSlotMask(1 << 0);
     pub const SLOT1: TdmSlotMask = TdmSlotMask(1 << 1);
