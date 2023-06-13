@@ -1119,6 +1119,7 @@ impl<'d, Dir: I2sRxSupported> I2sPdmDriver<'d, Dir> {
 
     /// Create a new pulse density modulation (PDM) mode driver for the given I2S peripheral with only the receive
     /// channel open using multiple DIN pins to receive data.
+    #[cfg(all(esp_idf_version_major = "5", not(esp_idf_version_minor = "0")))]
     #[allow(clippy::too_many_arguments)]
     pub fn new_rx_multi<I2S: I2s>(
         _i2s: impl Peripheral<P = I2S> + 'd,
