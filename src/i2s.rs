@@ -784,10 +784,10 @@ pub trait I2sTxChannel<'d>: I2sPort {
         unsafe {
             esp!(esp_idf_sys::i2s_channel_preload_data(
                 self.tx_handle(),
-                data.as_ptr(),
+                data.as_ptr() as *const c_void,
                 data.len(),
                 &mut bytes_loaded as *mut usize
-            ));
+            ))?;
         }
 
         Ok(bytes_loaded)
