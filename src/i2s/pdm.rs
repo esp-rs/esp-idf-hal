@@ -158,6 +158,21 @@ pub(super) mod config {
             }
         }
 
+        /// Convert this PDM mode receive configuration into the ESP-IDF SDK `i2s_pdm_rx_config_t` representation.
+        #[cfg(all(esp_idf_version_major = "5", not(esp_idf_version_minor = "0")))]
+        #[inline(always)]
+        pub(super) fn as_sdk_multi<'d>(
+            &self,
+            clk: PeripheralRef<'d, impl OutputPin>,
+            dins: &[PeripheralRef<'d, impl InputPin>],
+        ) -> i2s_pdm_rx_config_t {
+            i2s_pdm_rx_config_t {
+                clk_cfg: self.clk_cfg.as_sdk(),
+                slot_cfg: self.slot_cfg.as_sdk(),
+                gpio_cfg: self.gpio_cfg.as_sdk_multi(clk, dins),
+            }
+        }
+
         /// Convert this PDM mode receive configuration into the ESP-IDF SDK `i2s_driver_config_t` representation.
         #[cfg(esp_idf_version_major = "4")]
         #[inline(always)]
@@ -218,6 +233,14 @@ pub(super) mod config {
         pub(super) clk_inv: bool,
     }
 
+    /// The maximum number of data input pins that can be used in PDM mode.
+    #[cfg(esp32)]
+    pub const SOC_I2S_PDM_MAX_RX_LINES: usize = 1;
+
+    /// The maximum number of data input pins that can be used in PDM mode.
+    #[cfg(esp32s3)]
+    pub const SOC_I2S_PDM_MAX_RX_LINES: usize = 4;
+
     #[cfg(esp_idf_soc_i2s_supports_pdm_rx)]
     impl PdmRxGpioConfig {
         /// Create a new PDM mode GPIO receive configuration with the specified inversion flag for the clock output.
@@ -234,6 +257,10 @@ pub(super) mod config {
         }
 
         /// Convert to the ESP-IDF SDK `i2s_pdm_rx_gpio_config_t` representation.
+        #[cfg(any(
+            esp_idf_version_major = "4",
+            all(esp_idf_version_major = "5", esp_idf_version_minor = "0")
+        ))]
         pub(crate) fn as_sdk<'d>(
             &self,
             clk: PeripheralRef<'d, impl OutputPin>,
@@ -249,6 +276,68 @@ pub(super) mod config {
             i2s_pdm_rx_gpio_config_t {
                 clk: clk.pin(),
                 din: din.pin(),
+                invert_flags,
+            }
+        }
+
+        /// Convert to the ESP-IDF SDK `i2s_pdm_rx_gpio_config_t` representation.
+        #[cfg(all(esp_idf_version_major = "5", not(esp_idf_version_minor = "0")))]
+        pub(crate) fn as_sdk<'d>(
+            &self,
+            clk: PeripheralRef<'d, impl OutputPin>,
+            din: PeripheralRef<'d, impl InputPin>,
+        ) -> i2s_pdm_rx_gpio_config_t {
+            let mut dins: [gpio_num_t; SOC_I2S_PDM_MAX_RX_LINES] = [-1; SOC_I2S_PDM_MAX_RX_LINES];
+            dins[0] = din.pin();
+
+            let pins = i2s_pdm_rx_gpio_config_t__bindgen_ty_1 { dins };
+
+            let invert_flags = i2s_pdm_rx_gpio_config_t__bindgen_ty_2 {
+                _bitfield_1: i2s_pdm_rx_gpio_config_t__bindgen_ty_2::new_bitfield_1(
+                    self.clk_inv as u32,
+                ),
+                ..Default::default()
+            };
+
+            i2s_pdm_rx_gpio_config_t {
+                clk: clk.pin(),
+                __bindgen_anon_1: pins,
+                invert_flags,
+            }
+        }
+
+        /// Convert to the ESP-IDF SDK `i2s_pdm_rx_gpio_config_t` representation.
+        ///
+        /// This will ignore any din pins beyond [SOC_I2S_PDM_MAX_RX_LINES].
+        #[cfg(all(esp_idf_version_major = "5", not(esp_idf_version_minor = "0")))]
+        pub(crate) fn as_sdk_multi<'d>(
+            &self,
+            clk: PeripheralRef<'d, impl OutputPin>,
+            dins: &[PeripheralRef<'d, impl InputPin>],
+        ) -> i2s_pdm_rx_gpio_config_t {
+            let mut din_pins: [gpio_num_t; SOC_I2S_PDM_MAX_RX_LINES] =
+                [-1; SOC_I2S_PDM_MAX_RX_LINES];
+
+            for (i, din) in dins.iter().enumerate() {
+                if i >= SOC_I2S_PDM_MAX_RX_LINES {
+                    break;
+                }
+
+                din_pins[i] = din.pin();
+            }
+
+            let pins = i2s_pdm_rx_gpio_config_t__bindgen_ty_1 { dins: din_pins };
+
+            let invert_flags = i2s_pdm_rx_gpio_config_t__bindgen_ty_2 {
+                _bitfield_1: i2s_pdm_rx_gpio_config_t__bindgen_ty_2::new_bitfield_1(
+                    self.clk_inv as u32,
+                ),
+                ..Default::default()
+            };
+
+            i2s_pdm_rx_gpio_config_t {
+                clk: clk.pin(),
+                __bindgen_anon_1: pins,
                 invert_flags,
             }
         }
@@ -630,6 +719,14 @@ pub(super) mod config {
         pub(super) clk_inv: bool,
     }
 
+    /// The maximum number of data output pins that can be used in PDM mode.
+    #[cfg(esp32)]
+    pub const SOC_I2S_PDM_MAX_TX_LINES: usize = 1;
+
+    /// The maximum number of data input pins that can be used in PDM mode.
+    #[cfg(any(esp32c3, esp32c6, esp32h2))]
+    pub const SOC_I2S_PDM_MAX_TX_LINES: usize = 2;
+
     #[cfg(esp_idf_soc_i2s_supports_pdm_tx)]
     impl PdmTxGpioConfig {
         /// Create a new PDM mode GPIO transmit configuration with the specified inversion flag for the clock output.
@@ -997,6 +1094,67 @@ impl<'d, Dir: I2sRxSupported> I2sPdmDriver<'d, Dir> {
 
         // Create the channel configuration.
         let rx_cfg = rx_cfg.as_sdk(clk.into_ref(), din.into_ref());
+
+        // Safety: rx.chan_handle is a valid, non-null i2s_chan_handle_t,
+        // and &rx_cfg is a valid pointer to an i2s_pdm_rx_config_t.
+        unsafe {
+            // Open the RX channel.
+            esp!(esp_idf_sys::i2s_channel_init_pdm_rx_mode(
+                rx.chan_handle,
+                &rx_cfg
+            ))?;
+        }
+
+        // Now we leak the rx channel so it is no longer managed. This pins it in memory in a way that
+        // is easily accessible to the ESP-IDF SDK.
+        Ok(Self {
+            i2s: port as u8,
+            rx: Box::leak(rx),
+            #[cfg(esp_idf_soc_i2s_supports_pdm_tx)]
+            tx: null_mut(),
+            _p: PhantomData,
+            _dir: PhantomData,
+        })
+    }
+
+    /// Create a new pulse density modulation (PDM) mode driver for the given I2S peripheral with only the receive
+    /// channel open using multiple DIN pins to receive data.
+    #[allow(clippy::too_many_arguments)]
+    pub fn new_rx_multi<I2S: I2s>(
+        _i2s: impl Peripheral<P = I2S> + 'd,
+        rx_cfg: config::PdmRxConfig,
+        clk: impl Peripheral<P = impl OutputPin> + 'd,
+        dins: Vec<impl Peripheral<P = impl InputPin> + 'd>,
+    ) -> Result<Self, EspError> {
+        let port = I2S::port();
+        let chan_cfg = rx_cfg.channel_cfg.as_sdk(port);
+
+        let mut rx_chan_handle: i2s_chan_handle_t = null_mut();
+
+        // Safety: &chan_cfg is a valid pointer to an i2s_chan_config_t.
+        // rx and tx are out pointers.
+        unsafe { esp!(i2s_new_channel(&chan_cfg, null_mut(), &mut rx_chan_handle,))? };
+
+        if rx_chan_handle.is_null() {
+            panic!("Expected non-null rx channel handle");
+        }
+
+        // Allocate the internal channel struct.
+        let rx = Box::new(I2sChannel {
+            chan_handle: rx_chan_handle,
+            callback: None,
+            i2s: port as u8,
+        });
+
+        let mut dins_ref = Vec::with_capacity(dins.len());
+        for din in dins.into_iter() {
+            dins_ref.push(din.into_ref())
+        }
+
+        // At this point, returning early will drop the rx channel, closing it properly.
+
+        // Create the channel configuration.
+        let rx_cfg = rx_cfg.as_sdk_multi(clk.into_ref(), &dins_ref);
 
         // Safety: rx.chan_handle is a valid, non-null i2s_chan_handle_t,
         // and &rx_cfg is a valid pointer to an i2s_pdm_rx_config_t.

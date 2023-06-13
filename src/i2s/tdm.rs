@@ -132,7 +132,10 @@ pub(super) mod config {
     impl TdmClkConfig {
         /// Create a TDM clock configuration with the specified rate (in Hz), clock source, and MCLK multiple of
         /// the sample rate.
-        #[cfg(any(esp_idf_version_major = "4", all(esp_idf_version_major = "5", esp_idf_version_minor = "0")))]
+        #[cfg(any(
+            esp_idf_version_major = "4",
+            all(esp_idf_version_major = "5", esp_idf_version_minor = "0")
+        ))]
         #[inline(always)]
         pub fn new(sample_rate_hz: u32, clk_src: ClockSource, mclk_multiple: MclkMultiple) -> Self {
             Self {
@@ -161,7 +164,10 @@ pub(super) mod config {
         /// # Note
         /// Set the mclk_multiple to [MclkMultiple::M384] when using 24-bit data width. Otherwise, the sample rate
         /// might be imprecise since the BCLK division is not an integer.
-        #[cfg(any(esp_idf_version_major = "4", all(esp_idf_version_major = "5", esp_idf_version_minor = "0")))]
+        #[cfg(any(
+            esp_idf_version_major = "4",
+            all(esp_idf_version_major = "5", esp_idf_version_minor = "0")
+        ))]
         #[inline(always)]
         pub fn from_sample_rate_hz(rate: u32) -> Self {
             Self {
