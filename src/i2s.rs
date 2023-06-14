@@ -1035,7 +1035,10 @@ impl<Callback: ?Sized> I2sChannel<Callback> {
     ///
     /// # Panic
     /// This will panic if port is not 0 or 1, or if port is 1 and the target does not support I2S1.
-    pub(crate) fn create_rx(port: u8, chan_handle: i2s_chan_handle_t) -> *mut Self {
+    ///
+    /// # Safety
+    /// This must be called only once per port until [I2sChannel::destroy] is called on the channel.
+    pub(crate) unsafe fn create_rx(port: u8, chan_handle: i2s_chan_handle_t) -> *mut Self {
         if port > 1 {
             panic!("Invalid I2S port: {}", port);
         }
@@ -1057,7 +1060,10 @@ impl<Callback: ?Sized> I2sChannel<Callback> {
     ///
     /// # Panic
     /// This will panic if port is not 0 or 1, or if port is 1 and the target does not support I2S1.
-    pub(crate) fn create_tx(port: u8, chan_handle: i2s_chan_handle_t) -> *mut Self {
+    ///
+    /// # Safety
+    /// This must be called only once per port until [I2sChannel::destroy] is called on the channel.
+    pub(crate) unsafe fn create_tx(port: u8, chan_handle: i2s_chan_handle_t) -> *mut Self {
         if port > 1 {
             panic!("Invalid I2S port: {}", port);
         }
@@ -1085,7 +1091,7 @@ impl I2sChannel<dyn I2sRxCallback> {
     /// This will panic if port is not 0 or 1, or if port is 1 and the target does not support I2S1.
     ///
     /// # Safety
-    /// This must be called only once per port and direction until the channel is dropped.
+    /// This must be called only once per port until [I2sChannel::destroy] is called on the channel.
     pub(crate) unsafe fn create_rx(port: u8, chan_handle: i2s_chan_handle_t) -> *mut Self {
         use core::ptr::addr_of_mut;
 
@@ -1113,7 +1119,7 @@ impl I2sChannel<dyn I2sTxCallback> {
     /// This will panic if port is not 0 or 1, or if port is 1 and the target does not support I2S1.
     ///
     /// # Safety
-    /// This must be called only once per port and direction until the channel is dropped.
+    /// This must be called only once per port until [I2sChannel::destroy] is called on the channel.
     pub(crate) unsafe fn create_tx(port: u8, chan_handle: i2s_chan_handle_t) -> *mut Self {
         use core::ptr::addr_of_mut;
 
@@ -1233,7 +1239,7 @@ impl<Callback: I2sTxCallback + ?Sized> I2sChannel<Callback> {
                 self.chan_handle,
                 &callbacks,
                 self as *mut Self as *mut c_void,
-            ));
+            ))?;
             self.callback = Some(callback);
         }
 
