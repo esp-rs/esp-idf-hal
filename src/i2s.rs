@@ -1,9 +1,9 @@
 //! Driver for the Inter-IC Sound (I2S) peripheral(s).
 
-#[cfg(feature = "alloc")]
+#[cfg(all(not(esp_idf_version_major = "4"), feature = "alloc"))]
 extern crate alloc;
 
-#[cfg(feature = "alloc")]
+#[cfg(all(not(esp_idf_version_major = "4"), feature = "alloc"))]
 use alloc::boxed::Box;
 
 use core::{convert::TryInto, ffi::c_void, mem::MaybeUninit, time::Duration};
@@ -1022,7 +1022,7 @@ struct I2sChannel<Callback: ?Sized> {
     callback: Option<core::ptr::NonNull<Callback>>,
 }
 
-#[cfg(all(esp_idf_version_major = "4"))]
+#[cfg(not(esp_idf_version_major = "4"))]
 unsafe impl<Callback: ?Sized> Sync for I2sChannel<Callback> {}
 
 // No Send impl -- this *must* be pinned in memory for the callback to function properly.

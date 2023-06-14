@@ -4,10 +4,10 @@ use crate::{gpio::*, peripheral::*};
 use core::{marker::PhantomData, ptr::null_mut};
 use esp_idf_sys::*;
 
-#[cfg(feature = "alloc")]
+#[cfg(all(not(esp_idf_version_major = "4"), feature = "alloc"))]
 extern crate alloc;
 
-#[cfg(feature = "alloc")]
+#[cfg(all(not(esp_idf_version_major = "4"), feature = "alloc"))]
 use alloc::boxed::Box;
 
 pub(super) mod config {
