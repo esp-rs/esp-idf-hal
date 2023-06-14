@@ -4,6 +4,12 @@ use crate::{gpio::*, peripheral::Peripheral};
 use core::{marker::PhantomData, ptr::null_mut};
 use esp_idf_sys::*;
 
+#[cfg(feature = "alloc")]
+extern crate alloc;
+
+#[cfg(feature = "alloc")]
+use alloc::boxed::Box;
+
 pub(super) mod config {
     #[allow(unused)]
     use crate::{gpio::*, i2s::config::*, peripheral::*};
@@ -1084,13 +1090,8 @@ impl<'d, Dir: I2sRxSupported> I2sPdmDriver<'d, Dir> {
         }
 
         // Allocate the internal channel struct.
-        let rx = Box::new(I2sChannel {
-            chan_handle: rx_chan_handle,
-            callback: None,
-            i2s: port as u8,
-        });
-
-        // At this point, returning early will drop the rx channel, closing it properly.
+        // Safety: The driver is owned, and thus owns the channels.
+        let rx = unsafe { I2sChannel::create_rx(port as u8, rx_chan_handle) };
 
         // Create the channel configuration.
         let rx_cfg = rx_cfg.as_sdk(clk.into_ref(), din.into_ref());
@@ -1099,17 +1100,20 @@ impl<'d, Dir: I2sRxSupported> I2sPdmDriver<'d, Dir> {
         // and &rx_cfg is a valid pointer to an i2s_pdm_rx_config_t.
         unsafe {
             // Open the RX channel.
-            esp!(esp_idf_sys::i2s_channel_init_pdm_rx_mode(
-                rx.chan_handle,
+            if let Err(e) = esp!(esp_idf_sys::i2s_channel_init_pdm_rx_mode(
+                (*rx).chan_handle,
                 &rx_cfg
-            ))?;
+            )) {
+                I2sChannel::destroy(rx);
+                return Err(e);
+            }
         }
 
         // Now we leak the rx channel so it is no longer managed. This pins it in memory in a way that
         // is easily accessible to the ESP-IDF SDK.
         Ok(Self {
             i2s: port as u8,
-            rx: Box::leak(rx),
+            rx,
             #[cfg(esp_idf_soc_i2s_supports_pdm_tx)]
             tx: null_mut(),
             _p: PhantomData,
@@ -1121,12 +1125,20 @@ impl<'d, Dir: I2sRxSupported> I2sPdmDriver<'d, Dir> {
     /// channel open using multiple DIN pins to receive data.
     #[cfg(all(esp_idf_version_major = "5", not(esp_idf_version_minor = "0")))]
     #[allow(clippy::too_many_arguments)]
-    pub fn new_rx_multi<I2S: I2s>(
-        _i2s: impl Peripheral<P = I2S> + 'd,
+    pub fn new_rx_multi<I2S, I2SP, CLK, CLKP, DIN, DINP, const DINC: usize>(
+        _i2s: I2SP,
         rx_cfg: config::PdmRxConfig,
-        clk: impl Peripheral<P = impl OutputPin> + 'd,
-        dins: Vec<impl Peripheral<P = impl InputPin> + 'd>,
-    ) -> Result<Self, EspError> {
+        clk: CLKP,
+        dins: [DINP; DINC],
+    ) -> Result<Self, EspError>
+    where
+        I2SP: Peripheral<P = I2S> + 'd,
+        I2S: I2s,
+        CLKP: Peripheral<P = CLK> + 'd,
+        CLK: OutputPin,
+        DINP: Peripheral<P = DIN> + 'd,
+        DIN: InputPin + Sized,
+    {
         let port = I2S::port();
         let chan_cfg = rx_cfg.channel_cfg.as_sdk(port);
 
@@ -1141,18 +1153,23 @@ impl<'d, Dir: I2sRxSupported> I2sPdmDriver<'d, Dir> {
         }
 
         // Allocate the internal channel struct.
-        let rx = Box::new(I2sChannel {
-            chan_handle: rx_chan_handle,
-            callback: None,
-            i2s: port as u8,
-        });
+        // Safety: We own the driver, so we know the channel is not in use.
+        let rx = unsafe { I2sChannel::create_rx(port as u8, rx_chan_handle) };
 
-        let mut dins_ref = Vec::with_capacity(dins.len());
-        for din in dins.into_iter() {
-            dins_ref.push(din.into_ref())
+        // Safety: assume_init is safe to call because we are only claiming to have "initialized" the
+        // MaybeUninit, not the PeripheralRef itself.
+        let mut dins_ref: [MaybeUninit<crate::peripheral::PeripheralRef<'d, DIN>>; DINC] =
+            unsafe { MaybeUninit::uninit().assume_init() };
+        for (i, din) in IntoIterator::into_iter(dins).enumerate() {
+            dins_ref[i].write(din.into_ref());
         }
 
-        // At this point, returning early will drop the rx channel, closing it properly.
+        // Safety: everything is initialized, so we can safely transmute the array to the initialized type.
+        let dins_ref = unsafe {
+            core::mem::transmute_copy::<_, [crate::peripheral::PeripheralRef<'d, DIN>; DINC]>(
+                &dins_ref,
+            )
+        };
 
         // Create the channel configuration.
         let rx_cfg = rx_cfg.as_sdk_multi(clk.into_ref(), &dins_ref);
@@ -1161,17 +1178,18 @@ impl<'d, Dir: I2sRxSupported> I2sPdmDriver<'d, Dir> {
         // and &rx_cfg is a valid pointer to an i2s_pdm_rx_config_t.
         unsafe {
             // Open the RX channel.
-            esp!(esp_idf_sys::i2s_channel_init_pdm_rx_mode(
-                rx.chan_handle,
+            if let Err(e) = esp!(esp_idf_sys::i2s_channel_init_pdm_rx_mode(
+                (*rx).chan_handle,
                 &rx_cfg
-            ))?;
+            )) {
+                I2sChannel::destroy(rx);
+                return Err(e);
+            }
         }
 
-        // Now we leak the rx channel so it is no longer managed. This pins it in memory in a way that
-        // is easily accessible to the ESP-IDF SDK.
         Ok(Self {
             i2s: port as u8,
-            rx: Box::leak(rx),
+            rx,
             #[cfg(esp_idf_soc_i2s_supports_pdm_tx)]
             tx: null_mut(),
             _p: PhantomData,
@@ -1255,13 +1273,8 @@ impl<'d, Dir: I2sTxSupported> I2sPdmDriver<'d, Dir> {
         }
 
         // Allocate the internal channel struct.
-        let tx = Box::new(I2sChannel {
-            chan_handle: tx_chan_handle,
-            callback: None,
-            i2s: port as u8,
-        });
-
-        // At this point, returning early will drop the tx channel, closing it properly.
+        // Safety: The driver is owned, and thus owns the channels.
+        let tx = unsafe { I2sChannel::create_tx(port as u8, tx_chan_handle) };
 
         // Create the channel configuration.
         let tx_cfg = tx_cfg.as_sdk(
@@ -1275,19 +1288,20 @@ impl<'d, Dir: I2sTxSupported> I2sPdmDriver<'d, Dir> {
         // and &tx_cfg is a valid pointer to an i2s_pdm_tx_config_t.
         unsafe {
             // Open the TX channel.
-            esp!(esp_idf_sys::i2s_channel_init_pdm_tx_mode(
-                tx.chan_handle,
+            if let Err(e) = esp!(esp_idf_sys::i2s_channel_init_pdm_tx_mode(
+                (*tx).chan_handle,
                 &tx_cfg
-            ))?;
+            )) {
+                I2sChannel::destroy(tx);
+                return Err(e);
+            }
         }
 
-        // Now we leak the tx channel so it is no longer managed. This pins it in memory in a way that
-        // is easily accessible to the ESP-IDF SDK.
         Ok(Self {
             i2s: port as u8,
             #[cfg(esp_idf_soc_i2s_supports_pdm_rx)]
             rx: null_mut(),
-            tx: Box::leak(tx),
+            tx,
             _p: PhantomData,
             _dir: PhantomData,
         })
@@ -1348,12 +1362,20 @@ impl<'d, Dir: I2sRxSupported> I2sRxChannel<'d> for I2sPdmDriver<'d, Dir> {
         (*self.rx).chan_handle
     }
 
-    #[cfg(not(esp_idf_version_major = "4"))]
+    #[cfg(all(not(esp_idf_version_major = "4"), feature = "alloc"))]
     fn set_rx_callback<Rx: I2sRxCallback + 'static>(
         &mut self,
         rx_callback: Rx,
     ) -> Result<(), EspError> {
         unsafe { &mut *self.rx }.set_rx_callback(Box::new(rx_callback))
+    }
+
+    #[cfg(all(not(esp_idf_version_major = "4"), not(feature = "alloc")))]
+    fn set_rx_callback<Rx: I2sRxCallback + 'static>(
+        &mut self,
+        rx_callback: *mut Rx,
+    ) -> Result<(), EspError> {
+        unsafe { &mut *self.rx }.set_rx_callback(rx_callback)
     }
 }
 
@@ -1364,12 +1386,20 @@ impl<'d, Dir: I2sTxSupported> I2sTxChannel<'d> for I2sPdmDriver<'d, Dir> {
         (*self.tx).chan_handle
     }
 
-    #[cfg(not(esp_idf_version_major = "4"))]
+    #[cfg(all(not(esp_idf_version_major = "4"), feature = "alloc"))]
     fn set_tx_callback<Tx: I2sTxCallback + 'static>(
         &mut self,
         tx_callback: Tx,
     ) -> Result<(), EspError> {
         unsafe { &mut *self.tx }.set_tx_callback(Box::new(tx_callback))
+    }
+
+    #[cfg(all(not(esp_idf_version_major = "4"), not(feature = "alloc")))]
+    fn set_tx_callback<Tx: I2sTxCallback + 'static>(
+        &mut self,
+        tx_callback: *mut Tx,
+    ) -> Result<(), EspError> {
+        unsafe { &mut *self.tx }.set_tx_callback(tx_callback)
     }
 }
 
