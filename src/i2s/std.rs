@@ -591,8 +591,6 @@ pub(super) mod config {
                 bit_shift: self.bit_shift,
                 #[cfg(any(esp32, esp32s2))]
                 msb_right: self.msb_right,
-                #[cfg(esp_idf_version_major = "4")]
-                comm_fmt: self.comm_fmt,
                 #[cfg(not(any(esp32, esp32s2)))]
                 left_align: self.left_align,
                 #[cfg(not(any(esp32, esp32s2)))]
@@ -619,6 +617,8 @@ pub(super) mod config {
                 bit_shift: self.bit_shift,
                 #[cfg(all(any(esp32, esp32s2), not(esp_idf_version_major = "4")))]
                 msb_right: self.msb_right,
+                #[cfg(esp_idf_version_major = "4")]
+                comm_fmt: self.comm_fmt,
                 #[cfg(not(any(esp32, esp32s2)))]
                 left_align: self.left_align,
                 #[cfg(not(any(esp32, esp32s2)))]
