@@ -1486,18 +1486,18 @@ impl_i2s!(I2S0: 0);
 impl_i2s!(I2S1: 1);
 
 // When alloc isn't available, we need to use a static pool to allocate channels from.
-#[cfg(not(feature = "alloc"))]
+#[cfg(all(not(esp_idf_version_major = "4"), not(feature = "alloc")))]
 static mut I2S0_RX_CHAN: core::mem::MaybeUninit<I2sChannel<dyn I2sRxCallback>> =
     core::mem::MaybeUninit::uninit();
 
-#[cfg(not(feature = "alloc"))]
+#[cfg(all(not(esp_idf_version_major = "4"), not(feature = "alloc")))]
 static mut I2S0_TX_CHAN: core::mem::MaybeUninit<I2sChannel<dyn I2sTxCallback>> =
     core::mem::MaybeUninit::uninit();
 
-#[cfg(all(not(feature = "alloc"), any(esp32, esp32s3)))]
+#[cfg(all(not(esp_idf_version_major = "4"), not(feature = "alloc")))]
 static mut I2S1_RX_CHAN: core::mem::MaybeUninit<I2sChannel<dyn I2sRxCallback>> =
     core::mem::MaybeUninit::uninit();
 
-#[cfg(all(not(feature = "alloc"), any(esp32, esp32s3)))]
+#[cfg(all(not(esp_idf_version_major = "4"), not(feature = "alloc")))]
 static mut I2S1_TX_CHAN: core::mem::MaybeUninit<I2sChannel<dyn I2sTxCallback>> =
     core::mem::MaybeUninit::uninit();
