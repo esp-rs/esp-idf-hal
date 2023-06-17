@@ -81,20 +81,15 @@ impl Rgb {
         let v = v as f64 / 100.0;
         let c = s * v;
         let x = c * (1.0 - (((h as f64 / 60.0) % 2.0) - 1.0).abs());
-        let (r, g, b) = if h < 60 {
-            (c, x, 0.0)
-        } else if (60..120).contains(&h) {
-            (x, c, 0.0)
-        } else if (120..180).contains(&h) {
-            (0.0, c, x)
-        } else if (180..240).contains(&h) {
-            (0.0, x, c)
-        } else if (240..300).contains(&h) {
-            (x, 0.0, c)
-        } else {
-            (c, 0.0, x)
-        };
         let m = v - c;
+        let (r, g, b) = match h {
+            0..=59 => (c, x, 0.0),
+            60..=119 => (x, c, 0.0),
+            120..=179 => (0.0, c, x),
+            180..=239 => (0.0, x, c),
+            240..=299 => (x, 0.0, c),
+            _ => (c, 0.0, x),
+        };
         Ok(Self {
             r: ((r + m) * 255.0) as u8,
             g: ((g + m) * 255.0) as u8,
