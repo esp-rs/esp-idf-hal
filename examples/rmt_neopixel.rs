@@ -40,10 +40,6 @@ fn main() -> Result<()> {
 }
 
 fn neopixel(rgb: Rgb, tx: &mut TxRmtDriver) -> Result<()> {
-    // e.g. rgb: (1,2,4)
-    // G        R        B
-    // 7      0 7      0 7      0
-    // 00000010 00000001 00000100
     let color: u32 = rgb.into();
     let ticks_hz = tx.counter_clock()?;
     let (t0h, t0l, t1h, t1l) = (
@@ -62,6 +58,7 @@ fn neopixel(rgb: Rgb, tx: &mut TxRmtDriver) -> Result<()> {
     tx.start_blocking(&signal)?;
     Ok(())
 }
+
 struct Rgb {
     r: u8,
     g: u8,
@@ -100,6 +97,11 @@ impl Rgb {
 
 impl From<Rgb> for u32 {
     /// Convert RGB to u32 color value
+    ///
+    /// e.g. rgb: (1,2,4)
+    /// G        R        B
+    /// 7      0 7      0 7      0
+    /// 00000010 00000001 00000100
     fn from(rgb: Rgb) -> Self {
         ((rgb.r as u32) << 16) | ((rgb.g as u32) << 8) | rgb.b as u32
     }
