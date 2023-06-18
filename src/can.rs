@@ -663,7 +663,6 @@ impl Frame {
             let mut flags = twai_message_t__bindgen_ty_1::default();
 
             // set bits in an union
-            unsafe { flags.__bindgen_anon_1.set_ss(1) };
             if extended {
                 unsafe { flags.__bindgen_anon_1.set_extd(1) };
             }
@@ -692,7 +691,6 @@ impl Frame {
 
             // set bits in an union
             unsafe { flags.__bindgen_anon_1.set_rtr(1) };
-            unsafe { flags.__bindgen_anon_1.set_ss(1) };
             if extended {
                 unsafe { flags.__bindgen_anon_1.set_extd(1) };
             }
