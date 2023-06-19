@@ -233,6 +233,10 @@ pub mod config {
         pub duplex: Duplex,
         pub bit_order: BitOrder,
         pub cs_active_high: bool,
+        ///< Amount of SPI bit-cycles the cs should be activated before the transmission (0-16). This only works on half-duplex transactions.
+        pub cs_pre_delay_us: Option<u16>, // u16 as per the C struct has a uint16_t, cf: esp-idf/components/driver/spi/include/driver/spi_master.h spi_device_interface_config_t
+        ///< Amount of SPI bit-cycles the cs should stay active after the transmission (0-16)
+        pub cs_post_delay_us: Option<u8>, // u8 as per the C struct had a uint8_t, cf: esp-idf/components/driver/spi/include/driver/spi_master.h spi_device_interface_config_t
         pub input_delay_ns: i32,
     }
 
@@ -277,6 +281,22 @@ pub mod config {
             self
         }
 
+        /// Add an aditional Amount of SPI bit-cycles the cs should be activated before the transmission (0-16).
+        /// This only works on half-duplex transactions.
+        #[must_use]
+        pub fn cs_pre_delay_us(mut self, delay_us: u16) -> Self {
+            self.cs_pre_delay_us = Some(delay_us);
+            self
+        }
+
+        /// Add an aditional Amount of SPI bit-cycles the cs should be activated after the transmission (0-16).
+        /// This only works on half-duplex transactions.
+        #[must_use]
+        pub fn cs_post_delay_us(mut self, delay_us: u8) -> Self {
+            self.cs_post_delay_us = Some(delay_us);
+            self
+        }
+
         #[must_use]
         pub fn input_delay_ns(mut self, input_delay_ns: i32) -> Self {
             self.input_delay_ns = input_delay_ns;
@@ -293,6 +313,8 @@ pub mod config {
                 cs_active_high: false,
                 duplex: Duplex::Full,
                 bit_order: BitOrder::MsbFirst,
+                cs_pre_delay_us: None,
+                cs_post_delay_us: None,
                 input_delay_ns: 0,
             }
         }
@@ -324,6 +346,8 @@ impl<T> SpiBusDriver<T> {
                 0_u32
             } | config.duplex.as_flags()
                 | config.bit_order.as_flags(),
+            cs_ena_pretrans: config.cs_pre_delay_us.unwrap_or(0),
+            cs_ena_posttrans: config.cs_post_delay_us.unwrap_or(0),
             ..Default::default()
         };
 
@@ -693,6 +717,8 @@ where
                 0_u32
             } | config.duplex.as_flags()
                 | config.bit_order.as_flags(),
+            cs_ena_pretrans: config.cs_pre_delay_us.unwrap_or(0),
+            cs_ena_posttrans: config.cs_post_delay_us.unwrap_or(0),
             ..Default::default()
         };
 
