@@ -919,14 +919,14 @@ pub mod ws {
 
     pub enum EspHttpWsConnection {
         New(httpd_handle_t, *mut httpd_req_t),
-        Receiving(httpd_handle_t, *mut httpd_req_t),
+        Receiving(httpd_handle_t, *mut httpd_req_t, Option<httpd_ws_frame_t>),
         Closed(ffi::c_int),
     }
 
     impl EspHttpWsConnection {
         pub fn session(&self) -> i32 {
             match self {
-                Self::New(_, raw_req) | Self::Receiving(_, raw_req) => unsafe {
+                Self::New(_, raw_req) | Self::Receiving(_, raw_req, _) => unsafe {
                     httpd_req_to_sockfd(*raw_req)
                 },
                 Self::Closed(fd) => *fd,
@@ -943,7 +943,7 @@ pub mod ws {
 
         pub fn create_detached_sender(&self) -> Result<EspHttpWsDetachedSender, EspError> {
             match self {
-                Self::New(sd, raw_req) | Self::Receiving(sd, raw_req) => {
+                Self::New(sd, raw_req) | Self::Receiving(sd, raw_req, _) => {
                     let fd = unsafe { httpd_req_to_sockfd(*raw_req) };
 
                     let mut sessions = OPEN_SESSIONS.lock();
@@ -960,7 +960,7 @@ pub mod ws {
 
         pub fn send(&mut self, frame_type: FrameType, frame_data: &[u8]) -> Result<(), EspError> {
             match self {
-                Self::New(_, raw_req) | Self::Receiving(_, raw_req) => {
+                Self::New(_, raw_req) | Self::Receiving(_, raw_req, _) => {
                     let raw_frame = Self::create_raw_frame(frame_type, frame_data);
 
                     esp!(unsafe {
@@ -976,18 +976,36 @@ pub mod ws {
         pub fn recv(&mut self, frame_data_buf: &mut [u8]) -> Result<(FrameType, usize), EspError> {
             match self {
                 Self::New(_, _) => Err(EspError::from_infallible::<ESP_FAIL>()),
-                Self::Receiving(_, raw_req) => {
-                    let mut raw_frame: httpd_ws_frame_t = Default::default();
+                Self::Receiving(_, raw_req, ref mut raw_frame_mut) => {
+                    let raw_frame = loop {
+                        if let Some(raw_frame) = raw_frame_mut.as_mut() {
+                            break raw_frame;
+                        }
 
-                    esp!(unsafe { httpd_ws_recv_frame(*raw_req, &mut raw_frame as *mut _, 0) })?;
+                        let mut raw_frame: httpd_ws_frame_t = Default::default();
 
-                    let (frame_type, len) = Self::create_frame_type(&raw_frame);
+                        esp!(unsafe {
+                            httpd_ws_recv_frame(*raw_req, &mut raw_frame as *mut _, 0)
+                        })?;
+
+                        // This is necessary because the ESP IDF WS API requires us to
+                        // call it exactly once with a frame that has a zero-sized buffer,
+                        // and then also exactly once with the same frame instance, except
+                        // its buffer set to a non-zero size
+                        //
+                        // On the other hand, we would like to allow the user the freedom
+                        // to call the API as many times as she wants, and only consume the
+                        // frame if the provided buffer is big enough
+                        *raw_frame_mut = Some(raw_frame);
+                    };
+
+                    let (frame_type, len) = Self::create_frame_type(raw_frame);
 
                     if frame_data_buf.len() >= len {
                         raw_frame.payload = frame_data_buf.as_mut_ptr() as *mut _;
-                        esp!(unsafe {
-                            httpd_ws_recv_frame(*raw_req, &mut raw_frame as *mut _, len)
-                        })?;
+                        esp!(unsafe { httpd_ws_recv_frame(*raw_req, raw_frame as *mut _, len) })?;
+
+                        *raw_frame_mut = None;
                     }
 
                     Ok((frame_type, len))
@@ -1294,7 +1312,7 @@ pub mod ws {
                     (boxed_handler)(if req.method == http_method_HTTP_GET as i32 {
                         EspHttpWsConnection::New(server_handle, raw_req)
                     } else {
-                        EspHttpWsConnection::Receiving(server_handle, raw_req)
+                        EspHttpWsConnection::Receiving(server_handle, raw_req, None)
                     })
                 })
             };
