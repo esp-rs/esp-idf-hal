@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.41.2] - 2023-06-21
+
+* Do not set the single shot flag in the CAN frame (#263)
+* Add safe abstractions to CRC functions in ESP ROM (#261)
+* Use same error for all e-hal 0.2 trait impls (#260)
+* Add support for WakeupReason from Ext0 events (#259)
+* Compilation failed when ESP_IDF_VERSION = "release/v5.1" (#258)
+* Fix UART docs (#252)
+
 ## [0.41.1] - 2023-05-21
 
 * UART driver was broken - see #250 for more details
