@@ -17,9 +17,10 @@ pub(super) mod config {
 
     /// I2S pulse density modulation (PDM) downsampling mode.
     #[cfg(any(esp_idf_soc_i2s_supports_pdm_rx, esp32, esp32s3))]
-    #[derive(Clone, Copy, Eq, PartialEq)]
+    #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
     pub enum PdmDownsample {
         /// Downsample 8 samples.
+        #[default]
         Samples8,
 
         /// Downsample 16 samples.
@@ -27,14 +28,6 @@ pub(super) mod config {
 
         /// Maximum downsample rate.
         Max,
-    }
-
-    #[cfg(any(esp_idf_soc_i2s_supports_pdm_rx, esp32, esp32s3))]
-    impl Default for PdmDownsample {
-        #[inline(always)]
-        fn default() -> Self {
-            Self::Samples8
-        }
     }
 
     #[cfg(any(esp_idf_soc_i2s_supports_pdm_rx, esp32, esp32s3))]

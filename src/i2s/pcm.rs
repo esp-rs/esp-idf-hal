@@ -1,9 +1,10 @@
 pub(super) mod config {
     /// A/U-law compression/decompression configuration.
     #[cfg(esp_idf_soc_i2s_supports_pcm)]
-    #[derive(Clone, Copy, Eq, PartialEq)]
+    #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
     pub enum PcmCompress {
         /// Disable A/U-law compression/decompression.
+        #[default]
         Disable,
 
         /// A-law decompression.
@@ -17,14 +18,6 @@ pub(super) mod config {
 
         /// U-law compression.
         UCompress,
-    }
-
-    #[cfg(esp_idf_soc_i2s_supports_pcm)]
-    impl Default for PcmCompress {
-        #[inline(always)]
-        fn default() -> Self {
-            Self::Disable
-        }
     }
 
     #[cfg(esp_idf_soc_i2s_supports_pcm)]
