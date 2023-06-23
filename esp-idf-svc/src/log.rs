@@ -99,15 +99,21 @@ impl EspLogger {
         LevelFilter::from(Newtype(CONFIG_LOG_MAXIMUM_LEVEL))
     }
 
-    pub fn set_target_level(&self, target: impl AsRef<str>, level_filter: LevelFilter) {
-        let ctarget = CString::new(target.as_ref()).unwrap();
+    pub fn set_target_level(
+        &self,
+        target: impl AsRef<str>,
+        level_filter: LevelFilter,
+    ) -> Result<(), EspError> {
+        let ctarget = try_cstring_new(target.as_ref())?;
 
         unsafe {
             esp_log_level_set(
                 ctarget.as_c_str().as_ptr(),
                 Newtype::<esp_log_level_t>::from(level_filter).0,
-            )
-        };
+            );
+        }
+
+        Ok(())
     }
 
     fn get_marker(level: Level) -> &'static str {
@@ -144,15 +150,26 @@ impl EspLogger {
 
         // esp-idf function `esp_log_level_get` builds a cache using the address
         // of the target and not doing a string compare.  This means we need to
-        // build a cache of our own mapping the string value to a consistant
-        // c-string value.
+        // build a cache of our own mapping the str value to a consistant
+        // Cstr value.
         static TARGET_CACHE: Mutex<BTreeMap<alloc::string::String, CString>> =
             Mutex::wrap(RawMutex::new(), BTreeMap::new());
         let level = Newtype::<esp_log_level_t>::from(record.level()).0;
+
         let mut cache = TARGET_CACHE.lock();
-        let ctarget = cache
-            .entry(record.target().into())
-            .or_insert_with(|| CString::new(record.target()).unwrap());
+
+        let ctarget = loop {
+            if let Some(ctarget) = cache.get(record.target()) {
+                break ctarget;
+            }
+
+            if let Ok(ctarget) = try_cstring_new(record.target()) {
+                cache.insert(record.target().into(), ctarget);
+            } else {
+                return true;
+            }
+        };
+
         let max_level = unsafe { esp_log_level_get(ctarget.as_c_str().as_ptr()) };
         level <= max_level
     }
@@ -199,6 +216,9 @@ impl ::log::Log for EspLogger {
     fn flush(&self) {}
 }
 
-pub fn set_target_level(target: impl AsRef<str>, level_filter: LevelFilter) {
+pub fn set_target_level(
+    target: impl AsRef<str>,
+    level_filter: LevelFilter,
+) -> Result<(), EspError> {
     LOGGER.set_target_level(target, level_filter)
 }

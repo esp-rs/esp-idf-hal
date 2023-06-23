@@ -220,8 +220,8 @@ impl EspNetif {
     pub fn new_with_conf(conf: &NetifConfiguration) -> Result<Self, EspError> {
         initialize_netif_stack()?;
 
-        let c_if_key = CString::new(conf.key.as_str()).unwrap();
-        let c_if_description = CString::new(conf.description.as_str()).unwrap();
+        let c_if_key = try_cstring_new(conf.key.as_str())?;
+        let c_if_description = try_cstring_new(conf.description.as_str())?;
 
         let initial_mac = if let Some(custom_mac) = conf.custom_mac {
             custom_mac
@@ -489,11 +489,9 @@ impl EspNetif {
     }
 
     fn set_hostname(&mut self, hostname: &str) -> Result<(), EspError> {
-        if let Ok(hostname) = CString::new(hostname) {
-            esp!(unsafe { esp_netif_set_hostname(self.0, hostname.as_ptr() as *const _) })?;
-        } else {
-            return Err(EspError::from_infallible::<ESP_ERR_INVALID_ARG>());
-        }
+        let hostname = try_cstring_new(hostname)?;
+
+        esp!(unsafe { esp_netif_set_hostname(self.0, hostname.as_ptr() as *const _) })?;
 
         Ok(())
     }

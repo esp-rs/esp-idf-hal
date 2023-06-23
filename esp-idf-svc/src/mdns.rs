@@ -14,7 +14,8 @@ use embedded_svc::ipv4::{IpAddr, Ipv4Addr, Ipv6Addr};
 
 use esp_idf_sys::*;
 
-use crate::private::cstr::{CStr, CString};
+use crate::private::cstr::try_cstring_new;
+use crate::private::cstr::CStr;
 use crate::private::mutex::{Mutex, RawMutex};
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
@@ -150,13 +151,13 @@ impl EspMdns {
     }
 
     pub fn set_hostname(&mut self, hostname: impl AsRef<str>) -> Result<(), EspError> {
-        let hostname = CString::new(hostname.as_ref()).unwrap();
+        let hostname = try_cstring_new(hostname.as_ref())?;
 
         esp!(unsafe { mdns_hostname_set(hostname.as_ptr()) })
     }
 
     pub fn set_instance_name(&mut self, instance_name: impl AsRef<str>) -> Result<(), EspError> {
-        let instance_name = CString::new(instance_name.as_ref()).unwrap();
+        let instance_name = try_cstring_new(instance_name.as_ref())?;
 
         esp!(unsafe { mdns_instance_name_set(instance_name.as_ptr()) })
     }
@@ -169,14 +170,18 @@ impl EspMdns {
         port: u16,
         txt: &[(&str, &str)],
     ) -> Result<(), EspError> {
-        let instance_name = instance_name.map(|x| CString::new(x.to_string()).unwrap());
-        let service_type = CString::new(service_type.as_ref()).unwrap();
-        let proto = CString::new(proto.as_ref()).unwrap();
+        let instance_name = if let Some(instance_name) = instance_name {
+            Some(try_cstring_new(instance_name)?)
+        } else {
+            None
+        };
+        let service_type = try_cstring_new(service_type.as_ref())?;
+        let proto = try_cstring_new(proto.as_ref())?;
         let mut txtcstr = Vec::with_capacity(txt.len());
         let mut txtptr = Vec::with_capacity(txt.len());
         for e in txt.iter() {
-            let key = CString::new(e.0.as_bytes()).unwrap();
-            let value = CString::new(e.1.as_bytes()).unwrap();
+            let key = try_cstring_new(e.0)?;
+            let value = try_cstring_new(e.1)?;
             txtptr.push(mdns_txt_item_t {
                 key: key.as_ptr(),
                 value: value.as_ptr(),
@@ -204,8 +209,8 @@ impl EspMdns {
         proto: impl AsRef<str>,
         port: u16,
     ) -> Result<(), EspError> {
-        let service_type = CString::new(service_type.as_ref()).unwrap();
-        let proto = CString::new(proto.as_ref()).unwrap();
+        let service_type = try_cstring_new(service_type.as_ref())?;
+        let proto = try_cstring_new(proto.as_ref())?;
 
         esp!(unsafe { mdns_service_port_set(service_type.as_ptr(), proto.as_ptr(), port) })
     }
@@ -216,9 +221,9 @@ impl EspMdns {
         proto: impl AsRef<str>,
         instance_name: impl AsRef<str>,
     ) -> Result<(), EspError> {
-        let service_type = CString::new(service_type.as_ref()).unwrap();
-        let proto = CString::new(proto.as_ref()).unwrap();
-        let instance_name = CString::new(instance_name.as_ref()).unwrap();
+        let service_type = try_cstring_new(service_type.as_ref())?;
+        let proto = try_cstring_new(proto.as_ref())?;
+        let instance_name = try_cstring_new(instance_name.as_ref())?;
 
         esp!(unsafe {
             mdns_service_instance_name_set(
@@ -236,10 +241,10 @@ impl EspMdns {
         key: impl AsRef<str>,
         value: impl AsRef<str>,
     ) -> Result<(), EspError> {
-        let service_type = CString::new(service_type.as_ref()).unwrap();
-        let proto = CString::new(proto.as_ref()).unwrap();
-        let key = CString::new(key.as_ref()).unwrap();
-        let value = CString::new(value.as_ref()).unwrap();
+        let service_type = try_cstring_new(service_type.as_ref())?;
+        let proto = try_cstring_new(proto.as_ref())?;
+        let key = try_cstring_new(key.as_ref())?;
+        let value = try_cstring_new(value.as_ref())?;
 
         esp!(unsafe {
             mdns_service_txt_item_set(
@@ -257,9 +262,9 @@ impl EspMdns {
         proto: impl AsRef<str>,
         key: impl AsRef<str>,
     ) -> Result<(), EspError> {
-        let service_type = CString::new(service_type.as_ref()).unwrap();
-        let proto = CString::new(proto.as_ref()).unwrap();
-        let key = CString::new(key.as_ref()).unwrap();
+        let service_type = try_cstring_new(service_type.as_ref())?;
+        let proto = try_cstring_new(proto.as_ref())?;
+        let key = try_cstring_new(key.as_ref())?;
 
         esp!(unsafe {
             mdns_service_txt_item_remove(service_type.as_ptr(), proto.as_ptr(), key.as_ptr())
@@ -272,15 +277,15 @@ impl EspMdns {
         proto: impl AsRef<str>,
         txt: &[(&str, &str)],
     ) -> Result<(), EspError> {
-        let service_type = CString::new(service_type.as_ref()).unwrap();
-        let proto = CString::new(proto.as_ref()).unwrap();
+        let service_type = try_cstring_new(service_type.as_ref())?;
+        let proto = try_cstring_new(proto.as_ref())?;
 
         let mut txtcstr = Vec::with_capacity(txt.len());
         let mut txtptr = Vec::with_capacity(txt.len());
 
         for e in txt.iter() {
-            let key = CString::new(e.0.as_bytes()).unwrap();
-            let value = CString::new(e.1.as_bytes()).unwrap();
+            let key = try_cstring_new(e.0)?;
+            let value = try_cstring_new(e.1)?;
             txtptr.push(mdns_txt_item_t {
                 key: key.as_ptr(),
                 value: value.as_ptr(),
@@ -303,8 +308,8 @@ impl EspMdns {
         service_type: impl AsRef<str>,
         proto: impl AsRef<str>,
     ) -> Result<(), EspError> {
-        let service_type = CString::new(service_type.as_ref()).unwrap();
-        let proto = CString::new(proto.as_ref()).unwrap();
+        let service_type = try_cstring_new(service_type.as_ref())?;
+        let proto = try_cstring_new(proto.as_ref())?;
 
         esp!(unsafe { mdns_service_remove(service_type.as_ptr(), proto.as_ptr()) })
     }
@@ -324,10 +329,21 @@ impl EspMdns {
         max_results: usize,
         results: &mut [QueryResult],
     ) -> Result<usize, EspError> {
-        let name = name.map(|x| CString::new(x.to_string()).unwrap());
-        let service_type = service_type.map(|x| CString::new(x.to_string()).unwrap());
-        let proto = proto.map(|x| CString::new(x.to_string()).unwrap());
-
+        let name = if let Some(name) = name {
+            Some(try_cstring_new(name)?)
+        } else {
+            None
+        };
+        let service_type = if let Some(service_type) = service_type {
+            Some(try_cstring_new(service_type)?)
+        } else {
+            None
+        };
+        let proto = if let Some(proto) = proto {
+            Some(try_cstring_new(proto)?)
+        } else {
+            None
+        };
         let mut result = core::ptr::null_mut();
         esp!(unsafe {
             mdns_query(
@@ -354,7 +370,7 @@ impl EspMdns {
         hostname: impl AsRef<str>,
         timeout: Duration,
     ) -> Result<Ipv4Addr, EspError> {
-        let hostname = CString::new(hostname.as_ref()).unwrap();
+        let hostname = try_cstring_new(hostname.as_ref())?;
         let mut addr: esp_ip4_addr_t = Default::default();
 
         esp!(unsafe { mdns_query_a(hostname.as_ptr(), timeout.as_millis() as _, &mut addr) })?;
@@ -367,7 +383,7 @@ impl EspMdns {
         hostname: impl AsRef<str>,
         timeout: Duration,
     ) -> Result<Ipv6Addr, EspError> {
-        let hostname = CString::new(hostname.as_ref()).unwrap();
+        let hostname = try_cstring_new(hostname.as_ref())?;
         let mut addr: esp_ip6_addr_t = Default::default();
 
         esp!(unsafe { mdns_query_aaaa(hostname.as_ptr(), timeout.as_millis() as _, &mut addr) })?;
@@ -383,9 +399,9 @@ impl EspMdns {
         timeout: Duration,
         results: &mut [QueryResult],
     ) -> Result<usize, EspError> {
-        let instance_name = CString::new(instance_name.as_ref()).unwrap();
-        let service_type = CString::new(service_type.as_ref()).unwrap();
-        let proto = CString::new(proto.as_ref()).unwrap();
+        let instance_name = try_cstring_new(instance_name.as_ref())?;
+        let service_type = try_cstring_new(service_type.as_ref())?;
+        let proto = try_cstring_new(proto.as_ref())?;
         let mut result = core::ptr::null_mut();
 
         esp!(unsafe {
@@ -412,9 +428,9 @@ impl EspMdns {
         timeout: Duration,
         results: &mut [QueryResult],
     ) -> Result<usize, EspError> {
-        let instance_name = CString::new(instance_name.as_ref()).unwrap();
-        let service_type = CString::new(service_type.as_ref()).unwrap();
-        let proto = CString::new(proto.as_ref()).unwrap();
+        let instance_name = try_cstring_new(instance_name.as_ref())?;
+        let service_type = try_cstring_new(service_type.as_ref())?;
+        let proto = try_cstring_new(proto.as_ref())?;
         let mut result = core::ptr::null_mut();
 
         esp!(unsafe {
@@ -441,8 +457,8 @@ impl EspMdns {
         max_results: usize,
         results: &mut [QueryResult],
     ) -> Result<usize, EspError> {
-        let service_type = CString::new(service_type.as_ref()).unwrap();
-        let proto = CString::new(proto.as_ref()).unwrap();
+        let service_type = try_cstring_new(service_type.as_ref())?;
+        let proto = try_cstring_new(proto.as_ref())?;
         let mut result = core::ptr::null_mut();
 
         esp!(unsafe {

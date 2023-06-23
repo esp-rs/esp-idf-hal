@@ -31,6 +31,7 @@ use uncased::{Uncased, UncasedStr};
 use crate::errors::EspIOError;
 use crate::handle::RawHandle;
 use crate::private::common::Newtype;
+use crate::private::cstr::try_cstring_new;
 use crate::private::cstr::{CStr, CString};
 use crate::private::mutex::{Mutex, RawMutex};
 #[cfg(esp_idf_esp_https_server_enable)]
@@ -370,7 +371,7 @@ impl EspHttpServer {
     where
         H: for<'a> Handler<EspHttpConnection<'a>> + 'static,
     {
-        let c_str = CString::new(uri).unwrap();
+        let c_str = try_cstring_new(uri)?;
 
         #[allow(clippy::needless_update)]
         let conf = httpd_uri_t {
@@ -580,40 +581,42 @@ impl<'a> EspHttpConnection<'a> {
         } else {
             let raw_req = self.request.0 as *const httpd_req_t as *mut httpd_req_t;
 
-            let c_name = CString::new(name).unwrap();
+            if let Ok(c_name) = try_cstring_new(name) {
+                match unsafe { httpd_req_get_hdr_value_len(raw_req, c_name.as_ptr() as _) } {
+                    0 => None,
+                    len => {
+                        // TODO: Would've been much more effective, if ESP-IDF was capable of returning a
+                        // pointer to the header value that is in the scratch buffer
+                        //
+                        // Check if we can implement it ourselves vy traversing the scratch buffer manually
 
-            match unsafe { httpd_req_get_hdr_value_len(raw_req, c_name.as_ptr() as _) } {
-                0 => None,
-                len => {
-                    // TODO: Would've been much more effective, if ESP-IDF was capable of returning a
-                    // pointer to the header value that is in the scratch buffer
-                    //
-                    // Check if we can implement it ourselves vy traversing the scratch buffer manually
+                        let mut buf: Vec<u8> = Vec::with_capacity(len + 1);
 
-                    let mut buf: Vec<u8> = Vec::with_capacity(len + 1);
+                        esp_nofail!(unsafe {
+                            httpd_req_get_hdr_value_str(
+                                raw_req,
+                                c_name.as_ptr(),
+                                buf.as_mut_ptr().cast(),
+                                len + 1,
+                            )
+                        });
 
-                    esp_nofail!(unsafe {
-                        httpd_req_get_hdr_value_str(
-                            raw_req,
-                            c_name.as_ptr(),
-                            buf.as_mut_ptr().cast(),
-                            len + 1,
-                        )
-                    });
+                        unsafe {
+                            buf.set_len(len + 1);
+                        }
 
-                    unsafe {
-                        buf.set_len(len + 1);
+                        // TODO: Replace with a proper conversion from ISO-8859-1 to UTF8
+                        let value = String::from_utf8_lossy(&buf[..len]).into_owned();
+                        unsafe { headers.get().as_mut().unwrap() }
+                            .insert(Uncased::from(name.to_owned()), value);
+
+                        unsafe { headers.get().as_ref().unwrap() }
+                            .get(UncasedStr::new(name))
+                            .map(|s| s.as_ref())
                     }
-
-                    // TODO: Replace with a proper conversion from ISO-8859-1 to UTF8
-                    let value = String::from_utf8_lossy(&buf[..len]).into_owned();
-                    unsafe { headers.get().as_mut().unwrap() }
-                        .insert(Uncased::from(name.to_owned()), value);
-
-                    unsafe { headers.get().as_ref().unwrap() }
-                        .get(UncasedStr::new(name))
-                        .map(|s| s.as_ref())
                 }
+            } else {
+                None
             }
         }
     }
@@ -644,27 +647,27 @@ impl<'a> EspHttpConnection<'a> {
             status.to_string()
         };
 
-        let c_status = CString::new(status.as_str()).unwrap();
+        let c_status = try_cstring_new(status.as_str())?;
         esp!(unsafe { httpd_resp_set_status(self.request.0, c_status.as_ptr() as _) })?;
 
         c_headers.push(c_status);
 
         for (key, value) in headers {
             if key.eq_ignore_ascii_case("Content-Type") {
-                let c_type = CString::new(*value).unwrap();
+                let c_type = try_cstring_new(*value)?;
 
                 esp!(unsafe { httpd_resp_set_type(self.request.0, c_type.as_c_str().as_ptr()) })?;
 
                 c_headers.push(c_type);
             } else if key.eq_ignore_ascii_case("Content-Length") {
-                let c_len = CString::new(*value).unwrap();
+                let c_len = try_cstring_new(*value)?;
 
                 //esp!(unsafe { httpd_resp_set_len(self.raw_req, c_len.as_c_str().as_ptr()) })?;
 
                 c_headers.push(c_len);
             } else {
-                let name = CString::new(*key).unwrap();
-                let value = CString::new(*value).unwrap();
+                let name = try_cstring_new(*key)?;
+                let value = try_cstring_new(*value)?;
 
                 esp!(unsafe {
                     httpd_resp_set_hdr(
@@ -907,7 +910,7 @@ pub mod ws {
     use esp_idf_sys::*;
 
     use crate::private::common::Newtype;
-    use crate::private::cstr::CString;
+    use crate::private::cstr::try_cstring_new;
     use crate::private::mutex::{RawCondvar, RawMutex};
 
     use super::EspHttpServer;
@@ -1229,7 +1232,7 @@ pub mod ws {
             H: for<'a> Fn(&'a mut EspHttpWsConnection) -> Result<(), E> + Send + Sync + 'static,
             E: Debug,
         {
-            let c_str = CString::new(uri).unwrap();
+            let c_str = try_cstring_new(uri)?;
 
             let (req_handler, close_handler) = self.to_native_ws_handler(self.sd, handler);
 

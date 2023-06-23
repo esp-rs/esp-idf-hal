@@ -1,4 +1,5 @@
 //! WiFi support
+use core::convert::TryFrom;
 #[cfg(feature = "nightly")]
 use core::future::Future;
 use core::marker::PhantomData;
@@ -151,8 +152,10 @@ impl From<Newtype<wifi_auth_mode_t>> for AuthMethod {
     }
 }
 
-impl From<&ClientConfiguration> for Newtype<wifi_sta_config_t> {
-    fn from(conf: &ClientConfiguration) -> Self {
+impl TryFrom<&ClientConfiguration> for Newtype<wifi_sta_config_t> {
+    type Error = EspError;
+
+    fn try_from(conf: &ClientConfiguration) -> Result<Self, Self::Error> {
         let bssid: [u8; 6] = match &conf.bssid {
             Some(bssid_ref) => *bssid_ref,
             None => [0; 6],
@@ -178,10 +181,10 @@ impl From<&ClientConfiguration> for Newtype<wifi_sta_config_t> {
             ..Default::default()
         };
 
-        set_str(&mut result.ssid, conf.ssid.as_ref());
-        set_str(&mut result.password, conf.password.as_ref());
+        set_str(&mut result.ssid, conf.ssid.as_ref())?;
+        set_str(&mut result.password, conf.password.as_ref())?;
 
-        Newtype(result)
+        Ok(Newtype(result))
     }
 }
 
@@ -205,8 +208,10 @@ impl From<Newtype<wifi_sta_config_t>> for ClientConfiguration {
     }
 }
 
-impl From<&AccessPointConfiguration> for Newtype<wifi_ap_config_t> {
-    fn from(conf: &AccessPointConfiguration) -> Self {
+impl TryFrom<&AccessPointConfiguration> for Newtype<wifi_ap_config_t> {
+    type Error = EspError;
+
+    fn try_from(conf: &AccessPointConfiguration) -> Result<Self, Self::Error> {
         let mut result = wifi_ap_config_t {
             ssid: [0; 32],
             password: [0; 64],
@@ -219,10 +224,10 @@ impl From<&AccessPointConfiguration> for Newtype<wifi_ap_config_t> {
             ..Default::default()
         };
 
-        set_str(&mut result.ssid, conf.ssid.as_ref());
-        set_str(&mut result.password, conf.password.as_ref());
+        set_str(&mut result.ssid, conf.ssid.as_ref())?;
+        set_str(&mut result.password, conf.password.as_ref())?;
 
-        Newtype(result)
+        Ok(Newtype(result))
     }
 }
 
@@ -994,7 +999,7 @@ impl<'d> WifiDriver<'d> {
             debug!("Setting STA configuration: {:?}", conf);
 
             let mut wifi_config = wifi_config_t {
-                sta: Newtype::<wifi_sta_config_t>::from(conf).0,
+                sta: Newtype::<wifi_sta_config_t>::try_from(conf)?.0,
             };
 
             esp!(unsafe { esp_wifi_set_config(wifi_interface_t_WIFI_IF_STA, &mut wifi_config) })?;
@@ -1026,7 +1031,7 @@ impl<'d> WifiDriver<'d> {
             debug!("Setting AP configuration: {:?}", conf);
 
             let mut wifi_config = wifi_config_t {
-                ap: Newtype::<wifi_ap_config_t>::from(conf).0,
+                ap: Newtype::<wifi_ap_config_t>::try_from(conf)?.0,
             };
 
             esp!(unsafe { esp_wifi_set_config(wifi_interface_t_WIFI_IF_AP, &mut wifi_config) })?;

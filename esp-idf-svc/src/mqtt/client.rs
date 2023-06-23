@@ -478,7 +478,7 @@ impl<S> EspMqttClient<S> {
         topic: &str,
         qos: client::QoS,
     ) -> Result<client::MessageId, EspError> {
-        let c_topic = CString::new(topic).unwrap();
+        let c_topic = try_cstring_new(topic)?;
 
         Self::check(unsafe {
             esp_mqtt_client_subscribe(self.raw_client, c_topic.as_ptr(), qos as _)
@@ -486,7 +486,7 @@ impl<S> EspMqttClient<S> {
     }
 
     pub fn unsubscribe(&mut self, topic: &str) -> Result<client::MessageId, EspError> {
-        let c_topic = CString::new(topic).unwrap();
+        let c_topic = try_cstring_new(topic)?;
 
         Self::check(unsafe { esp_mqtt_client_unsubscribe(self.raw_client, c_topic.as_ptr()) })
     }
@@ -498,7 +498,7 @@ impl<S> EspMqttClient<S> {
         retain: bool,
         payload: &[u8],
     ) -> Result<client::MessageId, EspError> {
-        let c_topic = CString::new(topic).unwrap();
+        let c_topic = try_cstring_new(topic)?;
 
         let payload_ptr = match payload.len() {
             0 => core::ptr::null(),
@@ -524,7 +524,7 @@ impl<S> EspMqttClient<S> {
         retain: bool,
         payload: &[u8],
     ) -> Result<client::MessageId, EspError> {
-        let c_topic = CString::new(topic).unwrap();
+        let c_topic = try_cstring_new(topic)?;
 
         let payload_ptr = match payload.len() {
             0 => core::ptr::null(),

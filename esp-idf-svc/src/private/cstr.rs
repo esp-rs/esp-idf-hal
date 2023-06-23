@@ -7,11 +7,13 @@ pub use alloc::ffi::CString;
 pub use core::ffi::{c_char, CStr};
 
 #[cfg(feature = "alloc")]
-pub fn set_str(buf: &mut [u8], s: &str) {
+pub fn set_str(buf: &mut [u8], s: &str) -> Result<(), esp_idf_sys::EspError> {
     assert!(s.len() < buf.len());
-    let cs = CString::new(s).unwrap();
+    let cs = try_cstring_new(s)?;
     let ss: &[u8] = cs.as_bytes_with_nul();
     buf[..ss.len()].copy_from_slice(ss);
+
+    Ok(())
 }
 
 pub unsafe fn from_cstr_ptr<'a>(ptr: *const c_char) -> &'a str {
@@ -63,4 +65,16 @@ impl Default for RawCstrs {
     fn default() -> Self {
         RawCstrs::new()
     }
+}
+
+#[cfg(feature = "alloc")]
+pub fn nul_to_invalid_arg(err: alloc::ffi::NulError) -> esp_idf_sys::EspError {
+    esp_idf_sys::EspError::from_non_zero(
+        core::num::NonZeroI32::new(esp_idf_sys::ESP_ERR_INVALID_ARG).unwrap(),
+    )
+}
+
+#[cfg(feature = "alloc")]
+pub fn try_cstring_new(value: &str) -> Result<CString, esp_idf_sys::EspError> {
+    CString::new(value).map_err(nul_to_invalid_arg)
 }

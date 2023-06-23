@@ -35,7 +35,7 @@ impl<'r> IdfRequest<'r> {
             status_string.push_str(message.as_str());
         }
 
-        let c_status = CString::new(status_string.as_str()).unwrap();
+        let c_status = try_cstring_new(status_string.as_str())?;
 
         esp!(unsafe { esp_idf_sys::httpd_resp_set_status(self.0, c_status.as_ptr()) })?;
 
@@ -45,7 +45,7 @@ impl<'r> IdfRequest<'r> {
 
         for (key, value) in response.headers {
             if key.as_str().eq_ignore_ascii_case("Content-Type") {
-                c_content_type = Some(CString::new(value.as_str()).unwrap());
+                c_content_type = Some(try_cstring_new(value.as_str()).unwrap());
             } else if key.as_str().eq_ignore_ascii_case("Content-Length") {
                 content_len = Some(
                     value
@@ -55,8 +55,8 @@ impl<'r> IdfRequest<'r> {
                 );
             } else {
                 c_headers.push((
-                    CString::new(key.as_str()).unwrap(),
-                    CString::new(value.as_str()).unwrap(),
+                    try_cstring_new(key.as_str()).unwrap(),
+                    try_cstring_new(value.as_str()).unwrap(),
                 ))
             }
         }
@@ -110,26 +110,28 @@ impl<'r> IdfRequest<'r> {
 
 impl<'r> RequestDelegate for IdfRequest<'r> {
     fn header(&self, name: &str) -> Option<String> {
-        let c_str = CString::new(name).unwrap();
+        if let Ok(c_str) = try_cstring_new(name) {
+            unsafe {
+                match esp_idf_sys::httpd_req_get_hdr_value_len(self.0, c_str.as_ptr()) {
+                    0 => None,
+                    len => {
+                        let mut buf: vec::Vec<u8> = Vec::with_capacity(len + 1);
 
-        unsafe {
-            match esp_idf_sys::httpd_req_get_hdr_value_len(self.0, c_str.as_ptr()) {
-                0 => None,
-                len => {
-                    let mut buf: vec::Vec<u8> = Vec::with_capacity(len + 1);
+                        esp_nofail!(esp_idf_sys::httpd_req_get_hdr_value_str(
+                            self.0,
+                            c_str.as_ptr(),
+                            buf.as_mut_ptr().cast(),
+                            len + 1
+                        ));
 
-                    esp_nofail!(esp_idf_sys::httpd_req_get_hdr_value_str(
-                        self.0,
-                        c_str.as_ptr(),
-                        buf.as_mut_ptr().cast(),
-                        len + 1
-                    ));
+                        buf.set_len(len + 1);
 
-                    buf.set_len(len + 1);
-
-                    Some(std::str::from_utf8_unchecked(&buf[..len]).into())
+                        Some(std::str::from_utf8_unchecked(&buf[..len]).into())
+                    }
                 }
             }
+        } else {
+            None
         }
     }
 
@@ -248,7 +250,7 @@ impl Server {
     }
 
     fn register(&mut self, handler: Handler) -> Result<()> {
-        let c_str = CString::new(handler.uri().as_ref()).unwrap();
+        let c_str = try_cstring_new(handler.uri().as_ref())?;
         let method = handler.method();
 
         #[allow(clippy::needless_update)]

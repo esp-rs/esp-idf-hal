@@ -204,7 +204,7 @@ impl EspHttpConnection {
     ) -> Result<(), EspError> {
         self.assert_initial();
 
-        let c_uri = CString::new(uri).unwrap();
+        let c_uri = try_cstring_new(uri)?;
 
         esp!(unsafe { esp_http_client_set_url(self.raw_client, c_uri.as_ptr() as _) })?;
         esp!(unsafe {
@@ -223,10 +223,10 @@ impl EspHttpConnection {
                 }
             }
 
-            let c_name = CString::new(*name).unwrap();
+            let c_name = try_cstring_new(*name)?;
 
             // TODO: Replace with a proper conversion from UTF8 to ISO-8859-1
-            let c_value = CString::new(*value).unwrap();
+            let c_value = try_cstring_new(*value)?;
 
             esp!(unsafe {
                 esp_http_client_set_header(
