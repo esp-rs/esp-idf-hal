@@ -1145,10 +1145,23 @@ macro_rules! impl_i2s {
 #[cfg(not(esp_idf_version_major = "4"))]
 pub type I2sRawEvent = i2s_event_data_t;
 
-#[cfg(all(not(feature = "riscv-ulp-hal"), feature = "alloc"))]
+#[cfg(all(
+    not(esp_idf_version_major = "4"),
+    not(feature = "riscv-ulp-hal"),
+    feature = "alloc"
+))]
+#[cfg(all(
+    not(esp_idf_version_major = "4"),
+    not(feature = "riscv-ulp-hal"),
+    feature = "alloc"
+))]
 struct UnsafeCallback<E>(*mut Box<dyn FnMut(u8, E) -> bool + 'static>);
 
-#[cfg(all(not(feature = "riscv-ulp-hal"), feature = "alloc"))]
+#[cfg(all(
+    not(esp_idf_version_major = "4"),
+    not(feature = "riscv-ulp-hal"),
+    feature = "alloc"
+))]
 impl<E> UnsafeCallback<E> {
     #[allow(clippy::type_complexity)]
     pub fn from(boxed: &mut Box<Box<dyn FnMut(u8, E) -> bool + 'static>>) -> Self {
@@ -1202,10 +1215,20 @@ pub use self::std::*;
 ))]
 pub use self::tdm::*;
 
-#[cfg(any(esp32, esp32s3))]
+#[cfg(all(
+    not(esp_idf_version_major = "4"),
+    not(feature = "riscv-ulp-hal"),
+    feature = "alloc",
+    any(esp32, esp32s3)
+))]
 const I2S_PORT_COUNT: usize = 2;
 
-#[cfg(not(any(esp32, esp32s3)))]
+#[cfg(all(
+    not(esp_idf_version_major = "4"),
+    not(feature = "riscv-ulp-hal"),
+    feature = "alloc",
+    not(any(esp32, esp32s3))
+))]
 const I2S_PORT_COUNT: usize = 1;
 
 #[allow(clippy::type_complexity)]
