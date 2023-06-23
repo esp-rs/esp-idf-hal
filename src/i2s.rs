@@ -668,32 +668,25 @@ pub trait I2sRxChannel<'d>: I2sPort {
         Ok(bytes_read)
     }
 
-    /// Sets the receive callback for the channel.
+    /// Subscribe to receive events for the I2S port.
+    ///
+    /// The callback will be sent the I2S port number and the event that occurred. The return value from the callback
+    /// indicates whether a high-priority task has been woken up by the callback.
     ///
     /// This may be called only when the channel is in the `REGISTERED` or `RUNNING` state.
     ///
-    /// # Bugs
-    /// This functionality appears to be fundamentally broken in ESP-IDF 5.0.*. This function is invoked by
-    /// [`i2s_dma_rx_callback`](https://github.com/espressif/esp-idf/blob/v5.0.1/components/driver/i2s/i2s_common.c#L562).
-    /// It expects the callback (or another mechanism) to mark the DMA buffer as ready for reuse, as
-    /// [`i2s_channel_read` does by calling `xQueueReceive`](https://github.com/espressif/esp-idf/blob/v5.0.1/components/driver/i2s/i2s_common.c#L1076).
-    /// Otherwise, the queue eventually fills up and [`xQueueIsQueueFullFromISR` returns true and the recieve buffer overflows](https://github.com/espressif/esp-idf/blob/v5.0.1/components/driver/i2s/i2s_common.c#L494).
+    /// # Safety
     ///
-    /// However, it is impossible for non ESP-IDF code to call `xQueueReceive` on the queue because the queue is hidden behind the
-    /// opaque [`i2s_chan_handle_t` object](https://github.com/espressif/esp-idf/blob/v5.0.1/components/driver/include/driver/i2s_types.h#L66).
-    /// The actual definition is private in [`i2s_channel_obj_t.msg_queue`](https://github.com/espressif/esp-idf/blob/v5.0.1/components/driver/i2s/i2s_private.h#L71-L103).
-    ///
-    /// This requires a fix in the ESP-IDF SDK to work properly.
-    #[cfg(all(not(esp_idf_version_major = "4"), feature = "alloc"))]
-    fn set_rx_callback<Rx: I2sRxCallback + 'static>(
+    /// Care should be taken not to call STD, libc or FreeRTOS APIs (except for a few allowed ones)
+    /// in the callback passed to this function, as it is executed in an ISR context.
+    #[cfg(all(
+        not(esp_idf_version_major = "4"),
+        not(feature = "riscv-ulp-hal"),
+        feature = "alloc"
+    ))]
+    unsafe fn rx_subscribe(
         &mut self,
-        callback: Rx,
-    ) -> Result<(), EspError>;
-
-    #[cfg(all(not(esp_idf_version_major = "4"), not(feature = "alloc")))]
-    fn set_rx_callback<Rx: I2sRxCallback + 'static>(
-        &mut self,
-        callback: *mut Rx,
+        callback: Box<dyn FnMut(u8, I2sRxEvent) -> bool + 'static>,
     ) -> Result<(), EspError>;
 }
 
@@ -854,30 +847,23 @@ pub trait I2sTxChannel<'d>: I2sPort {
 
     /// Sets the transmit callback for the channel.
     ///
+    /// The callback will be sent the I2S port number and the event that occurred. The return value from the callback
+    /// indicates whether a high-priority task has been woken up by the callback.
+    ///
     /// This may be called only when the channel is in the `REGISTERED` or `RUNNING` state.
     ///
-    /// # Bugs
-    /// This functionality appears to be fundamentally broken in ESP-IDF 5.0.*. This function is invoked by
-    /// [`i2s_dma_tx_callback`](https://github.com/espressif/esp-idf/blob/v5.0.1/components/driver/i2s/i2s_common.c#L521).
-    /// It expects the callback (or another mechanism) to mark the DMA buffer as ready for reuse, as
-    /// [`i2s_channel_write` does by calling `xQueueReceive`](https://github.com/espressif/esp-idf/blob/v5.0.1/components/driver/i2s/i2s_common.c#L1038).
-    /// Otherwise, the queue eventually fills up and [`xQueueIsQueueFullFromISR` returns true and the recieve buffer overflows](https://github.com/espressif/esp-idf/blob/v5.0.1/components/driver/i2s/i2s_common.c#L523).
+    /// # Safety
     ///
-    /// However, it is impossible for non ESP-IDF code to call `xQueueReceive` on the queue because the queue is hidden behind the
-    /// opaque [`i2s_chan_handle_t` object](https://github.com/espressif/esp-idf/blob/v5.0.1/components/driver/include/driver/i2s_types.h#L66).
-    /// The actual definition is private in [`i2s_channel_obj_t.msg_queue`](https://github.com/espressif/esp-idf/blob/v5.0.1/components/driver/i2s/i2s_private.h#L71-L103).
-    ///
-    /// This requires a fix in the ESP-IDF SDK to work properly.
-    #[cfg(all(not(esp_idf_version_major = "4"), feature = "alloc"))]
-    fn set_tx_callback<Tx: I2sTxCallback + 'static>(
+    /// Care should be taken not to call STD, libc or FreeRTOS APIs (except for a few allowed ones)
+    /// in the callback passed to this function, as it is executed in an ISR context.
+    #[cfg(all(
+        not(esp_idf_version_major = "4"),
+        not(feature = "riscv-ulp-hal"),
+        feature = "alloc"
+    ))]
+    unsafe fn tx_subscribe(
         &mut self,
-        callback: Tx,
-    ) -> Result<(), EspError>;
-
-    #[cfg(all(not(esp_idf_version_major = "4"), not(feature = "alloc")))]
-    fn set_tx_callback<Tx: I2sTxCallback + 'static>(
-        &mut self,
-        callback: *mut Tx,
+        callback: Box<dyn FnMut(u8, I2sTxEvent) -> bool + 'static>,
     ) -> Result<(), EspError>;
 }
 
@@ -937,222 +923,66 @@ pub struct I2sBiDir {}
 impl I2sRxSupported for I2sBiDir {}
 impl I2sTxSupported for I2sBiDir {}
 
-/// Callback handler for a receiver channel.
-///
-/// This runs in an interrupt context.
-#[cfg(not(esp_idf_version_major = "4"))]
-pub trait I2sRxCallback {
-    /// Called when an I2S receive event occurs.
-    ///
-    /// # Parameters
-    /// * `port`: The driver port (I2S peripheral number) associated with the event.
-    /// * `event`: Data associated with the event, including the DMA buffer address and the size that just finished
-    ///   receiving data.
-    ///
-    /// # Returns
-    /// Returns `true` if a high priority task has been woken up by this callback function, `false` otherwise.
-    #[allow(unused_variables)]
-    fn on_receive(&mut self, port: u8, event: &I2sRawEvent) -> bool {
-        false
-    }
+/// Receive callback event.
+#[cfg(all(
+    not(esp_idf_version_major = "4"),
+    not(feature = "riscv-ulp-hal"),
+    feature = "alloc"
+))]
+#[derive(Clone, Copy, Debug)]
+pub enum I2sRxEvent {
+    /// A DMA buffer has been filled with data. This buffer can be previewed, but must be read by calling
+    /// [I2sRxChannel::read] to dequeue it from the driver (outside of the ISR context).
+    DataReceived(&'static [u8]),
 
-    /// Called when an I2S receiving queue overflows.
-    ///
-    /// # Parameters
-    /// * `port`: The driver port (I2S peripheral number) associated with the event.
-    /// * `event`: Data associated with the event, including the buffer size that has been overwritten.
-    ///
-    /// # Returns
-    /// Returns `true` if a high priority task has been woken up by this callback function, `false` otherwise.
-    #[allow(unused_variables)]
-    fn on_receive_queue_overflow(&mut self, port: u8, event: &I2sRawEvent) -> bool {
-        false
-    }
+    /// The receive queue overflowed. The number of bytes that were lost is provided.
+    ReceiveOverflow(usize),
 }
 
-/// Callback handler for a transmitter channel.
-///
-/// This runs in an interrupt context.
-#[cfg(not(esp_idf_version_major = "4"))]
-pub trait I2sTxCallback {
-    /// Called when an I2S DMA buffer is finished sending.
-    ///
-    /// # Parameters
-    /// * `port`: The driver port (I2S peripheral number) associated with the event.
-    /// * `event`: Data associated with the event, including the DMA buffer address and the size that just finished
-    ///   sending data.
-    ///
-    /// # Returns
-    /// Returns `true` if a high priority task has been woken up by this callback function, `false` otherwise.
-    #[allow(unused_variables)]
-    fn on_sent(&mut self, port: u8, event: &I2sRawEvent) -> bool {
-        false
-    }
+/// Transmit callback event.
+#[cfg(all(
+    not(esp_idf_version_major = "4"),
+    not(feature = "riscv-ulp-hal"),
+    feature = "alloc"
+))]
+#[derive(Clone, Copy, Debug)]
+pub enum I2sTxEvent {
+    /// A DMA buffer has just been sent. This buffer can be reviewed if necessary.
+    DataTransmitted(&'static [u8]),
 
-    /// Called when an I2S sending queue overflows.
-    ///
-    /// # Parameters
-    /// * `port`: The driver port (I2S peripheral number) associated with the event.
-    /// * `event`: Data associated with the event, including the buffer size that has been overwritten.
-    ///
-    /// # Returns
-    /// Returns `true` if a high priority task has been woken up by this callback function, `false` otherwise.
-    #[allow(unused_variables)]
-    fn on_send_queue_overflow(&mut self, port: u8, event: &I2sRawEvent) -> bool {
-        false
-    }
+    /// The transmit queue overflowed. The number of bytes that were lost is provided.
+    TransmitOverflow(usize),
 }
 
 /// Internals of the I2S driver for a channel. This is pinned for the lifetime of the driver for
 /// interrupts to function properly.
 #[cfg(not(esp_idf_version_major = "4"))]
-struct I2sChannel<Callback: ?Sized> {
+struct I2sChannel {
     /// The channel handle.
     chan_handle: i2s_chan_handle_t,
 
     /// The port number.
-    i2s: u8,
-
-    /// The interrupt handler for channel events.
-    #[cfg(feature = "alloc")]
-    callback: Option<Box<Callback>>,
-
-    /// The interrupt handler for channel events.
-    #[cfg(not(feature = "alloc"))]
-    callback: Option<core::ptr::NonNull<Callback>>,
+    port: u8,
 }
 
 #[cfg(not(esp_idf_version_major = "4"))]
-unsafe impl<Callback: ?Sized> Sync for I2sChannel<Callback> {}
-
-// No Send impl -- this *must* be pinned in memory for the callback to function properly.
-// Otherwise, the channel struct can be moved and the pointer sent into the ESP-IDF SDK will be
-// invalid.
-
-#[cfg(all(not(esp_idf_version_major = "4"), feature = "alloc"))]
-impl<Callback: ?Sized> I2sChannel<Callback> {
-    /// Create a new I2S channel in the receive direction, pinned in memory.
-    ///
-    /// # Panic
-    /// This will panic if port is not 0 or 1, or if port is 1 and the target does not support I2S1.
-    ///
-    /// # Safety
-    /// This must be called only once per port until [I2sChannel::destroy] is called on the channel.
-    pub(crate) unsafe fn create_rx(port: u8, chan_handle: i2s_chan_handle_t) -> *mut Self {
-        if port > 1 {
-            panic!("Invalid I2S port: {}", port);
-        }
-
-        if cfg!(not(any(esp32, esp32s3))) && port == 1 {
-            panic!("I2S1 is not supported on this target");
-        }
-
-        let channel = I2sChannel {
-            chan_handle,
-            i2s: port,
-            callback: None,
-        };
-
-        Box::leak(Box::new(channel))
-    }
-
-    /// Create a new I2S channel in the transmit direction, pinned in memory.
-    ///
-    /// # Panic
-    /// This will panic if port is not 0 or 1, or if port is 1 and the target does not support I2S1.
-    ///
-    /// # Safety
-    /// This must be called only once per port until [I2sChannel::destroy] is called on the channel.
-    pub(crate) unsafe fn create_tx(port: u8, chan_handle: i2s_chan_handle_t) -> *mut Self {
-        if port > 1 {
-            panic!("Invalid I2S port: {}", port);
-        }
-
-        if cfg!(not(any(esp32, esp32s3))) && port == 1 {
-            panic!("I2S1 is not supported on this target");
-        }
-
-        let channel = I2sChannel {
-            chan_handle,
-            i2s: port,
-            callback: None,
-        };
-
-        Box::leak(Box::new(channel))
-    }
-}
-
-#[cfg(all(not(esp_idf_version_major = "4"), not(feature = "alloc")))]
-impl I2sChannel<dyn I2sRxCallback> {
-    /// Create a new I2S channel in the receive direction, pinned in memory, allocated from static
-    /// buffers.
-    ///
-    /// # Panic
-    /// This will panic if port is not 0 or 1, or if port is 1 and the target does not support I2S1.
-    ///
-    /// # Safety
-    /// This must be called only once per port until [I2sChannel::destroy] is called on the channel.
-    pub(crate) unsafe fn create_rx(port: u8, chan_handle: i2s_chan_handle_t) -> *mut Self {
-        use core::ptr::addr_of_mut;
-
-        let channel = match port {
-            0 => &mut I2S0_RX_CHAN,
-            #[cfg(any(esp32, esp32s3))]
-            1 => &mut I2S1_RX_CHAN,
-            _ => panic!("Invalid I2S port: {}", port),
-        };
-
-        let channel = channel.as_mut_ptr();
-        addr_of_mut!((*channel).i2s).write(port);
-        addr_of_mut!((*channel).chan_handle).write(chan_handle);
-        addr_of_mut!((*channel).callback).write(None);
-        channel
-    }
-}
-
-#[cfg(all(not(esp_idf_version_major = "4"), not(feature = "alloc")))]
-impl I2sChannel<dyn I2sTxCallback> {
-    /// Create a new I2S channel in the receive direction, pinned in memory, allocated from static
-    /// buffers.
-    ///
-    /// # Panic
-    /// This will panic if port is not 0 or 1, or if port is 1 and the target does not support I2S1.
-    ///
-    /// # Safety
-    /// This must be called only once per port until [I2sChannel::destroy] is called on the channel.
-    pub(crate) unsafe fn create_tx(port: u8, chan_handle: i2s_chan_handle_t) -> *mut Self {
-        use core::ptr::addr_of_mut;
-
-        let channel = match port {
-            0 => &mut I2S0_TX_CHAN,
-            #[cfg(any(esp32, esp32s3))]
-            1 => &mut I2S1_TX_CHAN,
-            _ => panic!("Invalid I2S port: {}", port),
-        };
-
-        let channel = channel.as_mut_ptr();
-        addr_of_mut!((*channel).i2s).write(port);
-        addr_of_mut!((*channel).chan_handle).write(chan_handle);
-        addr_of_mut!((*channel).callback).write(None);
-        channel
+impl I2sChannel {
+    /// Create a new I2S channel
+    pub(crate) fn new(port: u8, chan_handle: i2s_chan_handle_t) -> Self {
+        Self { chan_handle, port }
     }
 }
 
 #[cfg(not(esp_idf_version_major = "4"))]
-impl<Callback: ?Sized> I2sChannel<Callback> {
+impl Drop for I2sChannel {
     /// This destroys the channel and frees the memory associated with it.
-    fn destroy(chan: *mut Self) {
-        if chan.is_null() {
-            return;
-        }
-
-        // Safety: chan is non-null.
-        unsafe {
-            if !(*chan).chan_handle.is_null() {
-                // Safety: chan_handle is a valid, non-null i2s_chan_handle_t.
-                let result = i2s_del_channel((*chan).chan_handle);
-                if result != ESP_OK {
-                    // This isn't fatal so a panic isn't warranted, but we do want to be able to debug it.
+    fn drop(&mut self) {
+        if !self.chan_handle.is_null() {
+            // Safety: chan_handle is a valid, non-null i2s_chan_handle_t.
+            let result = unsafe { i2s_del_channel(self.chan_handle) };
+            if result != ESP_OK {
+                // This isn't fatal so a panic isn't warranted, but we do want to be able to debug it.
+                unsafe {
                     esp_log_write(
                         esp_log_level_t_ESP_LOG_ERROR,
                         LOG_TAG as *const u8 as *const i8,
@@ -1160,17 +990,26 @@ impl<Callback: ?Sized> I2sChannel<Callback> {
                         esp_err_to_name(result),
                     );
                 }
-
-                (*chan).chan_handle = null_mut();
             }
+
+            self.chan_handle = null_mut();
         }
     }
 }
 
-#[cfg(all(not(esp_idf_version_major = "4"), feature = "alloc"))]
-impl<Callback: I2sRxCallback + ?Sized> I2sChannel<Callback> {
+#[cfg(all(
+    not(esp_idf_version_major = "4"),
+    not(feature = "riscv-ulp-hal"),
+    feature = "alloc"
+))]
+impl I2sChannel {
     /// Utility function to set RX callbacks for drivers.
-    fn set_rx_callback(&mut self, callback: Box<Callback>) -> Result<(), EspError> {
+    unsafe fn rx_subscribe(
+        &mut self,
+        callback: Box<Box<dyn FnMut(u8, I2sRxEvent) -> bool>>,
+    ) -> Result<(), EspError> {
+        ISR_RX_HANDLERS[self.port as usize] = Some(callback);
+
         let callbacks = i2s_event_callbacks_t {
             on_recv: Some(dispatch_on_recv),
             on_recv_q_ovf: Some(dispatch_on_recv_q_ovf),
@@ -1183,49 +1022,21 @@ impl<Callback: I2sRxCallback + ?Sized> I2sChannel<Callback> {
             esp!(i2s_channel_register_event_callback(
                 self.chan_handle,
                 &callbacks,
-                self as *mut Self as *mut c_void
+                UnsafeCallback::from(ISR_RX_HANDLERS[self.port as usize].as_mut().unwrap())
+                    .as_ptr(),
             ))?;
-
-            self.callback = Some(callback);
         }
 
         Ok(())
     }
-}
 
-#[cfg(all(not(esp_idf_version_major = "4"), not(feature = "alloc")))]
-impl<Callback: I2sRxCallback + ?Sized> I2sChannel<Callback> {
-    /// Utility function to set RX callbacks for drivers.
-    fn set_rx_callback(&mut self, callback: *mut Callback) -> Result<(), EspError> {
-        // Safety: internal is a valid pointer to I2sStdDriverInternal and is initialized.
-        unsafe {
-            let callback = core::ptr::NonNull::new(callback);
-
-            if callback.is_some() {
-                let callbacks = i2s_event_callbacks_t {
-                    on_recv: Some(dispatch_on_recv),
-                    on_recv_q_ovf: Some(dispatch_on_recv_q_ovf),
-                    on_sent: None,
-                    on_send_q_ovf: None,
-                };
-                esp!(i2s_channel_register_event_callback(
-                    self.chan_handle,
-                    &callbacks,
-                    self as *mut Self as *mut c_void
-                ))?;
-            }
-
-            self.callback = callback;
-        }
-
-        Ok(())
-    }
-}
-
-#[cfg(all(not(esp_idf_version_major = "4"), feature = "alloc"))]
-impl<Callback: I2sTxCallback + ?Sized> I2sChannel<Callback> {
     /// Utility function to set TX callbacks for drivers.
-    fn set_tx_callback(&mut self, callback: Box<Callback>) -> Result<(), EspError> {
+    unsafe fn tx_subscribe(
+        &mut self,
+        callback: Box<Box<dyn FnMut(u8, I2sTxEvent) -> bool>>,
+    ) -> Result<(), EspError> {
+        ISR_TX_HANDLERS[self.port as usize] = Some(callback);
+
         let callbacks = i2s_event_callbacks_t {
             on_recv: None,
             on_recv_q_ovf: None,
@@ -1238,214 +1049,87 @@ impl<Callback: I2sTxCallback + ?Sized> I2sChannel<Callback> {
             esp!(i2s_channel_register_event_callback(
                 self.chan_handle,
                 &callbacks,
-                self as *mut Self as *mut c_void,
+                UnsafeCallback::from(ISR_TX_HANDLERS[self.port as usize].as_mut().unwrap())
+                    .as_ptr(),
             ))?;
-            self.callback = Some(callback);
         }
 
         Ok(())
     }
 }
 
-#[cfg(all(not(esp_idf_version_major = "4"), not(feature = "alloc")))]
-impl<Callback: I2sTxCallback + ?Sized> I2sChannel<Callback> {
-    /// Utility function to set TX callbacks for drivers.
-    fn set_tx_callback(&mut self, callback: *mut Callback) -> Result<(), EspError> {
-        let callback = core::ptr::NonNull::new(callback);
-
-        if callback.is_some() {
-            let callbacks = i2s_event_callbacks_t {
-                on_recv: None,
-                on_recv_q_ovf: None,
-                on_sent: Some(dispatch_on_sent),
-                on_send_q_ovf: Some(dispatch_on_send_q_ovf),
-            };
-
-            // Safety: internal is a valid pointer to I2sStdDriverInternal and is initialized.
-            unsafe {
-                esp!(i2s_channel_register_event_callback(
-                    self.chan_handle,
-                    &callbacks,
-                    self as *mut Self as *mut c_void,
-                ))?;
-            }
-        }
-
-        self.callback = callback;
-
-        Ok(())
-    }
-}
-
 /// C-facing ISR dispatcher for on_recv callbacks.
-#[cfg(all(not(esp_idf_version_major = "4"), feature = "alloc"))]
-extern "C" fn dispatch_on_recv(
+#[cfg(all(
+    not(esp_idf_version_major = "4"),
+    not(feature = "riscv-ulp-hal"),
+    feature = "alloc"
+))]
+unsafe extern "C" fn dispatch_on_recv(
     _handle: i2s_chan_handle_t,
-    event: *mut i2s_event_data_t,
+    raw_event: *mut i2s_event_data_t,
     user_ctx: *mut c_void,
 ) -> bool {
-    // Safety: user_ctx is always a pointer to I2sStdDriverChannel.
-    let internal: &mut I2sChannel<dyn I2sRxCallback> =
-        unsafe { &mut *(user_ctx as *mut I2sChannel<dyn I2sRxCallback>) };
-    if let Some(callback) = &mut internal.callback {
-        callback.on_receive(internal.i2s, unsafe {
-            &*(event as *const i2s_event_data_t)
-        })
-    } else {
-        false
-    }
-}
-
-/// C-facing ISR dispatcher for on_recv callbacks.
-#[cfg(all(not(esp_idf_version_major = "4"), not(feature = "alloc")))]
-extern "C" fn dispatch_on_recv(
-    _handle: i2s_chan_handle_t,
-    event: *mut i2s_event_data_t,
-    user_ctx: *mut c_void,
-) -> bool {
-    // Safety: user_ctx is always a pointer to I2sStdDriverChannel.
-    let internal: &mut I2sChannel<dyn I2sRxCallback> =
-        unsafe { &mut *(user_ctx as *mut I2sChannel<dyn I2sRxCallback>) };
-    if let Some(callback) = &mut internal.callback {
-        // Safety: callback is properly aligned.
-        // Safety: event is non-null and properly aligned.
-        unsafe {
-            callback
-                .as_mut()
-                .on_receive(internal.i2s, &*(event as *const i2s_event_data_t))
-        }
-    } else {
-        false
-    }
+    let mut callback = UnsafeCallback::from_ptr(user_ctx);
+    let port = callback.get_port(&ISR_RX_HANDLERS);
+    let event = I2sRxEvent::DataReceived(::std::slice::from_raw_parts(
+        (*raw_event).data as *const u8,
+        (*raw_event).size,
+    ));
+    callback.call(port, event)
 }
 
 /// C-facing ISR dispatcher for on_recv_q_ovf callbacks.
-#[cfg(all(not(esp_idf_version_major = "4"), feature = "alloc"))]
-extern "C" fn dispatch_on_recv_q_ovf(
+#[cfg(all(
+    not(esp_idf_version_major = "4"),
+    not(feature = "riscv-ulp-hal"),
+    feature = "alloc"
+))]
+unsafe extern "C" fn dispatch_on_recv_q_ovf(
     _handle: i2s_chan_handle_t,
-    event: *mut i2s_event_data_t,
+    raw_event: *mut i2s_event_data_t,
     user_ctx: *mut c_void,
 ) -> bool {
-    // Safety: user_ctx is always a pointer to I2sStdDriverChannel.
-    let internal: &mut I2sChannel<dyn I2sRxCallback> =
-        unsafe { &mut *(user_ctx as *mut I2sChannel<dyn I2sRxCallback>) };
-    if let Some(callback) = &mut internal.callback {
-        // Safety: event is non-null and properly aligned.
-        callback.on_receive_queue_overflow(internal.i2s, unsafe {
-            &*(event as *const i2s_event_data_t)
-        })
-    } else {
-        false
-    }
-}
-
-/// C-facing ISR dispatcher for on_recv_q_ovf callbacks.
-#[cfg(all(not(esp_idf_version_major = "4"), not(feature = "alloc")))]
-extern "C" fn dispatch_on_recv_q_ovf(
-    _handle: i2s_chan_handle_t,
-    event: *mut i2s_event_data_t,
-    user_ctx: *mut c_void,
-) -> bool {
-    // Safety: callback is properly aligned.
-    // Safety: user_ctx is always a pointer to I2sStdDriverChannel.
-    let internal: &mut I2sChannel<dyn I2sRxCallback> =
-        unsafe { &mut *(user_ctx as *mut I2sChannel<dyn I2sRxCallback>) };
-    if let Some(callback) = &mut internal.callback {
-        // Safety: callback is properly aligned.
-        // Safety: event is non-null and properly aligned.
-        unsafe {
-            callback
-                .as_mut()
-                .on_receive_queue_overflow(internal.i2s, &*(event as *const i2s_event_data_t))
-        }
-    } else {
-        false
-    }
+    let mut callback = UnsafeCallback::from_ptr(user_ctx);
+    let port = callback.get_port(&ISR_RX_HANDLERS);
+    let event = I2sRxEvent::ReceiveOverflow((*raw_event).size);
+    callback.call(port, event)
 }
 
 /// C-facing ISR dispatcher for on_sent callbacks.
-#[cfg(all(not(esp_idf_version_major = "4"), feature = "alloc"))]
-extern "C" fn dispatch_on_sent(
+#[cfg(all(
+    not(esp_idf_version_major = "4"),
+    not(feature = "riscv-ulp-hal"),
+    feature = "alloc"
+))]
+unsafe extern "C" fn dispatch_on_sent(
     _handle: i2s_chan_handle_t,
-    event: *mut i2s_event_data_t,
+    raw_event: *mut i2s_event_data_t,
     user_ctx: *mut c_void,
 ) -> bool {
-    // Safety: user_ctx is always a pointer to I2sStdDriverChannel.
-    let internal: &mut I2sChannel<dyn I2sTxCallback> =
-        unsafe { &mut *(user_ctx as *mut I2sChannel<dyn I2sTxCallback>) };
-    if let Some(callback) = &mut internal.callback {
-        // Safety: event is non-null and properly aligned.
-        callback.on_sent(internal.i2s, unsafe {
-            &*(event as *const i2s_event_data_t)
-        })
-    } else {
-        false
-    }
-}
-
-/// C-facing ISR dispatcher for on_sent callbacks.
-#[cfg(all(not(esp_idf_version_major = "4"), not(feature = "alloc")))]
-extern "C" fn dispatch_on_sent(
-    _handle: i2s_chan_handle_t,
-    event: *mut i2s_event_data_t,
-    user_ctx: *mut c_void,
-) -> bool {
-    // Safety: user_ctx is always a pointer to I2sStdDriverChannel.
-    let internal: &mut I2sChannel<dyn I2sTxCallback> =
-        unsafe { &mut *(user_ctx as *mut I2sChannel<dyn I2sTxCallback>) };
-    if let Some(callback) = &mut internal.callback {
-        // Safety: callback is properly aligned.
-        // Safety: event is non-null and properly aligned.
-        unsafe {
-            callback
-                .as_mut()
-                .on_sent(internal.i2s, &*(event as *const i2s_event_data_t))
-        }
-    } else {
-        false
-    }
+    let mut callback = UnsafeCallback::from_ptr(user_ctx);
+    let port = callback.get_port(&ISR_TX_HANDLERS);
+    let event = I2sTxEvent::DataTransmitted(::std::slice::from_raw_parts(
+        (*raw_event).data as *const u8,
+        (*raw_event).size,
+    ));
+    callback.call(port, event)
 }
 
 /// C-facing ISR dispatcher for on_send_q_ovf callbacks.
-#[cfg(all(not(esp_idf_version_major = "4"), feature = "alloc"))]
-extern "C" fn dispatch_on_send_q_ovf(
+#[cfg(all(
+    not(esp_idf_version_major = "4"),
+    not(feature = "riscv-ulp-hal"),
+    feature = "alloc"
+))]
+unsafe extern "C" fn dispatch_on_send_q_ovf(
     _handle: i2s_chan_handle_t,
-    event: *mut i2s_event_data_t,
+    raw_event: *mut i2s_event_data_t,
     user_ctx: *mut c_void,
 ) -> bool {
-    // Safety: user_ctx is always a pointer to I2sStdDriverChannel.
-    let internal: &mut I2sChannel<dyn I2sTxCallback> =
-        unsafe { &mut *(user_ctx as *mut I2sChannel<dyn I2sTxCallback>) };
-    if let Some(callback) = &mut internal.callback {
-        // Safety: event is non-null and properly aligned.
-        callback.on_send_queue_overflow(internal.i2s, unsafe {
-            &*(event as *const i2s_event_data_t)
-        })
-    } else {
-        false
-    }
-}
-
-#[cfg(all(not(esp_idf_version_major = "4"), not(feature = "alloc")))]
-extern "C" fn dispatch_on_send_q_ovf(
-    _handle: i2s_chan_handle_t,
-    event: *mut i2s_event_data_t,
-    user_ctx: *mut c_void,
-) -> bool {
-    // Safety: user_ctx is always a pointer to I2sStdDriverChannel.
-    let internal: &mut I2sChannel<dyn I2sTxCallback> =
-        unsafe { &mut *(user_ctx as *mut I2sChannel<dyn I2sTxCallback>) };
-    if let Some(callback) = &mut internal.callback {
-        // Safety: callback is properly aligned.
-        // Safety: event is non-null and properly aligned.
-        unsafe {
-            callback
-                .as_mut()
-                .on_send_queue_overflow(internal.i2s, &*(event as *const i2s_event_data_t))
-        }
-    } else {
-        false
-    }
+    let mut callback = UnsafeCallback::from_ptr(user_ctx);
+    let port = callback.get_port(&ISR_TX_HANDLERS);
+    let event = I2sTxEvent::TransmitOverflow((*raw_event).size);
+    callback.call(port, event)
 }
 
 macro_rules! impl_i2s {
@@ -1464,6 +1148,46 @@ macro_rules! impl_i2s {
 #[cfg(not(esp_idf_version_major = "4"))]
 pub type I2sRawEvent = i2s_event_data_t;
 
+#[cfg(all(not(feature = "riscv-ulp-hal"), feature = "alloc"))]
+struct UnsafeCallback<E>(*mut Box<dyn FnMut(u8, E) -> bool + 'static>);
+
+#[cfg(all(not(feature = "riscv-ulp-hal"), feature = "alloc"))]
+impl<E> UnsafeCallback<E> {
+    #[allow(clippy::type_complexity)]
+    pub fn from(boxed: &mut Box<Box<dyn FnMut(u8, E) -> bool + 'static>>) -> Self {
+        Self(boxed.as_mut())
+    }
+
+    pub unsafe fn from_ptr(ptr: *mut core::ffi::c_void) -> Self {
+        Self(ptr.cast())
+    }
+
+    pub fn as_ptr(&self) -> *mut core::ffi::c_void {
+        self.0.cast()
+    }
+
+    pub unsafe fn call(&mut self, port: u8, event: E) -> bool {
+        let reference = self.0.as_mut().unwrap();
+
+        (reference)(port, event)
+    }
+
+    #[allow(clippy::type_complexity)]
+    pub unsafe fn get_port(&self, base: &[Option<Box<Box<dyn FnMut(u8, E) -> bool>>>]) -> u8 {
+        for (i, el) in base.iter().enumerate() {
+            if let Some(isr) = el {
+                if self.0
+                    == isr.as_ref() as *const Box<dyn FnMut(u8, E) -> bool>
+                        as *mut Box<dyn FnMut(u8, E) -> bool>
+                {
+                    return i.try_into().expect("invalid port number");
+                }
+            }
+        }
+        panic!("invalid callback pointer");
+    }
+}
+
 #[cfg(any(
     all(
         not(esp_idf_version_major = "4"),
@@ -1481,23 +1205,36 @@ pub use self::std::*;
 ))]
 pub use self::tdm::*;
 
+#[cfg(any(esp32, esp32s3))]
+const I2S_PORT_COUNT: usize = 2;
+
+#[cfg(not(any(esp32, esp32s3)))]
+const I2S_PORT_COUNT: usize = 1;
+
+#[allow(clippy::type_complexity)]
+#[cfg(all(
+    not(esp_idf_version_major = "4"),
+    not(feature = "riscv-ulp-hal"),
+    feature = "alloc"
+))]
+static mut ISR_RX_HANDLERS: [Option<Box<Box<dyn FnMut(u8, I2sRxEvent) -> bool>>>; I2S_PORT_COUNT] = [
+    None,
+    #[cfg(any(esp32, esp32s3))]
+    None,
+];
+
+#[allow(clippy::type_complexity)]
+#[cfg(all(
+    not(esp_idf_version_major = "4"),
+    not(feature = "riscv-ulp-hal"),
+    feature = "alloc"
+))]
+static mut ISR_TX_HANDLERS: [Option<Box<Box<dyn FnMut(u8, I2sTxEvent) -> bool>>>; I2S_PORT_COUNT] = [
+    None,
+    #[cfg(any(esp32, esp32s3))]
+    None,
+];
+
 impl_i2s!(I2S0: 0);
 #[cfg(any(esp32, esp32s3))]
 impl_i2s!(I2S1: 1);
-
-// When alloc isn't available, we need to use a static pool to allocate channels from.
-#[cfg(all(not(esp_idf_version_major = "4"), not(feature = "alloc")))]
-static mut I2S0_RX_CHAN: core::mem::MaybeUninit<I2sChannel<dyn I2sRxCallback>> =
-    core::mem::MaybeUninit::uninit();
-
-#[cfg(all(not(esp_idf_version_major = "4"), not(feature = "alloc")))]
-static mut I2S0_TX_CHAN: core::mem::MaybeUninit<I2sChannel<dyn I2sTxCallback>> =
-    core::mem::MaybeUninit::uninit();
-
-#[cfg(all(not(esp_idf_version_major = "4"), not(feature = "alloc")))]
-static mut I2S1_RX_CHAN: core::mem::MaybeUninit<I2sChannel<dyn I2sRxCallback>> =
-    core::mem::MaybeUninit::uninit();
-
-#[cfg(all(not(esp_idf_version_major = "4"), not(feature = "alloc")))]
-static mut I2S1_TX_CHAN: core::mem::MaybeUninit<I2sChannel<dyn I2sTxCallback>> =
-    core::mem::MaybeUninit::uninit();
