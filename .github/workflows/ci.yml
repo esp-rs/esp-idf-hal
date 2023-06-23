@@ -44,10 +44,11 @@ jobs:
 
       - name: Install Rust for Xtensa
         if: matrix.target != 'riscv32imc-esp-espidf'
-        uses: esp-rs/xtensa-toolchain@v1.5
+        uses: esp-rs/xtensa-toolchain@v1.5.1
         with:
           default: true
-          version: "1.70.0.0"
+          version: "1.69.0"
+          buildtargets: ${{ matrix.target }}
           
       - name: Build | Fmt Check
         run: cargo fmt -- --check
