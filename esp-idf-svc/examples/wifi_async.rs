@@ -12,8 +12,8 @@ use esp_idf_sys::{self as _}; // If using the `binstart` feature of `esp-idf-sys
 use futures::executor::block_on;
 use log::info;
 
-const SSID: &'static str = env!("WIFI_SSID");
-const PASSWORD: &'static str = env!("WIFI_PASS");
+const SSID: &str = env!("WIFI_SSID");
+const PASSWORD: &str = env!("WIFI_PASS");
 
 fn main() -> anyhow::Result<()> {
     EspLogger::initialize_default();
@@ -26,7 +26,7 @@ fn main() -> anyhow::Result<()> {
     let mut wifi = AsyncWifi::wrap(
         EspWifi::new(peripherals.modem, sys_loop.clone(), Some(nvs))?,
         sys_loop,
-        timer_service.clone(),
+        timer_service,
     )?;
 
     block_on(connect_wifi(&mut wifi))?;

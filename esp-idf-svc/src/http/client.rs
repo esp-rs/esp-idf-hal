@@ -223,10 +223,10 @@ impl EspHttpConnection {
                 }
             }
 
-            let c_name = to_cstring_arg(*name)?;
+            let c_name = to_cstring_arg(name)?;
 
             // TODO: Replace with a proper conversion from UTF8 to ISO-8859-1
-            let c_value = to_cstring_arg(*value)?;
+            let c_value = to_cstring_arg(value)?;
 
             esp!(unsafe {
                 esp_http_client_set_header(

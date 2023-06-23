@@ -15,8 +15,8 @@ use esp_idf_sys::{self as _}; // If using the `binstart` feature of `esp-idf-sys
 
 use log::{error, info};
 
-const SSID: &'static str = env!("WIFI_SSID");
-const PASSWORD: &'static str = env!("WIFI_PASS");
+const SSID: &str = env!("WIFI_SSID");
+const PASSWORD: &str = env!("WIFI_PASS");
 
 fn main() -> anyhow::Result<()> {
     EspLogger::initialize_default();
@@ -55,7 +55,7 @@ fn get_request(client: &mut HttpClient<EspHttpConnection>) -> anyhow::Result<()>
     // Send request
     //
     // Note: If you don't want to pass in any headers, you can also use `client.get(url, headers)`.
-    let request = client.request(Method::Get, &url, &headers)?;
+    let request = client.request(Method::Get, url, &headers)?;
     info!("-> GET {}", url);
     let mut response = request.submit()?;
 
@@ -97,7 +97,7 @@ fn post_request(client: &mut HttpClient<EspHttpConnection>) -> anyhow::Result<()
     let url = "http://example.org/";
 
     // Send request
-    let mut request = client.post(&url, &headers)?;
+    let mut request = client.post(url, &headers)?;
     request.write_all(payload)?;
     request.flush()?;
     info!("-> POST {}", url);

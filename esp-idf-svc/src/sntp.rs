@@ -214,7 +214,7 @@ impl EspSntp {
 
         let mut c_servers: [CString; SNTP_SERVER_NUM] = Default::default();
         for (i, s) in conf.servers.iter().enumerate() {
-            let c_server = to_cstring_arg(*s)?;
+            let c_server = to_cstring_arg(s)?;
             unsafe { sntp_setservername(i as u8, c_server.as_ptr()) };
             c_servers[i] = c_server;
         }

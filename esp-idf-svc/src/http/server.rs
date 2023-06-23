@@ -654,20 +654,20 @@ impl<'a> EspHttpConnection<'a> {
 
         for (key, value) in headers {
             if key.eq_ignore_ascii_case("Content-Type") {
-                let c_type = to_cstring_arg(*value)?;
+                let c_type = to_cstring_arg(value)?;
 
                 esp!(unsafe { httpd_resp_set_type(self.request.0, c_type.as_c_str().as_ptr()) })?;
 
                 c_headers.push(c_type);
             } else if key.eq_ignore_ascii_case("Content-Length") {
-                let c_len = to_cstring_arg(*value)?;
+                let c_len = to_cstring_arg(value)?;
 
                 //esp!(unsafe { httpd_resp_set_len(self.raw_req, c_len.as_c_str().as_ptr()) })?;
 
                 c_headers.push(c_len);
             } else {
-                let name = to_cstring_arg(*key)?;
-                let value = to_cstring_arg(*value)?;
+                let name = to_cstring_arg(key)?;
+                let value = to_cstring_arg(value)?;
 
                 esp!(unsafe {
                     httpd_resp_set_hdr(
