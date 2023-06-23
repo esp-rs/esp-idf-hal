@@ -1068,7 +1068,7 @@ unsafe extern "C" fn dispatch_on_recv(
 ) -> bool {
     let mut callback = UnsafeCallback::from_ptr(user_ctx);
     let port = callback.get_port(&ISR_RX_HANDLERS);
-    let event = I2sRxEvent::DataReceived(::std::slice::from_raw_parts(
+    let event = I2sRxEvent::DataReceived(::core::slice::from_raw_parts(
         (*raw_event).data as *const u8,
         (*raw_event).size,
     ));
@@ -1105,7 +1105,7 @@ unsafe extern "C" fn dispatch_on_sent(
 ) -> bool {
     let mut callback = UnsafeCallback::from_ptr(user_ctx);
     let port = callback.get_port(&ISR_TX_HANDLERS);
-    let event = I2sTxEvent::DataTransmitted(::std::slice::from_raw_parts(
+    let event = I2sTxEvent::DataTransmitted(::core::slice::from_raw_parts(
         (*raw_event).data as *const u8,
         (*raw_event).size,
     ));
