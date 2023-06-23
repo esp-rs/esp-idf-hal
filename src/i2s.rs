@@ -1150,11 +1150,6 @@ pub type I2sRawEvent = i2s_event_data_t;
     not(feature = "riscv-ulp-hal"),
     feature = "alloc"
 ))]
-#[cfg(all(
-    not(esp_idf_version_major = "4"),
-    not(feature = "riscv-ulp-hal"),
-    feature = "alloc"
-))]
 struct UnsafeCallback<E>(*mut Box<dyn FnMut(u8, E) -> bool + 'static>);
 
 #[cfg(all(
