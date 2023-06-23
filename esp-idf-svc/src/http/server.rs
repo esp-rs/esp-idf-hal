@@ -31,7 +31,7 @@ use uncased::{Uncased, UncasedStr};
 use crate::errors::EspIOError;
 use crate::handle::RawHandle;
 use crate::private::common::Newtype;
-use crate::private::cstr::try_cstring_new;
+use crate::private::cstr::to_cstring_arg;
 use crate::private::cstr::{CStr, CString};
 use crate::private::mutex::{Mutex, RawMutex};
 #[cfg(esp_idf_esp_https_server_enable)]
@@ -371,7 +371,7 @@ impl EspHttpServer {
     where
         H: for<'a> Handler<EspHttpConnection<'a>> + 'static,
     {
-        let c_str = try_cstring_new(uri)?;
+        let c_str = to_cstring_arg(uri)?;
 
         #[allow(clippy::needless_update)]
         let conf = httpd_uri_t {
@@ -581,7 +581,7 @@ impl<'a> EspHttpConnection<'a> {
         } else {
             let raw_req = self.request.0 as *const httpd_req_t as *mut httpd_req_t;
 
-            if let Ok(c_name) = try_cstring_new(name) {
+            if let Ok(c_name) = to_cstring_arg(name) {
                 match unsafe { httpd_req_get_hdr_value_len(raw_req, c_name.as_ptr() as _) } {
                     0 => None,
                     len => {
@@ -647,27 +647,27 @@ impl<'a> EspHttpConnection<'a> {
             status.to_string()
         };
 
-        let c_status = try_cstring_new(status.as_str())?;
+        let c_status = to_cstring_arg(status.as_str())?;
         esp!(unsafe { httpd_resp_set_status(self.request.0, c_status.as_ptr() as _) })?;
 
         c_headers.push(c_status);
 
         for (key, value) in headers {
             if key.eq_ignore_ascii_case("Content-Type") {
-                let c_type = try_cstring_new(*value)?;
+                let c_type = to_cstring_arg(*value)?;
 
                 esp!(unsafe { httpd_resp_set_type(self.request.0, c_type.as_c_str().as_ptr()) })?;
 
                 c_headers.push(c_type);
             } else if key.eq_ignore_ascii_case("Content-Length") {
-                let c_len = try_cstring_new(*value)?;
+                let c_len = to_cstring_arg(*value)?;
 
                 //esp!(unsafe { httpd_resp_set_len(self.raw_req, c_len.as_c_str().as_ptr()) })?;
 
                 c_headers.push(c_len);
             } else {
-                let name = try_cstring_new(*key)?;
-                let value = try_cstring_new(*value)?;
+                let name = to_cstring_arg(*key)?;
+                let value = to_cstring_arg(*value)?;
 
                 esp!(unsafe {
                     httpd_resp_set_hdr(
@@ -910,7 +910,7 @@ pub mod ws {
     use esp_idf_sys::*;
 
     use crate::private::common::Newtype;
-    use crate::private::cstr::try_cstring_new;
+    use crate::private::cstr::to_cstring_arg;
     use crate::private::mutex::{RawCondvar, RawMutex};
 
     use super::EspHttpServer;
@@ -1232,7 +1232,7 @@ pub mod ws {
             H: for<'a> Fn(&'a mut EspHttpWsConnection) -> Result<(), E> + Send + Sync + 'static,
             E: Debug,
         {
-            let c_str = try_cstring_new(uri)?;
+            let c_str = to_cstring_arg(uri)?;
 
             let (req_handler, close_handler) = self.to_native_ws_handler(self.sd, handler);
 

@@ -104,7 +104,7 @@ impl EspLogger {
         target: impl AsRef<str>,
         level_filter: LevelFilter,
     ) -> Result<(), EspError> {
-        let ctarget = try_cstring_new(target.as_ref())?;
+        let ctarget = to_cstring_arg(target.as_ref())?;
 
         unsafe {
             esp_log_level_set(
@@ -163,7 +163,7 @@ impl EspLogger {
                 break ctarget;
             }
 
-            if let Ok(ctarget) = try_cstring_new(record.target()) {
+            if let Ok(ctarget) = to_cstring_arg(record.target()) {
                 cache.insert(record.target().into(), ctarget);
             } else {
                 return true;

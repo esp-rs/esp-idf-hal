@@ -9,7 +9,7 @@ pub use core::ffi::{c_char, CStr};
 #[cfg(feature = "alloc")]
 pub fn set_str(buf: &mut [u8], s: &str) -> Result<(), esp_idf_sys::EspError> {
     assert!(s.len() < buf.len());
-    let cs = try_cstring_new(s)?;
+    let cs = to_cstring_arg(s)?;
     let ss: &[u8] = cs.as_bytes_with_nul();
     buf[..ss.len()].copy_from_slice(ss);
 
@@ -75,6 +75,6 @@ pub fn nul_to_invalid_arg(err: alloc::ffi::NulError) -> esp_idf_sys::EspError {
 }
 
 #[cfg(feature = "alloc")]
-pub fn try_cstring_new(value: &str) -> Result<CString, esp_idf_sys::EspError> {
+pub fn to_cstring_arg(value: &str) -> Result<CString, esp_idf_sys::EspError> {
     CString::new(value).map_err(nul_to_invalid_arg)
 }
