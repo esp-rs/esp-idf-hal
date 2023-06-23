@@ -68,7 +68,7 @@ impl Default for RawCstrs {
 }
 
 #[cfg(feature = "alloc")]
-pub fn nul_to_invalid_arg(err: alloc::ffi::NulError) -> esp_idf_sys::EspError {
+pub fn nul_to_invalid_arg(_err: alloc::ffi::NulError) -> esp_idf_sys::EspError {
     esp_idf_sys::EspError::from_non_zero(
         core::num::NonZeroI32::new(esp_idf_sys::ESP_ERR_INVALID_ARG).unwrap(),
     )
