@@ -23,8 +23,6 @@ use {
 #[cfg(esp_idf_version_major = "4")]
 use esp_idf_sys::{configTICK_RATE_HZ, i2s_read, i2s_start, i2s_stop, i2s_write};
 
-mod pcm;
-
 // For v5+, we rely configuration options for PDM/TDM support.
 // For v4, we have to examine the chip type.
 #[cfg(any(
@@ -50,7 +48,6 @@ const LOG_TAG: &[u8; 17] = b"esp-idf-hal::i2s\0";
 
 /// I2S configuration
 pub mod config {
-    pub use super::pcm::config::*;
     #[cfg(any(
         all(
             not(esp_idf_version_major = "4"),
