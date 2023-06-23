@@ -899,6 +899,7 @@ pub mod ws {
     use core::sync::atomic::{AtomicBool, Ordering};
 
     extern crate alloc;
+    use alloc::boxed::Box;
     use alloc::sync::Arc;
 
     use ::log::*;
