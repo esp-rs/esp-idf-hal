@@ -4,12 +4,6 @@ use crate::{gpio::*, peripheral::*};
 use core::{marker::PhantomData, ptr::null_mut};
 use esp_idf_sys::*;
 
-#[cfg(all(not(esp_idf_version_major = "4"), feature = "alloc"))]
-extern crate alloc;
-
-#[cfg(all(not(esp_idf_version_major = "4"), feature = "alloc"))]
-use alloc::boxed::Box;
-
 pub(super) mod config {
     #[allow(unused)]
     use crate::{gpio::*, i2s::config::*, peripheral::*};
@@ -673,11 +667,11 @@ pub(super) mod config {
 pub struct I2sStdDriver<'d, Dir> {
     /// The Rx channel, possibly None.
     #[cfg(not(esp_idf_version_major = "4"))]
-    rx: Option<I2sChannel>,
+    rx: Option<I2sChannel<I2sRxEvent>>,
 
     /// The Tx channel, possibly None.
     #[cfg(not(esp_idf_version_major = "4"))]
-    tx: Option<I2sChannel>,
+    tx: Option<I2sChannel<I2sTxEvent>>,
 
     /// The I2S peripheral number. Either 0 or 1 (ESP32 and ESP32S3 only).
     i2s: u8,
@@ -1014,12 +1008,18 @@ impl<'d, Dir: I2sRxSupported> I2sRxChannel<'d> for I2sStdDriver<'d, Dir> {
     ))]
     unsafe fn rx_subscribe(
         &mut self,
-        rx_callback: Box<dyn FnMut(u8, I2sRxEvent) -> bool + 'static>,
+        rx_callback: impl FnMut(u8, I2sRxEvent) -> bool + 'static,
     ) -> Result<(), EspError> {
-        self.rx
-            .as_mut()
-            .unwrap()
-            .rx_subscribe(Box::new(rx_callback))
+        self.rx.as_mut().unwrap().rx_subscribe(rx_callback)
+    }
+
+    #[cfg(all(
+        not(esp_idf_version_major = "4"),
+        not(feature = "riscv-ulp-hal"),
+        feature = "alloc"
+    ))]
+    fn rx_unsubscribe(&mut self) -> Result<(), EspError> {
+        self.rx.as_mut().unwrap().rx_unsubscribe()
     }
 }
 
@@ -1036,12 +1036,18 @@ impl<'d, Dir: I2sTxSupported> I2sTxChannel<'d> for I2sStdDriver<'d, Dir> {
     ))]
     unsafe fn tx_subscribe(
         &mut self,
-        tx_callback: Box<dyn FnMut(u8, I2sTxEvent) -> bool + 'static>,
+        tx_callback: impl FnMut(u8, I2sTxEvent) -> bool + 'static,
     ) -> Result<(), EspError> {
-        self.tx
-            .as_mut()
-            .unwrap()
-            .tx_subscribe(Box::new(tx_callback))
+        self.tx.as_mut().unwrap().tx_subscribe(tx_callback)
+    }
+
+    #[cfg(all(
+        not(esp_idf_version_major = "4"),
+        not(feature = "riscv-ulp-hal"),
+        feature = "alloc"
+    ))]
+    fn tx_unsubscribe(&mut self) -> Result<(), EspError> {
+        self.tx.as_mut().unwrap().tx_unsubscribe()
     }
 }
 
