@@ -86,7 +86,7 @@ jobs:
       - name: Build | Examples
         env:
           ESP_IDF_VERSION: ${{ matrix.idf-version }}
-          ESP_IDF_SDKCONFIG_DEFAULTS: $(pwd)/.github/configs/sdkconfig.defaults
+          ESP_IDF_SDKCONFIG_DEFAULTS: "$(pwd)/.github/configs/sdkconfig.defaults"
           RUSTFLAGS: "${{ matrix.idf-version == 'release/v5.0' && '--cfg espidf_time64 ' || ''}} ${{ '-C default-linker-libraries' }}"
           WIFI_SSID: "ssid"
           WIFI_PASS: "pass"
