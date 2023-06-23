@@ -10,8 +10,6 @@ pub struct PatchesRef(*mut core::ffi::c_void, *mut core::ffi::c_void);
 
 /// A hack to make sure that the rwlock implementation is linked to the final executable
 /// Call this function once e.g. in the beginning of your main function
-///
-/// This function will become no-op once ESP-IDF V4.4 is released
 pub fn link_patches() -> PatchesRef {
     #[cfg(all(feature = "std", esp_idf_version = "4.3"))]
     let rwlock = pthread_rwlock::link_patches();
