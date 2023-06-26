@@ -1025,12 +1025,20 @@ pub(super) mod config {
 /// The I2S pulse density modulation (PDM) driver.
 pub struct I2sPdmDriver<'d, Dir> {
     /// The Rx channel, possibly None.
-    #[cfg(esp_idf_soc_i2s_supports_pdm_rx)]
+    #[cfg(all(esp_idf_soc_i2s_supports_pdm_rx, feature = "alloc"))]
     rx: Option<I2sChannel<I2sRxEvent>>,
 
+    /// The Rx channel, possibly None.
+    #[cfg(all(esp_idf_soc_i2s_supports_pdm_rx, not(feature = "alloc")))]
+    rx: Option<I2sChannel>,
+
     /// The Tx channel, possibly None.
-    #[cfg(esp_idf_soc_i2s_supports_pdm_tx)]
+    #[cfg(all(esp_idf_soc_i2s_supports_pdm_tx, feature = "alloc"))]
     tx: Option<I2sChannel<I2sTxEvent>>,
+
+    /// The Tx channel, possibly None.
+    #[cfg(all(esp_idf_soc_i2s_supports_pdm_tx, not(feature = "alloc")))]
+    tx: Option<I2sChannel>,
 
     /// The I2S peripheral number. Either 0 or 1 (ESP32 and ESP32S3 only).
     i2s: u8,

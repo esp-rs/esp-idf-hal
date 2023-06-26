@@ -1,23 +1,26 @@
 //! Driver for the Inter-IC Sound (I2S) peripheral(s).
 
-#[cfg(all(not(esp_idf_version_major = "4"), feature = "alloc"))]
-extern crate alloc;
-
-#[cfg(all(not(esp_idf_version_major = "4"), feature = "alloc"))]
-use alloc::boxed::Box;
-
 use core::{convert::TryInto, ffi::c_void, mem::MaybeUninit, time::Duration};
 use esp_idf_sys::{esp, i2s_port_t, EspError};
 
 #[cfg(not(esp_idf_version_major = "4"))]
 use {
-    core::{pin::Pin, ptr::null_mut},
+    core::ptr::null_mut,
     esp_idf_sys::{
         esp_err_to_name, esp_log_level_t_ESP_LOG_ERROR, esp_log_write, i2s_chan_handle_t,
-        i2s_channel_disable, i2s_channel_enable, i2s_channel_read,
-        i2s_channel_register_event_callback, i2s_channel_write, i2s_del_channel,
-        i2s_event_callbacks_t, i2s_event_data_t, ESP_OK,
+        i2s_channel_disable, i2s_channel_enable, i2s_channel_read, i2s_channel_write,
+        i2s_del_channel, ESP_OK,
     },
+};
+
+#[cfg(all(not(esp_idf_version_major = "4"), feature = "alloc"))]
+extern crate alloc;
+
+#[cfg(all(not(esp_idf_version_major = "4"), feature = "alloc"))]
+use {
+    alloc::boxed::Box,
+    core::pin::Pin,
+    esp_idf_sys::{i2s_channel_register_event_callback, i2s_event_callbacks_t, i2s_event_data_t},
 };
 
 #[cfg(esp_idf_version_major = "4")]
@@ -970,8 +973,12 @@ pub enum I2sTxEvent {
     TxOverflow(usize),
 }
 
-/// Internals of the I2S driver for a channel.
-#[cfg(not(esp_idf_version_major = "4"))]
+/// Internals of the I2S driver for a channel. (alloc version)
+#[cfg(all(
+    not(esp_idf_version_major = "4"),
+    not(feature = "riscv-ulp-hal"),
+    feature = "alloc"
+))]
 struct I2sChannel<E> {
     /// The channel handle.
     chan_handle: i2s_chan_handle_t,
@@ -980,9 +987,24 @@ struct I2sChannel<E> {
     callback: Pin<Box<UnsafeCallback<E>>>,
 }
 
-#[cfg(not(esp_idf_version_major = "4"))]
+/// Internals of the I2S driver for a channel. (non-alloc version)
+#[cfg(all(
+    not(esp_idf_version_major = "4"),
+    not(feature = "riscv-ulp-hal"),
+    not(feature = "alloc")
+))]
+struct I2sChannel {
+    /// The channel handle.
+    chan_handle: i2s_chan_handle_t,
+}
+
+#[cfg(all(
+    not(esp_idf_version_major = "4"),
+    not(feature = "riscv-ulp-hal"),
+    feature = "alloc"
+))]
 impl<E> I2sChannel<E> {
-    /// Create a new I2S channel
+    /// Create a new I2S channel. (alloc version)
     pub(crate) fn new(port: u8, chan_handle: i2s_chan_handle_t) -> Self {
         Self {
             chan_handle,
@@ -991,9 +1013,53 @@ impl<E> I2sChannel<E> {
     }
 }
 
-#[cfg(not(esp_idf_version_major = "4"))]
+#[cfg(all(
+    not(esp_idf_version_major = "4"),
+    not(feature = "riscv-ulp-hal"),
+    not(feature = "alloc")
+))]
+impl I2sChannel {
+    /// Create a new I2S channel. (non-alloc version)
+    pub(crate) fn new(_port: u8, chan_handle: i2s_chan_handle_t) -> Self {
+        Self { chan_handle }
+    }
+}
+
+#[cfg(all(
+    not(esp_idf_version_major = "4"),
+    not(feature = "riscv-ulp-hal"),
+    feature = "alloc"
+))]
 impl<E> Drop for I2sChannel<E> {
-    /// This destroys the channel and frees the memory associated with it.
+    /// This destroys the channel and frees the memory associated with it. (alloc version)
+    fn drop(&mut self) {
+        if !self.chan_handle.is_null() {
+            // Safety: chan_handle is a valid, non-null i2s_chan_handle_t.
+            let result = unsafe { i2s_del_channel(self.chan_handle) };
+            if result != ESP_OK {
+                // This isn't fatal so a panic isn't warranted, but we do want to be able to debug it.
+                unsafe {
+                    esp_log_write(
+                        esp_log_level_t_ESP_LOG_ERROR,
+                        LOG_TAG as *const u8 as *const i8,
+                        b"Failed to delete channel: %s\0" as *const u8 as *const i8,
+                        esp_err_to_name(result),
+                    );
+                }
+            }
+
+            self.chan_handle = null_mut();
+        }
+    }
+}
+
+#[cfg(all(
+    not(esp_idf_version_major = "4"),
+    not(feature = "riscv-ulp-hal"),
+    not(feature = "alloc")
+))]
+impl Drop for I2sChannel {
+    /// This destroys the channel and frees the memory associated with it. (non-alloc version)
     fn drop(&mut self) {
         if !self.chan_handle.is_null() {
             // Safety: chan_handle is a valid, non-null i2s_chan_handle_t.
@@ -1205,9 +1271,6 @@ macro_rules! impl_i2s {
     };
 }
 
-#[cfg(not(esp_idf_version_major = "4"))]
-pub type I2sRawEvent = i2s_event_data_t;
-
 /// Holds information about callbacks for an I2S channel.
 #[cfg(all(
     not(esp_idf_version_major = "4"),
@@ -1276,6 +1339,21 @@ impl<E> UnsafeCallback<E> {
         match self.callback.as_mut() {
             None => false,
             Some(callback) => callback(self.port, event),
+        }
+    }
+}
+
+#[cfg(all(
+    not(esp_idf_version_major = "4"),
+    not(feature = "riscv-ulp-hal"),
+    feature = "alloc"
+))]
+impl<E> Drop for UnsafeCallback<E> {
+    fn drop(&mut self) {
+        if !self.callback.is_null() {
+            unsafe {
+                drop(Box::from_raw(self.callback));
+            }
         }
     }
 }
