@@ -4,12 +4,6 @@ use crate::{gpio::*, peripheral::Peripheral};
 use core::{marker::PhantomData, ptr::null_mut};
 use esp_idf_sys::*;
 
-#[cfg(all(not(esp_idf_version_major = "4"), feature = "alloc"))]
-extern crate alloc;
-
-#[cfg(all(not(esp_idf_version_major = "4"), feature = "alloc"))]
-use alloc::boxed::Box;
-
 pub(super) mod config {
     #[allow(unused)]
     use crate::{gpio::*, i2s::config::*, peripheral::*};
@@ -1031,11 +1025,19 @@ pub(super) mod config {
 /// The I2S pulse density modulation (PDM) driver.
 pub struct I2sPdmDriver<'d, Dir> {
     /// The Rx channel, possibly None.
-    #[cfg(esp_idf_soc_i2s_supports_pdm_rx)]
+    #[cfg(all(esp_idf_soc_i2s_supports_pdm_rx, feature = "alloc"))]
+    rx: Option<I2sChannel<I2sRxEvent>>,
+
+    /// The Rx channel, possibly None.
+    #[cfg(all(esp_idf_soc_i2s_supports_pdm_rx, not(feature = "alloc")))]
     rx: Option<I2sChannel>,
 
     /// The Tx channel, possibly None.
-    #[cfg(esp_idf_soc_i2s_supports_pdm_tx)]
+    #[cfg(all(esp_idf_soc_i2s_supports_pdm_tx, feature = "alloc"))]
+    tx: Option<I2sChannel<I2sTxEvent>>,
+
+    /// The Tx channel, possibly None.
+    #[cfg(all(esp_idf_soc_i2s_supports_pdm_tx, not(feature = "alloc")))]
     tx: Option<I2sChannel>,
 
     /// The I2S peripheral number. Either 0 or 1 (ESP32 and ESP32S3 only).
@@ -1350,12 +1352,18 @@ impl<'d, Dir: I2sRxSupported> I2sRxChannel<'d> for I2sPdmDriver<'d, Dir> {
     ))]
     unsafe fn rx_subscribe(
         &mut self,
-        rx_callback: Box<dyn FnMut(u8, I2sRxEvent) -> bool + 'static>,
+        rx_callback: impl FnMut(u8, I2sRxEvent) -> bool + 'static,
     ) -> Result<(), EspError> {
-        self.rx
-            .as_mut()
-            .unwrap()
-            .rx_subscribe(Box::new(rx_callback))
+        self.rx.as_mut().unwrap().rx_subscribe(rx_callback)
+    }
+
+    #[cfg(all(
+        not(esp_idf_version_major = "4"),
+        not(feature = "riscv-ulp-hal"),
+        feature = "alloc"
+    ))]
+    fn rx_unsubscribe(&mut self) -> Result<(), EspError> {
+        self.rx.as_mut().unwrap().rx_unsubscribe()
     }
 }
 
@@ -1373,12 +1381,18 @@ impl<'d, Dir: I2sTxSupported> I2sTxChannel<'d> for I2sPdmDriver<'d, Dir> {
     ))]
     unsafe fn tx_subscribe(
         &mut self,
-        tx_callback: Box<dyn FnMut(u8, I2sTxEvent) -> bool + 'static>,
+        tx_callback: impl FnMut(u8, I2sTxEvent) -> bool + 'static,
     ) -> Result<(), EspError> {
-        self.tx
-            .as_mut()
-            .unwrap()
-            .tx_subscribe(Box::new(tx_callback))
+        self.tx.as_mut().unwrap().tx_subscribe(tx_callback)
+    }
+
+    #[cfg(all(
+        not(esp_idf_version_major = "4"),
+        not(feature = "riscv-ulp-hal"),
+        feature = "alloc"
+    ))]
+    fn tx_unsubscribe(&mut self) -> Result<(), EspError> {
+        self.tx.as_mut().unwrap().tx_unsubscribe()
     }
 }
 
