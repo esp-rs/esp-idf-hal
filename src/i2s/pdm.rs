@@ -563,6 +563,7 @@ pub(super) mod config {
         }
 
         /// Convert to the ESP-IDF SDK `i2s_pdm_tx_clk_config_t` representation.
+        #[allow(clippy::needless_update)]
         #[cfg(not(esp_idf_version_major = "4"))]
         #[inline(always)]
         pub(super) fn as_sdk(&self) -> i2s_pdm_tx_clk_config_t {
@@ -572,6 +573,7 @@ pub(super) mod config {
                 mclk_multiple: self.mclk_multiple.as_sdk(),
                 up_sample_fp: self.upsample_fp,
                 up_sample_fs: self.upsample_fs,
+                ..Default::default() // bclk_div in ESP IDF > 5.1
             }
         }
 

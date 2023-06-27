@@ -928,9 +928,17 @@ fn new_common<UART: Uart>(
         stop_bits: config.stop_bits.into(),
         flow_ctrl: config.flow_control.into(),
         rx_flow_ctrl_thresh: config.flow_control_rts_threshold,
-        #[cfg(not(esp_idf_version_major = "4"))]
+        // ESP-IDF 5.0 and 5.1
+        #[cfg(all(
+            esp_idf_version_major = "5",
+            any(esp_idf_version_minor = "0", esp_idf_version_minor = "1")
+        ))]
         source_clk: config.source_clock.into(),
-        #[cfg(esp_idf_version_major = "4")]
+        // All others
+        #[cfg(not(all(
+            esp_idf_version_major = "5",
+            any(esp_idf_version_minor = "0", esp_idf_version_minor = "1")
+        )))]
         __bindgen_anon_1: uart_config_t__bindgen_ty_1 {
             source_clk: config.source_clock.into(),
         },
@@ -1088,4 +1096,4 @@ impl_uart!(UART2: 2);
 
 #[allow(clippy::declare_interior_mutable_const)]
 const NO_REFS: AtomicU8 = AtomicU8::new(0);
-static REFS: [AtomicU8; UART_NUM_MAX as usize] = [NO_REFS; UART_NUM_MAX as usize];
+static REFS: [AtomicU8; SOC_UART_NUM as usize] = [NO_REFS; SOC_UART_NUM as usize];
