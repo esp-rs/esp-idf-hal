@@ -83,7 +83,7 @@ mod encoder {
                 PcntChannel::Channel0,
                 PinIndex::Pin0,
                 PinIndex::Pin1,
-                &mut PcntChannelConfig {
+                &PcntChannelConfig {
                     lctrl_mode: PcntControlMode::Reverse,
                     hctrl_mode: PcntControlMode::Keep,
                     pos_mode: PcntCountMode::Decrement,
@@ -96,7 +96,7 @@ mod encoder {
                 PcntChannel::Channel1,
                 PinIndex::Pin1,
                 PinIndex::Pin0,
-                &mut PcntChannelConfig {
+                &PcntChannelConfig {
                     lctrl_mode: PcntControlMode::Reverse,
                     hctrl_mode: PcntControlMode::Keep,
                     pos_mode: PcntCountMode::Increment,
