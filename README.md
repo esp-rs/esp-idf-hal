@@ -10,7 +10,7 @@
 
 * Implements the traits of [embedded-hal](https://github.com/rust-embedded/embedded-hal) `V0.2` as well as those of `V1.0.alpha`
 * Supports almost all ESP IDF drivers: GPIO, SPI, I2C, TIMER, PWM, I2S, UART, etc.
-* Blocking and `async` mode for each driver (`async` support in progreess)
+* Blocking and `async` mode for each driver (`async` support in progress)
 
 (For baremetal Rust ESP projects please check [esp-hal](https://github.com/esp-rs/esp-hal).)
 
