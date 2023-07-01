@@ -19,37 +19,15 @@ pub trait Adc: Send {
     fn unit() -> adc_unit_t;
 }
 
-pub trait Attenuation<ADC: Adc>: Send {
-    fn attenuation() -> adc_atten_t;
-}
+// NOTE: Will be changed to an enum once C-style enums are usable as const generics
+#[cfg(not(feature = "riscv-ulp-hal"))]
+pub mod attenuation {
+    pub use esp_idf_sys::*;
 
-pub struct Atten0dB<ADC: Adc>(PhantomData<ADC>);
-pub struct Atten2p5dB<ADC: Adc>(PhantomData<ADC>);
-pub struct Atten6dB<ADC: Adc>(PhantomData<ADC>);
-pub struct Atten11dB<ADC: Adc>(PhantomData<ADC>);
-
-impl<ADC: Adc> Attenuation<ADC> for Atten0dB<ADC> {
-    fn attenuation() -> adc_atten_t {
-        adc_atten_t_ADC_ATTEN_DB_0
-    }
-}
-
-impl<ADC: Adc> Attenuation<ADC> for Atten2p5dB<ADC> {
-    fn attenuation() -> adc_atten_t {
-        adc_atten_t_ADC_ATTEN_DB_2_5
-    }
-}
-
-impl<ADC: Adc> Attenuation<ADC> for Atten6dB<ADC> {
-    fn attenuation() -> adc_atten_t {
-        adc_atten_t_ADC_ATTEN_DB_6
-    }
-}
-
-impl<ADC: Adc> Attenuation<ADC> for Atten11dB<ADC> {
-    fn attenuation() -> adc_atten_t {
-        adc_atten_t_ADC_ATTEN_DB_11
-    }
+    pub const NONE: adc_atten_t = adc_atten_t_ADC_ATTEN_DB_0;
+    pub const DB_2_5: adc_atten_t = adc_atten_t_ADC_ATTEN_DB_2_5;
+    pub const DB_6: adc_atten_t = adc_atten_t_ADC_ATTEN_DB_6;
+    pub const DB_11: adc_atten_t = adc_atten_t_ADC_ATTEN_DB_11;
 }
 
 /// ADC configuration
@@ -129,20 +107,13 @@ pub mod config {
 }
 
 #[cfg(not(feature = "riscv-ulp-hal"))]
-pub struct AdcChannelDriver<'d, T: ADCPin, ATTEN> {
+pub struct AdcChannelDriver<'d, const A: adc_atten_t, T: ADCPin> {
     pin: PeripheralRef<'d, T>,
-    _atten: PhantomData<ATTEN>,
 }
 
 #[cfg(not(feature = "riscv-ulp-hal"))]
-impl<'d, T: ADCPin, ATTEN> AdcChannelDriver<'d, T, ATTEN>
-where
-    ATTEN: Attenuation<T::Adc>,
-{
-    #[inline]
-    pub fn new(
-        pin: impl Peripheral<P = T> + 'd,
-    ) -> Result<AdcChannelDriver<'d, T, ATTEN>, EspError> {
+impl<'d, const A: adc_atten_t, T: ADCPin> AdcChannelDriver<'d, A, T> {
+    pub fn new(pin: impl Peripheral<P = T> + 'd) -> Result<AdcChannelDriver<'d, A, T>, EspError> {
         crate::into_ref!(pin);
 
         unsafe {
@@ -150,19 +121,16 @@ where
         }
 
         if T::Adc::unit() == adc_unit_t_ADC_UNIT_1 {
-            esp!(unsafe { adc1_config_channel_atten(pin.adc_channel(), ATTEN::attenuation()) })?;
+            esp!(unsafe { adc1_config_channel_atten(pin.adc_channel(), A) })?;
         } else {
             #[cfg(not(any(esp32c2, esp32h2, esp32c5, esp32c6, esp32p4)))]
-            esp!(unsafe { adc2_config_channel_atten(pin.adc_channel(), ATTEN::attenuation()) })?;
+            esp!(unsafe { adc2_config_channel_atten(pin.adc_channel(), A) })?;
 
             #[cfg(any(esp32c2, esp32h2, esp32c5, esp32c6, esp32p4))]
             unreachable!();
         }
 
-        Ok(Self {
-            pin,
-            _atten: PhantomData,
-        })
+        Ok(Self { pin })
     }
 
     fn pin(&mut self) -> &mut PeripheralRef<'d, T> {
@@ -171,13 +139,13 @@ where
 }
 
 #[cfg(not(feature = "riscv-ulp-hal"))]
-impl<'d, T: ADCPin, ATTEN> embedded_hal_0_2::adc::Channel<ATTEN>
-    for AdcChannelDriver<'d, T, ATTEN>
+impl<'d, const A: adc_atten_t, T: ADCPin> embedded_hal_0_2::adc::Channel<T::Adc>
+    for AdcChannelDriver<'d, A, T>
 {
-    type ID = u8;
+    type ID = (adc_channel_t, adc_atten_t);
 
     fn channel() -> Self::ID {
-        T::CHANNEL as _
+        (T::CHANNEL, A)
     }
 }
 
@@ -257,15 +225,14 @@ impl<'d, ADC: Adc> AdcDriver<'d, ADC> {
         })
     }
 
-    pub fn read<T, ATTEN>(
+    pub fn read<const A: adc_atten_t, T>(
         &mut self,
-        pin: &mut AdcChannelDriver<'_, T, ATTEN>,
+        pin: &mut AdcChannelDriver<'_, A, T>,
     ) -> Result<u16, EspError>
     where
         T: ADCPin,
-        ATTEN: Attenuation<T::Adc>,
     {
-        self.read_internal(ADC::unit(), pin.pin().adc_channel(), ATTEN::attenuation())
+        self.read_internal(ADC::unit(), pin.pin().adc_channel(), A)
     }
 
     #[cfg(all(esp32, esp_idf_version_major = "4"))]
@@ -392,21 +359,16 @@ impl<'d, ADC: Adc> AdcDriver<'d, ADC> {
 }
 
 #[cfg(not(feature = "riscv-ulp-hal"))]
-impl<'d, ADC, ATTEN, PIN> embedded_hal_0_2::adc::OneShot<ATTEN, u16, PIN> for AdcDriver<'d, ADC>
+impl<'d, ADC, PIN> embedded_hal_0_2::adc::OneShot<ADC, u16, PIN> for AdcDriver<'d, ADC>
 where
     ADC: Adc,
-    ATTEN: Attenuation<ADC>,
-    PIN: embedded_hal_0_2::adc::Channel<ATTEN, ID = u8>,
+    PIN: embedded_hal_0_2::adc::Channel<ADC, ID = (adc_channel_t, adc_atten_t)>,
 {
     type Error = EspError;
 
     fn read(&mut self, _pin: &mut PIN) -> nb::Result<u16, Self::Error> {
-        self.read_internal(
-            ADC::unit(),
-            PIN::channel() as adc_channel_t,
-            ATTEN::attenuation(),
-        )
-        .map_err(to_nb_err)
+        self.read_internal(ADC::unit(), PIN::channel().0, PIN::channel().1)
+            .map_err(to_nb_err)
     }
 }
 
@@ -446,3 +408,306 @@ macro_rules! impl_adc {
 impl_adc!(ADC1: adc_unit_t_ADC_UNIT_1);
 #[cfg(not(any(esp32c2, esp32h2, esp32c5, esp32c6, esp32p4)))] // TODO: CVheck for esp32c5 and esp32p4
 impl_adc!(ADC2: adc_unit_t_ADC_UNIT_2);
+
+#[cfg(not(feature = "riscv-ulp-hal"))]
+pub mod continuous {
+    use core::ffi::c_void;
+    use core::marker::PhantomData;
+    use core::sync::atomic::{AtomicBool, Ordering};
+
+    use esp_idf_sys::*;
+
+    use crate::private::notification::Notification;
+    use crate::{
+        gpio::{sealed::ADCPin as _, ADCPin},
+        peripheral::Peripheral,
+    };
+
+    use super::{attenuation, Adc};
+
+    pub struct Attenuated<const A: adc_atten_t, T>(T);
+
+    impl<const A: adc_atten_t, T> Attenuated<A, T> {
+        pub fn override_atten(
+            channel: (adc_channel_t, adc_atten_t),
+        ) -> (adc_channel_t, adc_atten_t) {
+            (channel.0, A)
+        }
+    }
+
+    pub type AttenNone<T> = Attenuated<{ attenuation::NONE }, T>;
+    pub type Atten2p5dB<T> = Attenuated<{ attenuation::DB_2_5 }, T>;
+    pub type Atten6dB<T> = Attenuated<{ attenuation::DB_6 }, T>;
+    pub type Atten11dB<T> = Attenuated<{ attenuation::DB_11 }, T>;
+
+    pub trait AdcChannels {
+        type Adc: Adc;
+        type Iterator: Iterator<Item = (adc_channel_t, adc_atten_t)>;
+
+        fn iter(&self) -> Self::Iterator;
+    }
+
+    // impl<T> AdcChannels for &T
+    // where
+    //     T: AdcChannels,
+    // {
+    //     type Adc = T::Adc;
+
+    //     fn get(&self) -> [adc_channel_t; N] {
+    //         (**self).get()
+    //     }
+    // }
+
+    // impl<T> AdcChannels for &mut T
+    // where
+    //     T: AdcChannels,
+    // {
+    //     type Adc = T::Adc;
+
+    //     fn get(&self) -> [adc_channel_t; N] {
+    //         (**self).get()
+    //     }
+    // }
+
+    impl<'d, P> AdcChannels for P
+    where
+        P: Peripheral,
+        P::P: ADCPin + 'd,
+    {
+        type Adc = <<P as Peripheral>::P as ADCPin>::Adc;
+
+        type Iterator = core::iter::Once<(adc_channel_t, adc_atten_t)>;
+
+        fn iter(&self) -> Self::Iterator {
+            core::iter::once((P::P::CHANNEL, attenuation::NONE))
+        }
+    }
+
+    impl<'d, const A: adc_atten_t, C> AdcChannels for Attenuated<A, C>
+    where
+        C: AdcChannels + 'd,
+    {
+        type Adc = C::Adc;
+
+        type Iterator = core::iter::Map<
+            C::Iterator,
+            fn((adc_channel_t, adc_atten_t)) -> (adc_channel_t, adc_atten_t),
+        >;
+
+        fn iter(&self) -> Self::Iterator {
+            self.0.iter().map(Attenuated::<A, C>::override_atten)
+        }
+    }
+
+    pub struct EmptyAdcChannels<A>(PhantomData<A>);
+
+    impl<A> EmptyAdcChannels<A> {
+        pub fn chain<O>(self, other: O) -> ChainedAdcChannels<Self, O>
+        where
+            A: Adc,
+            O: AdcChannels<Adc = A>,
+        {
+            ChainedAdcChannels {
+                first: self,
+                second: other,
+            }
+        }
+    }
+
+    impl<A> AdcChannels for EmptyAdcChannels<A>
+    where
+        A: Adc,
+    {
+        type Adc = A;
+
+        type Iterator = core::iter::Empty<(adc_channel_t, adc_atten_t)>;
+
+        fn iter(&self) -> Self::Iterator {
+            core::iter::empty()
+        }
+    }
+
+    pub struct ChainedAdcChannels<F, S> {
+        first: F,
+        second: S,
+    }
+
+    impl<F, S> AdcChannels for ChainedAdcChannels<F, S>
+    where
+        F: AdcChannels,
+        S: AdcChannels<Adc = F::Adc>,
+    {
+        type Adc = F::Adc;
+
+        type Iterator = core::iter::Chain<F::Iterator, S::Iterator>;
+
+        fn iter(&self) -> Self::Iterator {
+            self.first.iter().chain(self.second.iter())
+        }
+    }
+
+    // impl<A, C, const N: usize> AdcChannels for [C; N]
+    // where
+    //     A: Adc,
+    //     C: AdcChannels<Adc = A>,
+    // {
+    //     type Adc = A;
+
+    //     type Iterator = core::iter::Slice
+    //     fn len(&self) -> usize {
+    //         self.iter().map(|channels| channels.len()).sum()
+    //     }
+
+    //     fn channel(&self, index: usize) -> Result<adc_channel_t, EspError> {
+    //         let mut offset = 0;
+
+    //         for channels in self {
+    //             if index >= offset && index < offset + channels.len() {
+    //                 return channels.channel(index - offset);
+    //             }
+
+    //             offset += channels.len();
+    //         }
+
+    //         Err(EspError::from_infallible::<ESP_ERR_INVALID_ARG>())
+    //     }
+
+    //     fn attenuation(&self, index: usize) -> Result<adc_atten_t, EspError> {
+    //         let mut offset = 0;
+
+    //         for channels in self {
+    //             if index >= offset && index < offset + channels.len() {
+    //                 return channels.attenuation(index - offset);
+    //             }
+
+    //             offset += channels.len();
+    //         }
+
+    //         Err(EspError::from_infallible::<ESP_ERR_INVALID_ARG>())
+    //     }
+    // }
+
+    // #[repr(transparent)]
+    // pub struct AdcData(adc_digi_output_data_t);
+
+    // pub struct AdcDriver<'d> {
+    //     handle: adc_continuous_handle_t,
+    //     adc0: bool,
+    // }
+
+    // impl<'d> AdcDriver<'d> {
+    //     pub fn new<const F: usize, const R: usize, A: Adc>(adc: impl Peripheral<P = A> + 'd, channels: impl AdcChannels<Adc = A> + 'd) -> Result<Self, EspError> {
+    //         let mut handle: adc_continuous_handle_t = 0;
+
+    //         esp!(unsafe { adc_continuous_new_handle(
+    //             adc_continuous_handle_cfg_t {
+    //                 max_store_buf_size: SOC_ADC_DIGI_DATA_BYTES_PER_CONV * R * F,
+    //                 conv_frame_size: SOC_ADC_DIGI_DATA_BYTES_PER_CONV * R,
+    //             },
+    //             &mut handle,
+    //         )})?;
+
+    //         esp!(unsafe { adc_continuous_config(
+    //             handle,
+    //             adc_continuous_config_t {
+    //                 pattern_num: channels.len() as _,
+    //                 adc_pattern: &patterns,
+    //                 sample_freq_hz: 0, // TODO
+    //                 conv_mode: adc_digi_convert_mode_t_ADC_CONV_SINGLE_UNIT_2,
+    //                 format: adc_digi_output_format_t_ADC_DIGI_OUTPUT_FORMAT_TYPE1, // TODO
+    //             },
+    //         )})?;
+
+    //         Ok(Self {
+    //             handle,
+    //             adc0: true, // TODO
+    //         })
+    //     }
+
+    //     pub unsafe fn subscribe<F: FnMut() + 'static>(&mut self, handler: F) -> Result<(), EspError> {
+    //         todo!()
+    //     }
+
+    //     pub fn unsubscribe(&mut self) -> Result<(), EspError> {
+    //         self.internal_unsubscribe()
+    //     }
+
+    //     pub fn start(&mut self) -> Result<(), EspError> {
+    //         esp!(unsafe { adc_continuous_start(self.handle) })
+    //     }
+
+    //     pub fn stop(&mut self) -> Result<(), EspError> {
+    //         esp!(unsafe { adc_continuous_stop(self.handle) })
+    //     }
+
+    //     pub fn read(&mut self, buf: &mut [AdcData], timeout: TickType_t) -> Result<usize, EspError> {
+    //         let mut read: u32 = 0;
+
+    //         esp!(unsafe { adc_continuous_read(self.handle, buf.as_mut_ptr() as *mut _, buf.len() as _, &mut read, timeout) })?;
+
+    //         Ok(read as _)
+    //     }
+
+    //     pub async fn read_async(&mut self, buf: &mut [AdcData]) -> Result<usize, EspError> {
+    //         let (subscribed, notifier) = if self.adc0 {
+    //             (&DATA_NOTIFIER0_SUBSCRIBED, &DATA_NOTIFIER0)
+    //         } else {
+    //             (&DATA_NOTIFIER1_SUBSCRIBED, &DATA_NOTIFIER1)
+    //         };
+
+    //         if !subscribed.get(Ordering::SeqCst) {
+    //             let _ = self.internal_unsubscribe();
+    //             subscribed.set(true, Ordering::SeqCst);
+
+    //             esp!(unsafe { adc_continuous_register_event_callbacks(
+    //                 self.handle,
+    //                 Self::async_notifier,
+    //                 notifier as *const _ as *const _,
+    //             )})?;
+    //         }
+
+    //         loop {
+    //             if Ok(len) = self.read(buf, delay::NON_BLOCK) {
+    //                 if len > 0 {
+    //                     return Ok(len);
+    //                 }
+    //             }
+
+    //             notifier.wait().await;
+    //         }
+    //     }
+
+    //     fn internal_unsubscribe(&mut self) -> Result<(), EspError> {
+    //         esp!(unsafe { adc_continuous_register_event_callbacks(
+    //             self.handle,
+    //             core::ptr::null(),
+    //             core::ptr::null(),
+    //         )})?;
+
+    //         DATA_NOTIFIER0_SUBSCRIBED.set(false, Ordering::SeqCst);
+    //         DATA_NOTIFIER1_SUBSCRIBED.set(false, Ordering::SeqCst);
+
+    //         Ok(())
+    //     }
+
+    //     extern "C" fn async_notifier(_handle: adc_continuous_handle_t, _data: *const adc_continuous_evt_data_t, user_data: *const c_void) -> bool {
+    //         let notifier: &Notification = unsafe { (user_data as *const Notification).as_ref() }.unwrap();
+
+    //         notifier.signal(());
+    //         true
+    //     }
+    // }
+
+    // impl<'d> Drop for AdcDriver<'d> {
+    //     fn drop(&mut self) {
+    //         let _ = self.stop();
+    //         let _ = self.internal_unsubscribe();
+    //     }
+    // }
+
+    static DATA_NOTIFIER0_SUBSCRIBED: AtomicBool = AtomicBool::new(false);
+    static DATA_NOTIFIER1_SUBSCRIBED: AtomicBool = AtomicBool::new(false);
+
+    static DATA_NOTIFIER0: Notification = Notification::new();
+    static DATA_NOTIFIER1: Notification = Notification::new();
+}
