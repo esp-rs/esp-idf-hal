@@ -409,7 +409,7 @@ impl_adc!(ADC1: adc_unit_t_ADC_UNIT_1);
 #[cfg(not(any(esp32c2, esp32h2, esp32c5, esp32c6, esp32p4)))] // TODO: CVheck for esp32c5 and esp32p4
 impl_adc!(ADC2: adc_unit_t_ADC_UNIT_2);
 
-#[cfg(not(feature = "riscv-ulp-hal"))]
+#[cfg(all(not(feature = "riscv-ulp-hal"), not(esp_idf_version_major = "4")))]
 pub mod continuous {
     use core::ffi::c_void;
     use core::marker::PhantomData;
@@ -417,6 +417,7 @@ pub mod continuous {
 
     use esp_idf_sys::*;
 
+    use crate::delay;
     use crate::private::notification::Notification;
     use crate::{
         gpio::{sealed::ADCPin as _, ADCPin},
@@ -587,127 +588,173 @@ pub mod continuous {
     //     }
     // }
 
-    // #[repr(transparent)]
-    // pub struct AdcData(adc_digi_output_data_t);
+    #[repr(transparent)]
+    pub struct AdcData(adc_digi_output_data_t);
 
-    // pub struct AdcDriver<'d> {
-    //     handle: adc_continuous_handle_t,
-    //     adc0: bool,
-    // }
+    pub struct AdcDriver<'d> {
+        handle: adc_continuous_handle_t,
+        adc: adc_unit_t,
+        _ref: PhantomData<&'d ()>,
+    }
 
-    // impl<'d> AdcDriver<'d> {
-    //     pub fn new<const F: usize, const R: usize, A: Adc>(adc: impl Peripheral<P = A> + 'd, channels: impl AdcChannels<Adc = A> + 'd) -> Result<Self, EspError> {
-    //         let mut handle: adc_continuous_handle_t = 0;
+    impl<'d> AdcDriver<'d> {
+        pub fn new<const F: usize, const R: usize, A: Adc>(
+            adc: impl Peripheral<P = A> + 'd,
+            channels: impl AdcChannels<Adc = A> + 'd,
+        ) -> Result<Self, EspError> {
+            let mut patterns = [adc_digi_pattern_config_t::default(); 20]; // TODO
 
-    //         esp!(unsafe { adc_continuous_new_handle(
-    //             adc_continuous_handle_cfg_t {
-    //                 max_store_buf_size: SOC_ADC_DIGI_DATA_BYTES_PER_CONV * R * F,
-    //                 conv_frame_size: SOC_ADC_DIGI_DATA_BYTES_PER_CONV * R,
-    //             },
-    //             &mut handle,
-    //         )})?;
+            for (index, (channel, atten)) in channels.iter().enumerate() {
+                if index >= patterns.len() {
+                    return Err(EspError::from_infallible::<ESP_ERR_INVALID_ARG>());
+                }
 
-    //         esp!(unsafe { adc_continuous_config(
-    //             handle,
-    //             adc_continuous_config_t {
-    //                 pattern_num: channels.len() as _,
-    //                 adc_pattern: &patterns,
-    //                 sample_freq_hz: 0, // TODO
-    //                 conv_mode: adc_digi_convert_mode_t_ADC_CONV_SINGLE_UNIT_2,
-    //                 format: adc_digi_output_format_t_ADC_DIGI_OUTPUT_FORMAT_TYPE1, // TODO
-    //             },
-    //         )})?;
+                patterns[index].atten = atten as _;
+                patterns[index].channel = channel as _;
+                patterns[index].unit = A::unit() as _;
+                patterns[index].bit_width = 12; // TODO
+            }
 
-    //         Ok(Self {
-    //             handle,
-    //             adc0: true, // TODO
-    //         })
-    //     }
+            let mut handle: adc_continuous_handle_t = core::ptr::null_mut();
 
-    //     pub unsafe fn subscribe<F: FnMut() + 'static>(&mut self, handler: F) -> Result<(), EspError> {
-    //         todo!()
-    //     }
+            esp!(unsafe {
+                adc_continuous_new_handle(
+                    &adc_continuous_handle_cfg_t {
+                        max_store_buf_size: SOC_ADC_DIGI_DATA_BYTES_PER_CONV
+                            * (R as u32)
+                            * (F as u32),
+                        conv_frame_size: SOC_ADC_DIGI_DATA_BYTES_PER_CONV * (R as u32),
+                    },
+                    &mut handle,
+                )
+            })?;
 
-    //     pub fn unsubscribe(&mut self) -> Result<(), EspError> {
-    //         self.internal_unsubscribe()
-    //     }
+            esp!(unsafe {
+                adc_continuous_config(
+                    handle,
+                    &adc_continuous_config_t {
+                        pattern_num: channels.iter().count() as _,
+                        adc_pattern: &patterns as *const _ as *mut _,
+                        sample_freq_hz: 0, // TODO
+                        conv_mode: adc_digi_convert_mode_t_ADC_CONV_SINGLE_UNIT_2,
+                        format: adc_digi_output_format_t_ADC_DIGI_OUTPUT_FORMAT_TYPE1, // TODO
+                    },
+                )
+            })?;
 
-    //     pub fn start(&mut self) -> Result<(), EspError> {
-    //         esp!(unsafe { adc_continuous_start(self.handle) })
-    //     }
+            Ok(Self {
+                handle,
+                adc: A::unit(),
+                _ref: PhantomData,
+            })
+        }
 
-    //     pub fn stop(&mut self) -> Result<(), EspError> {
-    //         esp!(unsafe { adc_continuous_stop(self.handle) })
-    //     }
+        pub unsafe fn subscribe<F: FnMut() + 'static>(
+            &mut self,
+            handler: F,
+        ) -> Result<(), EspError> {
+            todo!()
+        }
 
-    //     pub fn read(&mut self, buf: &mut [AdcData], timeout: TickType_t) -> Result<usize, EspError> {
-    //         let mut read: u32 = 0;
+        pub fn unsubscribe(&mut self) -> Result<(), EspError> {
+            self.internal_unsubscribe()
+        }
 
-    //         esp!(unsafe { adc_continuous_read(self.handle, buf.as_mut_ptr() as *mut _, buf.len() as _, &mut read, timeout) })?;
+        pub fn start(&mut self) -> Result<(), EspError> {
+            esp!(unsafe { adc_continuous_start(self.handle) })
+        }
 
-    //         Ok(read as _)
-    //     }
+        pub fn stop(&mut self) -> Result<(), EspError> {
+            esp!(unsafe { adc_continuous_stop(self.handle) })
+        }
 
-    //     pub async fn read_async(&mut self, buf: &mut [AdcData]) -> Result<usize, EspError> {
-    //         let (subscribed, notifier) = if self.adc0 {
-    //             (&DATA_NOTIFIER0_SUBSCRIBED, &DATA_NOTIFIER0)
-    //         } else {
-    //             (&DATA_NOTIFIER1_SUBSCRIBED, &DATA_NOTIFIER1)
-    //         };
+        pub fn read(
+            &mut self,
+            buf: &mut [AdcData],
+            timeout: TickType_t,
+        ) -> Result<usize, EspError> {
+            let mut read: u32 = 0;
 
-    //         if !subscribed.get(Ordering::SeqCst) {
-    //             let _ = self.internal_unsubscribe();
-    //             subscribed.set(true, Ordering::SeqCst);
+            esp!(unsafe {
+                adc_continuous_read(
+                    self.handle,
+                    buf.as_mut_ptr() as *mut _,
+                    buf.len() as _,
+                    &mut read,
+                    timeout,
+                )
+            })?;
 
-    //             esp!(unsafe { adc_continuous_register_event_callbacks(
-    //                 self.handle,
-    //                 Self::async_notifier,
-    //                 notifier as *const _ as *const _,
-    //             )})?;
-    //         }
+            Ok(read as _)
+        }
 
-    //         loop {
-    //             if Ok(len) = self.read(buf, delay::NON_BLOCK) {
-    //                 if len > 0 {
-    //                     return Ok(len);
-    //                 }
-    //             }
+        pub async fn read_async(&mut self, buf: &mut [AdcData]) -> Result<usize, EspError> {
+            let (subscribed, notifier) = &NOTIFIER[self.adc as usize];
 
-    //             notifier.wait().await;
-    //         }
-    //     }
+            if !subscribed.load(Ordering::SeqCst) {
+                let _ = self.internal_unsubscribe();
+                subscribed.store(true, Ordering::SeqCst);
 
-    //     fn internal_unsubscribe(&mut self) -> Result<(), EspError> {
-    //         esp!(unsafe { adc_continuous_register_event_callbacks(
-    //             self.handle,
-    //             core::ptr::null(),
-    //             core::ptr::null(),
-    //         )})?;
+                esp!(unsafe {
+                    adc_continuous_register_event_callbacks(
+                        self.handle,
+                        &adc_continuous_evt_cbs_t {
+                            on_conv_done: Some(Self::async_notifier),
+                            on_pool_ovf: Some(Self::async_notifier),
+                        },
+                        notifier as *const _ as *mut _,
+                    )
+                })?;
+            }
 
-    //         DATA_NOTIFIER0_SUBSCRIBED.set(false, Ordering::SeqCst);
-    //         DATA_NOTIFIER1_SUBSCRIBED.set(false, Ordering::SeqCst);
+            loop {
+                match self.read(buf, delay::NON_BLOCK) {
+                    Ok(len) if len > 0 => return Ok(len),
+                    Err(e) if e.code() != ESP_ERR_TIMEOUT => return Err(e),
+                    _ => notifier.wait().await,
+                }
+            }
+        }
 
-    //         Ok(())
-    //     }
+        fn internal_unsubscribe(&mut self) -> Result<(), EspError> {
+            esp!(unsafe {
+                adc_continuous_register_event_callbacks(
+                    self.handle,
+                    core::ptr::null(),
+                    core::ptr::null_mut(),
+                )
+            })?;
 
-    //     extern "C" fn async_notifier(_handle: adc_continuous_handle_t, _data: *const adc_continuous_evt_data_t, user_data: *const c_void) -> bool {
-    //         let notifier: &Notification = unsafe { (user_data as *const Notification).as_ref() }.unwrap();
+            for (subscribed, _) in &NOTIFIER {
+                subscribed.store(false, Ordering::SeqCst);
+            }
 
-    //         notifier.signal(());
-    //         true
-    //     }
-    // }
+            Ok(())
+        }
 
-    // impl<'d> Drop for AdcDriver<'d> {
-    //     fn drop(&mut self) {
-    //         let _ = self.stop();
-    //         let _ = self.internal_unsubscribe();
-    //     }
-    // }
+        extern "C" fn async_notifier(
+            _handle: adc_continuous_handle_t,
+            _data: *const adc_continuous_evt_data_t,
+            user_data: *mut c_void,
+        ) -> bool {
+            let notifier: &Notification =
+                unsafe { (user_data as *const Notification).as_ref() }.unwrap();
 
-    static DATA_NOTIFIER0_SUBSCRIBED: AtomicBool = AtomicBool::new(false);
-    static DATA_NOTIFIER1_SUBSCRIBED: AtomicBool = AtomicBool::new(false);
+            notifier.notify();
+            true
+        }
+    }
 
-    static DATA_NOTIFIER0: Notification = Notification::new();
-    static DATA_NOTIFIER1: Notification = Notification::new();
+    impl<'d> Drop for AdcDriver<'d> {
+        fn drop(&mut self) {
+            let _ = self.stop();
+            let _ = self.internal_unsubscribe();
+        }
+    }
+
+    static NOTIFIER: [(AtomicBool, Notification); 2] = [
+        // TODO
+        (AtomicBool::new(false), Notification::new()),
+        (AtomicBool::new(false), Notification::new()),
+    ];
 }

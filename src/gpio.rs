@@ -1103,6 +1103,8 @@ impl<'d, T: Pin, MODE> PinDriver<'d, T, MODE> {
     where
         MODE: InputMode,
     {
+        use core::sync::atomic::Ordering;
+
         enable_isr_service()?;
 
         self.unsubscribe()?;
@@ -1110,6 +1112,7 @@ impl<'d, T: Pin, MODE> PinDriver<'d, T, MODE> {
         let callback: Box<dyn FnMut() + 'static> = Box::new(callback);
 
         chip::ISR_HANDLERS[self.pin.pin() as usize] = Some(Box::new(callback));
+        chip::PIN_SUBSCRIBED[self.pin.pin() as usize].store(false, Ordering::SeqCst);
 
         esp!(gpio_isr_handler_add(
             self.pin.pin(),
@@ -1132,6 +1135,14 @@ impl<'d, T: Pin, MODE> PinDriver<'d, T, MODE> {
     where
         MODE: InputMode,
     {
+        self.internal_unsubscribe()
+    }
+
+    #[cfg(not(feature = "riscv-ulp-hal"))]
+    fn internal_unsubscribe(&mut self) -> Result<(), EspError>
+    where
+        MODE: InputMode,
+    {
         unsafe {
             unsubscribe_pin(self.pin.pin())?;
         }
@@ -1139,7 +1150,7 @@ impl<'d, T: Pin, MODE> PinDriver<'d, T, MODE> {
         Ok(())
     }
 
-    #[cfg(all(not(feature = "riscv-ulp-hal"), feature = "alloc"))]
+    #[cfg(not(feature = "riscv-ulp-hal"))]
     pub fn enable_interrupt(&mut self) -> Result<(), EspError>
     where
         MODE: InputMode,
@@ -1149,7 +1160,7 @@ impl<'d, T: Pin, MODE> PinDriver<'d, T, MODE> {
         Ok(())
     }
 
-    #[cfg(all(not(feature = "riscv-ulp-hal"), feature = "alloc"))]
+    #[cfg(not(feature = "riscv-ulp-hal"))]
     pub fn disable_interrupt(&mut self) -> Result<(), EspError>
     where
         MODE: InputMode,
@@ -1159,7 +1170,7 @@ impl<'d, T: Pin, MODE> PinDriver<'d, T, MODE> {
         Ok(())
     }
 
-    #[cfg(all(not(feature = "riscv-ulp-hal"), feature = "alloc"))]
+    #[cfg(not(feature = "riscv-ulp-hal"))]
     pub fn set_interrupt_type(&mut self, interrupt_type: InterruptType) -> Result<(), EspError>
     where
         MODE: InputMode,
@@ -1173,6 +1184,14 @@ impl<'d, T: Pin, MODE> PinDriver<'d, T, MODE> {
     unsafe extern "C" fn handle_isr(unsafe_callback: *mut core::ffi::c_void) {
         let mut unsafe_callback = UnsafeCallback::from_ptr(unsafe_callback);
         unsafe_callback.call();
+    }
+
+    #[cfg(not(feature = "riscv-ulp-hal"))]
+    unsafe extern "C" fn handle_notif(notification: *mut core::ffi::c_void) {
+        use crate::private::notification::Notification;
+
+        let notification = unsafe { (notification as *const Notification).as_ref() }.unwrap();
+        notification.notify();
     }
 }
 
@@ -1200,7 +1219,6 @@ pub(crate) unsafe fn rtc_reset_pin(pin: i32) -> Result<(), EspError> {
 unsafe fn reset_pin(_pin: i32, _mode: gpio_mode_t) -> Result<(), EspError> {
     #[cfg(not(feature = "riscv-ulp-hal"))]
     let res = {
-        #[cfg(feature = "alloc")]
         unsubscribe_pin(_pin)?;
 
         esp!(gpio_reset_pin(_pin))?;
@@ -1215,16 +1233,30 @@ unsafe fn reset_pin(_pin: i32, _mode: gpio_mode_t) -> Result<(), EspError> {
     res
 }
 
-#[cfg(all(not(feature = "riscv-ulp-hal"), feature = "alloc"))]
+#[cfg(not(feature = "riscv-ulp-hal"))]
 unsafe fn unsubscribe_pin(pin: i32) -> Result<(), EspError> {
-    let subscribed = chip::ISR_HANDLERS[pin as usize].is_some();
+    use core::sync::atomic::Ordering;
+
+    let mut subscribed = chip::PIN_SUBSCRIBED[pin as usize].load(Ordering::SeqCst);
+
+    #[cfg(feature = "alloc")]
+    {
+        if !subscribed {
+            subscribed = chip::ISR_HANDLERS[pin as usize].is_some();
+        }
+    }
 
     if subscribed {
         esp!(gpio_intr_disable(pin))?;
         esp!(gpio_set_intr_type(pin, gpio_int_type_t_GPIO_INTR_DISABLE))?;
         esp!(gpio_isr_handler_remove(pin))?;
 
-        chip::ISR_HANDLERS[pin as usize] = None;
+        chip::PIN_SUBSCRIBED[pin as usize].store(false, Ordering::SeqCst);
+
+        #[cfg(feature = "alloc")]
+        {
+            chip::ISR_HANDLERS[pin as usize] = None;
+        }
     }
 
     Ok(())
@@ -1539,7 +1571,7 @@ macro_rules! pin {
     };
 }
 
-#[cfg(all(not(feature = "riscv-ulp-hal"), feature = "alloc"))]
+#[cfg(not(feature = "riscv-ulp-hal"))]
 impl<T: Pin, MODE: InputMode> PinDriver<'_, T, MODE> {
     pub async fn wait_for_high(&mut self) -> Result<(), GpioError> {
         InputFuture::new(self, InterruptType::HighLevel)?.await;
@@ -1567,49 +1599,15 @@ impl<T: Pin, MODE: InputMode> PinDriver<'_, T, MODE> {
     }
 }
 
-#[cfg(all(not(feature = "riscv-ulp-hal"), feature = "alloc"))]
-mod atomic_notification {
-    use core::sync::atomic::{AtomicBool, Ordering};
-    use core::task::{Context, Poll};
-
-    use atomic_waker::AtomicWaker;
-
-    pub struct Notification {
-        waker: AtomicWaker,
-        triggered: AtomicBool,
-    }
-
-    impl Notification {
-        pub const fn new() -> Self {
-            Self {
-                waker: AtomicWaker::new(),
-                triggered: AtomicBool::new(false),
-            }
-        }
-        pub fn notify(&self) {
-            self.triggered.store(true, Ordering::SeqCst);
-            self.waker.wake();
-        }
-        pub fn poll_wait(&self, cx: &Context<'_>) -> Poll<()> {
-            self.waker.register(cx.waker());
-
-            if self.triggered.swap(false, Ordering::SeqCst) {
-                Poll::Ready(())
-            } else {
-                Poll::Pending
-            }
-        }
-    }
-}
-
-#[cfg(all(not(feature = "riscv-ulp-hal"), feature = "alloc"))]
+#[cfg(not(feature = "riscv-ulp-hal"))]
 mod asynch {
     use super::*;
     use core::future::Future;
     extern crate alloc;
     use esp_idf_sys::{esp_nofail, EspError};
 
-    use super::{atomic_notification::Notification, InputMode, InterruptType, Pin, PinDriver};
+    use super::{InputMode, InterruptType, Pin, PinDriver};
+    use crate::private::notification::Notification;
 
     #[cfg(feature = "nightly")]
     mod eha_wait_impl {
@@ -1653,34 +1651,46 @@ mod asynch {
             driver: &'driver_ref mut PinDriver<'driver_struct, T, MODE>,
             interrupt_type: InterruptType,
         ) -> Result<Self, EspError> {
-            driver.unsubscribe()?;
+            enable_isr_service()?;
+
+            driver.internal_unsubscribe()?;
             driver.disable_interrupt()?;
             driver.set_interrupt_type(interrupt_type)?;
+
             let driver_pin = driver.pin();
-            unsafe {
-                PIN_NOTIFIERS[driver_pin as usize] = Some(Notification::new());
-            }
+
             let res = Self { driver };
 
+            use core::sync::atomic::Ordering;
+
             unsafe {
-                res.driver.subscribe(move || {
-                    if let Some(notifier) = &PIN_NOTIFIERS[driver_pin as usize] {
-                        notifier.notify();
-                    }
-                    // Disable interrupts on thet way out.
-                    esp_nofail!(gpio_intr_disable(driver_pin));
-                })?
-            };
+                chip::ISR_HANDLERS[driver_pin as usize] = None;
+            }
+
+            chip::PIN_SUBSCRIBED[driver_pin as usize].store(true, Ordering::SeqCst);
+
+            unsafe {
+                esp!(gpio_isr_handler_add(
+                    driver_pin,
+                    Some(PinDriver::<T, MODE>::handle_notif),
+                    &chip::PIN_NOTIFIERS[driver_pin as usize] as *const _ as *mut _,
+                ))?;
+            }
+
+            res.driver.enable_interrupt()?;
+
             Ok(res)
         }
     }
+
     impl<T: Pin, MODE: InputMode> Drop for InputFuture<'_, '_, T, MODE> {
         fn drop(&mut self) {
-            self.driver.unsubscribe().unwrap();
-            unsafe { PIN_NOTIFIERS[self.driver.pin() as usize] = None }
+            self.driver.internal_unsubscribe().unwrap();
         }
     }
+
     impl<T: Pin, MODE: InputMode> Unpin for InputFuture<'_, '_, T, MODE> {}
+
     impl<T: Pin, MODE: InputMode> Future for InputFuture<'_, '_, T, MODE> {
         type Output = ();
 
@@ -1688,19 +1698,16 @@ mod asynch {
             self: core::pin::Pin<&mut Self>,
             cx: &mut core::task::Context<'_>,
         ) -> core::task::Poll<Self::Output> {
-            unsafe {
-                if let Some(notifier) = &PIN_NOTIFIERS[self.driver.pin() as usize] {
-                    notifier.poll_wait(cx)
-                } else {
-                    unreachable!("We should have allocated a notifier");
-                }
-            }
+            PIN_NOTIFIERS[self.driver.pin() as usize].poll_wait(cx)
         }
     }
 }
 
 #[cfg(esp32)]
 mod chip {
+    #[cfg(not(feature = "riscv-ulp-hal"))]
+    use core::sync::atomic::AtomicBool;
+
     #[cfg(not(feature = "riscv-ulp-hal"))]
     use esp_idf_sys::*;
 
@@ -1711,7 +1718,7 @@ mod chip {
 
     use super::*;
     #[cfg(all(not(feature = "riscv-ulp-hal"), feature = "alloc"))]
-    use atomic_notification::Notification;
+    use crate::private::notification::Notification;
 
     #[allow(clippy::type_complexity)]
     #[cfg(all(not(feature = "riscv-ulp-hal"), feature = "alloc"))]
@@ -1722,11 +1729,93 @@ mod chip {
     ];
 
     #[allow(clippy::type_complexity)]
-    #[cfg(all(not(feature = "riscv-ulp-hal"), feature = "alloc"))]
-    pub(crate) static mut PIN_NOTIFIERS: [Option<Notification>; 40] = [
-        None, None, None, None, None, None, None, None, None, None, None, None, None, None, None,
-        None, None, None, None, None, None, None, None, None, None, None, None, None, None, None,
-        None, None, None, None, None, None, None, None, None, None,
+    #[cfg(not(feature = "riscv-ulp-hal"))]
+    pub(crate) static PIN_SUBSCRIBED: [AtomicBool; 40] = [
+        AtomicBool::new(false),
+        AtomicBool::new(false),
+        AtomicBool::new(false),
+        AtomicBool::new(false),
+        AtomicBool::new(false),
+        AtomicBool::new(false),
+        AtomicBool::new(false),
+        AtomicBool::new(false),
+        AtomicBool::new(false),
+        AtomicBool::new(false),
+        AtomicBool::new(false),
+        AtomicBool::new(false),
+        AtomicBool::new(false),
+        AtomicBool::new(false),
+        AtomicBool::new(false),
+        AtomicBool::new(false),
+        AtomicBool::new(false),
+        AtomicBool::new(false),
+        AtomicBool::new(false),
+        AtomicBool::new(false),
+        AtomicBool::new(false),
+        AtomicBool::new(false),
+        AtomicBool::new(false),
+        AtomicBool::new(false),
+        AtomicBool::new(false),
+        AtomicBool::new(false),
+        AtomicBool::new(false),
+        AtomicBool::new(false),
+        AtomicBool::new(false),
+        AtomicBool::new(false),
+        AtomicBool::new(false),
+        AtomicBool::new(false),
+        AtomicBool::new(false),
+        AtomicBool::new(false),
+        AtomicBool::new(false),
+        AtomicBool::new(false),
+        AtomicBool::new(false),
+        AtomicBool::new(false),
+        AtomicBool::new(false),
+        AtomicBool::new(false),
+    ];
+
+    #[allow(clippy::type_complexity)]
+    #[cfg(not(feature = "riscv-ulp-hal"))]
+    pub(crate) static PIN_NOTIFIERS: [Notification; 40] = [
+        Notification::new(),
+        Notification::new(),
+        Notification::new(),
+        Notification::new(),
+        Notification::new(),
+        Notification::new(),
+        Notification::new(),
+        Notification::new(),
+        Notification::new(),
+        Notification::new(),
+        Notification::new(),
+        Notification::new(),
+        Notification::new(),
+        Notification::new(),
+        Notification::new(),
+        Notification::new(),
+        Notification::new(),
+        Notification::new(),
+        Notification::new(),
+        Notification::new(),
+        Notification::new(),
+        Notification::new(),
+        Notification::new(),
+        Notification::new(),
+        Notification::new(),
+        Notification::new(),
+        Notification::new(),
+        Notification::new(),
+        Notification::new(),
+        Notification::new(),
+        Notification::new(),
+        Notification::new(),
+        Notification::new(),
+        Notification::new(),
+        Notification::new(),
+        Notification::new(),
+        Notification::new(),
+        Notification::new(),
+        Notification::new(),
+        Notification::new(),
     ];
 
     // NOTE: Gpio26 - Gpio32 are used by SPI0/SPI1 for external PSRAM/SPI Flash and
@@ -1900,13 +1989,16 @@ mod chip {
 #[cfg(any(esp32s2, esp32s3))] // TODO: Implement proper pin layout for esp32c6 and esp32p4
 mod chip {
     #[cfg(not(feature = "riscv-ulp-hal"))]
+    use core::sync::atomic::AtomicBool;
+
+    #[cfg(not(feature = "riscv-ulp-hal"))]
     use esp_idf_sys::*;
 
     use crate::adc::{ADC1, ADC2};
 
     use super::*;
     #[cfg(all(not(feature = "riscv-ulp-hal"), feature = "alloc"))]
-    use atomic_notification::Notification;
+    use crate::private::notification::Notification;
 
     #[allow(clippy::type_complexity)]
     #[cfg(all(not(feature = "riscv-ulp-hal"), feature = "alloc"))]
@@ -1918,12 +2010,111 @@ mod chip {
     ];
 
     #[allow(clippy::type_complexity)]
-    #[cfg(all(not(feature = "riscv-ulp-hal"), feature = "alloc"))]
-    pub(crate) static mut PIN_NOTIFIERS: [Option<Notification>; 49] = [
-        None, None, None, None, None, None, None, None, None, None, None, None, None, None, None,
-        None, None, None, None, None, None, None, None, None, None, None, None, None, None, None,
-        None, None, None, None, None, None, None, None, None, None, None, None, None, None, None,
-        None, None, None, None,
+    #[cfg(not(feature = "riscv-ulp-hal"))]
+    pub(crate) static PIN_SUBSCRIBED: [AtomicBool; 49] = [
+        AtomicBool::new(false),
+        AtomicBool::new(false),
+        AtomicBool::new(false),
+        AtomicBool::new(false),
+        AtomicBool::new(false),
+        AtomicBool::new(false),
+        AtomicBool::new(false),
+        AtomicBool::new(false),
+        AtomicBool::new(false),
+        AtomicBool::new(false),
+        AtomicBool::new(false),
+        AtomicBool::new(false),
+        AtomicBool::new(false),
+        AtomicBool::new(false),
+        AtomicBool::new(false),
+        AtomicBool::new(false),
+        AtomicBool::new(false),
+        AtomicBool::new(false),
+        AtomicBool::new(false),
+        AtomicBool::new(false),
+        AtomicBool::new(false),
+        AtomicBool::new(false),
+        AtomicBool::new(false),
+        AtomicBool::new(false),
+        AtomicBool::new(false),
+        AtomicBool::new(false),
+        AtomicBool::new(false),
+        AtomicBool::new(false),
+        AtomicBool::new(false),
+        AtomicBool::new(false),
+        AtomicBool::new(false),
+        AtomicBool::new(false),
+        AtomicBool::new(false),
+        AtomicBool::new(false),
+        AtomicBool::new(false),
+        AtomicBool::new(false),
+        AtomicBool::new(false),
+        AtomicBool::new(false),
+        AtomicBool::new(false),
+        AtomicBool::new(false),
+        AtomicBool::new(false),
+        AtomicBool::new(false),
+        AtomicBool::new(false),
+        AtomicBool::new(false),
+        AtomicBool::new(false),
+        AtomicBool::new(false),
+        AtomicBool::new(false),
+        AtomicBool::new(false),
+        AtomicBool::new(false),
+    ];
+
+    #[allow(clippy::type_complexity)]
+    #[cfg(not(feature = "riscv-ulp-hal"))]
+    pub(crate) static PIN_NOTIFIERS: [Notification; 49] = [
+        Notification::new(),
+        Notification::new(),
+        Notification::new(),
+        Notification::new(),
+        Notification::new(),
+        Notification::new(),
+        Notification::new(),
+        Notification::new(),
+        Notification::new(),
+        Notification::new(),
+        Notification::new(),
+        Notification::new(),
+        Notification::new(),
+        Notification::new(),
+        Notification::new(),
+        Notification::new(),
+        Notification::new(),
+        Notification::new(),
+        Notification::new(),
+        Notification::new(),
+        Notification::new(),
+        Notification::new(),
+        Notification::new(),
+        Notification::new(),
+        Notification::new(),
+        Notification::new(),
+        Notification::new(),
+        Notification::new(),
+        Notification::new(),
+        Notification::new(),
+        Notification::new(),
+        Notification::new(),
+        Notification::new(),
+        Notification::new(),
+        Notification::new(),
+        Notification::new(),
+        Notification::new(),
+        Notification::new(),
+        Notification::new(),
+        Notification::new(),
+        Notification::new(),
+        Notification::new(),
+        Notification::new(),
+        Notification::new(),
+        Notification::new(),
+        Notification::new(),
+        Notification::new(),
+        Notification::new(),
+        Notification::new(),
     ];
 
     // NOTE: Gpio26 - Gpio32 (and Gpio33 - Gpio37 if using Octal RAM/Flash) are used
@@ -2160,13 +2351,17 @@ mod chip {
 #[cfg(esp32c3)]
 #[cfg(not(feature = "riscv-ulp-hal"))]
 mod chip {
+    #[cfg(not(feature = "riscv-ulp-hal"))]
+    use core::sync::atomic::AtomicBool;
+
+    #[cfg(not(feature = "riscv-ulp-hal"))]
     use esp_idf_sys::*;
 
     use crate::adc::{ADC1, ADC2};
 
     use super::*;
     #[cfg(all(not(feature = "riscv-ulp-hal"), feature = "alloc"))]
-    use atomic_notification::Notification;
+    use crate::private::notification::Notification;
 
     #[allow(clippy::type_complexity)]
     #[cfg(feature = "alloc")]
@@ -2175,10 +2370,57 @@ mod chip {
         None, None, None, None, None, None, None,
     ];
 
-    #[cfg(all(not(feature = "riscv-ulp-hal"), feature = "alloc"))]
-    pub(crate) static mut PIN_NOTIFIERS: [Option<Notification>; 22] = [
-        None, None, None, None, None, None, None, None, None, None, None, None, None, None, None,
-        None, None, None, None, None, None, None,
+    #[allow(clippy::type_complexity)]
+    #[cfg(not(feature = "riscv-ulp-hal"))]
+    pub(crate) static PIN_SUBSCRIBED: [AtomicBool; 22] = [
+        AtomicBool::new(false),
+        AtomicBool::new(false),
+        AtomicBool::new(false),
+        AtomicBool::new(false),
+        AtomicBool::new(false),
+        AtomicBool::new(false),
+        AtomicBool::new(false),
+        AtomicBool::new(false),
+        AtomicBool::new(false),
+        AtomicBool::new(false),
+        AtomicBool::new(false),
+        AtomicBool::new(false),
+        AtomicBool::new(false),
+        AtomicBool::new(false),
+        AtomicBool::new(false),
+        AtomicBool::new(false),
+        AtomicBool::new(false),
+        AtomicBool::new(false),
+        AtomicBool::new(false),
+        AtomicBool::new(false),
+        AtomicBool::new(false),
+        AtomicBool::new(false),
+    ];
+
+    #[cfg(not(feature = "riscv-ulp-hal"))]
+    pub(crate) static PIN_NOTIFIERS: [Notification; 22] = [
+        Notification::new(),
+        Notification::new(),
+        Notification::new(),
+        Notification::new(),
+        Notification::new(),
+        Notification::new(),
+        Notification::new(),
+        Notification::new(),
+        Notification::new(),
+        Notification::new(),
+        Notification::new(),
+        Notification::new(),
+        Notification::new(),
+        Notification::new(),
+        Notification::new(),
+        Notification::new(),
+        Notification::new(),
+        Notification::new(),
+        Notification::new(),
+        Notification::new(),
+        Notification::new(),
+        Notification::new(),
     ];
 
     // NOTE: Gpio12 - Gpio17 are used by SPI0/SPI1 for external PSRAM/SPI Flash and
@@ -2268,13 +2510,17 @@ mod chip {
 #[cfg(esp32c2)]
 #[cfg(not(feature = "riscv-ulp-hal"))]
 mod chip {
+    #[cfg(not(feature = "riscv-ulp-hal"))]
+    use core::sync::atomic::AtomicBool;
+
+    #[cfg(not(feature = "riscv-ulp-hal"))]
     use esp_idf_sys::*;
 
     use crate::adc::ADC1;
 
     use super::*;
     #[cfg(all(not(feature = "riscv-ulp-hal"), feature = "alloc"))]
-    use atomic_notification::Notification;
+    use crate::private::notification::Notification;
 
     #[allow(clippy::type_complexity)]
     #[cfg(feature = "alloc")]
@@ -2283,10 +2529,55 @@ mod chip {
         None, None, None, None, None,
     ];
 
-    #[cfg(all(not(feature = "riscv-ulp-hal"), feature = "alloc"))]
-    pub(crate) static mut PIN_NOTIFIERS: [Option<Notification>; 20] = [
-        None, None, None, None, None, None, None, None, None, None, None, None, None, None, None,
-        None, None, None, None, None,
+    #[allow(clippy::type_complexity)]
+    #[cfg(not(feature = "riscv-ulp-hal"))]
+    pub(crate) static PIN_SUBSCRIBED: [AtomicBool; 20] = [
+        AtomicBool::new(false),
+        AtomicBool::new(false),
+        AtomicBool::new(false),
+        AtomicBool::new(false),
+        AtomicBool::new(false),
+        AtomicBool::new(false),
+        AtomicBool::new(false),
+        AtomicBool::new(false),
+        AtomicBool::new(false),
+        AtomicBool::new(false),
+        AtomicBool::new(false),
+        AtomicBool::new(false),
+        AtomicBool::new(false),
+        AtomicBool::new(false),
+        AtomicBool::new(false),
+        AtomicBool::new(false),
+        AtomicBool::new(false),
+        AtomicBool::new(false),
+        AtomicBool::new(false),
+        AtomicBool::new(false),
+        AtomicBool::new(false),
+        AtomicBool::new(false),
+    ];
+
+    #[cfg(not(feature = "riscv-ulp-hal"))]
+    pub(crate) static PIN_NOTIFIERS: [Notification; 20] = [
+        Notification::new(),
+        Notification::new(),
+        Notification::new(),
+        Notification::new(),
+        Notification::new(),
+        Notification::new(),
+        Notification::new(),
+        Notification::new(),
+        Notification::new(),
+        Notification::new(),
+        Notification::new(),
+        Notification::new(),
+        Notification::new(),
+        Notification::new(),
+        Notification::new(),
+        Notification::new(),
+        Notification::new(),
+        Notification::new(),
+        Notification::new(),
+        Notification::new(),
     ];
 
     // NOTE: Gpio12 - Gpio17 are used by SPI0/SPI1 for external PSRAM/SPI Flash and
@@ -2373,13 +2664,17 @@ mod chip {
 #[cfg(esp32h2)]
 #[cfg(not(feature = "riscv-ulp-hal"))]
 mod chip {
+    #[cfg(not(feature = "riscv-ulp-hal"))]
+    use core::sync::atomic::AtomicBool;
+
+    #[cfg(not(feature = "riscv-ulp-hal"))]
     use esp_idf_sys::*;
 
     use crate::adc::ADC1;
 
     use super::*;
     #[cfg(all(not(feature = "riscv-ulp-hal"), feature = "alloc"))]
-    use atomic_notification::Notification;
+    use crate::private::notification::Notification;
 
     #[allow(clippy::type_complexity)]
     #[cfg(feature = "alloc")]
@@ -2388,10 +2683,55 @@ mod chip {
         None, None, None, None, None,
     ];
 
-    #[cfg(all(not(feature = "riscv-ulp-hal"), feature = "alloc"))]
-    pub(crate) static mut PIN_NOTIFIERS: [Option<Notification>; 20] = [
-        None, None, None, None, None, None, None, None, None, None, None, None, None, None, None,
-        None, None, None, None, None,
+    #[allow(clippy::type_complexity)]
+    #[cfg(not(feature = "riscv-ulp-hal"))]
+    pub(crate) static PIN_SUBSCRIBED: [AtomicBool; 20] = [
+        AtomicBool::new(false),
+        AtomicBool::new(false),
+        AtomicBool::new(false),
+        AtomicBool::new(false),
+        AtomicBool::new(false),
+        AtomicBool::new(false),
+        AtomicBool::new(false),
+        AtomicBool::new(false),
+        AtomicBool::new(false),
+        AtomicBool::new(false),
+        AtomicBool::new(false),
+        AtomicBool::new(false),
+        AtomicBool::new(false),
+        AtomicBool::new(false),
+        AtomicBool::new(false),
+        AtomicBool::new(false),
+        AtomicBool::new(false),
+        AtomicBool::new(false),
+        AtomicBool::new(false),
+        AtomicBool::new(false),
+        AtomicBool::new(false),
+        AtomicBool::new(false),
+    ];
+
+    #[cfg(not(feature = "riscv-ulp-hal"))]
+    pub(crate) static PIN_NOTIFIERS: [Notification; 20] = [
+        Notification::new(),
+        Notification::new(),
+        Notification::new(),
+        Notification::new(),
+        Notification::new(),
+        Notification::new(),
+        Notification::new(),
+        Notification::new(),
+        Notification::new(),
+        Notification::new(),
+        Notification::new(),
+        Notification::new(),
+        Notification::new(),
+        Notification::new(),
+        Notification::new(),
+        Notification::new(),
+        Notification::new(),
+        Notification::new(),
+        Notification::new(),
+        Notification::new(),
     ];
 
     // NOTE: Gpio12 - Gpio17 are used by SPI0/SPI1 for external PSRAM/SPI Flash and
@@ -2480,13 +2820,16 @@ mod chip {
 #[cfg(any(esp32c5, esp32c6, esp32p4))] // TODO: Implement proper pin layout for esp32c5 and esp32p4
 mod chip {
     #[cfg(not(feature = "riscv-ulp-hal"))]
+    use core::sync::atomic::AtomicBool;
+
+    #[cfg(not(feature = "riscv-ulp-hal"))]
     use esp_idf_sys::*;
 
     use crate::adc::ADC1;
 
     use super::*;
     #[cfg(all(not(feature = "riscv-ulp-hal"), feature = "alloc"))]
-    use atomic_notification::Notification;
+    use crate::private::notification::Notification;
 
     #[allow(clippy::type_complexity)]
     #[cfg(all(not(feature = "riscv-ulp-hal"), feature = "alloc"))]
@@ -2496,10 +2839,73 @@ mod chip {
     ];
 
     #[allow(clippy::type_complexity)]
-    #[cfg(all(not(feature = "riscv-ulp-hal"), feature = "alloc"))]
-    pub(crate) static mut PIN_NOTIFIERS: [Option<Notification>; 30] = [
-        None, None, None, None, None, None, None, None, None, None, None, None, None, None, None,
-        None, None, None, None, None, None, None, None, None, None, None, None, None, None, None,
+    #[cfg(not(feature = "riscv-ulp-hal"))]
+    pub(crate) static PIN_SUBSCRIBED: [AtomicBool; 30] = [
+        AtomicBool::new(false),
+        AtomicBool::new(false),
+        AtomicBool::new(false),
+        AtomicBool::new(false),
+        AtomicBool::new(false),
+        AtomicBool::new(false),
+        AtomicBool::new(false),
+        AtomicBool::new(false),
+        AtomicBool::new(false),
+        AtomicBool::new(false),
+        AtomicBool::new(false),
+        AtomicBool::new(false),
+        AtomicBool::new(false),
+        AtomicBool::new(false),
+        AtomicBool::new(false),
+        AtomicBool::new(false),
+        AtomicBool::new(false),
+        AtomicBool::new(false),
+        AtomicBool::new(false),
+        AtomicBool::new(false),
+        AtomicBool::new(false),
+        AtomicBool::new(false),
+        AtomicBool::new(false),
+        AtomicBool::new(false),
+        AtomicBool::new(false),
+        AtomicBool::new(false),
+        AtomicBool::new(false),
+        AtomicBool::new(false),
+        AtomicBool::new(false),
+        AtomicBool::new(false),
+    ];
+
+    #[allow(clippy::type_complexity)]
+    #[cfg(not(feature = "riscv-ulp-hal"))]
+    pub(crate) static PIN_NOTIFIERS: [Notification; 30] = [
+        Notification::new(),
+        Notification::new(),
+        Notification::new(),
+        Notification::new(),
+        Notification::new(),
+        Notification::new(),
+        Notification::new(),
+        Notification::new(),
+        Notification::new(),
+        Notification::new(),
+        Notification::new(),
+        Notification::new(),
+        Notification::new(),
+        Notification::new(),
+        Notification::new(),
+        Notification::new(),
+        Notification::new(),
+        Notification::new(),
+        Notification::new(),
+        Notification::new(),
+        Notification::new(),
+        Notification::new(),
+        Notification::new(),
+        Notification::new(),
+        Notification::new(),
+        Notification::new(),
+        Notification::new(),
+        Notification::new(),
+        Notification::new(),
+        Notification::new(),
     ];
 
     // NOTE: Gpio26 - Gpio32 (and Gpio33 - Gpio37 if using Octal RAM/Flash) are used
