@@ -327,6 +327,42 @@ impl core::ops::Not for Level {
     }
 }
 
+impl From<embedded_hal_0_2::digital::v2::PinState> for Level {
+    fn from(state: embedded_hal_0_2::digital::v2::PinState) -> Self {
+        match state {
+            embedded_hal_0_2::digital::v2::PinState::Low => Self::Low,
+            embedded_hal_0_2::digital::v2::PinState::High => Self::High,
+        }
+    }
+}
+
+impl From<Level> for embedded_hal_0_2::digital::v2::PinState {
+    fn from(level: Level) -> Self {
+        match level {
+            Level::Low => Self::Low,
+            Level::High => Self::High,
+        }
+    }
+}
+
+impl From<embedded_hal::digital::PinState> for Level {
+    fn from(state: embedded_hal::digital::PinState) -> Self {
+        match state {
+            embedded_hal::digital::PinState::Low => Self::Low,
+            embedded_hal::digital::PinState::High => Self::High,
+        }
+    }
+}
+
+impl From<Level> for embedded_hal::digital::PinState {
+    fn from(level: Level) -> Self {
+        match level {
+            Level::Low => Self::Low,
+            Level::High => Self::High,
+        }
+    }
+}
+
 pub trait InputMode {
     const RTC: bool;
 }
