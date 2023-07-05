@@ -1604,10 +1604,9 @@ mod asynch {
     use super::*;
     use core::future::Future;
     extern crate alloc;
-    use esp_idf_sys::{esp_nofail, EspError};
+    use esp_idf_sys::EspError;
 
     use super::{InputMode, InterruptType, Pin, PinDriver};
-    use crate::private::notification::Notification;
 
     #[cfg(feature = "nightly")]
     mod eha_wait_impl {

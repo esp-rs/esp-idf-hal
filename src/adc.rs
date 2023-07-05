@@ -1,5 +1,3 @@
-use core::marker::PhantomData;
-
 #[cfg(not(feature = "riscv-ulp-hal"))]
 use esp_idf_sys::*;
 
@@ -406,14 +404,13 @@ macro_rules! impl_adc {
 }
 
 impl_adc!(ADC1: adc_unit_t_ADC_UNIT_1);
-#[cfg(not(any(esp32c2, esp32h2, esp32c5, esp32c6, esp32p4)))] // TODO: CVheck for esp32c5 and esp32p4
+#[cfg(not(any(esp32c2, esp32h2, esp32c5, esp32c6, esp32p4)))] // TODO: Check for esp32c5 and esp32p4
 impl_adc!(ADC2: adc_unit_t_ADC_UNIT_2);
 
 #[cfg(all(not(feature = "riscv-ulp-hal"), not(esp_idf_version_major = "4")))]
 pub mod continuous {
     use core::ffi::c_void;
     use core::marker::PhantomData;
-    use core::sync::atomic::{AtomicBool, Ordering};
 
     use esp_idf_sys::*;
 
@@ -599,7 +596,7 @@ pub mod continuous {
 
     impl<'d> AdcDriver<'d> {
         pub fn new<const F: usize, const R: usize, A: Adc>(
-            adc: impl Peripheral<P = A> + 'd,
+            _adc: impl Peripheral<P = A> + 'd,
             channels: impl AdcChannels<Adc = A> + 'd,
         ) -> Result<Self, EspError> {
             let mut patterns = [adc_digi_pattern_config_t::default(); 20]; // TODO
@@ -642,22 +639,25 @@ pub mod continuous {
                 )
             })?;
 
+            #[cfg(not(esp_idf_adc_continuous_isr_iram_safe))]
+            {
+                esp!(unsafe {
+                    adc_continuous_register_event_callbacks(
+                        handle,
+                        &adc_continuous_evt_cbs_t {
+                            on_conv_done: Some(Self::handle_isr),
+                            on_pool_ovf: Some(Self::handle_isr),
+                        },
+                        &NOTIFIER[A::unit() as usize] as *const _ as *mut _,
+                    )
+                })?;
+            }
+
             Ok(Self {
                 handle,
                 adc: A::unit(),
                 _ref: PhantomData,
             })
-        }
-
-        pub unsafe fn subscribe<F: FnMut() + 'static>(
-            &mut self,
-            handler: F,
-        ) -> Result<(), EspError> {
-            todo!()
-        }
-
-        pub fn unsubscribe(&mut self) -> Result<(), EspError> {
-            self.internal_unsubscribe()
         }
 
         pub fn start(&mut self) -> Result<(), EspError> {
@@ -688,51 +688,19 @@ pub mod continuous {
             Ok(read as _)
         }
 
+        #[cfg(not(esp_idf_adc_continuous_isr_iram_safe))]
         pub async fn read_async(&mut self, buf: &mut [AdcData]) -> Result<usize, EspError> {
-            let (subscribed, notifier) = &NOTIFIER[self.adc as usize];
-
-            if !subscribed.load(Ordering::SeqCst) {
-                let _ = self.internal_unsubscribe();
-                subscribed.store(true, Ordering::SeqCst);
-
-                esp!(unsafe {
-                    adc_continuous_register_event_callbacks(
-                        self.handle,
-                        &adc_continuous_evt_cbs_t {
-                            on_conv_done: Some(Self::async_notifier),
-                            on_pool_ovf: Some(Self::async_notifier),
-                        },
-                        notifier as *const _ as *mut _,
-                    )
-                })?;
-            }
-
             loop {
                 match self.read(buf, delay::NON_BLOCK) {
                     Ok(len) if len > 0 => return Ok(len),
                     Err(e) if e.code() != ESP_ERR_TIMEOUT => return Err(e),
-                    _ => notifier.wait().await,
+                    _ => NOTIFIER[self.adc as usize].wait().await,
                 }
             }
         }
 
-        fn internal_unsubscribe(&mut self) -> Result<(), EspError> {
-            esp!(unsafe {
-                adc_continuous_register_event_callbacks(
-                    self.handle,
-                    core::ptr::null(),
-                    core::ptr::null_mut(),
-                )
-            })?;
-
-            for (subscribed, _) in &NOTIFIER {
-                subscribed.store(false, Ordering::SeqCst);
-            }
-
-            Ok(())
-        }
-
-        extern "C" fn async_notifier(
+        #[cfg(not(esp_idf_adc_continuous_isr_iram_safe))]
+        extern "C" fn handle_isr(
             _handle: adc_continuous_handle_t,
             _data: *const adc_continuous_evt_data_t,
             user_data: *mut c_void,
@@ -740,21 +708,35 @@ pub mod continuous {
             let notifier: &Notification =
                 unsafe { (user_data as *const Notification).as_ref() }.unwrap();
 
-            notifier.notify();
-            true
+            notifier.notify()
         }
     }
 
     impl<'d> Drop for AdcDriver<'d> {
         fn drop(&mut self) {
             let _ = self.stop();
-            let _ = self.internal_unsubscribe();
+
+            #[cfg(not(esp_idf_adc_continuous_isr_iram_safe))]
+            {
+                esp!(unsafe {
+                    adc_continuous_register_event_callbacks(
+                        self.handle,
+                        core::ptr::null(),
+                        core::ptr::null_mut(),
+                    )
+                })
+                .unwrap();
+            }
+
+            esp!(unsafe { adc_continuous_deinit(self.handle) }).unwrap();
         }
     }
 
-    static NOTIFIER: [(AtomicBool, Notification); 2] = [
-        // TODO
-        (AtomicBool::new(false), Notification::new()),
-        (AtomicBool::new(false), Notification::new()),
-    ];
+    #[cfg(not(esp_idf_adc_continuous_isr_iram_safe))]
+    #[cfg(any(esp32c2, esp32h2, esp32c5, esp32c6, esp32p4))] // TODO: Check for esp32c5 and esp32p4
+    static NOTIFIER: [Notification; 1] = [Notification::new()];
+
+    #[cfg(not(esp_idf_adc_continuous_isr_iram_safe))]
+    #[cfg(not(any(esp32c2, esp32h2, esp32c5, esp32c6, esp32p4)))] // TODO: Check for esp32c5 and esp32p4
+    static NOTIFIER: [Notification; 2] = [Notification::new(), Notification::new()];
 }

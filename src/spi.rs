@@ -11,15 +11,17 @@
 //!
 //! |   |                  | SpiDeviceDriver::new | SpiDeviceDriver::new (no CS) | SpiSoftCsDeviceDriver::new | SpiBusDriver::new |
 //! |---|------------------|----------------------|------------------------------|----------------------------|-------------------|
-//! |   | managed cs       |       hardware       |              -               |     software triggered     |         -         |
-//! |   | 1 device         |           x          |              x               |              x             |         x         |
-//! |   | 1-3 devices      |           x          |              -               |              x             |         -         |
-//! |   | 4-6 devices      |    only on esp32c*   |              -               |              x             |         -         |
-//! |   | more than 6      |           -          |              -               |              x             |         -         |
-//! |   | Dma              |           -          |              -               |              -             |         -         |
-//! |   | polling transmit |           x          |              x               |              x             |         x         |
-//! |   | isr transmit     |           -          |              -               |              -             |         -         |
-//! |   | async ready      |           -          |              -               |              -             |         -         |
+//! |   | Managed CS       |       Hardware       |              N               |     Software triggered     |         N         |
+//! |   | 1 device         |           Y          |              Y               |              Y             |         Y         |
+//! |   | 1-3 devices      |           Y          |              N               |              Y             |         N         |
+//! |   | 4-6 devices      |    Only on esp32CX   |              N               |              Y             |         N         |
+//! |   | More than 6      |           N          |              N               |              Y             |         N         |
+//! |   | DMA              |           N          |              N               |              N             |         N         |
+//! |   | Polling transmit |           Y          |              Y               |              Y             |         Y         |
+//! |   | ISR transmit     |           Y          |              Y               |              Y             |         Y         |
+//! |   | Async support*   |           Y          |              Y               |              Y             |         Y         |
+//!
+//! * async support currently does not fully take advantage of the transactions' queueing capabilities of the underlying ESP IDF SPI driver
 //!
 //! The [Transfer::transfer], [Write::write] and [WriteIter::write_iter] functions lock the
 //! APB frequency and therefore the requests are always run at the requested baudrate.
@@ -43,11 +45,12 @@ use embedded_hal::spi::{
 
 use esp_idf_sys::*;
 
-use crate::delay::{Ets, BLOCK};
+use crate::delay::{self, Ets, BLOCK};
 use crate::gpio::{AnyOutputPin, InputPin, Level, Output, OutputPin, PinDriver};
 use crate::interrupt::IntrFlags;
 use crate::peripheral::Peripheral;
-use crate::task::CriticalSection;
+use crate::private::notification::Notification;
+use crate::task::{CriticalSection, CriticalSectionGuard};
 
 crate::embedded_hal_error!(
     SpiError,
@@ -313,6 +316,28 @@ impl<T> SpiBusDriver<T> {
     where
         T: BorrowMut<SpiDriver<'d>>,
     {
+        let mut this = Self::internal_new(driver, config)?;
+
+        this._lock = Lock::new(this.handle.0)?;
+
+        Ok(this)
+    }
+
+    pub async fn new_async<'d>(driver: T, config: &config::Config) -> Result<Self, EspError>
+    where
+        T: BorrowMut<SpiDriver<'d>>,
+    {
+        let mut this = Self::internal_new(driver, config)?;
+
+        this._lock = Lock::new_async(this.handle.0).await?;
+
+        Ok(this)
+    }
+
+    fn internal_new<'d>(driver: T, config: &config::Config) -> Result<Self, EspError>
+    where
+        T: BorrowMut<SpiDriver<'d>>,
+    {
         let conf = spi_device_interface_config_t {
             spics_io_num: -1,
             clock_speed_hz: config.baudrate.0 as i32,
@@ -332,12 +357,10 @@ impl<T> SpiBusDriver<T> {
 
         let device = Device(handle, true);
 
-        let lock = Lock::new(handle)?;
-
         let trans_len = driver.borrow().max_transfer_size;
 
         Ok(Self {
-            _lock: lock,
+            _lock: Lock::None,
             handle: device,
             _driver: driver,
             trans_len,
@@ -353,7 +376,7 @@ impl<T> SpiBusDriver<T> {
     pub fn read(&mut self, words: &mut [u8]) -> Result<(), EspError> {
         let mut it = words.chunks_mut(self.trans_len).peekable();
         while let Some(read_chunk) = it.next() {
-            self.polling_transmit(
+            self.transmit(
                 read_chunk.as_mut_ptr(),
                 ptr::null(),
                 read_chunk.len(),
@@ -367,12 +390,32 @@ impl<T> SpiBusDriver<T> {
 
     // Full-Duplex Mode:
     // The internal hardware 16*4 u8 FIFO buffer (shared for read/write) is not cleared
+    // between transactions (read/write/transfer)
+    // This can lead to rewriting the internal buffer to MOSI on a read call
+    pub async fn read_async(&mut self, words: &mut [u8]) -> Result<(), EspError> {
+        let mut it = words.chunks_mut(self.trans_len).peekable();
+        while let Some(read_chunk) = it.next() {
+            self.transmit_async(
+                read_chunk.as_mut_ptr(),
+                ptr::null(),
+                read_chunk.len(),
+                read_chunk.len(),
+                it.peek().is_some(),
+            )
+            .await?;
+        }
+
+        Ok(())
+    }
+
+    // Full-Duplex Mode:
+    // The internal hardware 16*4 u8 FIFO buffer (shared for read/write) is not cleared
     // between transactions ( read/write/transfer)
     // This can lead to re-reading the last internal buffer MOSI msg, in case the Slave failes to send a msg
     pub fn write(&mut self, words: &[u8]) -> Result<(), EspError> {
         let mut it = words.chunks(self.trans_len).peekable();
         while let Some(write_chunk) = it.next() {
-            self.polling_transmit(
+            self.transmit(
                 ptr::null_mut(),
                 write_chunk.as_ptr(),
                 write_chunk.len(),
@@ -383,10 +426,31 @@ impl<T> SpiBusDriver<T> {
 
         Ok(())
     }
+
+    // Full-Duplex Mode:
+    // The internal hardware 16*4 u8 FIFO buffer (shared for read/write) is not cleared
+    // between transactions ( read/write/transfer)
+    // This can lead to re-reading the last internal buffer MOSI msg, in case the Slave failes to send a msg
+    pub async fn write_async(&mut self, words: &[u8]) -> Result<(), EspError> {
+        let mut it = words.chunks(self.trans_len).peekable();
+        while let Some(write_chunk) = it.next() {
+            self.transmit_async(
+                ptr::null_mut(),
+                write_chunk.as_ptr(),
+                write_chunk.len(),
+                0,
+                it.peek().is_some(),
+            )
+            .await?;
+        }
+
+        Ok(())
+    }
+
     // In non-DMA mode, it will internally split the transfers every 64 bytes (max_transf_len).
-    // -1: If the read and write buffers are not of the same length, it will first transfer the common buffer length
+    // - If the read and write buffers are not of the same length, it will first transfer the common buffer length
     // and then (separately aligned) the remaining buffer.
-    // -2: Expect a delay time between every internally split (64-byte or remainder) package.
+    // - Expect a delay time between every internally split (64-byte or remainder) package.
 
     // Half-Duplex & Half-3-Duplex Mode:
     // Data will be split into 64-byte write/read sections.
@@ -401,7 +465,7 @@ impl<T> SpiBusDriver<T> {
 
         let mut it = common_read.zip(common_write).peekable();
         while let Some((read_chunk, write_chunk)) = it.next() {
-            self.polling_transmit(
+            self.transmit(
                 read_chunk.as_mut_ptr(),
                 write_chunk.as_ptr(),
                 read_chunk.len(), //read/write chunk implicitly always same length because of common_length
@@ -425,25 +489,77 @@ impl<T> SpiBusDriver<T> {
         Ok(())
     }
 
+    // In non-DMA mode, it will internally split the transfers every 64 bytes (max_transf_len).
+    // -1: If the read and write buffers are not of the same length, it will first transfer the common buffer length
+    // and then (separately aligned) the remaining buffer.
+    // -2: Expect a delay time between every internally split (64-byte or remainder) package.
+
+    // Half-Duplex & Half-3-Duplex Mode:
+    // Data will be split into 64-byte write/read sections.
+    // Example: write: [u8;96] - read [u8; 160]
+    // Package 1: write 64, read 64 -> Package 2: write 32, read 32 -> Package 3: write 0, read 64.
+    // Note that the first "package" is a 128-byte clock out while the later are respectively 64 bytes.
+    pub async fn transfer_async(&mut self, read: &mut [u8], write: &[u8]) -> Result<(), EspError> {
+        let more_chunks = read.len() != write.len();
+        let common_length = min(read.len(), write.len());
+        let common_read = read[0..common_length].chunks_mut(self.trans_len);
+        let common_write = write[0..common_length].chunks(self.trans_len);
+
+        let mut it = common_read.zip(common_write).peekable();
+        while let Some((read_chunk, write_chunk)) = it.next() {
+            self.transmit_async(
+                read_chunk.as_mut_ptr(),
+                write_chunk.as_ptr(),
+                read_chunk.len(), //read/write chunk implicitly always same length because of common_length
+                read_chunk.len(),
+                it.peek().is_some() || more_chunks,
+            )
+            .await?;
+        }
+
+        match read.len().cmp(&write.len()) {
+            Ordering::Equal => { /* Nothing left to do */ }
+            Ordering::Greater => {
+                // Read remainder
+                self.read_async(&mut read[write.len()..]).await?;
+            }
+            Ordering::Less => {
+                // Write remainder
+                self.write_async(&write[read.len()..]).await?;
+            }
+        }
+
+        Ok(())
+    }
+
     pub fn transfer_in_place(&mut self, words: &mut [u8]) -> Result<(), EspError> {
         let mut it = words.chunks_mut(self.trans_len).peekable();
         while let Some(chunk) = it.next() {
             let ptr = chunk.as_mut_ptr();
             let len = chunk.len();
-            self.polling_transmit(ptr, ptr, len, len, it.peek().is_some())?;
+            self.transmit(ptr, ptr, len, len, it.peek().is_some())?;
+        }
+
+        Ok(())
+    }
+
+    pub async fn transfer_in_place_async(&mut self, words: &mut [u8]) -> Result<(), EspError> {
+        let mut it = words.chunks_mut(self.trans_len).peekable();
+        while let Some(chunk) = it.next() {
+            let ptr = chunk.as_mut_ptr();
+            let len = chunk.len();
+            self.transmit_async(ptr, ptr, len, len, it.peek().is_some())
+                .await?;
         }
 
         Ok(())
     }
 
     pub fn flush(&mut self) -> Result<(), EspError> {
-        // Since we use polling transactions, flushing isn't required.
-        // In future, when DMA is available spi_device_get_trans_result
-        // will be called here.
         Ok(())
     }
 
-    fn polling_transmit(
+    fn transmit(
         &mut self,
         read: *mut u8,
         write: *const u8,
@@ -451,7 +567,26 @@ impl<T> SpiBusDriver<T> {
         rx_length: usize,
         keep_cs_active: bool,
     ) -> Result<(), EspError> {
-        polling_transmit(
+        transmit(
+            self.handle.0,
+            read,
+            write,
+            transaction_length,
+            rx_length,
+            true,
+            (self.hardware_cs && self.keep_cs_active) || keep_cs_active,
+        )
+    }
+
+    async fn transmit_async(
+        &mut self,
+        read: *mut u8,
+        write: *const u8,
+        transaction_length: usize,
+        rx_length: usize,
+        keep_cs_active: bool,
+    ) -> Result<(), EspError> {
+        transmit_async(
             self.handle.0,
             read,
             write,
@@ -459,6 +594,7 @@ impl<T> SpiBusDriver<T> {
             rx_length,
             (self.hardware_cs && self.keep_cs_active) || keep_cs_active,
         )
+        .await
     }
 }
 
@@ -712,17 +848,7 @@ where
     }
 
     pub fn transaction(&mut self, operations: &mut [Operation<'_, u8>]) -> Result<(), EspError> {
-        // if DMA used -> get trans length info from driver
-        let trans_len = self.driver.borrow().max_transfer_size;
-
-        let mut bus = SpiBusDriver {
-            _lock: self.lock_bus()?,
-            handle: Device(self.handle.0, false),
-            _driver: (),
-            trans_len,
-            hardware_cs: self.with_cs_pin,
-            keep_cs_active: true,
-        };
+        let mut bus = self.bus_driver_new()?;
 
         let mut op_result = Ok(());
 
@@ -754,24 +880,102 @@ where
         Ok(())
     }
 
+    pub async fn transaction_async(
+        &mut self,
+        operations: &mut [Operation<'_, u8>],
+    ) -> Result<(), EspError> {
+        let mut bus = self.bus_driver_new_async().await?;
+
+        let mut op_result = Ok(());
+
+        let mut it = operations.iter_mut().peekable();
+        while let Some(op) = it.next() {
+            if it.peek().is_none() {
+                bus.keep_cs_active = false;
+            }
+            if let Err(e) = match op {
+                Operation::Read(words) => bus.read_async(words).await,
+                Operation::Write(words) => bus.write_async(words).await,
+                Operation::Transfer(read, write) => bus.transfer_async(read, write).await,
+                Operation::TransferInPlace(words) => bus.transfer_in_place_async(words).await,
+            } {
+                op_result = Err(e);
+                break;
+            };
+        }
+
+        // Flush whatever is pending.
+        // Note that this is done even when an error is returned from the transaction.
+        let flush_result = bus.flush();
+
+        drop(bus);
+
+        flush_result?;
+        op_result?;
+
+        Ok(())
+    }
+
     pub fn transfer(&mut self, read: &mut [u8], write: &[u8]) -> Result<(), EspError> {
         self.transaction(&mut [Operation::Transfer(read, write)])
+    }
+
+    pub async fn transfer_async(&mut self, read: &mut [u8], write: &[u8]) -> Result<(), EspError> {
+        self.transaction_async(&mut [Operation::Transfer(read, write)])
+            .await
     }
 
     pub fn write(&mut self, write: &[u8]) -> Result<(), EspError> {
         self.transaction(&mut [Operation::Write(write)])
     }
 
+    pub async fn write_async(&mut self, write: &[u8]) -> Result<(), EspError> {
+        self.transaction_async(&mut [Operation::Write(write)]).await
+    }
+
     pub fn read(&mut self, read: &mut [u8]) -> Result<(), EspError> {
         self.transaction(&mut [Operation::Read(read)])
+    }
+
+    pub async fn read_async(&mut self, read: &mut [u8]) -> Result<(), EspError> {
+        self.transaction_async(&mut [Operation::Read(read)]).await
     }
 
     pub fn transfer_in_place(&mut self, buf: &mut [u8]) -> Result<(), EspError> {
         self.transaction(&mut [Operation::TransferInPlace(buf)])
     }
 
-    fn lock_bus(&self) -> Result<Lock, EspError> {
-        Lock::new(self.handle.0)
+    pub async fn transfer_in_place_async(&mut self, buf: &mut [u8]) -> Result<(), EspError> {
+        self.transaction_async(&mut [Operation::TransferInPlace(buf)])
+            .await
+    }
+
+    fn bus_driver_new(&mut self) -> Result<SpiBusDriver<()>, EspError> {
+        // if DMA used -> get trans length info from driver
+        let trans_len = self.driver.borrow().max_transfer_size;
+
+        Ok(SpiBusDriver {
+            _lock: Lock::new(self.device())?,
+            handle: Device(self.handle.0, false),
+            _driver: (),
+            trans_len,
+            hardware_cs: self.with_cs_pin,
+            keep_cs_active: true,
+        })
+    }
+
+    async fn bus_driver_new_async(&mut self) -> Result<SpiBusDriver<()>, EspError> {
+        // if DMA used -> get trans length info from driver
+        let trans_len = self.driver.borrow().max_transfer_size;
+
+        Ok(SpiBusDriver {
+            _lock: Lock::new_async(self.device()).await?,
+            handle: Device(self.handle.0, false),
+            _driver: (),
+            trans_len,
+            hardware_cs: self.with_cs_pin,
+            keep_cs_active: true,
+        })
     }
 }
 
@@ -786,16 +990,7 @@ where
     T: Borrow<SpiDriver<'d>> + 'd,
 {
     fn read_transaction(&mut self, operations: &mut [&mut [u8]]) -> Result<(), Self::Error> {
-        // if DMA used -> get trans length info from driver
-        let trans_len = self.driver.borrow().max_transfer_size;
-        let mut bus = SpiBusDriver {
-            _lock: self.lock_bus()?,
-            handle: Device(self.handle.0, false),
-            _driver: (),
-            trans_len,
-            hardware_cs: self.with_cs_pin,
-            keep_cs_active: true,
-        };
+        let mut bus = self.bus_driver_new()?;
 
         let mut op_result = Ok(());
 
@@ -832,16 +1027,7 @@ where
     T: Borrow<SpiDriver<'d>> + 'd,
 {
     fn write_transaction(&mut self, operations: &[&[u8]]) -> Result<(), Self::Error> {
-        // if DMA used -> get trans length info from driver
-        let trans_len = self.driver.borrow().max_transfer_size;
-        let mut bus = SpiBusDriver {
-            _lock: self.lock_bus()?,
-            handle: Device(self.handle.0, false),
-            _driver: (),
-            trans_len,
-            hardware_cs: self.with_cs_pin,
-            keep_cs_active: true,
-        };
+        let mut bus = self.bus_driver_new()?;
 
         let mut op_result = Ok(());
 
@@ -918,17 +1104,7 @@ where
     where
         WI: IntoIterator<Item = u8>,
     {
-        // if DMA used -> get trans length info from driver
-        let trans_len = self.driver.borrow().max_transfer_size;
-
-        let mut bus = SpiBusDriver {
-            _lock: self.lock_bus()?,
-            handle: Device(self.handle.0, false),
-            _driver: (),
-            trans_len,
-            hardware_cs: self.with_cs_pin,
-            keep_cs_active: true,
-        };
+        let mut bus = self.bus_driver_new()?;
 
         let mut op_result = Ok(());
 
@@ -980,17 +1156,7 @@ where
         &mut self,
         operations: &mut [embedded_hal_0_2::blocking::spi::Operation<'_, u8>],
     ) -> Result<(), Self::Error> {
-        // if DMA used -> get trans length info from driver
-        let trans_len = self.driver.borrow().max_transfer_size;
-
-        let mut bus = SpiBusDriver {
-            _lock: self.lock_bus()?,
-            handle: Device(self.handle.0, false),
-            _driver: (),
-            trans_len,
-            hardware_cs: self.with_cs_pin,
-            keep_cs_active: true,
-        };
+        let mut bus = self.bus_driver_new()?;
 
         let mut op_result = Ok(());
 
@@ -1053,6 +1219,10 @@ where
         let device = unsafe { &mut *self.driver.get() };
 
         f(device)
+    }
+
+    pub async fn lock_async(&self) -> CriticalSectionGuard {
+        self.cs.enter() // TODO: Needs to be async
     }
 
     pub fn release(self) -> SpiDeviceDriver<'d, T> {
@@ -1133,20 +1303,66 @@ where
         })
     }
 
+    pub async fn transaction_async(
+        &mut self,
+        operations: &mut [Operation<'_, u8>],
+    ) -> Result<(), EspError> {
+        let cs_pin = &mut self.cs_pin;
+        let pre_delay_us = self.pre_delay_us;
+        let post_delay_us = self.post_delay_us;
+
+        let device = self.shared_device.borrow().lock_async().await;
+
+        cs_pin.toggle()?;
+
+        if let Some(delay) = pre_delay_us {
+            Ets::delay_us(delay);
+        }
+
+        let trans_result = device.transaction_async(operations).await;
+
+        if let Some(delay) = post_delay_us {
+            Ets::delay_us(delay);
+        }
+
+        cs_pin.toggle()?;
+        trans_result?;
+
+        Ok(())
+    }
+
     pub fn transfer(&mut self, read: &mut [u8], write: &[u8]) -> Result<(), EspError> {
         self.transaction(&mut [Operation::Transfer(read, write)])
+    }
+
+    pub async fn transfer_async(&mut self, read: &mut [u8], write: &[u8]) -> Result<(), EspError> {
+        self.transaction_async(&mut [Operation::Transfer(read, write)])
+            .await
     }
 
     pub fn write(&mut self, write: &[u8]) -> Result<(), EspError> {
         self.transaction(&mut [Operation::Write(write)])
     }
 
+    pub async fn write_async(&mut self, write: &[u8]) -> Result<(), EspError> {
+        self.transaction_async(&mut [Operation::Write(write)]).await
+    }
+
     pub fn read(&mut self, read: &mut [u8]) -> Result<(), EspError> {
         self.transaction(&mut [Operation::Read(read)])
     }
 
+    pub async fn read_async(&mut self, read: &mut [u8]) -> Result<(), EspError> {
+        self.transaction_async(&mut [Operation::Read(read)]).await
+    }
+
     pub fn transfer_in_place(&mut self, buf: &mut [u8]) -> Result<(), EspError> {
         self.transaction(&mut [Operation::TransferInPlace(buf)])
+    }
+
+    pub async fn transfer_in_place_async(&mut self, buf: &mut [u8]) -> Result<(), EspError> {
+        self.transaction_async(&mut [Operation::TransferInPlace(buf)])
+            .await
     }
 }
 
@@ -1174,6 +1390,7 @@ where
             if let Some(delay) = pre_delay_us {
                 Ets::delay_us(delay);
             }
+
             let trans_result = device.read_transaction(operations);
 
             if let Some(delay) = post_delay_us {
@@ -1208,6 +1425,7 @@ where
             if let Some(delay) = pre_delay_us {
                 Ets::delay_us(delay);
             }
+
             let trans_result = device.write_transaction(operations);
 
             if let Some(delay) = post_delay_us {
@@ -1248,33 +1466,111 @@ const TRANS_LEN: usize = if SOC_SPI_MAXIMUM_BUFFER_SIZE < 64_u32 {
     64_usize
 };
 
-struct Lock(spi_device_handle_t);
+enum Lock {
+    Locked(spi_device_handle_t),
+    None,
+}
 
 impl Lock {
     fn new(device: spi_device_handle_t) -> Result<Self, EspError> {
         esp!(unsafe { spi_device_acquire_bus(device, BLOCK) })?;
 
-        Ok(Self(device))
+        Ok(Self::Locked(device))
+    }
+
+    async fn new_async(_device: spi_device_handle_t) -> Result<Self, EspError> {
+        // TODO: For now, just do not lock the bus in async mode
+        // as we don't have a way to be asymchronously notified when the bus is available
+        Ok(Self::None)
     }
 }
 
 impl Drop for Lock {
     fn drop(&mut self) {
-        unsafe {
-            spi_device_release_bus(self.0);
+        if let Self::Locked(device) = self {
+            unsafe {
+                spi_device_release_bus(*device);
+            }
         }
     }
 }
 
 // These parameters assume full duplex.
-fn polling_transmit(
+fn transmit(
     handle: spi_device_handle_t,
     read: *mut u8,
     write: *const u8,
     transaction_length: usize,
     rx_length: usize,
-    _keep_cs_active: bool,
+    polling: bool,
+    keep_cs_active: bool,
 ) -> Result<(), EspError> {
+    let mut transaction = create_transaction(
+        handle,
+        read,
+        write,
+        transaction_length,
+        rx_length,
+        keep_cs_active,
+    )?;
+
+    if polling {
+        esp!(unsafe { spi_device_polling_transmit(handle, &mut transaction as *mut _) })
+    } else {
+        esp!(unsafe { spi_device_transmit(handle, &mut transaction as *mut _) })
+    }
+}
+
+// These parameters assume full duplex.
+async fn transmit_async(
+    handle: spi_device_handle_t,
+    read: *mut u8,
+    write: *const u8,
+    transaction_length: usize,
+    rx_length: usize,
+    keep_cs_active: bool,
+) -> Result<(), EspError> {
+    let mut transaction = create_transaction(
+        handle,
+        read,
+        write,
+        transaction_length,
+        rx_length,
+        keep_cs_active,
+    )?;
+
+    loop {
+        match esp!(unsafe {
+            spi_device_queue_trans(handle, &mut transaction as *mut _, delay::NON_BLOCK)
+        }) {
+            Ok(_) => break,
+            Err(e) if e.code() != ESP_ERR_TIMEOUT => return Err(e),
+            _ => NOTIFIER[0].wait().await,
+        }
+    }
+
+    loop {
+        match esp!(unsafe {
+            spi_device_get_trans_result(handle, core::ptr::null_mut(), delay::NON_BLOCK)
+        }) {
+            Ok(_) => break,
+            Err(e) if e.code() != ESP_ERR_TIMEOUT => return Err(e),
+            _ => NOTIFIER[0].wait().await,
+        }
+    }
+
+    Ok(())
+}
+
+// These parameters assume full duplex.
+fn create_transaction(
+    _handle: spi_device_handle_t,
+    read: *mut u8,
+    write: *const u8,
+    transaction_length: usize,
+    rx_length: usize,
+    _keep_cs_active: bool,
+) -> Result<spi_transaction_t, EspError> {
     #[cfg(esp_idf_version = "4.3")]
     let flags = 0;
 
@@ -1287,7 +1583,7 @@ fn polling_transmit(
         0
     };
 
-    let mut transaction = spi_transaction_t {
+    let transaction = spi_transaction_t {
         flags,
         __bindgen_anon_1: spi_transaction_t__bindgen_ty_1 {
             tx_buffer: write as *const _,
@@ -1300,7 +1596,7 @@ fn polling_transmit(
         ..Default::default()
     };
 
-    esp!(unsafe { spi_device_polling_transmit(handle, &mut transaction as *mut _) })
+    Ok(transaction)
 }
 
 fn data_mode_to_u8(data_mode: embedded_hal::spi::Mode) -> u8 {
@@ -1335,3 +1631,13 @@ impl_spi!(SPI3: spi_host_device_t_SPI3_HOST);
 impl_spi_any_pins!(SPI2);
 #[cfg(any(esp32, esp32s2, esp32s3))]
 impl_spi_any_pins!(SPI3);
+
+#[cfg(not(any(esp32, esp32s2, esp32s3)))]
+static NOTIFIER: [Notification; 2] = [Notification::new(), Notification::new()];
+
+#[cfg(any(esp32, esp32s2, esp32s3))]
+static NOTIFIER: [Notification; 3] = [
+    Notification::new(),
+    Notification::new(),
+    Notification::new(),
+];
