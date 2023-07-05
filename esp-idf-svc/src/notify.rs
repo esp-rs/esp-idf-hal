@@ -1,8 +1,8 @@
-use core::cell::RefCell;
 use core::ptr;
 use core::time::Duration;
 
 extern crate alloc;
+use alloc::boxed::Box;
 use alloc::sync::{Arc, Weak};
 use alloc::vec::Vec;
 
@@ -25,7 +25,7 @@ pub struct EspSubscriptionsRegistry {
     subscriptions: Mutex<
         Vec<(
             usize,
-            Arc<RefCell<dyn for<'a> FnMut(&'a u32) + Send + 'static>>,
+            Arc<Mutex<Box<dyn for<'a> FnMut(&'a u32) + Send + 'static>>>,
         )>,
     >,
 }
@@ -57,7 +57,7 @@ impl EspSubscriptionsRegistry {
 
         self.subscriptions
             .lock()
-            .push((subscription_id, Arc::new(RefCell::new(callback))));
+            .push((subscription_id, Arc::new(Mutex::new(Box::new(callback)))));
 
         Ok(subscription_id)
     }
@@ -87,7 +87,7 @@ impl EspSubscriptionsRegistry {
                     .map(|(subscription_id, f)| (*subscription_id, f.clone()));
 
                 if let Some((subscription_id, f)) = next {
-                    f.borrow_mut()(&notification);
+                    f.lock()(&notification);
 
                     prev_id = Some(subscription_id);
                 } else {
@@ -161,15 +161,18 @@ impl EspNotify {
             ) != 0
         };
 
-        if created {
-            Ok(Self {
-                task: Arc::new(task),
-                registry,
-            })
-        } else {
-            unsafe { Weak::from_raw(registry_weak_ptr) };
+        #[allow(clippy::all)]
+        {
+            if created {
+                Ok(Self {
+                    task: Arc::new(task),
+                    registry,
+                })
+            } else {
+                unsafe { Weak::from_raw(registry_weak_ptr) };
 
-            Err(EspError::from_infallible::<ESP_FAIL>())
+                Err(EspError::from_infallible::<ESP_FAIL>())
+            }
         }
     }
 
