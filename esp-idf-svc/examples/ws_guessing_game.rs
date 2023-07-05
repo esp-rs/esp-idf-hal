@@ -65,9 +65,10 @@ impl GuessingGame {
 
     fn parse_guess(input: &str) -> Option<u32> {
         // Trim control codes (including null bytes) and/or whitespace
-        let Ok(number) = u32::from_str_radix(input.trim_matches(|c: char| {
-            c.is_ascii_control() || c.is_whitespace()
-        }), 10) else {
+        let Ok(number) = u32::from_str_radix(
+            input.trim_matches(|c: char| c.is_ascii_control() || c.is_whitespace()),
+            10,
+        ) else {
             warn!("Not a number: `{}` (length {})", input, input.len());
             return None;
         };
@@ -167,7 +168,10 @@ fn main() -> anyhow::Result<()> {
             };
 
             let Some(user_guess) = GuessingGame::parse_guess(user_string) else {
-                ws.send(FrameType::Text(false), "Please enter a number between 1 and 100".as_bytes())?;
+                ws.send(
+                    FrameType::Text(false),
+                    "Please enter a number between 1 and 100".as_bytes(),
+                )?;
                 return Ok(());
             };
 
