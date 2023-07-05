@@ -1,5 +1,4 @@
 use esp_idf_sys::{self as _, EspError, TaskHandle_t}; // If using the `binstart` feature of `esp-idf-sys`, always keep this module imported
-use log::*;
 
 fn main() -> Result<(), EspError> {
     // It is necessary to call this function once. Otherwise some patches to the runtime
@@ -41,7 +40,7 @@ fn main() -> Result<(), EspError> {
     loop {
         // Notify approach
         // The benefit with this approach over checking a global static variable is
-        // That the scheduler can hold the task, and resume when signaled
+        // that the scheduler can hold the task, and resume when signaled
         // so no spinlock is needed
         let event_id = esp_idf_hal::task::wait_notification(None);
 
@@ -50,7 +49,7 @@ fn main() -> Result<(), EspError> {
         // so we are missing some events here - but if they are evaluated without
         // printing them the maintask will be fast enough no problem
         if let Some(event) = event_id {
-            info!("got event with the number {event} from ISR");
+            println!("got event with the number {event} from ISR");
         }
     }
 }
