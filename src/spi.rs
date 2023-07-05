@@ -233,7 +233,8 @@ pub mod config {
         pub duplex: Duplex,
         pub bit_order: BitOrder,
         pub cs_active_high: bool,
-        ///< Amount of SPI bit-cycles the cs should be activated before the transmission (0-16). This only works on half-duplex transactions.
+        /// On Half-Duplex transactions: `cs_pre_delay_us % 16`  corresponds to the number of SPI bit-cycles cs should be activated before the transmission.
+        /// On Full-Duplex transactions: `cs_pre_delay_us != 0`  will add 1 microsecond of cs activation before transmission
         pub cs_pre_delay_us: Option<u16>, // u16 as per the C struct has a uint16_t, cf: esp-idf/components/driver/spi/include/driver/spi_master.h spi_device_interface_config_t
         ///< Amount of SPI bit-cycles the cs should stay active after the transmission (0-16)
         pub cs_post_delay_us: Option<u8>, // u8 as per the C struct had a uint8_t, cf: esp-idf/components/driver/spi/include/driver/spi_master.h spi_device_interface_config_t
@@ -281,8 +282,8 @@ pub mod config {
             self
         }
 
-        /// Add an aditional Amount of SPI bit-cycles the cs should be activated before the transmission (0-16).
-        /// This only works on half-duplex transactions.
+        /// On Half-Duplex transactions: `cs_pre_delay_us % 16`  corresponds to the number of SPI bit-cycles cs should be activated before the transmission
+        /// On Full-Duplex transactions: `cs_pre_delay_us != 0`  will add 1 microsecond of cs activation before transmission
         #[must_use]
         pub fn cs_pre_delay_us(mut self, delay_us: u16) -> Self {
             self.cs_pre_delay_us = Some(delay_us);
@@ -1119,8 +1120,8 @@ where
         })
     }
 
-    /// Add an aditional delay of x in uSeconds before transaction
-    /// between chip select and first clk out
+    /// Add an aditional Amount of SPI bit-cycles the cs should be activated before the transmission (0-16).
+    /// This only works on half-duplex transactions.
     pub fn cs_pre_delay_us(&mut self, delay_us: u32) -> &mut Self {
         self.pre_delay_us = Some(delay_us);
 
