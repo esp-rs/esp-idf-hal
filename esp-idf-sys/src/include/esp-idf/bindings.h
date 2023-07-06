@@ -206,6 +206,9 @@
 
 #ifdef ESP_IDF_COMP_DRIVER_ENABLED
 #include "driver/adc.h"
+#if ESP_IDF_VERSION_MAJOR > 4
+#include "esp_adc/adc_continuous.h"
+#endif
 #include "driver/twai.h"
 #if defined(CONFIG_IDF_TARGET_ESP32) || defined(CONFIG_IDF_TARGET_ESP32S2)
 #include "driver/dac.h"
