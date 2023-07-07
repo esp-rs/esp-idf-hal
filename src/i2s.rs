@@ -580,13 +580,18 @@ impl<'d, Dir> I2sDriver<'d, Dir> {
             ))?
         };
 
-        Ok(Self {
+        let mut this = Self {
             port: port as u8,
             rx_handle,
             tx_handle,
             _p: PhantomData,
             _dir: PhantomData,
-        })
+        };
+
+        this.subscribe_channel(this.rx_handle)?;
+        this.subscribe_channel(this.tx_handle)?;
+
+        Ok(this)
     }
 
     #[cfg(esp_idf_version_major = "4")]
@@ -607,21 +612,25 @@ impl<'d, Dir> I2sDriver<'d, Dir> {
 
     #[cfg(not(esp_idf_version_major = "4"))]
     fn subscribe_channel(&mut self, handle: i2s_chan_handle_t) -> Result<(), EspError> {
-        let callbacks = i2s_event_callbacks_t {
-            on_recv: Some(dispatch_recv),
-            on_recv_q_ovf: Some(dispatch_recv),
-            on_sent: Some(dispatch_send),
-            on_send_q_ovf: Some(dispatch_send),
-        };
+        if !handle.is_null() {
+            let callbacks = i2s_event_callbacks_t {
+                on_recv: Some(dispatch_recv),
+                on_recv_q_ovf: Some(dispatch_recv),
+                on_sent: Some(dispatch_send),
+                on_send_q_ovf: Some(dispatch_send),
+            };
 
-        // Safety: chan_handle is a valid pointer to an i2s_chan_handle_t and callbacks is initialized.
-        esp!(unsafe {
-            i2s_channel_register_event_callback(
-                handle,
-                &callbacks,
-                core::mem::transmute(self.port as u32),
-            )
-        })
+            // Safety: chan_handle is a valid pointer to an i2s_chan_handle_t and callbacks is initialized.
+            esp!(unsafe {
+                i2s_channel_register_event_callback(
+                    handle,
+                    &callbacks,
+                    core::mem::transmute(self.port as u32),
+                )
+            })?;
+        }
+
+        Ok(())
     }
 
     #[cfg(not(esp_idf_version_major = "4"))]
@@ -720,6 +729,28 @@ where
         unsafe { esp!(i2s_channel_disable(self.rx_handle)) }
     }
 
+    /// Read data from the channel asynchronously.
+    ///
+    /// This may be called only when the channel is in the `RUNNING` state.
+    ///
+    /// # Returns
+    /// This returns the number of bytes read, or an [EspError] if an error occurred.
+    #[cfg(not(esp_idf_version_major = "4"))]
+    pub async fn read_async(&mut self, buffer: &mut [u8]) -> Result<usize, EspError> {
+        if buffer.is_empty() {
+            Ok(0)
+        } else {
+            loop {
+                match self.read(buffer, crate::delay::NON_BLOCK) {
+                    Err(err) if err.code() == esp_idf_sys::ESP_ERR_TIMEOUT => {
+                        RECV_NOTIFIER[self.port as usize].wait().await
+                    }
+                    other => break other,
+                }
+            }
+        }
+    }
+
     /// Read data from the channel.
     ///
     /// This may be called only when the channel is in the `RUNNING` state.
@@ -764,6 +795,34 @@ where
         }
 
         Ok(bytes_read)
+    }
+
+    /// Read data from the channel into an uninitalized buffer asynchronously.
+    ///
+    /// This may be called only when the channel is in the `RUNNING` state.
+    ///
+    /// # Returns
+    /// This returns the number of bytes read, or an [EspError] if an error occurred.
+    ///
+    /// # Safety
+    /// Upon a successful return with `Ok(n_read)`, `buffer[..n_read]` will be initialized.
+    #[cfg(not(esp_idf_version_major = "4"))]
+    pub async fn read_uninit_async(
+        &mut self,
+        buffer: &mut [MaybeUninit<u8>],
+    ) -> Result<usize, EspError> {
+        if buffer.is_empty() {
+            Ok(0)
+        } else {
+            loop {
+                match self.read_uninit(buffer, crate::delay::NON_BLOCK) {
+                    Err(err) if err.code() == esp_idf_sys::ESP_ERR_TIMEOUT => {
+                        RECV_NOTIFIER[self.port as usize].wait().await
+                    }
+                    other => break other,
+                }
+            }
+        }
     }
 
     /// Read data from the channel into an uninitalized buffer.
@@ -931,6 +990,28 @@ where
         }
 
         Ok(bytes_loaded)
+    }
+
+    /// Write data to the channel asynchronously.
+    ///
+    /// This may be called only when the channel is in the `RUNNING` state.
+    ///
+    /// # Returns
+    /// This returns the number of bytes sent. This may be less than the length of the data provided.
+    #[cfg(not(esp_idf_version_major = "4"))]
+    pub async fn write_async(&mut self, data: &[u8]) -> Result<usize, EspError> {
+        if data.is_empty() {
+            Ok(0)
+        } else {
+            loop {
+                match self.write(data, crate::delay::NON_BLOCK) {
+                    Err(err) if err.code() == esp_idf_sys::ESP_ERR_TIMEOUT => {
+                        SEND_NOTIFIER[self.port as usize].wait().await
+                    }
+                    other => break other,
+                }
+            }
+        }
     }
 
     /// Write data to the channel.

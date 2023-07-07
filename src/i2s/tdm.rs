@@ -697,7 +697,6 @@ pub(super) mod config {
 }
 
 impl<'d, Dir> I2sDriver<'d, Dir> {
-    /// Create a new TDM mode driver for the given I2S peripheral with both the receive and transmit channels open.
     #[cfg(not(esp_idf_version_major = "4"))]
     #[allow(clippy::too_many_arguments)]
     fn internal_new_tdm<I2S: I2s>(
@@ -741,8 +740,6 @@ impl<'d, Dir> I2sDriver<'d, Dir> {
         Ok(this)
     }
 
-    /// Create a new TDM mode driver for the given I2S peripheral with both the receive and transmit
-    /// channels open.
     #[cfg(esp_idf_version_major = "4")]
     #[allow(clippy::too_many_arguments)]
     fn internal_new_tdm<I2S: I2s>(
