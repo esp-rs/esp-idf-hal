@@ -53,6 +53,7 @@ use crate::delay::{self, Ets, BLOCK};
 use crate::gpio::{AnyOutputPin, InputPin, Level, Output, OutputPin, PinDriver};
 use crate::interrupt::IntrFlags;
 use crate::peripheral::Peripheral;
+use crate::private::completion::Completion;
 use crate::private::notification::MultiNotification;
 use crate::task::CriticalSection;
 
@@ -1392,15 +1393,36 @@ impl Transmit {
                     }
                 }
 
-                loop {
-                    match esp!(unsafe {
-                        spi_device_get_trans_result(handle, core::ptr::null_mut(), delay::NON_BLOCK)
-                    }) {
-                        Ok(_) => break,
-                        Err(e) if e.code() != ESP_ERR_TIMEOUT => return Err(e),
-                        _ => NOTIFIER[*host as usize].wait().await,
-                    }
-                }
+                Completion::new(
+                    async {
+                        loop {
+                            match esp!(unsafe {
+                                spi_device_get_trans_result(
+                                    handle,
+                                    core::ptr::null_mut(),
+                                    delay::NON_BLOCK,
+                                )
+                            }) {
+                                Ok(_) => break Ok(()),
+                                Err(e) if e.code() != ESP_ERR_TIMEOUT => break Err(e),
+                                _ => NOTIFIER[*host as usize].wait().await,
+                            }
+                        }
+                    },
+                    |completed| {
+                        if !completed {
+                            esp!(unsafe {
+                                spi_device_get_trans_result(
+                                    handle,
+                                    core::ptr::null_mut(),
+                                    delay::BLOCK,
+                                )
+                            })
+                            .unwrap();
+                        }
+                    },
+                )
+                .await?;
             }
             Self::Blocking(false) => {
                 esp!(unsafe { spi_device_transmit(handle, &mut transaction as *mut _) })?;

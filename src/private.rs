@@ -144,6 +144,65 @@ pub mod notification {
     }
 }
 
+pub mod completion {
+    use core::{
+        future::Future,
+        pin::Pin,
+        task::{Context, Poll},
+    };
+
+    pub struct Completion<F, D>
+    where
+        D: FnMut(bool),
+    {
+        fut: F,
+        destr: D,
+        completed: bool,
+    }
+
+    impl<F, D> Completion<F, D>
+    where
+        D: FnMut(bool),
+    {
+        pub const fn new(fut: F, destr: D) -> Self {
+            Self {
+                fut,
+                destr,
+                completed: false,
+            }
+        }
+    }
+
+    impl<F, D> Future for Completion<F, D>
+    where
+        F: Future,
+        D: FnMut(bool),
+    {
+        type Output = F::Output;
+
+        fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+            let this = unsafe { self.get_unchecked_mut() };
+
+            let fut = unsafe { Pin::new_unchecked(&mut this.fut) };
+
+            let poll = fut.poll(cx);
+
+            this.completed |= matches!(&poll, Poll::Ready(_));
+
+            poll
+        }
+    }
+
+    impl<F, D> Drop for Completion<F, D>
+    where
+        D: FnMut(bool),
+    {
+        fn drop(&mut self) {
+            (self.destr)(self.completed);
+        }
+    }
+}
+
 // pub mod mixed {
 //     //! Async mutex.
 //     //!
