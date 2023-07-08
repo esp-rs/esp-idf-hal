@@ -629,13 +629,13 @@ pub mod continuous {
                 adc_continuous_read(
                     self.handle,
                     buf.as_mut_ptr() as *mut _,
-                    buf.len() as _,
+                    (buf.len() * core::mem::size_of::<AdcData>()) as _,
                     &mut read,
-                    timeout,
+                    timeout * crate::delay::TICK_PERIOD_MS,
                 )
             })?;
 
-            Ok(read as _)
+            Ok(read as usize / core::mem::size_of::<AdcData>())
         }
 
         #[cfg(not(esp_idf_adc_continuous_isr_iram_safe))]

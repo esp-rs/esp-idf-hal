@@ -767,7 +767,7 @@ where
                 buffer.as_mut_ptr() as *mut c_void,
                 buffer.len(),
                 &mut bytes_read,
-                timeout,
+                timeout * crate::delay::TICK_PERIOD_MS,
             ))?
         }
 
@@ -790,7 +790,7 @@ where
                 buffer.as_mut_ptr() as *mut c_void,
                 buffer.len(),
                 &mut bytes_read,
-                timeout,
+                timeout * crate::delay::TICK_PERIOD_MS,
             ))?
         }
 
@@ -848,7 +848,7 @@ where
                 buffer.as_mut_ptr() as *mut c_void,
                 buffer.len(),
                 &mut bytes_read,
-                timeout,
+                timeout * crate::delay::TICK_PERIOD_MS,
             ))?
         }
 
@@ -878,7 +878,7 @@ where
                 buffer.as_mut_ptr() as *mut c_void,
                 buffer.len(),
                 &mut bytes_read,
-                timeout,
+                timeout * crate::delay::TICK_PERIOD_MS,
             ))?
         }
 
@@ -1030,7 +1030,7 @@ where
                 data.as_ptr() as *mut c_void,
                 data.len(),
                 &mut bytes_written,
-                timeout,
+                timeout * crate::delay::TICK_PERIOD_MS,
             ))?;
         }
 
@@ -1053,7 +1053,7 @@ where
                 data.as_ptr() as *mut c_void,
                 data.len(),
                 &mut bytes_written,
-                timeout,
+                timeout * crate::delay::TICK_PERIOD_MS,
             ))?;
         }
 
