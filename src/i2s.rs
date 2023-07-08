@@ -16,8 +16,8 @@ use {
 
 #[cfg(esp_idf_version_major = "4")]
 use esp_idf_sys::{
-    configTICK_RATE_HZ, i2s_config_t, i2s_driver_install, i2s_driver_uninstall, i2s_read,
-    i2s_start, i2s_stop, i2s_write,
+    i2s_config_t, i2s_driver_install, i2s_driver_uninstall, i2s_read, i2s_start, i2s_stop,
+    i2s_write,
 };
 
 #[cfg(not(esp_idf_version_major = "4"))]
@@ -625,7 +625,7 @@ impl<'d, Dir> I2sDriver<'d, Dir> {
                 i2s_channel_register_event_callback(
                     handle,
                     &callbacks,
-                    core::mem::transmute(self.port as u32),
+                    self.port as u32 as *mut core::ffi::c_void,
                 )
             })?;
         }
@@ -982,7 +982,7 @@ where
 
         unsafe {
             esp!(esp_idf_sys::i2s_channel_preload_data(
-                self.tx_handle(),
+                self.tx_handle,
                 data.as_ptr() as *const c_void,
                 data.len(),
                 &mut bytes_loaded as *mut usize
@@ -1089,7 +1089,7 @@ unsafe extern "C" fn dispatch_send(
     _raw_event: *mut i2s_event_data_t,
     user_ctx: *mut c_void,
 ) -> bool {
-    let port: i2s_port_t = core::mem::transmute::<_, u32>(user_ctx) as _;
+    let port = user_ctx as u32 as i2s_port_t;
 
     SEND_NOTIFIER[port as usize].notify()
 }
@@ -1101,7 +1101,7 @@ unsafe extern "C" fn dispatch_recv(
     _raw_event: *mut i2s_event_data_t,
     user_ctx: *mut c_void,
 ) -> bool {
-    let port: i2s_port_t = core::mem::transmute::<_, u32>(user_ctx) as _;
+    let port = user_ctx as u32 as i2s_port_t;
 
     RECV_NOTIFIER[port as usize].notify()
 }

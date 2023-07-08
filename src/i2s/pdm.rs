@@ -2,6 +2,9 @@
 use super::*;
 use crate::{gpio::*, peripheral::Peripheral};
 
+#[cfg(esp_idf_version_major = "4")]
+use esp_idf_sys::*;
+
 pub(super) mod config {
     #[allow(unused)]
     use crate::{gpio::*, i2s::config::*, peripheral::*};
@@ -1036,7 +1039,7 @@ impl<'d, Dir: I2sRxSupported> I2sDriver<'d, Dir> {
     ) -> Result<Self, EspError> {
         let chan_cfg = rx_cfg.channel_cfg.as_sdk(I2S::port());
 
-        let this = Self::internal_new(&chan_cfg, true, false)?;
+        let this = Self::internal_new::<I2S>(&chan_cfg, true, false)?;
 
         let rx_cfg = rx_cfg.as_sdk(clk.into_ref(), din.into_ref());
 
@@ -1044,7 +1047,10 @@ impl<'d, Dir: I2sRxSupported> I2sDriver<'d, Dir> {
         // and &rx_cfg is a valid pointer to an i2s_pdm_rx_config_t.
         unsafe {
             // Open the RX channel.
-            esp!(esp_idf_sys::i2s_channel_init_pdm_rx_mode(self.rx, &rx_cfg))?;
+            esp!(esp_idf_sys::i2s_channel_init_pdm_rx_mode(
+                this.rx_handle,
+                &rx_cfg
+            ))?;
         }
 
         Ok(this)
@@ -1071,9 +1077,9 @@ impl<'d, Dir: I2sRxSupported> I2sDriver<'d, Dir> {
         DINP: Peripheral<P = DIN> + 'd,
         DIN: InputPin + Sized,
     {
-        let chan_cfg = rx_cfg.channel_cfg.as_sdk(port);
+        let chan_cfg = rx_cfg.channel_cfg.as_sdk(I2S::port());
 
-        let this = Self::internal_new(&chan_cfg, true, true)?;
+        let this = Self::internal_new::<I2S>(&chan_cfg, true, true)?;
 
         // Safety: assume_init is safe to call because we are only claiming to have "initialized" the
         // MaybeUninit, not the PeripheralRef itself.
@@ -1097,7 +1103,10 @@ impl<'d, Dir: I2sRxSupported> I2sDriver<'d, Dir> {
         // and &rx_cfg is a valid pointer to an i2s_pdm_rx_config_t.
         unsafe {
             // Open the RX channel.
-            esp!(esp_idf_sys::i2s_channel_init_pdm_rx_mode(this.rx, &rx_cfg))?;
+            esp!(esp_idf_sys::i2s_channel_init_pdm_rx_mode(
+                this.rx_handle,
+                &rx_cfg
+            ))?;
         }
 
         Ok(this)
@@ -1202,7 +1211,10 @@ impl<'d, Dir: I2sTxSupported> I2sDriver<'d, Dir> {
         // Set the upsampling configuration.
         let upsample = tx_cfg.clk_cfg.as_sdk();
         unsafe {
-            esp!(i2s_set_pdm_tx_up_sample(I2S::port(), &upsample))?;
+            esp!(esp_idf_sys::i2s_set_pdm_tx_up_sample(
+                I2S::port(),
+                &upsample
+            ))?;
         }
 
         // Set the pin configuration.

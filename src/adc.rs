@@ -565,13 +565,11 @@ pub mod continuous {
     impl<'d> AdcDriver<'d> {
         #[cfg(esp32)]
         pub fn new(
-            adc: impl Peripheral<P = ADC1> + 'd,
+            adc: impl Peripheral<P = super::ADC1> + 'd,
             frame_measurements: usize,
             frames_count: usize,
-            channels: impl AdcChannels<Adc = A> + 'd,
+            channels: impl AdcChannels<Adc = super::ADC1> + 'd,
         ) -> Result<Self, EspError> {
-            use super::ADC1;
-
             Self::internal_new(adc, frame_measurements, frames_count, channels)
         }
 
@@ -684,7 +682,7 @@ pub mod continuous {
                 adc_continuous_read(
                     self.handle,
                     buf.as_mut_ptr() as *mut _,
-                    (buf.len() * core::mem::size_of::<AdcMeasurement>()) as _,
+                    core::mem::size_of_val(buf) as _,
                     &mut read,
                     timeout * crate::delay::TICK_PERIOD_MS,
                 )

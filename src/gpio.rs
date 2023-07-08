@@ -1103,7 +1103,6 @@ impl<'d, T: Pin, MODE> PinDriver<'d, T, MODE> {
     where
         MODE: InputMode,
     {
-        #[cfg(feature = "alloc")]
         extern crate alloc;
 
         self.unsubscribe()?;
@@ -1125,7 +1124,7 @@ impl<'d, T: Pin, MODE> PinDriver<'d, T, MODE> {
             esp!(gpio_isr_handler_add(
                 self.pin.pin(),
                 Some(Self::handle_isr),
-                core::mem::transmute(self.pin.pin() as u32),
+                self.pin.pin() as u32 as *mut core::ffi::c_void,
             ))?;
         }
 
@@ -1179,7 +1178,7 @@ impl<'d, T: Pin, MODE> PinDriver<'d, T, MODE> {
 
     #[cfg(not(feature = "riscv-ulp-hal"))]
     unsafe extern "C" fn handle_isr(user_ctx: *mut core::ffi::c_void) {
-        let pin = core::mem::transmute::<_, u32>(user_ctx);
+        let pin = user_ctx as u32;
 
         PIN_NOTIF[pin as usize].notify();
 
@@ -1611,17 +1610,24 @@ mod chip {
     #[cfg(not(feature = "riscv-ulp-hal"))]
     use core::sync::atomic::AtomicU8;
 
+    #[cfg(all(not(feature = "riscv-ulp-hal"), feature = "alloc"))]
+    extern crate alloc;
+
+    #[cfg(all(not(feature = "riscv-ulp-hal"), feature = "alloc"))]
+    use alloc::boxed::Box;
+
     #[cfg(not(feature = "riscv-ulp-hal"))]
     use esp_idf_sys::*;
 
     #[cfg(feature = "riscv-ulp-hal")]
     use crate::riscv_ulp_hal::sys::*;
 
+    #[cfg(not(feature = "riscv-ulp-hal"))]
+    use crate::private::notification::Notification;
+
     use crate::adc::{ADC1, ADC2};
 
     use super::*;
-    #[cfg(all(not(feature = "riscv-ulp-hal"), feature = "alloc"))]
-    use crate::private::notification::Notification;
 
     #[allow(clippy::type_complexity)]
     #[cfg(all(not(feature = "riscv-ulp-hal"), feature = "alloc"))]
@@ -1894,14 +1900,24 @@ mod chip {
     #[cfg(not(feature = "riscv-ulp-hal"))]
     use core::sync::atomic::AtomicU8;
 
+    #[cfg(all(not(feature = "riscv-ulp-hal"), feature = "alloc"))]
+    extern crate alloc;
+
+    #[cfg(all(not(feature = "riscv-ulp-hal"), feature = "alloc"))]
+    use alloc::boxed::Box;
+
     #[cfg(not(feature = "riscv-ulp-hal"))]
     use esp_idf_sys::*;
+
+    #[cfg(feature = "riscv-ulp-hal")]
+    use crate::riscv_ulp_hal::sys::*;
+
+    #[cfg(not(feature = "riscv-ulp-hal"))]
+    use crate::private::notification::Notification;
 
     use crate::adc::{ADC1, ADC2};
 
     use super::*;
-    #[cfg(all(not(feature = "riscv-ulp-hal"), feature = "alloc"))]
-    use crate::private::notification::Notification;
 
     #[allow(clippy::type_complexity)]
     #[cfg(all(not(feature = "riscv-ulp-hal"), feature = "alloc"))]
@@ -2257,14 +2273,24 @@ mod chip {
     #[cfg(not(feature = "riscv-ulp-hal"))]
     use core::sync::atomic::AtomicU8;
 
+    #[cfg(all(not(feature = "riscv-ulp-hal"), feature = "alloc"))]
+    extern crate alloc;
+
+    #[cfg(all(not(feature = "riscv-ulp-hal"), feature = "alloc"))]
+    use alloc::boxed::Box;
+
     #[cfg(not(feature = "riscv-ulp-hal"))]
     use esp_idf_sys::*;
+
+    #[cfg(feature = "riscv-ulp-hal")]
+    use crate::riscv_ulp_hal::sys::*;
+
+    #[cfg(not(feature = "riscv-ulp-hal"))]
+    use crate::private::notification::Notification;
 
     use crate::adc::{ADC1, ADC2};
 
     use super::*;
-    #[cfg(all(not(feature = "riscv-ulp-hal"), feature = "alloc"))]
-    use crate::private::notification::Notification;
 
     #[allow(clippy::type_complexity)]
     #[cfg(feature = "alloc")]
@@ -2416,14 +2442,24 @@ mod chip {
     #[cfg(not(feature = "riscv-ulp-hal"))]
     use core::sync::atomic::AtomicU8;
 
+    #[cfg(all(not(feature = "riscv-ulp-hal"), feature = "alloc"))]
+    extern crate alloc;
+
+    #[cfg(all(not(feature = "riscv-ulp-hal"), feature = "alloc"))]
+    use alloc::boxed::Box;
+
     #[cfg(not(feature = "riscv-ulp-hal"))]
     use esp_idf_sys::*;
+
+    #[cfg(feature = "riscv-ulp-hal")]
+    use crate::riscv_ulp_hal::sys::*;
+
+    #[cfg(not(feature = "riscv-ulp-hal"))]
+    use crate::private::notification::Notification;
 
     use crate::adc::ADC1;
 
     use super::*;
-    #[cfg(all(not(feature = "riscv-ulp-hal"), feature = "alloc"))]
-    use crate::private::notification::Notification;
 
     #[allow(clippy::type_complexity)]
     #[cfg(feature = "alloc")]
@@ -2570,14 +2606,24 @@ mod chip {
     #[cfg(not(feature = "riscv-ulp-hal"))]
     use core::sync::atomic::AtomicU8;
 
+    #[cfg(all(not(feature = "riscv-ulp-hal"), feature = "alloc"))]
+    extern crate alloc;
+
+    #[cfg(all(not(feature = "riscv-ulp-hal"), feature = "alloc"))]
+    use alloc::boxed::Box;
+
     #[cfg(not(feature = "riscv-ulp-hal"))]
     use esp_idf_sys::*;
+
+    #[cfg(feature = "riscv-ulp-hal")]
+    use crate::riscv_ulp_hal::sys::*;
+
+    #[cfg(not(feature = "riscv-ulp-hal"))]
+    use crate::private::notification::Notification;
 
     use crate::adc::ADC1;
 
     use super::*;
-    #[cfg(all(not(feature = "riscv-ulp-hal"), feature = "alloc"))]
-    use crate::private::notification::Notification;
 
     #[allow(clippy::type_complexity)]
     #[cfg(feature = "alloc")]
@@ -2725,14 +2771,24 @@ mod chip {
     #[cfg(not(feature = "riscv-ulp-hal"))]
     use core::sync::atomic::AtomicU8;
 
+    #[cfg(all(not(feature = "riscv-ulp-hal"), feature = "alloc"))]
+    extern crate alloc;
+
+    #[cfg(all(not(feature = "riscv-ulp-hal"), feature = "alloc"))]
+    use alloc::boxed::Box;
+
     #[cfg(not(feature = "riscv-ulp-hal"))]
     use esp_idf_sys::*;
+
+    #[cfg(feature = "riscv-ulp-hal")]
+    use crate::riscv_ulp_hal::sys::*;
+
+    #[cfg(not(feature = "riscv-ulp-hal"))]
+    use crate::private::notification::Notification;
 
     use crate::adc::ADC1;
 
     use super::*;
-    #[cfg(all(not(feature = "riscv-ulp-hal"), feature = "alloc"))]
-    use crate::private::notification::Notification;
 
     #[allow(clippy::type_complexity)]
     #[cfg(all(not(feature = "riscv-ulp-hal"), feature = "alloc"))]
