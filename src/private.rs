@@ -35,6 +35,10 @@ pub mod notification {
             }
         }
 
+        pub fn clear(&self) {
+            self.notified.store(false, Ordering::SeqCst);
+        }
+
         #[allow(unused)]
         pub fn wait(&self) -> impl Future<Output = ()> + '_ {
             core::future::poll_fn(move |cx| self.poll_wait(cx))
