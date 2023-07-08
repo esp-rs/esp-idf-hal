@@ -415,20 +415,16 @@ pub mod continuous {
     use esp_idf_sys::*;
 
     use crate::delay;
+    use crate::gpio::{sealed::ADCPin as _, ADCPin};
+    use crate::peripheral::Peripheral;
     use crate::private::notification::Notification;
-    use crate::{
-        gpio::{sealed::ADCPin as _, ADCPin},
-        peripheral::Peripheral,
-    };
 
     use super::{attenuation, Adc};
 
     pub struct Attenuated<const A: adc_atten_t, T>(T);
 
     impl<const A: adc_atten_t, T> Attenuated<A, T> {
-        pub fn override_atten(
-            channel: (adc_channel_t, adc_atten_t),
-        ) -> (adc_channel_t, adc_atten_t) {
+        pub fn atten(channel: (adc_channel_t, adc_atten_t)) -> (adc_channel_t, adc_atten_t) {
             (channel.0, A)
         }
     }
@@ -440,32 +436,12 @@ pub mod continuous {
 
     pub trait AdcChannels {
         type Adc: Adc;
-        type Iterator: Iterator<Item = (adc_channel_t, adc_atten_t)>;
+        type Iterator<'a>: Iterator<Item = (adc_channel_t, adc_atten_t)>
+        where
+            Self: 'a;
 
-        fn iter(&self) -> Self::Iterator;
+        fn iter(&self) -> Self::Iterator<'_>;
     }
-
-    // impl<T> AdcChannels for &T
-    // where
-    //     T: AdcChannels,
-    // {
-    //     type Adc = T::Adc;
-
-    //     fn get(&self) -> [adc_channel_t; N] {
-    //         (**self).get()
-    //     }
-    // }
-
-    // impl<T> AdcChannels for &mut T
-    // where
-    //     T: AdcChannels,
-    // {
-    //     type Adc = T::Adc;
-
-    //     fn get(&self) -> [adc_channel_t; N] {
-    //         (**self).get()
-    //     }
-    // }
 
     impl<'d, P> AdcChannels for P
     where
@@ -474,9 +450,9 @@ pub mod continuous {
     {
         type Adc = <<P as Peripheral>::P as ADCPin>::Adc;
 
-        type Iterator = core::iter::Once<(adc_channel_t, adc_atten_t)>;
+        type Iterator<'a> = core::iter::Once<(adc_channel_t, adc_atten_t)> where Self: 'a;
 
-        fn iter(&self) -> Self::Iterator {
+        fn iter(&self) -> Self::Iterator<'_> {
             core::iter::once((P::P::CHANNEL, attenuation::NONE))
         }
     }
@@ -487,13 +463,28 @@ pub mod continuous {
     {
         type Adc = C::Adc;
 
-        type Iterator = core::iter::Map<
-            C::Iterator,
+        type Iterator<'a> = core::iter::Map<
+            C::Iterator<'a>,
             fn((adc_channel_t, adc_atten_t)) -> (adc_channel_t, adc_atten_t),
-        >;
+        > where Self: 'a;
 
-        fn iter(&self) -> Self::Iterator {
-            self.0.iter().map(Attenuated::<A, C>::override_atten)
+        fn iter(&self) -> Self::Iterator<'_> {
+            self.0.iter().map(Attenuated::<A, C>::atten)
+        }
+    }
+
+    pub struct AdcChannelsArray<C, const N: usize>(pub [C; N]);
+
+    impl<C, const N: usize> AdcChannels for AdcChannelsArray<C, N>
+    where
+        C: AdcChannels,
+    {
+        type Adc = C::Adc;
+
+        type Iterator<'a> = core::iter::FlatMap<core::slice::Iter<'a, C>, <C as AdcChannels>::Iterator<'a>, fn(&'a C) -> C::Iterator<'a>> where Self: 'a;
+
+        fn iter(&self) -> Self::Iterator<'_> {
+            self.0.iter().flat_map(AdcChannels::iter)
         }
     }
 
@@ -518,9 +509,9 @@ pub mod continuous {
     {
         type Adc = A;
 
-        type Iterator = core::iter::Empty<(adc_channel_t, adc_atten_t)>;
+        type Iterator<'a> = core::iter::Empty<(adc_channel_t, adc_atten_t)> where Self: 'a;
 
-        fn iter(&self) -> Self::Iterator {
+        fn iter(&self) -> Self::Iterator<'_> {
             core::iter::empty()
         }
     }
@@ -537,53 +528,12 @@ pub mod continuous {
     {
         type Adc = F::Adc;
 
-        type Iterator = core::iter::Chain<F::Iterator, S::Iterator>;
+        type Iterator<'a> = core::iter::Chain<F::Iterator<'a>, S::Iterator<'a>> where Self: 'a;
 
-        fn iter(&self) -> Self::Iterator {
+        fn iter(&self) -> Self::Iterator<'_> {
             self.first.iter().chain(self.second.iter())
         }
     }
-
-    // impl<A, C, const N: usize> AdcChannels for [C; N]
-    // where
-    //     A: Adc,
-    //     C: AdcChannels<Adc = A>,
-    // {
-    //     type Adc = A;
-
-    //     type Iterator = core::iter::Slice
-    //     fn len(&self) -> usize {
-    //         self.iter().map(|channels| channels.len()).sum()
-    //     }
-
-    //     fn channel(&self, index: usize) -> Result<adc_channel_t, EspError> {
-    //         let mut offset = 0;
-
-    //         for channels in self {
-    //             if index >= offset && index < offset + channels.len() {
-    //                 return channels.channel(index - offset);
-    //             }
-
-    //             offset += channels.len();
-    //         }
-
-    //         Err(EspError::from_infallible::<ESP_ERR_INVALID_ARG>())
-    //     }
-
-    //     fn attenuation(&self, index: usize) -> Result<adc_atten_t, EspError> {
-    //         let mut offset = 0;
-
-    //         for channels in self {
-    //             if index >= offset && index < offset + channels.len() {
-    //                 return channels.attenuation(index - offset);
-    //             }
-
-    //             offset += channels.len();
-    //         }
-
-    //         Err(EspError::from_infallible::<ESP_ERR_INVALID_ARG>())
-    //     }
-    // }
 
     #[repr(transparent)]
     pub struct AdcData(adc_digi_output_data_t);
