@@ -536,7 +536,25 @@ pub mod continuous {
     }
 
     #[repr(transparent)]
-    pub struct AdcData(adc_digi_output_data_t);
+    pub struct AdcMeasurement(adc_digi_output_data_t);
+
+    impl AdcMeasurement {
+        pub const INIT: Self = AdcMeasurement(unsafe {
+            core::mem::transmute([0u8; core::mem::size_of::<adc_digi_output_data_t>()])
+        });
+
+        pub const fn new() -> Self {
+            Self::INIT
+        }
+
+        pub fn data(&self) -> u16 {
+            unsafe { self.0.__bindgen_anon_1.type2.data() as _ }
+        }
+
+        pub fn channel(&self) -> adc_channel_t {
+            unsafe { self.0.__bindgen_anon_1.type2.channel() as _ }
+        }
+    }
 
     pub struct AdcDriver<'d> {
         handle: adc_continuous_handle_t,
@@ -545,8 +563,32 @@ pub mod continuous {
     }
 
     impl<'d> AdcDriver<'d> {
-        pub fn new<const F: usize, const R: usize, A: Adc>(
+        #[cfg(esp32)]
+        pub fn new(
+            adc: impl Peripheral<P = ADC1> + 'd,
+            frame_measurements: usize,
+            frames_count: usize,
+            channels: impl AdcChannels<Adc = A> + 'd,
+        ) -> Result<Self, EspError> {
+            use super::ADC1;
+
+            Self::internal_new(adc, frame_measurements, frames_count, channels)
+        }
+
+        #[cfg(not(esp32))]
+        pub fn new<A: Adc>(
+            adc: impl Peripheral<P = A> + 'd,
+            frame_measurements: usize,
+            frames_count: usize,
+            channels: impl AdcChannels<Adc = A> + 'd,
+        ) -> Result<Self, EspError> {
+            Self::internal_new(adc, frame_measurements, frames_count, channels)
+        }
+
+        fn internal_new<A: Adc>(
             _adc: impl Peripheral<P = A> + 'd,
+            frame_measurements: usize,
+            frames_count: usize,
             channels: impl AdcChannels<Adc = A> + 'd,
         ) -> Result<Self, EspError> {
             let mut patterns = [adc_digi_pattern_config_t::default(); 20]; // TODO
@@ -559,7 +601,7 @@ pub mod continuous {
                 patterns[index].atten = atten as _;
                 patterns[index].channel = channel as _;
                 patterns[index].unit = A::unit() as _;
-                patterns[index].bit_width = 12; // TODO
+                patterns[index].bit_width = 12; // For now only 12 bits is supported
             }
 
             let mut handle: adc_continuous_handle_t = core::ptr::null_mut();
@@ -568,13 +610,26 @@ pub mod continuous {
                 adc_continuous_new_handle(
                     &adc_continuous_handle_cfg_t {
                         max_store_buf_size: SOC_ADC_DIGI_DATA_BYTES_PER_CONV
-                            * (R as u32)
-                            * (F as u32),
-                        conv_frame_size: SOC_ADC_DIGI_DATA_BYTES_PER_CONV * (R as u32),
+                            * (frame_measurements as u32)
+                            * (frames_count as u32),
+                        conv_frame_size: SOC_ADC_DIGI_DATA_BYTES_PER_CONV
+                            * (frame_measurements as u32),
                     },
                     &mut handle,
                 )
             })?;
+
+            let conv_mode = if A::unit() == 0 {
+                adc_digi_convert_mode_t_ADC_CONV_SINGLE_UNIT_1
+            } else {
+                adc_digi_convert_mode_t_ADC_CONV_SINGLE_UNIT_2
+            };
+
+            #[cfg(any(esp32, esp32s2))]
+            let format = adc_digi_output_format_t_ADC_DIGI_OUTPUT_FORMAT_TYPE1;
+
+            #[cfg(not(any(esp32, esp32s2)))]
+            let format = adc_digi_output_format_t_ADC_DIGI_OUTPUT_FORMAT_TYPE2;
 
             esp!(unsafe {
                 adc_continuous_config(
@@ -583,8 +638,8 @@ pub mod continuous {
                         pattern_num: channels.iter().count() as _,
                         adc_pattern: &patterns as *const _ as *mut _,
                         sample_freq_hz: 0, // TODO
-                        conv_mode: adc_digi_convert_mode_t_ADC_CONV_SINGLE_UNIT_2,
-                        format: adc_digi_output_format_t_ADC_DIGI_OUTPUT_FORMAT_TYPE1, // TODO
+                        conv_mode,
+                        format,
                     },
                 )
             })?;
@@ -620,7 +675,7 @@ pub mod continuous {
 
         pub fn read(
             &mut self,
-            buf: &mut [AdcData],
+            buf: &mut [AdcMeasurement],
             timeout: TickType_t,
         ) -> Result<usize, EspError> {
             let mut read: u32 = 0;
@@ -629,17 +684,17 @@ pub mod continuous {
                 adc_continuous_read(
                     self.handle,
                     buf.as_mut_ptr() as *mut _,
-                    (buf.len() * core::mem::size_of::<AdcData>()) as _,
+                    (buf.len() * core::mem::size_of::<AdcMeasurement>()) as _,
                     &mut read,
                     timeout * crate::delay::TICK_PERIOD_MS,
                 )
             })?;
 
-            Ok(read as usize / core::mem::size_of::<AdcData>())
+            Ok(read as usize / core::mem::size_of::<AdcMeasurement>())
         }
 
         #[cfg(not(esp_idf_adc_continuous_isr_iram_safe))]
-        pub async fn read_async(&mut self, buf: &mut [AdcData]) -> Result<usize, EspError> {
+        pub async fn read_async(&mut self, buf: &mut [AdcMeasurement]) -> Result<usize, EspError> {
             loop {
                 match self.read(buf, delay::NON_BLOCK) {
                     Ok(len) if len > 0 => return Ok(len),
