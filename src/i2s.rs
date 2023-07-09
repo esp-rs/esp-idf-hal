@@ -42,6 +42,8 @@ mod std;
 ))]
 mod tdm;
 
+pub type I2sConfig = config::Config;
+
 /// I2S configuration
 pub mod config {
     #[cfg(any(
@@ -141,24 +143,19 @@ pub mod config {
     impl Default for Config {
         #[inline(always)]
         fn default() -> Self {
-            Self {
-                role: Role::Controller,
-                dma_desc: 6,
-                frames: 240,
-                auto_clear: false,
-            }
+            Self::new()
         }
     }
 
     impl Config {
         #[inline(always)]
-        /// Create a new Config with the specified role, DMA descriptor, frame count, and auto clear setting.
-        pub fn new(role: Role, dma_desc: u32, frames: u32, auto_clear: bool) -> Self {
+        /// Create a new Config
+        pub const fn new() -> Self {
             Self {
-                role,
-                dma_desc,
-                frames,
-                auto_clear,
+                role: Role::Controller,
+                dma_desc: 6,
+                frames: 240,
+                auto_clear: false,
             }
         }
 
