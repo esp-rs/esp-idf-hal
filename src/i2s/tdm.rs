@@ -783,7 +783,7 @@ impl<'d, Dir> I2sDriver<'d, Dir> {
     }
 }
 
-impl<'d, Dir: I2sRxSupported + I2sTxSupported> I2sDriver<'d, Dir> {
+impl<'d> I2sDriver<'d, I2sBiDir> {
     /// Create a new TDM mode driver for the given I2S peripheral with both the receive and transmit channels open.
     #[allow(clippy::too_many_arguments)]
     pub fn new_tdm_bidir<I2S: I2s>(
@@ -809,7 +809,7 @@ impl<'d, Dir: I2sRxSupported + I2sTxSupported> I2sDriver<'d, Dir> {
     }
 }
 
-impl<'d, Dir: I2sRxSupported> I2sDriver<'d, Dir> {
+impl<'d> I2sDriver<'d, I2sRx> {
     /// Create a new TDM mode driver for the given I2S peripheral with only the receive channel open.
     #[allow(clippy::too_many_arguments)]
     pub fn new_tdm_rx<I2S: I2s>(
@@ -834,7 +834,7 @@ impl<'d, Dir: I2sRxSupported> I2sDriver<'d, Dir> {
     }
 }
 
-impl<'d, Dir: I2sTxSupported> I2sDriver<'d, Dir> {
+impl<'d> I2sDriver<'d, I2sTx> {
     /// Create a new TDM mode driver for the given I2S peripheral with only the transmit channel open.
     #[allow(clippy::too_many_arguments)]
     pub fn new_tdm_tx<I2S: I2s>(

@@ -1027,7 +1027,7 @@ pub(super) mod config {
 
 #[cfg(not(esp_idf_version_major = "4"))]
 #[cfg(esp_idf_soc_i2s_supports_pdm_rx)]
-impl<'d, Dir: I2sRxSupported> I2sDriver<'d, Dir> {
+impl<'d> I2sDriver<'d, I2sRx> {
     /// Create a new pulse density modulation (PDM) mode driver for the given I2S peripheral with only the receive
     /// channel open.
     #[allow(clippy::too_many_arguments)]
@@ -1114,7 +1114,7 @@ impl<'d, Dir: I2sRxSupported> I2sDriver<'d, Dir> {
 }
 
 #[cfg(all(esp_idf_version_major = "4", any(esp32, esp32s3)))]
-impl<'d, Dir: I2sRxSupported> I2sDriver<'d, Dir> {
+impl<'d> I2sDriver<'d, I2sRx> {
     /// Create a new pulse density modulation (PDM) mode driver for the given I2S peripheral with only the receive
     /// channel open.
     #[allow(clippy::too_many_arguments)]
@@ -1154,7 +1154,7 @@ impl<'d, Dir: I2sRxSupported> I2sDriver<'d, Dir> {
 
 #[cfg(not(esp_idf_version_major = "4"))]
 #[cfg(esp_idf_soc_i2s_supports_pdm_tx)]
-impl<'d, Dir: I2sTxSupported> I2sDriver<'d, Dir> {
+impl<'d> I2sDriver<'d, I2sTx> {
     /// Create a new pulse density modulation (PDM) mode driver for the given I2S peripheral with only the transmit
     /// channel open.
     #[allow(clippy::too_many_arguments)]
@@ -1194,7 +1194,7 @@ impl<'d, Dir: I2sTxSupported> I2sDriver<'d, Dir> {
 }
 
 #[cfg(all(esp_idf_version_major = "4", any(esp32, esp32s3, esp32c3, esp32c6)))]
-impl<'d, Dir: I2sTxSupported> I2sDriver<'d, Dir> {
+impl<'d> I2sDriver<'d, I2sTx> {
     /// Create a new pulse density modulation (PDM) mode driver for the given I2S peripheral with only the transmit
     /// channel open.
     #[allow(clippy::too_many_arguments)]
