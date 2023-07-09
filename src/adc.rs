@@ -13,6 +13,13 @@ use crate::peripheral::{Peripheral, PeripheralRef};
 #[cfg(not(feature = "riscv-ulp-hal"))]
 pub type AdcConfig = config::Config;
 
+#[cfg(all(not(feature = "riscv-ulp-hal"), not(esp_idf_version_major = "4")))]
+pub use continuous::{
+    config as cont_config, config::Config as AdcContConfig, AdcChannels, AdcChannelsArray,
+    AdcDriver as AdcContDriver, AdcMeasurement, Atten11dB, Atten2p5dB, Atten6dB, AttenNone,
+    Attenuated, ChainedAdcChannels, EmptyAdcChannels,
+};
+
 pub trait Adc: Send {
     fn unit() -> adc_unit_t;
 }
@@ -556,6 +563,51 @@ pub mod continuous {
         }
     }
 
+    pub mod config {
+        use crate::units::*;
+
+        #[derive(Debug, Copy, Clone)]
+        pub struct Config {
+            pub sample_freq: Hertz,
+            pub frame_measurements: usize,
+            pub frames_count: usize,
+        }
+
+        impl Config {
+            pub const fn new() -> Self {
+                Self {
+                    sample_freq: Hertz(1_000_000),
+                    frame_measurements: 16,
+                    frames_count: 8,
+                }
+            }
+
+            #[must_use]
+            pub fn sample_freq(mut self, sample_freq: Hertz) -> Self {
+                self.sample_freq = sample_freq;
+                self
+            }
+
+            #[must_use]
+            pub fn frame_measurements(mut self, frame_measurements: usize) -> Self {
+                self.frame_measurements = frame_measurements;
+                self
+            }
+
+            #[must_use]
+            pub fn frames_count(mut self, frames_count: usize) -> Self {
+                self.frames_count = frames_count;
+                self
+            }
+        }
+
+        impl Default for Config {
+            fn default() -> Self {
+                Self::new()
+            }
+        }
+    }
+
     pub struct AdcDriver<'d> {
         handle: adc_continuous_handle_t,
         adc: adc_unit_t,
@@ -566,30 +618,27 @@ pub mod continuous {
         #[cfg(esp32)]
         pub fn new(
             adc: impl Peripheral<P = super::ADC1> + 'd,
-            frame_measurements: usize,
-            frames_count: usize,
+            config: &config::Config,
             channels: impl AdcChannels<Adc = super::ADC1> + 'd,
         ) -> Result<Self, EspError> {
-            Self::internal_new(adc, frame_measurements, frames_count, channels)
+            Self::internal_new(adc, config, channels)
         }
 
         #[cfg(not(esp32))]
         pub fn new<A: Adc>(
             adc: impl Peripheral<P = A> + 'd,
-            frame_measurements: usize,
-            frames_count: usize,
+            config: &config::Config,
             channels: impl AdcChannels<Adc = A> + 'd,
         ) -> Result<Self, EspError> {
-            Self::internal_new(adc, frame_measurements, frames_count, channels)
+            Self::internal_new(adc, config, channels)
         }
 
         fn internal_new<A: Adc>(
             _adc: impl Peripheral<P = A> + 'd,
-            frame_measurements: usize,
-            frames_count: usize,
+            config: &config::Config,
             channels: impl AdcChannels<Adc = A> + 'd,
         ) -> Result<Self, EspError> {
-            let mut patterns = [adc_digi_pattern_config_t::default(); 20]; // TODO
+            let mut patterns = [adc_digi_pattern_config_t::default(); 32];
 
             for (index, (channel, atten)) in channels.iter().enumerate() {
                 if index >= patterns.len() {
@@ -608,10 +657,10 @@ pub mod continuous {
                 adc_continuous_new_handle(
                     &adc_continuous_handle_cfg_t {
                         max_store_buf_size: SOC_ADC_DIGI_DATA_BYTES_PER_CONV
-                            * (frame_measurements as u32)
-                            * (frames_count as u32),
+                            * (config.frame_measurements as u32)
+                            * (config.frames_count as u32),
                         conv_frame_size: SOC_ADC_DIGI_DATA_BYTES_PER_CONV
-                            * (frame_measurements as u32),
+                            * (config.frame_measurements as u32),
                     },
                     &mut handle,
                 )
@@ -635,7 +684,7 @@ pub mod continuous {
                     &adc_continuous_config_t {
                         pattern_num: channels.iter().count() as _,
                         adc_pattern: &patterns as *const _ as *mut _,
-                        sample_freq_hz: 0, // TODO
+                        sample_freq_hz: config.sample_freq.into(),
                         conv_mode,
                         format,
                     },
