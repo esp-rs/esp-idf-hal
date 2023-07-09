@@ -740,8 +740,6 @@ pub mod continuous {
 
             #[cfg(not(esp_idf_adc_continuous_isr_iram_safe))]
             {
-                println!("!!!! Subscribed!");
-
                 esp!(unsafe {
                     adc_continuous_register_event_callbacks(
                         handle,
@@ -759,6 +757,14 @@ pub mod continuous {
                 adc: A::unit() as _,
                 _ref: PhantomData,
             })
+        }
+
+        pub fn handle(&self) -> adc_continuous_handle_t {
+            self.handle
+        }
+
+        pub fn unit(&self) -> adc_unit_t {
+            self.adc as _
         }
 
         pub fn start(&mut self) -> Result<(), EspError> {
@@ -795,11 +801,7 @@ pub mod continuous {
                 match self.read(buf, delay::NON_BLOCK) {
                     Ok(len) if len > 0 => return Ok(len),
                     Err(e) if e.code() != ESP_ERR_TIMEOUT => return Err(e),
-                    _ => {
-                        println!("About to wait######");
-                        NOTIFIER[self.adc as usize].wait().await;
-                        println!("!!!!!!!!!!!!!!");
-                    }
+                    _ => NOTIFIER[self.adc as usize].wait().await,
                 }
             }
         }
