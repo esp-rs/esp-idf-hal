@@ -417,11 +417,12 @@ impl_adc!(ADC2: adc_unit_t_ADC_UNIT_2);
 #[cfg(all(not(feature = "riscv-ulp-hal"), not(esp_idf_version_major = "4")))]
 pub mod continuous {
     use core::ffi::c_void;
+    use core::fmt::{self, Debug, Display};
     use core::marker::PhantomData;
 
     use esp_idf_sys::*;
 
-    use crate::delay;
+    use crate::delay::{self, TickType};
     use crate::gpio::{sealed::ADCPin as _, ADCPin};
     use crate::peripheral::Peripheral;
     use crate::private::notification::Notification;
@@ -429,6 +430,30 @@ pub mod continuous {
     use super::{attenuation, Adc};
 
     pub struct Attenuated<const A: adc_atten_t, T>(T);
+
+    impl<T> Attenuated<{ attenuation::NONE }, T> {
+        pub const fn none(t: T) -> Self {
+            Self(t)
+        }
+    }
+
+    impl<T> Attenuated<{ attenuation::DB_2_5 }, T> {
+        pub const fn db2_5(t: T) -> Self {
+            Self(t)
+        }
+    }
+
+    impl<T> Attenuated<{ attenuation::DB_6 }, T> {
+        pub const fn db6(t: T) -> Self {
+            Self(t)
+        }
+    }
+
+    impl<T> Attenuated<{ attenuation::DB_11 }, T> {
+        pub const fn db11(t: T) -> Self {
+            Self(t)
+        }
+    }
 
     impl<const A: adc_atten_t, T> Attenuated<A, T> {
         pub fn atten(channel: (adc_channel_t, adc_atten_t)) -> (adc_channel_t, adc_atten_t) {
@@ -563,6 +588,28 @@ pub mod continuous {
         }
     }
 
+    impl Display for AdcMeasurement {
+        fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+            write!(
+                f,
+                "ADC Reading {{channel={}, data={}}}",
+                self.channel(),
+                self.data()
+            )
+        }
+    }
+
+    impl Debug for AdcMeasurement {
+        fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+            write!(
+                f,
+                "AdcMeasurement {{channel: {}, data: {}}}",
+                self.channel(),
+                self.data()
+            )
+        }
+    }
+
     pub mod config {
         use crate::units::*;
 
@@ -576,9 +623,9 @@ pub mod continuous {
         impl Config {
             pub const fn new() -> Self {
                 Self {
-                    sample_freq: Hertz(1_000_000),
-                    frame_measurements: 16,
-                    frames_count: 8,
+                    sample_freq: Hertz(1000),
+                    frame_measurements: 1,
+                    frames_count: 16,
                 }
             }
 
@@ -610,7 +657,7 @@ pub mod continuous {
 
     pub struct AdcDriver<'d> {
         handle: adc_continuous_handle_t,
-        adc: adc_unit_t,
+        adc: u8,
         _ref: PhantomData<&'d ()>,
     }
 
@@ -693,6 +740,8 @@ pub mod continuous {
 
             #[cfg(not(esp_idf_adc_continuous_isr_iram_safe))]
             {
+                println!("!!!! Subscribed!");
+
                 esp!(unsafe {
                     adc_continuous_register_event_callbacks(
                         handle,
@@ -707,7 +756,7 @@ pub mod continuous {
 
             Ok(Self {
                 handle,
-                adc: A::unit(),
+                adc: A::unit() as _,
                 _ref: PhantomData,
             })
         }
@@ -733,7 +782,7 @@ pub mod continuous {
                     buf.as_mut_ptr() as *mut _,
                     core::mem::size_of_val(buf) as _,
                     &mut read,
-                    timeout * crate::delay::TICK_PERIOD_MS,
+                    TickType(timeout).as_millis_u32(),
                 )
             })?;
 
@@ -746,7 +795,11 @@ pub mod continuous {
                 match self.read(buf, delay::NON_BLOCK) {
                     Ok(len) if len > 0 => return Ok(len),
                     Err(e) if e.code() != ESP_ERR_TIMEOUT => return Err(e),
-                    _ => NOTIFIER[self.adc as usize].wait().await,
+                    _ => {
+                        println!("About to wait######");
+                        NOTIFIER[self.adc as usize].wait().await;
+                        println!("!!!!!!!!!!!!!!");
+                    }
                 }
             }
         }
@@ -783,6 +836,8 @@ pub mod continuous {
             esp!(unsafe { adc_continuous_deinit(self.handle) }).unwrap();
         }
     }
+
+    unsafe impl<'d> Send for AdcDriver<'d> {}
 
     #[cfg(not(esp_idf_adc_continuous_isr_iram_safe))]
     #[cfg(any(esp32c2, esp32h2, esp32c5, esp32c6, esp32p4))] // TODO: Check for esp32c5 and esp32p4

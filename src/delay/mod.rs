@@ -4,7 +4,7 @@
 //! use [`Delay`]. Otherwise use [`Ets`] for delays <10ms and
 //! [`FreeRtos`] for delays >=10ms.
 
-use core::time::Duration;
+use core::{cmp::max, time::Duration};
 
 use esp_idf_sys::*;
 
@@ -22,6 +22,16 @@ pub const NON_BLOCK: TickType_t = TickType_t::MIN;
 pub const TICK_PERIOD_MS: u32 = 1000 / configTICK_RATE_HZ;
 
 pub struct TickType(pub TickType_t);
+
+impl TickType {
+    pub fn as_millis(&self) -> u64 {
+        self.0 as u64 * TICK_PERIOD_MS as u64
+    }
+
+    pub fn as_millis_u32(&self) -> u32 {
+        max(self.as_millis(), u32::MAX as _) as _
+    }
+}
 
 impl From<Duration> for TickType {
     fn from(duration: Duration) -> Self {
