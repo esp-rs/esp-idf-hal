@@ -118,6 +118,10 @@ impl AnyPin {
             _p: PhantomData,
         }
     }
+    /// Gets the pin number.
+    pub fn get_pin(&self) -> i32 {
+        self.pin
+    }
     /// Gets a set of the types of pins this pin can be cast to
     pub fn types(&self) -> PinTypes {
         self.pin_types
@@ -2000,10 +2004,10 @@ macro_rules! define_all_pins {
                     $name: $ty::new(),
                 )*}
             }
-            pub fn into_dynamic(self) -> [(u8, AnyPin); NUM_PINS] {
+            pub fn into_dynamic(self) -> [AnyPin; NUM_PINS] {
                 [$(
                     $(#[cfg($cond)])?
-                    ($id, self.$name.into()),
+                    self.$name.into(),
                 )*]
             }
         }
