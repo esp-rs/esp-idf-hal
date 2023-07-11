@@ -1846,6 +1846,184 @@ mod chip {
 
     use super::*;
 
+    pub struct Notification {
+        waker: AtomicWaker,
+        triggered: AtomicBool,
+    }
+
+    impl Notification {
+        pub const fn new() -> Self {
+            Self {
+                waker: AtomicWaker::new(),
+                triggered: AtomicBool::new(false),
+            }
+        }
+        pub fn notify(&self) {
+            self.triggered.store(true, Ordering::SeqCst);
+            self.waker.wake();
+        }
+        pub fn poll_wait(&self, cx: &mut Context<'_>) -> Poll<()> {
+            self.waker.register(cx.waker());
+
+            if self.triggered.swap(false, Ordering::SeqCst) {
+                Poll::Ready(())
+            } else {
+                Poll::Pending
+            }
+        }
+    }
+}
+
+#[cfg(all(not(feature = "riscv-ulp-hal"), feature = "alloc"))]
+mod asynch {
+    use super::*;
+    use core::future::Future;
+    extern crate alloc;
+    use esp_idf_sys::{esp_nofail, EspError};
+
+    use super::{atomic_notification::Notification, InputMode, InterruptType, Pin, PinDriver};
+
+    #[cfg(feature = "nightly")]
+    mod eha_wait_impl {
+        use super::*;
+        impl<T: Pin, MODE: InputMode> embedded_hal_async::digital::Wait for PinDriver<'_, T, MODE> {
+            async fn wait_for_high(&mut self) -> Result<(), Self::Error> {
+                self.wait_for_high().await
+            }
+
+            async fn wait_for_low(&mut self) -> Result<(), Self::Error> {
+                self.wait_for_low().await
+            }
+
+            async fn wait_for_rising_edge(&mut self) -> Result<(), Self::Error> {
+                self.wait_for_rising_edge().await
+            }
+
+            async fn wait_for_falling_edge(&mut self) -> Result<(), Self::Error> {
+                self.wait_for_falling_edge().await
+            }
+
+            async fn wait_for_any_edge(&mut self) -> Result<(), Self::Error> {
+                self.wait_for_any_edge().await
+            }
+        }
+    }
+
+    pub(crate) struct InputFuture<'driver_ref, 'driver_struct, T: Pin, MODE: InputMode> {
+        // Unfortunately, the Wait trait uses functions that are given a mutable
+        // reference to the pin driver with no explicit lifetime parameter.  Since
+        // the reference has a different lifetime than the struct, we must make this
+        // explicit, or else the borrow checker will believe the reference must live
+        // forever.
+        driver: &'driver_ref mut PinDriver<'driver_struct, T, MODE>,
+    }
+
+    impl<'driver_ref, 'driver_struct, T: Pin, MODE: InputMode>
+        InputFuture<'driver_ref, 'driver_struct, T, MODE>
+    {
+        pub(crate) fn new(
+            driver: &'driver_ref mut PinDriver<'driver_struct, T, MODE>,
+            interrupt_type: InterruptType,
+        ) -> Result<Self, EspError> {
+            driver.unsubscribe()?;
+            driver.disable_interrupt()?;
+            driver.set_interrupt_type(interrupt_type)?;
+            let driver_pin = driver.pin();
+            unsafe {
+                PIN_NOTIFIERS[driver_pin as usize] = Some(Notification::new());
+            }
+            let res = Self { driver };
+
+            unsafe {
+                res.driver.subscribe(move || {
+                    if let Some(notifier) = &PIN_NOTIFIERS[driver_pin as usize] {
+                        notifier.notify();
+                    }
+                    // Disable interrupts on thet way out.
+                    esp_nofail!(gpio_intr_disable(driver_pin));
+                })?
+            };
+            Ok(res)
+        }
+    }
+    impl<T: Pin, MODE: InputMode> Drop for InputFuture<'_, '_, T, MODE> {
+        fn drop(&mut self) {
+            self.driver.unsubscribe().unwrap();
+            unsafe { PIN_NOTIFIERS[self.driver.pin() as usize] = None }
+        }
+    }
+    impl<T: Pin, MODE: InputMode> Unpin for InputFuture<'_, '_, T, MODE> {}
+    impl<T: Pin, MODE: InputMode> Future for InputFuture<'_, '_, T, MODE> {
+        type Output = ();
+
+        fn poll(
+            self: core::pin::Pin<&mut Self>,
+            cx: &mut core::task::Context<'_>,
+        ) -> core::task::Poll<Self::Output> {
+            unsafe {
+                if let Some(notifier) = &PIN_NOTIFIERS[self.driver.pin() as usize] {
+                    notifier.poll_wait(cx)
+                } else {
+                    unreachable!("We should have allocated a notifier");
+                }
+            }
+        }
+    }
+}
+
+macro_rules! eval_cfg_cond {
+    () => { 1usize };
+    ($cond:meta) => {{
+        #[cfg($cond)] { 1usize }
+        #[cfg(not($cond))] { 0usize }
+    }};
+}
+macro_rules! define_all_pins {
+    ($( $(#[cfg($cond:meta)])? pin( $name:ident : $ty:ident : $id:literal, $($permk:ident $(: $permv:literal)?),* ); )*) => {
+        $(
+            $(#[cfg($cond)])?
+            pin!($ty : $id, $($permk $(: $permv)?),*);
+        )*
+        pub const NUM_PINS: usize = 0usize $(+ eval_cfg_cond!($($cond)?))*;
+        pub struct Pins {$(
+            $(#[cfg($cond)])?
+            pub $name : $ty,
+        )*}
+        impl Pins {
+            /// # Safety
+            ///
+            /// Care should be taken not to instantiate the Pins structure, if it is
+            /// already instantiated and used elsewhere
+            pub unsafe fn new() -> Self {
+                Self {$(
+                    $(#[cfg($cond)])?
+                    $name: $ty::new(),
+                )*}
+            }
+            pub fn into_dynamic(self) -> [(u8, AnyPin); NUM_PINS] {
+                [$(
+                    $(#[cfg($cond)])?
+                    ($id, self.$name.into()),
+                )*]
+            }
+        }
+    }
+}
+
+#[cfg(esp32)]
+mod chip {
+    #[cfg(not(feature = "riscv-ulp-hal"))]
+    use esp_idf_sys::*;
+
+    #[cfg(feature = "riscv-ulp-hal")]
+    use crate::riscv_ulp_hal::sys::*;
+
+    use crate::adc::{ADC1, ADC2};
+
+    use super::*;
+    #[cfg(all(not(feature = "riscv-ulp-hal"), feature = "alloc"))]
+    use atomic_notification::Notification;
+
     #[allow(clippy::type_complexity)]
     #[cfg(all(not(feature = "riscv-ulp-hal"), feature = "alloc"))]
     pub(crate) static mut PIN_ISR_HANDLER: [Option<Box<dyn FnMut() + Send + 'static>>; 40] =
@@ -1857,169 +2035,57 @@ mod chip {
 
     // NOTE: Gpio26 - Gpio32 are used by SPI0/SPI1 for external PSRAM/SPI Flash and
     //       are not recommended for other uses
-    pin!(Gpio0:0, IO, RTC:11, ADC2:1, NODAC:0, TOUCH:1);
-    #[cfg(not(feature = "riscv-ulp-hal"))]
-    pin!(Gpio1:1, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
-    pin!(Gpio2:2, IO, RTC:12, ADC2:2, NODAC:0, TOUCH:2);
-    #[cfg(not(feature = "riscv-ulp-hal"))]
-    pin!(Gpio3:3, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
-    pin!(Gpio4:4, IO, RTC:10, ADC2:0, NODAC:0, TOUCH:0);
-    #[cfg(not(feature = "riscv-ulp-hal"))]
-    pin!(Gpio5:5, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
-    #[cfg(not(feature = "riscv-ulp-hal"))]
-    pin!(Gpio6:6, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
-    #[cfg(not(feature = "riscv-ulp-hal"))]
-    pin!(Gpio7:7, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
-    #[cfg(not(feature = "riscv-ulp-hal"))]
-    pin!(Gpio8:8, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
-    #[cfg(not(feature = "riscv-ulp-hal"))]
-    pin!(Gpio9:9, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
-    #[cfg(not(feature = "riscv-ulp-hal"))]
-    pin!(Gpio10:10, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
-    #[cfg(not(feature = "riscv-ulp-hal"))]
-    pin!(Gpio11:11, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
-    pin!(Gpio12:12, IO, RTC:15, ADC2:5, NODAC:0, TOUCH:5);
-    pin!(Gpio13:13, IO, RTC:14, ADC2:4, NODAC:0, TOUCH:4);
-    pin!(Gpio14:14, IO, RTC:16, ADC2:6, NODAC:0, TOUCH:6);
-    pin!(Gpio15:15, IO, RTC:13, ADC2:3, NODAC:0, TOUCH:3);
-    #[cfg(not(feature = "riscv-ulp-hal"))]
-    pin!(Gpio16:16, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
-    #[cfg(not(feature = "riscv-ulp-hal"))]
-    pin!(Gpio17:17, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
-    #[cfg(not(feature = "riscv-ulp-hal"))]
-    pin!(Gpio18:18, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
-    #[cfg(not(feature = "riscv-ulp-hal"))]
-    pin!(Gpio19:19, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
-    #[cfg(not(feature = "riscv-ulp-hal"))]
-    pin!(Gpio21:21, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
-    #[cfg(not(feature = "riscv-ulp-hal"))]
-    pin!(Gpio22:22, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
-    #[cfg(not(feature = "riscv-ulp-hal"))]
-    pin!(Gpio23:23, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
-    pin!(Gpio25:25, IO, RTC:6, ADC2:8, DAC:1, NOTOUCH:0);
-    pin!(Gpio26:26, IO, RTC:7, ADC2:9, DAC:2, NOTOUCH:0);
-    pin!(Gpio27:27, IO, RTC:17, ADC2:7, NODAC:0, TOUCH:7);
-    pin!(Gpio32:32, IO, RTC:9, ADC1:4, NODAC:0, TOUCH:9);
-    pin!(Gpio33:33, IO, RTC:8, ADC1:5, NODAC:0, TOUCH:8);
-    pin!(Gpio34:34, Input, RTC:4, ADC1:6, NODAC:0, NOTOUCH:0);
-    pin!(Gpio35:35, Input, RTC:5, ADC1:7, NODAC:0, NOTOUCH:0);
-    pin!(Gpio36:36, Input, RTC:0, ADC1:0, NODAC:0, NOTOUCH:0);
-    pin!(Gpio37:37, Input, RTC:1, ADC1:1, NODAC:0, NOTOUCH:0);
-    pin!(Gpio38:38, Input, RTC:2, ADC1:2, NODAC:0, NOTOUCH:0);
-    pin!(Gpio39:39, Input, RTC:3, ADC1:3, NODAC:0, NOTOUCH:0);
-
-    pub struct Pins {
-        pub gpio0: Gpio0,
+    define_all_pins! {
+        pin(gpio0:Gpio0:0, IO, RTC:11, ADC2:1, NODAC:0, TOUCH:1);
         #[cfg(not(feature = "riscv-ulp-hal"))]
-        pub gpio1: Gpio1,
-        pub gpio2: Gpio2,
+        pin(gpio1:Gpio1:1, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
+        pin(gpio2:Gpio2:2, IO, RTC:12, ADC2:2, NODAC:0, TOUCH:2);
         #[cfg(not(feature = "riscv-ulp-hal"))]
-        pub gpio3: Gpio3,
-        pub gpio4: Gpio4,
+        pin(gpio3:Gpio3:3, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
+        pin(gpio4:Gpio4:4, IO, RTC:10, ADC2:0, NODAC:0, TOUCH:0);
         #[cfg(not(feature = "riscv-ulp-hal"))]
-        pub gpio5: Gpio5,
+        pin(gpio5:Gpio5:5, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
         #[cfg(not(feature = "riscv-ulp-hal"))]
-        pub gpio6: Gpio6,
+        pin(gpio6:Gpio6:6, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
         #[cfg(not(feature = "riscv-ulp-hal"))]
-        pub gpio7: Gpio7,
+        pin(gpio7:Gpio7:7, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
         #[cfg(not(feature = "riscv-ulp-hal"))]
-        pub gpio8: Gpio8,
+        pin(gpio8:Gpio8:8, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
         #[cfg(not(feature = "riscv-ulp-hal"))]
-        pub gpio9: Gpio9,
+        pin(gpio9:Gpio9:9, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
         #[cfg(not(feature = "riscv-ulp-hal"))]
-        pub gpio10: Gpio10,
+        pin(gpio10:Gpio10:10, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
         #[cfg(not(feature = "riscv-ulp-hal"))]
-        pub gpio11: Gpio11,
-        pub gpio12: Gpio12,
-        pub gpio13: Gpio13,
-        pub gpio14: Gpio14,
-        pub gpio15: Gpio15,
+        pin(gpio11:Gpio11:11, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
+        pin(gpio12:Gpio12:12, IO, RTC:15, ADC2:5, NODAC:0, TOUCH:5);
+        pin(gpio13:Gpio13:13, IO, RTC:14, ADC2:4, NODAC:0, TOUCH:4);
+        pin(gpio14:Gpio14:14, IO, RTC:16, ADC2:6, NODAC:0, TOUCH:6);
+        pin(gpio15:Gpio15:15, IO, RTC:13, ADC2:3, NODAC:0, TOUCH:3);
         #[cfg(not(feature = "riscv-ulp-hal"))]
-        pub gpio16: Gpio16,
+        pin(gpio16:Gpio16:16, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
         #[cfg(not(feature = "riscv-ulp-hal"))]
-        pub gpio17: Gpio17,
+        pin(gpio17:Gpio17:17, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
         #[cfg(not(feature = "riscv-ulp-hal"))]
-        pub gpio18: Gpio18,
+        pin(gpio18:Gpio18:18, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
         #[cfg(not(feature = "riscv-ulp-hal"))]
-        pub gpio19: Gpio19,
+        pin(gpio19:Gpio19:19, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
         #[cfg(not(feature = "riscv-ulp-hal"))]
-        pub gpio21: Gpio21,
+        pin(gpio21:Gpio21:21, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
         #[cfg(not(feature = "riscv-ulp-hal"))]
-        pub gpio22: Gpio22,
+        pin(gpio22:Gpio22:22, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
         #[cfg(not(feature = "riscv-ulp-hal"))]
-        pub gpio23: Gpio23,
-        pub gpio25: Gpio25,
-        pub gpio26: Gpio26,
-        pub gpio27: Gpio27,
-        pub gpio32: Gpio32,
-        pub gpio33: Gpio33,
-        pub gpio34: Gpio34,
-        pub gpio35: Gpio35,
-        pub gpio36: Gpio36,
-        pub gpio37: Gpio37,
-        pub gpio38: Gpio38,
-        pub gpio39: Gpio39,
-    }
-
-    impl Pins {
-        /// # Safety
-        ///
-        /// Care should be taken not to instantiate the Pins structure, if it is
-        /// already instantiated and used elsewhere
-        pub unsafe fn new() -> Self {
-            Self {
-                gpio0: Gpio0::new(),
-                #[cfg(not(feature = "riscv-ulp-hal"))]
-                gpio1: Gpio1::new(),
-                gpio2: Gpio2::new(),
-                #[cfg(not(feature = "riscv-ulp-hal"))]
-                gpio3: Gpio3::new(),
-                gpio4: Gpio4::new(),
-                #[cfg(not(feature = "riscv-ulp-hal"))]
-                gpio5: Gpio5::new(),
-                #[cfg(not(feature = "riscv-ulp-hal"))]
-                gpio6: Gpio6::new(),
-                #[cfg(not(feature = "riscv-ulp-hal"))]
-                gpio7: Gpio7::new(),
-                #[cfg(not(feature = "riscv-ulp-hal"))]
-                gpio8: Gpio8::new(),
-                #[cfg(not(feature = "riscv-ulp-hal"))]
-                gpio9: Gpio9::new(),
-                #[cfg(not(feature = "riscv-ulp-hal"))]
-                gpio10: Gpio10::new(),
-                #[cfg(not(feature = "riscv-ulp-hal"))]
-                gpio11: Gpio11::new(),
-                gpio12: Gpio12::new(),
-                gpio13: Gpio13::new(),
-                gpio14: Gpio14::new(),
-                gpio15: Gpio15::new(),
-                #[cfg(not(feature = "riscv-ulp-hal"))]
-                gpio16: Gpio16::new(),
-                #[cfg(not(feature = "riscv-ulp-hal"))]
-                gpio17: Gpio17::new(),
-                #[cfg(not(feature = "riscv-ulp-hal"))]
-                gpio18: Gpio18::new(),
-                #[cfg(not(feature = "riscv-ulp-hal"))]
-                gpio19: Gpio19::new(),
-                #[cfg(not(feature = "riscv-ulp-hal"))]
-                gpio21: Gpio21::new(),
-                #[cfg(not(feature = "riscv-ulp-hal"))]
-                gpio22: Gpio22::new(),
-                #[cfg(not(feature = "riscv-ulp-hal"))]
-                gpio23: Gpio23::new(),
-                gpio25: Gpio25::new(),
-                gpio26: Gpio26::new(),
-                gpio27: Gpio27::new(),
-                gpio32: Gpio32::new(),
-                gpio33: Gpio33::new(),
-                gpio34: Gpio34::new(),
-                gpio35: Gpio35::new(),
-                gpio36: Gpio36::new(),
-                gpio37: Gpio37::new(),
-                gpio38: Gpio38::new(),
-                gpio39: Gpio39::new(),
-            }
-        }
+        pin(gpio23:Gpio23:23, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
+        pin(gpio25:Gpio25:25, IO, RTC:6, ADC2:8, DAC:1, NOTOUCH:0);
+        pin(gpio26:Gpio26:26, IO, RTC:7, ADC2:9, DAC:2, NOTOUCH:0);
+        pin(gpio27:Gpio27:27, IO, RTC:17, ADC2:7, NODAC:0, TOUCH:7);
+        pin(gpio32:Gpio32:32, IO, RTC:9, ADC1:4, NODAC:0, TOUCH:9);
+        pin(gpio33:Gpio33:33, IO, RTC:8, ADC1:5, NODAC:0, TOUCH:8);
+        pin(gpio34:Gpio34:34, Input, RTC:4, ADC1:6, NODAC:0, NOTOUCH:0);
+        pin(gpio35:Gpio35:35, Input, RTC:5, ADC1:7, NODAC:0, NOTOUCH:0);
+        pin(gpio36:Gpio36:36, Input, RTC:0, ADC1:0, NODAC:0, NOTOUCH:0);
+        pin(gpio37:Gpio37:37, Input, RTC:1, ADC1:1, NODAC:0, NOTOUCH:0);
+        pin(gpio38:Gpio38:38, Input, RTC:2, ADC1:2, NODAC:0, NOTOUCH:0);
+        pin(gpio39:Gpio39:39, Input, RTC:3, ADC1:3, NODAC:0, NOTOUCH:0);
     }
 }
 
@@ -2056,231 +2122,83 @@ mod chip {
     // NOTE: Gpio26 - Gpio32 (and Gpio33 - Gpio37 if using Octal RAM/Flash) are used
     //       by SPI0/SPI1 for external PSRAM/SPI Flash and are not recommended for
     //       other uses
-    pin!(Gpio0:0, IO, RTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
-    pin!(Gpio1:1, IO, RTC:1, ADC1:0, NODAC:0, TOUCH:1);
-    pin!(Gpio2:2, IO, RTC:2, ADC1:1, NODAC:0, TOUCH:2);
-    pin!(Gpio3:3, IO, RTC:3, ADC1:2, NODAC:0, TOUCH:3);
-    pin!(Gpio4:4, IO, RTC:4, ADC1:3, NODAC:0, TOUCH:4);
-    pin!(Gpio5:5, IO, RTC:5, ADC1:4, NODAC:0, TOUCH:5);
-    pin!(Gpio6:6, IO, RTC:6, ADC1:5, NODAC:0, TOUCH:6);
-    pin!(Gpio7:7, IO, RTC:7, ADC1:6, NODAC:0, TOUCH:7);
-    pin!(Gpio8:8, IO, RTC:8, ADC1:7, NODAC:0, TOUCH:8);
-    pin!(Gpio9:9, IO, RTC:9, ADC1:8, NODAC:0, TOUCH:9);
-    pin!(Gpio10:10, IO, RTC:10, ADC1:9, NODAC:0, TOUCH:10);
-    pin!(Gpio11:11, IO, RTC:11, ADC2:0, NODAC:0, TOUCH:11);
-    pin!(Gpio12:12, IO, RTC:12, ADC2:1, NODAC:0, TOUCH:12);
-    pin!(Gpio13:13, IO, RTC:13, ADC2:2, NODAC:0, TOUCH:13);
-    pin!(Gpio14:14, IO, RTC:14, ADC2:3, NODAC:0, TOUCH:14);
-    pin!(Gpio15:15, IO, RTC:15, ADC2:4, NODAC:0, NOTOUCH:0);
-    pin!(Gpio16:16, IO, RTC:16, ADC2:5, NODAC:0, NOTOUCH:0);
-    #[cfg(esp32s2)]
-    pin!(Gpio17:17, IO, RTC:17, ADC2:6, DAC:1, NOTOUCH:0);
-    #[cfg(esp32s3)]
-    pin!(Gpio17:17, IO, RTC:17, ADC2:6, NODAC:0, NOTOUCH:0);
-    #[cfg(esp32s2)]
-    pin!(Gpio18:18, IO, RTC:18, ADC2:7, DAC:2, NOTOUCH:0);
-    #[cfg(esp32s3)]
-    pin!(Gpio18:18, IO, RTC:18, ADC2:7, NODAC:0, NOTOUCH:0);
-    pin!(Gpio19:19, IO, RTC:19, ADC2:8, NODAC:0, NOTOUCH:0);
-    pin!(Gpio20:20, IO, RTC:20, ADC2:9, NODAC:0, NOTOUCH:0);
-    pin!(Gpio21:21, IO, RTC:21, NOADC:0, NODAC:0, NOTOUCH:0);
-    #[cfg(not(feature = "riscv-ulp-hal"))]
-    pin!(Gpio26:26, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
-    #[cfg(not(feature = "riscv-ulp-hal"))]
-    pin!(Gpio27:27, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
-    #[cfg(not(feature = "riscv-ulp-hal"))]
-    pin!(Gpio28:28, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
-    #[cfg(not(feature = "riscv-ulp-hal"))]
-    pin!(Gpio29:29, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
-    #[cfg(not(feature = "riscv-ulp-hal"))]
-    pin!(Gpio30:30, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
-    #[cfg(not(feature = "riscv-ulp-hal"))]
-    pin!(Gpio31:31, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
-    #[cfg(not(feature = "riscv-ulp-hal"))]
-    pin!(Gpio32:32, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
-    #[cfg(not(feature = "riscv-ulp-hal"))]
-    pin!(Gpio33:33, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
-    #[cfg(not(feature = "riscv-ulp-hal"))]
-    pin!(Gpio34:34, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
-    #[cfg(not(feature = "riscv-ulp-hal"))]
-    pin!(Gpio35:35, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
-    #[cfg(not(feature = "riscv-ulp-hal"))]
-    pin!(Gpio36:36, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
-    #[cfg(not(feature = "riscv-ulp-hal"))]
-    pin!(Gpio37:37, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
-    #[cfg(not(feature = "riscv-ulp-hal"))]
-    pin!(Gpio38:38, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
-    #[cfg(not(feature = "riscv-ulp-hal"))]
-    pin!(Gpio39:39, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
-    #[cfg(not(feature = "riscv-ulp-hal"))]
-    pin!(Gpio40:40, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
-    #[cfg(not(feature = "riscv-ulp-hal"))]
-    pin!(Gpio41:41, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
-    #[cfg(not(feature = "riscv-ulp-hal"))]
-    pin!(Gpio42:42, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
-    #[cfg(not(feature = "riscv-ulp-hal"))]
-    pin!(Gpio43:43, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
-    #[cfg(not(feature = "riscv-ulp-hal"))]
-    pin!(Gpio44:44, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
-    #[cfg(not(feature = "riscv-ulp-hal"))]
-    pin!(Gpio45:45, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
-    #[cfg(all(esp32s2, not(feature = "riscv-ulp-hal")))]
-    pin!(Gpio46:46, Input, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
-    #[cfg(all(esp32s3, not(feature = "riscv-ulp-hal")))]
-    pin!(Gpio46:46, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
-    #[cfg(all(esp32s3, not(feature = "riscv-ulp-hal")))]
-    pin!(Gpio47:47, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
-    #[cfg(all(esp32s3, not(feature = "riscv-ulp-hal")))]
-    pin!(Gpio48:48, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
-
-    pub struct Pins {
-        pub gpio0: Gpio0,
-        pub gpio1: Gpio1,
-        pub gpio2: Gpio2,
-        pub gpio3: Gpio3,
-        pub gpio4: Gpio4,
-        pub gpio5: Gpio5,
-        pub gpio6: Gpio6,
-        pub gpio7: Gpio7,
-        pub gpio8: Gpio8,
-        pub gpio9: Gpio9,
-        pub gpio10: Gpio10,
-        pub gpio11: Gpio11,
-        pub gpio12: Gpio12,
-        pub gpio13: Gpio13,
-        pub gpio14: Gpio14,
-        pub gpio15: Gpio15,
-        pub gpio16: Gpio16,
-        pub gpio17: Gpio17,
-        pub gpio18: Gpio18,
-        pub gpio19: Gpio19,
-        pub gpio20: Gpio20,
-        pub gpio21: Gpio21,
+    define_all_pins! {
+        pin(gpio0:Gpio0:0, IO, RTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
+        pin(gpio1:Gpio1:1, IO, RTC:1, ADC1:0, NODAC:0, TOUCH:1);
+        pin(gpio2:Gpio2:2, IO, RTC:2, ADC1:1, NODAC:0, TOUCH:2);
+        pin(gpio3:Gpio3:3, IO, RTC:3, ADC1:2, NODAC:0, TOUCH:3);
+        pin(gpio4:Gpio4:4, IO, RTC:4, ADC1:3, NODAC:0, TOUCH:4);
+        pin(gpio5:Gpio5:5, IO, RTC:5, ADC1:4, NODAC:0, TOUCH:5);
+        pin(gpio6:Gpio6:6, IO, RTC:6, ADC1:5, NODAC:0, TOUCH:6);
+        pin(gpio7:Gpio7:7, IO, RTC:7, ADC1:6, NODAC:0, TOUCH:7);
+        pin(gpio8:Gpio8:8, IO, RTC:8, ADC1:7, NODAC:0, TOUCH:8);
+        pin(gpio9:Gpio9:9, IO, RTC:9, ADC1:8, NODAC:0, TOUCH:9);
+        pin(gpio10:Gpio10:10, IO, RTC:10, ADC1:9, NODAC:0, TOUCH:10);
+        pin(gpio11:Gpio11:11, IO, RTC:11, ADC2:0, NODAC:0, TOUCH:11);
+        pin(gpio12:Gpio12:12, IO, RTC:12, ADC2:1, NODAC:0, TOUCH:12);
+        pin(gpio13:Gpio13:13, IO, RTC:13, ADC2:2, NODAC:0, TOUCH:13);
+        pin(gpio14:Gpio14:14, IO, RTC:14, ADC2:3, NODAC:0, TOUCH:14);
+        pin(gpio15:Gpio15:15, IO, RTC:15, ADC2:4, NODAC:0, NOTOUCH:0);
+        pin(gpio16:Gpio16:16, IO, RTC:16, ADC2:5, NODAC:0, NOTOUCH:0);
+        #[cfg(esp32s2)]
+        pin(gpio17:Gpio17:17, IO, RTC:17, ADC2:6, DAC:1, NOTOUCH:0);
+        #[cfg(esp32s3)]
+        pin(gpio17:Gpio17:17, IO, RTC:17, ADC2:6, NODAC:0, NOTOUCH:0);
+        #[cfg(esp32s2)]
+        pin(gpio18:Gpio18:18, IO, RTC:18, ADC2:7, DAC:2, NOTOUCH:0);
+        #[cfg(esp32s3)]
+        pin(gpio18:Gpio18:18, IO, RTC:18, ADC2:7, NODAC:0, NOTOUCH:0);
+        pin(gpio19:Gpio19:19, IO, RTC:19, ADC2:8, NODAC:0, NOTOUCH:0);
+        pin(gpio20:Gpio20:20, IO, RTC:20, ADC2:9, NODAC:0, NOTOUCH:0);
+        pin(gpio21:Gpio21:21, IO, RTC:21, NOADC:0, NODAC:0, NOTOUCH:0);
         #[cfg(not(feature = "riscv-ulp-hal"))]
-        pub gpio26: Gpio26,
+        pin(gpio26:Gpio26:26, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
         #[cfg(not(feature = "riscv-ulp-hal"))]
-        pub gpio27: Gpio27,
+        pin(gpio27:Gpio27:27, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
         #[cfg(not(feature = "riscv-ulp-hal"))]
-        pub gpio28: Gpio28,
+        pin(gpio28:Gpio28:28, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
         #[cfg(not(feature = "riscv-ulp-hal"))]
-        pub gpio29: Gpio29,
+        pin(gpio29:Gpio29:29, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
         #[cfg(not(feature = "riscv-ulp-hal"))]
-        pub gpio30: Gpio30,
+        pin(gpio30:Gpio30:30, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
         #[cfg(not(feature = "riscv-ulp-hal"))]
-        pub gpio31: Gpio31,
+        pin(gpio31:Gpio31:31, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
         #[cfg(not(feature = "riscv-ulp-hal"))]
-        pub gpio32: Gpio32,
+        pin(gpio32:Gpio32:32, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
         #[cfg(not(feature = "riscv-ulp-hal"))]
-        pub gpio33: Gpio33,
+        pin(gpio33:Gpio33:33, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
         #[cfg(not(feature = "riscv-ulp-hal"))]
-        pub gpio34: Gpio34,
+        pin(gpio34:Gpio34:34, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
         #[cfg(not(feature = "riscv-ulp-hal"))]
-        pub gpio35: Gpio35,
+        pin(gpio35:Gpio35:35, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
         #[cfg(not(feature = "riscv-ulp-hal"))]
-        pub gpio36: Gpio36,
+        pin(gpio36:Gpio36:36, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
         #[cfg(not(feature = "riscv-ulp-hal"))]
-        pub gpio37: Gpio37,
+        pin(gpio37:Gpio37:37, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
         #[cfg(not(feature = "riscv-ulp-hal"))]
-        pub gpio38: Gpio38,
+        pin(gpio38:Gpio38:38, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
         #[cfg(not(feature = "riscv-ulp-hal"))]
-        pub gpio39: Gpio39,
+        pin(gpio39:Gpio39:39, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
         #[cfg(not(feature = "riscv-ulp-hal"))]
-        pub gpio40: Gpio40,
+        pin(gpio40:Gpio40:40, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
         #[cfg(not(feature = "riscv-ulp-hal"))]
-        pub gpio41: Gpio41,
+        pin(gpio41:Gpio41:41, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
         #[cfg(not(feature = "riscv-ulp-hal"))]
-        pub gpio42: Gpio42,
+        pin(gpio42:Gpio42:42, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
         #[cfg(not(feature = "riscv-ulp-hal"))]
-        pub gpio43: Gpio43,
+        pin(gpio43:Gpio43:43, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
         #[cfg(not(feature = "riscv-ulp-hal"))]
-        pub gpio44: Gpio44,
+        pin(gpio44:Gpio44:44, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
         #[cfg(not(feature = "riscv-ulp-hal"))]
-        pub gpio45: Gpio45,
-        #[cfg(not(feature = "riscv-ulp-hal"))]
-        pub gpio46: Gpio46,
+        pin(gpio45:Gpio45:45, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
+        #[cfg(all(esp32s2, not(feature = "riscv-ulp-hal")))]
+        pin(gpio46:Gpio46:46, Input, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
         #[cfg(all(esp32s3, not(feature = "riscv-ulp-hal")))]
-        pub gpio47: Gpio47,
+        pin(gpio46:Gpio46:46, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
         #[cfg(all(esp32s3, not(feature = "riscv-ulp-hal")))]
-        pub gpio48: Gpio48,
-    }
-
-    impl Pins {
-        /// # Safety
-        ///
-        /// Care should be taken not to instantiate the Pins structure, if it is
-        /// already instantiated and used elsewhere
-        pub unsafe fn new() -> Self {
-            Self {
-                gpio0: Gpio0::new(),
-                gpio1: Gpio1::new(),
-                gpio2: Gpio2::new(),
-                gpio3: Gpio3::new(),
-                gpio4: Gpio4::new(),
-                gpio5: Gpio5::new(),
-                gpio6: Gpio6::new(),
-                gpio7: Gpio7::new(),
-                gpio8: Gpio8::new(),
-                gpio9: Gpio9::new(),
-                gpio10: Gpio10::new(),
-                gpio11: Gpio11::new(),
-                gpio12: Gpio12::new(),
-                gpio13: Gpio13::new(),
-                gpio14: Gpio14::new(),
-                gpio15: Gpio15::new(),
-                gpio16: Gpio16::new(),
-                gpio17: Gpio17::new(),
-                gpio18: Gpio18::new(),
-                gpio19: Gpio19::new(),
-                gpio20: Gpio20::new(),
-                gpio21: Gpio21::new(),
-                #[cfg(not(feature = "riscv-ulp-hal"))]
-                gpio26: Gpio26::new(),
-                #[cfg(not(feature = "riscv-ulp-hal"))]
-                gpio27: Gpio27::new(),
-                #[cfg(not(feature = "riscv-ulp-hal"))]
-                gpio28: Gpio28::new(),
-                #[cfg(not(feature = "riscv-ulp-hal"))]
-                gpio29: Gpio29::new(),
-                #[cfg(not(feature = "riscv-ulp-hal"))]
-                gpio30: Gpio30::new(),
-                #[cfg(not(feature = "riscv-ulp-hal"))]
-                gpio31: Gpio31::new(),
-                #[cfg(not(feature = "riscv-ulp-hal"))]
-                gpio32: Gpio32::new(),
-                #[cfg(not(feature = "riscv-ulp-hal"))]
-                gpio33: Gpio33::new(),
-                #[cfg(not(feature = "riscv-ulp-hal"))]
-                gpio34: Gpio34::new(),
-                #[cfg(not(feature = "riscv-ulp-hal"))]
-                gpio35: Gpio35::new(),
-                #[cfg(not(feature = "riscv-ulp-hal"))]
-                gpio36: Gpio36::new(),
-                #[cfg(not(feature = "riscv-ulp-hal"))]
-                gpio37: Gpio37::new(),
-                #[cfg(not(feature = "riscv-ulp-hal"))]
-                gpio38: Gpio38::new(),
-                #[cfg(not(feature = "riscv-ulp-hal"))]
-                gpio39: Gpio39::new(),
-                #[cfg(not(feature = "riscv-ulp-hal"))]
-                gpio40: Gpio40::new(),
-                #[cfg(not(feature = "riscv-ulp-hal"))]
-                gpio41: Gpio41::new(),
-                #[cfg(not(feature = "riscv-ulp-hal"))]
-                gpio42: Gpio42::new(),
-                #[cfg(not(feature = "riscv-ulp-hal"))]
-                gpio43: Gpio43::new(),
-                #[cfg(not(feature = "riscv-ulp-hal"))]
-                gpio44: Gpio44::new(),
-                #[cfg(not(feature = "riscv-ulp-hal"))]
-                gpio45: Gpio45::new(),
-                #[cfg(not(feature = "riscv-ulp-hal"))]
-                gpio46: Gpio46::new(),
-                #[cfg(all(esp32s3, not(feature = "riscv-ulp-hal")))]
-                gpio47: Gpio47::new(),
-                #[cfg(all(esp32s3, not(feature = "riscv-ulp-hal")))]
-                gpio48: Gpio48::new(),
-            }
-        }
+        pin(gpio47:Gpio47:47, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
+        #[cfg(all(esp32s3, not(feature = "riscv-ulp-hal")))]
+        pin(gpio48:Gpio48:48, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
     }
 }
 
@@ -2316,85 +2234,29 @@ mod chip {
 
     // NOTE: Gpio12 - Gpio17 are used by SPI0/SPI1 for external PSRAM/SPI Flash and
     //       are not recommended for other uses
-    pin!(Gpio0:0,   IO,   RTC:0,  ADC1:0, NODAC:0, NOTOUCH:0);
-    pin!(Gpio1:1,   IO,   RTC:1,  ADC1:1, NODAC:0, NOTOUCH:0);
-    pin!(Gpio2:2,   IO,   RTC:2,  ADC1:2, NODAC:0, NOTOUCH:0);
-    pin!(Gpio3:3,   IO,   RTC:3,  ADC1:3, NODAC:0, NOTOUCH:0);
-    pin!(Gpio4:4,   IO,   RTC:4,  ADC1:4, NODAC:0, NOTOUCH:0);
-    pin!(Gpio5:5,   IO,   RTC:5,  ADC2:0, NODAC:0, NOTOUCH:0);
-    pin!(Gpio6:6,   IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
-    pin!(Gpio7:7,   IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
-    pin!(Gpio8:8,   IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
-    pin!(Gpio9:9,   IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
-    pin!(Gpio10:10, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
-    pin!(Gpio11:11, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
-    pin!(Gpio12:12, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
-    pin!(Gpio13:13, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
-    pin!(Gpio14:14, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
-    pin!(Gpio15:15, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
-    pin!(Gpio16:16, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
-    pin!(Gpio17:17, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
-    pin!(Gpio18:18, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
-    pin!(Gpio19:19, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
-    pin!(Gpio20:20, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
-    pin!(Gpio21:21, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
-
-    pub struct Pins {
-        pub gpio0: Gpio0,
-        pub gpio1: Gpio1,
-        pub gpio2: Gpio2,
-        pub gpio3: Gpio3,
-        pub gpio4: Gpio4,
-        pub gpio5: Gpio5,
-        pub gpio6: Gpio6,
-        pub gpio7: Gpio7,
-        pub gpio8: Gpio8,
-        pub gpio9: Gpio9,
-        pub gpio10: Gpio10,
-        pub gpio11: Gpio11,
-        pub gpio12: Gpio12,
-        pub gpio13: Gpio13,
-        pub gpio14: Gpio14,
-        pub gpio15: Gpio15,
-        pub gpio16: Gpio16,
-        pub gpio17: Gpio17,
-        pub gpio18: Gpio18,
-        pub gpio19: Gpio19,
-        pub gpio20: Gpio20,
-        pub gpio21: Gpio21,
-    }
-
-    impl Pins {
-        /// # Safety
-        ///
-        /// Care should be taken not to instantiate the Pins structure, if it is
-        /// already instantiated and used elsewhere
-        pub unsafe fn new() -> Self {
-            Self {
-                gpio0: Gpio0::new(),
-                gpio1: Gpio1::new(),
-                gpio2: Gpio2::new(),
-                gpio3: Gpio3::new(),
-                gpio4: Gpio4::new(),
-                gpio5: Gpio5::new(),
-                gpio6: Gpio6::new(),
-                gpio7: Gpio7::new(),
-                gpio8: Gpio8::new(),
-                gpio9: Gpio9::new(),
-                gpio10: Gpio10::new(),
-                gpio11: Gpio11::new(),
-                gpio12: Gpio12::new(),
-                gpio13: Gpio13::new(),
-                gpio14: Gpio14::new(),
-                gpio15: Gpio15::new(),
-                gpio16: Gpio16::new(),
-                gpio17: Gpio17::new(),
-                gpio18: Gpio18::new(),
-                gpio19: Gpio19::new(),
-                gpio20: Gpio20::new(),
-                gpio21: Gpio21::new(),
-            }
-        }
+    define_all_pins! {
+        pin(gpio0:Gpio0:0,   IO,   RTC:0,  ADC1:0, NODAC:0, NOTOUCH:0);
+        pin(gpio1:Gpio1:1,   IO,   RTC:1,  ADC1:1, NODAC:0, NOTOUCH:0);
+        pin(gpio2:Gpio2:2,   IO,   RTC:2,  ADC1:2, NODAC:0, NOTOUCH:0);
+        pin(gpio3:Gpio3:3,   IO,   RTC:3,  ADC1:3, NODAC:0, NOTOUCH:0);
+        pin(gpio4:Gpio4:4,   IO,   RTC:4,  ADC1:4, NODAC:0, NOTOUCH:0);
+        pin(gpio5:Gpio5:5,   IO,   RTC:5,  ADC2:0, NODAC:0, NOTOUCH:0);
+        pin(gpio6:Gpio6:6,   IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
+        pin(gpio7:Gpio7:7,   IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
+        pin(gpio8:Gpio8:8,   IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
+        pin(gpio9:Gpio9:9,   IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
+        pin(gpio10:Gpio10:10, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
+        pin(gpio11:Gpio11:11, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
+        pin(gpio12:Gpio12:12, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
+        pin(gpio13:Gpio13:13, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
+        pin(gpio14:Gpio14:14, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
+        pin(gpio15:Gpio15:15, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
+        pin(gpio16:Gpio16:16, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
+        pin(gpio17:Gpio17:17, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
+        pin(gpio18:Gpio18:18, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
+        pin(gpio19:Gpio19:19, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
+        pin(gpio20:Gpio20:20, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
+        pin(gpio21:Gpio21:21, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
     }
 }
 
