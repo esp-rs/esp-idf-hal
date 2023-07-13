@@ -1202,7 +1202,7 @@ impl<'d> I2sDriver<'d, I2sTx> {
         _i2s: impl Peripheral<P = I2S> + 'd,
         tx_cfg: &config::PdmTxConfig,
         clk: impl Peripheral<P = impl OutputPin> + 'd,
-        dout: impl Peripheral<P = impl InputPin> + 'd,
+        dout: impl Peripheral<P = impl OutputPin> + 'd,
     ) -> Result<Self, EspError> {
         let driver_cfg = tx_cfg.as_sdk();
 
