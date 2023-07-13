@@ -651,6 +651,19 @@ impl<'d, Dir> I2sDriver<'d, Dir> {
 
         Ok(())
     }
+
+    fn remap_result(
+        result: Result<(), EspError>,
+        bytes_processed: usize,
+    ) -> Result<usize, EspError> {
+        match result {
+            Ok(_) => Ok(bytes_processed),
+            Err(err) if err.code() == esp_idf_sys::ESP_ERR_TIMEOUT && bytes_processed > 0 => {
+                Ok(bytes_processed)
+            }
+            Err(err) => Err(err),
+        }
+    }
 }
 
 /// Functions for receive channels.
@@ -734,16 +747,12 @@ where
     /// This returns the number of bytes read, or an [EspError] if an error occurred.
     #[cfg(not(esp_idf_version_major = "4"))]
     pub async fn read_async(&mut self, buffer: &mut [u8]) -> Result<usize, EspError> {
-        if buffer.is_empty() {
-            Ok(0)
-        } else {
-            loop {
-                match self.read(buffer, crate::delay::NON_BLOCK) {
-                    Err(err) if err.code() == esp_idf_sys::ESP_ERR_TIMEOUT => {
-                        RECV_NOTIFIER[self.port as usize].wait().await
-                    }
-                    other => break other,
+        loop {
+            match self.read(buffer, crate::delay::NON_BLOCK) {
+                Err(err) if err.code() == esp_idf_sys::ESP_ERR_TIMEOUT => {
+                    RECV_NOTIFIER[self.port as usize].wait().await
                 }
+                other => break other,
             }
         }
     }
@@ -756,19 +765,24 @@ where
     /// This returns the number of bytes read, or an [EspError] if an error occurred.
     #[cfg(esp_idf_version_major = "4")]
     pub fn read(&mut self, buffer: &mut [u8], timeout: TickType_t) -> Result<usize, EspError> {
-        let mut bytes_read: usize = 0;
+        if buffer.is_empty() {
+            Ok(0)
+        } else {
+            let mut bytes_read: usize = 0;
 
-        unsafe {
-            esp!(i2s_read(
-                self.port as _,
-                buffer.as_mut_ptr() as *mut c_void,
-                buffer.len(),
-                &mut bytes_read,
-                crate::delay::TickType(timeout).as_millis_u32(),
-            ))?
+            Self::remap_result(
+                unsafe {
+                    esp!(i2s_read(
+                        self.port as _,
+                        buffer.as_mut_ptr() as *mut c_void,
+                        buffer.len(),
+                        &mut bytes_read,
+                        crate::delay::TickType(timeout).as_millis_u32(),
+                    ))
+                },
+                bytes_read,
+            )
         }
-
-        Ok(bytes_read)
     }
 
     /// Read data from the channel.
@@ -779,19 +793,24 @@ where
     /// This returns the number of bytes read, or an [EspError] if an error occurred.
     #[cfg(not(esp_idf_version_major = "4"))]
     pub fn read(&mut self, buffer: &mut [u8], timeout: TickType_t) -> Result<usize, EspError> {
-        let mut bytes_read: usize = 0;
+        if buffer.is_empty() {
+            Ok(0)
+        } else {
+            let mut bytes_read: usize = 0;
 
-        unsafe {
-            esp!(i2s_channel_read(
-                self.rx_handle,
-                buffer.as_mut_ptr() as *mut c_void,
-                buffer.len(),
-                &mut bytes_read,
-                crate::delay::TickType(timeout).as_millis_u32(),
-            ))?
+            Self::remap_result(
+                unsafe {
+                    esp!(i2s_channel_read(
+                        self.rx_handle,
+                        buffer.as_mut_ptr() as *mut c_void,
+                        buffer.len(),
+                        &mut bytes_read,
+                        crate::delay::TickType(timeout).as_millis_u32(),
+                    ))
+                },
+                bytes_read,
+            )
         }
-
-        Ok(bytes_read)
     }
 
     /// Read data from the channel into an uninitalized buffer asynchronously.
@@ -808,16 +827,12 @@ where
         &mut self,
         buffer: &mut [MaybeUninit<u8>],
     ) -> Result<usize, EspError> {
-        if buffer.is_empty() {
-            Ok(0)
-        } else {
-            loop {
-                match self.read_uninit(buffer, crate::delay::NON_BLOCK) {
-                    Err(err) if err.code() == esp_idf_sys::ESP_ERR_TIMEOUT => {
-                        RECV_NOTIFIER[self.port as usize].wait().await
-                    }
-                    other => break other,
+        loop {
+            match self.read_uninit(buffer, crate::delay::NON_BLOCK) {
+                Err(err) if err.code() == esp_idf_sys::ESP_ERR_TIMEOUT => {
+                    RECV_NOTIFIER[self.port as usize].wait().await
                 }
+                other => break other,
             }
         }
     }
@@ -837,19 +852,24 @@ where
         buffer: &mut [MaybeUninit<u8>],
         timeout: TickType_t,
     ) -> Result<usize, EspError> {
-        let mut bytes_read: usize = 0;
+        if buffer.is_empty() {
+            Ok(0)
+        } else {
+            let mut bytes_read: usize = 0;
 
-        unsafe {
-            esp!(i2s_read(
-                self.port as _,
-                buffer.as_mut_ptr() as *mut c_void,
-                buffer.len(),
-                &mut bytes_read,
-                crate::delay::TickType(timeout).as_millis_u32(),
-            ))?
+            Self::remap_result(
+                unsafe {
+                    esp!(i2s_read(
+                        self.port as _,
+                        buffer.as_mut_ptr() as *mut c_void,
+                        buffer.len(),
+                        &mut bytes_read,
+                        crate::delay::TickType(timeout).as_millis_u32(),
+                    ))
+                },
+                bytes_read,
+            )
         }
-
-        Ok(bytes_read)
     }
 
     /// Read data from the channel into an uninitalized buffer.
@@ -867,19 +887,24 @@ where
         buffer: &mut [MaybeUninit<u8>],
         timeout: TickType_t,
     ) -> Result<usize, EspError> {
-        let mut bytes_read: usize = 0;
+        if buffer.is_empty() {
+            Ok(0)
+        } else {
+            let mut bytes_read: usize = 0;
 
-        unsafe {
-            esp!(i2s_channel_read(
-                self.rx_handle,
-                buffer.as_mut_ptr() as *mut c_void,
-                buffer.len(),
-                &mut bytes_read,
-                crate::delay::TickType(timeout).as_millis_u32(),
-            ))?
+            Self::remap_result(
+                unsafe {
+                    esp!(i2s_channel_read(
+                        self.rx_handle,
+                        buffer.as_mut_ptr() as *mut c_void,
+                        buffer.len(),
+                        &mut bytes_read,
+                        crate::delay::TickType(timeout).as_millis_u32(),
+                    ))
+                },
+                bytes_read,
+            )
         }
-
-        Ok(bytes_read)
     }
 }
 
@@ -997,16 +1022,12 @@ where
     /// This returns the number of bytes sent. This may be less than the length of the data provided.
     #[cfg(not(esp_idf_version_major = "4"))]
     pub async fn write_async(&mut self, data: &[u8]) -> Result<usize, EspError> {
-        if data.is_empty() {
-            Ok(0)
-        } else {
-            loop {
-                match self.write(data, crate::delay::NON_BLOCK) {
-                    Err(err) if err.code() == esp_idf_sys::ESP_ERR_TIMEOUT => {
-                        SEND_NOTIFIER[self.port as usize].wait().await
-                    }
-                    other => break other,
+        loop {
+            match self.write(data, crate::delay::NON_BLOCK) {
+                Err(err) if err.code() == esp_idf_sys::ESP_ERR_TIMEOUT => {
+                    SEND_NOTIFIER[self.port as usize].wait().await
                 }
+                other => break other,
             }
         }
     }
@@ -1019,19 +1040,24 @@ where
     /// This returns the number of bytes sent. This may be less than the length of the data provided.
     #[cfg(esp_idf_version_major = "4")]
     pub fn write(&mut self, data: &[u8], timeout: TickType_t) -> Result<usize, EspError> {
-        let mut bytes_written: usize = 0;
+        if data.is_empty() {
+            Ok(0)
+        } else {
+            let mut bytes_written: usize = 0;
 
-        unsafe {
-            esp!(i2s_write(
-                self.port(),
-                data.as_ptr() as *mut c_void,
-                data.len(),
-                &mut bytes_written,
-                crate::delay::TickType(timeout).as_millis_u32(),
-            ))?;
+            Self::remap_result(
+                unsafe {
+                    esp!(i2s_write(
+                        self.port(),
+                        data.as_ptr() as *mut c_void,
+                        data.len(),
+                        &mut bytes_written,
+                        crate::delay::TickType(timeout).as_millis_u32(),
+                    ))
+                },
+                bytes_written,
+            )
         }
-
-        Ok(bytes_written)
     }
 
     /// Write data to the channel.
@@ -1042,19 +1068,24 @@ where
     /// This returns the number of bytes sent. This may be less than the length of the data provided.
     #[cfg(not(esp_idf_version_major = "4"))]
     pub fn write(&mut self, data: &[u8], timeout: TickType_t) -> Result<usize, EspError> {
-        let mut bytes_written: usize = 0;
+        if data.is_empty() {
+            Ok(0)
+        } else {
+            let mut bytes_written: usize = 0;
 
-        unsafe {
-            esp!(i2s_channel_write(
-                self.tx_handle,
-                data.as_ptr() as *mut c_void,
-                data.len(),
-                &mut bytes_written,
-                crate::delay::TickType(timeout).as_millis_u32(),
-            ))?;
+            Self::remap_result(
+                unsafe {
+                    esp!(i2s_channel_write(
+                        self.tx_handle,
+                        data.as_ptr() as *mut c_void,
+                        data.len(),
+                        &mut bytes_written,
+                        crate::delay::TickType(timeout).as_millis_u32(),
+                    ))
+                },
+                bytes_written,
+            )
         }
-
-        Ok(bytes_written)
     }
 }
 
