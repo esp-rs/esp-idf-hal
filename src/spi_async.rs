@@ -440,40 +440,30 @@ impl<T> ErrorType for SpiBusDriver<T> {
 }
 
 impl<'d, T: BorrowMut<SpiDriver<'d>>> SpiBusFlush for SpiBusDriver<T> {
-    type FlushFuture<'a> = SpiFuture<'a, T, Noop> where T: 'a;
-
-    fn flush(&mut self) -> Self::FlushFuture<'_> {
-        SpiBusDriver::flush(self)
+    async fn flush(&mut self) -> Result<(), SpiError> {
+        SpiBusDriver::flush(self).await
     }
 }
 
 impl<'d, T: BorrowMut<SpiDriver<'d>>> SpiBusRead for SpiBusDriver<T> {
-    type ReadFuture<'a> = SpiFuture<'a, T, Read<'a>> where T: 'a;
-
-    fn read<'a>(&'a mut self, words: &'a mut [u8]) -> Self::ReadFuture<'a> {
-        SpiBusDriver::read(self, words)
+    async fn read<'a>(&'a mut self, words: &'a mut [u8]) -> Result<(), SpiError> {
+        SpiBusDriver::read(self, words).await
     }
 }
 
 impl<'d, T: BorrowMut<SpiDriver<'d>>> SpiBusWrite for SpiBusDriver<T> {
-    type WriteFuture<'a> = SpiFuture<'a, T, Write<'a>> where T: 'a;
-
-    fn write<'a>(&'a mut self, words: &'a [u8]) -> Self::WriteFuture<'a> {
-        SpiBusDriver::write(self, words)
+    async fn write<'a>(&'a mut self, words: &'a [u8]) -> Result<(), SpiError> {
+        SpiBusDriver::write(self, words).await
     }
 }
 
 impl<'d, T: BorrowMut<SpiDriver<'d>>> SpiBus for SpiBusDriver<T> {
-    type TransferFuture<'a> = SpiFuture<'a, T, Transfer<'a>> where T: 'a;
-
-    fn transfer<'a>(&'a mut self, read: &'a mut [u8], write: &'a [u8]) -> Self::TransferFuture<'a> {
-        SpiBusDriver::transfer(self, read, write)
+    async fn transfer<'a>(&'a mut self, read: &'a mut [u8], write: &'a [u8]) -> Result<(), SpiError> {
+        SpiBusDriver::transfer(self, read, write).await
     }
 
-    type TransferInPlaceFuture<'a> = SpiFuture<'a, T, TransferInPlace<'a>> where T: 'a;
-
-    fn transfer_in_place<'a>(&'a mut self, words: &'a mut [u8]) -> Self::TransferInPlaceFuture<'a> {
-        SpiBusDriver::transfer_in_place(self, words)
+    async fn transfer_in_place<'a>(&'a mut self, words: &'a mut [u8]) -> Result<(), SpiError> {
+        SpiBusDriver::transfer_in_place(self, words).await
     }
 }
 
