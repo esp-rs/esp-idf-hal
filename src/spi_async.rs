@@ -4,17 +4,15 @@ use core::borrow::BorrowMut;
 use core::cell::UnsafeCell;
 use core::cmp::max;
 use core::cmp::Ordering;
-use core::future::Future;
 use core::iter::Zip;
-use core::marker::PhantomPinned;
 use core::ops::{Deref, DerefMut};
-use core::pin::Pin;
 use core::slice::Chunks;
 use core::slice::ChunksMut;
 use core::task::{Context, Poll, Waker};
 use embedded_hal::spi::ErrorType;
 use embedded_hal_async::spi::{SpiBus, SpiBusFlush, SpiBusRead, SpiBusWrite};
 use esp_idf_sys::*;
+use core::future::poll_fn;
 
 pub struct SpiBusDriver<T> {
     _driver: T,
@@ -33,114 +31,6 @@ unsafe extern "C" fn post_transaction(transaction: *mut spi_transaction_t) {
     let mut lock = waker_mutex.lock();
     if let Some(waker) = lock.take() {
         waker.wake();
-    }
-}
-
-pub struct SpiFuture<'a, T, Op: Operation> {
-    driver: &'a mut SpiBusDriver<T>, // not structurally pinned
-    transaction: spi_transaction_t,  // structurally pinned
-    state: State<Op>,                // not structurally pinned
-    _pin: PhantomPinned,
-}
-
-enum State<Op: Operation> {
-    Processing(
-        Op,                      // not structurally pinned
-        IsrMutex<Option<Waker>>, // structurally pinned
-    ),
-    Done(Result<(), SpiError>), // not structurally pinned
-}
-
-impl<'a, T, Op: Operation> Drop for SpiFuture<'a, T, Op> {
-    fn drop(&mut self) {
-        // If the future is dropped before the transaction is complete, we need to block until it
-        // is done to prevent undefined behaviour.
-        if let State::Processing(_, _) = self.state {
-            let mut ret_trans: *mut spi_transaction_t = core::ptr::null_mut();
-            esp!(unsafe {
-                spi_device_get_trans_result(self.driver.handle, &mut ret_trans as *mut _, 0)
-            })
-            .unwrap();
-        }
-    }
-}
-
-impl<'a, T, Op: Operation> Future for SpiFuture<'a, T, Op> {
-    type Output = Result<(), SpiError>;
-
-    fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-        // Check if done or replace existing waker.
-        match &self.state {
-            State::Done(res) => return Poll::Ready(*res),
-            State::Processing(_, waker) => {
-                let mut waker_lock = waker.lock();
-                if waker_lock.take().is_some() {
-                    // If there's a waker here that means there's a transaction in progress. The
-                    // waker needs to be replaced with this new one passed into `poll`.
-                    *waker_lock = Some(cx.waker().clone());
-                    return Poll::Pending;
-                }
-            }
-        };
-
-        // If there's no waker, it means either no transactions have been queued or the
-        // last queued transaction has completed.
-
-        // This also means that nothing is Self is structurally pinned, as there's no in flight
-        // transaction holding a pointer to it. This is important for the use of `unsafe` below.
-
-        let is_first_transaction = self.transaction.user.is_null();
-        if !is_first_transaction {
-            // If the last transaction was completed then we need to consume it to free
-            // any resources associated with it.
-
-            let mut ret_trans: *mut spi_transaction_t = core::ptr::null_mut();
-
-            let res = esp!(unsafe {
-                spi_device_get_trans_result(self.driver.handle, &mut ret_trans as *mut _, 0)
-            });
-            if res.is_err() {
-                let res = res.map_err(to_spi_err);
-                // Safe because state isn't structurally pinned.
-                let state = unsafe { &mut self.get_unchecked_mut().state };
-                *state = State::Done(res);
-                return Poll::Ready(res);
-            } else {
-                // debug_assert_eq!(ret_trans, &mut self.transaction as *mut _);
-            }
-        }
-
-        // As a future enhancement this code should queue multiple transactions at once
-        // and keep the queue full until the operation is complete. This will allow for
-        // less pause-y transfers.
-
-        // Safe because state isn't structurally pinned.
-        let this = unsafe { self.get_unchecked_mut() };
-
-        if let State::Processing(op, waker) = &mut this.state {
-            let is_filled = op.fill(&mut this.transaction);
-            if is_filled {
-                *waker.lock() = Some(cx.waker().clone());
-                this.transaction.user = core::ptr::addr_of!(waker) as _;
-
-                let res = esp!(unsafe {
-                    spi_device_queue_trans(this.driver.handle, &mut this.transaction as *mut _, 0)
-                });
-                if res.is_err() {
-                    let res = res.map_err(to_spi_err);
-                    this.state = State::Done(res);
-                    Poll::Ready(res)
-                } else {
-                    Poll::Pending
-                }
-            } else {
-                // The operation is done so we can just return Ok now and forever.
-                this.state = State::Done(Ok(()));
-                Poll::Ready(Ok(()))
-            }
-        } else {
-            unreachable!()
-        }
     }
 }
 
@@ -397,41 +287,72 @@ impl<'d, T: BorrowMut<SpiDriver<'d>>> SpiBusDriver<T> {
         })
     }
 
-    fn future_op<Op: Operation>(&mut self, op: Op) -> SpiFuture<T, Op> {
-        SpiFuture {
-            driver: self,
-            transaction: Default::default(),
-            state: State::Processing(op, IsrMutex::new(None)),
-            _pin: PhantomPinned,
+    async fn future_op<Op: Operation>(&mut self, mut op: Op) -> Result<(), SpiError> {
+        let waker: IsrMutex<Option<Waker>> = IsrMutex::new(None);
+
+        let transaction = spi_transaction_t {};
+        while op.fill(&mut transaction) {
+            transaction.user = core::ptr::addr_of!(waker) as _;
+
+            esp!(unsafe { spi_device_queue_trans(self.handle, &mut transaction as *mut _, 0) })
+                .map_err(to_spi_err)?;
+
+            // As a future enhancement this code should queue multiple transactions at once
+            // and keep the queue full until the operation is complete. This will allow for
+            // less pause-y transfers.
+
+            poll_fn(|ctx| {
+                let mut waker_lock = waker.lock();
+                if waker_lock.take().is_some() {
+                    // If there's a waker here that means there's a transaction in progress. The
+                    // waker needs to be replaced with this new one passed into `poll`.
+                    *waker_lock = Some(ctx.waker().clone());
+                    Poll::Pending
+                } else {
+                    Poll::Ready(())
+                }
+            })
+            .await;
+
+            // If the last transaction was completed then we need to consume it to free
+            // any resources associated with it.
+            let mut ret_trans: *mut spi_transaction_t = core::ptr::null_mut();
+            esp!(unsafe {
+                spi_device_get_trans_result(self.driver.handle, &mut ret_trans as *mut _, 0)
+            })
+            .map_err(to_spi_err)?;
         }
+
+        Ok(())
     }
 
-    pub fn read<'a>(&'a mut self, words: &'a mut [u8]) -> SpiFuture<'a, T, Read<'a>> {
+    pub async fn read<'a>(&'a mut self, words: &'a mut [u8]) -> Result<(), SpiError> {
         self.future_op(Read::new(words, self.trans_len, CsRule::NoCs))
+            .await
     }
 
-    pub fn write<'a>(&'a mut self, words: &'a [u8]) -> SpiFuture<'a, T, Write<'a>> {
+    pub async fn write<'a>(&'a mut self, words: &'a [u8]) -> Result<(), SpiError> {
         self.future_op(Write::new(words, self.trans_len, CsRule::NoCs))
+            .await
     }
 
-    pub fn transfer<'a>(
+    pub async fn transfer<'a>(
         &'a mut self,
         read: &'a mut [u8],
         write: &'a [u8],
-    ) -> SpiFuture<'a, T, Transfer<'a>> {
+    ) -> Result<(), SpiError> {
         self.future_op(Transfer::new(read, write, self.trans_len, CsRule::NoCs))
+            .await
     }
 
-    pub fn transfer_in_place<'a>(
-        &'a mut self,
-        words: &'a mut [u8],
-    ) -> SpiFuture<'a, T, TransferInPlace<'a>> {
+    pub async fn transfer_in_place<'a>(&'a mut self, words: &'a mut [u8]) -> Result<(), SpiError> {
         self.future_op(TransferInPlace::new(words, self.trans_len, CsRule::NoCs))
+            .await
     }
 
-    pub fn flush(&mut self) -> SpiFuture<T, Noop> {
+    pub async fn flush(&mut self) -> Result<(), SpiError> {
         // This component doesn't do any buffering so there's nothing to flush.
-        self.future_op(Noop)
+        self.future_op(Noop).await
     }
 }
 
@@ -458,7 +379,11 @@ impl<'d, T: BorrowMut<SpiDriver<'d>>> SpiBusWrite for SpiBusDriver<T> {
 }
 
 impl<'d, T: BorrowMut<SpiDriver<'d>>> SpiBus for SpiBusDriver<T> {
-    async fn transfer<'a>(&'a mut self, read: &'a mut [u8], write: &'a [u8]) -> Result<(), SpiError> {
+    async fn transfer<'a>(
+        &'a mut self,
+        read: &'a mut [u8],
+        write: &'a [u8],
+    ) -> Result<(), SpiError> {
         SpiBusDriver::transfer(self, read, write).await
     }
 
