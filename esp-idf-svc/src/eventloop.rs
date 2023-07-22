@@ -1050,8 +1050,9 @@ mod async_wait {
             }
         }
 
+        #[allow(clippy::all)]
         async fn wait_sub<EE, TT, F: Fn() -> Result<bool, EspError>>(
-            subscription: &AsyncSubscription<
+            subscription: &mut AsyncSubscription<
                 crate::private::mutex::RawCondvar,
                 EE,
                 super::EspSubscription<TT>,
