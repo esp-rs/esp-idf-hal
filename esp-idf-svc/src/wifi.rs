@@ -91,6 +91,7 @@ pub mod config {
 
     impl From<&ScanConfig> for wifi_scan_config_t {
         fn from(s: &ScanConfig) -> Self {
+            #[allow(clippy::needless_update)]
             Self {
                 bssid: s.bssid.map_or(core::ptr::null(), |v| v.as_ptr()) as *mut u8,
                 ssid: s.ssid.as_ref().map_or(core::ptr::null(), |v| v.as_ptr()) as *mut u8,
@@ -113,6 +114,7 @@ pub mod config {
                 channel: s.channel.unwrap_or_default(),
                 scan_type: matches!(s.scan_type, ScanType::Active { .. }).into(),
                 show_hidden: s.show_hidden,
+                ..Default::default()
             }
         }
     }
