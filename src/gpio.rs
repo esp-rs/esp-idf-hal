@@ -1590,7 +1590,7 @@ mod atomic_notification {
             self.triggered.store(true, Ordering::SeqCst);
             self.waker.wake();
         }
-        pub fn poll_wait(&self, cx: &mut Context<'_>) -> Poll<()> {
+        pub fn poll_wait(&self, cx: &Context<'_>) -> Poll<()> {
             self.waker.register(cx.waker());
 
             if self.triggered.swap(false, Ordering::SeqCst) {
