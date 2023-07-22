@@ -1051,7 +1051,7 @@ mod async_wait {
         }
 
         async fn wait_sub<EE, TT, F: Fn() -> Result<bool, EspError>>(
-            subscription: &mut AsyncSubscription<
+            subscription: &AsyncSubscription<
                 crate::private::mutex::RawCondvar,
                 EE,
                 super::EspSubscription<TT>,
