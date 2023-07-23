@@ -93,6 +93,15 @@ There are two ways to configure how the ESP-IDF framework is compiled:
 > There is no need to explicitly add a 
 > [`[workspace]`](https://doc.rust-lang.org/cargo/reference/workspaces.html#the-workspace-section)
 > section to the `Cargo.toml` of the workspace directory.
+>
+> Please note that if you have set `CARGO_TARGET_DIR` and moved your `target` directory out of
+> the crate root, then embuild is not able to locate the crate root. This will result in it
+> among other things ignoring your local `sdkconfig.defaults`. In this setup you must declare:
+> ```
+> [env]
+> CARGO_WORKSPACE_DIR = { value = "", relative = true }
+> ```
+> to force it to look in the current directory.
        
 
 The following configuration options are available:
