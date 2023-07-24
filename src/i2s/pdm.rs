@@ -97,6 +97,7 @@ pub(super) mod config {
                 clk_src: self.clk_src.as_sdk(),
                 mclk_multiple: self.mclk_multiple.as_sdk(),
                 dn_sample_mode: self.downsample_mode.as_sdk(),
+                .. Default::default()
             }
         }
     }
