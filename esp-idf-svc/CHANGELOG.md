@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.46.1] - 2023-07-30
+* Workaround issue 11921 in ESP IDF (new member of struct `wifi_scan_config_t`)
+* Make all conversions to CString fallible rather than panic-ing
+* Bugfixes in HTTPD WS support: Allow calls with a zero-length buffer
+* Added docstrings for wifi module (#262)
+
 ## [0.46.0] - 2023-05-13
 
 * MSRV 1.66
