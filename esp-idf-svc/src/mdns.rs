@@ -3,7 +3,6 @@
 use core::time::Duration;
 
 extern crate alloc;
-use alloc::boxed::Box;
 use alloc::string::String;
 use alloc::string::ToString;
 use alloc::vec::Vec;
@@ -359,10 +358,7 @@ impl EspMdns {
             )
         })?;
 
-        Ok(copy_query_results(
-            unsafe { Box::from_raw(result) },
-            results,
-        ))
+        Ok(copy_query_results(result, results))
     }
 
     pub fn query_a(
@@ -414,10 +410,7 @@ impl EspMdns {
             )
         })?;
 
-        Ok(copy_query_results(
-            unsafe { Box::from_raw(result) },
-            results,
-        ))
+        Ok(copy_query_results(result, results))
     }
 
     pub fn query_srv(
@@ -443,10 +436,7 @@ impl EspMdns {
             )
         })?;
 
-        Ok(copy_query_results(
-            unsafe { Box::from_raw(result) },
-            results,
-        ))
+        Ok(copy_query_results(result, results))
     }
 
     pub fn query_ptr(
@@ -471,10 +461,7 @@ impl EspMdns {
             )
         })?;
 
-        Ok(copy_query_results(
-            unsafe { Box::from_raw(result) },
-            results,
-        ))
+        Ok(copy_query_results(result, results))
     }
 }
 
@@ -488,19 +475,22 @@ impl Drop for EspMdns {
     }
 }
 
-fn copy_query_results(src: Box<mdns_result_t>, dst: &mut [QueryResult]) -> usize {
-    let src = Box::into_raw(src);
-    let mut p = src;
-    let mut i = 0;
-    while !p.is_null() && i < dst.len() {
-        dst[i] = QueryResult::from(unsafe { *p });
-        p = unsafe { (*p).next };
-        i += 1;
+fn copy_query_results(src: *const mdns_result_t, dst: &mut [QueryResult]) -> usize {
+    if let Some(src) = unsafe { src.as_ref() } {
+        let mut p = src;
+        let mut i = 0;
+        while !p.is_null() && i < dst.len() {
+            dst[i] = QueryResult::from(unsafe { *p });
+            p = unsafe { (*p).next };
+            i += 1;
+        }
+
+        unsafe { mdns_query_results_free(src) };
+
+        i
+    } else {
+        0
     }
-
-    unsafe { mdns_query_results_free(src) };
-
-    i
 }
 
 fn from_esp_ip4_addr_t(addr: &esp_ip4_addr_t) -> Ipv4Addr {
