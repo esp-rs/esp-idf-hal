@@ -475,8 +475,8 @@ impl Drop for EspMdns {
     }
 }
 
-fn copy_query_results(src: *const mdns_result_t, dst: &mut [QueryResult]) -> usize {
-    if let Some(src) = unsafe { src.as_ref() } {
+fn copy_query_results(src: *mut mdns_result_t, dst: &mut [QueryResult]) -> usize {
+    if !src.is_null() {
         let mut p = src;
         let mut i = 0;
         while !p.is_null() && i < dst.len() {
