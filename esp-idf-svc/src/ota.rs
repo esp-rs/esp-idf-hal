@@ -189,7 +189,7 @@ impl EspOta {
     pub fn get_running_slot(&self) -> Result<Slot, EspError> {
         self.check_read()?;
 
-        self.get_slot(unsafe { esp_ota_get_boot_partition().as_ref().unwrap() })
+        self.get_slot(unsafe { esp_ota_get_running_partition().as_ref().unwrap() })
     }
 
     pub fn get_update_slot(&self) -> Result<Slot, EspError> {
