@@ -131,7 +131,7 @@ pub mod notification {
             core::future::poll_fn(move |cx| self.poll_wait(cx))
         }
 
-        pub fn poll_wait(&self, cx: &mut Context<'_>) -> Poll<()> {
+        pub fn poll_wait(&self, cx: &Context<'_>) -> Poll<()> {
             self.waker.register(cx.waker());
 
             if self.notified.swap(false, Ordering::SeqCst) {
@@ -177,7 +177,7 @@ pub mod notification {
             core::future::poll_fn(move |cx| self.poll_wait(cx))
         }
 
-        pub fn poll_wait(&self, cx: &mut Context<'_>) -> Poll<()> {
+        pub fn poll_wait(&self, cx: &Context<'_>) -> Poll<()> {
             let _cs = self.cs.enter();
 
             let inner = unsafe { self.inner.get().as_mut() }.unwrap();
