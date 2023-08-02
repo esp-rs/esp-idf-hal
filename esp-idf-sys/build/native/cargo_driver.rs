@@ -1,5 +1,6 @@
 use std::convert::TryFrom;
 use std::ffi::OsStr;
+use std::fmt::Write;
 use std::path::Path;
 use std::str::FromStr;
 use std::{env, fs};
@@ -522,8 +523,10 @@ fn generate_sdkconfig_defaults() -> Result<String> {
     Ok(OPT_VARS
         .iter()
         .enumerate()
-        .map(|(i, s)| format!("{}={}\n", s, if i == opt_index { 'y' } else { 'n' }))
-        .collect::<String>())
+        .fold(String::new(), |mut out, (i, s)| {
+            write!(out, "{}={}\n", s, if i == opt_index { 'y' } else { 'n' }).unwrap();
+            out
+        }))
 }
 
 /// Create a cmake list (`;`-separated strings), escape all `;` and on Windows make sure
