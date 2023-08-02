@@ -524,7 +524,7 @@ fn generate_sdkconfig_defaults() -> Result<String> {
         .iter()
         .enumerate()
         .fold(String::new(), |mut out, (i, s)| {
-            write!(out, "{}={}\n", s, if i == opt_index { 'y' } else { 'n' }).unwrap();
+            writeln!(out, "{}={}", s, if i == opt_index { 'y' } else { 'n' }).unwrap();
             out
         }))
 }
