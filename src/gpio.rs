@@ -2,6 +2,9 @@
 
 use core::marker::PhantomData;
 
+#[cfg(all(not(feature = "riscv-ulp-hal"), feature = "alloc"))]
+extern crate alloc;
+
 #[cfg(not(feature = "riscv-ulp-hal"))]
 use esp_idf_sys::*;
 
@@ -1469,10 +1472,19 @@ unsafe fn unsubscribe_pin(pin: i32) -> Result<(), EspError> {
     Ok(())
 }
 
+#[cfg(all(not(feature = "riscv-ulp-hal"), feature = "alloc"))]
+#[allow(clippy::declare_interior_mutable_const)] // OK because this is only used as an array initializer
+const PIN_ISR_INIT: Option<alloc::boxed::Box<alloc::boxed::Box<dyn FnMut()>>> = None;
+
 #[cfg(not(feature = "riscv-ulp-hal"))]
-const fn pin_inter_new() -> core::sync::atomic::AtomicU8 {
-    core::sync::atomic::AtomicU8::new(gpio_int_type_t_GPIO_INTR_DISABLE as u8)
-}
+#[allow(clippy::declare_interior_mutable_const)] // OK because this is only used as an array initializer
+const PIN_INTER_INIT: core::sync::atomic::AtomicU8 =
+    core::sync::atomic::AtomicU8::new(gpio_int_type_t_GPIO_INTR_DISABLE as u8);
+
+#[cfg(not(feature = "riscv-ulp-hal"))]
+#[allow(clippy::declare_interior_mutable_const)] // OK because this is only used as an array initializer
+const PIN_NOTIF_INIT: crate::private::notification::Notification =
+    crate::private::notification::Notification::new();
 
 macro_rules! impl_input {
     ($pxi:ident: $pin:expr) => {
@@ -1631,101 +1643,15 @@ mod chip {
 
     #[allow(clippy::type_complexity)]
     #[cfg(all(not(feature = "riscv-ulp-hal"), feature = "alloc"))]
-    pub(crate) static mut PIN_ISR_HANDLER: [Option<Box<Box<dyn FnMut()>>>; 40] = [
-        None, None, None, None, None, None, None, None, None, None, None, None, None, None, None,
-        None, None, None, None, None, None, None, None, None, None, None, None, None, None, None,
-        None, None, None, None, None, None, None, None, None, None,
-    ];
+    pub(crate) static mut PIN_ISR_HANDLER: [Option<Box<Box<dyn FnMut()>>>; 40] = [PIN_ISR_INIT; 40];
 
     #[allow(clippy::type_complexity)]
     #[cfg(not(feature = "riscv-ulp-hal"))]
-    pub(crate) static PIN_INTER: [AtomicU8; 40] = [
-        super::pin_inter_new(),
-        super::pin_inter_new(),
-        super::pin_inter_new(),
-        super::pin_inter_new(),
-        super::pin_inter_new(),
-        super::pin_inter_new(),
-        super::pin_inter_new(),
-        super::pin_inter_new(),
-        super::pin_inter_new(),
-        super::pin_inter_new(),
-        super::pin_inter_new(),
-        super::pin_inter_new(),
-        super::pin_inter_new(),
-        super::pin_inter_new(),
-        super::pin_inter_new(),
-        super::pin_inter_new(),
-        super::pin_inter_new(),
-        super::pin_inter_new(),
-        super::pin_inter_new(),
-        super::pin_inter_new(),
-        super::pin_inter_new(),
-        super::pin_inter_new(),
-        super::pin_inter_new(),
-        super::pin_inter_new(),
-        super::pin_inter_new(),
-        super::pin_inter_new(),
-        super::pin_inter_new(),
-        super::pin_inter_new(),
-        super::pin_inter_new(),
-        super::pin_inter_new(),
-        super::pin_inter_new(),
-        super::pin_inter_new(),
-        super::pin_inter_new(),
-        super::pin_inter_new(),
-        super::pin_inter_new(),
-        super::pin_inter_new(),
-        super::pin_inter_new(),
-        super::pin_inter_new(),
-        super::pin_inter_new(),
-        super::pin_inter_new(),
-    ];
+    pub(crate) static PIN_INTER: [AtomicU8; 40] = [PIN_INTER_INIT; 40];
 
     #[allow(clippy::type_complexity)]
     #[cfg(not(feature = "riscv-ulp-hal"))]
-    pub(crate) static PIN_NOTIF: [Notification; 40] = [
-        Notification::new(),
-        Notification::new(),
-        Notification::new(),
-        Notification::new(),
-        Notification::new(),
-        Notification::new(),
-        Notification::new(),
-        Notification::new(),
-        Notification::new(),
-        Notification::new(),
-        Notification::new(),
-        Notification::new(),
-        Notification::new(),
-        Notification::new(),
-        Notification::new(),
-        Notification::new(),
-        Notification::new(),
-        Notification::new(),
-        Notification::new(),
-        Notification::new(),
-        Notification::new(),
-        Notification::new(),
-        Notification::new(),
-        Notification::new(),
-        Notification::new(),
-        Notification::new(),
-        Notification::new(),
-        Notification::new(),
-        Notification::new(),
-        Notification::new(),
-        Notification::new(),
-        Notification::new(),
-        Notification::new(),
-        Notification::new(),
-        Notification::new(),
-        Notification::new(),
-        Notification::new(),
-        Notification::new(),
-        Notification::new(),
-        Notification::new(),
-    ];
+    pub(crate) static PIN_NOTIF: [Notification; 40] = [PIN_NOTIF_INIT; 40];
 
     // NOTE: Gpio26 - Gpio32 are used by SPI0/SPI1 for external PSRAM/SPI Flash and
     //       are not recommended for other uses
@@ -1921,120 +1847,15 @@ mod chip {
 
     #[allow(clippy::type_complexity)]
     #[cfg(all(not(feature = "riscv-ulp-hal"), feature = "alloc"))]
-    pub(crate) static mut PIN_ISR_HANDLER: [Option<Box<Box<dyn FnMut()>>>; 49] = [
-        None, None, None, None, None, None, None, None, None, None, None, None, None, None, None,
-        None, None, None, None, None, None, None, None, None, None, None, None, None, None, None,
-        None, None, None, None, None, None, None, None, None, None, None, None, None, None, None,
-        None, None, None, None,
-    ];
+    pub(crate) static mut PIN_ISR_HANDLER: [Option<Box<Box<dyn FnMut()>>>; 49] = [PIN_ISR_INIT; 49];
 
     #[allow(clippy::type_complexity)]
     #[cfg(not(feature = "riscv-ulp-hal"))]
-    pub(crate) static PIN_INTER: [AtomicU8; 49] = [
-        super::pin_inter_new(),
-        super::pin_inter_new(),
-        super::pin_inter_new(),
-        super::pin_inter_new(),
-        super::pin_inter_new(),
-        super::pin_inter_new(),
-        super::pin_inter_new(),
-        super::pin_inter_new(),
-        super::pin_inter_new(),
-        super::pin_inter_new(),
-        super::pin_inter_new(),
-        super::pin_inter_new(),
-        super::pin_inter_new(),
-        super::pin_inter_new(),
-        super::pin_inter_new(),
-        super::pin_inter_new(),
-        super::pin_inter_new(),
-        super::pin_inter_new(),
-        super::pin_inter_new(),
-        super::pin_inter_new(),
-        super::pin_inter_new(),
-        super::pin_inter_new(),
-        super::pin_inter_new(),
-        super::pin_inter_new(),
-        super::pin_inter_new(),
-        super::pin_inter_new(),
-        super::pin_inter_new(),
-        super::pin_inter_new(),
-        super::pin_inter_new(),
-        super::pin_inter_new(),
-        super::pin_inter_new(),
-        super::pin_inter_new(),
-        super::pin_inter_new(),
-        super::pin_inter_new(),
-        super::pin_inter_new(),
-        super::pin_inter_new(),
-        super::pin_inter_new(),
-        super::pin_inter_new(),
-        super::pin_inter_new(),
-        super::pin_inter_new(),
-        super::pin_inter_new(),
-        super::pin_inter_new(),
-        super::pin_inter_new(),
-        super::pin_inter_new(),
-        super::pin_inter_new(),
-        super::pin_inter_new(),
-        super::pin_inter_new(),
-        super::pin_inter_new(),
-        super::pin_inter_new(),
-    ];
+    pub(crate) static PIN_INTER: [AtomicU8; 49] = [PIN_INTER_INIT; 49];
 
     #[allow(clippy::type_complexity)]
     #[cfg(not(feature = "riscv-ulp-hal"))]
-    pub(crate) static PIN_NOTIF: [Notification; 49] = [
-        Notification::new(),
-        Notification::new(),
-        Notification::new(),
-        Notification::new(),
-        Notification::new(),
-        Notification::new(),
-        Notification::new(),
-        Notification::new(),
-        Notification::new(),
-        Notification::new(),
-        Notification::new(),
-        Notification::new(),
-        Notification::new(),
-        Notification::new(),
-        Notification::new(),
-        Notification::new(),
-        Notification::new(),
-        Notification::new(),
-        Notification::new(),
-        Notification::new(),
-        Notification::new(),
-        Notification::new(),
-        Notification::new(),
-        Notification::new(),
-        Notification::new(),
-        Notification::new(),
-        Notification::new(),
-        Notification::new(),
-        Notification::new(),
-        Notification::new(),
-        Notification::new(),
-        Notification::new(),
-        Notification::new(),
-        Notification::new(),
-        Notification::new(),
-        Notification::new(),
-        Notification::new(),
-        Notification::new(),
-        Notification::new(),
-        Notification::new(),
-        Notification::new(),
-        Notification::new(),
-        Notification::new(),
-        Notification::new(),
-        Notification::new(),
-        Notification::new(),
-        Notification::new(),
-        Notification::new(),
-        Notification::new(),
-    ];
+    pub(crate) static PIN_NOTIF: [Notification; 49] = [PIN_NOTIF_INIT; 49];
 
     // NOTE: Gpio26 - Gpio32 (and Gpio33 - Gpio37 if using Octal RAM/Flash) are used
     //       by SPI0/SPI1 for external PSRAM/SPI Flash and are not recommended for
@@ -2294,63 +2115,14 @@ mod chip {
 
     #[allow(clippy::type_complexity)]
     #[cfg(feature = "alloc")]
-    pub(crate) static mut PIN_ISR_HANDLER: [Option<Box<Box<dyn FnMut()>>>; 22] = [
-        None, None, None, None, None, None, None, None, None, None, None, None, None, None, None,
-        None, None, None, None, None, None, None,
-    ];
+    pub(crate) static mut PIN_ISR_HANDLER: [Option<Box<Box<dyn FnMut()>>>; 22] = [PIN_ISR_INIT; 22];
 
     #[allow(clippy::type_complexity)]
     #[cfg(not(feature = "riscv-ulp-hal"))]
-    pub(crate) static PIN_INTER: [AtomicU8; 22] = [
-        super::pin_inter_new(),
-        super::pin_inter_new(),
-        super::pin_inter_new(),
-        super::pin_inter_new(),
-        super::pin_inter_new(),
-        super::pin_inter_new(),
-        super::pin_inter_new(),
-        super::pin_inter_new(),
-        super::pin_inter_new(),
-        super::pin_inter_new(),
-        super::pin_inter_new(),
-        super::pin_inter_new(),
-        super::pin_inter_new(),
-        super::pin_inter_new(),
-        super::pin_inter_new(),
-        super::pin_inter_new(),
-        super::pin_inter_new(),
-        super::pin_inter_new(),
-        super::pin_inter_new(),
-        super::pin_inter_new(),
-        super::pin_inter_new(),
-        super::pin_inter_new(),
-    ];
+    pub(crate) static PIN_INTER: [AtomicU8; 22] = [PIN_INTER_INIT; 22];
 
     #[cfg(not(feature = "riscv-ulp-hal"))]
-    pub(crate) static PIN_NOTIF: [Notification; 22] = [
-        Notification::new(),
-        Notification::new(),
-        Notification::new(),
-        Notification::new(),
-        Notification::new(),
-        Notification::new(),
-        Notification::new(),
-        Notification::new(),
-        Notification::new(),
-        Notification::new(),
-        Notification::new(),
-        Notification::new(),
-        Notification::new(),
-        Notification::new(),
-        Notification::new(),
-        Notification::new(),
-        Notification::new(),
-        Notification::new(),
-        Notification::new(),
-        Notification::new(),
-        Notification::new(),
-        Notification::new(),
-    ];
+    pub(crate) static PIN_NOTIF: [Notification; 22] = [PIN_NOTIF_INIT; 22];
 
     // NOTE: Gpio12 - Gpio17 are used by SPI0/SPI1 for external PSRAM/SPI Flash and
     //       are not recommended for other uses
@@ -2463,61 +2235,14 @@ mod chip {
 
     #[allow(clippy::type_complexity)]
     #[cfg(feature = "alloc")]
-    pub(crate) static mut PIN_ISR_HANDLER: [Option<Box<Box<dyn FnMut()>>>; 20] = [
-        None, None, None, None, None, None, None, None, None, None, None, None, None, None, None,
-        None, None, None, None, None,
-    ];
+    pub(crate) static mut PIN_ISR_HANDLER: [Option<Box<Box<dyn FnMut()>>>; 20] = [PIN_ISR_INIT; 20];
 
     #[allow(clippy::type_complexity)]
     #[cfg(not(feature = "riscv-ulp-hal"))]
-    pub(crate) static PIN_INTER: [AtomicU8; 20] = [
-        super::pin_inter_new(),
-        super::pin_inter_new(),
-        super::pin_inter_new(),
-        super::pin_inter_new(),
-        super::pin_inter_new(),
-        super::pin_inter_new(),
-        super::pin_inter_new(),
-        super::pin_inter_new(),
-        super::pin_inter_new(),
-        super::pin_inter_new(),
-        super::pin_inter_new(),
-        super::pin_inter_new(),
-        super::pin_inter_new(),
-        super::pin_inter_new(),
-        super::pin_inter_new(),
-        super::pin_inter_new(),
-        super::pin_inter_new(),
-        super::pin_inter_new(),
-        super::pin_inter_new(),
-        super::pin_inter_new(),
-        super::pin_inter_new(),
-        super::pin_inter_new(),
-    ];
+    pub(crate) static PIN_INTER: [AtomicU8; 20] = [PIN_INTER_INIT; 20];
 
     #[cfg(not(feature = "riscv-ulp-hal"))]
-    pub(crate) static PIN_NOTIF: [Notification; 20] = [
-        Notification::new(),
-        Notification::new(),
-        Notification::new(),
-        Notification::new(),
-        Notification::new(),
-        Notification::new(),
-        Notification::new(),
-        Notification::new(),
-        Notification::new(),
-        Notification::new(),
-        Notification::new(),
-        Notification::new(),
-        Notification::new(),
-        Notification::new(),
-        Notification::new(),
-        Notification::new(),
-        Notification::new(),
-        Notification::new(),
-        Notification::new(),
-        Notification::new(),
-    ];
+    pub(crate) static PIN_NOTIF: [Notification; 20] = [PIN_NOTIF_INIT; 20];
 
     // NOTE: Gpio12 - Gpio17 are used by SPI0/SPI1 for external PSRAM/SPI Flash and
     //       are not recommended for other uses
@@ -2627,61 +2352,14 @@ mod chip {
 
     #[allow(clippy::type_complexity)]
     #[cfg(feature = "alloc")]
-    pub(crate) static mut PIN_ISR_HANDLER: [Option<Box<Box<dyn FnMut()>>>; 20] = [
-        None, None, None, None, None, None, None, None, None, None, None, None, None, None, None,
-        None, None, None, None, None,
-    ];
+    pub(crate) static mut PIN_ISR_HANDLER: [Option<Box<Box<dyn FnMut()>>>; 20] = [PIN_ISR_INIT; 20];
 
     #[allow(clippy::type_complexity)]
     #[cfg(not(feature = "riscv-ulp-hal"))]
-    pub(crate) static PIN_INTER: [AtomicU8; 20] = [
-        super::pin_inter_new(),
-        super::pin_inter_new(),
-        super::pin_inter_new(),
-        super::pin_inter_new(),
-        super::pin_inter_new(),
-        super::pin_inter_new(),
-        super::pin_inter_new(),
-        super::pin_inter_new(),
-        super::pin_inter_new(),
-        super::pin_inter_new(),
-        super::pin_inter_new(),
-        super::pin_inter_new(),
-        super::pin_inter_new(),
-        super::pin_inter_new(),
-        super::pin_inter_new(),
-        super::pin_inter_new(),
-        super::pin_inter_new(),
-        super::pin_inter_new(),
-        super::pin_inter_new(),
-        super::pin_inter_new(),
-        super::pin_inter_new(),
-        super::pin_inter_new(),
-    ];
+    pub(crate) static PIN_INTER: [AtomicU8; 20] = [PIN_INTER_INIT; 20];
 
     #[cfg(not(feature = "riscv-ulp-hal"))]
-    pub(crate) static PIN_NOTIF: [Notification; 20] = [
-        Notification::new(),
-        Notification::new(),
-        Notification::new(),
-        Notification::new(),
-        Notification::new(),
-        Notification::new(),
-        Notification::new(),
-        Notification::new(),
-        Notification::new(),
-        Notification::new(),
-        Notification::new(),
-        Notification::new(),
-        Notification::new(),
-        Notification::new(),
-        Notification::new(),
-        Notification::new(),
-        Notification::new(),
-        Notification::new(),
-        Notification::new(),
-        Notification::new(),
-    ];
+    pub(crate) static PIN_NOTIF: [Notification; 20] = [PIN_NOTIF_INIT; 20];
 
     // NOTE: Gpio12 - Gpio17 are used by SPI0/SPI1 for external PSRAM/SPI Flash and
     //       are not recommended for other uses
@@ -2792,80 +2470,15 @@ mod chip {
 
     #[allow(clippy::type_complexity)]
     #[cfg(all(not(feature = "riscv-ulp-hal"), feature = "alloc"))]
-    pub(crate) static mut PIN_ISR_HANDLER: [Option<Box<Box<dyn FnMut()>>>; 30] = [
-        None, None, None, None, None, None, None, None, None, None, None, None, None, None, None,
-        None, None, None, None, None, None, None, None, None, None, None, None, None, None, None,
-    ];
+    pub(crate) static mut PIN_ISR_HANDLER: [Option<Box<Box<dyn FnMut()>>>; 30] = [PIN_ISR_INIT; 30];
 
     #[allow(clippy::type_complexity)]
     #[cfg(not(feature = "riscv-ulp-hal"))]
-    pub(crate) static PIN_INTER: [AtomicU8; 30] = [
-        super::pin_inter_new(),
-        super::pin_inter_new(),
-        super::pin_inter_new(),
-        super::pin_inter_new(),
-        super::pin_inter_new(),
-        super::pin_inter_new(),
-        super::pin_inter_new(),
-        super::pin_inter_new(),
-        super::pin_inter_new(),
-        super::pin_inter_new(),
-        super::pin_inter_new(),
-        super::pin_inter_new(),
-        super::pin_inter_new(),
-        super::pin_inter_new(),
-        super::pin_inter_new(),
-        super::pin_inter_new(),
-        super::pin_inter_new(),
-        super::pin_inter_new(),
-        super::pin_inter_new(),
-        super::pin_inter_new(),
-        super::pin_inter_new(),
-        super::pin_inter_new(),
-        super::pin_inter_new(),
-        super::pin_inter_new(),
-        super::pin_inter_new(),
-        super::pin_inter_new(),
-        super::pin_inter_new(),
-        super::pin_inter_new(),
-        super::pin_inter_new(),
-        super::pin_inter_new(),
-    ];
+    pub(crate) static PIN_INTER: [AtomicU8; 30] = [PIN_INTER_INIT; 30];
 
     #[allow(clippy::type_complexity)]
     #[cfg(not(feature = "riscv-ulp-hal"))]
-    pub(crate) static PIN_NOTIF: [Notification; 30] = [
-        Notification::new(),
-        Notification::new(),
-        Notification::new(),
-        Notification::new(),
-        Notification::new(),
-        Notification::new(),
-        Notification::new(),
-        Notification::new(),
-        Notification::new(),
-        Notification::new(),
-        Notification::new(),
-        Notification::new(),
-        Notification::new(),
-        Notification::new(),
-        Notification::new(),
-        Notification::new(),
-        Notification::new(),
-        Notification::new(),
-        Notification::new(),
-        Notification::new(),
-        Notification::new(),
-        Notification::new(),
-        Notification::new(),
-        Notification::new(),
-        Notification::new(),
-        Notification::new(),
-        Notification::new(),
-        Notification::new(),
-        Notification::new(),
-        Notification::new(),
-    ];
+    pub(crate) static PIN_NOTIF: [Notification; 30] = [PIN_NOTIF_INIT; 30];
 
     // NOTE: Gpio26 - Gpio32 (and Gpio33 - Gpio37 if using Octal RAM/Flash) are used
     //       by SPI0/SPI1 for external PSRAM/SPI Flash and are not recommended for
