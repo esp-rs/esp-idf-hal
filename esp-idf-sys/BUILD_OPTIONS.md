@@ -1,13 +1,24 @@
 # Customizing the Build
 
 **Table of contents**
+- [Rust configuration flags](#rust-configuration-flags)
 - [Features](#features)
 - [sdkconfig](#sdkconfig)
-- [Build configuration](#build-configuration)
-- [Extra esp-idf components](#extra-esp-idf-components)
+- [ESP-IDF configuration](#esp-idf-configuration)
+- [Extra ESP-IDF components](#extra-esp-idf-components)
 - [Conditional compilation](#conditional-compilation)
-- [ESP32-C6 Preliminary Support](#esp32-c6-preliminary-support)
+- [ESP32-C6/ESP32-P4 preliminary support](#esp32-c6esp32-p4-preliminary-support)
 - [More info](#more-info)
+
+## Rust configuration flags
+The following are flags passed to `rustc` that influence the build.
+
+- ### `--cfg espidf_time64`
+  This is a flag for the [libc crate](https://docs.rs/libc/) that uses 64-bits (instead of 32-bits) for
+  `time_t`. This *must be set* for ESP-IDF 5.0 and above and *must be unset* for lesser versions.
+
+- ### `-Zbuild-std=std,panic_abort`
+  Required for `std` support. Rust does not provide `std` libraries for ESP32 targets since they are tier-2/-3.
 
 ## Features
 - ### `native`
@@ -44,9 +55,14 @@
   ```
   function.
 
+- ### `uart0_driver_init`
+
+  Enables UART0 to be driven by the driver code, adding buffering support required to read `std::io::stdin()`
+  from UART0. This is enabled by default.
+
 ## sdkconfig
 
-The esp-idf makes use of an [sdkconfig](#espidfsdkconfig-espidfsdkconfig) file for its
+The esp-idf makes use of an [`sdkconfig`](#espidfsdkconfig-espidfsdkconfig) file for its
 compile-time component configuration (see the [esp-idf
 docs](https://docs.espressif.com/projects/esp-idf/en/latest/esp32/api-reference/kconfig.html#project-configuration)
 for more information). This config is separate from the [build configuration](#build-configuration).
@@ -62,7 +78,7 @@ To enable Bluetooth, or do other configurations to the ESP-IDF sdkconfig you mig
 * To open the ESP-IDF interactive menuconfig system, issue `cargo pio espidf menuconfig` in the root of your **binary crate** project
 * To use the generated/updated `sdkconfig` file, follow the steps described in the "Bluetooth Support" section
 
-## Build configuration
+## ESP-IDF configuration
 
 There are two ways to configure how the ESP-IDF framework is compiled:
 1. Environment variables, denoted by `$VARIABLE`;
@@ -295,9 +311,9 @@ esp_idf_version = "branch:release/v4.4"
 esp_idf_components = ["pthread"]
 ```
 
-## Extra esp-idf components
+## Extra ESP-IDF components
 
-It is possible to let *esp-idf-sys* compile extra [esp-idf
+It is possible to let *esp-idf-sys* compile extra [ESP-IDF
 components](https://docs.espressif.com/projects/esp-idf/en/latest/esp32/api-guides/build-system.html#concepts)
 and generate bindings for them.
 
@@ -396,10 +412,11 @@ The list of available *cfg*s:
 If you are interested in how it all works under the hood, check the [build.rs](build/build.rs)
 build script of this crate.
 
-## ESP32-C6 Preliminary Support
+## ESP32-C6/ESP32-P4 preliminary support
 
-ESP32-C6, as well as the upcoming ESP32-P4 are the first Espressif chips that support the "A" (atomic) extension of the RISCV specification.
-As such, the do not work with the existing `riscv32imc-esp-espidf` target, and instead need a new one (to be upstreamed to Rust) called `riscv32imac-esp-espidf`.
+The ESP32-C6 and the upcoming ESP32-P4 are the first Espressif chips that support the "A" (atomic) extension of the RISCV specification.
+As such, they do not work with the existing `riscv32imc-esp-espidf` target, and instead need a new one (to be upstreamed to Rust)
+called `riscv32imac-esp-espidf`.
 
 Until the target is upstreamed, you can use the following custom target:
 

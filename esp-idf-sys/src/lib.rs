@@ -1,3 +1,10 @@
+//! Raw Rust bindings for the [ESP-IDF SDK](https://docs.espressif.com/projects/esp-idf/en/latest/esp32/).
+//!
+//! # Build Prerequisites
+//!
+//! Follow the [Prerequisites](https://github.com/esp-rs/esp-idf-template#prerequisites) section in the `esp-idf-template` crate.
+//!
+#![doc = include_str!("../BUILD_OPTIONS.md")]
 #![cfg_attr(not(feature = "std"), no_std)]
 #![cfg_attr(
     all(not(feature = "std"), feature = "alloc_handler"),
