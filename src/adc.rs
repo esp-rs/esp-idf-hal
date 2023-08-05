@@ -27,7 +27,10 @@ pub trait Adc: Send {
 // NOTE: Will be changed to an enum once C-style enums are usable as const generics
 #[cfg(not(feature = "riscv-ulp-hal"))]
 pub mod attenuation {
-    pub use esp_idf_sys::*;
+    pub use esp_idf_sys::{
+        adc_atten_t, adc_atten_t_ADC_ATTEN_DB_0, adc_atten_t_ADC_ATTEN_DB_11,
+        adc_atten_t_ADC_ATTEN_DB_2_5, adc_atten_t_ADC_ATTEN_DB_6,
+    };
 
     pub const NONE: adc_atten_t = adc_atten_t_ADC_ATTEN_DB_0;
     pub const DB_2_5: adc_atten_t = adc_atten_t_ADC_ATTEN_DB_2_5;
