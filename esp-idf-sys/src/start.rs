@@ -42,10 +42,38 @@ extern "Rust" {
 #[no_mangle]
 pub extern "C" fn app_main() {
     unsafe {
+        #[cfg(all(feature = "uart0_driver_init", esp_idf_comp_driver_enabled))]
+        uart_init::init_uart0();
+
         #[cfg(all(feature = "std", feature = "binstart"))]
         main(0, &[core::ptr::null()] as *const *const u8);
 
         #[cfg(any(all(not(feature = "std"), feature = "binstart"), feature = "libstart"))]
         main();
+    }
+}
+
+#[cfg(all(feature = "uart0_driver_init", esp_idf_comp_driver_enabled))]
+mod uart_init {
+    use crate::{esp_vfs_dev_uart_use_driver, uart_driver_install};
+    use core::{ffi::c_int, ptr::null_mut};
+
+    const UART_BUFFER_SIZE: c_int = 512;
+    const UART_QUEUE_SIZE: c_int = 10;
+
+    pub(super) fn init_uart0() {
+        // Enable UART0 driver so stdin can be read.
+        unsafe {
+            crate::esp!(uart_driver_install(
+                0,
+                UART_BUFFER_SIZE,
+                UART_BUFFER_SIZE,
+                UART_QUEUE_SIZE,
+                null_mut(),
+                0
+            ))
+            .expect("unable to initialize UART0 driver");
+            esp_vfs_dev_uart_use_driver(0);
+        }
     }
 }
