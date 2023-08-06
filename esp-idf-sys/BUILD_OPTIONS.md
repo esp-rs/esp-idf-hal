@@ -34,7 +34,8 @@ The following are flags passed to `rustc` that influence the build.
 
   Similarly to the `native` builder, the `pio` builder also automatically installs all needed tools (PlatformIO packages and frameworks in this case) to compile this crate as well as the ESP-IDF framework itself. 
 
-  > ⚠️ The `pio` builder is less flexible than the default `native` builder in that it can work with only **one, specific** version of ESP-IDF. At the time of writing, this is V4.3.2.
+  > [!WARNING]
+  > The `pio` builder is less flexible than the default `native` builder in that it can work with only **one, specific** version of ESP-IDF. At the time of writing, this is V4.3.2.
   
 - ### `binstart`
 
@@ -74,9 +75,9 @@ TBD: Upcoming
 ### (*pio* builder only) Using cargo-pio to interactively modify ESP-IDF's `sdkconfig` file
 
 To enable Bluetooth, or do other configurations to the ESP-IDF sdkconfig you might take advantage of the cargo-pio Cargo subcommand:
-* To install it, issue `cargo install cargo-pio --git https://github.com/ivmarkov/cargo-pio`
-* To open the ESP-IDF interactive menuconfig system, issue `cargo pio espidf menuconfig` in the root of your **binary crate** project
-* To use the generated/updated `sdkconfig` file, follow the steps described in the "Bluetooth Support" section
+- To install it, issue `cargo install cargo-pio --git https://github.com/ivmarkov/cargo-pio`
+- To open the ESP-IDF interactive menuconfig system, issue `cargo pio espidf menuconfig` in the root of your **binary crate** project
+- To use the generated/updated `sdkconfig` file, follow the steps described in the "Bluetooth Support" section
 
 ## ESP-IDF configuration
 
@@ -88,20 +89,24 @@ There are two ways to configure how the ESP-IDF framework is compiled:
 
 2. The `[package.metadata.esp-idf-sys]` section of the `Cargo.toml`, denoted by *`field`*.
 
-   > **Note**  
+   > [!NOTE]
    > Configuration can only come from the **root crate's** `Cargo.toml`. The root crate
    > is the package in the *workspace directory*. If there is not root crate in case of a
    > [virtual
    > workspace](https://doc.rust-lang.org/cargo/reference/workspaces.html#virtual-manifest),
    > its *name* can be specified with the `ESP_IDF_SYS_ROOT_CRATE` environment variable.
 
-    > ⚠️ Environment variables always take precedence over `Cargo.toml` metadata.
+   > [!WARNING]
+   > Environment variables always take precedence over `Cargo.toml` metadata.
 
-> **Note**: *workspace directory*  
+> [!NOTE]
+> ***workspace directory***
+>
 > The workspace directory mentioned here is always the directory containing the
-> `Cargo.lock` file and the `target` directory (where the build artifacts are stored). It
-> can be overridden with the `CARGO_WORKSPACE_DIR` environment variable, should this not
-> be the right directory.  
+> `Cargo.lock` file and the `target` directory (unless configured otherwise, see the note
+> below about `CARGO_TARGET_DIR`) where the build artifacts are stored. It can be
+> overridden with the `CARGO_WORKSPACE_DIR` environment variable, should this not be the
+> right directory.  
 > (See
 > [`embuild::cargo::workspace_dir`](https://docs.rs/embuild/latest/embuild/cargo/fn.workspace_dir.html)
 > for more information).
@@ -112,12 +117,13 @@ There are two ways to configure how the ESP-IDF framework is compiled:
 >
 > Please note that if you have set `CARGO_TARGET_DIR` and moved your `target` directory out of
 > the crate root, then embuild is not able to locate the crate root. This will result in it
-> among other things ignoring your local `sdkconfig.defaults`. In this setup you must declare:
+> among other things ignoring your local `sdkconfig.defaults`. In this case you must
+> declare:
 > ```
 > [env]
 > CARGO_WORKSPACE_DIR = { value = "", relative = true }
 > ```
-> to force it to look in the current directory.
+> in the `.cargo/config.toml` file, to force it to look in the current directory.
        
 
 The following configuration options are available:
@@ -132,7 +138,7 @@ The following configuration options are available:
     
     In case of the environment variable, multiple elements should be `;`-separated.
     
-    > **Note**  
+    > [!NOTE]
     > For each defaults file in this list, a more specific file will also be searched and
     > used. This happens with the following patterns and order (least to most specific):
     >
@@ -145,7 +151,7 @@ The following configuration options are available:
     > specifies the mcu for which this is currently compiled for (see the [*`mcu`*](#mcu-mcu)
     > configuration option below).
 
-    > ⚠️
+    > [!WARNING]
     > A setting contained in a more specific defaults file will override the
     > same setting specified in a less specific one. For example, in a debug
     > build, flags in `sdkconfig.debug` override those in `sdkconfig.defaults`.
@@ -159,7 +165,7 @@ The following configuration options are available:
   
   Defaults to `sdkconfig`.
   
-  > **Note**  
+  > [!NOTE]
   > Similar to the `sdkconfig.defaults`-file a more specific `sdkconfig`-file will be
   > selected if available. This happens with the following patterns and precedence:
   >
@@ -170,7 +176,8 @@ The following configuration options are available:
   >
   > &nbsp;
 
-  > **Note**: *native* builder only  
+  > [!NOTE]
+  > ***native* builder only:**  
   > The cargo optimization options (`debug` and `opt-level`) are used by default to
   > determine the compiler optimizations of the `esp-idf`, **however** if the compiler
   > optimization options are already set in the `sdkconfig` **they will be used instead.**
@@ -179,7 +186,7 @@ The following configuration options are available:
 
   The install location for the ESP-IDF framework tooling.
 
-  > **Note**  
+  > [!NOTE]
   > The framework tooling is either [PlatformIO](https://platformio.org/) when the `pio` builder is used, or the ESP-IDF
   > native toolset when the `native` builder is used (default).
 
@@ -204,11 +211,14 @@ The following configuration options are available:
 
       and error if this is not possible.
       
-   > ⚠️ Please be extra careful with the `custom:<dir>` setting when switching from `pio` to `native` and the other way around, because
-   > the builder will install the tooling in `<dir>` without using any additional `platformio` or `espressif` subdirectories, so if you are not careful, you might end up with 
-   > both PlatformIO, as well as the ESP-IDF native tooling intermingled together in a single folder.
+   > [!WARNING]
+   > Please be extra careful with the `custom:<dir>` setting when switching
+   > from `pio` to `native` and the other way around, because the builder will install the
+   > tooling in `<dir>` without using any additional `platformio` or `espressif`
+   > subdirectories, so if you are not careful, you might end up with both PlatformIO, as
+   > well as the ESP-IDF native tooling intermingled together in a single folder.
 
-   > **Note**  
+   > [!WARNING]
    > The [ESP-IDF git repository](https://github.com/espressif/esp-idf) will be cloned
    > *inside* the tooling directory. The *native* builder will use the esp-idf at
    > [*`idf_path`*](#idfpath-idfpath-native-builder-only) of available.
@@ -233,11 +243,11 @@ The following configuration options are available:
 
   The URL to the git repository of the `esp-idf`, defaults to <https://github.com/espressif/esp-idf.git>.
   
-  > **Note**  
+  > [!NOTE]
   > When the `pio` builder is used, it is possible to achieve something similar to
   > `ESP_IDF_VERSION` and `ESP_IDF_REPOSITORY` by using the
   > [`platform_packages`](https://docs.platformio.org/en/latest/projectconf/section_env_platform.html#platform-packages)
-  >   PlatformIO option as follows:
+  > PlatformIO option as follows:
   >
   > `ESP_IDF_PIO_CONF="platform_packages = framework-espidf @ <git-url> [@ <git-branch>]"`
   >
@@ -267,7 +277,7 @@ The following configuration options are available:
   documentation](https://docs.platformio.org/en/latest/projectconf/index.html) for more
   information as to what settings you can pass via this variable.
   
-  > **Note**  
+  > [!NOTE]
   > This is not one variable, but rather a family of variables all
   > starting with `ESP_IDF_PIO_CONF_`. For example, passing `ESP_IDF_PIO_CONF_1` as well as
   > `ESP_IDF_PIO_CONF_FOO` is valid and all such variables will be honored.
@@ -291,7 +301,7 @@ The following configuration options are available:
    
    If not set this will be automatically detected from the cargo target.
 
-   > ⚠️
+   > [!WARNING]
    > [Older ESP-IDF versions might not support all MCUs from above.](https://github.com/espressif/esp-idf#esp-idf-release-and-soc-compatibility)
    
 - ### *`esp_idf_components`*, `$ESP_IDF_COMPONENTS` (*native* builder only)
@@ -302,7 +312,7 @@ The following configuration options are available:
     
     Defaults to all components being built.
     
-    > **Note**  
+    > [!NOTE]  
     > Some components must be explicitly enabled in the sdkconfig.  
     > [Extra components](#extra-esp-idf-components) must also be added to this list if
     > they are to be built.
@@ -331,7 +341,7 @@ This is possible by adding an object to the
 will honor all such extra components in the *root crate*'s and all **direct**
 dependencies' `Cargo.toml`.
 
-> **Note**  
+> [!NOTE]
 > By only specifying the `bindings_header` field, one can extend the set of *esp-idf*
 > bindings that were generated from
 > [src/include/esp-idf/bindings.h](src/include/esp-idf/bindings.h). To do this you need to create
@@ -388,7 +398,8 @@ extra_components = [
 The *esp-idf-sys* build script will set [rustc *cfg*s](https://doc.rust-lang.org/reference/conditional-compilation.html)
 available for its sources.
 
-> ⚠️ If an upstream crate also wants to have access to the *cfg*s it must:
+> [!IMPORTANT]
+> If an upstream crate also wants to have access to the *cfg*s it must:
 > - have `esp-idf-sys` as a dependency, and
 > - propagate the *cfg*s in its [build
 >   script](https://doc.rust-lang.org/cargo/reference/build-scripts.html) with

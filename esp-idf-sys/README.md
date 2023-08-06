@@ -8,13 +8,13 @@
 
 ## Highlights
 
-* Build is `cargo` driven and **automatically downloads & configures everything by default**; no need to download the ESP IDF SDK manually, or set up a C toolchain
-* Supports both native ESP IDF build (default), as well as a PlatformIO build
-* Option to use in a mixed Rust/C project. Check the documentation in the [esp-idf-template](https://github.com/esp-rs/esp-idf-template) crate
+- Build is `cargo` driven and **automatically downloads & configures everything by default**; no need to download the ESP IDF SDK manually, or set up a C toolchain
+- Supports both native ESP IDF build (default), as well as a PlatformIO build
+- Option to use in a mixed Rust/C project. Check the documentation in the [esp-idf-template](https://github.com/esp-rs/esp-idf-template) crate
 
 **You might want to also check out the type safe Rust wrappes built on top of these raw bndings:**
-* [Type safe wrappers for ESP IDF Services](https://github.com/esp-rs/esp-idf-svc)
-* [Type safe wrappers for ESP IDF Drivers](https://github.com/esp-rs/esp-idf-hal)
+- [Type safe wrappers for ESP IDF Services](https://github.com/esp-rs/esp-idf-svc)
+- [Type safe wrappers for ESP IDF Drivers](https://github.com/esp-rs/esp-idf-hal)
 
 ## Build Prerequisites
 
@@ -27,12 +27,12 @@ Read the [documentation here](BUILD_OPTIONS.md).
 ## More information
 
 For more information, check out:
-* The [Rust on ESP Book](https://esp-rs.github.io/book/)
-* The [ESP Embedded Training](https://github.com/esp-rs/espressif-trainings)
-* The [esp-idf-template](https://github.com/esp-rs/esp-idf-template) project
-* The [esp-idf-svc](https://github.com/esp-rs/esp-idf-svc) project
-* The [esp-idf-hal](https://github.com/esp-rs/esp-idf-hal) project
-* The [embedded-svc](https://github.com/esp-rs/embedded-svc) project
-* The [embedded-hal](https://github.com/rust-embedded/embedded-hal) project
-* The [Rust for Xtensa toolchain](https://github.com/esp-rs/rust-build)
-* The [Rust-with-STD demo](https://github.com/ivmarkov/rust-esp32-std-demo) project
+- The [Rust on ESP Book](https://esp-rs.github.io/book/)
+- The [ESP Embedded Training](https://github.com/esp-rs/espressif-trainings)
+- The [esp-idf-template](https://github.com/esp-rs/esp-idf-template) project
+- The [esp-idf-svc](https://github.com/esp-rs/esp-idf-svc) project
+- The [esp-idf-hal](https://github.com/esp-rs/esp-idf-hal) project
+- The [embedded-svc](https://github.com/esp-rs/embedded-svc) project
+- The [embedded-hal](https://github.com/rust-embedded/embedded-hal) project
+- The [Rust for Xtensa toolchain](https://github.com/esp-rs/rust-build)
+- The [Rust-with-STD demo](https://github.com/ivmarkov/rust-esp32-std-demo) project
