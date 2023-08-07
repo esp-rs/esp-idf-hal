@@ -655,7 +655,7 @@ where
 {
     handle: spi_device_handle_t,
     driver: T,
-    hardware_cs: bool,
+    cs_pin_configured: bool,
     polling: bool,
     _d: PhantomData<&'d ()>,
 }
@@ -728,7 +728,7 @@ where
         Ok(Self {
             handle,
             driver,
-            hardware_cs: cs >= 0,
+            cs_pin_configured: cs >= 0,
             polling: config.polling,
             _d: PhantomData,
         })
@@ -899,7 +899,7 @@ where
                 self.handle,
                 &mut transaction,
                 self.polling,
-                soft_cs_pin.is_none() && self.hardware_cs && !last,
+                soft_cs_pin.is_none() && self.cs_pin_configured && !last,
             )?;
         }
 
@@ -944,7 +944,7 @@ where
             spi_transmit_async(
                 self.handle,
                 &mut transaction,
-                soft_cs_pin.is_none() && self.hardware_cs && !last,
+                soft_cs_pin.is_none() && self.cs_pin_configured && !last,
             )
             .await?;
         }
@@ -1082,68 +1082,56 @@ where
     }
 }
 
-// /// Only use this in NON DMA Mode
-// /// Reason -> All Data is chunked into max(iter.len(), 64)
-// impl<'d, T> embedded_hal_0_2::blocking::spi::WriteIter<u8> for SpiDeviceDriver<'d, T>
-// where
-//     T: Borrow<SpiDriver<'d>> + 'd,
-// {
-//     type Error = SpiError;
+/// All data is chunked into max(iter.len(), 64)
+impl<'d, T> embedded_hal_0_2::blocking::spi::WriteIter<u8> for SpiDeviceDriver<'d, T>
+where
+    T: Borrow<SpiDriver<'d>> + 'd,
+{
+    type Error = SpiError;
 
-//     fn write_iter<WI>(&mut self, words: WI) -> Result<(), Self::Error>
-//     where
-//         WI: IntoIterator<Item = u8>,
-//     {
-//         // TODO
-//         todo!()
+    fn write_iter<WI>(&mut self, words: WI) -> Result<(), Self::Error>
+    where
+        WI: IntoIterator<Item = u8>,
+    {
+        let mut lock = None;
 
-//         // let mut _lock = if lock_bus {
-//         //     Some(Lock::new(self.device())?)
-//         // } else {
-//         //     None
-//         // };
+        let mut words = words.into_iter().peekable();
+        let mut buf = [0_u8; TRANS_LEN];
 
-//         // let mut words = words.into_iter().peekable();
-//         // let mut buf = [0_u8; TRANS_LEN];
+        loop {
+            let mut offset = 0_usize;
 
-//         // let mut op_result = Ok(());
+            while offset < buf.len() {
+                if let Some(word) = words.next() {
+                    buf[offset] = word;
+                    offset += 1;
+                } else {
+                    break;
+                }
+            }
 
-//         // loop {
-//         //     let mut offset = 0_usize;
+            if offset == 0 {
+                break;
+            }
 
-//         //     while offset < buf.len() {
-//         //         if let Some(word) = words.next() {
-//         //             buf[offset] = word;
-//         //             offset += 1;
-//         //         } else {
-//         //             break;
-//         //         }
-//         //     }
+            let mut transaction =
+                spi_create_transaction(core::ptr::null_mut(), buf[..offset].as_ptr(), offset, 0);
 
-//         //     if offset == 0 {
-//         //         break;
-//         //     }
+            if lock.is_none() && words.peek().is_some() {
+                lock = Some(BusLock::new(self.handle)?);
+            }
 
-//         //     if words.peek().is_none() {
-//         //         bus.keep_cs_active = false;
-//         //     }
+            spi_transmit(
+                self.handle,
+                &mut transaction,
+                self.polling,
+                self.cs_pin_configured && words.peek().is_some(),
+            )?;
+        }
 
-//         //     if let Err(e) = bus.write(&buf[..offset]) {
-//         //         op_result = Err(e);
-//         //         break;
-//         //     }
-//         // }
-
-//         // let flush_result = bus.flush();
-
-//         // drop(bus);
-
-//         // flush_result?;
-//         // op_result?;
-
-//         // Ok(())
-//     }
-// }
+        Ok(())
+    }
+}
 
 impl<'d, T> embedded_hal_0_2::blocking::spi::Transactional<u8> for SpiDeviceDriver<'d, T>
 where
