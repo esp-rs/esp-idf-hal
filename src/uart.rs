@@ -408,8 +408,8 @@ pub mod config {
                 flow_control_rts_threshold: 122,
                 source_clock: SourceClock::default(),
                 intr_flags: EnumSet::<IntrFlags>::empty(),
-                rx_fifo_size: UART_FIFO_SIZE * 2,
-                tx_fifo_size: UART_FIFO_SIZE * 2,
+                rx_fifo_size: super::UART_FIFO_SIZE * 2,
+                tx_fifo_size: super::UART_FIFO_SIZE * 2,
                 queue_size: 10,
             }
         }
@@ -997,7 +997,7 @@ fn new_common<UART: Uart>(
             } else {
                 0
             },
-            config.queue_size,
+            config.queue_size as _,
             ptr::null_mut(),
             0,
         )
