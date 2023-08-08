@@ -16,14 +16,13 @@ documentation = "https://esp-rs.github.io/esp-idf-sys/"
 rust-version = "1.66"
 
 [features]
-default = ["std", "native", "uart0_driver_init"]
+default = ["std", "native"]
 
 std = []
 alloc_handler = []
 panic_handler = []
 binstart = []
 libstart = []
-uart0_driver_init = []
 
 # Use native `esp-idf` tooling to build the `esp-idf`
 native = ["embuild/cmake", "embuild/espidf"]
