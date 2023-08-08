@@ -51,7 +51,7 @@ use esp_idf_sys::*;
 
 use crate::peripheral::Peripheral;
 
-const UART_FIFO_SIZE: i32 = SOC_UART_FIFO_LEN as i32;
+const UART_FIFO_SIZE: usize = SOC_UART_FIFO_LEN as usize;
 
 pub type UartConfig = config::Config;
 
@@ -311,6 +311,9 @@ pub mod config {
         pub flow_control_rts_threshold: u8,
         pub source_clock: SourceClock,
         pub intr_flags: EnumSet<IntrFlags>,
+        pub rx_fifo_size: usize,
+        pub tx_fifo_size: usize,
+        pub queue_size: usize,
     }
 
     impl Config {
@@ -374,6 +377,24 @@ pub mod config {
             self.source_clock = source_clock;
             self
         }
+
+        #[must_use]
+        pub fn tx_fifo_size(mut self, tx_fifo_size: usize) -> Self {
+            self.tx_fifo_size = tx_fifo_size;
+            self
+        }
+
+        #[must_use]
+        pub fn rx_fifo_size(mut self, rx_fifo_size: usize) -> Self {
+            self.rx_fifo_size = rx_fifo_size;
+            self
+        }
+
+        #[must_use]
+        pub fn queue_size(mut self, queue_size: usize) -> Self {
+            self.queue_size = queue_size;
+            self
+        }
     }
 
     impl Default for Config {
@@ -387,6 +408,9 @@ pub mod config {
                 flow_control_rts_threshold: 122,
                 source_clock: SourceClock::default(),
                 intr_flags: EnumSet::<IntrFlags>::empty(),
+                rx_fifo_size: UART_FIFO_SIZE * 2,
+                tx_fifo_size: UART_FIFO_SIZE * 2,
+                queue_size: 10,
             }
         }
     }
@@ -963,9 +987,17 @@ fn new_common<UART: Uart>(
     esp!(unsafe {
         uart_driver_install(
             UART::port(),
-            UART_FIFO_SIZE * 2,
-            if tx.is_some() { UART_FIFO_SIZE * 2 } else { 0 },
-            0,
+            if rx.is_some() {
+                config.rx_fifo_size as _
+            } else {
+                0
+            },
+            if tx.is_some() {
+                config.tx_fifo_size as _
+            } else {
+                0
+            },
+            config.queue_size,
             ptr::null_mut(),
             0,
         )
