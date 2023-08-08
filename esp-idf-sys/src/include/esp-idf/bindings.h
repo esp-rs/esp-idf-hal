@@ -324,17 +324,24 @@
 #endif
 
 #ifdef CONFIG_BT_BLUEDROID_ENABLED
-#include "esp_gap_ble_api.h"
-#include "esp_gattc_api.h"
-#include "esp_gatt_defs.h"
-#include "esp_gatt_common_api.h"
-#include "esp_gatts_api.h"
-#include "esp_bt_defs.h"
-#include "esp_bt_main.h"
-#include "esp_gap_bt_api.h"
-#include "esp_bt_device.h"
 #include "esp_a2dp_api.h"
 #include "esp_avrc_api.h"
+#include "esp_bt_defs.h"
+#include "esp_bt_device.h"
+#include "esp_bt_main.h"
+#include "esp_gap_ble_api.h"
+#include "esp_gap_bt_api.h"
+#include "esp_gatt_defs.h"
+#include "esp_gatt_common_api.h"
+#include "esp_gattc_api.h"
+#include "esp_gatts_api.h"
+#include "esp_hf_ag_api.h"
+#include "esp_hf_client_api.h"
+#include "esp_hidd_api.h"
+#include "esp_hidh_api.h"
+#include "esp_l2cap_bt_api.h"
+#include "esp_sdp_api.h"
+#include "esp_spp_api.h"
 #endif
 
 #ifdef CONFIG_BT_NIMBLE_ENABLED
