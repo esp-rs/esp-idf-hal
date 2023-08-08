@@ -109,6 +109,7 @@ fn main() -> anyhow::Result<()> {
             .blocklist_function("_v.*printf_r")
             .blocklist_function("_v.*scanf_r")
             .blocklist_function("esp_log_writev")
+            .blocklist_type("pcnt_unit_t") // Fix for struct pcnt_unit_t vs enum pcnt_unit_t
             .clang_args(build_output.components.clang_args())
             .clang_args(vec![
                 "-target",
