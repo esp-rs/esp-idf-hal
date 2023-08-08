@@ -9,8 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * Raw bindings for the continuous ADC driver (ESP IDF >= 5.0)
 * Raw bindings for bootloader random functions
 * Raw bindings for all available classic BT APIs
-* Raw bindings for the new PCNT driver (ESP IDF >= 5.0)
-* 
+
 ## [0.33.1] - 2023-06-11
 
 * Raw bindings for the I2S driver

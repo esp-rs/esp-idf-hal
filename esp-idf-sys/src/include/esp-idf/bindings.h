@@ -231,9 +231,6 @@
 #endif
 #if defined(CONFIG_IDF_TARGET_ESP32) || defined(CONFIG_IDF_TARGET_ESP32S2) || defined(CONFIG_IDF_TARGET_ESP32S3) || defined(CONFIG_IDF_TARGET_ESP32H2) || defined(CONFIG_IDF_TARGET_ESP32C6) || defined(CONFIG_IDF_TARGET_ESP32P4)
 #include "driver/pcnt.h"
-#if ESP_IDF_VERSION_MAJOR >= 5
-#include "driver/pulse_cnt.h"
-#endif
 #endif
 #include "driver/periph_ctrl.h"
 #include "driver/rmt.h"
