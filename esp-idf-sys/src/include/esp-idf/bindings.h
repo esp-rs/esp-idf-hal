@@ -351,8 +351,8 @@
 #ifdef CONFIG_BT_SPP_ENABLED
 #include "esp_spp_api.h"
 #endif
-#endif
-#endif
+#endif // CONFIG_BT_CLASSIC_ENABLED
+#endif // CONFIG_IDF_TARGET_ESP32
 
 // BLE
 #ifdef CONFIG_BT_BLE_ENABLED
@@ -370,7 +370,8 @@
 #include "esp_l2cap_bt_api.h"
 #endif
 #endif
-#endif
+#endif // CONFIG_BT_BLE_ENABLED
+#endif // CONFIG_BT_BLUEDROID_ENABLED
 
 // Nimble APIs (BLE only)
 #ifdef CONFIG_BT_NIMBLE_ENABLED
@@ -381,8 +382,8 @@
 #include "host/util/util.h"
 #include "services/gap/ble_svc_gap.h"
 #include "services/gatt/ble_svc_gatt.h"
-#endif
+#endif // CONFIG_BT_NIMBLE_ENABLED
 
-#endif
+#endif // CONFIG_BT_ENABLED
 
-#endif
+#endif // CONFIG_IDF_TARGET_ESP32S2
