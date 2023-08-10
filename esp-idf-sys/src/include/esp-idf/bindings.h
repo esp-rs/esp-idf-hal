@@ -339,8 +339,10 @@
 #include "esp_hf_client_api.h"
 #include "esp_hidd_api.h"
 #include "esp_hidh_api.h"
+#if ESP_IDF_VERSION_MAJOR > 4
 #include "esp_l2cap_bt_api.h"
 #include "esp_sdp_api.h"
+#endif
 #include "esp_spp_api.h"
 #endif
 
