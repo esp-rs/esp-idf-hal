@@ -564,12 +564,12 @@ impl<'d, Dir> I2sDriver<'d, Dir> {
         unsafe {
             esp!(i2s_new_channel(
                 config,
-                if rx {
+                if tx {
                     &mut tx_handle as _
                 } else {
                     core::ptr::null_mut()
                 },
-                if tx {
+                if rx {
                     &mut rx_handle as _
                 } else {
                     core::ptr::null_mut()
