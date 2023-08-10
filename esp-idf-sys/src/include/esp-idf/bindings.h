@@ -321,31 +321,58 @@
 // since by default neither of the BT stacks is enabled.
 #ifdef CONFIG_BT_ENABLED
 #include "esp_bt.h"
-#endif
 
+// Bluedroid APIs (Classic BT & BLE)
 #ifdef CONFIG_BT_BLUEDROID_ENABLED
-#include "esp_a2dp_api.h"
-#include "esp_avrc_api.h"
+// Generic
 #include "esp_bt_defs.h"
 #include "esp_bt_device.h"
 #include "esp_bt_main.h"
-#include "esp_gap_ble_api.h"
+
+// Classic BT
+#ifdef CONFIG_IDF_TARGET_ESP32 // Only the original ESP32 MCU supports Classic BT
+#ifdef CONFIG_BT_CLASSIC_ENABLED
+#ifdef CONFIG_BT_A2DP_ENABLE
+#include "esp_a2dp_api.h"
+#include "esp_avrc_api.h"
+#endif
 #include "esp_gap_bt_api.h"
-#include "esp_gatt_defs.h"
-#include "esp_gatt_common_api.h"
-#include "esp_gattc_api.h"
-#include "esp_gatts_api.h"
+#ifdef CONFIG_BT_HFP_ENABLE
 #include "esp_hf_ag_api.h"
 #include "esp_hf_client_api.h"
+#endif
+#ifdef CONFIG_BT_HID_ENABLED
 #include "esp_hidd_api.h"
+#endif
 #include "esp_hidh_api.h"
 #if ESP_IDF_VERSION_MAJOR > 4
-#include "esp_l2cap_bt_api.h"
 #include "esp_sdp_api.h"
 #endif
+#ifdef CONFIG_BT_SPP_ENABLED
 #include "esp_spp_api.h"
 #endif
+#endif
+#endif
 
+// BLE
+#ifdef CONFIG_BT_BLE_ENABLED
+#include "esp_gap_ble_api.h"
+#include "esp_gatt_defs.h"
+#include "esp_gatt_common_api.h"
+#ifdef CONFIG_BT_GATTC_ENABLE
+#include "esp_gattc_api.h"
+#endif
+#ifdef CONFIG_BT_GATTS_ENABLE
+#include "esp_gatts_api.h"
+#endif
+#if ESP_IDF_VERSION_MAJOR > 4
+#ifdef CONFIG_BT_L2CAP_ENABLED
+#include "esp_l2cap_bt_api.h"
+#endif
+#endif
+#endif
+
+// Nimble APIs (BLE only)
 #ifdef CONFIG_BT_NIMBLE_ENABLED
 #include "esp_nimble_hci.h"
 #include "nimble/nimble_port.h"
@@ -354,6 +381,8 @@
 #include "host/util/util.h"
 #include "services/gap/ble_svc_gap.h"
 #include "services/gatt/ble_svc_gatt.h"
+#endif
+
 #endif
 
 #endif
