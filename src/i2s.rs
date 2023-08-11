@@ -455,8 +455,8 @@ pub mod config {
         #[inline(always)]
         pub(super) fn as_sdk(&self) -> i2s_slot_mode_t {
             match self {
-                Self::Mono => 0,
-                Self::Stereo => 1,
+                Self::Mono => 1,
+                Self::Stereo => 2,
             }
         }
     }
