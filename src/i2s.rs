@@ -1032,6 +1032,19 @@ where
         }
     }
 
+    /// Write all data to the channel asynchronously.
+    ///
+    /// This may be called only when the channel is in the `RUNNING` state.
+    pub async fn write_all_async(&mut self, data: &[u8]) -> Result<(), EspError> {
+        let mut offset = 0;
+
+        while offset < data.len() {
+            offset += self.write_async(&data[offset..]).await?;
+        }
+
+        Ok(())
+    }
+
     /// Write data to the channel.
     ///
     /// This may be called only when the channel is in the `RUNNING` state.
@@ -1086,6 +1099,19 @@ where
                 bytes_written,
             )
         }
+    }
+
+    /// Write all data to the channel.
+    ///
+    /// This may be called only when the channel is in the `RUNNING` state.
+    pub fn write_all(&mut self, data: &[u8], timeout: TickType_t) -> Result<(), EspError> {
+        let mut offset = 0;
+
+        while offset < data.len() {
+            offset += self.write(&data[offset..], timeout)?;
+        }
+
+        Ok(())
     }
 }
 
