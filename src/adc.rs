@@ -626,9 +626,9 @@ pub mod continuous {
         impl Config {
             pub const fn new() -> Self {
                 Self {
-                    sample_freq: Hertz(1000),
-                    frame_measurements: 1,
-                    frames_count: 16,
+                    sample_freq: Hertz(20000),
+                    frame_measurements: 512,
+                    frames_count: 5,
                 }
             }
 
@@ -789,7 +789,7 @@ pub mod continuous {
                 adc_continuous_read(
                     self.handle,
                     buf.as_mut_ptr() as *mut _,
-                    core::mem::size_of_val(buf) as _,
+                    (buf.len() * core::mem::size_of::<AdcMeasurement>()) as _,
                     &mut read,
                     TickType(timeout).as_millis_u32(),
                 )
