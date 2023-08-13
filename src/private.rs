@@ -197,60 +197,39 @@ pub mod notification {
 }
 
 pub mod completion {
-    use core::{
-        future::Future,
-        pin::Pin,
-        task::{Context, Poll},
-    };
+    use core::future::Future;
 
-    pub struct Completion<F, D>
-    where
-        D: FnMut(bool),
-    {
-        fut: F,
-        destr: D,
-        completed: bool,
-    }
-
-    impl<F, D> Completion<F, D>
-    where
-        D: FnMut(bool),
-    {
-        pub const fn new(fut: F, destr: D) -> Self {
-            Self {
-                fut,
-                destr,
-                completed: false,
-            }
-        }
-    }
-
-    impl<F, D> Future for Completion<F, D>
+    pub async fn with_completion<F, D>(fut: F, dtor: D) -> F::Output
     where
         F: Future,
         D: FnMut(bool),
     {
-        type Output = F::Output;
-
-        fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-            let this = unsafe { self.get_unchecked_mut() };
-
-            let fut = unsafe { Pin::new_unchecked(&mut this.fut) };
-
-            let poll = fut.poll(cx);
-
-            this.completed |= matches!(&poll, Poll::Ready(_));
-
-            poll
+        struct Completion<D>
+        where
+            D: FnMut(bool),
+        {
+            dtor: D,
+            completed: bool,
         }
-    }
 
-    impl<F, D> Drop for Completion<F, D>
-    where
-        D: FnMut(bool),
-    {
-        fn drop(&mut self) {
-            (self.destr)(self.completed);
+        impl<D> Drop for Completion<D>
+        where
+            D: FnMut(bool),
+        {
+            fn drop(&mut self) {
+                (self.dtor)(self.completed);
+            }
         }
+
+        let mut completion = Completion {
+            dtor,
+            completed: false,
+        };
+
+        let result = fut.await;
+
+        completion.completed = true;
+
+        result
     }
 }

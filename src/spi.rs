@@ -52,7 +52,7 @@ use crate::delay::{self, Ets, BLOCK};
 use crate::gpio::{AnyOutputPin, InputPin, Level, Output, OutputMode, OutputPin, PinDriver};
 use crate::interrupt::IntrFlags;
 use crate::peripheral::Peripheral;
-use crate::private::completion::Completion;
+use crate::private::completion::with_completion;
 use crate::private::notification::Notification;
 use crate::task::embassy_sync::EspRawMutex;
 use crate::task::CriticalSection;
@@ -1682,7 +1682,7 @@ async fn spi_transmit_async(
         other => other,
     }?;
 
-    Completion::new(
+    with_completion(
         async {
             notification.wait().await;
 
