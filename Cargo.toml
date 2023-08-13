@@ -23,7 +23,7 @@ alloc = []
 esp-idf-sys = ["dep:esp-idf-sys", "atomic-waker"]
 riscv-ulp-hal = []
 nightly = ["embedded-hal-async"]
-embassy-sync = [] # Only for backawrds compatibility
+embassy-sync = [] # Only for backwards compatibility
 
 [dependencies]
 nb = "1.0.0"
