@@ -1711,7 +1711,7 @@ async fn spi_transmit_async(
     .await
 }
 
-unsafe extern "C" fn spi_notify(transaction: *mut spi_transaction_t) {
+extern "C" fn spi_notify(transaction: *mut spi_transaction_t) {
     if let Some(transaction) = unsafe { transaction.as_ref() } {
         if let Some(notification) =
             unsafe { (transaction.user as *mut Notification as *const Notification).as_ref() }
