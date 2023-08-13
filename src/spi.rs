@@ -1677,26 +1677,20 @@ async fn spi_transmit_async(
 
     transaction.user = ptr::addr_of!(notification) as *mut _;
 
-    loop {
-        match esp!(unsafe {
-            spi_device_queue_trans(handle, transaction as *mut _, delay::NON_BLOCK)
-        }) {
-            Ok(_) => break,
-            Err(e) if e.code() != ESP_ERR_TIMEOUT => return Err(e),
-            _ => notification.wait().await,
-        }
-    }
+    match esp!(unsafe { spi_device_queue_trans(handle, transaction as *mut _, delay::NON_BLOCK) }) {
+        Err(e) if e.code() == ESP_ERR_TIMEOUT => unreachable!(),
+        other => other,
+    }?;
 
     Completion::new(
         async {
-            loop {
-                match esp!(unsafe {
-                    spi_device_get_trans_result(handle, core::ptr::null_mut(), delay::NON_BLOCK)
-                }) {
-                    Ok(_) => break Ok(()),
-                    Err(e) if e.code() != ESP_ERR_TIMEOUT => break Err(e),
-                    _ => notification.wait().await,
-                }
+            notification.wait().await;
+
+            match esp!(unsafe {
+                spi_device_get_trans_result(handle, core::ptr::null_mut(), delay::NON_BLOCK)
+            }) {
+                Err(e) if e.code() == ESP_ERR_TIMEOUT => unreachable!(),
+                other => other,
             }
         },
         |completed| {
