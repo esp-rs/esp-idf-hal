@@ -16,20 +16,41 @@ pub use general_purpose::Delay;
 pub const BLOCK: TickType_t = TickType_t::MAX;
 
 #[allow(non_upper_case_globals)]
-pub const NON_BLOCK: TickType_t = TickType_t::MIN;
+pub const NON_BLOCK: TickType_t = 0;
 
 #[allow(non_upper_case_globals)]
 pub const TICK_PERIOD_MS: u32 = 1000 / configTICK_RATE_HZ;
 
+#[repr(transparent)]
 pub struct TickType(pub TickType_t);
 
 impl TickType {
+    pub const fn new(ticks: TickType_t) -> Self {
+        Self(ticks)
+    }
+
+    pub const fn ticks(&self) -> TickType_t {
+        self.0
+    }
+
     pub fn as_millis(&self) -> u64 {
         self.0 as u64 * TICK_PERIOD_MS as u64
     }
 
     pub fn as_millis_u32(&self) -> u32 {
         max(self.as_millis(), u32::MAX as _) as _
+    }
+}
+
+impl From<TickType_t> for TickType {
+    fn from(value: TickType_t) -> Self {
+        Self::new(value)
+    }
+}
+
+impl From<TickType> for TickType_t {
+    fn from(value: TickType) -> Self {
+        value.ticks()
     }
 }
 
