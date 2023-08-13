@@ -1455,7 +1455,7 @@ unsafe fn reset_pin(_pin: i32, _mode: gpio_mode_t) -> Result<(), EspError> {
 unsafe fn unsubscribe_pin(pin: i32) -> Result<(), EspError> {
     use core::sync::atomic::Ordering;
 
-    //enable_isr_service()?;
+    enable_isr_service()?;
 
     esp!(gpio_intr_disable(pin))?;
     esp!(gpio_set_intr_type(pin, gpio_int_type_t_GPIO_INTR_DISABLE))?;
