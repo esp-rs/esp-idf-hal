@@ -4,7 +4,7 @@
 //! use [`Delay`]. Otherwise use [`Ets`] for delays <10ms and
 //! [`FreeRtos`] for delays >=10ms.
 
-use core::{cmp::max, time::Duration};
+use core::{cmp::min, time::Duration};
 
 use esp_idf_sys::*;
 
@@ -38,7 +38,7 @@ impl TickType {
     }
 
     pub fn as_millis_u32(&self) -> u32 {
-        max(self.as_millis(), u32::MAX as _) as _
+        min(self.as_millis(), u32::MAX as _) as _
     }
 }
 
