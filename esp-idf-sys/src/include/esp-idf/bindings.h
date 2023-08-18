@@ -14,6 +14,7 @@
 #include "esp_interface.h"
 #include "esp_ipc.h"
 #include "esp_mac.h"
+#include "esp_freertos_hooks.h"
 
 #include "freertos/task_snapshot.h"
 
