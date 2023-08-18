@@ -582,12 +582,38 @@ pub mod continuous {
             Self::INIT
         }
 
+        #[cfg(any(esp32, esp32s2))]
+        pub fn data(&self) -> u16 {
+            unsafe { self.0.__bindgen_anon_1.type1.data() as _ }
+        }
+
+        #[cfg(any(esp32, esp32s2))]
+        pub fn channel(&self) -> adc_channel_t {
+            unsafe { self.0.__bindgen_anon_1.type1.channel() as _ }
+        }
+
+        #[cfg(not(any(esp32, esp32s2)))]
         pub fn data(&self) -> u16 {
             unsafe { self.0.__bindgen_anon_1.type2.data() as _ }
         }
 
+        #[cfg(not(any(esp32, esp32s2)))]
         pub fn channel(&self) -> adc_channel_t {
             unsafe { self.0.__bindgen_anon_1.type2.channel() as _ }
+        }
+
+        pub fn nullify_channel(&mut self) {
+            unsafe {
+                self.0.__bindgen_anon_1.type2.set_channel(0);
+            }
+        }
+
+        pub fn as_pcm<'a>(data: &'a mut [AdcMeasurement]) -> &'a [u8] {
+            for measurement in data.iter_mut() {
+                measurement.nullify_channel();
+            }
+
+            unsafe { core::slice::from_raw_parts(data.as_ptr() as *const _, data.len() * 2) }
         }
     }
 
