@@ -224,7 +224,9 @@ pub fn build() -> Result<EspIdfBuildOutput> {
             repo_url: Some(DEFAULT_ESP_IDF_REPOSITORY.into()),
         });
 
-        let linker_install_dir = InstallDir::try_from(None)?;
+        // Get the install dir location from the build config, or use
+        // [`crate::config::DEFAULT_TOOLS_INSTALL_DIR`] if unset.
+        let (linker_install_dir, _) = config.esp_idf_tools_install_dir()?;
 
         let installer = espidf::Installer::new(linker_origin)
             .install_dir(linker_install_dir.path().map(Into::into))
