@@ -1035,6 +1035,7 @@ where
     /// Write all data to the channel asynchronously.
     ///
     /// This may be called only when the channel is in the `RUNNING` state.
+    #[cfg(not(esp_idf_version_major = "4"))]
     pub async fn write_all_async(&mut self, data: &[u8]) -> Result<(), EspError> {
         let mut offset = 0;
 
