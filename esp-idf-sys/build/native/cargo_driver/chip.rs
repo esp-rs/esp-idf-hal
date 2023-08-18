@@ -53,6 +53,10 @@ impl Chip {
         Ok(chips)
     }
 
+    pub fn is_xtensa(&self) -> bool {
+        matches!(self, Self::ESP32 | Self::ESP32S2 | Self::ESP32S3)
+    }
+
     /// The name of the gcc toolchain (to compile the `esp-idf`) for `idf_tools.py`.
     pub fn gcc_toolchain(&self) -> &'static str {
         match self {
