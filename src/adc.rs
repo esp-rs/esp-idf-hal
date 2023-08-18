@@ -668,13 +668,24 @@ pub mod continuous {
         #[cfg(esp32)]
         pub fn new(
             adc: impl Peripheral<P = super::ADC1> + 'd,
+            _i2s: impl Peripheral<P = crate::i2s::I2S0> + 'd,
             config: &config::Config,
             channels: impl AdcChannels<Adc = super::ADC1> + 'd,
         ) -> Result<Self, EspError> {
             Self::internal_new(adc, config, channels)
         }
 
-        #[cfg(not(esp32))]
+        #[cfg(esp32s2)]
+        pub fn new(
+            adc: impl Peripheral<P = super::ADC1> + 'd,
+            _spi: impl Peripheral<P = crate::spi::SPI3> + 'd,
+            config: &config::Config,
+            channels: impl AdcChannels<Adc = super::ADC1> + 'd,
+        ) -> Result<Self, EspError> {
+            Self::internal_new(adc, config, channels)
+        }
+
+        #[cfg(not(any(esp32, esp32s2)))]
         pub fn new<A: Adc>(
             adc: impl Peripheral<P = A> + 'd,
             config: &config::Config,
