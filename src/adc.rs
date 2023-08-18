@@ -602,15 +602,30 @@ pub mod continuous {
             unsafe { self.0.__bindgen_anon_1.type2.channel() as _ }
         }
 
-        pub fn nullify_channel(&mut self) {
+        #[cfg(not(any(esp32, esp32s2)))]
+        pub fn unit(&self) -> adc_unit_t {
+            unsafe { self.0.__bindgen_anon_1.type2.unit() as _ }
+        }
+
+        #[cfg(any(esp32, esp32s2))]
+        pub fn nullify(&mut self) {
             unsafe {
-                self.0.__bindgen_anon_1.type2.set_channel(0);
+                self.0.__bindgen_anon_1.type1.set_channel(0);
             }
         }
 
-        pub fn as_pcm<'a>(data: &'a mut [AdcMeasurement]) -> &'a [u8] {
+        #[cfg(not(any(esp32, esp32s2)))]
+        pub fn nullify(&mut self) {
+            unsafe {
+                self.0.__bindgen_anon_1.type2.set_channel(0);
+                self.0.__bindgen_anon_1.type2.set_type(0);
+            }
+        }
+
+        #[cfg(any(esp32, esp32s2))]
+        pub fn as_pcm16(data: &mut [AdcMeasurement]) -> &[u8] {
             for measurement in data.iter_mut() {
-                measurement.nullify_channel();
+                measurement.nullify();
             }
 
             unsafe { core::slice::from_raw_parts(data.as_ptr() as *const _, data.len() * 2) }
@@ -826,7 +841,7 @@ pub mod continuous {
                 adc_continuous_read(
                     self.handle,
                     buf.as_mut_ptr() as *mut _,
-                    (buf.len() * core::mem::size_of::<AdcMeasurement>()) as _,
+                    core::mem::size_of_val(buf) as _,
                     &mut read,
                     TickType(timeout).as_millis_u32(),
                 )
