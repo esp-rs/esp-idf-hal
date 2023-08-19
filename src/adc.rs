@@ -640,12 +640,21 @@ pub mod continuous {
         }
 
         #[cfg(any(esp32, esp32s2))]
-        pub fn as_pcm16(data: &mut [AdcMeasurement]) -> &[u16] {
+        pub fn as_pcm16(data: &mut [AdcMeasurement]) -> &mut [u16] {
             for measurement in data.iter_mut() {
                 measurement.nullify();
             }
 
-            unsafe { core::slice::from_raw_parts(data.as_ptr() as *const _, data.len()) }
+            unsafe { core::slice::from_raw_parts_mut(data.as_mut_ptr() as *mut _, data.len()) }
+        }
+
+        #[cfg(not(any(esp32, esp32s2)))]
+        pub fn as_pcm32(data: &mut [AdcMeasurement]) -> &mut [u32] {
+            for measurement in data.iter_mut() {
+                measurement.nullify();
+            }
+
+            unsafe { core::slice::from_raw_parts_mut(data.as_mut_ptr() as *mut _, data.len()) }
         }
     }
 
