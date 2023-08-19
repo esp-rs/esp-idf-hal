@@ -634,6 +634,8 @@ pub mod continuous {
             unsafe {
                 self.0.__bindgen_anon_1.type2.set_channel(0);
                 self.0.__bindgen_anon_1.type2.set_unit(0);
+                self.0.__bindgen_anon_1.type2.set_reserved12(0);
+                self.0.__bindgen_anon_1.type2.reserved17_31(0);
             }
         }
 
