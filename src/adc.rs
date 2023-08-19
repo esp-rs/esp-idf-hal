@@ -635,7 +635,7 @@ pub mod continuous {
                 self.0.__bindgen_anon_1.type2.set_channel(0);
                 self.0.__bindgen_anon_1.type2.set_unit(0);
                 self.0.__bindgen_anon_1.type2.set_reserved12(0);
-                self.0.__bindgen_anon_1.type2.reserved17_31(0);
+                self.0.__bindgen_anon_1.type2.set_reserved17_31(0);
             }
         }
 
@@ -694,8 +694,8 @@ pub mod continuous {
             pub const fn new() -> Self {
                 Self {
                     sample_freq: Hertz(20000),
-                    frame_measurements: 512,
-                    frames_count: 5,
+                    frame_measurements: 100,
+                    frames_count: 10,
                 }
             }
 
