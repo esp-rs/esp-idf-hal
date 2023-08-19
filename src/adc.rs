@@ -526,13 +526,13 @@ pub mod continuous {
     pub struct EmptyAdcChannels<A>(PhantomData<A>);
 
     impl<A> EmptyAdcChannels<A> {
-        pub fn chain<O>(self, other: O) -> ChainedAdcChannels<Self, O>
+        pub fn chain<O>(other: O) -> ChainedAdcChannels<Self, O>
         where
             A: Adc,
             O: AdcChannels<Adc = A>,
         {
             ChainedAdcChannels {
-                first: self,
+                first: Self(PhantomData),
                 second: other,
             }
         }
@@ -556,6 +556,20 @@ pub mod continuous {
         second: S,
     }
 
+    impl<F, S> ChainedAdcChannels<F, S> {
+        pub fn chain<O>(self, other: O) -> ChainedAdcChannels<Self, O>
+        where
+            F: AdcChannels,
+            S: AdcChannels<Adc = F::Adc>,
+            O: AdcChannels<Adc = F::Adc>,
+        {
+            ChainedAdcChannels {
+                first: self,
+                second: other,
+            }
+        }
+    }
+
     impl<F, S> AdcChannels for ChainedAdcChannels<F, S>
     where
         F: AdcChannels,
@@ -570,6 +584,7 @@ pub mod continuous {
         }
     }
 
+    #[derive(Copy, Clone)]
     #[repr(transparent)]
     pub struct AdcMeasurement(adc_digi_output_data_t);
 
