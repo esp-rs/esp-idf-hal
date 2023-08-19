@@ -633,17 +633,17 @@ pub mod continuous {
         pub fn nullify(&mut self) {
             unsafe {
                 self.0.__bindgen_anon_1.type2.set_channel(0);
-                self.0.__bindgen_anon_1.type2.set_type(0);
+                self.0.__bindgen_anon_1.type2.set_unit(0);
             }
         }
 
         #[cfg(any(esp32, esp32s2))]
-        pub fn as_pcm16(data: &mut [AdcMeasurement]) -> &[u8] {
+        pub fn as_pcm16(data: &mut [AdcMeasurement]) -> &[u16] {
             for measurement in data.iter_mut() {
                 measurement.nullify();
             }
 
-            unsafe { core::slice::from_raw_parts(data.as_ptr() as *const _, data.len() * 2) }
+            unsafe { core::slice::from_raw_parts(data.as_ptr() as *const _, data.len()) }
         }
     }
 
