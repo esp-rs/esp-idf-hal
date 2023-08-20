@@ -233,6 +233,7 @@ impl<'d, ADC: Adc> AdcDriver<'d, ADC> {
         })
     }
 
+    #[inline(always)]
     pub fn read<const A: adc_atten_t, T>(
         &mut self,
         pin: &mut AdcChannelDriver<'_, A, T>,
@@ -243,41 +244,71 @@ impl<'d, ADC: Adc> AdcDriver<'d, ADC> {
         self.read_internal(ADC::unit(), pin.pin().adc_channel(), A)
     }
 
+    #[inline(always)]
+    pub fn read_raw<const A: adc_atten_t, T>(
+        &mut self,
+        pin: &mut AdcChannelDriver<'_, A, T>,
+    ) -> Result<u16, EspError>
+    where
+        T: ADCPin,
+    {
+        self.read_internal_raw(ADC::unit(), pin.pin().adc_channel())
+    }
+
+    #[inline(always)]
     #[cfg(all(esp32, esp_idf_version_major = "4"))]
     pub fn read_hall(
         &mut self,
         _hall_sensor: &mut crate::hall::HallSensor,
     ) -> Result<u16, EspError> {
-        let measurement = unsafe { hall_sensor_read() };
+        let measurement = self.read_hall_raw();
 
         self.raw_to_voltage(measurement, adc_atten_t_ADC_ATTEN_DB_0)
     }
 
+    #[inline(always)]
+    #[cfg(all(esp32, esp_idf_version_major = "4"))]
+    pub fn read_hall_raw(&mut self, _hall_sensor: &mut crate::hall::HallSensor) -> u16 {
+        unsafe { hall_sensor_read() }
+    }
+
+    #[inline(always)]
     fn read_internal(
         &mut self,
         unit: adc_unit_t,
         channel: adc_channel_t,
         atten: adc_atten_t,
     ) -> Result<u16, EspError> {
-        #[allow(unused_assignments)]
-        let mut measurement = 0_i32;
-
-        if unit == adc_unit_t_ADC_UNIT_1 {
-            measurement = unsafe { adc1_get_raw(channel) };
-        } else {
-            #[cfg(not(any(esp32c2, esp32h2, esp32c5, esp32c6, esp32p4)))]
-            esp!(unsafe { adc2_get_raw(channel, self.resolution.into(), &mut measurement) })?;
-
-            #[cfg(any(esp32c2, esp32h2, esp32c5, esp32c6, esp32p4))]
-            unreachable!();
-        };
-
+        let measurement = self.read_internal_raw(unit, channel)?;
         self.raw_to_voltage(measurement, atten)
     }
 
+    #[inline(always)]
+    fn read_internal_raw(
+        &mut self,
+        unit: adc_unit_t,
+        channel: adc_channel_t,
+    ) -> Result<u16, EspError> {
+        if unit == adc_unit_t_ADC_UNIT_1 {
+            Ok(unsafe { adc1_get_raw(channel) } as _)
+        } else {
+            #[cfg(not(any(esp32c2, esp32h2, esp32c5, esp32c6, esp32p4)))]
+            {
+                let mut measurement = 0;
+                esp!(unsafe { adc2_get_raw(channel, self.resolution.into(), &mut measurement) })?;
+
+                Ok(measurement as _)
+            }
+
+            #[cfg(any(esp32c2, esp32h2, esp32c5, esp32c6, esp32p4))]
+            unreachable!();
+        }
+    }
+
+    #[inline(always)]
     fn raw_to_voltage(
         &mut self,
-        measurement: core::ffi::c_int,
+        measurement: u16,
         attenuation: adc_atten_t,
     ) -> Result<u16, EspError> {
         #[cfg(all(
@@ -299,6 +330,7 @@ impl<'d, ADC: Adc> AdcDriver<'d, ADC> {
         Ok(mv)
     }
 
+    #[inline(always)]
     #[allow(non_upper_case_globals)]
     fn get_max_mv(attenuation: adc_atten_t) -> u32 {
         #[cfg(esp32)]
@@ -624,19 +656,12 @@ pub mod continuous {
 
         #[cfg(any(esp32, esp32s2))]
         pub fn nullify(&mut self) {
-            unsafe {
-                self.0.__bindgen_anon_1.type1.set_channel(0);
-            }
+            self.0.__bindgen_anon_1.val = self.data();
         }
 
         #[cfg(not(any(esp32, esp32s2)))]
         pub fn nullify(&mut self) {
-            unsafe {
-                self.0.__bindgen_anon_1.type2.set_channel(0);
-                self.0.__bindgen_anon_1.type2.set_unit(0);
-                self.0.__bindgen_anon_1.type2.set_reserved12(0);
-                self.0.__bindgen_anon_1.type2.set_reserved17_31(0);
-            }
+            self.0.__bindgen_anon_1.val = self.data();
         }
 
         #[cfg(any(esp32, esp32s2))]
