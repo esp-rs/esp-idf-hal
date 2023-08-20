@@ -631,6 +631,29 @@ impl<'d, Dir> I2sDriver<'d, Dir> {
     }
 
     #[cfg(not(esp_idf_version_major = "4"))]
+    fn unsubscribe_channel(&mut self, handle: i2s_chan_handle_t) -> Result<(), EspError> {
+        if !handle.is_null() {
+            let callbacks = i2s_event_callbacks_t {
+                on_recv: None,
+                on_recv_q_ovf: None,
+                on_sent: None,
+                on_send_q_ovf: None,
+            };
+
+            // Safety: chan_handle is a valid pointer to an i2s_chan_handle_t and callbacks is initialized.
+            esp!(unsafe {
+                i2s_channel_register_event_callback(
+                    handle,
+                    &callbacks,
+                    self.port as u32 as *mut core::ffi::c_void,
+                )
+            })?;
+        }
+
+        Ok(())
+    }
+
+    #[cfg(not(esp_idf_version_major = "4"))]
     fn del_channel(&mut self, handle: i2s_chan_handle_t) -> Result<(), EspError> {
         if !handle.is_null() {
             let callbacks = i2s_event_callbacks_t {
@@ -1118,14 +1141,34 @@ where
 
 impl<'d, Dir> Drop for I2sDriver<'d, Dir> {
     fn drop(&mut self) {
-        #[cfg(not(esp_idf_version_major = "4"))]
+        #[cfg(esp_idf_version_major = "4")]
         {
-            self.del_channel(self.rx_handle).unwrap();
-            self.del_channel(self.tx_handle).unwrap();
+            let _ = unsafe { esp!(i2s_stop(self.port as _)) };
+
+            esp!(unsafe { i2s_driver_uninstall(self.port as _) }).unwrap();
         }
 
-        #[cfg(esp_idf_version_major = "4")]
-        esp!(unsafe { i2s_driver_uninstall(self.port as _) }).unwrap();
+        #[cfg(not(esp_idf_version_major = "4"))]
+        {
+            if !self.rx_handle.is_null() {
+                let _ = unsafe { esp!(i2s_channel_disable(self.rx_handle)) };
+            }
+
+            if !self.tx_handle.is_null() {
+                let _ = unsafe { esp!(i2s_channel_disable(self.tx_handle)) };
+            }
+
+            self.unsubscribe_channel(self.rx_handle).unwrap();
+            self.unsubscribe_channel(self.tx_handle).unwrap();
+
+            if !self.rx_handle.is_null() {
+                self.del_channel(self.rx_handle).unwrap();
+            }
+
+            if !self.tx_handle.is_null() {
+                self.del_channel(self.tx_handle).unwrap();
+            }
+        }
     }
 }
 
