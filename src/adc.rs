@@ -259,9 +259,9 @@ impl<'d, ADC: Adc> AdcDriver<'d, ADC> {
     #[cfg(all(esp32, esp_idf_version_major = "4"))]
     pub fn read_hall(
         &mut self,
-        _hall_sensor: &mut crate::hall::HallSensor,
+        hall_sensor: &mut crate::hall::HallSensor,
     ) -> Result<u16, EspError> {
-        let measurement = self.read_hall_raw();
+        let measurement = self.read_hall_raw(hall_sensor);
 
         self.raw_to_voltage(measurement, adc_atten_t_ADC_ATTEN_DB_0)
     }
@@ -269,7 +269,7 @@ impl<'d, ADC: Adc> AdcDriver<'d, ADC> {
     #[inline(always)]
     #[cfg(all(esp32, esp_idf_version_major = "4"))]
     pub fn read_hall_raw(&mut self, _hall_sensor: &mut crate::hall::HallSensor) -> u16 {
-        unsafe { hall_sensor_read() }
+        unsafe { hall_sensor_read() as u16 }
     }
 
     #[inline(always)]
@@ -661,7 +661,7 @@ pub mod continuous {
 
         #[cfg(not(any(esp32, esp32s2)))]
         pub fn nullify(&mut self) {
-            self.0.__bindgen_anon_1.val = self.data();
+            self.0.__bindgen_anon_1.val = self.data() as _;
         }
 
         #[cfg(any(esp32, esp32s2))]
