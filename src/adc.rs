@@ -806,6 +806,7 @@ pub mod continuous {
 
             let mut handle: adc_continuous_handle_t = core::ptr::null_mut();
 
+            #[allow(clippy::needless_update)]
             esp!(unsafe {
                 adc_continuous_new_handle(
                     &adc_continuous_handle_cfg_t {
@@ -814,6 +815,7 @@ pub mod continuous {
                             * (config.frames_count as u32),
                         conv_frame_size: SOC_ADC_DIGI_DATA_BYTES_PER_CONV
                             * (config.frame_measurements as u32),
+                        ..Default::default()
                     },
                     &mut handle,
                 )

@@ -229,6 +229,7 @@ pub(super) mod config {
 
         /// Convert to the ESP-IDF SDK `i2s_tdm_clk_config_t` representation.
         #[cfg(all(esp_idf_version_major = "5", not(esp_idf_version_minor = "0")))]
+        #[allow(clippy::needless_update)]
         #[inline(always)]
         pub(crate) fn as_sdk(&self) -> i2s_tdm_clk_config_t {
             i2s_tdm_clk_config_t {
@@ -236,6 +237,7 @@ pub(super) mod config {
                 clk_src: self.clk_src.as_sdk(),
                 mclk_multiple: self.mclk_multiple.as_sdk(),
                 bclk_div: self.bclk_div,
+                ..Default::default()
             }
         }
     }

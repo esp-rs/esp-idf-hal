@@ -209,12 +209,14 @@ pub(super) mod config {
 
         /// Convert to the ESP-IDF SDK `i2s_std_clk_config_t` representation.
         #[cfg(not(esp_idf_version_major = "4"))]
+        #[allow(clippy::needless_update)]
         #[inline(always)]
         pub(crate) fn as_sdk(&self) -> i2s_std_clk_config_t {
             i2s_std_clk_config_t {
                 sample_rate_hz: self.sample_rate_hz,
                 clk_src: self.clk_src.as_sdk(),
                 mclk_multiple: self.mclk_multiple.as_sdk(),
+                ..Default::default()
             }
         }
     }
