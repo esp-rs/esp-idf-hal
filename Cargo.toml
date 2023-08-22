@@ -10,6 +10,8 @@ description = "A Hardware abstraction layer for Espressif's ESP family of microc
 repository = "https://github.com/esp-rs/esp-idf-hal"
 license = "MIT OR Apache-2.0"
 readme = "README.md"
+links = "esp_idf_hal"
+build = "build.rs"
 documentation = "https://esp-rs.github.io/esp-idf-hal/"
 rust-version = "1.66"
 
@@ -17,17 +19,21 @@ rust-version = "1.66"
 esp-idf-sys = { git = "https://github.com/esp-rs/esp-idf-sys" }
 
 [features]
-default = ["std", "alloc"]
+default = ["std", "native", "binstart"]
 std = ["alloc", "esp-idf-sys/std", "edge-executor?/std"]
 alloc = []
 nightly = ["embedded-hal-async"]
+esp-idf-sys = ["dep:esp-idf-sys", "atomic-waker"]
+riscv-ulp-hal = []
+embassy-sync = [] # Only for backwards compatibility
+
+# Propagated esp-idf-sys features
+native = ["esp-idf-sys/native"]
+pio = ["esp-idf-sys/pio"]
 alloc_handler = ["esp-idf-sys/alloc_handler"]
 panic_handler = ["esp-idf-sys/panic_handler"]
 binstart = ["esp-idf-sys/binstart"]
 libstart = ["esp-idf-sys/libstart"]
-esp-idf-sys = ["dep:esp-idf-sys", "atomic-waker"]
-riscv-ulp-hal = []
-embassy-sync = [] # Only for backwards compatibility
 
 [dependencies]
 nb = "1.0.0"
@@ -45,8 +51,7 @@ embedded-hal-async = { version = "0.2.0-alpha.1", optional = true }
 atomic-waker = { version = "1.1.1", optional = true, default-features = false }
 
 [build-dependencies]
-embuild = "0.31.2"
-anyhow = "1"
+embuild = "0.31.3"
 
 [dev-dependencies]
 anyhow = "1"
