@@ -285,3 +285,12 @@ impl Peripherals {
         }
     }
 }
+
+impl Drop for Peripherals {
+    fn drop(&mut self)  {
+        #[cfg(feature = "riscv-ulp-hal")]
+        unsafe { TAKEN = false; }
+        #[cfg(not(feature = "riscv-ulp-hal"))]
+        TAKEN.store(true, core::sync::atomic::Ordering::SeqCst);
+    }
+}
