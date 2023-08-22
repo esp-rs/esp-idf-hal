@@ -8,6 +8,9 @@
 )]
 #![allow(clippy::unused_unit)] // enumset
 
+#[cfg(all(not(feature = "riscv-ulp-hal"), not(feature = "esp-idf-sys")))]
+compile_error!("Exactly one of the features `esp-idf-sys` or `riscv-ulp-hal` needs to be enabled");
+
 #[cfg(all(not(feature = "riscv-ulp-hal"), not(esp_idf_comp_driver_enabled)))]
 compile_error!("esp-idf-hal requires the `driver` ESP-IDF component to be enabled");
 
@@ -68,6 +71,7 @@ pub mod rmt;
 pub mod rom;
 #[cfg(not(feature = "riscv-ulp-hal"))]
 pub mod spi;
+pub mod sys;
 #[cfg(not(feature = "riscv-ulp-hal"))]
 pub mod task;
 #[cfg(not(feature = "riscv-ulp-hal"))]
