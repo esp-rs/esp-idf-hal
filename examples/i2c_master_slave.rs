@@ -12,6 +12,7 @@
 //! 2. Simple master read, master read 8 bytes and print out.
 //! 3. Read/write register, write a value to a register addr and read it back.
 //!
+#![allow(unused)]
 
 use esp_idf_hal::delay::BLOCK;
 use esp_idf_hal::gpio::{AnyIOPin, InputPin, OutputPin};

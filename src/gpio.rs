@@ -2,11 +2,8 @@
 
 use core::marker::PhantomData;
 
-#[cfg(feature = "alloc")]
+#[cfg(all(not(feature = "riscv-ulp-hal"), feature = "alloc"))]
 extern crate alloc;
-
-#[cfg(feature = "alloc")]
-use alloc::boxed::Box;
 
 #[cfg(not(feature = "riscv-ulp-hal"))]
 use esp_idf_sys::*;
@@ -18,9 +15,6 @@ use crate::adc::Adc;
 use crate::peripheral::{Peripheral, PeripheralRef};
 
 pub use chip::*;
-
-#[cfg(all(not(feature = "riscv-ulp-hal"), feature = "alloc"))]
-use self::asynch::InputFuture;
 
 /// A trait implemented by every pin instance
 pub trait Pin: Peripheral<P = Self> + Sized + Send + 'static {
@@ -212,7 +206,7 @@ impl From<AnyIOPin> for AnyOutputPin {
 }
 
 /// Interrupt types
-#[cfg(all(not(feature = "riscv-ulp-hal"), feature = "alloc"))]
+#[cfg(not(feature = "riscv-ulp-hal"))]
 #[derive(Debug, Eq, PartialEq, Copy, Clone)]
 pub enum InterruptType {
     PosEdge,
@@ -222,7 +216,7 @@ pub enum InterruptType {
     HighLevel,
 }
 
-#[cfg(all(not(feature = "riscv-ulp-hal"), feature = "alloc"))]
+#[cfg(not(feature = "riscv-ulp-hal"))]
 impl From<InterruptType> for gpio_int_type_t {
     fn from(interrupt_type: InterruptType) -> gpio_int_type_t {
         match interrupt_type {
@@ -232,6 +226,15 @@ impl From<InterruptType> for gpio_int_type_t {
             InterruptType::LowLevel => gpio_int_type_t_GPIO_INTR_LOW_LEVEL,
             InterruptType::HighLevel => gpio_int_type_t_GPIO_INTR_HIGH_LEVEL,
         }
+    }
+}
+
+#[cfg(not(feature = "riscv-ulp-hal"))]
+impl From<InterruptType> for u8 {
+    fn from(interrupt_type: InterruptType) -> u8 {
+        let int_type: gpio_int_type_t = interrupt_type.into();
+
+        int_type as u8
     }
 }
 
@@ -1103,31 +1106,35 @@ impl<'d, T: Pin, MODE> PinDriver<'d, T, MODE> {
     where
         MODE: InputMode,
     {
-        enable_isr_service()?;
+        extern crate alloc;
 
         self.unsubscribe()?;
 
-        let callback: Box<dyn FnMut() + 'static> = Box::new(callback);
+        let callback: alloc::boxed::Box<dyn FnMut() + 'static> = alloc::boxed::Box::new(callback);
+        chip::PIN_ISR_HANDLER[self.pin.pin() as usize] = Some(alloc::boxed::Box::new(callback));
 
-        chip::ISR_HANDLERS[self.pin.pin() as usize] = Some(Box::new(callback));
+        self.internal_subscribe()
+    }
 
-        esp!(gpio_isr_handler_add(
-            self.pin.pin(),
-            Some(Self::handle_isr),
-            UnsafeCallback::from(
-                chip::ISR_HANDLERS[self.pin.pin() as usize]
-                    .as_mut()
-                    .unwrap(),
-            )
-            .as_ptr(),
-        ))?;
+    #[cfg(not(feature = "riscv-ulp-hal"))]
+    fn internal_subscribe(&mut self) -> Result<(), EspError>
+    where
+        MODE: InputMode,
+    {
+        enable_isr_service()?;
 
-        self.enable_interrupt()?;
+        unsafe {
+            esp!(gpio_isr_handler_add(
+                self.pin.pin(),
+                Some(Self::handle_isr),
+                self.pin.pin() as u32 as *mut core::ffi::c_void,
+            ))?;
+        }
 
         Ok(())
     }
 
-    #[cfg(all(not(feature = "riscv-ulp-hal"), feature = "alloc"))]
+    #[cfg(not(feature = "riscv-ulp-hal"))]
     pub fn unsubscribe(&mut self) -> Result<(), EspError>
     where
         MODE: InputMode,
@@ -1139,7 +1146,7 @@ impl<'d, T: Pin, MODE> PinDriver<'d, T, MODE> {
         Ok(())
     }
 
-    #[cfg(all(not(feature = "riscv-ulp-hal"), feature = "alloc"))]
+    #[cfg(not(feature = "riscv-ulp-hal"))]
     pub fn enable_interrupt(&mut self) -> Result<(), EspError>
     where
         MODE: InputMode,
@@ -1149,7 +1156,7 @@ impl<'d, T: Pin, MODE> PinDriver<'d, T, MODE> {
         Ok(())
     }
 
-    #[cfg(all(not(feature = "riscv-ulp-hal"), feature = "alloc"))]
+    #[cfg(not(feature = "riscv-ulp-hal"))]
     pub fn disable_interrupt(&mut self) -> Result<(), EspError>
     where
         MODE: InputMode,
@@ -1159,20 +1166,77 @@ impl<'d, T: Pin, MODE> PinDriver<'d, T, MODE> {
         Ok(())
     }
 
-    #[cfg(all(not(feature = "riscv-ulp-hal"), feature = "alloc"))]
+    #[cfg(not(feature = "riscv-ulp-hal"))]
     pub fn set_interrupt_type(&mut self, interrupt_type: InterruptType) -> Result<(), EspError>
     where
         MODE: InputMode,
     {
+        use core::sync::atomic::Ordering;
+
         esp!(unsafe { gpio_set_intr_type(self.pin.pin(), interrupt_type.into()) })?;
+        PIN_INTER[self.pin.pin() as usize].store(interrupt_type.into(), Ordering::SeqCst);
 
         Ok(())
     }
 
-    #[cfg(all(not(feature = "riscv-ulp-hal"), feature = "alloc"))]
-    unsafe extern "C" fn handle_isr(unsafe_callback: *mut core::ffi::c_void) {
-        let mut unsafe_callback = UnsafeCallback::from_ptr(unsafe_callback);
-        unsafe_callback.call();
+    #[cfg(not(feature = "riscv-ulp-hal"))]
+    unsafe extern "C" fn handle_isr(user_ctx: *mut core::ffi::c_void) {
+        let pin = user_ctx as u32;
+
+        PIN_NOTIF[pin as usize].notify();
+
+        #[cfg(feature = "alloc")]
+        {
+            if let Some(unsafe_callback) = unsafe { &mut PIN_ISR_HANDLER[pin as usize] } {
+                (unsafe_callback)();
+            }
+        }
+    }
+}
+
+#[cfg(not(feature = "riscv-ulp-hal"))]
+impl<T: Pin, MODE: InputMode> PinDriver<'_, T, MODE> {
+    pub async fn wait_for(
+        &mut self,
+        interrupt_type: InterruptType,
+        clean_state: bool,
+    ) -> Result<(), GpioError> {
+        use core::sync::atomic::Ordering;
+
+        if clean_state
+            || chip::PIN_INTER[self.pin.pin() as usize].load(Ordering::SeqCst)
+                != interrupt_type.into()
+        {
+            self.unsubscribe()?;
+
+            self.internal_subscribe()?;
+            self.set_interrupt_type(interrupt_type)?;
+            self.enable_interrupt()?;
+        }
+
+        chip::PIN_NOTIF[self.pin.pin() as usize].wait().await;
+
+        Ok(())
+    }
+
+    pub async fn wait_for_high(&mut self, clean_state: bool) -> Result<(), GpioError> {
+        self.wait_for(InterruptType::HighLevel, clean_state).await
+    }
+
+    pub async fn wait_for_low(&mut self, clean_state: bool) -> Result<(), GpioError> {
+        self.wait_for(InterruptType::LowLevel, clean_state).await
+    }
+
+    pub async fn wait_for_rising_edge(&mut self, clean_state: bool) -> Result<(), GpioError> {
+        self.wait_for(InterruptType::PosEdge, clean_state).await
+    }
+
+    pub async fn wait_for_falling_edge(&mut self, clean_state: bool) -> Result<(), GpioError> {
+        self.wait_for(InterruptType::NegEdge, clean_state).await
+    }
+
+    pub async fn wait_for_any_edge(&mut self, clean_state: bool) -> Result<(), GpioError> {
+        self.wait_for(InterruptType::AnyEdge, clean_state).await
     }
 }
 
@@ -1183,52 +1247,6 @@ impl<'d, T: Pin, MODE> Drop for PinDriver<'d, T, MODE> {
 }
 
 unsafe impl<'d, T: Pin, MODE> Send for PinDriver<'d, T, MODE> {}
-
-#[cfg(not(feature = "riscv-ulp-hal"))]
-pub(crate) unsafe fn rtc_reset_pin(pin: i32) -> Result<(), EspError> {
-    reset_pin(pin, gpio_mode_t_GPIO_MODE_DISABLE)?;
-
-    #[cfg(all(
-        not(feature = "riscv-ulp-hal"),
-        not(any(esp32c3, esp32c2, esp32h2, esp32c5))
-    ))]
-    esp!(rtc_gpio_init(pin))?;
-
-    Ok(())
-}
-
-unsafe fn reset_pin(_pin: i32, _mode: gpio_mode_t) -> Result<(), EspError> {
-    #[cfg(not(feature = "riscv-ulp-hal"))]
-    let res = {
-        #[cfg(feature = "alloc")]
-        unsubscribe_pin(_pin)?;
-
-        esp!(gpio_reset_pin(_pin))?;
-        esp!(gpio_set_direction(_pin, _mode))?;
-
-        Ok(())
-    };
-
-    #[cfg(feature = "riscv-ulp-hal")]
-    let res = Ok(());
-
-    res
-}
-
-#[cfg(all(not(feature = "riscv-ulp-hal"), feature = "alloc"))]
-unsafe fn unsubscribe_pin(pin: i32) -> Result<(), EspError> {
-    let subscribed = chip::ISR_HANDLERS[pin as usize].is_some();
-
-    if subscribed {
-        esp!(gpio_intr_disable(pin))?;
-        esp!(gpio_set_intr_type(pin, gpio_int_type_t_GPIO_INTR_DISABLE))?;
-        esp!(gpio_isr_handler_remove(pin))?;
-
-        chip::ISR_HANDLERS[pin as usize] = None;
-    }
-
-    Ok(())
-}
 
 impl<'d, T: Pin, MODE> embedded_hal_0_2::digital::v2::InputPin for PinDriver<'d, T, MODE>
 where
@@ -1348,28 +1366,26 @@ where
     }
 }
 
-#[cfg(all(not(feature = "riscv-ulp-hal"), feature = "alloc"))]
-struct UnsafeCallback(*mut Box<dyn FnMut() + 'static>);
-
-#[cfg(all(not(feature = "riscv-ulp-hal"), feature = "alloc"))]
-impl UnsafeCallback {
-    #[allow(clippy::type_complexity)]
-    pub fn from(boxed: &mut Box<Box<dyn FnMut() + 'static>>) -> Self {
-        Self(boxed.as_mut())
+#[cfg(all(not(feature = "riscv-ulp-hal"), feature = "nightly"))]
+impl<T: Pin, MODE: InputMode> embedded_hal_async::digital::Wait for PinDriver<'_, T, MODE> {
+    async fn wait_for_high(&mut self) -> Result<(), GpioError> {
+        self.wait_for_high(false).await
     }
 
-    pub unsafe fn from_ptr(ptr: *mut core::ffi::c_void) -> Self {
-        Self(ptr.cast())
+    async fn wait_for_low(&mut self) -> Result<(), GpioError> {
+        self.wait_for_low(false).await
     }
 
-    pub fn as_ptr(&self) -> *mut core::ffi::c_void {
-        self.0.cast()
+    async fn wait_for_rising_edge(&mut self) -> Result<(), GpioError> {
+        self.wait_for_rising_edge(false).await
     }
 
-    pub unsafe fn call(&mut self) {
-        let reference = self.0.as_mut().unwrap();
+    async fn wait_for_falling_edge(&mut self) -> Result<(), GpioError> {
+        self.wait_for_falling_edge(false).await
+    }
 
-        (reference)();
+    async fn wait_for_any_edge(&mut self) -> Result<(), GpioError> {
+        self.wait_for_any_edge(false).await
     }
 }
 
@@ -1407,6 +1423,68 @@ pub fn enable_isr_service() -> Result<(), EspError> {
 
     Ok(())
 }
+
+#[cfg(not(feature = "riscv-ulp-hal"))]
+pub(crate) unsafe fn rtc_reset_pin(pin: i32) -> Result<(), EspError> {
+    reset_pin(pin, gpio_mode_t_GPIO_MODE_DISABLE)?;
+
+    #[cfg(not(any(esp32c3, esp32c2, esp32h2, esp32c5)))]
+    esp!(rtc_gpio_init(pin))?;
+
+    Ok(())
+}
+
+unsafe fn reset_pin(_pin: i32, _mode: gpio_mode_t) -> Result<(), EspError> {
+    #[cfg(not(feature = "riscv-ulp-hal"))]
+    let res = {
+        unsubscribe_pin(_pin)?;
+
+        esp!(gpio_reset_pin(_pin))?;
+        esp!(gpio_set_direction(_pin, _mode))?;
+
+        Ok(())
+    };
+
+    #[cfg(feature = "riscv-ulp-hal")]
+    let res = Ok(());
+
+    res
+}
+
+#[cfg(not(feature = "riscv-ulp-hal"))]
+unsafe fn unsubscribe_pin(pin: i32) -> Result<(), EspError> {
+    use core::sync::atomic::Ordering;
+
+    enable_isr_service()?;
+
+    esp!(gpio_intr_disable(pin))?;
+    esp!(gpio_set_intr_type(pin, gpio_int_type_t_GPIO_INTR_DISABLE))?;
+    esp!(gpio_isr_handler_remove(pin))?;
+
+    chip::PIN_INTER[pin as usize].store(gpio_int_type_t_GPIO_INTR_DISABLE as u8, Ordering::SeqCst);
+    chip::PIN_NOTIF[pin as usize].clear();
+
+    #[cfg(feature = "alloc")]
+    {
+        chip::PIN_ISR_HANDLER[pin as usize] = None;
+    }
+
+    Ok(())
+}
+
+#[cfg(all(not(feature = "riscv-ulp-hal"), feature = "alloc"))]
+#[allow(clippy::declare_interior_mutable_const)] // OK because this is only used as an array initializer
+const PIN_ISR_INIT: Option<alloc::boxed::Box<alloc::boxed::Box<dyn FnMut()>>> = None;
+
+#[cfg(not(feature = "riscv-ulp-hal"))]
+#[allow(clippy::declare_interior_mutable_const)] // OK because this is only used as an array initializer
+const PIN_INTER_INIT: core::sync::atomic::AtomicU8 =
+    core::sync::atomic::AtomicU8::new(gpio_int_type_t_GPIO_INTR_DISABLE as u8);
+
+#[cfg(not(feature = "riscv-ulp-hal"))]
+#[allow(clippy::declare_interior_mutable_const)] // OK because this is only used as an array initializer
+const PIN_NOTIF_INIT: crate::private::notification::Notification =
+    crate::private::notification::Notification::new();
 
 macro_rules! impl_input {
     ($pxi:ident: $pin:expr) => {
@@ -1539,195 +1617,41 @@ macro_rules! pin {
     };
 }
 
-#[cfg(all(not(feature = "riscv-ulp-hal"), feature = "alloc"))]
-impl<T: Pin, MODE: InputMode> PinDriver<'_, T, MODE> {
-    pub async fn wait_for_high(&mut self) -> Result<(), GpioError> {
-        InputFuture::new(self, InterruptType::HighLevel)?.await;
-        Ok(())
-    }
-
-    pub async fn wait_for_low(&mut self) -> Result<(), GpioError> {
-        InputFuture::new(self, InterruptType::LowLevel)?.await;
-        Ok(())
-    }
-
-    pub async fn wait_for_rising_edge(&mut self) -> Result<(), GpioError> {
-        InputFuture::new(self, InterruptType::PosEdge)?.await;
-        Ok(())
-    }
-
-    pub async fn wait_for_falling_edge(&mut self) -> Result<(), GpioError> {
-        InputFuture::new(self, InterruptType::NegEdge)?.await;
-        Ok(())
-    }
-
-    pub async fn wait_for_any_edge(&mut self) -> Result<(), GpioError> {
-        InputFuture::new(self, InterruptType::AnyEdge)?.await;
-        Ok(())
-    }
-}
-
-#[cfg(all(not(feature = "riscv-ulp-hal"), feature = "alloc"))]
-mod atomic_notification {
-    use core::sync::atomic::{AtomicBool, Ordering};
-    use core::task::{Context, Poll};
-
-    use atomic_waker::AtomicWaker;
-
-    pub struct Notification {
-        waker: AtomicWaker,
-        triggered: AtomicBool,
-    }
-
-    impl Notification {
-        pub const fn new() -> Self {
-            Self {
-                waker: AtomicWaker::new(),
-                triggered: AtomicBool::new(false),
-            }
-        }
-        pub fn notify(&self) {
-            self.triggered.store(true, Ordering::SeqCst);
-            self.waker.wake();
-        }
-        pub fn poll_wait(&self, cx: &Context<'_>) -> Poll<()> {
-            self.waker.register(cx.waker());
-
-            if self.triggered.swap(false, Ordering::SeqCst) {
-                Poll::Ready(())
-            } else {
-                Poll::Pending
-            }
-        }
-    }
-}
-
-#[cfg(all(not(feature = "riscv-ulp-hal"), feature = "alloc"))]
-mod asynch {
-    use super::*;
-    use core::future::Future;
-    extern crate alloc;
-    use esp_idf_sys::{esp_nofail, EspError};
-
-    use super::{atomic_notification::Notification, InputMode, InterruptType, Pin, PinDriver};
-
-    #[cfg(feature = "nightly")]
-    mod eha_wait_impl {
-        use super::*;
-        impl<T: Pin, MODE: InputMode> embedded_hal_async::digital::Wait for PinDriver<'_, T, MODE> {
-            async fn wait_for_high(&mut self) -> Result<(), GpioError> {
-                self.wait_for_high().await
-            }
-
-            async fn wait_for_low(&mut self) -> Result<(), GpioError> {
-                self.wait_for_low().await
-            }
-
-            async fn wait_for_rising_edge(&mut self) -> Result<(), GpioError> {
-                self.wait_for_rising_edge().await
-            }
-
-            async fn wait_for_falling_edge(&mut self) -> Result<(), GpioError> {
-                self.wait_for_falling_edge().await
-            }
-
-            async fn wait_for_any_edge(&mut self) -> Result<(), GpioError> {
-                self.wait_for_any_edge().await
-            }
-        }
-    }
-
-    pub(crate) struct InputFuture<'driver_ref, 'driver_struct, T: Pin, MODE: InputMode> {
-        // Unfortunately, the Wait trait uses functions that are given a mutable
-        // reference to the pin driver with no explicit lifetime parameter.  Since
-        // the reference has a different lifetime than the struct, we must make this
-        // explicit, or else the borrow checker will believe the reference must live
-        // forever.
-        driver: &'driver_ref mut PinDriver<'driver_struct, T, MODE>,
-    }
-
-    impl<'driver_ref, 'driver_struct, T: Pin, MODE: InputMode>
-        InputFuture<'driver_ref, 'driver_struct, T, MODE>
-    {
-        pub(crate) fn new(
-            driver: &'driver_ref mut PinDriver<'driver_struct, T, MODE>,
-            interrupt_type: InterruptType,
-        ) -> Result<Self, EspError> {
-            driver.unsubscribe()?;
-            driver.disable_interrupt()?;
-            driver.set_interrupt_type(interrupt_type)?;
-            let driver_pin = driver.pin();
-            unsafe {
-                PIN_NOTIFIERS[driver_pin as usize] = Some(Notification::new());
-            }
-            let res = Self { driver };
-
-            unsafe {
-                res.driver.subscribe(move || {
-                    if let Some(notifier) = &PIN_NOTIFIERS[driver_pin as usize] {
-                        notifier.notify();
-                    }
-                    // Disable interrupts on thet way out.
-                    esp_nofail!(gpio_intr_disable(driver_pin));
-                })?
-            };
-            Ok(res)
-        }
-    }
-    impl<T: Pin, MODE: InputMode> Drop for InputFuture<'_, '_, T, MODE> {
-        fn drop(&mut self) {
-            self.driver.unsubscribe().unwrap();
-            unsafe { PIN_NOTIFIERS[self.driver.pin() as usize] = None }
-        }
-    }
-    impl<T: Pin, MODE: InputMode> Unpin for InputFuture<'_, '_, T, MODE> {}
-    impl<T: Pin, MODE: InputMode> Future for InputFuture<'_, '_, T, MODE> {
-        type Output = ();
-
-        fn poll(
-            self: core::pin::Pin<&mut Self>,
-            cx: &mut core::task::Context<'_>,
-        ) -> core::task::Poll<Self::Output> {
-            unsafe {
-                if let Some(notifier) = &PIN_NOTIFIERS[self.driver.pin() as usize] {
-                    notifier.poll_wait(cx)
-                } else {
-                    unreachable!("We should have allocated a notifier");
-                }
-            }
-        }
-    }
-}
-
 #[cfg(esp32)]
 mod chip {
+    #[cfg(not(feature = "riscv-ulp-hal"))]
+    use core::sync::atomic::AtomicU8;
+
+    #[cfg(all(not(feature = "riscv-ulp-hal"), feature = "alloc"))]
+    extern crate alloc;
+
+    #[cfg(all(not(feature = "riscv-ulp-hal"), feature = "alloc"))]
+    use alloc::boxed::Box;
+
     #[cfg(not(feature = "riscv-ulp-hal"))]
     use esp_idf_sys::*;
 
     #[cfg(feature = "riscv-ulp-hal")]
     use crate::riscv_ulp_hal::sys::*;
 
+    #[cfg(not(feature = "riscv-ulp-hal"))]
+    use crate::private::notification::Notification;
+
     use crate::adc::{ADC1, ADC2};
 
     use super::*;
-    #[cfg(all(not(feature = "riscv-ulp-hal"), feature = "alloc"))]
-    use atomic_notification::Notification;
 
     #[allow(clippy::type_complexity)]
     #[cfg(all(not(feature = "riscv-ulp-hal"), feature = "alloc"))]
-    pub(crate) static mut ISR_HANDLERS: [Option<Box<Box<dyn FnMut()>>>; 40] = [
-        None, None, None, None, None, None, None, None, None, None, None, None, None, None, None,
-        None, None, None, None, None, None, None, None, None, None, None, None, None, None, None,
-        None, None, None, None, None, None, None, None, None, None,
-    ];
+    pub(crate) static mut PIN_ISR_HANDLER: [Option<Box<Box<dyn FnMut()>>>; 40] = [PIN_ISR_INIT; 40];
 
     #[allow(clippy::type_complexity)]
-    #[cfg(all(not(feature = "riscv-ulp-hal"), feature = "alloc"))]
-    pub(crate) static mut PIN_NOTIFIERS: [Option<Notification>; 40] = [
-        None, None, None, None, None, None, None, None, None, None, None, None, None, None, None,
-        None, None, None, None, None, None, None, None, None, None, None, None, None, None, None,
-        None, None, None, None, None, None, None, None, None, None,
-    ];
+    #[cfg(not(feature = "riscv-ulp-hal"))]
+    pub(crate) static PIN_INTER: [AtomicU8; 40] = [PIN_INTER_INIT; 40];
+
+    #[allow(clippy::type_complexity)]
+    #[cfg(not(feature = "riscv-ulp-hal"))]
+    pub(crate) static PIN_NOTIF: [Notification; 40] = [PIN_NOTIF_INIT; 40];
 
     // NOTE: Gpio26 - Gpio32 are used by SPI0/SPI1 for external PSRAM/SPI Flash and
     //       are not recommended for other uses
@@ -1900,31 +1824,38 @@ mod chip {
 #[cfg(any(esp32s2, esp32s3))] // TODO: Implement proper pin layout for esp32c6 and esp32p4
 mod chip {
     #[cfg(not(feature = "riscv-ulp-hal"))]
+    use core::sync::atomic::AtomicU8;
+
+    #[cfg(all(not(feature = "riscv-ulp-hal"), feature = "alloc"))]
+    extern crate alloc;
+
+    #[cfg(all(not(feature = "riscv-ulp-hal"), feature = "alloc"))]
+    use alloc::boxed::Box;
+
+    #[cfg(not(feature = "riscv-ulp-hal"))]
     use esp_idf_sys::*;
+
+    #[cfg(feature = "riscv-ulp-hal")]
+    use crate::riscv_ulp_hal::sys::*;
+
+    #[cfg(not(feature = "riscv-ulp-hal"))]
+    use crate::private::notification::Notification;
 
     use crate::adc::{ADC1, ADC2};
 
     use super::*;
-    #[cfg(all(not(feature = "riscv-ulp-hal"), feature = "alloc"))]
-    use atomic_notification::Notification;
 
     #[allow(clippy::type_complexity)]
     #[cfg(all(not(feature = "riscv-ulp-hal"), feature = "alloc"))]
-    pub(crate) static mut ISR_HANDLERS: [Option<Box<Box<dyn FnMut()>>>; 49] = [
-        None, None, None, None, None, None, None, None, None, None, None, None, None, None, None,
-        None, None, None, None, None, None, None, None, None, None, None, None, None, None, None,
-        None, None, None, None, None, None, None, None, None, None, None, None, None, None, None,
-        None, None, None, None,
-    ];
+    pub(crate) static mut PIN_ISR_HANDLER: [Option<Box<Box<dyn FnMut()>>>; 49] = [PIN_ISR_INIT; 49];
 
     #[allow(clippy::type_complexity)]
-    #[cfg(all(not(feature = "riscv-ulp-hal"), feature = "alloc"))]
-    pub(crate) static mut PIN_NOTIFIERS: [Option<Notification>; 49] = [
-        None, None, None, None, None, None, None, None, None, None, None, None, None, None, None,
-        None, None, None, None, None, None, None, None, None, None, None, None, None, None, None,
-        None, None, None, None, None, None, None, None, None, None, None, None, None, None, None,
-        None, None, None, None,
-    ];
+    #[cfg(not(feature = "riscv-ulp-hal"))]
+    pub(crate) static PIN_INTER: [AtomicU8; 49] = [PIN_INTER_INIT; 49];
+
+    #[allow(clippy::type_complexity)]
+    #[cfg(not(feature = "riscv-ulp-hal"))]
+    pub(crate) static PIN_NOTIF: [Notification; 49] = [PIN_NOTIF_INIT; 49];
 
     // NOTE: Gpio26 - Gpio32 (and Gpio33 - Gpio37 if using Octal RAM/Flash) are used
     //       by SPI0/SPI1 for external PSRAM/SPI Flash and are not recommended for
@@ -2160,26 +2091,38 @@ mod chip {
 #[cfg(esp32c3)]
 #[cfg(not(feature = "riscv-ulp-hal"))]
 mod chip {
+    #[cfg(not(feature = "riscv-ulp-hal"))]
+    use core::sync::atomic::AtomicU8;
+
+    #[cfg(all(not(feature = "riscv-ulp-hal"), feature = "alloc"))]
+    extern crate alloc;
+
+    #[cfg(all(not(feature = "riscv-ulp-hal"), feature = "alloc"))]
+    use alloc::boxed::Box;
+
+    #[cfg(not(feature = "riscv-ulp-hal"))]
     use esp_idf_sys::*;
+
+    #[cfg(feature = "riscv-ulp-hal")]
+    use crate::riscv_ulp_hal::sys::*;
+
+    #[cfg(not(feature = "riscv-ulp-hal"))]
+    use crate::private::notification::Notification;
 
     use crate::adc::{ADC1, ADC2};
 
     use super::*;
-    #[cfg(all(not(feature = "riscv-ulp-hal"), feature = "alloc"))]
-    use atomic_notification::Notification;
 
     #[allow(clippy::type_complexity)]
     #[cfg(feature = "alloc")]
-    pub(crate) static mut ISR_HANDLERS: [Option<Box<Box<dyn FnMut()>>>; 22] = [
-        None, None, None, None, None, None, None, None, None, None, None, None, None, None, None,
-        None, None, None, None, None, None, None,
-    ];
+    pub(crate) static mut PIN_ISR_HANDLER: [Option<Box<Box<dyn FnMut()>>>; 22] = [PIN_ISR_INIT; 22];
 
-    #[cfg(all(not(feature = "riscv-ulp-hal"), feature = "alloc"))]
-    pub(crate) static mut PIN_NOTIFIERS: [Option<Notification>; 22] = [
-        None, None, None, None, None, None, None, None, None, None, None, None, None, None, None,
-        None, None, None, None, None, None, None,
-    ];
+    #[allow(clippy::type_complexity)]
+    #[cfg(not(feature = "riscv-ulp-hal"))]
+    pub(crate) static PIN_INTER: [AtomicU8; 22] = [PIN_INTER_INIT; 22];
+
+    #[cfg(not(feature = "riscv-ulp-hal"))]
+    pub(crate) static PIN_NOTIF: [Notification; 22] = [PIN_NOTIF_INIT; 22];
 
     // NOTE: Gpio12 - Gpio17 are used by SPI0/SPI1 for external PSRAM/SPI Flash and
     //       are not recommended for other uses
@@ -2268,26 +2211,38 @@ mod chip {
 #[cfg(esp32c2)]
 #[cfg(not(feature = "riscv-ulp-hal"))]
 mod chip {
+    #[cfg(not(feature = "riscv-ulp-hal"))]
+    use core::sync::atomic::AtomicU8;
+
+    #[cfg(all(not(feature = "riscv-ulp-hal"), feature = "alloc"))]
+    extern crate alloc;
+
+    #[cfg(all(not(feature = "riscv-ulp-hal"), feature = "alloc"))]
+    use alloc::boxed::Box;
+
+    #[cfg(not(feature = "riscv-ulp-hal"))]
     use esp_idf_sys::*;
+
+    #[cfg(feature = "riscv-ulp-hal")]
+    use crate::riscv_ulp_hal::sys::*;
+
+    #[cfg(not(feature = "riscv-ulp-hal"))]
+    use crate::private::notification::Notification;
 
     use crate::adc::ADC1;
 
     use super::*;
-    #[cfg(all(not(feature = "riscv-ulp-hal"), feature = "alloc"))]
-    use atomic_notification::Notification;
 
     #[allow(clippy::type_complexity)]
     #[cfg(feature = "alloc")]
-    pub(crate) static mut ISR_HANDLERS: [Option<Box<Box<dyn FnMut()>>>; 20] = [
-        None, None, None, None, None, None, None, None, None, None, None, None, None, None, None,
-        None, None, None, None, None,
-    ];
+    pub(crate) static mut PIN_ISR_HANDLER: [Option<Box<Box<dyn FnMut()>>>; 20] = [PIN_ISR_INIT; 20];
 
-    #[cfg(all(not(feature = "riscv-ulp-hal"), feature = "alloc"))]
-    pub(crate) static mut PIN_NOTIFIERS: [Option<Notification>; 20] = [
-        None, None, None, None, None, None, None, None, None, None, None, None, None, None, None,
-        None, None, None, None, None,
-    ];
+    #[allow(clippy::type_complexity)]
+    #[cfg(not(feature = "riscv-ulp-hal"))]
+    pub(crate) static PIN_INTER: [AtomicU8; 20] = [PIN_INTER_INIT; 20];
+
+    #[cfg(not(feature = "riscv-ulp-hal"))]
+    pub(crate) static PIN_NOTIF: [Notification; 20] = [PIN_NOTIF_INIT; 20];
 
     // NOTE: Gpio12 - Gpio17 are used by SPI0/SPI1 for external PSRAM/SPI Flash and
     //       are not recommended for other uses
@@ -2373,26 +2328,38 @@ mod chip {
 #[cfg(esp32h2)]
 #[cfg(not(feature = "riscv-ulp-hal"))]
 mod chip {
+    #[cfg(not(feature = "riscv-ulp-hal"))]
+    use core::sync::atomic::AtomicU8;
+
+    #[cfg(all(not(feature = "riscv-ulp-hal"), feature = "alloc"))]
+    extern crate alloc;
+
+    #[cfg(all(not(feature = "riscv-ulp-hal"), feature = "alloc"))]
+    use alloc::boxed::Box;
+
+    #[cfg(not(feature = "riscv-ulp-hal"))]
     use esp_idf_sys::*;
+
+    #[cfg(feature = "riscv-ulp-hal")]
+    use crate::riscv_ulp_hal::sys::*;
+
+    #[cfg(not(feature = "riscv-ulp-hal"))]
+    use crate::private::notification::Notification;
 
     use crate::adc::ADC1;
 
     use super::*;
-    #[cfg(all(not(feature = "riscv-ulp-hal"), feature = "alloc"))]
-    use atomic_notification::Notification;
 
     #[allow(clippy::type_complexity)]
     #[cfg(feature = "alloc")]
-    pub(crate) static mut ISR_HANDLERS: [Option<Box<Box<dyn FnMut()>>>; 20] = [
-        None, None, None, None, None, None, None, None, None, None, None, None, None, None, None,
-        None, None, None, None, None,
-    ];
+    pub(crate) static mut PIN_ISR_HANDLER: [Option<Box<Box<dyn FnMut()>>>; 20] = [PIN_ISR_INIT; 20];
 
-    #[cfg(all(not(feature = "riscv-ulp-hal"), feature = "alloc"))]
-    pub(crate) static mut PIN_NOTIFIERS: [Option<Notification>; 20] = [
-        None, None, None, None, None, None, None, None, None, None, None, None, None, None, None,
-        None, None, None, None, None,
-    ];
+    #[allow(clippy::type_complexity)]
+    #[cfg(not(feature = "riscv-ulp-hal"))]
+    pub(crate) static PIN_INTER: [AtomicU8; 20] = [PIN_INTER_INIT; 20];
+
+    #[cfg(not(feature = "riscv-ulp-hal"))]
+    pub(crate) static PIN_NOTIF: [Notification; 20] = [PIN_NOTIF_INIT; 20];
 
     // NOTE: Gpio12 - Gpio17 are used by SPI0/SPI1 for external PSRAM/SPI Flash and
     //       are not recommended for other uses
@@ -2480,27 +2447,38 @@ mod chip {
 #[cfg(any(esp32c5, esp32c6, esp32p4))] // TODO: Implement proper pin layout for esp32c5 and esp32p4
 mod chip {
     #[cfg(not(feature = "riscv-ulp-hal"))]
+    use core::sync::atomic::AtomicU8;
+
+    #[cfg(all(not(feature = "riscv-ulp-hal"), feature = "alloc"))]
+    extern crate alloc;
+
+    #[cfg(all(not(feature = "riscv-ulp-hal"), feature = "alloc"))]
+    use alloc::boxed::Box;
+
+    #[cfg(not(feature = "riscv-ulp-hal"))]
     use esp_idf_sys::*;
+
+    #[cfg(feature = "riscv-ulp-hal")]
+    use crate::riscv_ulp_hal::sys::*;
+
+    #[cfg(not(feature = "riscv-ulp-hal"))]
+    use crate::private::notification::Notification;
 
     use crate::adc::ADC1;
 
     use super::*;
-    #[cfg(all(not(feature = "riscv-ulp-hal"), feature = "alloc"))]
-    use atomic_notification::Notification;
 
     #[allow(clippy::type_complexity)]
     #[cfg(all(not(feature = "riscv-ulp-hal"), feature = "alloc"))]
-    pub(crate) static mut ISR_HANDLERS: [Option<Box<Box<dyn FnMut()>>>; 30] = [
-        None, None, None, None, None, None, None, None, None, None, None, None, None, None, None,
-        None, None, None, None, None, None, None, None, None, None, None, None, None, None, None,
-    ];
+    pub(crate) static mut PIN_ISR_HANDLER: [Option<Box<Box<dyn FnMut()>>>; 30] = [PIN_ISR_INIT; 30];
 
     #[allow(clippy::type_complexity)]
-    #[cfg(all(not(feature = "riscv-ulp-hal"), feature = "alloc"))]
-    pub(crate) static mut PIN_NOTIFIERS: [Option<Notification>; 30] = [
-        None, None, None, None, None, None, None, None, None, None, None, None, None, None, None,
-        None, None, None, None, None, None, None, None, None, None, None, None, None, None, None,
-    ];
+    #[cfg(not(feature = "riscv-ulp-hal"))]
+    pub(crate) static PIN_INTER: [AtomicU8; 30] = [PIN_INTER_INIT; 30];
+
+    #[allow(clippy::type_complexity)]
+    #[cfg(not(feature = "riscv-ulp-hal"))]
+    pub(crate) static PIN_NOTIF: [Notification; 30] = [PIN_NOTIF_INIT; 30];
 
     // NOTE: Gpio26 - Gpio32 (and Gpio33 - Gpio37 if using Octal RAM/Flash) are used
     //       by SPI0/SPI1 for external PSRAM/SPI Flash and are not recommended for

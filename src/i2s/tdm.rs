@@ -1,7 +1,7 @@
 //! Time-division multiplexing (TDM) support for I2S.
 use super::*;
 use crate::{gpio::*, peripheral::*};
-use core::{marker::PhantomData, ptr::null_mut};
+
 use esp_idf_sys::*;
 
 pub(super) mod config {
@@ -229,6 +229,7 @@ pub(super) mod config {
 
         /// Convert to the ESP-IDF SDK `i2s_tdm_clk_config_t` representation.
         #[cfg(all(esp_idf_version_major = "5", not(esp_idf_version_minor = "0")))]
+        #[allow(clippy::needless_update)]
         #[inline(always)]
         pub(crate) fn as_sdk(&self) -> i2s_tdm_clk_config_t {
             i2s_tdm_clk_config_t {
@@ -236,6 +237,7 @@ pub(super) mod config {
                 clk_src: self.clk_src.as_sdk(),
                 mclk_multiple: self.mclk_multiple.as_sdk(),
                 bclk_div: self.bclk_div,
+                ..Default::default()
             }
         }
     }
@@ -696,86 +698,23 @@ pub(super) mod config {
     }
 }
 
-/// The I2S TDM mode driver.
-pub struct I2sTdmDriver<'d, Dir> {
-    /// The Rx channel, possibly None.
-    #[cfg(all(not(esp_idf_version_major = "4"), feature = "alloc"))]
-    rx: Option<I2sChannel<I2sRxEvent>>,
-
-    /// The Rx channel, possibly None.
-    #[cfg(all(not(esp_idf_version_major = "4"), not(feature = "alloc")))]
-    rx: Option<I2sChannel>,
-
-    /// The Tx channel, possibly None.
-    #[cfg(all(not(esp_idf_version_major = "4"), feature = "alloc"))]
-    tx: Option<I2sChannel<I2sTxEvent>>,
-
-    /// The Tx channel, possibly None.
-    #[cfg(all(not(esp_idf_version_major = "4"), not(feature = "alloc")))]
-    tx: Option<I2sChannel>,
-
-    /// The I2S peripheral number. Either 0 or 1 (ESP32 and ESP32S3 only).
-    i2s: u8,
-
-    /// Driver lifetime -- mimics the lifetime of the peripheral.
-    _p: PhantomData<&'d ()>,
-
-    /// Directionality -- mimics the directionality of the peripheral.
-    _dir: PhantomData<Dir>,
-}
-
-unsafe impl<'d, Dir> Send for I2sTdmDriver<'d, Dir> {}
-unsafe impl<'d, Dir> Sync for I2sTdmDriver<'d, Dir> {}
-
-impl<'d, Dir> I2sPort for I2sTdmDriver<'d, Dir> {
-    /// Returns the I2S port number of this driver.
-    fn port(&self) -> i2s_port_t {
-        self.i2s as u32
-    }
-}
-
-impl<'d, Dir: I2sRxSupported + I2sTxSupported> I2sTdmDriver<'d, Dir> {
-    /// Create a new TDM mode driver for the given I2S peripheral with both the receive and transmit channels open.
+impl<'d, Dir> I2sDriver<'d, Dir> {
     #[cfg(not(esp_idf_version_major = "4"))]
     #[allow(clippy::too_many_arguments)]
-    pub fn new_bidir<I2S: I2s>(
+    fn internal_new_tdm<I2S: I2s>(
         _i2s: impl Peripheral<P = I2S> + 'd,
-        config: config::TdmConfig,
+        config: &config::TdmConfig,
+        rx: bool,
+        tx: bool,
         bclk: impl Peripheral<P = impl InputPin + OutputPin> + 'd,
         din: Option<impl Peripheral<P = impl InputPin> + 'd>,
         dout: Option<impl Peripheral<P = impl OutputPin> + 'd>,
         mclk: Option<impl Peripheral<P = impl InputPin + OutputPin> + 'd>,
         ws: impl Peripheral<P = impl InputPin + OutputPin> + 'd,
     ) -> Result<Self, EspError> {
-        let port = I2S::port();
-        let chan_cfg = config.channel_cfg.as_sdk(port);
+        let chan_cfg = config.channel_cfg.as_sdk(I2S::port());
 
-        let mut rx_chan_handle: i2s_chan_handle_t = null_mut();
-        let mut tx_chan_handle: i2s_chan_handle_t = null_mut();
-
-        // Safety: &chan_cfg is a valid pointer to an i2s_chan_config_t.
-        // rx and tx are out pointers.
-        unsafe {
-            esp!(i2s_new_channel(
-                &chan_cfg,
-                &mut tx_chan_handle,
-                &mut rx_chan_handle
-            ))?
-        };
-
-        if tx_chan_handle.is_null() {
-            panic!("Expected non-null tx channel handle");
-        }
-
-        if rx_chan_handle.is_null() {
-            panic!("Expected non-null rx channel handle");
-        }
-
-        // Allocate the internal channel structs.
-        let rx = I2sChannel::new(port as u8, rx_chan_handle);
-        let tx = I2sChannel::new(port as u8, tx_chan_handle);
-
-        // At this point, returning early will drop the rx and tx channels, closing them properly.
+        let this = Self::internal_new::<I2S>(&chan_cfg, rx, tx)?;
 
         // Create the channel configuration.
         let tdm_config = config.as_sdk(
@@ -786,337 +725,138 @@ impl<'d, Dir: I2sRxSupported + I2sTxSupported> I2sTdmDriver<'d, Dir> {
             ws.into_ref(),
         );
 
-        // Safety: rx/tx.chan_handle are valid, non-null i2s_chan_handle_t,
-        // and &tdm_config is a valid pointer to an i2s_tdm_config_t.
-        unsafe {
-            // Open the RX channel.
-            esp!(i2s_channel_init_tdm_mode(rx.chan_handle, &tdm_config))?;
-
-            // Open the TX channel.
-            esp!(i2s_channel_init_tdm_mode(tx.chan_handle, &tdm_config))?;
-        }
-
-        Ok(Self {
-            i2s: port as u8,
-            rx: Some(rx),
-            tx: Some(tx),
-            _p: PhantomData,
-            _dir: PhantomData,
-        })
-    }
-
-    /// Create a new TDM mode driver for the given I2S peripheral with both the receive and transmit
-    /// channels open.
-    #[cfg(esp_idf_version_major = "4")]
-    #[allow(clippy::too_many_arguments)]
-    pub fn new_bdir<I2S: I2s>(
-        _i2s: impl Peripheral<P = I2S> + 'd,
-        config: config::TdmConfig,
-        bclk: impl Peripheral<P = impl InputPin + OutputPin> + 'd,
-        din: Option<impl Peripheral<P = impl InputPin> + 'd>,
-        dout: Option<impl Peripheral<P = impl OutputPin> + 'd>,
-        mclk: Option<impl Peripheral<P = impl InputPin + OutputPin> + 'd>,
-        ws: impl Peripheral<P = impl InputPin + OutputPin> + 'd,
-    ) -> Result<Self, EspError> {
-        let port = I2S::port();
-        let mut driver_cfg = config.as_sdk();
-        driver_cfg.mode |= i2s_mode_t_I2S_MODE_RX | i2s_mode_t_I2S_MODE_TX;
-
-        // Safety: &driver_cfg is a valid pointer to an i2s_driver_config_t.
-        unsafe {
-            esp!(i2s_driver_install(port, &driver_cfg, 0, null_mut()))?;
-        }
-
-        // Set the pin configuration.
-        let pin_cfg = i2s_pin_config_t {
-            bck_io_num: bclk.into_ref().pin(),
-            data_in_num: din.map(|din| din.into_ref().pin()).unwrap_or(-1),
-            data_out_num: dout.map(|dout| dout.into_ref().pin()).unwrap_or(-1),
-            mck_io_num: mclk.map(|mclk| mclk.into_ref().pin()).unwrap_or(-1),
-            ws_io_num: ws.into_ref().pin(),
-        };
-
-        // Safety: &pin_cfg is a valid pointer to an i2s_pin_config_t.
-        unsafe {
-            esp!(i2s_set_pin(port, &pin_cfg))?;
-        }
-
-        Ok(Self {
-            i2s: port as u8,
-            _p: PhantomData,
-            _dir: PhantomData,
-        })
-    }
-}
-
-impl<'d, Dir: I2sRxSupported> I2sTdmDriver<'d, Dir> {
-    /// Create a new TDM mode driver for the given I2S peripheral with only the receive channel open.
-    #[cfg(not(esp_idf_version_major = "4"))]
-    #[allow(clippy::too_many_arguments)]
-    pub fn new_rx<I2S: I2s>(
-        _i2s: impl Peripheral<P = I2S> + 'd,
-        config: config::TdmConfig,
-        bclk: impl Peripheral<P = impl InputPin + OutputPin> + 'd,
-        din: Option<impl Peripheral<P = impl InputPin> + 'd>,
-        mclk: Option<impl Peripheral<P = impl InputPin + OutputPin> + 'd>,
-        ws: impl Peripheral<P = impl InputPin + OutputPin> + 'd,
-    ) -> Result<Self, EspError> {
-        let port = I2S::port();
-        let chan_cfg = config.channel_cfg.as_sdk(port);
-
-        let mut rx_chan_handle: i2s_chan_handle_t = null_mut();
-
-        // Safety: &chan_cfg is a valid pointer to an i2s_chan_config_t.
-        // rx and tx are out pointers.
-        unsafe { esp!(i2s_new_channel(&chan_cfg, null_mut(), &mut rx_chan_handle,))? };
-
-        if rx_chan_handle.is_null() {
-            panic!("Expected non-null rx channel handle");
-        }
-
-        // Allocate the internal channel struct.
-        let rx = I2sChannel::new(port as u8, rx_chan_handle);
-
-        // At this point, returning early will drop the rx channel, closing it properly.
-
-        // Create the channel configuration.
-        let dout: Option<PeripheralRef<'d, AnyIOPin>> = None;
-        let tdm_config = config.as_sdk(
-            bclk.into_ref(),
-            din.map(|d_in| d_in.into_ref()),
-            dout,
-            mclk.map(|m_clk| m_clk.into_ref()),
-            ws.into_ref(),
-        );
-
-        // Safety: rx.chan_handle is a valid, non-null i2s_chan_handle_t,
-        // and &tdm_config is a valid pointer to an i2s_tdm_config_t.
-        unsafe {
-            // Open the RX channel.
-            esp!(i2s_channel_init_tdm_mode(rx.chan_handle, &tdm_config))?;
-        }
-
-        // Now we leak the rx channel so it is no longer managed. This pins it in memory in a way that
-        // is easily accessible to the ESP-IDF SDK.
-        Ok(Self {
-            i2s: port as u8,
-            rx: Some(rx),
-            tx: None,
-            _p: PhantomData,
-            _dir: PhantomData,
-        })
-    }
-
-    /// Create a new TDM mode driver for the given I2S peripheral with only the receive channel open.
-    #[cfg(esp_idf_version_major = "4")]
-    #[allow(clippy::too_many_arguments)]
-    pub fn new_rx<I2S: I2s>(
-        _i2s: impl Peripheral<P = I2S> + 'd,
-        config: config::TdmConfig,
-        bclk: impl Peripheral<P = impl InputPin + OutputPin> + 'd,
-        din: Option<impl Peripheral<P = impl InputPin> + 'd>,
-        mclk: Option<impl Peripheral<P = impl InputPin + OutputPin> + 'd>,
-        ws: impl Peripheral<P = impl InputPin + OutputPin> + 'd,
-    ) -> Result<Self, EspError> {
-        let port = I2S::port();
-        let mut driver_cfg = config.as_sdk();
-        driver_cfg.mode |= i2s_mode_t_I2S_MODE_RX;
-
-        // Safety: &driver_cfg is a valid pointer to an i2s_driver_config_t.
-        unsafe {
-            esp!(i2s_driver_install(port, &driver_cfg, 0, null_mut()))?;
-        }
-
-        // Set the pin configuration.
-        let pin_cfg = i2s_pin_config_t {
-            bck_io_num: bclk.into_ref().pin(),
-            data_in_num: din.map(|din| din.into_ref().pin()).unwrap_or(-1),
-            data_out_num: -1,
-            mck_io_num: mclk.map(|mclk| mclk.into_ref().pin()).unwrap_or(-1),
-            ws_io_num: ws.into_ref().pin(),
-        };
-
-        // Safety: &pin_cfg is a valid pointer to an i2s_pin_config_t.
-        unsafe {
-            esp!(i2s_set_pin(port, &pin_cfg))?;
-        }
-
-        Ok(Self {
-            i2s: port as u8,
-            _p: PhantomData,
-            _dir: PhantomData,
-        })
-    }
-}
-
-impl<'d, Dir: I2sTxSupported> I2sTdmDriver<'d, Dir> {
-    /// Create a new TDM mode driver for the given I2S peripheral with only the transmit channel open.
-    #[cfg(not(esp_idf_version_major = "4"))]
-    #[allow(clippy::too_many_arguments)]
-    pub fn new_tx<I2S: I2s>(
-        _i2s: impl Peripheral<P = I2S> + 'd,
-        config: config::TdmConfig,
-        bclk: impl Peripheral<P = impl InputPin + OutputPin> + 'd,
-        dout: Option<impl Peripheral<P = impl OutputPin> + 'd>,
-        mclk: Option<impl Peripheral<P = impl InputPin + OutputPin> + 'd>,
-        ws: impl Peripheral<P = impl InputPin + OutputPin> + 'd,
-    ) -> Result<Self, EspError> {
-        let port = I2S::port();
-        let chan_cfg = config.channel_cfg.as_sdk(port);
-
-        let mut tx_chan_handle: i2s_chan_handle_t = null_mut();
-
-        // Safety: &chan_cfg is a valid pointer to an i2s_chan_config_t.
-        // rx and tx are out pointers.
-        unsafe { esp!(i2s_new_channel(&chan_cfg, &mut tx_chan_handle, null_mut()))? };
-
-        if tx_chan_handle.is_null() {
-            panic!("Expected non-null tx channel handle");
-        }
-
-        // Allocate the internal channel struct.
-        let tx = I2sChannel::new(port as u8, tx_chan_handle);
-
-        // Create the channel configuration.
-        let din: Option<PeripheralRef<'d, AnyIOPin>> = None;
-        let tdm_config = config.as_sdk(
-            bclk.into_ref(),
-            din,
-            dout.map(|d_out| d_out.into_ref()),
-            mclk.map(|m_clk| m_clk.into_ref()),
-            ws.into_ref(),
-        );
-
-        // Safety: tx.chan_handle is a valid, non-null i2s_chan_handle_t,
-        // and &tdm_config is a valid pointer to an i2s_tdm_config_t.
-        unsafe {
-            // Open the TX channel.
-            esp!(i2s_channel_init_tdm_mode(tx.chan_handle, &tdm_config))?;
-        }
-
-        // Now we leak the tx channel so it is no longer managed. This pins it in memory in a way that
-        // is easily accessible to the ESP-IDF SDK.
-        Ok(Self {
-            i2s: port as u8,
-            rx: None,
-            tx: Some(tx),
-            _p: PhantomData,
-            _dir: PhantomData,
-        })
-    }
-
-    /// Create a new TDM mode driver for the given I2S peripheral with only the transmit channel open.
-    #[cfg(esp_idf_version_major = "4")]
-    #[allow(clippy::too_many_arguments)]
-    pub fn new_tx<I2S: I2s>(
-        _i2s: impl Peripheral<P = I2S> + 'd,
-        config: config::TdmConfig,
-        bclk: impl Peripheral<P = impl InputPin + OutputPin> + 'd,
-        dout: Option<impl Peripheral<P = impl OutputPin> + 'd>,
-        mclk: Option<impl Peripheral<P = impl InputPin + OutputPin> + 'd>,
-        ws: impl Peripheral<P = impl InputPin + OutputPin> + 'd,
-    ) -> Result<Self, EspError> {
-        let port = I2S::port();
-        let mut driver_cfg = config.as_sdk();
-        driver_cfg.mode |= i2s_mode_t_I2S_MODE_TX;
-
-        // Safety: &driver_cfg is a valid pointer to an i2s_driver_config_t.
-        unsafe {
-            esp!(i2s_driver_install(port, &driver_cfg, 0, null_mut()))?;
-        }
-
-        // Set the pin configuration.
-        let pin_cfg = i2s_pin_config_t {
-            bck_io_num: bclk.into_ref().pin(),
-            data_in_num: -1,
-            data_out_num: dout.map(|dout| dout.into_ref().pin()).unwrap_or(-1),
-            mck_io_num: mclk.map(|mclk| mclk.into_ref().pin()).unwrap_or(-1),
-            ws_io_num: ws.into_ref().pin(),
-        };
-
-        // Safety: &pin_cfg is a valid pointer to an i2s_pin_config_t.
-        unsafe {
-            esp!(i2s_set_pin(port, &pin_cfg))?;
-        }
-
-        Ok(Self {
-            i2s: port as u8,
-            _p: PhantomData,
-            _dir: PhantomData,
-        })
-    }
-}
-
-impl<'d, Dir: I2sRxSupported> I2sRxChannel<'d> for I2sTdmDriver<'d, Dir> {
-    #[cfg(not(esp_idf_version_major = "4"))]
-    unsafe fn rx_handle(&self) -> i2s_chan_handle_t {
-        self.rx.as_ref().unwrap().chan_handle
-    }
-
-    #[cfg(all(
-        not(esp_idf_version_major = "4"),
-        not(feature = "riscv-ulp-hal"),
-        feature = "alloc"
-    ))]
-    unsafe fn rx_subscribe(
-        &mut self,
-        rx_callback: impl FnMut(u8, I2sRxEvent) -> bool + 'static,
-    ) -> Result<(), EspError> {
-        self.rx.as_mut().unwrap().rx_subscribe(rx_callback)
-    }
-
-    #[cfg(all(
-        not(esp_idf_version_major = "4"),
-        not(feature = "riscv-ulp-hal"),
-        feature = "alloc"
-    ))]
-    fn rx_unsubscribe(&mut self) -> Result<(), EspError> {
-        self.rx.as_mut().unwrap().rx_unsubscribe()
-    }
-}
-
-impl<'d, Dir: I2sTxSupported> I2sTxChannel<'d> for I2sTdmDriver<'d, Dir> {
-    #[cfg(not(esp_idf_version_major = "4"))]
-    unsafe fn tx_handle(&self) -> i2s_chan_handle_t {
-        self.tx.as_ref().unwrap().chan_handle
-    }
-
-    #[cfg(all(
-        not(esp_idf_version_major = "4"),
-        not(feature = "riscv-ulp-hal"),
-        feature = "alloc"
-    ))]
-    unsafe fn tx_subscribe(
-        &mut self,
-        tx_callback: impl FnMut(u8, I2sTxEvent) -> bool + 'static,
-    ) -> Result<(), EspError> {
-        self.tx.as_mut().unwrap().tx_subscribe(tx_callback)
-    }
-
-    #[cfg(all(
-        not(esp_idf_version_major = "4"),
-        not(feature = "riscv-ulp-hal"),
-        feature = "alloc"
-    ))]
-    fn tx_unsubscribe(&mut self) -> Result<(), EspError> {
-        self.tx.as_mut().unwrap().tx_unsubscribe()
-    }
-}
-
-#[cfg(esp_idf_version_major = "4")]
-impl<'d, Dir> Drop for I2sTdmDriver<'d, Dir> {
-    fn drop(&mut self) {
-        unsafe {
-            let result = i2s_driver_uninstall(self.i2s as u32);
-            if result != ESP_OK {
-                // This isn't fatal so a panic isn't warranted, but we do want to be able to debug it.
-                esp_log_write(
-                    esp_log_level_t_ESP_LOG_ERROR,
-                    LOG_TAG as *const u8 as *const i8,
-                    b"Failed to delete RX channel: %s\0" as *const u8 as *const i8,
-                    esp_err_to_name(result),
-                );
+        if rx {
+            unsafe {
+                // Open the RX channel.
+                esp!(i2s_channel_init_tdm_mode(this.rx_handle, &tdm_config))?;
             }
         }
+
+        if tx {
+            unsafe {
+                // Open the TX channel.
+                esp!(i2s_channel_init_tdm_mode(this.tx_handle, &tdm_config))?;
+            }
+        }
+
+        Ok(this)
+    }
+
+    #[cfg(esp_idf_version_major = "4")]
+    #[allow(clippy::too_many_arguments)]
+    fn internal_new_tdm<I2S: I2s>(
+        _i2s: impl Peripheral<P = I2S> + 'd,
+        config: &config::TdmConfig,
+        rx: bool,
+        tx: bool,
+        bclk: impl Peripheral<P = impl InputPin + OutputPin> + 'd,
+        din: Option<impl Peripheral<P = impl InputPin> + 'd>,
+        dout: Option<impl Peripheral<P = impl OutputPin> + 'd>,
+        mclk: Option<impl Peripheral<P = impl InputPin + OutputPin> + 'd>,
+        ws: impl Peripheral<P = impl InputPin + OutputPin> + 'd,
+    ) -> Result<Self, EspError> {
+        let mut driver_cfg = config.as_sdk();
+
+        if rx {
+            driver_cfg.mode |= i2s_mode_t_I2S_MODE_RX;
+        }
+
+        if tx {
+            driver_cfg.mode |= i2s_mode_t_I2S_MODE_TX;
+        }
+
+        let this = Self::internal_new::<I2S>(&driver_cfg)?;
+
+        // Set the pin configuration.
+        let pin_cfg = i2s_pin_config_t {
+            bck_io_num: bclk.into_ref().pin(),
+            data_in_num: din.map(|din| din.into_ref().pin()).unwrap_or(-1),
+            data_out_num: dout.map(|dout| dout.into_ref().pin()).unwrap_or(-1),
+            mck_io_num: mclk.map(|mclk| mclk.into_ref().pin()).unwrap_or(-1),
+            ws_io_num: ws.into_ref().pin(),
+        };
+
+        // Safety: &pin_cfg is a valid pointer to an i2s_pin_config_t.
+        unsafe {
+            esp!(i2s_set_pin(this.port as _, &pin_cfg))?;
+        }
+
+        Ok(this)
+    }
+}
+
+impl<'d> I2sDriver<'d, I2sBiDir> {
+    /// Create a new TDM mode driver for the given I2S peripheral with both the receive and transmit channels open.
+    #[allow(clippy::too_many_arguments)]
+    pub fn new_tdm_bidir<I2S: I2s>(
+        i2s: impl Peripheral<P = I2S> + 'd,
+        config: &config::TdmConfig,
+        bclk: impl Peripheral<P = impl InputPin + OutputPin> + 'd,
+        din: impl Peripheral<P = impl InputPin> + 'd,
+        dout: impl Peripheral<P = impl OutputPin> + 'd,
+        mclk: Option<impl Peripheral<P = impl InputPin + OutputPin> + 'd>,
+        ws: impl Peripheral<P = impl InputPin + OutputPin> + 'd,
+    ) -> Result<Self, EspError> {
+        Self::internal_new_tdm(
+            i2s,
+            config,
+            true,
+            true,
+            bclk,
+            Some(din),
+            Some(dout),
+            mclk,
+            ws,
+        )
+    }
+}
+
+impl<'d> I2sDriver<'d, I2sRx> {
+    /// Create a new TDM mode driver for the given I2S peripheral with only the receive channel open.
+    #[allow(clippy::too_many_arguments)]
+    pub fn new_tdm_rx<I2S: I2s>(
+        i2s: impl Peripheral<P = I2S> + 'd,
+        config: &config::TdmConfig,
+        bclk: impl Peripheral<P = impl InputPin + OutputPin> + 'd,
+        din: impl Peripheral<P = impl InputPin> + 'd,
+        mclk: Option<impl Peripheral<P = impl InputPin + OutputPin> + 'd>,
+        ws: impl Peripheral<P = impl InputPin + OutputPin> + 'd,
+    ) -> Result<Self, EspError> {
+        Self::internal_new_tdm(
+            i2s,
+            config,
+            true,
+            false,
+            bclk,
+            Some(din),
+            AnyIOPin::none(),
+            mclk,
+            ws,
+        )
+    }
+}
+
+impl<'d> I2sDriver<'d, I2sTx> {
+    /// Create a new TDM mode driver for the given I2S peripheral with only the transmit channel open.
+    #[allow(clippy::too_many_arguments)]
+    pub fn new_tdm_tx<I2S: I2s>(
+        i2s: impl Peripheral<P = I2S> + 'd,
+        config: &config::TdmConfig,
+        bclk: impl Peripheral<P = impl InputPin + OutputPin> + 'd,
+        dout: impl Peripheral<P = impl OutputPin> + 'd,
+        mclk: Option<impl Peripheral<P = impl InputPin + OutputPin> + 'd>,
+        ws: impl Peripheral<P = impl InputPin + OutputPin> + 'd,
+    ) -> Result<Self, EspError> {
+        Self::internal_new_tdm(
+            i2s,
+            config,
+            false,
+            true,
+            bclk,
+            AnyIOPin::none(),
+            Some(dout),
+            mclk,
+            ws,
+        )
     }
 }

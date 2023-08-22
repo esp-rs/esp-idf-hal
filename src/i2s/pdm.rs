@@ -1,7 +1,8 @@
 //! Pulse density modulation (PDM) driver for the ESP32 I2S peripheral.
 use super::*;
 use crate::{gpio::*, peripheral::Peripheral};
-use core::{marker::PhantomData, ptr::null_mut};
+
+#[cfg(esp_idf_version_major = "4")]
 use esp_idf_sys::*;
 
 pub(super) mod config {
@@ -1024,72 +1025,22 @@ pub(super) mod config {
     }
 }
 
-/// The I2S pulse density modulation (PDM) driver.
-pub struct I2sPdmDriver<'d, Dir> {
-    /// The Rx channel, possibly None.
-    #[cfg(all(esp_idf_soc_i2s_supports_pdm_rx, feature = "alloc"))]
-    rx: Option<I2sChannel<I2sRxEvent>>,
-
-    /// The Rx channel, possibly None.
-    #[cfg(all(esp_idf_soc_i2s_supports_pdm_rx, not(feature = "alloc")))]
-    rx: Option<I2sChannel>,
-
-    /// The Tx channel, possibly None.
-    #[cfg(all(esp_idf_soc_i2s_supports_pdm_tx, feature = "alloc"))]
-    tx: Option<I2sChannel<I2sTxEvent>>,
-
-    /// The Tx channel, possibly None.
-    #[cfg(all(esp_idf_soc_i2s_supports_pdm_tx, not(feature = "alloc")))]
-    tx: Option<I2sChannel>,
-
-    /// The I2S peripheral number. Either 0 or 1 (ESP32 and ESP32S3 only).
-    i2s: u8,
-
-    /// Driver lifetime -- mimics the lifetime of the peripheral.
-    _p: PhantomData<&'d ()>,
-
-    /// Directionality -- mimics the directionality of the peripheral.
-    _dir: PhantomData<Dir>,
-}
-
-unsafe impl<'d, Dir> Send for I2sPdmDriver<'d, Dir> {}
-unsafe impl<'d, Dir> Sync for I2sPdmDriver<'d, Dir> {}
-
-impl<'d, Dir> I2sPort for I2sPdmDriver<'d, Dir> {
-    /// Returns the I2S port number of this driver.
-    fn port(&self) -> i2s_port_t {
-        self.i2s as u32
-    }
-}
-
+#[cfg(not(esp_idf_version_major = "4"))]
 #[cfg(esp_idf_soc_i2s_supports_pdm_rx)]
-impl<'d, Dir: I2sRxSupported> I2sPdmDriver<'d, Dir> {
+impl<'d> I2sDriver<'d, I2sRx> {
     /// Create a new pulse density modulation (PDM) mode driver for the given I2S peripheral with only the receive
     /// channel open.
     #[allow(clippy::too_many_arguments)]
-    pub fn new_rx<I2S: I2s>(
+    pub fn new_pdm_rx<I2S: I2s>(
         _i2s: impl Peripheral<P = I2S> + 'd,
-        rx_cfg: config::PdmRxConfig,
+        rx_cfg: &config::PdmRxConfig,
         clk: impl Peripheral<P = impl OutputPin> + 'd,
         din: impl Peripheral<P = impl InputPin> + 'd,
     ) -> Result<Self, EspError> {
-        let port = I2S::port();
-        let chan_cfg = rx_cfg.channel_cfg.as_sdk(port);
+        let chan_cfg = rx_cfg.channel_cfg.as_sdk(I2S::port());
 
-        let mut rx_chan_handle: i2s_chan_handle_t = null_mut();
+        let this = Self::internal_new::<I2S>(&chan_cfg, true, false)?;
 
-        // Safety: &chan_cfg is a valid pointer to an i2s_chan_config_t.
-        // rx and tx are out pointers.
-        unsafe { esp!(i2s_new_channel(&chan_cfg, null_mut(), &mut rx_chan_handle,))? };
-
-        if rx_chan_handle.is_null() {
-            panic!("Expected non-null rx channel handle");
-        }
-
-        // Allocate the internal channel struct.
-        let rx = I2sChannel::new(port as u8, rx_chan_handle);
-
-        // Create the channel configuration.
         let rx_cfg = rx_cfg.as_sdk(clk.into_ref(), din.into_ref());
 
         // Safety: rx.chan_handle is a valid, non-null i2s_chan_handle_t,
@@ -1097,30 +1048,24 @@ impl<'d, Dir: I2sRxSupported> I2sPdmDriver<'d, Dir> {
         unsafe {
             // Open the RX channel.
             esp!(esp_idf_sys::i2s_channel_init_pdm_rx_mode(
-                rx.chan_handle,
+                this.rx_handle,
                 &rx_cfg
             ))?;
         }
 
-        // Now we leak the rx channel so it is no longer managed. This pins it in memory in a way that
-        // is easily accessible to the ESP-IDF SDK.
-        Ok(Self {
-            i2s: port as u8,
-            rx: Some(rx),
-            #[cfg(esp_idf_soc_i2s_supports_pdm_tx)]
-            tx: None,
-            _p: PhantomData,
-            _dir: PhantomData,
-        })
+        Ok(this)
     }
 
     /// Create a new pulse density modulation (PDM) mode driver for the given I2S peripheral with only the receive
     /// channel open using multiple DIN pins to receive data.
-    #[cfg(all(esp_idf_version_major = "5", not(esp_idf_version_minor = "0")))]
+    #[cfg(all(
+        not(esp_idf_version = "4"),
+        not(all(esp_idf_version_major = "5", esp_idf_version_minor = "0"))
+    ))]
     #[allow(clippy::too_many_arguments)]
-    pub fn new_rx_multi<I2S, I2SP, CLK, CLKP, DIN, DINP, const DINC: usize>(
+    pub fn new_pdm_rx_multi<I2S, I2SP, CLK, CLKP, DIN, DINP, const DINC: usize>(
         _i2s: I2SP,
-        rx_cfg: config::PdmRxConfig,
+        rx_cfg: &config::PdmRxConfig,
         clk: CLKP,
         dins: [DINP; DINC],
     ) -> Result<Self, EspError>
@@ -1132,21 +1077,9 @@ impl<'d, Dir: I2sRxSupported> I2sPdmDriver<'d, Dir> {
         DINP: Peripheral<P = DIN> + 'd,
         DIN: InputPin + Sized,
     {
-        let port = I2S::port();
-        let chan_cfg = rx_cfg.channel_cfg.as_sdk(port);
+        let chan_cfg = rx_cfg.channel_cfg.as_sdk(I2S::port());
 
-        let mut rx_chan_handle: i2s_chan_handle_t = null_mut();
-
-        // Safety: &chan_cfg is a valid pointer to an i2s_chan_config_t.
-        // rx and tx are out pointers.
-        unsafe { esp!(i2s_new_channel(&chan_cfg, null_mut(), &mut rx_chan_handle,))? };
-
-        if rx_chan_handle.is_null() {
-            panic!("Expected non-null rx channel handle");
-        }
-
-        // Allocate the internal channel struct.
-        let rx = I2sChannel::new(port as u8, rx_chan_handle);
+        let this = Self::internal_new::<I2S>(&chan_cfg, true, true)?;
 
         // Safety: assume_init is safe to call because we are only claiming to have "initialized" the
         // MaybeUninit, not the PeripheralRef itself.
@@ -1171,45 +1104,34 @@ impl<'d, Dir: I2sRxSupported> I2sPdmDriver<'d, Dir> {
         unsafe {
             // Open the RX channel.
             esp!(esp_idf_sys::i2s_channel_init_pdm_rx_mode(
-                rx.chan_handle,
+                this.rx_handle,
                 &rx_cfg
             ))?;
         }
 
-        Ok(Self {
-            i2s: port as u8,
-            rx: Some(rx),
-            #[cfg(esp_idf_soc_i2s_supports_pdm_tx)]
-            tx: None,
-            _p: PhantomData,
-            _dir: PhantomData,
-        })
+        Ok(this)
     }
 }
 
 #[cfg(all(esp_idf_version_major = "4", any(esp32, esp32s3)))]
-impl<'d, Dir: I2sRxSupported> I2sPdmDriver<'d, Dir> {
-    /// Create a new pulse density modulation (PDM) mode driver for the given I2S peripheral with the receive channel
-    /// open.
+impl<'d> I2sDriver<'d, I2sRx> {
+    /// Create a new pulse density modulation (PDM) mode driver for the given I2S peripheral with only the receive
+    /// channel open.
     #[allow(clippy::too_many_arguments)]
-    pub fn new_rx<I2S: I2s>(
+    pub fn new_pdm_rx<I2S: I2s>(
         _i2s: impl Peripheral<P = I2S> + 'd,
-        rx_cfg: config::PdmRxConfig,
+        rx_cfg: &config::PdmRxConfig,
         clk: impl Peripheral<P = impl OutputPin> + 'd,
         din: impl Peripheral<P = impl InputPin> + 'd,
     ) -> Result<Self, EspError> {
-        let port = I2S::port();
         let driver_cfg = rx_cfg.as_sdk();
 
-        // Safety: &driver_cfg is a valid pointer to an i2s_driver_config_t.
-        unsafe {
-            esp!(i2s_driver_install(port, &driver_cfg, 0, null_mut()))?;
-        }
+        let this = Self::internal_new::<I2S>(&driver_cfg)?;
 
         // Set the rate and downsampling configuration.
         let downsample = rx_cfg.clk_cfg.downsample_mode.as_sdk();
         unsafe {
-            esp!(i2s_set_pdm_rx_down_sample(port, downsample))?;
+            esp!(i2s_set_pdm_rx_down_sample(I2S::port(), downsample))?;
         }
 
         // Set the pin configuration.
@@ -1223,46 +1145,31 @@ impl<'d, Dir: I2sRxSupported> I2sPdmDriver<'d, Dir> {
 
         // Safety: &pin_cfg is a valid pointer to an i2s_pin_config_t.
         unsafe {
-            esp!(i2s_set_pin(port, &pin_cfg))?;
+            esp!(i2s_set_pin(I2S::port(), &pin_cfg))?;
         }
 
-        Ok(Self {
-            i2s: port as u8,
-            _p: PhantomData,
-            _dir: PhantomData,
-        })
+        Ok(this)
     }
 }
 
+#[cfg(not(esp_idf_version_major = "4"))]
 #[cfg(esp_idf_soc_i2s_supports_pdm_tx)]
-impl<'d, Dir: I2sTxSupported> I2sPdmDriver<'d, Dir> {
+impl<'d> I2sDriver<'d, I2sTx> {
     /// Create a new pulse density modulation (PDM) mode driver for the given I2S peripheral with only the transmit
     /// channel open.
     #[allow(clippy::too_many_arguments)]
-    pub fn new_tx<I2S: I2s>(
+    pub fn new_pdm_tx<I2S: I2s>(
         _i2s: impl Peripheral<P = I2S> + 'd,
-        tx_cfg: config::PdmTxConfig,
+        tx_cfg: &config::PdmTxConfig,
         clk: impl Peripheral<P = impl OutputPin> + 'd,
         dout: impl Peripheral<P = impl OutputPin> + 'd,
         #[cfg(esp_idf_soc_i2s_hw_version_2)] dout2: Option<
             impl Peripheral<P = impl OutputPin> + 'd,
         >,
     ) -> Result<Self, EspError> {
-        let port = I2S::port();
-        let chan_cfg = tx_cfg.channel_cfg.as_sdk(port);
+        let chan_cfg = tx_cfg.channel_cfg.as_sdk(I2S::port());
 
-        let mut tx_chan_handle: i2s_chan_handle_t = null_mut();
-
-        // Safety: &chan_cfg is a valid pointer to an i2s_chan_config_t.
-        // rx and tx are out pointers.
-        unsafe { esp!(i2s_new_channel(&chan_cfg, &mut tx_chan_handle, null_mut()))? };
-
-        if tx_chan_handle.is_null() {
-            panic!("Expected non-null tx channel handle");
-        }
-
-        // Allocate the internal channel struct.
-        let tx = I2sChannel::new(port as u8, tx_chan_handle);
+        let this = Self::internal_new::<I2S>(&chan_cfg, false, true)?;
 
         // Create the channel configuration.
         let tx_cfg = tx_cfg.as_sdk(
@@ -1277,45 +1184,37 @@ impl<'d, Dir: I2sTxSupported> I2sPdmDriver<'d, Dir> {
         unsafe {
             // Open the TX channel.
             esp!(esp_idf_sys::i2s_channel_init_pdm_tx_mode(
-                tx.chan_handle,
+                this.tx_handle,
                 &tx_cfg
             ))?;
         }
 
-        Ok(Self {
-            i2s: port as u8,
-            #[cfg(esp_idf_soc_i2s_supports_pdm_rx)]
-            rx: None,
-            tx: Some(tx),
-            _p: PhantomData,
-            _dir: PhantomData,
-        })
+        Ok(this)
     }
 }
 
 #[cfg(all(esp_idf_version_major = "4", any(esp32, esp32s3, esp32c3, esp32c6)))]
-impl<'d, Dir: I2sTxSupported> I2sPdmDriver<'d, Dir> {
-    /// Create a new pulse density modulation (PDM) mode driver for the given I2S peripheral with both the receive and
-    /// transmit channels open.
+impl<'d> I2sDriver<'d, I2sTx> {
+    /// Create a new pulse density modulation (PDM) mode driver for the given I2S peripheral with only the transmit
+    /// channel open.
     #[allow(clippy::too_many_arguments)]
-    pub fn new_tx<I2S: I2s>(
+    pub fn new_pdm_tx<I2S: I2s>(
         _i2s: impl Peripheral<P = I2S> + 'd,
-        tx_cfg: config::PdmTxConfig,
+        tx_cfg: &config::PdmTxConfig,
         clk: impl Peripheral<P = impl OutputPin> + 'd,
         dout: impl Peripheral<P = impl OutputPin> + 'd,
     ) -> Result<Self, EspError> {
-        let port = I2S::port();
         let driver_cfg = tx_cfg.as_sdk();
 
-        // Safety: &driver_cfg is a valid pointer to an i2s_driver_config_t.
-        unsafe {
-            esp!(i2s_driver_install(port, &driver_cfg, 0, null_mut()))?;
-        }
+        let this = Self::internal_new::<I2S>(&driver_cfg)?;
 
         // Set the upsampling configuration.
         let upsample = tx_cfg.clk_cfg.as_sdk();
         unsafe {
-            esp!(i2s_set_pdm_tx_up_sample(port, &upsample))?;
+            esp!(esp_idf_sys::i2s_set_pdm_tx_up_sample(
+                I2S::port(),
+                &upsample
+            ))?;
         }
 
         // Set the pin configuration.
@@ -1329,89 +1228,9 @@ impl<'d, Dir: I2sTxSupported> I2sPdmDriver<'d, Dir> {
 
         // Safety: &pin_cfg is a valid pointer to an i2s_pin_config_t.
         unsafe {
-            esp!(i2s_set_pin(port, &pin_cfg))?;
+            esp!(i2s_set_pin(I2S::port(), &pin_cfg))?;
         }
 
-        Ok(Self {
-            i2s: port as u8,
-            _p: PhantomData,
-            _dir: PhantomData,
-        })
-    }
-}
-
-#[cfg(any(esp_idf_soc_i2s_supports_pdm_rx, esp32, esp32s3))]
-impl<'d, Dir: I2sRxSupported> I2sRxChannel<'d> for I2sPdmDriver<'d, Dir> {
-    #[cfg(not(esp_idf_version_major = "4"))]
-    unsafe fn rx_handle(&self) -> i2s_chan_handle_t {
-        self.rx.as_ref().unwrap().chan_handle
-    }
-
-    #[cfg(all(
-        not(esp_idf_version_major = "4"),
-        not(feature = "riscv-ulp-hal"),
-        feature = "alloc"
-    ))]
-    unsafe fn rx_subscribe(
-        &mut self,
-        rx_callback: impl FnMut(u8, I2sRxEvent) -> bool + 'static,
-    ) -> Result<(), EspError> {
-        self.rx.as_mut().unwrap().rx_subscribe(rx_callback)
-    }
-
-    #[cfg(all(
-        not(esp_idf_version_major = "4"),
-        not(feature = "riscv-ulp-hal"),
-        feature = "alloc"
-    ))]
-    fn rx_unsubscribe(&mut self) -> Result<(), EspError> {
-        self.rx.as_mut().unwrap().rx_unsubscribe()
-    }
-}
-
-#[cfg(any(esp_idf_soc_i2s_supports_pdm_tx, esp32, esp32s3, esp32c3, esp32c6))]
-impl<'d, Dir: I2sTxSupported> I2sTxChannel<'d> for I2sPdmDriver<'d, Dir> {
-    #[cfg(not(esp_idf_version_major = "4"))]
-    unsafe fn tx_handle(&self) -> i2s_chan_handle_t {
-        self.tx.as_ref().unwrap().chan_handle
-    }
-
-    #[cfg(all(
-        not(esp_idf_version_major = "4"),
-        not(feature = "riscv-ulp-hal"),
-        feature = "alloc"
-    ))]
-    unsafe fn tx_subscribe(
-        &mut self,
-        tx_callback: impl FnMut(u8, I2sTxEvent) -> bool + 'static,
-    ) -> Result<(), EspError> {
-        self.tx.as_mut().unwrap().tx_subscribe(tx_callback)
-    }
-
-    #[cfg(all(
-        not(esp_idf_version_major = "4"),
-        not(feature = "riscv-ulp-hal"),
-        feature = "alloc"
-    ))]
-    fn tx_unsubscribe(&mut self) -> Result<(), EspError> {
-        self.tx.as_mut().unwrap().tx_unsubscribe()
-    }
-}
-
-#[cfg(esp_idf_version_major = "4")]
-impl<'d, Dir> Drop for I2sPdmDriver<'d, Dir> {
-    fn drop(&mut self) {
-        unsafe {
-            let result = i2s_driver_uninstall(self.i2s as u32);
-            if result != ESP_OK {
-                // This isn't fatal so a panic isn't warranted, but we do want to be able to debug it.
-                esp_log_write(
-                    esp_log_level_t_ESP_LOG_ERROR,
-                    LOG_TAG as *const u8 as *const i8,
-                    b"Failed to delete RX channel: %s\0" as *const u8 as *const i8,
-                    esp_err_to_name(result),
-                );
-            }
-        }
+        Ok(this)
     }
 }

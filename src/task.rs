@@ -643,7 +643,6 @@ pub mod critical_section {
     critical_section::set_impl!(EspCriticalSection);
 }
 
-#[cfg(feature = "embassy-sync")]
 pub mod embassy_sync {
     use embassy_sync::blocking_mutex::raw::RawMutex;
 
