@@ -20,9 +20,13 @@ esp-idf-sys = { git = "https://github.com/esp-rs/esp-idf-sys" }
 default = ["std", "alloc"]
 std = ["alloc", "esp-idf-sys/std", "edge-executor?/std"]
 alloc = []
+nightly = ["embedded-hal-async"]
+alloc_handler = ["esp-idf-sys/alloc_handler"]
+panic_handler = ["esp-idf-sys/panic_handler"]
+binstart = ["esp-idf-sys/binstart"]
+libstart = ["esp-idf-sys/libstart"]
 esp-idf-sys = ["dep:esp-idf-sys", "atomic-waker"]
 riscv-ulp-hal = []
-nightly = ["embedded-hal-async"]
 embassy-sync = [] # Only for backwards compatibility
 
 [dependencies]
