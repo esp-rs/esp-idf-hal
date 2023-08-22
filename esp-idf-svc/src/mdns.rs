@@ -11,7 +11,7 @@ use ::log::info;
 
 use embedded_svc::ipv4::{IpAddr, Ipv4Addr, Ipv6Addr};
 
-use esp_idf_sys::*;
+use crate::sys::*;
 
 use crate::private::cstr::to_cstring_arg;
 use crate::private::cstr::CStr;

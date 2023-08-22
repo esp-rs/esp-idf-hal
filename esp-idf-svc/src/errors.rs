@@ -4,7 +4,7 @@ use core::fmt::{self, Display, Formatter};
 
 use embedded_svc::io::{Error, ErrorKind};
 
-use esp_idf_sys::EspError;
+use crate::sys::EspError;
 
 #[derive(Copy, Clone, PartialEq, Eq, Debug)]
 pub struct EspIOError(pub EspError);

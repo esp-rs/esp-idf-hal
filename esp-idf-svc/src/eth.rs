@@ -29,7 +29,7 @@ use esp_idf_hal::gpio;
 ))]
 use esp_idf_hal::{spi, units::Hertz};
 
-use esp_idf_sys::*;
+use crate::sys::*;
 
 use crate::eventloop::{
     EspEventLoop, EspSubscription, EspSystemEventLoop, EspTypedEventDeserializer,

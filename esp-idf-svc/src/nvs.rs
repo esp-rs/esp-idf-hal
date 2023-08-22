@@ -8,7 +8,7 @@ use ::log::*;
 
 use embedded_svc::storage::{RawStorage, StorageBase};
 
-use esp_idf_sys::*;
+use crate::sys::*;
 
 use crate::handle::RawHandle;
 use crate::private::cstr::*;

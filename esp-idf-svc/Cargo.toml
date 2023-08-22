@@ -10,18 +10,35 @@ description = "Implementation of the embedded-svc traits for ESP-IDF (Espressif'
 repository = "https://github.com/esp-rs/esp-idf-svc"
 license = "MIT OR Apache-2.0"
 readme = "README.md"
+links = "esp_idf_svc"
+build = "build.rs"
 documentation = "https://esp-rs.github.io/esp-idf-svc/"
 rust-version = "1.66"
 
-[features]
-default = ["std"]
+[patch.crates-io]
+esp-idf-hal = { git = "https://github.com/esp-rs/esp-idf-hal" }
 
-std = ["alloc", "anyhow/std", "log/std", "esp-idf-sys/std", "esp-idf-hal/std", "embedded-svc/std"]
+[features]
+default = ["std", "native", "binstart"]
+
+std = ["alloc", "anyhow/std", "log/std", "esp-idf-hal/std", "embedded-svc/std"]
 alloc = ["anyhow", "esp-idf-hal/alloc", "embedded-svc/alloc"]
-nightly = ["embedded-svc/nightly"]
+nightly = ["embedded-svc/nightly", "esp-idf-hal/nightly"]
 experimental = ["embedded-svc/experimental"]
 embassy-time-driver = ["embassy-time"]
-embassy-time-isr-queue = ["embassy-sync", "embassy-time", "esp-idf-hal/embassy-sync"]
+embassy-time-isr-queue = ["embassy-sync", "embassy-time", "embassy-sync"]
+
+# Propagated esp-idf-hal features
+embassy-sync = ["esp-idf-hal/embassy-sync", "dep:embassy-sync"]
+critical-section = ["esp-idf-hal/critical-section"]
+edge-executor = ["esp-idf-hal/edge-executor"]
+# The next are propagated from esp-idf-sys via esp-idf-hal
+native = ["esp-idf-hal/native"]
+pio = ["esp-idf-hal/pio"]
+alloc_handler = ["esp-idf-hal/alloc_handler"]
+panic_handler = ["esp-idf-hal/panic_handler"]
+binstart = ["esp-idf-hal/binstart"]
+libstart = ["esp-idf-hal/libstart"]
 
 [dependencies]
 heapless = { version = "0.7", default-features = false }
@@ -30,15 +47,13 @@ log = { version = "0.4", default-features = false }
 uncased = "0.9.7"
 anyhow = { version = "1", default-features = false, optional = true } # Only used by the deprecated httpd module
 embedded-svc = { version = "0.25", default-features = false }
-esp-idf-sys = { version = "0.33", default-features = false, features = ["native"] }
 esp-idf-hal = { version = "0.41", default-features = false, features = ["esp-idf-sys"] }
 embassy-sync = { version = "0.2", optional = true }
 embassy-time = { version = "0.1.1", optional = true, features = ["tick-hz-1_000_000"] }
 embassy-futures = "0.1"
 
 [build-dependencies]
-embuild = "0.31.2"
-anyhow = "1"
+embuild = "0.31.3"
 
 [dev-dependencies]
 anyhow = "1"

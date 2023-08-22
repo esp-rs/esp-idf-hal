@@ -19,7 +19,7 @@ use alloc::boxed::Box;
 use embedded_svc::sys_time::SystemTime;
 use embedded_svc::timer::{self, ErrorType, OnceTimer, PeriodicTimer, Timer, TimerService};
 
-use esp_idf_sys::*;
+use crate::sys::*;
 
 use ::log::info;
 
@@ -94,7 +94,7 @@ impl EspTimer {
 
                 if signaled {
                     unsafe {
-                        esp_idf_sys::esp_timer_isr_dispatch_need_yield();
+                        crate::sys::esp_timer_isr_dispatch_need_yield();
                     }
                 }
             }
@@ -271,7 +271,7 @@ where
 
 #[cfg(esp_idf_esp_timer_supports_isr_dispatch_method)]
 mod isr {
-    use esp_idf_sys::EspError;
+    use crate::sys::EspError;
 
     #[derive(Clone, Debug)]
     pub struct ISR;
@@ -322,7 +322,7 @@ pub mod embassy_time {
 
         use esp_idf_hal::task::CriticalSection;
 
-        use esp_idf_sys::*;
+        use crate::sys::*;
 
         use crate::timer::*;
 
@@ -472,7 +472,7 @@ pub mod embassy_time {
         #[cfg(not(esp_idf_esp_timer_supports_isr_dispatch_method))]
         use esp_idf_hal::task::embassy_sync::EspRawMutex as RawMutexImpl;
 
-        use esp_idf_sys::*;
+        use crate::sys::*;
 
         use generic_queue::*;
 
@@ -490,7 +490,7 @@ pub mod embassy_time {
                         });
 
                         if signaled {
-                            esp_idf_sys::esp_timer_isr_dispatch_need_yield();
+                            crate::sys::esp_timer_isr_dispatch_need_yield();
                         }
                     }
 

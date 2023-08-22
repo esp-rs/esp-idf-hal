@@ -17,14 +17,14 @@ use ::log::{info, log, Level};
 
 use embedded_svc::httpd::*;
 
-use esp_idf_sys::esp;
-use esp_idf_sys::esp_nofail;
+use crate::sys::esp;
+use crate::sys::esp_nofail;
 
 use crate::private::cstr::*;
 
 struct IdfRequest<'r>(
-    *mut esp_idf_sys::httpd_req_t,
-    PhantomData<&'r esp_idf_sys::httpd_req_t>,
+    *mut crate::sys::httpd_req_t,
+    PhantomData<&'r crate::sys::httpd_req_t>,
 );
 
 impl<'r> IdfRequest<'r> {
@@ -37,7 +37,7 @@ impl<'r> IdfRequest<'r> {
 
         let c_status = to_cstring_arg(status_string.as_str())?;
 
-        esp!(unsafe { esp_idf_sys::httpd_resp_set_status(self.0, c_status.as_ptr()) })?;
+        esp!(unsafe { crate::sys::httpd_resp_set_status(self.0, c_status.as_ptr()) })?;
 
         let mut c_headers: std::vec::Vec<(CString, CString)> = vec![];
         let mut c_content_type: Option<CString> = None;
@@ -62,12 +62,12 @@ impl<'r> IdfRequest<'r> {
         }
 
         if let Some(c_content_type) = c_content_type.as_ref() {
-            esp!(unsafe { esp_idf_sys::httpd_resp_set_type(self.0, c_content_type.as_ptr()) })?
+            esp!(unsafe { crate::sys::httpd_resp_set_type(self.0, c_content_type.as_ptr()) })?
         }
 
         for (c_field, c_value) in &c_headers {
             esp!(unsafe {
-                esp_idf_sys::httpd_resp_set_hdr(self.0, c_field.as_ptr(), c_value.as_ptr())
+                crate::sys::httpd_resp_set_hdr(self.0, c_field.as_ptr(), c_value.as_ptr())
             })?;
         }
 
@@ -80,7 +80,7 @@ impl<'r> IdfRequest<'r> {
 
     fn send_body_bytes(&mut self, _size: Option<usize>, data: &[u8]) -> anyhow::Result<()> {
         esp!(unsafe {
-            esp_idf_sys::httpd_resp_send(self.0, data.as_ptr().cast(), data.len() as isize)
+            crate::sys::httpd_resp_send(self.0, data.as_ptr().cast(), data.len() as isize)
         })
         .map_err(Into::into)
     }
@@ -97,7 +97,7 @@ impl<'r> IdfRequest<'r> {
             let len = r.read(&mut buf)?;
 
             esp!(unsafe {
-                esp_idf_sys::httpd_resp_send_chunk(self.0, buf.as_ptr().cast(), buf.len() as isize)
+                crate::sys::httpd_resp_send_chunk(self.0, buf.as_ptr().cast(), buf.len() as isize)
             })?;
 
             if len == 0 {
@@ -112,12 +112,12 @@ impl<'r> RequestDelegate for IdfRequest<'r> {
     fn header(&self, name: &str) -> Option<String> {
         if let Ok(c_str) = to_cstring_arg(name) {
             unsafe {
-                match esp_idf_sys::httpd_req_get_hdr_value_len(self.0, c_str.as_ptr()) {
+                match crate::sys::httpd_req_get_hdr_value_len(self.0, c_str.as_ptr()) {
                     0 => None,
                     len => {
                         let mut buf: vec::Vec<u8> = Vec::with_capacity(len + 1);
 
-                        esp_nofail!(esp_idf_sys::httpd_req_get_hdr_value_str(
+                        esp_nofail!(crate::sys::httpd_req_get_hdr_value_str(
                             self.0,
                             c_str.as_ptr(),
                             buf.as_mut_ptr().cast(),
@@ -137,12 +137,12 @@ impl<'r> RequestDelegate for IdfRequest<'r> {
 
     fn query_string(&self) -> Option<String> {
         unsafe {
-            match esp_idf_sys::httpd_req_get_url_query_len(self.0) {
+            match crate::sys::httpd_req_get_url_query_len(self.0) {
                 0 => None,
                 len => {
                     let mut buf: vec::Vec<u8> = Vec::with_capacity(len + 1);
 
-                    esp_nofail!(esp_idf_sys::httpd_req_get_url_query_str(
+                    esp_nofail!(crate::sys::httpd_req_get_url_query_str(
                         self.0,
                         buf.as_mut_ptr().cast(),
                         len + 1
@@ -158,13 +158,13 @@ impl<'r> RequestDelegate for IdfRequest<'r> {
 
     fn read(&mut self, buf: &mut [u8]) -> Result<usize, io::Error> {
         unsafe {
-            let len = esp_idf_sys::httpd_req_recv(self.0, buf.as_mut_ptr().cast(), buf.len());
+            let len = crate::sys::httpd_req_recv(self.0, buf.as_mut_ptr().cast(), buf.len());
 
             if len < 0 {
                 Err(match len {
-                    esp_idf_sys::HTTPD_SOCK_ERR_INVALID => io::ErrorKind::InvalidInput,
-                    esp_idf_sys::HTTPD_SOCK_ERR_TIMEOUT => io::ErrorKind::TimedOut,
-                    esp_idf_sys::HTTPD_SOCK_ERR_FAIL => io::ErrorKind::Other,
+                    crate::sys::HTTPD_SOCK_ERR_INVALID => io::ErrorKind::InvalidInput,
+                    crate::sys::HTTPD_SOCK_ERR_TIMEOUT => io::ErrorKind::TimedOut,
+                    crate::sys::HTTPD_SOCK_ERR_FAIL => io::ErrorKind::Other,
                     _ => io::ErrorKind::Other,
                 }
                 .into())
@@ -227,8 +227,8 @@ impl registry::Registry for ServerRegistry {
 }
 
 pub struct Server {
-    sd: esp_idf_sys::httpd_handle_t,
-    registrations: Vec<(CString, esp_idf_sys::httpd_uri_t)>,
+    sd: crate::sys::httpd_handle_t,
+    registrations: Vec<(CString, crate::sys::httpd_uri_t)>,
 }
 
 impl Server {
@@ -236,10 +236,10 @@ impl Server {
         let config =
             Self::default_configuration(conf.http_port, conf.https_port, conf.max_uri_handlers);
 
-        let mut handle: esp_idf_sys::httpd_handle_t = ptr::null_mut();
+        let mut handle: crate::sys::httpd_handle_t = ptr::null_mut();
         let handle_ref = &mut handle;
 
-        esp!(unsafe { esp_idf_sys::httpd_start(handle_ref, &config) })?;
+        esp!(unsafe { crate::sys::httpd_start(handle_ref, &config) })?;
 
         info!("Started Httpd IDF server with config {:?}", conf);
 
@@ -254,7 +254,7 @@ impl Server {
         let method = handler.method();
 
         #[allow(clippy::needless_update)]
-        let conf = esp_idf_sys::httpd_uri_t {
+        let conf = crate::sys::httpd_uri_t {
             uri: c_str.as_ptr(),
             method: Self::get_httpd_method(method),
             user_ctx: Box::into_raw(Box::new(handler.handler())).cast(),
@@ -262,7 +262,7 @@ impl Server {
             ..Default::default()
         };
 
-        esp!(unsafe { esp_idf_sys::httpd_register_uri_handler(self.sd, &conf) })?;
+        esp!(unsafe { crate::sys::httpd_register_uri_handler(self.sd, &conf) })?;
 
         info!(
             "Registered Httpd IDF server handler {:?} for URI \"{}\"",
@@ -275,9 +275,9 @@ impl Server {
         Ok(())
     }
 
-    fn unregister(&mut self, uri: CString, conf: esp_idf_sys::httpd_uri_t) -> Result<()> {
+    fn unregister(&mut self, uri: CString, conf: crate::sys::httpd_uri_t) -> Result<()> {
         unsafe {
-            esp!(esp_idf_sys::httpd_unregister_uri_handler(
+            esp!(crate::sys::httpd_unregister_uri_handler(
                 self.sd,
                 uri.as_ptr(),
                 conf.method
@@ -302,7 +302,7 @@ impl Server {
                 self.unregister(uri, registration)?;
             }
 
-            esp!(unsafe { esp_idf_sys::httpd_stop(self.sd) })?;
+            esp!(unsafe { crate::sys::httpd_stop(self.sd) })?;
 
             self.sd = ptr::null_mut();
         }
@@ -312,7 +312,7 @@ impl Server {
         Ok(())
     }
 
-    unsafe extern "C" fn handle(rd: *mut esp_idf_sys::httpd_req_t) -> c_int {
+    unsafe extern "C" fn handle(rd: *mut crate::sys::httpd_req_t) -> c_int {
         let handler = ((*rd).user_ctx as *mut Box<dyn Fn(Request) -> Result<Response>>)
             .as_ref()
             .unwrap();
@@ -343,46 +343,46 @@ impl Server {
         );
 
         match idf_request_response.send(response) {
-            Ok(_) => esp_idf_sys::ESP_OK,
-            Err(_) => esp_idf_sys::ESP_FAIL,
+            Ok(_) => crate::sys::ESP_OK,
+            Err(_) => crate::sys::ESP_FAIL,
         }
     }
 
     fn get_httpd_method(m: Method) -> c_uint {
         match m {
-            Method::Get => esp_idf_sys::http_method_HTTP_GET,
-            Method::Post => esp_idf_sys::http_method_HTTP_POST,
-            Method::Delete => esp_idf_sys::http_method_HTTP_DELETE,
-            Method::Head => esp_idf_sys::http_method_HTTP_HEAD,
-            Method::Put => esp_idf_sys::http_method_HTTP_PUT,
-            Method::Connect => esp_idf_sys::http_method_HTTP_CONNECT,
-            Method::Options => esp_idf_sys::http_method_HTTP_OPTIONS,
-            Method::Trace => esp_idf_sys::http_method_HTTP_TRACE,
-            Method::Copy => esp_idf_sys::http_method_HTTP_COPY,
-            Method::Lock => esp_idf_sys::http_method_HTTP_LOCK,
-            Method::MkCol => esp_idf_sys::http_method_HTTP_MKCOL,
-            Method::Move => esp_idf_sys::http_method_HTTP_MOVE,
-            Method::Propfind => esp_idf_sys::http_method_HTTP_PROPFIND,
-            Method::Proppatch => esp_idf_sys::http_method_HTTP_PROPPATCH,
-            Method::Search => esp_idf_sys::http_method_HTTP_SEARCH,
-            Method::Unlock => esp_idf_sys::http_method_HTTP_UNLOCK,
-            Method::Bind => esp_idf_sys::http_method_HTTP_BIND,
-            Method::Rebind => esp_idf_sys::http_method_HTTP_REBIND,
-            Method::Unbind => esp_idf_sys::http_method_HTTP_UNBIND,
-            Method::Acl => esp_idf_sys::http_method_HTTP_ACL,
-            Method::Report => esp_idf_sys::http_method_HTTP_REPORT,
-            Method::MkActivity => esp_idf_sys::http_method_HTTP_MKACTIVITY,
-            Method::Checkout => esp_idf_sys::http_method_HTTP_CHECKOUT,
-            Method::Merge => esp_idf_sys::http_method_HTTP_MERGE,
-            Method::MSearch => esp_idf_sys::http_method_HTTP_MSEARCH,
-            Method::Notify => esp_idf_sys::http_method_HTTP_NOTIFY,
-            Method::Subscribe => esp_idf_sys::http_method_HTTP_SUBSCRIBE,
-            Method::Unsubscribe => esp_idf_sys::http_method_HTTP_UNSUBSCRIBE,
-            Method::Patch => esp_idf_sys::http_method_HTTP_PATCH,
-            Method::Purge => esp_idf_sys::http_method_HTTP_PURGE,
-            Method::MkCalendar => esp_idf_sys::http_method_HTTP_MKCALENDAR,
-            Method::Link => esp_idf_sys::http_method_HTTP_LINK,
-            Method::Unlink => esp_idf_sys::http_method_HTTP_UNLINK,
+            Method::Get => crate::sys::http_method_HTTP_GET,
+            Method::Post => crate::sys::http_method_HTTP_POST,
+            Method::Delete => crate::sys::http_method_HTTP_DELETE,
+            Method::Head => crate::sys::http_method_HTTP_HEAD,
+            Method::Put => crate::sys::http_method_HTTP_PUT,
+            Method::Connect => crate::sys::http_method_HTTP_CONNECT,
+            Method::Options => crate::sys::http_method_HTTP_OPTIONS,
+            Method::Trace => crate::sys::http_method_HTTP_TRACE,
+            Method::Copy => crate::sys::http_method_HTTP_COPY,
+            Method::Lock => crate::sys::http_method_HTTP_LOCK,
+            Method::MkCol => crate::sys::http_method_HTTP_MKCOL,
+            Method::Move => crate::sys::http_method_HTTP_MOVE,
+            Method::Propfind => crate::sys::http_method_HTTP_PROPFIND,
+            Method::Proppatch => crate::sys::http_method_HTTP_PROPPATCH,
+            Method::Search => crate::sys::http_method_HTTP_SEARCH,
+            Method::Unlock => crate::sys::http_method_HTTP_UNLOCK,
+            Method::Bind => crate::sys::http_method_HTTP_BIND,
+            Method::Rebind => crate::sys::http_method_HTTP_REBIND,
+            Method::Unbind => crate::sys::http_method_HTTP_UNBIND,
+            Method::Acl => crate::sys::http_method_HTTP_ACL,
+            Method::Report => crate::sys::http_method_HTTP_REPORT,
+            Method::MkActivity => crate::sys::http_method_HTTP_MKACTIVITY,
+            Method::Checkout => crate::sys::http_method_HTTP_CHECKOUT,
+            Method::Merge => crate::sys::http_method_HTTP_MERGE,
+            Method::MSearch => crate::sys::http_method_HTTP_MSEARCH,
+            Method::Notify => crate::sys::http_method_HTTP_NOTIFY,
+            Method::Subscribe => crate::sys::http_method_HTTP_SUBSCRIBE,
+            Method::Unsubscribe => crate::sys::http_method_HTTP_UNSUBSCRIBE,
+            Method::Patch => crate::sys::http_method_HTTP_PATCH,
+            Method::Purge => crate::sys::http_method_HTTP_PURGE,
+            Method::MkCalendar => crate::sys::http_method_HTTP_MKCALENDAR,
+            Method::Link => crate::sys::http_method_HTTP_LINK,
+            Method::Unlink => crate::sys::http_method_HTTP_UNLINK,
         }
     }
 
@@ -392,8 +392,8 @@ impl Server {
         http_port: u16,
         https_port: u16,
         max_uri_handlers: u16,
-    ) -> esp_idf_sys::httpd_config_t {
-        esp_idf_sys::httpd_config_t {
+    ) -> crate::sys::httpd_config_t {
+        crate::sys::httpd_config_t {
             task_priority: 5,
             stack_size: if https_port != 0 { 10240 } else { 4096 },
             core_id: std::i32::MAX,

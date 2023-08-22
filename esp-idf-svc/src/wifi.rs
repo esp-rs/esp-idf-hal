@@ -19,7 +19,7 @@ use embedded_svc::wifi::*;
 use esp_idf_hal::modem::WifiModemPeripheral;
 use esp_idf_hal::peripheral::Peripheral;
 
-use esp_idf_sys::*;
+use crate::sys::*;
 
 use crate::eventloop::EspEventLoop;
 use crate::eventloop::{
@@ -39,7 +39,7 @@ use crate::timer::EspTaskTimerService;
 pub mod config {
     use core::time::Duration;
 
-    use esp_idf_sys::*;
+    use crate::sys::*;
 
     #[derive(Clone, Debug, PartialEq, Eq)]
     pub enum ScanType {
@@ -529,7 +529,7 @@ impl<'d> WifiDriver<'d> {
         Ok(caps)
     }
 
-    /// As per [`esp_idf_sys::esp_wifi_start`](esp_idf_sys::esp_wifi_start)
+    /// As per [`crate::sys::esp_wifi_start`](crate::sys::esp_wifi_start)
     pub fn start(&mut self) -> Result<(), EspError> {
         debug!("Start requested");
 
@@ -540,7 +540,7 @@ impl<'d> WifiDriver<'d> {
         Ok(())
     }
 
-    /// As per [`esp_idf_sys::esp_wifi_stop`](esp_idf_sys::esp_wifi_stop)
+    /// As per [`crate::sys::esp_wifi_stop`](crate::sys::esp_wifi_stop)
     pub fn stop(&mut self) -> Result<(), EspError> {
         debug!("Stop requested");
 
@@ -551,7 +551,7 @@ impl<'d> WifiDriver<'d> {
         Ok(())
     }
 
-    /// As per [`esp_idf_sys::esp_wifi_connect`](esp_idf_sys::esp_wifi_connect)
+    /// As per [`crate::sys::esp_wifi_connect`](crate::sys::esp_wifi_connect)
     pub fn connect(&mut self) -> Result<(), EspError> {
         debug!("Connect requested");
 
@@ -562,7 +562,7 @@ impl<'d> WifiDriver<'d> {
         Ok(())
     }
 
-    /// As per [`esp_idf_sys::esp_wifi_disconnect`](esp_idf_sys::esp_wifi_disconnect)
+    /// As per [`crate::sys::esp_wifi_disconnect`](crate::sys::esp_wifi_disconnect)
     pub fn disconnect(&mut self) -> Result<(), EspError> {
         debug!("Disconnect requested");
 
@@ -574,7 +574,7 @@ impl<'d> WifiDriver<'d> {
     }
 
     /// Returns `true` if the driver is in Access Point (AP) mode, as reported by
-    /// [`esp_idf_sys::esp_wifi_get_mode`](esp_idf_sys::esp_wifi_get_mode)
+    /// [`crate::sys::esp_wifi_get_mode`](crate::sys::esp_wifi_get_mode)
     pub fn is_ap_enabled(&self) -> Result<bool, EspError> {
         let mut mode: wifi_mode_t = 0;
         esp!(unsafe { esp_wifi_get_mode(&mut mode) })?;
@@ -583,7 +583,7 @@ impl<'d> WifiDriver<'d> {
     }
 
     /// Returns `true` if the driver is in Client (station or STA) mode, as
-    /// reported by [`esp_idf_sys::esp_wifi_get_mode`](esp_idf_sys::esp_wifi_get_mode)
+    /// reported by [`crate::sys::esp_wifi_get_mode`](crate::sys::esp_wifi_get_mode)
     pub fn is_sta_enabled(&self) -> Result<bool, EspError> {
         let mut mode: wifi_mode_t = 0;
         esp!(unsafe { esp_wifi_get_mode(&mut mode) })?;
@@ -668,8 +668,8 @@ impl<'d> WifiDriver<'d> {
     /// Sets the <`Configuration`> (SSID, channel, etc). This also defines whether
     /// the driver will work in AP mode, client mode, client+AP mode, or none.
     ///
-    /// Calls [`esp_idf_sys::esp_wifi_set_mode`](esp_idf_sys::esp_wifi_set_mode)
-    /// and [`esp_idf_sys::esp_wifi_set_config`](esp_idf_sys::esp_wifi_set_config)
+    /// Calls [`crate::sys::esp_wifi_set_mode`](crate::sys::esp_wifi_set_mode)
+    /// and [`crate::sys::esp_wifi_set_config`](crate::sys::esp_wifi_set_config)
     pub fn set_configuration(&mut self, conf: &Configuration) -> Result<(), EspError> {
         debug!("Setting configuration: {:?}", conf);
 
@@ -860,8 +860,8 @@ impl<'d> WifiDriver<'d> {
     }
 
     /// Sets callback functions for receiving and sending data, as per
-    /// [`esp_idf_sys::esp_wifi_internal_reg_rxcb`](esp_idf_sys::esp_wifi_internal_reg_rxcb) and
-    /// [`esp_idf_sys::esp_wifi_set_tx_done_cb`](esp_idf_sys::esp_wifi_set_tx_done_cb)
+    /// [`crate::sys::esp_wifi_internal_reg_rxcb`](crate::sys::esp_wifi_internal_reg_rxcb) and
+    /// [`crate::sys::esp_wifi_set_tx_done_cb`](crate::sys::esp_wifi_set_tx_done_cb)
     pub fn set_callbacks<R, T>(
         &mut self,
         mut rx_callback: R,
@@ -907,7 +907,7 @@ impl<'d> WifiDriver<'d> {
         Ok(())
     }
 
-    /// As per [`esp_idf_sys::esp_wifi_internal_tx`](esp_idf_sys::esp_wifi_internal_tx)
+    /// As per [`crate::sys::esp_wifi_internal_tx`](crate::sys::esp_wifi_internal_tx)
     pub fn send(&mut self, device_id: WifiDeviceId, frame: &[u8]) -> Result<(), EspError> {
         esp!(unsafe {
             esp_wifi_internal_tx(device_id.into(), frame.as_ptr() as *mut _, frame.len() as _)
@@ -927,7 +927,7 @@ impl<'d> WifiDriver<'d> {
     }
 
     /// Set RSSI threshold below which APP will get an WifiEvent::StaBssRssiLow,
-    /// as per [`esp_idf_sys::esp_wifi_set_rssi_threshold`](esp_idf_sys::esp_wifi_set_rssi_threshold)
+    /// as per [`crate::sys::esp_wifi_set_rssi_threshold`](crate::sys::esp_wifi_set_rssi_threshold)
     /// `rssi_threshold`: threshold value in dbm between -100 to 0
     ///
     /// # Example
@@ -967,7 +967,7 @@ impl<'d> WifiDriver<'d> {
     }
 
     /// Returns the MAC address of the interface, as per
-    /// [`esp_idf_sys::esp_wifi_get_mac`](esp_idf_sys::esp_wifi_get_mac)
+    /// [`crate::sys::esp_wifi_get_mac`](crate::sys::esp_wifi_get_mac)
     pub fn get_mac(&self, interface: WifiDeviceId) -> Result<[u8; 6], EspError> {
         let mut mac = [0u8; 6];
 
@@ -977,7 +977,7 @@ impl<'d> WifiDriver<'d> {
     }
 
     /// Seta the MAC address of the interface, as per
-    /// [`esp_idf_sys::esp_wifi_set_mac`](esp_idf_sys::esp_wifi_set_mac)
+    /// [`crate::sys::esp_wifi_set_mac`](crate::sys::esp_wifi_set_mac)
     pub fn set_mac(&mut self, interface: WifiDeviceId, mac: [u8; 6]) -> Result<(), EspError> {
         esp!(unsafe { esp_wifi_set_mac(interface.into(), mac.as_ptr() as *mut _) })
     }

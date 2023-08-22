@@ -10,7 +10,7 @@ use ::log::info;
 
 use alloc::boxed::Box;
 
-use esp_idf_sys::*;
+use crate::sys::*;
 
 use crate::private::mutex::{Mutex, RawMutex};
 
@@ -69,7 +69,7 @@ impl EspNow {
     }
 
     pub fn send(&self, peer_addr: [u8; 6], data: &[u8]) -> Result<(), EspError> {
-        esp!(unsafe { esp_idf_sys::esp_now_send(peer_addr.as_ptr(), data.as_ptr(), data.len(),) })?;
+        esp!(unsafe { crate::sys::esp_now_send(peer_addr.as_ptr(), data.as_ptr(), data.len(),) })?;
 
         Ok(())
     }

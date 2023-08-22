@@ -11,7 +11,7 @@ use embedded_svc::event_bus::{ErrorType, EventBus, Postbox, PostboxProvider};
 use esp_idf_hal::cpu::Core;
 use esp_idf_hal::task;
 
-use esp_idf_sys::*;
+use crate::sys::*;
 
 use crate::handle::RawHandle;
 use crate::private::cstr::RawCstrs;

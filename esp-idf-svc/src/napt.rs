@@ -2,7 +2,7 @@ use embedded_svc::ipv4;
 
 use crate::private::mutex::{Mutex, RawMutex};
 
-use esp_idf_sys::*;
+use crate::sys::*;
 
 use crate::private::common::*;
 

@@ -6,7 +6,7 @@ use ::log::*;
 use embedded_svc::ipv4;
 use embedded_svc::ping::*;
 
-use esp_idf_sys::*;
+use crate::sys::*;
 
 use crate::private::common::*;
 use crate::private::waitable::*;

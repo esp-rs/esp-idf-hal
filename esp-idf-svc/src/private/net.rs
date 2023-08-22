@@ -1,7 +1,7 @@
 use core::convert::{TryFrom, TryInto};
 
+use crate::sys::*;
 use embedded_svc::ipv4::{self, Mask};
-use esp_idf_sys::*;
 
 use crate::private::common::*;
 

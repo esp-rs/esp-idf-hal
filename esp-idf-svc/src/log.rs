@@ -3,7 +3,7 @@ use core::fmt::Write;
 
 use ::log::{Level, LevelFilter, Metadata, Record};
 
-use esp_idf_sys::*;
+use crate::sys::*;
 
 use crate::private::common::*;
 use crate::private::cstr::*;

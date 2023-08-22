@@ -49,6 +49,7 @@ pub mod espnow;
 pub mod eth;
 #[cfg(all(feature = "alloc", esp_idf_comp_esp_event_enabled))]
 pub mod eventloop;
+pub mod hal;
 pub mod handle;
 #[cfg(feature = "alloc")]
 pub mod http;
@@ -78,6 +79,7 @@ pub mod ota;
 pub mod ping;
 #[cfg(all(feature = "alloc", esp_idf_comp_esp_netif_enabled))]
 pub mod sntp;
+pub mod sys;
 pub mod systime;
 #[cfg(all(feature = "alloc", esp_idf_comp_esp_timer_enabled))]
 pub mod timer;

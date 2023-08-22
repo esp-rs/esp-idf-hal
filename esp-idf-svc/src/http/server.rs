@@ -24,7 +24,7 @@ use embedded_svc::http::*;
 use embedded_svc::io::{Io, Read, Write};
 use embedded_svc::utils::http::server::registration::{ChainHandler, ChainRoot};
 
-use esp_idf_sys::*;
+use crate::sys::*;
 
 use uncased::{Uncased, UncasedStr};
 
@@ -243,7 +243,7 @@ type CloseHandler = Box<dyn Fn(ffi::c_int) + Send>;
 
 pub struct EspHttpServer {
     sd: httpd_handle_t,
-    registrations: Vec<(CString, esp_idf_sys::httpd_uri_t)>,
+    registrations: Vec<(CString, crate::sys::httpd_uri_t)>,
 }
 
 impl EspHttpServer {
@@ -331,17 +331,17 @@ impl EspHttpServer {
             // Maybe its better to always call httpd_stop because httpd_ssl_stop directly wraps httpd_stop anyways
             // https://github.com/espressif/esp-idf/blob/e6fda46a02c41777f1d116a023fbec6a1efaffb9/components/esp_https_server/src/https_server.c#L268
             #[cfg(not(esp_idf_esp_https_server_enable))]
-            esp!(unsafe { esp_idf_sys::httpd_stop(self.sd) })?;
+            esp!(unsafe { crate::sys::httpd_stop(self.sd) })?;
 
             // httpd_ssl_stop doesn't return EspErr for some reason. It returns void.
             #[cfg(all(esp_idf_esp_https_server_enable, esp_idf_version_major = "4"))]
             unsafe {
-                esp_idf_sys::httpd_ssl_stop(self.sd)
+                crate::sys::httpd_ssl_stop(self.sd)
             };
 
             // esp-idf version 5 does return EspErr
             #[cfg(all(esp_idf_esp_https_server_enable, not(esp_idf_version_major = "4")))]
-            esp!(unsafe { esp_idf_sys::httpd_ssl_stop(self.sd) })?;
+            esp!(unsafe { crate::sys::httpd_ssl_stop(self.sd) })?;
 
             CLOSE_HANDLERS.lock().remove(&(self.sd as u32));
 
@@ -382,7 +382,7 @@ impl EspHttpServer {
             ..Default::default()
         };
 
-        esp!(unsafe { esp_idf_sys::httpd_register_uri_handler(self.sd, &conf) })?;
+        esp!(unsafe { crate::sys::httpd_register_uri_handler(self.sd, &conf) })?;
 
         info!(
             "Registered Httpd server handler {:?} for URI \"{}\"",
@@ -514,7 +514,7 @@ impl<'a> Read for EspHttpRequest<'a> {
     fn read(&mut self, buf: &mut [u8]) -> Result<usize, Self::Error> {
         if !buf.is_empty() {
             let fd = unsafe { httpd_req_to_sockfd(self.0) };
-            let len = unsafe { esp_idf_sys::read(fd, buf.as_ptr() as *mut _, buf.len()) };
+            let len = unsafe { crate::sys::read(fd, buf.as_ptr() as *mut _, buf.len()) };
 
             Ok(len as _)
         } else {
@@ -527,7 +527,7 @@ impl<'a> Write for EspHttpRequest<'a> {
     fn write(&mut self, buf: &[u8]) -> Result<usize, Self::Error> {
         if !buf.is_empty() {
             let fd = unsafe { httpd_req_to_sockfd(self.0) };
-            let len = unsafe { esp_idf_sys::write(fd, buf.as_ptr() as *const _, buf.len()) };
+            let len = unsafe { crate::sys::write(fd, buf.as_ptr() as *const _, buf.len()) };
 
             Ok(len as _)
         } else {
@@ -908,7 +908,7 @@ pub mod ws {
     use embedded_svc::utils::mutex::{Condvar, Mutex};
     use embedded_svc::ws::callback_server::*;
 
-    use esp_idf_sys::*;
+    use crate::sys::*;
 
     use crate::private::common::Newtype;
     use crate::private::cstr::to_cstring_arg;
@@ -1247,7 +1247,7 @@ pub mod ws {
                 ..Default::default()
             };
 
-            esp!(unsafe { esp_idf_sys::httpd_register_uri_handler(self.sd, &conf) })?;
+            esp!(unsafe { crate::sys::httpd_register_uri_handler(self.sd, &conf) })?;
 
             {
                 let mut all_close_handlers = CLOSE_HANDLERS.lock();
@@ -1330,10 +1330,10 @@ pub mod ws {
     }
 
     pub mod asyncify {
+        use crate::sys::EspError;
         use embedded_svc::utils::asyncify::ws::server::{
             AsyncAcceptor, AsyncReceiver, AsyncSender, Processor,
         };
-        use esp_idf_sys::EspError;
 
         pub type EspHttpWsProcessor<const N: usize, const F: usize> =
             Processor<N, F, crate::private::mutex::RawCondvar, super::EspHttpWsConnection>;

@@ -15,7 +15,7 @@ extern crate alloc;
 #[cfg(not(any(esp_idf_version_major = "4", esp_idf_version_minor = "0")))]
 mod esp_sntp {
     use super::OperatingMode;
-    pub use esp_idf_sys::*;
+    pub use crate::sys::*;
 
     impl From<esp_sntp_operatingmode_t> for OperatingMode {
         #[allow(non_upper_case_globals)]
@@ -47,7 +47,7 @@ mod esp_sntp {
 #[cfg(any(esp_idf_version_major = "4", esp_idf_version_minor = "0"))]
 mod esp_sntp {
     use super::OperatingMode;
-    pub use esp_idf_sys::*;
+    pub use crate::sys::*;
 
     impl From<u8_t> for OperatingMode {
         fn from(from: u8_t) -> Self {

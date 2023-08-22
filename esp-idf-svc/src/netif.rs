@@ -13,7 +13,7 @@ use core::{ffi, ptr};
 
 use embedded_svc::ipv4;
 
-use esp_idf_sys::*;
+use crate::sys::*;
 
 use ::log::info;
 
@@ -499,7 +499,7 @@ impl EspNetif {
     #[cfg(esp_idf_lwip_ipv4_napt)]
     pub fn enable_napt(&mut self, enable: bool) {
         unsafe {
-            esp_idf_sys::ip_napt_enable_no(
+            crate::sys::ip_napt_enable_no(
                 (esp_netif_get_netif_impl_index(self.0) - 1) as u8,
                 if enable { 1 } else { 0 },
             )
@@ -770,7 +770,7 @@ where
 pub mod asynch {
     use core::future::Future;
 
-    use esp_idf_sys::EspError;
+    use crate::sys::EspError;
 
     pub trait NetifStatus {
         type IsUpFuture<'a>: Future<Output = Result<bool, EspError>>

@@ -11,7 +11,7 @@ use embedded_svc::ws::{ErrorType, FrameType, Sender};
 
 use esp_idf_hal::delay::TickType;
 
-use esp_idf_sys::*;
+use crate::sys::*;
 
 use crate::errors::EspIOError;
 use crate::handle::RawHandle;

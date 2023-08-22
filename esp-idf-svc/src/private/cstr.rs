@@ -7,7 +7,7 @@ pub use alloc::ffi::CString;
 pub use core::ffi::{c_char, CStr};
 
 #[cfg(feature = "alloc")]
-pub fn set_str(buf: &mut [u8], s: &str) -> Result<(), esp_idf_sys::EspError> {
+pub fn set_str(buf: &mut [u8], s: &str) -> Result<(), crate::sys::EspError> {
     assert!(s.len() < buf.len());
     let cs = to_cstring_arg(s)?;
     let ss: &[u8] = cs.as_bytes_with_nul();
@@ -68,13 +68,13 @@ impl Default for RawCstrs {
 }
 
 #[cfg(feature = "alloc")]
-pub fn nul_to_invalid_arg(_err: alloc::ffi::NulError) -> esp_idf_sys::EspError {
-    esp_idf_sys::EspError::from_non_zero(
-        core::num::NonZeroI32::new(esp_idf_sys::ESP_ERR_INVALID_ARG).unwrap(),
+pub fn nul_to_invalid_arg(_err: alloc::ffi::NulError) -> crate::sys::EspError {
+    crate::sys::EspError::from_non_zero(
+        core::num::NonZeroI32::new(crate::sys::ESP_ERR_INVALID_ARG).unwrap(),
     )
 }
 
 #[cfg(feature = "alloc")]
-pub fn to_cstring_arg(value: &str) -> Result<CString, esp_idf_sys::EspError> {
+pub fn to_cstring_arg(value: &str) -> Result<CString, crate::sys::EspError> {
     CString::new(value).map_err(nul_to_invalid_arg)
 }

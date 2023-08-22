@@ -2,7 +2,7 @@ use core::cell::UnsafeCell;
 use core::ptr;
 use core::time::Duration;
 
-use esp_idf_sys::*;
+use crate::sys::*;
 
 // Might not always be available in the generated `esp-idf-sys` bindings
 const ERR_ETIMEDOUT: esp_err_t = 116;
@@ -88,7 +88,7 @@ impl RawCondvar {
         gettimeofday(&mut now, core::ptr::null_mut());
 
         let abstime = timespec {
-            tv_sec: now.tv_sec + duration.as_secs() as esp_idf_sys::time_t,
+            tv_sec: now.tv_sec + duration.as_secs() as crate::sys::time_t,
             tv_nsec: (now.tv_usec * 1000) + duration.subsec_nanos() as i32,
         };
 

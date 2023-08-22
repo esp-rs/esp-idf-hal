@@ -15,7 +15,7 @@ use embedded_svc::ota::Slot;
 use embedded_svc::io;
 use embedded_svc::ota;
 
-use esp_idf_sys::*;
+use crate::sys::*;
 
 use crate::errors::EspIOError;
 use crate::private::{common::*, cstr::*, mutex};

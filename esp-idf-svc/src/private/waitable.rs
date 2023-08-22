@@ -2,9 +2,9 @@ use core::time::Duration;
 
 use super::mutex::{Condvar, Mutex};
 
-use esp_idf_sys::EspError;
+use crate::sys::EspError;
 #[cfg(not(feature = "std"))]
-use esp_idf_sys::*;
+use crate::sys::*;
 
 pub struct Waitable<T> {
     pub cvar: Condvar,

@@ -3,7 +3,7 @@ use core::time::Duration;
 
 use embedded_svc::sys_time::SystemTime;
 
-use esp_idf_sys::*;
+use crate::sys::*;
 
 /// Client for the ESP system time
 pub struct EspSystemTime;

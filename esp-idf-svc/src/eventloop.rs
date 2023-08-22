@@ -18,7 +18,7 @@ use esp_idf_hal::cpu::Core;
 use esp_idf_hal::delay::TickType;
 use esp_idf_hal::interrupt;
 
-use esp_idf_sys::*;
+use crate::sys::*;
 
 use crate::handle::RawHandle;
 use crate::private::cstr::RawCstrs;
@@ -985,7 +985,7 @@ mod async_wait {
     use embedded_svc::utils::asyncify::event_bus::{AsyncEventBus, AsyncSubscription};
     use embedded_svc::utils::asyncify::timer::{AsyncTimer, AsyncTimerService};
 
-    use esp_idf_sys::{esp, EspError, ESP_ERR_TIMEOUT};
+    use crate::sys::{esp, EspError, ESP_ERR_TIMEOUT};
 
     use log::debug;
 

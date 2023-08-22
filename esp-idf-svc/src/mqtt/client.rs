@@ -11,7 +11,7 @@ use alloc::sync::Arc;
 use embedded_svc::mqtt::client::{self, ErrorType, MessageImpl};
 use embedded_svc::utils::mqtt::client::{ConnState, ConnStateGuard, Connection, Postbox};
 
-use esp_idf_sys::*;
+use crate::sys::*;
 
 use crate::handle::RawHandle;
 use crate::private::mutex::RawCondvar;
@@ -762,7 +762,7 @@ mod asyncify {
     use embedded_svc::utils::mqtt::client::ConnStateGuard;
     use embedded_svc::utils::mutex::Mutex;
 
-    use esp_idf_sys::EspError;
+    use crate::sys::EspError;
 
     use crate::private::mutex::{RawCondvar, RawMutex};
 

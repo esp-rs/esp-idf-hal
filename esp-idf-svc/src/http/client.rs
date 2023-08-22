@@ -19,7 +19,7 @@ use embedded_svc::http::client::*;
 use embedded_svc::http::*;
 use embedded_svc::io::{Io, Read, Write};
 
-use esp_idf_sys::*;
+use crate::sys::*;
 
 use uncased::{Uncased, UncasedStr};
 
