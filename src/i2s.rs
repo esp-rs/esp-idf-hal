@@ -106,7 +106,10 @@ pub mod config {
         #[allow(clippy::unnecessary_cast)]
         pub(super) fn as_sdk(&self) -> i2s_clock_src_t {
             match self {
-                Self::Pll160M => esp_idf_sys::soc_module_clk_t_SOC_MOD_CLK_PLL_F160M as u32,
+                Self::Pll160M => core::convert::TryInto::try_into(
+                    esp_idf_sys::soc_module_clk_t_SOC_MOD_CLK_PLL_F160M,
+                )
+                .unwrap(),
                 #[cfg(any(esp32, esp32s2))]
                 Self::Apll => esp_idf_sys::soc_module_clk_t_SOC_MOD_CLK_APLL,
             }
