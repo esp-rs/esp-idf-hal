@@ -494,7 +494,7 @@ where
         let chunk_size = self.driver.borrow().max_transfer_size;
 
         for mut transaction in spi_read_transactions(words, chunk_size) {
-            spi_transmit(self.handle, &mut transaction, self.polling, false)?;
+            spi_transmit(self.handle, &mut transaction, self.polling)?;
         }
 
         Ok(())
@@ -504,7 +504,7 @@ where
         let chunk_size = self.driver.borrow().max_transfer_size;
 
         for mut transaction in spi_read_transactions(words, chunk_size) {
-            spi_transmit_async(self.handle, &mut transaction, false).await?;
+            spi_transmit_async(self.handle, &mut transaction).await?;
         }
 
         Ok(())
@@ -519,7 +519,7 @@ where
         let chunk_size = self.driver.borrow().max_transfer_size;
 
         for mut transaction in spi_write_transactions(words, chunk_size) {
-            spi_transmit(self.handle, &mut transaction, self.polling, false)?;
+            spi_transmit(self.handle, &mut transaction, self.polling)?;
         }
 
         Ok(())
@@ -529,7 +529,7 @@ where
         let chunk_size = self.driver.borrow().max_transfer_size;
 
         for mut transaction in spi_write_transactions(words, chunk_size) {
-            spi_transmit_async(self.handle, &mut transaction, false).await?;
+            spi_transmit_async(self.handle, &mut transaction).await?;
         }
 
         Ok(())
@@ -550,7 +550,7 @@ where
         let chunk_size = self.driver.borrow().max_transfer_size;
 
         for mut transaction in spi_transfer_transactions(read, write, chunk_size) {
-            spi_transmit(self.handle, &mut transaction, self.polling, false)?;
+            spi_transmit(self.handle, &mut transaction, self.polling)?;
         }
 
         Ok(())
@@ -560,7 +560,7 @@ where
         let chunk_size = self.driver.borrow().max_transfer_size;
 
         for mut transaction in spi_transfer_transactions(read, write, chunk_size) {
-            spi_transmit_async(self.handle, &mut transaction, false).await?;
+            spi_transmit_async(self.handle, &mut transaction).await?;
         }
 
         Ok(())
@@ -570,7 +570,7 @@ where
         let chunk_size = self.driver.borrow().max_transfer_size;
 
         for mut transaction in spi_transfer_in_place_transactions(words, chunk_size) {
-            spi_transmit(self.handle, &mut transaction, self.polling, false)?;
+            spi_transmit(self.handle, &mut transaction, self.polling)?;
         }
 
         Ok(())
@@ -580,7 +580,7 @@ where
         let chunk_size = self.driver.borrow().max_transfer_size;
 
         for mut transaction in spi_transfer_in_place_transactions(words, chunk_size) {
-            spi_transmit_async(self.handle, &mut transaction, false).await?;
+            spi_transmit_async(self.handle, &mut transaction).await?;
         }
 
         Ok(())
@@ -895,12 +895,11 @@ where
         }
 
         for (mut transaction, last) in transactions {
-            spi_transmit(
-                self.handle,
+            set_keep_cs_active(
                 &mut transaction,
-                self.polling,
                 soft_cs_pin.is_none() && self.cs_pin_configured && !last,
-            )?;
+            );
+            spi_transmit(self.handle, &mut transaction, self.polling)?;
         }
 
         if let Some(mut soft_cs_pin) = soft_cs_pin {
@@ -941,12 +940,11 @@ where
         }
 
         for (mut transaction, last) in transactions {
-            spi_transmit_async(
-                self.handle,
+            set_keep_cs_active(
                 &mut transaction,
                 soft_cs_pin.is_none() && self.cs_pin_configured && !last,
-            )
-            .await?;
+            );
+            spi_transmit_async(self.handle, &mut transaction).await?;
         }
 
         if let Some(mut soft_cs_pin) = soft_cs_pin {
@@ -1121,12 +1119,11 @@ where
                 lock = Some(BusLock::new(self.handle)?);
             }
 
-            spi_transmit(
-                self.handle,
+            set_keep_cs_active(
                 &mut transaction,
-                self.polling,
                 self.cs_pin_configured && words.peek().is_some(),
-            )?;
+            );
+            spi_transmit(self.handle, &mut transaction, self.polling)?;
         }
 
         Ok(())
@@ -1641,19 +1638,20 @@ fn spi_create_transaction(
     }
 }
 
-fn spi_transmit(
-    handle: spi_device_handle_t,
-    transaction: &mut spi_transaction_t,
-    polling: bool,
-    _keep_cs_active: bool,
-) -> Result<(), EspError> {
+fn set_keep_cs_active(transaction: &mut spi_transaction_t, _keep_cs_active: bool) {
     // This unfortunately means that this implementation is incorrect for esp-idf < 4.4.
     // The CS pin should be kept active through transactions.
     #[cfg(not(esp_idf_version = "4.3"))]
     if _keep_cs_active {
         transaction.flags |= SPI_TRANS_CS_KEEP_ACTIVE
     }
+}
 
+fn spi_transmit(
+    handle: spi_device_handle_t,
+    transaction: &mut spi_transaction_t,
+    polling: bool,
+) -> Result<(), EspError> {
     if polling {
         esp!(unsafe { spi_device_polling_transmit(handle, transaction as *mut _) })
     } else {
@@ -1664,15 +1662,7 @@ fn spi_transmit(
 async fn spi_transmit_async(
     handle: spi_device_handle_t,
     transaction: &mut spi_transaction_t,
-    _keep_cs_active: bool,
 ) -> Result<(), EspError> {
-    // This unfortunately means that this implementation is incorrect for esp-idf < 4.4.
-    // The CS pin should be kept active through transactions.
-    #[cfg(not(esp_idf_version = "4.3"))]
-    if _keep_cs_active {
-        transaction.flags |= SPI_TRANS_CS_KEEP_ACTIVE
-    }
-
     let notification = Notification::new();
 
     transaction.user = ptr::addr_of!(notification) as *mut _;
