@@ -1445,6 +1445,13 @@ const TRANS_LEN: usize = if SOC_SPI_MAXIMUM_BUFFER_SIZE < 64_u32 {
     64_usize
 };
 
+// Whilst ESP-IDF doesn't have a documented maximum for queued transactions, we need a compile time
+// max to be able to place the transactions on the stack (without recursion hacks) and not be
+// forced to use box. Perhaps this is something the user can inject in, via generics or slice.
+// This means a spi_device_interface_config_t.queue_size higher than this constant will be clamped
+// down in practice.
+const MAX_QUEUED_TRANSACTIONS: usize = 10;
+
 struct BusLock(spi_device_handle_t);
 
 impl BusLock {
@@ -1643,11 +1650,39 @@ fn spi_transmit(
     transactions: impl Iterator<Item = spi_transaction_t>,
     polling: bool,
 ) -> Result<(), EspError> {
-    for mut transaction in transactions {
-        if polling {
+    if polling {
+        for mut transaction in transactions {
             esp!(unsafe { spi_device_polling_transmit(handle, &mut transaction as *mut _) })?;
-        } else {
-            esp!(unsafe { spi_device_transmit(handle, &mut transaction as *mut _) })?;
+        }
+    } else {
+        let mut transaction_queue = [spi_transaction_t::default(); MAX_QUEUED_TRANSACTIONS];
+        let mut queue_iter = transaction_queue.iter_mut();
+
+        for transaction in transactions {
+            let slot = queue_iter.next();
+            let trans = if let Some(slot) = slot {
+                slot
+            } else {
+                // If the queue is full, we wait for the first transaction in the queue and use it
+                // for the next one.
+                let mut ret_trans: *mut spi_transaction_t = ptr::null_mut();
+                esp!(unsafe {
+                    spi_device_get_trans_result(handle, &mut ret_trans as *mut _, delay::BLOCK)
+                })?;
+                unsafe { &mut *ret_trans }
+            };
+
+            // Write transaction to stable memory location
+            *trans = transaction;
+            esp!(unsafe { spi_device_queue_trans(handle, trans as *mut _, delay::BLOCK) })?;
+        }
+
+        let queued_transactions = MAX_QUEUED_TRANSACTIONS - queue_iter.as_slice().len();
+        for _ in 0..queued_transactions {
+            let mut ret_trans: *mut spi_transaction_t = ptr::null_mut();
+            esp!(unsafe {
+                spi_device_get_trans_result(handle, &mut ret_trans as *mut _, delay::BLOCK)
+            })?;
         }
     }
     Ok(())
