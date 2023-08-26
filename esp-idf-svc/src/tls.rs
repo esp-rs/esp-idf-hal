@@ -62,10 +62,15 @@ impl<'a> Debug for X509<'a> {
     any(esp_idf_esp_tls_using_mbedtls, esp_idf_esp_tls_using_wolfssl)
 ))]
 mod esptls {
+    use core::time::Duration;
+
+    #[cfg(all(
+        not(esp_idf_version_major = "4"),
+        any(not(esp_idf_version_major = "5"), not(esp_idf_version_minor = "0"))
+    ))]
     use core::{
         cell::RefCell,
         task::{Context, Poll},
-        time::Duration,
     };
 
     use embedded_svc::io;
@@ -391,7 +396,7 @@ mod esptls {
             // cannot call esp_tls_conn_read bc it's inline in v4
             let esp_tls = unsafe { core::ptr::read_unaligned(self.raw) };
             let read_func = esp_tls.read.unwrap();
-            unsafe { read_func(self.0, buf.as_mut_ptr() as *mut i8, buf.len()) }
+            unsafe { read_func(self.raw, buf.as_mut_ptr() as *mut i8, buf.len()) }
         }
 
         #[cfg(not(esp_idf_version_major = "4"))]
@@ -425,7 +430,7 @@ mod esptls {
             // cannot call esp_tls_conn_write bc it's inline
             let esp_tls = unsafe { core::ptr::read_unaligned(self.raw) };
             let write_func = esp_tls.write.unwrap();
-            unsafe { write_func(self.0, buf.as_ptr() as *const i8, buf.len()) }
+            unsafe { write_func(self.raw, buf.as_ptr() as *const i8, buf.len()) }
         }
 
         #[cfg(not(esp_idf_version_major = "4"))]
