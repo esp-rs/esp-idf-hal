@@ -34,8 +34,9 @@
 //! - Slave SPI
 
 use core::borrow::{Borrow, BorrowMut};
+use core::cell::Cell;
 use core::cell::UnsafeCell;
-use core::cmp::{max, Ordering};
+use core::cmp::{max, min, Ordering};
 use core::iter::once;
 use core::iter::Peekable;
 use core::marker::PhantomData;
@@ -244,6 +245,7 @@ pub mod config {
         pub cs_active_high: bool,
         pub input_delay_ns: i32,
         pub polling: bool,
+        pub queue_size: usize,
     }
 
     impl Config {
@@ -298,6 +300,12 @@ pub mod config {
             self.polling = polling;
             self
         }
+
+        #[must_use]
+        pub fn queue_size(mut self, queue_size: usize) -> Self {
+            self.queue_size = queue_size;
+            self
+        }
     }
 
     impl Default for Config {
@@ -311,6 +319,7 @@ pub mod config {
                 bit_order: BitOrder::MsbFirst,
                 input_delay_ns: 0,
                 polling: true,
+                queue_size: 1,
             }
         }
     }
@@ -449,6 +458,7 @@ where
     handle: spi_device_handle_t,
     driver: T,
     polling: bool,
+    queue_size: usize,
     _d: PhantomData<&'d ()>,
 }
 
@@ -461,7 +471,7 @@ where
             spics_io_num: -1,
             clock_speed_hz: config.baudrate.0 as i32,
             mode: data_mode_to_u8(config.data_mode),
-            queue_size: 1,
+            queue_size: config.queue_size as i32,
             flags: if config.write_only {
                 SPI_DEVICE_NO_DUMMY
             } else {
@@ -482,6 +492,7 @@ where
             handle,
             driver,
             polling: config.polling,
+            queue_size: config.queue_size,
             _d: PhantomData,
         })
     }
@@ -495,7 +506,7 @@ where
         let chunk_size = self.driver.borrow().max_transfer_size;
 
         let transactions = spi_read_transactions(words, chunk_size);
-        spi_transmit(self.handle, transactions, self.polling)?;
+        spi_transmit(self.handle, transactions, self.polling, self.queue_size)?;
 
         Ok(())
     }
@@ -504,7 +515,7 @@ where
         let chunk_size = self.driver.borrow().max_transfer_size;
 
         let transactions = spi_read_transactions(words, chunk_size);
-        spi_transmit_async(self.handle, transactions).await?;
+        spi_transmit_async(self.handle, transactions, self.queue_size).await?;
 
         Ok(())
     }
@@ -518,7 +529,7 @@ where
         let chunk_size = self.driver.borrow().max_transfer_size;
 
         let transactions = spi_write_transactions(words, chunk_size);
-        spi_transmit(self.handle, transactions, self.polling)?;
+        spi_transmit(self.handle, transactions, self.polling, self.queue_size)?;
 
         Ok(())
     }
@@ -527,7 +538,7 @@ where
         let chunk_size = self.driver.borrow().max_transfer_size;
 
         let transactions = spi_write_transactions(words, chunk_size);
-        spi_transmit_async(self.handle, transactions).await?;
+        spi_transmit_async(self.handle, transactions, self.queue_size).await?;
 
         Ok(())
     }
@@ -547,7 +558,7 @@ where
         let chunk_size = self.driver.borrow().max_transfer_size;
 
         let transactions = spi_transfer_transactions(read, write, chunk_size);
-        spi_transmit(self.handle, transactions, self.polling)?;
+        spi_transmit(self.handle, transactions, self.polling, self.queue_size)?;
 
         Ok(())
     }
@@ -556,7 +567,7 @@ where
         let chunk_size = self.driver.borrow().max_transfer_size;
 
         let transactions = spi_transfer_transactions(read, write, chunk_size);
-        spi_transmit_async(self.handle, transactions).await?;
+        spi_transmit_async(self.handle, transactions, self.queue_size).await?;
 
         Ok(())
     }
@@ -565,7 +576,7 @@ where
         let chunk_size = self.driver.borrow().max_transfer_size;
 
         let transactions = spi_transfer_in_place_transactions(words, chunk_size);
-        spi_transmit(self.handle, transactions, self.polling)?;
+        spi_transmit(self.handle, transactions, self.polling, self.queue_size)?;
 
         Ok(())
     }
@@ -574,7 +585,7 @@ where
         let chunk_size = self.driver.borrow().max_transfer_size;
 
         let transactions = spi_transfer_in_place_transactions(words, chunk_size);
-        spi_transmit_async(self.handle, transactions).await?;
+        spi_transmit_async(self.handle, transactions, self.queue_size).await?;
 
         Ok(())
     }
@@ -650,6 +661,7 @@ where
     driver: T,
     cs_pin_configured: bool,
     polling: bool,
+    queue_size: usize,
     _d: PhantomData<&'d ()>,
 }
 
@@ -699,7 +711,7 @@ where
             spics_io_num: cs,
             clock_speed_hz: config.baudrate.0 as i32,
             mode: data_mode_to_u8(config.data_mode),
-            queue_size: 64,
+            queue_size: config.queue_size as i32,
             input_delay_ns: config.input_delay_ns,
             flags: if config.write_only {
                 SPI_DEVICE_NO_DUMMY
@@ -723,6 +735,7 @@ where
             driver,
             cs_pin_configured: cs >= 0,
             polling: config.polling,
+            queue_size: config.queue_size,
             _d: PhantomData,
         })
     }
@@ -892,7 +905,7 @@ where
             set_keep_cs_active(&mut t, has_hardware_cs && !last);
             t
         });
-        spi_transmit(self.handle, transactions, self.polling)?;
+        spi_transmit(self.handle, transactions, self.polling, self.queue_size)?;
 
         if let Some(mut soft_cs_pin) = soft_cs_pin {
             soft_cs_pin.lower()?;
@@ -936,7 +949,7 @@ where
             set_keep_cs_active(&mut t, has_hardware_cs && !last);
             t
         });
-        spi_transmit_async(self.handle, transactions).await?;
+        spi_transmit_async(self.handle, transactions, self.queue_size).await?;
 
         if let Some(mut soft_cs_pin) = soft_cs_pin {
             soft_cs_pin.lower()?;
@@ -1114,7 +1127,12 @@ where
                 &mut transaction,
                 self.cs_pin_configured && words.peek().is_some(),
             );
-            spi_transmit(self.handle, once(transaction), self.polling)?;
+            spi_transmit(
+                self.handle,
+                once(transaction),
+                self.polling,
+                self.queue_size,
+            )?;
         }
 
         Ok(())
@@ -1649,6 +1667,7 @@ fn spi_transmit(
     handle: spi_device_handle_t,
     transactions: impl Iterator<Item = spi_transaction_t>,
     polling: bool,
+    queue_size: usize,
 ) -> Result<(), EspError> {
     if polling {
         for mut transaction in transactions {
@@ -1656,7 +1675,7 @@ fn spi_transmit(
         }
     } else {
         let mut transaction_queue = [spi_transaction_t::default(); MAX_QUEUED_TRANSACTIONS];
-        let mut queue_iter = transaction_queue.iter_mut();
+        let mut queue_iter = transaction_queue.iter_mut().take(queue_size);
 
         for transaction in transactions {
             let slot = queue_iter.next();
@@ -1677,7 +1696,7 @@ fn spi_transmit(
             esp!(unsafe { spi_device_queue_trans(handle, trans as *mut _, delay::BLOCK) })?;
         }
 
-        let queued_transactions = MAX_QUEUED_TRANSACTIONS - queue_iter.as_slice().len();
+        let queued_transactions = min(MAX_QUEUED_TRANSACTIONS, queue_size) - queue_iter.len();
         for _ in 0..queued_transactions {
             let mut ret_trans: *mut spi_transaction_t = ptr::null_mut();
             esp!(unsafe {
@@ -1691,41 +1710,103 @@ fn spi_transmit(
 async fn spi_transmit_async(
     handle: spi_device_handle_t,
     transactions: impl Iterator<Item = spi_transaction_t>,
+    queue_size: usize,
 ) -> Result<(), EspError> {
-    for mut transaction in transactions {
-        let notification = Notification::new();
+    let notifications: [Notification; MAX_QUEUED_TRANSACTIONS] = [
+        Notification::new(),
+        Notification::new(),
+        Notification::new(),
+        Notification::new(),
+        Notification::new(),
+        Notification::new(),
+        Notification::new(),
+        Notification::new(),
+        Notification::new(),
+        Notification::new(),
+    ];
 
-        transaction.user = ptr::addr_of!(notification) as *mut _;
+    let mut transaction_queue = [spi_transaction_t::default(); MAX_QUEUED_TRANSACTIONS];
+    let mut queue_iter = transaction_queue.iter_mut().take(queue_size);
 
-        match esp!(unsafe {
-            spi_device_queue_trans(handle, &mut transaction as *mut _, delay::NON_BLOCK)
-        }) {
-            Err(e) if e.code() == ESP_ERR_TIMEOUT => unreachable!(),
-            other => other,
-        }?;
+    let queued_transactions = Cell::new(0); // Total successful spi_device_queue_trans
+    let completed_transactions = Cell::new(0); // Total successful spi_device_get_trans_result
 
-        with_completion(
-            async {
-                notification.wait().await;
+    with_completion(
+        async {
+            for (index, transaction) in transactions.enumerate() {
+                let slot = queue_iter.next();
+                let trans = if let Some(slot) = slot {
+                    slot
+                } else {
+                    // If the queue is full, we wait for the first transaction in the queue and use it
+                    // for the next one.
+
+                    notifications[completed_transactions.get() % MAX_QUEUED_TRANSACTIONS]
+                        .wait()
+                        .await;
+
+                    let mut ret_trans: *mut spi_transaction_t = ptr::null_mut();
+                    match esp!(unsafe {
+                        spi_device_get_trans_result(
+                            handle,
+                            &mut ret_trans as *mut _,
+                            delay::NON_BLOCK,
+                        )
+                    }) {
+                        Err(e) if e.code() == ESP_ERR_TIMEOUT => unreachable!(),
+                        other => other,
+                    }?;
+                    completed_transactions.set(completed_transactions.get() + 1);
+                    unsafe { &mut *ret_trans }
+                };
+
+                *trans = transaction;
+                trans.user =
+                    ptr::addr_of!(notifications[index % MAX_QUEUED_TRANSACTIONS]) as *mut _;
 
                 match esp!(unsafe {
-                    spi_device_get_trans_result(handle, core::ptr::null_mut(), delay::NON_BLOCK)
+                    spi_device_queue_trans(handle, trans as *mut _, delay::NON_BLOCK)
                 }) {
                     Err(e) if e.code() == ESP_ERR_TIMEOUT => unreachable!(),
                     other => other,
-                }
-            },
-            |completed| {
-                if !completed {
-                    esp!(unsafe {
-                        spi_device_get_trans_result(handle, core::ptr::null_mut(), delay::BLOCK)
-                    })
+                }?;
+                queued_transactions.set(queued_transactions.get() + 1);
+            }
+
+            while completed_transactions < queued_transactions {
+                notifications[completed_transactions.get() % MAX_QUEUED_TRANSACTIONS]
+                    .wait()
+                    .await;
+
+                let mut ret_trans: *mut spi_transaction_t = ptr::null_mut();
+                match esp!(unsafe {
+                    spi_device_get_trans_result(handle, &mut ret_trans as *mut _, delay::NON_BLOCK)
+                }) {
+                    Err(e) if e.code() == ESP_ERR_TIMEOUT => unreachable!(),
+                    other => other,
+                }?;
+                completed_transactions.set(completed_transactions.get() + 1);
+            }
+
+            Ok(())
+        },
+        |completed| {
+            if !completed {
+                while completed_transactions < queued_transactions {
+                    let mut ret_trans: *mut spi_transaction_t = ptr::null_mut();
+                    match esp!(unsafe {
+                        spi_device_get_trans_result(handle, &mut ret_trans as *mut _, delay::BLOCK)
+                    }) {
+                        Err(e) if e.code() == ESP_ERR_TIMEOUT => unreachable!(),
+                        other => other,
+                    }
                     .unwrap();
+                    completed_transactions.set(completed_transactions.get() + 1);
                 }
-            },
-        )
-        .await?;
-    }
+            }
+        },
+    )
+    .await?;
     Ok(())
 }
 
