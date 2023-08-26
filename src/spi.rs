@@ -1773,7 +1773,7 @@ async fn spi_transmit_async(
                 queued_transactions.set(queued_transactions.get() + 1);
             }
 
-            while completed_transactions < queued_transactions {
+            while completed_transactions.get() < queued_transactions.get() {
                 notifications[completed_transactions.get() % MAX_QUEUED_TRANSACTIONS]
                     .wait()
                     .await;
@@ -1792,7 +1792,7 @@ async fn spi_transmit_async(
         },
         |completed| {
             if !completed {
-                while completed_transactions < queued_transactions {
+                while completed_transactions.get() < queued_transactions.get() {
                     let mut ret_trans: *mut spi_transaction_t = ptr::null_mut();
                     match esp!(unsafe {
                         spi_device_get_trans_result(handle, &mut ret_trans as *mut _, delay::BLOCK)
