@@ -36,6 +36,7 @@
 use core::borrow::{Borrow, BorrowMut};
 use core::cell::UnsafeCell;
 use core::cmp::{max, Ordering};
+use core::iter::once;
 use core::iter::Peekable;
 use core::marker::PhantomData;
 use core::{ptr, u8};
@@ -493,8 +494,8 @@ where
 
         let chunk_size = self.driver.borrow().max_transfer_size;
 
-        for mut transaction in spi_read_transactions(words, chunk_size) {
-            spi_transmit(self.handle, &mut transaction, self.polling)?;
+        for transaction in spi_read_transactions(words, chunk_size) {
+            spi_transmit(self.handle, once(transaction), self.polling)?;
         }
 
         Ok(())
@@ -503,8 +504,8 @@ where
     pub async fn read_async(&mut self, words: &mut [u8]) -> Result<(), EspError> {
         let chunk_size = self.driver.borrow().max_transfer_size;
 
-        for mut transaction in spi_read_transactions(words, chunk_size) {
-            spi_transmit_async(self.handle, &mut transaction).await?;
+        for transaction in spi_read_transactions(words, chunk_size) {
+            spi_transmit_async(self.handle, once(transaction)).await?;
         }
 
         Ok(())
@@ -518,8 +519,8 @@ where
 
         let chunk_size = self.driver.borrow().max_transfer_size;
 
-        for mut transaction in spi_write_transactions(words, chunk_size) {
-            spi_transmit(self.handle, &mut transaction, self.polling)?;
+        for transaction in spi_write_transactions(words, chunk_size) {
+            spi_transmit(self.handle, once(transaction), self.polling)?;
         }
 
         Ok(())
@@ -528,8 +529,8 @@ where
     pub async fn write_async(&mut self, words: &[u8]) -> Result<(), EspError> {
         let chunk_size = self.driver.borrow().max_transfer_size;
 
-        for mut transaction in spi_write_transactions(words, chunk_size) {
-            spi_transmit_async(self.handle, &mut transaction).await?;
+        for transaction in spi_write_transactions(words, chunk_size) {
+            spi_transmit_async(self.handle, once(transaction)).await?;
         }
 
         Ok(())
@@ -549,8 +550,8 @@ where
 
         let chunk_size = self.driver.borrow().max_transfer_size;
 
-        for mut transaction in spi_transfer_transactions(read, write, chunk_size) {
-            spi_transmit(self.handle, &mut transaction, self.polling)?;
+        for transaction in spi_transfer_transactions(read, write, chunk_size) {
+            spi_transmit(self.handle, once(transaction), self.polling)?;
         }
 
         Ok(())
@@ -559,8 +560,8 @@ where
     pub async fn transfer_async(&mut self, read: &mut [u8], write: &[u8]) -> Result<(), EspError> {
         let chunk_size = self.driver.borrow().max_transfer_size;
 
-        for mut transaction in spi_transfer_transactions(read, write, chunk_size) {
-            spi_transmit_async(self.handle, &mut transaction).await?;
+        for transaction in spi_transfer_transactions(read, write, chunk_size) {
+            spi_transmit_async(self.handle, once(transaction)).await?;
         }
 
         Ok(())
@@ -569,8 +570,8 @@ where
     pub fn transfer_in_place(&mut self, words: &mut [u8]) -> Result<(), EspError> {
         let chunk_size = self.driver.borrow().max_transfer_size;
 
-        for mut transaction in spi_transfer_in_place_transactions(words, chunk_size) {
-            spi_transmit(self.handle, &mut transaction, self.polling)?;
+        for transaction in spi_transfer_in_place_transactions(words, chunk_size) {
+            spi_transmit(self.handle, once(transaction), self.polling)?;
         }
 
         Ok(())
@@ -579,8 +580,8 @@ where
     pub async fn transfer_in_place_async(&mut self, words: &mut [u8]) -> Result<(), EspError> {
         let chunk_size = self.driver.borrow().max_transfer_size;
 
-        for mut transaction in spi_transfer_in_place_transactions(words, chunk_size) {
-            spi_transmit_async(self.handle, &mut transaction).await?;
+        for transaction in spi_transfer_in_place_transactions(words, chunk_size) {
+            spi_transmit_async(self.handle, once(transaction)).await?;
         }
 
         Ok(())
@@ -899,7 +900,7 @@ where
                 &mut transaction,
                 soft_cs_pin.is_none() && self.cs_pin_configured && !last,
             );
-            spi_transmit(self.handle, &mut transaction, self.polling)?;
+            spi_transmit(self.handle, once(transaction), self.polling)?;
         }
 
         if let Some(mut soft_cs_pin) = soft_cs_pin {
@@ -944,7 +945,7 @@ where
                 &mut transaction,
                 soft_cs_pin.is_none() && self.cs_pin_configured && !last,
             );
-            spi_transmit_async(self.handle, &mut transaction).await?;
+            spi_transmit_async(self.handle, once(transaction)).await?;
         }
 
         if let Some(mut soft_cs_pin) = soft_cs_pin {
@@ -1123,7 +1124,7 @@ where
                 &mut transaction,
                 self.cs_pin_configured && words.peek().is_some(),
             );
-            spi_transmit(self.handle, &mut transaction, self.polling)?;
+            spi_transmit(self.handle, once(transaction), self.polling)?;
         }
 
         Ok(())
@@ -1649,50 +1650,58 @@ fn set_keep_cs_active(transaction: &mut spi_transaction_t, _keep_cs_active: bool
 
 fn spi_transmit(
     handle: spi_device_handle_t,
-    transaction: &mut spi_transaction_t,
+    transactions: impl Iterator<Item = spi_transaction_t>,
     polling: bool,
 ) -> Result<(), EspError> {
-    if polling {
-        esp!(unsafe { spi_device_polling_transmit(handle, transaction as *mut _) })
-    } else {
-        esp!(unsafe { spi_device_transmit(handle, transaction as *mut _) })
+    for mut transaction in transactions {
+        if polling {
+            esp!(unsafe { spi_device_polling_transmit(handle, &mut transaction as *mut _) })?;
+        } else {
+            esp!(unsafe { spi_device_transmit(handle, &mut transaction as *mut _) })?;
+        }
     }
+    Ok(())
 }
 
 async fn spi_transmit_async(
     handle: spi_device_handle_t,
-    transaction: &mut spi_transaction_t,
+    transactions: impl Iterator<Item = spi_transaction_t>,
 ) -> Result<(), EspError> {
-    let notification = Notification::new();
+    for mut transaction in transactions {
+        let notification = Notification::new();
 
-    transaction.user = ptr::addr_of!(notification) as *mut _;
+        transaction.user = ptr::addr_of!(notification) as *mut _;
 
-    match esp!(unsafe { spi_device_queue_trans(handle, transaction as *mut _, delay::NON_BLOCK) }) {
-        Err(e) if e.code() == ESP_ERR_TIMEOUT => unreachable!(),
-        other => other,
-    }?;
+        match esp!(unsafe {
+            spi_device_queue_trans(handle, &mut transaction as *mut _, delay::NON_BLOCK)
+        }) {
+            Err(e) if e.code() == ESP_ERR_TIMEOUT => unreachable!(),
+            other => other,
+        }?;
 
-    with_completion(
-        async {
-            notification.wait().await;
+        with_completion(
+            async {
+                notification.wait().await;
 
-            match esp!(unsafe {
-                spi_device_get_trans_result(handle, core::ptr::null_mut(), delay::NON_BLOCK)
-            }) {
-                Err(e) if e.code() == ESP_ERR_TIMEOUT => unreachable!(),
-                other => other,
-            }
-        },
-        |completed| {
-            if !completed {
-                esp!(unsafe {
-                    spi_device_get_trans_result(handle, core::ptr::null_mut(), delay::BLOCK)
-                })
-                .unwrap();
-            }
-        },
-    )
-    .await
+                match esp!(unsafe {
+                    spi_device_get_trans_result(handle, core::ptr::null_mut(), delay::NON_BLOCK)
+                }) {
+                    Err(e) if e.code() == ESP_ERR_TIMEOUT => unreachable!(),
+                    other => other,
+                }
+            },
+            |completed| {
+                if !completed {
+                    esp!(unsafe {
+                        spi_device_get_trans_result(handle, core::ptr::null_mut(), delay::BLOCK)
+                    })
+                    .unwrap();
+                }
+            },
+        )
+        .await?;
+    }
+    Ok(())
 }
 
 extern "C" fn spi_notify(transaction: *mut spi_transaction_t) {
