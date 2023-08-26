@@ -219,7 +219,10 @@ mod esptls {
         /// * `ESP_TLS_ERR_SSL_WANT_READ` if the socket is in non-blocking mode and it is not ready for reading
         /// * `ESP_TLS_ERR_SSL_WANT_WRITE` if the socket is in non-blocking mode and it is not ready for writing
         /// * `EWOULDBLOCK` if the socket is in non-blocking mode and it is not ready either for reading or writing (a peculiarity/bug of the `esp-tls` C module)
-        #[cfg(not(esp_idf_version_major = "4"))]
+        #[cfg(all(
+            not(esp_idf_version_major = "4"),
+            any(not(esp_idf_version_major = "5"), not(esp_idf_version_minor = "0"))
+        ))]
         pub fn negotiate(&mut self, host: &str, cfg: &Config) -> Result<(), EspError> {
             self.internal_connect(host, 0, true, cfg)
         }
@@ -232,7 +235,10 @@ mod esptls {
             cfg: &Config,
         ) -> Result<(), EspError> {
             if adopted_socket {
-                #[cfg(not(esp_idf_version_major = "4"))]
+                #[cfg(all(
+                    not(esp_idf_version_major = "4"),
+                    any(not(esp_idf_version_major = "5"), not(esp_idf_version_minor = "0"))
+                ))]
                 {
                     sys::esp!(unsafe {
                         sys::esp_tls_set_conn_sockfd(self.raw, self.socket.handle())
@@ -245,7 +251,10 @@ mod esptls {
                     })?;
                 }
 
-                #[cfg(esp_idf_version_major = "4")]
+                #[cfg(not(all(
+                    not(esp_idf_version_major = "4"),
+                    any(not(esp_idf_version_major = "5"), not(esp_idf_version_minor = "0"))
+                )))]
                 {
                     unreachable!();
                 }
@@ -468,6 +477,10 @@ mod esptls {
             Ok(())
         }
     }
+    #[cfg(all(
+        not(esp_idf_version_major = "4"),
+        any(not(esp_idf_version_major = "5"), not(esp_idf_version_minor = "0"))
+    ))]
     pub struct AsyncEspTls<S>(RefCell<EspTls<S>>)
     where
         S: PollableSocket;
@@ -492,7 +505,6 @@ mod esptls {
         ///
         /// * `ESP_ERR_INVALID_SIZE` if `cfg.alpn_protos` exceeds 9 elements or avg 10 bytes/ALPN
         /// * `ESP_FAIL` if connection could not be established
-        #[cfg(not(esp_idf_version_major = "4"))]
         pub async fn negotiate(
             &mut self,
             hostname: &str,
