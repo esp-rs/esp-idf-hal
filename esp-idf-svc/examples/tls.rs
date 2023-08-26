@@ -6,7 +6,6 @@ use std::ffi::CStr;
 use std::io::{BufRead, BufReader};
 
 use embedded_svc::io::adapters::ToStd;
-use embedded_svc::io::Write;
 use embedded_svc::wifi::{AuthMethod, ClientConfiguration, Configuration};
 use esp_idf_hal::prelude::Peripherals;
 use esp_idf_svc::log::EspLogger;
@@ -67,7 +66,9 @@ fn main() -> anyhow::Result<()> {
 
     info!("Wifi DHCP info: {:?}", ip_info);
 
-    let mut tls = EspTls::new(
+    let mut tls = EspTls::new()?;
+
+    tls.connect(
         "example.com",
         1234,
         &tls::Config {
@@ -78,13 +79,15 @@ fn main() -> anyhow::Result<()> {
             ..Default::default()
         },
     )?;
-    let (reader, writer) = tls.split();
-    let mut reader = BufReader::with_capacity(512, ToStd::new(reader));
+
+    let mut reader = BufReader::with_capacity(512, ToStd::new(&mut tls));
     let mut line = String::new();
-    // receive line by line from server and echo them back
+
+    // Receive line by line from server and print each
     loop {
         reader.read_line(&mut line)?;
-        writer.write_all(line.as_bytes())?;
+        println!("{}", line);
+
         line.clear();
     }
 }

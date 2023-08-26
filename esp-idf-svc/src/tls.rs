@@ -4,7 +4,10 @@ use core::fmt::Debug;
 
 use crate::private::cstr::{c_char, CStr};
 
-#[cfg(esp_idf_comp_esp_tls_enabled)]
+#[cfg(all(
+    esp_idf_comp_esp_tls_enabled,
+    any(esp_idf_esp_tls_using_mbedtls, esp_idf_esp_tls_using_wolfssl)
+))]
 pub use self::esptls::*;
 
 #[derive(Copy, Clone, Eq, PartialEq)]
@@ -54,39 +57,200 @@ impl<'a> Debug for X509<'a> {
     }
 }
 
-#[cfg(esp_idf_comp_esp_tls_enabled)]
+#[cfg(all(
+    esp_idf_comp_esp_tls_enabled,
+    any(esp_idf_esp_tls_using_mbedtls, esp_idf_esp_tls_using_wolfssl)
+))]
 mod esptls {
-    use core::time::Duration;
+    use core::{
+        cell::RefCell,
+        task::{Context, Poll},
+        time::Duration,
+    };
 
     use embedded_svc::io;
 
     use super::X509;
+
     use crate::{
         errors::EspIOError,
         private::cstr::{cstr_arr_from_str_slice, cstr_from_str_truncating, CStr},
-        sys::{self, EspError, ESP_ERR_NO_MEM, ESP_FAIL},
+        sys::{
+            self, EspError, ESP_ERR_NO_MEM, ESP_FAIL, ESP_TLS_ERR_SSL_WANT_READ,
+            ESP_TLS_ERR_SSL_WANT_WRITE, EWOULDBLOCK,
+        },
     };
 
     /// see https://www.ietf.org/rfc/rfc3280.txt ub-common-name-length
     const MAX_COMMON_NAME_LENGTH: usize = 64;
 
-    /// Wrapper for `esp-tls` module. Only supports synchronous operation for now.
-    pub struct EspTls {
-        reader: EspTlsRead,
-        writer: EspTlsWrite,
+    #[derive(Default)]
+    pub struct Config<'a> {
+        /// up to 9 ALPNs allowed, with avg 10 bytes for each name
+        pub alpn_protos: Option<&'a [&'a str]>,
+        pub ca_cert: Option<X509<'a>>,
+        pub client_cert: Option<X509<'a>>,
+        pub client_key: Option<X509<'a>>,
+        pub client_key_password: Option<&'a str>,
+        pub non_block: bool,
+        pub use_secure_element: bool,
+        pub timeout_ms: u32,
+        pub use_global_ca_store: bool,
+        pub common_name: Option<&'a str>,
+        pub skip_common_name: bool,
+        pub keep_alive_cfg: Option<KeepAliveConfig>,
+        pub psk_hint_key: Option<PskHintKey<'a>>,
+        /// whether to use esp_crt_bundle_attach, see https://docs.espressif.com/projects/esp-idf/en/latest/esp32s2/api-reference/protocols/esp_crt_bundle.html
+        #[cfg(esp_idf_mbedtls_certificate_bundle)]
+        pub use_crt_bundle_attach: bool,
+        // TODO ds_data not implemented
+        pub is_plain_tcp: bool,
+        #[cfg(esp_idf_comp_lwip_enabled)]
+        pub if_name: sys::ifreq,
     }
 
-    impl EspTls {
-        /// Create a new blocking TLS/SSL connection.
+    impl<'a> Config<'a> {
+        pub fn new() -> Self {
+            Self {
+                #[cfg(esp_idf_mbedtls_certificate_bundle)]
+                use_crt_bundle_attach: true,
+                ..Default::default()
+            }
+        }
+    }
+
+    #[derive(Clone, Debug)]
+    pub struct KeepAliveConfig {
+        /// Enable keep-alive timeout
+        pub enable: bool,
+        /// Keep-alive idle time (second)
+        pub idle: Duration,
+        /// Keep-alive interval time (second)
+        pub interval: Duration,
+        /// Keep-alive packet retry send count
+        pub count: u32,
+    }
+
+    pub struct PskHintKey<'a> {
+        pub key: &'a [u8],
+        pub hint: &'a CStr,
+    }
+
+    pub trait Socket {
+        fn handle(&self) -> i32;
+        fn release(&mut self) -> Result<(), EspError>;
+    }
+
+    pub trait PollableSocket: Socket {
+        fn poll_readable(&self, ctx: &mut Context) -> Poll<Result<(), EspError>>;
+        fn poll_writable(&self, ctx: &mut Context) -> Poll<Result<(), EspError>>;
+    }
+
+    pub struct InternalSocket(());
+
+    impl Socket for InternalSocket {
+        fn handle(&self) -> i32 {
+            unreachable!()
+        }
+
+        fn release(&mut self) -> Result<(), EspError> {
+            Ok(())
+        }
+    }
+
+    /// Wrapper for `esp-tls` module. Only supports synchronous operation for now.
+    pub struct EspTls<S>
+    where
+        S: Socket,
+    {
+        raw: *mut sys::esp_tls,
+        socket: S,
+    }
+
+    impl EspTls<InternalSocket> {
+        /// Create a new `EspTls` instance using internally-managed socket.
         ///
-        /// This function establishes a TLS/SSL connection with the specified host in a blocking manner.
+        /// # Errors
+        ///
+        /// * `ESP_ERR_NO_MEM` if not enough memory to create the TLS connection
+        pub fn new() -> Result<Self, EspError> {
+            Self::adopt(InternalSocket(()))
+        }
+
+        /// Establish a TLS/SSL connection with the specified host and port, using an internally-managed socket.
         ///
         /// # Errors
         ///
         /// * `ESP_ERR_INVALID_SIZE` if `cfg.alpn_protos` exceeds 9 elements or avg 10 bytes/ALPN
-        /// * `ESP_ERR_NO_MEM` if TLS context could not be allocated
         /// * `ESP_FAIL` if connection could not be established
-        pub fn new(host: &str, port: u16, cfg: &Config) -> Result<Self, EspError> {
+        /// * `ESP_TLS_ERR_SSL_WANT_READ` if the socket is in non-blocking mode and it is not ready for reading
+        /// * `ESP_TLS_ERR_SSL_WANT_WRITE` if the socket is in non-blocking mode and it is not ready for writing
+        /// * `EWOULDBLOCK` if the socket is in non-blocking mode and it is not ready either for reading or writing (a peculiarity/bug of the `esp-tls` C module)
+        pub fn connect(&mut self, host: &str, port: u16, cfg: &Config) -> Result<(), EspError> {
+            self.internal_connect(host, port, false, cfg)
+        }
+    }
+
+    impl<S> EspTls<S>
+    where
+        S: Socket,
+    {
+        /// Create a new `EspTls` instance adopting the supplied socket.
+        /// The socket should be in a connected state.
+        ///
+        /// # Errors
+        ///
+        /// * `ESP_ERR_NO_MEM` if not enough memory to create the TLS connection
+        pub fn adopt(socket: S) -> Result<Self, EspError> {
+            let raw = unsafe { sys::esp_tls_init() };
+            if !raw.is_null() {
+                Ok(Self { raw, socket })
+            } else {
+                Err(EspError::from_infallible::<ESP_ERR_NO_MEM>())
+            }
+        }
+
+        /// Establish a TLS/SSL connection using the adopted socket.
+        ///
+        /// # Errors
+        ///
+        /// * `ESP_ERR_INVALID_SIZE` if `cfg.alpn_protos` exceeds 9 elements or avg 10 bytes/ALPN
+        /// * `ESP_FAIL` if connection could not be established
+        /// * `ESP_TLS_ERR_SSL_WANT_READ` if the socket is in non-blocking mode and it is not ready for reading
+        /// * `ESP_TLS_ERR_SSL_WANT_WRITE` if the socket is in non-blocking mode and it is not ready for writing
+        /// * `EWOULDBLOCK` if the socket is in non-blocking mode and it is not ready either for reading or writing (a peculiarity/bug of the `esp-tls` C module)
+        #[cfg(not(esp_idf_version_major = "4"))]
+        pub fn negotiate(&mut self, host: &str, cfg: &Config) -> Result<(), EspError> {
+            self.internal_connect(host, 0, true, cfg)
+        }
+
+        fn internal_connect(
+            &mut self,
+            host: &str,
+            port: u16,
+            adopted_socket: bool,
+            cfg: &Config,
+        ) -> Result<(), EspError> {
+            if adopted_socket {
+                #[cfg(not(esp_idf_version_major = "4"))]
+                {
+                    sys::esp!(unsafe {
+                        sys::esp_tls_set_conn_sockfd(self.raw, self.socket.handle())
+                    })?;
+                    sys::esp!(unsafe {
+                        sys::esp_tls_set_conn_state(
+                            self.raw,
+                            sys::esp_tls_conn_state_ESP_TLS_CONNECTING,
+                        )
+                    })?;
+                }
+
+                #[cfg(esp_idf_version_major = "4")]
+                {
+                    unreachable!();
+                }
+            }
+
             let mut rcfg: sys::esp_tls_cfg = unsafe { core::mem::zeroed() };
 
             if let Some(ca_cert) = cfg.ca_cert {
@@ -117,7 +281,7 @@ mod esptls {
                 rcfg.alpn_protos = alpn_protos.as_mut_ptr();
             }
 
-            rcfg.non_block = cfg.non_block;
+            rcfg.non_block = !adopted_socket && cfg.non_block;
             rcfg.use_secure_element = cfg.use_secure_element;
             rcfg.timeout_ms = cfg.timeout_ms as i32;
             rcfg.use_global_ca_store = cfg.use_global_ca_store;
@@ -159,83 +323,47 @@ mod esptls {
             rcfg.is_plain_tcp = cfg.is_plain_tcp;
             rcfg.if_name = core::ptr::null_mut();
 
-            let tls = unsafe { sys::esp_tls_init() };
-            if tls.is_null() {
-                return Err(EspError::from_infallible::<ESP_ERR_NO_MEM>());
-            }
             let ret = unsafe {
-                sys::esp_tls_conn_new_sync(
-                    host.as_bytes().as_ptr() as *const i8,
-                    host.len() as i32,
-                    port as i32,
-                    &rcfg,
-                    tls,
-                )
+                if rcfg.non_block {
+                    sys::esp_tls_conn_new_async(
+                        host.as_bytes().as_ptr() as *const i8,
+                        host.len() as i32,
+                        port as i32,
+                        &rcfg,
+                        self.raw,
+                    )
+                } else {
+                    sys::esp_tls_conn_new_sync(
+                        host.as_bytes().as_ptr() as *const i8,
+                        host.len() as i32,
+                        port as i32,
+                        &rcfg,
+                        self.raw,
+                    )
+                }
             };
 
-            if ret == 1 {
-                Ok(EspTls {
-                    reader: EspTlsRead { raw: tls },
-                    writer: EspTlsWrite { raw: tls },
-                })
-            } else {
-                unsafe {
-                    sys::esp_tls_conn_destroy(tls);
-                }
-
-                Err(EspError::from_infallible::<ESP_FAIL>())
+            match ret {
+                1 => Ok(()),
+                ESP_TLS_ERR_SSL_WANT_READ => Err(EspError::from_infallible::<
+                    { ESP_TLS_ERR_SSL_WANT_READ as i32 },
+                >()),
+                ESP_TLS_ERR_SSL_WANT_WRITE => Err(EspError::from_infallible::<
+                    { ESP_TLS_ERR_SSL_WANT_WRITE as i32 },
+                >()),
+                0 => Err(EspError::from_infallible::<{ EWOULDBLOCK as i32 }>()),
+                _ => Err(EspError::from_infallible::<ESP_FAIL>()),
             }
         }
 
-        pub fn read(&mut self, buf: &mut [u8]) -> Result<usize, EspIOError> {
-            self.reader.read(buf)
-        }
-
-        pub fn write(&mut self, buf: &[u8]) -> Result<usize, EspIOError> {
-            self.writer.write(buf)
-        }
-
-        pub fn split(&mut self) -> (&mut EspTlsRead, &mut EspTlsWrite) {
-            (&mut self.reader, &mut self.writer)
-        }
-    }
-
-    #[cfg(feature = "std")]
-    impl std::os::fd::AsRawFd for EspTls {
-        fn as_raw_fd(&self) -> std::os::fd::RawFd {
-            let mut fd = -1;
-            let _ = unsafe { sys::esp_tls_get_conn_sockfd(self.reader.raw, &mut fd) };
-
-            fd
-        }
-    }
-
-    impl io::Io for EspTls {
-        type Error = EspIOError;
-    }
-
-    impl io::Read for EspTls {
-        fn read(&mut self, buf: &mut [u8]) -> Result<usize, EspIOError> {
-            self.read(buf)
-        }
-    }
-
-    impl io::Write for EspTls {
-        fn write(&mut self, buf: &[u8]) -> Result<usize, EspIOError> {
-            self.write(buf)
-        }
-
-        fn flush(&mut self) -> Result<(), EspIOError> {
-            Ok(())
-        }
-    }
-
-    pub struct EspTlsRead {
-        raw: *mut sys::esp_tls,
-    }
-
-    impl EspTlsRead {
-        pub fn read(&mut self, buf: &mut [u8]) -> Result<usize, EspIOError> {
+        /// Read in the supplied buffer. Returns the number of bytes read.
+        ///
+        ///
+        /// # Errors
+        /// * `ESP_TLS_ERR_SSL_WANT_READ` if the socket is in non-blocking mode and it is not ready for reading
+        /// * `ESP_TLS_ERR_SSL_WANT_WRITE` if the socket is in non-blocking mode and it is not ready for writing
+        /// * Any other `EspError` for a general error
+        pub fn read(&mut self, buf: &mut [u8]) -> Result<usize, EspError> {
             if buf.is_empty() {
                 return Ok(0);
             }
@@ -245,7 +373,7 @@ mod esptls {
             if ret >= 0 {
                 Ok(ret as usize)
             } else {
-                Err(EspIOError(EspError::from(ret as i32).unwrap()))
+                Err(EspError::from(ret as i32).unwrap())
             }
         }
 
@@ -254,7 +382,7 @@ mod esptls {
             // cannot call esp_tls_conn_read bc it's inline in v4
             let esp_tls = unsafe { core::ptr::read_unaligned(self.raw) };
             let read_func = esp_tls.read.unwrap();
-            unsafe { read_func(self.raw, buf.as_mut_ptr() as *mut i8, buf.len()) }
+            unsafe { read_func(self.0, buf.as_mut_ptr() as *mut i8, buf.len()) }
         }
 
         #[cfg(not(esp_idf_version_major = "4"))]
@@ -263,24 +391,14 @@ mod esptls {
 
             unsafe { sys::esp_tls_conn_read(self.raw, buf.as_mut_ptr() as *mut c_void, buf.len()) }
         }
-    }
 
-    impl io::Io for EspTlsRead {
-        type Error = EspIOError;
-    }
-
-    impl io::Read for EspTlsRead {
-        fn read(&mut self, buf: &mut [u8]) -> Result<usize, EspIOError> {
-            self.read(buf)
-        }
-    }
-
-    pub struct EspTlsWrite {
-        raw: *mut sys::esp_tls,
-    }
-
-    impl EspTlsWrite {
-        pub fn write(&mut self, buf: &[u8]) -> Result<usize, EspIOError> {
+        /// Write the supplied buffer. Returns the number of bytes written.
+        ///
+        /// # Errors
+        /// * `ESP_TLS_ERR_SSL_WANT_READ` if the socket is in non-blocking mode and it is not ready for reading
+        /// * `ESP_TLS_ERR_SSL_WANT_WRITE` if the socket is in non-blocking mode and it is not ready for writing
+        /// * Any other `EspError` for a general error
+        pub fn write(&mut self, buf: &[u8]) -> Result<usize, EspError> {
             if buf.is_empty() {
                 return Ok(0);
             }
@@ -289,7 +407,7 @@ mod esptls {
             if ret >= 0 {
                 Ok(ret as usize)
             } else {
-                Err(EspIOError(EspError::from(ret as i32).unwrap()))
+                Err(EspError::from(ret as i32).unwrap())
             }
         }
 
@@ -298,7 +416,7 @@ mod esptls {
             // cannot call esp_tls_conn_write bc it's inline
             let esp_tls = unsafe { core::ptr::read_unaligned(self.raw) };
             let write_func = esp_tls.write.unwrap();
-            unsafe { write_func(self.raw, buf.as_ptr() as *const i8, buf.len()) }
+            unsafe { write_func(self.0, buf.as_ptr() as *const i8, buf.len()) }
         }
 
         #[cfg(not(esp_idf_version_major = "4"))]
@@ -309,67 +427,134 @@ mod esptls {
         }
     }
 
-    impl io::Io for EspTlsWrite {
+    impl<S> Drop for EspTls<S>
+    where
+        S: Socket,
+    {
+        fn drop(&mut self) {
+            let _ = self.socket.release();
+
+            unsafe {
+                sys::esp_tls_conn_destroy(self.raw);
+            }
+        }
+    }
+
+    impl<S> io::Io for EspTls<S>
+    where
+        S: Socket,
+    {
         type Error = EspIOError;
     }
 
-    impl io::Write for EspTlsWrite {
+    impl<S> io::Read for EspTls<S>
+    where
+        S: Socket,
+    {
+        fn read(&mut self, buf: &mut [u8]) -> Result<usize, EspIOError> {
+            EspTls::read(self, buf).map_err(EspIOError)
+        }
+    }
+
+    impl<S> io::Write for EspTls<S>
+    where
+        S: Socket,
+    {
         fn write(&mut self, buf: &[u8]) -> Result<usize, EspIOError> {
-            self.write(buf)
+            EspTls::write(self, buf).map_err(EspIOError)
         }
 
         fn flush(&mut self) -> Result<(), EspIOError> {
             Ok(())
         }
     }
+    pub struct AsyncEspTls<S>(RefCell<EspTls<S>>)
+    where
+        S: PollableSocket;
 
-    impl Drop for EspTls {
-        fn drop(&mut self) {
-            unsafe {
-                sys::esp_tls_conn_destroy(self.reader.raw);
+    impl<S> AsyncEspTls<S>
+    where
+        S: PollableSocket,
+    {
+        /// Create a new `AsyncEspTls` instance adopting the supplied socket.
+        /// The socket should be in a connected state.
+        ///
+        /// # Errors
+        ///
+        /// * `ESP_ERR_NO_MEM` if not enough memory to create the TLS connection
+        pub fn adopt(socket: S) -> Result<Self, EspError> {
+            Ok(Self(RefCell::new(EspTls::adopt(socket)?)))
+        }
+
+        /// Establish a TLS/SSL connection using the adopted socket.
+        ///
+        /// # Errors
+        ///
+        /// * `ESP_ERR_INVALID_SIZE` if `cfg.alpn_protos` exceeds 9 elements or avg 10 bytes/ALPN
+        /// * `ESP_FAIL` if connection could not be established
+        #[cfg(not(esp_idf_version_major = "4"))]
+        pub async fn negotiate(
+            &mut self,
+            hostname: &str,
+            cfg: &Config<'_>,
+        ) -> Result<(), EspError> {
+            loop {
+                match self.0.borrow_mut().negotiate(hostname, cfg) {
+                    Err(e) => self.wait(e).await?,
+                    other => break other,
+                }
             }
         }
-    }
 
-    #[derive(Default)]
-    pub struct Config<'a> {
-        /// up to 9 ALPNs allowed, with avg 10 bytes for each name
-        pub alpn_protos: Option<&'a [&'a str]>,
-        pub ca_cert: Option<X509<'a>>,
-        pub client_cert: Option<X509<'a>>,
-        pub client_key: Option<X509<'a>>,
-        pub client_key_password: Option<&'a str>,
-        pub non_block: bool,
-        pub use_secure_element: bool,
-        pub timeout_ms: u32,
-        pub use_global_ca_store: bool,
-        pub common_name: Option<&'a str>,
-        pub skip_common_name: bool,
-        pub keep_alive_cfg: Option<KeepAliveConfig>,
-        pub psk_hint_key: Option<PskHintKey<'a>>,
-        /// whether to use esp_crt_bundle_attach, see https://docs.espressif.com/projects/esp-idf/en/latest/esp32s2/api-reference/protocols/esp_crt_bundle.html
-        #[cfg(esp_idf_mbedtls_certificate_bundle)]
-        pub use_crt_bundle_attach: bool,
-        // TODO ds_data not implemented
-        pub is_plain_tcp: bool,
-        #[cfg(esp_idf_comp_lwip_enabled)]
-        pub if_name: sys::ifreq,
-    }
+        /// Read in the supplied buffer. Returns the number of bytes read.
+        pub async fn read(&self, buf: &mut [u8]) -> Result<usize, EspError> {
+            loop {
+                let res = self.0.borrow_mut().read(buf);
 
-    #[derive(Clone, Debug)]
-    pub struct KeepAliveConfig {
-        /// Enable keep-alive timeout
-        pub enable: bool,
-        /// Keep-alive idle time (second)
-        pub idle: Duration,
-        /// Keep-alive interval time (second)
-        pub interval: Duration,
-        /// Keep-alive packet retry send count
-        pub count: u32,
-    }
+                match res {
+                    Err(e) => self.wait(e).await?,
+                    other => break other,
+                }
+            }
+        }
 
-    pub struct PskHintKey<'a> {
-        pub key: &'a [u8],
-        pub hint: &'a CStr,
+        /// Write the supplied buffer. Returns the number of bytes written.
+        pub async fn write(&self, buf: &[u8]) -> Result<usize, EspError> {
+            loop {
+                let res = self.0.borrow_mut().write(buf);
+
+                match res {
+                    Err(e) => self.wait(e).await?,
+                    other => break other,
+                }
+            }
+        }
+
+        async fn wait(&self, error: EspError) -> Result<(), EspError> {
+            const EWOULDBLOCK_I32: i32 = EWOULDBLOCK as i32;
+
+            match error.code() as i32 {
+                // EWOULDBLOCK models the "0" return code of esp_mbedtls_handshake() which does not allow us
+                // to figure out whether we need the socket to become readable or writable
+                // The code below is therefore a hack which just waits with a timeout for the socket to (eventually)
+                // become readable as we actually don't even know if that's what esp_tls wants
+                EWOULDBLOCK_I32 => {
+                    core::future::poll_fn(|ctx| self.0.borrow_mut().socket.poll_writable(ctx))
+                        .await?;
+                    crate::hal::delay::FreeRtos::delay_ms(0);
+                }
+                ESP_TLS_ERR_SSL_WANT_READ => {
+                    core::future::poll_fn(|ctx| self.0.borrow_mut().socket.poll_readable(ctx))
+                        .await?
+                }
+                ESP_TLS_ERR_SSL_WANT_WRITE => {
+                    core::future::poll_fn(|ctx| self.0.borrow_mut().socket.poll_writable(ctx))
+                        .await?
+                }
+                _ => Err(error)?,
+            }
+
+            Ok(())
+        }
     }
 }
