@@ -494,9 +494,8 @@ where
 
         let chunk_size = self.driver.borrow().max_transfer_size;
 
-        for transaction in spi_read_transactions(words, chunk_size) {
-            spi_transmit(self.handle, once(transaction), self.polling)?;
-        }
+        let transactions = spi_read_transactions(words, chunk_size);
+        spi_transmit(self.handle, transactions, self.polling)?;
 
         Ok(())
     }
@@ -504,9 +503,8 @@ where
     pub async fn read_async(&mut self, words: &mut [u8]) -> Result<(), EspError> {
         let chunk_size = self.driver.borrow().max_transfer_size;
 
-        for transaction in spi_read_transactions(words, chunk_size) {
-            spi_transmit_async(self.handle, once(transaction)).await?;
-        }
+        let transactions = spi_read_transactions(words, chunk_size);
+        spi_transmit_async(self.handle, transactions).await?;
 
         Ok(())
     }
@@ -519,9 +517,8 @@ where
 
         let chunk_size = self.driver.borrow().max_transfer_size;
 
-        for transaction in spi_write_transactions(words, chunk_size) {
-            spi_transmit(self.handle, once(transaction), self.polling)?;
-        }
+        let transactions = spi_write_transactions(words, chunk_size);
+        spi_transmit(self.handle, transactions, self.polling)?;
 
         Ok(())
     }
@@ -529,9 +526,8 @@ where
     pub async fn write_async(&mut self, words: &[u8]) -> Result<(), EspError> {
         let chunk_size = self.driver.borrow().max_transfer_size;
 
-        for transaction in spi_write_transactions(words, chunk_size) {
-            spi_transmit_async(self.handle, once(transaction)).await?;
-        }
+        let transactions = spi_write_transactions(words, chunk_size);
+        spi_transmit_async(self.handle, transactions).await?;
 
         Ok(())
     }
@@ -550,9 +546,8 @@ where
 
         let chunk_size = self.driver.borrow().max_transfer_size;
 
-        for transaction in spi_transfer_transactions(read, write, chunk_size) {
-            spi_transmit(self.handle, once(transaction), self.polling)?;
-        }
+        let transactions = spi_transfer_transactions(read, write, chunk_size);
+        spi_transmit(self.handle, transactions, self.polling)?;
 
         Ok(())
     }
@@ -560,9 +555,8 @@ where
     pub async fn transfer_async(&mut self, read: &mut [u8], write: &[u8]) -> Result<(), EspError> {
         let chunk_size = self.driver.borrow().max_transfer_size;
 
-        for transaction in spi_transfer_transactions(read, write, chunk_size) {
-            spi_transmit_async(self.handle, once(transaction)).await?;
-        }
+        let transactions = spi_transfer_transactions(read, write, chunk_size);
+        spi_transmit_async(self.handle, transactions).await?;
 
         Ok(())
     }
@@ -570,9 +564,8 @@ where
     pub fn transfer_in_place(&mut self, words: &mut [u8]) -> Result<(), EspError> {
         let chunk_size = self.driver.borrow().max_transfer_size;
 
-        for transaction in spi_transfer_in_place_transactions(words, chunk_size) {
-            spi_transmit(self.handle, once(transaction), self.polling)?;
-        }
+        let transactions = spi_transfer_in_place_transactions(words, chunk_size);
+        spi_transmit(self.handle, transactions, self.polling)?;
 
         Ok(())
     }
@@ -580,9 +573,8 @@ where
     pub async fn transfer_in_place_async(&mut self, words: &mut [u8]) -> Result<(), EspError> {
         let chunk_size = self.driver.borrow().max_transfer_size;
 
-        for transaction in spi_transfer_in_place_transactions(words, chunk_size) {
-            spi_transmit_async(self.handle, once(transaction)).await?;
-        }
+        let transactions = spi_transfer_in_place_transactions(words, chunk_size);
+        spi_transmit_async(self.handle, transactions).await?;
 
         Ok(())
     }
@@ -895,13 +887,12 @@ where
             soft_cs_pin.raise()?;
         }
 
-        for (mut transaction, last) in transactions {
-            set_keep_cs_active(
-                &mut transaction,
-                soft_cs_pin.is_none() && self.cs_pin_configured && !last,
-            );
-            spi_transmit(self.handle, once(transaction), self.polling)?;
-        }
+        let has_hardware_cs = soft_cs_pin.is_none() && self.cs_pin_configured;
+        let transactions = transactions.map(|(mut t, last)| {
+            set_keep_cs_active(&mut t, has_hardware_cs && !last);
+            t
+        });
+        spi_transmit(self.handle, transactions, self.polling)?;
 
         if let Some(mut soft_cs_pin) = soft_cs_pin {
             soft_cs_pin.lower()?;
@@ -940,13 +931,12 @@ where
             soft_cs_pin.raise()?;
         }
 
-        for (mut transaction, last) in transactions {
-            set_keep_cs_active(
-                &mut transaction,
-                soft_cs_pin.is_none() && self.cs_pin_configured && !last,
-            );
-            spi_transmit_async(self.handle, once(transaction)).await?;
-        }
+        let has_hardware_cs = soft_cs_pin.is_none() && self.cs_pin_configured;
+        let transactions = transactions.map(|(mut t, last)| {
+            set_keep_cs_active(&mut t, has_hardware_cs && !last);
+            t
+        });
+        spi_transmit_async(self.handle, transactions).await?;
 
         if let Some(mut soft_cs_pin) = soft_cs_pin {
             soft_cs_pin.lower()?;
