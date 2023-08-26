@@ -485,6 +485,10 @@ mod esptls {
     where
         S: PollableSocket;
 
+    #[cfg(all(
+        not(esp_idf_version_major = "4"),
+        any(not(esp_idf_version_major = "5"), not(esp_idf_version_minor = "0"))
+    ))]
     impl<S> AsyncEspTls<S>
     where
         S: PollableSocket,
