@@ -224,6 +224,7 @@ mod esptls {
             self.internal_connect(host, 0, true, cfg)
         }
 
+        #[allow(clippy::unnecessary_cast)]
         fn internal_connect(
             &mut self,
             host: &str,
