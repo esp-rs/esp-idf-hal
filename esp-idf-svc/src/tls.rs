@@ -62,16 +62,8 @@ impl<'a> Debug for X509<'a> {
     any(esp_idf_esp_tls_using_mbedtls, esp_idf_esp_tls_using_wolfssl)
 ))]
 mod esptls {
+    use core::task::{Context, Poll};
     use core::time::Duration;
-
-    #[cfg(all(
-        not(esp_idf_version_major = "4"),
-        any(not(esp_idf_version_major = "5"), not(esp_idf_version_minor = "0"))
-    ))]
-    use core::{
-        cell::RefCell,
-        task::{Context, Poll},
-    };
 
     use embedded_svc::io;
 
@@ -486,7 +478,7 @@ mod esptls {
         not(esp_idf_version_major = "4"),
         any(not(esp_idf_version_major = "5"), not(esp_idf_version_minor = "0"))
     ))]
-    pub struct AsyncEspTls<S>(RefCell<EspTls<S>>)
+    pub struct AsyncEspTls<S>(core::cell::RefCell<EspTls<S>>)
     where
         S: PollableSocket;
 
@@ -505,7 +497,7 @@ mod esptls {
         ///
         /// * `ESP_ERR_NO_MEM` if not enough memory to create the TLS connection
         pub fn adopt(socket: S) -> Result<Self, EspError> {
-            Ok(Self(RefCell::new(EspTls::adopt(socket)?)))
+            Ok(Self(core::cell::RefCell::new(EspTls::adopt(socket)?)))
         }
 
         /// Establish a TLS/SSL connection using the adopted socket.
