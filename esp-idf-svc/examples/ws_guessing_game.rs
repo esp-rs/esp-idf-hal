@@ -21,7 +21,7 @@ use esp_idf_svc::{
     wifi::{BlockingWifi, EspWifi},
 };
 
-use esp_idf_svc::sys::{self as _, EspError, ESP_ERR_INVALID_SIZE};
+use esp_idf_svc::sys::{EspError, ESP_ERR_INVALID_SIZE};
 
 use log::*;
 

@@ -7,7 +7,7 @@ use embedded_svc::{
     wifi::{AuthMethod, ClientConfiguration, Configuration},
 };
 
-use esp_idf_svc::hal::Peripherals;
+use esp_idf_svc::hal::peripherals::Peripherals;
 use esp_idf_svc::http::client::EspHttpConnection;
 use esp_idf_svc::log::EspLogger;
 use esp_idf_svc::wifi::{BlockingWifi, EspWifi};
