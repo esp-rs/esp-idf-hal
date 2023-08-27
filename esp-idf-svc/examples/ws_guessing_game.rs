@@ -120,7 +120,7 @@ fn nth(n: u32) -> Cow<'static, str> {
 }
 
 fn main() -> anyhow::Result<()> {
-    esp_idf_sys::link_patches();
+    esp_idf_svc::sys::link_patches();
     esp_idf_svc::log::EspLogger::initialize_default();
     let mut server = create_server()?;
 
