@@ -5,6 +5,7 @@ extern crate alloc;
 pub use alloc::ffi::CString;
 
 pub use core::ffi::{c_char, CStr};
+use core::str::Utf8Error;
 
 use crate::sys::{EspError, ESP_ERR_INVALID_SIZE};
 
@@ -22,14 +23,16 @@ pub unsafe fn from_cstr_ptr<'a>(ptr: *const c_char) -> &'a str {
     CStr::from_ptr(ptr).to_str().unwrap()
 }
 
-pub fn from_cstr(buf: &[u8]) -> &str {
+pub fn from_cstr_fallible(buf: &[u8]) -> Result<&str, Utf8Error> {
     // We have to find the first '\0' ourselves, because the passed buffer might
     // be wider than the ASCIIZ string it contains
     let len = buf.iter().position(|e| *e == 0).unwrap() + 1;
 
-    unsafe { CStr::from_bytes_with_nul_unchecked(&buf[0..len]) }
-        .to_str()
-        .unwrap()
+    unsafe { CStr::from_bytes_with_nul_unchecked(&buf[0..len]) }.to_str()
+}
+
+pub fn from_cstr(buf: &[u8]) -> &str {
+    from_cstr_fallible(buf).unwrap()
 }
 
 #[cfg(feature = "alloc")]

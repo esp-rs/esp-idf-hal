@@ -1,8 +1,9 @@
 //! WiFi support
-use core::convert::TryFrom;
+use core::convert::{TryFrom, TryInto};
 #[cfg(feature = "nightly")]
 use core::future::Future;
 use core::marker::PhantomData;
+use core::str::Utf8Error;
 use core::time::Duration;
 use core::{cmp, ffi};
 
@@ -254,13 +255,15 @@ impl From<Newtype<wifi_ap_config_t>> for AccessPointConfiguration {
     }
 }
 
-impl From<Newtype<&wifi_ap_record_t>> for AccessPointInfo {
+impl TryFrom<Newtype<&wifi_ap_record_t>> for AccessPointInfo {
+    type Error = Utf8Error;
+
     #[allow(non_upper_case_globals)]
-    fn from(ap_info: Newtype<&wifi_ap_record_t>) -> Self {
+    fn try_from(ap_info: Newtype<&wifi_ap_record_t>) -> Result<Self, Self::Error> {
         let a = ap_info.0;
 
-        Self {
-            ssid: from_cstr(&a.ssid).into(),
+        Ok(Self {
+            ssid: from_cstr_fallible(&a.ssid)?.into(),
             bssid: a.bssid,
             channel: a.primary,
             secondary_channel: match a.second {
@@ -272,7 +275,7 @@ impl From<Newtype<&wifi_ap_record_t>> for AccessPointInfo {
             signal_strength: a.rssi,
             protocols: EnumSet::<Protocol>::empty(), // TODO
             auth_method: AuthMethod::from(Newtype::<wifi_auth_mode_t>(a.authmode)),
-        }
+        })
     }
 }
 
@@ -823,7 +826,10 @@ impl<'d> WifiDriver<'d> {
 
         let result = ap_infos_raw[..fetched_count]
             .iter()
-            .map::<AccessPointInfo, _>(|ap_info_raw| Newtype(ap_info_raw).into())
+            .map::<Result<AccessPointInfo, Utf8Error>, _>(|ap_info_raw| {
+                Newtype(ap_info_raw).try_into()
+            })
+            .filter_map(|r| r.ok())
             .inspect(|ap_info| debug!("Found access point {:?}", ap_info))
             .collect();
 
@@ -852,7 +858,10 @@ impl<'d> WifiDriver<'d> {
 
         let result = ap_infos_raw[..fetched_count]
             .iter()
-            .map::<AccessPointInfo, _>(|ap_info_raw| Newtype(ap_info_raw).into())
+            .map::<Result<AccessPointInfo, Utf8Error>, _>(|ap_info_raw| {
+                Newtype(ap_info_raw).try_into()
+            })
+            .filter_map(|r| r.ok())
             .inspect(|ap_info| debug!("Found access point {:?}", ap_info))
             .collect();
 
@@ -920,7 +929,7 @@ impl<'d> WifiDriver<'d> {
         let mut ap_info_raw: wifi_ap_record_t = wifi_ap_record_t::default();
         // If Sta not connected throws EspError(12303)
         esp!(unsafe { esp_wifi_sta_get_ap_info(&mut ap_info_raw) })?;
-        let ap_info: AccessPointInfo = Newtype(&ap_info_raw).into();
+        let ap_info: AccessPointInfo = Newtype(&ap_info_raw).try_into().unwrap();
 
         debug!("AP Info: {:?}", ap_info);
         Ok(ap_info)
