@@ -368,7 +368,7 @@ pub enum Alert {
 }
 
 /// CAN abstraction
-pub struct CanDriver<'d>(PeripheralRef<'d, CAN>);
+pub struct CanDriver<'d>(PeripheralRef<'d, CAN>, EnumSet<Alert>);
 
 impl<'d> CanDriver<'d> {
     pub fn new(
@@ -409,9 +409,16 @@ impl<'d> CanDriver<'d> {
         };
 
         esp!(unsafe { twai_driver_install(&general_config, &timing_config, &filter_config) })?;
-        esp!(unsafe { twai_start() })?;
 
-        Ok(Self(can))
+        Ok(Self(can, config.alerts))
+    }
+
+    pub fn start(&mut self) -> Result<(), EspError> {
+        esp!(unsafe { twai_start() })
+    }
+
+    pub fn stop(&mut self) -> Result<(), EspError> {
+        esp!(unsafe { twai_stop() })
     }
 
     pub fn transmit(&self, frame: &Frame, timeout: TickType_t) -> Result<(), EspError> {
@@ -438,7 +445,7 @@ impl<'d> CanDriver<'d> {
 
 impl<'d> Drop for CanDriver<'d> {
     fn drop(&mut self) {
-        esp!(unsafe { twai_stop() }).unwrap();
+        let _ = self.stop();
         esp!(unsafe { twai_driver_uninstall() }).unwrap();
     }
 }
@@ -515,6 +522,14 @@ impl<'d> embedded_can::nb::Can for CanDriver<'d> {
     }
 }
 
+fn read_alerts() -> EnumSet<Alert> {
+    Alert::Success | Alert::Received | Alert::ReceiveQueueFull
+}
+
+fn write_alerts() -> EnumSet<Alert> {
+    Alert::Success | Alert::TransmitIdle | Alert::TransmitFailed | Alert::TransmitRetried
+}
+
 pub struct AsyncCanDriver<'d, T>
 where
     T: BorrowMut<CanDriver<'d>>,
@@ -544,10 +559,25 @@ where
     }
 
     pub fn wrap_custom(
-        driver: T,
+        mut driver: T,
         priority: Option<u8>,
         pin_to_core: Option<Core>,
     ) -> Result<Self, EspError> {
+        let _ = driver.borrow_mut().stop();
+
+        let mut alerts = 0;
+        esp!(unsafe {
+            twai_reconfigure_alerts(
+                driver
+                    .borrow()
+                    .1
+                    .union(read_alerts())
+                    .union(write_alerts())
+                    .as_repr(),
+                &mut alerts,
+            )
+        })?;
+
         let task = unsafe {
             task::create(
                 Self::process_alerts,
@@ -564,6 +594,14 @@ where
             task,
             _data: PhantomData,
         })
+    }
+
+    pub fn start(&mut self) -> Result<(), EspError> {
+        self.driver.borrow_mut().start()
+    }
+
+    pub fn stop(&mut self) -> Result<(), EspError> {
+        self.driver.borrow_mut().stop()
     }
 
     pub async fn transmit(&self, frame: &Frame) -> Result<(), EspError> {
@@ -591,7 +629,16 @@ where
     }
 
     pub async fn read_alerts(&self) -> Result<EnumSet<Alert>, EspError> {
-        Ok(EnumSet::from_repr(ALERT_NOTIFICATION.wait().await))
+        let alerts = loop {
+            let alerts = EnumSet::from_repr(ALERT_NOTIFICATION.wait().await)
+                .intersection(self.driver.borrow().1);
+
+            if !alerts.is_empty() {
+                break alerts;
+            }
+        };
+
+        Ok(alerts)
     }
 
     extern "C" fn process_alerts(_arg: *mut core::ffi::c_void) {
@@ -601,17 +648,11 @@ where
             if unsafe { twai_read_alerts(&mut alerts, delay::BLOCK) } == 0 {
                 let ealerts: EnumSet<Alert> = EnumSet::from_repr_truncated(alerts);
 
-                if !ealerts.is_disjoint(Alert::Success | Alert::Received | Alert::ReceiveQueueFull)
-                {
+                if !ealerts.is_disjoint(read_alerts()) {
                     READ_NOTIFICATION.notify();
                 }
 
-                if !ealerts.is_disjoint(
-                    Alert::Success
-                        | Alert::TransmitIdle
-                        | Alert::TransmitFailed
-                        | Alert::TransmitRetried,
-                ) {
+                if !ealerts.is_disjoint(write_alerts()) {
                     WRITE_NOTIFICATION.notify();
                 }
 
@@ -626,7 +667,13 @@ where
     T: BorrowMut<CanDriver<'d>>,
 {
     fn drop(&mut self) {
+        let _ = self.stop();
+
         unsafe { task::destroy(self.task) };
+
+        let mut alerts = 0;
+        esp!(unsafe { twai_reconfigure_alerts(self.driver.borrow().1.as_repr(), &mut alerts) })
+            .unwrap();
     }
 }
 
