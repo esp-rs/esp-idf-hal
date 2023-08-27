@@ -8,8 +8,6 @@
 //! More info regarding NVS:
 //!   https://docs.espressif.com/projects/esp-idf/en/latest/esp32/api-reference/storage/nvs_flash.html
 
-use esp_idf_sys::{self as _}; // If using the `binstart` feature of `esp-idf-sys`, always keep this module imported
-
 use esp_idf_svc::log::EspLogger;
 use esp_idf_svc::nvs::*;
 
