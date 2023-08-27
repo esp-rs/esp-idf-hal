@@ -3,11 +3,12 @@
 //! Add your own ssid and password
 
 use embedded_svc::wifi::{AuthMethod, ClientConfiguration, Configuration};
-use esp_idf_hal::prelude::Peripherals;
+
+use esp_idf_svc::hal::prelude::Peripherals;
 use esp_idf_svc::log::EspLogger;
 use esp_idf_svc::wifi::{BlockingWifi, EspWifi};
 use esp_idf_svc::{eventloop::EspSystemEventLoop, nvs::EspDefaultNvsPartition};
-use esp_idf_sys::{self as _}; // If using the `binstart` feature of `esp-idf-sys`, always keep this module imported
+
 use log::info;
 
 const SSID: &str = env!("WIFI_SSID");

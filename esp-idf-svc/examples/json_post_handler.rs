@@ -3,20 +3,23 @@
 //! Go to 192.168.71.1 to test
 
 use anyhow;
+
 use embedded_svc::{
     http::{Headers, Method},
     io::{Read, Write},
     wifi::{self, AccessPointConfiguration, AuthMethod},
 };
-use esp_idf_hal::prelude::Peripherals;
+
+use esp_idf_svc::hal::prelude::Peripherals;
 use esp_idf_svc::{
     eventloop::EspSystemEventLoop,
     http::server::EspHttpServer,
     nvs::EspDefaultNvsPartition,
     wifi::{BlockingWifi, EspWifi},
 };
-use esp_idf_sys::{self as _};
+
 use log::*;
+
 use serde::Deserialize;
 use serde_json;
 

@@ -12,6 +12,7 @@ use esp_idf_svc::log::EspLogger;
 use esp_idf_svc::nvs::*;
 
 use postcard::{from_bytes, to_vec};
+
 use serde::{Deserialize, Serialize};
 
 use log::info;

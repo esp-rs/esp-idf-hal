@@ -3,13 +3,16 @@
 //! Go to http://192.168.71.1 to play
 
 use anyhow;
+
 use core::cmp::Ordering;
+
 use embedded_svc::{
     http::Method,
     wifi::{self, AccessPointConfiguration, AuthMethod},
     ws::FrameType,
 };
-use esp_idf_hal::prelude::Peripherals;
+
+use esp_idf_svc::hal::prelude::Peripherals;
 use esp_idf_svc::{
     eventloop::EspSystemEventLoop,
     http::server::EspHttpServer,
@@ -17,7 +20,9 @@ use esp_idf_svc::{
     systime::EspSystemTime,
     wifi::{BlockingWifi, EspWifi},
 };
-use esp_idf_sys::{self as _, EspError, ESP_ERR_INVALID_SIZE};
+
+use esp_idf_svc::sys::{self as _, EspError, ESP_ERR_INVALID_SIZE};
+
 use log::*;
 
 use std::{borrow::Cow, collections::BTreeMap, str, sync::Mutex};

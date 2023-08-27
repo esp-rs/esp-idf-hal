@@ -6,12 +6,12 @@ use embedded_svc::{
     utils::io,
     wifi::{AuthMethod, ClientConfiguration, Configuration},
 };
-use esp_idf_hal::prelude::Peripherals;
+
+use esp_idf_svc::hal::Peripherals;
 use esp_idf_svc::http::client::EspHttpConnection;
 use esp_idf_svc::log::EspLogger;
 use esp_idf_svc::wifi::{BlockingWifi, EspWifi};
 use esp_idf_svc::{eventloop::EspSystemEventLoop, nvs::EspDefaultNvsPartition};
-use esp_idf_sys::{self as _}; // If using the `binstart` feature of `esp-idf-sys`, always keep this module imported
 
 use log::{error, info};
 
