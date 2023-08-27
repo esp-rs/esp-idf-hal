@@ -3,10 +3,12 @@ use core::sync::atomic::{AtomicU64, Ordering};
 use enumset::{EnumSet, EnumSetType};
 use esp_idf_sys::*;
 
+pub type IntrFlags = InterruptType;
+
 /// Interrupt allocation flags.
 /// These flags can be used to specify which interrupt qualities the code calling esp_intr_alloc* needs.
 #[derive(Debug, EnumSetType)]
-pub enum IntrFlags {
+pub enum InterruptType {
     // Accept a Level 1 interrupt vector (lowest priority)
     Level1,
     // Accept a Level 2 interrupt vector.

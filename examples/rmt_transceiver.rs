@@ -18,8 +18,6 @@
 //! level0 = High   dur0 = PulseTicks(210)   level1 = Low   dur1 = PulseTicks(0)
 //! Tx Loop
 
-use esp_idf_sys::{self as _}; // If using the `binstart` feature of `esp-idf-sys`, always keep this module imported
-
 use esp_idf_hal::delay::FreeRtos;
 use esp_idf_hal::peripherals::Peripherals;
 use esp_idf_hal::rmt::{

@@ -909,7 +909,9 @@ pub mod continuous {
                 match self.read(buf, delay::NON_BLOCK) {
                     Ok(len) if len > 0 => return Ok(len),
                     Err(e) if e.code() != ESP_ERR_TIMEOUT => return Err(e),
-                    _ => NOTIFIER[self.adc as usize].wait().await,
+                    _ => {
+                        NOTIFIER[self.adc as usize].wait().await;
+                    }
                 }
             }
         }

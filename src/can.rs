@@ -32,12 +32,22 @@
 //! }
 //! ```
 
+use core::borrow::BorrowMut;
+use core::ffi::CStr;
+use core::marker::PhantomData;
+
+use enumset::{EnumSet, EnumSetType};
+
 use esp_idf_sys::*;
 
-use crate::delay::{BLOCK, NON_BLOCK};
-use crate::gpio::*;
+use num_enum::TryFromPrimitive;
+
+use crate::cpu::Core;
+use crate::delay::{self, BLOCK, NON_BLOCK};
 use crate::interrupt::IntrFlags;
 use crate::peripheral::{Peripheral, PeripheralRef};
+use crate::private::notification::Notification;
+use crate::{gpio::*, task};
 
 crate::embedded_hal_error!(CanError, embedded_can::Error, embedded_can::ErrorKind);
 
@@ -53,7 +63,9 @@ pub mod config {
     use enumset::EnumSet;
     use esp_idf_sys::*;
 
-    use crate::interrupt::IntrFlags;
+    use crate::interrupt::{InterruptType, IntrFlags};
+
+    use super::Alert;
 
     /// CAN timing
     #[derive(Debug, Copy, Clone, Eq, PartialEq)]
@@ -257,186 +269,6 @@ pub mod config {
         }
     }
 
-    #[derive(Debug, Copy, Clone)]
-    pub struct Alerts {
-        value: u32,
-    }
-
-    impl Alerts {
-        const TWAI_ALERT_TX_SUCCESS: u32 = 0x00000002;
-        const TWAI_ALERT_TX_IDLE: u32 = 0x00000001;
-        const TWAI_ALERT_RX_DATA: u32 = 0x00000004;
-        const TWAI_ALERT_BELOW_ERR_WARN: u32 = 0x00000008;
-        const TWAI_ALERT_ERR_ACTIVE: u32 = 0x00000010;
-        const TWAI_ALERT_RECOVERY_IN_PROGRESS: u32 = 0x00000020;
-        const TWAI_ALERT_BUS_RECOVERED: u32 = 0x00000040;
-        const TWAI_ALERT_ARB_LOST: u32 = 0x00000080;
-        const TWAI_ALERT_ABOVE_ERR_WARN: u32 = 0x00000100;
-        const TWAI_ALERT_BUS_ERROR: u32 = 0x00000200;
-        const TWAI_ALERT_TX_FAILED: u32 = 0x00000400;
-        const TWAI_ALERT_RX_QUEUE_FULL: u32 = 0x00000800;
-        const TWAI_ALERT_ERR_PASS: u32 = 0x00001000;
-        const TWAI_ALERT_BUS_OFF: u32 = 0x00002000;
-        const TWAI_ALERT_RX_FIFO_OVERRUN: u32 = 0x00004000;
-        const TWAI_ALERT_TX_RETRIED: u32 = 0x00008000;
-        const TWAI_ALERT_PERIPH_RESET: u32 = 0x00010000;
-        const TWAI_ALERT_ALL: u32 = 0x0001FFFF;
-        const TWAI_ALERT_NONE: u32 = 0x00000000;
-        const TWAI_ALERT_AND_LOG: u32 = 0x00020000;
-
-        /// Create new `Alerts` with no alerts set.
-        pub const fn new() -> Self {
-            Self {
-                value: Self::TWAI_ALERT_NONE,
-            }
-        }
-
-        /// Enable the `TX_SUCCESS` alert: The previous transmission was successful.
-        pub fn tx_success(self) -> Self {
-            Self {
-                value: self.value | Self::TWAI_ALERT_TX_SUCCESS,
-            }
-        }
-
-        /// Enable the `TX_IDLE` alert: No more messages to transmit.
-        pub fn tx_idle(self) -> Self {
-            Self {
-                value: self.value | Self::TWAI_ALERT_TX_IDLE,
-            }
-        }
-
-        /// Enable the `RX_DATA` alert: A frame has been received and added to the RX queue.
-        pub fn rx_data(self) -> Self {
-            Self {
-                value: self.value | Self::TWAI_ALERT_RX_DATA,
-            }
-        }
-
-        /// Enable the `BELOW_ERR_WARN` alert: Both error counters have dropped below error warning limit.
-        pub fn below_err_warn(self) -> Self {
-            Self {
-                value: self.value | Self::TWAI_ALERT_BELOW_ERR_WARN,
-            }
-        }
-
-        /// Enable the `ERR_ACTIVE` alert: TWAI controller has become error active.
-        pub fn err_active(self) -> Self {
-            Self {
-                value: self.value | Self::TWAI_ALERT_ERR_ACTIVE,
-            }
-        }
-
-        /// Enable the `RECOVERY_IN_PROGRESS` alert: TWAI controller is undergoing bus recovery.
-        pub fn recovery_in_progress(self) -> Self {
-            Self {
-                value: self.value | Self::TWAI_ALERT_RECOVERY_IN_PROGRESS,
-            }
-        }
-
-        /// Enable the `BUS_RECOVERED` alert: TWAI controller has successfully completed bus recovery.
-        pub fn bus_recovered(self) -> Self {
-            Self {
-                value: self.value | Self::TWAI_ALERT_BUS_RECOVERED,
-            }
-        }
-
-        /// Enable the `ARB_LOST` alert: The previous transmission lost arbitration.
-        pub fn arb_lost(self) -> Self {
-            Self {
-                value: self.value | Self::TWAI_ALERT_ARB_LOST,
-            }
-        }
-
-        /// Enable the `ABOVE_ERR_WARN` alert: One of the error counters have exceeded the error warning limit.
-        pub fn above_err_warn(self) -> Self {
-            Self {
-                value: self.value | Self::TWAI_ALERT_ABOVE_ERR_WARN,
-            }
-        }
-
-        /// Enable the `BUS_ERROR` alert: A (Bit, Stuff, CRC, Form, ACK) error has occurred on the bus.
-        pub fn bus_error(self) -> Self {
-            Self {
-                value: self.value | Self::TWAI_ALERT_BUS_ERROR,
-            }
-        }
-
-        /// Enable the `TX_FAILED` alert: The previous transmission has failed (for single shot transmission).
-        pub fn tx_failed(self) -> Self {
-            Self {
-                value: self.value | Self::TWAI_ALERT_TX_FAILED,
-            }
-        }
-
-        /// Enable the `RX_QUEUE_FULL` alert: The RX queue is full causing a frame to be lost.
-        pub fn rx_queue_full(self) -> Self {
-            Self {
-                value: self.value | Self::TWAI_ALERT_RX_QUEUE_FULL,
-            }
-        }
-
-        /// Enable the `ERR_PASS` alert: TWAI controller has become error passive.
-        pub fn err_pass(self) -> Self {
-            Self {
-                value: self.value | Self::TWAI_ALERT_ERR_PASS,
-            }
-        }
-
-        /// Enable the `BUS_OFF` alert: Bus-off condition occurred. TWAI controller can no longer influence bus.
-        pub fn bus_off(self) -> Self {
-            Self {
-                value: self.value | Self::TWAI_ALERT_BUS_OFF,
-            }
-        }
-
-        /// Enable the `RX_FIFO_OVERRUN` alert: An RX FIFO overrun has occurred.
-        pub fn rx_fifo_overrun(self) -> Self {
-            Self {
-                value: self.value | Self::TWAI_ALERT_RX_FIFO_OVERRUN,
-            }
-        }
-
-        /// Enable the `TX_RETRIED` alert: An message transmission was cancelled and retried due to an errata workaround.
-        pub fn tx_retried(self) -> Self {
-            Self {
-                value: self.value | Self::TWAI_ALERT_TX_RETRIED,
-            }
-        }
-
-        /// Enable the `PERIPH_RESET` alert: The TWAI controller was reset.
-        pub fn periph_reset(self) -> Self {
-            Self {
-                value: self.value | Self::TWAI_ALERT_PERIPH_RESET,
-            }
-        }
-
-        /// Enable all alerts.
-        pub fn all(self) -> Self {
-            Self {
-                value: self.value | Self::TWAI_ALERT_ALL,
-            }
-        }
-
-        /// Enable alert logging when they occur. Note that logging from the ISR is disabled if CONFIG_TWAI_ISR_IN_IRAM is enabled.
-        pub fn and_log(self) -> Self {
-            Self {
-                value: self.value | Self::TWAI_ALERT_AND_LOG,
-            }
-        }
-    }
-
-    impl From<Alerts> for u32 {
-        fn from(val: Alerts) -> Self {
-            val.value
-        }
-    }
-
-    impl Default for Alerts {
-        fn default() -> Self {
-            Self::new()
-        }
-    }
-
     #[derive(Debug, Clone)]
     pub struct Config {
         pub timing: Timing,
@@ -444,8 +276,8 @@ pub mod config {
         pub tx_queue_len: u32,
         pub rx_queue_len: u32,
         pub mode: Mode,
-        pub alerts: Alerts,
-        pub intr_flags: EnumSet<IntrFlags>,
+        pub alerts: EnumSet<Alert>,
+        pub intr_flags: EnumSet<InterruptType>,
     }
 
     impl Config {
@@ -492,7 +324,7 @@ pub mod config {
         }
 
         #[must_use]
-        pub fn alerts(mut self, alerts: Alerts) -> Self {
+        pub fn alerts(mut self, alerts: EnumSet<Alert>) -> Self {
             self.alerts = alerts;
             self
         }
@@ -511,10 +343,32 @@ pub mod config {
     }
 }
 
-/// CAN abstraction
-pub struct CanDriver<'d>(PeripheralRef<'d, CAN>);
+#[derive(Debug, EnumSetType, TryFromPrimitive)]
+#[enumset(repr = "u32")]
+#[repr(u32)]
+pub enum Alert {
+    TransmitIdle = 1,
+    Success = 2,
+    Received = 3,
+    BelowErrorWarning = 4,
+    ActiveError = 5,
+    RecoveryInProgress = 6,
+    BusRecovered = 7,
+    ArbLost = 8,
+    AboveErrorWarning = 9,
+    BusError = 10,
+    TransmitFailed = 11,
+    ReceiveQueueFull = 12,
+    ErrorPass = 13,
+    BusOffline = 14,
+    ReceiveFifoOverflow = 15,
+    TransmitRetried = 16,
+    PeripheralReset = 17,
+    AlertAndLog = 18,
+}
 
-unsafe impl<'d> Send for CanDriver<'d> {}
+/// CAN abstraction
+pub struct CanDriver<'d>(PeripheralRef<'d, CAN>, EnumSet<Alert>);
 
 impl<'d> CanDriver<'d> {
     pub fn new(
@@ -533,7 +387,7 @@ impl<'d> CanDriver<'d> {
             bus_off_io: -1,
             tx_queue_len: config.tx_queue_len,
             rx_queue_len: config.rx_queue_len,
-            alerts_enabled: config.alerts.into(),
+            alerts_enabled: config.alerts.as_repr(),
             clkout_divider: 0,
             intr_flags: IntrFlags::to_native(config.intr_flags) as _,
         };
@@ -555,16 +409,23 @@ impl<'d> CanDriver<'d> {
         };
 
         esp!(unsafe { twai_driver_install(&general_config, &timing_config, &filter_config) })?;
-        esp!(unsafe { twai_start() })?;
 
-        Ok(Self(can))
+        Ok(Self(can, config.alerts))
     }
 
-    pub fn transmit(&mut self, frame: &Frame, timeout: TickType_t) -> Result<(), EspError> {
+    pub fn start(&mut self) -> Result<(), EspError> {
+        esp!(unsafe { twai_start() })
+    }
+
+    pub fn stop(&mut self) -> Result<(), EspError> {
+        esp!(unsafe { twai_stop() })
+    }
+
+    pub fn transmit(&self, frame: &Frame, timeout: TickType_t) -> Result<(), EspError> {
         esp!(unsafe { twai_transmit(&frame.0, timeout) })
     }
 
-    pub fn receive(&mut self, timeout: TickType_t) -> Result<Frame, EspError> {
+    pub fn receive(&self, timeout: TickType_t) -> Result<Frame, EspError> {
         let mut rx_msg = Default::default();
 
         match esp_result!(unsafe { twai_receive(&mut rx_msg, timeout) }, ()) {
@@ -572,25 +433,35 @@ impl<'d> CanDriver<'d> {
             Err(err) => Err(err),
         }
     }
+
+    pub fn read_alerts(&self, timeout: TickType_t) -> Result<EnumSet<Alert>, EspError> {
+        let mut alerts = 0;
+
+        esp!(unsafe { twai_read_alerts(&mut alerts, timeout) })?;
+
+        Ok(EnumSet::from_repr_truncated(alerts))
+    }
 }
 
 impl<'d> Drop for CanDriver<'d> {
     fn drop(&mut self) {
-        esp!(unsafe { twai_stop() }).unwrap();
+        let _ = self.stop();
         esp!(unsafe { twai_driver_uninstall() }).unwrap();
     }
 }
+
+unsafe impl<'d> Send for CanDriver<'d> {}
 
 impl<'d> embedded_hal_0_2::blocking::can::Can for CanDriver<'d> {
     type Frame = Frame;
     type Error = Can02Error;
 
     fn transmit(&mut self, frame: &Self::Frame) -> Result<(), Self::Error> {
-        self.transmit(frame, BLOCK).map_err(Can02Error::other)
+        CanDriver::transmit(self, frame, BLOCK).map_err(Can02Error::other)
     }
 
     fn receive(&mut self) -> Result<Self::Frame, Self::Error> {
-        self.receive(BLOCK).map_err(Can02Error::other)
+        CanDriver::receive(self, BLOCK).map_err(Can02Error::other)
     }
 }
 
@@ -599,11 +470,11 @@ impl<'d> embedded_can::blocking::Can for CanDriver<'d> {
     type Error = CanError;
 
     fn transmit(&mut self, frame: &Self::Frame) -> Result<(), Self::Error> {
-        self.transmit(frame, BLOCK).map_err(CanError::other)
+        CanDriver::transmit(self, frame, BLOCK).map_err(CanError::other)
     }
 
     fn receive(&mut self) -> Result<Self::Frame, Self::Error> {
-        self.receive(BLOCK).map_err(CanError::other)
+        CanDriver::receive(self, BLOCK).map_err(CanError::other)
     }
 }
 
@@ -612,7 +483,7 @@ impl<'d> embedded_hal_0_2::can::nb::Can for CanDriver<'d> {
     type Error = Can02Error;
 
     fn transmit(&mut self, frame: &Self::Frame) -> nb::Result<Option<Self::Frame>, Self::Error> {
-        match self.transmit(frame, NON_BLOCK) {
+        match CanDriver::transmit(self, frame, NON_BLOCK) {
             Ok(_) => Ok(None),
             Err(e) if e.code() == ESP_FAIL => Err(nb::Error::WouldBlock),
             Err(e) if e.code() == ESP_ERR_TIMEOUT => Err(nb::Error::WouldBlock),
@@ -621,7 +492,7 @@ impl<'d> embedded_hal_0_2::can::nb::Can for CanDriver<'d> {
     }
 
     fn receive(&mut self) -> nb::Result<Self::Frame, Self::Error> {
-        match self.receive(NON_BLOCK) {
+        match CanDriver::receive(self, NON_BLOCK) {
             Ok(frame) => Ok(frame),
             Err(e) if e.code() == ESP_ERR_TIMEOUT => Err(nb::Error::WouldBlock),
             Err(e) => Err(nb::Error::Other(Can02Error::other(e))),
@@ -634,7 +505,7 @@ impl<'d> embedded_can::nb::Can for CanDriver<'d> {
     type Error = CanError;
 
     fn transmit(&mut self, frame: &Self::Frame) -> nb::Result<Option<Self::Frame>, Self::Error> {
-        match self.transmit(frame, NON_BLOCK) {
+        match CanDriver::transmit(self, frame, NON_BLOCK) {
             Ok(_) => Ok(None),
             Err(e) if e.code() == ESP_FAIL => Err(nb::Error::WouldBlock),
             Err(e) if e.code() == ESP_ERR_TIMEOUT => Err(nb::Error::WouldBlock),
@@ -643,13 +514,172 @@ impl<'d> embedded_can::nb::Can for CanDriver<'d> {
     }
 
     fn receive(&mut self) -> nb::Result<Self::Frame, Self::Error> {
-        match self.receive(NON_BLOCK) {
+        match CanDriver::receive(self, NON_BLOCK) {
             Ok(frame) => Ok(frame),
             Err(e) if e.code() == ESP_ERR_TIMEOUT => Err(nb::Error::WouldBlock),
             Err(e) => Err(nb::Error::Other(CanError::other(e))),
         }
     }
 }
+
+fn read_alerts() -> EnumSet<Alert> {
+    Alert::Success | Alert::Received | Alert::ReceiveQueueFull
+}
+
+fn write_alerts() -> EnumSet<Alert> {
+    Alert::Success | Alert::TransmitIdle | Alert::TransmitFailed | Alert::TransmitRetried
+}
+
+pub struct AsyncCanDriver<'d, T>
+where
+    T: BorrowMut<CanDriver<'d>>,
+{
+    driver: T,
+    task: TaskHandle_t,
+    _data: PhantomData<&'d ()>,
+}
+
+impl<'d> AsyncCanDriver<'d, CanDriver<'d>> {
+    pub fn new(
+        can: impl Peripheral<P = CAN> + 'd,
+        tx: impl Peripheral<P = impl OutputPin> + 'd,
+        rx: impl Peripheral<P = impl OutputPin> + 'd,
+        config: &config::Config,
+    ) -> Result<Self, EspError> {
+        Self::wrap(CanDriver::new(can, tx, rx, config)?)
+    }
+}
+
+impl<'d, T> AsyncCanDriver<'d, T>
+where
+    T: BorrowMut<CanDriver<'d>>,
+{
+    pub fn wrap(driver: T) -> Result<Self, EspError> {
+        Self::wrap_custom(driver, None, None)
+    }
+
+    pub fn wrap_custom(
+        mut driver: T,
+        priority: Option<u8>,
+        pin_to_core: Option<Core>,
+    ) -> Result<Self, EspError> {
+        let _ = driver.borrow_mut().stop();
+
+        let mut alerts = 0;
+        esp!(unsafe {
+            twai_reconfigure_alerts(
+                driver
+                    .borrow()
+                    .1
+                    .union(read_alerts())
+                    .union(write_alerts())
+                    .as_repr(),
+                &mut alerts,
+            )
+        })?;
+
+        let task = unsafe {
+            task::create(
+                Self::process_alerts,
+                CStr::from_bytes_until_nul(b"CAN - Alerts task\0").unwrap(),
+                2048,
+                core::ptr::null_mut(),
+                priority.unwrap_or(5),
+                pin_to_core,
+            )?
+        };
+
+        Ok(Self {
+            driver,
+            task,
+            _data: PhantomData,
+        })
+    }
+
+    pub fn start(&mut self) -> Result<(), EspError> {
+        self.driver.borrow_mut().start()
+    }
+
+    pub fn stop(&mut self) -> Result<(), EspError> {
+        self.driver.borrow_mut().stop()
+    }
+
+    pub async fn transmit(&self, frame: &Frame) -> Result<(), EspError> {
+        loop {
+            match self.driver.borrow().transmit(frame, delay::NON_BLOCK) {
+                Ok(()) => return Ok(()),
+                Err(e) if e.code() != ESP_ERR_TIMEOUT => return Err(e),
+                _ => (),
+            }
+
+            WRITE_NOTIFICATION.wait().await;
+        }
+    }
+
+    pub async fn receive(&self) -> Result<Frame, EspError> {
+        loop {
+            match self.driver.borrow().receive(delay::NON_BLOCK) {
+                Ok(frame) => return Ok(frame),
+                Err(e) if e.code() != ESP_ERR_TIMEOUT => return Err(e),
+                _ => (),
+            }
+
+            READ_NOTIFICATION.wait().await;
+        }
+    }
+
+    pub async fn read_alerts(&self) -> Result<EnumSet<Alert>, EspError> {
+        let alerts = loop {
+            let alerts = EnumSet::from_repr(ALERT_NOTIFICATION.wait().await)
+                .intersection(self.driver.borrow().1);
+
+            if !alerts.is_empty() {
+                break alerts;
+            }
+        };
+
+        Ok(alerts)
+    }
+
+    extern "C" fn process_alerts(_arg: *mut core::ffi::c_void) {
+        let mut alerts = 0;
+
+        loop {
+            if unsafe { twai_read_alerts(&mut alerts, delay::BLOCK) } == 0 {
+                let ealerts: EnumSet<Alert> = EnumSet::from_repr_truncated(alerts);
+
+                if !ealerts.is_disjoint(read_alerts()) {
+                    READ_NOTIFICATION.notify();
+                }
+
+                if !ealerts.is_disjoint(write_alerts()) {
+                    WRITE_NOTIFICATION.notify();
+                }
+
+                ALERT_NOTIFICATION.signal(alerts);
+            }
+        }
+    }
+}
+
+impl<'d, T> Drop for AsyncCanDriver<'d, T>
+where
+    T: BorrowMut<CanDriver<'d>>,
+{
+    fn drop(&mut self) {
+        let _ = self.stop();
+
+        unsafe { task::destroy(self.task) };
+
+        let mut alerts = 0;
+        esp!(unsafe { twai_reconfigure_alerts(self.driver.borrow().1.as_repr(), &mut alerts) })
+            .unwrap();
+    }
+}
+
+static READ_NOTIFICATION: Notification = Notification::new();
+static WRITE_NOTIFICATION: Notification = Notification::new();
+static ALERT_NOTIFICATION: Notification = Notification::new();
 
 pub struct Frame(twai_message_t);
 

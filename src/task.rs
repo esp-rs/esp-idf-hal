@@ -5,8 +5,54 @@ use core::time::Duration;
 
 use esp_idf_sys::*;
 
+use crate::cpu::Core;
 use crate::delay::TickType;
 use crate::interrupt;
+
+/// Creates a FreeRTOS task.
+///
+/// This API is to be used only for niche use cases like where the `std` feature is not enabled, or one absolutely
+/// needs to create a raw FreeRTOS task.
+///
+/// In all other cases, the standard, safe Rust `std::thread` API should be utilized, as it is anyway
+/// a thin wrapper around the FreeRTOS task API.
+pub unsafe fn create(
+    task_handler: extern "C" fn(*mut core::ffi::c_void),
+    task_name: &'static core::ffi::CStr,
+    stack_size: usize,
+    task_arg: *mut core::ffi::c_void,
+    priority: u8,
+    pin_to_core: Option<Core>,
+) -> Result<TaskHandle_t, EspError> {
+    let mut task: TaskHandle_t = core::ptr::null_mut();
+
+    let created = xTaskCreatePinnedToCore(
+        Some(task_handler),
+        task_name.as_ptr(),
+        stack_size as _,
+        task_arg,
+        priority as _,
+        &mut task,
+        pin_to_core.map(Into::into).unwrap_or(tskNO_AFFINITY as _),
+    );
+
+    if created == 0 {
+        Err(EspError::from_infallible::<ESP_ERR_INVALID_ARG>()) // TODO
+    } else {
+        Ok(task)
+    }
+}
+
+/// Deletes a FreeRTOS task.
+///
+/// This API is to be used only for niche use cases like where the `std` feature is not enabled, or one absolutely
+/// needs to create a raw FreeRTOS task.
+///
+/// In all other cases, the standard, safe Rust `std::thread` API should be utilized, as it is anyway
+/// a thin wrapper around the FreeRTOS task API.
+pub unsafe fn destroy(task: TaskHandle_t) {
+    vTaskDelete(task)
+}
 
 #[inline(always)]
 #[link_section = ".iram1.interrupt_task_do_yield"]

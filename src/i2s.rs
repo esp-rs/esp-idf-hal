@@ -777,7 +777,7 @@ where
         loop {
             match self.read(buffer, crate::delay::NON_BLOCK) {
                 Err(err) if err.code() == esp_idf_sys::ESP_ERR_TIMEOUT => {
-                    RECV_NOTIFIER[self.port as usize].wait().await
+                    RECV_NOTIFIER[self.port as usize].wait().await;
                 }
                 other => break other,
             }
@@ -857,7 +857,7 @@ where
         loop {
             match self.read_uninit(buffer, crate::delay::NON_BLOCK) {
                 Err(err) if err.code() == esp_idf_sys::ESP_ERR_TIMEOUT => {
-                    RECV_NOTIFIER[self.port as usize].wait().await
+                    RECV_NOTIFIER[self.port as usize].wait().await;
                 }
                 other => break other,
             }
@@ -1052,7 +1052,7 @@ where
         loop {
             match self.write(data, crate::delay::NON_BLOCK) {
                 Err(err) if err.code() == esp_idf_sys::ESP_ERR_TIMEOUT => {
-                    SEND_NOTIFIER[self.port as usize].wait().await
+                    SEND_NOTIFIER[self.port as usize].wait().await;
                 }
                 other => break other,
             }

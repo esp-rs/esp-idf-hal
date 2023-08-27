@@ -12,8 +12,6 @@
 //! For this example you need to hook up an ST7789 SPI display.
 //! The display will display an image on ferris the crab on a black background.
 
-use esp_idf_sys as _; // If using the `binstart` feature of `esp-idf-sys`, always keep this module imported
-
 use std::thread;
 use std::time::Duration;
 

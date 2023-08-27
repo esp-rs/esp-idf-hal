@@ -16,7 +16,7 @@ use esp_idf_hal::prelude::*;
 use esp_idf_hal::uart::*;
 
 fn main() -> anyhow::Result<()> {
-    esp_idf_sys::link_patches();
+    esp_idf_hal::sys::link_patches();
 
     let peripherals = Peripherals::take().unwrap();
     let tx = peripherals.pins.gpio5;
