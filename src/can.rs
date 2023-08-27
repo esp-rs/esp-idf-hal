@@ -42,6 +42,7 @@ use esp_idf_sys::*;
 
 use num_enum::TryFromPrimitive;
 
+use crate::cpu::Core;
 use crate::delay::{self, BLOCK, NON_BLOCK};
 use crate::interrupt::IntrFlags;
 use crate::peripheral::{Peripheral, PeripheralRef};
@@ -539,14 +540,22 @@ where
     T: BorrowMut<CanDriver<'d>>,
 {
     pub fn wrap(driver: T) -> Result<Self, EspError> {
+        Self::wrap_custom(driver, None, None)
+    }
+
+    pub fn wrap_custom(
+        driver: T,
+        priority: Option<u8>,
+        pin_to_core: Option<Core>,
+    ) -> Result<Self, EspError> {
         let task = unsafe {
             task::create(
                 Self::process_alerts,
                 CStr::from_bytes_until_nul(b"CAN - Alerts task\0").unwrap(),
                 2048,
                 core::ptr::null_mut(),
-                0, // TODO - priority
-                None,
+                priority.unwrap_or(5),
+                pin_to_core,
             )?
         };
 
