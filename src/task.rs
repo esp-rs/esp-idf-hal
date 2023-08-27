@@ -42,7 +42,7 @@ pub unsafe fn create(
     );
 
     if created == 0 {
-        Err(EspError::from_infallible::<ESP_ERR_INVALID_ARG>()) // TODO
+        Err(EspError::from_infallible::<ESP_FAIL>())
     } else {
         Ok(task)
     }
