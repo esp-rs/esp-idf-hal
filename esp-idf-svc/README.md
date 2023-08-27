@@ -11,6 +11,7 @@
 * Supports almost all ESP IDF services: timers, event loop, Wifi, Ethernet, HTTP client & server, MQTT, WS, NVS, OTA, etc.
 * Implements the traits of [embedded-svc](https://github.com/esp-rs/embedded-svc)
 * Blocking and `async` mode for each service (`async` support where feasible)
+* Re-exports `esp-idf-hal` and `esp-idf-sys` as `esp_idf_svc::hal` and `esp_idf_svc::sys`. You only need to depend on `esp_idf_svc` to get everything you need
 
 **You might want to also check out the ESP IDF [Drivers](https://github.com/esp-rs/esp-idf-hal) wrappers, and the raw bindings to ESP IDF in the [esp-idf-sys](https://github.com/esp-rs/esp-idf-sys) crate!**
 
