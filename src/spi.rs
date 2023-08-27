@@ -1712,18 +1712,11 @@ async fn spi_transmit_async(
     transactions: impl Iterator<Item = spi_transaction_t>,
     queue_size: usize,
 ) -> Result<(), EspError> {
-    let notifications: [Notification; MAX_QUEUED_TRANSACTIONS] = [
-        Notification::new(),
-        Notification::new(),
-        Notification::new(),
-        Notification::new(),
-        Notification::new(),
-        Notification::new(),
-        Notification::new(),
-        Notification::new(),
-        Notification::new(),
-        Notification::new(),
-    ];
+    #[allow(clippy::declare_interior_mutable_const)] // OK because this is only used as an array initializer
+    const SPI_NOTIF_INIT: Notification = Notification::new();
+
+    let notifications: [Notification; MAX_QUEUED_TRANSACTIONS] =
+        [SPI_NOTIF_INIT; MAX_QUEUED_TRANSACTIONS];
 
     let mut transaction_queue = [spi_transaction_t::default(); MAX_QUEUED_TRANSACTIONS];
     let mut queue_iter = transaction_queue.iter_mut().take(queue_size);
