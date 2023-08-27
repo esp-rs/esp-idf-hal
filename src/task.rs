@@ -16,6 +16,11 @@ use crate::interrupt;
 ///
 /// In all other cases, the standard, safe Rust `std::thread` API should be utilized, as it is anyway
 /// a thin wrapper around the FreeRTOS task API.
+///
+/// # Safety
+///
+/// Only marked as unsafe fo symmetry with `destroy` and to discourage users from leaning on it in favor of `std::thread`.
+/// Otherwise, this function is actually safe.
 pub unsafe fn create(
     task_handler: extern "C" fn(*mut core::ffi::c_void),
     task_name: &'static core::ffi::CStr,
@@ -50,6 +55,11 @@ pub unsafe fn create(
 ///
 /// In all other cases, the standard, safe Rust `std::thread` API should be utilized, as it is anyway
 /// a thin wrapper around the FreeRTOS task API.
+///
+/// # Safety
+///
+/// A valid `TaskHandle_t` instance of an existing task should be provided.
+/// Providing a `TaskHandle_t` of a task which was already destroyed is an undefined behavior.
 pub unsafe fn destroy(task: TaskHandle_t) {
     vTaskDelete(task)
 }
