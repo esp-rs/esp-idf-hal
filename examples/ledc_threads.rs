@@ -9,7 +9,7 @@ use esp_idf_hal::prelude::*;
 const CYCLES: usize = 3;
 
 fn main() -> anyhow::Result<()> {
-    esp_idf_sys::link_patches();
+    esp_idf_hal::sys::link_patches();
 
     println!("Setting up PWM output channels");
 

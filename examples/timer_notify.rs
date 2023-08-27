@@ -1,9 +1,9 @@
-use esp_idf_sys::{self as _, EspError, TaskHandle_t}; // If using the `binstart` feature of `esp-idf-sys`, always keep this module imported
+use esp_idf_hal::sys::{self as _, EspError, TaskHandle_t}; // If using the `binstart` feature of `esp-idf-sys`, always keep this module imported
 
 fn main() -> Result<(), EspError> {
     // It is necessary to call this function once. Otherwise some patches to the runtime
     // implemented by esp-idf-sys might not link properly. See https://github.com/esp-rs/esp-idf-template/issues/71
-    esp_idf_sys::link_patches();
+    esp_idf_hal::sys::link_patches();
 
     let per = esp_idf_hal::peripherals::Peripherals::take().unwrap();
 

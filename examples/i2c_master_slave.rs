@@ -58,7 +58,7 @@ fn main() -> anyhow::Result<()> {
 
 #[cfg(esp32)]
 fn main() -> anyhow::Result<()> {
-    esp_idf_sys::link_patches();
+    esp_idf_hal::sys::link_patches();
 
     println!("Starting I2C self test");
 
