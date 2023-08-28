@@ -649,7 +649,7 @@ pub mod continuous {
             unsafe { self.0.__bindgen_anon_1.type2.channel() as _ }
         }
 
-        #[cfg(not(any(esp32, esp32s2)))]
+        #[cfg(not(any(esp32, esp32s2, esp32h2, esp32c6)))]
         pub fn unit(&self) -> adc_unit_t {
             unsafe { self.0.__bindgen_anon_1.type2.unit() as _ }
         }
