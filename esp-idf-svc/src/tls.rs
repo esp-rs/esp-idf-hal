@@ -513,7 +513,9 @@ mod esptls {
             cfg: &Config<'_>,
         ) -> Result<(), EspError> {
             loop {
-                match self.0.borrow_mut().negotiate(hostname, cfg) {
+                let res = self.0.borrow_mut().negotiate(hostname, cfg);
+
+                match res {
                     Err(e) => self.wait(e).await?,
                     other => break other,
                 }
