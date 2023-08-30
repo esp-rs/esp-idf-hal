@@ -62,6 +62,7 @@ impl<'a> Debug for X509<'a> {
     any(esp_idf_esp_tls_using_mbedtls, esp_idf_esp_tls_using_wolfssl)
 ))]
 mod esptls {
+    use core::convert::{TryFrom, TryInto};
     use core::task::{Context, Poll};
     use core::time::Duration;
 
@@ -81,7 +82,6 @@ mod esptls {
     /// see https://www.ietf.org/rfc/rfc3280.txt ub-common-name-length
     const MAX_COMMON_NAME_LENGTH: usize = 64;
 
-    #[derive(Default)]
     pub struct Config<'a> {
         /// up to 9 ALPNs allowed, with avg 10 bytes for each name
         pub alpn_protos: Option<&'a [&'a str]>,
@@ -102,17 +102,118 @@ mod esptls {
         pub use_crt_bundle_attach: bool,
         // TODO ds_data not implemented
         pub is_plain_tcp: bool,
-        #[cfg(esp_idf_comp_lwip_enabled)]
-        pub if_name: sys::ifreq,
     }
 
     impl<'a> Config<'a> {
-        pub fn new() -> Self {
+        pub const fn new() -> Self {
             Self {
+                alpn_protos: None,
+                ca_cert: None,
+                client_cert: None,
+                client_key: None,
+                client_key_password: None,
+                non_block: false,
+                use_secure_element: false,
+                timeout_ms: 4000,
+                use_global_ca_store: false,
+                common_name: None,
+                skip_common_name: false,
+                keep_alive_cfg: None,
+                psk_hint_key: None,
                 #[cfg(esp_idf_mbedtls_certificate_bundle)]
                 use_crt_bundle_attach: true,
-                ..Default::default()
+                is_plain_tcp: false,
             }
+        }
+    }
+
+    impl<'a> Default for Config<'a> {
+        fn default() -> Self {
+            Self::new()
+        }
+    }
+
+    impl<'a> TryFrom<&'a Config<'a>> for sys::esp_tls_cfg {
+        type Error = EspError;
+
+        fn try_from(cfg: &'a Config<'a>) -> Result<Self, EspError> {
+            let mut rcfg: Self = Default::default();
+
+            if let Some(ca_cert) = cfg.ca_cert {
+                rcfg.__bindgen_anon_1.cacert_buf = ca_cert.data().as_ptr();
+                rcfg.__bindgen_anon_2.cacert_bytes = ca_cert.data().len() as u32;
+            }
+
+            if let Some(client_cert) = cfg.client_cert {
+                rcfg.__bindgen_anon_3.clientcert_buf = client_cert.data().as_ptr();
+                rcfg.__bindgen_anon_4.clientcert_bytes = client_cert.data().len() as u32;
+            }
+
+            if let Some(client_key) = cfg.client_key {
+                rcfg.__bindgen_anon_5.clientkey_buf = client_key.data().as_ptr();
+                rcfg.__bindgen_anon_6.clientkey_bytes = client_key.data().len() as u32;
+            }
+
+            if let Some(ckp) = cfg.client_key_password {
+                rcfg.clientkey_password = ckp.as_ptr();
+                rcfg.clientkey_password_len = ckp.len() as u32;
+            }
+
+            // allow up to 9 protocols
+            let mut alpn_protos: [*const i8; 10];
+            let mut alpn_protos_cbuf = [0u8; 99];
+            if let Some(protos) = cfg.alpn_protos {
+                alpn_protos = cstr_arr_from_str_slice(protos, &mut alpn_protos_cbuf)?;
+                rcfg.alpn_protos = alpn_protos.as_mut_ptr();
+            }
+
+            rcfg.non_block = cfg.non_block;
+            rcfg.use_secure_element = cfg.use_secure_element;
+            rcfg.timeout_ms = cfg.timeout_ms as i32;
+            rcfg.use_global_ca_store = cfg.use_global_ca_store;
+
+            if let Some(common_name) = cfg.common_name {
+                let mut common_name_buf = [0; MAX_COMMON_NAME_LENGTH + 1];
+                rcfg.common_name =
+                    cstr_from_str_truncating(common_name, &mut common_name_buf).as_ptr();
+            }
+
+            rcfg.skip_common_name = cfg.skip_common_name;
+
+            let mut raw_kac: sys::tls_keep_alive_cfg;
+            if let Some(kac) = &cfg.keep_alive_cfg {
+                raw_kac = sys::tls_keep_alive_cfg {
+                    keep_alive_enable: kac.enable,
+                    keep_alive_idle: kac.idle.as_secs() as i32,
+                    keep_alive_interval: kac.interval.as_secs() as i32,
+                    keep_alive_count: kac.count as i32,
+                };
+                rcfg.keep_alive_cfg = &mut raw_kac as *mut _;
+            }
+
+            let mut raw_psk: sys::psk_key_hint;
+            if let Some(psk) = &cfg.psk_hint_key {
+                raw_psk = sys::psk_key_hint {
+                    key: psk.key.as_ptr(),
+                    key_size: psk.key.len(),
+                    hint: psk.hint.as_ptr(),
+                };
+                rcfg.psk_hint_key = &mut raw_psk as *mut _;
+            }
+
+            #[cfg(esp_idf_mbedtls_certificate_bundle)]
+            if cfg.use_crt_bundle_attach {
+                rcfg.crt_bundle_attach = Some(sys::esp_crt_bundle_attach);
+            }
+
+            rcfg.is_plain_tcp = cfg.is_plain_tcp;
+
+            #[cfg(esp_idf_comp_lwip_enabled)]
+            {
+                rcfg.if_name = core::ptr::null_mut();
+            }
+
+            Ok(rcfg)
         }
     }
 
@@ -171,7 +272,15 @@ mod esptls {
         ///
         /// * `ESP_ERR_NO_MEM` if not enough memory to create the TLS connection
         pub fn new() -> Result<Self, EspError> {
-            Self::adopt(InternalSocket(()))
+            let raw = unsafe { sys::esp_tls_init() };
+            if !raw.is_null() {
+                Ok(Self {
+                    raw,
+                    socket: InternalSocket(()),
+                })
+            } else {
+                Err(EspError::from_infallible::<ESP_ERR_NO_MEM>())
+            }
         }
 
         /// Establish a TLS/SSL connection with the specified host and port, using an internally-managed socket.
@@ -184,7 +293,9 @@ mod esptls {
         /// * `ESP_TLS_ERR_SSL_WANT_WRITE` if the socket is in non-blocking mode and it is not ready for writing
         /// * `EWOULDBLOCK` if the socket is in non-blocking mode and it is not ready either for reading or writing (a peculiarity/bug of the `esp-tls` C module)
         pub fn connect(&mut self, host: &str, port: u16, cfg: &Config) -> Result<(), EspError> {
-            self.internal_connect(host, port, false, cfg)
+            let rcfg = cfg.try_into()?;
+
+            self.internal_connect(host, port, cfg.non_block, &rcfg)
         }
     }
 
@@ -198,9 +309,19 @@ mod esptls {
         /// # Errors
         ///
         /// * `ESP_ERR_NO_MEM` if not enough memory to create the TLS connection
+        #[cfg(all(
+            not(esp_idf_version_major = "4"),
+            any(not(esp_idf_version_major = "5"), not(esp_idf_version_minor = "0"))
+        ))]
         pub fn adopt(socket: S) -> Result<Self, EspError> {
             let raw = unsafe { sys::esp_tls_init() };
             if !raw.is_null() {
+                sys::esp!(unsafe { sys::esp_tls_set_conn_sockfd(raw, socket.handle()) })?;
+
+                sys::esp!(unsafe {
+                    sys::esp_tls_set_conn_state(raw, sys::esp_tls_conn_state_ESP_TLS_CONNECTING)
+                })?;
+
                 Ok(Self { raw, socket })
             } else {
                 Err(EspError::from_infallible::<ESP_ERR_NO_MEM>())
@@ -221,7 +342,9 @@ mod esptls {
             any(not(esp_idf_version_major = "5"), not(esp_idf_version_minor = "0"))
         ))]
         pub fn negotiate(&mut self, host: &str, cfg: &Config) -> Result<(), EspError> {
-            self.internal_connect(host, 0, true, cfg)
+            let rcfg = cfg.try_into()?;
+
+            self.internal_connect(host, 0, cfg.non_block, &rcfg)
         }
 
         #[allow(clippy::unnecessary_cast)]
@@ -229,114 +352,16 @@ mod esptls {
             &mut self,
             host: &str,
             port: u16,
-            adopted_socket: bool,
-            cfg: &Config,
+            asynch: bool,
+            cfg: &sys::esp_tls_cfg,
         ) -> Result<(), EspError> {
-            if adopted_socket {
-                #[cfg(all(
-                    not(esp_idf_version_major = "4"),
-                    any(not(esp_idf_version_major = "5"), not(esp_idf_version_minor = "0"))
-                ))]
-                {
-                    sys::esp!(unsafe {
-                        sys::esp_tls_set_conn_sockfd(self.raw, self.socket.handle())
-                    })?;
-                    sys::esp!(unsafe {
-                        sys::esp_tls_set_conn_state(
-                            self.raw,
-                            sys::esp_tls_conn_state_ESP_TLS_CONNECTING,
-                        )
-                    })?;
-                }
-
-                #[cfg(not(all(
-                    not(esp_idf_version_major = "4"),
-                    any(not(esp_idf_version_major = "5"), not(esp_idf_version_minor = "0"))
-                )))]
-                {
-                    unreachable!();
-                }
-            }
-
-            let mut rcfg: sys::esp_tls_cfg = unsafe { core::mem::zeroed() };
-
-            if let Some(ca_cert) = cfg.ca_cert {
-                rcfg.__bindgen_anon_1.cacert_buf = ca_cert.data().as_ptr();
-                rcfg.__bindgen_anon_2.cacert_bytes = ca_cert.data().len() as u32;
-            }
-
-            if let Some(client_cert) = cfg.client_cert {
-                rcfg.__bindgen_anon_3.clientcert_buf = client_cert.data().as_ptr();
-                rcfg.__bindgen_anon_4.clientcert_bytes = client_cert.data().len() as u32;
-            }
-
-            if let Some(client_key) = cfg.client_key {
-                rcfg.__bindgen_anon_5.clientkey_buf = client_key.data().as_ptr();
-                rcfg.__bindgen_anon_6.clientkey_bytes = client_key.data().len() as u32;
-            }
-
-            if let Some(ckp) = cfg.client_key_password {
-                rcfg.clientkey_password = ckp.as_ptr();
-                rcfg.clientkey_password_len = ckp.len() as u32;
-            }
-
-            // allow up to 9 protocols
-            let mut alpn_protos: [*const i8; 10];
-            let mut alpn_protos_cbuf = [0u8; 99];
-            if let Some(protos) = cfg.alpn_protos {
-                alpn_protos = cstr_arr_from_str_slice(protos, &mut alpn_protos_cbuf)?;
-                rcfg.alpn_protos = alpn_protos.as_mut_ptr();
-            }
-
-            rcfg.non_block = !adopted_socket && cfg.non_block;
-            rcfg.use_secure_element = cfg.use_secure_element;
-            rcfg.timeout_ms = cfg.timeout_ms as i32;
-            rcfg.use_global_ca_store = cfg.use_global_ca_store;
-
-            if let Some(common_name) = cfg.common_name {
-                let mut common_name_buf = [0; MAX_COMMON_NAME_LENGTH + 1];
-                rcfg.common_name =
-                    cstr_from_str_truncating(common_name, &mut common_name_buf).as_ptr();
-            }
-
-            rcfg.skip_common_name = cfg.skip_common_name;
-
-            let mut raw_kac: sys::tls_keep_alive_cfg;
-            if let Some(kac) = &cfg.keep_alive_cfg {
-                raw_kac = sys::tls_keep_alive_cfg {
-                    keep_alive_enable: kac.enable,
-                    keep_alive_idle: kac.idle.as_secs() as i32,
-                    keep_alive_interval: kac.interval.as_secs() as i32,
-                    keep_alive_count: kac.count as i32,
-                };
-                rcfg.keep_alive_cfg = &mut raw_kac as *mut _;
-            }
-
-            let mut raw_psk: sys::psk_key_hint;
-            if let Some(psk) = &cfg.psk_hint_key {
-                raw_psk = sys::psk_key_hint {
-                    key: psk.key.as_ptr(),
-                    key_size: psk.key.len(),
-                    hint: psk.hint.as_ptr(),
-                };
-                rcfg.psk_hint_key = &mut raw_psk as *mut _;
-            }
-
-            #[cfg(esp_idf_mbedtls_certificate_bundle)]
-            if cfg.use_crt_bundle_attach {
-                rcfg.crt_bundle_attach = Some(sys::esp_crt_bundle_attach);
-            }
-
-            rcfg.is_plain_tcp = cfg.is_plain_tcp;
-            rcfg.if_name = core::ptr::null_mut();
-
             let ret = unsafe {
-                if rcfg.non_block {
+                if asynch {
                     sys::esp_tls_conn_new_async(
                         host.as_bytes().as_ptr() as *const i8,
                         host.len() as i32,
                         port as i32,
-                        &rcfg,
+                        cfg,
                         self.raw,
                     )
                 } else {
@@ -344,7 +369,7 @@ mod esptls {
                         host.as_bytes().as_ptr() as *const i8,
                         host.len() as i32,
                         port as i32,
-                        &rcfg,
+                        cfg,
                         self.raw,
                     )
                 }
@@ -416,6 +441,20 @@ mod esptls {
             } else {
                 Err(EspError::from(ret as i32).unwrap())
             }
+        }
+
+        pub fn write_all(&mut self, buf: &[u8]) -> Result<(), EspError> {
+            let mut buf = buf;
+
+            while !buf.is_empty() {
+                match self.write(buf) {
+                    Ok(0) => panic!("zero-length write."),
+                    Ok(n) => buf = &buf[n..],
+                    Err(e) => return Err(e),
+                }
+            }
+
+            Ok(())
         }
 
         #[cfg(esp_idf_version_major = "4")]
@@ -512,8 +551,25 @@ mod esptls {
             hostname: &str,
             cfg: &Config<'_>,
         ) -> Result<(), EspError> {
+            let mut rcfg: sys::esp_tls_cfg = cfg.try_into()?;
+
+            // It is a bit unintuitive, but when an async socket is being adopted, `non_block` should be set to false.
+            //
+            // Background:
+            // `non_block = true` is only used at one place in the ESP IDF code and that is to run
+            // a check - with `select` - whether the socket is really connected.
+            // However, we want to avoid the `select()` call, as the adopted socket might be registered
+            // in a select() loop already.
+            //
+            // Avoiding the connectivity check with `select()` should be fine, as the adopted socket
+            // must be already connected anyway (API requirement).
+            rcfg.non_block = false;
+
             loop {
-                let res = self.0.borrow_mut().negotiate(hostname, cfg);
+                let res = self
+                    .0
+                    .borrow_mut()
+                    .internal_connect(hostname, 0, true, &rcfg);
 
                 match res {
                     Err(e) => self.wait(e).await?,
@@ -546,6 +602,20 @@ mod esptls {
             }
         }
 
+        pub async fn write_all(&self, buf: &[u8]) -> Result<(), EspError> {
+            let mut buf = buf;
+
+            while !buf.is_empty() {
+                match self.write(buf).await {
+                    Ok(0) => panic!("zero-length write."),
+                    Ok(n) => buf = &buf[n..],
+                    Err(e) => return Err(e),
+                }
+            }
+
+            Ok(())
+        }
+
         async fn wait(&self, error: EspError) -> Result<(), EspError> {
             const EWOULDBLOCK_I32: i32 = EWOULDBLOCK as i32;
 
@@ -571,6 +641,43 @@ mod esptls {
             }
 
             Ok(())
+        }
+    }
+
+    #[cfg(feature = "nightly")]
+    impl<S> io::Io for AsyncEspTls<S>
+    where
+        S: PollableSocket,
+    {
+        type Error = EspIOError;
+    }
+
+    #[cfg(feature = "nightly")]
+    impl<S> io::asynch::Read for AsyncEspTls<S>
+    where
+        S: PollableSocket,
+    {
+        type ReadFuture<'a> = impl core::future::Future<Output = Result<usize, Self::Error>> + 'a where Self: 'a;
+
+        fn read<'a>(&'a mut self, buf: &'a mut [u8]) -> Self::ReadFuture<'a> {
+            async move { AsyncEspTls::read(self, buf).await.map_err(EspIOError) }
+        }
+    }
+
+    #[cfg(feature = "nightly")]
+    impl<S> io::asynch::Write for AsyncEspTls<S>
+    where
+        S: PollableSocket,
+    {
+        type WriteFuture<'a> = impl core::future::Future<Output = Result<usize, Self::Error>> + 'a where Self: 'a;
+        type FlushFuture<'a> = impl core::future::Future<Output = Result<(), Self::Error>> + 'a where Self: 'a;
+
+        fn write<'a>(&'a mut self, buf: &'a [u8]) -> Self::WriteFuture<'a> {
+            async move { AsyncEspTls::write(self, buf).await.map_err(EspIOError) }
+        }
+
+        fn flush(&mut self) -> Self::FlushFuture<'_> {
+            async move { Ok(()) }
         }
     }
 }
