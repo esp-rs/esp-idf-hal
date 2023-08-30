@@ -645,6 +645,10 @@ mod esptls {
     }
 
     #[cfg(feature = "nightly")]
+    #[cfg(all(
+        not(esp_idf_version_major = "4"),
+        any(not(esp_idf_version_major = "5"), not(esp_idf_version_minor = "0"))
+    ))]
     impl<S> io::Io for AsyncEspTls<S>
     where
         S: PollableSocket,
@@ -653,6 +657,10 @@ mod esptls {
     }
 
     #[cfg(feature = "nightly")]
+    #[cfg(all(
+        not(esp_idf_version_major = "4"),
+        any(not(esp_idf_version_major = "5"), not(esp_idf_version_minor = "0"))
+    ))]
     impl<S> io::asynch::Read for AsyncEspTls<S>
     where
         S: PollableSocket,
@@ -665,6 +673,10 @@ mod esptls {
     }
 
     #[cfg(feature = "nightly")]
+    #[cfg(all(
+        not(esp_idf_version_major = "4"),
+        any(not(esp_idf_version_major = "5"), not(esp_idf_version_minor = "0"))
+    ))]
     impl<S> io::asynch::Write for AsyncEspTls<S>
     where
         S: PollableSocket,
