@@ -16,6 +16,13 @@
 - [Type safe wrappers for ESP IDF Services](https://github.com/esp-rs/esp-idf-svc)
 - [Type safe wrappers for ESP IDF Drivers](https://github.com/esp-rs/esp-idf-hal)
 
+> **Note**  
+> `esp-idf-sys`'s [build
+> script](https://doc.rust-lang.org/cargo/reference/build-scripts.html) will download the
+> esp-idf, its gcc toolchain, and build it. To show progress and build information about
+> this process run cargo with the `-vv` (very verbose) flag, so that build script output
+> is also displayed. This is especially useful since the initial build will take a while.
+
 ## Build Prerequisites
 
 Follow the [Prerequisites](https://github.com/esp-rs/esp-idf-template#prerequisites) section in the `esp-idf-template` crate.

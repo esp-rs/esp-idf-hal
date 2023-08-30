@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::fmt::Write;
 use std::path::PathBuf;
 
 use anyhow::{anyhow, bail, Context, Result};
@@ -61,11 +62,25 @@ pub struct NativeConfig {
     /// some components must be explicitly enabled in the sdkconfig.
     #[serde(default, deserialize_with = "parse::list")]
     pub esp_idf_components: Option<Vec<String>>,
+
+    /// Whether the esp-idf component manager (see [`RemoteComponent`]) should be on
+    /// (`true`, `y`, `yes`, `on`) or off (`false`, `n`, `no`, `off`)
+    #[serde(default, deserialize_with = "parse::toggle_setting")]
+    esp_idf_component_manager: Option<bool>,
 }
 
 impl NativeConfig {
     pub fn try_from_env() -> Result<NativeConfig> {
         Ok(parse_from_env(&["extra_components"])?)
+    }
+
+    /// Get the value for the `IDF_COMPONENT_MANAGER` variable passed to cmake. The
+    /// component manager is on by default (if [`Self::esp_idf_component_manager`] is [`None`]).
+    pub fn idf_component_manager(&self) -> &'static str {
+        match self.esp_idf_component_manager {
+            Some(true) | None => "1",
+            Some(false) => "0",
+        }
     }
 
     /// Get the user-specified esp-idf version or [`DEFAULT_ESP_IDF_VERSION`] if unset.
@@ -120,6 +135,43 @@ impl NativeConfig {
                 }
                 Ok(results)
             })
+    }
+
+    /// Generate the `idf_component.yml` file contents for the component mananager
+    /// containing the specified [`RemoteComponent`]s, but only if there is at least one
+    /// remote component.
+    pub fn generate_idf_component_yml(&self) -> Option<String> {
+        let mut contents = String::from("dependencies:\n");
+        let remote_components = self
+            .extra_components
+            .iter()
+            .filter_map(|c| c.remote_component.as_ref())
+            .collect::<Vec<_>>();
+        if remote_components.is_empty() {
+            return None;
+        }
+        for remote_comp in remote_components {
+            let RemoteComponent {
+                name,
+                version,
+                git,
+                path,
+                service_url,
+            } = remote_comp;
+
+            writeln!(&mut contents, "  {name}:").unwrap();
+            writeln!(&mut contents, "    version: '{version}'").unwrap();
+            if let Some(git) = git {
+                writeln!(&mut contents, "    git: '{git}'").unwrap();
+            }
+            if let Some(path) = path {
+                writeln!(&mut contents, "    path: '{path}'").unwrap();
+            }
+            if let Some(service_url) = service_url {
+                writeln!(&mut contents, "    service_url: '{service_url}'").unwrap();
+            }
+        }
+        Some(contents)
     }
 
     /// Get all bindings C headers of extra components where the bindings will be
@@ -193,6 +245,7 @@ impl NativeConfig {
                     idf_path,
                     extra_components,
                     esp_idf_components,
+                    esp_idf_component_manager,
                 },
         } = EspIdfSys::deserialize(&root.metadata)?;
 
@@ -201,13 +254,20 @@ impl NativeConfig {
         set_when_none(&mut self.esp_idf_cmake_generator, esp_idf_cmake_generator);
         set_when_none(&mut self.idf_path, idf_path);
         set_when_none(&mut self.esp_idf_components, esp_idf_components);
+        set_when_none(
+            &mut self.esp_idf_component_manager,
+            esp_idf_component_manager,
+        );
 
         fn make_processor(
             package: &Package,
         ) -> impl Fn(ExtraComponent) -> Option<ExtraComponent> + '_ {
             // Filter empty extra components and set manifest path.
             |mut comp| {
-                if comp.bindings_header.is_none() && comp.component_dirs.is_empty() {
+                if comp.bindings_header.is_none()
+                    && comp.component_dirs.is_empty()
+                    && comp.remote_component.is_none()
+                {
                     return None;
                 }
                 comp.manifest_dir = package
@@ -268,6 +328,7 @@ impl NativeConfig {
 ///
 /// An [`ExtraComponent`] may be used to:
 /// - build an extra esp-idf component with [`Self::component_dirs`];
+/// - add a remote component to the build with [`Self::remote_component`];
 /// - generate the bindings of the header specified by [`Self::bindings_header`].
 ///
 /// Note that it is also possible to only build a component, or only generate bindings.
@@ -275,8 +336,9 @@ impl NativeConfig {
 ///
 /// ## Example
 /// ```toml
-/// [[package.metadata.esp-idf-sys.extra-components]]
+/// [[package.metadata.esp-idf-sys.extra_components]]
 /// component_dirs = ["rainmaker/components/esp-insights/components", "rainmaker/components"]
+/// remote_component = { name = "espressif/mdns", version = "1.2" }
 /// bindings_header = "bindings.h"
 /// bindings_module = "module_name"
 /// ```
@@ -292,6 +354,19 @@ pub struct ExtraComponent {
     /// the bindings of the `[Self::bindings_header`] will still be generated.
     #[serde(default, deserialize_with = "parse::value_or_list")]
     pub component_dirs: Vec<PathBuf>,
+
+    /// A remote component to be included in the build. For multiple remote components
+    /// consider declaring multiple [`ExtraComponent`]s.
+    ///
+    /// The components will be managed by the [esp-idf component manager]. Each remote
+    /// component will correspond to an `idf_component.yml` `dependencies` entry.
+    /// See [`RemoteComponent`] as to what options are available.
+    ///
+    /// **This field is optional.**
+    ///
+    /// [esp-idf component manager]: https://docs.espressif.com/projects/esp-idf/en/latest/esp32/api-guides/tools/idf-component-manager.html
+    #[serde(default)]
+    pub remote_component: Option<RemoteComponent>,
 
     /// The path to the C header to generate the bindings with. If this option is absent,
     /// **no** bindings will be generated.
@@ -323,6 +398,33 @@ pub struct ExtraComponent {
     pub manifest_dir: PathBuf,
 }
 
+/// A remote component to be managed by the [esp-idf component manager]. Each
+/// [`RemoteComponent`] corresponds to an entry in the `dependencies:` section of the `idf_component.yml`.
+#[derive(Debug, Deserialize, Clone)]
+pub struct RemoteComponent {
+    /// The name of the remote component. Corrensponds to a key in the dependencies of
+    /// `idf_component.yml`.
+    pub name: String,
+    /// The version of the remote component. Corresponds to the `version` field of the
+    /// `idf_component.yml`.
+    pub version: String,
+    /// An optional git url that contains this remote component. Corresponds to the `git`
+    /// field of the `idf_component.yml`.
+    #[serde(default)]
+    pub git: Option<String>,
+    /// An optional path to the component in case [`RemoteComponent::git`] is used.
+    /// Corresponds to the `path` field of the `idf_component.yml`.
+    ///
+    /// Note: This should not be used for local components, use
+    /// [`ExtraComponent::component_dirs`] instead.
+    #[serde(default)]
+    pub path: Option<String>,
+    /// An optional url to a custom component registry. Corresponds to the `service_url`
+    /// field of the `idf_component.yml`.
+    #[serde(default)]
+    pub service_url: Option<String>,
+}
+
 mod parse {
     use std::str::FromStr;
 
@@ -332,6 +434,38 @@ mod parse {
     use super::*;
     pub use crate::config::parse::*;
     use crate::config::utils::ValueOrVec;
+
+    /// Deserialize a toggle setting as a boolean or string with `true` (`"true"`, `"y"`, `"yes"` or `"on"`),
+    /// or `false` (`"false"`, `"n"`, `"no"` or `"off"`).
+    pub fn toggle_setting<'d, D>(de: D) -> Result<Option<bool>, D::Error>
+    where
+        D: Deserializer<'d>,
+    {
+        #[derive(Deserialize)]
+        #[serde(untagged)]
+        enum BoolOrString {
+            Bool(bool),
+            String(String),
+        }
+
+        match Option::<BoolOrString>::deserialize(de)? {
+            Some(BoolOrString::Bool(b)) => Ok(Some(b)),
+            None => Ok(None),
+            Some(BoolOrString::String(s)) => {
+                const VALUES_ON: [&str; 4] = ["true", "y", "yes", "on"];
+                const VALUES_OFF: [&str; 4] = ["false", "n", "no", "off"];
+                if VALUES_ON.iter().any(|e| *e == s) {
+                    Ok(Some(true))
+                } else if VALUES_OFF.iter().any(|e| *e == s) {
+                    Ok(Some(false))
+                } else {
+                    Err(serde::de::Error::custom(format!(
+                        "invalid option, should be one of {VALUES_ON:?} for true or {VALUES_OFF:?} for false",
+                    )))
+                }
+            }
+        }
+    }
 
     /// Parse a cmake generator, either `default` or one of [`cmake::Generator`].
     pub fn cmake_generator<'d, D: Deserializer<'d>>(

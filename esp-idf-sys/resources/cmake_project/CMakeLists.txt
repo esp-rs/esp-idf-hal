@@ -1,26 +1,36 @@
 cmake_minimum_required(VERSION 3.20)
 
-set(IDF_TARGET $ENV{IDF_TARGET} CACHE STRING "IDF Build Target")
+set(IDF_TARGET $ENV{IDF_TARGET} CACHE STRING "IDF Build Target" FORCE)
 
-include($ENV{IDF_PATH}/tools/cmake/idf.cmake)
-project(libespidf C)
+set(EXTRA_COMPONENT_DIRS $ENV{EXTRA_COMPONENT_DIRS})
+set(COMPONENTS $ENV{ESP_IDF_COMPONENTS})
+set(SDKCONFIG $ENV{SDKCONFIG})
+set(SDKCONFIG_DEFAULTS $ENV{SDKCONFIG_DEFAULTS})
 
-# Process extra components
-foreach(component_dir IN ITEMS $ENV{EXTRA_COMPONENT_DIRS})
-    idf_build_component(${component_dir})
-endforeach()
+include($ENV{IDF_PATH}/tools/cmake/project.cmake)
 
-if(DEFINED ENV{ESP_IDF_COMPONENTS})
-    idf_build_process($ENV{IDF_TARGET} SDKCONFIG $ENV{SDKCONFIG} SDKCONFIG_DEFAULTS $ENV{SDKCONFIG_DEFAULTS} COMPONENTS $ENV{ESP_IDF_COMPONENTS})
+set(dependencies_lock "${CMAKE_CURRENT_LIST_DIR}/dependencies.lock")
+set(components_lock "$ENV{PROJECT_DIR}/components_${IDF_TARGET}.lock")
+
+# The DEPENDENCIES_LOCK attribute does not exist for esp-idf version less than 5.1,
+# so we'll keep the file in the cargo project dir ($components_lock) and the 
+# file in the out dir ($dependencies_lock) up to date with each other.
+if("${IDF_VERSION_MAJOR}.${IDF_VERSION_MINOR}" VERSION_GREATER_EQUAL "5.1")
+    idf_build_set_property(DEPENDENCIES_LOCK ${components_lock})
 else()
-    idf_build_process($ENV{IDF_TARGET} SDKCONFIG $ENV{SDKCONFIG} SDKCONFIG_DEFAULTS $ENV{SDKCONFIG_DEFAULTS})
+    if(EXISTS ${components_lock})
+        file(COPY_FILE ${components_lock} ${dependencies_lock} ONLY_IF_DIFFERENT)
+    else()
+        file(REMOVE ${dependencies_lock})
+    endif()
 endif()
 
-idf_build_get_property(aliases BUILD_COMPONENT_ALIASES)
+project(libespidf)
 
-add_executable(libespidf.elf main.c)
-target_link_libraries(libespidf.elf PUBLIC "${aliases}")
-idf_build_executable(libespidf.elf)
+# Copy the components.lock to the cargo project dir
+if(EXISTS ${dependencies_lock})
+    file(COPY_FILE ${dependencies_lock} ${components_lock} ONLY_IF_DIFFERENT)
+endif()
 
 # used to query the components in the build script
 idf_build_get_property(comps BUILD_COMPONENTS)

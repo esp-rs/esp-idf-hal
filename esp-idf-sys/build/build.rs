@@ -206,8 +206,6 @@ fn main() -> anyhow::Result<()> {
         build_output.esp_idf.try_to_str()?,
     );
 
-    build_output.cincl_args.propagate();
-
     if let Some(link_args) = build_output.link_args {
         link_args.propagate();
     }

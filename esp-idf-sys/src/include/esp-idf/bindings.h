@@ -181,7 +181,7 @@
 #include "esp_websocket_client.h"
 #endif
 
-#ifdef ESP_IDF_COMP_MDNS_ENABLED
+#if defined(ESP_IDF_COMP_MDNS_ENABLED) || defined(ESP_IDF_COMP_ESPRESSIF__MDNS_ENABLED)
 #include "mdns.h"
 #endif
 

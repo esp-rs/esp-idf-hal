@@ -6,6 +6,7 @@
 - [sdkconfig](#sdkconfig)
 - [ESP-IDF configuration](#esp-idf-configuration)
 - [Extra ESP-IDF components](#extra-esp-idf-components)
+- [Remote components (idf component registry)](#remote-components-idf-component-registry)
 - [Conditional compilation](#conditional-compilation)
 - [ESP32-C6/ESP32-P4 preliminary support](#esp32-c6esp32-p4-preliminary-support)
 - [More info](#more-info)
@@ -295,6 +296,16 @@ The following configuration options are available:
   supports](https://cmake.org/cmake/help/latest/manual/cmake-generators.7.html#cmake-generators)
   with **spaces and hyphens removed**.
 
+- ### *`esp_idf_component_manager`*, `$ESP_IDF_COMPONENT_MANAGER`
+
+    Whether the [esp-idf component manager](https://docs.espressif.com/projects/esp-idf/en/latest/esp32/api-guides/tools/idf-component-manager.html)
+    should be on or off.
+
+    Can be any of `true`, `y`, `yes`, `on` for on, and `false`, `n`,
+    `no`, `off` for off.
+    
+    If not specified, it is *on by default*.
+
 - ### *`mcu`*, `$MCU`
 
    The MCU name (i.e. `esp32`, `esp32s2`, `esp32s3` `esp32c3`, `esp32c2`, `esp32h2`, `esp32c5`, `esp32c6`, `esp32p4`). 
@@ -305,6 +316,16 @@ The following configuration options are available:
    > [Older ESP-IDF versions might not support all MCUs from above.](https://github.com/espressif/esp-idf#esp-idf-release-and-soc-compatibility)
    
 - ### *`esp_idf_components`*, `$ESP_IDF_COMPONENTS` (*native* builder only)
+
+    > **Note**  
+    > The esp-idf is split into components, where one component is essentially a
+    > library with its name typically being the name of the containing directory (for more
+    > information see the [esp-idf build system
+    > docs](https://docs.espressif.com/projects/esp-idf/en/latest/esp32/api-guides/build-system.html)).
+    >
+    > To see which components `esp-idf-sys` compiled, run the build with the `-vv` flag
+    > (to display build script output), and look for `[esp-idf-sys <version>] Built
+    > components: ...` in the output.
 
     The (`;`-separated for the environment variable) list of esp-idf component names that
     should be built. This list is used to trim the esp-idf build. Any component that is a
@@ -362,6 +383,17 @@ An extra component can be specified like this:
 # the bindings of the `[Self::bindings_header]` will still be generated.
 component_dirs = ["dir1", "dir2"] # or "dir"
 
+
+# A remote component to be included in the build. For multiple remote components
+# consider declaring multiple extra components.
+#
+# The components will be managed by the esp-idf component manager. Each remote
+# component will correspond to an `idf_component.yml` `dependencies` entry.
+# See the Remote component section as to what options are available.
+#
+# **This field is optional.**
+remote_component = { ... }
+
 # The path to the C header to generate the bindings with. If this option is absent,
 # **no** bindings will be generated.
 #
@@ -392,6 +424,66 @@ extra_components = [
     { component_dirs = [ "dir1", "dir2" ], bindings_header = "bindings.h", bindings_module = "name" }
 ]
 ```
+
+## Remote components (idf component registry)
+
+The esp-idf build systems supports remote components managed by the [esp-idf component
+manager](https://docs.espressif.com/projects/esp-idf/en/latest/esp32/api-guides/tools/idf-component-manager.html).
+All remote component dependencies can be specified using the [extra esp-idf
+components](#extra-esp-idf-components) `remote_component` field. Every such dependency
+maps exactly to a dependency entry in the `idf_component.yml` manifest.
+
+The component manager will resolve all such dependencies, in addition to those of the C
+esp-idf components, and download them to the `managed_components` directory in the
+esp-idf-sys `out` (build output) directory.
+
+A lock file (`components_<chip>.lock`) will be generated in the *workspace directory* if
+there is at least one such dependency.
+
+See the [esp_idf_component_manager](#esp_idf_component_manager-esp_idf_component_manager)
+options to turn the component manager off.
+
+A remote component can be specified by:
+```toml
+[package.metadata.esp-idf-sys.extra_components.0.remote_component]
+# The name of the remote component. Corrensponds to a key in the dependencies of
+# `idf_component.yml`.
+name = "component_name"
+# The version of the remote component. Corresponds to the `version` field of the
+# `idf_component.yml`.
+version = "1.2"
+# A git url that contains this remote component. Corresponds to the `git`
+# field of the `idf_component.yml`.
+#
+# This field is optional.
+git = "https://github.com/espressif/esp32-camera.git"
+# A path to the component.
+# Corresponds to the `path` field of the `idf_component.yml`.
+#
+# Note: This should not be used for local components, use
+# `component_dirs` of extra components instead.
+#
+# This field is optional.
+path = "path/to/component"
+# A url to a custom component registry. Corresponds to the `service_url`
+# field of the `idf_component.yml`.
+#
+# This field is optional.
+service_url = "https://componentregistry.company.com"
+```
+
+For example, to add a dependency the `1.2.x` version of the `espressif/mdns` component,
+add the following to your `Cargo.toml`:
+```toml
+[[package.metadata.esp-idf-sys.extra_components]]
+remote_component = { name = "espressif/mdns", version = "1.2" }
+```
+
+> **Note**  
+> Slashes (`/`) in a remote component's name will be replaced with two underscores `__`
+> for the name of the compiled component (e.g. `espressif/mdns` will become
+> `espressif__mdns` with the [`cfg`](#conditional-compilation)
+> `esp_idf_comp_espressif__mdns_enabled`).
 
 ## Conditional compilation
 

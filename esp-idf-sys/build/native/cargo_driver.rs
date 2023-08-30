@@ -300,10 +300,40 @@ pub fn build() -> Result<EspIdfBuildOutput> {
         manifest_dir.join(path_buf!("resources", "cmake_project", "CMakeLists.txt")),
         &out_dir,
     )?;
+    let main_comp = out_dir.join("main");
+    fs::create_dir_all(&main_comp)?;
     copy_file_if_different(
-        manifest_dir.join(path_buf!("resources", "cmake_project", "main.c")),
-        &out_dir,
+        manifest_dir.join(path_buf!("resources", "cmake_project", "main", "main.c")),
+        &main_comp,
     )?;
+    copy_file_if_different(
+        manifest_dir.join(path_buf!(
+            "resources",
+            "cmake_project",
+            "main",
+            "CMakeLists.txt"
+        )),
+        &main_comp,
+    )?;
+
+    // Generate the `idf_component.yml` for the main component if there is at least one
+    // remote component.
+    let idf_comp_yml = main_comp.join("idf_component.yml");
+    let idf_comp_yml_contents = config.native.generate_idf_component_yml();
+    if let Some(idf_comp_yml_contents) = idf_comp_yml_contents {
+        // Only write it when the generated contents differ or it doesn't exist.
+        match fs::read_to_string(&idf_comp_yml) {
+            Ok(file_contents) if file_contents == idf_comp_yml_contents => (),
+            Ok(_) | Err(_) => {
+                fs::write(&idf_comp_yml, idf_comp_yml_contents).with_context(|| {
+                    anyhow!("could not write file '{}'", idf_comp_yml.display())
+                })?;
+            }
+        }
+    } else {
+        let _ = fs::remove_file(&idf_comp_yml);
+    }
+    let idf_comp_manager = config.native.idf_component_manager();
 
     // Copy additional globbed files specified by user env variables
     for file in build::tracked_env_globs_iter(ESP_IDF_GLOB_VAR_PREFIX)? {
@@ -437,11 +467,13 @@ pub fn build() -> Result<EspIdfBuildOutput> {
         .asmflag(asm_flags)
         .cflag(c_flags)
         .cxxflag(cxx_flags)
+        .env("IDF_COMPONENT_MANAGER", idf_comp_manager)
         .env("EXTRA_COMPONENT_DIRS", extra_component_dirs)
         .env("IDF_PATH", idf.repository.worktree())
         .env("PATH", &idf.exported_path)
         .env("SDKCONFIG_DEFAULTS", defaults_files)
-        .env("IDF_TARGET", &chip_name);
+        .env("IDF_TARGET", &chip_name)
+        .env("PROJECT_DIR", to_cmake_path_list([&workspace_dir])?);
 
     match &tools_install_dir {
         InstallDir::Custom(dir) | InstallDir::Out(dir) | InstallDir::Workspace(dir) => {
