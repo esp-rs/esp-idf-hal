@@ -9,7 +9,7 @@ use alloc::sync::Arc;
 
 use embedded_svc::ws::{ErrorType, FrameType, Sender};
 
-use esp_idf_hal::delay::TickType;
+use crate::hal::delay::TickType;
 
 use crate::sys::*;
 

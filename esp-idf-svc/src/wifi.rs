@@ -17,8 +17,8 @@ use enumset::*;
 
 use embedded_svc::wifi::*;
 
-use esp_idf_hal::modem::WifiModemPeripheral;
-use esp_idf_hal::peripheral::Peripheral;
+use crate::hal::modem::WifiModemPeripheral;
+use crate::hal::peripheral::Peripheral;
 
 use crate::sys::*;
 

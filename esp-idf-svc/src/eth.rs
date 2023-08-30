@@ -11,7 +11,7 @@ use alloc::sync::Arc;
 
 use embedded_svc::eth::*;
 
-use esp_idf_hal::peripheral::Peripheral;
+use crate::hal::peripheral::Peripheral;
 
 #[cfg(any(
     all(esp32, esp_idf_eth_use_esp32_emac),
@@ -21,13 +21,13 @@ use esp_idf_hal::peripheral::Peripheral;
         esp_idf_eth_spi_ethernet_ksz8851snl
     )
 ))]
-use esp_idf_hal::gpio;
+use crate::hal::gpio;
 #[cfg(any(
     esp_idf_eth_spi_ethernet_dm9051,
     esp_idf_eth_spi_ethernet_w5500,
     esp_idf_eth_spi_ethernet_ksz8851snl
 ))]
-use esp_idf_hal::{spi, units::Hertz};
+use crate::hal::{spi, units::Hertz};
 
 use crate::sys::*;
 
@@ -187,7 +187,7 @@ pub struct EthDriver<'d, T> {
 impl<'d> EthDriver<'d, RmiiEth> {
     #[allow(clippy::too_many_arguments)]
     pub fn new(
-        mac: impl Peripheral<P = esp_idf_hal::mac::MAC> + 'd,
+        mac: impl Peripheral<P = crate::hal::mac::MAC> + 'd,
         rmii_rdx0: impl Peripheral<P = gpio::Gpio25> + 'd,
         rmii_rdx1: impl Peripheral<P = gpio::Gpio26> + 'd,
         rmii_crs_dv: impl Peripheral<P = gpio::Gpio27> + 'd,
@@ -226,7 +226,7 @@ impl<'d> EthDriver<'d, RmiiEth> {
 
     #[allow(clippy::too_many_arguments)]
     pub fn new_rmii(
-        _mac: impl Peripheral<P = esp_idf_hal::mac::MAC> + 'd,
+        _mac: impl Peripheral<P = crate::hal::mac::MAC> + 'd,
         _rmii_rdx0: impl Peripheral<P = gpio::Gpio25> + 'd,
         _rmii_rdx1: impl Peripheral<P = gpio::Gpio26> + 'd,
         _rmii_crs_dv: impl Peripheral<P = gpio::Gpio27> + 'd,
@@ -245,7 +245,7 @@ impl<'d> EthDriver<'d, RmiiEth> {
         phy_addr: Option<u32>,
         sysloop: EspSystemEventLoop,
     ) -> Result<Self, EspError> {
-        esp_idf_hal::into_ref!(rmii_mdc, rmii_mdio);
+        crate::hal::into_ref!(rmii_mdc, rmii_mdio);
 
         let rst = rst.map(|rst| rst.into_ref().pin());
 
@@ -334,14 +334,14 @@ impl<'d> EthDriver<'d, RmiiEth> {
 #[cfg(esp_idf_eth_use_openeth)]
 impl<'d> EthDriver<'d, OpenEth> {
     pub fn new(
-        mac: impl Peripheral<P = esp_idf_hal::mac::MAC> + 'd,
+        mac: impl Peripheral<P = crate::hal::mac::MAC> + 'd,
         sysloop: EspSystemEventLoop,
     ) -> Result<Self, EspError> {
         Self::new_openeth(mac, sysloop)
     }
 
     pub fn new_openeth(
-        _mac: impl Peripheral<P = esp_idf_hal::mac::MAC> + 'd,
+        _mac: impl Peripheral<P = crate::hal::mac::MAC> + 'd,
         sysloop: EspSystemEventLoop,
     ) -> Result<Self, EspError> {
         let eth = Self::init(
@@ -392,7 +392,7 @@ where
         phy_addr: Option<u32>,
         sysloop: EspSystemEventLoop,
     ) -> Result<Self, EspError> {
-        esp_idf_hal::into_ref!(int);
+        crate::hal::into_ref!(int);
 
         let (mac, phy, device) = Self::init_spi(
             driver.borrow().host(),
@@ -434,7 +434,7 @@ where
         ),
         EspError,
     > {
-        esp_idf_hal::gpio::enable_isr_service()?;
+        crate::hal::gpio::enable_isr_service()?;
 
         let mac_cfg = Self::eth_mac_default_config(0, 0);
         let phy_cfg = Self::eth_phy_default_config(rst.map(|pin| pin), phy_addr);

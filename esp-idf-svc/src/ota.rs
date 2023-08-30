@@ -314,7 +314,7 @@ impl EspOta {
 
         Ok(if err == ESP_ERR_NOT_FOUND {
             ota::SlotState::Unknown
-        } else if err == ESP_ERR_NOT_SUPPORTED as _ {
+        } else if err == ESP_ERR_NOT_SUPPORTED {
             ota::SlotState::Factory
         } else {
             esp!(err)?;

@@ -14,9 +14,9 @@ use ::log::*;
 
 use embedded_svc::event_bus::{self, ErrorType};
 
-use esp_idf_hal::cpu::Core;
-use esp_idf_hal::delay::TickType;
-use esp_idf_hal::interrupt;
+use crate::hal::cpu::Core;
+use crate::hal::delay::TickType;
+use crate::hal::interrupt;
 
 use crate::sys::*;
 
@@ -510,7 +510,7 @@ where
         };
 
         if higher_prio_task_woken != 0 {
-            esp_idf_hal::task::do_yield();
+            crate::hal::task::do_yield();
         }
 
         if result == ESP_FAIL {

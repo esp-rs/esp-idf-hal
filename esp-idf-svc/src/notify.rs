@@ -8,8 +8,8 @@ use alloc::vec::Vec;
 
 use embedded_svc::event_bus::{ErrorType, EventBus, Postbox, PostboxProvider};
 
-use esp_idf_hal::cpu::Core;
-use esp_idf_hal::task;
+use crate::hal::cpu::Core;
+use crate::hal::task;
 
 use crate::sys::*;
 

@@ -42,6 +42,7 @@ libstart = ["esp-idf-hal/libstart"]
 
 [dependencies]
 heapless = { version = "0.7", default-features = false }
+num_enum = { version = "0.7", default-features = false }
 enumset = { version = "1", default-features = false }
 log = { version = "0.4", default-features = false }
 uncased = "0.9.7"

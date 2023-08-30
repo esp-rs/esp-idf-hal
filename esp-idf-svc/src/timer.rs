@@ -85,10 +85,10 @@ impl EspTimer {
     }
 
     extern "C" fn handle(arg: *mut ffi::c_void) {
-        if esp_idf_hal::interrupt::active() {
+        if crate::hal::interrupt::active() {
             #[cfg(esp_idf_esp_timer_supports_isr_dispatch_method)]
             {
-                let signaled = esp_idf_hal::interrupt::with_isr_yield_signal(move || unsafe {
+                let signaled = crate::hal::interrupt::with_isr_yield_signal(move || unsafe {
                     UnsafeCallback::from_ptr(arg).call();
                 });
 
@@ -320,7 +320,7 @@ pub mod embassy_time {
 
         use ::embassy_time::driver::{AlarmHandle, Driver};
 
-        use esp_idf_hal::task::CriticalSection;
+        use crate::hal::task::CriticalSection;
 
         use crate::sys::*;
 
@@ -467,10 +467,10 @@ pub mod embassy_time {
     #[cfg(feature = "embassy-time-isr-queue")]
     pub mod queue {
         #[cfg(esp_idf_esp_timer_supports_isr_dispatch_method)]
-        use esp_idf_hal::interrupt::embassy_sync::IsrRawMutex as RawMutexImpl;
+        use crate::hal::interrupt::embassy_sync::IsrRawMutex as RawMutexImpl;
 
         #[cfg(not(esp_idf_esp_timer_supports_isr_dispatch_method))]
-        use esp_idf_hal::task::embassy_sync::EspRawMutex as RawMutexImpl;
+        use crate::hal::task::embassy_sync::EspRawMutex as RawMutexImpl;
 
         use crate::sys::*;
 
@@ -482,10 +482,10 @@ pub mod embassy_time {
             unsafe extern "C" fn handle_isr(alarm_context: *mut core::ffi::c_void) {
                 let alarm_context = (alarm_context as *const AlarmContext).as_ref().unwrap();
 
-                if esp_idf_hal::interrupt::active() {
+                if crate::hal::interrupt::active() {
                     #[cfg(esp_idf_esp_timer_supports_isr_dispatch_method)]
                     {
-                        let signaled = esp_idf_hal::interrupt::with_isr_yield_signal(move || {
+                        let signaled = crate::hal::interrupt::with_isr_yield_signal(move || {
                             (alarm_context.callback)(alarm_context.ctx);
                         });
 
