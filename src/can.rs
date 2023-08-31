@@ -374,7 +374,7 @@ impl<'d> CanDriver<'d> {
     pub fn new(
         can: impl Peripheral<P = CAN> + 'd,
         tx: impl Peripheral<P = impl OutputPin> + 'd,
-        rx: impl Peripheral<P = impl OutputPin> + 'd,
+        rx: impl Peripheral<P = impl InputPin> + 'd,
         config: &config::Config,
     ) -> Result<Self, EspError> {
         crate::into_ref!(can, tx, rx);
@@ -543,7 +543,7 @@ impl<'d> AsyncCanDriver<'d, CanDriver<'d>> {
     pub fn new(
         can: impl Peripheral<P = CAN> + 'd,
         tx: impl Peripheral<P = impl OutputPin> + 'd,
-        rx: impl Peripheral<P = impl OutputPin> + 'd,
+        rx: impl Peripheral<P = impl InputPin> + 'd,
         config: &config::Config,
     ) -> Result<Self, EspError> {
         Self::wrap(CanDriver::new(can, tx, rx, config)?)
@@ -761,13 +761,23 @@ impl Frame {
 
 impl core::fmt::Display for Frame {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        write!(
-            f,
-            "Frame {{ id: {}, remote: {}, data: {:?} }}",
-            self.identifier(),
-            self.is_remote_frame(),
-            self.data()
-        )
+        if self.is_extended() {
+            write!(
+                f,
+                "Frame {{ id: {:08x}, remote: {}, data: {:?} }}",
+                self.identifier(),
+                self.is_remote_frame(),
+                self.data()
+            )
+        } else {
+            write!(
+                f,
+                "Frame {{ id: {:03x}, remote: {}, data: {:?} }}",
+                self.identifier(),
+                self.is_remote_frame(),
+                self.data()
+            )
+        }
     }
 }
 
