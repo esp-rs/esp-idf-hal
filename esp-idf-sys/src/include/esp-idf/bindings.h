@@ -177,7 +177,7 @@
 #include "esp_https_server.h"
 #endif
 
-#ifdef ESP_IDF_COMP_ESP_WEBSOCKET_CLIENT_ENABLED
+#if defined(ESP_IDF_COMP_ESP_WEBSOCKET_CLIENT_ENABLED) || defined(ESP_IDF_COMP_ESPRESSIF__ESP_WEBSOCKET_CLIENT_ENABLED)
 #include "esp_websocket_client.h"
 #endif
 
