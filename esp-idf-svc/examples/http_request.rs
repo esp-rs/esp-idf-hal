@@ -19,6 +19,7 @@ const SSID: &str = env!("WIFI_SSID");
 const PASSWORD: &str = env!("WIFI_PASS");
 
 fn main() -> anyhow::Result<()> {
+    esp_idf_svc::sys::link_patches();
     EspLogger::initialize_default();
 
     // Setup Wifi

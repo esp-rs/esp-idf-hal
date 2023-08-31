@@ -14,6 +14,7 @@ use esp_idf_svc::nvs::*;
 use log::info;
 
 fn main() -> anyhow::Result<()> {
+    esp_idf_svc::sys::link_patches();
     EspLogger::initialize_default();
 
     let nvs_default_partition: EspNvsPartition<NvsDefault> =
