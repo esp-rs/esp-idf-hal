@@ -67,6 +67,10 @@
 
 #if defined(ESP_IDF_COMP_ESP_ADC_CAL_ENABLED) || defined(ESP_IDF_COMP_ESP_ADC_ENABLED)
 #include "esp_adc_cal.h"
+#if ESP_IDF_VERSION_MAJOR > 4
+#include "esp_adc/adc_cali.h"
+#include "esp_adc/adc_cali_scheme.h"
+#endif
 #endif
 
 #ifdef ESP_IDF_COMP_ESP_EVENT_ENABLED
@@ -209,6 +213,7 @@
 #ifdef ESP_IDF_COMP_DRIVER_ENABLED
 #include "driver/adc.h"
 #if ESP_IDF_VERSION_MAJOR > 4
+#include "esp_adc/adc_oneshot.h"
 #include "esp_adc/adc_continuous.h"
 #endif
 #include "driver/twai.h"
