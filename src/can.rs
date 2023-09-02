@@ -530,6 +530,8 @@ fn write_alerts() -> EnumSet<Alert> {
     Alert::Success | Alert::TransmitIdle | Alert::TransmitFailed | Alert::TransmitRetried
 }
 
+pub type OwnedAsyncCanDriver<'d> = AsyncCanDriver<'d, CanDriver<'d>>;
+
 pub struct AsyncCanDriver<'d, T>
 where
     T: BorrowMut<CanDriver<'d>>,
