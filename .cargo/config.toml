@@ -10,6 +10,9 @@ linker = "ldproxy"
 [target.riscv32imc-esp-espidf]
 linker = "ldproxy"
 
+[target.riscv32imac-esp-espidf]
+linker = "ldproxy"
+
 [env]
 ESP_IDF_SDKCONFIG_DEFAULTS = ".github/configs/sdkconfig.defaults"
 
