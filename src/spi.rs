@@ -43,10 +43,7 @@ use core::marker::PhantomData;
 use core::{ptr, u8};
 
 use embassy_sync::mutex::Mutex;
-use embedded_hal::spi::{
-    Operation, SpiBus, SpiBusFlush, SpiBusRead, SpiBusWrite, SpiDevice, SpiDeviceRead,
-    SpiDeviceWrite,
-};
+use embedded_hal::spi::{Operation, SpiBus, SpiDevice};
 
 use esp_idf_sys::*;
 
@@ -611,43 +608,62 @@ where
     type Error = SpiError;
 }
 
-impl<'d, T> SpiBusFlush for SpiBusDriver<'d, T>
-where
-    T: BorrowMut<SpiDriver<'d>>,
-{
-    fn flush(&mut self) -> Result<(), Self::Error> {
-        SpiBusDriver::flush(self).map_err(to_spi_err)
-    }
-}
-
-impl<'d, T> SpiBusRead for SpiBusDriver<'d, T>
+impl<'d, T> SpiBus for SpiBusDriver<'d, T>
 where
     T: BorrowMut<SpiDriver<'d>>,
 {
     fn read(&mut self, words: &mut [u8]) -> Result<(), Self::Error> {
         SpiBusDriver::read(self, words).map_err(to_spi_err)
     }
-}
 
-impl<'d, T> SpiBusWrite for SpiBusDriver<'d, T>
-where
-    T: BorrowMut<SpiDriver<'d>>,
-{
     fn write(&mut self, words: &[u8]) -> Result<(), Self::Error> {
         SpiBusDriver::write(self, words).map_err(to_spi_err)
     }
-}
 
-impl<'d, T> SpiBus for SpiBusDriver<'d, T>
-where
-    T: BorrowMut<SpiDriver<'d>>,
-{
+    fn flush(&mut self) -> Result<(), Self::Error> {
+        SpiBusDriver::flush(self).map_err(to_spi_err)
+    }
+
     fn transfer(&mut self, read: &mut [u8], write: &[u8]) -> Result<(), Self::Error> {
         SpiBusDriver::transfer(self, read, write).map_err(to_spi_err)
     }
 
     fn transfer_in_place(&mut self, words: &mut [u8]) -> Result<(), Self::Error> {
         SpiBusDriver::transfer_in_place(self, words).map_err(to_spi_err)
+    }
+}
+
+#[cfg(feature = "nightly")]
+impl<'d, T> embedded_hal_async::spi::SpiBus for SpiBusDriver<'d, T>
+where
+    T: BorrowMut<SpiDriver<'d>>,
+{
+    async fn read(&mut self, buf: &mut [u8]) -> Result<(), Self::Error> {
+        SpiBusDriver::read_async(self, buf)
+            .await
+            .map_err(to_spi_err)
+    }
+
+    async fn write(&mut self, buf: &[u8]) -> Result<(), Self::Error> {
+        SpiBusDriver::write_async(self, buf)
+            .await
+            .map_err(to_spi_err)
+    }
+
+    async fn transfer(&mut self, read: &mut [u8], write: &[u8]) -> Result<(), Self::Error> {
+        SpiBusDriver::transfer_async(self, read, write)
+            .await
+            .map_err(to_spi_err)
+    }
+
+    async fn transfer_in_place(&mut self, words: &mut [u8]) -> Result<(), Self::Error> {
+        SpiBusDriver::transfer_in_place_async(self, words)
+            .await
+            .map_err(to_spi_err)
+    }
+
+    async fn flush(&mut self) -> Result<(), Self::Error> {
+        SpiBusDriver::flush(self).map_err(to_spi_err)
     }
 }
 
@@ -1003,6 +1019,7 @@ where
             Operation::TransferInPlace(words) => OperationsIter::TransferInPlace(
                 spi_transfer_in_place_transactions(words, chunk_size),
             ),
+            Operation::DelayUs(_) => todo!(),
         })
     }
 }
@@ -1025,36 +1042,18 @@ where
     type Error = SpiError;
 }
 
-impl<'d, T> SpiDeviceRead for SpiDeviceDriver<'d, T>
+impl<'d, T> SpiDevice for SpiDeviceDriver<'d, T>
 where
     T: Borrow<SpiDriver<'d>> + 'd,
 {
-    fn read_transaction(&mut self, operations: &mut [&mut [u8]]) -> Result<(), Self::Error> {
-        Self::read_transaction(self, operations).map_err(to_spi_err)
-    }
-
     fn read(&mut self, buf: &mut [u8]) -> Result<(), Self::Error> {
         Self::read(self, buf).map_err(to_spi_err)
-    }
-}
-
-impl<'d, T> SpiDeviceWrite for SpiDeviceDriver<'d, T>
-where
-    T: Borrow<SpiDriver<'d>> + 'd,
-{
-    fn write_transaction(&mut self, operations: &[&[u8]]) -> Result<(), Self::Error> {
-        Self::write_transaction(self, operations).map_err(to_spi_err)
     }
 
     fn write(&mut self, buf: &[u8]) -> Result<(), Self::Error> {
         Self::write(self, buf).map_err(to_spi_err)
     }
-}
 
-impl<'d, T> SpiDevice for SpiDeviceDriver<'d, T>
-where
-    T: Borrow<SpiDriver<'d>> + 'd,
-{
     fn transaction(&mut self, operations: &mut [Operation<'_, u8>]) -> Result<(), Self::Error> {
         Self::transaction(self, operations).map_err(to_spi_err)
     }
@@ -1159,6 +1158,29 @@ where
             SoftCsPin::none(),
         )
         .map_err(to_spi_err)
+    }
+}
+
+#[cfg(feature = "nightly")]
+impl<'d, T> embedded_hal_async::spi::SpiDevice for SpiDeviceDriver<'d, T>
+where
+    T: Borrow<SpiDriver<'d>> + 'd,
+{
+    async fn read(&mut self, buf: &mut [u8]) -> Result<(), Self::Error> {
+        Self::read_async(self, buf).await.map_err(to_spi_err)
+    }
+
+    async fn write(&mut self, buf: &[u8]) -> Result<(), Self::Error> {
+        Self::write_async(self, buf).await.map_err(to_spi_err)
+    }
+
+    async fn transaction(
+        &mut self,
+        operations: &mut [Operation<'_, u8>],
+    ) -> Result<(), Self::Error> {
+        Self::transaction_async(self, operations)
+            .await
+            .map_err(to_spi_err)
     }
 }
 
@@ -1413,41 +1435,46 @@ where
     type Error = SpiError;
 }
 
-impl<'d, DEVICE, DRIVER> SpiDeviceRead for SpiSoftCsDeviceDriver<'d, DEVICE, DRIVER>
-where
-    DEVICE: Borrow<SpiSharedDeviceDriver<'d, DRIVER>> + 'd,
-    DRIVER: Borrow<SpiDriver<'d>> + 'd,
-{
-    fn read_transaction(&mut self, operations: &mut [&mut [u8]]) -> Result<(), Self::Error> {
-        Self::read_transaction(self, operations).map_err(to_spi_err)
-    }
-
-    fn read(&mut self, buf: &mut [u8]) -> Result<(), Self::Error> {
-        Self::read(self, buf).map_err(to_spi_err)
-    }
-}
-
-impl<'d, DEVICE, DRIVER> SpiDeviceWrite for SpiSoftCsDeviceDriver<'d, DEVICE, DRIVER>
-where
-    DEVICE: Borrow<SpiSharedDeviceDriver<'d, DRIVER>> + 'd,
-    DRIVER: Borrow<SpiDriver<'d>> + 'd,
-{
-    fn write_transaction(&mut self, operations: &[&[u8]]) -> Result<(), Self::Error> {
-        Self::write_transaction(self, operations).map_err(to_spi_err)
-    }
-
-    fn write(&mut self, buf: &[u8]) -> Result<(), Self::Error> {
-        Self::write(self, buf).map_err(to_spi_err)
-    }
-}
-
 impl<'d, DEVICE, DRIVER> SpiDevice for SpiSoftCsDeviceDriver<'d, DEVICE, DRIVER>
 where
     DEVICE: Borrow<SpiSharedDeviceDriver<'d, DRIVER>> + 'd,
     DRIVER: Borrow<SpiDriver<'d>> + 'd,
 {
+    fn read(&mut self, buf: &mut [u8]) -> Result<(), Self::Error> {
+        Self::read(self, buf).map_err(to_spi_err)
+    }
+
+    fn write(&mut self, buf: &[u8]) -> Result<(), Self::Error> {
+        Self::write(self, buf).map_err(to_spi_err)
+    }
+
     fn transaction(&mut self, operations: &mut [Operation<'_, u8>]) -> Result<(), Self::Error> {
         Self::transaction(self, operations).map_err(to_spi_err)
+    }
+}
+
+#[cfg(feature = "nightly")]
+impl<'d, DEVICE, DRIVER> embedded_hal_async::spi::SpiDevice
+    for SpiSoftCsDeviceDriver<'d, DEVICE, DRIVER>
+where
+    DEVICE: Borrow<SpiSharedDeviceDriver<'d, DRIVER>> + 'd,
+    DRIVER: Borrow<SpiDriver<'d>> + 'd,
+{
+    async fn read(&mut self, buf: &mut [u8]) -> Result<(), Self::Error> {
+        Self::read_async(self, buf).await.map_err(to_spi_err)
+    }
+
+    async fn write(&mut self, buf: &[u8]) -> Result<(), Self::Error> {
+        Self::write_async(self, buf).await.map_err(to_spi_err)
+    }
+
+    async fn transaction(
+        &mut self,
+        operations: &mut [Operation<'_, u8>],
+    ) -> Result<(), Self::Error> {
+        Self::transaction_async(self, operations)
+            .await
+            .map_err(to_spi_err)
     }
 }
 
@@ -1847,6 +1874,7 @@ fn copy_operation<'b>(operation: &'b mut Operation<'_, u8>) -> Operation<'b, u8>
         Operation::Write(write) => Operation::Write(write),
         Operation::Transfer(read, write) => Operation::Transfer(read, write),
         Operation::TransferInPlace(write) => Operation::TransferInPlace(write),
+        Operation::DelayUs(_) => todo!(),
     }
 }
 

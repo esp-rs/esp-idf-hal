@@ -42,11 +42,13 @@ use core::mem::ManuallyDrop;
 use core::ptr;
 use core::sync::atomic::{AtomicU8, Ordering};
 
-use crate::delay::NON_BLOCK;
+use crate::delay::{self, NON_BLOCK};
 use crate::gpio::*;
+use crate::io::EspIOError;
 
 use crate::units::*;
 
+use embedded_hal_nb::serial::ErrorKind;
 use esp_idf_sys::*;
 
 use crate::peripheral::Peripheral;
@@ -422,8 +424,8 @@ pub trait Uart {
 
 crate::embedded_hal_error!(
     SerialError,
-    embedded_hal::serial::Error,
-    embedded_hal::serial::ErrorKind
+    embedded_hal_nb::serial::Error,
+    embedded_hal_nb::serial::ErrorKind
 );
 
 /// Serial abstraction
@@ -609,8 +611,25 @@ impl<'d> Drop for UartDriver<'d> {
     }
 }
 
-impl<'d> embedded_hal::serial::ErrorType for UartDriver<'d> {
-    type Error = SerialError;
+impl<'d> embedded_io::ErrorType for UartDriver<'d> {
+    type Error = EspIOError;
+}
+
+impl<'d> embedded_io::Read for UartDriver<'d> {
+    fn read(&mut self, buf: &mut [u8]) -> Result<usize, Self::Error> {
+        UartDriver::read(self, buf, delay::BLOCK).map_err(EspIOError)
+    }
+}
+
+impl<'d> embedded_io::Write for UartDriver<'d> {
+    fn write(&mut self, buf: &[u8]) -> Result<usize, Self::Error> {
+        UartDriver::write(self, buf).map_err(EspIOError)
+    }
+
+    fn flush(&mut self) -> Result<(), Self::Error> {
+        UartDriver::flush_read(self).map_err(EspIOError)?;
+        UartDriver::flush_write(self).map_err(EspIOError)
+    }
 }
 
 impl<'d> embedded_hal_0_2::serial::Read<u8> for UartDriver<'d> {
@@ -618,12 +637,6 @@ impl<'d> embedded_hal_0_2::serial::Read<u8> for UartDriver<'d> {
 
     fn read(&mut self) -> nb::Result<u8, Self::Error> {
         embedded_hal_0_2::serial::Read::read(&mut *self.rx())
-    }
-}
-
-impl<'d> embedded_hal_nb::serial::Read<u8> for UartDriver<'d> {
-    fn read(&mut self) -> nb::Result<u8, Self::Error> {
-        embedded_hal_nb::serial::Read::read(&mut *self.rx())
     }
 }
 
@@ -639,13 +652,23 @@ impl<'d> embedded_hal_0_2::serial::Write<u8> for UartDriver<'d> {
     }
 }
 
-impl<'d> embedded_hal_nb::serial::Write<u8> for UartDriver<'d> {
-    fn flush(&mut self) -> nb::Result<(), Self::Error> {
-        embedded_hal_nb::serial::Write::flush(&mut *self.tx())
-    }
+impl<'d> embedded_hal_nb::serial::ErrorType for UartDriver<'d> {
+    type Error = SerialError;
+}
 
+impl<'d> embedded_hal_nb::serial::Read<u8> for UartDriver<'d> {
+    fn read(&mut self) -> nb::Result<u8, Self::Error> {
+        embedded_hal_nb::serial::Read::read(&mut *self.rx())
+    }
+}
+
+impl<'d> embedded_hal_nb::serial::Write<u8> for UartDriver<'d> {
     fn write(&mut self, byte: u8) -> nb::Result<(), Self::Error> {
         embedded_hal_nb::serial::Write::write(&mut *self.tx(), byte)
+    }
+
+    fn flush(&mut self) -> nb::Result<(), Self::Error> {
+        embedded_hal_nb::serial::Write::flush(&mut *self.tx())
     }
 }
 
@@ -653,10 +676,6 @@ impl<'d> core::fmt::Write for UartDriver<'d> {
     fn write_str(&mut self, s: &str) -> core::fmt::Result {
         self.tx().write_str(s)
     }
-}
-
-impl<'d> embedded_hal::serial::ErrorType for UartRxDriver<'d> {
-    type Error = SerialError;
 }
 
 impl<'d> UartRxDriver<'d> {
@@ -765,6 +784,16 @@ impl<'d> Drop for UartRxDriver<'d> {
     }
 }
 
+impl<'d> embedded_io::ErrorType for UartRxDriver<'d> {
+    type Error = EspIOError;
+}
+
+impl<'d> embedded_io::Read for UartRxDriver<'d> {
+    fn read(&mut self, buf: &mut [u8]) -> Result<usize, Self::Error> {
+        UartRxDriver::read(self, buf, delay::BLOCK).map_err(EspIOError)
+    }
+}
+
 impl<'d> embedded_hal_0_2::serial::Read<u8> for UartRxDriver<'d> {
     type Error = SerialError;
 
@@ -775,6 +804,10 @@ impl<'d> embedded_hal_0_2::serial::Read<u8> for UartRxDriver<'d> {
 
         check_nb(result, buf[0])
     }
+}
+
+impl<'d> embedded_hal_nb::serial::ErrorType for UartRxDriver<'d> {
+    type Error = SerialError;
 }
 
 impl<'d> embedded_hal_nb::serial::Read<u8> for UartRxDriver<'d> {
@@ -892,8 +925,18 @@ impl<'d> Drop for UartTxDriver<'d> {
     }
 }
 
-impl<'d> embedded_hal::serial::ErrorType for UartTxDriver<'d> {
-    type Error = SerialError;
+impl<'d> embedded_io::Write for UartTxDriver<'d> {
+    fn write(&mut self, buf: &[u8]) -> Result<usize, Self::Error> {
+        UartTxDriver::write(self, buf).map_err(EspIOError)
+    }
+
+    fn flush(&mut self) -> Result<(), Self::Error> {
+        UartTxDriver::flush(self).map_err(EspIOError)
+    }
+}
+
+impl<'d> embedded_io::ErrorType for UartTxDriver<'d> {
+    type Error = EspIOError;
 }
 
 impl<'d> embedded_hal_0_2::serial::Write<u8> for UartTxDriver<'d> {
@@ -906,6 +949,10 @@ impl<'d> embedded_hal_0_2::serial::Write<u8> for UartTxDriver<'d> {
     fn write(&mut self, byte: u8) -> nb::Result<(), Self::Error> {
         check_nb(UartTxDriver::write(self, &[byte]), ())
     }
+}
+
+impl<'d> embedded_hal_nb::serial::ErrorType for UartTxDriver<'d> {
+    type Error = SerialError;
 }
 
 impl<'d> embedded_hal_nb::serial::Write<u8> for UartTxDriver<'d> {
@@ -1108,7 +1155,7 @@ fn to_nb_err(err: EspError) -> nb::Error<SerialError> {
     if err.code() == ESP_ERR_TIMEOUT {
         nb::Error::WouldBlock
     } else {
-        nb::Error::Other(SerialError::from(err))
+        nb::Error::Other(SerialError::new(ErrorKind::Other, err))
     }
 }
 
@@ -1117,7 +1164,7 @@ fn check_nb<T>(result: Result<usize, EspError>, value: T) -> nb::Result<T, Seria
         Ok(1) => Ok(value),
         Ok(0) => Err(nb::Error::WouldBlock),
         Ok(_) => unreachable!(),
-        Err(err) => Err(nb::Error::Other(SerialError::other(err))),
+        Err(err) => Err(nb::Error::Other(SerialError::new(ErrorKind::Other, err))),
     }
 }
 

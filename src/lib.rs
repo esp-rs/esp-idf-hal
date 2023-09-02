@@ -48,6 +48,8 @@ pub mod i2s;
 #[cfg(not(feature = "riscv-ulp-hal"))]
 pub mod interrupt;
 #[cfg(not(feature = "riscv-ulp-hal"))]
+pub mod io;
+#[cfg(not(feature = "riscv-ulp-hal"))]
 pub mod ledc;
 #[cfg(all(
     any(all(esp32, esp_idf_eth_use_esp32_emac), esp_idf_eth_use_openeth),
