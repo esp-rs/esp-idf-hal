@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.42.0] - 2023-09-02
+* MSRV raised to 1.71
+* New driver: I2S
+* New driver: continuous ADC
+* Async support in the following drivers: SPI, I2S, continuous ADC, and CAN (via an `AsyncCanDriver` wrapper)
+* CAN driver: support for pulling alerts in blocking and async mode
+* Upgraded to `embedded-hal` 1.0.0-rc.1 and `embedded-hal-async` 1.0.0-rc.1
+* OTA: `EspOtaUpdate` now parametric over time and returned by value
+* Dependency `esp-idf-sys` now re-exported as `esp_idf_hal::sys`
+
 ## [0.41.2] - 2023-06-21
 
 * Do not set the single shot flag in the CAN frame (#263)
