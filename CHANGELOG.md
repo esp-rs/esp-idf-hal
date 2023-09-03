@@ -14,6 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * Upgraded to `embedded-hal` 1.0.0-rc.1 and `embedded-hal-async` 1.0.0-rc.1
 * OTA: `EspOtaUpdate` now parametric over time and returned by value
 * Dependency `esp-idf-sys` now re-exported as `esp_idf_hal::sys`
+* Breaking change: `delay::Delay` struct extended with configurable threshold
 
 ## [0.41.2] - 2023-06-21
 
