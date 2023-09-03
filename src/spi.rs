@@ -1726,56 +1726,55 @@ fn spi_transmit(
             }
         }
     } else {
-        let mut transactions = transactions.peekable();
-        while transactions.peek().is_some() {
-            pub type Queue = Deque<spi_transaction_t, MAX_QUEUED_TRANSACTIONS>;
+        pub type Queue = Deque<spi_transaction_t, MAX_QUEUED_TRANSACTIONS>;
 
-            let mut queue = Queue::new();
-            let queue_size = min(MAX_QUEUED_TRANSACTIONS, queue_size);
+        let mut queue = Queue::new();
+        let queue_size = min(MAX_QUEUED_TRANSACTIONS, queue_size);
 
-            let push = |queue: &mut Queue, transaction| {
-                let _ = queue.push_back(transaction);
-                esp!(unsafe {
-                    spi_device_queue_trans(handle, queue.back_mut().unwrap(), delay::BLOCK)
-                })
-            };
+        let push = |queue: &mut Queue, transaction| {
+            let _ = queue.push_back(transaction);
+            esp!(unsafe { spi_device_queue_trans(handle, queue.back_mut().unwrap(), delay::BLOCK) })
+        };
 
-            let pop = |queue: &mut Queue| {
-                let mut rtrans = ptr::null_mut();
-                esp!(unsafe { spi_device_get_trans_result(handle, &mut rtrans, delay::BLOCK) })?;
+        let pop = |queue: &mut Queue| {
+            let mut rtrans = ptr::null_mut();
+            esp!(unsafe { spi_device_get_trans_result(handle, &mut rtrans, delay::BLOCK) })?;
 
-                if rtrans != queue.front_mut().unwrap() {
-                    unreachable!();
-                }
-                queue.pop_front().unwrap();
+            if rtrans != queue.front_mut().unwrap() {
+                unreachable!();
+            }
+            queue.pop_front().unwrap();
 
-                Ok(())
-            };
+            Ok(())
+        };
 
-            let mut delay = 0;
-            while let Some((transaction, transaction_delay)) = transactions.next() {
-                if queue.len() == queue_size {
-                    // If the queue is full, we wait for the first transaction in the queue
-                    pop(&mut queue)?;
-                }
-
-                // Write transaction to a stable memory location
-                push(&mut queue, transaction)?;
-
-                if transaction_delay > 0 {
-                    delay = transaction_delay;
-                    break;
-                }
+        let pop_all = |queue: &mut Queue| {
+            while !queue.is_empty() {
+                pop(queue)?;
             }
 
-            while !queue.is_empty() {
+            Ok(())
+        };
+
+        for (transaction, delay) in transactions {
+            if queue.len() == queue_size {
+                // If the queue is full, we wait for the first transaction in the queue
                 pop(&mut queue)?;
             }
 
+            // Write transaction to a stable memory location
+            push(&mut queue, transaction)?;
+
             if delay > 0 {
+                // Wait for all queued transactions to complete and then wait
+                // with the requested delay
+                pop_all(&mut queue)?;
+
                 delay_impl.delay_us(delay);
             }
         }
+
+        pop_all(&mut queue)?;
     }
 
     Ok(())
@@ -1788,76 +1787,71 @@ async fn spi_transmit_async(
 ) -> Result<(), EspError> {
     let queued = Cell::new(0_usize);
 
-    let mut transactions = transactions.peekable();
-
     with_completion(
         async {
             let delay_impl = delay::Delay::new_default();
 
-            while transactions.peek().is_some() {
-                pub type Queue = Deque<(spi_transaction_t, Notification), MAX_QUEUED_TRANSACTIONS>;
+            pub type Queue = Deque<(spi_transaction_t, Notification), MAX_QUEUED_TRANSACTIONS>;
 
-                let mut queue = Queue::new();
-                let queue_size = min(MAX_QUEUED_TRANSACTIONS, queue_size);
+            let mut queue = Queue::new();
+            let queue_size = min(MAX_QUEUED_TRANSACTIONS, queue_size);
 
-                let push = |queue: &mut Queue, transaction| {
-                    let _ = queue.push_back((transaction, Notification::new()));
-                    queued.set(queue.len());
+            let push = |queue: &mut Queue, transaction| {
+                let _ = queue.push_back((transaction, Notification::new()));
+                queued.set(queue.len());
 
-                    let last = queue.back_mut().unwrap();
-                    last.0.user = &last.1 as *const _ as *mut _;
-                    match esp!(unsafe {
-                        spi_device_queue_trans(handle, &mut last.0, delay::NON_BLOCK)
-                    }) {
-                        Err(e) if e.code() == ESP_ERR_TIMEOUT => unreachable!(),
-                        other => other,
-                    }
-                };
-
-                let pop = |queue: &mut Queue| {
-                    let mut rtrans = ptr::null_mut();
-                    match esp!(unsafe {
-                        spi_device_get_trans_result(handle, &mut rtrans, delay::NON_BLOCK)
-                    }) {
-                        Err(e) if e.code() == ESP_ERR_TIMEOUT => unreachable!(),
-                        other => other,
-                    }?;
-
-                    if rtrans != &mut queue.front_mut().unwrap().0 {
-                        unreachable!();
-                    }
-                    queue.pop_front().unwrap();
-                    queued.set(queue.len());
-
-                    Ok(())
-                };
-
-                let mut delay = 0;
-                while let Some((transaction, transaction_delay)) = transactions.next() {
-                    if queue.len() == queue_size {
-                        // If the queue is full, we wait for the first transaction in the queue
-                        queue.front_mut().unwrap().1.wait().await;
-                        pop(&mut queue)?;
-                    }
-
-                    // Write transaction to a stable memory location
-                    push(&mut queue, transaction)?;
-
-                    if transaction_delay > 0 {
-                        delay = transaction_delay;
-                        break;
-                    }
+                let last = queue.back_mut().unwrap();
+                last.0.user = &last.1 as *const _ as *mut _;
+                match esp!(unsafe { spi_device_queue_trans(handle, &mut last.0, delay::NON_BLOCK) })
+                {
+                    Err(e) if e.code() == ESP_ERR_TIMEOUT => unreachable!(),
+                    other => other,
                 }
+            };
 
-                while !queue.is_empty() {
+            let pop = |queue: &mut Queue| {
+                let mut rtrans = ptr::null_mut();
+                match esp!(unsafe {
+                    spi_device_get_trans_result(handle, &mut rtrans, delay::NON_BLOCK)
+                }) {
+                    Err(e) if e.code() == ESP_ERR_TIMEOUT => unreachable!(),
+                    other => other,
+                }?;
+
+                if rtrans != &mut queue.front_mut().unwrap().0 {
+                    unreachable!();
+                }
+                queue.pop_front().unwrap();
+                queued.set(queue.len());
+
+                Ok(())
+            };
+
+            for (transaction, delay) in transactions {
+                if queue.len() == queue_size {
+                    // If the queue is full, we wait for the first transaction in the queue
                     queue.front_mut().unwrap().1.wait().await;
                     pop(&mut queue)?;
                 }
 
+                // Write transaction to a stable memory location
+                push(&mut queue, transaction)?;
+
                 if delay > 0 {
-                    // TODO: Wait asynchronously
+                    // Wait for all queued transactions to complete and then wait
+                    // with the requested delay
+                    while !queue.is_empty() {
+                        queue.front_mut().unwrap().1.wait().await;
+                        pop(&mut queue)?;
+                    }
+
                     delay_impl.delay_us(delay);
                 }
+            }
+
+            while !queue.is_empty() {
+                queue.front_mut().unwrap().1.wait().await;
+                pop(&mut queue)?;
             }
 
             Ok(())
