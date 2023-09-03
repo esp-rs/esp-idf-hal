@@ -918,7 +918,7 @@ where
 
         let has_hardware_cs = soft_cs_pin.is_none() && self.cs_pin_configured;
         let transactions = transactions.map(|(mut t, last)| {
-            set_keep_cs_active(&mut t, has_hardware_cs && !last);
+            set_keep_cs_active(&mut t.0, has_hardware_cs && !last);
             t
         });
         spi_transmit(self.handle, transactions, self.polling, self.queue_size)?;
@@ -962,7 +962,7 @@ where
 
         let has_hardware_cs = soft_cs_pin.is_none() && self.cs_pin_configured;
         let transactions = transactions.map(|(mut t, last)| {
-            set_keep_cs_active(&mut t, has_hardware_cs && !last);
+            set_keep_cs_active(&mut t.0, has_hardware_cs && !last);
             t
         });
         spi_transmit_async(self.handle, transactions, self.queue_size).await?;
@@ -977,7 +977,7 @@ where
     fn spi_transactions<'a>(
         &self,
         operations: impl Iterator<Item = Operation<'a, u8>> + 'a,
-    ) -> impl Iterator<Item = spi_transaction_t> + 'a {
+    ) -> impl Iterator<Item = (spi_transaction_t, u32)> + 'a {
         enum OperationsIter<R, W, T, I> {
             Read(R),
             Write(W),
@@ -987,12 +987,12 @@ where
 
         impl<R, W, T, I> Iterator for OperationsIter<R, W, T, I>
         where
-            R: Iterator<Item = spi_transaction_t>,
-            W: Iterator<Item = spi_transaction_t>,
-            T: Iterator<Item = spi_transaction_t>,
-            I: Iterator<Item = spi_transaction_t>,
+            R: Iterator<Item = (spi_transaction_t, u32)>,
+            W: Iterator<Item = (spi_transaction_t, u32)>,
+            T: Iterator<Item = (spi_transaction_t, u32)>,
+            I: Iterator<Item = (spi_transaction_t, u32)>,
         {
-            type Item = spi_transaction_t;
+            type Item = (spi_transaction_t, u32);
 
             fn next(&mut self) -> Option<Self::Item> {
                 match self {
@@ -1128,7 +1128,7 @@ where
             );
             spi_transmit(
                 self.handle,
-                once(transaction),
+                once((transaction, 0)),
                 self.polling,
                 self.queue_size,
             )?;
@@ -1558,45 +1558,59 @@ impl SoftCsPin<'static, 'static, AnyOutputPin, Output> {
 fn spi_read_transactions(
     words: &mut [u8],
     chunk_size: usize,
-) -> impl Iterator<Item = spi_transaction_t> + '_ {
-    words.chunks_mut(chunk_size).map(|chunk| {
-        spi_create_transaction(
-            chunk.as_mut_ptr(),
-            core::ptr::null(),
-            chunk.len(),
-            chunk.len(),
-        )
-    })
+) -> impl Iterator<Item = (spi_transaction_t, u32)> + '_ {
+    words
+        .chunks_mut(chunk_size)
+        .map(|chunk| {
+            spi_create_transaction(
+                chunk.as_mut_ptr(),
+                core::ptr::null(),
+                chunk.len(),
+                chunk.len(),
+            )
+        })
+        .map(|t| (t, 0))
 }
 
 fn spi_write_transactions(
     words: &[u8],
     chunk_size: usize,
-) -> impl Iterator<Item = spi_transaction_t> + '_ {
+) -> impl Iterator<Item = (spi_transaction_t, u32)> + '_ {
     words
         .chunks(chunk_size)
         .map(|chunk| spi_create_transaction(core::ptr::null_mut(), chunk.as_ptr(), chunk.len(), 0))
+        .map(|t| (t, 0))
 }
 
 fn spi_transfer_in_place_transactions(
     words: &mut [u8],
     chunk_size: usize,
-) -> impl Iterator<Item = spi_transaction_t> + '_ {
-    words.chunks_mut(chunk_size).map(|chunk| {
-        spi_create_transaction(
-            chunk.as_mut_ptr(),
-            chunk.as_mut_ptr(),
-            chunk.len(),
-            chunk.len(),
-        )
-    })
+) -> impl Iterator<Item = (spi_transaction_t, u32)> + '_ {
+    words
+        .chunks_mut(chunk_size)
+        .map(|chunk| {
+            spi_create_transaction(
+                chunk.as_mut_ptr(),
+                chunk.as_mut_ptr(),
+                chunk.len(),
+                chunk.len(),
+            )
+        })
+        .map(|t| (t, 0))
+}
+
+fn spi_delay_transactions(delay_us: u32) -> impl Iterator<Item = (spi_transaction_t, u32)> {
+    core::iter::once((
+        spi_create_transaction(core::ptr::null_mut(), core::ptr::null_mut(), 0, 0),
+        delay_us,
+    ))
 }
 
 fn spi_transfer_transactions<'a>(
     read: &'a mut [u8],
     write: &'a [u8],
     chunk_size: usize,
-) -> impl Iterator<Item = spi_transaction_t> + 'a {
+) -> impl Iterator<Item = (spi_transaction_t, u32)> + 'a {
     enum OperationsIter<E, R, W> {
         Equal(E),
         ReadLonger(R),
@@ -1605,11 +1619,11 @@ fn spi_transfer_transactions<'a>(
 
     impl<E, R, W> Iterator for OperationsIter<E, R, W>
     where
-        E: Iterator<Item = spi_transaction_t>,
-        R: Iterator<Item = spi_transaction_t>,
-        W: Iterator<Item = spi_transaction_t>,
+        E: Iterator<Item = (spi_transaction_t, u32)>,
+        R: Iterator<Item = (spi_transaction_t, u32)>,
+        W: Iterator<Item = (spi_transaction_t, u32)>,
     {
-        type Item = spi_transaction_t;
+        type Item = (spi_transaction_t, u32);
 
         fn next(&mut self) -> Option<Self::Item> {
             match self {
@@ -1647,7 +1661,7 @@ fn spi_transfer_equal_transactions<'a>(
     read: &'a mut [u8],
     write: &'a [u8],
     chunk_size: usize,
-) -> impl Iterator<Item = spi_transaction_t> + 'a {
+) -> impl Iterator<Item = (spi_transaction_t, u32)> + 'a {
     read.chunks_mut(chunk_size)
         .zip(write.chunks(chunk_size))
         .map(|(read_chunk, write_chunk)| {
@@ -1658,6 +1672,7 @@ fn spi_transfer_equal_transactions<'a>(
                 read_chunk.len(),
             )
         })
+        .map(|t| (t, 0))
 }
 
 // These parameters assume full duplex.
@@ -1692,136 +1707,150 @@ fn set_keep_cs_active(transaction: &mut spi_transaction_t, _keep_cs_active: bool
 
 fn spi_transmit(
     handle: spi_device_handle_t,
-    transactions: impl Iterator<Item = spi_transaction_t>,
+    transactions: impl Iterator<Item = (spi_transaction_t, u32)>,
     polling: bool,
     queue_size: usize,
 ) -> Result<(), EspError> {
     if polling {
-        for mut transaction in transactions {
+        for (mut transaction, delay) in transactions {
             esp!(unsafe { spi_device_polling_transmit(handle, &mut transaction as *mut _) })?;
+
+            if delay > 0 {
+                crate::delay::Delay::delay_us(delay);
+            }
         }
     } else {
-        let mut transaction_queue = [spi_transaction_t::default(); MAX_QUEUED_TRANSACTIONS];
-        let mut queue_iter = transaction_queue.iter_mut().take(queue_size);
+        let mut transactions = transactions.peekable();
+        while transactions.peek().is_some() {
+            let queue_size = min(MAX_QUEUED_TRANSACTIONS, queue_size);
+            let mut queue = heapless::Deque::<_, MAX_QUEUED_TRANSACTIONS>::new();
+            let mut delay = 0;
 
-        for transaction in transactions {
-            let slot = queue_iter.next();
-            let trans = if let Some(slot) = slot {
-                slot
-            } else {
-                // If the queue is full, we wait for the first transaction in the queue and use it
-                // for the next one.
-                let mut ret_trans: *mut spi_transaction_t = ptr::null_mut();
+            while let Some((transaction, tdelay)) = transactions.next() {
+                if queue.len() == queue_size {
+                    // If the queue is full, we wait for the first transaction in the queue
+                    let mut rtrans = ptr::null_mut();
+                    esp!(unsafe {
+                        spi_device_get_trans_result(handle, &mut rtrans, delay::BLOCK)
+                    })?;
+
+                    assert!(rtrans == queue.front_mut().unwrap());
+                    queue.pop_front().unwrap();
+                }
+
+                // Write transaction to stable memory location
+                let _ = queue.push_back(transaction);
                 esp!(unsafe {
-                    spi_device_get_trans_result(handle, &mut ret_trans as *mut _, delay::BLOCK)
+                    spi_device_queue_trans(handle, queue.back_mut().unwrap(), delay::BLOCK)
                 })?;
-                unsafe { &mut *ret_trans }
-            };
 
-            // Write transaction to stable memory location
-            *trans = transaction;
-            esp!(unsafe { spi_device_queue_trans(handle, trans as *mut _, delay::BLOCK) })?;
-        }
+                if tdelay > 0 {
+                    delay = tdelay;
+                    break;
+                }
+            }
 
-        let queued_transactions = min(MAX_QUEUED_TRANSACTIONS, queue_size) - queue_iter.len();
-        for _ in 0..queued_transactions {
-            let mut ret_trans: *mut spi_transaction_t = ptr::null_mut();
-            esp!(unsafe {
-                spi_device_get_trans_result(handle, &mut ret_trans as *mut _, delay::BLOCK)
-            })?;
+            while !queue.is_empty() {
+                let mut rtrans = ptr::null_mut();
+                esp!(unsafe { spi_device_get_trans_result(handle, &mut rtrans, delay::BLOCK) })?;
+
+                assert!(rtrans == queue.front_mut().unwrap());
+                queue.pop_front().unwrap();
+            }
+
+            if delay > 0 {
+                crate::delay::Delay::delay_us(delay);
+            }
         }
     }
+
     Ok(())
 }
 
 async fn spi_transmit_async(
     handle: spi_device_handle_t,
-    transactions: impl Iterator<Item = spi_transaction_t>,
+    transactions: impl Iterator<Item = (spi_transaction_t, u32)>,
     queue_size: usize,
 ) -> Result<(), EspError> {
-    #[allow(clippy::declare_interior_mutable_const)] // OK because this is only used as an array initializer
-    const SPI_NOTIF_INIT: Notification = Notification::new();
+    let queued = Cell::new(0_usize);
 
-    let notifications: [Notification; MAX_QUEUED_TRANSACTIONS] =
-        [SPI_NOTIF_INIT; MAX_QUEUED_TRANSACTIONS];
-
-    let mut transaction_queue = [spi_transaction_t::default(); MAX_QUEUED_TRANSACTIONS];
-    let mut queue_iter = transaction_queue.iter_mut().take(queue_size);
-
-    let queued_transactions = Cell::new(0); // Total successful spi_device_queue_trans
-    let completed_transactions = Cell::new(0); // Total successful spi_device_get_trans_result
+    let mut transactions = transactions.peekable();
 
     with_completion(
         async {
-            for (index, transaction) in transactions.enumerate() {
-                let slot = queue_iter.next();
-                let trans = if let Some(slot) = slot {
-                    slot
-                } else {
-                    // If the queue is full, we wait for the first transaction in the queue and use it
-                    // for the next one.
+            while transactions.peek().is_some() {
+                let queue_size = min(MAX_QUEUED_TRANSACTIONS, queue_size);
+                let mut queue = heapless::Deque::<
+                    (spi_transaction_t, Notification),
+                    MAX_QUEUED_TRANSACTIONS,
+                >::new();
+                let mut delay = 0;
 
-                    notifications[completed_transactions.get() % MAX_QUEUED_TRANSACTIONS]
-                        .wait()
-                        .await;
+                while let Some((transaction, tdelay)) = transactions.next() {
+                    if queue.len() == queue_size {
+                        // If the queue is full, we wait for the first transaction in the queue
+                        queue.front_mut().unwrap().1.wait().await;
 
-                    let mut ret_trans: *mut spi_transaction_t = ptr::null_mut();
+                        let mut rtrans = ptr::null_mut();
+                        match esp!(unsafe {
+                            spi_device_get_trans_result(handle, &mut rtrans, delay::NON_BLOCK)
+                        }) {
+                            Err(e) if e.code() == ESP_ERR_TIMEOUT => unreachable!(),
+                            other => other,
+                        }?;
+
+                        assert!(rtrans == &mut queue.front_mut().unwrap().0);
+                        queue.pop_front().unwrap();
+                    }
+
+                    // Write transaction to stable memory location
+                    let _ = queue.push_back((transaction, Notification::new()));
+                    queued.set(queue.len());
+                    let last = queue.back_mut().unwrap();
+                    last.0.user = &last.1 as *const _ as *mut _;
                     match esp!(unsafe {
-                        spi_device_get_trans_result(
-                            handle,
-                            &mut ret_trans as *mut _,
-                            delay::NON_BLOCK,
-                        )
+                        spi_device_queue_trans(handle, &mut last.0, delay::NON_BLOCK)
                     }) {
                         Err(e) if e.code() == ESP_ERR_TIMEOUT => unreachable!(),
                         other => other,
                     }?;
-                    completed_transactions.set(completed_transactions.get() + 1);
-                    unsafe { &mut *ret_trans }
-                };
 
-                *trans = transaction;
-                trans.user =
-                    ptr::addr_of!(notifications[index % MAX_QUEUED_TRANSACTIONS]) as *mut _;
+                    if tdelay > 0 {
+                        delay = tdelay;
+                        break;
+                    }
+                }
 
-                match esp!(unsafe {
-                    spi_device_queue_trans(handle, trans as *mut _, delay::NON_BLOCK)
-                }) {
-                    Err(e) if e.code() == ESP_ERR_TIMEOUT => unreachable!(),
-                    other => other,
-                }?;
-                queued_transactions.set(queued_transactions.get() + 1);
-            }
+                while !queue.is_empty() {
+                    queue.front_mut().unwrap().1.wait().await;
 
-            while completed_transactions.get() < queued_transactions.get() {
-                notifications[completed_transactions.get() % MAX_QUEUED_TRANSACTIONS]
-                    .wait()
-                    .await;
+                    let mut rtrans = ptr::null_mut();
+                    match esp!(unsafe {
+                        spi_device_get_trans_result(handle, &mut rtrans, delay::NON_BLOCK)
+                    }) {
+                        Err(e) if e.code() == ESP_ERR_TIMEOUT => unreachable!(),
+                        other => other,
+                    }?;
 
-                let mut ret_trans: *mut spi_transaction_t = ptr::null_mut();
-                match esp!(unsafe {
-                    spi_device_get_trans_result(handle, &mut ret_trans as *mut _, delay::NON_BLOCK)
-                }) {
-                    Err(e) if e.code() == ESP_ERR_TIMEOUT => unreachable!(),
-                    other => other,
-                }?;
-                completed_transactions.set(completed_transactions.get() + 1);
+                    assert!(rtrans == &mut queue.front_mut().unwrap().0);
+                    queue.pop_front().unwrap();
+                    queued.set(queue.len());
+                }
+
+                if delay > 0 {
+                    // TODO: Wait asynchronously
+                    crate::delay::Delay::delay_us(delay);
+                }
             }
 
             Ok(())
         },
         |completed| {
             if !completed {
-                while completed_transactions.get() < queued_transactions.get() {
-                    let mut ret_trans: *mut spi_transaction_t = ptr::null_mut();
-                    match esp!(unsafe {
-                        spi_device_get_trans_result(handle, &mut ret_trans as *mut _, delay::BLOCK)
-                    }) {
-                        Err(e) if e.code() == ESP_ERR_TIMEOUT => unreachable!(),
-                        other => other,
-                    }
-                    .unwrap();
-                    completed_transactions.set(completed_transactions.get() + 1);
+                for _ in 0..queued.get() {
+                    let mut rtrans = ptr::null_mut();
+                    esp!(unsafe { spi_device_get_trans_result(handle, &mut rtrans, delay::BLOCK) })
+                        .unwrap();
                 }
             }
         },
