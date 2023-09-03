@@ -979,19 +979,21 @@ where
         &self,
         operations: impl Iterator<Item = Operation<'a, u8>> + 'a,
     ) -> impl Iterator<Item = (spi_transaction_t, u32)> + 'a {
-        enum OperationsIter<R, W, T, I> {
+        enum OperationsIter<R, W, T, I, D> {
             Read(R),
             Write(W),
             Transfer(T),
             TransferInPlace(I),
+            Delay(D),
         }
 
-        impl<R, W, T, I> Iterator for OperationsIter<R, W, T, I>
+        impl<R, W, T, I, D> Iterator for OperationsIter<R, W, T, I, D>
         where
             R: Iterator<Item = (spi_transaction_t, u32)>,
             W: Iterator<Item = (spi_transaction_t, u32)>,
             T: Iterator<Item = (spi_transaction_t, u32)>,
             I: Iterator<Item = (spi_transaction_t, u32)>,
+            D: Iterator<Item = (spi_transaction_t, u32)>,
         {
             type Item = (spi_transaction_t, u32);
 
@@ -1001,6 +1003,7 @@ where
                     Self::Write(iter) => iter.next(),
                     Self::Transfer(iter) => iter.next(),
                     Self::TransferInPlace(iter) => iter.next(),
+                    Self::Delay(iter) => iter.next(),
                 }
             }
         }
@@ -1020,7 +1023,7 @@ where
             Operation::TransferInPlace(words) => OperationsIter::TransferInPlace(
                 spi_transfer_in_place_transactions(words, chunk_size),
             ),
-            Operation::DelayUs(_) => todo!(),
+            Operation::DelayUs(delay) => OperationsIter::Delay(spi_delay_transactions(delay)),
         })
     }
 }
@@ -1913,7 +1916,7 @@ fn copy_operation<'b>(operation: &'b mut Operation<'_, u8>) -> Operation<'b, u8>
         Operation::Write(write) => Operation::Write(write),
         Operation::Transfer(read, write) => Operation::Transfer(read, write),
         Operation::TransferInPlace(write) => Operation::TransferInPlace(write),
-        Operation::DelayUs(_) => todo!(),
+        Operation::DelayUs(delay) => Operation::DelayUs(*delay),
     }
 }
 
