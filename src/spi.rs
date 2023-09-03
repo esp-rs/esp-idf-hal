@@ -1715,12 +1715,14 @@ fn spi_transmit(
     polling: bool,
     queue_size: usize,
 ) -> Result<(), EspError> {
+    let delay_impl = delay::Delay::new_default();
+
     if polling {
         for (mut transaction, delay) in transactions {
             esp!(unsafe { spi_device_polling_transmit(handle, &mut transaction as *mut _) })?;
 
             if delay > 0 {
-                crate::delay::Delay::delay_us(delay);
+                delay_impl.delay_us(delay);
             }
         }
     } else {
@@ -1771,7 +1773,7 @@ fn spi_transmit(
             }
 
             if delay > 0 {
-                crate::delay::Delay::delay_us(delay);
+                delay_impl.delay_us(delay);
             }
         }
     }
@@ -1790,6 +1792,8 @@ async fn spi_transmit_async(
 
     with_completion(
         async {
+            let delay_impl = delay::Delay::new_default();
+
             while transactions.peek().is_some() {
                 pub type Queue = Deque<(spi_transaction_t, Notification), MAX_QUEUED_TRANSACTIONS>;
 
@@ -1852,7 +1856,7 @@ async fn spi_transmit_async(
 
                 if delay > 0 {
                     // TODO: Wait asynchronously
-                    crate::delay::Delay::delay_us(delay);
+                    delay_impl.delay_us(delay);
                 }
             }
 

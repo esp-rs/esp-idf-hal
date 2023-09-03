@@ -228,22 +228,31 @@ impl embedded_hal::delay::DelayUs for FreeRtos {
     }
 }
 
-/// A delay provider that uses [`Ets`] for delays <10ms, and [`FreeRtos`] for
-/// delays >=10 ms
+/// A delay provider that uses [`Ets`] for delays below a certain threshold
+/// and [`FreeRtos`] for delays equal or above the threshold.
 #[derive(Copy, Clone)]
-pub struct Delay;
+pub struct Delay(u32);
 
 impl Delay {
-    pub fn delay_us(us: u32) {
-        if us < 10_000 {
+    /// Create a delay with a default threshold of 1ms
+    pub const fn new_default() -> Self {
+        Self::new(1000)
+    }
+
+    pub const fn new(threshold: u32) -> Self {
+        Self(threshold)
+    }
+
+    pub fn delay_us(&self, us: u32) {
+        if us < self.0 {
             Ets::delay_us(us);
         } else {
             FreeRtos::delay_us(us);
         }
     }
 
-    pub fn delay_ms(ms: u32) {
-        if ms < 10 {
+    pub fn delay_ms(&self, ms: u32) {
+        if ms * 1000 < self.0 {
             Ets::delay_ms(ms);
         } else {
             FreeRtos::delay_ms(ms);
@@ -253,34 +262,34 @@ impl Delay {
 
 impl embedded_hal::delay::DelayUs for Delay {
     fn delay_us(&mut self, us: u32) {
-        Delay::delay_us(us)
+        Delay::delay_us(self, us)
     }
 
     fn delay_ms(&mut self, ms: u32) {
-        Delay::delay_ms(ms)
+        Delay::delay_ms(self, ms)
     }
 }
 
 impl embedded_hal_0_2::blocking::delay::DelayUs<u16> for Delay {
     fn delay_us(&mut self, us: u16) {
-        Delay::delay_us(us as _);
+        Delay::delay_us(self, us as _);
     }
 }
 
 impl embedded_hal_0_2::blocking::delay::DelayUs<u32> for Delay {
     fn delay_us(&mut self, us: u32) {
-        Delay::delay_us(us);
+        Delay::delay_us(self, us);
     }
 }
 
 impl embedded_hal_0_2::blocking::delay::DelayMs<u16> for Delay {
     fn delay_ms(&mut self, ms: u16) {
-        Delay::delay_ms(ms as _)
+        Delay::delay_ms(self, ms as _)
     }
 }
 
 impl embedded_hal_0_2::blocking::delay::DelayMs<u32> for Delay {
     fn delay_ms(&mut self, ms: u32) {
-        Delay::delay_ms(ms)
+        Delay::delay_ms(self, ms)
     }
 }
