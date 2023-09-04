@@ -787,7 +787,7 @@ where
 
     pub fn transaction(&mut self, operations: &mut [Operation<'_, u8>]) -> Result<(), EspError> {
         self.run(
-            self.cs_pin(operations.iter_mut().map(copy_operation))?,
+            self.hardware_cs_pin(operations.iter_mut().map(copy_operation))?,
             operations.iter_mut().map(copy_operation),
         )
     }
@@ -797,7 +797,7 @@ where
         operations: &mut [Operation<'_, u8>],
     ) -> Result<(), EspError> {
         self.run_async(
-            self.cs_pin(operations.iter_mut().map(copy_operation))?,
+            self.hardware_cs_pin(operations.iter_mut().map(copy_operation))?,
             operations.iter_mut().map(copy_operation),
         )
         .await
@@ -813,7 +813,7 @@ where
 
     pub fn read_transaction(&mut self, operations: &mut [&mut [u8]]) -> Result<(), EspError> {
         self.run(
-            self.cs_pin(operations.iter_mut().map(|slice| Operation::Read(slice)))?,
+            self.hardware_cs_pin(operations.iter_mut().map(|slice| Operation::Read(slice)))?,
             operations.iter_mut().map(|slice| Operation::Read(slice)),
         )
     }
@@ -823,7 +823,7 @@ where
         operations: &mut [&mut [u8]],
     ) -> Result<(), EspError> {
         self.run_async(
-            self.cs_pin(operations.iter_mut().map(|slice| Operation::Read(slice)))?,
+            self.hardware_cs_pin(operations.iter_mut().map(|slice| Operation::Read(slice)))?,
             operations.iter_mut().map(|slice| Operation::Read(slice)),
         )
         .await
@@ -839,14 +839,14 @@ where
 
     pub fn write_transaction(&mut self, operations: &[&[u8]]) -> Result<(), EspError> {
         self.run(
-            self.cs_pin(operations.iter().map(|slice| Operation::Write(slice)))?,
+            self.hardware_cs_pin(operations.iter().map(|slice| Operation::Write(slice)))?,
             operations.iter().map(|slice| Operation::Write(slice)),
         )
     }
 
     pub async fn write_transaction_async(&mut self, operations: &[&[u8]]) -> Result<(), EspError> {
         self.run_async(
-            self.cs_pin(operations.iter().map(|slice| Operation::Write(slice)))?,
+            self.hardware_cs_pin(operations.iter().map(|slice| Operation::Write(slice)))?,
             operations.iter().map(|slice| Operation::Write(slice)),
         )
         .await
@@ -866,7 +866,7 @@ where
         operations: &mut [&mut [u8]],
     ) -> Result<(), EspError> {
         self.run(
-            self.cs_pin(
+            self.hardware_cs_pin(
                 operations
                     .iter_mut()
                     .map(|slice| Operation::TransferInPlace(slice)),
@@ -882,7 +882,7 @@ where
         operations: &mut [&mut [u8]],
     ) -> Result<(), EspError> {
         self.run_async(
-            self.cs_pin(
+            self.hardware_cs_pin(
                 operations
                     .iter_mut()
                     .map(|slice| Operation::TransferInPlace(slice)),
@@ -908,7 +908,7 @@ where
         operations: &mut [(&mut [u8], &[u8])],
     ) -> Result<(), EspError> {
         self.run(
-            self.cs_pin(
+            self.hardware_cs_pin(
                 operations
                     .iter_mut()
                     .map(|(read_slice, write_slice)| Operation::Transfer(read_slice, write_slice)),
@@ -924,7 +924,7 @@ where
         operations: &mut [(&mut [u8], &[u8])],
     ) -> Result<(), EspError> {
         self.run_async(
-            self.cs_pin(
+            self.hardware_cs_pin(
                 operations
                     .iter_mut()
                     .map(|(read_slice, write_slice)| Operation::Transfer(read_slice, write_slice)),
@@ -1050,14 +1050,14 @@ where
         result
     }
 
-    fn cs_pin<'a, 'c, 'p>(
+    fn hardware_cs_pin<'a, 'c, 'p>(
         &self,
         operations: impl Iterator<Item = Operation<'a, u8>> + 'a,
     ) -> Result<CsPin<'c, 'p, AnyOutputPin, Output>, EspError> {
         let (total_count, transactions_count, first_transaction, last_transaction) =
             self.spi_operations_stats(operations);
 
-        if !self.allow_pre_post_delays && transactions_count > 0 {
+        if !self.allow_pre_post_delays && self.cs_pin_configured && transactions_count > 0 {
             if first_transaction != Some(0) || last_transaction != Some(total_count - 1) {
                 Err(EspError::from_infallible::<ESP_ERR_INVALID_ARG>())?;
             }
@@ -1076,8 +1076,9 @@ where
     ) -> (usize, usize, Option<usize>, Option<usize>) {
         self.spi_operations(operations).enumerate().fold(
             (0, 0, None, None),
-            |(total_count, transactions_count, first_transaction, last_transaction), (index, t)| {
-                if matches!(t, SpiOperation::Transaction(_)) {
+            |(total_count, transactions_count, first_transaction, last_transaction),
+             (index, operation)| {
+                if matches!(operation, SpiOperation::Transaction(_)) {
                     (
                         total_count + 1,
                         transactions_count + 1,
@@ -1278,7 +1279,7 @@ where
         operations: &mut [embedded_hal_0_2::blocking::spi::Operation<'_, u8>],
     ) -> Result<(), Self::Error> {
         self.run(
-            self.cs_pin(operations.iter_mut().map(|op| match op {
+            self.hardware_cs_pin(operations.iter_mut().map(|op| match op {
                 embedded_hal_0_2::blocking::spi::Operation::Write(words) => Operation::Write(words),
                 embedded_hal_0_2::blocking::spi::Operation::Transfer(words) => {
                     Operation::TransferInPlace(words)
