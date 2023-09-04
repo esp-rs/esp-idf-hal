@@ -38,7 +38,6 @@ use core::cell::Cell;
 use core::cell::UnsafeCell;
 use core::cmp::{max, min, Ordering};
 use core::iter::once;
-use core::iter::Peekable;
 use core::marker::PhantomData;
 use core::{ptr, u8};
 
@@ -763,8 +762,9 @@ where
 
     pub fn transaction(&mut self, operations: &mut [Operation<'_, u8>]) -> Result<(), EspError> {
         self.run(
-            &mut operations.iter_mut().map(copy_operation),
+            self.last_spi_transaction(operations.iter_mut().map(copy_operation)),
             SoftCsPin::none(),
+            operations.iter_mut().map(copy_operation),
         )
     }
 
@@ -772,8 +772,12 @@ where
         &mut self,
         operations: &mut [Operation<'_, u8>],
     ) -> Result<(), EspError> {
-        self.run_async(operations.iter_mut().map(copy_operation), SoftCsPin::none())
-            .await
+        self.run_async(
+            self.last_spi_transaction(operations.iter_mut().map(copy_operation)),
+            SoftCsPin::none(),
+            operations.iter_mut().map(copy_operation),
+        )
+        .await
     }
 
     pub fn read(&mut self, read: &mut [u8]) -> Result<(), EspError> {
@@ -786,8 +790,9 @@ where
 
     pub fn read_transaction(&mut self, operations: &mut [&mut [u8]]) -> Result<(), EspError> {
         self.run(
-            &mut operations.iter_mut().map(|slice| Operation::Read(slice)),
+            self.last_spi_transaction(operations.iter_mut().map(|slice| Operation::Read(slice))),
             SoftCsPin::none(),
+            operations.iter_mut().map(|slice| Operation::Read(slice)),
         )
     }
 
@@ -796,8 +801,9 @@ where
         operations: &mut [&mut [u8]],
     ) -> Result<(), EspError> {
         self.run_async(
-            &mut operations.iter_mut().map(|slice| Operation::Read(slice)),
+            self.last_spi_transaction(operations.iter_mut().map(|slice| Operation::Read(slice))),
             SoftCsPin::none(),
+            operations.iter_mut().map(|slice| Operation::Read(slice)),
         )
         .await
     }
@@ -812,15 +818,17 @@ where
 
     pub fn write_transaction(&mut self, operations: &[&[u8]]) -> Result<(), EspError> {
         self.run(
-            &mut operations.iter().map(|slice| Operation::Write(slice)),
+            self.last_spi_transaction(operations.iter().map(|slice| Operation::Write(slice))),
             SoftCsPin::none(),
+            operations.iter().map(|slice| Operation::Write(slice)),
         )
     }
 
     pub async fn write_transaction_async(&mut self, operations: &[&[u8]]) -> Result<(), EspError> {
         self.run_async(
-            &mut operations.iter().map(|slice| Operation::Write(slice)),
+            self.last_spi_transaction(operations.iter().map(|slice| Operation::Write(slice))),
             SoftCsPin::none(),
+            operations.iter().map(|slice| Operation::Write(slice)),
         )
         .await
     }
@@ -839,10 +847,15 @@ where
         operations: &mut [&mut [u8]],
     ) -> Result<(), EspError> {
         self.run(
-            &mut operations
+            self.last_spi_transaction(
+                operations
+                    .iter_mut()
+                    .map(|slice| Operation::TransferInPlace(slice)),
+            ),
+            SoftCsPin::none(),
+            operations
                 .iter_mut()
                 .map(|slice| Operation::TransferInPlace(slice)),
-            SoftCsPin::none(),
         )
     }
 
@@ -851,10 +864,15 @@ where
         operations: &mut [&mut [u8]],
     ) -> Result<(), EspError> {
         self.run_async(
-            &mut operations
+            self.last_spi_transaction(
+                operations
+                    .iter_mut()
+                    .map(|slice| Operation::TransferInPlace(slice)),
+            ),
+            SoftCsPin::none(),
+            operations
                 .iter_mut()
                 .map(|slice| Operation::TransferInPlace(slice)),
-            SoftCsPin::none(),
         )
         .await
     }
@@ -873,10 +891,15 @@ where
         operations: &mut [(&mut [u8], &[u8])],
     ) -> Result<(), EspError> {
         self.run(
-            &mut operations
+            self.last_spi_transaction(
+                operations
+                    .iter_mut()
+                    .map(|(read_slice, write_slice)| Operation::Transfer(read_slice, write_slice)),
+            ),
+            SoftCsPin::none(),
+            operations
                 .iter_mut()
                 .map(|(read_slice, write_slice)| Operation::Transfer(read_slice, write_slice)),
-            SoftCsPin::none(),
         )
     }
 
@@ -885,29 +908,32 @@ where
         operations: &mut [(&mut [u8], &[u8])],
     ) -> Result<(), EspError> {
         self.run_async(
-            &mut operations
+            self.last_spi_transaction(
+                operations
+                    .iter_mut()
+                    .map(|(read_slice, write_slice)| Operation::Transfer(read_slice, write_slice)),
+            ),
+            SoftCsPin::none(),
+            operations
                 .iter_mut()
                 .map(|(read_slice, write_slice)| Operation::Transfer(read_slice, write_slice)),
-            SoftCsPin::none(),
         )
         .await
     }
 
     fn run<'a, 'c, 'p, P, M>(
-        &self,
-        operations: impl Iterator<Item = Operation<'a, u8>> + 'a,
+        &mut self,
+        last_transaction: (bool, Option<usize>),
         mut soft_cs_pin: Option<SoftCsPin<'c, 'p, P, M>>,
+        operations: impl Iterator<Item = Operation<'a, u8>> + 'a,
     ) -> Result<(), EspError>
     where
         P: OutputPin,
         M: OutputMode,
     {
-        let mut transactions = mark_last(self.spi_transactions(operations)).peekable();
+        let (many_transactions, last_transaction) = last_transaction;
 
-        let needs_bus_lock =
-            soft_cs_pin.is_some() || !transactions.peek().map(|(_, last)| *last).unwrap_or(true);
-
-        let _lock = if needs_bus_lock {
+        let _lock = if last_transaction.is_some() && (soft_cs_pin.is_some() || many_transactions) {
             Some(BusLock::new(self.device())?)
         } else {
             None
@@ -918,32 +944,39 @@ where
         }
 
         let has_hardware_cs = soft_cs_pin.is_none() && self.cs_pin_configured;
-        let transactions = transactions.map(|(mut t, last)| {
-            set_keep_cs_active(&mut t.0, has_hardware_cs && !last);
-            t
-        });
-        spi_transmit(self.handle, transactions, self.polling, self.queue_size)?;
 
-        if let Some(mut soft_cs_pin) = soft_cs_pin {
+        let transactions = self
+            .spi_transactions(operations)
+            .enumerate()
+            .map(|(index, mut t)| {
+                set_keep_cs_active(&mut t.0, has_hardware_cs && Some(index) != last_transaction);
+
+                t
+            });
+
+        let result = spi_transmit(self.handle, transactions, self.polling, self.queue_size);
+
+        if let Some(soft_cs_pin) = soft_cs_pin.as_mut() {
             soft_cs_pin.lower()?;
         }
 
-        Ok(())
+        result
     }
 
     async fn run_async<'a, 'c, 'p, P, M>(
         &self,
-        operations: impl Iterator<Item = Operation<'a, u8>> + 'a,
+        last_transaction: (bool, Option<usize>),
         mut soft_cs_pin: Option<SoftCsPin<'c, 'p, P, M>>,
+        operations: impl Iterator<Item = Operation<'a, u8>> + 'a,
     ) -> Result<(), EspError>
     where
         P: OutputPin,
         M: OutputMode,
     {
-        let mut transactions = mark_last(self.spi_transactions(operations)).peekable();
+        let (many_transactions, last_transaction) = last_transaction;
 
         let needs_bus_lock =
-            soft_cs_pin.is_some() || !transactions.peek().map(|(_, last)| *last).unwrap_or(true);
+            last_transaction.is_some() && (soft_cs_pin.is_some() || many_transactions);
 
         let _async_bus_lock = if needs_bus_lock {
             Some(self.driver.borrow().bus_async_lock.lock().await)
@@ -962,17 +995,35 @@ where
         }
 
         let has_hardware_cs = soft_cs_pin.is_none() && self.cs_pin_configured;
-        let transactions = transactions.map(|(mut t, last)| {
-            set_keep_cs_active(&mut t.0, has_hardware_cs && !last);
-            t
-        });
-        spi_transmit_async(self.handle, transactions, self.queue_size).await?;
 
-        if let Some(mut soft_cs_pin) = soft_cs_pin {
+        let transactions = self
+            .spi_transactions(operations)
+            .enumerate()
+            .map(|(index, mut t)| {
+                set_keep_cs_active(&mut t.0, has_hardware_cs && Some(index) != last_transaction);
+
+                t
+            });
+
+        let result = spi_transmit_async(self.handle, transactions, self.queue_size).await;
+
+        if let Some(soft_cs_pin) = soft_cs_pin.as_mut() {
             soft_cs_pin.lower()?;
         }
 
-        Ok(())
+        result
+    }
+
+    fn last_spi_transaction<'a>(
+        &self,
+        operations: impl Iterator<Item = Operation<'a, u8>> + 'a,
+    ) -> (bool, Option<usize>) {
+        self.spi_transactions(operations)
+            .enumerate()
+            .filter_map(|(index, (_, delay))| (delay == 0).then_some(index))
+            .fold((false, None), |init, index| {
+                (init.0 || init.1.is_some(), Some(index))
+            })
     }
 
     fn spi_transactions<'a>(
@@ -1153,13 +1204,19 @@ where
         operations: &mut [embedded_hal_0_2::blocking::spi::Operation<'_, u8>],
     ) -> Result<(), Self::Error> {
         self.run(
+            self.last_spi_transaction(operations.iter_mut().map(|op| match op {
+                embedded_hal_0_2::blocking::spi::Operation::Write(words) => Operation::Write(words),
+                embedded_hal_0_2::blocking::spi::Operation::Transfer(words) => {
+                    Operation::TransferInPlace(words)
+                }
+            })),
+            SoftCsPin::none(),
             operations.iter_mut().map(|op| match op {
                 embedded_hal_0_2::blocking::spi::Operation::Write(words) => Operation::Write(words),
                 embedded_hal_0_2::blocking::spi::Operation::Transfer(words) => {
                     Operation::TransferInPlace(words)
                 }
             }),
-            SoftCsPin::none(),
         )
         .map_err(to_spi_err)
     }
@@ -1285,15 +1342,21 @@ where
     }
 
     pub fn transaction(&mut self, operations: &mut [Operation<'_, u8>]) -> Result<(), EspError> {
-        self.run(operations.iter_mut().map(copy_operation))
+        self.run(
+            self.last_spi_transaction(operations.iter_mut().map(copy_operation)),
+            operations.iter_mut().map(copy_operation),
+        )
     }
 
     pub async fn transaction_async(
         &mut self,
         operations: &mut [Operation<'_, u8>],
     ) -> Result<(), EspError> {
-        self.run_async(operations.iter_mut().map(copy_operation))
-            .await
+        self.run_async(
+            self.last_spi_transaction(operations.iter_mut().map(copy_operation)),
+            operations.iter_mut().map(copy_operation),
+        )
+        .await
     }
 
     pub fn read(&mut self, read: &mut [u8]) -> Result<(), EspError> {
@@ -1305,15 +1368,21 @@ where
     }
 
     pub fn read_transaction(&mut self, operations: &mut [&mut [u8]]) -> Result<(), EspError> {
-        self.run(&mut operations.iter_mut().map(|slice| Operation::Read(slice)))
+        self.run(
+            self.last_spi_transaction(operations.iter_mut().map(|slice| Operation::Read(slice))),
+            operations.iter_mut().map(|slice| Operation::Read(slice)),
+        )
     }
 
     pub async fn read_transaction_async(
         &mut self,
         operations: &mut [&mut [u8]],
     ) -> Result<(), EspError> {
-        self.run_async(&mut operations.iter_mut().map(|slice| Operation::Read(slice)))
-            .await
+        self.run_async(
+            self.last_spi_transaction(operations.iter_mut().map(|slice| Operation::Read(slice))),
+            operations.iter_mut().map(|slice| Operation::Read(slice)),
+        )
+        .await
     }
 
     pub fn write(&mut self, write: &[u8]) -> Result<(), EspError> {
@@ -1325,12 +1394,18 @@ where
     }
 
     pub fn write_transaction(&mut self, operations: &[&[u8]]) -> Result<(), EspError> {
-        self.run(&mut operations.iter().map(|slice| Operation::Write(slice)))
+        self.run(
+            self.last_spi_transaction(operations.iter().map(|slice| Operation::Write(slice))),
+            operations.iter().map(|slice| Operation::Write(slice)),
+        )
     }
 
     pub async fn write_transaction_async(&mut self, operations: &[&[u8]]) -> Result<(), EspError> {
-        self.run_async(&mut operations.iter().map(|slice| Operation::Write(slice)))
-            .await
+        self.run_async(
+            self.last_spi_transaction(operations.iter().map(|slice| Operation::Write(slice))),
+            operations.iter().map(|slice| Operation::Write(slice)),
+        )
+        .await
     }
 
     pub fn transfer_in_place(&mut self, buf: &mut [u8]) -> Result<(), EspError> {
@@ -1347,7 +1422,12 @@ where
         operations: &mut [&mut [u8]],
     ) -> Result<(), EspError> {
         self.run(
-            &mut operations
+            self.last_spi_transaction(
+                operations
+                    .iter_mut()
+                    .map(|slice| Operation::TransferInPlace(slice)),
+            ),
+            operations
                 .iter_mut()
                 .map(|slice| Operation::TransferInPlace(slice)),
         )
@@ -1358,7 +1438,12 @@ where
         operations: &mut [&mut [u8]],
     ) -> Result<(), EspError> {
         self.run_async(
-            &mut operations
+            self.last_spi_transaction(
+                operations
+                    .iter_mut()
+                    .map(|slice| Operation::TransferInPlace(slice)),
+            ),
+            operations
                 .iter_mut()
                 .map(|slice| Operation::TransferInPlace(slice)),
         )
@@ -1379,7 +1464,12 @@ where
         operations: &mut [(&mut [u8], &[u8])],
     ) -> Result<(), EspError> {
         self.run(
-            &mut operations
+            self.last_spi_transaction(
+                operations
+                    .iter_mut()
+                    .map(|(read_slice, write_slice)| Operation::Transfer(read_slice, write_slice)),
+            ),
+            operations
                 .iter_mut()
                 .map(|(read_slice, write_slice)| Operation::Transfer(read_slice, write_slice)),
         )
@@ -1390,15 +1480,30 @@ where
         operations: &mut [(&mut [u8], &[u8])],
     ) -> Result<(), EspError> {
         self.run_async(
-            &mut operations
+            self.last_spi_transaction(
+                operations
+                    .iter_mut()
+                    .map(|(read_slice, write_slice)| Operation::Transfer(read_slice, write_slice)),
+            ),
+            operations
                 .iter_mut()
                 .map(|(read_slice, write_slice)| Operation::Transfer(read_slice, write_slice)),
         )
         .await
     }
 
+    fn last_spi_transaction<'a>(
+        &self,
+        operations: impl Iterator<Item = Operation<'a, u8>> + 'a,
+    ) -> (bool, Option<usize>) {
+        self.shared_device
+            .borrow()
+            .lock(move |device| device.last_spi_transaction(operations))
+    }
+
     fn run<'a>(
         &mut self,
+        last_transaction: (bool, Option<usize>),
         operations: impl Iterator<Item = Operation<'a, u8>> + 'a,
     ) -> Result<(), EspError> {
         let soft_cs_pin = SoftCsPin {
@@ -1409,11 +1514,12 @@ where
 
         self.shared_device
             .borrow()
-            .lock(move |device| device.run(operations, Some(soft_cs_pin)))
+            .lock(move |device| device.run(last_transaction, Some(soft_cs_pin), operations))
     }
 
     async fn run_async<'a>(
         &mut self,
+        last_transaction: (bool, Option<usize>),
         operations: impl Iterator<Item = Operation<'a, u8>> + 'a,
     ) -> Result<(), EspError> {
         let soft_cs_pin = SoftCsPin {
@@ -1427,7 +1533,11 @@ where
         let _async_guard = device.async_lock.lock().await;
         let _guard = device.lock.enter();
 
-        unsafe { device.driver_mut() }.run(operations, Some(soft_cs_pin))
+        let driver = unsafe { device.driver_mut() };
+
+        driver
+            .run_async(last_transaction, Some(soft_cs_pin), operations)
+            .await
     }
 }
 
@@ -1757,20 +1867,20 @@ fn spi_transmit(
         };
 
         for (transaction, delay) in transactions {
-            if queue.len() == queue_size {
-                // If the queue is full, we wait for the first transaction in the queue
-                pop(&mut queue)?;
-            }
-
-            // Write transaction to a stable memory location
-            push(&mut queue, transaction)?;
-
             if delay > 0 {
                 // Wait for all queued transactions to complete and then wait
                 // with the requested delay
                 pop_all(&mut queue)?;
 
                 delay_impl.delay_us(delay);
+            } else {
+                if queue.len() == queue_size {
+                    // If the queue is full, we wait for the first transaction in the queue
+                    pop(&mut queue)?;
+                }
+
+                // Write transaction to a stable memory location
+                push(&mut queue, transaction)?;
             }
         }
 
@@ -1828,15 +1938,6 @@ async fn spi_transmit_async(
             };
 
             for (transaction, delay) in transactions {
-                if queue.len() == queue_size {
-                    // If the queue is full, we wait for the first transaction in the queue
-                    queue.front_mut().unwrap().1.wait().await;
-                    pop(&mut queue)?;
-                }
-
-                // Write transaction to a stable memory location
-                push(&mut queue, transaction)?;
-
                 if delay > 0 {
                     // Wait for all queued transactions to complete and then wait
                     // with the requested delay
@@ -1846,6 +1947,15 @@ async fn spi_transmit_async(
                     }
 
                     delay_impl.delay_us(delay);
+                } else {
+                    if queue.len() == queue_size {
+                        // If the queue is full, we wait for the first transaction in the queue
+                        queue.front_mut().unwrap().1.wait().await;
+                        pop(&mut queue)?;
+                    }
+
+                    // Write transaction to a stable memory location
+                    push(&mut queue, transaction)?;
                 }
             }
 
@@ -1878,34 +1988,6 @@ extern "C" fn spi_notify(transaction: *mut spi_transaction_t) {
             notification.notify();
         }
     }
-}
-
-fn mark_last<I>(iter: I) -> impl Iterator<Item = (I::Item, bool)>
-where
-    I: Iterator,
-{
-    let iter = iter.peekable();
-
-    struct Marked<I>(Peekable<I>)
-    where
-        I: Iterator;
-
-    impl<I> Iterator for Marked<I>
-    where
-        I: Iterator,
-    {
-        type Item = (I::Item, bool);
-
-        fn next(&mut self) -> Option<Self::Item> {
-            if let Some(next) = self.0.next() {
-                Some((next, self.0.peek().is_none()))
-            } else {
-                None
-            }
-        }
-    }
-
-    Marked(iter)
 }
 
 fn copy_operation<'b>(operation: &'b mut Operation<'_, u8>) -> Operation<'b, u8> {
