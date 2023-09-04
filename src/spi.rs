@@ -1013,7 +1013,7 @@ where
 
         cs_pin.raise()?;
 
-        let delay_impl = crate::delay::Delay::new_default();
+        let delay_impl = crate::delay::Delay::new_default(); // TODO: Need to wait asnchronously if in async mode
         let mut result = Ok(());
 
         let mut spi_operations = self
@@ -1689,6 +1689,7 @@ where
             CsPin::Software { cs, pre_delay, .. } => {
                 cs.toggle()?;
 
+                // TODO: Need to wait asnchronously if in async mode
                 if let Some(delay) = pre_delay {
                     Ets::delay_us(*delay);
                 }
@@ -1704,6 +1705,7 @@ where
             CsPin::Software { cs, post_delay, .. } => {
                 cs.toggle()?;
 
+                // TODO: Need to wait asnchronously if in async mode
                 if let Some(delay) = post_delay {
                     Ets::delay_us(*delay);
                 }
