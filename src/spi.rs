@@ -1057,10 +1057,12 @@ where
         let (total_count, transactions_count, first_transaction, last_transaction) =
             self.spi_operations_stats(operations);
 
-        if !self.allow_pre_post_delays && self.cs_pin_configured && transactions_count > 0 {
-            if first_transaction != Some(0) || last_transaction != Some(total_count - 1) {
-                Err(EspError::from_infallible::<ESP_ERR_INVALID_ARG>())?;
-            }
+        if !self.allow_pre_post_delays
+            && self.cs_pin_configured
+            && transactions_count > 0
+            && (first_transaction != Some(0) || last_transaction != Some(total_count - 1))
+        {
+            Err(EspError::from_infallible::<ESP_ERR_INVALID_ARG>())?;
         }
 
         Ok(CsPin::Hardware {
@@ -1716,22 +1718,19 @@ where
     }
 
     fn configure(&self, operation: &mut SpiOperation, index: usize) {
-        match operation {
-            SpiOperation::Transaction(transaction) => {
-                self.configure_transaction(transaction, index)
-            }
-            _ => (),
+        if let SpiOperation::Transaction(transaction) = operation {
+            self.configure_transaction(transaction, index)
         }
     }
 
     fn configure_transaction(&self, transaction: &mut spi_transaction_t, index: usize) {
-        match self {
-            Self::Hardware {
-                enabled,
-                last_transaction,
-                ..
-            } => set_keep_cs_active(transaction, *enabled && Some(index) != *last_transaction),
-            Self::Software { .. } => (),
+        if let Self::Hardware {
+            enabled,
+            last_transaction,
+            ..
+        } = self
+        {
+            set_keep_cs_active(transaction, *enabled && Some(index) != *last_transaction);
         }
     }
 }
