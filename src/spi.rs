@@ -787,7 +787,7 @@ where
 
     pub fn transaction(&mut self, operations: &mut [Operation<'_, u8>]) -> Result<(), EspError> {
         self.run(
-            self.hardware_cs_pin(operations.iter_mut().map(copy_operation))?,
+            self.hardware_cs_ctl(operations.iter_mut().map(copy_operation))?,
             operations.iter_mut().map(copy_operation),
         )
     }
@@ -797,7 +797,7 @@ where
         operations: &mut [Operation<'_, u8>],
     ) -> Result<(), EspError> {
         self.run_async(
-            self.hardware_cs_pin(operations.iter_mut().map(copy_operation))?,
+            self.hardware_cs_ctl(operations.iter_mut().map(copy_operation))?,
             operations.iter_mut().map(copy_operation),
         )
         .await
@@ -813,7 +813,7 @@ where
 
     pub fn read_transaction(&mut self, operations: &mut [&mut [u8]]) -> Result<(), EspError> {
         self.run(
-            self.hardware_cs_pin(operations.iter_mut().map(|slice| Operation::Read(slice)))?,
+            self.hardware_cs_ctl(operations.iter_mut().map(|slice| Operation::Read(slice)))?,
             operations.iter_mut().map(|slice| Operation::Read(slice)),
         )
     }
@@ -823,7 +823,7 @@ where
         operations: &mut [&mut [u8]],
     ) -> Result<(), EspError> {
         self.run_async(
-            self.hardware_cs_pin(operations.iter_mut().map(|slice| Operation::Read(slice)))?,
+            self.hardware_cs_ctl(operations.iter_mut().map(|slice| Operation::Read(slice)))?,
             operations.iter_mut().map(|slice| Operation::Read(slice)),
         )
         .await
@@ -839,14 +839,14 @@ where
 
     pub fn write_transaction(&mut self, operations: &[&[u8]]) -> Result<(), EspError> {
         self.run(
-            self.hardware_cs_pin(operations.iter().map(|slice| Operation::Write(slice)))?,
+            self.hardware_cs_ctl(operations.iter().map(|slice| Operation::Write(slice)))?,
             operations.iter().map(|slice| Operation::Write(slice)),
         )
     }
 
     pub async fn write_transaction_async(&mut self, operations: &[&[u8]]) -> Result<(), EspError> {
         self.run_async(
-            self.hardware_cs_pin(operations.iter().map(|slice| Operation::Write(slice)))?,
+            self.hardware_cs_ctl(operations.iter().map(|slice| Operation::Write(slice)))?,
             operations.iter().map(|slice| Operation::Write(slice)),
         )
         .await
@@ -866,7 +866,7 @@ where
         operations: &mut [&mut [u8]],
     ) -> Result<(), EspError> {
         self.run(
-            self.hardware_cs_pin(
+            self.hardware_cs_ctl(
                 operations
                     .iter_mut()
                     .map(|slice| Operation::TransferInPlace(slice)),
@@ -882,7 +882,7 @@ where
         operations: &mut [&mut [u8]],
     ) -> Result<(), EspError> {
         self.run_async(
-            self.hardware_cs_pin(
+            self.hardware_cs_ctl(
                 operations
                     .iter_mut()
                     .map(|slice| Operation::TransferInPlace(slice)),
@@ -908,7 +908,7 @@ where
         operations: &mut [(&mut [u8], &[u8])],
     ) -> Result<(), EspError> {
         self.run(
-            self.hardware_cs_pin(
+            self.hardware_cs_ctl(
                 operations
                     .iter_mut()
                     .map(|(read_slice, write_slice)| Operation::Transfer(read_slice, write_slice)),
@@ -924,7 +924,7 @@ where
         operations: &mut [(&mut [u8], &[u8])],
     ) -> Result<(), EspError> {
         self.run_async(
-            self.hardware_cs_pin(
+            self.hardware_cs_ctl(
                 operations
                     .iter_mut()
                     .map(|(read_slice, write_slice)| Operation::Transfer(read_slice, write_slice)),
@@ -938,7 +938,7 @@ where
 
     fn run<'a, 'c, 'p, P, M>(
         &mut self,
-        mut cs_pin: CsPin<'c, 'p, P, M>,
+        mut cs_pin: CsCtl<'c, 'p, P, M>,
         operations: impl Iterator<Item = Operation<'a, u8>> + 'a,
     ) -> Result<(), EspError>
     where
@@ -951,7 +951,7 @@ where
             None
         };
 
-        cs_pin.raise()?;
+        cs_pin.raise_cs()?;
 
         let mut spi_operations = self
             .spi_operations(operations)
@@ -985,14 +985,14 @@ where
             }
         }
 
-        cs_pin.lower()?;
+        cs_pin.lower_cs()?;
 
         result
     }
 
     async fn run_async<'a, 'c, 'p, P, M>(
         &self,
-        mut cs_pin: CsPin<'c, 'p, P, M>,
+        mut cs_pin: CsCtl<'c, 'p, P, M>,
         operations: impl Iterator<Item = Operation<'a, u8>> + 'a,
     ) -> Result<(), EspError>
     where
@@ -1011,7 +1011,7 @@ where
             None
         };
 
-        cs_pin.raise()?;
+        cs_pin.raise_cs()?;
 
         let delay_impl = crate::delay::Delay::new_default(); // TODO: Need to wait asnchronously if in async mode
         let mut result = Ok(());
@@ -1045,15 +1045,15 @@ where
             }
         }
 
-        cs_pin.lower()?;
+        cs_pin.lower_cs()?;
 
         result
     }
 
-    fn hardware_cs_pin<'a, 'c, 'p>(
+    fn hardware_cs_ctl<'a, 'c, 'p>(
         &self,
         operations: impl Iterator<Item = Operation<'a, u8>> + 'a,
-    ) -> Result<CsPin<'c, 'p, AnyOutputPin, Output>, EspError> {
+    ) -> Result<CsCtl<'c, 'p, AnyOutputPin, Output>, EspError> {
         let (total_count, transactions_count, first_transaction, last_transaction) =
             self.spi_operations_stats(operations);
 
@@ -1065,7 +1065,7 @@ where
             Err(EspError::from_infallible::<ESP_ERR_INVALID_ARG>())?;
         }
 
-        Ok(CsPin::Hardware {
+        Ok(CsCtl::Hardware {
             enabled: self.cs_pin_configured,
             transactions_count,
             last_transaction,
@@ -1281,7 +1281,7 @@ where
         operations: &mut [embedded_hal_0_2::blocking::spi::Operation<'_, u8>],
     ) -> Result<(), Self::Error> {
         self.run(
-            self.hardware_cs_pin(operations.iter_mut().map(|op| match op {
+            self.hardware_cs_ctl(operations.iter_mut().map(|op| match op {
                 embedded_hal_0_2::blocking::spi::Operation::Write(words) => Operation::Write(words),
                 embedded_hal_0_2::blocking::spi::Operation::Transfer(words) => {
                     Operation::TransferInPlace(words)
@@ -1534,7 +1534,7 @@ where
         &mut self,
         operations: impl Iterator<Item = Operation<'a, u8>> + 'a,
     ) -> Result<(), EspError> {
-        let cs_pin = CsPin::Software {
+        let cs_pin = CsCtl::Software {
             cs: &mut self.cs_pin,
             pre_delay: self.pre_delay_us,
             post_delay: self.post_delay_us,
@@ -1549,7 +1549,7 @@ where
         &mut self,
         operations: impl Iterator<Item = Operation<'a, u8>> + 'a,
     ) -> Result<(), EspError> {
-        let cs_pin = CsPin::Software {
+        let cs_pin = CsCtl::Software {
             cs: &mut self.cs_pin,
             pre_delay: self.pre_delay_us,
             post_delay: self.post_delay_us,
@@ -1654,7 +1654,7 @@ impl Drop for BusLock {
     }
 }
 
-enum CsPin<'c, 'p, P, M>
+enum CsCtl<'c, 'p, P, M>
 where
     P: OutputPin,
     M: OutputMode,
@@ -1671,7 +1671,7 @@ where
     },
 }
 
-impl<'c, 'p, P, M> CsPin<'c, 'p, P, M>
+impl<'c, 'p, P, M> CsCtl<'c, 'p, P, M>
 where
     P: OutputPin,
     M: OutputMode,
@@ -1685,32 +1685,26 @@ where
         }
     }
 
-    fn raise(&mut self) -> Result<(), EspError> {
-        match self {
-            CsPin::Hardware { .. } => (),
-            CsPin::Software { cs, pre_delay, .. } => {
-                cs.toggle()?;
+    fn raise_cs(&mut self) -> Result<(), EspError> {
+        if let CsCtl::Software { cs, pre_delay, .. } = self {
+            cs.toggle()?;
 
-                // TODO: Need to wait asnchronously if in async mode
-                if let Some(delay) = pre_delay {
-                    Ets::delay_us(*delay);
-                }
+            // TODO: Need to wait asnchronously if in async mode
+            if let Some(delay) = pre_delay {
+                Ets::delay_us(*delay);
             }
         }
 
         Ok(())
     }
 
-    fn lower(&mut self) -> Result<(), EspError> {
-        match self {
-            CsPin::Hardware { .. } => (),
-            CsPin::Software { cs, post_delay, .. } => {
-                cs.toggle()?;
+    fn lower_cs(&mut self) -> Result<(), EspError> {
+        if let CsCtl::Software { cs, post_delay, .. } = self {
+            cs.toggle()?;
 
-                // TODO: Need to wait asnchronously if in async mode
-                if let Some(delay) = post_delay {
-                    Ets::delay_us(*delay);
-                }
+            // TODO: Need to wait asnchronously if in async mode
+            if let Some(delay) = post_delay {
+                Ets::delay_us(*delay);
             }
         }
 
