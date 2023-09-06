@@ -231,14 +231,11 @@ impl<'a> From<&esp_bt_eir_data_t> for EirData<'a> {
             include_uuid: data.include_uuid,
             flags: EnumSet::from_repr(data.flag),
             manufacturer_data: unsafe {
-                core::slice::from_raw_parts(
-                    data.p_manufacturer_data as *mut u8,
-                    data.manufacturer_len as _,
-                )
+                core::slice::from_raw_parts(data.p_manufacturer_data, data.manufacturer_len as _)
             },
             url: unsafe {
                 core::str::from_utf8_unchecked(core::slice::from_raw_parts(
-                    data.p_url as *mut u8,
+                    data.p_url,
                     data.url_len as _,
                 ))
             },

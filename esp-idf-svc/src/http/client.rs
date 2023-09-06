@@ -17,14 +17,14 @@ use ::log::*;
 
 use embedded_svc::http::client::*;
 use embedded_svc::http::*;
-use embedded_svc::io::{Io, Read, Write};
+use embedded_svc::io::{ErrorType, Read, Write};
 
 use crate::sys::*;
 
 use uncased::{Uncased, UncasedStr};
 
-use crate::errors::EspIOError;
 use crate::handle::RawHandle;
+use crate::io::EspIOError;
 use crate::private::common::Newtype;
 use crate::private::cstr::*;
 use crate::tls::X509;
@@ -468,7 +468,7 @@ impl Headers for EspHttpConnection {
     }
 }
 
-impl Io for EspHttpConnection {
+impl ErrorType for EspHttpConnection {
     type Error = EspIOError;
 }
 

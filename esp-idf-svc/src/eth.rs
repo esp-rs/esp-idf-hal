@@ -1222,35 +1222,28 @@ where
 {
     type Error = T::Error;
 
-    type IsStartedFuture<'a> = impl core::future::Future<Output = Result<bool, Self::Error>> + 'a where Self: 'a;
-    type StartFuture<'a> = impl core::future::Future<Output = Result<(), Self::Error>> + 'a where Self: 'a;
-    type StopFuture<'a> = impl core::future::Future<Output = Result<(), Self::Error>> + 'a where Self: 'a;
-    type IsConnectedFuture<'a> = impl core::future::Future<Output = Result<bool, Self::Error>> + 'a where Self: 'a;
-
-    fn start(&mut self) -> Self::StartFuture<'_> {
-        AsyncEth::start(self)
+    async fn start(&mut self) -> Result<(), Self::Error> {
+        AsyncEth::start(self).await
     }
 
-    fn stop(&mut self) -> Self::StopFuture<'_> {
-        AsyncEth::stop(self)
+    async fn stop(&mut self) -> Result<(), Self::Error> {
+        AsyncEth::stop(self).await
     }
 
-    fn is_started(&self) -> Self::IsStartedFuture<'_> {
-        async move { AsyncEth::is_started(self) }
+    async fn is_started(&self) -> Result<bool, Self::Error> {
+        AsyncEth::is_started(self)
     }
 
-    fn is_connected(&self) -> Self::IsConnectedFuture<'_> {
-        async move { AsyncEth::is_connected(self) }
+    async fn is_connected(&self) -> Result<bool, Self::Error> {
+        AsyncEth::is_connected(self)
     }
 }
 
 #[cfg(feature = "nightly")]
 #[cfg(esp_idf_comp_esp_netif_enabled)]
 impl<'d, T> crate::netif::asynch::NetifStatus for EspEth<'d, T> {
-    type IsUpFuture<'a> = impl core::future::Future<Output = Result<bool, EspError>> + 'a where Self: 'a;
-
-    fn is_up(&self) -> Self::IsUpFuture<'_> {
-        async move { EspEth::is_up(self) }
+    async fn is_up(&self) -> Result<bool, EspError> {
+        EspEth::is_up(self)
     }
 }
 
@@ -1260,9 +1253,7 @@ impl<T> crate::netif::asynch::NetifStatus for AsyncEth<T>
 where
     T: NetifStatus,
 {
-    type IsUpFuture<'a> = impl core::future::Future<Output = Result<bool, EspError>> + 'a where Self: 'a;
-
-    fn is_up(&self) -> Self::IsUpFuture<'_> {
-        async move { AsyncEth::is_up(self) }
+    async fn is_up(&self) -> Result<bool, EspError> {
+        AsyncEth::is_up(self)
     }
 }

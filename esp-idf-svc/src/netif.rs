@@ -768,26 +768,18 @@ where
 
 #[cfg(feature = "nightly")]
 pub mod asynch {
-    use core::future::Future;
-
     use crate::sys::EspError;
 
     pub trait NetifStatus {
-        type IsUpFuture<'a>: Future<Output = Result<bool, EspError>>
-        where
-            Self: 'a;
-
-        fn is_up(&self) -> Self::IsUpFuture<'_>;
+        async fn is_up(&self) -> Result<bool, EspError>;
     }
 
     impl<T> NetifStatus for &T
     where
         T: NetifStatus,
     {
-        type IsUpFuture<'a> = impl Future<Output = Result<bool, EspError>> + 'a where Self: 'a;
-
-        fn is_up(&self) -> Self::IsUpFuture<'_> {
-            async move { (**self).is_up().await }
+        async fn is_up(&self) -> Result<bool, EspError> {
+            (**self).is_up().await
         }
     }
 
@@ -795,18 +787,14 @@ pub mod asynch {
     where
         T: NetifStatus,
     {
-        type IsUpFuture<'a> = impl Future<Output = Result<bool, EspError>> + 'a where Self: 'a;
-
-        fn is_up(&self) -> Self::IsUpFuture<'_> {
-            async move { (**self).is_up().await }
+        async fn is_up(&self) -> Result<bool, EspError> {
+            (**self).is_up().await
         }
     }
 
     impl NetifStatus for super::EspNetif {
-        type IsUpFuture<'a> = impl Future<Output = Result<bool, EspError>> + 'a where Self: 'a;
-
-        fn is_up(&self) -> Self::IsUpFuture<'_> {
-            async move { super::EspNetif::is_up(self) }
+        async fn is_up(&self) -> Result<bool, EspError> {
+            super::EspNetif::is_up(self)
         }
     }
 
@@ -815,10 +803,8 @@ pub mod asynch {
     where
         T: super::NetifStatus,
     {
-        type IsUpFuture<'a> = impl Future<Output = Result<bool, EspError>> + 'a where Self: 'a;
-
-        fn is_up(&self) -> Self::IsUpFuture<'_> {
-            async move { super::AsyncNetif::is_up(self) }
+        async fn is_up(&self) -> Result<bool, EspError> {
+            super::AsyncNetif::is_up(self)
         }
     }
 }

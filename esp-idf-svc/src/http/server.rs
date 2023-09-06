@@ -21,15 +21,15 @@ use embedded_svc::http::server::{
     Connection, FnHandler, Handler, HandlerError, HandlerResult, Request,
 };
 use embedded_svc::http::*;
-use embedded_svc::io::{Io, Read, Write};
+use embedded_svc::io::{ErrorType, Read, Write};
 use embedded_svc::utils::http::server::registration::{ChainHandler, ChainRoot};
 
 use crate::sys::*;
 
 use uncased::{Uncased, UncasedStr};
 
-use crate::errors::EspIOError;
 use crate::handle::RawHandle;
+use crate::io::EspIOError;
 use crate::private::common::Newtype;
 use crate::private::cstr::to_cstring_arg;
 use crate::private::cstr::{CStr, CString};
@@ -506,7 +506,7 @@ impl<'a> RawHandle for EspHttpRequest<'a> {
     }
 }
 
-impl<'a> Io for EspHttpRequest<'a> {
+impl<'a> ErrorType for EspHttpRequest<'a> {
     type Error = EspIOError;
 }
 
@@ -779,11 +779,15 @@ impl<'a> EspHttpConnection<'a> {
         }
     }
 
-    fn render_error<E>(&mut self, error: E) -> Result<(), EspIOError>
+    fn render_error<E>(
+        &mut self,
+        error: E,
+    ) -> Result<(), embedded_svc::io::WriteAllError<EspIOError>>
     where
         E: Display,
     {
-        self.initiate_response(500, Some("Internal Error"), &[content_type("text/html")])?;
+        self.initiate_response(500, Some("Internal Error"), &[content_type("text/html")])
+            .map_err(|e| embedded_svc::io::WriteAllError::Other(EspIOError(e)))?;
 
         self.write_all(
             format!(
@@ -841,7 +845,7 @@ impl<'a> Headers for EspHttpConnection<'a> {
     }
 }
 
-impl<'a> Io for EspHttpConnection<'a> {
+impl<'a> ErrorType for EspHttpConnection<'a> {
     type Error = EspIOError;
 }
 

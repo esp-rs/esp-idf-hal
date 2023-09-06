@@ -280,11 +280,6 @@ pub enum BtStatus {
     MemoryFull = esp_bt_status_t_ESP_BT_STATUS_MEMORY_FULL,
     EirTooLarge = esp_bt_status_t_ESP_BT_STATUS_EIR_TOO_LARGE,
     HciSuccess = esp_bt_status_t_ESP_BT_STATUS_HCI_SUCCESS,
-    #[cfg(all(
-        not(esp_idf_version_major = "4"),
-        any(not(esp_idf_version_major = "5"), not(esp_idf_version_minor = "0"))
-    ))]
-    HciPending = esp_bt_status_t_ESP_BT_STATUS_HCI_PENDING,
     HciIllegalCommand = esp_bt_status_t_ESP_BT_STATUS_HCI_ILLEGAL_COMMAND,
     HciNoConnection = esp_bt_status_t_ESP_BT_STATUS_HCI_NO_CONNECTION,
     HciHwFailure = esp_bt_status_t_ESP_BT_STATUS_HCI_HW_FAILURE,

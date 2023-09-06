@@ -3,9 +3,7 @@
 //! Add your own ssid and password
 
 use std::ffi::CStr;
-use std::io::{BufRead, BufReader};
 
-use embedded_svc::io::adapters::ToStd;
 use embedded_svc::wifi::{AuthMethod, ClientConfiguration, Configuration};
 
 use esp_idf_svc::hal::prelude::Peripherals;
@@ -82,16 +80,20 @@ fn main() -> anyhow::Result<()> {
         },
     )?;
 
-    let mut reader = BufReader::with_capacity(512, ToStd::new(&mut tls));
-    let mut line = String::new();
+    // Print the server response
 
-    // Receive line by line from server and print each
+    let mut buf = [0; 512];
+
     loop {
-        reader.read_line(&mut line)?;
-        println!("{}", line);
+        let read = tls.read(&mut buf)?;
+        if read == 0 {
+            break;
+        }
 
-        line.clear();
+        print!("{}", core::str::from_utf8(&buf[..read])?);
     }
+
+    Ok(())
 }
 
 fn connect_wifi(wifi: &mut BlockingWifi<EspWifi<'static>>) -> anyhow::Result<()> {

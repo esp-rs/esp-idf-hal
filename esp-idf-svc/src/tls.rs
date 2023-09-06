@@ -122,7 +122,7 @@ mod esptls {
     use super::X509;
 
     use crate::{
-        errors::EspIOError,
+        io::EspIOError,
         private::cstr::{cstr_arr_from_str_slice, cstr_from_str_truncating, CStr},
         sys::{
             self, EspError, ESP_ERR_NO_MEM, ESP_FAIL, ESP_TLS_ERR_SSL_WANT_READ,
@@ -560,7 +560,7 @@ mod esptls {
         }
     }
 
-    impl<S> io::Io for EspTls<S>
+    impl<S> io::ErrorType for EspTls<S>
     where
         S: Socket,
     {
@@ -730,7 +730,7 @@ mod esptls {
         not(esp_idf_version_major = "4"),
         any(not(esp_idf_version_major = "5"), not(esp_idf_version_minor = "0"))
     ))]
-    impl<S> io::Io for AsyncEspTls<S>
+    impl<S> io::ErrorType for AsyncEspTls<S>
     where
         S: PollableSocket,
     {
@@ -746,10 +746,8 @@ mod esptls {
     where
         S: PollableSocket,
     {
-        type ReadFuture<'a> = impl core::future::Future<Output = Result<usize, Self::Error>> + 'a where Self: 'a;
-
-        fn read<'a>(&'a mut self, buf: &'a mut [u8]) -> Self::ReadFuture<'a> {
-            async move { AsyncEspTls::read(self, buf).await.map_err(EspIOError) }
+        async fn read(&mut self, buf: &mut [u8]) -> Result<usize, Self::Error> {
+            AsyncEspTls::read(self, buf).await.map_err(EspIOError)
         }
     }
 
@@ -762,15 +760,12 @@ mod esptls {
     where
         S: PollableSocket,
     {
-        type WriteFuture<'a> = impl core::future::Future<Output = Result<usize, Self::Error>> + 'a where Self: 'a;
-        type FlushFuture<'a> = impl core::future::Future<Output = Result<(), Self::Error>> + 'a where Self: 'a;
-
-        fn write<'a>(&'a mut self, buf: &'a [u8]) -> Self::WriteFuture<'a> {
-            async move { AsyncEspTls::write(self, buf).await.map_err(EspIOError) }
+        async fn write(&mut self, buf: &[u8]) -> Result<usize, Self::Error> {
+            AsyncEspTls::write(self, buf).await.map_err(EspIOError)
         }
 
-        fn flush(&mut self) -> Self::FlushFuture<'_> {
-            async move { Ok(()) }
+        async fn flush(&mut self) -> Result<(), Self::Error> {
+            Ok(())
         }
     }
 }

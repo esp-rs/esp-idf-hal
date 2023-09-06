@@ -1026,7 +1026,7 @@ mod async_wait {
             if let Some(duration) = duration {
                 debug!("About to wait for duration {:?}", duration);
 
-                let timer_wait = self.timer.after(duration)?;
+                let timer_wait = self.timer.after(duration);
                 let subscription_wait = Self::wait_sub(&mut self.subscription, matcher);
 
                 match embassy_futures::select::select(subscription_wait, timer_wait).await {

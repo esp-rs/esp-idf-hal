@@ -12,12 +12,10 @@
 //! - `embassy-time-isr-queue`
 #![cfg_attr(not(feature = "std"), no_std)]
 #![feature(cfg_version)]
-#![cfg_attr(feature = "nightly", feature(type_alias_impl_trait))]
 #![cfg_attr(
-    all(feature = "nightly", version("1.70")),
-    feature(impl_trait_in_assoc_type)
+    feature = "nightly",
+    feature(async_fn_in_trait, impl_trait_projections)
 )]
-#![allow(clippy::unused_unit)] // enumset
 
 #[cfg(feature = "alloc")]
 #[allow(unused_imports)]
@@ -32,7 +30,6 @@ extern crate alloc;
     feature = "experimental"
 ))]
 pub mod bt;
-pub mod errors;
 #[cfg(all(
     not(esp32h2),
     feature = "alloc",
@@ -61,8 +58,7 @@ pub mod hal;
 pub mod handle;
 #[cfg(feature = "alloc")]
 pub mod http;
-#[cfg(all(feature = "std", esp_idf_comp_esp_http_server_enabled))]
-pub mod httpd;
+pub mod io;
 #[cfg(feature = "alloc")]
 pub mod log;
 #[cfg(all(

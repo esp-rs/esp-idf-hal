@@ -1,7 +1,5 @@
 //! WiFi support
 use core::convert::{TryFrom, TryInto};
-#[cfg(feature = "nightly")]
-use core::future::Future;
 use core::marker::PhantomData;
 use core::str::Utf8Error;
 use core::time::Duration;
@@ -2086,74 +2084,59 @@ where
 {
     type Error = T::Error;
 
-    type GetCapabilitiesFuture<'a> = impl Future<Output = Result<EnumSet<Capability>, Self::Error>> + 'a where Self: 'a;
-    type GetConfigurationFuture<'a> = impl Future<Output = Result<Configuration, Self::Error>> + 'a where Self: 'a;
-    type SetConfigurationFuture<'a> = impl Future<Output = Result<(), Self::Error>> + 'a where Self: 'a;
-    type IsStartedFuture<'a> = impl Future<Output = Result<bool, Self::Error>> + 'a where Self: 'a;
-    type IsConnectedFuture<'a> = impl Future<Output = Result<bool, Self::Error>> + 'a where Self: 'a;
-    type StartFuture<'a> = impl Future<Output = Result<(), Self::Error>> + 'a where Self: 'a;
-    type StopFuture<'a> = impl Future<Output = Result<(), Self::Error>> + 'a where Self: 'a;
-    type ConnectFuture<'a> = impl Future<Output = Result<(), Self::Error>> + 'a where Self: 'a;
-    type DisconnectFuture<'a> = impl Future<Output = Result<(), Self::Error>> + 'a where Self: 'a;
-    type ScanNFuture<'a, const N: usize> = impl Future<Output = Result<(heapless::Vec<AccessPointInfo, N>, usize), Self::Error>> + 'a where Self: 'a;
-    type ScanFuture<'a> = impl Future<Output = Result<alloc::vec::Vec<AccessPointInfo>, Self::Error>> + 'a where Self: 'a;
-
-    fn get_capabilities(&self) -> Self::GetCapabilitiesFuture<'_> {
-        async move { AsyncWifi::get_capabilities(self) }
+    async fn get_capabilities(&self) -> Result<EnumSet<Capability>, Self::Error> {
+        AsyncWifi::get_capabilities(self)
     }
 
-    fn get_configuration(&self) -> Self::GetConfigurationFuture<'_> {
-        async move { AsyncWifi::get_configuration(self) }
+    async fn get_configuration(&self) -> Result<Configuration, Self::Error> {
+        AsyncWifi::get_configuration(self)
     }
 
-    fn set_configuration<'a>(
-        &'a mut self,
-        conf: &'a Configuration,
-    ) -> Self::SetConfigurationFuture<'a> {
-        async move { AsyncWifi::set_configuration(self, conf) }
+    async fn set_configuration(&mut self, conf: &Configuration) -> Result<(), Self::Error> {
+        AsyncWifi::set_configuration(self, conf)
     }
 
-    fn start(&mut self) -> Self::StartFuture<'_> {
-        AsyncWifi::start(self)
+    async fn start(&mut self) -> Result<(), Self::Error> {
+        AsyncWifi::start(self).await
     }
 
-    fn stop(&mut self) -> Self::StopFuture<'_> {
-        AsyncWifi::stop(self)
+    async fn stop(&mut self) -> Result<(), Self::Error> {
+        AsyncWifi::stop(self).await
     }
 
-    fn connect(&mut self) -> Self::ConnectFuture<'_> {
-        AsyncWifi::connect(self)
+    async fn connect(&mut self) -> Result<(), Self::Error> {
+        AsyncWifi::connect(self).await
     }
 
-    fn disconnect(&mut self) -> Self::DisconnectFuture<'_> {
-        AsyncWifi::disconnect(self)
+    async fn disconnect(&mut self) -> Result<(), Self::Error> {
+        AsyncWifi::disconnect(self).await
     }
 
-    fn is_started(&self) -> Self::IsStartedFuture<'_> {
-        async move { AsyncWifi::is_started(self) }
+    async fn is_started(&self) -> Result<bool, Self::Error> {
+        AsyncWifi::is_started(self)
     }
 
-    fn is_connected(&self) -> Self::IsConnectedFuture<'_> {
-        async move { AsyncWifi::is_connected(self) }
+    async fn is_connected(&self) -> Result<bool, Self::Error> {
+        AsyncWifi::is_connected(self)
     }
 
-    fn scan_n<const N: usize>(&mut self) -> Self::ScanNFuture<'_, N> {
-        AsyncWifi::scan_n(self)
+    async fn scan_n<const N: usize>(
+        &mut self,
+    ) -> Result<(heapless::Vec<AccessPointInfo, N>, usize), Self::Error> {
+        AsyncWifi::scan_n(self).await
     }
 
     #[cfg(feature = "alloc")]
-    fn scan(&mut self) -> Self::ScanFuture<'_> {
-        AsyncWifi::scan(self)
+    async fn scan(&mut self) -> Result<alloc::vec::Vec<AccessPointInfo>, Self::Error> {
+        AsyncWifi::scan(self).await
     }
 }
 
 #[cfg(feature = "nightly")]
 #[cfg(esp_idf_comp_esp_netif_enabled)]
 impl<'d> crate::netif::asynch::NetifStatus for EspWifi<'d> {
-    type IsUpFuture<'a> = impl Future<Output = Result<bool, EspError>> + 'a where Self: 'a;
-
-    fn is_up(&self) -> Self::IsUpFuture<'_> {
-        async move { EspWifi::is_up(self) }
+    async fn is_up(&self) -> Result<bool, EspError> {
+        EspWifi::is_up(self)
     }
 }
 
@@ -2163,9 +2146,7 @@ impl<T> crate::netif::asynch::NetifStatus for AsyncWifi<T>
 where
     T: NetifStatus,
 {
-    type IsUpFuture<'a> = impl Future<Output = Result<bool, EspError>> + 'a where Self: 'a;
-
-    fn is_up(&self) -> Self::IsUpFuture<'_> {
-        async move { AsyncWifi::is_up(self) }
+    async fn is_up(&self) -> Result<bool, EspError> {
+        AsyncWifi::is_up(self)
     }
 }
