@@ -117,31 +117,33 @@ pub mod config {
 
     use super::Dma;
 
+    pub use embedded_hal::spi::{Mode, Phase, Polarity, MODE_0, MODE_1, MODE_2, MODE_3};
+
     pub struct V02Type<T>(pub T);
 
-    impl From<V02Type<embedded_hal_0_2::spi::Polarity>> for embedded_hal::spi::Polarity {
+    impl From<V02Type<embedded_hal_0_2::spi::Polarity>> for Polarity {
         fn from(polarity: V02Type<embedded_hal_0_2::spi::Polarity>) -> Self {
             match polarity.0 {
-                embedded_hal_0_2::spi::Polarity::IdleHigh => embedded_hal::spi::Polarity::IdleHigh,
-                embedded_hal_0_2::spi::Polarity::IdleLow => embedded_hal::spi::Polarity::IdleLow,
+                embedded_hal_0_2::spi::Polarity::IdleHigh => Polarity::IdleHigh,
+                embedded_hal_0_2::spi::Polarity::IdleLow => Polarity::IdleLow,
             }
         }
     }
 
-    impl From<V02Type<embedded_hal_0_2::spi::Phase>> for embedded_hal::spi::Phase {
+    impl From<V02Type<embedded_hal_0_2::spi::Phase>> for Phase {
         fn from(phase: V02Type<embedded_hal_0_2::spi::Phase>) -> Self {
             match phase.0 {
                 embedded_hal_0_2::spi::Phase::CaptureOnFirstTransition => {
-                    embedded_hal::spi::Phase::CaptureOnFirstTransition
+                    Phase::CaptureOnFirstTransition
                 }
                 embedded_hal_0_2::spi::Phase::CaptureOnSecondTransition => {
-                    embedded_hal::spi::Phase::CaptureOnSecondTransition
+                    Phase::CaptureOnSecondTransition
                 }
             }
         }
     }
 
-    impl From<V02Type<embedded_hal_0_2::spi::Mode>> for embedded_hal::spi::Mode {
+    impl From<V02Type<embedded_hal_0_2::spi::Mode>> for Mode {
         fn from(mode: V02Type<embedded_hal_0_2::spi::Mode>) -> Self {
             Self {
                 polarity: V02Type(mode.0.polarity).into(),
@@ -233,7 +235,7 @@ pub mod config {
     #[derive(Debug, Clone)]
     pub struct Config {
         pub baudrate: Hertz,
-        pub data_mode: embedded_hal::spi::Mode,
+        pub data_mode: Mode,
         /// This property can be set to configure a SPI Device for being write only
         /// Thus the flag SPI_DEVICE_NO_DUMMY will be passed on initialization and
         /// it will unlock the possibility of using 80Mhz as the bus freq
@@ -260,7 +262,7 @@ pub mod config {
         }
 
         #[must_use]
-        pub fn data_mode(mut self, data_mode: embedded_hal::spi::Mode) -> Self {
+        pub fn data_mode(mut self, data_mode: Mode) -> Self {
             self.data_mode = data_mode;
             self
         }
@@ -1964,9 +1966,9 @@ fn copy_operation<'b>(operation: &'b mut Operation<'_, u8>) -> Operation<'b, u8>
     }
 }
 
-fn data_mode_to_u8(data_mode: embedded_hal::spi::Mode) -> u8 {
-    (((data_mode.polarity == embedded_hal::spi::Polarity::IdleHigh) as u8) << 1)
-        | ((data_mode.phase == embedded_hal::spi::Phase::CaptureOnSecondTransition) as u8)
+fn data_mode_to_u8(data_mode: config::Mode) -> u8 {
+    (((data_mode.polarity == config::Polarity::IdleHigh) as u8) << 1)
+        | ((data_mode.phase == config::Phase::CaptureOnSecondTransition) as u8)
 }
 
 macro_rules! impl_spi {
