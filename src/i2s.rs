@@ -22,6 +22,7 @@ use esp_idf_sys::{
 
 #[cfg(not(esp_idf_version_major = "4"))]
 use crate::private::notification::Notification;
+use crate::{delay, io::EspIOError};
 
 // For v5+, we rely configuration options for PDM/TDM support.
 // For v4, we have to examine the chip type.
@@ -1181,6 +1182,58 @@ unsafe impl<'d, Dir> Send for I2sDriver<'d, Dir> {}
 impl<'d, Dir> I2sPort for I2sDriver<'d, Dir> {
     fn port(&self) -> i2s_port_t {
         self.port as _
+    }
+}
+
+impl<'d, Dir> embedded_io::ErrorType for I2sDriver<'d, Dir> {
+    type Error = EspIOError;
+}
+
+impl<'d, Dir> embedded_io::Read for I2sDriver<'d, Dir>
+where
+    Dir: I2sRxSupported,
+{
+    fn read(&mut self, buf: &mut [u8]) -> Result<usize, Self::Error> {
+        self.read(buf, delay::BLOCK).map_err(EspIOError)
+    }
+}
+
+impl<'d, Dir> embedded_io::Write for I2sDriver<'d, Dir>
+where
+    Dir: I2sTxSupported,
+{
+    fn write(&mut self, buf: &[u8]) -> Result<usize, Self::Error> {
+        self.write(buf, delay::BLOCK).map_err(EspIOError)
+    }
+
+    fn flush(&mut self) -> Result<(), Self::Error> {
+        Ok(())
+    }
+}
+
+#[cfg(feature = "nightly")]
+#[cfg(not(esp_idf_version_major = "4"))]
+impl<'d, Dir> embedded_io_async::Read for I2sDriver<'d, Dir>
+where
+    Dir: I2sRxSupported,
+{
+    async fn read(&mut self, buf: &mut [u8]) -> Result<usize, Self::Error> {
+        self.read_async(buf).await.map_err(EspIOError)
+    }
+}
+
+#[cfg(feature = "nightly")]
+#[cfg(not(esp_idf_version_major = "4"))]
+impl<'d, Dir> embedded_io_async::Write for I2sDriver<'d, Dir>
+where
+    Dir: I2sTxSupported,
+{
+    async fn write(&mut self, buf: &[u8]) -> Result<usize, Self::Error> {
+        self.write_async(buf).await.map_err(EspIOError)
+    }
+
+    async fn flush(&mut self) -> Result<(), Self::Error> {
+        Ok(())
     }
 }
 

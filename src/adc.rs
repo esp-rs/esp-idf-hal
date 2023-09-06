@@ -459,6 +459,7 @@ pub mod continuous {
 
     use crate::delay::{self, TickType};
     use crate::gpio::{sealed::ADCPin as _, ADCPin};
+    use crate::io::EspIOError;
     use crate::peripheral::Peripheral;
     use crate::private::notification::Notification;
 
@@ -903,10 +904,43 @@ pub mod continuous {
             Ok(read as usize / core::mem::size_of::<AdcMeasurement>())
         }
 
+        pub fn read_bytes(
+            &mut self,
+            buf: &mut [u8],
+            timeout: TickType_t,
+        ) -> Result<usize, EspError> {
+            let mut read: u32 = 0;
+
+            esp!(unsafe {
+                adc_continuous_read(
+                    self.handle,
+                    buf.as_mut_ptr() as *mut _,
+                    core::mem::size_of_val(buf) as _,
+                    &mut read,
+                    TickType(timeout).as_millis_u32(),
+                )
+            })?;
+
+            Ok(read as usize)
+        }
+
         #[cfg(not(esp_idf_adc_continuous_isr_iram_safe))]
         pub async fn read_async(&mut self, buf: &mut [AdcMeasurement]) -> Result<usize, EspError> {
             loop {
                 match self.read(buf, delay::NON_BLOCK) {
+                    Ok(len) if len > 0 => return Ok(len),
+                    Err(e) if e.code() != ESP_ERR_TIMEOUT => return Err(e),
+                    _ => {
+                        NOTIFIER[self.adc as usize].wait().await;
+                    }
+                }
+            }
+        }
+
+        #[cfg(not(esp_idf_adc_continuous_isr_iram_safe))]
+        pub async fn read_bytes_async(&mut self, buf: &mut [u8]) -> Result<usize, EspError> {
+            loop {
+                match self.read_bytes(buf, delay::NON_BLOCK) {
                     Ok(len) if len > 0 => return Ok(len),
                     Err(e) if e.code() != ESP_ERR_TIMEOUT => return Err(e),
                     _ => {
@@ -950,6 +984,24 @@ pub mod continuous {
     }
 
     unsafe impl<'d> Send for AdcDriver<'d> {}
+
+    impl<'d> embedded_io::ErrorType for AdcDriver<'d> {
+        type Error = EspIOError;
+    }
+
+    impl<'d> embedded_io::Read for AdcDriver<'d> {
+        fn read(&mut self, buf: &mut [u8]) -> Result<usize, Self::Error> {
+            self.read_bytes(buf, delay::BLOCK).map_err(EspIOError)
+        }
+    }
+
+    #[cfg(feature = "nightly")]
+    #[cfg(not(esp_idf_adc_continuous_isr_iram_safe))]
+    impl<'d> embedded_io_async::Read for AdcDriver<'d> {
+        async fn read(&mut self, buf: &mut [u8]) -> Result<usize, Self::Error> {
+            self.read_bytes_async(buf).await.map_err(EspIOError)
+        }
+    }
 
     #[cfg(not(esp_idf_adc_continuous_isr_iram_safe))]
     #[cfg(any(esp32c2, esp32h2, esp32c5, esp32c6, esp32p4))] // TODO: Check for esp32c5 and esp32p4

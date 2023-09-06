@@ -8,7 +8,7 @@
 
 ## Highlights
 
-* Implements the traits of [embedded-hal](https://github.com/rust-embedded/embedded-hal) `V0.2` as well as those of `V1.0.alpha`
+* Implements the traits of [embedded-hal](https://github.com/rust-embedded/embedded-hal) `V0.2` as well as those of `V1.0` - both blocking and async
 * Supports almost all ESP IDF drivers: GPIO, SPI, I2C, TIMER, PWM, I2S, UART, etc.
 * Blocking and `async` mode for each driver (`async` support in progress)
 * Re-exports `esp-idf-sys` as `esp_idf_hal::sys`

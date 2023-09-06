@@ -1,4 +1,4 @@
-use esp_idf_hal::sys::{self as _, EspError, TaskHandle_t}; // If using the `binstart` feature of `esp-idf-sys`, always keep this module imported
+use esp_idf_hal::sys::{EspError, TaskHandle_t}; // If using the `binstart` feature of `esp-idf-sys`, always keep this module imported
 
 fn main() -> Result<(), EspError> {
     // It is necessary to call this function once. Otherwise some patches to the runtime
