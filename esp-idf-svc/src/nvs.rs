@@ -20,6 +20,7 @@ static NONDEFAULT_LOCKED: mutex::Mutex<alloc::collections::BTreeSet<CString>> =
 
 pub type EspDefaultNvsPartition = EspNvsPartition<NvsDefault>;
 pub type EspCustomNvsPartition = EspNvsPartition<NvsCustom>;
+pub type EspCustomEncNvsPartition = EspNvsPartition<NvsCustomEnc>;
 
 pub trait NvsPartitionId {
     fn is_default(&self) -> bool {
@@ -130,7 +131,106 @@ impl NvsPartitionId for NvsCustom {
         self.0.as_c_str()
     }
 }
+pub struct NvsCustomEnc(CString);
 
+impl NvsCustomEnc {
+    fn new(partition: &str) -> Result<Self, EspError> {
+        let mut registrations = NONDEFAULT_LOCKED.lock();
+
+        Self::init(partition, &mut registrations)
+    }
+
+    fn init(
+        partition: &str,
+        registrations: &mut alloc::collections::BTreeSet<CString>,
+    ) -> Result<Self, EspError> {
+        let c_partition = to_cstring_arg(partition)?;
+
+        if registrations.contains(c_partition.as_ref()) {
+            return Err(EspError::from_infallible::<ESP_ERR_INVALID_STATE>());
+        }
+
+        unsafe {
+            // First find the keys partition, if any.
+            let keys_partition_ptr = esp_partition_find_first(
+                esp_partition_type_t_ESP_PARTITION_TYPE_DATA,
+                esp_partition_subtype_t_ESP_PARTITION_SUBTYPE_DATA_NVS_KEYS,
+                ptr::null(),
+            );
+            if keys_partition_ptr.is_null() {
+                warn!("No keys partition found...");
+                return Err(EspError::from(ESP_FAIL).unwrap());
+            }
+
+            let esp_partition_ptr = esp_partition_find_first(
+                esp_partition_type_t_ESP_PARTITION_TYPE_ANY,
+                esp_partition_subtype_t_ESP_PARTITION_SUBTYPE_ANY,
+                c_partition.as_ptr(),
+            );
+
+            if esp_partition_ptr.is_null() {
+                warn!("Could not find partition...");
+                return Err(EspError::from(ESP_FAIL).unwrap());
+            }
+
+            let mut config = nvs_sec_cfg_t::default();
+            if let Some(err) = EspError::from(nvs_flash_read_security_cfg(
+                keys_partition_ptr,
+                &mut config as *mut _,
+            )) {
+                match err.code() {
+                    ESP_ERR_INVALID_ARG => {
+                        warn!("Invalid partition provided");
+                        return Err(err);
+                    }
+                    ESP_ERR_NVS_KEYS_NOT_INITIALIZED | ESP_ERR_NVS_CORRUPT_KEY_PART => {
+                        warn!("Not initialized");
+                        info!("Generating keys");
+                        if let Some(err_flash_keys) = EspError::from(nvs_flash_generate_keys(
+                            keys_partition_ptr,
+                            &mut config as *mut _,
+                        )) {
+                            warn!("Error during nvs_flash_generate_keys: {}", err_flash_keys);
+                            return Err(err_flash_keys);
+                        }
+                    }
+                    ESP_OK => info!("Retrieved config: {:?}", config),
+                    _ => warn!("Received other error: {}", err.code()),
+                }
+            }
+
+            if let Some(err) = EspError::from(nvs_flash_secure_init_partition(
+                c_partition.as_ptr(),
+                &mut config as *mut _,
+            )) {
+                warn!("Err from initializing: {}", err);
+            }
+        }
+
+        registrations.insert(c_partition.clone());
+
+        Ok(Self(c_partition))
+    }
+}
+// These functions are copied from NvsCustom, maybe there's a way to write this in a shorter way?
+impl Drop for NvsCustomEnc {
+    fn drop(&mut self) {
+        {
+            let mut registrations = NONDEFAULT_LOCKED.lock();
+
+            esp!(unsafe { nvs_flash_deinit_partition(self.0.as_ptr()) }).unwrap();
+            registrations.remove(self.0.as_ref());
+        }
+
+        info!("NvsCustomEnc dropped");
+    }
+}
+
+impl NvsPartitionId for NvsCustomEnc {
+    fn name(&self) -> &CStr {
+        self.0.as_c_str()
+    }
+}
 #[derive(Debug)]
 pub struct EspNvsPartition<T: NvsPartitionId>(Arc<T>);
 
@@ -143,6 +243,11 @@ impl EspNvsPartition<NvsDefault> {
 impl EspNvsPartition<NvsCustom> {
     pub fn take(partition: &str) -> Result<Self, EspError> {
         Ok(Self(Arc::new(NvsCustom::new(partition)?)))
+    }
+}
+impl EspNvsPartition<NvsCustomEnc> {
+    pub fn take(partition: &str) -> Result<Self, EspError> {
+        Ok(Self(Arc::new(NvsCustomEnc::new(partition)?)))
     }
 }
 
@@ -162,9 +267,17 @@ impl RawHandle for EspNvsPartition<NvsCustom> {
         self.0.name().as_ptr() as *const _
     }
 }
+impl RawHandle for EspNvsPartition<NvsCustomEnc> {
+    type Handle = *const u8;
+
+    fn handle(&self) -> Self::Handle {
+        self.0.name().as_ptr() as *const _
+    }
+}
 
 pub type EspDefaultNvs = EspNvs<NvsDefault>;
 pub type EspCustomNvs = EspNvs<NvsCustom>;
+pub type EspCustomEncNvs = EspNvs<NvsCustomEnc>;
 
 pub struct EspNvs<T: NvsPartitionId>(EspNvsPartition<T>, nvs_handle_t);
 
@@ -678,6 +791,13 @@ impl<T: NvsPartitionId> Drop for EspNvs<T> {
 unsafe impl<T: NvsPartitionId> Send for EspNvs<T> {}
 
 impl RawHandle for EspNvs<NvsCustom> {
+    type Handle = nvs_handle_t;
+
+    fn handle(&self) -> Self::Handle {
+        self.1
+    }
+}
+impl RawHandle for EspNvs<NvsCustomEnc> {
     type Handle = nvs_handle_t;
 
     fn handle(&self) -> Self::Handle {
