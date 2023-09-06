@@ -1221,11 +1221,13 @@ impl<T: Pin, MODE: InputMode> PinDriver<'_, T, MODE> {
         match interrupt_type {
             InterruptType::LowLevel => {
                 if self.is_low() {
+                    notif.clear();
                     return Ok(());
                 }
             }
             InterruptType::HighLevel => {
                 if self.is_high() {
+                    notif.clear();
                     return Ok(());
                 }
             }
