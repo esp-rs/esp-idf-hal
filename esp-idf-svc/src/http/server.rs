@@ -506,7 +506,7 @@ impl<'a> EspHttpRequest<'a> {
     pub fn read(&mut self, buf: &mut [u8]) -> Result<usize, EspError> {
         if !buf.is_empty() {
             let fd = unsafe { httpd_req_to_sockfd(self.0) };
-            let len = unsafe { crate::sys::read(fd, buf.as_ptr() as *mut _, buf.len()) };
+            let len = unsafe { crate::sys::read(fd, buf.as_mut_ptr() as *mut _, buf.len()) };
 
             Ok(len as _)
         } else {
