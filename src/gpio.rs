@@ -1196,10 +1196,10 @@ impl<'d, T: Pin, MODE> PinDriver<'d, T, MODE> {
 
 #[cfg(not(feature = "riscv-ulp-hal"))]
 impl<T: Pin, MODE: InputMode> PinDriver<'_, T, MODE> {
-    async fn wait_for(
+    pub async fn wait_for(
         &mut self,
         interrupt_type: InterruptType,
-        detect_earlier_edge: bool,
+        honor_already_triggered: bool,
     ) -> Result<(), EspError> {
         use core::sync::atomic::Ordering;
 
@@ -1214,24 +1214,22 @@ impl<T: Pin, MODE: InputMode> PinDriver<'_, T, MODE> {
 
         let notif = &chip::PIN_NOTIF[self.pin.pin() as usize];
 
+        if !honor_already_triggered {
+            notif.clear();
+        }
+
         match interrupt_type {
             InterruptType::LowLevel => {
-                notif.clear();
                 if self.is_low() {
                     return Ok(());
                 }
             }
             InterruptType::HighLevel => {
-                notif.clear();
                 if self.is_high() {
                     return Ok(());
                 }
             }
-            _ => {
-                if !detect_earlier_edge {
-                    notif.clear();
-                }
-            }
+            _ => (),
         }
 
         notif.wait().await;
@@ -1239,32 +1237,37 @@ impl<T: Pin, MODE: InputMode> PinDriver<'_, T, MODE> {
         Ok(())
     }
 
-    pub async fn wait_for_high(&mut self) -> Result<(), EspError> {
-        self.wait_for(InterruptType::HighLevel, false).await
+    pub async fn wait_for_high(&mut self, honor_already_triggered: bool) -> Result<(), EspError> {
+        self.wait_for(InterruptType::HighLevel, honor_already_triggered)
+            .await
     }
 
-    pub async fn wait_for_low(&mut self) -> Result<(), EspError> {
-        self.wait_for(InterruptType::LowLevel, false).await
+    pub async fn wait_for_low(&mut self, honor_already_triggered: bool) -> Result<(), EspError> {
+        self.wait_for(InterruptType::LowLevel, honor_already_triggered)
+            .await
     }
 
     pub async fn wait_for_rising_edge(
         &mut self,
-        detect_earlier_edge: bool,
+        honor_already_triggered: bool,
     ) -> Result<(), EspError> {
-        self.wait_for(InterruptType::PosEdge, detect_earlier_edge)
+        self.wait_for(InterruptType::PosEdge, honor_already_triggered)
             .await
     }
 
     pub async fn wait_for_falling_edge(
         &mut self,
-        detect_earlier_edge: bool,
+        honor_already_triggered: bool,
     ) -> Result<(), EspError> {
-        self.wait_for(InterruptType::NegEdge, detect_earlier_edge)
+        self.wait_for(InterruptType::NegEdge, honor_already_triggered)
             .await
     }
 
-    pub async fn wait_for_any_edge(&mut self, detect_earlier_edge: bool) -> Result<(), EspError> {
-        self.wait_for(InterruptType::AnyEdge, detect_earlier_edge)
+    pub async fn wait_for_any_edge(
+        &mut self,
+        honor_already_triggered: bool,
+    ) -> Result<(), EspError> {
+        self.wait_for(InterruptType::AnyEdge, honor_already_triggered)
             .await
     }
 }
@@ -1398,13 +1401,13 @@ where
 #[cfg(all(not(feature = "riscv-ulp-hal"), feature = "nightly"))]
 impl<T: Pin, MODE: InputMode> embedded_hal_async::digital::Wait for PinDriver<'_, T, MODE> {
     async fn wait_for_high(&mut self) -> Result<(), GpioError> {
-        self.wait_for_high().await?;
+        self.wait_for_high(false).await?;
 
         Ok(())
     }
 
     async fn wait_for_low(&mut self) -> Result<(), GpioError> {
-        self.wait_for_low().await?;
+        self.wait_for_low(false).await?;
 
         Ok(())
     }
