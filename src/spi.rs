@@ -42,7 +42,7 @@ use core::marker::PhantomData;
 use core::{ptr, u8};
 
 use embassy_sync::mutex::Mutex;
-use embedded_hal::spi::{Operation, SpiBus, SpiDevice};
+use embedded_hal::spi::{SpiBus, SpiDevice};
 
 use esp_idf_sys::*;
 use heapless::Deque;
@@ -55,6 +55,8 @@ use crate::private::completion::with_completion;
 use crate::private::notification::Notification;
 use crate::task::embassy_sync::EspRawMutex;
 use crate::task::CriticalSection;
+
+pub use embedded_hal::spi::Operation;
 
 crate::embedded_hal_error!(
     SpiError,
