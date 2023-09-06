@@ -17,12 +17,8 @@ use alloc::vec::Vec;
 use ::log::{info, warn};
 
 use embedded_svc::http::headers::content_type;
-use embedded_svc::http::server::{
-    Connection, FnHandler, Handler, HandlerError, HandlerResult, Request,
-};
 use embedded_svc::http::*;
 use embedded_svc::io::{ErrorType, Read, Write};
-use embedded_svc::utils::http::server::registration::{ChainHandler, ChainRoot};
 
 use crate::sys::*;
 
@@ -36,6 +32,14 @@ use crate::private::cstr::{CStr, CString};
 use crate::private::mutex::{Mutex, RawMutex};
 #[cfg(esp_idf_esp_https_server_enable)]
 use crate::tls::X509;
+
+pub use embedded_svc::http::server::{
+    CompositeHandler, Connection, FnHandler, Handler, HandlerError, HandlerResult, Middleware,
+    Request, Response,
+};
+pub use embedded_svc::utils::http::server::registration::*;
+
+pub use super::*;
 
 #[derive(Copy, Clone, Debug)]
 pub struct Configuration {
@@ -498,6 +502,40 @@ where
 
 pub struct EspHttpRequest<'a>(&'a mut httpd_req_t);
 
+impl<'a> EspHttpRequest<'a> {
+    pub fn read(&mut self, buf: &mut [u8]) -> Result<usize, EspError> {
+        if !buf.is_empty() {
+            let fd = unsafe { httpd_req_to_sockfd(self.0) };
+            let len = unsafe { crate::sys::read(fd, buf.as_ptr() as *mut _, buf.len()) };
+
+            Ok(len as _)
+        } else {
+            Ok(0)
+        }
+    }
+
+    pub fn write(&mut self, buf: &[u8]) -> Result<usize, EspError> {
+        if !buf.is_empty() {
+            let fd = unsafe { httpd_req_to_sockfd(self.0) };
+            let len = unsafe { crate::sys::write(fd, buf.as_ptr() as *const _, buf.len()) };
+
+            Ok(len as _)
+        } else {
+            Ok(0)
+        }
+    }
+
+    pub fn write_all(&mut self, data: &[u8]) -> Result<(), EspError> {
+        let mut offset = 0;
+
+        while offset < data.len() {
+            offset += self.write(&data[offset..])?;
+        }
+
+        Ok(())
+    }
+}
+
 impl<'a> RawHandle for EspHttpRequest<'a> {
     type Handle = *mut httpd_req_t;
 
@@ -512,27 +550,13 @@ impl<'a> ErrorType for EspHttpRequest<'a> {
 
 impl<'a> Read for EspHttpRequest<'a> {
     fn read(&mut self, buf: &mut [u8]) -> Result<usize, Self::Error> {
-        if !buf.is_empty() {
-            let fd = unsafe { httpd_req_to_sockfd(self.0) };
-            let len = unsafe { crate::sys::read(fd, buf.as_ptr() as *mut _, buf.len()) };
-
-            Ok(len as _)
-        } else {
-            Ok(0)
-        }
+        EspHttpRequest::read(self, buf).map_err(EspIOError)
     }
 }
 
 impl<'a> Write for EspHttpRequest<'a> {
     fn write(&mut self, buf: &[u8]) -> Result<usize, Self::Error> {
-        if !buf.is_empty() {
-            let fd = unsafe { httpd_req_to_sockfd(self.0) };
-            let len = unsafe { crate::sys::write(fd, buf.as_ptr() as *const _, buf.len()) };
-
-            Ok(len as _)
-        } else {
-            Ok(0)
-        }
+        EspHttpRequest::write(self, buf).map_err(EspIOError)
     }
 
     fn flush(&mut self) -> Result<(), Self::Error> {
@@ -720,8 +744,8 @@ impl<'a> EspHttpConnection<'a> {
         Ok(buf.len())
     }
 
-    pub fn flush(&mut self) -> Result<(), EspError> {
-        self.assert_response();
+    pub fn write_all(&mut self, buf: &[u8]) -> Result<(), EspError> {
+        self.write(buf)?;
 
         Ok(())
     }
@@ -779,15 +803,11 @@ impl<'a> EspHttpConnection<'a> {
         }
     }
 
-    fn render_error<E>(
-        &mut self,
-        error: E,
-    ) -> Result<(), embedded_svc::io::WriteAllError<EspIOError>>
+    fn render_error<E>(&mut self, error: E) -> Result<(), EspError>
     where
         E: Display,
     {
-        self.initiate_response(500, Some("Internal Error"), &[content_type("text/html")])
-            .map_err(|e| embedded_svc::io::WriteAllError::Other(EspIOError(e)))?;
+        self.initiate_response(500, Some("Internal Error"), &[content_type("text/html")])?;
 
         self.write_all(
             format!(
@@ -839,7 +859,7 @@ impl<'a> Query for EspHttpConnection<'a> {
     }
 }
 
-impl<'a> Headers for EspHttpConnection<'a> {
+impl<'a> embedded_svc::http::Headers for EspHttpConnection<'a> {
     fn header(&self, name: &str) -> Option<&str> {
         EspHttpConnection::header(self, name)
     }
@@ -861,7 +881,9 @@ impl<'a> Write for EspHttpConnection<'a> {
     }
 
     fn flush(&mut self) -> Result<(), Self::Error> {
-        EspHttpConnection::flush(self).map_err(EspIOError)
+        self.assert_response();
+
+        Ok(())
     }
 }
 

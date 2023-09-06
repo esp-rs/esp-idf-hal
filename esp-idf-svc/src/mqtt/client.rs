@@ -8,8 +8,7 @@ extern crate alloc;
 use alloc::boxed::Box;
 use alloc::sync::Arc;
 
-use embedded_svc::mqtt::client::{self, ErrorType, MessageImpl};
-use embedded_svc::utils::mqtt::client::{ConnState, ConnStateGuard, Connection, Postbox};
+use embedded_svc::mqtt::client::{self, ErrorType};
 
 use crate::sys::*;
 
@@ -21,7 +20,12 @@ pub use asyncify::*;
 use crate::private::cstr::*;
 use crate::tls::*;
 
-pub use client::{Details, MessageId};
+pub use client::{
+    Details, Event, InitialChunkData, Message, MessageId, MessageImpl, QoS, SubsequentChunkData,
+};
+pub use embedded_svc::utils::mqtt::client::{ConnState, ConnStateGuard, Connection, Postbox};
+
+pub use super::*;
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub enum MqttProtocolVersion {

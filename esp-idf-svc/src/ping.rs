@@ -3,13 +3,14 @@ use core::{ffi, mem, ptr, time::Duration};
 
 use ::log::*;
 
-use embedded_svc::ipv4;
-use embedded_svc::ping::*;
+use embedded_svc::ping::Ping;
 
-use crate::sys::*;
-
+use crate::ipv4;
 use crate::private::common::*;
 use crate::private::waitable::*;
+use crate::sys::*;
+
+pub use embedded_svc::ping::{Configuration, Info, Reply, Summary};
 
 #[derive(Debug, Default)]
 pub struct EspPing(u32);

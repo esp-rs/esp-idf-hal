@@ -59,6 +59,7 @@ pub mod handle;
 #[cfg(feature = "alloc")]
 pub mod http;
 pub mod io;
+pub mod ipv4;
 #[cfg(feature = "alloc")]
 pub mod log;
 #[cfg(all(

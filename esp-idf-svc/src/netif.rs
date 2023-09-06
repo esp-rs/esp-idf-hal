@@ -11,8 +11,7 @@
 use core::convert::TryInto;
 use core::{ffi, ptr};
 
-use embedded_svc::ipv4;
-
+use crate::ipv4;
 use crate::sys::*;
 
 use ::log::info;

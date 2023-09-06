@@ -13,7 +13,7 @@ use ::log::*;
 
 use enumset::*;
 
-use embedded_svc::wifi::*;
+use embedded_svc::wifi::Wifi;
 
 use crate::hal::modem::WifiModemPeripheral;
 use crate::hal::peripheral::Peripheral;
@@ -34,6 +34,11 @@ use crate::private::cstr::*;
 use crate::private::mutex;
 #[cfg(all(feature = "alloc", esp_idf_comp_esp_timer_enabled))]
 use crate::timer::EspTaskTimerService;
+
+pub use embedded_svc::wifi::{
+    AccessPointConfiguration, AccessPointInfo, AuthMethod, Capability, ClientConfiguration,
+    Configuration, Protocol, SecondaryChannel,
+};
 
 pub mod config {
     use core::time::Duration;

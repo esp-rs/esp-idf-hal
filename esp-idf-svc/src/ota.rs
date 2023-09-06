@@ -11,10 +11,11 @@ use core::mem;
 use core::ptr;
 
 use ::log::*;
-use embedded_svc::ota::Slot;
 
 use embedded_svc::io;
-use embedded_svc::ota;
+use embedded_svc::ota::{FirmwareInfoLoader, Ota, OtaUpdate};
+
+pub use embedded_svc::ota::{FirmwareInfo, LoadResult, Slot, SlotState, UpdateProgress};
 
 use crate::sys::*;
 
@@ -23,7 +24,7 @@ use crate::private::{common::*, cstr::*, mutex};
 
 static TAKEN: mutex::Mutex<bool> = mutex::Mutex::wrap(mutex::RawMutex::new(), false);
 
-impl From<Newtype<&esp_app_desc_t>> for ota::FirmwareInfo {
+impl From<Newtype<&esp_app_desc_t>> for FirmwareInfo {
     fn from(app_desc: Newtype<&esp_app_desc_t>) -> Self {
         let app_desc = app_desc.0;
 
@@ -65,8 +66,8 @@ impl io::ErrorType for EspFirmwareInfoLoader {
     type Error = EspIOError;
 }
 
-impl ota::FirmwareInfoLoader for EspFirmwareInfoLoader {
-    fn load(&mut self, buf: &[u8]) -> Result<ota::LoadResult, Self::Error> {
+impl FirmwareInfoLoader for EspFirmwareInfoLoader {
+    fn load(&mut self, buf: &[u8]) -> Result<LoadResult, Self::Error> {
         if !self.is_loaded() {
             let remaining = self.0.capacity() - self.0.len();
             if remaining > 0 {
@@ -77,9 +78,9 @@ impl ota::FirmwareInfoLoader for EspFirmwareInfoLoader {
         }
 
         Ok(if self.is_loaded() {
-            ota::LoadResult::Loaded
+            LoadResult::Loaded
         } else {
-            ota::LoadResult::LoadMore
+            LoadResult::LoadMore
         })
     }
 
@@ -90,7 +91,7 @@ impl ota::FirmwareInfoLoader for EspFirmwareInfoLoader {
                 + mem::size_of::<esp_app_desc_t>()
     }
 
-    fn get_info(&self) -> Result<ota::FirmwareInfo, Self::Error> {
+    fn get_info(&self) -> Result<FirmwareInfo, Self::Error> {
         if self.is_loaded() {
             let app_desc_slice = &self.0[mem::size_of::<esp_image_header_t>()
                 + mem::size_of::<esp_image_segment_header_t>()
@@ -118,12 +119,14 @@ pub struct EspOtaUpdate<'a> {
 }
 
 impl<'a> EspOtaUpdate<'a> {
-    pub fn write(&mut self, buf: &[u8]) -> Result<usize, EspError> {
+    pub fn write(&mut self, buf: &[u8]) -> Result<(), EspError> {
         self.check_write()?;
 
-        esp!(unsafe { esp_ota_write(self.update_handle, buf.as_ptr() as _, buf.len() as _) })?;
+        if !buf.is_empty() {
+            esp!(unsafe { esp_ota_write(self.update_handle, buf.as_ptr() as _, buf.len() as _) })?;
+        }
 
-        Ok(buf.len())
+        Ok(())
     }
 
     pub fn flush(&mut self) -> Result<(), EspError> {
@@ -274,28 +277,28 @@ impl EspOta {
         })
     }
 
-    fn get_state(&self, partition: &esp_partition_t) -> Result<ota::SlotState, EspError> {
+    fn get_state(&self, partition: &esp_partition_t) -> Result<SlotState, EspError> {
         let mut state: esp_ota_img_states_t = Default::default();
 
         let err =
             unsafe { esp_ota_get_state_partition(partition as *const _, &mut state as *mut _) };
 
         Ok(if err == ESP_ERR_NOT_FOUND {
-            ota::SlotState::Unknown
+            SlotState::Unknown
         } else if err == ESP_ERR_NOT_SUPPORTED {
-            ota::SlotState::Factory
+            SlotState::Factory
         } else {
             esp!(err)?;
 
             #[allow(non_upper_case_globals)]
             match state {
                 esp_ota_img_states_t_ESP_OTA_IMG_NEW
-                | esp_ota_img_states_t_ESP_OTA_IMG_PENDING_VERIFY => ota::SlotState::Unverified,
-                esp_ota_img_states_t_ESP_OTA_IMG_VALID => ota::SlotState::Valid,
+                | esp_ota_img_states_t_ESP_OTA_IMG_PENDING_VERIFY => SlotState::Unverified,
+                esp_ota_img_states_t_ESP_OTA_IMG_VALID => SlotState::Valid,
                 esp_ota_img_states_t_ESP_OTA_IMG_INVALID
-                | esp_ota_img_states_t_ESP_OTA_IMG_ABORTED => ota::SlotState::Invalid,
-                esp_ota_img_states_t_ESP_OTA_IMG_UNDEFINED => ota::SlotState::Unknown,
-                _ => ota::SlotState::Unknown,
+                | esp_ota_img_states_t_ESP_OTA_IMG_ABORTED => SlotState::Invalid,
+                esp_ota_img_states_t_ESP_OTA_IMG_UNDEFINED => SlotState::Unknown,
+                _ => SlotState::Unknown,
             }
         })
     }
@@ -303,7 +306,7 @@ impl EspOta {
     fn get_firmware_info(
         &self,
         partition: &esp_partition_t,
-    ) -> Result<Option<ota::FirmwareInfo>, EspError> {
+    ) -> Result<Option<FirmwareInfo>, EspError> {
         let mut app_desc: esp_app_desc_t = Default::default();
 
         let err =
@@ -331,7 +334,7 @@ impl io::ErrorType for EspOta {
     type Error = EspIOError;
 }
 
-impl ota::Ota for EspOta {
+impl Ota for EspOta {
     type Update<'a> = EspOtaUpdate<'a> where Self: 'a;
 
     fn get_boot_slot(&self) -> Result<Slot, Self::Error> {
@@ -373,7 +376,7 @@ impl<'a> io::ErrorType for EspOtaUpdate<'a> {
     type Error = EspIOError;
 }
 
-impl<'a> ota::OtaUpdate for EspOtaUpdate<'a> {
+impl<'a> OtaUpdate for EspOtaUpdate<'a> {
     fn complete(&mut self) -> Result<(), Self::Error> {
         EspOtaUpdate::complete(self)?;
 
@@ -389,9 +392,9 @@ impl<'a> ota::OtaUpdate for EspOtaUpdate<'a> {
 
 impl<'a> io::Write for EspOtaUpdate<'a> {
     fn write(&mut self, buf: &[u8]) -> Result<usize, Self::Error> {
-        let size = EspOtaUpdate::write(self, buf)?;
+        EspOtaUpdate::write(self, buf)?;
 
-        Ok(size)
+        Ok(buf.len())
     }
 
     fn flush(&mut self) -> Result<(), Self::Error> {

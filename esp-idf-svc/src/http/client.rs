@@ -16,7 +16,6 @@ use alloc::string::ToString;
 use ::log::*;
 
 use embedded_svc::http::client::*;
-use embedded_svc::http::*;
 use embedded_svc::io::{ErrorType, Read, Write};
 
 use crate::sys::*;
@@ -28,6 +27,10 @@ use crate::io::EspIOError;
 use crate::private::common::Newtype;
 use crate::private::cstr::*;
 use crate::tls::X509;
+
+pub use embedded_svc::http::client::{Connection, Request, Response};
+
+pub use super::*;
 
 impl From<Method> for Newtype<(esp_http_client_method_t, ())> {
     fn from(method: Method) -> Self {
@@ -313,8 +316,12 @@ impl EspHttpConnection {
         })
     }
 
-    pub fn flush(&mut self) -> Result<(), EspError> {
-        self.assert_request();
+    pub fn write_all(&mut self, data: &[u8]) -> Result<(), EspError> {
+        let mut offset = 0;
+
+        while offset < data.len() {
+            offset += self.write(&data[offset..])?;
+        }
 
         Ok(())
     }
@@ -462,7 +469,7 @@ impl Status for EspHttpConnection {
     }
 }
 
-impl Headers for EspHttpConnection {
+impl embedded_svc::http::Headers for EspHttpConnection {
     fn header(&self, name: &str) -> Option<&str> {
         EspHttpConnection::header(self, name)
     }
@@ -488,7 +495,9 @@ impl Write for EspHttpConnection {
     }
 
     fn flush(&mut self) -> Result<(), Self::Error> {
-        EspHttpConnection::flush(self).map_err(EspIOError)
+        self.assert_request();
+
+        Ok(())
     }
 }
 

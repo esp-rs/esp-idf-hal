@@ -1,5 +1,7 @@
 //! WebSocket protocol
 
+pub use embedded_svc::ws::{Final, Fragmented, FrameType};
+
 #[cfg(all(
     feature = "alloc",
     esp_idf_comp_tcp_transport_enabled,
