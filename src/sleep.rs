@@ -6,10 +6,10 @@
 //! code.
 //!
 //! Deep sleep is similar to light sleep, but the CPU is also powered down. Only RTC and
-//! possibly ULP co processor is running. When woking up, the CPU does not keep its state,
+//! possibly ULP coprocessor is running. When woking up, the CPU does not keep its state,
 //! and the program starts from the beginning.
 //!
-//! When enter either light or deep sleep, one or more wakeup sources must be enabled.
+//! When entering either light or deep sleep, one or more wakeup sources must be enabled.
 //! In this driver, the various wakeup sources are defined as different structs, which
 //! can be added to a light or deep sleep struct. This struct can then be used to perform
 //! a sleep operation with the given wakeup sources.
@@ -37,11 +37,11 @@ pub struct TimerWakeup {
 }
 
 impl TimerWakeup {
-    pub fn new(duration: Duration) -> Self {
+    pub const fn new(duration: Duration) -> Self {
         Self { duration }
     }
 
-    pub fn apply(&self) -> Result<(), EspError> {
+    fn apply(&self) -> Result<(), EspError> {
         esp!(unsafe { esp_sleep_enable_timer_wakeup(self.duration.as_micros() as u64) })?;
         Ok(())
     }
@@ -59,7 +59,7 @@ pub struct RtcWakeup<'a> {
 
 #[cfg(any(esp32, esp32s2, esp32s3))]
 impl<'a> RtcWakeup<'a> {
-    pub fn new(pins: &'a [RtcWakeupPin], wake_level: RtcWakeLevel) -> Self {
+    pub const fn new(pins: &'a [RtcWakeupPin], wake_level: RtcWakeLevel) -> Self {
         Self { pins, wake_level }
     }
 }
@@ -74,7 +74,7 @@ impl<'a> RtcWakeup<'a> {
         m
     }
 
-    pub fn apply(&self) -> Result<(), EspError> {
+    fn apply(&self) -> Result<(), EspError> {
         #[cfg(any(esp32, esp32s3))]
         for pin in self.pins {
             if pin.pullup || pin.pulldown {
@@ -121,7 +121,7 @@ impl<'a> fmt::Debug for RtcWakeup<'a> {
 }
 
 #[cfg(any(esp32, esp32s2, esp32s3))]
-#[derive(Debug)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum RtcWakeLevel {
     AllLow,
     AnyHigh,
@@ -146,7 +146,7 @@ pub struct RtcWakeupPin {
 
 #[cfg(any(esp32, esp32s2, esp32s3))]
 impl RtcWakeupPin {
-    pub fn new(pin: AnyInputPin, pullup: bool, pulldown: bool) -> Self {
+    pub const fn new(pin: AnyInputPin, pullup: bool, pulldown: bool) -> Self {
         Self {
             pin,
             pullup,
@@ -177,13 +177,13 @@ pub struct GpioWakeup<'a> {
 }
 
 impl<'a> GpioWakeup<'a> {
-    pub fn new(pins: &'a [GpioWakeupPin<'a>]) -> Self {
+    pub const fn new(pins: &'a [GpioWakeupPin<'a>]) -> Self {
         Self { pins }
     }
 }
 
 impl<'a> GpioWakeup<'a> {
-    pub fn apply(&self) -> Result<(), EspError> {
+    fn apply(&self) -> Result<(), EspError> {
         for pin in self.pins.iter() {
             let intr_level = match pin.wake_level {
                 Level::Low => gpio_int_type_t_GPIO_INTR_LOW_LEVEL,
@@ -202,7 +202,7 @@ pub struct GpioWakeupPin<'a> {
 }
 
 impl<'a> GpioWakeupPin<'a> {
-    pub fn new(
+    pub const fn new(
         pin: PinDriver<'a, AnyInputPin, Input>,
         wake_level: Level,
     ) -> Result<Self, EspError> {
@@ -229,11 +229,11 @@ pub struct UartWakeup<'a> {
 }
 
 impl<'a> UartWakeup<'a> {
-    pub fn new(uart: &'a UartDriver<'a>, threshold: i32) -> Self {
+    pub const fn new(uart: &'a UartDriver<'a>, threshold: i32) -> Self {
         Self { uart, threshold }
     }
 
-    pub fn apply(&self) -> Result<(), EspError> {
+    fn apply(&self) -> Result<(), EspError> {
         esp!(unsafe { uart_set_wakeup_threshold(self.uart.port(), self.threshold) })?;
         esp!(unsafe { esp_sleep_enable_uart_wakeup(self.uart.port()) })?;
         Ok(())
@@ -249,11 +249,11 @@ impl<'a> fmt::Debug for UartWakeup<'a> {
 /// Will wake up the CPU when a touchpad is touched.
 #[cfg(any(esp32, esp32s2, esp32s3))]
 #[derive(Debug)]
-pub struct TouchWakeup {}
+pub struct TouchWakeup;
 
 #[cfg(any(esp32, esp32s2, esp32s3))]
 impl TouchWakeup {
-    pub fn apply(&self) -> Result<(), EspError> {
+    fn apply(&self) -> Result<(), EspError> {
         esp!(unsafe { esp_sleep_enable_touchpad_wakeup() })?;
         Ok(())
     }
@@ -262,11 +262,11 @@ impl TouchWakeup {
 /// Will let the ULP co-processor wake up the CPU. Requires that the ULP is started.
 #[cfg(any(esp32, esp32s2, esp32s3))]
 #[derive(Debug)]
-pub struct UlpWakeup {}
+pub struct UlpWakeup;
 
 #[cfg(any(esp32, esp32s2, esp32s3))]
 impl UlpWakeup {
-    pub fn apply(&self) -> Result<(), EspError> {
+    fn apply(&self) -> Result<(), EspError> {
         esp!(unsafe { esp_sleep_enable_ulp_wakeup() })?;
         Ok(())
     }
