@@ -227,9 +227,16 @@ pub mod config {
     /// ```
     #[derive(Debug, Copy, Clone, Eq, PartialEq)]
     pub enum Filter {
-        // Filter for 11 bit standard CAN IDs
+        /// Filter for 11 bit standard CAN IDs
         Standard { filter: u16, mask: u16 },
-        // Filter for 29 bit extended CAN IDs
+        /// Filter for two 11 bit standard CAN IDs
+        Dual {
+            filter1: u16,
+            mask1: u16,
+            filter2: u16,
+            mask2: u16,
+        },
+        /// Filter for 29 bit extended CAN IDs
         Extended { filter: u32, mask: u32 },
     }
 
@@ -395,17 +402,27 @@ impl<'d> CanDriver<'d> {
         let timing_config = config.timing.into();
 
         // modify filter and mask to be compatible with TWAI acceptance filter
-        let (filter, mask) = match config.filter {
+        let (filter, mask, single_filter) = match config.filter {
             config::Filter::Standard { filter, mask } => {
-                ((filter as u32) << 21, !((mask as u32) << 21))
+                ((filter as u32) << 21, !((mask as u32) << 21), true)
             }
-            config::Filter::Extended { filter, mask } => (filter << 3, !(mask << 3)),
+            config::Filter::Extended { filter, mask } => (filter << 3, !(mask << 3), true),
+            config::Filter::Dual {
+                filter1,
+                mask1,
+                filter2,
+                mask2,
+            } => (
+                ((filter1 as u32) << 21) | ((filter2 as u32) << 5),
+                !(((mask1 as u32) << 21) | ((mask2 as u32) << 5)),
+                false,
+            ),
         };
 
         let filter_config = twai_filter_config_t {
             acceptance_code: filter,
             acceptance_mask: mask,
-            single_filter: true,
+            single_filter,
         };
 
         esp!(unsafe { twai_driver_install(&general_config, &timing_config, &filter_config) })?;
