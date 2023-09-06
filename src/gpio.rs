@@ -1228,7 +1228,7 @@ impl<T: Pin, MODE: InputMode> PinDriver<'_, T, MODE> {
                 }
             }
             _ => {
-                if detect_earlier_edge {
+                if !detect_earlier_edge {
                     notif.clear();
                 }
             }
