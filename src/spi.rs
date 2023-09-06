@@ -903,39 +903,6 @@ where
             .await
     }
 
-    pub fn transfer_transaction(
-        &mut self,
-        operations: &mut [(&mut [u8], &[u8])],
-    ) -> Result<(), EspError> {
-        self.run(
-            self.hardware_cs_ctl(
-                operations
-                    .iter_mut()
-                    .map(|(read_slice, write_slice)| Operation::Transfer(read_slice, write_slice)),
-            )?,
-            operations
-                .iter_mut()
-                .map(|(read_slice, write_slice)| Operation::Transfer(read_slice, write_slice)),
-        )
-    }
-
-    pub async fn transfer_transaction_async(
-        &mut self,
-        operations: &mut [(&mut [u8], &[u8])],
-    ) -> Result<(), EspError> {
-        self.run_async(
-            self.hardware_cs_ctl(
-                operations
-                    .iter_mut()
-                    .map(|(read_slice, write_slice)| Operation::Transfer(read_slice, write_slice)),
-            )?,
-            operations
-                .iter_mut()
-                .map(|(read_slice, write_slice)| Operation::Transfer(read_slice, write_slice)),
-        )
-        .await
-    }
-
     fn run<'a, 'c, 'p, P, M>(
         &mut self,
         mut cs_pin: CsCtl<'c, 'p, P, M>,
@@ -1505,29 +1472,6 @@ where
     pub async fn transfer_async(&mut self, read: &mut [u8], write: &[u8]) -> Result<(), EspError> {
         self.transaction_async(&mut [Operation::Transfer(read, write)])
             .await
-    }
-
-    pub fn transfer_transaction(
-        &mut self,
-        operations: &mut [(&mut [u8], &[u8])],
-    ) -> Result<(), EspError> {
-        self.run(
-            operations
-                .iter_mut()
-                .map(|(read_slice, write_slice)| Operation::Transfer(read_slice, write_slice)),
-        )
-    }
-
-    pub async fn transfer_transaction_async(
-        &mut self,
-        operations: &mut [(&mut [u8], &[u8])],
-    ) -> Result<(), EspError> {
-        self.run_async(
-            operations
-                .iter_mut()
-                .map(|(read_slice, write_slice)| Operation::Transfer(read_slice, write_slice)),
-        )
-        .await
     }
 
     fn run<'a>(
