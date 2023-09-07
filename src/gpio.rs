@@ -366,6 +366,12 @@ impl From<Level> for embedded_hal::digital::PinState {
     }
 }
 
+#[cfg(all(
+    not(feature = "riscv-ulp-hal"),
+    not(any(esp32c3, esp32c2, esp32h2, esp32c5))
+))]
+pub trait RTCMode {}
+
 pub trait InputMode {
     const RTC: bool;
 }
@@ -446,6 +452,30 @@ impl OutputMode for RtcOutput {
 impl OutputMode for RtcInputOutput {
     const RTC: bool = true;
 }
+
+#[cfg(all(
+    not(feature = "riscv-ulp-hal"),
+    not(any(esp32c3, esp32c2, esp32h2, esp32c5))
+))]
+impl RTCMode for RtcDisabled {}
+
+#[cfg(all(
+    not(feature = "riscv-ulp-hal"),
+    not(any(esp32c3, esp32c2, esp32h2, esp32c5))
+))]
+impl RTCMode for RtcInput {}
+
+#[cfg(all(
+    not(feature = "riscv-ulp-hal"),
+    not(any(esp32c3, esp32c2, esp32h2, esp32c5))
+))]
+impl RTCMode for RtcInputOutput {}
+
+#[cfg(all(
+    not(feature = "riscv-ulp-hal"),
+    not(any(esp32c3, esp32c2, esp32h2, esp32c5))
+))]
+impl RTCMode for RtcOutput {}
 
 /// A driver for a GPIO pin.
 ///
