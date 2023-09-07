@@ -361,12 +361,17 @@ impl<'a> DeepSleep<'a> {
         Ok(())
     }
 
+    // In esp idf version 5.x the esp_deep_sleep_start() function CAN return
+    // if deep sleep was rejected. So in order for this function to return !
+    // it needs to panic. This cause unreachable code for v4.4 and earlier,
+    // thus the warning is disabled.
+    #[allow(unreachable_code)] 
     pub fn sleep(&self) -> ! {
-        unsafe { esp_deep_sleep_start() };
-
-        // Ensure that funciton never returns for esp idf version 5.x
-        #[cfg(esp_idf_version_major = "5")]
-        panic!();
+        unsafe { esp_deep_sleep_start() }   
+        // Normally not reached, but if it is, then panic will restart the
+        // chip, which is similar to what would happen with a very short deep
+        // sleep. 
+        panic!("Failed to deep sleep, will panic instead");
     }
 
     pub fn prepare_and_sleep(&self) -> Result<(), EspError> {
