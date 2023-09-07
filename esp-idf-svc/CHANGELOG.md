@@ -14,8 +14,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * PSK support for `mqtt`
 * Dependencies `esp-idf-sys` and `esp-idf-hal` are now re-exported as `esp_idf_svc::sys` and `esp_idf_svc::hal`
 * Upgraded to `embedded-svc` 0.26
+* Breaking change: OTA: `EspOtaUpdate` now parametric over the lifetime of a mutable reference to `EspOta` and returned by value
 * Breaking change: Removed the deprecated module `httpd` and the dependency on `anyhow`
-* Breaking change: OTA: `EspOtaUpdate` now parametric over time and returned by value
+* Breaking change: HTTP server: `EspHttpRequest` renamed to `EspHttpRawConnection`
 
 ## [0.46.2] - 2023-07-30
 

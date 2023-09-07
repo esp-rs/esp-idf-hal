@@ -413,7 +413,7 @@ impl EspHttpServer {
         Box::new(move |raw_req| {
             let mut connection = EspHttpConnection::new(unsafe { raw_req.as_mut().unwrap() });
 
-            let mut result = EspHttpConnection::handle(&mut connection, &handler);
+            let mut result = connection.invoke(&handler);
 
             if result.is_ok() {
                 result = connection.complete();
@@ -500,9 +500,9 @@ where
     }
 }
 
-pub struct EspHttpRequest<'a>(&'a mut httpd_req_t);
+pub struct EspHttpRawConnection<'a>(&'a mut httpd_req_t);
 
-impl<'a> EspHttpRequest<'a> {
+impl<'a> EspHttpRawConnection<'a> {
     pub fn read(&mut self, buf: &mut [u8]) -> Result<usize, EspError> {
         if !buf.is_empty() {
             let fd = unsafe { httpd_req_to_sockfd(self.0) };
@@ -536,7 +536,7 @@ impl<'a> EspHttpRequest<'a> {
     }
 }
 
-impl<'a> RawHandle for EspHttpRequest<'a> {
+impl<'a> RawHandle for EspHttpRawConnection<'a> {
     type Handle = *mut httpd_req_t;
 
     fn handle(&self) -> Self::Handle {
@@ -544,19 +544,19 @@ impl<'a> RawHandle for EspHttpRequest<'a> {
     }
 }
 
-impl<'a> ErrorType for EspHttpRequest<'a> {
+impl<'a> ErrorType for EspHttpRawConnection<'a> {
     type Error = EspIOError;
 }
 
-impl<'a> Read for EspHttpRequest<'a> {
+impl<'a> Read for EspHttpRawConnection<'a> {
     fn read(&mut self, buf: &mut [u8]) -> Result<usize, Self::Error> {
-        EspHttpRequest::read(self, buf).map_err(EspIOError)
+        EspHttpRawConnection::read(self, buf).map_err(EspIOError)
     }
 }
 
-impl<'a> Write for EspHttpRequest<'a> {
+impl<'a> Write for EspHttpRawConnection<'a> {
     fn write(&mut self, buf: &[u8]) -> Result<usize, Self::Error> {
-        EspHttpRequest::write(self, buf).map_err(EspIOError)
+        EspHttpRawConnection::write(self, buf).map_err(EspIOError)
     }
 
     fn flush(&mut self) -> Result<(), Self::Error> {
@@ -567,7 +567,7 @@ impl<'a> Write for EspHttpRequest<'a> {
 type EspHttpHeaders = BTreeMap<Uncased<'static>, String>;
 
 pub struct EspHttpConnection<'a> {
-    request: EspHttpRequest<'a>,
+    request: EspHttpRawConnection<'a>,
     headers: Option<UnsafeCell<EspHttpHeaders>>,
     response_headers: Option<Vec<CString>>,
 }
@@ -575,7 +575,7 @@ pub struct EspHttpConnection<'a> {
 impl<'a> EspHttpConnection<'a> {
     fn new(raw_req: &'a mut httpd_req_t) -> Self {
         Self {
-            request: EspHttpRequest(raw_req),
+            request: EspHttpRawConnection(raw_req),
             headers: Some(UnsafeCell::new(EspHttpHeaders::new())),
             response_headers: None,
         }
@@ -655,11 +655,11 @@ impl<'a> EspHttpConnection<'a> {
         (headers, self)
     }
 
-    pub fn initiate_response<'b>(
-        &'b mut self,
+    pub fn initiate_response(
+        &mut self,
         status: u16,
-        message: Option<&'b str>,
-        headers: &'b [(&'b str, &'b str)],
+        message: Option<&str>,
+        headers: &[(&str, &str)],
     ) -> Result<(), EspError> {
         self.assert_request();
 
@@ -750,11 +750,11 @@ impl<'a> EspHttpConnection<'a> {
         Ok(())
     }
 
-    pub fn raw_connection(&mut self) -> Result<&mut EspHttpRequest<'a>, EspError> {
+    pub fn raw_connection(&mut self) -> Result<&mut EspHttpRawConnection<'a>, EspError> {
         Ok(&mut self.request)
     }
 
-    fn handle<'b, H>(&'b mut self, handler: &'b H) -> Result<(), HandlerError>
+    fn invoke<H>(&mut self, handler: &H) -> Result<(), HandlerError>
     where
         H: Handler<Self>,
     {
@@ -894,7 +894,7 @@ impl<'b> Connection for EspHttpConnection<'b> {
 
     type RawConnectionError = EspIOError;
 
-    type RawConnection = EspHttpRequest<'b>;
+    type RawConnection = EspHttpRawConnection<'b>;
 
     fn split(&mut self) -> (&Self::Headers, &mut Self::Read) {
         EspHttpConnection::split(self)
