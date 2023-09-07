@@ -2,7 +2,7 @@
 
 use core::fmt::{self, Display, Formatter};
 
-use embedded_io::{Error, ErrorKind};
+pub use embedded_io::*;
 
 use crate::sys::EspError;
 
@@ -29,3 +29,8 @@ impl Display for EspIOError {
 
 #[cfg(feature = "std")]
 impl std::error::Error for EspIOError {}
+
+#[cfg(feature = "nightly")]
+pub mod asynch {
+    pub use embedded_io_async::*;
+}
