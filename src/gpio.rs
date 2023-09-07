@@ -366,6 +366,8 @@ impl From<Level> for embedded_hal::digital::PinState {
     }
 }
 
+pub trait GPIOMode {}
+
 #[cfg(all(
     not(feature = "riscv-ulp-hal"),
     not(any(esp32c3, esp32c2, esp32h2, esp32c5))
@@ -420,6 +422,11 @@ impl OutputMode for Output {
 impl OutputMode for InputOutput {
     const RTC: bool = false;
 }
+
+impl GPIOMode for Disabled {}
+impl GPIOMode for Input {}
+impl GPIOMode for InputOutput {}
+impl GPIOMode for Output {}
 
 #[cfg(all(
     not(feature = "riscv-ulp-hal"),
