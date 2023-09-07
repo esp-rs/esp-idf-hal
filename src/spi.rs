@@ -815,45 +815,12 @@ where
         self.transaction_async(&mut [Operation::Read(read)]).await
     }
 
-    pub fn read_transaction(&mut self, operations: &mut [&mut [u8]]) -> Result<(), EspError> {
-        self.run(
-            self.hardware_cs_ctl(operations.iter_mut().map(|slice| Operation::Read(slice)))?,
-            operations.iter_mut().map(|slice| Operation::Read(slice)),
-        )
-    }
-
-    pub async fn read_transaction_async(
-        &mut self,
-        operations: &mut [&mut [u8]],
-    ) -> Result<(), EspError> {
-        self.run_async(
-            self.hardware_cs_ctl(operations.iter_mut().map(|slice| Operation::Read(slice)))?,
-            operations.iter_mut().map(|slice| Operation::Read(slice)),
-        )
-        .await
-    }
-
     pub fn write(&mut self, write: &[u8]) -> Result<(), EspError> {
         self.transaction(&mut [Operation::Write(write)])
     }
 
     pub async fn write_async(&mut self, write: &[u8]) -> Result<(), EspError> {
         self.transaction_async(&mut [Operation::Write(write)]).await
-    }
-
-    pub fn write_transaction(&mut self, operations: &[&[u8]]) -> Result<(), EspError> {
-        self.run(
-            self.hardware_cs_ctl(operations.iter().map(|slice| Operation::Write(slice)))?,
-            operations.iter().map(|slice| Operation::Write(slice)),
-        )
-    }
-
-    pub async fn write_transaction_async(&mut self, operations: &[&[u8]]) -> Result<(), EspError> {
-        self.run_async(
-            self.hardware_cs_ctl(operations.iter().map(|slice| Operation::Write(slice)))?,
-            operations.iter().map(|slice| Operation::Write(slice)),
-        )
-        .await
     }
 
     pub fn transfer_in_place(&mut self, buf: &mut [u8]) -> Result<(), EspError> {
@@ -863,39 +830,6 @@ where
     pub async fn transfer_in_place_async(&mut self, buf: &mut [u8]) -> Result<(), EspError> {
         self.transaction_async(&mut [Operation::TransferInPlace(buf)])
             .await
-    }
-
-    pub fn transfer_in_place_transaction(
-        &mut self,
-        operations: &mut [&mut [u8]],
-    ) -> Result<(), EspError> {
-        self.run(
-            self.hardware_cs_ctl(
-                operations
-                    .iter_mut()
-                    .map(|slice| Operation::TransferInPlace(slice)),
-            )?,
-            operations
-                .iter_mut()
-                .map(|slice| Operation::TransferInPlace(slice)),
-        )
-    }
-
-    pub async fn transfer_in_place_transaction_async(
-        &mut self,
-        operations: &mut [&mut [u8]],
-    ) -> Result<(), EspError> {
-        self.run_async(
-            self.hardware_cs_ctl(
-                operations
-                    .iter_mut()
-                    .map(|slice| Operation::TransferInPlace(slice)),
-            )?,
-            operations
-                .iter_mut()
-                .map(|slice| Operation::TransferInPlace(slice)),
-        )
-        .await
     }
 
     pub fn transfer(&mut self, read: &mut [u8], write: &[u8]) -> Result<(), EspError> {
@@ -1408,33 +1342,12 @@ where
         self.transaction_async(&mut [Operation::Read(read)]).await
     }
 
-    pub fn read_transaction(&mut self, operations: &mut [&mut [u8]]) -> Result<(), EspError> {
-        self.run(operations.iter_mut().map(|slice| Operation::Read(slice)))
-    }
-
-    pub async fn read_transaction_async(
-        &mut self,
-        operations: &mut [&mut [u8]],
-    ) -> Result<(), EspError> {
-        self.run_async(operations.iter_mut().map(|slice| Operation::Read(slice)))
-            .await
-    }
-
     pub fn write(&mut self, write: &[u8]) -> Result<(), EspError> {
         self.transaction(&mut [Operation::Write(write)])
     }
 
     pub async fn write_async(&mut self, write: &[u8]) -> Result<(), EspError> {
         self.transaction_async(&mut [Operation::Write(write)]).await
-    }
-
-    pub fn write_transaction(&mut self, operations: &[&[u8]]) -> Result<(), EspError> {
-        self.run(operations.iter().map(|slice| Operation::Write(slice)))
-    }
-
-    pub async fn write_transaction_async(&mut self, operations: &[&[u8]]) -> Result<(), EspError> {
-        self.run_async(operations.iter().map(|slice| Operation::Write(slice)))
-            .await
     }
 
     pub fn transfer_in_place(&mut self, buf: &mut [u8]) -> Result<(), EspError> {
@@ -1444,29 +1357,6 @@ where
     pub async fn transfer_in_place_async(&mut self, buf: &mut [u8]) -> Result<(), EspError> {
         self.transaction_async(&mut [Operation::TransferInPlace(buf)])
             .await
-    }
-
-    pub fn transfer_in_place_transaction(
-        &mut self,
-        operations: &mut [&mut [u8]],
-    ) -> Result<(), EspError> {
-        self.run(
-            operations
-                .iter_mut()
-                .map(|slice| Operation::TransferInPlace(slice)),
-        )
-    }
-
-    pub async fn transfer_in_place_transaction_async(
-        &mut self,
-        operations: &mut [&mut [u8]],
-    ) -> Result<(), EspError> {
-        self.run_async(
-            operations
-                .iter_mut()
-                .map(|slice| Operation::TransferInPlace(slice)),
-        )
-        .await
     }
 
     pub fn transfer(&mut self, read: &mut [u8], write: &[u8]) -> Result<(), EspError> {
