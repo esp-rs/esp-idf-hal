@@ -40,7 +40,7 @@ fn main() -> Result<(), EspError> {
         // The benefit with this approach over checking a global static variable is
         // that the scheduler can hold the task, and resume when signaled
         // so no spinlock is needed
-        let event_id = esp_idf_hal::task::wait_notification(None);
+        let event_id = esp_idf_hal::task::wait_notification(esp_idf_hal::delay::BLOCK);
 
         // Note that the println functions are to slow for 200us
         // Even if we just send one charachter we can not go below 1ms per msg

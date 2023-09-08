@@ -1,12 +1,10 @@
 use core::cell::Cell;
 use core::ptr::{self, NonNull};
 use core::sync::atomic::{AtomicBool, Ordering};
-use core::time::Duration;
 
 use esp_idf_sys::*;
 
 use crate::cpu::Core;
-use crate::delay::TickType;
 use crate::interrupt;
 
 /// Creates a FreeRTOS task.
@@ -107,7 +105,7 @@ pub fn current() -> Option<TaskHandle_t> {
 
 pub fn wait_any_notification() {
     loop {
-        if let Some(notification) = wait_notification(None) {
+        if let Some(notification) = wait_notification(crate::delay::BLOCK) {
             if notification != 0 {
                 break;
             }
@@ -115,23 +113,15 @@ pub fn wait_any_notification() {
     }
 }
 
-pub fn wait_notification(duration: Option<Duration>) -> Option<u32> {
+pub fn wait_notification(timeout: TickType_t) -> Option<u32> {
     let mut notification = 0_u32;
 
     #[cfg(esp_idf_version = "4.3")]
-    let notified =
-        unsafe { xTaskNotifyWait(0, u32::MAX, &mut notification, TickType::from(duration).0) } != 0;
+    let notified = unsafe { xTaskNotifyWait(0, u32::MAX, &mut notification, timeout) } != 0;
 
     #[cfg(not(esp_idf_version = "4.3"))]
-    let notified = unsafe {
-        xTaskGenericNotifyWait(
-            0,
-            0,
-            u32::MAX,
-            &mut notification,
-            TickType::from(duration).0,
-        )
-    } != 0;
+    let notified =
+        unsafe { xTaskGenericNotifyWait(0, 0, u32::MAX, &mut notification, timeout) } != 0;
 
     if notified {
         Some(notification)
@@ -731,47 +721,55 @@ pub mod embassy_sync {
     }
 }
 
-#[cfg(all(
-    feature = "edge-executor",
-    feature = "alloc",
-    target_has_atomic = "ptr"
-))]
-pub mod executor {
+#[cfg(all(feature = "alloc", target_has_atomic = "ptr"))]
+pub mod notification {
     use core::sync::atomic::{AtomicPtr, Ordering};
     use core::{mem, ptr};
 
     extern crate alloc;
     use alloc::sync::{Arc, Weak};
 
+    use esp_idf_sys::TickType_t;
+
     use crate::task;
 
-    pub use edge_executor::*;
-
-    pub type EspExecutor<'a, const C: usize, S> = Executor<'a, C, FreeRtosMonitor, S>;
-    pub type EspBlocker = Blocker<FreeRtosMonitor>;
-
     #[cfg(esp_idf_version_major = "4")]
-    pub struct FreeRtosMonitor(Arc<AtomicPtr<core::ffi::c_void>>, *const ());
+    pub type Task = core::ffi::c_void;
 
     #[cfg(not(esp_idf_version_major = "4"))]
-    pub struct FreeRtosMonitor(Arc<AtomicPtr<esp_idf_sys::tskTaskControlBlock>>, *const ());
+    pub type Task = esp_idf_sys::tskTaskControlBlock;
 
-    impl FreeRtosMonitor {
-        pub fn new() -> Self {
-            Self(
-                Arc::new(AtomicPtr::new(task::current().unwrap())),
-                ptr::null(),
-            )
+    pub struct Monitor(Arc<AtomicPtr<Task>>, *const ());
+
+    impl Monitor {
+        pub fn current() -> Self {
+            unsafe { Self::new(task::current().unwrap()) }
+        }
+
+        pub unsafe fn new(task: *const Task) -> Self {
+            Self(Arc::new(AtomicPtr::new(task as *mut _)), ptr::null())
+        }
+
+        pub fn notifier(&self) -> Notifier {
+            Notifier(Arc::downgrade(&self.0))
+        }
+
+        pub fn wait_any(&self) {
+            task::wait_any_notification();
+        }
+
+        pub fn wait(&self, timeout: TickType_t) -> Option<u32> {
+            task::wait_notification(timeout)
         }
     }
 
-    impl Default for FreeRtosMonitor {
+    impl Default for Monitor {
         fn default() -> Self {
-            Self::new()
+            Self::current()
         }
     }
 
-    impl Drop for FreeRtosMonitor {
+    impl Drop for Monitor {
         fn drop(&mut self) {
             let mut arc = mem::replace(&mut self.0, Arc::new(AtomicPtr::new(ptr::null_mut())));
 
@@ -786,37 +784,60 @@ pub mod executor {
         }
     }
 
-    impl Monitor for FreeRtosMonitor {
-        type Notify = FreeRtosMonitorNotify;
+    pub struct Notifier(Weak<AtomicPtr<Task>>);
 
-        fn notifier(&self) -> Self::Notify {
-            FreeRtosMonitorNotify(Arc::downgrade(&self.0))
+    impl Notifier {
+        pub fn notify_any(&self) {
+            self.notify(1);
         }
-    }
 
-    impl Wait for FreeRtosMonitor {
-        fn wait(&self) {
-            task::wait_any_notification();
-        }
-    }
-
-    #[cfg(esp_idf_version_major = "4")]
-    pub struct FreeRtosMonitorNotify(Weak<AtomicPtr<core::ffi::c_void>>);
-
-    #[cfg(not(esp_idf_version_major = "4"))]
-    pub struct FreeRtosMonitorNotify(Weak<AtomicPtr<esp_idf_sys::tskTaskControlBlock>>);
-
-    impl Notify for FreeRtosMonitorNotify {
-        fn notify(&self) {
+        pub fn notify(&self, notification: u32) {
             if let Some(notify) = self.0.upgrade() {
                 let freertos_task = notify.load(Ordering::SeqCst);
 
                 if !freertos_task.is_null() {
                     unsafe {
-                        task::notify(freertos_task, 1);
+                        task::notify(freertos_task, notification);
                     }
                 }
             }
+        }
+    }
+}
+
+#[cfg(all(
+    feature = "edge-executor",
+    feature = "alloc",
+    target_has_atomic = "ptr"
+))]
+pub mod executor {
+    use super::notification;
+
+    pub use edge_executor::*;
+
+    pub type EspExecutor<'a, const C: usize, S> = Executor<'a, C, FreeRtosMonitor, S>;
+    pub type EspBlocker = Blocker<FreeRtosMonitor>;
+
+    pub type FreeRtosMonitor = notification::Monitor;
+    pub type FreeRtosNotify = notification::Notifier;
+
+    impl Monitor for notification::Monitor {
+        type Notify = notification::Notifier;
+
+        fn notifier(&self) -> Self::Notify {
+            notification::Monitor::notifier(self)
+        }
+    }
+
+    impl Wait for notification::Monitor {
+        fn wait(&self) {
+            notification::Monitor::wait_any(self)
+        }
+    }
+
+    impl Notify for notification::Notifier {
+        fn notify(&self) {
+            notification::Notifier::notify_any(self)
         }
     }
 }
