@@ -1,5 +1,6 @@
 //! Event loop library
 
+use core::convert::{TryFrom, TryInto};
 use core::fmt::Debug;
 use core::marker::PhantomData;
 use core::result::Result;
@@ -63,19 +64,21 @@ impl<'a> Default for BackgroundLoopConfiguration<'a> {
     }
 }
 
-impl<'a> From<&BackgroundLoopConfiguration<'a>> for (esp_event_loop_args_t, RawCstrs) {
-    fn from(conf: &BackgroundLoopConfiguration<'a>) -> Self {
+impl<'a> TryFrom<&BackgroundLoopConfiguration<'a>> for (esp_event_loop_args_t, RawCstrs) {
+    type Error = EspError;
+
+    fn try_from(conf: &BackgroundLoopConfiguration<'a>) -> Result<Self, Self::Error> {
         let mut rcs = RawCstrs::new();
 
         let ela = esp_event_loop_args_t {
             queue_size: conf.queue_size as _,
-            task_name: rcs.as_ptr(conf.task_name),
+            task_name: rcs.as_ptr(conf.task_name)?,
             task_priority: conf.task_priority as _,
             task_stack_size: conf.task_stack_size as _,
             task_core_id: conf.task_pin_to_core as _,
         };
 
-        (ela, rcs)
+        Ok((ela, rcs))
     }
 }
 
@@ -342,7 +345,7 @@ impl<T> EventLoopHandle<User<T>> {
 
 impl EventLoopHandle<User<Background>> {
     fn new(conf: &BackgroundLoopConfiguration) -> Result<Self, EspError> {
-        let (nconf, _rcs) = conf.into();
+        let (nconf, _rcs) = conf.try_into()?;
 
         Self::new_internal(&nconf)
     }

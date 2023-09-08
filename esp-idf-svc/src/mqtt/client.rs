@@ -1,5 +1,5 @@
 //! MQTT protocol client
-use core::convert::TryInto;
+use core::convert::{TryFrom, TryInto};
 use core::ffi::c_void;
 use core::fmt::{self, Debug};
 use core::{slice, time};
@@ -220,10 +220,12 @@ impl<'a> From<&'a MqttClientConfiguration<'a>>
 
 #[allow(clippy::needless_update)]
 #[cfg(not(esp_idf_version_major = "4"))]
-impl<'a> From<&'a MqttClientConfiguration<'a>>
+impl<'a> TryFrom<&'a MqttClientConfiguration<'a>>
     for (esp_mqtt_client_config_t, RawCstrs, Option<TlsPsk>)
 {
-    fn from(conf: &'a MqttClientConfiguration<'a>) -> Self {
+    type Error = EspError;
+
+    fn try_from(conf: &'a MqttClientConfiguration<'a>) -> Result<Self, EspError> {
         let mut cstrs = RawCstrs::new();
 
         let mut c_conf = esp_mqtt_client_config_t {
@@ -238,11 +240,11 @@ impl<'a> From<&'a MqttClientConfiguration<'a>>
                 ..Default::default()
             },
             credentials: esp_mqtt_client_config_t_credentials_t {
-                client_id: cstrs.as_nptr(conf.client_id),
+                client_id: cstrs.as_nptr(conf.client_id)?,
                 set_null_client_id: conf.client_id.is_none(),
-                username: cstrs.as_nptr(conf.username),
+                username: cstrs.as_nptr(conf.username)?,
                 authentication: esp_mqtt_client_config_t_credentials_t_authentication_t {
-                    password: cstrs.as_nptr(conf.password),
+                    password: cstrs.as_nptr(conf.password)?,
                     ..Default::default()
                 },
                 ..Default::default()
@@ -289,7 +291,7 @@ impl<'a> From<&'a MqttClientConfiguration<'a>>
 
         if let Some(lwt) = conf.lwt.as_ref() {
             c_conf.session.last_will = esp_mqtt_client_config_t_session_t_last_will_t {
-                topic: cstrs.as_ptr(lwt.topic),
+                topic: cstrs.as_ptr(lwt.topic)?,
                 msg: lwt.payload.as_ptr() as _,
                 msg_len: lwt.payload.len() as _,
                 qos: lwt.qos as _,
@@ -321,7 +323,7 @@ impl<'a> From<&'a MqttClientConfiguration<'a>>
         #[cfg(not(all(esp_idf_esp_tls_psk_verification, feature = "alloc")))]
         let tls_psk_conf = None;
 
-        (c_conf, cstrs, tls_psk_conf)
+        Ok((c_conf, cstrs, tls_psk_conf))
     }
 }
 
@@ -459,7 +461,7 @@ impl<S> EspMqttClient<S> {
 
         let unsafe_callback = UnsafeCallback::from(&mut boxed_raw_callback);
 
-        let (mut c_conf, mut cstrs, tls_psk_conf) = conf.into();
+        let (mut c_conf, mut cstrs, tls_psk_conf) = conf.try_into()?;
 
         #[cfg(esp_idf_version_major = "4")]
         {
@@ -468,7 +470,7 @@ impl<S> EspMqttClient<S> {
 
         #[cfg(not(esp_idf_version_major = "4"))]
         {
-            c_conf.broker.address.uri = cstrs.as_ptr(url);
+            c_conf.broker.address.uri = cstrs.as_ptr(url)?;
         }
 
         #[cfg(all(esp_idf_esp_tls_psk_verification, feature = "alloc"))]

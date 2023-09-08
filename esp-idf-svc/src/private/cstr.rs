@@ -46,22 +46,22 @@ impl RawCstrs {
     }
 
     #[allow(dead_code)]
-    pub fn as_ptr(&mut self, s: impl AsRef<str>) -> *const c_char {
-        let cs = CString::new(s.as_ref()).unwrap();
+    pub fn as_ptr(&mut self, s: impl AsRef<str>) -> Result<*const c_char, crate::sys::EspError> {
+        let cs = to_cstring_arg(s.as_ref())?;
 
         let cstr_ptr = cs.as_ptr();
 
         self.0.push(cs);
 
-        cstr_ptr
+        Ok(cstr_ptr)
     }
 
     #[allow(dead_code)]
-    pub fn as_nptr<S>(&mut self, s: Option<S>) -> *const c_char
+    pub fn as_nptr<S>(&mut self, s: Option<S>) -> Result<*const c_char, crate::sys::EspError>
     where
         S: AsRef<str>,
     {
-        s.map(|s| self.as_ptr(s)).unwrap_or(core::ptr::null())
+        s.map(|s| self.as_ptr(s)).unwrap_or(Ok(core::ptr::null()))
     }
 }
 
