@@ -960,7 +960,7 @@ where
         operations: impl Iterator<Item = Operation<'a, u8>> + 'a,
     ) -> Result<CsCtl<'c, 'p, AnyOutputPin, Output>, EspError> {
         let (total_count, transactions_count, first_transaction, last_transaction) =
-            self.spi_operations_stats(operations);
+            Self::spi_operations_stats(operations);
 
         if !self.allow_pre_post_delays
             && self.cs_pin_configured
@@ -978,26 +978,25 @@ where
     }
 
     fn spi_operations_stats<'a>(
-        &self,
         operations: impl Iterator<Item = Operation<'a, u8>> + 'a,
     ) -> (usize, usize, Option<usize>, Option<usize>) {
-        self.spi_operations(operations).enumerate().fold(
+        operations.enumerate().fold(
             (0, 0, None, None),
             |(total_count, transactions_count, first_transaction, last_transaction),
              (index, operation)| {
-                if matches!(operation, SpiOperation::Transaction(_)) {
-                    (
-                        total_count + 1,
-                        transactions_count + 1,
-                        Some(first_transaction.unwrap_or(index)),
-                        Some(index),
-                    )
-                } else {
+                if matches!(operation, Operation::DelayUs(_)) {
                     (
                         total_count + 1,
                         transactions_count,
                         first_transaction,
                         last_transaction,
+                    )
+                } else {
+                    (
+                        total_count + 1,
+                        transactions_count + 1,
+                        Some(first_transaction.unwrap_or(index)),
+                        Some(index),
                     )
                 }
             },
