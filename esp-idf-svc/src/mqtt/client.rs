@@ -134,10 +134,12 @@ impl<'a> Default for MqttClientConfiguration<'a> {
 }
 
 #[cfg(esp_idf_version_major = "4")]
-impl<'a> From<&'a MqttClientConfiguration<'a>>
+impl<'a> TryFrom<&'a MqttClientConfiguration<'a>>
     for (esp_mqtt_client_config_t, RawCstrs, Option<TlsPsk>)
 {
-    fn from(conf: &'a MqttClientConfiguration<'a>) -> Self {
+    type Error = EspError;
+
+    fn try_from(conf: &'a MqttClientConfiguration<'a>) -> Result<Self, Self::Error> {
         let mut cstrs = RawCstrs::new();
 
         let mut c_conf = esp_mqtt_client_config_t {
@@ -146,7 +148,7 @@ impl<'a> From<&'a MqttClientConfiguration<'a>>
             } else {
                 esp_mqtt_protocol_ver_t_MQTT_PROTOCOL_UNDEFINED
             },
-            client_id: cstrs.as_nptr(conf.client_id),
+            client_id: cstrs.as_nptr(conf.client_id)?,
 
             refresh_connection_after_ms: conf.connection_refresh_interval.as_millis() as _,
             network_timeout_ms: conf.network_timeout.as_millis() as _,
@@ -158,8 +160,8 @@ impl<'a> From<&'a MqttClientConfiguration<'a>>
             buffer_size: conf.buffer_size as _,
             out_buffer_size: conf.out_buffer_size as _,
 
-            username: cstrs.as_nptr(conf.username),
-            password: cstrs.as_nptr(conf.password),
+            username: cstrs.as_nptr(conf.username)?,
+            password: cstrs.as_nptr(conf.password)?,
 
             use_global_ca_store: conf.use_global_ca_store,
             skip_cert_common_name_check: conf.skip_cert_common_name_check,
@@ -184,7 +186,7 @@ impl<'a> From<&'a MqttClientConfiguration<'a>>
         }
 
         if let Some(lwt) = conf.lwt.as_ref() {
-            c_conf.lwt_topic = cstrs.as_ptr(lwt.topic);
+            c_conf.lwt_topic = cstrs.as_ptr(lwt.topic)?;
             c_conf.lwt_msg = lwt.payload.as_ptr() as _;
             c_conf.lwt_msg_len = lwt.payload.len() as _;
             c_conf.lwt_qos = lwt.qos as _;
@@ -465,7 +467,7 @@ impl<S> EspMqttClient<S> {
 
         #[cfg(esp_idf_version_major = "4")]
         {
-            c_conf.uri = cstrs.as_ptr(url);
+            c_conf.uri = cstrs.as_ptr(url)?;
         }
 
         #[cfg(not(esp_idf_version_major = "4"))]

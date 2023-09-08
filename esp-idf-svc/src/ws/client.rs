@@ -207,8 +207,8 @@ impl<'a> TryFrom<&'a EspWebSocketClientConfig<'a>> for (esp_websocket_client_con
         let mut cstrs = RawCstrs::new();
 
         let mut c_conf = esp_websocket_client_config_t {
-            username: cstrs.as_nptr(conf.username),
-            password: cstrs.as_nptr(conf.password),
+            username: cstrs.as_nptr(conf.username)?,
+            password: cstrs.as_nptr(conf.password)?,
             disable_auto_reconnect: conf.disable_auto_reconnect,
             // TODO user_context: *mut ffi::c_void,
             user_context: core::ptr::null_mut(),
@@ -219,9 +219,9 @@ impl<'a> TryFrom<&'a EspWebSocketClientConfig<'a>> for (esp_websocket_client_con
 
             transport: Newtype::<esp_websocket_transport_t>::from(conf.transport).0,
 
-            subprotocol: cstrs.as_nptr(conf.subprotocol) as _,
-            user_agent: cstrs.as_nptr(conf.user_agent) as _,
-            headers: cstrs.as_nptr(conf.headers) as _,
+            subprotocol: cstrs.as_nptr(conf.subprotocol)? as _,
+            user_agent: cstrs.as_nptr(conf.user_agent)? as _,
+            headers: cstrs.as_nptr(conf.headers)? as _,
 
             pingpong_timeout_sec: conf.pingpong_timeout_sec.as_secs() as _,
             disable_pingpong_discon: conf.disable_pingpong_discon,
@@ -231,11 +231,11 @@ impl<'a> TryFrom<&'a EspWebSocketClientConfig<'a>> for (esp_websocket_client_con
 
             ping_interval_sec: conf.ping_interval_sec.as_secs() as _,
 
-            cert_pem: cstrs.as_nptr(conf.cert_pem),
+            cert_pem: cstrs.as_nptr(conf.cert_pem)?,
             cert_len: conf.cert_pem.map(|c| c.len()).unwrap_or(0) as _,
-            client_cert: cstrs.as_nptr(conf.client_cert),
+            client_cert: cstrs.as_nptr(conf.client_cert)?,
             client_cert_len: conf.client_cert.map(|c| c.len()).unwrap_or(0) as _,
-            client_key: cstrs.as_nptr(conf.client_key),
+            client_key: cstrs.as_nptr(conf.client_key)?,
             client_key_len: conf.client_key.map(|c| c.len()).unwrap_or(0) as _,
 
             // NOTE: default keep_alive_* values are set below, so they are not explicitly listed
@@ -431,7 +431,7 @@ impl EspWebSocketClient {
         let t: TickType = timeout.into();
 
         let (mut conf, mut cstrs): (esp_websocket_client_config_t, RawCstrs) = config.try_into()?;
-        conf.uri = cstrs.as_ptr(uri);
+        conf.uri = cstrs.as_ptr(uri)?;
 
         let handle = unsafe { esp_websocket_client_init(&conf) };
 
