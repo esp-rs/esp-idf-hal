@@ -176,7 +176,7 @@ impl EspNotify {
         let registry = unsafe { Weak::from_raw(registry) };
 
         loop {
-            let notification = task::wait_notification(Some(Duration::from_millis(100)));
+            let notification = task::wait_notification(10);
 
             if let Some(registry) = Weak::upgrade(&registry) {
                 if let Some(notification) = notification {
