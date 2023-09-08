@@ -50,7 +50,7 @@ uncased = "0.9.7"
 embedded-svc = { version = "0.25", default-features = false }
 esp-idf-hal = { version = "0.41", default-features = false, features = ["esp-idf-sys"] }
 embassy-sync = { version = "0.2", optional = true }
-embassy-time = { version = "0.1.1", optional = true, features = ["tick-hz-1_000_000"] }
+embassy-time = { version = "0.1.3", optional = true, features = ["tick-hz-1_000_000"] }
 embassy-futures = "0.1"
 
 [build-dependencies]
