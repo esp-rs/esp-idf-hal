@@ -734,20 +734,19 @@ pub mod notification {
     use crate::task;
 
     #[cfg(esp_idf_version_major = "4")]
-    pub type Task = core::ffi::c_void;
+    type Task = core::ffi::c_void;
 
     #[cfg(not(esp_idf_version_major = "4"))]
-    pub type Task = esp_idf_sys::tskTaskControlBlock;
+    type Task = esp_idf_sys::tskTaskControlBlock;
 
     pub struct Monitor(Arc<AtomicPtr<Task>>, *const ());
 
     impl Monitor {
-        pub fn current() -> Self {
-            unsafe { Self::new(task::current().unwrap()) }
-        }
-
-        pub unsafe fn new(task: *const Task) -> Self {
-            Self(Arc::new(AtomicPtr::new(task as *mut _)), ptr::null())
+        pub fn new() -> Self {
+            Self(
+                Arc::new(AtomicPtr::new(task::current().unwrap())),
+                ptr::null(),
+            )
         }
 
         pub fn notifier(&self) -> Notifier {
@@ -765,7 +764,7 @@ pub mod notification {
 
     impl Default for Monitor {
         fn default() -> Self {
-            Self::current()
+            Self::new()
         }
     }
 
@@ -787,11 +786,29 @@ pub mod notification {
     pub struct Notifier(Weak<AtomicPtr<Task>>);
 
     impl Notifier {
-        pub fn notify_any(&self) {
+        /// # Safety
+        ///
+        /// This method is unsafe because it is possible to call `core::mem::forget` on the Monitor instance
+        /// that produced this notifier.
+        ///
+        /// If that happens, the `Drop` dtor of `Monitor` will NOT be called, which - in turn - means that the
+        /// `Arc` holding the task reference will stick around even when the actual task where the `Monitor` instance was
+        /// created no longer exists. Which - in turn - would mean that the method will be trying to notify a task
+        /// which does no longer exist, which would lead to UB and specifically - to memory corruption.
+        pub unsafe fn notify_any(&self) {
             self.notify(1);
         }
 
-        pub fn notify(&self, notification: u32) {
+        /// # Safety
+        ///
+        /// This method is unsafe because it is possible to call `core::mem::forget` on the Monitor instance
+        /// that produced this notifier.
+        ///
+        /// If that happens, the `Drop` dtor of `Monitor` will NOT be called, which - in turn - means that the
+        /// `Arc` holding the task reference will stick around even when the actual task where the `Monitor` instance was
+        /// created no longer exists. Which - in turn - would mean that the method will be trying to notify a task
+        /// which does no longer exist, which would lead to UB and specifically - to memory corruption.
+        pub unsafe fn notify(&self, notification: u32) {
             if let Some(notify) = self.0.upgrade() {
                 let freertos_task = notify.load(Ordering::SeqCst);
 
@@ -837,7 +854,7 @@ pub mod executor {
 
     impl Notify for notification::Notifier {
         fn notify(&self) {
-            notification::Notifier::notify_any(self)
+            unsafe { notification::Notifier::notify_any(self) }
         }
     }
 }
