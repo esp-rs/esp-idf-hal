@@ -23,7 +23,7 @@ use crate::interrupt;
 /// Otherwise, this function is actually safe.
 pub unsafe fn create(
     task_handler: extern "C" fn(*mut core::ffi::c_void),
-    task_name: &'static core::ffi::CStr,
+    task_name: &core::ffi::CStr,
     stack_size: usize,
     task_arg: *mut core::ffi::c_void,
     priority: u8,
