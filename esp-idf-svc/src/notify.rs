@@ -3,6 +3,7 @@ use core::time::Duration;
 
 extern crate alloc;
 use alloc::boxed::Box;
+use alloc::ffi::CString;
 use alloc::sync::{Arc, Weak};
 use alloc::vec::Vec;
 
@@ -14,7 +15,6 @@ use crate::hal::task;
 use crate::sys::*;
 
 use crate::handle::RawHandle;
-use crate::private::cstr::RawCstrs;
 use crate::private::mutex::Mutex;
 
 pub use asyncify::*;
@@ -140,30 +140,25 @@ pub struct EspNotify {
 
 impl EspNotify {
     pub fn new(conf: &Configuration<'_>) -> Result<Self, EspError> {
-        let mut rcs = RawCstrs::new();
-
         let registry = Arc::new(EspSubscriptionsRegistry::new());
         let registry_weak_ptr = Arc::downgrade(&registry).into_raw();
 
-        let mut task: TaskHandle_t = ptr::null_mut();
+        let task_name = CString::new(conf.task_name).unwrap();
 
-        let created = unsafe {
-            xTaskCreatePinnedToCore(
-                Some(Self::background_loop),
-                rcs.as_ptr(conf.task_name),
-                conf.task_stack_size as _,
+        let result = unsafe {
+            task::create(
+                Self::background_loop,
+                task_name.as_c_str(),
+                conf.task_stack_size,
                 registry_weak_ptr as *const _ as *mut _,
-                conf.task_priority as _,
-                &mut task as *mut _,
-                conf.task_pin_to_core
-                    .map(|core| core as u32)
-                    .unwrap_or(tskNO_AFFINITY) as _,
-            ) != 0
+                conf.task_priority,
+                conf.task_pin_to_core,
+            )
         };
 
         #[allow(clippy::all)]
         {
-            if created {
+            if let Ok(task) = result {
                 Ok(Self {
                     task: Arc::new(task),
                     registry,
@@ -193,7 +188,7 @@ impl EspNotify {
         }
 
         unsafe {
-            vTaskDelete(ptr::null_mut());
+            task::destroy(ptr::null_mut());
         }
     }
 
