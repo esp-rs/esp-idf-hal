@@ -216,7 +216,7 @@ impl<'a> TryFrom<&'a MqttClientConfiguration<'a>>
         #[cfg(not(all(esp_idf_esp_tls_psk_verification, feature = "alloc")))]
         let tls_psk_conf = None;
 
-        (c_conf, cstrs, tls_psk_conf)
+        Ok((c_conf, cstrs, tls_psk_conf))
     }
 }
 
