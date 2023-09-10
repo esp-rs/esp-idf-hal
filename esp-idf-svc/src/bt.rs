@@ -387,6 +387,7 @@ where
         })
     }
 
+    #[allow(clippy::needless_update)]
     fn init(_nvs_enabled: bool) -> Result<(), EspError> {
         #[cfg(esp_idf_btdm_ctrl_mode_br_edr_only)]
         esp!(unsafe { esp_bt_controller_mem_release(esp_bt_mode_t_ESP_BT_MODE_BLE) })?;
@@ -419,6 +420,7 @@ where
             pcm_polar: CONFIG_BTDM_CTRL_PCM_POLAR_EFF as _,
             hli: BTDM_CTRL_HLI != 0,
             dup_list_refresh_period: SCAN_DUPL_CACHE_REFRESH_PERIOD as _,
+            ..Default::default()
         };
 
         #[cfg(esp32c3)]
@@ -457,6 +459,7 @@ where
             ble_50_feat_supp: crate::sys::BT_CTRL_50_FEATURE_SUPPORT != 0,
             dup_list_refresh_period: crate::sys::DUPL_SCAN_CACHE_REFRESH_PERIOD as _,
             scan_backoff_upperlimitmax: crate::sys::BT_CTRL_SCAN_BACKOFF_UPPERLIMITMAX as _,
+            ..Default::default()
         };
 
         #[cfg(esp32s3)]
