@@ -459,14 +459,14 @@ pub mod oneshot {
     use crate::peripheral::Peripheral;
     use crate::peripheral::PeripheralRef;
 
-    use super::Adc;
-    use super::config::Resolution;
     use super::attenuation::adc_atten_t;
+    use super::config::Resolution;
+    use super::Adc;
 
     pub mod config {
-        use super::Resolution;
         use super::adc_atten_t;
-    
+        use super::Resolution;
+
         #[derive(Debug, Copy, Clone, Default)]
         pub struct AdcChannelConfig {
             pub attenuation: adc_atten_t,
@@ -482,7 +482,11 @@ pub mod oneshot {
     }
 
     impl<'d, T: ADCPin> AdcChannelDriver<'d, T> {
-        pub fn new(adc: &AdcDriver<'d>, pin: impl Peripheral<P = T> + 'd, config: config::AdcChannelConfig) -> Result<AdcChannelDriver<'d, T>, EspError> {
+        pub fn new(
+            adc: &AdcDriver<'d>,
+            pin: impl Peripheral<P = T> + 'd,
+            config: config::AdcChannelConfig,
+        ) -> Result<AdcChannelDriver<'d, T>, EspError> {
             crate::into_ref!(pin);
             assert_eq!(adc.adc, T::Adc::unit() as u8); // TODO: is there a better way?
 
@@ -495,18 +499,39 @@ pub mod oneshot {
                 bitwidth: config.resolution.into(),
                 ..Default::default()
             };
-    
-            unsafe { esp!(adc_oneshot_config_channel(adc.handle, pin.adc_channel(), &chan_config))? };
 
-            let mut calibration = Self::get_curve_calibration_handle(adc.adc, pin.adc_channel(), config.attenuation, config.resolution.into());
+            unsafe {
+                esp!(adc_oneshot_config_channel(
+                    adc.handle,
+                    pin.adc_channel(),
+                    &chan_config
+                ))?
+            };
+
+            let mut calibration = Self::get_curve_calibration_handle(
+                adc.adc,
+                pin.adc_channel(),
+                config.attenuation,
+                config.resolution.into(),
+            );
             if calibration.is_none() {
-                calibration = Self::get_line_calibration_handle(adc.adc, pin.adc_channel(), config.attenuation, config.resolution.into());
+                calibration = Self::get_line_calibration_handle(
+                    adc.adc,
+                    pin.adc_channel(),
+                    config.attenuation,
+                    config.resolution.into(),
+                );
             }
             Ok(Self { pin, calibration })
         }
 
         #[allow(unused_variables)]
-        fn get_curve_calibration_handle(unit_id: u8, chan: adc_channel_t, atten: adc_atten_t, bitwidth: adc_bits_width_t) -> Option<adc_cali_handle_t> {
+        fn get_curve_calibration_handle(
+            unit_id: u8,
+            chan: adc_channel_t,
+            atten: adc_atten_t,
+            bitwidth: adc_bits_width_t,
+        ) -> Option<adc_cali_handle_t> {
             // it would be nice if esp-idf-sys could export some cfg values to replicate these two defines
             // from esp-idf:
             // ADC_CALI_SCHEME_CURVE_FITTING_SUPPORTED
@@ -514,11 +539,11 @@ pub mod oneshot {
             // then we wouuld not need the uglyness for the esp32c6
             #[cfg(any(
                 esp32c3,
-                all(esp32c6,
-                    all(
-                        not(all(esp_idf_version_major = "5", esp_idf_version_minor = "0"))),
-                        not(esp_idf_version_full = "5.1.0")
-                    ),
+                all(
+                    esp32c6,
+                    all(not(all(esp_idf_version_major = "5", esp_idf_version_minor = "0"))),
+                    not(esp_idf_version_full = "5.1.0")
+                ),
                 esp32s3,
             ))]
             {
@@ -530,7 +555,12 @@ pub mod oneshot {
                     ..Default::default()
                 };
                 let mut cal_handle: adc_cali_handle_t = core::ptr::null_mut();
-                if let Err(_err) = unsafe { esp!(esp_idf_sys::adc_cali_create_scheme_curve_fitting(&cal_config, &mut cal_handle)) } {
+                if let Err(_err) = unsafe {
+                    esp!(esp_idf_sys::adc_cali_create_scheme_curve_fitting(
+                        &cal_config,
+                        &mut cal_handle
+                    ))
+                } {
                     // I'd log a warning but the log crate is not available here
                     None
                 } else {
@@ -539,18 +569,23 @@ pub mod oneshot {
             }
             #[cfg(not(any(
                 esp32c3,
-                all(esp32c6,
-                    all(
-                        not(all(esp_idf_version_major = "5", esp_idf_version_minor = "0"))),
-                        not(esp_idf_version_full = "5.1.0")
-                    ),
+                all(
+                    esp32c6,
+                    all(not(all(esp_idf_version_major = "5", esp_idf_version_minor = "0"))),
+                    not(esp_idf_version_full = "5.1.0")
+                ),
                 esp32s3,
             )))]
             None
         }
 
         #[allow(unused_variables)]
-        fn get_line_calibration_handle(unit_id: u8, chan: adc_channel_t, atten: adc_atten_t, bitwidth: adc_bits_width_t) -> Option<adc_cali_handle_t> {
+        fn get_line_calibration_handle(
+            unit_id: u8,
+            chan: adc_channel_t,
+            atten: adc_atten_t,
+            bitwidth: adc_bits_width_t,
+        ) -> Option<adc_cali_handle_t> {
             #[cfg(any(esp32, esp32c2, esp32s2))]
             {
                 let cal_config = adc_cali_line_fitting_config_t {
@@ -561,7 +596,12 @@ pub mod oneshot {
                     ..Default::default()
                 };
                 let mut cal_handle: adc_cali_handle_t = core::ptr::null_mut();
-                if let Err(_err) = unsafe { esp!(esp_idf_sys::adc_cali_create_scheme_line_fitting(&cal_config, &mut cal_handle)) } {
+                if let Err(_err) = unsafe {
+                    esp!(esp_idf_sys::adc_cali_create_scheme_line_fitting(
+                        &cal_config,
+                        &mut cal_handle
+                    ))
+                } {
                     // I'd log a warning but the log crate is not available here
                     None
                 } else {
@@ -583,10 +623,8 @@ pub mod oneshot {
         _ref: PhantomData<&'d ()>,
     }
 
-    impl<'d> AdcDriver<'d> {    
-        pub fn new<A: Adc>(
-            _adc: impl Peripheral<P = A> + 'd,
-        ) -> Result<Self, EspError> {
+    impl<'d> AdcDriver<'d> {
+        pub fn new<A: Adc>(_adc: impl Peripheral<P = A> + 'd) -> Result<Self, EspError> {
             let config = adc_oneshot_unit_init_cfg_t {
                 unit_id: A::unit(),
                 ..Default::default()
@@ -600,10 +638,7 @@ pub mod oneshot {
             })
         }
 
-        pub fn read<T>(
-            &mut self,
-            channel: &mut AdcChannelDriver<'_, T>,
-        ) -> Result<u16, EspError>
+        pub fn read<T>(&mut self, channel: &mut AdcChannelDriver<'_, T>) -> Result<u16, EspError>
         where
             T: ADCPin,
         {
@@ -620,12 +655,22 @@ pub mod oneshot {
             T: ADCPin,
         {
             let mut measurement = 0;
-            unsafe { esp!(adc_oneshot_read(self.handle, channel.pin().adc_channel(), &mut measurement)) }?;
+            unsafe {
+                esp!(adc_oneshot_read(
+                    self.handle,
+                    channel.pin().adc_channel(),
+                    &mut measurement
+                ))
+            }?;
             Ok(measurement as u16)
         }
 
         #[inline(always)]
-        pub fn raw_to_cal<T>(&mut self, raw: u16, channel: &mut AdcChannelDriver<'_, T>) -> Result<u16, EspError>
+        pub fn raw_to_cal<T>(
+            &mut self,
+            raw: u16,
+            channel: &mut AdcChannelDriver<'_, T>,
+        ) -> Result<u16, EspError>
         where
             T: ADCPin,
         {
