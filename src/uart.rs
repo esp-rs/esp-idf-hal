@@ -307,7 +307,6 @@ pub mod config {
     /// in order to be able to quickly inform us about the
     /// related event.
     #[derive(Debug, Clone)]
-    #[non_exhaustive]
     pub struct UserInterruptConfig {
         /// If `Some(number_of_words)`, an interrupt will trigger
         /// after `number_of_words` could have been transmitted
@@ -330,6 +329,29 @@ pub mod config {
         pub tx_fifo_empty: Option<u8>,
         /// Other interrupts to enable
         pub flags: EnumSet<UserInterruptFlags>,
+        /// Allow using struct syntax,
+        /// but signal users other fields may be added
+        /// so `..Default::default()` should be used.
+        #[doc(hidden)]
+        pub _non_exhaustive: (),
+    }
+
+    impl Default for UserInterruptConfig {
+        fn default() -> Self {
+            UserInterruptConfig {
+                receive_timeout: Some(10),
+                rx_fifo_full: Some(120),
+                tx_fifo_empty: Some(10),
+                flags: enum_set!(
+                    UserInterruptFlags::RxFifoFull
+                        | UserInterruptFlags::RxFifoTimeout
+                        | UserInterruptFlags::RxFifoOverflow
+                        | UserInterruptFlags::BreakDetected
+                        | UserInterruptFlags::ParityError
+                ),
+                _non_exhaustive: (),
+            }
+        }
     }
 
     impl From<UserInterruptConfig> for crate::sys::uart_intr_config_t {
@@ -393,7 +415,6 @@ pub mod config {
 
     /// UART configuration
     #[derive(Debug, Clone)]
-    #[non_exhaustive]
     pub struct Config {
         pub baudrate: Hertz,
         pub data_bits: DataBits,
@@ -419,6 +440,11 @@ pub mod config {
         /// Number of events that should fit into the event queue.
         /// Specify 0 to prevent the creation of an event queue.
         pub queue_size: usize,
+        /// Allow using struct syntax,
+        /// but signal users other fields may be added
+        /// so `..Default::default()` should be used.
+        #[doc(hidden)]
+        pub _non_exhaustive: (),
     }
 
     impl Config {
@@ -513,21 +539,11 @@ pub mod config {
                 flow_control_rts_threshold: 122,
                 source_clock: SourceClock::default(),
                 intr_alloc_flags: EnumSet::<IntrFlags>::empty(),
-                user_intr_config: UserInterruptConfig {
-                    receive_timeout: Some(10),
-                    rx_fifo_full: Some(120),
-                    tx_fifo_empty: Some(10),
-                    flags: enum_set!(
-                        UserInterruptFlags::RxFifoFull
-                            | UserInterruptFlags::RxFifoTimeout
-                            | UserInterruptFlags::RxFifoOverflow
-                            | UserInterruptFlags::BreakDetected
-                            | UserInterruptFlags::ParityError
-                    ),
-                },
+                user_intr_config: Default::default(),
                 rx_fifo_size: super::UART_FIFO_SIZE * 2,
                 tx_fifo_size: super::UART_FIFO_SIZE * 2,
                 queue_size: 10,
+                _non_exhaustive: (),
             }
         }
     }
