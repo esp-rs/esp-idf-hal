@@ -44,8 +44,8 @@ use core::sync::atomic::{AtomicU8, Ordering};
 
 use crate::delay::{self, NON_BLOCK};
 use crate::gpio::*;
+use crate::interrupt::IntrFlags;
 use crate::io::EspIOError;
-
 use crate::units::*;
 
 use embedded_hal_nb::serial::ErrorKind;
@@ -60,7 +60,7 @@ pub type UartConfig = config::Config;
 /// UART configuration
 pub mod config {
     use crate::{interrupt::IntrFlags, units::*};
-    use enumset::EnumSet;
+    use enumset::{enum_set, EnumSet, EnumSetType};
     use esp_idf_sys::*;
 
     /// Number of data bits
@@ -302,8 +302,97 @@ pub mod config {
         }
     }
 
+    /// Configures the interrupts the UART driver should enable
+    /// in order to be able to quickly inform us about the
+    /// related event.
+    #[derive(Debug, Clone)]
+    #[non_exhaustive]
+    pub struct UserInterruptConfig {
+        /// If `Some(number_of_words)`, an interrupt will trigger
+        /// after `number_of_words` could have been transmitted
+        /// (unit is baudrate dependant).
+        ///
+        /// If `None` or `Some(0)` interrupt will be disabled.
+        pub receive_timeout: Option<u8>,
+        /// Sets the threshold **above** which an interrupt will
+        /// be generated (the hardware receive FIFO contains more words than
+        /// this number).
+        ///
+        /// If set to `None` interrupt will be disabled.
+        pub rx_fifo_full: Option<u8>,
+        /// Sets the threshold **below** which an interrupt will
+        /// be generated (the hardware transmit FIFO contains less words than
+        /// this number).
+        ///
+        /// If set to `None` interrupt will be disabled.
+        // TODO: what happens when set to 0?
+        pub tx_fifo_empty: Option<u8>,
+        /// Other interrupts to enable
+        pub flags: EnumSet<UserInterruptFlags>,
+    }
+
+    impl From<UserInterruptConfig> for crate::sys::uart_intr_config_t {
+        fn from(cfg: UserInterruptConfig) -> Self {
+            let mut intr_enable_mask = cfg.flags;
+
+            if cfg.receive_timeout.map(|to| to > 0).unwrap_or(false) {
+                intr_enable_mask.insert(UserInterruptFlags::RxFifoTimeout);
+            } else {
+                intr_enable_mask.remove(UserInterruptFlags::RxFifoTimeout);
+            }
+
+            if cfg.rx_fifo_full.is_some() {
+                intr_enable_mask.insert(UserInterruptFlags::RxFifoFull);
+            } else {
+                intr_enable_mask.remove(UserInterruptFlags::RxFifoFull);
+            }
+
+            if cfg.tx_fifo_empty.is_some() {
+                intr_enable_mask.insert(UserInterruptFlags::TxFifoEmpty);
+            } else {
+                intr_enable_mask.remove(UserInterruptFlags::TxFifoEmpty);
+            }
+
+            crate::sys::uart_intr_config_t {
+                intr_enable_mask: intr_enable_mask.as_repr(),
+                rx_timeout_thresh: cfg.receive_timeout.unwrap_or(0),
+                txfifo_empty_intr_thresh: cfg.tx_fifo_empty.unwrap_or(0),
+                rxfifo_full_thresh: cfg.rx_fifo_full.unwrap_or(0),
+            }
+        }
+    }
+
+    #[derive(Debug, EnumSetType)]
+    #[enumset(repr = "u32")]
+    #[non_exhaustive]
+    pub enum UserInterruptFlags {
+        #[doc(hidden)]
+        RxFifoFull = 0,
+        #[doc(hidden)]
+        TxFifoEmpty = 1,
+        ParityError = 2,
+        FrameError = 3,
+        RxFifoOverflow = 4,
+        DsrChange = 5,
+        CtsChange = 6,
+        BreakDetected = 7,
+        #[doc(hidden)]
+        RxFifoTimeout = 8,
+        SwXon = 9,
+        SwXoff = 10,
+        GlitchDetected = 11,
+        TxBreakDone = 12,
+        TxBreakIdle = 13,
+        TxDone = 14,
+        Rs485ParityError = 15,
+        Rs485FrameError = 16,
+        Rs485Clash = 17,
+        CmdCharDetected = 18,
+    }
+
     /// UART configuration
     #[derive(Debug, Clone)]
+    #[non_exhaustive]
     pub struct Config {
         pub baudrate: Hertz,
         pub data_bits: DataBits,
@@ -312,8 +401,19 @@ pub mod config {
         pub flow_control: FlowControl,
         pub flow_control_rts_threshold: u8,
         pub source_clock: SourceClock,
-        pub intr_flags: EnumSet<IntrFlags>,
+        /// Configures the flags to use for interrupt allocation,
+        /// e.g. priority to use for the interrupt.
+        ///
+        /// Note that you should not set `Iram` here, because it will
+        /// be automatically set depending on the value of `CONFIG_UART_ISR_IN_IRAM`.
+        pub intr_alloc_flags: EnumSet<IntrFlags>,
+        /// Configures the interrupts the driver should enable.
+        pub user_intr_config: UserInterruptConfig,
+        /// The size of the software rx buffer. Must be bigger than the hardware FIFO.
         pub rx_fifo_size: usize,
+        /// The size of the software tx buffer. Must be bigger than the hardware FIFO
+        /// or 0 to disable transmit buffering (note that this will make write operations
+        /// block until data has been sent out).
         pub tx_fifo_size: usize,
         pub queue_size: usize,
     }
@@ -409,7 +509,19 @@ pub mod config {
                 flow_control: FlowControl::None,
                 flow_control_rts_threshold: 122,
                 source_clock: SourceClock::default(),
-                intr_flags: EnumSet::<IntrFlags>::empty(),
+                intr_alloc_flags: EnumSet::<IntrFlags>::empty(),
+                user_intr_config: UserInterruptConfig {
+                    receive_timeout: Some(10),
+                    rx_fifo_full: Some(120),
+                    tx_fifo_empty: Some(10),
+                    flags: enum_set!(
+                        UserInterruptFlags::RxFifoFull
+                            | UserInterruptFlags::RxFifoTimeout
+                            | UserInterruptFlags::RxFifoOverflow
+                            | UserInterruptFlags::BreakDetected
+                            | UserInterruptFlags::ParityError
+                    ),
+                },
                 rx_fifo_size: super::UART_FIFO_SIZE * 2,
                 tx_fifo_size: super::UART_FIFO_SIZE * 2,
                 queue_size: 10,
@@ -1018,9 +1130,6 @@ fn new_common<UART: Uart>(
 
     esp!(unsafe { uart_param_config(UART::port(), &uart_config) })?;
 
-    // TODO: #250
-    //esp!(unsafe { uart_intr_config(UART::port(), IntrFlags::to_native(config.intr_flags) as _) })?;
-
     esp!(unsafe {
         uart_set_pin(
             UART::port(),
@@ -1046,9 +1155,14 @@ fn new_common<UART: Uart>(
             },
             config.queue_size as _,
             ptr::null_mut(),
-            0,
+            IntrFlags::to_native(config.intr_alloc_flags) as i32,
         )
     })?;
+
+    // Configure interrupts after installing the driver
+    // so it won't get overwritten.
+    let usr_intrs = config.user_intr_config.clone().into();
+    esp!(unsafe { uart_intr_config(UART::port(), &usr_intrs as *const _) })?;
 
     Ok(())
 }
