@@ -46,6 +46,7 @@ use crate::delay::{self, NON_BLOCK};
 use crate::gpio::*;
 use crate::interrupt::IntrFlags;
 use crate::io::EspIOError;
+use crate::queue::Queue;
 use crate::units::*;
 
 use embedded_hal_nb::serial::ErrorKind;
@@ -543,8 +544,12 @@ crate::embedded_hal_error!(
 /// Serial abstraction
 pub struct UartDriver<'d> {
     port: u8,
+    queue: QueueHandle_t,
     _p: PhantomData<&'d mut ()>,
 }
+
+unsafe impl<'d> Send for UartDriver<'d> {}
+unsafe impl<'d> Sync for UartDriver<'d> {}
 
 /// Serial receiver
 pub struct UartRxDriver<'d> {
@@ -570,12 +575,28 @@ impl<'d> UartDriver<'d> {
         rts: Option<impl Peripheral<P = impl OutputPin> + 'd>,
         config: &config::Config,
     ) -> Result<Self, EspError> {
-        new_common(uart, Some(tx), Some(rx), cts, rts, config)?;
+        let mut q_handle_raw = ptr::null_mut();
+        let q_handle = if config.queue_size > 0 {
+            Some(&mut q_handle_raw)
+        } else {
+            None
+        };
+        new_common(uart, Some(tx), Some(rx), cts, rts, config, q_handle)?;
 
         Ok(Self {
             port: UART::port() as _,
+            queue: q_handle_raw,
             _p: PhantomData,
         })
+    }
+
+    pub fn event_queue(&self) -> Option<Queue<uart_event_t>> {
+        if self.queue.is_null() {
+            None
+        } else {
+            // SAFTEY: okay because Queue borrows self
+            Some(unsafe { Queue::new_borrowed(self.queue) })
+        }
     }
 
     /// Change the number of stop bits
@@ -799,7 +820,7 @@ impl<'d> UartRxDriver<'d> {
         rts: Option<impl Peripheral<P = impl OutputPin> + 'd>,
         config: &config::Config,
     ) -> Result<Self, EspError> {
-        new_common(uart, None::<AnyOutputPin>, Some(rx), cts, rts, config)?;
+        new_common(uart, None::<AnyOutputPin>, Some(rx), cts, rts, config, None)?;
 
         Ok(Self {
             port: UART::port() as _,
@@ -941,7 +962,7 @@ impl<'d> UartTxDriver<'d> {
         rts: Option<impl Peripheral<P = impl OutputPin> + 'd>,
         config: &config::Config,
     ) -> Result<Self, EspError> {
-        new_common(uart, Some(tx), None::<AnyInputPin>, cts, rts, config)?;
+        new_common(uart, Some(tx), None::<AnyInputPin>, cts, rts, config, None)?;
 
         Ok(Self {
             port: UART::port() as _,
@@ -1008,6 +1029,7 @@ impl<'d> UartTxDriver<'d> {
         }
     }
 
+    /// Waits until the transmission is complete.
     pub fn flush(&mut self) -> Result<(), EspError> {
         esp!(unsafe { uart_wait_tx_done(self.port(), 0) })?;
 
@@ -1097,6 +1119,7 @@ fn new_common<UART: Uart>(
     cts: Option<impl Peripheral<P = impl InputPin>>,
     rts: Option<impl Peripheral<P = impl OutputPin>>,
     config: &config::Config,
+    queue: Option<&mut QueueHandle_t>,
 ) -> Result<(), EspError> {
     let tx = tx.map(|tx| tx.into_ref());
     let rx = rx.map(|rx| rx.into_ref());
@@ -1154,7 +1177,7 @@ fn new_common<UART: Uart>(
                 0
             },
             config.queue_size as _,
-            ptr::null_mut(),
+            queue.map(|q| q as *mut _).unwrap_or(ptr::null_mut()),
             IntrFlags::to_native(config.intr_alloc_flags) as i32,
         )
     })?;
