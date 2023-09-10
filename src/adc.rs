@@ -517,7 +517,6 @@ pub mod oneshot {
             if calibration.is_none() {
                 calibration = Self::get_line_calibration_handle(
                     adc.adc,
-                    pin.adc_channel(),
                     config.attenuation,
                     config.resolution.into(),
                 );
@@ -582,7 +581,6 @@ pub mod oneshot {
         #[allow(unused_variables)]
         fn get_line_calibration_handle(
             unit_id: u8,
-            chan: adc_channel_t,
             atten: adc_atten_t,
             bitwidth: adc_bits_width_t,
         ) -> Option<adc_cali_handle_t> {
@@ -590,7 +588,6 @@ pub mod oneshot {
             {
                 let cal_config = adc_cali_line_fitting_config_t {
                     unit_id: unit_id as u32,
-                    chan,
                     atten,
                     bitwidth,
                     ..Default::default()
