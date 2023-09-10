@@ -416,6 +416,8 @@ pub mod config {
         /// or 0 to disable transmit buffering (note that this will make write operations
         /// block until data has been sent out).
         pub tx_fifo_size: usize,
+        /// Number of events that should fit into the event queue.
+        /// Specify 0 to prevent the creation of an event queue.
         pub queue_size: usize,
     }
 
@@ -590,6 +592,8 @@ impl<'d> UartDriver<'d> {
         })
     }
 
+    /// Retrieves the event queue for this UART. Returns `None` if
+    /// the config specified 0 for `queue_size`.
     pub fn event_queue(&self) -> Option<Queue<uart_event_t>> {
         if self.queue.is_null() {
             None
@@ -692,10 +696,12 @@ impl<'d> UartDriver<'d> {
         self.tx().write(buf)
     }
 
+    /// Clears the receive buffer.
     pub fn flush_read(&self) -> Result<(), EspError> {
         self.rx().flush()
     }
 
+    /// Waits for the transmission to complete.
     pub fn flush_write(&self) -> Result<(), EspError> {
         self.tx().flush()
     }
@@ -895,6 +901,7 @@ impl<'d> UartRxDriver<'d> {
         }
     }
 
+    /// Clears the receive buffer.
     pub fn flush(&self) -> Result<(), EspError> {
         esp!(unsafe { uart_flush_input(self.port()) })?;
 
