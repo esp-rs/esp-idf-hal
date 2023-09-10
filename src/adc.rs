@@ -450,6 +450,200 @@ impl_adc!(ADC1: adc_unit_t_ADC_UNIT_1);
 impl_adc!(ADC2: adc_unit_t_ADC_UNIT_2);
 
 #[cfg(all(not(feature = "riscv-ulp-hal"), not(esp_idf_version_major = "4")))]
+pub mod oneshot {
+    use core::marker::PhantomData;
+
+    use esp_idf_sys::*;
+
+    use crate::gpio::ADCPin;
+    use crate::peripheral::Peripheral;
+    use crate::peripheral::PeripheralRef;
+
+    use super::Adc;
+    use super::config::Resolution;
+    use super::attenuation::adc_atten_t;
+
+    pub mod config {
+        use super::Resolution;
+        use super::adc_atten_t;
+    
+        #[derive(Debug, Copy, Clone, Default)]
+        pub struct AdcChannelConfig {
+            pub attenuation: adc_atten_t,
+            pub resolution: Resolution,
+            #[cfg(any(esp_idf_comp_esp_adc_cal_enabled, esp_idf_comp_esp_adc_enabled))]
+            pub calibration: bool,
+        }
+    }
+
+    pub struct AdcChannelDriver<'d, T: ADCPin> {
+        pin: PeripheralRef<'d, T>,
+        calibration: Option<adc_cali_handle_t>,
+    }
+
+    impl<'d, T: ADCPin> AdcChannelDriver<'d, T> {
+        pub fn new(adc: &AdcDriver<'d>, pin: impl Peripheral<P = T> + 'd, config: config::AdcChannelConfig) -> Result<AdcChannelDriver<'d, T>, EspError> {
+            crate::into_ref!(pin);
+            assert_eq!(adc.adc, T::Adc::unit() as u8); // TODO: is there a better way?
+
+            unsafe {
+                crate::gpio::rtc_reset_pin(pin.pin())?;
+            }
+
+            let chan_config = adc_oneshot_chan_cfg_t {
+                atten: config.attenuation,
+                bitwidth: config.resolution.into(),
+                ..Default::default()
+            };
+    
+            unsafe { esp!(adc_oneshot_config_channel(adc.handle, pin.adc_channel(), &chan_config))? };
+
+            let mut calibration = Self::get_curve_calibration_handle(adc.adc, pin.adc_channel(), config.attenuation, config.resolution.into());
+            if calibration.is_none() {
+                calibration = Self::get_line_calibration_handle(adc.adc, pin.adc_channel(), config.attenuation, config.resolution.into());
+            }
+            Ok(Self { pin, calibration })
+        }
+
+        #[allow(unused_variables)]
+        fn get_curve_calibration_handle(unit_id: u8, chan: adc_channel_t, atten: adc_atten_t, bitwidth: adc_bits_width_t) -> Option<adc_cali_handle_t> {
+            // it would be nice if esp-idf-sys could export some cfg values to replicate these two defines
+            // from esp-idf:
+            // ADC_CALI_SCHEME_CURVE_FITTING_SUPPORTED
+            // ADC_CALI_SCHEME_LINE_FITTING_SUPPORTED
+            // then we wouuld not need the uglyness for the esp32c6
+            #[cfg(any(
+                esp32c3,
+                all(esp32c6,
+                    all(
+                        not(all(esp_idf_version_major = "5", esp_idf_version_minor = "0"))),
+                        not(esp_idf_version_full = "5.1.0")
+                    ),
+                esp32s3,
+            ))]
+            {
+                let cal_config = adc_cali_curve_fitting_config_t {
+                    unit_id: unit_id as u32,
+                    chan,
+                    atten,
+                    bitwidth,
+                    ..Default::default()
+                };
+                let mut cal_handle: adc_cali_handle_t = core::ptr::null_mut();
+                if let Err(_err) = unsafe { esp!(esp_idf_sys::adc_cali_create_scheme_curve_fitting(&cal_config, &mut cal_handle)) } {
+                    // I'd log a warning but the log crate is not available here
+                    None
+                } else {
+                    Some(cal_handle)
+                }
+            }
+            #[cfg(not(any(
+                esp32c3,
+                all(esp32c6,
+                    all(
+                        not(all(esp_idf_version_major = "5", esp_idf_version_minor = "0"))),
+                        not(esp_idf_version_full = "5.1.0")
+                    ),
+                esp32s3,
+            )))]
+            None
+        }
+
+        #[allow(unused_variables)]
+        fn get_line_calibration_handle(unit_id: u8, chan: adc_channel_t, atten: adc_atten_t, bitwidth: adc_bits_width_t) -> Option<adc_cali_handle_t> {
+            #[cfg(any(esp32, esp32c2, esp32s2))]
+            {
+                let cal_config = adc_cali_line_fitting_config_t {
+                    unit_id: unit_id as u32,
+                    chan,
+                    atten,
+                    bitwidth,
+                    ..Default::default()
+                };
+                let mut cal_handle: adc_cali_handle_t = core::ptr::null_mut();
+                if let Err(_err) = unsafe { esp!(esp_idf_sys::adc_cali_create_scheme_line_fitting(&cal_config, &mut cal_handle)) } {
+                    // I'd log a warning but the log crate is not available here
+                    None
+                } else {
+                    Some(cal_handle)
+                }
+            }
+            #[cfg(not(any(esp32, esp32c2, esp32s2)))]
+            None
+        }
+
+        fn pin(&mut self) -> &mut PeripheralRef<'d, T> {
+            &mut self.pin
+        }
+    }
+
+    pub struct AdcDriver<'d> {
+        handle: adc_oneshot_unit_handle_t,
+        adc: u8,
+        _ref: PhantomData<&'d ()>,
+    }
+
+    impl<'d> AdcDriver<'d> {    
+        pub fn new<A: Adc>(
+            _adc: impl Peripheral<P = A> + 'd,
+        ) -> Result<Self, EspError> {
+            let config = adc_oneshot_unit_init_cfg_t {
+                unit_id: A::unit(),
+                ..Default::default()
+            };
+            let mut adc_handle: adc_oneshot_unit_handle_t = core::ptr::null_mut();
+            unsafe { esp!(adc_oneshot_new_unit(&config, &mut adc_handle))? };
+            Ok(Self {
+                handle: adc_handle,
+                adc: A::unit() as u8,
+                _ref: PhantomData,
+            })
+        }
+
+        pub fn read<T>(
+            &mut self,
+            channel: &mut AdcChannelDriver<'_, T>,
+        ) -> Result<u16, EspError>
+        where
+            T: ADCPin,
+        {
+            let raw = self.read_raw(channel)?;
+            self.raw_to_cal(raw, channel)
+        }
+
+        #[inline(always)]
+        pub fn read_raw<T>(
+            &mut self,
+            channel: &mut AdcChannelDriver<'_, T>,
+        ) -> Result<u16, EspError>
+        where
+            T: ADCPin,
+        {
+            let mut measurement = 0;
+            unsafe { esp!(adc_oneshot_read(self.handle, channel.pin().adc_channel(), &mut measurement)) }?;
+            Ok(measurement as u16)
+        }
+
+        #[inline(always)]
+        pub fn raw_to_cal<T>(&mut self, raw: u16, channel: &mut AdcChannelDriver<'_, T>) -> Result<u16, EspError>
+        where
+            T: ADCPin,
+        {
+            let value = if let Some(calibration) = &channel.calibration {
+                let mut mv = 0i32;
+                unsafe {
+                    esp!(adc_cali_raw_to_voltage(*calibration, raw as i32, &mut mv))?;
+                };
+                mv as u16
+            } else {
+                raw as u16
+            };
+            Ok(value)
+        }
+    }
+}
+
+#[cfg(all(not(feature = "riscv-ulp-hal"), not(esp_idf_version_major = "4")))]
 pub mod continuous {
     use core::ffi::c_void;
     use core::fmt::{self, Debug, Display};
