@@ -633,8 +633,10 @@ mod esptls {
             // Background:
             // `non_block = true` is only used at one place in the ESP IDF code and that is to run
             // a check - with `select` - whether the socket is really connected.
-            // However, we want to avoid the `select()` call, as the adopted socket might be registered
-            // in a select() loop already.
+            // However, we want to avoid the `select()` call, as
+            // (a) It won't work, because we jump directly into the ESP_TLS_CONNECTING state as we adopt a socket.
+            //.    As a side effect, the select() call is not properly initialized.
+            // (b) The adopted socket might be registered in a select() loop already.
             //
             // Avoiding the connectivity check with `select()` should be fine, as the adopted socket
             // must be already connected anyway (API requirement).
