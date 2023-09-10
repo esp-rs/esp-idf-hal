@@ -584,10 +584,15 @@ pub mod oneshot {
         ) -> Option<adc_cali_handle_t> {
             #[cfg(any(esp32, esp32c2, esp32s2))]
             {
+                // esp32 has an additional field that the exanple defalts
+                // to using fuse values for vref. Maybe we should expose
+                // this as a config option?
+                #[allow(clippy::needless_update)]
                 let cal_config = adc_cali_line_fitting_config_t {
                     unit_id: unit_id as u32,
                     atten,
                     bitwidth,
+                    ..Default::default()
                 };
                 let mut cal_handle: adc_cali_handle_t = core::ptr::null_mut();
                 if let Err(_err) = unsafe {
