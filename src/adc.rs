@@ -588,7 +588,6 @@ pub mod oneshot {
                     unit_id: unit_id as u32,
                     atten,
                     bitwidth,
-                    ..Default::default()
                 };
                 let mut cal_handle: adc_cali_handle_t = core::ptr::null_mut();
                 if let Err(_err) = unsafe {
@@ -664,7 +663,7 @@ pub mod oneshot {
         pub fn raw_to_cal<T>(
             &mut self,
             raw: u16,
-            channel: &mut AdcChannelDriver<'_, T>,
+            channel: &AdcChannelDriver<'_, T>,
         ) -> Result<u16, EspError>
         where
             T: ADCPin,
