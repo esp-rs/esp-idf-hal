@@ -497,7 +497,6 @@ pub mod oneshot {
             let chan_config = adc_oneshot_chan_cfg_t {
                 atten: config.attenuation,
                 bitwidth: config.resolution.into(),
-                ..Default::default()
             };
 
             unsafe {
@@ -540,7 +539,7 @@ pub mod oneshot {
                 esp32c3,
                 all(
                     esp32c6,
-                    all(not(all(esp_idf_version_major = "5", esp_idf_version_minor = "0"))),
+                    not(all(esp_idf_version_major = "5", esp_idf_version_minor = "0")),
                     not(esp_idf_version_full = "5.1.0")
                 ),
                 esp32s3,
@@ -551,7 +550,6 @@ pub mod oneshot {
                     chan,
                     atten,
                     bitwidth,
-                    ..Default::default()
                 };
                 let mut cal_handle: adc_cali_handle_t = core::ptr::null_mut();
                 if let Err(_err) = unsafe {
@@ -570,7 +568,7 @@ pub mod oneshot {
                 esp32c3,
                 all(
                     esp32c6,
-                    all(not(all(esp_idf_version_major = "5", esp_idf_version_minor = "0"))),
+                    not(all(esp_idf_version_major = "5", esp_idf_version_minor = "0")),
                     not(esp_idf_version_full = "5.1.0")
                 ),
                 esp32s3,
@@ -678,7 +676,7 @@ pub mod oneshot {
                 };
                 mv as u16
             } else {
-                raw as u16
+                raw
             };
             Ok(value)
         }
