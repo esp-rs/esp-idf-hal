@@ -3,13 +3,15 @@ use core::fmt::{self, Debug};
 use core::marker::PhantomData;
 use core::sync::atomic::{AtomicBool, Ordering};
 
+use log::info;
+
 use num_enum::TryFromPrimitive;
 
 use crate::hal::modem::BluetoothModemPeripheral;
 use crate::hal::peripheral::Peripheral;
 
+use crate::private::mutex;
 use crate::sys::*;
-use log::info;
 
 #[cfg(all(feature = "alloc", esp_idf_comp_nvs_flash_enabled))]
 use crate::nvs::EspDefaultNvsPartition;
@@ -347,6 +349,42 @@ pub enum BtStatus {
     HciMacConnectionFailed = esp_bt_status_t_ESP_BT_STATUS_HCI_MAC_CONNECTION_FAILED,
 }
 
+static MEM_FREED: mutex::Mutex<bool> = mutex::Mutex::wrap(mutex::RawMutex::new(), false);
+
+pub fn reduce_bt_memory<'d, B: BluetoothModemPeripheral>(
+    _modem: impl Peripheral<P = B> + 'd,
+) -> Result<(), EspError> {
+    let mut mem_freed = MEM_FREED.lock();
+
+    if *mem_freed {
+        Err(EspError::from_infallible::<ESP_ERR_INVALID_STATE>())?;
+    }
+
+    #[cfg(esp_idf_btdm_ctrl_mode_br_edr_only)]
+    esp!(unsafe { esp_bt_mem_release(esp_bt_mode_t_ESP_BT_MODE_BLE) })?;
+
+    #[cfg(esp_idf_btdm_ctrl_mode_br_ble_only)]
+    esp!(unsafe { esp_bt_mem_release(esp_bt_mode_t_ESP_BT_MODE_CLASSIC_BT) })?;
+
+    *mem_freed = true;
+
+    Ok(())
+}
+
+pub fn free_bt_memory<B: BluetoothModemPeripheral>(_modem: B) -> Result<(), EspError> {
+    let mut mem_freed = MEM_FREED.lock();
+
+    if *mem_freed {
+        Err(EspError::from_infallible::<ESP_ERR_INVALID_STATE>())?;
+    }
+
+    esp!(unsafe { esp_bt_mem_release(esp_bt_mode_t_ESP_BT_MODE_BTDM) })?;
+
+    *mem_freed = true;
+
+    Ok(())
+}
+
 pub struct BtDriver<'d, M>
 where
     M: BtMode,
@@ -389,12 +427,6 @@ where
 
     #[allow(clippy::needless_update)]
     fn init(_nvs_enabled: bool) -> Result<(), EspError> {
-        #[cfg(esp_idf_btdm_ctrl_mode_br_edr_only)]
-        esp!(unsafe { esp_bt_controller_mem_release(esp_bt_mode_t_ESP_BT_MODE_BLE) })?;
-
-        #[cfg(esp_idf_btdm_ctrl_mode_br_ble_only)]
-        esp!(unsafe { esp_bt_controller_mem_release(esp_bt_mode_t_ESP_BT_MODE_CLASSIC_BT) })?;
-
         #[cfg(esp32)]
         let mut bt_cfg = esp_bt_controller_config_t {
             magic: ESP_BT_CONTROLLER_CONFIG_MAGIC_VAL,
@@ -500,8 +532,6 @@ where
                                  // dup_list_refresh_period: crate::sys::DUPL_SCAN_CACHE_REFRESH_PERIOD as _,
                                  // scan_backoff_upperlimitmax: crate::sys::BT_CTRL_SCAN_BACKOFF_UPPERLIMITMAX as _
         };
-
-        // ESP_ERROR_CHECK(esp_bt_controller_mem_release(ESP_BT_MODE_BLE));
 
         info!("Init bluetooth controller");
         esp!(unsafe { esp_bt_controller_init(&mut bt_cfg) })?;
