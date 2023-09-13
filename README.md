@@ -13,9 +13,9 @@
 * Blocking and `async` mode for each driver (`async` support in progress)
 * Re-exports `esp-idf-sys` as `esp_idf_hal::sys`
 
-**You might want to also check out the ESP IDF [Services](https://github.com/esp-rs/esp-idf-svc) wrappers, and the raw bindings to ESP IDF in the [esp-idf-sys](https://github.com/esp-rs/esp-idf-sys) crate!**
+**You might want to also check out the ESP IDF [Services](https://github.com/esp-rs/esp-idf-svc) wrappers, and the raw bindings to ESP IDF in the [`esp-idf-sys`](https://github.com/esp-rs/esp-idf-sys) crate!**
 
-(For baremetal Rust ESP projects please check [esp-hal](https://github.com/esp-rs/esp-hal).)
+(For baremetal Rust ESP projects please check [`esp-hal`](https://github.com/esp-rs/esp-hal).)
 
 ## Build Prerequisites
 
@@ -26,12 +26,12 @@ Follow the [Prerequisites](https://github.com/esp-rs/esp-idf-template#prerequisi
 The examples could be built and flashed conveniently with [`cargo-espflash`](https://github.com/esp-rs/espflash/). To run e.g. the `ledc_simple` on an e.g. ESP32-C3:
 (Swap the Rust target and example name with the target corresponding for your ESP32 MCU and with the example you would like to build)
 
-with cargo-esptool v1.7:
+with `cargo-espflash` < v2.0:
 ```
 $ ESP_IDF_VERSION=release/v4.4 cargo espflash --target riscv32imc-esp-espidf --example ledc_simple --monitor /dev/ttyUSB0
 ```
 
-with cargo-esptool v2.0:
+with `cargo-espflash` > v2.0:
 ```
 $ ESP_IDF_VERSION=release/v4.4 cargo espflash flash --target riscv32imc-esp-espidf --example ledc_simple --monitor
 ```
@@ -40,18 +40,18 @@ In order to run the examples on other chips you will most likely need to adapt a
 
 ## Setting up a "Hello, world!" binary crate with ESP IDF
 
-Use the [esp-idf-template](https://github.com/esp-rs/esp-idf-template) project. Everything would be arranged and built for you automatically - no need to manually clone the ESP IDF repository.
+Use the [`esp-idf-template`](https://github.com/esp-rs/esp-idf-template) project. Everything would be arranged and built for you automatically - no need to manually clone the ESP IDF repository.
 
 ## More information
 
 For more information, check out:
 * The [Rust on ESP Book](https://esp-rs.github.io/book/)
-* The [ESP Embedded Training](https://github.com/esp-rs/espressif-trainings)
-* The [esp-idf-template](https://github.com/esp-rs/esp-idf-template) project
-* The [embedded-hal](https://github.com/rust-embedded/embedded-hal) project
-* The [esp-idf-svc](https://github.com/esp-rs/esp-idf-svc) project
-* The [embedded-svc](https://github.com/esp-rs/embedded-svc) project
-* The [esp-idf-sys](https://github.com/esp-rs/esp-idf-sys) project
+* The [ESP Embedded Training](https://github.com/esp-rs/std-training)
+* The [`esp-idf-template`](https://github.com/esp-rs/esp-idf-template) project
+* The [`embedded-hal`](https://github.com/rust-embedded/embedded-hal) project
+* The [`esp-idf-svc`](https://github.com/esp-rs/esp-idf-svc) project
+* The [`embedded-svc`](https://github.com/esp-rs/embedded-svc) project
+* The [`esp-idf-sys`](https://github.com/esp-rs/esp-idf-sys) project
 * The [Rust for Xtensa toolchain](https://github.com/esp-rs/rust-build)
 * The [Rust-with-STD demo](https://github.com/ivmarkov/rust-esp32-std-demo) project
 
