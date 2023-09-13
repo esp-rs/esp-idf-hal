@@ -121,7 +121,7 @@ pub struct AdcChannelDriver<'d, const A: adc_atten_t, T: ADCPin> {
 
 #[cfg(not(feature = "riscv-ulp-hal"))]
 impl<'d, const A: adc_atten_t, T: ADCPin> AdcChannelDriver<'d, A, T> {
-    pub fn new(pin: impl Peripheral<P = T> + 'd) -> Result<AdcChannelDriver<'d, A, T>, EspError> {
+    pub fn new(pin: impl Peripheral<P = T> + 'd) -> Result<Self, EspError> {
         crate::into_ref!(pin);
 
         unsafe {
@@ -239,7 +239,7 @@ impl<'d, ADC: Adc> AdcDriver<'d, ADC> {
         pin: &mut AdcChannelDriver<'_, A, T>,
     ) -> Result<u16, EspError>
     where
-        T: ADCPin,
+        T: ADCPin<Adc = ADC>,
     {
         self.read_internal(ADC::unit(), pin.pin().adc_channel(), A)
     }
@@ -250,7 +250,7 @@ impl<'d, ADC: Adc> AdcDriver<'d, ADC> {
         pin: &mut AdcChannelDriver<'_, A, T>,
     ) -> Result<u16, EspError>
     where
-        T: ADCPin,
+        T: ADCPin<Adc = ADC>,
     {
         self.read_internal_raw(ADC::unit(), pin.pin().adc_channel())
     }
