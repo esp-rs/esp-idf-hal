@@ -583,9 +583,9 @@ impl UartEvent {
     pub fn payload(&self) -> UartEventPayload {
         #[allow(non_upper_case_globals)]
         match self.raw.type_ {
-            uart_event_type_t_UART_DATA if self.raw.timeout_flag => UartEventPayload::Timeout,
             uart_event_type_t_UART_DATA => UartEventPayload::Data {
                 size: self.raw.size,
+                timeout: self.raw.timeout_flag,
             },
             uart_event_type_t_UART_BREAK => UartEventPayload::Break,
             uart_event_type_t_UART_BUFFER_FULL => UartEventPayload::RxBufferFull,
@@ -602,12 +602,17 @@ impl UartEvent {
 #[derive(Clone, Copy, Debug)]
 #[non_exhaustive]
 pub enum UartEventPayload {
-    /// UART data was received
+    /// UART data was received and/or a timeout was triggered
     Data {
+        /// The number of bytes received
         size: usize,
+        /// Whether a timeout has occurred.
+        /// It is possible that bytes have been received
+        /// and this is set to `true` in case the driver
+        /// processed both interrupts at the same time.
+        timeout: bool,
     },
     /// Represents DATA event with timeout_flag set
-    Timeout,
     Break,
     RxBufferFull,
     RxFifoOverflow,
