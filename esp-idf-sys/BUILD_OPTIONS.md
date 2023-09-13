@@ -523,37 +523,3 @@ The list of available *cfg*s:
 
 If you are interested in how it all works under the hood, check the [build.rs](build/build.rs)
 build script of this crate.
-
-## ESP32-C6/ESP32-P4 preliminary support
-
-The ESP32-C6 and the upcoming ESP32-P4 are the first Espressif chips that support the "A" (atomic) extension of the RISCV specification.
-As such, they do not work with the existing `riscv32imc-esp-espidf` target, and instead need a new one (to be upstreamed to Rust)
-called `riscv32imac-esp-espidf`.
-
-Until the target is upstreamed, you can use the following custom target:
-
-```json
-{
-    "arch": "riscv32",
-    "cpu": "generic-rv32",
-    "data-layout": "e-m:e-p:32:32-i64:64-n32-S128",
-    "eh-frame-header": false,
-    "emit-debug-gdb-scripts": false,
-    "env": "newlib",
-    "features": "+m,+a,+c",
-    "is-builtin": false,
-    "linker": "riscv32-esp-elf-gcc",
-    "llvm-target": "riscv32",
-    "max-atomic-width": 64,
-    "os": "espidf",
-    "panic-strategy": "abort",
-    "relocation-model": "static",
-    "target-family": [
-      "unix"
-    ],
-    "target-pointer-width": "32",
-    "vendor": "espressif"
-  }
-```
-
-Save the target somewhere (perhaps in the root of your binary crate) under the name `riscv32imac-esp-espidf.json` and when building with cargo, pass it with `--target riscv32imac-esp-espidf.json`.
