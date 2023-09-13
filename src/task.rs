@@ -865,10 +865,15 @@ pub mod queue {
         mem::{size_of, MaybeUninit},
     };
 
-    use esp_idf_sys::TickType_t;
+    use esp_idf_sys::{EspError, ESP_FAIL, TickType_t};
 
     use crate::sys;
 
+    /// Thin wrapper on top of the FreeRTOS queue.
+    ///
+    /// This may be preferable over a Rust channel
+    /// in cases where an ISR needs to send or receive
+    /// data as it is safe to use in ISR contexts.
     pub struct Queue<T> {
         ptr: sys::QueueHandle_t,
         is_owned: bool,
@@ -884,6 +889,7 @@ pub mod queue {
         // might be able to lift restriction in the future
         T: Copy,
     {
+        /// Allocate a new queue on the heap.
         pub fn new(size: usize) -> Self {
             Queue {
                 ptr: unsafe { sys::xQueueGenericCreate(size as u32, size_of::<T>() as u32, 0) },
@@ -908,45 +914,170 @@ pub mod queue {
             }
         }
 
+        /// Retrieves the underlying FreeRTOS handle.
+        #[inline]
+        #[link_section = "iram1.queue_as_raw"]
         pub fn as_raw(&self) -> sys::QueueHandle_t {
             self.ptr
         }
 
         /// Copy item to back of queue, blocking for `timeout` ticks if full.
-        pub fn send_back(&self, item: T, timeout: TickType_t) -> bool {
-            unsafe {
-                sys::xQueueGenericSend(self.ptr, &item as *const T as *const _, timeout, 0) == 1
-            }
+        ///
+        /// # ISR safety
+        ///
+        /// This function is safe to call in ISR contexts.
+        ///
+        /// # Parameters
+        ///
+        /// * `item` the item to push onto the back of the queue
+        /// * `timeout` specifies how long to block. Ignored in ISR context.
+        ///
+        /// # Returns
+        ///
+        /// Will return an error if queue is full.
+        /// If this function is executed in an ISR context,
+        /// it will return true if a higher priority task was awoken.
+        /// In non-ISR contexts, the function will always return `false`.
+        /// In this case the interrupt should call [`crate::task::do_yield`].
+        #[inline]
+        #[link_section = "iram1.queue_send_back"]
+        pub fn send_back(&self, item: T, timeout: TickType_t) -> Result<bool, EspError> {
+            self.send_generic(item, timeout, 0)
         }
 
         /// Copy item to front of queue, blocking for `timeout` ticks if full.
+        /// This can be used for hight priority messages which should be processed
+        /// sooner.
         ///
-        /// This is meant for high priority messages.
-        pub fn send_front(&self, item: T, timeout: TickType_t) -> bool {
-            unsafe {
-                sys::xQueueGenericSend(self.ptr, &item as *const T as *const _, timeout, 1) == 1
+        /// # ISR safety
+        ///
+        /// This function is safe to call in ISR contexts.
+        ///
+        /// # Parameters
+        ///
+        /// * `item` the item to push to front of the queue
+        /// * `timeout` specifies how long to block. Ignored in ISR context.
+        ///
+        /// # Returns
+        ///
+        /// Will return an error if queue is full.
+        /// If this function is executed in an ISR context,
+        /// it will return true if a higher priority task was awoken.
+        /// In non-ISR contexts, the function will always return `false`.
+        /// In this case the interrupt should call [`crate::task::do_yield`].
+        #[inline]
+        #[link_section = "iram1.queue_send_front"]
+        pub fn send_front(&self, item: T, timeout: TickType_t) -> Result<bool, EspError> {
+            self.send_generic(item, timeout, 1)
+        }
+
+        /// Copy item to queue, blocking for `timeout` ticks if full.
+        ///
+        /// # ISR safety
+        ///
+        /// This function is safe to call in ISR contexts.
+        ///
+        /// # Parameters
+        ///
+        /// * `item` the item to push to the queue
+        /// * `timeout` specifies how long to block. Ignored in ISR context.
+        /// * `copy_position` 0 to push onto back, 1 to push to front
+        ///
+        /// # Returns
+        ///
+        /// Will return an error if queue is full.
+        /// If this function is executed in an ISR context,
+        /// it will return true if a higher priority task was awoken.
+        /// In non-ISR contexts, the function will always return `false`.
+        /// In this case the interrupt should call [`crate::task::do_yield`].
+        #[inline]
+        #[link_section = "iram1.queue_send_generic"]
+        fn send_generic(&self, item: T, timeout: TickType_t, copy_position: i32) -> Result<bool, EspError> {
+            let mut hp_task_awoken: i32 = false as i32;
+            let success = unsafe {
+                if crate::interrupt::active() {
+                    sys::xQueueGenericSendFromISR(self.ptr, &item as *const T as *const _, &mut hp_task_awoken, copy_position)
+                } else {
+                    sys::xQueueGenericSend(self.ptr, &item as *const T as *const _, timeout, copy_position)
+                }
+            };
+            let success = success == 1;
+            let hp_task_awoken = hp_task_awoken == 1;
+
+            match success {
+                true => Ok(hp_task_awoken),
+                false => Err(EspError::from_infallible::<ESP_FAIL>()),
             }
         }
 
-        /// Block for `timeout` until a message is available, removing it from the queue.
-        pub fn recv_front(&self, timeout: TickType_t) -> Option<T> {
+        /// Receive a message from the queue and remove it.
+        ///
+        /// # ISR safety
+        ///
+        /// This function is safe to use in ISR contexts
+        ///
+        /// # Parameters
+        ///
+        /// * `timeout` specifies how long to block. Ignored in ISR contexts.
+        ///
+        /// # Returns
+        ///
+        /// * `None` if no message could be received in time
+        /// * `Some((message, higher_priority_task_awoken))` otherwise
+        ///
+        /// The boolean is used for ISRs and indicates if a higher priority task was awoken.
+        /// In this case the interrupt should call [`crate::task::do_yield`].
+        /// In non-ISR contexts, the function will always return `false`.
+        #[inline]
+        #[link_section = "iram1.queue_recv_front"]
+        pub fn recv_front(&self, timeout: TickType_t) -> Option<(T, bool)> {
             let mut buf = MaybeUninit::uninit();
+            let mut hp_task_awoken = false as i32;
 
             unsafe {
-                if sys::xQueueReceive(self.ptr, buf.as_mut_ptr() as *mut _, timeout) == 1 {
-                    Some(buf.assume_init())
+                let success = if crate::interrupt::active() {
+                    sys::xQueueReceiveFromISR(self.ptr, buf.as_mut_ptr() as *mut _, &mut hp_task_awoken)
+                } else {
+                    sys::xQueueReceive(self.ptr, buf.as_mut_ptr() as *mut _, timeout)
+                };
+                if success == 1 {
+                    Some((buf.assume_init(), hp_task_awoken == 1))
                 } else {
                     None
                 }
             }
         }
 
-        /// Block for `timeout` until a message is available.
+        /// Copy the first message from the queue without removing it.
+        ///
+        /// # ISR safety
+        ///
+        /// This function is safe to use in ISR contexts
+        ///
+        /// # Parameters
+        ///
+        /// * `timeout` specifies how long to block. Ignored in ISR contexts.
+        ///
+        /// # Returns
+        ///
+        /// * `None` if no message could be received in time
+        /// * `Some(message)` otherwise
+        ///
+        /// This function does not return a boolean to indicate if
+        /// a higher priority task was awoken since we don't free
+        /// up space in the queue and thus cannot unblock anyone.
+        #[inline]
+        #[link_section = "iram1.queue_peek_front"]
         pub fn peek_front(&self, timeout: TickType_t) -> Option<T> {
             let mut buf = MaybeUninit::uninit();
 
             unsafe {
-                if sys::xQueuePeek(self.ptr, buf.as_mut_ptr() as *mut _, timeout) == 1 {
+                let success = if crate::interrupt::active() {
+                    sys::xQueuePeekFromISR(self.ptr, buf.as_mut_ptr() as *mut _)
+                } else {
+                    sys::xQueuePeek(self.ptr, buf.as_mut_ptr() as *mut _, timeout)
+                };
+                if success == 1 {
                     Some(buf.assume_init())
                 } else {
                     None
