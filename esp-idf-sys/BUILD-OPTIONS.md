@@ -92,7 +92,7 @@ There are two ways to configure how the ESP-IDF framework is compiled:
 
    > [!NOTE]
    > Configuration can only come from the **root crate's** `Cargo.toml`. The root crate
-   > is the package in the *workspace directory*. If there is not root crate in case of a
+   > is the package in the *workspace directory*. If there is no root crate in case of a
    > [virtual
    > workspace](https://doc.rust-lang.org/cargo/reference/workspaces.html#virtual-manifest),
    > its *name* can be specified with the `ESP_IDF_SYS_ROOT_CRATE` environment variable.
@@ -222,7 +222,7 @@ The following configuration options are available:
    > [!WARNING]
    > The [ESP-IDF git repository](https://github.com/espressif/esp-idf) will be cloned
    > *inside* the tooling directory. The *native* builder will use the esp-idf at
-   > [*`idf_path`*](#idfpath-idfpath-native-builder-only) of available.
+   > [*`idf_path`*](#idfpath-idfpath-native-builder-only) if available.
       
 - ### *`idf_path`*, `$IDF_PATH` (*native* builder only)
   A path to a user-provided local clone of the [esp-idf](https://github.com/espressif/esp-idf),
@@ -446,7 +446,7 @@ options to turn the component manager off.
 A remote component can be specified by:
 ```toml
 [package.metadata.esp-idf-sys.extra_components.0.remote_component]
-# The name of the remote component. Corrensponds to a key in the dependencies of
+# The name of the remote component. Corresponds to a key in the dependencies of
 # `idf_component.yml`.
 name = "component_name"
 # The version of the remote component. Corresponds to the `version` field of the
