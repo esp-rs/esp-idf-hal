@@ -4,7 +4,7 @@
 //!
 //! Follow the [Prerequisites](https://github.com/esp-rs/esp-idf-template#prerequisites) section in the `esp-idf-template` crate.
 //!
-#![doc = include_str!("../BUILD_OPTIONS.md")]
+#![doc = include_str!("../BUILD-OPTIONS.md")]
 #![cfg_attr(not(feature = "std"), no_std)]
 #![cfg_attr(
     all(not(feature = "std"), feature = "alloc_handler"),
