@@ -442,7 +442,7 @@ pub mod config {
         ///
         /// Note that you should not set `Iram` here, because it will
         /// be automatically set depending on the value of `CONFIG_UART_ISR_IN_IRAM`.
-        pub intr_alloc_flags: EnumSet<IntrFlags>,
+        pub intr_flags: EnumSet<IntrFlags>,
         /// Configures the interrupts the driver should enable.
         pub event_config: EventConfig,
         /// The size of the software rx buffer. Must be bigger than the hardware FIFO.
@@ -471,7 +471,7 @@ pub mod config {
                 flow_control: FlowControl::None,
                 flow_control_rts_threshold: 122,
                 source_clock: SourceClock::default(),
-                intr_alloc_flags: EnumSet::EMPTY,
+                intr_flags: EnumSet::EMPTY,
                 event_config: EventConfig::new(),
                 rx_fifo_size: super::UART_FIFO_SIZE * 2,
                 tx_fifo_size: super::UART_FIFO_SIZE * 2,
@@ -1262,7 +1262,7 @@ fn new_common<UART: Uart>(
             },
             config.queue_size as _,
             queue.map(|q| q as *mut _).unwrap_or(ptr::null_mut()),
-            IntrFlags::to_native(config.intr_alloc_flags) as i32,
+            IntrFlags::to_native(config.intr_flags) as i32,
         )
     })?;
 
