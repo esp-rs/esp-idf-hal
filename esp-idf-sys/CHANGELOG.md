@@ -5,6 +5,10 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.33.3] - 2023-09-13
+* Support for ESP IDF Component Manager - check the documentation in BUILD-OPTIONS.md
+* ESP32H2 and ESP32C5 now properly assigned to the `riscv32imac-esp-espidf`
+
 ## [0.33.2] - 2023-08-18
 * Band-aid solution that fixes the build with recent Rust nightlies and ESP IDF < 5.1 (https://github.com/esp-rs/esp-idf-template/issues/149)
 * Raw bindings for the continuous ADC driver (ESP IDF >= 5.0)

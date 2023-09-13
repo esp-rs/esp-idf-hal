@@ -29,7 +29,7 @@ Follow the [Prerequisites](https://github.com/esp-rs/esp-idf-template#prerequisi
 
 ## Customizing how the ESP IDF SDK is built
 
-Read the [documentation here](BUILD_OPTIONS.md).
+Read the [documentation here](BUILD-OPTIONS.md).
 
 ## More information
 
