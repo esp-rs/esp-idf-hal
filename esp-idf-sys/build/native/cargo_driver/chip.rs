@@ -18,15 +18,15 @@ pub enum Chip {
     #[strum(serialize = "esp32s3")]
     ESP32S3,
     /// RISC-V based single core
-    #[strum(serialize = "esp32c3")]
-    ESP32C3,
-    /// RISC-V based single core
     #[strum(serialize = "esp32c2")]
     ESP32C2,
     /// RISC-V based single core
+    #[strum(serialize = "esp32c3")]
+    ESP32C3,
+    /// RISC-V based single core with atomics support
     #[strum(serialize = "esp32h2")]
     ESP32H2,
-    /// RISC-V based single core
+    /// RISC-V based single core with atomics support
     #[strum(serialize = "esp32c5")]
     ESP32C5,
     /// RISC-V based single core with atomics support
@@ -43,10 +43,10 @@ impl Chip {
             "xtensa-esp32-espidf" => &[Chip::ESP32],
             "xtensa-esp32s2-espidf" => &[Chip::ESP32S2],
             "xtensa-esp32s3-espidf" => &[Chip::ESP32S3],
-            "riscv32imc-esp-espidf" => {
-                &[Chip::ESP32C3, Chip::ESP32C2, Chip::ESP32H2, Chip::ESP32C5]
+            "riscv32imc-esp-espidf" => &[Chip::ESP32C2, Chip::ESP32C3],
+            "riscv32imac-esp-espidf" => {
+                &[Chip::ESP32H2, Chip::ESP32C5, Chip::ESP32C6, Chip::ESP32P4]
             }
-            "riscv32imac-esp-espidf" => &[Chip::ESP32C6, Chip::ESP32P4],
             _ => bail!("Unsupported target '{}'", rust_target_triple),
         };
 
@@ -63,8 +63,8 @@ impl Chip {
             Self::ESP32 => "xtensa-esp32-elf",
             Self::ESP32S2 => "xtensa-esp32s2-elf",
             Self::ESP32S3 => "xtensa-esp32s3-elf",
-            Self::ESP32C3
-            | Self::ESP32C2
+            Self::ESP32C2
+            | Self::ESP32C3
             | Self::ESP32H2
             | Self::ESP32C5
             | Self::ESP32C6
