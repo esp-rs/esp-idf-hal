@@ -322,7 +322,7 @@ pub mod config {
         ///
         /// If `None` or `Some(0)` interrupt will be disabled.
         pub receive_timeout: Option<u8>,
-        /// Sets the threshold **above** which an interrupt will
+        /// Sets the threshold at which an interrupt will
         /// be generated (the hardware receive FIFO contains more words than
         /// this number).
         ///
@@ -333,7 +333,7 @@ pub mod config {
         /// this number).
         ///
         /// If set to `None` interrupt will be disabled.
-        // TODO: what happens when set to 0?
+        /// Should not be set to `0` as the interrupt will trigger constantly.
         pub tx_fifo_empty: Option<u8>,
         /// Other interrupts to enable
         pub flags: EnumSet<EventFlags>,
@@ -774,13 +774,25 @@ impl<'d> UartDriver<'d> {
     }
 
     /// Clears the receive buffer.
+    #[deprecated(since = "0.41.3", note = "Use UartDriver::clear_rx instead")]
     pub fn flush_read(&self) -> Result<(), EspError> {
-        self.rx().flush()
+        self.rx().clear()
+    }
+
+    /// Clears the receive buffer.
+    pub fn clear_rx(&self) -> Result<(), EspError> {
+        self.rx().clear()
     }
 
     /// Waits for the transmission to complete.
+    #[deprecated(since = "0.41.3", note = "Use UartDriver::wait_tx_done instead")]
     pub fn flush_write(&self) -> Result<(), EspError> {
-        self.tx().flush()
+        self.tx().wait_done()
+    }
+
+    /// Waits for the transmission to complete.
+    pub fn wait_tx_done(&self) -> Result<(), EspError> {
+        self.tx().wait_done()
     }
 
     pub fn port(&self) -> uart_port_t {
@@ -843,8 +855,7 @@ impl<'d> embedded_io::Write for UartDriver<'d> {
     }
 
     fn flush(&mut self) -> Result<(), Self::Error> {
-        UartDriver::flush_read(self).map_err(EspIOError)?;
-        UartDriver::flush_write(self).map_err(EspIOError)
+        UartDriver::wait_tx_done(self).map_err(EspIOError)
     }
 }
 
@@ -979,7 +990,12 @@ impl<'d> UartRxDriver<'d> {
     }
 
     /// Clears the receive buffer.
+    #[deprecated(since = "0.41.3", note = "Use `UartRxDriver::clear` instead")]
     pub fn flush(&self) -> Result<(), EspError> {
+        self.clear()
+    }
+
+    pub fn clear(&self) -> Result<(), EspError> {
         esp!(unsafe { uart_flush_input(self.port()) })?;
 
         Ok(())
@@ -1114,10 +1130,16 @@ impl<'d> UartTxDriver<'d> {
     }
 
     /// Waits until the transmission is complete.
-    pub fn flush(&mut self) -> Result<(), EspError> {
+    pub fn wait_done(&mut self) -> Result<(), EspError> {
         esp!(unsafe { uart_wait_tx_done(self.port(), 0) })?;
 
         Ok(())
+    }
+
+    /// Waits until the transmission is complete.
+    #[deprecated(since = "0.41.3", note = "Use `UartTxDriver::wait_done` instead")]
+    pub fn flush(&mut self) -> Result<(), EspError> {
+        self.wait_done()
     }
 
     pub fn port(&self) -> uart_port_t {
@@ -1149,7 +1171,7 @@ impl<'d> embedded_io::Write for UartTxDriver<'d> {
     }
 
     fn flush(&mut self) -> Result<(), Self::Error> {
-        UartTxDriver::flush(self).map_err(EspIOError)
+        UartTxDriver::wait_done(self).map_err(EspIOError)
     }
 }
 
@@ -1161,7 +1183,7 @@ impl<'d> embedded_hal_0_2::serial::Write<u8> for UartTxDriver<'d> {
     type Error = SerialError;
 
     fn flush(&mut self) -> nb::Result<(), Self::Error> {
-        UartTxDriver::flush(self).map_err(to_nb_err)
+        UartTxDriver::wait_done(self).map_err(to_nb_err)
     }
 
     fn write(&mut self, byte: u8) -> nb::Result<(), Self::Error> {
@@ -1175,7 +1197,7 @@ impl<'d> embedded_hal_nb::serial::ErrorType for UartTxDriver<'d> {
 
 impl<'d> embedded_hal_nb::serial::Write<u8> for UartTxDriver<'d> {
     fn flush(&mut self) -> nb::Result<(), Self::Error> {
-        UartTxDriver::flush(self).map_err(to_nb_err)
+        UartTxDriver::wait_done(self).map_err(to_nb_err)
     }
 
     fn write(&mut self, byte: u8) -> nb::Result<(), Self::Error> {
