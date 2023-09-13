@@ -226,7 +226,7 @@ pub mod config {
             Self::from_raw(DEFAULT)
         }
 
-        pub const fn from_raw(source_clock: uart_sclk_t) -> Self { 
+        pub const fn from_raw(source_clock: uart_sclk_t) -> Self {
             match source_clock {
                 #[cfg(any(
                     esp_idf_soc_uart_support_apb_clk,

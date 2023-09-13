@@ -865,7 +865,7 @@ pub mod queue {
         mem::{size_of, MaybeUninit},
     };
 
-    use esp_idf_sys::{EspError, ESP_FAIL, TickType_t};
+    use esp_idf_sys::{EspError, TickType_t, ESP_FAIL};
 
     use crate::sys;
 
@@ -992,13 +992,28 @@ pub mod queue {
         /// In this case the interrupt should call [`crate::task::do_yield`].
         #[inline]
         #[link_section = "iram1.queue_send_generic"]
-        fn send_generic(&self, item: T, timeout: TickType_t, copy_position: i32) -> Result<bool, EspError> {
+        fn send_generic(
+            &self,
+            item: T,
+            timeout: TickType_t,
+            copy_position: i32,
+        ) -> Result<bool, EspError> {
             let mut hp_task_awoken: i32 = false as i32;
             let success = unsafe {
                 if crate::interrupt::active() {
-                    sys::xQueueGenericSendFromISR(self.ptr, &item as *const T as *const _, &mut hp_task_awoken, copy_position)
+                    sys::xQueueGenericSendFromISR(
+                        self.ptr,
+                        &item as *const T as *const _,
+                        &mut hp_task_awoken,
+                        copy_position,
+                    )
                 } else {
-                    sys::xQueueGenericSend(self.ptr, &item as *const T as *const _, timeout, copy_position)
+                    sys::xQueueGenericSend(
+                        self.ptr,
+                        &item as *const T as *const _,
+                        timeout,
+                        copy_position,
+                    )
                 }
             };
             let success = success == 1;
@@ -1036,7 +1051,11 @@ pub mod queue {
 
             unsafe {
                 let success = if crate::interrupt::active() {
-                    sys::xQueueReceiveFromISR(self.ptr, buf.as_mut_ptr() as *mut _, &mut hp_task_awoken)
+                    sys::xQueueReceiveFromISR(
+                        self.ptr,
+                        buf.as_mut_ptr() as *mut _,
+                        &mut hp_task_awoken,
+                    )
                 } else {
                     sys::xQueueReceive(self.ptr, buf.as_mut_ptr() as *mut _, timeout)
                 };
