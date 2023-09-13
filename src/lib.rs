@@ -66,8 +66,6 @@ pub mod prelude;
 #[cfg(not(feature = "riscv-ulp-hal"))]
 mod private;
 #[cfg(not(feature = "riscv-ulp-hal"))]
-pub mod queue;
-#[cfg(not(feature = "riscv-ulp-hal"))]
 pub mod reset;
 #[cfg(not(feature = "riscv-ulp-hal"))]
 pub mod rmt;

@@ -1,4 +1,4 @@
-//! UART peripheral control
+//: QueueHandle_t ! UART peripheral control
 //!
 //! Controls UART peripherals (UART0, UART1, UART2).
 //! Notice that UART0 is typically already used for loading firmware and logging.
@@ -46,7 +46,7 @@ use crate::delay::{self, NON_BLOCK};
 use crate::gpio::*;
 use crate::interrupt::IntrFlags;
 use crate::io::EspIOError;
-use crate::queue::Queue;
+use crate::task::queue::Queue;
 use crate::units::*;
 
 use embedded_hal_nb::serial::ErrorKind;
@@ -218,6 +218,32 @@ pub mod config {
     }
 
     impl SourceClock {
+        pub const fn default() -> Self {
+            #[cfg(not(esp_idf_version_major = "4"))]
+            const DEFAULT: uart_sclk_t = soc_periph_uart_clk_src_legacy_t_UART_SCLK_DEFAULT;
+            #[cfg(esp_idf_version_major = "4")]
+            const DEFAULT: uart_sclk_t = uart_sclk_t_UART_SCLK_APB;
+            Self::from_raw(DEFAULT)
+        }
+
+        pub const fn from_raw(source_clock: uart_sclk_t) -> Self { 
+            match source_clock {
+                #[cfg(any(
+                    esp_idf_soc_uart_support_apb_clk,
+                    esp_idf_soc_uart_support_pll_f40m_clk,
+                    esp_idf_version_major = "4",
+                ))]
+                APB_SCLK => SourceClock::APB,
+                #[cfg(esp_idf_soc_uart_support_rtc_clk)]
+                RTC_SCLK => SourceClock::RTC,
+                #[cfg(esp_idf_soc_uart_support_xtal_clk)]
+                XTAL_SCLK => SourceClock::Crystal,
+                #[cfg(esp_idf_soc_uart_support_ref_tick)]
+                REF_TICK_SCLK => SourceClock::RefTick,
+                _ => unreachable!(),
+            }
+        }
+
         #[cfg(not(esp_idf_version_major = "4"))]
         pub fn frequency(self) -> Result<Hertz, EspError> {
             let mut frequency: u32 = 0;
@@ -256,11 +282,7 @@ pub mod config {
 
     impl Default for SourceClock {
         fn default() -> Self {
-            #[cfg(not(esp_idf_version_major = "4"))]
-            const DEFAULT: uart_sclk_t = soc_periph_uart_clk_src_legacy_t_UART_SCLK_DEFAULT;
-            #[cfg(esp_idf_version_major = "4")]
-            const DEFAULT: uart_sclk_t = uart_sclk_t_UART_SCLK_APB;
-            Self::from(DEFAULT)
+            SourceClock::default()
         }
     }
 
@@ -285,21 +307,7 @@ pub mod config {
 
     impl From<uart_sclk_t> for SourceClock {
         fn from(source_clock: uart_sclk_t) -> Self {
-            match source_clock {
-                #[cfg(any(
-                    esp_idf_soc_uart_support_apb_clk,
-                    esp_idf_soc_uart_support_pll_f40m_clk,
-                    esp_idf_version_major = "4",
-                ))]
-                APB_SCLK => SourceClock::APB,
-                #[cfg(esp_idf_soc_uart_support_rtc_clk)]
-                RTC_SCLK => SourceClock::RTC,
-                #[cfg(esp_idf_soc_uart_support_xtal_clk)]
-                XTAL_SCLK => SourceClock::Crystal,
-                #[cfg(esp_idf_soc_uart_support_ref_tick)]
-                REF_TICK_SCLK => SourceClock::RefTick,
-                _ => unreachable!(),
-            }
+            Self::from_raw(source_clock)
         }
     }
 
@@ -307,7 +315,7 @@ pub mod config {
     /// in order to be able to quickly inform us about the
     /// related event.
     #[derive(Debug, Clone)]
-    pub struct UserInterruptConfig {
+    pub struct EventConfig {
         /// If `Some(number_of_words)`, an interrupt will trigger
         /// after `number_of_words` could have been transmitted
         /// (unit is baudrate dependant).
@@ -328,7 +336,7 @@ pub mod config {
         // TODO: what happens when set to 0?
         pub tx_fifo_empty: Option<u8>,
         /// Other interrupts to enable
-        pub flags: EnumSet<UserInterruptFlags>,
+        pub flags: EnumSet<EventFlags>,
         /// Allow using struct syntax,
         /// but signal users other fields may be added
         /// so `..Default::default()` should be used.
@@ -336,44 +344,50 @@ pub mod config {
         pub _non_exhaustive: (),
     }
 
-    impl Default for UserInterruptConfig {
-        fn default() -> Self {
-            UserInterruptConfig {
+    impl EventConfig {
+        pub const fn new() -> Self {
+            EventConfig {
                 receive_timeout: Some(10),
                 rx_fifo_full: Some(120),
                 tx_fifo_empty: Some(10),
                 flags: enum_set!(
-                    UserInterruptFlags::RxFifoFull
-                        | UserInterruptFlags::RxFifoTimeout
-                        | UserInterruptFlags::RxFifoOverflow
-                        | UserInterruptFlags::BreakDetected
-                        | UserInterruptFlags::ParityError
+                    EventFlags::RxFifoFull
+                        | EventFlags::RxFifoTimeout
+                        | EventFlags::RxFifoOverflow
+                        | EventFlags::BreakDetected
+                        | EventFlags::ParityError
                 ),
                 _non_exhaustive: (),
             }
         }
     }
 
-    impl From<UserInterruptConfig> for crate::sys::uart_intr_config_t {
-        fn from(cfg: UserInterruptConfig) -> Self {
+    impl Default for EventConfig {
+        fn default() -> Self {
+            EventConfig::new()
+        }
+    }
+
+    impl From<EventConfig> for crate::sys::uart_intr_config_t {
+        fn from(cfg: EventConfig) -> Self {
             let mut intr_enable_mask = cfg.flags;
 
             if cfg.receive_timeout.map(|to| to > 0).unwrap_or(false) {
-                intr_enable_mask.insert(UserInterruptFlags::RxFifoTimeout);
+                intr_enable_mask.insert(EventFlags::RxFifoTimeout);
             } else {
-                intr_enable_mask.remove(UserInterruptFlags::RxFifoTimeout);
+                intr_enable_mask.remove(EventFlags::RxFifoTimeout);
             }
 
             if cfg.rx_fifo_full.is_some() {
-                intr_enable_mask.insert(UserInterruptFlags::RxFifoFull);
+                intr_enable_mask.insert(EventFlags::RxFifoFull);
             } else {
-                intr_enable_mask.remove(UserInterruptFlags::RxFifoFull);
+                intr_enable_mask.remove(EventFlags::RxFifoFull);
             }
 
             if cfg.tx_fifo_empty.is_some() {
-                intr_enable_mask.insert(UserInterruptFlags::TxFifoEmpty);
+                intr_enable_mask.insert(EventFlags::TxFifoEmpty);
             } else {
-                intr_enable_mask.remove(UserInterruptFlags::TxFifoEmpty);
+                intr_enable_mask.remove(EventFlags::TxFifoEmpty);
             }
 
             crate::sys::uart_intr_config_t {
@@ -388,7 +402,7 @@ pub mod config {
     #[derive(Debug, EnumSetType)]
     #[enumset(repr = "u32")]
     #[non_exhaustive]
-    pub enum UserInterruptFlags {
+    pub enum EventFlags {
         #[doc(hidden)]
         RxFifoFull = 0,
         #[doc(hidden)]
@@ -430,7 +444,7 @@ pub mod config {
         /// be automatically set depending on the value of `CONFIG_UART_ISR_IN_IRAM`.
         pub intr_alloc_flags: EnumSet<IntrFlags>,
         /// Configures the interrupts the driver should enable.
-        pub user_intr_config: UserInterruptConfig,
+        pub event_config: EventConfig,
         /// The size of the software rx buffer. Must be bigger than the hardware FIFO.
         pub rx_fifo_size: usize,
         /// The size of the software tx buffer. Must be bigger than the hardware FIFO
@@ -448,8 +462,22 @@ pub mod config {
     }
 
     impl Config {
-        pub fn new() -> Self {
-            Default::default()
+        pub const fn new() -> Config {
+            Config {
+                baudrate: Hertz(19_200),
+                data_bits: DataBits::DataBits8,
+                parity: Parity::ParityNone,
+                stop_bits: StopBits::STOP1,
+                flow_control: FlowControl::None,
+                flow_control_rts_threshold: 122,
+                source_clock: SourceClock::default(),
+                intr_alloc_flags: EnumSet::EMPTY,
+                event_config: EventConfig::new(),
+                rx_fifo_size: super::UART_FIFO_SIZE * 2,
+                tx_fifo_size: super::UART_FIFO_SIZE * 2,
+                queue_size: 10,
+                _non_exhaustive: (),
+            }
         }
 
         #[must_use]
@@ -530,21 +558,7 @@ pub mod config {
 
     impl Default for Config {
         fn default() -> Config {
-            Config {
-                baudrate: Hertz(19_200),
-                data_bits: DataBits::DataBits8,
-                parity: Parity::ParityNone,
-                stop_bits: StopBits::STOP1,
-                flow_control: FlowControl::None,
-                flow_control_rts_threshold: 122,
-                source_clock: SourceClock::default(),
-                intr_alloc_flags: EnumSet::<IntrFlags>::empty(),
-                user_intr_config: Default::default(),
-                rx_fifo_size: super::UART_FIFO_SIZE * 2,
-                tx_fifo_size: super::UART_FIFO_SIZE * 2,
-                queue_size: 10,
-                _non_exhaustive: (),
-            }
+            Config::new()
         }
     }
 }
@@ -559,10 +573,55 @@ crate::embedded_hal_error!(
     embedded_hal_nb::serial::ErrorKind
 );
 
+#[derive(Clone, Copy)]
+#[repr(transparent)]
+pub struct UartEvent {
+    raw: uart_event_t,
+}
+
+impl UartEvent {
+    pub fn payload(&self) -> UartEventPayload {
+        #[allow(non_upper_case_globals)]
+        match self.raw.type_ {
+            uart_event_type_t_UART_DATA if self.raw.timeout_flag => UartEventPayload::Timeout,
+            uart_event_type_t_UART_DATA => UartEventPayload::Data {
+                size: self.raw.size,
+            },
+            uart_event_type_t_UART_BREAK => UartEventPayload::Break,
+            uart_event_type_t_UART_BUFFER_FULL => UartEventPayload::RxBufferFull,
+            uart_event_type_t_UART_FIFO_OVF => UartEventPayload::RxFifoOverflow,
+            uart_event_type_t_UART_FRAME_ERR => UartEventPayload::FrameError,
+            uart_event_type_t_UART_PARITY_ERR => UartEventPayload::ParityError,
+            uart_event_type_t_UART_DATA_BREAK => UartEventPayload::DataBreak,
+            uart_event_type_t_UART_PATTERN_DET => UartEventPayload::PatternDetected,
+            _ => UartEventPayload::Unknown,
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug)]
+#[non_exhaustive]
+pub enum UartEventPayload {
+    /// UART data was received
+    Data {
+        size: usize,
+    },
+    /// Represents DATA event with timeout_flag set
+    Timeout,
+    Break,
+    RxBufferFull,
+    RxFifoOverflow,
+    FrameError,
+    ParityError,
+    DataBreak,
+    PatternDetected,
+    Unknown,
+}
+
 /// Serial abstraction
 pub struct UartDriver<'d> {
     port: u8,
-    queue: QueueHandle_t,
+    queue: Option<Queue<UartEvent>>,
     _p: PhantomData<&'d mut ()>,
 }
 
@@ -601,22 +660,24 @@ impl<'d> UartDriver<'d> {
         };
         new_common(uart, Some(tx), Some(rx), cts, rts, config, q_handle)?;
 
+        // SAFTEY: okay because Queue borrows self
+        // SAFETY: we can safely use UartEvent instead of uart_event_t because of repr(transparent)
+        let queue = match q_handle_raw.is_null() {
+            true => Some(unsafe { Queue::new_borrowed(q_handle_raw) }),
+            false => None,
+        };
+
         Ok(Self {
             port: UART::port() as _,
-            queue: q_handle_raw,
+            queue,
             _p: PhantomData,
         })
     }
 
     /// Retrieves the event queue for this UART. Returns `None` if
     /// the config specified 0 for `queue_size`.
-    pub fn event_queue(&self) -> Option<Queue<uart_event_t>> {
-        if self.queue.is_null() {
-            None
-        } else {
-            // SAFTEY: okay because Queue borrows self
-            Some(unsafe { Queue::new_borrowed(self.queue) })
-        }
+    pub fn event_queue(&self) -> Option<&Queue<UartEvent>> {
+        self.queue.as_ref()
     }
 
     /// Change the number of stop bits
@@ -1207,7 +1268,7 @@ fn new_common<UART: Uart>(
 
     // Configure interrupts after installing the driver
     // so it won't get overwritten.
-    let usr_intrs = config.user_intr_config.clone().into();
+    let usr_intrs = config.event_config.clone().into();
     esp!(unsafe { uart_intr_config(UART::port(), &usr_intrs as *const _) })?;
 
     Ok(())
