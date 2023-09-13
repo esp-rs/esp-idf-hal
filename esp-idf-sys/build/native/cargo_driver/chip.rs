@@ -43,7 +43,7 @@ impl Chip {
             "xtensa-esp32-espidf" => &[Chip::ESP32],
             "xtensa-esp32s2-espidf" => &[Chip::ESP32S2],
             "xtensa-esp32s3-espidf" => &[Chip::ESP32S3],
-            "riscv32imc-esp-espidf" => &[Chip::ESP32C2, Chip::ESP32C3],
+            "riscv32imc-esp-espidf" => &[Chip::ESP32C3, Chip::ESP32C2], // Keep C3 as the first in the list, so it is picked up by default; as C2 does not work for older ESP IDFs
             "riscv32imac-esp-espidf" => {
                 &[Chip::ESP32H2, Chip::ESP32C5, Chip::ESP32C6, Chip::ESP32P4]
             }
