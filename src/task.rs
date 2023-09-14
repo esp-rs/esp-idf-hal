@@ -103,16 +103,6 @@ pub fn current() -> Option<TaskHandle_t> {
     }
 }
 
-pub fn wait_any_notification() {
-    loop {
-        if let Some(notification) = wait_notification(crate::delay::BLOCK) {
-            if notification != 0 {
-                break;
-            }
-        }
-    }
-}
-
 pub fn wait_notification(timeout: TickType_t) -> Option<u32> {
     let mut notification = 0_u32;
 
@@ -135,8 +125,23 @@ pub fn wait_notification(timeout: TickType_t) -> Option<u32> {
 /// When calling this function care should be taken to pass a valid
 /// FreeRTOS task handle. Moreover, the FreeRTOS task should be valid
 /// when this function is being called.
-pub unsafe fn notify(task: TaskHandle_t, notification: u32) -> bool {
-    let notified = if interrupt::active() {
+pub unsafe fn notify_and_yield(task: TaskHandle_t, notification: u32) -> bool {
+    let (notified, higher_prio_task_woken) = notify(task, notification);
+
+    if higher_prio_task_woken {
+        do_yield();
+    }
+
+    notified
+}
+
+/// # Safety
+///
+/// When calling this function care should be taken to pass a valid
+/// FreeRTOS task handle. Moreover, the FreeRTOS task should be valid
+/// when this function is being called.
+pub unsafe fn notify(task: TaskHandle_t, notification: u32) -> (bool, bool) {
+    let (notified, higher_prio_task_woken) = if interrupt::active() {
         let mut higher_prio_task_woken: BaseType_t = Default::default();
 
         #[cfg(esp_idf_version = "4.3")]
@@ -158,11 +163,7 @@ pub unsafe fn notify(task: TaskHandle_t, notification: u32) -> bool {
             &mut higher_prio_task_woken,
         );
 
-        if higher_prio_task_woken != 0 {
-            do_yield();
-        }
-
-        notified
+        (notified, higher_prio_task_woken)
     } else {
         #[cfg(esp_idf_version = "4.3")]
         let notified =
@@ -177,10 +178,10 @@ pub unsafe fn notify(task: TaskHandle_t, notification: u32) -> bool {
             ptr::null_mut(),
         );
 
-        notified
+        (notified, 0)
     };
 
-    notified != 0
+    (notified != 0, higher_prio_task_woken != 0)
 }
 
 pub fn get_idle_task(core: crate::cpu::Core) -> TaskHandle_t {
@@ -754,7 +755,13 @@ pub mod notification {
         }
 
         pub fn wait_any(&self) {
-            task::wait_any_notification();
+            loop {
+                if let Some(notification) = task::wait_notification(crate::delay::BLOCK) {
+                    if notification != 0 {
+                        break;
+                    }
+                }
+            }
         }
 
         pub fn wait(&self, timeout: TickType_t) -> Option<u32> {
@@ -795,8 +802,16 @@ pub mod notification {
         /// `Arc` holding the task reference will stick around even when the actual task where the `Monitor` instance was
         /// created no longer exists. Which - in turn - would mean that the method will be trying to notify a task
         /// which does no longer exist, which would lead to UB and specifically - to memory corruption.
-        pub unsafe fn notify_any(&self) {
-            self.notify(1);
+        pub unsafe fn notify(&self, notification: u32) -> (bool, bool) {
+            if let Some(notify) = self.0.upgrade() {
+                let freertos_task = notify.load(Ordering::SeqCst);
+
+                if !freertos_task.is_null() {
+                    return unsafe { task::notify(freertos_task, notification) };
+                }
+            }
+
+            (false, false)
         }
 
         /// # Safety
@@ -808,16 +823,16 @@ pub mod notification {
         /// `Arc` holding the task reference will stick around even when the actual task where the `Monitor` instance was
         /// created no longer exists. Which - in turn - would mean that the method will be trying to notify a task
         /// which does no longer exist, which would lead to UB and specifically - to memory corruption.
-        pub unsafe fn notify(&self, notification: u32) {
+        pub unsafe fn notify_and_yield(&self, notification: u32) -> bool {
             if let Some(notify) = self.0.upgrade() {
                 let freertos_task = notify.load(Ordering::SeqCst);
 
                 if !freertos_task.is_null() {
-                    unsafe {
-                        task::notify(freertos_task, notification);
-                    }
+                    return unsafe { task::notify_and_yield(freertos_task, notification) };
                 }
             }
+
+            false
         }
     }
 }
@@ -854,7 +869,9 @@ pub mod executor {
 
     impl Notify for notification::Notifier {
         fn notify(&self) {
-            unsafe { notification::Notifier::notify_any(self) }
+            unsafe {
+                notification::Notifier::notify_and_yield(self, 1);
+            }
         }
     }
 }

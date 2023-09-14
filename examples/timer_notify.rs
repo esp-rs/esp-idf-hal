@@ -28,7 +28,7 @@ fn main() -> Result<(), EspError> {
     unsafe {
         timer.subscribe(move || {
             let event_number = 42;
-            esp_idf_hal::task::notify(main_task_handle, event_number);
+            esp_idf_hal::task::notify_and_yield(main_task_handle, event_number);
         })?;
     }
 
