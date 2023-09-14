@@ -451,7 +451,7 @@ impl_adc!(ADC2: adc_unit_t_ADC_UNIT_2);
 
 #[cfg(all(not(feature = "riscv-ulp-hal"), not(esp_idf_version_major = "4")))]
 pub mod oneshot {
-    use core::marker::PhantomData;
+    use core::borrow::Borrow;
 
     use esp_idf_sys::*;
 
@@ -476,19 +476,28 @@ pub mod oneshot {
         }
     }
 
-    pub struct AdcChannelDriver<'d, T: ADCPin> {
+    pub struct AdcChannelDriver<'d, T, ADC, M>
+    where
+        ADC: Adc + 'd,
+        T: ADCPin<Adc = ADC>,
+        M: Borrow<AdcDriver<'d, ADC>>,
+    {
+        adc: M,
         pin: PeripheralRef<'d, T>,
         calibration: Option<adc_cali_handle_t>,
     }
 
-    impl<'d, T: ADCPin> AdcChannelDriver<'d, T> {
+    impl<'d, T, ADC: Adc, M> AdcChannelDriver<'d, T, ADC, M>
+    where
+        T: ADCPin<Adc = ADC>,
+        M: Borrow<AdcDriver<'d, ADC>>,
+    {
         pub fn new(
-            adc: &AdcDriver<'d>,
+            adc: M,
             pin: impl Peripheral<P = T> + 'd,
             config: config::AdcChannelConfig,
-        ) -> Result<AdcChannelDriver<'d, T>, EspError> {
+        ) -> Result<Self, EspError> {
             crate::into_ref!(pin);
-            assert_eq!(adc.adc, T::Adc::unit() as u8); // TODO: is there a better way?
 
             unsafe {
                 crate::gpio::rtc_reset_pin(pin.pin())?;
@@ -501,26 +510,30 @@ pub mod oneshot {
 
             unsafe {
                 esp!(adc_oneshot_config_channel(
-                    adc.handle,
+                    adc.borrow().handle,
                     pin.adc_channel(),
                     &chan_config
                 ))?
             };
 
             let mut calibration = Self::get_curve_calibration_handle(
-                adc.adc,
+                ADC::unit() as u8,
                 pin.adc_channel(),
                 config.attenuation,
                 config.resolution.into(),
             );
             if calibration.is_none() {
                 calibration = Self::get_line_calibration_handle(
-                    adc.adc,
+                    ADC::unit() as u8,
                     config.attenuation,
                     config.resolution.into(),
                 );
             }
-            Ok(Self { pin, calibration })
+            Ok(Self {
+                adc,
+                pin,
+                calibration,
+            })
         }
 
         #[allow(unused_variables)]
@@ -614,77 +627,131 @@ pub mod oneshot {
         fn pin(&mut self) -> &mut PeripheralRef<'d, T> {
             &mut self.pin
         }
-    }
 
-    pub struct AdcDriver<'d> {
-        handle: adc_oneshot_unit_handle_t,
-        adc: u8,
-        _ref: PhantomData<&'d ()>,
-    }
-
-    impl<'d> AdcDriver<'d> {
-        pub fn new<A: Adc>(_adc: impl Peripheral<P = A> + 'd) -> Result<Self, EspError> {
-            let config = adc_oneshot_unit_init_cfg_t {
-                unit_id: A::unit(),
-                ..Default::default()
-            };
-            let mut adc_handle: adc_oneshot_unit_handle_t = core::ptr::null_mut();
-            unsafe { esp!(adc_oneshot_new_unit(&config, &mut adc_handle))? };
-            Ok(Self {
-                handle: adc_handle,
-                adc: A::unit() as u8,
-                _ref: PhantomData,
-            })
-        }
-
-        pub fn read<T>(&mut self, channel: &mut AdcChannelDriver<'_, T>) -> Result<u16, EspError>
-        where
-            T: ADCPin,
-        {
-            let raw = self.read_raw(channel)?;
-            self.raw_to_cal(raw, channel)
+        #[inline(always)]
+        pub fn read(&mut self) -> Result<u16, EspError> {
+            let raw = self.read_raw()?;
+            self.raw_to_cal(raw)
         }
 
         #[inline(always)]
-        pub fn read_raw<T>(
-            &mut self,
-            channel: &mut AdcChannelDriver<'_, T>,
+        pub fn read_raw(&mut self) -> Result<u16, EspError> {
+            let channel = self.pin().adc_channel();
+            self.adc.borrow().read_raw_internal(channel)
+        }
+
+        #[inline(always)]
+        pub fn raw_to_cal(&self, raw: u16) -> Result<u16, EspError> {
+            if let Some(calibration) = &self.calibration {
+                self.adc.borrow().raw_to_cal_internal(*calibration, raw)
+            } else {
+                Ok(raw)
+            }
+        }
+    }
+
+    unsafe impl<'d, T, ADC: Adc, M> Send for AdcChannelDriver<'d, T, ADC, M>
+    where
+        T: ADCPin<Adc = ADC>,
+        M: Borrow<AdcDriver<'d, ADC>>,
+    {
+    }
+
+    unsafe impl<'d, T, ADC: Adc, M> Sync for AdcChannelDriver<'d, T, ADC, M>
+    where
+        T: ADCPin<Adc = ADC>,
+        M: Borrow<AdcDriver<'d, ADC>>,
+    {
+    }
+
+    pub struct AdcDriver<'d, ADC: Adc> {
+        handle: adc_oneshot_unit_handle_t,
+        _adc: PeripheralRef<'d, ADC>,
+    }
+
+    impl<'d, ADC: Adc> AdcDriver<'d, ADC> {
+        pub fn new(adc: impl Peripheral<P = ADC> + 'd) -> Result<Self, EspError> {
+            crate::into_ref!(adc);
+            let config = adc_oneshot_unit_init_cfg_t {
+                unit_id: ADC::unit(),
+                ..Default::default()
+            };
+            let mut handle: adc_oneshot_unit_handle_t = core::ptr::null_mut();
+            unsafe { esp!(adc_oneshot_new_unit(&config, &mut handle))? };
+            Ok(Self { handle, _adc: adc })
+        }
+
+        #[inline(always)]
+        pub fn read<T, M>(
+            &self,
+            channel: &mut AdcChannelDriver<'d, T, ADC, M>,
         ) -> Result<u16, EspError>
         where
-            T: ADCPin,
+            T: ADCPin<Adc = ADC>,
+            M: Borrow<AdcDriver<'d, ADC>>,
         {
+            let raw = self.read_raw(channel)?;
+            self.raw_to_cal(channel, raw)
+        }
+
+        #[inline(always)]
+        pub fn read_raw<T, M>(
+            &self,
+            channel: &mut AdcChannelDriver<'d, T, ADC, M>,
+        ) -> Result<u16, EspError>
+        where
+            T: ADCPin<Adc = ADC>,
+            M: Borrow<AdcDriver<'d, ADC>>,
+        {
+            self.read_raw_internal(channel.pin().adc_channel())
+        }
+
+        #[inline(always)]
+        fn read_raw_internal(&self, channel: adc_channel_t) -> Result<u16, EspError> {
             let mut measurement = 0;
-            unsafe {
-                esp!(adc_oneshot_read(
-                    self.handle,
-                    channel.pin().adc_channel(),
-                    &mut measurement
-                ))
-            }?;
+            unsafe { esp!(adc_oneshot_read(self.handle, channel, &mut measurement)) }?;
             Ok(measurement as u16)
         }
 
         #[inline(always)]
-        pub fn raw_to_cal<T>(
-            &mut self,
+        pub fn raw_to_cal<T, M>(
+            &self,
+            channel: &AdcChannelDriver<'d, T, ADC, M>,
             raw: u16,
-            channel: &AdcChannelDriver<'_, T>,
         ) -> Result<u16, EspError>
         where
-            T: ADCPin,
+            T: ADCPin<Adc = ADC>,
+            M: Borrow<AdcDriver<'d, ADC>>,
         {
-            let value = if let Some(calibration) = &channel.calibration {
-                let mut mv = 0i32;
-                unsafe {
-                    esp!(adc_cali_raw_to_voltage(*calibration, raw as i32, &mut mv))?;
-                };
-                mv as u16
+            if let Some(calibration) = &channel.calibration {
+                self.raw_to_cal_internal(*calibration, raw)
             } else {
-                raw
+                Ok(raw)
+            }
+        }
+
+        #[inline(always)]
+        fn raw_to_cal_internal(
+            &self,
+            calibration: adc_cali_handle_t,
+            raw: u16,
+        ) -> Result<u16, EspError> {
+            let mut mv = 0i32;
+            unsafe {
+                esp!(adc_cali_raw_to_voltage(calibration, raw as i32, &mut mv))?;
             };
-            Ok(value)
+            Ok(mv as u16)
         }
     }
+
+    impl<'d, ADC: Adc> Drop for AdcDriver<'d, ADC> {
+        fn drop(&mut self) {
+            unsafe { esp!(adc_oneshot_del_unit(self.handle)) }.unwrap();
+        }
+    }
+
+    unsafe impl<'d, ADC: Adc> Send for AdcDriver<'d, ADC> {}
+    unsafe impl<'d, ADC: Adc> Sync for AdcDriver<'d, ADC> {}
 }
 
 #[cfg(all(not(feature = "riscv-ulp-hal"), not(esp_idf_version_major = "4")))]

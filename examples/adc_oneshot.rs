@@ -16,10 +16,10 @@ fn main() -> anyhow::Result<()> {
     let peripherals = Peripherals::take().unwrap();
 
     #[cfg(not(esp32))]
-    let mut adc = AdcDriver::new(peripherals.adc1)?;
+    let adc = AdcDriver::new(peripherals.adc1)?;
 
     #[cfg(esp32)]
-    let mut adc = AdcDriver::new(peripherals.adc2)?;
+    let adc = AdcDriver::new(peripherals.adc2)?;
 
     // configuring pin to analog read, you can regulate the adc input voltage range depending on your need
     // for this example we use the attenuation of 11db which sets the input voltage range to around 0-3.6V
