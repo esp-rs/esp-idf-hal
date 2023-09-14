@@ -205,7 +205,7 @@ impl EspNotify {
     }
 
     pub fn post(&self, payload: &u32) -> Result<bool, EspError> {
-        Ok(unsafe { task::notify(*self.task, *payload) })
+        Ok(unsafe { task::notify_and_yield(*self.task, *payload) })
     }
 }
 
