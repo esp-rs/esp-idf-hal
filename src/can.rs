@@ -603,7 +603,7 @@ where
                 CStr::from_bytes_until_nul(b"CAN - Alerts task\0").unwrap(),
                 2048,
                 core::ptr::null_mut(),
-                priority.unwrap_or(5),
+                priority.unwrap_or(6),
                 pin_to_core,
             )?
         };

@@ -37,17 +37,21 @@
 //! - Free APB lock when TX is idle (and no RX used)
 //! - Address errata 3.17: UART fifo_cnt is inconsistent with FIFO pointer
 
+use core::borrow::BorrowMut;
+use core::ffi::CStr;
 use core::marker::PhantomData;
 use core::mem::ManuallyDrop;
 use core::ptr;
 use core::sync::atomic::{AtomicU8, Ordering};
 
+use crate::cpu::Core;
 use crate::delay::{self, NON_BLOCK};
-use crate::gpio::*;
 use crate::interrupt::IntrFlags;
 use crate::io::EspIOError;
+use crate::private::notification::Notification;
 use crate::task::queue::Queue;
 use crate::units::*;
+use crate::{gpio::*, task};
 
 use embedded_hal_nb::serial::ErrorKind;
 use esp_idf_sys::*;
@@ -769,13 +773,26 @@ impl<'d> UartDriver<'d> {
     }
 
     /// Read multiple bytes into a slice
-    pub fn read(&self, buf: &mut [u8], delay: TickType_t) -> Result<usize, EspError> {
-        self.rx().read(buf, delay)
+    pub fn read(&self, buf: &mut [u8], timeout: TickType_t) -> Result<usize, EspError> {
+        self.rx().read(buf, timeout)
     }
 
     /// Write multiple bytes from a slice
-    pub fn write(&self, buf: &[u8]) -> Result<usize, EspError> {
-        self.tx().write(buf)
+    pub fn write(&self, bytes: &[u8]) -> Result<usize, EspError> {
+        self.tx().write(bytes)
+    }
+
+    /// Write multiple bytes from a slice directly to the TX FIFO hardware.
+    /// Returns the number of bytes written, where 0 would mean that the TX FIFO is full.
+    ///
+    /// NOTE: In case the UART TX buffer is enabled, this method might have unpredictable results
+    /// when used together with method `write`, as the latter will push the data to be sent to the
+    /// TX buffer first.
+    ///
+    /// To avoid this, always call `wait_done` after the last call to `write` and before
+    /// calling this method.
+    pub fn write_nb(&self, bytes: &[u8]) -> Result<usize, EspError> {
+        self.tx().write_nb(bytes)
     }
 
     /// Clears the receive buffer.
@@ -792,12 +809,12 @@ impl<'d> UartDriver<'d> {
     /// Waits for the transmission to complete.
     #[deprecated(since = "0.41.3", note = "Use UartDriver::wait_tx_done instead")]
     pub fn flush_write(&self) -> Result<(), EspError> {
-        self.tx().wait_done()
+        self.tx().wait_done(delay::BLOCK)
     }
 
-    /// Waits for the transmission to complete.
-    pub fn wait_tx_done(&self) -> Result<(), EspError> {
-        self.tx().wait_done()
+    /// Waits until the transmission is complete or until the specified timeout expires.
+    pub fn wait_tx_done(&self, timeout: TickType_t) -> Result<(), EspError> {
+        self.tx().wait_done(timeout)
     }
 
     pub fn port(&self) -> uart_port_t {
@@ -860,7 +877,7 @@ impl<'d> embedded_io::Write for UartDriver<'d> {
     }
 
     fn flush(&mut self) -> Result<(), Self::Error> {
-        UartDriver::wait_tx_done(self).map_err(EspIOError)
+        UartDriver::wait_tx_done(self, delay::BLOCK).map_err(EspIOError)
     }
 }
 
@@ -1134,9 +1151,28 @@ impl<'d> UartTxDriver<'d> {
         }
     }
 
-    /// Waits until the transmission is complete.
-    pub fn wait_done(&mut self) -> Result<(), EspError> {
-        esp!(unsafe { uart_wait_tx_done(self.port(), 0) })?;
+    /// Write multiple bytes from a slice directly to the TX FIFO hardware.
+    /// Returns the number of bytes written, where 0 would mean that the TX FIFO is full.
+    ///
+    /// NOTE: In case the UART TX buffer is enabled, this method might have unpredictable results
+    /// when used together with method `write`, as the latter will push the data to be sent to the
+    /// TX buffer first.
+    ///
+    /// To avoid this, always call `wait_done` after the last call to `write` and before
+    /// calling this method.
+    pub fn write_nb(&self, bytes: &[u8]) -> Result<usize, EspError> {
+        let ret = unsafe { uart_tx_chars(self.port(), bytes.as_ptr().cast(), bytes.len() as _) };
+
+        if ret < 0 {
+            esp!(ret)?;
+        }
+
+        Ok(ret as usize)
+    }
+
+    /// Waits until the transmission is complete or until the specified timeout expires.
+    pub fn wait_done(&mut self, timeout: TickType_t) -> Result<(), EspError> {
+        esp!(unsafe { uart_wait_tx_done(self.port(), timeout) })?;
 
         Ok(())
     }
@@ -1144,7 +1180,7 @@ impl<'d> UartTxDriver<'d> {
     /// Waits until the transmission is complete.
     #[deprecated(since = "0.41.3", note = "Use `UartTxDriver::wait_done` instead")]
     pub fn flush(&mut self) -> Result<(), EspError> {
-        self.wait_done()
+        self.wait_done(delay::BLOCK)
     }
 
     pub fn port(&self) -> uart_port_t {
@@ -1176,7 +1212,7 @@ impl<'d> embedded_io::Write for UartTxDriver<'d> {
     }
 
     fn flush(&mut self) -> Result<(), Self::Error> {
-        UartTxDriver::wait_done(self).map_err(EspIOError)
+        UartTxDriver::wait_done(self, delay::BLOCK).map_err(EspIOError)
     }
 }
 
@@ -1188,7 +1224,7 @@ impl<'d> embedded_hal_0_2::serial::Write<u8> for UartTxDriver<'d> {
     type Error = SerialError;
 
     fn flush(&mut self) -> nb::Result<(), Self::Error> {
-        UartTxDriver::wait_done(self).map_err(to_nb_err)
+        UartTxDriver::wait_done(self, delay::BLOCK).map_err(to_nb_err)
     }
 
     fn write(&mut self, byte: u8) -> nb::Result<(), Self::Error> {
@@ -1202,7 +1238,7 @@ impl<'d> embedded_hal_nb::serial::ErrorType for UartTxDriver<'d> {
 
 impl<'d> embedded_hal_nb::serial::Write<u8> for UartTxDriver<'d> {
     fn flush(&mut self) -> nb::Result<(), Self::Error> {
-        UartTxDriver::wait_done(self).map_err(to_nb_err)
+        UartTxDriver::wait_done(self, delay::BLOCK).map_err(to_nb_err)
     }
 
     fn write(&mut self, byte: u8) -> nb::Result<(), Self::Error> {
@@ -1220,6 +1256,129 @@ impl<'d> core::fmt::Write for UartTxDriver<'d> {
         }
 
         Ok(())
+    }
+}
+
+pub struct AsyncUartDriver<'d, T>
+where
+    T: BorrowMut<UartDriver<'d>>,
+{
+    driver: T,
+    task: TaskHandle_t,
+    _data: PhantomData<&'d ()>,
+}
+
+impl<'d> AsyncUartDriver<'d, UartDriver<'d>> {
+    pub fn new(
+        uart: impl Peripheral<P = impl Uart> + 'd,
+        tx: impl Peripheral<P = impl OutputPin> + 'd,
+        rx: impl Peripheral<P = impl InputPin> + 'd,
+        cts: Option<impl Peripheral<P = impl InputPin> + 'd>,
+        rts: Option<impl Peripheral<P = impl OutputPin> + 'd>,
+        config: &config::Config,
+    ) -> Result<Self, EspError> {
+        Self::wrap(UartDriver::new(uart, tx, rx, cts, rts, config)?)
+    }
+}
+
+impl<'d, T> AsyncUartDriver<'d, T>
+where
+    T: BorrowMut<UartDriver<'d>>,
+{
+    pub fn wrap(driver: T) -> Result<Self, EspError> {
+        Self::wrap_custom(driver, None, None)
+    }
+
+    pub fn wrap_custom(
+        driver: T,
+        priority: Option<u8>,
+        pin_to_core: Option<Core>,
+    ) -> Result<Self, EspError> {
+        if let Some(queue) = driver.borrow().event_queue() {
+            let port = driver.borrow().port as usize;
+
+            unsafe {
+                QUEUES[port] = queue.as_raw() as _;
+            }
+
+            let task = unsafe {
+                task::create(
+                    Self::process_events,
+                    CStr::from_bytes_until_nul(b"UART - Events task\0").unwrap(),
+                    2048,
+                    port as _,
+                    priority.unwrap_or(6),
+                    pin_to_core,
+                )?
+            };
+
+            Ok(Self {
+                driver,
+                task,
+                _data: PhantomData,
+            })
+        } else {
+            Err(EspError::from_infallible::<ESP_ERR_INVALID_ARG>())
+        }
+    }
+
+    pub async fn read(&self, buf: &mut [u8]) -> Result<usize, EspError> {
+        loop {
+            match self.driver.borrow().read(buf, delay::NON_BLOCK) {
+                Ok(len) => return Ok(len),
+                Err(e) if e.code() != ESP_ERR_TIMEOUT => return Err(e),
+                _ => (),
+            }
+
+            let port = self.driver.borrow().port as usize;
+            READ_NOTIFS[port].wait().await;
+        }
+    }
+
+    pub async fn write(&self, bytes: &[u8]) -> Result<usize, EspError> {
+        loop {
+            match self.driver.borrow().write_nb(bytes) {
+                Ok(len) if len > 0 => return Ok(len),
+                Err(e) => return Err(e),
+                _ => (),
+            }
+
+            let port = self.driver.borrow().port as usize;
+            WRITE_NOTIFS[port].wait().await;
+        }
+    }
+
+    extern "C" fn process_events(arg: *mut core::ffi::c_void) {
+        let port: usize = arg as _;
+        let queue: Queue<UartEvent> = unsafe { Queue::new_borrowed(QUEUES[port] as _) };
+
+        loop {
+            if let Some((event, _)) = queue.recv_front(delay::BLOCK) {
+                match event.payload() {
+                    UartEventPayload::Data { .. }
+                    | UartEventPayload::RxBufferFull
+                    | UartEventPayload::RxFifoOverflow => {
+                        READ_NOTIFS[port].notify();
+                    }
+                    UartEventPayload::Break | UartEventPayload::DataBreak => {
+                        WRITE_NOTIFS[port].notify();
+                    }
+                    _ => (),
+                }
+            }
+        }
+    }
+}
+
+impl<'d, T> Drop for AsyncUartDriver<'d, T>
+where
+    T: BorrowMut<UartDriver<'d>>,
+{
+    fn drop(&mut self) {
+        unsafe {
+            task::destroy(self.task);
+            QUEUES[self.driver.borrow().port as usize] = core::ptr::null_mut();
+        }
     }
 }
 
@@ -1424,3 +1583,9 @@ impl_uart!(UART2: 2);
 #[allow(clippy::declare_interior_mutable_const)]
 const NO_REFS: AtomicU8 = AtomicU8::new(0);
 static REFS: [AtomicU8; SOC_UART_NUM as usize] = [NO_REFS; SOC_UART_NUM as usize];
+
+const NOTIF: Notification = Notification::new();
+static READ_NOTIFS: [Notification; SOC_UART_NUM as usize] = [NOTIF; SOC_UART_NUM as usize];
+static WRITE_NOTIFS: [Notification; SOC_UART_NUM as usize] = [NOTIF; SOC_UART_NUM as usize];
+static mut QUEUES: [*const core::ffi::c_void; SOC_UART_NUM as usize] =
+    [core::ptr::null(); SOC_UART_NUM as usize];
