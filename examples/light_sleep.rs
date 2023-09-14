@@ -4,7 +4,7 @@
 //! Prints wakeup reason and sleep time on wakeup.
 
 use core::time::Duration;
-use esp_idf_hal::gpio::{self, PinDriver};
+use esp_idf_hal::gpio::{self, AnyIOPin, PinDriver};
 use esp_idf_hal::peripherals::Peripherals;
 use esp_idf_hal::prelude::*;
 use esp_idf_hal::reset::WakeupReason;
@@ -87,7 +87,7 @@ fn main() -> anyhow::Result<()> {
             pins: EmptyGpioWakeupPins::chain(gpio_pin0).chain(gpio_pin1),
         });
         #[cfg(not(any(esp32, esp32c3, esp32s2, esp32s3)))]
-        let gpio_wakeup: Option<GpioWakeup> = None;
+        let gpio_wakeup = None::<GpioWakeup>;
 
         // UART definitions
         let config = Config::new().baudrate(Hertz(115_200));
@@ -96,8 +96,8 @@ fn main() -> anyhow::Result<()> {
             peripherals.uart0,
             peripherals.pins.gpio4,
             peripherals.pins.gpio3,
-            Option::<gpio::Gpio0>::None,
-            Option::<gpio::Gpio1>::None,
+            None::<AnyIOPin>,
+            None::<AnyIOPin>,
             &config,
         )?;
         #[cfg(any(esp32s2, esp32s3))]

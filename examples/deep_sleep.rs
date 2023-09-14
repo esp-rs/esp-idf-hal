@@ -1,7 +1,8 @@
 //! Tests deep sleep
 //!
 //! Enables multiple deep sleep wakeup sources and then enter deep sleep.
-//! There is no loop here, since the program will not continue after deep sleep.
+//! There is no loop here, since the program will not continue after deep sleep,
+//! it always starts from the beginning after a deep sleep wake-up.
 //! For ESP32c3, only timer wakeup is supported.
 //! The program starts by printing reset and wakeup reason, since the deep
 //! sleep effectively ends the program, this is how we get information about
