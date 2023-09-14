@@ -1,4 +1,4 @@
-//! UART peripheral control
+//: QueueHandle_t ! UART peripheral control
 //!
 //! Controls UART peripherals (UART0, UART1, UART2).
 //! Notice that UART0 is typically already used for loading firmware and logging.
@@ -44,8 +44,9 @@ use core::sync::atomic::{AtomicU8, Ordering};
 
 use crate::delay::{self, NON_BLOCK};
 use crate::gpio::*;
+use crate::interrupt::IntrFlags;
 use crate::io::EspIOError;
-
+use crate::task::queue::Queue;
 use crate::units::*;
 
 use embedded_hal_nb::serial::ErrorKind;
@@ -60,7 +61,7 @@ pub type UartConfig = config::Config;
 /// UART configuration
 pub mod config {
     use crate::{interrupt::IntrFlags, units::*};
-    use enumset::EnumSet;
+    use enumset::{enum_set, EnumSet, EnumSetType};
     use esp_idf_sys::*;
 
     /// Number of data bits
@@ -217,6 +218,32 @@ pub mod config {
     }
 
     impl SourceClock {
+        pub const fn default() -> Self {
+            #[cfg(not(esp_idf_version_major = "4"))]
+            const DEFAULT: uart_sclk_t = soc_periph_uart_clk_src_legacy_t_UART_SCLK_DEFAULT;
+            #[cfg(esp_idf_version_major = "4")]
+            const DEFAULT: uart_sclk_t = uart_sclk_t_UART_SCLK_APB;
+            Self::from_raw(DEFAULT)
+        }
+
+        pub const fn from_raw(source_clock: uart_sclk_t) -> Self {
+            match source_clock {
+                #[cfg(any(
+                    esp_idf_soc_uart_support_apb_clk,
+                    esp_idf_soc_uart_support_pll_f40m_clk,
+                    esp_idf_version_major = "4",
+                ))]
+                APB_SCLK => SourceClock::APB,
+                #[cfg(esp_idf_soc_uart_support_rtc_clk)]
+                RTC_SCLK => SourceClock::RTC,
+                #[cfg(esp_idf_soc_uart_support_xtal_clk)]
+                XTAL_SCLK => SourceClock::Crystal,
+                #[cfg(esp_idf_soc_uart_support_ref_tick)]
+                REF_TICK_SCLK => SourceClock::RefTick,
+                _ => unreachable!(),
+            }
+        }
+
         #[cfg(not(esp_idf_version_major = "4"))]
         pub fn frequency(self) -> Result<Hertz, EspError> {
             let mut frequency: u32 = 0;
@@ -255,11 +282,7 @@ pub mod config {
 
     impl Default for SourceClock {
         fn default() -> Self {
-            #[cfg(not(esp_idf_version_major = "4"))]
-            const DEFAULT: uart_sclk_t = soc_periph_uart_clk_src_legacy_t_UART_SCLK_DEFAULT;
-            #[cfg(esp_idf_version_major = "4")]
-            const DEFAULT: uart_sclk_t = uart_sclk_t_UART_SCLK_APB;
-            Self::from(DEFAULT)
+            SourceClock::default()
         }
     }
 
@@ -284,22 +307,124 @@ pub mod config {
 
     impl From<uart_sclk_t> for SourceClock {
         fn from(source_clock: uart_sclk_t) -> Self {
-            match source_clock {
-                #[cfg(any(
-                    esp_idf_soc_uart_support_apb_clk,
-                    esp_idf_soc_uart_support_pll_f40m_clk,
-                    esp_idf_version_major = "4",
-                ))]
-                APB_SCLK => SourceClock::APB,
-                #[cfg(esp_idf_soc_uart_support_rtc_clk)]
-                RTC_SCLK => SourceClock::RTC,
-                #[cfg(esp_idf_soc_uart_support_xtal_clk)]
-                XTAL_SCLK => SourceClock::Crystal,
-                #[cfg(esp_idf_soc_uart_support_ref_tick)]
-                REF_TICK_SCLK => SourceClock::RefTick,
-                _ => unreachable!(),
+            Self::from_raw(source_clock)
+        }
+    }
+
+    /// Configures the interrupts the UART driver should enable
+    /// in order to be able to quickly inform us about the
+    /// related event.
+    #[derive(Debug, Clone)]
+    pub struct EventConfig {
+        /// If `Some(number_of_words)`, an interrupt will trigger
+        /// after `number_of_words` could have been transmitted
+        /// (unit is baudrate dependant).
+        ///
+        /// If `None` or `Some(0)` interrupt will be disabled.
+        pub receive_timeout: Option<u8>,
+        /// Sets the threshold at which an interrupt will
+        /// be generated (the hardware receive FIFO contains more words than
+        /// this number).
+        ///
+        /// If set to `None` interrupt will be disabled.
+        pub rx_fifo_full: Option<u8>,
+        /// Sets the threshold **below** which an interrupt will
+        /// be generated (the hardware transmit FIFO contains less words than
+        /// this number).
+        ///
+        /// If set to `None` interrupt will be disabled.
+        /// Should not be set to `0` as the interrupt will trigger constantly.
+        pub tx_fifo_empty: Option<u8>,
+        /// Other interrupts to enable
+        pub flags: EnumSet<EventFlags>,
+        /// Allow using struct syntax,
+        /// but signal users other fields may be added
+        /// so `..Default::default()` should be used.
+        #[doc(hidden)]
+        pub _non_exhaustive: (),
+    }
+
+    impl EventConfig {
+        pub const fn new() -> Self {
+            EventConfig {
+                receive_timeout: Some(10),
+                rx_fifo_full: Some(120),
+                tx_fifo_empty: Some(10),
+                flags: enum_set!(
+                    EventFlags::RxFifoFull
+                        | EventFlags::RxFifoTimeout
+                        | EventFlags::RxFifoOverflow
+                        | EventFlags::BreakDetected
+                        | EventFlags::ParityError
+                ),
+                _non_exhaustive: (),
             }
         }
+    }
+
+    impl Default for EventConfig {
+        fn default() -> Self {
+            EventConfig::new()
+        }
+    }
+
+    impl From<EventConfig> for crate::sys::uart_intr_config_t {
+        fn from(cfg: EventConfig) -> Self {
+            let mut intr_enable_mask = cfg.flags;
+
+            if cfg.receive_timeout.map(|to| to > 0).unwrap_or(false) {
+                intr_enable_mask.insert(EventFlags::RxFifoTimeout);
+            } else {
+                intr_enable_mask.remove(EventFlags::RxFifoTimeout);
+            }
+
+            if cfg.rx_fifo_full.is_some() {
+                intr_enable_mask.insert(EventFlags::RxFifoFull);
+            } else {
+                intr_enable_mask.remove(EventFlags::RxFifoFull);
+            }
+
+            if cfg.tx_fifo_empty.is_some() {
+                intr_enable_mask.insert(EventFlags::TxFifoEmpty);
+            } else {
+                intr_enable_mask.remove(EventFlags::TxFifoEmpty);
+            }
+
+            crate::sys::uart_intr_config_t {
+                intr_enable_mask: intr_enable_mask.as_repr(),
+                rx_timeout_thresh: cfg.receive_timeout.unwrap_or(0),
+                txfifo_empty_intr_thresh: cfg.tx_fifo_empty.unwrap_or(0),
+                rxfifo_full_thresh: cfg.rx_fifo_full.unwrap_or(0),
+            }
+        }
+    }
+
+    #[derive(Debug, EnumSetType)]
+    #[enumset(repr = "u32")]
+    #[non_exhaustive]
+    pub enum EventFlags {
+        #[doc(hidden)]
+        RxFifoFull = 0,
+        #[doc(hidden)]
+        TxFifoEmpty = 1,
+        ParityError = 2,
+        FrameError = 3,
+        RxFifoOverflow = 4,
+        DsrChange = 5,
+        CtsChange = 6,
+        BreakDetected = 7,
+        #[doc(hidden)]
+        RxFifoTimeout = 8,
+        SwXon = 9,
+        SwXoff = 10,
+        GlitchDetected = 11,
+        TxBreakDone = 12,
+        TxBreakIdle = 13,
+        TxDone = 14,
+        Rs485ParityError = 15,
+        Rs485FrameError = 16,
+        Rs485Clash = 17,
+        CmdCharDetected = 18,
     }
 
     /// UART configuration
@@ -312,15 +437,47 @@ pub mod config {
         pub flow_control: FlowControl,
         pub flow_control_rts_threshold: u8,
         pub source_clock: SourceClock,
+        /// Configures the flags to use for interrupt allocation,
+        /// e.g. priority to use for the interrupt.
+        ///
+        /// Note that you should not set `Iram` here, because it will
+        /// be automatically set depending on the value of `CONFIG_UART_ISR_IN_IRAM`.
         pub intr_flags: EnumSet<IntrFlags>,
+        /// Configures the interrupts the driver should enable.
+        pub event_config: EventConfig,
+        /// The size of the software rx buffer. Must be bigger than the hardware FIFO.
         pub rx_fifo_size: usize,
+        /// The size of the software tx buffer. Must be bigger than the hardware FIFO
+        /// or 0 to disable transmit buffering (note that this will make write operations
+        /// block until data has been sent out).
         pub tx_fifo_size: usize,
+        /// Number of events that should fit into the event queue.
+        /// Specify 0 to prevent the creation of an event queue.
         pub queue_size: usize,
+        /// Allow using struct syntax,
+        /// but signal users other fields may be added
+        /// so `..Default::default()` should be used.
+        #[doc(hidden)]
+        pub _non_exhaustive: (),
     }
 
     impl Config {
-        pub fn new() -> Self {
-            Default::default()
+        pub const fn new() -> Config {
+            Config {
+                baudrate: Hertz(19_200),
+                data_bits: DataBits::DataBits8,
+                parity: Parity::ParityNone,
+                stop_bits: StopBits::STOP1,
+                flow_control: FlowControl::None,
+                flow_control_rts_threshold: 122,
+                source_clock: SourceClock::default(),
+                intr_flags: EnumSet::EMPTY,
+                event_config: EventConfig::new(),
+                rx_fifo_size: super::UART_FIFO_SIZE * 2,
+                tx_fifo_size: super::UART_FIFO_SIZE * 2,
+                queue_size: 10,
+                _non_exhaustive: (),
+            }
         }
 
         #[must_use]
@@ -401,19 +558,7 @@ pub mod config {
 
     impl Default for Config {
         fn default() -> Config {
-            Config {
-                baudrate: Hertz(19_200),
-                data_bits: DataBits::DataBits8,
-                parity: Parity::ParityNone,
-                stop_bits: StopBits::STOP1,
-                flow_control: FlowControl::None,
-                flow_control_rts_threshold: 122,
-                source_clock: SourceClock::default(),
-                intr_flags: EnumSet::<IntrFlags>::empty(),
-                rx_fifo_size: super::UART_FIFO_SIZE * 2,
-                tx_fifo_size: super::UART_FIFO_SIZE * 2,
-                queue_size: 10,
-            }
+            Config::new()
         }
     }
 }
@@ -428,11 +573,65 @@ crate::embedded_hal_error!(
     embedded_hal_nb::serial::ErrorKind
 );
 
+#[derive(Clone, Copy)]
+#[repr(transparent)]
+pub struct UartEvent {
+    raw: uart_event_t,
+}
+
+impl UartEvent {
+    pub fn payload(&self) -> UartEventPayload {
+        #[allow(non_upper_case_globals)]
+        match self.raw.type_ {
+            uart_event_type_t_UART_DATA => UartEventPayload::Data {
+                size: self.raw.size,
+                timeout: self.raw.timeout_flag,
+            },
+            uart_event_type_t_UART_BREAK => UartEventPayload::Break,
+            uart_event_type_t_UART_BUFFER_FULL => UartEventPayload::RxBufferFull,
+            uart_event_type_t_UART_FIFO_OVF => UartEventPayload::RxFifoOverflow,
+            uart_event_type_t_UART_FRAME_ERR => UartEventPayload::FrameError,
+            uart_event_type_t_UART_PARITY_ERR => UartEventPayload::ParityError,
+            uart_event_type_t_UART_DATA_BREAK => UartEventPayload::DataBreak,
+            uart_event_type_t_UART_PATTERN_DET => UartEventPayload::PatternDetected,
+            _ => UartEventPayload::Unknown,
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug)]
+#[non_exhaustive]
+pub enum UartEventPayload {
+    /// UART data was received and/or a timeout was triggered
+    Data {
+        /// The number of bytes received
+        size: usize,
+        /// Whether a timeout has occurred.
+        /// It is possible that bytes have been received
+        /// and this is set to `true` in case the driver
+        /// processed both interrupts at the same time.
+        timeout: bool,
+    },
+    /// Represents DATA event with timeout_flag set
+    Break,
+    RxBufferFull,
+    RxFifoOverflow,
+    FrameError,
+    ParityError,
+    DataBreak,
+    PatternDetected,
+    Unknown,
+}
+
 /// Serial abstraction
 pub struct UartDriver<'d> {
     port: u8,
+    queue: Option<Queue<UartEvent>>,
     _p: PhantomData<&'d mut ()>,
 }
+
+unsafe impl<'d> Send for UartDriver<'d> {}
+unsafe impl<'d> Sync for UartDriver<'d> {}
 
 /// Serial receiver
 pub struct UartRxDriver<'d> {
@@ -458,12 +657,32 @@ impl<'d> UartDriver<'d> {
         rts: Option<impl Peripheral<P = impl OutputPin> + 'd>,
         config: &config::Config,
     ) -> Result<Self, EspError> {
-        new_common(uart, Some(tx), Some(rx), cts, rts, config)?;
+        let mut q_handle_raw = ptr::null_mut();
+        let q_handle = if config.queue_size > 0 {
+            Some(&mut q_handle_raw)
+        } else {
+            None
+        };
+        new_common(uart, Some(tx), Some(rx), cts, rts, config, q_handle)?;
+
+        // SAFTEY: okay because Queue borrows self
+        // SAFETY: we can safely use UartEvent instead of uart_event_t because of repr(transparent)
+        let queue = match q_handle_raw.is_null() {
+            true => Some(unsafe { Queue::new_borrowed(q_handle_raw) }),
+            false => None,
+        };
 
         Ok(Self {
             port: UART::port() as _,
+            queue,
             _p: PhantomData,
         })
+    }
+
+    /// Retrieves the event queue for this UART. Returns `None` if
+    /// the config specified 0 for `queue_size`.
+    pub fn event_queue(&self) -> Option<&Queue<UartEvent>> {
+        self.queue.as_ref()
     }
 
     /// Change the number of stop bits
@@ -559,12 +778,26 @@ impl<'d> UartDriver<'d> {
         self.tx().write(buf)
     }
 
+    /// Clears the receive buffer.
+    #[deprecated(since = "0.41.3", note = "Use UartDriver::clear_rx instead")]
     pub fn flush_read(&self) -> Result<(), EspError> {
-        self.rx().flush()
+        self.rx().clear()
     }
 
+    /// Clears the receive buffer.
+    pub fn clear_rx(&self) -> Result<(), EspError> {
+        self.rx().clear()
+    }
+
+    /// Waits for the transmission to complete.
+    #[deprecated(since = "0.41.3", note = "Use UartDriver::wait_tx_done instead")]
     pub fn flush_write(&self) -> Result<(), EspError> {
-        self.tx().flush()
+        self.tx().wait_done()
+    }
+
+    /// Waits for the transmission to complete.
+    pub fn wait_tx_done(&self) -> Result<(), EspError> {
+        self.tx().wait_done()
     }
 
     pub fn port(&self) -> uart_port_t {
@@ -627,8 +860,7 @@ impl<'d> embedded_io::Write for UartDriver<'d> {
     }
 
     fn flush(&mut self) -> Result<(), Self::Error> {
-        UartDriver::flush_read(self).map_err(EspIOError)?;
-        UartDriver::flush_write(self).map_err(EspIOError)
+        UartDriver::wait_tx_done(self).map_err(EspIOError)
     }
 }
 
@@ -687,7 +919,7 @@ impl<'d> UartRxDriver<'d> {
         rts: Option<impl Peripheral<P = impl OutputPin> + 'd>,
         config: &config::Config,
     ) -> Result<Self, EspError> {
-        new_common(uart, None::<AnyOutputPin>, Some(rx), cts, rts, config)?;
+        new_common(uart, None::<AnyOutputPin>, Some(rx), cts, rts, config, None)?;
 
         Ok(Self {
             port: UART::port() as _,
@@ -762,7 +994,13 @@ impl<'d> UartRxDriver<'d> {
         }
     }
 
+    /// Clears the receive buffer.
+    #[deprecated(since = "0.41.3", note = "Use `UartRxDriver::clear` instead")]
     pub fn flush(&self) -> Result<(), EspError> {
+        self.clear()
+    }
+
+    pub fn clear(&self) -> Result<(), EspError> {
         esp!(unsafe { uart_flush_input(self.port()) })?;
 
         Ok(())
@@ -829,7 +1067,7 @@ impl<'d> UartTxDriver<'d> {
         rts: Option<impl Peripheral<P = impl OutputPin> + 'd>,
         config: &config::Config,
     ) -> Result<Self, EspError> {
-        new_common(uart, Some(tx), None::<AnyInputPin>, cts, rts, config)?;
+        new_common(uart, Some(tx), None::<AnyInputPin>, cts, rts, config, None)?;
 
         Ok(Self {
             port: UART::port() as _,
@@ -896,10 +1134,17 @@ impl<'d> UartTxDriver<'d> {
         }
     }
 
-    pub fn flush(&mut self) -> Result<(), EspError> {
+    /// Waits until the transmission is complete.
+    pub fn wait_done(&mut self) -> Result<(), EspError> {
         esp!(unsafe { uart_wait_tx_done(self.port(), 0) })?;
 
         Ok(())
+    }
+
+    /// Waits until the transmission is complete.
+    #[deprecated(since = "0.41.3", note = "Use `UartTxDriver::wait_done` instead")]
+    pub fn flush(&mut self) -> Result<(), EspError> {
+        self.wait_done()
     }
 
     pub fn port(&self) -> uart_port_t {
@@ -931,7 +1176,7 @@ impl<'d> embedded_io::Write for UartTxDriver<'d> {
     }
 
     fn flush(&mut self) -> Result<(), Self::Error> {
-        UartTxDriver::flush(self).map_err(EspIOError)
+        UartTxDriver::wait_done(self).map_err(EspIOError)
     }
 }
 
@@ -943,7 +1188,7 @@ impl<'d> embedded_hal_0_2::serial::Write<u8> for UartTxDriver<'d> {
     type Error = SerialError;
 
     fn flush(&mut self) -> nb::Result<(), Self::Error> {
-        UartTxDriver::flush(self).map_err(to_nb_err)
+        UartTxDriver::wait_done(self).map_err(to_nb_err)
     }
 
     fn write(&mut self, byte: u8) -> nb::Result<(), Self::Error> {
@@ -957,7 +1202,7 @@ impl<'d> embedded_hal_nb::serial::ErrorType for UartTxDriver<'d> {
 
 impl<'d> embedded_hal_nb::serial::Write<u8> for UartTxDriver<'d> {
     fn flush(&mut self) -> nb::Result<(), Self::Error> {
-        UartTxDriver::flush(self).map_err(to_nb_err)
+        UartTxDriver::wait_done(self).map_err(to_nb_err)
     }
 
     fn write(&mut self, byte: u8) -> nb::Result<(), Self::Error> {
@@ -985,6 +1230,7 @@ fn new_common<UART: Uart>(
     cts: Option<impl Peripheral<P = impl InputPin>>,
     rts: Option<impl Peripheral<P = impl OutputPin>>,
     config: &config::Config,
+    queue: Option<&mut QueueHandle_t>,
 ) -> Result<(), EspError> {
     let tx = tx.map(|tx| tx.into_ref());
     let rx = rx.map(|rx| rx.into_ref());
@@ -1018,9 +1264,6 @@ fn new_common<UART: Uart>(
 
     esp!(unsafe { uart_param_config(UART::port(), &uart_config) })?;
 
-    // TODO: #250
-    //esp!(unsafe { uart_intr_config(UART::port(), IntrFlags::to_native(config.intr_flags) as _) })?;
-
     esp!(unsafe {
         uart_set_pin(
             UART::port(),
@@ -1045,10 +1288,15 @@ fn new_common<UART: Uart>(
                 0
             },
             config.queue_size as _,
-            ptr::null_mut(),
-            0,
+            queue.map(|q| q as *mut _).unwrap_or(ptr::null_mut()),
+            IntrFlags::to_native(config.intr_flags) as i32,
         )
     })?;
+
+    // Configure interrupts after installing the driver
+    // so it won't get overwritten.
+    let usr_intrs = config.event_config.clone().into();
+    esp!(unsafe { uart_intr_config(UART::port(), &usr_intrs as *const _) })?;
 
     Ok(())
 }

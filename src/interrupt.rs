@@ -8,6 +8,7 @@ pub type IntrFlags = InterruptType;
 /// Interrupt allocation flags.
 /// These flags can be used to specify which interrupt qualities the code calling esp_intr_alloc* needs.
 #[derive(Debug, EnumSetType)]
+#[enumset(repr = "u32")]
 pub enum InterruptType {
     // Accept a Level 1 interrupt vector (lowest priority)
     Level1,
@@ -50,12 +51,7 @@ impl IntrFlags {
     }
 
     pub(crate) fn to_native(flags: EnumSet<Self>) -> u32 {
-        let mut uflags: u32 = 0;
-        for flag in flags {
-            uflags |= u32::from(flag);
-        }
-
-        uflags
+        flags.as_repr()
     }
 }
 
