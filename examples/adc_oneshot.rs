@@ -1,8 +1,6 @@
 //! ADC oneshot example, reading a value form a pin and printing it on the terminal
 //! requires ESP-IDF v5.0 or newer
 
-use esp_idf_sys::{self as _}; // If using the `binstart` feature of `esp-idf-sys`, always keep this module imported
-
 use std::thread;
 use std::time::Duration;
 
@@ -37,7 +35,7 @@ fn main() -> anyhow::Result<()> {
 
     loop {
         // you can change the sleep duration depending on how often you want to sample
-        thread::sleep(Duration::from_millis(10));
+        thread::sleep(Duration::from_millis(100));
         println!("ADC value: {}", adc.read(&mut adc_pin).unwrap());
     }
 }
@@ -45,6 +43,6 @@ fn main() -> anyhow::Result<()> {
 fn main() -> anyhow::Result<()> {
     println!("This example requires ESP-IDF v5.0 or newer");
     loop {
-        thread::sleep(Duration::from_millis(100));
+        thread::sleep(Duration::from_millis(1000));
     }
 }

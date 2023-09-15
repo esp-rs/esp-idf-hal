@@ -476,21 +476,20 @@ pub mod oneshot {
         }
     }
 
-    pub struct AdcChannelDriver<'d, T, ADC, M>
+    pub struct AdcChannelDriver<'d, T, M>
     where
-        ADC: Adc + 'd,
-        T: ADCPin<Adc = ADC>,
-        M: Borrow<AdcDriver<'d, ADC>>,
+        T: ADCPin,
+        M: Borrow<AdcDriver<'d, T::Adc>>,
     {
         adc: M,
         pin: PeripheralRef<'d, T>,
         calibration: Option<adc_cali_handle_t>,
     }
 
-    impl<'d, T, ADC: Adc, M> AdcChannelDriver<'d, T, ADC, M>
+    impl<'d, T, M> AdcChannelDriver<'d, T, M>
     where
-        T: ADCPin<Adc = ADC>,
-        M: Borrow<AdcDriver<'d, ADC>>,
+        T: ADCPin,
+        M: Borrow<AdcDriver<'d, T::Adc>>,
     {
         pub fn new(
             adc: M,
@@ -517,14 +516,14 @@ pub mod oneshot {
             };
 
             let mut calibration = Self::get_curve_calibration_handle(
-                ADC::unit() as u8,
+                T::Adc::unit() as u8,
                 pin.adc_channel(),
                 config.attenuation,
                 config.resolution.into(),
             );
             if calibration.is_none() {
                 calibration = Self::get_line_calibration_handle(
-                    ADC::unit() as u8,
+                    T::Adc::unit() as u8,
                     config.attenuation,
                     config.resolution.into(),
                 );
@@ -624,8 +623,8 @@ pub mod oneshot {
             None
         }
 
-        fn pin(&mut self) -> &mut PeripheralRef<'d, T> {
-            &mut self.pin
+        pub fn channel(&self) -> adc_channel_t {
+            self.pin.adc_channel()
         }
 
         #[inline(always)]
@@ -636,7 +635,7 @@ pub mod oneshot {
 
         #[inline(always)]
         pub fn read_raw(&mut self) -> Result<u16, EspError> {
-            let channel = self.pin().adc_channel();
+            let channel = self.channel();
             self.adc.borrow().read_raw_internal(channel)
         }
 
@@ -650,17 +649,10 @@ pub mod oneshot {
         }
     }
 
-    unsafe impl<'d, T, ADC: Adc, M> Send for AdcChannelDriver<'d, T, ADC, M>
+    unsafe impl<'d, T, M> Send for AdcChannelDriver<'d, T, M>
     where
-        T: ADCPin<Adc = ADC>,
-        M: Borrow<AdcDriver<'d, ADC>>,
-    {
-    }
-
-    unsafe impl<'d, T, ADC: Adc, M> Sync for AdcChannelDriver<'d, T, ADC, M>
-    where
-        T: ADCPin<Adc = ADC>,
-        M: Borrow<AdcDriver<'d, ADC>>,
+        T: ADCPin,
+        M: Borrow<AdcDriver<'d, T::Adc>>,
     {
     }
 
@@ -684,11 +676,11 @@ pub mod oneshot {
         #[inline(always)]
         pub fn read<T, M>(
             &self,
-            channel: &mut AdcChannelDriver<'d, T, ADC, M>,
+            channel: &mut AdcChannelDriver<'d, T, M>,
         ) -> Result<u16, EspError>
         where
-            T: ADCPin<Adc = ADC>,
-            M: Borrow<AdcDriver<'d, ADC>>,
+            T: ADCPin,
+            M: Borrow<AdcDriver<'d, T::Adc>>,
         {
             let raw = self.read_raw(channel)?;
             self.raw_to_cal(channel, raw)
@@ -697,13 +689,13 @@ pub mod oneshot {
         #[inline(always)]
         pub fn read_raw<T, M>(
             &self,
-            channel: &mut AdcChannelDriver<'d, T, ADC, M>,
+            channel: &mut AdcChannelDriver<'d, T, M>,
         ) -> Result<u16, EspError>
         where
-            T: ADCPin<Adc = ADC>,
-            M: Borrow<AdcDriver<'d, ADC>>,
+            T: ADCPin,
+            M: Borrow<AdcDriver<'d, T::Adc>>,
         {
-            self.read_raw_internal(channel.pin().adc_channel())
+            self.read_raw_internal(channel.channel())
         }
 
         #[inline(always)]
@@ -716,12 +708,12 @@ pub mod oneshot {
         #[inline(always)]
         pub fn raw_to_cal<T, M>(
             &self,
-            channel: &AdcChannelDriver<'d, T, ADC, M>,
+            channel: &AdcChannelDriver<'d, T, M>,
             raw: u16,
         ) -> Result<u16, EspError>
         where
-            T: ADCPin<Adc = ADC>,
-            M: Borrow<AdcDriver<'d, ADC>>,
+            T: ADCPin,
+            M: Borrow<AdcDriver<'d, T::Adc>>,
         {
             if let Some(calibration) = &channel.calibration {
                 self.raw_to_cal_internal(*calibration, raw)
