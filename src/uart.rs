@@ -668,8 +668,8 @@ impl<'d> UartDriver<'d> {
         // SAFTEY: okay because Queue borrows self
         // SAFETY: we can safely use UartEvent instead of uart_event_t because of repr(transparent)
         let queue = match q_handle_raw.is_null() {
-            true => Some(unsafe { Queue::new_borrowed(q_handle_raw) }),
-            false => None,
+            false => Some(unsafe { Queue::new_borrowed(q_handle_raw) }),
+            true => None,
         };
 
         Ok(Self {
