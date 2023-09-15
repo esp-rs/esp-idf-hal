@@ -482,7 +482,7 @@ pub mod oneshot {
         M: Borrow<AdcDriver<'d, T::Adc>>,
     {
         adc: M,
-        pin: PeripheralRef<'d, T>,
+        _pin: PeripheralRef<'d, T>,
         calibration: Option<adc_cali_handle_t>,
     }
 
@@ -530,7 +530,7 @@ pub mod oneshot {
             }
             Ok(Self {
                 adc,
-                pin,
+                _pin: pin,
                 calibration,
             })
         }
@@ -623,10 +623,6 @@ pub mod oneshot {
             None
         }
 
-        pub fn channel(&self) -> adc_channel_t {
-            self.pin.adc_channel()
-        }
-
         #[inline(always)]
         pub fn read(&mut self) -> Result<u16, EspError> {
             let raw = self.read_raw()?;
@@ -635,7 +631,7 @@ pub mod oneshot {
 
         #[inline(always)]
         pub fn read_raw(&mut self) -> Result<u16, EspError> {
-            let channel = self.channel();
+            let channel = T::CHANNEL;
             self.adc.borrow().read_raw_internal(channel)
         }
 
@@ -674,10 +670,7 @@ pub mod oneshot {
         }
 
         #[inline(always)]
-        pub fn read<T, M>(
-            &self,
-            channel: &mut AdcChannelDriver<'d, T, M>,
-        ) -> Result<u16, EspError>
+        pub fn read<T, M>(&self, channel: &mut AdcChannelDriver<'d, T, M>) -> Result<u16, EspError>
         where
             T: ADCPin,
             M: Borrow<AdcDriver<'d, T::Adc>>,
@@ -689,13 +682,13 @@ pub mod oneshot {
         #[inline(always)]
         pub fn read_raw<T, M>(
             &self,
-            channel: &mut AdcChannelDriver<'d, T, M>,
+            _channel: &mut AdcChannelDriver<'d, T, M>,
         ) -> Result<u16, EspError>
         where
             T: ADCPin,
             M: Borrow<AdcDriver<'d, T::Adc>>,
         {
-            self.read_raw_internal(channel.channel())
+            self.read_raw_internal(T::CHANNEL)
         }
 
         #[inline(always)]
