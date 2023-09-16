@@ -399,15 +399,16 @@ impl<'d, ADC: Adc> AdcDriver<'d, ADC> {
 }
 
 #[cfg(not(feature = "riscv-ulp-hal"))]
-impl<'d, ADC, PIN> embedded_hal_0_2::adc::OneShot<ADC, u16, PIN> for AdcDriver<'d, ADC>
+impl<'d, 'c, const A: adc_atten_t, T>
+    embedded_hal_0_2::adc::OneShot<T::Adc, u16, AdcChannelDriver<'c, A, T>>
+    for AdcDriver<'d, T::Adc>
 where
-    ADC: Adc,
-    PIN: embedded_hal_0_2::adc::Channel<ADC, ID = (adc_channel_t, adc_atten_t)>,
+    T: ADCPin,
 {
     type Error = EspError;
 
-    fn read(&mut self, _pin: &mut PIN) -> nb::Result<u16, Self::Error> {
-        self.read_internal(ADC::unit(), PIN::channel().0, PIN::channel().1)
+    fn read(&mut self, pin: &mut AdcChannelDriver<'c, A, T>) -> nb::Result<u16, Self::Error> {
+        self.read_internal(T::Adc::unit(), pin.pin.adc_channel(), A)
             .map_err(to_nb_err)
     }
 }
