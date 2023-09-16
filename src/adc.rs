@@ -461,6 +461,7 @@ pub mod oneshot {
 
     use super::attenuation::adc_atten_t;
     use super::config::Resolution;
+    use super::to_nb_err;
     use super::Adc;
 
     pub mod config {
@@ -645,6 +646,18 @@ pub mod oneshot {
         }
     }
 
+    impl<'d, T, M> embedded_hal_0_2::adc::Channel<T::Adc> for AdcChannelDriver<'d, T, M>
+    where
+        T: ADCPin,
+        M: Borrow<AdcDriver<'d, T::Adc>>,
+    {
+        type ID = adc_channel_t;
+
+        fn channel() -> Self::ID {
+            T::CHANNEL
+        }
+    }
+
     unsafe impl<'d, T, M> Send for AdcChannelDriver<'d, T, M>
     where
         T: ADCPin,
@@ -732,6 +745,19 @@ pub mod oneshot {
     impl<'d, ADC: Adc> Drop for AdcDriver<'d, ADC> {
         fn drop(&mut self) {
             unsafe { esp!(adc_oneshot_del_unit(self.handle)) }.unwrap();
+        }
+    }
+
+    impl<'d, T, M> embedded_hal_0_2::adc::OneShot<T::Adc, u16, AdcChannelDriver<'d, T, M>>
+        for AdcDriver<'d, T::Adc>
+    where
+        T: ADCPin,
+        M: Borrow<AdcDriver<'d, T::Adc>>,
+    {
+        type Error = EspError;
+
+        fn read(&mut self, pin: &mut AdcChannelDriver<'d, T, M>) -> nb::Result<u16, Self::Error> {
+            AdcDriver::read(self, pin).map_err(to_nb_err)
         }
     }
 
