@@ -615,6 +615,14 @@ where
         })
     }
 
+    pub fn driver(&self) -> &CanDriver<'d> {
+        self.driver.borrow()
+    }
+
+    pub fn driver_mut(&mut self) -> &mut CanDriver<'d> {
+        self.driver.borrow_mut()
+    }
+
     pub fn start(&mut self) -> Result<(), EspError> {
         self.driver.borrow_mut().start()
     }
