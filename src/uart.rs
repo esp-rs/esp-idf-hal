@@ -1407,7 +1407,7 @@ where
         AsyncUartTxDriver<'_, UartTxDriver<'_>>,
         AsyncUartRxDriver<'_, UartRxDriver<'_>>,
     ) {
-        let (tx, rx) = self.driver().split();
+        let (tx, rx) = self.driver_mut().split();
 
         (
             AsyncUartTxDriver {
@@ -1424,34 +1424,48 @@ where
     }
 
     pub async fn read(&self, buf: &mut [u8]) -> Result<usize, EspError> {
-        loop {
-            match self.driver.borrow().read(buf, delay::NON_BLOCK) {
-                Ok(len) => return Ok(len),
-                Err(e) if e.code() != ESP_ERR_TIMEOUT => return Err(e),
-                _ => (),
-            }
+        if buf.is_empty() {
+            Ok(0)
+        } else {
+            loop {
+                let res = self.driver.borrow().read(buf, delay::NON_BLOCK);
 
-            let port = self.driver.borrow().port as usize;
-            READ_NOTIFS[port].wait().await;
+                match res {
+                    Ok(len) => return Ok(len),
+                    Err(e) if e.code() != ESP_ERR_TIMEOUT => return Err(e),
+                    _ => (),
+                }
+
+                let port = self.driver.borrow().port as usize;
+                READ_NOTIFS[port].wait().await;
+            }
         }
     }
 
     pub async fn write(&self, bytes: &[u8]) -> Result<usize, EspError> {
-        loop {
-            match self.driver.borrow().write_nb(bytes) {
-                Ok(len) if len > 0 => return Ok(len),
-                Err(e) => return Err(e),
-                _ => (),
-            }
+        if bytes.is_empty() {
+            Ok(0)
+        } else {
+            loop {
+                let res = self.driver.borrow().write_nb(bytes);
 
-            let port = self.driver.borrow().port as usize;
-            WRITE_NOTIFS[port].wait().await;
+                match res {
+                    Ok(len) if len > 0 => return Ok(len),
+                    Err(e) => return Err(e),
+                    _ => (),
+                }
+
+                let port = self.driver.borrow().port as usize;
+                WRITE_NOTIFS[port].wait().await;
+            }
         }
     }
 
     pub async fn wait_tx_done(&self) -> Result<(), EspError> {
         loop {
-            match self.driver.borrow().wait_tx_done(delay::NON_BLOCK) {
+            let res = self.driver.borrow().wait_tx_done(delay::NON_BLOCK);
+
+            match res {
                 Ok(()) => return Ok(()),
                 Err(e) if e.code() != ESP_ERR_TIMEOUT => return Err(e),
                 _ => (),
@@ -1562,15 +1576,21 @@ where
     }
 
     pub async fn read(&self, buf: &mut [u8]) -> Result<usize, EspError> {
-        loop {
-            match self.driver.borrow().read(buf, delay::NON_BLOCK) {
-                Ok(len) => return Ok(len),
-                Err(e) if e.code() != ESP_ERR_TIMEOUT => return Err(e),
-                _ => (),
-            }
+        if buf.is_empty() {
+            Ok(0)
+        } else {
+            loop {
+                let res = self.driver.borrow().read(buf, delay::NON_BLOCK);
 
-            let port = self.driver.borrow().port as usize;
-            READ_NOTIFS[port].wait().await;
+                match res {
+                    Ok(len) => return Ok(len),
+                    Err(e) if e.code() != ESP_ERR_TIMEOUT => return Err(e),
+                    _ => (),
+                }
+
+                let port = self.driver.borrow().port as usize;
+                READ_NOTIFS[port].wait().await;
+            }
         }
     }
 }
@@ -1660,21 +1680,29 @@ where
     }
 
     pub async fn write(&self, bytes: &[u8]) -> Result<usize, EspError> {
-        loop {
-            match self.driver.borrow().write_nb(bytes) {
-                Ok(len) if len > 0 => return Ok(len),
-                Err(e) => return Err(e),
-                _ => (),
-            }
+        if bytes.is_empty() {
+            Ok(0)
+        } else {
+            loop {
+                let res = self.driver.borrow().write_nb(bytes);
 
-            let port = self.driver.borrow().port as usize;
-            WRITE_NOTIFS[port].wait().await;
+                match res {
+                    Ok(len) if len > 0 => return Ok(len),
+                    Err(e) => return Err(e),
+                    _ => (),
+                }
+
+                let port = self.driver.borrow().port as usize;
+                WRITE_NOTIFS[port].wait().await;
+            }
         }
     }
 
     pub async fn wait_done(&self) -> Result<(), EspError> {
         loop {
-            match self.driver.borrow().wait_done(delay::NON_BLOCK) {
+            let res = self.driver.borrow().wait_done(delay::NON_BLOCK);
+
+            match res {
                 Ok(()) => return Ok(()),
                 Err(e) if e.code() != ESP_ERR_TIMEOUT => return Err(e),
                 _ => (),

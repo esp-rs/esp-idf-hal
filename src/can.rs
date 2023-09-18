@@ -633,7 +633,9 @@ where
 
     pub async fn transmit(&self, frame: &Frame) -> Result<(), EspError> {
         loop {
-            match self.driver.borrow().transmit(frame, delay::NON_BLOCK) {
+            let res = self.driver.borrow().transmit(frame, delay::NON_BLOCK);
+
+            match res {
                 Ok(()) => return Ok(()),
                 Err(e) if e.code() != ESP_ERR_TIMEOUT => return Err(e),
                 _ => (),
@@ -645,7 +647,9 @@ where
 
     pub async fn receive(&self) -> Result<Frame, EspError> {
         loop {
-            match self.driver.borrow().receive(delay::NON_BLOCK) {
+            let res = self.driver.borrow().receive(delay::NON_BLOCK);
+
+            match res {
                 Ok(frame) => return Ok(frame),
                 Err(e) if e.code() != ESP_ERR_TIMEOUT => return Err(e),
                 _ => (),
