@@ -28,7 +28,7 @@ fn main() -> anyhow::Result<()> {
     };
 
     #[cfg(not(esp32))]
-    let mut adc_pin = AdcChannelDriver::new(&adc, peripherals.pins.gpio2, config)?;
+    let mut adc_pin = AdcChannelDriver::new(&adc, peripherals.pins.gpio2, &config)?;
 
     #[cfg(esp32)]
     let mut adc_pin = AdcChannelDriver::new(&adc, peripherals.pins.gpio12, config)?;
