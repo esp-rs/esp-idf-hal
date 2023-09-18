@@ -738,7 +738,7 @@ impl<'d> UartDriver<'d> {
     }
 
     /// Split the serial driver in separate TX and RX drivers
-    pub fn split(&self) -> (UartTxDriver<'_>, UartRxDriver<'_>) {
+    pub fn split(&mut self) -> (UartTxDriver<'_>, UartRxDriver<'_>) {
         (
             UartTxDriver {
                 port: self.port,
@@ -1402,7 +1402,7 @@ where
 
     /// Split the serial driver in separate TX and RX drivers
     pub fn split(
-        &self,
+        &mut self,
     ) -> (
         AsyncUartTxDriver<'_, UartTxDriver<'_>>,
         AsyncUartRxDriver<'_, UartRxDriver<'_>>,
