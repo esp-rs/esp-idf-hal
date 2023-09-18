@@ -476,6 +476,12 @@ pub mod oneshot {
             #[cfg(any(esp_idf_comp_esp_adc_cal_enabled, esp_idf_comp_esp_adc_enabled))]
             pub calibration: bool,
         }
+
+        impl AdcChannelConfig {
+            pub fn new() -> Self {
+                Default::default()
+            }
+        }
     }
 
     pub struct AdcChannelDriver<'d, T, M>
@@ -496,7 +502,7 @@ pub mod oneshot {
         pub fn new(
             adc: M,
             pin: impl Peripheral<P = T> + 'd,
-            config: config::AdcChannelConfig,
+            config: &config::AdcChannelConfig,
         ) -> Result<Self, EspError> {
             crate::into_ref!(pin);
 
