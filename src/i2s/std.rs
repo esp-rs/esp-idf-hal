@@ -474,7 +474,7 @@ pub(super) mod config {
 
         /// Configure in Philips format in 2 slots.
         pub fn philips_slot_default(bits_per_sample: DataBitWidth, slot_mode: SlotMode) -> Self {
-            let slot_mask = if slot_mode == SlotMode::Mono && cfg!(any(esp32, esp32s2)) {
+            let slot_mask = if slot_mode == SlotMode::Mono {
                 StdSlotMask::Left
             } else {
                 StdSlotMask::Both
@@ -508,7 +508,7 @@ pub(super) mod config {
 
         /// Configure in PCM (short) format in 2 slots.
         pub fn pcm_slot_default(bits_per_sample: DataBitWidth, slot_mode: SlotMode) -> Self {
-            let slot_mask = if slot_mode == SlotMode::Mono && cfg!(any(esp32, esp32s2)) {
+            let slot_mask = if slot_mode == SlotMode::Mono {
                 StdSlotMask::Left
             } else {
                 StdSlotMask::Both
@@ -542,7 +542,7 @@ pub(super) mod config {
 
         /// Configure in MSB format in 2 slots.
         pub fn msb_slot_default(bits_per_sample: DataBitWidth, slot_mode: SlotMode) -> Self {
-            let slot_mask = if slot_mode == SlotMode::Mono && cfg!(any(esp32, esp32s2)) {
+            let slot_mask = if slot_mode == SlotMode::Mono {
                 StdSlotMask::Left
             } else {
                 StdSlotMask::Both
