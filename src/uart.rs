@@ -1396,6 +1396,39 @@ where
     }
 }
 
+impl<'d, T> embedded_io::ErrorType for AsyncUartDriver<'d, T>
+where
+    T: BorrowMut<UartDriver<'d>>,
+{
+    type Error = EspIOError;
+}
+
+#[cfg(feature = "nightly")]
+impl<'d, T> embedded_io_async::Read for AsyncUartDriver<'d, T>
+where
+    T: BorrowMut<UartDriver<'d>>,
+{
+    async fn read(&mut self, buf: &mut [u8]) -> Result<usize, Self::Error> {
+        AsyncUartDriver::read(self, buf).await.map_err(EspIOError)
+    }
+}
+
+#[cfg(feature = "nightly")]
+impl<'d, T> embedded_io_async::Write for AsyncUartDriver<'d, T>
+where
+    T: BorrowMut<UartDriver<'d>>,
+{
+    async fn write(&mut self, buf: &[u8]) -> Result<usize, Self::Error> {
+        AsyncUartDriver::write(self, buf).await.map_err(EspIOError)
+    }
+
+    async fn flush(&mut self) -> Result<(), Self::Error> {
+        AsyncUartDriver::wait_tx_done(self)
+            .await
+            .map_err(EspIOError)
+    }
+}
+
 fn new_common<UART: Uart>(
     _uart: impl Peripheral<P = UART>,
     tx: Option<impl Peripheral<P = impl OutputPin>>,
