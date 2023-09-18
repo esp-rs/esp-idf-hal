@@ -1224,7 +1224,7 @@ impl<'d> embedded_hal_0_2::serial::Write<u8> for UartTxDriver<'d> {
     type Error = SerialError;
 
     fn flush(&mut self) -> nb::Result<(), Self::Error> {
-        UartTxDriver::wait_done(self, delay::BLOCK).map_err(to_nb_err)
+        check_nb_timeout(UartTxDriver::wait_done(self, delay::NON_BLOCK))
     }
 
     fn write(&mut self, byte: u8) -> nb::Result<(), Self::Error> {
@@ -1238,11 +1238,11 @@ impl<'d> embedded_hal_nb::serial::ErrorType for UartTxDriver<'d> {
 
 impl<'d> embedded_hal_nb::serial::Write<u8> for UartTxDriver<'d> {
     fn flush(&mut self) -> nb::Result<(), Self::Error> {
-        UartTxDriver::wait_done(self, delay::BLOCK).map_err(to_nb_err)
+        check_nb_timeout(UartTxDriver::wait_done(self, delay::NON_BLOCK))
     }
 
     fn write(&mut self, byte: u8) -> nb::Result<(), Self::Error> {
-        check_nb(UartTxDriver::write(self, &[byte]), ())
+        check_nb(UartTxDriver::write_nb(self, &[byte]), ())
     }
 }
 
@@ -1348,6 +1348,19 @@ where
         }
     }
 
+    pub async fn wait_tx_done(&self) -> Result<(), EspError> {
+        loop {
+            match self.driver.borrow().wait_tx_done(delay::NON_BLOCK) {
+                Ok(()) => return Ok(()),
+                Err(e) if e.code() != ESP_ERR_TIMEOUT => return Err(e),
+                _ => (),
+            }
+
+            let port = self.driver.borrow().port as usize;
+            TX_NOTIFS[port].wait().await;
+        }
+    }
+
     extern "C" fn process_events(arg: *mut core::ffi::c_void) {
         let port: usize = arg as _;
         let queue: Queue<UartEvent> = unsafe { Queue::new_borrowed(QUEUES[port] as _) };
@@ -1362,6 +1375,7 @@ where
                     }
                     UartEventPayload::Break | UartEventPayload::DataBreak => {
                         WRITE_NOTIFS[port].notify();
+                        TX_NOTIFS[port].notify();
                     }
                     _ => (),
                 }
@@ -1558,19 +1572,24 @@ macro_rules! impl_uart {
     };
 }
 
-fn to_nb_err(err: EspError) -> nb::Error<SerialError> {
-    if err.code() == ESP_ERR_TIMEOUT {
-        nb::Error::WouldBlock
-    } else {
-        nb::Error::Other(SerialError::new(ErrorKind::Other, err))
+fn check_nb<T>(result: Result<usize, EspError>, value: T) -> nb::Result<T, SerialError> {
+    match result {
+        Ok(len) => {
+            if len > 0 {
+                Ok(value)
+            } else {
+                Err(nb::Error::WouldBlock)
+            }
+        }
+        Err(err) if err.code() == ESP_ERR_TIMEOUT => Err(nb::Error::WouldBlock),
+        Err(err) => Err(nb::Error::Other(SerialError::new(ErrorKind::Other, err))),
     }
 }
 
-fn check_nb<T>(result: Result<usize, EspError>, value: T) -> nb::Result<T, SerialError> {
+fn check_nb_timeout(result: Result<(), EspError>) -> nb::Result<(), SerialError> {
     match result {
-        Ok(1) => Ok(value),
-        Ok(0) => Err(nb::Error::WouldBlock),
-        Ok(_) => unreachable!(),
+        Ok(()) => Ok(()),
+        Err(err) if err.code() == ESP_ERR_TIMEOUT => Err(nb::Error::WouldBlock),
         Err(err) => Err(nb::Error::Other(SerialError::new(ErrorKind::Other, err))),
     }
 }
@@ -1587,5 +1606,6 @@ static REFS: [AtomicU8; SOC_UART_NUM as usize] = [NO_REFS; SOC_UART_NUM as usize
 const NOTIF: Notification = Notification::new();
 static READ_NOTIFS: [Notification; SOC_UART_NUM as usize] = [NOTIF; SOC_UART_NUM as usize];
 static WRITE_NOTIFS: [Notification; SOC_UART_NUM as usize] = [NOTIF; SOC_UART_NUM as usize];
+static TX_NOTIFS: [Notification; SOC_UART_NUM as usize] = [NOTIF; SOC_UART_NUM as usize];
 static mut QUEUES: [*const core::ffi::c_void; SOC_UART_NUM as usize] =
     [core::ptr::null(); SOC_UART_NUM as usize];
