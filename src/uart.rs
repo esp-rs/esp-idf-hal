@@ -2014,6 +2014,7 @@ impl_uart!(UART2: 2);
 const NO_REFS: AtomicU8 = AtomicU8::new(0);
 static REFS: [AtomicU8; SOC_UART_NUM as usize] = [NO_REFS; SOC_UART_NUM as usize];
 
+#[allow(clippy::declare_interior_mutable_const)]
 const NOTIF: Notification = Notification::new();
 static READ_NOTIFS: [Notification; SOC_UART_NUM as usize] = [NOTIF; SOC_UART_NUM as usize];
 static WRITE_NOTIFS: [Notification; SOC_UART_NUM as usize] = [NOTIF; SOC_UART_NUM as usize];
