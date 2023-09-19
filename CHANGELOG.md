@@ -5,11 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.42.0] - 2023-09-02
+## [0.42.0] - 2023-09-19
 * MSRV raised to 1.71
 * New driver: I2S
 * New driver: continuous ADC
-* Async support in the following drivers: SPI, I2S, continuous ADC, and CAN (via an `AsyncCanDriver` wrapper)
+* New driver: snapshot ADC, implementing the new ESP-IDF 5.0+ snapshot ADC API
+* Async support in the following drivers: SPI, I2S, continuous ADC, CAN (via an `AsyncCanDriver` wrapper), UART (via an `AsyncUartDriver` wrapper)
 * CAN driver: support for pulling alerts in blocking and async mode
 * UART driver: support for pulling UART events
 * `task` module: safe wrapper - `queue::Queue` for the FreeRTOS `queue` synchonization primitive
