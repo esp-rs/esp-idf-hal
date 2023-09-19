@@ -230,6 +230,7 @@ impl<'a> TryFrom<&'a MqttClientConfiguration<'a>>
     fn try_from(conf: &'a MqttClientConfiguration<'a>) -> Result<Self, EspError> {
         let mut cstrs = RawCstrs::new();
 
+        #[allow(clippy::needless_update)]
         let mut c_conf = esp_mqtt_client_config_t {
             broker: esp_mqtt_client_config_t_broker_t {
                 verification: esp_mqtt_client_config_t_broker_t_verification_t {
@@ -275,6 +276,7 @@ impl<'a> TryFrom<&'a MqttClientConfiguration<'a>>
                 out_size: conf.out_buffer_size as _,
                 ..Default::default()
             },
+            ..Default::default()
         };
 
         if let Some(keep_alive_interval) = conf.keep_alive_interval {
@@ -520,9 +522,33 @@ impl<S> EspMqttClient<S> {
     ) -> Result<client::MessageId, EspError> {
         let c_topic = to_cstring_arg(topic)?;
 
-        Self::check(unsafe {
+        #[cfg(any(
+            esp_idf_version_major = "4",
+            all(esp_idf_version_major = "5", esp_idf_version_minor = "0"),
+            all(
+                esp_idf_version_major = "5",
+                esp_idf_version_minor = "1",
+                any(esp_idf_version_patch = "0", esp_idf_version_patch = "1")
+            )
+        ))]
+        let res = Self::check(unsafe {
             esp_mqtt_client_subscribe(self.raw_client, c_topic.as_ptr(), qos as _)
-        })
+        });
+
+        #[cfg(not(any(
+            esp_idf_version_major = "4",
+            all(esp_idf_version_major = "5", esp_idf_version_minor = "0"),
+            all(
+                esp_idf_version_major = "5",
+                esp_idf_version_minor = "1",
+                any(esp_idf_version_patch = "0", esp_idf_version_patch = "1")
+            )
+        )))]
+        let res = Self::check(unsafe {
+            esp_mqtt_client_subscribe_single(self.raw_client, c_topic.as_ptr(), qos as _)
+        });
+
+        res
     }
 
     pub fn unsubscribe(&mut self, topic: &str) -> Result<client::MessageId, EspError> {
