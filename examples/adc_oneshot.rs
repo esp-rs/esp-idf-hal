@@ -31,7 +31,7 @@ fn main() -> anyhow::Result<()> {
     let mut adc_pin = AdcChannelDriver::new(&adc, peripherals.pins.gpio2, &config)?;
 
     #[cfg(esp32)]
-    let mut adc_pin = AdcChannelDriver::new(&adc, peripherals.pins.gpio12, config)?;
+    let mut adc_pin = AdcChannelDriver::new(&adc, peripherals.pins.gpio12, &config)?;
 
     loop {
         // you can change the sleep duration depending on how often you want to sample
@@ -39,9 +39,11 @@ fn main() -> anyhow::Result<()> {
         println!("ADC value: {}", adc.read(&mut adc_pin).unwrap());
     }
 }
+
 #[cfg(esp_idf_version_major = "4")]
 fn main() -> anyhow::Result<()> {
     println!("This example requires ESP-IDF v5.0 or newer");
+
     loop {
         thread::sleep(Duration::from_millis(1000));
     }
