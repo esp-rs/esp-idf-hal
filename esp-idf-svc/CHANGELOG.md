@@ -5,12 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.47.0] - 2023-09-02
+## [0.47.0] - 2023-09-19
 * MSRV raised to 1.71
 * New `experimental` module - `bt` - providing Bluetooth support based on the ESP-IDF Bluedroid implementation
   * Only classic BT supported for now (on the ESP32) with the following profiles: A2DP sink, AVRC controller, HFP client, GAP
   * BLE support in the works, but not buildable yet
-* TLS over TCP/IP support in the `tls` module via `EspTls` and `AsyncEspTls`
+* TLS over TCP/IP support in the `tls` module via `EspTls` and (for async mode) `AsyncEspTls`
 * PSK support for `mqtt`
 * Dependencies `esp-idf-sys` and `esp-idf-hal` are now re-exported as `esp_idf_svc::sys` and `esp_idf_svc::hal`
 * Upgraded to `embedded-svc` 0.26
