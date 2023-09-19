@@ -18,6 +18,7 @@ rust-version = "1.71"
 [patch.crates-io]
 embedded-svc = { git = "https://github.com/esp-rs/embedded-svc" }
 esp-idf-hal = { git = "https://github.com/esp-rs/esp-idf-hal" }
+esp-idf-sys = { git = "https://github.com/esp-rs/esp-idf-sys" }
 
 [features]
 default = ["std", "native", "binstart"]
