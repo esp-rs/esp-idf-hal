@@ -1312,7 +1312,7 @@ impl<'d> embedded_hal_0_2::serial::Write<u8> for UartTxDriver<'d> {
     }
 
     fn write(&mut self, byte: u8) -> nb::Result<(), Self::Error> {
-        check_nb(UartTxDriver::write(self, &[byte]), ())
+        check_nb(UartTxDriver::write_nb(self, &[byte]), ())
     }
 }
 
@@ -1583,7 +1583,7 @@ where
                 let res = self.driver.borrow().read(buf, delay::NON_BLOCK);
 
                 match res {
-                    Ok(len) => return Ok(len),
+                    Ok(len) if len > 0 => return Ok(len),
                     Err(e) if e.code() != ESP_ERR_TIMEOUT => return Err(e),
                     _ => (),
                 }
