@@ -26,7 +26,7 @@ fn print_wakeup_result() {
 }
 
 fn main() -> anyhow::Result<()> {
-    esp_idf_sys::link_patches();
+    esp_idf_hal::sys::link_patches();
 
     print_wakeup_result();
 

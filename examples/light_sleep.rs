@@ -28,7 +28,7 @@ fn print_wakeup_result(time_before: Instant) {
 }
 
 fn main() -> anyhow::Result<()> {
-    esp_idf_sys::link_patches();
+    esp_idf_hal::sys::link_patches();
 
     // run in a thread with increased stack size to prevent overflow
     let builder = std::thread::Builder::new().stack_size(10 * 1024);
