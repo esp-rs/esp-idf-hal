@@ -1431,7 +1431,7 @@ where
                 let res = self.driver.borrow().read(buf, delay::NON_BLOCK);
 
                 match res {
-                    Ok(len) => return Ok(len),
+                    Ok(len) if len > 0 => return Ok(len),
                     Err(e) if e.code() != ESP_ERR_TIMEOUT => return Err(e),
                     _ => (),
                 }
@@ -1757,7 +1757,11 @@ fn new_task_common(
     if let Some(queue) = queue {
         let port = port as usize;
 
-        let task = unsafe {
+        unsafe {
+            QUEUES[port] = queue.as_raw() as _;
+        }
+
+        let res = unsafe {
             task::create(
                 process_events,
                 CStr::from_bytes_until_nul(b"UART - Events task\0").unwrap(),
@@ -1765,14 +1769,16 @@ fn new_task_common(
                 port as _,
                 priority.unwrap_or(6),
                 pin_to_core,
-            )?
+            )
         };
 
-        unsafe {
-            QUEUES[port] = queue.as_raw() as _;
+        if res.is_err() {
+            unsafe {
+                QUEUES[port] = core::ptr::null();
+            }
         }
 
-        Ok(task)
+        res
     } else {
         Err(EspError::from_infallible::<ESP_ERR_INVALID_ARG>())
     }
