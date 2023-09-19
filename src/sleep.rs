@@ -20,7 +20,6 @@
 //!
 
 use core::fmt;
-use core::marker::PhantomData;
 use core::time::Duration;
 use esp_idf_sys::*;
 
@@ -28,6 +27,8 @@ use crate::gpio::{GPIOMode, InputPin, Level, PinDriver};
 #[cfg(any(esp32, esp32s2, esp32s3))]
 use crate::gpio::{RTCMode, RTCPin};
 use crate::uart::UartDriver;
+#[cfg(not(any(esp32, esp32s2, esp32s3)))]
+use core::marker::PhantomData;
 
 /// Will wake the CPU up after a given duration
 #[derive(Debug)]
@@ -123,33 +124,13 @@ impl RtcWakeLevel {
         }
     }
 }
-#[cfg(any(esp32, esp32s2, esp32s3))]
-pub trait RtcPinDriver {}
-
-#[cfg(any(esp32, esp32s2, esp32s3))]
-impl<'d, P, M> RtcPinDriver for PinDriver<'d, P, M>
-where
-    P: RTCPin + InputPin + 'd,
-    M: RTCMode + 'd,
-{
-}
 
 pub trait RtcWakeupPinTrait {
-    type PinDriver;
     fn pin(&self) -> i32;
-}
-
-pub struct DummyRtcWakeupPin;
-impl RtcWakeupPinTrait for DummyRtcWakeupPin {
-    type PinDriver = DummyRtcWakeupPin;
-    fn pin(&self) -> i32 {
-        0
-    }
 }
 
 #[cfg(any(esp32, esp32s2, esp32s3))]
 pub trait RtcWakeupPins {
-    type WakeupPin: RtcWakeupPinTrait;
     type Iterator<'a>: Iterator<Item = i32>
     where
         Self: 'a;
@@ -163,10 +144,7 @@ pub trait RtcWakeupPins {}
 impl<P> RtcWakeupPins for P
 where
     P: RtcWakeupPinTrait,
-    P::PinDriver: RtcPinDriver,
 {
-    type WakeupPin = P;
-
     type Iterator<'a> = core::iter::Once<i32> where Self: 'a;
 
     fn iter(&self) -> Self::Iterator<'_> {
@@ -174,29 +152,23 @@ where
     }
 }
 
-pub struct EmptyRtcWakeupPins<A>(PhantomData<A>);
+pub struct EmptyRtcWakeupPins;
 
 #[cfg(any(esp32, esp32s2, esp32s3))]
-impl<A> EmptyRtcWakeupPins<A> {
+impl EmptyRtcWakeupPins {
     pub fn chain<O>(other: O) -> ChainedRtcWakeupPins<Self, O>
     where
-        A: RtcWakeupPinTrait,
-        O: RtcWakeupPins<WakeupPin = A>,
+        O: RtcWakeupPins,
     {
         ChainedRtcWakeupPins {
-            first: Self(PhantomData),
+            first: Self,
             second: other,
         }
     }
 }
 
 #[cfg(any(esp32, esp32s2, esp32s3))]
-impl<A> RtcWakeupPins for EmptyRtcWakeupPins<A>
-where
-    A: RtcWakeupPinTrait,
-{
-    type WakeupPin = A;
-
+impl RtcWakeupPins for EmptyRtcWakeupPins {
     type Iterator<'a> = core::iter::Empty<i32> where Self: 'a;
 
     fn iter(&self) -> Self::Iterator<'_> {
@@ -205,7 +177,7 @@ where
 }
 
 #[cfg(not(any(esp32, esp32s2, esp32s3)))]
-impl<A> RtcWakeupPins for EmptyRtcWakeupPins<A> {}
+impl RtcWakeupPins for EmptyRtcWakeupPins {}
 
 #[cfg(any(esp32, esp32s2, esp32s3))]
 pub struct ChainedRtcWakeupPins<F, S> {
@@ -234,8 +206,6 @@ where
     F: RtcWakeupPins,
     S: RtcWakeupPins,
 {
-    type WakeupPin = F::WakeupPin;
-
     type Iterator<'a> = core::iter::Chain<F::Iterator<'a>, S::Iterator<'a>> where Self: 'a;
 
     fn iter(&self) -> Self::Iterator<'_> {
@@ -246,7 +216,7 @@ where
 #[cfg(any(esp32, esp32s2, esp32s3))]
 pub struct RtcWakeupPin<'d, P, M>
 where
-    P: InputPin + 'd,
+    P: InputPin + RTCPin + 'd,
     M: RTCMode + 'd,
 {
     pub pindriver: &'d PinDriver<'d, P, M>,
@@ -255,11 +225,9 @@ where
 #[cfg(any(esp32, esp32s2, esp32s3))]
 impl<'d, P, M> RtcWakeupPinTrait for RtcWakeupPin<'d, P, M>
 where
-    P: InputPin + 'd,
+    P: InputPin + RTCPin + 'd,
     M: RTCMode + 'd,
 {
-    type PinDriver = PinDriver<'d, P, M>;
-
     fn pin(&self) -> i32 {
         self.pindriver.pin()
     }
@@ -306,34 +274,12 @@ where
     }
 }
 
-pub trait GpioPinDriver {}
-
-impl<'d, P, M> GpioPinDriver for PinDriver<'d, P, M>
-where
-    P: InputPin + 'd,
-    M: GPIOMode + 'd,
-{
-}
-
 pub trait GpioWakeupPinTrait {
-    type PinDriver;
     fn pin(&self) -> i32;
     fn wake_level(&self) -> Level;
 }
 
-pub struct DummyGpioWakeupPin;
-impl GpioWakeupPinTrait for DummyGpioWakeupPin {
-    type PinDriver = DummyGpioWakeupPin;
-    fn pin(&self) -> i32 {
-        0
-    }
-    fn wake_level(&self) -> Level {
-        Level::Low
-    }
-}
-
 pub trait GpioWakeupPins {
-    type WakeupPin: GpioWakeupPinTrait;
     type Iterator<'a>: Iterator<Item = (i32, Level)>
     where
         Self: 'a;
@@ -344,10 +290,7 @@ pub trait GpioWakeupPins {
 impl<P> GpioWakeupPins for P
 where
     P: GpioWakeupPinTrait,
-    P::PinDriver: GpioPinDriver,
 {
-    type WakeupPin = P;
-
     type Iterator<'a> = core::iter::Once<(i32, Level)> where Self: 'a;
 
     fn iter(&self) -> Self::Iterator<'_> {
@@ -355,27 +298,21 @@ where
     }
 }
 
-pub struct EmptyGpioWakeupPins<A>(PhantomData<A>);
+pub struct EmptyGpioWakeupPins;
 
-impl<A> EmptyGpioWakeupPins<A> {
+impl EmptyGpioWakeupPins {
     pub fn chain<O>(other: O) -> ChainedGpioWakeupPins<Self, O>
     where
-        A: GpioWakeupPinTrait,
-        O: GpioWakeupPins<WakeupPin = A>,
+        O: GpioWakeupPins,
     {
         ChainedGpioWakeupPins {
-            first: Self(PhantomData),
+            first: Self,
             second: other,
         }
     }
 }
 
-impl<A> GpioWakeupPins for EmptyGpioWakeupPins<A>
-where
-    A: GpioWakeupPinTrait,
-{
-    type WakeupPin = A;
-
+impl GpioWakeupPins for EmptyGpioWakeupPins {
     type Iterator<'a> = core::iter::Empty<(i32, Level)> where Self: 'a;
 
     fn iter(&self) -> Self::Iterator<'_> {
@@ -407,8 +344,6 @@ where
     F: GpioWakeupPins,
     S: GpioWakeupPins,
 {
-    type WakeupPin = F::WakeupPin;
-
     type Iterator<'a> = core::iter::Chain<F::Iterator<'a>, S::Iterator<'a>> where Self: 'a;
 
     fn iter(&self) -> Self::Iterator<'_> {
@@ -430,8 +365,6 @@ where
     P: InputPin + 'd,
     M: GPIOMode + 'd,
 {
-    type PinDriver = PinDriver<'d, P, M>;
-
     fn pin(&self) -> i32 {
         self.pindriver.pin()
     }
@@ -516,7 +449,7 @@ pub fn make_light_sleep_no_pins(
     uart: Option<UartWakeup>,
     #[cfg(any(esp32, esp32s2, esp32s3))] touch: Option<TouchWakeup>,
     #[cfg(any(esp32, esp32s2, esp32s3))] ulp: Option<UlpWakeup>,
-) -> LightSleep<EmptyRtcWakeupPins<DummyRtcWakeupPin>, EmptyGpioWakeupPins<DummyGpioWakeupPin>> {
+) -> LightSleep<EmptyRtcWakeupPins, EmptyGpioWakeupPins> {
     LightSleep {
         timer,
         #[cfg(any(esp32, esp32s2, esp32s3))]
@@ -539,7 +472,7 @@ pub fn make_light_sleep_rtc_pins<R: RtcWakeupPins>(
     uart: Option<UartWakeup>,
     touch: Option<TouchWakeup>,
     ulp: Option<UlpWakeup>,
-) -> LightSleep<R, EmptyGpioWakeupPins<DummyGpioWakeupPin>> {
+) -> LightSleep<R, EmptyGpioWakeupPins> {
     LightSleep {
         timer,
         rtc,
@@ -556,7 +489,7 @@ pub fn make_light_sleep_gpio_pins<G: GpioWakeupPins>(
     uart: Option<UartWakeup>,
     #[cfg(any(esp32, esp32s2, esp32s3))] touch: Option<TouchWakeup>,
     #[cfg(any(esp32, esp32s2, esp32s3))] ulp: Option<UlpWakeup>,
-) -> LightSleep<EmptyRtcWakeupPins<DummyRtcWakeupPin>, G> {
+) -> LightSleep<EmptyRtcWakeupPins, G> {
     LightSleep {
         timer,
         #[cfg(any(esp32, esp32s2, esp32s3))]
@@ -670,7 +603,7 @@ pub fn make_deep_sleep_no_pins(
     timer: Option<TimerWakeup>,
     #[cfg(any(esp32, esp32s2, esp32s3))] touch: Option<TouchWakeup>,
     #[cfg(any(esp32, esp32s2, esp32s3))] ulp: Option<UlpWakeup>,
-) -> DeepSleep<EmptyRtcWakeupPins<DummyRtcWakeupPin>> {
+) -> DeepSleep<EmptyRtcWakeupPins> {
     DeepSleep {
         timer,
         #[cfg(any(esp32, esp32s2, esp32s3))]

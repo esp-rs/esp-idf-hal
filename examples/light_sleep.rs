@@ -4,7 +4,9 @@
 //! Prints wakeup reason and sleep time on wakeup.
 
 use core::time::Duration;
-use esp_idf_hal::gpio::{self, AnyIOPin, PinDriver};
+#[cfg(any(esp32, esp32s2, esp32s3))]
+use esp_idf_hal::gpio::AnyIOPin;
+use esp_idf_hal::gpio::{self, PinDriver};
 use esp_idf_hal::peripherals::Peripherals;
 use esp_idf_hal::prelude::*;
 use esp_idf_hal::reset::WakeupReason;
