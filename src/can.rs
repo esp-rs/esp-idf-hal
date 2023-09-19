@@ -603,7 +603,7 @@ where
                 CStr::from_bytes_until_nul(b"CAN - Alerts task\0").unwrap(),
                 2048,
                 core::ptr::null_mut(),
-                priority.unwrap_or(5),
+                priority.unwrap_or(6),
                 pin_to_core,
             )?
         };
@@ -613,6 +613,14 @@ where
             task,
             _data: PhantomData,
         })
+    }
+
+    pub fn driver(&self) -> &CanDriver<'d> {
+        self.driver.borrow()
+    }
+
+    pub fn driver_mut(&mut self) -> &mut CanDriver<'d> {
+        self.driver.borrow_mut()
     }
 
     pub fn start(&mut self) -> Result<(), EspError> {
@@ -625,7 +633,9 @@ where
 
     pub async fn transmit(&self, frame: &Frame) -> Result<(), EspError> {
         loop {
-            match self.driver.borrow().transmit(frame, delay::NON_BLOCK) {
+            let res = self.driver.borrow().transmit(frame, delay::NON_BLOCK);
+
+            match res {
                 Ok(()) => return Ok(()),
                 Err(e) if e.code() != ESP_ERR_TIMEOUT => return Err(e),
                 _ => (),
@@ -637,7 +647,9 @@ where
 
     pub async fn receive(&self) -> Result<Frame, EspError> {
         loop {
-            match self.driver.borrow().receive(delay::NON_BLOCK) {
+            let res = self.driver.borrow().receive(delay::NON_BLOCK);
+
+            match res {
                 Ok(frame) => return Ok(frame),
                 Err(e) if e.code() != ESP_ERR_TIMEOUT => return Err(e),
                 _ => (),
