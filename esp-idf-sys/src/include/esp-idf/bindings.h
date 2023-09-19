@@ -212,7 +212,7 @@
 
 #ifdef ESP_IDF_COMP_DRIVER_ENABLED
 #include "driver/adc.h"
-#if ESP_IDF_VERSION_MAJOR > 4
+#if ESP_IDF_VERSION_MAJOR > 4 && (defined(ESP_IDF_COMP_ESP_ADC_CAL_ENABLED) || defined(ESP_IDF_COMP_ESP_ADC_ENABLED))
 #include "esp_adc/adc_oneshot.h"
 #include "esp_adc/adc_continuous.h"
 #endif
