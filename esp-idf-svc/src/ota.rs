@@ -11,6 +11,7 @@ use core::mem;
 use core::ptr;
 
 use ::log::*;
+use embedded_svc::ota::OtaUpdateFinished;
 
 use embedded_svc::io;
 use embedded_svc::ota::{FirmwareInfoLoader, Ota, OtaUpdate};
@@ -135,25 +136,30 @@ impl<'a> EspOtaUpdate<'a> {
         Ok(())
     }
 
-    pub fn complete(&mut self) -> Result<(), EspError> {
+    pub fn finish(self) -> Result<EspOtaUpdateFinished<'a>, EspError> {
+        self.check_write()?;
+
+        esp!(unsafe { esp_ota_end(self.update_handle) })?;
+
+        Ok(EspOtaUpdateFinished {
+            update_partition: self.update_partition,
+            _data: PhantomData,
+        })
+    }
+
+    pub fn complete(self) -> Result<(), EspError> {
         self.check_write()?;
 
         esp!(unsafe { esp_ota_end(self.update_handle) })?;
         esp!(unsafe { esp_ota_set_boot_partition(self.update_partition) })?;
 
-        self.update_partition = core::ptr::null();
-        self.update_handle = 0;
-
         Ok(())
     }
 
-    pub fn abort(&mut self) -> Result<(), EspError> {
+    pub fn abort(self) -> Result<(), EspError> {
         self.check_write()?;
 
         esp!(unsafe { esp_ota_abort(self.update_handle) })?;
-
-        self.update_partition = core::ptr::null();
-        self.update_handle = 0;
 
         Ok(())
     }
@@ -164,6 +170,18 @@ impl<'a> EspOtaUpdate<'a> {
         } else {
             Err(EspError::from_infallible::<ESP_FAIL>())
         }
+    }
+}
+
+#[derive(Debug)]
+pub struct EspOtaUpdateFinished<'a> {
+    update_partition: *const esp_partition_t,
+    _data: PhantomData<&'a mut ()>,
+}
+
+impl<'a> EspOtaUpdateFinished<'a> {
+    pub fn activate(self) -> Result<(), EspError> {
+        esp!(unsafe { esp_ota_set_boot_partition(self.update_partition) })
     }
 }
 
@@ -377,13 +395,21 @@ impl<'a> io::ErrorType for EspOtaUpdate<'a> {
 }
 
 impl<'a> OtaUpdate for EspOtaUpdate<'a> {
-    fn complete(&mut self) -> Result<(), Self::Error> {
+    type OtaUpdateFinished = EspOtaUpdateFinished<'a>;
+
+    fn finish(self) -> Result<Self::OtaUpdateFinished, Self::Error> {
+        let finish = EspOtaUpdate::finish(self)?;
+
+        Ok(finish)
+    }
+
+    fn complete(self) -> Result<(), Self::Error> {
         EspOtaUpdate::complete(self)?;
 
         Ok(())
     }
 
-    fn abort(&mut self) -> Result<(), Self::Error> {
+    fn abort(self) -> Result<(), Self::Error> {
         EspOtaUpdate::abort(self)?;
 
         Ok(())
@@ -399,6 +425,20 @@ impl<'a> io::Write for EspOtaUpdate<'a> {
 
     fn flush(&mut self) -> Result<(), Self::Error> {
         EspOtaUpdate::flush(self)?;
+
+        Ok(())
+    }
+}
+
+unsafe impl<'a> Send for EspOtaUpdateFinished<'a> {}
+
+impl<'a> io::ErrorType for EspOtaUpdateFinished<'a> {
+    type Error = EspIOError;
+}
+
+impl<'a> OtaUpdateFinished for EspOtaUpdateFinished<'a> {
+    fn activate(self) -> Result<(), Self::Error> {
+        EspOtaUpdateFinished::activate(self)?;
 
         Ok(())
     }
