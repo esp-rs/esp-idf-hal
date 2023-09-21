@@ -5,7 +5,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.47.0] - 2023-09-19
+## [0.47.0] - 2023-09-21
 * MSRV raised to 1.71
 * New `experimental` module - `bt` - providing Bluetooth support based on the ESP-IDF Bluedroid implementation
   * Only classic BT supported for now (on the ESP32) with the following profiles: A2DP sink, AVRC controller, HFP client, GAP
@@ -14,7 +14,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * PSK support for `mqtt`
 * Dependencies `esp-idf-sys` and `esp-idf-hal` are now re-exported as `esp_idf_svc::sys` and `esp_idf_svc::hal`
 * Upgraded to `embedded-svc` 0.26
+* OTA: New method: `EspOta::finish` that allows to postpone/avoid setting the updated partition as a boot one
 * Breaking change: OTA: `EspOtaUpdate` now parametric over the lifetime of a mutable reference to `EspOta` and returned by value
+* Breaking change: OTA: `EspOtaUpdate::abort` and `EspOtaUpdate::complete` now take `self` instead of `&mut self`
 * Breaking change: Removed the deprecated module `httpd` and the dependency on `anyhow`
 * Breaking change: HTTP server: `EspHttpRequest` renamed to `EspHttpRawConnection`
 
