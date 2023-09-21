@@ -107,6 +107,9 @@ pub fn wait_notification(timeout: TickType_t) -> Option<u32> {
     let mut notification = 0_u32;
 
     #[cfg(esp_idf_version = "4.3")]
+    #[deprecated(
+        note = "Using ESP-IDF 4.3 is untested, please upgrade to 4.4 or newer. Support will be removed in the next major release."
+    )]
     let notified = unsafe { xTaskNotifyWait(0, u32::MAX, &mut notification, timeout) } != 0;
 
     #[cfg(not(esp_idf_version = "4.3"))]
@@ -145,6 +148,9 @@ pub unsafe fn notify(task: TaskHandle_t, notification: u32) -> (bool, bool) {
         let mut higher_prio_task_woken: BaseType_t = Default::default();
 
         #[cfg(esp_idf_version = "4.3")]
+        #[deprecated(
+            note = "Using ESP-IDF 4.3 is untested, please upgrade to 4.4 or newer. Support will be removed in the next major release."
+        )]
         let notified = xTaskGenericNotifyFromISR(
             task,
             notification,
@@ -166,6 +172,9 @@ pub unsafe fn notify(task: TaskHandle_t, notification: u32) -> (bool, bool) {
         (notified, higher_prio_task_woken)
     } else {
         #[cfg(esp_idf_version = "4.3")]
+        #[deprecated(
+            note = "Using ESP-IDF 4.3 is untested, please upgrade to 4.4 or newer. Support will be removed in the next major release."
+        )]
         let notified =
             xTaskGenericNotify(task, notification, eNotifyAction_eSetBits, ptr::null_mut());
 

@@ -431,6 +431,9 @@ impl<'d> SpiDriver<'d> {
 
         #[allow(clippy::needless_update)]
         #[cfg(esp_idf_version = "4.3")]
+        #[deprecated(
+            note = "Using ESP-IDF 4.3 is untested, please upgrade to 4.4 or newer. Support will be removed in the next major release."
+        )]
         let bus_config = spi_bus_config_t {
             flags: SPICOMMON_BUSFLAG_MASTER,
             sclk_io_num: sclk.pin(),
