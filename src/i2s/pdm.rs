@@ -224,8 +224,8 @@ pub(super) mod config {
                 channel_format: chan_fmt,
                 communication_format: 0,  // ?
                 intr_alloc_flags: 1 << 1, // ESP_INTR_FLAG_LEVEL1
-                dma_buf_count: self.channel_cfg.dma_desc as i32,
-                dma_buf_len: self.channel_cfg.frames as i32,
+                dma_buf_count: self.channel_cfg.dma_buffer_count as i32,
+                dma_buf_len: self.channel_cfg.frames_per_buffer as i32,
                 #[cfg(any(esp32, esp32s2))]
                 use_apll: matches!(self.clk_cfg.clk_src, ClockSource::Apll),
                 #[cfg(not(any(esp32, esp32s2)))]
