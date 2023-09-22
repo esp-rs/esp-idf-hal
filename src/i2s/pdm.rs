@@ -517,6 +517,7 @@ pub(super) mod config {
 
     impl PdmSignalScale {
         /// Convert to the ESP-IDF SDK `i2s_pdm_signal_scale_t` representation.
+        #[cfg_attr(esp_idf_version_major = "4", allow(unused))]
         #[inline(always)]
         pub(crate) fn as_sdk(&self) -> i2s_pdm_sig_scale_t {
             match self {
