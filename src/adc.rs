@@ -567,6 +567,7 @@ pub mod oneshot {
             {
                 let cal_config = adc_cali_curve_fitting_config_t {
                     unit_id: unit_id as u32,
+                    #[cfg(all(esp_idf_version_major = "5", not(esp_idf_version_minor = "0")))]
                     chan,
                     atten,
                     bitwidth,
