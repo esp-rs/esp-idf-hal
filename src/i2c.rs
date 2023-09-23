@@ -456,6 +456,9 @@ impl<'d> I2cSlaveDriver<'d> {
         };
 
         #[cfg(esp_idf_version = "4.3")]
+        #[deprecated(
+            note = "Using ESP-IDF 4.3 is untested, please upgrade to 4.4 or newer. Support will be removed in the next major release."
+        )]
         let sys_config = i2c_config_t {
             mode: i2c_mode_t_I2C_MODE_SLAVE,
             sda_io_num: pins.sda.pin(),
