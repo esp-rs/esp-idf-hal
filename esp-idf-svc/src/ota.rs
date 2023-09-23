@@ -52,23 +52,11 @@ impl From<Newtype<&esp_app_desc_t>> for FirmwareInfo {
 pub struct EspFirmwareInfoLoader(heapless::Vec<u8, 512>);
 
 impl EspFirmwareInfoLoader {
-    pub fn new() -> Self {
+    pub const fn new() -> Self {
         Self(heapless::Vec::new())
     }
-}
 
-impl Default for EspFirmwareInfoLoader {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-impl io::ErrorType for EspFirmwareInfoLoader {
-    type Error = EspIOError;
-}
-
-impl FirmwareInfoLoader for EspFirmwareInfoLoader {
-    fn load(&mut self, buf: &[u8]) -> Result<LoadResult, Self::Error> {
+    pub fn load(&mut self, buf: &[u8]) -> Result<LoadResult, EspError> {
         if !self.is_loaded() {
             let remaining = self.0.capacity() - self.0.len();
             if remaining > 0 {
@@ -85,14 +73,14 @@ impl FirmwareInfoLoader for EspFirmwareInfoLoader {
         })
     }
 
-    fn is_loaded(&self) -> bool {
+    pub fn is_loaded(&self) -> bool {
         self.0.len()
             >= mem::size_of::<esp_image_header_t>()
                 + mem::size_of::<esp_image_segment_header_t>()
                 + mem::size_of::<esp_app_desc_t>()
     }
 
-    fn get_info(&self) -> Result<FirmwareInfo, Self::Error> {
+    pub fn get_info(&self) -> Result<FirmwareInfo, EspError> {
         if self.is_loaded() {
             let app_desc_slice = &self.0[mem::size_of::<esp_image_header_t>()
                 + mem::size_of::<esp_image_segment_header_t>()
@@ -109,6 +97,30 @@ impl FirmwareInfoLoader for EspFirmwareInfoLoader {
         } else {
             Err(EspError::from_infallible::<ESP_ERR_INVALID_SIZE>().into())
         }
+    }
+}
+
+impl Default for EspFirmwareInfoLoader {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl io::ErrorType for EspFirmwareInfoLoader {
+    type Error = EspIOError;
+}
+
+impl FirmwareInfoLoader for EspFirmwareInfoLoader {
+    fn load(&mut self, buf: &[u8]) -> Result<LoadResult, Self::Error> {
+        Ok(EspFirmwareInfoLoader::load(self, buf)?)
+    }
+
+    fn is_loaded(&self) -> bool {
+        EspFirmwareInfoLoader::is_loaded(self)
+    }
+
+    fn get_info(&self) -> Result<FirmwareInfo, Self::Error> {
+        Ok(EspFirmwareInfoLoader::get_info(self)?)
     }
 }
 
