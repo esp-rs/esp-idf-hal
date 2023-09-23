@@ -43,6 +43,7 @@ mod std;
 ))]
 mod tdm;
 
+/// I2S channel base configuration.
 pub type I2sConfig = config::Config;
 
 /// I2S configuration
@@ -84,8 +85,14 @@ pub mod config {
         i2s_mode_t_I2S_MODE_SLAVE,
     };
 
-    /// I2S clock source
-    #[derive(Clone, Copy, Eq, PartialEq)]
+    /// The default number of DMA buffers to use.
+    pub const DEFAULT_DMA_BUFFER_COUNT: u32 = 6;
+
+    /// The default number of frames per DMA buffer.
+    pub const DEFAULT_FRAMES_PER_DMA_BUFFER: u32 = 240;
+
+    /// I2S clock source.
+    #[derive(Clone, Copy, Debug, Eq, PartialEq)]
     pub enum ClockSource {
         /// Use PLL_F160M as the source clock
         Pll160M,
@@ -117,7 +124,7 @@ pub mod config {
         }
     }
 
-    /// I2S controller channel configuration.
+    /// I2S common channel configuration.
     ///
     /// To create a custom configuration, use the builder pattern built-in to this struct. For example:
     /// ```
@@ -126,20 +133,20 @@ pub mod config {
     /// ```
     ///
     /// The default configuration is:
-    /// * Role ([Config::role]): [Role::Controller] (master)
-    /// * DMA buffer number/descriptor number ([Config::dma_desc]): 6
-    /// * I2S frames in one DMA buffer ([Config::dma_frame]): 240
-    /// * Auto clear ([Config::auto_clear]): false
-    #[derive(Clone)]
+    /// * [`role`][Config::role]: [`Role::Controller`] (master)
+    /// * [`dma_buffer_count`][Config::dma_buffer_count]: 6 ([`DEFAULT_DMA_BUFFER_COUNT`])
+    /// * [`frames_per_buffer`][Config::frames_per_buffer]: 240 ([`DEFAULT_FRAMES_PER_DMA_BUFFER`])
+    /// * [`auto_clear`][Config::auto_clear]: `false`
+    #[derive(Clone, Copy, Debug, Eq, PartialEq)]
     pub struct Config {
         /// The role of this channel: controller (master) or target (slave)
         pub(super) role: Role,
 
-        /// The DMA buffer number to use (also the DMA descriptor number).
-        pub(super) dma_desc: u32,
+        /// The number of DMA buffers number to use.
+        pub(super) dma_buffer_count: u32,
 
         /// The number of I2S frames in one DMA buffer.
-        pub(super) frames: u32,
+        pub(super) frames_per_buffer: u32,
 
         /// If true, the transmit buffer will be automatically cleared upon sending.
         pub(super) auto_clear: bool,
@@ -154,17 +161,17 @@ pub mod config {
 
     impl Config {
         #[inline(always)]
-        /// Create a new Config
+        /// Create a new Config with the default settings.
         pub const fn new() -> Self {
             Self {
                 role: Role::Controller,
-                dma_desc: 6,
-                frames: 240,
+                dma_buffer_count: DEFAULT_DMA_BUFFER_COUNT,
+                frames_per_buffer: DEFAULT_FRAMES_PER_DMA_BUFFER,
                 auto_clear: false,
             }
         }
 
-        /// Set the role of this channel: controller (master) or target (slave)
+        /// Set the role of this channel: controller (master) or target (slave).
         #[must_use]
         #[inline(always)]
         pub fn role(mut self, role: Role) -> Self {
@@ -172,19 +179,19 @@ pub mod config {
             self
         }
 
-        /// Set the DMA buffer to use.
+        /// Set the number of DMA buffers to use.
         #[must_use]
         #[inline(always)]
-        pub fn dma_desc(mut self, dma_desc: u32) -> Self {
-            self.dma_desc = dma_desc;
+        pub fn dma_buffer_count(mut self, dma_buffer_count: u32) -> Self {
+            self.dma_buffer_count = dma_buffer_count;
             self
         }
 
         /// Set the number of I2S frames in one DMA buffer.
         #[must_use]
         #[inline(always)]
-        pub fn frames(mut self, frames: u32) -> Self {
-            self.frames = frames;
+        pub fn frames_per_buffer(mut self, frames: u32) -> Self {
+            self.frames_per_buffer = frames;
             self
         }
 
@@ -203,15 +210,15 @@ pub mod config {
             i2s_chan_config_t {
                 id,
                 role: self.role.as_sdk(),
-                dma_desc_num: self.dma_desc,
-                dma_frame_num: self.frames,
+                dma_desc_num: self.dma_buffer_count,
+                dma_frame_num: self.frames_per_buffer,
                 auto_clear: self.auto_clear,
             }
         }
     }
 
     /// Available data bit width in one slot.
-    #[derive(Clone, Copy, Eq, Ord, PartialEq, PartialOrd)]
+    #[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
     pub enum DataBitWidth {
         /// Channel data bit width is 8 bits.
         Bits8,
@@ -279,7 +286,7 @@ pub mod config {
     }
 
     /// The multiple of MCLK to the sample rate.
-    #[derive(Clone, Copy, Eq, PartialEq)]
+    #[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
     pub enum MclkMultiple {
         /// MCLK = sample rate * 128
         M128,
@@ -323,20 +330,14 @@ pub mod config {
     }
 
     /// I2S channel operating role
-    #[derive(Clone, Copy, Eq, PartialEq)]
+    #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
     pub enum Role {
         /// Controller (master)
+        #[default]
         Controller,
 
         /// Target (slave)
         Target,
-    }
-
-    impl Default for Role {
-        #[inline(always)]
-        fn default() -> Self {
-            Self::Controller
-        }
     }
 
     /// I2S peripheral in controller (master) role, bclk and ws signal will be set to output.
@@ -371,11 +372,12 @@ pub mod config {
 
     /// The total slot bit width in one slot.
     ///
-    /// This is not necessarily the number of data bits in one slot. A slot may have additional bits padded
-    /// to fill out the slot.
-    #[derive(Clone, Copy, Eq, PartialEq)]
+    /// This is not necessarily the number of data bits in one slot. A slot may have additional bits padded to fill out
+    /// the slot.
+    #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
     pub enum SlotBitWidth {
         /// Slot bit width is automatically set to the data bit width.
+        #[default]
         Auto,
 
         /// Slot bit width is 8 bits.
@@ -389,13 +391,6 @@ pub mod config {
 
         /// Slot bit width is 32 bits.
         Bits32,
-    }
-
-    impl Default for SlotBitWidth {
-        #[inline(always)]
-        fn default() -> Self {
-            Self::Auto
-        }
     }
 
     #[cfg(not(esp_idf_version_major = "4"))]
@@ -434,7 +429,13 @@ pub mod config {
     }
 
     /// I2S channel slot mode.
-    #[derive(Clone, Copy, Eq, PartialEq)]
+    ///
+    /// See the documentation for the mode of operation to see how this affects the data layout:
+    /// * [PDM Rx][PdmRxSlotConfig]
+    /// * [PDM Tx][PdmTxSlotConfig]
+    /// * [Standard Rx/Tx][StdSlotConfig]
+    /// * [TDM Rx/Tx][TdmSlotConfig]
+    #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
     pub enum SlotMode {
         /// Mono mode:
         /// * When transmitting, transmit the same data in all slots.
@@ -444,14 +445,8 @@ pub mod config {
         /// Stereo mode:
         /// * When transmitting, transmit different data in each slot.
         /// * When receiving, receive data from all slots.
+        #[default]
         Stereo,
-    }
-
-    impl Default for SlotMode {
-        #[inline(always)]
-        fn default() -> Self {
-            Self::Stereo
-        }
     }
 
     impl SlotMode {
@@ -467,8 +462,18 @@ pub mod config {
     }
 }
 
-pub trait I2s: Send {
+/// Trait implemented by I2S peripherals to obtain their port number.
+pub trait I2s: Send + sealed::Sealed {
+    /// Return the port number for the peripheral.
     fn port() -> i2s_port_t;
+}
+
+mod sealed {
+    pub trait Sealed {}
+
+    impl Sealed for super::I2S0 {}
+    #[cfg(any(esp32, esp32s3))]
+    impl Sealed for super::I2S1 {}
 }
 
 pub trait I2sPort {
@@ -476,11 +481,10 @@ pub trait I2sPort {
     fn port(&self) -> i2s_port_t;
 }
 
-/// Functions for receive channels.
-/// Marker trait indicating that a driver supports the [I2sRx] trait.
+/// Marker trait indicating that a driver supports receiving data via the [`I2sRx`] trait.
 pub trait I2sRxSupported {}
 
-/// Concrete implementation of [I2sRxSupported] for use in clients.
+/// Concrete implementation of [`I2sRxSupported`] for use in clients.
 ///
 /// Example usage:
 /// ```
@@ -491,15 +495,15 @@ pub trait I2sRxSupported {}
 /// let din = peripherals.pins.gpio4;
 /// let mclk = AnyIOPin::none();
 /// let ws = peripherals.pins.gpio2;
-/// let i2s = I2sStdModeDriver::<I2sRx>::new_rx(periperhals.i2s0, std_config, bclk, Some(din), mclk, ws, None).unwrap();
+/// let i2s = I2sDriver::<I2sRx>::new_std_rx(periperhals.i2s0, std_config, bclk, Some(din), mclk, ws, None).unwrap();
 /// ```
 pub struct I2sRx {}
 impl I2sRxSupported for I2sRx {}
 
-/// Marker trait indicating that a driver supports the [I2sTx] trait.
+/// Marker trait indicating that a driver supports transmitting data via the [`I2sTx`] trait.
 pub trait I2sTxSupported {}
 
-/// Concrete implementation of [I2sTxSupported] for use in clients.
+/// Concrete implementation of [`I2sTxSupported`] for use in clients.
 ///
 /// Example usage:
 /// ```
@@ -510,12 +514,12 @@ pub trait I2sTxSupported {}
 /// let dout = peripherals.pins.gpio6;
 /// let mclk = AnyIOPin::none();
 /// let ws = peripherals.pins.gpio2;
-/// let i2s = I2sStdModeDriver::<I2sTx>::new_tx(periperhals.i2s0, std_config, bclk, Some(dout), mclk, ws, None).unwrap();
+/// let i2s = I2sDriver::<I2sTx>::new_std_tx(periperhals.i2s0, std_config, bclk, Some(dout), mclk, ws, None).unwrap();
 /// ```
 pub struct I2sTx {}
 impl I2sTxSupported for I2sTx {}
 
-/// Concrete implementation of both [I2sRxSupported] and [I2sTxSupported] for use in clients.
+/// Concrete implementation of both [`I2sRxSupported`] and [`I2sTxSupported`] for use in clients.
 ///
 /// Example usage:
 /// ```
@@ -527,13 +531,13 @@ impl I2sTxSupported for I2sTx {}
 /// let dout = peripherals.pins.gpio6;
 /// let mclk = AnyIOPin::none();
 /// let ws = peripherals.pins.gpio2;
-/// let i2s = I2sStdModeDriver::<I2sBiDir>::new_bidir(periperhals.i2s0, std_config, bclk, Some(din), Some(dout), mclk, ws, None, None).unwrap();
+/// let i2s = I2sDriver::<I2sBiDir>::new_std_bidir(periperhals.i2s0, std_config, bclk, Some(din), Some(dout), mclk, ws, None, None).unwrap();
 /// ```
 pub struct I2sBiDir {}
 impl I2sRxSupported for I2sBiDir {}
 impl I2sTxSupported for I2sBiDir {}
 
-/// The I2S driver.
+/// Inter-IC Sound (I2S) driver.
 pub struct I2sDriver<'d, Dir> {
     /// The Rx channel, possibly null.
     #[cfg(not(esp_idf_version_major = "4"))]
@@ -543,7 +547,7 @@ pub struct I2sDriver<'d, Dir> {
     #[cfg(not(esp_idf_version_major = "4"))]
     tx_handle: i2s_chan_handle_t,
 
-    /// The I2S peripheral number. Either 0 or 1 (ESP32 and ESP32S3 only).
+    /// The I2S peripheral number. Either 0 (all devices) or 1 (ESP32 and ESP32-S3 only).
     port: u8,
 
     /// Driver lifetime -- mimics the lifetime of the peripheral.
@@ -703,14 +707,14 @@ where
     ///
     /// # Note
     /// This can only be called when the channel is in the `READY` state: initialized but not yet started from a driver
-    /// constructor, or disabled from the `RUNNING` state via [I2sRxChannel::rx_disable]. The channel will enter the
-    /// `RUNNING` state if it is enabled successfully.
+    /// constructor, or disabled from the `RUNNING` state via [`rx_disable()`][I2sDriver::rx_disable]. The channel
+    /// will enter the `RUNNING` state if it is enabled successfully.
     ///
     /// Enabling the channel will start I2S communications on the hardware. BCLK and WS signals will be generated if
     /// this is a controller. MCLK will be generated once initialization is finished.
     ///
     /// # Errors
-    /// This will return an [EspError] with `ESP_ERR_INVALID_STATE` if the channel is not in the `READY` state.
+    /// This will return an [`EspError`] with `ESP_ERR_INVALID_STATE` if the channel is not in the `READY` state.
     #[cfg(esp_idf_version_major = "4")]
     pub fn rx_enable(&mut self) -> Result<(), EspError> {
         unsafe { esp!(i2s_start(self.port as _)) }
@@ -720,14 +724,14 @@ where
     ///
     /// # Note
     /// This can only be called when the channel is in the `READY` state: initialized but not yet started from a driver
-    /// constructor, or disabled from the `RUNNING` state via [I2sRxChannel::rx_disable]. The channel will enter the
-    /// `RUNNING` state if it is enabled successfully.
+    /// constructor, or disabled from the `RUNNING` state via [`rx_enable()`][I2sRxChannel::rx_disable]. The channel
+    /// will enter the `RUNNING` state if it is enabled successfully.
     ///
     /// Enabling the channel will start I2S communications on the hardware. BCLK and WS signals will be generated if
     /// this is a controller. MCLK will be generated once initialization is finished.
     ///
     /// # Errors
-    /// This will return an [EspError] with `ESP_ERR_INVALID_STATE` if the channel is not in the `READY` state.
+    /// This will return an [`EspError`] with `ESP_ERR_INVALID_STATE` if the channel is not in the `READY` state.
     #[cfg(not(esp_idf_version_major = "4"))]
     pub fn rx_enable(&mut self) -> Result<(), EspError> {
         unsafe { esp!(i2s_channel_enable(self.rx_handle)) }
@@ -737,14 +741,14 @@ where
     ///
     /// # Note
     /// This can only be called when the channel is in the `RUNNING` state: the channel has been previously enabled
-    /// via a call to [I2sRxChannel::rx_enable]. The channel will enter the `READY` state if it is disabled
-    /// successfully.
+    /// via a call to [`rx_enable()`][I2sRxChannel::rx_enable]. The channel will enter the `READY` state if it is
+    /// disabled successfully.
     ///
     /// Disabling the channel will stop I2S communications on the hardware. BCLK and WS signals will stop being
     /// generated if this is a controller. MCLK will continue to be generated.
     ///
     /// # Errors
-    /// This will return an [EspError] with `ESP_ERR_INVALID_STATE` if the channel is not in the `RUNNING` state.
+    /// This will return an [`EspError`] with `ESP_ERR_INVALID_STATE` if the channel is not in the `RUNNING` state.
     #[cfg(esp_idf_version_major = "4")]
     pub fn rx_disable(&mut self) -> Result<(), EspError> {
         unsafe { esp!(i2s_stop(self.port as _)) }
@@ -754,14 +758,14 @@ where
     ///
     /// # Note
     /// This can only be called when the channel is in the `RUNNING` state: the channel has been previously enabled
-    /// via a call to [I2sRxChannel::rx_enable]. The channel will enter the `READY` state if it is disabled
-    /// successfully.
+    /// via a call to [`rx_enable()`][I2sRxChannel::rx_enable]. The channel will enter the `READY` state if it is
+    /// disabled successfully.
     ///
     /// Disabling the channel will stop I2S communications on the hardware. BCLK and WS signals will stop being
     /// generated if this is a controller. MCLK will continue to be generated.
     ///
     /// # Errors
-    /// This will return an [EspError] with `ESP_ERR_INVALID_STATE` if the channel is not in the `RUNNING` state.
+    /// This will return an [`EspError`] with `ESP_ERR_INVALID_STATE` if the channel is not in the `RUNNING` state.
     #[cfg(not(esp_idf_version_major = "4"))]
     pub fn rx_disable(&mut self) -> Result<(), EspError> {
         unsafe { esp!(i2s_channel_disable(self.rx_handle)) }
@@ -772,7 +776,7 @@ where
     /// This may be called only when the channel is in the `RUNNING` state.
     ///
     /// # Returns
-    /// This returns the number of bytes read, or an [EspError] if an error occurred.
+    /// This returns the number of bytes read, or an [`EspError`] if an error occurred.
     #[cfg(not(esp_idf_version_major = "4"))]
     pub async fn read_async(&mut self, buffer: &mut [u8]) -> Result<usize, EspError> {
         loop {
@@ -790,7 +794,7 @@ where
     /// This may be called only when the channel is in the `RUNNING` state.
     ///
     /// # Returns
-    /// This returns the number of bytes read, or an [EspError] if an error occurred.
+    /// This returns the number of bytes read, or an [`EspError`] if an error occurred.
     #[cfg(esp_idf_version_major = "4")]
     pub fn read(&mut self, buffer: &mut [u8], timeout: TickType_t) -> Result<usize, EspError> {
         if buffer.is_empty() {
@@ -818,7 +822,7 @@ where
     /// This may be called only when the channel is in the `RUNNING` state.
     ///
     /// # Returns
-    /// This returns the number of bytes read, or an [EspError] if an error occurred.
+    /// This returns the number of bytes read, or an [`EspError`] if an error occurred.
     #[cfg(not(esp_idf_version_major = "4"))]
     pub fn read(&mut self, buffer: &mut [u8], timeout: TickType_t) -> Result<usize, EspError> {
         if buffer.is_empty() {
@@ -870,7 +874,7 @@ where
     /// This may be called only when the channel is in the `RUNNING` state.
     ///
     /// # Returns
-    /// This returns the number of bytes read, or an [EspError] if an error occurred.
+    /// This returns the number of bytes read, or an [`EspError`] if an error occurred.
     ///
     /// # Safety
     /// Upon a successful return with `Ok(n_read)`, `buffer[..n_read]` will be initialized.
@@ -905,7 +909,7 @@ where
     /// This may be called only when the channel is in the `RUNNING` state.
     ///
     /// # Returns
-    /// This returns the number of bytes read, or an [EspError] if an error occurred.
+    /// This returns the number of bytes read, or an [`EspError`] if an error occurred.
     ///
     /// # Safety
     /// Upon a successful return with `Ok(n_read)`, `buffer[..n_read]` will be initialized.
@@ -945,14 +949,14 @@ where
     ///
     /// # Note
     /// This can only be called when the channel is in the `READY` state: initialized but not yet started from a driver
-    /// constructor, or disabled from the `RUNNING` state via [I2sTxChannel::tx_disable]. The channel will enter the
-    /// `RUNNING` state if it is enabled successfully.
+    /// constructor, or disabled from the `RUNNING` state via [`tx_disable()`][I2sTxChannel::tx_disable]. The channel
+    /// will enter the `RUNNING` state if it is enabled successfully.
     ///
     /// Enabling the channel will start I2S communications on the hardware. BCLK and WS signals will be generated if
     /// this is a controller. MCLK will be generated once initialization is finished.
     ///
     /// # Errors
-    /// This will return an [EspError] with `ESP_ERR_INVALID_STATE` if the channel is not in the `READY` state.
+    /// This will return an [`EspError`] with `ESP_ERR_INVALID_STATE` if the channel is not in the `READY` state.
     #[cfg(esp_idf_version_major = "4")]
     pub fn tx_enable(&mut self) -> Result<(), EspError> {
         unsafe { esp!(i2s_start(self.port as _)) }
@@ -962,14 +966,14 @@ where
     ///
     /// # Note
     /// This can only be called when the channel is in the `READY` state: initialized but not yet started from a driver
-    /// constructor, or disabled from the `RUNNING` state via [I2sTxChannel::tx_disable]. The channel will enter the
-    /// `RUNNING` state if it is enabled successfully.
+    /// constructor, or disabled from the `RUNNING` state via [`tx_disable()`][I2sTxChannel::tx_disable]. The channel
+    /// will enter the `RUNNING` state if it is enabled successfully.
     ///
     /// Enabling the channel will start I2S communications on the hardware. BCLK and WS signals will be generated if
     /// this is a controller. MCLK will be generated once initialization is finished.
     ///
     /// # Errors
-    /// This will return an [EspError] with `ESP_ERR_INVALID_STATE` if the channel is not in the `READY` state.
+    /// This will return an [`EspError`] with `ESP_ERR_INVALID_STATE` if the channel is not in the `READY` state.
     #[cfg(not(esp_idf_version_major = "4"))]
     pub fn tx_enable(&mut self) -> Result<(), EspError> {
         unsafe { esp!(i2s_channel_enable(self.tx_handle)) }
@@ -979,14 +983,14 @@ where
     ///
     /// # Note
     /// This can only be called when the channel is in the `RUNNING` state: the channel has been previously enabled
-    /// via a call to [I2sTxChannel::tx_enable]. The channel will enter the `READY` state if it is disabled
-    /// successfully.
+    /// via a call to [`tx_enable()`][I2sTxChannel::tx_enable]. The channel will enter the `READY` state if it is
+    /// disabled successfully.
     ///
     /// Disabling the channel will stop I2S communications on the hardware. BCLK and WS signals will stop being
     /// generated if this is a controller. MCLK will continue to be generated.
     ///
     /// # Errors
-    /// This will return an [EspError] with `ESP_ERR_INVALID_STATE` if the channel is not in the `RUNNING` state.
+    /// This will return an [`EspError`] with `ESP_ERR_INVALID_STATE` if the channel is not in the `RUNNING` state.
     #[cfg(esp_idf_version_major = "4")]
     pub fn tx_disable(&mut self) -> Result<(), EspError> {
         unsafe { esp!(i2s_stop(self.port())) }
@@ -996,14 +1000,14 @@ where
     ///
     /// # Note
     /// This can only be called when the channel is in the `RUNNING` state: the channel has been previously enabled
-    /// via a call to [I2sTxChannel::tx_enable]. The channel will enter the `READY` state if it is disabled
+    /// via a call to [`tx_enable()`][I2sTxChannel::tx_enable]. The channel will enter the `READY` state if it is disabled
     /// successfully.
     ///
     /// Disabling the channel will stop I2S communications on the hardware. BCLK and WS signals will stop being
     /// generated if this is a controller. MCLK will continue to be generated.
     ///
     /// # Errors
-    /// This will return an [EspError] with `ESP_ERR_INVALID_STATE` if the channel is not in the `RUNNING` state.
+    /// This will return an [`EspError`] with `ESP_ERR_INVALID_STATE` if the channel is not in the `RUNNING` state.
     #[cfg(not(esp_idf_version_major = "4"))]
     pub fn tx_disable(&mut self) -> Result<(), EspError> {
         unsafe { esp!(i2s_channel_disable(self.tx_handle)) }
@@ -1014,7 +1018,7 @@ where
     /// This may be called only when the channel is in the `READY` state: initialized but not yet started.
     ///
     /// This is used to preload data into the DMA buffer so that valid data can be transmitted immediately after the
-    /// channel is enabled via [I2sTxChannel::tx_enable]. If this function is not called before enabling the channel,
+    /// channel is enabled via [`tx_enable()`][I2sTxChannel::tx_enable]. If this function is not called before enabling the channel,
     /// empty data will be transmitted.
     ///
     /// This function can be called multiple times before enabling the channel. Additional calls will concatenate the

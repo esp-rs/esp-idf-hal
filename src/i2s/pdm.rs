@@ -1,6 +1,36 @@
 //! Pulse density modulation (PDM) driver for the ESP32 I2S peripheral.
+//!
+//! # Microcontroller support for PDM mode
+//!
+//! | Microcontroller    | PDM Rx           | PDM Tx                   |
+//! |--------------------|------------------|--------------------------|
+//! | ESP32              | I2S0             | I2S0, hardware version 1 |
+//! | ESP32-S2           | _not supported_  | _not supported_          |
+//! | ESP32-S3           | I2S0             | I2S0, hardware version 2 |
+//! | ESP32-C2 (ESP8684) | _not supported_  | _not supported_          |
+//! | ESP32-C3           | _not supported_* | I2S0, hardware version 2 |
+//! | ESP32-C6           | _not supported_* | I2S0, hardware version 2 |
+//! | ESP32-H2           | _not supported_* | I2S0, hardware version 2 |
+//!
+//! \* These microcontrollers have PDM Rx capabilities but lack a PDM-to-PCM decoder required by the ESP-IDF SDK.
+//!
+//! ## Hardware versions
+//!
+//! Hardware version 1 (ESP32) provides only a single output line, requiring external hardware to demultiplex stereo
+//! signals in a time-critical manner; it is unlikely you will see accurate results here.
+//!
+//! Harware version 2 (all others with PDM Tx support) provide two output lines, allowing for separate left/right
+//! channels.
+//!
+//! See the [`PdmTxSlotConfig documentation`][PdmTxSlotConfig] for more details.
+
 use super::*;
 use crate::{gpio::*, peripheral::Peripheral};
+
+// Note on cfg settings:
+// esp_idf_soc_i2s_hw_version_1 and esp_idf_soc_i2s_hw_version_2 are defined *only* for ESP-IDF v5.0+.
+// When v4.4 support is needed, actual microcontroller names must be used: esp32 for esp_idf_soc_i2s_hw_version_1,
+// any(esp32s3,esp32c3,esp32c6,esp32h2) for esp_idf_soc_i2s_hw_version_2.
 
 #[cfg(esp_idf_version_major = "4")]
 use esp_idf_sys::*;
@@ -11,7 +41,6 @@ pub(super) mod config {
     use esp_idf_sys::*;
 
     /// I2S pulse density modulation (PDM) downsampling mode.
-    #[cfg(any(esp_idf_soc_i2s_supports_pdm_rx, esp32, esp32s3))]
     #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
     pub enum PdmDownsample {
         /// Downsample 8 samples.
@@ -38,8 +67,8 @@ pub(super) mod config {
         }
     }
 
-    /// THe I2S pulse density modulation (PDM) mode receive clock configuration for the I2S peripheral.
-    #[cfg(any(esp_idf_soc_i2s_supports_pdm_rx, esp32, esp32s3))]
+    /// Pulse density modulation (PDM) mode receive clock configuration for the I2S peripheral.
+    #[derive(Clone, Copy, Debug, Eq, PartialEq)]
     pub struct PdmRxClkConfig {
         /// The sample rate in Hz.
         pub(super) sample_rate_hz: u32,
@@ -54,7 +83,6 @@ pub(super) mod config {
         pub(super) downsample_mode: PdmDownsample,
     }
 
-    #[cfg(any(esp_idf_soc_i2s_supports_pdm_rx, esp32, esp32s3))]
     impl PdmRxClkConfig {
         /// Create a PDM clock configuration with the specified sample rate in Hz. This will set the clock source to
         /// PLL_F160M, the MCLK multiple to 256 times the sample rate, and the downsampling mode to 8 samples.
@@ -90,7 +118,10 @@ pub(super) mod config {
         }
 
         /// Convert to the ESP-IDF SDK `i2s_pdm_rx_clk_config_t` representation.
-        #[cfg(not(esp_idf_version_major = "4"))]
+        #[cfg(all(
+            any(esp_idf_soc_i2s_supports_pdm_rx, esp32, esp32s3),
+            not(esp_idf_version_major = "4")
+        ))]
         #[inline(always)]
         pub(super) fn as_sdk(&self) -> i2s_pdm_rx_clk_config_t {
             i2s_pdm_rx_clk_config_t {
@@ -102,8 +133,8 @@ pub(super) mod config {
         }
     }
 
-    /// The I2S pulse density modulation (PDM) mode receive configuration for the I2S peripheral.
-    #[cfg(any(esp_idf_soc_i2s_supports_pdm_rx, esp32, esp32s3))]
+    /// Pulse density modulation (PDM) mode receive configuration for the I2S peripheral.
+    #[derive(Clone, Copy, Debug, Eq, PartialEq)]
     pub struct PdmRxConfig {
         /// The base channel configuration.
         pub(super) channel_cfg: Config,
@@ -119,7 +150,6 @@ pub(super) mod config {
         pub(super) gpio_cfg: PdmRxGpioConfig,
     }
 
-    #[cfg(any(esp_idf_soc_i2s_supports_pdm_rx, esp32, esp32s3))]
     impl PdmRxConfig {
         /// Create a new PDM mode receive configuration from the specified clock, slot, and GPIO configurations.
         pub fn new(
@@ -138,7 +168,7 @@ pub(super) mod config {
         }
 
         /// Convert this PDM mode receive configuration into the ESP-IDF SDK `i2s_pdm_rx_config_t` representation.
-        #[cfg(not(esp_idf_version_major = "4"))]
+        #[cfg(esp_idf_soc_i2s_supports_pdm_rx)]
         #[inline(always)]
         pub(super) fn as_sdk<'d>(
             &self,
@@ -153,7 +183,12 @@ pub(super) mod config {
         }
 
         /// Convert this PDM mode receive configuration into the ESP-IDF SDK `i2s_pdm_rx_config_t` representation.
-        #[cfg(all(esp_idf_version_major = "5", not(esp_idf_version_minor = "0")))]
+        ///
+        /// Supported on ESP-IDF 5.1+.
+        #[cfg(all(
+            esp_idf_soc_i2s_supports_pdm_rx, // Implicitly selects 5.0+
+            not(all(esp_idf_version_major = "5", esp_idf_version_minor = "0"))
+        ))]
         #[inline(always)]
         pub(super) fn as_sdk_multi<'d>(
             &self,
@@ -168,7 +203,7 @@ pub(super) mod config {
         }
 
         /// Convert this PDM mode receive configuration into the ESP-IDF SDK `i2s_driver_config_t` representation.
-        #[cfg(esp_idf_version_major = "4")]
+        #[cfg(all(any(esp32, esp32s3), esp_idf_version_major = "4"))]
         #[inline(always)]
         pub(super) fn as_sdk(&self) -> i2s_driver_config_t {
             let chan_fmt = match self.slot_cfg.slot_mode {
@@ -189,8 +224,8 @@ pub(super) mod config {
                 channel_format: chan_fmt,
                 communication_format: 0,  // ?
                 intr_alloc_flags: 1 << 1, // ESP_INTR_FLAG_LEVEL1
-                dma_buf_count: self.channel_cfg.dma_desc as i32,
-                dma_buf_len: self.channel_cfg.frames as i32,
+                dma_buf_count: self.channel_cfg.dma_buffer_count as i32,
+                dma_buf_len: self.channel_cfg.frames_per_buffer as i32,
                 #[cfg(any(esp32, esp32s2))]
                 use_apll: matches!(self.clk_cfg.clk_src, ClockSource::Apll),
                 #[cfg(not(any(esp32, esp32s2)))]
@@ -219,23 +254,24 @@ pub(super) mod config {
     }
 
     /// PDM mode GPIO (general purpose input/output) receive configuration.
-    // Not used in v4
-    #[cfg(esp_idf_soc_i2s_supports_pdm_rx)]
-    #[derive(Default)]
+    #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
     pub struct PdmRxGpioConfig {
         /// Whether the clock output is inverted.
         pub(super) clk_inv: bool,
     }
 
     /// The maximum number of data input pins that can be used in PDM mode.
+    ///
+    /// This is 1 on the ESP32 and 4 on the ESP32-S3.
     #[cfg(esp32)]
     pub const SOC_I2S_PDM_MAX_RX_LINES: usize = 1;
 
     /// The maximum number of data input pins that can be used in PDM mode.
+    ///
+    /// This is 1 on the ESP32 and 4 on the ESP32-S3.
     #[cfg(esp32s3)]
     pub const SOC_I2S_PDM_MAX_RX_LINES: usize = 4;
 
-    #[cfg(esp_idf_soc_i2s_supports_pdm_rx)]
     impl PdmRxGpioConfig {
         /// Create a new PDM mode GPIO receive configuration with the specified inversion flag for the clock output.
         #[inline(always)]
@@ -251,9 +287,12 @@ pub(super) mod config {
         }
 
         /// Convert to the ESP-IDF SDK `i2s_pdm_rx_gpio_config_t` representation.
-        #[cfg(any(
-            esp_idf_version_major = "4",
-            all(esp_idf_version_major = "5", esp_idf_version_minor = "0")
+        ///
+        /// Note: The bitfields are renamed in ESP-IDF 5.1+.
+        #[cfg(all(
+            esp_idf_soc_i2s_supports_pdm_rx,
+            esp_idf_version_major = "5",
+            esp_idf_version_minor = "0"
         ))]
         pub(crate) fn as_sdk<'d>(
             &self,
@@ -275,7 +314,10 @@ pub(super) mod config {
         }
 
         /// Convert to the ESP-IDF SDK `i2s_pdm_rx_gpio_config_t` representation.
-        #[cfg(all(esp_idf_version_major = "5", not(esp_idf_version_minor = "0")))]
+        #[cfg(all(
+            esp_idf_soc_i2s_supports_pdm_rx,
+            not(all(esp_idf_version_major = "5", esp_idf_version_minor = "0"))
+        ))]
         pub(crate) fn as_sdk<'d>(
             &self,
             clk: PeripheralRef<'d, impl OutputPin>,
@@ -302,8 +344,13 @@ pub(super) mod config {
 
         /// Convert to the ESP-IDF SDK `i2s_pdm_rx_gpio_config_t` representation.
         ///
-        /// This will ignore any din pins beyond [SOC_I2S_PDM_MAX_RX_LINES].
-        #[cfg(all(esp_idf_version_major = "5", not(esp_idf_version_minor = "0")))]
+        /// This will ignore any din pins beyond [`SOC_I2S_PDM_MAX_RX_LINES`].
+        ///
+        /// Supported on ESP-IDF 5.1+ only.
+        #[cfg(all(
+            esp_idf_soc_i2s_supports_pdm_rx,
+            not(all(esp_idf_version_major = "5", esp_idf_version_minor = "0"))
+        ))]
         pub(crate) fn as_sdk_multi<'d>(
             &self,
             clk: PeripheralRef<'d, impl OutputPin>,
@@ -338,23 +385,62 @@ pub(super) mod config {
     }
 
     /// PDM mode channel receive slot configuration.
-    #[cfg(any(esp_idf_soc_i2s_supports_pdm_rx, esp32, esp32s3))]
-    #[derive(Clone)]
+    ///
+    /// # Note
+    /// The `slot_mode` and `slot_mask` cause data to be interpreted in different ways, as noted below.
+    /// WS is the "word select" signal, sometimes called LRCLK (left/right clock).
+    ///
+    /// Assuming the received data contains the following samples (when converted from PDM to PCM), where a sample may be 8, 16, 24, or 32 bits, depending on `data_bit_width`:
+    ///
+    /// | **WS Low**  | **WS High** | **WS Low**  | **WS High** | **WS Low**  | **WS High** | **WS Low**  | **WS High** |     |
+    /// |-------------|-------------|-------------|-------------|-------------|-------------|-------------|-------------|-----|
+    /// | 11          | 12          | 13          | 14          | 15          | 16          | 17          | 18          | ... |
+    ///
+    /// The actual data in the buffer will be (1-4 bytes, depending on `data_bit_width`):
+    ///
+    /// <table>
+    ///   <thead>
+    ///     <tr><th><code>slot_mode</code></th><th><code>slot_mask</code></th><th colspan=8>Buffer Contents</th></tr>
+    ///     <tr><th></th><th></th><th><code>d[0]</code></th><th><code>d[1]</code></th><th><code>d[2]</code></th><th><code>d[3]</code></th><th><code>d[4]</code></th><th><code>d[5]</code></th><th><code>d[6]</code></th><th><code>d[7]</code></th></tr>
+    ///   </thead>
+    ///   <tbody>
+    ///     <tr><td rowspan=3><code>Mono</code></td>   <td><code>Left</code></td> <td>11</td><td>13</td><td>15</td><td>17</td><td>19</td><td>21</td><td>23</td><td>25</td></tr>
+    ///     <tr>                                       <td><code>Right</code></td><td>12</td><td>14</td><td>16</td><td>18</td><td>20</td><td>22</td><td>24</td><td>26</td></tr>
+    ///     <tr>                                       <td><code>Both</code></td> <td colspan=8><i>Unspecified behavior</i></td></tr>
+    ///     <tr><td><code>Stereo (ESP32)</code></td>   <td><i>Any</i></td>        <td>11</td><td>12</td><td>13</td><td>14</td><td>15</td><td>16</td><td>17</td><td>18</td></tr>
+    ///     <tr><td><code>Stereo (ESP32-S3)</code></td><td><i>Any</i></td>        <td>12</td><td>11</td><td>14</td><td>13</td><td>16</td><td>15</td><td>18</td><td>17</td></tr>
+    ///   </tbody>
+    /// </table>
+    ///
+    /// Note that, on the ESP32-S3, the right channel is received first. This can be switched by setting
+    /// [`PdmRxGpioConfig::clk_invert`] to `true` in the merged [`PdmRxConfig`].
+    ///
+    /// For details, refer to the
+    /// _ESP-IDF Programming Guide_ PDM Rx Usage details for your specific microcontroller:
+    /// * [ESP32](https://docs.espressif.com/projects/esp-idf/en/latest/esp32/api-reference/peripherals/i2s.html#pdm-rx-usage)
+    /// * [ESP32-S3](https://docs.espressif.com/projects/esp-idf/en/latest/esp32s3/api-reference/peripherals/i2s.html#pdm-rx-usage)
+    ///
+    /// Other microcontrollers do not support PDM receive mode, or do not have a PDM-to-PCM peripheral that allows for decoding
+    /// the PDM data as required by ESP-IDF.
+    #[derive(Clone, Copy, Debug, Eq, PartialEq)]
     pub struct PdmRxSlotConfig {
         /// I2S sample data bit width (valid data bits per sample).
+        #[allow(dead_code)]
         pub(super) data_bit_width: DataBitWidth,
 
         /// I2s slot bit width (total bits per slot).
+        #[allow(dead_code)]
         pub(super) slot_bit_width: SlotBitWidth,
 
         /// Mono or stereo mode operation.
+        #[allow(dead_code)]
         pub(super) slot_mode: SlotMode,
 
         /// Are we using the left, right, or both data slots?
+        #[allow(dead_code)]
         pub(super) slot_mask: PdmSlotMask,
     }
 
-    #[cfg(any(esp_idf_soc_i2s_supports_pdm_rx, esp32, esp32s3))]
     impl PdmRxSlotConfig {
         /// Configure the PDM mode channel receive slot configuration for the specified bits per sample and slot mode
         /// in 2 slots.
@@ -398,8 +484,9 @@ pub(super) mod config {
             self
         }
 
-        /// Convert this PDM mode channel receive slot configuration into the ESP-IDF SDK `i2s_pdm_rx_slot_config_t` representation.
-        #[cfg(not(esp_idf_version_major = "4"))]
+        /// Convert this PDM mode channel receive slot configuration into the ESP-IDF SDK `i2s_pdm_rx_slot_config_t`
+        /// representation.
+        #[cfg(esp_idf_soc_i2s_supports_pdm_rx)]
         #[inline(always)]
         pub(super) fn as_sdk(&self) -> i2s_pdm_rx_slot_config_t {
             i2s_pdm_rx_slot_config_t {
@@ -412,13 +499,13 @@ pub(super) mod config {
     }
 
     /// Pulse density modulation (PDM) transmit signal scaling mode.
-    #[cfg(any(esp_idf_soc_i2s_supports_pdm_tx, esp32, esp32s3, esp32c3, esp32c6))]
-    #[derive(Clone, Copy, Eq, PartialEq)]
+    #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
     pub enum PdmSignalScale {
         /// Divide the PDM signal by 2.
         Div2,
 
         /// No scaling.
+        #[default]
         None,
 
         /// Multiply the PDM signal by 2.
@@ -428,19 +515,10 @@ pub(super) mod config {
         Mul4,
     }
 
-    #[cfg(any(esp_idf_soc_i2s_supports_pdm_tx, esp32, esp32s3, esp32c3, esp32c6))]
-    impl Default for PdmSignalScale {
-        #[inline(always)]
-        fn default() -> Self {
-            Self::None
-        }
-    }
-
-    #[cfg(any(esp_idf_soc_i2s_supports_pdm_tx, esp32, esp32s3, esp32c3, esp32c6))]
     impl PdmSignalScale {
         /// Convert to the ESP-IDF SDK `i2s_pdm_signal_scale_t` representation.
+        #[cfg_attr(esp_idf_version_major = "4", allow(unused))]
         #[inline(always)]
-        #[allow(unused)] // TODO: remove when PDM is implemented.
         pub(crate) fn as_sdk(&self) -> i2s_pdm_sig_scale_t {
             match self {
                 Self::Div2 => 0,
@@ -454,11 +532,7 @@ pub(super) mod config {
     /// I2S slot selection in PDM mode.
     ///
     /// The default is `PdmSlotMask::Both`.
-    ///
-    /// # Note
-    /// This has different meanings in transmit vs receive mode, and stereo vs mono mode. This may have different
-    /// behaviors on different targets. For details, refer to the I2S API reference.
-    #[derive(Clone, Copy, Eq, PartialEq)]
+    #[derive(Clone, Copy, Debug, Eq, PartialEq)]
     pub enum PdmSlotMask {
         /// I2S transmits or receives the left slot.
         Left,
@@ -500,7 +574,7 @@ pub(super) mod config {
     ///
     /// If the PDM receiver does not use the PDM serial clock, the first configuration should be used. Otherwise,
     /// use the second configuration.
-    #[cfg(any(esp_idf_soc_i2s_supports_pdm_tx, esp32, esp32s3, esp32c3, esp32c6))]
+    #[derive(Clone, Copy, Debug, Eq, PartialEq)]
     pub struct PdmTxClkConfig {
         /// I2S sample rate in Hz.
         pub(super) sample_rate_hz: u32,
@@ -518,7 +592,6 @@ pub(super) mod config {
         upsample_fs: u32,
     }
 
-    #[cfg(any(esp_idf_soc_i2s_supports_pdm_tx, esp32, esp32s3, esp32c3, esp32c6))]
     impl PdmTxClkConfig {
         /// Create a new PDM mode transmit clock configuration from the specified sample rate in Hz. This will set the
         /// clock source to PLL_F160M, the MCLK multiple to 256 times the sample rate, `upsample_fp` to 960, and
@@ -591,7 +664,7 @@ pub(super) mod config {
     }
 
     /// The I2S pulse density modulation (PDM) mode transmit configuration for the I2S peripheral.
-    #[cfg(any(esp_idf_soc_i2s_supports_pdm_tx, esp32, esp32s3, esp32c3, esp32c6))]
+    #[derive(Clone, Copy, Debug, Eq, PartialEq)]
     pub struct PdmTxConfig {
         /// The base channel configuration.
         pub(super) channel_cfg: Config,
@@ -607,7 +680,6 @@ pub(super) mod config {
         pub(super) gpio_cfg: PdmTxGpioConfig,
     }
 
-    #[cfg(any(esp_idf_soc_i2s_supports_pdm_tx, esp32, esp32s3, esp32c3, esp32c6))]
     impl PdmTxConfig {
         /// Create a new PDM mode transmit configuration from the specified clock, slot, and GPIO configurations.
         pub fn new(
@@ -677,8 +749,8 @@ pub(super) mod config {
                 channel_format: chan_fmt,
                 communication_format: 0,  // ?
                 intr_alloc_flags: 1 << 1, // ESP_INTR_FLAG_LEVEL1
-                dma_buf_count: self.channel_cfg.dma_desc as i32,
-                dma_buf_len: self.channel_cfg.frames as i32,
+                dma_buf_count: self.channel_cfg.dma_buffer_count as i32,
+                dma_buf_len: self.channel_cfg.frames_per_buffer as i32,
                 #[cfg(any(esp32, esp32s2))]
                 use_apll: matches!(self.clk_cfg.clk_src, ClockSource::Apll),
                 #[cfg(not(any(esp32, esp32s2)))]
@@ -707,23 +779,24 @@ pub(super) mod config {
     }
 
     /// PDM mode GPIO (general purpose input/output) transmit configuration.
-    // Not used in v4.
-    #[cfg(esp_idf_soc_i2s_supports_pdm_tx)]
-    #[derive(Default)]
+    #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
     pub struct PdmTxGpioConfig {
         /// Whether the clock output is inverted.
         pub(super) clk_inv: bool,
     }
 
     /// The maximum number of data output pins that can be used in PDM mode.
+    ///
+    /// This is 1 on the ESP32, and 2 on the ESP32-S3, ESP32-C3, ESP32-C6, and ESP32-H2.
     #[cfg(esp32)]
     pub const SOC_I2S_PDM_MAX_TX_LINES: usize = 1;
 
     /// The maximum number of data input pins that can be used in PDM mode.
-    #[cfg(any(esp32c3, esp32c6, esp32h2))]
+    ///
+    /// This is 1 on the ESP32, and 2 on the ESP32-S3, ESP32-C3, ESP32-C6, and ESP32-H2.
+    #[cfg(any(esp32s3, esp32c3, esp32c6, esp32h2))]
     pub const SOC_I2S_PDM_MAX_TX_LINES: usize = 2;
 
-    #[cfg(esp_idf_soc_i2s_supports_pdm_tx)]
     impl PdmTxGpioConfig {
         /// Create a new PDM mode GPIO transmit configuration with the specified inversion flag for the clock output.
         #[inline(always)]
@@ -788,9 +861,10 @@ pub(super) mod config {
     }
 
     /// I2S pulse density modulation (PDM) transmit line mode
-    #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+    #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
     pub enum PdmTxLineMode {
         /// Standard PDM format output: left and right slot data on a single line.
+        #[default]
         OneLineCodec,
 
         /// PDM DAC format output: left or right slot data on a single line.
@@ -798,13 +872,6 @@ pub(super) mod config {
 
         /// PDM DAC format output: left and right slot data on separate lines.
         TwoLineDac,
-    }
-
-    impl Default for PdmTxLineMode {
-        #[inline(always)]
-        fn default() -> Self {
-            Self::OneLineCodec
-        }
     }
 
     impl PdmTxLineMode {
@@ -820,8 +887,66 @@ pub(super) mod config {
         }
     }
 
-    /// I2S pulse density modulation (PDM) transmit slot configuration.
-    #[cfg(any(esp_idf_soc_i2s_supports_pdm_tx, esp32, esp32s3, esp32c3, esp32c6))]
+    /// PDM mode channel transmit slot configuration.
+    ///
+    /// # Note
+    /// The `slot_mode` and `line_mode` (microcontrollers new than ESP32) or `slot_mask` (ESP32) cause data to be
+    /// interpreted in different ways, as noted below.
+    ///
+    /// Assuming the buffered data contains the following samples (where a sample may be 1, 2, 3, or 4 bytes, depending
+    /// on `data_bit_width`):
+    ///
+    /// | **`d[0]`** | **`d[1]`** | **`d[2]`** | **`d[3]`** | **`d[4]`** | **`d[5]`** | **`d[6]`** | **`d[7]`** |
+    /// |------------|------------|------------|------------|------------|------------|------------|------------|
+    /// |  11        | 12         | 13         | 14         | 15         | 16         | 17         | 18         |
+    ///
+    /// The actual data on the line will be:
+    ///
+    /// ## All microcontrollers except ESP32
+    /// <table>
+    ///   <thead>
+    ///     <tr><th><code>line_mode</code></th><th><code>slot_mode</code></th><th>Line</th><th colspan=8>Transmitted Data</th></tr>
+    ///     <tr><th></th><th></th><th></th><th>WS Low</th><th>WS High</th><th>WS Low</th><th>WS High</th><th>WS Low</th><th>WS High</th><th>WS Low</th><th>WS High</th></tr>
+    ///   </thead>
+    ///   <tbody>
+    ///     <tr><td rowspan=2><code>OneLineCodec</code></td><td><code>Mono</code></td>  <td>dout</td><td>11</td><td><font color="red">0</font></td><td>12</td><td><font color="red">0</font></td><td>13</td><td><font color="red">0</font></td><td>14</td><td><font color="red">0</font></td></tr>
+    ///     <tr>                                            <td><code>Stereo</code></td><td>dout</td><td>11</td><td>12</td><td>13</td><td>14</td><td>15</td><td>16</td><td>17</td><td>18</td></tr>
+    ///     <tr><td><code>OneLineDac</code></td>            <td><code>Mono</code></td>  <td>dout</td><td>11</td><td>11</td><td>12</td><td>12</td><td>13</td><td>13</td><td>14</td><td>14</td></tr>
+    ///     <tr><td rowspan=4><code>TwoLineDac</code></td>        <td rowspan=2><code>Mono</code></td><td>dout</td><td>12</td><td>12</td><td>14</td><td>14</td><td>16</td><td>16</td><td>18</td><td>18</td></tr>
+    ///     <tr><td>dout2</td><td><font color="red">0</font></td><td><font color="red">0</font></td><td><font color="red">0</font></td><td><font color="red">0</font></td><td><font color="red">0</font></td><td><font color="red">0</font></td><td><font color="red">0</font></td><td><font color="red">0</font></td></tr>
+    ///     <tr><td rowspan=2><code>Stereo</code></td><td>dout</td><td>12</td><td>12</td><td>14</td><td>14</td><td>16</td><td>16</td><td>18</td><td>18</td></tr>
+    ///     <tr><td>dout2</td><td>11</td><td>11</td><td>13</td><td>13</td><td>15</td><td>15</td><td>17</td><td>17</td></tr>
+    ///  </tbody>
+    /// </table>
+    ///
+    /// ## ESP32
+    /// <table>
+    ///   <thead>
+    ///     <tr><th><code>slot_mode</code></th><th><code>slot_mask</code></th><th colspan=8>Transmitted Data</th></tr>
+    ///     <tr><th></th><th></th><th>WS Low</th><th>WS High</th><th>WS Low</th><th>WS High</th><th>WS Low</th><th>WS High</th><th>WS Low</th><th>WS High</th></tr>
+    ///   </thead>
+    ///   <tbody>
+    ///     <tr><td rowspan=3><code>Mono</code></td>  <td><code>Left</code></td> <td>11</td><td><font color="red">0</font></td><td>12</td><td><font color="red">0</font></td><td>13</td><td><font color="red">0</font></td><td>14</td><td><font color="red">0</font></td></tr>
+    ///     <tr>                                      <td><code>Right</code></td><td><font color="red">0</font></td><td>11</td><td><font color="red">0</font></td><td>12</td><td><font color="red">0</font></td><td>13</td><td><font color="red">0</font></td><td>14</td></tr>
+    ///     <tr>                                      <td><code>Both</code></td><td>11</td><td>12</td><td>13</td><td>14</td><td>15</td><td>16</td><td>17</td><td>18</td></tr>
+    ///     <tr><td rowspan=3><code>Mono</code></td>  <td><code>Left</code></td><td>11</td><td>11</td><td>13</td><td>13</td><td>15</td><td>15</td><td>17</td><td>17</td></tr>
+    ///     <tr>                                      <td><code>Right</code></td><td>12</td><td>12</td><td>14</td><td>14</td><td>16</td><td>16</td><td>18</td><td>18</td></tr>
+    ///     <tr>                                      <td><code>Both</code></td> <td>11</td><td>12</td><td>13</td><td>14</td><td>15</td><td>16</td><td>17</td><td>18</td></tr>
+    ///  </tbody>
+    /// </table>
+    ///
+    /// Modes combinations other than [`SlotMode::Mono`]/[`PdmSlotMask::Both`],
+    /// [`SlotMode::Stereo`]/[`PdmSlotMask::Left`], and [`SlotMode::Stereo`]/[`PdmSlotMask::Right`] are unlikely to be
+    /// useful since it requires precise demutiplexing on the bit stream based on the WS clock.
+    ///
+    /// For details, refer to the
+    /// _ESP-IDF Programming Guide_ PDM Tx Usage details for your specific microcontroller:
+    /// * [ESP32](https://docs.espressif.com/projects/esp-idf/en/latest/esp32/api-reference/peripherals/i2s.html#pdm-tx-usage)
+    /// * [ESP32-S3](https://docs.espressif.com/projects/esp-idf/en/latest/esp32s3/api-reference/peripherals/i2s.html#pdm-tx-usage)
+    /// * [ESP32-C3](https://docs.espressif.com/projects/esp-idf/en/latest/esp32c3/api-reference/peripherals/i2s.html#pdm-tx-usage)
+    /// * [ESP32-C6](https://docs.espressif.com/projects/esp-idf/en/latest/esp32c6/api-reference/peripherals/i2s.html#pdm-tx-usage)
+    /// * [ESP32-H2](https://docs.espressif.com/projects/esp-idf/en/latest/esp32c6/api-reference/peripherals/i2s.html#pdm-tx-usage)
+    #[derive(Clone, Copy, Debug, PartialEq)]
     pub struct PdmTxSlotConfig {
         // data_bit_width and slot_bit_width are omitted; they are always 16 bits.
         /// Mono or stereo mode operation.
@@ -868,7 +993,6 @@ pub(super) mod config {
         sd_dither2: u32,
     }
 
-    #[cfg(any(esp_idf_soc_i2s_supports_pdm_tx, esp32, esp32s3, esp32c3, esp32c6))]
     impl Default for PdmTxSlotConfig {
         #[inline(always)]
         fn default() -> Self {
@@ -876,7 +1000,9 @@ pub(super) mod config {
         }
     }
 
-    #[cfg(any(esp_idf_soc_i2s_supports_pdm_tx, esp32, esp32s3, esp32c3, esp32c6))]
+    // We don't care about NaN in hp_cutoff_freq; go ahead and force it to be Eq.
+    impl Eq for PdmTxSlotConfig {}
+
     impl PdmTxSlotConfig {
         /// Configure the PDM mode channel transmit slot configuration for the specified slot mode in 2 slots.
         ///
@@ -921,6 +1047,10 @@ pub(super) mod config {
 
         /// Sets the slot mask on this PDM transmit slot configuration.
         #[cfg(esp_idf_soc_i2s_hw_version_1)]
+        #[cfg_attr(
+            feature = "nightly",
+            doc(cfg(all(esp32, not(esp_idf_version_major = "4"))))
+        )]
         #[inline(always)]
         pub fn slot_mask(mut self, slot_mask: PdmSlotMask) -> Self {
             self.slot_mask = slot_mask;
@@ -964,6 +1094,13 @@ pub(super) mod config {
 
         /// Sets the PDM transmit line mode on this PDM transmit slot configuration.
         #[cfg(esp_idf_soc_i2s_hw_version_2)]
+        #[cfg_attr(
+            feature = "nightly",
+            doc(cfg(all(
+                any(esp32s3, esp32c3, esp32c6, esp32h2),
+                not(esp_idf_version_major = "4")
+            )))
+        )]
         #[inline(always)]
         pub fn line_mode(mut self, line_mode: PdmTxLineMode) -> Self {
             self.line_mode = line_mode;
@@ -972,6 +1109,13 @@ pub(super) mod config {
 
         /// Sets the high-pass filter enable on this PDM transmit slot configuration.
         #[cfg(esp_idf_soc_i2s_hw_version_2)]
+        #[cfg_attr(
+            feature = "nightly",
+            doc(cfg(all(
+                any(esp32s3, esp32c3, esp32c6, esp32h2),
+                not(esp_idf_version_major = "4")
+            )))
+        )]
         #[inline(always)]
         pub fn hp_enable(mut self, hp_enable: bool) -> Self {
             self.hp_enable = hp_enable;
@@ -980,6 +1124,13 @@ pub(super) mod config {
 
         /// Sets the high-pass filter cutoff frequency on this PDM transmit slot configuration.
         #[cfg(esp_idf_soc_i2s_hw_version_2)]
+        #[cfg_attr(
+            feature = "nightly",
+            doc(cfg(all(
+                any(esp32s3, esp32c3, esp32c6, esp32h2),
+                not(esp_idf_version_major = "4")
+            )))
+        )]
         #[inline(always)]
         pub fn hp_cutoff_freq(mut self, hp_cutoff_freq: f32) -> Self {
             self.hp_cutoff_freq = hp_cutoff_freq;
@@ -988,6 +1139,13 @@ pub(super) mod config {
 
         /// Sets the sigma-delta filter dither on this PDM transmit slot configuration.
         #[cfg(esp_idf_soc_i2s_hw_version_2)]
+        #[cfg_attr(
+            feature = "nightly",
+            doc(cfg(all(
+                any(esp32s3, esp32c3, esp32c6, esp32h2),
+                not(esp_idf_version_major = "4")
+            )))
+        )]
         #[inline(always)]
         pub fn sd_dither(mut self, sd_dither: u32, sd_dither2: u32) -> Self {
             self.sd_dither = sd_dither;
@@ -1025,8 +1183,11 @@ pub(super) mod config {
     }
 }
 
-#[cfg(not(esp_idf_version_major = "4"))]
 #[cfg(esp_idf_soc_i2s_supports_pdm_rx)]
+#[cfg_attr(
+    feature = "nightly",
+    doc(cfg(all(any(esp32, esp32s3), not(esp_idf_version_major = "4"))))
+)]
 impl<'d> I2sDriver<'d, I2sRx> {
     /// Create a new pulse density modulation (PDM) mode driver for the given I2S peripheral with only the receive
     /// channel open.
@@ -1058,10 +1219,11 @@ impl<'d> I2sDriver<'d, I2sRx> {
 
     /// Create a new pulse density modulation (PDM) mode driver for the given I2S peripheral with only the receive
     /// channel open using multiple DIN pins to receive data.
-    #[cfg(all(
-        not(esp_idf_version = "4"),
-        not(all(esp_idf_version_major = "5", esp_idf_version_minor = "0"))
-    ))]
+    #[cfg(not(all(esp_idf_version_major = "5", esp_idf_version_minor = "0")))]
+    #[cfg_attr(
+        feature = "nightly",
+        doc(cfg(not(all(esp_idf_version_major = "5", esp_idf_version_minor = "0"))))
+    )]
     #[allow(clippy::too_many_arguments)]
     pub fn new_pdm_rx_multi<I2S, I2SP, CLK, CLKP, DIN, DINP, const DINC: usize>(
         _i2s: I2SP,
@@ -1113,7 +1275,11 @@ impl<'d> I2sDriver<'d, I2sRx> {
     }
 }
 
-#[cfg(all(esp_idf_version_major = "4", any(esp32, esp32s3)))]
+#[cfg(all(any(esp32, esp32s3), esp_idf_version_major = "4"))]
+#[cfg_attr(
+    feature = "nightly",
+    doc(cfg(all(any(esp32, esp32s3), esp_idf_version_major = "4")))
+)]
 impl<'d> I2sDriver<'d, I2sRx> {
     /// Create a new pulse density modulation (PDM) mode driver for the given I2S peripheral with only the receive
     /// channel open.
@@ -1152,8 +1318,14 @@ impl<'d> I2sDriver<'d, I2sRx> {
     }
 }
 
-#[cfg(not(esp_idf_version_major = "4"))]
 #[cfg(esp_idf_soc_i2s_supports_pdm_tx)]
+#[cfg_attr(
+    feature = "nightly",
+    doc(cfg(all(
+        any(esp32, esp32s3, esp32c3, esp32c6, esp32h2),
+        not(esp_idf_version_major = "4")
+    )))
+)]
 impl<'d> I2sDriver<'d, I2sTx> {
     /// Create a new pulse density modulation (PDM) mode driver for the given I2S peripheral with only the transmit
     /// channel open.
@@ -1193,7 +1365,17 @@ impl<'d> I2sDriver<'d, I2sTx> {
     }
 }
 
-#[cfg(all(esp_idf_version_major = "4", any(esp32, esp32s3, esp32c3, esp32c6)))]
+#[cfg(all(
+    esp_idf_version_major = "4",
+    any(esp32, esp32s3, esp32c3, esp32c6, esp32h2)
+))]
+#[cfg_attr(
+    feature = "nightly",
+    doc(all(
+        any(esp32, esp32s3, esp32c3, esp32c6, esp32h2),
+        esp_idf_version_major = "4"
+    ))
+)]
 impl<'d> I2sDriver<'d, I2sTx> {
     /// Create a new pulse density modulation (PDM) mode driver for the given I2S peripheral with only the transmit
     /// channel open.

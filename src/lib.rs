@@ -3,6 +3,7 @@
 #![cfg_attr(
     feature = "nightly",
     feature(async_fn_in_trait),
+    feature(doc_cfg),
     feature(impl_trait_projections),
     allow(incomplete_features)
 )]
@@ -43,7 +44,12 @@ pub mod gpio;
 pub mod hall;
 #[cfg(not(feature = "riscv-ulp-hal"))]
 pub mod i2c;
-#[cfg(all(not(feature = "riscv-ulp-hal"), esp_idf_comp_driver_enabled))]
+#[cfg(all(
+    not(feature = "riscv-ulp-hal"),
+    not(esp32c2),
+    esp_idf_comp_driver_enabled
+))]
+#[cfg_attr(feature = "nightly", doc(cfg(not(esp32c2))))]
 pub mod i2s;
 #[cfg(not(feature = "riscv-ulp-hal"))]
 pub mod interrupt;
