@@ -95,7 +95,7 @@ impl EspFirmwareInfoLoader {
             };
             Ok(Newtype(app_desc).into())
         } else {
-            Err(EspError::from_infallible::<ESP_ERR_INVALID_SIZE>().into())
+            Err(EspError::from_infallible::<ESP_ERR_INVALID_SIZE>())
         }
     }
 }
