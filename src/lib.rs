@@ -30,7 +30,7 @@ compile_error!("Feature `riscv-ulp-hal` is currently only supported on esp32s2")
 
 #[macro_use]
 pub mod riscv_ulp_hal;
-
+#[cfg(all(esp_idf_comp_esp_adc_enabled, esp_idf_soc_adc_supported))]
 pub mod adc;
 #[cfg(not(feature = "riscv-ulp-hal"))]
 pub mod can;
@@ -43,7 +43,7 @@ pub mod gpio;
 pub mod hall;
 #[cfg(not(feature = "riscv-ulp-hal"))]
 pub mod i2c;
-#[cfg(all(not(feature = "riscv-ulp-hal"), esp_idf_comp_driver_enabled))]
+#[cfg(all(not(feature = "riscv-ulp-hal"), esp_idf_comp_driver_enabled, esp_idf_soc_i2s_supported))]
 pub mod i2s;
 #[cfg(not(feature = "riscv-ulp-hal"))]
 pub mod interrupt;

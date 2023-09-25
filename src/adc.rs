@@ -13,7 +13,7 @@ use crate::peripheral::{Peripheral, PeripheralRef};
 #[cfg(not(feature = "riscv-ulp-hal"))]
 pub type AdcConfig = config::Config;
 
-#[cfg(all(not(feature = "riscv-ulp-hal"), not(esp_idf_version_major = "4")))]
+#[cfg(all(not(feature = "riscv-ulp-hal"), not(esp_idf_version_major = "4"), not(esp32c2)))]
 pub use continuous::{
     config as cont_config, config::Config as AdcContConfig, AdcChannels, AdcChannelsArray,
     AdcDriver as AdcContDriver, AdcMeasurement, Atten11dB, Atten2p5dB, Atten6dB, AttenNone,
@@ -450,7 +450,7 @@ impl_adc!(ADC1: adc_unit_t_ADC_UNIT_1);
 #[cfg(not(any(esp32c2, esp32h2, esp32c5, esp32c6, esp32p4)))] // TODO: Check for esp32c5 and esp32p4
 impl_adc!(ADC2: adc_unit_t_ADC_UNIT_2);
 
-#[cfg(all(not(feature = "riscv-ulp-hal"), not(esp_idf_version_major = "4")))]
+#[cfg(all(not(feature = "riscv-ulp-hal"), not(esp_idf_version_major = "4"), not(esp32c2)))]
 pub mod continuous {
     use core::ffi::c_void;
     use core::fmt::{self, Debug, Display};
