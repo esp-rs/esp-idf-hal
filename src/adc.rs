@@ -13,7 +13,11 @@ use crate::peripheral::{Peripheral, PeripheralRef};
 #[cfg(not(feature = "riscv-ulp-hal"))]
 pub type AdcConfig = config::Config;
 
-#[cfg(all(not(feature = "riscv-ulp-hal"), not(esp_idf_version_major = "4")))]
+#[cfg(all(
+    not(feature = "riscv-ulp-hal"),
+    not(esp_idf_version_major = "4"),
+    not(esp32c2)
+))]
 pub use continuous::{
     config as cont_config, config::Config as AdcContConfig, AdcChannels, AdcChannelsArray,
     AdcDriver as AdcContDriver, AdcMeasurement, Atten11dB, Atten2p5dB, Atten6dB, AttenNone,
@@ -773,7 +777,11 @@ pub mod oneshot {
     unsafe impl<'d, ADC: Adc> Sync for AdcDriver<'d, ADC> {}
 }
 
-#[cfg(all(not(feature = "riscv-ulp-hal"), not(esp_idf_version_major = "4")))]
+#[cfg(all(
+    not(feature = "riscv-ulp-hal"),
+    not(esp_idf_version_major = "4"),
+    not(esp32c2)
+))]
 pub mod continuous {
     use core::ffi::c_void;
     use core::fmt::{self, Debug, Display};
