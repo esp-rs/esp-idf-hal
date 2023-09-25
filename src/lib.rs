@@ -43,7 +43,11 @@ pub mod gpio;
 pub mod hall;
 #[cfg(not(feature = "riscv-ulp-hal"))]
 pub mod i2c;
-#[cfg(all(not(feature = "riscv-ulp-hal"), esp_idf_comp_driver_enabled, esp_idf_soc_i2s_supported))]
+#[cfg(all(
+    not(feature = "riscv-ulp-hal"),
+    esp_idf_comp_driver_enabled,
+    esp_idf_soc_i2s_supported
+))]
 pub mod i2s;
 #[cfg(not(feature = "riscv-ulp-hal"))]
 pub mod interrupt;

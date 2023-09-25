@@ -5,7 +5,11 @@ use crate::can;
 use crate::gpio;
 #[cfg(not(feature = "riscv-ulp-hal"))]
 use crate::i2c;
-#[cfg(all(not(feature = "riscv-ulp-hal"), esp_idf_comp_driver_enabled, esp_idf_soc_i2s_supported))]
+#[cfg(all(
+    not(feature = "riscv-ulp-hal"),
+    esp_idf_comp_driver_enabled,
+    esp_idf_soc_i2s_supported
+))]
 use crate::i2s;
 #[cfg(not(feature = "riscv-ulp-hal"))]
 use crate::ledc;
@@ -56,9 +60,18 @@ pub struct Peripherals {
     pub i2c0: i2c::I2C0,
     #[cfg(all(not(any(esp32c3, esp32c2, esp32c6)), not(feature = "riscv-ulp-hal")))]
     pub i2c1: i2c::I2C1,
-    #[cfg(all(not(feature = "riscv-ulp-hal"), esp_idf_comp_driver_enabled, esp_idf_soc_i2s_supported))]
+    #[cfg(all(
+        not(feature = "riscv-ulp-hal"),
+        esp_idf_comp_driver_enabled,
+        esp_idf_soc_i2s_supported
+    ))]
     pub i2s0: i2s::I2S0,
-    #[cfg(all(not(feature = "riscv-ulp-hal"), any(esp32, esp32s3), esp_idf_comp_driver_enabled, esp_idf_soc_i2s_supported))]
+    #[cfg(all(
+        not(feature = "riscv-ulp-hal"),
+        any(esp32, esp32s3),
+        esp_idf_comp_driver_enabled,
+        esp_idf_soc_i2s_supported
+    ))]
     pub i2s1: i2s::I2S1,
     #[cfg(not(feature = "riscv-ulp-hal"))]
     pub spi1: spi::SPI1,
@@ -68,7 +81,11 @@ pub struct Peripherals {
     pub spi3: spi::SPI3,
     #[cfg(all(esp_idf_comp_esp_adc_enabled, esp_idf_soc_adc_supported))]
     pub adc1: adc::ADC1,
-    #[cfg(all(esp_idf_comp_esp_adc_enabled, esp_idf_soc_adc_supported, any(esp32, esp32s2, esp32s3, esp32c3)))]
+    #[cfg(all(
+        esp_idf_comp_esp_adc_enabled,
+        esp_idf_soc_adc_supported,
+        any(esp32, esp32s2, esp32s3, esp32c3)
+    ))]
     pub adc2: adc::ADC2,
     // TODO: Check the pulse counter story for c2, h2, c5, c6, and p4
     #[cfg(all(not(feature = "riscv-ulp-hal"), any(esp32, esp32s2, esp32s3)))]
@@ -200,9 +217,18 @@ impl Peripherals {
             i2c0: i2c::I2C0::new(),
             #[cfg(all(not(any(esp32c3, esp32c2, esp32c6)), not(feature = "riscv-ulp-hal")))]
             i2c1: i2c::I2C1::new(),
-            #[cfg(all(not(feature = "riscv-ulp-hal"), esp_idf_comp_driver_enabled, esp_idf_soc_i2s_supported))]
+            #[cfg(all(
+                not(feature = "riscv-ulp-hal"),
+                esp_idf_comp_driver_enabled,
+                esp_idf_soc_i2s_supported
+            ))]
             i2s0: i2s::I2S0::new(),
-            #[cfg(all(not(feature = "riscv-ulp-hal"), any(esp32, esp32s3), esp_idf_comp_driver_enabled, esp_idf_soc_i2s_supported))]
+            #[cfg(all(
+                not(feature = "riscv-ulp-hal"),
+                any(esp32, esp32s3),
+                esp_idf_comp_driver_enabled,
+                esp_idf_soc_i2s_supported
+            ))]
             i2s1: i2s::I2S1::new(),
             #[cfg(not(feature = "riscv-ulp-hal"))]
             spi1: spi::SPI1::new(),
@@ -212,7 +238,11 @@ impl Peripherals {
             spi3: spi::SPI3::new(),
             #[cfg(all(esp_idf_comp_esp_adc_enabled, esp_idf_soc_adc_supported))]
             adc1: adc::ADC1::new(),
-            #[cfg(all(esp_idf_comp_esp_adc_enabled, esp_idf_soc_adc_supported, any(esp32, esp32s2, esp32s3, esp32c3)))]
+            #[cfg(all(
+                esp_idf_comp_esp_adc_enabled,
+                esp_idf_soc_adc_supported,
+                any(esp32, esp32s2, esp32s3, esp32c3)
+            ))]
             adc2: adc::ADC2::new(),
             #[cfg(all(not(feature = "riscv-ulp-hal"), any(esp32, esp32s2, esp32s3)))]
             pcnt0: pcnt::PCNT0::new(),
