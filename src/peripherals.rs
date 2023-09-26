@@ -4,7 +4,11 @@ use crate::can;
 use crate::gpio;
 #[cfg(not(feature = "riscv-ulp-hal"))]
 use crate::i2c;
-#[cfg(not(feature = "riscv-ulp-hal"))]
+#[cfg(all(
+    not(feature = "riscv-ulp-hal"),
+    esp_idf_soc_i2s_supported,
+    esp_idf_comp_driver_enabled
+))]
 use crate::i2s;
 #[cfg(not(feature = "riscv-ulp-hal"))]
 use crate::ledc;
@@ -55,9 +59,18 @@ pub struct Peripherals {
     pub i2c0: i2c::I2C0,
     #[cfg(all(not(any(esp32c3, esp32c2, esp32c6)), not(feature = "riscv-ulp-hal")))]
     pub i2c1: i2c::I2C1,
-    #[cfg(not(feature = "riscv-ulp-hal"))]
+    #[cfg(all(
+        not(feature = "riscv-ulp-hal"),
+        esp_idf_soc_i2s_supported,
+        esp_idf_comp_driver_enabled
+    ))]
     pub i2s0: i2s::I2S0,
-    #[cfg(all(any(esp32, esp32s3), not(feature = "riscv-ulp-hal")))]
+    #[cfg(all(
+        not(feature = "riscv-ulp-hal"),
+        esp_idf_soc_i2s_supported,
+        esp_idf_comp_driver_enabled,
+        any(esp32, esp32s3)
+    ))]
     pub i2s1: i2s::I2S1,
     #[cfg(not(feature = "riscv-ulp-hal"))]
     pub spi1: spi::SPI1,
@@ -198,9 +211,18 @@ impl Peripherals {
             i2c0: i2c::I2C0::new(),
             #[cfg(all(not(any(esp32c3, esp32c2, esp32c6)), not(feature = "riscv-ulp-hal")))]
             i2c1: i2c::I2C1::new(),
-            #[cfg(not(feature = "riscv-ulp-hal"))]
+            #[cfg(all(
+                not(feature = "riscv-ulp-hal"),
+                esp_idf_soc_i2s_supported,
+                esp_idf_comp_driver_enabled
+            ))]
             i2s0: i2s::I2S0::new(),
-            #[cfg(all(any(esp32, esp32s3), not(feature = "riscv-ulp-hal")))]
+            #[cfg(all(
+                not(feature = "riscv-ulp-hal"),
+                esp_idf_soc_i2s_supported,
+                esp_idf_comp_driver_enabled,
+                any(esp32, esp32s3)
+            ))]
             i2s1: i2s::I2S1::new(),
             #[cfg(not(feature = "riscv-ulp-hal"))]
             spi1: spi::SPI1::new(),
