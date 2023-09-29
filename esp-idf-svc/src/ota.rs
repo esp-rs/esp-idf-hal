@@ -152,9 +152,14 @@ impl<'a> EspOtaUpdate<'a> {
         self.check_write()?;
 
         esp!(unsafe { esp_ota_end(self.update_handle) })?;
+        let update_partition = self.update_partition;
+
+        // `Drop::drop` must not be called on `EspOtaUpdate` after the OTA handle has been
+        // invalidated.
+        mem::forget(self);
 
         Ok(EspOtaUpdateFinished {
-            update_partition: self.update_partition,
+            update_partition,
             _data: PhantomData,
         })
     }
@@ -165,14 +170,15 @@ impl<'a> EspOtaUpdate<'a> {
         esp!(unsafe { esp_ota_end(self.update_handle) })?;
         esp!(unsafe { esp_ota_set_boot_partition(self.update_partition) })?;
 
+        // `Drop::drop` must not be called on `EspOtaUpdate` after the OTA handle has been
+        // invalidated.
+        mem::forget(self);
+
         Ok(())
     }
 
     pub fn abort(self) -> Result<(), EspError> {
-        self.check_write()?;
-
-        esp!(unsafe { esp_ota_abort(self.update_handle) })?;
-
+        // The OTA update is aborted when `EspOtaUpdate` is dropped.
         Ok(())
     }
 
@@ -182,6 +188,20 @@ impl<'a> EspOtaUpdate<'a> {
         } else {
             Err(EspError::from_infallible::<ESP_FAIL>())
         }
+    }
+}
+
+impl Drop for EspOtaUpdate<'_> {
+    fn drop(&mut self) {
+        // SAFETY: `esp_ota_abort` can only fail if the provided OTA handle is invalid.
+        //
+        // 1) The only safe way to acquire an `EspOtaUpdate` is through `EspOta::initiate_update`
+        //    which constructs the new instance using an OTA handle returned by `esp_ota_begin`.
+        // 2) The methods which invalidate the OTA handle all call `mem::forget(self)`.
+        //
+        // This means that our API guarantees that the OTA handle contained in this struct is valid
+        // and so calling this function will always be safe.
+        unsafe { esp_ota_abort(self.update_handle) };
     }
 }
 
