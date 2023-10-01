@@ -8,7 +8,6 @@
 - [Extra ESP-IDF components](#extra-esp-idf-components)
 - [Remote components (idf component registry)](#remote-components-idf-component-registry)
 - [Conditional compilation](#conditional-compilation)
-- [ESP32-C6/ESP32-P4 preliminary support](#esp32-c6esp32-p4-preliminary-support)
 - [More info](#more-info)
 
 ## Rust configuration flags
