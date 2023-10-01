@@ -493,11 +493,11 @@ available for its sources.
 > [!IMPORTANT]
 > If an upstream crate also wants to have access to the *cfg*s it must:
 > - have `esp-idf-sys` as a dependency, and
-> - propagate the *cfg*s in its [build
+> - output the *cfg*s in its [build
 >   script](https://doc.rust-lang.org/cargo/reference/build-scripts.html) with
 > 
 >   ```rust
->   embuild::build::CfgArgs::output_propagated("ESP_IDF").expect("no esp-idf-sys cfgs");
+>   embuild::espidf::sysenv::output();
 >   ```
 >   using the [embuild](https://crates.io/crates/embuild) crate.
 
@@ -512,8 +512,8 @@ The list of available *cfg*s:
 
   Each [sdkconfig
   setting](https://docs.espressif.com/projects/esp-idf/en/latest/esp32/api-reference/kconfig.html#configuration-options-reference)
-  where `{sdkconfig_option}` corresponds to the option set in the sdkconfig **lowercased**
-  and **without** the `CONFIG_` prefix. Only options set to `y` will get a *cfg*.
+  where `{sdkconfig_option}` corresponds to the option set in the sdkconfig **lowercased**,
+  **without** the `CONFIG_` prefix and **with** a lowercase `esp_idf_` prefix. Only options set to `y` will get a *cfg*.
 
 - `{mcu}`
 
