@@ -273,6 +273,9 @@ impl<'d> EthDriver<'d, RmiiEth> {
             #[cfg(not(esp_idf_version = "4.3"))]
             RmiiEthChipset::LAN87XX => unsafe { esp_eth_phy_new_lan87xx(&phy_cfg) },
             #[cfg(esp_idf_version = "4.3")]
+            #[deprecated(
+                note = "Using ESP-IDF 4.3 is untested, please upgrade to 4.4 or newer. Support will be removed in the next major release."
+            )]
             RmiiEthChipset::LAN87XX => unsafe { esp_eth_phy_new_lan8720(&phy_cfg) },
             RmiiEthChipset::DP83848 => unsafe { esp_eth_phy_new_dp83848(&phy_cfg) },
             #[cfg(esp_idf_version_major = "4")]

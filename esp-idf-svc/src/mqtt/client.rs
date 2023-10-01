@@ -236,7 +236,6 @@ impl<'a> TryFrom<&'a MqttClientConfiguration<'a>>
                 verification: esp_mqtt_client_config_t_broker_t_verification_t {
                     use_global_ca_store: conf.use_global_ca_store,
                     skip_cert_common_name_check: conf.skip_cert_common_name_check,
-                    #[cfg(not(esp_idf_version = "4.3"))]
                     crt_bundle_attach: conf.crt_bundle_attach,
                     ..Default::default()
                 },

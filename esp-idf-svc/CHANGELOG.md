@@ -19,6 +19,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * Breaking change: OTA: `EspOtaUpdate::abort` and `EspOtaUpdate::complete` now take `self` instead of `&mut self`
 * Breaking change: Removed the deprecated module `httpd` and the dependency on `anyhow`
 * Breaking change: HTTP server: `EspHttpRequest` renamed to `EspHttpRawConnection`
+* Deprecated: Using ESP-IDF 4.3 is now deprecated and all special cfg flags will be removed in the next release
 
 ## [0.46.2] - 2023-07-30
 
