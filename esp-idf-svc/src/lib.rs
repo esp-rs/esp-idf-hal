@@ -11,6 +11,7 @@
 //! - `embassy-time-driver`
 //! - `embassy-time-isr-queue`
 #![cfg_attr(not(feature = "std"), no_std)]
+#![allow(stable_features)]
 #![feature(cfg_version)]
 #![cfg_attr(
     feature = "nightly",
