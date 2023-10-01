@@ -393,6 +393,18 @@
 #include "services/gatt/ble_svc_gatt.h"
 #endif // CONFIG_BT_NIMBLE_ENABLED
 
+// BLE Mesh
+#ifdef CONFIG_BLE_MESH
+#include "esp_ble_mesh_defs.h"
+#include "esp_ble_mesh_ble_api.h"
+#include "esp_ble_mesh_common_api.h"
+#include "esp_ble_mesh_local_data_operation_api.h"
+#include "esp_ble_mesh_low_power_api.h"
+#include "esp_ble_mesh_networking_api.h"
+#include "esp_ble_mesh_provisioning_api.h"
+#include "esp_ble_mesh_proxy_api.h"
+#endif // CONFIG_BLE_MESH
+
 #endif // CONFIG_BT_ENABLED
 
 #endif // CONFIG_IDF_TARGET_ESP32S2
