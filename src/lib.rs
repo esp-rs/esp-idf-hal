@@ -1,4 +1,5 @@
 #![cfg_attr(not(feature = "std"), no_std)]
+#![allow(stable_features)]
 #![cfg_attr(target_arch = "xtensa", feature(asm_experimental_arch))]
 #![cfg_attr(
     feature = "nightly",
