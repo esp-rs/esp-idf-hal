@@ -42,8 +42,8 @@ embedded-hal = "=1.0.0-rc.1"
 embedded-hal-0-2 = { package = "embedded-hal", version = "0.2.7", features = ["unproven"] }
 embedded-hal-nb = "=1.0.0-rc.1"
 embedded-hal-async = { version = "=1.0.0-rc.1", optional = true }
-embedded-io = "0.5"
-embedded-io-async = { version = "0.5", optional = true }
+embedded-io = "0.6"
+embedded-io-async = { version = "0.6", optional = true }
 esp-idf-sys = { version = "0.33", optional = true, default-features = false, features = ["native"] }
 critical-section = { version = "1.1.1", optional = true }
 heapless = "0.7"
