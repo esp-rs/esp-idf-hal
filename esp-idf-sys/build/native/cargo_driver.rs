@@ -17,8 +17,9 @@ use embuild::{bindgen, build, cargo, cmake, espidf, git, kconfig, path_buf};
 
 use self::chip::Chip;
 use crate::common::{
-    self, list_specific_sdkconfigs, manifest_dir, workspace_dir, EspIdfBuildOutput,
-    EspIdfComponents, InstallDir, NO_PATCHES, V_4_3_2_PATCHES, V_4_4_3_PATCHES, V_5_0_PATCHES,
+    self, list_specific_sdkconfigs, manifest_dir, sanitize_c_env_vars, sanitize_project_path,
+    workspace_dir, EspIdfBuildOutput, EspIdfComponents, InstallDir, NO_PATCHES, V_4_3_2_PATCHES,
+    V_4_4_3_PATCHES, V_5_0_PATCHES,
 };
 use crate::config::{BuildConfig, ESP_IDF_GLOB_VAR_PREFIX, ESP_IDF_TOOLS_INSTALL_DIR_VAR};
 
@@ -26,6 +27,9 @@ pub mod chip;
 pub mod config;
 
 pub fn build() -> Result<EspIdfBuildOutput> {
+    sanitize_project_path()?;
+    sanitize_c_env_vars()?;
+
     let out_dir = cargo::out_dir();
     let target = env::var("TARGET")?;
     let workspace_dir = workspace_dir()?;

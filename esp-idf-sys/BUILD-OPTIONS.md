@@ -290,6 +290,26 @@ The following configuration options are available:
   supports](https://cmake.org/cmake/help/latest/manual/cmake-generators.7.html#cmake-generators)
   with **spaces and hyphens removed**.
 
+- ### *`esp_idf_path_issues`*, `$ESP_IDF_PATH_ISSUES`
+
+  What should happen to the build process if the Rust project path does not meet certain criteria (i.e. path too long on Windows or path contains spaces on Linux). Possible values:
+  * `err` (default) - Fail the build
+  * `warn` - Issue a warning but continue the build
+  * `ignore` - Continue the build and do not issue a warning
+  
+
+- ### *`esp_idf_c_env_vars_issues`*, `$ESP_IDF_C_ENV_VARS_ISSUES` (non-CMake build only)
+
+  What should happen to the build process if certain environment variables that might fail the ESP IDF C build are detected. Possible values:
+  * `warnremove` (default) - Do not pass these variables to the ESP IDF C build, and issue a build warning
+  * `remove` - Same as above but do not issue a warning
+  * `err` - Fail the build
+  * `warn` - Issue a warning but do not remove the variables and continue the build
+  * `ignore` - Continue the build and do not issue a warning
+
+  The currently detected environment variables that might be problematic are as follows: `CC`, `CFLAGS`, `CCFLAGS`, `CXXFLAGS`, `CPPFLAGS`, `LDFLAGS`, `GCC_EXEC_PREFIX`, `COMPILER_PATH`, `C_INCLUDE_PATH`, `CPLUS_INCLUDE_PATH`.
+
+
 - ### *`esp_idf_component_manager`*, `$ESP_IDF_COMPONENT_MANAGER`
 
     Whether the [esp-idf component manager](https://docs.espressif.com/projects/esp-idf/en/latest/esp32/api-guides/tools/idf-component-manager.html)
