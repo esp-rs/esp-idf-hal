@@ -12,7 +12,7 @@
 - Supports both native ESP IDF build (default), as well as a PlatformIO build
 - Option to use in a mixed Rust/C project. Check the documentation in the [esp-idf-template](https://github.com/esp-rs/esp-idf-template) crate
 
-**You might want to also check out the type safe Rust wrappes built on top of these raw bndings:**
+**You might want to also check out the type safe Rust wrappes built on top of these raw bindings:**
 - [Type safe wrappers for ESP IDF Services](https://github.com/esp-rs/esp-idf-svc)
 - [Type safe wrappers for ESP IDF Drivers](https://github.com/esp-rs/esp-idf-hal)
 
