@@ -56,11 +56,6 @@ The following are flags passed to `rustc` that influence the build.
   ```
   function.
 
-- ### `uart0_driver_init`
-
-  Enables UART0 to be driven by the driver code, adding buffering support required to read `std::io::stdin()`
-  from UART0. This is enabled by default.
-
 ## sdkconfig
 
 The esp-idf makes use of an [`sdkconfig`](#espidfsdkconfig-espidfsdkconfig) file for its
