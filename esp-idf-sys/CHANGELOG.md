@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * Support for ESP IDF Component Manager - check the documentation in BUILD-OPTIONS.md
 * ESP32H2 and ESP32C5 now properly assigned to the `riscv32imac-esp-espidf`
 * All ESP IDF WPA supplicant APIs exposed
+* Build is now checking for the presence of certain environment variables (e.g. CXXFLAGS) that might fail the ESP IDF C build and removing those
+* Build is now checking if the project path might fail the ESP IDF C build (i.e. too long on Windows or containing spaces on Unix) and failing if so
 
 ## [0.33.2] - 2023-08-18
 * Band-aid solution that fixes the build with recent Rust nightlies and ESP IDF < 5.1 (https://github.com/esp-rs/esp-idf-template/issues/149)
