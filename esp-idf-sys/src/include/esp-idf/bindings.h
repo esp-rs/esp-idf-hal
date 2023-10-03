@@ -95,6 +95,20 @@
 #if defined(CONFIG_ESP_WIFI_DPP_SUPPORT) || defined(CONFIG_WPA_DPP_SUPPORT)
 #include "esp_dpp.h"
 #endif
+#if defined(CONFIG_ESP_WIFI_MBO_SUPPORT) || defined(CONFIG_WPA_MBO_SUPPORT)
+#include "esp_mbo.h"
+#endif
+#include "esp_rrm.h"
+#include "esp_wnm.h"
+#include "esp_wpa.h"
+#include "esp_wpa2.h"
+#include "esp_wps.h"
+#if ESP_IDF_VERSION_MAJOR > 5 || ESP_IDF_VERSION_MAJOR == 5 && ESP_IDF_VERSION_MINOR >= 1
+#include "esp_supplicant_utils.h"
+#endif
+//#if ESP_IDF_VERSION_MAJOR > 5 || ESP_IDF_VERSION_MAJOR == 5 && ESP_IDF_VERSION_MINOR >= 2
+//#include "esp_eap_client.h"
+//#endif
 #endif
 
 #ifdef ESP_IDF_COMP_ESP_ETH_ENABLED
