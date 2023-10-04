@@ -1564,8 +1564,8 @@ const PIN_INTER_INIT: core::sync::atomic::AtomicU8 =
 
 #[cfg(not(feature = "riscv-ulp-hal"))]
 #[allow(clippy::declare_interior_mutable_const)] // OK because this is only used as an array initializer
-const PIN_NOTIF_INIT: crate::private::notification::Notification =
-    crate::private::notification::Notification::new();
+const PIN_NOTIF_INIT: crate::private::notification::HalIsrNotification =
+    crate::private::notification::HalIsrNotification::new();
 
 macro_rules! impl_input {
     ($pxi:ident: $pin:expr) => {
@@ -1716,7 +1716,7 @@ mod chip {
     use crate::riscv_ulp_hal::sys::*;
 
     #[cfg(not(feature = "riscv-ulp-hal"))]
-    use crate::private::notification::Notification;
+    use crate::private::notification::HalIsrNotification;
 
     use crate::adc::{ADC1, ADC2};
 
@@ -1732,7 +1732,7 @@ mod chip {
 
     #[allow(clippy::type_complexity)]
     #[cfg(not(feature = "riscv-ulp-hal"))]
-    pub(crate) static PIN_NOTIF: [Notification; 40] = [PIN_NOTIF_INIT; 40];
+    pub(crate) static PIN_NOTIF: [HalIsrNotification; 40] = [PIN_NOTIF_INIT; 40];
 
     // NOTE: Gpio26 - Gpio32 are used by SPI0/SPI1 for external PSRAM/SPI Flash and
     //       are not recommended for other uses
@@ -1920,7 +1920,7 @@ mod chip {
     use crate::riscv_ulp_hal::sys::*;
 
     #[cfg(not(feature = "riscv-ulp-hal"))]
-    use crate::private::notification::Notification;
+    use crate::private::notification::HalIsrNotification;
 
     use crate::adc::{ADC1, ADC2};
 
@@ -1936,7 +1936,7 @@ mod chip {
 
     #[allow(clippy::type_complexity)]
     #[cfg(not(feature = "riscv-ulp-hal"))]
-    pub(crate) static PIN_NOTIF: [Notification; 49] = [PIN_NOTIF_INIT; 49];
+    pub(crate) static PIN_NOTIF: [HalIsrNotification; 49] = [PIN_NOTIF_INIT; 49];
 
     // NOTE: Gpio26 - Gpio32 (and Gpio33 - Gpio37 if using Octal RAM/Flash) are used
     //       by SPI0/SPI1 for external PSRAM/SPI Flash and are not recommended for
@@ -2188,7 +2188,7 @@ mod chip {
     use crate::riscv_ulp_hal::sys::*;
 
     #[cfg(not(feature = "riscv-ulp-hal"))]
-    use crate::private::notification::Notification;
+    use crate::private::notification::HalIsrNotification;
 
     use crate::adc::{ADC1, ADC2};
 
@@ -2203,7 +2203,7 @@ mod chip {
     pub(crate) static PIN_INTER: [AtomicU8; 22] = [PIN_INTER_INIT; 22];
 
     #[cfg(not(feature = "riscv-ulp-hal"))]
-    pub(crate) static PIN_NOTIF: [Notification; 22] = [PIN_NOTIF_INIT; 22];
+    pub(crate) static PIN_NOTIF: [HalIsrNotification; 22] = [PIN_NOTIF_INIT; 22];
 
     // NOTE: Gpio12 - Gpio17 are used by SPI0/SPI1 for external PSRAM/SPI Flash and
     //       are not recommended for other uses
@@ -2308,7 +2308,7 @@ mod chip {
     use crate::riscv_ulp_hal::sys::*;
 
     #[cfg(not(feature = "riscv-ulp-hal"))]
-    use crate::private::notification::Notification;
+    use crate::private::notification::HalIsrNotification;
 
     use crate::adc::ADC1;
 
@@ -2323,7 +2323,7 @@ mod chip {
     pub(crate) static PIN_INTER: [AtomicU8; 20] = [PIN_INTER_INIT; 20];
 
     #[cfg(not(feature = "riscv-ulp-hal"))]
-    pub(crate) static PIN_NOTIF: [Notification; 20] = [PIN_NOTIF_INIT; 20];
+    pub(crate) static PIN_NOTIF: [HalIsrNotification; 20] = [PIN_NOTIF_INIT; 20];
 
     // NOTE: Gpio12 - Gpio17 are used by SPI0/SPI1 for external PSRAM/SPI Flash and
     //       are not recommended for other uses
@@ -2425,7 +2425,7 @@ mod chip {
     use crate::riscv_ulp_hal::sys::*;
 
     #[cfg(not(feature = "riscv-ulp-hal"))]
-    use crate::private::notification::Notification;
+    use crate::private::notification::HalIsrNotification;
 
     use crate::adc::ADC1;
 
@@ -2440,7 +2440,7 @@ mod chip {
     pub(crate) static PIN_INTER: [AtomicU8; 20] = [PIN_INTER_INIT; 20];
 
     #[cfg(not(feature = "riscv-ulp-hal"))]
-    pub(crate) static PIN_NOTIF: [Notification; 20] = [PIN_NOTIF_INIT; 20];
+    pub(crate) static PIN_NOTIF: [HalIsrNotification; 20] = [PIN_NOTIF_INIT; 20];
 
     // NOTE: Gpio12 - Gpio17 are used by SPI0/SPI1 for external PSRAM/SPI Flash and
     //       are not recommended for other uses
@@ -2543,7 +2543,7 @@ mod chip {
     use crate::riscv_ulp_hal::sys::*;
 
     #[cfg(not(feature = "riscv-ulp-hal"))]
-    use crate::private::notification::Notification;
+    use crate::private::notification::HalIsrNotification;
 
     use crate::adc::ADC1;
 
@@ -2559,7 +2559,7 @@ mod chip {
 
     #[allow(clippy::type_complexity)]
     #[cfg(not(feature = "riscv-ulp-hal"))]
-    pub(crate) static PIN_NOTIF: [Notification; 30] = [PIN_NOTIF_INIT; 30];
+    pub(crate) static PIN_NOTIF: [HalIsrNotification; 30] = [PIN_NOTIF_INIT; 30];
 
     // NOTE: Gpio26 - Gpio32 (and Gpio33 - Gpio37 if using Octal RAM/Flash) are used
     //       by SPI0/SPI1 for external PSRAM/SPI Flash and are not recommended for

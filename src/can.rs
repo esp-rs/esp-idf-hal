@@ -705,6 +705,10 @@ where
         let mut alerts = 0;
         esp!(unsafe { twai_reconfigure_alerts(self.driver.borrow().1.as_repr(), &mut alerts) })
             .unwrap();
+
+        READ_NOTIFICATION.clear();
+        WRITE_NOTIFICATION.clear();
+        ALERT_NOTIFICATION.clear();
     }
 }
 

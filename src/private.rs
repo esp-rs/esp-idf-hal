@@ -1,9 +1,11 @@
 pub mod notification {
     use core::future::Future;
     use core::sync::atomic::{AtomicU32, Ordering};
-    use core::task::{Context, Poll};
+    use core::task::{Context, Poll, Waker};
 
     use atomic_waker::AtomicWaker;
+
+    use crate::interrupt::asynch::{WakeRunner, HAL_WAKE_RUNNER};
 
     pub struct Notification {
         waker: AtomicWaker,
@@ -27,22 +29,27 @@ pub mod notification {
         }
 
         pub fn signal(&self, value: u32) -> bool {
-            if value != 0 {
-                self.notified.fetch_or(value, Ordering::SeqCst);
+            if let Some(waker) = self.signal_waker(value) {
+                waker.wake();
 
-                if let Some(waker) = self.waker.take() {
-                    waker.wake();
-
-                    true
-                } else {
-                    false
-                }
+                true
             } else {
                 false
             }
         }
 
+        pub fn signal_waker(&self, value: u32) -> Option<Waker> {
+            if value != 0 {
+                self.notified.fetch_or(value, Ordering::SeqCst);
+
+                self.waker.take()
+            } else {
+                None
+            }
+        }
+
         pub fn clear(&self) {
+            self.waker.take();
             self.notified.store(0, Ordering::SeqCst);
         }
 
@@ -61,6 +68,109 @@ pub mod notification {
             } else {
                 Poll::Pending
             }
+        }
+    }
+
+    impl Drop for Notification {
+        fn drop(&mut self) {
+            self.clear();
+        }
+    }
+
+    pub struct IsrNotification<'a, const N: usize> {
+        inner: Notification,
+        runner: &'a WakeRunner<N>,
+    }
+
+    impl<'a, const N: usize> IsrNotification<'a, N> {
+        pub const fn new(runner: &'a WakeRunner<N>) -> Self {
+            Self {
+                inner: Notification::new(),
+                runner,
+            }
+        }
+
+        pub const fn new_with_value(value: u32, runner: &'a WakeRunner<N>) -> Self {
+            Self {
+                inner: Notification::new_with_value(value),
+                runner,
+            }
+        }
+
+        pub fn notify(&self) -> bool {
+            self.signal(1)
+        }
+
+        pub fn signal(&self, value: u32) -> bool {
+            if let Some(waker) = self.inner.signal_waker(value) {
+                self.runner.schedule(waker);
+
+                true
+            } else {
+                false
+            }
+        }
+
+        pub fn clear(&self) {
+            self.inner.clear();
+        }
+
+        #[allow(unused)]
+        pub fn wait(&self) -> impl Future<Output = u32> + '_ {
+            self.runner.start().unwrap();
+
+            self.inner.wait()
+        }
+
+        pub fn poll_wait(&self, cx: &Context<'_>) -> Poll<u32> {
+            self.inner.poll_wait(cx)
+        }
+    }
+
+    pub struct HalIsrNotification {
+        inner: Notification,
+    }
+
+    impl HalIsrNotification {
+        pub const fn new() -> Self {
+            Self {
+                inner: Notification::new(),
+            }
+        }
+
+        pub const fn new_with_value(value: u32) -> Self {
+            Self {
+                inner: Notification::new_with_value(value),
+            }
+        }
+
+        pub fn notify(&self) -> bool {
+            self.signal(1)
+        }
+
+        pub fn signal(&self, value: u32) -> bool {
+            if let Some(waker) = self.inner.signal_waker(value) {
+                HAL_WAKE_RUNNER.schedule(waker);
+
+                true
+            } else {
+                false
+            }
+        }
+
+        pub fn clear(&self) {
+            self.inner.clear();
+        }
+
+        #[allow(unused)]
+        pub fn wait(&self) -> impl Future<Output = u32> + '_ {
+            HAL_WAKE_RUNNER.start().unwrap();
+
+            self.inner.wait()
+        }
+
+        pub fn poll_wait(&self, cx: &Context<'_>) -> Poll<u32> {
+            self.inner.poll_wait(cx)
         }
     }
 }

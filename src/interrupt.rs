@@ -297,6 +297,176 @@ pub fn free<R>(f: impl FnOnce() -> R) -> R {
     f()
 }
 
+pub mod asynch {
+    use core::{
+        cell::UnsafeCell,
+        ffi::{c_void, CStr},
+        sync::atomic::{AtomicPtr, Ordering},
+        task::Waker,
+    };
+
+    use esp_idf_sys::EspError;
+
+    use crate::{delay, task::CriticalSection};
+
+    use super::IsrCriticalSection;
+
+    /// The HAL-global wake runner.
+    /// You should use no more than 64 tasks with it.
+    ///
+    /// `Notification` instances use this wake runner when they are triggered from an ISR context.
+    pub static HAL_WAKE_RUNNER: WakeRunner<64> = WakeRunner::new();
+
+    /// WakeRunner is a utility allowing `Waker` instances to be awoken fron an ISR context.
+    ///
+    /// General problem:
+    /// In an interrupt, using Waker instances coming from generic executors is impossible,
+    /// because these are not designed with an ISR-safety in mind.
+    ///
+    /// Waking a waker means that its task would be scheduled on the executor queue, which might involve
+    /// allocation, and/or synchronization primitives which are not safe to use from an ISR context.
+    ///
+    /// Similarly, dropping a waker might also drop the executor task, resulting in a deallocation, which is also
+    /// not safe in an ISR context
+    ///
+    /// These problems are alleviated by replacing direct `waker.wake()` calls to `WakerRunner::wake(waker)`.
+    /// What `WakeRunner::wake` does is to push the waker into a bounded queue and then notify a hidden FreeRTOS task
+    /// Once the FreeRTOS task gets awoken, it wakes all wakers scheduled on the bounded queue and empties the queue.
+    pub struct WakeRunner<const N: usize> {
+        wakers_cs: IsrCriticalSection,
+        wakers: UnsafeCell<heapless::Deque<Waker, N>>,
+        task_cs: CriticalSection,
+        task: AtomicPtr<crate::sys::tskTaskControlBlock>,
+    }
+
+    impl<const N: usize> WakeRunner<N> {
+        pub const fn new() -> Self {
+            Self {
+                wakers_cs: IsrCriticalSection::new(),
+                wakers: UnsafeCell::new(heapless::Deque::new()),
+                task_cs: CriticalSection::new(),
+                task: AtomicPtr::new(core::ptr::null_mut()),
+            }
+        }
+
+        pub fn is_started(&self) -> bool {
+            !self.task.load(Ordering::SeqCst).is_null()
+        }
+
+        pub fn start(&self) -> Result<bool, EspError> {
+            let _guard = self.task_cs.enter();
+
+            if self.task.load(Ordering::SeqCst).is_null() {
+                let task = unsafe {
+                    crate::task::create(
+                        Self::task_run,
+                        CStr::from_bytes_with_nul_unchecked(b"WakeScheduler\0"),
+                        3084,
+                        Self::task_run as *const c_void as *mut _,
+                        6,    // TODO
+                        None, // TODO
+                    )?
+                };
+
+                self.task.store(task, Ordering::SeqCst);
+
+                Ok(true)
+            } else {
+                Ok(false)
+            }
+        }
+
+        pub fn stop(&self) -> bool {
+            let _guard = self.task_cs.enter();
+
+            let task = self.task.load(Ordering::SeqCst);
+
+            if !task.is_null() {
+                self.task.store(core::ptr::null_mut(), Ordering::SeqCst);
+
+                unsafe {
+                    crate::task::destroy(task);
+                }
+
+                true
+            } else {
+                false
+            }
+        }
+
+        /// Schedules a waker to be awoken by the hidden FreeRTOS task running in the background.
+        /// If not called from within an ISR context, calls `waker.wake()` directly instead of scheduling the waker.
+        ///
+        /// This and only this method is safe to call from an ISR context.
+        pub fn schedule(&self, waker: Waker) {
+            if super::active() {
+                if self.is_started() {
+                    self.wakers(|wakers| {
+                        let earlier_waker =
+                            wakers.iter_mut().find(|a_waker| a_waker.will_wake(&waker));
+
+                        if let Some(earlier_waker) = earlier_waker {
+                            *earlier_waker = waker;
+                        } else {
+                            wakers.push_back(waker).unwrap();
+                        }
+
+                        let task = self.task.load(Ordering::SeqCst);
+
+                        if !task.is_null() {
+                            unsafe {
+                                crate::task::notify_and_yield(task, 1);
+                            }
+                        }
+                    })
+                }
+            } else {
+                waker.wake();
+            }
+        }
+
+        fn run(&self) {
+            loop {
+                loop {
+                    let waker = self.wakers(|wakers| wakers.pop_front());
+
+                    if let Some(waker) = waker {
+                        waker.wake();
+                    } else {
+                        break;
+                    }
+                }
+
+                crate::task::wait_notification(delay::BLOCK);
+            }
+        }
+
+        fn wakers<F: FnOnce(&mut heapless::Deque<Waker, N>) -> R, R>(&self, f: F) -> R {
+            let _guard = self.wakers_cs.enter();
+
+            let wakers = unsafe { self.wakers.get().as_mut().unwrap() };
+
+            f(wakers)
+        }
+
+        extern "C" fn task_run(ctx: *mut c_void) {
+            let this =
+                unsafe { (ctx as *mut WakeRunner<N> as *const WakeRunner<N>).as_ref() }.unwrap();
+
+            this.run();
+        }
+    }
+
+    impl<const N: usize> Drop for WakeRunner<N> {
+        fn drop(&mut self) {
+            self.stop();
+        }
+    }
+
+    unsafe impl<const N: usize> Send for WakeRunner<N> {}
+    unsafe impl<const N: usize> Sync for WakeRunner<N> {}
+}
+
 #[cfg(feature = "embassy-sync")]
 pub mod embassy_sync {
     use core::marker::PhantomData;

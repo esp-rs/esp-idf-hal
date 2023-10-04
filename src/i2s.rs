@@ -21,7 +21,7 @@ use esp_idf_sys::{
 };
 
 #[cfg(not(esp_idf_version_major = "4"))]
-use crate::private::notification::Notification;
+use crate::private::notification::HalIsrNotification;
 use crate::{delay, io::EspIOError};
 
 // For v5+, we rely configuration options for PDM/TDM support.
@@ -1178,6 +1178,9 @@ impl<'d, Dir> Drop for I2sDriver<'d, Dir> {
                 self.del_channel(self.tx_handle).unwrap();
             }
         }
+
+        SEND_NOTIFIER[self.port as usize].clear();
+        RECV_NOTIFIER[self.port as usize].clear();
     }
 }
 
@@ -1284,14 +1287,16 @@ impl_i2s!(I2S1: 1);
 
 #[cfg(not(esp_idf_version_major = "4"))]
 #[cfg(not(any(esp32, esp32s3)))]
-static SEND_NOTIFIER: [Notification; 1] = [Notification::new()];
+static SEND_NOTIFIER: [HalIsrNotification; 1] = [HalIsrNotification::new()];
 #[cfg(not(esp_idf_version_major = "4"))]
 #[cfg(not(any(esp32, esp32s3)))]
-static RECV_NOTIFIER: [Notification; 1] = [Notification::new()];
+static RECV_NOTIFIER: [HalIsrNotification; 1] = [HalIsrNotification::new()];
 
 #[cfg(not(esp_idf_version_major = "4"))]
 #[cfg(any(esp32, esp32s3))]
-static SEND_NOTIFIER: [Notification; 2] = [Notification::new(), Notification::new()];
+static SEND_NOTIFIER: [HalIsrNotification; 2] =
+    [HalIsrNotification::new(), HalIsrNotification::new()];
 #[cfg(not(esp_idf_version_major = "4"))]
 #[cfg(any(esp32, esp32s3))]
-static RECV_NOTIFIER: [Notification; 2] = [Notification::new(), Notification::new()];
+static RECV_NOTIFIER: [HalIsrNotification; 2] =
+    [HalIsrNotification::new(), HalIsrNotification::new()];

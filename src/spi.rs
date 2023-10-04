@@ -52,7 +52,7 @@ use crate::gpio::{AnyOutputPin, InputPin, Level, Output, OutputMode, OutputPin, 
 use crate::interrupt::IntrFlags;
 use crate::peripheral::Peripheral;
 use crate::private::completion::with_completion;
-use crate::private::notification::Notification;
+use crate::private::notification::HalIsrNotification;
 use crate::task::embassy_sync::EspRawMutex;
 use crate::task::CriticalSection;
 
@@ -1771,13 +1771,14 @@ async fn spi_transmit_async(
 
     with_completion(
         async {
-            pub type Queue = Deque<(spi_transaction_t, Notification), MAX_QUEUED_TRANSACTIONS>;
+            pub type Queue =
+                Deque<(spi_transaction_t, HalIsrNotification), MAX_QUEUED_TRANSACTIONS>;
 
             let mut queue = Queue::new();
             let queue_size = min(MAX_QUEUED_TRANSACTIONS, queue_size);
 
             let push = |queue: &mut Queue, transaction| {
-                let _ = queue.push_back((transaction, Notification::new()));
+                let _ = queue.push_back((transaction, HalIsrNotification::new()));
                 queued.set(queue.len());
 
                 let last = queue.back_mut().unwrap();
@@ -1841,9 +1842,9 @@ async fn spi_transmit_async(
 
 extern "C" fn spi_notify(transaction: *mut spi_transaction_t) {
     if let Some(transaction) = unsafe { transaction.as_ref() } {
-        if let Some(notification) =
-            unsafe { (transaction.user as *mut Notification as *const Notification).as_ref() }
-        {
+        if let Some(notification) = unsafe {
+            (transaction.user as *mut HalIsrNotification as *const HalIsrNotification).as_ref()
+        } {
             notification.notify();
         }
     }

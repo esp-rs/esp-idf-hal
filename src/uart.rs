@@ -1788,6 +1788,10 @@ fn drop_task_common(task: TaskHandle_t, port: u8) {
     unsafe {
         task::destroy(task);
         QUEUES[port as usize] = core::ptr::null_mut();
+
+        READ_NOTIFS[port as usize].clear();
+        WRITE_NOTIFS[port as usize].clear();
+        TX_NOTIFS[port as usize].clear();
     }
 }
 
