@@ -405,7 +405,7 @@ pub mod asynch {
                     )?
                 };
 
-                self.task.store(task, Ordering::SeqCst);
+                self.task.store(task as _, Ordering::SeqCst);
 
                 Ok(true)
             } else {
@@ -423,7 +423,7 @@ pub mod asynch {
                 self.task.store(core::ptr::null_mut(), Ordering::SeqCst);
 
                 unsafe {
-                    crate::task::destroy(task);
+                    crate::task::destroy(task as _);
                 }
 
                 true
@@ -454,7 +454,7 @@ pub mod asynch {
 
                         if !task.is_null() {
                             unsafe {
-                                crate::task::notify_and_yield(task, 1);
+                                crate::task::notify_and_yield(task as _, 1);
                             }
                         }
                     })
