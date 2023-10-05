@@ -297,6 +297,12 @@ pub fn free<R>(f: impl FnOnce() -> R) -> R {
     f()
 }
 
+#[cfg(feature = "wake-from-isr")]
+pub mod asynch {
+    pub type HalIsrNotification = crate::task::asynch::Notification;
+}
+
+#[cfg(not(feature = "wake-from-isr"))]
 pub mod asynch {
     use core::{
         cell::UnsafeCell,

@@ -20,11 +20,12 @@ esp-idf-sys = { git = "https://github.com/esp-rs/esp-idf-sys" }
 
 [features]
 default = ["std", "native", "binstart"]
-std = ["alloc", "esp-idf-sys/std", "edge-executor?/std"]
+std = ["alloc", "esp-idf-sys/std"]
 alloc = []
 nightly = ["embedded-hal-async", "embedded-io-async"]
 esp-idf-sys = ["dep:esp-idf-sys", "atomic-waker"]
 riscv-ulp-hal = []
+wake-from-isr = [] # Only enable if you plan to use the `edge-executor` crate
 embassy-sync = [] # Only for backwards compatibility
 
 # Propagated esp-idf-sys features
