@@ -320,7 +320,7 @@ pub mod asynch {
     /// The HAL-global wake runner.
     /// You should use no more than 64 tasks with it.
     ///
-    /// `Notification` instances use this wake runner when they are triggered from an ISR context.
+    /// `*IsrNotification` instances use this wake runner when they are triggered from an ISR context.
     pub static HAL_WAKE_RUNNER: WakeRunner<64> = WakeRunner::new(WakeRunnerConfig::new());
 
     /// Wake runner configuration
