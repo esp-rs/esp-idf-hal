@@ -14,7 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * All async drivers can now work out of the box with any executor (`edge-executor` no longer a necessity) via a new ISR-to-task bridge (`esp_idf_hal::interrupt::asynch::WakeRunner`)
 * CAN driver: support for pulling alerts in blocking and async mode
 * UART driver: support for pulling UART events
-* `task` and `interrupt` modules: new submodule in each - `async` - featuring a signal/notification-like synchronization primitive
+* `task` and `interrupt` modules: new submodule in each - `asynch` - featuring a signal/notification-like synchronization primitive
 * `task` module: new sub-module - `queue` for the FreeRTOS `queue` synchonization primitive
 * `task` module: new sub-module - `notification` - a more ergonomic API around the FreeRTOS task notification API
    which was already exposed via the `task::notify` and `task::wait_notification` APIs
