@@ -1139,3 +1139,93 @@ pub mod queue {
         }
     }
 }
+
+pub mod asynch {
+    use core::future::Future;
+    use core::num::NonZeroU32;
+    use core::sync::atomic::{AtomicU32, Ordering};
+    use core::task::{Context, Poll, Waker};
+
+    use atomic_waker::AtomicWaker;
+
+    /// Single-slot lock-free signaling primitive supporting signalling with a `u32` bit-set.
+    ///
+    /// It is useful for sending data between tasks when the receiver only cares about
+    /// the latest data, and therefore it's fine to "lose" messages. This is often the case for "state"
+    /// updates.
+    ///
+    /// The sending part of the primitive is non-blocking, so it is also useful for notifying asynchronous tasks
+    /// from contexts where blocking or async wait is not possible.
+    ///
+    /// Similar in spirit to the ESP-IDF FreeRTOS task notifications in that it is light-weight and operates on bit-sets,
+    /// but for synchronization between an asynchronous task, and another one, which might be blocking or asynchronous.
+    pub struct Notification {
+        waker: AtomicWaker,
+        notified: AtomicU32,
+    }
+
+    impl Notification {
+        /// Creates a new `Notification`.
+        pub const fn new() -> Self {
+            Self {
+                waker: AtomicWaker::new(),
+                notified: AtomicU32::new(0),
+            }
+        }
+
+        /// Marks the least significant bit (bit 0) in this `IsrNotification` as nofified.
+        pub fn notify_lsb(&self) -> bool {
+            self.notify(NonZeroU32::new(1).unwrap())
+        }
+
+        /// Marks the supplied bits in this `Notification` as notified.
+        pub fn notify(&self, bits: NonZeroU32) -> bool {
+            if let Some(waker) = self.notify_waker(bits) {
+                waker.wake();
+
+                true
+            } else {
+                false
+            }
+        }
+
+        /// A utility to help in implementing a custom `wait` logic:
+        /// Adds the supplied bits as notified in the notification instance and returns the registered waker (if any).
+        pub fn notify_waker(&self, bits: NonZeroU32) -> Option<Waker> {
+            self.notified.fetch_or(bits.into(), Ordering::SeqCst);
+
+            self.waker.take()
+        }
+
+        /// Clears the state of this notification by removing any registered waker and setting all bits to 0.
+        pub fn reset(&self) {
+            self.waker.take();
+            self.notified.store(0, Ordering::SeqCst);
+        }
+
+        /// Future that completes when this `Notification` has been notified.
+        #[allow(unused)]
+        pub fn wait(&self) -> impl Future<Output = NonZeroU32> + '_ {
+            core::future::poll_fn(move |cx| self.poll_wait(cx))
+        }
+
+        /// Non-blocking method to check whether this notification has been notified.
+        pub fn poll_wait(&self, cx: &Context<'_>) -> Poll<NonZeroU32> {
+            self.waker.register(cx.waker());
+
+            let bits = self.notified.swap(0, Ordering::SeqCst);
+
+            if let Some(bits) = NonZeroU32::new(bits) {
+                Poll::Ready(bits)
+            } else {
+                Poll::Pending
+            }
+        }
+    }
+
+    impl Drop for Notification {
+        fn drop(&mut self) {
+            self.reset();
+        }
+    }
+}

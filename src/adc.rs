@@ -791,9 +791,9 @@ pub mod continuous {
 
     use crate::delay::{self, TickType};
     use crate::gpio::{sealed::ADCPin as _, ADCPin};
+    use crate::interrupt::asynch::HalIsrNotification;
     use crate::io::EspIOError;
     use crate::peripheral::Peripheral;
-    use crate::private::notification::HalIsrNotification;
 
     use super::{attenuation, Adc};
 
@@ -1291,7 +1291,7 @@ pub mod continuous {
             let notifier: &HalIsrNotification =
                 unsafe { (user_data as *const HalIsrNotification).as_ref() }.unwrap();
 
-            notifier.notify()
+            notifier.notify_lsb()
         }
     }
 
@@ -1313,7 +1313,7 @@ pub mod continuous {
 
             esp!(unsafe { adc_continuous_deinit(self.handle) }).unwrap();
 
-            NOTIFIER[self.adc as usize].clear();
+            NOTIFIER[self.adc as usize].reset();
         }
     }
 

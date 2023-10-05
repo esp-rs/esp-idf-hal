@@ -21,7 +21,7 @@ use esp_idf_sys::{
 };
 
 #[cfg(not(esp_idf_version_major = "4"))]
-use crate::private::notification::HalIsrNotification;
+use crate::interrupt::asynch::HalIsrNotification;
 use crate::{delay, io::EspIOError};
 
 // For v5+, we rely configuration options for PDM/TDM support.
@@ -1179,8 +1179,8 @@ impl<'d, Dir> Drop for I2sDriver<'d, Dir> {
             }
         }
 
-        SEND_NOTIFIER[self.port as usize].clear();
-        RECV_NOTIFIER[self.port as usize].clear();
+        SEND_NOTIFIER[self.port as usize].reset();
+        RECV_NOTIFIER[self.port as usize].reset();
     }
 }
 
@@ -1253,7 +1253,7 @@ unsafe extern "C" fn dispatch_send(
 ) -> bool {
     let port = user_ctx as u32 as i2s_port_t;
 
-    SEND_NOTIFIER[port as usize].notify()
+    SEND_NOTIFIER[port as usize].notify_lsb()
 }
 
 /// C-facing ISR dispatcher for on_recv_* callbacks.
@@ -1265,7 +1265,7 @@ unsafe extern "C" fn dispatch_recv(
 ) -> bool {
     let port = user_ctx as u32 as i2s_port_t;
 
-    RECV_NOTIFIER[port as usize].notify()
+    RECV_NOTIFIER[port as usize].notify_lsb()
 }
 
 macro_rules! impl_i2s {
