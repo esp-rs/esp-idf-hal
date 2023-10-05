@@ -359,10 +359,10 @@ pub mod asynch {
     /// allocation, and/or synchronization primitives which are not safe to use from an ISR context.
     ///
     /// Similarly, dropping a waker might also drop the executor task, resulting in a deallocation, which is also
-    /// not safe in an ISR context
+    /// not safe in an ISR context.
     ///
     /// These problems are alleviated by replacing direct `waker.wake()` calls to `WakerRunner::wake(waker)`.
-    /// What `WakeRunner::wake` does is to push the waker into a bounded queue and then notify a hidden FreeRTOS task
+    /// What `WakeRunner::wake` does is to push the waker into a bounded queue and then notify a hidden FreeRTOS task.
     /// Once the FreeRTOS task gets awoken, it wakes all wakers scheduled on the bounded queue and empties the queue.
     pub struct WakeRunner<const N: usize> {
         wakers_cs: IsrCriticalSection,
