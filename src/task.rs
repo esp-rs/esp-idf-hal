@@ -846,47 +846,6 @@ pub mod notification {
     }
 }
 
-#[cfg(all(
-    feature = "edge-executor",
-    feature = "alloc",
-    target_has_atomic = "ptr"
-))]
-pub mod executor {
-    use core::num::NonZeroU32;
-
-    use super::notification;
-
-    pub use edge_executor::*;
-
-    pub type EspExecutor<'a, const C: usize, S> = Executor<'a, C, FreeRtosMonitor, S>;
-    pub type EspBlocker = Blocker<FreeRtosMonitor>;
-
-    pub type FreeRtosMonitor = notification::Monitor;
-    pub type FreeRtosNotify = notification::Notifier;
-
-    impl Monitor for notification::Monitor {
-        type Notify = notification::Notifier;
-
-        fn notifier(&self) -> Self::Notify {
-            notification::Monitor::notifier(self)
-        }
-    }
-
-    impl Wait for notification::Monitor {
-        fn wait(&self) {
-            notification::Monitor::wait_any(self)
-        }
-    }
-
-    impl Notify for notification::Notifier {
-        fn notify(&self) {
-            unsafe {
-                notification::Notifier::notify_and_yield(self, NonZeroU32::new(1).unwrap());
-            }
-        }
-    }
-}
-
 pub mod queue {
     use core::{
         marker::PhantomData,
