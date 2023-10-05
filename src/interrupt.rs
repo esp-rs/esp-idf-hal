@@ -454,7 +454,10 @@ pub mod asynch {
 
                         if !task.is_null() {
                             unsafe {
-                                crate::task::notify_and_yield(task as _, 1);
+                                crate::task::notify_and_yield(
+                                    task as _,
+                                    NonZeroU32::new(1).unwrap(),
+                                );
                             }
                         }
                     })
