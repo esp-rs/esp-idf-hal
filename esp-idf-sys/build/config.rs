@@ -126,6 +126,7 @@ impl BuildConfig {
                     esp_idf_sdkconfig,
                     esp_idf_sdkconfig_defaults,
                     mcu,
+                    #[cfg(feature = "native")]
                     native: _,
                     esp_idf_sys_root_crate: _,
                 },
