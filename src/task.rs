@@ -1,4 +1,5 @@
 use core::cell::Cell;
+use core::num::NonZeroU32;
 use core::ptr::{self, NonNull};
 use core::sync::atomic::{AtomicBool, Ordering};
 
@@ -103,7 +104,7 @@ pub fn current() -> Option<TaskHandle_t> {
     }
 }
 
-pub fn wait_notification(timeout: TickType_t) -> Option<u32> {
+pub fn wait_notification(timeout: TickType_t) -> Option<NonZeroU32> {
     let mut notification = 0_u32;
 
     #[cfg(esp_idf_version = "4.3")]
@@ -117,7 +118,7 @@ pub fn wait_notification(timeout: TickType_t) -> Option<u32> {
         unsafe { xTaskGenericNotifyWait(0, 0, u32::MAX, &mut notification, timeout) } != 0;
 
     if notified {
-        Some(notification)
+        NonZeroU32::new(notification)
     } else {
         None
     }
@@ -128,7 +129,7 @@ pub fn wait_notification(timeout: TickType_t) -> Option<u32> {
 /// When calling this function care should be taken to pass a valid
 /// FreeRTOS task handle. Moreover, the FreeRTOS task should be valid
 /// when this function is being called.
-pub unsafe fn notify_and_yield(task: TaskHandle_t, notification: u32) -> bool {
+pub unsafe fn notify_and_yield(task: TaskHandle_t, notification: NonZeroU32) -> bool {
     let (notified, higher_prio_task_woken) = notify(task, notification);
 
     if higher_prio_task_woken {
@@ -143,7 +144,7 @@ pub unsafe fn notify_and_yield(task: TaskHandle_t, notification: u32) -> bool {
 /// When calling this function care should be taken to pass a valid
 /// FreeRTOS task handle. Moreover, the FreeRTOS task should be valid
 /// when this function is being called.
-pub unsafe fn notify(task: TaskHandle_t, notification: u32) -> (bool, bool) {
+pub unsafe fn notify(task: TaskHandle_t, notification: NonZeroU32) -> (bool, bool) {
     let (notified, higher_prio_task_woken) = if interrupt::active() {
         let mut higher_prio_task_woken: BaseType_t = Default::default();
 
@@ -163,7 +164,7 @@ pub unsafe fn notify(task: TaskHandle_t, notification: u32) -> (bool, bool) {
         let notified = xTaskGenericNotifyFromISR(
             task,
             0,
-            notification,
+            notification.into(),
             eNotifyAction_eSetBits,
             ptr::null_mut(),
             &mut higher_prio_task_woken,
@@ -182,7 +183,7 @@ pub unsafe fn notify(task: TaskHandle_t, notification: u32) -> (bool, bool) {
         let notified = xTaskGenericNotify(
             task,
             0,
-            notification,
+            notification.into(),
             eNotifyAction_eSetBits,
             ptr::null_mut(),
         );
@@ -733,6 +734,7 @@ pub mod embassy_sync {
 
 #[cfg(all(feature = "alloc", target_has_atomic = "ptr"))]
 pub mod notification {
+    use core::num::NonZeroU32;
     use core::sync::atomic::{AtomicPtr, Ordering};
     use core::{mem, ptr};
 
@@ -765,15 +767,13 @@ pub mod notification {
 
         pub fn wait_any(&self) {
             loop {
-                if let Some(notification) = task::wait_notification(crate::delay::BLOCK) {
-                    if notification != 0 {
-                        break;
-                    }
+                if task::wait_notification(crate::delay::BLOCK).is_some() {
+                    break;
                 }
             }
         }
 
-        pub fn wait(&self, timeout: TickType_t) -> Option<u32> {
+        pub fn wait(&self, timeout: TickType_t) -> Option<NonZeroU32> {
             task::wait_notification(timeout)
         }
     }
@@ -811,7 +811,7 @@ pub mod notification {
         /// `Arc` holding the task reference will stick around even when the actual task where the `Monitor` instance was
         /// created no longer exists. Which - in turn - would mean that the method will be trying to notify a task
         /// which does no longer exist, which would lead to UB and specifically - to memory corruption.
-        pub unsafe fn notify(&self, notification: u32) -> (bool, bool) {
+        pub unsafe fn notify(&self, notification: NonZeroU32) -> (bool, bool) {
             if let Some(notify) = self.0.upgrade() {
                 let freertos_task = notify.load(Ordering::SeqCst);
 
@@ -832,7 +832,7 @@ pub mod notification {
         /// `Arc` holding the task reference will stick around even when the actual task where the `Monitor` instance was
         /// created no longer exists. Which - in turn - would mean that the method will be trying to notify a task
         /// which does no longer exist, which would lead to UB and specifically - to memory corruption.
-        pub unsafe fn notify_and_yield(&self, notification: u32) -> bool {
+        pub unsafe fn notify_and_yield(&self, notification: NonZeroU32) -> bool {
             if let Some(notify) = self.0.upgrade() {
                 let freertos_task = notify.load(Ordering::SeqCst);
 
@@ -852,6 +852,8 @@ pub mod notification {
     target_has_atomic = "ptr"
 ))]
 pub mod executor {
+    use core::num::NonZeroU32;
+
     use super::notification;
 
     pub use edge_executor::*;
@@ -879,7 +881,7 @@ pub mod executor {
     impl Notify for notification::Notifier {
         fn notify(&self) {
             unsafe {
-                notification::Notifier::notify_and_yield(self, 1);
+                notification::Notifier::notify_and_yield(self, NonZeroU32::new(1).unwrap());
             }
         }
     }
