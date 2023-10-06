@@ -5,7 +5,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.47.0] - 2023-09-21
+## [0.47.0] - 2023-10-05
 * MSRV raised to 1.71
 * New `experimental` module - `bt` - providing Bluetooth support based on the ESP-IDF Bluedroid implementation
   * Only classic BT supported for now (on the ESP32) with the following profiles: A2DP sink, AVRC controller, HFP client, GAP
@@ -19,6 +19,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * Breaking change: OTA: `EspOtaUpdate::abort` and `EspOtaUpdate::complete` now take `self` instead of `&mut self`
 * Breaking change: Removed the deprecated module `httpd` and the dependency on `anyhow`
 * Breaking change: HTTP server: `EspHttpRequest` renamed to `EspHttpRawConnection`
+* Breaking change: module `notify` removed as it was rarely - if ever - used, and there is a simpler `hal::task::notification` module now
 * Deprecated: Using ESP-IDF 4.3 is now deprecated and all special cfg flags will be removed in the next release
 
 ## [0.46.2] - 2023-07-30

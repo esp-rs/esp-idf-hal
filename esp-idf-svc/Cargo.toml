@@ -33,7 +33,8 @@ embassy-time-isr-queue = ["embassy-sync", "embassy-time", "embassy-sync"]
 # Propagated esp-idf-hal features
 embassy-sync = ["esp-idf-hal/embassy-sync", "dep:embassy-sync"]
 critical-section = ["esp-idf-hal/critical-section"]
-edge-executor = ["esp-idf-hal/edge-executor"]
+wake-from-isr = ["esp-idf-hal/wake-from-isr"]
+
 # The next are propagated from esp-idf-sys via esp-idf-hal
 native = ["esp-idf-hal/native"]
 pio = ["esp-idf-hal/pio"]
