@@ -454,10 +454,8 @@ pub mod asynch {
 
                     if let Some(earlier_waker) = earlier_waker {
                         *earlier_waker = waker;
-                    } else {
-                        if wakers.push_back(waker).is_err() {
-                            panic!("WakeRunner queue overflow");
-                        }
+                    } else if wakers.push_back(waker).is_err() {
+                        panic!("WakeRunner queue overflow");
                     }
 
                     let task = self.task.load(Ordering::SeqCst);
