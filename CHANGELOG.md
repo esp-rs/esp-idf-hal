@@ -23,6 +23,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * Breaking change: `delay::Delay` struct extended with configurable threshold
 * Breaking change: `task::wait_any_notification` removed; `task::notify` renamed to `task::notify_and_yield`; new function - `task::notify` - that notifies a task without automatically yielding to the notified task if it is a higher priority than the currently interrupted one
 * Breaking change: `task::notify*` and `task::wait` now take/return `NonZeroU32` instead of `u32`
+* Breaking change: GPIO - interrupts are now disabled automatically each time an ISR is triggered so as to avoid the IWDT triggering on level interrupts; use has to re-enable - in non-ISR code - via `PinDriver::enable_interrupt()`
 * Breaking change: ESP IDF support for `edge-executor` moved to the `edge-executor` crate
 * Deprecated: Using ESP-IDF 4.3 is now deprecated and all special cfg flags will be removed in the next release
 
