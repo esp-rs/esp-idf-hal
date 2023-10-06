@@ -154,7 +154,7 @@ pub unsafe fn notify(task: TaskHandle_t, notification: NonZeroU32) -> (bool, boo
         )]
         let notified = xTaskGenericNotifyFromISR(
             task,
-            notification,
+            notification.into(),
             eNotifyAction_eSetBits,
             ptr::null_mut(),
             &mut higher_prio_task_woken,
@@ -176,8 +176,12 @@ pub unsafe fn notify(task: TaskHandle_t, notification: NonZeroU32) -> (bool, boo
         #[deprecated(
             note = "Using ESP-IDF 4.3 is untested, please upgrade to 4.4 or newer. Support will be removed in the next major release."
         )]
-        let notified =
-            xTaskGenericNotify(task, notification, eNotifyAction_eSetBits, ptr::null_mut());
+        let notified = xTaskGenericNotify(
+            task,
+            notification.into(),
+            eNotifyAction_eSetBits,
+            ptr::null_mut(),
+        );
 
         #[cfg(not(esp_idf_version = "4.3"))]
         let notified = xTaskGenericNotify(
@@ -1135,11 +1139,13 @@ pub mod asynch {
         }
 
         /// Marks the least significant bit (bit 0) in this `IsrNotification` as nofified.
+        /// Returns `true` if there was a registered waker which got awoken.
         pub fn notify_lsb(&self) -> bool {
             self.notify(NonZeroU32::new(1).unwrap())
         }
 
         /// Marks the supplied bits in this `Notification` as notified.
+        /// Returns `true` if there was a registered waker which got awoken.
         pub fn notify(&self, bits: NonZeroU32) -> bool {
             if let Some(waker) = self.notify_waker(bits) {
                 waker.wake();
