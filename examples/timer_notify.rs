@@ -1,3 +1,5 @@
+use std::num::NonZeroU32;
+
 use esp_idf_hal::sys::{EspError, TaskHandle_t}; // If using the `binstart` feature of `esp-idf-sys`, always keep this module imported
 
 fn main() -> Result<(), EspError> {
@@ -27,8 +29,8 @@ fn main() -> Result<(), EspError> {
     // is active
     unsafe {
         timer.subscribe(move || {
-            let event_number = 42;
-            esp_idf_hal::task::notify_and_yield(main_task_handle, event_number);
+            let bitset = 0b10001010101;
+            esp_idf_hal::task::notify_and_yield(main_task_handle, NonZeroU32::new(bitset).unwrap());
         })?;
     }
 
@@ -40,14 +42,10 @@ fn main() -> Result<(), EspError> {
         // The benefit with this approach over checking a global static variable is
         // that the scheduler can hold the task, and resume when signaled
         // so no spinlock is needed
-        let event_id = esp_idf_hal::task::wait_notification(esp_idf_hal::delay::BLOCK);
+        let bitset = esp_idf_hal::task::wait_notification(esp_idf_hal::delay::BLOCK);
 
-        // Note that the println functions are to slow for 200us
-        // Even if we just send one charachter we can not go below 1ms per msg
-        // so we are missing some events here - but if they are evaluated without
-        // printing them the maintask will be fast enough no problem
-        if let Some(event) = event_id {
-            println!("got event with the number {event} from ISR");
+        if let Some(bitset) = bitset {
+            println!("got event with bits {bitset:#b} from ISR");
         }
     }
 }

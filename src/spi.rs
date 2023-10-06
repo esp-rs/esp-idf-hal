@@ -37,6 +37,7 @@ use core::borrow::{Borrow, BorrowMut};
 use core::cell::Cell;
 use core::cell::UnsafeCell;
 use core::cmp::{max, min, Ordering};
+use core::future::Future;
 use core::iter::once;
 use core::marker::PhantomData;
 use core::{ptr, u8};
@@ -49,10 +50,9 @@ use heapless::Deque;
 
 use crate::delay::{self, Ets, BLOCK};
 use crate::gpio::{AnyOutputPin, InputPin, Level, Output, OutputMode, OutputPin, PinDriver};
+use crate::interrupt::asynch::HalIsrNotification;
 use crate::interrupt::IntrFlags;
 use crate::peripheral::Peripheral;
-use crate::private::completion::with_completion;
-use crate::private::notification::Notification;
 use crate::task::embassy_sync::EspRawMutex;
 use crate::task::CriticalSection;
 
@@ -1771,13 +1771,14 @@ async fn spi_transmit_async(
 
     with_completion(
         async {
-            pub type Queue = Deque<(spi_transaction_t, Notification), MAX_QUEUED_TRANSACTIONS>;
+            pub type Queue =
+                Deque<(spi_transaction_t, HalIsrNotification), MAX_QUEUED_TRANSACTIONS>;
 
             let mut queue = Queue::new();
             let queue_size = min(MAX_QUEUED_TRANSACTIONS, queue_size);
 
             let push = |queue: &mut Queue, transaction| {
-                let _ = queue.push_back((transaction, Notification::new()));
+                let _ = queue.push_back((transaction, HalIsrNotification::new()));
                 queued.set(queue.len());
 
                 let last = queue.back_mut().unwrap();
@@ -1841,10 +1842,10 @@ async fn spi_transmit_async(
 
 extern "C" fn spi_notify(transaction: *mut spi_transaction_t) {
     if let Some(transaction) = unsafe { transaction.as_ref() } {
-        if let Some(notification) =
-            unsafe { (transaction.user as *mut Notification as *const Notification).as_ref() }
-        {
-            notification.notify();
+        if let Some(notification) = unsafe {
+            (transaction.user as *mut HalIsrNotification as *const HalIsrNotification).as_ref()
+        } {
+            notification.notify_lsb();
         }
     }
 }
@@ -1862,6 +1863,40 @@ fn copy_operation<'b>(operation: &'b mut Operation<'_, u8>) -> Operation<'b, u8>
 fn data_mode_to_u8(data_mode: config::Mode) -> u8 {
     (((data_mode.polarity == config::Polarity::IdleHigh) as u8) << 1)
         | ((data_mode.phase == config::Phase::CaptureOnSecondTransition) as u8)
+}
+
+async fn with_completion<F, D>(fut: F, dtor: D) -> F::Output
+where
+    F: Future,
+    D: FnMut(bool),
+{
+    struct Completion<D>
+    where
+        D: FnMut(bool),
+    {
+        dtor: D,
+        completed: bool,
+    }
+
+    impl<D> Drop for Completion<D>
+    where
+        D: FnMut(bool),
+    {
+        fn drop(&mut self) {
+            (self.dtor)(self.completed);
+        }
+    }
+
+    let mut completion = Completion {
+        dtor,
+        completed: false,
+    };
+
+    let result = fut.await;
+
+    completion.completed = true;
+
+    result
 }
 
 macro_rules! impl_spi {

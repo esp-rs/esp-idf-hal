@@ -35,6 +35,7 @@
 use core::borrow::BorrowMut;
 use core::ffi::CStr;
 use core::marker::PhantomData;
+use core::num::NonZeroU32;
 
 use enumset::{EnumSet, EnumSetType};
 
@@ -46,7 +47,7 @@ use crate::cpu::Core;
 use crate::delay::{self, BLOCK, NON_BLOCK};
 use crate::interrupt::IntrFlags;
 use crate::peripheral::{Peripheral, PeripheralRef};
-use crate::private::notification::Notification;
+use crate::task::asynch::Notification;
 use crate::{gpio::*, task};
 
 crate::embedded_hal_error!(CanError, embedded_can::Error, embedded_can::ErrorKind);
@@ -661,7 +662,7 @@ where
 
     pub async fn read_alerts(&self) -> Result<EnumSet<Alert>, EspError> {
         let alerts = loop {
-            let alerts = EnumSet::from_repr(ALERT_NOTIFICATION.wait().await)
+            let alerts = EnumSet::from_repr(ALERT_NOTIFICATION.wait().await.into())
                 .intersection(self.driver.borrow().1);
 
             if !alerts.is_empty() {
@@ -680,14 +681,16 @@ where
                 let ealerts: EnumSet<Alert> = EnumSet::from_repr_truncated(alerts);
 
                 if !ealerts.is_disjoint(read_alerts()) {
-                    READ_NOTIFICATION.notify();
+                    READ_NOTIFICATION.notify_lsb();
                 }
 
                 if !ealerts.is_disjoint(write_alerts()) {
-                    WRITE_NOTIFICATION.notify();
+                    WRITE_NOTIFICATION.notify_lsb();
                 }
 
-                ALERT_NOTIFICATION.signal(alerts);
+                if let Some(alerts) = NonZeroU32::new(alerts) {
+                    ALERT_NOTIFICATION.notify(alerts);
+                }
             }
         }
     }
@@ -705,6 +708,10 @@ where
         let mut alerts = 0;
         esp!(unsafe { twai_reconfigure_alerts(self.driver.borrow().1.as_repr(), &mut alerts) })
             .unwrap();
+
+        READ_NOTIFICATION.reset();
+        WRITE_NOTIFICATION.reset();
+        ALERT_NOTIFICATION.reset();
     }
 }
 

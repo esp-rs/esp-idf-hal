@@ -5,21 +5,24 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.42.0] - 2023-09-21
+## [0.42.0] - 2023-10-05
 * MSRV raised to 1.71
 * New driver: I2S
 * New driver: continuous ADC
 * New driver: snapshot ADC, implementing the new ESP-IDF 5.0+ snapshot ADC API
 * Async support in the following drivers: SPI, I2S, continuous ADC, CAN (via an `AsyncCanDriver` wrapper), UART (via an `AsyncUartDriver` wrapper)
+* All async drivers can now work out of the box with any executor (`edge-executor` no longer a necessity) via a new ISR-to-task bridge (`esp_idf_hal::interrupt::asynch::WakeRunner`)
 * CAN driver: support for pulling alerts in blocking and async mode
 * UART driver: support for pulling UART events
-* `task` module: safe wrapper - `queue::Queue` for the FreeRTOS `queue` synchonization primitive
+* `task` and `interrupt` modules: new submodule in each - `asynch` - featuring a signal/notification-like synchronization primitive
+* `task` module: new sub-module - `queue` for the FreeRTOS `queue` synchonization primitive
 * `task` module: new sub-module - `notification` - a more ergonomic API around the FreeRTOS task notification API
    which was already exposed via the `task::notify` and `task::wait_notification` APIs
 * Upgraded to `embedded-hal` 1.0.0-rc.1 and `embedded-hal-async` 1.0.0-rc.1
 * Dependency `esp-idf-sys` now re-exported as `esp_idf_hal::sys`
 * Breaking change: `delay::Delay` struct extended with configurable threshold
 * Breaking change: `task::wait_any_notification` removed; `task::notify` renamed to `task::notify_and_yield`; new function - `task::notify` - that notifies a task without automatically yielding to the notified task if it is a higher priority than the currently interrupted one
+* Breaking change: `task::notify*` and `task::wait` now take/return `NonZeroU32` instead of `u32`
 * Deprecated: Using ESP-IDF 4.3 is now deprecated and all special cfg flags will be removed in the next release
 
 ## [0.41.2] - 2023-06-21

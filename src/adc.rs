@@ -791,9 +791,9 @@ pub mod continuous {
 
     use crate::delay::{self, TickType};
     use crate::gpio::{sealed::ADCPin as _, ADCPin};
+    use crate::interrupt::asynch::HalIsrNotification;
     use crate::io::EspIOError;
     use crate::peripheral::Peripheral;
-    use crate::private::notification::Notification;
 
     use super::{attenuation, Adc};
 
@@ -1288,10 +1288,10 @@ pub mod continuous {
             _data: *const adc_continuous_evt_data_t,
             user_data: *mut c_void,
         ) -> bool {
-            let notifier: &Notification =
-                unsafe { (user_data as *const Notification).as_ref() }.unwrap();
+            let notifier: &HalIsrNotification =
+                unsafe { (user_data as *const HalIsrNotification).as_ref() }.unwrap();
 
-            notifier.notify()
+            notifier.notify_lsb()
         }
     }
 
@@ -1312,6 +1312,8 @@ pub mod continuous {
             }
 
             esp!(unsafe { adc_continuous_deinit(self.handle) }).unwrap();
+
+            NOTIFIER[self.adc as usize].reset();
         }
     }
 
@@ -1337,9 +1339,10 @@ pub mod continuous {
 
     #[cfg(not(esp_idf_adc_continuous_isr_iram_safe))]
     #[cfg(any(esp32c2, esp32h2, esp32c5, esp32c6, esp32p4))] // TODO: Check for esp32c5 and esp32p4
-    static NOTIFIER: [Notification; 1] = [Notification::new()];
+    static NOTIFIER: [HalIsrNotification; 1] = [HalIsrNotification::new()];
 
     #[cfg(not(esp_idf_adc_continuous_isr_iram_safe))]
     #[cfg(not(any(esp32c2, esp32h2, esp32c5, esp32c6, esp32p4)))] // TODO: Check for esp32c5 and esp32p4
-    static NOTIFIER: [Notification; 2] = [Notification::new(), Notification::new()];
+    static NOTIFIER: [HalIsrNotification; 2] =
+        [HalIsrNotification::new(), HalIsrNotification::new()];
 }

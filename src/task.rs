@@ -1,4 +1,5 @@
 use core::cell::Cell;
+use core::num::NonZeroU32;
 use core::ptr::{self, NonNull};
 use core::sync::atomic::{AtomicBool, Ordering};
 
@@ -103,7 +104,7 @@ pub fn current() -> Option<TaskHandle_t> {
     }
 }
 
-pub fn wait_notification(timeout: TickType_t) -> Option<u32> {
+pub fn wait_notification(timeout: TickType_t) -> Option<NonZeroU32> {
     let mut notification = 0_u32;
 
     #[cfg(esp_idf_version = "4.3")]
@@ -117,7 +118,7 @@ pub fn wait_notification(timeout: TickType_t) -> Option<u32> {
         unsafe { xTaskGenericNotifyWait(0, 0, u32::MAX, &mut notification, timeout) } != 0;
 
     if notified {
-        Some(notification)
+        NonZeroU32::new(notification)
     } else {
         None
     }
@@ -128,7 +129,7 @@ pub fn wait_notification(timeout: TickType_t) -> Option<u32> {
 /// When calling this function care should be taken to pass a valid
 /// FreeRTOS task handle. Moreover, the FreeRTOS task should be valid
 /// when this function is being called.
-pub unsafe fn notify_and_yield(task: TaskHandle_t, notification: u32) -> bool {
+pub unsafe fn notify_and_yield(task: TaskHandle_t, notification: NonZeroU32) -> bool {
     let (notified, higher_prio_task_woken) = notify(task, notification);
 
     if higher_prio_task_woken {
@@ -143,7 +144,7 @@ pub unsafe fn notify_and_yield(task: TaskHandle_t, notification: u32) -> bool {
 /// When calling this function care should be taken to pass a valid
 /// FreeRTOS task handle. Moreover, the FreeRTOS task should be valid
 /// when this function is being called.
-pub unsafe fn notify(task: TaskHandle_t, notification: u32) -> (bool, bool) {
+pub unsafe fn notify(task: TaskHandle_t, notification: NonZeroU32) -> (bool, bool) {
     let (notified, higher_prio_task_woken) = if interrupt::active() {
         let mut higher_prio_task_woken: BaseType_t = Default::default();
 
@@ -153,7 +154,7 @@ pub unsafe fn notify(task: TaskHandle_t, notification: u32) -> (bool, bool) {
         )]
         let notified = xTaskGenericNotifyFromISR(
             task,
-            notification,
+            notification.into(),
             eNotifyAction_eSetBits,
             ptr::null_mut(),
             &mut higher_prio_task_woken,
@@ -163,7 +164,7 @@ pub unsafe fn notify(task: TaskHandle_t, notification: u32) -> (bool, bool) {
         let notified = xTaskGenericNotifyFromISR(
             task,
             0,
-            notification,
+            notification.into(),
             eNotifyAction_eSetBits,
             ptr::null_mut(),
             &mut higher_prio_task_woken,
@@ -175,14 +176,18 @@ pub unsafe fn notify(task: TaskHandle_t, notification: u32) -> (bool, bool) {
         #[deprecated(
             note = "Using ESP-IDF 4.3 is untested, please upgrade to 4.4 or newer. Support will be removed in the next major release."
         )]
-        let notified =
-            xTaskGenericNotify(task, notification, eNotifyAction_eSetBits, ptr::null_mut());
+        let notified = xTaskGenericNotify(
+            task,
+            notification.into(),
+            eNotifyAction_eSetBits,
+            ptr::null_mut(),
+        );
 
         #[cfg(not(esp_idf_version = "4.3"))]
         let notified = xTaskGenericNotify(
             task,
             0,
-            notification,
+            notification.into(),
             eNotifyAction_eSetBits,
             ptr::null_mut(),
         );
@@ -733,6 +738,7 @@ pub mod embassy_sync {
 
 #[cfg(all(feature = "alloc", target_has_atomic = "ptr"))]
 pub mod notification {
+    use core::num::NonZeroU32;
     use core::sync::atomic::{AtomicPtr, Ordering};
     use core::{mem, ptr};
 
@@ -765,15 +771,13 @@ pub mod notification {
 
         pub fn wait_any(&self) {
             loop {
-                if let Some(notification) = task::wait_notification(crate::delay::BLOCK) {
-                    if notification != 0 {
-                        break;
-                    }
+                if task::wait_notification(crate::delay::BLOCK).is_some() {
+                    break;
                 }
             }
         }
 
-        pub fn wait(&self, timeout: TickType_t) -> Option<u32> {
+        pub fn wait(&self, timeout: TickType_t) -> Option<NonZeroU32> {
             task::wait_notification(timeout)
         }
     }
@@ -811,7 +815,7 @@ pub mod notification {
         /// `Arc` holding the task reference will stick around even when the actual task where the `Monitor` instance was
         /// created no longer exists. Which - in turn - would mean that the method will be trying to notify a task
         /// which does no longer exist, which would lead to UB and specifically - to memory corruption.
-        pub unsafe fn notify(&self, notification: u32) -> (bool, bool) {
+        pub unsafe fn notify(&self, notification: NonZeroU32) -> (bool, bool) {
             if let Some(notify) = self.0.upgrade() {
                 let freertos_task = notify.load(Ordering::SeqCst);
 
@@ -832,7 +836,7 @@ pub mod notification {
         /// `Arc` holding the task reference will stick around even when the actual task where the `Monitor` instance was
         /// created no longer exists. Which - in turn - would mean that the method will be trying to notify a task
         /// which does no longer exist, which would lead to UB and specifically - to memory corruption.
-        pub unsafe fn notify_and_yield(&self, notification: u32) -> bool {
+        pub unsafe fn notify_and_yield(&self, notification: NonZeroU32) -> bool {
             if let Some(notify) = self.0.upgrade() {
                 let freertos_task = notify.load(Ordering::SeqCst);
 
@@ -842,45 +846,6 @@ pub mod notification {
             }
 
             false
-        }
-    }
-}
-
-#[cfg(all(
-    feature = "edge-executor",
-    feature = "alloc",
-    target_has_atomic = "ptr"
-))]
-pub mod executor {
-    use super::notification;
-
-    pub use edge_executor::*;
-
-    pub type EspExecutor<'a, const C: usize, S> = Executor<'a, C, FreeRtosMonitor, S>;
-    pub type EspBlocker = Blocker<FreeRtosMonitor>;
-
-    pub type FreeRtosMonitor = notification::Monitor;
-    pub type FreeRtosNotify = notification::Notifier;
-
-    impl Monitor for notification::Monitor {
-        type Notify = notification::Notifier;
-
-        fn notifier(&self) -> Self::Notify {
-            notification::Monitor::notifier(self)
-        }
-    }
-
-    impl Wait for notification::Monitor {
-        fn wait(&self) {
-            notification::Monitor::wait_any(self)
-        }
-    }
-
-    impl Notify for notification::Notifier {
-        fn notify(&self) {
-            unsafe {
-                notification::Notifier::notify_and_yield(self, 1);
-            }
         }
     }
 }
@@ -1136,6 +1101,98 @@ pub mod queue {
             if self.is_owned {
                 unsafe { sys::vQueueDelete(self.ptr) }
             }
+        }
+    }
+}
+
+pub mod asynch {
+    use core::future::Future;
+    use core::num::NonZeroU32;
+    use core::sync::atomic::{AtomicU32, Ordering};
+    use core::task::{Context, Poll, Waker};
+
+    use atomic_waker::AtomicWaker;
+
+    /// Single-slot lock-free signaling primitive supporting signalling with a `u32` bit-set.
+    ///
+    /// It is useful for sending data between tasks when the receiver only cares about
+    /// the latest data, and therefore it's fine to "lose" messages. This is often the case for "state"
+    /// updates.
+    ///
+    /// The sending part of the primitive is non-blocking, so it is also useful for notifying asynchronous tasks
+    /// from contexts where blocking or async wait is not possible.
+    ///
+    /// Similar in spirit to the ESP-IDF FreeRTOS task notifications in that it is light-weight and operates on bit-sets,
+    /// but for synchronization between an asynchronous task, and another one, which might be blocking or asynchronous.
+    pub struct Notification {
+        waker: AtomicWaker,
+        notified: AtomicU32,
+    }
+
+    impl Notification {
+        /// Creates a new `Notification`.
+        pub const fn new() -> Self {
+            Self {
+                waker: AtomicWaker::new(),
+                notified: AtomicU32::new(0),
+            }
+        }
+
+        /// Marks the least significant bit (bit 0) in this `IsrNotification` as nofified.
+        /// Returns `true` if there was a registered waker which got awoken.
+        pub fn notify_lsb(&self) -> bool {
+            self.notify(NonZeroU32::new(1).unwrap())
+        }
+
+        /// Marks the supplied bits in this `Notification` as notified.
+        /// Returns `true` if there was a registered waker which got awoken.
+        pub fn notify(&self, bits: NonZeroU32) -> bool {
+            if let Some(waker) = self.notify_waker(bits) {
+                waker.wake();
+
+                true
+            } else {
+                false
+            }
+        }
+
+        /// A utility to help in implementing a custom `wait` logic:
+        /// Adds the supplied bits as notified in the notification instance and returns the registered waker (if any).
+        pub fn notify_waker(&self, bits: NonZeroU32) -> Option<Waker> {
+            self.notified.fetch_or(bits.into(), Ordering::SeqCst);
+
+            self.waker.take()
+        }
+
+        /// Clears the state of this notification by removing any registered waker and setting all bits to 0.
+        pub fn reset(&self) {
+            self.waker.take();
+            self.notified.store(0, Ordering::SeqCst);
+        }
+
+        /// Future that completes when this `Notification` has been notified.
+        #[allow(unused)]
+        pub fn wait(&self) -> impl Future<Output = NonZeroU32> + '_ {
+            core::future::poll_fn(move |cx| self.poll_wait(cx))
+        }
+
+        /// Non-blocking method to check whether this notification has been notified.
+        pub fn poll_wait(&self, cx: &Context<'_>) -> Poll<NonZeroU32> {
+            self.waker.register(cx.waker());
+
+            let bits = self.notified.swap(0, Ordering::SeqCst);
+
+            if let Some(bits) = NonZeroU32::new(bits) {
+                Poll::Ready(bits)
+            } else {
+                Poll::Pending
+            }
+        }
+    }
+
+    impl Drop for Notification {
+        fn drop(&mut self) {
+            self.reset();
         }
     }
 }

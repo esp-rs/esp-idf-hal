@@ -48,7 +48,7 @@ use crate::cpu::Core;
 use crate::delay::{self, NON_BLOCK};
 use crate::interrupt::IntrFlags;
 use crate::io::EspIOError;
-use crate::private::notification::Notification;
+use crate::task::asynch::Notification;
 use crate::task::queue::Queue;
 use crate::units::*;
 use crate::{gpio::*, task};
@@ -1788,6 +1788,10 @@ fn drop_task_common(task: TaskHandle_t, port: u8) {
     unsafe {
         task::destroy(task);
         QUEUES[port as usize] = core::ptr::null_mut();
+
+        READ_NOTIFS[port as usize].reset();
+        WRITE_NOTIFS[port as usize].reset();
+        TX_NOTIFS[port as usize].reset();
     }
 }
 
@@ -1801,11 +1805,11 @@ extern "C" fn process_events(arg: *mut core::ffi::c_void) {
                 UartEventPayload::Data { .. }
                 | UartEventPayload::RxBufferFull
                 | UartEventPayload::RxFifoOverflow => {
-                    READ_NOTIFS[port].notify();
+                    READ_NOTIFS[port].notify_lsb();
                 }
                 UartEventPayload::Break | UartEventPayload::DataBreak => {
-                    WRITE_NOTIFS[port].notify();
-                    TX_NOTIFS[port].notify();
+                    WRITE_NOTIFS[port].notify_lsb();
+                    TX_NOTIFS[port].notify_lsb();
                 }
                 _ => (),
             }
