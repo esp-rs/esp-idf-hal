@@ -1177,10 +1177,10 @@ impl<'d, Dir> Drop for I2sDriver<'d, Dir> {
             if !self.tx_handle.is_null() {
                 self.del_channel(self.tx_handle).unwrap();
             }
-        }
 
-        SEND_NOTIFIER[self.port as usize].reset();
-        RECV_NOTIFIER[self.port as usize].reset();
+            SEND_NOTIFIER[self.port as usize].reset();
+            RECV_NOTIFIER[self.port as usize].reset();
+        }
     }
 }
 

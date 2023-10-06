@@ -1371,10 +1371,10 @@ impl<'d> I2sDriver<'d, I2sTx> {
 ))]
 #[cfg_attr(
     feature = "nightly",
-    doc(all(
+    doc(cfg(all(
         any(esp32, esp32s3, esp32c3, esp32c6, esp32h2),
         esp_idf_version_major = "4"
-    ))
+    )))
 )]
 impl<'d> I2sDriver<'d, I2sTx> {
     /// Create a new pulse density modulation (PDM) mode driver for the given I2S peripheral with only the transmit
