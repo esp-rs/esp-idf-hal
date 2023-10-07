@@ -240,7 +240,7 @@ impl From<Method> for Newtype<ffi::c_uint> {
 
 static OPEN_SESSIONS: Mutex<BTreeMap<(u32, ffi::c_int), Arc<AtomicBool>>> =
     Mutex::wrap(RawMutex::new(), BTreeMap::new());
-static CLOSE_HANDLERS: Mutex<BTreeMap<u32, Vec<CloseHandler>>> =
+static CLOSE_HANDLERS: Mutex<BTreeMap<u32, Vec<CloseHandler<'static>>>> =
     Mutex::wrap(RawMutex::new(), BTreeMap::new());
 
 type NativeHandler<'a> = Box<dyn Fn(*mut httpd_req_t) -> ffi::c_int + Send + 'a>;
@@ -376,7 +376,7 @@ impl<'a> EspHttpServer<'a> {
         handler: H,
     ) -> Result<&mut Self, EspError>
     where
-        H: for<'r> Handler<EspHttpConnection<'r>> + 'a,
+        H: for<'r> Handler<EspHttpConnection<'r>> + Send + 'a,
     {
         let c_str = to_cstring_arg(uri)?;
 
@@ -431,7 +431,7 @@ impl<'a> EspHttpServer<'a> {
     }
 
     extern "C" fn handle_req(raw_req: *mut httpd_req_t) -> ffi::c_int {
-        let handler_ptr = (unsafe { *raw_req }).user_ctx as *mut NativeHandler;
+        let handler_ptr = (unsafe { *raw_req }).user_ctx as *mut NativeHandler<'static>;
 
         let handler = unsafe { handler_ptr.as_ref() }.unwrap();
 
@@ -1283,6 +1283,9 @@ pub mod ws {
 
                 let close_handlers = all_close_handlers.get_mut(&(self.sd as u32)).unwrap();
 
+                let close_handler: CloseHandler<'static> =
+                    unsafe { core::mem::transmute(close_handler) };
+
                 close_handlers.push(close_handler);
             }
 
@@ -1301,7 +1304,7 @@ pub mod ws {
             handler: &H,
         ) -> Result<(), E>
         where
-            H: for<'b> Fn(&'b mut EspHttpWsConnection) -> Result<(), E>,
+            H: for<'b> Fn(&'b mut EspHttpWsConnection) -> Result<(), E> + Send + 'a,
             E: Debug,
         {
             handler(connection)?;
@@ -1322,7 +1325,7 @@ pub mod ws {
             &self,
             server_handle: httpd_handle_t,
             handler: H,
-        ) -> (NativeHandler, CloseHandler)
+        ) -> (NativeHandler<'a>, CloseHandler<'a>)
         where
             H: for<'r> Fn(&'r mut EspHttpWsConnection) -> Result<(), E> + Send + Sync + 'a,
             E: Debug,
