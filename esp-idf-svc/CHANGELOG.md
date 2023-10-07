@@ -23,6 +23,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * Breaking change: MQTT client: Scoped handler; the event handler now needs to live only as long as the `EspMqttClient` instance. Therefore, `EspMqttClient` is now lifetimed: `EspMqttClient<'a, ...>` 
 * Breaking change: EspNow client: Scoped handlers; the event handlers now need to live only as long as the `EspNow` instance. Therefore, `EspNow` is now lifetimed: `EspNow<'a>` 
 * Breaking change: Sntp client: Scoped handler; the event handler now needs to live only as long as the `EspSntp` instance. Therefore, `EspSntp` is now lifetimed: `EspSntp<'a>` 
+* Breaking change (bugfix): Ping client: `EspPing::ping_details` now takes a `FnMut` callback, however the callback needs to be `Send`
 * Breaking change: Removed the deprecated module `httpd` and the dependency on `anyhow`
 * Breaking change: module `notify` removed as it was rarely - if ever - used, and there is a simpler `hal::task::notification` module now
 * Deprecated: Using ESP-IDF 4.3 is now deprecated and all special cfg flags will be removed in the next release
