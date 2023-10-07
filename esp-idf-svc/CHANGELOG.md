@@ -17,8 +17,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * OTA: New method: `EspOta::finish` that allows to postpone/avoid setting the updated partition as a boot one
 * Breaking change: OTA: `EspOtaUpdate` now parametric over the lifetime of a mutable reference to `EspOta` and returned by value
 * Breaking change: OTA: `EspOtaUpdate::abort` and `EspOtaUpdate::complete` now take `self` instead of `&mut self`
-* Breaking change: Removed the deprecated module `httpd` and the dependency on `anyhow`
+* Breaking change: HTTP server: Scoped handlers; handlers now need to live only as long as the `EspHttpServer` instance. Therefore, `EspHttpServer` is now lifetimed: `EspHttpServer<'a>`
 * Breaking change: HTTP server: `EspHttpRequest` renamed to `EspHttpRawConnection`
+* Breaking change: Removed the deprecated module `httpd` and the dependency on `anyhow`
 * Breaking change: module `notify` removed as it was rarely - if ever - used, and there is a simpler `hal::task::notification` module now
 * Deprecated: Using ESP-IDF 4.3 is now deprecated and all special cfg flags will be removed in the next release
 
