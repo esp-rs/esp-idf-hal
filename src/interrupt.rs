@@ -329,7 +329,7 @@ pub mod asynch {
     /// You should use no more than 64 tasks with it.
     ///
     /// `*IsrNotification` instances use this wake runner when they are triggered from an ISR context.
-    pub static HAL_WAKE_RUNNER: WakeRunner<64> = WakeRunner::new(WakeRunnerConfig::new());
+    pub static HAL_ISR_REACTOR: IsrReactor<64> = IsrReactor::new(WakeRunnerConfig::new());
 
     /// Wake runner configuration
     #[derive(Clone, Debug)]
@@ -343,7 +343,7 @@ pub mod asynch {
     impl WakeRunnerConfig {
         pub const fn new() -> Self {
             Self {
-                task_name: unsafe { CStr::from_bytes_with_nul_unchecked(b"WakeRunner\0") },
+                task_name: unsafe { CStr::from_bytes_with_nul_unchecked(b"IsrReactor\0") },
                 task_stack_size: 3084,
                 task_priority: 11,
                 task_pin_to_core: None,
@@ -357,7 +357,7 @@ pub mod asynch {
         }
     }
 
-    /// WakeRunner is a utility allowing `Waker` instances to be awoken fron an ISR context.
+    /// IsrReactor is a utility allowing `Waker` instances to be awoken fron an ISR context.
     ///
     /// General problem:
     /// In an interrupt, using Waker instances coming from generic executors is impossible,
@@ -369,10 +369,10 @@ pub mod asynch {
     /// Similarly, dropping a waker might also drop the executor task, resulting in a deallocation, which is also
     /// not safe in an ISR context.
     ///
-    /// These problems are alleviated by replacing direct `waker.wake()` calls to `WakerRunner::wake(waker)`.
-    /// What `WakeRunner::wake` does is to push the waker into a bounded queue and then notify a hidden FreeRTOS task.
+    /// These problems are alleviated by replacing direct `waker.wake()` calls to `WakerRunner::schedule(waker)`.
+    /// What `IsrReactor::schedule` does is to push the waker into a bounded queue and then notify a hidden FreeRTOS task.
     /// Once the FreeRTOS task gets awoken, it wakes all wakers scheduled on the bounded queue and empties the queue.
-    pub struct WakeRunner<const N: usize> {
+    pub struct IsrReactor<const N: usize> {
         wakers_cs: IsrCriticalSection,
         wakers: UnsafeCell<heapless::Deque<Waker, N>>,
         task_cs: CriticalSection,
@@ -380,8 +380,8 @@ pub mod asynch {
         task_config: WakeRunnerConfig,
     }
 
-    impl<const N: usize> WakeRunner<N> {
-        /// Create a new `WakeRunner` instance.
+    impl<const N: usize> IsrReactor<N> {
+        /// Create a new `IsrReactor` instance.
         pub const fn new(config: WakeRunnerConfig) -> Self {
             Self {
                 wakers_cs: IsrCriticalSection::new(),
@@ -415,7 +415,7 @@ pub mod asynch {
 
                 self.task.store(task as _, Ordering::SeqCst);
 
-                info!("WakeRunner {:?} started.", self.task_config.task_name);
+                info!("IsrReactor {:?} started.", self.task_config.task_name);
 
                 Ok(true)
             } else {
@@ -434,7 +434,7 @@ pub mod asynch {
                     crate::task::destroy(task as _);
                 }
 
-                info!("WakeRunner {:?} stopped.", self.task_config.task_name);
+                info!("IsrReactor {:?} stopped.", self.task_config.task_name);
 
                 true
             } else {
@@ -455,7 +455,7 @@ pub mod asynch {
                     if let Some(earlier_waker) = earlier_waker {
                         *earlier_waker = waker;
                     } else if wakers.push_back(waker).is_err() {
-                        panic!("WakeRunner queue overflow");
+                        panic!("IsrReactor queue overflow");
                     }
 
                     let task = self.task.load(Ordering::SeqCst);
@@ -503,20 +503,20 @@ pub mod asynch {
 
         extern "C" fn task_run(ctx: *mut c_void) {
             let this =
-                unsafe { (ctx as *mut WakeRunner<N> as *const WakeRunner<N>).as_ref() }.unwrap();
+                unsafe { (ctx as *mut IsrReactor<N> as *const IsrReactor<N>).as_ref() }.unwrap();
 
             this.run();
         }
     }
 
-    impl<const N: usize> Drop for WakeRunner<N> {
+    impl<const N: usize> Drop for IsrReactor<N> {
         fn drop(&mut self) {
             self.stop();
         }
     }
 
-    unsafe impl<const N: usize> Send for WakeRunner<N> {}
-    unsafe impl<const N: usize> Sync for WakeRunner<N> {}
+    unsafe impl<const N: usize> Send for IsrReactor<N> {}
+    unsafe impl<const N: usize> Sync for IsrReactor<N> {}
 
     /// Single-slot lock-free signaling primitive supporting signalling with a `u32` bit-set.
     /// A variation of the `Notification` HAL primitive which is however safe to be notified from an ISR context.
@@ -531,16 +531,16 @@ pub mod asynch {
     /// but for synchronization between an asynchronous task, and another one, which might be blocking or asynchronous.
     pub struct IsrNotification<const N: usize> {
         inner: Notification,
-        runner: &'static WakeRunner<N>,
+        reactor: &'static IsrReactor<N>,
     }
 
     impl<const N: usize> IsrNotification<N> {
         /// Creates a new `IsrNotification`.
         /// This method is safe to call from an ISR context, yet such use cases should not normally occur in practice.
-        pub const fn new(runner: &'static WakeRunner<N>) -> Self {
+        pub const fn new(reactor: &'static IsrReactor<N>) -> Self {
             Self {
                 inner: Notification::new(),
-                runner,
+                reactor,
             }
         }
 
@@ -556,7 +556,7 @@ pub mod asynch {
         /// Returns `true` if there was a registered waker which got awoken.
         pub fn notify(&self, bits: NonZeroU32) -> bool {
             if let Some(waker) = self.inner.notify_waker(bits) {
-                self.runner.schedule(waker);
+                self.reactor.schedule(waker);
 
                 true
             } else {
@@ -574,7 +574,7 @@ pub mod asynch {
         /// This method is NOT safe to call from an ISR context.
         #[allow(unused)]
         pub fn wait(&self) -> impl Future<Output = NonZeroU32> + '_ {
-            self.runner.start().unwrap();
+            self.reactor.start().unwrap();
 
             self.inner.wait()
         }
@@ -582,7 +582,7 @@ pub mod asynch {
         /// Non-blocking method to check whether this notification has been notified.
         /// This method is NOT safe to call from an ISR context.
         pub fn poll_wait(&self, cx: &Context<'_>) -> Poll<NonZeroU32> {
-            self.runner.start().unwrap();
+            self.reactor.start().unwrap();
 
             self.inner.poll_wait(cx)
         }
@@ -626,7 +626,7 @@ pub mod asynch {
         /// Returns `true` if there was a registered waker which got awoken.
         pub fn notify(&self, bits: NonZeroU32) -> bool {
             if let Some(waker) = self.inner.notify_waker(bits) {
-                HAL_WAKE_RUNNER.schedule(waker);
+                HAL_ISR_REACTOR.schedule(waker);
 
                 true
             } else {
@@ -644,7 +644,7 @@ pub mod asynch {
         /// This method is NOT safe to call from an ISR context.
         #[allow(unused)]
         pub fn wait(&self) -> impl Future<Output = NonZeroU32> + '_ {
-            HAL_WAKE_RUNNER.start().unwrap();
+            HAL_ISR_REACTOR.start().unwrap();
 
             self.inner.wait()
         }
@@ -652,7 +652,7 @@ pub mod asynch {
         /// Non-blocking method to check whether this notification has been notified.
         /// This method is NOT safe to call from an ISR context.
         pub fn poll_wait(&self, cx: &Context<'_>) -> Poll<NonZeroU32> {
-            HAL_WAKE_RUNNER.start().unwrap();
+            HAL_ISR_REACTOR.start().unwrap();
 
             self.inner.poll_wait(cx)
         }
