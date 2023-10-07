@@ -6,6 +6,8 @@
 //! another without connection. CTR with CBC-MAC Protocol(CCMP) is used to
 //! protect the action frame for security. ESP-NOW is widely used in smart
 //! light, remote controlling, sensor, etc.
+use core::marker::PhantomData;
+
 use ::log::info;
 
 use alloc::boxed::Box;
@@ -19,10 +21,10 @@ type Singleton<T> = Mutex<Option<Box<T>>>;
 pub const BROADCAST: [u8; 6] = [0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF];
 
 #[allow(clippy::type_complexity)]
-static RECV_CALLBACK: Singleton<dyn FnMut(&[u8], &[u8]) + Send> =
+static RECV_CALLBACK: Singleton<dyn FnMut(&[u8], &[u8]) + Send + 'static> =
     Mutex::wrap(RawMutex::new(), None);
 #[allow(clippy::type_complexity)]
-static SEND_CALLBACK: Singleton<dyn FnMut(&[u8], SendStatus) + Send> =
+static SEND_CALLBACK: Singleton<dyn FnMut(&[u8], SendStatus) + Send + 'static> =
     Mutex::wrap(RawMutex::new(), None);
 
 static TAKEN: Mutex<bool> = Mutex::wrap(RawMutex::new(), false);
@@ -45,9 +47,9 @@ impl From<u32> for SendStatus {
 
 pub type PeerInfo = esp_now_peer_info_t;
 
-pub struct EspNow(());
+pub struct EspNow<'a>(PhantomData<&'a ()>);
 
-impl EspNow {
+impl<'a> EspNow<'a> {
     pub fn take() -> Result<Self, EspError> {
         let mut taken = TAKEN.lock();
 
@@ -65,7 +67,7 @@ impl EspNow {
 
         *taken = true;
 
-        Ok(Self(()))
+        Ok(Self(PhantomData))
     }
 
     pub fn send(&self, peer_addr: [u8; 6], data: &[u8]) -> Result<(), EspError> {
@@ -126,10 +128,14 @@ impl EspNow {
         Ok(version)
     }
 
-    pub fn register_recv_cb(
-        &self,
-        callback: impl for<'b, 'c> FnMut(&'b [u8], &'c [u8]) + 'static + Send,
-    ) -> Result<(), EspError> {
+    pub fn register_recv_cb<F>(&self, callback: F) -> Result<(), EspError>
+    where
+        F: FnMut(&[u8], &[u8]) + Send + 'a,
+    {
+        let callback: Box<dyn FnMut(&[u8], &[u8]) + Send + 'a> = Box::new(callback);
+        let callback: Box<dyn FnMut(&[u8], &[u8]) + Send + 'static> =
+            unsafe { core::mem::transmute(callback) };
+
         *RECV_CALLBACK.lock() = Some(Box::new(callback));
         esp!(unsafe { esp_now_register_recv_cb(Some(Self::recv_callback)) })?;
 
@@ -143,10 +149,14 @@ impl EspNow {
         Ok(())
     }
 
-    pub fn register_send_cb(
-        &self,
-        callback: impl for<'b, 'c> FnMut(&'b [u8], SendStatus) + 'static + Send,
-    ) -> Result<(), EspError> {
+    pub fn register_send_cb<F>(&self, callback: F) -> Result<(), EspError>
+    where
+        F: FnMut(&[u8], SendStatus) + Send + 'a,
+    {
+        let callback: Box<dyn FnMut(&[u8], SendStatus) + Send + 'a> = Box::new(callback);
+        let callback: Box<dyn FnMut(&[u8], SendStatus) + Send + 'static> =
+            unsafe { core::mem::transmute(callback) };
+
         *SEND_CALLBACK.lock() = Some(Box::new(callback));
         esp!(unsafe { esp_now_register_send_cb(Some(Self::send_callback)) })?;
 
@@ -189,21 +199,17 @@ impl EspNow {
     }
 }
 
-impl Drop for EspNow {
+impl<'a> Drop for EspNow<'a> {
     fn drop(&mut self) {
         let mut taken = TAKEN.lock();
 
         esp!(unsafe { esp_now_deinit() }).unwrap();
 
         let send_cb = &mut *SEND_CALLBACK.lock();
-        if send_cb.is_some() {
-            *send_cb = None;
-        }
+        *send_cb = None;
 
         let recv_cb = &mut *RECV_CALLBACK.lock();
-        if recv_cb.is_some() {
-            *recv_cb = None;
-        }
+        *recv_cb = None;
 
         *taken = false;
     }
