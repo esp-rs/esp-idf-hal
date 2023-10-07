@@ -31,9 +31,9 @@ pub use asyncify::*;
 #[cfg(all(feature = "alloc", esp_idf_comp_esp_timer_enabled))]
 pub use async_wait::*;
 
-pub type EspSystemSubscription = EspSubscription<System>;
-pub type EspBackgroundSubscription = EspSubscription<User<Background>>;
-pub type EspExplicitSubscription = EspSubscription<User<Explicit>>;
+pub type EspSystemSubscription<'a> = EspSubscription<'a, System>;
+pub type EspBackgroundSubscription<'a> = EspSubscription<'a, User<Background>>;
+pub type EspExplicitSubscription<'a> = EspSubscription<'a, User<Explicit>>;
 
 pub type EspSystemEventLoop = EspEventLoop<System>;
 pub type EspBackgroundEventLoop = EspEventLoop<User<Background>>;
@@ -210,11 +210,11 @@ impl EspEventFetchData {
     }
 }
 
-struct UnsafeCallback(*mut Box<dyn for<'a> FnMut(&'a EspEventFetchData) + 'static>);
+struct UnsafeCallback<'a>(*mut Box<dyn FnMut(&EspEventFetchData) + Send + 'a>);
 
-impl UnsafeCallback {
+impl<'a> UnsafeCallback<'a> {
     #[allow(clippy::type_complexity)]
-    fn from(boxed: &mut Box<Box<dyn for<'a> FnMut(&'a EspEventFetchData) + 'static>>) -> Self {
+    fn from(boxed: &mut Box<Box<dyn FnMut(&EspEventFetchData) + Send + 'a>>) -> Self {
         Self(boxed.as_mut())
     }
 
@@ -233,7 +233,7 @@ impl UnsafeCallback {
     }
 }
 
-pub struct EspSubscription<T>
+pub struct EspSubscription<'a, T>
 where
     T: EspEventLoopType,
 {
@@ -242,10 +242,10 @@ where
     source: *const ffi::c_char,
     event_id: i32,
     #[allow(clippy::type_complexity)]
-    _callback: Box<Box<dyn for<'a> FnMut(&'a EspEventFetchData) + 'static>>,
+    _callback: Box<Box<dyn FnMut(&EspEventFetchData) + Send + 'a>>,
 }
 
-impl<T> EspSubscription<T>
+impl<'a, T> EspSubscription<'a, T>
 where
     T: EspEventLoopType,
 {
@@ -267,10 +267,9 @@ where
     }
 }
 
-unsafe impl<T> Send for EspSubscription<T> where T: EspEventLoopType {}
-unsafe impl<T> Sync for EspSubscription<T> where T: EspEventLoopType {} // TODO XXX FIXME
+unsafe impl<'a, T> Send for EspSubscription<'a, T> where T: EspEventLoopType {}
 
-impl<T> Drop for EspSubscription<T>
+impl<'a, T> Drop for EspSubscription<'a, T>
 where
     T: EspEventLoopType,
 {
@@ -301,7 +300,7 @@ where
     }
 }
 
-impl<T> RawHandle for EspSubscription<User<T>>
+impl<'a, T> RawHandle for EspSubscription<'a, User<T>>
 where
     T: EspEventLoopType,
 {
@@ -395,15 +394,18 @@ where
     T: EspEventLoopType,
 {
     #[allow(clippy::not_unsafe_ptr_arg_deref)]
-    pub fn subscribe_raw(
+    pub fn subscribe_raw<'a, F>(
         &self,
         source: *const ffi::c_char,
         event_id: i32,
-        mut callback: impl for<'a> FnMut(&EspEventFetchData) + 'static,
-    ) -> Result<EspSubscription<T>, EspError> {
+        mut callback: F,
+    ) -> Result<EspSubscription<'a, T>, EspError>
+    where
+        F: FnMut(&EspEventFetchData) + Send + 'a,
+    {
         let mut handler_instance: esp_event_handler_instance_t = ptr::null_mut();
 
-        let callback: Box<dyn for<'a> FnMut(&EspEventFetchData) + 'static> =
+        let callback: Box<dyn FnMut(&EspEventFetchData) + Send + 'a> =
             Box::new(move |data| callback(data));
         let mut callback = Box::new(callback);
 
@@ -525,12 +527,10 @@ where
         }
     }
 
-    pub fn subscribe<P>(
-        &self,
-        mut callback: impl for<'b> FnMut(&'b P) + Send + 'static,
-    ) -> Result<EspSubscription<T>, EspError>
+    pub fn subscribe<'a, P, F>(&self, mut callback: F) -> Result<EspSubscription<'a, T>, EspError>
     where
         P: EspTypedEventDeserializer<P>,
+        F: FnMut(&P) + Send + 'a,
     {
         self.subscribe_raw(
             P::source(),
@@ -655,12 +655,12 @@ where
     P: EspTypedEventDeserializer<P>,
     T: EspEventLoopType,
 {
-    type Subscription = EspSubscription<T>;
+    type Subscription<'a> = EspSubscription<'a, T>;
 
-    fn subscribe(
-        &self,
-        callback: impl for<'b> FnMut(&'b P) + Send + 'static,
-    ) -> Result<Self::Subscription, Self::Error> {
+    fn subscribe<'a, F>(&self, callback: F) -> Result<Self::Subscription<'a>, Self::Error>
+    where
+        F: FnMut(&P) + Send + 'a,
+    {
         EspEventLoop::subscribe(self, callback)
     }
 }
@@ -788,12 +788,12 @@ where
     M: EspTypedEventDeserializer<P>,
     T: EspEventLoopType,
 {
-    type Subscription = EspSubscription<T>;
+    type Subscription<'a> = EspSubscription<'a, T>;
 
-    fn subscribe(
-        &self,
-        mut callback: impl for<'b> FnMut(&'b P) + Send + 'static,
-    ) -> Result<Self::Subscription, EspError> {
+    fn subscribe<'a, F>(&self, mut callback: F) -> Result<Self::Subscription<'a>, EspError>
+    where
+        F: FnMut(&P) + Send + 'a,
+    {
         self.untyped_event_loop.subscribe_raw(
             M::source(),
             M::event_id().unwrap_or(ESP_EVENT_ANY_ID),
@@ -802,17 +802,17 @@ where
     }
 }
 
-impl<'a, M, P, T> event_bus::EventBus<P> for EspTypedEventLoop<M, P, &'a EspEventLoop<T>>
+impl<'r, M, P, T> event_bus::EventBus<P> for EspTypedEventLoop<M, P, &'r EspEventLoop<T>>
 where
     M: EspTypedEventDeserializer<P>,
     T: EspEventLoopType,
 {
-    type Subscription = EspSubscription<T>;
+    type Subscription<'a> = EspSubscription<'a, T>;
 
-    fn subscribe(
-        &self,
-        mut callback: impl for<'b> FnMut(&'b P) + Send + 'static,
-    ) -> Result<Self::Subscription, EspError> {
+    fn subscribe<'a, F>(&self, mut callback: F) -> Result<Self::Subscription<'a>, EspError>
+    where
+        F: FnMut(&P) + Send + 'a,
+    {
         self.untyped_event_loop.subscribe_raw(
             M::source(),
             M::event_id().unwrap_or(ESP_EVENT_ANY_ID),
@@ -909,29 +909,29 @@ mod asyncify {
     }
 }
 
-pub struct Wait<E, T>
+pub struct Wait<'a, E, T>
 where
     T: EspEventLoopType,
 {
-    _subscription: EspSubscription<T>,
+    _subscription: EspSubscription<'a, T>,
     waitable: Arc<Waitable<()>>,
     _event: PhantomData<fn() -> E>,
 }
 
-impl<E, T> Wait<E, T>
+impl<'a, E, T> Wait<'a, E, T>
 where
     E: EspTypedEventDeserializer<E> + Debug,
     T: EspEventLoopType,
 {
-    pub fn new<F: Fn(&E) -> bool + Send + 'static>(
+    pub fn new<F: FnMut(&E) -> bool + Send + 'a>(
         sysloop: &EspEventLoop<T>,
-        waiter: F,
+        mut waiter: F,
     ) -> Result<Self, EspError> {
         let waitable: Arc<Waitable<()>> = Arc::new(Waitable::new(()));
 
         let s_waitable = waitable.clone();
         let subscription =
-            sysloop.subscribe(move |event: &E| Self::on_event(&s_waitable, event, &waiter))?;
+            sysloop.subscribe(move |event: &E| Self::on_event(&s_waitable, event, &mut waiter))?;
 
         Ok(Self {
             waitable,
@@ -970,7 +970,7 @@ where
         }
     }
 
-    fn on_event<F: Fn(&E) -> bool>(waitable: &Waitable<()>, event: &E, waiter: &F) {
+    fn on_event<F: FnMut(&E) -> bool>(waitable: &Waitable<()>, event: &E, waiter: &mut F) {
         debug!("Got event: {:?}", event);
 
         if waiter(event) {
@@ -999,9 +999,12 @@ mod async_wait {
         E: super::EspTypedEventDeserializer<E> + Send,
         T: super::EspEventLoopType,
     {
-        subscription:
-            AsyncSubscription<crate::private::mutex::RawCondvar, E, super::EspSubscription<T>>,
-        timer: AsyncTimer<EspTimer>,
+        subscription: AsyncSubscription<
+            crate::private::mutex::RawCondvar,
+            E,
+            super::EspSubscription<'static, T>,
+        >,
+        timer: AsyncTimer<EspTimer<'static>>,
         _event: PhantomData<fn() -> E>,
     }
 
@@ -1021,7 +1024,7 @@ mod async_wait {
             })
         }
 
-        pub async fn wait_while<F: Fn() -> Result<bool, EspError>>(
+        pub async fn wait_while<F: FnMut() -> Result<bool, EspError>>(
             &mut self,
             matcher: F,
             duration: Option<Duration>,
@@ -1054,13 +1057,13 @@ mod async_wait {
         }
 
         #[allow(clippy::all)]
-        async fn wait_sub<EE, TT, F: Fn() -> Result<bool, EspError>>(
+        async fn wait_sub<'s, EE, TT, F: FnMut() -> Result<bool, EspError>>(
             subscription: &mut AsyncSubscription<
                 crate::private::mutex::RawCondvar,
                 EE,
-                super::EspSubscription<TT>,
+                super::EspSubscription<'s, TT>,
             >,
-            matcher: F,
+            mut matcher: F,
         ) -> Result<(), EspError>
         where
             EE: Send + Clone,

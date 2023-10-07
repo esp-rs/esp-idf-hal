@@ -184,7 +184,10 @@ where
         Duration::from_micros(unsafe { esp_timer_get_time() as _ })
     }
 
-    pub fn timer<'a>(&self, callback: impl FnMut() + Send + 'a) -> Result<EspTimer<'a>, EspError> {
+    pub fn timer<'a, F>(&self, callback: F) -> Result<EspTimer<'a>, EspError>
+    where
+        F: FnMut() + Send + 'a,
+    {
         let mut handle: esp_timer_handle_t = ptr::null_mut();
 
         let boxed_callback: Box<dyn FnMut() + Send + 'a> = Box::new(callback);
@@ -252,10 +255,10 @@ where
 {
     type Timer<'a> = EspTimer<'a>;
 
-    fn timer<'a>(
-        &self,
-        callback: impl FnMut() + Send + 'a,
-    ) -> Result<Self::Timer<'a>, Self::Error> {
+    fn timer<'a, F>(&self, callback: F) -> Result<Self::Timer<'a>, Self::Error>
+    where
+        F: FnMut() + Send + 'a,
+    {
         EspTimerService::timer(self, callback)
     }
 }

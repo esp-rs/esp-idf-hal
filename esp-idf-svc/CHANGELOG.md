@@ -20,7 +20,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * Breaking change: HTTP server: Scoped handlers; handlers now need to live only as long as the `EspHttpServer` instance. Therefore, `EspHttpServer` is now lifetimed: `EspHttpServer<'a>`
 * Breaking change: HTTP server: `EspHttpRequest` renamed to `EspHttpRawConnection`
 * Breaking change: WS client: Scoped handler; the event handler now needs to live only as long as the `EspWebSocketClient` instance. Therefore, `EspWebSocketClient` is now lifetimed: `EspWebSocketClient<'a>` 
-* Breaking change: EspTimerService: scoped handler: the timer handler now only needs to live as long as the return `EspTimer` instance. Therefore, `EspTimer` is now lifetimed: `EspTimer<'a>`
+* Breaking change: EspTimerService: scoped handler: the timer callback now only needs to live as long as the returned `EspTimer` instance. Therefore, `EspTimer` is now lifetimed: `EspTimer<'a>`
+* Breaking change: EspEventLoop: scoped handler: the subscription callback now only needs to live as long as the returned `EspSubscription` instance. Therefore, `EspSubscription` is now lifetimed: `EspSubscription<'a, ...>`
 * Breaking change: MQTT client: Scoped handler; the event handler now needs to live only as long as the `EspMqttClient` instance. Therefore, `EspMqttClient` is now lifetimed: `EspMqttClient<'a, ...>` 
 * Breaking change: EspNow client: Scoped handlers; the event handlers now need to live only as long as the `EspNow` instance. Therefore, `EspNow` is now lifetimed: `EspNow<'a>` 
 * Breaking change: Sntp client: Scoped handler; the event handler now needs to live only as long as the `EspSntp` instance. Therefore, `EspSntp` is now lifetimed: `EspSntp<'a>` 

@@ -178,7 +178,7 @@ pub struct EthDriver<'d, T> {
     _flavor: T,
     handle: esp_eth_handle_t,
     status: Arc<mutex::Mutex<Status>>,
-    _subscription: EspSubscription<System>,
+    _subscription: EspSubscription<'static, System>,
     callback: Option<Box<RawCallback<'d>>>,
     _p: PhantomData<&'d mut ()>,
 }
@@ -608,7 +608,7 @@ impl<'d, T> EthDriver<'d, T> {
     fn subscribe(
         handle: esp_eth_handle_t,
         sysloop: &EspEventLoop<System>,
-    ) -> Result<(Arc<mutex::Mutex<Status>>, EspSubscription<System>), EspError> {
+    ) -> Result<(Arc<mutex::Mutex<Status>>, EspSubscription<'static, System>), EspError> {
         let status = Arc::new(mutex::Mutex::wrap(mutex::RawMutex::new(), Status::Stopped));
         let s_status = status.clone();
 
