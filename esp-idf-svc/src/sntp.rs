@@ -1,6 +1,7 @@
 //! SNTP Time Synchronization
 
 use core::cmp::min;
+use core::marker::PhantomData;
 use core::time::Duration;
 
 use ::log::*;
@@ -165,12 +166,13 @@ static SYNC_CB: mutex::Mutex<Option<SyncCallback>> =
     mutex::Mutex::wrap(mutex::RawMutex::new(), None);
 static TAKEN: mutex::Mutex<bool> = mutex::Mutex::wrap(mutex::RawMutex::new(), false);
 
-pub struct EspSntp {
+pub struct EspSntp<'a> {
     // Needs to be kept around because the C bindings only have a pointer.
     _sntp_servers: [CString; SNTP_SERVER_NUM],
+    _ref: PhantomData<&'a ()>,
 }
 
-impl EspSntp {
+impl<'a> EspSntp<'a> {
     pub fn new_default() -> Result<Self, EspError> {
         Self::new(&Default::default())
     }
@@ -191,7 +193,7 @@ impl EspSntp {
     #[cfg(feature = "alloc")]
     pub fn new_with_callback<F>(conf: &SntpConf, callback: F) -> Result<Self, EspError>
     where
-        F: FnMut(Duration) + Send + 'static,
+        F: FnMut(Duration) + Send + 'a,
     {
         let mut taken = TAKEN.lock();
 
@@ -199,7 +201,12 @@ impl EspSntp {
             esp!(ESP_ERR_INVALID_STATE)?;
         }
 
-        *SYNC_CB.lock() = Some(alloc::boxed::Box::new(callback));
+        let callback: alloc::boxed::Box<dyn FnMut(Duration) + Send + 'a> =
+            alloc::boxed::Box::new(callback);
+        let callback: alloc::boxed::Box<dyn FnMut(Duration) + Send + 'static> =
+            unsafe { core::mem::transmute(callback) };
+
+        *SYNC_CB.lock() = Some(callback);
         let sntp = Self::init(conf)?;
 
         *taken = true;
@@ -229,6 +236,7 @@ impl EspSntp {
 
         Ok(Self {
             _sntp_servers: c_servers,
+            _ref: PhantomData,
         })
     }
 
@@ -258,7 +266,7 @@ impl EspSntp {
     }
 }
 
-impl Drop for EspSntp {
+impl<'a> Drop for EspSntp<'a> {
     fn drop(&mut self) {
         {
             let mut taken = TAKEN.lock();
