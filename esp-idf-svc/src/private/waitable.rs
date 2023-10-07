@@ -34,7 +34,7 @@ where
         getter(&mut state)
     }
 
-    pub fn wait_while<F: Fn(&T) -> Result<bool, EspError>>(
+    pub fn wait_while<F: FnMut(&T) -> Result<bool, EspError>>(
         &self,
         condition: F,
     ) -> Result<(), EspError> {
@@ -42,7 +42,7 @@ where
     }
 
     #[allow(dead_code)]
-    pub fn wait_timeout_while<F: Fn(&T) -> Result<bool, EspError>>(
+    pub fn wait_timeout_while<F: FnMut(&T) -> Result<bool, EspError>>(
         &self,
         dur: Duration,
         condition: F,
@@ -51,10 +51,10 @@ where
             .map(|(timeout, _)| timeout)
     }
 
-    pub fn wait_while_and_get<F: Fn(&T) -> Result<bool, EspError>, G: Fn(&T) -> Q, Q>(
+    pub fn wait_while_and_get<F: FnMut(&T) -> Result<bool, EspError>, G: FnMut(&T) -> Q, Q>(
         &self,
-        condition: F,
-        getter: G,
+        mut condition: F,
+        mut getter: G,
     ) -> Result<Q, EspError> {
         let mut state = self.state.lock();
 
@@ -67,11 +67,15 @@ where
         }
     }
 
-    pub fn wait_timeout_while_and_get<F: Fn(&T) -> Result<bool, EspError>, G: Fn(&T) -> Q, Q>(
+    pub fn wait_timeout_while_and_get<
+        F: FnMut(&T) -> Result<bool, EspError>,
+        G: FnMut(&T) -> Q,
+        Q,
+    >(
         &self,
         dur: Duration,
-        condition: F,
-        getter: G,
+        mut condition: F,
+        mut getter: G,
     ) -> Result<(bool, Q), EspError> {
         let mut state = self.state.lock();
 

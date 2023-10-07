@@ -753,13 +753,18 @@ where
             .await
     }
 
-    pub async fn ip_wait_while<F: Fn() -> Result<bool, EspError>>(
+    pub async fn ip_wait_while<F: FnMut() -> Result<bool, EspError>>(
         &self,
         matcher: F,
         timeout: Option<core::time::Duration>,
     ) -> Result<(), EspError> {
-        let mut wait =
-            crate::eventloop::AsyncWait::<IpEvent, _>::new(&self.event_loop, &self.timer_service)?;
+        use embedded_svc::utils::asyncify::event_bus::AsyncEventBus;
+        use embedded_svc::utils::asyncify::timer::AsyncTimerService;
+
+        let event_loop = AsyncEventBus::new((), self.event_loop.clone());
+        let timer_service = AsyncTimerService::new(self.timer_service.clone());
+
+        let mut wait = crate::eventloop::AsyncWait::<IpEvent, _>::new(&event_loop, &timer_service)?;
 
         wait.wait_while(matcher, timeout).await
     }

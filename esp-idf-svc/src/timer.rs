@@ -253,9 +253,9 @@ impl<T> TimerService for EspTimerService<T>
 where
     T: EspTimerServiceType,
 {
-    type Timer<'a> = EspTimer<'a>;
+    type Timer<'a> = EspTimer<'a> where Self: 'a;
 
-    fn timer<'a, F>(&self, callback: F) -> Result<Self::Timer<'a>, Self::Error>
+    fn timer<'a, F>(&'a self, callback: F) -> Result<Self::Timer<'a>, Self::Error>
     where
         F: FnMut() + Send + 'a,
     {

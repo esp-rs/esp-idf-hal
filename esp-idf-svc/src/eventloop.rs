@@ -924,14 +924,14 @@ where
     T: EspEventLoopType,
 {
     pub fn new<F: FnMut(&E) -> bool + Send + 'a>(
-        sysloop: &EspEventLoop<T>,
+        event_loop: &EspEventLoop<T>,
         mut waiter: F,
     ) -> Result<Self, EspError> {
         let waitable: Arc<Waitable<()>> = Arc::new(Waitable::new(()));
 
         let s_waitable = waitable.clone();
-        let subscription =
-            sysloop.subscribe(move |event: &E| Self::on_event(&s_waitable, event, &mut waiter))?;
+        let subscription = event_loop
+            .subscribe(move |event: &E| Self::on_event(&s_waitable, event, &mut waiter))?;
 
         Ok(Self {
             waitable,
@@ -940,9 +940,9 @@ where
         })
     }
 
-    pub fn wait_while<F: Fn() -> Result<bool, EspError>>(
+    pub fn wait_while<F: FnMut() -> Result<bool, EspError>>(
         &self,
-        matcher: F,
+        mut matcher: F,
         duration: Option<Duration>,
     ) -> Result<(), EspError> {
         if let Some(duration) = duration {
@@ -994,7 +994,7 @@ mod async_wait {
 
     use crate::timer::{EspTaskTimerService, EspTimer};
 
-    pub struct AsyncWait<E, T>
+    pub struct AsyncWait<'a, E, T>
     where
         E: super::EspTypedEventDeserializer<E> + Send,
         T: super::EspEventLoopType,
@@ -1004,22 +1004,26 @@ mod async_wait {
             E,
             super::EspSubscription<'static, T>,
         >,
-        timer: AsyncTimer<EspTimer<'static>>,
+        timer: AsyncTimer<EspTimer<'a>>,
         _event: PhantomData<fn() -> E>,
     }
 
-    impl<E, T> AsyncWait<E, T>
+    impl<'a, E, T> AsyncWait<'a, E, T>
     where
         E: super::EspTypedEventDeserializer<E> + Debug + Send + Clone + 'static,
         T: super::EspEventLoopType + 'static,
     {
         pub fn new(
-            sysloop: &super::EspEventLoop<T>,
-            timer_service: &EspTaskTimerService,
+            event_loop: &'a AsyncEventBus<
+                (),
+                crate::private::mutex::RawCondvar,
+                super::EspEventLoop<T>,
+            >,
+            timer_service: &'a AsyncTimerService<EspTaskTimerService>,
         ) -> Result<Self, EspError> {
             Ok(Self {
-                subscription: AsyncEventBus::new((), sysloop.clone()).subscribe()?,
-                timer: AsyncTimerService::new(timer_service.clone()).timer()?,
+                subscription: event_loop.subscribe()?,
+                timer: timer_service.timer()?,
                 _event: PhantomData,
             })
         }
