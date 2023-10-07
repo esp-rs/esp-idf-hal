@@ -329,18 +329,18 @@ pub mod asynch {
     /// You should use no more than 64 tasks with it.
     ///
     /// `*IsrNotification` instances use this wake runner when they are triggered from an ISR context.
-    pub static HAL_ISR_REACTOR: IsrReactor<64> = IsrReactor::new(WakeRunnerConfig::new());
+    pub static HAL_ISR_REACTOR: IsrReactor<64> = IsrReactor::new(IsrReactorConfig::new());
 
     /// Wake runner configuration
     #[derive(Clone, Debug)]
-    pub struct WakeRunnerConfig {
+    pub struct IsrReactorConfig {
         pub task_name: &'static CStr,
         pub task_stack_size: usize,
         pub task_priority: u8,
         pub task_pin_to_core: Option<Core>,
     }
 
-    impl WakeRunnerConfig {
+    impl IsrReactorConfig {
         pub const fn new() -> Self {
             Self {
                 task_name: unsafe { CStr::from_bytes_with_nul_unchecked(b"IsrReactor\0") },
@@ -351,7 +351,7 @@ pub mod asynch {
         }
     }
 
-    impl Default for WakeRunnerConfig {
+    impl Default for IsrReactorConfig {
         fn default() -> Self {
             Self::new()
         }
@@ -377,12 +377,12 @@ pub mod asynch {
         wakers: UnsafeCell<heapless::Deque<Waker, N>>,
         task_cs: CriticalSection,
         task: AtomicPtr<crate::sys::tskTaskControlBlock>,
-        task_config: WakeRunnerConfig,
+        task_config: IsrReactorConfig,
     }
 
     impl<const N: usize> IsrReactor<N> {
         /// Create a new `IsrReactor` instance.
-        pub const fn new(config: WakeRunnerConfig) -> Self {
+        pub const fn new(config: IsrReactorConfig) -> Self {
             Self {
                 wakers_cs: IsrCriticalSection::new(),
                 wakers: UnsafeCell::new(heapless::Deque::new()),
