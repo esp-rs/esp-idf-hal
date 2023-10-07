@@ -285,10 +285,12 @@ impl<'a> TryFrom<&'a EspWebSocketClientConfig<'a>> for (esp_websocket_client_con
     }
 }
 
-struct UnsafeCallback(*mut Box<dyn FnMut(i32, *mut esp_websocket_event_data_t)>);
+struct UnsafeCallback<'a>(*mut Box<dyn FnMut(i32, *mut esp_websocket_event_data_t) + Send + 'a>);
 
-impl UnsafeCallback {
-    fn from(boxed: &mut Box<Box<dyn FnMut(i32, *mut esp_websocket_event_data_t)>>) -> Self {
+impl<'a> UnsafeCallback<'a> {
+    fn from(
+        boxed: &mut Box<Box<dyn FnMut(i32, *mut esp_websocket_event_data_t) + Send + 'a>>,
+    ) -> Self {
         Self(boxed.as_mut())
     }
 
@@ -370,17 +372,17 @@ impl EspWebSocketPostbox {
     }
 }
 
-pub struct EspWebSocketClient {
+pub struct EspWebSocketClient<'a> {
     handle: esp_websocket_client_handle_t,
     // used for the timeout in every call to a send method in the c lib as the
     // `send` method in the `Sender` trait in embedded_svc::ws does not take a timeout itself
     timeout: TickType_t,
-    _callback: Box<dyn FnMut(i32, *mut esp_websocket_event_data_t)>,
+    _callback: Box<dyn FnMut(i32, *mut esp_websocket_event_data_t) + Send + 'a>,
 }
 
-impl EspWebSocketClient {
+impl<'a> EspWebSocketClient<'a> {
     pub fn new_with_conn(
-        uri: impl AsRef<str>,
+        uri: &str,
         config: &EspWebSocketClientConfig,
         timeout: time::Duration,
     ) -> Result<(Self, EspWebSocketConnection), EspIOError> {
@@ -400,10 +402,10 @@ impl EspWebSocketClient {
     }
 
     pub fn new(
-        uri: impl AsRef<str>,
+        uri: &str,
         config: &EspWebSocketClientConfig,
         timeout: time::Duration,
-        mut callback: impl for<'a> FnMut(&'a Result<WebSocketEvent<'a>, EspIOError>) + Send + 'static,
+        mut callback: impl for<'r> FnMut(&'r Result<WebSocketEvent<'r>, EspIOError>) + Send + 'a,
     ) -> Result<Self, EspIOError> {
         Self::new_raw(
             uri,
@@ -420,10 +422,10 @@ impl EspWebSocketClient {
     }
 
     fn new_raw(
-        uri: impl AsRef<str>,
+        uri: &str,
         config: &EspWebSocketClientConfig,
         timeout: time::Duration,
-        raw_callback: Box<dyn FnMut(i32, *mut esp_websocket_event_data_t) + 'static>,
+        raw_callback: Box<dyn FnMut(i32, *mut esp_websocket_event_data_t) + Send + 'a>,
     ) -> Result<Self, EspIOError> {
         let mut boxed_raw_callback = Box::new(raw_callback);
         let unsafe_callback = UnsafeCallback::from(&mut boxed_raw_callback);
@@ -531,7 +533,7 @@ impl EspWebSocketClient {
     }
 }
 
-impl Drop for EspWebSocketClient {
+impl<'a> Drop for EspWebSocketClient<'a> {
     fn drop(&mut self) {
         esp!(unsafe { esp_websocket_client_close(self.handle, self.timeout) }).unwrap();
         esp!(unsafe { esp_websocket_client_destroy(self.handle) }).unwrap();
@@ -540,7 +542,7 @@ impl Drop for EspWebSocketClient {
     }
 }
 
-impl RawHandle for EspWebSocketClient {
+impl<'a> RawHandle for EspWebSocketClient<'a> {
     type Handle = esp_websocket_client_handle_t;
 
     fn handle(&self) -> Self::Handle {
@@ -548,14 +550,14 @@ impl RawHandle for EspWebSocketClient {
     }
 }
 
-impl ErrorType for EspWebSocketClient {
+impl<'a> ErrorType for EspWebSocketClient<'a> {
     type Error = EspIOError;
 }
 
-impl Sender for EspWebSocketClient {
+impl<'a> Sender for EspWebSocketClient<'a> {
     fn send(&mut self, frame_type: FrameType, frame_data: &[u8]) -> Result<(), Self::Error> {
         EspWebSocketClient::send(self, frame_type, frame_data).map_err(EspIOError)
     }
 }
 
-unsafe impl Send for EspWebSocketClient {}
+unsafe impl<'a> Send for EspWebSocketClient<'a> {}
