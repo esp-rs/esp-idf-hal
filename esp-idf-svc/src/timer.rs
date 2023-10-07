@@ -30,10 +30,10 @@ pub use isr::*;
 
 use crate::handle::RawHandle;
 
-struct UnsafeCallback(*mut Box<dyn FnMut()>);
+struct UnsafeCallback<'a>(*mut Box<dyn FnMut() + Send + 'a>);
 
-impl UnsafeCallback {
-    fn from(boxed: &mut Box<dyn FnMut()>) -> Self {
+impl<'a> UnsafeCallback<'a> {
+    fn from(boxed: &mut Box<dyn FnMut() + Send + 'a>) -> Self {
         Self(boxed)
     }
 
@@ -52,12 +52,12 @@ impl UnsafeCallback {
     }
 }
 
-pub struct EspTimer {
+pub struct EspTimer<'a> {
     handle: esp_timer_handle_t,
-    _callback: Box<dyn FnMut()>,
+    _callback: Box<dyn FnMut() + Send + 'a>,
 }
 
-impl EspTimer {
+impl<'a> EspTimer<'a> {
     pub fn is_scheduled(&self) -> Result<bool, EspError> {
         Ok(unsafe { esp_timer_is_active(self.handle) })
     }
@@ -111,9 +111,9 @@ impl EspTimer {
     }
 }
 
-unsafe impl Send for EspTimer {}
+unsafe impl<'a> Send for EspTimer<'a> {}
 
-impl Drop for EspTimer {
+impl<'a> Drop for EspTimer<'a> {
     fn drop(&mut self) {
         self.cancel().unwrap();
 
@@ -125,7 +125,7 @@ impl Drop for EspTimer {
     }
 }
 
-impl RawHandle for EspTimer {
+impl<'a> RawHandle for EspTimer<'a> {
     type Handle = esp_timer_handle_t;
 
     fn handle(&self) -> Self::Handle {
@@ -133,11 +133,11 @@ impl RawHandle for EspTimer {
     }
 }
 
-impl ErrorType for EspTimer {
+impl<'a> ErrorType for EspTimer<'a> {
     type Error = EspError;
 }
 
-impl timer::Timer for EspTimer {
+impl<'a> timer::Timer for EspTimer<'a> {
     fn is_scheduled(&self) -> Result<bool, Self::Error> {
         EspTimer::is_scheduled(self)
     }
@@ -147,13 +147,13 @@ impl timer::Timer for EspTimer {
     }
 }
 
-impl OnceTimer for EspTimer {
+impl<'a> OnceTimer for EspTimer<'a> {
     fn after(&mut self, duration: Duration) -> Result<(), Self::Error> {
         EspTimer::after(self, duration)
     }
 }
 
-impl PeriodicTimer for EspTimer {
+impl<'a> PeriodicTimer for EspTimer<'a> {
     fn every(&mut self, duration: Duration) -> Result<(), Self::Error> {
         EspTimer::every(self, duration)
     }
@@ -184,10 +184,10 @@ where
         Duration::from_micros(unsafe { esp_timer_get_time() as _ })
     }
 
-    pub fn timer(&self, callback: impl FnMut() + Send + 'static) -> Result<EspTimer, EspError> {
+    pub fn timer<'a>(&self, callback: impl FnMut() + Send + 'a) -> Result<EspTimer<'a>, EspError> {
         let mut handle: esp_timer_handle_t = ptr::null_mut();
 
-        let boxed_callback: Box<dyn FnMut()> = Box::new(callback);
+        let boxed_callback: Box<dyn FnMut() + Send + 'a> = Box::new(callback);
 
         let mut callback = Box::new(boxed_callback);
         let unsafe_callback = UnsafeCallback::from(&mut callback);
@@ -250,12 +250,12 @@ impl<T> TimerService for EspTimerService<T>
 where
     T: EspTimerServiceType,
 {
-    type Timer = EspTimer;
+    type Timer<'a> = EspTimer<'a>;
 
-    fn timer(
-        &mut self,
-        callback: impl FnMut() + Send + 'static,
-    ) -> Result<Self::Timer, Self::Error> {
+    fn timer<'a>(
+        &self,
+        callback: impl FnMut() + Send + 'a,
+    ) -> Result<Self::Timer<'a>, Self::Error> {
         EspTimerService::timer(self, callback)
     }
 }
@@ -327,7 +327,7 @@ pub mod embassy_time {
         use crate::timer::*;
 
         struct Alarm {
-            timer: EspTimer,
+            timer: EspTimer<'static>,
             callback: Arc<AtomicU64>,
         }
 
