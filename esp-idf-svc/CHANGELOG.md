@@ -19,7 +19,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * Breaking change: OTA: `EspOtaUpdate::abort` and `EspOtaUpdate::complete` now take `self` instead of `&mut self`
 * Breaking change: HTTP server: Scoped handlers; handlers now need to live only as long as the `EspHttpServer` instance. Therefore, `EspHttpServer` is now lifetimed: `EspHttpServer<'a>`
 * Breaking change: HTTP server: `EspHttpRequest` renamed to `EspHttpRawConnection`
-* Breaking change: WS client: Scoped handler; the event handler now needs to live only as long as the `EspWebSocketClient`. Therefore, `EspWebSocketClient` is now lifetimed: `EspWebSocketClient<'a>` 
+* Breaking change: WS client: Scoped handler; the event handler now needs to live only as long as the `EspWebSocketClient` instance. Therefore, `EspWebSocketClient` is now lifetimed: `EspWebSocketClient<'a>` 
+* Breaking change: MQTT client: Scoped handler; the event handler now needs to live only as long as the `EspMqttClient` instance. Therefore, `EspMqttClient` is now lifetimed: `EspMqttClient<'a, ...>` 
 * Breaking change: Removed the deprecated module `httpd` and the dependency on `anyhow`
 * Breaking change: module `notify` removed as it was rarely - if ever - used, and there is a simpler `hal::task::notification` module now
 * Deprecated: Using ESP-IDF 4.3 is now deprecated and all special cfg flags will be removed in the next release
