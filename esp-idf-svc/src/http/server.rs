@@ -243,7 +243,7 @@ static OPEN_SESSIONS: Mutex<BTreeMap<(u32, ffi::c_int), Arc<AtomicBool>>> =
 static CLOSE_HANDLERS: Mutex<BTreeMap<u32, Vec<CloseHandler<'static>>>> =
     Mutex::wrap(RawMutex::new(), BTreeMap::new());
 
-type NativeHandler<'a> = Box<dyn Fn(*mut httpd_req_t) -> ffi::c_int + Send + 'a>;
+type NativeHandler<'a> = Box<dyn Fn(*mut httpd_req_t) -> ffi::c_int + 'a>;
 type CloseHandler<'a> = Box<dyn Fn(ffi::c_int) + Send + 'a>;
 
 pub struct EspHttpServer<'a> {
@@ -317,7 +317,7 @@ impl<'a> EspHttpServer<'a> {
                 conf.method
             ))?;
 
-            let _drop = Box::from_raw(conf.user_ctx as *mut NativeHandler);
+            let _drop = Box::from_raw(conf.user_ctx as *mut NativeHandler<'static>);
         };
 
         info!(
