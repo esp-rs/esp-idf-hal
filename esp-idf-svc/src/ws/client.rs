@@ -380,7 +380,7 @@ pub struct EspWebSocketClient<'a> {
     _callback: Box<dyn FnMut(i32, *mut esp_websocket_event_data_t) + Send + 'a>,
 }
 
-impl<'a> EspWebSocketClient<'a> {
+impl EspWebSocketClient<'static> {
     pub fn new_with_conn(
         uri: &str,
         config: &EspWebSocketClientConfig,
@@ -400,7 +400,9 @@ impl<'a> EspWebSocketClient<'a> {
 
         Ok((client, EspWebSocketConnection(connection_state)))
     }
+}
 
+impl<'a> EspWebSocketClient<'a> {
     pub fn new(
         uri: &str,
         config: &EspWebSocketClientConfig,
