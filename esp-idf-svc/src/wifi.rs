@@ -880,24 +880,33 @@ impl<'d> WifiDriver<'d> {
         mut tx_callback: T,
     ) -> Result<(), EspError>
     where
-        R: FnMut(WifiDeviceId, &[u8]) -> Result<(), EspError> + Send + 'static,
-        T: FnMut(WifiDeviceId, &[u8], bool) + Send + 'static,
+        R: FnMut(WifiDeviceId, &[u8]) -> Result<(), EspError> + Send + 'd,
+        T: FnMut(WifiDeviceId, &[u8], bool) + Send + 'd,
     {
         let _ = self.disconnect();
         let _ = self.stop();
 
         #[allow(clippy::type_complexity)]
         let rx_callback: Box<
-            Box<dyn FnMut(WifiDeviceId, &[u8]) -> Result<(), EspError> + 'static>,
+            Box<dyn FnMut(WifiDeviceId, &[u8]) -> Result<(), EspError> + Send + 'd>,
         > = Box::new(Box::new(move |device_id, data| {
             rx_callback(device_id, data)
         }));
 
         #[allow(clippy::type_complexity)]
-        let tx_callback: Box<Box<dyn FnMut(WifiDeviceId, &[u8], bool) + 'static>> =
+        let tx_callback: Box<Box<dyn FnMut(WifiDeviceId, &[u8], bool) + Send + 'd>> =
             Box::new(Box::new(move |device_id, data, status| {
                 tx_callback(device_id, data, status)
             }));
+
+        #[allow(clippy::type_complexity)]
+        let rx_callback: Box<
+            Box<dyn FnMut(WifiDeviceId, &[u8]) -> Result<(), EspError> + Send + 'static>,
+        > = unsafe { core::mem::transmute(rx_callback) };
+
+        #[allow(clippy::type_complexity)]
+        let tx_callback: Box<Box<dyn FnMut(WifiDeviceId, &[u8], bool) + Send + 'static>> =
+            unsafe { core::mem::transmute(tx_callback) };
 
         unsafe {
             RX_CALLBACK = Some(rx_callback);
