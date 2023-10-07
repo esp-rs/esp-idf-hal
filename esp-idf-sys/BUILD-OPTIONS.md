@@ -307,7 +307,7 @@ The following configuration options are available:
   * `warn` - Issue a warning but do not remove the variables and continue the build
   * `ignore` - Continue the build and do not issue a warning
 
-  The currently detected environment variables that might be problematic are as follows: `CC`, `CFLAGS`, `CCFLAGS`, `CXXFLAGS`, `CPPFLAGS`, `LDFLAGS`, `GCC_EXEC_PREFIX`, `COMPILER_PATH`, `C_INCLUDE_PATH`, `CPLUS_INCLUDE_PATH`.
+  The currently detected environment variables that might be problematic are as follows: `CC`, `CXX`, `CFLAGS`, `CCFLAGS`, `CXXFLAGS`, `CPPFLAGS`, `LDFLAGS`, `GCC_EXEC_PREFIX`, `COMPILER_PATH`, `C_INCLUDE_PATH`, `CPLUS_INCLUDE_PATH`.
 
 
 - ### *`esp_idf_component_manager`*, `$ESP_IDF_COMPONENT_MANAGER`

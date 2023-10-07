@@ -354,6 +354,7 @@ pub fn sanitize_c_env_vars() -> Result<()> {
     const POLICY_VAR: &str = "ESP_IDF_C_ENV_VARS_ISSUES";
     const C_ENV_VARS: &[&str] = &[
         "CC",
+        "CXX",
         "CFLAGS",
         "CCFLAGS",
         "CXXFLAGS",
