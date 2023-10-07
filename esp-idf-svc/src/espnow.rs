@@ -132,7 +132,9 @@ impl<'a> EspNow<'a> {
     where
         F: FnMut(&[u8], &[u8]) + Send + 'a,
     {
+        #[allow(clippy::type_complexity)]
         let callback: Box<dyn FnMut(&[u8], &[u8]) + Send + 'a> = Box::new(callback);
+        #[allow(clippy::type_complexity)]
         let callback: Box<dyn FnMut(&[u8], &[u8]) + Send + 'static> =
             unsafe { core::mem::transmute(callback) };
 
@@ -153,7 +155,9 @@ impl<'a> EspNow<'a> {
     where
         F: FnMut(&[u8], SendStatus) + Send + 'a,
     {
+        #[allow(clippy::type_complexity)]
         let callback: Box<dyn FnMut(&[u8], SendStatus) + Send + 'a> = Box::new(callback);
+        #[allow(clippy::type_complexity)]
         let callback: Box<dyn FnMut(&[u8], SendStatus) + Send + 'static> =
             unsafe { core::mem::transmute(callback) };
 

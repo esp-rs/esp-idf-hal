@@ -201,8 +201,10 @@ impl<'a> EspSntp<'a> {
             esp!(ESP_ERR_INVALID_STATE)?;
         }
 
+        #[allow(clippy::type_complexity)]
         let callback: alloc::boxed::Box<dyn FnMut(Duration) + Send + 'a> =
             alloc::boxed::Box::new(callback);
+        #[allow(clippy::type_complexity)]
         let callback: alloc::boxed::Box<dyn FnMut(Duration) + Send + 'static> =
             unsafe { core::mem::transmute(callback) };
 
