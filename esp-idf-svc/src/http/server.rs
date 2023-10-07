@@ -1,6 +1,7 @@
 //! HTTP server
 use core::cell::UnsafeCell;
 use core::fmt::{Debug, Display};
+use core::marker::PhantomData;
 use core::sync::atomic::{AtomicBool, Ordering};
 use core::time::*;
 use core::{ffi, ptr};
@@ -242,15 +243,16 @@ static OPEN_SESSIONS: Mutex<BTreeMap<(u32, ffi::c_int), Arc<AtomicBool>>> =
 static CLOSE_HANDLERS: Mutex<BTreeMap<u32, Vec<CloseHandler>>> =
     Mutex::wrap(RawMutex::new(), BTreeMap::new());
 
-type NativeHandler = Box<dyn Fn(*mut httpd_req_t) -> ffi::c_int>;
-type CloseHandler = Box<dyn Fn(ffi::c_int) + Send>;
+type NativeHandler<'a> = Box<dyn Fn(*mut httpd_req_t) -> ffi::c_int + Send + 'a>;
+type CloseHandler<'a> = Box<dyn Fn(ffi::c_int) + Send + 'a>;
 
-pub struct EspHttpServer {
+pub struct EspHttpServer<'a> {
     sd: httpd_handle_t,
     registrations: Vec<(CString, crate::sys::httpd_uri_t)>,
+    _reg: PhantomData<&'a ()>,
 }
 
-impl EspHttpServer {
+impl<'a> EspHttpServer<'a> {
     pub fn new(conf: &Configuration) -> Result<Self, EspIOError> {
         let mut handle: httpd_handle_t = ptr::null_mut();
         let handle_ref = &mut handle;
@@ -296,9 +298,10 @@ impl EspHttpServer {
 
         info!("Started Httpd server with config {:?}", conf);
 
-        let server = EspHttpServer {
+        let server = Self {
             sd: handle,
             registrations: Vec::new(),
+            _reg: PhantomData,
         };
 
         CLOSE_HANDLERS.lock().insert(server.sd as _, Vec::new());
@@ -359,7 +362,7 @@ impl EspHttpServer {
 
     pub fn handler_chain<C>(&mut self, chain: C) -> Result<&mut Self, EspError>
     where
-        C: EspHttpTraversableChain,
+        C: EspHttpTraversableChain<'a>,
     {
         chain.accept(self)?;
 
@@ -373,7 +376,7 @@ impl EspHttpServer {
         handler: H,
     ) -> Result<&mut Self, EspError>
     where
-        H: for<'a> Handler<EspHttpConnection<'a>> + 'static,
+        H: for<'r> Handler<EspHttpConnection<'r>> + 'a,
     {
         let c_str = to_cstring_arg(uri)?;
 
@@ -401,14 +404,14 @@ impl EspHttpServer {
 
     pub fn fn_handler<F>(&mut self, uri: &str, method: Method, f: F) -> Result<&mut Self, EspError>
     where
-        F: for<'a> Fn(Request<&mut EspHttpConnection<'a>>) -> HandlerResult + Send + 'static,
+        F: for<'r> Fn(Request<&mut EspHttpConnection<'r>>) -> HandlerResult + Send + 'a,
     {
         self.handler(uri, method, FnHandler::new(f))
     }
 
-    fn to_native_handler<H>(&self, handler: H) -> NativeHandler
+    fn to_native_handler<H>(&self, handler: H) -> NativeHandler<'a>
     where
-        H: for<'a> Handler<EspHttpConnection<'a>> + 'static,
+        H: for<'r> Handler<EspHttpConnection<'a>> + Send + 'a,
     {
         Box::new(move |raw_req| {
             let mut connection = EspHttpConnection::new(unsafe { raw_req.as_mut().unwrap() });
@@ -455,13 +458,13 @@ impl EspHttpServer {
     }
 }
 
-impl Drop for EspHttpServer {
+impl<'a> Drop for EspHttpServer<'a> {
     fn drop(&mut self) {
         self.stop().expect("Unable to stop the server cleanly");
     }
 }
 
-impl RawHandle for EspHttpServer {
+impl<'a> RawHandle for EspHttpServer<'a> {
     type Handle = httpd_handle_t;
 
     fn handle(&self) -> Self::Handle {
@@ -471,27 +474,27 @@ impl RawHandle for EspHttpServer {
 
 pub fn fn_handler<F>(f: F) -> FnHandler<F>
 where
-    F: for<'a> Fn(Request<&mut EspHttpConnection<'a>>) -> HandlerResult + Send + 'static,
+    F: for<'a> Fn(Request<&mut EspHttpConnection<'a>>) -> HandlerResult + Send,
 {
     FnHandler::new(f)
 }
 
-pub trait EspHttpTraversableChain {
-    fn accept(self, server: &mut EspHttpServer) -> Result<(), EspError>;
+pub trait EspHttpTraversableChain<'a> {
+    fn accept(self, server: &mut EspHttpServer<'a>) -> Result<(), EspError>;
 }
 
-impl EspHttpTraversableChain for ChainRoot {
-    fn accept(self, _server: &mut EspHttpServer) -> Result<(), EspError> {
+impl<'a> EspHttpTraversableChain<'a> for ChainRoot {
+    fn accept(self, _server: &mut EspHttpServer<'a>) -> Result<(), EspError> {
         Ok(())
     }
 }
 
-impl<H, N> EspHttpTraversableChain for ChainHandler<H, N>
+impl<'a, H, N> EspHttpTraversableChain<'a> for ChainHandler<H, N>
 where
-    H: for<'a> Handler<EspHttpConnection<'a>> + 'static,
-    N: EspHttpTraversableChain,
+    H: for<'r> Handler<EspHttpConnection<'r>> + 'a,
+    N: EspHttpTraversableChain<'a>,
 {
-    fn accept(self, server: &mut EspHttpServer) -> Result<(), EspError> {
+    fn accept(self, server: &mut EspHttpServer<'a>) -> Result<(), EspError> {
         self.next.accept(server)?;
 
         server.handler(self.path, self.method, self.handler)?;
@@ -1253,10 +1256,10 @@ pub mod ws {
         }
     }
 
-    impl EspHttpServer {
+    impl<'a> EspHttpServer<'a> {
         pub fn ws_handler<H, E>(&mut self, uri: &str, handler: H) -> Result<&mut Self, EspError>
         where
-            H: for<'a> Fn(&'a mut EspHttpWsConnection) -> Result<(), E> + Send + Sync + 'static,
+            H: for<'r> Fn(&'r mut EspHttpWsConnection) -> Result<(), E> + Send + Sync + 'a,
             E: Debug,
         {
             let c_str = to_cstring_arg(uri)?;
@@ -1321,7 +1324,7 @@ pub mod ws {
             handler: H,
         ) -> (NativeHandler, CloseHandler)
         where
-            H: for<'a> Fn(&'a mut EspHttpWsConnection) -> Result<(), E> + Send + Sync + 'static,
+            H: for<'r> Fn(&'r mut EspHttpWsConnection) -> Result<(), E> + Send + Sync + 'a,
             E: Debug,
         {
             let boxed_handler = Arc::new(move |mut connection: EspHttpWsConnection| {
