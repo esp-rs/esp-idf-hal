@@ -655,9 +655,9 @@ where
     P: EspTypedEventDeserializer<P>,
     T: EspEventLoopType,
 {
-    type Subscription<'a> = EspSubscription<'a, T>;
+    type Subscription<'a> = EspSubscription<'a, T> where Self: 'a;
 
-    fn subscribe<'a, F>(&self, callback: F) -> Result<Self::Subscription<'a>, Self::Error>
+    fn subscribe<'a, F>(&'a self, callback: F) -> Result<Self::Subscription<'a>, Self::Error>
     where
         F: FnMut(&P) + Send + 'a,
     {
@@ -703,9 +703,9 @@ where
     P: EspTypedEventSerializer<P>,
     T: EspEventLoopType,
 {
-    type Postbox = EspPostbox<T>;
+    type Postbox<'a> = EspPostbox<T> where Self: 'a;
 
-    fn postbox(&self) -> Result<Self::Postbox, Self::Error>
+    fn postbox(&self) -> Result<Self::Postbox<'_>, Self::Error>
     where
         P: EspTypedEventSerializer<P>,
     {
@@ -788,9 +788,9 @@ where
     M: EspTypedEventDeserializer<P>,
     T: EspEventLoopType,
 {
-    type Subscription<'a> = EspSubscription<'a, T>;
+    type Subscription<'a> = EspSubscription<'a, T> where Self: 'a;
 
-    fn subscribe<'a, F>(&self, mut callback: F) -> Result<Self::Subscription<'a>, EspError>
+    fn subscribe<'a, F>(&'a self, mut callback: F) -> Result<Self::Subscription<'a>, EspError>
     where
         F: FnMut(&P) + Send + 'a,
     {
@@ -807,9 +807,9 @@ where
     M: EspTypedEventDeserializer<P>,
     T: EspEventLoopType,
 {
-    type Subscription<'a> = EspSubscription<'a, T>;
+    type Subscription<'a> = EspSubscription<'a, T> where Self: 'a;
 
-    fn subscribe<'a, F>(&self, mut callback: F) -> Result<Self::Subscription<'a>, EspError>
+    fn subscribe<'a, F>(&'a self, mut callback: F) -> Result<Self::Subscription<'a>, EspError>
     where
         F: FnMut(&P) + Send + 'a,
     {
@@ -859,21 +859,21 @@ where
     M: EspTypedEventSerializer<P>,
     T: EspEventLoopType,
 {
-    type Postbox = EspTypedPostbox<M, P, T>;
+    type Postbox<'a> = EspTypedPostbox<M, P, T> where Self: 'a;
 
-    fn postbox(&self) -> Result<Self::Postbox, Self::Error> {
+    fn postbox(&self) -> Result<Self::Postbox<'_>, Self::Error> {
         Ok(EspTypedPostbox(Self::new(self.untyped_event_loop.clone())))
     }
 }
 
-impl<'a, M, P, T> event_bus::PostboxProvider<P> for EspTypedEventLoop<M, P, &'a EspEventLoop<T>>
+impl<'e, M, P, T> event_bus::PostboxProvider<P> for EspTypedEventLoop<M, P, &'e EspEventLoop<T>>
 where
     M: EspTypedEventSerializer<P>,
     T: EspEventLoopType,
 {
-    type Postbox = EspTypedPostbox<M, P, T>;
+    type Postbox<'a> = EspTypedPostbox<M, P, T> where Self: 'a;
 
-    fn postbox(&self) -> Result<Self::Postbox, Self::Error> {
+    fn postbox(&self) -> Result<Self::Postbox<'_>, Self::Error> {
         Ok(EspTypedPostbox(EspTypedEventLoop::new(
             self.untyped_event_loop.clone(),
         )))
@@ -999,11 +999,8 @@ mod async_wait {
         E: super::EspTypedEventDeserializer<E> + Send,
         T: super::EspEventLoopType,
     {
-        subscription: AsyncSubscription<
-            crate::private::mutex::RawCondvar,
-            E,
-            super::EspSubscription<'static, T>,
-        >,
+        subscription:
+            AsyncSubscription<crate::private::mutex::RawCondvar, E, super::EspSubscription<'a, T>>,
         timer: AsyncTimer<EspTimer<'a>>,
         _event: PhantomData<fn() -> E>,
     }
