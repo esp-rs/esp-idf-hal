@@ -1,7 +1,10 @@
 use core::cell::Cell;
+use core::future::Future;
 use core::num::NonZeroU32;
+use core::pin::pin;
 use core::ptr::{self, NonNull};
 use core::sync::atomic::{AtomicBool, Ordering};
+use core::task::{Context, Poll};
 
 use esp_idf_sys::*;
 
@@ -212,6 +215,33 @@ pub fn get_idle_task(core: crate::cpu::Core) -> TaskHandle_t {
     unsafe {
         xTaskGetIdleTaskHandleForCPU(core as u32)
     }
+}
+
+/// Executes the supplied future on the current thread, thus blocking it until the future becomes ready.
+pub fn block_on<F>(mut fut: F) -> F::Output
+where
+    F: Future,
+{
+    log::trace!("block_on(): started");
+
+    let notification = notification::Notification::new();
+
+    let mut fut = pin!(fut);
+
+    let waker = notification.notifier().into();
+
+    let mut cx = Context::from_waker(&waker);
+
+    let res = loop {
+        match fut.as_mut().poll(&mut cx) {
+            Poll::Ready(res) => break res,
+            Poll::Pending => notification.wait_any(),
+        }
+    };
+
+    log::trace!("block_on(): finished");
+
+    res
 }
 
 #[cfg(esp_idf_comp_pthread_enabled)]
