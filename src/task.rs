@@ -739,11 +739,12 @@ pub mod embassy_sync {
 #[cfg(all(feature = "alloc", target_has_atomic = "ptr"))]
 pub mod notification {
     use core::num::NonZeroU32;
+    use core::ptr;
     use core::sync::atomic::{AtomicPtr, Ordering};
-    use core::{mem, ptr};
 
     extern crate alloc;
-    use alloc::sync::{Arc, Weak};
+    use alloc::sync::Arc;
+    use alloc::task::Wake;
 
     use esp_idf_sys::TickType_t;
 
@@ -755,18 +756,18 @@ pub mod notification {
     #[cfg(not(esp_idf_version_major = "4"))]
     type Task = esp_idf_sys::tskTaskControlBlock;
 
-    pub struct Monitor(Arc<AtomicPtr<Task>>, *const ());
+    pub struct Notification(Arc<Notifier>, *const ());
 
-    impl Monitor {
+    impl Notification {
         pub fn new() -> Self {
             Self(
-                Arc::new(AtomicPtr::new(task::current().unwrap())),
+                Arc::new(Notifier(AtomicPtr::new(task::current().unwrap()))),
                 ptr::null(),
             )
         }
 
-        pub fn notifier(&self) -> Notifier {
-            Notifier(Arc::downgrade(&self.0))
+        pub fn notifier(&self) -> Arc<Notifier> {
+            self.0.clone()
         }
 
         pub fn wait_any(&self) {
@@ -782,28 +783,13 @@ pub mod notification {
         }
     }
 
-    impl Default for Monitor {
+    impl Default for Notification {
         fn default() -> Self {
             Self::new()
         }
     }
 
-    impl Drop for Monitor {
-        fn drop(&mut self) {
-            let mut arc = mem::replace(&mut self.0, Arc::new(AtomicPtr::new(ptr::null_mut())));
-
-            // Busy loop until we can destroy the Arc - which means that nobody is actively holding a strong reference to it
-            // and thus trying to notify our FreeRtos task, which will likely be destroyed afterwards
-            loop {
-                arc = match Arc::try_unwrap(arc) {
-                    Ok(_) => break,
-                    Err(a) => a,
-                }
-            }
-        }
-    }
-
-    pub struct Notifier(Weak<AtomicPtr<Task>>);
+    pub struct Notifier(AtomicPtr<Task>);
 
     impl Notifier {
         /// # Safety
@@ -816,12 +802,10 @@ pub mod notification {
         /// created no longer exists. Which - in turn - would mean that the method will be trying to notify a task
         /// which does no longer exist, which would lead to UB and specifically - to memory corruption.
         pub unsafe fn notify(&self, notification: NonZeroU32) -> (bool, bool) {
-            if let Some(notify) = self.0.upgrade() {
-                let freertos_task = notify.load(Ordering::SeqCst);
+            let freertos_task = self.0.load(Ordering::SeqCst);
 
-                if !freertos_task.is_null() {
-                    return unsafe { task::notify(freertos_task, notification) };
-                }
+            if !freertos_task.is_null() {
+                return unsafe { task::notify(freertos_task, notification) };
             }
 
             (false, false)
@@ -837,15 +821,21 @@ pub mod notification {
         /// created no longer exists. Which - in turn - would mean that the method will be trying to notify a task
         /// which does no longer exist, which would lead to UB and specifically - to memory corruption.
         pub unsafe fn notify_and_yield(&self, notification: NonZeroU32) -> bool {
-            if let Some(notify) = self.0.upgrade() {
-                let freertos_task = notify.load(Ordering::SeqCst);
+            let freertos_task = self.0.load(Ordering::SeqCst);
 
-                if !freertos_task.is_null() {
-                    return unsafe { task::notify_and_yield(freertos_task, notification) };
-                }
+            if !freertos_task.is_null() {
+                unsafe { task::notify_and_yield(freertos_task, notification) }
+            } else {
+                false
             }
+        }
+    }
 
-            false
+    impl Wake for Notifier {
+        fn wake(self: Arc<Self>) {
+            unsafe {
+                self.notify_and_yield(NonZeroU32::new(1).unwrap());
+            }
         }
     }
 }
