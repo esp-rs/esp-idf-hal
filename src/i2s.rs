@@ -204,6 +204,7 @@ pub mod config {
         }
 
         /// Convert to the ESP-IDF SDK `i2s_chan_config_t` representation.
+        #[allow(clippy::needless_update)]
         #[cfg(not(esp_idf_version_major = "4"))]
         #[inline(always)]
         pub(super) fn as_sdk(&self, id: i2s_port_t) -> i2s_chan_config_t {
@@ -213,6 +214,7 @@ pub mod config {
                 dma_desc_num: self.dma_buffer_count,
                 dma_frame_num: self.frames_per_buffer,
                 auto_clear: self.auto_clear,
+                ..Default::default()
             }
         }
     }
