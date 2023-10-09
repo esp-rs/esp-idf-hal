@@ -74,6 +74,7 @@ pub trait Timer: Send {
 pub struct TimerDriver<'d> {
     timer: u8,
     divider: u32,
+    isr_registered: bool,
     _p: PhantomData<&'d mut ()>,
 }
 
@@ -112,11 +113,12 @@ impl<'d> TimerDriver<'d> {
         Ok(Self {
             timer: ((TIMER::group() as u8) << 4) | (TIMER::index() as u8),
             divider: config.divider,
+            isr_registered: false,
             _p: PhantomData,
         })
     }
 
-    pub fn tick_hz(&self) -> u32 {
+    pub fn tick_hz(&self) -> u64 {
         let hz;
 
         #[cfg(esp_idf_version_major = "4")]
@@ -129,7 +131,7 @@ impl<'d> TimerDriver<'d> {
             hz = APB_CLK_FREQ / self.divider;
         }
 
-        hz
+        hz as _
     }
 
     pub fn enable(&mut self, enable: bool) -> Result<(), EspError> {
@@ -217,22 +219,36 @@ impl<'d> TimerDriver<'d> {
     pub fn enable_interrupt(&mut self) -> Result<(), EspError> {
         self.check();
 
-        esp!(unsafe {
-            timer_isr_callback_add(
-                self.group(),
-                self.index(),
-                Some(Self::handle_isr),
-                (self.group() * timer_group_t_TIMER_GROUP_MAX + self.index())
-                    as *mut core::ffi::c_void,
-                0,
-            )
-        })
+        if !self.isr_registered {
+            // Driver will complain if we try to register when ISR CB is already registered
+            esp!(unsafe {
+                timer_isr_callback_add(
+                    self.group(),
+                    self.index(),
+                    Some(Self::handle_isr),
+                    (self.group() * timer_group_t_TIMER_GROUP_MAX + self.index())
+                        as *mut core::ffi::c_void,
+                    0,
+                )
+            })?;
+
+            self.isr_registered = true;
+        }
+
+        Ok(())
     }
 
     pub fn disable_interrupt(&mut self) -> Result<(), EspError> {
         self.check();
 
-        esp!(unsafe { timer_isr_callback_remove(self.group(), self.index()) })
+        if self.isr_registered {
+            // Driver will complain if we try to deregister when ISR callback is not registered
+            esp!(unsafe { timer_isr_callback_remove(self.group(), self.index()) })?;
+
+            self.isr_registered = false;
+        }
+
+        Ok(())
     }
 
     pub async fn delay(&mut self, counter: u64) -> Result<(), EspError> {
@@ -265,6 +281,10 @@ impl<'d> TimerDriver<'d> {
         Ok(())
     }
 
+    /// Subscribes the provided callback for ISR notifications.
+    /// As a side effect, interrupts will be disabled, so to receive a notification, one has
+    /// to also call `TimerDriver::enable_interrupt` after calling this method.
+    ///
     /// # Safety
     ///
     /// Care should be taken not to call STD, libc or FreeRTOS APIs (except for a few allowed ones)
@@ -279,8 +299,6 @@ impl<'d> TimerDriver<'d> {
 
         ISR_HANDLERS[(self.group() * timer_group_t_TIMER_GROUP_MAX + self.index()) as usize] =
             Some(unsafe { core::mem::transmute(callback) });
-
-        self.enable_interrupt()?;
 
         Ok(())
     }
@@ -352,12 +370,14 @@ unsafe impl<'d> Send for TimerDriver<'d> {}
 #[cfg(feature = "nightly")]
 impl<'d> embedded_hal_async::delay::DelayUs for TimerDriver<'d> {
     async fn delay_us(&mut self, us: u32) {
-        let counter = (self.tick_hz() as u64 * us as u64) / 1000000;
+        let counter = core::cmp::max((self.tick_hz() * us as u64) / 1000000, 1);
+
         self.delay(counter).await.unwrap();
     }
 
     async fn delay_ms(&mut self, ms: u32) {
-        let counter = (self.tick_hz() as u64 * ms as u64) / 1000;
+        let counter = core::cmp::max((self.tick_hz() * ms as u64) / 1000, 1);
+
         self.delay(counter).await.unwrap();
     }
 }

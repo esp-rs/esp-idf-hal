@@ -1,6 +1,6 @@
 use std::num::NonZeroU32;
 
-use esp_idf_hal::sys::{EspError, TaskHandle_t}; // If using the `binstart` feature of `esp-idf-sys`, always keep this module imported
+use esp_idf_hal::{sys::EspError, task::notification::Notification}; // If using the `binstart` feature of `esp-idf-sys`, always keep this module imported
 
 fn main() -> Result<(), EspError> {
     // It is necessary to call this function once. Otherwise some patches to the runtime
@@ -9,9 +9,8 @@ fn main() -> Result<(), EspError> {
 
     let per = esp_idf_hal::peripherals::Peripherals::take().unwrap();
 
-    // This handle will be used as the address for the event in the callback.
-    // Make sure that the handle / thread lives always longer as the callback it is used in
-    let main_task_handle: TaskHandle_t = esp_idf_hal::task::current().unwrap();
+    // A safer abstraction over FreeRTOS/ESP-IDF task notifications.
+    let notification = Notification::new();
 
     // BaseClock for the Timer is the APB_CLK that is running on 80MHz at default
     // The default clock-divider is -> 80
@@ -19,30 +18,29 @@ fn main() -> Result<(), EspError> {
     let timer_conf = esp_idf_hal::timer::config::Config::new().auto_reload(true);
     let mut timer = esp_idf_hal::timer::TimerDriver::new(per.timer00, &timer_conf)?;
 
-    // Calculate value needed for alarm in seconds
-    // (APB_CLK_FREQ / DEVIDER ) * seconds = count
-    // example every 200 us
-    // ( 80*10^6 / 80 ) * 200 *10^(-6) = 200
-    timer.set_alarm(200)?;
+    // Every half a second
+    timer.set_alarm(timer.tick_hz() / 2)?;
 
-    // Saftey: make sure the task handle stays valid for longer than the subscribtion
-    // is active
+    let notifier = notification.notifier();
+
+    // Saftey: make sure the `Notification` object is not dropped while the subscription is active
     unsafe {
         timer.subscribe(move || {
             let bitset = 0b10001010101;
-            esp_idf_hal::task::notify_and_yield(main_task_handle, NonZeroU32::new(bitset).unwrap());
+            notifier.notify_and_yield(NonZeroU32::new(bitset).unwrap());
         })?;
     }
 
+    timer.enable_interrupt()?;
     timer.enable_alarm(true)?;
     timer.enable(true)?;
 
     loop {
         // Notify approach
         // The benefit with this approach over checking a global static variable is
-        // that the scheduler can hold the task, and resume when signaled
-        // so no spinlock is needed
-        let bitset = esp_idf_hal::task::wait_notification(esp_idf_hal::delay::BLOCK);
+        // that the scheduler can block the task, and quickly resume it when notified
+        // so no spinlock is needed / the CPU does not waste cycles.
+        let bitset = notification.wait(esp_idf_hal::delay::BLOCK);
 
         if let Some(bitset) = bitset {
             println!("got event with bits {bitset:#b} from ISR");

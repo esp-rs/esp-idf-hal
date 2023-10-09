@@ -1134,6 +1134,14 @@ impl<'d, T: Pin, MODE> PinDriver<'d, T, MODE> {
         Ok(())
     }
 
+    /// Subscribes the provided callback for ISR notifications.
+    /// As a side effect, interrupts will be disabled, so to receive a notification, one has
+    /// to also call `PinDriver::enable_interrupt` after calling this method.
+    ///
+    /// Note that `PinDriver::enable_interrupt` should also be called after
+    /// each received notification **from non-ISR context**, because the driver will automatically
+    /// disable ISR interrupts on each received ISR notification (so as to avoid IWDT triggers).
+    ///
     /// # Safety
     ///
     /// Care should be taken not to call STD, libc or FreeRTOS APIs (except for a few allowed ones)
@@ -1151,7 +1159,7 @@ impl<'d, T: Pin, MODE> PinDriver<'d, T, MODE> {
         chip::PIN_ISR_HANDLER[self.pin.pin() as usize] =
             Some(unsafe { core::mem::transmute(callback) });
 
-        self.enable_interrupt()
+        Ok(())
     }
 
     #[cfg(not(feature = "riscv-ulp-hal"))]
