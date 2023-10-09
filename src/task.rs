@@ -1,9 +1,12 @@
 use core::cell::Cell;
+#[cfg(feature = "alloc")]
 use core::future::Future;
 use core::num::NonZeroU32;
+#[cfg(feature = "alloc")]
 use core::pin::pin;
 use core::ptr::{self, NonNull};
 use core::sync::atomic::{AtomicBool, Ordering};
+#[cfg(feature = "alloc")]
 use core::task::{Context, Poll};
 
 #[cfg(feature = "alloc")]
