@@ -73,6 +73,7 @@ pub trait Timer: Send {
 
 pub struct TimerDriver<'d> {
     timer: u8,
+    divider: u32,
     _p: PhantomData<&'d mut ()>,
 }
 
@@ -108,10 +109,27 @@ impl<'d> TimerDriver<'d> {
             )
         })?;
 
-        Ok(TimerDriver {
+        Ok(Self {
             timer: ((TIMER::group() as u8) << 4) | (TIMER::index() as u8),
+            divider: config.divider,
             _p: PhantomData,
         })
+    }
+
+    pub fn tick_hz(&self) -> u32 {
+        let hz;
+
+        #[cfg(esp_idf_version_major = "4")]
+        {
+            hz = TIMER_BASE_CLK / self.divider;
+        }
+
+        #[cfg(not(esp_idf_version_major = "4"))]
+        {
+            hz = APB_CLK_FREQ / self.divider;
+        }
+
+        hz
     }
 
     pub fn enable(&mut self, enable: bool) -> Result<(), EspError> {
@@ -199,15 +217,50 @@ impl<'d> TimerDriver<'d> {
     pub fn enable_interrupt(&mut self) -> Result<(), EspError> {
         self.check();
 
-        esp!(unsafe { timer_enable_intr(self.group(), self.index()) })?;
-
-        Ok(())
+        esp!(unsafe {
+            timer_isr_callback_add(
+                self.group(),
+                self.index(),
+                Some(Self::handle_isr),
+                (self.group() * timer_group_t_TIMER_GROUP_MAX + self.index())
+                    as *mut core::ffi::c_void,
+                0,
+            )
+        })
     }
 
     pub fn disable_interrupt(&mut self) -> Result<(), EspError> {
         self.check();
 
-        esp!(unsafe { timer_disable_intr(self.group(), self.index()) })?;
+        esp!(unsafe { timer_isr_callback_remove(self.group(), self.index()) })
+    }
+
+    pub async fn delay(&mut self, counter: u64) -> Result<(), EspError> {
+        self.enable(false)?;
+        self.enable_alarm(false)?;
+        self.set_counter(0)?;
+        self.set_alarm(counter)?;
+
+        self.reset_wait();
+
+        self.enable_interrupt()?;
+        self.enable_alarm(true)?;
+        self.enable(true)?;
+
+        self.wait().await
+    }
+
+    pub fn reset_wait(&mut self) {
+        let notif =
+            &PIN_NOTIF[(self.group() * timer_group_t_TIMER_GROUP_MAX + self.index()) as usize];
+        notif.reset();
+    }
+
+    pub async fn wait(&mut self) -> Result<(), EspError> {
+        let notif =
+            &PIN_NOTIF[(self.group() * timer_group_t_TIMER_GROUP_MAX + self.index()) as usize];
+
+        notif.wait().await;
 
         Ok(())
     }
@@ -217,29 +270,15 @@ impl<'d> TimerDriver<'d> {
     /// Care should be taken not to call STD, libc or FreeRTOS APIs (except for a few allowed ones)
     /// in the callback passed to this function, as it is executed in an ISR context.
     #[cfg(feature = "alloc")]
-    pub unsafe fn subscribe(&mut self, callback: impl FnMut() + 'static) -> Result<(), EspError> {
+    pub unsafe fn subscribe(&mut self, callback: impl FnMut() + Send + 'd) -> Result<(), EspError> {
         self.check();
 
-        self.unsubscribe()?;
+        self.disable_interrupt()?;
 
-        let callback: Box<dyn FnMut() + 'static> = Box::new(callback);
+        let callback: Box<dyn FnMut() + Send + 'd> = Box::new(callback);
 
         ISR_HANDLERS[(self.group() * timer_group_t_TIMER_GROUP_MAX + self.index()) as usize] =
-            Some(Box::new(callback));
-
-        esp!(timer_isr_callback_add(
-            self.group(),
-            self.index(),
-            Some(Self::handle_isr),
-            UnsafeCallback::from(
-                ISR_HANDLERS
-                    [(self.group() * timer_group_t_TIMER_GROUP_MAX + self.index()) as usize]
-                    .as_mut()
-                    .unwrap(),
-            )
-            .as_ptr(),
-            0
-        ))?;
+            Some(unsafe { core::mem::transmute(callback) });
 
         self.enable_interrupt()?;
 
@@ -250,18 +289,11 @@ impl<'d> TimerDriver<'d> {
     pub fn unsubscribe(&mut self) -> Result<(), EspError> {
         self.check();
 
+        self.disable_interrupt()?;
+
         unsafe {
-            let subscribed = ISR_HANDLERS
-                [(self.group() * timer_group_t_TIMER_GROUP_MAX + self.index()) as usize]
-                .is_some();
-
-            if subscribed {
-                esp!(timer_disable_intr(self.group(), self.index()))?;
-                esp!(timer_isr_callback_remove(self.group(), self.index()))?;
-
-                ISR_HANDLERS
-                    [(self.group() * timer_group_t_TIMER_GROUP_MAX + self.index()) as usize] = None;
-            }
+            ISR_HANDLERS[(self.group() * timer_group_t_TIMER_GROUP_MAX + self.index()) as usize] =
+                None;
         }
 
         Ok(())
@@ -274,9 +306,16 @@ impl<'d> TimerDriver<'d> {
     }
 
     #[cfg(feature = "alloc")]
-    unsafe extern "C" fn handle_isr(unsafe_callback: *mut core::ffi::c_void) -> bool {
+    unsafe extern "C" fn handle_isr(index: *mut core::ffi::c_void) -> bool {
+        use core::num::NonZeroU32;
+
+        let index = index as usize;
         crate::interrupt::with_isr_yield_signal(move || {
-            UnsafeCallback::from_ptr(unsafe_callback).call();
+            if let Some(handler) = ISR_HANDLERS[index].as_mut() {
+                handler();
+            }
+
+            PIN_NOTIF[index].notify(NonZeroU32::new(1).unwrap());
         })
     }
 
@@ -291,10 +330,15 @@ impl<'d> TimerDriver<'d> {
 
 impl<'d> Drop for TimerDriver<'d> {
     fn drop(&mut self) {
+        self.disable_interrupt().unwrap();
+
         #[cfg(feature = "alloc")]
-        {
-            self.unsubscribe().unwrap();
+        unsafe {
+            ISR_HANDLERS[(self.group() * timer_group_t_TIMER_GROUP_MAX + self.index()) as usize] =
+                None;
         }
+
+        PIN_NOTIF[(self.group() * timer_group_t_TIMER_GROUP_MAX + self.index()) as usize].reset();
 
         esp!(unsafe { timer_deinit(self.group(), self.index()) }).unwrap();
     }
@@ -302,28 +346,16 @@ impl<'d> Drop for TimerDriver<'d> {
 
 unsafe impl<'d> Send for TimerDriver<'d> {}
 
-#[cfg(feature = "alloc")]
-struct UnsafeCallback(*mut Box<dyn FnMut() + 'static>);
-
-#[cfg(feature = "alloc")]
-impl UnsafeCallback {
-    #[allow(clippy::type_complexity)]
-    pub fn from(boxed: &mut Box<Box<dyn FnMut() + 'static>>) -> Self {
-        Self(boxed.as_mut())
+#[cfg(feature = "nightly")]
+impl<'d> embedded_hal_async::delay::DelayUs for TimerDriver<'d> {
+    async fn delay_us(&mut self, us: u32) {
+        let counter = (self.tick_hz() as u64 * us as u64) / 1000000;
+        self.delay(counter).await.unwrap();
     }
 
-    pub unsafe fn from_ptr(ptr: *mut core::ffi::c_void) -> Self {
-        Self(ptr.cast())
-    }
-
-    pub fn as_ptr(&self) -> *mut core::ffi::c_void {
-        self.0.cast()
-    }
-
-    pub unsafe fn call(&mut self) {
-        let reference = self.0.as_mut().unwrap();
-
-        (reference)();
+    async fn delay_ms(&mut self, ms: u32) {
+        let counter = (self.tick_hz() as u64 * ms as u64) / 1000;
+        self.delay(counter).await.unwrap();
     }
 }
 
@@ -348,12 +380,28 @@ macro_rules! impl_timer {
 #[allow(clippy::type_complexity)]
 #[cfg(not(any(esp32, esp32s2, esp32s3)))]
 #[cfg(feature = "alloc")]
-static mut ISR_HANDLERS: [Option<Box<Box<dyn FnMut()>>>; 2] = [None, None];
+static mut ISR_HANDLERS: [Option<Box<dyn FnMut() + Send + 'static>>; 2] = [None, None];
+
+#[allow(clippy::type_complexity)]
+#[cfg(not(any(esp32, esp32s2, esp32s3)))]
+pub(crate) static PIN_NOTIF: [crate::interrupt::asynch::HalIsrNotification; 2] = [
+    crate::interrupt::asynch::HalIsrNotification::new(),
+    crate::interrupt::asynch::HalIsrNotification::new(),
+];
 
 #[allow(clippy::type_complexity)]
 #[cfg(any(esp32, esp32s2, esp32s3))]
 #[cfg(feature = "alloc")]
-static mut ISR_HANDLERS: [Option<Box<Box<dyn FnMut()>>>; 4] = [None, None, None, None];
+static mut ISR_HANDLERS: [Option<Box<dyn FnMut() + Send + 'static>>; 4] = [None, None, None, None];
+
+#[allow(clippy::type_complexity)]
+#[cfg(any(esp32, esp32s2, esp32s3))]
+pub(crate) static PIN_NOTIF: [crate::interrupt::asynch::HalIsrNotification; 4] = [
+    crate::interrupt::asynch::HalIsrNotification::new(),
+    crate::interrupt::asynch::HalIsrNotification::new(),
+    crate::interrupt::asynch::HalIsrNotification::new(),
+    crate::interrupt::asynch::HalIsrNotification::new(),
+];
 
 impl_timer!(TIMER00: timer_group_t_TIMER_GROUP_0, timer_idx_t_TIMER_0);
 #[cfg(any(esp32, esp32s2, esp32s3))]
