@@ -6,6 +6,9 @@ use core::ptr::{self, NonNull};
 use core::sync::atomic::{AtomicBool, Ordering};
 use core::task::{Context, Poll};
 
+#[cfg(feature = "alloc")]
+extern crate alloc;
+
 use esp_idf_sys::*;
 
 use crate::cpu::Core;
@@ -218,6 +221,7 @@ pub fn get_idle_task(core: crate::cpu::Core) -> TaskHandle_t {
 }
 
 /// Executes the supplied future on the current thread, thus blocking it until the future becomes ready.
+#[cfg(feature = "alloc")]
 pub fn block_on<F>(mut fut: F) -> F::Output
 where
     F: Future,
