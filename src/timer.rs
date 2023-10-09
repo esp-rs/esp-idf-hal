@@ -305,14 +305,17 @@ impl<'d> TimerDriver<'d> {
         }
     }
 
-    #[cfg(feature = "alloc")]
     unsafe extern "C" fn handle_isr(index: *mut core::ffi::c_void) -> bool {
         use core::num::NonZeroU32;
 
         let index = index as usize;
+
         crate::interrupt::with_isr_yield_signal(move || {
-            if let Some(handler) = ISR_HANDLERS[index].as_mut() {
-                handler();
+            #[cfg(feature = "alloc")]
+            {
+                if let Some(handler) = ISR_HANDLERS[index].as_mut() {
+                    handler();
+                }
             }
 
             PIN_NOTIF[index].notify(NonZeroU32::new(1).unwrap());
