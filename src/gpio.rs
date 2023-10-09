@@ -1139,7 +1139,7 @@ impl<'d, T: Pin, MODE> PinDriver<'d, T, MODE> {
     /// Care should be taken not to call STD, libc or FreeRTOS APIs (except for a few allowed ones)
     /// in the callback passed to this function, as it is executed in an ISR context.
     #[cfg(all(not(feature = "riscv-ulp-hal"), feature = "alloc"))]
-    pub unsafe fn subscribe(&mut self, callback: impl FnMut() + 'static) -> Result<(), EspError>
+    pub unsafe fn subscribe(&mut self, callback: impl FnMut() + Send + 'd) -> Result<(), EspError>
     where
         MODE: InputMode,
     {
@@ -1147,7 +1147,9 @@ impl<'d, T: Pin, MODE> PinDriver<'d, T, MODE> {
 
         self.disable_interrupt()?;
 
-        chip::PIN_ISR_HANDLER[self.pin.pin() as usize] = Some(alloc::boxed::Box::new(callback));
+        let callback: alloc::boxed::Box<dyn FnMut() + Send + 'd> = alloc::boxed::Box::new(callback);
+        chip::PIN_ISR_HANDLER[self.pin.pin() as usize] =
+            Some(unsafe { core::mem::transmute(callback) });
 
         self.enable_interrupt()
     }
@@ -1525,7 +1527,7 @@ unsafe fn unsubscribe_pin(pin: i32) -> Result<(), EspError> {
 
 #[cfg(all(not(feature = "riscv-ulp-hal"), feature = "alloc"))]
 #[allow(clippy::declare_interior_mutable_const)] // OK because this is only used as an array initializer
-const PIN_ISR_INIT: Option<alloc::boxed::Box<dyn FnMut()>> = None;
+const PIN_ISR_INIT: Option<alloc::boxed::Box<dyn FnMut() + Send + 'static>> = None;
 
 #[cfg(not(feature = "riscv-ulp-hal"))]
 #[allow(clippy::declare_interior_mutable_const)] // OK because this is only used as an array initializer
@@ -1686,7 +1688,8 @@ mod chip {
 
     #[allow(clippy::type_complexity)]
     #[cfg(all(not(feature = "riscv-ulp-hal"), feature = "alloc"))]
-    pub(crate) static mut PIN_ISR_HANDLER: [Option<Box<dyn FnMut()>>; 40] = [PIN_ISR_INIT; 40];
+    pub(crate) static mut PIN_ISR_HANDLER: [Option<Box<dyn FnMut() + Send + 'static>>; 40] =
+        [PIN_ISR_INIT; 40];
 
     #[allow(clippy::type_complexity)]
     #[cfg(not(feature = "riscv-ulp-hal"))]
@@ -1883,7 +1886,8 @@ mod chip {
 
     #[allow(clippy::type_complexity)]
     #[cfg(all(not(feature = "riscv-ulp-hal"), feature = "alloc"))]
-    pub(crate) static mut PIN_ISR_HANDLER: [Option<Box<dyn FnMut()>>; 49] = [PIN_ISR_INIT; 49];
+    pub(crate) static mut PIN_ISR_HANDLER: [Option<Box<dyn FnMut() + Send + 'static>>; 49] =
+        [PIN_ISR_INIT; 49];
 
     #[allow(clippy::type_complexity)]
     #[cfg(not(feature = "riscv-ulp-hal"))]
@@ -2144,7 +2148,8 @@ mod chip {
 
     #[allow(clippy::type_complexity)]
     #[cfg(feature = "alloc")]
-    pub(crate) static mut PIN_ISR_HANDLER: [Option<Box<dyn FnMut()>>; 22] = [PIN_ISR_INIT; 22];
+    pub(crate) static mut PIN_ISR_HANDLER: [Option<Box<dyn FnMut() + Send + 'static>>; 22] =
+        [PIN_ISR_INIT; 22];
 
     #[cfg(not(feature = "riscv-ulp-hal"))]
     pub(crate) static PIN_NOTIF: [HalIsrNotification; 22] = [PIN_NOTIF_INIT; 22];
@@ -2257,7 +2262,8 @@ mod chip {
 
     #[allow(clippy::type_complexity)]
     #[cfg(feature = "alloc")]
-    pub(crate) static mut PIN_ISR_HANDLER: [Option<Box<dyn FnMut()>>; 20] = [PIN_ISR_INIT; 20];
+    pub(crate) static mut PIN_ISR_HANDLER: [Option<Box<dyn FnMut() + Send + 'static>>; 20] =
+        [PIN_ISR_INIT; 20];
 
     #[cfg(not(feature = "riscv-ulp-hal"))]
     pub(crate) static PIN_NOTIF: [HalIsrNotification; 20] = [PIN_NOTIF_INIT; 20];
@@ -2367,7 +2373,8 @@ mod chip {
 
     #[allow(clippy::type_complexity)]
     #[cfg(feature = "alloc")]
-    pub(crate) static mut PIN_ISR_HANDLER: [Option<Box<dyn FnMut()>>; 20] = [PIN_ISR_INIT; 20];
+    pub(crate) static mut PIN_ISR_HANDLER: [Option<Box<dyn FnMut() + Send + 'static>>; 20] =
+        [PIN_ISR_INIT; 20];
 
     #[cfg(not(feature = "riscv-ulp-hal"))]
     pub(crate) static PIN_NOTIF: [HalIsrNotification; 20] = [PIN_NOTIF_INIT; 20];
@@ -2478,7 +2485,8 @@ mod chip {
 
     #[allow(clippy::type_complexity)]
     #[cfg(all(not(feature = "riscv-ulp-hal"), feature = "alloc"))]
-    pub(crate) static mut PIN_ISR_HANDLER: [Option<Box<dyn FnMut()>>; 30] = [PIN_ISR_INIT; 30];
+    pub(crate) static mut PIN_ISR_HANDLER: [Option<Box<dyn FnMut() + Send + 'static>>; 30] =
+        [PIN_ISR_INIT; 30];
 
     #[allow(clippy::type_complexity)]
     #[cfg(not(feature = "riscv-ulp-hal"))]
