@@ -1871,7 +1871,7 @@ mod chip {
     }
 }
 
-#[cfg(any(esp32s2, esp32s3))] // TODO: Implement proper pin layout for esp32c6 and esp32p4
+#[cfg(any(esp32s2, esp32s3))]
 mod chip {
     #[cfg(all(not(feature = "riscv-ulp-hal"), feature = "alloc"))]
     extern crate alloc;
@@ -2525,6 +2525,10 @@ mod chip {
     pin!(Gpio19:19, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
     pin!(Gpio20:20, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
     pin!(Gpio21:21, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
+    pin!(Gpio22:22, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
+    pin!(Gpio23:23, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
+    pin!(Gpio24:24, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
+    pin!(Gpio25:25, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
     #[cfg(not(feature = "riscv-ulp-hal"))]
     pin!(Gpio26:26, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
     #[cfg(not(feature = "riscv-ulp-hal"))]
@@ -2559,6 +2563,10 @@ mod chip {
         pub gpio19: Gpio19,
         pub gpio20: Gpio20,
         pub gpio21: Gpio21,
+        pub gpio22: Gpio21,
+        pub gpio23: Gpio21,
+        pub gpio24: Gpio21,
+        pub gpio25: Gpio21,
         #[cfg(not(feature = "riscv-ulp-hal"))]
         pub gpio26: Gpio26,
         #[cfg(not(feature = "riscv-ulp-hal"))]
@@ -2600,6 +2608,10 @@ mod chip {
                 gpio19: Gpio19::new(),
                 gpio20: Gpio20::new(),
                 gpio21: Gpio21::new(),
+                gpio22: Gpio22::new(),
+                gpio23: Gpio23::new(),
+                gpio24: Gpio24::new(),
+                gpio25: Gpio25::new(),
                 #[cfg(not(feature = "riscv-ulp-hal"))]
                 gpio26: Gpio26::new(),
                 #[cfg(not(feature = "riscv-ulp-hal"))]
