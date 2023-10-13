@@ -719,68 +719,60 @@ static READ_NOTIFICATION: Notification = Notification::new();
 static WRITE_NOTIFICATION: Notification = Notification::new();
 static ALERT_NOTIFICATION: Notification = Notification::new();
 
-pub const NO_DATA: [u8; 8] = [0; u8];
-
 pub struct Frame(twai_message_t);
 
 impl Frame {
-    pub fn new(id: u32, extended: bool, data: &[u8]) -> Result<Self, EspError> {
-        if data.len() <= 8 {
-            let mut frame = Frame(Default::default());
+    pub fn new(id: u32, extended: bool, data: &[u8]) -> Option<Self> {
+        let dlc = data.len();
 
-            frame.set(id, false, extended, data)?;
-
-            Ok(frame)
-        } else {
-            Err(EspError::from_infallible::<ESP_ERR_INVALID_ARG>())
-        }
-    }
-
-    pub fn new_remote(id: u32, extended: bool, dlc: usize) -> Result<Self, EspError> {
-        if data.len() <= 8 {
-            let mut frame = Frame(Default::default());
-
-            frame.set(id, true, extended, &NO_DATA[..dlc])?;
-
-            Ok(frame)
-        } else {
-            Err(EspError::from_infallible::<ESP_ERR_INVALID_ARG>())
-        }
-    }
-
-    pub fn set(
-        &mut self,
-        id: u32,
-        remote: bool,
-        extended: bool,
-        data: &[u8],
-    ) -> Result<(), EspError> {
-        if data.len() <= 8 {
+        if dlc <= 8 {
             // unions are not very well supported in rust
             // therefore setting those union flags is quite hairy
-            self.0.__bindgen_anon_1 = twai_message_t__bindgen_ty_1::default();
+            let mut flags = twai_message_t__bindgen_ty_1::default();
 
             // set bits in an union
-            if remote {
-                unsafe { self.0.__bindgen_anon_1.set_rtr(1) };
-            }
-
             if extended {
-                unsafe { self.0.__bindgen_anon_1.set_extd(1) };
+                unsafe { flags.__bindgen_anon_1.set_extd(1) };
             }
 
-            self.0.identifier = id;
-            self.0.data_length_code = data.len() as u8;
+            let mut payload = [0; 8];
+            payload[..dlc].copy_from_slice(data);
 
-            if remote {
-                self.0.data[..data.len()].copy_from_slice(data);
-            } else {
-                self.0.data.fill(0);
-            }
+            let twai_message = twai_message_t {
+                __bindgen_anon_1: flags,
+                identifier: id,
+                data_length_code: dlc as u8,
+                data: payload,
+            };
 
-            Ok(())
+            Some(Frame(twai_message))
         } else {
-            Err(EspError::from_infallible::<ESP_ERR_INVALID_ARG>())
+            None
+        }
+    }
+
+    pub fn new_remote(id: u32, extended: bool, dlc: usize) -> Option<Self> {
+        if dlc <= 8 {
+            // unions are not very well supported in rust
+            // therefore setting those union flags is quite hairy
+            let mut flags = twai_message_t__bindgen_ty_1::default();
+
+            // set bits in an union
+            unsafe { flags.__bindgen_anon_1.set_rtr(1) };
+            if extended {
+                unsafe { flags.__bindgen_anon_1.set_extd(1) };
+            }
+
+            let twai_message = twai_message_t {
+                __bindgen_anon_1: flags,
+                identifier: id,
+                data_length_code: dlc as u8,
+                data: [0; 8],
+            };
+
+            Some(Frame(twai_message))
+        } else {
+            None
         }
     }
 
@@ -834,7 +826,7 @@ impl embedded_hal_0_2::can::Frame for Frame {
             embedded_hal_0_2::can::Id::Extended(id) => (id.as_raw(), true),
         };
 
-        Self::new(id, extended, data).ok()
+        Self::new(id, extended, data)
     }
 
     fn new_remote(id: impl Into<embedded_hal_0_2::can::Id>, dlc: usize) -> Option<Self> {
@@ -843,7 +835,7 @@ impl embedded_hal_0_2::can::Frame for Frame {
             embedded_hal_0_2::can::Id::Extended(id) => (id.as_raw(), true),
         };
 
-        Self::new_remote(id, extended, dlc).ok()
+        Self::new_remote(id, extended, dlc)
     }
 
     fn is_extended(&self) -> bool {
