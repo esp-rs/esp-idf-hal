@@ -719,7 +719,7 @@ static READ_NOTIFICATION: Notification = Notification::new();
 static WRITE_NOTIFICATION: Notification = Notification::new();
 static ALERT_NOTIFICATION: Notification = Notification::new();
 
-pub const NO_DATA: [u8; 8] = [0; 8];
+pub const NO_DATA: [u8; 8] = [0; u8];
 
 pub struct Frame(twai_message_t);
 
@@ -737,7 +737,7 @@ impl Frame {
     }
 
     pub fn new_remote(id: u32, extended: bool, dlc: usize) -> Result<Self, EspError> {
-        if dlc <= 8 {
+        if data.len() <= 8 {
             let mut frame = Frame(Default::default());
 
             frame.set(id, true, extended, &NO_DATA[..dlc])?;
@@ -762,11 +762,11 @@ impl Frame {
 
             // set bits in an union
             if remote {
-                unsafe { self.0.__bindgen_anon_1.__bindgen_anon_1.set_rtr(1) };
+                unsafe { self.0.__bindgen_anon_1.set_rtr(1) };
             }
 
             if extended {
-                unsafe { self.0.__bindgen_anon_1.__bindgen_anon_1.set_extd(1) };
+                unsafe { self.0.__bindgen_anon_1.set_extd(1) };
             }
 
             self.0.identifier = id;
@@ -890,7 +890,7 @@ impl embedded_can::Frame for Frame {
             embedded_can::Id::Extended(id) => (id.as_raw(), true),
         };
 
-        Self::new(id, extended, data).ok()
+        Self::new(id, extended, data)
     }
 
     fn new_remote(id: impl Into<embedded_can::Id>, dlc: usize) -> Option<Self> {
@@ -899,7 +899,7 @@ impl embedded_can::Frame for Frame {
             embedded_can::Id::Extended(id) => (id.as_raw(), true),
         };
 
-        Self::new_remote(id, extended, dlc).ok()
+        Self::new_remote(id, extended, dlc)
     }
 
     fn is_extended(&self) -> bool {
