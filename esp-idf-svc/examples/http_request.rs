@@ -24,7 +24,7 @@ fn main() -> anyhow::Result<()> {
 
     // Setup Wifi
 
-    let peripherals = Peripherals::take().unwrap();
+    let peripherals = Peripherals::take()?;
     let sys_loop = EspSystemEventLoop::take()?;
     let nvs = EspDefaultNvsPartition::take()?;
 

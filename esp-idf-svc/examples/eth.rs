@@ -13,7 +13,7 @@ fn main() -> anyhow::Result<()> {
     esp_idf_svc::sys::link_patches();
     EspLogger::initialize_default();
 
-    let peripherals = Peripherals::take().unwrap();
+    let peripherals = Peripherals::take()?;
     let pins = peripherals.pins;
     let sys_loop = EspSystemEventLoop::take()?;
 

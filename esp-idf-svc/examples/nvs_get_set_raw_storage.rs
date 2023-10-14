@@ -27,8 +27,7 @@ struct StructToBeStored<'a> {
 fn main() -> anyhow::Result<()> {
     EspLogger::initialize_default();
 
-    let nvs_default_partition: EspNvsPartition<NvsDefault> =
-        EspDefaultNvsPartition::take().unwrap();
+    let nvs_default_partition: EspNvsPartition<NvsDefault> = EspDefaultNvsPartition::take()?;
 
     let test_namespace = "test_ns";
     let mut nvs = match EspNvs::new(nvs_default_partition, test_namespace, true) {

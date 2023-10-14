@@ -215,7 +215,7 @@ fn main() -> anyhow::Result<()> {
 }
 
 fn create_server<'a>() -> anyhow::Result<EspHttpServer<'a>> {
-    let peripherals = Peripherals::take().unwrap();
+    let peripherals = Peripherals::take()?;
     let sys_loop = EspSystemEventLoop::take()?;
     let nvs = EspDefaultNvsPartition::take()?;
 
