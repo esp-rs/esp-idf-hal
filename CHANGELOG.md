@@ -23,6 +23,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
    which was already exposed via the `task::notify` and `task::wait_notification` APIs
 * Upgraded to `embedded-hal` 1.0.0-rc.1 and `embedded-hal-async` 1.0.0-rc.1
 * Dependency `esp-idf-sys` now re-exported as `esp_idf_hal::sys`
+* Breaking change: `Peripherals::take` now returns an error when the peripherals are already taken
 * Breaking change: `delay::Delay` struct extended with configurable threshold
 * Breaking change: `task::wait_any_notification` removed; `task::notify` renamed to `task::notify_and_yield`; new function - `task::notify` - that notifies a task without automatically yielding to the notified task if it is a higher priority than the currently interrupted one
 * Breaking change: `task::notify*` and `task::wait` now take/return `NonZeroU32` instead of `u32`

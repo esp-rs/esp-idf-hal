@@ -167,30 +167,34 @@ static TAKEN_CS: crate::task::CriticalSection = crate::task::CriticalSection::ne
 
 impl Peripherals {
     #[cfg(feature = "riscv-ulp-hal")]
-    pub fn take() -> Option<Self> {
+    pub fn take() -> Result<Self, crate::sys::EspError> {
         if unsafe { TAKEN } {
-            None
+            panic!("Peripheral already taken")
         } else {
             unsafe {
                 TAKEN = true;
             }
-            Some(unsafe { Peripherals::new() })
+            Ok(unsafe { Peripherals::new() })
         }
     }
 
     #[cfg(not(feature = "riscv-ulp-hal"))]
-    pub fn take() -> Option<Self> {
+    pub fn take() -> Result<Self, crate::sys::EspError> {
         if TAKEN.load(core::sync::atomic::Ordering::SeqCst) {
-            None
+            Err(crate::sys::EspError::from_infallible::<
+                { crate::sys::ESP_ERR_INVALID_STATE },
+            >())
         } else {
             let _guard = TAKEN_CS.enter();
 
             if !TAKEN.load(core::sync::atomic::Ordering::SeqCst) {
                 TAKEN.store(true, core::sync::atomic::Ordering::SeqCst);
 
-                Some(unsafe { Peripherals::new() })
+                Ok(unsafe { Peripherals::new() })
             } else {
-                None
+                Err(crate::sys::EspError::from_infallible::<
+                    { crate::sys::ESP_ERR_INVALID_STATE },
+                >())
             }
         }
     }
