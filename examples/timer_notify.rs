@@ -1,13 +1,16 @@
 use std::num::NonZeroU32;
 
-use esp_idf_hal::{sys::EspError, task::notification::Notification}; // If using the `binstart` feature of `esp-idf-sys`, always keep this module imported
+use esp_idf_hal::peripherals::*;
+use esp_idf_hal::sys::EspError;
+use esp_idf_hal::task::notification::Notification;
+use esp_idf_hal::timer::*;
 
 fn main() -> Result<(), EspError> {
     // It is necessary to call this function once. Otherwise some patches to the runtime
     // implemented by esp-idf-sys might not link properly. See https://github.com/esp-rs/esp-idf-template/issues/71
     esp_idf_hal::sys::link_patches();
 
-    let per = esp_idf_hal::peripherals::Peripherals::take().unwrap();
+    let per = Peripherals::take()?;
 
     // A safer abstraction over FreeRTOS/ESP-IDF task notifications.
     let notification = Notification::new();
@@ -15,8 +18,8 @@ fn main() -> Result<(), EspError> {
     // BaseClock for the Timer is the APB_CLK that is running on 80MHz at default
     // The default clock-divider is -> 80
     // default APB clk is available with the APB_CLK_FREQ constant
-    let timer_conf = esp_idf_hal::timer::config::Config::new().auto_reload(true);
-    let mut timer = esp_idf_hal::timer::TimerDriver::new(per.timer00, &timer_conf)?;
+    let timer_conf = config::Config::new().auto_reload(true);
+    let mut timer = TimerDriver::new(per.timer00, &timer_conf)?;
 
     // Every half a second
     timer.set_alarm(timer.tick_hz() / 2)?;

@@ -28,7 +28,7 @@ use esp_idf_hal::rmt::{
 fn main() -> anyhow::Result<()> {
     println!("Starting APP!");
 
-    let peripherals = Peripherals::take().unwrap();
+    let peripherals = Peripherals::take()?;
 
     /*
      *********************** SET UP RMT RECEIVER ******************************
@@ -40,7 +40,7 @@ fn main() -> anyhow::Result<()> {
         250,
     )?;
 
-    rx.start().unwrap();
+    rx.start()?;
 
     let _ = std::thread::Builder::new()
         .stack_size(10000)

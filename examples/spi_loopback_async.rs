@@ -13,10 +13,10 @@
 //! Connect SDI and SDO pins to see the outgoing data is read as incoming data.
 
 use embedded_hal::spi::Operation;
-use esp_idf_hal::delay::FreeRtos;
 use esp_idf_hal::peripherals::Peripherals;
 use esp_idf_hal::prelude::*;
 use esp_idf_hal::spi::*;
+use esp_idf_hal::task::*;
 
 fn main() -> anyhow::Result<()> {
     esp_idf_hal::sys::link_patches();
@@ -49,23 +49,25 @@ fn main() -> anyhow::Result<()> {
     let mut read = [0u8; 4];
     let write = [0xde, 0xad, 0xbe, 0xef];
 
-    loop {
-        // we are using thread::sleep here to make sure the watchdog isn't triggered
-        FreeRtos::delay_ms(500);
-        device_1.transfer(&mut read, &write)?;
-        println!("Device 1: Wrote {write:x?}, read {read:x?}");
+    block_on(async {
+        loop {
+            device_1.transfer_async(&mut read, &write).await?;
+            println!("Device 1: Wrote {write:x?}, read {read:x?}");
 
-        let write_buf = [0xde, 0xad, 0xbe, 0xef];
-        let mut write_in_place_buf = [0xde, 0xad, 0xbe, 0xef];
-        let mut read_buf = [0; 8];
+            let write_buf = [0xde, 0xad, 0xbe, 0xef];
+            let mut write_in_place_buf = [0xde, 0xad, 0xbe, 0xef];
+            let mut read_buf = [0; 8];
 
-        println!("Device 2: To write {write_in_place_buf:x?} ... ");
-        // cascade multiple operations with different buffer length into one transaction
-        device_2.transaction(&mut [
-            Operation::Write(&write_buf),
-            Operation::TransferInPlace(&mut write_in_place_buf),
-            Operation::Read(&mut read_buf),
-        ])?;
-        println!("... read {write_in_place_buf:x?}");
-    }
+            println!("Device 2: To write {write_in_place_buf:x?} ... ");
+            // cascade multiple operations with different buffer length into one transaction
+            device_2
+                .transaction_async(&mut [
+                    Operation::Write(&write_buf),
+                    Operation::TransferInPlace(&mut write_in_place_buf),
+                    Operation::Read(&mut read_buf),
+                ])
+                .await?;
+            println!("... read {write_in_place_buf:x?}");
+        }
+    })
 }

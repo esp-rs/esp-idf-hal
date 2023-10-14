@@ -25,7 +25,7 @@ use esp_idf_hal::units::FromValueType;
 fn main() -> anyhow::Result<()> {
     esp_idf_hal::sys::link_patches();
 
-    let peripherals = Peripherals::take().unwrap();
+    let peripherals = Peripherals::take()?;
     let mut channel = peripherals.rmt.channel0;
     let mut led = peripherals.pins.gpio17;
     let stop = peripherals.pins.gpio16;

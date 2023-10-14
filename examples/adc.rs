@@ -11,7 +11,7 @@ use esp_idf_hal::adc::*;
 use esp_idf_hal::peripherals::Peripherals;
 
 fn main() -> anyhow::Result<()> {
-    let peripherals = Peripherals::take().unwrap();
+    let peripherals = Peripherals::take()?;
 
     #[cfg(not(esp32))]
     let mut adc = AdcDriver::new(peripherals.adc1, &Config::new().calibration(true))?;
@@ -32,6 +32,6 @@ fn main() -> anyhow::Result<()> {
     loop {
         // you can change the sleep duration depending on how often you want to sample
         thread::sleep(Duration::from_millis(10));
-        println!("ADC value: {}", adc.read(&mut adc_pin).unwrap());
+        println!("ADC value: {}", adc.read(&mut adc_pin)?);
     }
 }

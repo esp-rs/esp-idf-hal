@@ -1,18 +1,21 @@
+use esp_idf_hal::peripherals::*;
 use esp_idf_hal::sys::EspError;
+use esp_idf_hal::task::*;
+use esp_idf_hal::timer::*;
 
 fn main() -> Result<(), EspError> {
     // It is necessary to call this function once. Otherwise some patches to the runtime
     // implemented by esp-idf-sys might not link properly. See https://github.com/esp-rs/esp-idf-template/issues/71
     esp_idf_hal::sys::link_patches();
 
-    let per = esp_idf_hal::peripherals::Peripherals::take().unwrap();
+    let per = Peripherals::take()?;
 
-    let timer_conf = esp_idf_hal::timer::config::Config::new().auto_reload(true);
-    let mut timer = esp_idf_hal::timer::TimerDriver::new(per.timer00, &timer_conf)?;
+    let mut timer = TimerDriver::new(per.timer00, &TimerConfig::new())?;
 
-    esp_idf_hal::task::block_on(async move {
+    block_on(async {
         loop {
             timer.delay(timer.tick_hz()).await?; // Every second
+
             println!("Tick");
         }
     })

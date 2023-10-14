@@ -62,7 +62,7 @@ fn main() -> anyhow::Result<()> {
 
     println!("Starting I2C self test");
 
-    let peripherals = Peripherals::take().unwrap();
+    let peripherals = Peripherals::take()?;
 
     let mut i2c_master = i2c_master_init(
         peripherals.i2c0,

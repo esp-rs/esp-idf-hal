@@ -19,7 +19,7 @@ use esp_idf_hal::rmt::*;
 fn main() -> Result<()> {
     esp_idf_hal::sys::link_patches();
 
-    let peripherals = Peripherals::take().unwrap();
+    let peripherals = Peripherals::take()?;
     // Onboard RGB LED pin
     // ESP32-C3-DevKitC-02 gpio8, ESP32-C3-DevKit-RUST-1 gpio2
     let led = peripherals.pins.gpio2;

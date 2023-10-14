@@ -9,10 +9,10 @@
 //! This example transfers data via UART.
 //! Connect TX and RX pins to see the outgoing data is read as incoming data.
 
-use esp_idf_hal::delay::BLOCK;
 use esp_idf_hal::gpio;
 use esp_idf_hal::peripherals::Peripherals;
 use esp_idf_hal::prelude::*;
+use esp_idf_hal::task::*;
 use esp_idf_hal::uart::*;
 
 fn main() -> anyhow::Result<()> {
@@ -24,7 +24,7 @@ fn main() -> anyhow::Result<()> {
 
     println!("Starting UART loopback test");
     let config = config::Config::new().baudrate(Hertz(115_200));
-    let uart = UartDriver::new(
+    let uart = AsyncUartDriver::new(
         peripherals.uart1,
         tx,
         rx,
@@ -33,12 +33,14 @@ fn main() -> anyhow::Result<()> {
         &config,
     )?;
 
-    loop {
-        uart.write(&[0xaa])?;
+    block_on(async {
+        loop {
+            uart.write(&[0xaa]).await?;
 
-        let mut buf = [0_u8; 1];
-        uart.read(&mut buf, BLOCK)?;
+            let mut buf = [0_u8; 1];
+            uart.read(&mut buf).await?;
 
-        println!("Written 0xaa, read 0x{:02x}", buf[0]);
-    }
+            println!("Written 0xaa, read 0x{:02x}", buf[0]);
+        }
+    })
 }

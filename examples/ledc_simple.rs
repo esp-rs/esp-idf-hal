@@ -8,7 +8,7 @@ fn main() -> anyhow::Result<()> {
 
     println!("Configuring output channel");
 
-    let peripherals = Peripherals::take().unwrap();
+    let peripherals = Peripherals::take()?;
     let mut channel = LedcDriver::new(
         peripherals.ledc.channel0,
         LedcTimerDriver::new(

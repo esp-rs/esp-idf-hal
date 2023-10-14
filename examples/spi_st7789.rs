@@ -32,7 +32,7 @@ use embedded_graphics::prelude::*;
 use mipidsi::{Builder, Orientation};
 
 fn main() -> anyhow::Result<()> {
-    let peripherals = Peripherals::take().unwrap();
+    let peripherals = Peripherals::take()?;
     let spi = peripherals.spi2;
 
     let rst = PinDriver::output(peripherals.pins.gpio3)?;

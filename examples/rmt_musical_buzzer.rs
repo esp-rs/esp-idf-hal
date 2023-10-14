@@ -16,7 +16,7 @@ use notes::*;
 fn main() -> anyhow::Result<()> {
     esp_idf_hal::sys::link_patches();
 
-    let peripherals = Peripherals::take().unwrap();
+    let peripherals = Peripherals::take()?;
     let led = peripherals.pins.gpio17;
     let channel = peripherals.rmt.channel0;
     let config = TransmitConfig::new().looping(Loop::Endless);

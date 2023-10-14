@@ -5,22 +5,28 @@
 //! If your board doesn't have on-board LEDs don't forget to add an appropriate resistor.
 //!
 
-use esp_idf_hal::delay::FreeRtos;
 use esp_idf_hal::gpio::*;
 use esp_idf_hal::peripherals::Peripherals;
+use esp_idf_hal::task::*;
+use esp_idf_hal::timer::*;
 
 fn main() -> anyhow::Result<()> {
     esp_idf_hal::sys::link_patches();
 
     let peripherals = Peripherals::take()?;
+
     let mut led = PinDriver::output(peripherals.pins.gpio4)?;
+    let mut timer = TimerDriver::new(peripherals.timer00, &TimerConfig::new())?;
 
-    loop {
-        led.set_high()?;
-        // we are sleeping here to make sure the watchdog isn't triggered
-        FreeRtos::delay_ms(1000);
+    block_on(async {
+        loop {
+            led.set_high()?;
 
-        led.set_low()?;
-        FreeRtos::delay_ms(1000);
-    }
+            timer.delay(timer.tick_hz()).await?;
+
+            led.set_low()?;
+
+            timer.delay(timer.tick_hz()).await?;
+        }
+    })
 }
