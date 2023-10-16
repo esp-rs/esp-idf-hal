@@ -51,7 +51,7 @@ use heapless::Deque;
 use crate::delay::{self, Ets, BLOCK};
 use crate::gpio::{AnyOutputPin, InputPin, Level, Output, OutputMode, OutputPin, PinDriver};
 use crate::interrupt::asynch::HalIsrNotification;
-use crate::interrupt::IntrFlags;
+use crate::interrupt::InterruptType;
 use crate::peripheral::Peripheral;
 use crate::task::embassy_sync::EspRawMutex;
 use crate::task::CriticalSection;
@@ -111,7 +111,7 @@ pub type SpiConfig = config::Config;
 
 /// SPI configuration
 pub mod config {
-    use crate::{interrupt::IntrFlags, units::*};
+    use crate::{interrupt::InterruptType, units::*};
     use enumset::EnumSet;
     use esp_idf_sys::*;
 
@@ -201,7 +201,7 @@ pub mod config {
     #[derive(Debug, Clone)]
     pub struct DriverConfig {
         pub dma: Dma,
-        pub intr_flags: EnumSet<IntrFlags>,
+        pub intr_flags: EnumSet<InterruptType>,
     }
 
     impl DriverConfig {
@@ -216,7 +216,7 @@ pub mod config {
         }
 
         #[must_use]
-        pub fn intr_flags(mut self, intr_flags: EnumSet<IntrFlags>) -> Self {
+        pub fn intr_flags(mut self, intr_flags: EnumSet<InterruptType>) -> Self {
             self.intr_flags = intr_flags;
             self
         }
@@ -226,7 +226,7 @@ pub mod config {
         fn default() -> Self {
             Self {
                 dma: Dma::Disabled,
-                intr_flags: EnumSet::<IntrFlags>::empty(),
+                intr_flags: EnumSet::<InterruptType>::empty(),
             }
         }
     }
@@ -425,7 +425,7 @@ impl<'d> SpiDriver<'d> {
                 //data3_io_num: -1,
             },
             max_transfer_sz: max_transfer_sz as i32,
-            intr_flags: IntrFlags::to_native(config.intr_flags) as _,
+            intr_flags: InterruptType::to_native(config.intr_flags) as _,
             ..Default::default()
         };
 
@@ -444,7 +444,7 @@ impl<'d> SpiDriver<'d> {
             quadhd_io_num: -1,
 
             max_transfer_sz: max_transfer_sz as i32,
-            intr_flags: IntrFlags::to_native(config.intr_flags) as _,
+            intr_flags: InterruptType::to_native(config.intr_flags) as _,
             ..Default::default()
         };
 

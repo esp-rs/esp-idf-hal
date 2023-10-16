@@ -524,9 +524,9 @@ static ISR_SERVICE_ENABLED: core::sync::atomic::AtomicBool =
 #[cfg(feature = "alloc")]
 static PCNT_CS: crate::task::CriticalSection = crate::task::CriticalSection::new();
 
-pub fn init_isr_alloc_flags(flags: enumset::EnumSet<crate::interrupt::IntrFlags>) {
+pub fn init_isr_alloc_flags(flags: enumset::EnumSet<crate::interrupt::InterruptType>) {
     ISR_ALLOC_FLAGS.store(
-        crate::interrupt::IntrFlags::to_native(flags),
+        crate::interrupt::InterruptType::to_native(flags),
         core::sync::atomic::Ordering::SeqCst,
     );
 }

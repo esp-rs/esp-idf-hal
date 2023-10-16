@@ -1464,9 +1464,9 @@ static ISR_SERVICE_ENABLED: core::sync::atomic::AtomicBool =
 static ISR_SERVICE_ENABLED_CS: crate::task::CriticalSection = crate::task::CriticalSection::new();
 
 #[cfg(not(feature = "riscv-ulp-hal"))]
-pub fn init_isr_alloc_flags(flags: enumset::EnumSet<crate::interrupt::IntrFlags>) {
+pub fn init_isr_alloc_flags(flags: enumset::EnumSet<crate::interrupt::InterruptType>) {
     ISR_ALLOC_FLAGS.store(
-        crate::interrupt::IntrFlags::to_native(flags),
+        crate::interrupt::InterruptType::to_native(flags),
         core::sync::atomic::Ordering::SeqCst,
     );
 }

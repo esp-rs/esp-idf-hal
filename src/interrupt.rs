@@ -3,6 +3,7 @@ use core::sync::atomic::{AtomicU64, Ordering};
 use enumset::{EnumSet, EnumSetType};
 use esp_idf_sys::*;
 
+/// For backwards compatibility
 pub type IntrFlags = InterruptType;
 
 /// Interrupt allocation flags.

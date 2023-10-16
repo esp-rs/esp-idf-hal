@@ -45,7 +45,7 @@ use num_enum::TryFromPrimitive;
 
 use crate::cpu::Core;
 use crate::delay::{self, BLOCK, NON_BLOCK};
-use crate::interrupt::IntrFlags;
+use crate::interrupt::InterruptType;
 use crate::peripheral::{Peripheral, PeripheralRef};
 use crate::task::asynch::Notification;
 use crate::{gpio::*, task};
@@ -64,7 +64,7 @@ pub mod config {
     use enumset::EnumSet;
     use esp_idf_sys::*;
 
-    use crate::interrupt::{InterruptType, IntrFlags};
+    use crate::interrupt::InterruptType;
 
     use super::Alert;
 
@@ -297,7 +297,7 @@ pub mod config {
                 rx_queue_len: 5,
                 mode: Default::default(),
                 alerts: Default::default(),
-                intr_flags: EnumSet::<IntrFlags>::empty(),
+                intr_flags: EnumSet::<InterruptType>::empty(),
             }
         }
 
@@ -338,7 +338,7 @@ pub mod config {
         }
 
         #[must_use]
-        pub fn intr_flags(mut self, flags: EnumSet<IntrFlags>) -> Self {
+        pub fn intr_flags(mut self, flags: EnumSet<InterruptType>) -> Self {
             self.intr_flags = flags;
             self
         }
@@ -397,7 +397,7 @@ impl<'d> CanDriver<'d> {
             rx_queue_len: config.rx_queue_len,
             alerts_enabled: config.alerts.as_repr(),
             clkout_divider: 0,
-            intr_flags: IntrFlags::to_native(config.intr_flags) as _,
+            intr_flags: InterruptType::to_native(config.intr_flags) as _,
         };
 
         let timing_config = config.timing.into();

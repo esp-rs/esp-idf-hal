@@ -7,7 +7,7 @@ use esp_idf_sys::*;
 
 use crate::delay::*;
 use crate::gpio::*;
-use crate::interrupt::IntrFlags;
+use crate::interrupt::InterruptType;
 use crate::peripheral::Peripheral;
 use crate::units::*;
 
@@ -40,7 +40,7 @@ pub mod config {
     use enumset::EnumSet;
 
     use super::APBTickType;
-    use crate::{interrupt::IntrFlags, units::*};
+    use crate::{interrupt::InterruptType, units::*};
 
     /// I2C Master configuration
     #[derive(Debug, Clone)]
@@ -49,7 +49,7 @@ pub mod config {
         pub sda_pullup_enabled: bool,
         pub scl_pullup_enabled: bool,
         pub timeout: Option<APBTickType>,
-        pub intr_flags: EnumSet<IntrFlags>,
+        pub intr_flags: EnumSet<InterruptType>,
     }
 
     impl Config {
@@ -82,7 +82,7 @@ pub mod config {
         }
 
         #[must_use]
-        pub fn intr_flags(mut self, flags: EnumSet<IntrFlags>) -> Self {
+        pub fn intr_flags(mut self, flags: EnumSet<InterruptType>) -> Self {
             self.intr_flags = flags;
             self
         }
@@ -95,7 +95,7 @@ pub mod config {
                 sda_pullup_enabled: true,
                 scl_pullup_enabled: true,
                 timeout: None,
-                intr_flags: EnumSet::<IntrFlags>::empty(),
+                intr_flags: EnumSet::<InterruptType>::empty(),
             }
         }
     }
@@ -108,7 +108,7 @@ pub mod config {
         pub scl_pullup_enabled: bool,
         pub rx_buf_len: usize,
         pub tx_buf_len: usize,
-        pub intr_flags: EnumSet<IntrFlags>,
+        pub intr_flags: EnumSet<InterruptType>,
     }
 
     #[cfg(not(esp32c2))]
@@ -142,7 +142,7 @@ pub mod config {
         }
 
         #[must_use]
-        pub fn intr_flags(mut self, flags: EnumSet<IntrFlags>) -> Self {
+        pub fn intr_flags(mut self, flags: EnumSet<InterruptType>) -> Self {
             self.intr_flags = flags;
             self
         }
@@ -156,7 +156,7 @@ pub mod config {
                 scl_pullup_enabled: true,
                 rx_buf_len: 0,
                 tx_buf_len: 0,
-                intr_flags: EnumSet::<IntrFlags>::empty(),
+                intr_flags: EnumSet::<InterruptType>::empty(),
             }
         }
     }
@@ -207,7 +207,7 @@ impl<'d> I2cDriver<'d> {
                 i2c_mode_t_I2C_MODE_MASTER,
                 0, // Not used in master mode
                 0, // Not used in master mode
-                IntrFlags::to_native(config.intr_flags) as _,
+                InterruptType::to_native(config.intr_flags) as _,
             )
         })?;
 
@@ -482,7 +482,7 @@ impl<'d> I2cSlaveDriver<'d> {
                 i2c_mode_t_I2C_MODE_SLAVE,
                 config.rx_buf_len,
                 config.tx_buf_len,
-                IntrFlags::to_native(config.intr_flags) as _,
+                InterruptType::to_native(config.intr_flags) as _,
             )
         })?;
 

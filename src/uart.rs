@@ -46,7 +46,7 @@ use core::sync::atomic::{AtomicU8, Ordering};
 
 use crate::cpu::Core;
 use crate::delay::{self, NON_BLOCK};
-use crate::interrupt::IntrFlags;
+use crate::interrupt::InterruptType;
 use crate::io::EspIOError;
 use crate::task::asynch::Notification;
 use crate::task::queue::Queue;
@@ -64,7 +64,7 @@ pub type UartConfig = config::Config;
 
 /// UART configuration
 pub mod config {
-    use crate::{interrupt::IntrFlags, units::*};
+    use crate::{interrupt::InterruptType, units::*};
     use enumset::{enum_set, EnumSet, EnumSetType};
     use esp_idf_sys::*;
 
@@ -446,7 +446,7 @@ pub mod config {
         ///
         /// Note that you should not set `Iram` here, because it will
         /// be automatically set depending on the value of `CONFIG_UART_ISR_IN_IRAM`.
-        pub intr_flags: EnumSet<IntrFlags>,
+        pub intr_flags: EnumSet<InterruptType>,
         /// Configures the interrupts the driver should enable.
         pub event_config: EventConfig,
         /// The size of the software rx buffer. Must be bigger than the hardware FIFO.
@@ -1883,7 +1883,7 @@ fn new_common<UART: Uart>(
             },
             config.queue_size as _,
             queue.map(|q| q as *mut _).unwrap_or(ptr::null_mut()),
-            IntrFlags::to_native(config.intr_flags) as i32,
+            InterruptType::to_native(config.intr_flags) as i32,
         )
     })?;
 
