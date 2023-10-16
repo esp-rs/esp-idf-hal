@@ -11,12 +11,13 @@
 //! - `embassy-time-driver`
 //! - `embassy-time-isr-queue`
 #![cfg_attr(not(feature = "std"), no_std)]
-#![feature(cfg_version)]
 #![allow(stable_features)]
 #![allow(unknown_lints)]
+#![warn(clippy::large_futures)]
 #![cfg_attr(feature = "nightly", feature(async_fn_in_trait))]
 #![cfg_attr(feature = "nightly", allow(async_fn_in_trait))]
 #![cfg_attr(feature = "nightly", feature(impl_trait_projections))]
+
 #[cfg(feature = "alloc")]
 #[allow(unused_imports)]
 #[macro_use]
