@@ -2,6 +2,9 @@
 #CONFIG_MBEDTLS_CERTIFICATE_BUNDLE=n
 #CONFIG_MBEDTLS_CERTIFICATE_BUNDLE_DEFAULT_FULL=n
 
-# Some examples (ledc_simple) require a larger than the default stack size for
+# Some examples (ledc_simple, spi_loopback_async) require a larger than the default stack size for
 # the main thread.
-CONFIG_ESP_MAIN_TASK_STACK_SIZE=7000
+CONFIG_ESP_MAIN_TASK_STACK_SIZE=8000
+
+# Async SPI only enabled when this config is disabled (it is enabled by default)
+CONFIG_SPI_MASTER_ISR_IN_IRAM=n

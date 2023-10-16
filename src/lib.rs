@@ -3,12 +3,12 @@
 #![cfg_attr(target_arch = "xtensa", feature(asm_experimental_arch))]
 #![cfg_attr(
     feature = "nightly",
-    feature(async_fn_in_trait),
     feature(doc_cfg),
-    feature(impl_trait_projections),
-    allow(incomplete_features)
+    feature(async_fn_in_trait),
+    feature(impl_trait_projections)
 )]
 #![allow(clippy::unused_unit)] // enumset
+#![warn(clippy::large_futures)]
 
 #[cfg(all(not(feature = "riscv-ulp-hal"), not(feature = "esp-idf-sys")))]
 compile_error!("Exactly one of the features `esp-idf-sys` or `riscv-ulp-hal` needs to be enabled");
