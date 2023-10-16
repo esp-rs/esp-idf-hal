@@ -24,11 +24,11 @@ fn main() -> anyhow::Result<()> {
     let peripherals = Peripherals::take()?;
     let spi = peripherals.spi2;
 
-    let sclk = peripherals.pins.gpio6;
-    let serial_in = peripherals.pins.gpio2; // SDI
-    let serial_out = peripherals.pins.gpio7; // SDO
-    let cs_1 = peripherals.pins.gpio10;
-    let cs_2 = peripherals.pins.gpio3;
+    let sclk = peripherals.pins.gpio15;
+    let serial_in = peripherals.pins.gpio16; // SDI
+    let serial_out = peripherals.pins.gpio17; // SDO
+    let cs_1 = peripherals.pins.gpio18;
+    let cs_2 = peripherals.pins.gpio19;
 
     println!("Starting SPI loopback test");
 
