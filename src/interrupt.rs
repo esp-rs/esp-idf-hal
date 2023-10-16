@@ -8,7 +8,6 @@ pub type IntrFlags = InterruptType;
 /// Interrupt allocation flags.
 /// These flags can be used to specify which interrupt qualities the code calling esp_intr_alloc* needs.
 #[derive(Debug, EnumSetType)]
-#[enumset(repr = "u32")]
 pub enum InterruptType {
     // Accept a Level 1 interrupt vector (lowest priority)
     Level1,
@@ -39,7 +38,7 @@ pub enum InterruptType {
     High,
 }
 
-impl IntrFlags {
+impl InterruptType {
     pub fn levels(&self) -> EnumSet<Self> {
         Self::Level1
             | Self::Level2
@@ -51,26 +50,32 @@ impl IntrFlags {
     }
 
     pub(crate) fn to_native(flags: EnumSet<Self>) -> u32 {
-        flags.as_repr()
+        let mut result = 0;
+
+        for flag in flags {
+            result |= u32::from(flag);
+        }
+
+        result
     }
 }
 
-impl From<IntrFlags> for u32 {
-    fn from(flag: IntrFlags) -> Self {
+impl From<InterruptType> for u32 {
+    fn from(flag: InterruptType) -> Self {
         match flag {
-            IntrFlags::Level1 => esp_idf_sys::ESP_INTR_FLAG_LEVEL1,
-            IntrFlags::Level2 => esp_idf_sys::ESP_INTR_FLAG_LEVEL2,
-            IntrFlags::Level3 => esp_idf_sys::ESP_INTR_FLAG_LEVEL3,
-            IntrFlags::Level4 => esp_idf_sys::ESP_INTR_FLAG_LEVEL4,
-            IntrFlags::Level5 => esp_idf_sys::ESP_INTR_FLAG_LEVEL5,
-            IntrFlags::Level6 => esp_idf_sys::ESP_INTR_FLAG_LEVEL6,
-            IntrFlags::Nmi => esp_idf_sys::ESP_INTR_FLAG_NMI,
-            IntrFlags::Shared => esp_idf_sys::ESP_INTR_FLAG_SHARED,
-            IntrFlags::Edge => esp_idf_sys::ESP_INTR_FLAG_EDGE,
-            IntrFlags::Iram => esp_idf_sys::ESP_INTR_FLAG_IRAM,
-            IntrFlags::IntrDisabled => esp_idf_sys::ESP_INTR_FLAG_INTRDISABLED,
-            IntrFlags::LowMed => esp_idf_sys::ESP_INTR_FLAG_LOWMED,
-            IntrFlags::High => esp_idf_sys::ESP_INTR_FLAG_HIGH,
+            InterruptType::Level1 => esp_idf_sys::ESP_INTR_FLAG_LEVEL1,
+            InterruptType::Level2 => esp_idf_sys::ESP_INTR_FLAG_LEVEL2,
+            InterruptType::Level3 => esp_idf_sys::ESP_INTR_FLAG_LEVEL3,
+            InterruptType::Level4 => esp_idf_sys::ESP_INTR_FLAG_LEVEL4,
+            InterruptType::Level5 => esp_idf_sys::ESP_INTR_FLAG_LEVEL5,
+            InterruptType::Level6 => esp_idf_sys::ESP_INTR_FLAG_LEVEL6,
+            InterruptType::Nmi => esp_idf_sys::ESP_INTR_FLAG_NMI,
+            InterruptType::Shared => esp_idf_sys::ESP_INTR_FLAG_SHARED,
+            InterruptType::Edge => esp_idf_sys::ESP_INTR_FLAG_EDGE,
+            InterruptType::Iram => esp_idf_sys::ESP_INTR_FLAG_IRAM,
+            InterruptType::IntrDisabled => esp_idf_sys::ESP_INTR_FLAG_INTRDISABLED,
+            InterruptType::LowMed => esp_idf_sys::ESP_INTR_FLAG_LOWMED,
+            InterruptType::High => esp_idf_sys::ESP_INTR_FLAG_HIGH,
         }
     }
 }
