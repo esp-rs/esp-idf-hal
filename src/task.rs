@@ -229,7 +229,7 @@ pub fn block_on<F>(mut fut: F) -> F::Output
 where
     F: Future,
 {
-    log::trace!("block_on(): started");
+    ::log::trace!("block_on(): started");
 
     let notification = notification::Notification::new();
 
@@ -246,7 +246,7 @@ where
         }
     };
 
-    log::trace!("block_on(): finished");
+    ::log::trace!("block_on(): finished");
 
     res
 }
