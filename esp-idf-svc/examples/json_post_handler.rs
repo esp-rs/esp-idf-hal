@@ -2,8 +2,6 @@
 //!
 //! Go to 192.168.71.1 to test
 
-use anyhow;
-
 use embedded_svc::{
     http::{Headers, Method},
     io::{Read, Write},
@@ -21,7 +19,6 @@ use esp_idf_svc::{
 use log::*;
 
 use serde::Deserialize;
-use serde_json;
 
 const SSID: &str = env!("WIFI_SSID");
 const PASSWORD: &str = env!("WIFI_PASS");
