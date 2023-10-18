@@ -92,21 +92,21 @@ pub mod config {
     pub const DEFAULT_FRAMES_PER_DMA_BUFFER: u32 = 240;
 
     /// I2S clock source.
-    #[derive(Clone, Copy, Debug, Eq, PartialEq)]
+    #[derive(Clone, Copy, Debug, Eq, PartialEq, Default)]
     pub enum ClockSource {
         /// Use PLL_F160M as the source clock
+        #[cfg(not(any(esp32h2, esp32c6)))]
+        #[default]
         Pll160M,
+
+        /// Use PLL_F64M as the source clock
+        #[cfg(any(esp32h2, esp32c6))]
+        #[default]
+        Pll64M,
 
         /// Use APLL as the source clock
         #[cfg(any(esp32, esp32s2))]
         Apll,
-    }
-
-    impl Default for ClockSource {
-        #[inline(always)]
-        fn default() -> Self {
-            Self::Pll160M
-        }
     }
 
     impl ClockSource {
@@ -114,8 +114,14 @@ pub mod config {
         #[allow(clippy::unnecessary_cast)]
         pub(super) fn as_sdk(&self) -> i2s_clock_src_t {
             match self {
+                #[cfg(not(any(esp32h2, esp32c6)))]
                 Self::Pll160M => core::convert::TryInto::try_into(
                     esp_idf_sys::soc_module_clk_t_SOC_MOD_CLK_PLL_F160M,
+                )
+                .unwrap(),
+                #[cfg(any(esp32h2, esp32c6))]
+                Self::Pll64M => core::convert::TryInto::try_into(
+                    esp_idf_sys::soc_module_clk_t_SOC_MOD_CLK_PLL_F64M,
                 )
                 .unwrap(),
                 #[cfg(any(esp32, esp32s2))]
