@@ -7,8 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.42.1] - 2023-10-18
 * Fix ambiguous name error #325 - a compilation issue when the NimBLE component is enabled in `esp-idf-sys`
-* Fix compilation issues of the I2S driver for esp32h2 and esp32c6
+* Fix compilation issues of the I2S driver for esp32h2, esp32c2 and esp32c6
 * Fix compilation issues of the ADC drivers when the ESP IDF `esp_adc` component is not enabled
+* Fix compilation issues of the GPIO driver for esp32c6
 
 ## [0.42.0] - 2023-10-17
 * MSRV raised to 1.71

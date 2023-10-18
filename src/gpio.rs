@@ -2563,10 +2563,10 @@ mod chip {
         pub gpio19: Gpio19,
         pub gpio20: Gpio20,
         pub gpio21: Gpio21,
-        pub gpio22: Gpio21,
-        pub gpio23: Gpio21,
-        pub gpio24: Gpio21,
-        pub gpio25: Gpio21,
+        pub gpio22: Gpio22,
+        pub gpio23: Gpio23,
+        pub gpio24: Gpio24,
+        pub gpio25: Gpio25,
         #[cfg(not(feature = "riscv-ulp-hal"))]
         pub gpio26: Gpio26,
         #[cfg(not(feature = "riscv-ulp-hal"))]
