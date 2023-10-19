@@ -33,6 +33,7 @@ mod patches;
 #[cfg(any(esp32, esp32s2, esp32s3, esp32c6, esp32h2))]
 mod pcnt;
 
+#[cfg(any(feature = "binstart", feature = "libstart"))]
 mod start;
 
 /// If any of the two constants below do not compile, you have not properly setup the rustc cfg flag `espidf_time64`:
