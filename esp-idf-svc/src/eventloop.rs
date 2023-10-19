@@ -999,8 +999,12 @@ mod async_wait {
         E: super::EspTypedEventDeserializer<E> + Send,
         T: super::EspEventLoopType,
     {
-        subscription:
-            AsyncSubscription<crate::private::mutex::RawCondvar, E, super::EspSubscription<'a, T>>,
+        subscription: AsyncSubscription<
+            crate::private::mutex::RawCondvar,
+            E,
+            super::EspSubscription<'a, T>,
+            EspError,
+        >,
         timer: AsyncTimer<EspTimer<'a>>,
         _event: PhantomData<fn() -> E>,
     }
@@ -1063,6 +1067,7 @@ mod async_wait {
                 crate::private::mutex::RawCondvar,
                 EE,
                 super::EspSubscription<'s, TT>,
+                EspError,
             >,
             mut matcher: F,
         ) -> Result<(), EspError>
@@ -1071,7 +1076,7 @@ mod async_wait {
             TT: super::EspEventLoopType,
         {
             while matcher()? {
-                subscription.recv().await;
+                subscription.recv().await?;
             }
 
             Ok(())
