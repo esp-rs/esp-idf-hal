@@ -1,3 +1,5 @@
+#![cfg(any(feature = "binstart", feature = "libstart"))]
+
 #[cfg(all(feature = "binstart", feature = "libstart"))]
 compile_error!("Features `binstart` and `libstart` are mutually exclusive.");
 
