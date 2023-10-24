@@ -19,7 +19,7 @@ rust-version = "1.71"
 default = ["std", "native", "binstart"]
 
 std = ["alloc", "log/std", "esp-idf-hal/std", "embedded-svc/std"]
-alloc = ["esp-idf-hal/alloc", "embedded-svc/alloc"]
+alloc = ["esp-idf-hal/alloc", "embedded-svc/alloc", "uncased/alloc"]
 nightly = ["embedded-svc/nightly", "esp-idf-hal/nightly"]
 experimental = ["embedded-svc/experimental"]
 embassy-time-driver = ["embassy-time"]
@@ -43,7 +43,7 @@ heapless = { version = "0.7", default-features = false }
 num_enum = { version = "0.7", default-features = false }
 enumset = { version = "1", default-features = false }
 log = { version = "0.4", default-features = false }
-uncased = "0.9.7"
+uncased = { version = "0.9.7", default-features = false }
 embedded-svc = { version = "0.26.1", default-features = false }
 esp-idf-hal = { version = "0.42", default-features = false, features = ["esp-idf-sys"] }
 embassy-sync = { version = "0.3", optional = true }
