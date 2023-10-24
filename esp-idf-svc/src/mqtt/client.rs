@@ -15,6 +15,7 @@ use crate::sys::*;
 use crate::handle::RawHandle;
 use crate::private::mutex::RawCondvar;
 
+#[allow(unused_imports)]
 pub use asyncify::*;
 
 use crate::private::cstr::*;
@@ -25,6 +26,7 @@ pub use client::{
 };
 pub use embedded_svc::utils::mqtt::client::{ConnState, ConnStateGuard, Connection, Postbox};
 
+#[allow(unused_imports)]
 pub use super::*;
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]

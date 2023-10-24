@@ -23,6 +23,7 @@ use crate::sys::*;
 
 use ::log::info;
 
+#[allow(unused_imports)]
 pub use asyncify::*;
 
 #[cfg(esp_idf_esp_timer_supports_isr_dispatch_method)]

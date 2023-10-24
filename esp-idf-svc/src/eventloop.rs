@@ -26,6 +26,7 @@ use crate::private::cstr::RawCstrs;
 use crate::private::mutex;
 use crate::private::waitable::Waitable;
 
+#[allow(unused_imports)]
 pub use asyncify::*;
 
 #[cfg(all(feature = "alloc", esp_idf_comp_esp_timer_enabled))]
