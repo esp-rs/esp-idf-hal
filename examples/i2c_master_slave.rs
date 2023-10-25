@@ -67,7 +67,7 @@ fn main() -> anyhow::Result<()> {
     let mut i2c_master = i2c_master_init(
         peripherals.i2c0,
         peripherals.pins.gpio21.into(),
-        peripherals.pins.gpio22.into(),
+        peripherals.pins.gpio20.into(),
         100.kHz().into(),
     )?;
 
