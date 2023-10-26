@@ -15,6 +15,8 @@ use embuild::fs::copy_file_if_different;
 use embuild::utils::{OsStrExt, PathExt};
 use embuild::{bindgen, build, cargo, cmake, espidf, git, kconfig, path_buf};
 
+use strum::IntoEnumIterator;
+
 use self::chip::Chip;
 use crate::common::{
     self, list_specific_sdkconfigs, manifest_dir, sanitize_c_env_vars, sanitize_project_path,
@@ -44,16 +46,24 @@ pub fn build() -> Result<EspIdfBuildOutput> {
     let supported_chips = Chip::detect(&target)?;
 
     let chip = if let Some(mcu) = &config.mcu {
-        let chip = Chip::from_str(mcu)?;
+        if let Ok(chip) = Chip::from_str(mcu) {
+            if !supported_chips.iter().any(|sc| *sc == chip) {
+                bail!(
+                    "Specified MCU '{chip}' is not amongst the MCUs ([{}]) supported by the build target ('{target}')", 
+                    supported_chips.iter().map(|chip| format!("{chip}")).collect::<Vec<_>>().join(", ")
+                );
+            }
 
-        if !supported_chips.iter().any(|sc| *sc == chip) {
+            chip
+        } else {
             bail!(
-                "Specified MCU '{chip}' is not amongst the MCUs ([{}]) supported by the build target ('{target}')", 
-                supported_chips.iter().map(|chip| format!("{chip}")).collect::<Vec<_>>().join(", ")
+                "Specified MCU '{mcu}' is not recognized as a valid Espressif MCU amongst [{}]",
+                Chip::iter()
+                    .map(|chip| chip.to_string())
+                    .collect::<Vec<_>>()
+                    .join(", ")
             );
         }
-
-        chip
     } else {
         if supported_chips.len() > 1 {
             println!(

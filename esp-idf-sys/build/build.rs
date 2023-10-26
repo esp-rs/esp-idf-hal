@@ -71,12 +71,15 @@ fn main() -> anyhow::Result<()> {
             .collect(),
     };
 
-    let mcu = cfg_args.get("esp_idf_idf_target").ok_or_else(|| {
-        anyhow!(
-            "Failed to get IDF_TARGET from kconfig. cfgs:\n{:?}",
-            cfg_args.args
-        )
-    })?;
+    let mcu = cfg_args
+        .get("esp_idf_idf_target")
+        .ok_or_else(|| {
+            anyhow!(
+                "Failed to get IDF_TARGET from kconfig. cfgs:\n{:?}",
+                cfg_args.args
+            )
+        })?
+        .to_lowercase();
 
     let manifest_dir = manifest_dir()?;
 

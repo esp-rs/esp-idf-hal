@@ -83,7 +83,7 @@ pub fn build() -> Result<EspIdfBuildOutput> {
                 .params(pio::ResolutionParams {
                     platform: Some("espressif32".into()),
                     frameworks: vec!["espidf".into()],
-                    mcu: config.mcu.clone(),
+                    mcu: config.mcu.clone().map(|mcu| mcu.to_uppercase()), // MCU always uppercase in PlatformIO
                     target: Some(env::var("TARGET")?),
                     ..Default::default()
                 })

@@ -5,6 +5,10 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.33.4] - 2023-10-27
+* The `MCU` environment variable was failing the `pio` build if the MCU was not uppercased
+* Better error message for the `native` build in case the MCU was not recognized
+
 ## [0.33.3] - 2023-10-17
 * Support for ESP IDF Component Manager - check the documentation in BUILD-OPTIONS.md
 * ESP32H2 and ESP32C5 now properly assigned to the `riscv32imac-esp-espidf`

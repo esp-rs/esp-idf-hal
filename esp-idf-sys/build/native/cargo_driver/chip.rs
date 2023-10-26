@@ -1,11 +1,11 @@
 //! ESP32 chip variants support.
 
 use anyhow::{bail, Result};
-use strum::{Display, EnumString};
+use strum::{Display, EnumIter, EnumString};
 
 use embuild::espidf::EspIdfVersion;
 
-#[derive(Clone, Copy, PartialEq, Eq, Debug, Display, EnumString)]
+#[derive(Clone, Copy, PartialEq, Eq, Debug, Display, EnumString, EnumIter)]
 #[repr(u32)]
 pub enum Chip {
     /// Xtensa LX6 based dual core
