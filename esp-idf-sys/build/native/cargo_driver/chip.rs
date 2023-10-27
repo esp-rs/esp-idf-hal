@@ -58,11 +58,33 @@ impl Chip {
     }
 
     /// The name of the gcc toolchain (to compile the `esp-idf`) for `idf_tools.py`.
-    pub fn gcc_toolchain(&self) -> &'static str {
+    pub fn gcc_toolchain(&self, version: Option<&EspIdfVersion>) -> &'static str {
+        let new = version
+            .map(|version| version.major > 5 || version.major == 5 && version.minor > 1)
+            .unwrap_or(true);
+
         match self {
-            Self::ESP32 => "xtensa-esp32-elf",
-            Self::ESP32S2 => "xtensa-esp32s2-elf",
-            Self::ESP32S3 => "xtensa-esp32s3-elf",
+            Self::ESP32 => {
+                if new {
+                    "xtensa-esp-elf"
+                } else {
+                    "xtensa-esp32-elf"
+                }
+            }
+            Self::ESP32S2 => {
+                if new {
+                    "xtensa-esp-elf"
+                } else {
+                    "xtensa-esp32s2-elf"
+                }
+            }
+            Self::ESP32S3 => {
+                if new {
+                    "xtensa-esp-elf"
+                } else {
+                    "xtensa-esp32s3-elf"
+                }
+            }
             Self::ESP32C2
             | Self::ESP32C3
             | Self::ESP32H2

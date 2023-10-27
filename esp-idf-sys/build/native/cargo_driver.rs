@@ -92,7 +92,7 @@ pub fn build() -> Result<EspIdfBuildOutput> {
         );
 
         let mut tools = vec![];
-        let mut subtools = vec![chip.gcc_toolchain()];
+        let mut subtools = vec![chip.gcc_toolchain(version.as_ref().ok())];
 
         // Use custom cmake for esp-idf<4.4, because we need at least cmake-3.20
         match version.as_ref().map(|v| (v.major, v.minor, v.patch)) {
@@ -219,6 +219,8 @@ pub fn build() -> Result<EspIdfBuildOutput> {
         }
     };
 
+    let version = idf.version.as_ref().ok().cloned();
+
     let custom_linker = if !gcc12 && !chip.is_xtensa() {
         // Another, even more annoying issue with the riscv targets is that since Rust nightly-2023-08-08
         // and the introduction of LLVM-17, rustc (and LLVM) claim to support RISCV ISA 2.1 spec
@@ -242,13 +244,19 @@ pub fn build() -> Result<EspIdfBuildOutput> {
         // [`crate::config::DEFAULT_TOOLS_INSTALL_DIR`] if unset.
         let (linker_install_dir, _) = config.esp_idf_tools_install_dir()?;
 
+        let version_for_installer = version.clone();
+
         let installer = espidf::Installer::new(linker_origin)
             .install_dir(linker_install_dir.path().map(Into::into))
-            .with_tools(move |_, _| Ok(vec![espidf::Tools::new(vec![chip.gcc_toolchain()])]))
+            .with_tools(move |_, _| {
+                Ok(vec![espidf::Tools::new(vec![
+                    chip.gcc_toolchain(version_for_installer.as_ref())
+                ])])
+            })
             .install()
             .context("Could not install GCC linker")?;
 
-        let linker_name = format!("{}-gcc", chip.gcc_toolchain());
+        let linker_name = format!("{}-gcc", chip.gcc_toolchain(version.as_ref()));
 
         let linker =
             which::which_in_global(linker_name.clone(), Some(installer.exported_path.clone()))?
