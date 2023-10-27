@@ -387,6 +387,7 @@ impl<'d> CanDriver<'d> {
     ) -> Result<Self, EspError> {
         crate::into_ref!(can, tx, rx);
 
+        #[allow(clippy::needless_update)]
         let general_config = twai_general_config_t {
             mode: config.mode.into(),
             tx_io: tx.pin(),
@@ -398,6 +399,7 @@ impl<'d> CanDriver<'d> {
             alerts_enabled: config.alerts.as_repr(),
             clkout_divider: 0,
             intr_flags: InterruptType::to_native(config.intr_flags) as _,
+            ..Default::default()
         };
 
         let timing_config = config.timing.into();

@@ -124,11 +124,13 @@ pub(super) mod config {
         ))]
         #[inline(always)]
         pub(super) fn as_sdk(&self) -> i2s_pdm_rx_clk_config_t {
+            #[allow(clippy::needless_update)]
             i2s_pdm_rx_clk_config_t {
                 sample_rate_hz: self.sample_rate_hz,
                 clk_src: self.clk_src.as_sdk(),
                 mclk_multiple: self.mclk_multiple.as_sdk(),
                 dn_sample_mode: self.downsample_mode.as_sdk(),
+                ..Default::default()
             }
         }
     }

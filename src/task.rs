@@ -17,6 +17,20 @@ use esp_idf_sys::*;
 use crate::cpu::Core;
 use crate::interrupt;
 
+#[cfg(not(any(
+    esp_idf_version_major = "4",
+    esp_idf_version = "5.0",
+    esp_idf_version = "5.1"
+)))]
+const NO_AFFINITY: core::ffi::c_int = -1;
+
+#[cfg(any(
+    esp_idf_version_major = "4",
+    esp_idf_version = "5.0",
+    esp_idf_version = "5.1"
+))]
+const NO_AFFINITY: core::ffi::c_uint = tskNO_AFFINITY;
+
 /// Creates a FreeRTOS task.
 ///
 /// This API is to be used only for niche use cases like where the `std` feature is not enabled, or one absolutely
@@ -46,7 +60,7 @@ pub unsafe fn create(
         task_arg,
         priority as _,
         &mut task,
-        pin_to_core.map(Into::into).unwrap_or(tskNO_AFFINITY as _),
+        pin_to_core.map(Into::into).unwrap_or(NO_AFFINITY as _),
     );
 
     if created == 0 {
@@ -218,8 +232,23 @@ pub fn get_idle_task(core: crate::cpu::Core) -> TaskHandle_t {
     }
 
     #[cfg(not(any(esp32c3, esp32c2, esp32h2, esp32c5, esp32c6)))]
+    #[cfg(any(
+        esp_idf_version_major = "4",
+        esp_idf_version = "5.0",
+        esp_idf_version = "5.1"
+    ))]
     unsafe {
         xTaskGetIdleTaskHandleForCPU(core as u32)
+    }
+
+    #[cfg(not(any(esp32c3, esp32c2, esp32h2, esp32c5, esp32c6)))]
+    #[cfg(not(any(
+        esp_idf_version_major = "4",
+        esp_idf_version = "5.0",
+        esp_idf_version = "5.1"
+    )))]
+    unsafe {
+        xTaskGetIdleTaskHandleForCore(core as i32)
     }
 }
 
@@ -256,6 +285,8 @@ pub mod thread {
     use core::ffi::CStr;
 
     use esp_idf_sys::*;
+
+    use super::NO_AFFINITY;
 
     use crate::cpu::Core;
 
@@ -294,10 +325,7 @@ pub mod thread {
                 stack_size: conf.stack_size as _,
                 prio: conf.priority as _,
                 inherit_cfg: conf.inherit,
-                pin_to_core: conf
-                    .pin_to_core
-                    .map(Into::into)
-                    .unwrap_or(tskNO_AFFINITY as _),
+                pin_to_core: conf.pin_to_core.map(Into::into).unwrap_or(NO_AFFINITY as _),
             }
         }
     }
@@ -318,7 +346,7 @@ pub mod thread {
                 stack_size: conf.stack_size as _,
                 priority: conf.prio as _,
                 inherit: conf.inherit_cfg,
-                pin_to_core: if conf.pin_to_core == tskNO_AFFINITY as _ {
+                pin_to_core: if conf.pin_to_core == NO_AFFINITY as _ {
                     None
                 } else {
                     Some(conf.pin_to_core.into())
