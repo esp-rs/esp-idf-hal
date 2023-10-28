@@ -465,7 +465,7 @@ pub fn setup_clang_env() -> Result<()> {
             std::env::home_dir().map(|home| home.join(".espup").join("esp-clang"));
 
         let err_msg = if let Some(espup_clang_path) = espup_clang_path {
-            if let Some(real_path) = std::fs::read_link(&espup_clang_path).ok() {
+            if let Ok(real_path) = std::fs::read_link(&espup_clang_path) {
                 if real_path.is_dir() {
                     std::env::set_var("LIBCLANG_PATH", real_path.as_os_str());
                     None
@@ -482,7 +482,7 @@ pub fn setup_clang_env() -> Result<()> {
                 ))
             }
         } else {
-            Some(format!("Cannot locate user home directory"))
+            Some("Cannot locate user home directory".into())
         };
 
         if let Some(err_msg) = err_msg {
