@@ -398,7 +398,9 @@
 
 // Nimble APIs (BLE only)
 #ifdef CONFIG_BT_NIMBLE_ENABLED
+#if defined(CONFIG_IDF_TARGET_ESP32) || defined(CONFIG_IDF_TARGET_ESP32C3) || defined(CONFIG_IDF_TARGET_ESP32S3)
 #include "esp_nimble_hci.h"
+#endif
 #include "nimble/nimble_port.h"
 #include "nimble/nimble_port_freertos.h"
 #include "host/ble_hs.h"
