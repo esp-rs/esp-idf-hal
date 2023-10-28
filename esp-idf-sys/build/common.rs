@@ -451,3 +451,48 @@ pub fn sanitize_project_path() -> Result<()> {
 
     Ok(())
 }
+
+pub fn setup_clang_env() -> Result<()> {
+    const POLICY_VAR: &str = "ESP_IDF_ESPUP_CLANG_SYMLINK";
+    let policy = std::env::var(POLICY_VAR)
+        .ok()
+        .unwrap_or("try".into())
+        .to_lowercase();
+
+    if policy != "ignore" {
+        #[allow(deprecated)]
+        let espup_clang_path =
+            std::env::home_dir().map(|home| home.join(".espup").join("esp-clang"));
+
+        let err_msg = if let Some(espup_clang_path) = espup_clang_path {
+            if let Some(real_path) = std::fs::read_link(&espup_clang_path).ok() {
+                if real_path.is_dir() {
+                    std::env::set_var("LIBCLANG_PATH", real_path.as_os_str());
+                    None
+                } else {
+                    Some(format!(
+                        "Symlink {} points to a file",
+                        espup_clang_path.display()
+                    ))
+                }
+            } else {
+                Some(format!(
+                    "Symlink {} does not exist or points to a non-existing location",
+                    espup_clang_path.display()
+                ))
+            }
+        } else {
+            Some(format!("Cannot locate user home directory"))
+        };
+
+        if let Some(err_msg) = err_msg {
+            if policy == "warn" {
+                cargo::print_warning(format!("(esp-idf-sys) {err_msg}"));
+            } else if policy == "err" {
+                bail!(err_msg);
+            }
+        }
+    }
+
+    Ok(())
+}

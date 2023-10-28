@@ -309,6 +309,21 @@ The following configuration options are available:
 
   The currently detected environment variables that might be problematic are as follows: `CC`, `CXX`, `CFLAGS`, `CCFLAGS`, `CXXFLAGS`, `CPPFLAGS`, `LDFLAGS`, `GCC_EXEC_PREFIX`, `COMPILER_PATH`, `C_INCLUDE_PATH`, `CPLUS_INCLUDE_PATH`.
 
+- ### *`esp_idf_espup_clang_symlink`*, `$ESP_IDF_ESPUP_CLANG_SYMLINK`
+
+  Background:
+
+  As part of installing the `esp` Rust toolchain, the `espup` utility - on Unix-like systems - configures a hidden symlink in its private folder that points to the Clang compiler library that is also distributed with the `esp` Rust toolchain (and which - just like the `esp` Rust toolchain itself - does support the `xtensa` architecture). 
+
+  Since `esp-idf-sys` uses `bindgen` to generate raw bindings for the C ESP IDF APIs, it needs to have the `LIBCLANG_PATH` env var configured to point to the CLang library.
+  
+  `esp-idf-sys` does this automatically, by using the symlink provided by `espup`.
+
+  Following options are available:
+  * `try` (default) - Check if the symlink is available and use it; continue the build expecting a user-defined `LIBCLANG_PATH` env var otherwise
+  * `warn` - Same as `try` but report a warning if the symlink is not available
+  * `err` - Fail the build if the symlink is not available or broken
+  * `ignore` - Do not use the symlink at all
 
 - ### *`esp_idf_component_manager`*, `$ESP_IDF_COMPONENT_MANAGER`
 
