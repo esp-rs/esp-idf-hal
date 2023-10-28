@@ -226,7 +226,7 @@ impl<'d> TimerDriver<'d> {
                     self.group(),
                     self.index(),
                     Some(Self::handle_isr),
-                    (self.group() * timer_group_t_TIMER_GROUP_MAX + self.index())
+                    (self.group() + self.index() * timer_group_t_TIMER_GROUP_MAX)
                         as *mut core::ffi::c_void,
                     0,
                 )
@@ -268,13 +268,13 @@ impl<'d> TimerDriver<'d> {
 
     pub fn reset_wait(&mut self) {
         let notif =
-            &PIN_NOTIF[(self.group() * timer_group_t_TIMER_GROUP_MAX + self.index()) as usize];
+            &PIN_NOTIF[(self.group() + self.index() * timer_group_t_TIMER_GROUP_MAX) as usize];
         notif.reset();
     }
 
     pub async fn wait(&mut self) -> Result<(), EspError> {
         let notif =
-            &PIN_NOTIF[(self.group() * timer_group_t_TIMER_GROUP_MAX + self.index()) as usize];
+            &PIN_NOTIF[(self.group() + self.index() * timer_group_t_TIMER_GROUP_MAX) as usize];
 
         notif.wait().await;
 
@@ -297,7 +297,7 @@ impl<'d> TimerDriver<'d> {
 
         let callback: Box<dyn FnMut() + Send + 'd> = Box::new(callback);
 
-        ISR_HANDLERS[(self.group() * timer_group_t_TIMER_GROUP_MAX + self.index()) as usize] =
+        ISR_HANDLERS[(self.group() + self.index() * timer_group_t_TIMER_GROUP_MAX) as usize] =
             Some(unsafe { core::mem::transmute(callback) });
 
         Ok(())
@@ -310,7 +310,7 @@ impl<'d> TimerDriver<'d> {
         self.disable_interrupt()?;
 
         unsafe {
-            ISR_HANDLERS[(self.group() * timer_group_t_TIMER_GROUP_MAX + self.index()) as usize] =
+            ISR_HANDLERS[(self.group() + self.index() * timer_group_t_TIMER_GROUP_MAX) as usize] =
                 None;
         }
 
@@ -355,11 +355,11 @@ impl<'d> Drop for TimerDriver<'d> {
 
         #[cfg(feature = "alloc")]
         unsafe {
-            ISR_HANDLERS[(self.group() * timer_group_t_TIMER_GROUP_MAX + self.index()) as usize] =
+            ISR_HANDLERS[(self.group() + self.index() * timer_group_t_TIMER_GROUP_MAX) as usize] =
                 None;
         }
 
-        PIN_NOTIF[(self.group() * timer_group_t_TIMER_GROUP_MAX + self.index()) as usize].reset();
+        PIN_NOTIF[(self.group() + self.index() * timer_group_t_TIMER_GROUP_MAX) as usize].reset();
 
         esp!(unsafe { timer_deinit(self.group(), self.index()) }).unwrap();
     }
