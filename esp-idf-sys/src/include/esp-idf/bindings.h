@@ -106,9 +106,9 @@
 #if ESP_IDF_VERSION_MAJOR > 5 || ESP_IDF_VERSION_MAJOR == 5 && ESP_IDF_VERSION_MINOR >= 1
 #include "esp_supplicant_utils.h"
 #endif
-//#if ESP_IDF_VERSION_MAJOR > 5 || ESP_IDF_VERSION_MAJOR == 5 && ESP_IDF_VERSION_MINOR >= 2
-//#include "esp_eap_client.h"
-//#endif
+// #if ESP_IDF_VERSION_MAJOR > 5 || ESP_IDF_VERSION_MAJOR == 5 && ESP_IDF_VERSION_MINOR >= 2
+// #include "esp_eap_client.h"
+// #endif
 #endif
 
 #ifdef ESP_IDF_COMP_ESP_ETH_ENABLED
@@ -153,6 +153,11 @@
 #include "lwip/sockets.h"
 #include "esp_sntp.h"
 #include "ping/ping_sock.h"
+#if ESP_IDF_VERSION_MAJOR > 5 || ESP_IDF_VERSION_MAJOR == 5 && ESP_IDF_VERSION_MINOR >= 1
+#ifdef ESP_IDF_COMP_ESP_NETIF_ENABLED
+#include "esp_netif_sntp.h"
+#endif
+#endif
 #endif
 
 #ifdef ESP_IDF_COMP_MBEDTLS_ENABLED
