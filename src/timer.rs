@@ -226,8 +226,7 @@ impl<'d> TimerDriver<'d> {
                     self.group(),
                     self.index(),
                     Some(Self::handle_isr),
-                    (self.group() * timer_group_t_TIMER_GROUP_MAX + self.index())
-                        as *mut core::ffi::c_void,
+                    (self.group() * timer_idx_t_TIMER_MAX + self.index()) as *mut core::ffi::c_void,
                     0,
                 )
             })?;
@@ -267,14 +266,12 @@ impl<'d> TimerDriver<'d> {
     }
 
     pub fn reset_wait(&mut self) {
-        let notif =
-            &PIN_NOTIF[(self.group() * timer_group_t_TIMER_GROUP_MAX + self.index()) as usize];
+        let notif = &PIN_NOTIF[(self.group() * timer_idx_t_TIMER_MAX + self.index()) as usize];
         notif.reset();
     }
 
     pub async fn wait(&mut self) -> Result<(), EspError> {
-        let notif =
-            &PIN_NOTIF[(self.group() * timer_group_t_TIMER_GROUP_MAX + self.index()) as usize];
+        let notif = &PIN_NOTIF[(self.group() * timer_idx_t_TIMER_MAX + self.index()) as usize];
 
         notif.wait().await;
 
@@ -297,7 +294,7 @@ impl<'d> TimerDriver<'d> {
 
         let callback: Box<dyn FnMut() + Send + 'd> = Box::new(callback);
 
-        ISR_HANDLERS[(self.group() * timer_group_t_TIMER_GROUP_MAX + self.index()) as usize] =
+        ISR_HANDLERS[(self.group() * timer_idx_t_TIMER_MAX + self.index()) as usize] =
             Some(unsafe { core::mem::transmute(callback) });
 
         Ok(())
@@ -310,8 +307,7 @@ impl<'d> TimerDriver<'d> {
         self.disable_interrupt()?;
 
         unsafe {
-            ISR_HANDLERS[(self.group() * timer_group_t_TIMER_GROUP_MAX + self.index()) as usize] =
-                None;
+            ISR_HANDLERS[(self.group() * timer_idx_t_TIMER_MAX + self.index()) as usize] = None;
         }
 
         Ok(())
@@ -355,11 +351,10 @@ impl<'d> Drop for TimerDriver<'d> {
 
         #[cfg(feature = "alloc")]
         unsafe {
-            ISR_HANDLERS[(self.group() * timer_group_t_TIMER_GROUP_MAX + self.index()) as usize] =
-                None;
+            ISR_HANDLERS[(self.group() * timer_idx_t_TIMER_MAX + self.index()) as usize] = None;
         }
 
-        PIN_NOTIF[(self.group() * timer_group_t_TIMER_GROUP_MAX + self.index()) as usize].reset();
+        PIN_NOTIF[(self.group() * timer_idx_t_TIMER_MAX + self.index()) as usize].reset();
 
         esp!(unsafe { timer_deinit(self.group(), self.index()) }).unwrap();
     }
@@ -432,4 +427,4 @@ impl_timer!(TIMER01: timer_group_t_TIMER_GROUP_0, timer_idx_t_TIMER_1);
 #[cfg(not(esp32c2))]
 impl_timer!(TIMER10: timer_group_t_TIMER_GROUP_1, timer_idx_t_TIMER_0);
 #[cfg(any(esp32, esp32s2, esp32s3))]
-impl_timer!(TIMER11: timer_group_t_TIMER_GROUP_1, timer_idx_t_TIMER_0);
+impl_timer!(TIMER11: timer_group_t_TIMER_GROUP_1, timer_idx_t_TIMER_1);
