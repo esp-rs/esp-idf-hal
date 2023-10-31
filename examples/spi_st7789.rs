@@ -12,8 +12,6 @@
 //! For this example you need to hook up an ST7789 SPI display.
 //! The display will display an image on ferris the crab on a black background.
 
-use esp_idf_sys as _; // If using the `binstart` feature of `esp-idf-sys`, always keep this module imported
-
 use std::thread;
 use std::time::Duration;
 
@@ -34,7 +32,7 @@ use embedded_graphics::prelude::*;
 use mipidsi::{Builder, Orientation};
 
 fn main() -> anyhow::Result<()> {
-    let peripherals = Peripherals::take().unwrap();
+    let peripherals = Peripherals::take()?;
     let spi = peripherals.spi2;
 
     let rst = PinDriver::output(peripherals.pins.gpio3)?;

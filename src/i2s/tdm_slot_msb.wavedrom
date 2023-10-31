@@ -1,0 +1,60 @@
+{
+    "head": {
+        "text": "TDM MSB Frame"
+    },
+    "signal": [
+        {
+            "node": ".E.........F.........G",
+            "phase": -0.35
+        },
+        {
+            "name": "BCLK",
+            "wave": "p.d.p.d.pd.pd.p.d.pd.p"
+        },
+        {
+            "name": "WS",
+            "wave": "10dd0.dd0dd1uu1.uu1uu0.",
+            "node": "TH...................R",
+            "phase": -0.35
+        },
+        {
+            "name": "DIN / DOUT",
+            "wave": "x2x|22x|2x|2x|22x|2x|2",
+            "data": [
+                "MSB",
+                "LSB",
+                "MSB",
+                "LSB",
+                "MSB",
+                "LSB",
+                "MSB",
+                "LSB",
+                "MSB"
+            ],
+            "node": ".H...K...I.M...N...P.Q",
+            "phase": -0.35
+        },
+        {
+            "node": "UA...B...C.D...J...L.S",
+            "phase": -0.35
+        }
+    ],
+    "edge": [
+        "E<->F First (Left) Slots",
+        "F<->G Second (Right) Slots",
+        "A<->B Slot 1",
+        "B<->C Slot 2",
+        "C<->D ...",
+        "D<->J Slot n",
+        "J<->L Slot n+1",
+        "L<->S ...",
+        "A-E",
+        "K-B",
+        "C-I",
+        "D-F",
+        "J-N",
+        "L-P",
+        "Q-G",
+        "S-R"
+    ]
+}

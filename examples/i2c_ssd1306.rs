@@ -17,9 +17,9 @@ use esp_idf_hal::prelude::*;
 const SSD1306_ADDRESS: u8 = 0x3c;
 
 fn main() -> anyhow::Result<()> {
-    esp_idf_sys::link_patches();
+    esp_idf_hal::sys::link_patches();
 
-    let peripherals = Peripherals::take().unwrap();
+    let peripherals = Peripherals::take()?;
     let i2c = peripherals.i2c0;
     let sda = peripherals.pins.gpio5;
     let scl = peripherals.pins.gpio6;

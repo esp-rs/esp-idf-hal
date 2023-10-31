@@ -9,11 +9,11 @@ use esp_idf_hal::prelude::*;
 const CYCLES: usize = 3;
 
 fn main() -> anyhow::Result<()> {
-    esp_idf_sys::link_patches();
+    esp_idf_hal::sys::link_patches();
 
     println!("Setting up PWM output channels");
 
-    let peripherals = Peripherals::take().unwrap();
+    let peripherals = Peripherals::take()?;
     let config = config::TimerConfig::new().frequency(25.kHz().into());
     let timer = Arc::new(LedcTimerDriver::new(peripherals.ledc.timer0, &config)?);
     let channel0 = LedcDriver::new(

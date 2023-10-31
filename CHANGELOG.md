@@ -5,6 +5,54 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.42.3] - 2023-10-29
+* Fix Timer array index bug #331 - prevented the use of TIMER10 on devices that support only 2 Timers
+* Fix wrong TIMER11 index definition that declared TIMER11 as TIMER10 #331
+
+## [0.42.2] - 2023-10-28
+* Support for latest ESP IDF 5.2 dev (master)
+
+## [0.42.1] - 2023-10-18
+* Fix ambiguous name error #325 - a compilation issue when the NimBLE component is enabled in `esp-idf-sys`
+* Fix compilation issues of the I2S driver for esp32h2 and esp32c2
+* Fix compilation issues of the ADC drivers when the ESP IDF `esp_adc` component is not enabled
+* Fix compilation issues of the GPIO driver for esp32c6
+
+## [0.42.0] - 2023-10-17
+* MSRV raised to 1.71
+* New driver: I2S
+* New driver: continuous ADC
+* New driver: snapshot ADC, implementing the new ESP-IDF 5.0+ snapshot ADC API
+* Async support in the following drivers: Timer, SPI, I2S, continuous ADC, CAN (via an `AsyncCanDriver` wrapper), UART (via an `AsyncUartDriver` wrapper)
+* All async drivers can now work out of the box with any executor (`edge-executor` no longer a necessity) via a new ISR-to-task bridge (`esp_idf_hal::interrupt::asynch::IsrReactor`)
+* CAN driver: support for pulling alerts in blocking and async mode
+* UART driver: support for pulling UART events
+* GPIO driver: scoped callback; `subscribe` callback now needs to live only as long as the `PinDriver` instance
+* Timer driver: scoped callback; `subscribe` callback now needs to live only as long as the `TimerDriver` instance
+* `task` and `interrupt` modules: new submodule in each - `asynch` - featuring a signal/notification-like synchronization primitive
+* `task` module: `block_on` method capable of executing a future on the current thread
+* `task` module: new sub-module - `queue` for the FreeRTOS `queue` synchonization primitive
+* `task` module: new sub-module - `notification` - a more ergonomic API around the FreeRTOS task notification API
+   which was already exposed via the `task::notify` and `task::wait_notification` APIs
+* Upgraded to `embedded-hal` 1.0.0-rc.1 and `embedded-hal-async` 1.0.0-rc.1
+* Dependency `esp-idf-sys` now re-exported as `esp_idf_hal::sys`
+* Breaking change: `Peripherals::take` now returns an error when the peripherals are already taken
+* Breaking change: `delay::Delay` struct extended with configurable threshold
+* Breaking change: `task::wait_any_notification` removed; `task::notify` renamed to `task::notify_and_yield`; new function - `task::notify` - that notifies a task without automatically yielding to the notified task if it is a higher priority than the currently interrupted one
+* Breaking change: `task::notify*` and `task::wait` now take/return `NonZeroU32` instead of `u32`
+* Breaking change: GPIO - interrupts are now disabled automatically each time an ISR is triggered so as to avoid the IWDT triggering on level interrupts; use has to re-enable - in non-ISR code - via `PinDriver::enable_interrupt()`
+* Breaking change: ESP IDF support for `edge-executor` moved to the `edge-executor` crate
+* Deprecated: Using ESP-IDF 4.3 is now deprecated and all special cfg flags will be removed in the next release
+
+## [0.41.2] - 2023-06-21
+
+* Do not set the single shot flag in the CAN frame (#263)
+* Add safe abstractions to CRC functions in ESP ROM (#261)
+* Use same error for all e-hal 0.2 trait impls (#260)
+* Add support for WakeupReason from Ext0 events (#259)
+* Compilation failed when ESP_IDF_VERSION = "release/v5.1" (#258)
+* Fix UART docs (#252)
+
 ## [0.41.1] - 2023-05-21
 
 * UART driver was broken - see #250 for more details

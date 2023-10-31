@@ -1,12 +1,90 @@
 use core::cell::Cell;
+#[cfg(feature = "alloc")]
+use core::future::Future;
+use core::num::NonZeroU32;
+#[cfg(feature = "alloc")]
+use core::pin::pin;
 use core::ptr::{self, NonNull};
 use core::sync::atomic::{AtomicBool, Ordering};
-use core::time::Duration;
+#[cfg(feature = "alloc")]
+use core::task::{Context, Poll};
+
+#[cfg(feature = "alloc")]
+extern crate alloc;
 
 use esp_idf_sys::*;
 
-use crate::delay::TickType;
+use crate::cpu::Core;
 use crate::interrupt;
+
+#[cfg(not(any(
+    esp_idf_version_major = "4",
+    esp_idf_version = "5.0",
+    esp_idf_version = "5.1"
+)))]
+const NO_AFFINITY: core::ffi::c_int = -1;
+
+#[cfg(any(
+    esp_idf_version_major = "4",
+    esp_idf_version = "5.0",
+    esp_idf_version = "5.1"
+))]
+const NO_AFFINITY: core::ffi::c_uint = tskNO_AFFINITY;
+
+/// Creates a FreeRTOS task.
+///
+/// This API is to be used only for niche use cases like where the `std` feature is not enabled, or one absolutely
+/// needs to create a raw FreeRTOS task.
+///
+/// In all other cases, the standard, safe Rust `std::thread` API should be utilized, as it is anyway
+/// a thin wrapper around the FreeRTOS task API.
+///
+/// # Safety
+///
+/// Only marked as unsafe fo symmetry with `destroy` and to discourage users from leaning on it in favor of `std::thread`.
+/// Otherwise, this function is actually safe.
+pub unsafe fn create(
+    task_handler: extern "C" fn(*mut core::ffi::c_void),
+    task_name: &core::ffi::CStr,
+    stack_size: usize,
+    task_arg: *mut core::ffi::c_void,
+    priority: u8,
+    pin_to_core: Option<Core>,
+) -> Result<TaskHandle_t, EspError> {
+    let mut task: TaskHandle_t = core::ptr::null_mut();
+
+    let created = xTaskCreatePinnedToCore(
+        Some(task_handler),
+        task_name.as_ptr(),
+        stack_size as _,
+        task_arg,
+        priority as _,
+        &mut task,
+        pin_to_core.map(Into::into).unwrap_or(NO_AFFINITY as _),
+    );
+
+    if created == 0 {
+        Err(EspError::from_infallible::<ESP_FAIL>())
+    } else {
+        Ok(task)
+    }
+}
+
+/// Deletes a FreeRTOS task.
+///
+/// This API is to be used only for niche use cases like where the `std` feature is not enabled, or one absolutely
+/// needs to create a raw FreeRTOS task.
+///
+/// In all other cases, the standard, safe Rust `std::thread` API should be utilized, as it is anyway
+/// a thin wrapper around the FreeRTOS task API.
+///
+/// # Safety
+///
+/// A valid `TaskHandle_t` instance of an existing task should be provided.
+/// Providing a `TaskHandle_t` of a task which was already destroyed is an undefined behavior.
+pub unsafe fn destroy(task: TaskHandle_t) {
+    vTaskDelete(task)
+}
 
 #[inline(always)]
 #[link_section = ".iram1.interrupt_task_do_yield"]
@@ -49,36 +127,21 @@ pub fn current() -> Option<TaskHandle_t> {
     }
 }
 
-pub fn wait_any_notification() {
-    loop {
-        if let Some(notification) = wait_notification(None) {
-            if notification != 0 {
-                break;
-            }
-        }
-    }
-}
-
-pub fn wait_notification(duration: Option<Duration>) -> Option<u32> {
+pub fn wait_notification(timeout: TickType_t) -> Option<NonZeroU32> {
     let mut notification = 0_u32;
 
     #[cfg(esp_idf_version = "4.3")]
-    let notified =
-        unsafe { xTaskNotifyWait(0, u32::MAX, &mut notification, TickType::from(duration).0) } != 0;
+    #[deprecated(
+        note = "Using ESP-IDF 4.3 is untested, please upgrade to 4.4 or newer. Support will be removed in the next major release."
+    )]
+    let notified = unsafe { xTaskNotifyWait(0, u32::MAX, &mut notification, timeout) } != 0;
 
     #[cfg(not(esp_idf_version = "4.3"))]
-    let notified = unsafe {
-        xTaskGenericNotifyWait(
-            0,
-            0,
-            u32::MAX,
-            &mut notification,
-            TickType::from(duration).0,
-        )
-    } != 0;
+    let notified =
+        unsafe { xTaskGenericNotifyWait(0, 0, u32::MAX, &mut notification, timeout) } != 0;
 
     if notified {
-        Some(notification)
+        NonZeroU32::new(notification)
     } else {
         None
     }
@@ -89,14 +152,32 @@ pub fn wait_notification(duration: Option<Duration>) -> Option<u32> {
 /// When calling this function care should be taken to pass a valid
 /// FreeRTOS task handle. Moreover, the FreeRTOS task should be valid
 /// when this function is being called.
-pub unsafe fn notify(task: TaskHandle_t, notification: u32) -> bool {
-    let notified = if interrupt::active() {
+pub unsafe fn notify_and_yield(task: TaskHandle_t, notification: NonZeroU32) -> bool {
+    let (notified, higher_prio_task_woken) = notify(task, notification);
+
+    if higher_prio_task_woken {
+        do_yield();
+    }
+
+    notified
+}
+
+/// # Safety
+///
+/// When calling this function care should be taken to pass a valid
+/// FreeRTOS task handle. Moreover, the FreeRTOS task should be valid
+/// when this function is being called.
+pub unsafe fn notify(task: TaskHandle_t, notification: NonZeroU32) -> (bool, bool) {
+    let (notified, higher_prio_task_woken) = if interrupt::active() {
         let mut higher_prio_task_woken: BaseType_t = Default::default();
 
         #[cfg(esp_idf_version = "4.3")]
+        #[deprecated(
+            note = "Using ESP-IDF 4.3 is untested, please upgrade to 4.4 or newer. Support will be removed in the next major release."
+        )]
         let notified = xTaskGenericNotifyFromISR(
             task,
-            notification,
+            notification.into(),
             eNotifyAction_eSetBits,
             ptr::null_mut(),
             &mut higher_prio_task_woken,
@@ -106,35 +187,38 @@ pub unsafe fn notify(task: TaskHandle_t, notification: u32) -> bool {
         let notified = xTaskGenericNotifyFromISR(
             task,
             0,
-            notification,
+            notification.into(),
             eNotifyAction_eSetBits,
             ptr::null_mut(),
             &mut higher_prio_task_woken,
         );
 
-        if higher_prio_task_woken != 0 {
-            do_yield();
-        }
-
-        notified
+        (notified, higher_prio_task_woken)
     } else {
         #[cfg(esp_idf_version = "4.3")]
-        let notified =
-            xTaskGenericNotify(task, notification, eNotifyAction_eSetBits, ptr::null_mut());
+        #[deprecated(
+            note = "Using ESP-IDF 4.3 is untested, please upgrade to 4.4 or newer. Support will be removed in the next major release."
+        )]
+        let notified = xTaskGenericNotify(
+            task,
+            notification.into(),
+            eNotifyAction_eSetBits,
+            ptr::null_mut(),
+        );
 
         #[cfg(not(esp_idf_version = "4.3"))]
         let notified = xTaskGenericNotify(
             task,
             0,
-            notification,
+            notification.into(),
             eNotifyAction_eSetBits,
             ptr::null_mut(),
         );
 
-        notified
+        (notified, 0)
     };
 
-    notified != 0
+    (notified != 0, higher_prio_task_woken != 0)
 }
 
 pub fn get_idle_task(core: crate::cpu::Core) -> TaskHandle_t {
@@ -148,9 +232,52 @@ pub fn get_idle_task(core: crate::cpu::Core) -> TaskHandle_t {
     }
 
     #[cfg(not(any(esp32c3, esp32c2, esp32h2, esp32c5, esp32c6)))]
+    #[cfg(any(
+        esp_idf_version_major = "4",
+        esp_idf_version = "5.0",
+        esp_idf_version = "5.1"
+    ))]
     unsafe {
         xTaskGetIdleTaskHandleForCPU(core as u32)
     }
+
+    #[cfg(not(any(esp32c3, esp32c2, esp32h2, esp32c5, esp32c6)))]
+    #[cfg(not(any(
+        esp_idf_version_major = "4",
+        esp_idf_version = "5.0",
+        esp_idf_version = "5.1"
+    )))]
+    unsafe {
+        xTaskGetIdleTaskHandleForCore(core as i32)
+    }
+}
+
+/// Executes the supplied future on the current thread, thus blocking it until the future becomes ready.
+#[cfg(feature = "alloc")]
+pub fn block_on<F>(mut fut: F) -> F::Output
+where
+    F: Future,
+{
+    ::log::trace!("block_on(): started");
+
+    let notification = notification::Notification::new();
+
+    let mut fut = pin!(fut);
+
+    let waker = notification.notifier().into();
+
+    let mut cx = Context::from_waker(&waker);
+
+    let res = loop {
+        match fut.as_mut().poll(&mut cx) {
+            Poll::Ready(res) => break res,
+            Poll::Pending => notification.wait_any(),
+        }
+    };
+
+    ::log::trace!("block_on(): finished");
+
+    res
 }
 
 #[cfg(esp_idf_comp_pthread_enabled)]
@@ -158,6 +285,8 @@ pub mod thread {
     use core::ffi::CStr;
 
     use esp_idf_sys::*;
+
+    use super::NO_AFFINITY;
 
     use crate::cpu::Core;
 
@@ -196,10 +325,7 @@ pub mod thread {
                 stack_size: conf.stack_size as _,
                 prio: conf.priority as _,
                 inherit_cfg: conf.inherit,
-                pin_to_core: conf
-                    .pin_to_core
-                    .map(Into::into)
-                    .unwrap_or(tskNO_AFFINITY as _),
+                pin_to_core: conf.pin_to_core.map(Into::into).unwrap_or(NO_AFFINITY as _),
             }
         }
     }
@@ -220,7 +346,7 @@ pub mod thread {
                 stack_size: conf.stack_size as _,
                 priority: conf.prio as _,
                 inherit: conf.inherit_cfg,
-                pin_to_core: if conf.pin_to_core == tskNO_AFFINITY as _ {
+                pin_to_core: if conf.pin_to_core == NO_AFFINITY as _ {
                     None
                 } else {
                     Some(conf.pin_to_core.into())
@@ -643,7 +769,6 @@ pub mod critical_section {
     critical_section::set_impl!(EspCriticalSection);
 }
 
-#[cfg(feature = "embassy-sync")]
 pub mod embassy_sync {
     use embassy_sync::blocking_mutex::raw::RawMutex;
 
@@ -676,92 +801,453 @@ pub mod embassy_sync {
     }
 }
 
-#[cfg(all(
-    feature = "edge-executor",
-    feature = "alloc",
-    target_has_atomic = "ptr"
-))]
-pub mod executor {
+#[cfg(all(feature = "alloc", target_has_atomic = "ptr"))]
+pub mod notification {
+    use core::num::NonZeroU32;
+    use core::ptr;
     use core::sync::atomic::{AtomicPtr, Ordering};
-    use core::{mem, ptr};
 
     extern crate alloc;
-    use alloc::sync::{Arc, Weak};
+    use alloc::sync::Arc;
+    use alloc::task::Wake;
+
+    use esp_idf_sys::TickType_t;
 
     use crate::task;
 
-    pub use edge_executor::*;
-
-    pub type EspExecutor<'a, const C: usize, S> = Executor<'a, C, FreeRtosMonitor, S>;
-    pub type EspBlocker = Blocker<FreeRtosMonitor>;
-
     #[cfg(esp_idf_version_major = "4")]
-    pub struct FreeRtosMonitor(Arc<AtomicPtr<core::ffi::c_void>>, *const ());
+    type Task = core::ffi::c_void;
 
     #[cfg(not(esp_idf_version_major = "4"))]
-    pub struct FreeRtosMonitor(Arc<AtomicPtr<esp_idf_sys::tskTaskControlBlock>>, *const ());
+    type Task = esp_idf_sys::tskTaskControlBlock;
 
-    impl FreeRtosMonitor {
+    pub struct Notification(Arc<Notifier>, *const ());
+
+    impl Notification {
         pub fn new() -> Self {
             Self(
-                Arc::new(AtomicPtr::new(task::current().unwrap())),
+                Arc::new(Notifier(AtomicPtr::new(task::current().unwrap()))),
                 ptr::null(),
             )
         }
+
+        pub fn notifier(&self) -> Arc<Notifier> {
+            self.0.clone()
+        }
+
+        pub fn wait_any(&self) {
+            loop {
+                if task::wait_notification(crate::delay::BLOCK).is_some() {
+                    break;
+                }
+            }
+        }
+
+        pub fn wait(&self, timeout: TickType_t) -> Option<NonZeroU32> {
+            task::wait_notification(timeout)
+        }
     }
 
-    impl Default for FreeRtosMonitor {
+    impl Default for Notification {
         fn default() -> Self {
             Self::new()
         }
     }
 
-    impl Drop for FreeRtosMonitor {
+    pub struct Notifier(AtomicPtr<Task>);
+
+    impl Notifier {
+        /// # Safety
+        ///
+        /// This method is unsafe because it is possible to call `core::mem::forget` on the Monitor instance
+        /// that produced this notifier.
+        ///
+        /// If that happens, the `Drop` dtor of `Monitor` will NOT be called, which - in turn - means that the
+        /// `Arc` holding the task reference will stick around even when the actual task where the `Monitor` instance was
+        /// created no longer exists. Which - in turn - would mean that the method will be trying to notify a task
+        /// which does no longer exist, which would lead to UB and specifically - to memory corruption.
+        pub unsafe fn notify(&self, notification: NonZeroU32) -> (bool, bool) {
+            let freertos_task = self.0.load(Ordering::SeqCst);
+
+            if !freertos_task.is_null() {
+                return unsafe { task::notify(freertos_task, notification) };
+            }
+
+            (false, false)
+        }
+
+        /// # Safety
+        ///
+        /// This method is unsafe because it is possible to call `core::mem::forget` on the Monitor instance
+        /// that produced this notifier.
+        ///
+        /// If that happens, the `Drop` dtor of `Monitor` will NOT be called, which - in turn - means that the
+        /// `Arc` holding the task reference will stick around even when the actual task where the `Monitor` instance was
+        /// created no longer exists. Which - in turn - would mean that the method will be trying to notify a task
+        /// which does no longer exist, which would lead to UB and specifically - to memory corruption.
+        pub unsafe fn notify_and_yield(&self, notification: NonZeroU32) -> bool {
+            let freertos_task = self.0.load(Ordering::SeqCst);
+
+            if !freertos_task.is_null() {
+                unsafe { task::notify_and_yield(freertos_task, notification) }
+            } else {
+                false
+            }
+        }
+    }
+
+    impl Wake for Notifier {
+        fn wake(self: Arc<Self>) {
+            unsafe {
+                self.notify_and_yield(NonZeroU32::new(1).unwrap());
+            }
+        }
+    }
+}
+
+pub mod queue {
+    use core::{
+        marker::PhantomData,
+        mem::{size_of, MaybeUninit},
+    };
+
+    use esp_idf_sys::{EspError, TickType_t, ESP_FAIL};
+
+    use crate::sys;
+
+    /// Thin wrapper on top of the FreeRTOS queue.
+    ///
+    /// This may be preferable over a Rust channel
+    /// in cases where an ISR needs to send or receive
+    /// data as it is safe to use in ISR contexts.
+    pub struct Queue<T> {
+        ptr: sys::QueueHandle_t,
+        is_owned: bool,
+        _marker: PhantomData<T>,
+    }
+
+    unsafe impl<T> Send for Queue<T> where T: Send + Sync {}
+    unsafe impl<T> Sync for Queue<T> where T: Send + Sync {}
+
+    impl<T> Queue<T>
+    where
+        // ensures the contained elements are not `Drop`
+        // might be able to lift restriction in the future
+        T: Copy,
+    {
+        /// Allocate a new queue on the heap.
+        pub fn new(size: usize) -> Self {
+            Queue {
+                ptr: unsafe { sys::xQueueGenericCreate(size as u32, size_of::<T>() as u32, 0) },
+                is_owned: true,
+                _marker: PhantomData,
+            }
+        }
+
+        /// Create a new queue which is not deleted on `Drop`, but owned by somebody else.
+        ///
+        /// # Safety
+        ///
+        /// Care must be taken that the queue is valid for the constructed
+        /// lifetime.
+        pub unsafe fn new_borrowed(ptr: sys::QueueHandle_t) -> Self {
+            assert!(!ptr.is_null());
+
+            Queue {
+                ptr,
+                is_owned: false,
+                _marker: PhantomData,
+            }
+        }
+
+        /// Retrieves the underlying FreeRTOS handle.
+        #[inline]
+        #[link_section = "iram1.queue_as_raw"]
+        pub fn as_raw(&self) -> sys::QueueHandle_t {
+            self.ptr
+        }
+
+        /// Copy item to back of queue, blocking for `timeout` ticks if full.
+        ///
+        /// # ISR safety
+        ///
+        /// This function is safe to call in ISR contexts.
+        ///
+        /// # Parameters
+        ///
+        /// * `item` the item to push onto the back of the queue
+        /// * `timeout` specifies how long to block. Ignored in ISR context.
+        ///
+        /// # Returns
+        ///
+        /// Will return an error if queue is full.
+        /// If this function is executed in an ISR context,
+        /// it will return true if a higher priority task was awoken.
+        /// In non-ISR contexts, the function will always return `false`.
+        /// In this case the interrupt should call [`crate::task::do_yield`].
+        #[inline]
+        #[link_section = "iram1.queue_send_back"]
+        pub fn send_back(&self, item: T, timeout: TickType_t) -> Result<bool, EspError> {
+            self.send_generic(item, timeout, 0)
+        }
+
+        /// Copy item to front of queue, blocking for `timeout` ticks if full.
+        /// This can be used for hight priority messages which should be processed
+        /// sooner.
+        ///
+        /// # ISR safety
+        ///
+        /// This function is safe to call in ISR contexts.
+        ///
+        /// # Parameters
+        ///
+        /// * `item` the item to push to front of the queue
+        /// * `timeout` specifies how long to block. Ignored in ISR context.
+        ///
+        /// # Returns
+        ///
+        /// Will return an error if queue is full.
+        /// If this function is executed in an ISR context,
+        /// it will return true if a higher priority task was awoken.
+        /// In non-ISR contexts, the function will always return `false`.
+        /// In this case the interrupt should call [`crate::task::do_yield`].
+        #[inline]
+        #[link_section = "iram1.queue_send_front"]
+        pub fn send_front(&self, item: T, timeout: TickType_t) -> Result<bool, EspError> {
+            self.send_generic(item, timeout, 1)
+        }
+
+        /// Copy item to queue, blocking for `timeout` ticks if full.
+        ///
+        /// # ISR safety
+        ///
+        /// This function is safe to call in ISR contexts.
+        ///
+        /// # Parameters
+        ///
+        /// * `item` the item to push to the queue
+        /// * `timeout` specifies how long to block. Ignored in ISR context.
+        /// * `copy_position` 0 to push onto back, 1 to push to front
+        ///
+        /// # Returns
+        ///
+        /// Will return an error if queue is full.
+        /// If this function is executed in an ISR context,
+        /// it will return true if a higher priority task was awoken.
+        /// In non-ISR contexts, the function will always return `false`.
+        /// In this case the interrupt should call [`crate::task::do_yield`].
+        #[inline]
+        #[link_section = "iram1.queue_send_generic"]
+        fn send_generic(
+            &self,
+            item: T,
+            timeout: TickType_t,
+            copy_position: i32,
+        ) -> Result<bool, EspError> {
+            let mut hp_task_awoken: i32 = false as i32;
+            let success = unsafe {
+                if crate::interrupt::active() {
+                    sys::xQueueGenericSendFromISR(
+                        self.ptr,
+                        &item as *const T as *const _,
+                        &mut hp_task_awoken,
+                        copy_position,
+                    )
+                } else {
+                    sys::xQueueGenericSend(
+                        self.ptr,
+                        &item as *const T as *const _,
+                        timeout,
+                        copy_position,
+                    )
+                }
+            };
+            let success = success == 1;
+            let hp_task_awoken = hp_task_awoken == 1;
+
+            match success {
+                true => Ok(hp_task_awoken),
+                false => Err(EspError::from_infallible::<ESP_FAIL>()),
+            }
+        }
+
+        /// Receive a message from the queue and remove it.
+        ///
+        /// # ISR safety
+        ///
+        /// This function is safe to use in ISR contexts
+        ///
+        /// # Parameters
+        ///
+        /// * `timeout` specifies how long to block. Ignored in ISR contexts.
+        ///
+        /// # Returns
+        ///
+        /// * `None` if no message could be received in time
+        /// * `Some((message, higher_priority_task_awoken))` otherwise
+        ///
+        /// The boolean is used for ISRs and indicates if a higher priority task was awoken.
+        /// In this case the interrupt should call [`crate::task::do_yield`].
+        /// In non-ISR contexts, the function will always return `false`.
+        #[inline]
+        #[link_section = "iram1.queue_recv_front"]
+        pub fn recv_front(&self, timeout: TickType_t) -> Option<(T, bool)> {
+            let mut buf = MaybeUninit::uninit();
+            let mut hp_task_awoken = false as i32;
+
+            unsafe {
+                let success = if crate::interrupt::active() {
+                    sys::xQueueReceiveFromISR(
+                        self.ptr,
+                        buf.as_mut_ptr() as *mut _,
+                        &mut hp_task_awoken,
+                    )
+                } else {
+                    sys::xQueueReceive(self.ptr, buf.as_mut_ptr() as *mut _, timeout)
+                };
+                if success == 1 {
+                    Some((buf.assume_init(), hp_task_awoken == 1))
+                } else {
+                    None
+                }
+            }
+        }
+
+        /// Copy the first message from the queue without removing it.
+        ///
+        /// # ISR safety
+        ///
+        /// This function is safe to use in ISR contexts
+        ///
+        /// # Parameters
+        ///
+        /// * `timeout` specifies how long to block. Ignored in ISR contexts.
+        ///
+        /// # Returns
+        ///
+        /// * `None` if no message could be received in time
+        /// * `Some(message)` otherwise
+        ///
+        /// This function does not return a boolean to indicate if
+        /// a higher priority task was awoken since we don't free
+        /// up space in the queue and thus cannot unblock anyone.
+        #[inline]
+        #[link_section = "iram1.queue_peek_front"]
+        pub fn peek_front(&self, timeout: TickType_t) -> Option<T> {
+            let mut buf = MaybeUninit::uninit();
+
+            unsafe {
+                let success = if crate::interrupt::active() {
+                    sys::xQueuePeekFromISR(self.ptr, buf.as_mut_ptr() as *mut _)
+                } else {
+                    sys::xQueuePeek(self.ptr, buf.as_mut_ptr() as *mut _, timeout)
+                };
+                if success == 1 {
+                    Some(buf.assume_init())
+                } else {
+                    None
+                }
+            }
+        }
+    }
+
+    impl<T> Drop for Queue<T> {
         fn drop(&mut self) {
-            let mut arc = mem::replace(&mut self.0, Arc::new(AtomicPtr::new(ptr::null_mut())));
+            if self.is_owned {
+                unsafe { sys::vQueueDelete(self.ptr) }
+            }
+        }
+    }
+}
 
-            // Busy loop until we can destroy the Arc - which means that nobody is actively holding a strong reference to it
-            // and thus trying to notify our FreeRtos task, which will likely be destroyed afterwards
-            loop {
-                arc = match Arc::try_unwrap(arc) {
-                    Ok(_) => break,
-                    Err(a) => a,
-                }
+pub mod asynch {
+    use core::future::Future;
+    use core::num::NonZeroU32;
+    use core::sync::atomic::{AtomicU32, Ordering};
+    use core::task::{Context, Poll, Waker};
+
+    use atomic_waker::AtomicWaker;
+
+    /// Single-slot lock-free signaling primitive supporting signalling with a `u32` bit-set.
+    ///
+    /// It is useful for sending data between tasks when the receiver only cares about
+    /// the latest data, and therefore it's fine to "lose" messages. This is often the case for "state"
+    /// updates.
+    ///
+    /// The sending part of the primitive is non-blocking, so it is also useful for notifying asynchronous tasks
+    /// from contexts where blocking or async wait is not possible.
+    ///
+    /// Similar in spirit to the ESP-IDF FreeRTOS task notifications in that it is light-weight and operates on bit-sets,
+    /// but for synchronization between an asynchronous task, and another one, which might be blocking or asynchronous.
+    pub struct Notification {
+        waker: AtomicWaker,
+        notified: AtomicU32,
+    }
+
+    impl Notification {
+        /// Creates a new `Notification`.
+        pub const fn new() -> Self {
+            Self {
+                waker: AtomicWaker::new(),
+                notified: AtomicU32::new(0),
+            }
+        }
+
+        /// Marks the least significant bit (bit 0) in this `IsrNotification` as nofified.
+        /// Returns `true` if there was a registered waker which got awoken.
+        pub fn notify_lsb(&self) -> bool {
+            self.notify(NonZeroU32::new(1).unwrap())
+        }
+
+        /// Marks the supplied bits in this `Notification` as notified.
+        /// Returns `true` if there was a registered waker which got awoken.
+        pub fn notify(&self, bits: NonZeroU32) -> bool {
+            if let Some(waker) = self.notify_waker(bits) {
+                waker.wake();
+
+                true
+            } else {
+                false
+            }
+        }
+
+        /// A utility to help in implementing a custom `wait` logic:
+        /// Adds the supplied bits as notified in the notification instance and returns the registered waker (if any).
+        pub fn notify_waker(&self, bits: NonZeroU32) -> Option<Waker> {
+            self.notified.fetch_or(bits.into(), Ordering::SeqCst);
+
+            self.waker.take()
+        }
+
+        /// Clears the state of this notification by removing any registered waker and setting all bits to 0.
+        pub fn reset(&self) {
+            self.waker.take();
+            self.notified.store(0, Ordering::SeqCst);
+        }
+
+        /// Future that completes when this `Notification` has been notified.
+        #[allow(unused)]
+        pub fn wait(&self) -> impl Future<Output = NonZeroU32> + '_ {
+            core::future::poll_fn(move |cx| self.poll_wait(cx))
+        }
+
+        /// Non-blocking method to check whether this notification has been notified.
+        pub fn poll_wait(&self, cx: &Context<'_>) -> Poll<NonZeroU32> {
+            self.waker.register(cx.waker());
+
+            let bits = self.notified.swap(0, Ordering::SeqCst);
+
+            if let Some(bits) = NonZeroU32::new(bits) {
+                Poll::Ready(bits)
+            } else {
+                Poll::Pending
             }
         }
     }
 
-    impl Monitor for FreeRtosMonitor {
-        type Notify = FreeRtosMonitorNotify;
-
-        fn notifier(&self) -> Self::Notify {
-            FreeRtosMonitorNotify(Arc::downgrade(&self.0))
-        }
-    }
-
-    impl Wait for FreeRtosMonitor {
-        fn wait(&self) {
-            task::wait_any_notification();
-        }
-    }
-
-    #[cfg(esp_idf_version_major = "4")]
-    pub struct FreeRtosMonitorNotify(Weak<AtomicPtr<core::ffi::c_void>>);
-
-    #[cfg(not(esp_idf_version_major = "4"))]
-    pub struct FreeRtosMonitorNotify(Weak<AtomicPtr<esp_idf_sys::tskTaskControlBlock>>);
-
-    impl Notify for FreeRtosMonitorNotify {
-        fn notify(&self) {
-            if let Some(notify) = self.0.upgrade() {
-                let freertos_task = notify.load(Ordering::SeqCst);
-
-                if !freertos_task.is_null() {
-                    unsafe {
-                        task::notify(freertos_task, 1);
-                    }
-                }
-            }
+    impl Drop for Notification {
+        fn drop(&mut self) {
+            self.reset();
         }
     }
 }

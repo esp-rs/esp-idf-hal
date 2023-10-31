@@ -10,9 +10,8 @@ linker = "ldproxy"
 [target.riscv32imc-esp-espidf]
 linker = "ldproxy"
 
-# Future - necessary for the experimental "native build" of esp-idf-sys with ESP32C3
-# See also https://github.com/ivmarkov/embuild/issues/16
-rustflags = ["-C", "default-linker-libraries"]
+[target.riscv32imac-esp-espidf]
+linker = "ldproxy"
 
 [env]
 ESP_IDF_SDKCONFIG_DEFAULTS = ".github/configs/sdkconfig.defaults"

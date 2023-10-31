@@ -1,12 +1,16 @@
 #![cfg_attr(not(feature = "std"), no_std)]
-#![cfg_attr(target_arch = "xtensa", feature(asm_experimental_arch))]
-#![cfg_attr(
-    feature = "nightly",
-    feature(async_fn_in_trait),
-    feature(impl_trait_projections),
-    allow(incomplete_features)
-)]
+#![allow(stable_features)]
+#![allow(unknown_lints)]
 #![allow(clippy::unused_unit)] // enumset
+#![warn(clippy::large_futures)]
+#![cfg_attr(feature = "nightly", feature(async_fn_in_trait))]
+#![cfg_attr(feature = "nightly", allow(async_fn_in_trait))]
+#![cfg_attr(feature = "nightly", feature(impl_trait_projections))]
+#![cfg_attr(feature = "nightly", feature(doc_cfg))]
+#![cfg_attr(target_arch = "xtensa", feature(asm_experimental_arch))]
+
+#[cfg(all(not(feature = "riscv-ulp-hal"), not(feature = "esp-idf-sys")))]
+compile_error!("Exactly one of the features `esp-idf-sys` or `riscv-ulp-hal` needs to be enabled");
 
 #[cfg(all(not(feature = "riscv-ulp-hal"), not(esp_idf_comp_driver_enabled)))]
 compile_error!("esp-idf-hal requires the `driver` ESP-IDF component to be enabled");
@@ -40,8 +44,16 @@ pub mod gpio;
 pub mod hall;
 #[cfg(not(feature = "riscv-ulp-hal"))]
 pub mod i2c;
+#[cfg(all(not(feature = "riscv-ulp-hal"), esp_idf_comp_driver_enabled))]
+#[cfg_attr(
+    feature = "nightly",
+    doc(cfg(all(esp_idf_soc_i2s_supported, esp_idf_comp_driver_enabled)))
+)]
+pub mod i2s;
 #[cfg(not(feature = "riscv-ulp-hal"))]
 pub mod interrupt;
+#[cfg(not(feature = "riscv-ulp-hal"))]
+pub mod io;
 #[cfg(not(feature = "riscv-ulp-hal"))]
 pub mod ledc;
 #[cfg(all(
@@ -64,6 +76,7 @@ pub mod rmt;
 pub mod rom;
 #[cfg(not(feature = "riscv-ulp-hal"))]
 pub mod spi;
+pub mod sys;
 #[cfg(not(feature = "riscv-ulp-hal"))]
 pub mod task;
 #[cfg(not(feature = "riscv-ulp-hal"))]

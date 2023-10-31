@@ -4,11 +4,11 @@ use esp_idf_hal::peripherals::Peripherals;
 use esp_idf_hal::prelude::*;
 
 fn main() -> anyhow::Result<()> {
-    esp_idf_sys::link_patches();
+    esp_idf_hal::sys::link_patches();
 
     println!("Configuring output channel");
 
-    let peripherals = Peripherals::take().unwrap();
+    let peripherals = Peripherals::take()?;
     let mut channel = LedcDriver::new(
         peripherals.ledc.channel0,
         LedcTimerDriver::new(

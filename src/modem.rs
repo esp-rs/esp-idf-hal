@@ -40,22 +40,46 @@ impl Modem {
         this
     }
 
-    #[cfg(all(not(any(esp32s2, esp32h2)), esp_idf_esp32_wifi_sw_coexist_enable))]
+    #[cfg(all(
+        not(any(esp32s2, esp32h2)),
+        any(
+            esp_idf_esp32_wifi_sw_coexist_enable,
+            esp_idf_esp_coex_sw_coexist_enable
+        )
+    ))]
     pub fn split(self) -> (WifiModem, BluetoothModem) {
         unsafe { (WifiModem::new(), BluetoothModem::new()) }
     }
 
-    #[cfg(all(not(any(esp32s2, esp32h2)), esp_idf_esp32_wifi_sw_coexist_enable))]
+    #[cfg(all(
+        not(any(esp32s2, esp32h2)),
+        any(
+            esp_idf_esp32_wifi_sw_coexist_enable,
+            esp_idf_esp_coex_sw_coexist_enable
+        )
+    ))]
     pub fn split_ref(&mut self) -> (&mut WifiModem, &mut BluetoothModem) {
         (&mut self.1, &mut self.2)
     }
 
-    #[cfg(all(esp32h2, esp_idf_esp32_wifi_sw_coexist_enable))]
+    #[cfg(all(
+        esp32h2,
+        any(
+            esp_idf_esp32_wifi_sw_coexist_enable,
+            esp_idf_esp_coex_sw_coexist_enable
+        )
+    ))]
     pub fn split(self) -> (ThreadModem, BluetoothModem) {
         unsafe { (ThreadModem::new(), BluetoothModem::new()) }
     }
 
-    #[cfg(all(esp32h2, esp_idf_esp32_wifi_sw_coexist_enable))]
+    #[cfg(all(
+        esp32h2,
+        any(
+            esp_idf_esp32_wifi_sw_coexist_enable,
+            esp_idf_esp_coex_sw_coexist_enable
+        )
+    ))]
     pub fn split_ref(&mut self) -> (&mut ThreadModem, &mut BluetoothModem) {
         (&mut self.1, &mut self.2)
     }

@@ -64,7 +64,7 @@ use esp_idf_sys::*;
 
 use crate::gpio::InputPin;
 use crate::gpio::OutputPin;
-use crate::interrupt::IntrFlags;
+use crate::interrupt::InterruptType;
 use crate::peripheral::Peripheral;
 use crate::units::Hertz;
 
@@ -256,7 +256,7 @@ pub mod config {
 
     use super::PinState;
     use crate::{
-        interrupt::IntrFlags,
+        interrupt::InterruptType,
         units::{FromValueType, Hertz},
     };
 
@@ -354,7 +354,7 @@ pub mod config {
         /// channel can continue work even when APB clock is changing.
         pub aware_dfs: bool,
 
-        pub intr_flags: EnumSet<IntrFlags>,
+        pub intr_flags: EnumSet<InterruptType>,
     }
 
     impl TransmitConfig {
@@ -366,7 +366,7 @@ pub mod config {
                 looping: Loop::None,
                 carrier: None,
                 idle: Some(PinState::Low),
-                intr_flags: EnumSet::<IntrFlags>::empty(),
+                intr_flags: EnumSet::<InterruptType>::empty(),
             }
         }
 
@@ -407,7 +407,7 @@ pub mod config {
         }
 
         #[must_use]
-        pub fn intr_flags(mut self, flags: EnumSet<IntrFlags>) -> Self {
+        pub fn intr_flags(mut self, flags: EnumSet<InterruptType>) -> Self {
             self.intr_flags = flags;
             self
         }
@@ -429,7 +429,7 @@ pub mod config {
         pub filter_ticks_thresh: u8,
         pub filter_en: bool,
         pub carrier: Option<CarrierConfig>,
-        pub intr_flags: EnumSet<IntrFlags>,
+        pub intr_flags: EnumSet<InterruptType>,
     }
 
     impl ReceiveConfig {
@@ -474,7 +474,7 @@ pub mod config {
         }
 
         #[must_use]
-        pub fn intr_flags(mut self, flags: EnumSet<IntrFlags>) -> Self {
+        pub fn intr_flags(mut self, flags: EnumSet<InterruptType>) -> Self {
             self.intr_flags = flags;
             self
         }
@@ -490,7 +490,7 @@ pub mod config {
                 filter_ticks_thresh: 100, // 100 microseconds, pulses less than this will be ignored
                 filter_en: true,
                 carrier: None,
-                intr_flags: EnumSet::<IntrFlags>::empty(),
+                intr_flags: EnumSet::<InterruptType>::empty(),
             }
         }
     }
@@ -562,7 +562,7 @@ impl<'d> TxRmtDriver<'d> {
             esp!(rmt_driver_install(
                 C::channel(),
                 0,
-                IntrFlags::to_native(config.intr_flags) as _
+                InterruptType::to_native(config.intr_flags) as _
             ))?;
         }
 
@@ -1015,7 +1015,7 @@ impl<'d> RxRmtDriver<'d> {
             esp!(rmt_driver_install(
                 C::channel(),
                 ring_buf_size * 4,
-                IntrFlags::to_native(config.intr_flags) as _
+                InterruptType::to_native(config.intr_flags) as _
             ))?;
         }
 
