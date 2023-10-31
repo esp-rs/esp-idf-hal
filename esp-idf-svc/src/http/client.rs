@@ -101,7 +101,7 @@ pub struct EspHttpConnection {
     follow_redirects_policy: FollowRedirectsPolicy,
     event_handler: Box<Option<Box<dyn Fn(&esp_http_client_event_t) -> esp_err_t>>>,
     state: State,
-    request_content_len: u64,
+    request_content_len: i64,
     follow_redirects: bool,
     headers: BTreeMap<Uncased<'static>, String>,
     content_len_header: UnsafeCell<Option<Option<String>>>,
@@ -221,7 +221,7 @@ impl EspHttpConnection {
 
         for (name, value) in headers {
             if name.eq_ignore_ascii_case("Content-Length") {
-                if let Ok(len) = value.parse::<u64>() {
+                if let Ok(len) = value.parse::<i64>() {
                     content_len = Some(len);
                 }
             }
@@ -246,9 +246,9 @@ impl EspHttpConnection {
             _ => false,
         };
 
-        self.request_content_len = content_len.unwrap_or(0);
+        self.request_content_len = content_len.unwrap_or(-1);
 
-        esp!(unsafe { esp_http_client_open(self.raw_client, self.request_content_len as _) })?;
+        esp!(unsafe { esp_http_client_open(self.raw_client, self.request_content_len as i32) })?;
 
         self.state = State::Request;
 
@@ -399,7 +399,7 @@ impl EspHttpConnection {
                     })?;
                     esp!(unsafe { esp_http_client_set_redirection(self.raw_client) })?;
                     esp!(unsafe {
-                        esp_http_client_open(self.raw_client, self.request_content_len as _)
+                        esp_http_client_open(self.raw_client, self.request_content_len as i32)
                     })?;
 
                     self.headers.clear();
