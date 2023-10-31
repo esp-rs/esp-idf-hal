@@ -4,6 +4,9 @@ CONFIG_MBEDTLS_CERTIFICATE_BUNDLE_DEFAULT_FULL=y
 # Examples often require a larger than the default stack size for the main thread.
 CONFIG_ESP_MAIN_TASK_STACK_SIZE=10000
 
+# Go figure...
+CONFIG_FREERTOS_IDLE_TASK_STACKSIZE=4096
+
 # Enable WS support
 CONFIG_HTTPD_WS_SUPPORT=y
 
