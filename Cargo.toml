@@ -22,8 +22,10 @@ alloc = []
 nightly = ["embedded-hal-async", "embedded-io-async"]
 esp-idf-sys = ["dep:esp-idf-sys", "atomic-waker"]
 riscv-ulp-hal = []
-wake-from-isr = [] # Only enable if you plan to use the `edge-executor` crate
-embassy-sync = [] # Only for backwards compatibility
+wake-from-isr = []                                    # Only enable if you plan to use the `edge-executor` crate
+embassy-sync = []                                     # Only for backwards compatibility
+gp_timer_api = []                                     # ESP-IDF 5 generap purpose timer api
+
 
 # Propagated esp-idf-sys features
 native = ["esp-idf-sys/native"]
@@ -37,12 +39,16 @@ libstart = ["esp-idf-sys/libstart"]
 nb = "1.0.0"
 embedded-can = "0.4.1"
 embedded-hal = "=1.0.0-rc.1"
-embedded-hal-0-2 = { package = "embedded-hal", version = "0.2.7", features = ["unproven"] }
+embedded-hal-0-2 = { package = "embedded-hal", version = "0.2.7", features = [
+    "unproven",
+] }
 embedded-hal-nb = "=1.0.0-rc.1"
 embedded-hal-async = { version = "=1.0.0-rc.1", optional = true }
 embedded-io = "0.6"
 embedded-io-async = { version = "0.6", optional = true }
-esp-idf-sys = { version = "0.33.5", optional = true, default-features = false, features = ["native"] }
+esp-idf-sys = { version = "0.33.5", optional = true, default-features = false, features = [
+    "native",
+] }
 critical-section = { version = "1.1.1", optional = true }
 heapless = "0.7"
 num_enum = { version = "0.7", default-features = false }
@@ -50,6 +56,9 @@ enumset = { version = "1", default-features = false }
 log = { version = "0.4", default-features = false }
 atomic-waker = { version = "1.1.1", optional = true, default-features = false }
 embassy-sync = { version = "0.3" }
+
+[patch.crates-io]
+esp-idf-sys = { path = "../esp-idf-sys" }
 
 [build-dependencies]
 embuild = "0.31.3"

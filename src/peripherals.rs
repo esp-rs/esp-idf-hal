@@ -124,24 +124,28 @@ pub struct Peripherals {
         not(feature = "riscv-ulp-hal"),
         not(feature = "embassy-time-isr-queue-timer00")
     ))]
+    #[cfg(not(feature = "gp_timer_api"))]
     pub timer00: timer::TIMER00,
     #[cfg(all(
         any(esp32, esp32s2, esp32s3),
         not(feature = "riscv-ulp-hal"),
         not(feature = "embassy-time-isr-queue-timer01")
     ))]
+    #[cfg(not(feature = "gp_timer_api"))]
     pub timer01: timer::TIMER01,
     #[cfg(all(
         not(esp32c2),
         not(feature = "riscv-ulp-hal"),
         not(feature = "embassy-time-isr-queue-timer10")
     ))]
+    #[cfg(not(feature = "gp_timer_api"))]
     pub timer10: timer::TIMER10,
     #[cfg(all(
         any(esp32, esp32s2, esp32s3),
         not(feature = "riscv-ulp-hal"),
         not(feature = "embassy-time-isr-queue-timer11")
     ))]
+    #[cfg(not(feature = "gp_timer_api"))]
     pub timer11: timer::TIMER11,
     #[cfg(all(
         not(feature = "riscv-ulp-hal"),
@@ -278,24 +282,28 @@ impl Peripherals {
                 not(feature = "riscv-ulp-hal"),
                 not(feature = "embassy-time-isr-queue-timer00")
             ))]
+            #[cfg(not(feature = "gp_timer_api"))]
             timer00: timer::TIMER00::new(),
             #[cfg(all(
                 any(esp32, esp32s2, esp32s3),
                 not(feature = "riscv-ulp-hal"),
                 not(feature = "embassy-time-isr-queue-timer01")
             ))]
+            #[cfg(not(feature = "gp_timer_api"))]
             timer01: timer::TIMER01::new(),
             #[cfg(all(
                 not(esp32c2),
                 not(feature = "riscv-ulp-hal"),
                 not(feature = "embassy-time-isr-queue-timer10")
             ))]
+            #[cfg(not(feature = "gp_timer_api"))]
             timer10: timer::TIMER10::new(),
             #[cfg(all(
                 any(esp32, esp32s2, esp32s3),
                 not(feature = "riscv-ulp-hal"),
                 not(feature = "embassy-time-isr-queue-timer11")
             ))]
+            #[cfg(not(feature = "gp_timer_api"))]
             timer11: timer::TIMER11::new(),
             #[cfg(all(
                 not(feature = "riscv-ulp-hal"),
