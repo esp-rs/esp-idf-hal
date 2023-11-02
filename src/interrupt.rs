@@ -112,6 +112,7 @@ unsafe fn do_yield_signal(arg: *mut ()) {
     *signaled = true
 }
 
+#[allow(clippy::type_complexity)]
 static mut ISR_YIELDER: Option<(unsafe fn(*mut ()), *mut ())> = None;
 
 #[allow(clippy::type_complexity)]
