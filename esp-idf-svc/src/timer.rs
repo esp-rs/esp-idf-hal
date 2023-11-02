@@ -315,10 +315,6 @@ pub mod embassy_time {
     #[cfg(any(feature = "embassy-time-driver", feature = "embassy-time-isr-queue"))]
     pub mod driver {
         use core::cell::UnsafeCell;
-        use core::sync::atomic::{AtomicU64, Ordering};
-
-        extern crate alloc;
-        use alloc::sync::{Arc, Weak};
 
         use heapless::Vec;
 
@@ -331,50 +327,9 @@ pub mod embassy_time {
         use crate::timer::*;
 
         struct Alarm {
-            timer: EspTimer<'static>,
-            callback: Arc<AtomicU64>,
-        }
-
-        impl Alarm {
-            fn new() -> Result<Self, EspError> {
-                let callback = Arc::new(AtomicU64::new(0));
-                let timer_callback = Arc::downgrade(&callback);
-
-                let service = EspTimerService::<Task>::new()?;
-
-                let timer = service.timer(move || {
-                    if let Some(callback) = Weak::upgrade(&timer_callback) {
-                        Self::call(&callback);
-                    }
-                })?;
-
-                Ok(Self { timer, callback })
-            }
-
-            fn set_alarm(&self, duration: u64) -> Result<(), EspError> {
-                self.timer.after(Duration::from_micros(duration))?;
-
-                Ok(())
-            }
-
-            fn set_callback(&self, callback: fn(*mut ()), ctx: *mut ()) {
-                let ptr: u64 = ((callback as usize as u64) << 32) | (ctx as usize as u64);
-
-                self.callback.store(ptr, Ordering::SeqCst);
-            }
-
-            fn call(callback: &AtomicU64) {
-                let ptr: u64 = callback.load(Ordering::SeqCst);
-
-                if ptr != 0 {
-                    unsafe {
-                        let func: fn(*mut ()) = core::mem::transmute((ptr >> 32) as usize);
-                        let arg: *mut () = (ptr & 0xffffffff) as usize as *mut ();
-
-                        func(arg);
-                    }
-                }
-            }
+            timer: Option<EspTimer<'static>>,
+            #[allow(clippy::type_complexity)]
+            callback: Option<(fn(*mut ()), *mut ())>,
         }
 
         struct EspDriver<const MAX_ALARMS: usize = 16> {
@@ -389,6 +344,25 @@ pub mod embassy_time {
                     cs: CriticalSection::new(),
                 }
             }
+
+            fn call(&self, id: u8) {
+                let callback = {
+                    let _guard = self.cs.enter();
+
+                    let alarm = self.alarm(id);
+
+                    alarm.callback
+                };
+
+                if let Some((func, arg)) = callback {
+                    func(arg)
+                }
+            }
+
+            #[allow(clippy::mut_from_ref)]
+            fn alarm(&self, id: u8) -> &mut Alarm {
+                &mut unsafe { self.alarms.get().as_mut() }.unwrap()[id as usize]
+            }
         }
 
         unsafe impl<const MAX_ALARMS: usize> Send for EspDriver<MAX_ALARMS> {}
@@ -400,51 +374,58 @@ pub mod embassy_time {
             }
 
             unsafe fn allocate_alarm(&self) -> Option<AlarmHandle> {
-                let mut id = {
+                let id = {
                     let _guard = self.cs.enter();
 
-                    self.alarms.get().as_mut().unwrap().len() as u8
-                };
+                    let id = self.alarms.get().as_mut().unwrap().len();
 
-                if (id as usize) < MAX_ALARMS {
-                    let alarm = Alarm::new().unwrap();
-
-                    {
-                        let _guard = self.cs.enter();
-
-                        id = self.alarms.get().as_mut().unwrap().len() as u8;
-
-                        if (id as usize) == MAX_ALARMS {
-                            return None;
-                        }
-
+                    if id < MAX_ALARMS {
                         self.alarms
                             .get()
                             .as_mut()
                             .unwrap()
-                            .push(alarm)
+                            .push(Alarm {
+                                timer: None,
+                                callback: None,
+                            })
                             .unwrap_or_else(|_| unreachable!());
-                    }
 
-                    Some(AlarmHandle::new(id))
-                } else {
-                    None
-                }
+                        id as u8
+                    } else {
+                        return None;
+                    }
+                };
+
+                let service = EspTimerService::<Task>::new().unwrap();
+
+                // Driver is always statically allocated, so this is safe
+                let static_self: &'static Self = core::mem::transmute(self);
+
+                self.alarm(id).timer = Some(service.timer(move || static_self.call(id)).unwrap());
+
+                Some(AlarmHandle::new(id))
             }
 
             fn set_alarm_callback(&self, handle: AlarmHandle, callback: fn(*mut ()), ctx: *mut ()) {
-                let alarm = unsafe { &self.alarms.get().as_mut().unwrap()[handle.id() as usize] };
+                let _guard = self.cs.enter();
 
-                alarm.set_callback(callback, ctx);
+                let alarm = self.alarm(handle.id());
+
+                alarm.callback = Some((callback, ctx));
             }
 
             fn set_alarm(&self, handle: AlarmHandle, timestamp: u64) -> bool {
-                let alarm = unsafe { &self.alarms.get().as_mut().unwrap()[handle.id() as usize] };
+                let alarm = self.alarm(handle.id());
 
                 let now = self.now();
 
                 if now < timestamp {
-                    alarm.set_alarm(timestamp - now).unwrap();
+                    alarm
+                        .timer
+                        .as_mut()
+                        .unwrap()
+                        .after(Duration::from_micros(timestamp))
+                        .unwrap();
                     true
                 } else {
                     false
@@ -587,7 +568,7 @@ pub mod embassy_time {
 
             impl PartialOrd for Timer {
                 fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-                    self.at.partial_cmp(&other.at)
+                    Some(self.cmp(other))
                 }
             }
 
