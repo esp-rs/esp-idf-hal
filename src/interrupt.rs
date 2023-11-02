@@ -1,6 +1,5 @@
-use core::sync::atomic::{AtomicU64, Ordering};
-
 use enumset::{EnumSet, EnumSetType};
+
 use esp_idf_sys::*;
 
 /// For backwards compatibility
@@ -113,21 +112,20 @@ unsafe fn do_yield_signal(arg: *mut ()) {
     *signaled = true
 }
 
-static ISR_YIELDER: AtomicU64 = AtomicU64::new(0);
+static mut ISR_YIELDER: Option<(unsafe fn(*mut ()), *mut ())> = None;
 
 #[allow(clippy::type_complexity)]
 #[inline(always)]
 #[link_section = ".iram1.interrupt_get_isr_yielder"]
 pub(crate) unsafe fn get_isr_yielder() -> Option<(unsafe fn(*mut ()), *mut ())> {
     if active() {
-        let value = ISR_YIELDER.load(Ordering::SeqCst);
-        if value == 0 {
-            None
-        } else {
-            let func: fn(*mut ()) = core::mem::transmute((value >> 32) as usize);
-            let arg = (value & 0xffffffff) as usize as *mut ();
-            Some((func, arg))
-        }
+        free(|| {
+            if let Some((func, arg)) = unsafe { ISR_YIELDER } {
+                Some((func, arg))
+            } else {
+                None
+            }
+        })
     } else {
         None
     }
@@ -151,20 +149,13 @@ pub unsafe fn set_isr_yielder(
     yielder: Option<(unsafe fn(*mut ()), *mut ())>,
 ) -> Option<(unsafe fn(*mut ()), *mut ())> {
     if active() {
-        let value = if let Some((func, arg)) = yielder {
-            ((func as usize as u64) << 32) | (arg as usize as u64)
-        } else {
-            0
-        };
+        free(|| {
+            let previous = unsafe { ISR_YIELDER };
 
-        let value = ISR_YIELDER.swap(value, Ordering::SeqCst);
-        if value == 0 {
-            None
-        } else {
-            let func: fn(*mut ()) = core::mem::transmute((value >> 32) as usize);
-            let arg = (value & 0xffffffff) as usize as *mut ();
-            Some((func, arg))
-        }
+            unsafe { ISR_YIELDER = yielder };
+
+            previous
+        })
     } else {
         None
     }

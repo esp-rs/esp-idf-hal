@@ -337,6 +337,7 @@ pub mod config {
 pub struct SpiDriver<'d> {
     host: u8,
     max_transfer_size: usize,
+    #[allow(dead_code)]
     bus_async_lock: Mutex<EspRawMutex, ()>,
     _p: PhantomData<&'d mut ()>,
 }
@@ -926,6 +927,7 @@ where
         result
     }
 
+    #[allow(dead_code)]
     async fn run_async<'a, 'c, 'p, P, M>(
         &self,
         mut cs_pin: CsCtl<'c, 'p, P, M>,
@@ -1269,6 +1271,7 @@ where
 {
     driver: UnsafeCell<SpiDeviceDriver<'d, T>>,
     lock: CriticalSection,
+    #[allow(dead_code)]
     async_lock: Mutex<EspRawMutex, ()>,
 }
 
@@ -1422,6 +1425,7 @@ where
             .lock(move |device| device.run(cs_pin, operations))
     }
 
+    #[allow(dead_code)]
     async fn run_async<'a>(
         &mut self,
         operations: impl Iterator<Item = Operation<'a, u8>> + 'a,
@@ -1799,6 +1803,7 @@ fn spi_transmit(
     Ok(())
 }
 
+#[allow(dead_code)]
 async fn spi_transmit_async(
     handle: spi_device_handle_t,
     transactions: impl Iterator<Item = spi_transaction_t>,
@@ -1902,6 +1907,7 @@ fn data_mode_to_u8(data_mode: config::Mode) -> u8 {
         | ((data_mode.phase == config::Phase::CaptureOnSecondTransition) as u8)
 }
 
+#[allow(dead_code)]
 async fn with_completion<F, D>(fut: F, dtor: D) -> F::Output
 where
     F: Future,
