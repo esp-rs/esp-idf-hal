@@ -653,14 +653,14 @@ pub mod gp_timer {
         pub unsafe fn subscribe<'d>(
             &mut self,
             callback: impl FnMut(&TimerDriverInISR, &AlarmEvent) + Send + 'd,
-        ) -> Result<(), EspError> {            
-
+        ) -> Result<(), EspError> {
             // indexing for ISR_HANDLERS and PIN_NOTIF static arrays
             let empty_index =
                 Self::find_empty_index().unwrap_or_else(|| panic!("no empty index found"));
             self.isr_handle_idx = Some(empty_index);
 
-            let isr_handle: Box<dyn FnMut(&TimerDriverInISR, &AlarmEvent) + Send> = Box::new(callback);
+            let isr_handle: Box<dyn FnMut(&TimerDriverInISR, &AlarmEvent) + Send> =
+                Box::new(callback);
             GP_ISR_HANDLERS[empty_index as usize] =
                 Some(unsafe { core::mem::transmute(isr_handle) });
 
