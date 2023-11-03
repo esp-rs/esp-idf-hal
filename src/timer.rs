@@ -1,7 +1,9 @@
+#[cfg(not(feature = "gp_timer_api"))]
 use core::marker::PhantomData;
 
 use esp_idf_sys::*;
 
+#[cfg(not(feature = "gp_timer_api"))]
 use crate::peripheral::Peripheral;
 
 #[cfg(feature = "alloc")]
@@ -556,7 +558,7 @@ pub mod gp_timer {
             Ok(())
         }
 
-        async fn delay(&mut self, counter: u64) -> Result<(), EspError> {
+        async fn delay(&mut self, _counter: u64) -> Result<(), EspError> {
             self.enable(false)?;
             //self.enable_alarm(false)?;
             //self.set_counter(0)?;

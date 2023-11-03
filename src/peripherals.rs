@@ -37,6 +37,7 @@ use crate::spi;
 ))]
 use crate::task::watchdog;
 #[cfg(not(feature = "riscv-ulp-hal"))]
+#[cfg(not(feature = "gp_timer_api"))]
 use crate::timer;
 #[cfg(not(feature = "riscv-ulp-hal"))]
 use crate::uart;
