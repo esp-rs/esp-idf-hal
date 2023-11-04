@@ -657,6 +657,8 @@ pub mod gp_timer {
             callback: impl FnMut(&TimerDriverInISR, &AlarmEvent) + Send + 'd,
         ) -> Result<(), EspError> {
             // indexing for ISR_HANDLERS and PIN_NOTIF static arrays
+            let guard =  GP_ISR_HANDLER_GUARD.enter();
+
             let empty_index =
                 Self::find_empty_index().unwrap_or_else(|| panic!("no empty index found"));
             self.isr_handle_idx = Some(empty_index);
@@ -665,6 +667,8 @@ pub mod gp_timer {
                 Box::new(callback);
             GP_ISR_HANDLERS[empty_index as usize] =
                 Some(unsafe { core::mem::transmute(isr_handle) });
+
+            drop(guard);
 
             let ptr_index = empty_index as *mut core::ffi::c_void;
 
@@ -711,14 +715,16 @@ pub mod gp_timer {
         }
 
         // find the first empty index in GP_ISR_HANDLER
-        // Safety: not thread save !!
-        // TODO: make SETTING ISR_HANDLERS thread save
-        fn find_empty_index() -> Option<u8> {
+        // Safety: not thread save standalone !!
+        // To make it thread save this function should only be called in an GP_ISR_HANDLER_GUARD.enter() block
+        // and the guard should live till the the returnd index slot in the GP_ISR_HANDLER is filled
+        fn find_empty_index() -> Option<u8> {                  
+
             for (i, handler) in unsafe { GP_ISR_HANDLERS.iter().enumerate() } {
                 if handler.is_none() {
                     return Some(i as u8);
                 }
-            }
+            }                        
             None
         }
     }
@@ -818,6 +824,9 @@ pub mod gp_timer {
             unsafe { &*(item as *const gptimer_alarm_event_data_t as *const AlarmEvent) }
         }
     }
+
+    #[cfg(feature = "alloc")]
+    static GP_ISR_HANDLER_GUARD: crate::task::CriticalSection = crate::task::CriticalSection::new();
 
     #[allow(clippy::type_complexity)]
     #[cfg(not(any(esp32, esp32s2, esp32s3)))]
