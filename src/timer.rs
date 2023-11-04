@@ -657,7 +657,7 @@ pub mod gp_timer {
             callback: impl FnMut(&TimerDriverInISR, &AlarmEvent) + Send + 'd,
         ) -> Result<(), EspError> {
             // indexing for ISR_HANDLERS and PIN_NOTIF static arrays
-            let guard =  GP_ISR_HANDLER_GUARD.enter();
+            let guard = GP_ISR_HANDLER_GUARD.enter();
 
             let empty_index =
                 Self::find_empty_index().unwrap_or_else(|| panic!("no empty index found"));
@@ -718,13 +718,12 @@ pub mod gp_timer {
         // Safety: not thread save standalone !!
         // To make it thread save this function should only be called in an GP_ISR_HANDLER_GUARD.enter() block
         // and the guard should live till the the returnd index slot in the GP_ISR_HANDLER is filled
-        fn find_empty_index() -> Option<u8> {                  
-
+        fn find_empty_index() -> Option<u8> {
             for (i, handler) in unsafe { GP_ISR_HANDLERS.iter().enumerate() } {
                 if handler.is_none() {
                     return Some(i as u8);
                 }
-            }                        
+            }
             None
         }
     }
