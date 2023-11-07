@@ -5,6 +5,11 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.33.6] - 2023-11-07
+* Export esp_netif_sntp APIs from esp-idf 5.1
+* Fix compile error for esp32c6 with NimBLE
+* Support for the [symlink to xtensa Clang library](https://github.com/esp-rs/espup/releases/tag/v0.8.0) installed by latest `espup` ([esp-idf-svc issue 319](https://github.com/esp-rs/esp-idf-hal/issues/319))
+
 ## [0.33.5] - 2023-10-28
 * Support for latest ESP IDF 5.2 dev (master)
 
