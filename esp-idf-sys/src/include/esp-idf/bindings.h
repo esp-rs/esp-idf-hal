@@ -167,6 +167,15 @@
 #endif
 
 #ifdef ESP_IDF_COMP_ESP_TLS_ENABLED
+
+// See https://github.com/espressif/esp-idf/issues/12541
+#ifdef CONFIG_ESP_TLS_USING_MBEDTLS
+#include "mbedtls/ssl.h"
+#elif CONFIG_ESP_TLS_USING_WOLFSSL
+#include "wolfssl/wolfcrypt/settings.h"
+#include "wolfssl/ssl.h"
+#endif
+
 #include "esp_tls.h"
 #endif
 
