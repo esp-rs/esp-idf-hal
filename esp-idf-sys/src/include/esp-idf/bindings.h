@@ -240,6 +240,9 @@
 #include "driver/dac.h"
 #endif
 #include "driver/gpio.h"
+#if ESP_IDF_VERSION_MAJOR > 4
+#include "driver/gptimer.h"
+#endif
 #include "driver/i2c.h"
 #include "driver/i2s.h"
 #include "driver/ledc.h"
