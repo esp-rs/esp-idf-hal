@@ -22,7 +22,7 @@ use esp_idf_sys::{
 
 #[cfg(not(esp_idf_version_major = "4"))]
 use crate::interrupt::asynch::HalIsrNotification;
-use crate::{delay, io::EspIOError};
+use crate::{delay, io::EspIOError, peripheral::Peripheral};
 
 // For v5+, we rely configuration options for PDM/TDM support.
 // For v4, we have to examine the chip type.
@@ -481,7 +481,7 @@ pub mod config {
 }
 
 /// Trait implemented by I2S peripherals to obtain their port number.
-pub trait I2s: Send + sealed::Sealed {
+pub trait I2s: Peripheral<P = Self> + Send + sealed::Sealed {
     /// Return the port number for the peripheral.
     fn port() -> i2s_port_t;
 }
