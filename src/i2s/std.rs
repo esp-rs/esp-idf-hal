@@ -12,10 +12,17 @@
 //! | ESP32-C6           | I2S0            | I2S0            |
 //! | ESP32-H2           | I2S0            | I2S0            |
 
+use self::config::{StdClkConfig, StdGpioConfig, StdSlotConfig};
+
 use super::*;
 use crate::{gpio::*, peripheral::*};
 
 use esp_idf_sys::*;
+
+pub struct I2sStd {}
+pub trait I2sStdConfigSupported {}
+
+impl I2sStdConfigSupported for I2sStd {}
 
 pub(super) mod config {
     #[allow(unused)]
@@ -706,7 +713,7 @@ pub(super) mod config {
     }
 }
 
-impl<'d, Dir> I2sDriver<'d, Dir> {
+impl<'d, Dir> I2sDriver<'d, Dir, I2sStd> {
     #[cfg(not(esp_idf_version_major = "4"))]
     #[allow(clippy::too_many_arguments)]
     fn internal_new_std<I2S: I2s>(
@@ -793,7 +800,7 @@ impl<'d, Dir> I2sDriver<'d, Dir> {
     }
 }
 
-impl<'d> I2sDriver<'d, I2sBiDir> {
+impl<'d> I2sDriver<'d, I2sBiDir, I2sStd> {
     /// Create a new standard mode driver for the given I2S peripheral with both the receive and transmit channels open.
     #[allow(clippy::too_many_arguments)]
     pub fn new_std_bidir<I2S: I2s>(
@@ -819,7 +826,7 @@ impl<'d> I2sDriver<'d, I2sBiDir> {
     }
 }
 
-impl<'d> I2sDriver<'d, I2sRx> {
+impl<'d> I2sDriver<'d, I2sRx, I2sStd> {
     /// Create a new standard mode driver for the given I2S peripheral with only the receive channel open.
     #[allow(clippy::too_many_arguments)]
     pub fn new_std_rx<I2S: I2s>(
@@ -844,7 +851,7 @@ impl<'d> I2sDriver<'d, I2sRx> {
     }
 }
 
-impl<'d> I2sDriver<'d, I2sTx> {
+impl<'d> I2sDriver<'d, I2sTx, I2sStd> {
     /// Create a new standard mode driver for the given I2S peripheral with only the transmit channel open.
     #[allow(clippy::too_many_arguments)]
     pub fn new_std_tx<I2S: I2s>(
@@ -866,5 +873,38 @@ impl<'d> I2sDriver<'d, I2sTx> {
             mclk,
             ws,
         )
+    }
+}
+
+#[cfg(not(esp_idf_version_major = "4"))]
+impl<'d, Dir> I2sDriver<'d, Dir, I2sStd> {
+    /// Reconfigure the slot configuration for the given I2S STD handle.
+    pub fn reconfig_slot(&mut self, config: &StdSlotConfig) -> Result<(), EspError> {
+        let config = config.as_sdk();
+        esp!(unsafe { i2s_channel_reconfig_std_slot(self.tx_handle, &config) })?;
+        esp!(unsafe { i2s_channel_reconfig_std_slot(self.rx_handle, &config) })
+    }
+
+
+    /// Reconfigure the clock configuration for the given I2S STD handle.
+    pub fn reconfig_clk(&mut self, config: &StdClkConfig) -> Result<(), EspError> {
+        let config = config.as_sdk();
+        esp!(unsafe { i2s_channel_reconfig_std_clock(self.tx_handle, &config) })?;
+        esp!(unsafe { i2s_channel_reconfig_std_clock(self.rx_handle, &config) })
+    }
+
+    /// Reconfigure the gpio configuration for the given I2S STD handle.
+    pub fn reconfig_gpio(
+        &mut self,
+        config: &StdGpioConfig,
+        bclk: PeripheralRef<'d, impl InputPin + OutputPin>,
+        din: Option<PeripheralRef<'d, impl InputPin>>,
+        dout: Option<PeripheralRef<'d, impl OutputPin>>,
+        mclk: Option<PeripheralRef<'d, impl InputPin + OutputPin>>,
+        ws: PeripheralRef<'d, impl InputPin + OutputPin>,
+    ) -> Result<(), EspError> {
+        let config = config.as_sdk(bclk, din, dout, mclk, ws);
+        esp!(unsafe { i2s_channel_reconfig_std_gpio(self.tx_handle, &config) })?;
+        esp!(unsafe { i2s_channel_reconfig_std_gpio(self.rx_handle, &config) })
     }
 }

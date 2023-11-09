@@ -4,6 +4,8 @@ use core::{ffi::c_void, marker::PhantomData, mem::MaybeUninit};
 
 use esp_idf_sys::{esp, i2s_port_t, EspError, TickType_t};
 
+pub use std::I2sStd;
+
 #[cfg(not(esp_idf_version_major = "4"))]
 use {
     core::ptr::null_mut,
@@ -556,7 +558,7 @@ impl I2sRxSupported for I2sBiDir {}
 impl I2sTxSupported for I2sBiDir {}
 
 /// Inter-IC Sound (I2S) driver.
-pub struct I2sDriver<'d, Dir> {
+pub struct I2sDriver<'d, Dir, Mode> {
     /// The Rx channel, possibly null.
     #[cfg(not(esp_idf_version_major = "4"))]
     rx_handle: i2s_chan_handle_t,
@@ -573,9 +575,12 @@ pub struct I2sDriver<'d, Dir> {
 
     /// Directionality -- mimics the directionality of the peripheral.
     _dir: PhantomData<Dir>,
+
+    /// Mode -- mimics the i2s mode
+    _mode: PhantomData<Mode>,
 }
 
-impl<'d, Dir> I2sDriver<'d, Dir> {
+impl<'d, Dir, Mode> I2sDriver<'d, Dir, Mode> {
     /// Create a new standard mode driver for the given I2S peripheral with both the receive and transmit channels open.
     #[cfg(not(esp_idf_version_major = "4"))]
     fn internal_new<I2S: I2s>(
@@ -610,6 +615,7 @@ impl<'d, Dir> I2sDriver<'d, Dir> {
             tx_handle,
             _p: PhantomData,
             _dir: PhantomData,
+            _mode: PhantomData,
         };
 
         this.subscribe_channel(this.rx_handle)?;
@@ -717,7 +723,7 @@ impl<'d, Dir> I2sDriver<'d, Dir> {
 }
 
 /// Functions for receive channels.
-impl<'d, Dir> I2sDriver<'d, Dir>
+impl<'d, Dir, Mode> I2sDriver<'d, Dir, Mode>
 where
     Dir: I2sRxSupported,
 {
@@ -959,7 +965,7 @@ where
 }
 
 /// Functions for transmit channels.
-impl<'d, Dir> I2sDriver<'d, Dir>
+impl<'d, Dir, Mode> I2sDriver<'d, Dir, Mode>
 where
     Dir: I2sTxSupported,
 {
@@ -1166,7 +1172,7 @@ where
     }
 }
 
-impl<'d, Dir> Drop for I2sDriver<'d, Dir> {
+impl<'d, Dir, Mode> Drop for I2sDriver<'d, Dir, Mode> {
     fn drop(&mut self) {
         #[cfg(esp_idf_version_major = "4")]
         {
@@ -1202,19 +1208,19 @@ impl<'d, Dir> Drop for I2sDriver<'d, Dir> {
     }
 }
 
-unsafe impl<'d, Dir> Send for I2sDriver<'d, Dir> {}
+unsafe impl<'d, Dir, Mode> Send for I2sDriver<'d, Dir, Mode> {}
 
-impl<'d, Dir> I2sPort for I2sDriver<'d, Dir> {
+impl<'d, Dir, Mode> I2sPort for I2sDriver<'d, Dir, Mode> {
     fn port(&self) -> i2s_port_t {
         self.port as _
     }
 }
 
-impl<'d, Dir> embedded_io::ErrorType for I2sDriver<'d, Dir> {
+impl<'d, Dir, Mode> embedded_io::ErrorType for I2sDriver<'d, Dir, Mode> {
     type Error = EspIOError;
 }
 
-impl<'d, Dir> embedded_io::Read for I2sDriver<'d, Dir>
+impl<'d, Dir, Mode> embedded_io::Read for I2sDriver<'d, Dir, Mode>
 where
     Dir: I2sRxSupported,
 {
@@ -1223,7 +1229,7 @@ where
     }
 }
 
-impl<'d, Dir> embedded_io::Write for I2sDriver<'d, Dir>
+impl<'d, Dir, Mode> embedded_io::Write for I2sDriver<'d, Dir, Mode>
 where
     Dir: I2sTxSupported,
 {
@@ -1238,7 +1244,7 @@ where
 
 #[cfg(feature = "nightly")]
 #[cfg(not(esp_idf_version_major = "4"))]
-impl<'d, Dir> embedded_io_async::Read for I2sDriver<'d, Dir>
+impl<'d, Dir, Mode> embedded_io_async::Read for I2sDriver<'d, Dir, Mode>
 where
     Dir: I2sRxSupported,
 {
@@ -1249,7 +1255,7 @@ where
 
 #[cfg(feature = "nightly")]
 #[cfg(not(esp_idf_version_major = "4"))]
-impl<'d, Dir> embedded_io_async::Write for I2sDriver<'d, Dir>
+impl<'d, Dir, Mode> embedded_io_async::Write for I2sDriver<'d, Dir, Mode>
 where
     Dir: I2sTxSupported,
 {

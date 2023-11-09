@@ -1185,12 +1185,14 @@ pub(super) mod config {
     }
 }
 
+pub struct I2sPdm {}
+
 #[cfg(esp_idf_soc_i2s_supports_pdm_rx)]
 #[cfg_attr(
     feature = "nightly",
     doc(cfg(all(any(esp32, esp32s3), not(esp_idf_version_major = "4"))))
 )]
-impl<'d> I2sDriver<'d, I2sRx> {
+impl<'d> I2sDriver<'d, I2sRx, I2sPdm> {
     /// Create a new pulse density modulation (PDM) mode driver for the given I2S peripheral with only the receive
     /// channel open.
     #[allow(clippy::too_many_arguments)]
@@ -1328,7 +1330,7 @@ impl<'d> I2sDriver<'d, I2sRx> {
         not(esp_idf_version_major = "4")
     )))
 )]
-impl<'d> I2sDriver<'d, I2sTx> {
+impl<'d> I2sDriver<'d, I2sTx, I2sPdm> {
     /// Create a new pulse density modulation (PDM) mode driver for the given I2S peripheral with only the transmit
     /// channel open.
     #[allow(clippy::too_many_arguments)]
