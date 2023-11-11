@@ -459,9 +459,9 @@ impl<'d> PcntDriver<'d> {
     /// - ()
     /// - EspError
     #[cfg(feature = "alloc")]
-    pub unsafe fn subscribe<C>(&self, callback: C) -> Result<(), EspError>
+    pub unsafe fn subscribe<F>(&self, callback: F) -> Result<(), EspError>
     where
-        C: FnMut(u32) + Send + 'static,
+        F: FnMut(u32) + Send + 'static,
     {
         enable_isr_service()?;
 

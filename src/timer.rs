@@ -287,15 +287,18 @@ impl<'d> TimerDriver<'d> {
     /// Care should be taken not to call STD, libc or FreeRTOS APIs (except for a few allowed ones)
     /// in the callback passed to this function, as it is executed in an ISR context.
     #[cfg(feature = "alloc")]
-    pub unsafe fn subscribe(&mut self, callback: impl FnMut() + Send + 'd) -> Result<(), EspError> {
+    pub unsafe fn subscribe<F>(&mut self, callback: F) -> Result<(), EspError>
+    where
+        F: FnMut() + Send + 'static,
+    {
         self.check();
 
         self.disable_interrupt()?;
 
-        let callback: Box<dyn FnMut() + Send + 'd> = Box::new(callback);
+        let callback: Box<dyn FnMut() + Send + 'static> = Box::new(callback);
 
         ISR_HANDLERS[(self.group() * timer_idx_t_TIMER_MAX + self.index()) as usize] =
-            Some(unsafe { core::mem::transmute(callback) });
+            Some(callback);
 
         Ok(())
     }

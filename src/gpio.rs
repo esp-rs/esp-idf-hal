@@ -1147,17 +1147,18 @@ impl<'d, T: Pin, MODE> PinDriver<'d, T, MODE> {
     /// Care should be taken not to call STD, libc or FreeRTOS APIs (except for a few allowed ones)
     /// in the callback passed to this function, as it is executed in an ISR context.
     #[cfg(all(not(feature = "riscv-ulp-hal"), feature = "alloc"))]
-    pub unsafe fn subscribe(&mut self, callback: impl FnMut() + Send + 'd) -> Result<(), EspError>
+    pub unsafe fn subscribe<F>(&mut self, callback: F) -> Result<(), EspError>
     where
+        F: FnMut() + Send + 'static,
         MODE: InputMode,
     {
         extern crate alloc;
 
         self.disable_interrupt()?;
 
-        let callback: alloc::boxed::Box<dyn FnMut() + Send + 'd> = alloc::boxed::Box::new(callback);
-        chip::PIN_ISR_HANDLER[self.pin.pin() as usize] =
-            Some(unsafe { core::mem::transmute(callback) });
+        let callback: alloc::boxed::Box<dyn FnMut() + Send + 'static> =
+            alloc::boxed::Box::new(callback);
+        chip::PIN_ISR_HANDLER[self.pin.pin() as usize] = Some(callback);
 
         Ok(())
     }
