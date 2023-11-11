@@ -361,7 +361,7 @@ pub struct EspMqttClient<S = ()> {
     _tls_psk_conf: Option<TlsPsk>,
 }
 
-impl<'a, S> RawHandle for EspMqttClient<S> {
+impl<S> RawHandle for EspMqttClient<S> {
     type Handle = esp_mqtt_client_handle_t;
 
     fn handle(&self) -> Self::Handle {

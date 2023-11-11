@@ -658,7 +658,7 @@ where
 {
     type Subscription<'a> = EspSubscription<T> where Self: 'a;
 
-    fn subscribe<'a, F>(&'a self, callback: F) -> Result<Self::Subscription<'a>, Self::Error>
+    fn subscribe<F>(&self, callback: F) -> Result<Self::Subscription<'_>, Self::Error>
     where
         F: FnMut(&P) + Send + 'static,
     {
@@ -791,7 +791,7 @@ where
 {
     type Subscription<'a> = EspSubscription<T> where Self: 'a;
 
-    fn subscribe<'a, F>(&'a self, mut callback: F) -> Result<Self::Subscription<'a>, EspError>
+    fn subscribe<F>(&self, mut callback: F) -> Result<Self::Subscription<'_>, EspError>
     where
         F: FnMut(&P) + Send + 'static,
     {
@@ -810,7 +810,7 @@ where
 {
     type Subscription<'a> = EspSubscription<T> where Self: 'a;
 
-    fn subscribe<'a, F>(&'a self, mut callback: F) -> Result<Self::Subscription<'a>, EspError>
+    fn subscribe<F>(&self, mut callback: F) -> Result<Self::Subscription<'_>, EspError>
     where
         F: FnMut(&P) + Send + 'static,
     {

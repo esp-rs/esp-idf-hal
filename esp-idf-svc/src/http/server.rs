@@ -1,7 +1,6 @@
 //! HTTP server
 use core::cell::UnsafeCell;
 use core::fmt::{Debug, Display};
-use core::marker::PhantomData;
 use core::sync::atomic::{AtomicBool, Ordering};
 use core::time::*;
 use core::{ffi, ptr};
