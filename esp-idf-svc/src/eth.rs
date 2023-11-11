@@ -608,7 +608,7 @@ impl<'d, T> EthDriver<'d, T> {
     fn subscribe(
         handle: esp_eth_handle_t,
         sysloop: &EspEventLoop<System>,
-    ) -> Result<(Arc<mutex::Mutex<Status>>, EspSubscription<'static, System>), EspError> {
+    ) -> Result<(Arc<mutex::Mutex<Status>>, EspSubscription<System>), EspError> {
         let status = Arc::new(mutex::Mutex::wrap(mutex::RawMutex::new(), Status::Stopped));
         let s_status = status.clone();
 
