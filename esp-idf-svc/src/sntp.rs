@@ -193,7 +193,7 @@ impl<'a> EspSntp<'a> {
     #[cfg(feature = "alloc")]
     pub fn new_with_callback<F>(conf: &SntpConf, callback: F) -> Result<Self, EspError>
     where
-        F: FnMut(Duration) + Send + 'a,
+        F: FnMut(Duration) + Send + 'static,
     {
         let mut taken = TAKEN.lock();
 
@@ -202,11 +202,8 @@ impl<'a> EspSntp<'a> {
         }
 
         #[allow(clippy::type_complexity)]
-        let callback: alloc::boxed::Box<dyn FnMut(Duration) + Send + 'a> =
-            alloc::boxed::Box::new(callback);
-        #[allow(clippy::type_complexity)]
         let callback: alloc::boxed::Box<dyn FnMut(Duration) + Send + 'static> =
-            unsafe { core::mem::transmute(callback) };
+            alloc::boxed::Box::new(callback);
 
         *SYNC_CB.lock() = Some(callback);
         let sntp = Self::init(conf)?;

@@ -47,9 +47,9 @@ impl From<u32> for SendStatus {
 
 pub type PeerInfo = esp_now_peer_info_t;
 
-pub struct EspNow<'a>(PhantomData<&'a ()>);
+pub struct EspNow(());
 
-impl<'a> EspNow<'a> {
+impl EspNow {
     pub fn take() -> Result<Self, EspError> {
         let mut taken = TAKEN.lock();
 
@@ -67,7 +67,7 @@ impl<'a> EspNow<'a> {
 
         *taken = true;
 
-        Ok(Self(PhantomData))
+        Ok(Self(()))
     }
 
     pub fn send(&self, peer_addr: [u8; 6], data: &[u8]) -> Result<(), EspError> {
@@ -130,13 +130,10 @@ impl<'a> EspNow<'a> {
 
     pub fn register_recv_cb<F>(&self, callback: F) -> Result<(), EspError>
     where
-        F: FnMut(&[u8], &[u8]) + Send + 'a,
+        F: FnMut(&[u8], &[u8]) + Send + 'static,
     {
         #[allow(clippy::type_complexity)]
-        let callback: Box<dyn FnMut(&[u8], &[u8]) + Send + 'a> = Box::new(callback);
-        #[allow(clippy::type_complexity)]
-        let callback: Box<dyn FnMut(&[u8], &[u8]) + Send + 'static> =
-            unsafe { core::mem::transmute(callback) };
+        let callback: Box<dyn FnMut(&[u8], &[u8]) + Send + 'static> = Box::new(callback);
 
         *RECV_CALLBACK.lock() = Some(Box::new(callback));
         esp!(unsafe { esp_now_register_recv_cb(Some(Self::recv_callback)) })?;
@@ -153,13 +150,10 @@ impl<'a> EspNow<'a> {
 
     pub fn register_send_cb<F>(&self, callback: F) -> Result<(), EspError>
     where
-        F: FnMut(&[u8], SendStatus) + Send + 'a,
+        F: FnMut(&[u8], SendStatus) + Send + 'static,
     {
         #[allow(clippy::type_complexity)]
-        let callback: Box<dyn FnMut(&[u8], SendStatus) + Send + 'a> = Box::new(callback);
-        #[allow(clippy::type_complexity)]
-        let callback: Box<dyn FnMut(&[u8], SendStatus) + Send + 'static> =
-            unsafe { core::mem::transmute(callback) };
+        let callback: Box<dyn FnMut(&[u8], SendStatus) + Send + 'static> = Box::new(callback);
 
         *SEND_CALLBACK.lock() = Some(Box::new(callback));
         esp!(unsafe { esp_now_register_send_cb(Some(Self::send_callback)) })?;
@@ -203,7 +197,7 @@ impl<'a> EspNow<'a> {
     }
 }
 
-impl<'a> Drop for EspNow<'a> {
+impl Drop for EspNow {
     fn drop(&mut self) {
         let mut taken = TAKEN.lock();
 

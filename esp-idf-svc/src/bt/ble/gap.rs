@@ -445,7 +445,7 @@ where
 
     pub fn initialize<F>(&self, events_cb: F) -> Result<(), EspError>
     where
-        F: Fn(GapEvent) + Send + 'd,
+        F: Fn(GapEvent) + Send + 'static,
     {
         CALLBACK.set(events_cb)?;
 

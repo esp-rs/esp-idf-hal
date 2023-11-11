@@ -320,7 +320,7 @@ pub mod client {
 
         pub fn initialize<F>(&self, events_cb: F) -> Result<(), EspError>
         where
-            F: Fn(HfpcEvent) -> usize + Send + 'd,
+            F: Fn(HfpcEvent) -> usize + Send + 'static,
         {
             CALLBACK.set(events_cb)?;
 

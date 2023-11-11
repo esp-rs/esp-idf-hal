@@ -426,7 +426,7 @@ pub mod controller {
 
         pub fn initialize<F>(&self, events_cb: F) -> Result<(), EspError>
         where
-            F: Fn(AvrccEvent) + Send + 'd,
+            F: Fn(AvrccEvent) + Send + 'static,
         {
             CALLBACK.set(events_cb)?;
 

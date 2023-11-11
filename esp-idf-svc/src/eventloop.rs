@@ -32,9 +32,9 @@ pub use asyncify::*;
 #[cfg(all(feature = "alloc", esp_idf_comp_esp_timer_enabled))]
 pub use async_wait::*;
 
-pub type EspSystemSubscription<'a> = EspSubscription<'a, System>;
-pub type EspBackgroundSubscription<'a> = EspSubscription<'a, User<Background>>;
-pub type EspExplicitSubscription<'a> = EspSubscription<'a, User<Explicit>>;
+pub type EspSystemSubscription = EspSubscription<System>;
+pub type EspBackgroundSubscription = EspSubscription<User<Background>>;
+pub type EspExplicitSubscription = EspSubscription<User<Explicit>>;
 
 pub type EspSystemEventLoop = EspEventLoop<System>;
 pub type EspBackgroundEventLoop = EspEventLoop<User<Background>>;
@@ -211,11 +211,11 @@ impl EspEventFetchData {
     }
 }
 
-struct UnsafeCallback<'a>(*mut Box<dyn FnMut(&EspEventFetchData) + Send + 'a>);
+struct UnsafeCallback(*mut Box<dyn FnMut(&EspEventFetchData) + Send + 'static>);
 
-impl<'a> UnsafeCallback<'a> {
+impl UnsafeCallback {
     #[allow(clippy::type_complexity)]
-    fn from(boxed: &mut Box<Box<dyn FnMut(&EspEventFetchData) + Send + 'a>>) -> Self {
+    fn from(boxed: &mut Box<Box<dyn FnMut(&EspEventFetchData) + Send + 'stastic>>) -> Self {
         Self(boxed.as_mut())
     }
 
@@ -234,7 +234,7 @@ impl<'a> UnsafeCallback<'a> {
     }
 }
 
-pub struct EspSubscription<'a, T>
+pub struct EspSubscription<T>
 where
     T: EspEventLoopType,
 {
@@ -243,10 +243,10 @@ where
     source: *const ffi::c_char,
     event_id: i32,
     #[allow(clippy::type_complexity)]
-    _callback: Box<Box<dyn FnMut(&EspEventFetchData) + Send + 'a>>,
+    _callback: Box<Box<dyn FnMut(&EspEventFetchData) + Send + 'static>>,
 }
 
-impl<'a, T> EspSubscription<'a, T>
+impl<T> EspSubscription<T>
 where
     T: EspEventLoopType,
 {
@@ -268,9 +268,9 @@ where
     }
 }
 
-unsafe impl<'a, T> Send for EspSubscription<'a, T> where T: EspEventLoopType {}
+unsafe impl<T> Send for EspSubscription<T> where T: EspEventLoopType {}
 
-impl<'a, T> Drop for EspSubscription<'a, T>
+impl<T> Drop for EspSubscription<T>
 where
     T: EspEventLoopType,
 {
@@ -301,7 +301,7 @@ where
     }
 }
 
-impl<'a, T> RawHandle for EspSubscription<'a, User<T>>
+impl<T> RawHandle for EspSubscription<User<T>>
 where
     T: EspEventLoopType,
 {
@@ -395,18 +395,18 @@ where
     T: EspEventLoopType,
 {
     #[allow(clippy::not_unsafe_ptr_arg_deref)]
-    pub fn subscribe_raw<'a, F>(
+    pub fn subscribe_raw<F>(
         &self,
         source: *const ffi::c_char,
         event_id: i32,
         mut callback: F,
-    ) -> Result<EspSubscription<'a, T>, EspError>
+    ) -> Result<EspSubscription<T>, EspError>
     where
-        F: FnMut(&EspEventFetchData) + Send + 'a,
+        F: FnMut(&EspEventFetchData) + Send + 'static,
     {
         let mut handler_instance: esp_event_handler_instance_t = ptr::null_mut();
 
-        let callback: Box<dyn FnMut(&EspEventFetchData) + Send + 'a> =
+        let callback: Box<dyn FnMut(&EspEventFetchData) + Send + 'static> =
             Box::new(move |data| callback(data));
         let mut callback = Box::new(callback);
 
@@ -528,10 +528,10 @@ where
         }
     }
 
-    pub fn subscribe<'a, P, F>(&self, mut callback: F) -> Result<EspSubscription<'a, T>, EspError>
+    pub fn subscribe<P, F>(&self, mut callback: F) -> Result<EspSubscription<T>, EspError>
     where
         P: EspTypedEventDeserializer<P>,
-        F: FnMut(&P) + Send + 'a,
+        F: FnMut(&P) + Send + 'static,
     {
         self.subscribe_raw(
             P::source(),
@@ -656,11 +656,11 @@ where
     P: EspTypedEventDeserializer<P>,
     T: EspEventLoopType,
 {
-    type Subscription<'a> = EspSubscription<'a, T> where Self: 'a;
+    type Subscription<'a> = EspSubscription<T> where Self: 'a;
 
     fn subscribe<'a, F>(&'a self, callback: F) -> Result<Self::Subscription<'a>, Self::Error>
     where
-        F: FnMut(&P) + Send + 'a,
+        F: FnMut(&P) + Send + 'static,
     {
         EspEventLoop::subscribe(self, callback)
     }
@@ -789,11 +789,11 @@ where
     M: EspTypedEventDeserializer<P>,
     T: EspEventLoopType,
 {
-    type Subscription<'a> = EspSubscription<'a, T> where Self: 'a;
+    type Subscription<'a> = EspSubscription<T> where Self: 'a;
 
     fn subscribe<'a, F>(&'a self, mut callback: F) -> Result<Self::Subscription<'a>, EspError>
     where
-        F: FnMut(&P) + Send + 'a,
+        F: FnMut(&P) + Send + 'static,
     {
         self.untyped_event_loop.subscribe_raw(
             M::source(),
@@ -808,11 +808,11 @@ where
     M: EspTypedEventDeserializer<P>,
     T: EspEventLoopType,
 {
-    type Subscription<'a> = EspSubscription<'a, T> where Self: 'a;
+    type Subscription<'a> = EspSubscription<T> where Self: 'a;
 
     fn subscribe<'a, F>(&'a self, mut callback: F) -> Result<Self::Subscription<'a>, EspError>
     where
-        F: FnMut(&P) + Send + 'a,
+        F: FnMut(&P) + Send + 'static,
     {
         self.untyped_event_loop.subscribe_raw(
             M::source(),
@@ -924,7 +924,7 @@ where
     E: EspTypedEventDeserializer<E> + Debug,
     T: EspEventLoopType,
 {
-    pub fn new<F: FnMut(&E) -> bool + Send + 'a>(
+    pub fn new<F: FnMut(&E) -> bool + Send + 'static>(
         event_loop: &EspEventLoop<T>,
         mut waiter: F,
     ) -> Result<Self, EspError> {

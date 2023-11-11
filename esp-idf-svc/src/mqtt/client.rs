@@ -332,10 +332,10 @@ impl<'a> TryFrom<&'a MqttClientConfiguration<'a>>
     }
 }
 
-struct UnsafeCallback<'a>(*mut Box<dyn FnMut(esp_mqtt_event_handle_t) + Send + 'a>);
+struct UnsafeCallback(*mut Box<dyn FnMut(esp_mqtt_event_handle_t) + Send + 'static>);
 
-impl<'a> UnsafeCallback<'a> {
-    fn from(boxed: &mut Box<Box<dyn FnMut(esp_mqtt_event_handle_t) + Send + 'a>>) -> Self {
+impl UnsafeCallback {
+    fn from(boxed: &mut Box<Box<dyn FnMut(esp_mqtt_event_handle_t) + Send + 'static>>) -> Self {
         Self(boxed.as_mut())
     }
 
@@ -354,14 +354,14 @@ impl<'a> UnsafeCallback<'a> {
     }
 }
 
-pub struct EspMqttClient<'a, S = ()> {
+pub struct EspMqttClient<S = ()> {
     raw_client: esp_mqtt_client_handle_t,
     conn_state_guard: Option<Arc<ConnStateGuard<RawCondvar, S>>>,
-    _boxed_raw_callback: Box<dyn FnMut(esp_mqtt_event_handle_t) + Send + 'a>,
+    _boxed_raw_callback: Box<dyn FnMut(esp_mqtt_event_handle_t) + Send + 'static>,
     _tls_psk_conf: Option<TlsPsk>,
 }
 
-impl<'a, S> RawHandle for EspMqttClient<'a, S> {
+impl<'a, S> RawHandle for EspMqttClient<S> {
     type Handle = esp_mqtt_client_handle_t;
 
     fn handle(&self) -> Self::Handle {
@@ -369,7 +369,7 @@ impl<'a, S> RawHandle for EspMqttClient<'a, S> {
     }
 }
 
-impl EspMqttClient<'static, ConnState<MessageImpl, EspError>> {
+impl EspMqttClient<ConnState<MessageImpl, EspError>> {
     pub fn new_with_conn(
         url: &str,
         conf: &MqttClientConfiguration,
@@ -385,7 +385,7 @@ impl EspMqttClient<'static, ConnState<MessageImpl, EspError>> {
     }
 }
 
-impl<'a, M, E> EspMqttClient<'a, ConnState<M, E>>
+impl<M, E> EspMqttClient<ConnState<M, E>>
 where
     M: Send + 'static,
     E: Debug + Send + 'static,
@@ -397,7 +397,7 @@ where
                 &'b Result<client::Event<EspMqttMessage<'b>>, EspError>,
             ) -> Result<client::Event<M>, E>
             + Send
-            + 'a,
+            + 'static,
     ) -> Result<(Self, Connection<RawCondvar, M, E>), EspError>
     where
         Self: Sized,
@@ -414,13 +414,13 @@ where
     }
 }
 
-impl<'a> EspMqttClient<'a, ()> {
+impl EspMqttClient<()> {
     pub fn new(
         url: &str,
         conf: &MqttClientConfiguration,
         callback: impl for<'b> FnMut(&'b Result<client::Event<EspMqttMessage<'b>>, EspError>)
             + Send
-            + 'a,
+            + 'static,
     ) -> Result<Self, EspError>
     where
         Self: Sized,
@@ -429,14 +429,14 @@ impl<'a> EspMqttClient<'a, ()> {
     }
 }
 
-impl<'a, S> EspMqttClient<'a, S> {
+impl<S> EspMqttClient<S> {
     pub fn new_generic(
         url: &str,
         conf: &MqttClientConfiguration,
         conn_state_guard: Option<Arc<ConnStateGuard<RawCondvar, S>>>,
         mut callback: impl for<'b> FnMut(&'b Result<client::Event<EspMqttMessage<'b>>, EspError>)
             + Send
-            + 'a,
+            + 'static,
     ) -> Result<Self, EspError>
     where
         Self: Sized,
@@ -456,7 +456,7 @@ impl<'a, S> EspMqttClient<'a, S> {
     fn new_raw(
         url: &str,
         conf: &MqttClientConfiguration,
-        raw_callback: Box<dyn FnMut(esp_mqtt_event_handle_t) + Send + 'a>,
+        raw_callback: Box<dyn FnMut(esp_mqtt_event_handle_t) + Send + 'static>,
         conn_state_guard: Option<Arc<ConnStateGuard<RawCondvar, S>>>,
     ) -> Result<Self, EspError>
     where
@@ -630,7 +630,7 @@ impl<'a, S> EspMqttClient<'a, S> {
     }
 }
 
-impl<'a, P> Drop for EspMqttClient<'a, P> {
+impl<P> Drop for EspMqttClient<P> {
     fn drop(&mut self) {
         let connection_state = self.conn_state_guard.take();
         if let Some(connection_state) = connection_state {
@@ -641,11 +641,11 @@ impl<'a, P> Drop for EspMqttClient<'a, P> {
     }
 }
 
-impl<'a, P> ErrorType for EspMqttClient<'a, P> {
+impl<P> ErrorType for EspMqttClient<P> {
     type Error = EspError;
 }
 
-impl<'a, P> client::Client for EspMqttClient<'a, P> {
+impl<P> client::Client for EspMqttClient<P> {
     fn subscribe(
         &mut self,
         topic: &str,
@@ -659,7 +659,7 @@ impl<'a, P> client::Client for EspMqttClient<'a, P> {
     }
 }
 
-impl<'a, P> client::Publish for EspMqttClient<'a, P> {
+impl<P> client::Publish for EspMqttClient<P> {
     fn publish(
         &mut self,
         topic: &str,
@@ -671,7 +671,7 @@ impl<'a, P> client::Publish for EspMqttClient<'a, P> {
     }
 }
 
-impl<'a, P> client::Enqueue for EspMqttClient<'a, P> {
+impl<P> client::Enqueue for EspMqttClient<P> {
     fn enqueue(
         &mut self,
         topic: &str,
@@ -683,7 +683,7 @@ impl<'a, P> client::Enqueue for EspMqttClient<'a, P> {
     }
 }
 
-unsafe impl<'a, P> Send for EspMqttClient<'a, P> {}
+unsafe impl<P> Send for EspMqttClient<P> {}
 
 pub struct EspMqttMessage<'a> {
     event: &'a esp_mqtt_event_t,
@@ -835,30 +835,30 @@ mod asyncify {
 
     use super::{EspMqttClient, EspMqttMessage, MqttClientConfiguration};
 
-    impl<'a, P> UnblockingAsyncify for super::EspMqttClient<'a, P> {
+    impl<P> UnblockingAsyncify for super::EspMqttClient<P> {
         type AsyncWrapper<U, S> = AsyncClient<U, Arc<Mutex<RawMutex, S>>>;
     }
 
-    impl<'a, P> Asyncify for super::EspMqttClient<'a, P> {
+    impl<P> Asyncify for super::EspMqttClient<P> {
         type AsyncWrapper<S> = AsyncClient<(), Blocking<S, Publishing>>;
     }
 
-    pub type EspMqttAsyncClient<'a> = EspMqttConvertingAsyncClient<'a, MessageImpl, EspError>;
+    pub type EspMqttAsyncClient = EspMqttConvertingAsyncClient<MessageImpl, EspError>;
 
-    pub type EspMqttUnblockingAsyncClient<'a, U> =
-        EspMqttConvertingUnblockingAsyncClient<'a, U, MessageImpl, EspError>;
+    pub type EspMqttUnblockingAsyncClient<U> =
+        EspMqttConvertingUnblockingAsyncClient<U, MessageImpl, EspError>;
 
     pub type EspMqttAsyncConnection = EspMqttConvertingAsyncConnection<MessageImpl, EspError>;
 
-    pub type EspMqttConvertingUnblockingAsyncClient<'a, U, M, E> =
-        AsyncClient<U, Arc<Mutex<RawMutex, EspMqttClient<'a, AsyncConnState<M, E>>>>>;
+    pub type EspMqttConvertingUnblockingAsyncClient<U, M, E> =
+        AsyncClient<U, Arc<Mutex<RawMutex, EspMqttClient<AsyncConnState<M, E>>>>>;
 
-    pub type EspMqttConvertingAsyncClient<'a, M, E> =
-        AsyncClient<(), EspMqttClient<'a, AsyncConnState<M, E>>>;
+    pub type EspMqttConvertingAsyncClient<M, E> =
+        AsyncClient<(), EspMqttClient<AsyncConnState<M, E>>>;
 
     pub type EspMqttConvertingAsyncConnection<M, E> = AsyncConnection<RawCondvar, M, E>;
 
-    impl EspMqttClient<'static, AsyncConnState<MessageImpl, EspError>> {
+    impl EspMqttClient<AsyncConnState<MessageImpl, EspError>> {
         pub fn new_with_async_conn(
             url: &str,
             conf: &MqttClientConfiguration,
@@ -874,7 +874,7 @@ mod asyncify {
         }
     }
 
-    impl<'a, M, E> EspMqttClient<'a, AsyncConnState<M, E>>
+    impl<M, E> EspMqttClient<AsyncConnState<M, E>>
     where
         M: Send + 'static,
         E: Debug + Send + 'static,
@@ -886,7 +886,7 @@ mod asyncify {
                     &'b Result<client::Event<EspMqttMessage<'b>>, EspError>,
                 ) -> Result<client::Event<M>, E>
                 + Send
-                + 'a,
+                + 'static,
         ) -> Result<(Self, EspMqttConvertingAsyncConnection<M, E>), EspError>
         where
             Self: Sized,

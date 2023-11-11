@@ -122,13 +122,13 @@ struct RawHandleImpl(esp_eth_handle_t);
 
 unsafe impl Send for RawHandleImpl {}
 
-type RawCallback<'a> = Box<dyn FnMut(&[u8]) + Send + 'a>;
+type RawCallback = Box<dyn FnMut(&[u8]) + Send + 'static>;
 
-struct UnsafeCallback<'a>(*mut RawCallback<'a>);
+struct UnsafeCallback(*mut RawCallback);
 
-impl<'a> UnsafeCallback<'a> {
+impl UnsafeCallback {
     #[allow(clippy::type_complexity)]
-    fn from(boxed: &mut Box<RawCallback<'a>>) -> Self {
+    fn from(boxed: &mut Box<RawCallback>) -> Self {
         Self(boxed.as_mut())
     }
 
@@ -178,8 +178,8 @@ pub struct EthDriver<'d, T> {
     _flavor: T,
     handle: esp_eth_handle_t,
     status: Arc<mutex::Mutex<Status>>,
-    _subscription: EspSubscription<'static, System>,
-    callback: Option<Box<RawCallback<'d>>>,
+    _subscription: EspSubscription<System>,
+    callback: Option<Box<RawCallback>>,
     _p: PhantomData<&'d mut ()>,
 }
 
@@ -665,9 +665,9 @@ impl<'d, T> EthDriver<'d, T> {
         Ok(())
     }
 
-    pub fn set_rx_callback<C>(&mut self, mut callback: C) -> Result<(), EspError>
+    pub fn set_rx_callback<F>(&mut self, mut callback: F) -> Result<(), EspError>
     where
-        C: for<'a> FnMut(&[u8]) + Send + 'd,
+        F: FnMut(&[u8]) + Send + 'static,
     {
         let _ = self.stop();
 

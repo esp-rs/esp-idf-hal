@@ -299,7 +299,7 @@ where
 
     pub fn initialize<F>(&self, events_cb: F) -> Result<(), EspError>
     where
-        F: Fn(A2dpEvent) + Send + 'd,
+        F: Fn(A2dpEvent) + Send + 'static,
     {
         self.internal_initialize(move |event| {
             events_cb(event);
@@ -343,7 +343,7 @@ where
 
     pub fn initialize<F>(&self, events_cb: F) -> Result<(), EspError>
     where
-        F: Fn(A2dpEvent) -> usize + Send + 'd,
+        F: Fn(A2dpEvent) -> usize + Send + 'static,
     {
         self.internal_initialize(events_cb)
     }
@@ -374,7 +374,7 @@ where
 
     pub fn initialize<F>(&self, events_cb: F) -> Result<(), EspError>
     where
-        F: Fn(A2dpEvent) -> usize + Send + 'd,
+        F: Fn(A2dpEvent) -> usize + Send + 'static,
     {
         self.internal_initialize(events_cb)
     }
@@ -388,7 +388,7 @@ where
 {
     fn internal_initialize<F>(&self, events_cb: F) -> Result<(), EspError>
     where
-        F: Fn(A2dpEvent) -> usize + Send + 'd,
+        F: Fn(A2dpEvent) -> usize + Send + 'static,
     {
         CALLBACK.set(events_cb)?;
 

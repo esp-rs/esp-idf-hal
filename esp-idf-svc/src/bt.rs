@@ -138,7 +138,7 @@ impl From<esp_bt_uuid_t> for BtUuid {
 #[allow(clippy::type_complexity)]
 pub(crate) struct BtCallback<A, R> {
     initialized: AtomicBool,
-    callback: UnsafeCell<Option<alloc::boxed::Box<dyn Fn(A) -> R>>>,
+    callback: UnsafeCell<Option<alloc::boxed::Box<dyn Fn(A) -> R + Send + 'static>>>,
     default_result: R,
 }
 
@@ -155,16 +155,15 @@ where
         }
     }
 
-    pub fn set<'d, F>(&self, callback: F) -> Result<(), EspError>
+    pub fn set<F>(&self, callback: F) -> Result<(), EspError>
     where
-        F: Fn(A) -> R + Send + 'd,
+        F: Fn(A) -> R + Send + 'static,
     {
         self.initialized
             .compare_exchange(false, true, Ordering::SeqCst, Ordering::SeqCst)
             .map_err(|_| EspError::from_infallible::<ESP_ERR_INVALID_STATE>())?;
 
-        let b: alloc::boxed::Box<dyn Fn(A) -> R + 'd> = alloc::boxed::Box::new(callback);
-        let b: alloc::boxed::Box<dyn Fn(A) -> R + 'static> = unsafe { core::mem::transmute(b) };
+        let b: alloc::boxed::Box<dyn Fn(A) -> R + 'static> = alloc::boxed::Box::new(callback);
         *unsafe { self.callback.get().as_mut() }.unwrap() = Some(b);
 
         Ok(())
