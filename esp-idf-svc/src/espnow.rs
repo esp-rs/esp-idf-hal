@@ -6,8 +6,6 @@
 //! another without connection. CTR with CBC-MAC Protocol(CCMP) is used to
 //! protect the action frame for security. ESP-NOW is widely used in smart
 //! light, remote controlling, sensor, etc.
-use core::marker::PhantomData;
-
 use ::log::info;
 
 use alloc::boxed::Box;

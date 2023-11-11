@@ -361,7 +361,7 @@ impl EspHttpServer {
 
     pub fn handler_chain<C>(&mut self, chain: C) -> Result<&mut Self, EspError>
     where
-        C: EspHttpTraversableChain<'a>,
+        C: EspHttpTraversableChain,
     {
         chain.accept(self)?;
 
@@ -410,7 +410,7 @@ impl EspHttpServer {
 
     fn to_native_handler<H>(&self, handler: H) -> NativeHandler
     where
-        H: for<'r> Handler<EspHttpConnection<'a>> + Send + 'static,
+        H: for<'r> Handler<EspHttpConnection<'r>> + Send + 'static,
     {
         Box::new(move |raw_req| {
             let mut connection = EspHttpConnection::new(unsafe { raw_req.as_mut().unwrap() });
@@ -491,7 +491,7 @@ impl EspHttpTraversableChain for ChainRoot {
 impl<H, N> EspHttpTraversableChain for ChainHandler<H, N>
 where
     H: for<'r> Handler<EspHttpConnection<'r>> + 'static,
-    N: EspHttpTraversableChain<'a>,
+    N: EspHttpTraversableChain,
 {
     fn accept(self, server: &mut EspHttpServer) -> Result<(), EspError> {
         self.next.accept(server)?;

@@ -396,7 +396,7 @@ where
 /// only when one would like to utilize a custom, non-STD network stack like `smoltcp`.
 pub struct WifiDriver<'d> {
     status: Arc<mutex::Mutex<(WifiEvent, WifiEvent)>>,
-    _subscription: EspSubscription<'static, System>,
+    _subscription: EspSubscription<System>,
     #[cfg(all(feature = "alloc", esp_idf_comp_nvs_flash_enabled))]
     _nvs: Option<EspDefaultNvsPartition>,
     _p: PhantomData<&'d mut ()>,
@@ -443,7 +443,7 @@ impl<'d> WifiDriver<'d> {
     ) -> Result<
         (
             Arc<mutex::Mutex<(WifiEvent, WifiEvent)>>,
-            EspSubscription<'static, System>,
+            EspSubscription<System>,
         ),
         EspError,
     > {

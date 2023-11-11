@@ -215,7 +215,7 @@ struct UnsafeCallback(*mut Box<dyn FnMut(&EspEventFetchData) + Send + 'static>);
 
 impl UnsafeCallback {
     #[allow(clippy::type_complexity)]
-    fn from(boxed: &mut Box<Box<dyn FnMut(&EspEventFetchData) + Send + 'stastic>>) -> Self {
+    fn from(boxed: &mut Box<Box<dyn FnMut(&EspEventFetchData) + Send + 'static>>) -> Self {
         Self(boxed.as_mut())
     }
 
@@ -910,11 +910,11 @@ mod asyncify {
     }
 }
 
-pub struct Wait<'a, E, T>
+pub struct Wait<E, T>
 where
     T: EspEventLoopType,
 {
-    _subscription: EspSubscription<'a, T>,
+    _subscription: EspSubscription<T>,
     waitable: Arc<Waitable<()>>,
     _event: PhantomData<fn() -> E>,
 }
@@ -995,7 +995,7 @@ mod async_wait {
 
     use crate::timer::{EspTaskTimerService, EspTimer};
 
-    pub struct AsyncWait<'a, E, T>
+    pub struct AsyncWait<E, T>
     where
         E: super::EspTypedEventDeserializer<E> + Send,
         T: super::EspEventLoopType,
@@ -1003,25 +1003,25 @@ mod async_wait {
         subscription: AsyncSubscription<
             crate::private::mutex::RawCondvar,
             E,
-            super::EspSubscription<'a, T>,
+            super::EspSubscription<T>,
             EspError,
         >,
-        timer: AsyncTimer<EspTimer<'a>>,
+        timer: AsyncTimer<EspTimer>,
         _event: PhantomData<fn() -> E>,
     }
 
-    impl<'a, E, T> AsyncWait<'a, E, T>
+    impl<E, T> AsyncWait<E, T>
     where
         E: super::EspTypedEventDeserializer<E> + Debug + Send + Clone + 'static,
         T: super::EspEventLoopType + 'static,
     {
         pub fn new(
-            event_loop: &'a AsyncEventBus<
+            event_loop: &AsyncEventBus<
                 (),
                 crate::private::mutex::RawCondvar,
                 super::EspEventLoop<T>,
             >,
-            timer_service: &'a AsyncTimerService<EspTaskTimerService>,
+            timer_service: &AsyncTimerService<EspTaskTimerService>,
         ) -> Result<Self, EspError> {
             Ok(Self {
                 subscription: event_loop.subscribe()?,
@@ -1063,11 +1063,11 @@ mod async_wait {
         }
 
         #[allow(clippy::all)]
-        async fn wait_sub<'s, EE, TT, F: FnMut() -> Result<bool, EspError>>(
+        async fn wait_sub<EE, TT, F: FnMut() -> Result<bool, EspError>>(
             subscription: &mut AsyncSubscription<
                 crate::private::mutex::RawCondvar,
                 EE,
-                super::EspSubscription<'s, TT>,
+                super::EspSubscription<TT>,
                 EspError,
             >,
             mut matcher: F,
