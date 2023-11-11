@@ -300,7 +300,6 @@ impl EspHttpServer {
         let server = Self {
             sd: handle,
             registrations: Vec::new(),
-            _reg: PhantomData,
         };
 
         CLOSE_HANDLERS.lock().insert(server.sd as _, Vec::new());
@@ -430,7 +429,7 @@ impl EspHttpServer {
     }
 
     extern "C" fn handle_req(raw_req: *mut httpd_req_t) -> ffi::c_int {
-        let handler_ptr = (unsafe { *raw_req }).user_ctx as *mut NativeHandler<'static>;
+        let handler_ptr = (unsafe { *raw_req }).user_ctx as *mut NativeHandler;
 
         let handler = unsafe { handler_ptr.as_ref() }.unwrap();
 
