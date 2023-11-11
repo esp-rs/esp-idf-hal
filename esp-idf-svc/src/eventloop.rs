@@ -919,7 +919,7 @@ where
     _event: PhantomData<fn() -> E>,
 }
 
-impl<'a, E, T> Wait<'a, E, T>
+impl<E, T> Wait<E, T>
 where
     E: EspTypedEventDeserializer<E> + Debug,
     T: EspEventLoopType,
