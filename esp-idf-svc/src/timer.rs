@@ -293,7 +293,7 @@ where
 {
     type Timer<'a> = EspTimer<'static> where Self: 'a;
 
-    fn timer<'a, F>(&'a self, callback: F) -> Result<Self::Timer<'a>, Self::Error>
+    fn timer<F>(&self, callback: F) -> Result<Self::Timer<'_>, Self::Error>
     where
         F: FnMut() + Send + 'static,
     {
