@@ -6,6 +6,8 @@
 //! another without connection. CTR with CBC-MAC Protocol(CCMP) is used to
 //! protect the action frame for security. ESP-NOW is widely used in smart
 //! light, remote controlling, sensor, etc.
+use core::marker::PhantomData;
+
 use ::log::info;
 
 use alloc::boxed::Box;
@@ -45,10 +47,43 @@ impl From<u32> for SendStatus {
 
 pub type PeerInfo = esp_now_peer_info_t;
 
-pub struct EspNow(());
+pub struct EspNow<'a>(PhantomData<&'a ()>);
 
-impl EspNow {
+impl EspNow<'static> {
     pub fn take() -> Result<Self, EspError> {
+        Self::internal_take()
+    }
+}
+
+impl<'a> EspNow<'a> {
+    /// # Safety
+    ///
+    /// This method - in contrast to method `take` - allows the user to set
+    /// non-static callbacks/closures into the returned `EspNow` service. This enables users to borrow
+    /// - in the closure - variables that live on the stack - or more generally - in the same
+    /// scope where the service is created.
+    ///
+    /// HOWEVER: care should be taken NOT to call `core::mem::forget()` on the service,
+    /// as that would immediately lead to an UB (crash).
+    /// Also note that forgetting the service might happen with `Rc` and `Arc`
+    /// when circular references are introduced: https://github.com/rust-lang/rust/issues/24456
+    ///
+    /// The reason is that the closure is actually sent to a hidden ESP IDF thread.
+    /// This means that if the service is forgotten, Rust is free to e.g. unwind the stack
+    /// and the closure now owned by this other thread will end up with references to variables that no longer exist.
+    ///
+    /// The destructor of the service takes care - prior to the service being dropped and e.g.
+    /// the stack being unwind - to remove the closure from the hidden thread and destroy it.
+    /// Unfortunately, when the service is forgotten, the un-subscription does not happen
+    /// and invalid references are left dangling.
+    ///
+    /// This "local borrowing" will only be possible to express in a safe way once/if `!Leak` types
+    /// are introduced to Rust (i.e. the impossibility to "forget" a type and thus not call its destructor).
+    pub unsafe fn take_nonstatic() -> Result<Self, EspError> {
+        Self::internal_take()
+    }
+
+    fn internal_take() -> Result<Self, EspError> {
         let mut taken = TAKEN.lock();
 
         if *taken {
@@ -65,7 +100,7 @@ impl EspNow {
 
         *taken = true;
 
-        Ok(Self(()))
+        Ok(Self(PhantomData))
     }
 
     pub fn send(&self, peer_addr: [u8; 6], data: &[u8]) -> Result<(), EspError> {
@@ -128,10 +163,13 @@ impl EspNow {
 
     pub fn register_recv_cb<F>(&self, callback: F) -> Result<(), EspError>
     where
-        F: FnMut(&[u8], &[u8]) + Send + 'static,
+        F: FnMut(&[u8], &[u8]) + Send + 'a,
     {
         #[allow(clippy::type_complexity)]
-        let callback: Box<dyn FnMut(&[u8], &[u8]) + Send + 'static> = Box::new(callback);
+        let callback: Box<dyn FnMut(&[u8], &[u8]) + Send + 'a> = Box::new(callback);
+        #[allow(clippy::type_complexity)]
+        let callback: Box<dyn FnMut(&[u8], &[u8]) + Send + 'static> =
+            unsafe { core::mem::transmute(callback) };
 
         *RECV_CALLBACK.lock() = Some(Box::new(callback));
         esp!(unsafe { esp_now_register_recv_cb(Some(Self::recv_callback)) })?;
@@ -148,10 +186,13 @@ impl EspNow {
 
     pub fn register_send_cb<F>(&self, callback: F) -> Result<(), EspError>
     where
-        F: FnMut(&[u8], SendStatus) + Send + 'static,
+        F: FnMut(&[u8], SendStatus) + Send + 'a,
     {
         #[allow(clippy::type_complexity)]
-        let callback: Box<dyn FnMut(&[u8], SendStatus) + Send + 'static> = Box::new(callback);
+        let callback: Box<dyn FnMut(&[u8], SendStatus) + Send + 'a> = Box::new(callback);
+        #[allow(clippy::type_complexity)]
+        let callback: Box<dyn FnMut(&[u8], SendStatus) + Send + 'static> =
+            unsafe { core::mem::transmute(callback) };
 
         *SEND_CALLBACK.lock() = Some(Box::new(callback));
         esp!(unsafe { esp_now_register_send_cb(Some(Self::send_callback)) })?;
@@ -195,7 +236,7 @@ impl EspNow {
     }
 }
 
-impl Drop for EspNow {
+impl<'a> Drop for EspNow<'a> {
     fn drop(&mut self) {
         let mut taken = TAKEN.lock();
 

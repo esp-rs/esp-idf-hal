@@ -396,7 +396,7 @@ where
 /// only when one would like to utilize a custom, non-STD network stack like `smoltcp`.
 pub struct WifiDriver<'d> {
     status: Arc<mutex::Mutex<(WifiEvent, WifiEvent)>>,
-    _subscription: EspSubscription<System>,
+    _subscription: EspSubscription<'static, System>,
     #[cfg(all(feature = "alloc", esp_idf_comp_nvs_flash_enabled))]
     _nvs: Option<EspDefaultNvsPartition>,
     _p: PhantomData<&'d mut ()>,
@@ -443,7 +443,7 @@ impl<'d> WifiDriver<'d> {
     ) -> Result<
         (
             Arc<mutex::Mutex<(WifiEvent, WifiEvent)>>,
-            EspSubscription<System>,
+            EspSubscription<'static, System>,
         ),
         EspError,
     > {
@@ -874,30 +874,86 @@ impl<'d> WifiDriver<'d> {
     /// Sets callback functions for receiving and sending data, as per
     /// [`crate::sys::esp_wifi_internal_reg_rxcb`](crate::sys::esp_wifi_internal_reg_rxcb) and
     /// [`crate::sys::esp_wifi_set_tx_done_cb`](crate::sys::esp_wifi_set_tx_done_cb)
-    pub fn set_callbacks<R, T>(
+    pub fn set_callbacks<R, T>(&mut self, rx_callback: R, tx_callback: T) -> Result<(), EspError>
+    where
+        R: FnMut(WifiDeviceId, &[u8]) -> Result<(), EspError> + Send + 'static,
+        T: FnMut(WifiDeviceId, &[u8], bool) + Send + 'static,
+    {
+        self.internal_set_callbacks(rx_callback, tx_callback)
+    }
+
+    /// Sets callback functions for receiving and sending data, as per
+    /// [`crate::sys::esp_wifi_internal_reg_rxcb`](crate::sys::esp_wifi_internal_reg_rxcb) and
+    /// [`crate::sys::esp_wifi_set_tx_done_cb`](crate::sys::esp_wifi_set_tx_done_cb)
+    ///
+    /// # Safety
+    ///
+    /// This method - in contrast to method `set_callbacks` - allows the user to pass
+    /// non-static callbacks/closures. This enables users to borrow
+    /// - in the closure - variables that live on the stack - or more generally - in the same
+    /// scope where the service is created.
+    ///
+    /// HOWEVER: care should be taken NOT to call `core::mem::forget()` on the service,
+    /// as that would immediately lead to an UB (crash).
+    /// Also note that forgetting the service might happen with `Rc` and `Arc`
+    /// when circular references are introduced: https://github.com/rust-lang/rust/issues/24456
+    ///
+    /// The reason is that the closure is actually sent to a hidden ESP IDF thread.
+    /// This means that if the service is forgotten, Rust is free to e.g. unwind the stack
+    /// and the closure now owned by this other thread will end up with references to variables that no longer exist.
+    ///
+    /// The destructor of the service takes care - prior to the service being dropped and e.g.
+    /// the stack being unwind - to remove the closure from the hidden thread and destroy it.
+    /// Unfortunately, when the service is forgotten, the un-subscription does not happen
+    /// and invalid references are left dangling.
+    ///
+    /// This "local borrowing" will only be possible to express in a safe way once/if `!Leak` types
+    /// are introduced to Rust (i.e. the impossibility to "forget" a type and thus not call its destructor).
+    pub unsafe fn set_nonstatic_callbacks<R, T>(
+        &mut self,
+        rx_callback: R,
+        tx_callback: T,
+    ) -> Result<(), EspError>
+    where
+        R: FnMut(WifiDeviceId, &[u8]) -> Result<(), EspError> + Send + 'd,
+        T: FnMut(WifiDeviceId, &[u8], bool) + Send + 'd,
+    {
+        self.internal_set_callbacks(rx_callback, tx_callback)
+    }
+
+    fn internal_set_callbacks<R, T>(
         &mut self,
         mut rx_callback: R,
         mut tx_callback: T,
     ) -> Result<(), EspError>
     where
-        R: FnMut(WifiDeviceId, &[u8]) -> Result<(), EspError> + Send + 'static,
-        T: FnMut(WifiDeviceId, &[u8], bool) + Send + 'static,
+        R: FnMut(WifiDeviceId, &[u8]) -> Result<(), EspError> + Send + 'd,
+        T: FnMut(WifiDeviceId, &[u8], bool) + Send + 'd,
     {
         let _ = self.disconnect();
         let _ = self.stop();
 
         #[allow(clippy::type_complexity)]
         let rx_callback: Box<
-            Box<dyn FnMut(WifiDeviceId, &[u8]) -> Result<(), EspError> + Send + 'static>,
+            Box<dyn FnMut(WifiDeviceId, &[u8]) -> Result<(), EspError> + Send + 'd>,
         > = Box::new(Box::new(move |device_id, data| {
             rx_callback(device_id, data)
         }));
 
         #[allow(clippy::type_complexity)]
-        let tx_callback: Box<Box<dyn FnMut(WifiDeviceId, &[u8], bool) + Send + 'static>> =
+        let tx_callback: Box<Box<dyn FnMut(WifiDeviceId, &[u8], bool) + Send + 'd>> =
             Box::new(Box::new(move |device_id, data, status| {
                 tx_callback(device_id, data, status)
             }));
+
+        #[allow(clippy::type_complexity)]
+        let rx_callback: Box<
+            Box<dyn FnMut(WifiDeviceId, &[u8]) -> Result<(), EspError> + Send + 'static>,
+        > = unsafe { core::mem::transmute(rx_callback) };
+
+        #[allow(clippy::type_complexity)]
+        let tx_callback: Box<Box<dyn FnMut(WifiDeviceId, &[u8], bool) + Send + 'static>> =
+            unsafe { core::mem::transmute(tx_callback) };
 
         unsafe {
             RX_CALLBACK = Some(rx_callback);

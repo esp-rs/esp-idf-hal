@@ -32,9 +32,9 @@ pub use asyncify::*;
 #[cfg(all(feature = "alloc", esp_idf_comp_esp_timer_enabled))]
 pub use async_wait::*;
 
-pub type EspSystemSubscription = EspSubscription<System>;
-pub type EspBackgroundSubscription = EspSubscription<User<Background>>;
-pub type EspExplicitSubscription = EspSubscription<User<Explicit>>;
+pub type EspSystemSubscription<'a> = EspSubscription<'a, System>;
+pub type EspBackgroundSubscription<'a> = EspSubscription<'a, User<Background>>;
+pub type EspExplicitSubscription<'a> = EspSubscription<'a, User<Explicit>>;
 
 pub type EspSystemEventLoop = EspEventLoop<System>;
 pub type EspBackgroundEventLoop = EspEventLoop<User<Background>>;
@@ -211,11 +211,11 @@ impl EspEventFetchData {
     }
 }
 
-struct UnsafeCallback(*mut Box<dyn FnMut(&EspEventFetchData) + Send + 'static>);
+struct UnsafeCallback<'a>(*mut Box<dyn FnMut(&EspEventFetchData) + Send + 'a>);
 
-impl UnsafeCallback {
+impl<'a> UnsafeCallback<'a> {
     #[allow(clippy::type_complexity)]
-    fn from(boxed: &mut Box<Box<dyn FnMut(&EspEventFetchData) + Send + 'static>>) -> Self {
+    fn from(boxed: &mut Box<Box<dyn FnMut(&EspEventFetchData) + Send + 'a>>) -> Self {
         Self(boxed.as_mut())
     }
 
@@ -234,7 +234,7 @@ impl UnsafeCallback {
     }
 }
 
-pub struct EspSubscription<T>
+pub struct EspSubscription<'a, T>
 where
     T: EspEventLoopType,
 {
@@ -243,10 +243,10 @@ where
     source: *const ffi::c_char,
     event_id: i32,
     #[allow(clippy::type_complexity)]
-    _callback: Box<Box<dyn FnMut(&EspEventFetchData) + Send + 'static>>,
+    _callback: Box<Box<dyn FnMut(&EspEventFetchData) + Send + 'a>>,
 }
 
-impl<T> EspSubscription<T>
+impl<'a, T> EspSubscription<'a, T>
 where
     T: EspEventLoopType,
 {
@@ -268,9 +268,9 @@ where
     }
 }
 
-unsafe impl<T> Send for EspSubscription<T> where T: EspEventLoopType {}
+unsafe impl<'a, T> Send for EspSubscription<'a, T> where T: EspEventLoopType {}
 
-impl<T> Drop for EspSubscription<T>
+impl<'a, T> Drop for EspSubscription<'a, T>
 where
     T: EspEventLoopType,
 {
@@ -301,7 +301,7 @@ where
     }
 }
 
-impl<T> RawHandle for EspSubscription<User<T>>
+impl<'a, T> RawHandle for EspSubscription<'a, User<T>>
 where
     T: EspEventLoopType,
 {
@@ -395,18 +395,18 @@ where
     T: EspEventLoopType,
 {
     #[allow(clippy::not_unsafe_ptr_arg_deref)]
-    pub fn subscribe_raw<F>(
+    fn subscribe_raw<'a, F>(
         &self,
         source: *const ffi::c_char,
         event_id: i32,
         mut callback: F,
-    ) -> Result<EspSubscription<T>, EspError>
+    ) -> Result<EspSubscription<'a, T>, EspError>
     where
-        F: FnMut(&EspEventFetchData) + Send + 'static,
+        F: FnMut(&EspEventFetchData) + Send + 'a,
     {
         let mut handler_instance: esp_event_handler_instance_t = ptr::null_mut();
 
-        let callback: Box<dyn FnMut(&EspEventFetchData) + Send + 'static> =
+        let callback: Box<dyn FnMut(&EspEventFetchData) + Send + 'a> =
             Box::new(move |data| callback(data));
         let mut callback = Box::new(callback);
 
@@ -528,10 +528,48 @@ where
         }
     }
 
-    pub fn subscribe<P, F>(&self, mut callback: F) -> Result<EspSubscription<T>, EspError>
+    pub fn subscribe<P, F>(&self, mut callback: F) -> Result<EspSubscription<'static, T>, EspError>
     where
         P: EspTypedEventDeserializer<P>,
         F: FnMut(&P) + Send + 'static,
+    {
+        self.subscribe_raw(
+            P::source(),
+            P::event_id().unwrap_or(ESP_EVENT_ANY_ID),
+            move |raw_event| P::deserialize(raw_event, &mut callback),
+        )
+    }
+
+    /// # Safety
+    ///
+    /// This method - in contrast to method `subscribe` - allows the user to pass
+    /// a non-static callback/closure. This enables users to borrow
+    /// - in the closure - variables that live on the stack - or more generally - in the same
+    /// scope where the service is created.
+    ///
+    /// HOWEVER: care should be taken NOT to call `core::mem::forget()` on the service,
+    /// as that would immediately lead to an UB (crash).
+    /// Also note that forgetting the service might happen with `Rc` and `Arc`
+    /// when circular references are introduced: https://github.com/rust-lang/rust/issues/24456
+    ///
+    /// The reason is that the closure is actually sent to a hidden ESP IDF thread.
+    /// This means that if the service is forgotten, Rust is free to e.g. unwind the stack
+    /// and the closure now owned by this other thread will end up with references to variables that no longer exist.
+    ///
+    /// The destructor of the service takes care - prior to the service being dropped and e.g.
+    /// the stack being unwind - to remove the closure from the hidden thread and destroy it.
+    /// Unfortunately, when the service is forgotten, the un-subscription does not happen
+    /// and invalid references are left dangling.
+    ///
+    /// This "local borrowing" will only be possible to express in a safe way once/if `!Leak` types
+    /// are introduced to Rust (i.e. the impossibility to "forget" a type and thus not call its destructor).
+    pub unsafe fn subscribe_nonstatic<'a, P, F>(
+        &self,
+        mut callback: F,
+    ) -> Result<EspSubscription<'a, T>, EspError>
+    where
+        P: EspTypedEventDeserializer<P>,
+        F: FnMut(&P) + Send + 'a,
     {
         self.subscribe_raw(
             P::source(),
@@ -656,9 +694,9 @@ where
     P: EspTypedEventDeserializer<P>,
     T: EspEventLoopType,
 {
-    type Subscription<'a> = EspSubscription<T> where Self: 'a;
+    type Subscription<'a> = EspSubscription<'static, T> where Self: 'a;
 
-    fn subscribe<F>(&self, callback: F) -> Result<Self::Subscription<'_>, Self::Error>
+    fn subscribe<'a, F>(&'a self, callback: F) -> Result<Self::Subscription<'a>, Self::Error>
     where
         F: FnMut(&P) + Send + 'static,
     {
@@ -789,9 +827,9 @@ where
     M: EspTypedEventDeserializer<P>,
     T: EspEventLoopType,
 {
-    type Subscription<'a> = EspSubscription<T> where Self: 'a;
+    type Subscription<'a> = EspSubscription<'static, T> where Self: 'a;
 
-    fn subscribe<F>(&self, mut callback: F) -> Result<Self::Subscription<'_>, EspError>
+    fn subscribe<'a, F>(&'a self, mut callback: F) -> Result<Self::Subscription<'a>, EspError>
     where
         F: FnMut(&P) + Send + 'static,
     {
@@ -808,9 +846,9 @@ where
     M: EspTypedEventDeserializer<P>,
     T: EspEventLoopType,
 {
-    type Subscription<'a> = EspSubscription<T> where Self: 'a;
+    type Subscription<'a> = EspSubscription<'static, T> where Self: 'a;
 
-    fn subscribe<F>(&self, mut callback: F) -> Result<Self::Subscription<'_>, EspError>
+    fn subscribe<'a, F>(&'a self, mut callback: F) -> Result<Self::Subscription<'a>, EspError>
     where
         F: FnMut(&P) + Send + 'static,
     {
@@ -910,29 +948,75 @@ mod asyncify {
     }
 }
 
-pub struct Wait<E, T>
+pub struct Wait<'a, E, T>
 where
     T: EspEventLoopType,
 {
-    _subscription: EspSubscription<T>,
+    _subscription: EspSubscription<'a, T>,
     waitable: Arc<Waitable<()>>,
     _event: PhantomData<fn() -> E>,
 }
 
-impl<E, T> Wait<E, T>
+impl<E, T> Wait<'static, E, T>
 where
     E: EspTypedEventDeserializer<E> + Debug,
     T: EspEventLoopType,
 {
     pub fn new<F: FnMut(&E) -> bool + Send + 'static>(
         event_loop: &EspEventLoop<T>,
+        waiter: F,
+    ) -> Result<Self, EspError> {
+        Self::internal_new(event_loop, waiter)
+    }
+}
+
+impl<'a, E, T> Wait<'a, E, T>
+where
+    E: EspTypedEventDeserializer<E> + Debug,
+    T: EspEventLoopType,
+{
+    /// # Safety
+    ///
+    /// This method - in contrast to method `new` - allows the user to pass
+    /// a non-static callback/closure. This enables users to borrow
+    /// - in the closure - variables that live on the stack - or more generally - in the same
+    /// scope where the service is created.
+    ///
+    /// HOWEVER: care should be taken NOT to call `core::mem::forget()` on the service,
+    /// as that would immediately lead to an UB (crash).
+    /// Also note that forgetting the service might happen with `Rc` and `Arc`
+    /// when circular references are introduced: https://github.com/rust-lang/rust/issues/24456
+    ///
+    /// The reason is that the closure is actually sent to a hidden ESP IDF thread.
+    /// This means that if the service is forgotten, Rust is free to e.g. unwind the stack
+    /// and the closure now owned by this other thread will end up with references to variables that no longer exist.
+    ///
+    /// The destructor of the service takes care - prior to the service being dropped and e.g.
+    /// the stack being unwind - to remove the closure from the hidden thread and destroy it.
+    /// Unfortunately, when the service is forgotten, the un-subscription does not happen
+    /// and invalid references are left dangling.
+    ///
+    /// This "local borrowing" will only be possible to express in a safe way once/if `!Leak` types
+    /// are introduced to Rust (i.e. the impossibility to "forget" a type and thus not call its destructor).
+    pub unsafe fn new_nonstatic<F: FnMut(&E) -> bool + Send + 'a>(
+        event_loop: &EspEventLoop<T>,
+        waiter: F,
+    ) -> Result<Self, EspError> {
+        Self::internal_new(event_loop, waiter)
+    }
+
+    fn internal_new<F: FnMut(&E) -> bool + Send + 'a>(
+        event_loop: &EspEventLoop<T>,
         mut waiter: F,
     ) -> Result<Self, EspError> {
         let waitable: Arc<Waitable<()>> = Arc::new(Waitable::new(()));
 
         let s_waitable = waitable.clone();
-        let subscription = event_loop
-            .subscribe(move |event: &E| Self::on_event(&s_waitable, event, &mut waiter))?;
+        let subscription = unsafe {
+            event_loop.subscribe_nonstatic(move |event: &E| {
+                Self::on_event(&s_waitable, event, &mut waiter)
+            })?
+        };
 
         Ok(Self {
             waitable,
@@ -1003,10 +1087,10 @@ mod async_wait {
         subscription: AsyncSubscription<
             crate::private::mutex::RawCondvar,
             E,
-            super::EspSubscription<T>,
+            super::EspSubscription<'static, T>,
             EspError,
         >,
-        timer: AsyncTimer<EspTimer>,
+        timer: AsyncTimer<EspTimer<'static>>,
         _event: PhantomData<fn() -> E>,
     }
 
@@ -1067,7 +1151,7 @@ mod async_wait {
             subscription: &mut AsyncSubscription<
                 crate::private::mutex::RawCondvar,
                 EE,
-                super::EspSubscription<TT>,
+                super::EspSubscription<'static, TT>,
                 EspError,
             >,
             mut matcher: F,

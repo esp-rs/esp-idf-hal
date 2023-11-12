@@ -31,10 +31,10 @@ pub use isr::*;
 
 use crate::handle::RawHandle;
 
-struct UnsafeCallback(*mut Box<dyn FnMut() + Send + 'static>);
+struct UnsafeCallback<'a>(*mut Box<dyn FnMut() + Send + 'a>);
 
-impl UnsafeCallback {
-    fn from(boxed: &mut Box<dyn FnMut() + Send + 'static>) -> Self {
+impl<'a> UnsafeCallback<'a> {
+    fn from(boxed: &mut Box<dyn FnMut() + Send + 'a>) -> Self {
         Self(boxed)
     }
 
@@ -53,12 +53,12 @@ impl UnsafeCallback {
     }
 }
 
-pub struct EspTimer {
+pub struct EspTimer<'a> {
     handle: esp_timer_handle_t,
-    _callback: Box<dyn FnMut() + Send + 'static>,
+    _callback: Box<dyn FnMut() + Send + 'a>,
 }
 
-impl EspTimer {
+impl<'a> EspTimer<'a> {
     pub fn is_scheduled(&self) -> Result<bool, EspError> {
         Ok(unsafe { esp_timer_is_active(self.handle) })
     }
@@ -112,9 +112,9 @@ impl EspTimer {
     }
 }
 
-unsafe impl Send for EspTimer {}
+unsafe impl<'a> Send for EspTimer<'a> {}
 
-impl Drop for EspTimer {
+impl<'a> Drop for EspTimer<'a> {
     fn drop(&mut self) {
         self.cancel().unwrap();
 
@@ -126,7 +126,7 @@ impl Drop for EspTimer {
     }
 }
 
-impl RawHandle for EspTimer {
+impl<'a> RawHandle for EspTimer<'a> {
     type Handle = esp_timer_handle_t;
 
     fn handle(&self) -> Self::Handle {
@@ -134,11 +134,11 @@ impl RawHandle for EspTimer {
     }
 }
 
-impl ErrorType for EspTimer {
+impl<'a> ErrorType for EspTimer<'a> {
     type Error = EspError;
 }
 
-impl timer::Timer for EspTimer {
+impl<'a> timer::Timer for EspTimer<'a> {
     fn is_scheduled(&self) -> Result<bool, Self::Error> {
         EspTimer::is_scheduled(self)
     }
@@ -148,13 +148,13 @@ impl timer::Timer for EspTimer {
     }
 }
 
-impl OnceTimer for EspTimer {
+impl<'a> OnceTimer for EspTimer<'a> {
     fn after(&mut self, duration: Duration) -> Result<(), Self::Error> {
         EspTimer::after(self, duration)
     }
 }
 
-impl PeriodicTimer for EspTimer {
+impl<'a> PeriodicTimer for EspTimer<'a> {
     fn every(&mut self, duration: Duration) -> Result<(), Self::Error> {
         EspTimer::every(self, duration)
     }
@@ -185,13 +185,50 @@ where
         Duration::from_micros(unsafe { esp_timer_get_time() as _ })
     }
 
-    pub fn timer<F>(&self, callback: F) -> Result<EspTimer, EspError>
+    pub fn timer<F>(&self, callback: F) -> Result<EspTimer<'static>, EspError>
     where
         F: FnMut() + Send + 'static,
     {
+        self.internal_timer(callback)
+    }
+
+    /// # Safety
+    ///
+    /// This method - in contrast to method `timer` - allows the user to pass
+    /// a non-static callback/closure. This enables users to borrow
+    /// - in the closure - variables that live on the stack - or more generally - in the same
+    /// scope where the service is created.
+    ///
+    /// HOWEVER: care should be taken NOT to call `core::mem::forget()` on the service,
+    /// as that would immediately lead to an UB (crash).
+    /// Also note that forgetting the service might happen with `Rc` and `Arc`
+    /// when circular references are introduced: https://github.com/rust-lang/rust/issues/24456
+    ///
+    /// The reason is that the closure is actually sent to a hidden ESP IDF thread.
+    /// This means that if the service is forgotten, Rust is free to e.g. unwind the stack
+    /// and the closure now owned by this other thread will end up with references to variables that no longer exist.
+    ///
+    /// The destructor of the service takes care - prior to the service being dropped and e.g.
+    /// the stack being unwind - to remove the closure from the hidden thread and destroy it.
+    /// Unfortunately, when the service is forgotten, the un-subscription does not happen
+    /// and invalid references are left dangling.
+    ///
+    /// This "local borrowing" will only be possible to express in a safe way once/if `!Leak` types
+    /// are introduced to Rust (i.e. the impossibility to "forget" a type and thus not call its destructor).
+    pub unsafe fn timer_nonstatic<'a, F>(&self, callback: F) -> Result<EspTimer<'a>, EspError>
+    where
+        F: FnMut() + Send + 'a,
+    {
+        self.internal_timer(callback)
+    }
+
+    fn internal_timer<'a, F>(&self, callback: F) -> Result<EspTimer<'a>, EspError>
+    where
+        F: FnMut() + Send + 'a,
+    {
         let mut handle: esp_timer_handle_t = ptr::null_mut();
 
-        let boxed_callback: Box<dyn FnMut() + Send + 'static> = Box::new(callback);
+        let boxed_callback: Box<dyn FnMut() + Send + 'a> = Box::new(callback);
 
         let mut callback = Box::new(boxed_callback);
         let unsafe_callback = UnsafeCallback::from(&mut callback);
@@ -254,9 +291,9 @@ impl<T> TimerService for EspTimerService<T>
 where
     T: EspTimerServiceType,
 {
-    type Timer<'a> = EspTimer where Self: 'a;
+    type Timer<'a> = EspTimer<'static> where Self: 'a;
 
-    fn timer<F>(&self, callback: F) -> Result<Self::Timer<'_>, Self::Error>
+    fn timer<'a, F>(&'a self, callback: F) -> Result<Self::Timer<'a>, Self::Error>
     where
         F: FnMut() + Send + 'static,
     {
@@ -327,7 +364,7 @@ pub mod embassy_time {
         use crate::timer::*;
 
         struct Alarm {
-            timer: Option<EspTimer>,
+            timer: Option<EspTimer<'static>>,
             #[allow(clippy::type_complexity)]
             callback: Option<(fn(*mut ()), *mut ())>,
         }

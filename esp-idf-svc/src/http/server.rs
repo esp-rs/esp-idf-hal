@@ -1,6 +1,7 @@
 //! HTTP server
 use core::cell::UnsafeCell;
 use core::fmt::{Debug, Display};
+use core::marker::PhantomData;
 use core::sync::atomic::{AtomicBool, Ordering};
 use core::time::*;
 use core::{ffi, ptr};
@@ -239,19 +240,53 @@ impl From<Method> for Newtype<ffi::c_uint> {
 
 static OPEN_SESSIONS: Mutex<BTreeMap<(u32, ffi::c_int), Arc<AtomicBool>>> =
     Mutex::wrap(RawMutex::new(), BTreeMap::new());
-static CLOSE_HANDLERS: Mutex<BTreeMap<u32, Vec<CloseHandler>>> =
+static CLOSE_HANDLERS: Mutex<BTreeMap<u32, Vec<CloseHandler<'static>>>> =
     Mutex::wrap(RawMutex::new(), BTreeMap::new());
 
-type NativeHandler = Box<dyn Fn(*mut httpd_req_t) -> ffi::c_int + 'static>;
-type CloseHandler = Box<dyn Fn(ffi::c_int) + Send + 'static>;
+type NativeHandler<'a> = Box<dyn Fn(*mut httpd_req_t) -> ffi::c_int + 'a>;
+type CloseHandler<'a> = Box<dyn Fn(ffi::c_int) + Send + 'a>;
 
-pub struct EspHttpServer {
+pub struct EspHttpServer<'a> {
     sd: httpd_handle_t,
     registrations: Vec<(CString, crate::sys::httpd_uri_t)>,
+    _reg: PhantomData<&'a ()>,
 }
 
-impl EspHttpServer {
+impl EspHttpServer<'static> {
     pub fn new(conf: &Configuration) -> Result<Self, EspIOError> {
+        Self::internal_new(conf)
+    }
+}
+
+impl<'a> EspHttpServer<'a> {
+    /// # Safety
+    ///
+    /// This method - in contrast to method `new` - allows the user to set
+    /// non-static callbacks/closures as handlers into the returned `EspHttpServer` service. This enables users to borrow
+    /// - in the closure - variables that live on the stack - or more generally - in the same
+    /// scope where the service is created.
+    ///
+    /// HOWEVER: care should be taken NOT to call `core::mem::forget()` on the service,
+    /// as that would immediately lead to an UB (crash).
+    /// Also note that forgetting the service might happen with `Rc` and `Arc`
+    /// when circular references are introduced: https://github.com/rust-lang/rust/issues/24456
+    ///
+    /// The reason is that the closure is actually sent to a hidden ESP IDF thread.
+    /// This means that if the service is forgotten, Rust is free to e.g. unwind the stack
+    /// and the closure now owned by this other thread will end up with references to variables that no longer exist.
+    ///
+    /// The destructor of the service takes care - prior to the service being dropped and e.g.
+    /// the stack being unwind - to remove the closure from the hidden thread and destroy it.
+    /// Unfortunately, when the service is forgotten, the un-subscription does not happen
+    /// and invalid references are left dangling.
+    ///
+    /// This "local borrowing" will only be possible to express in a safe way once/if `!Leak` types
+    /// are introduced to Rust (i.e. the impossibility to "forget" a type and thus not call its destructor).
+    pub unsafe fn new_nonstatic(conf: &Configuration) -> Result<Self, EspIOError> {
+        Self::internal_new(conf)
+    }
+
+    fn internal_new(conf: &Configuration) -> Result<Self, EspIOError> {
         let mut handle: httpd_handle_t = ptr::null_mut();
         let handle_ref = &mut handle;
 
@@ -299,6 +334,7 @@ impl EspHttpServer {
         let server = Self {
             sd: handle,
             registrations: Vec::new(),
+            _reg: PhantomData,
         };
 
         CLOSE_HANDLERS.lock().insert(server.sd as _, Vec::new());
@@ -314,7 +350,7 @@ impl EspHttpServer {
                 conf.method
             ))?;
 
-            let _drop = Box::from_raw(conf.user_ctx as *mut NativeHandler);
+            let _drop = Box::from_raw(conf.user_ctx as *mut NativeHandler<'static>);
         };
 
         info!(
@@ -359,7 +395,7 @@ impl EspHttpServer {
 
     pub fn handler_chain<C>(&mut self, chain: C) -> Result<&mut Self, EspError>
     where
-        C: EspHttpTraversableChain,
+        C: EspHttpTraversableChain<'a>,
     {
         chain.accept(self)?;
 
@@ -373,7 +409,7 @@ impl EspHttpServer {
         handler: H,
     ) -> Result<&mut Self, EspError>
     where
-        H: for<'r> Handler<EspHttpConnection<'r>> + Send + 'static,
+        H: for<'r> Handler<EspHttpConnection<'r>> + Send + 'a,
     {
         let c_str = to_cstring_arg(uri)?;
 
@@ -401,14 +437,14 @@ impl EspHttpServer {
 
     pub fn fn_handler<F>(&mut self, uri: &str, method: Method, f: F) -> Result<&mut Self, EspError>
     where
-        F: for<'r> Fn(Request<&mut EspHttpConnection<'r>>) -> HandlerResult + Send + 'static,
+        F: for<'r> Fn(Request<&mut EspHttpConnection<'r>>) -> HandlerResult + Send + 'a,
     {
         self.handler(uri, method, FnHandler::new(f))
     }
 
-    fn to_native_handler<H>(&self, handler: H) -> NativeHandler
+    fn to_native_handler<H>(&self, handler: H) -> NativeHandler<'a>
     where
-        H: for<'r> Handler<EspHttpConnection<'r>> + Send + 'static,
+        H: for<'r> Handler<EspHttpConnection<'a>> + Send + 'a,
     {
         Box::new(move |raw_req| {
             let mut connection = EspHttpConnection::new(unsafe { raw_req.as_mut().unwrap() });
@@ -428,7 +464,7 @@ impl EspHttpServer {
     }
 
     extern "C" fn handle_req(raw_req: *mut httpd_req_t) -> ffi::c_int {
-        let handler_ptr = (unsafe { *raw_req }).user_ctx as *mut NativeHandler;
+        let handler_ptr = (unsafe { *raw_req }).user_ctx as *mut NativeHandler<'static>;
 
         let handler = unsafe { handler_ptr.as_ref() }.unwrap();
 
@@ -455,13 +491,13 @@ impl EspHttpServer {
     }
 }
 
-impl Drop for EspHttpServer {
+impl<'a> Drop for EspHttpServer<'a> {
     fn drop(&mut self) {
         self.stop().expect("Unable to stop the server cleanly");
     }
 }
 
-impl RawHandle for EspHttpServer {
+impl<'a> RawHandle for EspHttpServer<'a> {
     type Handle = httpd_handle_t;
 
     fn handle(&self) -> Self::Handle {
@@ -476,22 +512,22 @@ where
     FnHandler::new(f)
 }
 
-pub trait EspHttpTraversableChain {
-    fn accept(self, server: &mut EspHttpServer) -> Result<(), EspError>;
+pub trait EspHttpTraversableChain<'a> {
+    fn accept(self, server: &mut EspHttpServer<'a>) -> Result<(), EspError>;
 }
 
-impl EspHttpTraversableChain for ChainRoot {
-    fn accept(self, _server: &mut EspHttpServer) -> Result<(), EspError> {
+impl<'a> EspHttpTraversableChain<'a> for ChainRoot {
+    fn accept(self, _server: &mut EspHttpServer<'a>) -> Result<(), EspError> {
         Ok(())
     }
 }
 
-impl<H, N> EspHttpTraversableChain for ChainHandler<H, N>
+impl<'a, H, N> EspHttpTraversableChain<'a> for ChainHandler<H, N>
 where
-    H: for<'r> Handler<EspHttpConnection<'r>> + 'static,
-    N: EspHttpTraversableChain,
+    H: for<'r> Handler<EspHttpConnection<'r>> + Send + 'a,
+    N: EspHttpTraversableChain<'a>,
 {
-    fn accept(self, server: &mut EspHttpServer) -> Result<(), EspError> {
+    fn accept(self, server: &mut EspHttpServer<'a>) -> Result<(), EspError> {
         self.next.accept(server)?;
 
         server.handler(self.path, self.method, self.handler)?;
@@ -1253,10 +1289,10 @@ pub mod ws {
         }
     }
 
-    impl EspHttpServer {
+    impl<'a> EspHttpServer<'a> {
         pub fn ws_handler<H, E>(&mut self, uri: &str, handler: H) -> Result<&mut Self, EspError>
         where
-            H: for<'r> Fn(&'r mut EspHttpWsConnection) -> Result<(), E> + Send + Sync + 'static,
+            H: for<'r> Fn(&'r mut EspHttpWsConnection) -> Result<(), E> + Send + Sync + 'a,
             E: Debug,
         {
             let c_str = to_cstring_arg(uri)?;
@@ -1280,6 +1316,9 @@ pub mod ws {
 
                 let close_handlers = all_close_handlers.get_mut(&(self.sd as u32)).unwrap();
 
+                let close_handler: CloseHandler<'static> =
+                    unsafe { core::mem::transmute(close_handler) };
+
                 close_handlers.push(close_handler);
             }
 
@@ -1298,7 +1337,7 @@ pub mod ws {
             handler: &H,
         ) -> Result<(), E>
         where
-            H: for<'b> Fn(&'b mut EspHttpWsConnection) -> Result<(), E> + Send + 'static,
+            H: for<'b> Fn(&'b mut EspHttpWsConnection) -> Result<(), E> + Send + 'a,
             E: Debug,
         {
             handler(connection)?;
@@ -1319,9 +1358,9 @@ pub mod ws {
             &self,
             server_handle: httpd_handle_t,
             handler: H,
-        ) -> (NativeHandler, CloseHandler)
+        ) -> (NativeHandler<'a>, CloseHandler<'a>)
         where
-            H: for<'r> Fn(&'r mut EspHttpWsConnection) -> Result<(), E> + Send + Sync + 'static,
+            H: for<'r> Fn(&'r mut EspHttpWsConnection) -> Result<(), E> + Send + Sync + 'a,
             E: Debug,
         {
             let boxed_handler = Arc::new(move |mut connection: EspHttpWsConnection| {

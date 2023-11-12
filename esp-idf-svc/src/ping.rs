@@ -36,7 +36,7 @@ impl EspPing {
         Ok(tracker.summary)
     }
 
-    pub fn ping_details<F: FnMut(&Summary, &Reply) + Send + 'static>(
+    pub fn ping_details<F: FnMut(&Summary, &Reply) + Send>(
         &mut self,
         ip: ipv4::Ipv4Addr,
         conf: &Configuration,
@@ -54,7 +54,7 @@ impl EspPing {
         Ok(tracker.summary)
     }
 
-    fn run_ping<F: FnMut(&Summary, &Reply) + Send + 'static>(
+    fn run_ping<F: FnMut(&Summary, &Reply) + Send>(
         &self,
         ip: ipv4::Ipv4Addr,
         conf: &Configuration,
@@ -122,7 +122,7 @@ impl EspPing {
         Ok(())
     }
 
-    unsafe extern "C" fn on_ping_success<F: FnMut(&Summary, &Reply) + Send + 'static>(
+    unsafe extern "C" fn on_ping_success<F: FnMut(&Summary, &Reply) + Send>(
         handle: esp_ping_handle_t,
         args: *mut ffi::c_void,
     ) {
@@ -196,7 +196,7 @@ impl EspPing {
         }
     }
 
-    unsafe extern "C" fn on_ping_timeout<F: FnMut(&Summary, &Reply) + Send + 'static>(
+    unsafe extern "C" fn on_ping_timeout<F: FnMut(&Summary, &Reply) + Send>(
         handle: esp_ping_handle_t,
         args: *mut ffi::c_void,
     ) {
@@ -233,7 +233,7 @@ impl EspPing {
     }
 
     #[allow(clippy::mutex_atomic)]
-    unsafe extern "C" fn on_ping_end<F: FnMut(&Summary, &Reply) + Send + 'static>(
+    unsafe extern "C" fn on_ping_end<F: FnMut(&Summary, &Reply) + Send>(
         handle: esp_ping_handle_t,
         args: *mut ffi::c_void,
     ) {
@@ -295,7 +295,7 @@ impl Ping for EspPing {
         EspPing::ping(self, ip, conf)
     }
 
-    fn ping_details<F: FnMut(&Summary, &Reply) + Send + 'static>(
+    fn ping_details<F: FnMut(&Summary, &Reply) + Send>(
         &mut self,
         ip: ipv4::Ipv4Addr,
         conf: &Configuration,

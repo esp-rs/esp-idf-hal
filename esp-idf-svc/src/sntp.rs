@@ -172,7 +172,7 @@ pub struct EspSntp<'a> {
     _ref: PhantomData<&'a ()>,
 }
 
-impl<'a> EspSntp<'a> {
+impl EspSntp<'static> {
     pub fn new_default() -> Result<Self, EspError> {
         Self::new(&Default::default())
     }
@@ -195,6 +195,50 @@ impl<'a> EspSntp<'a> {
     where
         F: FnMut(Duration) + Send + 'static,
     {
+        Self::internal_new_with_callback(conf, callback)
+    }
+}
+
+impl<'a> EspSntp<'a> {
+    /// # Safety
+    ///
+    /// This method - in contrast to method `new_with_callback` - allows the user to set
+    /// a non-static callback/closure into the returned `EspSntp` service. This enables users to borrow
+    /// - in the closure - variables that live on the stack - or more generally - in the same
+    /// scope where the service is created.
+    ///
+    /// HOWEVER: care should be taken NOT to call `core::mem::forget()` on the service,
+    /// as that would immediately lead to an UB (crash).
+    /// Also note that forgetting the service might happen with `Rc` and `Arc`
+    /// when circular references are introduced: https://github.com/rust-lang/rust/issues/24456
+    ///
+    /// The reason is that the closure is actually sent to a hidden ESP IDF thread.
+    /// This means that if the service is forgotten, Rust is free to e.g. unwind the stack
+    /// and the closure now owned by this other thread will end up with references to variables that no longer exist.
+    ///
+    /// The destructor of the service takes care - prior to the service being dropped and e.g.
+    /// the stack being unwind - to remove the closure from the hidden thread and destroy it.
+    /// Unfortunately, when the service is forgotten, the un-subscription does not happen
+    /// and invalid references are left dangling.
+    ///
+    /// This "local borrowing" will only be possible to express in a safe way once/if `!Leak` types
+    /// are introduced to Rust (i.e. the impossibility to "forget" a type and thus not call its destructor).
+    #[cfg(feature = "alloc")]
+    pub unsafe fn new_nonstatic_with_callback<F>(
+        conf: &SntpConf,
+        callback: F,
+    ) -> Result<Self, EspError>
+    where
+        F: FnMut(Duration) + Send + 'a,
+    {
+        Self::internal_new_with_callback(conf, callback)
+    }
+
+    #[cfg(feature = "alloc")]
+    fn internal_new_with_callback<F>(conf: &SntpConf, callback: F) -> Result<Self, EspError>
+    where
+        F: FnMut(Duration) + Send + 'a,
+    {
         let mut taken = TAKEN.lock();
 
         if *taken {
@@ -202,8 +246,11 @@ impl<'a> EspSntp<'a> {
         }
 
         #[allow(clippy::type_complexity)]
-        let callback: alloc::boxed::Box<dyn FnMut(Duration) + Send + 'static> =
+        let callback: alloc::boxed::Box<dyn FnMut(Duration) + Send + 'a> =
             alloc::boxed::Box::new(callback);
+        #[allow(clippy::type_complexity)]
+        let callback: alloc::boxed::Box<dyn FnMut(Duration) + Send + 'static> =
+            unsafe { core::mem::transmute(callback) };
 
         *SYNC_CB.lock() = Some(callback);
         let sntp = Self::init(conf)?;
