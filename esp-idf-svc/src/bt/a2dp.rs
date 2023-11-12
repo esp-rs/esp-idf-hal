@@ -378,6 +378,29 @@ where
         self.internal_initialize(events_cb)
     }
 
+    /// # Safety
+    ///
+    /// This method - in contrast to method `initialize` - allows the user to pass
+    /// a non-static callback/closure. This enables users to borrow
+    /// - in the closure - variables that live on the stack - or more generally - in the same
+    /// scope where the service is created.
+    ///
+    /// HOWEVER: care should be taken NOT to call `core::mem::forget()` on the service,
+    /// as that would immediately lead to an UB (crash).
+    /// Also note that forgetting the service might happen with `Rc` and `Arc`
+    /// when circular references are introduced: https://github.com/rust-lang/rust/issues/24456
+    ///
+    /// The reason is that the closure is actually sent to a hidden ESP IDF thread.
+    /// This means that if the service is forgotten, Rust is free to e.g. unwind the stack
+    /// and the closure now owned by this other thread will end up with references to variables that no longer exist.
+    ///
+    /// The destructor of the service takes care - prior to the service being dropped and e.g.
+    /// the stack being unwind - to remove the closure from the hidden thread and destroy it.
+    /// Unfortunately, when the service is forgotten, the un-subscription does not happen
+    /// and invalid references are left dangling.
+    ///
+    /// This "local borrowing" will only be possible to express in a safe way once/if `!Leak` types
+    /// are introduced to Rust (i.e. the impossibility to "forget" a type and thus not call its destructor).
     pub unsafe fn initialize_nonstatic<F>(&self, events_cb: F) -> Result<(), EspError>
     where
         F: Fn(A2dpEvent) -> usize + Send + 'd,
@@ -416,6 +439,29 @@ where
         self.internal_initialize(events_cb)
     }
 
+    /// # Safety
+    ///
+    /// This method - in contrast to method `initialize` - allows the user to pass
+    /// a non-static callback/closure. This enables users to borrow
+    /// - in the closure - variables that live on the stack - or more generally - in the same
+    /// scope where the service is created.
+    ///
+    /// HOWEVER: care should be taken NOT to call `core::mem::forget()` on the service,
+    /// as that would immediately lead to an UB (crash).
+    /// Also note that forgetting the service might happen with `Rc` and `Arc`
+    /// when circular references are introduced: https://github.com/rust-lang/rust/issues/24456
+    ///
+    /// The reason is that the closure is actually sent to a hidden ESP IDF thread.
+    /// This means that if the service is forgotten, Rust is free to e.g. unwind the stack
+    /// and the closure now owned by this other thread will end up with references to variables that no longer exist.
+    ///
+    /// The destructor of the service takes care - prior to the service being dropped and e.g.
+    /// the stack being unwind - to remove the closure from the hidden thread and destroy it.
+    /// Unfortunately, when the service is forgotten, the un-subscription does not happen
+    /// and invalid references are left dangling.
+    ///
+    /// This "local borrowing" will only be possible to express in a safe way once/if `!Leak` types
+    /// are introduced to Rust (i.e. the impossibility to "forget" a type and thus not call its destructor).
     pub unsafe fn initialize_nonstatic<F>(&self, events_cb: F) -> Result<(), EspError>
     where
         F: Fn(A2dpEvent) -> usize + Send + 'd,
