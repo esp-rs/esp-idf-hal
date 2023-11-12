@@ -408,7 +408,7 @@ impl EspWebSocketClient<'static> {
         callback: F,
     ) -> Result<Self, EspIOError>
     where
-        F: for<'r> FnMut(&'r Result<WebSocketEvent<'r>, EspIOError>) + Send + 'a,
+        F: for<'r> FnMut(&'r Result<WebSocketEvent<'r>, EspIOError>) + Send + 'static,
     {
         Self::internal_new(uri, config, timeout, callback)
     }

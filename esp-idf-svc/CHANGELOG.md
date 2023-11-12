@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.47.3] - 2023-11-12
+* BREAKING CHANGE IN A PATCH RELEASE DUE TO DISCOVERED UB: All constructors and methods in the Classic BT services, as well as in
+services `EspNow`, driver `EthDriver`, `EventLoop`, `Wait`, `EspHttpServer`, `EspMqttClient`, `EspSntp`, `EspTimerService`,
+driver `WifiDriver` and `EspWebSocketClient` no longer accept non-static callbacks, as these lead to UB / crash when the service/driver/subscription 
+is forgotten with e.g. `core::mem::forget`. Since local borrows are a very useful feature however, these are still allowed via the newly-introduced 
+and `unsafe` methods/constructors that follow the naming pattern of the safe methods/constructors, but with a `_nonstatic` suffix attached.
+
 ## [0.47.2] - 2023-11-02
 * Remove dependency on `AtomicU64` which is no longer supported by the upstream `*-espidf` targets
 * HTTP client: support for chunked encoding of POST requests
