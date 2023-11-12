@@ -1147,18 +1147,74 @@ impl<'d, T: Pin, MODE> PinDriver<'d, T, MODE> {
     /// Care should be taken not to call STD, libc or FreeRTOS APIs (except for a few allowed ones)
     /// in the callback passed to this function, as it is executed in an ISR context.
     #[cfg(all(not(feature = "riscv-ulp-hal"), feature = "alloc"))]
-    pub unsafe fn subscribe<F>(&mut self, callback: F) -> Result<(), EspError>
+    pub unsafe fn subscribe<F: FnMut() + Send + 'static>(
+        &mut self,
+        callback: F,
+    ) -> Result<(), EspError>
     where
-        F: FnMut() + Send + 'static,
+        MODE: InputMode,
+    {
+        self.internal_subscribe(callback)
+    }
+
+    /// Subscribes the provided callback for ISR notifications.
+    /// As a side effect, interrupts will be disabled, so to receive a notification, one has
+    /// to also call `PinDriver::enable_interrupt` after calling this method.
+    ///
+    /// Note that `PinDriver::enable_interrupt` should also be called after
+    /// each received notification **from non-ISR context**, because the driver will automatically
+    /// disable ISR interrupts on each received ISR notification (so as to avoid IWDT triggers).
+    ///
+    /// # Safety
+    ///
+    /// Care should be taken not to call STD, libc or FreeRTOS APIs (except for a few allowed ones)
+    /// in the callback passed to this function, as it is executed in an ISR context.
+    ///
+    /// Additionally, this method - in contrast to method `subscribe` - allows
+    /// the passed-in callback/closure to be non-`'static`. This enables users to borrow
+    /// - in the closure - variables that live on the stack - or more generally - in the same
+    /// scope where the driver is created.
+    ///
+    /// HOWEVER: care should be taken NOT to call `core::mem::forget()` on the driver,
+    /// as that would immediately lead to an UB (crash).
+    /// Also note that forgetting the driver might happen with `Rc` and `Arc`
+    /// when circular references are introduced: https://github.com/rust-lang/rust/issues/24456
+    ///
+    /// The reason is that the closure is actually sent and owned by an ISR routine,
+    /// which means that if the driver is forgotten, Rust is free to e.g. unwind the stack
+    /// and the ISR routine will end up with references to variables that no longer exist.
+    ///
+    /// The destructor of the driver takes care - prior to the driver being dropped and e.g.
+    /// the stack being unwind - to unsubscribe the ISR routine.
+    /// Unfortunately, when the driver is forgotten, the un-subscription does not happen
+    /// and invalid references are left dangling.
+    ///
+    /// This "local borrowing" will only be possible to express in a safe way once/if `!Leak` types
+    /// are introduced to Rust (i.e. the impossibility to "forget" a type and thus not call its destructor).
+    #[cfg(all(not(feature = "riscv-ulp-hal"), feature = "alloc"))]
+    pub unsafe fn subscribe_nonstatic<F: FnMut() + Send + 'd>(
+        &mut self,
+        callback: F,
+    ) -> Result<(), EspError>
+    where
+        MODE: InputMode,
+    {
+        self.internal_subscribe(callback)
+    }
+
+    #[cfg(all(not(feature = "riscv-ulp-hal"), feature = "alloc"))]
+    fn internal_subscribe(&mut self, callback: impl FnMut() + Send + 'd) -> Result<(), EspError>
+    where
         MODE: InputMode,
     {
         extern crate alloc;
 
         self.disable_interrupt()?;
 
-        let callback: alloc::boxed::Box<dyn FnMut() + Send + 'static> =
-            alloc::boxed::Box::new(callback);
-        chip::PIN_ISR_HANDLER[self.pin.pin() as usize] = Some(callback);
+        let callback: alloc::boxed::Box<dyn FnMut() + Send + 'd> = alloc::boxed::Box::new(callback);
+        unsafe {
+            chip::PIN_ISR_HANDLER[self.pin.pin() as usize] = Some(core::mem::transmute(callback));
+        }
 
         Ok(())
     }
