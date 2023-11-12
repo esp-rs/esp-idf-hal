@@ -5,6 +5,11 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.42.5] - 2023-11-12
+* BREAKING CHANGE IN A PATCH RELEASE DUE TO DISCOVERED UB: The `subscribe` methods in drivers `PinDriver`, `PcntDriver` and `TimerDriver` 
+no longer accept non-static callbacks, as these lead to UB / crash when the driver is forgotten with e.g. `core::mem::forget`. Since local borrows
+are a very useful feature however, these are still allowed via the newly-introduced and even more unsafe `subscribe_nonstatic` method.
+
 ## [0.42.4] - 2023-11-02
 * Remove dependency on `AtomicU64` which is no longer supported by the upstream `*-espidf` targets
 * Fix some Clippy warnings in the `spi` driver
