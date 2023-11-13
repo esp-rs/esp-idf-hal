@@ -64,6 +64,7 @@ pub mod sd;
 pub mod spi;
 pub mod sys;
 pub mod task;
+pub mod temp_sensor;
 pub mod timer;
 pub mod uart;
 #[cfg(all(
