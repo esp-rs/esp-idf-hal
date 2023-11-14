@@ -98,23 +98,23 @@ impl Default for TemperatureSensorConfig {
     }
 }
 
-// -- TemperatureSensor --
+// -- TemperatureSensorDriver --
 
 #[cfg(not(any(esp32)))]
-pub struct TemperatureSensor {
+pub struct TemperatureSensorDriver {
     ptr: temperature_sensor_handle_t,
     // To track current state (to avoid double enable/disable)
     enabled: bool,
 }
 
 #[cfg(not(any(esp32)))]
-impl TemperatureSensor {
+impl TemperatureSensorDriver {
     pub fn new(config: TemperatureSensorConfig) -> Self {
         let mut sensor = std::ptr::null_mut();
         unsafe {
             temperature_sensor_install(&config.into(), &mut sensor);
         }
-        TemperatureSensor {
+        TemperatureSensorDriver {
             ptr: sensor,
             enabled: false,
         }
@@ -155,7 +155,7 @@ impl TemperatureSensor {
 }
 
 #[cfg(not(any(esp32)))]
-impl Drop for TemperatureSensor {
+impl Drop for TemperatureSensorDriver {
     fn drop(&mut self) {
         unsafe {
             self.disable();
