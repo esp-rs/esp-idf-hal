@@ -51,7 +51,7 @@ pub struct Configuration {
     pub stack_size: usize,
     pub max_open_sockets: usize,
     pub max_uri_handlers: usize,
-    pub max_resp_handlers: usize,
+    pub max_resp_headers: usize,
     pub lru_purge_enable: bool,
     pub uri_match_wildcard: bool,
     #[cfg(esp_idf_esp_https_server_enable)]
@@ -73,7 +73,7 @@ impl Default for Configuration {
             stack_size: 10240,
             max_open_sockets: 4,
             max_uri_handlers: 32,
-            max_resp_handlers: 8,
+            max_resp_headers: 8,
             lru_purge_enable: true,
             uri_match_wildcard: false,
             #[cfg(esp_idf_esp_https_server_enable)]
@@ -95,7 +95,7 @@ impl From<&Configuration> for Newtype<httpd_config_t> {
             ctrl_port: 32768,
             max_open_sockets: conf.max_open_sockets as _,
             max_uri_handlers: conf.max_uri_handlers as _,
-            max_resp_headers: conf.max_resp_handlers as _,
+            max_resp_headers: conf.max_resp_headers as _,
             backlog_conn: 5,
             lru_purge_enable: conf.lru_purge_enable,
             recv_wait_timeout: 5,
