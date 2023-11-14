@@ -1,4 +1,4 @@
-#[cfg(any(esp32s2, esp32s3, esp32c2, esp32c3, esp32c6, esp32h2))]
+#[cfg(not(any(esp32)))]
 use esp_idf_sys::{
     soc_periph_temperature_sensor_clk_src_t_TEMPERATURE_SENSOR_CLK_SRC_DEFAULT,
     soc_periph_temperature_sensor_clk_src_t_TEMPERATURE_SENSOR_CLK_SRC_RC_FAST,
@@ -11,7 +11,7 @@ use esp_idf_sys::{
 // -- TemperatureSensorClockSource --
 
 #[derive(Copy, Clone)]
-#[cfg(any(esp32s2, esp32s3, esp32c2, esp32c3, esp32c6, esp32h2))]
+#[cfg(not(any(esp32)))]
 /// Rust translation of `temperature_sensor_clk_src_t`
 pub enum TemperatureSensorClockSource {
     Default,
@@ -19,7 +19,7 @@ pub enum TemperatureSensorClockSource {
     RcFast,
 }
 
-#[cfg(any(esp32s2, esp32s3, esp32c2, esp32c3, esp32c6, esp32h2))]
+#[cfg(not(any(esp32)))]
 impl From<TemperatureSensorClockSource> for temperature_sensor_clk_src_t {
     fn from(value: TemperatureSensorClockSource) -> Self {
         match value {
@@ -36,7 +36,7 @@ impl From<TemperatureSensorClockSource> for temperature_sensor_clk_src_t {
     }
 }
 
-#[cfg(any(esp32s2, esp32s3, esp32c2, esp32c3, esp32c6, esp32h2))]
+#[cfg(not(any(esp32)))]
 impl From<temperature_sensor_clk_src_t> for TemperatureSensorClockSource {
     fn from(value: temperature_sensor_clk_src_t) -> Self {
         match value {
@@ -55,7 +55,7 @@ impl From<temperature_sensor_clk_src_t> for TemperatureSensorClockSource {
 
 // -- TemperatureSensorConfig --
 
-#[cfg(any(esp32s2, esp32s3, esp32c2, esp32c3, esp32c6, esp32h2))]
+#[cfg(not(any(esp32)))]
 #[derive(Copy, Clone)]
 /// Rust wrapper for `temperature_sensor_config_t`
 pub struct TemperatureSensorConfig {
@@ -65,7 +65,7 @@ pub struct TemperatureSensorConfig {
     pub clk_src: TemperatureSensorClockSource,
 }
 
-#[cfg(any(esp32s2, esp32s3, esp32c2, esp32c3, esp32c6, esp32h2))]
+#[cfg(not(any(esp32)))]
 impl From<temperature_sensor_config_t> for TemperatureSensorConfig {
     fn from(value: temperature_sensor_config_t) -> Self {
         TemperatureSensorConfig {
@@ -76,7 +76,7 @@ impl From<temperature_sensor_config_t> for TemperatureSensorConfig {
     }
 }
 
-#[cfg(any(esp32s2, esp32s3, esp32c2, esp32c3, esp32c6, esp32h2))]
+#[cfg(not(any(esp32)))]
 impl Into<temperature_sensor_config_t> for TemperatureSensorConfig {
     fn into(self) -> temperature_sensor_config_t {
         temperature_sensor_config_t {
@@ -87,7 +87,7 @@ impl Into<temperature_sensor_config_t> for TemperatureSensorConfig {
     }
 }
 
-#[cfg(any(esp32s2, esp32s3, esp32c2, esp32c3, esp32c6, esp32h2))]
+#[cfg(not(any(esp32)))]
 impl Default for TemperatureSensorConfig {
     fn default() -> Self {
         TemperatureSensorConfig {
@@ -100,14 +100,14 @@ impl Default for TemperatureSensorConfig {
 
 // -- TemperatureSensor --
 
-#[cfg(any(esp32s2, esp32s3, esp32c2, esp32c3, esp32c6, esp32h2))]
+#[cfg(not(any(esp32)))]
 pub struct TemperatureSensor {
     ptr: temperature_sensor_handle_t,
     // To track current state (to avoid double enable/disable)
     enabled: bool,
 }
 
-#[cfg(any(esp32s2, esp32s3, esp32c2, esp32c3, esp32c6, esp32h2))]
+#[cfg(not(any(esp32)))]
 impl TemperatureSensor {
     pub fn new(config: TemperatureSensorConfig) -> Self {
         let mut sensor = std::ptr::null_mut();
@@ -154,7 +154,7 @@ impl TemperatureSensor {
     }
 }
 
-#[cfg(any(esp32s2, esp32s3, esp32c2, esp32c3, esp32c6, esp32h2))]
+#[cfg(not(any(esp32)))]
 impl Drop for TemperatureSensor {
     fn drop(&mut self) {
         unsafe {
