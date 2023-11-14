@@ -1,11 +1,11 @@
 #[cfg(not(any(esp32)))]
 use esp_idf_sys::{
-    soc_periph_temperature_sensor_clk_src_t_TEMPERATURE_SENSOR_CLK_SRC_DEFAULT,
+    esp, soc_periph_temperature_sensor_clk_src_t_TEMPERATURE_SENSOR_CLK_SRC_DEFAULT,
     soc_periph_temperature_sensor_clk_src_t_TEMPERATURE_SENSOR_CLK_SRC_RC_FAST,
     soc_periph_temperature_sensor_clk_src_t_TEMPERATURE_SENSOR_CLK_SRC_XTAL,
     temperature_sensor_clk_src_t, temperature_sensor_config_t, temperature_sensor_disable,
     temperature_sensor_enable, temperature_sensor_get_celsius, temperature_sensor_handle_t,
-    temperature_sensor_install, temperature_sensor_uninstall,
+    temperature_sensor_install, temperature_sensor_uninstall, EspError,
 };
 
 // -- TemperatureSensorClockSource --
@@ -103,63 +103,47 @@ impl Default for TemperatureSensorConfig {
 #[cfg(not(any(esp32)))]
 pub struct TemperatureSensorDriver {
     ptr: temperature_sensor_handle_t,
-    // To track current state (to avoid double enable/disable)
-    enabled: bool,
 }
 
 #[cfg(not(any(esp32)))]
 impl TemperatureSensorDriver {
-    pub fn new(config: TemperatureSensorConfig) -> Self {
+    pub fn new(config: TemperatureSensorConfig) -> Result<Self, EspError> {
         let mut sensor = core::ptr::null_mut();
-        unsafe {
-            temperature_sensor_install(&config.into(), &mut sensor);
-        }
-        TemperatureSensorDriver {
-            ptr: sensor,
-            enabled: false,
-        }
+        esp!(unsafe { temperature_sensor_install(&config.into(), &mut sensor) })?;
+        Ok(TemperatureSensorDriver { ptr: sensor })
     }
 
-    pub fn enable(&mut self) {
-        // TODO: Perhaps handing the "double enable" error to the user makes more sense
-        if self.enabled {
-            return;
-        }
-        self.enabled = true;
-        unsafe { temperature_sensor_enable(self.ptr) };
+    pub fn enable(&mut self) -> Result<(), EspError> {
+        esp!(unsafe { temperature_sensor_enable(self.ptr) })
     }
 
-    pub fn disable(&mut self) {
-        // TODO: Perhaps handing the "double disable" error to the user makes more sense
-        if !self.enabled {
-            return;
-        }
-        self.enabled = false;
-        unsafe { temperature_sensor_disable(self.ptr) };
+    pub fn disable(&mut self) -> Result<(), EspError> {
+        esp!(unsafe { temperature_sensor_disable(self.ptr) })
     }
 
-    pub fn get_celsius(&self) -> f32 {
+    pub fn get_celsius(&self) -> Result<f32, EspError> {
         let mut val = 0.0;
-        unsafe { temperature_sensor_get_celsius(self.ptr, &mut val) };
-        val
+        esp!(unsafe { temperature_sensor_get_celsius(self.ptr, &mut val) })?;
+        Ok(val)
     }
 
-    pub fn get_fahrenheit(&self) -> f32 {
-        let celsius = self.get_celsius();
-        (celsius * 1.8) + 32.0
+    pub fn get_fahrenheit(&self) -> Result<f32, EspError> {
+        let celsius = self.get_celsius()?;
+        Ok((celsius * 1.8) + 32.0)
     }
 
-    pub fn get_kelvin(&self) -> f32 {
-        self.get_celsius() + 273.15
+    pub fn get_kelvin(&self) -> Result<f32, EspError> {
+        let celsius = self.get_celsius()?;
+        Ok(celsius + 273.15)
     }
 }
 
 #[cfg(not(any(esp32)))]
 impl Drop for TemperatureSensorDriver {
     fn drop(&mut self) {
+        let _ = self.disable();
         unsafe {
-            self.disable();
             temperature_sensor_uninstall(self.ptr);
-        };
+        }
     }
 }
