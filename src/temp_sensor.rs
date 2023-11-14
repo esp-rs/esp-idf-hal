@@ -110,7 +110,7 @@ pub struct TemperatureSensorDriver {
 #[cfg(not(any(esp32)))]
 impl TemperatureSensorDriver {
     pub fn new(config: TemperatureSensorConfig) -> Self {
-        let mut sensor = std::ptr::null_mut();
+        let mut sensor = core::ptr::null_mut();
         unsafe {
             temperature_sensor_install(&config.into(), &mut sensor);
         }
