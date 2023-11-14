@@ -34,7 +34,7 @@ binstart = ["esp-idf-sys/binstart"]
 libstart = ["esp-idf-sys/libstart"]
 
 [patch.crates-io]
-esp-idf-sys = { path="../esp-idf-sys" }
+esp-idf-sys = { git = "https://github.com/GamerBene19/esp-idf-sys.git", branch = "master" }
 
 [dependencies]
 nb = "1.0.0"
