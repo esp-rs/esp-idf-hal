@@ -822,6 +822,8 @@ where
             } | config.duplex.as_flags()
                 | config.bit_order.as_flags(),
             post_cb: Some(spi_notify),
+            cs_ena_pretrans: config.cs_pre_delay_us.unwrap_or(0),
+            cs_ena_posttrans: config.cs_post_delay_us.unwrap_or(0),
             ..Default::default()
         };
 
