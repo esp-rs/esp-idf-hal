@@ -29,8 +29,20 @@ macro_rules! esp_app_desc {
                 reserv1: [0; 2],
                 version: str_to_cstr_array(env!("CARGO_PKG_VERSION")),
                 project_name: str_to_cstr_array(env!("CARGO_PKG_NAME")),
+                #[cfg(all(esp_idf_app_compile_time_date, not(esp_idf_app_reproducible_build)))]
                 time: str_to_cstr_array($crate::build_time::build_time_utc!("%Y-%m-%d")),
+                #[cfg(all(esp_idf_app_compile_time_date, not(esp_idf_app_reproducible_build)))]
                 date: str_to_cstr_array($crate::build_time::build_time_utc!("%H:%M:%S")),
+                #[cfg(not(all(
+                    esp_idf_app_compile_time_date,
+                    not(esp_idf_app_reproducible_build)
+                )))]
+                time: [0i8; 16],
+                #[cfg(not(all(
+                    esp_idf_app_compile_time_date,
+                    not(esp_idf_app_reproducible_build)
+                )))]
+                date: [0i8; 16],
                 idf_ver: str_to_cstr_array($crate::const_format::formatcp!(
                     "{}.{}.{}",
                     $crate::ESP_IDF_VERSION_MAJOR,
