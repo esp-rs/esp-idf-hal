@@ -297,6 +297,10 @@
 #include "driver/uart_select.h"
 #endif
 
+#if ESP_IDF_VERSION_MAJOR > 4 && defined(SOC_TEMP_SENSOR_SUPPORTED)
+#include "driver/temperature_sensor.h"
+#endif
+
 #ifdef ESP_IDF_COMP_ESPCOREDUMP_ENABLED
 #include "esp_core_dump.h"
 #endif
