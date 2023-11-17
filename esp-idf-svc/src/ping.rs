@@ -77,6 +77,7 @@ impl EspPing {
             task_stack_size: 4096,
             task_prio: 2,
             interface: self.0,
+            ttl: 64,
             ..Default::default()
         };
 
