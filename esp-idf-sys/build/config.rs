@@ -103,9 +103,13 @@ impl BuildConfig {
     ///
     /// [root crate]: https://doc.rust-lang.org/cargo/reference/workspaces.html#root-package
     pub fn with_cargo_metadata(&mut self) -> Result<()> {
+        // workaround for https://github.com/esp-rs/esp-idf-sys/issues/260
+        let current_target = std::env::var("TARGET")?;
+        let filter_string = format!("--filter-platform={}", current_target);
+
         let metadata = cargo_metadata::MetadataCommand::new()
             .current_dir(workspace_dir()?)
-            .other_options(vec!["--locked".into()])
+            .other_options(vec!["--locked".into(), filter_string])
             .exec()?;
 
         let root_package = match (metadata.root_package(), &self.esp_idf_sys_root_crate) {
