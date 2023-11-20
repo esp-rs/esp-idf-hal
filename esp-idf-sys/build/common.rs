@@ -437,7 +437,7 @@ pub fn sanitize_project_path() -> Result<()> {
 
     #[cfg(windows)]
     {
-        if out_dir.len() > 86 {
+        if out_dir.len() > 88 {
             report(format!("Too long output directory: `{out_dir}`. Shorten your project path down to no more than 10 characters (or use WSL2 and its native Linux filesystem). Note that tricks like Windows `subst` do NOT work!"))?;
         }
     }
