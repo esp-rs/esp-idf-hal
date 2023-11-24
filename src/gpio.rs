@@ -1096,7 +1096,7 @@ impl<'d, T: Pin, MODE> PinDriver<'d, T, MODE> {
 
     pub fn set_pull(&mut self, pull: Pull) -> Result<(), EspError>
     where
-        T: InputPin,
+        T: Pin,
         MODE: InputMode,
     {
         if MODE::RTC {
