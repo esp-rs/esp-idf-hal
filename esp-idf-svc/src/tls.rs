@@ -1,8 +1,12 @@
 //! Type safe abstraction for esp-tls
 
+#[cfg(all(esp_idf_esp_tls_psk_verification, feature = "alloc"))]
+use core::convert::TryFrom;
 use core::fmt::Debug;
 
 use crate::private::cstr::{c_char, CStr};
+#[cfg(all(esp_idf_esp_tls_psk_verification, feature = "alloc"))]
+use crate::sys::EspError;
 
 #[cfg(all(
     esp_idf_comp_esp_tls_enabled,
@@ -49,16 +53,18 @@ impl Debug for TlsPsk {
 }
 
 #[cfg(all(esp_idf_esp_tls_psk_verification, feature = "alloc"))]
-impl<'a> From<&'a Psk<'a>> for TlsPsk {
-    fn from(conf: &Psk) -> Self {
+impl<'a> TryFrom<&'a Psk<'a>> for TlsPsk {
+    type Error = EspError;
+
+    fn try_from(conf: &Psk) -> Result<Self, EspError> {
         let mut cstrs = crate::private::cstr::RawCstrs::new();
         let psk = alloc::boxed::Box::new(crate::hal::sys::psk_hint_key_t {
             key: conf.key.as_ptr(),
             key_size: conf.key.len(),
-            hint: cstrs.as_ptr(conf.hint),
+            hint: cstrs.as_ptr(conf.hint)?,
         });
 
-        TlsPsk { psk, _cstrs: cstrs }
+        Ok(TlsPsk { psk, _cstrs: cstrs })
     }
 }
 

@@ -214,7 +214,7 @@ impl<'a> TryFrom<&'a MqttClientConfiguration<'a>>
         }
 
         #[cfg(all(esp_idf_esp_tls_psk_verification, feature = "alloc"))]
-        let tls_psk_conf = conf.psk.as_ref().map(|psk| psk.into());
+        let tls_psk_conf = conf.psk.as_ref().map(|psk| psk.try_into()).transpose()?;
         #[cfg(not(all(esp_idf_esp_tls_psk_verification, feature = "alloc")))]
         let tls_psk_conf = None;
 
@@ -324,7 +324,7 @@ impl<'a> TryFrom<&'a MqttClientConfiguration<'a>>
         }
 
         #[cfg(all(esp_idf_esp_tls_psk_verification, feature = "alloc"))]
-        let tls_psk_conf = conf.psk.as_ref().map(|psk| psk.into());
+        let tls_psk_conf = conf.psk.as_ref().map(|psk| psk.try_into()).transpose()?;
         #[cfg(not(all(esp_idf_esp_tls_psk_verification, feature = "alloc")))]
         let tls_psk_conf = None;
 
