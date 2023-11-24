@@ -759,8 +759,13 @@ impl<'d, T: Pin, MODE> PinDriver<'d, T, MODE> {
         T: Pin,
     {
         let pin = unsafe { self.pin.clone_unchecked() };
+        gpio_reset_without_pull(pin.pin())?;
+        core::mem::forget(self);
+        //gpio_reset_without_pull(pin.pin())?;
 
-        drop(self);
+        //if mode != gpio_mode_t_GPIO_MODE_DISABLE {
+        //    esp!(unsafe { gpio_set_direction(pin.pin(), mode) })?;
+        //}
 
         if mode != gpio_mode_t_GPIO_MODE_DISABLE {
             esp!(unsafe { gpio_set_direction(pin.pin(), mode) })?;
@@ -780,7 +785,8 @@ impl<'d, T: Pin, MODE> PinDriver<'d, T, MODE> {
     {
         let pin = unsafe { self.pin.clone_unchecked() };
 
-        drop(self);
+        gpio_reset_without_pull(pin.pin())?;
+        core::mem::forget(self);
 
         #[cfg(not(any(esp32c3, esp32c2, esp32h2, esp32c5)))]
         {
@@ -1436,11 +1442,30 @@ pub(crate) unsafe fn rtc_reset_pin(pin: i32) -> Result<(), EspError> {
     Ok(())
 }
 
-unsafe fn reset_pin(_pin: i32, _mode: gpio_mode_t) -> Result<(), EspError> {
-    unsubscribe_pin(_pin)?;
+unsafe fn reset_pin(pin: i32, mode: gpio_mode_t) -> Result<(), EspError> {
+    unsubscribe_pin(pin)?;
 
-    esp!(gpio_reset_pin(_pin))?;
-    esp!(gpio_set_direction(_pin, _mode))?;
+    // override the specific gpio_config_t with everything disabled
+    // expect it sets pull_up_en = true for powersave reasons
+    esp!(gpio_reset_pin(pin))?;
+
+    esp!(gpio_set_direction(pin, mode))?;
+
+    Ok(())
+}
+
+#[inline]
+fn gpio_reset_without_pull(pin: gpio_num_t) -> Result<(), EspError> {
+    let cfg = gpio_config_t {
+        pin_bit_mask: (1u64 << pin),
+        mode: esp_idf_sys::gpio_mode_t_GPIO_MODE_DISABLE,
+        pull_up_en: esp_idf_sys::gpio_pullup_t_GPIO_PULLUP_DISABLE,
+        pull_down_en: esp_idf_sys::gpio_pulldown_t_GPIO_PULLDOWN_DISABLE,
+        intr_type: esp_idf_sys::gpio_int_type_t_GPIO_INTR_DISABLE,
+    };
+
+    unsafe { unsubscribe_pin(pin)? };
+    esp!(gpio_config(&cfg))?;
 
     Ok(())
 }
