@@ -81,7 +81,7 @@ pub mod sys;
 pub mod task;
 #[cfg(not(feature = "riscv-ulp-hal"))]
 pub mod timer;
-#[cfg(not(feature = "riscv-ulp-hal"))]
+#[cfg(all(any(esp32, esp32s2, esp32s3), not(feature = "riscv-ulp-hal")))]
 pub mod touch;
 #[cfg(not(feature = "riscv-ulp-hal"))]
 pub mod uart;
