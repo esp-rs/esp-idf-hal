@@ -6,7 +6,7 @@ use esp_idf_sys::{
     touch_pad_t_TOUCH_PAD_NUM12, touch_pad_t_TOUCH_PAD_NUM13, touch_pad_t_TOUCH_PAD_NUM14,
     touch_pad_t_TOUCH_PAD_NUM2, touch_pad_t_TOUCH_PAD_NUM3, touch_pad_t_TOUCH_PAD_NUM4,
     touch_pad_t_TOUCH_PAD_NUM5, touch_pad_t_TOUCH_PAD_NUM6, touch_pad_t_TOUCH_PAD_NUM7,
-    touch_pad_t_TOUCH_PAD_NUM8, touch_pad_t_TOUCH_PAD_NUM9, EspError, CONFIG_CONSOLE_UART,
+    touch_pad_t_TOUCH_PAD_NUM8, touch_pad_t_TOUCH_PAD_NUM9, EspError,
 };
 
 #[cfg(any(esp32, esp32s2, esp32s3))]
