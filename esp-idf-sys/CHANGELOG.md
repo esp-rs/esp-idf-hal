@@ -7,6 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.33.?] - 2023-??-??
 * Expose raw bindings for the `esp_lcd` component (#216)
+* Copy bootloader and partition table to target folder (#264)
 
 ## [0.33.7] - 2023-11-08
 * Workaround for https://github.com/esp-rs/esp-idf-svc/issues/312

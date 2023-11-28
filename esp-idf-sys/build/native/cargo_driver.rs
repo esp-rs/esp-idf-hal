@@ -1,7 +1,7 @@
 use std::convert::TryFrom;
 use std::ffi::OsStr;
 use std::fmt::Write;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::str::FromStr;
 use std::{env, fs};
 
@@ -575,6 +575,8 @@ pub fn build() -> Result<EspIdfBuildOutput> {
 
     eprintln!("Built components: {}", components.join(", "));
 
+    copy_binaries_to_target_folder();
+
     let sdkconfig_json = path_buf![&cmake_build_dir, "config", "sdkconfig.json"];
     let build_output = EspIdfBuildOutput {
         cincl_args: build::CInclArgs::try_from(&target.compile_groups[0])?,
@@ -653,4 +655,30 @@ pub fn to_cmake_path_list(iter: impl IntoIterator<Item = impl AsRef<OsStr>>) -> 
         );
     }
     Ok(accu)
+}
+
+fn copy_binaries_to_target_folder() {
+    // The bootloader binary gets stored in the build folder of esp-idf-sys. Since this build
+    // folder is tagged with a fingerprint, it is not easily usable for tools such as espflash (see
+    // issue https://github.com/esp-rs/esp-idf-sys/issues/97). This moves the bootloader.bin file
+    // to the regular rust build folder (e.g. target/xtensa-esp32-espidf/release) so that it can be
+    // accessed more easily. This also affects the partition table binary.
+
+    let out_dir = PathBuf::from(env::var("OUT_DIR").unwrap());
+    let bootloader_src = out_dir.join("build/bootloader/bootloader.bin");
+    let part_table_src = out_dir.join("build/partition_table/partition-table.bin");
+    let bootloader_target = out_dir.join("../../../bootloader.bin");
+    let part_table_target = out_dir.join("../../../partition-table.bin");
+
+    if let Err(e) = fs::copy(bootloader_src, bootloader_target) {
+        cargo::print_warning(format_args!(
+            "failed to copy bootloader binary to target folder: {e}"
+        ));
+    };
+
+    if let Err(e) = fs::copy(part_table_src, part_table_target) {
+        cargo::print_warning(format_args!(
+            "failed to copy partition table binary to target folder: {e}"
+        ));
+    };
 }
