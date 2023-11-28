@@ -575,7 +575,7 @@ pub fn build() -> Result<EspIdfBuildOutput> {
 
     eprintln!("Built components: {}", components.join(", "));
 
-    copy_binaries_to_target_folder();
+    copy_binaries_to_target_folder()?;
 
     let sdkconfig_json = path_buf![&cmake_build_dir, "config", "sdkconfig.json"];
     let build_output = EspIdfBuildOutput {
@@ -657,28 +657,48 @@ pub fn to_cmake_path_list(iter: impl IntoIterator<Item = impl AsRef<OsStr>>) -> 
     Ok(accu)
 }
 
-fn copy_binaries_to_target_folder() {
-    // The bootloader binary gets stored in the build folder of esp-idf-sys. Since this build
-    // folder is tagged with a fingerprint, it is not easily usable for tools such as espflash (see
-    // issue https://github.com/esp-rs/esp-idf-sys/issues/97). This moves the bootloader.bin file
-    // to the regular rust build folder (e.g. target/xtensa-esp32-espidf/release) so that it can be
-    // accessed more easily. This also affects the partition table binary.
-
+// The bootloader binary gets stored in the build folder of esp-idf-sys. Since this build
+// folder is tagged with a fingerprint, it is not easily usable for tools such as espflash
+// (see issue https://github.com/esp-rs/esp-idf-sys/issues/97).
+//
+// This function moves the bootloader.bin file to the regular rust build folder
+// (e.g. `target/xtensa-esp32-espidf/release`) so that it can be accessed more easily.
+//
+// Ditto for the partition table binary.
+fn copy_binaries_to_target_folder() -> Result<()> {
     let out_dir = PathBuf::from(env::var("OUT_DIR").unwrap());
-    let bootloader_src = out_dir.join("build/bootloader/bootloader.bin");
-    let part_table_src = out_dir.join("build/partition_table/partition-table.bin");
-    let bootloader_target = out_dir.join("../../../bootloader.bin");
-    let part_table_target = out_dir.join("../../../partition-table.bin");
+    let target_dir = out_dir
+        .parent()
+        .and_then(Path::parent)
+        .and_then(Path::parent)
+        .ok_or_else(|| anyhow!("Cannot locate target dir of {}", out_dir.display()))?
+        .canonicalize()?;
 
-    if let Err(e) = fs::copy(bootloader_src, bootloader_target) {
-        cargo::print_warning(format_args!(
-            "failed to copy bootloader binary to target folder: {e}"
-        ));
-    };
+    let build_dir = out_dir.join("build");
 
-    if let Err(e) = fs::copy(part_table_src, part_table_target) {
-        cargo::print_warning(format_args!(
-            "failed to copy partition table binary to target folder: {e}"
-        ));
-    };
+    let bootloader_src = build_dir.join("bootloader").join("bootloader.bin");
+    let bootloader_target = target_dir.join("bootloader.bin");
+
+    fs::copy(&bootloader_src, bootloader_target).with_context(|| {
+        format!(
+            "Failed to copy bootloader binary {} to target folder {}",
+            bootloader_src.display(),
+            target_dir.display()
+        )
+    })?;
+
+    let part_table_src = build_dir
+        .join("partition_table")
+        .join("partition-table.bin");
+    let part_table_target = target_dir.join("partition-table.bin");
+
+    fs::copy(&part_table_src, part_table_target).with_context(|| {
+        format!(
+            "Failed to copy partition table binary {} to target folder {}",
+            part_table_src.display(),
+            target_dir.display()
+        )
+    })?;
+
+    Ok(())
 }
