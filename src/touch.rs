@@ -6,7 +6,7 @@ use esp_idf_sys::{
     touch_pad_t_TOUCH_PAD_NUM12, touch_pad_t_TOUCH_PAD_NUM13, touch_pad_t_TOUCH_PAD_NUM14,
     touch_pad_t_TOUCH_PAD_NUM2, touch_pad_t_TOUCH_PAD_NUM3, touch_pad_t_TOUCH_PAD_NUM4,
     touch_pad_t_TOUCH_PAD_NUM5, touch_pad_t_TOUCH_PAD_NUM6, touch_pad_t_TOUCH_PAD_NUM7,
-    touch_pad_t_TOUCH_PAD_NUM8, touch_pad_t_TOUCH_PAD_NUM9, EspError,
+    touch_pad_t_TOUCH_PAD_NUM8, touch_pad_t_TOUCH_PAD_NUM9, EspError, CONFIG_CONSOLE_UART,
 };
 
 #[cfg(any(esp32, esp32s2, esp32s3))]
@@ -69,29 +69,27 @@ impl From<TouchPad> for touch_pad_t {
     }
 }
 
+pub struct TouchConfig {
+    fsm_mode: FsmMode,
+    configured_pads: Vec<TouchPad>,
+}
+
 #[cfg(any(esp32, esp32s2, esp32s3))]
 pub struct TouchDriver {}
 
 #[cfg(any(esp32, esp32s2, esp32s3))]
 impl TouchDriver {
-    pub fn new() -> Result<Self, EspError> {
+    pub fn new(config: TouchConfig) -> Result<Self, EspError> {
+        unsafe {
+            esp!(touch_pad_init())?;
+            for pad in config.configured_pads {
+                esp!(touch_pad_config(pad.into()))?;
+            }
+            esp!(touch_pad_set_fsm_mode(config.fsm_mode.into()))?;
+            esp!(touch_pad_fsm_start())?;
+        }
+
         Ok(TouchDriver {})
-    }
-
-    pub fn init(&mut self) -> Result<(), EspError> {
-        esp!(unsafe { touch_pad_init() })
-    }
-
-    pub fn config(&mut self, pad: TouchPad) -> Result<(), EspError> {
-        esp!(unsafe { touch_pad_config(pad.into()) })
-    }
-
-    pub fn set_fsm_mode(&mut self, mode: FsmMode) -> Result<(), EspError> {
-        esp!(unsafe { touch_pad_set_fsm_mode(mode.into()) })
-    }
-
-    pub fn start_fsm(&mut self) -> Result<(), EspError> {
-        esp!(unsafe { touch_pad_fsm_start() })
     }
 
     pub fn read_raw_data(&mut self, pad: TouchPad) -> Result<u32, EspError> {
