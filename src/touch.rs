@@ -9,12 +9,14 @@ use esp_idf_sys::{
     touch_pad_t_TOUCH_PAD_NUM8, touch_pad_t_TOUCH_PAD_NUM9, EspError,
 };
 
+#[cfg(any(esp32, esp32s2, esp32s3))]
 pub enum FsmMode {
     Timer,
     SW,
     Max,
 }
 
+#[cfg(any(esp32, esp32s2, esp32s3))]
 impl From<FsmMode> for touch_fsm_mode_t {
     fn from(value: FsmMode) -> Self {
         match value {
@@ -25,6 +27,7 @@ impl From<FsmMode> for touch_fsm_mode_t {
     }
 }
 
+#[cfg(any(esp32, esp32s2, esp32s3))]
 pub enum TouchPad {
     Pad0,
     Pad1,
@@ -43,6 +46,7 @@ pub enum TouchPad {
     Pad14,
 }
 
+#[cfg(any(esp32, esp32s2, esp32s3))]
 impl From<TouchPad> for touch_pad_t {
     fn from(value: TouchPad) -> Self {
         match value {
@@ -65,8 +69,10 @@ impl From<TouchPad> for touch_pad_t {
     }
 }
 
+#[cfg(any(esp32, esp32s2, esp32s3))]
 pub struct TouchDriver {}
 
+#[cfg(any(esp32, esp32s2, esp32s3))]
 impl TouchDriver {
     pub fn new() -> Result<Self, EspError> {
         Ok(TouchDriver {})
