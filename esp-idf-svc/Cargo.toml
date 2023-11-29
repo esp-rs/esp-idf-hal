@@ -71,6 +71,9 @@ name = "wifi"
 name = "wifi_async"
 
 [[example]]
+name = "wifi_static_ip"
+
+[[example]]
 name = "json_post_handler"
 
 [[example]]
