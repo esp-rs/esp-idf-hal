@@ -1,3 +1,5 @@
+use core::borrow::Borrow;
+
 use esp_idf_sys::{
     esp, touch_fsm_mode_t, touch_fsm_mode_t_TOUCH_FSM_MODE_MAX, touch_fsm_mode_t_TOUCH_FSM_MODE_SW,
     touch_fsm_mode_t_TOUCH_FSM_MODE_TIMER, touch_pad_config, touch_pad_fsm_start, touch_pad_init,
@@ -10,6 +12,7 @@ use esp_idf_sys::{
 };
 
 #[cfg(any(esp32, esp32s2, esp32s3))]
+#[derive(Copy, Clone)]
 pub enum FsmMode {
     Timer,
     SW,
@@ -28,6 +31,7 @@ impl From<FsmMode> for touch_fsm_mode_t {
 }
 
 #[cfg(any(esp32, esp32s2, esp32s3))]
+#[derive(Copy, Clone)]
 pub enum TouchPad {
     Pad0,
     Pad1,
@@ -71,30 +75,57 @@ impl From<TouchPad> for touch_pad_t {
 
 pub struct TouchConfig {
     fsm_mode: FsmMode,
-    configured_pads: Vec<TouchPad>,
 }
 
 #[cfg(any(esp32, esp32s2, esp32s3))]
-pub struct TouchDriver {}
+pub struct TouchDriver {
+    config: TouchConfig,
+}
+
+pub struct TouchPadDriver<T>
+where
+    T: Borrow<TouchDriver>,
+{
+    touch: T,
+    pad: TouchPad,
+}
+
+impl TouchPadDriver<TouchDriver> {
+    pub fn new_single_started(pad: TouchPad, config: TouchConfig) -> Result<Self, EspError> {
+        let mut touch = TouchDriver::new(config)?;
+        esp!(unsafe { touch_pad_config(pad.into()) })?;
+        touch.start()?;
+        Ok(Self { touch, pad })
+    }
+}
+
+impl<T> TouchPadDriver<T>
+where
+    T: Borrow<TouchDriver>,
+{
+    pub fn read_raw_data(&self) -> Result<u32, EspError> {
+        let mut raw: u32 = 0;
+        let result = esp!(unsafe { touch_pad_read_raw_data(self.borrow().pad.into(), &mut raw) });
+        result.map(|_| raw)
+    }
+}
 
 #[cfg(any(esp32, esp32s2, esp32s3))]
 impl TouchDriver {
     pub fn new(config: TouchConfig) -> Result<Self, EspError> {
         unsafe {
             esp!(touch_pad_init())?;
-            for pad in config.configured_pads {
-                esp!(touch_pad_config(pad.into()))?;
-            }
-            esp!(touch_pad_set_fsm_mode(config.fsm_mode.into()))?;
+        }
+
+        Ok(TouchDriver { config })
+    }
+
+    pub fn start(&mut self) -> Result<(), EspError> {
+        unsafe {
+            esp!(touch_pad_set_fsm_mode(self.config.borrow().fsm_mode.into()))?;
             esp!(touch_pad_fsm_start())?;
         }
 
-        Ok(TouchDriver {})
-    }
-
-    pub fn read_raw_data(&mut self, pad: TouchPad) -> Result<u32, EspError> {
-        let mut raw: u32 = 0;
-        let result = esp!(unsafe { touch_pad_read_raw_data(pad.into(), &mut raw) });
-        result.map(|_| raw)
+        Ok(())
     }
 }
