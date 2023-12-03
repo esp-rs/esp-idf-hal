@@ -597,14 +597,14 @@ impl<'d> TxRmtDriver<'d> {
     }
 
     /// Start sending the given signal while blocking.
-    pub fn start_blocking<S>(&mut self, signal: &S) -> Result<(), EspError>
+    pub fn start_blocking<S: ?Sized>(&mut self, signal: &S) -> Result<(), EspError>
     where
         S: Signal,
     {
         self.write_items(signal, true)
     }
 
-    fn write_items<S>(&mut self, signal: &S, block: bool) -> Result<(), EspError>
+    fn write_items<S: ?Sized>(&mut self, signal: &S, block: bool) -> Result<(), EspError>
     where
         S: Signal,
     {
@@ -775,6 +775,12 @@ unsafe impl<'d> Send for TxRmtDriver<'d> {}
 /// Signal storage for [`Transmit`] in a format ready for the RMT driver.
 pub trait Signal {
     fn as_slice(&self) -> &[rmt_item32_t];
+}
+
+impl Signal for [rmt_item32_t] {
+    fn as_slice(&self) -> &[rmt_item32_t] {
+        self
+    }
 }
 
 /// Stack based signal storage for an RMT signal.
