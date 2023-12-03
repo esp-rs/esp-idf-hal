@@ -109,10 +109,6 @@ where
         let result = esp!(unsafe { touch_pad_read_raw_data(self.borrow().pad.into(), &mut raw) });
         result.map(|_| raw)
     }
-
-    pub fn stop(&mut self) -> Result<(), EspError> {
-        self.touch.borrow_mut().stop()
-    }
 }
 
 #[cfg(any(esp32, esp32s2, esp32s3))]
@@ -133,9 +129,11 @@ impl TouchDriver {
 
         Ok(())
     }
+}
 
-    pub fn stop(&mut self) -> Result<(), EspError> {
-        esp!(unsafe { touch_pad_fsm_stop() })?;
-        Ok(())
+#[cfg(any(esp32, esp32s2, esp32s3))]
+impl Drop for TouchDriver {
+    fn drop(&mut self) {
+        unsafe { touch_pad_fsm_stop() };
     }
 }
