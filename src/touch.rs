@@ -123,7 +123,7 @@ impl TouchDriver {
 
     pub fn start(&mut self) -> Result<(), EspError> {
         unsafe {
-            esp!(touch_pad_set_fsm_mode(self.config.borrow().fsm_mode.into()))?;
+            esp!(touch_pad_set_fsm_mode(self.config.fsm_mode.into()))?;
             esp!(touch_pad_fsm_start())?;
         }
 
