@@ -1,14 +1,15 @@
-use core::borrow::Borrow;
+use core::borrow::{Borrow, BorrowMut};
 
 use esp_idf_sys::{
     esp, touch_fsm_mode_t, touch_fsm_mode_t_TOUCH_FSM_MODE_MAX, touch_fsm_mode_t_TOUCH_FSM_MODE_SW,
-    touch_fsm_mode_t_TOUCH_FSM_MODE_TIMER, touch_pad_config, touch_pad_fsm_start, touch_pad_init,
-    touch_pad_read_raw_data, touch_pad_set_fsm_mode, touch_pad_t, touch_pad_t_TOUCH_PAD_NUM0,
-    touch_pad_t_TOUCH_PAD_NUM1, touch_pad_t_TOUCH_PAD_NUM10, touch_pad_t_TOUCH_PAD_NUM11,
-    touch_pad_t_TOUCH_PAD_NUM12, touch_pad_t_TOUCH_PAD_NUM13, touch_pad_t_TOUCH_PAD_NUM14,
-    touch_pad_t_TOUCH_PAD_NUM2, touch_pad_t_TOUCH_PAD_NUM3, touch_pad_t_TOUCH_PAD_NUM4,
-    touch_pad_t_TOUCH_PAD_NUM5, touch_pad_t_TOUCH_PAD_NUM6, touch_pad_t_TOUCH_PAD_NUM7,
-    touch_pad_t_TOUCH_PAD_NUM8, touch_pad_t_TOUCH_PAD_NUM9, EspError,
+    touch_fsm_mode_t_TOUCH_FSM_MODE_TIMER, touch_pad_config, touch_pad_fsm_start,
+    touch_pad_fsm_stop, touch_pad_init, touch_pad_read_raw_data, touch_pad_set_fsm_mode,
+    touch_pad_t, touch_pad_t_TOUCH_PAD_NUM0, touch_pad_t_TOUCH_PAD_NUM1,
+    touch_pad_t_TOUCH_PAD_NUM10, touch_pad_t_TOUCH_PAD_NUM11, touch_pad_t_TOUCH_PAD_NUM12,
+    touch_pad_t_TOUCH_PAD_NUM13, touch_pad_t_TOUCH_PAD_NUM14, touch_pad_t_TOUCH_PAD_NUM2,
+    touch_pad_t_TOUCH_PAD_NUM3, touch_pad_t_TOUCH_PAD_NUM4, touch_pad_t_TOUCH_PAD_NUM5,
+    touch_pad_t_TOUCH_PAD_NUM6, touch_pad_t_TOUCH_PAD_NUM7, touch_pad_t_TOUCH_PAD_NUM8,
+    touch_pad_t_TOUCH_PAD_NUM9, EspError,
 };
 
 #[cfg(any(esp32, esp32s2, esp32s3))]
@@ -84,7 +85,7 @@ pub struct TouchDriver {
 
 pub struct TouchPadDriver<T>
 where
-    T: Borrow<TouchDriver>,
+    T: BorrowMut<TouchDriver>,
 {
     touch: T,
     pad: TouchPad,
@@ -101,12 +102,16 @@ impl TouchPadDriver<TouchDriver> {
 
 impl<T> TouchPadDriver<T>
 where
-    T: Borrow<TouchDriver>,
+    T: BorrowMut<TouchDriver>,
 {
     pub fn read_raw_data(&self) -> Result<u32, EspError> {
         let mut raw: u32 = 0;
         let result = esp!(unsafe { touch_pad_read_raw_data(self.borrow().pad.into(), &mut raw) });
         result.map(|_| raw)
+    }
+
+    pub fn stop(&mut self) -> Result<(), EspError> {
+        self.touch.borrow_mut().stop()
     }
 }
 
@@ -126,6 +131,11 @@ impl TouchDriver {
             esp!(touch_pad_fsm_start())?;
         }
 
+        Ok(())
+    }
+
+    pub fn stop(&mut self) -> Result<(), EspError> {
+        esp!(unsafe { touch_pad_fsm_stop() })?;
         Ok(())
     }
 }
