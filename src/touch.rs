@@ -87,7 +87,7 @@ pub struct TouchPadDriver<T>
 where
     T: BorrowMut<TouchDriver>,
 {
-    touch: T,
+    _touch: T,
     pad: TouchPad,
 }
 
@@ -96,7 +96,7 @@ impl TouchPadDriver<TouchDriver> {
         let mut touch = TouchDriver::new(config)?;
         esp!(unsafe { touch_pad_config(pad.into()) })?;
         touch.start()?;
-        Ok(Self { touch, pad })
+        Ok(Self { _touch: touch, pad })
     }
 }
 
@@ -134,6 +134,6 @@ impl TouchDriver {
 #[cfg(any(esp32, esp32s2, esp32s3))]
 impl Drop for TouchDriver {
     fn drop(&mut self) {
-        unsafe { touch_pad_fsm_stop() };
+        esp!(unsafe { touch_pad_fsm_stop() }).unwrap()
     }
 }
