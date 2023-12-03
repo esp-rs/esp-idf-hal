@@ -151,6 +151,21 @@ impl Pulse {
         let ticks = PulseTicks::new_with_duration(ticks_hz, duration)?;
         Ok(Self::new(pin_state, ticks))
     }
+
+    pub fn into_rmt_item(level0: Self, level1: Self) -> rmt_item32_t {
+        let mut inner_item = rmt_item32_t__bindgen_ty_1__bindgen_ty_1::default();
+
+        inner_item.set_level0(level0.pin_state as u32);
+        inner_item.set_duration0(level0.ticks.ticks() as u32);
+        inner_item.set_level1(level1.pin_state as u32);
+        inner_item.set_duration1(level1.ticks.ticks() as u32);
+
+        rmt_item32_t {
+            __bindgen_anon_1: rmt_item32_t__bindgen_ty_1 {
+                __bindgen_anon_1: inner_item,
+            },
+        }
+    }
 }
 
 impl Default for Pulse {
