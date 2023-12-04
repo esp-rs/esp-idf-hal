@@ -12,7 +12,6 @@ use esp_idf_sys::{
     touch_pad_t_TOUCH_PAD_NUM9, EspError,
 };
 
-#[cfg(any(esp32, esp32s2, esp32s3))]
 #[derive(Copy, Clone)]
 pub enum FsmMode {
     Timer,
@@ -20,7 +19,6 @@ pub enum FsmMode {
     Max,
 }
 
-#[cfg(any(esp32, esp32s2, esp32s3))]
 impl From<FsmMode> for touch_fsm_mode_t {
     fn from(value: FsmMode) -> Self {
         match value {
@@ -31,7 +29,6 @@ impl From<FsmMode> for touch_fsm_mode_t {
     }
 }
 
-#[cfg(any(esp32, esp32s2, esp32s3))]
 #[derive(Copy, Clone)]
 pub enum TouchPad {
     Pad0,
@@ -51,7 +48,6 @@ pub enum TouchPad {
     Pad14,
 }
 
-#[cfg(any(esp32, esp32s2, esp32s3))]
 impl From<TouchPad> for touch_pad_t {
     fn from(value: TouchPad) -> Self {
         match value {
@@ -78,7 +74,6 @@ pub struct TouchConfig {
     fsm_mode: FsmMode,
 }
 
-#[cfg(any(esp32, esp32s2, esp32s3))]
 pub struct TouchDriver {
     config: TouchConfig,
 }
@@ -111,7 +106,6 @@ where
     }
 }
 
-#[cfg(any(esp32, esp32s2, esp32s3))]
 impl TouchDriver {
     pub fn new(config: TouchConfig) -> Result<Self, EspError> {
         unsafe {
@@ -131,7 +125,6 @@ impl TouchDriver {
     }
 }
 
-#[cfg(any(esp32, esp32s2, esp32s3))]
 impl Drop for TouchDriver {
     fn drop(&mut self) {
         esp!(unsafe { touch_pad_fsm_stop() }).unwrap()
