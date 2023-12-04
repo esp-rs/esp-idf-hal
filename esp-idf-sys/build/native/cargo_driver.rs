@@ -568,7 +568,7 @@ pub fn build() -> Result<EspIdfBuildOutput> {
         .value
         .split(';')
         .filter_map(|comp| match comp.trim() {
-            c if c.is_empty() => None,
+            "" => None,
             c => Some(c.to_string()),
         })
         .collect::<Vec<_>>();
