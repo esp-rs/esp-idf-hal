@@ -369,7 +369,7 @@ impl<'d> SpiDriver<'d> {
         _spi: impl Peripheral<P = SPI> + 'd,
         sclk: impl Peripheral<P = impl OutputPin> + 'd,
         sdo: impl Peripheral<P = impl OutputPin> + 'd,
-        sdi: Option<impl Peripheral<P = impl InputPin + OutputPin> + 'd>,
+        sdi: Option<impl Peripheral<P = impl InputPin> + 'd>,
         config: &config::DriverConfig,
     ) -> Result<Self, EspError> {
         let max_transfer_size = Self::new_internal(SPI::device(), sclk, sdo, sdi, config)?;
@@ -390,7 +390,7 @@ impl<'d> SpiDriver<'d> {
         host: spi_host_device_t,
         sclk: impl Peripheral<P = impl OutputPin> + 'd,
         sdo: impl Peripheral<P = impl OutputPin> + 'd,
-        sdi: Option<impl Peripheral<P = impl InputPin + OutputPin> + 'd>,
+        sdi: Option<impl Peripheral<P = impl InputPin> + 'd>,
         config: &config::DriverConfig,
     ) -> Result<usize, EspError> {
         crate::into_ref!(sclk, sdo);
@@ -760,7 +760,7 @@ impl<'d> SpiDeviceDriver<'d, SpiDriver<'d>> {
         spi: impl Peripheral<P = SPI> + 'd,
         sclk: impl Peripheral<P = impl OutputPin> + 'd,
         sdo: impl Peripheral<P = impl OutputPin> + 'd,
-        sdi: Option<impl Peripheral<P = impl InputPin + OutputPin> + 'd>,
+        sdi: Option<impl Peripheral<P = impl InputPin> + 'd>,
         cs: Option<impl Peripheral<P = impl OutputPin> + 'd>,
         bus_config: &config::DriverConfig,
         config: &config::Config,
