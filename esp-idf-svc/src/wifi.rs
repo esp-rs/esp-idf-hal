@@ -1366,6 +1366,30 @@ impl<'d> EspWifi<'d> {
         Ok((old_sta, old_ap))
     }
 
+    /// Replaces the STA network interface with the provided one and returns the
+    /// existing network interface.
+    pub fn swap_netif_sta(&mut self, sta_netif: EspNetif) -> Result<EspNetif, EspError> {
+        self.detach_netif()?;
+
+        let old = core::mem::replace(&mut self.sta_netif, sta_netif);
+
+        self.attach_netif()?;
+
+        Ok(old)
+    }
+
+    /// Replaces the AP network interface with the provided one and returns the
+    /// existing network interface.
+    pub fn swap_netif_ap(&mut self, ap_netif: EspNetif) -> Result<EspNetif, EspError> {
+        self.detach_netif()?;
+
+        let old = core::mem::replace(&mut self.ap_netif, ap_netif);
+
+        self.attach_netif()?;
+
+        Ok(old)
+    }
+
     /// Returns the underlying [`WifiDriver`]
     pub fn driver(&self) -> &WifiDriver<'d> {
         &self.driver
