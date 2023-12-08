@@ -10,15 +10,52 @@ use crate::private::cstr::*;
 
 /// Exposes the newlib stdout file descriptor to allow writing formatted
 /// messages to stdout without a std dependency or allocation
-struct EspStdout;
+///
+/// Does lock the `stdout` file descriptor on `new` and does release the lock on `drop`,
+/// so that the logging does not get interleaved with other output due to multithreading
+struct EspStdout(*mut FILE);
+
+impl EspStdout {
+    fn new() -> Self {
+        let stdout = unsafe { __getreent().as_mut() }.unwrap()._stdout;
+
+        let file = unsafe { stdout.as_mut() }.unwrap();
+
+        // Copied from here:
+        // https://github.com/bminor/newlib/blob/master/newlib/libc/stdio/local.h#L80
+        // https://github.com/bminor/newlib/blob/3bafe2fae7a0878598a82777c623edb2faa70b74/newlib/libc/include/sys/stdio.h#L13
+        if (file._flags2 & __SNLK as i32) == 0 && (file._flags & __SSTR as i16) == 0 {
+            unsafe {
+                _lock_acquire_recursive(&mut file._lock);
+            }
+        }
+
+        Self(stdout)
+    }
+}
+
+impl Drop for EspStdout {
+    fn drop(&mut self) {
+        let file = unsafe { self.0.as_mut() }.unwrap();
+
+        // Copied from here:
+        // https://github.com/bminor/newlib/blob/master/newlib/libc/stdio/local.h#L85
+        // https://github.com/bminor/newlib/blob/3bafe2fae7a0878598a82777c623edb2faa70b74/newlib/libc/include/sys/stdio.h#L21
+        if (file._flags2 & __SNLK as i32) == 0 && (file._flags & __SSTR as i16) == 0 {
+            unsafe {
+                _lock_release_recursive(&mut file._lock);
+            }
+        }
+    }
+}
 
 impl core::fmt::Write for EspStdout {
     fn write_str(&mut self, s: &str) -> core::fmt::Result {
-        let stdout = unsafe { __getreent().as_mut() }.unwrap()._stdout;
         let slice = s.as_bytes();
         unsafe {
-            fwrite(slice.as_ptr() as *const _, 1, slice.len() as u32, stdout);
+            fwrite(slice.as_ptr() as *const _, 1, slice.len() as u32, self.0);
         }
+
         Ok(())
     }
 }
@@ -187,28 +224,26 @@ impl ::log::Log for EspLogger {
     }
 
     fn log(&self, record: &Record) {
-        if self.enabled(record.metadata()) && Self::should_log(record) {
-            if let Some(color) = Self::get_color(record.level()) {
+        let metadata = record.metadata();
+
+        if self.enabled(metadata) && Self::should_log(record) {
+            let marker = Self::get_marker(metadata.level());
+            let timestamp = unsafe { esp_log_timestamp() };
+            let target = record.metadata().target();
+            let args = record.args();
+            let color = Self::get_color(record.level());
+
+            let mut stdout = EspStdout::new();
+
+            if let Some(color) = color {
                 writeln!(
-                    EspStdout,
+                    stdout,
                     "\x1b[0;{}m{} ({}) {}: {}\x1b[0m",
-                    color,
-                    Self::get_marker(record.metadata().level()),
-                    unsafe { esp_log_timestamp() },
-                    record.metadata().target(),
-                    record.args()
+                    color, marker, timestamp, target, args
                 )
                 .unwrap();
             } else {
-                writeln!(
-                    EspStdout,
-                    "{} ({}) {}: {}",
-                    Self::get_marker(record.metadata().level()),
-                    unsafe { esp_log_timestamp() },
-                    record.metadata().target(),
-                    record.args()
-                )
-                .unwrap();
+                writeln!(stdout, "{} ({}) {}: {}", marker, timestamp, target, args).unwrap();
             }
         }
     }
