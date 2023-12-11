@@ -5,6 +5,9 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [?.??.?] - ????-??-??
+* #351 - Remove the `OutputPin` requirement from SPI SDI pin
+
 ## [0.42.5] - 2023-11-12
 * BREAKING CHANGE IN A PATCH RELEASE DUE TO DISCOVERED UB: The `subscribe` methods in drivers `PinDriver`, `PcntDriver` and `TimerDriver` 
 no longer accept non-static callbacks, as these lead to UB / crash when the driver is forgotten with e.g. `core::mem::forget`. Since local borrows
