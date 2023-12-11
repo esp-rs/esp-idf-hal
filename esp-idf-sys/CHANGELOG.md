@@ -5,9 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.33.?] - 2023-??-??
-* Expose raw bindings for the `esp_lcd` component (#216)
-* Copy bootloader and partition table to target folder (#264)
+## [?.??.?] - ????-??-??
+* #264 - Copy the bootloader and partition table binaries to the target folder
+* #262 - Bindings for the `esp_lcd` driver component
+* #259 - Bindings for the temperature sensor driver
+* #261 - Build time optimization - do not download Rust crates not needed for the host platform
+* #257 - Make builds utilizing the `esp_app_desc` component reproducible
 
 ## [0.33.7] - 2023-11-08
 * Workaround for https://github.com/esp-rs/esp-idf-svc/issues/312
