@@ -6,6 +6,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [?.??.?] - ????-??-??
+* #316 - BREAKING CHANGE addressing a typo - `http::server::Configuration::max_resp_handlers` renamed to `http::server::Configuration::max_resp_headers`
+* #319 - Set default TTL in `EspPing` to 64
+* #322 - Fix MQTT PSK code (did not compile)
+* #323 - ETH example with a statically configured IP
+* #324 - New methods in `EspWifi` to swap STA and AP netifs separately from each other
 * #326 - logging from multiple threads in Rust/ESP-IDF no longer results in intermixed logs
 
 ## [0.47.3] - 2023-11-12
