@@ -60,9 +60,19 @@
 #include "esp_timer.h"
 #endif
 
+#if ESP_IDF_VERSION_MAJOR > 4
+#ifdef ESP_IDF_COMP_SPI_FLASH_ENABLED
+#include "esp_flash.h"
+#include "esp_spi_flash.h"
+#endif
+#ifdef ESP_IDF_COMP_ESP_PARTITION
+#include "esp_partition.h"
+#endif
+#else
 #ifdef ESP_IDF_COMP_SPI_FLASH_ENABLED
 #include "esp_spi_flash.h"
 #include "esp_partition.h"
+#endif
 #endif
 
 #if defined(ESP_IDF_COMP_ESP_ADC_CAL_ENABLED) || defined(ESP_IDF_COMP_ESP_ADC_ENABLED)
