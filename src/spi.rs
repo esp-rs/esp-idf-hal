@@ -1091,7 +1091,7 @@ where
                 spi_transfer_in_place_transactions(words, chunk_size)
                     .map(SpiOperation::Transaction),
             ),
-            Operation::DelayUs(delay) => {
+            Operation::DelayNs(delay) => {
                 OperationsIter::Delay(core::iter::once(SpiOperation::Delay(delay)))
             }
         })
@@ -1898,7 +1898,7 @@ fn copy_operation<'b>(operation: &'b mut Operation<'_, u8>) -> Operation<'b, u8>
         Operation::Write(write) => Operation::Write(write),
         Operation::Transfer(read, write) => Operation::Transfer(read, write),
         Operation::TransferInPlace(write) => Operation::TransferInPlace(write),
-        Operation::DelayUs(delay) => Operation::DelayUs(*delay),
+        Operation::DelayNs(delay) => Operation::DelayNs(*delay),
     }
 }
 

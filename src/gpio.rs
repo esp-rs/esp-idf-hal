@@ -1393,11 +1393,11 @@ impl<'d, T: Pin, MODE> embedded_hal::digital::InputPin for PinDriver<'d, T, MODE
 where
     MODE: InputMode,
 {
-    fn is_high(&self) -> Result<bool, Self::Error> {
+    fn is_high(&mut self) -> Result<bool, Self::Error> {
         Ok(PinDriver::is_high(self))
     }
 
-    fn is_low(&self) -> Result<bool, Self::Error> {
+    fn is_low(&mut self) -> Result<bool, Self::Error> {
         Ok(PinDriver::is_low(self))
     }
 }
@@ -1434,11 +1434,11 @@ impl<'d, T: Pin, MODE> embedded_hal::digital::StatefulOutputPin for PinDriver<'d
 where
     MODE: OutputMode,
 {
-    fn is_set_high(&self) -> Result<bool, Self::Error> {
+    fn is_set_high(&mut self) -> Result<bool, Self::Error> {
         Ok(self.get_output_level().into())
     }
 
-    fn is_set_low(&self) -> Result<bool, Self::Error> {
+    fn is_set_low(&mut self) -> Result<bool, Self::Error> {
         Ok(!bool::from(self.get_output_level()))
     }
 }

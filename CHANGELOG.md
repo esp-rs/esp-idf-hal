@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [?.??.?] - ????-??-??
 * #351 - Remove the `OutputPin` requirement from SPI SDI pin
+* Update embeddedl-hal to v1.0.0-rc.3
+* Update embeddedl-hal-async to v1.0.0-rc.3
+* Breaking change duo to embedded-hal update: see [Changelog](https://github.com/rust-embedded/embedded-hal/blob/master/embedded-hal/CHANGELOG.md) of  v1.0.0-rc.3 for the breaking changes
+* Breaking change duo to embeddedl-hal-async update: see [Changelog](https://github.com/rust-embedded/embedded-hal/blob/master/embedded-hal-async/CHANGELOG.md) of  v1.0.0-rc.3 for the breaking changes
 
 ## [0.42.5] - 2023-11-12
 * BREAKING CHANGE IN A PATCH RELEASE DUE TO DISCOVERED UB: The `subscribe` methods in drivers `PinDriver`, `PcntDriver` and `TimerDriver` 

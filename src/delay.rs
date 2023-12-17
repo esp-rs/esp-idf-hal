@@ -148,7 +148,11 @@ impl embedded_hal_0_2::blocking::delay::DelayMs<u8> for Ets {
     }
 }
 
-impl embedded_hal::delay::DelayUs for Ets {
+impl embedded_hal::delay::DelayNs for Ets {
+    fn delay_ns(&mut self, ns: u32) {
+        Ets::delay_us(ns / 1000);
+    }
+
     fn delay_us(&mut self, us: u32) {
         Ets::delay_us(us)
     }
@@ -218,7 +222,11 @@ impl embedded_hal_0_2::blocking::delay::DelayMs<u8> for FreeRtos {
     }
 }
 
-impl embedded_hal::delay::DelayUs for FreeRtos {
+impl embedded_hal::delay::DelayNs for FreeRtos {
+    fn delay_ns(&mut self, ns: u32) {
+        FreeRtos::delay_us(ns / 1000);
+    }
+
     fn delay_us(&mut self, us: u32) {
         FreeRtos::delay_us(us)
     }
@@ -260,7 +268,11 @@ impl Delay {
     }
 }
 
-impl embedded_hal::delay::DelayUs for Delay {
+impl embedded_hal::delay::DelayNs for Delay {
+    fn delay_ns(&mut self, ns: u32) {
+        Delay::delay_us(self, ns / 1000);
+    }
+
     fn delay_us(&mut self, us: u32) {
         Delay::delay_us(self, us)
     }
