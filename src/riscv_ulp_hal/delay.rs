@@ -39,7 +39,14 @@ impl embedded_hal_0_2::blocking::delay::DelayMs<u8> for Ulp {
     }
 }
 
-impl embedded_hal::delay::DelayUs for Ulp {
+impl embedded_hal::delay::DelayNs for Ulp {
+    // per e-hal its ok to delay for at least that amount of time, longer is fine
+    // from ULP_RISCV_CYCLES_PER_US_NUM / ULP_RISCV_CYCLES_PER_US_DENUM we get 8.5 cycles per us
+    // so the minimal delay is ~118 ns
+    fn delay_ns(&mut self, ns: u32) {
+        delay_cycles(ns);
+    }
+
     fn delay_us(&mut self, us: u32) {
         delay_cycles(us * ULP_RISCV_CYCLES_PER_US_NUM / ULP_RISCV_CYCLES_PER_US_DENUM)
     }
