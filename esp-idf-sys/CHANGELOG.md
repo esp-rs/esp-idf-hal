@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * #259 - Bindings for the temperature sensor driver
 * #261 - Build time optimization - do not download Rust crates not needed for the host platform
 * #257 - Make builds utilizing the `esp_app_desc` component reproducible
+* (Bugfix) Re-expose raw bindings for the `esp_flash` component on ESP IDF 5+
 
 ## [0.33.7] - 2023-11-08
 * Workaround for https://github.com/esp-rs/esp-idf-svc/issues/312
