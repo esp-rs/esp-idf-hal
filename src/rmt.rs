@@ -641,7 +641,7 @@ impl<'d> TxRmtDriver<'d> {
     #[cfg(feature = "alloc")]
     pub fn start_iter<T>(&mut self, iter: T) -> Result<(), EspError>
     where
-        T: Iterator<Item = rmt_item32_t> + Send + 'static,
+        T: Iterator<Item = Symbol> + Send + 'static,
     {
         let iter = alloc::boxed::Box::new(UnsafeCell::new(iter));
         unsafe {
@@ -675,7 +675,7 @@ impl<'d> TxRmtDriver<'d> {
 
     pub fn start_iter_blocking<T>(&mut self, iter: T) -> Result<(), EspError>
     where
-        T: Iterator<Item = rmt_item32_t> + Send,
+        T: Iterator<Item = Symbol> + Send,
     {
         let iter = UnsafeCell::new(iter);
         unsafe {
@@ -719,7 +719,7 @@ impl<'d> TxRmtDriver<'d> {
         translated_size: *mut usize,
         item_num: *mut usize,
     ) where
-        T: Iterator<Item = rmt_item32_t>,
+        T: Iterator<Item = Symbol>,
     {
         // An `UnsafeCell` is needed here because we're casting a `*const` to a `*mut`.
         // Safe because this is the only existing reference.
@@ -732,7 +732,7 @@ impl<'d> TxRmtDriver<'d> {
             }
 
             if let Some(item) = iter.next() {
-                *dest = item;
+                *dest = item.0;
                 dest = dest.add(1);
                 i += 1;
             } else {
@@ -786,6 +786,36 @@ impl<'d> Drop for TxRmtDriver<'d> {
 }
 
 unsafe impl<'d> Send for TxRmtDriver<'d> {}
+
+/// Symbols
+///
+/// Represents a single pulse cycle symbol comprised of mark (high)
+/// and space (low) periods in either order or a fixed level if both
+/// halves have the same [`PinState`]. This is just a newtype over the
+/// IDF's `rmt_item32_t` or `rmt_symbol_word_t` type.
+pub struct Symbol(rmt_item32_t);
+
+impl Symbol {
+    /// Create a symbol from a pair of half-cycles.
+    pub fn new(pair: &(Pulse, Pulse)) -> Self {
+        let item = rmt_item32_t {
+            __bindgen_anon_1: rmt_item32_t__bindgen_ty_1 { val: 0 },
+        };
+        let mut this = Self(item);
+        this.update(pair);
+        this
+    }
+
+    /// Mutate this symbol to store a different pair of half-cycles.
+    pub fn update(&mut self, pair: &(Pulse, Pulse)) {
+        // SAFETY: We're overriding all 32 bits, so it doesn't matter what was here before.
+        let inner = unsafe { &mut self.0.__bindgen_anon_1.__bindgen_anon_1 };
+        inner.set_level0(pair.0.pin_state as u32);
+        inner.set_duration0(pair.0.ticks.0 as u32);
+        inner.set_level1(pair.1.pin_state as u32);
+        inner.set_duration1(pair.1.ticks.0 as u32);
+    }
+}
 
 /// Signal storage for [`Transmit`] in a format ready for the RMT driver.
 pub trait Signal {
@@ -847,13 +877,7 @@ impl<const N: usize> FixedLengthSignal<N> {
             .get_mut(index)
             .ok_or_else(|| EspError::from(ERR_ERANGE).unwrap())?;
 
-        // SAFETY: We're overriding all 32 bits, so it doesn't matter what was here before.
-        let inner = unsafe { &mut item.__bindgen_anon_1.__bindgen_anon_1 };
-        inner.set_level0(pair.0.pin_state as u32);
-        inner.set_duration0(pair.0.ticks.0 as u32);
-        inner.set_level1(pair.1.pin_state as u32);
-        inner.set_duration1(pair.1.ticks.0 as u32);
-
+        Symbol(*item).update(pair);
         Ok(())
     }
 }
