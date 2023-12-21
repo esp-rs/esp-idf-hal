@@ -376,7 +376,7 @@ pub enum Alert {
 }
 
 /// CAN abstraction
-pub struct CanDriver<'d>(PeripheralRef<'d, CAN>, EnumSet<Alert>);
+pub struct CanDriver<'d>(PeripheralRef<'d, CAN>, EnumSet<Alert>, bool);
 
 impl<'d> CanDriver<'d> {
     pub fn new(
@@ -430,7 +430,7 @@ impl<'d> CanDriver<'d> {
 
         esp!(unsafe { twai_driver_install(&general_config, &timing_config, &filter_config) })?;
 
-        Ok(Self(can, config.alerts))
+        Ok(Self(can, config.alerts, config.tx_queue_len > 0))
     }
 
     pub fn start(&mut self) -> Result<(), EspError> {
@@ -640,7 +640,12 @@ where
 
             match res {
                 Ok(()) => return Ok(()),
-                Err(e) if e.code() != ESP_ERR_TIMEOUT => return Err(e),
+                Err(e)
+                    if e.code() != ESP_ERR_TIMEOUT
+                        && (e.code() != ESP_FAIL || self.driver.borrow().2) =>
+                {
+                    return Err(e)
+                }
                 _ => (),
             }
 
