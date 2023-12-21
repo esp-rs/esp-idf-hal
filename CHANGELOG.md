@@ -7,6 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [?.??.?] - ????-??-??
 * #351 - Remove the `OutputPin` requirement from SPI SDI pin
+* #350 - Not checking for ESP_FAIL in AsyncCanDriver::transmit
 
 ## [0.42.5] - 2023-11-12
 * BREAKING CHANGE IN A PATCH RELEASE DUE TO DISCOVERED UB: The `subscribe` methods in drivers `PinDriver`, `PcntDriver` and `TimerDriver` 
