@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * #323 - ETH example with a statically configured IP
 * #324 - New methods in `EspWifi` to swap STA and AP netifs separately from each other
 * #326 - logging from multiple threads in Rust/ESP-IDF no longer results in intermixed logs
+* #331 - Add support for WPS
 
 ## [0.47.3] - 2023-11-12
 * BREAKING CHANGE IN A PATCH RELEASE DUE TO DISCOVERED UB: All constructors and methods in the Classic BT services, as well as in

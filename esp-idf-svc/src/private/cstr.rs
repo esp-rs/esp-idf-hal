@@ -9,14 +9,20 @@ use core::str::Utf8Error;
 
 use crate::sys::{EspError, ESP_ERR_INVALID_SIZE};
 
-#[cfg(feature = "alloc")]
-pub fn set_str(buf: &mut [u8], s: &str) -> Result<(), crate::sys::EspError> {
-    assert!(s.len() < buf.len());
-    let cs = to_cstring_arg(s)?;
-    let ss: &[u8] = cs.as_bytes_with_nul();
-    buf[..ss.len()].copy_from_slice(ss);
+pub fn set_str(buf: &mut [u8], s: &str) -> Result<(), EspError> {
+    if s.len() >= buf.len() {
+        return Err(EspError::from_infallible::<ESP_ERR_INVALID_SIZE>());
+    }
+
+    buf[..s.len()].copy_from_slice(s.as_bytes());
+    buf[s.len()] = 0;
 
     Ok(())
+}
+
+pub fn c_char_to_u8_slice_mut(s: &mut [c_char]) -> &mut [u8] {
+    let s_ptr = unsafe { s.as_mut_ptr() as *mut u8 };
+    unsafe { core::slice::from_raw_parts_mut(s_ptr, s.len()) }
 }
 
 pub unsafe fn from_cstr_ptr<'a>(ptr: *const c_char) -> &'a str {
