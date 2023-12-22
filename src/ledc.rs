@@ -109,12 +109,14 @@ pub struct LedcTimerDriver<'d> {
 
 impl<'d> LedcTimerDriver<'d> {
     pub fn new<T: LedcTimer>(
-        _timer: impl Peripheral<P = T> + 'd,
+        timer: impl Peripheral<P = T> + 'd,
         config: &config::TimerConfig,
     ) -> Result<Self, EspError> {
+        crate::into_ref!(timer);
+
         let timer_config = ledc_timer_config_t {
             speed_mode: config.speed_mode.into(),
-            timer_num: T::timer(),
+            timer_num: timer.timer(),
             #[cfg(esp_idf_version_major = "4")]
             __bindgen_anon_1: ledc_timer_config_t__bindgen_ty_1 {
                 duty_resolution: config.resolution.timer_bits(),
@@ -138,7 +140,7 @@ impl<'d> LedcTimerDriver<'d> {
         esp!(unsafe { ledc_timer_config(&timer_config) })?;
 
         Ok(Self {
-            timer: T::timer() as _,
+            timer: timer.timer() as _,
             speed_mode: config.speed_mode,
             max_duty: config.resolution.max_duty(),
             _p: PhantomData,
@@ -200,18 +202,18 @@ pub struct LedcDriver<'d> {
 impl<'d> LedcDriver<'d> {
     /// Creates a new LED Control driver
     pub fn new<C: LedcChannel, B: Borrow<LedcTimerDriver<'d>>>(
-        _channel: impl Peripheral<P = C> + 'd,
+        channel: impl Peripheral<P = C> + 'd,
         timer_driver: B,
         pin: impl Peripheral<P = impl OutputPin> + 'd,
     ) -> Result<Self, EspError> {
-        crate::into_ref!(pin);
+        crate::into_ref!(channel, pin);
 
         let duty = 0;
         let hpoint = 0;
 
         let channel_config = ledc_channel_config_t {
             speed_mode: timer_driver.borrow().speed_mode.into(),
-            channel: C::channel(),
+            channel: channel.channel(),
             timer_sel: timer_driver.borrow().timer(),
             intr_type: ledc_intr_type_t_LEDC_INTR_DISABLE,
             gpio_num: pin.pin(),
@@ -246,7 +248,7 @@ impl<'d> LedcDriver<'d> {
             speed_mode: timer_driver.borrow().speed_mode,
             max_duty: timer_driver.borrow().max_duty,
             timer: timer_driver.borrow().timer() as _,
-            channel: C::channel() as _,
+            channel: channel.channel() as _,
             _p: PhantomData,
         })
     }
@@ -522,12 +524,51 @@ mod chip {
 
     /// LED Control peripheral timer
     pub trait LedcTimer {
-        fn timer() -> ledc_timer_t;
+        fn timer(&self) -> ledc_timer_t;
+    }
+
+    pub struct AnyLedcTimer {
+        timer_id: ledc_timer_t,
+    }
+    impl AnyLedcTimer {
+        /// # Safety
+        ///
+        /// Care should be taken not to instantiate this timer
+        /// if it is already instantiated and used elsewhere
+        pub unsafe fn new(timer_id: ledc_timer_t) -> Self {
+            Self { timer_id }
+        }
+    }
+    crate::impl_peripheral_trait!(AnyLedcTimer);
+    impl LedcTimer for AnyLedcTimer {
+        fn timer(&self) -> ledc_timer_t {
+            self.timer_id
+        }
     }
 
     /// LED Control peripheral output channel
     pub trait LedcChannel {
-        fn channel() -> ledc_channel_t;
+        fn channel(&self) -> ledc_channel_t;
+    }
+
+    /// Any LED Control peripheral output channel
+    pub struct AnyLedcChannel {
+        channel_id: ledc_channel_t,
+    }
+    impl AnyLedcChannel {
+        /// # Safety
+        ///
+        /// Care should be taken not to instantiate this channel
+        /// if it is already instantiated and used elsewhere
+        pub unsafe fn new(channel_id: ledc_channel_t) -> Self {
+            Self { channel_id }
+        }
+    }
+    crate::impl_peripheral_trait!(AnyLedcChannel);
+    impl LedcChannel for AnyLedcChannel {
+        fn channel(&self) -> ledc_channel_t {
+            self.channel_id
+        }
     }
 
     macro_rules! impl_timer {
@@ -535,8 +576,14 @@ mod chip {
             crate::impl_peripheral!($instance);
 
             impl LedcTimer for $instance {
-                fn timer() -> ledc_timer_t {
+                fn timer(&self) -> ledc_timer_t {
                     $timer
+                }
+            }
+
+            impl From<$instance> for AnyLedcTimer {
+                fn from(_: $instance) -> Self {
+                    unsafe { Self::new($timer) }
                 }
             }
         };
@@ -552,8 +599,14 @@ mod chip {
             crate::impl_peripheral!($instance);
 
             impl LedcChannel for $instance {
-                fn channel() -> ledc_channel_t {
+                fn channel(&self) -> ledc_channel_t {
                     $channel
+                }
+            }
+
+            impl From<$instance> for AnyLedcChannel {
+                fn from(_: $instance) -> Self {
+                    unsafe { Self::new($channel) }
                 }
             }
         };
