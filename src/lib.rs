@@ -80,6 +80,8 @@ pub mod sys;
 #[cfg(not(feature = "riscv-ulp-hal"))]
 pub mod task;
 #[cfg(not(feature = "riscv-ulp-hal"))]
+pub mod temp_sensor;
+#[cfg(not(feature = "riscv-ulp-hal"))]
 pub mod timer;
 #[cfg(not(feature = "riscv-ulp-hal"))]
 pub mod uart;

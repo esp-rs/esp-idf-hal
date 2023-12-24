@@ -33,6 +33,9 @@ panic_handler = ["esp-idf-sys/panic_handler"]
 binstart = ["esp-idf-sys/binstart"]
 libstart = ["esp-idf-sys/libstart"]
 
+[patch.crates-io]
+esp-idf-sys = { git = "https://github.com/GamerBene19/esp-idf-sys.git", branch = "master" }
+
 [dependencies]
 nb = "1.0.0"
 embedded-can = "0.4.1"
