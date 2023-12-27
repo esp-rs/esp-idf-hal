@@ -61,6 +61,12 @@ pub mod ledc;
     not(feature = "riscv-ulp-hal")
 ))]
 pub mod mac;
+#[cfg(all(
+    any(esp32, esp32s3),
+    esp_idf_version_major = "5",
+    not(feature = "riscv-ulp-hal")
+))]
+pub mod mcpwm;
 #[cfg(not(feature = "riscv-ulp-hal"))]
 pub mod modem;
 #[cfg(all(not(feature = "riscv-ulp-hal"), any(esp32, esp32s2, esp32s3)))]
