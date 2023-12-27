@@ -1323,6 +1323,7 @@ pub mod continuous {
 
             esp!(unsafe { adc_continuous_deinit(self.handle) }).unwrap();
 
+            #[cfg(not(esp_idf_adc_continuous_isr_iram_safe))]
             NOTIFIER[self.adc as usize].reset();
         }
     }
