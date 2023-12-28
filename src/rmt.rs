@@ -151,6 +151,21 @@ impl Pulse {
         let ticks = PulseTicks::new_with_duration(ticks_hz, duration)?;
         Ok(Self::new(pin_state, ticks))
     }
+
+    pub fn into_rmt_item(level0: Self, level1: Self) -> rmt_item32_t {
+        let mut inner_item = rmt_item32_t__bindgen_ty_1__bindgen_ty_1::default();
+
+        inner_item.set_level0(level0.pin_state as u32);
+        inner_item.set_duration0(level0.ticks.ticks() as u32);
+        inner_item.set_level1(level1.pin_state as u32);
+        inner_item.set_duration1(level1.ticks.ticks() as u32);
+
+        rmt_item32_t {
+            __bindgen_anon_1: rmt_item32_t__bindgen_ty_1 {
+                __bindgen_anon_1: inner_item,
+            },
+        }
+    }
 }
 
 impl Default for Pulse {
@@ -597,14 +612,14 @@ impl<'d> TxRmtDriver<'d> {
     }
 
     /// Start sending the given signal while blocking.
-    pub fn start_blocking<S>(&mut self, signal: &S) -> Result<(), EspError>
+    pub fn start_blocking<S: ?Sized>(&mut self, signal: &S) -> Result<(), EspError>
     where
         S: Signal,
     {
         self.write_items(signal, true)
     }
 
-    fn write_items<S>(&mut self, signal: &S, block: bool) -> Result<(), EspError>
+    fn write_items<S: ?Sized>(&mut self, signal: &S, block: bool) -> Result<(), EspError>
     where
         S: Signal,
     {
@@ -775,6 +790,12 @@ unsafe impl<'d> Send for TxRmtDriver<'d> {}
 /// Signal storage for [`Transmit`] in a format ready for the RMT driver.
 pub trait Signal {
     fn as_slice(&self) -> &[rmt_item32_t];
+}
+
+impl Signal for [rmt_item32_t] {
+    fn as_slice(&self) -> &[rmt_item32_t] {
+        self
+    }
 }
 
 /// Stack based signal storage for an RMT signal.

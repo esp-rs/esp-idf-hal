@@ -3,7 +3,7 @@
 //! To try this out, connect a rotary encoder to pins 5 and 6, the common should be grounded
 //!
 //! Note that PCNT only track a singed 16bit value.  We use interrupts to detect a LOW and HIGH
-//! threshold and track how much that accounts for and provide an i64 value result
+//! threshold and track how much that accounts for and provide an i32 value result
 //!
 
 #[cfg(all(not(feature = "riscv-ulp-hal"), any(esp32, esp32s2, esp32s3)))]
@@ -24,7 +24,7 @@ fn main() -> anyhow::Result<()> {
     println!("setup encoder");
     let encoder = Encoder::new(peripherals.pcnt0, &mut pin_a, &mut pin_b)?;
 
-    let mut last_value = 0i64;
+    let mut last_value = 0i32;
     loop {
         let value = encoder.get_value()?;
         if value != last_value {
@@ -48,7 +48,7 @@ fn main() {
 // esp-idf encoder implementation using v4 pcnt api
 mod encoder {
     use std::cmp::min;
-    use std::sync::atomic::AtomicI64;
+    use std::sync::atomic::AtomicI32;
     use std::sync::atomic::Ordering;
     use std::sync::Arc;
 
@@ -63,7 +63,7 @@ mod encoder {
 
     pub struct Encoder<'d> {
         unit: PcntDriver<'d>,
-        approx_value: Arc<AtomicI64>,
+        approx_value: Arc<AtomicI32>,
     }
 
     impl<'d> Encoder<'d> {
@@ -109,19 +109,19 @@ mod encoder {
             unit.set_filter_value(min(10 * 80, 1023))?;
             unit.filter_enable()?;
 
-            let approx_value = Arc::new(AtomicI64::new(0));
+            let approx_value = Arc::new(AtomicI32::new(0));
             // unsafe interrupt code to catch the upper and lower limits from the encoder
-            // and track the overflow in `value: Arc<AtomicI64>` - I plan to use this for
+            // and track the overflow in `value: Arc<AtomicI32>` - I plan to use this for
             // a wheeled robot's odomerty
             unsafe {
                 let approx_value = approx_value.clone();
                 unit.subscribe(move |status| {
                     let status = PcntEventType::from_repr_truncated(status);
                     if status.contains(PcntEvent::HighLimit) {
-                        approx_value.fetch_add(HIGH_LIMIT as i64, Ordering::SeqCst);
+                        approx_value.fetch_add(HIGH_LIMIT as i32, Ordering::SeqCst);
                     }
                     if status.contains(PcntEvent::LowLimit) {
-                        approx_value.fetch_add(LOW_LIMIT as i64, Ordering::SeqCst);
+                        approx_value.fetch_add(LOW_LIMIT as i32, Ordering::SeqCst);
                     }
                 })?;
             }
@@ -134,9 +134,9 @@ mod encoder {
             Ok(Self { unit, approx_value })
         }
 
-        pub fn get_value(&self) -> Result<i64, EspError> {
+        pub fn get_value(&self) -> Result<i32, EspError> {
             let value =
-                self.approx_value.load(Ordering::Relaxed) + self.unit.get_counter_value()? as i64;
+                self.approx_value.load(Ordering::Relaxed) + self.unit.get_counter_value()? as i32;
             Ok(value)
         }
     }
