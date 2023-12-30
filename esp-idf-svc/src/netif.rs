@@ -103,8 +103,8 @@ pub struct NetifConfiguration {
 impl NetifConfiguration {
     pub fn eth_default_client() -> Self {
         Self {
-            key: "ETH_CL_DEF".into(),
-            description: "eth".into(),
+            key: "ETH_CL_DEF".try_into().unwrap(),
+            description: "eth".try_into().unwrap(),
             route_priority: 60,
             ip_configuration: ipv4::Configuration::Client(Default::default()),
             stack: NetifStack::Eth,
@@ -114,8 +114,8 @@ impl NetifConfiguration {
 
     pub fn eth_default_router() -> Self {
         Self {
-            key: "ETH_RT_DEF".into(),
-            description: "ethrt".into(),
+            key: "ETH_RT_DEF".try_into().unwrap(),
+            description: "ethrt".try_into().unwrap(),
             route_priority: 50,
             ip_configuration: ipv4::Configuration::Router(Default::default()),
             stack: NetifStack::Eth,
@@ -125,8 +125,8 @@ impl NetifConfiguration {
 
     pub fn wifi_default_client() -> Self {
         Self {
-            key: "WIFI_STA_DEF".into(),
-            description: "sta".into(),
+            key: "WIFI_STA_DEF".try_into().unwrap(),
+            description: "sta".try_into().unwrap(),
             route_priority: 100,
             ip_configuration: ipv4::Configuration::Client(Default::default()),
             stack: NetifStack::Sta,
@@ -136,8 +136,8 @@ impl NetifConfiguration {
 
     pub fn wifi_default_router() -> Self {
         Self {
-            key: "WIFI_AP_DEF".into(),
-            description: "ap".into(),
+            key: "WIFI_AP_DEF".try_into().unwrap(),
+            description: "ap".try_into().unwrap(),
             route_priority: 10,
             ip_configuration: ipv4::Configuration::Router(Default::default()),
             stack: NetifStack::Ap,
@@ -148,8 +148,8 @@ impl NetifConfiguration {
     #[cfg(esp_idf_lwip_ppp_support)]
     pub fn ppp_default_client() -> Self {
         Self {
-            key: "PPP_CL_DEF".into(),
-            description: "ppp".into(),
+            key: "PPP_CL_DEF".try_into().unwrap(),
+            description: "ppp".try_into().unwrap(),
             route_priority: 30,
             ip_configuration: ipv4::Configuration::Client(Default::default()),
             stack: NetifStack::Ppp,
@@ -160,8 +160,8 @@ impl NetifConfiguration {
     #[cfg(esp_idf_lwip_ppp_support)]
     pub fn ppp_default_router() -> Self {
         Self {
-            key: "PPP_RT_DEF".into(),
-            description: "ppprt".into(),
+            key: "PPP_RT_DEF".try_into().unwrap(),
+            description: "ppprt".try_into().unwrap(),
             route_priority: 20,
             ip_configuration: ipv4::Configuration::Router(Default::default()),
             stack: NetifStack::Ppp,
@@ -172,8 +172,8 @@ impl NetifConfiguration {
     #[cfg(esp_idf_lwip_slip_support)]
     pub fn slip_default_client() -> Self {
         Self {
-            key: "SLIP_CL_DEF".into(),
-            description: "slip".into(),
+            key: "SLIP_CL_DEF".try_into().unwrap(),
+            description: "slip".try_into().unwrap(),
             route_priority: 35,
             ip_configuration: ipv4::Configuration::Client(Default::default()),
             stack: NetifStack::Slip,
@@ -184,8 +184,8 @@ impl NetifConfiguration {
     #[cfg(esp_idf_lwip_slip_support)]
     pub fn slip_default_router() -> Self {
         Self {
-            key: "SLIP_RT_DEF".into(),
-            description: "sliprt".into(),
+            key: "SLIP_RT_DEF".try_into().unwrap(),
+            description: "sliprt".try_into().unwrap(),
             route_priority: 25,
             ip_configuration: ipv4::Configuration::Router(Default::default()),
             stack: NetifStack::Slip,
@@ -392,7 +392,9 @@ impl EspNetif {
     }
 
     pub fn get_key(&self) -> heapless::String<32> {
-        unsafe { from_cstr_ptr(esp_netif_get_ifkey(self.0)) }.into()
+        unsafe { from_cstr_ptr(esp_netif_get_ifkey(self.0)) }
+            .try_into()
+            .unwrap()
     }
 
     pub fn get_index(&self) -> u32 {
@@ -405,7 +407,7 @@ impl EspNetif {
         esp!(unsafe { esp_netif_get_netif_impl_name(self.0, netif_name.as_mut_ptr() as *mut _) })
             .unwrap();
 
-        from_cstr(&netif_name).into()
+        from_cstr(&netif_name).try_into().unwrap()
     }
 
     pub fn get_mac(&self) -> Result<[u8; 6], EspError> {
@@ -484,7 +486,7 @@ impl EspNetif {
         let mut ptr: *const ffi::c_char = ptr::null();
         esp!(unsafe { esp_netif_get_hostname(self.0, &mut ptr) })?;
 
-        Ok(unsafe { from_cstr_ptr(ptr).into() })
+        Ok(unsafe { from_cstr_ptr(ptr) }.try_into().unwrap())
     }
 
     fn set_hostname(&mut self, hostname: &str) -> Result<(), EspError> {

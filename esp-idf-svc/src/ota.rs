@@ -5,6 +5,7 @@
 //! Bluetooth.)
 
 use core::cmp::min;
+use core::convert::TryInto;
 use core::fmt::Write;
 use core::marker::PhantomData;
 use core::mem;
@@ -30,10 +31,16 @@ impl From<Newtype<&esp_app_desc_t>> for FirmwareInfo {
         let app_desc = app_desc.0;
 
         let mut result = Self {
-            version: unsafe { from_cstr_ptr(&app_desc.version as *const _).into() },
+            version: unsafe { from_cstr_ptr(&app_desc.version as *const _) }
+                .try_into()
+                .unwrap(),
             signature: Some(heapless::Vec::from_slice(&app_desc.app_elf_sha256).unwrap()),
-            released: "".into(),
-            description: Some(unsafe { from_cstr_ptr(&app_desc.project_name as *const _).into() }),
+            released: "".try_into().unwrap(),
+            description: Some(
+                unsafe { from_cstr_ptr(&app_desc.project_name as *const _) }
+                    .try_into()
+                    .unwrap(),
+            ),
             download_id: None,
         };
 
@@ -321,7 +328,9 @@ impl EspOta {
 
     fn get_slot(&self, partition: &esp_partition_t) -> Result<Slot, EspError> {
         Ok(Slot {
-            label: unsafe { from_cstr_ptr(&partition.label as *const _ as *const _).into() },
+            label: unsafe { from_cstr_ptr(&partition.label as *const _ as *const _) }
+                .try_into()
+                .unwrap(),
             state: self.get_state(partition)?,
             firmware: self.get_firmware_info(partition)?,
         })

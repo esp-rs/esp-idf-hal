@@ -15,6 +15,9 @@ build = "build.rs"
 documentation = "https://esp-rs.github.io/esp-idf-svc/"
 rust-version = "1.71"
 
+[patch.crates-io]
+embedded-svc = { git = "https://github.com/esp-rs/embedded-svc" }
+
 [features]
 default = ["std", "native", "binstart"]
 
@@ -39,12 +42,12 @@ binstart = ["esp-idf-hal/binstart"]
 libstart = ["esp-idf-hal/libstart"]
 
 [dependencies]
-heapless = { version = "0.7", default-features = false }
+heapless = { version = "0.8", default-features = false }
 num_enum = { version = "0.7", default-features = false }
 enumset = { version = "1", default-features = false }
 log = { version = "0.4", default-features = false }
 uncased = { version = "0.9.7", default-features = false }
-embedded-svc = { version = "0.26.4", default-features = false }
+embedded-svc = { version = "0.26.4", default-features = false, features = ["asyncify"] }
 esp-idf-hal = { version = "0.42.5", default-features = false, features = ["esp-idf-sys"] }
 embassy-sync = { version = "0.3", optional = true }
 embassy-time = { version = "0.1.3", optional = true, features = ["tick-hz-1_000_000"] }

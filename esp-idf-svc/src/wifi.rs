@@ -197,14 +197,14 @@ impl TryFrom<&ClientConfiguration> for Newtype<wifi_sta_config_t> {
 impl From<Newtype<wifi_sta_config_t>> for ClientConfiguration {
     fn from(conf: Newtype<wifi_sta_config_t>) -> Self {
         Self {
-            ssid: from_cstr(&conf.0.ssid).into(),
+            ssid: from_cstr(&conf.0.ssid).try_into().unwrap(),
             bssid: if conf.0.bssid_set {
                 Some(conf.0.bssid)
             } else {
                 None
             },
             auth_method: Newtype(conf.0.threshold.authmode).into(),
-            password: from_cstr(&conf.0.password).into(),
+            password: from_cstr(&conf.0.password).try_into().unwrap(),
             channel: if conf.0.channel != 0 {
                 Some(conf.0.channel)
             } else {
@@ -241,10 +241,12 @@ impl From<Newtype<wifi_ap_config_t>> for AccessPointConfiguration {
     fn from(conf: Newtype<wifi_ap_config_t>) -> Self {
         Self {
             ssid: if conf.0.ssid_len == 0 {
-                from_cstr(&conf.0.ssid).into()
+                from_cstr(&conf.0.ssid).try_into().unwrap()
             } else {
                 unsafe {
-                    core::str::from_utf8_unchecked(&conf.0.ssid[0..conf.0.ssid_len as usize]).into()
+                    core::str::from_utf8_unchecked(&conf.0.ssid[0..conf.0.ssid_len as usize])
+                        .try_into()
+                        .unwrap()
                 }
             },
             ssid_hidden: conf.0.ssid_hidden != 0,
@@ -252,7 +254,7 @@ impl From<Newtype<wifi_ap_config_t>> for AccessPointConfiguration {
             secondary_channel: None,
             auth_method: AuthMethod::from(Newtype(conf.0.authmode)),
             protocols: EnumSet::<Protocol>::empty(), // TODO
-            password: from_cstr(&conf.0.password).into(),
+            password: from_cstr(&conf.0.password).try_into().unwrap(),
             max_connections: conf.0.max_connection as u16,
         }
     }
@@ -266,7 +268,7 @@ impl TryFrom<Newtype<&wifi_ap_record_t>> for AccessPointInfo {
         let a = ap_info.0;
 
         Ok(Self {
-            ssid: from_cstr_fallible(&a.ssid)?.into(),
+            ssid: from_cstr_fallible(&a.ssid)?.try_into().unwrap(),
             bssid: a.bssid,
             channel: a.primary,
             secondary_channel: match a.second {
@@ -1856,8 +1858,8 @@ impl EspTypedEventDeserializer<WifiEvent> for WifiEvent {
                     };
 
                     let creds = WpsCredentials {
-                        ssid: ssid.into(),
-                        passphrase: passphrase.into(),
+                        ssid: ssid.try_into().unwrap(),
+                        passphrase: passphrase.try_into().unwrap(),
                     };
                     credentials.push(creds);
                 }
