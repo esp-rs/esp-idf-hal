@@ -3,6 +3,7 @@
 //! Go to http://192.168.71.1 to play
 
 use core::cmp::Ordering;
+use core::convert::TryInto;
 
 use embedded_svc::{
     http::Method,
@@ -223,10 +224,10 @@ fn create_server() -> anyhow::Result<EspHttpServer<'static>> {
     )?;
 
     let wifi_configuration = wifi::Configuration::AccessPoint(AccessPointConfiguration {
-        ssid: SSID.into(),
+        ssid: SSID.try_into().unwrap(),
         ssid_hidden: true,
         auth_method: AuthMethod::WPA2Personal,
-        password: PASSWORD.into(),
+        password: PASSWORD.try_into().unwrap(),
         channel: CHANNEL,
         ..Default::default()
     });

@@ -1,5 +1,7 @@
 //! Simple HTTP client example.
 
+use core::convert::TryInto;
+
 use embedded_svc::{
     http::{client::Client as HttpClient, Method},
     io::Write,
@@ -166,10 +168,10 @@ fn post_chunked_request(client: &mut HttpClient<EspHttpConnection>) -> anyhow::R
 
 fn connect_wifi(wifi: &mut BlockingWifi<EspWifi<'static>>) -> anyhow::Result<()> {
     let wifi_configuration: Configuration = Configuration::Client(ClientConfiguration {
-        ssid: SSID.into(),
+        ssid: SSID.try_into().unwrap(),
         bssid: None,
         auth_method: AuthMethod::WPA2Personal,
-        password: PASSWORD.into(),
+        password: PASSWORD.try_into().unwrap(),
         channel: None,
     });
 

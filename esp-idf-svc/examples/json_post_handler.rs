@@ -2,6 +2,8 @@
 //!
 //! Go to 192.168.71.1 to test
 
+use core::convert::TryInto;
+
 use embedded_svc::{
     http::{Headers, Method},
     io::{Read, Write},
@@ -98,10 +100,10 @@ fn create_server() -> anyhow::Result<EspHttpServer<'static>> {
     )?;
 
     let wifi_configuration = wifi::Configuration::AccessPoint(AccessPointConfiguration {
-        ssid: SSID.into(),
+        ssid: SSID.try_into().unwrap(),
         ssid_hidden: true,
         auth_method: AuthMethod::WPA2Personal,
-        password: PASSWORD.into(),
+        password: PASSWORD.try_into().unwrap(),
         channel: CHANNEL,
         ..Default::default()
     });
