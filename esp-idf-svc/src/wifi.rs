@@ -2222,7 +2222,7 @@ where
     /// the wifi driver has started.
     pub async fn start(&mut self) -> Result<(), EspError> {
         self.wifi.start()?;
-        self.wifi_wait(|| self.wifi.is_started().map(|s| !s), None)
+        self.wifi_wait(|this| this.wifi.is_started().map(|s| !s), None)
             .await
     }
 
@@ -2230,7 +2230,7 @@ where
     /// the wifi driver has stopped.
     pub async fn stop(&mut self) -> Result<(), EspError> {
         self.wifi.stop()?;
-        self.wifi_wait(|| self.wifi.is_started(), None).await
+        self.wifi_wait(|this| this.wifi.is_started(), None).await
     }
 
     /// As per [`WifiDriver::connect()`], but as an async call that awaits until
@@ -2238,7 +2238,7 @@ where
     pub async fn connect(&mut self) -> Result<(), EspError> {
         self.wifi.connect()?;
         self.wifi_wait(
-            || self.wifi.is_connected().map(|s| !s),
+            |this| this.wifi.is_connected().map(|s| !s),
             Some(CONNECT_TIMEOUT),
         )
         .await
@@ -2248,7 +2248,7 @@ where
     /// the wifi driver has disconnected.
     pub async fn disconnect(&mut self) -> Result<(), EspError> {
         self.wifi.disconnect()?;
-        self.wifi_wait(|| self.wifi.is_connected(), None).await
+        self.wifi_wait(|this| this.wifi.is_connected(), None).await
     }
 
     /// As per [`WifiDriver::start_scan()`] plus [`WifiDriver::get_scan_result_n()`],
@@ -2258,7 +2258,7 @@ where
     ) -> Result<(heapless::Vec<AccessPointInfo, N>, usize), EspError> {
         self.wifi.start_scan(&Default::default(), false)?;
 
-        self.wifi_wait(|| self.wifi.is_scan_done().map(|s| !s), None)
+        self.wifi_wait(|this| this.wifi.is_scan_done().map(|s| !s), None)
             .await?;
 
         self.wifi.get_scan_result_n()
@@ -2270,7 +2270,7 @@ where
     pub async fn scan(&mut self) -> Result<alloc::vec::Vec<AccessPointInfo>, EspError> {
         self.wifi.start_scan(&Default::default(), false)?;
 
-        self.wifi_wait(|| self.wifi.is_scan_done().map(|s| !s), None)
+        self.wifi_wait(|this| this.wifi.is_scan_done().map(|s| !s), None)
             .await?;
 
         self.wifi.get_scan_result()
@@ -2287,9 +2287,9 @@ where
     /// driver posts a Wifi event on the system event loop. The reasoning behind
     /// this is that changes to the state of the Wifi driver are always
     /// accompanied by posting Wifi events.
-    pub async fn wifi_wait<F: Fn() -> Result<bool, EspError>>(
-        &self,
-        matcher: F,
+    pub async fn wifi_wait<F: FnMut(&mut Self) -> Result<bool, EspError>>(
+        &mut self,
+        mut matcher: F,
         timeout: Option<Duration>,
     ) -> Result<(), EspError> {
         use embedded_svc::utils::asyncify::event_bus::AsyncEventBus;
@@ -2298,10 +2298,9 @@ where
         let event_loop = AsyncEventBus::new((), self.event_loop.clone());
         let timer_service = AsyncTimerService::new(self.timer_service.clone());
 
-        let mut wait =
-            crate::eventloop::AsyncWait::<WifiEvent, _>::new(&event_loop, &timer_service)?;
+        let mut wait = crate::eventloop::AsyncWait::<WifiEvent, _>::new(event_loop, timer_service)?;
 
-        wait.wait_while(matcher, timeout).await
+        wait.wait_while(|| matcher(self), timeout).await
     }
 
     /// Start WPS and perform a wait asynchronously until it connects, fails or
@@ -2315,7 +2314,7 @@ where
     pub async fn start_wps(&mut self, config: &WpsConfig<'_>) -> Result<WpsStatus, EspError> {
         self.wifi.start_wps(config)?;
         self.wifi_wait(
-            || self.wifi.is_wps_finished().map(|x| !x),
+            |this| this.wifi.is_wps_finished().map(|x| !x),
             Some(WPS_TIMEOUT),
         )
         .await?;
@@ -2335,16 +2334,16 @@ where
     }
 
     /// Waits until the underlaying network interface is up.
-    pub async fn wait_netif_up(&self) -> Result<(), EspError> {
-        self.ip_wait_while(|| self.wifi.is_up().map(|s| !s), Some(CONNECT_TIMEOUT))
+    pub async fn wait_netif_up(&mut self) -> Result<(), EspError> {
+        self.ip_wait_while(|this| this.wifi.is_up().map(|s| !s), Some(CONNECT_TIMEOUT))
             .await
     }
 
     /// As [`AsyncWifi::wifi_wait()`], but for `EspWifi` events related to the
     /// IP layer, instead of `WifiDriver` events on the data link layer.
-    pub async fn ip_wait_while<F: Fn() -> Result<bool, EspError>>(
-        &self,
-        matcher: F,
+    pub async fn ip_wait_while<F: FnMut(&mut Self) -> Result<bool, EspError>>(
+        &mut self,
+        mut matcher: F,
         timeout: Option<core::time::Duration>,
     ) -> Result<(), EspError> {
         use embedded_svc::utils::asyncify::event_bus::AsyncEventBus;
@@ -2353,9 +2352,9 @@ where
         let event_loop = AsyncEventBus::new((), self.event_loop.clone());
         let timer_service = AsyncTimerService::new(self.timer_service.clone());
 
-        let mut wait = crate::eventloop::AsyncWait::<IpEvent, _>::new(&event_loop, &timer_service)?;
+        let mut wait = crate::eventloop::AsyncWait::<IpEvent, _>::new(event_loop, timer_service)?;
 
-        wait.wait_while(matcher, timeout).await
+        wait.wait_while(|| matcher(self), timeout).await
     }
 }
 

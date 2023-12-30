@@ -1199,26 +1199,27 @@ where
 
     pub async fn start(&mut self) -> Result<(), EspError> {
         self.eth.start()?;
-        self.eth_wait_while(|| self.eth.is_started().map(|s| !s), None)
+        self.eth_wait_while(|this| this.eth.is_started().map(|s| !s), None)
             .await
     }
 
     pub async fn stop(&mut self) -> Result<(), EspError> {
         self.eth.stop()?;
-        self.eth_wait_while(|| self.eth.is_started(), None).await
+        self.eth_wait_while(|this| this.eth.is_started(), None)
+            .await
     }
 
-    pub async fn wait_connected(&self) -> Result<(), EspError> {
+    pub async fn wait_connected(&mut self) -> Result<(), EspError> {
         self.eth_wait_while(
-            || self.eth.is_connected().map(|s| !s),
+            |this| this.eth.is_connected().map(|s| !s),
             Some(CONNECT_TIMEOUT),
         )
         .await
     }
 
-    pub async fn eth_wait_while<F: Fn() -> Result<bool, EspError>>(
-        &self,
-        matcher: F,
+    pub async fn eth_wait_while<F: FnMut(&mut Self) -> Result<bool, EspError>>(
+        &mut self,
+        mut matcher: F,
         timeout: Option<Duration>,
     ) -> Result<(), EspError> {
         use embedded_svc::utils::asyncify::event_bus::AsyncEventBus;
@@ -1227,10 +1228,9 @@ where
         let event_loop = AsyncEventBus::new((), self.event_loop.clone());
         let timer_service = AsyncTimerService::new(self.timer_service.clone());
 
-        let mut wait =
-            crate::eventloop::AsyncWait::<EthEvent, _>::new(&event_loop, &timer_service)?;
+        let mut wait = crate::eventloop::AsyncWait::<EthEvent, _>::new(event_loop, timer_service)?;
 
-        wait.wait_while(matcher, timeout).await
+        wait.wait_while(|| matcher(self), timeout).await
     }
 }
 
@@ -1244,14 +1244,14 @@ where
         self.eth.is_up()
     }
 
-    pub async fn wait_netif_up(&self) -> Result<(), EspError> {
-        self.ip_wait_while(|| self.eth.is_up().map(|s| !s), Some(CONNECT_TIMEOUT))
+    pub async fn wait_netif_up(&mut self) -> Result<(), EspError> {
+        self.ip_wait_while(|this| this.eth.is_up().map(|s| !s), Some(CONNECT_TIMEOUT))
             .await
     }
 
-    pub async fn ip_wait_while<F: FnMut() -> Result<bool, EspError>>(
-        &self,
-        matcher: F,
+    pub async fn ip_wait_while<F: FnMut(&mut Self) -> Result<bool, EspError>>(
+        &mut self,
+        mut matcher: F,
         timeout: Option<core::time::Duration>,
     ) -> Result<(), EspError> {
         use embedded_svc::utils::asyncify::event_bus::AsyncEventBus;
@@ -1260,9 +1260,9 @@ where
         let event_loop = AsyncEventBus::new((), self.event_loop.clone());
         let timer_service = AsyncTimerService::new(self.timer_service.clone());
 
-        let mut wait = crate::eventloop::AsyncWait::<IpEvent, _>::new(&event_loop, &timer_service)?;
+        let mut wait = crate::eventloop::AsyncWait::<IpEvent, _>::new(event_loop, timer_service)?;
 
-        wait.wait_while(matcher, timeout).await
+        wait.wait_while(|| matcher(self), timeout).await
     }
 }
 

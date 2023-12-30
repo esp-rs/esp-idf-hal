@@ -750,14 +750,14 @@ where
         self.netif.is_up()
     }
 
-    pub async fn wait_netif_up(&self) -> Result<(), EspError> {
-        self.ip_wait_while(|| self.netif.is_up().map(|s| !s), Some(UP_TIMEOUT))
+    pub async fn wait_netif_up(&mut self) -> Result<(), EspError> {
+        self.ip_wait_while(|this| this.netif.is_up().map(|s| !s), Some(UP_TIMEOUT))
             .await
     }
 
-    pub async fn ip_wait_while<F: FnMut() -> Result<bool, EspError>>(
-        &self,
-        matcher: F,
+    pub async fn ip_wait_while<F: FnMut(&mut Self) -> Result<bool, EspError>>(
+        &mut self,
+        mut matcher: F,
         timeout: Option<core::time::Duration>,
     ) -> Result<(), EspError> {
         use embedded_svc::utils::asyncify::event_bus::AsyncEventBus;
@@ -766,9 +766,9 @@ where
         let event_loop = AsyncEventBus::new((), self.event_loop.clone());
         let timer_service = AsyncTimerService::new(self.timer_service.clone());
 
-        let mut wait = crate::eventloop::AsyncWait::<IpEvent, _>::new(&event_loop, &timer_service)?;
+        let mut wait = crate::eventloop::AsyncWait::<IpEvent, _>::new(event_loop, timer_service)?;
 
-        wait.wait_while(matcher, timeout).await
+        wait.wait_while(|| matcher(self), timeout).await
     }
 }
 

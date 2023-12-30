@@ -1100,12 +1100,12 @@ mod async_wait {
         T: super::EspEventLoopType + 'static,
     {
         pub fn new(
-            event_loop: &AsyncEventBus<
+            event_loop: AsyncEventBus<
                 (),
                 crate::private::mutex::RawCondvar,
                 super::EspEventLoop<T>,
             >,
-            timer_service: &AsyncTimerService<EspTaskTimerService>,
+            timer_service: AsyncTimerService<EspTaskTimerService>,
         ) -> Result<Self, EspError> {
             Ok(Self {
                 subscription: event_loop.subscribe()?,
@@ -1161,7 +1161,7 @@ mod async_wait {
             TT: super::EspEventLoopType,
         {
             while matcher()? {
-                subscription.recv().await?;
+                subscription.recv_mut().await?;
             }
 
             Ok(())
