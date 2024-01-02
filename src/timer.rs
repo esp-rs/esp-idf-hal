@@ -236,7 +236,7 @@ impl<'d> TimerDriver<'d> {
     ///
     /// Set the alarm value of the timer.
     ///
-    /// *NOTE: The alarm must be activated with enable_alarm for this value to take effect*
+    /// NOTE: The alarm must be activated with enable_alarm for this value to take effect
     ///
     /// Once the counter exceeds this value:
     /// - The counter will reset to 0, if auto-reload is set 
