@@ -158,7 +158,7 @@ impl<'d> TimerDriver<'d> {
     }
 
     ///
-    /// Returns the current counter value of the timer 
+    /// Returns the current counter value of the timer
     ///
     pub fn counter(&self) -> Result<u64, EspError> {
         let value = if crate::interrupt::active() {
@@ -191,8 +191,8 @@ impl<'d> TimerDriver<'d> {
     /// Enable or disable the alarm.
     ///
     /// Enabling the alarm activates the following behaviors once it is triggered:
-    /// - The counter will reset to 0, if auto-reload is set 
-    /// - An interrupt will be triggered, if configured 
+    /// - The counter will reset to 0, if auto-reload is set
+    /// - An interrupt will be triggered, if configured
     ///
     pub fn enable_alarm(&mut self, enable: bool) -> Result<(), EspError> {
         if crate::interrupt::active() {
@@ -239,8 +239,8 @@ impl<'d> TimerDriver<'d> {
     /// NOTE: The alarm must be activated with enable_alarm for this value to take effect
     ///
     /// Once the counter exceeds this value:
-    /// - The counter will reset to 0, if auto-reload is set 
-    /// - An interrupt will be triggered, if configured 
+    /// - The counter will reset to 0, if auto-reload is set
+    /// - An interrupt will be triggered, if configured
     ///
     pub fn set_alarm(&mut self, value: u64) -> Result<(), EspError> {
         if crate::interrupt::active() {
@@ -288,11 +288,8 @@ impl<'d> TimerDriver<'d> {
         Ok(())
     }
 
-
-
-
     ///
-    /// Delays for `counter` ticks 
+    /// Delays for `counter` ticks
     ///
     /// NOTE: This function resets the counter
     ///
@@ -321,7 +318,7 @@ impl<'d> TimerDriver<'d> {
     }
 
     ///
-    /// Wait for an alarm interrupt to occur 
+    /// Wait for an alarm interrupt to occur
     ///
     ///
     /// NOTE: This requires interrupts to be enabled to work
