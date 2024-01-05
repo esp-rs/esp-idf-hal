@@ -6,6 +6,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [?.??.?] - ????-??-??
+* Allow `cargo check --all-features` to work correctly (there used to be a build error when both the `esp-idf-sys` and the `riscv-ulp-hal` features were enabled)
 * #351 - Remove the `OutputPin` requirement from SPI SDI pin
 * #350 - Not checking for ESP_FAIL in AsyncCanDriver::transmit
 

@@ -16,7 +16,7 @@ documentation = "https://esp-rs.github.io/esp-idf-hal/"
 rust-version = "1.71"
 
 [features]
-default = ["std", "native", "binstart"]
+default = ["std", "binstart"]
 std = ["alloc", "esp-idf-sys/std"]
 alloc = []
 nightly = ["embedded-hal-async", "embedded-io-async"]

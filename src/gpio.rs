@@ -2,13 +2,16 @@
 
 use core::marker::PhantomData;
 
-#[cfg(all(not(feature = "riscv-ulp-hal"), feature = "alloc"))]
+#[cfg(all(
+    not(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys"))),
+    feature = "alloc"
+))]
 extern crate alloc;
 
-#[cfg(not(feature = "riscv-ulp-hal"))]
+#[cfg(not(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys"))))]
 use esp_idf_sys::*;
 
-#[cfg(feature = "riscv-ulp-hal")]
+#[cfg(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys")))]
 use crate::riscv_ulp_hal::sys::*;
 
 use crate::adc::Adc;
@@ -206,7 +209,7 @@ impl From<AnyIOPin> for AnyOutputPin {
 }
 
 /// Interrupt types
-#[cfg(not(feature = "riscv-ulp-hal"))]
+#[cfg(not(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys"))))]
 #[derive(Debug, Eq, PartialEq, Copy, Clone)]
 pub enum InterruptType {
     PosEdge,
@@ -216,7 +219,7 @@ pub enum InterruptType {
     HighLevel,
 }
 
-#[cfg(not(feature = "riscv-ulp-hal"))]
+#[cfg(not(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys"))))]
 impl From<InterruptType> for gpio_int_type_t {
     fn from(interrupt_type: InterruptType) -> gpio_int_type_t {
         match interrupt_type {
@@ -229,7 +232,7 @@ impl From<InterruptType> for gpio_int_type_t {
     }
 }
 
-#[cfg(not(feature = "riscv-ulp-hal"))]
+#[cfg(not(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys"))))]
 impl From<InterruptType> for u8 {
     fn from(interrupt_type: InterruptType) -> u8 {
         let int_type: gpio_int_type_t = interrupt_type.into();
@@ -239,7 +242,7 @@ impl From<InterruptType> for u8 {
 }
 
 /// Drive strength (values are approximates)
-#[cfg(not(feature = "riscv-ulp-hal"))]
+#[cfg(not(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys"))))]
 #[derive(Debug, Eq, PartialEq, Copy, Clone)]
 pub enum DriveStrength {
     I5mA = 0,
@@ -248,7 +251,7 @@ pub enum DriveStrength {
     I40mA = 3,
 }
 
-#[cfg(not(feature = "riscv-ulp-hal"))]
+#[cfg(not(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys"))))]
 impl From<DriveStrength> for gpio_drive_cap_t {
     fn from(strength: DriveStrength) -> gpio_drive_cap_t {
         match strength {
@@ -260,7 +263,7 @@ impl From<DriveStrength> for gpio_drive_cap_t {
     }
 }
 
-#[cfg(not(feature = "riscv-ulp-hal"))]
+#[cfg(not(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys"))))]
 impl From<gpio_drive_cap_t> for DriveStrength {
     #[allow(non_upper_case_globals)]
     fn from(cap: gpio_drive_cap_t) -> DriveStrength {
@@ -369,7 +372,7 @@ impl From<Level> for embedded_hal::digital::PinState {
 pub trait GPIOMode {}
 
 #[cfg(all(
-    not(feature = "riscv-ulp-hal"),
+    not(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys"))),
     not(any(esp32c3, esp32c2, esp32h2, esp32c5))
 ))]
 pub trait RTCMode {}
@@ -387,22 +390,22 @@ pub struct Input;
 pub struct Output;
 pub struct InputOutput;
 #[cfg(all(
-    not(feature = "riscv-ulp-hal"),
+    not(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys"))),
     not(any(esp32c3, esp32c2, esp32h2, esp32c5))
 ))]
 pub struct RtcDisabled;
 #[cfg(all(
-    not(feature = "riscv-ulp-hal"),
+    not(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys"))),
     not(any(esp32c3, esp32c2, esp32h2, esp32c5))
 ))]
 pub struct RtcInput;
 #[cfg(all(
-    not(feature = "riscv-ulp-hal"),
+    not(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys"))),
     not(any(esp32c3, esp32c2, esp32h2, esp32c5))
 ))]
 pub struct RtcOutput;
 #[cfg(all(
-    not(feature = "riscv-ulp-hal"),
+    not(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys"))),
     not(any(esp32c3, esp32c2, esp32h2, esp32c5))
 ))]
 pub struct RtcInputOutput;
@@ -429,7 +432,7 @@ impl GPIOMode for InputOutput {}
 impl GPIOMode for Output {}
 
 #[cfg(all(
-    not(feature = "riscv-ulp-hal"),
+    not(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys"))),
     not(any(esp32c3, esp32c2, esp32h2, esp32c5))
 ))]
 impl InputMode for RtcInput {
@@ -437,7 +440,7 @@ impl InputMode for RtcInput {
 }
 
 #[cfg(all(
-    not(feature = "riscv-ulp-hal"),
+    not(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys"))),
     not(any(esp32c3, esp32c2, esp32h2, esp32c5))
 ))]
 impl InputMode for RtcInputOutput {
@@ -445,7 +448,7 @@ impl InputMode for RtcInputOutput {
 }
 
 #[cfg(all(
-    not(feature = "riscv-ulp-hal"),
+    not(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys"))),
     not(any(esp32c3, esp32c2, esp32h2, esp32c5))
 ))]
 impl OutputMode for RtcOutput {
@@ -453,7 +456,7 @@ impl OutputMode for RtcOutput {
 }
 
 #[cfg(all(
-    not(feature = "riscv-ulp-hal"),
+    not(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys"))),
     not(any(esp32c3, esp32c2, esp32h2, esp32c5))
 ))]
 impl OutputMode for RtcInputOutput {
@@ -461,25 +464,25 @@ impl OutputMode for RtcInputOutput {
 }
 
 #[cfg(all(
-    not(feature = "riscv-ulp-hal"),
+    not(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys"))),
     not(any(esp32c3, esp32c2, esp32h2, esp32c5))
 ))]
 impl RTCMode for RtcDisabled {}
 
 #[cfg(all(
-    not(feature = "riscv-ulp-hal"),
+    not(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys"))),
     not(any(esp32c3, esp32c2, esp32h2, esp32c5))
 ))]
 impl RTCMode for RtcInput {}
 
 #[cfg(all(
-    not(feature = "riscv-ulp-hal"),
+    not(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys"))),
     not(any(esp32c3, esp32c2, esp32h2, esp32c5))
 ))]
 impl RTCMode for RtcInputOutput {}
 
 #[cfg(all(
-    not(feature = "riscv-ulp-hal"),
+    not(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys"))),
     not(any(esp32c3, esp32c2, esp32h2, esp32c5))
 ))]
 impl RTCMode for RtcOutput {}
@@ -582,7 +585,7 @@ impl<'d, T: OutputPin> PinDriver<'d, T, Output> {
 }
 
 #[cfg(all(
-    not(feature = "riscv-ulp-hal"),
+    not(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys"))),
     not(any(esp32c3, esp32c2, esp32h2, esp32c5))
 ))]
 impl<'d, T: Pin + RTCPin> PinDriver<'d, T, RtcDisabled> {
@@ -600,7 +603,7 @@ impl<'d, T: Pin + RTCPin> PinDriver<'d, T, RtcDisabled> {
 }
 
 #[cfg(all(
-    not(feature = "riscv-ulp-hal"),
+    not(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys"))),
     not(any(esp32c3, esp32c2, esp32h2, esp32c5))
 ))]
 impl<'d, T: InputPin + RTCPin> PinDriver<'d, T, RtcInput> {
@@ -618,7 +621,7 @@ impl<'d, T: InputPin + RTCPin> PinDriver<'d, T, RtcInput> {
 }
 
 #[cfg(all(
-    not(feature = "riscv-ulp-hal"),
+    not(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys"))),
     not(any(esp32c3, esp32c2, esp32h2, esp32c5))
 ))]
 impl<'d, T: InputPin + OutputPin + RTCPin> PinDriver<'d, T, RtcInputOutput> {
@@ -636,7 +639,7 @@ impl<'d, T: InputPin + OutputPin + RTCPin> PinDriver<'d, T, RtcInputOutput> {
 }
 
 #[cfg(all(
-    not(feature = "riscv-ulp-hal"),
+    not(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys"))),
     not(any(esp32c3, esp32c2, esp32h2, esp32c5))
 ))]
 impl<'d, T: InputPin + OutputPin + RTCPin> PinDriver<'d, T, RtcInputOutput> {
@@ -654,7 +657,7 @@ impl<'d, T: InputPin + OutputPin + RTCPin> PinDriver<'d, T, RtcInputOutput> {
 }
 
 #[cfg(all(
-    not(feature = "riscv-ulp-hal"),
+    not(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys"))),
     not(any(esp32c3, esp32c2, esp32h2, esp32c5))
 ))]
 impl<'d, T: OutputPin + RTCPin> PinDriver<'d, T, RtcOutput> {
@@ -672,7 +675,7 @@ impl<'d, T: OutputPin + RTCPin> PinDriver<'d, T, RtcOutput> {
 }
 
 #[cfg(all(
-    not(feature = "riscv-ulp-hal"),
+    not(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys"))),
     not(any(esp32c3, esp32c2, esp32h2, esp32c5))
 ))]
 impl<'d, T: OutputPin + RTCPin> PinDriver<'d, T, RtcOutput> {
@@ -753,7 +756,7 @@ impl<'d, T: Pin, MODE> PinDriver<'d, T, MODE> {
     /// Put the pin into RTC disabled mode.
     #[inline]
     #[cfg(all(
-        not(feature = "riscv-ulp-hal"),
+        not(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys"))),
         not(any(esp32c3, esp32c2, esp32h2, esp32c5))
     ))]
     pub fn into_rtc_disabled(self) -> Result<PinDriver<'d, T, RtcDisabled>, EspError>
@@ -766,7 +769,7 @@ impl<'d, T: Pin, MODE> PinDriver<'d, T, MODE> {
     /// Put the pin into RTC input mode.
     #[inline]
     #[cfg(all(
-        not(feature = "riscv-ulp-hal"),
+        not(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys"))),
         not(any(esp32c3, esp32c2, esp32h2, esp32c5))
     ))]
     pub fn into_rtc_input(self) -> Result<PinDriver<'d, T, RtcInput>, EspError>
@@ -784,7 +787,7 @@ impl<'d, T: Pin, MODE> PinDriver<'d, T, MODE> {
     /// is driving the line low.
     #[inline]
     #[cfg(all(
-        not(feature = "riscv-ulp-hal"),
+        not(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys"))),
         not(any(esp32c3, esp32c2, esp32h2, esp32c5))
     ))]
     pub fn into_rtc_input_output(self) -> Result<PinDriver<'d, T, RtcInputOutput>, EspError>
@@ -802,7 +805,7 @@ impl<'d, T: Pin, MODE> PinDriver<'d, T, MODE> {
     /// is driving the line low.
     #[inline]
     #[cfg(all(
-        not(feature = "riscv-ulp-hal"),
+        not(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys"))),
         not(any(esp32c3, esp32c2, esp32h2, esp32c5))
     ))]
     pub fn into_rtc_input_output_od(self) -> Result<PinDriver<'d, T, RtcInputOutput>, EspError>
@@ -815,7 +818,7 @@ impl<'d, T: Pin, MODE> PinDriver<'d, T, MODE> {
     /// Put the pin into RTC output mode.
     #[inline]
     #[cfg(all(
-        not(feature = "riscv-ulp-hal"),
+        not(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys"))),
         not(any(esp32c3, esp32c2, esp32h2, esp32c5))
     ))]
     pub fn into_rtc_output(self) -> Result<PinDriver<'d, T, RtcOutput>, EspError>
@@ -828,7 +831,7 @@ impl<'d, T: Pin, MODE> PinDriver<'d, T, MODE> {
     /// Put the pin into RTC output Open Drain mode.
     #[inline]
     #[cfg(all(
-        not(feature = "riscv-ulp-hal"),
+        not(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys"))),
         not(any(esp32c3, esp32c2, esp32h2, esp32c5))
     ))]
     pub fn into_rtc_output_od(self) -> Result<PinDriver<'d, T, RtcOutput>, EspError>
@@ -859,7 +862,7 @@ impl<'d, T: Pin, MODE> PinDriver<'d, T, MODE> {
 
     #[inline]
     #[cfg(all(
-        not(feature = "riscv-ulp-hal"),
+        not(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys"))),
         not(any(esp32c3, esp32c2, esp32h2, esp32c5))
     ))]
     fn into_rtc_mode<M>(mut self, mode: rtc_gpio_mode_t) -> Result<PinDriver<'d, T, M>, EspError>
@@ -871,7 +874,7 @@ impl<'d, T: Pin, MODE> PinDriver<'d, T, MODE> {
         drop(self);
 
         #[cfg(all(
-            not(feature = "riscv-ulp-hal"),
+            not(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys"))),
             not(any(esp32c3, esp32c2, esp32h2, esp32c5))
         ))]
         {
@@ -886,7 +889,7 @@ impl<'d, T: Pin, MODE> PinDriver<'d, T, MODE> {
     }
 
     #[inline]
-    #[cfg(not(feature = "riscv-ulp-hal"))]
+    #[cfg(not(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys"))))]
     pub fn get_drive_strength(&self) -> Result<DriveStrength, EspError>
     where
         MODE: OutputMode,
@@ -895,12 +898,15 @@ impl<'d, T: Pin, MODE> PinDriver<'d, T, MODE> {
 
         if MODE::RTC {
             #[cfg(all(
-                not(feature = "riscv-ulp-hal"),
+                not(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys"))),
                 not(any(esp32c3, esp32c2, esp32h2, esp32c5))
             ))]
             esp!(unsafe { rtc_gpio_get_drive_capability(self.pin.pin(), &mut cap) })?;
 
-            #[cfg(any(feature = "riscv-ulp-hal", any(esp32c3, esp32c2, esp32h2, esp32c5)))]
+            #[cfg(any(
+                all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys")),
+                any(esp32c3, esp32c2, esp32h2, esp32c5)
+            ))]
             unreachable!();
         } else {
             esp!(unsafe { gpio_get_drive_capability(self.pin.pin(), &mut cap) })?;
@@ -910,19 +916,22 @@ impl<'d, T: Pin, MODE> PinDriver<'d, T, MODE> {
     }
 
     #[inline]
-    #[cfg(not(feature = "riscv-ulp-hal"))]
+    #[cfg(not(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys"))))]
     pub fn set_drive_strength(&mut self, strength: DriveStrength) -> Result<(), EspError>
     where
         MODE: OutputMode,
     {
         if MODE::RTC {
             #[cfg(all(
-                not(feature = "riscv-ulp-hal"),
+                not(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys"))),
                 not(any(esp32c3, esp32c2, esp32h2, esp32c5))
             ))]
             esp!(unsafe { rtc_gpio_set_drive_capability(self.pin.pin(), strength.into()) })?;
 
-            #[cfg(any(feature = "riscv-ulp-hal", any(esp32c3, esp32c2, esp32h2, esp32c5)))]
+            #[cfg(any(
+                all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys")),
+                any(esp32c3, esp32c2, esp32h2, esp32c5)
+            ))]
             unreachable!();
         } else {
             esp!(unsafe { gpio_set_drive_capability(self.pin.pin(), strength.into()) })?;
@@ -956,7 +965,7 @@ impl<'d, T: Pin, MODE> PinDriver<'d, T, MODE> {
 
         if MODE::RTC {
             #[cfg(all(
-                not(feature = "riscv-ulp-hal"),
+                not(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys"))),
                 not(any(esp32c3, esp32c2, esp32h2, esp32c5))
             ))]
             {
@@ -967,7 +976,10 @@ impl<'d, T: Pin, MODE> PinDriver<'d, T, MODE> {
                 };
             }
 
-            #[cfg(any(feature = "riscv-ulp-hal", any(esp32c3, esp32c2, esp32h2, esp32c5)))]
+            #[cfg(any(
+                all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys")),
+                any(esp32c3, esp32c2, esp32h2, esp32c5)
+            ))]
             unreachable!();
         } else if unsafe { gpio_get_level(self.pin.pin()) } != 0 {
             res = Level::High;
@@ -997,7 +1009,7 @@ impl<'d, T: Pin, MODE> PinDriver<'d, T, MODE> {
 
     /// What level output is set to
     #[inline]
-    #[cfg(not(feature = "riscv-ulp-hal"))]
+    #[cfg(not(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys"))))]
     fn get_output_level(&self) -> Level
     where
         MODE: OutputMode,
@@ -1026,7 +1038,7 @@ impl<'d, T: Pin, MODE> PinDriver<'d, T, MODE> {
 
     /// What level output is set to
     #[inline]
-    #[cfg(feature = "riscv-ulp-hal")]
+    #[cfg(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys")))]
     fn get_output_level(&self) -> Level
     where
         MODE: OutputMode,
@@ -1067,12 +1079,15 @@ impl<'d, T: Pin, MODE> PinDriver<'d, T, MODE> {
 
         if MODE::RTC {
             #[cfg(all(
-                not(feature = "riscv-ulp-hal"),
+                not(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys"))),
                 not(any(esp32c3, esp32c2, esp32h2, esp32c5))
             ))]
             esp!(unsafe { rtc_gpio_set_level(self.pin.pin(), on) })?;
 
-            #[cfg(any(feature = "riscv-ulp-hal", any(esp32c3, esp32c2, esp32h2, esp32c5)))]
+            #[cfg(any(
+                all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys")),
+                any(esp32c3, esp32c2, esp32h2, esp32c5)
+            ))]
             unreachable!();
         } else {
             esp!(unsafe { gpio_set_level(self.pin.pin(), on) })?;
@@ -1101,7 +1116,7 @@ impl<'d, T: Pin, MODE> PinDriver<'d, T, MODE> {
     {
         if MODE::RTC {
             #[cfg(all(
-                not(feature = "riscv-ulp-hal"),
+                not(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys"))),
                 not(any(esp32c3, esp32c2, esp32h2, esp32c5))
             ))]
             unsafe {
@@ -1125,7 +1140,10 @@ impl<'d, T: Pin, MODE> PinDriver<'d, T, MODE> {
                 }
             }
 
-            #[cfg(any(feature = "riscv-ulp-hal", any(esp32c3, esp32c2, esp32h2, esp32c5)))]
+            #[cfg(any(
+                all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys")),
+                any(esp32c3, esp32c2, esp32h2, esp32c5)
+            ))]
             unreachable!();
         } else {
             esp!(unsafe { gpio_set_pull_mode(self.pin.pin(), pull.into()) })?;
@@ -1146,7 +1164,10 @@ impl<'d, T: Pin, MODE> PinDriver<'d, T, MODE> {
     ///
     /// Care should be taken not to call STD, libc or FreeRTOS APIs (except for a few allowed ones)
     /// in the callback passed to this function, as it is executed in an ISR context.
-    #[cfg(all(not(feature = "riscv-ulp-hal"), feature = "alloc"))]
+    #[cfg(all(
+        not(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys"))),
+        feature = "alloc"
+    ))]
     pub unsafe fn subscribe<F: FnMut() + Send + 'static>(
         &mut self,
         callback: F,
@@ -1191,7 +1212,10 @@ impl<'d, T: Pin, MODE> PinDriver<'d, T, MODE> {
     ///
     /// This "local borrowing" will only be possible to express in a safe way once/if `!Leak` types
     /// are introduced to Rust (i.e. the impossibility to "forget" a type and thus not call its destructor).
-    #[cfg(all(not(feature = "riscv-ulp-hal"), feature = "alloc"))]
+    #[cfg(all(
+        not(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys"))),
+        feature = "alloc"
+    ))]
     pub unsafe fn subscribe_nonstatic<F: FnMut() + Send + 'd>(
         &mut self,
         callback: F,
@@ -1202,7 +1226,10 @@ impl<'d, T: Pin, MODE> PinDriver<'d, T, MODE> {
         self.internal_subscribe(callback)
     }
 
-    #[cfg(all(not(feature = "riscv-ulp-hal"), feature = "alloc"))]
+    #[cfg(all(
+        not(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys"))),
+        feature = "alloc"
+    ))]
     fn internal_subscribe(&mut self, callback: impl FnMut() + Send + 'd) -> Result<(), EspError>
     where
         MODE: InputMode,
@@ -1219,7 +1246,7 @@ impl<'d, T: Pin, MODE> PinDriver<'d, T, MODE> {
         Ok(())
     }
 
-    #[cfg(not(feature = "riscv-ulp-hal"))]
+    #[cfg(not(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys"))))]
     pub fn unsubscribe(&mut self) -> Result<(), EspError>
     where
         MODE: InputMode,
@@ -1239,7 +1266,7 @@ impl<'d, T: Pin, MODE> PinDriver<'d, T, MODE> {
     ///
     /// Therefore - to continue receiving ISR interrupts - user needs to call `enable_interrupt`
     /// - **from a non-ISR context** - after each successful interrupt triggering.
-    #[cfg(not(feature = "riscv-ulp-hal"))]
+    #[cfg(not(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys"))))]
     pub fn enable_interrupt(&mut self) -> Result<(), EspError>
     where
         MODE: InputMode,
@@ -1255,7 +1282,7 @@ impl<'d, T: Pin, MODE> PinDriver<'d, T, MODE> {
         }
     }
 
-    #[cfg(not(feature = "riscv-ulp-hal"))]
+    #[cfg(not(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys"))))]
     pub fn disable_interrupt(&mut self) -> Result<(), EspError>
     where
         MODE: InputMode,
@@ -1269,7 +1296,7 @@ impl<'d, T: Pin, MODE> PinDriver<'d, T, MODE> {
         Ok(())
     }
 
-    #[cfg(not(feature = "riscv-ulp-hal"))]
+    #[cfg(not(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys"))))]
     pub fn set_interrupt_type(&mut self, interrupt_type: InterruptType) -> Result<(), EspError>
     where
         MODE: InputMode,
@@ -1279,7 +1306,7 @@ impl<'d, T: Pin, MODE> PinDriver<'d, T, MODE> {
         Ok(())
     }
 
-    #[cfg(not(feature = "riscv-ulp-hal"))]
+    #[cfg(not(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys"))))]
     unsafe extern "C" fn handle_isr(user_ctx: *mut core::ffi::c_void) {
         let pin = user_ctx as u32;
 
@@ -1299,7 +1326,7 @@ impl<'d, T: Pin, MODE> PinDriver<'d, T, MODE> {
     }
 }
 
-#[cfg(not(feature = "riscv-ulp-hal"))]
+#[cfg(not(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys"))))]
 impl<T: Pin, MODE: InputMode> PinDriver<'_, T, MODE> {
     pub async fn wait_for(&mut self, interrupt_type: InterruptType) -> Result<(), EspError> {
         self.disable_interrupt()?;
@@ -1477,7 +1504,10 @@ where
     }
 }
 
-#[cfg(all(not(feature = "riscv-ulp-hal"), feature = "nightly"))]
+#[cfg(all(
+    not(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys"))),
+    feature = "nightly"
+))]
 impl<T: Pin, MODE: InputMode> embedded_hal_async::digital::Wait for PinDriver<'_, T, MODE> {
     async fn wait_for_high(&mut self) -> Result<(), GpioError> {
         self.wait_for_high().await?;
@@ -1510,17 +1540,17 @@ impl<T: Pin, MODE: InputMode> embedded_hal_async::digital::Wait for PinDriver<'_
     }
 }
 
-#[cfg(not(feature = "riscv-ulp-hal"))]
+#[cfg(not(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys"))))]
 static ISR_ALLOC_FLAGS: core::sync::atomic::AtomicU32 = core::sync::atomic::AtomicU32::new(0);
 
-#[cfg(not(feature = "riscv-ulp-hal"))]
+#[cfg(not(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys"))))]
 static ISR_SERVICE_ENABLED: core::sync::atomic::AtomicBool =
     core::sync::atomic::AtomicBool::new(false);
 
-#[cfg(not(feature = "riscv-ulp-hal"))]
+#[cfg(not(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys"))))]
 static ISR_SERVICE_ENABLED_CS: crate::task::CriticalSection = crate::task::CriticalSection::new();
 
-#[cfg(not(feature = "riscv-ulp-hal"))]
+#[cfg(not(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys"))))]
 pub fn init_isr_alloc_flags(flags: enumset::EnumSet<crate::interrupt::InterruptType>) {
     ISR_ALLOC_FLAGS.store(
         crate::interrupt::InterruptType::to_native(flags),
@@ -1528,7 +1558,7 @@ pub fn init_isr_alloc_flags(flags: enumset::EnumSet<crate::interrupt::InterruptT
     );
 }
 
-#[cfg(not(feature = "riscv-ulp-hal"))]
+#[cfg(not(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys"))))]
 pub fn enable_isr_service() -> Result<(), EspError> {
     use core::sync::atomic::Ordering;
 
@@ -1545,7 +1575,7 @@ pub fn enable_isr_service() -> Result<(), EspError> {
     Ok(())
 }
 
-#[cfg(not(feature = "riscv-ulp-hal"))]
+#[cfg(not(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys"))))]
 pub(crate) unsafe fn rtc_reset_pin(pin: i32) -> Result<(), EspError> {
     reset_pin(pin, gpio_mode_t_GPIO_MODE_DISABLE)?;
 
@@ -1556,7 +1586,7 @@ pub(crate) unsafe fn rtc_reset_pin(pin: i32) -> Result<(), EspError> {
 }
 
 unsafe fn reset_pin(_pin: i32, _mode: gpio_mode_t) -> Result<(), EspError> {
-    #[cfg(not(feature = "riscv-ulp-hal"))]
+    #[cfg(not(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys"))))]
     let res = {
         unsubscribe_pin(_pin)?;
 
@@ -1566,13 +1596,13 @@ unsafe fn reset_pin(_pin: i32, _mode: gpio_mode_t) -> Result<(), EspError> {
         Ok(())
     };
 
-    #[cfg(feature = "riscv-ulp-hal")]
+    #[cfg(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys")))]
     let res = Ok(());
 
     res
 }
 
-#[cfg(not(feature = "riscv-ulp-hal"))]
+#[cfg(not(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys"))))]
 unsafe fn unsubscribe_pin(pin: i32) -> Result<(), EspError> {
     use core::sync::atomic::Ordering;
 
@@ -1590,11 +1620,14 @@ unsafe fn unsubscribe_pin(pin: i32) -> Result<(), EspError> {
     Ok(())
 }
 
-#[cfg(all(not(feature = "riscv-ulp-hal"), feature = "alloc"))]
+#[cfg(all(
+    not(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys"))),
+    feature = "alloc"
+))]
 #[allow(clippy::declare_interior_mutable_const)] // OK because this is only used as an array initializer
 const PIN_ISR_INIT: Option<alloc::boxed::Box<dyn FnMut() + Send + 'static>> = None;
 
-#[cfg(not(feature = "riscv-ulp-hal"))]
+#[cfg(not(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys"))))]
 #[allow(clippy::declare_interior_mutable_const)] // OK because this is only used as an array initializer
 const PIN_NOTIF_INIT: crate::interrupt::asynch::HalIsrNotification =
     crate::interrupt::asynch::HalIsrNotification::new();
@@ -1732,19 +1765,25 @@ macro_rules! pin {
 
 #[cfg(esp32)]
 mod chip {
-    #[cfg(all(not(feature = "riscv-ulp-hal"), feature = "alloc"))]
+    #[cfg(all(
+        not(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys"))),
+        feature = "alloc"
+    ))]
     extern crate alloc;
 
-    #[cfg(all(not(feature = "riscv-ulp-hal"), feature = "alloc"))]
+    #[cfg(all(
+        not(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys"))),
+        feature = "alloc"
+    ))]
     use alloc::boxed::Box;
 
-    #[cfg(not(feature = "riscv-ulp-hal"))]
+    #[cfg(not(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys"))))]
     use esp_idf_sys::*;
 
-    #[cfg(feature = "riscv-ulp-hal")]
+    #[cfg(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys")))]
     use crate::riscv_ulp_hal::sys::*;
 
-    #[cfg(not(feature = "riscv-ulp-hal"))]
+    #[cfg(not(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys"))))]
     use crate::interrupt::asynch::HalIsrNotification;
 
     use crate::adc::{ADC1, ADC2};
@@ -1752,54 +1791,57 @@ mod chip {
     use super::*;
 
     #[allow(clippy::type_complexity)]
-    #[cfg(all(not(feature = "riscv-ulp-hal"), feature = "alloc"))]
+    #[cfg(all(
+        not(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys"))),
+        feature = "alloc"
+    ))]
     pub(crate) static mut PIN_ISR_HANDLER: [Option<Box<dyn FnMut() + Send + 'static>>; 40] =
         [PIN_ISR_INIT; 40];
 
     #[allow(clippy::type_complexity)]
-    #[cfg(not(feature = "riscv-ulp-hal"))]
+    #[cfg(not(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys"))))]
     pub(crate) static PIN_NOTIF: [HalIsrNotification; 40] = [PIN_NOTIF_INIT; 40];
 
     // NOTE: Gpio26 - Gpio32 are used by SPI0/SPI1 for external PSRAM/SPI Flash and
     //       are not recommended for other uses
     pin!(Gpio0:0, IO, RTC:11, ADC2:1, NODAC:0, TOUCH:1);
-    #[cfg(not(feature = "riscv-ulp-hal"))]
+    #[cfg(not(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys"))))]
     pin!(Gpio1:1, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
     pin!(Gpio2:2, IO, RTC:12, ADC2:2, NODAC:0, TOUCH:2);
-    #[cfg(not(feature = "riscv-ulp-hal"))]
+    #[cfg(not(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys"))))]
     pin!(Gpio3:3, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
     pin!(Gpio4:4, IO, RTC:10, ADC2:0, NODAC:0, TOUCH:0);
-    #[cfg(not(feature = "riscv-ulp-hal"))]
+    #[cfg(not(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys"))))]
     pin!(Gpio5:5, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
-    #[cfg(not(feature = "riscv-ulp-hal"))]
+    #[cfg(not(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys"))))]
     pin!(Gpio6:6, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
-    #[cfg(not(feature = "riscv-ulp-hal"))]
+    #[cfg(not(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys"))))]
     pin!(Gpio7:7, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
-    #[cfg(not(feature = "riscv-ulp-hal"))]
+    #[cfg(not(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys"))))]
     pin!(Gpio8:8, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
-    #[cfg(not(feature = "riscv-ulp-hal"))]
+    #[cfg(not(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys"))))]
     pin!(Gpio9:9, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
-    #[cfg(not(feature = "riscv-ulp-hal"))]
+    #[cfg(not(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys"))))]
     pin!(Gpio10:10, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
-    #[cfg(not(feature = "riscv-ulp-hal"))]
+    #[cfg(not(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys"))))]
     pin!(Gpio11:11, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
     pin!(Gpio12:12, IO, RTC:15, ADC2:5, NODAC:0, TOUCH:5);
     pin!(Gpio13:13, IO, RTC:14, ADC2:4, NODAC:0, TOUCH:4);
     pin!(Gpio14:14, IO, RTC:16, ADC2:6, NODAC:0, TOUCH:6);
     pin!(Gpio15:15, IO, RTC:13, ADC2:3, NODAC:0, TOUCH:3);
-    #[cfg(not(feature = "riscv-ulp-hal"))]
+    #[cfg(not(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys"))))]
     pin!(Gpio16:16, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
-    #[cfg(not(feature = "riscv-ulp-hal"))]
+    #[cfg(not(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys"))))]
     pin!(Gpio17:17, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
-    #[cfg(not(feature = "riscv-ulp-hal"))]
+    #[cfg(not(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys"))))]
     pin!(Gpio18:18, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
-    #[cfg(not(feature = "riscv-ulp-hal"))]
+    #[cfg(not(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys"))))]
     pin!(Gpio19:19, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
-    #[cfg(not(feature = "riscv-ulp-hal"))]
+    #[cfg(not(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys"))))]
     pin!(Gpio21:21, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
-    #[cfg(not(feature = "riscv-ulp-hal"))]
+    #[cfg(not(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys"))))]
     pin!(Gpio22:22, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
-    #[cfg(not(feature = "riscv-ulp-hal"))]
+    #[cfg(not(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys"))))]
     pin!(Gpio23:23, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
     pin!(Gpio25:25, IO, RTC:6, ADC2:8, DAC:1, NOTOUCH:0);
     pin!(Gpio26:26, IO, RTC:7, ADC2:9, DAC:2, NOTOUCH:0);
@@ -1815,43 +1857,43 @@ mod chip {
 
     pub struct Pins {
         pub gpio0: Gpio0,
-        #[cfg(not(feature = "riscv-ulp-hal"))]
+        #[cfg(not(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys"))))]
         pub gpio1: Gpio1,
         pub gpio2: Gpio2,
-        #[cfg(not(feature = "riscv-ulp-hal"))]
+        #[cfg(not(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys"))))]
         pub gpio3: Gpio3,
         pub gpio4: Gpio4,
-        #[cfg(not(feature = "riscv-ulp-hal"))]
+        #[cfg(not(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys"))))]
         pub gpio5: Gpio5,
-        #[cfg(not(feature = "riscv-ulp-hal"))]
+        #[cfg(not(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys"))))]
         pub gpio6: Gpio6,
-        #[cfg(not(feature = "riscv-ulp-hal"))]
+        #[cfg(not(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys"))))]
         pub gpio7: Gpio7,
-        #[cfg(not(feature = "riscv-ulp-hal"))]
+        #[cfg(not(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys"))))]
         pub gpio8: Gpio8,
-        #[cfg(not(feature = "riscv-ulp-hal"))]
+        #[cfg(not(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys"))))]
         pub gpio9: Gpio9,
-        #[cfg(not(feature = "riscv-ulp-hal"))]
+        #[cfg(not(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys"))))]
         pub gpio10: Gpio10,
-        #[cfg(not(feature = "riscv-ulp-hal"))]
+        #[cfg(not(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys"))))]
         pub gpio11: Gpio11,
         pub gpio12: Gpio12,
         pub gpio13: Gpio13,
         pub gpio14: Gpio14,
         pub gpio15: Gpio15,
-        #[cfg(not(feature = "riscv-ulp-hal"))]
+        #[cfg(not(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys"))))]
         pub gpio16: Gpio16,
-        #[cfg(not(feature = "riscv-ulp-hal"))]
+        #[cfg(not(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys"))))]
         pub gpio17: Gpio17,
-        #[cfg(not(feature = "riscv-ulp-hal"))]
+        #[cfg(not(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys"))))]
         pub gpio18: Gpio18,
-        #[cfg(not(feature = "riscv-ulp-hal"))]
+        #[cfg(not(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys"))))]
         pub gpio19: Gpio19,
-        #[cfg(not(feature = "riscv-ulp-hal"))]
+        #[cfg(not(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys"))))]
         pub gpio21: Gpio21,
-        #[cfg(not(feature = "riscv-ulp-hal"))]
+        #[cfg(not(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys"))))]
         pub gpio22: Gpio22,
-        #[cfg(not(feature = "riscv-ulp-hal"))]
+        #[cfg(not(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys"))))]
         pub gpio23: Gpio23,
         pub gpio25: Gpio25,
         pub gpio26: Gpio26,
@@ -1874,43 +1916,43 @@ mod chip {
         pub unsafe fn new() -> Self {
             Self {
                 gpio0: Gpio0::new(),
-                #[cfg(not(feature = "riscv-ulp-hal"))]
+                #[cfg(not(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys"))))]
                 gpio1: Gpio1::new(),
                 gpio2: Gpio2::new(),
-                #[cfg(not(feature = "riscv-ulp-hal"))]
+                #[cfg(not(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys"))))]
                 gpio3: Gpio3::new(),
                 gpio4: Gpio4::new(),
-                #[cfg(not(feature = "riscv-ulp-hal"))]
+                #[cfg(not(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys"))))]
                 gpio5: Gpio5::new(),
-                #[cfg(not(feature = "riscv-ulp-hal"))]
+                #[cfg(not(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys"))))]
                 gpio6: Gpio6::new(),
-                #[cfg(not(feature = "riscv-ulp-hal"))]
+                #[cfg(not(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys"))))]
                 gpio7: Gpio7::new(),
-                #[cfg(not(feature = "riscv-ulp-hal"))]
+                #[cfg(not(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys"))))]
                 gpio8: Gpio8::new(),
-                #[cfg(not(feature = "riscv-ulp-hal"))]
+                #[cfg(not(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys"))))]
                 gpio9: Gpio9::new(),
-                #[cfg(not(feature = "riscv-ulp-hal"))]
+                #[cfg(not(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys"))))]
                 gpio10: Gpio10::new(),
-                #[cfg(not(feature = "riscv-ulp-hal"))]
+                #[cfg(not(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys"))))]
                 gpio11: Gpio11::new(),
                 gpio12: Gpio12::new(),
                 gpio13: Gpio13::new(),
                 gpio14: Gpio14::new(),
                 gpio15: Gpio15::new(),
-                #[cfg(not(feature = "riscv-ulp-hal"))]
+                #[cfg(not(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys"))))]
                 gpio16: Gpio16::new(),
-                #[cfg(not(feature = "riscv-ulp-hal"))]
+                #[cfg(not(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys"))))]
                 gpio17: Gpio17::new(),
-                #[cfg(not(feature = "riscv-ulp-hal"))]
+                #[cfg(not(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys"))))]
                 gpio18: Gpio18::new(),
-                #[cfg(not(feature = "riscv-ulp-hal"))]
+                #[cfg(not(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys"))))]
                 gpio19: Gpio19::new(),
-                #[cfg(not(feature = "riscv-ulp-hal"))]
+                #[cfg(not(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys"))))]
                 gpio21: Gpio21::new(),
-                #[cfg(not(feature = "riscv-ulp-hal"))]
+                #[cfg(not(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys"))))]
                 gpio22: Gpio22::new(),
-                #[cfg(not(feature = "riscv-ulp-hal"))]
+                #[cfg(not(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys"))))]
                 gpio23: Gpio23::new(),
                 gpio25: Gpio25::new(),
                 gpio26: Gpio26::new(),
@@ -1930,19 +1972,25 @@ mod chip {
 
 #[cfg(any(esp32s2, esp32s3))]
 mod chip {
-    #[cfg(all(not(feature = "riscv-ulp-hal"), feature = "alloc"))]
+    #[cfg(all(
+        not(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys"))),
+        feature = "alloc"
+    ))]
     extern crate alloc;
 
-    #[cfg(all(not(feature = "riscv-ulp-hal"), feature = "alloc"))]
+    #[cfg(all(
+        not(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys"))),
+        feature = "alloc"
+    ))]
     use alloc::boxed::Box;
 
-    #[cfg(not(feature = "riscv-ulp-hal"))]
+    #[cfg(not(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys"))))]
     use esp_idf_sys::*;
 
-    #[cfg(feature = "riscv-ulp-hal")]
+    #[cfg(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys")))]
     use crate::riscv_ulp_hal::sys::*;
 
-    #[cfg(not(feature = "riscv-ulp-hal"))]
+    #[cfg(not(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys"))))]
     use crate::interrupt::asynch::HalIsrNotification;
 
     use crate::adc::{ADC1, ADC2};
@@ -1950,12 +1998,15 @@ mod chip {
     use super::*;
 
     #[allow(clippy::type_complexity)]
-    #[cfg(all(not(feature = "riscv-ulp-hal"), feature = "alloc"))]
+    #[cfg(all(
+        not(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys"))),
+        feature = "alloc"
+    ))]
     pub(crate) static mut PIN_ISR_HANDLER: [Option<Box<dyn FnMut() + Send + 'static>>; 49] =
         [PIN_ISR_INIT; 49];
 
     #[allow(clippy::type_complexity)]
-    #[cfg(not(feature = "riscv-ulp-hal"))]
+    #[cfg(not(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys"))))]
     pub(crate) static PIN_NOTIF: [HalIsrNotification; 49] = [PIN_NOTIF_INIT; 49];
 
     // NOTE: Gpio26 - Gpio32 (and Gpio33 - Gpio37 if using Octal RAM/Flash) are used
@@ -1989,53 +2040,65 @@ mod chip {
     pin!(Gpio19:19, IO, RTC:19, ADC2:8, NODAC:0, NOTOUCH:0);
     pin!(Gpio20:20, IO, RTC:20, ADC2:9, NODAC:0, NOTOUCH:0);
     pin!(Gpio21:21, IO, RTC:21, NOADC:0, NODAC:0, NOTOUCH:0);
-    #[cfg(not(feature = "riscv-ulp-hal"))]
+    #[cfg(not(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys"))))]
     pin!(Gpio26:26, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
-    #[cfg(not(feature = "riscv-ulp-hal"))]
+    #[cfg(not(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys"))))]
     pin!(Gpio27:27, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
-    #[cfg(not(feature = "riscv-ulp-hal"))]
+    #[cfg(not(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys"))))]
     pin!(Gpio28:28, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
-    #[cfg(not(feature = "riscv-ulp-hal"))]
+    #[cfg(not(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys"))))]
     pin!(Gpio29:29, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
-    #[cfg(not(feature = "riscv-ulp-hal"))]
+    #[cfg(not(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys"))))]
     pin!(Gpio30:30, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
-    #[cfg(not(feature = "riscv-ulp-hal"))]
+    #[cfg(not(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys"))))]
     pin!(Gpio31:31, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
-    #[cfg(not(feature = "riscv-ulp-hal"))]
+    #[cfg(not(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys"))))]
     pin!(Gpio32:32, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
-    #[cfg(not(feature = "riscv-ulp-hal"))]
+    #[cfg(not(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys"))))]
     pin!(Gpio33:33, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
-    #[cfg(not(feature = "riscv-ulp-hal"))]
+    #[cfg(not(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys"))))]
     pin!(Gpio34:34, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
-    #[cfg(not(feature = "riscv-ulp-hal"))]
+    #[cfg(not(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys"))))]
     pin!(Gpio35:35, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
-    #[cfg(not(feature = "riscv-ulp-hal"))]
+    #[cfg(not(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys"))))]
     pin!(Gpio36:36, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
-    #[cfg(not(feature = "riscv-ulp-hal"))]
+    #[cfg(not(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys"))))]
     pin!(Gpio37:37, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
-    #[cfg(not(feature = "riscv-ulp-hal"))]
+    #[cfg(not(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys"))))]
     pin!(Gpio38:38, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
-    #[cfg(not(feature = "riscv-ulp-hal"))]
+    #[cfg(not(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys"))))]
     pin!(Gpio39:39, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
-    #[cfg(not(feature = "riscv-ulp-hal"))]
+    #[cfg(not(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys"))))]
     pin!(Gpio40:40, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
-    #[cfg(not(feature = "riscv-ulp-hal"))]
+    #[cfg(not(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys"))))]
     pin!(Gpio41:41, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
-    #[cfg(not(feature = "riscv-ulp-hal"))]
+    #[cfg(not(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys"))))]
     pin!(Gpio42:42, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
-    #[cfg(not(feature = "riscv-ulp-hal"))]
+    #[cfg(not(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys"))))]
     pin!(Gpio43:43, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
-    #[cfg(not(feature = "riscv-ulp-hal"))]
+    #[cfg(not(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys"))))]
     pin!(Gpio44:44, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
-    #[cfg(not(feature = "riscv-ulp-hal"))]
+    #[cfg(not(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys"))))]
     pin!(Gpio45:45, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
-    #[cfg(all(esp32s2, not(feature = "riscv-ulp-hal")))]
+    #[cfg(all(
+        esp32s2,
+        not(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys")))
+    ))]
     pin!(Gpio46:46, Input, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
-    #[cfg(all(esp32s3, not(feature = "riscv-ulp-hal")))]
+    #[cfg(all(
+        esp32s3,
+        not(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys")))
+    ))]
     pin!(Gpio46:46, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
-    #[cfg(all(esp32s3, not(feature = "riscv-ulp-hal")))]
+    #[cfg(all(
+        esp32s3,
+        not(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys")))
+    ))]
     pin!(Gpio47:47, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
-    #[cfg(all(esp32s3, not(feature = "riscv-ulp-hal")))]
+    #[cfg(all(
+        esp32s3,
+        not(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys")))
+    ))]
     pin!(Gpio48:48, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
 
     pub struct Pins {
@@ -2061,51 +2124,57 @@ mod chip {
         pub gpio19: Gpio19,
         pub gpio20: Gpio20,
         pub gpio21: Gpio21,
-        #[cfg(not(feature = "riscv-ulp-hal"))]
+        #[cfg(not(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys"))))]
         pub gpio26: Gpio26,
-        #[cfg(not(feature = "riscv-ulp-hal"))]
+        #[cfg(not(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys"))))]
         pub gpio27: Gpio27,
-        #[cfg(not(feature = "riscv-ulp-hal"))]
+        #[cfg(not(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys"))))]
         pub gpio28: Gpio28,
-        #[cfg(not(feature = "riscv-ulp-hal"))]
+        #[cfg(not(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys"))))]
         pub gpio29: Gpio29,
-        #[cfg(not(feature = "riscv-ulp-hal"))]
+        #[cfg(not(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys"))))]
         pub gpio30: Gpio30,
-        #[cfg(not(feature = "riscv-ulp-hal"))]
+        #[cfg(not(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys"))))]
         pub gpio31: Gpio31,
-        #[cfg(not(feature = "riscv-ulp-hal"))]
+        #[cfg(not(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys"))))]
         pub gpio32: Gpio32,
-        #[cfg(not(feature = "riscv-ulp-hal"))]
+        #[cfg(not(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys"))))]
         pub gpio33: Gpio33,
-        #[cfg(not(feature = "riscv-ulp-hal"))]
+        #[cfg(not(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys"))))]
         pub gpio34: Gpio34,
-        #[cfg(not(feature = "riscv-ulp-hal"))]
+        #[cfg(not(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys"))))]
         pub gpio35: Gpio35,
-        #[cfg(not(feature = "riscv-ulp-hal"))]
+        #[cfg(not(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys"))))]
         pub gpio36: Gpio36,
-        #[cfg(not(feature = "riscv-ulp-hal"))]
+        #[cfg(not(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys"))))]
         pub gpio37: Gpio37,
-        #[cfg(not(feature = "riscv-ulp-hal"))]
+        #[cfg(not(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys"))))]
         pub gpio38: Gpio38,
-        #[cfg(not(feature = "riscv-ulp-hal"))]
+        #[cfg(not(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys"))))]
         pub gpio39: Gpio39,
-        #[cfg(not(feature = "riscv-ulp-hal"))]
+        #[cfg(not(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys"))))]
         pub gpio40: Gpio40,
-        #[cfg(not(feature = "riscv-ulp-hal"))]
+        #[cfg(not(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys"))))]
         pub gpio41: Gpio41,
-        #[cfg(not(feature = "riscv-ulp-hal"))]
+        #[cfg(not(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys"))))]
         pub gpio42: Gpio42,
-        #[cfg(not(feature = "riscv-ulp-hal"))]
+        #[cfg(not(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys"))))]
         pub gpio43: Gpio43,
-        #[cfg(not(feature = "riscv-ulp-hal"))]
+        #[cfg(not(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys"))))]
         pub gpio44: Gpio44,
-        #[cfg(not(feature = "riscv-ulp-hal"))]
+        #[cfg(not(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys"))))]
         pub gpio45: Gpio45,
-        #[cfg(not(feature = "riscv-ulp-hal"))]
+        #[cfg(not(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys"))))]
         pub gpio46: Gpio46,
-        #[cfg(all(esp32s3, not(feature = "riscv-ulp-hal")))]
+        #[cfg(all(
+            esp32s3,
+            not(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys")))
+        ))]
         pub gpio47: Gpio47,
-        #[cfg(all(esp32s3, not(feature = "riscv-ulp-hal")))]
+        #[cfg(all(
+            esp32s3,
+            not(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys")))
+        ))]
         pub gpio48: Gpio48,
     }
 
@@ -2138,51 +2207,57 @@ mod chip {
                 gpio19: Gpio19::new(),
                 gpio20: Gpio20::new(),
                 gpio21: Gpio21::new(),
-                #[cfg(not(feature = "riscv-ulp-hal"))]
+                #[cfg(not(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys"))))]
                 gpio26: Gpio26::new(),
-                #[cfg(not(feature = "riscv-ulp-hal"))]
+                #[cfg(not(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys"))))]
                 gpio27: Gpio27::new(),
-                #[cfg(not(feature = "riscv-ulp-hal"))]
+                #[cfg(not(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys"))))]
                 gpio28: Gpio28::new(),
-                #[cfg(not(feature = "riscv-ulp-hal"))]
+                #[cfg(not(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys"))))]
                 gpio29: Gpio29::new(),
-                #[cfg(not(feature = "riscv-ulp-hal"))]
+                #[cfg(not(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys"))))]
                 gpio30: Gpio30::new(),
-                #[cfg(not(feature = "riscv-ulp-hal"))]
+                #[cfg(not(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys"))))]
                 gpio31: Gpio31::new(),
-                #[cfg(not(feature = "riscv-ulp-hal"))]
+                #[cfg(not(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys"))))]
                 gpio32: Gpio32::new(),
-                #[cfg(not(feature = "riscv-ulp-hal"))]
+                #[cfg(not(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys"))))]
                 gpio33: Gpio33::new(),
-                #[cfg(not(feature = "riscv-ulp-hal"))]
+                #[cfg(not(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys"))))]
                 gpio34: Gpio34::new(),
-                #[cfg(not(feature = "riscv-ulp-hal"))]
+                #[cfg(not(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys"))))]
                 gpio35: Gpio35::new(),
-                #[cfg(not(feature = "riscv-ulp-hal"))]
+                #[cfg(not(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys"))))]
                 gpio36: Gpio36::new(),
-                #[cfg(not(feature = "riscv-ulp-hal"))]
+                #[cfg(not(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys"))))]
                 gpio37: Gpio37::new(),
-                #[cfg(not(feature = "riscv-ulp-hal"))]
+                #[cfg(not(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys"))))]
                 gpio38: Gpio38::new(),
-                #[cfg(not(feature = "riscv-ulp-hal"))]
+                #[cfg(not(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys"))))]
                 gpio39: Gpio39::new(),
-                #[cfg(not(feature = "riscv-ulp-hal"))]
+                #[cfg(not(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys"))))]
                 gpio40: Gpio40::new(),
-                #[cfg(not(feature = "riscv-ulp-hal"))]
+                #[cfg(not(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys"))))]
                 gpio41: Gpio41::new(),
-                #[cfg(not(feature = "riscv-ulp-hal"))]
+                #[cfg(not(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys"))))]
                 gpio42: Gpio42::new(),
-                #[cfg(not(feature = "riscv-ulp-hal"))]
+                #[cfg(not(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys"))))]
                 gpio43: Gpio43::new(),
-                #[cfg(not(feature = "riscv-ulp-hal"))]
+                #[cfg(not(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys"))))]
                 gpio44: Gpio44::new(),
-                #[cfg(not(feature = "riscv-ulp-hal"))]
+                #[cfg(not(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys"))))]
                 gpio45: Gpio45::new(),
-                #[cfg(not(feature = "riscv-ulp-hal"))]
+                #[cfg(not(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys"))))]
                 gpio46: Gpio46::new(),
-                #[cfg(all(esp32s3, not(feature = "riscv-ulp-hal")))]
+                #[cfg(all(
+                    esp32s3,
+                    not(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys")))
+                ))]
                 gpio47: Gpio47::new(),
-                #[cfg(all(esp32s3, not(feature = "riscv-ulp-hal")))]
+                #[cfg(all(
+                    esp32s3,
+                    not(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys")))
+                ))]
                 gpio48: Gpio48::new(),
             }
         }
@@ -2190,21 +2265,27 @@ mod chip {
 }
 
 #[cfg(esp32c3)]
-#[cfg(not(feature = "riscv-ulp-hal"))]
+#[cfg(not(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys"))))]
 mod chip {
-    #[cfg(all(not(feature = "riscv-ulp-hal"), feature = "alloc"))]
+    #[cfg(all(
+        not(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys"))),
+        feature = "alloc"
+    ))]
     extern crate alloc;
 
-    #[cfg(all(not(feature = "riscv-ulp-hal"), feature = "alloc"))]
+    #[cfg(all(
+        not(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys"))),
+        feature = "alloc"
+    ))]
     use alloc::boxed::Box;
 
-    #[cfg(not(feature = "riscv-ulp-hal"))]
+    #[cfg(not(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys"))))]
     use esp_idf_sys::*;
 
-    #[cfg(feature = "riscv-ulp-hal")]
+    #[cfg(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys")))]
     use crate::riscv_ulp_hal::sys::*;
 
-    #[cfg(not(feature = "riscv-ulp-hal"))]
+    #[cfg(not(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys"))))]
     use crate::interrupt::asynch::HalIsrNotification;
 
     use crate::adc::{ADC1, ADC2};
@@ -2216,7 +2297,7 @@ mod chip {
     pub(crate) static mut PIN_ISR_HANDLER: [Option<Box<dyn FnMut() + Send + 'static>>; 22] =
         [PIN_ISR_INIT; 22];
 
-    #[cfg(not(feature = "riscv-ulp-hal"))]
+    #[cfg(not(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys"))))]
     pub(crate) static PIN_NOTIF: [HalIsrNotification; 22] = [PIN_NOTIF_INIT; 22];
 
     // NOTE: Gpio12 - Gpio17 are used by SPI0/SPI1 for external PSRAM/SPI Flash and
@@ -2304,21 +2385,27 @@ mod chip {
 }
 
 #[cfg(esp32c2)]
-#[cfg(not(feature = "riscv-ulp-hal"))]
+#[cfg(not(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys"))))]
 mod chip {
-    #[cfg(all(not(feature = "riscv-ulp-hal"), feature = "alloc"))]
+    #[cfg(all(
+        not(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys"))),
+        feature = "alloc"
+    ))]
     extern crate alloc;
 
-    #[cfg(all(not(feature = "riscv-ulp-hal"), feature = "alloc"))]
+    #[cfg(all(
+        not(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys"))),
+        feature = "alloc"
+    ))]
     use alloc::boxed::Box;
 
-    #[cfg(not(feature = "riscv-ulp-hal"))]
+    #[cfg(not(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys"))))]
     use esp_idf_sys::*;
 
-    #[cfg(feature = "riscv-ulp-hal")]
+    #[cfg(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys")))]
     use crate::riscv_ulp_hal::sys::*;
 
-    #[cfg(not(feature = "riscv-ulp-hal"))]
+    #[cfg(not(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys"))))]
     use crate::interrupt::asynch::HalIsrNotification;
 
     use crate::adc::ADC1;
@@ -2330,7 +2417,7 @@ mod chip {
     pub(crate) static mut PIN_ISR_HANDLER: [Option<Box<dyn FnMut() + Send + 'static>>; 20] =
         [PIN_ISR_INIT; 20];
 
-    #[cfg(not(feature = "riscv-ulp-hal"))]
+    #[cfg(not(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys"))))]
     pub(crate) static PIN_NOTIF: [HalIsrNotification; 20] = [PIN_NOTIF_INIT; 20];
 
     // NOTE: Gpio12 - Gpio17 are used by SPI0/SPI1 for external PSRAM/SPI Flash and
@@ -2415,21 +2502,27 @@ mod chip {
 }
 
 #[cfg(esp32h2)]
-#[cfg(not(feature = "riscv-ulp-hal"))]
+#[cfg(not(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys"))))]
 mod chip {
-    #[cfg(all(not(feature = "riscv-ulp-hal"), feature = "alloc"))]
+    #[cfg(all(
+        not(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys"))),
+        feature = "alloc"
+    ))]
     extern crate alloc;
 
-    #[cfg(all(not(feature = "riscv-ulp-hal"), feature = "alloc"))]
+    #[cfg(all(
+        not(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys"))),
+        feature = "alloc"
+    ))]
     use alloc::boxed::Box;
 
-    #[cfg(not(feature = "riscv-ulp-hal"))]
+    #[cfg(not(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys"))))]
     use esp_idf_sys::*;
 
-    #[cfg(feature = "riscv-ulp-hal")]
+    #[cfg(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys")))]
     use crate::riscv_ulp_hal::sys::*;
 
-    #[cfg(not(feature = "riscv-ulp-hal"))]
+    #[cfg(not(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys"))))]
     use crate::interrupt::asynch::HalIsrNotification;
 
     use crate::adc::ADC1;
@@ -2441,7 +2534,7 @@ mod chip {
     pub(crate) static mut PIN_ISR_HANDLER: [Option<Box<dyn FnMut() + Send + 'static>>; 20] =
         [PIN_ISR_INIT; 20];
 
-    #[cfg(not(feature = "riscv-ulp-hal"))]
+    #[cfg(not(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys"))))]
     pub(crate) static PIN_NOTIF: [HalIsrNotification; 20] = [PIN_NOTIF_INIT; 20];
 
     // NOTE: Gpio12 - Gpio17 are used by SPI0/SPI1 for external PSRAM/SPI Flash and
@@ -2529,19 +2622,25 @@ mod chip {
 
 #[cfg(any(esp32c5, esp32c6, esp32p4))] // TODO: Implement proper pin layout for esp32c5 and esp32p4
 mod chip {
-    #[cfg(all(not(feature = "riscv-ulp-hal"), feature = "alloc"))]
+    #[cfg(all(
+        not(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys"))),
+        feature = "alloc"
+    ))]
     extern crate alloc;
 
-    #[cfg(all(not(feature = "riscv-ulp-hal"), feature = "alloc"))]
+    #[cfg(all(
+        not(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys"))),
+        feature = "alloc"
+    ))]
     use alloc::boxed::Box;
 
-    #[cfg(not(feature = "riscv-ulp-hal"))]
+    #[cfg(not(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys"))))]
     use esp_idf_sys::*;
 
-    #[cfg(feature = "riscv-ulp-hal")]
+    #[cfg(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys")))]
     use crate::riscv_ulp_hal::sys::*;
 
-    #[cfg(not(feature = "riscv-ulp-hal"))]
+    #[cfg(not(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys"))))]
     use crate::interrupt::asynch::HalIsrNotification;
 
     use crate::adc::ADC1;
@@ -2549,12 +2648,15 @@ mod chip {
     use super::*;
 
     #[allow(clippy::type_complexity)]
-    #[cfg(all(not(feature = "riscv-ulp-hal"), feature = "alloc"))]
+    #[cfg(all(
+        not(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys"))),
+        feature = "alloc"
+    ))]
     pub(crate) static mut PIN_ISR_HANDLER: [Option<Box<dyn FnMut() + Send + 'static>>; 30] =
         [PIN_ISR_INIT; 30];
 
     #[allow(clippy::type_complexity)]
-    #[cfg(not(feature = "riscv-ulp-hal"))]
+    #[cfg(not(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys"))))]
     pub(crate) static PIN_NOTIF: [HalIsrNotification; 30] = [PIN_NOTIF_INIT; 30];
 
     // NOTE: Gpio26 - Gpio32 (and Gpio33 - Gpio37 if using Octal RAM/Flash) are used
@@ -2586,15 +2688,15 @@ mod chip {
     pin!(Gpio23:23, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
     pin!(Gpio24:24, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
     pin!(Gpio25:25, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
-    #[cfg(not(feature = "riscv-ulp-hal"))]
+    #[cfg(not(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys"))))]
     pin!(Gpio26:26, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
-    #[cfg(not(feature = "riscv-ulp-hal"))]
+    #[cfg(not(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys"))))]
     pin!(Gpio27:27, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
-    #[cfg(not(feature = "riscv-ulp-hal"))]
+    #[cfg(not(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys"))))]
     pin!(Gpio28:28, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
-    #[cfg(not(feature = "riscv-ulp-hal"))]
+    #[cfg(not(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys"))))]
     pin!(Gpio29:29, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
-    #[cfg(not(feature = "riscv-ulp-hal"))]
+    #[cfg(not(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys"))))]
     pin!(Gpio30:30, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
 
     pub struct Pins {
@@ -2624,15 +2726,15 @@ mod chip {
         pub gpio23: Gpio23,
         pub gpio24: Gpio24,
         pub gpio25: Gpio25,
-        #[cfg(not(feature = "riscv-ulp-hal"))]
+        #[cfg(not(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys"))))]
         pub gpio26: Gpio26,
-        #[cfg(not(feature = "riscv-ulp-hal"))]
+        #[cfg(not(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys"))))]
         pub gpio27: Gpio27,
-        #[cfg(not(feature = "riscv-ulp-hal"))]
+        #[cfg(not(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys"))))]
         pub gpio28: Gpio28,
-        #[cfg(not(feature = "riscv-ulp-hal"))]
+        #[cfg(not(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys"))))]
         pub gpio29: Gpio29,
-        #[cfg(not(feature = "riscv-ulp-hal"))]
+        #[cfg(not(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys"))))]
         pub gpio30: Gpio30,
     }
 
@@ -2669,15 +2771,15 @@ mod chip {
                 gpio23: Gpio23::new(),
                 gpio24: Gpio24::new(),
                 gpio25: Gpio25::new(),
-                #[cfg(not(feature = "riscv-ulp-hal"))]
+                #[cfg(not(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys"))))]
                 gpio26: Gpio26::new(),
-                #[cfg(not(feature = "riscv-ulp-hal"))]
+                #[cfg(not(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys"))))]
                 gpio27: Gpio27::new(),
-                #[cfg(not(feature = "riscv-ulp-hal"))]
+                #[cfg(not(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys"))))]
                 gpio28: Gpio28::new(),
-                #[cfg(not(feature = "riscv-ulp-hal"))]
+                #[cfg(not(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys"))))]
                 gpio29: Gpio29::new(),
-                #[cfg(not(feature = "riscv-ulp-hal"))]
+                #[cfg(not(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys"))))]
                 gpio30: Gpio30::new(),
             }
         }

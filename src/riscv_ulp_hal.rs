@@ -1,12 +1,12 @@
-#[cfg(feature = "riscv-ulp-hal")]
+#[cfg(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys")))]
 mod pac;
-#[cfg(feature = "riscv-ulp-hal")]
+#[cfg(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys")))]
 mod reg;
 
-#[cfg(feature = "riscv-ulp-hal")]
+#[cfg(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys")))]
 #[macro_use]
 pub mod sys;
-#[cfg(feature = "riscv-ulp-hal")]
+#[cfg(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys")))]
 pub mod delay;
-#[cfg(feature = "riscv-ulp-hal")]
+#[cfg(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys")))]
 pub mod start;

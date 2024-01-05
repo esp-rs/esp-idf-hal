@@ -1,10 +1,10 @@
-#[cfg(not(feature = "riscv-ulp-hal"))]
+#[cfg(not(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys"))))]
 fn main() {
     embuild::espidf::sysenv::relay();
     embuild::espidf::sysenv::output(); // Only necessary for building the examples
 }
 
-#[cfg(feature = "riscv-ulp-hal")]
+#[cfg(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys")))]
 fn main() {
     println!("cargo:rustc-cfg=esp32s2");
 

@@ -488,7 +488,7 @@ impl<'a> Drop for CriticalSectionGuard<'a> {
 }
 
 #[cfg(all(
-    not(feature = "riscv-ulp-hal"),
+    not(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys"))),
     any(
         all(
             not(any(esp_idf_version_major = "4", esp_idf_version = "5.0")),

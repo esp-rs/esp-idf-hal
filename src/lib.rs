@@ -10,9 +10,12 @@
 #![cfg_attr(target_arch = "xtensa", feature(asm_experimental_arch))]
 
 #[cfg(all(not(feature = "riscv-ulp-hal"), not(feature = "esp-idf-sys")))]
-compile_error!("Exactly one of the features `esp-idf-sys` or `riscv-ulp-hal` needs to be enabled");
+compile_error!("Neither feature `esp-idf-sys`, nor feature `riscv-ulp-hal` is enabled");
 
-#[cfg(all(not(feature = "riscv-ulp-hal"), not(esp_idf_comp_driver_enabled)))]
+#[cfg(all(
+    not(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys"))),
+    not(esp_idf_comp_driver_enabled)
+))]
 compile_error!("esp-idf-hal requires the `driver` ESP-IDF component to be enabled");
 
 #[cfg(all(
@@ -22,75 +25,84 @@ compile_error!("esp-idf-hal requires the `driver` ESP-IDF component to be enable
         feature = "critical-section-interrupt",
         feature = "critical-section-mutex"
     ),
-    feature = "riscv-ulp-hal"
+    all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys"))
 ))]
 compile_error!("Enabling feature `riscv-ulp-hal` implies no other feature is enabled");
 
-#[cfg(all(feature = "riscv-ulp-hal", not(esp32s2)))]
+#[cfg(all(
+    all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys")),
+    not(esp32s2)
+))]
 compile_error!("Feature `riscv-ulp-hal` is currently only supported on esp32s2");
 
 #[macro_use]
 pub mod riscv_ulp_hal;
 
 pub mod adc;
-#[cfg(not(feature = "riscv-ulp-hal"))]
+#[cfg(not(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys"))))]
 pub mod can;
-#[cfg(not(feature = "riscv-ulp-hal"))]
+#[cfg(not(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys"))))]
 pub mod cpu;
-#[cfg(not(feature = "riscv-ulp-hal"))]
+#[cfg(not(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys"))))]
 pub mod delay;
 pub mod gpio;
 #[cfg(all(esp32, esp_idf_version_major = "4"))]
 pub mod hall;
-#[cfg(not(feature = "riscv-ulp-hal"))]
+#[cfg(not(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys"))))]
 pub mod i2c;
-#[cfg(all(not(feature = "riscv-ulp-hal"), esp_idf_comp_driver_enabled))]
+#[cfg(all(
+    not(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys"))),
+    esp_idf_comp_driver_enabled
+))]
 #[cfg_attr(
     feature = "nightly",
     doc(cfg(all(esp_idf_soc_i2s_supported, esp_idf_comp_driver_enabled)))
 )]
 pub mod i2s;
-#[cfg(not(feature = "riscv-ulp-hal"))]
+#[cfg(not(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys"))))]
 pub mod interrupt;
-#[cfg(not(feature = "riscv-ulp-hal"))]
+#[cfg(not(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys"))))]
 pub mod io;
-#[cfg(not(feature = "riscv-ulp-hal"))]
+#[cfg(not(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys"))))]
 pub mod ledc;
 #[cfg(all(
     any(all(esp32, esp_idf_eth_use_esp32_emac), esp_idf_eth_use_openeth),
-    not(feature = "riscv-ulp-hal")
+    not(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys")))
 ))]
 pub mod mac;
-#[cfg(not(feature = "riscv-ulp-hal"))]
+#[cfg(not(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys"))))]
 pub mod modem;
-#[cfg(all(not(feature = "riscv-ulp-hal"), any(esp32, esp32s2, esp32s3)))]
+#[cfg(all(
+    not(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys"))),
+    any(esp32, esp32s2, esp32s3)
+))]
 pub mod pcnt;
 pub mod peripheral;
 pub mod peripherals;
 pub mod prelude;
-#[cfg(not(feature = "riscv-ulp-hal"))]
+#[cfg(not(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys"))))]
 pub mod reset;
-#[cfg(not(feature = "riscv-ulp-hal"))]
+#[cfg(not(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys"))))]
 pub mod rmt;
-#[cfg(not(feature = "riscv-ulp-hal"))]
+#[cfg(not(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys"))))]
 pub mod rom;
-#[cfg(not(feature = "riscv-ulp-hal"))]
+#[cfg(not(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys"))))]
 pub mod spi;
 pub mod sys;
-#[cfg(not(feature = "riscv-ulp-hal"))]
+#[cfg(not(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys"))))]
 pub mod task;
-#[cfg(not(feature = "riscv-ulp-hal"))]
+#[cfg(not(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys"))))]
 pub mod timer;
-#[cfg(not(feature = "riscv-ulp-hal"))]
+#[cfg(not(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys"))))]
 pub mod uart;
 #[cfg(all(
     any(esp32, esp32s2, esp32s3, esp32c6, esp32p4),
-    not(feature = "riscv-ulp-hal")
+    not(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys")))
 ))]
 pub mod ulp;
 pub mod units;
 
-#[cfg(feature = "riscv-ulp-hal")]
+#[cfg(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys")))]
 pub use crate::riscv_ulp_hal::delay;
 
 // This is used to create `embedded_hal` compatible error structs
@@ -98,7 +110,7 @@ pub use crate::riscv_ulp_hal::delay;
 //
 // Example:
 // embedded_hal_error!(I2cError, embedded_hal::i2c::Error, embedded_hal::i2c::ErrorKind)
-#[cfg(not(feature = "riscv-ulp-hal"))]
+#[cfg(not(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys"))))]
 #[allow(unused_macros)]
 macro_rules! embedded_hal_error {
     ($error:ident, $errortrait:ty, $kind:ty) => {
@@ -148,7 +160,7 @@ macro_rules! embedded_hal_error {
     };
 }
 
-#[cfg(feature = "riscv-ulp-hal")]
+#[cfg(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys")))]
 #[allow(unused_macros)]
 macro_rules! embedded_hal_error {
     ($error:ident, $errortrait:ty, $kind:ty) => {
