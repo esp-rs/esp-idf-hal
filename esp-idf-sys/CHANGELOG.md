@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   * Perform PlatformIO build **only** when the `pio` feature IS specified, and the `native` feature is NOT specified
   * In case neither the `native` nor the `pio` feature is specified, perform a native build (this setup used to fail the build)
   * In case both the `native` and `pio` features are specified, perform a native build as well (this setup used to perform a PlatformIO build)
+* When both `binstart` and `libstart` features are selected, `binstart` takes precedence over `libstart`
 * #264 - Copy the bootloader and partition table binaries to the target folder
 * #262 - Bindings for the `esp_lcd` driver component
 * #259 - Bindings for the temperature sensor driver

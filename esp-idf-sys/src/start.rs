@@ -1,8 +1,5 @@
 #![cfg(any(feature = "binstart", feature = "libstart"))]
 
-#[cfg(all(feature = "binstart", feature = "libstart"))]
-compile_error!("Features `binstart` and `libstart` are mutually exclusive.");
-
 // When compiling a binary Rust crate in STD (e.g. in Cargo-first builds) and NOT doing
 // any tricks like using #[no_main] or #[start], the Rust compiler will autogenerate
 // a C function with the signature as below which will be proxying

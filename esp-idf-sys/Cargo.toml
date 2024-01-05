@@ -16,7 +16,7 @@ documentation = "https://esp-rs.github.io/esp-idf-sys/"
 rust-version = "1.66"
 
 [features]
-default = ["std", "native", "binstart"]
+default = ["std", "binstart"]
 
 std = []
 alloc_handler = []
