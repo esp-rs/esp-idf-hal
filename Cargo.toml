@@ -15,6 +15,9 @@ build = "build.rs"
 documentation = "https://esp-rs.github.io/esp-idf-hal/"
 rust-version = "1.71"
 
+[patch.crates-io]
+esp-idf-sys = { git = "https://github.com/esp-rs/esp-idf-sys" }
+
 [features]
 default = ["std", "binstart"]
 std = ["alloc", "esp-idf-sys/std"]
