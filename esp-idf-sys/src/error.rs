@@ -1,4 +1,4 @@
-use core::{ffi, fmt, num::NonZeroI32, slice, str};
+use core::{ffi, fmt, num::NonZeroI32, str};
 
 use crate::{esp_err_t, esp_err_to_name, ESP_OK};
 
@@ -77,18 +77,9 @@ impl std::error::Error for EspError {}
 
 impl fmt::Display for EspError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        unsafe fn strlen(c_s: *const ffi::c_char) -> usize {
-            let mut len = 0;
-            while *c_s.offset(len) != 0 {
-                len += 1;
-            }
-
-            len as usize
-        }
-
         unsafe {
-            let c_s = esp_err_to_name(self.code());
-            str::from_utf8_unchecked(slice::from_raw_parts(c_s as *const u8, strlen(c_s))).fmt(f)
+            let s = ffi::CStr::from_ptr(esp_err_to_name(self.code()));
+            str::from_utf8_unchecked(s.to_bytes()).fmt(f)
         }
     }
 }
