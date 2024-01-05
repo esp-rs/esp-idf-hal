@@ -30,7 +30,7 @@ pub struct BuildConfig {
     /// detected from the cargo target triple.
     pub mcu: Option<String>,
 
-    #[cfg(feature = "native")]
+    #[cfg(any(feature = "native", not(feature = "pio")))]
     /// Additional configurations for the native builder.
     #[serde(skip)]
     pub native: crate::native::cargo_driver::config::NativeConfig,
@@ -48,7 +48,7 @@ impl BuildConfig {
     pub fn try_from_env() -> Result<BuildConfig> {
         let cfg: BuildConfig = utils::parse_from_env(&[])?;
 
-        #[cfg(all(feature = "native", not(feature = "pio")))]
+        #[cfg(any(feature = "native", not(feature = "pio")))]
         let cfg = {
             use crate::native::cargo_driver::config::NativeConfig;
             BuildConfig {
@@ -130,7 +130,7 @@ impl BuildConfig {
                     esp_idf_sdkconfig,
                     esp_idf_sdkconfig_defaults,
                     mcu,
-                    #[cfg(feature = "native")]
+                    #[cfg(any(feature = "native", not(feature = "pio")))]
                         native: _,
                     esp_idf_sys_root_crate: _,
                 },
@@ -148,7 +148,7 @@ impl BuildConfig {
         );
         utils::set_when_none(&mut self.mcu, mcu);
 
-        #[cfg(all(feature = "native", not(feature = "pio")))]
+        #[cfg(any(feature = "native", not(feature = "pio")))]
         self.native.with_cargo_metadata(root_package, &metadata)?;
 
         Ok(())

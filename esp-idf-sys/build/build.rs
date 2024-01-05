@@ -136,7 +136,7 @@ fn main() -> anyhow::Result<()> {
     #[allow(unused_mut)]
     let mut headers = vec![header_file];
 
-    #[cfg(all(feature = "native", not(feature = "pio")))]
+    #[cfg(any(feature = "native", not(feature = "pio")))]
     // Add additional headers from extra components.
     headers.extend(
         build_output
@@ -155,7 +155,7 @@ fn main() -> anyhow::Result<()> {
         .with_context(bindgen_err)?;
 
     // Generate bindings separately for each unique module name.
-    #[cfg(all(feature = "native", not(feature = "pio")))]
+    #[cfg(any(feature = "native", not(feature = "pio")))]
     (|| {
         use std::fs;
         use std::io::{BufWriter, Write};

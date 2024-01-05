@@ -179,6 +179,7 @@ impl NativeConfig {
     /// (all extra components where [`ExtraComponent::bindings_module`] is [`None`]).
     ///
     /// This method will validate that all returned C header files exist.
+    #[cfg(any(feature = "native", not(feature = "pio")))]
     pub fn combined_bindings_headers(&self) -> Result<Vec<PathBuf>> {
         let mut results = Vec::new();
         for comp in &self.extra_components {
@@ -206,6 +207,7 @@ impl NativeConfig {
     ///
     /// This method will validate that all returned C header files exist and also that the
     /// module name only contains ACII alphanumeric and `_` characters.
+    #[cfg(any(feature = "native", not(feature = "pio")))]
     pub fn module_bindings_headers(&self) -> Result<HashMap<&str, Vec<PathBuf>>> {
         let headers = self.extra_components.iter().filter_map(|comp| {
             match (&comp.bindings_header, &comp.bindings_module) {
@@ -513,6 +515,7 @@ mod parse {
 
 /// A extra component module name can only contain ASCII alphanumeric and `_` characters.
 /// Additionally it must not start with a digit.
+#[cfg(any(feature = "native", not(feature = "pio")))]
 pub fn validate_module_name(module_name: &str, comp: &ExtraComponent) -> Result<()> {
     if module_name.is_empty() {
         bail!(

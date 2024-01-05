@@ -23,10 +23,6 @@ alloc_handler = []
 panic_handler = []
 binstart = []
 libstart = []
-
-# Use native `esp-idf` tooling to build the `esp-idf`
-native = ["embuild/cmake", "embuild/espidf"]
-# Backup: use `platformio` to build the `esp-idf`
 pio = ["embuild/pio"]
 
 [dependencies]
@@ -35,7 +31,7 @@ build-time = "0.1"   # For esp_app_desc!()
 const_format = "0.2" # For esp_app_desc!()
 
 [build-dependencies]
-embuild = { version = "0.31.3", features = ["glob", "kconfig"] }
+embuild = { version = "0.31.3", features = ["glob", "kconfig", "cmake", "espidf"] }
 anyhow = "1"
 regex = "1.5"
 bindgen = "0.63"
