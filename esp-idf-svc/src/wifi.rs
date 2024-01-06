@@ -140,20 +140,20 @@ impl From<AuthMethod> for Newtype<wifi_auth_mode_t> {
     }
 }
 
-impl From<Newtype<wifi_auth_mode_t>> for AuthMethod {
+impl From<Newtype<wifi_auth_mode_t>> for Option<AuthMethod> {
     #[allow(non_upper_case_globals)]
     fn from(mode: Newtype<wifi_auth_mode_t>) -> Self {
         match mode.0 {
-            wifi_auth_mode_t_WIFI_AUTH_OPEN => AuthMethod::None,
-            wifi_auth_mode_t_WIFI_AUTH_WEP => AuthMethod::WEP,
-            wifi_auth_mode_t_WIFI_AUTH_WPA_PSK => AuthMethod::WPA,
-            wifi_auth_mode_t_WIFI_AUTH_WPA2_PSK => AuthMethod::WPA2Personal,
-            wifi_auth_mode_t_WIFI_AUTH_WPA_WPA2_PSK => AuthMethod::WPAWPA2Personal,
-            wifi_auth_mode_t_WIFI_AUTH_WPA2_ENTERPRISE => AuthMethod::WPA2Enterprise,
-            wifi_auth_mode_t_WIFI_AUTH_WPA3_PSK => AuthMethod::WPA3Personal,
-            wifi_auth_mode_t_WIFI_AUTH_WPA2_WPA3_PSK => AuthMethod::WPA2WPA3Personal,
-            wifi_auth_mode_t_WIFI_AUTH_WAPI_PSK => AuthMethod::WAPIPersonal,
-            _ => panic!(),
+            wifi_auth_mode_t_WIFI_AUTH_OPEN => Some(AuthMethod::None),
+            wifi_auth_mode_t_WIFI_AUTH_WEP => Some(AuthMethod::WEP),
+            wifi_auth_mode_t_WIFI_AUTH_WPA_PSK => Some(AuthMethod::WPA),
+            wifi_auth_mode_t_WIFI_AUTH_WPA2_PSK => Some(AuthMethod::WPA2Personal),
+            wifi_auth_mode_t_WIFI_AUTH_WPA_WPA2_PSK => Some(AuthMethod::WPAWPA2Personal),
+            wifi_auth_mode_t_WIFI_AUTH_WPA2_ENTERPRISE => Some(AuthMethod::WPA2Enterprise),
+            wifi_auth_mode_t_WIFI_AUTH_WPA3_PSK => Some(AuthMethod::WPA3Personal),
+            wifi_auth_mode_t_WIFI_AUTH_WPA2_WPA3_PSK => Some(AuthMethod::WPA2WPA3Personal),
+            wifi_auth_mode_t_WIFI_AUTH_WAPI_PSK => Some(AuthMethod::WAPIPersonal),
+            _ => None,
         }
     }
 }
@@ -203,7 +203,10 @@ impl From<Newtype<wifi_sta_config_t>> for ClientConfiguration {
             } else {
                 None
             },
-            auth_method: Newtype(conf.0.threshold.authmode).into(),
+            auth_method: <Newtype<u32> as std::convert::Into<Option<AuthMethod>>>::into(Newtype(
+                conf.0.threshold.authmode,
+            ))
+            .unwrap(),
             password: from_cstr(&conf.0.password).try_into().unwrap(),
             channel: if conf.0.channel != 0 {
                 Some(conf.0.channel)
@@ -252,7 +255,7 @@ impl From<Newtype<wifi_ap_config_t>> for AccessPointConfiguration {
             ssid_hidden: conf.0.ssid_hidden != 0,
             channel: conf.0.channel,
             secondary_channel: None,
-            auth_method: AuthMethod::from(Newtype(conf.0.authmode)),
+            auth_method: Option::<AuthMethod>::from(Newtype(conf.0.authmode)).unwrap(),
             protocols: EnumSet::<Protocol>::empty(), // TODO
             password: from_cstr(&conf.0.password).try_into().unwrap(),
             max_connections: conf.0.max_connection as u16,
@@ -279,7 +282,7 @@ impl TryFrom<Newtype<&wifi_ap_record_t>> for AccessPointInfo {
             },
             signal_strength: a.rssi,
             protocols: EnumSet::<Protocol>::empty(), // TODO
-            auth_method: AuthMethod::from(Newtype::<wifi_auth_mode_t>(a.authmode)),
+            auth_method: Option::<AuthMethod>::from(Newtype::<wifi_auth_mode_t>(a.authmode)),
         })
     }
 }
