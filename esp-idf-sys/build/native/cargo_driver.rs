@@ -475,6 +475,13 @@ pub fn build() -> Result<EspIdfBuildOutput> {
             cmake_config.target("riscv32imc_zicsr_zifencei-esp-espidf");
         } else if target == "riscv32imac-esp-espidf" {
             cmake_config.target("riscv32imac_zicsr_zifencei-esp-espidf");
+        } else if target == "riscv32imafc-esp-espidf" {
+            cmake_config.target("riscv32imafc_zicsr_zifencei-esp-espidf");
+            // workaround for a bug in cc-rs
+            // see https://github.com/rust-lang/cc-rs/issues/795 & https://github.com/rust-lang/cc-rs/pull/796
+            cmake_config.cflag("-mabi=ilp32f");
+        } else {
+            panic!("Unsupported target: {}", target);
         }
     }
 
