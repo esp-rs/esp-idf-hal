@@ -30,12 +30,12 @@ impl Display for EspIOError {
 #[cfg(feature = "std")]
 impl std::error::Error for EspIOError {}
 
-// #[cfg(feature = "std")]
-// impl From<EspIOError> for std::io::Error {
-//     fn from(e: EspIOError) -> Self {
-//         std::io::Error::other(e)
-//     }
-// }
+#[cfg(feature = "std")]
+impl From<EspIOError> for std::io::Error {
+    fn from(e: EspIOError) -> Self {
+        std::io::Error::other(e)
+    }
+}
 
 #[cfg(feature = "nightly")]
 pub mod asynch {
