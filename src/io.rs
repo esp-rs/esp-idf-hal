@@ -30,6 +30,13 @@ impl Display for EspIOError {
 #[cfg(feature = "std")]
 impl std::error::Error for EspIOError {}
 
+#[cfg(feature = "std")]
+impl Into<std::io::Error> for EspIOError {
+    fn into(self) -> std::io::Error {
+        std::io::Error::other(self)
+    }
+}
+
 #[cfg(feature = "nightly")]
 pub mod asynch {
     pub use embedded_io_async::*;
