@@ -31,9 +31,9 @@ impl Display for EspIOError {
 impl std::error::Error for EspIOError {}
 
 #[cfg(feature = "std")]
-impl Into<std::io::Error> for EspIOError {
-    fn into(self) -> std::io::Error {
-        std::io::Error::other(self)
+impl From<EspIOError> for std::io::Error {
+    fn from(e: EspIOError) -> Self {
+        std::io::Error::other(e)
     }
 }
 
