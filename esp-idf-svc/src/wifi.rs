@@ -2361,7 +2361,7 @@ where
     }
 }
 
-#[cfg(all(feature = "nightly", feature = "alloc", esp_idf_comp_esp_timer_enabled))]
+#[cfg(all(feature = "alloc", esp_idf_comp_esp_timer_enabled))]
 impl<T> embedded_svc::wifi::asynch::Wifi for AsyncWifi<T>
 where
     T: Wifi<Error = EspError> + NonBlocking,
@@ -2416,7 +2416,6 @@ where
     }
 }
 
-#[cfg(feature = "nightly")]
 #[cfg(esp_idf_comp_esp_netif_enabled)]
 impl<'d> crate::netif::asynch::NetifStatus for EspWifi<'d> {
     async fn is_up(&self) -> Result<bool, EspError> {
@@ -2424,7 +2423,7 @@ impl<'d> crate::netif::asynch::NetifStatus for EspWifi<'d> {
     }
 }
 
-#[cfg(all(feature = "nightly", feature = "alloc", esp_idf_comp_esp_timer_enabled))]
+#[cfg(all(feature = "alloc", esp_idf_comp_esp_timer_enabled))]
 #[cfg(esp_idf_comp_esp_netif_enabled)]
 impl<T> crate::netif::asynch::NetifStatus for AsyncWifi<T>
 where

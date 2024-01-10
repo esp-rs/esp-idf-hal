@@ -772,7 +772,6 @@ where
     }
 }
 
-#[cfg(feature = "nightly")]
 pub mod asynch {
     use crate::sys::EspError;
 

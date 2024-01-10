@@ -1266,7 +1266,7 @@ where
     }
 }
 
-#[cfg(all(feature = "nightly", feature = "alloc", esp_idf_comp_esp_timer_enabled))]
+#[cfg(all(feature = "alloc", esp_idf_comp_esp_timer_enabled))]
 impl<T> embedded_svc::eth::asynch::Eth for AsyncEth<T>
 where
     T: Eth<Error = EspError>,
@@ -1290,7 +1290,6 @@ where
     }
 }
 
-#[cfg(feature = "nightly")]
 #[cfg(esp_idf_comp_esp_netif_enabled)]
 impl<'d, T> crate::netif::asynch::NetifStatus for EspEth<'d, T> {
     async fn is_up(&self) -> Result<bool, EspError> {
@@ -1298,7 +1297,7 @@ impl<'d, T> crate::netif::asynch::NetifStatus for EspEth<'d, T> {
     }
 }
 
-#[cfg(all(feature = "nightly", feature = "alloc", esp_idf_comp_esp_timer_enabled))]
+#[cfg(all(feature = "alloc", esp_idf_comp_esp_timer_enabled))]
 #[cfg(esp_idf_comp_esp_netif_enabled)]
 impl<T> crate::netif::asynch::NetifStatus for AsyncEth<T>
 where

@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [?.??.?] - ????-??-??
+* MSRV 1.75; remove the nightly feature flag from all async trait implementations
+* Update public dependencies `embassy-time` to 0.5 and `heapless` to 0.8
 * #316 - BREAKING CHANGE addressing a typo - `http::server::Configuration::max_resp_handlers` renamed to `http::server::Configuration::max_resp_headers`
 * #319 - Set default TTL in `EspPing` to 64
 * #322 - Fix MQTT PSK code (did not compile)

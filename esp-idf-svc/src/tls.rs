@@ -733,7 +733,6 @@ mod esptls {
         }
     }
 
-    #[cfg(feature = "nightly")]
     #[cfg(all(
         not(esp_idf_version_major = "4"),
         any(not(esp_idf_version_major = "5"), not(esp_idf_version_minor = "0"))
@@ -745,7 +744,6 @@ mod esptls {
         type Error = EspIOError;
     }
 
-    #[cfg(feature = "nightly")]
     #[cfg(all(
         not(esp_idf_version_major = "4"),
         any(not(esp_idf_version_major = "5"), not(esp_idf_version_minor = "0"))
@@ -759,7 +757,6 @@ mod esptls {
         }
     }
 
-    #[cfg(feature = "nightly")]
     #[cfg(all(
         not(esp_idf_version_major = "4"),
         any(not(esp_idf_version_major = "5"), not(esp_idf_version_minor = "0"))
