@@ -63,7 +63,7 @@ jobs:
           ESP_IDF_VERSION: ${{ matrix.idf-version }}
           ESP_IDF_SDKCONFIG_DEFAULTS: "${{ github.workspace }}/.github/configs/sdkconfig.defaults"
           RUSTFLAGS: "${{ matrix.idf-version == 'release/v5.1' && '--cfg espidf_time64' || ''}}"
-        run: cargo build --target ${{ matrix.target }} --features nightly,critical-section,embassy-sync,embedded-hal-async -Zbuild-std=std,panic_abort -Zbuild-std-features=panic_immediate_abort
+        run: cargo build --target ${{ matrix.target }} --features nightly,critical-section,embassy-sync -Zbuild-std=std,panic_abort -Zbuild-std-features=panic_immediate_abort
 
       - name: Build | RISCV-ULP-HAL feature
         env:
