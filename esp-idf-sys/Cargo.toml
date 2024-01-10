@@ -23,6 +23,7 @@ alloc_handler = []
 panic_handler = []
 binstart = []
 libstart = []
+native = []
 pio = ["embuild/pio"]
 
 [dependencies]
