@@ -673,7 +673,6 @@ where
     }
 }
 
-#[cfg(feature = "nightly")]
 #[cfg(not(esp_idf_spi_master_isr_in_iram))]
 impl<'d, T> embedded_hal_async::spi::SpiBus for SpiBusDriver<'d, T>
 where
@@ -904,7 +903,7 @@ where
 
         while spi_operations.peek().is_some() {
             if let Some(SpiOperation::Delay(delay)) = spi_operations.peek() {
-                delay_impl.delay_us(*delay);
+                delay_impl.delay_ns(*delay);
                 spi_operations.next();
             } else {
                 let transactions = core::iter::from_fn(|| {
@@ -965,7 +964,7 @@ where
 
         while spi_operations.peek().is_some() {
             if let Some(SpiOperation::Delay(delay)) = spi_operations.peek() {
-                delay_impl.delay_us(*delay);
+                delay_impl.delay_ns(*delay);
                 spi_operations.next();
             } else {
                 let transactions = core::iter::from_fn(|| {
@@ -1091,7 +1090,7 @@ where
                 spi_transfer_in_place_transactions(words, chunk_size)
                     .map(SpiOperation::Transaction),
             ),
-            Operation::DelayUs(delay) => {
+            Operation::DelayNs(delay) => {
                 OperationsIter::Delay(core::iter::once(SpiOperation::Delay(delay)))
             }
         })
@@ -1241,7 +1240,6 @@ where
     }
 }
 
-#[cfg(feature = "nightly")]
 #[cfg(not(esp_idf_spi_master_isr_in_iram))]
 impl<'d, T> embedded_hal_async::spi::SpiDevice for SpiDeviceDriver<'d, T>
 where
@@ -1473,7 +1471,6 @@ where
     }
 }
 
-#[cfg(feature = "nightly")]
 #[cfg(not(esp_idf_spi_master_isr_in_iram))]
 impl<'d, DEVICE, DRIVER> embedded_hal_async::spi::SpiDevice
     for SpiSoftCsDeviceDriver<'d, DEVICE, DRIVER>
@@ -1573,7 +1570,7 @@ where
 
             // TODO: Need to wait asnchronously if in async mode
             if let Some(delay) = pre_delay {
-                Ets::delay_us(*delay);
+                Ets::delay_ns(*delay);
             }
         }
 
@@ -1586,7 +1583,7 @@ where
 
             // TODO: Need to wait asnchronously if in async mode
             if let Some(delay) = post_delay {
-                Ets::delay_us(*delay);
+                Ets::delay_ns(*delay);
             }
         }
 
@@ -1898,7 +1895,7 @@ fn copy_operation<'b>(operation: &'b mut Operation<'_, u8>) -> Operation<'b, u8>
         Operation::Write(write) => Operation::Write(write),
         Operation::Transfer(read, write) => Operation::Transfer(read, write),
         Operation::TransferInPlace(write) => Operation::TransferInPlace(write),
-        Operation::DelayUs(delay) => Operation::DelayUs(*delay),
+        Operation::DelayNs(delay) => Operation::DelayNs(*delay),
     }
 }
 

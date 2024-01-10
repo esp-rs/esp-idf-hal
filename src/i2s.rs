@@ -1236,7 +1236,6 @@ where
     }
 }
 
-#[cfg(feature = "nightly")]
 #[cfg(not(esp_idf_version_major = "4"))]
 impl<'d, Dir> embedded_io_async::Read for I2sDriver<'d, Dir>
 where
@@ -1247,7 +1246,6 @@ where
     }
 }
 
-#[cfg(feature = "nightly")]
 #[cfg(not(esp_idf_version_major = "4"))]
 impl<'d, Dir> embedded_io_async::Write for I2sDriver<'d, Dir>
 where

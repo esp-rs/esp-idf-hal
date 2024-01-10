@@ -466,10 +466,9 @@ impl<'d> Drop for TimerDriver<'d> {
 
 unsafe impl<'d> Send for TimerDriver<'d> {}
 
-#[cfg(feature = "nightly")]
-impl<'d> embedded_hal_async::delay::DelayUs for TimerDriver<'d> {
-    async fn delay_us(&mut self, us: u32) {
-        let counter = core::cmp::max((self.tick_hz() * us as u64) / 1000000, 1);
+impl<'d> embedded_hal_async::delay::DelayNs for TimerDriver<'d> {
+    async fn delay_ns(&mut self, ns: u32) {
+        let counter = core::cmp::max((self.tick_hz() * ns as u64) / 1000000, 1);
 
         self.delay(counter).await.unwrap();
     }

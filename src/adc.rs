@@ -1344,7 +1344,6 @@ pub mod continuous {
         }
     }
 
-    #[cfg(feature = "nightly")]
     #[cfg(not(esp_idf_adc_continuous_isr_iram_safe))]
     impl<'d> embedded_io_async::Read for AdcDriver<'d> {
         async fn read(&mut self, buf: &mut [u8]) -> Result<usize, Self::Error> {

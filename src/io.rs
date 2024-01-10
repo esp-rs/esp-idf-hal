@@ -37,7 +37,6 @@ impl From<EspIOError> for std::io::Error {
     }
 }
 
-#[cfg(feature = "nightly")]
 pub mod asynch {
     pub use embedded_io_async::*;
 }
