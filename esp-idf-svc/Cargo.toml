@@ -2,7 +2,7 @@
 name = "esp-idf-svc"
 version = "0.47.3"
 authors = ["Ivan Markov <ivan.markov@gmail.com>"]
-edition = "2018"
+edition = "2021"
 resolver = "2"
 categories = ["embedded", "hardware-support"]
 keywords = ["embedded", "svc", "idf", "esp-idf", "esp32"]
