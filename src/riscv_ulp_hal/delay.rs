@@ -40,7 +40,7 @@ impl embedded_hal_0_2::blocking::delay::DelayMs<u8> for Ulp {
 }
 
 impl embedded_hal::delay::DelayNs for Ulp {
-    fn delay_us(&mut self, ns: u32) {
+    fn delay_ns(&mut self, ns: u32) {
         delay_cycles(ns * ULP_RISCV_CYCLES_PER_US_NUM / ULP_RISCV_CYCLES_PER_US_DENUM)
     }
 
