@@ -1521,16 +1521,6 @@ where
     }
 }
 
-impl<'d, T: Pin, MODE> embedded_hal::digital::ToggleableOutputPin for PinDriver<'d, T, MODE>
-where
-    MODE: OutputMode,
-{
-    fn toggle(&mut self) -> Result<(), Self::Error> {
-        self.set_level(Level::from(!bool::from(self.get_output_level())))
-            .map_err(to_gpio_err)
-    }
-}
-
 #[cfg(not(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys"))))]
 impl<T: Pin, MODE: InputMode> embedded_hal_async::digital::Wait for PinDriver<'_, T, MODE> {
     async fn wait_for_high(&mut self) -> Result<(), GpioError> {
