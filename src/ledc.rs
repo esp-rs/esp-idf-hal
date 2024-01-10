@@ -331,7 +331,7 @@ fn to_pwm_err(err: EspError) -> PwmError {
 }
 
 impl<'d> embedded_hal::pwm::SetDutyCycle for LedcDriver<'d> {
-    fn get_max_duty_cycle(&self) -> u16 {
+    fn max_duty_cycle(&self) -> u16 {
         let duty = self.get_max_duty();
         let duty_cap: u16 = if duty > u16::MAX as u32 {
             u16::MAX
@@ -354,7 +354,7 @@ impl<'d> embedded_hal::pwm::SetDutyCycle for LedcDriver<'d> {
     }
 
     fn set_duty_cycle_fraction(&mut self, num: u16, denom: u16) -> Result<(), PwmError> {
-        let duty = num as u32 * self.get_max_duty_cycle() as u32 / denom as u32;
+        let duty = num as u32 * self.max_duty_cycle() as u32 / denom as u32;
         self.set_duty_cycle(duty as u16)
     }
 

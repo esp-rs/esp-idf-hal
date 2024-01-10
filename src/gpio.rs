@@ -1420,11 +1420,24 @@ impl<'d, T: Pin, MODE> embedded_hal::digital::InputPin for PinDriver<'d, T, MODE
 where
     MODE: InputMode,
 {
-    fn is_high(&self) -> Result<bool, Self::Error> {
+    fn is_high(&mut self) -> Result<bool, Self::Error> {
         Ok(PinDriver::is_high(self))
     }
 
-    fn is_low(&self) -> Result<bool, Self::Error> {
+    fn is_low(&mut self) -> Result<bool, Self::Error> {
+        Ok(PinDriver::is_low(self))
+    }
+}
+
+impl<'d, T: Pin, MODE> embedded_hal::digital::InputPin for &PinDriver<'d, T, MODE>
+where
+    MODE: InputMode,
+{
+    fn is_high(&mut self) -> Result<bool, Self::Error> {
+        Ok(PinDriver::is_high(self))
+    }
+
+    fn is_low(&mut self) -> Result<bool, Self::Error> {
         Ok(PinDriver::is_low(self))
     }
 }
@@ -1461,14 +1474,28 @@ impl<'d, T: Pin, MODE> embedded_hal::digital::StatefulOutputPin for PinDriver<'d
 where
     MODE: OutputMode,
 {
-    fn is_set_high(&self) -> Result<bool, Self::Error> {
+    fn is_set_high(&mut self) -> Result<bool, Self::Error> {
         Ok(self.get_output_level().into())
     }
 
-    fn is_set_low(&self) -> Result<bool, Self::Error> {
+    fn is_set_low(&mut self) -> Result<bool, Self::Error> {
         Ok(!bool::from(self.get_output_level()))
     }
 }
+
+// TODO: Will become possible once the `PinDriver::setXXX`` methods become non-`&mut`, which they really are, internally
+// impl<'d, T: Pin, MODE> embedded_hal::digital::StatefulOutputPin for &PinDriver<'d, T, MODE>
+// where
+//     MODE: OutputMode,
+// {
+//     fn is_set_high(&mut self) -> Result<bool, Self::Error> {
+//         Ok(self.get_output_level().into())
+//     }
+
+//     fn is_set_low(&mut self) -> Result<bool, Self::Error> {
+//         Ok(!bool::from(self.get_output_level()))
+//     }
+// }
 
 impl<'d, T: Pin, MODE> embedded_hal_0_2::digital::v2::StatefulOutputPin for PinDriver<'d, T, MODE>
 where
@@ -1504,10 +1531,7 @@ where
     }
 }
 
-#[cfg(all(
-    not(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys"))),
-    feature = "nightly"
-))]
+#[cfg(not(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys"))))]
 impl<T: Pin, MODE: InputMode> embedded_hal_async::digital::Wait for PinDriver<'_, T, MODE> {
     async fn wait_for_high(&mut self) -> Result<(), GpioError> {
         self.wait_for_high().await?;

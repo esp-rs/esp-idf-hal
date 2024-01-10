@@ -803,8 +803,8 @@ pub mod embassy_sync {
 
 #[cfg(all(feature = "alloc", target_has_atomic = "ptr"))]
 pub mod notification {
+    use core::marker::PhantomData;
     use core::num::NonZeroU32;
-    use core::ptr;
     use core::sync::atomic::{AtomicPtr, Ordering};
 
     extern crate alloc;
@@ -821,13 +821,13 @@ pub mod notification {
     #[cfg(not(esp_idf_version_major = "4"))]
     type Task = esp_idf_sys::tskTaskControlBlock;
 
-    pub struct Notification(Arc<Notifier>, *const ());
+    pub struct Notification(Arc<Notifier>, PhantomData<*const ()>);
 
     impl Notification {
         pub fn new() -> Self {
             Self(
                 Arc::new(Notifier(AtomicPtr::new(task::current().unwrap()))),
-                ptr::null(),
+                PhantomData,
             )
         }
 

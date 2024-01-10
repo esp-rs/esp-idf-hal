@@ -13,7 +13,7 @@ readme = "README.md"
 links = "esp_idf_hal"
 build = "build.rs"
 documentation = "https://esp-rs.github.io/esp-idf-hal/"
-rust-version = "1.71"
+rust-version = "1.75"
 
 [patch.crates-io]
 esp-idf-sys = { git = "https://github.com/esp-rs/esp-idf-sys" }
@@ -22,7 +22,7 @@ esp-idf-sys = { git = "https://github.com/esp-rs/esp-idf-sys" }
 default = ["std", "binstart"]
 std = ["alloc", "esp-idf-sys/std"]
 alloc = []
-nightly = ["embedded-hal-async", "embedded-io-async"]
+nightly = []
 esp-idf-sys = ["dep:esp-idf-sys", "atomic-waker"]
 riscv-ulp-hal = []
 wake-from-isr = [] # Only enable if you plan to use the `edge-executor` crate
@@ -39,20 +39,20 @@ libstart = ["esp-idf-sys/libstart"]
 [dependencies]
 nb = "1.0.0"
 embedded-can = "0.4.1"
-embedded-hal = "=1.0.0-rc.1"
+embedded-hal = "=1.0.0-rc.3"
 embedded-hal-0-2 = { package = "embedded-hal", version = "0.2.7", features = ["unproven"] }
-embedded-hal-nb = "=1.0.0-rc.1"
-embedded-hal-async = { version = "=1.0.0-rc.1", optional = true }
+embedded-hal-nb = "=1.0.0-rc.3"
+embedded-hal-async = "=1.0.0-rc.3"
 embedded-io = "0.6"
-embedded-io-async = { version = "0.6", optional = true }
-esp-idf-sys = { version = "0.33.5", optional = true, default-features = false, features = ["native"] }
+embedded-io-async = "0.6"
+esp-idf-sys = { version = "0.33.7", optional = true, default-features = false }
 critical-section = { version = "1.1.1", optional = true }
-heapless = "0.7"
+heapless = "0.8"
 num_enum = { version = "0.7", default-features = false }
 enumset = { version = "1", default-features = false }
 log = { version = "0.4", default-features = false }
 atomic-waker = { version = "1.1.1", optional = true, default-features = false }
-embassy-sync = { version = "0.3" }
+embassy-sync = { version = "0.5" }
 
 [build-dependencies]
 embuild = "0.31.3"

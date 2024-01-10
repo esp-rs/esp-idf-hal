@@ -1493,7 +1493,6 @@ where
     type Error = EspIOError;
 }
 
-#[cfg(feature = "nightly")]
 impl<'d, T> embedded_io_async::Read for AsyncUartDriver<'d, T>
 where
     T: BorrowMut<UartDriver<'d>>,
@@ -1503,7 +1502,6 @@ where
     }
 }
 
-#[cfg(feature = "nightly")]
 impl<'d, T> embedded_io_async::Write for AsyncUartDriver<'d, T>
 where
     T: BorrowMut<UartDriver<'d>>,
@@ -1613,7 +1611,6 @@ where
     type Error = EspIOError;
 }
 
-#[cfg(feature = "nightly")]
 impl<'d, T> embedded_io_async::Read for AsyncUartRxDriver<'d, T>
 where
     T: BorrowMut<UartRxDriver<'d>>,
@@ -1732,7 +1729,6 @@ where
     type Error = EspIOError;
 }
 
-#[cfg(feature = "nightly")]
 impl<'d, T> embedded_io_async::Write for AsyncUartTxDriver<'d, T>
 where
     T: BorrowMut<UartTxDriver<'d>>,

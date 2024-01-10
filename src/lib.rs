@@ -1,11 +1,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
-#![allow(stable_features)]
-#![allow(unknown_lints)]
+#![allow(async_fn_in_trait)]
 #![allow(clippy::unused_unit)] // enumset
 #![warn(clippy::large_futures)]
-#![cfg_attr(feature = "nightly", feature(async_fn_in_trait))]
-#![cfg_attr(feature = "nightly", allow(async_fn_in_trait))]
-#![cfg_attr(feature = "nightly", feature(impl_trait_projections))]
 #![cfg_attr(feature = "nightly", feature(doc_cfg))]
 #![cfg_attr(target_arch = "xtensa", feature(asm_experimental_arch))]
 
