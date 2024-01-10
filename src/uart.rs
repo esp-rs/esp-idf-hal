@@ -284,7 +284,10 @@ pub mod config {
     #[cfg(all(esp_idf_version_major = "4", esp_idf_soc_uart_support_xtal_clk))]
     const XTAL_SCLK: uart_sclk_t = uart_sclk_t_UART_SCLK_XTAL;
 
-    #[cfg(all(not(esp_idf_version_major = "4"), esp_idf_soc_uart_support_pll_f80m_clk))]
+    #[cfg(all(
+        not(esp_idf_version_major = "4"),
+        esp_idf_soc_uart_support_pll_f80m_clk
+    ))]
     const PLL_F80M_SCLK: uart_sclk_t = soc_periph_uart_clk_src_legacy_t_UART_SCLK_PLL_F80M;
     #[cfg(all(esp_idf_version_major = "4", esp_idf_soc_uart_support_pll_f80m_clk))]
     const PLL_F80M_SCLK: uart_sclk_t = uart_sclk_t_UART_SCLK_PLL_F80M;
