@@ -37,12 +37,12 @@ binstart = ["esp-idf-sys/binstart"]
 libstart = ["esp-idf-sys/libstart"]
 
 [dependencies]
-nb = "1.0.0"
+nb = "1"
 embedded-can = "0.4.1"
-embedded-hal = "=1.0.0-rc.3"
+embedded-hal = "1"
 embedded-hal-0-2 = { package = "embedded-hal", version = "0.2.7", features = ["unproven"] }
-embedded-hal-nb = "=1.0.0-rc.3"
-embedded-hal-async = "=1.0.0-rc.3"
+embedded-hal-nb = "1"
+embedded-hal-async = "1"
 embedded-io = "0.6"
 embedded-io-async = "0.6"
 esp-idf-sys = { version = "0.33.7", optional = true, default-features = false }
