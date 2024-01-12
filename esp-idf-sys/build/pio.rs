@@ -21,6 +21,7 @@ const ESP_IDF_PIO_CONF_VAR_PREFIX: &str = "ESP_IDF_PIO_CONF";
 pub fn build() -> Result<EspIdfBuildOutput> {
     sanitize_project_path()?;
     sanitize_c_env_vars()?;
+    setup_clang_env()?;
 
     let (pio_scons_vars, link_args, config) =
         if let Some(pio_scons_vars) = project::SconsVariables::from_piofirst() {
