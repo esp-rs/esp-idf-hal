@@ -1,5 +1,6 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 #![allow(async_fn_in_trait)]
+#![allow(unknown_lints)]
 #![allow(clippy::unused_unit)] // enumset
 #![warn(clippy::large_futures)]
 #![cfg_attr(feature = "nightly", feature(doc_cfg))]
