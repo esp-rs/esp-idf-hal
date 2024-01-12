@@ -461,7 +461,7 @@ pub mod embassy_time {
                         .timer
                         .as_mut()
                         .unwrap()
-                        .after(Duration::from_micros(timestamp))
+                        .after(Duration::from_micros(timestamp - now))
                         .unwrap();
                     true
                 } else {
