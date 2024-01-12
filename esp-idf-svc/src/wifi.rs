@@ -203,10 +203,7 @@ impl From<Newtype<wifi_sta_config_t>> for ClientConfiguration {
             } else {
                 None
             },
-            auth_method: <Newtype<u32> as std::convert::Into<Option<AuthMethod>>>::into(Newtype(
-                conf.0.threshold.authmode,
-            ))
-            .unwrap(),
+            auth_method: Option::<AuthMethod>::from(Newtype(conf.0.threshold.authmode)).unwrap(),
             password: from_cstr(&conf.0.password).try_into().unwrap(),
             channel: if conf.0.channel != 0 {
                 Some(conf.0.channel)
