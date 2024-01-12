@@ -158,7 +158,7 @@ pub fn build() -> Result<EspIdfBuildOutput> {
 
     let build_output = EspIdfBuildOutput {
         cincl_args: build::CInclArgs::try_from(&pio_scons_vars)?,
-        env_path: link_args.as_ref().map(|_| pio_scons_vars.path.clone()),
+        env_path: pio_scons_vars.path.clone(),
         link_args,
         bindgen: bindgen::Factory::from_scons_vars(&pio_scons_vars)?,
         components: EspIdfComponents::from_esp_idf(&esp_idf)?,
