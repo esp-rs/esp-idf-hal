@@ -9,9 +9,9 @@
 //! - `std`: Enable the use of std. Enabled by default.
 //! - `experimental`: Enable the use of experimental features.
 //! - `embassy-time-driver`
-//! - `embassy-time-isr-queue`
+//! - `embassy-time-queue-queue`
 #![cfg_attr(not(feature = "std"), no_std)]
-#![feature(async_fn_in_trait)]
+#![allow(async_fn_in_trait)]
 #![warn(clippy::large_futures)]
 
 #[cfg(feature = "alloc")]

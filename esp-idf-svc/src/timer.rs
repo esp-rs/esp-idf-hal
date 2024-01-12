@@ -349,13 +349,13 @@ mod asyncify {
 }
 
 pub mod embassy_time {
-    #[cfg(any(feature = "embassy-time-driver", feature = "embassy-time-isr-queue"))]
+    #[cfg(any(feature = "embassy-time-driver", feature = "embassy-time-queue-driver"))]
     pub mod driver {
         use core::cell::UnsafeCell;
 
         use heapless::Vec;
 
-        use ::embassy_time::driver::{AlarmHandle, Driver};
+        use ::embassy_time_driver::{AlarmHandle, Driver};
 
         use crate::hal::task::CriticalSection;
 
@@ -483,10 +483,10 @@ pub mod embassy_time {
             unsafe { __INTERNAL_REFERENCE }
         }
 
-        ::embassy_time::time_driver_impl!(static DRIVER: EspDriver = EspDriver::new());
+        ::embassy_time_driver::time_driver_impl!(static DRIVER: EspDriver = EspDriver::new());
     }
 
-    #[cfg(feature = "embassy-time-isr-queue")]
+    #[cfg(feature = "embassy-time-queue-driver")]
     pub mod queue {
         #[cfg(esp_idf_esp_timer_supports_isr_dispatch_method)]
         use crate::hal::interrupt::embassy_sync::IsrRawMutex as RawMutexImpl;
@@ -575,7 +575,7 @@ pub mod embassy_time {
             (unsafe { __INTERNAL_REFERENCE }, super::driver::link())
         }
 
-        ::embassy_time::timer_queue_impl!(static QUEUE: Queue<RawMutexImpl, AlarmImpl> = Queue::new());
+        ::embassy_time_queue_driver::timer_queue_impl!(static QUEUE: Queue<RawMutexImpl, AlarmImpl> = Queue::new());
 
         mod generic_queue {
             use core::cell::RefCell;
@@ -584,8 +584,8 @@ pub mod embassy_time {
 
             use embassy_sync::blocking_mutex::{raw::RawMutex, Mutex};
 
-            use embassy_time::queue::TimerQueue;
             use embassy_time::Instant;
+            use embassy_time_queue_driver::TimerQueue;
 
             use heapless::sorted_linked_list::{LinkedIndexU8, Min, SortedLinkedList};
 
@@ -763,8 +763,8 @@ pub mod embassy_time {
             }
 
             impl<R: RawMutex, A: Alarm> TimerQueue for Queue<R, A> {
-                fn schedule_wake(&'static self, at: Instant, waker: &Waker) {
-                    Queue::schedule_wake(self, at, waker);
+                fn schedule_wake(&'static self, at: u64, waker: &Waker) {
+                    Queue::schedule_wake(self, Instant::from_ticks(at), waker);
                 }
             }
         }

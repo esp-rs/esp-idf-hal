@@ -514,6 +514,7 @@ impl<'d> WifiDriver<'d> {
         let cfg = wifi_init_config_t {
             #[cfg(esp_idf_version_major = "4")]
             event_handler: Some(esp_event_send_internal),
+            #[allow(static_mut_ref)]
             osi_funcs: unsafe { &mut g_wifi_osi_funcs },
             wpa_crypto_funcs: unsafe { g_wifi_default_wpa_crypto_funcs },
             static_rx_buf_num: CONFIG_ESP32_WIFI_STATIC_RX_BUFFER_NUM as _,

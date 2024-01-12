@@ -268,6 +268,7 @@ pub type EspDefaultNvs = EspNvs<NvsDefault>;
 pub type EspCustomNvs = EspNvs<NvsCustom>;
 pub type EspEncryptedNvs = EspNvs<NvsEncrypted>;
 
+#[allow(dead_code)]
 pub struct EspNvs<T: NvsPartitionId>(EspNvsPartition<T>, nvs_handle_t);
 
 impl<T: NvsPartitionId> EspNvs<T> {
