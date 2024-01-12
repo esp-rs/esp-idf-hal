@@ -118,10 +118,6 @@ pub enum SpiEthChipset {
     KSZ8851SNL,
 }
 
-struct RawHandleImpl(esp_eth_handle_t);
-
-unsafe impl Send for RawHandleImpl {}
-
 type RawCallback<'a> = Box<dyn FnMut(&[u8]) + Send + 'a>;
 
 struct UnsafeCallback<'a>(*mut RawCallback<'a>);
@@ -612,10 +608,10 @@ impl<'d, T> EthDriver<'d, T> {
         let status = Arc::new(mutex::Mutex::wrap(mutex::RawMutex::new(), Status::Stopped));
         let s_status = status.clone();
 
-        let handle = RawHandleImpl(handle);
+        let handle = handle as usize;
 
         let subscription = sysloop.subscribe(move |event: &EthEvent| {
-            if event.is_for_handle(handle.0) {
+            if event.is_for_handle(handle as _) {
                 let mut guard = s_status.lock();
 
                 match event {
