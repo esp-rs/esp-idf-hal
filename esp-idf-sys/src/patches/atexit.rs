@@ -1,4 +1,3 @@
-use crate::stat;
 use core::ffi;
 
 static mut __ATEXIT_INTERNAL_REFERENCE: *mut ffi::c_void = atexit as *mut _;
