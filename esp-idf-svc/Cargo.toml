@@ -31,6 +31,7 @@ experimental = ["embedded-svc/experimental"]
 # Propagated esp-idf-hal features
 critical-section = ["esp-idf-hal/critical-section"]
 wake-from-isr = ["esp-idf-hal/wake-from-isr"]
+embassy-sync = ["esp-idf-hal/embassy-sync"]
 
 # The next are propagated from esp-idf-sys via esp-idf-hal
 native = ["esp-idf-hal/native"]
