@@ -26,6 +26,7 @@ nightly = []
 esp-idf-sys = ["dep:esp-idf-sys", "atomic-waker"]
 riscv-ulp-hal = []
 wake-from-isr = [] # Only enable if you plan to use the `edge-executor` crate
+embassy-sync = [] # For now, the dependecy on the `embassy-sync` crate is non-optional, but this might change in future
 
 # Propagated esp-idf-sys features
 native = ["esp-idf-sys/native"]
