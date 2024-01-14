@@ -8,8 +8,7 @@
 //!
 //! - `std`: Enable the use of std. Enabled by default.
 //! - `experimental`: Enable the use of experimental features.
-//! - `embassy-time-driver`
-//! - `embassy-time-queue-queue`
+//! - `embassy-time-driver`: Implement an embassy time driver.
 #![cfg_attr(not(feature = "std"), no_std)]
 #![allow(async_fn_in_trait)]
 //#![allow(unknown_lints)]
