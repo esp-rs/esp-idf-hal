@@ -65,24 +65,19 @@ jobs:
           RUSTFLAGS: "${{ matrix.idf-version == 'release/v5.1' && '--cfg espidf_time64' || ''}}"
         run: cargo build --target ${{ matrix.target }} --features nightly,critical-section,embassy-sync -Zbuild-std=std,panic_abort -Zbuild-std-features=panic_immediate_abort
 
-      - name: Build | RISCV-ULP-HAL feature
-        env:
-          ESP_IDF_VERSION: ${{ matrix.idf-version }}
-        run: cargo build --features riscv-ulp-hal --no-default-features --target riscv32imc-unknown-none-elf -Zbuild-std=core,panic_abort -Zbuild-std-features=panic_immediate_abort
-
       - name: Build | Compile, no_std
         env:
           ESP_IDF_VERSION: ${{ matrix.idf-version }}
           ESP_IDF_SDKCONFIG_DEFAULTS: "${{ github.workspace }}/.github/configs/sdkconfig.defaults"
           RUSTFLAGS: "${{ matrix.idf-version == 'release/v5.1' && '--cfg espidf_time64' || ''}}"
-        run: cargo build --features esp-idf-sys --no-default-features --target ${{ matrix.target }} -Zbuild-std=std,panic_abort -Zbuild-std-features=panic_immediate_abort
+        run: cargo build --no-default-features --target ${{ matrix.target }} -Zbuild-std=std,panic_abort -Zbuild-std-features=panic_immediate_abort
 
       - name: Build | Compile, no_std, alloc
         env:
           ESP_IDF_VERSION: ${{ matrix.idf-version }}
           ESP_IDF_SDKCONFIG_DEFAULTS: "${{ github.workspace }}/.github/configs/sdkconfig.defaults"
           RUSTFLAGS: "${{ matrix.idf-version == 'release/v5.1' && '--cfg espidf_time64' || ''}}"
-        run: cargo build --features alloc,esp-idf-sys --no-default-features --target ${{ matrix.target }} -Zbuild-std=std,panic_abort -Zbuild-std-features=panic_immediate_abort
+        run: cargo build --features alloc --no-default-features --target ${{ matrix.target }} -Zbuild-std=std,panic_abort -Zbuild-std-features=panic_immediate_abort
 
       - name: Setup | ldproxy
         if: matrix.target == 'riscv32imc-esp-espidf'

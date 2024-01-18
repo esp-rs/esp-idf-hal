@@ -6,10 +6,7 @@
 //! threshold and track how much that accounts for and provide an i32 value result
 //!
 
-#[cfg(all(
-    not(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys"))),
-    any(esp32, esp32s2, esp32s3)
-))]
+#[cfg(any(esp32, esp32s2, esp32s3))]
 fn main() -> anyhow::Result<()> {
     use anyhow::Context;
     use encoder::Encoder;
@@ -38,10 +35,7 @@ fn main() -> anyhow::Result<()> {
     }
 }
 
-#[cfg(not(all(
-    not(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys"))),
-    any(esp32, esp32s2, esp32s3)
-)))]
+#[cfg(not(any(esp32, esp32s2, esp32s3)))]
 fn main() {
     use esp_idf_hal::delay::FreeRtos;
     println!("pcnt peripheral not supported on this device!");
@@ -50,10 +44,7 @@ fn main() {
     }
 }
 
-#[cfg(all(
-    not(all(feature = "riscv-ulp-hal", not(feature = "esp-idf-sys"))),
-    any(esp32, esp32s2, esp32s3)
-))]
+#[cfg(any(esp32, esp32s2, esp32s3))]
 // esp-idf encoder implementation using v4 pcnt api
 mod encoder {
     use std::cmp::min;
