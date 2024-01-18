@@ -101,17 +101,6 @@ static TAKEN_CS: crate::task::CriticalSection = crate::task::CriticalSection::ne
 
 impl Peripherals {
     pub fn take() -> Result<Self, crate::sys::EspError> {
-        if unsafe { TAKEN } {
-            panic!("Peripheral already taken")
-        } else {
-            unsafe {
-                TAKEN = true;
-            }
-            Ok(unsafe { Peripherals::new() })
-        }
-    }
-
-    pub fn take() -> Result<Self, crate::sys::EspError> {
         if TAKEN.load(core::sync::atomic::Ordering::SeqCst) {
             Err(crate::sys::EspError::from_infallible::<
                 { crate::sys::ESP_ERR_INVALID_STATE },
