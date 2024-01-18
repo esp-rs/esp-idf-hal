@@ -545,7 +545,7 @@ impl<'d> WifiDriver<'d> {
                 esp_idf_version_full = "5.1.1",
                 esp_idf_version_full = "5.1.2"
             )))]
-            feature_caps: WIFI_FEATURE_CAPS,
+            feature_caps: WIFI_FEATURE_CAPS as _,
             sta_disconnected_pm: WIFI_STA_DISCONNECTED_PM_ENABLED != 0,
             // Available since ESP IDF V4.4.4+
             #[cfg(any(
