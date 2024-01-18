@@ -18,7 +18,6 @@
 
 #include "freertos/FreeRTOS.h"
 #include "freertos/atomic.h"
-#include "freertos/croutine.h"
 #include "freertos/event_groups.h"
 #include "freertos/list.h"
 #include "freertos/message_buffer.h"
