@@ -16,7 +16,18 @@
 #include "esp_mac.h"
 #include "esp_freertos_hooks.h"
 
+#include "freertos/FreeRTOS.h"
+#include "freertos/atomic.h"
+#include "freertos/croutine.h"
+#include "freertos/event_groups.h"
+#include "freertos/list.h"
+#include "freertos/message_buffer.h"
+#include "freertos/queue.h"
+#include "freertos/semphr.h"
+#include "freertos/stream_buffer.h"
+#include "freertos/task.h"
 #include "freertos/task_snapshot.h"
+#include "freertos/timers.h"
 
 #if CONFIG_IDF_TARGET_ESP32
 #if ESP_IDF_VERSION_MAJOR == 4
