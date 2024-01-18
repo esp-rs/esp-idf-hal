@@ -6,6 +6,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [?.??.?] - ????-??-??
+* All FreeRTOS headers are now included, so user should get unsafe bindings for all FreeRTOS APIs which are not macros
 * Changes to how native vs PlatformIO build is selected, that are supposed to increase the ergonomics of using the crate:
   * Perform PlatformIO build **only** when the `pio` feature IS specified, and the `native` feature is NOT specified
   * In case neither the `native` nor the `pio` feature is specified, perform a native build (this setup used to fail the build)
