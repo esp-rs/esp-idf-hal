@@ -17,6 +17,18 @@ use esp_idf_sys::*;
 use crate::cpu::Core;
 use crate::interrupt;
 
+#[cfg(not(any(
+    esp_idf_version_major = "4",
+    esp_idf_version = "5.0",
+    esp_idf_version = "5.1"
+)))]
+const NO_AFFINITY: core::ffi::c_int = CONFIG_FREERTOS_NO_AFFINITY as _;
+
+#[cfg(any(
+    esp_idf_version_major = "4",
+    esp_idf_version = "5.0",
+    esp_idf_version = "5.1"
+))]
 const NO_AFFINITY: core::ffi::c_uint = tskNO_AFFINITY;
 
 /// Creates a FreeRTOS task.
