@@ -6,6 +6,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [?.??.?] - ????-??-??
+* Breaking change in module `http::server`: This is due to the breaking change in `embedded_svc::http::server`, whereas `HandlerError` and `HandlerResult` were removed. Check the Changelog of `embedded_svc` for more details
 * MSRV 1.75; remove the nightly feature flag from all async trait implementations
 * Update public dependency `heapless` to 0.8
 * Remove dependency on `embassy-time` and replace it with a dependency on `embassy-time-driver`; get rid of the custom embassy time queue as it was anyway re-implementing something like a generic timer queue, which is available in the `embassy-time` crate (with its feature `generic-queue` enabled)

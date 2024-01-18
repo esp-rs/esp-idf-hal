@@ -1,6 +1,6 @@
 //! HTTP server
 use core::cell::UnsafeCell;
-use core::fmt::{Debug, Display};
+use core::fmt::Debug;
 use core::marker::PhantomData;
 use core::sync::atomic::{AtomicBool, Ordering};
 use core::time::*;
@@ -35,8 +35,7 @@ use crate::private::mutex::{Mutex, RawMutex};
 use crate::tls::X509;
 
 pub use embedded_svc::http::server::{
-    CompositeHandler, Connection, FnHandler, Handler, HandlerError, HandlerResult, Middleware,
-    Request, Response,
+    CompositeHandler, Connection, FnHandler, Handler, Middleware, Request, Response,
 };
 pub use embedded_svc::utils::http::server::registration::*;
 
@@ -435,9 +434,15 @@ impl<'a> EspHttpServer<'a> {
         Ok(self)
     }
 
-    pub fn fn_handler<F>(&mut self, uri: &str, method: Method, f: F) -> Result<&mut Self, EspError>
+    pub fn fn_handler<E, F>(
+        &mut self,
+        uri: &str,
+        method: Method,
+        f: F,
+    ) -> Result<&mut Self, EspError>
     where
-        F: for<'r> Fn(Request<&mut EspHttpConnection<'r>>) -> HandlerResult + Send + 'a,
+        F: for<'r> Fn(Request<&mut EspHttpConnection<'r>>) -> Result<(), E> + Send + 'a,
+        E: Debug,
     {
         self.handler(uri, method, FnHandler::new(f))
     }
@@ -449,14 +454,15 @@ impl<'a> EspHttpServer<'a> {
         Box::new(move |raw_req| {
             let mut connection = EspHttpConnection::new(unsafe { raw_req.as_mut().unwrap() });
 
-            let mut result = connection.invoke(&handler);
+            let result = connection.invoke(&handler);
 
-            if result.is_ok() {
-                result = connection.complete();
-            }
-
-            if let Err(e) = result {
-                connection.handle_error(e);
+            match result {
+                Ok(()) => {
+                    if let Err(e) = connection.complete() {
+                        connection.handle_error(e);
+                    }
+                }
+                Err(e) => connection.handle_error(e),
             }
 
             ESP_OK as _
@@ -505,9 +511,10 @@ impl<'a> RawHandle for EspHttpServer<'a> {
     }
 }
 
-pub fn fn_handler<F>(f: F) -> FnHandler<F>
+pub fn fn_handler<F, E>(f: F) -> FnHandler<F>
 where
-    F: for<'a> Fn(Request<&mut EspHttpConnection<'a>>) -> HandlerResult + Send,
+    F: for<'a> Fn(Request<&mut EspHttpConnection<'a>>) -> Result<(), E> + Send,
+    E: Debug,
 {
     FnHandler::new(f)
 }
@@ -790,7 +797,7 @@ impl<'a> EspHttpConnection<'a> {
         Ok(&mut self.request)
     }
 
-    fn invoke<H>(&mut self, handler: &H) -> Result<(), HandlerError>
+    fn invoke<H>(&mut self, handler: &H) -> Result<(), H::Error>
     where
         H: Handler<Self>,
     {
@@ -801,7 +808,7 @@ impl<'a> EspHttpConnection<'a> {
         Ok(())
     }
 
-    fn complete(&mut self) -> Result<(), HandlerError> {
+    fn complete(&mut self) -> Result<(), EspError> {
         let buf = &[];
 
         if self.response_headers.is_some() {
@@ -817,23 +824,23 @@ impl<'a> EspHttpConnection<'a> {
 
     fn handle_error<E>(&mut self, error: E)
     where
-        E: Display,
+        E: Debug,
     {
         if self.headers.is_some() {
             info!(
-                "About to handle internal error [{}], response not sent yet",
+                "About to handle internal error [{:?}], response not sent yet",
                 &error
             );
 
             if let Err(error2) = self.render_error(&error) {
                 warn!(
-                    "Internal error[{}] while rendering another internal error:\n{}",
+                    "Internal error[{}] while rendering another internal error:\n{:?}",
                     error2, error
                 );
             }
         } else {
             warn!(
-                "Unhandled internal error [{}], response is already sent",
+                "Unhandled internal error [{:?}], response is already sent",
                 error
             );
         }
@@ -841,7 +848,7 @@ impl<'a> EspHttpConnection<'a> {
 
     fn render_error<E>(&mut self, error: E) -> Result<(), EspError>
     where
-        E: Display,
+        E: Debug,
     {
         self.initiate_response(500, Some("Internal Error"), &[content_type("text/html")])?;
 
@@ -853,7 +860,7 @@ impl<'a> EspHttpConnection<'a> {
                         <body style="font-family: Verdana, Sans;">
                             <h1>INTERNAL ERROR</h1>
                             <hr>
-                            <pre>{error}</pre>
+                            <pre>{error:?}</pre>
                         <body>
                     </html>
                 "#

@@ -16,7 +16,8 @@ documentation = "https://esp-rs.github.io/esp-idf-svc/"
 rust-version = "1.75"
 
 [patch.crates-io]
-embedded-svc = { git = "https://github.com/esp-rs/embedded-svc" }
+#embedded-svc = { git = "https://github.com/esp-rs/embedded-svc" }
+embedded-svc = { path = "../embedded-svc" }
 esp-idf-hal = { git = "https://github.com/esp-rs/esp-idf-hal" }
 esp-idf-sys = { git = "https://github.com/esp-rs/esp-idf-sys" }
 

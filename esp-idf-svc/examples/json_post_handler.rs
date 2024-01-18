@@ -48,11 +48,12 @@ fn main() -> anyhow::Result<()> {
     let mut server = create_server()?;
 
     server.fn_handler("/", Method::Get, |req| {
-        req.into_ok_response()?.write(INDEX_HTML.as_bytes())?;
-        Ok(())
+        req.into_ok_response()?
+            .write_all(INDEX_HTML.as_bytes())
+            .map(|_| ())
     })?;
 
-    server.fn_handler("/post", Method::Post, |mut req| {
+    server.fn_handler::<anyhow::Error, _>("/post", Method::Post, |mut req| {
         let len = req.content_len().unwrap_or(0) as usize;
 
         if len > MAX_LEN {
