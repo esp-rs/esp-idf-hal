@@ -12,10 +12,9 @@
 //! let mut server = EspHttpServer::new(&Configuration::default())?;
 //!
 //! server.fn_handler("/index.html", Method::Get, |request| {
-//!     request.into_ok_response()?
-//!         .write_all("<html><body>Hello world!</body></html>".as_bytes());
-//!
-//!     Ok(());
+//!     request
+//!         .into_ok_response()?
+//!         .write_all(b"<html><body>Hello world!</body></html>")
 //! })?;
 //! ```
 //!
