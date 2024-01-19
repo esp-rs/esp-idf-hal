@@ -1,4 +1,12 @@
 //! WebSocket protocol
+//!
+//! Websockets support is disabled by default. To enable it, add this to your
+//! `sdkconfig.defaults` file:
+//!
+//! ```
+//! CONFIG_HTTPD_WS_SUPPORT=y
+//! ```
+//!
 
 pub use embedded_svc::ws::{Final, Fragmented, FrameType};
 
