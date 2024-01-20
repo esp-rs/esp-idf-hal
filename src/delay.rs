@@ -92,21 +92,22 @@ impl From<TickType> for Option<Duration> {
 /// trigger.
 pub struct Ets;
 
-// No longer available in the generated bindings for ESP-IDF 5
+// Not available in the generated bindings for ESP-IDF 4
 #[cfg(not(esp_idf_version_major = "4"))]
 extern "C" {
     pub fn ets_delay_us(us: u32);
 }
 
 impl Ets {
-    #[deprecated = "Use delay_ns instead"]
     pub fn delay_us(us: u32) {
-        Self::delay_ns(us)
+        unsafe {
+            ets_delay_us(us);
+        }
     }
 
     pub fn delay_ns(ns: u32) {
         unsafe {
-            ets_delay_us(ns);
+            ets_delay_us(ns.saturating_add(500) / 1000);
         }
     }
 
@@ -119,19 +120,19 @@ impl Ets {
 
 impl embedded_hal_0_2::blocking::delay::DelayUs<u32> for Ets {
     fn delay_us(&mut self, us: u32) {
-        Ets::delay_ns(us);
+        Ets::delay_us(us);
     }
 }
 
 impl embedded_hal_0_2::blocking::delay::DelayUs<u16> for Ets {
     fn delay_us(&mut self, us: u16) {
-        Ets::delay_ns(us as _);
+        Ets::delay_us(us as _);
     }
 }
 
 impl embedded_hal_0_2::blocking::delay::DelayUs<u8> for Ets {
     fn delay_us(&mut self, us: u8) {
-        Ets::delay_ns(us as _);
+        Ets::delay_us(us as _);
     }
 }
 
@@ -171,15 +172,14 @@ impl embedded_hal::delay::DelayNs for Ets {
 pub struct FreeRtos;
 
 impl FreeRtos {
-    #[deprecated = "Use delay_ns instead"]
     pub fn delay_us(us: u32) {
-        Self::delay_ns(us)
+        let ms = us.saturating_add(500) / 1000;
+        Self::delay_ms(ms);
     }
 
     pub fn delay_ns(ns: u32) {
-        let ms = ns / 1000;
-
-        Self::delay_ms(ms);
+        let us = ns.saturating_add(500) / 1000;
+        Self::delay_us(us);
     }
 
     pub fn delay_ms(ms: u32) {
@@ -194,19 +194,19 @@ impl FreeRtos {
 
 impl embedded_hal_0_2::blocking::delay::DelayUs<u32> for FreeRtos {
     fn delay_us(&mut self, us: u32) {
-        FreeRtos::delay_ns(us);
+        FreeRtos::delay_us(us);
     }
 }
 
 impl embedded_hal_0_2::blocking::delay::DelayUs<u16> for FreeRtos {
     fn delay_us(&mut self, us: u16) {
-        FreeRtos::delay_ns(us as _);
+        FreeRtos::delay_us(us as _);
     }
 }
 
 impl embedded_hal_0_2::blocking::delay::DelayUs<u8> for FreeRtos {
     fn delay_us(&mut self, us: u8) {
-        FreeRtos::delay_ns(us as _);
+        FreeRtos::delay_us(us as _);
     }
 }
 
@@ -253,13 +253,16 @@ impl Delay {
         Self(threshold)
     }
 
-    #[deprecated = "Use delay_ns instead"]
     pub fn delay_us(&self, us: u32) {
-        self.delay_ns(us)
+        if us < self.0 {
+            Ets::delay_us(us);
+        } else {
+            FreeRtos::delay_us(us);
+        }
     }
 
     pub fn delay_ns(&self, ns: u32) {
-        if ns < self.0 {
+        if ns.saturating_add(500) / 1000 < self.0 {
             Ets::delay_ns(ns);
         } else {
             FreeRtos::delay_ns(ns);
@@ -287,13 +290,13 @@ impl embedded_hal::delay::DelayNs for Delay {
 
 impl embedded_hal_0_2::blocking::delay::DelayUs<u16> for Delay {
     fn delay_us(&mut self, us: u16) {
-        Delay::delay_ns(self, us as _);
+        Delay::delay_us(self, us as _);
     }
 }
 
 impl embedded_hal_0_2::blocking::delay::DelayUs<u32> for Delay {
     fn delay_us(&mut self, us: u32) {
-        Delay::delay_ns(self, us);
+        Delay::delay_us(self, us);
     }
 }
 
