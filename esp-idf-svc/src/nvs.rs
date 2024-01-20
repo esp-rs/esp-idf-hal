@@ -547,7 +547,7 @@ impl<T: NvsPartitionId> EspNvs<T> {
                 esp!(err)?;
 
                 Ok(Some(unsafe {
-                    core::str::from_utf8_unchecked(&(buf[..len]))
+                    core::str::from_utf8_unchecked(&(buf[..len - 1]))
                 }))
             }
         }
