@@ -1328,7 +1328,7 @@ pub mod ws {
                 ESP_FAIL
             };
 
-            let guard = request.error_code.lock();
+            let mut guard = request.error_code.lock();
 
             *guard = Some(ret as _);
 
