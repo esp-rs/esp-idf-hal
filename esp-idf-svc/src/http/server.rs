@@ -1328,7 +1328,10 @@ pub mod ws {
                 ESP_FAIL
             };
 
-            *request.error_code.lock() = Some(ret as _);
+            let guard = request.error_code.lock();
+
+            *guard = Some(ret as _);
+
             request.condvar.notify_all();
         }
     }
