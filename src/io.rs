@@ -21,12 +21,6 @@ impl From<EspError> for EspIOError {
     }
 }
 
-impl From<EspIOError> for EspError {
-    fn from(e: EspIOError) -> Self {
-        Self(e.0)
-    }
-}
-
 impl Display for EspIOError {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         self.0.fmt(f)
