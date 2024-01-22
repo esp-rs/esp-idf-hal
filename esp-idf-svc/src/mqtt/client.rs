@@ -1,14 +1,15 @@
 //! MQTT protocol client
 use core::convert::{TryFrom, TryInto};
 use core::ffi::c_void;
-use core::fmt::{self, Debug};
+use core::fmt::Debug;
 use core::{slice, time};
 
 extern crate alloc;
 use alloc::boxed::Box;
 use alloc::sync::Arc;
 
-use embedded_svc::mqtt::client::{self, ErrorType};
+use embedded_svc::mqtt::client::{Client, Connection, Enqueue, ErrorType, Publish};
+use embedded_svc::utils::zerocopy::{Channel, Receiver};
 
 use crate::sys::*;
 
@@ -21,10 +22,9 @@ pub use asyncify::*;
 use crate::private::cstr::*;
 use crate::tls::*;
 
-pub use client::{
-    Details, Event, InitialChunkData, Message, MessageId, MessageImpl, QoS, SubsequentChunkData,
+pub use embedded_svc::mqtt::client::{
+    Details, Event, EventPayload, InitialChunkData, MessageId, QoS, SubsequentChunkData,
 };
-pub use embedded_svc::utils::mqtt::client::{ConnState, ConnStateGuard, Connection, Postbox};
 
 #[allow(unused_imports)]
 pub use super::*;
@@ -48,7 +48,7 @@ impl From<MqttProtocolVersion> for esp_mqtt_protocol_ver_t {
 pub struct LwtConfiguration<'a> {
     pub topic: &'a str,
     pub payload: &'a [u8],
-    pub qos: client::QoS,
+    pub qos: QoS,
     pub retain: bool,
 }
 
@@ -354,14 +354,14 @@ impl<'a> UnsafeCallback<'a> {
     }
 }
 
-pub struct EspMqttClient<'a, S = ()> {
+pub struct EspMqttClient<'a> {
     raw_client: esp_mqtt_client_handle_t,
-    conn_state_guard: Option<Arc<ConnStateGuard<RawCondvar, S>>>,
+    channel: Option<Arc<Channel<RawCondvar, EspMqttEvent<'static>>>>,
     _boxed_raw_callback: Box<dyn FnMut(esp_mqtt_event_handle_t) + Send + 'a>,
     _tls_psk_conf: Option<TlsPsk>,
 }
 
-impl<'a, S> RawHandle for EspMqttClient<'a, S> {
+impl<'a> RawHandle for EspMqttClient<'a> {
     type Handle = esp_mqtt_client_handle_t;
 
     fn handle(&self) -> Self::Handle {
@@ -369,186 +369,44 @@ impl<'a, S> RawHandle for EspMqttClient<'a, S> {
     }
 }
 
-impl EspMqttClient<'static, ConnState<MessageImpl, EspError>> {
+impl EspMqttClient<'static> {
     pub fn new_with_conn(
         url: &str,
         conf: &MqttClientConfiguration,
-    ) -> Result<(Self, Connection<RawCondvar, MessageImpl, EspError>), EspError>
+    ) -> Result<(Self, EspMqttConnection), EspError>
     where
         Self: Sized,
     {
-        Self::new_with_converting_conn(url, conf, move |r| {
-            r.as_ref()
-                .map(|event| event.transform_received(MessageImpl::new))
-                .map_err(|e| *e)
-        })
-    }
-}
-
-impl<M, E> EspMqttClient<'static, ConnState<M, E>>
-where
-    M: Send + 'static,
-    E: Debug + Send + 'static,
-{
-    pub fn new_with_converting_conn<F>(
-        url: &str,
-        conf: &MqttClientConfiguration,
-        converter: F,
-    ) -> Result<(Self, Connection<RawCondvar, M, E>), EspError>
-    where
-        F: for<'b> FnMut(
-                &'b Result<client::Event<EspMqttMessage<'b>>, EspError>,
-            ) -> Result<client::Event<M>, E>
-            + Send
-            + 'static,
-        Self: Sized,
-    {
-        Self::internal_new_with_converting_conn(url, conf, converter)
-    }
-}
-
-impl<'a, M, E> EspMqttClient<'a, ConnState<M, E>>
-where
-    M: Send + 'static,
-    E: Debug + Send + 'static,
-{
-    /// # Safety
-    ///
-    /// This method - in contrast to method `new_with_converting_conn` - allows the user to pass
-    /// a non-static callback/closure. This enables users to borrow
-    /// - in the closure - variables that live on the stack - or more generally - in the same
-    /// scope where the service is created.
-    ///
-    /// HOWEVER: care should be taken NOT to call `core::mem::forget()` on the service,
-    /// as that would immediately lead to an UB (crash).
-    /// Also note that forgetting the service might happen with `Rc` and `Arc`
-    /// when circular references are introduced: https://github.com/rust-lang/rust/issues/24456
-    ///
-    /// The reason is that the closure is actually sent to a hidden ESP IDF thread.
-    /// This means that if the service is forgotten, Rust is free to e.g. unwind the stack
-    /// and the closure now owned by this other thread will end up with references to variables that no longer exist.
-    ///
-    /// The destructor of the service takes care - prior to the service being dropped and e.g.
-    /// the stack being unwind - to remove the closure from the hidden thread and destroy it.
-    /// Unfortunately, when the service is forgotten, the un-subscription does not happen
-    /// and invalid references are left dangling.
-    ///
-    /// This "local borrowing" will only be possible to express in a safe way once/if `!Leak` types
-    /// are introduced to Rust (i.e. the impossibility to "forget" a type and thus not call its destructor).
-    pub unsafe fn new_nonstatic_with_converting_conn<F>(
-        url: &str,
-        conf: &MqttClientConfiguration,
-        converter: F,
-    ) -> Result<(Self, Connection<RawCondvar, M, E>), EspError>
-    where
-        F: for<'b> FnMut(
-                &'b Result<client::Event<EspMqttMessage<'b>>, EspError>,
-            ) -> Result<client::Event<M>, E>
-            + Send
-            + 'a,
-        Self: Sized,
-    {
-        Self::internal_new_with_converting_conn(url, conf, converter)
-    }
-
-    fn internal_new_with_converting_conn(
-        url: &str,
-        conf: &MqttClientConfiguration,
-        mut converter: impl for<'b> FnMut(
-                &'b Result<client::Event<EspMqttMessage<'b>>, EspError>,
-            ) -> Result<client::Event<M>, E>
-            + Send
-            + 'a,
-    ) -> Result<(Self, Connection<RawCondvar, M, E>), EspError>
-    where
-        Self: Sized,
-    {
-        let state = Arc::new(ConnStateGuard::new_default());
-        let mut postbox = Postbox::new(state.clone());
-        let conn = Connection::new(state.clone());
-
-        let client = unsafe {
-            Self::new_nonstatic_generic(url, conf, Some(state), move |event| {
-                postbox.post(converter(event))
-            })?
+        let (channel, receiver) = Channel::new();
+        let conn = EspMqttConnection {
+            receiver,
+            given: false,
         };
+
+        let client = Self::new_raw(
+            url,
+            conf,
+            Some(channel.clone()),
+            Box::new(move |event_handle| {
+                let event = EspMqttEvent::new(unsafe { event_handle.as_ref() }.unwrap());
+
+                channel.set(event);
+            }),
+        )?;
 
         Ok((client, conn))
     }
-}
 
-impl EspMqttClient<'static, ()> {
     pub fn new<F>(url: &str, conf: &MqttClientConfiguration, callback: F) -> Result<Self, EspError>
     where
-        F: for<'b> FnMut(&'b Result<client::Event<EspMqttMessage<'b>>, EspError>) + Send + 'static,
+        F: for<'b> FnMut(&'b EspMqttEvent<'b>) + Send + 'static,
         Self: Sized,
     {
-        Self::new_generic(url, conf, None, callback)
+        unsafe { Self::new_nonstatic(url, conf, callback) }
     }
 }
 
-impl<'a> EspMqttClient<'a, ()> {
-    /// # Safety
-    ///
-    /// This method - in contrast to method `new` - allows the user to pass
-    /// a non-static callback/closure. This enables users to borrow
-    /// - in the closure - variables that live on the stack - or more generally - in the same
-    /// scope where the service is created.
-    ///
-    /// HOWEVER: care should be taken NOT to call `core::mem::forget()` on the service,
-    /// as that would immediately lead to an UB (crash).
-    /// Also note that forgetting the service might happen with `Rc` and `Arc`
-    /// when circular references are introduced: https://github.com/rust-lang/rust/issues/24456
-    ///
-    /// The reason is that the closure is actually sent to a hidden ESP IDF thread.
-    /// This means that if the service is forgotten, Rust is free to e.g. unwind the stack
-    /// and the closure now owned by this other thread will end up with references to variables that no longer exist.
-    ///
-    /// The destructor of the service takes care - prior to the service being dropped and e.g.
-    /// the stack being unwind - to remove the closure from the hidden thread and destroy it.
-    /// Unfortunately, when the service is forgotten, the un-subscription does not happen
-    /// and invalid references are left dangling.
-    ///
-    /// This "local borrowing" will only be possible to express in a safe way once/if `!Leak` types
-    /// are introduced to Rust (i.e. the impossibility to "forget" a type and thus not call its destructor).
-    pub unsafe fn new_nonstatic<F>(
-        url: &str,
-        conf: &MqttClientConfiguration,
-        callback: F,
-    ) -> Result<Self, EspError>
-    where
-        F: for<'b> FnMut(&'b Result<client::Event<EspMqttMessage<'b>>, EspError>) + Send + 'a,
-        Self: Sized,
-    {
-        Self::new_nonstatic_generic(url, conf, None, callback)
-    }
-}
-
-impl<S> EspMqttClient<'static, S> {
-    pub fn new_generic<F>(
-        url: &str,
-        conf: &MqttClientConfiguration,
-        conn_state_guard: Option<Arc<ConnStateGuard<RawCondvar, S>>>,
-        mut callback: F,
-    ) -> Result<Self, EspError>
-    where
-        F: for<'b> FnMut(&'b Result<client::Event<EspMqttMessage<'b>>, EspError>) + Send + 'static,
-        Self: Sized,
-    {
-        Self::new_raw(
-            url,
-            conf,
-            Box::new(move |event_handle| {
-                callback(&EspMqttMessage::new_event(
-                    unsafe { event_handle.as_ref() }.unwrap(),
-                ));
-            }),
-            conn_state_guard,
-        )
-    }
-}
-
-impl<'a, S> EspMqttClient<'a, S> {
+impl<'a> EspMqttClient<'a> {
     /// # Safety
     ///
     /// This method - in contrast to method `new_generic` - allows the user to pass
@@ -572,33 +430,32 @@ impl<'a, S> EspMqttClient<'a, S> {
     ///
     /// This "local borrowing" will only be possible to express in a safe way once/if `!Leak` types
     /// are introduced to Rust (i.e. the impossibility to "forget" a type and thus not call its destructor).
-    pub unsafe fn new_nonstatic_generic<F>(
+    pub unsafe fn new_nonstatic<F>(
         url: &str,
         conf: &MqttClientConfiguration,
-        conn_state_guard: Option<Arc<ConnStateGuard<RawCondvar, S>>>,
         mut callback: F,
     ) -> Result<Self, EspError>
     where
-        F: for<'b> FnMut(&'b Result<client::Event<EspMqttMessage<'b>>, EspError>) + Send + 'a,
+        F: for<'b> FnMut(&'b EspMqttEvent<'b>) + Send + 'a,
         Self: Sized,
     {
         Self::new_raw(
             url,
             conf,
+            None,
             Box::new(move |event_handle| {
-                callback(&EspMqttMessage::new_event(
+                callback(&EspMqttEvent::new(
                     unsafe { event_handle.as_ref() }.unwrap(),
                 ));
             }),
-            conn_state_guard,
         )
     }
 
     fn new_raw(
         url: &str,
         conf: &MqttClientConfiguration,
+        channel: Option<Arc<Channel<RawCondvar, EspMqttEvent<'static>>>>,
         raw_callback: Box<dyn FnMut(esp_mqtt_event_handle_t) + Send + 'a>,
-        conn_state_guard: Option<Arc<ConnStateGuard<RawCondvar, S>>>,
     ) -> Result<Self, EspError>
     where
         Self: Sized,
@@ -638,8 +495,8 @@ impl<'a, S> EspMqttClient<'a, S> {
 
         let client = Self {
             raw_client,
+            channel,
             _boxed_raw_callback: boxed_raw_callback,
-            conn_state_guard,
             _tls_psk_conf: tls_psk_conf,
         };
 
@@ -657,11 +514,7 @@ impl<'a, S> EspMqttClient<'a, S> {
         Ok(client)
     }
 
-    pub fn subscribe(
-        &mut self,
-        topic: &str,
-        qos: client::QoS,
-    ) -> Result<client::MessageId, EspError> {
+    pub fn subscribe(&mut self, topic: &str, qos: QoS) -> Result<MessageId, EspError> {
         let c_topic = to_cstring_arg(topic)?;
 
         #[cfg(any(
@@ -693,7 +546,7 @@ impl<'a, S> EspMqttClient<'a, S> {
         res
     }
 
-    pub fn unsubscribe(&mut self, topic: &str) -> Result<client::MessageId, EspError> {
+    pub fn unsubscribe(&mut self, topic: &str) -> Result<MessageId, EspError> {
         let c_topic = to_cstring_arg(topic)?;
 
         Self::check(unsafe { esp_mqtt_client_unsubscribe(self.raw_client, c_topic.as_ptr()) })
@@ -702,10 +555,10 @@ impl<'a, S> EspMqttClient<'a, S> {
     pub fn publish(
         &mut self,
         topic: &str,
-        qos: client::QoS,
+        qos: QoS,
         retain: bool,
         payload: &[u8],
-    ) -> Result<client::MessageId, EspError> {
+    ) -> Result<MessageId, EspError> {
         let c_topic = to_cstring_arg(topic)?;
 
         let payload_ptr = match payload.len() {
@@ -728,10 +581,10 @@ impl<'a, S> EspMqttClient<'a, S> {
     pub fn enqueue(
         &mut self,
         topic: &str,
-        qos: client::QoS,
+        qos: QoS,
         retain: bool,
         payload: &[u8],
-    ) -> Result<client::MessageId, EspError> {
+    ) -> Result<MessageId, EspError> {
         let c_topic = to_cstring_arg(topic)?;
 
         let payload_ptr = match payload.len() {
@@ -763,7 +616,7 @@ impl<'a, S> EspMqttClient<'a, S> {
         }
     }
 
-    fn check(result: i32) -> Result<client::MessageId, EspError> {
+    fn check(result: i32) -> Result<MessageId, EspError> {
         match EspError::from(result) {
             Some(err) if result < 0 => Err(err),
             _ => Ok(result as _),
@@ -771,235 +624,205 @@ impl<'a, S> EspMqttClient<'a, S> {
     }
 }
 
-impl<'a, P> Drop for EspMqttClient<'a, P> {
+impl<'a> Drop for EspMqttClient<'a> {
     fn drop(&mut self) {
-        let connection_state = self.conn_state_guard.take();
-        if let Some(connection_state) = connection_state {
-            connection_state.close();
+        if let Some(channel) = self.channel.take() {
+            channel.quit();
         }
 
         esp!(unsafe { esp_mqtt_client_destroy(self.raw_client) }).unwrap();
     }
 }
 
-impl<'a, P> ErrorType for EspMqttClient<'a, P> {
+impl<'a> ErrorType for EspMqttClient<'a> {
     type Error = EspError;
 }
 
-impl<'a, P> client::Client for EspMqttClient<'a, P> {
-    fn subscribe(
-        &mut self,
-        topic: &str,
-        qos: client::QoS,
-    ) -> Result<client::MessageId, Self::Error> {
+impl<'a> Client for EspMqttClient<'a> {
+    fn subscribe(&mut self, topic: &str, qos: QoS) -> Result<MessageId, Self::Error> {
         EspMqttClient::subscribe(self, topic, qos)
     }
 
-    fn unsubscribe(&mut self, topic: &str) -> Result<client::MessageId, Self::Error> {
+    fn unsubscribe(&mut self, topic: &str) -> Result<MessageId, Self::Error> {
         EspMqttClient::unsubscribe(self, topic)
     }
 }
 
-impl<'a, P> client::Publish for EspMqttClient<'a, P> {
+impl<'a> Publish for EspMqttClient<'a> {
     fn publish(
         &mut self,
         topic: &str,
-        qos: client::QoS,
+        qos: QoS,
         retain: bool,
         payload: &[u8],
-    ) -> Result<client::MessageId, Self::Error> {
+    ) -> Result<MessageId, Self::Error> {
         EspMqttClient::publish(self, topic, qos, retain, payload)
     }
 }
 
-impl<'a, P> client::Enqueue for EspMqttClient<'a, P> {
+impl<'a> Enqueue for EspMqttClient<'a> {
     fn enqueue(
         &mut self,
         topic: &str,
-        qos: client::QoS,
+        qos: QoS,
         retain: bool,
         payload: &[u8],
-    ) -> Result<client::MessageId, Self::Error> {
+    ) -> Result<MessageId, Self::Error> {
         EspMqttClient::enqueue(self, topic, qos, retain, payload)
     }
 }
 
-unsafe impl<'a, P> Send for EspMqttClient<'a, P> {}
+unsafe impl<'a> Send for EspMqttClient<'a> {}
 
-pub struct EspMqttMessage<'a> {
-    event: &'a esp_mqtt_event_t,
-    details: client::Details,
+pub struct EspMqttConnection {
+    receiver: Receiver<RawCondvar, EspMqttEvent<'static>>,
+    given: bool,
 }
 
-impl<'a> EspMqttMessage<'a> {
+impl EspMqttConnection {
+    pub fn next(&mut self) -> Result<Option<&EspMqttEvent<'_>>, EspError> {
+        if self.given {
+            self.receiver.done();
+        }
+
+        self.given = true;
+
+        if let Some(event) = self.receiver.get() {
+            Ok(Some(event))
+        } else {
+            Ok(None)
+        }
+    }
+}
+
+impl ErrorType for EspMqttConnection {
+    type Error = EspError;
+}
+
+impl Connection for EspMqttConnection {
+    type Event<'a> = &'a EspMqttEvent<'a>;
+
+    fn next(&mut self) -> Result<Option<Self::Event<'_>>, Self::Error> {
+        EspMqttConnection::next(self)
+    }
+}
+
+pub struct EspMqttEvent<'a>(&'a esp_mqtt_event_t);
+
+impl<'a> EspMqttEvent<'a> {
+    const fn new(event: &'a esp_mqtt_event_t) -> Self {
+        Self(event)
+    }
+
     #[allow(non_upper_case_globals)]
-    fn new_event(
-        event: &'a esp_mqtt_event_t,
-    ) -> Result<client::Event<EspMqttMessage<'a>>, EspError> {
-        match event.event_id {
-            esp_mqtt_event_id_t_MQTT_EVENT_ERROR => Err(EspError::from_infallible::<ESP_FAIL>()), // TODO
-            esp_mqtt_event_id_t_MQTT_EVENT_BEFORE_CONNECT => Ok(client::Event::BeforeConnect),
+    pub fn payload(&self) -> EventPayload<'_> {
+        match self.0.event_id {
+            esp_mqtt_event_id_t_MQTT_EVENT_ERROR => EventPayload::Error, // TODO
+            esp_mqtt_event_id_t_MQTT_EVENT_BEFORE_CONNECT => EventPayload::BeforeConnect,
             esp_mqtt_event_id_t_MQTT_EVENT_CONNECTED => {
-                Ok(client::Event::Connected(event.session_present != 0))
+                EventPayload::Connected(self.0.session_present != 0)
             }
-            esp_mqtt_event_id_t_MQTT_EVENT_DISCONNECTED => Ok(client::Event::Disconnected),
+            esp_mqtt_event_id_t_MQTT_EVENT_DISCONNECTED => EventPayload::Disconnected,
             esp_mqtt_event_id_t_MQTT_EVENT_SUBSCRIBED => {
-                Ok(client::Event::Subscribed(event.msg_id as _))
+                EventPayload::Subscribed(self.0.msg_id as _)
             }
             esp_mqtt_event_id_t_MQTT_EVENT_UNSUBSCRIBED => {
-                Ok(client::Event::Unsubscribed(event.msg_id as _))
+                EventPayload::Unsubscribed(self.0.msg_id as _)
             }
-            esp_mqtt_event_id_t_MQTT_EVENT_PUBLISHED => {
-                Ok(client::Event::Published(event.msg_id as _))
-            }
-            esp_mqtt_event_id_t_MQTT_EVENT_DATA => {
-                Ok(client::Event::Received(EspMqttMessage::new(event)))
-            }
-            esp_mqtt_event_id_t_MQTT_EVENT_DELETED => Ok(client::Event::Deleted(event.msg_id as _)),
+            esp_mqtt_event_id_t_MQTT_EVENT_PUBLISHED => EventPayload::Published(self.0.msg_id as _),
+            esp_mqtt_event_id_t_MQTT_EVENT_DATA => EventPayload::Received {
+                id: self.0.msg_id as _,
+                topic: {
+                    let ptr = self.0.topic;
+
+                    if ptr.is_null() {
+                        None
+                    } else {
+                        let len = self.0.topic_len;
+
+                        let topic = unsafe {
+                            let slice = slice::from_raw_parts(ptr as _, len.try_into().unwrap());
+                            core::str::from_utf8(slice).unwrap()
+                        };
+
+                        Some(topic)
+                    }
+                },
+                data: if self.0.data_len > 0 {
+                    unsafe {
+                        slice::from_raw_parts(
+                            (self.0.data as *const u8).as_ref().unwrap(),
+                            self.0.data_len as _,
+                        )
+                    }
+                } else {
+                    &[]
+                },
+                details: {
+                    if self.0.data_len < self.0.total_data_len {
+                        if self.0.current_data_offset == 0 {
+                            Details::InitialChunk(InitialChunkData {
+                                total_data_size: self.0.total_data_len as _,
+                            })
+                        } else {
+                            Details::SubsequentChunk(SubsequentChunkData {
+                                current_data_offset: self.0.current_data_offset as _,
+                                total_data_size: self.0.total_data_len as _,
+                            })
+                        }
+                    } else {
+                        Details::Complete
+                    }
+                },
+            },
+            esp_mqtt_event_id_t_MQTT_EVENT_DELETED => EventPayload::Deleted(self.0.msg_id as _),
             other => panic!("Unknown message type: {}", other),
         }
     }
-
-    fn new(event: &'a esp_mqtt_event_t) -> Self {
-        let mut message = Self {
-            event,
-            details: client::Details::Complete,
-        };
-
-        message.fill_chunk_details();
-
-        message
-    }
-
-    pub fn id(&self) -> MessageId {
-        self.event.msg_id as _
-    }
-
-    pub fn data(&self) -> &[u8] {
-        if self.event.data_len > 0 {
-            unsafe {
-                slice::from_raw_parts(
-                    (self.event.data as *const u8).as_ref().unwrap(),
-                    self.event.data_len as _,
-                )
-            }
-        } else {
-            &[]
-        }
-    }
-
-    pub fn topic(&self) -> Option<&str> {
-        let ptr = self.event.topic;
-
-        if ptr.is_null() {
-            None
-        } else {
-            let len = self.event.topic_len;
-
-            let topic = unsafe {
-                let slice = slice::from_raw_parts(ptr as _, len.try_into().unwrap());
-                core::str::from_utf8(slice).unwrap()
-            };
-
-            Some(topic)
-        }
-    }
-
-    pub fn details(&self) -> &Details {
-        &self.details
-    }
-
-    fn fill_chunk_details(&mut self) {
-        if self.event.data_len < self.event.total_data_len {
-            if self.event.current_data_offset == 0 {
-                self.details = client::Details::InitialChunk(client::InitialChunkData {
-                    total_data_size: self.event.total_data_len as _,
-                });
-            } else {
-                self.details = client::Details::SubsequentChunk(client::SubsequentChunkData {
-                    current_data_offset: self.event.current_data_offset as _,
-                    total_data_size: self.event.total_data_len as _,
-                });
-            }
-        }
-    }
 }
 
-impl<'a> Debug for EspMqttMessage<'a> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(
-            f,
-            "[id = {}, topic = {:?}, details = {:?}]",
-            self.id(),
-            self.topic(),
-            self.details()
-        )
-    }
-}
+unsafe impl<'a> Send for EspMqttEvent<'a> {}
 
-impl<'a> client::Message for EspMqttMessage<'a> {
-    fn id(&self) -> client::MessageId {
-        EspMqttMessage::id(self)
-    }
-
-    fn data(&self) -> &[u8] {
-        EspMqttMessage::data(self)
-    }
-
-    fn topic(&self) -> Option<&str> {
-        EspMqttMessage::topic(self)
-    }
-
-    fn details(&self) -> &client::Details {
-        EspMqttMessage::details(self)
+impl<'a> Event for EspMqttEvent<'a> {
+    fn payload(&self) -> EventPayload<'_> {
+        EspMqttEvent::payload(self)
     }
 }
 
 mod asyncify {
-    use core::fmt::Debug;
-
     extern crate alloc;
 
     use alloc::sync::Arc;
 
-    use embedded_svc::mqtt::client::{self, MessageImpl};
     use embedded_svc::utils::asyncify::mqtt::client::{
-        AsyncClient, AsyncConnState, AsyncConnection, AsyncPostbox, Blocking, Publishing,
+        AsyncClient, AsyncConnection, Blocking, Publishing,
     };
     use embedded_svc::utils::asyncify::{Asyncify, UnblockingAsyncify};
-    use embedded_svc::utils::mqtt::client::ConnStateGuard;
     use embedded_svc::utils::mutex::Mutex;
+    use embedded_svc::utils::zerocopy::Channel;
 
     use crate::sys::EspError;
 
     use crate::private::mutex::{RawCondvar, RawMutex};
 
-    use super::{EspMqttClient, EspMqttMessage, MqttClientConfiguration};
+    use super::{EspMqttClient, EspMqttEvent, MqttClientConfiguration};
 
-    impl<'a, P> UnblockingAsyncify for super::EspMqttClient<'a, P> {
+    impl<'a> UnblockingAsyncify for super::EspMqttClient<'a> {
         type AsyncWrapper<U, S> = AsyncClient<U, Arc<Mutex<RawMutex, S>>>;
     }
 
-    impl<'a, P> Asyncify for super::EspMqttClient<'a, P> {
+    impl<'a> Asyncify for super::EspMqttClient<'a> {
         type AsyncWrapper<S> = AsyncClient<(), Blocking<S, Publishing>>;
     }
 
-    pub type EspMqttAsyncClient<'a> = EspMqttConvertingAsyncClient<'a, MessageImpl, EspError>;
-
     pub type EspMqttUnblockingAsyncClient<'a, U> =
-        EspMqttConvertingUnblockingAsyncClient<'a, U, MessageImpl, EspError>;
+        AsyncClient<U, Arc<Mutex<RawMutex, EspMqttClient<'a>>>>;
 
-    pub type EspMqttAsyncConnection = EspMqttConvertingAsyncConnection<MessageImpl, EspError>;
+    pub type EspMqttAsyncClient<'a> = AsyncClient<(), EspMqttClient<'a>>;
 
-    pub type EspMqttConvertingUnblockingAsyncClient<'a, U, M, E> =
-        AsyncClient<U, Arc<Mutex<RawMutex, EspMqttClient<'a, AsyncConnState<M, E>>>>>;
+    pub type EspMqttAsyncConnection = AsyncConnection<RawCondvar, EspMqttEvent<'static>, EspError>;
 
-    pub type EspMqttConvertingAsyncClient<'a, M, E> =
-        AsyncClient<(), EspMqttClient<'a, AsyncConnState<M, E>>>;
-
-    pub type EspMqttConvertingAsyncConnection<M, E> = AsyncConnection<RawCondvar, M, E>;
-
-    impl EspMqttClient<'static, AsyncConnState<MessageImpl, EspError>> {
+    impl EspMqttClient<'static> {
         pub fn new_with_async_conn(
             url: &str,
             conf: &MqttClientConfiguration,
@@ -1007,101 +830,19 @@ mod asyncify {
         where
             Self: Sized,
         {
-            Self::new_with_converting_async_conn(url, conf, move |r| {
-                r.as_ref()
-                    .map(|event| event.transform_received(MessageImpl::new))
-                    .map_err(|e| *e)
-            })
-        }
-    }
+            let (channel, receiver) = Channel::new();
+            let conn = EspMqttAsyncConnection::new(receiver);
 
-    impl<M, E> EspMqttClient<'static, AsyncConnState<M, E>>
-    where
-        M: Send + 'static,
-        E: Debug + Send + 'static,
-    {
-        pub fn new_with_converting_async_conn<F>(
-            url: &str,
-            conf: &MqttClientConfiguration,
-            converter: F,
-        ) -> Result<(Self, EspMqttConvertingAsyncConnection<M, E>), EspError>
-        where
-            F: for<'b> FnMut(
-                    &'b Result<client::Event<EspMqttMessage<'b>>, EspError>,
-                ) -> Result<client::Event<M>, E>
-                + Send
-                + 'static,
-            Self: Sized,
-        {
-            Self::internal_new_with_converting_async_conn(url, conf, converter)
-        }
-    }
+            let client = Self::new_raw(
+                url,
+                conf,
+                Some(channel.clone()),
+                Box::new(move |event_handle| {
+                    let event = EspMqttEvent::new(unsafe { event_handle.as_ref() }.unwrap());
 
-    impl<'a, M, E> EspMqttClient<'a, AsyncConnState<M, E>>
-    where
-        M: Send + 'static,
-        E: Debug + Send + 'static,
-    {
-        /// # Safety
-        ///
-        /// This method - in contrast to method `new_with_converting_async_conn` - allows the user to pass
-        /// a non-static callback/closure. This enables users to borrow
-        /// - in the closure - variables that live on the stack - or more generally - in the same
-        /// scope where the service is created.
-        ///
-        /// HOWEVER: care should be taken NOT to call `core::mem::forget()` on the service,
-        /// as that would immediately lead to an UB (crash).
-        /// Also note that forgetting the service might happen with `Rc` and `Arc`
-        /// when circular references are introduced: https://github.com/rust-lang/rust/issues/24456
-        ///
-        /// The reason is that the closure is actually sent to a hidden ESP IDF thread.
-        /// This means that if the service is forgotten, Rust is free to e.g. unwind the stack
-        /// and the closure now owned by this other thread will end up with references to variables that no longer exist.
-        ///
-        /// The destructor of the service takes care - prior to the service being dropped and e.g.
-        /// the stack being unwind - to remove the closure from the hidden thread and destroy it.
-        /// Unfortunately, when the service is forgotten, the un-subscription does not happen
-        /// and invalid references are left dangling.
-        ///
-        /// This "local borrowing" will only be possible to express in a safe way once/if `!Leak` types
-        /// are introduced to Rust (i.e. the impossibility to "forget" a type and thus not call its destructor).
-        pub unsafe fn new_nonstatic_with_converting_async_conn<F>(
-            url: &str,
-            conf: &MqttClientConfiguration,
-            converter: F,
-        ) -> Result<(Self, EspMqttConvertingAsyncConnection<M, E>), EspError>
-        where
-            F: for<'b> FnMut(
-                    &'b Result<client::Event<EspMqttMessage<'b>>, EspError>,
-                ) -> Result<client::Event<M>, E>
-                + Send
-                + 'a,
-            Self: Sized,
-        {
-            Self::internal_new_with_converting_async_conn(url, conf, converter)
-        }
-
-        fn internal_new_with_converting_async_conn(
-            url: &str,
-            conf: &MqttClientConfiguration,
-            mut converter: impl for<'b> FnMut(
-                    &'b Result<client::Event<EspMqttMessage<'b>>, EspError>,
-                ) -> Result<client::Event<M>, E>
-                + Send
-                + 'a,
-        ) -> Result<(Self, EspMqttConvertingAsyncConnection<M, E>), EspError>
-        where
-            Self: Sized,
-        {
-            let state = Arc::new(ConnStateGuard::new_default());
-            let mut postbox = AsyncPostbox::new(state.clone());
-            let conn = AsyncConnection::new(state.clone());
-
-            let client = unsafe {
-                Self::new_nonstatic_generic(url, conf, Some(state), move |event| {
-                    postbox.post(converter(event))
-                })?
-            };
+                    channel.set(event);
+                }),
+            )?;
 
             Ok((client, conn))
         }
