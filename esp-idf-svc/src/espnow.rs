@@ -8,7 +8,7 @@
 //! light, remote controlling, sensor, etc.
 use core::marker::PhantomData;
 
-use ::log::info;
+use log::info;
 
 use alloc::boxed::Box;
 
@@ -147,6 +147,13 @@ impl<'a> EspNow<'a> {
         let mut num = esp_now_peer_num_t::default();
         esp!(unsafe { esp_now_get_peer_num(&mut num as *mut esp_now_peer_num_t) })?;
         Ok((num.total_num as usize, num.encrypt_num as usize))
+    }
+
+    pub fn fetch_peer(&self, from_head: bool) -> Result<PeerInfo, EspError> {
+        let mut peer_info = PeerInfo::default();
+        esp!(unsafe { esp_now_fetch_peer(from_head, &mut peer_info as *mut esp_now_peer_info_t) })?;
+
+        Ok(peer_info)
     }
 
     pub fn set_pmk(&self, pmk: &[u8]) -> Result<(), EspError> {
