@@ -680,6 +680,7 @@ pub struct EspMqttConnection {
 }
 
 impl EspMqttConnection {
+    #[allow(clippy::should_implement_trait)]
     pub fn next(&mut self) -> Result<Option<&EspMqttEvent<'_>>, EspError> {
         if self.given {
             self.receiver.done();
