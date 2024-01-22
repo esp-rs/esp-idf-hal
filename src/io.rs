@@ -17,7 +17,13 @@ impl Error for EspIOError {
 
 impl From<EspError> for EspIOError {
     fn from(e: EspError) -> Self {
-        EspIOError(e)
+        Self(e)
+    }
+}
+
+impl From<EspIOError> for EspError {
+    fn from(e: EspIOError) -> Self {
+        Self(e.0)
     }
 }
 
