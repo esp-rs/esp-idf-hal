@@ -8,7 +8,7 @@
 //! light, remote controlling, sensor, etc.
 use core::marker::PhantomData;
 
-use log::info;
+use ::log::info;
 
 use alloc::boxed::Box;
 
