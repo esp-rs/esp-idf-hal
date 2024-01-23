@@ -1047,7 +1047,7 @@ pub mod ws {
 
     use embedded_svc::http::Method;
     use embedded_svc::unblock::Unblocker;
-    use embedded_svc::ws::callback_server::*;
+    use embedded_svc::ws::*;
 
     use crate::sys::*;
 
@@ -1217,30 +1217,6 @@ pub mod ws {
         }
     }
 
-    impl SenderFactory for EspHttpWsConnection {
-        type Sender = EspHttpWsDetachedSender;
-
-        fn create(&self) -> Result<Self::Sender, Self::Error> {
-            EspHttpWsConnection::create_detached_sender(self)
-        }
-    }
-
-    impl SessionProvider for EspHttpWsConnection {
-        type Session = ffi::c_int;
-
-        fn session(&self) -> Self::Session {
-            EspHttpWsConnection::session(self)
-        }
-
-        fn is_new(&self) -> bool {
-            EspHttpWsConnection::is_new(self)
-        }
-
-        fn is_closed(&self) -> bool {
-            EspHttpWsConnection::is_closed(self)
-        }
-    }
-
     struct EspWsDetachedSendRequest {
         sd: httpd_handle_t,
         fd: ffi::c_int,
@@ -1356,22 +1332,6 @@ pub mod ws {
     impl Sender for EspHttpWsDetachedSender {
         fn send(&mut self, frame_type: FrameType, frame_data: &[u8]) -> Result<(), Self::Error> {
             EspHttpWsDetachedSender::send(self, frame_type, frame_data)
-        }
-    }
-
-    impl SessionProvider for EspHttpWsDetachedSender {
-        type Session = ffi::c_int;
-
-        fn session(&self) -> Self::Session {
-            EspHttpWsDetachedSender::session(self)
-        }
-
-        fn is_new(&self) -> bool {
-            EspHttpWsDetachedSender::is_new(self)
-        }
-
-        fn is_closed(&self) -> bool {
-            EspHttpWsDetachedSender::is_closed(self)
         }
     }
 
@@ -1731,7 +1691,7 @@ pub mod ws {
 
                 info!("New WS connection {:?}", session);
 
-                if !self.process_accept(session, connection) {
+                if !self.process_accept(session, connection)? {
                     return connection.send(FrameType::Close, &[]);
                 }
             } else if connection.is_closed() {
@@ -1769,7 +1729,11 @@ pub mod ws {
             Ok(())
         }
 
-        fn process_accept(&mut self, session: ffi::c_int, sender: &EspHttpWsConnection) -> bool {
+        fn process_accept(
+            &mut self,
+            session: ffi::c_int,
+            sender: &EspHttpWsConnection,
+        ) -> Result<bool, EspError> {
             if self.connections.len() < N {
                 let receiver_state = Arc::new(Mutex::new(SharedReceiverState {
                     waker: None,
@@ -1785,7 +1749,7 @@ pub mod ws {
                     .push(state)
                     .unwrap_or_else(|_| unreachable!());
 
-                let sender = sender.create().unwrap();
+                let sender = sender.create_detached_sender()?;
 
                 let mut accept = self.accept.lock();
 
@@ -1799,9 +1763,9 @@ pub mod ws {
                     accept = self.condvar.wait(accept);
                 }
 
-                true
+                Ok(true)
             } else {
-                false
+                Ok(false)
             }
         }
 
