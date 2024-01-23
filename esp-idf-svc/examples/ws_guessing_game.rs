@@ -29,6 +29,7 @@ use std::{borrow::Cow, collections::BTreeMap, str, sync::Mutex};
 
 const SSID: &str = env!("WIFI_SSID");
 const PASSWORD: &str = env!("WIFI_PASS");
+
 static INDEX_HTML: &str = include_str!("ws_guessing_game.html");
 
 // Max payload length
@@ -122,6 +123,7 @@ fn nth(n: u32) -> Cow<'static, str> {
 fn main() -> anyhow::Result<()> {
     esp_idf_svc::sys::link_patches();
     esp_idf_svc::log::EspLogger::initialize_default();
+
     let mut server = create_server()?;
 
     server.fn_handler("/", Method::Get, |req| {
