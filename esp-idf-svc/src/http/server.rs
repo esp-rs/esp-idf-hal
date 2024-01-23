@@ -1657,18 +1657,18 @@ pub mod ws {
 
     #[allow(clippy::type_complexity)]
 
-    pub struct EspHttpWsProcessor<const N: usize, const F: usize> {
-        connections: heapless::Vec<ConnectionState, N>,
-        frame_data_buf: [u8; F],
+    pub struct EspHttpWsProcessor<const N: usize> {
+        connections: alloc::vec::Vec<ConnectionState>,
+        frame_data_buf: [u8; N],
         accept: Arc<Mutex<SharedAcceptorState>>,
         condvar: Arc<Condvar>,
     }
 
-    impl<const N: usize, const F: usize> EspHttpWsProcessor<N, F> {
+    impl<const N: usize> EspHttpWsProcessor<N> {
         pub fn new<U>(unblocker: U) -> (Self, EspHttpWsAsyncAcceptor<U>) {
             let this = Self {
-                connections: heapless::Vec::new(),
-                frame_data_buf: [0_u8; F],
+                connections: alloc::vec::Vec::new(),
+                frame_data_buf: [0_u8; N],
                 accept: Arc::new(Mutex::new(SharedAcceptorState {
                     waker: None,
                     data: None,
@@ -1691,9 +1691,7 @@ pub mod ws {
 
                 info!("New WS connection {:?}", session);
 
-                if !self.process_accept(session, connection)? {
-                    return connection.send(FrameType::Close, &[]);
-                }
+                self.process_accept(session, connection)?;
             } else if connection.is_closed() {
                 let session = connection.session();
 
@@ -1733,40 +1731,34 @@ pub mod ws {
             &mut self,
             session: ffi::c_int,
             sender: &EspHttpWsConnection,
-        ) -> Result<bool, EspError> {
-            if self.connections.len() < N {
-                let receiver_state = Arc::new(Mutex::new(SharedReceiverState {
-                    waker: None,
-                    data: ReceiverData::None,
-                }));
+        ) -> Result<(), EspError> {
+            let receiver_state = Arc::new(Mutex::new(SharedReceiverState {
+                waker: None,
+                data: ReceiverData::None,
+            }));
 
-                let state = ConnectionState {
-                    session,
-                    receiver_state: receiver_state.clone(),
-                };
+            let state = ConnectionState {
+                session,
+                receiver_state: receiver_state.clone(),
+            };
 
-                self.connections
-                    .push(state)
-                    .unwrap_or_else(|_| unreachable!());
+            self.connections.push(state);
 
-                let sender = sender.create_detached_sender()?;
+            let sender = sender.create_detached_sender()?;
 
-                let mut accept = self.accept.lock();
+            let mut accept = self.accept.lock();
 
-                accept.data = Some(Some((receiver_state, sender)));
+            accept.data = Some(Some((receiver_state, sender)));
 
-                if let Some(waker) = accept.waker.take() {
-                    waker.wake();
-                }
-
-                while accept.data.is_some() {
-                    accept = self.condvar.wait(accept);
-                }
-
-                Ok(true)
-            } else {
-                Ok(false)
+            if let Some(waker) = accept.waker.take() {
+                waker.wake();
             }
+
+            while accept.data.is_some() {
+                accept = self.condvar.wait(accept);
+            }
+
+            Ok(())
         }
 
         fn process_receive(
@@ -1822,7 +1814,7 @@ pub mod ws {
         }
     }
 
-    impl<const N: usize, const F: usize> Drop for EspHttpWsProcessor<N, F> {
+    impl<const N: usize> Drop for EspHttpWsProcessor<N> {
         fn drop(&mut self) {
             self.process_accept_close();
         }
