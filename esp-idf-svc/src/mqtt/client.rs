@@ -752,6 +752,8 @@ impl asynch::Connection for EspMqttConnection {
     }
 }
 
+static ERROR: EspError = EspError::from_infallible::<ESP_FAIL>();
+
 pub struct EspMqttEvent<'a>(&'a esp_mqtt_event_t);
 
 impl<'a> EspMqttEvent<'a> {
@@ -760,24 +762,22 @@ impl<'a> EspMqttEvent<'a> {
     }
 
     #[allow(non_upper_case_globals)]
-    pub fn payload(&self) -> Result<EventPayload<'_>, EspError> {
+    pub fn payload(&self) -> EventPayload<'_, EspError> {
         match self.0.event_id {
-            esp_mqtt_event_id_t_MQTT_EVENT_ERROR => Err(EspError::from_infallible::<ESP_FAIL>()), // TODO
-            esp_mqtt_event_id_t_MQTT_EVENT_BEFORE_CONNECT => Ok(EventPayload::BeforeConnect),
+            esp_mqtt_event_id_t_MQTT_EVENT_ERROR => EventPayload::Error(&ERROR), // TODO
+            esp_mqtt_event_id_t_MQTT_EVENT_BEFORE_CONNECT => EventPayload::BeforeConnect,
             esp_mqtt_event_id_t_MQTT_EVENT_CONNECTED => {
-                Ok(EventPayload::Connected(self.0.session_present != 0))
+                EventPayload::Connected(self.0.session_present != 0)
             }
-            esp_mqtt_event_id_t_MQTT_EVENT_DISCONNECTED => Ok(EventPayload::Disconnected),
+            esp_mqtt_event_id_t_MQTT_EVENT_DISCONNECTED => EventPayload::Disconnected,
             esp_mqtt_event_id_t_MQTT_EVENT_SUBSCRIBED => {
-                Ok(EventPayload::Subscribed(self.0.msg_id as _))
+                EventPayload::Subscribed(self.0.msg_id as _)
             }
             esp_mqtt_event_id_t_MQTT_EVENT_UNSUBSCRIBED => {
-                Ok(EventPayload::Unsubscribed(self.0.msg_id as _))
+                EventPayload::Unsubscribed(self.0.msg_id as _)
             }
-            esp_mqtt_event_id_t_MQTT_EVENT_PUBLISHED => {
-                Ok(EventPayload::Published(self.0.msg_id as _))
-            }
-            esp_mqtt_event_id_t_MQTT_EVENT_DATA => Ok(EventPayload::Received {
+            esp_mqtt_event_id_t_MQTT_EVENT_PUBLISHED => EventPayload::Published(self.0.msg_id as _),
+            esp_mqtt_event_id_t_MQTT_EVENT_DATA => EventPayload::Received {
                 id: self.0.msg_id as _,
                 topic: {
                     let ptr = self.0.topic;
@@ -821,8 +821,8 @@ impl<'a> EspMqttEvent<'a> {
                         Details::Complete
                     }
                 },
-            }),
-            esp_mqtt_event_id_t_MQTT_EVENT_DELETED => Ok(EventPayload::Deleted(self.0.msg_id as _)),
+            },
+            esp_mqtt_event_id_t_MQTT_EVENT_DELETED => EventPayload::Deleted(self.0.msg_id as _),
             other => panic!("Unknown message type: {}", other),
         }
     }
@@ -835,7 +835,7 @@ impl<'a> ErrorType for EspMqttEvent<'a> {
 }
 
 impl<'a> Event for EspMqttEvent<'a> {
-    fn payload(&self) -> Result<EventPayload<'_>, Self::Error> {
+    fn payload(&self) -> EventPayload<'_, Self::Error> {
         EspMqttEvent::payload(self)
     }
 }
