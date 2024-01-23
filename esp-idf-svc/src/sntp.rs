@@ -162,9 +162,8 @@ impl<'a> Default for SntpConf<'a> {
 #[cfg(feature = "alloc")]
 type SyncCallback = alloc::boxed::Box<dyn FnMut(Duration) + Send + 'static>;
 #[cfg(feature = "alloc")]
-static SYNC_CB: mutex::Mutex<Option<SyncCallback>> =
-    mutex::Mutex::wrap(mutex::RawMutex::new(), None);
-static TAKEN: mutex::Mutex<bool> = mutex::Mutex::wrap(mutex::RawMutex::new(), false);
+static SYNC_CB: mutex::Mutex<Option<SyncCallback>> = mutex::Mutex::new(None);
+static TAKEN: mutex::Mutex<bool> = mutex::Mutex::new(false);
 
 pub struct EspSntp<'a> {
     // Needs to be kept around because the C bindings only have a pointer.

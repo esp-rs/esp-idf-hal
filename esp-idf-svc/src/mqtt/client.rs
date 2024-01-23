@@ -8,18 +8,14 @@ extern crate alloc;
 use alloc::boxed::Box;
 use alloc::sync::Arc;
 
-use embedded_svc::mqtt::client::{Client, Connection, Enqueue, ErrorType, Publish};
-use embedded_svc::utils::zerocopy::{Channel, Receiver};
+use embedded_svc::mqtt::client::{asynch, Client, Connection, Enqueue, ErrorType, Publish};
 
 use crate::sys::*;
 
 use crate::handle::RawHandle;
-use crate::private::mutex::RawCondvar;
-
-#[allow(unused_imports)]
-pub use asyncify::*;
 
 use crate::private::cstr::*;
+use crate::private::zerocopy::{Channel, Receiver};
 use crate::tls::*;
 
 pub use embedded_svc::mqtt::client::{
@@ -356,7 +352,7 @@ impl<'a> UnsafeCallback<'a> {
 
 pub struct EspMqttClient<'a> {
     raw_client: esp_mqtt_client_handle_t,
-    channel: Option<Arc<Channel<RawCondvar, EspMqttEvent<'static>>>>,
+    channel: Option<Arc<Channel<EspMqttEvent<'static>>>>,
     _boxed_raw_callback: Box<dyn FnMut(esp_mqtt_event_handle_t) + Send + 'a>,
     _tls_psk_conf: Option<TlsPsk>,
 }
@@ -454,7 +450,7 @@ impl<'a> EspMqttClient<'a> {
     fn new_raw(
         url: &str,
         conf: &MqttClientConfiguration,
-        channel: Option<Arc<Channel<RawCondvar, EspMqttEvent<'static>>>>,
+        channel: Option<Arc<Channel<EspMqttEvent<'static>>>>,
         raw_callback: Box<dyn FnMut(esp_mqtt_event_handle_t) + Send + 'a>,
     ) -> Result<Self, EspError>
     where
@@ -672,10 +668,32 @@ impl<'a> Enqueue for EspMqttClient<'a> {
     }
 }
 
+impl<'a> asynch::Client for EspMqttClient<'a> {
+    async fn subscribe(&mut self, topic: &str, qos: QoS) -> Result<MessageId, Self::Error> {
+        EspMqttClient::subscribe(self, topic, qos)
+    }
+
+    async fn unsubscribe(&mut self, topic: &str) -> Result<MessageId, Self::Error> {
+        EspMqttClient::unsubscribe(self, topic)
+    }
+}
+
+impl<'a> asynch::Publish for EspMqttClient<'a> {
+    async fn publish(
+        &mut self,
+        topic: &str,
+        qos: QoS,
+        retain: bool,
+        payload: &[u8],
+    ) -> Result<MessageId, Self::Error> {
+        EspMqttClient::enqueue(self, topic, qos, retain, payload)
+    }
+}
+
 unsafe impl<'a> Send for EspMqttClient<'a> {}
 
 pub struct EspMqttConnection {
-    receiver: Receiver<RawCondvar, EspMqttEvent<'static>>,
+    receiver: Receiver<EspMqttEvent<'static>>,
     given: bool,
 }
 
@@ -694,6 +712,20 @@ impl EspMqttConnection {
             Ok(None)
         }
     }
+
+    pub async fn next_async(&mut self) -> Result<Option<&EspMqttEvent<'_>>, EspError> {
+        if self.given {
+            self.receiver.done();
+        }
+
+        self.given = true;
+
+        if let Some(event) = self.receiver.get_async().await {
+            Ok(Some(event))
+        } else {
+            Ok(None)
+        }
+    }
 }
 
 impl ErrorType for EspMqttConnection {
@@ -705,6 +737,14 @@ impl Connection for EspMqttConnection {
 
     fn next(&mut self) -> Result<Option<Self::Event<'_>>, Self::Error> {
         EspMqttConnection::next(self)
+    }
+}
+
+impl asynch::Connection for EspMqttConnection {
+    type Event<'a> = &'a EspMqttEvent<'a>;
+
+    async fn next(&mut self) -> Result<Option<Self::Event<'_>>, Self::Error> {
+        EspMqttConnection::next_async(self).await
     }
 }
 
@@ -787,65 +827,5 @@ unsafe impl<'a> Send for EspMqttEvent<'a> {}
 impl<'a> Event for EspMqttEvent<'a> {
     fn payload(&self) -> EventPayload<'_> {
         EspMqttEvent::payload(self)
-    }
-}
-
-mod asyncify {
-    extern crate alloc;
-    use alloc::boxed::Box;
-    use alloc::sync::Arc;
-
-    use embedded_svc::utils::asyncify::mqtt::client::{
-        AsyncClient, AsyncConnection, Blocking, Publishing,
-    };
-    use embedded_svc::utils::asyncify::{Asyncify, UnblockingAsyncify};
-    use embedded_svc::utils::mutex::Mutex;
-    use embedded_svc::utils::zerocopy::Channel;
-
-    use crate::sys::EspError;
-
-    use crate::private::mutex::{RawCondvar, RawMutex};
-
-    use super::{EspMqttClient, EspMqttEvent, MqttClientConfiguration};
-
-    impl<'a> UnblockingAsyncify for super::EspMqttClient<'a> {
-        type AsyncWrapper<U, S> = AsyncClient<U, Arc<Mutex<RawMutex, S>>>;
-    }
-
-    impl<'a> Asyncify for super::EspMqttClient<'a> {
-        type AsyncWrapper<S> = AsyncClient<(), Blocking<S, Publishing>>;
-    }
-
-    pub type EspMqttUnblockingAsyncClient<'a, U> =
-        AsyncClient<U, Arc<Mutex<RawMutex, EspMqttClient<'a>>>>;
-
-    pub type EspMqttAsyncClient<'a> = AsyncClient<(), EspMqttClient<'a>>;
-
-    pub type EspMqttAsyncConnection = AsyncConnection<RawCondvar, EspMqttEvent<'static>, EspError>;
-
-    impl EspMqttClient<'static> {
-        pub fn new_with_async_conn(
-            url: &str,
-            conf: &MqttClientConfiguration,
-        ) -> Result<(Self, EspMqttAsyncConnection), EspError>
-        where
-            Self: Sized,
-        {
-            let (channel, receiver) = Channel::new();
-            let conn = EspMqttAsyncConnection::new(receiver);
-
-            let client = Self::new_raw(
-                url,
-                conf,
-                Some(channel.clone()),
-                Box::new(move |event_handle| {
-                    let event = EspMqttEvent::new(unsafe { event_handle.as_ref() }.unwrap());
-
-                    channel.set(event);
-                }),
-            )?;
-
-            Ok((client, conn))
-        }
     }
 }

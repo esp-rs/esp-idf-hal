@@ -14,20 +14,18 @@ use alloc::boxed::Box;
 
 use crate::sys::*;
 
-use crate::private::mutex::{Mutex, RawMutex};
+use crate::private::mutex::Mutex;
 
 type Singleton<T> = Mutex<Option<Box<T>>>;
 
 pub const BROADCAST: [u8; 6] = [0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF];
 
 #[allow(clippy::type_complexity)]
-static RECV_CALLBACK: Singleton<dyn FnMut(&[u8], &[u8]) + Send + 'static> =
-    Mutex::wrap(RawMutex::new(), None);
+static RECV_CALLBACK: Singleton<dyn FnMut(&[u8], &[u8]) + Send + 'static> = Mutex::new(None);
 #[allow(clippy::type_complexity)]
-static SEND_CALLBACK: Singleton<dyn FnMut(&[u8], SendStatus) + Send + 'static> =
-    Mutex::wrap(RawMutex::new(), None);
+static SEND_CALLBACK: Singleton<dyn FnMut(&[u8], SendStatus) + Send + 'static> = Mutex::new(None);
 
-static TAKEN: Mutex<bool> = Mutex::wrap(RawMutex::new(), false);
+static TAKEN: Mutex<bool> = Mutex::new(false);
 
 #[derive(Debug)]
 pub enum SendStatus {

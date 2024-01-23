@@ -6,14 +6,23 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [?.??.?] - ????-??-??
-* Breaking change in module `mqtt::client`: This is partially due to the breaking change in `embedded_svc::mqtt::client`, but additionally:
-  * All event conversion logic now retired, significantly simplifying the type signatures of `EspMqttClient` and `EspMqttConnection`, as well as the number of offered constructors
-  * For MQTT events, user always gets an instance of `EspMqttEvent` which implements the `embedded_svc::mqtt::client::Event` trait - valid for both callback-based event processing as well as for connection-based blocking and asynchronous event processing
-* Breaking change in module `http::server`: This is due to the breaking change in `embedded_svc::http::server`, whereas `HandlerError` and `HandlerResult` were removed. Check the Changelog of `embedded_svc` for more details
+* Breaking changes in module `eventloop`: 
+  * All async post/receive functionality now implemented directly on the `esp-idf-svc` event loop types, as the `embedded_svc::utils::asyncify` module is now gone
+  * Types `EspTypedEventLoop` and `EspPostbox` are now retired. Use `EspEventLoop` directly, as it has the same functionality
+  * Trait `EspTypedEventSource` is now marked as unsafe (i.e., implementors should do `unsafe impl EspTypedEventSource for ...`); check the documentation of the trait for justification
+* Breaking changes in module `http::server`: 
+  * All async WS functionality now implemented directly on the `esp-idf-svc` HTTP types, as the `embedded_svc::utils::asyncify` module is now gone
+  * Due to the breaking change in `embedded_svc::http::server`, whereas `HandlerError` and `HandlerResult` were removed, these types are no longer used in the `embedded_svc::http::server` module either. Check the Changelog of `embedded_svc` for more details
+* Breaking change in module `timer`: all async timer functionality now implemented directly on the `esp-idf-svc` timer types, as the `embedded_svc::utils::asyncify` module is now gone
+* Breaking changes in module `mqtt::client`: 
+  * All async send/receive functionality now implemented directly on the `esp-idf-svc` MQTT types, as the `embedded_svc::utils::asyncify` module is now gone
+  * Changes induced by breaking changes in `embedded_svc::mqtt::client` API contract:
+    * All event conversion logic now retired, significantly simplifying the type signatures of `EspMqttClient` and `EspMqttConnection`, as well as the number of offered constructors
+    * For MQTT events, user always gets an instance of `EspMqttEvent` which implements the `embedded_svc::mqtt::client::Event` trait - valid for both callback-based event processing as well as for connection-based blocking and asynchronous event processing
 * MSRV 1.75; remove the nightly feature flag from all async trait implementations
 * Update public dependency `heapless` to 0.8
 * Remove dependency on `embassy-time` and replace it with a dependency on `embassy-time-driver`; get rid of the custom embassy time queue as it was anyway re-implementing something like a generic timer queue, which is available in the `embassy-time` crate (with its feature `generic-queue` enabled)
-* #316 - BREAKING CHANGE addressing a typo - `http::server::Configuration::max_resp_handlers` renamed to `http::server::Configuration::max_resp_headers`
+* #316 - breaking change addressing a typo - `http::server::Configuration::max_resp_handlers` renamed to `http::server::Configuration::max_resp_headers`
 * #319 - Set default TTL in `EspPing` to 64
 * #322 - Fix MQTT PSK code (did not compile)
 * #323 - ETH example with a statically configured IP

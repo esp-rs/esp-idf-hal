@@ -1,4 +1,5 @@
 use core::cell::UnsafeCell;
+use core::ops::{Deref, DerefMut};
 use core::ptr;
 use core::time::Duration;
 
@@ -10,11 +11,7 @@ const ERR_ETIMEDOUT: esp_err_t = 116;
 // NOTE: ESP-IDF-specific
 const PTHREAD_MUTEX_INITIALIZER: u32 = 0xFFFFFFFF;
 
-pub type Mutex<T> = embedded_svc::utils::mutex::Mutex<RawMutex, T>;
-
-pub type Condvar = embedded_svc::utils::mutex::Condvar<RawCondvar>;
-
-pub struct RawMutex(UnsafeCell<pthread_mutex_t>);
+struct RawMutex(UnsafeCell<pthread_mutex_t>);
 
 impl RawMutex {
     #[inline(always)]
@@ -47,24 +44,7 @@ impl Drop for RawMutex {
 unsafe impl Sync for RawMutex {}
 unsafe impl Send for RawMutex {}
 
-impl embedded_svc::utils::mutex::RawMutex for RawMutex {
-    #[allow(clippy::declare_interior_mutable_const)]
-    const INIT: Self = RawMutex::new();
-
-    fn new() -> Self {
-        RawMutex::new()
-    }
-
-    unsafe fn lock(&self) {
-        RawMutex::lock(self);
-    }
-
-    unsafe fn unlock(&self) {
-        RawMutex::unlock(self);
-    }
-}
-
-pub struct RawCondvar(UnsafeCell<pthread_cond_t>);
+struct RawCondvar(UnsafeCell<pthread_cond_t>);
 
 impl RawCondvar {
     pub fn new() -> Self {
@@ -112,12 +92,6 @@ impl RawCondvar {
 unsafe impl Sync for RawCondvar {}
 unsafe impl Send for RawCondvar {}
 
-impl Default for RawCondvar {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
 impl Drop for RawCondvar {
     fn drop(&mut self) {
         let r = unsafe { pthread_cond_destroy(self.0.get()) };
@@ -125,26 +99,100 @@ impl Drop for RawCondvar {
     }
 }
 
-impl embedded_svc::utils::mutex::RawCondvar for RawCondvar {
-    type RawMutex = RawMutex;
+pub struct Mutex<T>(RawMutex, UnsafeCell<T>);
 
-    fn new() -> Self {
-        RawCondvar::new()
+impl<T> Mutex<T> {
+    #[inline(always)]
+    pub const fn new(data: T) -> Self {
+        Self(RawMutex::new(), UnsafeCell::new(data))
     }
 
-    unsafe fn wait(&self, mutex: &Self::RawMutex) {
-        RawCondvar::wait(self, mutex);
+    #[inline(always)]
+    pub fn lock(&self) -> MutexGuard<'_, T> {
+        MutexGuard::new(self)
+    }
+}
+
+unsafe impl<T> Sync for Mutex<T> where T: Send {}
+unsafe impl<T> Send for Mutex<T> where T: Send {}
+
+pub struct MutexGuard<'a, T>(&'a Mutex<T>);
+
+impl<'a, T> MutexGuard<'a, T> {
+    #[inline(always)]
+    fn new(mutex: &'a Mutex<T>) -> Self {
+        unsafe {
+            mutex.0.lock();
+        }
+
+        Self(mutex)
+    }
+}
+
+impl<'a, T> Drop for MutexGuard<'a, T> {
+    #[inline(always)]
+    fn drop(&mut self) {
+        unsafe {
+            self.0 .0.unlock();
+        }
+    }
+}
+
+impl<'a, T> Deref for MutexGuard<'a, T> {
+    type Target = T;
+
+    #[inline(always)]
+    fn deref(&self) -> &Self::Target {
+        unsafe { self.0 .1.get().as_mut().unwrap() }
+    }
+}
+
+impl<'a, T> DerefMut for MutexGuard<'a, T> {
+    #[inline(always)]
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        unsafe { self.0 .1.get().as_mut().unwrap() }
+    }
+}
+
+pub struct Condvar(RawCondvar);
+
+impl Condvar {
+    pub fn new() -> Self {
+        Self(RawCondvar::new())
     }
 
-    unsafe fn wait_timeout(&self, mutex: &Self::RawMutex, duration: Duration) -> bool {
-        RawCondvar::wait_timeout(self, mutex, duration)
+    pub fn wait<'a, T>(&self, guard: MutexGuard<'a, T>) -> MutexGuard<'a, T> {
+        unsafe {
+            self.0.wait(&guard.0 .0);
+        }
+
+        guard
     }
 
-    fn notify_one(&self) {
-        RawCondvar::notify_one(self);
+    pub fn wait_timeout<'a, T>(
+        &self,
+        guard: MutexGuard<'a, T>,
+        duration: Duration,
+    ) -> (MutexGuard<'a, T>, bool) {
+        let timeout = unsafe { self.0.wait_timeout(&guard.0 .0, duration) };
+
+        (guard, timeout)
     }
 
-    fn notify_all(&self) {
-        RawCondvar::notify_all(self);
+    pub fn notify_one(&self) {
+        self.0.notify_one();
+    }
+
+    pub fn notify_all(&self) {
+        self.0.notify_all();
+    }
+}
+
+unsafe impl Sync for Condvar {}
+unsafe impl Send for Condvar {}
+
+impl Default for Condvar {
+    fn default() -> Self {
+        Self::new()
     }
 }

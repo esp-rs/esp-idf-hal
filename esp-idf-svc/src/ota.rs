@@ -24,7 +24,7 @@ use crate::sys::*;
 use crate::io::EspIOError;
 use crate::private::{common::*, cstr::*, mutex};
 
-static TAKEN: mutex::Mutex<bool> = mutex::Mutex::wrap(mutex::RawMutex::new(), false);
+static TAKEN: mutex::Mutex<bool> = mutex::Mutex::new(false);
 
 impl From<Newtype<&esp_app_desc_t>> for FirmwareInfo {
     fn from(app_desc: Newtype<&esp_app_desc_t>) -> Self {

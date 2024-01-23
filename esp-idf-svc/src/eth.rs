@@ -1005,7 +1005,7 @@ impl EthEvent {
     }
 }
 
-impl EspTypedEventSource for EthEvent {
+unsafe impl EspTypedEventSource for EthEvent {
     fn source() -> *const ffi::c_char {
         unsafe { ETH_EVENT }
     }
@@ -1218,13 +1218,8 @@ where
         mut matcher: F,
         timeout: Option<Duration>,
     ) -> Result<(), EspError> {
-        use embedded_svc::utils::asyncify::event_bus::AsyncEventBus;
-        use embedded_svc::utils::asyncify::timer::AsyncTimerService;
-
-        let event_loop = AsyncEventBus::new((), self.event_loop.clone());
-        let timer_service = AsyncTimerService::new(self.timer_service.clone());
-
-        let mut wait = crate::eventloop::AsyncWait::<EthEvent, _>::new(event_loop, timer_service)?;
+        let mut wait =
+            crate::eventloop::AsyncWait::<EthEvent, _>::new(&self.event_loop, &self.timer_service)?;
 
         wait.wait_while(|| matcher(self), timeout).await
     }
@@ -1250,13 +1245,8 @@ where
         mut matcher: F,
         timeout: Option<core::time::Duration>,
     ) -> Result<(), EspError> {
-        use embedded_svc::utils::asyncify::event_bus::AsyncEventBus;
-        use embedded_svc::utils::asyncify::timer::AsyncTimerService;
-
-        let event_loop = AsyncEventBus::new((), self.event_loop.clone());
-        let timer_service = AsyncTimerService::new(self.timer_service.clone());
-
-        let mut wait = crate::eventloop::AsyncWait::<IpEvent, _>::new(event_loop, timer_service)?;
+        let mut wait =
+            crate::eventloop::AsyncWait::<IpEvent, _>::new(&self.event_loop, &self.timer_service)?;
 
         wait.wait_while(|| matcher(self), timeout).await
     }

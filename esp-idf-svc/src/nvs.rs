@@ -14,9 +14,9 @@ use crate::handle::RawHandle;
 use crate::private::cstr::*;
 use crate::private::mutex;
 
-static DEFAULT_TAKEN: mutex::Mutex<bool> = mutex::Mutex::wrap(mutex::RawMutex::new(), false);
+static DEFAULT_TAKEN: mutex::Mutex<bool> = mutex::Mutex::new(false);
 static NONDEFAULT_LOCKED: mutex::Mutex<alloc::collections::BTreeSet<CString>> =
-    mutex::Mutex::wrap(mutex::RawMutex::new(), alloc::collections::BTreeSet::new());
+    mutex::Mutex::new(alloc::collections::BTreeSet::new());
 
 pub type EspDefaultNvsPartition = EspNvsPartition<NvsDefault>;
 pub type EspCustomNvsPartition = EspNvsPartition<NvsCustom>;

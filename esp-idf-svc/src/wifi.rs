@@ -473,14 +473,11 @@ impl<'d> WifiDriver<'d> {
         ),
         EspError,
     > {
-        let status = Arc::new(mutex::Mutex::wrap(
-            mutex::RawMutex::new(),
-            WifiDriverStatus {
-                sta: WifiEvent::StaStopped,
-                ap: WifiEvent::ApStopped,
-                wps: None,
-            },
-        ));
+        let status = Arc::new(mutex::Mutex::new(WifiDriverStatus {
+            sta: WifiEvent::StaStopped,
+            ap: WifiEvent::ApStopped,
+            wps: None,
+        }));
         let s_status = status.clone();
 
         let subscription = sysloop.subscribe(move |event: &WifiEvent| {
@@ -1826,7 +1823,7 @@ pub enum WifiEvent {
     RocDone,
 }
 
-impl EspTypedEventSource for WifiEvent {
+unsafe impl EspTypedEventSource for WifiEvent {
     fn source() -> *const ffi::c_char {
         unsafe { WIFI_EVENT }
     }
@@ -2307,13 +2304,10 @@ where
         mut matcher: F,
         timeout: Option<Duration>,
     ) -> Result<(), EspError> {
-        use embedded_svc::utils::asyncify::event_bus::AsyncEventBus;
-        use embedded_svc::utils::asyncify::timer::AsyncTimerService;
-
-        let event_loop = AsyncEventBus::new((), self.event_loop.clone());
-        let timer_service = AsyncTimerService::new(self.timer_service.clone());
-
-        let mut wait = crate::eventloop::AsyncWait::<WifiEvent, _>::new(event_loop, timer_service)?;
+        let mut wait = crate::eventloop::AsyncWait::<WifiEvent, _>::new(
+            &self.event_loop,
+            &self.timer_service,
+        )?;
 
         wait.wait_while(|| matcher(self), timeout).await
     }
@@ -2361,13 +2355,8 @@ where
         mut matcher: F,
         timeout: Option<core::time::Duration>,
     ) -> Result<(), EspError> {
-        use embedded_svc::utils::asyncify::event_bus::AsyncEventBus;
-        use embedded_svc::utils::asyncify::timer::AsyncTimerService;
-
-        let event_loop = AsyncEventBus::new((), self.event_loop.clone());
-        let timer_service = AsyncTimerService::new(self.timer_service.clone());
-
-        let mut wait = crate::eventloop::AsyncWait::<IpEvent, _>::new(event_loop, timer_service)?;
+        let mut wait =
+            crate::eventloop::AsyncWait::<IpEvent, _>::new(&self.event_loop, &self.timer_service)?;
 
         wait.wait_while(|| matcher(self), timeout).await
     }

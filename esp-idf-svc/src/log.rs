@@ -182,7 +182,7 @@ impl EspLogger {
 
     #[cfg(not(all(esp_idf_version_major = "4", esp_idf_version_minor = "3")))]
     fn should_log(record: &Record) -> bool {
-        use crate::private::mutex::{Mutex, RawMutex};
+        use crate::private::mutex::Mutex;
         use alloc::collections::BTreeMap;
 
         // esp-idf function `esp_log_level_get` builds a cache using the address
@@ -190,7 +190,7 @@ impl EspLogger {
         // build a cache of our own mapping the str value to a consistant
         // Cstr value.
         static TARGET_CACHE: Mutex<BTreeMap<alloc::string::String, CString>> =
-            Mutex::wrap(RawMutex::new(), BTreeMap::new());
+            Mutex::new(BTreeMap::new());
         let level = Newtype::<esp_log_level_t>::from(record.level()).0;
 
         let mut cache = TARGET_CACHE.lock();

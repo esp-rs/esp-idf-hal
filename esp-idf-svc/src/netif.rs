@@ -194,7 +194,7 @@ impl NetifConfiguration {
     }
 }
 
-static INITALIZED: mutex::Mutex<bool> = mutex::Mutex::wrap(mutex::RawMutex::new(), false);
+static INITALIZED: mutex::Mutex<bool> = mutex::Mutex::new(false);
 
 fn initialize_netif_stack() -> Result<(), EspError> {
     let mut guard = INITALIZED.lock();
@@ -579,7 +579,7 @@ impl IpEvent {
     }
 }
 
-impl EspTypedEventSource for IpEvent {
+unsafe impl EspTypedEventSource for IpEvent {
     fn source() -> *const ffi::c_char {
         unsafe { IP_EVENT }
     }
@@ -760,13 +760,8 @@ where
         mut matcher: F,
         timeout: Option<core::time::Duration>,
     ) -> Result<(), EspError> {
-        use embedded_svc::utils::asyncify::event_bus::AsyncEventBus;
-        use embedded_svc::utils::asyncify::timer::AsyncTimerService;
-
-        let event_loop = AsyncEventBus::new((), self.event_loop.clone());
-        let timer_service = AsyncTimerService::new(self.timer_service.clone());
-
-        let mut wait = crate::eventloop::AsyncWait::<IpEvent, _>::new(event_loop, timer_service)?;
+        let mut wait =
+            crate::eventloop::AsyncWait::<IpEvent, _>::new(&self.event_loop, &self.timer_service)?;
 
         wait.wait_while(|| matcher(self), timeout).await
     }

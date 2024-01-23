@@ -63,7 +63,7 @@ use crate::io::EspIOError;
 use crate::private::common::Newtype;
 use crate::private::cstr::to_cstring_arg;
 use crate::private::cstr::{CStr, CString};
-use crate::private::mutex::{Mutex, RawMutex};
+use crate::private::mutex::Mutex;
 #[cfg(esp_idf_esp_https_server_enable)]
 use crate::tls::X509;
 
@@ -271,9 +271,9 @@ impl From<Method> for Newtype<ffi::c_uint> {
 }
 
 static OPEN_SESSIONS: Mutex<BTreeMap<(u32, ffi::c_int), Arc<AtomicBool>>> =
-    Mutex::wrap(RawMutex::new(), BTreeMap::new());
+    Mutex::new(BTreeMap::new());
 static CLOSE_HANDLERS: Mutex<BTreeMap<u32, Vec<CloseHandler<'static>>>> =
-    Mutex::wrap(RawMutex::new(), BTreeMap::new());
+    Mutex::new(BTreeMap::new());
 
 type NativeHandler<'a> = Box<dyn Fn(*mut httpd_req_t) -> ffi::c_int + 'a>;
 type CloseHandler<'a> = Box<dyn Fn(ffi::c_int) + Send + 'a>;
@@ -1030,34 +1030,35 @@ impl<'b> Connection for EspHttpConnection<'b> {
     }
 }
 
-#[cfg(esp_idf_httpd_ws_support)]
+//#[cfg(esp_idf_httpd_ws_support)]
 pub mod ws {
-    use core::ffi;
     use core::fmt::Debug;
+    use core::pin::Pin;
     use core::sync::atomic::{AtomicBool, Ordering};
+    use core::task::{Context, Poll, Waker};
+    use core::{ffi, slice};
 
     extern crate alloc;
     use alloc::boxed::Box;
     use alloc::sync::Arc;
 
     use ::log::*;
+    use core::future::Future;
 
     use embedded_svc::http::Method;
-    use embedded_svc::utils::mutex::{Condvar, Mutex};
+    use embedded_svc::unblock::Unblocker;
     use embedded_svc::ws::callback_server::*;
 
     use crate::sys::*;
 
     use crate::private::common::Newtype;
     use crate::private::cstr::to_cstring_arg;
-    use crate::private::mutex::{RawCondvar, RawMutex};
+    use crate::private::mutex::{Condvar, Mutex};
 
     use super::EspHttpServer;
     use super::CLOSE_HANDLERS;
     use super::OPEN_SESSIONS;
     use super::{CloseHandler, NativeHandler};
-
-    pub use asyncify::*;
 
     /// A Websocket connection between this server and a client.
     pub enum EspHttpWsConnection {
@@ -1240,7 +1241,7 @@ pub mod ws {
         }
     }
 
-    pub struct EspWsDetachedSendRequest {
+    struct EspWsDetachedSendRequest {
         sd: httpd_handle_t,
         fd: ffi::c_int,
 
@@ -1248,8 +1249,8 @@ pub mod ws {
 
         raw_frame: *const httpd_ws_frame_t,
 
-        error_code: Mutex<RawMutex, Option<u32>>,
-        condvar: Condvar<RawCondvar>,
+        error_code: Mutex<Option<u32>>,
+        condvar: Condvar,
     }
 
     pub struct EspHttpWsDetachedSender {
@@ -1487,21 +1488,379 @@ pub mod ws {
         }
     }
 
-    pub mod asyncify {
-        use crate::sys::EspError;
-        use embedded_svc::utils::asyncify::ws::server::{
-            AsyncAcceptor, AsyncReceiver, AsyncSender, Processor,
-        };
+    enum ReceiverData {
+        None,
+        Metadata((FrameType, usize)),
+        Data(*mut u8),
+        DataCopied,
+        Closed,
+    }
 
-        pub type EspHttpWsProcessor<const N: usize, const F: usize> =
-            Processor<N, F, crate::private::mutex::RawCondvar, super::EspHttpWsConnection>;
+    unsafe impl Send for ReceiverData {}
 
-        pub type EspHttpWsAsyncAcceptor<U> =
-            AsyncAcceptor<U, crate::private::mutex::RawCondvar, super::EspHttpWsDetachedSender>;
+    struct SharedReceiverState {
+        waker: Option<Waker>,
+        data: ReceiverData,
+    }
 
-        pub type EspHttpWsAsyncSender<U> = AsyncSender<U, super::EspHttpWsDetachedSender>;
+    struct ConnectionState {
+        session: ffi::c_int,
+        receiver_state: Arc<Mutex<SharedReceiverState>>,
+    }
 
-        pub type EspHttpWsAsyncReceiver =
-            AsyncReceiver<crate::private::mutex::RawCondvar, EspError>;
+    pub struct SharedAcceptorState {
+        waker: Option<Waker>,
+        data: Option<Option<(Arc<Mutex<SharedReceiverState>>, EspHttpWsDetachedSender)>>,
+    }
+
+    pub struct EspHttpWsAsyncSender<U> {
+        unblocker: U,
+        sender: EspHttpWsDetachedSender,
+    }
+
+    impl<U> EspHttpWsAsyncSender<U>
+    where
+        U: Unblocker,
+    {
+        pub async fn send(
+            &mut self,
+            frame_type: FrameType,
+            frame_data: &[u8],
+        ) -> Result<(), EspError> {
+            #[cfg(not(feature = "std"))]
+            use alloc::borrow::ToOwned;
+
+            debug!(
+                "Sending data (frame_type={:?}, frame_len={}) to WS connection {:?}",
+                frame_type,
+                frame_data.len(),
+                self.sender.session()
+            );
+
+            let mut sender = self.sender.clone();
+            let frame_data: alloc::vec::Vec<u8> = frame_data.to_owned();
+
+            self.unblocker
+                .unblock(move || sender.send(frame_type, &frame_data))
+                .await
+        }
+    }
+
+    impl<U> ErrorType for EspHttpWsAsyncSender<U> {
+        type Error = EspError;
+    }
+
+    impl<U> asynch::Sender for EspHttpWsAsyncSender<U>
+    where
+        U: Unblocker,
+    {
+        async fn send(
+            &mut self,
+            frame_type: FrameType,
+            frame_data: &[u8],
+        ) -> Result<(), Self::Error> {
+            EspHttpWsAsyncSender::send(self, frame_type, frame_data).await
+        }
+    }
+
+    pub struct EspHttpWsAsyncReceiver {
+        shared: Arc<Mutex<SharedReceiverState>>,
+        condvar: Arc<Condvar>,
+    }
+
+    impl EspHttpWsAsyncReceiver {
+        pub async fn recv(
+            &mut self,
+            frame_data_buf: &mut [u8],
+        ) -> Result<(FrameType, usize), EspError> {
+            AsyncReceiverFuture {
+                receiver: self,
+                frame_data_buf,
+            }
+            .await
+        }
+    }
+
+    struct AsyncReceiverFuture<'a> {
+        receiver: &'a mut EspHttpWsAsyncReceiver,
+        frame_data_buf: &'a mut [u8],
+    }
+
+    impl<'a> Future for AsyncReceiverFuture<'a> {
+        type Output = Result<(FrameType, usize), EspError>;
+
+        fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+            let frame_data_buf_ptr = self.frame_data_buf.as_mut_ptr();
+            let mut shared = self.receiver.shared.lock();
+
+            if let ReceiverData::Metadata((frame_type, size)) = shared.data {
+                if self.frame_data_buf.len() >= size {
+                    shared.data = ReceiverData::Data(frame_data_buf_ptr);
+
+                    self.receiver.condvar.notify_all();
+
+                    while !matches!(shared.data, ReceiverData::DataCopied) {
+                        shared = self.receiver.condvar.wait(shared);
+                    }
+
+                    shared.data = ReceiverData::None;
+                    self.receiver.condvar.notify_all();
+                }
+
+                Poll::Ready(Ok((frame_type, size)))
+            } else if let ReceiverData::Closed = shared.data {
+                Poll::Ready(Ok((FrameType::Close, 0)))
+            } else {
+                shared.waker = Some(cx.waker().clone());
+                Poll::Pending
+            }
+        }
+    }
+
+    impl ErrorType for EspHttpWsAsyncReceiver {
+        type Error = EspError;
+    }
+
+    impl asynch::Receiver for EspHttpWsAsyncReceiver {
+        async fn recv(
+            &mut self,
+            frame_data_buf: &mut [u8],
+        ) -> Result<(FrameType, usize), Self::Error> {
+            EspHttpWsAsyncReceiver::recv(self, frame_data_buf).await
+        }
+    }
+
+    pub struct EspHttpWsAsyncAcceptor<U> {
+        unblocker: U,
+        accept: Arc<Mutex<SharedAcceptorState>>,
+        condvar: Arc<Condvar>,
+    }
+
+    impl<U> EspHttpWsAsyncAcceptor<U> {
+        pub fn accept(&self) -> &EspHttpWsAsyncAcceptor<U> {
+            self
+        }
+    }
+
+    impl<'a, U> Future for &'a EspHttpWsAsyncAcceptor<U>
+    where
+        U: Clone,
+    {
+        type Output = Result<(EspHttpWsAsyncSender<U>, EspHttpWsAsyncReceiver), EspError>;
+
+        fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+            let mut accept = self.accept.lock();
+
+            match accept.data.take() {
+                Some(Some((shared, sender))) => {
+                    let sender = EspHttpWsAsyncSender {
+                        unblocker: self.unblocker.clone(),
+                        sender,
+                    };
+
+                    let receiver = EspHttpWsAsyncReceiver {
+                        shared,
+                        condvar: self.condvar.clone(),
+                    };
+
+                    self.condvar.notify_all();
+
+                    Poll::Ready(Ok((sender, receiver)))
+                }
+                Some(None) => {
+                    accept.data = Some(None);
+                    Poll::Pending
+                }
+                None => {
+                    accept.waker = Some(cx.waker().clone());
+                    Poll::Pending
+                }
+            }
+        }
+    }
+
+    impl<U> ErrorType for EspHttpWsAsyncAcceptor<U> {
+        type Error = EspError;
+    }
+
+    impl<U> asynch::server::Acceptor for EspHttpWsAsyncAcceptor<U>
+    where
+        U: Unblocker + Clone + Send,
+    {
+        type Sender<'a> = EspHttpWsAsyncSender<U> where U: 'a;
+        type Receiver<'a> = EspHttpWsAsyncReceiver where U: 'a;
+
+        async fn accept(&self) -> Result<(Self::Sender<'_>, Self::Receiver<'_>), Self::Error> {
+            self.await
+        }
+    }
+
+    #[allow(clippy::type_complexity)]
+
+    pub struct EspHttpWsProcessor<const N: usize, const F: usize> {
+        connections: heapless::Vec<ConnectionState, N>,
+        frame_data_buf: [u8; F],
+        accept: Arc<Mutex<SharedAcceptorState>>,
+        condvar: Arc<Condvar>,
+    }
+
+    impl<const N: usize, const F: usize> EspHttpWsProcessor<N, F> {
+        pub fn new<U>(unblocker: U) -> (Self, EspHttpWsAsyncAcceptor<U>) {
+            let this = Self {
+                connections: heapless::Vec::new(),
+                frame_data_buf: [0_u8; F],
+                accept: Arc::new(Mutex::new(SharedAcceptorState {
+                    waker: None,
+                    data: None,
+                })),
+                condvar: Arc::new(Condvar::new()),
+            };
+
+            let acceptor = EspHttpWsAsyncAcceptor {
+                unblocker,
+                accept: this.accept.clone(),
+                condvar: this.condvar.clone(),
+            };
+
+            (this, acceptor)
+        }
+
+        pub fn process(&mut self, connection: &mut EspHttpWsConnection) -> Result<(), EspError> {
+            if connection.is_new() {
+                let session = connection.session();
+
+                info!("New WS connection {:?}", session);
+
+                if !self.process_accept(session, connection) {
+                    return connection.send(FrameType::Close, &[]);
+                }
+            } else if connection.is_closed() {
+                let session = connection.session();
+
+                if let Some(index) = self
+                    .connections
+                    .iter()
+                    .enumerate()
+                    .find_map(|(index, conn)| (conn.session == session).then_some(index))
+                {
+                    let conn = self.connections.swap_remove(index);
+
+                    Self::process_receive_close(&conn.receiver_state);
+                    info!("Closed WS connection {:?}", session);
+                }
+            } else {
+                let session = connection.session();
+                let (frame_type, len) = connection.recv(&mut self.frame_data_buf)?;
+
+                debug!(
+                    "Incoming data (frame_type={:?}, frame_len={}) from WS connection {:?}",
+                    frame_type, len, session
+                );
+
+                if let Some(connection) = self
+                    .connections
+                    .iter()
+                    .find(|connection| connection.session == session)
+                {
+                    self.process_receive(&connection.receiver_state, frame_type, len)
+                }
+            }
+
+            Ok(())
+        }
+
+        fn process_accept(&mut self, session: ffi::c_int, sender: &EspHttpWsConnection) -> bool {
+            if self.connections.len() < N {
+                let receiver_state = Arc::new(Mutex::new(SharedReceiverState {
+                    waker: None,
+                    data: ReceiverData::None,
+                }));
+
+                let state = ConnectionState {
+                    session,
+                    receiver_state: receiver_state.clone(),
+                };
+
+                self.connections
+                    .push(state)
+                    .unwrap_or_else(|_| unreachable!());
+
+                let sender = sender.create().unwrap();
+
+                let mut accept = self.accept.lock();
+
+                accept.data = Some(Some((receiver_state, sender)));
+
+                if let Some(waker) = accept.waker.take() {
+                    waker.wake();
+                }
+
+                while accept.data.is_some() {
+                    accept = self.condvar.wait(accept);
+                }
+
+                true
+            } else {
+                false
+            }
+        }
+
+        fn process_receive(
+            &self,
+            state: &Mutex<SharedReceiverState>,
+            frame_type: FrameType,
+            len: usize,
+        ) {
+            let mut shared = state.lock();
+
+            shared.data = ReceiverData::Metadata((frame_type, len));
+
+            if let Some(waker) = shared.waker.take() {
+                waker.wake();
+            }
+
+            loop {
+                if let ReceiverData::Data(buf) = &shared.data {
+                    unsafe { slice::from_raw_parts_mut(*buf, len) }
+                        .copy_from_slice(&self.frame_data_buf[..len]);
+                    shared.data = ReceiverData::DataCopied;
+                    self.condvar.notify_all();
+
+                    break;
+                }
+
+                shared = self.condvar.wait(shared);
+            }
+
+            while !matches!(shared.data, ReceiverData::None) {
+                shared = self.condvar.wait(shared);
+            }
+        }
+
+        fn process_accept_close(&mut self) {
+            let mut accept = self.accept.lock();
+
+            accept.data = Some(None);
+
+            if let Some(waker) = accept.waker.take() {
+                waker.wake();
+            }
+        }
+
+        fn process_receive_close(state: &Mutex<SharedReceiverState>) {
+            let mut shared = state.lock();
+
+            shared.data = ReceiverData::Closed;
+
+            if let Some(waker) = shared.waker.take() {
+                waker.wake();
+            }
+        }
+    }
+
+    impl<const N: usize, const F: usize> Drop for EspHttpWsProcessor<N, F> {
+        fn drop(&mut self) {
+            self.process_accept_close();
+        }
     }
 }

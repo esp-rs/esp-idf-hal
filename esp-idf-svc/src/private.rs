@@ -6,5 +6,6 @@ pub mod mutex;
 #[cfg(esp_idf_comp_esp_netif_enabled)]
 pub mod net;
 pub mod waitable;
+pub mod zerocopy;
 
 mod stubs;
