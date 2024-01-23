@@ -349,7 +349,7 @@ pub enum BtStatus {
     HciMacConnectionFailed = esp_bt_status_t_ESP_BT_STATUS_HCI_MAC_CONNECTION_FAILED,
 }
 
-static MEM_FREED: mutex::Mutex<bool> = mutex::Mutex::wrap(mutex::RawMutex::new(), false);
+static MEM_FREED: mutex::Mutex<bool> = mutex::Mutex::new(false);
 
 pub fn reduce_bt_memory<'d, B: BluetoothModemPeripheral>(
     _modem: impl Peripheral<P = B> + 'd,

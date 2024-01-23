@@ -15,7 +15,7 @@ use crate::sys::*;
 
 use crate::private::cstr::to_cstring_arg;
 use crate::private::cstr::CStr;
-use crate::private::mutex::{Mutex, RawMutex};
+use crate::private::mutex::Mutex;
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub enum Interface {
@@ -129,7 +129,7 @@ impl From<mdns_result_t> for QueryResult {
     }
 }
 
-static TAKEN: Mutex<bool> = Mutex::wrap(RawMutex::new(), false);
+static TAKEN: Mutex<bool> = Mutex::new(false);
 
 pub struct EspMdns(());
 

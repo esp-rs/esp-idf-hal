@@ -605,7 +605,7 @@ impl<'d, T> EthDriver<'d, T> {
         handle: esp_eth_handle_t,
         sysloop: &EspEventLoop<System>,
     ) -> Result<(Arc<mutex::Mutex<Status>>, EspSubscription<'static, System>), EspError> {
-        let status = Arc::new(mutex::Mutex::wrap(mutex::RawMutex::new(), Status::Stopped));
+        let status = Arc::new(mutex::Mutex::new(Status::Stopped));
         let s_status = status.clone();
 
         let handle = handle as usize;
