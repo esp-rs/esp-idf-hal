@@ -1448,6 +1448,8 @@ pub mod ws {
         }
     }
 
+    // TODO: Port all of the code below to `zerocopy`, thus simplifying it and providing blocking sender/receiver/acceptor implementations as well
+
     enum ReceiverData {
         None,
         Metadata((FrameType, usize)),
