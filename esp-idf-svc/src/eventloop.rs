@@ -332,7 +332,7 @@ where
         if let Some(data) = self.receiver.get_async().await {
             Ok(data.clone())
         } else {
-            Err(EspError::from_infallible::<ESP_ERR_INVALID_STATE>()) // TODO
+            Err(EspError::from_infallible::<ESP_ERR_INVALID_STATE>())
         }
     }
 }

@@ -699,31 +699,35 @@ pub struct EspMqttConnection {
 
 impl EspMqttConnection {
     #[allow(clippy::should_implement_trait)]
-    pub fn next(&mut self) -> Result<Option<&EspMqttEvent<'_>>, EspError> {
+    pub fn next(&mut self) -> Result<&EspMqttEvent<'_>, EspError> {
         if self.given {
             self.receiver.done();
         }
 
-        self.given = true;
-
         if let Some(event) = self.receiver.get() {
-            Ok(Some(event))
+            self.given = true;
+
+            Ok(event)
         } else {
-            Ok(None)
+            self.given = false;
+
+            Err(EspError::from_infallible::<ESP_ERR_INVALID_STATE>())
         }
     }
 
-    pub async fn next_async(&mut self) -> Result<Option<&EspMqttEvent<'_>>, EspError> {
+    pub async fn next_async(&mut self) -> Result<&EspMqttEvent<'_>, EspError> {
         if self.given {
             self.receiver.done();
         }
 
-        self.given = true;
-
         if let Some(event) = self.receiver.get_async().await {
-            Ok(Some(event))
+            self.given = true;
+
+            Ok(event)
         } else {
-            Ok(None)
+            self.given = false;
+
+            Err(EspError::from_infallible::<ESP_ERR_INVALID_STATE>())
         }
     }
 }
@@ -735,7 +739,7 @@ impl ErrorType for EspMqttConnection {
 impl Connection for EspMqttConnection {
     type Event<'a> = &'a EspMqttEvent<'a>;
 
-    fn next(&mut self) -> Result<Option<Self::Event<'_>>, Self::Error> {
+    fn next(&mut self) -> Result<Self::Event<'_>, Self::Error> {
         EspMqttConnection::next(self)
     }
 }
@@ -743,7 +747,7 @@ impl Connection for EspMqttConnection {
 impl asynch::Connection for EspMqttConnection {
     type Event<'a> = &'a EspMqttEvent<'a>;
 
-    async fn next(&mut self) -> Result<Option<Self::Event<'_>>, Self::Error> {
+    async fn next(&mut self) -> Result<Self::Event<'_>, Self::Error> {
         EspMqttConnection::next_async(self).await
     }
 }
@@ -756,22 +760,24 @@ impl<'a> EspMqttEvent<'a> {
     }
 
     #[allow(non_upper_case_globals)]
-    pub fn payload(&self) -> EventPayload<'_> {
+    pub fn payload(&self) -> Result<EventPayload<'_>, EspError> {
         match self.0.event_id {
-            esp_mqtt_event_id_t_MQTT_EVENT_ERROR => EventPayload::Error, // TODO
-            esp_mqtt_event_id_t_MQTT_EVENT_BEFORE_CONNECT => EventPayload::BeforeConnect,
+            esp_mqtt_event_id_t_MQTT_EVENT_ERROR => Err(EspError::from_infallible::<ESP_FAIL>()), // TODO
+            esp_mqtt_event_id_t_MQTT_EVENT_BEFORE_CONNECT => Ok(EventPayload::BeforeConnect),
             esp_mqtt_event_id_t_MQTT_EVENT_CONNECTED => {
-                EventPayload::Connected(self.0.session_present != 0)
+                Ok(EventPayload::Connected(self.0.session_present != 0))
             }
-            esp_mqtt_event_id_t_MQTT_EVENT_DISCONNECTED => EventPayload::Disconnected,
+            esp_mqtt_event_id_t_MQTT_EVENT_DISCONNECTED => Ok(EventPayload::Disconnected),
             esp_mqtt_event_id_t_MQTT_EVENT_SUBSCRIBED => {
-                EventPayload::Subscribed(self.0.msg_id as _)
+                Ok(EventPayload::Subscribed(self.0.msg_id as _))
             }
             esp_mqtt_event_id_t_MQTT_EVENT_UNSUBSCRIBED => {
-                EventPayload::Unsubscribed(self.0.msg_id as _)
+                Ok(EventPayload::Unsubscribed(self.0.msg_id as _))
             }
-            esp_mqtt_event_id_t_MQTT_EVENT_PUBLISHED => EventPayload::Published(self.0.msg_id as _),
-            esp_mqtt_event_id_t_MQTT_EVENT_DATA => EventPayload::Received {
+            esp_mqtt_event_id_t_MQTT_EVENT_PUBLISHED => {
+                Ok(EventPayload::Published(self.0.msg_id as _))
+            }
+            esp_mqtt_event_id_t_MQTT_EVENT_DATA => Ok(EventPayload::Received {
                 id: self.0.msg_id as _,
                 topic: {
                     let ptr = self.0.topic;
@@ -815,8 +821,8 @@ impl<'a> EspMqttEvent<'a> {
                         Details::Complete
                     }
                 },
-            },
-            esp_mqtt_event_id_t_MQTT_EVENT_DELETED => EventPayload::Deleted(self.0.msg_id as _),
+            }),
+            esp_mqtt_event_id_t_MQTT_EVENT_DELETED => Ok(EventPayload::Deleted(self.0.msg_id as _)),
             other => panic!("Unknown message type: {}", other),
         }
     }
@@ -824,8 +830,12 @@ impl<'a> EspMqttEvent<'a> {
 
 unsafe impl<'a> Send for EspMqttEvent<'a> {}
 
+impl<'a> ErrorType for EspMqttEvent<'a> {
+    type Error = EspError;
+}
+
 impl<'a> Event for EspMqttEvent<'a> {
-    fn payload(&self) -> EventPayload<'_> {
+    fn payload(&self) -> Result<EventPayload<'_>, Self::Error> {
         EspMqttEvent::payload(self)
     }
 }
