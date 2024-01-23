@@ -1030,7 +1030,7 @@ impl<'b> Connection for EspHttpConnection<'b> {
     }
 }
 
-//#[cfg(esp_idf_httpd_ws_support)]
+#[cfg(esp_idf_httpd_ws_support)]
 pub mod ws {
     use core::fmt::Debug;
     use core::pin::Pin;
