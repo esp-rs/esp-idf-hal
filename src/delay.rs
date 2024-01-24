@@ -237,16 +237,11 @@ impl Delay {
         Self(threshold)
     }
 
-    #[deprecated = "Use delay_ns instead"]
     pub fn delay_us(&self, us: u32) {
-        self.delay_ns(us)
-    }
-
-    pub fn delay_ns(&self, ns: u32) {
-        if ns < self.0 {
-            Ets::delay_ns(ns);
+        if us < self.0 {
+            Ets::delay_us(us);
         } else {
-            FreeRtos::delay_ns(ns);
+            FreeRtos::delay_us(us);
         }
     }
 
@@ -260,8 +255,12 @@ impl Delay {
 }
 
 impl embedded_hal::delay::DelayNs for Delay {
-    fn delay_ns(&mut self, us: u32) {
-        Delay::delay_ns(self, us)
+    fn delay_ns(&mut self, ns: u32) {
+        Delay::delay_us(self, ns / 1000)
+    }
+
+    fn delay_us(&mut self, us: u32) {
+        Delay::delay_us(self, us)
     }
 
     fn delay_ms(&mut self, ms: u32) {
