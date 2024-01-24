@@ -190,7 +190,7 @@ impl embedded_hal_0_2::blocking::delay::DelayUs<u16> for FreeRtos {
 
 impl embedded_hal_0_2::blocking::delay::DelayUs<u8> for FreeRtos {
     fn delay_us(&mut self, us: u8) {
-        FreeRtos::delay_ms((us / 1000) as _);
+        FreeRtos::delay_ms(0);
     }
 }
 
