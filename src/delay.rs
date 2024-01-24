@@ -184,13 +184,13 @@ impl embedded_hal_0_2::blocking::delay::DelayUs<u32> for FreeRtos {
 
 impl embedded_hal_0_2::blocking::delay::DelayUs<u16> for FreeRtos {
     fn delay_us(&mut self, us: u16) {
-        FreeRtos::delay_ms((us as _) / 1000);
+        FreeRtos::delay_ms((us / 1000) as _);
     }
 }
 
 impl embedded_hal_0_2::blocking::delay::DelayUs<u8> for FreeRtos {
     fn delay_us(&mut self, us: u8) {
-        FreeRtos::delay_ms((us as _) / 1000);
+        FreeRtos::delay_ms((us / 1000) as _);
     }
 }
 
@@ -241,7 +241,7 @@ impl Delay {
         if us < self.0 {
             Ets::delay_us(us);
         } else {
-            FreeRtos::delay_us(us);
+            FreeRtos::delay_ms(us / 1000);
         }
     }
 

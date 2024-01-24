@@ -244,7 +244,7 @@ pub mod config {
         pub duplex: Duplex,
         pub bit_order: BitOrder,
         pub cs_active_high: bool,
-        pub input_delay_us: i32,
+        pub input_delay_ns: i32,
         pub polling: bool,
         pub allow_pre_post_delays: bool,
         pub queue_size: usize,
@@ -292,8 +292,8 @@ pub mod config {
         }
 
         #[must_use]
-        pub fn input_delay_us(mut self, input_delay_us: i32) -> Self {
-            self.input_delay_us = input_delay_us;
+        pub fn input_delay_ns(mut self, input_delay_ns: i32) -> Self {
+            self.input_delay_ns = input_delay_ns;
             self
         }
 
@@ -325,7 +325,7 @@ pub mod config {
                 cs_active_high: false,
                 duplex: Duplex::Full,
                 bit_order: BitOrder::MsbFirst,
-                input_delay_us: 0,
+                input_delay_ns: 0,
                 polling: true,
                 allow_pre_post_delays: false,
                 queue_size: 1,
@@ -784,7 +784,7 @@ where
             clock_speed_hz: config.baudrate.0 as i32,
             mode: data_mode_to_u8(config.data_mode),
             queue_size: config.queue_size as i32,
-            input_delay_us: config.input_delay_us,
+            input_delay_ns: config.input_delay_ns,
             flags: if config.write_only {
                 SPI_DEVICE_NO_DUMMY
             } else {
@@ -903,7 +903,7 @@ where
 
         while spi_operations.peek().is_some() {
             if let Some(SpiOperation::Delay(delay)) = spi_operations.peek() {
-                delay_impl.delay_us(*delay);
+                delay_impl.delay_us(*delay / 1000);
                 spi_operations.next();
             } else {
                 let transactions = core::iter::from_fn(|| {
