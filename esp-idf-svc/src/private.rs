@@ -8,6 +8,7 @@ pub mod net;
 #[cfg(feature = "alloc")]
 pub mod unblocker;
 pub mod waitable;
+#[cfg(feature = "alloc")]
 pub mod zerocopy;
 
 mod stubs;
