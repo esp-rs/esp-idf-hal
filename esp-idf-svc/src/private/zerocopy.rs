@@ -1,28 +1,35 @@
-/// Zero-copy blocking SPSC channel of one element.
-/// Useful as a rendezvous point between two tasks: one - sending, and the other - receiving.
-/// Both tasks can wait either in a blocking, or in an async fashion.
+/// Zero-copy blocking SPSC primitive for sharing a mutable reference owned by one thread into another.
+/// Useful as a rendezvous point between two threads: one - sharing, and the other - using the shared mutable reference.
 ///
-/// Note that - strictly speaking - the channel is MPSC in the sense that multiple tasks can send data.
-/// Doing this in an async fashion however will result in high CPU usage, as the sender tasks will fight over
-/// the single sending notification primitive, which supports the registration of only one `Waker`.
+/// The using thread can wait for the shared reference in an asynchronous way as well.
+///
+/// Note that - strictly speaking - the priitive is MPSC in the sense that multiple threads can share (i.e. produce) mutable references.
 use super::mutex::{Condvar, Mutex};
 
 extern crate alloc;
 use alloc::sync::{Arc, Weak};
+
 use esp_idf_hal::task::asynch::Notification;
 
-pub struct Receiver<T>(Weak<Channel<T>>);
+use log::info;
 
-impl<T> Receiver<T> {
-    pub fn get(&mut self) -> Option<&mut T> {
+pub struct Receiver<T>(Weak<Channel<T>>)
+where
+    T: Send + 'static;
+
+impl<T> Receiver<T>
+where
+    T: Send + 'static,
+{
+    pub fn get_shared(&mut self) -> Option<&mut T> {
         if let Some(channel) = Weak::upgrade(&self.0) {
             let mut guard = channel.state.lock();
 
             loop {
                 match &mut *guard {
-                    StateData::Empty => guard = channel.blocking_notify.wait(guard),
-                    StateData::Quit => break None,
-                    StateData::Data(data) => break unsafe { (data as *mut T).as_mut() },
+                    State::Empty => guard = channel.blocking_notify.wait(guard),
+                    State::Quit => break None,
+                    State::Data(data) => break unsafe { data.as_mut() },
                 }
             }
         } else {
@@ -30,16 +37,16 @@ impl<T> Receiver<T> {
         }
     }
 
-    pub async fn get_async(&mut self) -> Option<&mut T> {
+    pub async fn get_shared_async(&mut self) -> Option<&mut T> {
         if let Some(channel) = Weak::upgrade(&self.0) {
             loop {
                 {
                     let mut guard = channel.state.lock();
 
                     match &mut *guard {
-                        StateData::Empty => (),
-                        StateData::Quit => return None,
-                        StateData::Data(data) => return unsafe { (data as *mut T).as_mut() },
+                        State::Empty => (),
+                        State::Quit => return None,
+                        State::Data(data) => return unsafe { data.as_mut() },
                     }
                 }
 
@@ -54,40 +61,47 @@ impl<T> Receiver<T> {
         if let Some(channel) = Weak::upgrade(&self.0) {
             let mut guard = channel.state.lock();
 
-            if matches!(&*guard, StateData::Data(_)) {
-                *guard = StateData::Empty;
+            if matches!(&*guard, State::Data(_)) {
+                *guard = State::Empty;
                 channel.blocking_notify.notify_all();
-                channel.notify_empty.notify_lsb();
             }
         }
     }
 }
 
-impl<T> Drop for Receiver<T> {
+impl<T> Drop for Receiver<T>
+where
+    T: Send + 'static,
+{
     fn drop(&mut self) {
         if let Some(channel) = Weak::upgrade(&self.0) {
             let mut guard = channel.state.lock();
 
-            *guard = StateData::Quit;
+            *guard = State::Quit;
             channel.blocking_notify.notify_all();
-            channel.notify_empty.notify_lsb();
         }
     }
 }
 
-pub struct Channel<T> {
-    state: Mutex<StateData<T>>,
+unsafe impl<T> Send for Receiver<T> where T: Send + 'static {}
+
+pub struct Channel<T>
+where
+    T: Send + 'static,
+{
+    state: Mutex<State<T>>,
     blocking_notify: Condvar,
-    notify_empty: Notification,
     notify_full: Notification,
 }
 
-impl<T> Channel<T> {
+impl<T> Channel<T>
+where
+    T: Send + 'static,
+{
     pub fn new() -> (Arc<Self>, Receiver<T>) {
         let this = Arc::new(Self {
-            state: Mutex::new(StateData::Empty),
+            state: Mutex::new(State::Empty),
             blocking_notify: Condvar::new(),
-            notify_empty: Notification::new(),
             notify_full: Notification::new(),
         });
 
@@ -96,90 +110,56 @@ impl<T> Channel<T> {
         (this, receiver)
     }
 
-    pub fn set(&self, data: T) -> bool {
-        self.set_data(StateData::Data(data))
+    pub fn share(&self, mut data: &mut T) -> bool {
+        self.set(State::Data(data))
     }
 
-    pub async fn set_async(&self, data: T) -> bool {
-        self.set_data_async(StateData::Data(data)).await
-    }
-
-    pub fn quit(&self) {
-        self.set_data(StateData::Quit);
-    }
-
-    pub async fn quit_async(&self) {
-        self.set_data(StateData::Quit);
-    }
-
-    fn set_data(&self, data: StateData<T>) -> bool {
+    fn set(&self, data: State<T>) -> bool {
         let mut guard = self.state.lock();
 
         loop {
             match &*guard {
-                StateData::Empty => {
-                    self.set_data_and_notify(&mut guard, data);
+                State::Empty => {
+                    self.set_and_notify(&mut guard, data);
                     break;
                 }
-                StateData::Quit => return false,
-                StateData::Data(_) => guard = self.blocking_notify.wait(guard),
+                State::Quit => return false,
+                State::Data(_) => guard = self.blocking_notify.wait(guard),
             }
         }
 
         loop {
             match &*guard {
-                StateData::Empty | StateData::Quit => break,
-                StateData::Data(_) => guard = self.blocking_notify.wait(guard),
+                State::Empty | State::Quit => break,
+                State::Data(_) => guard = self.blocking_notify.wait(guard),
             }
         }
 
         true
     }
 
-    async fn set_data_async(&self, data: StateData<T>) -> bool {
-        loop {
-            {
-                let mut guard = self.state.lock();
-
-                match &*guard {
-                    StateData::Data(_) => (),
-                    StateData::Quit => return false,
-                    StateData::Empty => {
-                        self.set_data_and_notify(&mut *guard, data);
-                        break;
-                    }
-                }
-            }
-
-            self.notify_empty.wait().await;
-        }
-
-        loop {
-            {
-                let guard = self.state.lock();
-
-                match &*guard {
-                    StateData::Data(_) => (),
-                    StateData::Quit | StateData::Empty => break,
-                }
-            }
-
-            self.notify_empty.wait().await;
-        }
-
-        true
-    }
-
-    fn set_data_and_notify(&self, cell: &mut StateData<T>, data: StateData<T>) {
+    fn set_and_notify(&self, cell: &mut State<T>, data: State<T>) {
         *cell = data;
         self.blocking_notify.notify_all();
         self.notify_full.notify_lsb();
     }
 }
 
+impl<T> Drop for Channel<T>
+where
+    T: Send + 'static,
+{
+    fn drop(&mut self) {
+        self.set(State::Quit);
+    }
+}
+
+unsafe impl<T> Send for Channel<T> where T: Send + 'static {}
+unsafe impl<T> Sync for Channel<T> where T: Send + 'static {}
+
 #[derive(Copy, Clone, Debug)]
-enum StateData<T> {
+enum State<T> {
     Empty,
-    Data(T),
+    Data(*mut T),
     Quit,
 }

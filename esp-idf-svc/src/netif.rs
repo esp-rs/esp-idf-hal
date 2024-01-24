@@ -16,7 +16,7 @@ use crate::sys::*;
 
 use ::log::info;
 
-use crate::eventloop::{EspTypedEventDeserializer, EspTypedEventSource};
+use crate::eventloop::{EspEventDeserializer, EspEventSource};
 use crate::handle::RawHandle;
 use crate::private::common::*;
 use crate::private::cstr::*;
@@ -579,23 +579,22 @@ impl IpEvent {
     }
 }
 
-unsafe impl EspTypedEventSource for IpEvent {
-    fn source() -> *const ffi::c_char {
-        unsafe { IP_EVENT }
+unsafe impl EspEventSource for IpEvent {
+    fn source() -> Option<&'static ffi::CStr> {
+        Some(unsafe { CStr::from_ptr(IP_EVENT) })
     }
 }
 
-impl EspTypedEventDeserializer<IpEvent> for IpEvent {
+impl EspEventDeserializer for IpEvent {
+    type Data<'a> = Self;
+
     #[allow(non_upper_case_globals, non_snake_case)]
-    fn deserialize<R>(
-        data: &crate::eventloop::EspEventFetchData,
-        f: &mut impl for<'a> FnMut(&'a IpEvent) -> R,
-    ) -> R {
+    fn deserialize(data: &crate::eventloop::EspEvent) -> Self {
         let event_id = data.event_id as u32;
 
-        let event = if event_id == ip_event_t_IP_EVENT_AP_STAIPASSIGNED {
+        if event_id == ip_event_t_IP_EVENT_AP_STAIPASSIGNED {
             let event = unsafe {
-                (data.payload as *const ip_event_ap_staipassigned_t)
+                (data.payload.unwrap() as *const _ as *const ip_event_ap_staipassigned_t)
                     .as_ref()
                     .unwrap()
             };
@@ -609,7 +608,11 @@ impl EspTypedEventDeserializer<IpEvent> for IpEvent {
             || event_id == ip_event_t_IP_EVENT_ETH_GOT_IP
             || event_id == ip_event_t_IP_EVENT_PPP_GOT_IP
         {
-            let event = unsafe { (data.payload as *const ip_event_got_ip_t).as_ref().unwrap() };
+            let event = unsafe {
+                (data.payload.unwrap() as *const _ as *const ip_event_got_ip_t)
+                    .as_ref()
+                    .unwrap()
+            };
 
             IpEvent::DhcpIpAssigned(DhcpIpAssignment {
                 netif_handle: event.esp_netif as _,
@@ -626,7 +629,7 @@ impl EspTypedEventDeserializer<IpEvent> for IpEvent {
             })
         } else if event_id == ip_event_t_IP_EVENT_GOT_IP6 {
             let event = unsafe {
-                (data.payload as *const ip_event_got_ip6_t)
+                (data.payload.unwrap() as *const _ as *const ip_event_got_ip6_t)
                     .as_ref()
                     .unwrap()
             };
@@ -640,14 +643,16 @@ impl EspTypedEventDeserializer<IpEvent> for IpEvent {
         } else if event_id == ip_event_t_IP_EVENT_STA_LOST_IP
             || event_id == ip_event_t_IP_EVENT_PPP_LOST_IP
         {
-            let netif_handle_mut = unsafe { (data.payload as *mut esp_netif_t).as_mut().unwrap() };
+            let netif_handle_mut = unsafe {
+                (data.payload.unwrap() as *const _ as *mut esp_netif_t)
+                    .as_mut()
+                    .unwrap()
+            };
 
             IpEvent::DhcpIpDeassigned(netif_handle_mut as *mut _)
         } else {
             panic!("Unknown event ID: {}", event_id);
-        };
-
-        f(&event)
+        }
     }
 }
 
@@ -707,7 +712,7 @@ where
         matcher: F,
         timeout: Option<core::time::Duration>,
     ) -> Result<(), EspError> {
-        let wait = crate::eventloop::Wait::<IpEvent, _>::new(&self.event_loop, |_| true)?;
+        let wait = crate::eventloop::Wait::new::<IpEvent>(&self.event_loop)?;
 
         wait.wait_while(matcher, timeout)
     }

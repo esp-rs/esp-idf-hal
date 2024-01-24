@@ -10,6 +10,7 @@ use alloc::sync::Arc;
 
 use embedded_svc::mqtt::client::{asynch, Client, Connection, Enqueue, ErrorType, Publish};
 
+use crate::private::unblocker::Unblocker;
 use crate::sys::*;
 
 use crate::handle::RawHandle;
@@ -352,7 +353,6 @@ impl<'a> UnsafeCallback<'a> {
 
 pub struct EspMqttClient<'a> {
     raw_client: esp_mqtt_client_handle_t,
-    channel: Option<Arc<Channel<EspMqttEvent<'static>>>>,
     _boxed_raw_callback: Box<dyn FnMut(esp_mqtt_event_handle_t) + Send + 'a>,
     _tls_psk_conf: Option<TlsPsk>,
 }
@@ -366,7 +366,7 @@ impl<'a> RawHandle for EspMqttClient<'a> {
 }
 
 impl EspMqttClient<'static> {
-    pub fn new_with_conn(
+    pub fn new(
         url: &str,
         conf: &MqttClientConfiguration,
     ) -> Result<(Self, EspMqttConnection), EspError>
@@ -379,26 +379,24 @@ impl EspMqttClient<'static> {
             given: false,
         };
 
-        let client = Self::new_raw(
-            url,
-            conf,
-            Some(channel.clone()),
-            Box::new(move |event_handle| {
-                let event = EspMqttEvent::new(unsafe { event_handle.as_ref() }.unwrap());
-
-                channel.set(event);
-            }),
-        )?;
+        let client = Self::new_cb(url, conf, move |mut event| {
+            let event: &mut EspMqttEvent<'static> = unsafe { core::mem::transmute(&mut event) };
+            channel.share(event);
+        })?;
 
         Ok((client, conn))
     }
 
-    pub fn new<F>(url: &str, conf: &MqttClientConfiguration, callback: F) -> Result<Self, EspError>
+    pub fn new_cb<F>(
+        url: &str,
+        conf: &MqttClientConfiguration,
+        callback: F,
+    ) -> Result<Self, EspError>
     where
-        F: for<'b> FnMut(&'b EspMqttEvent<'b>) + Send + 'static,
+        F: for<'b> FnMut(EspMqttEvent<'b>) + Send + 'static,
         Self: Sized,
     {
-        unsafe { Self::new_nonstatic(url, conf, callback) }
+        unsafe { Self::new_nonstatic_cb(url, conf, callback) }
     }
 }
 
@@ -426,23 +424,20 @@ impl<'a> EspMqttClient<'a> {
     ///
     /// This "local borrowing" will only be possible to express in a safe way once/if `!Leak` types
     /// are introduced to Rust (i.e. the impossibility to "forget" a type and thus not call its destructor).
-    pub unsafe fn new_nonstatic<F>(
+    pub unsafe fn new_nonstatic_cb<F>(
         url: &str,
         conf: &MqttClientConfiguration,
         mut callback: F,
     ) -> Result<Self, EspError>
     where
-        F: for<'b> FnMut(&'b EspMqttEvent<'b>) + Send + 'a,
+        F: for<'b> FnMut(EspMqttEvent<'b>) + Send + 'a,
         Self: Sized,
     {
         Self::new_raw(
             url,
             conf,
-            None,
             Box::new(move |event_handle| {
-                callback(&EspMqttEvent::new(
-                    unsafe { event_handle.as_ref() }.unwrap(),
-                ));
+                callback(EspMqttEvent::new(unsafe { event_handle.as_ref() }.unwrap()));
             }),
         )
     }
@@ -450,7 +445,6 @@ impl<'a> EspMqttClient<'a> {
     fn new_raw(
         url: &str,
         conf: &MqttClientConfiguration,
-        channel: Option<Arc<Channel<EspMqttEvent<'static>>>>,
         raw_callback: Box<dyn FnMut(esp_mqtt_event_handle_t) + Send + 'a>,
     ) -> Result<Self, EspError>
     where
@@ -491,7 +485,6 @@ impl<'a> EspMqttClient<'a> {
 
         let client = Self {
             raw_client,
-            channel,
             _boxed_raw_callback: boxed_raw_callback,
             _tls_psk_conf: tls_psk_conf,
         };
@@ -511,8 +504,38 @@ impl<'a> EspMqttClient<'a> {
     }
 
     pub fn subscribe(&mut self, topic: &str, qos: QoS) -> Result<MessageId, EspError> {
-        let c_topic = to_cstring_arg(topic)?;
+        self.subscribe_cstr(to_cstring_arg(topic)?.as_c_str(), qos)
+    }
 
+    pub fn unsubscribe(&mut self, topic: &str) -> Result<MessageId, EspError> {
+        self.unsubscribe_cstr(to_cstring_arg(topic)?.as_c_str())
+    }
+
+    pub fn publish(
+        &mut self,
+        topic: &str,
+        qos: QoS,
+        retain: bool,
+        payload: &[u8],
+    ) -> Result<MessageId, EspError> {
+        self.publish_cstr(to_cstring_arg(topic)?.as_c_str(), qos, retain, payload)
+    }
+
+    pub fn enqueue(
+        &mut self,
+        topic: &str,
+        qos: QoS,
+        retain: bool,
+        payload: &[u8],
+    ) -> Result<MessageId, EspError> {
+        self.enqueue_cstr(to_cstring_arg(topic)?.as_c_str(), qos, retain, payload)
+    }
+
+    pub fn subscribe_cstr(
+        &mut self,
+        topic: &core::ffi::CStr,
+        qos: QoS,
+    ) -> Result<MessageId, EspError> {
         #[cfg(any(
             esp_idf_version_major = "4",
             all(esp_idf_version_major = "5", esp_idf_version_minor = "0"),
@@ -523,7 +546,7 @@ impl<'a> EspMqttClient<'a> {
             )
         ))]
         let res = Self::check(unsafe {
-            esp_mqtt_client_subscribe(self.raw_client, c_topic.as_ptr(), qos as _)
+            esp_mqtt_client_subscribe(self.raw_client, topic.as_ptr(), qos as _)
         });
 
         #[cfg(not(any(
@@ -536,27 +559,23 @@ impl<'a> EspMqttClient<'a> {
             )
         )))]
         let res = Self::check(unsafe {
-            esp_mqtt_client_subscribe_single(self.raw_client, c_topic.as_ptr(), qos as _)
+            esp_mqtt_client_subscribe_single(self.raw_client, topic.as_ptr(), qos as _)
         });
 
         res
     }
 
-    pub fn unsubscribe(&mut self, topic: &str) -> Result<MessageId, EspError> {
-        let c_topic = to_cstring_arg(topic)?;
-
-        Self::check(unsafe { esp_mqtt_client_unsubscribe(self.raw_client, c_topic.as_ptr()) })
+    pub fn unsubscribe_cstr(&mut self, topic: &core::ffi::CStr) -> Result<MessageId, EspError> {
+        Self::check(unsafe { esp_mqtt_client_unsubscribe(self.raw_client, topic.as_ptr()) })
     }
 
-    pub fn publish(
+    pub fn publish_cstr(
         &mut self,
-        topic: &str,
+        topic: &core::ffi::CStr,
         qos: QoS,
         retain: bool,
         payload: &[u8],
     ) -> Result<MessageId, EspError> {
-        let c_topic = to_cstring_arg(topic)?;
-
         let payload_ptr = match payload.len() {
             0 => core::ptr::null(),
             _ => payload.as_ptr(),
@@ -565,7 +584,7 @@ impl<'a> EspMqttClient<'a> {
         Self::check(unsafe {
             esp_mqtt_client_publish(
                 self.raw_client,
-                c_topic.as_ptr(),
+                topic.as_ptr(),
                 payload_ptr as _,
                 payload.len() as _,
                 qos as _,
@@ -574,15 +593,13 @@ impl<'a> EspMqttClient<'a> {
         })
     }
 
-    pub fn enqueue(
+    pub fn enqueue_cstr(
         &mut self,
-        topic: &str,
+        topic: &core::ffi::CStr,
         qos: QoS,
         retain: bool,
         payload: &[u8],
     ) -> Result<MessageId, EspError> {
-        let c_topic = to_cstring_arg(topic)?;
-
         let payload_ptr = match payload.len() {
             0 => core::ptr::null(),
             _ => payload.as_ptr(),
@@ -591,7 +608,7 @@ impl<'a> EspMqttClient<'a> {
         Self::check(unsafe {
             esp_mqtt_client_enqueue(
                 self.raw_client,
-                c_topic.as_ptr(),
+                topic.as_ptr(),
                 payload_ptr as _,
                 payload.len() as _,
                 qos as _,
@@ -617,16 +634,6 @@ impl<'a> EspMqttClient<'a> {
             Some(err) if result < 0 => Err(err),
             _ => Ok(result as _),
         }
-    }
-}
-
-impl<'a> Drop for EspMqttClient<'a> {
-    fn drop(&mut self) {
-        if let Some(channel) = self.channel.take() {
-            channel.quit();
-        }
-
-        esp!(unsafe { esp_mqtt_client_destroy(self.raw_client) }).unwrap();
     }
 }
 
@@ -668,28 +675,6 @@ impl<'a> Enqueue for EspMqttClient<'a> {
     }
 }
 
-impl<'a> asynch::Client for EspMqttClient<'a> {
-    async fn subscribe(&mut self, topic: &str, qos: QoS) -> Result<MessageId, Self::Error> {
-        EspMqttClient::subscribe(self, topic, qos)
-    }
-
-    async fn unsubscribe(&mut self, topic: &str) -> Result<MessageId, Self::Error> {
-        EspMqttClient::unsubscribe(self, topic)
-    }
-}
-
-impl<'a> asynch::Publish for EspMqttClient<'a> {
-    async fn publish(
-        &mut self,
-        topic: &str,
-        qos: QoS,
-        retain: bool,
-        payload: &[u8],
-    ) -> Result<MessageId, Self::Error> {
-        EspMqttClient::enqueue(self, topic, qos, retain, payload)
-    }
-}
-
 unsafe impl<'a> Send for EspMqttClient<'a> {}
 
 pub struct EspMqttConnection {
@@ -704,23 +689,7 @@ impl EspMqttConnection {
             self.receiver.done();
         }
 
-        if let Some(event) = self.receiver.get() {
-            self.given = true;
-
-            Ok(event)
-        } else {
-            self.given = false;
-
-            Err(EspError::from_infallible::<ESP_ERR_INVALID_STATE>())
-        }
-    }
-
-    pub async fn next_async(&mut self) -> Result<&EspMqttEvent<'_>, EspError> {
-        if self.given {
-            self.receiver.done();
-        }
-
-        if let Some(event) = self.receiver.get_async().await {
+        if let Some(event) = self.receiver.get_shared() {
             self.given = true;
 
             Ok(event)
@@ -744,11 +713,191 @@ impl Connection for EspMqttConnection {
     }
 }
 
-impl asynch::Connection for EspMqttConnection {
+#[derive(Copy, Clone, Debug)]
+enum AsyncCommand {
+    Subscribe { qos: QoS },
+    Unsubscribe,
+    Publish { qos: QoS, retain: bool },
+}
+
+#[derive(Debug)]
+struct AsyncWork {
+    command: AsyncCommand,
+    topic: alloc::vec::Vec<u8>,
+    payload: alloc::vec::Vec<u8>,
+    result: Result<MessageId, EspError>,
+}
+
+pub struct EspAsyncMqttClient(Unblocker<AsyncWork>);
+
+impl EspAsyncMqttClient {
+    pub fn new(
+        url: &str,
+        conf: &MqttClientConfiguration<'_>,
+    ) -> Result<(Self, EspAsyncMqttConnection), EspError> {
+        let (channel, receiver) = Channel::new();
+        let conn = EspAsyncMqttConnection {
+            receiver,
+            given: false,
+        };
+
+        let client = Self::wrap(EspMqttClient::new_cb(url, conf, move |mut event| {
+            let event: &mut EspMqttEvent<'static> = unsafe { core::mem::transmute(&mut event) };
+            channel.share(event);
+        })?)?;
+
+        Ok((client, conn))
+    }
+
+    fn wrap(client: EspMqttClient<'static>) -> Result<Self, EspError> {
+        let unblocker = Unblocker::new(
+            CStr::from_bytes_until_nul(b"MQTT Sending task\0").unwrap(),
+            10000,
+            None,
+            None,
+            move |channel| Self::work(channel, client),
+        );
+
+        Ok(Self(unblocker))
+    }
+
+    pub async fn subscribe(&mut self, topic: &str, qos: QoS) -> Result<MessageId, EspError> {
+        self.execute(AsyncCommand::Subscribe { qos }, Some(topic), None)
+            .await
+    }
+
+    pub async fn unsubscribe(&mut self, topic: &str) -> Result<MessageId, EspError> {
+        self.execute(AsyncCommand::Unsubscribe, Some(topic), None)
+            .await
+    }
+
+    pub async fn publish(
+        &mut self,
+        topic: &str,
+        qos: QoS,
+        retain: bool,
+        payload: &[u8],
+    ) -> Result<MessageId, EspError> {
+        self.execute(
+            AsyncCommand::Publish { qos, retain },
+            Some(topic),
+            Some(payload),
+        )
+        .await
+    }
+
+    async fn execute(
+        &mut self,
+        command: AsyncCommand,
+        topic: Option<&str>,
+        payload: Option<&[u8]>,
+    ) -> Result<MessageId, EspError> {
+        let work = self.0.exec_in_out().await.unwrap();
+
+        work.command = command;
+
+        if let Some(topic) = topic {
+            work.topic.clear();
+            work.topic.extend_from_slice(topic.as_bytes());
+            work.topic.push(0);
+        }
+
+        if let Some(payload) = payload {
+            work.payload.clear();
+            work.payload.extend_from_slice(payload);
+        }
+
+        self.0.do_exec().await;
+
+        let work = self.0.exec_in_out().await.unwrap();
+
+        work.result
+    }
+
+    fn work(channel: Arc<Channel<AsyncWork>>, mut client: EspMqttClient) {
+        let mut work = AsyncWork {
+            command: AsyncCommand::Unsubscribe,
+            topic: alloc::vec::Vec::new(),
+            payload: alloc::vec::Vec::new(),
+            result: Ok(0),
+        };
+
+        while channel.share(&mut work) {
+            let topic = unsafe { core::ffi::CStr::from_bytes_with_nul_unchecked(&work.topic) };
+
+            match work.command {
+                AsyncCommand::Subscribe { qos } => {
+                    work.result = client.subscribe_cstr(topic, qos);
+                }
+                AsyncCommand::Unsubscribe => {
+                    work.result = client.unsubscribe_cstr(topic);
+                }
+                AsyncCommand::Publish { qos, retain } => {
+                    work.result = client.publish_cstr(topic, qos, retain, &work.payload);
+                }
+            }
+        }
+    }
+}
+
+impl ErrorType for EspAsyncMqttClient {
+    type Error = EspError;
+}
+
+impl asynch::Client for EspAsyncMqttClient {
+    async fn subscribe(&mut self, topic: &str, qos: QoS) -> Result<MessageId, Self::Error> {
+        EspAsyncMqttClient::subscribe(self, topic, qos).await
+    }
+
+    async fn unsubscribe(&mut self, topic: &str) -> Result<MessageId, Self::Error> {
+        EspAsyncMqttClient::unsubscribe(self, topic).await
+    }
+}
+
+impl asynch::Publish for EspAsyncMqttClient {
+    async fn publish(
+        &mut self,
+        topic: &str,
+        qos: QoS,
+        retain: bool,
+        payload: &[u8],
+    ) -> Result<MessageId, Self::Error> {
+        EspAsyncMqttClient::publish(self, topic, qos, retain, payload).await
+    }
+}
+
+pub struct EspAsyncMqttConnection {
+    receiver: Receiver<EspMqttEvent<'static>>,
+    given: bool,
+}
+
+impl EspAsyncMqttConnection {
+    pub async fn next(&mut self) -> Result<&EspMqttEvent<'_>, EspError> {
+        if self.given {
+            self.receiver.done();
+        }
+
+        if let Some(event) = self.receiver.get_shared_async().await {
+            self.given = true;
+
+            Ok(event)
+        } else {
+            self.given = false;
+
+            Err(EspError::from_infallible::<ESP_ERR_INVALID_STATE>())
+        }
+    }
+}
+
+impl ErrorType for EspAsyncMqttConnection {
+    type Error = EspError;
+}
+
+impl asynch::Connection for EspAsyncMqttConnection {
     type Event<'a> = &'a EspMqttEvent<'a>;
 
     async fn next(&mut self) -> Result<Self::Event<'_>, Self::Error> {
-        EspMqttConnection::next_async(self).await
+        EspAsyncMqttConnection::next(self).await
     }
 }
 

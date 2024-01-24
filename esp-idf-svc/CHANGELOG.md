@@ -7,9 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [?.??.?] - ????-??-??
 * Breaking changes in module `eventloop`: 
-  * All async post/receive functionality now implemented directly on the `esp-idf-svc` event loop types, as the `embedded_svc::utils::asyncify` module is now gone
+  * Async receive functionality now implemented directly on the `esp-idf-svc` event loop types, as the `embedded_svc::utils::asyncify` module is now gone; async send functionality is no longer implemented (and it was rarely used, if at all, anyway)
   * Types `EspTypedEventLoop` and `EspPostbox` are now retired. Use `EspEventLoop` directly, as it has the same functionality
-  * Trait `EspTypedEventSource` is now marked as unsafe (i.e., implementors should do `unsafe impl EspTypedEventSource for ...`); check the documentation of the trait for justification
+  * Trait `EspTypedEventSource` is renamed to `EspEventSource` and marked as unsafe (i.e., implementors should do `unsafe impl EspTypedEventSource for ...`); check the documentation of the trait for justification
 * Breaking changes in module `http::server`: 
   * All async WS functionality now implemented directly on the `esp-idf-svc` HTTP types, as the `embedded_svc::utils::asyncify` module is now gone
   * Due to the breaking change in `embedded_svc::http::server`, whereas `HandlerError` and `HandlerResult` were removed, these types are no longer used in the `embedded_svc::http::server` module either. Check the Changelog of `embedded_svc` for more details

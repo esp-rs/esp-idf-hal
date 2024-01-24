@@ -32,8 +32,7 @@ use crate::hal::{spi, units::Hertz};
 use crate::sys::*;
 
 use crate::eventloop::{
-    EspEventLoop, EspSubscription, EspSystemEventLoop, EspTypedEventDeserializer,
-    EspTypedEventSource, System,
+    EspEventDeserializer, EspEventLoop, EspEventSource, EspSubscription, EspSystemEventLoop, System,
 };
 use crate::handle::RawHandle;
 #[cfg(esp_idf_comp_esp_netif_enabled)]
@@ -610,7 +609,7 @@ impl<'d, T> EthDriver<'d, T> {
 
         let handle = handle as usize;
 
-        let subscription = sysloop.subscribe(move |event: &EthEvent| {
+        let subscription = sysloop.subscribe::<EthEvent, _>(move |event| {
             if event.is_for_handle(handle as _) {
                 let mut guard = s_status.lock();
 
@@ -1005,23 +1004,23 @@ impl EthEvent {
     }
 }
 
-unsafe impl EspTypedEventSource for EthEvent {
-    fn source() -> *const ffi::c_char {
-        unsafe { ETH_EVENT }
+unsafe impl EspEventSource for EthEvent {
+    fn source() -> Option<&'static ffi::CStr> {
+        Some(unsafe { ffi::CStr::from_ptr(ETH_EVENT) })
     }
 }
 
-impl EspTypedEventDeserializer<EthEvent> for EthEvent {
+impl EspEventDeserializer for EthEvent {
+    type Data<'a> = Self;
+
     #[allow(non_upper_case_globals, non_snake_case)]
-    fn deserialize<R>(
-        data: &crate::eventloop::EspEventFetchData,
-        f: &mut impl for<'a> FnMut(&'a EthEvent) -> R,
-    ) -> R {
-        let eth_handle_ref = unsafe { (data.payload as *const esp_eth_handle_t).as_ref() };
+    fn deserialize(data: &crate::eventloop::EspEvent) -> Self {
+        let eth_handle_ref =
+            unsafe { (data.payload.unwrap() as *const _ as *const esp_eth_handle_t).as_ref() };
 
         let event_id = data.event_id as u32;
 
-        let event = if event_id == eth_event_t_ETHERNET_EVENT_START {
+        if event_id == eth_event_t_ETHERNET_EVENT_START {
             EthEvent::Started(*eth_handle_ref.unwrap() as _)
         } else if event_id == eth_event_t_ETHERNET_EVENT_STOP {
             EthEvent::Stopped(*eth_handle_ref.unwrap() as _)
@@ -1031,9 +1030,7 @@ impl EspTypedEventDeserializer<EthEvent> for EthEvent {
             EthEvent::Disconnected(*eth_handle_ref.unwrap() as _)
         } else {
             panic!("Unknown event ID: {}", event_id);
-        };
-
-        f(&event)
+        }
     }
 }
 
@@ -1090,7 +1087,7 @@ where
         matcher: F,
         timeout: Option<Duration>,
     ) -> Result<(), EspError> {
-        let wait = crate::eventloop::Wait::<EthEvent, _>::new(&self.event_loop, |_| true)?;
+        let wait = crate::eventloop::Wait::new::<EthEvent>(&self.event_loop)?;
 
         wait.wait_while(matcher, timeout)
     }
@@ -1114,7 +1111,7 @@ where
         matcher: F,
         timeout: Option<core::time::Duration>,
     ) -> Result<(), EspError> {
-        let wait = crate::eventloop::Wait::<IpEvent, _>::new(&self.event_loop, |_| true)?;
+        let wait = crate::eventloop::Wait::new::<IpEvent>(&self.event_loop)?;
 
         wait.wait_while(matcher, timeout)
     }
