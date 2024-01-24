@@ -309,6 +309,8 @@ impl<'a> UnsafeCallback<'a> {
     }
 }
 
+// TODO: Migrate to zerocopy
+
 #[allow(suspicious_auto_trait_impls)]
 unsafe impl Send for Newtype<*mut esp_websocket_event_data_t> {}
 
