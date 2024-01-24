@@ -25,7 +25,7 @@ use esp_idf_hal::task::asynch::Notification;
 
 use crate::sys::*;
 
-use ::log::info;
+use ::log::debug;
 
 #[cfg(esp_idf_esp_timer_supports_isr_dispatch_method)]
 pub use isr::*;
@@ -123,7 +123,7 @@ impl<'a> Drop for EspTimer<'a> {
             // Timer is still running, busy-loop
         }
 
-        info!("Timer dropped");
+        debug!("Timer dropped");
     }
 }
 
