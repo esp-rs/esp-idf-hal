@@ -99,14 +99,9 @@ extern "C" {
 }
 
 impl Ets {
-    #[deprecated = "Use delay_ns instead"]
     pub fn delay_us(us: u32) {
-        Self::delay_ns(us)
-    }
-
-    pub fn delay_ns(ns: u32) {
         unsafe {
-            ets_delay_us(ns);
+            ets_delay_us(us);
         }
     }
 
@@ -119,19 +114,19 @@ impl Ets {
 
 impl embedded_hal_0_2::blocking::delay::DelayUs<u32> for Ets {
     fn delay_us(&mut self, us: u32) {
-        Ets::delay_ns(us);
+        Ets::delay_us(us);
     }
 }
 
 impl embedded_hal_0_2::blocking::delay::DelayUs<u16> for Ets {
     fn delay_us(&mut self, us: u16) {
-        Ets::delay_ns(us as _);
+        Ets::delay_us(us as _);
     }
 }
 
 impl embedded_hal_0_2::blocking::delay::DelayUs<u8> for Ets {
     fn delay_us(&mut self, us: u8) {
-        Ets::delay_ns(us as _);
+        Ets::delay_us(us as _);
     }
 }
 
@@ -155,11 +150,11 @@ impl embedded_hal_0_2::blocking::delay::DelayMs<u8> for Ets {
 
 impl embedded_hal::delay::DelayNs for Ets {
     fn delay_ns(&mut self, ns: u32) {
-        Ets::delay_ns(ns)
+        Ets::delay_us(ns / 1000)
     }
 
-    fn delay_ms(&mut self, ms: u32) {
-        Ets::delay_ms(ms)
+    fn delay_us(&mut self, us: u32) {
+        Ets::delay_us(us)
     }
 }
 
@@ -171,17 +166,6 @@ impl embedded_hal::delay::DelayNs for Ets {
 pub struct FreeRtos;
 
 impl FreeRtos {
-    #[deprecated = "Use delay_ns instead"]
-    pub fn delay_us(us: u32) {
-        Self::delay_ns(us)
-    }
-
-    pub fn delay_ns(ns: u32) {
-        let ms = ns / 1000;
-
-        Self::delay_ms(ms);
-    }
-
     pub fn delay_ms(ms: u32) {
         // divide by tick length, rounding up
         let ticks = ms.saturating_add(TICK_PERIOD_MS - 1) / TICK_PERIOD_MS;
@@ -194,19 +178,19 @@ impl FreeRtos {
 
 impl embedded_hal_0_2::blocking::delay::DelayUs<u32> for FreeRtos {
     fn delay_us(&mut self, us: u32) {
-        FreeRtos::delay_ns(us);
+        FreeRtos::delay_ms(us / 1000);
     }
 }
 
 impl embedded_hal_0_2::blocking::delay::DelayUs<u16> for FreeRtos {
     fn delay_us(&mut self, us: u16) {
-        FreeRtos::delay_ns(us as _);
+        FreeRtos::delay_ms(us as _ / 1000);
     }
 }
 
 impl embedded_hal_0_2::blocking::delay::DelayUs<u8> for FreeRtos {
     fn delay_us(&mut self, us: u8) {
-        FreeRtos::delay_ns(us as _);
+        FreeRtos::delay_ms(us as _ / 1000);
     }
 }
 
@@ -230,7 +214,7 @@ impl embedded_hal_0_2::blocking::delay::DelayMs<u8> for FreeRtos {
 
 impl embedded_hal::delay::DelayNs for FreeRtos {
     fn delay_ns(&mut self, ns: u32) {
-        FreeRtos::delay_ns(ns)
+        FreeRtos::delay_ns(ns / 1000000)
     }
 
     fn delay_ms(&mut self, ms: u32) {
