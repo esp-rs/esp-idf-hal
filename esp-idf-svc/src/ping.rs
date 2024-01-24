@@ -3,14 +3,62 @@ use core::{ffi, mem, ptr, time::Duration};
 
 use ::log::*;
 
-use embedded_svc::ping::Ping;
-
 use crate::ipv4;
 use crate::private::common::*;
 use crate::private::waitable::*;
 use crate::sys::*;
 
-pub use embedded_svc::ping::{Configuration, Info, Reply, Summary};
+#[derive(Clone, Debug, PartialEq, Eq)]
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
+#[cfg_attr(feature = "use_serde", derive(Serialize, Deserialize))]
+pub struct Configuration {
+    pub count: u32,
+    pub interval: Duration,
+    pub timeout: Duration,
+    pub data_size: u32,
+    pub tos: u8,
+}
+
+impl Default for Configuration {
+    fn default() -> Self {
+        Configuration {
+            count: 5,
+            interval: Duration::from_secs(1),
+            timeout: Duration::from_secs(1),
+            data_size: 56,
+            tos: 0,
+        }
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
+#[cfg_attr(feature = "use_serde", derive(Serialize, Deserialize))]
+pub struct Info {
+    #[cfg_attr(feature = "defmt", defmt(Debug2Format))]
+    pub addr: ipv4::Ipv4Addr,
+    pub seqno: u32,
+    pub ttl: u8,
+    pub elapsed_time: Duration,
+    pub recv_len: u32,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
+#[cfg_attr(feature = "use_serde", derive(Serialize, Deserialize))]
+pub enum Reply {
+    Timeout,
+    Success(Info),
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Default)]
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
+#[cfg_attr(feature = "use_serde", derive(Serialize, Deserialize))]
+pub struct Summary {
+    pub transmitted: u32,
+    pub received: u32,
+    pub time: Duration,
+}
 
 #[derive(Debug, Default)]
 pub struct EspPing(u32);
@@ -286,23 +334,6 @@ impl EspPing {
         summary.transmitted = transmitted;
         summary.received = received;
         summary.time = Duration::from_millis(total_time as u64);
-    }
-}
-
-impl Ping for EspPing {
-    type Error = EspError;
-
-    fn ping(&mut self, ip: ipv4::Ipv4Addr, conf: &Configuration) -> Result<Summary, Self::Error> {
-        EspPing::ping(self, ip, conf)
-    }
-
-    fn ping_details<F: FnMut(&Summary, &Reply) + Send>(
-        &mut self,
-        ip: ipv4::Ipv4Addr,
-        conf: &Configuration,
-        reply_callback: F,
-    ) -> Result<Summary, Self::Error> {
-        EspPing::ping_details(self, ip, conf, reply_callback)
     }
 }
 

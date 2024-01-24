@@ -18,9 +18,6 @@ extern crate alloc;
 use alloc::boxed::Box;
 use alloc::sync::Arc;
 
-use embedded_svc::sys_time::SystemTime;
-use embedded_svc::timer::{self, asynch, ErrorType, OnceTimer, PeriodicTimer, Timer, TimerService};
-
 use esp_idf_hal::task::asynch::Notification;
 
 use crate::sys::*;
@@ -135,32 +132,6 @@ impl<'a> RawHandle for EspTimer<'a> {
     }
 }
 
-impl<'a> ErrorType for EspTimer<'a> {
-    type Error = EspError;
-}
-
-impl<'a> timer::Timer for EspTimer<'a> {
-    fn is_scheduled(&self) -> Result<bool, Self::Error> {
-        EspTimer::is_scheduled(self)
-    }
-
-    fn cancel(&mut self) -> Result<bool, Self::Error> {
-        EspTimer::cancel(self)
-    }
-}
-
-impl<'a> OnceTimer for EspTimer<'a> {
-    fn after(&mut self, duration: Duration) -> Result<(), Self::Error> {
-        EspTimer::after(self, duration)
-    }
-}
-
-impl<'a> PeriodicTimer for EspTimer<'a> {
-    fn every(&mut self, duration: Duration) -> Result<(), Self::Error> {
-        EspTimer::every(self, duration)
-    }
-}
-
 pub struct EspAsyncTimer {
     timer: EspTimer<'static>,
     notification: Arc<Notification>,
@@ -189,30 +160,6 @@ impl EspAsyncTimer {
 
     pub async fn tick(&mut self) {
         self.notification.wait().await;
-    }
-}
-
-impl ErrorType for EspAsyncTimer {
-    type Error = EspError;
-}
-
-impl asynch::OnceTimer for EspAsyncTimer {
-    async fn after(&mut self, duration: Duration) -> Result<(), Self::Error> {
-        EspAsyncTimer::after(self, duration).await
-    }
-}
-
-impl asynch::PeriodicTimer for EspAsyncTimer {
-    type Clock<'a> = &'a mut Self where Self: 'a;
-
-    fn every(&mut self, duration: Duration) -> Result<Self::Clock<'_>, Self::Error> {
-        EspAsyncTimer::every(self, duration)
-    }
-}
-
-impl<'a> asynch::Clock for &'a mut EspAsyncTimer {
-    async fn tick(&mut self) {
-        EspAsyncTimer::tick(self).await
     }
 }
 
@@ -366,47 +313,6 @@ where
 {
     fn clone(&self) -> Self {
         Self(self.0.clone())
-    }
-}
-
-impl<T> ErrorType for EspTimerService<T>
-where
-    T: EspTimerServiceType,
-{
-    type Error = EspError;
-}
-
-impl<T> TimerService for EspTimerService<T>
-where
-    T: EspTimerServiceType,
-{
-    type Timer<'a> = EspTimer<'static> where Self: 'a;
-
-    fn timer<F>(&self, callback: F) -> Result<Self::Timer<'_>, Self::Error>
-    where
-        F: FnMut() + Send + 'static,
-    {
-        EspTimerService::timer(self, callback)
-    }
-}
-
-impl<T> SystemTime for EspTimerService<T>
-where
-    T: EspTimerServiceType,
-{
-    fn now(&self) -> Duration {
-        EspTimerService::now(self)
-    }
-}
-
-impl<T> asynch::TimerService for EspTimerService<T>
-where
-    T: EspTimerServiceType,
-{
-    type Timer<'a> = EspAsyncTimer where Self: 'a;
-
-    async fn timer(&self) -> Result<Self::Timer<'_>, Self::Error> {
-        EspTimerService::timer_async(self)
     }
 }
 
