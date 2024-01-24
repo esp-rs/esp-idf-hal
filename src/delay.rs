@@ -92,7 +92,8 @@ impl From<TickType> for Option<Duration> {
 /// trigger.
 pub struct Ets;
 
-// No longer available in the generated bindings for ESP-IDF 5
+// This binding is no longer available in the generated bindings for ESP-IDF 5 or later.
+// The function itself is still available. Therefore, we define the binding here.
 #[cfg(not(esp_idf_version_major = "4"))]
 extern "C" {
     pub fn ets_delay_us(us: u32);
