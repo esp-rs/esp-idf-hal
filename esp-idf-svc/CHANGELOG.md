@@ -6,7 +6,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [?.??.?] - ????-??-??
-* Examples of MQTT with blocking and async operation of the client
+* New examples: MQTT client (blocking and async); async TLS
 * Breaking changes in module `eventloop`: 
   * Async receive functionality now implemented directly on the `esp-idf-svc` event loop types, as the `embedded_svc::utils::asyncify` module is now gone; async send functionality is no longer implemented (and it was rarely used, if at all, anyway)
   * Types `EspTypedEventLoop` and `EspPostbox` are now retired. Use `EspEventLoop` directly, as it has the same functionality
@@ -23,6 +23,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   * Changes induced by breaking changes in `embedded_svc::mqtt::client` API contract:
     * All event conversion logic now retired, significantly simplifying the type signatures of `EspMqttClient` and `EspMqttConnection`, as well as the number of offered constructors
     * For MQTT events, user always gets an instance of `EspMqttEvent` which implements the `embedded_svc::mqtt::client::Event` trait - valid for both callback-based event processing as well as for connection-based blocking and asynchronous event processing
+* Breaking change: `AsyncEspTls` renamed to `EspAsyncTls`
 * MSRV 1.75; remove the nightly feature flag from all async trait implementations
 * Update public dependency `heapless` to 0.8
 * Remove dependency on `embassy-time` and replace it with a dependency on `embassy-time-driver`; get rid of the custom embassy time queue as it was anyway re-implementing something like a generic timer queue, which is available in the `embassy-time` crate (with its feature `generic-queue` enabled)

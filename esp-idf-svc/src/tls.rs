@@ -598,7 +598,7 @@ mod esptls {
         not(esp_idf_version_major = "4"),
         any(not(esp_idf_version_major = "5"), not(esp_idf_version_minor = "0"))
     ))]
-    pub struct AsyncEspTls<S>(core::cell::RefCell<EspTls<S>>)
+    pub struct EspAsyncTls<S>(core::cell::RefCell<EspTls<S>>)
     where
         S: PollableSocket;
 
@@ -606,7 +606,7 @@ mod esptls {
         not(esp_idf_version_major = "4"),
         any(not(esp_idf_version_major = "5"), not(esp_idf_version_minor = "0"))
     ))]
-    impl<S> AsyncEspTls<S>
+    impl<S> EspAsyncTls<S>
     where
         S: PollableSocket,
     {
@@ -737,7 +737,7 @@ mod esptls {
         not(esp_idf_version_major = "4"),
         any(not(esp_idf_version_major = "5"), not(esp_idf_version_minor = "0"))
     ))]
-    impl<S> io::ErrorType for AsyncEspTls<S>
+    impl<S> io::ErrorType for EspAsyncTls<S>
     where
         S: PollableSocket,
     {
@@ -748,12 +748,12 @@ mod esptls {
         not(esp_idf_version_major = "4"),
         any(not(esp_idf_version_major = "5"), not(esp_idf_version_minor = "0"))
     ))]
-    impl<S> io::asynch::Read for AsyncEspTls<S>
+    impl<S> io::asynch::Read for EspAsyncTls<S>
     where
         S: PollableSocket,
     {
         async fn read(&mut self, buf: &mut [u8]) -> Result<usize, Self::Error> {
-            AsyncEspTls::read(self, buf).await.map_err(EspIOError)
+            EspAsyncTls::read(self, buf).await.map_err(EspIOError)
         }
     }
 
@@ -761,12 +761,12 @@ mod esptls {
         not(esp_idf_version_major = "4"),
         any(not(esp_idf_version_major = "5"), not(esp_idf_version_minor = "0"))
     ))]
-    impl<S> io::asynch::Write for AsyncEspTls<S>
+    impl<S> io::asynch::Write for EspAsyncTls<S>
     where
         S: PollableSocket,
     {
         async fn write(&mut self, buf: &[u8]) -> Result<usize, Self::Error> {
-            AsyncEspTls::write(self, buf).await.map_err(EspIOError)
+            EspAsyncTls::write(self, buf).await.map_err(EspIOError)
         }
 
         async fn flush(&mut self) -> Result<(), Self::Error> {
