@@ -1,5 +1,3 @@
-#[cfg(not(esp_idf_version_major = "4"))]
-
 fn main() {
     #[cfg(not(esp_idf_version_major = "4"))]
     example::main();
