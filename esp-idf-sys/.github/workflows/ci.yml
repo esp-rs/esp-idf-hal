@@ -54,6 +54,7 @@ jobs:
 
       - name: Build | Compile (Native) / ESP-IDF V4.4
         env:
+          RUSTFLAGS: ""
           ESP_IDF_VERSION: release/v4.4
         run: cargo build --target ${{ matrix.target }} -Zbuild-std=std,panic_abort -Zbuild-std-features=panic_immediate_abort
 
