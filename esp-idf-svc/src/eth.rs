@@ -363,6 +363,7 @@ impl<'d, T> EthDriver<'d, SpiEth<T>>
 where
     T: core::borrow::Borrow<spi::SpiDriver<'d>>,
 {
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         driver: T,
         int: impl Peripheral<P = impl gpio::InputPin> + 'd,
@@ -379,6 +380,7 @@ where
         )
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub fn new_spi(
         driver: T,
         int: impl Peripheral<P = impl gpio::InputPin> + 'd,
@@ -435,7 +437,7 @@ where
         crate::hal::gpio::enable_isr_service()?;
 
         let mac_cfg = Self::eth_mac_default_config(0, 0);
-        let phy_cfg = Self::eth_phy_default_config(rst.map(|pin| pin), phy_addr);
+        let phy_cfg = Self::eth_phy_default_config(rst, phy_addr);
 
         let (mac, phy, spi_handle) = match chipset {
             #[cfg(esp_idf_eth_spi_ethernet_dm9051)]
@@ -538,7 +540,7 @@ where
             address_bits,
             mode: 0,
             clock_speed_hz: baudrate.0 as i32,
-            spics_io_num: cs.map(|pin| pin).unwrap_or(-1),
+            spics_io_num: cs.unwrap_or(-1),
             queue_size: 20,
             ..Default::default()
         }
