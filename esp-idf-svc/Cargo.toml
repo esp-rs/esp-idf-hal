@@ -64,21 +64,3 @@ serde = { version = "1", default-features = false, features = ["derive"] }
 serde_json = { version = "1", default-features = false, features = ["alloc"] }
 postcard = "1"
 async-io = "2"
-
-[[example]]
-name = "http_request"
-
-[[example]]
-name = "wifi"
-
-[[example]]
-name = "wifi_async"
-
-[[example]]
-name = "wifi_static_ip"
-
-[[example]]
-name = "json_post_handler"
-
-[[example]]
-name = "ws_guessing_game"
