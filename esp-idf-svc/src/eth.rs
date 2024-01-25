@@ -418,6 +418,7 @@ where
         Ok(eth)
     }
 
+    #[allow(clippy::unnecessary_literal_unwrap)]
     fn init_spi(
         host: spi_host_device_t,
         chipset: SpiEthChipset,
