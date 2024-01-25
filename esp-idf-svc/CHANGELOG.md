@@ -6,6 +6,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [?.??.?] - ????-??-??
+* Examples of MQTT with blocking and async operation of the client
 * Breaking changes in module `eventloop`: 
   * Async receive functionality now implemented directly on the `esp-idf-svc` event loop types, as the `embedded_svc::utils::asyncify` module is now gone; async send functionality is no longer implemented (and it was rarely used, if at all, anyway)
   * Types `EspTypedEventLoop` and `EspPostbox` are now retired. Use `EspEventLoop` directly, as it has the same functionality
@@ -15,7 +16,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   * The `EspEvent` type is now also a dummy (no op) `EspEventDeserializer`; the `EspEventPostData` type is now also a dummy (no op) `EspEventSerializer`
   * Because of the above changes, methods `subscribe*` and `post` are now slightly less convenient to use in that they need the (de)serializer specified using turbofish syntax, i.e. `event_loop.subscribe::<WifiEvent, _>(...)`; this is so because these methods no longer require (and cannot require - due to the lifetimed GAT from above) `where P: EspEvent(De)serializer<P>`, i.e. the event type *itself* to implement the (de)sderializer, even if all event types provided by `esp-idf-svc` do that
 * Breaking changes in module `http::server`: 
-  * All async WS functionality now implemented directly on the `esp-idf-svc` HTTP types, as the `embedded_svc::utils::asyncify` module is now gone
   * Due to the breaking change in `embedded_svc::http::server`, whereas `HandlerError` and `HandlerResult` were removed, these types are no longer used in the `embedded_svc::http::server` module either. Check the Changelog of `embedded_svc` for more details
 * Breaking change in module `timer`: all async timer functionality now implemented directly on the `esp-idf-svc` timer types, as the `embedded_svc::utils::asyncify` module is now gone
 * Breaking changes in module `mqtt::client`: 
