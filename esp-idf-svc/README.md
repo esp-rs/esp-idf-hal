@@ -26,12 +26,12 @@ The examples could be built and flashed conveniently with [`cargo-espflash`](htt
 
 with `cargo-espflash` V2+:
 ```sh
-$ ESP_IDF_VERSION=release/v4.4 cargo espflash flash --target riscv32imc-esp-espidf --example ledc_simple --monitor
+$ cargo espflash flash --target riscv32imc-esp-espidf --example wifi --monitor
 ```
 
 with older `cargo-espflash`:
 ```sh
-$ ESP_IDF_VERSION=release/v4.4 cargo espflash --target riscv32imc-esp-espidf --example ledc_simple --monitor /dev/ttyUSB0
+$ cargo espflash --target riscv32imc-esp-espidf --example wifi --monitor /dev/ttyUSB0
 ```
 
 ## Setting up a "Hello, world!" binary crate with ESP IDF

@@ -65,6 +65,7 @@ fn run() -> Result<(), EspError> {
     }))
 }
 
+#[allow(dead_code)]
 #[derive(Copy, Clone, Debug)]
 enum CustomEvent {
     Start,
