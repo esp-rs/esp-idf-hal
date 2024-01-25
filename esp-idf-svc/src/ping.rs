@@ -9,8 +9,6 @@ use crate::private::waitable::*;
 use crate::sys::*;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
-#[cfg_attr(feature = "defmt", derive(defmt::Format))]
-#[cfg_attr(feature = "use_serde", derive(Serialize, Deserialize))]
 pub struct Configuration {
     pub count: u32,
     pub interval: Duration,
@@ -32,10 +30,7 @@ impl Default for Configuration {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
-#[cfg_attr(feature = "defmt", derive(defmt::Format))]
-#[cfg_attr(feature = "use_serde", derive(Serialize, Deserialize))]
 pub struct Info {
-    #[cfg_attr(feature = "defmt", defmt(Debug2Format))]
     pub addr: ipv4::Ipv4Addr,
     pub seqno: u32,
     pub ttl: u8,
@@ -44,16 +39,12 @@ pub struct Info {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
-#[cfg_attr(feature = "defmt", derive(defmt::Format))]
-#[cfg_attr(feature = "use_serde", derive(Serialize, Deserialize))]
 pub enum Reply {
     Timeout,
     Success(Info),
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Default)]
-#[cfg_attr(feature = "defmt", derive(defmt::Format))]
-#[cfg_attr(feature = "use_serde", derive(Serialize, Deserialize))]
 pub struct Summary {
     pub transmitted: u32,
     pub received: u32,

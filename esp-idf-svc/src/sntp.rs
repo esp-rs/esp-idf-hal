@@ -83,7 +83,6 @@ const DEFAULT_SERVERS: [&str; 4] = [
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 #[cfg_attr(feature = "std", derive(Hash))]
-#[cfg_attr(feature = "use_serde", derive(Serialize, Deserialize))]
 pub enum OperatingMode {
     Poll,
     ListenOnly,
@@ -91,7 +90,6 @@ pub enum OperatingMode {
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 #[cfg_attr(feature = "std", derive(Hash))]
-#[cfg_attr(feature = "use_serde", derive(Serialize, Deserialize))]
 pub enum SyncMode {
     Smooth,
     Immediate,
@@ -119,7 +117,6 @@ impl From<SyncMode> for sntp_sync_mode_t {
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 #[cfg_attr(feature = "std", derive(Hash))]
-#[cfg_attr(feature = "use_serde", derive(Serialize, Deserialize))]
 pub enum SyncStatus {
     Reset,
     Completed,

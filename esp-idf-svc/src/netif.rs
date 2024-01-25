@@ -24,7 +24,6 @@ use crate::private::mutex;
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 #[cfg_attr(feature = "std", derive(Hash))]
-#[cfg_attr(feature = "use_serde", derive(Serialize, Deserialize))]
 pub enum NetifStack {
     /// Station mode (WiFi client)
     Sta,
@@ -90,7 +89,6 @@ impl NetifStack {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
-#[cfg_attr(feature = "use_serde", derive(Serialize, Deserialize))]
 pub struct NetifConfiguration {
     pub key: heapless::String<32>,
     pub description: heapless::String<8>,
