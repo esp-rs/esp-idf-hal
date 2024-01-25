@@ -24,9 +24,26 @@ fn main() -> Result<(), anyhow::Error> {
     // If you use `tokio`, you still have to do the same as it also uses the `eventfd` syscall
     esp_idf_svc::io::vfs::initialize_eventfd(5).unwrap();
 
+    // This thread is necessary because the ESP IDF main task thread is running with a very low priority that cannot be raised
+    // (lower than the hidden posix thread in `async-io`)
+    // As a result, the main thread is constantly starving because of the higher prio `async-io` thread
+    //
+    // To use async networking IO, make your `main()` minimal by just spawning all work in a new thread
+    std::thread::Builder::new()
+        .stack_size(60000)
+        .spawn(run_main)
+        .unwrap()
+        .join()
+        .unwrap()
+        .unwrap();
+
+    Ok(())
+}
+
+fn run_main() -> Result<(), anyhow::Error> {
     // Any executor would do. We just use the local executor from the `futures` crate
     // As for why we need an executor - just for a simple way to spawn the accepted connections
-    // in the `tcp_bind` server
+    // in the `tcp_server` server
     let mut local_executor = LocalPool::new();
     let spawner = local_executor.spawner();
 
