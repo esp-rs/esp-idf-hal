@@ -1,6 +1,6 @@
 [build]
-#target = "riscv32imc-esp-espidf"
-target = "xtensa-esp32-espidf"
+target = "riscv32imc-esp-espidf"
+#target = "xtensa-esp32-espidf"
 
 [target.xtensa-esp32-espidf]
 linker = "ldproxy"

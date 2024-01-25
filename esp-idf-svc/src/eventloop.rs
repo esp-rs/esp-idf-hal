@@ -154,11 +154,11 @@ pub unsafe trait EspEventSource {
 }
 
 pub trait EspEventSerializer: EspEventSource {
-    type Data;
+    type Data<'a>;
 
-    fn serialize<F, R>(data: &Self::Data, f: F) -> R
+    fn serialize<F, R>(data: &Self::Data<'_>, f: F) -> R
     where
-        F: FnOnce(EspEventPostData) -> R;
+        F: FnOnce(&EspEventPostData) -> R;
 }
 
 pub trait EspEventDeserializer: EspEventSource {
@@ -226,13 +226,13 @@ unsafe impl<'a> EspEventSource for EspEventPostData<'a> {
 }
 
 impl<'a> EspEventSerializer for EspEventPostData<'a> {
-    type Data = EspEventPostData<'a>;
+    type Data<'d> = EspEventPostData<'d>;
 
-    fn serialize<F, R>(data: &Self::Data, f: F) -> R
+    fn serialize<F, R>(data: &Self::Data<'_>, f: F) -> R
     where
-        F: FnOnce(Self::Data) -> R,
+        F: FnOnce(&EspEventPostData) -> R,
     {
-        f(data.clone())
+        f(data)
     }
 }
 
@@ -424,6 +424,7 @@ where
 {
     receiver: Receiver<EspEvent<'static>>,
     subscription: EspSubscription<'static, T>,
+    given: bool,
     _deserializer: PhantomData<fn() -> D>,
 }
 
@@ -437,7 +438,13 @@ where
     }
 
     pub async fn recv(&mut self) -> Result<D::Data<'_>, EspError> {
+        if self.given {
+            self.receiver.done();
+            self.given = false;
+        }
+
         if let Some(data) = self.receiver.get_shared_async().await {
+            self.given = true;
             Ok(D::deserialize(data))
         } else {
             Err(EspError::from_infallible::<ESP_ERR_INVALID_STATE>())
@@ -574,6 +581,7 @@ where
         Ok(EspAsyncSubscription {
             receiver,
             subscription,
+            given: false,
             _deserializer: PhantomData,
         })
     }
@@ -620,7 +628,7 @@ where
         self.subscribe_raw::<D, _>(move |event| callback(D::deserialize(&event)))
     }
 
-    pub fn post<S>(&self, payload: &S::Data, wait: Option<Duration>) -> Result<bool, EspError>
+    pub fn post<S>(&self, payload: &S::Data<'_>, wait: Option<Duration>) -> Result<bool, EspError>
     where
         S: EspEventSerializer,
     {
@@ -629,9 +637,9 @@ where
             panic!("Trying to post from an ISR handler. Enable `CONFIG_ESP_EVENT_POST_FROM_ISR` in `sdkconfig.defaults`");
 
             #[cfg(esp_idf_esp_event_post_from_isr)]
-            S::serialize(payload, |event| self.isr_post_raw(&event))
+            S::serialize(payload, |event| self.isr_post_raw(event))
         } else {
-            S::serialize(payload, |event| self.post_raw(&event, wait))
+            S::serialize(payload, |event| self.post_raw(event, wait))
         }
     }
 
