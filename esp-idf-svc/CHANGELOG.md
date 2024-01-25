@@ -6,7 +6,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [?.??.?] - ????-??-??
-* New examples: MQTT client (blocking and async); async TLS; async and blocking event loop
+* New examples: 
+  * MQTT client (blocking and async)
+  * Async TLS
+  * Async and blocking event loop
+  * Async and blocking timer
 * Breaking changes in module `eventloop`: 
   * Async receive functionality now implemented directly on the `esp-idf-svc` event loop types, as the `embedded_svc::utils::asyncify` module is now gone; async send functionality is no longer implemented (and it was rarely used, if at all, anyway)
   * Types `EspTypedEventLoop` and `EspPostbox` are now retired. Use `EspEventLoop` directly, as it has the same functionality

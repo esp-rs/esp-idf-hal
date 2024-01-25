@@ -158,8 +158,10 @@ impl EspAsyncTimer {
         Ok(self)
     }
 
-    pub async fn tick(&mut self) {
+    pub async fn tick(&mut self) -> Result<(), EspError> {
         self.notification.wait().await;
+
+        Ok(())
     }
 }
 
