@@ -202,7 +202,7 @@ fn main() -> anyhow::Result<()> {
         cargo::set_metadata(embuild::build::ENV_PATH_VAR, env_path);
     }
 
-    // In case other crates need to the ESP-IDF SDK
+    // In case other crates need access to the ESP-IDF SDK
     cargo::set_metadata(
         embuild::build::ESP_IDF_PATH_VAR,
         build_output.esp_idf.try_to_str()?,
@@ -210,6 +210,9 @@ fn main() -> anyhow::Result<()> {
 
     if let Some(link_args) = build_output.link_args {
         link_args.propagate();
+
+        // Only necessary for building the examples
+        link_args.output();
     }
 
     Ok(())

@@ -31,6 +31,25 @@ Follow the [Prerequisites](https://github.com/esp-rs/esp-idf-template#prerequisi
 
 Read the [documentation here](BUILD-OPTIONS.md).
 
+## Examples
+
+The examples could be built and flashed conveniently with [`cargo-espflash`](https://github.com/esp-rs/espflash/). To run e.g. `std_basics` on an e.g. ESP32-C3:
+(Swap the Rust target and example name with the target corresponding for your ESP32 MCU and with the example you would like to build)
+
+with `cargo-espflash` V2+:
+```sh
+$ cargo espflash flash --target riscv32imc-esp-espidf --example std_basics --monitor
+```
+
+with older `cargo-espflash`:
+```sh
+$ cargo espflash --target riscv32imc-esp-espidf --example std_basics --monitor /dev/ttyUSB0
+```
+
+## Setting up a "Hello, world!" binary crate with ESP IDF
+
+Use the [esp-idf-template](https://github.com/esp-rs/esp-idf-template) project. Everything would be arranged and built for you automatically - no need to manually clone the ESP IDF repository.
+
 ## More information
 
 For more information, check out:
