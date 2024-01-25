@@ -2,12 +2,9 @@
 
 fn main() {
     #[cfg(not(esp_idf_version_major = "4"))]
-    example::main()
-}
+    example::main();
 
-#[cfg(esp_idf_version_major = "4")]
-
-fn main() {
+    #[cfg(esp_idf_version_major = "4")]
     panic!("This example requires ESP IDF >= 5");
 }
 
