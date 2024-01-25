@@ -9,7 +9,7 @@
 //!   stack APIs are not.
 
 use core::convert::TryInto;
-use core::{ffi, ptr};
+use core::{ffi, fmt, ptr};
 
 use crate::ipv4;
 use crate::sys::*;
@@ -529,39 +529,129 @@ impl RawHandle for EspNetif {
     }
 }
 
-#[derive(Copy, Clone, Debug, Eq, PartialEq)]
-pub struct ApStaIpAssignment {
-    pub ip: ipv4::Ipv4Addr,
+#[derive(Copy, Clone)]
+pub struct ApStaIpAssignment<'a>(&'a ip_event_ap_staipassigned_t);
+
+impl ApStaIpAssignment<'_> {
+    pub fn ip(&self) -> ipv4::Ipv4Addr {
+        ipv4::Ipv4Addr::from(Newtype(self.0.ip))
+    }
+
     #[cfg(not(esp_idf_version_major = "4"))]
-    pub mac: [u8; 6],
+    pub fn mac(&self) -> [u8; 6] {
+        self.0.mac
+    }
 }
 
-#[derive(Copy, Clone, Debug, Eq, PartialEq)]
-pub struct DhcpIpAssignment {
-    pub netif_handle: *mut esp_netif_t,
-    pub ip_settings: ipv4::IpInfo,
-    pub ip_changed: bool,
+impl fmt::Debug for ApStaIpAssignment<'_> {
+    #[cfg(esp_idf_version_major = "4")]
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("ApStaIpAssignment")
+            .field("ip", &self.ip())
+            .finish()
+    }
+
+    #[cfg(not(esp_idf_version_major = "4"))]
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("ApStaIpAssignment")
+            .field("ip", &self.ip())
+            .field("mac", &self.mac())
+            .finish()
+    }
 }
 
-#[derive(Copy, Clone, Debug, Eq, PartialEq)]
-pub struct DhcpIp6Assignment {
-    pub netif_handle: *mut esp_netif_t,
-    pub ip: [u32; 4],
-    pub ip_zone: u8,
-    pub ip_index: u32,
+#[derive(Copy, Clone)]
+pub struct DhcpIpAssignment<'a>(&'a ip_event_got_ip_t);
+
+impl<'a> DhcpIpAssignment<'a> {
+    pub fn netif_handle(&self) -> *mut esp_netif_t {
+        self.0.esp_netif
+    }
+
+    pub fn ip(&self) -> ipv4::Ipv4Addr {
+        ipv4::Ipv4Addr::from(Newtype(self.0.ip_info.ip))
+    }
+
+    pub fn gateway(&self) -> ipv4::Ipv4Addr {
+        ipv4::Ipv4Addr::from(Newtype(self.0.ip_info.gw))
+    }
+
+    pub fn mask(&self) -> ipv4::Mask {
+        Newtype(self.0.ip_info.netmask).try_into().unwrap()
+    }
+
+    pub fn ip_info(&self) -> ipv4::IpInfo {
+        ipv4::IpInfo {
+            ip: self.ip(),
+            subnet: ipv4::Subnet {
+                gateway: self.gateway(),
+                mask: self.mask(),
+            },
+            dns: None,           // TODO
+            secondary_dns: None, // TODO
+        }
+    }
+
+    pub fn is_ip_changed(&self) -> bool {
+        self.0.ip_changed
+    }
 }
 
-#[derive(Copy, Clone, Debug, Eq, PartialEq)]
-pub enum IpEvent {
-    ApStaIpAssigned(ApStaIpAssignment),
-    DhcpIpAssigned(DhcpIpAssignment),
-    DhcpIp6Assigned(DhcpIp6Assignment),
+impl<'a> fmt::Debug for DhcpIpAssignment<'a> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("DhcpIpAssignment")
+            .field("netif_handle", &self.netif_handle())
+            .field("ip", &self.ip())
+            .field("gateway", &self.gateway())
+            .field("mask", &self.mask())
+            .field("is_ip_changed", &self.is_ip_changed())
+            .finish()
+    }
+}
+
+#[derive(Copy, Clone)]
+pub struct DhcpIp6Assignment<'a>(&'a ip_event_got_ip6_t);
+
+impl<'a> DhcpIp6Assignment<'a> {
+    pub fn netif_handle(&self) -> *mut esp_netif_t {
+        self.0.esp_netif
+    }
+
+    pub fn ip(&self) -> [u32; 4] {
+        self.0.ip6_info.ip.addr
+    }
+
+    pub fn ip_zone(&self) -> u8 {
+        self.0.ip6_info.ip.zone
+    }
+
+    pub fn ip_index(&self) -> u32 {
+        self.0.ip_index as _
+    }
+}
+
+impl<'a> fmt::Debug for DhcpIp6Assignment<'a> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("DhcpIp6Assignment")
+            .field("netif_handle", &self.netif_handle())
+            .field("ip", &self.ip())
+            .field("ip_zone", &self.ip_zone())
+            .field("ip_index", &self.ip_index())
+            .finish()
+    }
+}
+
+#[derive(Copy, Clone, Debug)]
+pub enum IpEvent<'a> {
+    ApStaIpAssigned(ApStaIpAssignment<'a>),
+    DhcpIpAssigned(DhcpIpAssignment<'a>),
+    DhcpIp6Assigned(DhcpIp6Assignment<'a>),
     DhcpIpDeassigned(*mut esp_netif_t),
 }
 
-unsafe impl Send for IpEvent {}
+unsafe impl<'a> Send for IpEvent<'a> {}
 
-impl IpEvent {
+impl<'a> IpEvent<'a> {
     pub fn is_for(&self, raw_handle: &impl RawHandle<Handle = *mut esp_netif_t>) -> bool {
         self.is_for_handle(raw_handle.handle())
     }
@@ -575,24 +665,24 @@ impl IpEvent {
     pub fn handle(&self) -> Option<*mut esp_netif_t> {
         match self {
             Self::ApStaIpAssigned(_) => None,
-            Self::DhcpIpAssigned(assignment) => Some(assignment.netif_handle),
-            Self::DhcpIp6Assigned(assignment) => Some(assignment.netif_handle),
+            Self::DhcpIpAssigned(assignment) => Some(assignment.netif_handle()),
+            Self::DhcpIp6Assigned(assignment) => Some(assignment.netif_handle()),
             Self::DhcpIpDeassigned(handle) => Some(*handle),
         }
     }
 }
 
-unsafe impl EspEventSource for IpEvent {
+unsafe impl<'a> EspEventSource for IpEvent<'a> {
     fn source() -> Option<&'static ffi::CStr> {
         Some(unsafe { CStr::from_ptr(IP_EVENT) })
     }
 }
 
-impl EspEventDeserializer for IpEvent {
-    type Data<'a> = Self;
+impl<'a> EspEventDeserializer for IpEvent<'a> {
+    type Data<'d> = IpEvent<'d>;
 
     #[allow(non_upper_case_globals, non_snake_case)]
-    fn deserialize(data: &crate::eventloop::EspEvent) -> Self {
+    fn deserialize<'d>(data: &crate::eventloop::EspEvent<'d>) -> IpEvent<'d> {
         let event_id = data.event_id as u32;
 
         if event_id == ip_event_t_IP_EVENT_AP_STAIPASSIGNED {
@@ -602,11 +692,7 @@ impl EspEventDeserializer for IpEvent {
                     .unwrap()
             };
 
-            IpEvent::ApStaIpAssigned(ApStaIpAssignment {
-                ip: ipv4::Ipv4Addr::from(Newtype(event.ip)),
-                #[cfg(not(esp_idf_version_major = "4"))]
-                mac: event.mac,
-            })
+            IpEvent::ApStaIpAssigned(ApStaIpAssignment(event))
         } else if event_id == ip_event_t_IP_EVENT_STA_GOT_IP
             || event_id == ip_event_t_IP_EVENT_ETH_GOT_IP
             || event_id == ip_event_t_IP_EVENT_PPP_GOT_IP
@@ -617,19 +703,7 @@ impl EspEventDeserializer for IpEvent {
                     .unwrap()
             };
 
-            IpEvent::DhcpIpAssigned(DhcpIpAssignment {
-                netif_handle: event.esp_netif as _,
-                ip_settings: ipv4::IpInfo {
-                    ip: ipv4::Ipv4Addr::from(Newtype(event.ip_info.ip)),
-                    subnet: ipv4::Subnet {
-                        gateway: ipv4::Ipv4Addr::from(Newtype(event.ip_info.gw)),
-                        mask: Newtype(event.ip_info.netmask).try_into().unwrap(),
-                    },
-                    dns: None,           // TODO
-                    secondary_dns: None, // TODO
-                },
-                ip_changed: event.ip_changed,
-            })
+            IpEvent::DhcpIpAssigned(DhcpIpAssignment(event))
         } else if event_id == ip_event_t_IP_EVENT_GOT_IP6 {
             let event = unsafe {
                 (data.payload.unwrap() as *const _ as *const ip_event_got_ip6_t)
@@ -637,12 +711,7 @@ impl EspEventDeserializer for IpEvent {
                     .unwrap()
             };
 
-            IpEvent::DhcpIp6Assigned(DhcpIp6Assignment {
-                netif_handle: event.esp_netif as _,
-                ip: event.ip6_info.ip.addr,
-                ip_zone: event.ip6_info.ip.zone,
-                ip_index: event.ip_index as _,
-            })
+            IpEvent::DhcpIp6Assigned(DhcpIp6Assignment(event))
         } else if event_id == ip_event_t_IP_EVENT_STA_LOST_IP
             || event_id == ip_event_t_IP_EVENT_PPP_LOST_IP
         {

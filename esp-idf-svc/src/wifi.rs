@@ -3,7 +3,7 @@ use core::convert::{TryFrom, TryInto};
 use core::marker::PhantomData;
 use core::str::Utf8Error;
 use core::time::Duration;
-use core::{cmp, ffi};
+use core::{cmp, ffi, fmt};
 
 extern crate alloc;
 use alloc::boxed::Box;
@@ -1796,8 +1796,7 @@ impl<'d> NetifStatus for EspWifi<'d> {
     }
 }
 
-//#[derive(Clone, Debug, Eq, PartialEq)]
-#[derive(Clone, Debug)]
+#[derive(Copy, Clone)]
 #[repr(transparent)]
 pub struct WpsCredentialsRef(wifi_event_sta_wps_er_success_t__bindgen_ty_1);
 
@@ -1808,6 +1807,14 @@ impl WpsCredentialsRef {
 
     pub fn passphrase(&self) -> &CStr {
         unsafe { CStr::from_ptr(self.0.passphrase.as_ptr() as *const _) }
+    }
+}
+
+impl fmt::Debug for WpsCredentialsRef {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("WpsCredentialsRef")
+            .field("ssid", &self.ssid())
+            .finish()
     }
 }
 
@@ -1838,8 +1845,7 @@ impl TryFrom<&WpsCredentialsRef> for WpsCredentials {
     }
 }
 
-//#[derive(Clone, Debug, Eq, PartialEq)]
-#[derive(Clone, Debug)]
+#[derive(Copy, Clone, Debug)]
 pub enum WifiEvent<'a> {
     Ready,
 
