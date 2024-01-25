@@ -332,7 +332,10 @@ impl EspNetif {
             stack: conf.stack.default_raw_stack(),
         };
 
-        let mut handle = Self(unsafe { esp_netif_new(&cfg).as_mut() }.unwrap());
+        let mut handle = Self(
+            unsafe { esp_netif_new(&cfg).as_mut() }
+                .ok_or(EspError::from_infallible::<ESP_ERR_INVALID_ARG>())?,
+        );
 
         if let Some(dns) = dns {
             handle.set_dns(dns);
