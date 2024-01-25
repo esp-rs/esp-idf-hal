@@ -18,7 +18,7 @@ fn main() -> anyhow::Result<()> {
     let sys_loop = EspSystemEventLoop::take()?;
 
     // Make sure to configure ethernet in sdkconfig and adjust the parameters below for your hardware
-    let eth_driver = EthDriver::new(
+    let eth_driver = EthDriver::new_rmii(
         peripherals.mac,
         pins.gpio25,
         pins.gpio26,
