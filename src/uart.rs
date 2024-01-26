@@ -1498,6 +1498,9 @@ where
     }
 }
 
+unsafe impl<'d, T> Send for AsyncUartDriver<'d, T> where T: BorrowMut<UartDriver<'d>> + Send {}
+unsafe impl<'d, T> Sync for AsyncUartDriver<'d, T> where T: BorrowMut<UartDriver<'d>> + Send + Sync {}
+
 impl<'d, T> Drop for AsyncUartDriver<'d, T>
 where
     T: BorrowMut<UartDriver<'d>>,
