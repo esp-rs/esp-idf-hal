@@ -1470,8 +1470,11 @@ where
                     _ => (),
                 }
 
-                let port = self.driver.borrow().port as usize;
-                WRITE_NOTIFS[port].wait().await;
+                // We cannot properly wait for the TX FIFO queue to become non-full
+                // because the ESP IDF UART ISR does not notify us on that
+                //
+                // Instead, spin a busy loop, however still allowing other futures to be polled too.
+                crate::task::yield_now().await;
             }
         }
     }
@@ -1486,8 +1489,11 @@ where
                 _ => (),
             }
 
-            let port = self.driver.borrow().port as usize;
-            TX_NOTIFS[port].wait().await;
+            // We cannot properly wait for the TX FIFO queue to become empty
+            // because the ESP IDF UART ISR does not notify us on that
+            //
+            // Instead, spin a busy loop, however still allowing other futures to be polled too.
+            crate::task::yield_now().await;
         }
     }
 }
@@ -1704,8 +1710,11 @@ where
                     _ => (),
                 }
 
-                let port = self.driver.borrow().port as usize;
-                WRITE_NOTIFS[port].wait().await;
+                // We cannot properly wait for the TX FIFO queue to become non-full
+                // because the ESP IDF UART ISR does not notify us on that
+                //
+                // Instead, spin a busy loop, however still allowing other futures to be polled too.
+                crate::task::yield_now().await;
             }
         }
     }
@@ -1720,8 +1729,11 @@ where
                 _ => (),
             }
 
-            let port = self.driver.borrow().port as usize;
-            TX_NOTIFS[port].wait().await;
+            // We cannot properly wait for the TX FIFO queue to become empty
+            // because the ESP IDF UART ISR does not notify us on that
+            //
+            // Instead, spin a busy loop, however still allowing other futures to be polled too.
+            crate::task::yield_now().await;
         }
     }
 }
