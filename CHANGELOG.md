@@ -10,6 +10,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * MSRV 1.75; remove the nightly feature flag from all async trait implementations
 * Update public dependencies `e-hal` to 1.0.0 and `embassy-sync` to 0.5 and private dependency `heapless` to 0.8
 * Allow `cargo check --all-features` to work correctly (there used to be a build error when both the `esp-idf-sys` and the `riscv-ulp-hal` features were enabled)
+* #365 - Async Uart driver is not `Send`
+* #362 - Async Uart write hangs forever
 * #353 - Use the `PLL_F80M` clock source with ESP IDF 5.1 and esp32c6
 * #351 - Remove the `OutputPin` requirement from SPI SDI pin
 * #350 - Not checking for ESP_FAIL in AsyncCanDriver::transmit
