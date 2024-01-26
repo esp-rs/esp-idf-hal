@@ -1,7 +1,6 @@
 use core::cell::Cell;
 use core::future::Future;
 use core::num::NonZeroU32;
-use core::pin::pin;
 use core::pin::Pin;
 use core::ptr::{self, NonNull};
 use core::sync::atomic::{AtomicBool, Ordering};
