@@ -24,7 +24,7 @@ use serde::Deserialize;
 
 const SSID: &str = env!("WIFI_SSID");
 const PASSWORD: &str = env!("WIFI_PASS");
-static INDEX_HTML: &str = include_str!("json_post_handler.html");
+static INDEX_HTML: &str = include_str!("http_server_page.html");
 
 // Max payload length
 const MAX_LEN: usize = 128;
