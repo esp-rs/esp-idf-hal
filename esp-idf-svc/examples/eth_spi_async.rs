@@ -48,7 +48,8 @@ pub mod example {
             pins.gpio27,
             Some(pins.gpio14),
             Some(pins.gpio25),
-            eth::SpiEthChipset::W5500, // Replace with DM9051 or KSZ8851SNL
+            // Replace with DM9051 or KSZ8851SNL if you have some of these variants
+            eth::SpiEthChipset::W5500,
             20_u32.MHz().into(),
             Some(&[0x02, 0x00, 0x00, 0x12, 0x34, 0x56]),
             None,

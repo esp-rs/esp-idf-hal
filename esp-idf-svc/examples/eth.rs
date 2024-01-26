@@ -36,6 +36,7 @@ fn main() -> anyhow::Result<()> {
             pins.gpio17,
         ),
         Some(pins.gpio5),
+        // Replace with IP101 if you have that variant, or with some of the others in the `RmiiEthChipset`` enum
         esp_idf_svc::eth::RmiiEthChipset::LAN87XX,
         Some(0),
         sys_loop.clone(),
