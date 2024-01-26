@@ -1,3 +1,6 @@
+//! MQTT blocking client example which subscribes to an internet MQTT server and then sends
+//! and receives events in its own topic.
+
 use core::pin::pin;
 use core::time::Duration;
 

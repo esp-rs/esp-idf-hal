@@ -1,9 +1,11 @@
-// To be able to use this example, you need to set the following in your sdkconfig.default file:
-// CONFIG_ETH_SPI_ETHERNET_DM9051=y
-// CONFIG_ETH_SPI_ETHERNET_W5500=y
-// CONFIG_ETH_SPI_ETHERNET_KSZ8851SNL=y
-// You only pick one of the three, depending on which chip you have on your board.
-// Also adjust the EspEth::wrap call below to match your board's chip.
+//! This example demonstrates how to configure an SPI based Ethernet adapter
+//!
+//! To be able to use this example, you need to set the following in your sdkconfig.default file:
+//! CONFIG_ETH_SPI_ETHERNET_DM9051=y
+//! CONFIG_ETH_SPI_ETHERNET_W5500=y
+//! CONFIG_ETH_SPI_ETHERNET_KSZ8851SNL=y
+//! You only pick one of the three, depending on which chip you have on your board.
+//! Also adjust the EspEth::wrap call below to match your board's chip.
 
 fn main() {
     #[cfg(esp32)]

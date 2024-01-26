@@ -1,3 +1,6 @@
+//! Simple examples of a blocking TCP client communicating with an internet TCP server
+//! (google.com) and of a blocking TCP server, that listens for incoming data and echoes it back.
+
 use std::env;
 use std::io::{self, Read, Write};
 use std::net::{TcpListener, TcpStream};

@@ -1,3 +1,6 @@
+//! MQTT asynchronous client example which subscribes to an internet MQTT server and then sends
+//! and receives events in its own topic.
+
 use core::time::Duration;
 
 use esp_idf_svc::eventloop::EspSystemEventLoop;

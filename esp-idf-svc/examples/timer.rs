@@ -1,3 +1,7 @@
+//! An example of timers created via the ESP IDF Timer service:
+//! - One of the timers is callback based and triggers continously every second.
+//! - The other timer is asynchronous and triggers once only (so we have to re-load it every time after it had triggered).
+
 use core::pin::pin;
 use core::sync::atomic::{AtomicU32, Ordering};
 use core::time::Duration;

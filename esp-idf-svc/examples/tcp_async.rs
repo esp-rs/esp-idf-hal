@@ -1,3 +1,6 @@
+//! Simple examples of an asynchronous TCP client communicating with an internet TCP server
+//! (google.com) and of an asynchronous TCP server, that listens for incoming data and echoes it back.
+
 use std::env;
 use std::io;
 use std::net::{TcpListener, TcpStream, ToSocketAddrs};

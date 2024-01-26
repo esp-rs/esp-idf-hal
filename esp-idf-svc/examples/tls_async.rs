@@ -1,3 +1,7 @@
+//! Example of using asynchronous TLS/TCP.
+//!
+//! Add your own ssid and password
+
 fn main() {
     #[cfg(not(esp_idf_version_major = "4"))]
     example::main();
