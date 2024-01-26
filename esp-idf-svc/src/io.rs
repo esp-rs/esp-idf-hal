@@ -1,6 +1,7 @@
 pub use embedded_svc::utils::io as utils;
 pub use esp_idf_hal::io::*;
 
+#[cfg(esp_idf_comp_vfs_enabled)]
 pub mod vfs {
     use crate::sys;
 
