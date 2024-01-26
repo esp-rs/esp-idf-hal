@@ -628,6 +628,19 @@ where
         self.subscribe_raw::<D, _>(move |event| callback(D::deserialize(&event)))
     }
 
+    pub async fn post_async<S>(&self, payload: &S::Data<'_>) -> Result<(), EspError>
+    where
+        S: EspEventSerializer,
+    {
+        loop {
+            if self.post::<S>(payload, None)? {
+                break Ok(());
+            }
+
+            crate::hal::task::yield_now().await;
+        }
+    }
+
     pub fn post<S>(&self, payload: &S::Data<'_>, wait: Option<Duration>) -> Result<bool, EspError>
     where
         S: EspEventSerializer,
