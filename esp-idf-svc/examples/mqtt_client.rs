@@ -1,4 +1,4 @@
-//! MQTT asynchronous client example which subscribes to an internet MQTT server and then sends
+//! MQTT blocking client example which subscribes to an internet MQTT server and then sends
 //! and receives events in its own topic.
 
 use core::time::Duration;
@@ -42,7 +42,7 @@ fn run(
         info!("About to start the MQTT client");
 
         // Need to immediately start pumping the connection for messages, or else subscribe() and publish() below will not work
-        // Note that when using the alternative constructor - `EspMqttClient::new` - you don't need to
+        // Note that when using the alternative constructor - `EspMqttClient::new_cb` - you don't need to
         // spawn a new thread, as the messages will be pumped with a backpressure into the callback you provide.
         // Yet, you still need to efficiently process each message in the callback without blocking for too long.
         //
