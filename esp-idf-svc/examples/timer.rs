@@ -9,8 +9,8 @@ use core::time::Duration;
 use std::sync::Arc;
 
 use esp_idf_svc::log::EspLogger;
+use esp_idf_svc::sys::EspError;
 use esp_idf_svc::timer::EspTaskTimerService;
-use esp_idf_sys::EspError;
 
 use log::info;
 

@@ -16,8 +16,8 @@ use std::sync::Arc;
 use esp_idf_svc::eventloop::*;
 use esp_idf_svc::hal::delay;
 use esp_idf_svc::log::EspLogger;
-use esp_idf_svc::timer::EspTaskTimerService;
 use esp_idf_svc::sys::EspError;
+use esp_idf_svc::timer::EspTaskTimerService;
 
 use log::info;
 
