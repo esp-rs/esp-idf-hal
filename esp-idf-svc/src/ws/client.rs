@@ -7,7 +7,7 @@ extern crate alloc;
 use alloc::boxed::Box;
 use alloc::sync::Arc;
 
-use embedded_svc::ws::{ErrorType, FrameType, Sender};
+use embedded_svc::ws::{ErrorType, Sender};
 
 use crate::hal::delay::TickType;
 
@@ -18,6 +18,9 @@ use crate::io::EspIOError;
 use crate::private::common::Newtype;
 use crate::private::cstr::RawCstrs;
 use crate::private::mutex::{Condvar, Mutex};
+use crate::tls::X509;
+
+pub use embedded_svc::ws::{Final, Fragmented, FrameType};
 
 #[derive(Copy, Clone, Eq, PartialEq, Debug)]
 pub enum EspWebSocketTransport {
@@ -112,6 +115,7 @@ impl WebSocketClosingReason {
 
 #[derive(Debug)]
 pub enum WebSocketEventType<'a> {
+    BeforeConnect,
     Connected,
     Disconnected,
     Close(Option<WebSocketClosingReason>),
@@ -165,6 +169,8 @@ impl<'a> WebSocketEventType<'a> {
                 }
             }
             esp_websocket_event_id_t_WEBSOCKET_EVENT_CLOSED => Ok(Self::Closed),
+            #[cfg(esp_idf_version_major = "5")]
+            esp_websocket_event_id_t_WEBSOCKET_EVENT_BEFORE_CONNECT => Ok(Self::BeforeConnect),
             _ => Err(EspError::from_infallible::<ESP_ERR_INVALID_ARG>().into()),
         }
     }
@@ -195,9 +201,9 @@ pub struct EspWebSocketClientConfig<'a> {
     pub ping_interval_sec: time::Duration,
     #[cfg(esp_idf_version = "4.4")]
     pub if_name: Option<&'a str>,
-    pub cert_pem: Option<&'a str>,
-    pub client_cert: Option<&'a str>,
-    pub client_key: Option<&'a str>,
+    pub server_cert: Option<X509<'static>>,
+    pub client_cert: Option<X509<'static>>,
+    pub client_key: Option<X509<'static>>,
 }
 
 impl<'a> TryFrom<&'a EspWebSocketClientConfig<'a>> for (esp_websocket_client_config_t, RawCstrs) {
@@ -231,12 +237,30 @@ impl<'a> TryFrom<&'a EspWebSocketClientConfig<'a>> for (esp_websocket_client_con
 
             ping_interval_sec: conf.ping_interval_sec.as_secs() as _,
 
-            cert_pem: cstrs.as_nptr(conf.cert_pem)?,
-            cert_len: conf.cert_pem.map(|c| c.len()).unwrap_or(0) as _,
-            client_cert: cstrs.as_nptr(conf.client_cert)?,
-            client_cert_len: conf.client_cert.map(|c| c.len()).unwrap_or(0) as _,
-            client_key: cstrs.as_nptr(conf.client_key)?,
-            client_key_len: conf.client_key.map(|c| c.len()).unwrap_or(0) as _,
+            cert_pem: conf
+                .server_cert
+                .map(|cert| cert.as_esp_idf_raw_ptr() as _)
+                .unwrap_or(core::ptr::null_mut()),
+            cert_len: conf
+                .server_cert
+                .map(|cert| cert.as_esp_idf_raw_len())
+                .unwrap_or(0),
+            client_cert: conf
+                .client_cert
+                .map(|cert| cert.as_esp_idf_raw_ptr() as _)
+                .unwrap_or(core::ptr::null_mut()),
+            client_cert_len: conf
+                .client_cert
+                .map(|cert| cert.as_esp_idf_raw_len())
+                .unwrap_or(0),
+            client_key: conf
+                .client_key
+                .map(|cert| cert.as_esp_idf_raw_ptr() as _)
+                .unwrap_or(core::ptr::null_mut()),
+            client_key_len: conf
+                .client_key
+                .map(|cert| cert.as_esp_idf_raw_len())
+                .unwrap_or(0),
 
             // NOTE: default keep_alive_* values are set below, so they are not explicitly listed
             // here
@@ -536,6 +560,10 @@ impl<'a> EspWebSocketClient<'a> {
         }
 
         Ok(())
+    }
+
+    pub fn is_connected(&self) -> bool {
+        unsafe { esp_websocket_client_is_connected(self.handle) }
     }
 
     extern "C" fn handle(
