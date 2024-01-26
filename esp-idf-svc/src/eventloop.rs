@@ -16,7 +16,7 @@ use embedded_svc::channel;
 use ::log::*;
 
 use crate::hal::cpu::Core;
-use crate::hal::delay::TickType;
+use crate::hal::delay::{self, TickType_t};
 use crate::hal::interrupt;
 
 use crate::sys::*;
@@ -633,7 +633,7 @@ where
         S: EspEventSerializer,
     {
         loop {
-            if self.post::<S>(payload, None)? {
+            if self.post::<S>(payload, delay::NON_BLOCK)? {
                 break Ok(());
             }
 
@@ -641,7 +641,7 @@ where
         }
     }
 
-    pub fn post<S>(&self, payload: &S::Data<'_>, wait: Option<Duration>) -> Result<bool, EspError>
+    pub fn post<S>(&self, payload: &S::Data<'_>, timeout: TickType_t) -> Result<bool, EspError>
     where
         S: EspEventSerializer,
     {
@@ -652,7 +652,7 @@ where
             #[cfg(esp_idf_esp_event_post_from_isr)]
             S::serialize(payload, |event| self.isr_post_raw(event))
         } else {
-            S::serialize(payload, |event| self.post_raw(event, wait))
+            S::serialize(payload, |event| self.post_raw(event, timeout))
         }
     }
 
@@ -703,7 +703,7 @@ where
         })
     }
 
-    fn post_raw(&self, data: &EspEventPostData, wait: Option<Duration>) -> Result<bool, EspError> {
+    fn post_raw(&self, data: &EspEventPostData, timeout: TickType_t) -> Result<bool, EspError> {
         let result = if T::is_system() {
             unsafe {
                 esp_event_post(
@@ -711,7 +711,7 @@ where
                     data.event_id,
                     data.payload as *const _ as *mut _,
                     data.payload_len as _,
-                    TickType::from(wait).0,
+                    timeout,
                 )
             }
         } else {
@@ -725,7 +725,7 @@ where
                     data.event_id,
                     data.payload as *const _ as *mut _,
                     data.payload_len as _,
-                    TickType::from(wait).0,
+                    timeout,
                 )
             }
         };
@@ -782,8 +782,8 @@ where
 }
 
 impl<T> EspEventLoop<User<T>> {
-    pub fn spin(&mut self, duration: Option<Duration>) -> Result<(), EspError> {
-        esp!(unsafe { esp_event_loop_run(self.0 .0 .0, TickType::from(duration).0,) })
+    pub fn spin(&mut self, timeout: TickType_t) -> Result<(), EspError> {
+        esp!(unsafe { esp_event_loop_run(self.0 .0 .0, timeout) })
     }
 }
 
