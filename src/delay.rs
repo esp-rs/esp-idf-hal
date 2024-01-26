@@ -8,6 +8,8 @@ use core::{cmp::min, time::Duration};
 
 use esp_idf_sys::*;
 
+pub use esp_idf_sys::TickType_t;
+
 #[allow(non_upper_case_globals)]
 pub const BLOCK: TickType_t = TickType_t::MAX;
 
