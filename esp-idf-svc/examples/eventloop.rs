@@ -12,11 +12,13 @@ use esp_idf_sys::EspError;
 
 use log::info;
 
-fn main() {
+fn main() -> Result<(), EspError> {
     esp_idf_svc::sys::link_patches();
     EspLogger::initialize_default();
 
-    run().unwrap();
+    run()?;
+
+    Ok(())
 }
 
 fn run() -> Result<(), EspError> {
