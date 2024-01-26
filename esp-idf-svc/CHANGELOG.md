@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   * Timers (blocking and async)
   * SPI Ethernet (async; a blocking example for RMII Ethernet already exists)
   * TCP client and server (blocking and async)
+  * SNTP service
 * Breaking changes in module `eventloop`: 
   * Async receive functionality now implemented directly on the `esp-idf-svc` event loop types, as the `embedded_svc::utils::asyncify` module is now gone; async send functionality is no longer implemented (and it was rarely used, if at all, anyway)
   * Types `EspTypedEventLoop` and `EspPostbox` are now retired. Use `EspEventLoop` directly, as it has the same functionality

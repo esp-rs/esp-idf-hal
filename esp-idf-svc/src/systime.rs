@@ -4,9 +4,9 @@ use core::time::Duration;
 use crate::sys::*;
 
 /// Client for the ESP system time
-/// 
+///
 /// If you have enabled the `std` feature, you can also call
-/// the standard `std::time::SystemTime` and the `std::time::Instant` APIs in Rust.
+/// the standard `std::time::SystemTime` API in Rust.
 pub struct EspSystemTime;
 
 impl EspSystemTime {

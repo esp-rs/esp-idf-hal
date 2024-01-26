@@ -17,7 +17,7 @@ fn main() -> Result<(), anyhow::Error> {
     esp_idf_svc::sys::link_patches();
     esp_idf_svc::log::EspLogger::initialize_default();
 
-    // Keep it around or else the wifi will be dropped
+    // Keep it around or else the wifi will stop
     let _wifi = wifi_create()?;
 
     tcp_client()?;

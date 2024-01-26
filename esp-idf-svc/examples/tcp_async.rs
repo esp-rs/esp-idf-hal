@@ -52,7 +52,7 @@ fn run_main() -> Result<(), anyhow::Error> {
 
     local_executor.spawner().spawn_local(
         async move {
-            // Keep it around or else the wifi will be dropped
+            // Keep it around or else the wifi will stop
             let _wifi = wifi_create().await?;
 
             tcp_client().await?;
