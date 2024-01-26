@@ -1,13 +1,10 @@
 use core::cell::Cell;
-#[cfg(feature = "alloc")]
 use core::future::Future;
 use core::num::NonZeroU32;
-#[cfg(feature = "alloc")]
 use core::pin::pin;
 use core::pin::Pin;
 use core::ptr::{self, NonNull};
 use core::sync::atomic::{AtomicBool, Ordering};
-#[cfg(feature = "alloc")]
 use core::task::{Context, Poll};
 
 #[cfg(feature = "alloc")]
@@ -263,7 +260,7 @@ where
 
     let notification = notification::Notification::new();
 
-    let mut fut = pin!(fut);
+    let mut fut = core::pin::pin!(fut);
 
     let waker = notification.notifier().into();
 
