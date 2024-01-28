@@ -54,8 +54,8 @@
 use core::cell::UnsafeCell;
 use core::convert::{TryFrom, TryInto};
 use core::marker::PhantomData;
-use core::ptr;
 use core::time::Duration;
+use core::{ptr, slice};
 
 #[cfg(feature = "alloc")]
 extern crate alloc;
@@ -150,21 +150,6 @@ impl Pulse {
     ) -> Result<Self, EspError> {
         let ticks = PulseTicks::new_with_duration(ticks_hz, duration)?;
         Ok(Self::new(pin_state, ticks))
-    }
-
-    pub fn into_rmt_item(level0: Self, level1: Self) -> rmt_item32_t {
-        let mut inner_item = rmt_item32_t__bindgen_ty_1__bindgen_ty_1::default();
-
-        inner_item.set_level0(level0.pin_state as u32);
-        inner_item.set_duration0(level0.ticks.ticks() as u32);
-        inner_item.set_level1(level1.pin_state as u32);
-        inner_item.set_duration1(level1.ticks.ticks() as u32);
-
-        rmt_item32_t {
-            __bindgen_anon_1: rmt_item32_t__bindgen_ty_1 {
-                __bindgen_anon_1: inner_item,
-            },
-        }
     }
 }
 
@@ -797,29 +782,35 @@ pub struct Symbol(rmt_item32_t);
 
 impl Symbol {
     /// Create a symbol from a pair of half-cycles.
-    pub fn new(pair: &(Pulse, Pulse)) -> Self {
+    pub fn new(level0: Pulse, level1: Pulse) -> Self {
         let item = rmt_item32_t {
             __bindgen_anon_1: rmt_item32_t__bindgen_ty_1 { val: 0 },
         };
         let mut this = Self(item);
-        this.update(pair);
+        this.update(level0, level1);
         this
     }
 
     /// Mutate this symbol to store a different pair of half-cycles.
-    pub fn update(&mut self, pair: &(Pulse, Pulse)) {
+    pub fn update(&mut self, level0: Pulse, level1: Pulse) {
         // SAFETY: We're overriding all 32 bits, so it doesn't matter what was here before.
         let inner = unsafe { &mut self.0.__bindgen_anon_1.__bindgen_anon_1 };
-        inner.set_level0(pair.0.pin_state as u32);
-        inner.set_duration0(pair.0.ticks.0 as u32);
-        inner.set_level1(pair.1.pin_state as u32);
-        inner.set_duration1(pair.1.ticks.0 as u32);
+        inner.set_level0(level0.pin_state as u32);
+        inner.set_duration0(level0.ticks.0 as u32);
+        inner.set_level1(level1.pin_state as u32);
+        inner.set_duration1(level1.ticks.0 as u32);
     }
 }
 
 /// Signal storage for [`Transmit`] in a format ready for the RMT driver.
 pub trait Signal {
     fn as_slice(&self) -> &[rmt_item32_t];
+}
+
+impl Signal for Symbol {
+    fn as_slice(&self) -> &[rmt_item32_t] {
+        slice::from_ref(&self.0)
+    }
 }
 
 impl Signal for [rmt_item32_t] {
@@ -877,7 +868,7 @@ impl<const N: usize> FixedLengthSignal<N> {
             .get_mut(index)
             .ok_or_else(|| EspError::from(ERR_ERANGE).unwrap())?;
 
-        Symbol(*item).update(pair);
+        Symbol(*item).update(pair.0, pair.1);
         Ok(())
     }
 }

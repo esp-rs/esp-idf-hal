@@ -76,11 +76,9 @@ impl std::iter::Iterator for NoteValueIter {
                 self.pause_cycles -= 1;
                 rmt::PinState::Low
             };
-            let pair = (
-                rmt::Pulse::new(high_state, self.ticks),
-                rmt::Pulse::new(rmt::PinState::Low, self.ticks),
-            );
-            Some(rmt::Symbol::new(&pair))
+            let level0 = rmt::Pulse::new(high_state, self.ticks);
+            let level1 = rmt::Pulse::new(rmt::PinState::Low, self.ticks);
+            Some(rmt::Symbol::new(level0, level1))
         } else {
             None
         }
