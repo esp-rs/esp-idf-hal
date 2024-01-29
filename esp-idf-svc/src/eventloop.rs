@@ -204,7 +204,7 @@ impl<'a> EspEventPostData<'a> {
     pub unsafe fn new_raw(
         source: &'static ffi::CStr,
         event_id: Option<i32>,
-        payload: &'a [u32],
+        payload: &'a [u8],
     ) -> Self {
         Self {
             source,
