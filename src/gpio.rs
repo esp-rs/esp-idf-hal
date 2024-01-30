@@ -759,8 +759,7 @@ impl<'d, T: Pin, MODE> PinDriver<'d, T, MODE> {
         T: Pin,
     {
         let pin = unsafe { self.pin.clone_unchecked() };
-        gpio_reset_without_pull(pin.pin())?;
-        core::mem::forget(self);
+        drop(self);
 
         if mode != gpio_mode_t_GPIO_MODE_DISABLE {
             esp!(unsafe { gpio_set_direction(pin.pin(), mode) })?;
@@ -780,8 +779,7 @@ impl<'d, T: Pin, MODE> PinDriver<'d, T, MODE> {
     {
         let pin = unsafe { self.pin.clone_unchecked() };
 
-        gpio_reset_without_pull(pin.pin())?;
-        core::mem::forget(self);
+        drop(self);
 
         #[cfg(not(any(esp32c3, esp32c2, esp32h2, esp32c5)))]
         {
