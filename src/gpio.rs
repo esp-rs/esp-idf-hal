@@ -1464,9 +1464,10 @@ fn gpio_reset_without_pull(pin: gpio_num_t) -> Result<(), EspError> {
         intr_type: esp_idf_sys::gpio_int_type_t_GPIO_INTR_DISABLE,
     };
 
-    unsafe { unsubscribe_pin(pin)? };
-    esp!(gpio_config(&cfg))?;
-
+    unsafe {
+        unsubscribe_pin(pin)?;
+        esp!(gpio_config(&cfg))?;
+    }
     Ok(())
 }
 
