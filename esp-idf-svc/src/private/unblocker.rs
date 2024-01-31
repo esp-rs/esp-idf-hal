@@ -5,15 +5,20 @@ use alloc::boxed::Box;
 use alloc::sync::Arc;
 
 use esp_idf_hal::cpu::Core;
+use esp_idf_hal::sys::{EspError, TaskHandle_t};
 use esp_idf_hal::task;
 use esp_idf_hal::task::asynch::Notification;
 
 use super::mutex::Mutex;
 use super::zerocopy::{Channel, Receiver};
 
-pub struct Unblocker<T>(Receiver<T>)
+pub struct Unblocker<T>
 where
-    T: Send + 'static;
+    T: Send + 'static,
+{
+    receiver: Receiver<T>,
+    task: TaskHandle_t,
+}
 
 impl<T> Unblocker<T>
 where
@@ -25,7 +30,7 @@ where
         priority: Option<u8>,
         pin_to_core: Option<Core>,
         mut worker: F,
-    ) -> Self
+    ) -> Result<Self, EspError>
     where
         F: FnOnce(Arc<Channel<T>>) + Send + 'static,
         T: Send + 'static,
@@ -36,26 +41,35 @@ where
             worker(channel);
         }));
 
-        let res = unsafe {
+        let worker: *mut Box<dyn FnOnce() + Send + 'static> = Box::into_raw(worker);
+
+        let task = unsafe {
             task::create(
                 Self::work,
                 task_name,
                 stack_size,
-                Box::into_raw(worker) as *const _ as *mut _,
+                worker as *mut _,
                 priority.unwrap_or(6),
                 pin_to_core,
             )
-        };
+        }
+        .map_err(|e| {
+            unsafe {
+                Box::from_raw(worker);
+            }
 
-        Self(receiver)
+            e
+        })?;
+
+        Ok(Self { receiver, task })
     }
 
     pub async fn exec_in_out(&mut self) -> Option<&mut T> {
-        self.0.get_shared_async().await
+        self.receiver.get_shared_async().await
     }
 
     pub async fn do_exec(&mut self) {
-        self.0.done();
+        self.receiver.done();
     }
 
     extern "C" fn work(arg: *mut core::ffi::c_void) {
@@ -63,5 +77,18 @@ where
             unsafe { Box::from_raw(arg as *mut _) };
 
         worker();
+    }
+}
+
+impl<T> Drop for Unblocker<T>
+where
+    T: Send + 'static,
+{
+    fn drop(&mut self) {
+        self.receiver.done();
+
+        unsafe {
+            task::destroy(self.task);
+        }
     }
 }

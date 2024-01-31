@@ -752,11 +752,11 @@ impl EspAsyncMqttClient {
     fn wrap(client: EspMqttClient<'static>) -> Result<Self, EspError> {
         let unblocker = Unblocker::new(
             CStr::from_bytes_until_nul(b"MQTT Sending task\0").unwrap(),
-            10000,
+            4096,
             None,
             None,
             move |channel| Self::work(channel, client),
-        );
+        )?;
 
         Ok(Self(unblocker))
     }
