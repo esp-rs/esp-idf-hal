@@ -8,9 +8,9 @@ use core::time::Duration;
 
 use esp_idf_hal::delay::Ets;
 use esp_idf_hal::peripherals::Peripherals;
-use esp_idf_hal::rmt::config::{Loop, TransmitConfig};
-use esp_idf_hal::rmt::*;
+use esp_idf_hal::rmt::{self, config::TransmitConfig, TxRmtDriver};
 
+use esp_idf_hal::units::Hertz;
 use notes::*;
 
 fn main() -> anyhow::Result<()> {
@@ -19,7 +19,7 @@ fn main() -> anyhow::Result<()> {
     let peripherals = Peripherals::take()?;
     let led = peripherals.pins.gpio17;
     let channel = peripherals.rmt.channel0;
-    let config = TransmitConfig::new().looping(Loop::Endless);
+    let config = TransmitConfig::new();
     let mut tx: TxRmtDriver<'static> = TxRmtDriver::new(channel, led, &config)?;
 
     loop {
@@ -30,45 +30,68 @@ fn main() -> anyhow::Result<()> {
 
 pub fn play_song(tx: &mut TxRmtDriver<'static>, song: &[NoteValue]) -> anyhow::Result<()> {
     for note_value in song {
-        play_note(tx, note_value.note.0, note_value.duration)?;
+        note_value.play(tx)?;
     }
     Ok(())
 }
 
-pub fn play_note(
-    tx: &mut TxRmtDriver<'static>,
-    pitch: u16,
-    duration: Duration,
-) -> anyhow::Result<()> {
-    // Calculate the frequency for a piezo buzzer.
-    let ticks_hz = tx.counter_clock()?;
-    let tick_count = (ticks_hz.0 as u128 / pitch as u128 / 2_u128) as u16;
-    let ticks = PulseTicks::new(tick_count)?;
+pub struct NoteValueIter {
+    ticks: rmt::PulseTicks,
+    tone_cycles: u32,
+    pause_cycles: u32,
+}
 
-    // Add high and low pulses for the tick duration.
-    let on = Pulse::new(PinState::High, ticks);
-    let off = Pulse::new(PinState::Low, ticks);
-    let mut signal = FixedLengthSignal::<1>::new();
-    signal.set(0, &(on, off))?;
+impl NoteValueIter {
+    fn new(ticks_per_sec: Hertz, note: &NoteValue) -> Self {
+        // Calculate the frequency for a piezo buzzer.
+        let dur_ms = note.duration.as_millis();
+        let cycles_per_sec = note.note.0; // pitch
+        let ticks_per_cycle = ticks_per_sec.0 as u128 / cycles_per_sec as u128;
+        let ticks_per_half = (ticks_per_cycle / 2_u128) as u16;
+        let ticks = rmt::PulseTicks::new(ticks_per_half).unwrap();
 
-    // Play the note for the 80% of the duration.
-    tx.start(signal)?;
-    Ets::delay_ms((80 * duration.as_millis() / 100) as u32);
+        let total_cycles = (cycles_per_sec as u128 * dur_ms / 1000_u128) as u32;
+        // Pause for the last 40ms of every note
+        let pause_cycles = (cycles_per_sec as u128 * 40_u128 / 1000_u128) as u32;
+        let tone_cycles = total_cycles - pause_cycles;
 
-    // Small pause between notes, 20% of the specified duration.
-    tx.stop()?;
-    Ets::delay_ms((20 * duration.as_millis() / 100) as u32);
+        Self {
+            ticks,
+            tone_cycles,
+            pause_cycles,
+        }
+    }
+}
 
-    Ok(())
+impl std::iter::Iterator for NoteValueIter {
+    type Item = rmt::Symbol;
+
+    // runs in ISR
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.tone_cycles + self.pause_cycles > 0 {
+            let high_state = if self.tone_cycles > 0 {
+                self.tone_cycles -= 1;
+                rmt::PinState::High
+            } else {
+                self.pause_cycles -= 1;
+                rmt::PinState::Low
+            };
+            let level0 = rmt::Pulse::new(high_state, self.ticks);
+            let level1 = rmt::Pulse::new(rmt::PinState::Low, self.ticks);
+            Some(rmt::Symbol::new(level0, level1))
+        } else {
+            None
+        }
+    }
 }
 
 #[derive(Debug)]
 pub struct Note(u16);
 
+#[allow(dead_code)]
 pub mod notes {
     use crate::Note;
 
-    #[allow(dead_code)]
     pub const A4: Note = Note(440);
     pub const AS4: Note = Note(466);
     pub const B4: Note = Note(494);
@@ -88,6 +111,18 @@ pub mod notes {
 pub struct NoteValue {
     note: Note,
     duration: Duration,
+}
+
+impl NoteValue {
+    pub fn play(&self, tx: &mut TxRmtDriver<'static>) -> anyhow::Result<()> {
+        let ticks_hz = tx.counter_clock()?;
+        tx.start_iter_blocking(self.iter(ticks_hz))?;
+        Ok(())
+    }
+
+    pub fn iter(&self, ticks_hz: Hertz) -> NoteValueIter {
+        NoteValueIter::new(ticks_hz, self)
+    }
 }
 
 macro_rules! n {
