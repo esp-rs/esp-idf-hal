@@ -759,7 +759,6 @@ impl<'d, T: Pin, MODE> PinDriver<'d, T, MODE> {
         T: Pin,
     {
         let pin = unsafe { self.pin.clone_unchecked() };
-
         drop(self);
 
         if mode != gpio_mode_t_GPIO_MODE_DISABLE {
@@ -1224,7 +1223,7 @@ impl<T: Pin, MODE: InputMode> PinDriver<'_, T, MODE> {
 
 impl<'d, T: Pin, MODE> Drop for PinDriver<'d, T, MODE> {
     fn drop(&mut self) {
-        unsafe { reset_pin(self.pin.pin(), gpio_mode_t_GPIO_MODE_DISABLE) }.unwrap();
+        gpio_reset_without_pull(self.pin.pin()).unwrap();
     }
 }
 
@@ -1428,7 +1427,7 @@ pub fn enable_isr_service() -> Result<(), EspError> {
 }
 
 pub(crate) unsafe fn rtc_reset_pin(pin: i32) -> Result<(), EspError> {
-    reset_pin(pin, gpio_mode_t_GPIO_MODE_DISABLE)?;
+    gpio_reset_without_pull(pin)?;
 
     #[cfg(not(any(esp32c3, esp32c2, esp32h2, esp32c5)))]
     esp!(rtc_gpio_init(pin))?;
@@ -1436,12 +1435,22 @@ pub(crate) unsafe fn rtc_reset_pin(pin: i32) -> Result<(), EspError> {
     Ok(())
 }
 
-unsafe fn reset_pin(_pin: i32, _mode: gpio_mode_t) -> Result<(), EspError> {
-    unsubscribe_pin(_pin)?;
+// The default esp-idf gpio_reset function sets a pull-up. If that behaviour is
+// not desired this function can be used instead.
+#[inline]
+fn gpio_reset_without_pull(pin: gpio_num_t) -> Result<(), EspError> {
+    let cfg = gpio_config_t {
+        pin_bit_mask: (1u64 << pin),
+        mode: esp_idf_sys::gpio_mode_t_GPIO_MODE_DISABLE,
+        pull_up_en: esp_idf_sys::gpio_pullup_t_GPIO_PULLUP_DISABLE,
+        pull_down_en: esp_idf_sys::gpio_pulldown_t_GPIO_PULLDOWN_DISABLE,
+        intr_type: esp_idf_sys::gpio_int_type_t_GPIO_INTR_DISABLE,
+    };
 
-    esp!(gpio_reset_pin(_pin))?;
-    esp!(gpio_set_direction(_pin, _mode))?;
-
+    unsafe {
+        unsubscribe_pin(pin)?;
+        esp!(gpio_config(&cfg))?;
+    }
     Ok(())
 }
 
