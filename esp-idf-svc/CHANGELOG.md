@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [?.??.?] - ????-??-??
 * Disable the `esp_idf_svc::io::vfs` module if the ESP IDF VFS component is not enabled either
 * Bugfix / async MQTT: The internal `Unblocker` utility was missing `drop` and therefore did not delete its task properly, resulting in a crash when the async MQTT client is dropped
+* #357 - `AsyncWifi` was not `Send` anymore (regression). `Send` restored.
 
 ## [0.48.0] - 2024-01-26
 * New examples: 

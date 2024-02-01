@@ -891,12 +891,18 @@ where
 
 #[cfg(all(feature = "alloc", esp_idf_comp_esp_timer_enabled))]
 mod async_wait {
+    use core::marker::PhantomData;
     use core::pin::pin;
     use core::time::Duration;
 
+    extern crate alloc;
+    use alloc::sync::Arc;
+
+    use esp_idf_hal::task::asynch::Notification;
+
     use log::debug;
 
-    use super::{EspAsyncSubscription, EspEventDeserializer, EspEventLoop, EspEventLoopType};
+    use super::{EspEventDeserializer, EspEventLoop, EspEventLoopType, EspSubscription};
     use crate::sys::{esp, EspError, ESP_ERR_TIMEOUT};
     use crate::timer::{EspAsyncTimer, EspTimerService, Task};
 
@@ -905,8 +911,10 @@ mod async_wait {
         D: EspEventDeserializer,
         T: EspEventLoopType,
     {
-        subscription: EspAsyncSubscription<D, T>,
+        notification: Arc<Notification>,
         timer: EspAsyncTimer,
+        _subscription: EspSubscription<'static, T>,
+        _deserializer: PhantomData<fn() -> D>,
     }
 
     impl<D, T> AsyncWait<D, T>
@@ -918,9 +926,18 @@ mod async_wait {
             event_loop: &EspEventLoop<T>,
             timer_service: &EspTimerService<Task>,
         ) -> Result<Self, EspError> {
+            let notification = Arc::new(Notification::new());
+
             Ok(Self {
-                subscription: event_loop.subscribe_async()?,
+                _subscription: {
+                    let notification = notification.clone();
+                    event_loop.subscribe::<D, _>(move |_| {
+                        notification.notify_lsb();
+                    })?
+                },
+                notification,
                 timer: timer_service.timer_async()?,
+                _deserializer: PhantomData,
             })
         }
 
@@ -929,11 +946,11 @@ mod async_wait {
             mut matcher: F,
             duration: Option<Duration>,
         ) -> Result<(), EspError> {
-            let subscription = &mut self.subscription;
+            let notification = &self.notification;
 
             let subscription_wait = pin!(async move {
                 while matcher()? {
-                    subscription.recv().await?;
+                    notification.wait().await;
                 }
 
                 Result::<(), EspError>::Ok(())
