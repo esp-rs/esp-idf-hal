@@ -10,13 +10,8 @@ use esp_idf_sys::*;
 
 pub use esp_idf_sys::TickType_t;
 
-#[allow(non_upper_case_globals)]
 pub const BLOCK: TickType_t = TickType_t::MAX;
-
-#[allow(non_upper_case_globals)]
 pub const NON_BLOCK: TickType_t = 0;
-
-#[allow(non_upper_case_globals)]
 pub const TICK_PERIOD_MS: u32 = 1000 / configTICK_RATE_HZ;
 
 #[repr(transparent)]
