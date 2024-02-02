@@ -13,6 +13,7 @@ pub use esp_idf_sys::TickType_t;
 pub const BLOCK: TickType_t = TickType_t::MAX;
 pub const NON_BLOCK: TickType_t = 0;
 pub const TICK_PERIOD_MS: u32 = 1000 / configTICK_RATE_HZ;
+const MS_PER_S: u64 = 1000;
 
 #[repr(transparent)]
 pub struct TickType(pub TickType_t);
@@ -22,12 +23,23 @@ impl TickType {
         Self(ticks)
     }
 
+    fn new_millis(ms: u64) -> Self {
+        let ticks = ms
+            .saturating_mul(configTICK_RATE_HZ as u64)
+            .saturating_add(MS_PER_S - 1)
+            / MS_PER_S;
+        Self(min(ticks, TickType_t::MAX as _) as _)
+    }
+
     pub const fn ticks(&self) -> TickType_t {
         self.0
     }
 
     pub fn as_millis(&self) -> u64 {
-        self.0 as u64 * TICK_PERIOD_MS as u64
+        (self.0 as u64)
+            .saturating_mul(MS_PER_S)
+            .saturating_add(configTICK_RATE_HZ as u64 - 1)
+            / configTICK_RATE_HZ as u64
     }
 
     pub fn as_millis_u32(&self) -> u32 {
@@ -49,10 +61,7 @@ impl From<TickType> for TickType_t {
 
 impl From<Duration> for TickType {
     fn from(duration: Duration) -> Self {
-        TickType(
-            ((duration.as_millis() + TICK_PERIOD_MS as u128 - 1) / TICK_PERIOD_MS as u128)
-                as TickType_t,
-        )
+        TickType::new_millis(min(duration.as_millis(), u64::MAX as _) as _)
     }
 }
 
@@ -68,7 +77,7 @@ impl From<Option<Duration>> for TickType {
 
 impl From<TickType> for Duration {
     fn from(ticks: TickType) -> Self {
-        Duration::from_millis(ticks.0 as u64 * TICK_PERIOD_MS as u64)
+        Duration::from_millis(ticks.as_millis())
     }
 }
 
@@ -165,9 +174,7 @@ pub struct FreeRtos;
 
 impl FreeRtos {
     pub fn delay_ms(ms: u32) {
-        // divide by tick length, rounding up
-        let ticks = ms.saturating_add(TICK_PERIOD_MS - 1) / TICK_PERIOD_MS;
-
+        let ticks = TickType::new_millis(ms.into()).ticks();
         unsafe {
             vTaskDelay(ticks);
         }
