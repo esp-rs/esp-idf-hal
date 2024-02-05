@@ -12,7 +12,7 @@ pub use esp_idf_sys::TickType_t;
 
 pub const BLOCK: TickType_t = TickType_t::MAX;
 pub const NON_BLOCK: TickType_t = 0;
-pub const TICK_PERIOD_MS: u32 = 1000 / configTICK_RATE_HZ;
+pub const TICK_RATE_HZ: u32 = configTICK_RATE_HZ;
 const MS_PER_S: u64 = 1000;
 
 #[repr(transparent)]
@@ -25,7 +25,7 @@ impl TickType {
 
     fn new_millis(ms: u64) -> Self {
         let ticks = ms
-            .saturating_mul(configTICK_RATE_HZ as u64)
+            .saturating_mul(TICK_RATE_HZ as u64)
             .saturating_add(MS_PER_S - 1)
             / MS_PER_S;
         Self(min(ticks, TickType_t::MAX as _) as _)
@@ -38,8 +38,8 @@ impl TickType {
     pub fn as_millis(&self) -> u64 {
         (self.0 as u64)
             .saturating_mul(MS_PER_S)
-            .saturating_add(configTICK_RATE_HZ as u64 - 1)
-            / configTICK_RATE_HZ as u64
+            .saturating_add(TICK_RATE_HZ as u64 - 1)
+            / TICK_RATE_HZ as u64
     }
 
     pub fn as_millis_u32(&self) -> u32 {
