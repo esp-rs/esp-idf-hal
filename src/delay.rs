@@ -13,7 +13,9 @@ pub use esp_idf_sys::TickType_t;
 pub const BLOCK: TickType_t = TickType_t::MAX;
 pub const NON_BLOCK: TickType_t = 0;
 pub const TICK_RATE_HZ: u32 = configTICK_RATE_HZ;
-const MS_PER_S: u64 = 1000;
+
+const MS_PER_S: u64 = 1_000;
+const NS_PER_MS: u64 = 1_000_000;
 
 #[repr(transparent)]
 pub struct TickType(pub TickType_t);
@@ -61,7 +63,12 @@ impl From<TickType> for TickType_t {
 
 impl From<Duration> for TickType {
     fn from(duration: Duration) -> Self {
-        TickType::new_millis(min(duration.as_millis(), u64::MAX as _) as _)
+        let sec_ms = duration.as_secs().saturating_mul(MS_PER_S);
+        let subsec_ns: u64 = duration.subsec_nanos().into();
+        // Convert to ms and round up. Not saturating. Cannot overflow.
+        let subsec_ms = (subsec_ns + (NS_PER_MS - 1)) / NS_PER_MS;
+
+        TickType::new_millis(sec_ms.saturating_add(subsec_ms))
     }
 }
 
