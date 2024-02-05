@@ -4,7 +4,7 @@
 //! use [`Delay`]. Otherwise use [`Ets`] for delays <10ms and
 //! [`FreeRtos`] for delays >=10ms.
 
-use core::{cmp::min, time::Duration};
+use core::time::Duration;
 
 use esp_idf_sys::*;
 
@@ -19,6 +19,14 @@ const NS_PER_MS: u64 = 1_000_000;
 const US_PER_MS: u32 = 1_000;
 const NS_PER_US: u32 = 1_000;
 
+const fn const_min_u64(a: u64, b: u64) -> u64 {
+    if a < b {
+        a
+    } else {
+        b
+    }
+}
+
 #[repr(transparent)]
 pub struct TickType(pub TickType_t);
 
@@ -27,27 +35,27 @@ impl TickType {
         Self(ticks)
     }
 
-    pub fn new_millis(ms: u64) -> Self {
+    pub const fn new_millis(ms: u64) -> Self {
         let ticks = ms
             .saturating_mul(TICK_RATE_HZ as u64)
             .saturating_add(MS_PER_S - 1)
             / MS_PER_S;
-        Self(min(ticks, TickType_t::MAX as _) as _)
+        Self(const_min_u64(ticks, TickType_t::MAX as _) as _)
     }
 
     pub const fn ticks(&self) -> TickType_t {
         self.0
     }
 
-    pub fn as_millis(&self) -> u64 {
+    pub const fn as_millis(&self) -> u64 {
         (self.0 as u64)
             .saturating_mul(MS_PER_S)
             .saturating_add(TICK_RATE_HZ as u64 - 1)
             / TICK_RATE_HZ as u64
     }
 
-    pub fn as_millis_u32(&self) -> u32 {
-        min(self.as_millis(), u32::MAX as _) as _
+    pub const fn as_millis_u32(&self) -> u32 {
+        const_min_u64(self.as_millis(), u32::MAX as _) as _
     }
 }
 
