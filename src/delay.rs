@@ -16,6 +16,8 @@ pub const TICK_RATE_HZ: u32 = configTICK_RATE_HZ;
 
 const MS_PER_S: u64 = 1_000;
 const NS_PER_MS: u64 = 1_000_000;
+const US_PER_MS: u32 = 1_000;
+const NS_PER_US: u32 = 1_000;
 
 #[repr(transparent)]
 pub struct TickType(pub TickType_t);
@@ -120,7 +122,7 @@ impl Ets {
     }
 
     pub fn delay_ms(ms: u32) {
-        Self::delay_us(ms.saturating_mul(1000));
+        Self::delay_us(ms.saturating_mul(US_PER_MS));
     }
 }
 
@@ -162,7 +164,7 @@ impl embedded_hal_0_2::blocking::delay::DelayMs<u8> for Ets {
 
 impl embedded_hal::delay::DelayNs for Ets {
     fn delay_ns(&mut self, ns: u32) {
-        Ets::delay_us(ns.saturating_add(999) / 1000)
+        Ets::delay_us(ns.saturating_add(NS_PER_US - 1) / NS_PER_US)
     }
 
     fn delay_us(&mut self, us: u32) {
@@ -189,7 +191,7 @@ impl FreeRtos {
     // This is not supposed to be `pub`, because the user code shall not use this
     // timer for microsecond delay. Only used for trait impl below.
     fn delay_us(us: u32) {
-        Self::delay_ms(us.saturating_add(999) / 1000);
+        Self::delay_ms(us.saturating_add(US_PER_MS - 1) / US_PER_MS);
     }
 }
 
@@ -231,7 +233,7 @@ impl embedded_hal_0_2::blocking::delay::DelayMs<u8> for FreeRtos {
 
 impl embedded_hal::delay::DelayNs for FreeRtos {
     fn delay_ns(&mut self, ns: u32) {
-        FreeRtos::delay_us(ns.saturating_add(999) / 1000);
+        FreeRtos::delay_us(ns.saturating_add(NS_PER_US - 1) / NS_PER_US);
     }
 
     fn delay_us(&mut self, us: u32) {
@@ -268,7 +270,7 @@ impl Delay {
     }
 
     pub fn delay_ms(&self, ms: u32) {
-        if ms.saturating_mul(1000) < self.0 {
+        if ms.saturating_mul(US_PER_MS) < self.0 {
             Ets::delay_ms(ms);
         } else {
             FreeRtos::delay_ms(ms);
@@ -278,7 +280,7 @@ impl Delay {
 
 impl embedded_hal::delay::DelayNs for Delay {
     fn delay_ns(&mut self, ns: u32) {
-        Delay::delay_us(self, ns.saturating_add(999) / 1000)
+        Delay::delay_us(self, ns.saturating_add(NS_PER_US - 1) / NS_PER_US)
     }
 
     fn delay_us(&mut self, us: u32) {
