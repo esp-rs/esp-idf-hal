@@ -23,7 +23,7 @@ impl TickType {
         Self(ticks)
     }
 
-    fn new_millis(ms: u64) -> Self {
+    pub fn new_millis(ms: u64) -> Self {
         let ticks = ms
             .saturating_mul(TICK_RATE_HZ as u64)
             .saturating_add(MS_PER_S - 1)
