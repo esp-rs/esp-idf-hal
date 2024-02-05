@@ -19,6 +19,7 @@ const NS_PER_MS: u64 = 1_000_000;
 const US_PER_MS: u32 = 1_000;
 const NS_PER_US: u32 = 1_000;
 
+#[inline]
 const fn const_min_u64(a: u64, b: u64) -> u64 {
     if a < b {
         a
@@ -31,6 +32,7 @@ const fn const_min_u64(a: u64, b: u64) -> u64 {
 pub struct TickType(pub TickType_t);
 
 impl TickType {
+    #[inline]
     pub const fn new(ticks: TickType_t) -> Self {
         Self(ticks)
     }
@@ -43,6 +45,7 @@ impl TickType {
         Self(const_min_u64(ticks, TickType_t::MAX as _) as _)
     }
 
+    #[inline]
     pub const fn ticks(&self) -> TickType_t {
         self.0
     }
@@ -54,18 +57,21 @@ impl TickType {
             / TICK_RATE_HZ as u64
     }
 
+    #[inline]
     pub const fn as_millis_u32(&self) -> u32 {
         const_min_u64(self.as_millis(), u32::MAX as _) as _
     }
 }
 
 impl From<TickType_t> for TickType {
+    #[inline]
     fn from(value: TickType_t) -> Self {
         Self::new(value)
     }
 }
 
 impl From<TickType> for TickType_t {
+    #[inline]
     fn from(value: TickType) -> Self {
         value.ticks()
     }
@@ -123,6 +129,7 @@ extern "C" {
 }
 
 impl Ets {
+    #[inline]
     pub fn delay_us(us: u32) {
         unsafe {
             ets_delay_us(us);
@@ -135,50 +142,59 @@ impl Ets {
 }
 
 impl embedded_hal_0_2::blocking::delay::DelayUs<u32> for Ets {
+    #[inline]
     fn delay_us(&mut self, us: u32) {
         Ets::delay_us(us);
     }
 }
 
 impl embedded_hal_0_2::blocking::delay::DelayUs<u16> for Ets {
+    #[inline]
     fn delay_us(&mut self, us: u16) {
         Ets::delay_us(us.into());
     }
 }
 
 impl embedded_hal_0_2::blocking::delay::DelayUs<u8> for Ets {
+    #[inline]
     fn delay_us(&mut self, us: u8) {
         Ets::delay_us(us.into());
     }
 }
 
 impl embedded_hal_0_2::blocking::delay::DelayMs<u32> for Ets {
+    #[inline]
     fn delay_ms(&mut self, ms: u32) {
         Ets::delay_ms(ms);
     }
 }
 
 impl embedded_hal_0_2::blocking::delay::DelayMs<u16> for Ets {
+    #[inline]
     fn delay_ms(&mut self, ms: u16) {
         Ets::delay_ms(ms.into());
     }
 }
 
 impl embedded_hal_0_2::blocking::delay::DelayMs<u8> for Ets {
+    #[inline]
     fn delay_ms(&mut self, ms: u8) {
         Ets::delay_ms(ms.into());
     }
 }
 
 impl embedded_hal::delay::DelayNs for Ets {
+    #[inline]
     fn delay_ns(&mut self, ns: u32) {
         Ets::delay_us(ns.saturating_add(NS_PER_US - 1) / NS_PER_US);
     }
 
+    #[inline]
     fn delay_us(&mut self, us: u32) {
         Ets::delay_us(us);
     }
 
+    #[inline]
     fn delay_ms(&mut self, ms: u32) {
         Ets::delay_ms(ms);
     }
@@ -208,50 +224,59 @@ impl FreeRtos {
 }
 
 impl embedded_hal_0_2::blocking::delay::DelayUs<u32> for FreeRtos {
+    #[inline]
     fn delay_us(&mut self, us: u32) {
         FreeRtos::delay_us(us);
     }
 }
 
 impl embedded_hal_0_2::blocking::delay::DelayUs<u16> for FreeRtos {
+    #[inline]
     fn delay_us(&mut self, us: u16) {
         FreeRtos::delay_us(us.into());
     }
 }
 
 impl embedded_hal_0_2::blocking::delay::DelayUs<u8> for FreeRtos {
+    #[inline]
     fn delay_us(&mut self, us: u8) {
         FreeRtos::delay_us(us.into());
     }
 }
 
 impl embedded_hal_0_2::blocking::delay::DelayMs<u32> for FreeRtos {
+    #[inline]
     fn delay_ms(&mut self, ms: u32) {
         FreeRtos::delay_ms(ms);
     }
 }
 
 impl embedded_hal_0_2::blocking::delay::DelayMs<u16> for FreeRtos {
+    #[inline]
     fn delay_ms(&mut self, ms: u16) {
         FreeRtos::delay_ms(ms.into());
     }
 }
 
 impl embedded_hal_0_2::blocking::delay::DelayMs<u8> for FreeRtos {
+    #[inline]
     fn delay_ms(&mut self, ms: u8) {
         FreeRtos::delay_ms(ms.into());
     }
 }
 
 impl embedded_hal::delay::DelayNs for FreeRtos {
+    #[inline]
     fn delay_ns(&mut self, ns: u32) {
         FreeRtos::delay_us(ns.saturating_add(NS_PER_US - 1) / NS_PER_US);
     }
 
+    #[inline]
     fn delay_us(&mut self, us: u32) {
         FreeRtos::delay_us(us);
     }
 
+    #[inline]
     fn delay_ms(&mut self, ms: u32) {
         FreeRtos::delay_ms(ms);
     }
@@ -264,15 +289,18 @@ pub struct Delay(u32);
 
 impl Delay {
     /// Create a delay with a default threshold of 1ms
+    #[inline]
     pub const fn new_default() -> Self {
         Self::new(1000)
     }
 
     /// Create a delay with a threshold of the specified amount of microseconds.
+    #[inline]
     pub const fn new(threshold_us: u32) -> Self {
         Self(threshold_us)
     }
 
+    #[inline]
     pub fn delay_us(&self, us: u32) {
         if us < self.0 {
             Ets::delay_us(us);
@@ -291,38 +319,45 @@ impl Delay {
 }
 
 impl embedded_hal::delay::DelayNs for Delay {
+    #[inline]
     fn delay_ns(&mut self, ns: u32) {
         Delay::delay_us(self, ns.saturating_add(NS_PER_US - 1) / NS_PER_US)
     }
 
+    #[inline]
     fn delay_us(&mut self, us: u32) {
         Delay::delay_us(self, us)
     }
 
+    #[inline]
     fn delay_ms(&mut self, ms: u32) {
         Delay::delay_ms(self, ms)
     }
 }
 
 impl embedded_hal_0_2::blocking::delay::DelayUs<u16> for Delay {
+    #[inline]
     fn delay_us(&mut self, us: u16) {
         Delay::delay_us(self, us.into());
     }
 }
 
 impl embedded_hal_0_2::blocking::delay::DelayUs<u32> for Delay {
+    #[inline]
     fn delay_us(&mut self, us: u32) {
         Delay::delay_us(self, us);
     }
 }
 
 impl embedded_hal_0_2::blocking::delay::DelayMs<u16> for Delay {
+    #[inline]
     fn delay_ms(&mut self, ms: u16) {
         Delay::delay_ms(self, ms.into())
     }
 }
 
 impl embedded_hal_0_2::blocking::delay::DelayMs<u32> for Delay {
+    #[inline]
     fn delay_ms(&mut self, ms: u32) {
         Delay::delay_ms(self, ms)
     }
