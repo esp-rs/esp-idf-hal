@@ -125,7 +125,7 @@ pub struct Ets;
 // The function itself is still available. Therefore, we define the binding here.
 #[cfg(not(esp_idf_version_major = "4"))]
 extern "C" {
-    pub fn ets_delay_us(us: u32);
+    fn ets_delay_us(us: u32);
 }
 
 impl Ets {
