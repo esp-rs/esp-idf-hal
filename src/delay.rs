@@ -8,7 +8,7 @@
 //! ```
 //!     use esp_idf_hal::delay::Delay;
 //!
-//!     let delay = Delay::new_default();
+//!     let delay: Delay = Default::default();
 //!     // ...
 //!     delay.delay_us(42);
 //!     // ...
@@ -35,7 +35,7 @@
 //! ```ignore
 //!     use esp_idf_hal::delay::Delay;
 //!
-//!     let mut delay = Delay::new_default();
+//!     let mut delay: Delay = Default::default();
 //!     some_trait_user(&mut delay);
 //! ```
 
@@ -384,6 +384,13 @@ impl Delay {
         } else {
             FreeRtos::delay_ms(ms);
         }
+    }
+}
+
+impl Default for Delay {
+    #[inline]
+    fn default() -> Self {
+        Self::new_default()
     }
 }
 
