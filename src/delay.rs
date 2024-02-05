@@ -164,11 +164,15 @@ impl embedded_hal_0_2::blocking::delay::DelayMs<u8> for Ets {
 
 impl embedded_hal::delay::DelayNs for Ets {
     fn delay_ns(&mut self, ns: u32) {
-        Ets::delay_us(ns.saturating_add(NS_PER_US - 1) / NS_PER_US)
+        Ets::delay_us(ns.saturating_add(NS_PER_US - 1) / NS_PER_US);
     }
 
     fn delay_us(&mut self, us: u32) {
-        Ets::delay_us(us)
+        Ets::delay_us(us);
+    }
+
+    fn delay_ms(&mut self, ms: u32) {
+        Ets::delay_ms(ms);
     }
 }
 
