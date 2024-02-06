@@ -514,6 +514,25 @@ remote_component = { name = "espressif/mdns", version = "1.2" }
 > `espressif__mdns` with the [`cfg`](#conditional-compilation)
 > `esp_idf_comp_espressif__mdns_enabled`).
 
+Remote components that are **not** already included inside the [esp-idf-sys bindings.h](https://github.com/esp-rs/esp-idf-sys/blob/master/src/include/esp-idf/bindings.h) file must be manually added, in its own C header file.
+
+For example, the `espressif/esp32-camera` component could be included in the following way:
+```toml
+[[package.metadata.esp-idf-sys.extra_components]]
+remote_component = { name = "espressif/esp32-camera", version = "2.0.7}
+bindings_header = "your_bindings.h"
+bindings_module = "camera"
+```
+
+and the `your_bindings.h` file could look like this:
+```c
+#if defined(ESP_IDF_COMP_ESPRESSIF__ESP32_CAMERA_ENABLED)
+#include "esp_camera.h"
+#endif
+```
+
+In this case the bindings would be generated in the `esp_idf_sys::camera` module.
+
 ## Conditional compilation
 
 The *esp-idf-sys* build script will set [rustc *cfg*s](https://doc.rust-lang.org/reference/conditional-compilation.html)
