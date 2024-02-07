@@ -10,14 +10,14 @@ use esp_idf_sys::*;
 
 pub use esp_idf_sys::TickType_t;
 
-#[allow(non_upper_case_globals)]
 pub const BLOCK: TickType_t = TickType_t::MAX;
-
-#[allow(non_upper_case_globals)]
 pub const NON_BLOCK: TickType_t = 0;
+pub const TICK_RATE_HZ: u32 = configTICK_RATE_HZ;
 
-#[allow(non_upper_case_globals)]
-pub const TICK_PERIOD_MS: u32 = 1000 / configTICK_RATE_HZ;
+const MS_PER_S: u64 = 1_000;
+const NS_PER_MS: u64 = 1_000_000;
+const US_PER_MS: u32 = 1_000;
+const NS_PER_US: u32 = 1_000;
 
 #[repr(transparent)]
 pub struct TickType(pub TickType_t);
@@ -27,12 +27,23 @@ impl TickType {
         Self(ticks)
     }
 
+    pub fn new_millis(ms: u64) -> Self {
+        let ticks = ms
+            .saturating_mul(TICK_RATE_HZ as u64)
+            .saturating_add(MS_PER_S - 1)
+            / MS_PER_S;
+        Self(min(ticks, TickType_t::MAX as _) as _)
+    }
+
     pub const fn ticks(&self) -> TickType_t {
         self.0
     }
 
     pub fn as_millis(&self) -> u64 {
-        self.0 as u64 * TICK_PERIOD_MS as u64
+        (self.0 as u64)
+            .saturating_mul(MS_PER_S)
+            .saturating_add(TICK_RATE_HZ as u64 - 1)
+            / TICK_RATE_HZ as u64
     }
 
     pub fn as_millis_u32(&self) -> u32 {
@@ -54,10 +65,12 @@ impl From<TickType> for TickType_t {
 
 impl From<Duration> for TickType {
     fn from(duration: Duration) -> Self {
-        TickType(
-            ((duration.as_millis() + TICK_PERIOD_MS as u128 - 1) / TICK_PERIOD_MS as u128)
-                as TickType_t,
-        )
+        let sec_ms = duration.as_secs().saturating_mul(MS_PER_S);
+        let subsec_ns: u64 = duration.subsec_nanos().into();
+        // Convert to ms and round up. Not saturating. Cannot overflow.
+        let subsec_ms = (subsec_ns + (NS_PER_MS - 1)) / NS_PER_MS;
+
+        TickType::new_millis(sec_ms.saturating_add(subsec_ms))
     }
 }
 
@@ -73,7 +86,7 @@ impl From<Option<Duration>> for TickType {
 
 impl From<TickType> for Duration {
     fn from(ticks: TickType) -> Self {
-        Duration::from_millis(ticks.0 as u64 * TICK_PERIOD_MS as u64)
+        Duration::from_millis(ticks.as_millis())
     }
 }
 
@@ -109,9 +122,7 @@ impl Ets {
     }
 
     pub fn delay_ms(ms: u32) {
-        unsafe {
-            ets_delay_us(ms * 1000);
-        }
+        Self::delay_us(ms.saturating_mul(US_PER_MS));
     }
 }
 
@@ -123,13 +134,13 @@ impl embedded_hal_0_2::blocking::delay::DelayUs<u32> for Ets {
 
 impl embedded_hal_0_2::blocking::delay::DelayUs<u16> for Ets {
     fn delay_us(&mut self, us: u16) {
-        Ets::delay_us(us as _);
+        Ets::delay_us(us.into());
     }
 }
 
 impl embedded_hal_0_2::blocking::delay::DelayUs<u8> for Ets {
     fn delay_us(&mut self, us: u8) {
-        Ets::delay_us(us as _);
+        Ets::delay_us(us.into());
     }
 }
 
@@ -141,23 +152,27 @@ impl embedded_hal_0_2::blocking::delay::DelayMs<u32> for Ets {
 
 impl embedded_hal_0_2::blocking::delay::DelayMs<u16> for Ets {
     fn delay_ms(&mut self, ms: u16) {
-        Ets::delay_ms(ms as _);
+        Ets::delay_ms(ms.into());
     }
 }
 
 impl embedded_hal_0_2::blocking::delay::DelayMs<u8> for Ets {
     fn delay_ms(&mut self, ms: u8) {
-        Ets::delay_ms(ms as _);
+        Ets::delay_ms(ms.into());
     }
 }
 
 impl embedded_hal::delay::DelayNs for Ets {
     fn delay_ns(&mut self, ns: u32) {
-        Ets::delay_us(ns / 1000)
+        Ets::delay_us(ns.saturating_add(NS_PER_US - 1) / NS_PER_US);
     }
 
     fn delay_us(&mut self, us: u32) {
-        Ets::delay_us(us)
+        Ets::delay_us(us);
+    }
+
+    fn delay_ms(&mut self, ms: u32) {
+        Ets::delay_ms(ms);
     }
 }
 
@@ -170,30 +185,35 @@ pub struct FreeRtos;
 
 impl FreeRtos {
     pub fn delay_ms(ms: u32) {
-        // divide by tick length, rounding up
-        let ticks = ms.saturating_add(TICK_PERIOD_MS - 1) / TICK_PERIOD_MS;
-
+        let ticks = TickType::new_millis(ms.into()).ticks();
         unsafe {
             vTaskDelay(ticks);
         }
+    }
+
+    // Internal helper: Round up to ms.
+    // This is not supposed to be `pub`, because the user code shall not use this
+    // timer for microsecond delay. Only used for trait impl below.
+    fn delay_us(us: u32) {
+        Self::delay_ms(us.saturating_add(US_PER_MS - 1) / US_PER_MS);
     }
 }
 
 impl embedded_hal_0_2::blocking::delay::DelayUs<u32> for FreeRtos {
     fn delay_us(&mut self, us: u32) {
-        FreeRtos::delay_ms(us / 1000);
+        FreeRtos::delay_us(us);
     }
 }
 
 impl embedded_hal_0_2::blocking::delay::DelayUs<u16> for FreeRtos {
     fn delay_us(&mut self, us: u16) {
-        FreeRtos::delay_ms((us / 1000) as _);
+        FreeRtos::delay_us(us.into());
     }
 }
 
 impl embedded_hal_0_2::blocking::delay::DelayUs<u8> for FreeRtos {
-    fn delay_us(&mut self, _us: u8) {
-        FreeRtos::delay_ms(0);
+    fn delay_us(&mut self, us: u8) {
+        FreeRtos::delay_us(us.into());
     }
 }
 
@@ -205,23 +225,27 @@ impl embedded_hal_0_2::blocking::delay::DelayMs<u32> for FreeRtos {
 
 impl embedded_hal_0_2::blocking::delay::DelayMs<u16> for FreeRtos {
     fn delay_ms(&mut self, ms: u16) {
-        FreeRtos::delay_ms(ms as _);
+        FreeRtos::delay_ms(ms.into());
     }
 }
 
 impl embedded_hal_0_2::blocking::delay::DelayMs<u8> for FreeRtos {
     fn delay_ms(&mut self, ms: u8) {
-        FreeRtos::delay_ms(ms as _);
+        FreeRtos::delay_ms(ms.into());
     }
 }
 
 impl embedded_hal::delay::DelayNs for FreeRtos {
     fn delay_ns(&mut self, ns: u32) {
-        FreeRtos::delay_ms(ns / 1000000)
+        FreeRtos::delay_us(ns.saturating_add(NS_PER_US - 1) / NS_PER_US);
+    }
+
+    fn delay_us(&mut self, us: u32) {
+        FreeRtos::delay_us(us);
     }
 
     fn delay_ms(&mut self, ms: u32) {
-        FreeRtos::delay_ms(ms)
+        FreeRtos::delay_ms(ms);
     }
 }
 
@@ -236,20 +260,21 @@ impl Delay {
         Self::new(1000)
     }
 
-    pub const fn new(threshold: u32) -> Self {
-        Self(threshold)
+    /// Create a delay with a threshold of the specified amount of microseconds.
+    pub const fn new(threshold_us: u32) -> Self {
+        Self(threshold_us)
     }
 
     pub fn delay_us(&self, us: u32) {
         if us < self.0 {
             Ets::delay_us(us);
         } else {
-            FreeRtos::delay_ms(us / 1000);
+            FreeRtos::delay_us(us);
         }
     }
 
     pub fn delay_ms(&self, ms: u32) {
-        if ms * 1000 < self.0 {
+        if ms.saturating_mul(US_PER_MS) < self.0 {
             Ets::delay_ms(ms);
         } else {
             FreeRtos::delay_ms(ms);
@@ -259,7 +284,7 @@ impl Delay {
 
 impl embedded_hal::delay::DelayNs for Delay {
     fn delay_ns(&mut self, ns: u32) {
-        Delay::delay_us(self, ns / 1000)
+        Delay::delay_us(self, ns.saturating_add(NS_PER_US - 1) / NS_PER_US)
     }
 
     fn delay_us(&mut self, us: u32) {
@@ -273,7 +298,7 @@ impl embedded_hal::delay::DelayNs for Delay {
 
 impl embedded_hal_0_2::blocking::delay::DelayUs<u16> for Delay {
     fn delay_us(&mut self, us: u16) {
-        Delay::delay_us(self, us as _);
+        Delay::delay_us(self, us.into());
     }
 }
 
@@ -285,7 +310,7 @@ impl embedded_hal_0_2::blocking::delay::DelayUs<u32> for Delay {
 
 impl embedded_hal_0_2::blocking::delay::DelayMs<u16> for Delay {
     fn delay_ms(&mut self, ms: u16) {
-        Delay::delay_ms(self, ms as _)
+        Delay::delay_ms(self, ms.into())
     }
 }
 
