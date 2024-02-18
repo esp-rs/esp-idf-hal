@@ -100,7 +100,6 @@ impl Dma {
         match max_transfer_size {
             0 => panic!("The max transfer size must be greater than 0"),
             x if x % 4 != 0 => panic!("The max transfer size must be a multiple of 4"),
-            x if x > 4096 => panic!("The max transfer size must be less than or equal to 4096"),
             _ => max_transfer_size,
         }
     }
