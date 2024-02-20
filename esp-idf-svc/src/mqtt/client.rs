@@ -637,6 +637,14 @@ impl<'a> EspMqttClient<'a> {
     }
 }
 
+impl<'a> Drop for EspMqttClient<'a> {
+    fn drop(&mut self) {
+        unsafe {
+            esp_mqtt_client_destroy(self.raw_client as _);
+        }
+    }
+}
+
 impl<'a> ErrorType for EspMqttClient<'a> {
     type Error = EspError;
 }
