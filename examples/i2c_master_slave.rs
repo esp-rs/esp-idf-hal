@@ -4,7 +4,7 @@
 //! - GPIO21 to GPIO18
 //! - GPIO22 to GPIO19
 //!
-//! ESP32-C2/C3 does not have two I2C peripherals, so this ecample will not work.
+//! ESP32-C2/C3 does not have two I2C peripherals, so this example will not work.
 //!
 //! Description:
 //! Consists of three parts:
