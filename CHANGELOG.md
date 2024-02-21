@@ -5,9 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [?.??.?] - ????-??-??
+## [0.43.1] - 2024-02-21
 * Fix - PinDriver state changes and the drop call invoked pull-ups to be enabled. New default behavior on init / state transition / drop is to not enable pull-ups. (#344). If users want to reduce power usage on unused pins, they now need to manually enable pull-ups on a pin. For example, call `core::mem::forget` on the PinDriver instance after setting the pull-ups.
 * #354 - breaking change - `rmt` driver now does not directly expose `rmt_item32_t` but rather - wraps it with a `Symbol` newtype
+* #374 - Improve delay/timer errors and rounding calculations
+* #379 - Remove 4096 limit for SPI dma transfer size
+* Fix clippy duplicate imports warnings with latest 1.78 nightly
 
 ## [0.43.0] - 2024-01-26
 * Breaking change: feature `riscv-ulp-hal` (and consequently, feature `esp-idf-sys`) is now removed. Use the [esp-ulp-riscv-hal](https://github.com/esp-rs/esp-hal/tree/main/esp-ulp-riscv-hal) crate instead
