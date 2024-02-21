@@ -85,6 +85,34 @@ where
 
 unsafe impl<T> Send for Receiver<T> where T: Send + 'static {}
 
+pub struct Sender<T>(Arc<Channel<T>>)
+where
+    T: Send + 'static;
+
+impl<T> Sender<T>
+where
+    T: Send + 'static,
+{
+    pub const fn new(channel: Arc<Channel<T>>) -> Self {
+        Self(channel)
+    }
+
+    pub fn channel(&self) -> &Channel<T> {
+        &self.0
+    }
+}
+
+impl<T> Drop for Sender<T>
+where
+    T: Send + 'static,
+{
+    fn drop(&mut self) {
+        self.0.set(State::Quit);
+    }
+}
+
+unsafe impl<T> Send for Sender<T> where T: Send + 'static {}
+
 pub struct Channel<T>
 where
     T: Send + 'static,

@@ -15,7 +15,7 @@ use crate::sys::*;
 use crate::handle::RawHandle;
 
 use crate::private::cstr::*;
-use crate::private::zerocopy::{Channel, Receiver};
+use crate::private::zerocopy::{Channel, Receiver, Sender};
 use crate::tls::*;
 
 pub use embedded_svc::mqtt::client::{
@@ -373,6 +373,9 @@ impl EspMqttClient<'static> {
         Self: Sized,
     {
         let (channel, receiver) = Channel::new();
+
+        let sender = Sender::new(channel);
+
         let conn = EspMqttConnection {
             receiver,
             given: false,
@@ -380,7 +383,7 @@ impl EspMqttClient<'static> {
 
         let client = Self::new_cb(url, conf, move |mut event| {
             let event: &mut EspMqttEvent<'static> = unsafe { core::mem::transmute(&mut event) };
-            channel.share(event);
+            sender.channel().share(event);
         })?;
 
         Ok((client, conn))
