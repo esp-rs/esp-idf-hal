@@ -1,6 +1,7 @@
-#![cfg_attr(not(feature = "std"), no_std)]
+#![no_std]
 #![allow(async_fn_in_trait)]
 #![allow(unknown_lints)]
+#![allow(renamed_and_removed_lints)]
 #![allow(clippy::unused_unit)] // enumset
 #![warn(clippy::large_futures)]
 #![cfg_attr(feature = "nightly", feature(doc_cfg))]
@@ -8,6 +9,16 @@
 
 #[cfg(not(esp_idf_comp_driver_enabled))]
 compile_error!("esp-idf-hal requires the `driver` ESP-IDF component to be enabled");
+
+#[cfg(feature = "std")]
+#[allow(unused_imports)]
+#[macro_use]
+extern crate std;
+
+#[cfg(feature = "alloc")]
+#[allow(unused_imports)]
+#[macro_use]
+extern crate alloc;
 
 pub mod adc;
 pub mod can;
