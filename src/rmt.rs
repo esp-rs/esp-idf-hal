@@ -52,7 +52,6 @@
 //! ahead of time.
 
 use core::cell::UnsafeCell;
-use core::convert::{TryFrom, TryInto};
 use core::marker::PhantomData;
 use core::time::Duration;
 use core::{ptr, slice};

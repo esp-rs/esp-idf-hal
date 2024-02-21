@@ -13,8 +13,6 @@
 //! let frequency_hz_1 = 1.Hz() + frequency_khz_3.into(),
 //! ```
 
-use core::convert::TryFrom;
-use core::convert::TryInto;
 use core::fmt;
 
 pub type ValueType = u32;

@@ -7,10 +7,7 @@ use esp_idf_sys::*;
 pub(super) mod config {
     #[allow(unused)]
     use crate::{gpio::*, i2s::config::*, peripheral::*};
-    use core::{
-        convert::TryFrom,
-        ops::{BitAnd, BitAndAssign, BitOr, BitOrAssign, Not},
-    };
+    use core::ops::{BitAnd, BitAndAssign, BitOr, BitOrAssign, Not};
     use esp_idf_sys::*;
 
     /// Automatic total number of slots, equivalent to the maximum active slot number.

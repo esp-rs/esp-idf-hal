@@ -65,7 +65,6 @@ pub mod config {
     ))]
     pub use super::tdm::config::*;
 
-    use core::convert::TryFrom;
     use esp_idf_sys::{
         i2s_mclk_multiple_t, i2s_mclk_multiple_t_I2S_MCLK_MULTIPLE_128,
         i2s_mclk_multiple_t_I2S_MCLK_MULTIPLE_256, i2s_mclk_multiple_t_I2S_MCLK_MULTIPLE_384,
