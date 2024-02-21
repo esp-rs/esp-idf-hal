@@ -134,6 +134,13 @@ pub enum ConnectionStatus {
 #[repr(u32)]
 pub enum AudioStatus {
     SuspendedByRemote = esp_a2d_audio_state_t_ESP_A2D_AUDIO_STATE_REMOTE_SUSPEND,
+    #[cfg(any(
+        esp_idf_version_major = "4",
+        all(
+            esp_idf_version_major = "5",
+            any(esp_idf_version_minor = "0", esp_idf_version_minor = "1")
+        ),
+    ))]
     Stopped = esp_a2d_audio_state_t_ESP_A2D_AUDIO_STATE_STOPPED,
     Started = esp_a2d_audio_state_t_ESP_A2D_AUDIO_STATE_STARTED,
 }

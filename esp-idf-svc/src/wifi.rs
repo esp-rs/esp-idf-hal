@@ -1799,6 +1799,57 @@ impl<'d> NetifStatus for EspWifi<'d> {
 #[repr(transparent)]
 pub struct WpsCredentialsRef(wifi_event_sta_wps_er_success_t__bindgen_ty_1);
 
+#[cfg(not(any(
+    esp_idf_version_major = "4",
+    all(
+        esp_idf_version_major = "5",
+        any(esp_idf_version_minor = "0", esp_idf_version_minor = "1")
+    ),
+)))]
+#[derive(Copy, Clone, Debug)]
+#[repr(C)]
+pub struct HomeChannelChange {
+    old_chan: u8,
+    old_snd: WifiSecondChan,
+    new_chan: u8,
+    new_snd: WifiSecondChan,
+}
+
+#[cfg(not(any(
+    esp_idf_version_major = "4",
+    all(
+        esp_idf_version_major = "5",
+        any(esp_idf_version_minor = "0", esp_idf_version_minor = "1")
+    ),
+)))]
+#[derive(Copy, Clone, Debug)]
+enum WifiSecondChan {
+    None = 0,
+    Above,
+    Below,
+}
+
+#[cfg(not(any(
+    esp_idf_version_major = "4",
+    all(
+        esp_idf_version_major = "5",
+        any(esp_idf_version_minor = "0", esp_idf_version_minor = "1")
+    ),
+)))]
+impl TryFrom<u32> for WifiSecondChan {
+    type Error = &'static str;
+
+    fn try_from(value: u32) -> Result<Self, Self::Error> {
+        #![allow(non_upper_case_globals)]
+        match value {
+            wifi_second_chan_t_WIFI_SECOND_CHAN_NONE => Ok(Self::None),
+            wifi_second_chan_t_WIFI_SECOND_CHAN_ABOVE => Ok(Self::Above),
+            wifi_second_chan_t_WIFI_SECOND_CHAN_BELOW => Ok(Self::Below),
+            _ => Err("Invalid"),
+        }
+    }
+}
+
 impl WpsCredentialsRef {
     pub fn ssid(&self) -> &CStr {
         unsafe { CStr::from_ptr(self.0.ssid.as_ptr() as *const _) }
@@ -1872,6 +1923,15 @@ pub enum WifiEvent<'a> {
     FtmReport,
     ActionTxStatus,
     RocDone,
+
+    #[cfg(not(any(
+        esp_idf_version_major = "4",
+        all(
+            esp_idf_version_major = "5",
+            any(esp_idf_version_minor = "0", esp_idf_version_minor = "1")
+        ),
+    )))]
+    HomeChannelChange(HomeChannelChange),
 }
 
 unsafe impl<'a> EspEventSource for WifiEvent<'a> {
@@ -1887,67 +1947,71 @@ impl<'a> EspEventDeserializer for WifiEvent<'a> {
     fn deserialize<'d>(data: &crate::eventloop::EspEvent<'d>) -> WifiEvent<'d> {
         let event_id = data.event_id as u32;
 
-        if event_id == wifi_event_t_WIFI_EVENT_WIFI_READY {
-            WifiEvent::Ready
-        } else if event_id == wifi_event_t_WIFI_EVENT_SCAN_DONE {
-            WifiEvent::ScanDone
-        } else if event_id == wifi_event_t_WIFI_EVENT_STA_START {
-            WifiEvent::StaStarted
-        } else if event_id == wifi_event_t_WIFI_EVENT_STA_STOP {
-            WifiEvent::StaStopped
-        } else if event_id == wifi_event_t_WIFI_EVENT_STA_CONNECTED {
-            WifiEvent::StaConnected
-        } else if event_id == wifi_event_t_WIFI_EVENT_STA_DISCONNECTED {
-            WifiEvent::StaDisconnected
-        } else if event_id == wifi_event_t_WIFI_EVENT_STA_AUTHMODE_CHANGE {
-            WifiEvent::StaAuthmodeChanged
-        } else if event_id == wifi_event_t_WIFI_EVENT_STA_WPS_ER_SUCCESS {
-            let payload = unsafe {
-                (data.payload.unwrap() as *const _ as *const wifi_event_sta_wps_er_success_t)
-                    .as_ref()
-            };
+        match event_id {
+            wifi_event_t_WIFI_EVENT_WIFI_READY => WifiEvent::Ready,
+            wifi_event_t_WIFI_EVENT_SCAN_DONE => WifiEvent::ScanDone,
+            wifi_event_t_WIFI_EVENT_STA_START => WifiEvent::StaStarted,
+            wifi_event_t_WIFI_EVENT_STA_STOP => WifiEvent::StaStopped,
+            wifi_event_t_WIFI_EVENT_STA_CONNECTED => WifiEvent::StaConnected,
+            wifi_event_t_WIFI_EVENT_STA_DISCONNECTED => WifiEvent::StaDisconnected,
+            wifi_event_t_WIFI_EVENT_STA_AUTHMODE_CHANGE => WifiEvent::StaAuthmodeChanged,
+            wifi_event_t_WIFI_EVENT_STA_WPS_ER_SUCCESS => {
+                let payload = unsafe {
+                    (data.payload.unwrap() as *const _ as *const wifi_event_sta_wps_er_success_t)
+                        .as_ref()
+                };
 
-            let credentials = payload
-                .map(|payload| &payload.ap_cred[..payload.ap_cred_cnt as _])
-                .unwrap_or(&[]);
+                let credentials = payload
+                    .map(|payload| &payload.ap_cred[..payload.ap_cred_cnt as _])
+                    .unwrap_or(&[]);
 
-            WifiEvent::StaWpsSuccess(unsafe { core::mem::transmute(credentials) })
-        } else if event_id == wifi_event_t_WIFI_EVENT_STA_WPS_ER_FAILED {
-            WifiEvent::StaWpsFailed
-        } else if event_id == wifi_event_t_WIFI_EVENT_STA_WPS_ER_TIMEOUT {
-            WifiEvent::StaWpsTimeout
-        } else if event_id == wifi_event_t_WIFI_EVENT_STA_WPS_ER_PIN {
-            let payload = unsafe {
-                (data.payload.unwrap() as *const _ as *const wifi_event_sta_wps_er_pin_t).as_ref()
-            };
-            let pin = payload
-                .and_then(|x| core::str::from_utf8(&x.pin_code).ok())
-                .and_then(|x| x.parse().ok());
-            WifiEvent::StaWpsPin(pin)
-        } else if event_id == wifi_event_t_WIFI_EVENT_STA_WPS_ER_PBC_OVERLAP {
-            WifiEvent::StaWpsPbcOverlap
-        } else if event_id == wifi_event_t_WIFI_EVENT_AP_START {
-            WifiEvent::ApStarted
-        } else if event_id == wifi_event_t_WIFI_EVENT_AP_STOP {
-            WifiEvent::ApStopped
-        } else if event_id == wifi_event_t_WIFI_EVENT_AP_STACONNECTED {
-            WifiEvent::ApStaConnected
-        } else if event_id == wifi_event_t_WIFI_EVENT_AP_STADISCONNECTED {
-            WifiEvent::ApStaDisconnected
-        } else if event_id == wifi_event_t_WIFI_EVENT_AP_PROBEREQRECVED {
-            WifiEvent::ApProbeRequestReceived
-        } else if event_id == wifi_event_t_WIFI_EVENT_FTM_REPORT {
-            WifiEvent::FtmReport
-        } else if event_id == wifi_event_t_WIFI_EVENT_STA_BSS_RSSI_LOW {
-            WifiEvent::StaBssRssiLow
-        } else if event_id == wifi_event_t_WIFI_EVENT_ACTION_TX_STATUS {
-            WifiEvent::ActionTxStatus
-        } else if event_id == wifi_event_t_WIFI_EVENT_STA_BEACON_TIMEOUT {
-            WifiEvent::StaBeaconTimeout
-        } else if event_id == wifi_event_t_WIFI_EVENT_ROC_DONE {
-            WifiEvent::RocDone
-        } else {
-            panic!("Unknown event ID: {}", event_id);
+                WifiEvent::StaWpsSuccess(unsafe { core::mem::transmute(credentials) })
+            }
+            wifi_event_t_WIFI_EVENT_STA_WPS_ER_FAILED => WifiEvent::StaWpsFailed,
+            wifi_event_t_WIFI_EVENT_STA_WPS_ER_TIMEOUT => WifiEvent::StaWpsTimeout,
+            wifi_event_t_WIFI_EVENT_STA_WPS_ER_PIN => {
+                let payload = unsafe {
+                    (data.payload.unwrap() as *const _ as *const wifi_event_sta_wps_er_pin_t)
+                        .as_ref()
+                };
+                let pin = payload
+                    .and_then(|x| core::str::from_utf8(&x.pin_code).ok())
+                    .and_then(|x| x.parse().ok());
+                WifiEvent::StaWpsPin(pin)
+            }
+            wifi_event_t_WIFI_EVENT_STA_WPS_ER_PBC_OVERLAP => WifiEvent::StaWpsPbcOverlap,
+            wifi_event_t_WIFI_EVENT_AP_START => WifiEvent::ApStarted,
+            wifi_event_t_WIFI_EVENT_AP_STOP => WifiEvent::ApStopped,
+            wifi_event_t_WIFI_EVENT_AP_STACONNECTED => WifiEvent::ApStaConnected,
+            wifi_event_t_WIFI_EVENT_AP_STADISCONNECTED => WifiEvent::ApStaDisconnected,
+            wifi_event_t_WIFI_EVENT_AP_PROBEREQRECVED => WifiEvent::ApProbeRequestReceived,
+            wifi_event_t_WIFI_EVENT_FTM_REPORT => WifiEvent::FtmReport,
+            wifi_event_t_WIFI_EVENT_STA_BSS_RSSI_LOW => WifiEvent::StaBssRssiLow,
+            wifi_event_t_WIFI_EVENT_ACTION_TX_STATUS => WifiEvent::ActionTxStatus,
+            wifi_event_t_WIFI_EVENT_STA_BEACON_TIMEOUT => WifiEvent::StaBeaconTimeout,
+            wifi_event_t_WIFI_EVENT_ROC_DONE => WifiEvent::RocDone,
+            #[cfg(not(any(
+                esp_idf_version_major = "4",
+                all(
+                    esp_idf_version_major = "5",
+                    any(esp_idf_version_minor = "0", esp_idf_version_minor = "1")
+                ),
+            )))]
+            wifi_event_t_WIFI_EVENT_HOME_CHANNEL_CHANGE => {
+                let payload = unsafe {
+                    (data.payload.unwrap() as *const _ as *const wifi_event_home_channel_change_t)
+                        .as_ref()
+                }
+                .unwrap();
+
+                WifiEvent::HomeChannelChange(HomeChannelChange {
+                    old_chan: payload.old_chan,
+                    old_snd: payload.old_snd.try_into().unwrap(),
+                    new_chan: payload.new_chan,
+                    new_snd: payload.new_snd.try_into().unwrap(),
+                })
+            }
+            _ => panic!("unknown event ID: {}", event_id),
         }
     }
 }

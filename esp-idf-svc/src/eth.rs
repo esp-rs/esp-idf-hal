@@ -462,6 +462,14 @@ where
                     spi_host_id: host,
                     spi_devcfg: &spi_devcfg as *const _ as *mut _,
                     int_gpio_num: int,
+                    #[cfg(not(any(
+                        esp_idf_version_major = "4",
+                        all(
+                            esp_idf_version_major = "5",
+                            any(esp_idf_version_minor = "0", esp_idf_version_minor = "1")
+                        ),
+                    )))]
+                    custom_spi_driver: eth_spi_custom_driver_config_t::default(),
                 };
 
                 let mac = unsafe { esp_eth_mac_new_dm9051(&dm9051_cfg, &mac_cfg) };
@@ -490,6 +498,14 @@ where
                     spi_host_id: host,
                     spi_devcfg: &spi_devcfg as *const _ as *mut _,
                     int_gpio_num: int,
+                    #[cfg(not(any(
+                        esp_idf_version_major = "4",
+                        all(
+                            esp_idf_version_major = "5",
+                            any(esp_idf_version_minor = "0", esp_idf_version_minor = "1")
+                        ),
+                    )))]
+                    custom_spi_driver: eth_spi_custom_driver_config_t::default(),
                 };
 
                 let mac = unsafe { esp_eth_mac_new_w5500(&w5500_cfg, &mac_cfg) };
@@ -518,6 +534,14 @@ where
                     spi_host_id: host,
                     spi_devcfg: &spi_devcfg as *const _ as *mut _,
                     int_gpio_num: int,
+                    #[cfg(not(any(
+                        esp_idf_version_major = "4",
+                        all(
+                            esp_idf_version_major = "5",
+                            any(esp_idf_version_minor = "0", esp_idf_version_minor = "1")
+                        ),
+                    )))]
+                    custom_spi_driver: eth_spi_custom_driver_config_t::default(),
                 };
 
                 let mac = unsafe { esp_eth_mac_new_ksz8851snl(&ksz8851snl_cfg, &mac_cfg) };

@@ -3,6 +3,13 @@
 
 use core::cmp::min;
 use core::convert::TryInto;
+#[cfg(any(
+    esp_idf_version_major = "4",
+    all(
+        esp_idf_version_major = "5",
+        any(esp_idf_version_minor = "0", esp_idf_version_minor = "1")
+    ),
+))]
 use core::ffi;
 use core::fmt::{self, Debug};
 use core::sync::atomic::{AtomicBool, Ordering};
