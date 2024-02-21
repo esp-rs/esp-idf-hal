@@ -5,6 +5,9 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.34.1] - 2024-02-21
+* Fix clippy duplicate imports warnings with latest 1.78 nightly
+
 ## [0.34.0] - 2024-01-26
 * First `esp-idf-sys` examples:
   * `std_basics`: "Hello world" with `println!` and other types available in the Rust Standard Library like threads, atomics, local storage, collections, etc.
