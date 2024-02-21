@@ -12,6 +12,7 @@
 #![no_std]
 #![allow(async_fn_in_trait)]
 #![allow(unknown_lints)]
+#![allow(renamed_and_removed_lints)]
 #![warn(clippy::large_futures)]
 
 #[cfg(feature = "std")]
