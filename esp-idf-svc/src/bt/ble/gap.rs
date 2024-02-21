@@ -211,11 +211,11 @@ impl<'a> From<&'a Configuration<'a>> for esp_ble_adv_data_t {
             manufacturer_len: data.manufacturer.as_ref().map_or(0, |m| m.len()) as _,
             p_manufacturer_data: data
                 .manufacturer
-                .map_or(std::ptr::null_mut(), |s| s.as_ptr() as _),
+                .map_or(core::ptr::null_mut(), |s| s.as_ptr() as _),
             service_data_len: data.service.as_ref().map_or(0, |s| s.len()) as _,
             p_service_data: data
                 .service
-                .map_or(std::ptr::null_mut(), |s| s.as_ptr() as _),
+                .map_or(core::ptr::null_mut(), |s| s.as_ptr() as _),
             service_uuid_len: data
                 .service_uuid
                 .as_ref()

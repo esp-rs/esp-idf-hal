@@ -4,15 +4,20 @@
 //!
 //! ## Features
 //!
-//! This crates specifies a few cargo features, including:
+//! This crate specifies a few cargo features, including:
 //!
 //! - `std`: Enable the use of std. Enabled by default.
 //! - `experimental`: Enable the use of experimental features.
 //! - `embassy-time-driver`: Implement an embassy time driver.
-#![cfg_attr(not(feature = "std"), no_std)]
+#![no_std]
 #![allow(async_fn_in_trait)]
 //#![allow(unknown_lints)]
 #![warn(clippy::large_futures)]
+
+#[cfg(feature = "std")]
+#[allow(unused_imports)]
+#[macro_use]
+extern crate std;
 
 #[cfg(feature = "alloc")]
 #[allow(unused_imports)]

@@ -101,7 +101,7 @@ impl<const S: usize> Default for AttributeValue<S> {
 
 impl<const S: usize> AttributeValue<S> {
     pub fn new_with_value(value: &[u8]) -> Self {
-        let actual_len = std::cmp::min(value.len(), S);
+        let actual_len = core::cmp::min(value.len(), S);
         let mut val = Self {
             len: S,
             value: [0; S],
