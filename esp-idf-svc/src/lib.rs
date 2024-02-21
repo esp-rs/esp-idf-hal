@@ -11,7 +11,7 @@
 //! - `embassy-time-driver`: Implement an embassy time driver.
 #![no_std]
 #![allow(async_fn_in_trait)]
-//#![allow(unknown_lints)]
+#![allow(unknown_lints)]
 #![warn(clippy::large_futures)]
 
 #[cfg(feature = "std")]
