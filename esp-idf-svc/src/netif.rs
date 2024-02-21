@@ -8,7 +8,6 @@
 //! - The APIs it provides are thread safe, even if the underlying TCP/IP
 //!   stack APIs are not.
 
-use core::convert::TryInto;
 use core::{ffi, fmt, ptr};
 
 use crate::ipv4;

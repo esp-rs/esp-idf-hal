@@ -1,9 +1,7 @@
 //! Event loop library
 
-use core::convert::{TryFrom, TryInto};
 use core::fmt::Debug;
 use core::marker::PhantomData;
-use core::result::Result;
 use core::time::Duration;
 use core::{ffi, mem, ptr, slice};
 
@@ -16,7 +14,7 @@ use embedded_svc::channel;
 use ::log::*;
 
 use crate::hal::cpu::Core;
-use crate::hal::delay::{self, TickType_t};
+use crate::hal::delay;
 use crate::hal::interrupt;
 
 use crate::sys::*;

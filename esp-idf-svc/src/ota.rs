@@ -5,7 +5,6 @@
 //! Bluetooth.)
 
 use core::cmp::min;
-use core::convert::TryInto;
 use core::fmt::Write;
 use core::marker::PhantomData;
 use core::mem;

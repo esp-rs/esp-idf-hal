@@ -1,5 +1,4 @@
 //! WiFi support
-use core::convert::{TryFrom, TryInto};
 use core::marker::PhantomData;
 use core::str::Utf8Error;
 use core::time::Duration;

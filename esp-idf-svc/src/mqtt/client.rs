@@ -1,5 +1,4 @@
 //! MQTT protocol client
-use core::convert::{TryFrom, TryInto};
 use core::ffi::c_void;
 use core::fmt::Debug;
 use core::{slice, time};

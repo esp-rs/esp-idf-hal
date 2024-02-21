@@ -10,7 +10,6 @@
 //! microsecond time resolution, and 52-bit range.
 
 use core::num::NonZeroU32;
-use core::result::Result;
 use core::time::Duration;
 use core::{ffi, ptr};
 
