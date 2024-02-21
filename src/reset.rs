@@ -98,7 +98,5 @@ impl WakeupReason {
 }
 
 pub fn restart() -> ! {
-    unsafe {
-        esp_restart()
-    }
+    unsafe { esp_restart() }
 }
