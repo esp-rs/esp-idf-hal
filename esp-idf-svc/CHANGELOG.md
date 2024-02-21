@@ -5,10 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [?.??.?] - ????-??-??
+## [0.48.1] - 2024-02-21
 * Disable the `esp_idf_svc::io::vfs` module if the ESP IDF VFS component is not enabled either
 * Bugfix / async MQTT: The internal `Unblocker` utility was missing `drop` and therefore did not delete its task properly, resulting in a crash when the async MQTT client is dropped
 * #357 - `AsyncWifi` was not `Send` anymore (regression). `Send` restored.
+* #356 - Change payload of `EspEventPostData` from `&[u32]` to `&[u8]`
+* #357 - Restore `Send` for `AsyncWifi`
+* #369 - (Crash) Restore the drop impl EspMqttClient
+* #370 - (Deadlock) Fix a deadlock when dropping an MQTT client in the presence of a blocking EspMqttConnection
+* Fix clippy duplicate imports warnings with latest 1.78 nightly
 
 ## [0.48.0] - 2024-01-26
 * New examples: 
