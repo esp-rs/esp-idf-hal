@@ -5,7 +5,7 @@
 //! Follow the [Prerequisites](https://github.com/esp-rs/esp-idf-template#prerequisites) section in the `esp-idf-template` crate.
 //!
 #![doc = include_str!("../BUILD-OPTIONS.md")]
-#![cfg_attr(not(feature = "std"), no_std)]
+#![no_std]
 #![cfg_attr(
     all(not(feature = "std"), feature = "alloc_handler"),
     feature(alloc_error_handler)
@@ -24,6 +24,16 @@ pub use build_time;
 pub use const_format;
 #[doc(hidden)]
 pub use patches::PatchesRef;
+
+#[cfg(feature = "std")]
+#[allow(unused_imports)]
+#[macro_use]
+extern crate std;
+
+#[cfg(feature = "alloc")]
+#[allow(unused_imports)]
+#[macro_use]
+extern crate alloc;
 
 mod alloc;
 mod app_desc;

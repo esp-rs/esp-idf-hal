@@ -1,6 +1,5 @@
 //! Install tools and build the `esp-idf` using `platformio`.
 
-use std::convert::TryFrom;
 use std::path::PathBuf;
 use std::{env, fs};
 
