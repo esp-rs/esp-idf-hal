@@ -85,11 +85,11 @@ where
 
 unsafe impl<T> Send for Receiver<T> where T: Send + 'static {}
 
-pub struct Sender<T>(Arc<Channel<T>>)
+pub struct QuitOnDrop<T>(Arc<Channel<T>>)
 where
     T: Send + 'static;
 
-impl<T> Sender<T>
+impl<T> QuitOnDrop<T>
 where
     T: Send + 'static,
 {
@@ -102,7 +102,7 @@ where
     }
 }
 
-impl<T> Drop for Sender<T>
+impl<T> Drop for QuitOnDrop<T>
 where
     T: Send + 'static,
 {
@@ -111,7 +111,7 @@ where
     }
 }
 
-unsafe impl<T> Send for Sender<T> where T: Send + 'static {}
+unsafe impl<T> Send for QuitOnDrop<T> where T: Send + 'static {}
 
 pub struct Channel<T>
 where

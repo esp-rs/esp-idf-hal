@@ -23,7 +23,7 @@ use crate::handle::RawHandle;
 use crate::private::cstr::RawCstrs;
 use crate::private::mutex;
 use crate::private::waitable::Waitable;
-use crate::private::zerocopy::{Channel, Receiver, Sender};
+use crate::private::zerocopy::{Channel, QuitOnDrop, Receiver};
 
 #[cfg(all(feature = "alloc", esp_idf_comp_esp_timer_enabled))]
 pub use async_wait::*;
@@ -570,7 +570,7 @@ where
     {
         let (channel, receiver) = Channel::new();
 
-        let sender = Sender::new(channel);
+        let sender = QuitOnDrop::new(channel);
 
         let subscription = self.subscribe::<EspEvent, _>(move |event| {
             let mut event = unsafe { core::mem::transmute(event) };
