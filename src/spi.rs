@@ -100,7 +100,6 @@ impl Dma {
         match max_transfer_size {
             0 => panic!("The max transfer size must be greater than 0"),
             x if x % 4 != 0 => panic!("The max transfer size must be a multiple of 4"),
-            x if x > 4096 => panic!("The max transfer size must be less than or equal to 4096"),
             _ => max_transfer_size,
         }
     }
@@ -698,7 +697,6 @@ where
     }
 }
 
-#[cfg(feature = "nightly")]
 #[cfg(not(esp_idf_spi_master_isr_in_iram))]
 impl<'d, T> embedded_hal_async::spi::SpiBus for SpiBusDriver<'d, T>
 where
@@ -931,7 +929,7 @@ where
 
         while spi_operations.peek().is_some() {
             if let Some(SpiOperation::Delay(delay)) = spi_operations.peek() {
-                delay_impl.delay_us(*delay);
+                delay_impl.delay_us(*delay / 1000);
                 spi_operations.next();
             } else {
                 let transactions = core::iter::from_fn(|| {
@@ -1118,7 +1116,7 @@ where
                 spi_transfer_in_place_transactions(words, chunk_size)
                     .map(SpiOperation::Transaction),
             ),
-            Operation::DelayUs(delay) => {
+            Operation::DelayNs(delay) => {
                 OperationsIter::Delay(core::iter::once(SpiOperation::Delay(delay)))
             }
         })
@@ -1268,7 +1266,6 @@ where
     }
 }
 
-#[cfg(feature = "nightly")]
 #[cfg(not(esp_idf_spi_master_isr_in_iram))]
 impl<'d, T> embedded_hal_async::spi::SpiDevice for SpiDeviceDriver<'d, T>
 where
@@ -1500,7 +1497,6 @@ where
     }
 }
 
-#[cfg(feature = "nightly")]
 #[cfg(not(esp_idf_spi_master_isr_in_iram))]
 impl<'d, DEVICE, DRIVER> embedded_hal_async::spi::SpiDevice
     for SpiSoftCsDeviceDriver<'d, DEVICE, DRIVER>
@@ -1925,7 +1921,7 @@ fn copy_operation<'b>(operation: &'b mut Operation<'_, u8>) -> Operation<'b, u8>
         Operation::Write(write) => Operation::Write(write),
         Operation::Transfer(read, write) => Operation::Transfer(read, write),
         Operation::TransferInPlace(write) => Operation::TransferInPlace(write),
-        Operation::DelayUs(delay) => Operation::DelayUs(*delay),
+        Operation::DelayNs(delay) => Operation::DelayNs(*delay),
     }
 }
 

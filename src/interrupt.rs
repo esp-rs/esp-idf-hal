@@ -668,18 +668,15 @@ pub mod embassy_sync {
     /// # Safety
     ///
     /// This mutex is safe to share between different executors and interrupts.
-    pub struct IsrRawMutex {
-        _phantom: PhantomData<()>,
-    }
+    pub struct IsrRawMutex(());
+
     unsafe impl Send for IsrRawMutex {}
     unsafe impl Sync for IsrRawMutex {}
 
     impl IsrRawMutex {
         /// Create a new `IsrRawMutex`.
         pub const fn new() -> Self {
-            Self {
-                _phantom: PhantomData,
-            }
+            Self(())
         }
     }
 

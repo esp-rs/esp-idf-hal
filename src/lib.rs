@@ -1,104 +1,69 @@
-#![cfg_attr(not(feature = "std"), no_std)]
-#![allow(stable_features)]
+#![no_std]
+#![allow(async_fn_in_trait)]
 #![allow(unknown_lints)]
+#![allow(renamed_and_removed_lints)]
 #![allow(clippy::unused_unit)] // enumset
 #![warn(clippy::large_futures)]
-#![cfg_attr(feature = "nightly", feature(async_fn_in_trait))]
-#![cfg_attr(feature = "nightly", allow(async_fn_in_trait))]
-#![cfg_attr(feature = "nightly", feature(impl_trait_projections))]
 #![cfg_attr(feature = "nightly", feature(doc_cfg))]
 #![cfg_attr(target_arch = "xtensa", feature(asm_experimental_arch))]
 
-#[cfg(all(not(feature = "riscv-ulp-hal"), not(feature = "esp-idf-sys")))]
-compile_error!("Exactly one of the features `esp-idf-sys` or `riscv-ulp-hal` needs to be enabled");
-
-#[cfg(all(not(feature = "riscv-ulp-hal"), not(esp_idf_comp_driver_enabled)))]
+#[cfg(not(esp_idf_comp_driver_enabled))]
 compile_error!("esp-idf-hal requires the `driver` ESP-IDF component to be enabled");
 
-#[cfg(all(
-    any(
-        feature = "std",
-        feature = "alloc",
-        feature = "critical-section-interrupt",
-        feature = "critical-section-mutex"
-    ),
-    feature = "riscv-ulp-hal"
-))]
-compile_error!("Enabling feature `riscv-ulp-hal` implies no other feature is enabled");
-
-#[cfg(all(feature = "riscv-ulp-hal", not(esp32s2)))]
-compile_error!("Feature `riscv-ulp-hal` is currently only supported on esp32s2");
-
+#[cfg(feature = "std")]
+#[allow(unused_imports)]
 #[macro_use]
-pub mod riscv_ulp_hal;
+extern crate std;
+
+#[cfg(feature = "alloc")]
+#[allow(unused_imports)]
+#[macro_use]
+extern crate alloc;
 
 pub mod adc;
-#[cfg(not(feature = "riscv-ulp-hal"))]
 pub mod can;
-#[cfg(not(feature = "riscv-ulp-hal"))]
 pub mod cpu;
-#[cfg(not(feature = "riscv-ulp-hal"))]
 pub mod delay;
 pub mod gpio;
 #[cfg(all(esp32, esp_idf_version_major = "4"))]
 pub mod hall;
-#[cfg(not(feature = "riscv-ulp-hal"))]
 pub mod i2c;
-#[cfg(all(not(feature = "riscv-ulp-hal"), esp_idf_comp_driver_enabled))]
 #[cfg_attr(
     feature = "nightly",
     doc(cfg(all(esp_idf_soc_i2s_supported, esp_idf_comp_driver_enabled)))
 )]
 pub mod i2s;
-#[cfg(not(feature = "riscv-ulp-hal"))]
 pub mod interrupt;
-#[cfg(not(feature = "riscv-ulp-hal"))]
 pub mod io;
-#[cfg(not(feature = "riscv-ulp-hal"))]
 pub mod ledc;
-#[cfg(all(
-    any(all(esp32, esp_idf_eth_use_esp32_emac), esp_idf_eth_use_openeth),
-    not(feature = "riscv-ulp-hal")
-))]
+#[cfg(any(all(esp32, esp_idf_eth_use_esp32_emac), esp_idf_eth_use_openeth))]
 pub mod mac;
-#[cfg(not(feature = "riscv-ulp-hal"))]
 pub mod modem;
-#[cfg(all(not(feature = "riscv-ulp-hal"), any(esp32, esp32s2, esp32s3)))]
+#[cfg(any(esp32, esp32s2, esp32s3))]
 pub mod pcnt;
 pub mod peripheral;
 pub mod peripherals;
 pub mod prelude;
-#[cfg(not(feature = "riscv-ulp-hal"))]
 pub mod reset;
-#[cfg(not(feature = "riscv-ulp-hal"))]
 pub mod rmt;
-#[cfg(not(feature = "riscv-ulp-hal"))]
 pub mod rom;
-#[cfg(not(feature = "riscv-ulp-hal"))]
 pub mod spi;
 pub mod sys;
-#[cfg(not(feature = "riscv-ulp-hal"))]
 pub mod task;
-#[cfg(not(feature = "riscv-ulp-hal"))]
 pub mod timer;
-#[cfg(not(feature = "riscv-ulp-hal"))]
 pub mod uart;
 #[cfg(all(
     any(esp32, esp32s2, esp32s3, esp32c6, esp32p4),
-    not(feature = "riscv-ulp-hal")
+    esp_idf_comp_ulp_enabled
 ))]
 pub mod ulp;
 pub mod units;
-
-#[cfg(feature = "riscv-ulp-hal")]
-pub use crate::riscv_ulp_hal::delay;
 
 // This is used to create `embedded_hal` compatible error structs
 // that preserve original `EspError`.
 //
 // Example:
 // embedded_hal_error!(I2cError, embedded_hal::i2c::Error, embedded_hal::i2c::ErrorKind)
-#[cfg(not(feature = "riscv-ulp-hal"))]
 #[allow(unused_macros)]
 macro_rules! embedded_hal_error {
     ($error:ident, $errortrait:ty, $kind:ty) => {
@@ -145,53 +110,6 @@ macro_rules! embedded_hal_error {
 
         #[cfg(feature = "std")]
         impl std::error::Error for $error {}
-    };
-}
-
-#[cfg(feature = "riscv-ulp-hal")]
-#[allow(unused_macros)]
-macro_rules! embedded_hal_error {
-    ($error:ident, $errortrait:ty, $kind:ty) => {
-        #[derive(Debug, Copy, Clone, Eq, PartialEq)]
-        pub struct $error {
-            kind: $kind,
-            cause: crate::riscv_ulp_hal::sys::EspError,
-        }
-
-        impl $error {
-            pub fn new(kind: $kind, cause: crate::riscv_ulp_hal::sys::EspError) -> Self {
-                Self { kind, cause }
-            }
-            pub fn other(cause: crate::riscv_ulp_hal::sys::EspError) -> Self {
-                Self::new(<$kind>::Other, cause)
-            }
-            pub fn cause(&self) -> crate::riscv_ulp_hal::sys::EspError {
-                self.cause
-            }
-        }
-        impl From<crate::riscv_ulp_hal::sys::EspError> for $error {
-            fn from(e: crate::riscv_ulp_hal::sys::EspError) -> Self {
-                Self::other(e)
-            }
-        }
-
-        impl $errortrait for $error {
-            fn kind(&self) -> $kind {
-                self.kind
-            }
-        }
-
-        impl core::fmt::Display for $error {
-            fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-                write!(
-                    f,
-                    "{} {{ kind: {}, cause: {} }}",
-                    stringify!($error),
-                    self.kind,
-                    self.cause()
-                )
-            }
-        }
     };
 }
 

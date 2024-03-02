@@ -26,15 +26,21 @@ Follow the [Prerequisites](https://github.com/esp-rs/esp-idf-template#prerequisi
 The examples could be built and flashed conveniently with [`cargo-espflash`](https://github.com/esp-rs/espflash/). To run e.g. the `ledc_simple` on an e.g. ESP32-C3:
 (Swap the Rust target and example name with the target corresponding for your ESP32 MCU and with the example you would like to build)
 
-with `cargo-espflash` V2+:
-```
-$ ESP_IDF_VERSION=release/v4.4 cargo espflash flash --target riscv32imc-esp-espidf --example ledc_simple --monitor
+with `cargo-espflash`:
+```sh
+$ MCU=esp32c3 cargo espflash flash --target riscv32imc-esp-espidf --example ledc_simple --monitor
 ```
 
-with older `cargo-espflash`:
-```
-$ ESP_IDF_VERSION=release/v4.4 cargo espflash --target riscv32imc-esp-espidf --example ledc_simple --monitor /dev/ttyUSB0
-```
+| MCU | "--target" |
+| --- | ------ |
+| esp32c2 | riscv32imc-esp-espidf |
+| esp32c3| riscv32imc-esp-espidf |
+| esp32c6| riscv32imac-esp-espidf |
+| esp32h2 | riscv32imac-esp-espidf |
+| esp32p4 | riscv32imafc-esp-espidf |
+| esp32 | xtensa-esp32-espidf |
+| esp32s2 | xtensa-esp32s2-espidf |
+| esp32s3 | xtensa-esp32s3-espidf |
 
 In order to run the examples on other chips you will most likely need to adapt at least the used pins.
 

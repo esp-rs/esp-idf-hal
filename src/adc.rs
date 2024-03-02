@@ -1,20 +1,12 @@
-#[cfg(not(feature = "riscv-ulp-hal"))]
 use esp_idf_sys::*;
 
-#[cfg(feature = "riscv-ulp-hal")]
-use crate::riscv_ulp_hal::sys::*;
-
-#[cfg(not(feature = "riscv-ulp-hal"))]
 use crate::gpio::ADCPin;
 
-#[cfg(not(feature = "riscv-ulp-hal"))]
 use crate::peripheral::{Peripheral, PeripheralRef};
 
-#[cfg(not(feature = "riscv-ulp-hal"))]
 pub type AdcConfig = config::Config;
 
 #[cfg(all(
-    not(feature = "riscv-ulp-hal"),
     not(esp_idf_version_major = "4"),
     not(esp32c2),
     esp_idf_comp_esp_adc_enabled
@@ -30,7 +22,6 @@ pub trait Adc: Send {
 }
 
 // NOTE: Will be changed to an enum once C-style enums are usable as const generics
-#[cfg(not(feature = "riscv-ulp-hal"))]
 pub mod attenuation {
     pub use esp_idf_sys::{
         adc_atten_t, adc_atten_t_ADC_ATTEN_DB_0, adc_atten_t_ADC_ATTEN_DB_11,
@@ -44,7 +35,6 @@ pub mod attenuation {
 }
 
 /// ADC configuration
-#[cfg(not(feature = "riscv-ulp-hal"))]
 pub mod config {
     use esp_idf_sys::*;
 
@@ -119,12 +109,10 @@ pub mod config {
     }
 }
 
-#[cfg(not(feature = "riscv-ulp-hal"))]
 pub struct AdcChannelDriver<'d, const A: adc_atten_t, T: ADCPin> {
     pin: PeripheralRef<'d, T>,
 }
 
-#[cfg(not(feature = "riscv-ulp-hal"))]
 impl<'d, const A: adc_atten_t, T: ADCPin> AdcChannelDriver<'d, A, T> {
     pub fn new(pin: impl Peripheral<P = T> + 'd) -> Result<Self, EspError> {
         crate::into_ref!(pin);
@@ -151,7 +139,6 @@ impl<'d, const A: adc_atten_t, T: ADCPin> AdcChannelDriver<'d, A, T> {
     }
 }
 
-#[cfg(not(feature = "riscv-ulp-hal"))]
 impl<'d, const A: adc_atten_t, T: ADCPin> embedded_hal_0_2::adc::Channel<T::Adc>
     for AdcChannelDriver<'d, A, T>
 {
@@ -162,7 +149,6 @@ impl<'d, const A: adc_atten_t, T: ADCPin> embedded_hal_0_2::adc::Channel<T::Adc>
     }
 }
 
-#[cfg(not(feature = "riscv-ulp-hal"))]
 pub struct AdcDriver<'d, ADC: Adc> {
     _adc: PeripheralRef<'d, ADC>,
     #[allow(dead_code)]
@@ -175,10 +161,8 @@ pub struct AdcDriver<'d, ADC: Adc> {
         Option<[Option<esp_adc_cal_characteristics_t>; adc_atten_t_ADC_ATTEN_DB_11 as usize + 1]>,
 }
 
-#[cfg(not(feature = "riscv-ulp-hal"))]
 unsafe impl<'d, ADC: Adc> Send for AdcDriver<'d, ADC> {}
 
-#[cfg(not(feature = "riscv-ulp-hal"))]
 impl<'d, ADC: Adc> AdcDriver<'d, ADC> {
     #[cfg(all(
         esp32,
@@ -403,7 +387,6 @@ impl<'d, ADC: Adc> AdcDriver<'d, ADC> {
     }
 }
 
-#[cfg(not(feature = "riscv-ulp-hal"))]
 impl<'d, 'c, const A: adc_atten_t, T>
     embedded_hal_0_2::adc::OneShot<T::Adc, u16, AdcChannelDriver<'c, A, T>>
     for AdcDriver<'d, T::Adc>
@@ -418,7 +401,7 @@ where
     }
 }
 
-#[cfg(all(esp32, esp_idf_version_major = "4", not(feature = "riscv-ulp-hal")))]
+#[cfg(all(esp32, esp_idf_version_major = "4"))]
 impl<'d> embedded_hal_0_2::adc::OneShot<ADC1, u16, crate::hall::HallSensor>
     for AdcDriver<'d, ADC1>
 {
@@ -429,7 +412,6 @@ impl<'d> embedded_hal_0_2::adc::OneShot<ADC1, u16, crate::hall::HallSensor>
     }
 }
 
-#[cfg(not(feature = "riscv-ulp-hal"))]
 fn to_nb_err(err: EspError) -> nb::Error<EspError> {
     if err.code() == ESP_ERR_INVALID_STATE {
         nb::Error::WouldBlock
@@ -455,11 +437,7 @@ impl_adc!(ADC1: adc_unit_t_ADC_UNIT_1);
 #[cfg(not(any(esp32c2, esp32h2, esp32c5, esp32c6, esp32p4)))] // TODO: Check for esp32c5 and esp32p4
 impl_adc!(ADC2: adc_unit_t_ADC_UNIT_2);
 
-#[cfg(all(
-    not(feature = "riscv-ulp-hal"),
-    not(esp_idf_version_major = "4"),
-    esp_idf_comp_esp_adc_enabled
-))]
+#[cfg(all(not(esp_idf_version_major = "4"), esp_idf_comp_esp_adc_enabled))]
 pub mod oneshot {
     use core::borrow::Borrow;
 
@@ -787,7 +765,6 @@ pub mod oneshot {
 }
 
 #[cfg(all(
-    not(feature = "riscv-ulp-hal"),
     not(esp_idf_version_major = "4"),
     not(esp32c2),
     esp_idf_comp_esp_adc_enabled
@@ -1323,6 +1300,7 @@ pub mod continuous {
 
             esp!(unsafe { adc_continuous_deinit(self.handle) }).unwrap();
 
+            #[cfg(not(esp_idf_adc_continuous_isr_iram_safe))]
             NOTIFIER[self.adc as usize].reset();
         }
     }
@@ -1339,7 +1317,6 @@ pub mod continuous {
         }
     }
 
-    #[cfg(feature = "nightly")]
     #[cfg(not(esp_idf_adc_continuous_isr_iram_safe))]
     impl<'d> embedded_io_async::Read for AdcDriver<'d> {
         async fn read(&mut self, buf: &mut [u8]) -> Result<usize, Self::Error> {

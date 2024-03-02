@@ -216,6 +216,9 @@ pub mod config {
         /// UART source clock from `XTAL`
         #[cfg(esp_idf_soc_uart_support_xtal_clk)]
         Crystal,
+        /// UART source clock from `XTAL`
+        #[cfg(esp_idf_soc_uart_support_pll_f80m_clk)]
+        PLL_F80M,
         /// UART source clock from `REF_TICK`
         #[cfg(esp_idf_soc_uart_support_ref_tick)]
         RefTick,
@@ -242,6 +245,8 @@ pub mod config {
                 RTC_SCLK => SourceClock::RTC,
                 #[cfg(esp_idf_soc_uart_support_xtal_clk)]
                 XTAL_SCLK => SourceClock::Crystal,
+                #[cfg(esp_idf_soc_uart_support_pll_f80m_clk)]
+                PLL_F80M => SourceClock::PLL_F80M,
                 #[cfg(esp_idf_soc_uart_support_ref_tick)]
                 REF_TICK_SCLK => SourceClock::RefTick,
                 _ => unreachable!(),
@@ -279,6 +284,14 @@ pub mod config {
     #[cfg(all(esp_idf_version_major = "4", esp_idf_soc_uart_support_xtal_clk))]
     const XTAL_SCLK: uart_sclk_t = uart_sclk_t_UART_SCLK_XTAL;
 
+    #[cfg(all(
+        not(esp_idf_version_major = "4"),
+        esp_idf_soc_uart_support_pll_f80m_clk
+    ))]
+    const PLL_F80M_SCLK: uart_sclk_t = soc_periph_uart_clk_src_legacy_t_UART_SCLK_PLL_F80M;
+    #[cfg(all(esp_idf_version_major = "4", esp_idf_soc_uart_support_pll_f80m_clk))]
+    const PLL_F80M_SCLK: uart_sclk_t = uart_sclk_t_UART_SCLK_PLL_F80M;
+
     #[cfg(all(not(esp_idf_version_major = "4"), esp_idf_soc_uart_support_ref_tick))]
     const REF_TICK_SCLK: uart_sclk_t = soc_periph_uart_clk_src_legacy_t_UART_SCLK_REF_TICK;
     #[cfg(all(esp_idf_version_major = "4", esp_idf_soc_uart_support_ref_tick))]
@@ -303,6 +316,8 @@ pub mod config {
                 SourceClock::RTC => RTC_SCLK,
                 #[cfg(esp_idf_soc_uart_support_xtal_clk)]
                 SourceClock::Crystal => XTAL_SCLK,
+                #[cfg(esp_idf_soc_uart_support_pll_f80m_clk)]
+                SourceClock::PLL_F80M => PLL_F80M_SCLK,
                 #[cfg(esp_idf_soc_uart_support_ref_tick)]
                 SourceClock::RefTick => REF_TICK_SCLK,
             }
@@ -1455,8 +1470,11 @@ where
                     _ => (),
                 }
 
-                let port = self.driver.borrow().port as usize;
-                WRITE_NOTIFS[port].wait().await;
+                // We cannot properly wait for the TX FIFO queue to become non-full
+                // because the ESP IDF UART ISR does not notify us on that
+                //
+                // Instead, spin a busy loop, however still allowing other futures to be polled too.
+                crate::task::yield_now().await;
             }
         }
     }
@@ -1471,11 +1489,17 @@ where
                 _ => (),
             }
 
-            let port = self.driver.borrow().port as usize;
-            TX_NOTIFS[port].wait().await;
+            // We cannot properly wait for the TX FIFO queue to become empty
+            // because the ESP IDF UART ISR does not notify us on that
+            //
+            // Instead, spin a busy loop, however still allowing other futures to be polled too.
+            crate::task::yield_now().await;
         }
     }
 }
+
+unsafe impl<'d, T> Send for AsyncUartDriver<'d, T> where T: BorrowMut<UartDriver<'d>> + Send {}
+unsafe impl<'d, T> Sync for AsyncUartDriver<'d, T> where T: BorrowMut<UartDriver<'d>> + Send + Sync {}
 
 impl<'d, T> Drop for AsyncUartDriver<'d, T>
 where
@@ -1493,7 +1517,6 @@ where
     type Error = EspIOError;
 }
 
-#[cfg(feature = "nightly")]
 impl<'d, T> embedded_io_async::Read for AsyncUartDriver<'d, T>
 where
     T: BorrowMut<UartDriver<'d>>,
@@ -1503,7 +1526,6 @@ where
     }
 }
 
-#[cfg(feature = "nightly")]
 impl<'d, T> embedded_io_async::Write for AsyncUartDriver<'d, T>
 where
     T: BorrowMut<UartDriver<'d>>,
@@ -1613,7 +1635,6 @@ where
     type Error = EspIOError;
 }
 
-#[cfg(feature = "nightly")]
 impl<'d, T> embedded_io_async::Read for AsyncUartRxDriver<'d, T>
 where
     T: BorrowMut<UartRxDriver<'d>>,
@@ -1692,8 +1713,11 @@ where
                     _ => (),
                 }
 
-                let port = self.driver.borrow().port as usize;
-                WRITE_NOTIFS[port].wait().await;
+                // We cannot properly wait for the TX FIFO queue to become non-full
+                // because the ESP IDF UART ISR does not notify us on that
+                //
+                // Instead, spin a busy loop, however still allowing other futures to be polled too.
+                crate::task::yield_now().await;
             }
         }
     }
@@ -1708,8 +1732,11 @@ where
                 _ => (),
             }
 
-            let port = self.driver.borrow().port as usize;
-            TX_NOTIFS[port].wait().await;
+            // We cannot properly wait for the TX FIFO queue to become empty
+            // because the ESP IDF UART ISR does not notify us on that
+            //
+            // Instead, spin a busy loop, however still allowing other futures to be polled too.
+            crate::task::yield_now().await;
         }
     }
 }
@@ -1732,7 +1759,6 @@ where
     type Error = EspIOError;
 }
 
-#[cfg(feature = "nightly")]
 impl<'d, T> embedded_io_async::Write for AsyncUartTxDriver<'d, T>
 where
     T: BorrowMut<UartTxDriver<'d>>,

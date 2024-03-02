@@ -1,12 +1,9 @@
 use core::cell::Cell;
-#[cfg(feature = "alloc")]
 use core::future::Future;
 use core::num::NonZeroU32;
-#[cfg(feature = "alloc")]
-use core::pin::pin;
+use core::pin::Pin;
 use core::ptr::{self, NonNull};
 use core::sync::atomic::{AtomicBool, Ordering};
-#[cfg(feature = "alloc")]
 use core::task::{Context, Poll};
 
 #[cfg(feature = "alloc")]
@@ -22,7 +19,7 @@ use crate::interrupt;
     esp_idf_version = "5.0",
     esp_idf_version = "5.1"
 )))]
-const NO_AFFINITY: core::ffi::c_int = -1;
+const NO_AFFINITY: core::ffi::c_int = CONFIG_FREERTOS_NO_AFFINITY as _;
 
 #[cfg(any(
     esp_idf_version_major = "4",
@@ -262,7 +259,7 @@ where
 
     let notification = notification::Notification::new();
 
-    let mut fut = pin!(fut);
+    let mut fut = core::pin::pin!(fut);
 
     let waker = notification.notifier().into();
 
@@ -278,6 +275,46 @@ where
     ::log::trace!("block_on(): finished");
 
     res
+}
+
+/// Yield from the current task once, allowing other tasks to run.
+///
+/// This can be used to easily and quickly implement simple async primitives
+/// without using wakers. The following snippet will wait for a condition to
+/// hold, while still allowing other tasks to run concurrently (not monopolizing
+/// the executor thread).
+///
+/// ```rust,no_run
+/// while !some_condition() {
+///     yield_now().await;
+/// }
+/// ```
+///
+/// The downside is this will spin in a busy loop, using 100% of the CPU, while
+/// using wakers correctly would allow the CPU to sleep while waiting.
+///
+/// The internal implementation is: on first poll the future wakes itself and
+/// returns `Poll::Pending`. On second poll, it returns `Poll::Ready`.
+pub fn yield_now() -> impl Future<Output = ()> {
+    YieldNowFuture { yielded: false }
+}
+
+#[must_use = "futures do nothing unless you `.await` or poll them"]
+struct YieldNowFuture {
+    yielded: bool,
+}
+
+impl Future for YieldNowFuture {
+    type Output = ();
+    fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+        if self.yielded {
+            Poll::Ready(())
+        } else {
+            self.yielded = true;
+            cx.waker().wake_by_ref();
+            Poll::Pending
+        }
+    }
 }
 
 #[cfg(esp_idf_comp_pthread_enabled)]
@@ -487,15 +524,12 @@ impl<'a> Drop for CriticalSectionGuard<'a> {
     }
 }
 
-#[cfg(all(
-    not(feature = "riscv-ulp-hal"),
-    any(
-        all(
-            not(any(esp_idf_version_major = "4", esp_idf_version = "5.0")),
-            esp_idf_esp_task_wdt_en
-        ),
-        any(esp_idf_version_major = "4", esp_idf_version = "5.0")
-    )
+#[cfg(any(
+    all(
+        not(any(esp_idf_version_major = "4", esp_idf_version = "5.0")),
+        esp_idf_esp_task_wdt_en
+    ),
+    any(esp_idf_version_major = "4", esp_idf_version = "5.0")
 ))]
 pub mod watchdog {
     //! ## Example
@@ -803,8 +837,8 @@ pub mod embassy_sync {
 
 #[cfg(all(feature = "alloc", target_has_atomic = "ptr"))]
 pub mod notification {
+    use core::marker::PhantomData;
     use core::num::NonZeroU32;
-    use core::ptr;
     use core::sync::atomic::{AtomicPtr, Ordering};
 
     extern crate alloc;
@@ -821,13 +855,13 @@ pub mod notification {
     #[cfg(not(esp_idf_version_major = "4"))]
     type Task = esp_idf_sys::tskTaskControlBlock;
 
-    pub struct Notification(Arc<Notifier>, *const ());
+    pub struct Notification(Arc<Notifier>, PhantomData<*const ()>);
 
     impl Notification {
         pub fn new() -> Self {
             Self(
                 Arc::new(Notifier(AtomicPtr::new(task::current().unwrap()))),
-                ptr::null(),
+                PhantomData,
             )
         }
 
