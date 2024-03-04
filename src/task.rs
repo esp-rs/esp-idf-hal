@@ -816,6 +816,12 @@ pub mod embassy_sync {
     unsafe impl Send for EspRawMutex {}
     unsafe impl Sync for EspRawMutex {}
 
+    impl Default for EspRawMutex {
+        fn default() -> Self {
+            Self::new()
+        }
+    }
+
     impl EspRawMutex {
         /// Create a new `EspRawMutex`.
         pub const fn new() -> Self {
@@ -1216,6 +1222,12 @@ pub mod asynch {
     pub struct Notification {
         waker: AtomicWaker,
         notified: AtomicU32,
+    }
+
+    impl Default for Notification {
+        fn default() -> Self {
+            Self::new()
+        }
     }
 
     impl Notification {
