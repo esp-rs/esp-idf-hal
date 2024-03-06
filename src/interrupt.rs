@@ -603,6 +603,12 @@ pub mod asynch {
         inner: Notification,
     }
 
+    impl Default for HalIsrNotification {
+        fn default() -> Self {
+            Self::new()
+        }
+    }
+
     impl HalIsrNotification {
         /// Creates a new `HalIsrNotification`.
         /// This method is safe to call from an ISR context, yet such use cases should not normally occur in practice.

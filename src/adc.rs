@@ -940,6 +940,12 @@ pub mod continuous {
     #[repr(transparent)]
     pub struct AdcMeasurement(adc_digi_output_data_t);
 
+    impl Default for AdcMeasurement {
+        fn default() -> Self {
+            Self::new()
+        }
+    }
+
     impl AdcMeasurement {
         pub const INIT: Self = AdcMeasurement(unsafe {
             core::mem::transmute([0u8; core::mem::size_of::<adc_digi_output_data_t>()])
