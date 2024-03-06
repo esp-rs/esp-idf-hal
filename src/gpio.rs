@@ -1656,6 +1656,7 @@ mod chip {
     pin!(Gpio17:17, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
     pin!(Gpio18:18, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
     pin!(Gpio19:19, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
+    pin!(Gpio20:20, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
     pin!(Gpio21:21, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
     pin!(Gpio22:22, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
     pin!(Gpio23:23, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
@@ -1692,6 +1693,7 @@ mod chip {
         pub gpio17: Gpio17,
         pub gpio18: Gpio18,
         pub gpio19: Gpio19,
+        pub gpio20: Gpio20,
         pub gpio21: Gpio21,
         pub gpio22: Gpio22,
         pub gpio23: Gpio23,
@@ -1735,6 +1737,7 @@ mod chip {
                 gpio17: Gpio17::new(),
                 gpio18: Gpio18::new(),
                 gpio19: Gpio19::new(),
+                gpio20: Gpio20::new(),
                 gpio21: Gpio21::new(),
                 gpio22: Gpio22::new(),
                 gpio23: Gpio23::new(),
