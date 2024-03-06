@@ -596,16 +596,16 @@ impl<'d> TxRmtDriver<'d> {
     }
 
     /// Start sending the given signal while blocking.
-    pub fn start_blocking<S: ?Sized>(&mut self, signal: &S) -> Result<(), EspError>
+    pub fn start_blocking<S>(&mut self, signal: &S) -> Result<(), EspError>
     where
-        S: Signal,
+        S: Signal + ?Sized,
     {
         self.write_items(signal, true)
     }
 
-    fn write_items<S: ?Sized>(&mut self, signal: &S, block: bool) -> Result<(), EspError>
+    fn write_items<S>(&mut self, signal: &S, block: bool) -> Result<(), EspError>
     where
-        S: Signal,
+        S: Signal + ?Sized,
     {
         let items = signal.as_slice();
         esp!(unsafe { rmt_write_items(self.channel(), items.as_ptr(), items.len() as i32, block) })
@@ -777,6 +777,7 @@ unsafe impl<'d> Send for TxRmtDriver<'d> {}
 /// and space (low) periods in either order or a fixed level if both
 /// halves have the same [`PinState`]. This is just a newtype over the
 /// IDF's `rmt_item32_t` or `rmt_symbol_word_t` type.
+#[derive(Clone, Copy)]
 pub struct Symbol(rmt_item32_t);
 
 impl Symbol {
