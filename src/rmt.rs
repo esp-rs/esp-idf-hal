@@ -777,6 +777,7 @@ unsafe impl<'d> Send for TxRmtDriver<'d> {}
 /// and space (low) periods in either order or a fixed level if both
 /// halves have the same [`PinState`]. This is just a newtype over the
 /// IDF's `rmt_item32_t` or `rmt_symbol_word_t` type.
+#[derive(Clone, Copy)]
 pub struct Symbol(rmt_item32_t);
 
 impl Symbol {
