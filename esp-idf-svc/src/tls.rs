@@ -120,6 +120,8 @@ impl<'a> Debug for X509<'a> {
     any(esp_idf_esp_tls_using_mbedtls, esp_idf_esp_tls_using_wolfssl)
 ))]
 mod esptls {
+    #[cfg(esp_idf_esp_tls_server_cert_select_hook)]
+    use core::ffi::c_int;
     use core::task::{Context, Poll};
     use core::time::Duration;
 
@@ -300,8 +302,90 @@ mod esptls {
         pub hint: &'a CStr,
     }
 
+    #[cfg(esp_idf_esp_tls_server)]
+    pub struct ServerConfig<'a> {
+        /// up to 9 ALPNs allowed, with avg 10 bytes for each name
+        pub alpn_protos: Option<&'a [&'a str]>,
+        pub ca_cert: Option<X509<'a>>,
+        pub server_cert: Option<X509<'a>>,
+        pub server_key: Option<X509<'a>>,
+        pub server_key_password: Option<&'a str>,
+        pub use_secure_element: bool,
+        #[cfg(esp_idf_esp_tls_server_cert_select_hook)]
+        pub handshake_callback: Option<extern "C" fn(*mut sys::mbedtls_ssl_context) -> c_int>,
+    }
+
+    #[cfg(esp_idf_esp_tls_server)]
+    impl<'a> ServerConfig<'a> {
+        pub const fn new() -> Self {
+            Self {
+                alpn_protos: None,
+                ca_cert: None,
+                server_cert: None,
+                server_key: None,
+                server_key_password: None,
+                use_secure_element: false,
+                #[cfg(esp_idf_esp_tls_server_cert_select_hook)]
+                handshake_callback: None,
+            }
+        }
+
+        fn try_into_raw(
+            &self,
+            bufs: &mut RawConfigBufs,
+        ) -> Result<sys::esp_tls_cfg_server, EspError> {
+            let mut rcfg: sys::esp_tls_cfg_server = Default::default();
+
+            if let Some(ca_cert) = self.ca_cert {
+                rcfg.__bindgen_anon_1.cacert_buf = ca_cert.data().as_ptr();
+                rcfg.__bindgen_anon_2.cacert_bytes = ca_cert.data().len() as u32;
+            }
+
+            if let Some(server_cert) = self.server_cert {
+                rcfg.__bindgen_anon_3.servercert_buf = server_cert.data().as_ptr();
+                rcfg.__bindgen_anon_4.servercert_bytes = server_cert.data().len() as u32;
+            }
+
+            if let Some(server_key) = self.server_key {
+                rcfg.__bindgen_anon_5.serverkey_buf = server_key.data().as_ptr();
+                rcfg.__bindgen_anon_6.serverkey_bytes = server_key.data().len() as u32;
+            }
+
+            if let Some(ckp) = self.server_key_password {
+                rcfg.serverkey_password = ckp.as_ptr();
+                rcfg.serverkey_password_len = ckp.len() as u32;
+            }
+
+            // allow up to 9 protocols
+            if let Some(protos) = self.alpn_protos {
+                bufs.alpn_protos = cstr_arr_from_str_slice(protos, &mut bufs.alpn_protos_cbuf)?;
+                rcfg.alpn_protos = bufs.alpn_protos.as_mut_ptr();
+            }
+
+            rcfg.use_secure_element = self.use_secure_element;
+
+            #[cfg(esp_idf_esp_tls_server_cert_select_hook)]
+            if let Some(cb) = self.handshake_callback {
+                rcfg.cert_select_cb = cb;
+            }
+
+            Ok(rcfg)
+        }
+    }
+
+    #[cfg(esp_idf_esp_tls_server)]
+    impl<'a> Default for ServerConfig<'a> {
+        fn default() -> Self {
+            Self::new()
+        }
+    }
+
     pub trait Socket {
+        /// Returns the integer FD.
         fn handle(&self) -> i32;
+        /// This is called before cleaning up the the tls context and is responsible
+        /// for essentially giving up ownership of the socket such that it can safely
+        /// be closed by the ESP IDF.
         fn release(&mut self) -> Result<(), EspError>;
     }
 
@@ -329,6 +413,8 @@ mod esptls {
     {
         raw: *mut sys::esp_tls,
         socket: S,
+        #[cfg(esp_idf_esp_tls_server)]
+        server_session: bool,
     }
 
     impl EspTls<InternalSocket> {
@@ -343,6 +429,8 @@ mod esptls {
                 Ok(Self {
                     raw,
                     socket: InternalSocket(()),
+                    #[cfg(esp_idf_esp_tls_server)]
+                    server_session: false,
                 })
             } else {
                 Err(EspError::from_infallible::<ESP_ERR_NO_MEM>())
@@ -395,7 +483,12 @@ mod esptls {
                     sys::esp_tls_set_conn_state(raw, sys::esp_tls_conn_state_ESP_TLS_CONNECTING)
                 })?;
 
-                Ok(Self { raw, socket })
+                Ok(Self {
+                    raw,
+                    socket,
+                    #[cfg(esp_idf_esp_tls_server)]
+                    server_session: false,
+                })
             } else {
                 Err(EspError::from_infallible::<ESP_ERR_NO_MEM>())
             }
@@ -425,6 +518,33 @@ mod esptls {
             drop(bufs);
 
             res
+        }
+
+        /// Establish a TLS/SSL connection using the adopted connection, acting as the server.
+        ///
+        /// # Errors
+        ///
+        /// * `ESP_FAIL` if connection could not be established
+        #[cfg(esp_idf_esp_tls_server)]
+        pub fn negotiate_server(&mut self, cfg: &ServerConfig) -> Result<(), EspError> {
+            let mut bufs = RawConfigBufs::default();
+            let mut rcfg = cfg.try_into_raw(&mut bufs)?;
+
+            unsafe {
+                let error =
+                    sys::esp_tls_server_session_create(&mut rcfg, self.socket.handle(), self.raw);
+                if error != 0 {
+                    log::error!("failed to create tls server session (error {error})");
+                    return Err(EspError::from_infallible::<ESP_FAIL>());
+                }
+            }
+            self.server_session = true;
+
+            // Make sure buffers are held long enough
+            #[allow(clippy::drop_non_drop)]
+            drop(bufs);
+
+            Ok(())
         }
 
         #[allow(clippy::unnecessary_cast)]
@@ -551,6 +671,10 @@ mod esptls {
 
             unsafe { sys::esp_tls_conn_write(self.raw, buf.as_ptr() as *const c_void, buf.len()) }
         }
+
+        pub fn context_handle(&self) -> *mut sys::esp_tls {
+            self.raw
+        }
     }
 
     impl<S> Drop for EspTls<S>
@@ -561,6 +685,7 @@ mod esptls {
             let _ = self.socket.release();
 
             unsafe {
+                // use esp_tls_conn_destroy for both client and server
                 sys::esp_tls_conn_destroy(self.raw);
             }
         }
@@ -667,6 +792,19 @@ mod esptls {
             res
         }
 
+        // TODO: Create upstream support for async server negotiation
+        // Establish a TLS/SSL connection using the adopted connection, acting as the server.
+        //
+        // # Errors
+        //
+        // * `ESP_FAIL` if connection could not be established
+        // #[cfg(esp_idf_esp_tls_server)]
+        // pub async fn negotiate_server(&mut self, cfg: &ServerConfig<'_>) -> Result<(), EspError> {
+        //     // FIXME: this isn't actually async, but esp-idf does not expose anything else.
+        //     // we would have to use various hacks to call mbedtls_ssl_handshake by ourself
+        //     self.0.borrow_mut().negotiate_server(cfg)
+        // }
+
         /// Read in the supplied buffer. Returns the number of bytes read.
         pub async fn read(&self, buf: &mut [u8]) -> Result<usize, EspError> {
             loop {
@@ -730,6 +868,10 @@ mod esptls {
             }
 
             Ok(())
+        }
+
+        pub fn context_handle(&self) -> *mut sys::esp_tls {
+            self.0.borrow().context_handle()
         }
     }
 
