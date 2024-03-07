@@ -265,9 +265,17 @@
 #include "esp_adc/adc_continuous.h"
 #endif
 #include "driver/twai.h"
+
 #if defined(CONFIG_IDF_TARGET_ESP32) || defined(CONFIG_IDF_TARGET_ESP32S2)
 #include "driver/dac.h"
+#if ESP_IDF_VERSION_MAJOR > 5 ||                                               \
+    ESP_IDF_VERSION_MAJOR == 5 && ESP_IDF_VERSION_MINOR >= 1
+#include "driver/dac_continuous.h"
+#include "driver/dac_cosine.h"
+#include "driver/dac_oneshot.h"
 #endif
+#endif
+
 #include "driver/gpio.h"
 #if ESP_IDF_VERSION_MAJOR > 4
 #include "driver/gptimer.h"
