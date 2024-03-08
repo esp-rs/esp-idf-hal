@@ -12,7 +12,7 @@ license = "MIT OR Apache-2.0"
 readme = "README.md"
 links = "esp_idf_svc"
 build = "build.rs"
-documentation = "https://esp-rs.github.io/esp-idf-svc/"
+documentation = "https://docs.esp-rs.org/esp-idf-svc/"
 rust-version = "1.75"
 
 [features]
