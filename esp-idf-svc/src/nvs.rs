@@ -157,15 +157,14 @@ impl NvsEncrypted {
             None
         };
 
-        let c_key_partition = c_key_partition
-            .map(|p| p.as_ptr())
-            .unwrap_or(core::ptr::null());
-
         let keys_partition_ptr = unsafe {
             esp_partition_find_first(
                 esp_partition_type_t_ESP_PARTITION_TYPE_DATA,
                 esp_partition_subtype_t_ESP_PARTITION_SUBTYPE_DATA_NVS_KEYS,
-                c_key_partition,
+                match c_key_partition {
+                    Some(ref v) => v.as_ptr(),
+                    None => core::ptr::null(),
+                },
             )
         };
 
