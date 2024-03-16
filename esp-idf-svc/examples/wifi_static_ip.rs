@@ -89,6 +89,7 @@ fn configure_wifi(wifi: WifiDriver) -> anyhow::Result<EspWifi> {
         auth_method: AuthMethod::WPA2Personal,
         password: PASSWORD.try_into().unwrap(),
         channel: None,
+        ..Default::default()
     });
     wifi.set_configuration(&wifi_configuration)?;
 

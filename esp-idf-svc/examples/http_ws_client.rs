@@ -136,6 +136,7 @@ emyPxgcYxn/eR44/KJ4EBs+lVDR3veyJm+kXQ99b21/+jh5Xos1AnX5iItreGCc=
             auth_method: AuthMethod::WPA2Personal,
             password: PASSWORD.try_into().unwrap(),
             channel: None,
+            ..Default::default()
         });
 
         wifi.set_configuration(&wifi_configuration)?;

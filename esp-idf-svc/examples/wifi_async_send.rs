@@ -60,6 +60,7 @@ async fn connect_wifi() -> anyhow::Result<AsyncWifi<EspWifi<'static>>> {
         auth_method: AuthMethod::WPA2Personal,
         password: PASSWORD.try_into().unwrap(),
         channel: None,
+        ..Default::default()
     });
 
     wifi.set_configuration(&wifi_configuration)?;

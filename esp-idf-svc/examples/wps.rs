@@ -49,6 +49,7 @@ fn main() -> anyhow::Result<()> {
                 auth_method: AuthMethod::WPA2Personal,
                 password: credentials[1].passphrase.clone(),
                 channel: None,
+                ..Default::default()
             });
             wifi.set_configuration(&wifi_configuration)?;
         }

@@ -35,7 +35,7 @@ use crate::timer::EspTaskTimerService;
 
 pub use embedded_svc::wifi::{
     AccessPointConfiguration, AccessPointInfo, AuthMethod, Capability, ClientConfiguration,
-    Configuration, Protocol, SecondaryChannel,
+    Configuration, PmfConfiguration, Protocol, ScanMethod, ScanSortMethod, SecondaryChannel,
 };
 
 pub mod config {
@@ -168,12 +168,24 @@ impl TryFrom<&ClientConfiguration> for Newtype<wifi_sta_config_t> {
         let mut result = wifi_sta_config_t {
             ssid: [0; 32],
             password: [0; 64],
-            scan_method: wifi_scan_method_t_WIFI_ALL_CHANNEL_SCAN,
+            scan_method: match conf.scan_method {
+                ScanMethod::CompleteScan(_) => wifi_scan_method_t_WIFI_ALL_CHANNEL_SCAN,
+                ScanMethod::FastScan => wifi_scan_method_t_WIFI_FAST_SCAN,
+                _ => wifi_scan_method_t_WIFI_ALL_CHANNEL_SCAN,
+            },
             bssid_set: conf.bssid.is_some(),
             bssid,
             channel: conf.channel.unwrap_or(0u8),
             listen_interval: 0,
-            sort_method: wifi_sort_method_t_WIFI_CONNECT_AP_BY_SIGNAL,
+            sort_method: match conf.scan_method {
+                ScanMethod::CompleteScan(ScanSortMethod::Signal) => {
+                    wifi_sort_method_t_WIFI_CONNECT_AP_BY_SIGNAL
+                }
+                ScanMethod::CompleteScan(ScanSortMethod::Security) => {
+                    wifi_sort_method_t_WIFI_CONNECT_AP_BY_SECURITY
+                }
+                _ => wifi_sort_method_t_WIFI_CONNECT_AP_BY_SIGNAL,
+            },
             threshold: wifi_scan_threshold_t {
                 rssi: -127,
                 authmode: Newtype::<wifi_auth_mode_t>::from(conf.auth_method).0,
@@ -207,6 +219,30 @@ impl From<Newtype<wifi_sta_config_t>> for ClientConfiguration {
                 Some(conf.0.channel)
             } else {
                 None
+            },
+            #[allow(non_upper_case_globals)]
+            scan_method: match conf.0.scan_method {
+                wifi_scan_method_t_WIFI_FAST_SCAN => ScanMethod::FastScan,
+                wifi_scan_method_t_WIFI_ALL_CHANNEL_SCAN => match conf.0.sort_method {
+                    wifi_sort_method_t_WIFI_CONNECT_AP_BY_SIGNAL => {
+                        ScanMethod::CompleteScan(ScanSortMethod::Signal)
+                    }
+                    wifi_sort_method_t_WIFI_CONNECT_AP_BY_SECURITY => {
+                        ScanMethod::CompleteScan(ScanSortMethod::Security)
+                    }
+                    _ => ScanMethod::default(),
+                },
+                _ => ScanMethod::default(),
+            },
+            pmf_cfg: match conf.0.pmf_cfg {
+                wifi_pmf_config_t {
+                    capable: false,
+                    required: _,
+                } => PmfConfiguration::NotCapable,
+                wifi_pmf_config_t {
+                    capable: true,
+                    required,
+                } => PmfConfiguration::Capable { required },
             },
         }
     }

@@ -48,6 +48,9 @@ esp-idf-hal = { version = "0.43", default-features = false }
 embassy-time-driver = { version = "0.1", optional = true, features = ["tick-hz-1_000_000"] }
 embassy-futures = "0.1"
 
+[patch.crates-io]
+embedded-svc = { git = "https://github.com/esp-rs/embedded-svc.git" }
+
 [build-dependencies]
 embuild = "0.31.3"
 
