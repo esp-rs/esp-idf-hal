@@ -192,6 +192,8 @@ pub struct EspWebSocketClientConfig<'a> {
     pub disable_pingpong_discon: bool,
     pub use_global_ca_store: bool,
     pub skip_cert_common_name_check: bool,
+    #[cfg(not(esp_idf_version_major = "4"))]
+    pub crt_bundle_attach: Option<unsafe extern "C" fn(conf: *mut ffi::c_void) -> esp_err_t>,
     pub keep_alive_idle: Option<time::Duration>,
     pub keep_alive_interval: Option<time::Duration>,
     pub keep_alive_count: Option<u16>,
@@ -233,6 +235,8 @@ impl<'a> TryFrom<&'a EspWebSocketClientConfig<'a>> for (esp_websocket_client_con
 
             use_global_ca_store: conf.use_global_ca_store,
             skip_cert_common_name_check: conf.skip_cert_common_name_check,
+            #[cfg(not(esp_idf_version_major = "4"))]
+            crt_bundle_attach: conf.crt_bundle_attach,
 
             ping_interval_sec: conf.ping_interval_sec.as_secs() as _,
 
