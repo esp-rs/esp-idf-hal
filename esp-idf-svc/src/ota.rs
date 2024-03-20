@@ -240,19 +240,28 @@ impl EspOta {
     }
 
     pub fn get_boot_slot(&self) -> Result<Slot, EspError> {
-        self.get_slot(unsafe { esp_ota_get_boot_partition().as_ref().unwrap() })
+        if let Some(partition) = unsafe { esp_ota_get_boot_partition().as_ref() } {
+            self.get_slot(partition)
+        } else {
+            Err(EspError::from_infallible::<ESP_ERR_NOT_FOUND>())
+        }
     }
 
     pub fn get_running_slot(&self) -> Result<Slot, EspError> {
-        self.get_slot(unsafe { esp_ota_get_running_partition().as_ref().unwrap() })
+        if let Some(partition) = unsafe { esp_ota_get_running_partition().as_ref() } {
+            self.get_slot(partition)
+        } else {
+            Err(EspError::from_infallible::<ESP_ERR_NOT_FOUND>())
+        }
     }
 
     pub fn get_update_slot(&self) -> Result<Slot, EspError> {
-        self.get_slot(unsafe {
-            esp_ota_get_next_update_partition(ptr::null())
-                .as_ref()
-                .unwrap()
-        })
+        if let Some(partition) = unsafe { esp_ota_get_next_update_partition(ptr::null()).as_ref() }
+        {
+            self.get_slot(partition)
+        } else {
+            Err(EspError::from_infallible::<ESP_ERR_NOT_FOUND>())
+        }
     }
 
     pub fn get_last_invalid_slot(&self) -> Result<Option<Slot>, EspError> {
