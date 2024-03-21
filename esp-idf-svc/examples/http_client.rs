@@ -37,7 +37,20 @@ fn main() -> anyhow::Result<()> {
 
     connect_wifi(&mut wifi)?;
 
-    // Create HTTP(S) client
+    // Create HTTP client
+    //
+    // Note: To send a request to an HTTPS server, you can do:
+    //
+    // ```
+    // use esp_idf_svc::http::client::{Configuration as HttpConfiguration, EspHttpConnection};
+    //
+    // let config = &HttpConfiguration {
+    //     crt_bundle_attach: Some(esp_idf_svc::sys::esp_crt_bundle_attach),
+    //     ..Default::default()
+    // };
+    //
+    // let mut client = HttpClient::wrap(EspHttpConnection::new(&config)?);
+    // ```
     let mut client = HttpClient::wrap(EspHttpConnection::new(&Default::default())?);
 
     // GET
