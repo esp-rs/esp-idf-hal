@@ -1835,6 +1835,14 @@ impl<'d> NetifStatus for EspWifi<'d> {
 #[repr(transparent)]
 pub struct WpsCredentialsRef(wifi_event_sta_wps_er_success_t__bindgen_ty_1);
 
+#[derive(Copy, Clone)]
+#[repr(transparent)]
+pub struct ApStaConnectedRef(wifi_event_ap_staconnected_t);
+
+#[derive(Copy, Clone)]
+#[repr(transparent)]
+pub struct ApStaDisconnectedRef(wifi_event_ap_stadisconnected_t);
+
 #[cfg(not(any(
     esp_idf_version_major = "4",
     all(
@@ -1931,6 +1939,76 @@ impl TryFrom<&WpsCredentialsRef> for WpsCredentials {
     }
 }
 
+impl ApStaConnectedRef {
+    /// MAC address of the station connected to ESP32 soft-AP
+    pub fn mac(&self) -> [u8; 6] {
+        self.0.mac
+    }
+
+    /// the aid that ESP32 soft-AP gives to the station connected to
+    pub fn aid(&self) -> u8 {
+        self.0.aid
+    }
+
+    /// flag to identify mesh child
+    pub fn is_mesh_child(&self) -> bool {
+        self.0.is_mesh_child
+    }
+}
+
+impl fmt::Debug for ApStaConnectedRef {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("ApStaConnectedRef")
+            .field("mac", &self.mac())
+            .field("aid", &self.aid())
+            .field("is_mesh_child", &self.is_mesh_child())
+            .finish()
+    }
+}
+
+impl ApStaDisconnectedRef {
+    /// MAC address of the station disconnects to ESP32 soft-AP
+    pub fn mac(&self) -> [u8; 6] {
+        self.0.mac
+    }
+
+    /// the aid that ESP32 soft-AP gave to the station disconnects to
+    pub fn aid(&self) -> u8 {
+        self.0.aid
+    }
+
+    /// flag to identify mesh child
+    pub fn is_mesh_child(&self) -> bool {
+        self.0.is_mesh_child
+    }
+
+    /// reason of disconnection
+    #[cfg(not(any(
+        esp_idf_version_major = "4",
+        all(esp_idf_version_major = "5", esp_idf_version_minor = "0"),
+    )))]
+    pub fn reason(&self) -> u8 {
+        self.0.reason
+    }
+}
+
+impl fmt::Debug for ApStaDisconnectedRef {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let mut ds = f.debug_struct("ApStaDisconnectedRef");
+        ds.field("mac", &self.mac())
+            .field("aid", &self.aid())
+            .field("is_mesh_child", &self.is_mesh_child());
+
+        #[cfg(not(any(
+            esp_idf_version_major = "4",
+            all(esp_idf_version_major = "5", esp_idf_version_minor = "0"),
+        )))]
+        ds.field("reason", &self.reason());
+
+        ds.finish()
+    }
+}
+
 #[derive(Copy, Clone, Debug)]
 pub enum WifiEvent<'a> {
     Ready,
@@ -1952,8 +2030,8 @@ pub enum WifiEvent<'a> {
 
     ApStarted,
     ApStopped,
-    ApStaConnected,
-    ApStaDisconnected,
+    ApStaConnected(&'a ApStaConnectedRef),
+    ApStaDisconnected(&'a ApStaDisconnectedRef),
     ApProbeRequestReceived,
 
     FtmReport,
@@ -2018,8 +2096,20 @@ impl<'a> EspEventDeserializer for WifiEvent<'a> {
             wifi_event_t_WIFI_EVENT_STA_WPS_ER_PBC_OVERLAP => WifiEvent::StaWpsPbcOverlap,
             wifi_event_t_WIFI_EVENT_AP_START => WifiEvent::ApStarted,
             wifi_event_t_WIFI_EVENT_AP_STOP => WifiEvent::ApStopped,
-            wifi_event_t_WIFI_EVENT_AP_STACONNECTED => WifiEvent::ApStaConnected,
-            wifi_event_t_WIFI_EVENT_AP_STADISCONNECTED => WifiEvent::ApStaDisconnected,
+            wifi_event_t_WIFI_EVENT_AP_STACONNECTED => {
+                let payload = unsafe {
+                    (data.payload.unwrap() as *const _ as *const wifi_event_ap_staconnected_t)
+                        .as_ref()
+                };
+                WifiEvent::ApStaConnected(unsafe { core::mem::transmute(payload.unwrap()) })
+            }
+            wifi_event_t_WIFI_EVENT_AP_STADISCONNECTED => {
+                let payload = unsafe {
+                    (data.payload.unwrap() as *const _ as *const wifi_event_ap_stadisconnected_t)
+                        .as_ref()
+                };
+                WifiEvent::ApStaDisconnected(unsafe { core::mem::transmute(payload.unwrap()) })
+            }
             wifi_event_t_WIFI_EVENT_AP_PROBEREQRECVED => WifiEvent::ApProbeRequestReceived,
             wifi_event_t_WIFI_EVENT_FTM_REPORT => WifiEvent::FtmReport,
             wifi_event_t_WIFI_EVENT_STA_BSS_RSSI_LOW => WifiEvent::StaBssRssiLow,
