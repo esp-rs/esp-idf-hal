@@ -531,8 +531,6 @@ mod i2c {
         }
     }
 
-    unsafe impl<'d, T> Send for I2cDeviceDriver<'d, T> where T: Send + Borrow<I2cDriver<'d>> + 'd {}
-
     // ------------------------------------------------------------------------------------------------
     // ------------------------------------- Async ----------------------------------------------------
     // ------------------------------------------------------------------------------------------------
@@ -540,7 +538,7 @@ mod i2c {
     pub struct AsyncI2cDriver<'d> {
         bus_lock: Mutex<EspRawMutex, ()>,
         handle: i2c_master_bus_handle_t,
-        i2c: u8,
+        port: u8,
         _p: PhantomData<&'d mut ()>,
     }
 
@@ -556,13 +554,13 @@ mod i2c {
             Ok(AsyncI2cDriver {
                 bus_lock: Mutex::new(()),
                 handle,
-                i2c: I2C::port() as _,
+                port: I2C::port() as _,
                 _p: PhantomData,
             })
         }
 
-        pub fn host(&self) -> u8 {
-            self.i2c
+        pub fn port(&self) -> u8 {
+            self.port
         }
 
         fn bus_handle(&self) -> i2c_master_bus_handle_t {
@@ -574,7 +572,7 @@ mod i2c {
         }
 
         pub fn device(
-            &mut self,
+            &self,
             config: &config::DeviceConfig,
         ) -> Result<AsyncI2cDeviceDriver<'d, &AsyncI2cDriver<'d>>, EspError> {
             AsyncI2cDeviceDriver::new(self, config)
@@ -650,6 +648,8 @@ mod i2c {
         }
     }
 
+    unsafe impl<'d> Send for AsyncI2cDriver<'d> {}
+
     impl<'d> Drop for AsyncI2cDriver<'d> {
         fn drop(&mut self) {
             loop {
@@ -698,10 +698,11 @@ mod i2c {
             timeout: TickType_t,
         ) -> Result<(), EspError> {
             let handle = self.handle;
-            let host = self.driver.borrow().host();
+            let driver = self.driver.borrow();
+            let port = driver.port();
 
-            let _lock_guard = self.driver.borrow().acquire_bus().await;
-            enable_master_isr_callback(handle, host)?;
+            let _lock_guard = driver.acquire_bus().await;
+            enable_master_dev_isr_callback(handle, port)?;
             esp!(unsafe {
                 i2c_master_receive(
                     handle,
@@ -711,23 +712,24 @@ mod i2c {
                 )
             })?;
 
-            NOTIFIER[host as usize].wait().await;
-            disable_master_isr_callback(handle)?;
+            NOTIFIER[port as usize].wait().await;
+            disable_master_dev_isr_callback(handle)?;
             Ok(())
         }
 
         pub async fn write(&mut self, bytes: &[u8], timeout: TickType_t) -> Result<(), EspError> {
             let handle = self.handle;
-            let host = self.driver.borrow().host();
+            let driver = self.driver.borrow();
+            let port = driver.port();
 
-            let _lock_guard = self.driver.borrow().acquire_bus().await;
-            enable_master_isr_callback(handle, host)?;
+            let _lock_guard = driver.acquire_bus().await;
+            enable_master_dev_isr_callback(handle, port)?;
             esp!(unsafe {
                 i2c_master_transmit(handle, bytes.as_ptr().cast(), bytes.len(), timeout as i32)
             })?;
 
-            NOTIFIER[host as usize].wait().await;
-            disable_master_isr_callback(handle)?;
+            NOTIFIER[port as usize].wait().await;
+            disable_master_dev_isr_callback(handle)?;
             Ok(())
         }
 
@@ -738,10 +740,11 @@ mod i2c {
             timeout: TickType_t,
         ) -> Result<(), EspError> {
             let handle = self.handle;
-            let host = self.driver.borrow().host();
+            let driver = self.driver.borrow();
+            let port = driver.port();
 
-            let _lock_guard = self.driver.borrow().acquire_bus().await;
-            enable_master_isr_callback(handle, host)?;
+            let _lock_guard = driver.acquire_bus().await;
+            enable_master_dev_isr_callback(handle, port)?;
             esp!(unsafe {
                 i2c_master_transmit_receive(
                     handle,
@@ -753,8 +756,8 @@ mod i2c {
                 )
             })?;
 
-            NOTIFIER[host as usize].wait().await;
-            disable_master_isr_callback(handle)?;
+            NOTIFIER[port as usize].wait().await;
+            disable_master_dev_isr_callback(handle)?;
             Ok(())
         }
     }
@@ -847,7 +850,7 @@ mod i2c {
         ) -> Result<Self, EspError> {
             let handle = init_device(driver.bus_handle(), device_config)?;
 
-            enable_master_isr_callback(handle, driver.host())?;
+            enable_master_dev_isr_callback(handle, driver.port())?;
 
             Ok(Self {
                 driver: Some(driver),
@@ -879,9 +882,8 @@ mod i2c {
                 )
             })?;
 
-            NOTIFIER[self.driver.as_ref().unwrap().host() as usize]
-                .wait()
-                .await;
+            let port = self.driver.as_ref().unwrap().port() as usize;
+            NOTIFIER[port].wait().await;
             Ok(())
         }
 
@@ -895,9 +897,8 @@ mod i2c {
                 )
             })?;
 
-            NOTIFIER[self.driver.as_ref().unwrap().host() as usize]
-                .wait()
-                .await;
+            let port = self.driver.as_ref().unwrap().port() as usize;
+            NOTIFIER[port].wait().await;
             Ok(())
         }
 
@@ -918,9 +919,8 @@ mod i2c {
                 )
             })?;
 
-            NOTIFIER[self.driver.as_ref().unwrap().host() as usize]
-                .wait()
-                .await;
+            let port = self.driver.as_ref().unwrap().port() as usize;
+            NOTIFIER[port].wait().await;
             Ok(())
         }
     }
@@ -931,7 +931,7 @@ mod i2c {
     #[cfg(not(esp_idf_i2c_isr_iram_safe))]
     impl<'d> Drop for OwnedAsyncI2cDeviceDriver<'d> {
         fn drop(&mut self) {
-            disable_master_isr_callback(self.handle).unwrap();
+            disable_master_dev_isr_callback(self.handle).unwrap();
             esp!(unsafe { i2c_master_bus_rm_device(self.handle) }).unwrap();
         }
     }
@@ -1136,7 +1136,7 @@ mod i2c {
     }
 
     #[cfg(not(esp_idf_i2c_isr_iram_safe))]
-    fn enable_master_isr_callback(
+    fn enable_master_dev_isr_callback(
         handle: i2c_master_dev_handle_t,
         host: u8,
     ) -> Result<(), EspError> {
@@ -1152,7 +1152,7 @@ mod i2c {
     }
 
     #[cfg(not(esp_idf_i2c_isr_iram_safe))]
-    fn disable_master_isr_callback(handle: i2c_master_dev_handle_t) -> Result<(), EspError> {
+    fn disable_master_dev_isr_callback(handle: i2c_master_dev_handle_t) -> Result<(), EspError> {
         esp!(unsafe {
             i2c_master_register_event_callbacks(
                 handle,
