@@ -7,7 +7,7 @@ use crate::{esp_err_t, esp_err_to_name, ESP_OK};
 /// An [`esp_err_t`] is returned from most esp-idf APIs as a status code. If it is equal
 /// to [`ESP_OK`] it means **no** error occurred.
 #[repr(transparent)]
-#[derive(Copy, Clone, Eq, PartialEq, Hash, Debug)]
+#[derive(Copy, Clone, Eq, PartialEq, Hash)]
 pub struct EspError(NonZeroI32);
 
 const _: () = if ESP_OK != 0 {
@@ -79,8 +79,14 @@ impl fmt::Display for EspError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         unsafe {
             let s = ffi::CStr::from_ptr(esp_err_to_name(self.code()));
-            str::from_utf8_unchecked(s.to_bytes()).fmt(f)
+            core::fmt::Display::fmt(&str::from_utf8_unchecked(s.to_bytes()), f)
         }
+    }
+}
+
+impl fmt::Debug for EspError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{} (error code {})", self, self.code())
     }
 }
 
