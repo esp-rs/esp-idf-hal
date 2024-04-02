@@ -191,6 +191,7 @@ pub struct LedcDriver<'d> {
     hpoint: HPoint,
     speed_mode: SpeedMode,
     max_duty: Duty,
+    pin: i32,
     _p: PhantomData<&'d mut ()>,
 }
 
@@ -204,22 +205,6 @@ impl<'d> LedcDriver<'d> {
         timer_driver: B,
         pin: impl Peripheral<P = impl OutputPin> + 'd,
     ) -> Result<Self, EspError> {
-        crate::into_ref!(pin);
-
-        let duty = 0;
-        let hpoint = 0;
-
-        let channel_config = ledc_channel_config_t {
-            speed_mode: timer_driver.borrow().speed_mode.into(),
-            channel: C::channel(),
-            timer_sel: timer_driver.borrow().timer(),
-            intr_type: ledc_intr_type_t_LEDC_INTR_DISABLE,
-            gpio_num: pin.pin(),
-            duty,
-            hpoint: hpoint as _,
-            ..Default::default()
-        };
-
         if !FADE_FUNC_INSTALLED.load(Ordering::SeqCst) {
             let _guard = FADE_FUNC_INSTALLED_CS.enter();
 
@@ -236,19 +221,50 @@ impl<'d> LedcDriver<'d> {
             }
         }
 
-        // SAFETY: As long as we have borrowed the timer, we are safe to use
-        // it.
-        esp!(unsafe { ledc_channel_config(&channel_config) })?;
-
-        Ok(LedcDriver {
-            duty,
-            hpoint,
+        let mut driver = LedcDriver {
+            duty: 0,
+            hpoint: 0,
             speed_mode: timer_driver.borrow().speed_mode,
             max_duty: timer_driver.borrow().max_duty,
             timer: timer_driver.borrow().timer() as _,
             channel: C::channel() as _,
+            pin: 0,
             _p: PhantomData,
-        })
+        };
+
+        driver.set_pin(pin)?;
+
+        driver.apply_config()?;
+
+        Ok(driver)
+    }
+
+    pub fn apply_config(&mut self) -> Result<(), EspError> {
+        let channel_config = ledc_channel_config_t {
+            speed_mode: self.speed_mode.into(),
+            channel: self.channel as u32,
+            timer_sel: self.timer as u32,
+            intr_type: ledc_intr_type_t_LEDC_INTR_DISABLE,
+            gpio_num: self.pin,
+            duty: self.duty,
+            hpoint: self.hpoint as _,
+            ..Default::default()
+        };
+
+        // SAFETY: As long as we have borrowed the timer, we are safe to use
+        // it.
+        esp!(unsafe { ledc_channel_config(&channel_config) })?;
+        Ok(())
+    }
+
+    pub fn set_pin(
+        &mut self,
+        pin: impl Peripheral<P = impl OutputPin> + 'd,
+    ) -> Result<(), EspError> {
+        crate::into_ref!(pin);
+
+        self.pin = pin.pin();
+        self.apply_config()
     }
 
     pub fn get_duty(&self) -> Duty {
