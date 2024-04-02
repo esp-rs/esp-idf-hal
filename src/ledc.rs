@@ -239,7 +239,7 @@ impl<'d> LedcDriver<'d> {
         Ok(driver)
     }
 
-    pub fn apply_config(&mut self) -> Result<(), EspError> {
+    fn apply_config(&mut self) -> Result<(), EspError> {
         let channel_config = ledc_channel_config_t {
             speed_mode: self.speed_mode.into(),
             channel: self.channel as u32,
