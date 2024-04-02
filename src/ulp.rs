@@ -21,15 +21,13 @@ impl Default for SleepTimer {
         esp_idf_ulp_coproc_enabled,
         esp_idf_ulp_coproc_type_fsm
     ),
-    all(esp_idf_version_major = "4", esp32, esp_idf_esp32_ulp_coproc_enabled),
+    all(esp32, esp_idf_esp32_ulp_coproc_enabled),
     all(
-        esp_idf_version_major = "4",
         esp32s2,
         esp_idf_esp32s2_ulp_coproc_enabled,
         not(esp_idf_esp32s2_ulp_coproc_riscv)
     ),
     all(
-        esp_idf_version_major = "4",
         esp32s3,
         esp_idf_esp32s3_ulp_coproc_enabled,
         not(esp_idf_esp32s3_ulp_coproc_riscv)
@@ -47,15 +45,13 @@ pub struct Word {
         esp_idf_ulp_coproc_enabled,
         esp_idf_ulp_coproc_type_fsm
     ),
-    all(esp_idf_version_major = "4", esp32, esp_idf_esp32_ulp_coproc_enabled),
+    all(esp32, esp_idf_esp32_ulp_coproc_enabled),
     all(
-        esp_idf_version_major = "4",
         esp32s2,
         esp_idf_esp32s2_ulp_coproc_enabled,
         not(esp_idf_esp32s2_ulp_coproc_riscv)
     ),
     all(
-        esp_idf_version_major = "4",
         esp32s3,
         esp_idf_esp32s3_ulp_coproc_enabled,
         not(esp_idf_esp32s3_ulp_coproc_riscv)
@@ -77,49 +73,25 @@ impl Word {
 
 #[cfg(any(
     all(not(esp_idf_version_major = "4"), esp_idf_ulp_coproc_enabled),
-    all(esp_idf_version_major = "4", esp32, esp_idf_esp32_ulp_coproc_enabled),
-    all(
-        esp_idf_version_major = "4",
-        esp32s2,
-        esp_idf_esp32s2_ulp_coproc_enabled
-    ),
-    all(
-        esp_idf_version_major = "4",
-        esp32s3,
-        esp_idf_esp32s3_ulp_coproc_enabled
-    )
+    all(esp32, esp_idf_esp32_ulp_coproc_enabled),
+    all(esp32s2, esp_idf_esp32s2_ulp_coproc_enabled),
+    all(esp32s3, esp_idf_esp32s3_ulp_coproc_enabled)
 ))]
 pub struct UlpDriver<'d>(crate::peripheral::PeripheralRef<'d, ULP>);
 
 #[cfg(any(
     all(not(esp_idf_version_major = "4"), esp_idf_ulp_coproc_enabled),
-    all(esp_idf_version_major = "4", esp32, esp_idf_esp32_ulp_coproc_enabled),
-    all(
-        esp_idf_version_major = "4",
-        esp32s2,
-        esp_idf_esp32s2_ulp_coproc_enabled
-    ),
-    all(
-        esp_idf_version_major = "4",
-        esp32s3,
-        esp_idf_esp32s3_ulp_coproc_enabled
-    )
+    all(esp32, esp_idf_esp32_ulp_coproc_enabled),
+    all(esp32s2, esp_idf_esp32s2_ulp_coproc_enabled),
+    all(esp32s3, esp_idf_esp32s3_ulp_coproc_enabled)
 ))]
 unsafe impl<'d> Send for UlpDriver<'d> {}
 
 #[cfg(any(
     all(not(esp_idf_version_major = "4"), esp_idf_ulp_coproc_enabled),
-    all(esp_idf_version_major = "4", esp32, esp_idf_esp32_ulp_coproc_enabled),
-    all(
-        esp_idf_version_major = "4",
-        esp32s2,
-        esp_idf_esp32s2_ulp_coproc_enabled
-    ),
-    all(
-        esp_idf_version_major = "4",
-        esp32s3,
-        esp_idf_esp32s3_ulp_coproc_enabled
-    )
+    all(esp32, esp_idf_esp32_ulp_coproc_enabled),
+    all(esp32s2, esp_idf_esp32s2_ulp_coproc_enabled),
+    all(esp32s3, esp_idf_esp32s3_ulp_coproc_enabled)
 ))]
 impl<'d> UlpDriver<'d> {
     pub fn new(
@@ -196,15 +168,13 @@ impl<'d> UlpDriver<'d> {
         esp_idf_ulp_coproc_enabled,
         esp_idf_ulp_coproc_type_fsm
     ),
-    all(esp_idf_version_major = "4", esp32, esp_idf_esp32_ulp_coproc_enabled),
+    all(esp32, esp_idf_esp32_ulp_coproc_enabled),
     all(
-        esp_idf_version_major = "4",
         esp32s2,
         esp_idf_esp32s2_ulp_coproc_enabled,
         not(esp_idf_esp32s2_ulp_coproc_riscv)
     ),
     all(
-        esp_idf_version_major = "4",
         esp32s3,
         esp_idf_esp32s3_ulp_coproc_enabled,
         not(esp_idf_esp32s3_ulp_coproc_riscv)
@@ -305,17 +275,15 @@ impl<'d> UlpDriver<'d> {
         not(esp_idf_ulp_coproc_type_fsm)
     ),
     all(
-        esp_idf_version_major = "4",
         esp32s2,
         esp_idf_esp32s2_ulp_coproc_enabled,
         esp_idf_esp32s2_ulp_coproc_riscv
     ),
     all(
-        esp_idf_version_major = "4",
         esp32s3,
         esp_idf_esp32s3_ulp_coproc_enabled,
         esp_idf_esp32s3_ulp_coproc_riscv
-    )
+    ),
 ))]
 impl<'d> UlpDriver<'d> {
     pub unsafe fn load(&mut self, program: &[u8]) -> Result<(), esp_idf_sys::EspError> {
@@ -364,17 +332,9 @@ crate::impl_peripheral!(ULP);
 
 #[cfg(any(
     all(not(esp_idf_version_major = "4"), esp_idf_ulp_coproc_enabled),
-    all(esp_idf_version_major = "4", esp32, esp_idf_esp32_ulp_coproc_enabled),
-    all(
-        esp_idf_version_major = "4",
-        esp32s2,
-        esp_idf_esp32s2_ulp_coproc_enabled
-    ),
-    all(
-        esp_idf_version_major = "4",
-        esp32s3,
-        esp_idf_esp32s3_ulp_coproc_enabled
-    )
+    all(esp32, esp_idf_esp32_ulp_coproc_enabled),
+    all(esp32s2, esp_idf_esp32s2_ulp_coproc_enabled),
+    all(esp32s3, esp_idf_esp32s3_ulp_coproc_enabled)
 ))]
 impl ULP {
     const RTC_SLOW_MEM: u32 = 0x5000_0000_u32;
