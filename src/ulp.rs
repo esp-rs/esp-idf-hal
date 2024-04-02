@@ -275,9 +275,14 @@ impl<'d> UlpDriver<'d> {
         not(esp_idf_ulp_coproc_type_fsm)
     ),
     all(
-        any(esp32s2, esp32s3),
+        esp32s2,
         esp_idf_esp32s2_ulp_coproc_enabled,
         esp_idf_esp32s2_ulp_coproc_riscv
+    ),
+    all(
+        esp32s3,
+        esp_idf_esp32s3_ulp_coproc_enabled,
+        esp_idf_esp32s3_ulp_coproc_riscv
     ),
 ))]
 impl<'d> UlpDriver<'d> {
