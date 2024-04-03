@@ -191,7 +191,6 @@ pub struct LedcDriver<'d> {
     hpoint: HPoint,
     speed_mode: SpeedMode,
     max_duty: Duty,
-    pin: i32,
     _p: PhantomData<&'d mut ()>,
 }
 
@@ -228,24 +227,28 @@ impl<'d> LedcDriver<'d> {
             max_duty: timer_driver.borrow().max_duty,
             timer: timer_driver.borrow().timer() as _,
             channel: C::channel() as _,
-            pin: 0,
             _p: PhantomData,
         };
 
-        driver.set_pin(pin)?;
-
-        driver.apply_config()?;
+        driver.config_with_pin(pin)?;
 
         Ok(driver)
     }
 
-    fn apply_config(&mut self) -> Result<(), EspError> {
+    /// Applies LEDC configuration with a specific pin
+    /// Can be used to reconfigure the LEDC driver with a different pin
+    pub fn config_with_pin(
+        &mut self,
+        pin: impl Peripheral<P = impl OutputPin> + 'd,
+    ) -> Result<(), EspError> {
+        crate::into_ref!(pin);
+
         let channel_config = ledc_channel_config_t {
             speed_mode: self.speed_mode.into(),
             channel: self.channel as u32,
             timer_sel: self.timer as u32,
             intr_type: ledc_intr_type_t_LEDC_INTR_DISABLE,
-            gpio_num: self.pin,
+            gpio_num: pin.pin(),
             duty: self.duty,
             hpoint: self.hpoint as _,
             ..Default::default()
@@ -255,16 +258,6 @@ impl<'d> LedcDriver<'d> {
         // it.
         esp!(unsafe { ledc_channel_config(&channel_config) })?;
         Ok(())
-    }
-
-    pub fn set_pin(
-        &mut self,
-        pin: impl Peripheral<P = impl OutputPin> + 'd,
-    ) -> Result<(), EspError> {
-        crate::into_ref!(pin);
-
-        self.pin = pin.pin();
-        self.apply_config()
     }
 
     pub fn get_duty(&self) -> Duty {
