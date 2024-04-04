@@ -267,13 +267,6 @@ impl EspHttpConnection {
         Ok(())
     }
 
-    pub fn flush_response(&mut self) -> Result<(), EspError> {
-        let mut len = 0_i32;
-        esp!(unsafe { esp_http_client_flush_response(self.raw_client, &mut len) })?;
-
-        Ok(())
-    }
-
     pub fn is_request_initiated(&self) -> bool {
         self.state == State::Request
     }
@@ -365,6 +358,13 @@ impl EspHttpConnection {
         } else {
             Ok(())
         }
+    }
+
+    fn flush_response(&mut self) -> Result<(), EspError> {
+        let mut len = 0_i32;
+        esp!(unsafe { esp_http_client_flush_response(self.raw_client, &mut len) })?;
+
+        Ok(())
     }
 
     fn raw_write(&mut self, buf: &[u8]) -> Result<usize, EspError> {
