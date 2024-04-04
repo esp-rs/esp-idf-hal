@@ -208,6 +208,11 @@ impl EspHttpConnection {
         uri: &'a str,
         headers: &'a [(&'a str, &'a str)],
     ) -> Result<(), EspError> {
+        // If response data from the previous request remains, subsequent requests may fail
+        if self.is_response_initiated() {
+            self.flush_response()?;
+        }
+
         self.assert_initial();
 
         let c_uri = to_cstring_arg(uri)?;
@@ -353,6 +358,13 @@ impl EspHttpConnection {
         } else {
             Ok(())
         }
+    }
+
+    fn flush_response(&mut self) -> Result<(), EspError> {
+        let mut len = 0_i32;
+        esp!(unsafe { esp_http_client_flush_response(self.raw_client, &mut len) })?;
+
+        Ok(())
     }
 
     fn raw_write(&mut self, buf: &[u8]) -> Result<usize, EspError> {
