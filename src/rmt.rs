@@ -868,7 +868,9 @@ impl<const N: usize> FixedLengthSignal<N> {
             .get_mut(index)
             .ok_or_else(|| EspError::from(ERR_ERANGE).unwrap())?;
 
-        Symbol(*item).update(pair.0, pair.1);
+        let mut symbol = Symbol(*item);
+        symbol.update(pair.0, pair.1);
+        *item = symbol.0;
         Ok(())
     }
 }
