@@ -1611,14 +1611,9 @@ fn spi_read_transactions(
     words: &mut [u8],
     chunk_size: usize,
 ) -> impl Iterator<Item = spi_transaction_t> + '_ {
-    words.chunks_mut(chunk_size).map(|chunk| {
-        spi_create_transaction(
-            chunk.as_mut_ptr(),
-            core::ptr::null(),
-            chunk.len(),
-            chunk.len(),
-        )
-    })
+    words
+        .chunks_mut(chunk_size)
+        .map(|chunk| spi_create_transaction(chunk.as_mut_ptr(), core::ptr::null(), 0, chunk.len()))
 }
 
 fn spi_write_transactions(
