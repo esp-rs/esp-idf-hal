@@ -280,6 +280,11 @@
 #if ESP_IDF_VERSION_MAJOR > 4
 #include "driver/gptimer.h"
 #endif
+#if ESP_IDF_VERSION_MAJOR > 5 || (ESP_IDF_VERSION_MAJOR == 5 && ESP_IDF_VERSION_MINOR > 1)
+#include "driver/i2c_types.h"
+#include "driver/i2c_master.h"
+#include "driver/i2c_slave.h"
+#endif
 #include "driver/i2c.h"
 #include "driver/i2s.h"
 #include "driver/ledc.h"
@@ -474,7 +479,7 @@
 
 #endif // CONFIG_IDF_TARGET_ESP32S2
 
-//LCD support
+// LCD support
 #if ((ESP_IDF_VERSION_MAJOR == 4) && (ESP_IDF_VERSION_MINOR >= 4)) || (ESP_IDF_VERSION_MAJOR >= 5)
 #ifdef ESP_IDF_COMP_ESP_LCD_ENABLED
 #include "esp_lcd_types.h"
@@ -485,6 +490,5 @@
 #include "esp_lcd_panel_commands.h"
 #include "esp_lcd_panel_interface.h"
 #include "esp_lcd_panel_io_interface.h"
-#endif //ESP_IDF_COMP_LCD_ENABLED
+#endif // ESP_IDF_COMP_LCD_ENABLED
 #endif //((ESP_IDF_VERSION_MAJOR == 4) && (ESP_IDF_VERSION_MINOR >= 4) || (ESP_IDF_VERSION_MAJOR >= 5))
-
