@@ -1,7 +1,7 @@
 use core::fmt::Debug;
 use core::marker::PhantomData;
 use core::time::Duration;
-use core::{ffi, ptr};
+use core::{ffi, ops, ptr};
 
 use ::log::*;
 
@@ -117,7 +117,7 @@ pub enum SpiEthChipset {
     KSZ8851SNL,
 }
 
-type RawCallback<'a> = Box<dyn FnMut(&[u8]) + Send + 'a>;
+type RawCallback<'a> = Box<dyn FnMut(EthFrame) + Send + 'a>;
 
 struct UnsafeCallback<'a>(*mut RawCallback<'a>);
 
@@ -135,7 +135,7 @@ impl<'a> UnsafeCallback<'a> {
         self.0.cast()
     }
 
-    unsafe fn call(&self, data: &[u8]) {
+    unsafe fn call(&self, data: EthFrame) {
         let reference = self.0.as_mut().unwrap();
 
         (reference)(data);
@@ -689,7 +689,7 @@ impl<'d, T> EthDriver<'d, T> {
 
     pub fn set_rx_callback<F>(&mut self, callback: F) -> Result<(), EspError>
     where
-        F: FnMut(&[u8]) + Send + 'static,
+        F: FnMut(EthFrame) + Send + 'static,
     {
         self.internal_set_rx_callback(callback)
     }
@@ -719,18 +719,18 @@ impl<'d, T> EthDriver<'d, T> {
     /// are introduced to Rust (i.e. the impossibility to "forget" a type and thus not call its destructor).
     pub unsafe fn set_nonstatic_rx_callback<F>(&mut self, callback: F) -> Result<(), EspError>
     where
-        F: FnMut(&[u8]) + Send + 'd,
+        F: FnMut(EthFrame) + Send + 'd,
     {
         self.internal_set_rx_callback(callback)
     }
 
-    fn internal_set_rx_callback<F>(&mut self, mut callback: F) -> Result<(), EspError>
+    fn internal_set_rx_callback<F>(&mut self, callback: F) -> Result<(), EspError>
     where
-        F: FnMut(&[u8]) + Send + 'd,
+        F: FnMut(EthFrame) + Send + 'd,
     {
         let _ = self.stop();
 
-        let mut callback: Box<RawCallback> = Box::new(Box::new(move |data| callback(data)));
+        let mut callback: Box<RawCallback> = Box::new(Box::new(callback));
 
         let unsafe_callback = UnsafeCallback::from(&mut callback);
 
@@ -757,8 +757,7 @@ impl<'d, T> EthDriver<'d, T> {
         len: u32,
         event_handler_arg: *mut ffi::c_void,
     ) -> esp_err_t {
-        UnsafeCallback::from_ptr(event_handler_arg as *mut _)
-            .call(core::slice::from_raw_parts(buf, len as _));
+        UnsafeCallback::from_ptr(event_handler_arg as *mut _).call(EthFrame::new(buf, len));
 
         ESP_OK
     }
@@ -854,6 +853,47 @@ impl<'d, T> RawHandle for EthDriver<'d, T> {
 
     fn handle(&self) -> Self::Handle {
         self.handle
+    }
+}
+
+pub struct EthFrame {
+    buf: *mut u8,
+    len: u32,
+}
+
+unsafe impl Send for EthFrame {}
+
+impl EthFrame {
+    const unsafe fn new(buf: *mut u8, len: u32) -> Self {
+        Self { buf, len }
+    }
+
+    pub const fn as_slice(&self) -> &[u8] {
+        unsafe { core::slice::from_raw_parts(self.buf, self.len as _) }
+    }
+
+    pub fn as_mut_slice(&mut self) -> &mut [u8] {
+        unsafe { core::slice::from_raw_parts_mut(self.buf, self.len as _) }
+    }
+}
+
+impl ops::Deref for EthFrame {
+    type Target = [u8];
+
+    fn deref(&self) -> &[u8] {
+        unsafe { core::slice::from_raw_parts(self.buf, self.len as _) }
+    }
+}
+
+impl ops::DerefMut for EthFrame {
+    fn deref_mut(&mut self) -> &mut [u8] {
+        unsafe { core::slice::from_raw_parts_mut(self.buf, self.len as _) }
+    }
+}
+
+impl Drop for EthFrame {
+    fn drop(&mut self) {
+        unsafe { free(self.buf.cast()) };
     }
 }
 

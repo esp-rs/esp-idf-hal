@@ -2,7 +2,7 @@
 use core::marker::PhantomData;
 use core::str::Utf8Error;
 use core::time::Duration;
-use core::{cmp, ffi, fmt};
+use core::{cmp, ffi, fmt, ops};
 
 extern crate alloc;
 use alloc::boxed::Box;
@@ -367,7 +367,7 @@ extern "C" {
 
 #[allow(clippy::type_complexity)]
 static mut RX_CALLBACK: Option<
-    Box<dyn FnMut(WifiDeviceId, &[u8]) -> Result<(), EspError> + 'static>,
+    Box<dyn FnMut(WifiDeviceId, WifiFrame) -> Result<(), EspError> + 'static>,
 > = None;
 #[allow(clippy::type_complexity)]
 static mut TX_CALLBACK: Option<Box<dyn FnMut(WifiDeviceId, &[u8], bool) + 'static>> = None;
@@ -970,7 +970,7 @@ impl<'d> WifiDriver<'d> {
     /// [`crate::sys::esp_wifi_set_tx_done_cb`](crate::sys::esp_wifi_set_tx_done_cb)
     pub fn set_callbacks<R, T>(&mut self, rx_callback: R, tx_callback: T) -> Result<(), EspError>
     where
-        R: FnMut(WifiDeviceId, &[u8]) -> Result<(), EspError> + Send + 'static,
+        R: FnMut(WifiDeviceId, WifiFrame) -> Result<(), EspError> + Send + 'static,
         T: FnMut(WifiDeviceId, &[u8], bool) + Send + 'static,
     {
         self.internal_set_callbacks(rx_callback, tx_callback)
@@ -1009,7 +1009,7 @@ impl<'d> WifiDriver<'d> {
         tx_callback: T,
     ) -> Result<(), EspError>
     where
-        R: FnMut(WifiDeviceId, &[u8]) -> Result<(), EspError> + Send + 'd,
+        R: FnMut(WifiDeviceId, WifiFrame) -> Result<(), EspError> + Send + 'd,
         T: FnMut(WifiDeviceId, &[u8], bool) + Send + 'd,
     {
         self.internal_set_callbacks(rx_callback, tx_callback)
@@ -1021,7 +1021,7 @@ impl<'d> WifiDriver<'d> {
         mut tx_callback: T,
     ) -> Result<(), EspError>
     where
-        R: FnMut(WifiDeviceId, &[u8]) -> Result<(), EspError> + Send + 'd,
+        R: FnMut(WifiDeviceId, WifiFrame) -> Result<(), EspError> + Send + 'd,
         T: FnMut(WifiDeviceId, &[u8], bool) + Send + 'd,
     {
         let _ = self.disconnect();
@@ -1029,7 +1029,7 @@ impl<'d> WifiDriver<'d> {
 
         #[allow(clippy::type_complexity)]
         let rx_callback: Box<
-            Box<dyn FnMut(WifiDeviceId, &[u8]) -> Result<(), EspError> + Send + 'd>,
+            Box<dyn FnMut(WifiDeviceId, WifiFrame) -> Result<(), EspError> + Send + 'd>,
         > = Box::new(Box::new(move |device_id, data| {
             rx_callback(device_id, data)
         }));
@@ -1042,7 +1042,7 @@ impl<'d> WifiDriver<'d> {
 
         #[allow(clippy::type_complexity)]
         let rx_callback: Box<
-            Box<dyn FnMut(WifiDeviceId, &[u8]) -> Result<(), EspError> + Send + 'static>,
+            Box<dyn FnMut(WifiDeviceId, WifiFrame) -> Result<(), EspError> + Send + 'static>,
         > = unsafe { core::mem::transmute(rx_callback) };
 
         #[allow(clippy::type_complexity)]
@@ -1308,12 +1308,7 @@ impl<'d> WifiDriver<'d> {
         len: u16,
         eb: *mut ffi::c_void,
     ) -> esp_err_t {
-        let res = RX_CALLBACK.as_mut().unwrap()(
-            device_id,
-            core::slice::from_raw_parts(buf as *mut _, len as usize),
-        );
-
-        esp_wifi_internal_free_rx_buffer(eb);
+        let res = RX_CALLBACK.as_mut().unwrap()(device_id, WifiFrame::new(buf.cast(), len, eb));
 
         match res {
             Ok(_) => ESP_OK,
@@ -1429,6 +1424,48 @@ impl<'d> Wifi for WifiDriver<'d> {
     #[cfg(feature = "alloc")]
     fn scan(&mut self) -> Result<alloc::vec::Vec<AccessPointInfo>, Self::Error> {
         WifiDriver::scan(self)
+    }
+}
+
+pub struct WifiFrame {
+    buf: *mut u8,
+    len: u16,
+    eb: *mut ffi::c_void,
+}
+
+unsafe impl Send for WifiFrame {}
+
+impl WifiFrame {
+    const unsafe fn new(buf: *mut u8, len: u16, eb: *mut ffi::c_void) -> Self {
+        Self { buf, len, eb }
+    }
+
+    pub const fn as_slice(&self) -> &[u8] {
+        unsafe { core::slice::from_raw_parts(self.buf, self.len as _) }
+    }
+
+    pub fn as_mut_slice(&mut self) -> &mut [u8] {
+        unsafe { core::slice::from_raw_parts_mut(self.buf, self.len as _) }
+    }
+}
+
+impl ops::Deref for WifiFrame {
+    type Target = [u8];
+
+    fn deref(&self) -> &[u8] {
+        unsafe { core::slice::from_raw_parts(self.buf, self.len as _) }
+    }
+}
+
+impl ops::DerefMut for WifiFrame {
+    fn deref_mut(&mut self) -> &mut [u8] {
+        unsafe { core::slice::from_raw_parts_mut(self.buf, self.len as _) }
+    }
+}
+
+impl Drop for WifiFrame {
+    fn drop(&mut self) {
+        unsafe { esp_wifi_internal_free_rx_buffer(self.eb) };
     }
 }
 
