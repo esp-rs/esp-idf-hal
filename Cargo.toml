@@ -22,6 +22,9 @@ alloc = []
 nightly = []
 wake-from-isr = [] # Only enable if you plan to use the `edge-executor` crate
 embassy-sync = [] # For now, the dependecy on the `embassy-sync` crate is non-optional, but this might change in future
+critical-section = ["critical-section"]
+critical-section-isr = ["critical-section"]
+
 
 # Propagated esp-idf-sys features
 native = ["esp-idf-sys/native"]

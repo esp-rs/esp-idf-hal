@@ -663,6 +663,28 @@ pub mod asynch {
     }
 }
 
+#[cfg(feature = "critical-section-isr")]
+pub mod critical_section {
+
+    static CS_GUARD: std::sync::Mutex<Option<IsrCriticalSectionGuard>> = Mutex::new(None);
+
+    pub struct EspCriticalSection {}
+
+    unsafe impl critical_section::Impl for EspCriticalSection {
+        unsafe fn acquire() {
+            let mut guard = CS_GUARD.lock().unwrap();
+            *guard = Some(super::CS.enter());
+        }
+
+        unsafe fn release(_token: ()) {
+            let mut guard = CS_GUARD.lock().unwrap();
+            *guard = None;
+        }
+    }
+
+    critical_section::set_impl!(EspCriticalSection);
+}
+
 #[cfg(feature = "embassy-sync")]
 pub mod embassy_sync {
     use core::marker::PhantomData;
