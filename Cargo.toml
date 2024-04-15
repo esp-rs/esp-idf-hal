@@ -24,7 +24,7 @@ wake-from-isr = [] # Only enable if you plan to use the `edge-executor` crate
 embassy-sync = [
 ] # For now, the dependecy on the `embassy-sync` crate is non-optional, but this might change in future
 critical-section = ["critical-section/restore-state-none"]
-critical-section-isr = ["critical-section/restore-state-non"]
+critical-section-isr = ["critical-section/restore-state-none"]
 
 
 # Propagated esp-idf-sys features
