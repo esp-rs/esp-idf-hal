@@ -734,9 +734,9 @@ impl<'d, T> EthDriver<'d, T> {
 
         let unsafe_callback = UnsafeCallback::from(&mut callback);
 
-        unsafe {
-            esp_eth_update_input_path(self.handle(), Some(Self::handle), unsafe_callback.as_ptr());
-        }
+        esp!(unsafe {
+            esp_eth_update_input_path(self.handle(), Some(Self::handle), unsafe_callback.as_ptr())
+        })?;
 
         self.callback = Some(callback);
 
