@@ -398,7 +398,10 @@ impl<'d> TimerDriver<'d> {
 
         unsafe {
             ISR_HANDLERS[(self.group() * timer_idx_t_TIMER_MAX + self.index()) as usize] =
-                Some(core::mem::transmute(callback));
+                Some(core::mem::transmute::<
+                    Box<dyn FnMut() + Send>,
+                    Box<dyn FnMut() + Send>,
+                >(callback));
         }
 
         Ok(())
