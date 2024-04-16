@@ -573,7 +573,7 @@ where
         let sender = QuitOnDrop::new(channel);
 
         let subscription = self.subscribe::<EspEvent, _>(move |event| {
-            let mut event = unsafe { core::mem::transmute(event) };
+            let mut event = unsafe { mem::transmute::<EspEvent<'_>, EspEvent<'_>>(event) };
 
             sender.channel().share(&mut event);
         })?;
