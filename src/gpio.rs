@@ -1089,7 +1089,10 @@ impl<'d, T: Pin, MODE> PinDriver<'d, T, MODE> {
 
         let callback: alloc::boxed::Box<dyn FnMut() + Send + 'd> = alloc::boxed::Box::new(callback);
         unsafe {
-            chip::PIN_ISR_HANDLER[self.pin.pin() as usize] = Some(core::mem::transmute(callback));
+            chip::PIN_ISR_HANDLER[self.pin.pin() as usize] = Some(core::mem::transmute::<
+                alloc::boxed::Box<dyn FnMut() + Send>,
+                alloc::boxed::Box<dyn FnMut() + Send>,
+            >(callback));
         }
 
         Ok(())
