@@ -39,6 +39,7 @@ pub struct EspIdfBuildOutput {
     pub bindgen: bindgen::Factory,
     pub env_path: Option<String>,
     pub esp_idf: PathBuf,
+    #[allow(dead_code)]
     pub config: BuildConfig,
 }
 
