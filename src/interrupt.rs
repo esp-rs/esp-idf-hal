@@ -663,22 +663,23 @@ pub mod asynch {
     }
 }
 
+#[cfg(all(feature = "critical-section", feature = "critical-section-isr"))]
+compile_error!(
+    "Cannot enable both `critical-section` and `critical-section-isr` features at the same time."
+);
+
 #[cfg(feature = "critical-section-isr")]
 pub mod critical_section {
-
-    static CS_GUARD: std::sync::Mutex<Option<IsrCriticalSectionGuard>> = Mutex::new(None);
 
     pub struct EspCriticalSection {}
 
     unsafe impl critical_section::Impl for EspCriticalSection {
         unsafe fn acquire() {
-            let mut guard = CS_GUARD.lock().unwrap();
-            *guard = Some(super::CS.enter());
+            super::enter(&super::CS);
         }
 
         unsafe fn release(_token: ()) {
-            let mut guard = CS_GUARD.lock().unwrap();
-            *guard = None;
+            super::exit(&super::CS);
         }
     }
 
