@@ -48,14 +48,14 @@ pub struct Peripherals {
     pub adc1: adc::ADC1,
     #[cfg(any(esp32, esp32s2, esp32s3, esp32c3))]
     pub adc2: adc::ADC2,
-    // TODO: Check the pulse counter story for c2, h2, c5, c6, and p4
-    #[cfg(any(esp32, esp32s2, esp32s3))]
+    // TODO: Check the pulse counter story for c2, h2, c5, and p4
+    #[cfg(any(esp32, esp32s2, esp32s3, esp32c6))]
     pub pcnt0: pcnt::PCNT0,
-    #[cfg(any(esp32, esp32s2, esp32s3))]
+    #[cfg(any(esp32, esp32s2, esp32s3, esp32c6))]
     pub pcnt1: pcnt::PCNT1,
-    #[cfg(any(esp32, esp32s2, esp32s3))]
+    #[cfg(any(esp32, esp32s2, esp32s3, esp32c6))]
     pub pcnt2: pcnt::PCNT2,
-    #[cfg(any(esp32, esp32s2, esp32s3))]
+    #[cfg(any(esp32, esp32s2, esp32s3, esp32c6))]
     pub pcnt3: pcnt::PCNT3,
     #[cfg(esp32)]
     pub pcnt4: pcnt::PCNT4,
