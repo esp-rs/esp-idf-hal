@@ -8,7 +8,7 @@ use crate::ledc;
 #[cfg(any(all(esp32, esp_idf_eth_use_esp32_emac), esp_idf_eth_use_openeth))]
 use crate::mac;
 use crate::modem;
-#[cfg(any(esp32, esp32s2, esp32s3))]
+#[cfg(any(esp32, esp32s2, esp32s3, esp32c6))]
 use crate::pcnt;
 use crate::rmt;
 use crate::spi;
@@ -144,13 +144,13 @@ impl Peripherals {
             adc1: adc::ADC1::new(),
             #[cfg(any(esp32, esp32s2, esp32s3, esp32c3))]
             adc2: adc::ADC2::new(),
-            #[cfg(any(esp32, esp32s2, esp32s3))]
+            #[cfg(any(esp32, esp32s2, esp32s3, esp32c6))]
             pcnt0: pcnt::PCNT0::new(),
-            #[cfg(any(esp32, esp32s2, esp32s3))]
+            #[cfg(any(esp32, esp32s2, esp32s3, esp32c6))]
             pcnt1: pcnt::PCNT1::new(),
-            #[cfg(any(esp32, esp32s2, esp32s3))]
+            #[cfg(any(esp32, esp32s2, esp32s3, esp32c6))]
             pcnt2: pcnt::PCNT2::new(),
-            #[cfg(any(esp32, esp32s2, esp32s3))]
+            #[cfg(any(esp32, esp32s2, esp32s3, esp32c6))]
             pcnt3: pcnt::PCNT3::new(),
             #[cfg(esp32)]
             pcnt4: pcnt::PCNT4::new(),
