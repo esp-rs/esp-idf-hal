@@ -99,6 +99,17 @@ impl EspPing {
         conf: &Configuration,
         tracker: &mut Tracker<F>,
     ) -> Result<(), EspError> {
+        #[cfg(not(esp_idf_lwip_ipv6))]
+        let ta = ip4_addr_t {
+            addr: u32::from_be_bytes(ip.octets()),
+        };
+        #[cfg(esp_idf_lwip_ipv6)]
+        let ta = ip_addr_t {
+            u_addr: ip_addr__bindgen_ty_1 {
+                ip4: Newtype::<ip4_addr_t>::from(ip).0,
+            },
+            type_: 0,
+        };
         #[allow(clippy::needless_update)]
         #[allow(clippy::useless_conversion)]
         let config = esp_ping_config_t {
@@ -107,12 +118,7 @@ impl EspPing {
             timeout_ms: conf.timeout.as_millis() as u32,
             data_size: conf.data_size,
             tos: conf.tos.into(),
-            target_addr: ip_addr_t {
-                u_addr: ip_addr__bindgen_ty_1 {
-                    ip4: Newtype::<ip4_addr_t>::from(ip).0,
-                },
-                type_: 0,
-            },
+            target_addr: ta,
             task_stack_size: 4096,
             task_prio: 2,
             interface: self.0,
@@ -213,7 +219,10 @@ impl EspPing {
             mem::size_of_val(&recv_len) as u32,
         );
 
-        let addr = ipv4::Ipv4Addr::from(Newtype(target_addr.u_addr.ip4));
+        #[cfg(not(esp_idf_lwip_ipv6))]
+        let addr = ipv4::Ipv4Addr::from(target_addr.addr);
+        #[cfg(esp_idf_lwip_ipv6)]
+        let addr = ipv4::Ipv4Addr::from(target_addr.u_addr.ip4.addr);
 
         info!(
             "From {} icmp_seq={} ttl={} time={}ms bytes={}",
