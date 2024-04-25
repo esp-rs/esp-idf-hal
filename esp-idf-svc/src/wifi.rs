@@ -259,7 +259,7 @@ impl TryFrom<&AccessPointConfiguration> for Newtype<wifi_ap_config_t> {
             channel: conf.channel,
             authmode: Newtype::<wifi_auth_mode_t>::from(conf.auth_method).0,
             ssid_hidden: u8::from(conf.ssid_hidden),
-            max_connection: cmp::max(conf.max_connections, 16) as u8,
+            max_connection: cmp::min(conf.max_connections, 16) as u8,
             beacon_interval: 100,
             ..Default::default()
         };
