@@ -26,6 +26,7 @@ use crate::private::mutex;
 pub enum NetifStack {
     /// Station mode (WiFi client)
     Sta,
+    #[cfg(esp_idf_esp_wifi_softap_support)]
     /// Access point mode (WiFi router)
     Ap,
     /// Ethernet
@@ -42,6 +43,7 @@ impl NetifStack {
     pub fn default_configuration(&self) -> NetifConfiguration {
         match self {
             Self::Sta => NetifConfiguration::wifi_default_client(),
+            #[cfg(esp_idf_esp_wifi_softap_support)]
             Self::Ap => NetifConfiguration::wifi_default_router(),
             Self::Eth => NetifConfiguration::eth_default_client(),
             #[cfg(esp_idf_lwip_ppp_support)]
@@ -65,6 +67,7 @@ impl NetifStack {
     fn default_mac_raw_type(&self) -> Option<esp_mac_type_t> {
         match self {
             Self::Sta => Some(esp_mac_type_t_ESP_MAC_WIFI_STA),
+            #[cfg(esp_idf_esp_wifi_softap_support)]
             Self::Ap => Some(esp_mac_type_t_ESP_MAC_WIFI_SOFTAP),
             Self::Eth => Some(esp_mac_type_t_ESP_MAC_ETH),
             #[cfg(any(esp_idf_lwip_slip_support, esp_idf_lwip_ppp_support))]
@@ -76,6 +79,7 @@ impl NetifStack {
         unsafe {
             match self {
                 Self::Sta => _g_esp_netif_netstack_default_wifi_sta,
+                #[cfg(esp_idf_esp_wifi_softap_support)]
                 Self::Ap => _g_esp_netif_netstack_default_wifi_ap,
                 Self::Eth => _g_esp_netif_netstack_default_eth,
                 #[cfg(esp_idf_lwip_ppp_support)]
@@ -131,6 +135,7 @@ impl NetifConfiguration {
         }
     }
 
+    #[cfg(esp_idf_esp_wifi_softap_support)]
     pub fn wifi_default_router() -> Self {
         Self {
             key: "WIFI_AP_DEF".try_into().unwrap(),

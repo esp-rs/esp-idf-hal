@@ -80,6 +80,7 @@ fn configure_wifi(wifi: WifiDriver) -> anyhow::Result<EspWifi> {
             )),
             ..NetifConfiguration::wifi_default_client()
         })?,
+        #[cfg(esp_idf_esp_wifi_softap_support)]
         EspNetif::new(NetifStack::Ap)?,
     )?;
 
