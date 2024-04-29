@@ -307,6 +307,13 @@
 #endif
 #include "driver/periph_ctrl.h"
 #include "driver/rmt.h"
+#if ESP_IDF_VERSION_MAJOR >= 5
+#define rmt_channel_t rmt_drv_channel_t // Rename to avoid conflict with rmt_channel_t in rmt.h
+#include "driver/rmt_encoder.h"
+#include "driver/rmt_tx.h"
+#include "driver/rmt_rx.h"
+#undef rmt_channel_t
+#endif
 #include "driver/rtc_cntl.h"
 #include "driver/rtc_io.h"
 #ifdef CONFIG_IDF_TARGET_ESP32
