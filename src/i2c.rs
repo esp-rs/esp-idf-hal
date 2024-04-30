@@ -20,13 +20,33 @@ crate::embedded_hal_error!(
 );
 
 const APB_TICK_PERIOD_NS: u32 = 1_000_000_000 / 80_000_000;
+const XTAL_TICK_PERIOD_NS: u32 = 1_000_000_000 / XTAL_CLK_FREQ;
 #[derive(Copy, Clone, Debug)]
 pub struct APBTickType(::core::ffi::c_int);
 impl From<Duration> for APBTickType {
+    #[cfg(any(esp32,esp32s2))]
     fn from(duration: Duration) -> Self {
         APBTickType(
             ((duration.as_nanos() + APB_TICK_PERIOD_NS as u128 - 1) / APB_TICK_PERIOD_NS as u128)
                 as ::core::ffi::c_int,
+        )
+    }
+    #[cfg(any(esp32c2,esp32c3,esp32c6,esp32s3,esp32h2,esp32p4))]
+    /// Conversion for newer esp models, be aware, that the hardware can only represent 22 different values, values will be rounded to the next larger valid one. Calculation only valid for 40mhz clock source
+    fn from(duration: Duration) -> Self {
+        let target_ns = duration.as_nanos();
+        for i in 1..23_u32 {
+            let effective_ns = 2_u128.pow(i) * (XTAL_TICK_PERIOD_NS) as u128;
+            println!("Testing {} with target {} and current {}", i, target_ns/1000000, effective_ns/1000000);
+            if effective_ns >= target_ns {
+                return APBTickType(
+                    i as ::core::ffi::c_int
+                )
+            }
+        }
+        //produce an error in the lower set_i2c_timeout, so the user is informed that the requested timeout is larger than the next valid one.
+        return APBTickType(
+            32 as ::core::ffi::c_int
         )
     }
 }
