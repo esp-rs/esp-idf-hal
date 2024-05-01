@@ -217,6 +217,7 @@ pub mod config {
         #[cfg(esp_idf_soc_uart_support_xtal_clk)]
         Crystal,
         /// UART source clock from `XTAL`
+        #[allow(non_camel_case_types)]
         #[cfg(esp_idf_soc_uart_support_pll_f80m_clk)]
         PLL_F80M,
         /// UART source clock from `REF_TICK`

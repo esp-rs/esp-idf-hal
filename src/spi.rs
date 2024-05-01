@@ -40,7 +40,7 @@ use core::cmp::{max, min, Ordering};
 use core::future::Future;
 use core::iter::once;
 use core::marker::PhantomData;
-use core::{ptr, u8};
+use core::ptr;
 
 use embassy_sync::mutex::Mutex;
 use embedded_hal::spi::{SpiBus, SpiDevice};

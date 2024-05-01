@@ -726,27 +726,55 @@ static READ_NOTIFICATION: Notification = Notification::new();
 static WRITE_NOTIFICATION: Notification = Notification::new();
 static ALERT_NOTIFICATION: Notification = Notification::new();
 
+/// Twai message flags
+#[derive(Debug, EnumSetType)]
+pub enum Flags {
+    /// Message is in Extended Frame Format (29bit ID)
+    Extended,
+    ///  Message is a Remote Frame (Remote Transmission Request)
+    Remote,
+    /// Transmit message using Single Shot Transmission
+    /// (Message will not be retransmitted upon error or loss of arbitration).
+    /// Unused for received message.
+    SingleShot,
+    /// Transmit message using Self Reception Request
+    /// (Transmitted message will also received by the same node).
+    /// Unused for received message.
+    SelfReception,
+    /// Message's Data length code is larger than 8.
+    /// This will break compliance with TWAI
+    DlcNonComp,
+    None,
+}
+
 pub struct Frame(twai_message_t);
 
 impl Frame {
-    pub fn new(id: u32, extended: bool, data: &[u8]) -> Option<Self> {
+    pub fn new(id: u32, flags: EnumSet<Flags>, data: &[u8]) -> Option<Self> {
         let dlc = data.len();
 
         if dlc <= 8 {
             // unions are not very well supported in rust
             // therefore setting those union flags is quite hairy
-            let mut flags = twai_message_t__bindgen_ty_1::default();
+            let mut twai_flags = twai_message_t__bindgen_ty_1::default();
 
-            // set bits in an union
-            if extended {
-                unsafe { flags.__bindgen_anon_1.set_extd(1) };
+            // Iterate over the flags set and set the corresponding bits in the union
+            for flag in flags.iter() {
+                match flag {
+                    Flags::Extended => unsafe { twai_flags.__bindgen_anon_1.set_extd(1) },
+                    Flags::Remote => unsafe { twai_flags.__bindgen_anon_1.set_rtr(1) },
+                    Flags::SingleShot => unsafe { twai_flags.__bindgen_anon_1.set_ss(1) },
+                    Flags::SelfReception => unsafe { twai_flags.__bindgen_anon_1.set_self(1) },
+                    Flags::DlcNonComp => unsafe { twai_flags.__bindgen_anon_1.set_dlc_non_comp(1) },
+                    Flags::None => {}
+                }
             }
 
             let mut payload = [0; 8];
             payload[..dlc].copy_from_slice(data);
 
             let twai_message = twai_message_t {
-                __bindgen_anon_1: flags,
+                __bindgen_anon_1: twai_flags,
                 identifier: id,
                 data_length_code: dlc as u8,
                 data: payload,
@@ -828,12 +856,12 @@ impl core::fmt::Display for Frame {
 
 impl embedded_hal_0_2::can::Frame for Frame {
     fn new(id: impl Into<embedded_hal_0_2::can::Id>, data: &[u8]) -> Option<Self> {
-        let (id, extended) = match id.into() {
-            embedded_hal_0_2::can::Id::Standard(id) => (id.as_raw() as u32, false),
-            embedded_hal_0_2::can::Id::Extended(id) => (id.as_raw(), true),
+        let (id, flags) = match id.into() {
+            embedded_hal_0_2::can::Id::Standard(id) => (id.as_raw() as u32, Flags::None),
+            embedded_hal_0_2::can::Id::Extended(id) => (id.as_raw(), Flags::Extended),
         };
 
-        Self::new(id, extended, data)
+        Self::new(id, flags.into(), data)
     }
 
     fn new_remote(id: impl Into<embedded_hal_0_2::can::Id>, dlc: usize) -> Option<Self> {
@@ -884,12 +912,12 @@ impl embedded_hal_0_2::can::Frame for Frame {
 
 impl embedded_can::Frame for Frame {
     fn new(id: impl Into<embedded_can::Id>, data: &[u8]) -> Option<Self> {
-        let (id, extended) = match id.into() {
-            embedded_can::Id::Standard(id) => (id.as_raw() as u32, false),
-            embedded_can::Id::Extended(id) => (id.as_raw(), true),
+        let (id, flags) = match id.into() {
+            embedded_can::Id::Standard(id) => (id.as_raw() as u32, Flags::None),
+            embedded_can::Id::Extended(id) => (id.as_raw(), Flags::Extended),
         };
 
-        Self::new(id, extended, data)
+        Self::new(id, flags.into(), data)
     }
 
     fn new_remote(id: impl Into<embedded_can::Id>, dlc: usize) -> Option<Self> {

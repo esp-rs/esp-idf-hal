@@ -524,13 +524,6 @@ impl<'a> Drop for CriticalSectionGuard<'a> {
     }
 }
 
-#[cfg(any(
-    all(
-        not(any(esp_idf_version_major = "4", esp_idf_version = "5.0")),
-        esp_idf_esp_task_wdt_en
-    ),
-    any(esp_idf_version_major = "4", esp_idf_version = "5.0")
-))]
 pub mod watchdog {
     //! ## Example
     //!

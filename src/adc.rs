@@ -948,7 +948,10 @@ pub mod continuous {
 
     impl AdcMeasurement {
         pub const INIT: Self = AdcMeasurement(unsafe {
-            core::mem::transmute([0u8; core::mem::size_of::<adc_digi_output_data_t>()])
+            core::mem::transmute::<
+                [u8; core::mem::size_of::<adc_digi_output_data_t>()],
+                adc_digi_output_data_t,
+            >([0u8; core::mem::size_of::<adc_digi_output_data_t>()])
         });
 
         pub const fn new() -> Self {
