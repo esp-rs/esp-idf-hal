@@ -23,9 +23,9 @@
 //! make sure it's not dropped - you may add an infinite loop after the server
 //! is created, use `core::mem::forget`, or keep around a reference to it somehow.
 //!
-//! You can find an example of handling GET/POST requests at [`json_post_handler.rs`](https://github.com/esp-rs/esp-idf-svc/blob/master/examples/json_post_handler.rs).
+//! You can find an example of handling GET/POST requests at [`examples/http_server.rs`](https://github.com/esp-rs/esp-idf-svc/blob/master/examples/http_server.rs).
 //!
-//! You can find an example of HTTP+Websockets at [`examples/ws_guessing_game.js`](https://github.com/esp-rs/esp-idf-svc/blob/master/examples/ws_guessing_game.rs).
+//! You can find an example of HTTP+Websockets at [`examples/http_ws_server.rs`](https://github.com/esp-rs/esp-idf-svc/blob/master/examples/http_ws_server.rs).
 //!
 //! By default, the ESP-IDF library allocates 512 bytes for reading and parsing
 //! HTTP headers, but desktop web browsers might send headers longer than that.
