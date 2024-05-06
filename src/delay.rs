@@ -411,6 +411,13 @@ impl embedded_hal::delay::DelayNs for Delay {
     }
 }
 
+impl embedded_hal_0_2::blocking::delay::DelayUs<u8> for Delay {
+    #[inline]
+    fn delay_us(&mut self, us: u8) {
+        Delay::delay_us(self, us.into());
+    }
+}
+
 impl embedded_hal_0_2::blocking::delay::DelayUs<u16> for Delay {
     #[inline]
     fn delay_us(&mut self, us: u16) {
@@ -422,6 +429,13 @@ impl embedded_hal_0_2::blocking::delay::DelayUs<u32> for Delay {
     #[inline]
     fn delay_us(&mut self, us: u32) {
         Delay::delay_us(self, us);
+    }
+}
+
+impl embedded_hal_0_2::blocking::delay::DelayMs<u8> for Delay {
+    #[inline]
+    fn delay_ms(&mut self, ms: u8) {
+        Delay::delay_ms(self, ms.into())
     }
 }
 
