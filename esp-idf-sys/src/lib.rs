@@ -10,6 +10,9 @@
     all(not(feature = "std"), feature = "alloc_handler"),
     feature(alloc_error_handler)
 )]
+#![allow(unknown_lints)]
+#![allow(renamed_and_removed_lints)]
+#![allow(unexpected_cfgs)]
 
 pub use bindings::*;
 pub use error::*;
