@@ -3,6 +3,7 @@
 #![allow(unknown_lints)]
 #![allow(renamed_and_removed_lints)]
 #![allow(clippy::unused_unit)] // enumset
+#![allow(unexpected_cfgs)]
 #![warn(clippy::large_futures)]
 #![cfg_attr(feature = "nightly", feature(doc_cfg))]
 #![cfg_attr(target_arch = "xtensa", feature(asm_experimental_arch))]
