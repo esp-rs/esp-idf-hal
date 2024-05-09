@@ -19,7 +19,9 @@ crate::embedded_hal_error!(
     embedded_hal::i2c::ErrorKind
 );
 
+#[cfg(any(esp32, esp32s2))]
 const APB_TICK_PERIOD_NS: u32 = 1_000_000_000 / 80_000_000;
+#[cfg(not(any(esp32, esp32s2)))]
 const XTAL_TICK_PERIOD_NS: u32 = 1_000_000_000 / XTAL_CLK_FREQ;
 #[derive(Copy, Clone, Debug)]
 pub struct APBTickType(::core::ffi::c_int);
@@ -38,11 +40,11 @@ impl From<Duration> for APBTickType {
         let target_ns_f = target_ns as f64;
         let abc = target_ns_f / (XTAL_TICK_PERIOD_NS as f64);
         let i = abc.log2().ceil() as u32;
-        if (i <= 22) {
+        if i <= 22 {
             return APBTickType(i as ::core::ffi::c_int);
         }
         //produce an error in the lower set_i2c_timeout, so the user is informed that the requested timeout is larger than the next valid one.
-        return APBTickType(32 as ::core::ffi::c_int);
+        APBTickType(32 as ::core::ffi::c_int)
     }
 }
 
