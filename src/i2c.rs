@@ -37,9 +37,14 @@ impl From<Duration> for APBTickType {
     /// Conversion for newer esp models, be aware, that the hardware can only represent 22 different values, values will be rounded to the next larger valid one. Calculation only valid for 40mhz clock source
     fn from(duration: Duration) -> Self {
         let target_ns = duration.as_nanos();
-        let target_ns_f = target_ns as f64;
-        let abc = target_ns_f / (XTAL_TICK_PERIOD_NS as f64);
-        let i = abc.log2().ceil() as u32;
+        let target_ns_f = target_ns as u64;
+        let abc = target_ns_f / (XTAL_TICK_PERIOD_NS as u64);
+        let i = abc.ilog2()
+            + (if abc.leading_zeros() + abc.trailing_zeros() + 1 < 64 {
+                1
+            } else {
+                0
+            });
         if i <= 22 {
             return APBTickType(i as ::core::ffi::c_int);
         }
