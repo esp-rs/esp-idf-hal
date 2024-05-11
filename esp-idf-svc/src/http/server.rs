@@ -77,6 +77,7 @@ pub use super::*;
 #[derive(Copy, Clone, Debug)]
 pub struct Configuration {
     pub http_port: u16,
+    pub ctrl_port: u16,
     pub https_port: u16,
     pub max_sessions: usize,
     pub session_timeout: Duration,
@@ -96,6 +97,7 @@ impl Default for Configuration {
     fn default() -> Self {
         Configuration {
             http_port: 80,
+            ctrl_port: 32768,
             https_port: 443,
             max_sessions: 16,
             session_timeout: Duration::from_secs(20 * 60),
@@ -124,7 +126,7 @@ impl From<&Configuration> for Newtype<httpd_config_t> {
             stack_size: conf.stack_size,
             core_id: i32::MAX,
             server_port: conf.http_port,
-            ctrl_port: 32768,
+            ctrl_port: conf.ctrl_port,
             max_open_sockets: conf.max_open_sockets as _,
             max_uri_handlers: conf.max_uri_handlers as _,
             max_resp_headers: conf.max_resp_headers as _,
