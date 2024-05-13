@@ -36,17 +36,21 @@ impl From<Duration> for APBTickType {
     #[cfg(not(any(esp32, esp32s2)))]
     /// Conversion for newer esp models, be aware, that the hardware can only represent 22 different values, values will be rounded to the next larger valid one. Calculation only valid for 40mhz clock source
     fn from(duration: Duration) -> Self {
-        let target_ns = duration.as_nanos();
-        let target_ns_f = target_ns as u64;
-        let abc = target_ns_f / (XTAL_TICK_PERIOD_NS as u64);
-        let i = abc.ilog2()
-            + (if abc.leading_zeros() + abc.trailing_zeros() + 1 < 64 {
+        let target_ns = duration.as_nanos() as u64;
+        let timeout_in_xtal_clock_cycles = target_ns / (XTAL_TICK_PERIOD_NS as u64);
+        //ilog2 but with ceiling logic
+        let register_value = timeout_in_xtal_clock_cycles.ilog2()
+            + (if timeout_in_xtal_clock_cycles.leading_zeros()
+                + timeout_in_xtal_clock_cycles.trailing_zeros()
+                + 1
+                < 64
+            {
                 1
             } else {
                 0
             });
-        if i <= 22 {
-            return APBTickType(i as ::core::ffi::c_int);
+        if register_value <= 22 {
+            return APBTickType(register_value as ::core::ffi::c_int);
         }
         //produce an error in the lower set_i2c_timeout, so the user is informed that the requested timeout is larger than the next valid one.
         APBTickType(32 as ::core::ffi::c_int)
