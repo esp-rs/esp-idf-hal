@@ -20,6 +20,19 @@ pub fn set_str(buf: &mut [u8], s: &str) -> Result<(), EspError> {
     Ok(())
 }
 
+pub fn set_str_no_termination_requirement(buf: &mut [u8], s: &str) -> Result<(), EspError> {
+    if s.len() > buf.len() {
+        return Err(EspError::from_infallible::<ESP_ERR_INVALID_SIZE>());
+    }
+
+    buf[..s.len()].copy_from_slice(s.as_bytes());
+    if buf.len() != s.len() {
+        buf[s.len()] = 0;
+    }
+
+    Ok(())
+}
+
 pub fn c_char_to_u8_slice_mut(s: &mut [c_char]) -> &mut [u8] {
     let s_ptr = unsafe { s.as_mut_ptr() as *mut u8 };
     unsafe { core::slice::from_raw_parts_mut(s_ptr, s.len()) }
@@ -39,6 +52,19 @@ pub fn from_cstr_fallible(buf: &[u8]) -> Result<&str, Utf8Error> {
 
 pub fn from_cstr(buf: &[u8]) -> &str {
     from_cstr_fallible(buf).unwrap()
+}
+
+/// Convert buffer of characters to heapless string, allowing either
+/// the full buffer (without terminating 0) or just a part of it (terminated by 0)
+pub fn array_to_heapless_string_failible<const N: usize>(
+    arr: [u8; N],
+) -> Result<heapless::String<N>, Utf8Error> {
+    let len = arr.iter().position(|e| *e == 0).unwrap_or(N);
+    heapless::String::from_utf8(heapless::Vec::from_slice(&arr[0..len]).unwrap())
+}
+
+pub fn array_to_heapless_string<const N: usize>(arr: [u8; N]) -> heapless::String<N> {
+    array_to_heapless_string_failible(arr).unwrap()
 }
 
 #[cfg(feature = "alloc")]
