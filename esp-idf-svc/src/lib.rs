@@ -103,4 +103,9 @@ pub mod tls;
 pub mod wifi;
 pub mod ws;
 
+#[cfg(all(feature = "alloc", esp_idf_comp_vfs_enabled))]
+pub mod fs;
+
+pub mod sd;
+
 mod private;
