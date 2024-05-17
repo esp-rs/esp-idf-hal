@@ -488,6 +488,16 @@ mod esptls {
         server_session: bool,
     }
 
+    // A single Mbed TLS context itself is safe to send across threads.
+    // Require the threading implementation to be enabled since a shared context such as RSA or X509 could be used by multiple threads at once.
+    // See https://mbed-tls.readthedocs.io/en/latest/kb/development/thread-safety-and-multi-threading/
+    #[cfg(all(
+        esp_idf_comp_esp_tls_enabled,
+        esp_idf_esp_tls_using_mbedtls,
+        esp_idf_mbedtls_threading_c
+    ))]
+    unsafe impl<S> Send for EspTls<S> where S: Send + Socket {}
+
     impl EspTls<InternalSocket> {
         /// Create a new `EspTls` instance using internally-managed socket.
         ///
@@ -854,10 +864,7 @@ mod esptls {
             rcfg.non_block = false;
 
             let res = loop {
-                let res = self
-                    .0
-                    .borrow_mut()
-                    .internal_connect(hostname, 0, true, &rcfg);
+                let res = self.0.get_mut().internal_connect(hostname, 0, true, &rcfg);
 
                 match res {
                     Err(e) => self.wait(e).await?,
@@ -932,17 +939,14 @@ mod esptls {
                 // The code below is therefore a hack which just waits with a timeout for the socket to (eventually)
                 // become readable as we actually don't even know if that's what esp_tls wants
                 EWOULDBLOCK_I32 => {
-                    core::future::poll_fn(|ctx| self.0.borrow_mut().socket.poll_writable(ctx))
-                        .await?;
+                    core::future::poll_fn(|ctx| self.0.borrow().socket.poll_writable(ctx)).await?;
                     crate::hal::delay::FreeRtos::delay_ms(0);
                 }
                 ESP_TLS_ERR_SSL_WANT_READ => {
-                    core::future::poll_fn(|ctx| self.0.borrow_mut().socket.poll_readable(ctx))
-                        .await?
+                    core::future::poll_fn(|ctx| self.0.borrow().socket.poll_readable(ctx)).await?
                 }
                 ESP_TLS_ERR_SSL_WANT_WRITE => {
-                    core::future::poll_fn(|ctx| self.0.borrow_mut().socket.poll_writable(ctx))
-                        .await?
+                    core::future::poll_fn(|ctx| self.0.borrow().socket.poll_writable(ctx)).await?
                 }
                 _ => Err(error)?,
             }
