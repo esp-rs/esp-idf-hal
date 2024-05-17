@@ -285,6 +285,77 @@ mod esptls {
         }
     }
 
+    type AlpnBuf = [u8; 16];
+
+    #[derive(Clone, Default)]
+    pub struct CompletedHandshake {
+        alpn: AlpnBuf,
+    }
+
+    impl CompletedHandshake {
+        pub fn alpn_proto(&self) -> Option<&str> {
+            let p = CStr::from_bytes_until_nul(self.alpn.as_slice()).unwrap();
+            // Safety: the bytes always come from a user supplied &str.
+            let p = unsafe { core::str::from_utf8_unchecked(p.to_bytes()) };
+
+            // A valid protocol is never empty.
+            if !p.is_empty() {
+                Some(p)
+            } else {
+                None
+            }
+        }
+
+        // Safety: Must be called while the configured ALPN protocol strings are valid.
+        unsafe fn extract(raw: *mut sys::esp_tls) -> CompletedHandshake {
+            CompletedHandshake {
+                alpn: unsafe { Self::extract_alpn(raw) }.unwrap_or_default(),
+            }
+        }
+
+        #[cfg(not(all(
+            not(esp_idf_version_major = "4"),
+            esp_idf_comp_esp_tls_enabled,
+            esp_idf_esp_tls_using_mbedtls,
+            esp_idf_mbedtls_ssl_alpn
+        )))]
+        unsafe fn extract_alpn(_raw: *mut sys::esp_tls) -> Option<AlpnBuf> {
+            None
+        }
+
+        #[cfg(all(
+            not(esp_idf_version_major = "4"),
+            esp_idf_comp_esp_tls_enabled,
+            esp_idf_esp_tls_using_mbedtls,
+            esp_idf_mbedtls_ssl_alpn
+        ))]
+        #[warn(unsafe_op_in_unsafe_fn)]
+        unsafe fn extract_alpn(raw: *mut sys::esp_tls) -> Option<AlpnBuf> {
+            let raw: *mut sys::mbedtls_ssl_context =
+                unsafe { sys::esp_tls_get_ssl_context(raw) }.cast();
+
+            if raw.is_null() {
+                return None;
+            }
+
+            let chosen = unsafe { sys::mbedtls_ssl_get_alpn_protocol(raw) };
+            if chosen.is_null() {
+                return None;
+            }
+
+            let mut proto = AlpnBuf::default();
+            let chosen = unsafe { CStr::from_ptr(chosen) };
+            let chosen_bytes = chosen.to_bytes_with_nul();
+            if chosen_bytes.len() > proto.len() {
+                return None;
+            }
+
+            proto[..chosen_bytes.len()].copy_from_slice(chosen_bytes);
+
+            Some(proto)
+        }
+    }
+
     #[derive(Clone, Debug)]
     pub struct KeepAliveConfig {
         /// Enable keep-alive timeout
@@ -446,7 +517,12 @@ mod esptls {
         /// * `ESP_TLS_ERR_SSL_WANT_READ` if the socket is in non-blocking mode and it is not ready for reading
         /// * `ESP_TLS_ERR_SSL_WANT_WRITE` if the socket is in non-blocking mode and it is not ready for writing
         /// * `EWOULDBLOCK` if the socket is in non-blocking mode and it is not ready either for reading or writing (a peculiarity/bug of the `esp-tls` C module)
-        pub fn connect(&mut self, host: &str, port: u16, cfg: &Config) -> Result<(), EspError> {
+        pub fn connect(
+            &mut self,
+            host: &str,
+            port: u16,
+            cfg: &Config,
+        ) -> Result<CompletedHandshake, EspError> {
             let mut bufs = RawConfigBufs::default();
             let rcfg = cfg.try_into_raw(&mut bufs)?;
 
@@ -507,7 +583,11 @@ mod esptls {
             not(esp_idf_version_major = "4"),
             any(not(esp_idf_version_major = "5"), not(esp_idf_version_minor = "0"))
         ))]
-        pub fn negotiate(&mut self, host: &str, cfg: &Config) -> Result<(), EspError> {
+        pub fn negotiate(
+            &mut self,
+            host: &str,
+            cfg: &Config,
+        ) -> Result<CompletedHandshake, EspError> {
             let mut bufs = RawConfigBufs::default();
             let rcfg = cfg.try_into_raw(&mut bufs)?;
 
@@ -554,7 +634,7 @@ mod esptls {
             port: u16,
             asynch: bool,
             cfg: &sys::esp_tls_cfg,
-        ) -> Result<(), EspError> {
+        ) -> Result<CompletedHandshake, EspError> {
             let ret = unsafe {
                 if asynch {
                     sys::esp_tls_conn_new_async(
@@ -576,7 +656,7 @@ mod esptls {
             };
 
             match ret {
-                1 => Ok(()),
+                1 => Ok(unsafe { CompletedHandshake::extract(self.raw) }),
                 ESP_TLS_ERR_SSL_WANT_READ => Err(EspError::from_infallible::<
                     { ESP_TLS_ERR_SSL_WANT_READ as i32 },
                 >()),
@@ -755,7 +835,7 @@ mod esptls {
             &mut self,
             hostname: &str,
             cfg: &Config<'_>,
-        ) -> Result<(), EspError> {
+        ) -> Result<CompletedHandshake, EspError> {
             let mut bufs = RawConfigBufs::default();
             let mut rcfg: sys::esp_tls_cfg = cfg.try_into_raw(&mut bufs)?;
 
