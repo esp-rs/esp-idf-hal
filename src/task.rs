@@ -321,7 +321,7 @@ impl Future for YieldNowFuture {
 pub mod thread {
     use core::ffi::CStr;
 
-    use enumset::{EnumSet, EnumSetType};
+    use enumset::EnumSetType;
 
     use esp_idf_sys::*;
 
@@ -337,41 +337,41 @@ pub mod thread {
     #[enumset(repr = "u32")] // Note: following value variants represent the bitposition **not** a literal u32 value in an EnumSet<MallocCap>
     pub enum MallocCap {
         // Memory must be able to run executable code
-        EXEC = 0,
+        Exec = 0,
         // Memory must allow for aligned 32-bit data accesses
-        CAP_32BIT = 1,
+        Cap32bit = 1,
         // Memory must allow for 8/16/...-bit data accesses
-        CAP_8BIT = 2,
+        Cap8bit = 2,
         // Memory must be able to accessed by DMA
-        DMA = 3,
+        Dma = 3,
         // Memory must be mapped to PID2 memory space (PIDs are not currently used)
-        PID2 = 4,
+        Pid2 = 4,
         // Memory must be mapped to PID3 memory space (PIDs are not currently used)
-        PID3 = 5,
+        Pid3 = 5,
         // Memory must be mapped to PID4 memory space (PIDs are not currently used)
-        PID4 = 6,
+        Pid4 = 6,
         // Memory must be mapped to PID5 memory space (PIDs are not currently used)
-        PID5 = 7,
+        Pid5 = 7,
         // Memory must be mapped to PID6 memory space (PIDs are not currently used)
-        PID6 = 8,
+        Pid6 = 8,
         // Memory must be mapped to PID7 memory space (PIDs are not currently used)
-        PID7 = 9,
+        Pid7 = 9,
         // Memory must be in SPI RAM
-        SPIRAM = 10,
+        Spiram = 10,
         // Memory must be internal; specifically it should not disappear when flash/spiram cache is switched off
-        INTERNAL = 11,
+        Internal = 11,
         // Memory can be returned in a non-capability-specific memory allocation (e.g. malloc(), calloc()) call
-        DEFAULT = 12,
+        Default = 12,
         // Memory must be in IRAM and allow unaligned access
-        IRAM_8BIT = 13,
+        Iram8bit = 13,
         // Memory must be able to accessed by retention DMA
-        RETENTION = 14,
+        Retention = 14,
         // Memory must be in RTC fast memory
-        RTCRAM = 15,
+        Rtcram = 15,
         // Memory must be in TCM memory
-        TCM = 16,
+        Tcm = 16,
         // Memory can't be used / list end marker
-        INVALID = 31,
+        Invalid = 31,
     }
     #[derive(Debug)]
     pub struct ThreadSpawnConfiguration {
