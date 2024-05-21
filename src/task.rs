@@ -416,6 +416,12 @@ pub mod thread {
                 prio: conf.priority as _,
                 inherit_cfg: conf.inherit,
                 pin_to_core: conf.pin_to_core.map(Into::into).unwrap_or(NO_AFFINITY as _),
+                #[cfg(not(any(
+                    esp_idf_version_major = "4",
+                    all(esp_idf_version_major = "5", esp_idf_version_minor = "0"),
+                    all(esp_idf_version_major = "5", esp_idf_version_minor = "1"),
+                    all(esp_idf_version_major = "5", esp_idf_version_minor = "2"),
+                )))] // ESP-IDF 5.3 and later
                 stack_alloc_caps: conf.stack_alloc_caps.as_u32(),
             }
         }
@@ -442,6 +448,12 @@ pub mod thread {
                 } else {
                     Some(conf.pin_to_core.into())
                 },
+                #[cfg(not(any(
+                    esp_idf_version_major = "4",
+                    all(esp_idf_version_major = "5", esp_idf_version_minor = "0"),
+                    all(esp_idf_version_major = "5", esp_idf_version_minor = "1"),
+                    all(esp_idf_version_major = "5", esp_idf_version_minor = "2"),
+                )))] // ESP-IDF 5.3 and later
                 stack_alloc_caps: EnumSet::<MallocCap>::from_u32(conf.stack_alloc_caps),
             }
         }
