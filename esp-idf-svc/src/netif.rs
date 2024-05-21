@@ -242,31 +242,14 @@ impl EspNetif {
                                 | esp_netif_flags_ESP_NETIF_FLAG_EVENT_IP_MODIFIED
                         }
                         ipv4::ClientConfiguration::Fixed(_) => {
-                            esp_netif_flags_ESP_NETIF_FLAG_AUTOUP
+                            esp_netif_flags_ESP_NETIF_FLAG_GARP
+                                | esp_netif_flags_ESP_NETIF_FLAG_EVENT_IP_MODIFIED
                         }
                     },
                     mac: initial_mac,
                     ip_info: ptr::null(),
-                    get_ip_event: match ip_conf {
-                        ipv4::ClientConfiguration::DHCP(_) => {
-                            if conf.stack == NetifStack::Sta {
-                                ip_event_t_IP_EVENT_STA_GOT_IP
-                            } else {
-                                0
-                            }
-                        }
-                        ipv4::ClientConfiguration::Fixed(_) => 0,
-                    },
-                    lost_ip_event: match ip_conf {
-                        ipv4::ClientConfiguration::DHCP(_) => {
-                            if conf.stack == NetifStack::Sta {
-                                ip_event_t_IP_EVENT_STA_LOST_IP
-                            } else {
-                                0
-                            }
-                        }
-                        ipv4::ClientConfiguration::Fixed(_) => 0,
-                    },
+                    get_ip_event: ip_event_t_IP_EVENT_STA_GOT_IP,
+                    lost_ip_event: ip_event_t_IP_EVENT_STA_LOST_IP,
                     if_key: c_if_key.as_c_str().as_ptr() as _,
                     if_desc: c_if_description.as_c_str().as_ptr() as _,
                     route_prio: conf.route_priority as _,
