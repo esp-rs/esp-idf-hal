@@ -422,7 +422,6 @@ impl<'d> SpiDriver<'d> {
         let dma_chan: spi_dma_chan_t = config.dma.into();
 
         #[allow(clippy::needless_update)]
-        #[cfg(not(esp_idf_version = "4.3"))]
         let bus_config = spi_bus_config_t {
             flags: SPICOMMON_BUSFLAG_MASTER,
             sclk_io_num: sclk.pin(),
@@ -447,25 +446,6 @@ impl<'d> SpiDriver<'d> {
                 quadhd_io_num: -1,
                 //data3_io_num: -1,
             },
-            max_transfer_sz: max_transfer_sz as i32,
-            intr_flags: InterruptType::to_native(config.intr_flags) as _,
-            ..Default::default()
-        };
-
-        #[allow(clippy::needless_update)]
-        #[cfg(esp_idf_version = "4.3")]
-        #[deprecated(
-            note = "Using ESP-IDF 4.3 is untested, please upgrade to 4.4 or newer. Support will be removed in the next major release."
-        )]
-        let bus_config = spi_bus_config_t {
-            flags: SPICOMMON_BUSFLAG_MASTER,
-            sclk_io_num: sclk.pin(),
-
-            mosi_io_num: sdo.pin(),
-            miso_io_num: sdi.as_ref().map_or(-1, |p| p.pin()),
-            quadwp_io_num: -1,
-            quadhd_io_num: -1,
-
             max_transfer_sz: max_transfer_sz as i32,
             intr_flags: InterruptType::to_native(config.intr_flags) as _,
             ..Default::default()
@@ -1761,9 +1741,6 @@ fn spi_create_transaction(
 }
 
 fn set_keep_cs_active(transaction: &mut spi_transaction_t, _keep_cs_active: bool) {
-    // This unfortunately means that this implementation is incorrect for esp-idf < 4.4.
-    // The CS pin should be kept active through transactions.
-    #[cfg(not(esp_idf_version = "4.3"))]
     if _keep_cs_active {
         transaction.flags |= SPI_TRANS_CS_KEEP_ACTIVE
     }
