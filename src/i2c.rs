@@ -19,15 +19,41 @@ crate::embedded_hal_error!(
     embedded_hal::i2c::ErrorKind
 );
 
+#[cfg(any(esp32, esp32s2))]
 const APB_TICK_PERIOD_NS: u32 = 1_000_000_000 / 80_000_000;
+#[cfg(not(any(esp32, esp32s2)))]
+const XTAL_TICK_PERIOD_NS: u32 = 1_000_000_000 / XTAL_CLK_FREQ;
 #[derive(Copy, Clone, Debug)]
 pub struct APBTickType(::core::ffi::c_int);
 impl From<Duration> for APBTickType {
+    #[cfg(any(esp32, esp32s2))]
     fn from(duration: Duration) -> Self {
         APBTickType(
             ((duration.as_nanos() + APB_TICK_PERIOD_NS as u128 - 1) / APB_TICK_PERIOD_NS as u128)
                 as ::core::ffi::c_int,
         )
+    }
+    #[cfg(not(any(esp32, esp32s2)))]
+    /// Conversion for newer esp models, be aware, that the hardware can only represent 22 different values, values will be rounded to the next larger valid one. Calculation only valid for 40mhz clock source
+    fn from(duration: Duration) -> Self {
+        let target_ns = duration.as_nanos() as u64;
+        let timeout_in_xtal_clock_cycles = target_ns / (XTAL_TICK_PERIOD_NS as u64);
+        //ilog2 but with ceiling logic
+        let register_value = timeout_in_xtal_clock_cycles.ilog2()
+            + (if timeout_in_xtal_clock_cycles.leading_zeros()
+                + timeout_in_xtal_clock_cycles.trailing_zeros()
+                + 1
+                < 64
+            {
+                1
+            } else {
+                0
+            });
+        if register_value <= 22 {
+            return APBTickType(register_value as ::core::ffi::c_int);
+        }
+        //produce an error in the lower set_i2c_timeout, so the user is informed that the requested timeout is larger than the next valid one.
+        APBTickType(32 as ::core::ffi::c_int)
     }
 }
 
