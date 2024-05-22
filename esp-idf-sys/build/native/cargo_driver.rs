@@ -21,7 +21,7 @@ use self::chip::Chip;
 use crate::common::{
     self, list_specific_sdkconfigs, manifest_dir, sanitize_c_env_vars, sanitize_project_path,
     setup_clang_env, workspace_dir, EspIdfBuildOutput, EspIdfComponents, InstallDir, NO_PATCHES,
-    V_4_3_2_PATCHES, V_4_4_3_PATCHES, V_5_0_PATCHES,
+    V_4_4_3_PATCHES, V_5_0_PATCHES,
 };
 use crate::config::{BuildConfig, ESP_IDF_GLOB_VAR_PREFIX, ESP_IDF_TOOLS_INSTALL_DIR_VAR};
 
@@ -289,12 +289,11 @@ pub fn build() -> Result<EspIdfBuildOutput> {
             Ok((5, 0, _)) => V_5_0_PATCHES,
             Ok((5, _, _)) => NO_PATCHES,
             Ok((4, 4, _)) => V_4_4_3_PATCHES,
-            Ok((4, 3, 2)) => V_4_3_2_PATCHES,
             Ok((major, minor, patch)) => {
                 cargo::print_warning(format_args!(
                     "esp-idf version ({major}.{minor}.{patch}) not officially supported by `esp-idf-sys`. \
-                     Supported versions are 'master', 'release/v5.1', 'release/v5.0', 'release/v4.4', 'release/v4.3', \
-                     'v5.1(.X)', 'v5.0(.X)', 'v4.4(.X)', 'v4.3.3', 'v4.3.2'.",
+                     Supported versions are 'master', 'release/v5.1', 'release/v5.0', 'release/v4.4', \
+                     'v5.1(.X)', 'v5.0(.X)', 'v4.4(.X)'",
                 ));
                 &[]
             }

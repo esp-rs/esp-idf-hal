@@ -3,23 +3,15 @@
 mod atexit;
 #[cfg(feature = "std")]
 mod lstat;
-#[cfg(all(feature = "std", esp_idf_version = "4.3"))]
-mod pthread_rwlock;
 
 #[allow(dead_code)]
-pub struct PatchesRef(
-    *mut core::ffi::c_void,
-    *mut core::ffi::c_void,
-    *mut core::ffi::c_void,
-);
+pub struct PatchesRef(*mut core::ffi::c_void, *mut core::ffi::c_void);
 
-/// A hack to make sure that the rwlock implementation is linked to the final executable
+/// A hack to make sure that certain symbols are linked to the final executable
 /// Call this function once e.g. in the beginning of your main function
 pub fn link_patches() -> PatchesRef {
-    #[cfg(all(feature = "std", esp_idf_version = "4.3"))]
-    let rwlock = pthread_rwlock::link_patches();
-    #[cfg(not(all(feature = "std", esp_idf_version = "4.3")))]
-    let rwlock = core::ptr::null_mut();
+    #[cfg(esp_idf_version_major = "4")]
+    notify_about_deprecation();
 
     #[cfg(feature = "std")]
     let lstat = lstat::link_patches();
@@ -28,5 +20,12 @@ pub fn link_patches() -> PatchesRef {
 
     let atexit = atexit::link_patches();
 
-    PatchesRef(rwlock, lstat, atexit)
+    PatchesRef(lstat, atexit)
 }
+
+#[cfg(esp_idf_version_major = "4")]
+#[deprecated(
+    since = "0.35.0",
+    note = "ESP-IDF version 4 is now considered deprecated.\nPlease upgrade your project to ESP-IDF 5 or later.\nFuture releases will remove parts that are version 4 related"
+)]
+const fn notify_about_deprecation() {}
