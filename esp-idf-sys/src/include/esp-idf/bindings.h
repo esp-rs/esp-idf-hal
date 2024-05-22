@@ -268,7 +268,7 @@
 
 #if defined(CONFIG_IDF_TARGET_ESP32) || defined(CONFIG_IDF_TARGET_ESP32S2)
 #include "driver/dac.h"
-#if ESP_IDF_VERSION_MAJOR > 5 ||                                               \
+#if ESP_IDF_VERSION_MAJOR > 5 || \
     ESP_IDF_VERSION_MAJOR == 5 && ESP_IDF_VERSION_MINOR >= 1
 #include "driver/dac_continuous.h"
 #include "driver/dac_cosine.h"
@@ -487,15 +487,23 @@
 #endif // CONFIG_IDF_TARGET_ESP32S2
 
 // LCD support
-#if ((ESP_IDF_VERSION_MAJOR == 4) && (ESP_IDF_VERSION_MINOR >= 4)) || (ESP_IDF_VERSION_MAJOR >= 5)
 #ifdef ESP_IDF_COMP_ESP_LCD_ENABLED
-#include "esp_lcd_types.h"
-#include "esp_lcd_panel_rgb.h"
+#include "esp_lcd_panel_commands.h"
 #include "esp_lcd_panel_io.h"
 #include "esp_lcd_panel_ops.h"
 #include "esp_lcd_panel_vendor.h"
-#include "esp_lcd_panel_commands.h"
+#include "esp_lcd_types.h"
 #include "esp_lcd_panel_interface.h"
 #include "esp_lcd_panel_io_interface.h"
-#endif // ESP_IDF_COMP_LCD_ENABLED
+#if (ESP_IDF_VERSION_MAJOR == 4 && ESP_IDF_VERSION_MINOR >= 4) || (ESP_IDF_VERSION_MAJOR >= 5 && ESP_IDF_VERSION_MINOR <= 2)
+#include "esp_lcd_panel_rgb.h"
 #endif //((ESP_IDF_VERSION_MAJOR == 4) && (ESP_IDF_VERSION_MINOR >= 4) || (ESP_IDF_VERSION_MAJOR >= 5))
+#if ESP_IDF_VERSION_MAJOR >= 5 && ESP_IDF_VERSION_MINOR >= 3
+#include "esp_lcd_panel_dev.h"
+#include "esp_lcd_panel_nt35510.h"
+#include "esp_lcd_panel_ssd1306.h"
+#include "esp_lcd_panel_st7789.h"
+#endif // (ESP_IDF_VERSION_MAJOR >= 5 && ESP_IDF_VERSION_MINOR >= 3
+#endif // ESP_IDF_COMP_LCD_ENABLED
+
+// n
