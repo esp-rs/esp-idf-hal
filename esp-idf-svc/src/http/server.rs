@@ -506,7 +506,12 @@ impl<'a> EspHttpServer<'a> {
                         connection.handle_error(e);
                     }
                 }
-                Err(e) => connection.handle_error(e),
+                Err(e) => {
+                    connection.handle_error(e);
+                    if let Err(e) = connection.complete() {
+                        connection.handle_error(e);
+                    }
+                }
             }
 
             ESP_OK as _
