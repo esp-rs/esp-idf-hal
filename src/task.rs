@@ -321,12 +321,58 @@ impl Future for YieldNowFuture {
 pub mod thread {
     use core::ffi::CStr;
 
+    use enumset::EnumSetType;
+
     use esp_idf_sys::*;
 
     use super::NO_AFFINITY;
 
     use crate::cpu::Core;
 
+    /// Flags to indicate the capabilities of the various memo
+    ///
+    /// Used together with EnumSet
+    /// `let flags = MallocCap:Default | MallocCap:Cap_8bit`
+    #[derive(Debug, EnumSetType)]
+    #[enumset(repr = "u32")] // Note: following value variants represent the bitposition **not** a literal u32 value in an EnumSet<MallocCap>
+    pub enum MallocCap {
+        // Memory must be able to run executable code
+        Exec = 0,
+        // Memory must allow for aligned 32-bit data accesses
+        Cap32bit = 1,
+        // Memory must allow for 8/16/...-bit data accesses
+        Cap8bit = 2,
+        // Memory must be able to accessed by DMA
+        Dma = 3,
+        // Memory must be mapped to PID2 memory space (PIDs are not currently used)
+        Pid2 = 4,
+        // Memory must be mapped to PID3 memory space (PIDs are not currently used)
+        Pid3 = 5,
+        // Memory must be mapped to PID4 memory space (PIDs are not currently used)
+        Pid4 = 6,
+        // Memory must be mapped to PID5 memory space (PIDs are not currently used)
+        Pid5 = 7,
+        // Memory must be mapped to PID6 memory space (PIDs are not currently used)
+        Pid6 = 8,
+        // Memory must be mapped to PID7 memory space (PIDs are not currently used)
+        Pid7 = 9,
+        // Memory must be in SPI RAM
+        Spiram = 10,
+        // Memory must be internal; specifically it should not disappear when flash/spiram cache is switched off
+        Internal = 11,
+        // Memory can be returned in a non-capability-specific memory allocation (e.g. malloc(), calloc()) call
+        Default = 12,
+        // Memory must be in IRAM and allow unaligned access
+        Iram8bit = 13,
+        // Memory must be able to accessed by retention DMA
+        Retention = 14,
+        // Memory must be in RTC fast memory
+        Rtcram = 15,
+        // Memory must be in TCM memory
+        Tcm = 16,
+        // Memory can't be used / list end marker
+        Invalid = 31,
+    }
     #[derive(Debug)]
     pub struct ThreadSpawnConfiguration {
         pub name: Option<&'static [u8]>,
@@ -334,6 +380,13 @@ pub mod thread {
         pub priority: u8,
         pub inherit: bool,
         pub pin_to_core: Option<Core>,
+        #[cfg(not(any(
+            esp_idf_version_major = "4",
+            all(esp_idf_version_major = "5", esp_idf_version_minor = "0"),
+            all(esp_idf_version_major = "5", esp_idf_version_minor = "1"),
+            all(esp_idf_version_major = "5", esp_idf_version_minor = "2"),
+        )))] // ESP-IDF 5.3 and later
+        pub stack_alloc_caps: EnumSet<MallocCap>,
     }
 
     impl ThreadSpawnConfiguration {
@@ -363,6 +416,13 @@ pub mod thread {
                 prio: conf.priority as _,
                 inherit_cfg: conf.inherit,
                 pin_to_core: conf.pin_to_core.map(Into::into).unwrap_or(NO_AFFINITY as _),
+                #[cfg(not(any(
+                    esp_idf_version_major = "4",
+                    all(esp_idf_version_major = "5", esp_idf_version_minor = "0"),
+                    all(esp_idf_version_major = "5", esp_idf_version_minor = "1"),
+                    all(esp_idf_version_major = "5", esp_idf_version_minor = "2"),
+                )))] // ESP-IDF 5.3 and later
+                stack_alloc_caps: conf.stack_alloc_caps.as_u32(),
             }
         }
     }
@@ -388,6 +448,13 @@ pub mod thread {
                 } else {
                     Some(conf.pin_to_core.into())
                 },
+                #[cfg(not(any(
+                    esp_idf_version_major = "4",
+                    all(esp_idf_version_major = "5", esp_idf_version_minor = "0"),
+                    all(esp_idf_version_major = "5", esp_idf_version_minor = "1"),
+                    all(esp_idf_version_major = "5", esp_idf_version_minor = "2"),
+                )))] // ESP-IDF 5.3 and later
+                stack_alloc_caps: EnumSet::<MallocCap>::from_u32(conf.stack_alloc_caps),
             }
         }
     }

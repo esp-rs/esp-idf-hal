@@ -84,6 +84,14 @@ pub mod config {
         i2s_mode_t_I2S_MODE_SLAVE,
     };
 
+    #[cfg(not(any(
+        esp_idf_version_major = "4",
+        all(esp_idf_version_major = "5", esp_idf_version_minor = "0"),
+        all(esp_idf_version_major = "5", esp_idf_version_minor = "1"),
+        all(esp_idf_version_major = "5", esp_idf_version_minor = "2"),
+    )))] // ESP-IDF 5.3 and later
+    use esp_idf_sys::i2s_chan_config_t__bindgen_ty_1; // introduces union type over auto_clear
+
     /// The default number of DMA buffers to use.
     pub const DEFAULT_DMA_BUFFER_COUNT: u32 = 6;
 
@@ -228,7 +236,23 @@ pub mod config {
                 role: self.role.as_sdk(),
                 dma_desc_num: self.dma_buffer_count,
                 dma_frame_num: self.frames_per_buffer,
+                #[cfg(any(
+                    esp_idf_version_major = "4",
+                    all(esp_idf_version_major = "5", esp_idf_version_minor = "0"),
+                    all(esp_idf_version_major = "5", esp_idf_version_minor = "1"),
+                    all(esp_idf_version_major = "5", esp_idf_version_minor = "2"),
+                ))]
                 auto_clear: self.auto_clear,
+                // ESP-IDF 5.3 introduced auto_clear for before_cb & after_cb 
+                #[cfg(not(any(
+                    esp_idf_version_major = "4",
+                    all(esp_idf_version_major = "5", esp_idf_version_minor = "0"),
+                    all(esp_idf_version_major = "5", esp_idf_version_minor = "1"),
+                    all(esp_idf_version_major = "5", esp_idf_version_minor = "2"),
+                )))] // For ESP-IDF v5.3 and later
+                __bindgen_anon_1: i2s_chan_config_t__bindgen_ty_1{
+                    auto_clear_after_cb: self.auto_clear,
+                },
                 ..Default::default()
             }
         }
