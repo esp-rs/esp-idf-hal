@@ -127,13 +127,6 @@ pub fn current() -> Option<TaskHandle_t> {
 pub fn wait_notification(timeout: TickType_t) -> Option<NonZeroU32> {
     let mut notification = 0_u32;
 
-    #[cfg(esp_idf_version = "4.3")]
-    #[deprecated(
-        note = "Using ESP-IDF 4.3 is untested, please upgrade to 4.4 or newer. Support will be removed in the next major release."
-    )]
-    let notified = unsafe { xTaskNotifyWait(0, u32::MAX, &mut notification, timeout) } != 0;
-
-    #[cfg(not(esp_idf_version = "4.3"))]
     let notified =
         unsafe { xTaskGenericNotifyWait(0, 0, u32::MAX, &mut notification, timeout) } != 0;
 
@@ -168,19 +161,6 @@ pub unsafe fn notify(task: TaskHandle_t, notification: NonZeroU32) -> (bool, boo
     let (notified, higher_prio_task_woken) = if interrupt::active() {
         let mut higher_prio_task_woken: BaseType_t = Default::default();
 
-        #[cfg(esp_idf_version = "4.3")]
-        #[deprecated(
-            note = "Using ESP-IDF 4.3 is untested, please upgrade to 4.4 or newer. Support will be removed in the next major release."
-        )]
-        let notified = xTaskGenericNotifyFromISR(
-            task,
-            notification.into(),
-            eNotifyAction_eSetBits,
-            ptr::null_mut(),
-            &mut higher_prio_task_woken,
-        );
-
-        #[cfg(not(esp_idf_version = "4.3"))]
         let notified = xTaskGenericNotifyFromISR(
             task,
             0,
@@ -192,18 +172,6 @@ pub unsafe fn notify(task: TaskHandle_t, notification: NonZeroU32) -> (bool, boo
 
         (notified, higher_prio_task_woken)
     } else {
-        #[cfg(esp_idf_version = "4.3")]
-        #[deprecated(
-            note = "Using ESP-IDF 4.3 is untested, please upgrade to 4.4 or newer. Support will be removed in the next major release."
-        )]
-        let notified = xTaskGenericNotify(
-            task,
-            notification.into(),
-            eNotifyAction_eSetBits,
-            ptr::null_mut(),
-        );
-
-        #[cfg(not(esp_idf_version = "4.3"))]
         let notified = xTaskGenericNotify(
             task,
             0,

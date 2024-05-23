@@ -182,15 +182,6 @@ fn enter(_cs: &IsrCriticalSection) {
 #[inline(always)]
 #[link_section = ".iram1.interrupt_enter"]
 fn enter(cs: &IsrCriticalSection) {
-    #[cfg(esp_idf_version = "4.3")]
-    #[deprecated(
-        note = "Using ESP-IDF 4.3 is untested, please upgrade to 4.4 or newer. Support will be removed in the next major release."
-    )]
-    unsafe {
-        vPortEnterCritical(cs.0.get());
-    }
-
-    #[cfg(not(esp_idf_version = "4.3"))]
     unsafe {
         xPortEnterCriticalTimeout(cs.0.get(), portMUX_NO_TIMEOUT);
     }
