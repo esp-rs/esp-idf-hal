@@ -1049,7 +1049,7 @@ impl<'d, T: Pin, MODE> PinDriver<'d, T, MODE> {
     /// Additionally, this method - in contrast to method `subscribe` - allows
     /// the passed-in callback/closure to be non-`'static`. This enables users to borrow
     /// - in the closure - variables that live on the stack - or more generally - in the same
-    /// scope where the driver is created.
+    ///   scope where the driver is created.
     ///
     /// HOWEVER: care should be taken NOT to call `core::mem::forget()` on the driver,
     /// as that would immediately lead to an UB (crash).
