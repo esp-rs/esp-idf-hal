@@ -656,8 +656,6 @@ pub mod asynch {
 
 #[cfg(feature = "embassy-sync")]
 pub mod embassy_sync {
-    use core::marker::PhantomData;
-
     use embassy_sync::blocking_mutex::raw::RawMutex;
 
     /// A mutex that allows borrowing data across executors and interrupts.
