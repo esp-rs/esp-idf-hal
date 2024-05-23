@@ -111,6 +111,11 @@ impl<T> Mutex<T> {
     pub fn lock(&self) -> MutexGuard<'_, T> {
         MutexGuard::new(self)
     }
+
+    #[inline(always)]
+    pub fn get_mut(&mut self) -> &mut T {
+        self.1.get_mut()
+    }
 }
 
 unsafe impl<T> Sync for Mutex<T> where T: Send {}
