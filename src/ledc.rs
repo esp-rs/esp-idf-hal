@@ -510,6 +510,7 @@ mod chip {
     /// All others support only low speed mode.
     pub trait SpeedMode: Send + Sync + 'static {
         const SPEED_MODE: ledc_mode_t;
+        const HIGH_SPEED: bool;
     }
 
     /// Low speed mode for the LED Control peripheral
@@ -517,6 +518,7 @@ mod chip {
 
     impl SpeedMode for LowSpeed {
         const SPEED_MODE: ledc_mode_t = ledc_mode_t_LEDC_LOW_SPEED_MODE;
+        const HIGH_SPEED: bool = false;
     }
 
     #[cfg(esp32)]
@@ -526,6 +528,7 @@ mod chip {
     #[cfg(esp32)]
     impl SpeedMode for HighSpeed {
         const SPEED_MODE: ledc_mode_t = ledc_mode_t_LEDC_HIGH_SPEED_MODE;
+        const HIGH_SPEED: bool = true;
     }
 
     /// LED Control peripheral timer
