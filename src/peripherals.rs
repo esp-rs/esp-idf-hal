@@ -69,6 +69,8 @@ pub struct Peripherals {
     pub hall_sensor: crate::hall::HallSensor,
     pub can: can::CAN,
     pub ledc: ledc::LEDC,
+    #[cfg(esp32)]
+    pub hledc: ledc::HLEDC,
     pub rmt: rmt::RMT,
     #[cfg(all(
         any(esp32, esp32s2, esp32s3, esp32c6, esp32p4),
@@ -164,6 +166,8 @@ impl Peripherals {
             hall_sensor: crate::hall::HallSensor::new(),
             can: can::CAN::new(),
             ledc: ledc::LEDC::new(),
+            #[cfg(esp32)]
+            hledc: ledc::HLEDC::new(),
             rmt: rmt::RMT::new(),
             #[cfg(all(
                 any(esp32, esp32s2, esp32s3, esp32c6, esp32p4),
