@@ -289,7 +289,15 @@ impl Future for YieldNowFuture {
 pub mod thread {
     use core::ffi::CStr;
 
-    use enumset::{EnumSet, EnumSetType};
+    use enumset::EnumSetType;
+
+    #[cfg(not(any(
+        esp_idf_version_major = "4",
+        all(esp_idf_version_major = "5", esp_idf_version_minor = "0"),
+        all(esp_idf_version_major = "5", esp_idf_version_minor = "1"),
+        all(esp_idf_version_major = "5", esp_idf_version_minor = "2"),
+    )))] // ESP-IDF 5.3 and later
+    use enumset::EnumSet;
 
     use esp_idf_sys::*;
 
