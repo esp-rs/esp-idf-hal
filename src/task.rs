@@ -289,7 +289,7 @@ impl Future for YieldNowFuture {
 pub mod thread {
     use core::ffi::CStr;
 
-    use enumset::EnumSetType;
+    use enumset::{EnumSet, EnumSetType};
 
     use esp_idf_sys::*;
 
