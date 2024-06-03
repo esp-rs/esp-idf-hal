@@ -586,7 +586,6 @@ impl<'d> WifiDriver<'d> {
                 not(esp_idf_version_major = "4"),
                 all(
                     esp_idf_version_major = "4",
-                    not(esp_idf_version_minor = "3"),
                     any(
                         not(esp_idf_version_minor = "4"),
                         all(

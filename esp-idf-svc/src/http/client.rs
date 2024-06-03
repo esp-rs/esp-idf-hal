@@ -84,7 +84,6 @@ pub struct Configuration {
     pub client_certificate: Option<X509<'static>>,
     pub private_key: Option<X509<'static>>,
     pub use_global_ca_store: bool,
-    #[cfg(not(esp_idf_version = "4.3"))]
     pub crt_bundle_attach: Option<unsafe extern "C" fn(conf: *mut core::ffi::c_void) -> esp_err_t>,
     pub raw_request_body: bool,
 }
@@ -121,7 +120,6 @@ impl EspHttpConnection {
             user_data: &*event_handler as *const _ as *mut core::ffi::c_void,
 
             use_global_ca_store: configuration.use_global_ca_store,
-            #[cfg(not(esp_idf_version = "4.3"))]
             crt_bundle_attach: configuration.crt_bundle_attach,
 
             ..Default::default()

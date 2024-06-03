@@ -13,7 +13,10 @@ use crate::private::mutex;
 #[cfg(feature = "alloc")]
 extern crate alloc;
 
-#[cfg(not(any(esp_idf_version_major = "4", esp_idf_version_minor = "0")))]
+#[cfg(not(any(
+    esp_idf_version_major = "4",
+    all(esp_idf_version_major = "5", esp_idf_version_minor = "0"),
+)))] // For ESP-IDF v5.1 and later
 mod esp_sntp {
     use super::OperatingMode;
     pub use crate::sys::*;
@@ -45,7 +48,10 @@ mod esp_sntp {
     pub use esp_sntp_stop as sntp_stop;
 }
 
-#[cfg(any(esp_idf_version_major = "4", esp_idf_version_minor = "0"))]
+#[cfg(any(
+    esp_idf_version_major = "4",
+    all(esp_idf_version_major = "5", esp_idf_version_minor = "0"),
+))] // Up to ESP-IDF v5.0.x
 mod esp_sntp {
     use super::OperatingMode;
     pub use crate::sys::*;

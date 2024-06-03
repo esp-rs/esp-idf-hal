@@ -73,7 +73,6 @@ pub struct MqttClientConfiguration<'a> {
 
     pub use_global_ca_store: bool,
     pub skip_cert_common_name_check: bool,
-    #[cfg(not(esp_idf_version = "4.3"))]
     pub crt_bundle_attach: Option<unsafe extern "C" fn(conf: *mut c_void) -> esp_err_t>,
 
     pub server_certificate: Option<X509<'static>>,
@@ -116,7 +115,6 @@ impl<'a> Default for MqttClientConfiguration<'a> {
             use_global_ca_store: false,
             skip_cert_common_name_check: false,
 
-            #[cfg(not(esp_idf_version = "4.3"))]
             crt_bundle_attach: Default::default(),
 
             server_certificate: None,
@@ -163,7 +161,6 @@ impl<'a> TryFrom<&'a MqttClientConfiguration<'a>>
 
             use_global_ca_store: conf.use_global_ca_store,
             skip_cert_common_name_check: conf.skip_cert_common_name_check,
-            #[cfg(not(esp_idf_version = "4.3"))]
             crt_bundle_attach: conf.crt_bundle_attach,
 
             ..Default::default()

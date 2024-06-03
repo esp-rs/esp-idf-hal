@@ -62,16 +62,13 @@ where
     GPIO17: Peripheral<P = gpio::Gpio17>,
 {
     Input(GPIO0),
-    #[cfg(not(esp_idf_version = "4.3"))]
     OutputGpio0(GPIO0),
-    /// This according to ESP-IDF is for "testing" only
-    #[cfg(not(esp_idf_version = "4.3"))]
+    /// This according to ESP-IDF is for "testing" only    
     OutputGpio16(GPIO16),
-    #[cfg(not(esp_idf_version = "4.3"))]
     OutputInvertedGpio17(GPIO17),
 }
 
-#[cfg(all(esp32, esp_idf_eth_use_esp32_emac, not(esp_idf_version = "4.3")))]
+#[cfg(all(esp32, esp_idf_eth_use_esp32_emac))]
 impl<GPIO0, GPIO16, GPIO17> RmiiClockConfig<GPIO0, GPIO16, GPIO17>
 where
     GPIO0: Peripheral<P = gpio::Gpio0>,
@@ -265,13 +262,7 @@ impl<'d> EthDriver<'d, RmiiEth> {
         let phy = match chipset {
             RmiiEthChipset::IP101 => unsafe { esp_eth_phy_new_ip101(&phy_cfg) },
             RmiiEthChipset::RTL8201 => unsafe { esp_eth_phy_new_rtl8201(&phy_cfg) },
-            #[cfg(not(esp_idf_version = "4.3"))]
             RmiiEthChipset::LAN87XX => unsafe { esp_eth_phy_new_lan87xx(&phy_cfg) },
-            #[cfg(esp_idf_version = "4.3")]
-            #[deprecated(
-                note = "Using ESP-IDF 4.3 is untested, please upgrade to 4.4 or newer. Support will be removed in the next major release."
-            )]
-            RmiiEthChipset::LAN87XX => unsafe { esp_eth_phy_new_lan8720(&phy_cfg) },
             RmiiEthChipset::DP83848 => unsafe { esp_eth_phy_new_dp83848(&phy_cfg) },
             #[cfg(esp_idf_version_major = "4")]
             RmiiEthChipset::KSZ8041 => unsafe { esp_eth_phy_new_ksz8041(&phy_cfg) },
@@ -297,10 +288,7 @@ impl<'d> EthDriver<'d, RmiiEth> {
         let mac = {
             let mut config = Self::eth_mac_default_config(mdc, mdio);
 
-            #[cfg(not(esp_idf_version = "4.3"))]
-            {
-                config.clock_config = clk_config.eth_mac_clock_config();
-            }
+            config.clock_config = clk_config.eth_mac_clock_config();
 
             unsafe { esp_eth_mac_new_esp32(&config) }
         };

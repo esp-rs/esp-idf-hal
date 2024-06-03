@@ -180,7 +180,6 @@ impl EspLogger {
         }
     }
 
-    #[cfg(not(all(esp_idf_version_major = "4", esp_idf_version_minor = "3")))]
     fn should_log(record: &Record) -> bool {
         use crate::private::mutex::Mutex;
         use alloc::collections::BTreeMap;
@@ -209,12 +208,6 @@ impl EspLogger {
 
         let max_level = unsafe { esp_log_level_get(ctarget.as_c_str().as_ptr()) };
         level <= max_level
-    }
-
-    #[cfg(all(esp_idf_version_major = "4", esp_idf_version_minor = "3"))]
-    fn should_log(_record: &Record) -> bool {
-        // No esp_log_level_get on ESP-IDF V4.3
-        true
     }
 }
 
