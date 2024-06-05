@@ -1,7 +1,4 @@
-#[cfg(all(not(esp_idf_version_major = "4"), not(esp_idf_version = "5.1")))]
-pub use i2c::*;
-
-#[cfg(any(esp_idf_version_major = "4", esp_idf_version = "5.1"))]
+pub use i2c as beta;
 pub use legacy::*;
 
 use esp_idf_sys::*;
@@ -10,7 +7,38 @@ pub trait I2c: Send {
     fn port() -> i2c_port_t;
 }
 
-#[cfg(all(not(esp_idf_version_major = "4"), not(esp_idf_version = "5.1")))]
+#[repr(u8)]
+enum UsedDriver {
+    None = 0,
+    Legacy = 1,
+    Beta = 2,
+}
+
+// 0 -> no driver, 1 -> legacy driver, 2 -> beta driver
+static DRIVER_IN_USE: core::sync::atomic::AtomicU8 = core::sync::atomic::AtomicU8::new(0);
+
+fn check_and_set_beta_driver() {
+    if let Err(super::UsedDriver::Legacy) = DRIVER_IN_USE.compare_exchange(
+        super::UsedDriver::None,
+        super::UsedDriver::Beta,
+        core::sync::atomic::Ordering::Relaxed,
+        core::sync::atomic::Ordering::Relaxed,
+    ) {
+        panic!("Legacy I2C driver is already in use. Either legacy driver or beta driver can be used at a time.");
+    }
+}
+
+fn check_and_set_legacy_driver() {
+    if let Err(super::UsedDriver::Beta) = DRIVER_IN_USE.compare_exchange(
+        super::UsedDriver::None,
+        super::UsedDriver::Legacy,
+        core::sync::atomic::Ordering::Relaxed,
+        core::sync::atomic::Ordering::Relaxed,
+    ) {
+        panic!("Beta I2C driver is already in use. Either legacy driver or beta driver can be used at a time.");
+    }
+}
+
 mod i2c {
 
     use core::borrow::Borrow;
@@ -35,6 +63,8 @@ mod i2c {
     pub use embedded_hal::i2c::Operation;
 
     use super::I2c;
+    use super::BETA_DRIVER_IN_USE;
+    use super::DRIVER_IN_USE;
 
     crate::embedded_hal_error!(
         I2cError,
@@ -246,6 +276,8 @@ mod i2c {
             scl: impl Peripheral<P = impl InputPin + OutputPin> + 'd,
             config: &config::Config,
         ) -> Result<Self, EspError> {
+            super::check_and_set_beta_driver();
+
             let handle = init_master_bus(_i2c, sda, scl, config, 0)?;
 
             Ok(I2cDriver {
@@ -549,6 +581,8 @@ mod i2c {
             scl: impl Peripheral<P = impl InputPin + OutputPin> + 'd,
             config: &config::Config,
         ) -> Result<Self, EspError> {
+            super::check_and_set_beta_driver();
+
             let handle = init_master_bus(_i2c, sda, scl, config, 1)?;
 
             Ok(AsyncI2cDriver {
@@ -992,6 +1026,8 @@ mod i2c {
             address: config::DeviceAddress,
             config: &config::SlaveDeviceConfig,
         ) -> Result<Self, EspError> {
+            super::check_and_set_beta_driver();
+
             let handle = init_slave_device(_i2c, sda, scl, address, config)?;
 
             enable_slave_isr_callback(handle, I2C::port() as _)?;
@@ -1219,7 +1255,6 @@ mod i2c {
         [HalIsrNotification::new(), HalIsrNotification::new()];
 }
 
-#[cfg(any(esp_idf_version_major = "4", esp_idf_version = "5.1"))]
 mod legacy {
 
     use core::marker::PhantomData;
@@ -1400,6 +1435,8 @@ mod legacy {
             scl: impl Peripheral<P = impl InputPin + OutputPin> + 'd,
             config: &config::Config,
         ) -> Result<Self, EspError> {
+            super::check_and_set_legacy_driver();
+
             // i2c_config_t documentation says that clock speed must be no higher than 1 MHz
             if config.baudrate > 1.MHz().into() {
                 return Err(EspError::from_infallible::<ESP_ERR_INVALID_ARG>());
@@ -1675,6 +1712,8 @@ mod legacy {
             slave_addr: u8,
             config: &config::SlaveConfig,
         ) -> Result<Self, EspError> {
+            super::check_and_set_legacy_driver();
+
             crate::into_ref!(sda, scl);
 
             #[cfg(not(esp_idf_version = "4.3"))]
