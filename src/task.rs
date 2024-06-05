@@ -127,13 +127,6 @@ pub fn current() -> Option<TaskHandle_t> {
 pub fn wait_notification(timeout: TickType_t) -> Option<NonZeroU32> {
     let mut notification = 0_u32;
 
-    #[cfg(esp_idf_version = "4.3")]
-    #[deprecated(
-        note = "Using ESP-IDF 4.3 is untested, please upgrade to 4.4 or newer. Support will be removed in the next major release."
-    )]
-    let notified = unsafe { xTaskNotifyWait(0, u32::MAX, &mut notification, timeout) } != 0;
-
-    #[cfg(not(esp_idf_version = "4.3"))]
     let notified =
         unsafe { xTaskGenericNotifyWait(0, 0, u32::MAX, &mut notification, timeout) } != 0;
 
@@ -168,19 +161,6 @@ pub unsafe fn notify(task: TaskHandle_t, notification: NonZeroU32) -> (bool, boo
     let (notified, higher_prio_task_woken) = if interrupt::active() {
         let mut higher_prio_task_woken: BaseType_t = Default::default();
 
-        #[cfg(esp_idf_version = "4.3")]
-        #[deprecated(
-            note = "Using ESP-IDF 4.3 is untested, please upgrade to 4.4 or newer. Support will be removed in the next major release."
-        )]
-        let notified = xTaskGenericNotifyFromISR(
-            task,
-            notification.into(),
-            eNotifyAction_eSetBits,
-            ptr::null_mut(),
-            &mut higher_prio_task_woken,
-        );
-
-        #[cfg(not(esp_idf_version = "4.3"))]
         let notified = xTaskGenericNotifyFromISR(
             task,
             0,
@@ -192,18 +172,6 @@ pub unsafe fn notify(task: TaskHandle_t, notification: NonZeroU32) -> (bool, boo
 
         (notified, higher_prio_task_woken)
     } else {
-        #[cfg(esp_idf_version = "4.3")]
-        #[deprecated(
-            note = "Using ESP-IDF 4.3 is untested, please upgrade to 4.4 or newer. Support will be removed in the next major release."
-        )]
-        let notified = xTaskGenericNotify(
-            task,
-            notification.into(),
-            eNotifyAction_eSetBits,
-            ptr::null_mut(),
-        );
-
-        #[cfg(not(esp_idf_version = "4.3"))]
         let notified = xTaskGenericNotify(
             task,
             0,
@@ -321,12 +289,66 @@ impl Future for YieldNowFuture {
 pub mod thread {
     use core::ffi::CStr;
 
+    use enumset::EnumSetType;
+
+    #[cfg(not(any(
+        esp_idf_version_major = "4",
+        all(esp_idf_version_major = "5", esp_idf_version_minor = "0"),
+        all(esp_idf_version_major = "5", esp_idf_version_minor = "1"),
+        all(esp_idf_version_major = "5", esp_idf_version_minor = "2"),
+    )))] // ESP-IDF 5.3 and later
+    use enumset::EnumSet;
+
     use esp_idf_sys::*;
 
     use super::NO_AFFINITY;
 
     use crate::cpu::Core;
 
+    /// Flags to indicate the capabilities of the various memo
+    ///
+    /// Used together with EnumSet
+    /// `let flags = MallocCap:Default | MallocCap:Cap_8bit`
+    #[derive(Debug, EnumSetType)]
+    #[enumset(repr = "u32")] // Note: following value variants represent the bitposition **not** a literal u32 value in an EnumSet<MallocCap>
+    pub enum MallocCap {
+        // Memory must be able to run executable code
+        Exec = 0,
+        // Memory must allow for aligned 32-bit data accesses
+        Cap32bit = 1,
+        // Memory must allow for 8/16/...-bit data accesses
+        Cap8bit = 2,
+        // Memory must be able to accessed by DMA
+        Dma = 3,
+        // Memory must be mapped to PID2 memory space (PIDs are not currently used)
+        Pid2 = 4,
+        // Memory must be mapped to PID3 memory space (PIDs are not currently used)
+        Pid3 = 5,
+        // Memory must be mapped to PID4 memory space (PIDs are not currently used)
+        Pid4 = 6,
+        // Memory must be mapped to PID5 memory space (PIDs are not currently used)
+        Pid5 = 7,
+        // Memory must be mapped to PID6 memory space (PIDs are not currently used)
+        Pid6 = 8,
+        // Memory must be mapped to PID7 memory space (PIDs are not currently used)
+        Pid7 = 9,
+        // Memory must be in SPI RAM
+        Spiram = 10,
+        // Memory must be internal; specifically it should not disappear when flash/spiram cache is switched off
+        Internal = 11,
+        // Memory can be returned in a non-capability-specific memory allocation (e.g. malloc(), calloc()) call
+        Default = 12,
+        // Memory must be in IRAM and allow unaligned access
+        Iram8bit = 13,
+        // Memory must be able to accessed by retention DMA
+        Retention = 14,
+        // Memory must be in RTC fast memory
+        Rtcram = 15,
+        // Memory must be in TCM memory
+        Tcm = 16,
+        // Memory can't be used / list end marker
+        Invalid = 31,
+    }
     #[derive(Debug)]
     pub struct ThreadSpawnConfiguration {
         pub name: Option<&'static [u8]>,
@@ -334,6 +356,13 @@ pub mod thread {
         pub priority: u8,
         pub inherit: bool,
         pub pin_to_core: Option<Core>,
+        #[cfg(not(any(
+            esp_idf_version_major = "4",
+            all(esp_idf_version_major = "5", esp_idf_version_minor = "0"),
+            all(esp_idf_version_major = "5", esp_idf_version_minor = "1"),
+            all(esp_idf_version_major = "5", esp_idf_version_minor = "2"),
+        )))] // ESP-IDF 5.3 and later
+        pub stack_alloc_caps: EnumSet<MallocCap>,
     }
 
     impl ThreadSpawnConfiguration {
@@ -363,6 +392,13 @@ pub mod thread {
                 prio: conf.priority as _,
                 inherit_cfg: conf.inherit,
                 pin_to_core: conf.pin_to_core.map(Into::into).unwrap_or(NO_AFFINITY as _),
+                #[cfg(not(any(
+                    esp_idf_version_major = "4",
+                    all(esp_idf_version_major = "5", esp_idf_version_minor = "0"),
+                    all(esp_idf_version_major = "5", esp_idf_version_minor = "1"),
+                    all(esp_idf_version_major = "5", esp_idf_version_minor = "2"),
+                )))] // ESP-IDF 5.3 and later
+                stack_alloc_caps: conf.stack_alloc_caps.as_u32(),
             }
         }
     }
@@ -388,6 +424,13 @@ pub mod thread {
                 } else {
                     Some(conf.pin_to_core.into())
                 },
+                #[cfg(not(any(
+                    esp_idf_version_major = "4",
+                    all(esp_idf_version_major = "5", esp_idf_version_minor = "0"),
+                    all(esp_idf_version_major = "5", esp_idf_version_minor = "1"),
+                    all(esp_idf_version_major = "5", esp_idf_version_minor = "2"),
+                )))] // ESP-IDF 5.3 and later
+                stack_alloc_caps: EnumSet::<MallocCap>::from_u32(conf.stack_alloc_caps),
             }
         }
     }
@@ -524,13 +567,6 @@ impl<'a> Drop for CriticalSectionGuard<'a> {
     }
 }
 
-#[cfg(any(
-    all(
-        not(any(esp_idf_version_major = "4", esp_idf_version = "5.0")),
-        esp_idf_esp_task_wdt_en
-    ),
-    any(esp_idf_version_major = "4", esp_idf_version = "5.0")
-))]
 pub mod watchdog {
     //! ## Example
     //!
@@ -815,6 +851,12 @@ pub mod embassy_sync {
 
     unsafe impl Send for EspRawMutex {}
     unsafe impl Sync for EspRawMutex {}
+
+    impl Default for EspRawMutex {
+        fn default() -> Self {
+            Self::new()
+        }
+    }
 
     impl EspRawMutex {
         /// Create a new `EspRawMutex`.
@@ -1216,6 +1258,12 @@ pub mod asynch {
     pub struct Notification {
         waker: AtomicWaker,
         notified: AtomicU32,
+    }
+
+    impl Default for Notification {
+        fn default() -> Self {
+            Self::new()
+        }
     }
 
     impl Notification {

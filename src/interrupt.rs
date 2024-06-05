@@ -182,15 +182,6 @@ fn enter(_cs: &IsrCriticalSection) {
 #[inline(always)]
 #[link_section = ".iram1.interrupt_enter"]
 fn enter(cs: &IsrCriticalSection) {
-    #[cfg(esp_idf_version = "4.3")]
-    #[deprecated(
-        note = "Using ESP-IDF 4.3 is untested, please upgrade to 4.4 or newer. Support will be removed in the next major release."
-    )]
-    unsafe {
-        vPortEnterCritical(cs.0.get());
-    }
-
-    #[cfg(not(esp_idf_version = "4.3"))]
     unsafe {
         xPortEnterCriticalTimeout(cs.0.get(), portMUX_NO_TIMEOUT);
     }
@@ -603,6 +594,12 @@ pub mod asynch {
         inner: Notification,
     }
 
+    impl Default for HalIsrNotification {
+        fn default() -> Self {
+            Self::new()
+        }
+    }
+
     impl HalIsrNotification {
         /// Creates a new `HalIsrNotification`.
         /// This method is safe to call from an ISR context, yet such use cases should not normally occur in practice.
@@ -659,8 +656,6 @@ pub mod asynch {
 
 #[cfg(feature = "embassy-sync")]
 pub mod embassy_sync {
-    use core::marker::PhantomData;
-
     use embassy_sync::blocking_mutex::raw::RawMutex;
 
     /// A mutex that allows borrowing data across executors and interrupts.

@@ -3,6 +3,7 @@
 #![allow(unknown_lints)]
 #![allow(renamed_and_removed_lints)]
 #![allow(clippy::unused_unit)] // enumset
+#![allow(unexpected_cfgs)]
 #![warn(clippy::large_futures)]
 #![cfg_attr(feature = "nightly", feature(doc_cfg))]
 #![cfg_attr(target_arch = "xtensa", feature(asm_experimental_arch))]
@@ -39,7 +40,7 @@ pub mod ledc;
 #[cfg(any(all(esp32, esp_idf_eth_use_esp32_emac), esp_idf_eth_use_openeth))]
 pub mod mac;
 pub mod modem;
-#[cfg(any(esp32, esp32s2, esp32s3))]
+#[cfg(any(esp32, esp32s2, esp32s3, esp32c6))]
 pub mod pcnt;
 pub mod peripheral;
 pub mod peripherals;

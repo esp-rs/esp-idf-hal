@@ -31,7 +31,7 @@ use core::sync::atomic::{AtomicBool, Ordering};
 use esp_idf_sys::*;
 
 use crate::gpio::OutputPin;
-use crate::peripheral::Peripheral;
+use crate::peripheral::{Peripheral, PeripheralRef};
 use crate::task::CriticalSection;
 use crate::units::*;
 
@@ -61,12 +61,14 @@ pub mod config {
     pub struct TimerConfig {
         pub frequency: Hertz,
         pub resolution: Resolution,
-        pub speed_mode: SpeedMode,
     }
 
     impl TimerConfig {
-        pub fn new() -> Self {
-            Default::default()
+        pub const fn new() -> Self {
+            Self {
+                frequency: Hertz(1000),
+                resolution: Resolution::Bits8,
+            }
         }
 
         #[must_use]
@@ -80,41 +82,38 @@ pub mod config {
             self.resolution = r;
             self
         }
-
-        #[must_use]
-        pub fn speed_mode(mut self, mode: SpeedMode) -> Self {
-            self.speed_mode = mode;
-            self
-        }
     }
 
     impl Default for TimerConfig {
         fn default() -> Self {
-            TimerConfig {
-                frequency: 1000.Hz(),
-                resolution: Resolution::Bits8,
-                speed_mode: SpeedMode::LowSpeed,
-            }
+            Self::new()
         }
     }
 }
 
 /// LED Control timer driver
-pub struct LedcTimerDriver<'d> {
-    timer: u8,
-    speed_mode: SpeedMode,
+pub struct LedcTimerDriver<'d, T>
+where
+    T: LedcTimer,
+{
+    _timer: PeripheralRef<'d, T>,
     max_duty: Duty,
     _p: PhantomData<&'d mut ()>,
 }
 
-impl<'d> LedcTimerDriver<'d> {
-    pub fn new<T: LedcTimer>(
-        _timer: impl Peripheral<P = T> + 'd,
+impl<'d, T> LedcTimerDriver<'d, T>
+where
+    T: LedcTimer,
+{
+    pub fn new(
+        timer: impl Peripheral<P = T> + 'd,
         config: &config::TimerConfig,
     ) -> Result<Self, EspError> {
+        crate::into_ref!(timer);
+
         let timer_config = ledc_timer_config_t {
-            speed_mode: config.speed_mode.into(),
-            timer_num: T::timer(),
+            speed_mode: T::SpeedMode::SPEED_MODE,
+            timer_num: T::timer() as _,
             #[cfg(esp_idf_version_major = "4")]
             __bindgen_anon_1: ledc_timer_config_t__bindgen_ty_1 {
                 duty_resolution: config.resolution.timer_bits(),
@@ -138,8 +137,7 @@ impl<'d> LedcTimerDriver<'d> {
         esp!(unsafe { ledc_timer_config(&timer_config) })?;
 
         Ok(Self {
-            timer: T::timer() as _,
-            speed_mode: config.speed_mode,
+            _timer: timer,
             max_duty: config.resolution.max_duty(),
             _p: PhantomData,
         })
@@ -147,41 +145,42 @@ impl<'d> LedcTimerDriver<'d> {
 
     /// Pauses the timer. Operation can be resumed with [`resume_timer()`].
     pub fn pause(&mut self) -> Result<(), EspError> {
-        esp!(unsafe { ledc_timer_pause(self.speed_mode.into(), self.timer()) })?;
+        esp!(unsafe { ledc_timer_pause(T::SpeedMode::SPEED_MODE, self.timer()) })?;
         Ok(())
     }
 
     /// Resumes the operation of the previously paused timer
     pub fn resume(&mut self) -> Result<(), EspError> {
-        esp!(unsafe { ledc_timer_resume(self.speed_mode.into(), self.timer()) })?;
+        esp!(unsafe { ledc_timer_resume(T::SpeedMode::SPEED_MODE, self.timer()) })?;
         Ok(())
     }
 
     /// Set the frequency of the timer.
     pub fn set_frequency(&mut self, frequency: Hertz) -> Result<(), EspError> {
-        esp!(unsafe {
-            ledc_set_freq(self.speed_mode.into(), self.timer.into(), frequency.into())
-        })?;
+        esp!(unsafe { ledc_set_freq(T::SpeedMode::SPEED_MODE, T::timer(), frequency.into()) })?;
         Ok(())
     }
 
     fn reset(&mut self) -> Result<(), EspError> {
-        esp!(unsafe { ledc_timer_rst(self.speed_mode.into(), self.timer()) })?;
+        esp!(unsafe { ledc_timer_rst(T::SpeedMode::SPEED_MODE, T::timer()) })?;
         Ok(())
     }
 
     pub fn timer(&self) -> ledc_timer_t {
-        self.timer as _
+        T::timer()
     }
 }
 
-impl<'d> Drop for LedcTimerDriver<'d> {
+impl<'d, T> Drop for LedcTimerDriver<'d, T>
+where
+    T: LedcTimer,
+{
     fn drop(&mut self) {
         self.reset().unwrap();
     }
 }
 
-unsafe impl<'d> Send for LedcTimerDriver<'d> {}
+unsafe impl<'d, T> Send for LedcTimerDriver<'d, T> where T: LedcTimer {}
 
 /// LED Control driver
 pub struct LedcDriver<'d> {
@@ -189,7 +188,7 @@ pub struct LedcDriver<'d> {
     timer: u8,
     duty: Duty,
     hpoint: HPoint,
-    speed_mode: SpeedMode,
+    speed_mode: ledc_mode_t,
     max_duty: Duty,
     _p: PhantomData<&'d mut ()>,
 }
@@ -199,27 +198,16 @@ pub struct LedcDriver<'d> {
 // and implementing Drop.
 impl<'d> LedcDriver<'d> {
     /// Creates a new LED Control driver
-    pub fn new<C: LedcChannel, B: Borrow<LedcTimerDriver<'d>>>(
+    pub fn new<C, T, B>(
         _channel: impl Peripheral<P = C> + 'd,
         timer_driver: B,
         pin: impl Peripheral<P = impl OutputPin> + 'd,
-    ) -> Result<Self, EspError> {
-        crate::into_ref!(pin);
-
-        let duty = 0;
-        let hpoint = 0;
-
-        let channel_config = ledc_channel_config_t {
-            speed_mode: timer_driver.borrow().speed_mode.into(),
-            channel: C::channel(),
-            timer_sel: timer_driver.borrow().timer(),
-            intr_type: ledc_intr_type_t_LEDC_INTR_DISABLE,
-            gpio_num: pin.pin(),
-            duty,
-            hpoint: hpoint as _,
-            ..Default::default()
-        };
-
+    ) -> Result<Self, EspError>
+    where
+        C: LedcChannel<SpeedMode = <T as LedcTimer>::SpeedMode>,
+        T: LedcTimer + 'd,
+        B: Borrow<LedcTimerDriver<'d, T>>,
+    {
         if !FADE_FUNC_INSTALLED.load(Ordering::SeqCst) {
             let _guard = FADE_FUNC_INSTALLED_CS.enter();
 
@@ -236,19 +224,44 @@ impl<'d> LedcDriver<'d> {
             }
         }
 
-        // SAFETY: As long as we have borrowed the timer, we are safe to use
-        // it.
-        esp!(unsafe { ledc_channel_config(&channel_config) })?;
-
-        Ok(LedcDriver {
-            duty,
-            hpoint,
-            speed_mode: timer_driver.borrow().speed_mode,
+        let mut driver = LedcDriver {
+            duty: 0,
+            hpoint: 0,
+            speed_mode: T::SpeedMode::SPEED_MODE,
             max_duty: timer_driver.borrow().max_duty,
             timer: timer_driver.borrow().timer() as _,
             channel: C::channel() as _,
             _p: PhantomData,
-        })
+        };
+
+        driver.config_with_pin(pin)?;
+
+        Ok(driver)
+    }
+
+    /// Applies LEDC configuration with a specific pin
+    /// Can be used to reconfigure the LEDC driver with a different pin
+    pub fn config_with_pin(
+        &mut self,
+        pin: impl Peripheral<P = impl OutputPin> + 'd,
+    ) -> Result<(), EspError> {
+        crate::into_ref!(pin);
+
+        let channel_config = ledc_channel_config_t {
+            speed_mode: self.speed_mode,
+            channel: self.channel as u32,
+            timer_sel: self.timer as u32,
+            intr_type: ledc_intr_type_t_LEDC_INTR_DISABLE,
+            gpio_num: pin.pin(),
+            duty: self.duty,
+            hpoint: self.hpoint as _,
+            ..Default::default()
+        };
+
+        // SAFETY: As long as we have borrowed the timer, we are safe to use
+        // it.
+        esp!(unsafe { ledc_channel_config(&channel_config) })?;
+        Ok(())
     }
 
     pub fn get_duty(&self) -> Duty {
@@ -294,14 +307,12 @@ impl<'d> LedcDriver<'d> {
     }
 
     fn stop(&mut self) -> Result<(), EspError> {
-        esp!(unsafe { ledc_stop(self.speed_mode.into(), self.channel(), IDLE_LEVEL,) })?;
+        esp!(unsafe { ledc_stop(self.speed_mode, self.channel(), IDLE_LEVEL,) })?;
         Ok(())
     }
 
     fn update_duty(&mut self, duty: Duty, hpoint: HPoint) -> Result<(), EspError> {
-        esp!(unsafe {
-            ledc_set_duty_and_update(self.speed_mode.into(), self.channel(), duty, hpoint)
-        })?;
+        esp!(unsafe { ledc_set_duty_and_update(self.speed_mode, self.channel(), duty, hpoint) })?;
         Ok(())
     }
 
@@ -494,47 +505,53 @@ mod chip {
         }
     }
 
-    /// Ledc Speed Mode
-    #[derive(PartialEq, Eq, Copy, Clone, Debug)]
-    pub enum SpeedMode {
-        #[cfg(esp_idf_soc_ledc_support_hs_mode)]
-        /// High Speed Mode. Currently only supported on the ESP32.
-        HighSpeed,
-        /// Low Speed Mode. The only configuration supported on ESP32S2, ESP32S3, ESP32C2 and ESP32C3.
-        LowSpeed,
+    /// Speed mode for the LED Control peripheral
+    /// The ESP32 supports two speed modes: low and high speed
+    /// All others support only low speed mode.
+    pub trait SpeedMode: Send + Sync + 'static {
+        const SPEED_MODE: ledc_mode_t;
+        const HIGH_SPEED: bool;
     }
 
-    impl Default for SpeedMode {
-        fn default() -> Self {
-            Self::LowSpeed
-        }
+    /// Low speed mode for the LED Control peripheral
+    pub struct LowSpeed;
+
+    impl SpeedMode for LowSpeed {
+        const SPEED_MODE: ledc_mode_t = ledc_mode_t_LEDC_LOW_SPEED_MODE;
+        const HIGH_SPEED: bool = false;
     }
 
-    impl From<SpeedMode> for ledc_mode_t {
-        fn from(speed_mode: SpeedMode) -> Self {
-            match speed_mode {
-                #[cfg(esp_idf_soc_ledc_support_hs_mode)]
-                SpeedMode::HighSpeed => ledc_mode_t_LEDC_HIGH_SPEED_MODE,
-                SpeedMode::LowSpeed => ledc_mode_t_LEDC_LOW_SPEED_MODE,
-            }
-        }
+    #[cfg(esp32)]
+    /// High speed mode for the LED Control peripheral (ESP32 only)
+    pub struct HighSpeed;
+
+    #[cfg(esp32)]
+    impl SpeedMode for HighSpeed {
+        const SPEED_MODE: ledc_mode_t = ledc_mode_t_LEDC_HIGH_SPEED_MODE;
+        const HIGH_SPEED: bool = true;
     }
 
     /// LED Control peripheral timer
     pub trait LedcTimer {
+        type SpeedMode: SpeedMode;
+
         fn timer() -> ledc_timer_t;
     }
 
     /// LED Control peripheral output channel
     pub trait LedcChannel {
+        type SpeedMode: SpeedMode;
+
         fn channel() -> ledc_channel_t;
     }
 
     macro_rules! impl_timer {
-        ($instance:ident: $timer:expr) => {
+        ($typ:ty; $instance:ident: $timer:expr) => {
             crate::impl_peripheral!($instance);
 
             impl LedcTimer for $instance {
+                type SpeedMode = $typ;
+
                 fn timer() -> ledc_timer_t {
                     $timer
                 }
@@ -542,16 +559,27 @@ mod chip {
         };
     }
 
-    impl_timer!(TIMER0: ledc_timer_t_LEDC_TIMER_0);
-    impl_timer!(TIMER1: ledc_timer_t_LEDC_TIMER_1);
-    impl_timer!(TIMER2: ledc_timer_t_LEDC_TIMER_2);
-    impl_timer!(TIMER3: ledc_timer_t_LEDC_TIMER_3);
+    impl_timer!(LowSpeed; TIMER0: ledc_timer_t_LEDC_TIMER_0);
+    impl_timer!(LowSpeed; TIMER1: ledc_timer_t_LEDC_TIMER_1);
+    impl_timer!(LowSpeed; TIMER2: ledc_timer_t_LEDC_TIMER_2);
+    impl_timer!(LowSpeed; TIMER3: ledc_timer_t_LEDC_TIMER_3);
+
+    #[cfg(esp32)]
+    impl_timer!(HighSpeed; HTIMER0: ledc_timer_t_LEDC_TIMER_0);
+    #[cfg(esp32)]
+    impl_timer!(HighSpeed; HTIMER1: ledc_timer_t_LEDC_TIMER_1);
+    #[cfg(esp32)]
+    impl_timer!(HighSpeed; HTIMER2: ledc_timer_t_LEDC_TIMER_2);
+    #[cfg(esp32)]
+    impl_timer!(HighSpeed; HTIMER3: ledc_timer_t_LEDC_TIMER_3);
 
     macro_rules! impl_channel {
-        ($instance:ident: $channel:expr) => {
+        ($typ:ty; $instance:ident: $channel:expr) => {
             crate::impl_peripheral!($instance);
 
             impl LedcChannel for $instance {
+                type SpeedMode = $typ;
+
                 fn channel() -> ledc_channel_t {
                     $channel
                 }
@@ -559,16 +587,33 @@ mod chip {
         };
     }
 
-    impl_channel!(CHANNEL0: ledc_channel_t_LEDC_CHANNEL_0);
-    impl_channel!(CHANNEL1: ledc_channel_t_LEDC_CHANNEL_1);
-    impl_channel!(CHANNEL2: ledc_channel_t_LEDC_CHANNEL_2);
-    impl_channel!(CHANNEL3: ledc_channel_t_LEDC_CHANNEL_3);
-    impl_channel!(CHANNEL4: ledc_channel_t_LEDC_CHANNEL_4);
-    impl_channel!(CHANNEL5: ledc_channel_t_LEDC_CHANNEL_5);
+    impl_channel!(LowSpeed; CHANNEL0: ledc_channel_t_LEDC_CHANNEL_0);
+    impl_channel!(LowSpeed; CHANNEL1: ledc_channel_t_LEDC_CHANNEL_1);
+    impl_channel!(LowSpeed; CHANNEL2: ledc_channel_t_LEDC_CHANNEL_2);
+    impl_channel!(LowSpeed; CHANNEL3: ledc_channel_t_LEDC_CHANNEL_3);
+    impl_channel!(LowSpeed; CHANNEL4: ledc_channel_t_LEDC_CHANNEL_4);
+    impl_channel!(LowSpeed; CHANNEL5: ledc_channel_t_LEDC_CHANNEL_5);
     #[cfg(any(esp32, esp32s2, esp32s3, esp8684))]
-    impl_channel!(CHANNEL6: ledc_channel_t_LEDC_CHANNEL_6);
+    impl_channel!(LowSpeed; CHANNEL6: ledc_channel_t_LEDC_CHANNEL_6);
     #[cfg(any(esp32, esp32s2, esp32s3, esp8684))]
-    impl_channel!(CHANNEL7: ledc_channel_t_LEDC_CHANNEL_7);
+    impl_channel!(LowSpeed; CHANNEL7: ledc_channel_t_LEDC_CHANNEL_7);
+
+    #[cfg(esp32)]
+    impl_channel!(HighSpeed; HCHANNEL0: ledc_channel_t_LEDC_CHANNEL_0);
+    #[cfg(esp32)]
+    impl_channel!(HighSpeed; HCHANNEL1: ledc_channel_t_LEDC_CHANNEL_1);
+    #[cfg(esp32)]
+    impl_channel!(HighSpeed; HCHANNEL2: ledc_channel_t_LEDC_CHANNEL_2);
+    #[cfg(esp32)]
+    impl_channel!(HighSpeed; HCHANNEL3: ledc_channel_t_LEDC_CHANNEL_3);
+    #[cfg(esp32)]
+    impl_channel!(HighSpeed; HCHANNEL4: ledc_channel_t_LEDC_CHANNEL_4);
+    #[cfg(esp32)]
+    impl_channel!(HighSpeed; HCHANNEL5: ledc_channel_t_LEDC_CHANNEL_5);
+    #[cfg(esp32)]
+    impl_channel!(HighSpeed; HCHANNEL6: ledc_channel_t_LEDC_CHANNEL_6);
+    #[cfg(esp32)]
+    impl_channel!(HighSpeed; HCHANNEL7: ledc_channel_t_LEDC_CHANNEL_7);
 
     /// The LED Control device peripheral
     pub struct LEDC {
@@ -614,6 +659,52 @@ mod chip {
                 channel6: CHANNEL6::new(),
                 #[cfg(any(esp32, esp32s2, esp32s3, esp8684))]
                 channel7: CHANNEL7::new(),
+            }
+        }
+    }
+
+    /// The LED Control device peripheral (high speed channels, ESP32 only)
+    #[cfg(esp32)]
+    pub struct HLEDC {
+        pub timer0: HTIMER0,
+        pub timer1: HTIMER1,
+        pub timer2: HTIMER2,
+        pub timer3: HTIMER3,
+        pub channel0: HCHANNEL0,
+        pub channel1: HCHANNEL1,
+        pub channel2: HCHANNEL2,
+        pub channel3: HCHANNEL3,
+        pub channel4: HCHANNEL4,
+        pub channel5: HCHANNEL5,
+        pub channel6: HCHANNEL6,
+        pub channel7: HCHANNEL7,
+    }
+
+    #[cfg(esp32)]
+    impl HLEDC {
+        /// Creates a new instance of the HLEDC peripheral. Typically one wants
+        /// to use the instance [`ledc`](crate::peripherals::Peripherals::fledc) from
+        /// the device peripherals obtained via
+        /// [`peripherals::Peripherals::take()`](crate::peripherals::Peripherals::take()).
+        ///
+        /// # Safety
+        ///
+        /// It is safe to instantiate the HLEDC peripheral exactly one time.
+        /// Care has to be taken that this has not already been done elsewhere.
+        pub unsafe fn new() -> Self {
+            Self {
+                timer0: HTIMER0::new(),
+                timer1: HTIMER1::new(),
+                timer2: HTIMER2::new(),
+                timer3: HTIMER3::new(),
+                channel0: HCHANNEL0::new(),
+                channel1: HCHANNEL1::new(),
+                channel2: HCHANNEL2::new(),
+                channel3: HCHANNEL3::new(),
+                channel4: HCHANNEL4::new(),
+                channel5: HCHANNEL5::new(),
+                channel6: HCHANNEL6::new(),
+                channel7: HCHANNEL7::new(),
             }
         }
     }
