@@ -15,7 +15,7 @@ enum UsedDriver {
 }
 
 // 0 -> no driver, 1 -> legacy driver, 2 -> beta driver
-static DRIVER_IN_USE: core::sync::atomic::AtomicU8 = core::sync::atomic::AtomicU8::new(0);
+static DRIVER_IN_USE: core::sync::atomic::AtomicU8 = core::sync::atomic::AtomicU8::new(UsedDriver::None);
 
 fn check_and_set_beta_driver() {
     if let Err(super::UsedDriver::Legacy) = DRIVER_IN_USE.compare_exchange(
