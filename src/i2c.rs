@@ -34,8 +34,8 @@ fn check_and_set_legacy_driver() {
     match DRIVER_IN_USE.compare_exchange(
             UsedDriver::None as u8,
             UsedDriver::Legacy as u8,
-        core::sync::atomic::Ordering::Relaxed,
-        core::sync::atomic::Ordering::Relaxed,
+            core::sync::atomic::Ordering::Relaxed,
+            core::sync::atomic::Ordering::Relaxed,
     ) {
             Err(e) if e == UsedDriver::Beta as u8 => panic!("Beta I2C driver is already in use. Either legacy driver or beta driver can be used at a time."),
             _ => ()
@@ -67,14 +67,26 @@ pub mod beta {
     pub use embedded_hal::i2c::Operation;
 
     use super::I2c;
-    use super::BETA_DRIVER_IN_USE;
-    use super::DRIVER_IN_USE;
 
     crate::embedded_hal_error!(
         I2cError,
         embedded_hal::i2c::Error,
         embedded_hal::i2c::ErrorKind
     );
+
+    macro_rules! on_err {
+        ($d:expr, $oe:expr) => {
+            {
+                match $d {
+                    Err(e) => {
+                        $oe
+                        Err(e)
+                    }
+                    v => v
+                }
+            }
+        };
+    }
 
     pub type I2cConfig = config::Config;
     #[cfg(not(esp32c2))]
@@ -741,14 +753,14 @@ pub mod beta {
 
             let _lock_guard = driver.acquire_bus().await;
             enable_master_dev_isr_callback(handle, port)?;
-            esp!(unsafe {
+            on_err!(esp!(unsafe {
                 i2c_master_receive(
                     handle,
                     buffer.as_mut_ptr().cast(),
                     buffer.len(),
                     timeout as i32,
                 )
-            })?;
+            }), { disable_master_dev_isr_callback(handle).unwrap(); })?;
 
             NOTIFIER[port as usize].wait().await;
             disable_master_dev_isr_callback(handle)?;
@@ -762,9 +774,9 @@ pub mod beta {
 
             let _lock_guard = driver.acquire_bus().await;
             enable_master_dev_isr_callback(handle, port)?;
-            esp!(unsafe {
+            on_err!(esp!(unsafe {
                 i2c_master_transmit(handle, bytes.as_ptr().cast(), bytes.len(), timeout as i32)
-            })?;
+            }), { disable_master_dev_isr_callback(handle).unwrap(); })?;
 
             NOTIFIER[port as usize].wait().await;
             disable_master_dev_isr_callback(handle)?;
@@ -783,7 +795,7 @@ pub mod beta {
 
             let _lock_guard = driver.acquire_bus().await;
             enable_master_dev_isr_callback(handle, port)?;
-            esp!(unsafe {
+            on_err!(esp!(unsafe {
                 i2c_master_transmit_receive(
                     handle,
                     bytes.as_ptr().cast(),
@@ -792,7 +804,7 @@ pub mod beta {
                     buffer.len(),
                     timeout as i32,
                 )
-            })?;
+            }), { disable_master_dev_isr_callback(handle).unwrap(); })?;
 
             NOTIFIER[port as usize].wait().await;
             disable_master_dev_isr_callback(handle)?;
