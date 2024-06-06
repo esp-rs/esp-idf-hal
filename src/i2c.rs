@@ -1,4 +1,3 @@
-pub use i2c as beta;
 pub use legacy::*;
 
 use esp_idf_sys::*;
@@ -39,7 +38,8 @@ fn check_and_set_legacy_driver() {
     }
 }
 
-mod i2c {
+#[cfg(all(not(esp_idf_version_major = "4"), not(esp_idf_version = "5.1")))]
+pub mod beta {
 
     use core::borrow::Borrow;
     use core::ffi::c_void;
