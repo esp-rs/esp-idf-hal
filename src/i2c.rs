@@ -14,27 +14,31 @@ enum UsedDriver {
 }
 
 // 0 -> no driver, 1 -> legacy driver, 2 -> beta driver
-static DRIVER_IN_USE: core::sync::atomic::AtomicU8 = core::sync::atomic::AtomicU8::new(UsedDriver::None);
+static DRIVER_IN_USE: core::sync::atomic::AtomicU8 =
+    core::sync::atomic::AtomicU8::new(UsedDriver::None as u8);
 
+#[cfg(all(not(esp_idf_version_major = "4"), not(esp_idf_version = "5.1")))]
 fn check_and_set_beta_driver() {
-    if let Err(super::UsedDriver::Legacy) = DRIVER_IN_USE.compare_exchange(
-        super::UsedDriver::None,
-        super::UsedDriver::Beta,
+    match DRIVER_IN_USE.compare_exchange(
+        UsedDriver::None as u8,
+        UsedDriver::Beta as u8,
         core::sync::atomic::Ordering::Relaxed,
         core::sync::atomic::Ordering::Relaxed,
     ) {
-        panic!("Legacy I2C driver is already in use. Either legacy driver or beta driver can be used at a time.");
+        Err(e) if e == UsedDriver::Legacy as u8 => panic!("Legacy I2C driver is already in use. Either legacy driver or beta driver can be used at a time."),
+        _ => ()
     }
 }
 
 fn check_and_set_legacy_driver() {
-    if let Err(super::UsedDriver::Beta) = DRIVER_IN_USE.compare_exchange(
-        super::UsedDriver::None,
-        super::UsedDriver::Legacy,
+    match DRIVER_IN_USE.compare_exchange(
+            UsedDriver::None as u8,
+            UsedDriver::Legacy as u8,
         core::sync::atomic::Ordering::Relaxed,
         core::sync::atomic::Ordering::Relaxed,
     ) {
-        panic!("Beta I2C driver is already in use. Either legacy driver or beta driver can be used at a time.");
+            Err(e) if e == UsedDriver::Beta as u8 => panic!("Beta I2C driver is already in use. Either legacy driver or beta driver can be used at a time."),
+            _ => ()
     }
 }
 
