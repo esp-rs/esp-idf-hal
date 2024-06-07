@@ -306,11 +306,36 @@ impl<'d> EthDriver<'d, RmiiEth> {
         mac
     }
 
-    #[cfg(not(esp_idf_version_major = "4"))]
+    #[cfg(any(
+        esp_idf_version = "5.0",
+        esp_idf_version = "5.1",
+        esp_idf_version = "5.2",
+        esp_idf_version = "5.3"
+    ))]
     fn eth_esp32_emac_default_config(mdc: i32, mdio: i32) -> eth_esp32_emac_config_t {
         eth_esp32_emac_config_t {
             smi_mdc_gpio_num: mdc,
             smi_mdio_gpio_num: mdio,
+            interface: eth_data_interface_t_EMAC_DATA_INTERFACE_RMII,
+            ..Default::default()
+        }
+    }
+
+    #[cfg(all(not(any(
+        esp_idf_version_major = "4",
+        esp_idf_version = "5.0",
+        esp_idf_version = "5.1",
+        esp_idf_version = "5.2",
+        esp_idf_version = "5.3"
+    ))))]
+    fn eth_esp32_emac_default_config(mdc: i32, mdio: i32) -> eth_esp32_emac_config_t {
+        eth_esp32_emac_config_t {
+            __bindgen_anon_1: eth_esp32_emac_config_t__bindgen_ty_1 {
+                smi_gpio: emac_esp_smi_gpio_config_t {
+                    mdc_num: mdc,
+                    mdio_num: mdio,
+                },
+            },
             interface: eth_data_interface_t_EMAC_DATA_INTERFACE_RMII,
             ..Default::default()
         }
