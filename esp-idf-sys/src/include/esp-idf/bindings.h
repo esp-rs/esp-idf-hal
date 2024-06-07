@@ -294,7 +294,9 @@
 #include "driver/i2s_std.h"
 #include "driver/i2s_tdm.h"
 #include "driver/i2s_types.h"
+#define extra_flags mcpwm_drv_extra_flags // Rename to avoid conflict with extra_flags in rmt_rx.h
 #include "driver/mcpwm_prelude.h"
+#undef extra_flags
 #else
 #include "driver/i2s.h"
 #include "driver/mcpwm.h"
