@@ -1884,15 +1884,72 @@ impl<'d> NetifStatus for EspWifi<'d> {
 
 #[derive(Copy, Clone)]
 #[repr(transparent)]
-pub struct WpsCredentialsRef(wifi_event_sta_wps_er_success_t__bindgen_ty_1);
-
-#[derive(Copy, Clone)]
-#[repr(transparent)]
 pub struct ApStaConnectedRef(wifi_event_ap_staconnected_t);
+
+impl ApStaConnectedRef {
+    /// MAC address of the station connected to ESP32 soft-AP
+    pub fn mac(&self) -> [u8; 6] {
+        self.0.mac
+    }
+
+    /// the aid that ESP32 soft-AP gives to the station connected to
+    pub fn aid(&self) -> u8 {
+        self.0.aid
+    }
+
+    /// flag to identify mesh child
+    pub fn is_mesh_child(&self) -> bool {
+        self.0.is_mesh_child
+    }
+}
 
 #[derive(Copy, Clone)]
 #[repr(transparent)]
 pub struct ApStaDisconnectedRef(wifi_event_ap_stadisconnected_t);
+
+impl ApStaDisconnectedRef {
+    /// MAC address of the station disconnects to ESP32 soft-AP
+    pub fn mac(&self) -> [u8; 6] {
+        self.0.mac
+    }
+
+    /// the aid that ESP32 soft-AP gave to the station disconnects to
+    pub fn aid(&self) -> u8 {
+        self.0.aid
+    }
+
+    /// flag to identify mesh child
+    pub fn is_mesh_child(&self) -> bool {
+        self.0.is_mesh_child
+    }
+
+    /// reason of disconnection
+    #[cfg(not(any(
+        esp_idf_version_major = "4",
+        all(esp_idf_version_major = "5", esp_idf_version_minor = "0"),
+    )))]
+    #[allow(clippy::unnecessary_cast)]
+    pub fn reason(&self) -> u16 {
+        self.0.reason as u16
+    }
+}
+
+impl fmt::Debug for ApStaDisconnectedRef {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let mut ds = f.debug_struct("ApStaDisconnectedRef");
+        ds.field("mac", &self.mac())
+            .field("aid", &self.aid())
+            .field("is_mesh_child", &self.is_mesh_child());
+
+        #[cfg(not(any(
+            esp_idf_version_major = "4",
+            all(esp_idf_version_major = "5", esp_idf_version_minor = "0"),
+        )))]
+        ds.field("reason", &self.reason());
+
+        ds.finish()
+    }
+}
 
 #[cfg(not(any(
     esp_idf_version_major = "4",
@@ -1945,6 +2002,10 @@ impl TryFrom<u32> for WifiSecondChan {
     }
 }
 
+#[derive(Copy, Clone)]
+#[repr(transparent)]
+pub struct WpsCredentialsRef(wifi_event_sta_wps_er_success_t__bindgen_ty_1);
+
 impl WpsCredentialsRef {
     pub fn ssid(&self) -> &CStr {
         unsafe { CStr::from_ptr(self.0.ssid.as_ptr() as *const _) }
@@ -1990,23 +2051,6 @@ impl TryFrom<&WpsCredentialsRef> for WpsCredentials {
     }
 }
 
-impl ApStaConnectedRef {
-    /// MAC address of the station connected to ESP32 soft-AP
-    pub fn mac(&self) -> [u8; 6] {
-        self.0.mac
-    }
-
-    /// the aid that ESP32 soft-AP gives to the station connected to
-    pub fn aid(&self) -> u8 {
-        self.0.aid
-    }
-
-    /// flag to identify mesh child
-    pub fn is_mesh_child(&self) -> bool {
-        self.0.is_mesh_child
-    }
-}
-
 impl fmt::Debug for ApStaConnectedRef {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("ApStaConnectedRef")
@@ -2014,49 +2058,6 @@ impl fmt::Debug for ApStaConnectedRef {
             .field("aid", &self.aid())
             .field("is_mesh_child", &self.is_mesh_child())
             .finish()
-    }
-}
-
-impl ApStaDisconnectedRef {
-    /// MAC address of the station disconnects to ESP32 soft-AP
-    pub fn mac(&self) -> [u8; 6] {
-        self.0.mac
-    }
-
-    /// the aid that ESP32 soft-AP gave to the station disconnects to
-    pub fn aid(&self) -> u8 {
-        self.0.aid
-    }
-
-    /// flag to identify mesh child
-    pub fn is_mesh_child(&self) -> bool {
-        self.0.is_mesh_child
-    }
-
-    /// reason of disconnection
-    #[cfg(not(any(
-        esp_idf_version_major = "4",
-        all(esp_idf_version_major = "5", esp_idf_version_minor = "0"),
-    )))]
-    pub fn reason(&self) -> u8 {
-        self.0.reason
-    }
-}
-
-impl fmt::Debug for ApStaDisconnectedRef {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let mut ds = f.debug_struct("ApStaDisconnectedRef");
-        ds.field("mac", &self.mac())
-            .field("aid", &self.aid())
-            .field("is_mesh_child", &self.is_mesh_child());
-
-        #[cfg(not(any(
-            esp_idf_version_major = "4",
-            all(esp_idf_version_major = "5", esp_idf_version_minor = "0"),
-        )))]
-        ds.field("reason", &self.reason());
-
-        ds.finish()
     }
 }
 
