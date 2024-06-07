@@ -470,7 +470,12 @@ mod chip {
         }
 
         pub const fn max_duty(&self) -> u32 {
-            (1 << self.bits()) - 1
+            // when using the maximum resultion, the duty cycle must not exceed 2^N - 1 to avoid timer overflow
+            if cfg!(esp32) && self.bits() == 20 || cfg!(not(esp32)) && self.bits() == 14 {
+                (1 << self.bits()) - 1
+            } else {
+                1 << self.bits()
+            }
         }
 
         pub(crate) const fn timer_bits(&self) -> ledc_timer_bit_t {
