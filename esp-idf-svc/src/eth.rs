@@ -446,6 +446,7 @@ where
                 };
 
                 #[cfg(not(esp_idf_version_major = "4"))]
+                #[allow(clippy::needless_update)]
                 let dm9051_cfg = eth_dm9051_config_t {
                     spi_host_id: host,
                     spi_devcfg: &spi_devcfg as *const _ as *mut _,
@@ -458,6 +459,7 @@ where
                         ),
                     )))]
                     custom_spi_driver: eth_spi_custom_driver_config_t::default(),
+                    ..Default::default()
                 };
 
                 let mac = unsafe { esp_eth_mac_new_dm9051(&dm9051_cfg, &mac_cfg) };
@@ -482,6 +484,7 @@ where
                 };
 
                 #[cfg(not(esp_idf_version_major = "4"))]
+                #[allow(clippy::needless_update)]
                 let w5500_cfg = eth_w5500_config_t {
                     spi_host_id: host,
                     spi_devcfg: &spi_devcfg as *const _ as *mut _,
@@ -494,6 +497,7 @@ where
                         ),
                     )))]
                     custom_spi_driver: eth_spi_custom_driver_config_t::default(),
+                    ..Default::default()
                 };
 
                 let mac = unsafe { esp_eth_mac_new_w5500(&w5500_cfg, &mac_cfg) };
@@ -518,6 +522,7 @@ where
                 };
 
                 #[cfg(not(esp_idf_version_major = "4"))]
+                #[allow(clippy::needless_update)]
                 let ksz8851snl_cfg = eth_ksz8851snl_config_t {
                     spi_host_id: host,
                     spi_devcfg: &spi_devcfg as *const _ as *mut _,
@@ -530,6 +535,7 @@ where
                         ),
                     )))]
                     custom_spi_driver: eth_spi_custom_driver_config_t::default(),
+                    ..Default::default()
                 };
 
                 let mac = unsafe { esp_eth_mac_new_ksz8851snl(&ksz8851snl_cfg, &mac_cfg) };
