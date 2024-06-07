@@ -321,13 +321,13 @@ impl<'d> EthDriver<'d, RmiiEth> {
         }
     }
 
-    #[cfg(all(not(any(
+    #[cfg(not(any(
         esp_idf_version_major = "4",
         esp_idf_version = "5.0",
         esp_idf_version = "5.1",
         esp_idf_version = "5.2",
         esp_idf_version = "5.3"
-    ))))]
+    )))]
     fn eth_esp32_emac_default_config(mdc: i32, mdio: i32) -> eth_esp32_emac_config_t {
         eth_esp32_emac_config_t {
             __bindgen_anon_1: eth_esp32_emac_config_t__bindgen_ty_1 {
