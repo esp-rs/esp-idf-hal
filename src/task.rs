@@ -354,7 +354,7 @@ pub mod thread {
             all(esp_idf_version_major = "5", esp_idf_version_minor = "1"),
             all(esp_idf_version_major = "5", esp_idf_version_minor = "2"),
         )))] // ESP-IDF 5.3 and later
-        pub stack_alloc_caps: EnumSet<MallocCap>,
+        pub stack_alloc_caps: enumset::EnumSet<MallocCap>,
     }
 
     impl ThreadSpawnConfiguration {
@@ -422,7 +422,7 @@ pub mod thread {
                     all(esp_idf_version_major = "5", esp_idf_version_minor = "1"),
                     all(esp_idf_version_major = "5", esp_idf_version_minor = "2"),
                 )))] // ESP-IDF 5.3 and later
-                stack_alloc_caps: EnumSet::<MallocCap>::from_u32(conf.stack_alloc_caps),
+                stack_alloc_caps: enumset::EnumSet::<MallocCap>::from_u32(conf.stack_alloc_caps),
             }
         }
     }
