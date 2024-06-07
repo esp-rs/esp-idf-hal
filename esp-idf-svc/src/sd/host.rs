@@ -85,6 +85,27 @@ impl<'d> SdHost<'d> {
             )))]   // For ESP-IDF v5.2 and later
             set_input_delay: None,
             command_timeout_ms: 0,
+            #[cfg(not(any(
+                esp_idf_version_major = "4",
+                all(esp_idf_version_major = "5", esp_idf_version_minor = "0"),
+                all(esp_idf_version_major = "5", esp_idf_version_minor = "1"),
+                all(esp_idf_version_major = "5", esp_idf_version_minor = "2"),
+            )))]   // For ESP-IDF v5.3 and later
+            dma_aligned_buffer: core::ptr::null_mut(),
+            #[cfg(not(any(
+                esp_idf_version_major = "4",
+                all(esp_idf_version_major = "5", esp_idf_version_minor = "0"),
+                all(esp_idf_version_major = "5", esp_idf_version_minor = "1"),
+                all(esp_idf_version_major = "5", esp_idf_version_minor = "2"),
+            )))]   // For ESP-IDF v5.3 and later
+            get_dma_info: None,
+            #[cfg(not(any(
+                esp_idf_version_major = "4",
+                all(esp_idf_version_major = "5", esp_idf_version_minor = "0"),
+                all(esp_idf_version_major = "5", esp_idf_version_minor = "1"),
+                all(esp_idf_version_major = "5", esp_idf_version_minor = "2"),
+            )))]   // For ESP-IDF v5.3 and later
+            pwr_ctrl_handle: core::ptr::null_mut() as _,
         };
 
         Self {
@@ -135,6 +156,27 @@ impl<'d> SdHost<'d> {
              )))] // For ESP-IDF v5.2 and later            
             set_input_delay: Some(sdmmc_host_set_input_delay),
             command_timeout_ms: 0,
+            #[cfg(not(any(
+                esp_idf_version_major = "4",
+                all(esp_idf_version_major = "5", esp_idf_version_minor = "0"),
+                all(esp_idf_version_major = "5", esp_idf_version_minor = "1"),
+                all(esp_idf_version_major = "5", esp_idf_version_minor = "2"),
+            )))]   // For ESP-IDF v5.3 and later
+            dma_aligned_buffer: core::ptr::null_mut(),
+            #[cfg(not(any(
+                esp_idf_version_major = "4",
+                all(esp_idf_version_major = "5", esp_idf_version_minor = "0"),
+                all(esp_idf_version_major = "5", esp_idf_version_minor = "1"),
+                all(esp_idf_version_major = "5", esp_idf_version_minor = "2"),
+            )))]   // For ESP-IDF v5.3 and later
+            get_dma_info: None,
+            #[cfg(not(any(
+                esp_idf_version_major = "4",
+                all(esp_idf_version_major = "5", esp_idf_version_minor = "0"),
+                all(esp_idf_version_major = "5", esp_idf_version_minor = "1"),
+                all(esp_idf_version_major = "5", esp_idf_version_minor = "2"),
+            )))]   // For ESP-IDF v5.3 and later
+            pwr_ctrl_handle: core::ptr::null_mut() as _,
         };
 
         Self {

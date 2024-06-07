@@ -6,6 +6,13 @@ pub struct Configuration {
     pub allocation_unit_size: usize,
     #[cfg(not(esp_idf_version_major = "4",))] // For ESP-IDF v5.0 and later
     pub disk_status_check_enable: bool,
+    #[cfg(not(any(
+        esp_idf_version_major = "4",
+        all(esp_idf_version_major = "5", esp_idf_version_minor = "0"),
+        all(esp_idf_version_major = "5", esp_idf_version_minor = "1"),
+        all(esp_idf_version_major = "5", esp_idf_version_minor = "2"),
+    )))] // ESP-IDF 5.3 and later
+    pub use_one_fat: bool,
 }
 
 impl Default for Configuration {
@@ -24,6 +31,13 @@ impl Configuration {
                 esp_idf_version_major = "4",
             ))] // For ESP-IDF v5.0 and later
             disk_status_check_enable: false,
+            #[cfg(not(any(
+                esp_idf_version_major = "4",
+                all(esp_idf_version_major = "5", esp_idf_version_minor = "0"),
+                all(esp_idf_version_major = "5", esp_idf_version_minor = "1"),
+                all(esp_idf_version_major = "5", esp_idf_version_minor = "2"),
+            )))] // ESP-IDF 5.3 and later
+            use_one_fat: false,
         }
     }
 }
@@ -38,6 +52,13 @@ impl From<Configuration> for esp_vfs_fat_mount_config_t {
                 esp_idf_version_major = "4",
             ))] // For ESP-IDF v5.0 and later
             disk_status_check_enable: config.disk_status_check_enable,
+            #[cfg(not(any(
+                esp_idf_version_major = "4",
+                all(esp_idf_version_major = "5", esp_idf_version_minor = "0"),
+                all(esp_idf_version_major = "5", esp_idf_version_minor = "1"),
+                all(esp_idf_version_major = "5", esp_idf_version_minor = "2"),
+            )))] // ESP-IDF 5.3 and later
+            use_one_fat: config.use_one_fat,
         }
     }
 }
