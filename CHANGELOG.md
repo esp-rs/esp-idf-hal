@@ -14,7 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * rmt: Symbol now derives `Clone` and `Copy` (#386)
 * GPIO20 is now included on esp32. Notice that not every esp32 has a physical GPIO20. (#370)
 ### Added
-* restart() function in reset.rs (#383)
+* reset: restart() function (#383)
 * ledc: The config_with_pin() method allows updating the LEDC's pin without destroying and recreating it. (#399)
 * pcnt: Can now be used with esp32c6. (#407)
 * can: Frame flags enum (#411)
@@ -25,7 +25,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * rmt: FixedLengthSignal was broken, which led to failures in the neopixel/smartled examples, among other things. (#402)
 * e-hal 0.2: implements DelayUs and DelayMs for u8 to be consistent with the other implementations (#414)
 * i2c: wrong timeout calculations. (#415)
-* Building against esp-idf >= v5.3 by adding additional conditions on the esp_lcd headers. (#419)
+* Building against esp-idf >= v5.3 by adding introduced stack_alloc_caps field to ThreadSpawnConfiguration and exposing new MallocCap enum. (#419)
 * ledc: max_duty() method miscalulated in certain conditions. (#431)
 
 ## [0.43.1] - 2024-02-21
