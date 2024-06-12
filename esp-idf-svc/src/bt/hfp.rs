@@ -2,14 +2,11 @@
 
 #[cfg(esp_idf_bt_hfp_client_enable)]
 pub mod client {
-    use core::{
-        borrow::Borrow,
-        convert::TryInto,
-        ffi,
-        fmt::{self, Debug},
-        marker::PhantomData,
-        sync::atomic::{AtomicBool, Ordering},
-    };
+    use core::borrow::Borrow;
+    use core::convert::TryInto;
+    use core::ffi;
+    use core::fmt::{self, Debug};
+    use core::marker::PhantomData;
 
     use crate::sys::*;
 
@@ -18,7 +15,7 @@ pub mod client {
     use num_enum::TryFromPrimitive;
 
     use crate::{
-        bt::{BdAddr, BtCallback, BtClassicEnabled, BtDriver},
+        bt::{BdAddr, BtClassicEnabled, BtDriver, BtSingleton},
         private::cstr::{from_cstr_ptr, to_cstring_arg},
     };
 
@@ -285,7 +282,6 @@ pub mod client {
         T: Borrow<BtDriver<'d, M>>,
     {
         _driver: T,
-        initialized: AtomicBool,
         #[cfg(esp_idf_bt_hfp_audio_data_path_hci)]
         resampling_source: Option<Source>,
         _p: PhantomData<&'d ()>,
@@ -298,10 +294,21 @@ pub mod client {
         T: Borrow<BtDriver<'d, M>>,
     {
         #[cfg(esp_idf_bt_hfp_audio_data_path_hci)]
-        pub const fn new(driver: T, resampling_source: Option<Source>) -> Result<Self, EspError> {
+        pub fn new(driver: T, resampling_source: Option<Source>) -> Result<Self, EspError> {
+            Self::initialize()?;
+
+            if let Some(resampling_source) = resampling_source {
+                unsafe {
+                    esp_hf_client_pcm_resample_init(
+                        resampling_source.sample_rate_hz,
+                        resampling_source.bits_per_sample as _,
+                        if resampling_source.stereo { 2 } else { 1 },
+                    );
+                }
+            }
+
             Ok(Self {
                 _driver: driver,
-                initialized: AtomicBool::new(false),
                 resampling_source,
                 _p: PhantomData,
                 _m: PhantomData,
@@ -309,25 +316,45 @@ pub mod client {
         }
 
         #[cfg(not(esp_idf_bt_hfp_audio_data_path_hci))]
-        pub const fn new(driver: T) -> Result<Self, EspError> {
+        pub fn new(driver: T) -> Result<Self, EspError> {
+            Self::initialize()?;
+
             Ok(Self {
                 _driver: driver,
-                initialized: AtomicBool::new(false),
                 _p: PhantomData,
                 _m: PhantomData,
             })
         }
 
-        pub fn initialize<F>(&self, events_cb: F) -> Result<(), EspError>
+        fn initialize() -> Result<(), EspError> {
+            SINGLETON.take()?;
+
+            esp!(unsafe { esp_hf_client_register_callback(Some(Self::event_handler)) })?;
+            esp!(unsafe { esp_hf_client_init() })?;
+
+            #[cfg(esp_idf_bt_hfp_audio_data_path_hci)]
+            esp!(unsafe {
+                esp_hf_client_register_data_callback(
+                    Some(Self::recv_data_handler),
+                    Some(Self::send_data_handler),
+                )
+            })?;
+
+            Ok(())
+        }
+
+        pub fn subscribe<F>(&self, events_cb: F) -> Result<(), EspError>
         where
-            F: Fn(HfpcEvent) -> usize + Send + 'static,
+            F: FnMut(HfpcEvent) -> usize + Send + 'static,
         {
-            self.internal_initialize(events_cb)
+            SINGLETON.subscribe(events_cb);
+
+            Ok(())
         }
 
         /// # Safety
         ///
-        /// This method - in contrast to method `initialize` - allows the user to pass
+        /// This method - in contrast to method `subscribe` - allows the user to pass
         /// a non-static callback/closure. This enables users to borrow
         /// - in the closure - variables that live on the stack - or more generally - in the same
         ///   scope where the service is created.
@@ -348,42 +375,17 @@ pub mod client {
         ///
         /// This "local borrowing" will only be possible to express in a safe way once/if `!Leak` types
         /// are introduced to Rust (i.e. the impossibility to "forget" a type and thus not call its destructor).
-        pub unsafe fn initialize_nonstatic<F>(&self, events_cb: F) -> Result<(), EspError>
+        pub unsafe fn subscribe_nonstatic<F>(&self, events_cb: F) -> Result<(), EspError>
         where
-            F: Fn(HfpcEvent) -> usize + Send + 'd,
+            F: FnMut(HfpcEvent) -> usize + Send + 'd,
         {
-            self.internal_initialize(events_cb)
+            SINGLETON.subscribe(events_cb);
+
+            Ok(())
         }
 
-        fn internal_initialize<F>(&self, events_cb: F) -> Result<(), EspError>
-        where
-            F: Fn(HfpcEvent) -> usize + Send + 'd,
-        {
-            CALLBACK.set(events_cb)?;
-
-            esp!(unsafe { esp_hf_client_init() })?;
-            esp!(unsafe { esp_hf_client_register_callback(Some(Self::event_handler)) })?;
-
-            #[cfg(esp_idf_bt_hfp_audio_data_path_hci)]
-            esp!(unsafe {
-                esp_hf_client_register_data_callback(
-                    Some(Self::recv_data_handler),
-                    Some(Self::send_data_handler),
-                )
-            })?;
-
-            #[cfg(esp_idf_bt_hfp_audio_data_path_hci)]
-            if let Some(resampling_source) = self.resampling_source {
-                unsafe {
-                    esp_hf_client_pcm_resample_init(
-                        resampling_source.sample_rate_hz,
-                        resampling_source.bits_per_sample as _,
-                        if resampling_source.stereo { 2 } else { 1 },
-                    );
-                }
-            }
-
-            self.initialized.store(true, Ordering::SeqCst);
+        pub fn unsubscribe(&self) -> Result<(), EspError> {
+            SINGLETON.unsubscribe();
 
             Ok(())
         }
@@ -522,7 +524,7 @@ pub mod client {
 
                 info!("Got event {{ {:#?} }}", event);
 
-                CALLBACK.call(event);
+                SINGLETON.call(event);
             }
         }
 
@@ -531,7 +533,7 @@ pub mod client {
             let event = HfpcEvent::RecvData(core::slice::from_raw_parts(buf, len as _));
             debug!("Got event {{ {:#?} }}", event);
 
-            CALLBACK.call(event);
+            SINGLETON.call(event);
         }
 
         #[cfg(esp_idf_bt_hfp_audio_data_path_hci)]
@@ -539,7 +541,7 @@ pub mod client {
             let event = HfpcEvent::SendData(core::slice::from_raw_parts_mut(buf, len as _));
             debug!("Got event {{ {:#?} }}", event);
 
-            CALLBACK.call(event) as _
+            SINGLETON.call(event) as _
         }
     }
 
@@ -549,20 +551,42 @@ pub mod client {
         T: Borrow<BtDriver<'d, M>>,
     {
         fn drop(&mut self) {
-            if self.initialized.load(Ordering::SeqCst) {
-                #[cfg(esp_idf_bt_hfp_audio_data_path_hci)]
-                if self.resampling_source.is_some() {
-                    unsafe {
-                        esp_hf_client_pcm_resample_deinit();
-                    }
+            #[cfg(esp_idf_bt_hfp_audio_data_path_hci)]
+            if self.resampling_source.is_some() {
+                unsafe {
+                    esp_hf_client_pcm_resample_deinit();
                 }
-
-                esp!(unsafe { esp_hf_client_deinit() }).unwrap();
-
-                CALLBACK.clear().unwrap();
             }
+
+            self.unsubscribe().unwrap();
+
+            // Not possible because this function rejects NULL arguments
+            // esp!(unsafe { esp_hf_client_register_callback(None) }).unwrap();
+
+            #[cfg(esp_idf_bt_hfp_audio_data_path_hci)]
+            esp!(unsafe { esp_hf_client_register_data_callback(None, None) }).unwrap();
+
+            esp!(unsafe { esp_hf_client_deinit() }).unwrap();
+
+            SINGLETON.release().unwrap();
         }
     }
 
-    static CALLBACK: BtCallback<HfpcEvent, usize> = BtCallback::new(0);
+    unsafe impl<'d, M, T> Send for EspHfpc<'d, M, T>
+    where
+        M: BtClassicEnabled,
+        T: Borrow<BtDriver<'d, M>> + Send,
+    {
+    }
+
+    // Safe because the ESP IDF Bluedroid APIs all do message passing
+    // to a dedicated Bluedroid task
+    unsafe impl<'d, M, T> Sync for EspHfpc<'d, M, T>
+    where
+        M: BtClassicEnabled,
+        T: Borrow<BtDriver<'d, M>> + Send,
+    {
+    }
+
+    static SINGLETON: BtSingleton<HfpcEvent, usize> = BtSingleton::new(0);
 }

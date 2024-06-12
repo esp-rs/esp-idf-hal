@@ -3,6 +3,9 @@ use core::fmt::{self, Debug};
 use core::marker::PhantomData;
 use core::sync::atomic::{AtomicBool, Ordering};
 
+use alloc::boxed::Box;
+use alloc::sync::Arc;
+
 use log::info;
 
 use num_enum::TryFromPrimitive;
@@ -10,7 +13,7 @@ use num_enum::TryFromPrimitive;
 use crate::hal::modem::BluetoothModemPeripheral;
 use crate::hal::peripheral::Peripheral;
 
-use crate::private::mutex;
+use crate::private::mutex::{self, Mutex};
 use crate::sys::*;
 
 #[cfg(all(feature = "alloc", esp_idf_comp_nvs_flash_enabled))]
@@ -23,8 +26,7 @@ extern crate alloc;
 pub mod a2dp;
 #[cfg(all(esp32, esp_idf_bt_classic_enabled, esp_idf_bt_a2dp_enable))]
 pub mod avrc;
-// TODO: Future
-// pub mod ble;
+pub mod ble;
 #[cfg(all(esp32, esp_idf_bt_classic_enabled))]
 pub mod gap;
 #[cfg(all(esp32, esp_idf_bt_classic_enabled, esp_idf_bt_hfp_enable))]
@@ -35,8 +37,26 @@ pub mod hfp;
 pub struct BdAddr(esp_bd_addr_t);
 
 impl BdAddr {
-    pub fn raw(&self) -> esp_bd_addr_t {
+    pub const fn raw(&self) -> esp_bd_addr_t {
         self.0
+    }
+
+    pub const fn from_bytes(bytes: [u8; 6]) -> Self {
+        Self(bytes)
+    }
+
+    pub const fn addr(&self) -> [u8; 6] {
+        self.0
+    }
+}
+
+impl fmt::Display for BdAddr {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "{:02X}:{:02X}:{:02X}:{:02X}:{:02X}:{:02X}",
+            self.0[0], self.0[1], self.0[2], self.0[3], self.0[4], self.0[5]
+        )
     }
 }
 
@@ -57,52 +77,48 @@ impl From<esp_bd_addr_t> for BdAddr {
 pub struct BtUuid(esp_bt_uuid_t);
 
 impl BtUuid {
-    pub fn raw(&self) -> esp_bt_uuid_t {
+    pub const fn raw(&self) -> esp_bt_uuid_t {
         self.0
     }
 
-    pub fn uuid16(uuid: u16) -> Self {
-        let mut esp_uuid = esp_bt_uuid_t {
+    pub const fn uuid16(uuid: u16) -> Self {
+        let esp_uuid = esp_bt_uuid_t {
+            len: 2,
+            uuid: esp_bt_uuid_t__bindgen_ty_1 { uuid16: uuid },
+        };
+
+        Self(esp_uuid)
+    }
+
+    pub const fn uuid32(uuid: u32) -> Self {
+        let esp_uuid = esp_bt_uuid_t {
+            len: 4,
+            uuid: esp_bt_uuid_t__bindgen_ty_1 { uuid32: uuid },
+        };
+
+        Self(esp_uuid)
+    }
+
+    pub const fn uuid128(uuid: u128) -> Self {
+        let esp_uuid = esp_bt_uuid_t {
             len: 16,
-            ..Default::default()
+            uuid: esp_bt_uuid_t__bindgen_ty_1 {
+                uuid128: uuid.to_le_bytes(),
+            },
         };
-
-        esp_uuid.uuid.uuid16 = uuid;
 
         Self(esp_uuid)
     }
 
-    pub fn uuid32(uuid: u32) -> Self {
-        let mut esp_uuid = esp_bt_uuid_t {
-            len: 32,
-            ..Default::default()
-        };
-
-        esp_uuid.uuid.uuid32 = uuid;
-
-        Self(esp_uuid)
-    }
-
-    pub fn uuid128(uuid: u128) -> Self {
-        let mut esp_uuid = esp_bt_uuid_t {
-            len: 128,
-            ..Default::default()
-        };
-
-        esp_uuid.uuid.uuid128 = uuid.to_ne_bytes();
-
-        Self(esp_uuid)
-    }
-
-    pub fn as_bytes(&self) -> &[u8] {
+    pub const fn as_bytes(&self) -> &[u8] {
         match self.0.len {
-            16 => unsafe {
+            2 => unsafe {
                 core::slice::from_raw_parts(&self.0.uuid.uuid128 as *const _ as *const _, 2)
             },
-            32 => unsafe {
+            4 => unsafe {
                 core::slice::from_raw_parts(&self.0.uuid.uuid128 as *const _ as *const _, 4)
             },
-            128 => unsafe { &self.0.uuid.uuid128 },
+            16 => unsafe { &self.0.uuid.uuid128 },
             _ => unreachable!(),
         }
     }
@@ -136,63 +152,80 @@ impl From<esp_bt_uuid_t> for BtUuid {
 
 #[allow(dead_code)]
 #[allow(clippy::type_complexity)]
-pub(crate) struct BtCallback<A, R> {
+pub(crate) struct BtSingleton<A, R> {
     initialized: AtomicBool,
-    callback: UnsafeCell<Option<alloc::boxed::Box<dyn Fn(A) -> R>>>,
+    callback: Mutex<Option<Arc<UnsafeCell<Box<dyn FnMut(A) -> R>>>>>,
     default_result: R,
 }
 
 #[allow(dead_code)]
-impl<A, R> BtCallback<A, R>
+impl<A, R> BtSingleton<A, R>
 where
     R: Clone,
 {
     pub const fn new(default_result: R) -> Self {
         Self {
             initialized: AtomicBool::new(false),
-            callback: UnsafeCell::new(None),
+            callback: Mutex::new(None),
             default_result,
         }
     }
 
-    pub fn set<'d, F>(&self, callback: F) -> Result<(), EspError>
-    where
-        F: Fn(A) -> R + Send + 'd,
-    {
-        self.initialized
-            .compare_exchange(false, true, Ordering::SeqCst, Ordering::SeqCst)
-            .map_err(|_| EspError::from_infallible::<ESP_ERR_INVALID_STATE>())?;
+    pub fn release(&self) -> Result<(), EspError> {
+        self.unsubscribe();
 
-        let b: alloc::boxed::Box<dyn Fn(A) -> R + 'd> = alloc::boxed::Box::new(callback);
-        let b: alloc::boxed::Box<dyn Fn(A) -> R + 'static> = unsafe { core::mem::transmute(b) };
-        *unsafe { self.callback.get().as_mut() }.unwrap() = Some(b);
-
-        Ok(())
-    }
-
-    pub fn clear(&self) -> Result<(), EspError> {
         self.initialized
             .compare_exchange(true, false, Ordering::SeqCst, Ordering::SeqCst)
             .map_err(|_| EspError::from_infallible::<ESP_ERR_INVALID_STATE>())?;
 
-        *unsafe { self.callback.get().as_mut() }.unwrap() = None;
+        Ok(())
+    }
+
+    pub fn take(&self) -> Result<(), EspError> {
+        self.initialized
+            .compare_exchange(false, true, Ordering::SeqCst, Ordering::SeqCst)
+            .map_err(|_| EspError::from_infallible::<ESP_ERR_INVALID_STATE>())?;
 
         Ok(())
     }
 
+    pub fn subscribe<'d, F>(&self, callback: F)
+    where
+        F: FnMut(A) -> R + Send + 'd,
+    {
+        let callback = unsafe {
+            core::mem::transmute::<
+                Box<dyn FnMut(A) -> R + Send + 'd>,
+                Box<dyn FnMut(A) -> R + Send + 'static>,
+            >(Box::new(callback))
+        };
+
+        *self.callback.lock() = Some(Arc::new(UnsafeCell::new(callback)));
+    }
+
+    pub fn unsubscribe(&self) {
+        *self.callback.lock() = None;
+    }
+
+    /// Safe to use only from within the ESP IDF Bluedroid task
     pub unsafe fn call(&self, arg: A) -> R {
-        if let Some(callback) = unsafe { self.callback.get().as_ref() }.unwrap() {
-            (callback)(arg)
+        if let Some(callback) = self
+            .callback
+            .lock()
+            .as_ref()
+            .map(|callback| callback.clone())
+        {
+            ((callback.get()).as_mut().unwrap())(arg)
         } else {
             self.default_result.clone()
         }
     }
 }
 
-unsafe impl<A, R> Sync for BtCallback<A, R> {}
-unsafe impl<A, R> Send for BtCallback<A, R> {}
+unsafe impl<A, R> Sync for BtSingleton<A, R> {}
+unsafe impl<A, R> Send for BtSingleton<A, R> {}
 
-pub trait BtMode {
+pub trait BtMode: Send {
     fn mode() -> esp_bt_mode_t;
 }
 
@@ -201,7 +234,8 @@ pub trait BtClassicEnabled: BtMode {}
 
 #[cfg(esp32)]
 #[cfg(not(esp_idf_btdm_ctrl_mode_ble_only))]
-pub struct BtClassic;
+#[derive(Clone)]
+pub struct BtClassic(());
 #[cfg(esp32)]
 #[cfg(not(esp_idf_btdm_ctrl_mode_ble_only))]
 impl BtClassicEnabled for BtClassic {}
@@ -221,7 +255,8 @@ impl BtMode for BtClassic {
 }
 
 #[cfg(not(esp_idf_btdm_ctrl_mode_br_edr_only))]
-pub struct Ble;
+#[derive(Clone)]
+pub struct Ble(());
 #[cfg(not(esp_idf_btdm_ctrl_mode_br_edr_only))]
 impl BleEnabled for Ble {}
 
@@ -240,7 +275,8 @@ impl BtMode for Ble {
 
 #[cfg(esp32)]
 #[cfg(esp_idf_btdm_ctrl_mode_btdm)]
-pub struct BtDual;
+#[derive(Clone)]
+pub struct BtDual(());
 #[cfg(esp32)]
 #[cfg(esp_idf_btdm_ctrl_mode_btdm)]
 impl BtClassicEnabled for BtDual {}
@@ -371,6 +407,7 @@ pub fn reduce_bt_memory<'d, B: BluetoothModemPeripheral>(
     Ok(())
 }
 
+#[cfg(esp_idf_btdm_ctrl_mode_btdm)]
 pub fn free_bt_memory<B: BluetoothModemPeripheral>(_modem: B) -> Result<(), EspError> {
     let mut mem_freed = MEM_FREED.lock();
 
@@ -455,7 +492,7 @@ where
             ..Default::default()
         };
 
-        #[cfg(esp32c3)]
+        #[cfg(not(any(esp32, esp32s3)))]
         let mut bt_cfg = esp_bt_controller_config_t {
             magic: crate::sys::ESP_BT_CTRL_CONFIG_MAGIC_VAL,
             version: crate::sys::ESP_BT_CTRL_CONFIG_VERSION,
@@ -569,3 +606,6 @@ where
         esp!(unsafe { esp_bt_controller_deinit() }).unwrap();
     }
 }
+
+unsafe impl<'d, M> Send for BtDriver<'d, M> where M: BtMode {}
+unsafe impl<'d, M> Sync for BtDriver<'d, M> where M: BtMode {}

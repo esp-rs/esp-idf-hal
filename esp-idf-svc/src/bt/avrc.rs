@@ -1,13 +1,13 @@
 #![allow(non_upper_case_globals)]
 #![allow(non_snake_case)]
 
+use core::fmt::Debug;
+
 use enumset::EnumSetType;
 
 use crate::sys::*;
 
 use num_enum::TryFromPrimitive;
-
-use core::fmt::Debug;
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq, TryFromPrimitive)]
 #[repr(u8)]
@@ -258,19 +258,16 @@ impl From<PlayerAttributeId> for (esp_avrc_ps_attr_ids_t, u8) {
 }
 
 pub mod controller {
-    use core::{
-        borrow::Borrow,
-        convert::{TryFrom, TryInto},
-        fmt::{self, Debug},
-        marker::PhantomData,
-        sync::atomic::{AtomicBool, Ordering},
-    };
+    use core::borrow::Borrow;
+    use core::convert::{TryFrom, TryInto};
+    use core::fmt::{self, Debug};
+    use core::marker::PhantomData;
 
     use enumset::EnumSet;
 
     use log::info;
 
-    use crate::bt::{BdAddr, BtCallback, BtClassicEnabled, BtDriver};
+    use crate::bt::{BdAddr, BtClassicEnabled, BtDriver, BtSingleton};
 
     use super::*;
 
@@ -405,7 +402,6 @@ pub mod controller {
         T: Borrow<BtDriver<'d, M>>,
     {
         _driver: T,
-        initialized: AtomicBool,
         _p: PhantomData<&'d ()>,
         _m: PhantomData<M>,
     }
@@ -415,25 +411,31 @@ pub mod controller {
         M: BtClassicEnabled,
         T: Borrow<BtDriver<'d, M>>,
     {
-        pub const fn new(driver: T) -> Result<Self, EspError> {
+        pub fn new(driver: T) -> Result<Self, EspError> {
+            SINGLETON.take()?;
+
+            esp!(unsafe { esp_avrc_ct_register_callback(Some(Self::event_handler)) })?;
+            esp!(unsafe { esp_avrc_ct_init() })?;
+
             Ok(Self {
                 _driver: driver,
-                initialized: AtomicBool::new(false),
                 _p: PhantomData,
                 _m: PhantomData,
             })
         }
 
-        pub fn initialize<F>(&self, events_cb: F) -> Result<(), EspError>
+        pub fn subscribe<F>(&self, events_cb: F) -> Result<(), EspError>
         where
-            F: Fn(AvrccEvent) + Send + 'static,
+            F: FnMut(AvrccEvent) + Send + 'static,
         {
-            self.internal_initialize(events_cb)
+            SINGLETON.subscribe(events_cb);
+
+            Ok(())
         }
 
         /// # Safety
         ///
-        /// This method - in contrast to method `initialize` - allows the user to pass
+        /// This method - in contrast to method `subscribe` - allows the user to pass
         /// a non-static callback/closure. This enables users to borrow
         /// - in the closure - variables that live on the stack - or more generally - in the same
         ///   scope where the service is created.
@@ -454,23 +456,17 @@ pub mod controller {
         ///
         /// This "local borrowing" will only be possible to express in a safe way once/if `!Leak` types
         /// are introduced to Rust (i.e. the impossibility to "forget" a type and thus not call its destructor).
-        pub unsafe fn initialize_nonstatic<F>(&self, events_cb: F) -> Result<(), EspError>
+        pub unsafe fn subscribe_nonstatic<F>(&self, events_cb: F) -> Result<(), EspError>
         where
-            F: Fn(AvrccEvent) + Send + 'd,
+            F: FnMut(AvrccEvent) + Send + 'd,
         {
-            self.internal_initialize(events_cb)
+            SINGLETON.subscribe(events_cb);
+
+            Ok(())
         }
 
-        fn internal_initialize<F>(&self, events_cb: F) -> Result<(), EspError>
-        where
-            F: Fn(AvrccEvent) + Send + 'd,
-        {
-            CALLBACK.set(events_cb)?;
-
-            esp!(unsafe { esp_avrc_ct_init() })?;
-            esp!(unsafe { esp_avrc_ct_register_callback(Some(Self::event_handler)) })?;
-
-            self.initialized.store(true, Ordering::SeqCst);
+        pub fn unsubscribe(&self) -> Result<(), EspError> {
+            SINGLETON.unsubscribe();
 
             Ok(())
         }
@@ -545,7 +541,7 @@ pub mod controller {
 
                 info!("Got event {{ {:#?} }}", event);
 
-                CALLBACK.call(event);
+                SINGLETON.call(event);
             }
         }
     }
@@ -556,13 +552,32 @@ pub mod controller {
         T: Borrow<BtDriver<'d, M>>,
     {
         fn drop(&mut self) {
-            if self.initialized.load(Ordering::SeqCst) {
-                esp!(unsafe { esp_avrc_ct_deinit() }).unwrap();
+            self.unsubscribe().unwrap();
 
-                CALLBACK.clear().unwrap();
-            }
+            esp!(unsafe { esp_avrc_ct_deinit() }).unwrap();
+
+            // Not possible because this function rejects NULL arguments
+            // esp!(unsafe { esp_avrc_ct_register_callback(Some(None)) })?;
+
+            SINGLETON.release().unwrap();
         }
     }
 
-    static CALLBACK: BtCallback<AvrccEvent, ()> = BtCallback::new(());
+    unsafe impl<'d, M, T> Send for EspAvrcc<'d, M, T>
+    where
+        M: BtClassicEnabled,
+        T: Borrow<BtDriver<'d, M>> + Send,
+    {
+    }
+
+    // Safe because the ESP IDF Bluedroid APIs all do message passing
+    // to a dedicated Bluedroid task
+    unsafe impl<'d, M, T> Sync for EspAvrcc<'d, M, T>
+    where
+        M: BtClassicEnabled,
+        T: Borrow<BtDriver<'d, M>> + Send,
+    {
+    }
+
+    static SINGLETON: BtSingleton<AvrccEvent, ()> = BtSingleton::new(());
 }

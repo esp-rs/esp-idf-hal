@@ -1,22 +1,19 @@
 #![allow(non_upper_case_globals)]
 
-use core::{
-    borrow::Borrow,
-    convert::TryInto,
-    fmt::{self, Debug},
-    marker::PhantomData,
-    sync::atomic::{AtomicBool, Ordering},
-};
+use core::borrow::Borrow;
+use core::convert::TryInto;
+use core::fmt::{self, Debug};
+use core::marker::PhantomData;
 
-use crate::sys::*;
 use log::{debug, info};
 use num_enum::TryFromPrimitive;
 
 use crate::bt::{BtClassicEnabled, BtDriver};
+use crate::sys::*;
 
-use super::{BdAddr, BtCallback};
+use super::{BdAddr, BtSingleton};
 
-pub trait A2dpMode {
+pub trait A2dpMode: Send {
     fn sink() -> bool;
     fn source() -> bool;
 }
@@ -283,7 +280,6 @@ where
     S: A2dpMode,
 {
     _driver: T,
-    initialized: AtomicBool,
     _p: PhantomData<&'d ()>,
     _m: PhantomData<M>,
     _s: PhantomData<S>,
@@ -294,72 +290,8 @@ where
     M: BtClassicEnabled,
     T: Borrow<BtDriver<'d, M>>,
 {
-    pub const fn new_sink(driver: T) -> Result<Self, EspError> {
-        Ok(Self {
-            _driver: driver,
-            initialized: AtomicBool::new(false),
-            _p: PhantomData,
-            _m: PhantomData,
-            _s: PhantomData,
-        })
-    }
-
-    pub fn initialize<F>(&self, events_cb: F) -> Result<(), EspError>
-    where
-        F: Fn(A2dpEvent) + Send + 'static,
-    {
-        unsafe { self.initialize_nonstatic(events_cb) }
-    }
-
-    /// # Safety
-    ///
-    /// This method - in contrast to method `initialize` - allows the user to pass
-    /// a non-static callback/closure. This enables users to borrow
-    /// - in the closure - variables that live on the stack - or more generally - in the same
-    ///   scope where the service is created.
-    ///
-    /// HOWEVER: care should be taken NOT to call `core::mem::forget()` on the service,
-    /// as that would immediately lead to an UB (crash).
-    /// Also note that forgetting the service might happen with `Rc` and `Arc`
-    /// when circular references are introduced: https://github.com/rust-lang/rust/issues/24456
-    ///
-    /// The reason is that the closure is actually sent to a hidden ESP IDF thread.
-    /// This means that if the service is forgotten, Rust is free to e.g. unwind the stack
-    /// and the closure now owned by this other thread will end up with references to variables that no longer exist.
-    ///
-    /// The destructor of the service takes care - prior to the service being dropped and e.g.
-    /// the stack being unwind - to remove the closure from the hidden thread and destroy it.
-    /// Unfortunately, when the service is forgotten, the un-subscription does not happen
-    /// and invalid references are left dangling.
-    ///
-    /// This "local borrowing" will only be possible to express in a safe way once/if `!Leak` types
-    /// are introduced to Rust (i.e. the impossibility to "forget" a type and thus not call its destructor).
-    pub unsafe fn initialize_nonstatic<F>(&self, events_cb: F) -> Result<(), EspError>
-    where
-        F: Fn(A2dpEvent) + Send + 'd,
-    {
-        self.internal_initialize(move |event| {
-            events_cb(event);
-            0
-        })
-    }
-
-    pub fn connect(&self, bd_addr: &BdAddr) -> Result<(), EspError> {
-        esp!(unsafe { esp_a2d_sink_connect(bd_addr as *const _ as *mut _) })
-    }
-
-    pub fn disconnect(&self, bd_addr: &BdAddr) -> Result<(), EspError> {
-        esp!(unsafe { esp_a2d_sink_disconnect(bd_addr as *const _ as *mut _) })
-    }
-
-    #[cfg(not(esp_idf_version_major = "4"))]
-    pub fn request_delay(&self) -> Result<(), EspError> {
-        esp!(unsafe { esp_a2d_sink_get_delay_value() })
-    }
-
-    #[cfg(not(esp_idf_version_major = "4"))]
-    pub fn set_delay(&self, delay: core::time::Duration) -> Result<(), EspError> {
-        esp!(unsafe { esp_a2d_sink_set_delay_value((delay.as_micros() / 100) as _) })
+    pub fn new_sink(driver: T) -> Result<Self, EspError> {
+        Self::new(driver)
     }
 }
 
@@ -368,59 +300,8 @@ where
     M: BtClassicEnabled,
     T: Borrow<BtDriver<'d, M>>,
 {
-    pub const fn new_source(driver: T) -> Result<Self, EspError> {
-        Ok(Self {
-            _driver: driver,
-            initialized: AtomicBool::new(false),
-            _p: PhantomData,
-            _m: PhantomData,
-            _s: PhantomData,
-        })
-    }
-
-    pub fn initialize<F>(&self, events_cb: F) -> Result<(), EspError>
-    where
-        F: Fn(A2dpEvent) -> usize + Send + 'static,
-    {
-        self.internal_initialize(events_cb)
-    }
-
-    /// # Safety
-    ///
-    /// This method - in contrast to method `initialize` - allows the user to pass
-    /// a non-static callback/closure. This enables users to borrow
-    /// - in the closure - variables that live on the stack - or more generally - in the same
-    ///   scope where the service is created.
-    ///
-    /// HOWEVER: care should be taken NOT to call `core::mem::forget()` on the service,
-    /// as that would immediately lead to an UB (crash).
-    /// Also note that forgetting the service might happen with `Rc` and `Arc`
-    /// when circular references are introduced: https://github.com/rust-lang/rust/issues/24456
-    ///
-    /// The reason is that the closure is actually sent to a hidden ESP IDF thread.
-    /// This means that if the service is forgotten, Rust is free to e.g. unwind the stack
-    /// and the closure now owned by this other thread will end up with references to variables that no longer exist.
-    ///
-    /// The destructor of the service takes care - prior to the service being dropped and e.g.
-    /// the stack being unwind - to remove the closure from the hidden thread and destroy it.
-    /// Unfortunately, when the service is forgotten, the un-subscription does not happen
-    /// and invalid references are left dangling.
-    ///
-    /// This "local borrowing" will only be possible to express in a safe way once/if `!Leak` types
-    /// are introduced to Rust (i.e. the impossibility to "forget" a type and thus not call its destructor).
-    pub unsafe fn initialize_nonstatic<F>(&self, events_cb: F) -> Result<(), EspError>
-    where
-        F: Fn(A2dpEvent) -> usize + Send + 'd,
-    {
-        self.internal_initialize(events_cb)
-    }
-
-    pub fn connect(&self, bd_addr: &BdAddr) -> Result<(), EspError> {
-        esp!(unsafe { esp_a2d_source_connect(bd_addr as *const _ as *mut _) })
-    }
-
-    pub fn disconnect(&self, bd_addr: &BdAddr) -> Result<(), EspError> {
-        esp!(unsafe { esp_a2d_source_disconnect(bd_addr as *const _ as *mut _) })
+    pub fn new_source(driver: T) -> Result<Self, EspError> {
+        Self::new(driver)
     }
 }
 
@@ -430,50 +311,7 @@ where
     T: Borrow<BtDriver<'d, M>>,
 {
     pub fn new_duplex(driver: T) -> Result<Self, EspError> {
-        Ok(Self {
-            _driver: driver,
-            initialized: AtomicBool::new(false),
-            _p: PhantomData,
-            _m: PhantomData,
-            _s: PhantomData,
-        })
-    }
-
-    pub fn initialize<F>(&self, events_cb: F) -> Result<(), EspError>
-    where
-        F: Fn(A2dpEvent) -> usize + Send + 'static,
-    {
-        self.internal_initialize(events_cb)
-    }
-
-    /// # Safety
-    ///
-    /// This method - in contrast to method `initialize` - allows the user to pass
-    /// a non-static callback/closure. This enables users to borrow
-    /// - in the closure - variables that live on the stack - or more generally - in the same
-    ///   scope where the service is created.
-    ///
-    /// HOWEVER: care should be taken NOT to call `core::mem::forget()` on the service,
-    /// as that would immediately lead to an UB (crash).
-    /// Also note that forgetting the service might happen with `Rc` and `Arc`
-    /// when circular references are introduced: https://github.com/rust-lang/rust/issues/24456
-    ///
-    /// The reason is that the closure is actually sent to a hidden ESP IDF thread.
-    /// This means that if the service is forgotten, Rust is free to e.g. unwind the stack
-    /// and the closure now owned by this other thread will end up with references to variables that no longer exist.
-    ///
-    /// The destructor of the service takes care - prior to the service being dropped and e.g.
-    /// the stack being unwind - to remove the closure from the hidden thread and destroy it.
-    /// Unfortunately, when the service is forgotten, the un-subscription does not happen
-    /// and invalid references are left dangling.
-    ///
-    /// This "local borrowing" will only be possible to express in a safe way once/if `!Leak` types
-    /// are introduced to Rust (i.e. the impossibility to "forget" a type and thus not call its destructor).
-    pub unsafe fn initialize_nonstatic<F>(&self, events_cb: F) -> Result<(), EspError>
-    where
-        F: Fn(A2dpEvent) -> usize + Send + 'd,
-    {
-        self.internal_initialize(events_cb)
+        Self::new(driver)
     }
 }
 
@@ -483,11 +321,8 @@ where
     T: Borrow<BtDriver<'d, M>>,
     S: A2dpMode,
 {
-    fn internal_initialize<F>(&self, events_cb: F) -> Result<(), EspError>
-    where
-        F: Fn(A2dpEvent) -> usize + Send + 'd,
-    {
-        CALLBACK.set(events_cb)?;
+    pub fn new(driver: T) -> Result<Self, EspError> {
+        SINGLETON.take()?;
 
         esp!(unsafe { esp_a2d_register_callback(Some(Self::event_handler)) })?;
 
@@ -503,7 +338,101 @@ where
             esp!(unsafe { esp_a2d_source_init() })?;
         }
 
-        self.initialized.store(true, Ordering::SeqCst);
+        Ok(Self {
+            _driver: driver,
+            _p: PhantomData,
+            _m: PhantomData,
+            _s: PhantomData,
+        })
+    }
+
+    pub fn connect_sink(&self, bd_addr: &BdAddr) -> Result<(), EspError>
+    where
+        S: SinkEnabled,
+    {
+        esp!(unsafe { esp_a2d_sink_connect(bd_addr as *const _ as *mut _) })
+    }
+
+    pub fn disconnect_sink(&self, bd_addr: &BdAddr) -> Result<(), EspError>
+    where
+        S: SinkEnabled,
+    {
+        esp!(unsafe { esp_a2d_sink_disconnect(bd_addr as *const _ as *mut _) })
+    }
+
+    #[cfg(not(esp_idf_version_major = "4"))]
+    pub fn request_delay(&self) -> Result<(), EspError>
+    where
+        S: SinkEnabled,
+    {
+        esp!(unsafe { esp_a2d_sink_get_delay_value() })
+    }
+
+    #[cfg(not(esp_idf_version_major = "4"))]
+    pub fn set_delay(&self, delay: core::time::Duration) -> Result<(), EspError>
+    where
+        S: SinkEnabled,
+    {
+        esp!(unsafe { esp_a2d_sink_set_delay_value((delay.as_micros() / 100) as _) })
+    }
+
+    pub fn connect_source(&self, bd_addr: &BdAddr) -> Result<(), EspError>
+    where
+        S: SourceEnabled,
+    {
+        esp!(unsafe { esp_a2d_source_connect(bd_addr as *const _ as *mut _) })
+    }
+
+    pub fn disconnect_source(&self, bd_addr: &BdAddr) -> Result<(), EspError>
+    where
+        S: SourceEnabled,
+    {
+        esp!(unsafe { esp_a2d_source_disconnect(bd_addr as *const _ as *mut _) })
+    }
+
+    pub fn subscribe<F>(&self, events_cb: F) -> Result<(), EspError>
+    where
+        F: FnMut(A2dpEvent) -> usize + Send + 'static,
+    {
+        SINGLETON.subscribe(events_cb);
+
+        Ok(())
+    }
+
+    /// # Safety
+    ///
+    /// This method - in contrast to method `subscribe` - allows the user to pass
+    /// a non-static callback/closure. This enables users to borrow
+    /// - in the closure - variables that live on the stack - or more generally - in the same
+    /// scope where the service is created.
+    ///
+    /// HOWEVER: care should be taken NOT to call `core::mem::forget()` on the service,
+    /// as that would immediately lead to an UB (crash).
+    /// Also note that forgetting the service might happen with `Rc` and `Arc`
+    /// when circular references are introduced: https://github.com/rust-lang/rust/issues/24456
+    ///
+    /// The reason is that the closure is actually sent to a hidden ESP IDF thread.
+    /// This means that if the service is forgotten, Rust is free to e.g. unwind the stack
+    /// and the closure now owned by this other thread will end up with references to variables that no longer exist.
+    ///
+    /// The destructor of the service takes care - prior to the service being dropped and e.g.
+    /// the stack being unwind - to remove the closure from the hidden thread and destroy it.
+    /// Unfortunately, when the service is forgotten, the un-subscription does not happen
+    /// and invalid references are left dangling.
+    ///
+    /// This "local borrowing" will only be possible to express in a safe way once/if `!Leak` types
+    /// are introduced to Rust (i.e. the impossibility to "forget" a type and thus not call its destructor).
+    pub unsafe fn subscribe_nonstatic<F>(&self, events_cb: F) -> Result<(), EspError>
+    where
+        F: FnMut(A2dpEvent) -> usize + Send + 'd,
+    {
+        SINGLETON.subscribe(events_cb);
+
+        Ok(())
+    }
+
+    pub fn unsubscribe(&self) -> Result<(), EspError> {
+        SINGLETON.unsubscribe();
 
         Ok(())
     }
@@ -514,21 +443,21 @@ where
 
         info!("Got event {{ {:#?} }}", event);
 
-        CALLBACK.call(event);
+        SINGLETON.call(event);
     }
 
     unsafe extern "C" fn sink_data_handler(buf: *const u8, len: u32) {
         let event = A2dpEvent::SinkData(core::slice::from_raw_parts(buf, len as _));
         debug!("Got event {{ {:#?} }}", event);
 
-        CALLBACK.call(event);
+        SINGLETON.call(event);
     }
 
     unsafe extern "C" fn source_data_handler(buf: *mut u8, len: i32) -> i32 {
         let event = A2dpEvent::SourceData(core::slice::from_raw_parts_mut(buf, len as _));
         debug!("Got event {{ {:#?} }}", event);
 
-        CALLBACK.call(event) as _
+        SINGLETON.call(event) as _
     }
 }
 
@@ -539,18 +468,36 @@ where
     S: A2dpMode,
 {
     fn drop(&mut self) {
-        if self.initialized.load(Ordering::SeqCst) {
-            if S::sink() {
-                esp!(unsafe { esp_a2d_sink_deinit() }).unwrap();
-            }
+        self.unsubscribe().unwrap();
 
-            if S::source() {
-                esp!(unsafe { esp_a2d_source_deinit() }).unwrap();
-            }
-
-            CALLBACK.clear().unwrap();
+        if S::sink() {
+            esp!(unsafe { esp_a2d_sink_deinit() }).unwrap();
         }
+
+        if S::source() {
+            esp!(unsafe { esp_a2d_source_deinit() }).unwrap();
+        }
+
+        SINGLETON.release().unwrap();
     }
 }
 
-static CALLBACK: BtCallback<A2dpEvent, usize> = BtCallback::new(0);
+unsafe impl<'d, M, T, S> Send for EspA2dp<'d, M, T, S>
+where
+    M: BtClassicEnabled,
+    T: Borrow<BtDriver<'d, M>> + Send,
+    S: A2dpMode,
+{
+}
+
+// Safe because the ESP IDF Bluedroid APIs all do message passing
+// to a dedicated Bluedroid task
+unsafe impl<'d, M, T, S> Sync for EspA2dp<'d, M, T, S>
+where
+    M: BtClassicEnabled,
+    T: Borrow<BtDriver<'d, M>> + Send,
+    S: A2dpMode,
+{
+}
+
+static SINGLETON: BtSingleton<A2dpEvent, usize> = BtSingleton::new(0);
