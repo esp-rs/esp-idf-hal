@@ -461,7 +461,7 @@ impl_adc!(ADC2: adc_unit_t_ADC_UNIT_2);
     not(esp_idf_version_major = "4"),
     esp_idf_comp_esp_adc_enabled
 ))]
-pub mod oneshot {
+mod oneshot {
     use core::borrow::Borrow;
 
     use esp_idf_sys::*;
