@@ -4,7 +4,7 @@
 use std::thread;
 use std::time::Duration;
 
-#[cfg(not(esp_idf_version_major = "4"))]
+#[cfg(all(feature = "adc-oneshot-new", not(esp_idf_version_major = "4")))]
 fn main() -> anyhow::Result<()> {
     use esp_idf_hal::adc::attenuation::DB_11;
     use esp_idf_hal::adc::oneshot::config::AdcChannelConfig;
@@ -40,9 +40,9 @@ fn main() -> anyhow::Result<()> {
     }
 }
 
-#[cfg(esp_idf_version_major = "4")]
+#[cfg(not(all(feature = "adc-oneshot-new", not(esp_idf_version_major = "4"))))]
 fn main() -> anyhow::Result<()> {
-    println!("This example requires ESP-IDF v5.0 or newer");
+    println!("This example requires ESP-IDF v5.0 or newer and feature `adc-oneshot-new` enabled");
 
     loop {
         thread::sleep(Duration::from_millis(1000));
