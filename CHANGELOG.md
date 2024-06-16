@@ -7,11 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
-### Removed
-* ESP-IDF v4.3 support, including mostly conditional compilations. (#420)
 ### Deprecated
 **ESP-IDF v4.4** Please start upgrading to ESP-IDF v5.
-### Changed (Breaking)
+### Breaking
+* **removed**: ESP-IDF v4.3 support, including mostly conditional compilations. (#420)
 * GPIO20 is now included on esp32. Notice that not every esp32 has a physical GPIO20. (#370)
 * ledc: now it can also be used with high_speed channels on esp32. (#424)
 * dependency: updated embassy-sync to 0.6. (#437)
