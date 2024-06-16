@@ -1,6 +1,10 @@
 //! Driver for the Inter-IC Sound (I2S) peripheral(s).
 
-use core::{ffi::c_void, marker::PhantomData, mem::MaybeUninit};
+use core::ffi::c_void;
+use core::marker::PhantomData;
+use core::mem::MaybeUninit;
+use core::ops::{Deref, DerefMut};
+use core::ptr::NonNull;
 
 use esp_idf_sys::{esp, i2s_port_t, EspError, TickType_t};
 
@@ -578,6 +582,23 @@ pub struct I2sBiDir {}
 impl I2sRxSupported for I2sBiDir {}
 impl I2sTxSupported for I2sBiDir {}
 
+/// Reference for I2S driver
+pub struct I2sDriverRef<'d, Dir>(NonNull<I2sDriver<'d, Dir>>);
+
+impl<'d, Dir> Deref for I2sDriverRef<'d, Dir> {
+    type Target = I2sDriver<'d, Dir>;
+
+    fn deref(&self) -> &Self::Target {
+        unsafe { self.0.as_ref() }
+    }
+}
+
+impl<'d, Dir> DerefMut for I2sDriverRef<'d, Dir> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        unsafe { self.0.as_mut() }
+    }
+}
+
 /// Inter-IC Sound (I2S) driver.
 pub struct I2sDriver<'d, Dir> {
     /// The Rx channel, possibly null.
@@ -736,6 +757,11 @@ impl<'d, Dir> I2sDriver<'d, Dir> {
             }
             Err(err) => Err(err),
         }
+    }
+
+    /// Borrow the I2S driver by a reference
+    pub fn as_ref(&mut self) -> I2sDriverRef<Dir> {
+        I2sDriverRef(unsafe { NonNull::new_unchecked(self) })
     }
 }
 
@@ -1186,6 +1212,21 @@ where
         }
 
         Ok(())
+    }
+}
+
+impl<'d> I2sDriver<'d, I2sBiDir> {
+    /// Split the bidirectional I2S driver into two parts (Rx, Tx)
+    ///
+    /// # Safety
+    /// It is safe to use the two parts separately
+    /// - esp-idf guarantees thread safety
+    /// - esp-idf-hal guarantees asynchronous safety
+    pub fn split(&mut self) -> (I2sDriverRef<I2sRx>, I2sDriverRef<I2sTx>) {
+        // Safe because self cannot be null
+        let this = unsafe { NonNull::new_unchecked(self) };
+
+        (I2sDriverRef(this.cast()), I2sDriverRef(this.cast()))
     }
 }
 
