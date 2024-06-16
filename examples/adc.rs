@@ -6,7 +6,7 @@ use esp_idf_sys::{self as _}; // If using the `binstart` feature of `esp-idf-sys
 use std::thread;
 use std::time::Duration;
 
-#[cfg(not(feature = "adc-oneshot-new"))]
+#[cfg(any(feature = "adc-oneshot-legacy", esp_idf_version_major = "4"))]
 fn main() -> anyhow::Result<()> {
     use esp_idf_hal::adc::config::Config;
     use esp_idf_hal::adc::*;
@@ -37,9 +37,9 @@ fn main() -> anyhow::Result<()> {
     }
 }
 
-#[cfg(feature = "adc-oneshot-new")]
+#[cfg(not(any(feature = "adc-oneshot-legacy", esp_idf_version_major = "4")))]
 fn main() -> anyhow::Result<()> {
-    println!("This example requires feature `adc-oneshot-new` disabled");
+    println!("This example requires feature `adc-oneshot-legacy` enabled or using ESP-IDF v4.4.X");
 
     loop {
         thread::sleep(Duration::from_millis(1000));

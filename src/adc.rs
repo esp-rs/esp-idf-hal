@@ -11,7 +11,7 @@ pub use continuous::{
     Attenuated, ChainedAdcChannels, EmptyAdcChannels,
 };
 
-#[cfg(not(feature = "adc-oneshot-new"))]
+#[cfg(any(feature = "adc-oneshot-legacy", esp_idf_version_major = "4"))]
 pub use oneshot_legacy::*;
 
 pub trait Adc: Send {
@@ -75,8 +75,8 @@ impl From<Resolution> for adc_bits_width_t {
     }
 }
 
-#[cfg(not(feature = "adc-oneshot-new"))]
-pub mod oneshot_legacy {
+#[cfg(any(feature = "adc-oneshot-legacy", esp_idf_version_major = "4"))]
+mod oneshot_legacy {
     use esp_idf_sys::*;
 
     use crate::gpio::ADCPin;
@@ -457,11 +457,11 @@ impl_adc!(ADC1: adc_unit_t_ADC_UNIT_1);
 impl_adc!(ADC2: adc_unit_t_ADC_UNIT_2);
 
 #[cfg(all(
-    feature = "adc-oneshot-new",
+    not(feature = "adc-oneshot-legacy"),
     not(esp_idf_version_major = "4"),
     esp_idf_comp_esp_adc_enabled
 ))]
-mod oneshot {
+pub mod oneshot {
     use core::borrow::Borrow;
 
     use esp_idf_sys::*;
