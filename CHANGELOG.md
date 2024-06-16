@@ -15,6 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * GPIO20 is now included on esp32. Notice that not every esp32 has a physical GPIO20. (#370)
 * i2s: Compatibility with ESP-IDF v5.3 (pre-release) - small internal adjustments to i2s (#419)
 * ledc: now it can also be used with high_speed channels on esp32. (#424)
+* dependacy: updated embassy-sync to 0.6. (#437)
 * adc: legacy adc driver is now behind a feature flag `adc-oneshot-legacy`. For justification, look at https://github.com/espressif/esp-idf/issues/13938. (#433)
 ### Added
 * reset: restart() function (#383)
@@ -22,6 +23,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * can: Frame flags enum (#411)
 * spi: cs_pre/post_trans_delay() config option included. (#266)
 * task: added MallocCap enum - Flag to indicate the capabilities of a Memory Region. (#419)
+* i2s: new I2sDriver implementation allowing for splited bidirectional i2s. (#435)
 ### Fixed
 * esp32h2 builds: added missing hys_ctrl_mode field (#387)
 * rmt: FixedLengthSignal was broken, which led to failures in the neopixel/smartled examples, among other things. (#402)
