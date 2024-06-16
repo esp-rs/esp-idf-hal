@@ -11,23 +11,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * ESP-IDF v4.3 support, including mostly conditional compilations. (#420)
 ### Changed
 * **ESP-IDF v4.4 is now considered deprecated.** Please start upgrading to ESP-IDF v5.
-* rmt: Symbol now derives `Clone` and `Copy` (#386)
+* rmt: `Symbol` now derives `Clone` and `Copy` (#386)
 * GPIO20 is now included on esp32. Notice that not every esp32 has a physical GPIO20. (#370)
-* i2s: ESP-IDF v5.3 and later changed i2s_chan_config_t struct, changing a field into a unionfield and adding the new auto_clear before and after callback. (#419)
+* i2s: Compatibility with ESP-IDF v5.3 (pre-release) - small internal adjustments to i2s (#419)
+* ledc: now it can also be used with high_speed channels on esp32. (#424)
+* adc: legacy adc driver is now behind a feature flag `adc-oneshot-legacy`. For justification, look at https://github.com/espressif/esp-idf/issues/13938. (#433)
 ### Added
 * reset: restart() function (#383)
-* ledc: The config_with_pin() method allows updating the LEDC's pin without destroying and recreating it. (#399)
 * pcnt: Can now be used with esp32c6. (#407)
 * can: Frame flags enum (#411)
 * spi: cs_pre/post_trans_delay() config option included. (#266)
-* ledc: now it can also be used with high_speed channels on esp32. (#424)
 * task: added MallocCap enum - Flag to indicate the capabilities of a Memory Region. (#419)
 ### Fixed
 * esp32h2 builds: added missing hys_ctrl_mode field (#387)
 * rmt: FixedLengthSignal was broken, which led to failures in the neopixel/smartled examples, among other things. (#402)
 * e-hal 0.2: implements DelayUs and DelayMs for u8 to be consistent with the other implementations (#414)
 * i2c: wrong timeout calculations. (#415)
-* Building against esp-idf >= v5.3 by adding introduced stack_alloc_caps field to ThreadSpawnConfiguration and exposing new MallocCap enum. (#419)
+* Building against esp-idf >= v5.3 by adding the introduced stack_alloc_caps field to ThreadSpawnConfiguration and exposing new MallocCap enum. (#419)
 * ledc: max_duty() method miscalulated in certain conditions. (#431)
 
 ## [0.43.1] - 2024-02-21
