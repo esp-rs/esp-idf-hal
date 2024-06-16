@@ -40,11 +40,10 @@ impl From<esp_reset_reason_t> for ResetReason {
             esp_reset_reason_t_ESP_RST_PANIC => Self::Panic,
             esp_reset_reason_t_ESP_RST_INT_WDT => Self::InterruptWatchdog,
             esp_reset_reason_t_ESP_RST_POWERON => Self::PowerOn,
-            esp_reset_reason_t_ESP_RST_UNKNOWN => Self::Unknown,
             esp_reset_reason_t_ESP_RST_BROWNOUT => Self::Brownout,
             esp_reset_reason_t_ESP_RST_TASK_WDT => Self::TaskWatchdog,
             esp_reset_reason_t_ESP_RST_DEEPSLEEP => Self::DeepSleep,
-            _ => unreachable!(),
+            _ => Self::Unknown,
         }
     }
 }
