@@ -22,7 +22,11 @@ alloc = []
 nightly = []
 wake-from-isr = [] # Only enable if you plan to use the `edge-executor` crate
 embassy-sync = [] # For now, the dependecy on the `embassy-sync` crate is non-optional, but this might change in future
-
+# Temporary, until (https://github.com/espressif/esp-idf/issues/13938) is addressed
+# - When enabled, the code for the legacy ADC oneshot driver will be compiled;
+# - When not enabled (default) the code for the new ADC oneshot driver will be compiled;
+# - Since we don't wrap the legacy _continuous_ ADC driver, the new _continuous_ ADC driver is always compiled.
+adc-oneshot-legacy = []
 # Propagated esp-idf-sys features
 native = ["esp-idf-sys/native"]
 pio = ["esp-idf-sys/pio"]
