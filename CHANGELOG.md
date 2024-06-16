@@ -29,7 +29,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * rmt: FixedLengthSignal was broken, which led to failures in the neopixel/smartled examples, among other things. (#402)
 * e-hal 0.2: implements DelayUs and DelayMs for u8 to be consistent with the other implementations (#414)
 * i2c: wrong timeout calculations. (#415)
-* task: Compatibility with ESP-iDF v5-3 (pre-release) - adding stack_alloc_caps to `ThreadSpawnConfiguration`. (#419)
+* task: Compatibility with ESP-iDF v5.3 (pre-release) - adding stack_alloc_caps to `ThreadSpawnConfiguration`. (#419)
 * i2s: Compatibility with ESP-IDF v5.3 (pre-release) - small internal adjustments to i2s (#419)
 * ledc: max_duty() method miscalulated in certain conditions. (#431)
 
