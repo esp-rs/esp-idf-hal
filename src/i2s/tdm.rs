@@ -26,7 +26,16 @@ pub(super) mod config {
         clk_cfg: TdmClkConfig,
 
         /// TDM mode channel slot configuration.
+        #[cfg(esp_idf_version_major = "4")]
         slot_cfg: TdmSlotConfig,
+
+        /// TDM mode channel rx slot configuration.
+        #[cfg(not(esp_idf_version_major = "4"))]
+        pub(super) slot_rx_cfg: Option<TdmSlotConfig>,
+
+        /// TDM mode channel tx slot configuration.
+        #[cfg(not(esp_idf_version_major = "4"))]
+        pub(super) slot_tx_cfg: Option<TdmSlotConfig>,
 
         /// TDM mode channel data configuration.
         #[cfg(not(esp_idf_version_major = "4"))]
@@ -40,13 +49,20 @@ pub(super) mod config {
         pub fn new(
             channel_cfg: Config,
             clk_cfg: TdmClkConfig,
-            slot_cfg: TdmSlotConfig,
+            #[cfg(esp_idf_version_major = "4")] slot_cfg: TdmSlotConfig,
+            #[cfg(not(esp_idf_version_major = "4"))] slot_rx_cfg: Option<TdmSlotConfig>,
+            #[cfg(not(esp_idf_version_major = "4"))] slot_tx_cfg: Option<TdmSlotConfig>,
             #[cfg(not(esp_idf_version_major = "4"))] gpio_cfg: TdmGpioConfig,
         ) -> Self {
             Self {
                 channel_cfg,
                 clk_cfg,
+                #[cfg(esp_idf_version_major = "4")]
                 slot_cfg,
+                #[cfg(not(esp_idf_version_major = "4"))]
+                slot_rx_cfg,
+                #[cfg(not(esp_idf_version_major = "4"))]
+                slot_tx_cfg,
                 #[cfg(not(esp_idf_version_major = "4"))]
                 gpio_cfg,
             }
@@ -62,12 +78,23 @@ pub(super) mod config {
             dout: Option<PeripheralRef<'d, impl OutputPin>>,
             mclk: Option<PeripheralRef<'d, impl InputPin + OutputPin>>,
             ws: PeripheralRef<'d, impl InputPin + OutputPin>,
-        ) -> i2s_tdm_config_t {
-            i2s_tdm_config_t {
-                clk_cfg: self.clk_cfg.as_sdk(),
-                slot_cfg: self.slot_cfg.as_sdk(),
-                gpio_cfg: self.gpio_cfg.as_sdk(bclk, din, dout, mclk, ws),
-            }
+        ) -> (Option<i2s_tdm_config_t>, Option<i2s_tdm_config_t>) {
+            let clk_cfg = self.clk_cfg.as_sdk();
+            let gpio_cfg = self.gpio_cfg.as_sdk(bclk, din, dout, mclk, ws);
+
+            let rx = self.slot_rx_cfg.map(|slot_cfg| i2s_tdm_config_t {
+                clk_cfg,
+                slot_cfg: slot_cfg.as_sdk(),
+                gpio_cfg,
+            });
+
+            let tx = self.slot_tx_cfg.map(|slot_cfg| i2s_tdm_config_t {
+                clk_cfg,
+                slot_cfg: slot_cfg.as_sdk(),
+                gpio_cfg,
+            });
+
+            (rx, tx)
         }
 
         /// Convert to the ESP-IDF SDK `i2s_driver_config_t` representation.
@@ -984,12 +1011,17 @@ impl<'d, Dir> I2sDriver<'d, Dir> {
         mclk: Option<impl Peripheral<P = impl InputPin + OutputPin> + 'd>,
         ws: impl Peripheral<P = impl InputPin + OutputPin> + 'd,
     ) -> Result<Self, EspError> {
+        // Check that the configuration is correct for the selected mode
+        if rx && config.slot_rx_cfg.is_none() || tx && config.slot_tx_cfg.is_none() {
+            return Err(EspError::from_infallible::<ESP_ERR_INVALID_ARG>());
+        }
+
         let chan_cfg = config.channel_cfg.as_sdk(I2S::port());
 
         let this = Self::internal_new::<I2S>(&chan_cfg, rx, tx)?;
 
         // Create the channel configuration.
-        let tdm_config = config.as_sdk(
+        let (tdm_rx_config, tdm_tx_config) = config.as_sdk(
             bclk.into_ref(),
             din.map(|d_in| d_in.into_ref()),
             dout.map(|d_out| d_out.into_ref()),
@@ -997,14 +1029,14 @@ impl<'d, Dir> I2sDriver<'d, Dir> {
             ws.into_ref(),
         );
 
-        if rx {
+        if let Some(tdm_config) = tdm_rx_config {
             unsafe {
                 // Open the RX channel.
                 esp!(i2s_channel_init_tdm_mode(this.rx_handle, &tdm_config))?;
             }
         }
 
-        if tx {
+        if let Some(tdm_config) = tdm_tx_config {
             unsafe {
                 // Open the TX channel.
                 esp!(i2s_channel_init_tdm_mode(this.tx_handle, &tdm_config))?;
