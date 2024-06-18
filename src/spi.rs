@@ -49,7 +49,9 @@ use esp_idf_sys::*;
 use heapless::Deque;
 
 use crate::delay::{self, Ets, BLOCK};
-use crate::gpio::{AnyIOPin, AnyOutputPin, InputPin, Level, Output, OutputMode, OutputPin, PinDriver};
+use crate::gpio::{
+    AnyIOPin, AnyOutputPin, InputPin, Level, Output, OutputMode, OutputPin, PinDriver,
+};
 use crate::interrupt::asynch::HalIsrNotification;
 use crate::interrupt::InterruptType;
 use crate::peripheral::Peripheral;
@@ -410,7 +412,8 @@ impl<'d> SpiDriver<'d> {
         sdi: Option<impl Peripheral<P = impl InputPin> + 'd>,
         config: &config::DriverConfig,
     ) -> Result<Self, EspError> {
-        let max_transfer_size = Self::new_internal(SPI::device(), Option::<AnyIOPin>::None, sdo, sdi, config)?;
+        let max_transfer_size =
+            Self::new_internal(SPI::device(), Option::<AnyIOPin>::None, sdo, sdi, config)?;
 
         Ok(Self {
             host: SPI::device() as _,
