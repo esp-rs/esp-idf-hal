@@ -49,7 +49,7 @@ use esp_idf_sys::*;
 use heapless::Deque;
 
 use crate::delay::{self, Ets, BLOCK};
-use crate::gpio::{AnyOutputPin, InputPin, Level, Output, OutputMode, OutputPin, PinDriver};
+use crate::gpio::{AnyIOPin, AnyOutputPin, InputPin, Level, Output, OutputMode, OutputPin, PinDriver};
 use crate::interrupt::asynch::HalIsrNotification;
 use crate::interrupt::InterruptType;
 use crate::peripheral::Peripheral;
@@ -376,7 +376,7 @@ impl<'d> SpiDriver<'d> {
         sdi: Option<impl Peripheral<P = crate::gpio::Gpio8> + 'd>,
         config: &config::DriverConfig,
     ) -> Result<Self, EspError> {
-        let max_transfer_size = Self::new_internal(SPI1::device(), sclk, sdo, sdi, config)?;
+        let max_transfer_size = Self::new_internal(SPI1::device(), Some(sclk), sdo, sdi, config)?;
 
         Ok(Self {
             host: SPI1::device() as _,
@@ -394,7 +394,23 @@ impl<'d> SpiDriver<'d> {
         sdi: Option<impl Peripheral<P = impl InputPin> + 'd>,
         config: &config::DriverConfig,
     ) -> Result<Self, EspError> {
-        let max_transfer_size = Self::new_internal(SPI::device(), sclk, sdo, sdi, config)?;
+        let max_transfer_size = Self::new_internal(SPI::device(), Some(sclk), sdo, sdi, config)?;
+
+        Ok(Self {
+            host: SPI::device() as _,
+            max_transfer_size,
+            bus_async_lock: Mutex::new(()),
+            _p: PhantomData,
+        })
+    }
+
+    pub fn new_without_sclk<SPI: SpiAnyPins>(
+        _spi: impl Peripheral<P = SPI> + 'd,
+        sdo: impl Peripheral<P = impl OutputPin> + 'd,
+        sdi: Option<impl Peripheral<P = impl InputPin> + 'd>,
+        config: &config::DriverConfig,
+    ) -> Result<Self, EspError> {
+        let max_transfer_size = Self::new_internal(SPI::device(), Option::<AnyIOPin>::None, sdo, sdi, config)?;
 
         Ok(Self {
             host: SPI::device() as _,
@@ -410,13 +426,14 @@ impl<'d> SpiDriver<'d> {
 
     fn new_internal(
         host: spi_host_device_t,
-        sclk: impl Peripheral<P = impl OutputPin> + 'd,
+        sclk: Option<impl Peripheral<P = impl OutputPin> + 'd>,
         sdo: impl Peripheral<P = impl OutputPin> + 'd,
         sdi: Option<impl Peripheral<P = impl InputPin> + 'd>,
         config: &config::DriverConfig,
     ) -> Result<usize, EspError> {
-        crate::into_ref!(sclk, sdo);
+        let sdo = sdo.into_ref();
         let sdi = sdi.map(|sdi| sdi.into_ref());
+        let sclk = sclk.map(|sclk| sclk.into_ref());
 
         let max_transfer_sz = config.dma.max_transfer_size();
         let dma_chan: spi_dma_chan_t = config.dma.into();
@@ -424,7 +441,7 @@ impl<'d> SpiDriver<'d> {
         #[allow(clippy::needless_update)]
         let bus_config = spi_bus_config_t {
             flags: SPICOMMON_BUSFLAG_MASTER,
-            sclk_io_num: sclk.pin(),
+            sclk_io_num: sclk.as_ref().map_or(-1, |p| p.pin()),
 
             data4_io_num: -1,
             data5_io_num: -1,
