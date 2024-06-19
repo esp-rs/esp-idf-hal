@@ -66,6 +66,7 @@ pub mod config {
         }
     }
 
+    #[cfg(not(esp_idf_version_major = "4"))]
     #[allow(clippy::upper_case_acronyms)]
     pub(crate) enum ClockSource {
         #[cfg(any(esp32, esp32s2, esp32s3, esp32c3))]
@@ -80,6 +81,7 @@ pub mod config {
         XTAL,
     }
 
+    #[cfg(not(esp_idf_version_major = "4"))]
     impl Default for ClockSource {
         fn default() -> Self {
             #[cfg(any(esp32, esp32s2, esp32s3, esp32c3))]
@@ -135,7 +137,7 @@ pub trait Timer: Send {
 pub struct TimerDriver<'d> {
     timer: u8,
     divider: u32,
-    #[cfg(not(esp32))]
+    #[cfg(all(not(esp32), not(esp_idf_version_major = "4")))]
     xtal: bool,
     isr_registered: bool,
     _p: PhantomData<&'d mut ()>,
@@ -180,7 +182,7 @@ impl<'d> TimerDriver<'d> {
         Ok(Self {
             timer: ((TIMER::group() as u8) << 4) | (TIMER::index() as u8),
             divider: config.divider,
-            #[cfg(not(esp32))]
+            #[cfg(all(not(esp32), not(esp_idf_version_major = "4")))]
             xtal: config.xtal,
             isr_registered: false,
             _p: PhantomData,
@@ -200,6 +202,7 @@ impl<'d> TimerDriver<'d> {
 
         #[cfg(not(esp_idf_version_major = "4"))]
         {
+            #[cfg(not(esp32))]
             if self.xtal {
                 #[cfg(esp_idf_xtal_freq_24)]
                 {
