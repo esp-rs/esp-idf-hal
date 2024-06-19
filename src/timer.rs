@@ -102,6 +102,7 @@ pub mod config {
     }
 
     #[cfg(not(esp_idf_version_major = "4"))]
+    #[allow(clippy::from_over_into)]
     impl Into<esp_idf_sys::soc_periph_tg_clk_src_legacy_t> for ClockSource {
         fn into(self) -> esp_idf_sys::soc_periph_tg_clk_src_legacy_t {
             match self {
