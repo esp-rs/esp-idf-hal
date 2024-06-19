@@ -14,10 +14,11 @@ pub type TimerConfig = config::Config;
 
 /// Timer configuration
 pub mod config {
+
     #[derive(Copy, Clone)]
     pub struct Config {
         pub divider: u32,
-        #[cfg(any(esp32s2, esp32s3, esp32c3))]
+        #[cfg(not(esp32))]
         pub xtal: bool,
 
         /// Enable or disable counter reload function when alarm event occurs.
@@ -58,9 +59,67 @@ pub mod config {
         fn default() -> Self {
             Self {
                 divider: 80,
-                #[cfg(any(esp32s2, esp32s3, esp32c3))]
+                #[cfg(not(esp32))]
                 xtal: false,
                 auto_reload: false,
+            }
+        }
+    }
+
+    pub(crate) enum ClockSource {
+        #[cfg(any(esp32, esp32s2, esp32s3, esp32c3))]
+        APB,
+        #[cfg(esp32c2)]
+        PLL40,
+        #[cfg(esp32h2)]
+        PLL48,
+        #[cfg(esp32c6)]
+        PLL80,
+        #[cfg(any(esp32s2, esp32s3, esp32c2, esp32c3, esp32c6, esp32h2))]
+        XTAL,
+    }
+
+    impl Default for ClockSource {
+        fn default() -> Self {
+            #[cfg(any(esp32, esp32s2, esp32s3, esp32c3))]
+            {
+                Self::APB
+            }
+            #[cfg(esp32c2)]
+            {
+                Self::PLL40
+            }
+            #[cfg(esp32h2)]
+            {
+                Self::PLL48
+            }
+            #[cfg(esp32c6)]
+            {
+                Self::PLL80
+            }
+        }
+    }
+
+    #[cfg(not(esp_idf_version_major = "4"))]
+    impl Into<esp_idf_sys::soc_periph_tg_clk_src_legacy_t> for ClockSource {
+        fn into(self) -> esp_idf_sys::soc_periph_tg_clk_src_legacy_t {
+            match self {
+                #[cfg(any(esp32, esp32s2, esp32s3, esp32c3))]
+                ClockSource::APB => esp_idf_sys::soc_periph_tg_clk_src_legacy_t_TIMER_SRC_CLK_APB,
+                #[cfg(esp32c2)]
+                ClockSource::PLL40 => {
+                    esp_idf_sys::soc_periph_tg_clk_src_legacy_t_TIMER_SRC_CLK_PLL_F40M
+                }
+                #[cfg(esp32h2)]
+                ClockSource::PLL48 => {
+                    esp_idf_sys::soc_periph_tg_clk_src_legacy_t_TIMER_SRC_CLK_PLL_F48M
+                }
+                #[cfg(esp32c6)]
+                ClockSource::PLL80 => {
+                    esp_idf_sys::soc_periph_tg_clk_src_legacy_t_TIMER_SRC_CLK_PLL_F80M
+                }
+                #[cfg(any(esp32s2, esp32s3, esp32c2, esp32c3, esp32c6))]
+                ClockSource::XTAL => esp_idf_sys::soc_periph_tg_clk_src_legacy_t_TIMER_SRC_CLK_XTAL,
             }
         }
     }
@@ -74,6 +133,7 @@ pub trait Timer: Send {
 pub struct TimerDriver<'d> {
     timer: u8,
     divider: u32,
+    xtal: bool,
     isr_registered: bool,
     _p: PhantomData<&'d mut ()>,
 }
@@ -104,8 +164,12 @@ impl<'d> TimerDriver<'d> {
                     } else {
                         timer_src_clk_t_TIMER_SRC_CLK_APB
                     },
-                    #[cfg(not(esp_idf_version_major = "4"))]
-                    clk_src: 0,
+                    #[cfg(all(not(esp32), not(esp_idf_version_major = "4")))]
+                    clk_src: if config.xtal {
+                        config::ClockSource::XTAL.into()
+                    } else {
+                        config::ClockSource::default().into()
+                    },
                 },
             )
         })?;
@@ -113,6 +177,7 @@ impl<'d> TimerDriver<'d> {
         Ok(Self {
             timer: ((TIMER::group() as u8) << 4) | (TIMER::index() as u8),
             divider: config.divider,
+            xtal: config.xtal,
             isr_registered: false,
             _p: PhantomData,
         })
@@ -131,7 +196,41 @@ impl<'d> TimerDriver<'d> {
 
         #[cfg(not(esp_idf_version_major = "4"))]
         {
-            hz = APB_CLK_FREQ / self.divider;
+            if self.xtal {
+                #[cfg(esp_idf_xtal_freq_24)]
+                {
+                    hz = 24_000_000 / self.divider;
+                }
+                #[cfg(esp_idf_xtal_freq_26)]
+                {
+                    hz = 26_000_000 / self.divider;
+                }
+                #[cfg(esp_idf_xtal_freq_32)]
+                {
+                    hz = 32_000_000 / self.divider;
+                }
+                #[cfg(esp_idf_xtal_freq_40)]
+                {
+                    hz = 40_000_000 / self.divider;
+                }
+            } else {
+                #[cfg(any(esp32, esp32s2, esp32s3, esp32c3))]
+                {
+                    hz = APB_CLK_FREQ / self.divider;
+                }
+                #[cfg(esp32c2)] //PLL40
+                {
+                    hz = 40_000_000 / self.divider;
+                }
+                #[cfg(esp32h2)] //PLL48
+                {
+                    hz = 48_000_000 / self.divider;
+                }
+                #[cfg(esp32c6)] //PLL80
+                {
+                    hz = 80_000_000 / self.divider;
+                }
+            }
         }
 
         hz as _
