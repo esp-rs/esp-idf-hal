@@ -77,7 +77,7 @@ pub mod config {
         PLL48,
         #[cfg(esp32c6)]
         PLL80,
-        #[cfg(any(esp32s2, esp32s3, esp32c2, esp32c3, esp32c6, esp32h2))]
+        #[cfg(not(esp32))]
         XTAL,
     }
 
@@ -122,7 +122,7 @@ pub mod config {
                 ClockSource::PLL80 => {
                     esp_idf_sys::soc_periph_tg_clk_src_legacy_t_TIMER_SRC_CLK_PLL_F80M
                 }
-                #[cfg(any(esp32s2, esp32s3, esp32c2, esp32c3, esp32c6))]
+                #[cfg(not(esp32))]
                 ClockSource::XTAL => esp_idf_sys::soc_periph_tg_clk_src_legacy_t_TIMER_SRC_CLK_XTAL,
             }
         }
