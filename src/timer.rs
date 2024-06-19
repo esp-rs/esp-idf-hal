@@ -175,6 +175,8 @@ impl<'d> TimerDriver<'d> {
                     } else {
                         config::ClockSource::default().into()
                     },
+                    #[cfg(all(esp32, not(esp_idf_version_major = "4")))]
+                    clk_src: config::ClockSource::default().into(),
                 },
             )
         })?;
@@ -237,6 +239,10 @@ impl<'d> TimerDriver<'d> {
                 {
                     hz = 80_000_000 / self.divider;
                 }
+            }
+            #[cfg(esp32)]
+            {
+                hz = APB_CLK_FREQ / self.divider;
             }
         }
 
