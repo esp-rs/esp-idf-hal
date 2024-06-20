@@ -68,39 +68,22 @@ pub mod config {
 
     #[cfg(not(esp_idf_version_major = "4"))]
     #[allow(clippy::upper_case_acronyms)]
+    #[derive(Default)]
     pub(crate) enum ClockSource {
         #[cfg(any(esp32, esp32s2, esp32s3, esp32c3))]
+        #[default]
         APB,
         #[cfg(esp32c2)]
+        #[default]
         PLL40,
         #[cfg(esp32h2)]
+        #[default]
         PLL48,
         #[cfg(esp32c6)]
+        #[default]
         PLL80,
         #[cfg(not(esp32))]
         XTAL,
-    }
-
-    #[cfg(not(esp_idf_version_major = "4"))]
-    impl Default for ClockSource {
-        fn default() -> Self {
-            #[cfg(any(esp32, esp32s2, esp32s3, esp32c3))]
-            {
-                Self::APB
-            }
-            #[cfg(esp32c2)]
-            {
-                Self::PLL40
-            }
-            #[cfg(esp32h2)]
-            {
-                Self::PLL48
-            }
-            #[cfg(esp32c6)]
-            {
-                Self::PLL80
-            }
-        }
     }
 
     #[cfg(not(esp_idf_version_major = "4"))]
