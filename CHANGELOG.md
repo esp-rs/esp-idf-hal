@@ -17,13 +17,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * adc: legacy adc driver is now behind a feature flag `adc-oneshot-legacy` starting with >= ESP-IDF v5.0. For justification, look at https://github.com/espressif/esp-idf/issues/13938. (#433)
 * spi: cs_pre/post_trans_delay() config option included. (#266)
 ### Added
-* spi: added new_without_sclk SpiDriver constructor (#440)
 * rmt: `Symbol` now derives `Clone` and `Copy` (#386)
 * reset: restart() function (#383)
 * pcnt: Can now be used with esp32c6. (#407)
 * can: Frame flags enum (#411)
 * task: added MallocCap enum - Flag to indicate the capabilities of a Memory Region. (#419)
 * i2s: new I2sDriver implementation allowing for splited bidirectional i2s. (#435)
+* spi: added new_without_sclk SpiDriver constructor (#440)
 ### Fixed
 * esp32h2 builds: added missing hys_ctrl_mode field (#387)
 * rmt: FixedLengthSignal was broken, which led to failures in the neopixel/smartled examples, among other things. (#402)
@@ -32,6 +32,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * task: Compatibility with ESP-iDF v5.3 (pre-release) - adding stack_alloc_caps to `ThreadSpawnConfiguration`. (#419)
 * i2s: Compatibility with ESP-IDF v5.3 (pre-release) - small internal adjustments to i2s (#419)
 * ledc: max_duty() method miscalulated in certain conditions. (#431)
+* timer: fix clock usage in timer driver used with ESP-IDF v5.x (#441)
 
 ## [0.43.1] - 2024-02-21
 * Fix - PinDriver state changes and the drop call invoked pull-ups to be enabled. New default behavior on init / state transition / drop is to not enable pull-ups. (#344). If users want to reduce power usage on unused pins, they now need to manually enable pull-ups on a pin. For example, call `core::mem::forget` on the PinDriver instance after setting the pull-ups.
