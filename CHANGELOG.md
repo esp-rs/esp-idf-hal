@@ -17,6 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * adc: legacy adc driver is now behind a feature flag `adc-oneshot-legacy` starting with >= ESP-IDF v5.0. For justification, look at https://github.com/espressif/esp-idf/issues/13938. (#433)
 * spi: cs_pre/post_trans_delay() config option included. (#266)
 ### Added
+* spi: added new_without_sclk SpiDriver constructor (#440)
 * rmt: `Symbol` now derives `Clone` and `Copy` (#386)
 * reset: restart() function (#383)
 * pcnt: Can now be used with esp32c6. (#407)
