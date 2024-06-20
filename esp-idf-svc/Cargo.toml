@@ -48,9 +48,6 @@ esp-idf-hal = { version = "0.43", default-features = false }
 embassy-time-driver = { version = "0.1", optional = true, features = ["tick-hz-1_000_000"] }
 embassy-futures = "0.1"
 
-[patch.crates-io]
-embedded-svc = { git = "https://github.com/esp-rs/embedded-svc.git" }
-
 [build-dependencies]
 embuild = "0.31.3"
 
@@ -62,3 +59,9 @@ serde = { version = "1", default-features = false, features = ["derive"] }
 serde_json = { version = "1", default-features = false, features = ["alloc"] }
 postcard = "1"
 async-io = "2"
+
+[patch.crates-io]
+embuild ={ git = "https://github.com/esp-rs/embuild"}
+esp-idf-sys ={ git = "https://github.com/esp-rs/esp-idf-sys"}
+esp-idf-hal ={ git = "https://github.com/esp-rs/esp-idf-hal"}
+embedded-svc ={ git = "https://github.com/esp-rs/embedded-svc"}
