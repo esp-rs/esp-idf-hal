@@ -33,7 +33,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * i2s: Compatibility with ESP-IDF v5.3 (pre-release) - small internal adjustments to i2s (#419)
 * ledc: max_duty() method miscalulated in certain conditions. (#431)
 * timer: fix clock usage in timer driver used with ESP-IDF v5.x (#441)
-
+* i2c: use correct xtal for esp32c2 on timeout calculations. (#438)
+ 
 ## [0.43.1] - 2024-02-21
 * Fix - PinDriver state changes and the drop call invoked pull-ups to be enabled. New default behavior on init / state transition / drop is to not enable pull-ups. (#344). If users want to reduce power usage on unused pins, they now need to manually enable pull-ups on a pin. For example, call `core::mem::forget` on the PinDriver instance after setting the pull-ups.
 * #354 - breaking change - `rmt` driver now does not directly expose `rmt_item32_t` but rather - wraps it with a `Symbol` newtype

@@ -21,7 +21,13 @@ crate::embedded_hal_error!(
 
 #[cfg(any(esp32, esp32s2))]
 const APB_TICK_PERIOD_NS: u32 = 1_000_000_000 / 80_000_000;
-#[cfg(not(any(esp32, esp32s2)))]
+
+#[cfg(all(esp32c2, esp_idf_xtal_freq_40))]
+const XTAL_TICK_PERIOD_NS: u32 = 1_000_000_000 / 40_000_000;
+#[cfg(all(esp32c2, esp_idf_xtal_freq_26))]
+const XTAL_TICK_PERIOD_NS: u32 = 1_000_000_000 / 26_000_000;
+
+#[cfg(not(any(esp32, esp32s2, esp32c2)))]
 const XTAL_TICK_PERIOD_NS: u32 = 1_000_000_000 / XTAL_CLK_FREQ;
 #[derive(Copy, Clone, Debug)]
 pub struct APBTickType(::core::ffi::c_int);
