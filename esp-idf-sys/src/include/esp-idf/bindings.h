@@ -508,4 +508,9 @@
 #endif // (ESP_IDF_VERSION_MAJOR >= 5 && ESP_IDF_VERSION_MINOR >= 3
 #endif // ESP_IDF_COMP_LCD_ENABLED
 
+// usb serial support
+#ifdef SOC_USB_SERIAL_JTAG_SUPPORTED
+#include "driver/usb_serial_jtag.h"
+#endif
+
 // n
