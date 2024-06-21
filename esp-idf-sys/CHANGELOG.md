@@ -5,6 +5,23 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## Unreleased
+
+### Deprecated
+**ESP-IDF v4.4** Please start upgrading to ESP-IDF v5.
+### Breaking
+* removed: ESP-IDF v4.3 support - including code and patches. (#305)
+* removed: Unused esp8266 rtos sdk (#305)
+* EspError now implements `Debug` and provides a human readable error code. (#294)
+* `bindgen` dependancy updated to the latest release version. (#304)
+### Added
+* Include new dac_oneshot and dac_continous headers in default bindings.h. (#289)
+* Include new i2c headers in default bindings.h. (#290)
+* Include new rmt headers in default bindings.h.
+* Include usb-serial-jtag header. (#317)
+### Fixed
+* Building against esp-idf >= v5.3 by adding additional conditions on the esp_lcd headers. Note that "esp_lcd_panel_rgb.h" was removed upstream since idf 5.3. (#303)
+
 ## [0.34.1] - 2024-02-21
 * Fix clippy duplicate imports warnings with latest 1.78 nightly
 
