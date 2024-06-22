@@ -16,6 +16,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * eth: callbacks now use newly added EthFrames instead of &[u8]. (#406)
 * wifi: callbacks now use newly added WifiFrames instead of &[u8]. (#406)
 * http_server: Configuration now allows for setting the ctrl_port. (#427)
+* http_server: UB fix: `handler`, `fn_handler` and `handler_chain` all now only accept `'static` callbacks,
+  which is the only safe option in the presence of `core::mem::forget` on the HTTP server. All of those have the
+  previous behavior preserved in the form of `unsafe` `*_nonstatic` variants which were added. (#437)
 * tls: negotiate now returns the new CompletedHandshake struct instead of (). (#428)
 * wifi: Remove AUTOUP as the default flag on ClientConfiguration:Fixed. (#426)
 * tls: Allow TLS negotiation on a multi-threaded executor. (#432)

@@ -439,8 +439,77 @@ impl<'a> EspHttpServer<'a> {
         Ok(self)
     }
 
-    // Registers a `Handler` for a URI and a method (GET, POST, etc).
+    /// # Safety
+    ///
+    /// This method - in contrast to method `handler_chain` - allows the user to pass
+    /// a chain of non-static callbacks/closures. This enables users to borrow
+    /// - in the closure - variables that live on the stack - or more generally - in the same
+    ///   scope where the service is created.
+    ///
+    /// HOWEVER: care should be taken NOT to call `core::mem::forget()` on the service,
+    /// as that would immediately lead to an UB (crash).
+    /// Also note that forgetting the service might happen with `Rc` and `Arc`
+    /// when circular references are introduced: https://github.com/rust-lang/rust/issues/24456
+    ///
+    /// The reason is that the closure is actually sent to a hidden ESP IDF thread.
+    /// This means that if the service is forgotten, Rust is free to e.g. unwind the stack
+    /// and the closure now owned by this other thread will end up with references to variables that no longer exist.
+    ///
+    /// The destructor of the service takes care - prior to the service being dropped and e.g.
+    /// the stack being unwind - to remove the closure from the hidden thread and destroy it.
+    /// Unfortunately, when the service is forgotten, the un-subscription does not happen
+    /// and invalid references are left dangling.
+    ///
+    /// This "local borrowing" will only be possible to express in a safe way once/if `!Leak` types
+    /// are introduced to Rust (i.e. the impossibility to "forget" a type and thus not call its destructor).
+    pub unsafe fn handler_chain_nonstatic<C>(&mut self, chain: C) -> Result<&mut Self, EspError>
+    where
+        C: EspHttpTraversableChainNonstatic<'a>,
+    {
+        chain.accept(self)?;
+
+        Ok(self)
+    }
+
+    /// Registers a `Handler` for a URI and a method (GET, POST, etc).
     pub fn handler<H>(
+        &mut self,
+        uri: &str,
+        method: Method,
+        handler: H,
+    ) -> Result<&mut Self, EspError>
+    where
+        H: for<'r> Handler<EspHttpConnection<'r>> + Send + 'static,
+    {
+        unsafe { self.handler_nonstatic(uri, method, handler) }
+    }
+
+    /// Registers a `Handler` for a URI and a method (GET, POST, etc).
+    ///
+    /// # Safety
+    ///
+    /// This method - in contrast to method `handler` - allows the user to pass
+    /// a non-static callback/closure. This enables users to borrow
+    /// - in the closure - variables that live on the stack - or more generally - in the same
+    ///   scope where the service is created.
+    ///
+    /// HOWEVER: care should be taken NOT to call `core::mem::forget()` on the service,
+    /// as that would immediately lead to an UB (crash).
+    /// Also note that forgetting the service might happen with `Rc` and `Arc`
+    /// when circular references are introduced: https://github.com/rust-lang/rust/issues/24456
+    ///
+    /// The reason is that the closure is actually sent to a hidden ESP IDF thread.
+    /// This means that if the service is forgotten, Rust is free to e.g. unwind the stack
+    /// and the closure now owned by this other thread will end up with references to variables that no longer exist.
+    ///
+    /// The destructor of the service takes care - prior to the service being dropped and e.g.
+    /// the stack being unwind - to remove the closure from the hidden thread and destroy it.
+    /// Unfortunately, when the service is forgotten, the un-subscription does not happen
+    /// and invalid references are left dangling.
+    ///
+    /// This "local borrowing" will only be possible to express in a safe way once/if `!Leak` types
+    /// are introduced to Rust (i.e. the impossibility to "forget" a type and thus not call its destructor).
+    pub unsafe fn handler_nonstatic<H>(
         &mut self,
         uri: &str,
         method: Method,
@@ -485,10 +554,52 @@ impl<'a> EspHttpServer<'a> {
         f: F,
     ) -> Result<&mut Self, EspError>
     where
+        F: for<'r> Fn(Request<&mut EspHttpConnection<'r>>) -> Result<(), E> + Send + 'static,
+        E: Debug,
+    {
+        unsafe { self.fn_handler_nonstatic(uri, method, f) }
+    }
+
+    /// Registers a function as the handler for the given URI and HTTP method (GET, POST, etc).
+    ///
+    /// The function will be called every time an HTTP client requests that URI
+    /// (via the appropriate HTTP method), receiving a different `Request` each
+    /// call. The `Request` contains a reference to the underlying `EspHttpConnection`.
+    ///
+    /// # Safety
+    ///
+    /// This method - in contrast to method `fn_handler` - allows the user to pass
+    /// a non-static callback/closure. This enables users to borrow
+    /// - in the closure - variables that live on the stack - or more generally - in the same
+    ///   scope where the service is created.
+    ///
+    /// HOWEVER: care should be taken NOT to call `core::mem::forget()` on the service,
+    /// as that would immediately lead to an UB (crash).
+    /// Also note that forgetting the service might happen with `Rc` and `Arc`
+    /// when circular references are introduced: https://github.com/rust-lang/rust/issues/24456
+    ///
+    /// The reason is that the closure is actually sent to a hidden ESP IDF thread.
+    /// This means that if the service is forgotten, Rust is free to e.g. unwind the stack
+    /// and the closure now owned by this other thread will end up with references to variables that no longer exist.
+    ///
+    /// The destructor of the service takes care - prior to the service being dropped and e.g.
+    /// the stack being unwind - to remove the closure from the hidden thread and destroy it.
+    /// Unfortunately, when the service is forgotten, the un-subscription does not happen
+    /// and invalid references are left dangling.
+    ///
+    /// This "local borrowing" will only be possible to express in a safe way once/if `!Leak` types
+    /// are introduced to Rust (i.e. the impossibility to "forget" a type and thus not call its destructor).
+    pub unsafe fn fn_handler_nonstatic<E, F>(
+        &mut self,
+        uri: &str,
+        method: Method,
+        f: F,
+    ) -> Result<&mut Self, EspError>
+    where
         F: for<'r> Fn(Request<&mut EspHttpConnection<'r>>) -> Result<(), E> + Send + 'a,
         E: Debug,
     {
-        self.handler(uri, method, FnHandler::new(f))
+        self.handler_nonstatic(uri, method, FnHandler::new(f))
     }
 
     fn to_native_handler<H>(&self, handler: H) -> NativeHandler<'a>
@@ -575,6 +686,15 @@ pub trait EspHttpTraversableChain<'a> {
     fn accept(self, server: &mut EspHttpServer<'a>) -> Result<(), EspError>;
 }
 
+/// # Safety
+///
+/// Implementing this trait means that the chain can contain non-`'static` handlers
+/// and that the chain can be used with method `EspHttpServer::handler_chain_nonstatic`.
+///
+/// Consult the documentation of `EspHttpServer::handler_chain_nonstatic` for more
+/// information on how to use non-static handler chains.
+pub unsafe trait EspHttpTraversableChainNonstatic<'a>: EspHttpTraversableChain<'a> {}
+
 impl<'a> EspHttpTraversableChain<'a> for ChainRoot {
     fn accept(self, _server: &mut EspHttpServer<'a>) -> Result<(), EspError> {
         Ok(())
@@ -583,7 +703,7 @@ impl<'a> EspHttpTraversableChain<'a> for ChainRoot {
 
 impl<'a, H, N> EspHttpTraversableChain<'a> for ChainHandler<H, N>
 where
-    H: for<'r> Handler<EspHttpConnection<'r>> + Send + 'a,
+    H: for<'r> Handler<EspHttpConnection<'r>> + Send + 'static,
     N: EspHttpTraversableChain<'a>,
 {
     fn accept(self, server: &mut EspHttpServer<'a>) -> Result<(), EspError> {
@@ -593,6 +713,43 @@ where
 
         Ok(())
     }
+}
+
+/// A newtype wrapper for `ChainHandler` that allows
+/// non-`'static`` handlers  in the chain to be registered
+/// and passed to the server.
+pub struct NonstaticChain<H, N>(ChainHandler<H, N>);
+
+impl<H, N> NonstaticChain<H, N> {
+    /// Wraps the given chain with a `NonstaticChain` newtype.
+    pub fn new(handler: ChainHandler<H, N>) -> Self {
+        Self(handler)
+    }
+}
+
+unsafe impl<'a> EspHttpTraversableChainNonstatic<'a> for ChainRoot {}
+
+impl<'a, H, N> EspHttpTraversableChain<'a> for NonstaticChain<H, N>
+where
+    H: for<'r> Handler<EspHttpConnection<'r>> + Send + 'a,
+    N: EspHttpTraversableChain<'a>,
+{
+    fn accept(self, server: &mut EspHttpServer<'a>) -> Result<(), EspError> {
+        self.0.next.accept(server)?;
+
+        unsafe {
+            server.handler_nonstatic(self.0.path, self.0.method, self.0.handler)?;
+        }
+
+        Ok(())
+    }
+}
+
+unsafe impl<'a, H, N> EspHttpTraversableChainNonstatic<'a> for NonstaticChain<H, N>
+where
+    H: for<'r> Handler<EspHttpConnection<'r>> + Send + 'a,
+    N: EspHttpTraversableChain<'a>,
+{
 }
 
 pub struct EspHttpRawConnection<'a>(&'a mut httpd_req_t);
