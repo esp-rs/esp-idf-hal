@@ -5,7 +5,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## Unreleased
+## [0.49.0] - 2024-06-23
 
 ### Deprecated
 **ESP-IDF v4.4** Please start upgrading to ESP-IDF v5.
@@ -22,6 +22,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * tls: negotiate now returns the new CompletedHandshake struct instead of (). (#428)
 * wifi: Remove AUTOUP as the default flag on ClientConfiguration:Fixed. (#426)
 * tls: Allow TLS negotiation on a multi-threaded executor. (#432)
+* MSRV: 1.77 (due to `core::net` which is re-exported by `embedded-svc` and is stable since Rust 1.77)
 ### Added
 * tls: Support for TLS server. (#368)
 * ws: expose crt_bundle_attach to EspWebSocketClientConfig. (#391)

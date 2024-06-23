@@ -1,6 +1,6 @@
 [package]
 name = "esp-idf-svc"
-version = "0.48.1"
+version = "0.49.0"
 authors = ["Ivan Markov <ivan.markov@gmail.com>"]
 edition = "2021"
 resolver = "2"
@@ -13,7 +13,7 @@ readme = "README.md"
 links = "esp_idf_svc"
 build = "build.rs"
 documentation = "https://docs.esp-rs.org/esp-idf-svc/"
-rust-version = "1.75"
+rust-version = "1.77"
 
 [features]
 default = ["std", "binstart"]
@@ -43,13 +43,13 @@ enumset = { version = "1", default-features = false }
 log = { version = "0.4", default-features = false }
 uncased = { version = "0.9.7", default-features = false }
 embedded-hal-async = { version = "1", default-features = false }
-embedded-svc = { version = "0.27", default-features = false }
+embedded-svc = { version = "0.28", default-features = false }
 esp-idf-hal = { version = "0.44", default-features = false }
 embassy-time-driver = { version = "0.1", optional = true, features = ["tick-hz-1_000_000"] }
 embassy-futures = "0.1"
 
 [build-dependencies]
-embuild = "0.32.0"
+embuild = "0.32"
 
 [dev-dependencies]
 anyhow = "1"
@@ -61,4 +61,4 @@ postcard = "1"
 async-io = "2"
 
 [patch.crates-io]
-embedded-svc ={ git = "https://github.com/esp-rs/embedded-svc", rev = "7cf5654d685830879656d5c7f987de659ba3e587"}
+embedded-svc ={ git = "https://github.com/esp-rs/embedded-svc" }
