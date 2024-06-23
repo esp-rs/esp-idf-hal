@@ -1,0 +1,25 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="@brief Register a partition on an external flash chip"><title>esp_partition_register_external in esp_idf_sys - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../static.files/rustdoc-dd39b87e5fcfba68.css"><meta name="rustdoc-vars" data-root-path="../" data-static-root-path="../static.files/" data-current-crate="esp_idf_sys" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0-nightly (3cb521a43 2024-06-22)" data-channel="nightly" data-search-js="search-0fe7219eb170c82e.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../static.files/storage-118b08c4c78b968e.js"></script><script defer src="sidebar-items.js"></script><script defer src="../static.files/main-20a3ad099b048cf2.js"></script><noscript><link rel="stylesheet" href="../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="alternate icon" type="image/png" href="../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc fn"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../esp_idf_sys/index.html">esp_idf_sys</a><span class="version">0.35.0</span></h2></div><div class="sidebar-elems"></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1>Function <a href="index.html">esp_idf_sys</a>::<wbr><a class="fn" href="#">esp_partition_register_external</a><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><span class="out-of-band"><a class="src" href="../src/esp_idf_sys/home/runner/work/esp-idf-hal/esp-idf-hal/target/riscv32imc-esp-espidf/debug/build/esp-idf-sys-351e6848a2d52f6b/out/bindings.rs.html#29258-29266">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><pre class="rust item-decl"><code>pub unsafe extern &quot;C&quot; fn esp_partition_register_external(
+    flash_chip: *mut <a class="struct" href="struct.esp_flash_t.html" title="struct esp_idf_sys::esp_flash_t">esp_flash_t</a>,
+    offset: usize,
+    size: usize,
+    label: *const c_char,
+    type_: <a class="type" href="type.esp_partition_type_t.html" title="type esp_idf_sys::esp_partition_type_t">esp_partition_type_t</a>,
+    subtype: <a class="type" href="type.esp_partition_subtype_t.html" title="type esp_idf_sys::esp_partition_subtype_t">esp_partition_subtype_t</a>,
+    out_partition: *mut *const <a class="struct" href="struct.esp_partition_t.html" title="struct esp_idf_sys::esp_partition_t">esp_partition_t</a>,
+) -&gt; <a class="type" href="type.esp_err_t.html" title="type esp_idf_sys::esp_err_t">esp_err_t</a></code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>@brief Register a partition on an external flash chip</p>
+<p>This API allows designating certain areas of external flash chips (identified by the esp_flash_t structure)
+as partitions. This allows using them with components which access SPI flash through the esp_partition API.</p>
+<p>@param flash_chip  Pointer to the structure identifying the flash chip
+@param offset  Address in bytes, where the partition starts
+@param size  Size of the partition in bytes
+@param label  Partition name
+@param type  One of the partition types (ESP_PARTITION_TYPE_<em>), or an integer. Note that applications can not be booted from external flash
+chips, so using ESP_PARTITION_TYPE_APP is not supported.
+@param subtype  One of the partition subtypes (ESP_PARTITION_SUBTYPE_</em>), or an integer.
+@param[out] out_partition  Output, if non-NULL, receives the pointer to the resulting esp_partition_t structure
+@return
+- ESP_OK on success
+- ESP_ERR_NO_MEM if memory allocation has failed
+- ESP_ERR_INVALID_ARG if the new partition overlaps another partition on the same flash chip
+- ESP_ERR_INVALID_SIZE if the partition doesn’t fit into the flash chip size</p>
+</div></details></section></div></main></body></html>

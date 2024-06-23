@@ -1,0 +1,79 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="BaseType_t xTimerPendFunctionCallFromISR( PendedFunction_t xFunctionToPend, void *pvParameter1, uint32_t ulParameter2, BaseType_t *pxHigherPriorityTaskWoken );"><title>xTimerPendFunctionCallFromISR in esp_idf_hal::sys - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-dd39b87e5fcfba68.css"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="esp_idf_hal" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0-nightly (3cb521a43 2024-06-22)" data-channel="nightly" data-search-js="search-0fe7219eb170c82e.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-118b08c4c78b968e.js"></script><script defer src="sidebar-items.js"></script><script defer src="../../static.files/main-20a3ad099b048cf2.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc fn"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../esp_idf_hal/index.html">esp_idf_hal</a><span class="version">0.44.0</span></h2></div><div class="sidebar-elems"><h2><a href="index.html">In esp_idf_hal::sys</a></h2></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1>Function <a href="../index.html">esp_idf_hal</a>::<wbr><a href="index.html">sys</a>::<wbr><a class="fn" href="#">xTimerPendFunctionCallFromISR</a><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><span class="out-of-band"><a class="src" href="../../src/esp_idf_sys/home/runner/work/esp-idf-hal/esp-idf-hal/target/riscv32imc-esp-espidf/debug/build/esp-idf-sys-351e6848a2d52f6b/out/bindings.rs.html#13591-13596">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><pre class="rust item-decl"><code>pub unsafe extern &quot;C&quot; fn xTimerPendFunctionCallFromISR(
+    xFunctionToPend: Option&lt;unsafe extern &quot;C&quot; fn(_: *mut c_void, _: u32)&gt;,
+    pvParameter1: *mut c_void,
+    ulParameter2: u32,
+    pxHigherPriorityTaskWoken: *mut i32,
+) -&gt; i32</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>BaseType_t xTimerPendFunctionCallFromISR( PendedFunction_t xFunctionToPend,
+void *pvParameter1,
+uint32_t ulParameter2,
+BaseType_t *pxHigherPriorityTaskWoken );</p>
+<p>Used from application interrupt service routines to defer the execution of a
+function to the RTOS daemon task (the timer service task, hence this function
+is implemented in timers.c and is prefixed with ‘Timer’).</p>
+<p>Ideally an interrupt service routine (ISR) is kept as short as possible, but
+sometimes an ISR either has a lot of processing to do, or needs to perform
+processing that is not deterministic.  In these cases
+xTimerPendFunctionCallFromISR() can be used to defer processing of a function
+to the RTOS daemon task.</p>
+<p>A mechanism is provided that allows the interrupt to return directly to the
+task that will subsequently execute the pended callback function.  This
+allows the callback function to execute contiguously in time with the
+interrupt - just as if the callback had executed in the interrupt itself.</p>
+<p>@param xFunctionToPend The function to execute from the timer service/
+daemon task.  The function must conform to the PendedFunction_t
+prototype.</p>
+<p>@param pvParameter1 The value of the callback function’s first parameter.
+The parameter has a void * type to allow it to be used to pass any type.
+For example, unsigned longs can be cast to a void *, or the void * can be
+used to point to a structure.</p>
+<p>@param ulParameter2 The value of the callback function’s second parameter.</p>
+<p>@param pxHigherPriorityTaskWoken As mentioned above, calling this function
+will result in a message being sent to the timer daemon task.  If the
+priority of the timer daemon task (which is set using
+configTIMER_TASK_PRIORITY in FreeRTOSConfig.h) is higher than the priority of
+the currently running task (the task the interrupt interrupted) then
+*pxHigherPriorityTaskWoken will be set to pdTRUE within
+xTimerPendFunctionCallFromISR(), indicating that a context switch should be
+requested before the interrupt exits.  For that reason
+*pxHigherPriorityTaskWoken must be initialised to pdFALSE.  See the
+example code below.</p>
+<p>@return pdPASS is returned if the message was successfully sent to the
+timer daemon task, otherwise pdFALSE is returned.</p>
+<p>Example usage:
+@verbatim</p>
+<p>// The callback function that will execute in the context of the daemon task.
+// Note callback functions must all use this same prototype.
+void vProcessInterface( void *pvParameter1, uint32_t ulParameter2 )
+{
+BaseType_t xInterfaceToService;</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code> <span class="comment">// The interface that requires servicing is passed in the second
+ // parameter.  The first parameter is not used in this case.
+ </span>xInterfaceToService = ( BaseType_t ) ulParameter2;
+
+ <span class="comment">// ...Perform the processing here...</span></code></pre></div>
+<p>}</p>
+<p>// An ISR that receives data packets from multiple interfaces
+void vAnISR( void )
+{
+BaseType_t xInterfaceToService, xHigherPriorityTaskWoken;</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code> <span class="comment">// Query the hardware to determine which interface needs processing.
+ </span>xInterfaceToService = prvCheckInterfaces();
+
+ <span class="comment">// The actual processing is to be deferred to a task.  Request the
+ // vProcessInterface() callback function is executed, passing in the
+ // number of the interface that needs processing.  The interface to
+ // service is passed in the second parameter.  The first parameter is
+ // not used in this case.
+ </span>xHigherPriorityTaskWoken = pdFALSE;
+ xTimerPendFunctionCallFromISR( vProcessInterface, NULL, ( uint32_t ) xInterfaceToService, <span class="kw-2">&amp;</span>xHigherPriorityTaskWoken );
+
+ <span class="comment">// If xHigherPriorityTaskWoken is now set to pdTRUE then a context
+ // switch should be requested.  The macro used is port specific and will
+ // be either portYIELD_FROM_ISR() or portEND_SWITCHING_ISR() - refer to
+ // the documentation page for the port being used.
+ </span>portYIELD_FROM_ISR( xHigherPriorityTaskWoken );</code></pre></div>
+<p>}
+@endverbatim</p>
+</div></details></section></div></main></body></html>

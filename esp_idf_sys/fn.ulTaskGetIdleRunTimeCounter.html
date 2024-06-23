@@ -1,0 +1,29 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="@cond !DOC_EXCLUDE_HEADER_SECTION task. h @code uint32_t ulTaskGetIdleRunTimeCounter( void ); @endcode @endcond"><title>ulTaskGetIdleRunTimeCounter in esp_idf_sys - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../static.files/rustdoc-dd39b87e5fcfba68.css"><meta name="rustdoc-vars" data-root-path="../" data-static-root-path="../static.files/" data-current-crate="esp_idf_sys" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0-nightly (3cb521a43 2024-06-22)" data-channel="nightly" data-search-js="search-0fe7219eb170c82e.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../static.files/storage-118b08c4c78b968e.js"></script><script defer src="sidebar-items.js"></script><script defer src="../static.files/main-20a3ad099b048cf2.js"></script><noscript><link rel="stylesheet" href="../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="alternate icon" type="image/png" href="../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc fn"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../esp_idf_sys/index.html">esp_idf_sys</a><span class="version">0.35.0</span></h2></div><div class="sidebar-elems"></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1>Function <a href="index.html">esp_idf_sys</a>::<wbr><a class="fn" href="#">ulTaskGetIdleRunTimeCounter</a><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><span class="out-of-band"><a class="src" href="../src/esp_idf_sys/home/runner/work/esp-idf-hal/esp-idf-hal/target/riscv32imc-esp-espidf/debug/build/esp-idf-sys-351e6848a2d52f6b/out/bindings.rs.html#13208">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><pre class="rust item-decl"><code>pub unsafe extern &quot;C&quot; fn ulTaskGetIdleRunTimeCounter() -&gt; u32</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>@cond !DOC_EXCLUDE_HEADER_SECTION
+task. h
+@code
+uint32_t ulTaskGetIdleRunTimeCounter( void );
+@endcode
+@endcond</p>
+<p>configGENERATE_RUN_TIME_STATS and configUSE_STATS_FORMATTING_FUNCTIONS
+must both be defined as 1 for this function to be available.  The application
+must also then provide definitions for
+portCONFIGURE_TIMER_FOR_RUN_TIME_STATS() and portGET_RUN_TIME_COUNTER_VALUE()
+to configure a peripheral timer/counter and return the timers current count
+value respectively.  The counter should be at least 10 times the frequency of
+the tick count.</p>
+<p>Setting configGENERATE_RUN_TIME_STATS to 1 will result in a total
+accumulated execution time being stored for each task.  The resolution
+of the accumulated time value depends on the frequency of the timer
+configured by the portCONFIGURE_TIMER_FOR_RUN_TIME_STATS() macro.
+While uxTaskGetSystemState() and vTaskGetRunTimeStats() writes the total
+execution time of each task into a buffer, ulTaskGetIdleRunTimeCounter()
+returns the total execution time of just the idle task.</p>
+<p>@return The total run time of the idle task.  This is the amount of time the
+idle task has actually been executing.  The unit of time is dependent on the
+frequency configured using the portCONFIGURE_TIMER_FOR_RUN_TIME_STATS() and
+portGET_RUN_TIME_COUNTER_VALUE() macros.</p>
+<p>@cond !DOC_SINGLE_GROUP
+\defgroup ulTaskGetIdleRunTimeCounter ulTaskGetIdleRunTimeCounter
+@endcond
+\ingroup TaskUtils</p>
+</div></details></section></div></main></body></html>

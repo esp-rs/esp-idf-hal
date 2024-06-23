@@ -1,0 +1,74 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="\brief          Read at most ‘len’ application data bytes"><title>mbedtls_ssl_read in esp_idf_hal::sys - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-dd39b87e5fcfba68.css"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="esp_idf_hal" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0-nightly (3cb521a43 2024-06-22)" data-channel="nightly" data-search-js="search-0fe7219eb170c82e.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-118b08c4c78b968e.js"></script><script defer src="sidebar-items.js"></script><script defer src="../../static.files/main-20a3ad099b048cf2.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc fn"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../esp_idf_hal/index.html">esp_idf_hal</a><span class="version">0.44.0</span></h2></div><div class="sidebar-elems"><h2><a href="index.html">In esp_idf_hal::sys</a></h2></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1>Function <a href="../index.html">esp_idf_hal</a>::<wbr><a href="index.html">sys</a>::<wbr><a class="fn" href="#">mbedtls_ssl_read</a><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><span class="out-of-band"><a class="src" href="../../src/esp_idf_sys/home/runner/work/esp-idf-hal/esp-idf-hal/target/riscv32imc-esp-espidf/debug/build/esp-idf-sys-351e6848a2d52f6b/out/bindings.rs.html#39861-39865">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><pre class="rust item-decl"><code>pub unsafe extern &quot;C&quot; fn mbedtls_ssl_read(
+    ssl: *mut <a class="struct" href="struct.mbedtls_ssl_context.html" title="struct esp_idf_hal::sys::mbedtls_ssl_context">mbedtls_ssl_context</a>,
+    buf: *mut u8,
+    len: usize,
+) -&gt; i32</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>\brief          Read at most ‘len’ application data bytes</p>
+<p>\param ssl      SSL context
+\param buf      buffer that will hold the data
+\param len      maximum number of bytes to read</p>
+<p>\return         The (positive) number of bytes read if successful.
+\return         \c 0 if the read end of the underlying transport was closed
+without sending a CloseNotify beforehand, which might happen
+because of various reasons (internal error of an underlying
+stack, non-conformant peer not sending a CloseNotify and
+such) - in this case you must stop using the context
+(see below).
+\return         #MBEDTLS_ERR_SSL_PEER_CLOSE_NOTIFY if the underlying
+transport is still functional, but the peer has
+acknowledged to not send anything anymore.
+\return         #MBEDTLS_ERR_SSL_WANT_READ or #MBEDTLS_ERR_SSL_WANT_WRITE
+if the handshake is incomplete and waiting for data to
+be available for reading from or writing to the underlying
+transport - in this case you must call this function again
+when the underlying transport is ready for the operation.
+\return         #MBEDTLS_ERR_SSL_ASYNC_IN_PROGRESS if an asynchronous
+operation is in progress (see
+mbedtls_ssl_conf_async_private_cb()) - in this case you
+must call this function again when the operation is ready.
+\return         #MBEDTLS_ERR_SSL_CRYPTO_IN_PROGRESS if a cryptographic
+operation is in progress (see mbedtls_ecp_set_max_ops()) -
+in this case you must call this function again to complete
+the handshake when you’re done attending other tasks.
+\return         #MBEDTLS_ERR_SSL_CLIENT_RECONNECT if we’re at the server
+side of a DTLS connection and the client is initiating a
+new connection using the same source port. See below.
+\return         Another SSL error code - in this case you must stop using
+the context (see below).</p>
+<p>\warning        If this function returns something other than
+a positive value,
+#MBEDTLS_ERR_SSL_WANT_READ,
+#MBEDTLS_ERR_SSL_WANT_WRITE,
+#MBEDTLS_ERR_SSL_ASYNC_IN_PROGRESS,
+#MBEDTLS_ERR_SSL_CRYPTO_IN_PROGRESS or
+#MBEDTLS_ERR_SSL_CLIENT_RECONNECT,
+you must stop using the SSL context for reading or writing,
+and either free it or call \c mbedtls_ssl_session_reset()
+on it before re-using it for a new connection; the current
+connection must be closed.</p>
+<p>\note           When this function returns #MBEDTLS_ERR_SSL_CLIENT_RECONNECT
+(which can only happen server-side), it means that a client
+is initiating a new connection using the same source port.
+You can either treat that as a connection close and wait
+for the client to resend a ClientHello, or directly
+continue with \c mbedtls_ssl_handshake() with the same
+context (as it has been reset internally). Either way, you
+must make sure this is seen by the application as a new
+connection: application state, if any, should be reset, and
+most importantly the identity of the client must be checked
+again. WARNING: not validating the identity of the client
+again, or not transmitting the new identity to the
+application layer, would allow authentication bypass!</p>
+<p>\note           Remarks regarding event-driven DTLS:
+- If the function returns #MBEDTLS_ERR_SSL_WANT_READ, no datagram
+from the underlying transport layer is currently being processed,
+and it is safe to idle until the timer or the underlying transport
+signal a new event.
+- This function may return MBEDTLS_ERR_SSL_WANT_READ even if data was
+initially available on the underlying transport, as this data may have
+been only e.g. duplicated messages or a renegotiation request.
+Therefore, you must be prepared to receive MBEDTLS_ERR_SSL_WANT_READ even
+when reacting to an incoming-data event from the underlying transport.
+- On success, the datagram of the underlying transport that is currently
+being processed may contain further DTLS records. You should call
+\c mbedtls_ssl_check_pending to check for remaining records.</p>
+</div></details></section></div></main></body></html>

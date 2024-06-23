@@ -1,0 +1,28 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="@brief      Set a specified parent for the device"><title>esp_mesh_set_parent in esp_idf_hal::sys - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-dd39b87e5fcfba68.css"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="esp_idf_hal" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0-nightly (3cb521a43 2024-06-22)" data-channel="nightly" data-search-js="search-0fe7219eb170c82e.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-118b08c4c78b968e.js"></script><script defer src="sidebar-items.js"></script><script defer src="../../static.files/main-20a3ad099b048cf2.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc fn"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../esp_idf_hal/index.html">esp_idf_hal</a><span class="version">0.44.0</span></h2></div><div class="sidebar-elems"><h2><a href="index.html">In esp_idf_hal::sys</a></h2></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1>Function <a href="../index.html">esp_idf_hal</a>::<wbr><a href="index.html">sys</a>::<wbr><a class="fn" href="#">esp_mesh_set_parent</a><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><span class="out-of-band"><a class="src" href="../../src/esp_idf_sys/home/runner/work/esp-idf-hal/esp-idf-hal/target/riscv32imc-esp-espidf/debug/build/esp-idf-sys-351e6848a2d52f6b/out/bindings.rs.html#24827-24832">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><pre class="rust item-decl"><code>pub unsafe extern &quot;C&quot; fn esp_mesh_set_parent(
+    parent: *const <a class="union" href="union.wifi_config_t.html" title="union esp_idf_hal::sys::wifi_config_t">wifi_config_t</a>,
+    parent_mesh_id: *const <a class="union" href="union.mesh_addr_t.html" title="union esp_idf_hal::sys::mesh_addr_t">mesh_addr_t</a>,
+    my_type: u32,
+    my_layer: i32,
+) -&gt; i32</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>@brief      Set a specified parent for the device</p>
+<p>@attention  This API can be called at any time after mesh is configured.</p>
+<p>@param[in]  parent  parent configuration, the SSID and the channel of the parent are mandatory.
+- If the BSSID is set, make sure that the SSID and BSSID represent the same parent,
+otherwise the device will never find this specified parent.
+@param[in]  parent_mesh_id  parent mesh ID,
+- If this value is not set, the original mesh ID is used.
+@param[in]  my_type  mesh type
+- MESH_STA is not supported.
+- If the parent set for the device is the same as the router in the network configuration,
+then my_type shall set MESH_ROOT and my_layer shall set MESH_ROOT_LAYER.
+@param[in]  my_layer  mesh layer
+- my_layer of the device may change after joining the network.
+- If my_type is set MESH_NODE, my_layer shall be greater than MESH_ROOT_LAYER.
+- If my_type is set MESH_LEAF, the device becomes a standalone Wi-Fi station and no longer
+has the ability to extend the network.</p>
+<p>@return</p>
+<ul>
+<li>ESP_OK</li>
+<li>ESP_ERR_ARGUMENT</li>
+<li>ESP_ERR_MESH_NOT_CONFIG</li>
+</ul>
+</div></details></section></div></main></body></html>

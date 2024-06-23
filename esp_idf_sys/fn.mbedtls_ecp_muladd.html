@@ -1,0 +1,37 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="\brief           This function performs multiplication and addition of two points by integers: \p R = \p m * \p P + \p n * \p Q"><title>mbedtls_ecp_muladd in esp_idf_sys - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../static.files/rustdoc-dd39b87e5fcfba68.css"><meta name="rustdoc-vars" data-root-path="../" data-static-root-path="../static.files/" data-current-crate="esp_idf_sys" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0-nightly (3cb521a43 2024-06-22)" data-channel="nightly" data-search-js="search-0fe7219eb170c82e.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../static.files/storage-118b08c4c78b968e.js"></script><script defer src="sidebar-items.js"></script><script defer src="../static.files/main-20a3ad099b048cf2.js"></script><noscript><link rel="stylesheet" href="../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="alternate icon" type="image/png" href="../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc fn"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../esp_idf_sys/index.html">esp_idf_sys</a><span class="version">0.35.0</span></h2></div><div class="sidebar-elems"></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1>Function <a href="index.html">esp_idf_sys</a>::<wbr><a class="fn" href="#">mbedtls_ecp_muladd</a><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><span class="out-of-band"><a class="src" href="../src/esp_idf_sys/home/runner/work/esp-idf-hal/esp-idf-hal/target/riscv32imc-esp-espidf/debug/build/esp-idf-sys-351e6848a2d52f6b/out/bindings.rs.html#32054-32061">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><pre class="rust item-decl"><code>pub unsafe extern &quot;C&quot; fn mbedtls_ecp_muladd(
+    grp: *mut <a class="struct" href="struct.mbedtls_ecp_group.html" title="struct esp_idf_sys::mbedtls_ecp_group">mbedtls_ecp_group</a>,
+    R: *mut <a class="struct" href="struct.mbedtls_ecp_point.html" title="struct esp_idf_sys::mbedtls_ecp_point">mbedtls_ecp_point</a>,
+    m: *const <a class="struct" href="struct.mbedtls_mpi.html" title="struct esp_idf_sys::mbedtls_mpi">mbedtls_mpi</a>,
+    P: *const <a class="struct" href="struct.mbedtls_ecp_point.html" title="struct esp_idf_sys::mbedtls_ecp_point">mbedtls_ecp_point</a>,
+    n: *const <a class="struct" href="struct.mbedtls_mpi.html" title="struct esp_idf_sys::mbedtls_mpi">mbedtls_mpi</a>,
+    Q: *const <a class="struct" href="struct.mbedtls_ecp_point.html" title="struct esp_idf_sys::mbedtls_ecp_point">mbedtls_ecp_point</a>,
+) -&gt; c_int</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>\brief           This function performs multiplication and addition of two
+points by integers: \p R = \p m * \p P + \p n * \p Q</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code>             It is not thread-safe to <span class="kw">use </span>same group <span class="kw">in </span>multiple threads.</code></pre></div>
+<p>\note            In contrast to mbedtls_ecp_mul(), this function does not
+guarantee a constant execution flow and timing.</p>
+<p>\note            This function is only defined for short Weierstrass curves.
+It may not be included in builds without any short
+Weierstrass curve.</p>
+<p>\param grp       The ECP group to use.
+This must be initialized and have group parameters
+set, for example through mbedtls_ecp_group_load().
+\param R         The point in which to store the result of the calculation.
+This must be initialized.
+\param m         The integer by which to multiply \p P.
+This must be initialized.
+\param P         The point to multiply by \p m. This must be initialized.
+\param n         The integer by which to multiply \p Q.
+This must be initialized.
+\param Q         The point to be multiplied by \p n.
+This must be initialized.</p>
+<p>\return          \c 0 on success.
+\return          #MBEDTLS_ERR_ECP_INVALID_KEY if \p m or \p n are not
+valid private keys, or \p P or \p Q are not valid public
+keys.
+\return          #MBEDTLS_ERR_MPI_ALLOC_FAILED on memory-allocation failure.
+\return          #MBEDTLS_ERR_ECP_FEATURE_UNAVAILABLE if \p grp does not
+designate a short Weierstrass curve.
+\return          Another negative error code on other kinds of failure.</p>
+</div></details></section></div></main></body></html>

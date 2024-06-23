@@ -1,0 +1,56 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="@brief      Send a packet over the mesh network - Send a packet to any device in the mesh network. - Send a packet to external IP network."><title>esp_mesh_send in esp_idf_hal::sys - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-dd39b87e5fcfba68.css"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="esp_idf_hal" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0-nightly (3cb521a43 2024-06-22)" data-channel="nightly" data-search-js="search-0fe7219eb170c82e.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-118b08c4c78b968e.js"></script><script defer src="sidebar-items.js"></script><script defer src="../../static.files/main-20a3ad099b048cf2.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc fn"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../esp_idf_hal/index.html">esp_idf_hal</a><span class="version">0.44.0</span></h2></div><div class="sidebar-elems"><h2><a href="index.html">In esp_idf_hal::sys</a></h2></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1>Function <a href="../index.html">esp_idf_hal</a>::<wbr><a href="index.html">sys</a>::<wbr><a class="fn" href="#">esp_mesh_send</a><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><span class="out-of-band"><a class="src" href="../../src/esp_idf_sys/home/runner/work/esp-idf-hal/esp-idf-hal/target/riscv32imc-esp-espidf/debug/build/esp-idf-sys-351e6848a2d52f6b/out/bindings.rs.html#24572-24578">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><pre class="rust item-decl"><code>pub unsafe extern &quot;C&quot; fn esp_mesh_send(
+    to: *const <a class="union" href="union.mesh_addr_t.html" title="union esp_idf_hal::sys::mesh_addr_t">mesh_addr_t</a>,
+    data: *const <a class="struct" href="struct.mesh_data_t.html" title="struct esp_idf_hal::sys::mesh_data_t">mesh_data_t</a>,
+    flag: i32,
+    opt: *const <a class="struct" href="struct.mesh_opt_t.html" title="struct esp_idf_hal::sys::mesh_opt_t">mesh_opt_t</a>,
+    opt_count: i32,
+) -&gt; i32</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>@brief      Send a packet over the mesh network
+- Send a packet to any device in the mesh network.
+- Send a packet to external IP network.</p>
+<p>@attention  This API is not reentrant.</p>
+<p>@param[in]  to  the address of the final destination of the packet
+- If the packet is to the root, set this parameter to NULL.
+- If the packet is to an external IP network, set this parameter to the IPv4:PORT combination.
+This packet will be delivered to the root firstly, then the root will forward this packet to the final IP server address.
+@param[in]  data  pointer to a sending mesh packet
+- Field size should not exceed MESH_MPS. Note that the size of one mesh packet should not exceed MESH_MTU.
+- Field proto should be set to data protocol in use (default is MESH_PROTO_BIN for binary).
+- Field tos should be set to transmission tos (type of service) in use (default is MESH_TOS_P2P for point-to-point reliable).
+@param[in]  flag  bitmap for data sent
+-  Speed up the route search
+- If the packet is to the root and “to” parameter is NULL, set this parameter to 0.
+- If the packet is to an internal device, MESH_DATA_P2P should be set.
+- If the packet is to the root (“to” parameter isn’t NULL) or to external IP network, MESH_DATA_TODS should be set.
+- If the packet is from the root to an internal device, MESH_DATA_FROMDS should be set.
+- Specify whether this API is block or non-block, block by default
+- If needs non-blocking, MESH_DATA_NONBLOCK should be set. Otherwise, may use esp_mesh_send_block_time() to specify a blocking time.
+- In the situation of the root change, MESH_DATA_DROP identifies this packet can be dropped by the new root
+for upstream data to external IP network, we try our best to avoid data loss caused by the root change, but
+there is a risk that the new root is running out of memory because most of memory is occupied by the pending data which
+isn’t read out in time by esp_mesh_recv_toDS().</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code>          Generally, we suggest esp_mesh_recv_toDS() is called after a connection with IP network is created. Thus data outgoing
+          to external IP network via socket is just from reading esp_mesh_recv_toDS() which avoids unnecessary memory copy.</code></pre></div>
+<p>@param[in]  opt  options
+- In case of sending a packet to a certain group, MESH_OPT_SEND_GROUP is a good choice.
+In this option, the value field should be set to the target receiver addresses in this group.
+- Root sends a packet to an internal device, this packet is from external IP network in case the receiver device responds
+this packet, MESH_OPT_RECV_DS_ADDR is required to attach the target DS address.
+@param[in]  opt_count  option count
+- Currently, this API only takes one option, so opt_count is only supported to be 1.</p>
+<p>@return</p>
+<ul>
+<li>ESP_OK</li>
+<li>ESP_FAIL</li>
+<li>ESP_ERR_MESH_ARGUMENT</li>
+<li>ESP_ERR_MESH_NOT_START</li>
+<li>ESP_ERR_MESH_DISCONNECTED</li>
+<li>ESP_ERR_MESH_OPT_UNKNOWN</li>
+<li>ESP_ERR_MESH_EXCEED_MTU</li>
+<li>ESP_ERR_MESH_NO_MEMORY</li>
+<li>ESP_ERR_MESH_TIMEOUT</li>
+<li>ESP_ERR_MESH_QUEUE_FULL</li>
+<li>ESP_ERR_MESH_NO_ROUTE_FOUND</li>
+<li>ESP_ERR_MESH_DISCARD</li>
+</ul>
+</div></details></section></div></main></body></html>

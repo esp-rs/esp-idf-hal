@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["DataBits","EventFlags","FlowControl","Parity","SourceClock","StopBits"],"struct":["Config","EventConfig"]};
