@@ -5,7 +5,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## Unreleased
+## [0.35.0] - 2024-06-23
 
 ### Deprecated
 **ESP-IDF v4.4** Please start upgrading to ESP-IDF v5.
