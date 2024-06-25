@@ -35,7 +35,7 @@ const serverResp = document.getElementById("server-resp");
 let ws;
 
 function loadWebSocket() {
-    ws = new WebSocket("ws://192.168.71.1/ws/guess");
+    ws = new WebSocket(`ws://${window.location.host}/ws/guess`);
     ws.onopen = function(e) {
         submitButton.disabled = false;
     };
