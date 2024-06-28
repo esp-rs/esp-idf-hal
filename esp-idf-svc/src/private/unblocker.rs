@@ -53,12 +53,8 @@ where
                 pin_to_core,
             )
         }
-        .map_err(|e| {
-            unsafe {
-                Box::from_raw(worker);
-            }
-
-            e
+        .inspect_err(|_| unsafe {
+            Box::from_raw(worker);
         })?;
 
         Ok(Self { receiver, task })
