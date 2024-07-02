@@ -97,6 +97,7 @@ impl From<esp_reset_reason_t> for ResetReason {
                 esp_idf_version_full = "5.1.0",
                 esp_idf_version_full = "5.1.1",
                 esp_idf_version_full = "5.1.2",
+                esp_idf_version_full = "5.1.3",
             )))]
             esp_reset_reason_t_ESP_RST_USB => Self::USBPeripheral,
             #[cfg(not(any(
@@ -105,6 +106,7 @@ impl From<esp_reset_reason_t> for ResetReason {
                 esp_idf_version_full = "5.1.0",
                 esp_idf_version_full = "5.1.1",
                 esp_idf_version_full = "5.1.2",
+                esp_idf_version_full = "5.1.3",
             )))]
             esp_reset_reason_t_ESP_RST_JTAG => Self::JTAG,
             #[cfg(not(any(
