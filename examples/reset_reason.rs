@@ -1,4 +1,4 @@
-// This example demonstrates a panic that occurs when trying to get the reset reason.
+//! This example demonstrates a how to ask for the reset reason and the wakeup reason.
 use std::{thread, time};
 
 use esp_idf_sys::{self as _}; // If using the `binstart` feature of `esp-idf-sys`, always keep this module imported
@@ -12,7 +12,7 @@ fn main() -> anyhow::Result<()> {
     let reset_reason = esp_idf_hal::reset::ResetReason::get();
     println!("Reset reason: {:?}", reset_reason);
 
-    thread::sleep(time::Duration::from_millis(1000)); // So the background task does not starve
+    thread::sleep(time::Duration::from_millis(1000));
 
     let sleep_micros = 2_000_000;
     unsafe {
