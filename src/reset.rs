@@ -34,6 +34,7 @@ pub enum ResetReason {
         esp_idf_version_full = "5.1.0",
         esp_idf_version_full = "5.1.1",
         esp_idf_version_full = "5.1.2",
+        esp_idf_version_full = "5.1.3",
     )))]
     USBPeripheral,
     /// Reset by JTAG (introduced in IDF v5.1.4)
@@ -43,6 +44,7 @@ pub enum ResetReason {
         esp_idf_version_full = "5.1.0",
         esp_idf_version_full = "5.1.1",
         esp_idf_version_full = "5.1.2",
+        esp_idf_version_full = "5.1.3",
     )))]
     JTAG,
     /// Reset due to efuse error (introduced in IDF v5.2.2)
