@@ -146,7 +146,7 @@ impl<'d> TimerDriver<'d> {
                     },
                     intr_type: timer_intr_mode_t_TIMER_INTR_LEVEL,
                     divider: config.divider,
-                    #[cfg(all(any(esp32s2, esp32s3, esp32c3), esp_idf_version_major = "4"))]
+                    #[cfg(all(not(esp32), esp_idf_version_major = "4"))]
                     clk_src: if config.xtal {
                         timer_src_clk_t_TIMER_SRC_CLK_XTAL
                     } else {
