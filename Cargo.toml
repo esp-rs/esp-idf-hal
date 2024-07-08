@@ -15,6 +15,9 @@ build = "build.rs"
 documentation = "https://docs.esp-rs.org/esp-idf-hal/"
 rust-version = "1.75"
 
+[lib]
+harness = false
+
 [features]
 default = ["std", "binstart"]
 std = ["alloc", "esp-idf-sys/std"]
