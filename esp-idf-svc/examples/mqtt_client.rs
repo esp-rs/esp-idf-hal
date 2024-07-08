@@ -61,24 +61,33 @@ fn run(
             })
             .unwrap();
 
-        client.subscribe(topic, QoS::AtMostOnce)?;
-
-        info!("Subscribed to topic \"{topic}\"");
-
-        // Just to give a chance of our connection to get even the first published message
-        std::thread::sleep(Duration::from_millis(500));
-
-        let payload = "Hello from esp-mqtt-demo!";
-
         loop {
-            client.enqueue(topic, QoS::AtMostOnce, false, payload.as_bytes())?;
+            if let Err(e) = client.subscribe(topic, QoS::AtMostOnce) {
+                error!("Failed to subscribe to topic \"{topic}\": {e}, retrying...");
 
-            info!("Published \"{payload}\" to topic \"{topic}\"");
+                // Re-try in 0.5s
+                std::thread::sleep(Duration::from_millis(500));
 
-            let sleep_secs = 2;
+                continue;
+            }
 
-            info!("Now sleeping for {sleep_secs}s...");
-            std::thread::sleep(Duration::from_secs(sleep_secs));
+            info!("Subscribed to topic \"{topic}\"");
+
+            // Just to give a chance of our connection to get even the first published message
+            std::thread::sleep(Duration::from_millis(500));
+
+            let payload = "Hello from esp-mqtt-demo!";
+
+            loop {
+                client.enqueue(topic, QoS::AtMostOnce, false, payload.as_bytes())?;
+
+                info!("Published \"{payload}\" to topic \"{topic}\"");
+
+                let sleep_secs = 2;
+
+                info!("Now sleeping for {sleep_secs}s...");
+                std::thread::sleep(Duration::from_secs(sleep_secs));
+            }
         }
     })
 }

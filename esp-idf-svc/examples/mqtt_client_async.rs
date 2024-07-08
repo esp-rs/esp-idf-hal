@@ -73,26 +73,35 @@ async fn run(
         }),
         pin!(async move {
             // Using `pin!` is optional, but it optimizes the memory size of the Futures
-            client.subscribe(topic, QoS::AtMostOnce).await?;
-
-            info!("Subscribed to topic \"{topic}\"");
-
-            // Just to give a chance of our connection to get even the first published message
-            timer.after(Duration::from_millis(500)).await?;
-
-            let payload = "Hello from esp-mqtt-demo!";
-
             loop {
-                client
-                    .publish(topic, QoS::AtMostOnce, false, payload.as_bytes())
-                    .await?;
+                if let Err(e) = client.subscribe(topic, QoS::AtMostOnce).await {
+                    error!("Failed to subscribe to topic \"{topic}\": {e}, retrying...");
 
-                info!("Published \"{payload}\" to topic \"{topic}\"");
+                    // Re-try in 0.5s
+                    timer.after(Duration::from_millis(500)).await?;
 
-                let sleep_secs = 2;
+                    continue;
+                }
 
-                info!("Now sleeping for {sleep_secs}s...");
-                timer.after(Duration::from_secs(sleep_secs)).await?;
+                info!("Subscribed to topic \"{topic}\"");
+
+                // Just to give a chance of our connection to get even the first published message
+                timer.after(Duration::from_millis(500)).await?;
+
+                let payload = "Hello from esp-mqtt-demo!";
+
+                loop {
+                    client
+                        .publish(topic, QoS::AtMostOnce, false, payload.as_bytes())
+                        .await?;
+
+                    info!("Published \"{payload}\" to topic \"{topic}\"");
+
+                    let sleep_secs = 2;
+
+                    info!("Now sleeping for {sleep_secs}s...");
+                    timer.after(Duration::from_secs(sleep_secs)).await?;
+                }
             }
         }),
     )
