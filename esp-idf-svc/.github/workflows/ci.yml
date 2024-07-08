@@ -21,11 +21,12 @@ jobs:
       matrix:
         target:
           - riscv32imc-esp-espidf
+          - riscv32imac-esp-espidf
           - xtensa-esp32-espidf
           - xtensa-esp32s2-espidf
           - xtensa-esp32s3-espidf
         idf-version:
-          - v4.4.6
+          - v4.4.7
           - v5.1.2
           - v5.2
     steps:
@@ -84,6 +85,7 @@ jobs:
           chmod a+x $HOME/.cargo/bin/ldproxy
 
       - name: Build | Examples
+        if: matrix.target != 'riscv32imac-esp-espidf'
         env:
           ESP_IDF_VERSION: ${{ matrix.idf-version }}
           ESP_IDF_SDKCONFIG_DEFAULTS: "${{ github.workspace }}/.github/configs/sdkconfig.defaults"
