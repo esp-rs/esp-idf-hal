@@ -525,7 +525,7 @@ impl<'d> PcntDriver<'d> {
 
         unsafe {
             ISR_HANDLERS[self.unit as usize] = Some(core::mem::transmute::<
-                alloc::boxed::Box<dyn core::ops::FnMut(u32)>,
+                alloc::boxed::Box<dyn FnMut(u32)>,
                 IsrHandler,
             >(callback));
         }
