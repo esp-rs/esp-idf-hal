@@ -554,7 +554,7 @@ impl<'a> From<(esp_bt_gap_cb_event_t, &'a esp_bt_gap_cb_param_t)> for GapEvent<'
                 },
                 esp_bt_gap_cb_event_t_ESP_BT_GAP_CONFIG_EIR_DATA_EVT => Self::EirDataConfigured {
                     status: param.config_eir_data.stat.try_into().unwrap(),
-                    eir_types: core::mem::transmute::<&[u8], &[bt::gap::EirType]>(
+                    eir_types: core::mem::transmute::<&[u8], &[EirType]>(
                         &param.config_eir_data.eir_type[..param.config_eir_data.eir_type_num as _],
                     ),
                 },
