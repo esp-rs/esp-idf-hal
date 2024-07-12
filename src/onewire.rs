@@ -5,8 +5,30 @@ use esp_idf_sys::*;
 
 use crate::peripheral::Peripheral;
 
-pub struct Device {
+#[derive(Debug)]
+pub struct Device<'b> {
     _device: onewire::onewire_device_t,
+    // _bus: &'b BusDriver<'b>, // not sure how I would hold a reference to this aside from the handle
+    _p: PhantomData<&'b ()>, // holds the lifetime since the device is linked to the lifetime of the bus
+}
+
+impl<'a> Device<'a> {
+    fn new(device_handle: onewire::onewire_device_t) -> Self {
+        Self {
+            _device: device_handle,
+            _p: PhantomData,
+        }
+    }
+
+    /// get the handle of the bus the device is attached to
+    pub fn bus(&self) -> onewire::onewire_bus_handle_t {
+        self._device.bus
+    }
+
+    /// get the device address
+    pub fn address(&self) -> u64 {
+        self._device.address
+    }
 }
 
 /// wrapper around the device iterator to search for available devices on the bus
@@ -15,7 +37,7 @@ pub struct DeviceSearch {
 }
 
 impl DeviceSearch {
-    pub fn new(bus: &mut BusDriver) -> Result<Self, EspError> {
+    fn new(bus: &mut BusDriver) -> Result<Self, EspError> {
         let mut my_iter: onewire::onewire_device_iter_handle_t = ptr::null_mut();
 
         esp!(unsafe { onewire::onewire_new_device_iter(bus._bus, &mut my_iter) })?;
@@ -29,9 +51,13 @@ impl DeviceSearch {
             onewire::onewire_device_iter_get_next(self._search, &mut next_onewire_device)
         })?;
 
-        Ok(Device {
-            _device: next_onewire_device,
-        })asd
+        Ok(Device::new(next_onewire_device))
+    }
+}
+
+impl Drop for DeviceSearch {
+    fn drop(&mut self) {
+        esp!(unsafe { onewire::onewire_del_device_iter(self._search) }).unwrap();
     }
 }
 
@@ -59,8 +85,18 @@ impl<'d> BusDriver<'d> {
             _p: PhantomData,
         })
     }
+    /// send reset pulse to the bus
+    pub fn reset_bus(&mut self) -> Result<(), EspError> {
+        esp!(unsafe { onewire::onewire_bus_reset(self._bus) })
+    }
 
     pub fn search(&mut self) -> Result<DeviceSearch, EspError> {
         DeviceSearch::new(self)
+    }
+}
+
+impl<'d> Drop for BusDriver<'d> {
+    fn drop(&mut self) {
+        esp!(unsafe { onewire::onewire_bus_del(self._bus) }).unwrap();
     }
 }
