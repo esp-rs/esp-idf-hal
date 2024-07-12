@@ -1951,7 +1951,7 @@ fn new_common<UART: Uart>(
         )
     })?;
 
-    esp!(unsafe {uart_set_mode(UART::port(), config.mode.into())})?;
+    esp!(unsafe { uart_set_mode(UART::port(), config.mode.into()) })?;
 
     // Configure interrupts after installing the driver
     // so it won't get overwritten.
