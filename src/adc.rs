@@ -499,17 +499,6 @@ impl_adc!(ADC2: adc_unit_t_ADC_UNIT_2);
 ///         println!("ADC value: {}", adc.read(&mut adc_pin)?);
 ///     }
 /// }
-
-/// #[cfg(any(feature = "adc-oneshot-legacy", esp_idf_version_major = "4"))]
-/// fn main() -> anyhow::Result<()> {
-///     println!(
-///         "This example requires ESP-IDF v5.X or newer and feature `adc-oneshot-legacy` disabled"
-///     );
-
-///     loop {
-///         thread::sleep(Duration::from_millis(1000));
-///     }
-/// }
 /// ```
 #[cfg(all(
     not(feature = "adc-oneshot-legacy"),
