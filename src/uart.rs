@@ -33,7 +33,7 @@
 //! ```
 //!
 //! # TODO
-//! - Add all extra features esp32 supports (eg rs485, etc. etc.)
+//! - Add all extra features esp32 supports
 //! - Free APB lock when TX is idle (and no RX used)
 //! - Address errata 3.17: UART fifo_cnt is inconsistent with FIFO pointer
 
@@ -68,6 +68,35 @@ pub mod config {
     use enumset::{enum_set, EnumSet, EnumSetType};
     use esp_idf_sys::*;
 
+    /// Mode
+    #[derive(PartialEq, Eq, Copy, Clone, Debug)]
+    pub enum Mode {
+        /// regular UART mode
+        UART,
+        /// half duplex RS485 UART mode control by RTS pin
+        RS485HalfDuplex,
+    }
+
+    impl From<Mode> for uart_mode_t {
+        fn from(mode: Mode) -> Self {
+            match mode {
+                Mode::UART => uart_mode_t_UART_MODE_UART,
+                Mode::RS485HalfDuplex => uart_mode_t_UART_MODE_RS485_HALF_DUPLEX,
+            }
+        }
+    }
+
+    impl From<uart_mode_t> for Mode {
+        #[allow(non_upper_case_globals)]
+        fn from(uart_mode: uart_mode_t) -> Self {
+            match uart_mode {
+                uart_mode_t_UART_MODE_UART => Mode::UART,
+                uart_mode_t_UART_MODE_RS485_HALF_DUPLEX => Mode::RS485HalfDuplex,
+                _ => unreachable!(),
+            }
+        }
+    }
+
     /// Number of data bits
     #[derive(PartialEq, Eq, Copy, Clone, Debug)]
     pub enum DataBits {
@@ -101,7 +130,7 @@ pub mod config {
         }
     }
 
-    /// Number of data bits
+    /// Flow control
     #[derive(PartialEq, Eq, Copy, Clone, Debug)]
     pub enum FlowControl {
         None,
@@ -450,6 +479,7 @@ pub mod config {
     /// UART configuration
     #[derive(Debug, Clone)]
     pub struct Config {
+        pub mode: Mode,
         pub baudrate: Hertz,
         pub data_bits: DataBits,
         pub parity: Parity,
@@ -484,6 +514,7 @@ pub mod config {
     impl Config {
         pub const fn new() -> Config {
             Config {
+                mode: Mode::UART,
                 baudrate: Hertz(19_200),
                 data_bits: DataBits::DataBits8,
                 parity: Parity::ParityNone,
@@ -498,6 +529,12 @@ pub mod config {
                 queue_size: 10,
                 _non_exhaustive: (),
             }
+        }
+
+        #[must_use]
+        pub fn mode(mut self, mode: Mode) -> Self {
+            self.mode = mode;
+            self
         }
 
         #[must_use]
@@ -1913,6 +1950,8 @@ fn new_common<UART: Uart>(
             InterruptType::to_native(config.intr_flags) as i32,
         )
     })?;
+
+    esp!(unsafe {uart_set_mode(UART::port(), config.mode.into())})?;
 
     // Configure interrupts after installing the driver
     // so it won't get overwritten.
