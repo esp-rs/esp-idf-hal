@@ -1,3 +1,5 @@
+//! Analog to Digital Converter peripheral control.
+
 use esp_idf_sys::*;
 
 #[cfg(all(
@@ -456,6 +458,37 @@ impl_adc!(ADC1: adc_unit_t_ADC_UNIT_1);
 #[cfg(not(any(esp32c2, esp32h2, esp32c5, esp32c6, esp32p4)))] // TODO: Check for esp32c5 and esp32p4
 impl_adc!(ADC2: adc_unit_t_ADC_UNIT_2);
 
+/// One-shot ADC module
+/// Example: reading a value form a pin and printing it on the terminal
+/// ```
+/// use std::thread;
+/// use std::time::Duration;
+
+/// fn main() -> anyhow::Result<()> {
+///     use esp_idf_hal::adc::attenuation::DB_11;
+///     use esp_idf_hal::adc::oneshot::config::AdcChannelConfig;
+///     use esp_idf_hal::adc::oneshot::*;
+///     use esp_idf_hal::peripherals::Peripherals;
+///
+///     let peripherals = Peripherals::take()?;
+///     let adc = AdcDriver::new(peripherals.adc1)?;
+///
+///     /// configuring pin to analog read, you can regulate the adc input voltage range depending on your need
+///     /// for this example we use the attenuation of 11db which sets the input voltage range to around 0-3.6V
+///     let config = AdcChannelConfig {
+///         attenuation: DB_11,
+///         calibration: true,
+///         ..Default::default()
+///     };
+///     let mut adc_pin = AdcChannelDriver::new(&adc, peripherals.pins.gpio2, &config)?;
+///
+///     loop {
+///         /// you can change the sleep duration depending on how often you want to sample
+///         thread::sleep(Duration::from_millis(100));
+///         println!("ADC value: {}", adc.read(&mut adc_pin)?);
+///     }
+/// }
+/// ```
 #[cfg(all(
     not(feature = "adc-oneshot-legacy"),
     not(esp_idf_version_major = "4"),
@@ -787,6 +820,41 @@ pub mod oneshot {
     unsafe impl<'d, ADC: Adc> Sync for AdcDriver<'d, ADC> {}
 }
 
+/// Continuous ADC module
+/// Example: continuously reading value from a pin
+/// ```
+/// use log::{info, debug};
+
+/// fn main() -> anyhow::Result<()> {
+///     use esp_idf_svc::hal::adc::{AdcContConfig, AdcContDriver, AdcMeasurement, Attenuated};
+///     use esp_idf_svc::hal::modem::Modem;
+///     use esp_idf_svc::hal::peripherals::Peripherals;
+///     use esp_idf_svc::sys::EspError;
+///
+///     esp_idf_svc::sys::link_patches();
+///     esp_idf_svc::log::EspLogger::initialize_default();
+///
+///     let peripherals = Peripherals::take()?;
+///     let config = AdcContConfig::default();
+///
+///     let adc_1_channel_0 = Attenuated::db11(peripherals.pins.gpio0);
+///     let mut adc = AdcContDriver::new(peripherals.adc1, &config, adc_1_channel_0)?;
+///
+///     adc.start()?;
+///
+///     /// Default to just read 100 measurements per each read
+///     let mut samples = [AdcMeasurement::default(); 100];
+///
+///     loop {
+///         if let Ok(num_read) = adc.read(&mut samples, 10) {
+///             debug!("Read {} measurement.", num_read);
+///             for index in 0..num_read {
+///                 debug!("{}", samples[index].data());
+///             }
+///         }
+///     }
+/// }
+/// ```
 #[cfg(all(
     not(esp_idf_version_major = "4"),
     not(esp32c2),
@@ -807,6 +875,8 @@ pub mod continuous {
 
     use super::{attenuation, Adc};
 
+    /// Set ADC attenuation level
+    /// Example: let pin = Attenuated::db11(peripherals.pins.gpio0);
     pub struct Attenuated<const A: adc_atten_t, T>(T);
 
     impl<T> Attenuated<{ attenuation::NONE }, T> {
@@ -1060,6 +1130,11 @@ pub mod continuous {
     pub mod config {
         use crate::units::*;
 
+        /// ADC continuous mode driver configurations.
+        /// The default configuration is:
+        /// * [`sample_freq`][Config::sample_freq]: 2000 Hz
+        /// * [`frame_measurements`][Config::frame_measurements]: 100
+        /// * [`frames_count`][Config::frames_count]: 10
         #[derive(Debug, Copy, Clone)]
         pub struct Config {
             pub sample_freq: Hertz,
@@ -1109,6 +1184,7 @@ pub mod continuous {
     }
 
     impl<'d> AdcDriver<'d> {
+        /// Initialize ADC continuous driver with configuration and channels.
         #[cfg(esp32)]
         pub fn new(
             adc: impl Peripheral<P = super::ADC1> + 'd,
@@ -1119,6 +1195,7 @@ pub mod continuous {
             Self::internal_new(adc, config, channels)
         }
 
+        /// Initialize ADC continuous driver with configuration and channels
         #[cfg(esp32s2)]
         pub fn new(
             adc: impl Peripheral<P = super::ADC1> + 'd,
@@ -1129,6 +1206,7 @@ pub mod continuous {
             Self::internal_new(adc, config, channels)
         }
 
+        /// Initialize ADC continuous driver with configuration and channels.
         #[cfg(not(any(esp32, esp32s2)))]
         pub fn new<A: Adc>(
             adc: impl Peripheral<P = A> + 'd,
@@ -1219,22 +1297,27 @@ pub mod continuous {
             })
         }
 
+        /// Get the ADC driver handle.
         pub fn handle(&self) -> adc_continuous_handle_t {
             self.handle
         }
 
+        // Get the ADC unit. ADC1 or ADC2.
         pub fn unit(&self) -> adc_unit_t {
             self.adc as _
         }
 
+        /// Start the ADC under continuous mode and generate results.
         pub fn start(&mut self) -> Result<(), EspError> {
             esp!(unsafe { adc_continuous_start(self.handle) })
         }
 
+        /// Stop the ADC.
         pub fn stop(&mut self) -> Result<(), EspError> {
             esp!(unsafe { adc_continuous_stop(self.handle) })
         }
 
+        /// Read `AdcMeasurements` in continuous mode.
         pub fn read(
             &mut self,
             buf: &mut [AdcMeasurement],
@@ -1255,6 +1338,7 @@ pub mod continuous {
             Ok(read as usize / core::mem::size_of::<AdcMeasurement>())
         }
 
+        /// Read bytes in continuous mode.
         pub fn read_bytes(
             &mut self,
             buf: &mut [u8],
