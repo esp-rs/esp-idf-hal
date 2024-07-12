@@ -1,0 +1,42 @@
+{
+    "name": "rmt_onewire",
+    // Select between image and build propieties to pull or build the image.
+    "image": "docker.io/espressif/idf-rust:esp32_latest",
+    "customizations": {
+        "vscode": {
+            "extensions": [
+                "rust-lang.rust-analyzer",
+                "tamasfe.even-better-toml",
+                "serayuzgur.crates",
+                "mutantdino.resourcemonitor",
+                "yzhang.markdown-all-in-one",
+                "ms-vscode.cpptools",
+                "actboy168.tasks",
+                "Wokwi.wokwi-vscode",
+                "ms-azuretools.vscode-docker",
+                "ms-python.python"
+            ],
+            "settings": {
+                "editor.formatOnPaste": true,
+                "editor.formatOnSave": true,
+                "editor.formatOnSaveMode": "file",
+                "editor.formatOnType": true,
+                "lldb.executable": "/usr/bin/lldb",
+                "files.watcherExclude": {
+                    "**/target/**": true
+                },
+                "rust-analyzer.checkOnSave.command": "clippy",
+                "rust-analyzer.checkOnSave.allTargets": false,
+                "[rust]": {
+                    "editor.defaultFormatter": "rust-lang.rust-analyzer"
+                }
+            }
+        }
+    },
+    "forwardPorts": [
+        3333,
+        8000
+    ],
+    "workspaceMount": "source=${localWorkspaceFolder},target=/home/esp/rmt_onewire,type=bind,consistency=cached",
+    "workspaceFolder": "/home/esp/rmt_onewire"
+}

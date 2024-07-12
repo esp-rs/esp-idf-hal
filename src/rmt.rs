@@ -11,7 +11,7 @@
 //!
 //! Not supported:
 //! * Interrupts.
-//! * Receiving.
+//! * ~Receiving.~
 //! * Change of config after initialisation.
 //!
 //! # Example

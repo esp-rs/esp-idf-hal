@@ -46,7 +46,11 @@ pub mod peripheral;
 pub mod peripherals;
 pub mod prelude;
 pub mod reset;
+#[cfg(feature = "legacy_rmt")]
 pub mod rmt;
+//
+// #[cfg(not(feature = "legacy_rmt"))]
+pub mod onewire;
 pub mod rom;
 pub mod spi;
 pub mod sys;
