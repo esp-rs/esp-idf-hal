@@ -464,21 +464,15 @@ impl_adc!(ADC2: adc_unit_t_ADC_UNIT_2);
 /// use std::thread;
 /// use std::time::Duration;
 
-/// #[cfg(not(any(feature = "adc-oneshot-legacy", esp_idf_version_major = "4")))]
 /// fn main() -> anyhow::Result<()> {
 ///     use esp_idf_hal::adc::attenuation::DB_11;
 ///     use esp_idf_hal::adc::oneshot::config::AdcChannelConfig;
 ///     use esp_idf_hal::adc::oneshot::*;
 ///     use esp_idf_hal::peripherals::Peripherals;
-
+///
 ///     let peripherals = Peripherals::take()?;
-
-///     #[cfg(not(esp32))]
 ///     let adc = AdcDriver::new(peripherals.adc1)?;
-
-///     #[cfg(esp32)]
-///     let adc = AdcDriver::new(peripherals.adc2)?;
-
+///
 ///     /// configuring pin to analog read, you can regulate the adc input voltage range depending on your need
 ///     /// for this example we use the attenuation of 11db which sets the input voltage range to around 0-3.6V
 ///     let config = AdcChannelConfig {
@@ -486,13 +480,8 @@ impl_adc!(ADC2: adc_unit_t_ADC_UNIT_2);
 ///         calibration: true,
 ///         ..Default::default()
 ///     };
-
-///     #[cfg(not(esp32))]
 ///     let mut adc_pin = AdcChannelDriver::new(&adc, peripherals.pins.gpio2, &config)?;
-
-///     #[cfg(esp32)]
-///     let mut adc_pin = AdcChannelDriver::new(&adc, peripherals.pins.gpio12, &config)?;
-
+///
 ///     loop {
 ///         /// you can change the sleep duration depending on how often you want to sample
 ///         thread::sleep(Duration::from_millis(100));
@@ -834,30 +823,28 @@ pub mod oneshot {
 /// Continuous ADC module
 /// Example: continuously reading value from a pin
 /// ```
-/// use esp_idf_svc::hal::adc::{AdcContConfig, AdcContDriver, AdcMeasurement, Attenuated};
-/// use esp_idf_svc::hal::modem::Modem;
-/// use esp_idf_svc::hal::peripherals::Peripherals;
-/// use esp_idf_svc::sys::EspError;
 /// use log::{info, debug};
 
 /// fn main() -> anyhow::Result<()> {
+///     use esp_idf_svc::hal::adc::{AdcContConfig, AdcContDriver, AdcMeasurement, Attenuated};
+///     use esp_idf_svc::hal::modem::Modem;
+///     use esp_idf_svc::hal::peripherals::Peripherals;
+///     use esp_idf_svc::sys::EspError;
+///
 ///     esp_idf_svc::sys::link_patches();
-
 ///     esp_idf_svc::log::EspLogger::initialize_default();
-
+///
 ///     let peripherals = Peripherals::take()?;
-
 ///     let config = AdcContConfig::default();
-
+///
 ///     let adc_1_channel_0 = Attenuated::db11(peripherals.pins.gpio0);
-
 ///     let mut adc = AdcContDriver::new(peripherals.adc1, &config, adc_1_channel_0)?;
-
+///
 ///     adc.start()?;
-
+///
 ///     /// Default to just read 100 measurements per each read
-///     let mut samples: [AdcMeasurement; 100] = [Default::default(); 100];
-
+///     let mut samples = [AdcMeasurement::default(); 100];
+///
 ///     loop {
 ///         if let Ok(num_read) = adc.read(&mut samples, 10) {
 ///             debug!("Read {} measurement.", num_read);
