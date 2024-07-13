@@ -3,7 +3,6 @@ use core::borrow::Borrow;
 use crate::spi::SpiDriver;
 use crate::sys::*;
 
-use config::{Speed, Voltage};
 #[cfg(esp_idf_soc_sdmmc_host_supported)]
 use mmc::SdMmcHostDriver;
 use spi::SdSpiHostDriver;
@@ -157,8 +156,8 @@ where
         let configuration = sdmmc_host_t {
             flags: _HOST_FLAG_SPI | _HOST_FLAG_DEINIT_ARG,
             slot: host.handle() as _,
-            max_freq_khz: Speed::default().as_khz(),    // n/a for SD-SPI
-            io_voltage: Voltage::default().as_volts(),  // n/a for SD-SPI
+            max_freq_khz: 20000,    // n/a for SD-SPI
+            io_voltage: 3.3f32,     // n/a for SD-SPI
             init: Some(sdspi_host_init),
             set_bus_width: None,
             get_bus_width: None,
