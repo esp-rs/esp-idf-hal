@@ -18,6 +18,7 @@ use esp_idf_hal::delay::Ets;
 use esp_idf_hal::gpio::*;
 use esp_idf_hal::peripheral::*;
 use esp_idf_hal::peripherals::Peripherals;
+#[cfg(any(feature = "rmt-legacy", esp_idf_version_major = "4"))]
 use esp_idf_hal::rmt::config::{CarrierConfig, DutyPercent, Loop, TransmitConfig};
 #[cfg(any(feature = "rmt-legacy", esp_idf_version_major = "4"))]
 use esp_idf_hal::rmt::*;
