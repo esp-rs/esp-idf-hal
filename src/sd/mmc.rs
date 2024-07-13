@@ -32,7 +32,7 @@ impl<'d> SdMmcHostDriver<'d> {
     /// Create a new driver for the provided slot peripheral with data line width 1.
     #[cfg(esp_idf_soc_sdmmc_use_gpio_matrix)]
     #[allow(clippy::too_many_arguments)]
-    pub fn new_width_1<S: SdMmc>(
+    pub fn new_1bit<S: SdMmc>(
         slot: impl Peripheral<P = S> + 'd,
         cmd: impl Peripheral<P = impl OutputPin> + 'd,
         clk: impl Peripheral<P = impl OutputPin> + 'd,
@@ -48,7 +48,7 @@ impl<'d> SdMmcHostDriver<'d> {
     /// Create a new driver for the provided slot peripheral with data line width 4.
     #[cfg(esp_idf_soc_sdmmc_use_gpio_matrix)]
     #[allow(clippy::too_many_arguments)]
-    pub fn new_width_4<S: SdMmc>(
+    pub fn new_4bit<S: SdMmc>(
         slot: impl Peripheral<P = S> + 'd,
         cmd: impl Peripheral<P = impl OutputPin> + 'd,
         clk: impl Peripheral<P = impl OutputPin> + 'd,
@@ -80,7 +80,7 @@ impl<'d> SdMmcHostDriver<'d> {
     /// Create a new driver for the provided slot peripheral with data line width 8.
     #[cfg(esp_idf_soc_sdmmc_use_gpio_matrix)]
     #[allow(clippy::too_many_arguments)]
-    pub fn new_width_8<S: SdMmc>(
+    pub fn new_8bit<S: SdMmc>(
         slot: impl Peripheral<P = S> + 'd,
         cmd: impl Peripheral<P = impl OutputPin> + 'd,
         clk: impl Peripheral<P = impl OutputPin> + 'd,
