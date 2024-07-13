@@ -107,3 +107,12 @@ fn main() -> anyhow::Result<()> {
         FreeRtos::delay_ms(3000);
     }
 }
+
+#[cfg(not(any(feature = "rmt-legacy", esp_idf_version_major = "4")))]
+fn main() -> anyhow::Result<()> {
+    println!("This example requires feature `rmt-legacy` enabled or using ESP-IDF v4.4.X");
+
+    loop {
+        thread::sleep(Duration::from_millis(1000));
+    }
+}

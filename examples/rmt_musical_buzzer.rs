@@ -29,8 +29,17 @@ fn main() -> anyhow::Result<()> {
         Ets::delay_ms(3000);
     }
 }
-#[cfg(any(feature = "rmt-legacy", esp_idf_version_major = "4"))]
 
+#[cfg(not(any(feature = "rmt-legacy", esp_idf_version_major = "4")))]
+fn main() -> anyhow::Result<()> {
+    println!("This example requires feature `rmt-legacy` enabled or using ESP-IDF v4.4.X");
+
+    loop {
+        thread::sleep(Duration::from_millis(1000));
+    }
+}
+
+#[cfg(any(feature = "rmt-legacy", esp_idf_version_major = "4"))]
 pub fn play_song(tx: &mut TxRmtDriver<'static>, song: &[NoteValue]) -> anyhow::Result<()> {
     for note_value in song {
         note_value.play(tx)?;

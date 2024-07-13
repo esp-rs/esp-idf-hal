@@ -42,6 +42,15 @@ fn main() -> Result<()> {
     })
 }
 
+#[cfg(not(any(feature = "rmt-legacy", esp_idf_version_major = "4")))]
+fn main() -> anyhow::Result<()> {
+    println!("This example requires feature `rmt-legacy` enabled or using ESP-IDF v4.4.X");
+
+    loop {
+        thread::sleep(Duration::from_millis(1000));
+    }
+}
+
 #[cfg(any(feature = "rmt-legacy", esp_idf_version_major = "4"))]
 fn neopixel(rgb: Rgb, tx: &mut TxRmtDriver) -> Result<()> {
     let color: u32 = rgb.into();
