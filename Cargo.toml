@@ -23,6 +23,7 @@ default = ["std", "binstart"]
 std = ["alloc", "esp-idf-sys/std"]
 alloc = []
 nightly = []
+experimental = []
 wake-from-isr = [] # Only enable if you plan to use the `edge-executor` crate
 embassy-sync = [] # For now, the dependecy on the `embassy-sync` crate is non-optional, but this might change in future
 # Temporary, until (https://github.com/espressif/esp-idf/issues/13938) is addressed
