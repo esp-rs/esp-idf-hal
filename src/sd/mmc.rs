@@ -21,7 +21,7 @@ pub trait SdMmc {
     fn slot() -> u8;
 }
 
-/// SD-MMC Host driver (per slot) or SD Cards supporting the MMC protocol.
+/// SD-MMC Host driver (per slot) for SD Cards supporting the MMC protocol.
 pub struct SdMmcHostDriver<'d> {
     slot: u8,
     width: u8,
