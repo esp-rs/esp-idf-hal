@@ -41,7 +41,20 @@ impl<'d> SdMmcHostDriver<'d> {
         wp: Option<impl Peripheral<P = impl InputPin> + 'd>,
     ) -> Result<Self, EspError> {
         Self::new_internal(
-            1, slot, cmd, clk, d0, None, None, None, None, None, None, None, cd, wp,
+            1,
+            slot,
+            cmd,
+            clk,
+            d0,
+            gpio::AnyIOPin::none(),
+            gpio::AnyIOPin::none(),
+            gpio::AnyIOPin::none(),
+            gpio::AnyIOPin::none(),
+            gpio::AnyIOPin::none(),
+            gpio::AnyIOPin::none(),
+            gpio::AnyIOPin::none(),
+            cd,
+            wp,
         )
     }
 
@@ -68,10 +81,10 @@ impl<'d> SdMmcHostDriver<'d> {
             Some(d1),
             Some(d2),
             Some(d3),
-            None,
-            None,
-            None,
-            None,
+            gpio::AnyIOPin::none(),
+            gpio::AnyIOPin::none(),
+            gpio::AnyIOPin::none(),
+            gpio::AnyIOPin::none(),
             cd,
             wp,
         )
@@ -172,10 +185,10 @@ impl<'d> SdMmcHostDriver<'d> {
             Some(d1),
             Some(d2),
             Some(d3),
-            Option::<gpio::AnyIOPin>::None,
-            Option::<gpio::AnyIOPin>::None,
-            Option::<gpio::AnyIOPin>::None,
-            Option::<gpio::AnyIOPin>::None,
+            gpio::AnyIOPin::none(),
+            gpio::AnyIOPin::none(),
+            gpio::AnyIOPin::none(),
+            gpio::AnyIOPin::none(),
             cd,
             wp,
         )
