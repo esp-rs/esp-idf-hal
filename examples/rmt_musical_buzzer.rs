@@ -13,6 +13,7 @@ use esp_idf_hal::rmt::{self, config::TransmitConfig, TxRmtDriver};
 use esp_idf_hal::units::Hertz;
 use notes::*;
 
+#[cfg(any(feature = "rmt-legacy", esp_idf_version_major = "4"))]
 fn main() -> anyhow::Result<()> {
     esp_idf_hal::sys::link_patches();
 

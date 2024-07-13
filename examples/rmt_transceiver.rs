@@ -25,6 +25,7 @@ use esp_idf_hal::rmt::{
     RxRmtDriver, TxRmtDriver,
 };
 
+#[cfg(any(feature = "rmt-legacy", esp_idf_version_major = "4"))]
 fn main() -> anyhow::Result<()> {
     println!("Starting APP!");
 

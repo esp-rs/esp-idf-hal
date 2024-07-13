@@ -22,6 +22,7 @@ use esp_idf_hal::rmt::config::{CarrierConfig, DutyPercent, Loop, TransmitConfig}
 use esp_idf_hal::rmt::*;
 use esp_idf_hal::units::FromValueType;
 
+#[cfg(any(feature = "rmt-legacy", esp_idf_version_major = "4"))]
 fn main() -> anyhow::Result<()> {
     esp_idf_hal::sys::link_patches();
 

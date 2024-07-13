@@ -31,6 +31,10 @@ embassy-sync = [
 # - When not enabled (default) the code for the new ADC oneshot driver will be compiled;
 # - Since we don't wrap the legacy _continuous_ ADC driver, the new _continuous_ ADC driver is always compiled.
 adc-oneshot-legacy = []
+# Similar to adc-oneshot-legacy
+# - When enabled (default), the code for the legacy RMT TX/RX driver will be compiled.
+# - When disabled the code for the new onewire RMT driver will be compiled. 
+rmt-legacy = []
 # Propagated esp-idf-sys features
 native = ["esp-idf-sys/native"]
 pio = ["esp-idf-sys/pio"]
@@ -72,6 +76,6 @@ display-interface-spi = "0.4.1"
 embedded-graphics = "0.7.1"
 
 [[package.metadata.esp-idf-sys.extra_components]]
-remote_component = { name = "ds18b20", version = "^0.1.0" }
+remote_component = { name = "onewire_bus", version = "^1.0.2" }
 bindings_header = "bindings.h"
 bindings_module = "onewire"

@@ -1,3 +1,5 @@
+//! Onewire implementation based on the esp-idf component [onewire_bus](https://components.espressif.com/components/espressif/onewire_bus)
+//!
 use core::marker::PhantomData;
 use core::ptr;
 
@@ -32,20 +34,26 @@ impl<'a> Device<'a> {
 }
 
 /// wrapper around the device iterator to search for available devices on the bus
-pub struct DeviceSearch {
+pub struct DeviceSearch<'b> {
     _search: onewire::onewire_device_iter_handle_t,
+    _p: PhantomData<&'b ()>, // holds the lifetime since the search is linked to the lifetime of the bus
 }
 
-impl DeviceSearch {
-    fn new(bus: &mut BusDriver) -> Result<Self, EspError> {
+impl<'b> DeviceSearch<'b> {
+    fn new(bus: &mut OneWireBusDriver) -> Result<Self, EspError> {
         let mut my_iter: onewire::onewire_device_iter_handle_t = ptr::null_mut();
 
         esp!(unsafe { onewire::onewire_new_device_iter(bus._bus, &mut my_iter) })?;
 
-        Ok(Self { _search: my_iter })
+        Ok(Self {
+            _search: my_iter,
+            _p: PhantomData,
+        })
     }
 
-    pub fn next_device(&mut self) -> Result<Device, EspError> {
+    /// Search for the next device on the bus and yield it.
+    fn next_device(&mut self) -> Result<Device<'b>, EspError> {
+        // let mut next_onewire_device = onewire::onewire_new_
         let mut next_onewire_device = onewire::onewire_device_t::default();
         esp!(unsafe {
             onewire::onewire_device_iter_get_next(self._search, &mut next_onewire_device)
@@ -55,19 +63,34 @@ impl DeviceSearch {
     }
 }
 
-impl Drop for DeviceSearch {
+impl<'b> Iterator for DeviceSearch<'b> {
+    type Item = Device<'b>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if let Ok(dev) = self.next_device() {
+            Some(dev)
+        } else {
+            None
+        }
+    }
+}
+
+impl<'b> Drop for DeviceSearch<'b> {
     fn drop(&mut self) {
         esp!(unsafe { onewire::onewire_del_device_iter(self._search) }).unwrap();
     }
 }
 
 /// beep beep
-pub struct BusDriver<'d> {
+pub struct OneWireBusDriver<'d> {
     _bus: onewire::onewire_bus_handle_t,
     _p: PhantomData<&'d ()>,
 }
 
-impl<'d> BusDriver<'d> {
+impl<'d> OneWireBusDriver<'d> {
+    /// Create a new One Wire driver on the allocated pin.
+    ///
+    /// The pin will be used as an open drain output.
     pub fn new(
         pin: impl Peripheral<P = impl crate::gpio::InputPin + crate::gpio::OutputPin> + 'd,
     ) -> Result<Self, EspError> {
@@ -95,7 +118,7 @@ impl<'d> BusDriver<'d> {
     }
 }
 
-impl<'d> Drop for BusDriver<'d> {
+impl<'d> Drop for OneWireBusDriver<'d> {
     fn drop(&mut self) {
         esp!(unsafe { onewire::onewire_bus_del(self._bus) }).unwrap();
     }

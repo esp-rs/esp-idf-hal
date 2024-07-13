@@ -16,6 +16,7 @@ use esp_idf_hal::peripherals::Peripherals;
 use esp_idf_hal::rmt::config::TransmitConfig;
 use esp_idf_hal::rmt::*;
 
+#[cfg(any(feature = "rmt-legacy", esp_idf_version_major = "4"))]
 fn main() -> Result<()> {
     esp_idf_hal::sys::link_patches();
 
