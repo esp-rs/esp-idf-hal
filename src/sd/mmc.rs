@@ -2,9 +2,7 @@ use core::marker::PhantomData;
 use core::ops::Deref;
 use core::sync::atomic::{AtomicU8, Ordering};
 
-#[cfg(not(esp_idf_soc_sdmmc_use_gpio_matrix))]
-use crate::gpio;
-use crate::gpio::{InputPin, OutputPin};
+use crate::gpio::{self, InputPin, OutputPin};
 use crate::peripheral::Peripheral;
 use crate::sys::*;
 
