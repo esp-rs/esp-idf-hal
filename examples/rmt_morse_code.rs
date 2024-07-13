@@ -19,6 +19,7 @@ use esp_idf_hal::gpio::*;
 use esp_idf_hal::peripheral::*;
 use esp_idf_hal::peripherals::Peripherals;
 use esp_idf_hal::rmt::config::{CarrierConfig, DutyPercent, Loop, TransmitConfig};
+#[cfg(any(feature = "rmt-legacy", esp_idf_version_major = "4"))]
 use esp_idf_hal::rmt::*;
 use esp_idf_hal::units::FromValueType;
 
@@ -65,6 +66,16 @@ fn main() -> anyhow::Result<()> {
     Ok(())
 }
 
+#[cfg(not(any(feature = "rmt-legacy", esp_idf_version_major = "4")))]
+fn main() -> anyhow::Result<()> {
+    println!("This example requires feature `rmt-legacy` enabled or using ESP-IDF v4.4.X");
+
+    loop {
+        thread::sleep(Duration::from_millis(1000));
+    }
+}
+
+#[cfg(any(feature = "rmt-legacy", esp_idf_version_major = "4"))]
 fn send_morse_code<'d>(
     channel: impl Peripheral<P = impl RmtChannel> + 'd,
     led: impl Peripheral<P = impl OutputPin> + 'd,
@@ -86,10 +97,12 @@ fn send_morse_code<'d>(
     Ok(tx)
 }
 
+#[cfg(any(feature = "rmt-legacy", esp_idf_version_major = "4"))]
 fn high() -> Pulse {
     Pulse::new(PinState::High, PulseTicks::max())
 }
 
+#[cfg(any(feature = "rmt-legacy", esp_idf_version_major = "4"))]
 fn low() -> Pulse {
     Pulse::new(PinState::Low, PulseTicks::max())
 }
@@ -99,6 +112,7 @@ enum Code {
     Dash,
     WordGap,
 }
+#[cfg(any(feature = "rmt-legacy", esp_idf_version_major = "4"))]
 
 impl Code {
     pub fn push_pulse(&self, pulses: &mut Vec<Pulse>) {
@@ -119,6 +133,7 @@ fn find_codes(c: &char) -> &'static [Code] {
     &[]
 }
 
+#[cfg(any(feature = "rmt-legacy", esp_idf_version_major = "4"))]
 fn str_pulses(s: &str) -> Vec<Pulse> {
     let mut pulses = vec![];
     for c in s.chars() {

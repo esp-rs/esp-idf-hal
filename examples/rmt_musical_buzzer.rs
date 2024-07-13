@@ -8,6 +8,7 @@ use core::time::Duration;
 
 use esp_idf_hal::delay::Ets;
 use esp_idf_hal::peripherals::Peripherals;
+#[cfg(any(feature = "rmt-legacy", esp_idf_version_major = "4"))]
 use esp_idf_hal::rmt::{self, config::TransmitConfig, TxRmtDriver};
 
 use esp_idf_hal::units::Hertz;
@@ -28,6 +29,7 @@ fn main() -> anyhow::Result<()> {
         Ets::delay_ms(3000);
     }
 }
+#[cfg(any(feature = "rmt-legacy", esp_idf_version_major = "4"))]
 
 pub fn play_song(tx: &mut TxRmtDriver<'static>, song: &[NoteValue]) -> anyhow::Result<()> {
     for note_value in song {
@@ -35,12 +37,14 @@ pub fn play_song(tx: &mut TxRmtDriver<'static>, song: &[NoteValue]) -> anyhow::R
     }
     Ok(())
 }
+#[cfg(any(feature = "rmt-legacy", esp_idf_version_major = "4"))]
 
 pub struct NoteValueIter {
     ticks: rmt::PulseTicks,
     tone_cycles: u32,
     pause_cycles: u32,
 }
+#[cfg(any(feature = "rmt-legacy", esp_idf_version_major = "4"))]
 
 impl NoteValueIter {
     fn new(ticks_per_sec: Hertz, note: &NoteValue) -> Self {
@@ -63,6 +67,7 @@ impl NoteValueIter {
         }
     }
 }
+#[cfg(any(feature = "rmt-legacy", esp_idf_version_major = "4"))]
 
 impl std::iter::Iterator for NoteValueIter {
     type Item = rmt::Symbol;
@@ -113,6 +118,7 @@ pub struct NoteValue {
     note: Note,
     duration: Duration,
 }
+#[cfg(any(feature = "rmt-legacy", esp_idf_version_major = "4"))]
 
 impl NoteValue {
     pub fn play(&self, tx: &mut TxRmtDriver<'static>) -> anyhow::Result<()> {

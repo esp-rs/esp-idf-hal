@@ -20,6 +20,7 @@
 
 use esp_idf_hal::delay::FreeRtos;
 use esp_idf_hal::peripherals::Peripherals;
+#[cfg(any(feature = "rmt-legacy", esp_idf_version_major = "4"))]
 use esp_idf_hal::rmt::{
     FixedLengthSignal, PinState, Pulse, PulseTicks, Receive, RmtReceiveConfig, RmtTransmitConfig,
     RxRmtDriver, TxRmtDriver,

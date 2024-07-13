@@ -13,7 +13,9 @@ use anyhow::{bail, Result};
 use core::time::Duration;
 use esp_idf_hal::delay::FreeRtos;
 use esp_idf_hal::peripherals::Peripherals;
+#[cfg(any(feature = "rmt-legacy", esp_idf_version_major = "4"))]
 use esp_idf_hal::rmt::config::TransmitConfig;
+#[cfg(any(feature = "rmt-legacy", esp_idf_version_major = "4"))]
 use esp_idf_hal::rmt::*;
 
 #[cfg(any(feature = "rmt-legacy", esp_idf_version_major = "4"))]
@@ -40,6 +42,7 @@ fn main() -> Result<()> {
     })
 }
 
+#[cfg(any(feature = "rmt-legacy", esp_idf_version_major = "4"))]
 fn neopixel(rgb: Rgb, tx: &mut TxRmtDriver) -> Result<()> {
     let color: u32 = rgb.into();
     let ticks_hz = tx.counter_clock()?;

@@ -46,12 +46,12 @@ pub mod peripheral;
 pub mod peripherals;
 pub mod prelude;
 pub mod reset;
-#[cfg(feature = "rmt_legacy")]
+#[cfg(feature = "rmt-legacy")]
 pub mod rmt;
 //
 #[cfg(all(
     any(esp32, esp32c3, esp32c6, esp32h2, esp32p4, esp32s2, esp32s3),
-    not(feature = "rmt_legacy"),
+    not(feature = "rmt-legacy"),
     esp_idf_comp_espressif__onewire_bus_enabled,
 ))]
 pub mod onewire;

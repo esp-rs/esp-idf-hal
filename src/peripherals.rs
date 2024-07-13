@@ -10,7 +10,7 @@ use crate::mac;
 use crate::modem;
 #[cfg(any(esp32, esp32s2, esp32s3, esp32c6))]
 use crate::pcnt;
-#[cfg(feature = "legacy_rmt")]
+#[cfg(feature = "rmt-legacy")]
 use crate::rmt;
 use crate::spi;
 #[cfg(any(
@@ -72,7 +72,7 @@ pub struct Peripherals {
     pub ledc: ledc::LEDC,
     #[cfg(esp32)]
     pub hledc: ledc::HLEDC,
-    #[cfg(feature = "legacy_rmt")]
+    #[cfg(feature = "rmt-legacy")]
     pub rmt: rmt::RMT,
     #[cfg(all(
         any(esp32, esp32s2, esp32s3, esp32c6, esp32p4),
@@ -170,7 +170,7 @@ impl Peripherals {
             ledc: ledc::LEDC::new(),
             #[cfg(esp32)]
             hledc: ledc::HLEDC::new(),
-            #[cfg(feature = "legacy_rmt")]
+            #[cfg(feature = "rmt-legacy")]
             rmt: rmt::RMT::new(),
             #[cfg(all(
                 any(esp32, esp32s2, esp32s3, esp32c6, esp32p4),
