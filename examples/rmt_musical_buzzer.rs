@@ -35,7 +35,7 @@ fn main() -> anyhow::Result<()> {
     println!("This example requires feature `rmt-legacy` enabled or using ESP-IDF v4.4.X");
 
     loop {
-        thread::sleep(Duration::from_millis(1000));
+        std::thread::sleep(Duration::from_millis(1000));
     }
 }
 
