@@ -87,7 +87,7 @@ where
     }
 
     // TODO: Figure out if any of the below is necessary
-    
+
     // // TODO: Clock
     // pub fn set_clock(&mut self, clock: u32) -> Result<(), EspError> {
     //     esp!(unsafe { sdspi_host_set_card_clk(self.handle, clock) })
