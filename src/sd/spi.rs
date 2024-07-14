@@ -85,25 +85,6 @@ where
     pub fn handle(&self) -> sdspi_dev_handle_t {
         self.handle
     }
-
-    // TODO: Figure out if any of the below is necessary
-
-    // // TODO: Clock
-    // pub fn set_clock(&mut self, clock: u32) -> Result<(), EspError> {
-    //     esp!(unsafe { sdspi_host_set_card_clk(self.handle, clock) })
-    // }
-
-    // pub fn enable_interrupt(&mut self) -> Result<(), EspError> {
-    //     esp!(unsafe { sdspi_host_io_int_enable(self.get_host() as i32) })
-    // }
-
-    // pub fn wait_interrupt(&mut self, timeout: u32) -> Result<(), EspError> {
-    //     esp!(unsafe { sdspi_host_io_int_wait(self.get_host() as i32, timeout) })
-    // }
-
-    // pub(crate) fn get_device_configuration(&self) -> &sdspi_device_config_t {
-    //     &self.configuration
-    // }
 }
 
 impl<'d, T> Drop for SdSpiHostDriver<'d, T> {
