@@ -516,4 +516,5 @@
 // official onewire_bus remote component
 #ifdef ESP_IDF_COMP_ESPRESSIF__ONEWIRE_BUS_ENABLED
 #include "onewire_bus.h"
+#include "onewire_device.h"
 #endif
