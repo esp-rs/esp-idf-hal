@@ -53,7 +53,6 @@ impl<'b> DeviceSearch<'b> {
 
     /// Search for the next device on the bus and yield it.
     fn next_device(&mut self) -> Result<Device<'b>, EspError> {
-        // let mut next_onewire_device = onewire_new_
         let mut next_onewire_device = onewire_device_t::default();
         esp!(unsafe { onewire_device_iter_get_next(self._search, &mut next_onewire_device) })?;
 
@@ -79,7 +78,6 @@ impl<'b> Drop for DeviceSearch<'b> {
     }
 }
 
-/// beep beep
 pub struct OneWireBusDriver<'d> {
     _bus: onewire_bus_handle_t,
     _p: PhantomData<&'d ()>,
