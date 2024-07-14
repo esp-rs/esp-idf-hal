@@ -318,7 +318,7 @@
 #endif
 #include "driver/rtc_cntl.h"
 #include "driver/rtc_io.h"
-#ifdef CONFIG_IDF_TARGET_ESP32
+#ifdef SOC_SDIO_SLAVE_SUPPORTED
 #include "driver/sdio_slave.h"
 #endif
 #include "driver/sdmmc_defs.h"
@@ -513,4 +513,7 @@
 #include "driver/usb_serial_jtag.h"
 #endif
 
-// n
+// official onewire_bus remote component
+#ifdef ESP_IDF_COMP_ESPRESSIF__ONEWIRE_BUS_ENABLED
+#include "onewire_bus.h"
+#endif
