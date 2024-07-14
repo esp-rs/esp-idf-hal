@@ -50,7 +50,7 @@ pub mod reset;
 pub mod rmt;
 //
 #[cfg(all(
-    any(esp32, esp32c3, esp32c6, esp32h2, esp32p4, esp32s2, esp32s3),
+    esp_idf_soc_rmt_supported,
     not(feature = "rmt-legacy"),
     esp_idf_comp_espressif__onewire_bus_enabled,
 ))]

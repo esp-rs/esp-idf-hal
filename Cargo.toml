@@ -77,5 +77,8 @@ embedded-graphics = "0.7.1"
 
 [[package.metadata.esp-idf-sys.extra_components]]
 remote_component = { name = "onewire_bus", version = "^1.0.2" }
-bindings_header = "bindings.h"
-bindings_module = "onewire"
+
+
+
+[patch.crates-io]
+esp-idf-sys = { git = "https://github.com/esp-rs/esp-idf-sys" }
