@@ -1,7 +1,28 @@
+//! RMT Onewire Example
+//!
 //! Example demonstrating the use of the onewire component.
 //!
-//! Connection sketch, this example uses gpio 16, but any pin capable of
+//! In order to use this example, an overidden `Cargo.toml` must be defined with the following definitions:
+//! ```
+//! [[package.metadata.esp-idf-sys.extra_components]]
+//! remote_component = { name = "onewire_bus", version = "^1.0.2" }
+//!
+//!
+//! [patch.crates-io]
+//! esp-idf-sys = { git = "https://github.com/esp-rs/esp-idf-sys", rev = "2728b85" }
+//!
+//! ```
+//!
+//! The example can then be run with
+//! `MCU=<target> cargo run --example rmt_onewire --manifest-path /path/to/other/Cargo.toml`
+//!
+//! Below is a connection sketch, the signal pin must be externally pulled-up
+//! with a 4.7kOhm resistor.
+//! This example uses gpio 16, but any pin capable of
 //! input AND output is suitable.
+//!
+//! If the example is successful, it should print the address of each
+//! onewire device attached to the bus.
 //!
 //! ┌──────────────────────────┐
 //! │                      3.3V├───────┬─────────────┬──────────────────────┐
@@ -14,6 +35,12 @@
 //! │                          │                     │GND                   │GND
 //! │                       GND├─────────────────────┴──────────────────────┘
 //! └──────────────────────────┘
+//!
+//!
+//! This example demonstrates:
+//! * A RMT device in both TX and RX mode.
+//! * Usage of the onewire bus driver interface.
+//! * How to iterate through a device search to discover devices on the bus.
 
 use esp_idf_hal::delay::FreeRtos;
 use esp_idf_hal::onewire::{DeviceSearch, OneWireBusDriver};

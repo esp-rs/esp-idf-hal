@@ -1,5 +1,19 @@
-//! Onewire implementation based on the esp-idf component [onewire_bus](https://components.espressif.com/components/espressif/onewire_bus)
+//! RMT-based Onewire Implementation
 //!
+//! The Onewire module driver can be used to communicate with onewire (1-Wire)
+//! devices.
+//!
+//! This module is an abstraction around the esp-idf component [onewire_bus](https://components.espressif.com/components/espressif/onewire_bus)
+//! implementation. It is recommended to read the usage of the C API in this [example](https://github.com/espressif/esp-idf/tree/v5.2.2/examples/peripherals/rmt/onewire)
+//!
+//!
+//! This implementation currently supports the one-wire API from the new (v5) esp-idf API.
+//!
+//! The pin this peripheral is attached to must be
+//! externally pulled-up with a 4.7kOhm resistor.
+//!
+//! See the `examples/` folder of this repository for more.
+
 use core::marker::PhantomData;
 use core::ptr;
 
