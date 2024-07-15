@@ -66,6 +66,8 @@ crate::embedded_hal_error!(
     embedded_hal::spi::ErrorKind
 );
 
+use config::Duplex;
+
 pub trait Spi: Send {
     fn device() -> spi_host_device_t;
 }
@@ -1643,7 +1645,7 @@ where
 fn spi_read_transactions(
     words: &mut [u8],
     chunk_size: usize,
-    duplex: config::Duplex,
+    duplex: Duplex,
 ) -> impl Iterator<Item = spi_transaction_t> + '_ {
     words.chunks_mut(chunk_size).map(move |chunk| {
         spi_create_transaction(
@@ -1686,7 +1688,7 @@ fn spi_transfer_transactions<'a>(
     read: &'a mut [u8],
     write: &'a [u8],
     chunk_size: usize,
-    duplex: config::Duplex,
+    duplex: Duplex,
 ) -> impl Iterator<Item = spi_transaction_t> + 'a {
     enum OperationsIter<E, R, W> {
         Equal(E),
