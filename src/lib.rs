@@ -46,7 +46,7 @@ pub mod peripheral;
 pub mod peripherals;
 pub mod prelude;
 pub mod reset;
-#[cfg(feature = "rmt-legacy")]
+#[cfg(any(feature = "rmt-legacy", esp_idf_version_major = "4"))]
 pub mod rmt;
 //
 #[cfg(all(

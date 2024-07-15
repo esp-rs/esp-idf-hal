@@ -43,6 +43,7 @@
 //! * How to iterate through a device search to discover devices on the bus.
 
 use esp_idf_hal::delay::FreeRtos;
+#[cfg(not(any(feature = "rmt-legacy", esp_idf_version_major = "4")))]
 use esp_idf_hal::onewire::{DeviceSearch, OneWireBusDriver};
 use esp_idf_hal::peripherals::Peripherals;
 
