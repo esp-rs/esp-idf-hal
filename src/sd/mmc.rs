@@ -413,7 +413,7 @@ impl<'d> SdMmcHostDriver<'d> {
         })
     }
 
-    pub(crate) fn slot_no(&self) -> u8 {
+    pub(crate) fn slot(&self) -> u8 {
         self.slot
     }
 

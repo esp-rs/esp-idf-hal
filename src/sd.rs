@@ -44,7 +44,7 @@ pub mod config {
         esp_idf_version_major = "4",
         all(esp_idf_version_major = "5", esp_idf_version_minor = "0"),
         all(esp_idf_version_major = "5", esp_idf_version_minor = "1"),
-    )))] // For ESP-IDF v4.x, v5.0, and v5.1
+    )))] // For ESP-IDF v5.2 and later
     impl From<sdmmc_delay_phase_t> for DelayPhase {
         fn from(phase: sdmmc_delay_phase_t) -> Self {
             #[allow(non_upper_case_globals)]
@@ -75,7 +75,7 @@ pub mod config {
     }
 
     impl Voltage {
-        pub(crate) const fn as_volts(&self) -> f32 {
+        pub(crate) const fn as_native(&self) -> f32 {
             match self {
                 Self::V1P8 => 1.8,
                 Self::V3P3 => 3.3,
@@ -164,7 +164,7 @@ where
             flags: _SDMMC_HOST_FLAG_SPI | _SDMMC_HOST_FLAG_DEINIT_ARG,
             slot: host.handle() as _,
             max_freq_khz: configuration.speed_khz as _,
-            io_voltage: configuration.io_voltage.as_volts(),
+            io_voltage: configuration.io_voltage.as_native(),
             init: Some(sdspi_host_init),
             set_bus_width: None,
             get_bus_width: None,
@@ -240,9 +240,9 @@ impl<'d> SdCardDriver<SdMmcHostDriver<'d>> {
                 // Set the bit corresponding to our width and all smaller widths
                 // in case the card does not support our width, but a smaller one only
                 | (1 | (host.width() - 1)) as u32,
-            slot: host.slot_no() as _,
+            slot: host.slot() as _,
             max_freq_khz: configuration.speed_khz as _,
-            io_voltage: configuration.io_voltage.as_volts(),
+            io_voltage: configuration.io_voltage.as_native(),
             init: Some(sdmmc_host_init),
             set_bus_width: Some(sdmmc_host_set_bus_width),
             get_bus_width: Some(sdmmc_host_get_slot_width),
