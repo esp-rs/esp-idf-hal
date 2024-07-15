@@ -155,6 +155,11 @@ pub struct SpiEventSource<'d> {
     _p: PhantomData<&'d mut ()>,
 }
 
+#[cfg(any(
+    esp_idf_eth_spi_ethernet_dm9051,
+    esp_idf_eth_spi_ethernet_w5500,
+    esp_idf_eth_spi_ethernet_ksz8851snl
+))]
 impl<'d> SpiEventSource<'d> {
     /// Instead of getting informed by an interrupt pin about updates/changes from the emac, the
     /// MCU polls the emac periodically for updates.
