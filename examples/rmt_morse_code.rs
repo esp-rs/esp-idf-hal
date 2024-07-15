@@ -113,8 +113,8 @@ enum Code {
     Dash,
     WordGap,
 }
-#[cfg(any(feature = "rmt-legacy", esp_idf_version_major = "4"))]
 
+#[cfg(any(feature = "rmt-legacy", esp_idf_version_major = "4"))]
 impl Code {
     pub fn push_pulse(&self, pulses: &mut Vec<Pulse>) {
         match &self {

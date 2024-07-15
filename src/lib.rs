@@ -46,15 +46,21 @@ pub mod peripheral;
 pub mod peripherals;
 pub mod prelude;
 pub mod reset;
+
+// mutually exclusive features assert
+#[cfg(all(feature = "rmt-legacy", esp_idf_comp_espressif__onewire_bus_enabled))]
+compile_error!("the onewire component cannot be used with the legacy rmt peripheral");
+
 #[cfg(any(feature = "rmt-legacy", esp_idf_version_major = "4"))]
 pub mod rmt;
-//
+
 #[cfg(all(
     esp_idf_soc_rmt_supported,
-    not(feature = "rmt-legacy"),
+    not(esp_idf_version_major = "4"),
     esp_idf_comp_espressif__onewire_bus_enabled,
 ))]
 pub mod onewire;
+
 pub mod rom;
 pub mod spi;
 pub mod sys;

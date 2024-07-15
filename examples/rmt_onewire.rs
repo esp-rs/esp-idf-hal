@@ -43,11 +43,19 @@
 //! * How to iterate through a device search to discover devices on the bus.
 
 use esp_idf_hal::delay::FreeRtos;
-#[cfg(not(any(feature = "rmt-legacy", esp_idf_version_major = "4")))]
+#[cfg(all(
+    esp_idf_soc_rmt_supported,
+    not(feature = "rmt-legacy"),
+    esp_idf_comp_espressif__onewire_bus_enabled,
+))]
 use esp_idf_hal::onewire::{DeviceSearch, OneWireBusDriver};
 use esp_idf_hal::peripherals::Peripherals;
 
-#[cfg(not(any(feature = "rmt-legacy", esp_idf_version_major = "4")))]
+#[cfg(all(
+    esp_idf_soc_rmt_supported,
+    not(esp_idf_version_major = "4"),
+    esp_idf_comp_espressif__onewire_bus_enabled,
+))]
 fn main() -> anyhow::Result<()> {
     println!("Starting APP!");
 
@@ -66,9 +74,14 @@ fn main() -> anyhow::Result<()> {
     }
 }
 
-#[cfg(any(feature = "rmt-legacy", esp_idf_version_major = "4"))]
+#[cfg(any(
+    feature = "rmt-legacy",
+    esp_idf_version_major = "4",
+    not(esp_idf_comp_espressif__onewire_bus_enabled),
+    not(esp_idf_soc_rmt_supported),
+))]
 fn main() -> anyhow::Result<()> {
-    println!("This example requires feature `rmt-legacy` disabled or using ESP-IDF > v4.4.X");
+    println!("This example requires feature `rmt-legacy` disabled, using ESP-IDF > v4.4.X, the component included in `Cargo.toml`, or is not supported on this MCU");
 
     loop {
         std::thread::sleep(std::time::Duration::from_millis(1000));

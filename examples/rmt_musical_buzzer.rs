@@ -46,15 +46,15 @@ pub fn play_song(tx: &mut TxRmtDriver<'static>, song: &[NoteValue]) -> anyhow::R
     }
     Ok(())
 }
-#[cfg(any(feature = "rmt-legacy", esp_idf_version_major = "4"))]
 
+#[cfg(any(feature = "rmt-legacy", esp_idf_version_major = "4"))]
 pub struct NoteValueIter {
     ticks: rmt::PulseTicks,
     tone_cycles: u32,
     pause_cycles: u32,
 }
-#[cfg(any(feature = "rmt-legacy", esp_idf_version_major = "4"))]
 
+#[cfg(any(feature = "rmt-legacy", esp_idf_version_major = "4"))]
 impl NoteValueIter {
     fn new(ticks_per_sec: Hertz, note: &NoteValue) -> Self {
         // Calculate the frequency for a piezo buzzer.
@@ -76,8 +76,8 @@ impl NoteValueIter {
         }
     }
 }
-#[cfg(any(feature = "rmt-legacy", esp_idf_version_major = "4"))]
 
+#[cfg(any(feature = "rmt-legacy", esp_idf_version_major = "4"))]
 impl std::iter::Iterator for NoteValueIter {
     type Item = rmt::Symbol;
 
@@ -127,8 +127,8 @@ pub struct NoteValue {
     note: Note,
     duration: Duration,
 }
-#[cfg(any(feature = "rmt-legacy", esp_idf_version_major = "4"))]
 
+#[cfg(any(feature = "rmt-legacy", esp_idf_version_major = "4"))]
 impl NoteValue {
     pub fn play(&self, tx: &mut TxRmtDriver<'static>) -> anyhow::Result<()> {
         let ticks_hz = tx.counter_clock()?;
