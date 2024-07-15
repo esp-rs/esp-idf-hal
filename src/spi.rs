@@ -40,8 +40,9 @@ use core::cmp::{max, min, Ordering};
 use core::future::Future;
 use core::iter::once;
 use core::marker::PhantomData;
-use core::{ptr, u8};
+use core::ptr;
 
+use config::Duplex;
 use embassy_sync::mutex::Mutex;
 use embedded_hal::spi::{SpiBus, SpiDevice};
 
@@ -49,7 +50,9 @@ use esp_idf_sys::*;
 use heapless::Deque;
 
 use crate::delay::{self, Ets, BLOCK};
-use crate::gpio::{AnyOutputPin, InputPin, Level, Output, OutputMode, OutputPin, PinDriver};
+use crate::gpio::{
+    AnyIOPin, AnyOutputPin, InputPin, Level, Output, OutputMode, OutputPin, PinDriver,
+};
 use crate::interrupt::asynch::HalIsrNotification;
 use crate::interrupt::InterruptType;
 use crate::peripheral::Peripheral;
@@ -243,6 +246,11 @@ pub mod config {
         pub duplex: Duplex,
         pub bit_order: BitOrder,
         pub cs_active_high: bool,
+        /// On Half-Duplex transactions: `cs_pre_delay_us % 16`  corresponds to the number of SPI bit-cycles cs should be activated before the transmission.
+        /// On Full-Duplex transactions: `cs_pre_delay_us != 0`  will add 1 microsecond of cs activation before transmission
+        pub cs_pre_delay_us: Option<u16>, // u16 as per the C struct has a uint16_t, cf: esp-idf/components/driver/spi/include/driver/spi_master.h spi_device_interface_config_t
+        ///< Amount of SPI bit-cycles the cs should stay active after the transmission (0-16)
+        pub cs_post_delay_us: Option<u8>, // u8 as per the C struct had a uint8_t, cf: esp-idf/components/driver/spi/include/driver/spi_master.h spi_device_interface_config_t
         pub input_delay_ns: i32,
         pub polling: bool,
         pub allow_pre_post_delays: bool,
@@ -290,6 +298,22 @@ pub mod config {
             self
         }
 
+        /// On Half-Duplex transactions: `cs_pre_delay_us % 16`  corresponds to the number of SPI bit-cycles cs should be activated before the transmission
+        /// On Full-Duplex transactions: `cs_pre_delay_us != 0`  will add 1 microsecond of cs activation before transmission
+        #[must_use]
+        pub fn cs_pre_delay_us(mut self, delay_us: u16) -> Self {
+            self.cs_pre_delay_us = Some(delay_us);
+            self
+        }
+
+        /// Add an aditional Amount of SPI bit-cycles the cs should be activated after the transmission (0-16).
+        /// This only works on half-duplex transactions.
+        #[must_use]
+        pub fn cs_post_delay_us(mut self, delay_us: u8) -> Self {
+            self.cs_post_delay_us = Some(delay_us);
+            self
+        }
+
         #[must_use]
         pub fn input_delay_ns(mut self, input_delay_ns: i32) -> Self {
             self.input_delay_ns = input_delay_ns;
@@ -324,6 +348,8 @@ pub mod config {
                 cs_active_high: false,
                 duplex: Duplex::Full,
                 bit_order: BitOrder::MsbFirst,
+                cs_pre_delay_us: None,
+                cs_post_delay_us: None,
                 input_delay_ns: 0,
                 polling: true,
                 allow_pre_post_delays: false,
@@ -353,7 +379,7 @@ impl<'d> SpiDriver<'d> {
         sdi: Option<impl Peripheral<P = crate::gpio::Gpio8> + 'd>,
         config: &config::DriverConfig,
     ) -> Result<Self, EspError> {
-        let max_transfer_size = Self::new_internal(SPI1::device(), sclk, sdo, sdi, config)?;
+        let max_transfer_size = Self::new_internal(SPI1::device(), Some(sclk), sdo, sdi, config)?;
 
         Ok(Self {
             host: SPI1::device() as _,
@@ -371,7 +397,24 @@ impl<'d> SpiDriver<'d> {
         sdi: Option<impl Peripheral<P = impl InputPin> + 'd>,
         config: &config::DriverConfig,
     ) -> Result<Self, EspError> {
-        let max_transfer_size = Self::new_internal(SPI::device(), sclk, sdo, sdi, config)?;
+        let max_transfer_size = Self::new_internal(SPI::device(), Some(sclk), sdo, sdi, config)?;
+
+        Ok(Self {
+            host: SPI::device() as _,
+            max_transfer_size,
+            bus_async_lock: Mutex::new(()),
+            _p: PhantomData,
+        })
+    }
+
+    pub fn new_without_sclk<SPI: SpiAnyPins>(
+        _spi: impl Peripheral<P = SPI> + 'd,
+        sdo: impl Peripheral<P = impl OutputPin> + 'd,
+        sdi: Option<impl Peripheral<P = impl InputPin> + 'd>,
+        config: &config::DriverConfig,
+    ) -> Result<Self, EspError> {
+        let max_transfer_size =
+            Self::new_internal(SPI::device(), Option::<AnyIOPin>::None, sdo, sdi, config)?;
 
         Ok(Self {
             host: SPI::device() as _,
@@ -387,22 +430,22 @@ impl<'d> SpiDriver<'d> {
 
     fn new_internal(
         host: spi_host_device_t,
-        sclk: impl Peripheral<P = impl OutputPin> + 'd,
+        sclk: Option<impl Peripheral<P = impl OutputPin> + 'd>,
         sdo: impl Peripheral<P = impl OutputPin> + 'd,
         sdi: Option<impl Peripheral<P = impl InputPin> + 'd>,
         config: &config::DriverConfig,
     ) -> Result<usize, EspError> {
-        crate::into_ref!(sclk, sdo);
+        let sdo = sdo.into_ref();
         let sdi = sdi.map(|sdi| sdi.into_ref());
+        let sclk = sclk.map(|sclk| sclk.into_ref());
 
         let max_transfer_sz = config.dma.max_transfer_size();
         let dma_chan: spi_dma_chan_t = config.dma.into();
 
         #[allow(clippy::needless_update)]
-        #[cfg(not(esp_idf_version = "4.3"))]
         let bus_config = spi_bus_config_t {
             flags: SPICOMMON_BUSFLAG_MASTER,
-            sclk_io_num: sclk.pin(),
+            sclk_io_num: sclk.as_ref().map_or(-1, |p| p.pin()),
 
             data4_io_num: -1,
             data5_io_num: -1,
@@ -429,25 +472,6 @@ impl<'d> SpiDriver<'d> {
             ..Default::default()
         };
 
-        #[allow(clippy::needless_update)]
-        #[cfg(esp_idf_version = "4.3")]
-        #[deprecated(
-            note = "Using ESP-IDF 4.3 is untested, please upgrade to 4.4 or newer. Support will be removed in the next major release."
-        )]
-        let bus_config = spi_bus_config_t {
-            flags: SPICOMMON_BUSFLAG_MASTER,
-            sclk_io_num: sclk.pin(),
-
-            mosi_io_num: sdo.pin(),
-            miso_io_num: sdi.as_ref().map_or(-1, |p| p.pin()),
-            quadwp_io_num: -1,
-            quadhd_io_num: -1,
-
-            max_transfer_sz: max_transfer_sz as i32,
-            intr_flags: InterruptType::to_native(config.intr_flags) as _,
-            ..Default::default()
-        };
-
         esp!(unsafe { spi_bus_initialize(host, &bus_config, dma_chan) })?;
 
         Ok(max_transfer_sz)
@@ -469,6 +493,7 @@ where
     _lock: BusLock,
     handle: spi_device_handle_t,
     driver: T,
+    duplex: Duplex,
     polling: bool,
     queue_size: usize,
     _d: PhantomData<&'d ()>,
@@ -490,6 +515,8 @@ where
                 0_u32
             } | config.duplex.as_flags()
                 | config.bit_order.as_flags(),
+            cs_ena_pretrans: config.cs_pre_delay_us.unwrap_or(0),
+            cs_ena_posttrans: config.cs_post_delay_us.unwrap_or(0),
             post_cb: Some(spi_notify),
             ..Default::default()
         };
@@ -503,6 +530,7 @@ where
             _lock: lock,
             handle,
             driver,
+            duplex: config.duplex,
             polling: config.polling,
             queue_size: config.queue_size,
             _d: PhantomData,
@@ -517,7 +545,7 @@ where
 
         let chunk_size = self.driver.borrow().max_transfer_size;
 
-        let transactions = spi_read_transactions(words, chunk_size);
+        let transactions = spi_read_transactions(words, chunk_size, self.duplex);
         spi_transmit(self.handle, transactions, self.polling, self.queue_size)?;
 
         Ok(())
@@ -527,7 +555,7 @@ where
     pub async fn read_async(&mut self, words: &mut [u8]) -> Result<(), EspError> {
         let chunk_size = self.driver.borrow().max_transfer_size;
 
-        let transactions = spi_read_transactions(words, chunk_size);
+        let transactions = spi_read_transactions(words, chunk_size, self.duplex);
         core::pin::pin!(spi_transmit_async(
             self.handle,
             transactions,
@@ -581,7 +609,7 @@ where
 
         let chunk_size = self.driver.borrow().max_transfer_size;
 
-        let transactions = spi_transfer_transactions(read, write, chunk_size);
+        let transactions = spi_transfer_transactions(read, write, chunk_size, self.duplex);
         spi_transmit(self.handle, transactions, self.polling, self.queue_size)?;
 
         Ok(())
@@ -591,7 +619,7 @@ where
     pub async fn transfer_async(&mut self, read: &mut [u8], write: &[u8]) -> Result<(), EspError> {
         let chunk_size = self.driver.borrow().max_transfer_size;
 
-        let transactions = spi_transfer_transactions(read, write, chunk_size);
+        let transactions = spi_transfer_transactions(read, write, chunk_size, self.duplex);
         core::pin::pin!(spi_transmit_async(
             self.handle,
             transactions,
@@ -730,6 +758,7 @@ where
     handle: spi_device_handle_t,
     driver: T,
     cs_pin_configured: bool,
+    duplex: Duplex,
     polling: bool,
     allow_pre_post_delays: bool,
     queue_size: usize,
@@ -795,6 +824,8 @@ where
             } | config.duplex.as_flags()
                 | config.bit_order.as_flags(),
             post_cb: Some(spi_notify),
+            cs_ena_pretrans: config.cs_pre_delay_us.unwrap_or(0),
+            cs_ena_posttrans: config.cs_post_delay_us.unwrap_or(0),
             ..Default::default()
         };
 
@@ -805,6 +836,7 @@ where
             handle,
             driver,
             cs_pin_configured: cs >= 0,
+            duplex: config.duplex,
             polling: config.polling,
             allow_pre_post_delays: config.allow_pre_post_delays,
             queue_size: config.queue_size,
@@ -1074,16 +1106,18 @@ where
         }
 
         let chunk_size = self.driver.borrow().max_transfer_size;
+        let duplex = self.duplex;
 
         operations.flat_map(move |op| match op {
             Operation::Read(words) => OperationsIter::Read(
-                spi_read_transactions(words, chunk_size).map(SpiOperation::Transaction),
+                spi_read_transactions(words, chunk_size, duplex).map(SpiOperation::Transaction),
             ),
             Operation::Write(words) => OperationsIter::Write(
                 spi_write_transactions(words, chunk_size).map(SpiOperation::Transaction),
             ),
             Operation::Transfer(read, write) => OperationsIter::Transfer(
-                spi_transfer_transactions(read, write, chunk_size).map(SpiOperation::Transaction),
+                spi_transfer_transactions(read, write, chunk_size, duplex)
+                    .map(SpiOperation::Transaction),
             ),
             Operation::TransferInPlace(words) => OperationsIter::TransferInPlace(
                 spi_transfer_in_place_transactions(words, chunk_size)
@@ -1343,8 +1377,8 @@ where
         })
     }
 
-    /// Add an aditional delay of x in uSeconds before transaction
-    /// between chip select and first clk out
+    /// Add an aditional Amount of SPI bit-cycles the cs should be activated before the transmission (0-16).
+    /// This only works on half-duplex transactions.
     pub fn cs_pre_delay_us(&mut self, delay_us: u32) -> &mut Self {
         self.pre_delay_us = Some(delay_us);
 
@@ -1610,10 +1644,20 @@ where
 fn spi_read_transactions(
     words: &mut [u8],
     chunk_size: usize,
+    duplex: Duplex,
 ) -> impl Iterator<Item = spi_transaction_t> + '_ {
-    words
-        .chunks_mut(chunk_size)
-        .map(|chunk| spi_create_transaction(chunk.as_mut_ptr(), core::ptr::null(), 0, chunk.len()))
+    words.chunks_mut(chunk_size).map(move |chunk| {
+        spi_create_transaction(
+            chunk.as_mut_ptr(),
+            core::ptr::null(),
+            if duplex == Duplex::Half3Wire {
+                0
+            } else {
+                chunk.len()
+            },
+            chunk.len(),
+        )
+    })
 }
 
 fn spi_write_transactions(
@@ -1643,6 +1687,7 @@ fn spi_transfer_transactions<'a>(
     read: &'a mut [u8],
     write: &'a [u8],
     chunk_size: usize,
+    duplex: Duplex,
 ) -> impl Iterator<Item = spi_transaction_t> + 'a {
     enum OperationsIter<E, R, W> {
         Equal(E),
@@ -1676,7 +1721,7 @@ fn spi_transfer_transactions<'a>(
 
             OperationsIter::ReadLonger(
                 spi_transfer_equal_transactions(read, write, chunk_size)
-                    .chain(spi_read_transactions(read_trail, chunk_size)),
+                    .chain(spi_read_transactions(read_trail, chunk_size, duplex)),
             )
         }
         Ordering::Less => {
@@ -1729,9 +1774,6 @@ fn spi_create_transaction(
 }
 
 fn set_keep_cs_active(transaction: &mut spi_transaction_t, _keep_cs_active: bool) {
-    // This unfortunately means that this implementation is incorrect for esp-idf < 4.4.
-    // The CS pin should be kept active through transactions.
-    #[cfg(not(esp_idf_version = "4.3"))]
     if _keep_cs_active {
         transaction.flags |= SPI_TRANS_CS_KEEP_ACTIVE
     }
