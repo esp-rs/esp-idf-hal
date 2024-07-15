@@ -7,31 +7,15 @@ use crate::private::common::*;
 
 impl From<ipv4::Ipv4Addr> for Newtype<esp_ip4_addr_t> {
     fn from(ip: ipv4::Ipv4Addr) -> Self {
-        let octets = ip.octets();
-
-        let addr = ((octets[0] as u32 & 0xff) << 24)
-            | ((octets[1] as u32 & 0xff) << 16)
-            | ((octets[2] as u32 & 0xff) << 8)
-            | (octets[3] as u32 & 0xff);
-
         Newtype(esp_ip4_addr_t {
-            addr: u32::from_be(addr),
+            addr: u32::to_be(u32::from_be_bytes(ip.octets())),
         })
     }
 }
 
 impl From<Newtype<esp_ip4_addr_t>> for ipv4::Ipv4Addr {
     fn from(ip: Newtype<esp_ip4_addr_t>) -> Self {
-        let addr = u32::to_be(ip.0.addr);
-
-        let (a, b, c, d) = (
-            ((addr >> 24) & 0xff) as u8,
-            ((addr >> 16) & 0xff) as u8,
-            ((addr >> 8) & 0xff) as u8,
-            (addr & 0xff) as u8,
-        );
-
-        ipv4::Ipv4Addr::new(a, b, c, d)
+        ipv4::Ipv4Addr::from(u32::from_be(ip.0.addr))
     }
 }
 
@@ -110,5 +94,21 @@ impl From<Newtype<esp_netif_ip_info_t>> for ipv4::IpInfo {
             dns: None,
             secondary_dns: None,
         }
+    }
+}
+
+impl From<Newtype<esp_ip6_addr_t>> for core::net::Ipv6Addr {
+    fn from(value: Newtype<esp_ip6_addr_t>) -> Self {
+        let mut out = [0; 16];
+        value
+            .0
+            .addr
+            .into_iter()
+            .map(u32::from_be)
+            .flat_map(u32::to_be_bytes)
+            .zip(out.iter_mut())
+            .for_each(|(i, o)| *o = i);
+
+        core::net::Ipv6Addr::from(out)
     }
 }

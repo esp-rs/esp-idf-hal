@@ -525,9 +525,9 @@ impl<'d> WifiDriver<'d> {
                 WifiEvent::ApStopped => guard.ap = WifiApStatus::Stopped,
                 WifiEvent::StaStarted => guard.sta = WifiStaStatus::Started,
                 WifiEvent::StaStopped => guard.sta = WifiStaStatus::Stopped,
-                WifiEvent::StaConnected => guard.sta = WifiStaStatus::Connected,
-                WifiEvent::StaDisconnected => guard.sta = WifiStaStatus::Started,
-                WifiEvent::ScanDone => guard.scan = WifiScanStatus::Done,
+                WifiEvent::StaConnected(_) => guard.sta = WifiStaStatus::Connected,
+                WifiEvent::StaDisconnected(_) => guard.sta = WifiStaStatus::Started,
+                WifiEvent::ScanDone(_) => guard.scan = WifiScanStatus::Done,
                 WifiEvent::StaWpsSuccess(_)
                 | WifiEvent::StaWpsFailed
                 | WifiEvent::StaWpsTimeout
@@ -1884,6 +1884,127 @@ impl<'d> NetifStatus for EspWifi<'d> {
 
 #[derive(Copy, Clone)]
 #[repr(transparent)]
+pub struct StaScanDoneRef(wifi_event_sta_scan_done_t);
+
+impl StaScanDoneRef {
+    /// Whether this scan is a success or not
+    pub fn is_successful(&self) -> bool {
+        self.0.status == 0
+    }
+
+    /// Number of scan results
+    pub fn len(&self) -> usize {
+        self.0.number as usize
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+
+    /// Sequential identifier of the scan
+    pub fn id(&self) -> u8 {
+        self.0.scan_id
+    }
+}
+
+impl fmt::Debug for StaScanDoneRef {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("StaScanDoneRef")
+            .field("is_successful", &self.is_successful())
+            .field("len", &self.len())
+            .field("id", &self.id())
+            .finish()
+    }
+}
+
+#[derive(Copy, Clone)]
+#[repr(transparent)]
+pub struct StaConnectedRef(wifi_event_sta_connected_t);
+
+impl StaConnectedRef {
+    /// SSID of the AP we connected to
+    pub fn ssid(&self) -> &[u8] {
+        &self.0.ssid.as_slice()[..self.0.ssid_len as usize]
+    }
+
+    /// BSSID (or MAC address) of the AP we connected to
+    pub fn bssid(&self) -> [u8; 6] {
+        self.0.bssid
+    }
+
+    /// Channel used for the connection to the AP
+    pub fn channel(&self) -> u8 {
+        self.0.channel
+    }
+
+    /// Authentication method used for connecting to the AP
+    pub fn authmode(&self) -> AuthMethod {
+        Option::<AuthMethod>::from(Newtype(self.0.authmode)).unwrap()
+    }
+
+    #[cfg(not(esp_idf_version_major = "4"))]
+    /// Association ID given by the AP
+    pub fn aid(&self) -> u16 {
+        self.0.aid
+    }
+}
+
+impl fmt::Debug for StaConnectedRef {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let mut d = f.debug_struct("StaConnectedRef");
+
+        let d = d
+            .field("ssid", &alloc::string::String::from_utf8_lossy(self.ssid()))
+            .field("bssid", &self.bssid())
+            .field("channel", &self.channel())
+            .field("authmode", &self.authmode());
+
+        #[cfg(not(esp_idf_version_major = "4"))]
+        let d = d.field("aid", &self.aid());
+
+        d.finish()
+    }
+}
+
+#[derive(Copy, Clone)]
+#[repr(transparent)]
+pub struct StaDisconnectedRef(wifi_event_sta_disconnected_t);
+
+impl StaDisconnectedRef {
+    /// SSID of the AP we disconnected from
+    pub fn ssid(&self) -> &[u8] {
+        &self.0.ssid.as_slice()[..self.0.ssid_len as usize]
+    }
+
+    /// BSSID (or MAC address) of the AP we disconnected from
+    pub fn bssid(&self) -> [u8; 6] {
+        self.0.bssid
+    }
+
+    /// The reason for disconnection
+    pub fn reason(&self) -> u16 {
+        self.0.reason as u16
+    }
+
+    /// RSSI at the time of disconnection
+    pub fn rssi(&self) -> i8 {
+        self.0.rssi
+    }
+}
+
+impl fmt::Debug for StaDisconnectedRef {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("StaDisconnectedRef")
+            .field("ssid", &alloc::string::String::from_utf8_lossy(self.ssid()))
+            .field("bssid", &self.bssid())
+            .field("reason", &self.reason())
+            .field("rssi", &self.rssi())
+            .finish()
+    }
+}
+
+#[derive(Copy, Clone)]
+#[repr(transparent)]
 pub struct ApStaConnectedRef(wifi_event_ap_staconnected_t);
 
 impl ApStaConnectedRef {
@@ -2065,12 +2186,12 @@ impl fmt::Debug for ApStaConnectedRef {
 pub enum WifiEvent<'a> {
     Ready,
 
-    ScanDone,
+    ScanDone(&'a StaScanDoneRef),
 
     StaStarted,
     StaStopped,
-    StaConnected,
-    StaDisconnected,
+    StaConnected(&'a StaConnectedRef),
+    StaDisconnected(&'a StaDisconnectedRef),
     StaAuthmodeChanged,
     StaBssRssiLow,
     StaBeaconTimeout,
@@ -2115,11 +2236,15 @@ impl<'a> EspEventDeserializer for WifiEvent<'a> {
 
         match event_id {
             wifi_event_t_WIFI_EVENT_WIFI_READY => WifiEvent::Ready,
-            wifi_event_t_WIFI_EVENT_SCAN_DONE => WifiEvent::ScanDone,
+            wifi_event_t_WIFI_EVENT_SCAN_DONE => WifiEvent::ScanDone(unsafe { data.as_payload() }),
             wifi_event_t_WIFI_EVENT_STA_START => WifiEvent::StaStarted,
             wifi_event_t_WIFI_EVENT_STA_STOP => WifiEvent::StaStopped,
-            wifi_event_t_WIFI_EVENT_STA_CONNECTED => WifiEvent::StaConnected,
-            wifi_event_t_WIFI_EVENT_STA_DISCONNECTED => WifiEvent::StaDisconnected,
+            wifi_event_t_WIFI_EVENT_STA_CONNECTED => {
+                WifiEvent::StaConnected(unsafe { data.as_payload() })
+            }
+            wifi_event_t_WIFI_EVENT_STA_DISCONNECTED => {
+                WifiEvent::StaDisconnected(unsafe { data.as_payload() })
+            }
             wifi_event_t_WIFI_EVENT_STA_AUTHMODE_CHANGE => WifiEvent::StaAuthmodeChanged,
             wifi_event_t_WIFI_EVENT_STA_WPS_ER_SUCCESS => {
                 let credentials: &[wifi_event_sta_wps_er_success_t__bindgen_ty_1] = data
@@ -2149,26 +2274,10 @@ impl<'a> EspEventDeserializer for WifiEvent<'a> {
             wifi_event_t_WIFI_EVENT_AP_START => WifiEvent::ApStarted,
             wifi_event_t_WIFI_EVENT_AP_STOP => WifiEvent::ApStopped,
             wifi_event_t_WIFI_EVENT_AP_STACONNECTED => {
-                let payload = unsafe {
-                    (data.payload.unwrap() as *const _ as *const wifi_event_ap_staconnected_t)
-                        .as_ref()
-                };
-                WifiEvent::ApStaConnected(unsafe {
-                    core::mem::transmute::<&wifi_event_ap_staconnected_t, &ApStaConnectedRef>(
-                        payload.unwrap(),
-                    )
-                })
+                WifiEvent::ApStaConnected(unsafe { data.as_payload() })
             }
             wifi_event_t_WIFI_EVENT_AP_STADISCONNECTED => {
-                let payload = unsafe {
-                    (data.payload.unwrap() as *const _ as *const wifi_event_ap_stadisconnected_t)
-                        .as_ref()
-                };
-                WifiEvent::ApStaDisconnected(unsafe {
-                    core::mem::transmute::<&wifi_event_ap_stadisconnected_t, &ApStaDisconnectedRef>(
-                        payload.unwrap(),
-                    )
-                })
+                WifiEvent::ApStaDisconnected(unsafe { data.as_payload() })
             }
             wifi_event_t_WIFI_EVENT_AP_PROBEREQRECVED => WifiEvent::ApProbeRequestReceived,
             wifi_event_t_WIFI_EVENT_FTM_REPORT => WifiEvent::FtmReport,

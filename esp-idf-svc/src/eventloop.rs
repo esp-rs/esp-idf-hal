@@ -246,7 +246,7 @@ impl<'a> EspEvent<'a> {
     ///
     /// Care should be taken to only call this function on fetch data that one is certain to be
     /// of type `P`
-    pub unsafe fn as_payload<P: Copy + Send + 'static>(&self) -> &P {
+    pub unsafe fn as_payload<P: Copy + Send + 'static>(&self) -> &'a P {
         let payload: &P = if mem::size_of::<P>() > 0 {
             self.payload.unwrap() as *const _ as *const P
         } else {

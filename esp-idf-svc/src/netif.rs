@@ -518,6 +518,11 @@ impl RawHandle for EspNetif {
 pub struct ApStaIpAssignment<'a>(&'a ip_event_ap_staipassigned_t);
 
 impl ApStaIpAssignment<'_> {
+    #[cfg(not(esp_idf_version_major = "4"))]
+    pub fn netif_handle(&self) -> *mut esp_netif_t {
+        self.0.esp_netif
+    }
+
     pub fn ip(&self) -> ipv4::Ipv4Addr {
         ipv4::Ipv4Addr::from(Newtype(self.0.ip))
     }
@@ -602,6 +607,10 @@ impl<'a> DhcpIp6Assignment<'a> {
         self.0.esp_netif
     }
 
+    pub fn addr(&self) -> core::net::Ipv6Addr {
+        Newtype(self.0.ip6_info.ip).into()
+    }
+
     pub fn ip(&self) -> [u32; 4] {
         self.0.ip6_info.ip.addr
     }
@@ -619,7 +628,7 @@ impl<'a> fmt::Debug for DhcpIp6Assignment<'a> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("DhcpIp6Assignment")
             .field("netif_handle", &self.netif_handle())
-            .field("ip", &self.ip())
+            .field("addr", &self.addr())
             .field("ip_zone", &self.ip_zone())
             .field("ip_index", &self.ip_index())
             .finish()
@@ -649,6 +658,9 @@ impl<'a> IpEvent<'a> {
 
     pub fn handle(&self) -> Option<*mut esp_netif_t> {
         match self {
+            #[cfg(not(esp_idf_version_major = "4"))]
+            Self::ApStaIpAssigned(assignment) => Some(assignment.netif_handle()),
+            #[cfg(esp_idf_version_major = "4")]
             Self::ApStaIpAssigned(_) => None,
             Self::DhcpIpAssigned(assignment) => Some(assignment.netif_handle()),
             Self::DhcpIp6Assigned(assignment) => Some(assignment.netif_handle()),
