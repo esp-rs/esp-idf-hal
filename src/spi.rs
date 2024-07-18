@@ -16,7 +16,7 @@
 //! |   | 1-3 devices      |           Y          |              N               |              Y             |         N         |
 //! |   | 4-6 devices      |    Only on esp32CX   |              N               |              Y             |         N         |
 //! |   | More than 6      |           N          |              N               |              Y             |         N         |
-//! |   | DMA              |           N          |              N               |              N             |         N         |
+//! |   | DMA              |           Y          |              Y               |              Y             |         Y         |
 //! |   | Polling transmit |           Y          |              Y               |              Y             |         Y         |
 //! |   | ISR transmit     |           Y          |              Y               |              Y             |         Y         |
 //! |   | Async support*   |           Y          |              Y               |              Y             |         Y         |
