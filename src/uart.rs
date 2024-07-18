@@ -3,7 +3,12 @@
 //! Controls UART peripherals (UART0, UART1, UART2).
 //! Notice that UART0 is typically already used for loading firmware and logging.
 //! Therefore use UART1 and UART2 in your application.
+//!
 //! Any pin can be used for `rx` and `tx`.
+//! Indeed, all pins of an ESP are equal when it comes to UART and can be used
+//! for it equivalently using ESP-IDF.
+//! Having to deal with predefined UART configurations is just a limitation of
+//! the Arduino framework.
 //!
 //! # Example
 //!
