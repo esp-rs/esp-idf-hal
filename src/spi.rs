@@ -66,6 +66,8 @@ crate::embedded_hal_error!(
     embedded_hal::spi::ErrorKind
 );
 
+use config::Duplex;
+
 pub trait Spi: Send {
     fn device() -> spi_host_device_t;
 }
@@ -492,6 +494,7 @@ where
     _lock: BusLock,
     handle: spi_device_handle_t,
     driver: T,
+    duplex: Duplex,
     polling: bool,
     queue_size: usize,
     _d: PhantomData<&'d ()>,
@@ -528,6 +531,7 @@ where
             _lock: lock,
             handle,
             driver,
+            duplex: config.duplex,
             polling: config.polling,
             queue_size: config.queue_size,
             _d: PhantomData,
@@ -542,7 +546,7 @@ where
 
         let chunk_size = self.driver.borrow().max_transfer_size;
 
-        let transactions = spi_read_transactions(words, chunk_size);
+        let transactions = spi_read_transactions(words, chunk_size, self.duplex);
         spi_transmit(self.handle, transactions, self.polling, self.queue_size)?;
 
         Ok(())
@@ -552,7 +556,7 @@ where
     pub async fn read_async(&mut self, words: &mut [u8]) -> Result<(), EspError> {
         let chunk_size = self.driver.borrow().max_transfer_size;
 
-        let transactions = spi_read_transactions(words, chunk_size);
+        let transactions = spi_read_transactions(words, chunk_size, self.duplex);
         core::pin::pin!(spi_transmit_async(
             self.handle,
             transactions,
@@ -606,7 +610,7 @@ where
 
         let chunk_size = self.driver.borrow().max_transfer_size;
 
-        let transactions = spi_transfer_transactions(read, write, chunk_size);
+        let transactions = spi_transfer_transactions(read, write, chunk_size, self.duplex);
         spi_transmit(self.handle, transactions, self.polling, self.queue_size)?;
 
         Ok(())
@@ -616,7 +620,7 @@ where
     pub async fn transfer_async(&mut self, read: &mut [u8], write: &[u8]) -> Result<(), EspError> {
         let chunk_size = self.driver.borrow().max_transfer_size;
 
-        let transactions = spi_transfer_transactions(read, write, chunk_size);
+        let transactions = spi_transfer_transactions(read, write, chunk_size, self.duplex);
         core::pin::pin!(spi_transmit_async(
             self.handle,
             transactions,
@@ -755,6 +759,7 @@ where
     handle: spi_device_handle_t,
     driver: T,
     cs_pin_configured: bool,
+    duplex: Duplex,
     polling: bool,
     allow_pre_post_delays: bool,
     queue_size: usize,
@@ -832,6 +837,7 @@ where
             handle,
             driver,
             cs_pin_configured: cs >= 0,
+            duplex: config.duplex,
             polling: config.polling,
             allow_pre_post_delays: config.allow_pre_post_delays,
             queue_size: config.queue_size,
@@ -1101,16 +1107,18 @@ where
         }
 
         let chunk_size = self.driver.borrow().max_transfer_size;
+        let duplex = self.duplex;
 
         operations.flat_map(move |op| match op {
             Operation::Read(words) => OperationsIter::Read(
-                spi_read_transactions(words, chunk_size).map(SpiOperation::Transaction),
+                spi_read_transactions(words, chunk_size, duplex).map(SpiOperation::Transaction),
             ),
             Operation::Write(words) => OperationsIter::Write(
                 spi_write_transactions(words, chunk_size).map(SpiOperation::Transaction),
             ),
             Operation::Transfer(read, write) => OperationsIter::Transfer(
-                spi_transfer_transactions(read, write, chunk_size).map(SpiOperation::Transaction),
+                spi_transfer_transactions(read, write, chunk_size, duplex)
+                    .map(SpiOperation::Transaction),
             ),
             Operation::TransferInPlace(words) => OperationsIter::TransferInPlace(
                 spi_transfer_in_place_transactions(words, chunk_size)
@@ -1637,12 +1645,17 @@ where
 fn spi_read_transactions(
     words: &mut [u8],
     chunk_size: usize,
+    duplex: Duplex,
 ) -> impl Iterator<Item = spi_transaction_t> + '_ {
-    words.chunks_mut(chunk_size).map(|chunk| {
+    words.chunks_mut(chunk_size).map(move |chunk| {
         spi_create_transaction(
             chunk.as_mut_ptr(),
             core::ptr::null(),
-            chunk.len(),
+            if duplex == Duplex::Half3Wire {
+                0
+            } else {
+                chunk.len()
+            },
             chunk.len(),
         )
     })
@@ -1675,6 +1688,7 @@ fn spi_transfer_transactions<'a>(
     read: &'a mut [u8],
     write: &'a [u8],
     chunk_size: usize,
+    duplex: Duplex,
 ) -> impl Iterator<Item = spi_transaction_t> + 'a {
     enum OperationsIter<E, R, W> {
         Equal(E),
@@ -1708,7 +1722,7 @@ fn spi_transfer_transactions<'a>(
 
             OperationsIter::ReadLonger(
                 spi_transfer_equal_transactions(read, write, chunk_size)
-                    .chain(spi_read_transactions(read_trail, chunk_size)),
+                    .chain(spi_read_transactions(read_trail, chunk_size, duplex)),
             )
         }
         Ordering::Less => {
