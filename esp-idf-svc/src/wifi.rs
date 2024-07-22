@@ -950,8 +950,6 @@ impl<'d> WifiDriver<'d> {
 
         let fetched_count = self.fetch_scan_result(&mut ap_infos_raw)?;
 
-        self.status.lock().scan = WifiScanStatus::Idle;
-
         let result = ap_infos_raw[..fetched_count]
             .iter()
             .map::<Result<AccessPointInfo, Utf8Error>, _>(|ap_info_raw| {
