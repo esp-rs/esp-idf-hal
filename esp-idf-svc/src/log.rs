@@ -1,12 +1,17 @@
 //! Logging
 use core::fmt::Write;
 
-use ::log::{Level, LevelFilter, Metadata, Record};
+use alloc::collections::BTreeMap;
+use alloc::string::String;
 
-use crate::sys::*;
+use ::log::{Level, LevelFilter, Metadata, Record};
 
 use crate::private::common::*;
 use crate::private::cstr::*;
+use crate::private::mutex::Mutex;
+use crate::sys::*;
+
+extern crate alloc;
 
 /// Exposes the newlib stdout file descriptor to allow writing formatted
 /// messages to stdout without a std dependency or allocation
@@ -114,14 +119,26 @@ impl From<Level> for Newtype<esp_log_level_t> {
     }
 }
 
-static LOGGER: EspLogger = EspLogger;
+static LOGGER: EspLogger = EspLogger::new();
 
-pub struct EspLogger;
+pub struct EspLogger {
+    // esp-idf function `esp_log_level_get` builds a cache using the address
+    // of the target and not doing a string compare. This means we need to
+    // build a cache of our own mapping the str value to a consistant
+    // Cstr value.
+    cache: Mutex<BTreeMap<String, CString>>,
+}
 
 unsafe impl Send for EspLogger {}
 unsafe impl Sync for EspLogger {}
 
 impl EspLogger {
+    const fn new() -> Self {
+        Self {
+            cache: Mutex::new(BTreeMap::new()),
+        }
+    }
+
     pub fn initialize_default() {
         ::log::set_logger(&LOGGER)
             .map(|()| LOGGER.initialize())
@@ -141,7 +158,19 @@ impl EspLogger {
         target: impl AsRef<str>,
         level_filter: LevelFilter,
     ) -> Result<(), EspError> {
-        let ctarget = to_cstring_arg(target.as_ref())?;
+        let target = target.as_ref();
+
+        let mut cache = self.cache.lock();
+
+        let ctarget = loop {
+            if let Some(ctarget) = cache.get(target) {
+                break ctarget;
+            }
+
+            let ctarget = to_cstring_arg(target)?;
+
+            cache.insert(target.into(), ctarget);
+        };
 
         unsafe {
             esp_log_level_set(
@@ -180,19 +209,10 @@ impl EspLogger {
         }
     }
 
-    fn should_log(record: &Record) -> bool {
-        use crate::private::mutex::Mutex;
-        use alloc::collections::BTreeMap;
-
-        // esp-idf function `esp_log_level_get` builds a cache using the address
-        // of the target and not doing a string compare.  This means we need to
-        // build a cache of our own mapping the str value to a consistant
-        // Cstr value.
-        static TARGET_CACHE: Mutex<BTreeMap<alloc::string::String, CString>> =
-            Mutex::new(BTreeMap::new());
+    fn should_log(&self, record: &Record) -> bool {
         let level = Newtype::<esp_log_level_t>::from(record.level()).0;
 
-        let mut cache = TARGET_CACHE.lock();
+        let mut cache = self.cache.lock();
 
         let ctarget = loop {
             if let Some(ctarget) = cache.get(record.target()) {
@@ -219,7 +239,7 @@ impl ::log::Log for EspLogger {
     fn log(&self, record: &Record) {
         let metadata = record.metadata();
 
-        if self.enabled(metadata) && Self::should_log(record) {
+        if self.enabled(metadata) && self.should_log(record) {
             let marker = Self::get_marker(metadata.level());
             let timestamp = unsafe { esp_log_timestamp() };
             let target = record.metadata().target();
