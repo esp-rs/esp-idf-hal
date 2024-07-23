@@ -25,7 +25,7 @@ fn main() -> Result<(), anyhow::Error> {
 
     // `async-io` uses the ESP IDF `eventfd` syscall to implement async IO.
     // If you use `tokio`, you still have to do the same as it also uses the `eventfd` syscall
-    esp_idf_svc::io::vfs::initialize_eventfd(5).unwrap();
+    let _mounted_eventfs = esp_idf_svc::io::vfs::MountedEventfs::mount(5)?;
 
     // This thread is necessary because the ESP IDF main task thread is running with a very low priority that cannot be raised
     // (lower than the hidden posix thread in `async-io`)

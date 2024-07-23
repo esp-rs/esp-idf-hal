@@ -1,49 +1,95 @@
 #[cfg(all(esp32, esp_idf_soc_sdmmc_host_supported))]
 fn main() -> anyhow::Result<()> {
-    use esp_idf_svc::{
-        fs::{Fat, FatConfiguration},
-        hal::{
-            gpio::{self, AnyIOPin},
-            prelude::*,
-        },
-        log::EspLogger,
-        sd::{host::SdHost, mmc::SlotConfiguration, SdConfiguration},
-    };
+    use std::fs::{read_dir, File};
+    use std::io::{Read, Seek, Write};
 
-    use std::{fs::File, io::Write};
+    use esp_idf_svc::fs::fatfs::Fatfs;
+    use esp_idf_svc::hal::gpio;
+    use esp_idf_svc::hal::prelude::*;
+    use esp_idf_svc::hal::sd::{
+        mmc::SdMmcHostConfiguration, mmc::SdMmcHostDriver, SdCardConfiguration, SdCardDriver,
+    };
+    use esp_idf_svc::io::vfs::MountedFatfs;
+    use esp_idf_svc::log::EspLogger;
+
+    use log::info;
 
     esp_idf_svc::sys::link_patches();
+
     EspLogger::initialize_default();
 
     let peripherals = Peripherals::take()?;
     let pins = peripherals.pins;
 
-    let slot = SlotConfiguration::new_slot_0(
-        pins.gpio11,
-        pins.gpio6,
-        pins.gpio7,
-        Some(pins.gpio8),
-        Some(pins.gpio9),
-        Some(pins.gpio10),
-        Option::<gpio::Gpio16>::None,
-        Option::<gpio::Gpio17>::None,
-        Option::<gpio::Gpio15>::None,
-        Option::<gpio::Gpio18>::None,
-        Option::<AnyIOPin>::None,
-        Option::<AnyIOPin>::None,
-    );
+    let sd_card_driver = SdCardDriver::new_mmc(
+        // => Data width = 4 bits
+        SdMmcHostDriver::new_slot1_4bits(
+            peripherals.sdmmc1,
+            pins.gpio15,
+            pins.gpio14,
+            pins.gpio2,
+            pins.gpio4,
+            pins.gpio12,
+            pins.gpio13,
+            None::<gpio::AnyIOPin>,
+            None::<gpio::AnyIOPin>,
+            &SdMmcHostConfiguration::new(),
+        )?,
+        // => Data width = 1 bit
+        // Comment out the above configuration and uncomment this block
+        // if you have connected only the d0 pin
+        // SdMmcHostDriver::new_slot1_1bit(
+        //     peripherals.sdmmc1,
+        //     pins.gpio15,
+        //     pins.gpio14,
+        //     pins.gpio2,
+        //     None::<gpio::AnyIOPin>,
+        //     None::<gpio::AnyIOPin>,
+        //     &SdMmcHostConfiguration::new(),
+        // )?,
+        &SdCardConfiguration::new(),
+    )?;
 
-    let host_config = SdConfiguration::new();
+    // Keep it around or else it will be dropped and unmounted
+    let _mounted_fatfs = MountedFatfs::mount(Fatfs::new_sdcard(0, sd_card_driver)?, "/sdcard", 4)?;
 
-    let host = SdHost::new_with_mmc(&host_config, slot);
+    let content = b"Hello, world!";
 
-    let fat_config = FatConfiguration::new();
+    {
+        let mut file = File::create("/sdcard/test.txt")?;
 
-    let _fat = Fat::mount(fat_config, host, "/");
+        info!("File {file:?} created");
 
-    let mut file = File::create("/test.txt")?;
+        file.write_all(content).expect("Write failed");
 
-    file.write_all(b"Hello, world!")?;
+        info!("File {file:?} written with {content:?}");
+
+        file.seek(std::io::SeekFrom::Start(0)).expect("Seek failed");
+
+        info!("File {file:?} seeked");
+    }
+
+    {
+        let mut file = File::open("/sdcard/test.txt")?;
+
+        info!("File {file:?} opened");
+
+        let mut file_content = String::new();
+
+        file.read_to_string(&mut file_content).expect("Read failed");
+
+        info!("File {file:?} read: {file_content}");
+
+        assert_eq!(file_content.as_bytes(), content);
+    }
+
+    {
+        let directory = read_dir("/sdcard")?;
+
+        for entry in directory {
+            log::info!("Entry: {:?}", entry?.file_name());
+        }
+    }
 
     Ok(())
 }

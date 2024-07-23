@@ -1,18 +1,20 @@
 #[cfg(esp32)]
 fn main() -> anyhow::Result<()> {
-    use esp_idf_svc::{
-        fs::{Fat, FatConfiguration},
-        hal::{
-            gpio,
-            prelude::*,
-            spi::{config::DriverConfig, Dma, SpiDriver},
-        },
-        log::EspLogger,
-        sd::{host::SdHost, spi::SpiDevice, SdConfiguration},
-    };
-    use std::{fs::File, io::Write};
+    use std::fs::{read_dir, File};
+    use std::io::{Read, Seek, Write};
+
+    use esp_idf_svc::fs::fatfs::Fatfs;
+    use esp_idf_svc::hal::gpio::AnyIOPin;
+    use esp_idf_svc::hal::prelude::*;
+    use esp_idf_svc::hal::sd::{spi::SdSpiHostDriver, SdCardConfiguration, SdCardDriver};
+    use esp_idf_svc::hal::spi::{config::DriverConfig, Dma, SpiDriver};
+    use esp_idf_svc::io::vfs::MountedFatfs;
+    use esp_idf_svc::log::EspLogger;
+
+    use log::info;
 
     esp_idf_svc::sys::link_patches();
+
     EspLogger::initialize_default();
 
     let peripherals = Peripherals::take()?;
@@ -20,37 +22,69 @@ fn main() -> anyhow::Result<()> {
 
     let spi_driver = SpiDriver::new(
         peripherals.spi3,
+        pins.gpio18,
         pins.gpio23,
-        pins.gpio19,
-        Some(pins.gpio18),
-        &DriverConfig::default().dma(Dma::Auto(0)),
+        Some(pins.gpio19),
+        &DriverConfig::default().dma(Dma::Auto(4096)),
     )?;
 
-    let spi_device = SpiDevice::new(
-        spi_driver,
-        pins.gpio13,
-        Option::<gpio::AnyInputPin>::None,
-        Option::<gpio::AnyInputPin>::None,
-        Option::<gpio::AnyInputPin>::None,
-        #[cfg(not(any(
-            esp_idf_version_major = "4",
-            all(esp_idf_version_major = "5", esp_idf_version_minor = "0"),
-            all(esp_idf_version_major = "5", esp_idf_version_minor = "1"),
-        )))] // For ESP-IDF v5.2 and later
-        Option::<bool>::None,
-    );
+    let sd_card_driver = SdCardDriver::new_spi(
+        SdSpiHostDriver::new(
+            spi_driver,
+            Some(pins.gpio5),
+            AnyIOPin::none(),
+            AnyIOPin::none(),
+            AnyIOPin::none(),
+            #[cfg(not(any(
+                esp_idf_version_major = "4",
+                all(esp_idf_version_major = "5", esp_idf_version_minor = "0"),
+                all(esp_idf_version_major = "5", esp_idf_version_minor = "1"),
+            )))] // For ESP-IDF v5.2 and later
+            None,
+        )?,
+        &SdCardConfiguration::new(),
+    )?;
 
-    let host_config = SdConfiguration::new();
+    // Keep it around or else it will be dropped and unmounted
+    let _mounted_fatfs = MountedFatfs::mount(Fatfs::new_sdcard(0, sd_card_driver)?, "/sdcard", 4)?;
 
-    let host = SdHost::new_with_spi(&host_config, spi_device);
+    let content = b"Hello, world!";
 
-    let fat_configuration = FatConfiguration::new();
+    {
+        let mut file = File::create("/sdcard/test.txt")?;
 
-    let _fat = Fat::mount(fat_configuration, host, "/")?;
+        info!("File {file:?} created");
 
-    let mut file = File::create("/test.txt")?;
+        file.write_all(content).expect("Write failed");
 
-    file.write_all(b"Hello, world!")?;
+        info!("File {file:?} written with {content:?}");
+
+        file.seek(std::io::SeekFrom::Start(0)).expect("Seek failed");
+
+        info!("File {file:?} seeked");
+    }
+
+    {
+        let mut file = File::open("/sdcard/test.txt")?;
+
+        info!("File {file:?} opened");
+
+        let mut file_content = String::new();
+
+        file.read_to_string(&mut file_content).expect("Read failed");
+
+        info!("File {file:?} read: {file_content}");
+
+        assert_eq!(file_content.as_bytes(), content);
+    }
+
+    {
+        let directory = read_dir("/sdcard")?;
+
+        for entry in directory {
+            log::info!("Entry: {:?}", entry?.file_name());
+        }
+    }
 
     Ok(())
 }

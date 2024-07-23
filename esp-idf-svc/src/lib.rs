@@ -58,6 +58,8 @@ pub mod espnow;
 pub mod eth;
 #[cfg(all(feature = "alloc", esp_idf_comp_esp_event_enabled))]
 pub mod eventloop;
+#[cfg(feature = "experimental")]
+pub mod fs;
 pub mod hal;
 pub mod handle;
 #[cfg(feature = "alloc")]
@@ -102,10 +104,5 @@ pub mod tls;
 ))]
 pub mod wifi;
 pub mod ws;
-
-#[cfg(all(feature = "alloc", esp_idf_comp_vfs_enabled))]
-pub mod fs;
-
-pub mod sd;
 
 mod private;
