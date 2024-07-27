@@ -42,14 +42,18 @@
 //! * Usage of the onewire bus driver interface.
 //! * How to iterate through a device search to discover devices on the bus.
 
-use esp_idf_hal::delay::FreeRtos;
+use std::borrow::Borrow;
+use std::time::Duration;
+
 #[cfg(all(
     esp_idf_soc_rmt_supported,
     not(feature = "rmt-legacy"),
     esp_idf_comp_espressif__onewire_bus_enabled,
 ))]
-use esp_idf_hal::onewire::{DeviceSearch, OneWireBusDriver};
+use esp_idf_hal::onewire::{OWDevice, OWDriver};
 use esp_idf_hal::peripherals::Peripherals;
+use esp_idf_hal::{delay::FreeRtos, onewire::OWCommand};
+use esp_idf_sys::EspError;
 
 #[cfg(all(
     esp_idf_soc_rmt_supported,
@@ -63,13 +67,22 @@ fn main() -> anyhow::Result<()> {
 
     let onewire_gpio_pin = peripherals.pins.gpio16;
 
-    let mut rmt_onewire: OneWireBusDriver = OneWireBusDriver::new(onewire_gpio_pin)?;
-    let search: DeviceSearch = rmt_onewire.search()?;
-
-    for device in search {
-        println!("Found Device: {}", device.address());
+    let onewire_bus: OWDriver = OWDriver::new(onewire_gpio_pin)?;
+    let mut search = onewire_bus.search()?;
+    let device = search.next();
+    if device.is_none() {
+        println!("No device found");
+        return Ok(());
     }
+    let device = OWDevice::new(device.unwrap(), &onewire_bus);
+    // let device = OWDevice::new(search.next()?, &onewire_bus);
+    // for device in search {
+    println!("Found Device: {:?}", device);
+
     loop {
+        ds18b20_trigger_temp_conversion(&device, &onewire_bus)?;
+        let temp = ds18b20_get_temperature(&device, &onewire_bus)?;
+        println!("Temperature: {}", temp);
         FreeRtos::delay_ms(3000);
     }
 }
@@ -86,4 +99,75 @@ fn main() -> anyhow::Result<()> {
     loop {
         std::thread::sleep(std::time::Duration::from_millis(1000));
     }
+}
+
+fn ds18b20_send_command<'a>(
+    device: &OWDevice<'a, impl Borrow<OWDriver<'a>>>,
+    bus: &OWDriver,
+    cmd: u8,
+) -> Result<(), EspError> {
+    let mut buf = [0; 10];
+    buf[0] = OWCommand::MatchRom as _;
+    let addr = device.address().to_le_bytes();
+    buf[1..9].copy_from_slice(&addr);
+    buf[9] = cmd;
+    println!(
+        "seend command{cmd} to addr {} [{:?}], full_msg = {:?}",
+        device.address(),
+        addr,
+        buf
+    );
+    let write_size = bus.write(&buf)?;
+
+    println!("Sent {write_size} bytes");
+
+    Ok(())
+}
+
+#[allow(dead_code)]
+#[repr(u8)]
+enum Ds18b20Command {
+    ConvertTemp = 0x44,
+    WriteScratch = 0x4e,
+    ReadScratch = 0xbe,
+}
+
+fn ds18b20_trigger_temp_conversion<'a>(
+    device: &OWDevice<'a, impl Borrow<OWDriver<'a>>>,
+    bus: &OWDriver,
+) -> Result<(), EspError> {
+    // reset bus and check if the ds18b20 is present
+    bus.reset()?;
+    println!(
+        "Bus reset, bus:{:?} device bus: {:?}",
+        bus,
+        device.bus().borrow()
+    );
+
+    ds18b20_send_command(device, bus, Ds18b20Command::ConvertTemp as u8)?;
+
+    // delay proper time for temp conversion,
+    // assume max resolution (12-bits)
+    std::thread::sleep(Duration::from_millis(800));
+
+    Ok(())
+}
+
+fn ds18b20_get_temperature<'a>(
+    device: &OWDevice<'a, impl Borrow<OWDriver<'a>>>,
+    bus: &OWDriver,
+) -> Result<f32, EspError> {
+    bus.reset()?;
+
+    ds18b20_send_command(device, bus, Ds18b20Command::ReadScratch as u8)?;
+
+    let mut buf = [0u8; 10];
+    bus.read(&mut buf)?;
+    println!("buffer = {buf:?}");
+    let lsb = buf[0];
+    let msb = buf[1];
+
+    let temp_raw: u16 = (u16::from(msb) << 8) | u16::from(lsb);
+
+    Ok(f32::from(temp_raw) / 16.0)
 }
