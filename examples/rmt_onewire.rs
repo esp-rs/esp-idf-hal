@@ -45,14 +45,14 @@
 use std::borrow::Borrow;
 use std::time::Duration;
 
+use esp_idf_hal::delay::FreeRtos;
 #[cfg(all(
     esp_idf_soc_rmt_supported,
     not(feature = "rmt-legacy"),
     esp_idf_comp_espressif__onewire_bus_enabled,
 ))]
-use esp_idf_hal::onewire::{OWDevice, OWDriver};
+use esp_idf_hal::onewire::{OWCommand, OWDevice, OWDriver};
 use esp_idf_hal::peripherals::Peripherals;
-use esp_idf_hal::{delay::FreeRtos, onewire::OWCommand};
 use esp_idf_sys::EspError;
 
 #[cfg(all(
