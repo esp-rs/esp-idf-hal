@@ -101,6 +101,11 @@ fn main() -> anyhow::Result<()> {
     }
 }
 
+#[cfg(all(
+    esp_idf_soc_rmt_supported,
+    not(esp_idf_version_major = "4"),
+    esp_idf_comp_espressif__onewire_bus_enabled,
+))]
 fn ds18b20_send_command<'a>(
     device: &OWDevice<'a, impl Borrow<OWDriver<'a>>>,
     bus: &OWDriver,
@@ -131,7 +136,11 @@ enum Ds18b20Command {
     WriteScratch = 0x4e,
     ReadScratch = 0xbe,
 }
-
+#[cfg(all(
+    esp_idf_soc_rmt_supported,
+    not(esp_idf_version_major = "4"),
+    esp_idf_comp_espressif__onewire_bus_enabled,
+))]
 fn ds18b20_trigger_temp_conversion<'a>(
     device: &OWDevice<'a, impl Borrow<OWDriver<'a>>>,
     bus: &OWDriver,
@@ -152,7 +161,11 @@ fn ds18b20_trigger_temp_conversion<'a>(
 
     Ok(())
 }
-
+#[cfg(all(
+    esp_idf_soc_rmt_supported,
+    not(esp_idf_version_major = "4"),
+    esp_idf_comp_espressif__onewire_bus_enabled,
+))]
 fn ds18b20_get_temperature<'a>(
     device: &OWDevice<'a, impl Borrow<OWDriver<'a>>>,
     bus: &OWDriver,
