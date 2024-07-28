@@ -542,6 +542,7 @@ impl<'d> WifiDriver<'d> {
 
     fn init(nvs_enabled: bool) -> Result<(), EspError> {
         #[allow(clippy::needless_update)]
+        #[allow(unused_unsafe)]
         let cfg = wifi_init_config_t {
             #[cfg(esp_idf_version_major = "4")]
             event_handler: Some(esp_event_send_internal),
