@@ -799,6 +799,8 @@ impl EspAsyncMqttClient {
         topic: Option<&str>,
         payload: Option<&[u8]>,
     ) -> Result<MessageId, EspError> {
+        // Get the shared reference to the work item (as processed by the Self::work thread),
+        // and replace it with the next work item we want to process.
         let work = self.0.exec_in_out().await.unwrap();
 
         work.command = command;
@@ -814,14 +816,17 @@ impl EspAsyncMqttClient {
             work.payload.extend_from_slice(payload);
         }
 
+        // Signal the worker thread that it can process the work item.
         self.0.do_exec().await;
 
+        // Wait for the worker thread to finish and return the result.
         let work = self.0.exec_in_out().await.unwrap();
 
         work.result
     }
 
     fn work(channel: Arc<Channel<AsyncWork>>, mut client: EspMqttClient) {
+        // Placeholder work item. This will be replaced by the first actual work item.
         let mut work = AsyncWork {
             command: AsyncCommand::Unsubscribe,
             topic: alloc::vec::Vec::new(),
@@ -829,6 +834,9 @@ impl EspAsyncMqttClient {
             result: Ok(0),
         };
 
+        // Repeatedly share a reference to the work until the channel is closed.
+        // The receiver will replace the data with the next work item, then wait for
+        // this thread to process it by calling into the C library and write the result.
         while channel.share(&mut work) {
             let topic = unsafe { core::ffi::CStr::from_bytes_with_nul_unchecked(&work.topic) };
 
@@ -984,7 +992,10 @@ impl<'a> EspMqttEvent<'a> {
     }
 }
 
+/// SAFETY: EspMqttEvent contains no thread-specific data.
 unsafe impl<'a> Send for EspMqttEvent<'a> {}
+
+/// SAFETY: EspMqttEvent is a read-only struct, so sharing it between threads is fine.
 unsafe impl<'a> Sync for EspMqttEvent<'a> {}
 
 impl<'a> ErrorType for EspMqttEvent<'a> {
