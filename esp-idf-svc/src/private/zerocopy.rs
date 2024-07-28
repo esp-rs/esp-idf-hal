@@ -83,7 +83,7 @@ where
     }
 }
 
-unsafe impl<T> Send for Receiver<T> where T: Send + 'static {}
+unsafe impl<'a, T> Send for Receiver<T> where T: Send + 'a {}
 
 pub struct QuitOnDrop<T>(Arc<Channel<T>>)
 where
@@ -182,8 +182,8 @@ where
     }
 }
 
-unsafe impl<T> Send for Channel<T> where T: Send + 'static {}
-unsafe impl<T> Sync for Channel<T> where T: Send + 'static {}
+unsafe impl<'a, T> Send for Channel<T> where T: Send + 'a {}
+unsafe impl<'a, T> Sync for Channel<T> where T: Send + 'a {}
 
 #[derive(Copy, Clone, Debug)]
 enum State<T> {

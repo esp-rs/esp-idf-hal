@@ -20,6 +20,10 @@ where
     task: TaskHandle_t,
 }
 
+/// SAFETY: Unblocker uses a raw pointer in Unblocker::task. This causes rust to treat it as not Send.
+/// However, this task handle is only ever used to delete the FreeRTOS task, which is safe to do from any thread.
+unsafe impl<T: Send + 'static> Send for Unblocker<T> {}
+
 impl<T> Unblocker<T>
 where
     T: Send + 'static,
