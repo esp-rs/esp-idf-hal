@@ -24,8 +24,7 @@ std = ["alloc", "esp-idf-sys/std"]
 alloc = []
 nightly = []
 wake-from-isr = [] # Only enable if you plan to use the `edge-executor` crate
-embassy-sync = [
-] # For now, the dependecy on the `embassy-sync` crate is non-optional, but this might change in future
+embassy-sync = [] # For now, the dependecy on the `embassy-sync` crate is non-optional, but this might change in future
 # Temporary, until (https://github.com/espressif/esp-idf/issues/13938) is addressed
 # - When enabled, the code for the legacy ADC oneshot driver will be compiled;
 # - When not enabled (default) the code for the new ADC oneshot driver will be compiled;
@@ -47,17 +46,13 @@ libstart = ["esp-idf-sys/libstart"]
 nb = "1"
 embedded-can = "0.4.1"
 embedded-hal = "1"
-embedded-hal-0-2 = { package = "embedded-hal", version = "0.2.7", features = [
-    "unproven",
-] }
+embedded-hal-0-2 = { package = "embedded-hal", version = "0.2.7", features = ["unproven"] }
 embedded-hal-nb = "1"
 embedded-hal-async = "1"
 embedded-io = "0.6"
 embedded-io-async = "0.6"
 esp-idf-sys = { version = "0.35", default-features = false }
-critical-section = { version = "1.1.1", optional = true, features = [
-    "restore-state-none",
-] }
+critical-section = { version = "1.1.1", optional = true, features = ["restore-state-none"] }
 heapless = "0.8"
 num_enum = { version = "0.7", default-features = false }
 enumset = { version = "1.1", default-features = false }
