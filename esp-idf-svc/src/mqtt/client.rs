@@ -985,6 +985,7 @@ impl<'a> EspMqttEvent<'a> {
 }
 
 unsafe impl<'a> Send for EspMqttEvent<'a> {}
+unsafe impl<'a> Sync for EspMqttEvent<'a> {}
 
 impl<'a> ErrorType for EspMqttEvent<'a> {
     type Error = EspError;
