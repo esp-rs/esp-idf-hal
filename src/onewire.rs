@@ -42,11 +42,11 @@ impl OWAddress {
 /// Wrapper around a device iterator to search for available devices on the bus
 pub struct DeviceSearch<'a, 'b> {
     search: onewire_device_iter_handle_t,
-    _bus: &'a OWDriver<'b>,
+    _bus: &'a mut OWDriver<'b>,
 }
 
 impl<'a, 'b> DeviceSearch<'a, 'b> {
-    fn new(bus: &'a OWDriver<'b>) -> Result<Self, EspError> {
+    fn new(bus: &'a mut OWDriver<'b>) -> Result<Self, EspError> {
         let mut my_iter: onewire_device_iter_handle_t = ptr::null_mut();
 
         esp!(unsafe { onewire_new_device_iter(bus.bus, &mut my_iter) })?;
@@ -131,7 +131,7 @@ impl<'a> OWDriver<'a> {
     }
 
     /// Start a search for devices attached to the OneWire bus.
-    pub fn search(&self) -> Result<DeviceSearch<'a, '_>, EspError> {
+    pub fn search(&mut self) -> Result<DeviceSearch<'_, 'a>, EspError> {
         DeviceSearch::new(self)
     }
 }
