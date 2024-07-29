@@ -42,7 +42,6 @@
 //! * Usage of the onewire bus driver interface.
 //! * How to iterate through a device search to discover devices on the bus.
 
-use std::borrow::Borrow;
 use std::time::Duration;
 
 use esp_idf_hal::delay::FreeRtos;
@@ -51,7 +50,7 @@ use esp_idf_hal::delay::FreeRtos;
     not(feature = "rmt-legacy"),
     esp_idf_comp_espressif__onewire_bus_enabled,
 ))]
-use esp_idf_hal::onewire::{OWCommand, OWDevice, OWDriver};
+use esp_idf_hal::onewire::{OWAddress, OWCommand, OWDriver};
 use esp_idf_hal::peripherals::Peripherals;
 use esp_idf_sys::EspError;
 
@@ -74,10 +73,18 @@ fn main() -> anyhow::Result<()> {
         println!("No device found");
         return Ok(());
     }
-    let device = OWDevice::new(device.unwrap(), &onewire_bus);
-    // let device = OWDevice::new(search.next()?, &onewire_bus);
-    // for device in search {
-    println!("Found Device: {:?}", device);
+
+    let device = device.unwrap();
+    if let Err(err) = device {
+        println!("An error occured searching for the device, err = {}", err);
+        return Err(err.into());
+    }
+    let device = device.unwrap();
+    println!(
+        "Found Device: {:?}, family code = {}",
+        device,
+        device.family_code()
+    );
 
     loop {
         ds18b20_trigger_temp_conversion(&device, &onewire_bus)?;
@@ -106,54 +113,33 @@ fn main() -> anyhow::Result<()> {
     not(esp_idf_version_major = "4"),
     esp_idf_comp_espressif__onewire_bus_enabled,
 ))]
-fn ds18b20_send_command<'a>(
-    device: &OWDevice<'a, impl Borrow<OWDriver<'a>>>,
-    bus: &OWDriver,
-    cmd: u8,
-) -> Result<(), EspError> {
+fn ds18b20_send_command<'a>(addr: &OWAddress, bus: &OWDriver, cmd: u8) -> Result<(), EspError> {
     let mut buf = [0; 10];
     buf[0] = OWCommand::MatchRom as _;
-    let addr = device.address().to_le_bytes();
+    let addr = addr.address().to_le_bytes();
     buf[1..9].copy_from_slice(&addr);
     buf[9] = cmd;
-    println!(
-        "seend command{cmd} to addr {} [{:?}], full_msg = {:?}",
-        device.address(),
-        addr,
-        buf
-    );
-    let write_size = bus.write(&buf)?;
 
-    println!("Sent {write_size} bytes");
-
-    Ok(())
+    bus.write(&buf)
 }
 
 #[allow(dead_code)]
 #[repr(u8)]
 enum Ds18b20Command {
     ConvertTemp = 0x44,
-    WriteScratch = 0x4e,
-    ReadScratch = 0xbe,
+    WriteScratch = 0x4E,
+    ReadScratch = 0xBE,
 }
 #[cfg(all(
     esp_idf_soc_rmt_supported,
     not(esp_idf_version_major = "4"),
     esp_idf_comp_espressif__onewire_bus_enabled,
 ))]
-fn ds18b20_trigger_temp_conversion<'a>(
-    device: &OWDevice<'a, impl Borrow<OWDriver<'a>>>,
-    bus: &OWDriver,
-) -> Result<(), EspError> {
+fn ds18b20_trigger_temp_conversion<'a>(addr: &OWAddress, bus: &OWDriver) -> Result<(), EspError> {
     // reset bus and check if the ds18b20 is present
     bus.reset()?;
-    println!(
-        "Bus reset, bus:{:?} device bus: {:?}",
-        bus,
-        device.bus().borrow()
-    );
 
-    ds18b20_send_command(device, bus, Ds18b20Command::ConvertTemp as u8)?;
+    ds18b20_send_command(addr, bus, Ds18b20Command::ConvertTemp as u8)?;
 
     // delay proper time for temp conversion,
     // assume max resolution (12-bits)
@@ -166,17 +152,13 @@ fn ds18b20_trigger_temp_conversion<'a>(
     not(esp_idf_version_major = "4"),
     esp_idf_comp_espressif__onewire_bus_enabled,
 ))]
-fn ds18b20_get_temperature<'a>(
-    device: &OWDevice<'a, impl Borrow<OWDriver<'a>>>,
-    bus: &OWDriver,
-) -> Result<f32, EspError> {
+fn ds18b20_get_temperature<'a>(addr: &OWAddress, bus: &OWDriver) -> Result<f32, EspError> {
     bus.reset()?;
 
-    ds18b20_send_command(device, bus, Ds18b20Command::ReadScratch as u8)?;
+    ds18b20_send_command(addr, bus, Ds18b20Command::ReadScratch as u8)?;
 
     let mut buf = [0u8; 10];
     bus.read(&mut buf)?;
-    println!("buffer = {buf:?}");
     let lsb = buf[0];
     let msb = buf[1];
 

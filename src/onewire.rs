@@ -12,9 +12,12 @@
 //! The pin this peripheral is attached to must be
 //! externally pulled-up with a 4.7kOhm resistor.
 //!
+//! todo:
+//!  - crc checking on messages
+//!  - helper methods on the driver for executing commands
+//!
 //! See the `examples/` folder of this repository for more.
 
-use core::borrow::Borrow;
 use core::marker::PhantomData;
 use core::ptr;
 
@@ -22,110 +25,78 @@ use esp_idf_sys::*;
 
 use crate::peripheral::Peripheral;
 
+/// Onewire Address type
 #[derive(Debug)]
-pub struct OWDevice<'b, T>
-where
-    T: Borrow<OWDriver<'b>>,
-{
-    _addr: u64,
-    _bus: T,
-    _p: PhantomData<&'b ()>,
-}
+pub struct OWAddress(u64);
 
-impl<'b, T> OWDevice<'b, T>
-where
-    T: Borrow<OWDriver<'b>>,
-{
-    pub fn new(addr: u64, bus: T) -> Self {
-        Self {
-            _addr: addr,
-            _bus: bus,
-            _p: PhantomData,
-        }
-    }
-
-    /// get the handle of the bus the device is attached to
-    pub fn bus(&self) -> &T {
-        &self._bus
-    }
-
-    /// get the device address
+impl OWAddress {
     pub fn address(&self) -> u64 {
-        self._addr
+        self.0
+    }
+
+    pub fn family_code(&self) -> u8 {
+        (self.0 & u64::from(0xffu8)) as u8
     }
 }
 
-/// wrapper around the device iterator to search for available devices on the bus
-pub struct DeviceSearch<'b, T>
-where
-    T: Borrow<OWDriver<'b>>,
-{
-    _search: onewire_device_iter_handle_t,
-    _bus: T,
+/// Wrapper around a device iterator to search for available devices on the bus
+pub struct DeviceSearch<'a, 'b> {
+    search: onewire_device_iter_handle_t,
+    _bus: &'a OWDriver<'b>,
     _p: PhantomData<&'b ()>,
 }
 
-impl<'b, T> DeviceSearch<'b, T>
-where
-    T: Borrow<OWDriver<'b>>,
-{
-    fn new(bus: T) -> Result<Self, EspError> {
+impl<'a, 'b> DeviceSearch<'a, 'b> {
+    fn new(bus: &'a OWDriver<'b>) -> Result<Self, EspError> {
         let mut my_iter: onewire_device_iter_handle_t = ptr::null_mut();
 
-        esp!(unsafe { onewire_new_device_iter(bus.borrow()._bus, &mut my_iter) })?;
+        esp!(unsafe { onewire_new_device_iter(bus.bus, &mut my_iter) })?;
 
         Ok(Self {
-            _search: my_iter,
+            search: my_iter,
             _bus: bus,
             _p: PhantomData,
         })
     }
 
     /// Search for the next device on the bus and yield it.
-    fn next_device(&self) -> Result<u64, EspError> {
+    fn next_device(&mut self) -> Result<OWAddress, EspError> {
         let mut next_onewire_device = onewire_device_t::default();
-        esp!(unsafe { onewire_device_iter_get_next(self._search, &mut next_onewire_device) })?;
-        Ok(next_onewire_device.address)
-        // Ok(Device::new(next_onewire_device, self._bus.borrow()))
+        esp!(unsafe { onewire_device_iter_get_next(self.search, &mut next_onewire_device) })?;
+        Ok(OWAddress(next_onewire_device.address))
     }
 }
 
-impl<'b, T> Iterator for DeviceSearch<'b, T>
-where
-    T: Borrow<OWDriver<'b>>,
-{
-    type Item = u64;
+impl<'a, 'b> Iterator for DeviceSearch<'a, 'b> {
+    type Item = Result<OWAddress, EspError>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        if let Ok(dev) = self.next_device() {
-            Some(dev)
-        } else {
-            None
+        match self.next_device() {
+            Ok(addr) => Some(Ok(addr)),
+            Err(err) if err.code() == ESP_ERR_NOT_FOUND => None,
+            Err(err) => Some(Err(err)),
         }
     }
 }
 
-impl<'b, T> Drop for DeviceSearch<'b, T>
-where
-    T: Borrow<OWDriver<'b>>,
-{
+impl<'a, 'b> Drop for DeviceSearch<'a, 'b> {
     fn drop(&mut self) {
-        esp!(unsafe { onewire_del_device_iter(self._search) }).unwrap();
+        esp!(unsafe { onewire_del_device_iter(self.search) }).unwrap();
     }
 }
-#[derive(Debug)]
 
-pub struct OWDriver<'d> {
-    _bus: onewire_bus_handle_t,
-    _p: PhantomData<&'d ()>,
+#[derive(Debug)]
+pub struct OWDriver<'a> {
+    bus: onewire_bus_handle_t,
+    _p: PhantomData<&'a mut ()>,
 }
 
-impl<'d> OWDriver<'d> {
+impl<'a> OWDriver<'a> {
     /// Create a new One Wire driver on the allocated pin.
     ///
     /// The pin will be used as an open drain output.
     pub fn new(
-        pin: impl Peripheral<P = impl crate::gpio::InputPin + crate::gpio::OutputPin> + 'd,
+        pin: impl Peripheral<P = impl crate::gpio::InputPin + crate::gpio::OutputPin> + 'a,
     ) -> Result<Self, EspError> {
         let mut bus: onewire_bus_handle_t = ptr::null_mut();
 
@@ -137,52 +108,52 @@ impl<'d> OWDriver<'d> {
         esp!(unsafe { onewire_new_bus_rmt(&bus_config, &rmt_config, &mut bus as _) })?;
 
         Ok(Self {
-            _bus: bus,
+            bus,
             _p: PhantomData,
         })
     }
 
-    pub fn read(&self, buff: &mut [u8]) -> Result<usize, EspError> {
-        esp!(unsafe {
-            onewire_bus_read_bytes(self._bus, buff.as_mut_ptr() as *mut _, buff.len())
-        })?;
+    pub fn read(&self, buff: &mut [u8]) -> Result<(), EspError> {
+        esp!(unsafe { onewire_bus_read_bytes(self.bus, buff.as_mut_ptr() as *mut _, buff.len()) })?;
 
-        Ok(buff.len())
+        Ok(())
     }
 
-    pub fn write(&self, data: &[u8]) -> Result<usize, EspError> {
-        esp!(unsafe { onewire_bus_write_bytes(self._bus, data.as_ptr(), data.len() as u8) })?;
+    pub fn write(&self, data: &[u8]) -> Result<(), EspError> {
+        esp!(unsafe { onewire_bus_write_bytes(self.bus, data.as_ptr(), data.len() as u8) })?;
 
-        Ok(data.len())
+        Ok(())
     }
+
     /// Send reset pulse to the bus, and check if there are devices attached to the bus
     ///
     /// If there are no devices on the bus, this will result in an error.
     pub fn reset(&self) -> Result<(), EspError> {
-        esp!(unsafe { onewire_bus_reset(self._bus) })
+        esp!(unsafe { onewire_bus_reset(self.bus) })
     }
 
-    pub fn search(&self) -> Result<DeviceSearch<impl Borrow<OWDriver<'_>>>, EspError> {
+    /// Start a search for devices attached to the OneWire bus.
+    pub fn search(&self) -> Result<DeviceSearch<'a, '_>, EspError> {
         DeviceSearch::new(self)
     }
-
-    // pub fn search(&self) -> Result<impl Iterator<Item = u64> + '_, EspError> {
-    //     DeviceSearch::new(self)
-    // }
 }
 
 impl<'d> Drop for OWDriver<'d> {
     fn drop(&mut self) {
-        esp!(unsafe { onewire_bus_del(self._bus) }).unwrap();
+        esp!(unsafe { onewire_bus_del(self.bus) }).unwrap();
     }
 }
 
-// command codes
+unsafe impl<'d> Send for OWDriver<'d> {}
+
+/// Command codes
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 #[repr(u8)]
 pub enum OWCommand {
-    Search = 0xf0,
-    MatchRom = 0x55,
-    SkipRom = 0xcc,
-    SearchAlarm = 0xec,
-    ReadPowerSupply = 0xb4,
+    Search = 0xF0,      //Obtain IDs of all devices on the bus
+    MatchRom = 0x55,    //Address specific device
+    SkipRom = 0xCC,     //Skip addressing
+    ReadRom = 0x33,     //Identification
+    SearchAlarm = 0xEC, // Conditional search for all devices in an alarm state.
+    ReadPowerSupply = 0xB4,
 }

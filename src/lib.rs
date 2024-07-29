@@ -40,6 +40,12 @@ pub mod ledc;
 #[cfg(any(all(esp32, esp_idf_eth_use_esp32_emac), esp_idf_eth_use_openeth))]
 pub mod mac;
 pub mod modem;
+#[cfg(all(
+    esp_idf_soc_rmt_supported,
+    not(esp_idf_version_major = "4"),
+    esp_idf_comp_espressif__onewire_bus_enabled,
+))]
+pub mod onewire;
 #[cfg(any(esp32, esp32s2, esp32s3, esp32c6))]
 pub mod pcnt;
 pub mod peripheral;
@@ -53,14 +59,6 @@ compile_error!("the onewire component cannot be used with the legacy rmt periphe
 
 #[cfg(any(feature = "rmt-legacy", esp_idf_version_major = "4"))]
 pub mod rmt;
-
-#[cfg(all(
-    esp_idf_soc_rmt_supported,
-    not(esp_idf_version_major = "4"),
-    esp_idf_comp_espressif__onewire_bus_enabled,
-))]
-pub mod onewire;
-
 pub mod rom;
 pub mod spi;
 pub mod sys;
