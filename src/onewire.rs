@@ -43,7 +43,6 @@ impl OWAddress {
 pub struct DeviceSearch<'a, 'b> {
     search: onewire_device_iter_handle_t,
     _bus: &'a OWDriver<'b>,
-    _p: PhantomData<&'b ()>,
 }
 
 impl<'a, 'b> DeviceSearch<'a, 'b> {
@@ -55,7 +54,6 @@ impl<'a, 'b> DeviceSearch<'a, 'b> {
         Ok(Self {
             search: my_iter,
             _bus: bus,
-            _p: PhantomData,
         })
     }
 
