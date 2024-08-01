@@ -1,4 +1,4 @@
-#[cfg(any(esp32, esp32s3))]
+#[cfg(any(esp32, esp32s3, esp32p4))]
 use core::arch::asm;
 
 use esp_idf_sys::*;
@@ -12,7 +12,7 @@ pub const CORES: u32 = SOC_CPU_CORES_NUM;
 #[repr(C)]
 pub enum Core {
     Core0 = 0, // PRO on dual-core systems, the one and only CPU on single-core systems
-    #[cfg(any(esp32, esp32s3))]
+    #[cfg(any(esp32, esp32s3, esp32p4))]
     Core1 = 1, // APP on dual-core systems
 }
 
@@ -34,7 +34,7 @@ impl From<i32> for Core {
     fn from(core: i32) -> Self {
         match core {
             0 => Core::Core0,
-            #[cfg(any(esp32, esp32s3))]
+            #[cfg(any(esp32, esp32s3, esp32p4))]
             1 => Core::Core1,
             _ => panic!(),
         }
@@ -57,9 +57,14 @@ pub fn core() -> Core {
     #[cfg(any(esp32, esp32s3, esp32p4))]
     let mut core = 0;
 
-    #[cfg(any(esp32, esp32s3))] // TODO: Need a way to get the running core on esp32p4 in future
+    #[cfg(any(esp32, esp32s3))]
     unsafe {
         asm!("rsr.prid {0}", "extui {0},{0},13,1", out(reg) core);
+    }
+
+    #[cfg(esp32p4)]
+    unsafe {
+        asm!("cssr {0} mhartid", out(reg) core);
     }
 
     match core {
