@@ -43,7 +43,7 @@ macro_rules! impl_adcu {
 }
 
 impl_adcu!(ADCU1: adc_unit_t_ADC_UNIT_1);
-#[cfg(any(esp32, esp32s2, esp32s3, esp32c3))]
+#[cfg(any(esp32, esp32s2, esp32s3, esp32c3, esp32p4))]
 impl_adcu!(ADCU2: adc_unit_t_ADC_UNIT_2);
 
 /// A trait designating the ADC channel
@@ -505,7 +505,7 @@ macro_rules! impl_adc {
 }
 
 impl_adc!(ADC1: ADCU1);
-#[cfg(not(any(esp32c2, esp32h2, esp32c5, esp32c6, esp32c61, esp32p4)))] // TODO: Check for esp32c5 and esp32p4
+#[cfg(not(any(esp32c2, esp32h2, esp32c5, esp32c6, esp32c61)))] // TODO: Check for esp32c5
 impl_adc!(ADC2: ADCU2);
 
 /// Converts a raw reading to mV without using calibration

@@ -187,7 +187,7 @@ fn enter(cs: &IsrCriticalSection) {
     }
 }
 
-#[cfg(not(any(esp32, esp32s2, esp32s3, esp32p4)))]
+#[cfg(not(any(esp32, esp32s2, esp32s3)))]
 #[inline(always)]
 #[link_section = ".iram1.interrupt_exit"]
 fn exit(_cs: &IsrCriticalSection) {
@@ -196,7 +196,7 @@ fn exit(_cs: &IsrCriticalSection) {
     }
 }
 
-#[cfg(any(esp32, esp32s2, esp32s3, esp32p4))]
+#[cfg(any(esp32, esp32s2, esp32s3))]
 #[inline(always)]
 #[link_section = ".iram1.interrupt_exit"]
 fn exit(cs: &IsrCriticalSection) {
