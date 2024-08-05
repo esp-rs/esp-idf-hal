@@ -11,6 +11,8 @@ use spi::SdSpiHostDriver;
 pub mod mmc;
 pub mod spi;
 
+extern crate alloc;
+
 const _SDMMC_HOST_FLAG_SPI: u32 = 1 << 3;
 const _SDMMC_HOST_FLAG_DDR: u32 = 1 << 4;
 const _SDMMC_HOST_FLAG_DEINIT_ARG: u32 = 1 << 5;
@@ -138,7 +140,7 @@ pub mod config {
 /// Currently, all interaction with the SD-Card driver is via the native, unsafe `sys::sdmmc_*` functions.
 pub struct SdCardDriver<T> {
     _host: T,
-    card: sdmmc_card_t,
+    card: alloc::boxed::Box<sdmmc_card_t>,
 }
 
 impl<T> SdCardDriver<T> {
@@ -218,9 +220,9 @@ where
             pwr_ctrl_handle: core::ptr::null_mut() as _,
         };
 
-        let mut card: sdmmc_card_t = Default::default();
+        let mut card: sdmmc_card_t = alloc::boxed::Box::new(Default::default());
 
-        esp!(unsafe { sdmmc_card_init(&configuration, &mut card) })?;
+        esp!(unsafe { sdmmc_card_init(&configuration, &mut *card) })?;
 
         Ok(Self { _host: host, card })
     }
