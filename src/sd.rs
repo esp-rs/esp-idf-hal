@@ -220,7 +220,7 @@ where
             pwr_ctrl_handle: core::ptr::null_mut() as _,
         };
 
-        let mut card: sdmmc_card_t = alloc::boxed::Box::new(Default::default());
+        let mut card: alloc::boxed::Box<sdmmc_card_t> = Default::default();
 
         esp!(unsafe { sdmmc_card_init(&configuration, &mut *card) })?;
 
