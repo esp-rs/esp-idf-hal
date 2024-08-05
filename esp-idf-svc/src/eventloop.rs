@@ -441,12 +441,16 @@ where
             self.given = false;
         }
 
-        if let Some(data) = self.receiver.get_shared_async().await {
+        while let Some(data) = self.receiver.get_shared_async().await {
+            if Some(data.source) != D::source() {
+                self.receiver.done();
+                continue;
+            }
             self.given = true;
-            Ok(D::deserialize(data))
-        } else {
-            Err(EspError::from_infallible::<ESP_ERR_INVALID_STATE>())
+            return Ok(D::deserialize(data));
         }
+
+        Err(EspError::from_infallible::<ESP_ERR_INVALID_STATE>())
     }
 }
 
