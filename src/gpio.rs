@@ -1448,7 +1448,7 @@ fn gpio_reset_without_pull(pin: gpio_num_t) -> Result<(), EspError> {
         pull_up_en: esp_idf_sys::gpio_pullup_t_GPIO_PULLUP_DISABLE,
         pull_down_en: esp_idf_sys::gpio_pulldown_t_GPIO_PULLDOWN_DISABLE,
         intr_type: esp_idf_sys::gpio_int_type_t_GPIO_INTR_DISABLE,
-        #[cfg(all(esp32h2, not(esp_idf_version_major = "4")))]
+        #[cfg(all(any(esp32h2, esp32p4), not(esp_idf_version_major = "4")))]
         hys_ctrl_mode: esp_idf_sys::gpio_hys_ctrl_mode_t_GPIO_HYS_SOFT_DISABLE,
     };
 
@@ -2272,7 +2272,7 @@ mod chip {
 
 // TODO: Implement esp32c6 glitch filters
 
-#[cfg(any(esp32c5, esp32c6, esp32p4))] // TODO: Implement proper pin layout for esp32c5 and esp32p4
+#[cfg(any(esp32c5, esp32c6))] // TODO: Implement proper pin layout for esp32c5
 mod chip {
     #[cfg(feature = "alloc")]
     extern crate alloc;
@@ -2403,6 +2403,227 @@ mod chip {
                 gpio28: Gpio28::new(),
                 gpio29: Gpio29::new(),
                 gpio30: Gpio30::new(),
+            }
+        }
+    }
+}
+
+#[cfg(esp32p4)] // TODO: Implement esp32p4 fully - RTC & ADC etc TODO
+mod chip {
+    #[cfg(feature = "alloc")]
+    extern crate alloc;
+
+    #[cfg(feature = "alloc")]
+    use alloc::boxed::Box;
+
+    use esp_idf_sys::*;
+
+    use crate::interrupt::asynch::HalIsrNotification;
+
+    use crate::adc::ADC1;
+
+    use super::*;
+
+    #[allow(clippy::type_complexity)]
+    #[cfg(feature = "alloc")]
+    pub(crate) static mut PIN_ISR_HANDLER: [Option<Box<dyn FnMut() + Send + 'static>>; 54] =
+        [PIN_ISR_INIT; 54];
+
+    #[allow(clippy::type_complexity)]
+    pub(crate) static PIN_NOTIF: [HalIsrNotification; 54] = [PIN_NOTIF_INIT; 54];
+
+    // TODO: Unknown RTC & ADC Pins
+    pin!(Gpio0:0, IO, RTC:0, ADC1:0, NODAC:0, NOTOUCH:0);
+    pin!(Gpio1:1, IO, RTC:1, ADC1:1, NODAC:0, NOTOUCH:0);
+    pin!(Gpio2:2, IO, RTC:2, ADC1:2, NODAC:0, NOTOUCH:0);
+    pin!(Gpio3:3, IO, RTC:3, ADC1:3, NODAC:0, NOTOUCH:0);
+    pin!(Gpio4:4, IO, RTC:4, ADC1:4, NODAC:0, NOTOUCH:0);
+    pin!(Gpio5:5, IO, RTC:5, ADC1:5, NODAC:0, NOTOUCH:0);
+    pin!(Gpio6:6, IO, RTC:6, ADC1:6, NODAC:0, NOTOUCH:0);
+    pin!(Gpio7:7, IO, RTC:7, NOADC:0, NODAC:0, NOTOUCH:0);
+    pin!(Gpio8:8, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
+    pin!(Gpio9:9, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
+
+    pin!(Gpio10:10, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
+    pin!(Gpio11:11, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
+    pin!(Gpio12:12, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
+    pin!(Gpio13:13, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
+    pin!(Gpio14:14, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
+    pin!(Gpio15:15, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
+    pin!(Gpio16:16, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
+    pin!(Gpio17:17, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
+    pin!(Gpio18:18, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
+    pin!(Gpio19:19, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
+
+    pin!(Gpio20:20, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
+    pin!(Gpio21:21, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
+    pin!(Gpio22:22, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
+    pin!(Gpio23:23, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
+    pin!(Gpio24:24, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
+    pin!(Gpio25:25, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
+    pin!(Gpio26:26, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
+    pin!(Gpio27:27, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
+    pin!(Gpio28:28, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
+    pin!(Gpio29:29, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
+
+    pin!(Gpio30:30, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
+    pin!(Gpio31:31, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
+    pin!(Gpio32:32, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
+    pin!(Gpio33:33, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
+    pin!(Gpio34:34, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
+    pin!(Gpio35:35, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
+    pin!(Gpio36:36, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
+    pin!(Gpio37:37, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
+    pin!(Gpio38:38, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
+    pin!(Gpio39:39, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
+
+    pin!(Gpio40:40, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
+    pin!(Gpio41:41, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
+    pin!(Gpio42:42, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
+    pin!(Gpio43:43, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
+    pin!(Gpio44:44, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
+    pin!(Gpio45:45, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
+    pin!(Gpio46:46, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
+    pin!(Gpio47:47, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
+    pin!(Gpio48:48, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
+    pin!(Gpio49:49, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
+
+    pin!(Gpio50:50, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
+    pin!(Gpio51:51, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
+    pin!(Gpio52:52, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
+    pin!(Gpio53:53, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
+    pin!(Gpio54:54, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
+
+    pub struct Pins {
+        pub gpio0: Gpio0,
+        pub gpio1: Gpio1,
+        pub gpio2: Gpio2,
+        pub gpio3: Gpio3,
+        pub gpio4: Gpio4,
+        pub gpio5: Gpio5,
+        pub gpio6: Gpio6,
+        pub gpio7: Gpio7,
+        pub gpio8: Gpio8,
+        pub gpio9: Gpio9,
+
+        pub gpio10: Gpio10,
+        pub gpio11: Gpio11,
+        pub gpio12: Gpio12,
+        pub gpio13: Gpio13,
+        pub gpio14: Gpio14,
+        pub gpio15: Gpio15,
+        pub gpio16: Gpio16,
+        pub gpio17: Gpio17,
+        pub gpio18: Gpio18,
+        pub gpio19: Gpio19,
+
+        pub gpio20: Gpio20,
+        pub gpio21: Gpio21,
+        pub gpio22: Gpio22,
+        pub gpio23: Gpio23,
+        pub gpio24: Gpio24,
+        pub gpio25: Gpio25,
+        pub gpio26: Gpio26,
+        pub gpio27: Gpio27,
+        pub gpio28: Gpio28,
+        pub gpio29: Gpio29,
+
+        pub gpio30: Gpio30,
+        pub gpio31: Gpio31,
+        pub gpio32: Gpio32,
+        pub gpio33: Gpio33,
+        pub gpio34: Gpio34,
+        pub gpio35: Gpio35,
+        pub gpio36: Gpio36,
+        pub gpio37: Gpio37,
+        pub gpio38: Gpio38,
+        pub gpio39: Gpio39,
+
+        pub gpio40: Gpio40,
+        pub gpio41: Gpio41,
+        pub gpio42: Gpio42,
+        pub gpio43: Gpio43,
+        pub gpio44: Gpio44,
+        pub gpio45: Gpio45,
+        pub gpio46: Gpio46,
+        pub gpio47: Gpio47,
+        pub gpio48: Gpio48,
+        pub gpio49: Gpio49,
+
+        pub gpio50: Gpio50,
+        pub gpio51: Gpio51,
+        pub gpio52: Gpio52,
+        pub gpio53: Gpio53,
+        pub gpio54: Gpio54,
+    }
+
+    impl Pins {
+        /// # Safety
+        ///
+        /// Care should be taken not to instantiate the Pins structure, if it is
+        /// already instantiated and used elsewhere
+        pub unsafe fn new() -> Self {
+            Self {
+                gpio0: Gpio0::new(),
+                gpio1: Gpio1::new(),
+                gpio2: Gpio2::new(),
+                gpio3: Gpio3::new(),
+                gpio4: Gpio4::new(),
+                gpio5: Gpio5::new(),
+                gpio6: Gpio6::new(),
+                gpio7: Gpio7::new(),
+                gpio8: Gpio8::new(),
+                gpio9: Gpio9::new(),
+
+                gpio10: Gpio10::new(),
+                gpio11: Gpio11::new(),
+                gpio12: Gpio12::new(),
+                gpio13: Gpio13::new(),
+                gpio14: Gpio14::new(),
+                gpio15: Gpio15::new(),
+                gpio16: Gpio16::new(),
+                gpio17: Gpio17::new(),
+                gpio18: Gpio18::new(),
+                gpio19: Gpio19::new(),
+
+                gpio20: Gpio20::new(),
+                gpio21: Gpio21::new(),
+                gpio22: Gpio22::new(),
+                gpio23: Gpio23::new(),
+                gpio24: Gpio24::new(),
+                gpio25: Gpio25::new(),
+                gpio26: Gpio26::new(),
+                gpio27: Gpio27::new(),
+                gpio28: Gpio28::new(),
+                gpio29: Gpio29::new(),
+
+                gpio30: Gpio30::new(),
+                gpio31: Gpio31::new(),
+                gpio32: Gpio32::new(),
+                gpio33: Gpio33::new(),
+                gpio34: Gpio34::new(),
+                gpio35: Gpio35::new(),
+                gpio36: Gpio36::new(),
+                gpio37: Gpio37::new(),
+                gpio38: Gpio38::new(),
+                gpio39: Gpio39::new(),
+
+                gpio40: Gpio40::new(),
+                gpio41: Gpio41::new(),
+                gpio42: Gpio42::new(),
+                gpio43: Gpio43::new(),
+                gpio44: Gpio44::new(),
+                gpio45: Gpio45::new(),
+                gpio46: Gpio46::new(),
+                gpio47: Gpio47::new(),
+                gpio48: Gpio48::new(),
+                gpio49: Gpio49::new(),
+
+                gpio50: Gpio50::new(),
+                gpio51: Gpio51::new(),
+                gpio52: Gpio52::new(),
+                gpio53: Gpio53::new(),
+                gpio54: Gpio54::new(),
             }
         }
     }
