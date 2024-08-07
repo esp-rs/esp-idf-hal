@@ -731,7 +731,7 @@ pub mod oneshot {
                     any(esp32, esp32c2, esp32s2)
                 ))]
                 Self::LineFittingCalibration(handle) => {
-                    esp!(unsafe { esp_idf_sys::adc_cali_delete_scheme_curve_fitting(*handle) })
+                    esp!(unsafe { esp_idf_sys::adc_cali_delete_scheme_line_fitting(*handle) })
                         .unwrap()
                 }
             }
