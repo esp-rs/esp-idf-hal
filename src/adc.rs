@@ -594,6 +594,7 @@ pub mod oneshot {
     }
 
     impl Converter {
+        #[allow(unused_variables)]
         fn create(
             unit_id: u8,
             chan: adc_channel_t,
