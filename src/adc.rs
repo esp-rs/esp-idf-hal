@@ -794,7 +794,7 @@ pub mod oneshot {
         #[inline(always)]
         pub fn read(&mut self) -> Result<u16, EspError> {
             let raw = self.read_raw()?;
-            self.raw_to_cal(raw)
+            self.raw_to_mv(raw)
         }
 
         #[inline(always)]
@@ -804,7 +804,7 @@ pub mod oneshot {
         }
 
         #[inline(always)]
-        pub fn raw_to_cal(&self, raw: u16) -> Result<u16, EspError> {
+        pub fn raw_to_mv(&self, raw: u16) -> Result<u16, EspError> {
             self.converter.raw_to_mv(raw)
         }
     }
