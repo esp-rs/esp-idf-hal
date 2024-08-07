@@ -91,7 +91,7 @@ mod oneshot_legacy {
 
     use crate::peripheral::{Peripheral, PeripheralRef};
 
-    use super::{to_nb_err, Adc};
+    use super::{to_nb_err, Adc, DirectConverter};
 
     pub type AdcConfig = config::Config;
 
