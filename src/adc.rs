@@ -768,7 +768,7 @@ pub mod oneshot {
                 bitwidth: config.resolution.into(),
             };
 
-            let calibration = Converter::create(
+            let converter = Converter::create(
                 T::Adc::unit() as u8,
                 pin.adc_channel(),
                 config.attenuation,
@@ -787,7 +787,7 @@ pub mod oneshot {
             Ok(Self {
                 adc,
                 _pin: pin,
-                converter: calibration,
+                converter,
             })
         }
 
