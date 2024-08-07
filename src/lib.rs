@@ -57,7 +57,6 @@ pub mod reset;
 #[cfg(all(feature = "rmt-legacy", esp_idf_comp_espressif__onewire_bus_enabled))]
 compile_error!("the onewire component cannot be used with the legacy rmt peripheral");
 
-#[cfg(any(feature = "rmt-legacy", esp_idf_version_major = "4"))]
 pub mod rmt;
 pub mod rom;
 pub mod spi;

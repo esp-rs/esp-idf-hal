@@ -64,15 +64,15 @@ fn main() -> anyhow::Result<()> {
 
     let peripherals = Peripherals::take()?;
 
+    let channel = peripherals.rmt.channel0;
     let onewire_gpio_pin = peripherals.pins.gpio16;
 
-    let mut onewire_bus: OWDriver = OWDriver::new(onewire_gpio_pin)?;
+    let mut onewire_bus: OWDriver = OWDriver::new(onewire_gpio_pin, channel)?;
     let device = {
         let mut search = onewire_bus.search()?;
         search.next()
     };
-    // let mut search = onewire_bus.search()?;
-    // let device = search.next();
+
     if device.is_none() {
         println!("No device found");
         return Ok(());

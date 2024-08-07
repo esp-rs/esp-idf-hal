@@ -24,9 +24,10 @@ use core::ptr;
 use esp_idf_sys::*;
 
 use crate::peripheral::Peripheral;
+use crate::rmt::RmtChannel;
 
 /// Onewire Address type
-#[derive(Debug)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub struct OWAddress(u64);
 
 impl OWAddress {
@@ -86,6 +87,7 @@ impl<'a, 'b> Drop for DeviceSearch<'a, 'b> {
 #[derive(Debug)]
 pub struct OWDriver<'a> {
     bus: onewire_bus_handle_t,
+    _channel: u8,
     _p: PhantomData<&'a mut ()>,
 }
 
@@ -93,8 +95,9 @@ impl<'a> OWDriver<'a> {
     /// Create a new One Wire driver on the allocated pin.
     ///
     /// The pin will be used as an open drain output.
-    pub fn new(
+    pub fn new<C: RmtChannel>(
         pin: impl Peripheral<P = impl crate::gpio::InputPin + crate::gpio::OutputPin> + 'a,
+        _channel: impl Peripheral<P = C> + 'a,
     ) -> Result<Self, EspError> {
         let mut bus: onewire_bus_handle_t = ptr::null_mut();
 
@@ -107,6 +110,7 @@ impl<'a> OWDriver<'a> {
 
         Ok(Self {
             bus,
+            _channel: C::channel() as _,
             _p: PhantomData,
         })
     }
