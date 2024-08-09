@@ -24,7 +24,6 @@ fn main() -> anyhow::Result<()> {
 }
 
 #[cfg(any(feature = "rmt-legacy", esp_idf_version_major = "4"))]
-
 mod example {
     use std::time::Duration;
 
