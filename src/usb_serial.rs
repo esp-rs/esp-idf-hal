@@ -26,4 +26,4 @@ macro_rules! impl_usb_serial {
     };
 }
 
-crate::impl_usb_serial!(USB_SERIAL);
+impl_usb_serial!(USB_SERIAL);
