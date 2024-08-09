@@ -119,6 +119,7 @@ impl<T: Uart> Drop for BlockingUartIo<T> {
     }
 }
 
+#[cfg(esp_idf_soc_usb_serial_jtag_supported)]
 use crate::sys::{
     esp_vfs_usb_serial_jtag_use_driver, esp_vfs_usb_serial_jtag_use_nonblocking,
     usb_serial_jtag_driver_config_t, usb_serial_jtag_driver_install,
