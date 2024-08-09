@@ -61,6 +61,8 @@ pub mod uart;
 ))]
 pub mod ulp;
 pub mod units;
+#[cfg(esp_idf_soc_usb_serial_jtag_supported)]
+pub mod usb_serial;
 
 // This is used to create `embedded_hal` compatible error structs
 // that preserve original `EspError`.

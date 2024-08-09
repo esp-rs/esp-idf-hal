@@ -522,7 +522,7 @@ pub mod config {
                 flow_control: FlowControl::None,
                 flow_control_rts_threshold: 122,
                 source_clock: SourceClock::default(),
-                intr_flags: EnumSet::empty(),
+                intr_flags: EnumSet::EMPTY,
                 event_config: EventConfig::new(),
                 rx_fifo_size: super::UART_FIFO_SIZE * 2,
                 tx_fifo_size: super::UART_FIFO_SIZE * 2,
