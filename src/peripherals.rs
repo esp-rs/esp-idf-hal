@@ -31,6 +31,8 @@ use crate::uart;
     esp_idf_comp_ulp_enabled
 ))]
 use crate::ulp;
+#[cfg(esp_idf_soc_usb_serial_jtag_supported)]
+use crate::usb_serial;
 
 pub struct Peripherals {
     pub pins: gpio::Pins,
@@ -106,6 +108,8 @@ pub struct Peripherals {
         any(esp_idf_version_major = "4", esp_idf_version = "5.0")
     ))]
     pub twdt: watchdog::TWDT,
+    #[cfg(esp_idf_soc_usb_serial_jtag_supported)]
+    pub usb_serial: usb_serial::USB_SERIAL,
 }
 
 static TAKEN: core::sync::atomic::AtomicBool = core::sync::atomic::AtomicBool::new(false);
@@ -208,6 +212,8 @@ impl Peripherals {
                 any(esp_idf_version_major = "4", esp_idf_version = "5.0")
             ))]
             twdt: watchdog::TWDT::new(),
+            #[cfg(esp_idf_soc_usb_serial_jtag_supported)]
+            usb_serial: usb_serial::USB_SERIAL::new(),
         }
     }
 }
