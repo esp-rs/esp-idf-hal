@@ -19,7 +19,7 @@
 pub trait UsbSerial {}
 
 macro_rules! impl_usb_serial {
-    ($usb_serial:ident: $port:expr) => {
+    ($usb_serial:ident) => {
         crate::impl_peripheral!($usb_serial);
 
         impl UsbSerial for $usb_serial {}
