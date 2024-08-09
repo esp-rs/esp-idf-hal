@@ -18,4 +18,12 @@
 /// USB Serial / JTAG peripheral
 pub trait UsbSerial {}
 
-crate::impl_peripheral!(USB_SERIAL);
+macro_rules! impl_usb_serial {
+    ($usb_serial:ident: $port:expr) => {
+        crate::impl_peripheral!($usb_serial);
+
+        impl UsbSerial for $usb_serial {}
+    };
+}
+
+crate::impl_usb_serial!(USB_SERIAL);
