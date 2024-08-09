@@ -20,6 +20,15 @@ fn main() -> anyhow::Result<()> {
     example::main()
 }
 
+#[cfg(not(any(feature = "rmt-legacy", esp_idf_version_major = "4")))]
+fn main() -> anyhow::Result<()> {
+    println!("This example requires feature `rmt-legacy` enabled or using ESP-IDF v4.4.X");
+
+    loop {
+        std::thread::sleep(std::time::Duration::from_millis(1000));
+    }
+}
+
 #[cfg(any(feature = "rmt-legacy", esp_idf_version_major = "4"))]
 mod example {
     use esp_idf_hal::units::FromValueType;
@@ -175,13 +184,4 @@ mod example {
         ('Y', &[Code::Dash, Code::Dot, Code::Dash, Code::Dash]),
         ('Z', &[Code::Dash, Code::Dash, Code::Dot, Code::Dot]),
     ];
-}
-
-#[cfg(not(any(feature = "rmt-legacy", esp_idf_version_major = "4")))]
-fn main() -> anyhow::Result<()> {
-    println!("This example requires feature `rmt-legacy` enabled or using ESP-IDF v4.4.X");
-
-    loop {
-        std::thread::sleep(std::time::Duration::from_millis(1000));
-    }
 }
