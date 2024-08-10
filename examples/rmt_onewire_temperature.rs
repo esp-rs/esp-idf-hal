@@ -1,6 +1,6 @@
 //! RMT Onewire Example
 //!
-//! Example demonstrating the use of the onewire component.
+//! Example demonstrating the use of the onewire component to measure temperature from the ds18b20 temperature probe.
 //!
 //! In order to use this example, an overidden `Cargo.toml` must be defined with the following definitions:
 //! ```
