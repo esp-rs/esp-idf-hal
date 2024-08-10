@@ -31,6 +31,10 @@ embassy-sync = [] # For now, the dependecy on the `embassy-sync` crate is non-op
 # - When not enabled (default) the code for the new ADC oneshot driver will be compiled;
 # - Since we don't wrap the legacy _continuous_ ADC driver, the new _continuous_ ADC driver is always compiled.
 adc-oneshot-legacy = []
+# Similar to adc-oneshot-legacy
+# - When enabled (default), the code for the legacy RMT TX/RX driver will be compiled.
+# - When disabled the code for the new onewire RMT driver will be compiled. 
+rmt-legacy = []
 # Propagated esp-idf-sys features
 native = ["esp-idf-sys/native"]
 pio = ["esp-idf-sys/pio"]

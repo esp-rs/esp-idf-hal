@@ -6,3 +6,5 @@
 **/*.rs.bk
 ulp/ulp_start.o
 install-rust-toolchain.sh
+/.devcontainer
+components_esp32.lock
