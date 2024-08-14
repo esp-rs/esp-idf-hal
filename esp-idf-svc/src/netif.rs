@@ -96,6 +96,9 @@ impl NetifStack {
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct NetifConfiguration {
+    pub flags: u32,
+    pub get_ip_event: u32,
+    pub lost_ip_event: u32,
     pub key: heapless::String<32>,
     pub description: heapless::String<8>,
     pub route_priority: u32,
@@ -107,6 +110,10 @@ pub struct NetifConfiguration {
 impl NetifConfiguration {
     pub fn eth_default_client() -> Self {
         Self {
+            flags: esp_netif_flags_ESP_NETIF_FLAG_GARP
+                | esp_netif_flags_ESP_NETIF_FLAG_EVENT_IP_MODIFIED,
+            get_ip_event: ip_event_t_IP_EVENT_ETH_GOT_IP as _,
+            lost_ip_event: ip_event_t_IP_EVENT_ETH_LOST_IP as _,
             key: "ETH_CL_DEF".try_into().unwrap(),
             description: "eth".try_into().unwrap(),
             route_priority: 60,
@@ -118,6 +125,9 @@ impl NetifConfiguration {
 
     pub fn eth_default_router() -> Self {
         Self {
+            flags: 0,
+            get_ip_event: 0,
+            lost_ip_event: 0,
             key: "ETH_RT_DEF".try_into().unwrap(),
             description: "ethrt".try_into().unwrap(),
             route_priority: 50,
@@ -129,6 +139,10 @@ impl NetifConfiguration {
 
     pub fn wifi_default_client() -> Self {
         Self {
+            flags: esp_netif_flags_ESP_NETIF_FLAG_GARP
+                | esp_netif_flags_ESP_NETIF_FLAG_EVENT_IP_MODIFIED,
+            get_ip_event: ip_event_t_IP_EVENT_STA_GOT_IP as _,
+            lost_ip_event: ip_event_t_IP_EVENT_STA_LOST_IP as _,
             key: "WIFI_STA_DEF".try_into().unwrap(),
             description: "sta".try_into().unwrap(),
             route_priority: 100,
@@ -141,6 +155,9 @@ impl NetifConfiguration {
     #[cfg(esp_idf_esp_wifi_softap_support)]
     pub fn wifi_default_router() -> Self {
         Self {
+            flags: 0,
+            get_ip_event: 0,
+            lost_ip_event: 0,
             key: "WIFI_AP_DEF".try_into().unwrap(),
             description: "ap".try_into().unwrap(),
             route_priority: 10,
@@ -153,6 +170,9 @@ impl NetifConfiguration {
     #[cfg(esp_idf_lwip_ppp_support)]
     pub fn ppp_default_client() -> Self {
         Self {
+            flags: esp_netif_flags_ESP_NETIF_FLAG_IS_PPP,
+            get_ip_event: ip_event_t_IP_EVENT_PPP_GOT_IP as _,
+            lost_ip_event: ip_event_t_IP_EVENT_PPP_LOST_IP as _,
             key: "PPP_CL_DEF".try_into().unwrap(),
             description: "ppp".try_into().unwrap(),
             route_priority: 30,
@@ -165,6 +185,9 @@ impl NetifConfiguration {
     #[cfg(esp_idf_lwip_ppp_support)]
     pub fn ppp_default_router() -> Self {
         Self {
+            flags: esp_netif_flags_ESP_NETIF_FLAG_IS_PPP,
+            get_ip_event: 0,
+            lost_ip_event: 0,
             key: "PPP_RT_DEF".try_into().unwrap(),
             description: "ppprt".try_into().unwrap(),
             route_priority: 20,
@@ -177,6 +200,9 @@ impl NetifConfiguration {
     #[cfg(esp_idf_lwip_slip_support)]
     pub fn slip_default_client() -> Self {
         Self {
+            flags: 0,
+            get_ip_event: 0,
+            lost_ip_event: 0,
             key: "SLIP_CL_DEF".try_into().unwrap(),
             description: "slip".try_into().unwrap(),
             route_priority: 35,
@@ -189,6 +215,9 @@ impl NetifConfiguration {
     #[cfg(esp_idf_lwip_slip_support)]
     pub fn slip_default_router() -> Self {
         Self {
+            flags: 0,
+            get_ip_event: 0,
+            lost_ip_event: 0,
             key: "SLIP_RT_DEF".try_into().unwrap(),
             description: "sliprt".try_into().unwrap(),
             route_priority: 25,
@@ -238,21 +267,16 @@ impl EspNetif {
         {
             ipv4::Configuration::Client(ref ip_conf) => (
                 esp_netif_inherent_config_t {
-                    flags: match ip_conf {
-                        ipv4::ClientConfiguration::DHCP(_) => {
+                    flags: conf.flags
+                        | (if matches!(ip_conf, ipv4::ClientConfiguration::DHCP(_)) {
                             esp_netif_flags_ESP_NETIF_DHCP_CLIENT
-                                | esp_netif_flags_ESP_NETIF_FLAG_GARP
-                                | esp_netif_flags_ESP_NETIF_FLAG_EVENT_IP_MODIFIED
-                        }
-                        ipv4::ClientConfiguration::Fixed(_) => {
-                            esp_netif_flags_ESP_NETIF_FLAG_GARP
-                                | esp_netif_flags_ESP_NETIF_FLAG_EVENT_IP_MODIFIED
-                        }
-                    },
+                        } else {
+                            0
+                        }),
                     mac: initial_mac,
                     ip_info: ptr::null(),
-                    get_ip_event: ip_event_t_IP_EVENT_STA_GOT_IP,
-                    lost_ip_event: ip_event_t_IP_EVENT_STA_LOST_IP,
+                    get_ip_event: conf.get_ip_event,
+                    lost_ip_event: conf.lost_ip_event,
                     if_key: c_if_key.as_c_str().as_ptr() as _,
                     if_desc: c_if_description.as_c_str().as_ptr() as _,
                     route_prio: conf.route_priority as _,
@@ -283,15 +307,17 @@ impl EspNetif {
             ),
             ipv4::Configuration::Router(ref ip_conf) => (
                 esp_netif_inherent_config_t {
-                    flags: (if ip_conf.dhcp_enabled {
-                        esp_netif_flags_ESP_NETIF_DHCP_SERVER
-                    } else {
-                        0
-                    }) | esp_netif_flags_ESP_NETIF_FLAG_AUTOUP,
+                    flags: conf.flags
+                        | (if ip_conf.dhcp_enabled {
+                            esp_netif_flags_ESP_NETIF_DHCP_SERVER
+                        } else {
+                            0
+                        })
+                        | esp_netif_flags_ESP_NETIF_FLAG_AUTOUP,
                     mac: initial_mac,
                     ip_info: ptr::null(),
-                    get_ip_event: 0,
-                    lost_ip_event: 0,
+                    get_ip_event: conf.get_ip_event,
+                    lost_ip_event: conf.lost_ip_event,
                     if_key: c_if_key.as_c_str().as_ptr() as _,
                     if_desc: c_if_description.as_c_str().as_ptr() as _,
                     route_prio: conf.route_priority as _,
