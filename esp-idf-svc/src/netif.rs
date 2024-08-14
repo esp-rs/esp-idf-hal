@@ -21,6 +21,9 @@ use crate::private::common::*;
 use crate::private::cstr::*;
 use crate::private::mutex;
 
+#[cfg(feature = "alloc")]
+pub use driver::*;
+
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 #[cfg_attr(feature = "std", derive(Hash))]
 pub enum NetifStack {
@@ -838,6 +841,286 @@ where
             crate::eventloop::AsyncWait::<IpEvent, _>::new(&self.event_loop, &self.timer_service)?;
 
         wait.wait_while(|| matcher(self), timeout).await
+    }
+}
+
+#[cfg(feature = "alloc")]
+mod driver {
+    use core::borrow::Borrow;
+
+    use crate::handle::RawHandle;
+    use crate::sys::*;
+
+    use super::EspNetif;
+
+    pub struct EspNetifDriver<T>
+    where
+        T: Borrow<EspNetif>,
+    {
+        inner: alloc::boxed::Box<EspNetifDriverInner<T>>,
+    }
+
+    impl<T> EspNetifDriver<T>
+    where
+        T: Borrow<EspNetif>,
+    {
+        /// Create a new PPP netif driver around the provided `EspNetif` instance
+        /// and the TX callback that the driver would call when it wants to ingest
+        /// a packet into the underlying transport:
+        /// * The transport will be a PPP transport, and therefore - the supplied
+        ///   `EspNetif` instance is expected to be a PPP netif.
+        /// * The `tx` callback implementation is simply expected to write the
+        ///   PPP packet into e.g. UART
+        #[cfg(esp_idf_lwip_ppp_support)]
+        pub fn new_ppp<F>(netif: T, tx: F) -> Result<Self, EspError>
+        where
+            F: FnMut(&[u8]) -> Result<(), EspError> + Send + 'static,
+        {
+            Self::new(
+                netif,
+                Some(ip_event_t_IP_EVENT_PPP_GOT_IP as _),
+                Some(ip_event_t_IP_EVENT_PPP_LOST_IP as _),
+                ppp_config,
+                tx,
+            )
+        }
+
+        /// Create a new SLIP netif driver around the provided `EspNetif` instance
+        /// and the TX callback that the driver would call when it wants to ingest
+        /// a packet into the underlying transport:
+        /// * The transport will be a SLIP transport, and therefore - the supplied
+        ///   `EspNetif` instance is expected to be a SLIP netif.
+        /// * The `tx` callback implementation is simply expected to write the
+        ///   SLIP packet into e.g. UART
+        ///
+        // TODO: SLIP support seems experimental and incomplete.
+        // For one, `_g_esp_netif_netstack_default_slip` seems not to be there (anymore?).
+        // Shall we remove SLIP support?
+        #[cfg(esp_idf_lwip_slip_support)]
+        pub fn new_slip<F>(netif: T, tx: F) -> Result<Self, EspError>
+        where
+            F: FnMut(&[u8]) -> Result<(), EspError> + Send + 'static,
+        {
+            Self::new(netif, None, None, |_| Ok(()), tx)
+        }
+
+        /// Create a new netif driver around the provided `EspNetif` instance
+        /// and the TX callback that the driver would call when it wants to ingest
+        /// a packet into the underlying transport:
+        /// * The transport can be anything, but with - say - PPP netif - it would
+        ///   typically be UART, and the callback implementation is simply expected
+        ///   to write the PPP packet into UART
+        /// * `got_ip_event_id` and `lost_ip_event_id` are the event IDs that the driver
+        ///   will listen to so that it can connect/disconnect the netif upon receival
+        ///   / loss of IP
+        /// * `post_attach_cfg` is a netif-specific configuration that will be executed
+        ///   after the netif is attached. See `ppp_config` below for a PPP-specific driver
+        ///   post-attach configuration
+        pub fn new<F, P>(
+            netif: T,
+            got_ip_event_id: Option<i32>,
+            lost_ip_event_id: Option<i32>,
+            post_attach_cfg: P,
+            tx: F,
+        ) -> Result<Self, EspError>
+        where
+            F: FnMut(&[u8]) -> Result<(), EspError> + Send + 'static,
+            P: FnMut(&EspNetif) -> Result<(), EspError> + Send + 'static,
+        {
+            let mut inner = alloc::boxed::Box::new(EspNetifDriverInner {
+                base: esp_netif_driver_base_t {
+                    netif: netif.borrow().handle(),
+                    post_attach: Some(EspNetifDriverInner::<T>::raw_post_attach),
+                },
+                netif,
+                got_ip_event_id,
+                lost_ip_event_id,
+                post_attach_cfg: alloc::boxed::Box::new(post_attach_cfg),
+                tx: alloc::boxed::Box::new(tx),
+            });
+
+            let inner_ptr = inner.as_mut() as *mut _ as *mut core::ffi::c_void;
+
+            if let Some(got_ip_event_id) = got_ip_event_id {
+                esp!(unsafe {
+                    esp_event_handler_register(
+                        IP_EVENT,
+                        got_ip_event_id,
+                        Some(esp_netif_action_connected),
+                        inner.netif.borrow().handle() as *mut core::ffi::c_void,
+                    )
+                })?;
+            }
+
+            if let Some(lost_ip_event_id) = lost_ip_event_id {
+                esp!(unsafe {
+                    esp_event_handler_register(
+                        IP_EVENT,
+                        lost_ip_event_id,
+                        Some(esp_netif_action_disconnected),
+                        inner.netif.borrow().handle() as *mut core::ffi::c_void,
+                    )
+                })?;
+            }
+
+            esp!(unsafe { esp_netif_attach(inner.netif.borrow().handle(), inner_ptr) })?;
+
+            unsafe {
+                esp_netif_action_start(
+                    inner.netif.borrow().handle() as *mut core::ffi::c_void,
+                    core::ptr::null_mut(),
+                    0,
+                    core::ptr::null_mut(),
+                );
+            }
+
+            Ok(Self { inner })
+        }
+
+        /// Ingest a packet into the driver.
+        /// The packet can arrive from anywhere, but with say - a PPP netif -
+        /// it would be a PPP packet arriving typically from UART, by reading from it.
+        pub fn rx(&self, data: &[u8]) -> Result<(), EspError> {
+            esp!(unsafe {
+                esp_netif_receive(
+                    self.inner.netif.borrow().handle(),
+                    data.as_ptr() as *mut core::ffi::c_void,
+                    data.len() as _,
+                    core::ptr::null_mut(),
+                )
+            })
+        }
+    }
+
+    impl<T> Drop for EspNetifDriver<T>
+    where
+        T: Borrow<EspNetif>,
+    {
+        fn drop(&mut self) {
+            unsafe {
+                esp_netif_action_stop(
+                    self.inner.netif.borrow().handle() as *mut core::ffi::c_void,
+                    core::ptr::null_mut(),
+                    0,
+                    core::ptr::null_mut(),
+                );
+            }
+
+            if let Some(got_ip_event_id) = self.inner.got_ip_event_id {
+                esp!(unsafe {
+                    esp_event_handler_unregister(
+                        IP_EVENT,
+                        got_ip_event_id,
+                        Some(esp_netif_action_connected),
+                    )
+                })
+                .unwrap();
+            }
+
+            if let Some(lost_ip_event_id) = self.inner.lost_ip_event_id {
+                esp!(unsafe {
+                    esp_event_handler_unregister(
+                        IP_EVENT,
+                        lost_ip_event_id,
+                        Some(esp_netif_action_disconnected),
+                    )
+                })
+                .unwrap();
+            }
+        }
+    }
+
+    #[repr(C)]
+    struct EspNetifDriverInner<T>
+    where
+        T: Borrow<EspNetif>,
+    {
+        base: esp_netif_driver_base_t,
+        netif: T,
+        got_ip_event_id: Option<i32>,
+        lost_ip_event_id: Option<i32>,
+        #[allow(clippy::type_complexity)]
+        tx: alloc::boxed::Box<dyn FnMut(&[u8]) -> Result<(), EspError>>,
+        #[allow(clippy::type_complexity)]
+        post_attach_cfg: alloc::boxed::Box<dyn FnMut(&EspNetif) -> Result<(), EspError>>,
+    }
+
+    impl<T> EspNetifDriverInner<T>
+    where
+        T: Borrow<EspNetif>,
+    {
+        fn post_attach(&mut self, netif_handle: *mut esp_netif_obj) -> Result<(), EspError> {
+            let driver_ifconfig = esp_netif_driver_ifconfig_t {
+                transmit: Some(Self::raw_tx),
+                handle: self as *mut _ as *mut core::ffi::c_void,
+                ..Default::default()
+            };
+
+            // d->base.netif = esp_netif; TODO: This is weird; the netif in base is already set on constructor?
+
+            esp!(unsafe { esp_netif_set_driver_config(netif_handle, &driver_ifconfig) })?;
+
+            (self.post_attach_cfg)(self.netif.borrow())?;
+
+            Ok(())
+        }
+
+        fn tx(&mut self, data: &[u8]) -> Result<(), EspError> {
+            (self.tx)(data)
+        }
+
+        unsafe extern "C" fn raw_tx(
+            h: *mut core::ffi::c_void,
+            buffer: *mut core::ffi::c_void,
+            len: usize,
+        ) -> i32 {
+            let this = unsafe { (h as *mut Self).as_mut() }.unwrap();
+            let data = core::slice::from_raw_parts(buffer as *mut u8, len);
+            let result = match this.tx(data) {
+                Ok(_) => ESP_OK,
+                Err(e) => e.code(),
+            };
+
+            // TODO: Might not be necessary, but if I remember correctly, the Netif API
+            // wanted that _we_ free the buffer; in any case needs to be compared with the C ESP Modem code
+            free(buffer);
+
+            result
+        }
+
+        unsafe extern "C" fn raw_post_attach(
+            netif: *mut esp_netif_obj,
+            args: *mut core::ffi::c_void,
+        ) -> i32 {
+            let this = { (args as *mut Self).as_mut() }.unwrap();
+            match this.post_attach(netif) {
+                Ok(_) => ESP_OK,
+                Err(e) => e.code(),
+            }
+        }
+    }
+
+    /// PPP-specific configuration of a Netif
+    #[cfg(esp_idf_lwip_ppp_support)]
+    pub fn ppp_config(netif: &EspNetif) -> Result<(), EspError> {
+        // Check if PPP error events are enabled, if not, do enable the error occurred/state changed
+        // to notify the modem layer when switching modes
+        #[allow(clippy::needless_update)]
+        let mut ppp_config = esp_netif_ppp_config_t {
+            ppp_phase_event_enabled: true, // Assuming phase enabled, as earlier IDFs
+            ppp_error_event_enabled: false, // Don't provide cfg getters so we enable both events
+            ..Default::default()
+        };
+
+        #[cfg(not(esp_idf_version_major = "4"))]
+        esp!(unsafe { esp_netif_ppp_get_params(netif.handle(), &mut ppp_config) })?;
+
+        if !ppp_config.ppp_error_event_enabled {
+            ppp_config.ppp_error_event_enabled = true;
+            esp!(unsafe { esp_netif_ppp_set_params(netif.handle(), &ppp_config) })?;
+        }
+
+        Ok(())
     }
 }
 
