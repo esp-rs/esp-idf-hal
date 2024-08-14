@@ -99,6 +99,9 @@
 
 #ifdef ESP_IDF_COMP_ESP_NETIF_ENABLED
 #include "esp_netif.h"
+#ifdef CONFIG_LWIP_PPP_SUPPORT
+#include "esp_netif_ppp.h"
+#endif
 #endif
 
 #ifdef ESP_IDF_COMP_ESP_WIFI_ENABLED
