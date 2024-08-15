@@ -93,9 +93,6 @@ fn get_request(client: &mut HttpClient<EspHttpConnection>) -> anyhow::Result<()>
         Err(e) => error!("Error decoding response body: {}", e),
     };
 
-    // Drain the remaining response bytes
-    while response.read(&mut buf)? > 0 {}
-
     Ok(())
 }
 
@@ -134,9 +131,6 @@ fn post_request(client: &mut HttpClient<EspHttpConnection>) -> anyhow::Result<()
         Err(e) => error!("Error decoding response body: {}", e),
     };
 
-    // Drain the remaining response bytes
-    while response.read(&mut buf)? > 0 {}
-
     Ok(())
 }
 
@@ -172,9 +166,6 @@ fn post_chunked_request(client: &mut HttpClient<EspHttpConnection>) -> anyhow::R
         ),
         Err(e) => error!("Error decoding response body: {}", e),
     };
-
-    // Drain the remaining response bytes
-    while response.read(&mut buf)? > 0 {}
 
     Ok(())
 }
