@@ -1,4 +1,39 @@
 //! GPIO and pin configuration
+//!
+//! Interface for the input/output pins.
+//!
+//! `Gpio1` through `Gpio39` represent the *physical* pins of the ESP chip.
+//!
+//! *Logical* pins (compatible with `embedded_hal::digital::InputPin`/`OutputPin`)
+//! are implemented through `PinDriver`.
+//!
+//! The ESP architecture has a I/O multiplexer, which means that (almost) any
+//! physical pin can be used for any logical function (i.e. GPIO, I2C, SPI, ADC, etc).
+//! Even though it's possible to use a pin for several functions at once, this
+//! should be avoided. This is particularly important with the pins used for the
+//! SPI RAM and the SPI Flash.
+//!
+//! # Examples
+//!
+//! Create a logical input/output pin on physical pin 2
+//! ```
+//! use esp_idf_hal::peripherals::Peripherals;
+//! use esp_idf_hal::gpio:PinDriver;
+//! use esp_idf_hal::gpio:Level;
+//!
+//! let physical_pin_2 = Peripherals::take().unwrap().pins.gpio2;
+//!
+//! // Set pin to input/output and open drain
+//! let logical_pin_2 = PinDriver::input_output_od().unwrap();
+//!
+//! // Set pin to high
+//! logical_pin_2.set_level(Level::High);
+//!
+//! // The logical pin implements some embedded_hal traits, so it can
+//! // be used in crates that rely on those traits, e.g.:
+//! use one_wire_bus::OneWire;
+//! let bus = OneWire::new(logical_pin_2).unwrap();
+//! ```
 
 use core::marker::PhantomData;
 
