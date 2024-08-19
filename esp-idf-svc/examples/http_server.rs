@@ -45,6 +45,20 @@ struct FormData<'a> {
 fn main() -> anyhow::Result<()> {
     esp_idf_svc::sys::link_patches();
     esp_idf_svc::log::EspLogger::initialize_default();
+
+    // Setup Wifi
+
+    let peripherals = Peripherals::take()?;
+    let sys_loop = EspSystemEventLoop::take()?;
+    let nvs = EspDefaultNvsPartition::take()?;
+
+    let mut wifi = BlockingWifi::wrap(
+        EspWifi::new(peripherals.modem, sys_loop.clone(), Some(nvs))?,
+        sys_loop,
+    )?;
+
+    connect_wifi(&mut wifi)?;
+
     let mut server = create_server()?;
 
     server.fn_handler("/", Method::Get, |req| {
@@ -79,27 +93,22 @@ fn main() -> anyhow::Result<()> {
         Ok(())
     })?;
 
-    // Keep server running beyond when main() returns (forever)
-    // Do not call this if you ever want to stop or access it later.
+    // Keep wifi and the server running beyond when main() returns (forever)
+    // Do not call this if you ever want to stop or access them later.
     // Otherwise you can either add an infinite loop so the main task
-    // never returns, or you can move it to another thread.
+    // never returns, or you can move them to another thread.
     // https://doc.rust-lang.org/stable/core/mem/fn.forget.html
+    core::mem::forget(wifi);
     core::mem::forget(server);
 
     // Main task no longer needed, free up some memory
     Ok(())
 }
 
-fn create_server() -> anyhow::Result<EspHttpServer<'static>> {
-    let peripherals = Peripherals::take()?;
-    let sys_loop = EspSystemEventLoop::take()?;
-    let nvs = EspDefaultNvsPartition::take()?;
-
-    let mut wifi = BlockingWifi::wrap(
-        EspWifi::new(peripherals.modem, sys_loop.clone(), Some(nvs))?,
-        sys_loop,
-    )?;
-
+fn connect_wifi(wifi: &mut BlockingWifi<EspWifi<'static>>) -> anyhow::Result<()> {
+    // If instead of creating a new network you want to serve the page
+    // on your local network, you can replace this configuration with
+    // the client configuration from the http_client example.
     let wifi_configuration = wifi::Configuration::AccessPoint(AccessPointConfiguration {
         ssid: SSID.try_into().unwrap(),
         ssid_hidden: true,
@@ -108,26 +117,36 @@ fn create_server() -> anyhow::Result<EspHttpServer<'static>> {
         channel: CHANNEL,
         ..Default::default()
     });
+
     wifi.set_configuration(&wifi_configuration)?;
+
     wifi.start()?;
+    info!("Wifi started");
+
+    // If using a client configuration you need
+    // to connect to the network with:
+    //
+    //  ```
+    //  wifi.connect()?;
+    //  info!("Wifi connected");
+    // ```
+
     wifi.wait_netif_up()?;
+    info!("Wifi netif up");
 
     info!(
         "Created Wi-Fi with WIFI_SSID `{}` and WIFI_PASS `{}`",
         SSID, PASSWORD
     );
 
+    Ok(())
+}
+
+fn create_server() -> anyhow::Result<EspHttpServer<'static>> {
     let server_configuration = esp_idf_svc::http::server::Configuration {
         stack_size: STACK_SIZE,
         ..Default::default()
     };
-
-    // Keep wifi running beyond when this function returns (forever)
-    // Do not call this if you ever want to stop or access it later.
-    // Otherwise it should be returned from this function and kept somewhere
-    // so it does not go out of scope.
-    // https://doc.rust-lang.org/stable/core/mem/fn.forget.html
-    core::mem::forget(wifi);
 
     Ok(EspHttpServer::new(&server_configuration)?)
 }
