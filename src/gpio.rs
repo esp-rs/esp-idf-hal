@@ -2,16 +2,28 @@
 //!
 //! Interface for the input/output pins.
 //!
-//! `Gpio1` through `Gpio39` represent the *physical* pins of the ESP chip.
+//! `Gpio1` through `GpioNN` represent the pin peripherals of the ESP chip. You
+//! may think of pin peripherals as *physical* pins.
 //!
-//! *Logical* pins (compatible with `embedded_hal::digital::InputPin`/`OutputPin`)
-//! are implemented through `PinDriver`.
+//! Pin drivers are implemented through `PinDriver`. You may think of pin drivers as
+//! *logical* I/O pins. They implement the [`embedded_hal::digital::InputPin`](https://docs.rs/embedded-hal/latest/embedded_hal/digital/trait.InputPin.html)/[`OutputPin`](https://docs.rs/embedded-hal/latest/embedded_hal/digital/trait.OutputPin.html)
+//! traits, as well as their [`embedded_hal_async`](https://docs.rs/embedded-hal-async/latest/embedded_hal_async/) counterparts.
 //!
-//! The ESP architecture has a I/O multiplexer, which means that (almost) any
-//! physical pin can be used for any logical function (i.e. GPIO, I2C, SPI, ADC, etc).
-//! Even though it's possible to use a pin for several functions at once, this
-//! should be avoided. This is particularly important with the pins used for the
+//! The ESP architecture has a [I/O multiplexer](https://www.espressif.com/sites/default/files/documentation/esp32_technical_reference_manual_en.pdf#iomuxgpio),
+//! which means that (almost) any physical pin can be used for any logical
+//! function (i.e. GPIO, I2C, SPI, ADC, etc). Even though it's possible to
+//! use a pin for several functions at once, this should be avoided. In
+//! practice, `esp-idf-hal` should prevent most instances of pin reuse.
+//!
+//! If you *really* need to mux I/O pins, you might need to drop any function
+//! (GPIO, I2C, etc) that's using a pin before using it for any other purpose,
+//! and use appropriate measures (e.g. `std::sync::Mutex`) to avoid conflicts.
+//!
+//! Avoiding pin reuse is particularly important with the pins used for the
 //! SPI RAM and the SPI Flash.
+//!
+//! Each physical architecture (ESP32, ESP32C3, ESP32H2, etc) has a different set
+//! of pins; check the documentation for your model.
 //!
 //! # Examples
 //!
@@ -28,11 +40,29 @@
 //!
 //! // Set pin to high
 //! logical_pin_2.set_level(Level::High);
+//! ```
 //!
-//! // The logical pin implements some embedded_hal traits, so it can
-//! // be used in crates that rely on those traits, e.g.:
-//! use one_wire_bus::OneWire;
-//! let bus = OneWire::new(logical_pin_2).unwrap();
+//! Using (physical) pins for I2C does not require creating (logical) pin drivers:
+//! ```
+//! let peripherals = esp_idf_hal::peripherals::Peripherals::take()?;
+//! let i2c = peripherals.i2c0;
+//! let sda = peripherals.pins.gpio5;
+//! let scl = peripherals.pins.gpio6;
+//!
+//! let mut i2c = esp_idf_hal::i2c::I2cDriver::new(i2c, sda, scl, &esp_idf_hal_::i2c::I2cConfig::new())?;
+//! ```
+//!
+//! Since pin drivers implement `embedded_hal` traits, they can be used in
+//! crates that use those traits:
+//! ```
+//! use tm1637_embedded_hal::blocking::TM1637;
+//! let peripherals = esp_idf_hal::peripherals::Peripherals::take()?;
+//! let delay_provider = esp_idf_hal::delay::Delay::new(50);
+//!
+//! let dio = PinDriver::input_output_od(peripherals.pins.gpio16);
+//! let clk = PinDriver::output(peripherals.pins.gpio17);
+//!
+//! let display = TM1637::builder(clk, dio, delay_provider).build();
 //! ```
 
 use core::marker::PhantomData;
