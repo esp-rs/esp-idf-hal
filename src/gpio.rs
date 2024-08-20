@@ -2,7 +2,7 @@
 //!
 //! Interface for the input/output pins.
 //!
-//! `Gpio1` through `GpioNN` represent the pin peripherals of the ESP chip. You
+//! `Gpio0` through `GpioNN` represent the pin peripherals of the ESP chip. You
 //! may think of pin peripherals as *physical* pins.
 //!
 //! Pin drivers are implemented through `PinDriver`. You may think of pin drivers as
@@ -11,16 +11,12 @@
 //!
 //! The ESP architecture has a [I/O multiplexer](https://www.espressif.com/sites/default/files/documentation/esp32_technical_reference_manual_en.pdf#iomuxgpio),
 //! which means that (almost) any physical pin can be used for any logical
-//! function (i.e. GPIO, I2C, SPI, ADC, etc). Even though it's possible to
-//! use a pin for several functions at once, this should be avoided. In
-//! practice, `esp-idf-hal` should prevent most instances of pin reuse.
+//! function (i.e. GPIO, I2C, SPI, ADC, etc).
 //!
-//! If you *really* need to mux I/O pins, you might need to drop any function
-//! (GPIO, I2C, etc) that's using a pin before using it for any other purpose,
-//! and use appropriate measures (e.g. `std::sync::Mutex`) to avoid conflicts.
-//!
+//! Reusing a pin for several functions is possible but should be avoided (since
+//! reusing a pin requires the programmer to be more careful about its usage).
 //! Avoiding pin reuse is particularly important with the pins used for the
-//! SPI RAM and the SPI Flash.
+//! integrated SPI RAM and the SPI Flash.
 //!
 //! Each physical architecture (ESP32, ESP32C3, ESP32H2, etc) has a different set
 //! of pins; check the documentation for your model.
@@ -2068,6 +2064,19 @@ mod chip {
     pin!(Gpio20:20, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
     pin!(Gpio21:21, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
 
+    /// The pins in this structure vary depending on your specific physical
+    /// architecture; for example, an ESP32C2 has pins 0 through 20, whereas
+    /// an ESP32S3 has pins 0 through 21 and 26 through 48.
+    ///
+    /// Each pin has different capabilities, and therefore each `gpioN` has a
+    /// specific type which implements different [traits](https://doc.rust-lang.org/book/ch10-02-traits.html).
+    /// For example, pin `gpio15` on a ESP32C2 is a `Gpio15` which implements
+    /// the `AnyInputPin`, `AnyOutputPin` and `AnyIOPin` traits. The same pin
+    /// `gpio15` on a ESP32S3 is also a `Gpio15`, but it implements the `AnyInputPin`,
+    /// `AnyOutputPin`, `AnyIOPin`, `ADCPin` and `RTCPin` traits.
+    ///
+    /// Note that pins here do **not** implement the `embedded_hal` pin traits.
+    /// Instead, check `esp-idf-hal::gpio`.
     pub struct Pins {
         pub gpio0: Gpio0,
         pub gpio1: Gpio1,
