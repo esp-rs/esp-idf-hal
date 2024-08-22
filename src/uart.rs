@@ -1124,8 +1124,14 @@ impl<'d> UartRxDriver<'d> {
         }
 
         // First try to read without blocking
-        let len =
-            unsafe { uart_read_bytes(self.port(), buf.as_mut_ptr().cast(), buf.len() as u32, 0) };
+        let len = unsafe {
+            uart_read_bytes(
+                self.port(),
+                buf.as_mut_ptr().cast(),
+                buf.len() as u32,
+                delay::NON_BLOCK,
+            )
+        };
 
         if len > 0 || delay == delay::NON_BLOCK {
             // Some data was read, or the user requested a non-blocking read anyway
@@ -1148,7 +1154,7 @@ impl<'d> UartRxDriver<'d> {
                     self.port(),
                     buf[1..].as_mut_ptr().cast(),
                     (buf.len() - 1) as u32,
-                    0,
+                    delay::NON_BLOCK,
                 )
             };
 
