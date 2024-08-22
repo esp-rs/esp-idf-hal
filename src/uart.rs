@@ -1101,22 +1101,65 @@ impl<'d> UartRxDriver<'d> {
     }
 
     /// Read multiple bytes into a slice; block until specified timeout
+    /// Returns:
+    /// - `Ok(0)` if the buffer is of length 0
+    /// - `Ok(n)` if `n` bytes were read, where n is > 0
+    /// - `Err(EspError::Timeout)` if no bytes were read within the specified timeout
     pub fn read(&self, buf: &mut [u8], delay: TickType_t) -> Result<usize, EspError> {
-        // uart_read_bytes() returns error (-1) or how many bytes were read out
-        // 0 means timeout and nothing is yet read out
-        let len = unsafe {
-            uart_read_bytes(
-                self.port(),
-                buf.as_mut_ptr().cast(),
-                buf.len() as u32,
-                delay,
-            )
-        };
+        // `uart_read_bytes` has a WEIRD semantics:
+        // - If the data in the internal ring-buffer is LESS than the passed `length`
+        //   **it will wait (with a `delay` timeout) UNTIL it can return up to `length` bytes**
+        //   (and if the timeout had expired, it will return whatever it was able to read - possibly nothing too)
+        // - This is not matching the typical `read` syscall semantics where it only
+        //   returns what is available in the internal buffer and does not wait for more;
+        //   and only blocks if the internal buffer is empty, and only until _some_ data becomes available
+        //   but NOT until `buf.len()` data is available.
+        //
+        // Therefore - and to avoid confusion - we will implement the typical `read` syscall
+        // semantics here
 
-        if len >= 0 {
-            Ok(len as usize)
-        } else {
-            Err(EspError::from_infallible::<ESP_ERR_INVALID_STATE>())
+        // Passing an empty buffer is valid, but it means we'll always read 0 bytes
+        if buf.is_empty() {
+            return Ok(0);
+        }
+
+        // First try to read without blocking
+        let len =
+            unsafe { uart_read_bytes(self.port(), buf.as_mut_ptr().cast(), buf.len() as u32, 0) };
+
+        if len > 0 || delay == delay::NON_BLOCK {
+            // Some data was read, or the user requested a non-blocking read anyway
+            return match len {
+                -1 | 0 => Err(EspError::from_infallible::<ESP_ERR_TIMEOUT>()),
+                len => Ok(len as usize),
+            };
+        }
+
+        // Now block until at least one byte is available
+        let mut len =
+            unsafe { uart_read_bytes(self.port(), buf.as_mut_ptr().cast(), 1_u32, delay) };
+
+        if len > 0 && buf.len() > 1 {
+            // Try to read more than that one byte in a non-blocking way
+            // just because we can, and this lowers the latency of `read`.
+            // To comply with the `read` syscall semantics we don't have to necessarily do this
+            let extra_len = unsafe {
+                uart_read_bytes(
+                    self.port(),
+                    buf[1..].as_mut_ptr().cast(),
+                    (buf.len() - 1) as u32,
+                    0,
+                )
+            };
+
+            if extra_len > 0 {
+                len += extra_len;
+            }
+        }
+
+        match len {
+            -1 | 0 => Err(EspError::from_infallible::<ESP_ERR_TIMEOUT>()),
+            len => Ok(len as usize),
         }
     }
 
