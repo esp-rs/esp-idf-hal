@@ -1,6 +1,6 @@
 //: QueueHandle_t ! UART peripheral control
-//!
 //! Controls UART peripherals (UART0, UART1, UART2).
+//!
 //! Notice that UART0 is typically already used for loading firmware and logging.
 //! Therefore use UART1 and UART2 in your application.
 //! Any pin can be used for `rx` and `tx`.

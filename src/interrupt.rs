@@ -508,6 +508,7 @@ pub mod asynch {
     unsafe impl<const N: usize> Sync for IsrReactor<N> {}
 
     /// Single-slot lock-free signaling primitive supporting signalling with a `u32` bit-set.
+    ///
     /// A variation of the `Notification` HAL primitive which is however safe to be notified from an ISR context.
     ///
     /// It is useful for sending data between an ISR routine (or a regular task context) and an async task when the
