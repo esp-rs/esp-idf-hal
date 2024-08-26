@@ -441,9 +441,10 @@ where
     }
 }
 
-/// This struct provides a safe wrapper over the ESP IDF Wifi C driver. The driver
-/// works on Layer 2 (Data Link) in the OSI model, in that it provides facilities
-/// for sending and receiving ethernet packets over the WiFi radio.
+/// This struct provides a safe wrapper over the ESP IDF Wifi C driver.
+///
+/// The driver works on Layer 2 (Data Link) in the OSI model, in that it provides
+/// facilities for sending and receiving ethernet packets over the WiFi radio.
 ///
 /// For most use cases, utilizing `EspWifi` - which provides a networking (IP)
 /// layer as well - should be preferred. Using `WifiDriver` directly is beneficial
@@ -1468,9 +1469,11 @@ impl Drop for WifiFrame {
 }
 
 /// `EspWifi` wraps a `WifiDriver` Data Link layer instance, and binds the OSI
-/// Layer 3 (network) facilities of ESP IDF to it. In other words, it connects
-/// the ESP IDF AP and STA Netif interfaces to the Wifi driver. This allows users
-/// to utilize the Rust STD APIs for working with TCP and UDP sockets.
+/// Layer 3 (network) facilities of ESP IDF to it.
+///
+/// In other words, it connects the ESP IDF AP and STA Netif interfaces to the
+/// Wifi driver. This allows users to utilize the Rust STD APIs for working with
+/// TCP and UDP sockets.
 ///
 /// This struct should be the default option for a Wifi driver in all use cases
 /// but the niche one where bypassing the ESP IDF Netif and lwIP stacks is

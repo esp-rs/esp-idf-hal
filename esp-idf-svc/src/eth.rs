@@ -284,6 +284,16 @@ impl<T> Drop for SpiEth<T> {
     }
 }
 
+/// This struct provides a safe wrapper over the ESP IDF Ethernet C driver.
+///
+/// The driver works on Layer 2 (Data Link) in the OSI model, in that it provides
+/// facilities for sending and receiving ethernet packets over the built-in
+/// RMII interface of `esp32` and/or via a dedicated SPI ethernet peripheral for all
+/// other MCUs.
+///
+/// For most use cases, utilizing `EspEth` - which provides a networking (IP)
+/// layer as well - should be preferred. Using `EthDriver` directly is beneficial
+/// only when one would like to utilize a custom, non-STD network stack like `smoltcp`.
 pub struct EthDriver<'d, T> {
     _flavor: T,
     handle: esp_eth_handle_t,
@@ -1132,6 +1142,17 @@ impl Drop for EthFrame {
     }
 }
 
+/// `EspEth` wraps an `EthDriver` Data Link layer instance, and binds the OSI
+/// Layer 3 (network) facilities of ESP IDF to it.
+///
+/// In other words, it connects the ESP IDF ethernet Netif interface to the
+/// ethernet driver. This allows users to utilize the Rust STD APIs for working with
+/// TCP and UDP sockets.
+///
+/// This struct should be the default option for an ethernet driver in all use cases
+/// but the niche one where bypassing the ESP IDF Netif and lwIP stacks is
+/// desirable. E.g., using `smoltcp` or other custom IP stacks on top of the
+/// ESP IDF ethernet peripheral.
 #[cfg(esp_idf_comp_esp_netif_enabled)]
 pub struct EspEth<'d, T> {
     glue_handle: *mut esp_eth_netif_glue_t,
