@@ -579,6 +579,7 @@ pub mod asynch {
     }
 
     /// Single-slot lock-free signaling primitive supporting signalling with a `u32` bit-set.
+    ///
     /// A variation of the `IsrNotification` HAL primitive which is however safe to be notified from an ISR context.
     /// The difference between this primitive and `IsrNotification` is that this one is hard-wired to the
     /// global HAL wake runner (`HAL_WAKE_RUNNER`) and is thus occupying less space.
