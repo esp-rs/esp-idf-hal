@@ -232,6 +232,12 @@ impl EspLogger {
     }
 }
 
+impl Default for EspLogger {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl ::log::Log for EspLogger {
     fn enabled(&self, metadata: &Metadata) -> bool {
         metadata.level() <= LevelFilter::from(Newtype(CONFIG_LOG_MAXIMUM_LEVEL))
