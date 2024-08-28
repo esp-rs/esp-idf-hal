@@ -133,7 +133,8 @@ unsafe impl Send for EspLogger {}
 unsafe impl Sync for EspLogger {}
 
 impl EspLogger {
-    const fn new() -> Self {
+    /// Public in case user code would like to compose this logger in their own one
+    pub const fn new() -> Self {
         Self {
             cache: Mutex::new(BTreeMap::new()),
         }
