@@ -1322,6 +1322,14 @@ impl<'d> WifiDriver<'d> {
             tx_status,
         );
     }
+
+    pub fn get_rssi(&self) -> Result<i32, EspError> {
+        let mut rssi: core::ffi::c_int = 0;
+        unsafe {
+            esp_wifi_sta_get_rssi(&mut rssi as *mut core::ffi::c_int);
+        };
+        Ok(rssi as i32)
+    }
 }
 
 unsafe impl<'d> Send for WifiDriver<'d> {}
@@ -1769,6 +1777,10 @@ impl<'d> EspWifi<'d> {
         })?;
 
         Ok(())
+    }
+
+    pub fn get_rssi(&self) -> Result<i32, EspError> {
+        self.driver().get_rssi()
     }
 }
 
