@@ -100,8 +100,8 @@ fn main() -> anyhow::Result<()> {
             key_raw_struct,
             &to_vec::<StructToBeStored, 100>(&key_raw_struct_data).unwrap(),
         ) {
-            Ok(_) => info!("Key {} updated", key_raw_str),
-            Err(e) => info!("key {} not updated {:?}", key_raw_str, e),
+            Ok(_) => info!("Key {} updated", key_raw_struct),
+            Err(e) => info!("key {} not updated {:?}", key_raw_struct, e),
         };
     }
 
@@ -113,12 +113,12 @@ fn main() -> anyhow::Result<()> {
                 if let Some(the_struct) = v {
                     info!(
                         "{:?} = {:?}",
-                        key_raw_str,
+                        key_raw_struct,
                         from_bytes::<StructToBeStored>(the_struct)
                     )
                 }
             }
-            Err(e) => info!("Couldn't get key {} because {:?}", key_raw_str, e),
+            Err(e) => info!("Couldn't get key {} because {:?}", key_raw_struct, e),
         };
     }
 
