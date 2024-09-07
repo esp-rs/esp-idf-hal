@@ -617,6 +617,14 @@ impl<'a> EspMqttClient<'a> {
         })
     }
 
+    pub fn set_uri(&mut self, uri: &str) -> Result<MessageId, EspError> {
+        self.set_uri_cstr(to_cstring_arg(uri)?.as_c_str())
+    }
+
+    pub fn set_uri_cstr(&mut self, uri: &core::ffi::CStr) -> Result<MessageId, EspError> {
+        Self::check(unsafe { esp_mqtt_client_set_uri(self.raw_client, uri.as_ptr()) })
+    }
+
     extern "C" fn handle(
         event_handler_arg: *mut c_void,
         _event_base: esp_event_base_t,
@@ -725,6 +733,7 @@ enum AsyncCommand {
     Subscribe { qos: QoS },
     Unsubscribe,
     Publish { qos: QoS, retain: bool },
+    SetUri,
 }
 
 #[derive(Debug)]
@@ -733,6 +742,7 @@ struct AsyncWork {
     topic: alloc::vec::Vec<u8>,
     payload: alloc::vec::Vec<u8>,
     result: Result<MessageId, EspError>,
+    broker_uri: alloc::vec::Vec<u8>,
 }
 
 pub struct EspAsyncMqttClient(Unblocker<AsyncWork>);
@@ -769,12 +779,12 @@ impl EspAsyncMqttClient {
     }
 
     pub async fn subscribe(&mut self, topic: &str, qos: QoS) -> Result<MessageId, EspError> {
-        self.execute(AsyncCommand::Subscribe { qos }, Some(topic), None)
+        self.execute(AsyncCommand::Subscribe { qos }, Some(topic), None, None)
             .await
     }
 
     pub async fn unsubscribe(&mut self, topic: &str) -> Result<MessageId, EspError> {
-        self.execute(AsyncCommand::Unsubscribe, Some(topic), None)
+        self.execute(AsyncCommand::Unsubscribe, Some(topic), None, None)
             .await
     }
 
@@ -789,8 +799,14 @@ impl EspAsyncMqttClient {
             AsyncCommand::Publish { qos, retain },
             Some(topic),
             Some(payload),
+            None,
         )
         .await
+    }
+
+    pub async fn set_uri(&mut self, broker_uri: &str) -> Result<MessageId, EspError> {
+        self.execute(AsyncCommand::SetUri, None, None, Some(broker_uri))
+            .await
     }
 
     async fn execute(
@@ -798,6 +814,7 @@ impl EspAsyncMqttClient {
         command: AsyncCommand,
         topic: Option<&str>,
         payload: Option<&[u8]>,
+        broker_uri: Option<&str>,
     ) -> Result<MessageId, EspError> {
         // Get the shared reference to the work item (as processed by the Self::work thread),
         // and replace it with the next work item we want to process.
@@ -816,6 +833,12 @@ impl EspAsyncMqttClient {
             work.payload.extend_from_slice(payload);
         }
 
+        if let Some(broker_uri) = broker_uri {
+            work.broker_uri.clear();
+            work.broker_uri.extend_from_slice(broker_uri.as_bytes());
+            work.broker_uri.push(0);
+        }
+
         // Signal the worker thread that it can process the work item.
         self.0.do_exec().await;
 
@@ -832,23 +855,32 @@ impl EspAsyncMqttClient {
             topic: alloc::vec::Vec::new(),
             payload: alloc::vec::Vec::new(),
             result: Ok(0),
+            broker_uri: alloc::vec::Vec::new(),
         };
-
         // Repeatedly share a reference to the work until the channel is closed.
         // The receiver will replace the data with the next work item, then wait for
         // this thread to process it by calling into the C library and write the result.
         while channel.share(&mut work) {
-            let topic = unsafe { core::ffi::CStr::from_bytes_with_nul_unchecked(&work.topic) };
-
             match work.command {
                 AsyncCommand::Subscribe { qos } => {
+                    let topic =
+                        unsafe { core::ffi::CStr::from_bytes_with_nul_unchecked(&work.topic) };
                     work.result = client.subscribe_cstr(topic, qos);
                 }
                 AsyncCommand::Unsubscribe => {
+                    let topic =
+                        unsafe { core::ffi::CStr::from_bytes_with_nul_unchecked(&work.topic) };
                     work.result = client.unsubscribe_cstr(topic);
                 }
                 AsyncCommand::Publish { qos, retain } => {
+                    let topic =
+                        unsafe { core::ffi::CStr::from_bytes_with_nul_unchecked(&work.topic) };
                     work.result = client.publish_cstr(topic, qos, retain, &work.payload);
+                }
+                AsyncCommand::SetUri => {
+                    let uri =
+                        unsafe { core::ffi::CStr::from_bytes_with_nul_unchecked(&work.broker_uri) };
+                    work.result = client.set_uri_cstr(uri);
                 }
             }
         }
