@@ -1,4 +1,3 @@
-#[cfg(not(any(esp32)))]
 use esp_idf_sys::{
     esp, soc_periph_temperature_sensor_clk_src_t_TEMPERATURE_SENSOR_CLK_SRC_DEFAULT,
     soc_periph_temperature_sensor_clk_src_t_TEMPERATURE_SENSOR_CLK_SRC_RC_FAST,
@@ -11,7 +10,6 @@ use esp_idf_sys::{
 // -- TemperatureSensorClockSource --
 
 #[derive(Copy, Clone)]
-#[cfg(not(any(esp32)))]
 /// Rust translation of `temperature_sensor_clk_src_t`
 pub enum TemperatureSensorClockSource {
     Default,
@@ -19,7 +17,6 @@ pub enum TemperatureSensorClockSource {
     RcFast,
 }
 
-#[cfg(not(any(esp32)))]
 impl From<TemperatureSensorClockSource> for temperature_sensor_clk_src_t {
     fn from(value: TemperatureSensorClockSource) -> Self {
         match value {
@@ -36,7 +33,6 @@ impl From<TemperatureSensorClockSource> for temperature_sensor_clk_src_t {
     }
 }
 
-#[cfg(not(any(esp32)))]
 impl From<temperature_sensor_clk_src_t> for TemperatureSensorClockSource {
     fn from(value: temperature_sensor_clk_src_t) -> Self {
         match value {
@@ -55,7 +51,6 @@ impl From<temperature_sensor_clk_src_t> for TemperatureSensorClockSource {
 
 // -- TemperatureSensorConfig --
 
-#[cfg(not(any(esp32)))]
 #[derive(Copy, Clone)]
 /// Rust wrapper for `temperature_sensor_config_t`
 pub struct TemperatureSensorConfig {
@@ -65,7 +60,6 @@ pub struct TemperatureSensorConfig {
     pub clk_src: TemperatureSensorClockSource,
 }
 
-#[cfg(not(any(esp32)))]
 impl From<temperature_sensor_config_t> for TemperatureSensorConfig {
     fn from(value: temperature_sensor_config_t) -> Self {
         TemperatureSensorConfig {
@@ -76,7 +70,6 @@ impl From<temperature_sensor_config_t> for TemperatureSensorConfig {
     }
 }
 
-#[cfg(not(any(esp32)))]
 impl Into<temperature_sensor_config_t> for TemperatureSensorConfig {
     fn into(self) -> temperature_sensor_config_t {
         temperature_sensor_config_t {
@@ -87,7 +80,6 @@ impl Into<temperature_sensor_config_t> for TemperatureSensorConfig {
     }
 }
 
-#[cfg(not(any(esp32)))]
 impl Default for TemperatureSensorConfig {
     fn default() -> Self {
         TemperatureSensorConfig {
@@ -100,12 +92,10 @@ impl Default for TemperatureSensorConfig {
 
 // -- TemperatureSensorDriver --
 
-#[cfg(not(any(esp32)))]
 pub struct TemperatureSensorDriver {
     ptr: temperature_sensor_handle_t,
 }
 
-#[cfg(not(any(esp32)))]
 impl TemperatureSensorDriver {
     pub fn new(config: TemperatureSensorConfig) -> Result<Self, EspError> {
         let mut sensor = core::ptr::null_mut();
@@ -138,7 +128,6 @@ impl TemperatureSensorDriver {
     }
 }
 
-#[cfg(not(any(esp32)))]
 impl Drop for TemperatureSensorDriver {
     fn drop(&mut self) {
         let _ = self.disable();
