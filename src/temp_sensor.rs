@@ -9,7 +9,7 @@ use esp_idf_sys::{
 
 // -- TemperatureSensorClockSource --
 
-#[derive(Copy, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 /// Rust translation of `temperature_sensor_clk_src_t`
 pub enum TemperatureSensorClockSource {
     Default,
@@ -51,7 +51,7 @@ impl From<temperature_sensor_clk_src_t> for TemperatureSensorClockSource {
 
 // -- TemperatureSensorConfig --
 
-#[derive(Copy, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 /// Rust wrapper for `temperature_sensor_config_t`
 pub struct TemperatureSensorConfig {
     // TODO: check int size
