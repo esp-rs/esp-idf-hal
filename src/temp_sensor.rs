@@ -70,12 +70,12 @@ impl From<temperature_sensor_config_t> for TemperatureSensorConfig {
     }
 }
 
-impl Into<temperature_sensor_config_t> for TemperatureSensorConfig {
-    fn into(self) -> temperature_sensor_config_t {
+impl From<TemperatureSensorConfig> for temperature_sensor_config_t {
+    fn from(value: TemperatureSensorConfig) -> Self {
         temperature_sensor_config_t {
-            clk_src: self.clk_src.into(),
-            range_max: self.range_max,
-            range_min: self.range_min,
+            clk_src: value.clk_src.into(),
+            range_max: value.range_max,
+            range_min: value.range_min,
         }
     }
 }
