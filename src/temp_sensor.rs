@@ -136,9 +136,9 @@ pub struct TemperatureSensorDriver {
 }
 
 impl TemperatureSensorDriver {
-    pub fn new(config: TemperatureSensorConfig) -> Result<Self, EspError> {
+    pub fn new(config: &TemperatureSensorConfig) -> Result<Self, EspError> {
         let mut sensor = core::ptr::null_mut();
-        esp!(unsafe { temperature_sensor_install(&config.into(), &mut sensor) })?;
+        esp!(unsafe { temperature_sensor_install(&config.clone().into(), &mut sensor) })?;
         Ok(TemperatureSensorDriver { ptr: sensor })
     }
 
