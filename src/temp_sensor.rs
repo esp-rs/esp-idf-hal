@@ -14,11 +14,11 @@ use esp_idf_sys::soc_periph_temperature_sensor_clk_src_t_TEMPERATURE_SENSOR_CLK_
 #[cfg(any(esp32c2, esp32c3, esp32c5, esp32c6, esp32c61, esp32h2))]
 use esp_idf_sys::soc_periph_temperature_sensor_clk_src_t_TEMPERATURE_SENSOR_CLK_SRC_XTAL;
 
-// -- TemperatureSensorClockSource --
+// -- TempSensorClockSource --
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 /// Rust translation of `temperature_sensor_clk_src_t`
-pub enum TemperatureSensorClockSource {
+pub enum TempSensorClockSource {
     Default,
     #[cfg(any(
         esp32c2, esp32c3, esp32c5, esp32c6, esp32c61, esp32h2, esp32s2, esp32s3
@@ -30,31 +30,31 @@ pub enum TemperatureSensorClockSource {
     LpPeri,
 }
 
-impl From<TemperatureSensorClockSource> for temperature_sensor_clk_src_t {
-    fn from(value: TemperatureSensorClockSource) -> Self {
+impl From<TempSensorClockSource> for temperature_sensor_clk_src_t {
+    fn from(value: TempSensorClockSource) -> Self {
         match value {
             #[cfg(any(
                 esp32c2, esp32c3, esp32c5, esp32c6, esp32c61, esp32h2, esp32s2, esp32s3
             ))]
-            TemperatureSensorClockSource::RcFast => {
+            TempSensorClockSource::RcFast => {
                 soc_periph_temperature_sensor_clk_src_t_TEMPERATURE_SENSOR_CLK_SRC_RC_FAST
             }
             #[cfg(any(esp32c2, esp32c3, esp32c5, esp32c6, esp32c61, esp32h2))]
-            TemperatureSensorClockSource::XTAL => {
+            TempSensorClockSource::XTAL => {
                 soc_periph_temperature_sensor_clk_src_t_TEMPERATURE_SENSOR_CLK_SRC_XTAL
             }
             #[cfg(esp32p4)]
-            TemperatureSensorClockSource::LpPeri => {
+            TempSensorClockSource::LpPeri => {
                 soc_periph_temperature_sensor_clk_src_t_TEMPERATURE_SENSOR_CLK_SRC_LP_PERI
             }
-            TemperatureSensorClockSource::Default => {
+            TempSensorClockSource::Default => {
                 soc_periph_temperature_sensor_clk_src_t_TEMPERATURE_SENSOR_CLK_SRC_DEFAULT
             }
         }
     }
 }
 
-impl From<temperature_sensor_clk_src_t> for TemperatureSensorClockSource {
+impl From<temperature_sensor_clk_src_t> for TempSensorClockSource {
     fn from(value: temperature_sensor_clk_src_t) -> Self {
         match value {
             #[cfg(any(
@@ -79,8 +79,8 @@ impl From<temperature_sensor_clk_src_t> for TemperatureSensorClockSource {
     }
 }
 
-// -- TemperatureSensorConfig --
-pub type TemperatureSensorConfig = config::Config;
+// -- TempSensorConfig --
+pub type TempSensorConfig = config::Config;
 pub mod config {
     use super::*;
     #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -89,7 +89,7 @@ pub mod config {
         // TODO: check int size
         pub range_min: i32,
         pub range_max: i32,
-        pub clk_src: TemperatureSensorClockSource,
+        pub clk_src: TempSensorClockSource,
     }
 
     impl From<temperature_sensor_config_t> for Config {
@@ -123,23 +123,23 @@ pub mod config {
             Self {
                 range_min: -10,
                 range_max: 80,
-                clk_src: TemperatureSensorClockSource::Default,
+                clk_src: TempSensorClockSource::Default,
             }
         }
     }
 }
 
-// -- TemperatureSensorDriver --
+// -- TempSensorDriver --
 
-pub struct TemperatureSensorDriver {
+pub struct TempSensorDriver {
     ptr: temperature_sensor_handle_t,
 }
 
-impl TemperatureSensorDriver {
-    pub fn new(config: &TemperatureSensorConfig) -> Result<Self, EspError> {
+impl TempSensorDriver {
+    pub fn new(config: &TempSensorConfig) -> Result<Self, EspError> {
         let mut sensor = core::ptr::null_mut();
         esp!(unsafe { temperature_sensor_install(&config.clone().into(), &mut sensor) })?;
-        Ok(TemperatureSensorDriver { ptr: sensor })
+        Ok(TempSensorDriver { ptr: sensor })
     }
 
     pub fn enable(&mut self) -> Result<(), EspError> {
@@ -167,7 +167,7 @@ impl TemperatureSensorDriver {
     }
 }
 
-impl Drop for TemperatureSensorDriver {
+impl Drop for TempSensorDriver {
     fn drop(&mut self) {
         let _ = self.disable();
         unsafe {
