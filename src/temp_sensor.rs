@@ -80,42 +80,45 @@ impl From<temperature_sensor_clk_src_t> for TemperatureSensorClockSource {
 }
 
 // -- TemperatureSensorConfig --
+pub type TemperatureSensorConfig = config::Config;
+pub mod config {
+    use super::*;
+    #[derive(Debug, Clone, PartialEq, Eq, Hash)]
+    /// Rust wrapper for `temperature_sensor_config_t`
+    pub struct Config {
+        // TODO: check int size
+        pub range_min: i32,
+        pub range_max: i32,
+        pub clk_src: TemperatureSensorClockSource,
+    }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-/// Rust wrapper for `temperature_sensor_config_t`
-pub struct TemperatureSensorConfig {
-    // TODO: check int size
-    pub range_min: i32,
-    pub range_max: i32,
-    pub clk_src: TemperatureSensorClockSource,
-}
-
-impl From<temperature_sensor_config_t> for TemperatureSensorConfig {
-    fn from(value: temperature_sensor_config_t) -> Self {
-        TemperatureSensorConfig {
-            range_min: value.range_min,
-            range_max: value.range_max,
-            clk_src: value.clk_src.into(),
+    impl From<temperature_sensor_config_t> for Config {
+        fn from(value: temperature_sensor_config_t) -> Self {
+            Config {
+                range_min: value.range_min,
+                range_max: value.range_max,
+                clk_src: value.clk_src.into(),
+            }
         }
     }
-}
 
-impl From<TemperatureSensorConfig> for temperature_sensor_config_t {
-    fn from(value: TemperatureSensorConfig) -> Self {
-        temperature_sensor_config_t {
-            clk_src: value.clk_src.into(),
-            range_max: value.range_max,
-            range_min: value.range_min,
+    impl From<Config> for temperature_sensor_config_t {
+        fn from(value: Config) -> Self {
+            temperature_sensor_config_t {
+                clk_src: value.clk_src.into(),
+                range_max: value.range_max,
+                range_min: value.range_min,
+            }
         }
     }
-}
 
-impl Default for TemperatureSensorConfig {
-    fn default() -> Self {
-        TemperatureSensorConfig {
-            range_min: -10,
-            range_max: 80,
-            clk_src: TemperatureSensorClockSource::Default,
+    impl Default for Config {
+        fn default() -> Self {
+            Config {
+                range_min: -10,
+                range_max: 80,
+                clk_src: TemperatureSensorClockSource::Default,
+            }
         }
     }
 }
