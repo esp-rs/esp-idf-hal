@@ -1,11 +1,18 @@
 use esp_idf_sys::{
     esp, soc_periph_temperature_sensor_clk_src_t_TEMPERATURE_SENSOR_CLK_SRC_DEFAULT,
-    soc_periph_temperature_sensor_clk_src_t_TEMPERATURE_SENSOR_CLK_SRC_RC_FAST,
-    soc_periph_temperature_sensor_clk_src_t_TEMPERATURE_SENSOR_CLK_SRC_XTAL,
     temperature_sensor_clk_src_t, temperature_sensor_config_t, temperature_sensor_disable,
     temperature_sensor_enable, temperature_sensor_get_celsius, temperature_sensor_handle_t,
     temperature_sensor_install, temperature_sensor_uninstall, EspError,
 };
+
+#[cfg(esp32p4)]
+use esp_idf_sys::soc_periph_temperature_sensor_clk_src_t_TEMPERATURE_SENSOR_CLK_SRC_LP_PERI;
+#[cfg(any(
+    esp32c2, esp32c3, esp32c5, esp32c6, esp32c61, esp32h2, esp32s2, esp32s3
+))]
+use esp_idf_sys::soc_periph_temperature_sensor_clk_src_t_TEMPERATURE_SENSOR_CLK_SRC_RC_FAST;
+#[cfg(any(esp32c2, esp32c3, esp32c5, esp32c6, esp32c61, esp32h2))]
+use esp_idf_sys::soc_periph_temperature_sensor_clk_src_t_TEMPERATURE_SENSOR_CLK_SRC_XTAL;
 
 // -- TemperatureSensorClockSource --
 
@@ -13,18 +20,32 @@ use esp_idf_sys::{
 /// Rust translation of `temperature_sensor_clk_src_t`
 pub enum TemperatureSensorClockSource {
     Default,
-    XTAL,
+    #[cfg(any(
+        esp32c2, esp32c3, esp32c5, esp32c6, esp32c61, esp32h2, esp32s2, esp32s3
+    ))]
     RcFast,
+    #[cfg(any(esp32c2, esp32c3, esp32c5, esp32c6, esp32c61, esp32h2))]
+    XTAL,
+    #[cfg(esp32p4)]
+    LpPeri,
 }
 
 impl From<TemperatureSensorClockSource> for temperature_sensor_clk_src_t {
     fn from(value: TemperatureSensorClockSource) -> Self {
         match value {
+            #[cfg(any(
+                esp32c2, esp32c3, esp32c5, esp32c6, esp32c61, esp32h2, esp32s2, esp32s3
+            ))]
+            TemperatureSensorClockSource::RcFast => {
+                soc_periph_temperature_sensor_clk_src_t_TEMPERATURE_SENSOR_CLK_SRC_RC_FAST
+            }
+            #[cfg(any(esp32c2, esp32c3, esp32c5, esp32c6, esp32c61, esp32h2))]
             TemperatureSensorClockSource::XTAL => {
                 soc_periph_temperature_sensor_clk_src_t_TEMPERATURE_SENSOR_CLK_SRC_XTAL
             }
-            TemperatureSensorClockSource::RcFast => {
-                soc_periph_temperature_sensor_clk_src_t_TEMPERATURE_SENSOR_CLK_SRC_RC_FAST
+            #[cfg(esp32p4)]
+            TemperatureSensorClockSource::LpPeri => {
+                soc_periph_temperature_sensor_clk_src_t_TEMPERATURE_SENSOR_CLK_SRC_LP_PERI
             }
             TemperatureSensorClockSource::Default => {
                 soc_periph_temperature_sensor_clk_src_t_TEMPERATURE_SENSOR_CLK_SRC_DEFAULT
@@ -36,11 +57,20 @@ impl From<TemperatureSensorClockSource> for temperature_sensor_clk_src_t {
 impl From<temperature_sensor_clk_src_t> for TemperatureSensorClockSource {
     fn from(value: temperature_sensor_clk_src_t) -> Self {
         match value {
-            #[allow(non_upper_case_globals)]
-            soc_periph_temperature_sensor_clk_src_t_TEMPERATURE_SENSOR_CLK_SRC_XTAL => Self::XTAL,
+            #[cfg(any(
+                esp32c2, esp32c3, esp32c5, esp32c6, esp32c61, esp32h2, esp32s2, esp32s3
+            ))]
             #[allow(non_upper_case_globals)]
             soc_periph_temperature_sensor_clk_src_t_TEMPERATURE_SENSOR_CLK_SRC_RC_FAST => {
                 Self::RcFast
+            }
+            #[cfg(any(esp32c2, esp32c3, esp32c5, esp32c6, esp32c61, esp32h2))]
+            #[allow(non_upper_case_globals)]
+            soc_periph_temperature_sensor_clk_src_t_TEMPERATURE_SENSOR_CLK_SRC_XTAL => Self::XTAL,
+            #[cfg(esp32p4)]
+            #[allow(non_upper_case_globals)]
+            soc_periph_temperature_sensor_clk_src_t_TEMPERATURE_SENSOR_CLK_SRC_LP_PERI => {
+                Self::LpPeri
             }
             // TODO: Perhaps the default value should be mapped explicitly
             // and all other (u32) values should cause a failure
