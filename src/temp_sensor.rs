@@ -114,7 +114,13 @@ pub mod config {
 
     impl Default for Config {
         fn default() -> Self {
-            Config {
+            Config::new()
+        }
+    }
+
+    impl Config {
+        pub const fn new() -> Self {
+            Self {
                 range_min: -10,
                 range_max: 80,
                 clk_src: TemperatureSensorClockSource::Default,
