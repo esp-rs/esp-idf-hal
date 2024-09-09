@@ -181,9 +181,7 @@ impl<'d> TempSensorDriver<'d> {
 impl Drop for TempSensorDriver<'_> {
     fn drop(&mut self) {
         let _ = self.disable();
-        unsafe {
-            temperature_sensor_uninstall(self.ptr);
-        }
+        esp!(unsafe { temperature_sensor_uninstall(self.ptr) }).unwrap();
     }
 }
 
