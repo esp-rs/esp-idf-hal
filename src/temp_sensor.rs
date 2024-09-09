@@ -30,9 +30,9 @@ pub enum TempSensorClockSource {
     LpPeri,
 }
 
-impl From<TempSensorClockSource> for temperature_sensor_clk_src_t {
-    fn from(value: TempSensorClockSource) -> Self {
-        match value {
+impl From<&TempSensorClockSource> for temperature_sensor_clk_src_t {
+    fn from(value: &TempSensorClockSource) -> Self {
+        match *value {
             #[cfg(any(
                 esp32c2, esp32c3, esp32c5, esp32c6, esp32c61, esp32h2, esp32s2, esp32s3
             ))]
@@ -102,10 +102,10 @@ pub mod config {
         }
     }
 
-    impl From<Config> for temperature_sensor_config_t {
-        fn from(value: Config) -> Self {
+    impl From<&Config> for temperature_sensor_config_t {
+        fn from(value: &Config) -> Self {
             temperature_sensor_config_t {
-                clk_src: value.clk_src.into(),
+                clk_src: (&value.clk_src).into(),
                 range_max: value.range_max,
                 range_min: value.range_min,
             }
@@ -138,7 +138,7 @@ pub struct TempSensorDriver {
 impl TempSensorDriver {
     pub fn new(config: &TempSensorConfig) -> Result<Self, EspError> {
         let mut sensor = core::ptr::null_mut();
-        esp!(unsafe { temperature_sensor_install(&config.clone().into(), &mut sensor) })?;
+        esp!(unsafe { temperature_sensor_install(&config.into(), &mut sensor) })?;
         Ok(TempSensorDriver { ptr: sensor })
     }
 
