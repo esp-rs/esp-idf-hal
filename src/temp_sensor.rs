@@ -84,6 +84,7 @@ pub type TempSensorConfig = config::Config;
 pub mod config {
     use super::*;
     #[derive(Debug, Clone, PartialEq, Eq, Hash)]
+    #[non_exhaustive]
     /// Rust wrapper for `temperature_sensor_config_t`
     pub struct Config {
         // TODO: check int size
