@@ -14,6 +14,9 @@ use esp_idf_sys::soc_periph_temperature_sensor_clk_src_t_TEMPERATURE_SENSOR_CLK_
 #[cfg(any(esp32c2, esp32c3, esp32c5, esp32c6, esp32c61, esp32h2))]
 use esp_idf_sys::soc_periph_temperature_sensor_clk_src_t_TEMPERATURE_SENSOR_CLK_SRC_XTAL;
 
+use crate::peripheral::Peripheral;
+use core::marker::PhantomData;
+
 // -- TempSensorClockSource --
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
@@ -132,15 +135,22 @@ pub mod config {
 
 // -- TempSensorDriver --
 
-pub struct TempSensorDriver {
+pub struct TempSensorDriver<'d> {
     ptr: temperature_sensor_handle_t,
+    _p: PhantomData<&'d mut ()>,
 }
 
-impl TempSensorDriver {
-    pub fn new(config: &TempSensorConfig) -> Result<Self, EspError> {
+impl<'d> TempSensorDriver<'d> {
+    pub fn new(
+        config: &TempSensorConfig,
+        _sensor: impl Peripheral<P = TempSensor> + 'd,
+    ) -> Result<Self, EspError> {
         let mut sensor = core::ptr::null_mut();
         esp!(unsafe { temperature_sensor_install(&config.into(), &mut sensor) })?;
-        Ok(TempSensorDriver { ptr: sensor })
+        Ok(TempSensorDriver {
+            ptr: sensor,
+            _p: PhantomData,
+        })
     }
 
     pub fn enable(&mut self) -> Result<(), EspError> {
@@ -168,7 +178,7 @@ impl TempSensorDriver {
     }
 }
 
-impl Drop for TempSensorDriver {
+impl Drop for TempSensorDriver<'_> {
     fn drop(&mut self) {
         let _ = self.disable();
         unsafe {
@@ -176,3 +186,5 @@ impl Drop for TempSensorDriver {
         }
     }
 }
+
+crate::impl_peripheral!(TempSensor);
