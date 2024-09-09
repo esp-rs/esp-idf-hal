@@ -64,6 +64,8 @@ pub mod sd;
 pub mod spi;
 pub mod sys;
 pub mod task;
+#[cfg(all(esp_idf_soc_temp_sensor_supported, esp_idf_version_major = "5"))]
+pub mod temp_sensor;
 pub mod timer;
 pub mod uart;
 #[cfg(all(
