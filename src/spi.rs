@@ -49,9 +49,7 @@ use esp_idf_sys::*;
 use heapless::Deque;
 
 use crate::delay::{self, Ets, BLOCK};
-use crate::gpio::{
-    AnyIOPin, AnyOutputPin, InputPin, Level, Output, OutputMode, OutputPin, PinDriver,
-};
+use crate::gpio::{AnyOutputPin, IOPin, InputPin, Level, Output, OutputMode, OutputPin, PinDriver};
 use crate::interrupt::asynch::HalIsrNotification;
 use crate::interrupt::InterruptType;
 use crate::peripheral::Peripheral;
@@ -427,7 +425,15 @@ impl<'d> SpiDriver<'d> {
         sdi: Option<impl Peripheral<P = impl InputPin> + 'd>,
         config: &config::DriverConfig,
     ) -> Result<Self, EspError> {
-        let max_transfer_size = Self::new_internal(SPI::device(), Some(sclk), sdo, sdi, config)?;
+        let max_transfer_size = Self::new_internal(
+            SPI::device(),
+            Some(sclk.into_ref().pin()),
+            Some(sdo.into_ref().pin()),
+            sdi.map(|p| p.into_ref().pin()),
+            None,
+            None,
+            config,
+        )?;
 
         Ok(Self {
             host: SPI::device() as _,
@@ -443,8 +449,67 @@ impl<'d> SpiDriver<'d> {
         sdi: Option<impl Peripheral<P = impl InputPin> + 'd>,
         config: &config::DriverConfig,
     ) -> Result<Self, EspError> {
-        let max_transfer_size =
-            Self::new_internal(SPI::device(), Option::<AnyIOPin>::None, sdo, sdi, config)?;
+        let max_transfer_size = Self::new_internal(
+            SPI::device(),
+            None,
+            Some(sdo.into_ref().pin()),
+            sdi.map(|p| p.into_ref().pin()),
+            None,
+            None,
+            config,
+        )?;
+
+        Ok(Self {
+            host: SPI::device() as _,
+            max_transfer_size,
+            bus_async_lock: Mutex::new(()),
+            _p: PhantomData,
+        })
+    }
+
+    pub fn new_dual<SPI: SpiAnyPins>(
+        _spi: impl Peripheral<P = SPI> + 'd,
+        sclk: impl Peripheral<P = impl OutputPin> + 'd,
+        data0: impl Peripheral<P = impl IOPin> + 'd,
+        data1: impl Peripheral<P = impl IOPin> + 'd,
+        config: &config::DriverConfig,
+    ) -> Result<Self, EspError> {
+        let max_transfer_size = Self::new_internal(
+            SPI::device(),
+            Some(sclk.into_ref().pin()),
+            Some(data0.into_ref().pin()),
+            Some(data1.into_ref().pin()),
+            None,
+            None,
+            config,
+        )?;
+
+        Ok(Self {
+            host: SPI::device() as _,
+            max_transfer_size,
+            bus_async_lock: Mutex::new(()),
+            _p: PhantomData,
+        })
+    }
+
+    pub fn new_quad<SPI: SpiAnyPins>(
+        _spi: impl Peripheral<P = SPI> + 'd,
+        sclk: impl Peripheral<P = impl OutputPin> + 'd,
+        data0: impl Peripheral<P = impl IOPin> + 'd,
+        data1: impl Peripheral<P = impl IOPin> + 'd,
+        data2: impl Peripheral<P = impl IOPin> + 'd,
+        data3: impl Peripheral<P = impl IOPin> + 'd,
+        config: &config::DriverConfig,
+    ) -> Result<Self, EspError> {
+        let max_transfer_size = Self::new_internal(
+            SPI::device(),
+            Some(sclk.into_ref().pin()),
+            Some(data0.into_ref().pin()),
+            Some(data1.into_ref().pin()),
+            Some(data2.into_ref().pin()),
+            Some(data3.into_ref().pin()),
+            config,
+        )?;
 
         Ok(Self {
             host: SPI::device() as _,
@@ -460,41 +525,39 @@ impl<'d> SpiDriver<'d> {
 
     fn new_internal(
         host: spi_host_device_t,
-        sclk: Option<impl Peripheral<P = impl OutputPin> + 'd>,
-        sdo: impl Peripheral<P = impl OutputPin> + 'd,
-        sdi: Option<impl Peripheral<P = impl InputPin> + 'd>,
+        sclk: Option<i32>,
+        sdo: Option<i32>,
+        sdi: Option<i32>,
+        data2: Option<i32>,
+        data3: Option<i32>,
         config: &config::DriverConfig,
     ) -> Result<usize, EspError> {
-        let sdo = sdo.into_ref();
-        let sdi = sdi.map(|sdi| sdi.into_ref());
-        let sclk = sclk.map(|sclk| sclk.into_ref());
-
         let max_transfer_sz = config.dma.max_transfer_size();
         let dma_chan: spi_dma_chan_t = config.dma.into();
 
         #[allow(clippy::needless_update)]
         let bus_config = spi_bus_config_t {
             flags: SPICOMMON_BUSFLAG_MASTER,
-            sclk_io_num: sclk.as_ref().map_or(-1, |p| p.pin()),
+            sclk_io_num: sclk.unwrap_or(-1),
 
             data4_io_num: -1,
             data5_io_num: -1,
             data6_io_num: -1,
             data7_io_num: -1,
             __bindgen_anon_1: spi_bus_config_t__bindgen_ty_1 {
-                mosi_io_num: sdo.pin(),
+                mosi_io_num: sdo.unwrap_or(-1),
                 //data0_io_num: -1,
             },
             __bindgen_anon_2: spi_bus_config_t__bindgen_ty_2 {
-                miso_io_num: sdi.as_ref().map_or(-1, |p| p.pin()),
+                miso_io_num: sdi.unwrap_or(-1),
                 //data1_io_num: -1,
             },
             __bindgen_anon_3: spi_bus_config_t__bindgen_ty_3 {
-                quadwp_io_num: -1,
+                quadwp_io_num: data2.unwrap_or(-1),
                 //data2_io_num: -1,
             },
             __bindgen_anon_4: spi_bus_config_t__bindgen_ty_4 {
-                quadhd_io_num: -1,
+                quadhd_io_num: data3.unwrap_or(-1),
                 //data3_io_num: -1,
             },
             max_transfer_sz: max_transfer_sz as i32,
