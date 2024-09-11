@@ -198,6 +198,16 @@ pub mod config {
         }
     }
 
+    #[derive(Debug, Copy, Clone, Eq, PartialEq)]
+    pub enum LineWidth {
+        /// 1-bit, 2 wire duplex or 1 wire half-duplex
+        Single,
+        /// 2-bit, 2 wire half-duplex
+        Dual,
+        /// 4-bit, 4 wire half-duplex
+        Quad,
+    }
+
     /// SPI Driver configuration
     #[derive(Debug, Clone)]
     pub struct DriverConfig {
