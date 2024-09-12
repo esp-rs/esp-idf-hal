@@ -54,7 +54,7 @@ impl NetifStack {
     /// interface.
     ///
     /// The function needs to be called only once for the duration of the program - ideally
-    /// early on during the app nooststrap process. Once initialized, the netif stack cannot
+    /// early on during the app booststraping process. Once initialized, the netif stack cannot
     /// be de-initialized.
     pub fn initialize() -> Result<(), EspError> {
         initialize_netif_stack()
