@@ -46,6 +46,20 @@ pub enum NetifStack {
 }
 
 impl NetifStack {
+    /// Initialize the ESP Netif stack
+    ///
+    /// This function is called automatically when a new `EspNetif` instance is created,
+    /// but it can also be called manually by the user - for example, in cases when some
+    /// networking code needs to be started _before_ there is even one active `EspNetif`
+    /// interface.
+    ///
+    /// The function needs to be called only once for the duration of the program - ideally
+    /// early on during the app nooststrap process. Once initialized, the netif stack cannot
+    /// be de-initialized.
+    pub fn initialize() -> Result<(), EspError> {
+        initialize_netif_stack()
+    }
+
     pub fn default_configuration(&self) -> NetifConfiguration {
         match self {
             Self::Sta => NetifConfiguration::wifi_default_client(),
