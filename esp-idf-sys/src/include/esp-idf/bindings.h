@@ -60,6 +60,7 @@
 
 #ifdef ESP_IDF_COMP_EFUSE_ENABLED
 #include "esp_efuse.h"
+#include "esp_efuse_table.h"
 #endif
 
 #ifdef ESP_IDF_COMP_ESP_PM_ENABLED
@@ -209,6 +210,10 @@
 
 #ifdef ESP_IDF_COMP_APP_UPDATE_ENABLED
 #include "esp_ota_ops.h"
+#endif
+
+#ifdef ESP_IDF_COMP_ESP_HTTPS_OTA_ENABLED
+#include "esp_https_ota.h"
 #endif
 
 #ifdef ESP_IDF_COMP_ESP_HTTP_CLIENT_ENABLED
