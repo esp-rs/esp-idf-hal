@@ -142,6 +142,21 @@
 #endif
 #endif
 
+// OpenThread support
+#ifdef ESP_IDF_COMP_OPENTHREAD_ENABLED
+#ifdef CONFIG_OPENTHREAD_ENABLED
+#include "esp_openthread.h"
+#include "esp_openthread_border_router.h"
+#include "esp_openthread_cli.h"
+#if (ESP_IDF_VERSION_MAJOR > 4)
+#include "esp_openthread_dns64.h"
+#endif
+#include "esp_openthread_lock.h"
+#include "esp_openthread_netif_glue.h"
+#include "esp_openthread_types.h"
+#endif
+#endif
+
 #ifdef ESP_IDF_COMP_VFS_ENABLED
 #include "esp_vfs.h"
 #include "esp_vfs_cdcacm.h"
@@ -516,12 +531,12 @@
 #endif // (ESP_IDF_VERSION_MAJOR >= 5 && ESP_IDF_VERSION_MINOR >= 3
 #endif // ESP_IDF_COMP_LCD_ENABLED
 
-// usb serial support
+// Usb serial support
 #ifdef SOC_USB_SERIAL_JTAG_SUPPORTED
 #include "driver/usb_serial_jtag.h"
 #endif
 
-// official onewire_bus remote component
+// Official onewire_bus remote component
 #ifdef ESP_IDF_COMP_ESPRESSIF__ONEWIRE_BUS_ENABLED
 #include "onewire_bus.h"
 #include "onewire_device.h"
