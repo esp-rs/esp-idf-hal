@@ -187,6 +187,7 @@
 #endif
 
 #ifdef ESP_IDF_COMP_LWIP_ENABLED
+#include "lwip/dns.h"
 #include "lwip/lwip_napt.h"
 #include "lwip/netdb.h"
 #include "lwip/sockets.h"
