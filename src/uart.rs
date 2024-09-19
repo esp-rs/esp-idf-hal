@@ -511,6 +511,35 @@ pub mod config {
         pub _non_exhaustive: (),
     }
 
+    impl From<&Config> for uart_config_t {
+        fn from(config: &Config) -> Self {
+            #[allow(clippy::needless_update)]
+            Self {
+                baud_rate: config.baudrate.0 as i32,
+                data_bits: config.data_bits.into(),
+                parity: config.parity.into(),
+                stop_bits: config.stop_bits.into(),
+                flow_ctrl: config.flow_control.into(),
+                rx_flow_ctrl_thresh: config.flow_control_rts_threshold,
+                // ESP-IDF 5.0 and 5.1
+                #[cfg(all(
+                    esp_idf_version_major = "5",
+                    any(esp_idf_version_minor = "0", esp_idf_version_minor = "1")
+                ))]
+                source_clk: config.source_clock.into(),
+                // All others
+                #[cfg(not(all(
+                    esp_idf_version_major = "5",
+                    any(esp_idf_version_minor = "0", esp_idf_version_minor = "1")
+                )))]
+                __bindgen_anon_1: uart_config_t__bindgen_ty_1 {
+                    source_clk: config.source_clock.into(),
+                },
+                ..Default::default()
+            }
+        }
+    }
+
     impl Config {
         pub const fn new() -> Config {
             Config {
@@ -1944,30 +1973,7 @@ fn new_common<UART: Uart>(
     let cts = cts.map(|cts| cts.into_ref());
     let rts = rts.map(|rts| rts.into_ref());
 
-    #[allow(clippy::needless_update)]
-    let uart_config = uart_config_t {
-        baud_rate: config.baudrate.0 as i32,
-        data_bits: config.data_bits.into(),
-        parity: config.parity.into(),
-        stop_bits: config.stop_bits.into(),
-        flow_ctrl: config.flow_control.into(),
-        rx_flow_ctrl_thresh: config.flow_control_rts_threshold,
-        // ESP-IDF 5.0 and 5.1
-        #[cfg(all(
-            esp_idf_version_major = "5",
-            any(esp_idf_version_minor = "0", esp_idf_version_minor = "1")
-        ))]
-        source_clk: config.source_clock.into(),
-        // All others
-        #[cfg(not(all(
-            esp_idf_version_major = "5",
-            any(esp_idf_version_minor = "0", esp_idf_version_minor = "1")
-        )))]
-        __bindgen_anon_1: uart_config_t__bindgen_ty_1 {
-            source_clk: config.source_clock.into(),
-        },
-        ..Default::default()
-    };
+    let uart_config = config.into();
 
     esp!(unsafe { uart_param_config(UART::port(), &uart_config) })?;
 
