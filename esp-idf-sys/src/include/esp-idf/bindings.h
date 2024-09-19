@@ -155,7 +155,7 @@
 #include "esp_openthread_netif_glue.h"
 #include "esp_openthread_types.h"
 #include "openthread/instance.h"
-#include "openthread/datasets.h"
+#include "openthread/dataset.h"
 #include "openthread/joiner.h"
 #include "openthread/link.h"
 #endif
