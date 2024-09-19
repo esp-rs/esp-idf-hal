@@ -358,6 +358,35 @@ pub mod config {
             }
         }
     }
+
+    impl From<&Config> for spi_device_interface_config_t {
+        fn from(config: &Config) -> Self {
+            Self {
+                spics_io_num: -1,
+                clock_speed_hz: config.baudrate.0 as i32,
+                mode: data_mode_to_u8(config.data_mode),
+                queue_size: config.queue_size as i32,
+                flags: if config.write_only {
+                    SPI_DEVICE_NO_DUMMY
+                } else {
+                    0_u32
+                } | if config.cs_active_high {
+                    SPI_DEVICE_POSITIVE_CS
+                } else {
+                    0_u32
+                } | config.duplex.as_flags()
+                    | config.bit_order.as_flags(),
+                cs_ena_pretrans: config.cs_pre_delay_us.unwrap_or(0),
+                cs_ena_posttrans: config.cs_post_delay_us.unwrap_or(0),
+                ..Default::default()
+            }
+        }
+    }
+
+    fn data_mode_to_u8(data_mode: Mode) -> u8 {
+        (((data_mode.polarity == Polarity::IdleHigh) as u8) << 1)
+            | ((data_mode.phase == Phase::CaptureOnSecondTransition) as u8)
+    }
 }
 
 pub struct SpiDriver<'d> {
@@ -505,22 +534,8 @@ where
     T: BorrowMut<SpiDriver<'d>>,
 {
     pub fn new(driver: T, config: &config::Config) -> Result<Self, EspError> {
-        let conf = spi_device_interface_config_t {
-            spics_io_num: -1,
-            clock_speed_hz: config.baudrate.0 as i32,
-            mode: data_mode_to_u8(config.data_mode),
-            queue_size: config.queue_size as i32,
-            flags: if config.write_only {
-                SPI_DEVICE_NO_DUMMY
-            } else {
-                0_u32
-            } | config.duplex.as_flags()
-                | config.bit_order.as_flags(),
-            cs_ena_pretrans: config.cs_pre_delay_us.unwrap_or(0),
-            cs_ena_posttrans: config.cs_post_delay_us.unwrap_or(0),
-            post_cb: Some(spi_notify),
-            ..Default::default()
-        };
+        let mut conf: spi_device_interface_config_t = config.into();
+        conf.post_cb = Some(spi_notify);
 
         let mut handle: spi_device_handle_t = ptr::null_mut();
         esp!(unsafe { spi_bus_add_device(driver.borrow().host(), &conf, &mut handle as *mut _) })?;
@@ -808,27 +823,9 @@ where
     ) -> Result<Self, EspError> {
         let cs = cs.map(|cs| cs.into_ref().pin()).unwrap_or(-1);
 
-        let conf = spi_device_interface_config_t {
-            spics_io_num: cs,
-            clock_speed_hz: config.baudrate.0 as i32,
-            mode: data_mode_to_u8(config.data_mode),
-            queue_size: config.queue_size as i32,
-            input_delay_ns: config.input_delay_ns,
-            flags: if config.write_only {
-                SPI_DEVICE_NO_DUMMY
-            } else {
-                0_u32
-            } | if config.cs_active_high {
-                SPI_DEVICE_POSITIVE_CS
-            } else {
-                0_u32
-            } | config.duplex.as_flags()
-                | config.bit_order.as_flags(),
-            post_cb: Some(spi_notify),
-            cs_ena_pretrans: config.cs_pre_delay_us.unwrap_or(0),
-            cs_ena_posttrans: config.cs_post_delay_us.unwrap_or(0),
-            ..Default::default()
-        };
+        let mut conf: spi_device_interface_config_t = config.into();
+        conf.spics_io_num = cs;
+        conf.post_cb = Some(spi_notify);
 
         let mut handle: spi_device_handle_t = ptr::null_mut();
         esp!(unsafe { spi_bus_add_device(driver.borrow().host(), &conf, &mut handle as *mut _) })?;
@@ -1934,11 +1931,6 @@ fn copy_operation<'b>(operation: &'b mut Operation<'_, u8>) -> Operation<'b, u8>
         Operation::TransferInPlace(write) => Operation::TransferInPlace(write),
         Operation::DelayNs(delay) => Operation::DelayNs(*delay),
     }
-}
-
-fn data_mode_to_u8(data_mode: config::Mode) -> u8 {
-    (((data_mode.polarity == config::Polarity::IdleHigh) as u8) << 1)
-        | ((data_mode.phase == config::Phase::CaptureOnSecondTransition) as u8)
 }
 
 #[allow(dead_code)]
