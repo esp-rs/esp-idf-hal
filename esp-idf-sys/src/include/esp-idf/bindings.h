@@ -158,6 +158,7 @@
 #include "openthread/dataset.h"
 #include "openthread/joiner.h"
 #include "openthread/link.h"
+#include "openthread/thread.h"
 #endif
 #endif
 
