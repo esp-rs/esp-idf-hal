@@ -156,7 +156,7 @@
 #include "esp_openthread_types.h"
 #include "openthread/dataset.h"
 #include "openthread/instance.h"
-#include "openthread/ipv6.h"
+#include "openthread/ip6.h"
 #include "openthread/joiner.h"
 #include "openthread/link.h"
 #include "openthread/message.h"
