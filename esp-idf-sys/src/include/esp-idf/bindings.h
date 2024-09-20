@@ -154,10 +154,12 @@
 #include "esp_openthread_lock.h"
 #include "esp_openthread_netif_glue.h"
 #include "esp_openthread_types.h"
-#include "openthread/instance.h"
 #include "openthread/dataset.h"
+#include "openthread/instance.h"
+#include "openthread/ipv6.h"
 #include "openthread/joiner.h"
 #include "openthread/link.h"
+#include "openthread/message.h"
 #include "openthread/thread.h"
 #endif
 #endif
