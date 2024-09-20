@@ -25,7 +25,7 @@ esp-idf-sys = { git = "https://github.com/esp-rs/esp-idf-sys" }
 [features]
 default = ["std", "binstart"]
 
-std = ["alloc", "log/std", "esp-idf-hal/std", "embedded-svc/std"]
+std = ["alloc", "log/std", "esp-idf-hal/std", "embedded-svc/std", "futures-io"]
 alloc = ["esp-idf-hal/alloc", "embedded-svc/alloc", "uncased/alloc"]
 nightly = ["embedded-svc/nightly", "esp-idf-hal/nightly"]
 experimental = ["embedded-svc/experimental", "esp-idf-hal/experimental"]
@@ -54,6 +54,7 @@ embedded-svc = { version = "0.28", default-features = false }
 esp-idf-hal = { version = "0.44", default-features = false }
 embassy-time-driver = { version = "0.1", optional = true, features = ["tick-hz-1_000_000"] }
 embassy-futures = "0.1"
+futures-io = { version = "0.3", optional = true }
 
 [build-dependencies]
 embuild = "0.32"
