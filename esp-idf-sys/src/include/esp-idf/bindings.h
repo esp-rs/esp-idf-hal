@@ -113,6 +113,16 @@
 #include "esp_now.h"
 #include "esp_mesh.h"
 #include "esp_wpa2.h"
+#if (ESP_IDF_VERSION_MAJOR < 5 || ESP_IDF_VERSION_MAJOR == 5 && ESP_IDF_VERSION_MINOR < 1)
+#include "esp_coexist.h"
+#endif
+#endif
+
+#if defined(ESP_IDF_COMP_ESP_COEX_ENABLED) && (ESP_IDF_VERSION_MAJOR > 5 || ESP_IDF_VERSION_MAJOR == 5 && ESP_IDF_VERSION_MINOR >= 1)
+#include "esp_coexist.h"
+#ifdef CONFIG_SOC_IEEE802154_SUPPORTED
+#include "esp_coex_i154.h"
+#endif
 #endif
 
 #ifdef ESP_IDF_COMP_WPA_SUPPLICANT_ENABLED
