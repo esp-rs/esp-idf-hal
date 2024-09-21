@@ -66,7 +66,7 @@ impl Modem {
         (&mut self.1, &mut self.2)
     }
 
-    #[cfg(amy(esp32h2, esp32h4))]
+    #[cfg(any(esp32h2, esp32h4))]
     pub fn split(self) -> (ThreadModem, BluetoothModem) {
         unsafe { (ThreadModem::new(), BluetoothModem::new()) }
     }
