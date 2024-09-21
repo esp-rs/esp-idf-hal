@@ -554,6 +554,8 @@ impl<'d> WifiDriver<'d> {
             tx_buf_type: CONFIG_ESP32_WIFI_TX_BUFFER_TYPE as _,
             static_tx_buf_num: WIFI_STATIC_TX_BUFFER_NUM as _,
             dynamic_tx_buf_num: WIFI_DYNAMIC_TX_BUFFER_NUM as _,
+            rx_mgmt_buf_type: CONFIG_ESP_WIFI_DYNAMIC_RX_MGMT_BUF as _,
+            rx_mgmt_buf_num: WIFI_RX_MGMT_BUF_NUM_DEF as _,
             cache_tx_buf_num: WIFI_CACHE_TX_BUFFER_NUM as _,
             csi_enable: WIFI_CSI_ENABLED as _,
             ampdu_rx_enable: WIFI_AMPDU_RX_ENABLED as _,
@@ -561,7 +563,6 @@ impl<'d> WifiDriver<'d> {
             amsdu_tx_enable: WIFI_AMSDU_TX_ENABLED as _,
             nvs_enable: i32::from(nvs_enabled),
             nano_enable: WIFI_NANO_FORMAT_ENABLED as _,
-            //tx_ba_win: WIFI_DEFAULT_TX_BA_WIN as _,
             rx_ba_win: WIFI_DEFAULT_RX_BA_WIN as _,
             wifi_task_core_id: WIFI_TASK_CORE_ID as _,
             beacon_max_len: WIFI_SOFTAP_BEACON_MAX_LEN as _,
@@ -601,6 +602,26 @@ impl<'d> WifiDriver<'d> {
             ))]
             espnow_max_encrypt_num: CONFIG_ESP_WIFI_ESPNOW_MAX_ENCRYPT_NUM as i32,
             magic: WIFI_INIT_CONFIG_MAGIC as _,
+            // Available since ESP IDF V5.3.0
+            #[cfg(any(
+                all(not(esp_idf_version_major = "4"), not(esp_idf_version_major = "5")),
+                all(
+                    not(esp_idf_version = "5.0"),
+                    not(esp_idf_version = "5.1"),
+                    not(esp_idf_version = "5.2"),
+                ),
+            ))]
+            tx_hetb_queue_num: WIFI_TX_HETB_QUEUE_NUM as _,
+            // Available since ESP IDF V5.3.0
+            #[cfg(any(
+                all(not(esp_idf_version_major = "4"), not(esp_idf_version_major = "5")),
+                all(
+                    not(esp_idf_version = "5.0"),
+                    not(esp_idf_version = "5.1"),
+                    not(esp_idf_version = "5.2"),
+                ),
+            ))]
+            dump_hesigb_enable: WIFI_DUMP_HESIGB_ENABLED != 0,
             ..Default::default()
         };
         esp!(unsafe { esp_wifi_init(&cfg) })?;
