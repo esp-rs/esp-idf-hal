@@ -123,6 +123,19 @@ impl From<&Configuration> for Newtype<httpd_config_t> {
     fn from(conf: &Configuration) -> Self {
         Self(httpd_config_t {
             task_priority: 5,
+            // Since 5.3.0
+            #[cfg(any(
+                all(not(esp_idf_version_major = "4"), not(esp_idf_version_major = "5")),
+                all(
+                    esp_idf_version_major = "5",
+                    not(any(
+                        esp_idf_version_minor = "0",
+                        esp_idf_version_minor = "1",
+                        esp_idf_version_minor = "2"
+                    ))
+                ),
+            ))]
+            task_caps: (MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT),
             stack_size: conf.stack_size,
             core_id: i32::MAX,
             server_port: conf.http_port,
