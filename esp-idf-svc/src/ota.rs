@@ -402,7 +402,10 @@ impl io::ErrorType for EspOta {
 }
 
 impl Ota for EspOta {
-    type Update<'a> = EspOtaUpdate<'a> where Self: 'a;
+    type Update<'a>
+        = EspOtaUpdate<'a>
+    where
+        Self: 'a;
 
     fn get_boot_slot(&self) -> Result<Slot, Self::Error> {
         EspOta::get_boot_slot(self).map_err(EspIOError)
