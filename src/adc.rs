@@ -930,7 +930,10 @@ pub mod continuous {
     {
         type Adc = <<P as Peripheral>::P as ADCPin>::Adc;
 
-        type Iterator<'a> = core::iter::Once<(adc_channel_t, adc_atten_t)> where Self: 'a;
+        type Iterator<'a>
+            = core::iter::Once<(adc_channel_t, adc_atten_t)>
+        where
+            Self: 'a;
 
         fn iter(&self) -> Self::Iterator<'_> {
             core::iter::once((P::P::CHANNEL, attenuation::NONE))
@@ -943,10 +946,13 @@ pub mod continuous {
     {
         type Adc = C::Adc;
 
-        type Iterator<'a> = core::iter::Map<
+        type Iterator<'a>
+            = core::iter::Map<
             C::Iterator<'a>,
             fn((adc_channel_t, adc_atten_t)) -> (adc_channel_t, adc_atten_t),
-        > where Self: 'a;
+        >
+        where
+            Self: 'a;
 
         fn iter(&self) -> Self::Iterator<'_> {
             self.0.iter().map(Attenuated::<A, C>::atten)
@@ -961,7 +967,14 @@ pub mod continuous {
     {
         type Adc = C::Adc;
 
-        type Iterator<'a> = core::iter::FlatMap<core::slice::Iter<'a, C>, <C as AdcChannels>::Iterator<'a>, fn(&'a C) -> C::Iterator<'a>> where Self: 'a;
+        type Iterator<'a>
+            = core::iter::FlatMap<
+            core::slice::Iter<'a, C>,
+            <C as AdcChannels>::Iterator<'a>,
+            fn(&'a C) -> C::Iterator<'a>,
+        >
+        where
+            Self: 'a;
 
         fn iter(&self) -> Self::Iterator<'_> {
             self.0.iter().flat_map(AdcChannels::iter)
@@ -989,7 +1002,10 @@ pub mod continuous {
     {
         type Adc = A;
 
-        type Iterator<'a> = core::iter::Empty<(adc_channel_t, adc_atten_t)> where Self: 'a;
+        type Iterator<'a>
+            = core::iter::Empty<(adc_channel_t, adc_atten_t)>
+        where
+            Self: 'a;
 
         fn iter(&self) -> Self::Iterator<'_> {
             core::iter::empty()
@@ -1022,7 +1038,10 @@ pub mod continuous {
     {
         type Adc = F::Adc;
 
-        type Iterator<'a> = core::iter::Chain<F::Iterator<'a>, S::Iterator<'a>> where Self: 'a;
+        type Iterator<'a>
+            = core::iter::Chain<F::Iterator<'a>, S::Iterator<'a>>
+        where
+            Self: 'a;
 
         fn iter(&self) -> Self::Iterator<'_> {
             self.first.iter().chain(self.second.iter())
