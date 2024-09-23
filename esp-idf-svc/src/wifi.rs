@@ -1328,6 +1328,7 @@ impl<'d> WifiDriver<'d> {
         len: u16,
         eb: *mut ffi::c_void,
     ) -> esp_err_t {
+        #[allow(static_mut_refs)]
         let res = RX_CALLBACK.as_mut().unwrap()(device_id, WifiFrame::new(buf.cast(), len, eb));
 
         match res {
@@ -1337,6 +1338,7 @@ impl<'d> WifiDriver<'d> {
     }
 
     unsafe extern "C" fn handle_tx(ifidx: u8, data: *mut u8, len: *mut u16, tx_status: bool) {
+        #[allow(static_mut_refs)]
         TX_CALLBACK.as_mut().unwrap()(
             (ifidx as wifi_interface_t).into(),
             core::slice::from_raw_parts(data as *const _, len as usize),
