@@ -606,6 +606,7 @@ impl<'d> WifiDriver<'d> {
             #[cfg(any(
                 all(not(esp_idf_version_major = "4"), not(esp_idf_version_major = "5")),
                 all(
+                    esp_idf_version_major = "5",
                     not(esp_idf_version = "5.0"),
                     not(esp_idf_version = "5.1"),
                     not(esp_idf_version = "5.2"),
@@ -616,6 +617,7 @@ impl<'d> WifiDriver<'d> {
             #[cfg(any(
                 all(not(esp_idf_version_major = "4"), not(esp_idf_version_major = "5")),
                 all(
+                    esp_idf_version_major = "5",
                     not(esp_idf_version = "5.0"),
                     not(esp_idf_version = "5.1"),
                     not(esp_idf_version = "5.2"),
