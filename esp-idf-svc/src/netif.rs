@@ -765,6 +765,7 @@ impl<'a> EspEventDeserializer for IpEvent<'a> {
             IpEvent::DhcpIp6Assigned(DhcpIp6Assignment(event))
         } else if event_id == ip_event_t_IP_EVENT_STA_LOST_IP
             || event_id == ip_event_t_IP_EVENT_PPP_LOST_IP
+            || event_id == ip_event_t_IP_EVENT_ETH_LOST_IP
         {
             let netif_handle_mut = unsafe {
                 (data.payload.unwrap() as *const _ as *mut esp_netif_t)
