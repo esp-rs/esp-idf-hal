@@ -766,6 +766,48 @@ where
     pub fn flush(&mut self) -> Result<(), EspError> {
         Ok(())
     }
+
+    /// Run the provided [`Operation`] on the bus.
+    ///
+    /// Only Operations that result in a transfer are supported. For example,
+    /// passing an [`Operation::DelayNs`] will return an error.
+    pub fn operation(&mut self, operation: Operation<'_>) -> Result<(), EspError> {
+        if let Operation::DelayNs(_) = operation {
+            return Err(EspError::from_infallible::<ESP_ERR_INVALID_ARG>());
+        }
+
+        let chunk_size = self.driver.borrow().max_transfer_size;
+        let transactions = spi_operations(once(operation), chunk_size, self.duplex)
+            .filter_map(|t| t.transaction());
+
+        spi_transmit(self.handle, transactions, self.polling, self.queue_size)?;
+
+        Ok(())
+    }
+
+    /// Run the provided [`Operation`] on the bus.
+    ///
+    /// Only Operations that result in a transfer are supported. For example,
+    /// passing an [`Operation::DelayNs`] will return an error.
+    #[cfg(not(esp_idf_spi_master_isr_in_iram))]
+    pub async fn operation_async(&mut self, operation: Operation<'_>) -> Result<(), EspError> {
+        if let Operation::DelayNs(_) = operation {
+            return Err(EspError::from_infallible::<ESP_ERR_INVALID_ARG>());
+        }
+
+        let chunk_size = self.driver.borrow().max_transfer_size;
+        let transactions = spi_operations(once(operation), chunk_size, self.duplex)
+            .filter_map(|t| t.transaction());
+
+        core::pin::pin!(spi_transmit_async(
+            self.handle,
+            transactions,
+            self.queue_size
+        ))
+        .await?;
+
+        Ok(())
+    }
 }
 
 impl<'d, T> Drop for SpiBusDriver<'d, T>
@@ -1167,67 +1209,9 @@ where
         &self,
         operations: impl Iterator<Item = Operation<'a>> + 'a,
     ) -> impl Iterator<Item = SpiOperation> + 'a {
-        enum OperationsIter<R, W, T, I, D> {
-            Read(R),
-            Write(W),
-            Transfer(T),
-            TransferInPlace(I),
-            Delay(D),
-        }
-
-        impl<R, W, T, I, D> Iterator for OperationsIter<R, W, T, I, D>
-        where
-            R: Iterator<Item = SpiOperation>,
-            W: Iterator<Item = SpiOperation>,
-            T: Iterator<Item = SpiOperation>,
-            I: Iterator<Item = SpiOperation>,
-            D: Iterator<Item = SpiOperation>,
-        {
-            type Item = SpiOperation;
-
-            fn next(&mut self) -> Option<Self::Item> {
-                match self {
-                    Self::Read(iter) => iter.next(),
-                    Self::Write(iter) => iter.next(),
-                    Self::Transfer(iter) => iter.next(),
-                    Self::TransferInPlace(iter) => iter.next(),
-                    Self::Delay(iter) => iter.next(),
-                }
-            }
-        }
-
         let chunk_size = self.driver.borrow().max_transfer_size;
         let duplex = self.duplex;
-
-        operations.flat_map(move |op| match op {
-            Operation::Read(words) => OperationsIter::Read(
-                spi_read_transactions(words, chunk_size, duplex, LineWidth::Single)
-                    .map(SpiOperation::Transaction),
-            ),
-            Operation::ReadWithWidth(words, line_width) => OperationsIter::Read(
-                spi_read_transactions(words, chunk_size, duplex, line_width)
-                    .map(SpiOperation::Transaction),
-            ),
-            Operation::Write(words) => OperationsIter::Write(
-                spi_write_transactions(words, chunk_size, LineWidth::Single)
-                    .map(SpiOperation::Transaction),
-            ),
-            Operation::WriteWithWidth(words, line_width) => OperationsIter::Write(
-                spi_write_transactions(words, chunk_size, line_width)
-                    .map(SpiOperation::Transaction),
-            ),
-            Operation::Transfer(read, write) => OperationsIter::Transfer(
-                spi_transfer_transactions(read, write, chunk_size, duplex)
-                    .map(SpiOperation::Transaction),
-            ),
-            Operation::TransferInPlace(words) => OperationsIter::TransferInPlace(
-                spi_transfer_in_place_transactions(words, chunk_size)
-                    .map(SpiOperation::Transaction),
-            ),
-            Operation::DelayNs(delay) => {
-                OperationsIter::Delay(core::iter::once(SpiOperation::Delay(delay)))
-            }
-        })
+        spi_operations(operations, chunk_size, duplex)
     }
 }
 
@@ -1759,6 +1743,69 @@ where
             set_keep_cs_active(transaction, *enabled && Some(index) != *last_transaction);
         }
     }
+}
+
+fn spi_operations<'a>(
+    operations: impl Iterator<Item = Operation<'a>> + 'a,
+    chunk_size: usize,
+    duplex: Duplex,
+) -> impl Iterator<Item = SpiOperation> + 'a {
+    enum OperationsIter<R, W, T, I, D> {
+        Read(R),
+        Write(W),
+        Transfer(T),
+        TransferInPlace(I),
+        Delay(D),
+    }
+
+    impl<R, W, T, I, D> Iterator for OperationsIter<R, W, T, I, D>
+    where
+        R: Iterator<Item = SpiOperation>,
+        W: Iterator<Item = SpiOperation>,
+        T: Iterator<Item = SpiOperation>,
+        I: Iterator<Item = SpiOperation>,
+        D: Iterator<Item = SpiOperation>,
+    {
+        type Item = SpiOperation;
+
+        fn next(&mut self) -> Option<Self::Item> {
+            match self {
+                Self::Read(iter) => iter.next(),
+                Self::Write(iter) => iter.next(),
+                Self::Transfer(iter) => iter.next(),
+                Self::TransferInPlace(iter) => iter.next(),
+                Self::Delay(iter) => iter.next(),
+            }
+        }
+    }
+
+    operations.flat_map(move |op| match op {
+        Operation::Read(words) => OperationsIter::Read(
+            spi_read_transactions(words, chunk_size, duplex, LineWidth::Single)
+                .map(SpiOperation::Transaction),
+        ),
+        Operation::ReadWithWidth(words, line_width) => OperationsIter::Read(
+            spi_read_transactions(words, chunk_size, duplex, line_width)
+                .map(SpiOperation::Transaction),
+        ),
+        Operation::Write(words) => OperationsIter::Write(
+            spi_write_transactions(words, chunk_size, LineWidth::Single)
+                .map(SpiOperation::Transaction),
+        ),
+        Operation::WriteWithWidth(words, line_width) => OperationsIter::Write(
+            spi_write_transactions(words, chunk_size, line_width).map(SpiOperation::Transaction),
+        ),
+        Operation::Transfer(read, write) => OperationsIter::Transfer(
+            spi_transfer_transactions(read, write, chunk_size, duplex)
+                .map(SpiOperation::Transaction),
+        ),
+        Operation::TransferInPlace(words) => OperationsIter::TransferInPlace(
+            spi_transfer_in_place_transactions(words, chunk_size).map(SpiOperation::Transaction),
+        ),
+        Operation::DelayNs(delay) => {
+            OperationsIter::Delay(core::iter::once(SpiOperation::Delay(delay)))
+        }
+    })
 }
 
 fn spi_read_transactions(
