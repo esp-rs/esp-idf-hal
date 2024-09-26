@@ -1751,10 +1751,10 @@ fn spi_read_transactions(
         spi_create_transaction(
             chunk.as_mut_ptr(),
             core::ptr::null(),
-            if duplex == Duplex::Half3Wire {
-                0
-            } else {
+            if duplex == Duplex::Full {
                 chunk.len()
+            } else {
+                0
             },
             chunk.len(),
         )
