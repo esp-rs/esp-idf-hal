@@ -71,6 +71,7 @@ impl Drop for NvsDefault {
 }
 
 impl NvsPartitionId for NvsDefault {
+    #[allow(clippy::manual_c_str_literals)]
     fn name(&self) -> &CStr {
         CStr::from_bytes_with_nul(b"\0").unwrap()
     }

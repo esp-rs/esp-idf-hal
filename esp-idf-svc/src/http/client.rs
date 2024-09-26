@@ -112,6 +112,7 @@ impl EspHttpConnection {
     pub fn new(configuration: &Configuration) -> Result<Self, EspError> {
         let event_handler = Box::new(None);
 
+        #[allow(clippy::manual_c_str_literals)]
         let mut native_config = esp_http_client_config_t {
             // The ESP-IDF HTTP client is really picky on being initialized with a valid URL
             // So we set something here, which will be changed later anyway, in the request() method
