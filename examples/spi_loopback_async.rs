@@ -12,7 +12,6 @@
 //! This example transfers data via SPI.
 //! Connect SDI and SDO pins to see the outgoing data is read as incoming data.
 
-use embedded_hal::spi::Operation;
 use esp_idf_hal::peripherals::Peripherals;
 use esp_idf_hal::prelude::*;
 use esp_idf_hal::spi::*;
