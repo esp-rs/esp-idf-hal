@@ -124,7 +124,7 @@ impl From<esp_reset_reason_t> for ResetReason {
                 esp_idf_version_full = "5.2.0",
                 esp_idf_version_full = "5.2.1",
             )))]
-            esp_reset_reason_t_ESP_RST_PG => Self::PowerGlitch,
+            esp_reset_reason_t_ESP_RST_PWR_GLITCH => Self::PowerGlitch,
             #[cfg(not(any(
                 esp_idf_version_major = "4",
                 all(esp_idf_version_major = "5", esp_idf_version_minor = "0"),
@@ -132,7 +132,7 @@ impl From<esp_reset_reason_t> for ResetReason {
                 esp_idf_version_full = "5.2.0",
                 esp_idf_version_full = "5.2.1",
             )))]
-            esp_reset_reason_t_ESP_RST_CPU => Self::CPULockup,
+            esp_reset_reason_t_ESP_RST_CPU_LOCKUP => Self::CPULockup,
             _ => unreachable!(),
         }
     }
