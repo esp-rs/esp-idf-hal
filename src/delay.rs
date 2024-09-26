@@ -137,7 +137,7 @@ impl From<Duration> for TickType {
         let sec_ms = duration.as_secs().saturating_mul(MS_PER_S);
         let subsec_ns: u64 = duration.subsec_nanos().into();
         // Convert to ms and round up. Not saturating. Cannot overflow.
-        let subsec_ms = (subsec_ns + (NS_PER_MS - 1)) / NS_PER_MS;
+        let subsec_ms = subsec_ns.div_ceil(NS_PER_MS);
 
         TickType::new_millis(sec_ms.saturating_add(subsec_ms))
     }
