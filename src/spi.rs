@@ -56,8 +56,6 @@ use crate::peripheral::Peripheral;
 use crate::task::embassy_sync::EspRawMutex;
 use crate::task::CriticalSection;
 
-pub use embedded_hal::spi::Operation;
-
 crate::embedded_hal_error!(
     SpiError,
     embedded_hal::spi::Error,
@@ -395,6 +393,24 @@ pub mod config {
         (((data_mode.polarity == Polarity::IdleHigh) as u8) << 1)
             | ((data_mode.phase == Phase::CaptureOnSecondTransition) as u8)
     }
+}
+
+/// SPI transaction operation.
+///
+/// This allows composition of SPI operations into a single bus transaction.
+#[non_exhaustive]
+#[derive(Debug, PartialEq, Eq)]
+pub enum Operation<'a> {
+    /// Read data into the provided buffer.
+    Read(&'a mut [u8]),
+    /// Write data from the provided buffer, discarding read data.
+    Write(&'a [u8]),
+    /// Read data into the first buffer, while writing data from the second buffer.
+    Transfer(&'a mut [u8], &'a [u8]),
+    /// Write data out while reading data into the provided buffer.
+    TransferInPlace(&'a mut [u8]),
+    /// Delay for at least the specified number of nanoseconds.
+    DelayNs(u32),
 }
 
 pub struct SpiDriver<'d> {
@@ -919,7 +935,7 @@ where
         self.handle
     }
 
-    pub fn transaction(&mut self, operations: &mut [Operation<'_, u8>]) -> Result<(), EspError> {
+    pub fn transaction(&mut self, operations: &mut [Operation<'_>]) -> Result<(), EspError> {
         self.run(
             self.hardware_cs_ctl(operations.iter_mut().map(copy_operation))?,
             operations.iter_mut().map(copy_operation),
@@ -929,7 +945,7 @@ where
     #[cfg(not(esp_idf_spi_master_isr_in_iram))]
     pub async fn transaction_async(
         &mut self,
-        operations: &mut [Operation<'_, u8>],
+        operations: &mut [Operation<'_>],
     ) -> Result<(), EspError> {
         core::pin::pin!(self.run_async(
             self.hardware_cs_ctl(operations.iter_mut().map(copy_operation))?,
@@ -977,7 +993,7 @@ where
     fn run<'a, 'c, 'p, P, M>(
         &mut self,
         mut cs_pin: CsCtl<'c, 'p, P, M>,
-        operations: impl Iterator<Item = Operation<'a, u8>> + 'a,
+        operations: impl Iterator<Item = Operation<'a>> + 'a,
     ) -> Result<(), EspError>
     where
         P: OutputPin,
@@ -1032,7 +1048,7 @@ where
     async fn run_async<'a, 'c, 'p, P, M>(
         &self,
         mut cs_pin: CsCtl<'c, 'p, P, M>,
-        operations: impl Iterator<Item = Operation<'a, u8>> + 'a,
+        operations: impl Iterator<Item = Operation<'a>> + 'a,
     ) -> Result<(), EspError>
     where
         P: OutputPin,
@@ -1096,7 +1112,7 @@ where
 
     fn hardware_cs_ctl<'a, 'c, 'p>(
         &self,
-        operations: impl Iterator<Item = Operation<'a, u8>> + 'a,
+        operations: impl Iterator<Item = Operation<'a>> + 'a,
     ) -> Result<CsCtl<'c, 'p, AnyOutputPin, Output>, EspError> {
         let (total_count, transactions_count, first_transaction, last_transaction) =
             self.spi_operations_stats(operations);
@@ -1118,7 +1134,7 @@ where
 
     fn spi_operations_stats<'a>(
         &self,
-        operations: impl Iterator<Item = Operation<'a, u8>> + 'a,
+        operations: impl Iterator<Item = Operation<'a>> + 'a,
     ) -> (usize, usize, Option<usize>, Option<usize>) {
         self.spi_operations(operations).enumerate().fold(
             (0, 0, None, None),
@@ -1145,7 +1161,7 @@ where
 
     fn spi_operations<'a>(
         &self,
-        operations: impl Iterator<Item = Operation<'a, u8>> + 'a,
+        operations: impl Iterator<Item = Operation<'a>> + 'a,
     ) -> impl Iterator<Item = SpiOperation> + 'a {
         enum OperationsIter<R, W, T, I, D> {
             Read(R),
@@ -1231,8 +1247,15 @@ where
         Self::write(self, buf).map_err(to_spi_err)
     }
 
-    fn transaction(&mut self, operations: &mut [Operation<'_, u8>]) -> Result<(), Self::Error> {
-        Self::transaction(self, operations).map_err(to_spi_err)
+    fn transaction(
+        &mut self,
+        operations: &mut [embedded_hal::spi::Operation<'_, u8>],
+    ) -> Result<(), Self::Error> {
+        self.run(
+            self.hardware_cs_ctl(operations.iter_mut().map(copy_ehal_operation))?,
+            operations.iter_mut().map(copy_ehal_operation),
+        )
+        .map_err(to_spi_err)
     }
 }
 
@@ -1359,11 +1382,14 @@ where
 
     async fn transaction(
         &mut self,
-        operations: &mut [Operation<'_, u8>],
+        operations: &mut [embedded_hal::spi::Operation<'_, u8>],
     ) -> Result<(), Self::Error> {
-        Self::transaction_async(self, operations)
-            .await
-            .map_err(to_spi_err)
+        core::pin::pin!(self.run_async(
+            self.hardware_cs_ctl(operations.iter_mut().map(copy_ehal_operation))?,
+            operations.iter_mut().map(copy_ehal_operation),
+        ))
+        .await
+        .map_err(to_spi_err)
     }
 }
 
@@ -1464,14 +1490,14 @@ where
         self
     }
 
-    pub fn transaction(&mut self, operations: &mut [Operation<'_, u8>]) -> Result<(), EspError> {
+    pub fn transaction(&mut self, operations: &mut [Operation<'_>]) -> Result<(), EspError> {
         self.run(operations.iter_mut().map(copy_operation))
     }
 
     #[cfg(not(esp_idf_spi_master_isr_in_iram))]
     pub async fn transaction_async(
         &mut self,
-        operations: &mut [Operation<'_, u8>],
+        operations: &mut [Operation<'_>],
     ) -> Result<(), EspError> {
         core::pin::pin!(self.run_async(operations.iter_mut().map(copy_operation))).await
     }
@@ -1514,7 +1540,7 @@ where
 
     fn run<'a>(
         &mut self,
-        operations: impl Iterator<Item = Operation<'a, u8>> + 'a,
+        operations: impl Iterator<Item = Operation<'a>> + 'a,
     ) -> Result<(), EspError> {
         let cs_pin = CsCtl::Software {
             cs: &mut self.cs_pin,
@@ -1530,7 +1556,7 @@ where
     #[allow(dead_code)]
     async fn run_async<'a>(
         &mut self,
-        operations: impl Iterator<Item = Operation<'a, u8>> + 'a,
+        operations: impl Iterator<Item = Operation<'a>> + 'a,
     ) -> Result<(), EspError> {
         let cs_pin = CsCtl::Software {
             cs: &mut self.cs_pin,
@@ -1570,8 +1596,12 @@ where
         Self::write(self, buf).map_err(to_spi_err)
     }
 
-    fn transaction(&mut self, operations: &mut [Operation<'_, u8>]) -> Result<(), Self::Error> {
-        Self::transaction(self, operations).map_err(to_spi_err)
+    fn transaction(
+        &mut self,
+        operations: &mut [embedded_hal::spi::Operation<'_, u8>],
+    ) -> Result<(), Self::Error> {
+        self.run(operations.iter_mut().map(copy_ehal_operation))
+            .map_err(to_spi_err)
     }
 }
 
@@ -1592,9 +1622,9 @@ where
 
     async fn transaction(
         &mut self,
-        operations: &mut [Operation<'_, u8>],
+        operations: &mut [embedded_hal::spi::Operation<'_, u8>],
     ) -> Result<(), Self::Error> {
-        Self::transaction_async(self, operations)
+        core::pin::pin!(self.run_async(operations.iter_mut().map(copy_ehal_operation)))
             .await
             .map_err(to_spi_err)
     }
@@ -1996,13 +2026,25 @@ extern "C" fn spi_notify(transaction: *mut spi_transaction_t) {
     }
 }
 
-fn copy_operation<'b>(operation: &'b mut Operation<'_, u8>) -> Operation<'b, u8> {
+fn copy_operation<'b>(operation: &'b mut Operation<'_>) -> Operation<'b> {
     match operation {
         Operation::Read(read) => Operation::Read(read),
         Operation::Write(write) => Operation::Write(write),
         Operation::Transfer(read, write) => Operation::Transfer(read, write),
         Operation::TransferInPlace(write) => Operation::TransferInPlace(write),
         Operation::DelayNs(delay) => Operation::DelayNs(*delay),
+    }
+}
+
+fn copy_ehal_operation<'b>(
+    operation: &'b mut embedded_hal::spi::Operation<'_, u8>,
+) -> Operation<'b> {
+    match operation {
+        embedded_hal::spi::Operation::Read(read) => Operation::Read(read),
+        embedded_hal::spi::Operation::Write(write) => Operation::Write(write),
+        embedded_hal::spi::Operation::Transfer(read, write) => Operation::Transfer(read, write),
+        embedded_hal::spi::Operation::TransferInPlace(write) => Operation::TransferInPlace(write),
+        embedded_hal::spi::Operation::DelayNs(delay) => Operation::DelayNs(*delay),
     }
 }
 
