@@ -616,7 +616,6 @@ impl<const N: usize> Default for FixedLengthSignal<N> {
 /// signal.push(Pulse::new(PinState::High, PulseTicks::new(10)));
 /// signal.push(Pulse::new(PinState::Low, PulseTicks::new(9)));
 /// ```
-
 #[cfg(feature = "alloc")]
 #[derive(Clone, Default)]
 pub struct VariableLengthSignal {
@@ -735,7 +734,6 @@ mod driver {
     /// Use [`TxRmtDriver::start()`] or [`TxRmtDriver::start_blocking()`] to transmit pulses.
     ///
     /// See the [rmt module][crate::rmt] for more information.
-
     pub struct TxRmtDriver<'d> {
         channel: u8,
         _p: PhantomData<&'d mut ()>,
@@ -896,7 +894,6 @@ mod driver {
         /// are no time-gaps between successive transmissions where the perhipheral has to
         /// wait for items. This can cause weird behavior and can be counteracted with
         /// increasing [`Config::mem_block_num`] or making iteration more efficient.
-
         pub fn start_iter_blocking<T>(&mut self, iter: T) -> Result<(), EspError>
         where
             T: Iterator<Item = Symbol> + Send,
@@ -1028,7 +1025,6 @@ mod driver {
         /// To uninstall the driver just drop it.
         ///
         /// Internally this calls `rmt_config()` and `rmt_driver_install()`.
-
         pub fn new<C: RmtChannel>(
             _channel: impl Peripheral<P = C> + 'd,
             pin: impl Peripheral<P = impl InputPin> + 'd,
