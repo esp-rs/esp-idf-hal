@@ -30,7 +30,6 @@
 //! therefore may run at a different frequency.
 //!
 //! # TODO
-//! - Quad SPI
 //! - Slave SPI
 
 use core::borrow::{Borrow, BorrowMut};
@@ -62,7 +61,7 @@ crate::embedded_hal_error!(
     embedded_hal::spi::ErrorKind
 );
 
-use config::Duplex;
+use config::{Duplex, LineWidth};
 
 pub trait Spi: Send {
     fn device() -> spi_host_device_t;
@@ -403,8 +402,13 @@ pub mod config {
 pub enum Operation<'a> {
     /// Read data into the provided buffer.
     Read(&'a mut [u8]),
+    /// Read data into the provided buffer with the provided line width in half-duplex mode.
+    ReadWithWidth(&'a mut [u8], LineWidth),
     /// Write data from the provided buffer, discarding read data.
     Write(&'a [u8]),
+    /// Write data from the provided buffer, using the provided line width in half-duplex mode,
+    /// discarding read data.
+    WriteWithWidth(&'a [u8], LineWidth),
     /// Read data into the first buffer, while writing data from the second buffer.
     Transfer(&'a mut [u8], &'a [u8]),
     /// Write data out while reading data into the provided buffer.
@@ -650,7 +654,7 @@ where
 
         let chunk_size = self.driver.borrow().max_transfer_size;
 
-        let transactions = spi_read_transactions(words, chunk_size, self.duplex);
+        let transactions = spi_read_transactions(words, chunk_size, self.duplex, LineWidth::Single);
         spi_transmit(self.handle, transactions, self.polling, self.queue_size)?;
 
         Ok(())
@@ -660,7 +664,7 @@ where
     pub async fn read_async(&mut self, words: &mut [u8]) -> Result<(), EspError> {
         let chunk_size = self.driver.borrow().max_transfer_size;
 
-        let transactions = spi_read_transactions(words, chunk_size, self.duplex);
+        let transactions = spi_read_transactions(words, chunk_size, self.duplex, LineWidth::Single);
         core::pin::pin!(spi_transmit_async(
             self.handle,
             transactions,
@@ -679,7 +683,7 @@ where
 
         let chunk_size = self.driver.borrow().max_transfer_size;
 
-        let transactions = spi_write_transactions(words, chunk_size);
+        let transactions = spi_write_transactions(words, chunk_size, LineWidth::Single);
         spi_transmit(self.handle, transactions, self.polling, self.queue_size)?;
 
         Ok(())
@@ -689,7 +693,7 @@ where
     pub async fn write_async(&mut self, words: &[u8]) -> Result<(), EspError> {
         let chunk_size = self.driver.borrow().max_transfer_size;
 
-        let transactions = spi_write_transactions(words, chunk_size);
+        let transactions = spi_write_transactions(words, chunk_size, LineWidth::Single);
         core::pin::pin!(spi_transmit_async(
             self.handle,
             transactions,
@@ -1197,10 +1201,20 @@ where
 
         operations.flat_map(move |op| match op {
             Operation::Read(words) => OperationsIter::Read(
-                spi_read_transactions(words, chunk_size, duplex).map(SpiOperation::Transaction),
+                spi_read_transactions(words, chunk_size, duplex, LineWidth::Single)
+                    .map(SpiOperation::Transaction),
+            ),
+            Operation::ReadWithWidth(words, line_width) => OperationsIter::Read(
+                spi_read_transactions(words, chunk_size, duplex, line_width)
+                    .map(SpiOperation::Transaction),
             ),
             Operation::Write(words) => OperationsIter::Write(
-                spi_write_transactions(words, chunk_size).map(SpiOperation::Transaction),
+                spi_write_transactions(words, chunk_size, LineWidth::Single)
+                    .map(SpiOperation::Transaction),
+            ),
+            Operation::WriteWithWidth(words, line_width) => OperationsIter::Write(
+                spi_write_transactions(words, chunk_size, line_width)
+                    .map(SpiOperation::Transaction),
             ),
             Operation::Transfer(read, write) => OperationsIter::Transfer(
                 spi_transfer_transactions(read, write, chunk_size, duplex)
@@ -1315,8 +1329,13 @@ where
                 break;
             }
 
-            let mut transaction =
-                spi_create_transaction(core::ptr::null_mut(), buf[..offset].as_ptr(), offset, 0);
+            let mut transaction = spi_create_transaction(
+                core::ptr::null_mut(),
+                buf[..offset].as_ptr(),
+                offset,
+                0,
+                LineWidth::Single,
+            );
 
             if lock.is_none() && words.peek().is_some() {
                 lock = Some(BusLock::new(self.handle)?);
@@ -1746,6 +1765,7 @@ fn spi_read_transactions(
     words: &mut [u8],
     chunk_size: usize,
     duplex: Duplex,
+    line_width: LineWidth,
 ) -> impl Iterator<Item = spi_transaction_t> + '_ {
     words.chunks_mut(chunk_size).map(move |chunk| {
         spi_create_transaction(
@@ -1757,6 +1777,7 @@ fn spi_read_transactions(
                 0
             },
             chunk.len(),
+            line_width,
         )
     })
 }
@@ -1764,10 +1785,17 @@ fn spi_read_transactions(
 fn spi_write_transactions(
     words: &[u8],
     chunk_size: usize,
+    line_width: LineWidth,
 ) -> impl Iterator<Item = spi_transaction_t> + '_ {
-    words
-        .chunks(chunk_size)
-        .map(|chunk| spi_create_transaction(core::ptr::null_mut(), chunk.as_ptr(), chunk.len(), 0))
+    words.chunks(chunk_size).map(move |chunk| {
+        spi_create_transaction(
+            core::ptr::null_mut(),
+            chunk.as_ptr(),
+            chunk.len(),
+            0,
+            line_width,
+        )
+    })
 }
 
 fn spi_transfer_in_place_transactions(
@@ -1780,6 +1808,7 @@ fn spi_transfer_in_place_transactions(
             chunk.as_mut_ptr(),
             chunk.len(),
             chunk.len(),
+            LineWidth::Single,
         )
     })
 }
@@ -1821,16 +1850,18 @@ fn spi_transfer_transactions<'a>(
             let (read, read_trail) = read.split_at_mut(write.len());
 
             OperationsIter::ReadLonger(
-                spi_transfer_equal_transactions(read, write, chunk_size)
-                    .chain(spi_read_transactions(read_trail, chunk_size, duplex)),
+                spi_transfer_equal_transactions(read, write, chunk_size).chain(
+                    spi_read_transactions(read_trail, chunk_size, duplex, LineWidth::Single),
+                ),
             )
         }
         Ordering::Less => {
             let (write, write_trail) = write.split_at(read.len());
 
             OperationsIter::WriteLonger(
-                spi_transfer_equal_transactions(read, write, chunk_size)
-                    .chain(spi_write_transactions(write_trail, chunk_size)),
+                spi_transfer_equal_transactions(read, write, chunk_size).chain(
+                    spi_write_transactions(write_trail, chunk_size, LineWidth::Single),
+                ),
             )
         }
     }
@@ -1849,6 +1880,7 @@ fn spi_transfer_equal_transactions<'a>(
                 write_chunk.as_ptr(),
                 max(read_chunk.len(), write_chunk.len()),
                 read_chunk.len(),
+                LineWidth::Single,
             )
         })
 }
@@ -1859,9 +1891,15 @@ fn spi_create_transaction(
     write: *const u8,
     transaction_length: usize,
     rx_length: usize,
+    line_width: LineWidth,
 ) -> spi_transaction_t {
+    let flags = match line_width {
+        LineWidth::Single => 0,
+        LineWidth::Dual => SPI_TRANS_MODE_DIO,
+        LineWidth::Quad => SPI_TRANS_MODE_QIO,
+    };
     spi_transaction_t {
-        flags: 0,
+        flags,
         __bindgen_anon_1: spi_transaction_t__bindgen_ty_1 {
             tx_buffer: write as *const _,
         },
@@ -2029,7 +2067,11 @@ extern "C" fn spi_notify(transaction: *mut spi_transaction_t) {
 fn copy_operation<'b>(operation: &'b mut Operation<'_>) -> Operation<'b> {
     match operation {
         Operation::Read(read) => Operation::Read(read),
+        Operation::ReadWithWidth(read, line_width) => Operation::ReadWithWidth(read, *line_width),
         Operation::Write(write) => Operation::Write(write),
+        Operation::WriteWithWidth(write, line_width) => {
+            Operation::WriteWithWidth(write, *line_width)
+        }
         Operation::Transfer(read, write) => Operation::Transfer(read, write),
         Operation::TransferInPlace(write) => Operation::TransferInPlace(write),
         Operation::DelayNs(delay) => Operation::DelayNs(*delay),
