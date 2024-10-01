@@ -437,7 +437,13 @@ impl<'d> SpiDriver<'d> {
         sdi: Option<impl Peripheral<P = crate::gpio::Gpio8> + 'd>,
         config: &config::DriverConfig,
     ) -> Result<Self, EspError> {
-        let max_transfer_size = Self::new_internal(SPI1::device(), Some(sclk), sdo, sdi, config)?;
+        let max_transfer_size = Self::new_internal(
+            SPI1::device(),
+            Some(sclk.into_ref().pin()),
+            sdo.into_ref().pin(),
+            sdi.map(|p| p.into_ref().pin()),
+            config,
+        )?;
 
         Ok(Self {
             host: SPI1::device() as _,
