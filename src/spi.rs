@@ -442,7 +442,7 @@ impl<'d> SpiDriver<'d> {
         let max_transfer_size = Self::new_internal(
             SPI1::device(),
             Some(sclk.into_ref().pin()),
-            sdo.into_ref().pin(),
+            Some(sdo.into_ref().pin()),
             sdi.map(|p| p.into_ref().pin()),
             None,
             None,
