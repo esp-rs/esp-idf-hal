@@ -43,6 +43,8 @@ pub enum NetifStack {
     #[cfg(esp_idf_lwip_slip_support)]
     /// Serial Line Internet Protocol (SLIP)
     Slip,
+    #[cfg(all(esp_idf_comp_openthread_enabled, esp_idf_openthread_enabled,))]
+    Thread,
 }
 
 impl NetifStack {
@@ -70,6 +72,8 @@ impl NetifStack {
             Self::Ppp => NetifConfiguration::ppp_default_client(),
             #[cfg(esp_idf_lwip_slip_support)]
             Self::Slip => NetifConfiguration::slip_default_client(),
+            #[cfg(all(esp_idf_comp_openthread_enabled, esp_idf_openthread_enabled,))]
+            Self::Thread => NetifConfiguration::thread_default(),
         }
     }
 
@@ -90,6 +94,16 @@ impl NetifStack {
             #[cfg(esp_idf_esp_wifi_softap_support)]
             Self::Ap => Some(esp_mac_type_t_ESP_MAC_WIFI_SOFTAP),
             Self::Eth => Some(esp_mac_type_t_ESP_MAC_ETH),
+            #[cfg(all(esp_idf_comp_openthread_enabled, esp_idf_openthread_enabled,))]
+            Self::Thread => {
+                #[cfg(esp_idf_soc_ieee802154_supported)]
+                let mac_type = Some(esp_mac_type_t_ESP_MAC_IEEE802154);
+
+                #[cfg(not(esp_idf_soc_ieee802154_supported))]
+                let mac_type = None;
+
+                mac_type
+            }
             #[cfg(any(esp_idf_lwip_slip_support, esp_idf_lwip_ppp_support))]
             _ => None,
         }
@@ -106,6 +120,18 @@ impl NetifStack {
                 Self::Ppp => _g_esp_netif_netstack_default_ppp,
                 #[cfg(esp_idf_lwip_slip_support)]
                 Self::Slip => _g_esp_netif_netstack_default_slip,
+                #[cfg(all(
+                    esp_idf_comp_openthread_enabled,
+                    esp_idf_openthread_enabled,
+                    esp_idf_version_major = "4"
+                ))]
+                Self::Thread => _g_esp_netif_netstack_default_openthread,
+                #[cfg(all(
+                    esp_idf_comp_openthread_enabled,
+                    esp_idf_openthread_enabled,
+                    not(esp_idf_version_major = "4")
+                ))]
+                Self::Thread => &g_esp_netif_netstack_default_openthread,
             }
         }
     }
@@ -119,7 +145,7 @@ pub struct NetifConfiguration {
     pub key: heapless::String<32>,
     pub description: heapless::String<8>,
     pub route_priority: u32,
-    pub ip_configuration: ipv4::Configuration,
+    pub ip_configuration: Option<ipv4::Configuration>,
     pub stack: NetifStack,
     pub custom_mac: Option<[u8; 6]>,
 }
@@ -134,7 +160,7 @@ impl NetifConfiguration {
             key: "ETH_CL_DEF".try_into().unwrap(),
             description: "eth".try_into().unwrap(),
             route_priority: 60,
-            ip_configuration: ipv4::Configuration::Client(Default::default()),
+            ip_configuration: Some(ipv4::Configuration::Client(Default::default())),
             stack: NetifStack::Eth,
             custom_mac: None,
         }
@@ -148,7 +174,7 @@ impl NetifConfiguration {
             key: "ETH_RT_DEF".try_into().unwrap(),
             description: "ethrt".try_into().unwrap(),
             route_priority: 50,
-            ip_configuration: ipv4::Configuration::Router(Default::default()),
+            ip_configuration: Some(ipv4::Configuration::Router(Default::default())),
             stack: NetifStack::Eth,
             custom_mac: None,
         }
@@ -163,7 +189,7 @@ impl NetifConfiguration {
             key: "WIFI_STA_DEF".try_into().unwrap(),
             description: "sta".try_into().unwrap(),
             route_priority: 100,
-            ip_configuration: ipv4::Configuration::Client(Default::default()),
+            ip_configuration: Some(ipv4::Configuration::Client(Default::default())),
             stack: NetifStack::Sta,
             custom_mac: None,
         }
@@ -178,7 +204,7 @@ impl NetifConfiguration {
             key: "WIFI_AP_DEF".try_into().unwrap(),
             description: "ap".try_into().unwrap(),
             route_priority: 10,
-            ip_configuration: ipv4::Configuration::Router(Default::default()),
+            ip_configuration: Some(ipv4::Configuration::Router(Default::default())),
             stack: NetifStack::Ap,
             custom_mac: None,
         }
@@ -193,7 +219,7 @@ impl NetifConfiguration {
             key: "PPP_CL_DEF".try_into().unwrap(),
             description: "ppp".try_into().unwrap(),
             route_priority: 30,
-            ip_configuration: ipv4::Configuration::Client(Default::default()),
+            ip_configuration: Some(ipv4::Configuration::Client(Default::default())),
             stack: NetifStack::Ppp,
             custom_mac: None,
         }
@@ -208,7 +234,7 @@ impl NetifConfiguration {
             key: "PPP_RT_DEF".try_into().unwrap(),
             description: "ppprt".try_into().unwrap(),
             route_priority: 20,
-            ip_configuration: ipv4::Configuration::Router(Default::default()),
+            ip_configuration: Some(ipv4::Configuration::Router(Default::default())),
             stack: NetifStack::Ppp,
             custom_mac: None,
         }
@@ -223,7 +249,7 @@ impl NetifConfiguration {
             key: "SLIP_CL_DEF".try_into().unwrap(),
             description: "slip".try_into().unwrap(),
             route_priority: 35,
-            ip_configuration: ipv4::Configuration::Client(Default::default()),
+            ip_configuration: Some(ipv4::Configuration::Client(Default::default())),
             stack: NetifStack::Slip,
             custom_mac: None,
         }
@@ -238,8 +264,23 @@ impl NetifConfiguration {
             key: "SLIP_RT_DEF".try_into().unwrap(),
             description: "sliprt".try_into().unwrap(),
             route_priority: 25,
-            ip_configuration: ipv4::Configuration::Router(Default::default()),
+            ip_configuration: Some(ipv4::Configuration::Router(Default::default())),
             stack: NetifStack::Slip,
+            custom_mac: None,
+        }
+    }
+
+    #[cfg(all(esp_idf_comp_openthread_enabled, esp_idf_openthread_enabled,))]
+    pub fn thread_default() -> Self {
+        Self {
+            flags: 0,
+            got_ip_event_id: None,
+            lost_ip_event_id: None,
+            key: "OT_DEF".try_into().unwrap(),
+            description: "thread".try_into().unwrap(),
+            route_priority: 15,
+            ip_configuration: None,
+            stack: NetifStack::Thread,
             custom_mac: None,
         }
     }
@@ -286,7 +327,7 @@ impl EspNetif {
         let (mut esp_inherent_config, ip_info, dhcps, dns, secondary_dns, hostname) = match conf
             .ip_configuration
         {
-            ipv4::Configuration::Client(ref ip_conf) => (
+            Some(ipv4::Configuration::Client(ref ip_conf)) => (
                 esp_netif_inherent_config_t {
                     flags: conf.flags
                         | (if matches!(ip_conf, ipv4::ClientConfiguration::DHCP(_)) {
@@ -326,7 +367,7 @@ impl EspNetif {
                     ipv4::ClientConfiguration::Fixed(_) => None,
                 },
             ),
-            ipv4::Configuration::Router(ref ip_conf) => (
+            Some(ipv4::Configuration::Router(ref ip_conf)) => (
                 esp_netif_inherent_config_t {
                     flags: conf.flags
                         | (if ip_conf.dhcp_enabled {
@@ -353,6 +394,25 @@ impl EspNetif {
                 ip_conf.dhcp_enabled,
                 ip_conf.dns,
                 None, /* For APs, ESP-IDF supports setting a primary DNS only ip_conf.secondary_dns */
+                None,
+            ),
+            None => (
+                esp_netif_inherent_config_t {
+                    flags: conf.flags | esp_netif_flags_ESP_NETIF_FLAG_AUTOUP,
+                    mac: initial_mac,
+                    ip_info: ptr::null(),
+                    get_ip_event: conf.got_ip_event_id.map(NonZeroU32::get).unwrap_or(0),
+                    lost_ip_event: conf.lost_ip_event_id.map(NonZeroU32::get).unwrap_or(0),
+                    if_key: c_if_key.as_c_str().as_ptr() as _,
+                    if_desc: c_if_description.as_c_str().as_ptr() as _,
+                    route_prio: conf.route_priority as _,
+                    #[cfg(not(esp_idf_version_major = "4"))]
+                    bridge_info: ptr::null_mut(),
+                },
+                None,
+                false,
+                None,
+                None,
                 None,
             ),
         };

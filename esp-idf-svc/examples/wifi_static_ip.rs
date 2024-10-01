@@ -66,7 +66,7 @@ fn configure_wifi(wifi: WifiDriver) -> anyhow::Result<EspWifi> {
     let mut wifi = EspWifi::wrap_all(
         wifi,
         EspNetif::new_with_conf(&NetifConfiguration {
-            ip_configuration: IpConfiguration::Client(IpClientConfiguration::Fixed(
+            ip_configuration: Some(IpConfiguration::Client(IpClientConfiguration::Fixed(
                 IpClientSettings {
                     ip: static_ip,
                     subnet: Subnet {
@@ -77,7 +77,7 @@ fn configure_wifi(wifi: WifiDriver) -> anyhow::Result<EspWifi> {
                     dns: None,
                     secondary_dns: None,
                 },
-            )),
+            ))),
             ..NetifConfiguration::wifi_default_client()
         })?,
         #[cfg(esp_idf_esp_wifi_softap_support)]

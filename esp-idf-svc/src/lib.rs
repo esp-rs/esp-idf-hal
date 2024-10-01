@@ -93,6 +93,16 @@ pub mod ping;
 pub mod sntp;
 pub mod sys;
 pub mod systime;
+#[cfg(all(
+    feature = "alloc",
+    feature = "experimental",
+    esp_idf_comp_openthread_enabled,
+    esp_idf_openthread_enabled,
+    esp_idf_comp_esp_event_enabled,
+    esp_idf_comp_nvs_flash_enabled,
+    esp_idf_comp_vfs_enabled,
+))]
+pub mod thread;
 #[cfg(all(feature = "alloc", esp_idf_comp_esp_timer_enabled))]
 pub mod timer;
 pub mod tls;

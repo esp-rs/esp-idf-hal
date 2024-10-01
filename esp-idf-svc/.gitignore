@@ -3,5 +3,6 @@
 /.embuild
 /target
 /Cargo.lock
+*.lock
 **/*.rs.bk
 /.devcontainer
