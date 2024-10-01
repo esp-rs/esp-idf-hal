@@ -444,6 +444,8 @@ impl<'d> SpiDriver<'d> {
             Some(sclk.into_ref().pin()),
             sdo.into_ref().pin(),
             sdi.map(|p| p.into_ref().pin()),
+            None,
+            None,
             config,
         )?;
 
