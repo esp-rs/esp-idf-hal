@@ -463,7 +463,7 @@ impl_adc!(ADC2: adc_unit_t_ADC_UNIT_2);
 /// ```
 /// use std::thread;
 /// use std::time::Duration;
-
+///
 /// fn main() -> anyhow::Result<()> {
 ///     use esp_idf_hal::adc::attenuation::DB_11;
 ///     use esp_idf_hal::adc::oneshot::config::AdcChannelConfig;
@@ -824,7 +824,7 @@ pub mod oneshot {
 /// Example: continuously reading value from a pin
 /// ```
 /// use log::{info, debug};
-
+///
 /// fn main() -> anyhow::Result<()> {
 ///     use esp_idf_svc::hal::adc::{AdcContConfig, AdcContDriver, AdcMeasurement, Attenuated};
 ///     use esp_idf_svc::hal::modem::Modem;
