@@ -49,7 +49,7 @@ pub struct BackgroundLoopConfiguration<'a> {
     pub task_pin_to_core: Core,
 }
 
-impl<'a> Default for BackgroundLoopConfiguration<'a> {
+impl Default for BackgroundLoopConfiguration<'_> {
     fn default() -> Self {
         Self {
             queue_size: 64,
@@ -217,13 +217,13 @@ impl<'a> EspEventPostData<'a> {
     }
 }
 
-unsafe impl<'a> EspEventSource for EspEventPostData<'a> {
+unsafe impl EspEventSource for EspEventPostData<'_> {
     fn source() -> Option<&'static ffi::CStr> {
         None
     }
 }
 
-impl<'a> EspEventSerializer for EspEventPostData<'a> {
+impl EspEventSerializer for EspEventPostData<'_> {
     type Data<'d> = EspEventPostData<'d>;
 
     fn serialize<F, R>(data: &Self::Data<'_>, f: F) -> R
@@ -268,13 +268,13 @@ impl<'a> EspEvent<'a> {
     }
 }
 
-unsafe impl<'a> EspEventSource for EspEvent<'a> {
+unsafe impl EspEventSource for EspEvent<'_> {
     fn source() -> Option<&'static ffi::CStr> {
         None
     }
 }
 
-impl<'a> EspEventDeserializer for EspEvent<'a> {
+impl EspEventDeserializer for EspEvent<'_> {
     type Data<'d> = EspEvent<'d>;
 
     fn deserialize<'d>(data: &EspEvent<'d>) -> Self::Data<'d> {
@@ -343,7 +343,7 @@ where
     _callback: Box<Box<dyn FnMut(EspEvent) + Send + 'a>>,
 }
 
-impl<'a, T> EspSubscription<'a, T>
+impl<T> EspSubscription<'_, T>
 where
     T: EspEventLoopType,
 {
@@ -369,9 +369,9 @@ where
     }
 }
 
-unsafe impl<'a, T> Send for EspSubscription<'a, T> where T: EspEventLoopType {}
+unsafe impl<T> Send for EspSubscription<'_, T> where T: EspEventLoopType {}
 
-impl<'a, T> Drop for EspSubscription<'a, T>
+impl<T> Drop for EspSubscription<'_, T>
 where
     T: EspEventLoopType,
 {
@@ -404,7 +404,7 @@ where
     }
 }
 
-impl<'a, T> RawHandle for EspSubscription<'a, User<T>>
+impl<T> RawHandle for EspSubscription<'_, User<T>>
 where
     T: EspEventLoopType,
 {

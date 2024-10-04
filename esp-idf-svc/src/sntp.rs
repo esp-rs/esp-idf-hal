@@ -147,7 +147,7 @@ pub struct SntpConf<'a> {
     pub sync_mode: SyncMode,
 }
 
-impl<'a> Default for SntpConf<'a> {
+impl Default for SntpConf<'_> {
     fn default() -> Self {
         let mut servers: [&str; SNTP_SERVER_NUM] = Default::default();
         let copy_len = min(servers.len(), DEFAULT_SERVERS.len());
@@ -314,7 +314,7 @@ impl<'a> EspSntp<'a> {
     }
 }
 
-impl<'a> Drop for EspSntp<'a> {
+impl Drop for EspSntp<'_> {
     fn drop(&mut self) {
         {
             let mut taken = TAKEN.lock();

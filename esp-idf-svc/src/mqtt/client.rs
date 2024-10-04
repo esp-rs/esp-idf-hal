@@ -88,7 +88,7 @@ pub struct MqttClientConfiguration<'a> {
     // void *ds_data;                          /*!< carrier of handle for digital signature parameters */
 }
 
-impl<'a> Default for MqttClientConfiguration<'a> {
+impl Default for MqttClientConfiguration<'_> {
     fn default() -> Self {
         Self {
             protocol_version: None,
@@ -353,7 +353,7 @@ pub struct EspMqttClient<'a> {
     _tls_psk_conf: Option<TlsPsk>,
 }
 
-impl<'a> RawHandle for EspMqttClient<'a> {
+impl RawHandle for EspMqttClient<'_> {
     type Handle = esp_mqtt_client_handle_t;
 
     fn handle(&self) -> Self::Handle {
@@ -644,7 +644,7 @@ impl<'a> EspMqttClient<'a> {
     }
 }
 
-impl<'a> Drop for EspMqttClient<'a> {
+impl Drop for EspMqttClient<'_> {
     fn drop(&mut self) {
         unsafe {
             esp_mqtt_client_destroy(self.raw_client as _);
@@ -652,11 +652,11 @@ impl<'a> Drop for EspMqttClient<'a> {
     }
 }
 
-impl<'a> ErrorType for EspMqttClient<'a> {
+impl ErrorType for EspMqttClient<'_> {
     type Error = EspError;
 }
 
-impl<'a> Client for EspMqttClient<'a> {
+impl Client for EspMqttClient<'_> {
     fn subscribe(&mut self, topic: &str, qos: QoS) -> Result<MessageId, Self::Error> {
         EspMqttClient::subscribe(self, topic, qos)
     }
@@ -666,7 +666,7 @@ impl<'a> Client for EspMqttClient<'a> {
     }
 }
 
-impl<'a> Publish for EspMqttClient<'a> {
+impl Publish for EspMqttClient<'_> {
     fn publish(
         &mut self,
         topic: &str,
@@ -678,7 +678,7 @@ impl<'a> Publish for EspMqttClient<'a> {
     }
 }
 
-impl<'a> Enqueue for EspMqttClient<'a> {
+impl Enqueue for EspMqttClient<'_> {
     fn enqueue(
         &mut self,
         topic: &str,
@@ -690,7 +690,7 @@ impl<'a> Enqueue for EspMqttClient<'a> {
     }
 }
 
-unsafe impl<'a> Send for EspMqttClient<'a> {}
+unsafe impl Send for EspMqttClient<'_> {}
 
 pub struct EspMqttConnection {
     receiver: Receiver<EspMqttEvent<'static>>,
@@ -1025,16 +1025,16 @@ impl<'a> EspMqttEvent<'a> {
 }
 
 /// SAFETY: EspMqttEvent contains no thread-specific data.
-unsafe impl<'a> Send for EspMqttEvent<'a> {}
+unsafe impl Send for EspMqttEvent<'_> {}
 
 /// SAFETY: EspMqttEvent is a read-only struct, so sharing it between threads is fine.
-unsafe impl<'a> Sync for EspMqttEvent<'a> {}
+unsafe impl Sync for EspMqttEvent<'_> {}
 
-impl<'a> ErrorType for EspMqttEvent<'a> {
+impl ErrorType for EspMqttEvent<'_> {
     type Error = EspError;
 }
 
-impl<'a> Event for EspMqttEvent<'a> {
+impl Event for EspMqttEvent<'_> {
     fn payload(&self) -> EventPayload<'_, Self::Error> {
         EspMqttEvent::payload(self)
     }

@@ -177,7 +177,7 @@ impl<'a> ActiveScanResult<'a> {
 /// Energy scan result
 pub struct EnergyScanResult<'a>(&'a otEnergyScanResult);
 
-impl<'a> EnergyScanResult<'a> {
+impl EnergyScanResult<'_> {
     /// IEEE 802.15.4 Channel
     pub fn channel(&self) -> u8 {
         self.0.mChannel
@@ -216,7 +216,7 @@ impl From<otDeviceRole> for Role {
 /// The Ipv6 packet received from Thread via the `ThreadDriver::set_rx_callback` method
 pub struct Ipv6Packet<'a>(&'a otMessage);
 
-impl<'a> Ipv6Packet<'a> {
+impl Ipv6Packet<'_> {
     pub fn raw(&self) -> &otMessage {
         self.0
     }
@@ -1027,7 +1027,7 @@ impl<'d> ThreadDriver<'d, RCP> {
     }
 }
 
-impl<'d, T> ThreadDriver<'d, T>
+impl<T> ThreadDriver<'_, T>
 where
     T: Mode,
 {
@@ -1132,7 +1132,7 @@ where
     }
 }
 
-impl<'d, T> Drop for ThreadDriver<'d, T>
+impl<T> Drop for ThreadDriver<'_, T>
 where
     T: Mode,
 {
@@ -1141,8 +1141,8 @@ where
     }
 }
 
-unsafe impl<'d, T> Send for ThreadDriver<'d, T> where T: Mode {}
-unsafe impl<'d, T> Sync for ThreadDriver<'d, T> where T: Mode {}
+unsafe impl<T> Send for ThreadDriver<'_, T> where T: Mode {}
+unsafe impl<T> Sync for ThreadDriver<'_, T> where T: Mode {}
 
 struct OtLock(PhantomData<*const ()>);
 
@@ -1646,7 +1646,7 @@ where
 }
 
 #[cfg(all(esp_idf_comp_esp_netif_enabled, not(esp_idf_openthread_radio)))]
-impl<'d, T> Drop for EspThread<'d, T>
+impl<T> Drop for EspThread<'_, T>
 where
     T: NetifMode,
 {
@@ -1656,9 +1656,9 @@ where
 }
 
 #[cfg(all(esp_idf_comp_esp_netif_enabled, not(esp_idf_openthread_radio)))]
-unsafe impl<'d, T> Send for EspThread<'d, T> where T: NetifMode {}
+unsafe impl<T> Send for EspThread<'_, T> where T: NetifMode {}
 #[cfg(all(esp_idf_comp_esp_netif_enabled, not(esp_idf_openthread_radio)))]
-unsafe impl<'d, T> Sync for EspThread<'d, T> where T: NetifMode {}
+unsafe impl<T> Sync for EspThread<'_, T> where T: NetifMode {}
 
 /// Events reported by the Thread stack on the system event loop
 #[derive(Copy, Clone, Debug)]

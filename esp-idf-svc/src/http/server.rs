@@ -670,13 +670,13 @@ impl<'a> EspHttpServer<'a> {
     }
 }
 
-impl<'a> Drop for EspHttpServer<'a> {
+impl Drop for EspHttpServer<'_> {
     fn drop(&mut self) {
         self.stop().expect("Unable to stop the server cleanly");
     }
 }
 
-impl<'a> RawHandle for EspHttpServer<'a> {
+impl RawHandle for EspHttpServer<'_> {
     type Handle = httpd_handle_t;
 
     fn handle(&self) -> Self::Handle {
@@ -740,7 +740,7 @@ impl<H, N> NonstaticChain<H, N> {
     }
 }
 
-unsafe impl<'a> EspHttpTraversableChainNonstatic<'a> for ChainRoot {}
+unsafe impl EspHttpTraversableChainNonstatic<'_> for ChainRoot {}
 
 impl<'a, H, N> EspHttpTraversableChain<'a> for NonstaticChain<H, N>
 where
@@ -767,7 +767,7 @@ where
 
 pub struct EspHttpRawConnection<'a>(&'a mut httpd_req_t);
 
-impl<'a> EspHttpRawConnection<'a> {
+impl EspHttpRawConnection<'_> {
     pub fn read(&mut self, buf: &mut [u8]) -> Result<usize, EspError> {
         if !buf.is_empty() {
             let fd = unsafe { httpd_req_to_sockfd(self.0) };
@@ -801,7 +801,7 @@ impl<'a> EspHttpRawConnection<'a> {
     }
 }
 
-impl<'a> RawHandle for EspHttpRawConnection<'a> {
+impl RawHandle for EspHttpRawConnection<'_> {
     type Handle = *mut httpd_req_t;
 
     fn handle(&self) -> Self::Handle {
@@ -809,17 +809,17 @@ impl<'a> RawHandle for EspHttpRawConnection<'a> {
     }
 }
 
-impl<'a> ErrorType for EspHttpRawConnection<'a> {
+impl ErrorType for EspHttpRawConnection<'_> {
     type Error = EspIOError;
 }
 
-impl<'a> Read for EspHttpRawConnection<'a> {
+impl Read for EspHttpRawConnection<'_> {
     fn read(&mut self, buf: &mut [u8]) -> Result<usize, Self::Error> {
         EspHttpRawConnection::read(self, buf).map_err(EspIOError)
     }
 }
 
-impl<'a> Write for EspHttpRawConnection<'a> {
+impl Write for EspHttpRawConnection<'_> {
     fn write(&mut self, buf: &[u8]) -> Result<usize, Self::Error> {
         EspHttpRawConnection::write(self, buf).map_err(EspIOError)
     }
@@ -1130,7 +1130,7 @@ impl<'a> EspHttpConnection<'a> {
     }
 }
 
-impl<'a> RawHandle for EspHttpConnection<'a> {
+impl RawHandle for EspHttpConnection<'_> {
     type Handle = *mut httpd_req_t;
 
     fn handle(&self) -> Self::Handle {
@@ -1138,7 +1138,7 @@ impl<'a> RawHandle for EspHttpConnection<'a> {
     }
 }
 
-impl<'a> Query for EspHttpConnection<'a> {
+impl Query for EspHttpConnection<'_> {
     fn uri(&self) -> &str {
         EspHttpConnection::uri(self)
     }
@@ -1148,23 +1148,23 @@ impl<'a> Query for EspHttpConnection<'a> {
     }
 }
 
-impl<'a> embedded_svc::http::Headers for EspHttpConnection<'a> {
+impl embedded_svc::http::Headers for EspHttpConnection<'_> {
     fn header(&self, name: &str) -> Option<&str> {
         EspHttpConnection::header(self, name)
     }
 }
 
-impl<'a> ErrorType for EspHttpConnection<'a> {
+impl ErrorType for EspHttpConnection<'_> {
     type Error = EspIOError;
 }
 
-impl<'a> Read for EspHttpConnection<'a> {
+impl Read for EspHttpConnection<'_> {
     fn read(&mut self, buf: &mut [u8]) -> Result<usize, Self::Error> {
         EspHttpConnection::read(self, buf).map_err(EspIOError)
     }
 }
 
-impl<'a> Write for EspHttpConnection<'a> {
+impl Write for EspHttpConnection<'_> {
     fn write(&mut self, buf: &[u8]) -> Result<usize, Self::Error> {
         EspHttpConnection::write(self, buf).map_err(EspIOError)
     }

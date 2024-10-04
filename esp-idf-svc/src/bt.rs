@@ -709,7 +709,7 @@ where
     }
 }
 
-impl<'d, M> Drop for BtDriver<'d, M>
+impl<M> Drop for BtDriver<'_, M>
 where
     M: BtMode,
 {
@@ -724,5 +724,5 @@ where
     }
 }
 
-unsafe impl<'d, M> Send for BtDriver<'d, M> where M: BtMode {}
-unsafe impl<'d, M> Sync for BtDriver<'d, M> where M: BtMode {}
+unsafe impl<M> Send for BtDriver<'_, M> where M: BtMode {}
+unsafe impl<M> Sync for BtDriver<'_, M> where M: BtMode {}

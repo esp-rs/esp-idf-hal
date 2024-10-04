@@ -182,7 +182,7 @@ pub struct AdvConfiguration<'a> {
     pub manufacturer_data: Option<&'a [u8]>,
 }
 
-impl<'a> Default for AdvConfiguration<'a> {
+impl Default for AdvConfiguration<'_> {
     fn default() -> Self {
         Self {
             set_scan_rsp: false,
@@ -231,7 +231,7 @@ impl<'a> From<&'a AdvConfiguration<'a>> for esp_ble_adv_data_t {
 
 pub struct EventRawData<'a>(pub &'a esp_ble_gap_cb_param_t);
 
-impl<'a> Debug for EventRawData<'a> {
+impl Debug for EventRawData<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_tuple("EventRawData").finish()
     }

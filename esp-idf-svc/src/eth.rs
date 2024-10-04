@@ -1076,7 +1076,7 @@ impl<'d, T> EthDriver<'d, T> {
     }
 }
 
-impl<'d, T> Eth for EthDriver<'d, T> {
+impl<T> Eth for EthDriver<'_, T> {
     type Error = EspError;
 
     fn start(&mut self) -> Result<(), Self::Error> {
@@ -1096,9 +1096,9 @@ impl<'d, T> Eth for EthDriver<'d, T> {
     }
 }
 
-unsafe impl<'d, T> Send for EthDriver<'d, T> {}
+unsafe impl<T> Send for EthDriver<'_, T> {}
 
-impl<'d, T> Drop for EthDriver<'d, T> {
+impl<T> Drop for EthDriver<'_, T> {
     fn drop(&mut self) {
         self.clear_all().unwrap();
 
@@ -1106,7 +1106,7 @@ impl<'d, T> Drop for EthDriver<'d, T> {
     }
 }
 
-impl<'d, T> RawHandle for EthDriver<'d, T> {
+impl<T> RawHandle for EthDriver<'_, T> {
     type Handle = esp_eth_handle_t;
 
     fn handle(&self) -> Self::Handle {
@@ -1261,7 +1261,7 @@ impl<'d, T> EspEth<'d, T> {
 }
 
 #[cfg(esp_idf_comp_esp_netif_enabled)]
-impl<'d, T> Drop for EspEth<'d, T> {
+impl<T> Drop for EspEth<'_, T> {
     fn drop(&mut self) {
         self.detach_netif().unwrap();
 
@@ -1270,10 +1270,10 @@ impl<'d, T> Drop for EspEth<'d, T> {
 }
 
 #[cfg(esp_idf_comp_esp_netif_enabled)]
-unsafe impl<'d, T> Send for EspEth<'d, T> {}
+unsafe impl<T> Send for EspEth<'_, T> {}
 
 #[cfg(esp_idf_comp_esp_netif_enabled)]
-impl<'d, T> RawHandle for EspEth<'d, T> {
+impl<T> RawHandle for EspEth<'_, T> {
     type Handle = *mut esp_eth_netif_glue_t;
 
     fn handle(&self) -> Self::Handle {
@@ -1282,7 +1282,7 @@ impl<'d, T> RawHandle for EspEth<'d, T> {
 }
 
 #[cfg(esp_idf_comp_esp_netif_enabled)]
-impl<'d, T> Eth for EspEth<'d, T> {
+impl<T> Eth for EspEth<'_, T> {
     type Error = EspError;
 
     fn start(&mut self) -> Result<(), Self::Error> {
@@ -1303,7 +1303,7 @@ impl<'d, T> Eth for EspEth<'d, T> {
 }
 
 #[cfg(esp_idf_comp_esp_netif_enabled)]
-impl<'d, T> NetifStatus for EspEth<'d, T> {
+impl<T> NetifStatus for EspEth<'_, T> {
     fn is_up(&self) -> Result<bool, EspError> {
         EspEth::is_up(self)
     }

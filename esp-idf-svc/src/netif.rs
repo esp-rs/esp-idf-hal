@@ -667,7 +667,7 @@ impl fmt::Debug for ApStaIpAssignment<'_> {
 #[derive(Copy, Clone)]
 pub struct DhcpIpAssignment<'a>(&'a ip_event_got_ip_t);
 
-impl<'a> DhcpIpAssignment<'a> {
+impl DhcpIpAssignment<'_> {
     pub fn netif_handle(&self) -> *mut esp_netif_t {
         self.0.esp_netif
     }
@@ -701,7 +701,7 @@ impl<'a> DhcpIpAssignment<'a> {
     }
 }
 
-impl<'a> fmt::Debug for DhcpIpAssignment<'a> {
+impl fmt::Debug for DhcpIpAssignment<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("DhcpIpAssignment")
             .field("netif_handle", &self.netif_handle())
@@ -716,7 +716,7 @@ impl<'a> fmt::Debug for DhcpIpAssignment<'a> {
 #[derive(Copy, Clone)]
 pub struct DhcpIp6Assignment<'a>(&'a ip_event_got_ip6_t);
 
-impl<'a> DhcpIp6Assignment<'a> {
+impl DhcpIp6Assignment<'_> {
     pub fn netif_handle(&self) -> *mut esp_netif_t {
         self.0.esp_netif
     }
@@ -738,7 +738,7 @@ impl<'a> DhcpIp6Assignment<'a> {
     }
 }
 
-impl<'a> fmt::Debug for DhcpIp6Assignment<'a> {
+impl fmt::Debug for DhcpIp6Assignment<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("DhcpIp6Assignment")
             .field("netif_handle", &self.netif_handle())
@@ -757,9 +757,9 @@ pub enum IpEvent<'a> {
     DhcpIpDeassigned(*mut esp_netif_t),
 }
 
-unsafe impl<'a> Send for IpEvent<'a> {}
+unsafe impl Send for IpEvent<'_> {}
 
-impl<'a> IpEvent<'a> {
+impl IpEvent<'_> {
     pub fn is_for(&self, raw_handle: &impl RawHandle<Handle = *mut esp_netif_t>) -> bool {
         self.is_for_handle(raw_handle.handle())
     }
@@ -783,13 +783,13 @@ impl<'a> IpEvent<'a> {
     }
 }
 
-unsafe impl<'a> EspEventSource for IpEvent<'a> {
+unsafe impl EspEventSource for IpEvent<'_> {
     fn source() -> Option<&'static ffi::CStr> {
         Some(unsafe { CStr::from_ptr(IP_EVENT) })
     }
 }
 
-impl<'a> EspEventDeserializer for IpEvent<'a> {
+impl EspEventDeserializer for IpEvent<'_> {
     type Data<'d> = IpEvent<'d>;
 
     #[allow(non_upper_case_globals, non_snake_case)]
@@ -1213,7 +1213,7 @@ mod driver {
         }
     }
 
-    impl<'d, T> Drop for EspNetifDriver<'d, T>
+    impl<T> Drop for EspNetifDriver<'_, T>
     where
         T: BorrowMut<EspNetif>,
     {
@@ -1258,7 +1258,7 @@ mod driver {
             alloc::boxed::Box<dyn FnMut(&mut EspNetif) -> Result<(), EspError> + Send + 'd>,
     }
 
-    impl<'d, T> EspNetifDriverInner<'d, T>
+    impl<T> EspNetifDriverInner<'_, T>
     where
         T: BorrowMut<EspNetif>,
     {

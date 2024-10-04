@@ -1357,9 +1357,9 @@ impl<'d> WifiDriver<'d> {
     }
 }
 
-unsafe impl<'d> Send for WifiDriver<'d> {}
+unsafe impl Send for WifiDriver<'_> {}
 
-impl<'d> NonBlocking for WifiDriver<'d> {
+impl NonBlocking for WifiDriver<'_> {
     fn is_scan_done(&self) -> Result<bool, EspError> {
         WifiDriver::is_scan_done(self)
     }
@@ -1400,7 +1400,7 @@ impl<'d> NonBlocking for WifiDriver<'d> {
     }
 }
 
-impl<'d> Drop for WifiDriver<'d> {
+impl Drop for WifiDriver<'_> {
     fn drop(&mut self) {
         self.clear_all().unwrap();
 
@@ -1408,7 +1408,7 @@ impl<'d> Drop for WifiDriver<'d> {
     }
 }
 
-impl<'d> Wifi for WifiDriver<'d> {
+impl Wifi for WifiDriver<'_> {
     type Error = EspError;
 
     fn get_capabilities(&self) -> Result<EnumSet<Capability>, Self::Error> {
@@ -1810,7 +1810,7 @@ impl<'d> EspWifi<'d> {
 }
 
 #[cfg(esp_idf_comp_esp_netif_enabled)]
-impl<'d> Drop for EspWifi<'d> {
+impl Drop for EspWifi<'_> {
     fn drop(&mut self) {
         self.detach_netif().unwrap();
 
@@ -1819,10 +1819,10 @@ impl<'d> Drop for EspWifi<'d> {
 }
 
 #[cfg(esp_idf_comp_esp_netif_enabled)]
-unsafe impl<'d> Send for EspWifi<'d> {}
+unsafe impl Send for EspWifi<'_> {}
 
 #[cfg(esp_idf_comp_esp_netif_enabled)]
-impl<'d> NonBlocking for EspWifi<'d> {
+impl NonBlocking for EspWifi<'_> {
     fn is_scan_done(&self) -> Result<bool, EspError> {
         EspWifi::is_scan_done(self)
     }
@@ -1864,7 +1864,7 @@ impl<'d> NonBlocking for EspWifi<'d> {
 }
 
 #[cfg(esp_idf_comp_esp_netif_enabled)]
-impl<'d> Wifi for EspWifi<'d> {
+impl Wifi for EspWifi<'_> {
     type Error = EspError;
 
     fn get_capabilities(&self) -> Result<EnumSet<Capability>, Self::Error> {
@@ -1915,7 +1915,7 @@ impl<'d> Wifi for EspWifi<'d> {
 }
 
 #[cfg(esp_idf_comp_esp_netif_enabled)]
-impl<'d> NetifStatus for EspWifi<'d> {
+impl NetifStatus for EspWifi<'_> {
     fn is_up(&self) -> Result<bool, EspError> {
         EspWifi::is_up(self)
     }
@@ -2260,13 +2260,13 @@ pub enum WifiEvent<'a> {
     HomeChannelChange(HomeChannelChange),
 }
 
-unsafe impl<'a> EspEventSource for WifiEvent<'a> {
+unsafe impl EspEventSource for WifiEvent<'_> {
     fn source() -> Option<&'static ffi::CStr> {
         Some(unsafe { ffi::CStr::from_ptr(WIFI_EVENT) })
     }
 }
 
-impl<'a> EspEventDeserializer for WifiEvent<'a> {
+impl EspEventDeserializer for WifiEvent<'_> {
     type Data<'d> = WifiEvent<'d>;
 
     #[allow(non_upper_case_globals, non_snake_case)]

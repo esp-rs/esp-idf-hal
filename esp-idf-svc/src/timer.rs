@@ -55,7 +55,7 @@ pub struct EspTimer<'a> {
     _callback: Box<dyn FnMut() + Send + 'a>,
 }
 
-impl<'a> EspTimer<'a> {
+impl EspTimer<'_> {
     pub fn is_scheduled(&self) -> Result<bool, EspError> {
         Ok(unsafe { esp_timer_is_active(self.handle) })
     }
@@ -109,9 +109,9 @@ impl<'a> EspTimer<'a> {
     }
 }
 
-unsafe impl<'a> Send for EspTimer<'a> {}
+unsafe impl Send for EspTimer<'_> {}
 
-impl<'a> Drop for EspTimer<'a> {
+impl Drop for EspTimer<'_> {
     fn drop(&mut self) {
         self.cancel().unwrap();
 
@@ -123,7 +123,7 @@ impl<'a> Drop for EspTimer<'a> {
     }
 }
 
-impl<'a> RawHandle for EspTimer<'a> {
+impl RawHandle for EspTimer<'_> {
     type Handle = esp_timer_handle_t;
 
     fn handle(&self) -> Self::Handle {

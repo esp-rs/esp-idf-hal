@@ -20,7 +20,7 @@ pub struct Psk<'a> {
     pub hint: &'a str,
 }
 
-impl<'a> Debug for Psk<'a> {
+impl Debug for Psk<'_> {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> Result<(), core::fmt::Error> {
         f.debug_struct("Psk")
             .field("hint", &self.hint)
@@ -109,7 +109,7 @@ impl<'a> X509<'a> {
     }
 }
 
-impl<'a> Debug for X509<'a> {
+impl Debug for X509<'_> {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> Result<(), core::fmt::Error> {
         f.debug_struct("X509").finish_non_exhaustive()
     }
@@ -165,7 +165,7 @@ mod esptls {
         pub is_plain_tcp: bool,
     }
 
-    impl<'a> Config<'a> {
+    impl Config<'_> {
         pub const fn new() -> Self {
             Self {
                 alpn_protos: None,
@@ -265,7 +265,7 @@ mod esptls {
         }
     }
 
-    impl<'a> Default for Config<'a> {
+    impl Default for Config<'_> {
         fn default() -> Self {
             Self::new()
         }
@@ -1052,7 +1052,7 @@ mod esptls {
         not(esp_idf_version_major = "4"),
         any(not(esp_idf_version_major = "5"), not(esp_idf_version_minor = "0"))
     ))]
-    impl<'a, S> futures_io::AsyncRead for &'a EspAsyncTls<S>
+    impl<S> futures_io::AsyncRead for &EspAsyncTls<S>
     where
         S: PollableSocket,
     {
@@ -1100,7 +1100,7 @@ mod esptls {
         not(esp_idf_version_major = "4"),
         any(not(esp_idf_version_major = "5"), not(esp_idf_version_minor = "0"))
     ))]
-    impl<'a, S> futures_io::AsyncWrite for &'a EspAsyncTls<S>
+    impl<S> futures_io::AsyncWrite for &EspAsyncTls<S>
     where
         S: PollableSocket,
     {

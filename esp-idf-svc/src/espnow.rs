@@ -241,7 +241,7 @@ impl<'a> EspNow<'a> {
     }
 }
 
-impl<'a> Drop for EspNow<'a> {
+impl Drop for EspNow<'_> {
     fn drop(&mut self) {
         let mut taken = TAKEN.lock();
 

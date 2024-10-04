@@ -18,7 +18,7 @@ pub type TransferId = u32;
 
 pub struct EventRawData<'a>(pub &'a esp_ble_gatts_cb_param_t);
 
-impl<'a> Debug for EventRawData<'a> {
+impl Debug for EventRawData<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_tuple("EventRawData").finish()
     }

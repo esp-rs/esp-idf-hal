@@ -217,7 +217,7 @@ pub struct EspOtaUpdateFinished<'a> {
     _data: PhantomData<&'a mut ()>,
 }
 
-impl<'a> EspOtaUpdateFinished<'a> {
+impl EspOtaUpdateFinished<'_> {
     pub fn activate(self) -> Result<(), EspError> {
         esp!(unsafe { esp_ota_set_boot_partition(self.update_partition) })
     }
@@ -440,9 +440,9 @@ impl Ota for EspOta {
     }
 }
 
-unsafe impl<'a> Send for EspOtaUpdate<'a> {}
+unsafe impl Send for EspOtaUpdate<'_> {}
 
-impl<'a> io::ErrorType for EspOtaUpdate<'a> {
+impl io::ErrorType for EspOtaUpdate<'_> {
     type Error = EspIOError;
 }
 
@@ -468,7 +468,7 @@ impl<'a> OtaUpdate for EspOtaUpdate<'a> {
     }
 }
 
-impl<'a> io::Write for EspOtaUpdate<'a> {
+impl io::Write for EspOtaUpdate<'_> {
     fn write(&mut self, buf: &[u8]) -> Result<usize, Self::Error> {
         EspOtaUpdate::write(self, buf)?;
 
@@ -482,13 +482,13 @@ impl<'a> io::Write for EspOtaUpdate<'a> {
     }
 }
 
-unsafe impl<'a> Send for EspOtaUpdateFinished<'a> {}
+unsafe impl Send for EspOtaUpdateFinished<'_> {}
 
-impl<'a> io::ErrorType for EspOtaUpdateFinished<'a> {
+impl io::ErrorType for EspOtaUpdateFinished<'_> {
     type Error = EspIOError;
 }
 
-impl<'a> OtaUpdateFinished for EspOtaUpdateFinished<'a> {
+impl OtaUpdateFinished for EspOtaUpdateFinished<'_> {
     fn activate(self) -> Result<(), Self::Error> {
         EspOtaUpdateFinished::activate(self)?;
 

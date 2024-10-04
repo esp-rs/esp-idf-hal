@@ -80,7 +80,7 @@ pub struct MountedFatfs<'a, T> {
     fatfs: Box<FATFS>,
 }
 
-impl<'a, T> MountedFatfs<'a, T> {
+impl<T> MountedFatfs<'_, T> {
     /// Get the underlying FATFS instance.
     pub fn fatfs(&self) -> &FATFS {
         &self.fatfs
@@ -89,7 +89,7 @@ impl<'a, T> MountedFatfs<'a, T> {
     // TODO: Add safe methods to interact with the filesystem
 }
 
-impl<'a, T> Drop for MountedFatfs<'a, T> {
+impl<T> Drop for MountedFatfs<'_, T> {
     fn drop(&mut self) {
         let drive_path = self.fs.drive_path();
 
