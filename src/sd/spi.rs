@@ -87,7 +87,7 @@ where
     }
 }
 
-impl<'d, T> Drop for SdSpiHostDriver<'d, T> {
+impl<T> Drop for SdSpiHostDriver<'_, T> {
     fn drop(&mut self) {
         esp!(unsafe { sdspi_host_remove_device(self.handle) }).unwrap();
 

@@ -766,7 +766,7 @@ impl<Dir> I2sDriver<'_, Dir> {
 }
 
 /// Functions for receive channels.
-impl<'d, Dir> I2sDriver<'d, Dir>
+impl<Dir> I2sDriver<'_, Dir>
 where
     Dir: I2sRxSupported,
 {
@@ -1008,7 +1008,7 @@ where
 }
 
 /// Functions for transmit channels.
-impl<'d, Dir> I2sDriver<'d, Dir>
+impl<Dir> I2sDriver<'_, Dir>
 where
     Dir: I2sTxSupported,
 {

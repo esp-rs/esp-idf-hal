@@ -998,7 +998,7 @@ mod driver {
         }
     }
 
-    impl<'d> Drop for TxRmtDriver<'d> {
+    impl Drop for TxRmtDriver<'_> {
         /// Stop transmitting and release the driver.
         fn drop(&mut self) {
             self.stop().unwrap();
@@ -1006,7 +1006,7 @@ mod driver {
         }
     }
 
-    unsafe impl<'d> Send for TxRmtDriver<'d> {}
+    unsafe impl Send for TxRmtDriver<'_> {}
 
     /// The RMT receiver.
     ///
@@ -1174,7 +1174,7 @@ mod driver {
         }
     }
 
-    impl<'d> Drop for RxRmtDriver<'d> {
+    impl Drop for RxRmtDriver<'_> {
         /// Stop receiving and release the driver.
         fn drop(&mut self) {
             self.stop().unwrap();
@@ -1182,7 +1182,7 @@ mod driver {
         }
     }
 
-    unsafe impl<'d> Send for RxRmtDriver<'d> {}
+    unsafe impl Send for RxRmtDriver<'_> {}
 }
 
 mod chip {
