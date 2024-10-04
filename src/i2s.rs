@@ -593,7 +593,7 @@ impl<'d, Dir> Deref for I2sDriverRef<'d, Dir> {
     }
 }
 
-impl<'d, Dir> DerefMut for I2sDriverRef<'d, Dir> {
+impl<Dir> DerefMut for I2sDriverRef<'_, Dir> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         unsafe { self.0.as_mut() }
     }
@@ -619,7 +619,7 @@ pub struct I2sDriver<'d, Dir> {
     _dir: PhantomData<Dir>,
 }
 
-impl<'d, Dir> I2sDriver<'d, Dir> {
+impl<Dir> I2sDriver<'_, Dir> {
     /// Create a new standard mode driver for the given I2S peripheral with both the receive and transmit channels open.
     #[cfg(not(esp_idf_version_major = "4"))]
     fn internal_new<I2S: I2s>(
@@ -1215,7 +1215,7 @@ where
     }
 }
 
-impl<'d> I2sDriver<'d, I2sBiDir> {
+impl I2sDriver<'_, I2sBiDir> {
     /// Split the bidirectional I2S driver into two parts (Rx, Tx)
     ///
     /// # Safety
@@ -1230,7 +1230,7 @@ impl<'d> I2sDriver<'d, I2sBiDir> {
     }
 }
 
-impl<'d, Dir> Drop for I2sDriver<'d, Dir> {
+impl<Dir> Drop for I2sDriver<'_, Dir> {
     fn drop(&mut self) {
         #[cfg(esp_idf_version_major = "4")]
         {
@@ -1266,19 +1266,19 @@ impl<'d, Dir> Drop for I2sDriver<'d, Dir> {
     }
 }
 
-unsafe impl<'d, Dir> Send for I2sDriver<'d, Dir> {}
+unsafe impl<Dir> Send for I2sDriver<'_, Dir> {}
 
-impl<'d, Dir> I2sPort for I2sDriver<'d, Dir> {
+impl<Dir> I2sPort for I2sDriver<'_, Dir> {
     fn port(&self) -> i2s_port_t {
         self.port as _
     }
 }
 
-impl<'d, Dir> embedded_io::ErrorType for I2sDriver<'d, Dir> {
+impl<Dir> embedded_io::ErrorType for I2sDriver<'_, Dir> {
     type Error = EspIOError;
 }
 
-impl<'d, Dir> embedded_io::Read for I2sDriver<'d, Dir>
+impl<Dir> embedded_io::Read for I2sDriver<'_, Dir>
 where
     Dir: I2sRxSupported,
 {
@@ -1287,7 +1287,7 @@ where
     }
 }
 
-impl<'d, Dir> embedded_io::Write for I2sDriver<'d, Dir>
+impl<Dir> embedded_io::Write for I2sDriver<'_, Dir>
 where
     Dir: I2sTxSupported,
 {

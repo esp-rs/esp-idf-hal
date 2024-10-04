@@ -384,15 +384,15 @@ impl<'d> I2cDriver<'d> {
     }
 }
 
-impl<'d> Drop for I2cDriver<'d> {
+impl Drop for I2cDriver<'_> {
     fn drop(&mut self) {
         esp!(unsafe { i2c_driver_delete(self.port()) }).unwrap();
     }
 }
 
-unsafe impl<'d> Send for I2cDriver<'d> {}
+unsafe impl Send for I2cDriver<'_> {}
 
-impl<'d> embedded_hal_0_2::blocking::i2c::Read for I2cDriver<'d> {
+impl embedded_hal_0_2::blocking::i2c::Read for I2cDriver<'_> {
     type Error = I2cError;
 
     fn read(&mut self, addr: u8, buffer: &mut [u8]) -> Result<(), Self::Error> {
@@ -400,7 +400,7 @@ impl<'d> embedded_hal_0_2::blocking::i2c::Read for I2cDriver<'d> {
     }
 }
 
-impl<'d> embedded_hal_0_2::blocking::i2c::Write for I2cDriver<'d> {
+impl embedded_hal_0_2::blocking::i2c::Write for I2cDriver<'_> {
     type Error = I2cError;
 
     fn write(&mut self, addr: u8, bytes: &[u8]) -> Result<(), Self::Error> {
@@ -408,7 +408,7 @@ impl<'d> embedded_hal_0_2::blocking::i2c::Write for I2cDriver<'d> {
     }
 }
 
-impl<'d> embedded_hal_0_2::blocking::i2c::WriteRead for I2cDriver<'d> {
+impl embedded_hal_0_2::blocking::i2c::WriteRead for I2cDriver<'_> {
     type Error = I2cError;
 
     fn write_read(&mut self, addr: u8, bytes: &[u8], buffer: &mut [u8]) -> Result<(), Self::Error> {
@@ -416,11 +416,11 @@ impl<'d> embedded_hal_0_2::blocking::i2c::WriteRead for I2cDriver<'d> {
     }
 }
 
-impl<'d> embedded_hal::i2c::ErrorType for I2cDriver<'d> {
+impl embedded_hal::i2c::ErrorType for I2cDriver<'_> {
     type Error = I2cError;
 }
 
-impl<'d> embedded_hal::i2c::I2c<embedded_hal::i2c::SevenBitAddress> for I2cDriver<'d> {
+impl embedded_hal::i2c::I2c<embedded_hal::i2c::SevenBitAddress> for I2cDriver<'_> {
     fn read(&mut self, addr: u8, buffer: &mut [u8]) -> Result<(), Self::Error> {
         I2cDriver::read(self, addr, buffer, BLOCK).map_err(to_i2c_err)
     }
@@ -457,7 +457,7 @@ pub struct I2cSlaveDriver<'d> {
 }
 
 #[cfg(not(esp32c2))]
-unsafe impl<'d> Send for I2cSlaveDriver<'d> {}
+unsafe impl Send for I2cSlaveDriver<'_> {}
 
 #[cfg(not(esp32c2))]
 impl<'d> I2cSlaveDriver<'d> {
@@ -534,7 +534,7 @@ impl<'d> I2cSlaveDriver<'d> {
 }
 
 #[cfg(not(esp32c2))]
-impl<'d> Drop for I2cSlaveDriver<'d> {
+impl Drop for I2cSlaveDriver<'_> {
     fn drop(&mut self) {
         esp!(unsafe { i2c_driver_delete(self.port()) }).unwrap();
     }
@@ -582,7 +582,7 @@ impl<'buffers> CommandLink<'buffers> {
     }
 }
 
-impl<'buffers> Drop for CommandLink<'buffers> {
+impl Drop for CommandLink<'_> {
     fn drop(&mut self) {
         unsafe {
             i2c_cmd_link_delete(self.0);

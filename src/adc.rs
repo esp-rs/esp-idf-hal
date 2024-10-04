@@ -150,8 +150,8 @@ mod oneshot_legacy {
         }
     }
 
-    impl<'d, const A: adc_atten_t, T: ADCPin> embedded_hal_0_2::adc::Channel<T::Adc>
-        for AdcChannelDriver<'d, A, T>
+    impl<const A: adc_atten_t, T: ADCPin> embedded_hal_0_2::adc::Channel<T::Adc>
+        for AdcChannelDriver<'_, A, T>
     {
         type ID = (adc_channel_t, adc_atten_t);
 
@@ -173,7 +173,7 @@ mod oneshot_legacy {
         >,
     }
 
-    unsafe impl<'d, ADC: Adc> Send for AdcDriver<'d, ADC> {}
+    unsafe impl<ADC: Adc> Send for AdcDriver<'_, ADC> {}
 
     impl<'d, ADC: Adc> AdcDriver<'d, ADC> {
         #[cfg(all(
@@ -404,9 +404,9 @@ mod oneshot_legacy {
         }
     }
 
-    impl<'d, 'c, const A: adc_atten_t, T>
+    impl<'c, const A: adc_atten_t, T>
         embedded_hal_0_2::adc::OneShot<T::Adc, u16, AdcChannelDriver<'c, A, T>>
-        for AdcDriver<'d, T::Adc>
+        for AdcDriver<'_, T::Adc>
     where
         T: ADCPin,
     {
@@ -797,7 +797,7 @@ pub mod oneshot {
         }
     }
 
-    impl<'d, ADC: Adc> Drop for AdcDriver<'d, ADC> {
+    impl<ADC: Adc> Drop for AdcDriver<'_, ADC> {
         fn drop(&mut self) {
             unsafe { esp!(adc_oneshot_del_unit(self.handle)) }.unwrap();
         }
@@ -816,8 +816,8 @@ pub mod oneshot {
         }
     }
 
-    unsafe impl<'d, ADC: Adc> Send for AdcDriver<'d, ADC> {}
-    unsafe impl<'d, ADC: Adc> Sync for AdcDriver<'d, ADC> {}
+    unsafe impl<ADC: Adc> Send for AdcDriver<'_, ADC> {}
+    unsafe impl<ADC: Adc> Sync for AdcDriver<'_, ADC> {}
 }
 
 /// Continuous ADC module
@@ -923,10 +923,10 @@ pub mod continuous {
         fn iter(&self) -> Self::Iterator<'_>;
     }
 
-    impl<'d, P> AdcChannels for P
+    impl<P> AdcChannels for P
     where
         P: Peripheral,
-        P::P: ADCPin + 'd,
+        P::P: ADCPin,
     {
         type Adc = <<P as Peripheral>::P as ADCPin>::Adc;
 
@@ -940,9 +940,9 @@ pub mod continuous {
         }
     }
 
-    impl<'d, const A: adc_atten_t, C> AdcChannels for Attenuated<A, C>
+    impl<const A: adc_atten_t, C> AdcChannels for Attenuated<A, C>
     where
-        C: AdcChannels + 'd,
+        C: AdcChannels,
     {
         type Adc = C::Adc;
 
@@ -1417,7 +1417,7 @@ pub mod continuous {
         }
     }
 
-    impl<'d> Drop for AdcDriver<'d> {
+    impl Drop for AdcDriver<'_> {
         fn drop(&mut self) {
             let _ = self.stop();
 
@@ -1440,13 +1440,13 @@ pub mod continuous {
         }
     }
 
-    unsafe impl<'d> Send for AdcDriver<'d> {}
+    unsafe impl Send for AdcDriver<'_> {}
 
-    impl<'d> embedded_io::ErrorType for AdcDriver<'d> {
+    impl embedded_io::ErrorType for AdcDriver<'_> {
         type Error = EspIOError;
     }
 
-    impl<'d> embedded_io::Read for AdcDriver<'d> {
+    impl embedded_io::Read for AdcDriver<'_> {
         fn read(&mut self, buf: &mut [u8]) -> Result<usize, Self::Error> {
             self.read_bytes(buf, delay::BLOCK).map_err(EspIOError)
         }

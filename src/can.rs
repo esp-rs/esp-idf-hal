@@ -463,16 +463,16 @@ impl<'d> CanDriver<'d> {
     }
 }
 
-impl<'d> Drop for CanDriver<'d> {
+impl Drop for CanDriver<'_> {
     fn drop(&mut self) {
         let _ = self.stop();
         esp!(unsafe { twai_driver_uninstall() }).unwrap();
     }
 }
 
-unsafe impl<'d> Send for CanDriver<'d> {}
+unsafe impl Send for CanDriver<'_> {}
 
-impl<'d> embedded_hal_0_2::blocking::can::Can for CanDriver<'d> {
+impl embedded_hal_0_2::blocking::can::Can for CanDriver<'_> {
     type Frame = Frame;
     type Error = Can02Error;
 
@@ -485,7 +485,7 @@ impl<'d> embedded_hal_0_2::blocking::can::Can for CanDriver<'d> {
     }
 }
 
-impl<'d> embedded_can::blocking::Can for CanDriver<'d> {
+impl embedded_can::blocking::Can for CanDriver<'_> {
     type Frame = Frame;
     type Error = CanError;
 
@@ -498,7 +498,7 @@ impl<'d> embedded_can::blocking::Can for CanDriver<'d> {
     }
 }
 
-impl<'d> embedded_hal_0_2::can::nb::Can for CanDriver<'d> {
+impl embedded_hal_0_2::can::nb::Can for CanDriver<'_> {
     type Frame = Frame;
     type Error = Can02Error;
 
@@ -520,7 +520,7 @@ impl<'d> embedded_hal_0_2::can::nb::Can for CanDriver<'d> {
     }
 }
 
-impl<'d> embedded_can::nb::Can for CanDriver<'d> {
+impl embedded_can::nb::Can for CanDriver<'_> {
     type Frame = Frame;
     type Error = CanError;
 

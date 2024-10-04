@@ -1224,15 +1224,15 @@ impl<T: Pin, MODE: InputMode> PinDriver<'_, T, MODE> {
     }
 }
 
-impl<'d, T: Pin, MODE> Drop for PinDriver<'d, T, MODE> {
+impl<T: Pin, MODE> Drop for PinDriver<'_, T, MODE> {
     fn drop(&mut self) {
         gpio_reset_without_pull(self.pin.pin()).unwrap();
     }
 }
 
-unsafe impl<'d, T: Pin, MODE> Send for PinDriver<'d, T, MODE> {}
+unsafe impl<T: Pin, MODE> Send for PinDriver<'_, T, MODE> {}
 
-impl<'d, T: Pin, MODE> embedded_hal_0_2::digital::v2::InputPin for PinDriver<'d, T, MODE>
+impl<T: Pin, MODE> embedded_hal_0_2::digital::v2::InputPin for PinDriver<'_, T, MODE>
 where
     MODE: InputMode,
 {
@@ -1258,11 +1258,11 @@ fn to_gpio_err(err: EspError) -> GpioError {
     GpioError::other(err)
 }
 
-impl<'d, T: Pin, MODE> embedded_hal::digital::ErrorType for PinDriver<'d, T, MODE> {
+impl<T: Pin, MODE> embedded_hal::digital::ErrorType for PinDriver<'_, T, MODE> {
     type Error = GpioError;
 }
 
-impl<'d, T: Pin, MODE> embedded_hal::digital::InputPin for PinDriver<'d, T, MODE>
+impl<T: Pin, MODE> embedded_hal::digital::InputPin for PinDriver<'_, T, MODE>
 where
     MODE: InputMode,
 {
@@ -1275,7 +1275,7 @@ where
     }
 }
 
-impl<'d, T: Pin, MODE> embedded_hal::digital::InputPin for &PinDriver<'d, T, MODE>
+impl<T: Pin, MODE> embedded_hal::digital::InputPin for &PinDriver<'_, T, MODE>
 where
     MODE: InputMode,
 {
@@ -1288,7 +1288,7 @@ where
     }
 }
 
-impl<'d, T: Pin, MODE> embedded_hal_0_2::digital::v2::OutputPin for PinDriver<'d, T, MODE>
+impl<T: Pin, MODE> embedded_hal_0_2::digital::v2::OutputPin for PinDriver<'_, T, MODE>
 where
     MODE: OutputMode,
 {
@@ -1303,7 +1303,7 @@ where
     }
 }
 
-impl<'d, T: Pin, MODE> embedded_hal::digital::OutputPin for PinDriver<'d, T, MODE>
+impl<T: Pin, MODE> embedded_hal::digital::OutputPin for PinDriver<'_, T, MODE>
 where
     MODE: OutputMode,
 {
@@ -1316,7 +1316,7 @@ where
     }
 }
 
-impl<'d, T: Pin, MODE> embedded_hal::digital::StatefulOutputPin for PinDriver<'d, T, MODE>
+impl<T: Pin, MODE> embedded_hal::digital::StatefulOutputPin for PinDriver<'_, T, MODE>
 where
     MODE: OutputMode,
 {
@@ -1343,7 +1343,7 @@ where
 //     }
 // }
 
-impl<'d, T: Pin, MODE> embedded_hal_0_2::digital::v2::StatefulOutputPin for PinDriver<'d, T, MODE>
+impl<T: Pin, MODE> embedded_hal_0_2::digital::v2::StatefulOutputPin for PinDriver<'_, T, MODE>
 where
     MODE: OutputMode,
 {
@@ -1356,7 +1356,7 @@ where
     }
 }
 
-impl<'d, T: Pin, MODE> embedded_hal_0_2::digital::v2::ToggleableOutputPin for PinDriver<'d, T, MODE>
+impl<T: Pin, MODE> embedded_hal_0_2::digital::v2::ToggleableOutputPin for PinDriver<'_, T, MODE>
 where
     MODE: OutputMode,
 {

@@ -262,7 +262,7 @@ unsafe impl Sync for IsrCriticalSection {}
 
 pub struct IsrCriticalSectionGuard<'a>(&'a IsrCriticalSection);
 
-impl<'a> Drop for IsrCriticalSectionGuard<'a> {
+impl Drop for IsrCriticalSectionGuard<'_> {
     /// Drops the critical section guard thus potentially re-enabling
     /// al interrupts for the currently active core.
     ///

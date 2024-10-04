@@ -171,7 +171,7 @@ where
     }
 }
 
-impl<'d, T> Drop for LedcTimerDriver<'d, T>
+impl<T> Drop for LedcTimerDriver<'_, T>
 where
     T: LedcTimer,
 {
@@ -180,7 +180,7 @@ where
     }
 }
 
-unsafe impl<'d, T> Send for LedcTimerDriver<'d, T> where T: LedcTimer {}
+unsafe impl<T> Send for LedcTimerDriver<'_, T> where T: LedcTimer {}
 
 /// LED Control driver
 pub struct LedcDriver<'d> {
@@ -325,15 +325,15 @@ impl<'d> LedcDriver<'d> {
     }
 }
 
-impl<'d> Drop for LedcDriver<'d> {
+impl Drop for LedcDriver<'_> {
     fn drop(&mut self) {
         self.stop().unwrap();
     }
 }
 
-unsafe impl<'d> Send for LedcDriver<'d> {}
+unsafe impl Send for LedcDriver<'_> {}
 
-impl<'d> embedded_hal::pwm::ErrorType for LedcDriver<'d> {
+impl embedded_hal::pwm::ErrorType for LedcDriver<'_> {
     type Error = PwmError;
 }
 
@@ -341,7 +341,7 @@ fn to_pwm_err(err: EspError) -> PwmError {
     PwmError::other(err)
 }
 
-impl<'d> embedded_hal::pwm::SetDutyCycle for LedcDriver<'d> {
+impl embedded_hal::pwm::SetDutyCycle for LedcDriver<'_> {
     fn max_duty_cycle(&self) -> u16 {
         let duty = self.get_max_duty();
         let duty_cap: u16 = if duty > u16::MAX as u32 {
@@ -374,7 +374,7 @@ impl<'d> embedded_hal::pwm::SetDutyCycle for LedcDriver<'d> {
     }
 }
 
-impl<'d> embedded_hal_0_2::PwmPin for LedcDriver<'d> {
+impl embedded_hal_0_2::PwmPin for LedcDriver<'_> {
     type Duty = Duty;
 
     fn disable(&mut self) {

@@ -611,13 +611,13 @@ impl<'d> SpiDriver<'d> {
     }
 }
 
-impl<'d> Drop for SpiDriver<'d> {
+impl Drop for SpiDriver<'_> {
     fn drop(&mut self) {
         esp!(unsafe { spi_bus_free(self.host()) }).unwrap();
     }
 }
 
-unsafe impl<'d> Send for SpiDriver<'d> {}
+unsafe impl Send for SpiDriver<'_> {}
 
 pub struct SpiBusDriver<'d, T>
 where
@@ -1697,7 +1697,7 @@ where
     },
 }
 
-impl<'c, 'p, P, M> CsCtl<'c, 'p, P, M>
+impl<P, M> CsCtl<'_, '_, P, M>
 where
     P: OutputPin,
     M: OutputMode,

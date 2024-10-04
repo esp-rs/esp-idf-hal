@@ -559,7 +559,7 @@ unsafe impl Sync for CriticalSection {}
 
 pub struct CriticalSectionGuard<'a>(&'a CriticalSection);
 
-impl<'a> Drop for CriticalSectionGuard<'a> {
+impl Drop for CriticalSectionGuard<'_> {
     #[inline(always)]
     #[link_section = ".iram1.csg_drop"]
     fn drop(&mut self) {

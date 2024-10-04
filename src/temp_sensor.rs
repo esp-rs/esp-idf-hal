@@ -185,6 +185,6 @@ impl Drop for TempSensorDriver<'_> {
     }
 }
 
-unsafe impl<'d> Send for TempSensorDriver<'d> {}
+unsafe impl Send for TempSensorDriver<'_> {}
 
 crate::impl_peripheral!(TempSensor);
