@@ -68,7 +68,7 @@ impl<'a> WebSocketEvent<'a> {
     }
 }
 
-impl<'a> Drop for WebSocketEvent<'a> {
+impl Drop for WebSocketEvent<'_> {
     fn drop(&mut self) {
         if let Some(state) = &self.state {
             let mut message = state.message.lock();
@@ -615,7 +615,7 @@ impl<'a> EspWebSocketClient<'a> {
     }
 }
 
-impl<'a> Drop for EspWebSocketClient<'a> {
+impl Drop for EspWebSocketClient<'_> {
     fn drop(&mut self) {
         esp!(unsafe { esp_websocket_client_close(self.handle, self.timeout) }).unwrap();
         esp!(unsafe { esp_websocket_client_destroy(self.handle) }).unwrap();
@@ -624,7 +624,7 @@ impl<'a> Drop for EspWebSocketClient<'a> {
     }
 }
 
-impl<'a> RawHandle for EspWebSocketClient<'a> {
+impl RawHandle for EspWebSocketClient<'_> {
     type Handle = esp_websocket_client_handle_t;
 
     fn handle(&self) -> Self::Handle {
@@ -632,14 +632,14 @@ impl<'a> RawHandle for EspWebSocketClient<'a> {
     }
 }
 
-impl<'a> ErrorType for EspWebSocketClient<'a> {
+impl ErrorType for EspWebSocketClient<'_> {
     type Error = EspIOError;
 }
 
-impl<'a> Sender for EspWebSocketClient<'a> {
+impl Sender for EspWebSocketClient<'_> {
     fn send(&mut self, frame_type: FrameType, frame_data: &[u8]) -> Result<(), Self::Error> {
         EspWebSocketClient::send(self, frame_type, frame_data).map_err(EspIOError)
     }
 }
 
-unsafe impl<'a> Send for EspWebSocketClient<'a> {}
+unsafe impl Send for EspWebSocketClient<'_> {}
