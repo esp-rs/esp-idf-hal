@@ -1426,7 +1426,10 @@ pub mod continuous {
                 esp!(unsafe {
                     adc_continuous_register_event_callbacks(
                         self.handle,
-                        core::ptr::null(),
+                        &adc_continuous_evt_cbs_t {
+                            on_conv_done: None,
+                            on_pool_ovf: None,
+                        },
                         core::ptr::null_mut(),
                     )
                 })
