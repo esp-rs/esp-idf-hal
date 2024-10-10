@@ -202,6 +202,9 @@
 #include "diskio_wl.h"
 #endif
 
+#if defined(ESP_IDF_COMP_JOLTWALLET__LITTLEFS_ENABLED)
+#include "esp_littlefs.h"
+#endif
 #endif
 
 #ifdef ESP_IDF_COMP_LWIP_ENABLED
