@@ -66,3 +66,6 @@ CONFIG_OPENTHREAD_ENABLED=y
 
 # Border Router again, mDNS
 #CONFIG_MDNS_MULTIPLE_INSTANCE=y
+
+# Littlefs on SD cards example
+#CONFIG_LITTLEFS_SDMMC_SUPPORT=y

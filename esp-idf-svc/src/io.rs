@@ -143,4 +143,119 @@ pub mod vfs {
             sys::esp!(unsafe { sys::esp_vfs_fat_unregister_path(self.path.as_ptr()) }).unwrap();
         }
     }
+
+    /// Represents a mounted Littlefs filesystem.
+    #[cfg(all(feature = "alloc", esp_idf_comp_joltwallet__littlefs_enabled))]
+    pub struct MountedLittlefs<T> {
+        _littlefs: T,
+        partition_raw_data: crate::fs::littlefs::PartitionRawData,
+    }
+
+    #[cfg(all(feature = "alloc", esp_idf_comp_joltwallet__littlefs_enabled))]
+    impl<T> MountedLittlefs<T> {
+        /// Mount a Littlefs filesystem.
+        ///
+        /// # Arguments
+        /// - `littlefs`: The Littlefs filesystem instance to mount.
+        /// - `path`: The path to mount the filesystem at.
+        pub fn mount<H>(mut littlefs: T, path: &str) -> Result<Self, sys::EspError>
+        where
+            T: core::borrow::BorrowMut<crate::fs::littlefs::Littlefs<H>>,
+        {
+            use crate::fs::littlefs::PartitionRawData;
+            use crate::private::cstr::to_cstring_arg;
+
+            let path = to_cstring_arg(path)?;
+
+            let partition_raw_data = littlefs.borrow_mut().partition_raw_data();
+
+            let conf = sys::esp_vfs_littlefs_conf_t {
+                base_path: path.as_ptr(),
+                partition_label: if let PartitionRawData::PartitionLabel(label) = partition_raw_data
+                {
+                    label
+                } else {
+                    core::ptr::null()
+                },
+                partition: if let PartitionRawData::RawPartition(partition) = partition_raw_data {
+                    partition
+                } else {
+                    core::ptr::null_mut()
+                },
+                #[cfg(esp_idf_littlefs_sdmmc_support)]
+                sdcard: if let PartitionRawData::SdCard(sdcard) = partition_raw_data {
+                    sdcard
+                } else {
+                    core::ptr::null_mut()
+                },
+                ..Default::default()
+            };
+
+            sys::esp!(unsafe { sys::esp_vfs_littlefs_register(&conf) })?;
+
+            Ok(Self {
+                _littlefs: littlefs,
+                partition_raw_data,
+            })
+        }
+
+        pub fn info(&self) -> Result<crate::fs::littlefs::LittleFsInfo, sys::EspError> {
+            use crate::fs::littlefs::PartitionRawData;
+
+            let mut info = crate::fs::littlefs::LittleFsInfo {
+                total_bytes: 0,
+                used_bytes: 0,
+            };
+
+            match self.partition_raw_data {
+                #[cfg(esp_idf_littlefs_sdmmc_support)]
+                PartitionRawData::SdCard(sd_card_ptr) => {
+                    sys::esp!(unsafe {
+                        sys::esp_littlefs_sdmmc_info(
+                            sd_card_ptr,
+                            &mut info.total_bytes,
+                            &mut info.used_bytes,
+                        )
+                    })?;
+                }
+                PartitionRawData::PartitionLabel(label) => {
+                    sys::esp!(unsafe {
+                        sys::esp_littlefs_info(label, &mut info.total_bytes, &mut info.used_bytes)
+                    })?;
+                }
+                PartitionRawData::RawPartition(partition) => {
+                    sys::esp!(unsafe {
+                        sys::esp_littlefs_partition_info(
+                            partition,
+                            &mut info.total_bytes,
+                            &mut info.used_bytes,
+                        )
+                    })?;
+                }
+            }
+
+            Ok(info)
+        }
+    }
+
+    #[cfg(all(feature = "alloc", esp_idf_comp_joltwallet__littlefs_enabled))]
+    impl<T> Drop for MountedLittlefs<T> {
+        fn drop(&mut self) {
+            use crate::fs::littlefs::PartitionRawData;
+
+            match self.partition_raw_data {
+                PartitionRawData::PartitionLabel(label) => {
+                    sys::esp!(unsafe { sys::esp_vfs_littlefs_unregister(label) }).unwrap();
+                }
+                PartitionRawData::RawPartition(partition) => {
+                    sys::esp!(unsafe { sys::esp_vfs_littlefs_unregister_partition(partition) })
+                        .unwrap();
+                }
+                #[cfg(esp_idf_littlefs_sdmmc_support)]
+                PartitionRawData::SdCard(sdcard) => {
+                    sys::esp!(unsafe { sys::esp_vfs_littlefs_unregister_sdmmc(sdcard) }).unwrap();
+                }
+            }
+        }
+    }
 }
