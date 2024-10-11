@@ -49,7 +49,7 @@ where
     {
         let dev_config = sdspi_device_config_t {
             host_id: spi_driver.borrow().host(),
-            gpio_cs: cs.map(|cd| cd.into_ref().deref().pin()).unwrap_or(-1),
+            gpio_cs: cs.map(|cs| cs.into_ref().deref().pin()).unwrap_or(-1),
             gpio_cd: cd.map(|cd| cd.into_ref().deref().pin()).unwrap_or(-1),
             gpio_wp: wp.map(|wp| wp.into_ref().deref().pin()).unwrap_or(-1),
             gpio_int: int.map(|int| int.into_ref().deref().pin()).unwrap_or(-1),
