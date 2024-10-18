@@ -2122,9 +2122,9 @@ impl fmt::Debug for ApStaDisconnectedRef {
 #[repr(C)]
 pub struct HomeChannelChange {
     old_chan: u8,
-    old_snd: WifiSecondChan,
+    old_snd: Option<WifiSecondChan>,
     new_chan: u8,
-    new_snd: WifiSecondChan,
+    new_snd: Option<WifiSecondChan>,
 }
 
 #[cfg(not(any(
@@ -2340,9 +2340,9 @@ impl EspEventDeserializer for WifiEvent<'_> {
 
                 WifiEvent::HomeChannelChange(HomeChannelChange {
                     old_chan: payload.old_chan,
-                    old_snd: payload.old_snd.try_into().unwrap(),
+                    old_snd: payload.old_snd.try_into().ok(),
                     new_chan: payload.new_chan,
-                    new_snd: payload.new_snd.try_into().unwrap(),
+                    new_snd: payload.new_snd.try_into().ok(),
                 })
             }
             _ => panic!("unknown event ID: {}", event_id),
