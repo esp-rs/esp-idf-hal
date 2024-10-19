@@ -258,7 +258,7 @@ impl ::log::Log for EspLogger {
                 write!(stdout, "\x1b[0;{}m", color).unwrap();
             }
             write!(stdout, "{} (", marker).unwrap();
-            if cfg!(esp_idf_log_timestamp_rtos) {
+            if cfg!(esp_idf_log_timestamp_source_rtos) {
                 let timestamp = unsafe { esp_log_timestamp() };
                 write!(stdout, "{}", timestamp).unwrap();
             } else if cfg!(esp_idf_log_timestamp_source_system) {
