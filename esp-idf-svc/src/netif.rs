@@ -157,7 +157,7 @@ impl NetifConfiguration {
                 | esp_netif_flags_ESP_NETIF_FLAG_EVENT_IP_MODIFIED,
             got_ip_event_id: NonZeroU32::new(ip_event_t_IP_EVENT_ETH_GOT_IP as _),
             lost_ip_event_id: NonZeroU32::new(ip_event_t_IP_EVENT_ETH_LOST_IP as _),
-            key: "ETH_CL_DEF".try_into().unwrap(),
+            key: "ETH_DEF".try_into().unwrap(),
             description: "eth".try_into().unwrap(),
             route_priority: 60,
             ip_configuration: Some(ipv4::Configuration::Client(Default::default())),
