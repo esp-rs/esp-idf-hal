@@ -3,6 +3,39 @@
 //! The OTA update mechanism allows a device to update itself based on data
 //! received while the normal firmware is running (for example, over Wi-Fi or
 //! Bluetooth.)
+//!
+//! # Examples
+//!
+//! The following example shows approximate steps for performing an OTA update.
+//!
+//! ```
+//! // 1. Obtain an instance of OTA:
+//! let mut ota = EspOta::new().expect("obtain OTA instance");
+//!
+//! // 2. Initiate update and obtain an instance of `EspOtaUpdate`:
+//! let mut update = ota.initiate_update().expect("initiate OTA");
+//!
+//! // 3. Write the program data:
+//! while let Some(data) = my_wireless.get_ota_data() {
+//!     update.write(&data).expect("write OTA data");
+//! }
+//!
+//! // 4. Finalize update:
+//! update.complete().expect("complete OTA");
+//!
+//! // 5. Reboot:
+//! esp_idf_svc::hal::reset::restart();
+//! ```
+//! After rebooting and confirming that the new firmware works, mark it as valid.
+//! If this is not done, firmware will be rolled back.
+//!
+//! ```
+//! // Note: starting a new scope here to ensure that ota instance is dropped at the end.
+//! {
+//!     let mut ota = EspOta::new().expect("obtain OTA instance");
+//!     ota.mark_running_slot_valid().expect("mark app as valid");
+//! }
+//! ```
 
 use core::cmp::min;
 use core::fmt::Write;
@@ -138,6 +171,13 @@ pub struct EspOtaUpdate<'a> {
 }
 
 impl<'a> EspOtaUpdate<'a> {
+    /// Writes OTA update data to partition.
+    /// This function can be called multiple times as data is received during the OTA operation.
+    /// Data is written sequentially to the partition.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if data could not be written to flash.
     pub fn write(&mut self, buf: &[u8]) -> Result<(), EspError> {
         self.check_write()?;
 
@@ -148,12 +188,26 @@ impl<'a> EspOtaUpdate<'a> {
         Ok(())
     }
 
+    /// This function does not perform any flash operations, as flash writes are not cached and,
+    /// therefore, do not need to be flushed.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error update partition is not valid.
     pub fn flush(&mut self) -> Result<(), EspError> {
         self.check_write()?;
 
         Ok(())
     }
 
+    /// Finishes the OTA update and validates the new app image. Returns an instance of `EspOtaUpdateFinished`.
+    ///
+    /// <div class="warning">
+    /// This function does not update the boot partition. The user must call activate()
+    /// on the returned instance of EspOtaUpdateFinished.
+    /// </div>
+    ///
+    /// See also: [`complete`](Self::complete)
     pub fn finish(self) -> Result<EspOtaUpdateFinished<'a>, EspError> {
         self.check_write()?;
 
@@ -170,6 +224,7 @@ impl<'a> EspOtaUpdate<'a> {
         })
     }
 
+    /// Completes the OTA process by validating the new app image and updating the boot partition.
     pub fn complete(self) -> Result<(), EspError> {
         self.check_write()?;
 
@@ -183,6 +238,7 @@ impl<'a> EspOtaUpdate<'a> {
         Ok(())
     }
 
+    /// Cancels the update.
     pub fn abort(self) -> Result<(), EspError> {
         // The OTA update is aborted when `EspOtaUpdate` is dropped.
         Ok(())
@@ -218,6 +274,8 @@ pub struct EspOtaUpdateFinished<'a> {
 }
 
 impl EspOtaUpdateFinished<'_> {
+    /// Sets the boot partition to the newly updated app partition.
+    /// The app will be run on the next boot.
     pub fn activate(self) -> Result<(), EspError> {
         esp!(unsafe { esp_ota_set_boot_partition(self.update_partition) })
     }
@@ -227,6 +285,11 @@ impl EspOtaUpdateFinished<'_> {
 pub struct EspOta(());
 
 impl EspOta {
+    /// Obtains an instance of `EspOta`. Only one instance can exist at a time.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if `EspOta` already exists.
     pub fn new() -> Result<Self, EspError> {
         let mut taken = TAKEN.lock();
 
@@ -239,6 +302,11 @@ impl EspOta {
         Ok(Self(()))
     }
 
+    /// Returns the currently configured boot slot.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if partition table is invalid or a flash read operation failed.
     pub fn get_boot_slot(&self) -> Result<Slot, EspError> {
         if let Some(partition) = unsafe { esp_ota_get_boot_partition().as_ref() } {
             self.get_slot(partition)
@@ -247,6 +315,11 @@ impl EspOta {
         }
     }
 
+    /// Returns the currently running app slot.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if no partition is found or flash read operation failed.
     pub fn get_running_slot(&self) -> Result<Slot, EspError> {
         if let Some(partition) = unsafe { esp_ota_get_running_partition().as_ref() } {
             self.get_slot(partition)
@@ -255,6 +328,11 @@ impl EspOta {
         }
     }
 
+    /// Returns the slot of the next OTA app partition to be used for the new firmware.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if OTA data partition is invalid, or no eligible OTA app slot partition was found.
     pub fn get_update_slot(&self) -> Result<Slot, EspError> {
         if let Some(partition) = unsafe { esp_ota_get_next_update_partition(ptr::null()).as_ref() }
         {
@@ -264,6 +342,7 @@ impl EspOta {
         }
     }
 
+    /// Returns the last slot with invalid state (invalid or aborted image).
     pub fn get_last_invalid_slot(&self) -> Result<Option<Slot>, EspError> {
         if let Some(partition) = unsafe { esp_ota_get_last_invalid_partition().as_ref() } {
             Ok(Some(self.get_slot(partition)?))
@@ -272,11 +351,17 @@ impl EspOta {
         }
     }
 
+    /// Returns true if a factory partition is present.
     pub fn is_factory_reset_supported(&self) -> Result<bool, EspError> {
         self.get_factory_partition()
             .map(|factory| !factory.is_null())
     }
 
+    /// Sets the boot partition to factory partition.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if factory partition is not present or boot partition could not be set.
     pub fn factory_reset(&mut self) -> Result<(), EspError> {
         let factory = self.get_factory_partition()?;
 
@@ -285,6 +370,12 @@ impl EspOta {
         Ok(())
     }
 
+    /// Initiates the OTA process and returns an instance of `EspOtaUpdate`
+    /// to be used for performing the OTA operations.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if OTA could not be initiated (OTA partition not found, flash error).
     pub fn initiate_update(&mut self) -> Result<EspOtaUpdate<'_>, EspError> {
         // This might return a null pointer in case no valid partition can be found.
         // We don't have to handle this error in here, as this will implicitly trigger an error
@@ -302,10 +393,22 @@ impl EspOta {
         })
     }
 
+    /// Marks the current application as valid.
+    ///
+    /// If rollback is enabled, the application must confirm its operability by calling
+    /// `mark_running_slot_valid()` function, otherwise the application will be rolled back upon reboot.
     pub fn mark_running_slot_valid(&mut self) -> Result<(), EspError> {
         Ok(esp!(unsafe { esp_ota_mark_app_valid_cancel_rollback() })?)
     }
 
+    /// Rolls back to the previously workable app with reboot.
+    ///
+    /// If rollback is successful then device will reset, otherwise the function will return `Err`.
+    /// If the flash does not have at least one app (except the running app) then rollback is not possible.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the rollback was not possible.
     pub fn mark_running_slot_invalid_and_reboot(&mut self) -> EspError {
         if let Err(err) = esp!(unsafe { esp_ota_mark_app_invalid_rollback_and_reboot() }) {
             err
