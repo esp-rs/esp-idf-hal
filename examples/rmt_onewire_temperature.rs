@@ -161,7 +161,7 @@ fn ds18b20_get_temperature<'a>(addr: &OWAddress, bus: &OWDriver) -> Result<f32, 
 
     ds18b20_send_command(addr, bus, Ds18b20Command::ReadScratch as u8)?;
 
-    let mut buf = [0u8; 10];
+    let mut buf = [0u8; 9];
     bus.read(&mut buf)?;
     let lsb = buf[0];
     let msb = buf[1];
