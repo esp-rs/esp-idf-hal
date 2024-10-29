@@ -623,7 +623,7 @@ pub struct SpiBusDriver<'d, T>
 where
     T: BorrowMut<SpiDriver<'d>>,
 {
-    _lock: BusLock,
+    lock: Option<BusLock>,
     handle: spi_device_handle_t,
     driver: T,
     duplex: Duplex,
@@ -646,7 +646,7 @@ where
         let lock = BusLock::new(handle)?;
 
         Ok(Self {
-            _lock: lock,
+            lock: Some(lock),
             handle,
             driver,
             duplex: config.duplex,
@@ -825,6 +825,10 @@ where
     T: BorrowMut<SpiDriver<'d>>,
 {
     fn drop(&mut self) {
+        // Need to drop the lock first, because it holds the device
+        // we are about to remove below
+        self.lock = None;
+
         esp!(unsafe { spi_bus_remove_device(self.handle) }).unwrap();
     }
 }
