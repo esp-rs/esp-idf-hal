@@ -106,12 +106,14 @@ pub mod config {
         }
     }
 
+    #[allow(clippy::needless_update)]
     impl From<&Config> for temperature_sensor_config_t {
         fn from(value: &Config) -> Self {
             temperature_sensor_config_t {
                 clk_src: value.clk_src.into(),
                 range_max: value.range_max,
                 range_min: value.range_min,
+                ..Default::default()
             }
         }
     }
