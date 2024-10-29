@@ -2060,8 +2060,9 @@ async fn spi_transmit_async(
             let last = queue.back_mut().unwrap();
             last.0.user = &last.1 as *const _ as *mut _;
             match esp!(unsafe { spi_device_queue_trans(handle, &mut last.0, delay::NON_BLOCK) }) {
-                Err(e) if e.code() == ESP_ERR_TIMEOUT => unreachable!(),
-                other => other,
+                Err(e) if e.code() == ESP_ERR_TIMEOUT => Ok(false),
+                Err(e) => Err(e)?,
+                Ok(()) => Ok(true),
             }
         };
 
@@ -2070,9 +2071,10 @@ async fn spi_transmit_async(
             match esp!(unsafe {
                 spi_device_get_trans_result(handle, &mut rtrans, delay::NON_BLOCK)
             }) {
-                Err(e) if e.code() == ESP_ERR_TIMEOUT => unreachable!(),
-                other => other,
-            }?;
+                Err(e) if e.code() == ESP_ERR_TIMEOUT => return Ok(false),
+                Err(e) => Err(e)?,
+                Ok(()) => (),
+            };
 
             if rtrans != &mut queue.front_mut().unwrap().0 {
                 unreachable!();
@@ -2081,18 +2083,26 @@ async fn spi_transmit_async(
             queue.pop_front().unwrap();
             queued.set(queue.len());
 
-            Ok(())
+            Ok(true)
         };
 
         for transaction in transactions {
             if queue.len() == queue_size {
-                // If the queue is full, we wait for the first transaction in the queue
-                queue.front_mut().unwrap().1.wait().await;
-                pop(queue)?;
+                loop {
+                    // If the queue is full, we wait for the first transaction in the queue
+                    queue.front_mut().unwrap().1.wait().await;
+                    if pop(queue)? {
+                        break;
+                    }
+                }
             }
 
             // Write transaction to a stable memory location
-            push(queue, transaction)?;
+            if !push(queue, transaction)? {
+                // There must be a place in the queue, which we asserted above,
+                // so this should never happen
+                unreachable!();
+            }
         }
 
         while !queue.is_empty() {
