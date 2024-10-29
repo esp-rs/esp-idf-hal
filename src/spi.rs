@@ -2059,10 +2059,9 @@ async fn spi_transmit_async(
 
             let last = queue.back_mut().unwrap();
             last.0.user = &last.1 as *const _ as *mut _;
-            match esp!(unsafe { spi_device_queue_trans(handle, &mut last.0, delay::NON_BLOCK) }) {
-                Err(e) if e.code() == ESP_ERR_TIMEOUT => Ok(false),
-                Err(e) => Err(e)?,
-                Ok(()) => Ok(true),
+            match esp!(unsafe { spi_device_queue_trans(handle, &mut last.0, delay::BLOCK) }) {
+                Err(e) if e.code() == ESP_ERR_TIMEOUT => unreachable!(),
+                other => other,
             }
         };
 
@@ -2087,27 +2086,23 @@ async fn spi_transmit_async(
         };
 
         for transaction in transactions {
-            if queue.len() == queue_size {
-                loop {
-                    // If the queue is full, we wait for the first transaction in the queue
-                    queue.front_mut().unwrap().1.wait().await;
-                    if pop(queue)? {
-                        break;
-                    }
+            while queue.len() == queue_size {
+                if pop(queue)? {
+                    break;
                 }
+
+                // If the queue is full, we wait for the first transaction in the queue
+                queue.front_mut().unwrap().1.wait().await;
             }
 
             // Write transaction to a stable memory location
-            if !push(queue, transaction)? {
-                // There must be a place in the queue, which we asserted above,
-                // so this should never happen
-                unreachable!();
-            }
+            push(queue, transaction)?;
         }
 
         while !queue.is_empty() {
-            queue.front_mut().unwrap().1.wait().await;
-            pop(queue)?;
+            if !pop(queue)? {
+                queue.front_mut().unwrap().1.wait().await;
+            }
         }
 
         Ok(())
