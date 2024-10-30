@@ -748,9 +748,24 @@ struct AsyncWork {
 pub struct EspAsyncMqttClient(Unblocker<AsyncWork>);
 
 impl EspAsyncMqttClient {
+    /// Create a new MQTT client with a given URL and configuration.
     pub fn new(
         url: &str,
         conf: &MqttClientConfiguration<'_>,
+    ) -> Result<(Self, EspAsyncMqttConnection), EspError> {
+        Self::new_with_caps(url, conf, None)
+    }
+
+    /// Create a new MQTT client with a given URL, configuration
+    /// and caps.
+    ///
+    /// The caps tuple contains the initial capacity of the topic,
+    /// payload and broker URI buffers.
+    /// Useful to avoid constant re-allocations with large payloads.
+    pub fn new_with_caps(
+        url: &str,
+        conf: &MqttClientConfiguration<'_>,
+        caps: Option<(usize, usize, usize)>,
     ) -> Result<(Self, EspAsyncMqttConnection), EspError> {
         let (channel, receiver) = Channel::new();
         let conn = EspAsyncMqttConnection {
@@ -758,21 +773,37 @@ impl EspAsyncMqttClient {
             given: false,
         };
 
-        let client = Self::wrap(EspMqttClient::new_cb(url, conf, move |mut event| {
-            let event: &mut EspMqttEvent<'static> = unsafe { core::mem::transmute(&mut event) };
-            channel.share(event);
-        })?)?;
+        let client = Self::wrap_with_caps(
+            EspMqttClient::new_cb(url, conf, move |mut event| {
+                let event: &mut EspMqttEvent<'static> = unsafe { core::mem::transmute(&mut event) };
+                channel.share(event);
+            })?,
+            caps,
+        )?;
 
         Ok((client, conn))
     }
 
+    /// Wrap an existing MQTT client with an async interface.
     pub fn wrap(client: EspMqttClient<'static>) -> Result<Self, EspError> {
+        Self::wrap_with_caps(client, None)
+    }
+
+    /// Wrap an existing MQTT client with an async interface.
+    ///
+    /// The caps tuple contains the initial capacity of the topic,
+    /// payload and broker URI buffers.
+    /// Useful to avoid constant re-allocations with large payloads.
+    pub fn wrap_with_caps(
+        client: EspMqttClient<'static>,
+        caps: Option<(usize, usize, usize)>,
+    ) -> Result<Self, EspError> {
         let unblocker = Unblocker::new(
             CStr::from_bytes_until_nul(b"MQTT Sending task\0").unwrap(),
             4096,
             None,
             None,
-            move |channel| Self::work(channel, client),
+            move |channel| Self::work(channel, client, caps),
         )?;
 
         Ok(Self(unblocker))
@@ -848,14 +879,24 @@ impl EspAsyncMqttClient {
         work.result
     }
 
-    fn work(channel: Arc<Channel<AsyncWork>>, mut client: EspMqttClient) {
+    fn work(
+        channel: Arc<Channel<AsyncWork>>,
+        mut client: EspMqttClient,
+        caps: Option<(usize, usize, usize)>,
+    ) {
         // Placeholder work item. This will be replaced by the first actual work item.
         let mut work = AsyncWork {
             command: AsyncCommand::Unsubscribe,
-            topic: alloc::vec::Vec::new(),
-            payload: alloc::vec::Vec::new(),
+            topic: caps
+                .map(|cap| alloc::vec::Vec::with_capacity(cap.1))
+                .unwrap_or_else(|| alloc::vec::Vec::new()),
+            payload: caps
+                .map(|cap| alloc::vec::Vec::with_capacity(cap.2))
+                .unwrap_or_else(|| alloc::vec::Vec::new()),
             result: Ok(0),
-            broker_uri: alloc::vec::Vec::new(),
+            broker_uri: caps
+                .map(|cap| alloc::vec::Vec::with_capacity(cap.0))
+                .unwrap_or_else(|| alloc::vec::Vec::new()),
         };
         // Repeatedly share a reference to the work until the channel is closed.
         // The receiver will replace the data with the next work item, then wait for
