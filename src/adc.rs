@@ -1456,7 +1456,7 @@ pub mod continuous {
     }
 
     #[cfg(not(esp_idf_adc_continuous_isr_iram_safe))]
-    impl<'d> embedded_io_async::Read for AdcDriver<'d> {
+    impl embedded_io_async::Read for AdcDriver<'_> {
         async fn read(&mut self, buf: &mut [u8]) -> Result<usize, Self::Error> {
             self.read_bytes_async(buf).await.map_err(EspIOError)
         }
