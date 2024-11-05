@@ -2830,7 +2830,7 @@ where
 }
 
 #[cfg(esp_idf_comp_esp_netif_enabled)]
-impl<'d> crate::netif::asynch::NetifStatus for EspWifi<'d> {
+impl crate::netif::asynch::NetifStatus for EspWifi<'_> {
     async fn is_up(&self) -> Result<bool, EspError> {
         EspWifi::is_up(self)
     }
