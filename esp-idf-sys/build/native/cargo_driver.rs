@@ -223,7 +223,7 @@ pub fn build() -> Result<EspIdfBuildOutput> {
     let version = idf.version.as_ref().ok().cloned();
 
     let custom_linker = if !gcc12 && !chip.is_xtensa() {
-        // Another, even more annoying issue with the riscv targets is that since Rust nightly-2023-08-08
+        // An annoying issue with the riscv targets is that since Rust nightly-2023-08-08
         // and the introduction of LLVM-17, rustc (and LLVM) claim to support RISCV ISA 2.1 spec
         // (via the "attributes" section in elf object files)
         //
@@ -454,40 +454,11 @@ pub fn build() -> Result<EspIdfBuildOutput> {
 
     let mut cmake_config = cmake::Config::new(&out_dir);
 
-    if gcc12 && !chip.is_xtensa() {
-        // This code solves the following annoying issue:
-        // GCC-12+ follows the later V2.1 specification of the I riscv extension
-        // However LLVM and Rust are still on V2.0
-        //
-        // 2.1 is not backwards compatible with 2.0 in that zicsr and zifencei are no longer
-        // considered part of the I extension
-        //
-        // Therefore, explicitly tell GCC 12+ that we in fact want these extensions included
-        // This is done by passing a "made up" rustc target to cmake-rs (and tus to cc-rs)
-        // that happens to be parsed correctly and results in correct arguments passed
-        // downstream to GCC
-        //
-        // See these links for more info:
-        // https://github.com/esp-rs/esp-idf-sys/issues/176
-        // https://discourse.llvm.org/t/support-for-zicsr-and-zifencei-extensions/68369/3
-        if target == "riscv32imc-esp-espidf" {
-            cmake_config.target("riscv32imc_zicsr_zifencei-esp-espidf");
-        } else if target == "riscv32imac-esp-espidf" {
-            cmake_config.target("riscv32imac_zicsr_zifencei-esp-espidf");
-        } else if target == "riscv32imafc-esp-espidf" {
-            cmake_config.target("riscv32imafc_zicsr_zifencei-esp-espidf");
-            // workaround for a bug in cc-rs
-            // see https://github.com/rust-lang/cc-rs/issues/795 & https://github.com/rust-lang/cc-rs/pull/796
-            cmake_config.cflag("-mabi=ilp32f");
-        } else {
-            panic!("Unsupported target: {}", target);
-        }
-    }
-
     cmake_config
         .generator(cmake_generator.name())
         .out_dir(&out_dir)
         .no_build_target(true)
+        .no_default_flags(true)
         .define("CMAKE_TOOLCHAIN_FILE", &cmake_toolchain_file)
         .define("CMAKE_BUILD_TYPE", "")
         .define("PYTHON", to_cmake_path_list([&idf.venv_python])?)
