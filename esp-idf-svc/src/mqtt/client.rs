@@ -889,14 +889,14 @@ impl EspAsyncMqttClient {
             command: AsyncCommand::Unsubscribe,
             topic: caps
                 .map(|cap| alloc::vec::Vec::with_capacity(cap.1))
-                .unwrap_or_else(|| alloc::vec::Vec::new()),
+                .unwrap_or(alloc::vec::Vec::new()),
             payload: caps
                 .map(|cap| alloc::vec::Vec::with_capacity(cap.2))
-                .unwrap_or_else(|| alloc::vec::Vec::new()),
+                .unwrap_or(alloc::vec::Vec::new()),
             result: Ok(0),
             broker_uri: caps
                 .map(|cap| alloc::vec::Vec::with_capacity(cap.0))
-                .unwrap_or_else(|| alloc::vec::Vec::new()),
+                .unwrap_or(alloc::vec::Vec::new()),
         };
         // Repeatedly share a reference to the work until the channel is closed.
         // The receiver will replace the data with the next work item, then wait for
