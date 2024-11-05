@@ -25,7 +25,7 @@ use esp_idf_svc::sys::{EspError, ESP_ERR_INVALID_SIZE};
 
 use log::*;
 
-use std::{borrow::Cow, collections::BTreeMap, str, sync::Mutex};
+use std::{borrow::Cow, collections::BTreeMap, ffi::CStr, str, sync::Mutex};
 
 const SSID: &str = env!("WIFI_SSID");
 const PASSWORD: &str = env!("WIFI_PASS");
@@ -169,7 +169,13 @@ fn main() -> anyhow::Result<()> {
 
         let mut buf = [0; MAX_LEN]; // Small digit buffer can go on the stack
         ws.recv(buf.as_mut())?;
-        let Ok(user_string) = str::from_utf8(&buf[..len]) else {
+
+        let Ok(user_string) = CStr::from_bytes_until_nul(&buf[..len]) else {
+            ws.send(FrameType::Text(false), "[CStr decode Error]".as_bytes())?;
+            return Ok(());
+        };
+
+        let Ok(user_string) = user_string.to_str() else {
             ws.send(FrameType::Text(false), "[UTF-8 Error]".as_bytes())?;
             return Ok(());
         };
