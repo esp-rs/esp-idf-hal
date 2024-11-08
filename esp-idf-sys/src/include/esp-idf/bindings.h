@@ -100,6 +100,9 @@
 
 #ifdef ESP_IDF_COMP_ESP_NETIF_ENABLED
 #include "esp_netif.h"
+#if ESP_IDF_VERSION_MAJOR > 4 && defined(CONFIG_ESP_NETIF_TCPIP_LWIP) && defined(CONFIG_ESP_NETIF_BRIDGE_EN)
+#include "esp_netif_br_glue.h"
+#endif
 #ifdef CONFIG_LWIP_PPP_SUPPORT
 #include "esp_netif_ppp.h"
 #endif
