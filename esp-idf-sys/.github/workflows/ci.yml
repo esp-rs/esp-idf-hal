@@ -59,7 +59,7 @@ jobs:
         env:
           ESP_IDF_VERSION: ${{ matrix.idf-version }}
           ESP_IDF_SDKCONFIG_DEFAULTS: "${{ github.workspace }}/.github/configs/sdkconfig.defaults"
-          RUSTFLAGS: "${{ startsWith(matrix.idf-version, 'v5') && '--cfg espidf_time64' || '' }}"
+          RUSTFLAGS: "${{ startsWith(matrix.idf-version, 'v5') && '--cfg espidf_time64' || startsWith(matrix.idf-version, 'v4') && '--cfg espidf_time32' }}"
         run: cargo clippy --no-deps --target ${{ matrix.target }} -Zbuild-std=std,panic_abort -Zbuild-std-features=panic_immediate_abort -- -Dwarnings -Adeprecated
 
       - name: Build | Compile (Native)
