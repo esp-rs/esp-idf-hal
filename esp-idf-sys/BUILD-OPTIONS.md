@@ -519,7 +519,7 @@ Remote components that are **not** already included inside the [esp-idf-sys bind
 For example, the `espressif/esp32-camera` component could be included in the following way:
 ```toml
 [[package.metadata.esp-idf-sys.extra_components]]
-remote_component = { name = "espressif/esp32-camera", version = "2.0.7}
+remote_component = { name = "espressif/esp32-camera", version = "2.0.7" }
 bindings_header = "your_bindings.h"
 bindings_module = "camera"
 ```
