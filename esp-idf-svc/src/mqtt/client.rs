@@ -734,6 +734,7 @@ enum AsyncCommand {
     Unsubscribe,
     Publish { qos: QoS, retain: bool },
     SetUri,
+    None,
 }
 
 #[derive(Debug)]
@@ -886,7 +887,7 @@ impl EspAsyncMqttClient {
     ) {
         // Placeholder work item. This will be replaced by the first actual work item.
         let mut work = AsyncWork {
-            command: AsyncCommand::Unsubscribe,
+            command: AsyncCommand::None,
             topic: caps
                 .map(|cap| alloc::vec::Vec::with_capacity(cap.1))
                 .unwrap_or_default(),
@@ -903,6 +904,7 @@ impl EspAsyncMqttClient {
         // this thread to process it by calling into the C library and write the result.
         while channel.share(&mut work) {
             match work.command {
+                AsyncCommand::None => {}
                 AsyncCommand::Subscribe { qos } => {
                     let topic =
                         unsafe { core::ffi::CStr::from_bytes_with_nul_unchecked(&work.topic) };
@@ -998,7 +1000,7 @@ impl<'a> EspMqttEvent<'a> {
         Self(event)
     }
 
-    #[allow(non_upper_case_globals)]
+    #[allow(non_upper_case_globals, non_snake_case)]
     pub fn payload(&self) -> EventPayload<'_, EspError> {
         match self.0.event_id {
             esp_mqtt_event_id_t_MQTT_EVENT_ERROR => EventPayload::Error(&ERROR), // TODO
