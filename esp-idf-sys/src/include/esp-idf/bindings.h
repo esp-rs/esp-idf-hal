@@ -225,6 +225,15 @@
 #endif
 
 #ifdef ESP_IDF_COMP_MBEDTLS_ENABLED
+#include "mbedtls/ssl.h"
+#include "mbedtls/aes.h"
+#include "mbedtls/cipher.h"
+#include "mbedtls/entropy.h"
+#include "mbedtls/ctr_drbg.h"
+#include "mbedtls/cmac.h"
+#include "mbedtls/ecdh.h"
+#include "mbedtls/ecp.h"
+
 #ifdef CONFIG_MBEDTLS_CERTIFICATE_BUNDLE
 #include "esp_crt_bundle.h"
 #endif
