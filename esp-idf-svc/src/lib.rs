@@ -85,8 +85,16 @@ pub mod napt;
 pub mod netif;
 #[cfg(all(feature = "alloc", esp_idf_comp_nvs_flash_enabled))]
 pub mod nvs;
-#[cfg(all(esp_idf_comp_app_update_enabled, esp_idf_comp_spi_flash_enabled))]
+#[cfg(all(
+    esp_idf_comp_app_update_enabled,
+    any(esp_idf_comp_spi_flash_enabled, esp_idf_comp_esp_partition_enabled)
+))]
 pub mod ota;
+#[cfg(all(
+    feature = "experimental",
+    any(esp_idf_comp_spi_flash_enabled, esp_idf_comp_esp_partition_enabled)
+))]
+pub mod partition;
 #[cfg(esp_idf_comp_esp_netif_enabled)]
 pub mod ping;
 #[cfg(all(feature = "alloc", esp_idf_comp_esp_netif_enabled))]
