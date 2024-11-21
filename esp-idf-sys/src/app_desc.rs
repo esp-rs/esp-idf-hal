@@ -1,6 +1,10 @@
 #[macro_export]
 macro_rules! esp_app_desc {
     () => {
+        // For backwards compatibility
+        $crate::esp_app_desc!(false);
+    };
+    ($fix_date_time_swap: expr) => {
         #[no_mangle]
         #[used]
         #[link_section = ".rodata_desc"]
@@ -30,9 +34,17 @@ macro_rules! esp_app_desc {
                 version: str_to_cstr_array(env!("CARGO_PKG_VERSION")),
                 project_name: str_to_cstr_array(env!("CARGO_PKG_NAME")),
                 #[cfg(all(esp_idf_app_compile_time_date, not(esp_idf_app_reproducible_build)))]
-                time: str_to_cstr_array($crate::build_time::build_time_utc!("%Y-%m-%d")),
+                time: str_to_cstr_array(if $fix_date_time_swap {
+                    $crate::build_time::build_time_utc!("%H:%M:%S")
+                } else {
+                    $crate::build_time::build_time_utc!("%Y-%m-%d")
+                }),
                 #[cfg(all(esp_idf_app_compile_time_date, not(esp_idf_app_reproducible_build)))]
-                date: str_to_cstr_array($crate::build_time::build_time_utc!("%H:%M:%S")),
+                date: str_to_cstr_array(if $fix_date_time_swap {
+                    $crate::build_time::build_time_utc!("%Y-%m-%d")
+                } else {
+                    $crate::build_time::build_time_utc!("%H:%M:%S")
+                }),
                 #[cfg(not(all(
                     esp_idf_app_compile_time_date,
                     not(esp_idf_app_reproducible_build)
