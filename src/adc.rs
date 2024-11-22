@@ -823,7 +823,7 @@ pub mod oneshot {
 /// Continuous ADC module
 /// Example: continuously reading value from a pin
 /// ```
-/// use log::{info, debug};
+/// use ::log::{info, debug};
 ///
 /// fn main() -> anyhow::Result<()> {
 ///     use esp_idf_svc::hal::adc::{AdcContConfig, AdcContDriver, AdcMeasurement, Attenuated};

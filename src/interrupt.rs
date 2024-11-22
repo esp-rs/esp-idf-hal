@@ -304,7 +304,7 @@ pub mod asynch {
 
     use esp_idf_sys::EspError;
 
-    use log::info;
+    use ::log::info;
 
     use crate::{
         cpu::Core,
