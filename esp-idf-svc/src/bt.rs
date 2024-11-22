@@ -6,7 +6,7 @@ use core::sync::atomic::{AtomicBool, Ordering};
 use alloc::boxed::Box;
 use alloc::sync::Arc;
 
-use log::info;
+use ::log::info;
 
 use num_enum::TryFromPrimitive;
 

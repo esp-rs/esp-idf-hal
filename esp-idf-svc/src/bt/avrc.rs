@@ -265,7 +265,7 @@ pub mod controller {
 
     use enumset::EnumSet;
 
-    use log::info;
+    use ::log::info;
 
     use crate::bt::{BdAddr, BtClassicEnabled, BtDriver, BtSingleton};
 

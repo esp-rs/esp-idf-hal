@@ -960,7 +960,7 @@ where
 mod driver {
     use core::borrow::BorrowMut;
 
-    use log::debug;
+    use ::log::debug;
 
     use crate::handle::RawHandle;
     use crate::sys::*;

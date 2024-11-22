@@ -6,7 +6,7 @@ use core::{ffi::CStr, ops::BitOr};
 use crate::bt::BtSingleton;
 use crate::sys::*;
 
-use log::debug;
+use ::log::debug;
 
 use crate::{
     bt::{BdAddr, BleEnabled, BtDriver, BtStatus, BtUuid},

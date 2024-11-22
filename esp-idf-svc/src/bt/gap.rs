@@ -18,7 +18,7 @@ use enumset::{EnumSet, EnumSetType};
 
 use crate::sys::*;
 
-use log::debug;
+use ::log::debug;
 
 use num_enum::TryFromPrimitive;
 

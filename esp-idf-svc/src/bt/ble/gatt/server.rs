@@ -2,7 +2,7 @@ use core::borrow::Borrow;
 use core::fmt::{self, Debug};
 use core::marker::PhantomData;
 
-use log::{debug, trace};
+use ::log::{debug, trace};
 
 use crate::bt::{BdAddr, BleEnabled, BtDriver, BtSingleton, BtUuid};
 use crate::sys::*;

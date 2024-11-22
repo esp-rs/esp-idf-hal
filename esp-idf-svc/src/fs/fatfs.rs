@@ -4,7 +4,7 @@ use alloc::boxed::Box;
 
 use config::{FatFsType, FormatConfiguration};
 
-use log::warn;
+use ::log::warn;
 
 use crate::hal::sd::SdCardDriver;
 use crate::sys::*;

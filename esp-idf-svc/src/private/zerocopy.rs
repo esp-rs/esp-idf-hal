@@ -11,7 +11,7 @@ use alloc::sync::{Arc, Weak};
 
 use esp_idf_hal::task::asynch::Notification;
 
-use log::info;
+use ::log::info;
 
 pub struct Receiver<T>(Weak<Channel<T>>)
 where

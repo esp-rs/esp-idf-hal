@@ -10,7 +10,7 @@ pub mod client {
 
     use crate::sys::*;
 
-    use log::{debug, info};
+    use ::log::{debug, info};
 
     use num_enum::TryFromPrimitive;
 

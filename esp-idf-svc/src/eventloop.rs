@@ -904,7 +904,7 @@ mod async_wait {
 
     use esp_idf_hal::task::asynch::Notification;
 
-    use log::debug;
+    use ::log::debug;
 
     use super::{EspEventDeserializer, EspEventLoop, EspEventLoopType, EspSubscription};
     use crate::sys::{esp, EspError, ESP_ERR_TIMEOUT};

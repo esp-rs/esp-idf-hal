@@ -8,7 +8,7 @@ use core::fmt::Debug;
 use core::marker::PhantomData;
 use core::mem::MaybeUninit;
 
-use log::debug;
+use ::log::debug;
 
 use crate::eventloop::{EspEventDeserializer, EspEventSource, EspSystemEventLoop};
 use crate::hal::delay;
