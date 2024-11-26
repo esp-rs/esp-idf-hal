@@ -21,7 +21,6 @@ harness = false
 [patch.crates-io]
 esp-idf-hal = { git = "https://github.com/esp-rs/esp-idf-hal" }
 esp-idf-sys = { git = "https://github.com/esp-rs/esp-idf-sys" }
-cmake = { git = "https://github.com/ivmarkov/cmake-rs" }
 
 [features]
 default = ["std", "binstart"]
