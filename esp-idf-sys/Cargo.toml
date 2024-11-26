@@ -15,9 +15,6 @@ build = "build/build.rs"
 documentation = "https://docs.esp-rs.org/esp-idf-sys/"
 rust-version = "1.66"
 
-[patch.crates-io]
-cmake = { git = "https://github.com/ivmarkov/cmake-rs" }
-
 [lib]
 harness = false
 
@@ -42,6 +39,7 @@ embuild = { version = "0.32", features = ["glob", "kconfig", "cmake", "espidf"] 
 anyhow = "1"
 regex = "1.5"
 bindgen = "0.69"
+cmake = "0.1.52"
 cargo_metadata = "0.18"
 serde = { version = "1.0", features = ["derive"] }
 strum = { version = "0.24", features = ["derive"] }
