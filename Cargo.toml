@@ -17,7 +17,6 @@ rust-version = "1.75"
 
 [patch.crates-io]
 esp-idf-sys = { git = "https://github.com/esp-rs/esp-idf-sys" }
-cmake = { git = "https://github.com/ivmarkov/cmake-rs" }
 
 [lib]
 harness = false
