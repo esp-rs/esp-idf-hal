@@ -585,11 +585,11 @@ impl<'d> SpiDriver<'d> {
             data6_io_num: -1,
             data7_io_num: -1,
             __bindgen_anon_1: spi_bus_config_t__bindgen_ty_1 {
-                mosi_io_num: sdo.unwrap_or(-1),
+                mosi_io_num: sdi.unwrap_or(-1),
                 //data0_io_num: -1,
             },
             __bindgen_anon_2: spi_bus_config_t__bindgen_ty_2 {
-                miso_io_num: sdi.unwrap_or(-1),
+                miso_io_num: sdo.unwrap_or(-1),
                 //data1_io_num: -1,
             },
             __bindgen_anon_3: spi_bus_config_t__bindgen_ty_3 {
