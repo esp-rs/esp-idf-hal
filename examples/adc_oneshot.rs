@@ -23,7 +23,6 @@ fn main() -> anyhow::Result<()> {
     // for this example we use the attenuation of 11db which sets the input voltage range to around 0-3.6V
     let config = AdcChannelConfig {
         attenuation: DB_11,
-        calibration: true,
         ..Default::default()
     };
 
