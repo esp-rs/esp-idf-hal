@@ -20,8 +20,14 @@ type Singleton<T> = Mutex<Option<Box<T>>>;
 
 pub const BROADCAST: [u8; 6] = [0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF];
 
+#[derive(Debug, Clone)]
+pub struct ReceiveInfo<'a> {
+    pub src_addr: &'a [u8; 6],
+    pub dst_addr: &'a [u8; 6],
+}
+
 #[allow(clippy::type_complexity)]
-static RECV_CALLBACK: Singleton<dyn FnMut(&[u8], &[u8]) + Send + 'static> = Mutex::new(None);
+static RECV_CALLBACK: Singleton<dyn FnMut(&ReceiveInfo, &[u8]) + Send + 'static> = Mutex::new(None);
 #[allow(clippy::type_complexity)]
 static SEND_CALLBACK: Singleton<dyn FnMut(&[u8], SendStatus) + Send + 'static> = Mutex::new(None);
 
@@ -168,12 +174,12 @@ impl<'a> EspNow<'a> {
 
     pub fn register_recv_cb<F>(&self, callback: F) -> Result<(), EspError>
     where
-        F: FnMut(&[u8], &[u8]) + Send + 'a,
+        F: FnMut(&ReceiveInfo, &[u8]) + Send + 'a,
     {
         #[allow(clippy::type_complexity)]
-        let callback: Box<dyn FnMut(&[u8], &[u8]) + Send + 'a> = Box::new(callback);
+        let callback: Box<dyn FnMut(&ReceiveInfo, &[u8]) + Send + 'a> = Box::new(callback);
         #[allow(clippy::type_complexity)]
-        let callback: Box<dyn FnMut(&[u8], &[u8]) + Send + 'static> =
+        let callback: Box<dyn FnMut(&ReceiveInfo, &[u8]) + Send + 'static> =
             unsafe { core::mem::transmute(callback) };
 
         *RECV_CALLBACK.lock() = Some(Box::new(callback));
@@ -223,18 +229,31 @@ impl<'a> EspNow<'a> {
     }
 
     extern "C" fn recv_callback(
-        #[cfg(esp_idf_version_major = "4")] mac_addr: *const u8,
+        #[cfg(esp_idf_version_major = "4")] src_addr: *const u8,
         #[cfg(not(esp_idf_version_major = "4"))] esp_now_info: *const esp_now_recv_info_t,
         data: *const u8,
         data_len: core::ffi::c_int,
     ) {
         #[cfg(not(any(esp_idf_version_major = "4")))]
-        let mac_addr = unsafe { *esp_now_info }.src_addr.cast_const();
-        let c_mac = unsafe { core::slice::from_raw_parts(mac_addr, 6usize) };
+        let src_addr = unsafe { *esp_now_info }.src_addr.cast_const();
+        #[cfg(not(any(esp_idf_version_major = "4")))]
+        let dst_addr = unsafe { *esp_now_info }.des_addr.cast_const();
+        let c_src_addr = unsafe { &*(src_addr as *const [u8; 6]) };
+        #[cfg(not(any(esp_idf_version_major = "4")))]
+        let c_dst_addr = unsafe { &*(dst_addr as *const [u8; 6]) };
         let c_data = unsafe { core::slice::from_raw_parts(data, data_len as usize) };
 
         if let Some(ref mut callback) = *RECV_CALLBACK.lock() {
-            callback(c_mac, c_data)
+            callback(
+                &ReceiveInfo {
+                    src_addr: c_src_addr,
+                    #[cfg(esp_idf_version_major = "4")]
+                    dst_addr: &[0u8; 6],
+                    #[cfg(not(any(esp_idf_version_major = "4")))]
+                    dst_addr: c_dst_addr,
+                },
+                c_data,
+            )
         } else {
             panic!("EspNow callback not available");
         }
