@@ -207,26 +207,24 @@ where
     where
         F: FnMut() + Send + 'static,
     {
-        self.internal_timer(callback)
+        self.internal_timer(callback, false)
+    }
+
+    /// Same as `timer` but does not wake the device from light sleep.
+    pub fn timer_nowake<F>(&self, callback: F) -> Result<EspTimer<'static>, EspError>
+    where
+        F: FnMut() + Send + 'static,
+    {
+        self.internal_timer(callback, true)
     }
 
     pub fn timer_async(&self) -> Result<EspAsyncTimer, EspError> {
-        let notification = Arc::new(Notification::new());
+        self.internal_timer_async(false)
+    }
 
-        let timer = {
-            let notification = Arc::downgrade(&notification);
-
-            self.timer(move || {
-                if let Some(notification) = notification.upgrade() {
-                    notification.notify(NonZeroU32::new(1).unwrap());
-                }
-            })?
-        };
-
-        Ok(EspAsyncTimer {
-            timer,
-            notification,
-        })
+    /// Same as `timer_async` but does not wake the device from light sleep.
+    pub fn timer_async_nowake(&self) -> Result<EspAsyncTimer, EspError> {
+        self.internal_timer_async(true)
     }
 
     /// # Safety
@@ -256,10 +254,27 @@ where
     where
         F: FnMut() + Send + 'a,
     {
-        self.internal_timer(callback)
+        self.internal_timer(callback, false)
     }
 
-    fn internal_timer<'a, F>(&self, callback: F) -> Result<EspTimer<'a>, EspError>
+    /// # Safety
+    ///
+    /// Same as `timer_nonstatic` but does not wake the device from light sleep.
+    pub unsafe fn timer_nonstatic_nowake<'a, F>(
+        &self,
+        callback: F,
+    ) -> Result<EspTimer<'a>, EspError>
+    where
+        F: FnMut() + Send + 'a,
+    {
+        self.internal_timer(callback, true)
+    }
+
+    fn internal_timer<'a, F>(
+        &self,
+        callback: F,
+        skip_unhandled_events: bool,
+    ) -> Result<EspTimer<'a>, EspError>
     where
         F: FnMut() + Send + 'a,
     {
@@ -287,7 +302,7 @@ where
                     name: b"rust\0" as *const _ as *const _, // TODO
                     arg: unsafe_callback.as_ptr(),
                     dispatch_method,
-                    skip_unhandled_events: false, // TODO
+                    skip_unhandled_events,
                 },
                 &mut handle as *mut _,
             )
@@ -296,6 +311,28 @@ where
         Ok(EspTimer {
             handle,
             _callback: callback,
+        })
+    }
+
+    fn internal_timer_async(&self, skip_unhandled_events: bool) -> Result<EspAsyncTimer, EspError> {
+        let notification = Arc::new(Notification::new());
+
+        let timer = {
+            let notification = Arc::downgrade(&notification);
+
+            self.internal_timer(
+                move || {
+                    if let Some(notification) = notification.upgrade() {
+                        notification.notify(NonZeroU32::new(1).unwrap());
+                    }
+                },
+                skip_unhandled_events,
+            )?
+        };
+
+        Ok(EspAsyncTimer {
+            timer,
+            notification,
         })
     }
 }
