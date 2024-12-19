@@ -11,6 +11,7 @@
 //! | ESP32-C3           | _not supported_* | I2S0, hardware version 2 |
 //! | ESP32-C6           | _not supported_* | I2S0, hardware version 2 |
 //! | ESP32-H2           | _not supported_* | I2S0, hardware version 2 |
+//! | ESP32-P4           | I2S0             | I2S0, hardware version 2 | ????
 //!
 //! \* These microcontrollers have PDM Rx capabilities but lack a PDM-to-PCM decoder required by the ESP-IDF SDK.
 //!
@@ -325,7 +326,8 @@ pub(super) mod config {
             clk: PeripheralRef<'d, impl OutputPin>,
             din: PeripheralRef<'d, impl InputPin>,
         ) -> i2s_pdm_rx_gpio_config_t {
-            let mut dins: [gpio_num_t; SOC_I2S_PDM_MAX_RX_LINES] = [-1; SOC_I2S_PDM_MAX_RX_LINES];
+            let mut dins: [gpio_num_t; SOC_I2S_PDM_MAX_RX_LINES as usize] =
+                [-1; SOC_I2S_PDM_MAX_RX_LINES as _];
             dins[0] = din.pin();
 
             let pins = i2s_pdm_rx_gpio_config_t__bindgen_ty_1 { dins };
@@ -358,11 +360,11 @@ pub(super) mod config {
             clk: PeripheralRef<'d, impl OutputPin>,
             dins: &[PeripheralRef<'d, impl InputPin>],
         ) -> i2s_pdm_rx_gpio_config_t {
-            let mut din_pins: [gpio_num_t; SOC_I2S_PDM_MAX_RX_LINES] =
-                [-1; SOC_I2S_PDM_MAX_RX_LINES];
+            let mut din_pins: [gpio_num_t; SOC_I2S_PDM_MAX_RX_LINES as usize] =
+                [-1; SOC_I2S_PDM_MAX_RX_LINES as _];
 
             for (i, din) in dins.iter().enumerate() {
-                if i >= SOC_I2S_PDM_MAX_RX_LINES {
+                if i >= SOC_I2S_PDM_MAX_RX_LINES as usize {
                     break;
                 }
 
@@ -424,7 +426,7 @@ pub(super) mod config {
     ///
     /// Other microcontrollers do not support PDM receive mode, or do not have a PDM-to-PCM peripheral that allows for decoding
     /// the PDM data as required by ESP-IDF.
-    #[derive(Clone, Copy, Debug, Eq, PartialEq)]
+    #[derive(Clone, Copy, Debug)]
     pub struct PdmRxSlotConfig {
         /// I2S sample data bit width (valid data bits per sample).
         #[allow(dead_code)]
@@ -441,7 +443,33 @@ pub(super) mod config {
         /// Are we using the left, right, or both data slots?
         #[allow(dead_code)]
         pub(super) slot_mask: PdmSlotMask,
+
+        /// High pass filter
+        #[cfg(esp_idf_soc_i2s_supports_pdm_rx_hp_filter)]
+        pub(super) high_pass: Option<HighPassFilter>,
     }
+
+    impl PartialEq for PdmRxSlotConfig {
+        #[cfg(not(esp_idf_soc_i2s_supports_pdm_rx_hp_filter))]
+        fn eq(&self, other: &Self) -> bool {
+            self.data_bit_width == other.data_bit_width
+                && self.slot_bit_width == other.slot_bit_width
+                && self.slot_mode == other.slot_mode
+                && self.slot_mask == other.slot_mask
+        }
+
+        /// Note: Ignoring the high_pass filter that contains a f32 for eq compairson and only checking if its set or not.
+        #[cfg(esp_idf_soc_i2s_supports_pdm_rx_hp_filter)]
+        fn eq(&self, other: &Self) -> bool {
+            self.data_bit_width == other.data_bit_width
+                && self.slot_bit_width == other.slot_bit_width
+                && self.slot_mode == other.slot_mode
+                && self.slot_mask == other.slot_mask
+                && self.high_pass.is_some() == other.high_pass.is_some()
+        }
+    }
+
+    impl Eq for PdmRxSlotConfig {}
 
     impl PdmRxSlotConfig {
         /// Configure the PDM mode channel receive slot configuration for the specified bits per sample and slot mode
@@ -461,6 +489,8 @@ pub(super) mod config {
                 slot_bit_width: SlotBitWidth::Auto,
                 slot_mode,
                 slot_mask,
+                #[cfg(esp_idf_soc_i2s_supports_pdm_rx_hp_filter)]
+                high_pass: None,
             }
         }
 
@@ -486,6 +516,13 @@ pub(super) mod config {
             self
         }
 
+        #[cfg(esp_idf_soc_i2s_supports_pdm_rx_hp_filter)]
+        /// Set the PDM high pass filter
+        pub fn high_pass_filter(mut self, filter: Option<HighPassFilter>) -> Self {
+            self.high_pass = filter;
+            self
+        }
+
         /// Convert this PDM mode channel receive slot configuration into the ESP-IDF SDK `i2s_pdm_rx_slot_config_t`
         /// representation.
         #[cfg(esp_idf_soc_i2s_supports_pdm_rx)]
@@ -496,6 +533,20 @@ pub(super) mod config {
                 slot_bit_width: self.slot_bit_width.as_sdk(),
                 slot_mode: self.slot_mode.as_sdk(),
                 slot_mask: self.slot_mask.as_sdk(),
+                #[cfg(esp_idf_soc_i2s_supports_pdm_rx_hp_filter)]
+                hp_en: self.high_pass.is_some(),
+                #[cfg(esp_idf_soc_i2s_supports_pdm_rx_hp_filter)]
+                hp_cut_off_freq_hz: if let Some(filter) = self.high_pass {
+                    filter.cut_off_freq
+                } else {
+                    185.0
+                },
+                #[cfg(esp_idf_soc_i2s_supports_pdm_rx_hp_filter)]
+                amplify_num: if let Some(filter) = self.high_pass {
+                    filter.amplify_num
+                } else {
+                    1
+                },
             }
         }
     }
@@ -564,6 +615,40 @@ pub(super) mod config {
                 Self::Right => 1 << 1,
                 Self::Both => (1 << 0) | (1 << 1),
             }
+        }
+    }
+
+    /// PDM RX High Pass Filter
+    #[derive(Clone, Copy, Debug, PartialEq)]
+    pub struct HighPassFilter {
+        /// High pass filter cut-off frequency, range 23.3Hz ~ 185Hz
+        pub(super) cut_off_freq: f32,
+
+        /// The amplification number of the final conversion result
+        ///
+        /// The data that have converted from PDM to PCM module, will time `amplify_num` additionally to amplify the final result.
+        /// Note that it's only a multiplier of the digital PCM data, not the gain of the analog signal.
+        /// range 1~15, default 1
+        pub(super) amplify_num: u32,
+    }
+
+    impl HighPassFilter {
+        /// Set the Filter cut off Frequency.
+        ///
+        /// Note: Range between 23.3Hz ~ 185Hz
+        pub fn cut_off_freq(cut_off_freq: f32) -> Self {
+            Self {
+                cut_off_freq,
+                amplify_num: 1,
+            }
+        }
+
+        /// Set the amplification number of the final conversion result
+        ///
+        /// Range: 1-15
+        pub fn amplify_number(mut self, amplify_num: u32) -> Self {
+            self.amplify_num = amplify_num;
+            self
         }
     }
 
