@@ -1,10 +1,6 @@
+//! Analog to Digital Converter peripheral control.
+
 use esp_idf_sys::*;
-
-use crate::gpio::ADCPin;
-
-use crate::peripheral::{Peripheral, PeripheralRef};
-
-pub type AdcConfig = config::Config;
 
 #[cfg(all(
     not(esp_idf_version_major = "4"),
@@ -16,6 +12,9 @@ pub use continuous::{
     AdcDriver as AdcContDriver, AdcMeasurement, Atten11dB, Atten2p5dB, Atten6dB, AttenNone,
     Attenuated, ChainedAdcChannels, EmptyAdcChannels,
 };
+
+#[cfg(any(feature = "adc-oneshot-legacy", esp_idf_version_major = "4"))]
+pub use oneshot_legacy::*;
 
 pub trait Adc: Send {
     fn unit() -> adc_unit_t;
@@ -34,381 +33,403 @@ pub mod attenuation {
     pub const DB_11: adc_atten_t = adc_atten_t_ADC_ATTEN_DB_11;
 }
 
-/// ADC configuration
-pub mod config {
+/// The sampling/readout resolution of the ADC
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+pub enum Resolution {
+    #[cfg(esp32)]
+    Resolution9Bit,
+    #[cfg(esp32)]
+    Resolution10Bit,
+    #[cfg(esp32)]
+    Resolution11Bit,
+    #[cfg(any(esp32, esp32c3, esp32s3, esp32c2, esp32h2, esp32c5, esp32c6, esp32p4))]
+    Resolution12Bit,
+    #[cfg(esp32s2)]
+    Resolution13Bit,
+}
+
+impl Default for Resolution {
+    #[cfg(any(esp32, esp32c3, esp32s3, esp32c2, esp32h2, esp32c5, esp32c6, esp32p4))]
+    fn default() -> Self {
+        Self::Resolution12Bit
+    }
+
+    #[cfg(esp32s2)]
+    fn default() -> Self {
+        Self::Resolution13Bit
+    }
+}
+
+impl From<Resolution> for adc_bits_width_t {
+    fn from(resolution: Resolution) -> Self {
+        match resolution {
+            #[cfg(esp32)]
+            Resolution::Resolution9Bit => adc_bits_width_t_ADC_WIDTH_BIT_9,
+            #[cfg(esp32)]
+            Resolution::Resolution10Bit => adc_bits_width_t_ADC_WIDTH_BIT_10,
+            #[cfg(esp32)]
+            Resolution::Resolution11Bit => adc_bits_width_t_ADC_WIDTH_BIT_11,
+            #[cfg(any(esp32, esp32s3, esp32c3, esp32c2, esp32h2, esp32c5, esp32c6, esp32p4))]
+            Resolution::Resolution12Bit => adc_bits_width_t_ADC_WIDTH_BIT_12,
+            #[cfg(esp32s2)]
+            Resolution::Resolution13Bit => adc_bits_width_t_ADC_WIDTH_BIT_13,
+        }
+    }
+}
+
+#[cfg(any(feature = "adc-oneshot-legacy", esp_idf_version_major = "4"))]
+mod oneshot_legacy {
     use esp_idf_sys::*;
 
-    /// The sampling/readout resolution of the ADC
-    #[derive(Debug, PartialEq, Eq, Clone, Copy)]
-    pub enum Resolution {
-        #[cfg(esp32)]
-        Resolution9Bit,
-        #[cfg(esp32)]
-        Resolution10Bit,
-        #[cfg(esp32)]
-        Resolution11Bit,
-        #[cfg(any(esp32, esp32c3, esp32s3, esp32c2, esp32h2, esp32c5, esp32c6, esp32p4))]
-        Resolution12Bit,
-        #[cfg(esp32s2)]
-        Resolution13Bit,
-    }
+    use crate::gpio::ADCPin;
 
-    impl Default for Resolution {
-        #[cfg(any(esp32, esp32c3, esp32s3, esp32c2, esp32h2, esp32c5, esp32c6, esp32p4))]
-        fn default() -> Self {
-            Self::Resolution12Bit
+    use crate::peripheral::{Peripheral, PeripheralRef};
+
+    use super::{to_nb_err, Adc};
+
+    pub type AdcConfig = config::Config;
+
+    /// ADC configuration
+    pub mod config {
+        pub use crate::adc::Resolution;
+
+        #[derive(Debug, Copy, Clone, Default)]
+        pub struct Config {
+            pub resolution: Resolution,
+            #[cfg(any(esp_idf_comp_esp_adc_cal_enabled, esp_idf_comp_esp_adc_enabled))]
+            pub calibration: bool,
         }
 
-        #[cfg(esp32s2)]
-        fn default() -> Self {
-            Self::Resolution13Bit
-        }
-    }
+        impl Config {
+            pub fn new() -> Self {
+                Default::default()
+            }
 
-    impl From<Resolution> for adc_bits_width_t {
-        fn from(resolution: Resolution) -> Self {
-            match resolution {
-                #[cfg(esp32)]
-                Resolution::Resolution9Bit => adc_bits_width_t_ADC_WIDTH_BIT_9,
-                #[cfg(esp32)]
-                Resolution::Resolution10Bit => adc_bits_width_t_ADC_WIDTH_BIT_10,
-                #[cfg(esp32)]
-                Resolution::Resolution11Bit => adc_bits_width_t_ADC_WIDTH_BIT_11,
-                #[cfg(any(esp32, esp32s3, esp32c3, esp32c2, esp32h2, esp32c5, esp32c6, esp32p4))]
-                Resolution::Resolution12Bit => adc_bits_width_t_ADC_WIDTH_BIT_12,
-                #[cfg(esp32s2)]
-                Resolution::Resolution13Bit => adc_bits_width_t_ADC_WIDTH_BIT_13,
+            #[must_use]
+            pub fn resolution(mut self, resolution: Resolution) -> Self {
+                self.resolution = resolution;
+                self
+            }
+
+            #[cfg(any(esp_idf_comp_esp_adc_cal_enabled, esp_idf_comp_esp_adc_enabled))]
+            #[must_use]
+            pub fn calibration(mut self, calibration: bool) -> Self {
+                self.calibration = calibration;
+                self
             }
         }
     }
 
-    #[derive(Debug, Copy, Clone, Default)]
-    pub struct Config {
-        pub resolution: Resolution,
-        #[cfg(any(esp_idf_comp_esp_adc_cal_enabled, esp_idf_comp_esp_adc_enabled))]
-        pub calibration: bool,
+    pub struct AdcChannelDriver<'d, const A: adc_atten_t, T: ADCPin> {
+        pin: PeripheralRef<'d, T>,
     }
 
-    impl Config {
-        pub fn new() -> Self {
-            Default::default()
+    impl<'d, const A: adc_atten_t, T: ADCPin> AdcChannelDriver<'d, A, T> {
+        pub fn new(pin: impl Peripheral<P = T> + 'd) -> Result<Self, EspError> {
+            crate::into_ref!(pin);
+
+            unsafe {
+                crate::gpio::rtc_reset_pin(pin.pin())?;
+            }
+
+            if T::Adc::unit() == adc_unit_t_ADC_UNIT_1 {
+                esp!(unsafe { adc1_config_channel_atten(pin.adc_channel(), A) })?;
+            } else {
+                #[cfg(not(any(esp32c2, esp32h2, esp32c5, esp32c6, esp32p4)))]
+                esp!(unsafe { adc2_config_channel_atten(pin.adc_channel(), A) })?;
+
+                #[cfg(any(esp32c2, esp32h2, esp32c5, esp32c6, esp32p4))]
+                unreachable!();
+            }
+
+            Ok(Self { pin })
         }
 
-        #[must_use]
-        pub fn resolution(mut self, resolution: Resolution) -> Self {
-            self.resolution = resolution;
-            self
-        }
-
-        #[cfg(any(esp_idf_comp_esp_adc_cal_enabled, esp_idf_comp_esp_adc_enabled))]
-        #[must_use]
-        pub fn calibration(mut self, calibration: bool) -> Self {
-            self.calibration = calibration;
-            self
+        fn pin(&mut self) -> &mut PeripheralRef<'d, T> {
+            &mut self.pin
         }
     }
-}
 
-pub struct AdcChannelDriver<'d, const A: adc_atten_t, T: ADCPin> {
-    pin: PeripheralRef<'d, T>,
-}
+    impl<const A: adc_atten_t, T: ADCPin> embedded_hal_0_2::adc::Channel<T::Adc>
+        for AdcChannelDriver<'_, A, T>
+    {
+        type ID = (adc_channel_t, adc_atten_t);
 
-impl<'d, const A: adc_atten_t, T: ADCPin> AdcChannelDriver<'d, A, T> {
-    pub fn new(pin: impl Peripheral<P = T> + 'd) -> Result<Self, EspError> {
-        crate::into_ref!(pin);
-
-        unsafe {
-            crate::gpio::rtc_reset_pin(pin.pin())?;
+        fn channel() -> Self::ID {
+            (T::CHANNEL, A)
         }
-
-        if T::Adc::unit() == adc_unit_t_ADC_UNIT_1 {
-            esp!(unsafe { adc1_config_channel_atten(pin.adc_channel(), A) })?;
-        } else {
-            #[cfg(not(any(esp32c2, esp32h2, esp32c5, esp32c6, esp32p4)))]
-            esp!(unsafe { adc2_config_channel_atten(pin.adc_channel(), A) })?;
-
-            #[cfg(any(esp32c2, esp32h2, esp32c5, esp32c6, esp32p4))]
-            unreachable!();
-        }
-
-        Ok(Self { pin })
     }
 
-    fn pin(&mut self) -> &mut PeripheralRef<'d, T> {
-        &mut self.pin
-    }
-}
-
-impl<'d, const A: adc_atten_t, T: ADCPin> embedded_hal_0_2::adc::Channel<T::Adc>
-    for AdcChannelDriver<'d, A, T>
-{
-    type ID = (adc_channel_t, adc_atten_t);
-
-    fn channel() -> Self::ID {
-        (T::CHANNEL, A)
-    }
-}
-
-pub struct AdcDriver<'d, ADC: Adc> {
-    _adc: PeripheralRef<'d, ADC>,
-    #[allow(dead_code)]
-    resolution: config::Resolution,
-    #[cfg(all(
-        any(esp32, esp32s2, esp32s3, esp32c3),
-        any(esp_idf_comp_esp_adc_cal_enabled, esp_idf_comp_esp_adc_enabled)
-    ))]
-    cal_characteristics:
-        Option<[Option<esp_adc_cal_characteristics_t>; adc_atten_t_ADC_ATTEN_DB_11 as usize + 1]>,
-}
-
-unsafe impl<'d, ADC: Adc> Send for AdcDriver<'d, ADC> {}
-
-impl<'d, ADC: Adc> AdcDriver<'d, ADC> {
-    #[cfg(all(
-        esp32,
-        any(esp_idf_comp_esp_adc_cal_enabled, esp_idf_comp_esp_adc_enabled)
-    ))]
-    const CALIBRATION_SCHEME: esp_adc_cal_value_t = esp_adc_cal_value_t_ESP_ADC_CAL_VAL_EFUSE_VREF;
-
-    #[cfg(all(
-        any(esp32c3, esp32s2),
-        any(esp_idf_comp_esp_adc_cal_enabled, esp_idf_comp_esp_adc_enabled)
-    ))]
-    const CALIBRATION_SCHEME: esp_adc_cal_value_t = esp_adc_cal_value_t_ESP_ADC_CAL_VAL_EFUSE_TP;
-
-    #[cfg(all(
-        esp32s3,
-        any(esp_idf_comp_esp_adc_cal_enabled, esp_idf_comp_esp_adc_enabled)
-    ))]
-    const CALIBRATION_SCHEME: esp_adc_cal_value_t =
-        esp_adc_cal_value_t_ESP_ADC_CAL_VAL_EFUSE_TP_FIT;
-
-    #[cfg(not(esp32s2))]
-    const MAX_READING: u32 = 4095;
-
-    #[cfg(esp32s2)]
-    const MAX_READING: u32 = 8191;
-
-    pub fn new(
-        adc: impl Peripheral<P = ADC> + 'd,
-        config: &config::Config,
-    ) -> Result<Self, EspError> {
-        crate::into_ref!(adc);
-
+    pub struct AdcDriver<'d, ADC: Adc> {
+        _adc: PeripheralRef<'d, ADC>,
+        #[allow(dead_code)]
+        resolution: config::Resolution,
         #[cfg(all(
             any(esp32, esp32s2, esp32s3, esp32c3),
             any(esp_idf_comp_esp_adc_cal_enabled, esp_idf_comp_esp_adc_enabled)
         ))]
-        if config.calibration {
-            esp!(unsafe { esp_adc_cal_check_efuse(Self::CALIBRATION_SCHEME) })?;
-        }
+        cal_characteristics: Option<
+            [Option<esp_adc_cal_characteristics_t>; adc_atten_t_ADC_ATTEN_DB_11 as usize + 1],
+        >,
+    }
 
-        if ADC::unit() == adc_unit_t_ADC_UNIT_1 {
-            esp!(unsafe { adc1_config_width(config.resolution.into()) })?;
-        }
+    unsafe impl<ADC: Adc> Send for AdcDriver<'_, ADC> {}
 
-        Ok(Self {
-            _adc: adc,
-            resolution: config.resolution,
+    impl<'d, ADC: Adc> AdcDriver<'d, ADC> {
+        #[cfg(all(
+            esp32,
+            any(esp_idf_comp_esp_adc_cal_enabled, esp_idf_comp_esp_adc_enabled)
+        ))]
+        const CALIBRATION_SCHEME: esp_adc_cal_value_t =
+            esp_adc_cal_value_t_ESP_ADC_CAL_VAL_EFUSE_VREF;
+
+        #[cfg(all(
+            any(esp32c3, esp32s2),
+            any(esp_idf_comp_esp_adc_cal_enabled, esp_idf_comp_esp_adc_enabled)
+        ))]
+        const CALIBRATION_SCHEME: esp_adc_cal_value_t =
+            esp_adc_cal_value_t_ESP_ADC_CAL_VAL_EFUSE_TP;
+
+        #[cfg(all(
+            esp32s3,
+            any(esp_idf_comp_esp_adc_cal_enabled, esp_idf_comp_esp_adc_enabled)
+        ))]
+        const CALIBRATION_SCHEME: esp_adc_cal_value_t =
+            esp_adc_cal_value_t_ESP_ADC_CAL_VAL_EFUSE_TP_FIT;
+
+        #[cfg(not(esp32s2))]
+        const MAX_READING: u32 = 4095;
+
+        #[cfg(esp32s2)]
+        const MAX_READING: u32 = 8191;
+
+        pub fn new(
+            adc: impl Peripheral<P = ADC> + 'd,
+            config: &config::Config,
+        ) -> Result<Self, EspError> {
+            crate::into_ref!(adc);
+
             #[cfg(all(
                 any(esp32, esp32s2, esp32s3, esp32c3),
                 any(esp_idf_comp_esp_adc_cal_enabled, esp_idf_comp_esp_adc_enabled)
             ))]
-            cal_characteristics: if config.calibration {
-                Some(Default::default())
-            } else {
-                None
-            },
-        })
-    }
-
-    #[inline(always)]
-    pub fn read<const A: adc_atten_t, T>(
-        &mut self,
-        pin: &mut AdcChannelDriver<'_, A, T>,
-    ) -> Result<u16, EspError>
-    where
-        T: ADCPin<Adc = ADC>,
-    {
-        self.read_internal(ADC::unit(), pin.pin().adc_channel(), A)
-    }
-
-    #[inline(always)]
-    pub fn read_raw<const A: adc_atten_t, T>(
-        &mut self,
-        pin: &mut AdcChannelDriver<'_, A, T>,
-    ) -> Result<u16, EspError>
-    where
-        T: ADCPin<Adc = ADC>,
-    {
-        self.read_internal_raw(ADC::unit(), pin.pin().adc_channel())
-    }
-
-    #[inline(always)]
-    #[cfg(all(esp32, esp_idf_version_major = "4"))]
-    pub fn read_hall(
-        &mut self,
-        hall_sensor: &mut crate::hall::HallSensor,
-    ) -> Result<u16, EspError> {
-        let measurement = self.read_hall_raw(hall_sensor);
-
-        self.raw_to_voltage(measurement, adc_atten_t_ADC_ATTEN_DB_0)
-    }
-
-    #[inline(always)]
-    #[cfg(all(esp32, esp_idf_version_major = "4"))]
-    pub fn read_hall_raw(&mut self, _hall_sensor: &mut crate::hall::HallSensor) -> u16 {
-        unsafe { hall_sensor_read() as u16 }
-    }
-
-    #[inline(always)]
-    fn read_internal(
-        &mut self,
-        unit: adc_unit_t,
-        channel: adc_channel_t,
-        atten: adc_atten_t,
-    ) -> Result<u16, EspError> {
-        let measurement = self.read_internal_raw(unit, channel)?;
-        self.raw_to_voltage(measurement, atten)
-    }
-
-    #[inline(always)]
-    fn read_internal_raw(
-        &mut self,
-        unit: adc_unit_t,
-        channel: adc_channel_t,
-    ) -> Result<u16, EspError> {
-        if unit == adc_unit_t_ADC_UNIT_1 {
-            Ok(unsafe { adc1_get_raw(channel) } as _)
-        } else {
-            #[cfg(not(any(esp32c2, esp32h2, esp32c5, esp32c6, esp32p4)))]
-            {
-                let mut measurement = 0;
-                esp!(unsafe { adc2_get_raw(channel, self.resolution.into(), &mut measurement) })?;
-
-                Ok(measurement as _)
+            if config.calibration {
+                esp!(unsafe { esp_adc_cal_check_efuse(Self::CALIBRATION_SCHEME) })?;
             }
 
-            #[cfg(any(esp32c2, esp32h2, esp32c5, esp32c6, esp32p4))]
-            unreachable!();
-        }
-    }
+            if ADC::unit() == adc_unit_t_ADC_UNIT_1 {
+                esp!(unsafe { adc1_config_width(config.resolution.into()) })?;
+            }
 
-    #[inline(always)]
-    fn raw_to_voltage(
-        &mut self,
-        measurement: u16,
-        attenuation: adc_atten_t,
-    ) -> Result<u16, EspError> {
+            Ok(Self {
+                _adc: adc,
+                resolution: config.resolution,
+                #[cfg(all(
+                    any(esp32, esp32s2, esp32s3, esp32c3),
+                    any(esp_idf_comp_esp_adc_cal_enabled, esp_idf_comp_esp_adc_enabled)
+                ))]
+                cal_characteristics: if config.calibration {
+                    Some(Default::default())
+                } else {
+                    None
+                },
+            })
+        }
+
+        #[inline(always)]
+        pub fn read<const A: adc_atten_t, T>(
+            &mut self,
+            pin: &mut AdcChannelDriver<'_, A, T>,
+        ) -> Result<u16, EspError>
+        where
+            T: ADCPin<Adc = ADC>,
+        {
+            self.read_internal(ADC::unit(), pin.pin().adc_channel(), A)
+        }
+
+        #[inline(always)]
+        pub fn read_raw<const A: adc_atten_t, T>(
+            &mut self,
+            pin: &mut AdcChannelDriver<'_, A, T>,
+        ) -> Result<u16, EspError>
+        where
+            T: ADCPin<Adc = ADC>,
+        {
+            self.read_internal_raw(ADC::unit(), pin.pin().adc_channel())
+        }
+
+        #[inline(always)]
+        #[cfg(all(esp32, esp_idf_version_major = "4"))]
+        pub fn read_hall(
+            &mut self,
+            hall_sensor: &mut crate::hall::HallSensor,
+        ) -> Result<u16, EspError> {
+            let measurement = self.read_hall_raw(hall_sensor);
+
+            self.raw_to_voltage(measurement, adc_atten_t_ADC_ATTEN_DB_0)
+        }
+
+        #[inline(always)]
+        #[cfg(all(esp32, esp_idf_version_major = "4"))]
+        pub fn read_hall_raw(&mut self, _hall_sensor: &mut crate::hall::HallSensor) -> u16 {
+            unsafe { hall_sensor_read() as u16 }
+        }
+
+        #[inline(always)]
+        fn read_internal(
+            &mut self,
+            unit: adc_unit_t,
+            channel: adc_channel_t,
+            atten: adc_atten_t,
+        ) -> Result<u16, EspError> {
+            let measurement = self.read_internal_raw(unit, channel)?;
+            self.raw_to_voltage(measurement, atten)
+        }
+
+        #[inline(always)]
+        fn read_internal_raw(
+            &mut self,
+            unit: adc_unit_t,
+            channel: adc_channel_t,
+        ) -> Result<u16, EspError> {
+            if unit == adc_unit_t_ADC_UNIT_1 {
+                Ok(unsafe { adc1_get_raw(channel) } as _)
+            } else {
+                #[cfg(not(any(esp32c2, esp32h2, esp32c5, esp32c6, esp32p4)))]
+                {
+                    let mut measurement = 0;
+                    esp!(unsafe {
+                        adc2_get_raw(channel, self.resolution.into(), &mut measurement)
+                    })?;
+
+                    Ok(measurement as _)
+                }
+
+                #[cfg(any(esp32c2, esp32h2, esp32c5, esp32c6, esp32p4))]
+                unreachable!();
+            }
+        }
+
+        #[inline(always)]
+        fn raw_to_voltage(
+            &mut self,
+            measurement: u16,
+            attenuation: adc_atten_t,
+        ) -> Result<u16, EspError> {
+            #[cfg(all(
+                any(esp32, esp32s2, esp32s3, esp32c3),
+                any(esp_idf_comp_esp_adc_cal_enabled, esp_idf_comp_esp_adc_enabled)
+            ))]
+            let mv = if let Some(cal) = self.get_cal_characteristics(attenuation)? {
+                unsafe { esp_adc_cal_raw_to_voltage(measurement as u32, &cal) as u16 }
+            } else {
+                (measurement as u32 * Self::get_max_mv(attenuation) / Self::MAX_READING) as u16
+            };
+
+            #[cfg(not(all(
+                any(esp32, esp32s2, esp32s3, esp32c3),
+                any(esp_idf_comp_esp_adc_cal_enabled, esp_idf_comp_esp_adc_enabled)
+            )))]
+            let mv =
+                (measurement as u32 * Self::get_max_mv(attenuation) / Self::MAX_READING) as u16;
+
+            Ok(mv)
+        }
+
+        #[inline(always)]
+        #[allow(non_upper_case_globals)]
+        fn get_max_mv(attenuation: adc_atten_t) -> u32 {
+            #[cfg(esp32)]
+            let mv = match attenuation {
+                adc_atten_t_ADC_ATTEN_DB_0 => 950,
+                adc_atten_t_ADC_ATTEN_DB_2_5 => 1250,
+                adc_atten_t_ADC_ATTEN_DB_6 => 1750,
+                adc_atten_t_ADC_ATTEN_DB_11 => 2450,
+                other => panic!("Unknown attenuation: {}", other),
+            };
+
+            #[cfg(any(esp32c3, esp32s2, esp32c2, esp32h2, esp32c5, esp32c6, esp32p4))]
+            let mv = match attenuation {
+                adc_atten_t_ADC_ATTEN_DB_0 => 750,
+                adc_atten_t_ADC_ATTEN_DB_2_5 => 1050,
+                adc_atten_t_ADC_ATTEN_DB_6 => 1300,
+                adc_atten_t_ADC_ATTEN_DB_11 => 2500,
+                other => panic!("Unknown attenuation: {}", other),
+            };
+
+            #[cfg(esp32s3)]
+            let mv = match attenuation {
+                adc_atten_t_ADC_ATTEN_DB_0 => 950,
+                adc_atten_t_ADC_ATTEN_DB_2_5 => 1250,
+                adc_atten_t_ADC_ATTEN_DB_6 => 1750,
+                adc_atten_t_ADC_ATTEN_DB_11 => 3100,
+                other => panic!("Unknown attenuation: {}", other),
+            };
+
+            mv
+        }
+
         #[cfg(all(
             any(esp32, esp32s2, esp32s3, esp32c3),
             any(esp_idf_comp_esp_adc_cal_enabled, esp_idf_comp_esp_adc_enabled)
         ))]
-        let mv = if let Some(cal) = self.get_cal_characteristics(attenuation)? {
-            unsafe { esp_adc_cal_raw_to_voltage(measurement as u32, &cal) as u16 }
-        } else {
-            (measurement as u32 * Self::get_max_mv(attenuation) / Self::MAX_READING) as u16
-        };
+        fn get_cal_characteristics(
+            &mut self,
+            attenuation: adc_atten_t,
+        ) -> Result<Option<esp_adc_cal_characteristics_t>, EspError> {
+            if let Some(characteristics) = &mut self.cal_characteristics {
+                if let Some(cal) = characteristics[attenuation as usize] {
+                    Ok(Some(cal))
+                } else {
+                    esp!(unsafe { esp_adc_cal_check_efuse(Self::CALIBRATION_SCHEME) })?;
 
-        #[cfg(not(all(
-            any(esp32, esp32s2, esp32s3, esp32c3),
-            any(esp_idf_comp_esp_adc_cal_enabled, esp_idf_comp_esp_adc_enabled)
-        )))]
-        let mv = (measurement as u32 * Self::get_max_mv(attenuation) / Self::MAX_READING) as u16;
+                    let mut cal: esp_adc_cal_characteristics_t = Default::default();
+                    unsafe {
+                        esp_adc_cal_characterize(
+                            ADC::unit(),
+                            attenuation,
+                            self.resolution.into(),
+                            0,
+                            &mut cal,
+                        )
+                    };
 
-        Ok(mv)
-    }
+                    characteristics[attenuation as usize] = Some(cal);
 
-    #[inline(always)]
-    #[allow(non_upper_case_globals)]
-    fn get_max_mv(attenuation: adc_atten_t) -> u32 {
-        #[cfg(esp32)]
-        let mv = match attenuation {
-            adc_atten_t_ADC_ATTEN_DB_0 => 950,
-            adc_atten_t_ADC_ATTEN_DB_2_5 => 1250,
-            adc_atten_t_ADC_ATTEN_DB_6 => 1750,
-            adc_atten_t_ADC_ATTEN_DB_11 => 2450,
-            other => panic!("Unknown attenuation: {}", other),
-        };
-
-        #[cfg(any(esp32c3, esp32s2, esp32c2, esp32h2, esp32c5, esp32c6, esp32p4))]
-        let mv = match attenuation {
-            adc_atten_t_ADC_ATTEN_DB_0 => 750,
-            adc_atten_t_ADC_ATTEN_DB_2_5 => 1050,
-            adc_atten_t_ADC_ATTEN_DB_6 => 1300,
-            adc_atten_t_ADC_ATTEN_DB_11 => 2500,
-            other => panic!("Unknown attenuation: {}", other),
-        };
-
-        #[cfg(esp32s3)]
-        let mv = match attenuation {
-            adc_atten_t_ADC_ATTEN_DB_0 => 950,
-            adc_atten_t_ADC_ATTEN_DB_2_5 => 1250,
-            adc_atten_t_ADC_ATTEN_DB_6 => 1750,
-            adc_atten_t_ADC_ATTEN_DB_11 => 3100,
-            other => panic!("Unknown attenuation: {}", other),
-        };
-
-        mv
-    }
-
-    #[cfg(all(
-        any(esp32, esp32s2, esp32s3, esp32c3),
-        any(esp_idf_comp_esp_adc_cal_enabled, esp_idf_comp_esp_adc_enabled)
-    ))]
-    fn get_cal_characteristics(
-        &mut self,
-        attenuation: adc_atten_t,
-    ) -> Result<Option<esp_adc_cal_characteristics_t>, EspError> {
-        if let Some(characteristics) = &mut self.cal_characteristics {
-            if let Some(cal) = characteristics[attenuation as usize] {
-                Ok(Some(cal))
+                    Ok(Some(cal))
+                }
             } else {
-                esp!(unsafe { esp_adc_cal_check_efuse(Self::CALIBRATION_SCHEME) })?;
-
-                let mut cal: esp_adc_cal_characteristics_t = Default::default();
-                unsafe {
-                    esp_adc_cal_characterize(
-                        ADC::unit(),
-                        attenuation,
-                        self.resolution.into(),
-                        0,
-                        &mut cal,
-                    )
-                };
-
-                characteristics[attenuation as usize] = Some(cal);
-
-                Ok(Some(cal))
+                Ok(None)
             }
-        } else {
-            Ok(None)
         }
     }
-}
 
-impl<'d, 'c, const A: adc_atten_t, T>
-    embedded_hal_0_2::adc::OneShot<T::Adc, u16, AdcChannelDriver<'c, A, T>>
-    for AdcDriver<'d, T::Adc>
-where
-    T: ADCPin,
-{
-    type Error = EspError;
+    impl<'c, const A: adc_atten_t, T>
+        embedded_hal_0_2::adc::OneShot<T::Adc, u16, AdcChannelDriver<'c, A, T>>
+        for AdcDriver<'_, T::Adc>
+    where
+        T: ADCPin,
+    {
+        type Error = EspError;
 
-    fn read(&mut self, pin: &mut AdcChannelDriver<'c, A, T>) -> nb::Result<u16, Self::Error> {
-        self.read_internal(T::Adc::unit(), pin.pin.adc_channel(), A)
-            .map_err(to_nb_err)
+        fn read(&mut self, pin: &mut AdcChannelDriver<'c, A, T>) -> nb::Result<u16, Self::Error> {
+            self.read_internal(T::Adc::unit(), pin.pin.adc_channel(), A)
+                .map_err(to_nb_err)
+        }
     }
-}
 
-#[cfg(all(esp32, esp_idf_version_major = "4"))]
-impl<'d> embedded_hal_0_2::adc::OneShot<ADC1, u16, crate::hall::HallSensor>
-    for AdcDriver<'d, ADC1>
-{
-    type Error = EspError;
+    #[cfg(all(esp32, esp_idf_version_major = "4"))]
+    impl<'d> embedded_hal_0_2::adc::OneShot<super::ADC1, u16, crate::hall::HallSensor>
+        for AdcDriver<'d, super::ADC1>
+    {
+        type Error = EspError;
 
-    fn read(&mut self, hall_sensor: &mut crate::hall::HallSensor) -> nb::Result<u16, Self::Error> {
-        AdcDriver::read_hall(self, hall_sensor).map_err(to_nb_err)
+        fn read(
+            &mut self,
+            hall_sensor: &mut crate::hall::HallSensor,
+        ) -> nb::Result<u16, Self::Error> {
+            AdcDriver::read_hall(self, hall_sensor).map_err(to_nb_err)
+        }
     }
 }
 
@@ -437,7 +458,42 @@ impl_adc!(ADC1: adc_unit_t_ADC_UNIT_1);
 #[cfg(not(any(esp32c2, esp32h2, esp32c5, esp32c6, esp32p4)))] // TODO: Check for esp32c5 and esp32p4
 impl_adc!(ADC2: adc_unit_t_ADC_UNIT_2);
 
-#[cfg(all(not(esp_idf_version_major = "4"), esp_idf_comp_esp_adc_enabled))]
+/// One-shot ADC module
+/// Example: reading a value form a pin and printing it on the terminal
+/// ```
+/// use std::thread;
+/// use std::time::Duration;
+///
+/// fn main() -> anyhow::Result<()> {
+///     use esp_idf_hal::adc::attenuation::DB_11;
+///     use esp_idf_hal::adc::oneshot::config::AdcChannelConfig;
+///     use esp_idf_hal::adc::oneshot::*;
+///     use esp_idf_hal::peripherals::Peripherals;
+///
+///     let peripherals = Peripherals::take()?;
+///     let adc = AdcDriver::new(peripherals.adc1)?;
+///
+///     /// configuring pin to analog read, you can regulate the adc input voltage range depending on your need
+///     /// for this example we use the attenuation of 11db which sets the input voltage range to around 0-3.6V
+///     let config = AdcChannelConfig {
+///         attenuation: DB_11,
+///         calibration: true,
+///         ..Default::default()
+///     };
+///     let mut adc_pin = AdcChannelDriver::new(&adc, peripherals.pins.gpio2, &config)?;
+///
+///     loop {
+///         /// you can change the sleep duration depending on how often you want to sample
+///         thread::sleep(Duration::from_millis(100));
+///         println!("ADC value: {}", adc.read(&mut adc_pin)?);
+///     }
+/// }
+/// ```
+#[cfg(all(
+    not(feature = "adc-oneshot-legacy"),
+    not(esp_idf_version_major = "4"),
+    esp_idf_comp_esp_adc_enabled
+))]
 pub mod oneshot {
     use core::borrow::Borrow;
 
@@ -448,13 +504,13 @@ pub mod oneshot {
     use crate::peripheral::PeripheralRef;
 
     use super::attenuation::adc_atten_t;
-    use super::config::Resolution;
     use super::to_nb_err;
     use super::Adc;
 
     pub mod config {
         use super::adc_atten_t;
-        use super::Resolution;
+
+        pub use crate::adc::Resolution;
 
         #[derive(Debug, Copy, Clone, Default)]
         pub struct AdcChannelConfig {
@@ -741,7 +797,7 @@ pub mod oneshot {
         }
     }
 
-    impl<'d, ADC: Adc> Drop for AdcDriver<'d, ADC> {
+    impl<ADC: Adc> Drop for AdcDriver<'_, ADC> {
         fn drop(&mut self) {
             unsafe { esp!(adc_oneshot_del_unit(self.handle)) }.unwrap();
         }
@@ -760,10 +816,45 @@ pub mod oneshot {
         }
     }
 
-    unsafe impl<'d, ADC: Adc> Send for AdcDriver<'d, ADC> {}
-    unsafe impl<'d, ADC: Adc> Sync for AdcDriver<'d, ADC> {}
+    unsafe impl<ADC: Adc> Send for AdcDriver<'_, ADC> {}
+    unsafe impl<ADC: Adc> Sync for AdcDriver<'_, ADC> {}
 }
 
+/// Continuous ADC module
+/// Example: continuously reading value from a pin
+/// ```
+/// use ::log::{info, debug};
+///
+/// fn main() -> anyhow::Result<()> {
+///     use esp_idf_svc::hal::adc::{AdcContConfig, AdcContDriver, AdcMeasurement, Attenuated};
+///     use esp_idf_svc::hal::modem::Modem;
+///     use esp_idf_svc::hal::peripherals::Peripherals;
+///     use esp_idf_svc::sys::EspError;
+///
+///     esp_idf_svc::sys::link_patches();
+///     esp_idf_svc::log::EspLogger::initialize_default();
+///
+///     let peripherals = Peripherals::take()?;
+///     let config = AdcContConfig::default();
+///
+///     let adc_1_channel_0 = Attenuated::db11(peripherals.pins.gpio0);
+///     let mut adc = AdcContDriver::new(peripherals.adc1, &config, adc_1_channel_0)?;
+///
+///     adc.start()?;
+///
+///     /// Default to just read 100 measurements per each read
+///     let mut samples = [AdcMeasurement::default(); 100];
+///
+///     loop {
+///         if let Ok(num_read) = adc.read(&mut samples, 10) {
+///             debug!("Read {} measurement.", num_read);
+///             for index in 0..num_read {
+///                 debug!("{}", samples[index].data());
+///             }
+///         }
+///     }
+/// }
+/// ```
 #[cfg(all(
     not(esp_idf_version_major = "4"),
     not(esp32c2),
@@ -784,6 +875,8 @@ pub mod continuous {
 
     use super::{attenuation, Adc};
 
+    /// Set ADC attenuation level
+    /// Example: let pin = Attenuated::db11(peripherals.pins.gpio0);
     pub struct Attenuated<const A: adc_atten_t, T>(T);
 
     impl<T> Attenuated<{ attenuation::NONE }, T> {
@@ -830,30 +923,36 @@ pub mod continuous {
         fn iter(&self) -> Self::Iterator<'_>;
     }
 
-    impl<'d, P> AdcChannels for P
+    impl<P> AdcChannels for P
     where
         P: Peripheral,
-        P::P: ADCPin + 'd,
+        P::P: ADCPin,
     {
         type Adc = <<P as Peripheral>::P as ADCPin>::Adc;
 
-        type Iterator<'a> = core::iter::Once<(adc_channel_t, adc_atten_t)> where Self: 'a;
+        type Iterator<'a>
+            = core::iter::Once<(adc_channel_t, adc_atten_t)>
+        where
+            Self: 'a;
 
         fn iter(&self) -> Self::Iterator<'_> {
             core::iter::once((P::P::CHANNEL, attenuation::NONE))
         }
     }
 
-    impl<'d, const A: adc_atten_t, C> AdcChannels for Attenuated<A, C>
+    impl<const A: adc_atten_t, C> AdcChannels for Attenuated<A, C>
     where
-        C: AdcChannels + 'd,
+        C: AdcChannels,
     {
         type Adc = C::Adc;
 
-        type Iterator<'a> = core::iter::Map<
+        type Iterator<'a>
+            = core::iter::Map<
             C::Iterator<'a>,
             fn((adc_channel_t, adc_atten_t)) -> (adc_channel_t, adc_atten_t),
-        > where Self: 'a;
+        >
+        where
+            Self: 'a;
 
         fn iter(&self) -> Self::Iterator<'_> {
             self.0.iter().map(Attenuated::<A, C>::atten)
@@ -868,7 +967,14 @@ pub mod continuous {
     {
         type Adc = C::Adc;
 
-        type Iterator<'a> = core::iter::FlatMap<core::slice::Iter<'a, C>, <C as AdcChannels>::Iterator<'a>, fn(&'a C) -> C::Iterator<'a>> where Self: 'a;
+        type Iterator<'a>
+            = core::iter::FlatMap<
+            core::slice::Iter<'a, C>,
+            <C as AdcChannels>::Iterator<'a>,
+            fn(&'a C) -> C::Iterator<'a>,
+        >
+        where
+            Self: 'a;
 
         fn iter(&self) -> Self::Iterator<'_> {
             self.0.iter().flat_map(AdcChannels::iter)
@@ -896,7 +1002,10 @@ pub mod continuous {
     {
         type Adc = A;
 
-        type Iterator<'a> = core::iter::Empty<(adc_channel_t, adc_atten_t)> where Self: 'a;
+        type Iterator<'a>
+            = core::iter::Empty<(adc_channel_t, adc_atten_t)>
+        where
+            Self: 'a;
 
         fn iter(&self) -> Self::Iterator<'_> {
             core::iter::empty()
@@ -929,7 +1038,10 @@ pub mod continuous {
     {
         type Adc = F::Adc;
 
-        type Iterator<'a> = core::iter::Chain<F::Iterator<'a>, S::Iterator<'a>> where Self: 'a;
+        type Iterator<'a>
+            = core::iter::Chain<F::Iterator<'a>, S::Iterator<'a>>
+        where
+            Self: 'a;
 
         fn iter(&self) -> Self::Iterator<'_> {
             self.first.iter().chain(self.second.iter())
@@ -1037,6 +1149,11 @@ pub mod continuous {
     pub mod config {
         use crate::units::*;
 
+        /// ADC continuous mode driver configurations.
+        /// The default configuration is:
+        /// * [`sample_freq`][Config::sample_freq]: 2000 Hz
+        /// * [`frame_measurements`][Config::frame_measurements]: 100
+        /// * [`frames_count`][Config::frames_count]: 10
         #[derive(Debug, Copy, Clone)]
         pub struct Config {
             pub sample_freq: Hertz,
@@ -1086,6 +1203,7 @@ pub mod continuous {
     }
 
     impl<'d> AdcDriver<'d> {
+        /// Initialize ADC continuous driver with configuration and channels.
         #[cfg(esp32)]
         pub fn new(
             adc: impl Peripheral<P = super::ADC1> + 'd,
@@ -1096,6 +1214,7 @@ pub mod continuous {
             Self::internal_new(adc, config, channels)
         }
 
+        /// Initialize ADC continuous driver with configuration and channels
         #[cfg(esp32s2)]
         pub fn new(
             adc: impl Peripheral<P = super::ADC1> + 'd,
@@ -1106,6 +1225,7 @@ pub mod continuous {
             Self::internal_new(adc, config, channels)
         }
 
+        /// Initialize ADC continuous driver with configuration and channels.
         #[cfg(not(any(esp32, esp32s2)))]
         pub fn new<A: Adc>(
             adc: impl Peripheral<P = A> + 'd,
@@ -1196,22 +1316,27 @@ pub mod continuous {
             })
         }
 
+        /// Get the ADC driver handle.
         pub fn handle(&self) -> adc_continuous_handle_t {
             self.handle
         }
 
+        // Get the ADC unit. ADC1 or ADC2.
         pub fn unit(&self) -> adc_unit_t {
             self.adc as _
         }
 
+        /// Start the ADC under continuous mode and generate results.
         pub fn start(&mut self) -> Result<(), EspError> {
             esp!(unsafe { adc_continuous_start(self.handle) })
         }
 
+        /// Stop the ADC.
         pub fn stop(&mut self) -> Result<(), EspError> {
             esp!(unsafe { adc_continuous_stop(self.handle) })
         }
 
+        /// Read `AdcMeasurements` in continuous mode.
         pub fn read(
             &mut self,
             buf: &mut [AdcMeasurement],
@@ -1232,6 +1357,7 @@ pub mod continuous {
             Ok(read as usize / core::mem::size_of::<AdcMeasurement>())
         }
 
+        /// Read bytes in continuous mode.
         pub fn read_bytes(
             &mut self,
             buf: &mut [u8],
@@ -1291,7 +1417,7 @@ pub mod continuous {
         }
     }
 
-    impl<'d> Drop for AdcDriver<'d> {
+    impl Drop for AdcDriver<'_> {
         fn drop(&mut self) {
             let _ = self.stop();
 
@@ -1300,7 +1426,10 @@ pub mod continuous {
                 esp!(unsafe {
                     adc_continuous_register_event_callbacks(
                         self.handle,
-                        core::ptr::null(),
+                        &adc_continuous_evt_cbs_t {
+                            on_conv_done: None,
+                            on_pool_ovf: None,
+                        },
                         core::ptr::null_mut(),
                     )
                 })
@@ -1314,20 +1443,20 @@ pub mod continuous {
         }
     }
 
-    unsafe impl<'d> Send for AdcDriver<'d> {}
+    unsafe impl Send for AdcDriver<'_> {}
 
-    impl<'d> embedded_io::ErrorType for AdcDriver<'d> {
+    impl embedded_io::ErrorType for AdcDriver<'_> {
         type Error = EspIOError;
     }
 
-    impl<'d> embedded_io::Read for AdcDriver<'d> {
+    impl embedded_io::Read for AdcDriver<'_> {
         fn read(&mut self, buf: &mut [u8]) -> Result<usize, Self::Error> {
             self.read_bytes(buf, delay::BLOCK).map_err(EspIOError)
         }
     }
 
     #[cfg(not(esp_idf_adc_continuous_isr_iram_safe))]
-    impl<'d> embedded_io_async::Read for AdcDriver<'d> {
+    impl embedded_io_async::Read for AdcDriver<'_> {
         async fn read(&mut self, buf: &mut [u8]) -> Result<usize, Self::Error> {
             self.read_bytes_async(buf).await.map_err(EspIOError)
         }

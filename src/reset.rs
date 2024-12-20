@@ -27,6 +27,53 @@ pub enum ResetReason {
     TaskWatchdog,
     /// Reset after exiting deep sleep mode
     DeepSleep,
+    /// Reset by USB peripheral (introduced in IDF v5.1.4)
+    #[cfg(not(any(
+        esp_idf_version_major = "4",
+        all(esp_idf_version_major = "5", esp_idf_version_minor = "0"),
+        esp_idf_version_full = "5.1.0",
+        esp_idf_version_full = "5.1.1",
+        esp_idf_version_full = "5.1.2",
+        esp_idf_version_full = "5.1.3",
+    )))]
+    USBPeripheral,
+    /// Reset by JTAG (introduced in IDF v5.1.4)
+    #[cfg(not(any(
+        esp_idf_version_major = "4",
+        all(esp_idf_version_major = "5", esp_idf_version_minor = "0"),
+        esp_idf_version_full = "5.1.0",
+        esp_idf_version_full = "5.1.1",
+        esp_idf_version_full = "5.1.2",
+        esp_idf_version_full = "5.1.3",
+    )))]
+    JTAG,
+    /// Reset due to efuse error (introduced in IDF v5.2.2)
+    #[cfg(not(any(
+        esp_idf_version_major = "4",
+        all(esp_idf_version_major = "5", esp_idf_version_minor = "0"),
+        all(esp_idf_version_major = "5", esp_idf_version_minor = "1"),
+        esp_idf_version_full = "5.2.0",
+        esp_idf_version_full = "5.2.1",
+    )))]
+    EfuseError,
+    /// Reset due to power glitch detected (introduced in IDF v5.2.2)
+    #[cfg(not(any(
+        esp_idf_version_major = "4",
+        all(esp_idf_version_major = "5", esp_idf_version_minor = "0"),
+        all(esp_idf_version_major = "5", esp_idf_version_minor = "1"),
+        esp_idf_version_full = "5.2.0",
+        esp_idf_version_full = "5.2.1",
+    )))]
+    PowerGlitch,
+    /// Reset due to CPU lock up (introduced in IDF v5.2.2)
+    #[cfg(not(any(
+        esp_idf_version_major = "4",
+        all(esp_idf_version_major = "5", esp_idf_version_minor = "0"),
+        all(esp_idf_version_major = "5", esp_idf_version_minor = "1"),
+        esp_idf_version_full = "5.2.0",
+        esp_idf_version_full = "5.2.1",
+    )))]
+    CPULockup,
 }
 
 impl From<esp_reset_reason_t> for ResetReason {
@@ -44,6 +91,48 @@ impl From<esp_reset_reason_t> for ResetReason {
             esp_reset_reason_t_ESP_RST_BROWNOUT => Self::Brownout,
             esp_reset_reason_t_ESP_RST_TASK_WDT => Self::TaskWatchdog,
             esp_reset_reason_t_ESP_RST_DEEPSLEEP => Self::DeepSleep,
+            #[cfg(not(any(
+                esp_idf_version_major = "4",
+                all(esp_idf_version_major = "5", esp_idf_version_minor = "0"),
+                esp_idf_version_full = "5.1.0",
+                esp_idf_version_full = "5.1.1",
+                esp_idf_version_full = "5.1.2",
+                esp_idf_version_full = "5.1.3",
+            )))]
+            esp_reset_reason_t_ESP_RST_USB => Self::USBPeripheral,
+            #[cfg(not(any(
+                esp_idf_version_major = "4",
+                all(esp_idf_version_major = "5", esp_idf_version_minor = "0"),
+                esp_idf_version_full = "5.1.0",
+                esp_idf_version_full = "5.1.1",
+                esp_idf_version_full = "5.1.2",
+                esp_idf_version_full = "5.1.3",
+            )))]
+            esp_reset_reason_t_ESP_RST_JTAG => Self::JTAG,
+            #[cfg(not(any(
+                esp_idf_version_major = "4",
+                all(esp_idf_version_major = "5", esp_idf_version_minor = "0"),
+                all(esp_idf_version_major = "5", esp_idf_version_minor = "1"),
+                esp_idf_version_full = "5.2.0",
+                esp_idf_version_full = "5.2.1",
+            )))]
+            esp_reset_reason_t_ESP_RST_EFUSE => Self::EfuseError,
+            #[cfg(not(any(
+                esp_idf_version_major = "4",
+                all(esp_idf_version_major = "5", esp_idf_version_minor = "0"),
+                all(esp_idf_version_major = "5", esp_idf_version_minor = "1"),
+                esp_idf_version_full = "5.2.0",
+                esp_idf_version_full = "5.2.1",
+            )))]
+            esp_reset_reason_t_ESP_RST_PWR_GLITCH => Self::PowerGlitch,
+            #[cfg(not(any(
+                esp_idf_version_major = "4",
+                all(esp_idf_version_major = "5", esp_idf_version_minor = "0"),
+                all(esp_idf_version_major = "5", esp_idf_version_minor = "1"),
+                esp_idf_version_full = "5.2.0",
+                esp_idf_version_full = "5.2.1",
+            )))]
+            esp_reset_reason_t_ESP_RST_CPU_LOCKUP => Self::CPULockup,
             _ => unreachable!(),
         }
     }

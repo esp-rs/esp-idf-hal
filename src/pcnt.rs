@@ -524,7 +524,10 @@ impl<'d> PcntDriver<'d> {
         let callback: alloc::boxed::Box<dyn FnMut(u32) + 'd> = alloc::boxed::Box::new(callback);
 
         unsafe {
-            ISR_HANDLERS[self.unit as usize] = Some(core::mem::transmute(callback));
+            ISR_HANDLERS[self.unit as usize] = Some(core::mem::transmute::<
+                alloc::boxed::Box<dyn FnMut(u32)>,
+                alloc::boxed::Box<dyn FnMut(u32)>,
+            >(callback));
         }
         esp!(unsafe {
             pcnt_isr_handler_add(

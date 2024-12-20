@@ -753,14 +753,19 @@ pub mod beta {
 
             let _lock_guard = driver.acquire_bus().await;
             enable_master_dev_isr_callback(handle, port)?;
-            on_err!(esp!(unsafe {
-                i2c_master_receive(
-                    handle,
-                    buffer.as_mut_ptr().cast(),
-                    buffer.len(),
-                    timeout as i32,
-                )
-            }), { disable_master_dev_isr_callback(handle).unwrap(); })?;
+            on_err!(
+                esp!(unsafe {
+                    i2c_master_receive(
+                        handle,
+                        buffer.as_mut_ptr().cast(),
+                        buffer.len(),
+                        timeout as i32,
+                    )
+                }),
+                {
+                    disable_master_dev_isr_callback(handle).unwrap();
+                }
+            )?;
 
             NOTIFIER[port as usize].wait().await;
             disable_master_dev_isr_callback(handle)?;
@@ -774,9 +779,14 @@ pub mod beta {
 
             let _lock_guard = driver.acquire_bus().await;
             enable_master_dev_isr_callback(handle, port)?;
-            on_err!(esp!(unsafe {
-                i2c_master_transmit(handle, bytes.as_ptr().cast(), bytes.len(), timeout as i32)
-            }), { disable_master_dev_isr_callback(handle).unwrap(); })?;
+            on_err!(
+                esp!(unsafe {
+                    i2c_master_transmit(handle, bytes.as_ptr().cast(), bytes.len(), timeout as i32)
+                }),
+                {
+                    disable_master_dev_isr_callback(handle).unwrap();
+                }
+            )?;
 
             NOTIFIER[port as usize].wait().await;
             disable_master_dev_isr_callback(handle)?;
@@ -795,16 +805,21 @@ pub mod beta {
 
             let _lock_guard = driver.acquire_bus().await;
             enable_master_dev_isr_callback(handle, port)?;
-            on_err!(esp!(unsafe {
-                i2c_master_transmit_receive(
-                    handle,
-                    bytes.as_ptr().cast(),
-                    bytes.len(),
-                    buffer.as_mut_ptr().cast(),
-                    buffer.len(),
-                    timeout as i32,
-                )
-            }), { disable_master_dev_isr_callback(handle).unwrap(); })?;
+            on_err!(
+                esp!(unsafe {
+                    i2c_master_transmit_receive(
+                        handle,
+                        bytes.as_ptr().cast(),
+                        bytes.len(),
+                        buffer.as_mut_ptr().cast(),
+                        buffer.len(),
+                        timeout as i32,
+                    )
+                }),
+                {
+                    disable_master_dev_isr_callback(handle).unwrap();
+                }
+            )?;
 
             NOTIFIER[port as usize].wait().await;
             disable_master_dev_isr_callback(handle)?;

@@ -1224,15 +1224,15 @@ impl<T: Pin, MODE: InputMode> PinDriver<'_, T, MODE> {
     }
 }
 
-impl<'d, T: Pin, MODE> Drop for PinDriver<'d, T, MODE> {
+impl<T: Pin, MODE> Drop for PinDriver<'_, T, MODE> {
     fn drop(&mut self) {
         gpio_reset_without_pull(self.pin.pin()).unwrap();
     }
 }
 
-unsafe impl<'d, T: Pin, MODE> Send for PinDriver<'d, T, MODE> {}
+unsafe impl<T: Pin, MODE> Send for PinDriver<'_, T, MODE> {}
 
-impl<'d, T: Pin, MODE> embedded_hal_0_2::digital::v2::InputPin for PinDriver<'d, T, MODE>
+impl<T: Pin, MODE> embedded_hal_0_2::digital::v2::InputPin for PinDriver<'_, T, MODE>
 where
     MODE: InputMode,
 {
@@ -1258,11 +1258,11 @@ fn to_gpio_err(err: EspError) -> GpioError {
     GpioError::other(err)
 }
 
-impl<'d, T: Pin, MODE> embedded_hal::digital::ErrorType for PinDriver<'d, T, MODE> {
+impl<T: Pin, MODE> embedded_hal::digital::ErrorType for PinDriver<'_, T, MODE> {
     type Error = GpioError;
 }
 
-impl<'d, T: Pin, MODE> embedded_hal::digital::InputPin for PinDriver<'d, T, MODE>
+impl<T: Pin, MODE> embedded_hal::digital::InputPin for PinDriver<'_, T, MODE>
 where
     MODE: InputMode,
 {
@@ -1275,7 +1275,7 @@ where
     }
 }
 
-impl<'d, T: Pin, MODE> embedded_hal::digital::InputPin for &PinDriver<'d, T, MODE>
+impl<T: Pin, MODE> embedded_hal::digital::InputPin for &PinDriver<'_, T, MODE>
 where
     MODE: InputMode,
 {
@@ -1288,7 +1288,7 @@ where
     }
 }
 
-impl<'d, T: Pin, MODE> embedded_hal_0_2::digital::v2::OutputPin for PinDriver<'d, T, MODE>
+impl<T: Pin, MODE> embedded_hal_0_2::digital::v2::OutputPin for PinDriver<'_, T, MODE>
 where
     MODE: OutputMode,
 {
@@ -1303,7 +1303,7 @@ where
     }
 }
 
-impl<'d, T: Pin, MODE> embedded_hal::digital::OutputPin for PinDriver<'d, T, MODE>
+impl<T: Pin, MODE> embedded_hal::digital::OutputPin for PinDriver<'_, T, MODE>
 where
     MODE: OutputMode,
 {
@@ -1316,7 +1316,7 @@ where
     }
 }
 
-impl<'d, T: Pin, MODE> embedded_hal::digital::StatefulOutputPin for PinDriver<'d, T, MODE>
+impl<T: Pin, MODE> embedded_hal::digital::StatefulOutputPin for PinDriver<'_, T, MODE>
 where
     MODE: OutputMode,
 {
@@ -1343,7 +1343,7 @@ where
 //     }
 // }
 
-impl<'d, T: Pin, MODE> embedded_hal_0_2::digital::v2::StatefulOutputPin for PinDriver<'d, T, MODE>
+impl<T: Pin, MODE> embedded_hal_0_2::digital::v2::StatefulOutputPin for PinDriver<'_, T, MODE>
 where
     MODE: OutputMode,
 {
@@ -1356,7 +1356,7 @@ where
     }
 }
 
-impl<'d, T: Pin, MODE> embedded_hal_0_2::digital::v2::ToggleableOutputPin for PinDriver<'d, T, MODE>
+impl<T: Pin, MODE> embedded_hal_0_2::digital::v2::ToggleableOutputPin for PinDriver<'_, T, MODE>
 where
     MODE: OutputMode,
 {
@@ -1448,7 +1448,7 @@ fn gpio_reset_without_pull(pin: gpio_num_t) -> Result<(), EspError> {
         pull_up_en: esp_idf_sys::gpio_pullup_t_GPIO_PULLUP_DISABLE,
         pull_down_en: esp_idf_sys::gpio_pulldown_t_GPIO_PULLDOWN_DISABLE,
         intr_type: esp_idf_sys::gpio_int_type_t_GPIO_INTR_DISABLE,
-        #[cfg(esp32h2)]
+        #[cfg(all(esp32h2, not(esp_idf_version_major = "4")))]
         hys_ctrl_mode: esp_idf_sys::gpio_hys_ctrl_mode_t_GPIO_HYS_SOFT_DISABLE,
     };
 
@@ -2080,10 +2080,10 @@ mod chip {
 
     #[allow(clippy::type_complexity)]
     #[cfg(feature = "alloc")]
-    pub(crate) static mut PIN_ISR_HANDLER: [Option<Box<dyn FnMut() + Send + 'static>>; 20] =
-        [PIN_ISR_INIT; 20];
+    pub(crate) static mut PIN_ISR_HANDLER: [Option<Box<dyn FnMut() + Send + 'static>>; 21] =
+        [PIN_ISR_INIT; 21];
 
-    pub(crate) static PIN_NOTIF: [HalIsrNotification; 20] = [PIN_NOTIF_INIT; 20];
+    pub(crate) static PIN_NOTIF: [HalIsrNotification; 21] = [PIN_NOTIF_INIT; 21];
 
     // NOTE: Gpio12 - Gpio17 are used by SPI0/SPI1 for external PSRAM/SPI Flash and
     //       are not recommended for other uses
@@ -2184,13 +2184,16 @@ mod chip {
 
     #[allow(clippy::type_complexity)]
     #[cfg(feature = "alloc")]
-    pub(crate) static mut PIN_ISR_HANDLER: [Option<Box<dyn FnMut() + Send + 'static>>; 20] =
-        [PIN_ISR_INIT; 20];
+    pub(crate) static mut PIN_ISR_HANDLER: [Option<Box<dyn FnMut() + Send + 'static>>; 28] =
+        [PIN_ISR_INIT; 28];
 
-    pub(crate) static PIN_NOTIF: [HalIsrNotification; 20] = [PIN_NOTIF_INIT; 20];
+    pub(crate) static PIN_NOTIF: [HalIsrNotification; 28] = [PIN_NOTIF_INIT; 28];
 
-    // NOTE: Gpio12 - Gpio17 are used by SPI0/SPI1 for external PSRAM/SPI Flash and
-    //       are not recommended for other uses
+    // NOTE: Following pins have special meaning and are not recommended for other uses. But one may use them with care.
+    //  - Gpio12 - Gpio17 are used by SPI0/SPI1 for external PSRAM/SPI Flash
+    //  - Gpio21 seems not to be exposed physically
+    //  - Gpio23 + Gpio24 are used by serial debug interface
+    //  - Gpio26 + Gpio27 are used by USB debug interface
     pin!(Gpio0:0,   IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
     pin!(Gpio1:1,   IO, NORTC:0,  ADC1:0, NODAC:0, NOTOUCH:0);
     pin!(Gpio2:2,   IO, NORTC:0,  ADC1:1, NODAC:0, NOTOUCH:0);
@@ -2212,6 +2215,13 @@ mod chip {
     pin!(Gpio18:18, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
     pin!(Gpio19:19, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
     pin!(Gpio20:20, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
+    pin!(Gpio21:21, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
+    pin!(Gpio22:22, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
+    pin!(Gpio23:23, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
+    pin!(Gpio24:24, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
+    pin!(Gpio25:25, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
+    pin!(Gpio26:26, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
+    pin!(Gpio27:27, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
 
     pub struct Pins {
         pub gpio0: Gpio0,
@@ -2235,6 +2245,13 @@ mod chip {
         pub gpio18: Gpio18,
         pub gpio19: Gpio19,
         pub gpio20: Gpio20,
+        pub gpio21: Gpio21,
+        pub gpio22: Gpio22,
+        pub gpio23: Gpio23,
+        pub gpio24: Gpio24,
+        pub gpio25: Gpio25,
+        pub gpio26: Gpio26,
+        pub gpio27: Gpio27,
     }
 
     impl Pins {
@@ -2265,6 +2282,13 @@ mod chip {
                 gpio18: Gpio18::new(),
                 gpio19: Gpio19::new(),
                 gpio20: Gpio20::new(),
+                gpio21: Gpio21::new(),
+                gpio22: Gpio22::new(),
+                gpio23: Gpio23::new(),
+                gpio24: Gpio24::new(),
+                gpio25: Gpio25::new(),
+                gpio26: Gpio26::new(),
+                gpio27: Gpio27::new(),
             }
         }
     }

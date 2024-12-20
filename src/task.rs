@@ -38,7 +38,7 @@ const NO_AFFINITY: core::ffi::c_uint = tskNO_AFFINITY;
 ///
 /// # Safety
 ///
-/// Only marked as unsafe fo symmetry with `destroy` and to discourage users from leaning on it in favor of `std::thread`.
+/// Only marked as unsafe for symmetry with `destroy` and to discourage users from leaning on it in favor of `std::thread`.
 /// Otherwise, this function is actually safe.
 pub unsafe fn create(
     task_handler: extern "C" fn(*mut core::ffi::c_void),
@@ -559,7 +559,7 @@ unsafe impl Sync for CriticalSection {}
 
 pub struct CriticalSectionGuard<'a>(&'a CriticalSection);
 
-impl<'a> Drop for CriticalSectionGuard<'a> {
+impl Drop for CriticalSectionGuard<'_> {
     #[inline(always)]
     #[link_section = ".iram1.csg_drop"]
     fn drop(&mut self) {

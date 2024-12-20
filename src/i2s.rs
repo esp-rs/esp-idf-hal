@@ -1,6 +1,10 @@
 //! Driver for the Inter-IC Sound (I2S) peripheral(s).
 
-use core::{ffi::c_void, marker::PhantomData, mem::MaybeUninit};
+use core::ffi::c_void;
+use core::marker::PhantomData;
+use core::mem::MaybeUninit;
+use core::ops::{Deref, DerefMut};
+use core::ptr::NonNull;
 
 use esp_idf_sys::{esp, i2s_port_t, EspError, TickType_t};
 
@@ -578,6 +582,23 @@ pub struct I2sBiDir {}
 impl I2sRxSupported for I2sBiDir {}
 impl I2sTxSupported for I2sBiDir {}
 
+/// Reference for I2S driver
+pub struct I2sDriverRef<'d, Dir>(NonNull<I2sDriver<'d, Dir>>);
+
+impl<'d, Dir> Deref for I2sDriverRef<'d, Dir> {
+    type Target = I2sDriver<'d, Dir>;
+
+    fn deref(&self) -> &Self::Target {
+        unsafe { self.0.as_ref() }
+    }
+}
+
+impl<Dir> DerefMut for I2sDriverRef<'_, Dir> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        unsafe { self.0.as_mut() }
+    }
+}
+
 /// Inter-IC Sound (I2S) driver.
 pub struct I2sDriver<'d, Dir> {
     /// The Rx channel, possibly null.
@@ -598,7 +619,7 @@ pub struct I2sDriver<'d, Dir> {
     _dir: PhantomData<Dir>,
 }
 
-impl<'d, Dir> I2sDriver<'d, Dir> {
+impl<Dir> I2sDriver<'_, Dir> {
     /// Create a new standard mode driver for the given I2S peripheral with both the receive and transmit channels open.
     #[cfg(not(esp_idf_version_major = "4"))]
     fn internal_new<I2S: I2s>(
@@ -737,10 +758,15 @@ impl<'d, Dir> I2sDriver<'d, Dir> {
             Err(err) => Err(err),
         }
     }
+
+    /// Borrow the I2S driver by a reference
+    pub fn as_ref(&mut self) -> I2sDriverRef<Dir> {
+        I2sDriverRef(unsafe { NonNull::new_unchecked(self) })
+    }
 }
 
 /// Functions for receive channels.
-impl<'d, Dir> I2sDriver<'d, Dir>
+impl<Dir> I2sDriver<'_, Dir>
 where
     Dir: I2sRxSupported,
 {
@@ -982,7 +1008,7 @@ where
 }
 
 /// Functions for transmit channels.
-impl<'d, Dir> I2sDriver<'d, Dir>
+impl<Dir> I2sDriver<'_, Dir>
 where
     Dir: I2sTxSupported,
 {
@@ -1189,7 +1215,22 @@ where
     }
 }
 
-impl<'d, Dir> Drop for I2sDriver<'d, Dir> {
+impl I2sDriver<'_, I2sBiDir> {
+    /// Split the bidirectional I2S driver into two parts (Rx, Tx)
+    ///
+    /// # Safety
+    /// It is safe to use the two parts separately
+    /// - esp-idf guarantees thread safety
+    /// - esp-idf-hal guarantees asynchronous safety
+    pub fn split(&mut self) -> (I2sDriverRef<I2sRx>, I2sDriverRef<I2sTx>) {
+        // Safe because self cannot be null
+        let this = unsafe { NonNull::new_unchecked(self) };
+
+        (I2sDriverRef(this.cast()), I2sDriverRef(this.cast()))
+    }
+}
+
+impl<Dir> Drop for I2sDriver<'_, Dir> {
     fn drop(&mut self) {
         #[cfg(esp_idf_version_major = "4")]
         {
@@ -1225,19 +1266,19 @@ impl<'d, Dir> Drop for I2sDriver<'d, Dir> {
     }
 }
 
-unsafe impl<'d, Dir> Send for I2sDriver<'d, Dir> {}
+unsafe impl<Dir> Send for I2sDriver<'_, Dir> {}
 
-impl<'d, Dir> I2sPort for I2sDriver<'d, Dir> {
+impl<Dir> I2sPort for I2sDriver<'_, Dir> {
     fn port(&self) -> i2s_port_t {
         self.port as _
     }
 }
 
-impl<'d, Dir> embedded_io::ErrorType for I2sDriver<'d, Dir> {
+impl<Dir> embedded_io::ErrorType for I2sDriver<'_, Dir> {
     type Error = EspIOError;
 }
 
-impl<'d, Dir> embedded_io::Read for I2sDriver<'d, Dir>
+impl<Dir> embedded_io::Read for I2sDriver<'_, Dir>
 where
     Dir: I2sRxSupported,
 {
@@ -1246,7 +1287,7 @@ where
     }
 }
 
-impl<'d, Dir> embedded_io::Write for I2sDriver<'d, Dir>
+impl<Dir> embedded_io::Write for I2sDriver<'_, Dir>
 where
     Dir: I2sTxSupported,
 {
@@ -1260,7 +1301,7 @@ where
 }
 
 #[cfg(not(esp_idf_version_major = "4"))]
-impl<'d, Dir> embedded_io_async::Read for I2sDriver<'d, Dir>
+impl<Dir> embedded_io_async::Read for I2sDriver<'_, Dir>
 where
     Dir: I2sRxSupported,
 {
@@ -1270,7 +1311,7 @@ where
 }
 
 #[cfg(not(esp_idf_version_major = "4"))]
-impl<'d, Dir> embedded_io_async::Write for I2sDriver<'d, Dir>
+impl<Dir> embedded_io_async::Write for I2sDriver<'_, Dir>
 where
     Dir: I2sTxSupported,
 {

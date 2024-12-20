@@ -262,7 +262,7 @@ unsafe impl Sync for IsrCriticalSection {}
 
 pub struct IsrCriticalSectionGuard<'a>(&'a IsrCriticalSection);
 
-impl<'a> Drop for IsrCriticalSectionGuard<'a> {
+impl Drop for IsrCriticalSectionGuard<'_> {
     /// Drops the critical section guard thus potentially re-enabling
     /// al interrupts for the currently active core.
     ///
@@ -304,7 +304,7 @@ pub mod asynch {
 
     use esp_idf_sys::EspError;
 
-    use log::info;
+    use ::log::info;
 
     use crate::{
         cpu::Core,
@@ -508,6 +508,7 @@ pub mod asynch {
     unsafe impl<const N: usize> Sync for IsrReactor<N> {}
 
     /// Single-slot lock-free signaling primitive supporting signalling with a `u32` bit-set.
+    ///
     /// A variation of the `Notification` HAL primitive which is however safe to be notified from an ISR context.
     ///
     /// It is useful for sending data between an ISR routine (or a regular task context) and an async task when the
@@ -578,6 +579,7 @@ pub mod asynch {
     }
 
     /// Single-slot lock-free signaling primitive supporting signalling with a `u32` bit-set.
+    ///
     /// A variation of the `IsrNotification` HAL primitive which is however safe to be notified from an ISR context.
     /// The difference between this primitive and `IsrNotification` is that this one is hard-wired to the
     /// global HAL wake runner (`HAL_WAKE_RUNNER`) and is thus occupying less space.

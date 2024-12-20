@@ -11,6 +11,8 @@ use crate::modem;
 #[cfg(any(esp32, esp32s2, esp32s3, esp32c6))]
 use crate::pcnt;
 use crate::rmt;
+#[cfg(all(esp_idf_soc_sdmmc_host_supported, feature = "experimental"))]
+use crate::sd;
 use crate::spi;
 #[cfg(any(
     all(
@@ -20,6 +22,8 @@ use crate::spi;
     any(esp_idf_version_major = "4", esp_idf_version = "5.0")
 ))]
 use crate::task::watchdog;
+#[cfg(all(esp_idf_soc_temp_sensor_supported, esp_idf_version_major = "5"))]
+use crate::temp_sensor;
 use crate::timer;
 use crate::uart;
 #[cfg(all(
@@ -80,6 +84,12 @@ pub struct Peripherals {
     #[cfg(any(all(esp32, esp_idf_eth_use_esp32_emac), esp_idf_eth_use_openeth))]
     pub mac: mac::MAC,
     pub modem: modem::Modem,
+    #[cfg(all(esp_idf_soc_sdmmc_host_supported, feature = "experimental"))]
+    pub sdmmc0: sd::mmc::SDMMC0,
+    #[cfg(all(esp_idf_soc_sdmmc_host_supported, feature = "experimental"))]
+    pub sdmmc1: sd::mmc::SDMMC1,
+    #[cfg(all(esp_idf_soc_temp_sensor_supported, esp_idf_version_major = "5"))]
+    pub temp_sensor: temp_sensor::TempSensor,
     // TODO: Check the timer story for c2, h2, c5, c6, and p4
     pub timer00: timer::TIMER00,
     #[cfg(any(esp32, esp32s2, esp32s3))]
@@ -177,6 +187,12 @@ impl Peripherals {
             #[cfg(any(all(esp32, esp_idf_eth_use_esp32_emac), esp_idf_eth_use_openeth))]
             mac: mac::MAC::new(),
             modem: modem::Modem::new(),
+            #[cfg(all(esp_idf_soc_sdmmc_host_supported, feature = "experimental"))]
+            sdmmc0: sd::mmc::SDMMC0::new(),
+            #[cfg(all(esp_idf_soc_sdmmc_host_supported, feature = "experimental"))]
+            sdmmc1: sd::mmc::SDMMC1::new(),
+            #[cfg(all(esp_idf_soc_temp_sensor_supported, esp_idf_version_major = "5"))]
+            temp_sensor: temp_sensor::TempSensor::new(),
             timer00: timer::TIMER00::new(),
             #[cfg(any(esp32, esp32s2, esp32s3))]
             timer01: timer::TIMER01::new(),

@@ -6,11 +6,12 @@ use esp_idf_sys::{self as _}; // If using the `binstart` feature of `esp-idf-sys
 use std::thread;
 use std::time::Duration;
 
-use esp_idf_hal::adc::config::Config;
-use esp_idf_hal::adc::*;
-use esp_idf_hal::peripherals::Peripherals;
-
+#[cfg(any(feature = "adc-oneshot-legacy", esp_idf_version_major = "4"))]
 fn main() -> anyhow::Result<()> {
+    use esp_idf_hal::adc::config::Config;
+    use esp_idf_hal::adc::*;
+    use esp_idf_hal::peripherals::Peripherals;
+
     let peripherals = Peripherals::take()?;
 
     #[cfg(not(esp32))]
@@ -33,5 +34,14 @@ fn main() -> anyhow::Result<()> {
         // you can change the sleep duration depending on how often you want to sample
         thread::sleep(Duration::from_millis(10));
         println!("ADC value: {}", adc.read(&mut adc_pin)?);
+    }
+}
+
+#[cfg(not(any(feature = "adc-oneshot-legacy", esp_idf_version_major = "4")))]
+fn main() -> anyhow::Result<()> {
+    println!("This example requires feature `adc-oneshot-legacy` enabled or using ESP-IDF v4.4.X");
+
+    loop {
+        thread::sleep(Duration::from_millis(1000));
     }
 }
