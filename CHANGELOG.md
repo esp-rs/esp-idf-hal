@@ -10,10 +10,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Deprecated
 
 ### Breaking
+- Make the UART config to ESP-IDF  C config reusable outside the UART driver (for OpenThread)
+- Re-use the SPI config struct of the SPI driver (for OpenThread)
 
 ### Added
+- Docs: Add some docstrings for ADC module. (#455)
+- Update uart.rs, add rs485 half duplex (#456)
+- Update spi.rs, fix half3wire read (#459)
+- SPI: Mark DMA as supported in the docu
+- SD Card driver; SD Card host drivers (SPI and SDMMC) (#457)
+- RMT Onewire Peripheral (#454)
+- Add an example of using interrupt directly without async (#474)
+- Add support for ESP internal temperature sensor (#337)
+- Support the thread modem peripheral on the c6 MCU
+- Add dual and quad SPI support (#479)
 
 ### Fixed
+- Fix: UartDriver as embedded_io::Read blocks until buffer is full #475
+- Allow modem splits even when only HW coex is used
+- Fix esp_reset_reason_t constant names (#483)
+- Fix drop for AdcDriver in deregister event callbacks (#487)
+- Typo fix in task docs (#489)
+- Update spi.rs for correct label in gpio_cs capture (#492)
+- Fix a crash when dropping `SpiDriver`
 
 ## [0.44.1] - 2024-07-09
 ### Fixed
