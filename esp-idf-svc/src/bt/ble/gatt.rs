@@ -43,10 +43,9 @@ pub enum GattStatus {
     More = esp_gatt_status_t_ESP_GATT_MORE,
     InvalidCfg = esp_gatt_status_t_ESP_GATT_INVALID_CFG,
     ServiceStarted = esp_gatt_status_t_ESP_GATT_SERVICE_STARTED,
-    //EncryptedMitm = esp_gatt_status_t_ESP_GATT_ENCRYPTED_MITM,
-    #[cfg(esp_idf_version_major = "4")]
+    #[cfg(all(esp_idf_version_major = "4", not(esp_idf_version_full = "4.4.8")))]
     EncryptedNoMitm = esp_gatt_status_t_ESP_GATT_ENCRYPED_NO_MITM,
-    #[cfg(not(esp_idf_version_major = "4"))]
+    #[cfg(any(not(esp_idf_version_major = "4"), esp_idf_version_full = "4.4.8"))]
     EncryptedNoMitm = esp_gatt_status_t_ESP_GATT_ENCRYPTED_NO_MITM,
     NotEncrypted = esp_gatt_status_t_ESP_GATT_NOT_ENCRYPTED,
     Congested = esp_gatt_status_t_ESP_GATT_CONGESTED,
