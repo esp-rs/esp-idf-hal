@@ -26,7 +26,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Add dual and quad SPI support (#479)
 
 ### Fixed
-- Fix: UartDriver as embedded_io::Read blocks until buffer is full #475
+- Fix: UartDriver as embedded_io::Read blocks until buffer is full (#475)
 - Allow modem splits even when only HW coex is used
 - Fix esp_reset_reason_t constant names (#483)
 - Fix drop for AdcDriver in deregister event callbacks (#487)
