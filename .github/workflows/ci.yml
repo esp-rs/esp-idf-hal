@@ -28,7 +28,10 @@ jobs:
           - xtensa-esp32s3-espidf
         idf-version:
           - release/v4.4
-          - release/v5.2
+# Temporarily comment out as we don't have support for this tool yet:
+# https://github.com/espressif/esp-idf/commit/48a49c815411a9f829ebe4a5f68166069a21f48c
+#          - release/v5.2
+          - v5.2.3
     steps:
       - name: Setup | Checkout
         uses: actions/checkout@v3
