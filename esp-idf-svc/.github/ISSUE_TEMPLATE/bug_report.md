@@ -21,7 +21,7 @@ assignees: ''
 
 <!-- Please share the minimal repro of the issue where the bug can be reproduced. -->
 
-<!-- Make sure you are able to reproduce the bug in the `main` branch, too. -->
+<!-- Make sure you are able to reproduce the bug in the `master` branch, too. -->
 
 ## Expected behavior
 
