@@ -120,6 +120,7 @@ impl Debug for X509<'_> {
     any(esp_idf_esp_tls_using_mbedtls, esp_idf_esp_tls_using_wolfssl)
 ))]
 mod esptls {
+    use core::ffi::c_char;
     #[cfg(esp_idf_esp_tls_server_cert_select_hook)]
     use core::ffi::c_int;
     use core::task::{Context, Poll};
@@ -272,7 +273,7 @@ mod esptls {
     }
 
     struct RawConfigBufs {
-        alpn_protos: [*const i8; 10],
+        alpn_protos: [*const c_char; 10],
         alpn_protos_cbuf: [u8; 99],
         common_name_buf: [u8; MAX_COMMON_NAME_LENGTH + 1],
     }
@@ -652,7 +653,7 @@ mod esptls {
             let ret = unsafe {
                 if asynch {
                     sys::esp_tls_conn_new_async(
-                        host.as_bytes().as_ptr() as *const i8,
+                        host.as_bytes().as_ptr() as *const c_char,
                         host.len() as i32,
                         port as i32,
                         cfg,
@@ -660,7 +661,7 @@ mod esptls {
                     )
                 } else {
                     sys::esp_tls_conn_new_sync(
-                        host.as_bytes().as_ptr() as *const i8,
+                        host.as_bytes().as_ptr() as *const c_char,
                         host.len() as i32,
                         port as i32,
                         cfg,
@@ -708,7 +709,7 @@ mod esptls {
             // cannot call esp_tls_conn_read bc it's inline in v4
             let esp_tls = unsafe { core::ptr::read_unaligned(self.raw) };
             let read_func = esp_tls.read.unwrap();
-            unsafe { read_func(self.raw, buf.as_mut_ptr() as *mut i8, buf.len()) }
+            unsafe { read_func(self.raw, buf.as_mut_ptr() as *mut c_char, buf.len()) }
         }
 
         #[cfg(not(esp_idf_version_major = "4"))]
@@ -756,7 +757,7 @@ mod esptls {
             // cannot call esp_tls_conn_write bc it's inline
             let esp_tls = unsafe { core::ptr::read_unaligned(self.raw) };
             let write_func = esp_tls.write.unwrap();
-            unsafe { write_func(self.raw, buf.as_ptr() as *const i8, buf.len()) }
+            unsafe { write_func(self.raw, buf.as_ptr() as *const c_char, buf.len()) }
         }
 
         #[cfg(not(esp_idf_version_major = "4"))]
