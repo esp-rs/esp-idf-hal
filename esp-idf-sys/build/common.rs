@@ -257,8 +257,7 @@ impl InstallDir {
     /// Get the install directory from the [`ESP_IDF_TOOLS_INSTALL_DIR_VAR`] env variable.
     ///
     /// If this env variable is unset or empty uses `default_install_dir` instead.
-    /// On success returns `(install_dir as InstallDir, is_default as bool)`.
-    pub fn try_from(location: Option<&str>) -> Result<InstallDir> {
+    pub fn try_from(location: Option<&str>) -> Result<Self> {
         let (location, path) = match &location {
             None => (crate::config::DEFAULT_TOOLS_INSTALL_DIR, None),
             Some(val) => {
