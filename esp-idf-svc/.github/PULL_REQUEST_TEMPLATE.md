@@ -7,7 +7,7 @@ To help us review it efficiently, please ensure you've gone through the followin
 - [ ] I have updated existing examples or added new ones (if applicable).
 - [ ] I have used `cargo fmt` command to ensure that all changed code is formatted correctly.
 - [ ] I have used `cargo clippy` command to ensure that all changed code passes latest Clippy nightly lints.
-- [ ] My changes were added to the [`CHANGELOG.md`](https://github.com/esp-rs/esp-idf-sys/blob/main/esp-idf-sys/CHANGELOG.md) in the **_proper_** section.
+- [ ] My changes were added to the [`CHANGELOG.md`](https://github.com/esp-rs/esp-idf-svc/blob/main/esp-idf-svc/CHANGELOG.md) in the **_proper_** section.
 
 ### Pull Request Details 📖
 
