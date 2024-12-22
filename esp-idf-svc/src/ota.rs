@@ -54,42 +54,14 @@ pub use embedded_svc::ota::{FirmwareInfo, LoadResult, Slot, SlotState, UpdatePro
 use crate::sys::*;
 
 use crate::io::EspIOError;
-use crate::private::{common::*, cstr::*, mutex};
+use crate::private::{cstr::*, mutex};
 
 static TAKEN: mutex::Mutex<bool> = mutex::Mutex::new(false);
 
-impl From<Newtype<&esp_app_desc_t>> for FirmwareInfo {
-    fn from(app_desc: Newtype<&esp_app_desc_t>) -> Self {
-        let app_desc = app_desc.0;
-
-        let mut result = Self {
-            version: unsafe { from_cstr_ptr(&app_desc.version as *const _) }
-                .try_into()
-                .unwrap(),
-            signature: Some(heapless::Vec::from_slice(&app_desc.app_elf_sha256).unwrap()),
-            released: "".try_into().unwrap(),
-            description: Some(
-                unsafe { from_cstr_ptr(&app_desc.project_name as *const _) }
-                    .try_into()
-                    .unwrap(),
-            ),
-            download_id: None,
-        };
-
-        write!(
-            &mut result.released,
-            "{} {}",
-            unsafe { from_cstr_ptr(&app_desc.date as *const _) },
-            unsafe { from_cstr_ptr(&app_desc.time as *const _) }
-        )
-        .unwrap();
-
-        result
-    }
-}
-
+#[deprecated(note = "Use `EspFirmwareInfoLoad` instead")]
 pub struct EspFirmwareInfoLoader(heapless::Vec<u8, 512>);
 
+#[allow(deprecated)]
 impl EspFirmwareInfoLoader {
     pub const fn new() -> Self {
         Self(heapless::Vec::new())
@@ -132,23 +104,37 @@ impl EspFirmwareInfoLoader {
                     .as_ref()
                     .unwrap()
             };
-            Ok(Newtype(app_desc).into())
+
+            let mut info = FirmwareInfo {
+                version: heapless::String::new(),
+                released: heapless::String::new(),
+                description: None,
+                signature: None,
+                download_id: None,
+            };
+
+            EspFirmwareInfoLoad::load_firmware_info(&mut info, app_desc)?;
+
+            Ok(info)
         } else {
             Err(EspError::from_infallible::<ESP_ERR_INVALID_SIZE>())
         }
     }
 }
 
+#[allow(deprecated)]
 impl Default for EspFirmwareInfoLoader {
     fn default() -> Self {
         Self::new()
     }
 }
 
+#[allow(deprecated)]
 impl io::ErrorType for EspFirmwareInfoLoader {
     type Error = EspIOError;
 }
 
+#[allow(deprecated)]
 impl FirmwareInfoLoader for EspFirmwareInfoLoader {
     fn load(&mut self, buf: &[u8]) -> Result<LoadResult, Self::Error> {
         Ok(EspFirmwareInfoLoader::load(self, buf)?)
@@ -161,6 +147,88 @@ impl FirmwareInfoLoader for EspFirmwareInfoLoader {
     fn get_info(&self) -> Result<FirmwareInfo, Self::Error> {
         Ok(EspFirmwareInfoLoader::get_info(self)?)
     }
+}
+
+/// A firmware info loader that tries to read the firmware info directly
+/// from a user-supplied buffer which can be re-used for other purposes afterwards.
+///
+/// This is a more efficient version of the now-deprecated `EspFirmwareInfoLoader`.
+pub struct EspFirmwareInfoLoad;
+
+impl EspFirmwareInfoLoad {
+    /// Fetches firmware information from the firmware binary data chunk loaded so far.
+    ///
+    /// Returns `true` if the information was successfully fetched.
+    /// Returns `false` if the firmware data has not been loaded completely yet.
+    pub fn fetch(&self, data: &[u8], info: &mut FirmwareInfo) -> Result<bool, EspIOError> {
+        let loaded = data.len()
+            >= mem::size_of::<esp_image_header_t>()
+                + mem::size_of::<esp_image_segment_header_t>()
+                + mem::size_of::<esp_app_desc_t>();
+
+        if loaded {
+            let app_desc_slice = &data[mem::size_of::<esp_image_header_t>()
+                + mem::size_of::<esp_image_segment_header_t>()
+                ..mem::size_of::<esp_image_header_t>()
+                    + mem::size_of::<esp_image_segment_header_t>()
+                    + mem::size_of::<esp_app_desc_t>()];
+
+            let app_desc = unsafe {
+                (app_desc_slice.as_ptr() as *const esp_app_desc_t)
+                    .as_ref()
+                    .unwrap()
+            };
+
+            Self::load_firmware_info(info, app_desc)?;
+
+            Ok(true)
+        } else {
+            Ok(false)
+        }
+    }
+
+    pub fn load_firmware_info(
+        info: &mut FirmwareInfo,
+        app_desc: &esp_app_desc_t,
+    ) -> Result<(), EspError> {
+        info.version.clear();
+        info.version
+            .push_str(unsafe { from_cstr_ptr(&app_desc.version as *const _) })
+            .map_err(|_| EspError::from_infallible::<ESP_ERR_INVALID_SIZE>())?;
+
+        info.released.clear();
+        write!(
+            &mut info.released,
+            "{} {}",
+            unsafe { from_cstr_ptr(&app_desc.date as *const _) },
+            unsafe { from_cstr_ptr(&app_desc.time as *const _) }
+        )
+        .map_err(|_| EspError::from_infallible::<ESP_ERR_INVALID_SIZE>())?;
+
+        if let Some(description) = info.description.as_mut() {
+            description.clear();
+            description
+                .push_str(unsafe { from_cstr_ptr(&app_desc.project_name as *const _) })
+                .map_err(|_| EspError::from_infallible::<ESP_ERR_INVALID_SIZE>())?;
+        }
+
+        if let Some(signature) = info.signature.as_mut() {
+            signature.clear();
+            signature
+                .extend_from_slice(&app_desc.app_elf_sha256)
+                .map_err(|_| EspError::from_infallible::<ESP_ERR_INVALID_SIZE>())?;
+        }
+
+        if let Some(download_id) = info.download_id.as_mut() {
+            download_id.clear();
+        }
+
+        Ok(())
+    }
+}
+
+impl io::ErrorType for EspFirmwareInfoLoad {
+    type Error = EspIOError;
 }
 
 #[derive(Debug)]
@@ -487,7 +555,17 @@ impl EspOta {
         } else {
             esp!(err)?;
 
-            Some(Newtype(&app_desc).into())
+            let mut info = FirmwareInfo {
+                version: heapless::String::new(),
+                released: heapless::String::new(),
+                description: Some(heapless::String::new()),
+                signature: Some(heapless::Vec::new()),
+                download_id: None,
+            };
+
+            EspFirmwareInfoLoad::load_firmware_info(&mut info, &app_desc)?;
+
+            Some(info)
         })
     }
 }
