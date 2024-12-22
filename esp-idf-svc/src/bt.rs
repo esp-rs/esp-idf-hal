@@ -608,7 +608,9 @@ where
                 esp_idf_version_major = "4",
                 esp_idf_version = "5.0",
                 esp_idf_version = "5.1",
-                esp_idf_version = "5.2",
+                esp_idf_version_full = "5.2.0",
+                esp_idf_version_full = "5.2.1",
+                esp_idf_version_full = "5.2.2",
                 not(any(esp32c6, esp32h2))
             ))]
             enable_uart_hci: crate::sys::HCI_UART_EN as _,
@@ -616,7 +618,9 @@ where
                 esp_idf_version_major = "4",
                 esp_idf_version = "5.0",
                 esp_idf_version = "5.1",
-                esp_idf_version = "5.2",
+                esp_idf_version_full = "5.2.0",
+                esp_idf_version_full = "5.2.1",
+                esp_idf_version_full = "5.2.2",
                 not(any(esp32c6, esp32h2))
             ))]
             ble_hci_uart_port: crate::sys::DEFAULT_BT_LE_HCI_UART_PORT as _,
@@ -624,7 +628,9 @@ where
                 esp_idf_version_major = "4",
                 esp_idf_version = "5.0",
                 esp_idf_version = "5.1",
-                esp_idf_version = "5.2",
+                esp_idf_version_full = "5.2.0",
+                esp_idf_version_full = "5.2.1",
+                esp_idf_version_full = "5.2.2",
                 not(any(esp32c6, esp32h2))
             ))]
             ble_hci_uart_baud: crate::sys::DEFAULT_BT_LE_HCI_UART_BAUD,
@@ -632,7 +638,9 @@ where
                 esp_idf_version_major = "4",
                 esp_idf_version = "5.0",
                 esp_idf_version = "5.1",
-                esp_idf_version = "5.2",
+                esp_idf_version_full = "5.2.0",
+                esp_idf_version_full = "5.2.1",
+                esp_idf_version_full = "5.2.2",
                 not(any(esp32c6, esp32h2))
             ))]
             ble_hci_uart_data_bits: crate::sys::DEFAULT_BT_LE_HCI_UART_DATA_BITS as _,
@@ -640,7 +648,9 @@ where
                 esp_idf_version_major = "4",
                 esp_idf_version = "5.0",
                 esp_idf_version = "5.1",
-                esp_idf_version = "5.2",
+                esp_idf_version_full = "5.2.0",
+                esp_idf_version_full = "5.2.1",
+                esp_idf_version_full = "5.2.2",
                 not(any(esp32c6, esp32h2))
             ))]
             ble_hci_uart_stop_bits: crate::sys::DEFAULT_BT_LE_HCI_UART_STOP_BITS as _,
@@ -648,7 +658,9 @@ where
                 esp_idf_version_major = "4",
                 esp_idf_version = "5.0",
                 esp_idf_version = "5.1",
-                esp_idf_version = "5.2",
+                esp_idf_version_full = "5.2.0",
+                esp_idf_version_full = "5.2.1",
+                esp_idf_version_full = "5.2.2",
                 not(any(esp32c6, esp32h2))
             ))]
             ble_hci_uart_flow_ctrl: crate::sys::DEFAULT_BT_LE_HCI_UART_FLOW_CTRL as _,
@@ -656,7 +668,9 @@ where
                 esp_idf_version_major = "4",
                 esp_idf_version = "5.0",
                 esp_idf_version = "5.1",
-                esp_idf_version = "5.2",
+                esp_idf_version_full = "5.2.0",
+                esp_idf_version_full = "5.2.1",
+                esp_idf_version_full = "5.2.2",
                 not(any(esp32c6, esp32h2))
             ))]
             ble_hci_uart_uart_parity: crate::sys::DEFAULT_BT_LE_HCI_UART_PARITY as _,
