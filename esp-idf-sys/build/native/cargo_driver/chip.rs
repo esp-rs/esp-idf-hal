@@ -93,6 +93,34 @@ impl Chip {
         }
     }
 
+    /// The name of the clang toolchain for `idf_tools.py`.
+    ///
+    /// Used for generating the `esp-idf-sys` bindings with `bindgen`
+    pub fn clang_toolchain(&self, version: Option<&EspIdfVersion>) -> &'static str {
+        let new = version
+            .map(|version| version.major > 5 || version.major == 5 && version.minor > 0)
+            .unwrap_or(true);
+
+        if new {
+            "esp-clang"
+        } else {
+            // ESP-IDF < 5.1.0 used to have the clang toolchain named `xtensa-clang` even if
+            // it actually is still a cross-toolchain
+            "xtensa-clang"
+        }
+    }
+
+    /// The name of the ESP ROM ELF files "toolchain" for `idf_tools.py`.
+    ///
+    /// Used by recent ESP IDFs during the build process
+    pub fn esp_rom_elfs(&self, version: Option<&EspIdfVersion>) -> Option<&'static str> {
+        let exists = version
+            .map(|version| version.major > 5 || version.major == 5 && version.minor > 0)
+            .unwrap_or(true);
+
+        exists.then_some("esp-rom-elfs")
+    }
+
     /// The name of the gcc toolchain for the ultra low-power co-processor for
     /// `idf_tools.py`.
     pub fn ulp_gcc_toolchain(&self, version: Option<&EspIdfVersion>) -> Option<&'static str> {

@@ -15,6 +15,9 @@ build = "build/build.rs"
 documentation = "https://docs.esp-rs.org/esp-idf-sys/"
 rust-version = "1.66"
 
+[patch.crates-io]
+embuild = { git = "https://github.com/esp-rs/embuild" }
+
 [lib]
 harness = false
 

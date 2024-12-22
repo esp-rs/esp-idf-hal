@@ -15,7 +15,7 @@ const CARGO_CMAKE_BUILD_ESP_IDF_VAR: &str = "CARGO_CMAKE_BUILD_ESP_IDF";
 
 pub fn build() -> Result<EspIdfBuildOutput> {
     sanitize_project_path()?;
-    setup_clang_env()?;
+    setup_clang_env(None)?;
 
     let components = EspIdfComponents::from(
         env::var(CARGO_CMAKE_BUILD_LINK_LIBRARIES_VAR)?

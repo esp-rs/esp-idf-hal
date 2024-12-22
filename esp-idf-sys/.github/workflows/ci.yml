@@ -29,6 +29,7 @@ jobs:
           - v4.4.8
           - v5.1.2
           - v5.2.3
+          - release/v5.3
     steps:
       - name: Setup | Checkout
         uses: actions/checkout@v3
