@@ -16,6 +16,7 @@ documentation = "https://docs.esp-rs.org/esp-idf-hal/"
 rust-version = "1.75"
 
 [patch.crates-io]
+embuild = { git = "https://github.com/esp-rs/embuild" }
 esp-idf-sys = { git = "https://github.com/esp-rs/esp-idf-sys" }
 
 [lib]
