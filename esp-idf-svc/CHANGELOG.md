@@ -8,12 +8,50 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Deprecated
+- `EspFirmwareInfoLoader` use `EspFirmwareInfoLoad` instead
 
 ### Breaking
+- Wifi event details (#455)
+- Add poll_read/write and implement futures_io::AsyncRead/Write for EspAsyncTls (#488)
+- Support for LittleFS (#498)
+- Change default eth key (#502)
+- ESP IDF Partitions API (#511)
+- Expose src_addr and dst_addr in espnow recv cb (#525)
 
 ### Added
+- feat(eth): Implement alternative polling mode (#452)
+- SD Card driver; SD Card host drivers (SPI and SDMMC) (#454)
+- Make EspAsyncMqttClient::wrap public. (#462)
+- Netif-driver support
+- Netif PPP (#473)
+- Added http_local_network_server example (#471)
+- Added esp_wifi_sta_get_rssi function in EspWifi (#478)
+- Expose esp_mqtt_client_set_uri. Fix issue #481. (#482)
+- Option to explicitly initialize the netif stack (NetifStack::initialize)
+- Support for Thread (#484)
+- Enable usage of `esp_idf_log_timestamp_rtos` for ms since boot and `esp_idf_log_timestamp_source_system` for system time in rust logging (#494)
+- Document OTA API (#500)
+- Add option to specify initial caps for the MQTT async adaptor vectors
+- Allow using esp timer with skip_unhandled_events (#526)
+- OTA - Implements a new type `EspFirmwareInfoLoad` that has a reduced memory consumption (#531)
 
 ### Fixed
+- The alloc::Vec version stomps the scan state from Done to Idle. (#459)
+- Logging - Fix set_target_level (#458)
+- Make async mqtt client implement Send. (#461)
+- Implement Sync for EspMqttEvent. (#463)
+- Avoid potential memory leak when dropping mqtt clients (#464)
+- Filter asynchronous events (#466)
+- Remove unnecessary buffer draining in HTTP client example (#470)
+- Fixed: EspLogger is not extensible
+- Fix incorrect key variable being logged for the struct storage for raw NVS access example (#479)
+- `eth_esp32_emac_default_config` - 5.3 compatibility
+- Fix "esp32c2 use example http_sw_server report err ESP_ERR_HTTPD_TASK"
+- Added IP_EVENT_ETH_LOST_IP to deserialize list (#491)
+- examples/http_ws_server.rs: fix string decoding (#510)
+- Bugfix: crash on MQTT async client restart
+- Fix missing newline if CONFIG_LOG_COLORS=n is set (#521)
+- gatekeep mdns ipv6 behind feature flag (#523)
 
 ## [0.49.1] - 2024-07-09
 ### Fixed
