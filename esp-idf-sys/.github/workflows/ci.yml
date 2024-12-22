@@ -26,9 +26,9 @@ jobs:
           - xtensa-esp32s2-espidf
           - xtensa-esp32s3-espidf
         idf-version:
-          - v4.4.6
+          - v4.4.8
           - v5.1.2
-          - v5.2
+          - v5.2.3
     steps:
       - name: Setup | Checkout
         uses: actions/checkout@v3
