@@ -126,6 +126,7 @@ pub enum WebSocketEventType<'a> {
 }
 
 impl<'a> WebSocketEventType<'a> {
+    #[allow(clippy::unnecessary_cast)]
     fn new(event_id: i32, event_data: &'a esp_websocket_event_data_t) -> Result<Self, EspIOError> {
         #[allow(non_upper_case_globals)]
         match event_id {
