@@ -29,7 +29,9 @@ jobs:
         idf-version:
           - release/v4.4
           - release/v5.2
-          - release/v5.3
+# Commented out until this gets resolved:
+# https://github.com/espressif/esp-idf/issues/14174#issuecomment-2558527855
+#          - release/v5.3
     steps:
       - name: Setup | Checkout
         uses: actions/checkout@v3
