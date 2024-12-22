@@ -19,6 +19,7 @@ rust-version = "1.77"
 harness = false
 
 [patch.crates-io]
+embuild = { git = "https://github.com/esp-rs/embuild" }
 esp-idf-hal = { git = "https://github.com/esp-rs/esp-idf-hal" }
 esp-idf-sys = { git = "https://github.com/esp-rs/esp-idf-sys" }
 
