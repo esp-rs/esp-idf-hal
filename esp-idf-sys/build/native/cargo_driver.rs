@@ -274,40 +274,43 @@ pub fn build() -> Result<EspIdfBuildOutput> {
         None
     };
 
-    // Apply patches, only if the patches were not previously applied and if the esp-idf repo is managed.
-    if idf.is_managed_espidf {
-        let patch_set = match idf.version.as_ref().map(|v| (v.major, v.minor, v.patch)) {
-            // master branch
-            _ if {
-                let default_branch = idf.repository.get_default_branch()?;
-                let curr_branch = idf.repository.get_branch_name()?;
-                default_branch == curr_branch && default_branch.is_some()
-            } =>
-            {
-                NO_PATCHES
-            }
-            Ok((5, 0, _)) => V_5_0_PATCHES,
-            Ok((5, _, _)) => NO_PATCHES,
-            Ok((4, 4, _)) => V_4_4_3_PATCHES,
-            Ok((major, minor, patch)) => {
-                cargo::print_warning(format_args!(
-                    "esp-idf version ({major}.{minor}.{patch}) not officially supported by `esp-idf-sys`. \
-                     Supported versions are 'master', 'release/v5.1', 'release/v5.0', 'release/v4.4', \
-                     'v5.1(.X)', 'v5.0(.X)', 'v4.4(.X)'",
-                ));
-                &[]
-            }
-            Err(err) => {
-                cargo::print_warning(format!(
-                    "Could not determine patch-set for esp-idf repository: {err}"
-                ));
-                &[]
-            }
-        };
-        if !patch_set.is_empty() {
-            idf.repository
-                .apply_once(patch_set.iter().map(|p| manifest_dir.join(p)))?;
+    #[allow(unreachable_patterns)]
+    let patch_set = match idf.version.as_ref().map(|v| (v.major, v.minor, v.patch)) {
+        // master branch
+        _ if {
+            let default_branch = idf.repository.get_default_branch()?;
+            let curr_branch = idf.repository.get_branch_name()?;
+            default_branch == curr_branch && default_branch.is_some()
+        } =>
+        {
+            cargo::print_warning(
+                "Building against ESP-IDF `master` is not officially supported. \
+                    Supported versions are 'v5.2(.X)', 'v5.1(.X)', 'v5.0(.X)', 'v4.4(.X)'",
+            );
+            NO_PATCHES
         }
+        Ok((4, 4, _)) => V_4_4_3_PATCHES,
+        Ok((5, 0, _)) => V_5_0_PATCHES,
+        Ok((5, 1, _)) | Ok((5, 2, _)) => NO_PATCHES,
+        Ok((major, minor, patch)) => {
+            cargo::print_warning(format_args!(
+                "Building against ESP-IDF version ({major}.{minor}.{patch}) is not officially supported. \
+                    Supported versions are 'v5.2(.X)', 'v5.1(.X)', 'v5.0(.X)', 'v4.4(.X)'",
+            ));
+            NO_PATCHES
+        }
+        Err(err) => {
+            cargo::print_warning(format!(
+                "Could not determine patch-set for ESP-IDF repository: {err}"
+            ));
+            NO_PATCHES
+        }
+    };
+
+    // Apply patches, only if the patches were not previously applied and if the esp-idf repo is managed.
+    if idf.is_managed_espidf && !patch_set.is_empty() {
+        idf.repository
+            .apply_once(patch_set.iter().map(|p| manifest_dir.join(p)))?;
     }
 
     env::set_var("PATH", &idf.exported_path);
