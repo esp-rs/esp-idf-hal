@@ -1161,6 +1161,7 @@ pub(super) mod config {
         /// Convert this to the ESP-IDF SDK `i2s_pdm_tx_slot_config_t` type.
         #[cfg(not(esp_idf_version_major = "4"))]
         #[inline(always)]
+        #[allow(clippy::needless_update)]
         pub(super) fn as_sdk(&self) -> i2s_pdm_tx_slot_config_t {
             i2s_pdm_tx_slot_config_t {
                 data_bit_width: DataBitWidth::Bits16.as_sdk(),
@@ -1183,6 +1184,8 @@ pub(super) mod config {
                 sd_dither: self.sd_dither,
                 #[cfg(esp_idf_soc_i2s_hw_version_2)]
                 sd_dither2: self.sd_dither2,
+                // i2s_pdm_data_fmt_t::I2S_PDM_DATA_FMT_PCM
+                ..Default::default()
             }
         }
     }
