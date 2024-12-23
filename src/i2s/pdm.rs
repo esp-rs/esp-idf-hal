@@ -325,6 +325,7 @@ pub(super) mod config {
             clk: PeripheralRef<'d, impl OutputPin>,
             din: PeripheralRef<'d, impl InputPin>,
         ) -> i2s_pdm_rx_gpio_config_t {
+            #[allow(clippy::unnecessary_cast)]
             let mut dins: [gpio_num_t; SOC_I2S_PDM_MAX_RX_LINES as usize] =
                 [-1; SOC_I2S_PDM_MAX_RX_LINES as usize];
             dins[0] = din.pin();
@@ -359,9 +360,11 @@ pub(super) mod config {
             clk: PeripheralRef<'d, impl OutputPin>,
             dins: &[PeripheralRef<'d, impl InputPin>],
         ) -> i2s_pdm_rx_gpio_config_t {
+            #[allow(clippy::unnecessary_cast)]
             let mut din_pins: [gpio_num_t; SOC_I2S_PDM_MAX_RX_LINES as usize] =
                 [-1; SOC_I2S_PDM_MAX_RX_LINES as usize];
 
+            #[allow(clippy::unnecessary_cast)]
             for (i, din) in dins.iter().enumerate() {
                 if i >= SOC_I2S_PDM_MAX_RX_LINES as usize {
                     break;
