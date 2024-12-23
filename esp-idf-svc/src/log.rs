@@ -66,6 +66,7 @@ impl core::fmt::Write for EspStdout {
 }
 
 #[allow(non_upper_case_globals)]
+#[allow(non_snake_case)]
 impl From<Newtype<esp_log_level_t>> for LevelFilter {
     fn from(level: Newtype<esp_log_level_t>) -> Self {
         match level.0 {
@@ -94,6 +95,7 @@ impl From<LevelFilter> for Newtype<esp_log_level_t> {
 }
 
 #[allow(non_upper_case_globals)]
+#[allow(non_snake_case)]
 impl From<Newtype<esp_log_level_t>> for Level {
     fn from(level: Newtype<esp_log_level_t>) -> Self {
         match level.0 {
