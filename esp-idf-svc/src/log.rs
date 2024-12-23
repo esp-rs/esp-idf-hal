@@ -193,10 +193,10 @@ impl EspLogger {
         }
     }
 
-    fn get_color(level: Level) -> Option<u8> {
+    fn get_color(_level: Level) -> Option<u8> {
         #[cfg(esp_idf_log_colors)]
         {
-            match level {
+            match _level {
                 Level::Error => Some(31), // LOG_COLOR_RED
                 Level::Warn => Some(33),  // LOG_COLOR_BROWN
                 Level::Info => Some(32),  // LOG_COLOR_GREEN,
