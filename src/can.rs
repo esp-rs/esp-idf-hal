@@ -174,9 +174,7 @@ pub mod config {
                         esp_idf_version = "5.2",
                         esp_idf_version = "5.3"
                     ))]
-                    __bindgen_anon_1: twai_timing_config_t__bindgen_ty_1 {
-                        triple_sampling,
-                    },
+                    __bindgen_anon_1: twai_timing_config_t__bindgen_ty_1 { triple_sampling },
                     ..Default::default()
                 },
             }
