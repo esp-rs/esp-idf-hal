@@ -1041,12 +1041,14 @@ impl<'d, T> EthDriver<'d, T> {
         }
     }
 
+    #[allow(clippy::needless_update)]
     fn eth_phy_default_config(reset_pin: Option<i32>, phy_addr: Option<u32>) -> eth_phy_config_t {
         eth_phy_config_t {
             phy_addr: phy_addr.map(|a| a as i32).unwrap_or(ESP_ETH_PHY_ADDR_AUTO),
             reset_timeout_ms: 100,
             autonego_timeout_ms: 4000,
             reset_gpio_num: reset_pin.unwrap_or(-1),
+            ..Default::default()
         }
     }
 

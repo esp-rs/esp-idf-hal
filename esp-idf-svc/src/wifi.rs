@@ -165,6 +165,7 @@ impl TryFrom<&ClientConfiguration> for Newtype<wifi_sta_config_t> {
             None => [0; 6],
         };
 
+        #[allow(clippy::needless_update)]
         let mut result = wifi_sta_config_t {
             ssid: [0; 32],
             password: [0; 64],
@@ -189,6 +190,7 @@ impl TryFrom<&ClientConfiguration> for Newtype<wifi_sta_config_t> {
             threshold: wifi_scan_threshold_t {
                 rssi: -127,
                 authmode: Newtype::<wifi_auth_mode_t>::from(conf.auth_method).0,
+                ..Default::default()
             },
             pmf_cfg: wifi_pmf_config_t {
                 capable: false,
