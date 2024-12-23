@@ -325,7 +325,8 @@ pub(super) mod config {
             clk: PeripheralRef<'d, impl OutputPin>,
             din: PeripheralRef<'d, impl InputPin>,
         ) -> i2s_pdm_rx_gpio_config_t {
-            let mut dins: [gpio_num_t; SOC_I2S_PDM_MAX_RX_LINES] = [-1; SOC_I2S_PDM_MAX_RX_LINES];
+            let mut dins: [gpio_num_t; SOC_I2S_PDM_MAX_RX_LINES as usize] =
+                [-1; SOC_I2S_PDM_MAX_RX_LINES as usize];
             dins[0] = din.pin();
 
             let pins = i2s_pdm_rx_gpio_config_t__bindgen_ty_1 { dins };
@@ -358,11 +359,11 @@ pub(super) mod config {
             clk: PeripheralRef<'d, impl OutputPin>,
             dins: &[PeripheralRef<'d, impl InputPin>],
         ) -> i2s_pdm_rx_gpio_config_t {
-            let mut din_pins: [gpio_num_t; SOC_I2S_PDM_MAX_RX_LINES] =
-                [-1; SOC_I2S_PDM_MAX_RX_LINES];
+            let mut din_pins: [gpio_num_t; SOC_I2S_PDM_MAX_RX_LINES as usize] =
+                [-1; SOC_I2S_PDM_MAX_RX_LINES as usize];
 
             for (i, din) in dins.iter().enumerate() {
-                if i >= SOC_I2S_PDM_MAX_RX_LINES {
+                if i >= SOC_I2S_PDM_MAX_RX_LINES as usize {
                     break;
                 }
 
@@ -490,12 +491,14 @@ pub(super) mod config {
         /// representation.
         #[cfg(esp_idf_soc_i2s_supports_pdm_rx)]
         #[inline(always)]
+        #[allow(clippy::needless_update)]
         pub(super) fn as_sdk(&self) -> i2s_pdm_rx_slot_config_t {
             i2s_pdm_rx_slot_config_t {
                 data_bit_width: self.data_bit_width.as_sdk(),
                 slot_bit_width: self.slot_bit_width.as_sdk(),
                 slot_mode: self.slot_mode.as_sdk(),
                 slot_mask: self.slot_mask.as_sdk(),
+                ..Default::default()
             }
         }
     }

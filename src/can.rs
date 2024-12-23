@@ -97,7 +97,6 @@ pub mod config {
                     tseg_1: 16,
                     tseg_2: 8,
                     sjw: 3,
-                    triple_sampling: false,
                     ..Default::default()
                 },
                 Timing::B50K => twai_timing_config_t {
@@ -105,7 +104,6 @@ pub mod config {
                     tseg_1: 15,
                     tseg_2: 4,
                     sjw: 3,
-                    triple_sampling: false,
                     ..Default::default()
                 },
                 Timing::B100K => twai_timing_config_t {
@@ -113,7 +111,6 @@ pub mod config {
                     tseg_1: 15,
                     tseg_2: 4,
                     sjw: 3,
-                    triple_sampling: false,
                     ..Default::default()
                 },
                 Timing::B125K => twai_timing_config_t {
@@ -121,7 +118,6 @@ pub mod config {
                     tseg_1: 15,
                     tseg_2: 4,
                     sjw: 3,
-                    triple_sampling: false,
                     ..Default::default()
                 },
                 Timing::B250K => twai_timing_config_t {
@@ -129,7 +125,6 @@ pub mod config {
                     tseg_1: 15,
                     tseg_2: 4,
                     sjw: 3,
-                    triple_sampling: false,
                     ..Default::default()
                 },
                 Timing::B500K => twai_timing_config_t {
@@ -137,7 +132,6 @@ pub mod config {
                     tseg_1: 15,
                     tseg_2: 4,
                     sjw: 3,
-                    triple_sampling: false,
                     ..Default::default()
                 },
                 Timing::B800K => twai_timing_config_t {
@@ -145,7 +139,6 @@ pub mod config {
                     tseg_1: 16,
                     tseg_2: 8,
                     sjw: 3,
-                    triple_sampling: false,
                     ..Default::default()
                 },
                 Timing::B1M => twai_timing_config_t {
@@ -153,7 +146,6 @@ pub mod config {
                     tseg_1: 15,
                     tseg_2: 4,
                     sjw: 3,
-                    triple_sampling: false,
                     ..Default::default()
                 },
                 Timing::Custom {
@@ -167,7 +159,24 @@ pub mod config {
                     tseg_1: timing_segment_1,
                     tseg_2: timing_segment_2,
                     sjw: synchronization_jump_width,
+                    #[cfg(
+                        any(esp_idf_version_major = "4"),
+                        esp_idf_version = "5.0",
+                        esp_idf_version = "5.1",
+                        esp_idf_version = "5.2",
+                        esp_idf_version = "5.3"
+                    )]
                     triple_sampling,
+                    #[cfg(not(
+                        any(esp_idf_version_major = "4"),
+                        esp_idf_version = "5.0",
+                        esp_idf_version = "5.1",
+                        esp_idf_version = "5.2",
+                        esp_idf_version = "5.3"
+                    ))]
+                    __bindgen_anon_1: twai_timing_config_t__bindgen_ty_1 {
+                        triple_sampling,
+                    },
                     ..Default::default()
                 },
             }
