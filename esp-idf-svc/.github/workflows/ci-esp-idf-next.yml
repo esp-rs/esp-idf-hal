@@ -1,23 +1,22 @@
-name: CI
+name: CIEspIdfNext
 
 on:
   push:
     branches:
       - master
-  pull_request:
-  schedule:
-    - cron: "50 6 * * *"
   workflow_dispatch:
+  schedule:
+    - cron: '50 6 * * *'
 
 env:
   rust_toolchain: nightly
-  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
 jobs:
   compile:
     name: Compile
     runs-on: ubuntu-latest
     strategy:
+      fail-fast: false
       matrix:
         target:
           - riscv32imc-esp-espidf
@@ -26,12 +25,9 @@ jobs:
           - xtensa-esp32s2-espidf
           - xtensa-esp32s3-espidf
         idf-version:
-          - v4.4.8
-          - v5.1.2
-          - v5.2.3
-# Commented out until this gets resolved:
-# https://github.com/espressif/esp-idf/issues/14174#issuecomment-2558527855
-#          - v5.3.2
+          - v5.3.2
+          - release/v5.4
+          - master
     steps:
       - name: Setup | Checkout
         uses: actions/checkout@v3
