@@ -1,47 +1,5 @@
 #[cfg(all(not(esp_idf_version_major = "4"), not(esp_idf_version = "5.1")))]
-mod modern;
-
-pub use legacy::*;
-
-use esp_idf_sys::*;
-
-#[cfg(all(not(esp_idf_version_major = "4"), not(esp_idf_version = "5.1")))]
-#[repr(u8)]
-enum UsedDriver {
-    None = 0,
-    Legacy = 1,
-    Beta = 2,
-}
-
-#[cfg(all(not(esp_idf_version_major = "4"), not(esp_idf_version = "5.1")))]
-// 0 -> no driver, 1 -> legacy driver, 2 -> beta driver
-static DRIVER_IN_USE: core::sync::atomic::AtomicU8 =
-    core::sync::atomic::AtomicU8::new(UsedDriver::None as u8);
-
-#[cfg(all(not(esp_idf_version_major = "4"), not(esp_idf_version = "5.1")))]
-fn check_and_set_beta_driver() {
-    match DRIVER_IN_USE.compare_exchange(
-        UsedDriver::None as u8,
-        UsedDriver::Beta as u8,
-        core::sync::atomic::Ordering::Relaxed,
-        core::sync::atomic::Ordering::Relaxed,
-    ) {
-        Err(e) if e == UsedDriver::Legacy as u8 => panic!("Legacy I2C driver is already in use. Either legacy driver or beta driver can be used at a time."),
-        _ => ()
-    }
-}
-
-fn check_and_set_legacy_driver() {
-    match DRIVER_IN_USE.compare_exchange(
-            UsedDriver::None as u8,
-            UsedDriver::Legacy as u8,
-            core::sync::atomic::Ordering::Relaxed,
-            core::sync::atomic::Ordering::Relaxed,
-    ) {
-            Err(e) if e == UsedDriver::Beta as u8 => panic!("Beta I2C driver is already in use. Either legacy driver or beta driver can be used at a time."),
-            _ => ()
-    }
-}
+pub mod modern;
 
 use core::marker::PhantomData;
 use core::time::Duration;
@@ -57,6 +15,44 @@ use crate::peripheral::Peripheral;
 use crate::units::*;
 
 pub use embedded_hal::i2c::Operation;
+
+#[cfg(all(not(esp_idf_version_major = "4"), not(esp_idf_version = "5.1")))]
+#[repr(u8)]
+enum UsedDriver {
+    None = 0,
+    Legacy = 1,
+    Modern = 2,
+}
+
+#[cfg(all(not(esp_idf_version_major = "4"), not(esp_idf_version = "5.1")))]
+// 0 -> no driver, 1 -> legacy driver, 2 -> modern driver
+static DRIVER_IN_USE: core::sync::atomic::AtomicU8 =
+    core::sync::atomic::AtomicU8::new(UsedDriver::None as u8);
+
+#[cfg(all(not(esp_idf_version_major = "4"), not(esp_idf_version = "5.1")))]
+fn check_and_set_modern_driver() {
+    match DRIVER_IN_USE.compare_exchange(
+        UsedDriver::None as u8,
+        UsedDriver::Modern as u8,
+        core::sync::atomic::Ordering::Relaxed,
+        core::sync::atomic::Ordering::Relaxed,
+    ) {
+        Err(e) if e == UsedDriver::Legacy as u8 => panic!("Legacy I2C driver is already in use. Either legacy driver or modern driver can be used at a time."),
+        _ => ()
+    }
+}
+
+fn check_and_set_legacy_driver() {
+    match DRIVER_IN_USE.compare_exchange(
+            UsedDriver::None as u8,
+            UsedDriver::Legacy as u8,
+            core::sync::atomic::Ordering::Relaxed,
+            core::sync::atomic::Ordering::Relaxed,
+    ) {
+            Err(e) if e == UsedDriver::Modern as u8 => panic!("Modern I2C driver is already in use. Either legacy driver or modern driver can be used at a time."),
+            _ => ()
+    }
+}
 
 crate::embedded_hal_error!(
     I2cError,
