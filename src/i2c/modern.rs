@@ -2,9 +2,9 @@ use core::borrow::Borrow;
 use core::ffi::c_void;
 use core::marker::PhantomData;
 use core::ptr;
-
-use embassy_sync::mutex::Mutex;
-use embassy_sync::mutex::MutexGuard;
+use core::sync::atomic::AtomicBool;
+use core::time::Duration;
+use std::sync::Condvar;
 
 use embedded_hal::i2c::{ErrorKind, NoAcknowledgeSource};
 
@@ -14,7 +14,6 @@ use crate::delay::*;
 use crate::gpio::*;
 use crate::interrupt::asynch::HalIsrNotification;
 use crate::peripheral::Peripheral;
-use crate::task::embassy_sync::EspRawMutex;
 use crate::units::*;
 
 pub use embedded_hal::i2c::Operation;
@@ -26,20 +25,6 @@ crate::embedded_hal_error!(
     embedded_hal::i2c::Error,
     embedded_hal::i2c::ErrorKind
 );
-
-macro_rules! on_err {
-    ($d:expr, $oe:expr) => {
-        {
-            match $d {
-                Err(e) => {
-                    $oe
-                    Err(e)
-                }
-                v => v
-            }
-        }
-    };
-}
 
 pub type I2cConfig = config::Config;
 #[cfg(not(esp32c2))]
@@ -232,6 +217,62 @@ pub mod config {
     }
 }
 
+#[cfg(any(esp32c3, esp32c2, esp32c6))]
+static ASYNC_DEVICE_IN_USE: [AtomicBool; 1] = [AtomicBool::new(false)];
+
+#[cfg(not(any(esp32c3, esp32c2, esp32c6)))]
+static ASYNC_DEVICE_IN_USE: [AtomicBool; 2] = [AtomicBool::new(false), AtomicBool::new(false)];
+
+mod private {
+    pub trait Sealed {}
+}
+
+// Should allow to construct a `I2cDeviceDriver` from a `I2cDriver` or `AsyncI2cDriver`.
+pub trait BorrowI2cDriver<'d>: private::Sealed {
+    fn borrowed_bus_handle(&self) -> i2c_master_bus_handle_t;
+    fn borrowed_port(&self) -> u8;
+}
+
+macro_rules! impl_borrow_trait {
+    ($( $accessor:ty ),*) => {
+        $(
+            impl<'d> BorrowI2cDriver<'d> for $accessor {
+                fn borrowed_bus_handle(&self) -> i2c_master_bus_handle_t {
+                    self.bus_handle()
+                }
+
+                fn borrowed_port(&self) -> u8 {
+                    self.port()
+                }
+            }
+
+            impl<'d> private::Sealed for $accessor {}
+        )*
+    };
+}
+
+impl_borrow_trait!(
+    I2cDriver<'d>,
+    &I2cDriver<'d>,
+    &mut I2cDriver<'d>,
+    std::rc::Rc<I2cDriver<'d>>,
+    std::sync::Arc<I2cDriver<'d>>,
+    std::boxed::Box<I2cDriver<'d>>,
+    AsyncI2cDriver<'d>,
+    &AsyncI2cDriver<'d>,
+    &mut AsyncI2cDriver<'d>,
+    std::rc::Rc<AsyncI2cDriver<'d>>,
+    std::sync::Arc<AsyncI2cDriver<'d>>,
+    std::boxed::Box<AsyncI2cDriver<'d>>
+);
+
+/// I2C Driver controlling the I2C bus.
+///
+/// # Example
+/// ```no_run
+/// let driver_config = config::Config::new();
+/// let driver = I2cDriver::new(..., &device_config).unwrap();
+/// ```
 pub struct I2cDriver<'d> {
     port: u8,
     handle: i2c_master_bus_handle_t,
@@ -245,11 +286,11 @@ impl<'d> I2cDriver<'d> {
         scl: impl Peripheral<P = impl InputPin + OutputPin> + 'd,
         config: &config::Config,
     ) -> Result<Self, EspError> {
-        super::check_and_set_beta_driver();
+        super::check_and_set_modern_driver();
 
         let handle = init_master_bus(_i2c, sda, scl, config, 0)?;
 
-        Ok(I2cDriver {
+        Ok(Self {
             port: I2C::port() as u8,
             handle,
             _p: PhantomData,
@@ -263,52 +304,6 @@ impl<'d> I2cDriver<'d> {
     fn bus_handle(&self) -> i2c_master_bus_handle_t {
         self.handle
     }
-
-    /// Probe device on the bus.
-    pub fn probe_device(
-        &mut self,
-        address: config::DeviceAddress,
-        timeout: TickType_t,
-    ) -> Result<(), EspError> {
-        esp!(unsafe { i2c_master_probe(self.handle, address.address(), timeout as i32) })
-    }
-
-    pub fn device(
-        &mut self,
-        config: &config::DeviceConfig,
-    ) -> Result<I2cDeviceDriver<'d, &mut I2cDriver<'d>>, EspError> {
-        I2cDeviceDriver::new(self, config)
-    }
-
-    // Helper to use the embedded_hal traits.
-    fn read(&mut self, addr: u8, buffer: &mut [u8], timeout: TickType_t) -> Result<(), EspError> {
-        self.device(&config::DeviceConfig::new(config::DeviceAddress::SevenBit(
-            addr,
-        )))?
-        .read(buffer, timeout)
-    }
-
-    // Helper to use the embedded_hal traits.
-    fn write(&mut self, addr: u8, bytes: &[u8], timeout: TickType_t) -> Result<(), EspError> {
-        self.device(&config::DeviceConfig::new(config::DeviceAddress::SevenBit(
-            addr,
-        )))?
-        .write(bytes, timeout)
-    }
-
-    // Helper to use the embedded_hal traits.
-    fn write_read(
-        &mut self,
-        addr: u8,
-        bytes: &[u8],
-        buffer: &mut [u8],
-        timeout: TickType_t,
-    ) -> Result<(), EspError> {
-        self.device(&config::DeviceConfig::new(config::DeviceAddress::SevenBit(
-            addr,
-        )))?
-        .write_read(bytes, buffer, timeout)
-    }
 }
 
 unsafe impl<'d> Send for I2cDriver<'d> {}
@@ -319,59 +314,202 @@ impl<'d> Drop for I2cDriver<'d> {
     }
 }
 
-impl<'d> embedded_hal_0_2::blocking::i2c::Read for I2cDriver<'d> {
-    type Error = I2cError;
+/// The `async` version of the I2C driver.
+///
+/// This driver allows to have one `AsyncI2cDeviceDriver` per bus with `async` support.
+///
+/// # Important
+/// I2C master asynchronous transaction is still an experimental feature. (The issue is when
+/// asynchronous transaction is very large, it will cause memory problem.)
+pub struct AsyncI2cDriver<'d> {
+    port: u8,
+    handle: i2c_master_bus_handle_t,
+    _p: PhantomData<&'d mut ()>,
+}
 
-    fn read(&mut self, addr: u8, buffer: &mut [u8]) -> Result<(), Self::Error> {
-        Self::read(self, addr, buffer, BLOCK).map_err(to_i2c_err)
+impl<'d> AsyncI2cDriver<'d> {
+    /// Creates a new i2c driver with `async` support.
+    pub fn new<I2C: I2c>(
+        _i2c: impl Peripheral<P = I2C> + 'd,
+        sda: impl Peripheral<P = impl InputPin + OutputPin> + 'd,
+        scl: impl Peripheral<P = impl InputPin + OutputPin> + 'd,
+        config: &config::Config,
+    ) -> Result<Self, EspError> {
+        super::check_and_set_modern_driver();
+
+        let handle = init_master_bus(_i2c, sda, scl, config, 1)?;
+
+        Ok(Self {
+            port: I2C::port() as u8,
+            handle,
+            _p: PhantomData,
+        })
+    }
+
+    pub fn port(&self) -> u8 {
+        self.port
+    }
+
+    fn bus_handle(&self) -> i2c_master_bus_handle_t {
+        self.handle
     }
 }
 
-impl<'d> embedded_hal_0_2::blocking::i2c::Write for I2cDriver<'d> {
-    type Error = I2cError;
+unsafe impl<'d> Send for AsyncI2cDriver<'d> {}
 
-    fn write(&mut self, addr: u8, bytes: &[u8]) -> Result<(), Self::Error> {
-        Self::write(self, addr, bytes, BLOCK).map_err(to_i2c_err)
+impl<'d> Drop for AsyncI2cDriver<'d> {
+    fn drop(&mut self) {
+        esp!(unsafe { i2c_del_master_bus(self.handle) }).unwrap();
     }
 }
 
-impl<'d> embedded_hal_0_2::blocking::i2c::WriteRead for I2cDriver<'d> {
-    type Error = I2cError;
+macro_rules! impl_driver_blocking_functions {
+    ($driver:ident) => {
+        impl<'d> $driver<'d> {
+            /// Probe device on the bus.
+            pub fn probe_device(
+                &mut self,
+                address: config::DeviceAddress,
+                timeout: TickType_t,
+            ) -> Result<(), EspError> {
+                esp!(unsafe {
+                    i2c_master_probe(self.bus_handle(), address.address(), timeout as i32)
+                })
+            }
 
-    fn write_read(&mut self, addr: u8, bytes: &[u8], buffer: &mut [u8]) -> Result<(), Self::Error> {
-        Self::write_read(self, addr, bytes, buffer, BLOCK).map_err(to_i2c_err)
-    }
+            // Helper to use the embedded_hal traits.
+            fn read(
+                &self,
+                addr: u8,
+                buffer: &mut [u8],
+                timeout: TickType_t,
+            ) -> Result<(), EspError> {
+                let device = init_device(
+                    self.bus_handle(),
+                    &config::DeviceConfig::new(config::DeviceAddress::SevenBit(addr)),
+                )?;
+
+                esp!(unsafe {
+                    i2c_master_receive(
+                        device,
+                        buffer.as_mut_ptr().cast(),
+                        buffer.len(),
+                        timeout as i32,
+                    )
+                })
+            }
+
+            // Helper to use the embedded_hal traits.
+            fn write(
+                &mut self,
+                addr: u8,
+                bytes: &[u8],
+                timeout: TickType_t,
+            ) -> Result<(), EspError> {
+                let device = init_device(
+                    self.bus_handle(),
+                    &config::DeviceConfig::new(config::DeviceAddress::SevenBit(addr)),
+                )?;
+
+                esp!(unsafe {
+                    i2c_master_transmit(device, bytes.as_ptr().cast(), bytes.len(), timeout as i32)
+                })
+            }
+
+            // Helper to use the embedded_hal traits.
+            fn write_read(
+                &mut self,
+                addr: u8,
+                bytes: &[u8],
+                buffer: &mut [u8],
+                timeout: TickType_t,
+            ) -> Result<(), EspError> {
+                let device = init_device(
+                    self.bus_handle(),
+                    &config::DeviceConfig::new(config::DeviceAddress::SevenBit(addr)),
+                )?;
+
+                esp!(unsafe {
+                    i2c_master_transmit_receive(
+                        device,
+                        bytes.as_ptr().cast(),
+                        bytes.len(),
+                        buffer.as_mut_ptr().cast(),
+                        buffer.len(),
+                        timeout as i32,
+                    )
+                })
+            }
+        }
+
+        impl<'d> embedded_hal_0_2::blocking::i2c::Read for $driver<'d> {
+            type Error = I2cError;
+
+            fn read(&mut self, addr: u8, buffer: &mut [u8]) -> Result<(), Self::Error> {
+                Self::read(self, addr, buffer, BLOCK).map_err(to_i2c_err)
+            }
+        }
+
+        impl<'d> embedded_hal_0_2::blocking::i2c::Write for $driver<'d> {
+            type Error = I2cError;
+
+            fn write(&mut self, addr: u8, bytes: &[u8]) -> Result<(), Self::Error> {
+                Self::write(self, addr, bytes, BLOCK).map_err(to_i2c_err)
+            }
+        }
+
+        impl<'d> embedded_hal_0_2::blocking::i2c::WriteRead for $driver<'d> {
+            type Error = I2cError;
+
+            fn write_read(
+                &mut self,
+                addr: u8,
+                bytes: &[u8],
+                buffer: &mut [u8],
+            ) -> Result<(), Self::Error> {
+                Self::write_read(self, addr, bytes, buffer, BLOCK).map_err(to_i2c_err)
+            }
+        }
+
+        impl<'d> embedded_hal::i2c::ErrorType for $driver<'d> {
+            type Error = I2cError;
+        }
+
+        impl<'d> embedded_hal::i2c::I2c<embedded_hal::i2c::SevenBitAddress> for $driver<'d> {
+            fn read(&mut self, addr: u8, buffer: &mut [u8]) -> Result<(), Self::Error> {
+                Self::read(self, addr, buffer, BLOCK).map_err(to_i2c_err)
+            }
+
+            fn write(&mut self, addr: u8, bytes: &[u8]) -> Result<(), Self::Error> {
+                Self::write(self, addr, bytes, BLOCK).map_err(to_i2c_err)
+            }
+
+            fn write_read(
+                &mut self,
+                addr: u8,
+                bytes: &[u8],
+                buffer: &mut [u8],
+            ) -> Result<(), Self::Error> {
+                Self::write_read(self, addr, bytes, buffer, BLOCK).map_err(to_i2c_err)
+            }
+
+            fn transaction(
+                &mut self,
+                _addr: u8,
+                _operations: &mut [embedded_hal::i2c::Operation<'_>],
+            ) -> Result<(), Self::Error> {
+                unimplemented!("transactional not implemented")
+            }
+        }
+    };
 }
 
-impl<'d> embedded_hal::i2c::ErrorType for I2cDriver<'d> {
-    type Error = I2cError;
-}
-
-impl<'d> embedded_hal::i2c::I2c<embedded_hal::i2c::SevenBitAddress> for I2cDriver<'d> {
-    fn read(&mut self, addr: u8, buffer: &mut [u8]) -> Result<(), Self::Error> {
-        Self::read(self, addr, buffer, BLOCK).map_err(to_i2c_err)
-    }
-
-    fn write(&mut self, addr: u8, bytes: &[u8]) -> Result<(), Self::Error> {
-        Self::write(self, addr, bytes, BLOCK).map_err(to_i2c_err)
-    }
-
-    fn write_read(&mut self, addr: u8, bytes: &[u8], buffer: &mut [u8]) -> Result<(), Self::Error> {
-        Self::write_read(self, addr, bytes, buffer, BLOCK).map_err(to_i2c_err)
-    }
-
-    fn transaction(
-        &mut self,
-        _addr: u8,
-        _operations: &mut [embedded_hal::i2c::Operation<'_>],
-    ) -> Result<(), Self::Error> {
-        unimplemented!("transactional not implemented")
-    }
-}
+impl_driver_blocking_functions!(I2cDriver);
+impl_driver_blocking_functions!(AsyncI2cDriver);
 
 pub struct I2cDeviceDriver<'d, T>
 where
-    T: Borrow<I2cDriver<'d>>,
+    T: BorrowI2cDriver<'d> + 'd,
 {
     _driver: T,
     handle: i2c_master_dev_handle_t,
@@ -380,10 +518,10 @@ where
 
 impl<'d, T> I2cDeviceDriver<'d, T>
 where
-    T: Borrow<I2cDriver<'d>>,
+    T: BorrowI2cDriver<'d> + 'd,
 {
     pub fn new(driver: T, config: &config::DeviceConfig) -> Result<Self, EspError> {
-        let handle = init_device(driver.borrow().bus_handle(), &config)?;
+        let handle = init_device(driver.borrowed_bus_handle(), &config)?;
 
         Ok(I2cDeviceDriver {
             _driver: driver,
@@ -392,10 +530,19 @@ where
         })
     }
 
+    fn device_handle(&self) -> i2c_master_dev_handle_t {
+        self.handle
+    }
+}
+
+impl<'d, T> I2cDeviceDriver<'d, T>
+where
+    T: BorrowI2cDriver<'d> + 'd,
+{
     pub fn read(&mut self, buffer: &mut [u8], timeout: TickType_t) -> Result<(), EspError> {
         esp!(unsafe {
             i2c_master_receive(
-                self.handle,
+                self.device_handle(),
                 buffer.as_mut_ptr().cast(),
                 buffer.len(),
                 timeout as i32,
@@ -406,7 +553,7 @@ where
     pub fn write(&mut self, bytes: &[u8], timeout: TickType_t) -> Result<(), EspError> {
         esp!(unsafe {
             i2c_master_transmit(
-                self.handle,
+                self.device_handle(),
                 bytes.as_ptr().cast(),
                 bytes.len(),
                 timeout as i32,
@@ -422,7 +569,7 @@ where
     ) -> Result<(), EspError> {
         esp!(unsafe {
             i2c_master_transmit_receive(
-                self.handle,
+                self.device_handle(),
                 bytes.as_ptr().cast(),
                 bytes.len(),
                 buffer.as_mut_ptr().cast(),
@@ -435,7 +582,7 @@ where
 
 impl<'d, T> Drop for I2cDeviceDriver<'d, T>
 where
-    T: Borrow<I2cDriver<'d>>,
+    T: BorrowI2cDriver<'d>,
 {
     fn drop(&mut self) {
         esp!(unsafe { i2c_master_bus_rm_device(self.handle) }).unwrap();
@@ -444,29 +591,29 @@ where
 
 impl<'d, T> embedded_hal_0_2::blocking::i2c::Read for I2cDeviceDriver<'d, T>
 where
-    T: Borrow<I2cDriver<'d>>,
+    T: BorrowI2cDriver<'d> + 'd,
 {
     type Error = I2cError;
 
     fn read(&mut self, _addr: u8, buffer: &mut [u8]) -> Result<(), Self::Error> {
-        I2cDeviceDriver::read(self, buffer, BLOCK).map_err(to_i2c_err)
+        Self::read(self, buffer, BLOCK).map_err(to_i2c_err)
     }
 }
 
 impl<'d, T> embedded_hal_0_2::blocking::i2c::Write for I2cDeviceDriver<'d, T>
 where
-    T: Borrow<I2cDriver<'d>>,
+    T: BorrowI2cDriver<'d> + 'd,
 {
     type Error = I2cError;
 
     fn write(&mut self, _addr: u8, bytes: &[u8]) -> Result<(), Self::Error> {
-        I2cDeviceDriver::write(self, bytes, BLOCK).map_err(to_i2c_err)
+        Self::write(self, bytes, BLOCK).map_err(to_i2c_err)
     }
 }
 
 impl<'d, T> embedded_hal_0_2::blocking::i2c::WriteRead for I2cDeviceDriver<'d, T>
 where
-    T: Borrow<I2cDriver<'d>>,
+    T: BorrowI2cDriver<'d> + 'd,
 {
     type Error = I2cError;
 
@@ -476,27 +623,27 @@ where
         bytes: &[u8],
         buffer: &mut [u8],
     ) -> Result<(), Self::Error> {
-        I2cDeviceDriver::write_read(self, bytes, buffer, BLOCK).map_err(to_i2c_err)
+        Self::write_read(self, bytes, buffer, BLOCK).map_err(to_i2c_err)
     }
 }
 
 impl<'d, T> embedded_hal::i2c::ErrorType for I2cDeviceDriver<'d, T>
 where
-    T: Borrow<I2cDriver<'d>>,
+    T: BorrowI2cDriver<'d> + 'd,
 {
     type Error = I2cError;
 }
 
 impl<'d, T> embedded_hal::i2c::I2c<embedded_hal::i2c::SevenBitAddress> for I2cDeviceDriver<'d, T>
 where
-    T: Borrow<I2cDriver<'d>>,
+    T: BorrowI2cDriver<'d> + 'd,
 {
     fn read(&mut self, _addr: u8, buffer: &mut [u8]) -> Result<(), Self::Error> {
-        I2cDeviceDriver::read(self, buffer, BLOCK).map_err(to_i2c_err)
+        Self::read(self, buffer, BLOCK).map_err(to_i2c_err)
     }
 
     fn write(&mut self, _addr: u8, bytes: &[u8]) -> Result<(), Self::Error> {
-        I2cDeviceDriver::write(self, bytes, BLOCK).map_err(to_i2c_err)
+        Self::write(self, bytes, BLOCK).map_err(to_i2c_err)
     }
 
     fn write_read(
@@ -505,7 +652,7 @@ where
         bytes: &[u8],
         buffer: &mut [u8],
     ) -> Result<(), Self::Error> {
-        I2cDeviceDriver::write_read(self, bytes, buffer, BLOCK).map_err(to_i2c_err)
+        Self::write_read(self, bytes, buffer, BLOCK).map_err(to_i2c_err)
     }
 
     fn transaction(
@@ -517,217 +664,91 @@ where
     }
 }
 
-// ------------------------------------------------------------------------------------------------
-// ------------------------------------- Async ----------------------------------------------------
-// ------------------------------------------------------------------------------------------------
-
-pub struct AsyncI2cDriver<'d> {
-    bus_lock: Mutex<EspRawMutex, ()>,
-    handle: i2c_master_bus_handle_t,
-    port: u8,
-    _p: PhantomData<&'d mut ()>,
-}
-
-impl<'d> AsyncI2cDriver<'d> {
-    pub fn new<I2C: I2c>(
-        _i2c: impl Peripheral<P = I2C> + 'd,
-        sda: impl Peripheral<P = impl InputPin + OutputPin> + 'd,
-        scl: impl Peripheral<P = impl InputPin + OutputPin> + 'd,
-        config: &config::Config,
-    ) -> Result<Self, EspError> {
-        super::check_and_set_beta_driver();
-
-        let handle = init_master_bus(_i2c, sda, scl, config, 1)?;
-
-        Ok(AsyncI2cDriver {
-            bus_lock: Mutex::new(()),
-            handle,
-            port: I2C::port() as _,
-            _p: PhantomData,
-        })
-    }
-
-    pub fn port(&self) -> u8 {
-        self.port
-    }
-
-    fn bus_handle(&self) -> i2c_master_bus_handle_t {
-        self.handle
-    }
-
-    async fn acquire_bus<'a>(&'a self) -> MutexGuard<'a, EspRawMutex, ()> {
-        self.bus_lock.lock().await
-    }
-
-    pub fn device(
-        &self,
-        config: &config::DeviceConfig,
-    ) -> Result<AsyncI2cDeviceDriver<'d, &AsyncI2cDriver<'d>>, EspError> {
-        AsyncI2cDeviceDriver::new(self, config)
-    }
-
-    pub fn owned_device(
-        self,
-        config: &config::DeviceConfig,
-    ) -> Result<OwnedAsyncI2cDeviceDriver<'d>, EspError> {
-        OwnedAsyncI2cDeviceDriver::wrap(self, config)
-    }
-
-    async fn read(&mut self, address: u8, buffer: &mut [u8]) -> Result<(), EspError> {
-        self.device(&config::DeviceConfig::new(config::DeviceAddress::SevenBit(
-            address,
-        )))?
-        .read(buffer, BLOCK)
-        .await
-    }
-
-    async fn write(&mut self, address: u8, bytes: &[u8]) -> Result<(), EspError> {
-        self.device(&config::DeviceConfig::new(config::DeviceAddress::SevenBit(
-            address,
-        )))?
-        .write(bytes, BLOCK)
-        .await
-    }
-
-    async fn write_read(
-        &mut self,
-        address: u8,
-        bytes: &[u8],
-        buffer: &mut [u8],
-    ) -> Result<(), EspError> {
-        self.device(&config::DeviceConfig::new(config::DeviceAddress::SevenBit(
-            address,
-        )))?
-        .write_read(bytes, buffer, BLOCK)
-        .await
-    }
-}
-
-impl<'d> embedded_hal::i2c::ErrorType for AsyncI2cDriver<'d> {
-    type Error = I2cError;
-}
-
-impl<'d> embedded_hal_async::i2c::I2c<embedded_hal::i2c::SevenBitAddress> for AsyncI2cDriver<'d> {
-    async fn read(&mut self, address: u8, buffer: &mut [u8]) -> Result<(), Self::Error> {
-        self.read(address, buffer).await.map_err(to_i2c_err)
-    }
-
-    async fn write(&mut self, address: u8, bytes: &[u8]) -> Result<(), Self::Error> {
-        self.write(address, bytes).await.map_err(to_i2c_err)
-    }
-
-    async fn write_read(
-        &mut self,
-        address: u8,
-        bytes: &[u8],
-        buffer: &mut [u8],
-    ) -> Result<(), Self::Error> {
-        self.write_read(address, bytes, buffer)
-            .await
-            .map_err(to_i2c_err)
-    }
-
-    async fn transaction(
-        &mut self,
-        _address: u8,
-        _operations: &mut [Operation<'_>],
-    ) -> Result<(), Self::Error> {
-        unimplemented!("transactional not implemented")
-    }
-}
-
-unsafe impl<'d> Send for AsyncI2cDriver<'d> {}
-
-impl<'d> Drop for AsyncI2cDriver<'d> {
-    fn drop(&mut self) {
-        loop {
-            if let Ok(_lock_guard) = self.bus_lock.try_lock() {
-                esp!(unsafe { i2c_del_master_bus(self.handle) }).unwrap();
-                break;
-            }
-        }
-    }
-}
-
-#[cfg(not(esp_idf_i2c_isr_iram_safe))]
 pub struct AsyncI2cDeviceDriver<'d, T>
 where
-    T: Borrow<AsyncI2cDriver<'d>>,
+    T: Borrow<AsyncI2cDriver<'d>> + 'd,
 {
     driver: T,
     handle: i2c_master_dev_handle_t,
+    _isr_callback_handle: IsrCallbackHandle,
     _p: PhantomData<&'d mut ()>,
 }
 
-#[cfg(not(esp_idf_i2c_isr_iram_safe))]
 impl<'d, T> AsyncI2cDeviceDriver<'d, T>
 where
-    T: Borrow<AsyncI2cDriver<'d>>,
+    T: Borrow<AsyncI2cDriver<'d>> + 'd,
 {
-    fn new(driver: T, config: &config::DeviceConfig) -> Result<Self, EspError> {
-        let handle = init_device(driver.borrow().bus_handle(), config)?;
+    pub fn new(driver: T, config: &config::DeviceConfig) -> Result<Self, EspError> {
+        // As documented here https://docs.espressif.com/projects/esp-idf/en/v5.2.3/esp32/api-reference/peripherals/i2c.html?highlight=i2c#_CPPv435i2c_master_register_event_callbacks23i2c_master_dev_handle_tPK28i2c_master_event_callbacks_tPv
+        if ASYNC_DEVICE_IN_USE[driver.borrow().port() as usize]
+            .swap(true, core::sync::atomic::Ordering::SeqCst)
+        {
+            // Should indicate that another async device is already in use
+            return Err(EspError::from(ESP_ERR_INVALID_STATE).unwrap());
+        }
+
+        let handle = init_device(driver.borrow().bus_handle(), &config)?;
+        let isr_callback_handle = enable_master_dev_isr_callback(handle, driver.borrow().port())?;
 
         Ok(Self {
             driver,
             handle,
+            _isr_callback_handle: isr_callback_handle,
             _p: PhantomData,
         })
     }
-}
 
-#[cfg(not(esp_idf_i2c_isr_iram_safe))]
-impl<'d, T> AsyncI2cDeviceDriver<'d, T>
-where
-    T: Borrow<AsyncI2cDriver<'d>>,
-{
-    pub async fn read(&mut self, buffer: &mut [u8], timeout: TickType_t) -> Result<(), EspError> {
+    /// Reads data from the device.
+    ///
+    /// # Safety
+    /// The buffer must be valid until the future returned by this function is resolved. Don't drop
+    /// the future before it's resolved. This can lead to corruption of the data.
+    pub async fn async_read(
+        &mut self,
+        buffer: &mut [u8],
+        timeout: TickType_t,
+    ) -> Result<(), EspError> {
         let handle = self.handle;
         let driver = self.driver.borrow();
         let port = driver.port();
 
-        let _lock_guard = driver.acquire_bus().await;
-        enable_master_dev_isr_callback(handle, port)?;
-        on_err!(
-            esp!(unsafe {
-                i2c_master_receive(
-                    handle,
-                    buffer.as_mut_ptr().cast(),
-                    buffer.len(),
-                    timeout as i32,
-                )
-            }),
-            {
-                disable_master_dev_isr_callback(handle).unwrap();
-            }
-        )?;
+        esp!(unsafe {
+            i2c_master_receive(
+                handle,
+                buffer.as_mut_ptr().cast(),
+                buffer.len(),
+                timeout as i32,
+            )
+        })?;
 
         NOTIFIER[port as usize].wait().await;
-        disable_master_dev_isr_callback(handle)?;
         Ok(())
     }
 
-    pub async fn write(&mut self, bytes: &[u8], timeout: TickType_t) -> Result<(), EspError> {
+    /// Writes data to the device.
+    ///
+    /// # Safety
+    /// The buffer must be valid until the future returned by this function is resolved. Don't drop
+    /// the future before it's resolved. This can lead to corruption of the data.
+    pub async fn async_write(&mut self, bytes: &[u8], timeout: TickType_t) -> Result<(), EspError> {
         let handle = self.handle;
         let driver = self.driver.borrow();
         let port = driver.port();
 
-        let _lock_guard = driver.acquire_bus().await;
-        enable_master_dev_isr_callback(handle, port)?;
-        on_err!(
-            esp!(unsafe {
-                i2c_master_transmit(handle, bytes.as_ptr().cast(), bytes.len(), timeout as i32)
-            }),
-            {
-                disable_master_dev_isr_callback(handle).unwrap();
-            }
-        )?;
+        esp!(unsafe {
+            i2c_master_transmit(handle, bytes.as_ptr().cast(), bytes.len(), timeout as i32)
+        })?;
 
         NOTIFIER[port as usize].wait().await;
-        disable_master_dev_isr_callback(handle)?;
         Ok(())
     }
 
-    pub async fn write_read(
+    /// Writes data to and reads data from the device.
+    ///
+    /// # Safety
+    /// The buffer must be valid until the future returned by this function is resolved. Don't drop
+    /// the future before it's resolved. This can lead to corruption of the data.
+    pub async fn async_write_read(
         &mut self,
         bytes: &[u8],
         buffer: &mut [u8],
@@ -737,42 +758,156 @@ where
         let driver = self.driver.borrow();
         let port = driver.port();
 
-        let _lock_guard = driver.acquire_bus().await;
-        enable_master_dev_isr_callback(handle, port)?;
-        on_err!(
-            esp!(unsafe {
-                i2c_master_transmit_receive(
-                    handle,
-                    bytes.as_ptr().cast(),
-                    bytes.len(),
-                    buffer.as_mut_ptr().cast(),
-                    buffer.len(),
-                    timeout as i32,
-                )
-            }),
-            {
-                disable_master_dev_isr_callback(handle).unwrap();
-            }
-        )?;
+        esp!(unsafe {
+            i2c_master_transmit_receive(
+                handle,
+                bytes.as_ptr().cast(),
+                bytes.len(),
+                buffer.as_mut_ptr().cast(),
+                buffer.len(),
+                timeout as i32,
+            )
+        })?;
 
         NOTIFIER[port as usize].wait().await;
-        disable_master_dev_isr_callback(handle)?;
         Ok(())
+    }
+
+    fn device_handle(&self) -> i2c_master_dev_handle_t {
+        self.handle
     }
 }
 
-#[cfg(not(esp_idf_i2c_isr_iram_safe))]
-unsafe impl<'d, T> Send for AsyncI2cDeviceDriver<'d, T> where
-    T: Send + Borrow<AsyncI2cDriver<'d>> + 'd
+impl<'d, T> AsyncI2cDeviceDriver<'d, T>
+where
+    T: Borrow<AsyncI2cDriver<'d>> + 'd,
 {
+    pub fn read(&mut self, buffer: &mut [u8], timeout: TickType_t) -> Result<(), EspError> {
+        esp!(unsafe {
+            i2c_master_receive(
+                self.device_handle(),
+                buffer.as_mut_ptr().cast(),
+                buffer.len(),
+                timeout as i32,
+            )
+        })
+    }
+
+    pub fn write(&mut self, bytes: &[u8], timeout: TickType_t) -> Result<(), EspError> {
+        esp!(unsafe {
+            i2c_master_transmit(
+                self.device_handle(),
+                bytes.as_ptr().cast(),
+                bytes.len(),
+                timeout as i32,
+            )
+        })
+    }
+
+    pub fn write_read(
+        &mut self,
+        bytes: &[u8],
+        buffer: &mut [u8],
+        timeout: TickType_t,
+    ) -> Result<(), EspError> {
+        esp!(unsafe {
+            i2c_master_transmit_receive(
+                self.device_handle(),
+                bytes.as_ptr().cast(),
+                bytes.len(),
+                buffer.as_mut_ptr().cast(),
+                buffer.len(),
+                timeout as i32,
+            )
+        })
+    }
 }
 
-#[cfg(not(esp_idf_i2c_isr_iram_safe))]
-impl<'d, T> embedded_hal::i2c::ErrorType for AsyncI2cDeviceDriver<'d, T>
+impl<'d, T> Drop for AsyncI2cDeviceDriver<'d, T>
 where
     T: Borrow<AsyncI2cDriver<'d>>,
 {
+    fn drop(&mut self) {
+        esp!(unsafe { i2c_master_bus_rm_device(self.handle) }).unwrap();
+        ASYNC_DEVICE_IN_USE[self.driver.borrow().port() as usize]
+            .store(false, core::sync::atomic::Ordering::SeqCst);
+    }
+}
+
+impl<'d, T> embedded_hal_0_2::blocking::i2c::Read for AsyncI2cDeviceDriver<'d, T>
+where
+    T: Borrow<AsyncI2cDriver<'d>> + 'd,
+{
     type Error = I2cError;
+
+    fn read(&mut self, _addr: u8, buffer: &mut [u8]) -> Result<(), Self::Error> {
+        Self::read(self, buffer, BLOCK).map_err(to_i2c_err)
+    }
+}
+
+impl<'d, T> embedded_hal_0_2::blocking::i2c::Write for AsyncI2cDeviceDriver<'d, T>
+where
+    T: Borrow<AsyncI2cDriver<'d>> + 'd,
+{
+    type Error = I2cError;
+
+    fn write(&mut self, _addr: u8, bytes: &[u8]) -> Result<(), Self::Error> {
+        Self::write(self, bytes, BLOCK).map_err(to_i2c_err)
+    }
+}
+
+impl<'d, T> embedded_hal_0_2::blocking::i2c::WriteRead for AsyncI2cDeviceDriver<'d, T>
+where
+    T: Borrow<AsyncI2cDriver<'d>> + 'd,
+{
+    type Error = I2cError;
+
+    fn write_read(
+        &mut self,
+        _addr: u8,
+        bytes: &[u8],
+        buffer: &mut [u8],
+    ) -> Result<(), Self::Error> {
+        Self::write_read(self, bytes, buffer, BLOCK).map_err(to_i2c_err)
+    }
+}
+
+impl<'d, T> embedded_hal::i2c::ErrorType for AsyncI2cDeviceDriver<'d, T>
+where
+    T: Borrow<AsyncI2cDriver<'d>> + 'd,
+{
+    type Error = I2cError;
+}
+
+impl<'d, T> embedded_hal::i2c::I2c<embedded_hal::i2c::SevenBitAddress>
+    for AsyncI2cDeviceDriver<'d, T>
+where
+    T: Borrow<AsyncI2cDriver<'d>> + 'd,
+{
+    fn read(&mut self, _addr: u8, buffer: &mut [u8]) -> Result<(), Self::Error> {
+        Self::read(self, buffer, BLOCK).map_err(to_i2c_err)
+    }
+
+    fn write(&mut self, _addr: u8, bytes: &[u8]) -> Result<(), Self::Error> {
+        Self::write(self, bytes, BLOCK).map_err(to_i2c_err)
+    }
+
+    fn write_read(
+        &mut self,
+        _addr: u8,
+        bytes: &[u8],
+        buffer: &mut [u8],
+    ) -> Result<(), Self::Error> {
+        Self::write_read(self, bytes, buffer, BLOCK).map_err(to_i2c_err)
+    }
+
+    fn transaction(
+        &mut self,
+        _addr: u8,
+        _operations: &mut [embedded_hal::i2c::Operation<'_>],
+    ) -> Result<(), Self::Error> {
+        unimplemented!("transactional not implemented")
+    }
 }
 
 #[cfg(not(esp_idf_i2c_isr_iram_safe))]
@@ -782,11 +917,15 @@ where
     T: Borrow<AsyncI2cDriver<'d>>,
 {
     async fn read(&mut self, _address: u8, buffer: &mut [u8]) -> Result<(), Self::Error> {
-        Self::read(self, buffer, BLOCK).await.map_err(to_i2c_err)
+        Self::async_read(self, buffer, BLOCK)
+            .await
+            .map_err(to_i2c_err)
     }
 
     async fn write(&mut self, _address: u8, bytes: &[u8]) -> Result<(), Self::Error> {
-        Self::write(self, bytes, BLOCK).await.map_err(to_i2c_err)
+        Self::async_write(self, bytes, BLOCK)
+            .await
+            .map_err(to_i2c_err)
     }
 
     async fn write_read(
@@ -795,7 +934,7 @@ where
         bytes: &[u8],
         buffer: &mut [u8],
     ) -> Result<(), Self::Error> {
-        Self::write_read(self, bytes, buffer, BLOCK)
+        Self::async_write_read(self, bytes, buffer, BLOCK)
             .await
             .map_err(to_i2c_err)
     }
@@ -809,164 +948,12 @@ where
     }
 }
 
-impl<'d, T> Drop for AsyncI2cDeviceDriver<'d, T>
-where
-    T: Borrow<AsyncI2cDriver<'d>>,
-{
-    fn drop(&mut self) {
-        loop {
-            if let Ok(_lock_guard) = self.driver.borrow().bus_lock.try_lock() {
-                esp!(unsafe { i2c_master_bus_rm_device(self.handle) }).unwrap();
-                break;
-            }
-        }
-    }
-}
+// ------------------------------------------------------------------------------------------------
+// ------------------------------------- Slave ----------------------------------------------------
+// ------------------------------------------------------------------------------------------------
 
-#[cfg(not(esp_idf_i2c_isr_iram_safe))]
-pub struct OwnedAsyncI2cDeviceDriver<'d> {
-    driver: Option<AsyncI2cDriver<'d>>,
-    handle: i2c_master_dev_handle_t,
-    _p: PhantomData<&'d mut ()>,
-}
-
-#[cfg(not(esp_idf_i2c_isr_iram_safe))]
-impl<'d> OwnedAsyncI2cDeviceDriver<'d> {
-    pub fn new<I2C: I2c>(
-        _i2c: impl Peripheral<P = I2C> + 'd,
-        sda: impl Peripheral<P = impl InputPin + OutputPin> + 'd,
-        scl: impl Peripheral<P = impl InputPin + OutputPin> + 'd,
-        bus_config: &config::Config,
-        device_config: &config::DeviceConfig,
-    ) -> Result<Self, EspError> {
-        let driver = AsyncI2cDriver::new(_i2c, sda, scl, bus_config)?;
-        Self::wrap(driver, device_config)
-    }
-
-    pub fn wrap(
-        driver: AsyncI2cDriver<'d>,
-        device_config: &config::DeviceConfig,
-    ) -> Result<Self, EspError> {
-        let handle = init_device(driver.bus_handle(), device_config)?;
-
-        enable_master_dev_isr_callback(handle, driver.port())?;
-
-        Ok(Self {
-            driver: Some(driver),
-            handle,
-            _p: PhantomData,
-        })
-    }
-
-    pub fn release(mut self) -> Result<AsyncI2cDriver<'d>, EspError> {
-        let driver = self.driver.take().unwrap();
-        drop(self);
-        Ok(driver)
-    }
-}
-
-#[cfg(not(esp_idf_i2c_isr_iram_safe))]
-impl<'d> OwnedAsyncI2cDeviceDriver<'d> {
-    pub async fn read(&mut self, buffer: &mut [u8], timeout: TickType_t) -> Result<(), EspError> {
-        esp!(unsafe {
-            i2c_master_receive(
-                self.handle,
-                buffer.as_mut_ptr().cast(),
-                buffer.len(),
-                timeout as i32,
-            )
-        })?;
-
-        let port = self.driver.as_ref().unwrap().port() as usize;
-        NOTIFIER[port].wait().await;
-        Ok(())
-    }
-
-    pub async fn write(&mut self, bytes: &[u8], timeout: TickType_t) -> Result<(), EspError> {
-        esp!(unsafe {
-            i2c_master_transmit(
-                self.handle,
-                bytes.as_ptr().cast(),
-                bytes.len(),
-                timeout as i32,
-            )
-        })?;
-
-        let port = self.driver.as_ref().unwrap().port() as usize;
-        NOTIFIER[port].wait().await;
-        Ok(())
-    }
-
-    pub async fn write_read(
-        &mut self,
-        bytes: &[u8],
-        buffer: &mut [u8],
-        timeout: TickType_t,
-    ) -> Result<(), EspError> {
-        esp!(unsafe {
-            i2c_master_transmit_receive(
-                self.handle,
-                bytes.as_ptr().cast(),
-                bytes.len(),
-                buffer.as_mut_ptr().cast(),
-                buffer.len(),
-                timeout as i32,
-            )
-        })?;
-
-        let port = self.driver.as_ref().unwrap().port() as usize;
-        NOTIFIER[port].wait().await;
-        Ok(())
-    }
-}
-
-#[cfg(not(esp_idf_i2c_isr_iram_safe))]
-unsafe impl<'d> Send for OwnedAsyncI2cDeviceDriver<'d> {}
-
-#[cfg(not(esp_idf_i2c_isr_iram_safe))]
-impl<'d> Drop for OwnedAsyncI2cDeviceDriver<'d> {
-    fn drop(&mut self) {
-        disable_master_dev_isr_callback(self.handle).unwrap();
-        esp!(unsafe { i2c_master_bus_rm_device(self.handle) }).unwrap();
-    }
-}
-
-#[cfg(not(esp_idf_i2c_isr_iram_safe))]
-impl<'d> embedded_hal::i2c::ErrorType for OwnedAsyncI2cDeviceDriver<'d> {
-    type Error = I2cError;
-}
-
-#[cfg(not(esp_idf_i2c_isr_iram_safe))]
-impl<'d> embedded_hal_async::i2c::I2c<embedded_hal::i2c::SevenBitAddress>
-    for OwnedAsyncI2cDeviceDriver<'d>
-{
-    async fn read(&mut self, _address: u8, buffer: &mut [u8]) -> Result<(), Self::Error> {
-        Self::read(self, buffer, BLOCK).await.map_err(to_i2c_err)
-    }
-
-    async fn write(&mut self, _address: u8, bytes: &[u8]) -> Result<(), Self::Error> {
-        Self::write(self, bytes, BLOCK).await.map_err(to_i2c_err)
-    }
-
-    async fn write_read(
-        &mut self,
-        _address: u8,
-        bytes: &[u8],
-        buffer: &mut [u8],
-    ) -> Result<(), Self::Error> {
-        Self::write_read(self, bytes, buffer, BLOCK)
-            .await
-            .map_err(to_i2c_err)
-    }
-
-    async fn transaction(
-        &mut self,
-        _address: u8,
-        _operations: &mut [Operation<'_>],
-    ) -> Result<(), Self::Error> {
-        unimplemented!("transactional not implemented")
-    }
-}
+static I2C_BLOCKING_READ_LOCK: (std::sync::Mutex<bool>, Condvar) =
+    (std::sync::Mutex::new(false), Condvar::new());
 
 #[cfg(not(esp32c2))]
 pub struct I2cSlaveDriver<'d> {
@@ -987,7 +974,7 @@ impl<'d> I2cSlaveDriver<'d> {
         address: config::DeviceAddress,
         config: &config::SlaveDeviceConfig,
     ) -> Result<Self, EspError> {
-        super::check_and_set_beta_driver();
+        super::check_and_set_modern_driver();
 
         let handle = init_slave_device(_i2c, sda, scl, address, config)?;
 
@@ -1000,10 +987,23 @@ impl<'d> I2cSlaveDriver<'d> {
         })
     }
 
-    pub fn read(&mut self, buffer: &mut [u8], _timeout: TickType_t) -> Result<usize, EspError> {
+    pub fn read(&mut self, buffer: &mut [u8], timeout: TickType_t) -> Result<usize, EspError> {
         esp!(unsafe { i2c_slave_receive(self.handle, buffer.as_mut_ptr(), buffer.len()) })?;
+        let mut read_pending = I2C_BLOCKING_READ_LOCK.0.lock().unwrap();
+        *read_pending = true;
+        let (_guard, e) = Condvar::new()
+            .wait_timeout_while(
+                read_pending,
+                Duration::from_millis(timeout as u64),
+                |pending| *pending,
+            )
+            .unwrap();
 
-        todo!("How to block?");
+        if e.timed_out() {
+            Err(EspError::from(ESP_ERR_TIMEOUT).unwrap())
+        } else {
+            Ok(buffer.len())
+        }
     }
 
     pub async fn async_read(&mut self, buffer: &mut [u8]) -> Result<(), EspError> {
@@ -1042,7 +1042,7 @@ fn init_master_bus<'d, I2C: I2c>(
     sda: impl Peripheral<P = impl InputPin + OutputPin> + 'd,
     scl: impl Peripheral<P = impl InputPin + OutputPin> + 'd,
     config: &config::Config,
-    max_device_count: usize,
+    trans_queue_depth: usize,
 ) -> Result<i2c_master_bus_handle_t, EspError> {
     crate::into_ref!(sda, scl);
 
@@ -1058,7 +1058,7 @@ fn init_master_bus<'d, I2C: I2c>(
         glitch_ignore_cnt: config.glitch_ignore_cnt,
         i2c_port: I2C::port() as i32,
         intr_priority: 0,
-        trans_queue_depth: max_device_count,
+        trans_queue_depth,
     };
 
     let mut handle: i2c_master_bus_handle_t = ptr::null_mut();
@@ -1132,11 +1132,21 @@ fn to_i2c_err(err: EspError) -> I2cError {
     }
 }
 
+struct IsrCallbackHandle {
+    handle: i2c_master_dev_handle_t,
+}
+
+impl Drop for IsrCallbackHandle {
+    fn drop(&mut self) {
+        disable_master_dev_isr_callback(self.handle).unwrap();
+    }
+}
+
 #[cfg(not(esp_idf_i2c_isr_iram_safe))]
 fn enable_master_dev_isr_callback(
     handle: i2c_master_dev_handle_t,
     host: u8,
-) -> Result<(), EspError> {
+) -> Result<IsrCallbackHandle, EspError> {
     esp!(unsafe {
         i2c_master_register_event_callbacks(
             handle,
@@ -1145,7 +1155,9 @@ fn enable_master_dev_isr_callback(
             },
             &NOTIFIER[host as usize] as *const _ as *mut _,
         )
-    })
+    })?;
+
+    Ok(IsrCallbackHandle { handle })
 }
 
 #[cfg(not(esp_idf_i2c_isr_iram_safe))]
@@ -1202,9 +1214,16 @@ extern "C" fn slave_isr(
     _data: *const i2c_slave_rx_done_event_data_t,
     user_data: *mut c_void,
 ) -> bool {
+    // Notify for sync read
+    {
+        let mut read_pending = I2C_BLOCKING_READ_LOCK.0.lock().unwrap();
+        I2C_BLOCKING_READ_LOCK.1.notify_one();
+        *read_pending = false;
+    }
+
+    // Notify for async read
     let notifier: &HalIsrNotification =
         unsafe { (user_data as *const HalIsrNotification).as_ref() }.unwrap();
-
     notifier.notify_lsb()
 }
 
