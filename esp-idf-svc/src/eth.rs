@@ -1071,7 +1071,7 @@ impl<'d, T> EthDriver<'d, T> {
     fn eth_mac_default_config(_mdc: i32, _mdio: i32) -> eth_mac_config_t {
         eth_mac_config_t {
             sw_reset_timeout_ms: 100,
-            rx_task_stack_size: 2048,
+            rx_task_stack_size: 4096,
             rx_task_prio: 15,
             flags: 0,
         }
