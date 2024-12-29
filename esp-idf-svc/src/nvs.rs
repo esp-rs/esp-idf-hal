@@ -33,27 +33,33 @@ pub trait NvsPartitionId {
 pub struct NvsDefault(());
 
 impl NvsDefault {
-    fn new() -> Result<Self, EspError> {
+    fn new(reinit: bool) -> Result<Self, EspError> {
         let mut taken = DEFAULT_TAKEN.lock();
 
         if *taken {
             return Err(EspError::from_infallible::<ESP_ERR_INVALID_STATE>());
         }
 
-        let default_nvs = Self::init()?;
+        let default_nvs = Self::init(reinit)?;
 
         *taken = true;
         Ok(default_nvs)
     }
 
-    fn init() -> Result<Self, EspError> {
+    fn init(reinit: bool) -> Result<Self, EspError> {
         if let Some(err) = EspError::from(unsafe { nvs_flash_init() }) {
             match err.code() {
-                ESP_ERR_NVS_NO_FREE_PAGES | ESP_ERR_NVS_NEW_VERSION_FOUND => {
+                ESP_ERR_NVS_NO_FREE_PAGES | ESP_ERR_NVS_NEW_VERSION_FOUND if reinit => {
+                    if err.code() == ESP_ERR_NVS_NEW_VERSION_FOUND {
+                        warn!("NVS partition has a new version, erasing and re-initializing the partition");
+                    } else {
+                        warn!("NVS partition has no free pages, erasing and re-initializing the partition");
+                    }
+
                     esp!(unsafe { nvs_flash_erase() })?;
                     esp!(unsafe { nvs_flash_init() })?;
                 }
-                _ => (),
+                _ => Err(err)?,
             }
         }
 
@@ -219,8 +225,17 @@ impl NvsPartitionId for NvsEncrypted {
 pub struct EspNvsPartition<T: NvsPartitionId>(Arc<T>);
 
 impl EspNvsPartition<NvsDefault> {
+    /// Take the default NVS partition, initializing it if full or if a new version is detected
     pub fn take() -> Result<Self, EspError> {
-        Ok(Self(Arc::new(NvsDefault::new()?)))
+        Self::take_with(true)
+    }
+
+    /// Take the default NVS partition
+    ///
+    /// # Arguments
+    /// - `reinit`: Whether to reinitialize the partition if full or if a new version is detected
+    pub fn take_with(reinit: bool) -> Result<Self, EspError> {
+        Ok(Self(Arc::new(NvsDefault::new(reinit)?)))
     }
 }
 
