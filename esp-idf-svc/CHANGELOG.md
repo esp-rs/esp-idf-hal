@@ -53,6 +53,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Bugfix: crash on MQTT async client restart
 - Fix missing newline if CONFIG_LOG_COLORS=n is set (#521)
 - gatekeep mdns ipv6 behind feature flag (#523)
+- Fix emac_rx stack overflow when log verbosity is increased (#535)
 
 ## [0.49.1] - 2024-07-09
 ### Fixed
