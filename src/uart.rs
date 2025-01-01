@@ -276,7 +276,7 @@ pub mod config {
                 #[cfg(esp_idf_soc_uart_support_xtal_clk)]
                 XTAL_SCLK => SourceClock::Crystal,
                 #[cfg(esp_idf_soc_uart_support_pll_f80m_clk)]
-                PLL_F80M => SourceClock::PLL_F80M,
+                PLL_F80M_SCLK => SourceClock::PLL_F80M,
                 #[cfg(esp_idf_soc_uart_support_ref_tick)]
                 REF_TICK_SCLK => SourceClock::RefTick,
                 _ => unreachable!(),
