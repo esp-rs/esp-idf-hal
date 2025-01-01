@@ -35,6 +35,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Allow using esp timer with skip_unhandled_events (#526)
 - OTA - Implements a new type `EspFirmwareInfoLoad` that has a reduced memory consumption (#531)
 - Added set_promiscuous function in EthDriver (#246)
+- Added set_promiscuous, is_promiscuous functions in WifiDriver (#246)
 
 ### Fixed
 - The alloc::Vec version stomps the scan state from Done to Idle. (#459)

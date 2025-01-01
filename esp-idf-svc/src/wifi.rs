@@ -1192,6 +1192,37 @@ impl<'d> WifiDriver<'d> {
         Ok(())
     }
 
+    /// Enables or disables promiscuous mode for the [`WifiDriver`].
+    ///
+    /// When promiscuous mode is enabled, the driver captures all Wifi frames
+    /// on the network, regardless of their destination MAC address. This is useful for
+    /// debugging or monitoring purposes.
+    pub fn set_promiscuous(&mut self, state: bool) -> Result<(), EspError> {
+        esp!(unsafe { esp_wifi_set_promiscuous(state) })?;
+
+        if state {
+            log::info!("Driver set in promiscuous mode");
+        } else {
+            log::info!("Driver set in non-promiscuous mode");
+        }
+
+        Ok(())
+    }
+
+    /// Gets the state of the promiscuous mode for the [`WifiDriver`].
+    pub fn is_promiscuous(&self) -> Result<bool, EspError> {
+        let mut en: bool = false;
+
+        esp!(unsafe { esp_wifi_get_promiscuous(&mut en) })?;
+
+        Ok(en)
+    }
+
+    //TODO: add safe wrappers for these three functions
+    //https://docs.esp-rs.org/esp-idf-sys/esp_idf_sys/fn.esp_wifi_set_promiscuous_ctrl_filter.html
+    //https://docs.esp-rs.org/esp-idf-sys/esp_idf_sys/fn.esp_wifi_set_promiscuous_filter.html
+    //https://docs.esp-rs.org/esp-idf-sys/esp_idf_sys/fn.esp_wifi_set_promiscuous_rx_cb.html
+
     /// Gets the WPS status as a [`WPS Event`] and disables WPS.
     fn stop_wps(&mut self) -> Result<WpsStatus, EspError> {
         let mut status = self.status.lock();
