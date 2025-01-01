@@ -3,7 +3,17 @@ pub use esp_idf_hal::io::*;
 
 #[cfg(esp_idf_comp_vfs_enabled)]
 pub mod vfs {
-    use crate::sys;
+    use core::borrow::BorrowMut;
+    use core::marker::PhantomData;
+
+    use crate::hal::uart::UartDriver;
+    #[cfg(esp_idf_soc_usb_serial_jtag_supported)]
+    use crate::hal::usb_serial::UsbSerialDriver;
+    use crate::sys::{
+        self, esp_vfs_dev_uart_use_driver, esp_vfs_dev_uart_use_nonblocking, EspError,
+    };
+    #[cfg(esp_idf_soc_usb_serial_jtag_supported)]
+    use crate::sys::{esp_vfs_usb_serial_jtag_use_driver, esp_vfs_usb_serial_jtag_use_nonblocking};
 
     #[cfg(all(feature = "experimental", feature = "alloc"))]
     extern crate alloc;
@@ -254,6 +264,84 @@ pub mod vfs {
                 #[cfg(esp_idf_littlefs_sdmmc_support)]
                 PartitionRawData::SdCard(sdcard) => {
                     sys::esp!(unsafe { sys::esp_vfs_littlefs_unregister_sdmmc(sdcard) }).unwrap();
+                }
+            }
+        }
+    }
+
+    /// A utility for setting up a buffered and blocking communication for the Rust `stdio` subsystem.
+    ///
+    /// By default, all communication via `std::io:stdin` / `std::io::stdout` on the ESP-IDF is non-blocking.
+    /// One consequence of this, is that if the user wants to read from `std::io::stdin`, she has to constantly
+    /// poll the driver, since the respective hardware FIFO buffers are relatively small-ish.
+    /// Also the user would have to handle `WouldBlock` errors on every call, which is not very ergonomic.
+    ///
+    /// Instantiating the `BlockingStdIo` instructs the ESP-IDF VFS (Virtual File System) to use the
+    /// interrupt-driven drivers instead, as well as their blocking read / write functions.
+    pub struct BlockingStdIo<'d, T> {
+        uart_port: Option<crate::sys::uart_port_t>,
+        _driver: T,
+        _t: PhantomData<&'d mut ()>,
+    }
+
+    impl<'d, T> BlockingStdIo<'d, T>
+    where
+        T: BorrowMut<UartDriver<'d>>,
+    {
+        /// Create a `BlockingStdIo` instance for a UART driver
+        ///
+        /// Arguments:
+        /// - `driver`: The UART driver to use (i.e. a `UartDriver` instance that can be mutably borrowed)
+        pub fn uart(driver: T) -> Result<Self, EspError> {
+            unsafe { esp_vfs_dev_uart_use_driver(driver.borrow().port() as _) }
+
+            Ok(Self {
+                uart_port: Some(driver.borrow().port()),
+                _driver: driver,
+                _t: PhantomData,
+            })
+        }
+    }
+
+    #[cfg(esp_idf_soc_usb_serial_jtag_supported)]
+    impl<'d, T> BlockingStdIo<'d, T>
+    where
+        T: BorrowMut<UsbSerialDriver<'d>>,
+    {
+        /// Create a `BlockingStdIo` instance for a USB-SERIAL driver
+        ///
+        /// NOTE: By default, `println!` and `log!` output will be redirected to it in case
+        /// no UART connection is established to a Host PC. The peripheral is initialized at
+        /// startup and is using the ESP console slot 2 by default.
+        ///
+        /// NOTE: ESP console slot 2 cannot be used to read from the HOST, only writing is supported.
+        /// If reading from the HOST is necessary, reconfigure the ESP console by setting
+        /// the following into your projects sdkconfig.default file:
+        /// ```
+        /// CONFIG_ESP_CONSOLE_USB_SERIAL_JTAG=y
+        /// ```
+        ///
+        /// Arguments:
+        /// - `driver`: The USB-SERIAL driver to use (i.e. a `UsbSerialDriver` instance that can be mutably borrowed)
+        pub fn usb_serial(driver: T) -> Result<Self, EspError> {
+            unsafe { esp_vfs_usb_serial_jtag_use_driver() }
+
+            Ok(Self {
+                uart_port: None,
+                _driver: driver,
+                _t: PhantomData,
+            })
+        }
+    }
+
+    impl<T> Drop for BlockingStdIo<'_, T> {
+        fn drop(&mut self) {
+            if let Some(port) = self.uart_port {
+                unsafe { esp_vfs_dev_uart_use_nonblocking(port as _) }
+            } else {
+                #[cfg(esp_idf_soc_usb_serial_jtag_supported)]
+                {
+                    unsafe { esp_vfs_usb_serial_jtag_use_nonblocking() }
                 }
             }
         }
