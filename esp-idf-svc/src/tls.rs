@@ -240,14 +240,25 @@ mod esptls {
                 rcfg.keep_alive_cfg = &mut raw_kac as *mut _;
             }
 
-            let mut raw_psk: sys::psk_key_hint;
-            if let Some(psk) = &self.psk_hint_key {
-                raw_psk = sys::psk_key_hint {
-                    key: psk.key.as_ptr(),
-                    key_size: psk.key.len(),
-                    hint: psk.hint.as_ptr(),
-                };
-                rcfg.psk_hint_key = &mut raw_psk as *mut _;
+            #[cfg(any(
+                esp_idf_esp_tls_psk_verification,
+                esp_idf_version_major = "4",
+                esp_idf_version = "5.0",
+                esp_idf_version = "5.1",
+                esp_idf_version = "5.2",
+                esp_idf_version = "5.3",
+                esp_idf_version = "5.4",
+            ))]
+            {
+                let mut raw_psk: sys::psk_key_hint;
+                if let Some(psk) = &self.psk_hint_key {
+                    raw_psk = sys::psk_key_hint {
+                        key: psk.key.as_ptr(),
+                        key_size: psk.key.len(),
+                        hint: psk.hint.as_ptr(),
+                    };
+                    rcfg.psk_hint_key = &mut raw_psk as *mut _;
+                }
             }
 
             #[cfg(esp_idf_mbedtls_certificate_bundle)]
