@@ -27,7 +27,7 @@ jobs:
           - xtensa-esp32s2-espidf
           - xtensa-esp32s3-espidf
         idf-version:
-          - v4.4.8
+          - release/v4.4
           - release/v5.2
           - v5.3.2
     steps:
@@ -90,6 +90,7 @@ jobs:
 
       - name: Build | Examples
         env:
+          if: matrix.target != 'riscv32imac-esp-espidf' || matrix.idf-version != 'release/v4.4'
           ESP_IDF_VERSION: ${{ matrix.idf-version }}
           ESP_IDF_SDKCONFIG_DEFAULTS: "${{ github.workspace }}/.github/configs/sdkconfig.defaults"
           RUSTFLAGS: "${{ matrix.idf-version != 'release/v4.4' && '--cfg espidf_time64' || matrix.idf-version == 'release/v4.4' && '--cfg espidf_time32' }}"
