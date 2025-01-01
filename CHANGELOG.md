@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Make the UART config to ESP-IDF  C config reusable outside the UART driver (for OpenThread)
 - Re-use the SPI config struct of the SPI driver (for OpenThread)
 - Add a `usb_serial` peripheral to the `Peripherals` struct for MCUs that do support the USB-serial-jtag peripheral (#503)
+- UART default baud rate changed from 19'200 to 115'200
 
 ### Added
 - Docs: Add some docstrings for ADC module. (#455)

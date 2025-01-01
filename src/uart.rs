@@ -544,7 +544,7 @@ pub mod config {
         pub const fn new() -> Config {
             Config {
                 mode: Mode::UART,
-                baudrate: Hertz(19_200),
+                baudrate: Hertz(115_200),
                 data_bits: DataBits::DataBits8,
                 parity: Parity::ParityNone,
                 stop_bits: StopBits::STOP1,
