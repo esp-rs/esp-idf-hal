@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Breaking
 - Make the UART config to ESP-IDF  C config reusable outside the UART driver (for OpenThread)
 - Re-use the SPI config struct of the SPI driver (for OpenThread)
+- Add a `usb_serial` peripheral to the `Peripherals` struct for MCUs that do support the USB-serial-jtag peripheral (#503)
 
 ### Added
 - Docs: Add some docstrings for ADC module. (#455)
