@@ -47,6 +47,7 @@ where
     where
         T: Borrow<SpiDriver<'d>>,
     {
+        #[allow(clippy::needless_update)]
         let dev_config = sdspi_device_config_t {
             host_id: spi_driver.borrow().host(),
             gpio_cs: cs.map(|cs| cs.into_ref().deref().pin()).unwrap_or(-1),
@@ -59,6 +60,7 @@ where
                 all(esp_idf_version_major = "5", esp_idf_version_minor = "1"),
             )))] // For ESP-IDF v5.2 and later
             gpio_wp_polarity: wp_active_high.unwrap_or(false), // `false` = active when low
+            ..Default::default() // `duty_cycle_pos` = 128 (or 0 which is equivalent) - since ESP-IDF V5.4
         };
 
         {
