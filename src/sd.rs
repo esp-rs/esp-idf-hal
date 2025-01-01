@@ -47,23 +47,23 @@ mod sdcard {
             Phase3 = sdmmc_delay_phase_t_SDMMC_DELAY_PHASE_3 as isize,
         }
 
-        #[cfg(not(any(
-            esp_idf_version_major = "4",
-            all(esp_idf_version_major = "5", esp_idf_version_minor = "0"),
-            all(esp_idf_version_major = "5", esp_idf_version_minor = "1"),
-        )))] // For ESP-IDF v5.2 and later
-        impl From<sdmmc_delay_phase_t> for DelayPhase {
-            fn from(phase: sdmmc_delay_phase_t) -> Self {
-                #[allow(non_upper_case_globals)]
-                match phase {
-                    sdmmc_delay_phase_t_SDMMC_DELAY_PHASE_0 => Self::Phase0,
-                    sdmmc_delay_phase_t_SDMMC_DELAY_PHASE_1 => Self::Phase1,
-                    sdmmc_delay_phase_t_SDMMC_DELAY_PHASE_2 => Self::Phase2,
-                    sdmmc_delay_phase_t_SDMMC_DELAY_PHASE_3 => Self::Phase3,
-                    _ => panic!("Invalid delay phase"),
-                }
-            }
-        }
+        // #[cfg(not(any(
+        //     esp_idf_version_major = "4",
+        //     all(esp_idf_version_major = "5", esp_idf_version_minor = "0"),
+        //     all(esp_idf_version_major = "5", esp_idf_version_minor = "1"),
+        // )))] // For ESP-IDF v5.2 and later
+        // impl From<sdmmc_delay_phase_t> for DelayPhase {
+        //     fn from(phase: sdmmc_delay_phase_t) -> Self {
+        //         #[allow(non_upper_case_globals)]
+        //         match phase {
+        //             sdmmc_delay_phase_t_SDMMC_DELAY_PHASE_0 => Self::Phase0,
+        //             sdmmc_delay_phase_t_SDMMC_DELAY_PHASE_1 => Self::Phase1,
+        //             sdmmc_delay_phase_t_SDMMC_DELAY_PHASE_2 => Self::Phase2,
+        //             sdmmc_delay_phase_t_SDMMC_DELAY_PHASE_3 => Self::Phase3,
+        //             _ => panic!("Invalid delay phase"),
+        //         }
+        //     }
+        // }
 
         /// SD-Card voltage
         #[non_exhaustive]
@@ -102,13 +102,13 @@ mod sdcard {
         #[derive(Debug, Copy, Clone, Eq, PartialEq)]
         pub enum DriverStrength {
             /// Type B
-            StrengthB = sdmmc_driver_strength_t_SDMMC_DRIVER_STRENGTH_B,
+            StrengthB = sdmmc_driver_strength_t_SDMMC_DRIVER_STRENGTH_B as isize,
             /// Type A
-            StrengthA = sdmmc_driver_strength_t_SDMMC_DRIVER_STRENGTH_A,
+            StrengthA = sdmmc_driver_strength_t_SDMMC_DRIVER_STRENGTH_A as isize,
             /// Type C
-            StrengthC = sdmmc_driver_strength_t_SDMMC_DRIVER_STRENGTH_C,
+            StrengthC = sdmmc_driver_strength_t_SDMMC_DRIVER_STRENGTH_C as isize,
             /// Type D
-            StrengthD = sdmmc_driver_strength_t_SDMMC_DRIVER_STRENGTH_D,
+            StrengthD = sdmmc_driver_strength_t_SDMMC_DRIVER_STRENGTH_D as isize,
         }
 
         /// (SD-MMC only): Driver Strength
@@ -123,13 +123,13 @@ mod sdcard {
         #[derive(Debug, Copy, Clone, Eq, PartialEq)]
         pub enum CurrentLimit {
             /// < 200mA
-            Limit200mA = sdmmc_current_limit_t_SDMMC_CURRENT_LIMIT_200MA,
+            Limit200mA = sdmmc_current_limit_t_SDMMC_CURRENT_LIMIT_200MA as isize,
             /// < 400mA
-            Limit400mA = sdmmc_current_limit_t_SDMMC_CURRENT_LIMIT_400MA,
+            Limit400mA = sdmmc_current_limit_t_SDMMC_CURRENT_LIMIT_400MA as isize,
             /// < 600mA
-            Limit600mA = sdmmc_current_limit_t_SDMMC_CURRENT_LIMIT_600MA,
+            Limit600mA = sdmmc_current_limit_t_SDMMC_CURRENT_LIMIT_600MA as isize,
             /// < 800mA
-            Limit800mA = sdmmc_current_limit_t_SDMMC_CURRENT_LIMIT_800MA,
+            Limit800mA = sdmmc_current_limit_t_SDMMC_CURRENT_LIMIT_800MA as isize,
         }
 
         /// Configuration for the SD-Card driver
@@ -268,7 +268,7 @@ mod sdcard {
                     all(esp_idf_version_major = "5", esp_idf_version_minor = "0"),
                     all(esp_idf_version_major = "5", esp_idf_version_minor = "1"),
                 )))]    // For ESP-IDF v5.2 and later
-                input_delay_phase: sdmmc_delay_phase_t_SDMMC_DELAY_PHASE_0, // No-op for SD-SPI
+                input_delay_phase: configuration.input_delay_phase as _,
                 #[cfg(not(any(
                     esp_idf_version_major = "4",
                     all(esp_idf_version_major = "5", esp_idf_version_minor = "0"),
