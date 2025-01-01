@@ -90,6 +90,48 @@ mod sdcard {
             }
         }
 
+        /// (SD-MMC only): Driver Strength
+        #[cfg(not(any(
+            esp_idf_version_major = "4",
+            all(esp_idf_version_major = "5", esp_idf_version_minor = "0"),
+            all(esp_idf_version_major = "5", esp_idf_version_minor = "1"),
+            all(esp_idf_version_major = "5", esp_idf_version_minor = "2"),
+            all(esp_idf_version_major = "5", esp_idf_version_minor = "3"),
+        )))] // For ESP-IDF v5.4 and later
+        #[non_exhaustive]
+        #[derive(Debug, Copy, Clone, Eq, PartialEq)]
+        pub enum DriverStrength {
+            /// Type B
+            StrengthB = sdmmc_driver_strength_t_SDMMC_DRIVER_STRENGTH_B,
+            /// Type A
+            StrengthA = sdmmc_driver_strength_t_SDMMC_DRIVER_STRENGTH_A,
+            /// Type C
+            StrengthC = sdmmc_driver_strength_t_SDMMC_DRIVER_STRENGTH_C,
+            /// Type D
+            StrengthD = sdmmc_driver_strength_t_SDMMC_DRIVER_STRENGTH_D,
+        }
+
+        /// (SD-MMC only): Driver Strength
+        #[cfg(not(any(
+            esp_idf_version_major = "4",
+            all(esp_idf_version_major = "5", esp_idf_version_minor = "0"),
+            all(esp_idf_version_major = "5", esp_idf_version_minor = "1"),
+            all(esp_idf_version_major = "5", esp_idf_version_minor = "2"),
+            all(esp_idf_version_major = "5", esp_idf_version_minor = "3"),
+        )))] // For ESP-IDF v5.4 and later
+        #[non_exhaustive]
+        #[derive(Debug, Copy, Clone, Eq, PartialEq)]
+        pub enum CurrentLimit {
+            /// < 200mA
+            Limit200mA = sdmmc_current_limit_t_SDMMC_CURRENT_LIMIT_200MA,
+            /// < 400mA
+            Limit400mA = sdmmc_current_limit_t_SDMMC_CURRENT_LIMIT_400MA,
+            /// < 600mA
+            Limit600mA = sdmmc_current_limit_t_SDMMC_CURRENT_LIMIT_600MA,
+            /// < 800mA
+            Limit800mA = sdmmc_current_limit_t_SDMMC_CURRENT_LIMIT_800MA,
+        }
+
         /// Configuration for the SD-Card driver
         #[non_exhaustive]
         pub struct Configuration {
@@ -108,6 +150,22 @@ mod sdcard {
                 all(esp_idf_version_major = "5", esp_idf_version_minor = "1"),
             )))] // For ESP-IDF v5.2 and later
             pub input_delay_phase: DelayPhase,
+            #[cfg(not(any(
+                esp_idf_version_major = "4",
+                all(esp_idf_version_major = "5", esp_idf_version_minor = "0"),
+                all(esp_idf_version_major = "5", esp_idf_version_minor = "1"),
+                all(esp_idf_version_major = "5", esp_idf_version_minor = "2"),
+                all(esp_idf_version_major = "5", esp_idf_version_minor = "3"),
+            )))] // For ESP-IDF v5.4 and later
+            pub driver_strength: DriverStrength,
+            #[cfg(not(any(
+                esp_idf_version_major = "4",
+                all(esp_idf_version_major = "5", esp_idf_version_minor = "0"),
+                all(esp_idf_version_major = "5", esp_idf_version_minor = "1"),
+                all(esp_idf_version_major = "5", esp_idf_version_minor = "2"),
+                all(esp_idf_version_major = "5", esp_idf_version_minor = "3"),
+            )))] // For ESP-IDF v5.4 and later
+            pub current_limit: CurrentLimit,
         }
 
         impl Configuration {
@@ -123,6 +181,22 @@ mod sdcard {
                         all(esp_idf_version_major = "5", esp_idf_version_minor = "1"),
                     )))] // For ESP-IDF v5.2 and later
                     input_delay_phase: DelayPhase::Phase0,
+                    #[cfg(not(any(
+                        esp_idf_version_major = "4",
+                        all(esp_idf_version_major = "5", esp_idf_version_minor = "0"),
+                        all(esp_idf_version_major = "5", esp_idf_version_minor = "1"),
+                        all(esp_idf_version_major = "5", esp_idf_version_minor = "2"),
+                        all(esp_idf_version_major = "5", esp_idf_version_minor = "3"),
+                    )))] // For ESP-IDF v5.4 and later
+                    driver_strength: DriverStrength::StrengthB,
+                    #[cfg(not(any(
+                        esp_idf_version_major = "4",
+                        all(esp_idf_version_major = "5", esp_idf_version_minor = "0"),
+                        all(esp_idf_version_major = "5", esp_idf_version_minor = "1"),
+                        all(esp_idf_version_major = "5", esp_idf_version_minor = "2"),
+                        all(esp_idf_version_major = "5", esp_idf_version_minor = "3"),
+                    )))] // For ESP-IDF v5.4 and later
+                    current_limit: CurrentLimit::Limit200mA,
                 }
             }
         }
@@ -223,6 +297,30 @@ mod sdcard {
                     all(esp_idf_version_major = "5", esp_idf_version_minor = "2"),
                 )))]   // For ESP-IDF v5.3 and later
                 pwr_ctrl_handle: core::ptr::null_mut() as _,
+                #[cfg(not(any(
+                    esp_idf_version_major = "4",
+                    all(esp_idf_version_major = "5", esp_idf_version_minor = "0"),
+                    all(esp_idf_version_major = "5", esp_idf_version_minor = "1"),
+                    all(esp_idf_version_major = "5", esp_idf_version_minor = "2"),
+                    all(esp_idf_version_major = "5", esp_idf_version_minor = "3"),
+                )))] // For ESP-IDF v5.4 and later
+                driver_strength: configuration.driver_strength as _,
+                #[cfg(not(any(
+                    esp_idf_version_major = "4",
+                    all(esp_idf_version_major = "5", esp_idf_version_minor = "0"),
+                    all(esp_idf_version_major = "5", esp_idf_version_minor = "1"),
+                    all(esp_idf_version_major = "5", esp_idf_version_minor = "2"),
+                    all(esp_idf_version_major = "5", esp_idf_version_minor = "3"),
+                )))] // For ESP-IDF v5.4 and later
+                current_limit: configuration.current_limit as _,
+                #[cfg(not(any(
+                    esp_idf_version_major = "4",
+                    all(esp_idf_version_major = "5", esp_idf_version_minor = "0"),
+                    all(esp_idf_version_major = "5", esp_idf_version_minor = "1"),
+                    all(esp_idf_version_major = "5", esp_idf_version_minor = "2"),
+                    all(esp_idf_version_major = "5", esp_idf_version_minor = "3"),
+                )))] // For ESP-IDF v5.4 and later
+                is_slot_set_to_uhs1: None,
             };
 
             let mut card: alloc::boxed::Box<sdmmc_card_t> = Default::default();
