@@ -2,7 +2,7 @@ use std::iter::once;
 
 use anyhow::*;
 use common::*;
-use embuild::bindgen::bindgen::callbacks::{IntKind, ParseCallbacks};
+use embuild::bindgen::types::callbacks::{IntKind, ParseCallbacks};
 use embuild::bindgen::BindgenExt;
 use embuild::utils::OsStrExt;
 use embuild::{bindgen as bindgen_utils, build, cargo, kconfig, path_buf};
@@ -98,7 +98,7 @@ fn main() -> anyhow::Result<()> {
 
     // Because we have multiple bindgen invocations and we can't clone a bindgen::Builder,
     // we have to set the options every time.
-    let configure_bindgen = |bindgen: bindgen::Builder| {
+    let configure_bindgen = |bindgen: embuild::bindgen::types::Builder| {
         Ok(bindgen
             .parse_callbacks(Box::new(BindgenCallbacks))
             .use_core()
@@ -148,7 +148,7 @@ fn main() -> anyhow::Result<()> {
     );
 
     configure_bindgen(build_output.bindgen.clone().builder()?)?
-        .headers(headers)?
+        .path_headers(headers)?
         .generate()
         .with_context(bindgen_err)?
         .write_to_file(&bindings_file)
@@ -165,7 +165,7 @@ fn main() -> anyhow::Result<()> {
 
         for (module_name, headers) in build_output.config.native.module_bindings_headers()? {
             let bindings = configure_bindgen(build_output.bindgen.clone().builder()?)?
-                .headers(headers.into_iter().inspect(|h| cargo::track_file(h)))?
+                .path_headers(headers.into_iter().inspect(|h| cargo::track_file(h)))?
                 .generate()?;
 
             writeln!(
