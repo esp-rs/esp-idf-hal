@@ -25,6 +25,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Add support for ESP internal temperature sensor (#337)
 - Support the thread modem peripheral on the c6 MCU
 - Add dual and quad SPI support (#479)
+- Initial USB-serial-jtag driver (#504)
 
 ### Fixed
 - Fix: UartDriver as embedded_io::Read blocks until buffer is full (#475)
