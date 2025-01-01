@@ -372,25 +372,135 @@ impl<'d> SdMmcHostDriver<'d> {
                     .map(|wp| wp.into_ref().deref().pin())
                     .unwrap_or(SDMMC_SLOT_NO_WP),
             },
-            #[cfg(esp_idf_soc_sdmmc_use_gpio_matrix)]
+            #[cfg(any(
+                esp_idf_soc_sdmmc_use_gpio_matrix,
+                not(any(
+                    esp_idf_version_major = "4",
+                    esp_idf_version = "5.0",
+                    esp_idf_version = "5.1",
+                    esp_idf_version = "5.2",
+                    esp_idf_version_full = "5.3.0",
+                    esp_idf_version_full = "5.3.1",
+                    esp_idf_version_full = "5.3.2"
+                ))
+            ))]
             clk: _clk.into_ref().deref().pin(),
-            #[cfg(esp_idf_soc_sdmmc_use_gpio_matrix)]
+            #[cfg(any(
+                esp_idf_soc_sdmmc_use_gpio_matrix,
+                not(any(
+                    esp_idf_version_major = "4",
+                    esp_idf_version = "5.0",
+                    esp_idf_version = "5.1",
+                    esp_idf_version = "5.2",
+                    esp_idf_version_full = "5.3.0",
+                    esp_idf_version_full = "5.3.1",
+                    esp_idf_version_full = "5.3.2"
+                ))
+            ))]
             cmd: _cmd.into_ref().deref().pin(),
-            #[cfg(esp_idf_soc_sdmmc_use_gpio_matrix)]
+            #[cfg(any(
+                esp_idf_soc_sdmmc_use_gpio_matrix,
+                not(any(
+                    esp_idf_version_major = "4",
+                    esp_idf_version = "5.0",
+                    esp_idf_version = "5.1",
+                    esp_idf_version = "5.2",
+                    esp_idf_version_full = "5.3.0",
+                    esp_idf_version_full = "5.3.1",
+                    esp_idf_version_full = "5.3.2"
+                ))
+            ))]
             d0: _d0.into_ref().deref().pin(),
-            #[cfg(esp_idf_soc_sdmmc_use_gpio_matrix)]
+            #[cfg(any(
+                esp_idf_soc_sdmmc_use_gpio_matrix,
+                not(any(
+                    esp_idf_version_major = "4",
+                    esp_idf_version = "5.0",
+                    esp_idf_version = "5.1",
+                    esp_idf_version = "5.2",
+                    esp_idf_version_full = "5.3.0",
+                    esp_idf_version_full = "5.3.1",
+                    esp_idf_version_full = "5.3.2"
+                ))
+            ))]
             d1: _d1.map(|d1| d1.into_ref().deref().pin()).unwrap_or(-1),
-            #[cfg(esp_idf_soc_sdmmc_use_gpio_matrix)]
+            #[cfg(any(
+                esp_idf_soc_sdmmc_use_gpio_matrix,
+                not(any(
+                    esp_idf_version_major = "4",
+                    esp_idf_version = "5.0",
+                    esp_idf_version = "5.1",
+                    esp_idf_version = "5.2",
+                    esp_idf_version_full = "5.3.0",
+                    esp_idf_version_full = "5.3.1",
+                    esp_idf_version_full = "5.3.2"
+                ))
+            ))]
             d2: _d2.map(|d2| d2.into_ref().deref().pin()).unwrap_or(-1),
-            #[cfg(esp_idf_soc_sdmmc_use_gpio_matrix)]
+            #[cfg(any(
+                esp_idf_soc_sdmmc_use_gpio_matrix,
+                not(any(
+                    esp_idf_version_major = "4",
+                    esp_idf_version = "5.0",
+                    esp_idf_version = "5.1",
+                    esp_idf_version = "5.2",
+                    esp_idf_version_full = "5.3.0",
+                    esp_idf_version_full = "5.3.1",
+                    esp_idf_version_full = "5.3.2"
+                ))
+            ))]
             d3: _d3.map(|d3| d3.into_ref().deref().pin()).unwrap_or(-1),
-            #[cfg(esp_idf_soc_sdmmc_use_gpio_matrix)]
+            #[cfg(any(
+                esp_idf_soc_sdmmc_use_gpio_matrix,
+                not(any(
+                    esp_idf_version_major = "4",
+                    esp_idf_version = "5.0",
+                    esp_idf_version = "5.1",
+                    esp_idf_version = "5.2",
+                    esp_idf_version_full = "5.3.0",
+                    esp_idf_version_full = "5.3.1",
+                    esp_idf_version_full = "5.3.2"
+                ))
+            ))]
             d4: _d4.map(|d4| d4.into_ref().deref().pin()).unwrap_or(-1),
-            #[cfg(esp_idf_soc_sdmmc_use_gpio_matrix)]
+            #[cfg(any(
+                esp_idf_soc_sdmmc_use_gpio_matrix,
+                not(any(
+                    esp_idf_version_major = "4",
+                    esp_idf_version = "5.0",
+                    esp_idf_version = "5.1",
+                    esp_idf_version = "5.2",
+                    esp_idf_version_full = "5.3.0",
+                    esp_idf_version_full = "5.3.1",
+                    esp_idf_version_full = "5.3.2"
+                ))
+            ))]
             d5: _d5.map(|d5| d5.into_ref().deref().pin()).unwrap_or(-1),
-            #[cfg(esp_idf_soc_sdmmc_use_gpio_matrix)]
+            #[cfg(any(
+                esp_idf_soc_sdmmc_use_gpio_matrix,
+                not(any(
+                    esp_idf_version_major = "4",
+                    esp_idf_version = "5.0",
+                    esp_idf_version = "5.1",
+                    esp_idf_version = "5.2",
+                    esp_idf_version_full = "5.3.0",
+                    esp_idf_version_full = "5.3.1",
+                    esp_idf_version_full = "5.3.2"
+                ))
+            ))]
             d6: _d6.map(|d6| d6.into_ref().deref().pin()).unwrap_or(-1),
-            #[cfg(esp_idf_soc_sdmmc_use_gpio_matrix)]
+            #[cfg(any(
+                esp_idf_soc_sdmmc_use_gpio_matrix,
+                not(any(
+                    esp_idf_version_major = "4",
+                    esp_idf_version = "5.0",
+                    esp_idf_version = "5.1",
+                    esp_idf_version = "5.2",
+                    esp_idf_version_full = "5.3.0",
+                    esp_idf_version_full = "5.3.1",
+                    esp_idf_version_full = "5.3.2"
+                ))
+            ))]
             d7: _d7.map(|d7| d7.into_ref().deref().pin()).unwrap_or(-1),
         };
 
