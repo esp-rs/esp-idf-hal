@@ -1,8 +1,8 @@
 use std::iter::once;
 
 use anyhow::*;
-use bindgen::callbacks::{IntKind, ParseCallbacks};
 use common::*;
+use embuild::bindgen::bindgen::callbacks::{IntKind, ParseCallbacks};
 use embuild::bindgen::BindgenExt;
 use embuild::utils::OsStrExt;
 use embuild::{bindgen as bindgen_utils, build, cargo, kconfig, path_buf};

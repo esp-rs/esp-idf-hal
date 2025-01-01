@@ -41,7 +41,6 @@ const_format = "0.2" # For esp_app_desc!()
 embuild = { version = "0.32", features = ["glob", "kconfig", "cmake", "espidf"] }
 anyhow = "1"
 regex = "1.5"
-bindgen = "0.69"
 cmake = "0.1.52"
 cargo_metadata = "0.18"
 serde = { version = "1.0", features = ["derive"] }
