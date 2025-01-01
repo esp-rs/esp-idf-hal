@@ -1,3 +1,6 @@
+#[cfg(all(not(esp_idf_version_major = "4"), not(esp_idf_version = "5.1")))]
+pub mod modern;
+
 use core::marker::PhantomData;
 use core::time::Duration;
 
@@ -13,53 +16,59 @@ use crate::units::*;
 
 pub use embedded_hal::i2c::Operation;
 
+#[cfg(all(not(esp_idf_version_major = "4"), not(esp_idf_version = "5.1")))]
+#[repr(u8)]
+enum UsedDriver {
+    None = 0,
+    Legacy = 1,
+    Modern = 2,
+}
+
+#[cfg(all(not(esp_idf_version_major = "4"), not(esp_idf_version = "5.1")))]
+// 0 -> no driver, 1 -> legacy driver, 2 -> modern driver
+static DRIVER_IN_USE: core::sync::atomic::AtomicU8 =
+    core::sync::atomic::AtomicU8::new(UsedDriver::None as u8);
+
+#[cfg(all(not(esp_idf_version_major = "4"), not(esp_idf_version = "5.1")))]
+fn check_and_set_modern_driver() {
+    match DRIVER_IN_USE.compare_exchange(
+        UsedDriver::None as u8,
+        UsedDriver::Modern as u8,
+        core::sync::atomic::Ordering::Relaxed,
+        core::sync::atomic::Ordering::Relaxed,
+    ) {
+        Err(e) if e == UsedDriver::Legacy as u8 => panic!("Legacy I2C driver is already in use. Either legacy driver or modern driver can be used at a time."),
+        _ => ()
+    }
+}
+
+fn check_and_set_legacy_driver() {
+    match DRIVER_IN_USE.compare_exchange(
+            UsedDriver::None as u8,
+            UsedDriver::Legacy as u8,
+            core::sync::atomic::Ordering::Relaxed,
+            core::sync::atomic::Ordering::Relaxed,
+    ) {
+            Err(e) if e == UsedDriver::Modern as u8 => panic!("Modern I2C driver is already in use. Either legacy driver or modern driver can be used at a time."),
+            _ => ()
+    }
+}
+
 crate::embedded_hal_error!(
     I2cError,
     embedded_hal::i2c::Error,
     embedded_hal::i2c::ErrorKind
 );
 
-#[cfg(any(esp32, esp32s2))]
 const APB_TICK_PERIOD_NS: u32 = 1_000_000_000 / 80_000_000;
-
-#[cfg(all(esp32c2, esp_idf_xtal_freq_40))]
-const XTAL_TICK_PERIOD_NS: u32 = 1_000_000_000 / 40_000_000;
-#[cfg(all(esp32c2, esp_idf_xtal_freq_26))]
-const XTAL_TICK_PERIOD_NS: u32 = 1_000_000_000 / 26_000_000;
-
-#[cfg(not(any(esp32, esp32s2, esp32c2)))]
-const XTAL_TICK_PERIOD_NS: u32 = 1_000_000_000 / XTAL_CLK_FREQ;
 #[derive(Copy, Clone, Debug)]
 pub struct APBTickType(::core::ffi::c_int);
 impl From<Duration> for APBTickType {
-    #[cfg(any(esp32, esp32s2))]
     fn from(duration: Duration) -> Self {
         APBTickType(
             ((duration.as_nanos() + APB_TICK_PERIOD_NS as u128 - 1) / APB_TICK_PERIOD_NS as u128)
                 as ::core::ffi::c_int,
         )
-    }
-    #[cfg(not(any(esp32, esp32s2)))]
-    /// Conversion for newer esp models, be aware, that the hardware can only represent 22 different values, values will be rounded to the next larger valid one. Calculation only valid for 40mhz clock source
-    fn from(duration: Duration) -> Self {
-        let target_ns = duration.as_nanos() as u64;
-        let timeout_in_xtal_clock_cycles = target_ns / (XTAL_TICK_PERIOD_NS as u64);
-        //ilog2 but with ceiling logic
-        let register_value = timeout_in_xtal_clock_cycles.ilog2()
-            + (if timeout_in_xtal_clock_cycles.leading_zeros()
-                + timeout_in_xtal_clock_cycles.trailing_zeros()
-                + 1
-                < 64
-            {
-                1
-            } else {
-                0
-            });
-        if register_value <= 22 {
-            return APBTickType(register_value as ::core::ffi::c_int);
-        }
-        //produce an error in the lower set_i2c_timeout, so the user is informed that the requested timeout is larger than the next valid one.
-        APBTickType(32 as ::core::ffi::c_int)
     }
 }
 
@@ -210,6 +219,9 @@ impl<'d> I2cDriver<'d> {
         scl: impl Peripheral<P = impl InputPin + OutputPin> + 'd,
         config: &config::Config,
     ) -> Result<Self, EspError> {
+        #[cfg(all(not(esp_idf_version_major = "4"), not(esp_idf_version = "5.1")))]
+        check_and_set_legacy_driver();
+
         // i2c_config_t documentation says that clock speed must be no higher than 1 MHz
         if config.baudrate > 1.MHz().into() {
             return Err(EspError::from_infallible::<ESP_ERR_INVALID_ARG>());
@@ -468,8 +480,12 @@ impl<'d> I2cSlaveDriver<'d> {
         slave_addr: u8,
         config: &config::SlaveConfig,
     ) -> Result<Self, EspError> {
+        #[cfg(all(not(esp_idf_version_major = "4"), not(esp_idf_version = "5.1")))]
+        check_and_set_legacy_driver();
+
         crate::into_ref!(sda, scl);
 
+        #[cfg(not(esp_idf_version = "4.3"))]
         let sys_config = i2c_config_t {
             mode: i2c_mode_t_I2C_MODE_SLAVE,
             sda_io_num: sda.pin(),
@@ -481,6 +497,25 @@ impl<'d> I2cSlaveDriver<'d> {
                     slave_addr: slave_addr as u16,
                     addr_10bit_en: 0, // For now; to become configurable with embedded-hal V1.0
                     maximum_speed: 0,
+                },
+            },
+            ..Default::default()
+        };
+
+        #[cfg(esp_idf_version = "4.3")]
+        #[deprecated(
+            note = "Using ESP-IDF 4.3 is untested, please upgrade to 4.4 or newer. Support will be removed in the next major release."
+        )]
+        let sys_config = i2c_config_t {
+            mode: i2c_mode_t_I2C_MODE_SLAVE,
+            sda_io_num: pins.sda.pin(),
+            sda_pullup_en: config.sda_pullup_enabled,
+            scl_io_num: pins.scl.pin(),
+            scl_pullup_en: config.scl_pullup_enabled,
+            __bindgen_anon_1: i2c_config_t__bindgen_ty_1 {
+                slave: i2c_config_t__bindgen_ty_1__bindgen_ty_2 {
+                    slave_addr: slave_addr as u16,
+                    addr_10bit_en: 0, // For now; to become configurable with embedded-hal V1.0
                 },
             },
             ..Default::default()
@@ -578,7 +613,7 @@ impl<'buffers> CommandLink<'buffers> {
     }
 
     fn master_read(&mut self, buf: &'buffers mut [u8], ack: AckType) -> Result<(), EspError> {
-        esp!(unsafe { i2c_master_read(self.0, buf.as_mut_ptr().cast(), buf.len(), ack as u32,) })
+        esp!(unsafe { i2c_master_read(self.0, buf.as_mut_ptr().cast(), buf.len(), ack as u32) })
     }
 }
 
