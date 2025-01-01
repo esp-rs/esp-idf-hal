@@ -37,6 +37,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added set_promiscuous function in EthDriver (#246)
 - Added set_promiscuous, is_promiscuous functions in WifiDriver (#246)
 - Blocking and buffered StdIo (#541) - i.e. easy reading/input from `std::io::stdin`
+- Added source_ipv4, source_ipv6 function in EspHttpRawConnection (#538)
 
 ### Fixed
 - The alloc::Vec version stomps the scan state from Done to Idle. (#459)

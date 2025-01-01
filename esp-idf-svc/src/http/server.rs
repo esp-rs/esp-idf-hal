@@ -35,6 +35,10 @@
 use core::cell::UnsafeCell;
 use core::fmt::Debug;
 use core::marker::PhantomData;
+#[cfg(esp_idf_lwip_ipv4)]
+use core::net::Ipv4Addr;
+#[cfg(esp_idf_lwip_ipv6)]
+use core::net::Ipv6Addr;
 use core::sync::atomic::{AtomicBool, Ordering};
 use core::time::*;
 use core::{ffi, ptr};
@@ -798,6 +802,62 @@ impl EspHttpRawConnection<'_> {
         }
 
         Ok(())
+    }
+
+    /// Retrieves the source IPv4 of the request.
+    ///
+    /// The IPv4 is retrieved using the underlying session socket.
+    #[cfg(esp_idf_lwip_ipv4)]
+    pub fn source_ipv4(&self) -> Result<Ipv4Addr, EspError> {
+        unsafe {
+            let sockfd = httpd_req_to_sockfd(self.handle());
+
+            if sockfd == -1 {
+                return Err(EspError::from_infallible::<ESP_FAIL>());
+            }
+
+            let mut addr = sockaddr_in {
+                sin_len: core::mem::size_of::<sockaddr_in>() as _,
+                sin_family: AF_INET as _,
+                ..Default::default()
+            };
+
+            esp!(lwip_getpeername(
+                sockfd,
+                &mut addr as *mut _ as *mut _,
+                &mut core::mem::size_of::<sockaddr_in>() as *mut _ as *mut _,
+            ))?;
+
+            Ok(Ipv4Addr::from(addr.sin_addr.s_addr))
+        }
+    }
+
+    /// Retrieves the source IPv6 of the request.
+    ///
+    /// The IPv6 is retrieved using the underlying session socket.
+    #[cfg(esp_idf_lwip_ipv6)]
+    pub fn source_ipv6(&self) -> Result<Ipv6Addr, EspError> {
+        unsafe {
+            let sockfd = httpd_req_to_sockfd(self.handle());
+
+            if sockfd == -1 {
+                return Err(EspError::from_infallible::<ESP_FAIL>());
+            }
+
+            let mut addr = sockaddr_in6 {
+                sin6_len: core::mem::size_of::<sockaddr_in6>() as _,
+                sin6_family: AF_INET6 as _,
+                ..Default::default()
+            };
+
+            esp!(lwip_getpeername(
+                sockfd,
+                &mut addr as *mut _ as *mut _,
+                &mut core::mem::size_of::<sockaddr_in6>() as *mut _ as *mut _,
+            ))?;
+
+            Ok(Ipv6Addr::from(addr.sin6_addr.un.u8_addr))
+        }
     }
 }
 
