@@ -828,7 +828,7 @@ impl EspHttpRawConnection<'_> {
                 &mut core::mem::size_of::<sockaddr_in>() as *mut _ as *mut _,
             ))?;
 
-            Ok(Ipv4Addr::from(addr.sin_addr.s_addr))
+            Ok(Ipv4Addr::from(u32::from_be(addr.sin_addr.s_addr)))
         }
     }
 
