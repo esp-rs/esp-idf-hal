@@ -5,7 +5,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.50.0] - 2025-01-02
 
 ### Deprecated
 - `EspFirmwareInfoLoader` use `EspFirmwareInfoLoad` instead
@@ -19,6 +19,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Expose src_addr and dst_addr in espnow recv cb (#525)
 
 ### Added
+- Compatibility with ESP-IDF v5.3.X
 - feat(eth): Implement alternative polling mode (#452)
 - SD Card driver; SD Card host drivers (SPI and SDMMC) (#454)
 - Make EspAsyncMqttClient::wrap public. (#462)
