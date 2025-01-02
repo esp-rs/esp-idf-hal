@@ -1,0 +1,2 @@
+window.ALL_CRATES = ["atomic_waker","byteorder","cfg_if","const_format","critical_section","embassy_sync","embedded_can","embedded_hal","embedded_hal_async","embedded_hal_nb","embedded_io","embedded_io_async","enumset","esp_idf_hal","esp_idf_sys","futures_core","futures_sink","futures_task","futures_util","hash32","heapless","libc","log","nb","num_enum","pin_project_lite","pin_utils","stable_deref_trait"];
+//{"start":21,"fragment_lengths":[14,12,9,15,19,15,15,15,21,18,14,20,10,14,14,15,15,15,15,9,11,7,6,5,11,19,12,21]}
