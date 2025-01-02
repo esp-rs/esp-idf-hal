@@ -1,6 +1,6 @@
 [package]
 name = "esp-idf-sys"
-version = "0.35.0"
+version = "0.36.0"
 authors = ["Alexey Arbuzov <aarbuzov@termt.com>", "sapir <yasapir@gmail.com>", "Ivan Markov <ivan.markov@gmail.com>", "Dominik Gschwind <dominik.gschwind99@gmail.com>"]
 edition = "2021"
 resolver = "2"
@@ -14,9 +14,6 @@ links = "esp_idf"
 build = "build/build.rs"
 documentation = "https://docs.esp-rs.org/esp-idf-sys/"
 rust-version = "1.66"
-
-[patch.crates-io]
-embuild = { git = "https://github.com/esp-rs/embuild" }
 
 [lib]
 harness = false
@@ -38,7 +35,7 @@ build-time = "0.1"   # For esp_app_desc!()
 const_format = "0.2" # For esp_app_desc!()
 
 [build-dependencies]
-embuild = { version = "0.32", features = ["glob", "kconfig", "cmake", "espidf"] }
+embuild = { version = "0.33", features = ["glob", "kconfig", "cmake", "espidf"] }
 anyhow = "1"
 regex = "1.5"
 cmake = "0.1.52"

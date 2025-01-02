@@ -5,13 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.36.0] - 2025-01-02
 
 ### Deprecated
 
 ### Breaking
+- Updated the `embuild` dependency
 
 ### Added
+- Compatibility with ESP-IDF v5.3.X
 - Add raw bindings for `sdio_slave.h` for all targets that support it and add `onewire_bus.h` (#322)
 - Add raw bindings for `onewire_device.h`
 - Add raw bindings for `esp_netif_ppp.h`
