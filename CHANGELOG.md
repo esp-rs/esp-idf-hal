@@ -5,7 +5,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.45.0] - 2025-01-02
 
 ### Deprecated
 
@@ -16,6 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - UART default baud rate changed from 19'200 to 115'200
 
 ### Added
+- Compatibility with ESP-IDF v5.3.X
 - Docs: Add some docstrings for ADC module. (#455)
 - Update uart.rs, add rs485 half duplex (#456)
 - Update spi.rs, fix half3wire read (#459)
