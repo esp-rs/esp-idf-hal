@@ -66,7 +66,7 @@ embuild = "0.33"
 
 [dev-dependencies]
 anyhow = "1"
-esp-idf-sys = { version = "0.35", features = ["binstart"] }
+esp-idf-sys = { version = "0.36", features = ["binstart"] }
 mipidsi = "0.5.0"
 display-interface-spi = "0.4.1"
 embedded-graphics = "0.7.1"
