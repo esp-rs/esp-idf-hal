@@ -685,7 +685,8 @@ where
             #[cfg(esp32c2)]
             version_num: unsafe { crate::sys::esp_ble_get_chip_rev_version() },
             #[cfg(esp32c6)]
-            version_num: unsafe { crate::sys::efuse_hal_chip_revision() },
+            #[allow(clippy::unnecessary_cast)]
+            version_num: unsafe { crate::sys::efuse_hal_chip_revision() as u8 },
             #[cfg(not(esp32c2))]
             cpu_freq_mhz: crate::sys::CONFIG_ESP_DEFAULT_CPU_FREQ_MHZ as _,
             ignore_wl_for_direct_adv: 0,
