@@ -576,7 +576,7 @@
 #include "tinyusb.h"
 #include "tinyusb_net.h"
 #include "tinyusb_types.h"
-#ifdef CONFIG_TINYUSB_CDC_ENABLED
+#if CONFIG_TINYUSB_CDC_ENABLED
 #include "tusb_cdc_acm.h"
 #endif
 #include "tusb_config.h"
