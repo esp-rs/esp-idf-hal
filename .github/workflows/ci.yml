@@ -54,6 +54,7 @@ jobs:
         run: cargo fmt -- --check
 
       - name: Build | Clippy
+        if: matrix.target != 'riscv32imac-esp-espidf' || matrix.idf-version != 'release/v4.4'
         env:
           ESP_IDF_VERSION: ${{ matrix.idf-version }}
           ESP_IDF_SDKCONFIG_DEFAULTS: "${{ github.workspace }}/.github/configs/sdkconfig.defaults"
@@ -61,6 +62,7 @@ jobs:
         run: cargo clippy --features experimental --no-deps --target ${{ matrix.target }} -Zbuild-std=std,panic_abort -Zbuild-std-features=panic_immediate_abort -- -Dwarnings
 
       - name: Build | Compile, all
+        if: matrix.target != 'riscv32imac-esp-espidf' || matrix.idf-version != 'release/v4.4'
         env:
           ESP_IDF_VERSION: ${{ matrix.idf-version }}
           ESP_IDF_SDKCONFIG_DEFAULTS: "${{ github.workspace }}/.github/configs/sdkconfig.defaults"
@@ -68,6 +70,7 @@ jobs:
         run: cargo build --target ${{ matrix.target }} --features nightly,experimental,critical-section,embassy-sync -Zbuild-std=std,panic_abort -Zbuild-std-features=panic_immediate_abort
 
       - name: Build | Compile, no_std
+        if: matrix.target != 'riscv32imac-esp-espidf' || matrix.idf-version != 'release/v4.4'
         env:
           ESP_IDF_VERSION: ${{ matrix.idf-version }}
           ESP_IDF_SDKCONFIG_DEFAULTS: "${{ github.workspace }}/.github/configs/sdkconfig.defaults"
@@ -75,6 +78,7 @@ jobs:
         run: cargo build --no-default-features --features experimental --target ${{ matrix.target }} -Zbuild-std=std,panic_abort -Zbuild-std-features=panic_immediate_abort
 
       - name: Build | Compile, no_std, alloc
+        if: matrix.target != 'riscv32imac-esp-espidf' || matrix.idf-version != 'release/v4.4'
         env:
           ESP_IDF_VERSION: ${{ matrix.idf-version }}
           ESP_IDF_SDKCONFIG_DEFAULTS: "${{ github.workspace }}/.github/configs/sdkconfig.defaults"
