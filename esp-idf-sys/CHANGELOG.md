@@ -23,6 +23,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Add raw bindings to the `mbedtls` API
 - Use clang from ESP-IDF when possible
 - Use the `bindgen` crate re-exported from `embuild` rather than depending directly on `bindgen`
+- Add raw bindings to the `TinyUSB` API
 
 ### Fixed
 - Fix rust-analyzer by not using rust libtest harness

@@ -571,6 +571,21 @@
 #include "driver/usb_serial_jtag.h"
 #endif
 
+// Official TinyUSB remote component
+#ifdef ESP_IDF_COMP_ESPRESSIF__ESP_TINYUSB_ENABLED
+#include "tinyusb.h"
+#include "tinyusb_net.h"
+#include "tinyusb_types.h"
+#include "tusb_cdc_acm.h"
+#include "tusb_config.h"
+#include "tusb_console.h"
+#include "tusb_tasks.h"
+#ifdef ESP_IDF_COMP_VFS_ENABLED
+#include "tusb_msc_storage.h"
+#include "vfs_tinyusb.h"
+#endif
+#endif
+
 // Official onewire_bus remote component
 #ifdef ESP_IDF_COMP_ESPRESSIF__ONEWIRE_BUS_ENABLED
 #include "onewire_bus.h"
