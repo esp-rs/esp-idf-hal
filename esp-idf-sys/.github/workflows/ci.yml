@@ -49,16 +49,17 @@ jobs:
           default: true
 
       - name: Build | Fmt Check
+        if: matrix.target != 'riscv32imac-esp-espidf' || matrix.idf-version != 'v4.4.8'
         run: cargo fmt -- --check
 
 #      - name: Build | Clippy (PIO)
-#        if: matrix.target == 'riscv32imc-esp-espidf' && matrix.idf-version == 'v5.2.1'
+#        if: matrix.target == 'riscv32imc-esp-espidf' && matrix.idf-version == 'v5.2.3'
 #        env:
 #          RUSTFLAGS: "${{ '--cfg espidf_time64' }}"
 #        run: cargo clippy --features pio --no-deps --target ${{ matrix.target }} -Zbuild-std=std,panic_abort -Zbuild-std-features=panic_immediate_abort -- -Dwarnings
 
       - name: Build | Clippy
-        if: matrix.target != 'riscv32imac-esp-espidf' || matrix.idf-version != 'release/v4.4'
+        if: matrix.target != 'riscv32imac-esp-espidf' || matrix.idf-version != 'v4.4.8'
         env:
           ESP_IDF_VERSION: ${{ matrix.idf-version }}
           ESP_IDF_SDKCONFIG_DEFAULTS: "${{ github.workspace }}/.github/configs/sdkconfig.defaults"
@@ -66,21 +67,21 @@ jobs:
         run: cargo clippy --no-deps --target ${{ matrix.target }} -Zbuild-std=std,panic_abort -Zbuild-std-features=panic_immediate_abort -- -Dwarnings -Adeprecated
 
       - name: Build | Compile (Native)
-        if: matrix.target != 'riscv32imac-esp-espidf' || matrix.idf-version != 'release/v4.4'
+        if: matrix.target != 'riscv32imac-esp-espidf' || matrix.idf-version != 'v4.4.8'
         env:
           ESP_IDF_VERSION: ${{ matrix.idf-version }}
           RUSTFLAGS: "${{ startsWith(matrix.idf-version, 'v5') && '--cfg espidf_time64' || startsWith(matrix.idf-version, 'v4') && '--cfg espidf_time32' }}"
         run: cargo build --target ${{ matrix.target }} -Zbuild-std=std,panic_abort -Zbuild-std-features=panic_immediate_abort
 
       - name: Build | Compile (Native), no_std
-        if: matrix.target != 'riscv32imac-esp-espidf' || matrix.idf-version != 'release/v4.4'
+        if: matrix.target != 'riscv32imac-esp-espidf' || matrix.idf-version != 'v4.4.8'
         env:
           ESP_IDF_VERSION: ${{ matrix.idf-version }}
           RUSTFLAGS: "${{ startsWith(matrix.idf-version, 'v5') && '--cfg espidf_time64' || startsWith(matrix.idf-version, 'v4') && '--cfg espidf_time32' }}"
         run: cargo build --target ${{ matrix.target }} --no-default-features -Zbuild-std=std,panic_abort -Zbuild-std-features=panic_immediate_abort
 
 #      - name: Build | Compile (Native), alloc
-#        if: matrix.target != 'riscv32imac-esp-espidf' || matrix.idf-version != 'release/v4.4'
+#        if: matrix.target != 'riscv32imac-esp-espidf' || matrix.idf-version != 'v4.4.8'
 #        env:
 #          ESP_IDF_VERSION: ${{ matrix.idf-version }}
 #          RUSTFLAGS: "${{ startsWith(matrix.idf-version, 'v5') && '--cfg espidf_time64' || '' }}"
@@ -94,7 +95,7 @@ jobs:
           chmod a+x $HOME/.cargo/bin/ldproxy
 
       - name: Build | Examples
-        if: matrix.target != 'riscv32imac-esp-espidf' || matrix.idf-version != 'release/v4.4'
+        if: matrix.target != 'riscv32imac-esp-espidf' || matrix.idf-version != 'v4.4.8'
         env:
           ESP_IDF_VERSION: ${{ matrix.idf-version }}
           RUSTFLAGS: "${{ startsWith(matrix.idf-version, 'v5') && '--cfg espidf_time64' || startsWith(matrix.idf-version, 'v4') && '--cfg espidf_time32' }}"
