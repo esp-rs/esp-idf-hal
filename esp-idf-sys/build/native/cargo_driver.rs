@@ -12,7 +12,6 @@ use embuild::cmake::file_api::codemodel::Language;
 use embuild::cmake::file_api::ObjKind;
 use embuild::espidf::{
     EspIdfOrigin, EspIdfRemote, EspIdfVersion, FromEnvError, NotActivatedError, SourceTree,
-    DEFAULT_ESP_IDF_REPOSITORY,
 };
 use embuild::fs::copy_file_if_different;
 use embuild::utils::{OsStrExt, PathExt};
