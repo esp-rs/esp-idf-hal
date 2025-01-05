@@ -34,9 +34,6 @@ jobs:
       - name: Setup | Checkout
         uses: actions/checkout@v3
 
-      - name: Setup | libncurses5
-        run: sudo apt-get install libncurses5
-
       - name: Setup | Rust
         if: matrix.target == 'riscv32imc-esp-espidf'
         uses: dtolnay/rust-toolchain@v1
