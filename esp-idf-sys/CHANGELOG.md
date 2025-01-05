@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+### Deprecated
+
+### Breaking
+
+### Added
+- Add raw bindings for `esp_netif_net_stack.h` and `lwip/esp_netif_net_stack.h`. (#360)
+
+### Fixed
+
 ## [0.36.0] - 2025-01-02
 
 ### Deprecated

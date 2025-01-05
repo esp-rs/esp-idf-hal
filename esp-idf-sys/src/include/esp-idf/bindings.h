@@ -100,6 +100,9 @@
 
 #ifdef ESP_IDF_COMP_ESP_NETIF_ENABLED
 #include "esp_netif.h"
+#if ESP_IDF_VERSION_MAJOR > 4
+#include "esp_netif_net_stack.h"
+#endif
 #if ESP_IDF_VERSION_MAJOR > 4 && defined(CONFIG_ESP_NETIF_TCPIP_LWIP) && defined(CONFIG_ESP_NETIF_BRIDGE_EN)
 #include "esp_netif_br_glue.h"
 #endif
@@ -215,6 +218,9 @@
 #include "lwip/lwip_napt.h"
 #include "lwip/netdb.h"
 #include "lwip/sockets.h"
+#if ESP_IDF_VERSION_MAJOR > 4
+#include "lwip/esp_netif_net_stack.h"
+#endif
 #include "esp_sntp.h"
 #include "ping/ping_sock.h"
 #if ESP_IDF_VERSION_MAJOR > 5 || ESP_IDF_VERSION_MAJOR == 5 && ESP_IDF_VERSION_MINOR >= 1
