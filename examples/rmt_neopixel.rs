@@ -121,7 +121,7 @@ mod example {
         /// 7      0 7      0 7      0
         /// 00000010 00000001 00000100
         fn from(rgb: Rgb) -> Self {
-            ((rgb.r as u32) << 16) | ((rgb.g as u32) << 8) | rgb.b as u32
+            ((rgb.g as u32) << 16) | ((rgb.r as u32) << 8) | rgb.b as u32
         }
     }
 }
