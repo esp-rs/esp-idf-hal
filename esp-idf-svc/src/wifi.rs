@@ -8,8 +8,6 @@ extern crate alloc;
 use alloc::boxed::Box;
 use alloc::sync::Arc;
 
-use ::log::*;
-
 use enumset::*;
 
 use embedded_svc::wifi::Wifi;
@@ -633,7 +631,7 @@ impl<'d> WifiDriver<'d> {
         };
         esp!(unsafe { esp_wifi_init(&cfg) })?;
 
-        debug!("Driver initialized");
+        ::log::debug!("Driver initialized");
 
         Ok(())
     }
@@ -643,51 +641,51 @@ impl<'d> WifiDriver<'d> {
     pub fn get_capabilities(&self) -> Result<EnumSet<Capability>, EspError> {
         let caps = Capability::Client | Capability::AccessPoint | Capability::Mixed;
 
-        debug!("Providing capabilities: {:?}", caps);
+        ::log::debug!("Providing capabilities: {:?}", caps);
 
         Ok(caps)
     }
 
     /// As per [`crate::sys::esp_wifi_start`](crate::sys::esp_wifi_start)
     pub fn start(&mut self) -> Result<(), EspError> {
-        debug!("Start requested");
+        ::log::debug!("Start requested");
 
         esp!(unsafe { esp_wifi_start() })?;
 
-        debug!("Starting");
+        ::log::debug!("Starting");
 
         Ok(())
     }
 
     /// As per [`crate::sys::esp_wifi_stop`](crate::sys::esp_wifi_stop)
     pub fn stop(&mut self) -> Result<(), EspError> {
-        debug!("Stop requested");
+        ::log::debug!("Stop requested");
 
         esp!(unsafe { esp_wifi_stop() })?;
 
-        debug!("Stopping");
+        ::log::debug!("Stopping");
 
         Ok(())
     }
 
     /// As per [`crate::sys::esp_wifi_connect`](crate::sys::esp_wifi_connect)
     pub fn connect(&mut self) -> Result<(), EspError> {
-        debug!("Connect requested");
+        ::log::debug!("Connect requested");
 
         esp!(unsafe { esp_wifi_connect() })?;
 
-        debug!("Connecting");
+        ::log::debug!("Connecting");
 
         Ok(())
     }
 
     /// As per [`crate::sys::esp_wifi_disconnect`](crate::sys::esp_wifi_disconnect)
     pub fn disconnect(&mut self) -> Result<(), EspError> {
-        debug!("Disconnect requested");
+        ::log::debug!("Disconnect requested");
 
         esp!(unsafe { esp_wifi_disconnect() })?;
 
-        debug!("Disconnecting");
+        ::log::debug!("Disconnecting");
 
         Ok(())
     }
@@ -765,7 +763,7 @@ impl<'d> WifiDriver<'d> {
     #[allow(non_snake_case)]
     /// Returns the <`Configuration`> currently in use
     pub fn get_configuration(&self) -> Result<Configuration, EspError> {
-        debug!("Getting configuration");
+        ::log::debug!("Getting configuration");
 
         let mut mode: wifi_mode_t = 0;
         esp!(unsafe { esp_wifi_get_mode(&mut mode) })?;
@@ -780,7 +778,7 @@ impl<'d> WifiDriver<'d> {
             _ => panic!(),
         };
 
-        debug!("Configuration gotten: {:?}", &conf);
+        ::log::debug!("Configuration gotten: {:?}", &conf);
 
         Ok(conf)
     }
@@ -791,20 +789,20 @@ impl<'d> WifiDriver<'d> {
     /// Calls [`crate::sys::esp_wifi_set_mode`](crate::sys::esp_wifi_set_mode)
     /// and [`crate::sys::esp_wifi_set_config`](crate::sys::esp_wifi_set_config)
     pub fn set_configuration(&mut self, conf: &Configuration) -> Result<(), EspError> {
-        debug!("Setting configuration: {:?}", conf);
+        ::log::debug!("Setting configuration: {:?}", conf);
 
         match conf {
             Configuration::None => {
                 unsafe {
                     esp!(esp_wifi_set_mode(wifi_mode_t_WIFI_MODE_NULL))?;
                 }
-                debug!("Wifi mode NULL set");
+                ::log::debug!("Wifi mode NULL set");
             }
             Configuration::AccessPoint(ap_conf) => {
                 unsafe {
                     esp!(esp_wifi_set_mode(wifi_mode_t_WIFI_MODE_AP))?;
                 }
-                debug!("Wifi mode AP set");
+                ::log::debug!("Wifi mode AP set");
 
                 self.set_ap_conf(ap_conf)?;
             }
@@ -812,7 +810,7 @@ impl<'d> WifiDriver<'d> {
                 unsafe {
                     esp!(esp_wifi_set_mode(wifi_mode_t_WIFI_MODE_STA))?;
                 }
-                debug!("Wifi mode STA set");
+                ::log::debug!("Wifi mode STA set");
 
                 self.set_sta_conf(client_conf)?;
             }
@@ -820,14 +818,14 @@ impl<'d> WifiDriver<'d> {
                 unsafe {
                     esp!(esp_wifi_set_mode(wifi_mode_t_WIFI_MODE_APSTA))?;
                 }
-                debug!("Wifi mode APSTA set");
+                ::log::debug!("Wifi mode APSTA set");
 
                 self.set_sta_conf(client_conf)?;
                 self.set_ap_conf(ap_conf)?;
             }
         }
 
-        debug!("Configuration set");
+        ::log::debug!("Configuration set");
 
         Ok(())
     }
@@ -912,7 +910,7 @@ impl<'d> WifiDriver<'d> {
         scan_config: &config::ScanConfig,
         blocking: bool,
     ) -> Result<(), EspError> {
-        debug!("About to scan for access points");
+        ::log::debug!("About to scan for access points");
 
         let scan_config: wifi_scan_config_t = scan_config.into();
         esp!(unsafe { esp_wifi_scan_start(&scan_config as *const wifi_scan_config_t, blocking) })?;
@@ -924,7 +922,7 @@ impl<'d> WifiDriver<'d> {
 
     /// Stops a previous started access point scan.
     pub fn stop_scan(&mut self) -> Result<(), EspError> {
-        debug!("About to stop scan for access points");
+        ::log::debug!("About to stop scan for access points");
 
         esp!(unsafe { esp_wifi_scan_stop() })?;
 
@@ -955,7 +953,7 @@ impl<'d> WifiDriver<'d> {
                 Newtype(ap_info_raw).try_into()
             })
             .filter_map(|r| r.ok())
-            .inspect(|ap_info| debug!("Found access point {:?}", ap_info))
+            .inspect(|ap_info| ::log::debug!("Found access point {:?}", ap_info))
             .collect();
 
         Ok((result, scanned_count))
@@ -987,7 +985,7 @@ impl<'d> WifiDriver<'d> {
                 Newtype(ap_info_raw).try_into()
             })
             .filter_map(|r| r.ok())
-            .inspect(|ap_info| debug!("Found access point {:?}", ap_info))
+            .inspect(|ap_info| ::log::debug!("Found access point {:?}", ap_info))
             .collect();
 
         Ok(result)
@@ -1112,7 +1110,7 @@ impl<'d> WifiDriver<'d> {
         esp!(unsafe { esp_wifi_sta_get_ap_info(&mut ap_info_raw) })?;
         let ap_info: AccessPointInfo = Newtype(&ap_info_raw).try_into().unwrap();
 
-        debug!("AP Info: {:?}", ap_info);
+        ::log::debug!("AP Info: {:?}", ap_info);
         Ok(ap_info)
     }
 
@@ -1201,9 +1199,9 @@ impl<'d> WifiDriver<'d> {
         esp!(unsafe { esp_wifi_set_promiscuous(state) })?;
 
         if state {
-            info!("Driver set in promiscuous mode");
+            ::log::info!("Driver set in promiscuous mode");
         } else {
-            info!("Driver set in non-promiscuous mode");
+            ::log::info!("Driver set in non-promiscuous mode");
         }
 
         Ok(())
@@ -1244,17 +1242,17 @@ impl<'d> WifiDriver<'d> {
 
         let result: ClientConfiguration = unsafe { Newtype(wifi_config.sta).into() };
 
-        debug!("Providing STA configuration: {:?}", &result);
+        ::log::debug!("Providing STA configuration: {:?}", &result);
 
         Ok(result)
     }
 
     fn set_sta_conf(&mut self, conf: &ClientConfiguration) -> Result<(), EspError> {
-        debug!("Checking current STA configuration");
+        ::log::debug!("Checking current STA configuration");
         let current_config = self.get_sta_conf()?;
 
         if current_config != *conf {
-            debug!("Setting STA configuration: {:?}", conf);
+            ::log::debug!("Setting STA configuration: {:?}", conf);
 
             let mut wifi_config = wifi_config_t {
                 sta: Newtype::<wifi_sta_config_t>::try_from(conf)?.0,
@@ -1262,10 +1260,10 @@ impl<'d> WifiDriver<'d> {
 
             esp!(unsafe { esp_wifi_set_config(wifi_interface_t_WIFI_IF_STA, &mut wifi_config) })?;
         } else {
-            debug!("Same STA configuration already present");
+            ::log::debug!("Same STA configuration already present");
         }
 
-        debug!("STA configuration done");
+        ::log::debug!("STA configuration done");
 
         Ok(())
     }
@@ -1276,17 +1274,17 @@ impl<'d> WifiDriver<'d> {
 
         let result: AccessPointConfiguration = unsafe { Newtype(wifi_config.ap).into() };
 
-        debug!("Providing AP configuration: {:?}", &result);
+        ::log::debug!("Providing AP configuration: {:?}", &result);
 
         Ok(result)
     }
 
     fn set_ap_conf(&mut self, conf: &AccessPointConfiguration) -> Result<(), EspError> {
-        debug!("Checking current AP configuration");
+        ::log::debug!("Checking current AP configuration");
         let current_config = self.get_ap_conf()?;
 
         if current_config != *conf {
-            debug!("Setting AP configuration: {:?}", conf);
+            ::log::debug!("Setting AP configuration: {:?}", conf);
 
             let mut wifi_config = wifi_config_t {
                 ap: Newtype::<wifi_ap_config_t>::try_from(conf)?.0,
@@ -1294,10 +1292,10 @@ impl<'d> WifiDriver<'d> {
 
             esp!(unsafe { esp_wifi_set_config(wifi_interface_t_WIFI_IF_AP, &mut wifi_config) })?;
         } else {
-            debug!("Same AP configuration already present");
+            ::log::debug!("Same AP configuration already present");
         }
 
-        debug!("AP configuration done");
+        ::log::debug!("AP configuration done");
 
         Ok(())
     }
@@ -1316,7 +1314,7 @@ impl<'d> WifiDriver<'d> {
             TX_CALLBACK = None;
         }
 
-        debug!("Driver deinitialized");
+        ::log::debug!("Driver deinitialized");
 
         Ok(())
     }
@@ -1325,7 +1323,7 @@ impl<'d> WifiDriver<'d> {
         let mut found_ap: u16 = 0;
         esp!(unsafe { esp_wifi_scan_get_ap_num(&mut found_ap as *mut _) })?;
 
-        debug!("Found {} access points", found_ap);
+        ::log::debug!("Found {} access points", found_ap);
 
         Ok(found_ap as usize)
     }
@@ -1334,13 +1332,13 @@ impl<'d> WifiDriver<'d> {
         &mut self,
         ap_infos_raw: &mut [wifi_ap_record_t],
     ) -> Result<usize, EspError> {
-        debug!("About to get info for found access points");
+        ::log::debug!("About to get info for found access points");
 
         let mut ap_count: u16 = ap_infos_raw.len() as u16;
 
         esp!(unsafe { esp_wifi_scan_get_ap_records(&mut ap_count, ap_infos_raw.as_mut_ptr(),) })?;
 
-        debug!("Got info for {} access points", ap_count);
+        ::log::debug!("Got info for {} access points", ap_count);
 
         Ok(ap_count as usize)
     }
@@ -1441,7 +1439,7 @@ impl Drop for WifiDriver<'_> {
     fn drop(&mut self) {
         self.clear_all().unwrap();
 
-        debug!("WifiDriver Dropped");
+        ::log::debug!("WifiDriver Dropped");
     }
 }
 
@@ -1851,7 +1849,7 @@ impl Drop for EspWifi<'_> {
     fn drop(&mut self) {
         self.detach_netif().unwrap();
 
-        info!("EspWifi dropped");
+        ::log::info!("EspWifi dropped");
     }
 }
 

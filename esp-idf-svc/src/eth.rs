@@ -3,8 +3,6 @@ use core::marker::PhantomData;
 use core::time::Duration;
 use core::{ffi, ops, ptr};
 
-use ::log::*;
-
 extern crate alloc;
 use alloc::boxed::Box;
 use alloc::sync::Arc;
@@ -279,7 +277,7 @@ impl<T> Drop for SpiEth<T> {
         if let Some(device) = self.device {
             esp!(unsafe { spi_bus_remove_device(device) }).unwrap();
 
-            info!("SpiEth dropped");
+            ::log::info!("SpiEth dropped");
         }
     }
 }
@@ -855,7 +853,7 @@ impl<'d, T> EthDriver<'d, T> {
         let mut handle: esp_eth_handle_t = ptr::null_mut();
         esp!(unsafe { esp_eth_driver_install(&cfg, &mut handle) })?;
 
-        info!("Driver initialized");
+        ::log::info!("Driver initialized");
 
         if let Some(mac_addr) = mac_addr {
             esp!(unsafe {
@@ -866,7 +864,7 @@ impl<'d, T> EthDriver<'d, T> {
                 )
             })?;
 
-            info!("Attached MAC address: {:?}", mac_addr);
+            ::log::info!("Attached MAC address: {:?}", mac_addr);
         }
 
         let (waitable, subscription) = Self::subscribe(handle, &sysloop)?;
@@ -880,7 +878,7 @@ impl<'d, T> EthDriver<'d, T> {
             _p: PhantomData,
         };
 
-        info!("Initialization complete");
+        ::log::info!("Initialization complete");
 
         Ok(eth)
     }
@@ -927,20 +925,20 @@ impl<'d, T> EthDriver<'d, T> {
     pub fn start(&mut self) -> Result<(), EspError> {
         esp!(unsafe { esp_eth_start(self.handle) })?;
 
-        info!("Start requested");
+        ::log::info!("Start requested");
 
         Ok(())
     }
 
     pub fn stop(&mut self) -> Result<(), EspError> {
-        info!("Stopping");
+        ::log::info!("Stopping");
 
         let err = unsafe { esp_eth_stop(self.handle) };
         if err != ESP_ERR_INVALID_STATE {
             esp!(err)?;
         }
 
-        info!("Stop requested");
+        ::log::info!("Stop requested");
 
         Ok(())
     }
@@ -1027,7 +1025,7 @@ impl<'d, T> EthDriver<'d, T> {
             esp!(esp_eth_driver_uninstall(self.handle))?;
         }
 
-        info!("Driver deinitialized");
+        ::log::info!("Driver deinitialized");
 
         Ok(())
     }
@@ -1047,9 +1045,9 @@ impl<'d, T> EthDriver<'d, T> {
         })?;
 
         if state {
-            info!("Driver set in promiscuous mode");
+            ::log::info!("Driver set in promiscuous mode");
         } else {
-            info!("Driver set in non-promiscuous mode");
+            ::log::info!("Driver set in non-promiscuous mode");
         }
 
         Ok(())
@@ -1127,7 +1125,7 @@ impl<T> Drop for EthDriver<'_, T> {
     fn drop(&mut self) {
         self.clear_all().unwrap();
 
-        info!("EthDriver dropped");
+        ::log::info!("EthDriver dropped");
     }
 }
 
@@ -1290,7 +1288,7 @@ impl<T> Drop for EspEth<'_, T> {
     fn drop(&mut self) {
         self.detach_netif().unwrap();
 
-        info!("EspEth dropped");
+        ::log::info!("EspEth dropped");
     }
 }
 
