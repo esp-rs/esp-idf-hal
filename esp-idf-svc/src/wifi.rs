@@ -1201,9 +1201,9 @@ impl<'d> WifiDriver<'d> {
         esp!(unsafe { esp_wifi_set_promiscuous(state) })?;
 
         if state {
-            log::info!("Driver set in promiscuous mode");
+            info!("Driver set in promiscuous mode");
         } else {
-            log::info!("Driver set in non-promiscuous mode");
+            info!("Driver set in non-promiscuous mode");
         }
 
         Ok(())

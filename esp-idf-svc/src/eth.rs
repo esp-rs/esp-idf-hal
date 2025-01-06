@@ -1047,9 +1047,9 @@ impl<'d, T> EthDriver<'d, T> {
         })?;
 
         if state {
-            log::info!("Driver set in promiscuous mode");
+            info!("Driver set in promiscuous mode");
         } else {
-            log::info!("Driver set in non-promiscuous mode");
+            info!("Driver set in non-promiscuous mode");
         }
 
         Ok(())
