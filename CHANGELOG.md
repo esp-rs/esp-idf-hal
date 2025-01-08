@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 - Fix RGB to u32 conversion order in rmt_neopixel example (#505)
+- Fix missing sdmmc_host_get_dma_info for sdcard driver bug (#507)
 
 ## [0.45.0] - 2025-01-02
 
