@@ -387,7 +387,7 @@ mod sdcard {
                     all(esp_idf_version_major = "5", esp_idf_version_minor = "1"),
                     all(esp_idf_version_major = "5", esp_idf_version_minor = "2"),
                 )))]   // For ESP-IDF v5.3 and later
-                get_dma_info: None,
+                get_dma_info: Some(sdmmc_host_get_dma_info),
                 #[cfg(not(any(
                     esp_idf_version_major = "4",
                     all(esp_idf_version_major = "5", esp_idf_version_minor = "0"),
