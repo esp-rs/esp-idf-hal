@@ -62,6 +62,64 @@ macro_rules! esp_app_desc {
                     $crate::ESP_IDF_VERSION_PATCH
                 )),
                 app_elf_sha256: [0; 32],
+                #[cfg(not(any(
+                    esp_idf_version_major = "4",
+                    esp_idf_version = "5.0",
+                    esp_idf_version = "5.1",
+                    esp_idf_version_full = "5.2.0",
+                    esp_idf_version_full = "5.2.1",
+                    esp_idf_version_full = "5.2.2",
+                    esp_idf_version_full = "5.3.0",
+                    esp_idf_version_full = "5.3.1"
+                )))]
+                min_efuse_blk_rev_full: 0,
+                #[cfg(not(any(
+                    esp_idf_version_major = "4",
+                    esp_idf_version = "5.0",
+                    esp_idf_version = "5.1",
+                    esp_idf_version_full = "5.2.0",
+                    esp_idf_version_full = "5.2.1",
+                    esp_idf_version_full = "5.2.2",
+                    esp_idf_version_full = "5.3.0",
+                    esp_idf_version_full = "5.3.1"
+                )))]
+                max_efuse_blk_rev_full: 0,
+                #[cfg(not(any(
+                    esp_idf_version_major = "4",
+                    esp_idf_version = "5.0",
+                    esp_idf_version = "5.1",
+                    esp_idf_version = "5.2",
+                    esp_idf_version = "5.3"
+                )))]
+                mmu_page_size: 0,
+                #[cfg(not(any(
+                    esp_idf_version_major = "4",
+                    esp_idf_version = "5.0",
+                    esp_idf_version = "5.1",
+                    esp_idf_version = "5.2",
+                    esp_idf_version = "5.3"
+                )))]
+                reserv3: [0; 4],
+                #[cfg(not(any(
+                    esp_idf_version_major = "4",
+                    esp_idf_version = "5.0",
+                    esp_idf_version = "5.1",
+                    esp_idf_version = "5.2",
+                    esp_idf_version = "5.3"
+                )))]
+                reserv2: [0; 18],
+                #[cfg(any(esp_idf_version_full = "5.2.3", esp_idf_version_full = "5.3.2"))]
+                reserv2: [0; 19],
+                #[cfg(any(
+                    esp_idf_version_major = "4",
+                    esp_idf_version = "5.0",
+                    esp_idf_version = "5.1",
+                    esp_idf_version_full = "5.2.0",
+                    esp_idf_version_full = "5.2.1",
+                    esp_idf_version_full = "5.2.2",
+                    esp_idf_version_full = "5.3.0",
+                    esp_idf_version_full = "5.3.1"
+                ))]
                 reserv2: [0; 20],
             }
         };
