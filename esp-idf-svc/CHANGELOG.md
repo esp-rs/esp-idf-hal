@@ -5,6 +5,10 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+### Added
+- New example, `wifi_dhcp_with_hostname` to demonstrate setting a custom hostname when establishing a DHCP connection
+
 ## [0.50.1] - 2025-01-06
 ### Fixed
 - Fix ambiguous name error (a compilation issue when the NimBLE component is enabled in esp-idf-sys)
