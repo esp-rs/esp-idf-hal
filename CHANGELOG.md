@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- Fix missing sdspi_host_get_dma_info for sdcard driver bug (#509)
+
 
 ## [0.45.1] - 2025-01-10
 
