@@ -15,10 +15,10 @@
 //! use esp_idf_hal::prelude::*;
 //!
 //! let peripherals = Peripherals::take().unwrap();
-//! let timer_driver = LedcTimerDriver::new(peripherals.ledc.timer0, &TimerConfig::default().frequency(25.kHz().into()));
+//! let timer_driver = LedcTimerDriver::new(peripherals.ledc.timer0, &TimerConfig::default().frequency(25.kHz().into()))?;
 //! let mut driver = LedcDriver::new(peripherals.ledc.channel0, timer_driver, peripherals.pins.gpio1)?;
 //!
-//! let max_duty = driver.get_max_duty()?;
+//! let max_duty = driver.get_max_duty();
 //! driver.set_duty(max_duty * 3 / 4)?;
 //! ```
 //!
