@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Fixed
+- Fix ledc example (#511)
 - Fix missing sdspi_host_get_dma_info for sdcard driver bug (#509)
 
 
