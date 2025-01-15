@@ -1,0 +1,54 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Get implicitly confirmed shared secret from a PAKE."><title>psa_pake_get_implicit_key in esp_idf_sys - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../static.files/rustdoc-46132b98.css"><meta name="rustdoc-vars" data-root-path="../" data-static-root-path="../static.files/" data-current-crate="esp_idf_sys" data-themes="" data-resource-suffix="" data-rustdoc-version="1.86.0-nightly (8361aef0d 2025-01-14)" data-channel="nightly" data-search-js="search-75f5ac3e.js" data-settings-js="settings-0f613d39.js" ><script src="../static.files/storage-59e33391.js"></script><script defer src="sidebar-items.js"></script><script defer src="../static.files/main-5f194d8c.js"></script><noscript><link rel="stylesheet" href="../static.files/noscript-893ab5e7.css"></noscript><link rel="alternate icon" type="image/png" href="../static.files/favicon-32x32-6580c154.png"><link rel="icon" type="image/svg+xml" href="../static.files/favicon-044be391.svg"></head><body class="rustdoc fn"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../esp_idf_sys/index.html">esp_<wbr>idf_<wbr>sys</a><span class="version">0.36.1</span></h2></div><div class="sidebar-elems"><div id="rustdoc-modnav"></div></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><span class="rustdoc-breadcrumbs"><a href="index.html">esp_idf_sys</a></span><h1>Function <span class="fn">psa_pake_get_implicit_key</span><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../src/esp_idf_sys/home/runner/work/esp-idf-hal/esp-idf-hal/target/riscv32imc-esp-espidf/debug/build/esp-idf-sys-7bacc267eb742aef/out/bindings.rs.html#41485-41488">Source</a> </span></div><pre class="rust item-decl"><code>pub unsafe extern &quot;C&quot; fn psa_pake_get_implicit_key(
+    operation: *mut <a class="type" href="type.psa_pake_operation_t.html" title="type esp_idf_sys::psa_pake_operation_t">psa_pake_operation_t</a>,
+    output: *mut <a class="type" href="type.psa_key_derivation_operation_t.html" title="type esp_idf_sys::psa_key_derivation_operation_t">psa_key_derivation_operation_t</a>,
+) -&gt; <a class="type" href="type.psa_status_t.html" title="type esp_idf_sys::psa_status_t">psa_status_t</a></code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Get implicitly confirmed shared secret from a PAKE.</p>
+<p>At this point there is a cryptographic guarantee that only the authenticated
+party who used the same password is able to compute the key. But there is no
+guarantee that the peer is the party it claims to be and was able to do so.</p>
+<p>That is, the authentication is only implicit. Since the peer is not
+authenticated yet, no action should be taken yet that assumes that the peer
+is who it claims to be. For example, do not access restricted files on the
+peer’s behalf until an explicit authentication has succeeded.</p>
+<p>This function can be called after the key exchange phase of the operation
+has completed. It imports the shared secret output of the PAKE into the
+provided derivation operation. The input step
+#PSA_KEY_DERIVATION_INPUT_SECRET is used when placing the shared key
+material in the key derivation operation.</p>
+<p>The exact sequence of calls to perform a password-authenticated key
+exchange depends on the algorithm in use.  Refer to the documentation of
+individual PAKE algorithm types (<code>PSA_ALG_XXX</code> values of type
+::psa_algorithm_t such that #PSA_ALG_IS_PAKE(\c alg) is true) for more
+information.</p>
+<p>When this function returns successfully, \p operation becomes inactive.
+If this function returns an error status, both \p operation
+and \c key_derivation operations enter an error state and must be aborted by
+calling psa_pake_abort() and psa_key_derivation_abort() respectively.</p>
+<p>\param[in,out] operation    Active PAKE operation.
+\param[out] output          A key derivation operation that is ready
+for an input step of type
+#PSA_KEY_DERIVATION_INPUT_SECRET.</p>
+<p>\retval #PSA_SUCCESS
+Success.
+\retval #PSA_ERROR_INVALID_ARGUMENT
+#PSA_KEY_DERIVATION_INPUT_SECRET is not compatible with the
+algorithm in the \p output key derivation operation.
+\retval #PSA_ERROR_NOT_SUPPORTED
+Input from a PAKE is not supported by the algorithm in the \p output
+key derivation operation.
+\retval #PSA_ERROR_INSUFFICIENT_MEMORY \emptydescription
+\retval #PSA_ERROR_COMMUNICATION_FAILURE \emptydescription
+\retval #PSA_ERROR_CORRUPTION_DETECTED \emptydescription
+\retval #PSA_ERROR_STORAGE_FAILURE \emptydescription
+\retval #PSA_ERROR_DATA_CORRUPT \emptydescription
+\retval #PSA_ERROR_DATA_INVALID \emptydescription
+\retval #PSA_ERROR_BAD_STATE
+The PAKE operation state is not valid (it must be active, but beyond
+that validity is specific to the algorithm), or
+the library has not been previously initialized by psa_crypto_init(),
+or the state of \p output is not valid for
+the #PSA_KEY_DERIVATION_INPUT_SECRET step. This can happen if the
+step is out of order or the application has done this step already
+and it may not be repeated.
+It is implementation-dependent whether a failure to initialize
+results in this error code.</p>
+</div></details></section></div></main></body></html>

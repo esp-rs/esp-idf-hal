@@ -1,0 +1,38 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="The type of the state data structure for interruptible hash verification operations."><title>psa_verify_hash_interruptible_operation_t in esp_idf_sys - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../static.files/rustdoc-46132b98.css"><meta name="rustdoc-vars" data-root-path="../" data-static-root-path="../static.files/" data-current-crate="esp_idf_sys" data-themes="" data-resource-suffix="" data-rustdoc-version="1.86.0-nightly (8361aef0d 2025-01-14)" data-channel="nightly" data-search-js="search-75f5ac3e.js" data-settings-js="settings-0f613d39.js" ><script src="../static.files/storage-59e33391.js"></script><script defer src="sidebar-items.js"></script><script defer src="../static.files/main-5f194d8c.js"></script><noscript><link rel="stylesheet" href="../static.files/noscript-893ab5e7.css"></noscript><link rel="alternate icon" type="image/png" href="../static.files/favicon-32x32-6580c154.png"><link rel="icon" type="image/svg+xml" href="../static.files/favicon-044be391.svg"></head><body class="rustdoc type"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../esp_idf_sys/index.html">esp_<wbr>idf_<wbr>sys</a><span class="version">0.36.1</span></h2></div><div class="sidebar-elems"><section id="rustdoc-toc"><h2 class="location"><a href="#">psa_<wbr>verify_<wbr>hash_<wbr>interruptible_<wbr>operation_<wbr>t</a></h2><h3><a href="#aliased-type">Aliased Type</a></h3><h3><a href="#fields">Fields</a></h3><ul class="block field"><li><a href="#structfield._bitfield_1" title="_bitfield_1">_bitfield_1</a></li><li><a href="#structfield._bitfield_align_1" title="_bitfield_align_1">_bitfield_align_1</a></li><li><a href="#structfield.private_ctx" title="private_ctx">private_ctx</a></li><li><a href="#structfield.private_id" title="private_id">private_id</a></li><li><a href="#structfield.private_num_ops" title="private_num_ops">private_num_ops</a></li></ul></section><div id="rustdoc-modnav"><h2 class="in-crate"><a href="index.html">In crate esp_<wbr>idf_<wbr>sys</a></h2></div></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><span class="rustdoc-breadcrumbs"><a href="index.html">esp_idf_sys</a></span><h1>Type Alias <span class="type">psa_verify_hash_interruptible_operation_t</span><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../src/esp_idf_sys/home/runner/work/esp-idf-hal/esp-idf-hal/target/riscv32imc-esp-espidf/debug/build/esp-idf-sys-7bacc267eb742aef/out/bindings.rs.html#37787">Source</a> </span></div><pre class="rust item-decl"><code>pub type psa_verify_hash_interruptible_operation_t = <a class="struct" href="struct.psa_verify_hash_interruptible_operation_s.html" title="struct esp_idf_sys::psa_verify_hash_interruptible_operation_s">psa_verify_hash_interruptible_operation_s</a>;</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>The type of the state data structure for interruptible hash
+verification operations.</p>
+<p>Before calling any function on a sign hash operation object, the
+application must initialize it by any of the following means:</p>
+<ul>
+<li>Set the structure to all-bits-zero, for example:
+\code
+psa_verify_hash_interruptible_operation_t operation;
+memset(&amp;operation, 0, sizeof(operation));
+\endcode</li>
+<li>Initialize the structure to logical zero values, for example:
+\code
+psa_verify_hash_interruptible_operation_t operation = {0};
+\endcode</li>
+<li>Initialize the structure to the initializer
+#PSA_VERIFY_HASH_INTERRUPTIBLE_OPERATION_INIT, for example:
+\code
+psa_verify_hash_interruptible_operation_t operation =
+PSA_VERIFY_HASH_INTERRUPTIBLE_OPERATION_INIT;
+\endcode</li>
+<li>Assign the result of the function
+psa_verify_hash_interruptible_operation_init() to the structure, for
+example:
+\code
+psa_verify_hash_interruptible_operation_t operation;
+operation = psa_verify_hash_interruptible_operation_init();
+\endcode</li>
+</ul>
+<p>This is an implementation-defined \c struct. Applications should not
+make any assumptions about the content of this structure.
+Implementation details can change in future versions without notice.</p>
+</div></details><h2 id="aliased-type" class="section-header">Aliased Type<a href="#aliased-type" class="anchor">§</a></h2><pre class="rust item-decl"><code>struct psa_verify_hash_interruptible_operation_t {
+    pub private_id: u32,
+    pub private_ctx: <a class="union" href="union.psa_driver_verify_hash_interruptible_context_t.html" title="union esp_idf_sys::psa_driver_verify_hash_interruptible_context_t">psa_driver_verify_hash_interruptible_context_t</a>,
+    pub _bitfield_align_1: [u8; 0],
+    pub _bitfield_1: <a class="struct" href="struct.__BindgenBitfieldUnit.html" title="struct esp_idf_sys::__BindgenBitfieldUnit">__BindgenBitfieldUnit</a>&lt;[u8; 1]&gt;,
+    pub private_num_ops: u32,
+}</code></pre><h2 id="fields" class="fields section-header">Fields<a href="#fields" class="anchor">§</a></h2><span id="structfield.private_id" class="structfield section-header"><a href="#structfield.private_id" class="anchor field">§</a><code>private_id: u32</code></span><span id="structfield.private_ctx" class="structfield section-header"><a href="#structfield.private_ctx" class="anchor field">§</a><code>private_ctx: <a class="union" href="union.psa_driver_verify_hash_interruptible_context_t.html" title="union esp_idf_sys::psa_driver_verify_hash_interruptible_context_t">psa_driver_verify_hash_interruptible_context_t</a></code></span><span id="structfield._bitfield_align_1" class="structfield section-header"><a href="#structfield._bitfield_align_1" class="anchor field">§</a><code>_bitfield_align_1: [u8; 0]</code></span><span id="structfield._bitfield_1" class="structfield section-header"><a href="#structfield._bitfield_1" class="anchor field">§</a><code>_bitfield_1: <a class="struct" href="struct.__BindgenBitfieldUnit.html" title="struct esp_idf_sys::__BindgenBitfieldUnit">__BindgenBitfieldUnit</a>&lt;[u8; 1]&gt;</code></span><span id="structfield.private_num_ops" class="structfield section-header"><a href="#structfield.private_num_ops" class="anchor field">§</a><code>private_num_ops: u32</code></span><script src="../type.impl/esp_idf_sys/struct.psa_verify_hash_interruptible_operation_s.js" data-self-path="esp_idf_sys::bindings::psa_verify_hash_interruptible_operation_t" async></script></section></div></main></body></html>

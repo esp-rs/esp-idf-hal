@@ -1,0 +1,62 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Set bits within an event group. This function cannot be called from an interrupt.  xEventGroupSetBitsFromISR() is a version that can be called from an interrupt."><title>xEventGroupSetBits in esp_idf_sys - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../static.files/rustdoc-46132b98.css"><meta name="rustdoc-vars" data-root-path="../" data-static-root-path="../static.files/" data-current-crate="esp_idf_sys" data-themes="" data-resource-suffix="" data-rustdoc-version="1.86.0-nightly (8361aef0d 2025-01-14)" data-channel="nightly" data-search-js="search-75f5ac3e.js" data-settings-js="settings-0f613d39.js" ><script src="../static.files/storage-59e33391.js"></script><script defer src="sidebar-items.js"></script><script defer src="../static.files/main-5f194d8c.js"></script><noscript><link rel="stylesheet" href="../static.files/noscript-893ab5e7.css"></noscript><link rel="alternate icon" type="image/png" href="../static.files/favicon-32x32-6580c154.png"><link rel="icon" type="image/svg+xml" href="../static.files/favicon-044be391.svg"></head><body class="rustdoc fn"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../esp_idf_sys/index.html">esp_<wbr>idf_<wbr>sys</a><span class="version">0.36.1</span></h2></div><div class="sidebar-elems"><div id="rustdoc-modnav"></div></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><span class="rustdoc-breadcrumbs"><a href="index.html">esp_idf_sys</a></span><h1>Function <span class="fn">xEventGroupSetBits</span><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../src/esp_idf_sys/home/runner/work/esp-idf-hal/esp-idf-hal/target/riscv32imc-esp-espidf/debug/build/esp-idf-sys-7bacc267eb742aef/out/bindings.rs.html#14189-14192">Source</a> </span></div><pre class="rust item-decl"><code>pub unsafe extern &quot;C&quot; fn xEventGroupSetBits(
+    xEventGroup: <a class="type" href="type.EventGroupHandle_t.html" title="type esp_idf_sys::EventGroupHandle_t">EventGroupHandle_t</a>,
+    uxBitsToSet: <a class="type" href="type.EventBits_t.html" title="type esp_idf_sys::EventBits_t">EventBits_t</a>,
+) -&gt; <a class="type" href="type.EventBits_t.html" title="type esp_idf_sys::EventBits_t">EventBits_t</a></code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Set bits within an event group.
+This function cannot be called from an interrupt.  xEventGroupSetBitsFromISR()
+is a version that can be called from an interrupt.</p>
+<p>Setting bits in an event group will automatically unblock tasks that are
+blocked waiting for the bits.</p>
+<p>@param xEventGroup The event group in which the bits are to be set.</p>
+<p>@param uxBitsToSet A bitwise value that indicates the bit or bits to set.
+For example, to set bit 3 only, set uxBitsToSet to 0x08.  To set bit 3
+and bit 0 set uxBitsToSet to 0x09.</p>
+<p>@return The value of the event group at the time the call to
+xEventGroupSetBits() returns.  There are two reasons why the returned value
+might have the bits specified by the uxBitsToSet parameter cleared.  First,
+if setting a bit results in a task that was waiting for the bit leaving the
+blocked state then it is possible the bit will be cleared automatically
+(see the xClearBitOnExit parameter of xEventGroupWaitBits()).  Second, any
+unblocked (or otherwise Ready state) task that has a priority above that of
+the task that called xEventGroupSetBits() will execute and may change the
+event group value before the call to xEventGroupSetBits() returns.</p>
+<p>Example usage:
+@code{c}
+#define BIT_0 ( 1 &lt;&lt; 0 )
+#define BIT_4 ( 1 &lt;&lt; 4 )</p>
+<p>void aFunction( EventGroupHandle_t xEventGroup )
+{
+EventBits_t uxBits;</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code> <span class="comment">// Set bit 0 and bit 4 in xEventGroup.
+ </span>uxBits = xEventGroupSetBits(
+                     xEventGroup,    <span class="comment">// The event group being updated.
+                     </span>BIT_0 | BIT_4 );<span class="comment">// The bits being set.
+
+ </span><span class="kw">if</span>( ( uxBits &amp; ( BIT_0 | BIT_4 ) ) == ( BIT_0 | BIT_4 ) )
+ {
+     <span class="comment">// Both bit 0 and bit 4 remained set when the function returned.
+ </span>}
+ <span class="kw">else if</span>( ( uxBits &amp; BIT_0 ) != <span class="number">0 </span>)
+ {
+     <span class="comment">// Bit 0 remained set when the function returned, but bit 4 was
+     // cleared.  It might be that bit 4 was cleared automatically as a
+     // task that was waiting for bit 4 was removed from the Blocked
+     // state.
+ </span>}
+ <span class="kw">else if</span>( ( uxBits &amp; BIT_4 ) != <span class="number">0 </span>)
+ {
+     <span class="comment">// Bit 4 remained set when the function returned, but bit 0 was
+     // cleared.  It might be that bit 0 was cleared automatically as a
+     // task that was waiting for bit 0 was removed from the Blocked
+     // state.
+ </span>}
+ <span class="kw">else
+ </span>{
+     <span class="comment">// Neither bit 0 nor bit 4 remained set.  It might be that a task
+     // was waiting for both of the bits to be set, and the bits were
+     // cleared as the task left the Blocked state.
+ </span>}</code></pre></div>
+<p>}
+@endcode
+\ingroup EventGroup</p>
+</div></details></section></div></main></body></html>

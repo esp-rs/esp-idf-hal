@@ -1,0 +1,83 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Finish encrypting a message in an AEAD operation."><title>psa_aead_finish in esp_idf_sys - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../static.files/rustdoc-46132b98.css"><meta name="rustdoc-vars" data-root-path="../" data-static-root-path="../static.files/" data-current-crate="esp_idf_sys" data-themes="" data-resource-suffix="" data-rustdoc-version="1.86.0-nightly (8361aef0d 2025-01-14)" data-channel="nightly" data-search-js="search-75f5ac3e.js" data-settings-js="settings-0f613d39.js" ><script src="../static.files/storage-59e33391.js"></script><script defer src="sidebar-items.js"></script><script defer src="../static.files/main-5f194d8c.js"></script><noscript><link rel="stylesheet" href="../static.files/noscript-893ab5e7.css"></noscript><link rel="alternate icon" type="image/png" href="../static.files/favicon-32x32-6580c154.png"><link rel="icon" type="image/svg+xml" href="../static.files/favicon-044be391.svg"></head><body class="rustdoc fn"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../esp_idf_sys/index.html">esp_<wbr>idf_<wbr>sys</a><span class="version">0.36.1</span></h2></div><div class="sidebar-elems"><div id="rustdoc-modnav"></div></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><span class="rustdoc-breadcrumbs"><a href="index.html">esp_idf_sys</a></span><h1>Function <span class="fn">psa_aead_finish</span><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../src/esp_idf_sys/home/runner/work/esp-idf-hal/esp-idf-hal/target/riscv32imc-esp-espidf/debug/build/esp-idf-sys-7bacc267eb742aef/out/bindings.rs.html#37528-37536">Source</a> </span></div><pre class="rust item-decl"><code>pub unsafe extern &quot;C&quot; fn psa_aead_finish(
+    operation: *mut <a class="type" href="type.psa_aead_operation_t.html" title="type esp_idf_sys::psa_aead_operation_t">psa_aead_operation_t</a>,
+    ciphertext: *mut u8,
+    ciphertext_size: usize,
+    ciphertext_length: *mut usize,
+    tag: *mut u8,
+    tag_size: usize,
+    tag_length: *mut usize,
+) -&gt; <a class="type" href="type.psa_status_t.html" title="type esp_idf_sys::psa_status_t">psa_status_t</a></code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Finish encrypting a message in an AEAD operation.</p>
+<p>The operation must have been set up with psa_aead_encrypt_setup().</p>
+<p>This function finishes the authentication of the additional data
+formed by concatenating the inputs passed to preceding calls to
+psa_aead_update_ad() with the plaintext formed by concatenating the
+inputs passed to preceding calls to psa_aead_update().</p>
+<p>This function has two output buffers:</p>
+<ul>
+<li>\p ciphertext contains trailing ciphertext that was buffered from
+preceding calls to psa_aead_update().</li>
+<li>\p tag contains the authentication tag.</li>
+</ul>
+<p>When this function returns successfully, the operation becomes inactive.
+If this function returns an error status, the operation enters an error
+state and must be aborted by calling psa_aead_abort().</p>
+<p>\param[in,out] operation     Active AEAD operation.
+\param[out] ciphertext       Buffer where the last part of the ciphertext
+is to be written.
+\param ciphertext_size       Size of the \p ciphertext buffer in bytes.
+This must be appropriate for the selected
+algorithm and key:
+- A sufficient output size is
+#PSA_AEAD_FINISH_OUTPUT_SIZE(\c key_type,
+\c alg) where \c key_type is the type of key
+and \c alg is the algorithm that were used to
+set up the operation.
+- #PSA_AEAD_FINISH_OUTPUT_MAX_SIZE evaluates to
+the maximum output size of any supported AEAD
+algorithm.
+\param[out] ciphertext_length On success, the number of bytes of
+returned ciphertext.
+\param[out] tag              Buffer where the authentication tag is
+to be written.
+\param tag_size              Size of the \p tag buffer in bytes.
+This must be appropriate for the selected
+algorithm and key:
+- The exact tag size is #PSA_AEAD_TAG_LENGTH(\c
+key_type, \c key_bits, \c alg) where
+\c key_type and \c key_bits are the type and
+bit-size of the key, and \c alg is the
+algorithm that were used in the call to
+psa_aead_encrypt_setup().
+- #PSA_AEAD_TAG_MAX_SIZE evaluates to the
+maximum tag size of any supported AEAD
+algorithm.
+\param[out] tag_length       On success, the number of bytes
+that make up the returned tag.</p>
+<p>\retval #PSA_SUCCESS
+Success.
+\retval #PSA_ERROR_BUFFER_TOO_SMALL
+The size of the \p ciphertext or \p tag buffer is too small.
+#PSA_AEAD_FINISH_OUTPUT_SIZE(\c key_type, \c alg) or
+#PSA_AEAD_FINISH_OUTPUT_MAX_SIZE can be used to determine the
+required \p ciphertext buffer size. #PSA_AEAD_TAG_LENGTH(\c key_type,
+\c key_bits, \c alg) or #PSA_AEAD_TAG_MAX_SIZE can be used to
+determine the required \p tag buffer size.
+\retval #PSA_ERROR_INVALID_ARGUMENT
+The total length of input to psa_aead_update_ad() so far is
+less than the additional data length that was previously
+specified with psa_aead_set_lengths(), or
+the total length of input to psa_aead_update() so far is
+less than the plaintext length that was previously
+specified with psa_aead_set_lengths().
+\retval #PSA_ERROR_INSUFFICIENT_MEMORY \emptydescription
+\retval #PSA_ERROR_COMMUNICATION_FAILURE \emptydescription
+\retval #PSA_ERROR_HARDWARE_FAILURE \emptydescription
+\retval #PSA_ERROR_CORRUPTION_DETECTED \emptydescription
+\retval #PSA_ERROR_STORAGE_FAILURE \emptydescription
+\retval #PSA_ERROR_BAD_STATE
+The operation state is not valid (it must be an active encryption
+operation with a nonce set), or the library has not been previously
+initialized by psa_crypto_init().
+It is implementation-dependent whether a failure to initialize
+results in this error code.</p>
+</div></details></section></div></main></body></html>

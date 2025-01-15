@@ -1,0 +1,31 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="\brief                       Abort a sign hash operation."><title>psa_sign_hash_abort in esp_idf_sys - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../static.files/rustdoc-46132b98.css"><meta name="rustdoc-vars" data-root-path="../" data-static-root-path="../static.files/" data-current-crate="esp_idf_sys" data-themes="" data-resource-suffix="" data-rustdoc-version="1.86.0-nightly (8361aef0d 2025-01-14)" data-channel="nightly" data-search-js="search-75f5ac3e.js" data-settings-js="settings-0f613d39.js" ><script src="../static.files/storage-59e33391.js"></script><script defer src="sidebar-items.js"></script><script defer src="../static.files/main-5f194d8c.js"></script><noscript><link rel="stylesheet" href="../static.files/noscript-893ab5e7.css"></noscript><link rel="alternate icon" type="image/png" href="../static.files/favicon-32x32-6580c154.png"><link rel="icon" type="image/svg+xml" href="../static.files/favicon-044be391.svg"></head><body class="rustdoc fn"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../esp_idf_sys/index.html">esp_<wbr>idf_<wbr>sys</a><span class="version">0.36.1</span></h2></div><div class="sidebar-elems"><div id="rustdoc-modnav"></div></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><span class="rustdoc-breadcrumbs"><a href="index.html">esp_idf_sys</a></span><h1>Function <span class="fn">psa_sign_hash_abort</span><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../src/esp_idf_sys/home/runner/work/esp-idf-hal/esp-idf-hal/target/riscv32imc-esp-espidf/debug/build/esp-idf-sys-7bacc267eb742aef/out/bindings.rs.html#37829-37831">Source</a> </span></div><pre class="rust item-decl"><code>pub unsafe extern &quot;C&quot; fn psa_sign_hash_abort(
+    operation: *mut <a class="type" href="type.psa_sign_hash_interruptible_operation_t.html" title="type esp_idf_sys::psa_sign_hash_interruptible_operation_t">psa_sign_hash_interruptible_operation_t</a>,
+) -&gt; <a class="type" href="type.psa_status_t.html" title="type esp_idf_sys::psa_status_t">psa_status_t</a></code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>\brief                       Abort a sign hash operation.</p>
+<p>\warning                     This is a beta API, and thus subject to change
+at any point. It is not bound by the usual
+interface stability promises.</p>
+<p>\note                        This function is the only function that clears
+the number of ops completed as part of the
+operation. Please ensure you copy this value via
+\c psa_sign_hash_get_num_ops() if required
+before calling.</p>
+<p>\note                        Aborting an operation frees all associated
+resources except for the \p operation structure
+itself. Once aborted, the operation object can
+be reused for another operation by calling \c
+psa_sign_hash_start() again.</p>
+<p>\note                        You may call this function any time after the
+operation object has been initialized. In
+particular, calling \c psa_sign_hash_abort()
+after the operation has already been terminated
+by a call to \c psa_sign_hash_abort() or
+psa_sign_hash_complete() is safe.</p>
+<p>\param[in,out] operation     Initialized sign hash operation.</p>
+<p>\retval #PSA_SUCCESS
+The operation was aborted successfully.</p>
+<p>\retval #PSA_ERROR_NOT_SUPPORTED \emptydescription
+\retval #PSA_ERROR_BAD_STATE
+The library has not been previously initialized by psa_crypto_init().
+It is implementation-dependent whether a failure to initialize
+results in this error code.</p>
+</div></details></section></div></main></body></html>

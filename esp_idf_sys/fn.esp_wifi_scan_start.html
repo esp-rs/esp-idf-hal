@@ -1,0 +1,25 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="@brief     Scan all available APs."><title>esp_wifi_scan_start in esp_idf_sys - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../static.files/rustdoc-46132b98.css"><meta name="rustdoc-vars" data-root-path="../" data-static-root-path="../static.files/" data-current-crate="esp_idf_sys" data-themes="" data-resource-suffix="" data-rustdoc-version="1.86.0-nightly (8361aef0d 2025-01-14)" data-channel="nightly" data-search-js="search-75f5ac3e.js" data-settings-js="settings-0f613d39.js" ><script src="../static.files/storage-59e33391.js"></script><script defer src="sidebar-items.js"></script><script defer src="../static.files/main-5f194d8c.js"></script><noscript><link rel="stylesheet" href="../static.files/noscript-893ab5e7.css"></noscript><link rel="alternate icon" type="image/png" href="../static.files/favicon-32x32-6580c154.png"><link rel="icon" type="image/svg+xml" href="../static.files/favicon-044be391.svg"></head><body class="rustdoc fn"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../esp_idf_sys/index.html">esp_<wbr>idf_<wbr>sys</a><span class="version">0.36.1</span></h2></div><div class="sidebar-elems"><div id="rustdoc-modnav"></div></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><span class="rustdoc-breadcrumbs"><a href="index.html">esp_idf_sys</a></span><h1>Function <span class="fn">esp_wifi_scan_start</span><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../src/esp_idf_sys/home/runner/work/esp-idf-hal/esp-idf-hal/target/riscv32imc-esp-espidf/debug/build/esp-idf-sys-7bacc267eb742aef/out/bindings.rs.html#24471">Source</a> </span></div><pre class="rust item-decl"><code>pub unsafe extern &quot;C&quot; fn esp_wifi_scan_start(
+    config: *const <a class="struct" href="struct.wifi_scan_config_t.html" title="struct esp_idf_sys::wifi_scan_config_t">wifi_scan_config_t</a>,
+    block: bool,
+) -&gt; <a class="type" href="type.esp_err_t.html" title="type esp_idf_sys::esp_err_t">esp_err_t</a></code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>@brief     Scan all available APs.</p>
+<p>@attention If this API is called, the found APs are stored in WiFi driver dynamic allocated memory. And then
+can be freed in esp_wifi_scan_get_ap_records(), esp_wifi_scan_get_ap_record() or esp_wifi_clear_ap_list(),
+so call any one to free the memory once the scan is done.
+@attention The values of maximum active scan time and passive scan time per channel are limited to 1500 milliseconds.
+Values above 1500ms may cause station to disconnect from AP and are not recommended.</p>
+<p>@param     config  configuration settings for scanning, if set to NULL default settings will be used
+of which default values are show_hidden:false, scan_type:active, scan_time.active.min:0,
+scan_time.active.max:120 milliseconds, scan_time.passive:360 milliseconds
+home_chan_dwell_time:30ms</p>
+<p>@param     block if block is true, this API will block the caller until the scan is done, otherwise
+it will return immediately</p>
+<p>@return</p>
+<ul>
+<li>ESP_OK: succeed</li>
+<li>ESP_ERR_WIFI_NOT_INIT: WiFi is not initialized by esp_wifi_init</li>
+<li>ESP_ERR_WIFI_NOT_STARTED: WiFi was not started by esp_wifi_start</li>
+<li>ESP_ERR_WIFI_TIMEOUT: blocking scan is timeout</li>
+<li>ESP_ERR_WIFI_STATE: wifi still connecting when invoke esp_wifi_scan_start</li>
+<li>others: refer to error code in esp_err.h</li>
+</ul>
+</div></details></section></div></main></body></html>

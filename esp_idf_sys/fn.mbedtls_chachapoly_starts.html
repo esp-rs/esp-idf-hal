@@ -1,0 +1,23 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="\brief           This function starts a ChaCha20-Poly1305 encryption or decryption operation."><title>mbedtls_chachapoly_starts in esp_idf_sys - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../static.files/rustdoc-46132b98.css"><meta name="rustdoc-vars" data-root-path="../" data-static-root-path="../static.files/" data-current-crate="esp_idf_sys" data-themes="" data-resource-suffix="" data-rustdoc-version="1.86.0-nightly (8361aef0d 2025-01-14)" data-channel="nightly" data-search-js="search-75f5ac3e.js" data-settings-js="settings-0f613d39.js" ><script src="../static.files/storage-59e33391.js"></script><script defer src="sidebar-items.js"></script><script defer src="../static.files/main-5f194d8c.js"></script><noscript><link rel="stylesheet" href="../static.files/noscript-893ab5e7.css"></noscript><link rel="alternate icon" type="image/png" href="../static.files/favicon-32x32-6580c154.png"><link rel="icon" type="image/svg+xml" href="../static.files/favicon-044be391.svg"></head><body class="rustdoc fn"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../esp_idf_sys/index.html">esp_<wbr>idf_<wbr>sys</a><span class="version">0.36.1</span></h2></div><div class="sidebar-elems"><div id="rustdoc-modnav"></div></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><span class="rustdoc-breadcrumbs"><a href="index.html">esp_idf_sys</a></span><h1>Function <span class="fn">mbedtls_chachapoly_starts</span><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../src/esp_idf_sys/home/runner/work/esp-idf-hal/esp-idf-hal/target/riscv32imc-esp-espidf/debug/build/esp-idf-sys-7bacc267eb742aef/out/bindings.rs.html#40288-40292">Source</a> </span></div><pre class="rust item-decl"><code>pub unsafe extern &quot;C&quot; fn mbedtls_chachapoly_starts(
+    ctx: *mut <a class="struct" href="struct.mbedtls_chachapoly_context.html" title="struct esp_idf_sys::mbedtls_chachapoly_context">mbedtls_chachapoly_context</a>,
+    nonce: *const c_uchar,
+    mode: <a class="type" href="type.mbedtls_chachapoly_mode_t.html" title="type esp_idf_sys::mbedtls_chachapoly_mode_t">mbedtls_chachapoly_mode_t</a>,
+) -&gt; c_int</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>\brief           This function starts a ChaCha20-Poly1305 encryption or
+decryption operation.</p>
+<p>\warning         You must never use the same nonce twice with the same key.
+This would void any confidentiality and authenticity
+guarantees for the messages encrypted with the same nonce
+and key.</p>
+<p>\note            If the context is being used for AAD only (no data to
+encrypt or decrypt) then \p mode can be set to any value.</p>
+<p>\warning         Decryption with the piecewise API is discouraged, see the
+warning on \c mbedtls_chachapoly_init().</p>
+<p>\param ctx       The ChaCha20-Poly1305 context. This must be initialized
+and bound to a key.
+\param nonce     The nonce/IV to use for the message.
+This must be a readable buffer of length \c 12 Bytes.
+\param mode      The operation to perform: #MBEDTLS_CHACHAPOLY_ENCRYPT or
+#MBEDTLS_CHACHAPOLY_DECRYPT (discouraged, see warning).</p>
+<p>\return          \c 0 on success.
+\return          A negative error code on failure.</p>
+</div></details></section></div></main></body></html>

@@ -1,0 +1,58 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Set up a multipart MAC calculation operation."><title>psa_mac_sign_setup in esp_idf_sys - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../static.files/rustdoc-46132b98.css"><meta name="rustdoc-vars" data-root-path="../" data-static-root-path="../static.files/" data-current-crate="esp_idf_sys" data-themes="" data-resource-suffix="" data-rustdoc-version="1.86.0-nightly (8361aef0d 2025-01-14)" data-channel="nightly" data-search-js="search-75f5ac3e.js" data-settings-js="settings-0f613d39.js" ><script src="../static.files/storage-59e33391.js"></script><script defer src="sidebar-items.js"></script><script defer src="../static.files/main-5f194d8c.js"></script><noscript><link rel="stylesheet" href="../static.files/noscript-893ab5e7.css"></noscript><link rel="alternate icon" type="image/png" href="../static.files/favicon-32x32-6580c154.png"><link rel="icon" type="image/svg+xml" href="../static.files/favicon-044be391.svg"></head><body class="rustdoc fn"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../esp_idf_sys/index.html">esp_<wbr>idf_<wbr>sys</a><span class="version">0.36.1</span></h2></div><div class="sidebar-elems"><div id="rustdoc-modnav"></div></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><span class="rustdoc-breadcrumbs"><a href="index.html">esp_idf_sys</a></span><h1>Function <span class="fn">psa_mac_sign_setup</span><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../src/esp_idf_sys/home/runner/work/esp-idf-hal/esp-idf-hal/target/riscv32imc-esp-espidf/debug/build/esp-idf-sys-7bacc267eb742aef/out/bindings.rs.html#37306-37310">Source</a> </span></div><pre class="rust item-decl"><code>pub unsafe extern &quot;C&quot; fn psa_mac_sign_setup(
+    operation: *mut <a class="type" href="type.psa_mac_operation_t.html" title="type esp_idf_sys::psa_mac_operation_t">psa_mac_operation_t</a>,
+    key: <a class="type" href="type.mbedtls_svc_key_id_t.html" title="type esp_idf_sys::mbedtls_svc_key_id_t">mbedtls_svc_key_id_t</a>,
+    alg: <a class="type" href="type.psa_algorithm_t.html" title="type esp_idf_sys::psa_algorithm_t">psa_algorithm_t</a>,
+) -&gt; <a class="type" href="type.psa_status_t.html" title="type esp_idf_sys::psa_status_t">psa_status_t</a></code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Set up a multipart MAC calculation operation.</p>
+<p>This function sets up the calculation of the MAC
+(message authentication code) of a byte string.
+To verify the MAC of a message against an
+expected value, use psa_mac_verify_setup() instead.</p>
+<p>The sequence of operations to calculate a MAC is as follows:
+-# Allocate an operation object which will be passed to all the functions
+listed here.
+-# Initialize the operation object with one of the methods described in the
+documentation for #psa_mac_operation_t, e.g. #PSA_MAC_OPERATION_INIT.
+-# Call psa_mac_sign_setup() to specify the algorithm and key.
+-# Call psa_mac_update() zero, one or more times, passing a fragment
+of the message each time. The MAC that is calculated is the MAC
+of the concatenation of these messages in order.
+-# At the end of the message, call psa_mac_sign_finish() to finish
+calculating the MAC value and retrieve it.</p>
+<p>If an error occurs at any step after a call to psa_mac_sign_setup(), the
+operation will need to be reset by a call to psa_mac_abort(). The
+application may call psa_mac_abort() at any time after the operation
+has been initialized.</p>
+<p>After a successful call to psa_mac_sign_setup(), the application must
+eventually terminate the operation through one of the following methods:</p>
+<ul>
+<li>A successful call to psa_mac_sign_finish().</li>
+<li>A call to psa_mac_abort().</li>
+</ul>
+<p>\param[in,out] operation The operation object to set up. It must have
+been initialized as per the documentation for
+#psa_mac_operation_t and not yet in use.
+\param key               Identifier of the key to use for the operation. It
+must remain valid until the operation terminates.
+It must allow the usage PSA_KEY_USAGE_SIGN_MESSAGE.
+\param alg               The MAC algorithm to compute (\c PSA_ALG_XXX value
+such that #PSA_ALG_IS_MAC(\p alg) is true).</p>
+<p>\retval #PSA_SUCCESS
+Success.
+\retval #PSA_ERROR_INVALID_HANDLE \emptydescription
+\retval #PSA_ERROR_NOT_PERMITTED \emptydescription
+\retval #PSA_ERROR_INVALID_ARGUMENT
+\p key is not compatible with \p alg.
+\retval #PSA_ERROR_NOT_SUPPORTED
+\p alg is not supported or is not a MAC algorithm.
+\retval #PSA_ERROR_INSUFFICIENT_MEMORY \emptydescription
+\retval #PSA_ERROR_COMMUNICATION_FAILURE \emptydescription
+\retval #PSA_ERROR_HARDWARE_FAILURE \emptydescription
+\retval #PSA_ERROR_CORRUPTION_DETECTED \emptydescription
+\retval #PSA_ERROR_STORAGE_FAILURE
+The key could not be retrieved from storage.
+\retval #PSA_ERROR_BAD_STATE
+The operation state is not valid (it must be inactive), or
+the library has not been previously initialized by psa_crypto_init().
+It is implementation-dependent whether a failure to initialize
+results in this error code.</p>
+</div></details></section></div></main></body></html>

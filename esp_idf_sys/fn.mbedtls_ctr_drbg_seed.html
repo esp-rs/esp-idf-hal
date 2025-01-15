@@ -1,0 +1,49 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="The \p custom string.\note                To achieve the nominal security strength permitted by CTR_DRBG, the entropy length must be: - at least 16 bytes for a 128-bit strength (maximum achievable strength when using AES-128); - at least 32 bytes for a 256-bit strength (maximum achievable strength when using AES-256)."><title>mbedtls_ctr_drbg_seed in esp_idf_sys - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../static.files/rustdoc-46132b98.css"><meta name="rustdoc-vars" data-root-path="../" data-static-root-path="../static.files/" data-current-crate="esp_idf_sys" data-themes="" data-resource-suffix="" data-rustdoc-version="1.86.0-nightly (8361aef0d 2025-01-14)" data-channel="nightly" data-search-js="search-75f5ac3e.js" data-settings-js="settings-0f613d39.js" ><script src="../static.files/storage-59e33391.js"></script><script defer src="sidebar-items.js"></script><script defer src="../static.files/main-5f194d8c.js"></script><noscript><link rel="stylesheet" href="../static.files/noscript-893ab5e7.css"></noscript><link rel="alternate icon" type="image/png" href="../static.files/favicon-32x32-6580c154.png"><link rel="icon" type="image/svg+xml" href="../static.files/favicon-044be391.svg"></head><body class="rustdoc fn"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../esp_idf_sys/index.html">esp_<wbr>idf_<wbr>sys</a><span class="version">0.36.1</span></h2></div><div class="sidebar-elems"><div id="rustdoc-modnav"></div></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><span class="rustdoc-breadcrumbs"><a href="index.html">esp_idf_sys</a></span><h1>Function <span class="fn">mbedtls_ctr_drbg_seed</span><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../src/esp_idf_sys/home/runner/work/esp-idf-hal/esp-idf-hal/target/riscv32imc-esp-espidf/debug/build/esp-idf-sys-7bacc267eb742aef/out/bindings.rs.html#44393-44405">Source</a> </span></div><pre class="rust item-decl"><code>pub unsafe extern &quot;C&quot; fn mbedtls_ctr_drbg_seed(
+    ctx: *mut <a class="struct" href="struct.mbedtls_ctr_drbg_context.html" title="struct esp_idf_sys::mbedtls_ctr_drbg_context">mbedtls_ctr_drbg_context</a>,
+    f_entropy: Option&lt;unsafe extern &quot;C&quot; fn(arg1: *mut c_void, arg2: *mut c_uchar, arg3: usize) -&gt; c_int&gt;,
+    p_entropy: *mut c_void,
+    custom: *const c_uchar,
+    len: usize,
+) -&gt; c_int</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><ul>
+<li>The \p custom string.</li>
+</ul>
+<p>\note                To achieve the nominal security strength permitted
+by CTR_DRBG, the entropy length must be:
+- at least 16 bytes for a 128-bit strength
+(maximum achievable strength when using AES-128);
+- at least 32 bytes for a 256-bit strength
+(maximum achievable strength when using AES-256).</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code>                 In addition, <span class="kw">if </span>you <span class="kw">do </span>not pass a nonce <span class="kw">in </span>\p custom,
+                 the sum of the entropy length
+                 and the entropy nonce length must be:
+                 - at least <span class="number">24 </span>bytes <span class="kw">for </span>a <span class="number">128</span>-bit strength
+                 (maximum achievable strength when using AES-<span class="number">128</span>);
+                 - at least <span class="number">48 </span>bytes <span class="kw">for </span>a <span class="number">256</span>-bit strength
+                 (maximum achievable strength when using AES-<span class="number">256</span>).</code></pre></div>
+<p>\param ctx           The CTR_DRBG context to seed.
+It must have been initialized with
+mbedtls_ctr_drbg_init().
+After a successful call to mbedtls_ctr_drbg_seed(),
+you may not call mbedtls_ctr_drbg_seed() again on
+the same context unless you call
+mbedtls_ctr_drbg_free() and mbedtls_ctr_drbg_init()
+again first.
+After a failed call to mbedtls_ctr_drbg_seed(),
+you must call mbedtls_ctr_drbg_free().
+\param f_entropy     The entropy callback, taking as arguments the
+\p p_entropy context, the buffer to fill, and the
+length of the buffer.
+\p f_entropy is always called with a buffer size
+less than or equal to the entropy length.
+\param p_entropy     The entropy context to pass to \p f_entropy.
+\param custom        The personalization string.
+This can be \c NULL, in which case the personalization
+string is empty regardless of the value of \p len.
+\param len           The length of the personalization string.
+This must be at most
+#MBEDTLS_CTR_DRBG_MAX_SEED_INPUT
+- #MBEDTLS_CTR_DRBG_ENTROPY_LEN.</p>
+<p>\return              \c 0 on success.
+\return              #MBEDTLS_ERR_CTR_DRBG_ENTROPY_SOURCE_FAILED on failure.</p>
+</div></details></section></div></main></body></html>

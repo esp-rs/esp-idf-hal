@@ -1,0 +1,29 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="xQueueSelectFromSet() selects from the members of a queue set a queue or semaphore that either contains data (in the case of a queue) or is available to take (in the case of a semaphore).  xQueueSelectFromSet() effectively allows a task to block (pend) on a read operation on all the queues and semaphores in a queue set simultaneously."><title>xQueueSelectFromSet in esp_idf_hal::sys - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../static.files/rustdoc-46132b98.css"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="esp_idf_hal" data-themes="" data-resource-suffix="" data-rustdoc-version="1.86.0-nightly (8361aef0d 2025-01-14)" data-channel="nightly" data-search-js="search-75f5ac3e.js" data-settings-js="settings-0f613d39.js" ><script src="../../static.files/storage-59e33391.js"></script><script defer src="sidebar-items.js"></script><script defer src="../../static.files/main-5f194d8c.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-893ab5e7.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-6580c154.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-044be391.svg"></head><body class="rustdoc fn"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../esp_idf_hal/index.html">esp_<wbr>idf_<wbr>hal</a><span class="version">0.45.2</span></h2></div><div class="sidebar-elems"><div id="rustdoc-modnav"><h2><a href="index.html">In esp_<wbr>idf_<wbr>hal::<wbr>sys</a></h2></div></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><span class="rustdoc-breadcrumbs"><a href="../index.html">esp_idf_hal</a>::<wbr><a href="index.html">sys</a></span><h1>Function <span class="fn">xQueueSelectFromSet</span><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../../src/esp_idf_sys/home/runner/work/esp-idf-hal/esp-idf-hal/target/riscv32imc-esp-espidf/debug/build/esp-idf-sys-7bacc267eb742aef/out/bindings.rs.html#13878-13881">Source</a> </span></div><pre class="rust item-decl"><code>pub unsafe extern &quot;C&quot; fn xQueueSelectFromSet(
+    xQueueSet: *mut <a class="struct" href="struct.QueueDefinition.html" title="struct esp_idf_hal::sys::QueueDefinition">QueueDefinition</a>,
+    xTicksToWait: u32,
+) -&gt; *mut <a class="struct" href="struct.QueueDefinition.html" title="struct esp_idf_hal::sys::QueueDefinition">QueueDefinition</a></code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>xQueueSelectFromSet() selects from the members of a queue set a queue or
+semaphore that either contains data (in the case of a queue) or is available
+to take (in the case of a semaphore).  xQueueSelectFromSet() effectively
+allows a task to block (pend) on a read operation on all the queues and
+semaphores in a queue set simultaneously.</p>
+<p>See FreeRTOS/Source/Demo/Common/Minimal/QueueSet.c for an example using this
+function.</p>
+<p>Note 1:  See the documentation on https://www.FreeRTOS.org/RTOS-queue-sets.html
+for reasons why queue sets are very rarely needed in practice as there are
+simpler methods of blocking on multiple objects.</p>
+<p>Note 2:  Blocking on a queue set that contains a mutex will not cause the
+mutex holder to inherit the priority of the blocked task.</p>
+<p>Note 3:  A receive (in the case of a queue) or take (in the case of a
+semaphore) operation must not be performed on a member of a queue set unless
+a call to xQueueSelectFromSet() has first returned a handle to that set member.</p>
+<p>@param xQueueSet The queue set on which the task will (potentially) block.</p>
+<p>@param xTicksToWait The maximum time, in ticks, that the calling task will
+remain in the Blocked state (with other tasks executing) to wait for a member
+of the queue set to be ready for a successful queue read or semaphore take
+operation.</p>
+<p>@return xQueueSelectFromSet() will return the handle of a queue (cast to
+a QueueSetMemberHandle_t type) contained in the queue set that contains data,
+or the handle of a semaphore (cast to a QueueSetMemberHandle_t type) contained
+in the queue set that is available, or NULL if no such queue or semaphore
+exists before before the specified block time expires.</p>
+</div></details></section></div></main></body></html>

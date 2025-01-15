@@ -1,0 +1,25 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="@brief    HTTPS OTA Firmware upgrade."><title>esp_https_ota in esp_idf_sys - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../static.files/rustdoc-46132b98.css"><meta name="rustdoc-vars" data-root-path="../" data-static-root-path="../static.files/" data-current-crate="esp_idf_sys" data-themes="" data-resource-suffix="" data-rustdoc-version="1.86.0-nightly (8361aef0d 2025-01-14)" data-channel="nightly" data-search-js="search-75f5ac3e.js" data-settings-js="settings-0f613d39.js" ><script src="../static.files/storage-59e33391.js"></script><script defer src="sidebar-items.js"></script><script defer src="../static.files/main-5f194d8c.js"></script><noscript><link rel="stylesheet" href="../static.files/noscript-893ab5e7.css"></noscript><link rel="alternate icon" type="image/png" href="../static.files/favicon-32x32-6580c154.png"><link rel="icon" type="image/svg+xml" href="../static.files/favicon-044be391.svg"></head><body class="rustdoc fn"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../esp_idf_sys/index.html">esp_<wbr>idf_<wbr>sys</a><span class="version">0.36.1</span></h2></div><div class="sidebar-elems"><div id="rustdoc-modnav"></div></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><span class="rustdoc-breadcrumbs"><a href="index.html">esp_idf_sys</a></span><h1>Function <span class="fn">esp_https_ota</span><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../src/esp_idf_sys/home/runner/work/esp-idf-hal/esp-idf-hal/target/riscv32imc-esp-espidf/debug/build/esp-idf-sys-7bacc267eb742aef/out/bindings.rs.html#46417">Source</a> </span></div><pre class="rust item-decl"><code>pub unsafe extern &quot;C&quot; fn esp_https_ota(
+    ota_config: *const <a class="struct" href="struct.esp_https_ota_config_t.html" title="struct esp_idf_sys::esp_https_ota_config_t">esp_https_ota_config_t</a>,
+) -&gt; <a class="type" href="type.esp_err_t.html" title="type esp_idf_sys::esp_err_t">esp_err_t</a></code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>@brief    HTTPS OTA Firmware upgrade.</p>
+<p>This function allocates HTTPS OTA Firmware upgrade context, establishes HTTPS connection,
+reads image data from HTTP stream and writes it to OTA partition and
+finishes HTTPS OTA Firmware upgrade operation.
+This API supports URL redirection, but if CA cert of URLs differ then it
+should be appended to <code>cert_pem</code> member of <code>ota_config-&gt;http_config</code>.</p>
+<p>@param[in]  ota_config       pointer to esp_https_ota_config_t structure.</p>
+<p>@note     This API handles the entire OTA operation, so if this API is being used
+then no other APIs from <code>esp_https_ota</code> component should be called.
+If more information and control is needed during the HTTPS OTA process,
+then one can use <code>esp_https_ota_begin</code> and subsequent APIs. If this API returns
+successfully, esp_restart() must be called to boot from the new firmware image.</p>
+<p>@return</p>
+<ul>
+<li>ESP_OK: OTA data updated, next reboot will use specified partition.</li>
+<li>ESP_FAIL: For generic failure.</li>
+<li>ESP_ERR_INVALID_ARG: Invalid argument</li>
+<li>ESP_ERR_OTA_VALIDATE_FAILED: Invalid app image</li>
+<li>ESP_ERR_NO_MEM: Cannot allocate memory for OTA operation.</li>
+<li>ESP_ERR_FLASH_OP_TIMEOUT or ESP_ERR_FLASH_OP_FAIL: Flash write failed.</li>
+<li>For other return codes, refer OTA documentation in esp-idf’s app_update component.</li>
+</ul>
+</div></details></section></div></main></body></html>

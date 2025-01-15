@@ -1,0 +1,33 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="\brief      This function checks if a context contains an RSA private key and perform basic consistency checks."><title>mbedtls_rsa_check_privkey in esp_idf_sys - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../static.files/rustdoc-46132b98.css"><meta name="rustdoc-vars" data-root-path="../" data-static-root-path="../static.files/" data-current-crate="esp_idf_sys" data-themes="" data-resource-suffix="" data-rustdoc-version="1.86.0-nightly (8361aef0d 2025-01-14)" data-channel="nightly" data-search-js="search-75f5ac3e.js" data-settings-js="settings-0f613d39.js" ><script src="../static.files/storage-59e33391.js"></script><script defer src="sidebar-items.js"></script><script defer src="../static.files/main-5f194d8c.js"></script><noscript><link rel="stylesheet" href="../static.files/noscript-893ab5e7.css"></noscript><link rel="alternate icon" type="image/png" href="../static.files/favicon-32x32-6580c154.png"><link rel="icon" type="image/svg+xml" href="../static.files/favicon-044be391.svg"></head><body class="rustdoc fn"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../esp_idf_sys/index.html">esp_<wbr>idf_<wbr>sys</a><span class="version">0.36.1</span></h2></div><div class="sidebar-elems"><div id="rustdoc-modnav"></div></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><span class="rustdoc-breadcrumbs"><a href="index.html">esp_idf_sys</a></span><h1>Function <span class="fn">mbedtls_rsa_check_privkey</span><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../src/esp_idf_sys/home/runner/work/esp-idf-hal/esp-idf-hal/target/riscv32imc-esp-espidf/debug/build/esp-idf-sys-7bacc267eb742aef/out/bindings.rs.html#36645">Source</a> </span></div><pre class="rust item-decl"><code>pub unsafe extern &quot;C&quot; fn mbedtls_rsa_check_privkey(
+    ctx: *const <a class="struct" href="struct.mbedtls_rsa_context.html" title="struct esp_idf_sys::mbedtls_rsa_context">mbedtls_rsa_context</a>,
+) -&gt; c_int</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>\brief      This function checks if a context contains an RSA private key
+and perform basic consistency checks.</p>
+<p>\note       The consistency checks performed by this function not only
+ensure that mbedtls_rsa_private() can be called successfully
+on the given context, but that the various parameters are
+mutually consistent with high probability, in the sense that
+mbedtls_rsa_public() and mbedtls_rsa_private() are inverses.</p>
+<p>\warning    This function should catch accidental misconfigurations
+like swapping of parameters, but it cannot establish full
+trust in neither the quality nor the consistency of the key
+material that was used to setup the given RSA context:
+<ul><li>Consistency: Imported parameters that are irrelevant
+for the implementation might be silently dropped. If dropped,
+the current function does not have access to them,
+and therefore cannot check them. See mbedtls_rsa_complete().
+If you want to check the consistency of the entire
+content of a PKCS1-encoded RSA private key, for example, you
+should use mbedtls_rsa_validate_params() before setting
+up the RSA context.
+Additionally, if the implementation performs empirical checks,
+these checks substantiate but do not guarantee consistency.</li>
+<li>Quality: This function is not expected to perform
+extended quality assessments like checking that the prime
+factors are safe. Additionally, it is the responsibility of the
+user to ensure the trustworthiness of the source of his RSA
+parameters, which goes beyond what is effectively checkable
+by the library.</li></ul></p>
+<p>\param ctx  The initialized RSA context to check.</p>
+<p>\return     \c 0 on success.
+\return     An \c MBEDTLS_ERR_RSA_XXX error code on failure.</p>
+</div></details></section></div></main></body></html>

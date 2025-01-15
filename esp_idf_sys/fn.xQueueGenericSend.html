@@ -1,0 +1,63 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="It is preferred that the macros xQueueSend(), xQueueSendToFront() and xQueueSendToBack() are used in place of calling this function directly."><title>xQueueGenericSend in esp_idf_sys - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../static.files/rustdoc-46132b98.css"><meta name="rustdoc-vars" data-root-path="../" data-static-root-path="../static.files/" data-current-crate="esp_idf_sys" data-themes="" data-resource-suffix="" data-rustdoc-version="1.86.0-nightly (8361aef0d 2025-01-14)" data-channel="nightly" data-search-js="search-75f5ac3e.js" data-settings-js="settings-0f613d39.js" ><script src="../static.files/storage-59e33391.js"></script><script defer src="sidebar-items.js"></script><script defer src="../static.files/main-5f194d8c.js"></script><noscript><link rel="stylesheet" href="../static.files/noscript-893ab5e7.css"></noscript><link rel="alternate icon" type="image/png" href="../static.files/favicon-32x32-6580c154.png"><link rel="icon" type="image/svg+xml" href="../static.files/favicon-044be391.svg"></head><body class="rustdoc fn"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../esp_idf_sys/index.html">esp_<wbr>idf_<wbr>sys</a><span class="version">0.36.1</span></h2></div><div class="sidebar-elems"><div id="rustdoc-modnav"></div></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><span class="rustdoc-breadcrumbs"><a href="index.html">esp_idf_sys</a></span><h1>Function <span class="fn">xQueueGenericSend</span><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../src/esp_idf_sys/home/runner/work/esp-idf-hal/esp-idf-hal/target/riscv32imc-esp-espidf/debug/build/esp-idf-sys-7bacc267eb742aef/out/bindings.rs.html#13692-13697">Source</a> </span></div><pre class="rust item-decl"><code>pub unsafe extern &quot;C&quot; fn xQueueGenericSend(
+    xQueue: <a class="type" href="type.QueueHandle_t.html" title="type esp_idf_sys::QueueHandle_t">QueueHandle_t</a>,
+    pvItemToQueue: *const c_void,
+    xTicksToWait: <a class="type" href="type.TickType_t.html" title="type esp_idf_sys::TickType_t">TickType_t</a>,
+    xCopyPosition: <a class="type" href="type.BaseType_t.html" title="type esp_idf_sys::BaseType_t">BaseType_t</a>,
+) -&gt; <a class="type" href="type.BaseType_t.html" title="type esp_idf_sys::BaseType_t">BaseType_t</a></code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>It is preferred that the macros xQueueSend(), xQueueSendToFront() and
+xQueueSendToBack() are used in place of calling this function directly.</p>
+<p>Post an item on a queue.  The item is queued by copy, not by reference.
+This function must not be called from an interrupt service routine.
+See xQueueSendFromISR () for an alternative which may be used in an ISR.</p>
+<p>@param xQueue The handle to the queue on which the item is to be posted.</p>
+<p>@param pvItemToQueue A pointer to the item that is to be placed on the
+queue.  The size of the items the queue will hold was defined when the
+queue was created, so this many bytes will be copied from pvItemToQueue
+into the queue storage area.</p>
+<p>@param xTicksToWait The maximum amount of time the task should block
+waiting for space to become available on the queue, should it already
+be full.  The call will return immediately if this is set to 0 and the
+queue is full.  The time is defined in tick periods so the constant
+portTICK_PERIOD_MS should be used to convert to real time if this is required.</p>
+<p>@param xCopyPosition Can take the value queueSEND_TO_BACK to place the
+item at the back of the queue, or queueSEND_TO_FRONT to place the item
+at the front of the queue (for high priority messages).</p>
+<p>@return pdTRUE if the item was successfully posted, otherwise errQUEUE_FULL.</p>
+<p>Example usage:
+@code{c}
+struct AMessage
+{
+char ucMessageID;
+char ucData[ 20 ];
+} xMessage;</p>
+<p>uint32_t ulVar = 10UL;</p>
+<p>void vATask( void *pvParameters )
+{
+QueueHandle_t xQueue1, xQueue2;
+struct AMessage *pxMessage;</p>
+<p>// Create a queue capable of containing 10 uint32_t values.
+xQueue1 = xQueueCreate( 10, sizeof( uint32_t ) );</p>
+<p>// Create a queue capable of containing 10 pointers to AMessage structures.
+// These should be passed by pointer as they contain a lot of data.
+xQueue2 = xQueueCreate( 10, sizeof( struct AMessage * ) );</p>
+<p>// …</p>
+<p>if( xQueue1 != 0 )
+{
+// Send an uint32_t.  Wait for 10 ticks for space to become
+// available if necessary.
+if( xQueueGenericSend( xQueue1, ( void * ) &amp;ulVar, ( TickType_t ) 10, queueSEND_TO_BACK ) != pdPASS )
+{
+// Failed to post the message, even after 10 ticks.
+}
+}</p>
+<p>if( xQueue2 != 0 )
+{
+// Send a pointer to a struct AMessage object.  Don’t block if the
+// queue is already full.
+pxMessage = &amp; xMessage;
+xQueueGenericSend( xQueue2, ( void * ) &amp;pxMessage, ( TickType_t ) 0, queueSEND_TO_BACK );
+}</p>
+<p>// … Rest of task code.
+}
+@endcode
+\ingroup QueueManagement</p>
+</div></details></section></div></main></body></html>

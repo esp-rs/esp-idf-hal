@@ -1,0 +1,54 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="\brief           This function feeds an input buffer into an ongoing GCM encryption or decryption operation."><title>esp_aes_gcm_update in esp_idf_hal::sys - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../static.files/rustdoc-46132b98.css"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="esp_idf_hal" data-themes="" data-resource-suffix="" data-rustdoc-version="1.86.0-nightly (8361aef0d 2025-01-14)" data-channel="nightly" data-search-js="search-75f5ac3e.js" data-settings-js="settings-0f613d39.js" ><script src="../../static.files/storage-59e33391.js"></script><script defer src="sidebar-items.js"></script><script defer src="../../static.files/main-5f194d8c.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-893ab5e7.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-6580c154.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-044be391.svg"></head><body class="rustdoc fn"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../esp_idf_hal/index.html">esp_<wbr>idf_<wbr>hal</a><span class="version">0.45.2</span></h2></div><div class="sidebar-elems"><div id="rustdoc-modnav"><h2><a href="index.html">In esp_<wbr>idf_<wbr>hal::<wbr>sys</a></h2></div></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><span class="rustdoc-breadcrumbs"><a href="../index.html">esp_idf_hal</a>::<wbr><a href="index.html">sys</a></span><h1>Function <span class="fn">esp_aes_gcm_update</span><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../../src/esp_idf_sys/home/runner/work/esp-idf-hal/esp-idf-hal/target/riscv32imc-esp-espidf/debug/build/esp-idf-sys-7bacc267eb742aef/out/bindings.rs.html#39820-39827">Source</a> </span></div><pre class="rust item-decl"><code>pub unsafe extern &quot;C&quot; fn esp_aes_gcm_update(
+    ctx: *mut <a class="struct" href="struct.esp_gcm_context.html" title="struct esp_idf_hal::sys::esp_gcm_context">esp_gcm_context</a>,
+    input: *const u8,
+    input_length: usize,
+    output: *mut u8,
+    output_size: usize,
+    output_length: *mut usize,
+) -&gt; i32</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>\brief           This function feeds an input buffer into an ongoing GCM
+encryption or decryption operation.</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code>             You may call this function zero, one or more times
+             to pass successive parts of the input: the plaintext to
+             encrypt, or the ciphertext (not including the tag) to
+             decrypt. After the last part of the input, call
+             mbedtls_gcm_finish().
+
+             This function may produce output <span class="kw">in </span>one of the following
+             ways:
+             - Immediate output: the output length is always equal
+               to the input length.
+             - Buffered output: the output consists of a whole number
+               of <span class="number">16</span>-byte blocks. If the total input length so far
+               (not including associated data) is <span class="number">16 </span>\* <span class="kw-2">*</span>B* + <span class="kw-2">*</span>A*
+               with <span class="kw-2">*</span>A* &lt; <span class="number">16 </span>then the total output length is <span class="number">16 </span>\* <span class="kw-2">*</span>B<span class="kw-2">*</span>.
+
+             In particular:
+             - It is always correct to call this function with
+               \p output_size &gt;= \p input_length + <span class="number">15.
+             </span>- If \p input_length is a multiple of <span class="number">16 </span><span class="kw">for </span>all the calls
+               to this function during an operation, then it is
+               correct to <span class="kw">use </span>\p output_size = \p input_length.</code></pre></div>
+<p>\note            For decryption, the output buffer cannot be the same as
+input buffer. If the buffers overlap, the output buffer
+must trail at least 8 Bytes behind the input buffer.</p>
+<p>\param ctx           The GCM context. This must be initialized.
+\param input         The buffer holding the input data. If \p input_length
+is greater than zero, this must be a readable buffer
+of at least \p input_length bytes.
+\param input_length  The length of the input data in bytes.
+\param output        The buffer for the output data. If \p output_size
+is greater than zero, this must be a writable buffer of
+of at least \p output_size bytes.
+\param output_size   The size of the output buffer in bytes.
+See the function description regarding the output size.
+\param output_length On success, \p *output_length contains the actual
+length of the output written in \p output.
+On failure, the content of \p *output_length is
+unspecified.</p>
+<p>\return         \c 0 on success.
+\return         #MBEDTLS_ERR_GCM_BAD_INPUT on failure:
+total input length too long,
+unsupported input/output buffer overlap detected,
+or \p output_size too small.</p>
+</div></details></section></div></main></body></html>

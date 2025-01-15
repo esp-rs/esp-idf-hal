@@ -1,0 +1,36 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="@brief       Create an iterator to enumerate NVS entries based on one or more parameters"><title>nvs_entry_find in esp_idf_hal::sys - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../static.files/rustdoc-46132b98.css"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="esp_idf_hal" data-themes="" data-resource-suffix="" data-rustdoc-version="1.86.0-nightly (8361aef0d 2025-01-14)" data-channel="nightly" data-search-js="search-75f5ac3e.js" data-settings-js="settings-0f613d39.js" ><script src="../../static.files/storage-59e33391.js"></script><script defer src="sidebar-items.js"></script><script defer src="../../static.files/main-5f194d8c.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-893ab5e7.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-6580c154.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-044be391.svg"></head><body class="rustdoc fn"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../esp_idf_hal/index.html">esp_<wbr>idf_<wbr>hal</a><span class="version">0.45.2</span></h2></div><div class="sidebar-elems"><div id="rustdoc-modnav"><h2><a href="index.html">In esp_<wbr>idf_<wbr>hal::<wbr>sys</a></h2></div></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><span class="rustdoc-breadcrumbs"><a href="../index.html">esp_idf_hal</a>::<wbr><a href="index.html">sys</a></span><h1>Function <span class="fn">nvs_entry_find</span><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../../src/esp_idf_sys/home/runner/work/esp-idf-hal/esp-idf-hal/target/riscv32imc-esp-espidf/debug/build/esp-idf-sys-7bacc267eb742aef/out/bindings.rs.html#48891-48896">Source</a> </span></div><pre class="rust item-decl"><code>pub unsafe extern &quot;C&quot; fn nvs_entry_find(
+    part_name: *const u8,
+    namespace_name: *const u8,
+    type_: u32,
+    output_iterator: *mut *mut <a class="struct" href="struct.nvs_opaque_iterator_t.html" title="struct esp_idf_hal::sys::nvs_opaque_iterator_t">nvs_opaque_iterator_t</a>,
+) -&gt; i32</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>@brief       Create an iterator to enumerate NVS entries based on one or more parameters</p>
+<p>\code{c}
+// Example of listing all the key-value pairs of any type under specified partition and namespace
+nvs_iterator_t it = NULL;
+esp_err_t res = nvs_entry_find(&lt;nvs_partition_name&gt;, <namespace>, NVS_TYPE_ANY, &amp;it);
+while(res == ESP_OK) {
+nvs_entry_info_t info;
+nvs_entry_info(it, &amp;info); // Can omit error check if parameters are guaranteed to be non-NULL
+printf(“key ‘%s’, type ‘%d’ \n”, info.key, info.type);
+res = nvs_entry_next(&amp;it);
+}
+nvs_release_iterator(it);
+\endcode</p>
+<p>@param[in]   part_name       Partition name</p>
+<p>@param[in]   namespace_name  Set this value if looking for entries with
+a specific namespace. Pass NULL otherwise.</p>
+<p>@param[in]   type            One of nvs_type_t values.</p>
+<p>@param[out] output_iterator
+Set to a valid iterator to enumerate all the entries found.
+Set to NULL if no entry for specified criteria was found.
+If any other error except ESP_ERR_INVALID_ARG occurs, \c output_iterator is NULL, too.
+If ESP_ERR_INVALID_ARG occurs, \c output_iterator is not changed.
+If a valid iterator is obtained through this function, it has to be released
+using \c nvs_release_iterator when not used any more, unless ESP_ERR_INVALID_ARG is returned.</p>
+<p>@return
+- ESP_OK if no internal error or programming error occurred.
+- ESP_ERR_NVS_NOT_FOUND if no element of specified criteria has been found.
+- ESP_ERR_NO_MEM if memory has been exhausted during allocation of internal structures.
+- ESP_ERR_INVALID_ARG if any of the parameters is NULL.
+Note: don’t release \c output_iterator in case ESP_ERR_INVALID_ARG has been returned</p>
+</div></details></section></div></main></body></html>

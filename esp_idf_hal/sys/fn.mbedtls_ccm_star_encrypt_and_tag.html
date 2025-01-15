@@ -1,0 +1,48 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="\brief           This function encrypts a buffer using CCM*."><title>mbedtls_ccm_star_encrypt_and_tag in esp_idf_hal::sys - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../static.files/rustdoc-46132b98.css"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="esp_idf_hal" data-themes="" data-resource-suffix="" data-rustdoc-version="1.86.0-nightly (8361aef0d 2025-01-14)" data-channel="nightly" data-search-js="search-75f5ac3e.js" data-settings-js="settings-0f613d39.js" ><script src="../../static.files/storage-59e33391.js"></script><script defer src="sidebar-items.js"></script><script defer src="../../static.files/main-5f194d8c.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-893ab5e7.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-6580c154.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-044be391.svg"></head><body class="rustdoc fn"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../esp_idf_hal/index.html">esp_<wbr>idf_<wbr>hal</a><span class="version">0.45.2</span></h2></div><div class="sidebar-elems"><div id="rustdoc-modnav"><h2><a href="index.html">In esp_<wbr>idf_<wbr>hal::<wbr>sys</a></h2></div></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><span class="rustdoc-breadcrumbs"><a href="../index.html">esp_idf_hal</a>::<wbr><a href="index.html">sys</a></span><h1>Function <span class="fn">mbedtls_ccm_star_encrypt_and_tag</span><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../../src/esp_idf_sys/home/runner/work/esp-idf-hal/esp-idf-hal/target/riscv32imc-esp-espidf/debug/build/esp-idf-sys-7bacc267eb742aef/out/bindings.rs.html#40040-40051">Source</a> </span></div><pre class="rust item-decl"><code>pub unsafe extern &quot;C&quot; fn mbedtls_ccm_star_encrypt_and_tag(
+    ctx: *mut <a class="struct" href="struct.mbedtls_ccm_context.html" title="struct esp_idf_hal::sys::mbedtls_ccm_context">mbedtls_ccm_context</a>,
+    length: usize,
+    iv: *const u8,
+    iv_len: usize,
+    ad: *const u8,
+    ad_len: usize,
+    input: *const u8,
+    output: *mut u8,
+    tag: *mut u8,
+    tag_len: usize,
+) -&gt; i32</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>\brief           This function encrypts a buffer using CCM*.</p>
+<p>\note            The tag is written to a separate buffer. To concatenate
+the \p tag with the \p output, as done in <em>RFC-3610:
+Counter with CBC-MAC (CCM)</em>, use
+\p tag = \p output + \p length, and make sure that the
+output buffer is at least \p length + \p tag_len wide.</p>
+<p>\note            When using this function in a variable tag length context,
+the tag length has to be encoded into the \p iv passed to
+this function.</p>
+<p>\param ctx       The CCM context to use for encryption. This must be
+initialized and bound to a key.
+\param length    The length of the input data in Bytes.
+For tag length = 0, input length is ignored.
+\param iv        The initialization vector (nonce). This must be a readable
+buffer of at least \p iv_len Bytes.
+\param iv_len    The length of the nonce in Bytes: 7, 8, 9, 10, 11, 12,
+or 13. The length L of the message length field is
+15 - \p iv_len.
+\param ad        The additional data field. This must be a readable buffer of
+at least \p ad_len Bytes.
+\param ad_len    The length of additional data in Bytes.
+This must be less than 2^16 - 2^8.
+\param input     The buffer holding the input data. If \p length is greater
+than zero, \p input must be a readable buffer of at least
+that length.
+\param output    The buffer holding the output data. If \p length is greater
+than zero, \p output must be a writable buffer of at least
+that length.
+\param tag       The buffer holding the authentication field. This must be a
+writable buffer of at least \p tag_len Bytes.
+\param tag_len   The length of the authentication field to generate in Bytes:
+0, 4, 6, 8, 10, 12, 14 or 16.</p>
+<p>\warning         Passing \c 0 as \p tag_len means that the message is no
+longer authenticated.</p>
+<p>\return          \c 0 on success.
+\return          A CCM or cipher-specific error code on failure.</p>
+</div></details></section></div></main></body></html>

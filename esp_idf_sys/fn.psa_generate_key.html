@@ -1,0 +1,46 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="\brief Generate a key or key pair."><title>psa_generate_key in esp_idf_sys - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../static.files/rustdoc-46132b98.css"><meta name="rustdoc-vars" data-root-path="../" data-static-root-path="../static.files/" data-current-crate="esp_idf_sys" data-themes="" data-resource-suffix="" data-rustdoc-version="1.86.0-nightly (8361aef0d 2025-01-14)" data-channel="nightly" data-search-js="search-75f5ac3e.js" data-settings-js="settings-0f613d39.js" ><script src="../static.files/storage-59e33391.js"></script><script defer src="sidebar-items.js"></script><script defer src="../static.files/main-5f194d8c.js"></script><noscript><link rel="stylesheet" href="../static.files/noscript-893ab5e7.css"></noscript><link rel="alternate icon" type="image/png" href="../static.files/favicon-32x32-6580c154.png"><link rel="icon" type="image/svg+xml" href="../static.files/favicon-044be391.svg"></head><body class="rustdoc fn"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../esp_idf_sys/index.html">esp_<wbr>idf_<wbr>sys</a><span class="version">0.36.1</span></h2></div><div class="sidebar-elems"><div id="rustdoc-modnav"></div></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><span class="rustdoc-breadcrumbs"><a href="index.html">esp_idf_sys</a></span><h1>Function <span class="fn">psa_generate_key</span><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../src/esp_idf_sys/home/runner/work/esp-idf-hal/esp-idf-hal/target/riscv32imc-esp-espidf/debug/build/esp-idf-sys-7bacc267eb742aef/out/bindings.rs.html#37760-37763">Source</a> </span></div><pre class="rust item-decl"><code>pub unsafe extern &quot;C&quot; fn psa_generate_key(
+    attributes: *const <a class="type" href="type.psa_key_attributes_t.html" title="type esp_idf_sys::psa_key_attributes_t">psa_key_attributes_t</a>,
+    key: *mut <a class="type" href="type.mbedtls_svc_key_id_t.html" title="type esp_idf_sys::mbedtls_svc_key_id_t">mbedtls_svc_key_id_t</a>,
+) -&gt; <a class="type" href="type.psa_status_t.html" title="type esp_idf_sys::psa_status_t">psa_status_t</a></code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>\brief Generate a key or key pair.</p>
+<p>The key is generated randomly.
+Its location, usage policy, type and size are taken from \p attributes.</p>
+<p>Implementations must reject an attempt to generate a key of size 0.</p>
+<p>The following type-specific considerations apply:</p>
+<ul>
+<li>For RSA keys (#PSA_KEY_TYPE_RSA_KEY_PAIR),
+the public exponent is 65537.
+The modulus is a product of two probabilistic primes
+between 2^{n-1} and 2^n where n is the bit size specified in the
+attributes.</li>
+</ul>
+<p>\note This function is equivalent to calling psa_generate_key_custom()
+with the custom production parameters #PSA_CUSTOM_KEY_PARAMETERS_INIT
+and <code>custom_data_length == 0</code> (i.e. <code>custom_data</code> is empty).</p>
+<p>\param[in] attributes    The attributes for the new key.
+\param[out] key          On success, an identifier for the newly created
+key. For persistent keys, this is the key
+identifier defined in \p attributes.
+\c 0 on failure.</p>
+<p>\retval #PSA_SUCCESS
+Success.
+If the key is persistent, the key material and the key’s metadata
+have been saved to persistent storage.
+\retval #PSA_ERROR_ALREADY_EXISTS
+This is an attempt to create a persistent key, and there is
+already a persistent key with the given identifier.
+\retval #PSA_ERROR_NOT_SUPPORTED \emptydescription
+\retval #PSA_ERROR_INVALID_ARGUMENT \emptydescription
+\retval #PSA_ERROR_INSUFFICIENT_MEMORY \emptydescription
+\retval #PSA_ERROR_INSUFFICIENT_ENTROPY \emptydescription
+\retval #PSA_ERROR_COMMUNICATION_FAILURE \emptydescription
+\retval #PSA_ERROR_HARDWARE_FAILURE \emptydescription
+\retval #PSA_ERROR_CORRUPTION_DETECTED \emptydescription
+\retval #PSA_ERROR_INSUFFICIENT_STORAGE \emptydescription
+\retval #PSA_ERROR_DATA_INVALID \emptydescription
+\retval #PSA_ERROR_DATA_CORRUPT \emptydescription
+\retval #PSA_ERROR_STORAGE_FAILURE \emptydescription
+\retval #PSA_ERROR_BAD_STATE
+The library has not been previously initialized by psa_crypto_init().
+It is implementation-dependent whether a failure to initialize
+results in this error code.</p>
+</div></details></section></div></main></body></html>

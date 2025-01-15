@@ -1,0 +1,33 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="\brief          Set the allowed groups in order of preference."><title>mbedtls_ssl_conf_groups in esp_idf_hal::sys - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../static.files/rustdoc-46132b98.css"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="esp_idf_hal" data-themes="" data-resource-suffix="" data-rustdoc-version="1.86.0-nightly (8361aef0d 2025-01-14)" data-channel="nightly" data-search-js="search-75f5ac3e.js" data-settings-js="settings-0f613d39.js" ><script src="../../static.files/storage-59e33391.js"></script><script defer src="sidebar-items.js"></script><script defer src="../../static.files/main-5f194d8c.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-893ab5e7.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-6580c154.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-044be391.svg"></head><body class="rustdoc fn"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../esp_idf_hal/index.html">esp_<wbr>idf_<wbr>hal</a><span class="version">0.45.2</span></h2></div><div class="sidebar-elems"><div id="rustdoc-modnav"><h2><a href="index.html">In esp_<wbr>idf_<wbr>hal::<wbr>sys</a></h2></div></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><span class="rustdoc-breadcrumbs"><a href="../index.html">esp_idf_hal</a>::<wbr><a href="index.html">sys</a></span><h1>Function <span class="fn">mbedtls_ssl_conf_groups</span><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../../src/esp_idf_sys/home/runner/work/esp-idf-hal/esp-idf-hal/target/riscv32imc-esp-espidf/debug/build/esp-idf-sys-7bacc267eb742aef/out/bindings.rs.html#43965">Source</a> </span></div><pre class="rust item-decl"><code>pub unsafe extern &quot;C&quot; fn mbedtls_ssl_conf_groups(
+    conf: *mut <a class="struct" href="struct.mbedtls_ssl_config.html" title="struct esp_idf_hal::sys::mbedtls_ssl_config">mbedtls_ssl_config</a>,
+    groups: *const u16,
+)</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>\brief          Set the allowed groups in order of preference.</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code>            On server: This only affects the choice of key agreement mechanism
+
+            On client: this affects the list of groups offered <span class="kw">for </span>any
+            <span class="kw">use</span>. The server can <span class="kw">override </span>our preference order.
+
+            Both sides: limits the set of groups accepted <span class="kw">for use in
+            </span>key sharing.</code></pre></div>
+<p>\note           This function replaces the deprecated mbedtls_ssl_conf_curves(),
+which only allows ECP curves to be configured.</p>
+<p>\note           The most recent invocation of either mbedtls_ssl_conf_curves()
+or mbedtls_ssl_conf_groups() nullifies all previous invocations
+of both.</p>
+<p>\note           This list should be ordered by decreasing preference
+(preferred group first).</p>
+<p>\note           When this function is not called, a default list is used,
+consisting of all supported curves at 255 bits and above,
+and all supported finite fields at 2048 bits and above.
+The order favors groups with the lowest resource usage.</p>
+<p>\note           New minor versions of Mbed TLS will not remove items
+from the default list unless serious security concerns require it.
+New minor versions of Mbed TLS may change the order in
+keeping with the general principle of favoring the lowest
+resource usage.</p>
+<p>\param conf     SSL configuration
+\param groups   List of allowed groups ordered by preference, terminated by 0.
+Must contain valid IANA NamedGroup IDs (provided via either an integer
+or using MBEDTLS_TLS1_3_NAMED_GROUP_XXX macros).</p>
+</div></details></section></div></main></body></html>

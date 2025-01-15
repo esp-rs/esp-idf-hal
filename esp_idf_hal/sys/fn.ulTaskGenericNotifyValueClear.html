@@ -1,0 +1,44 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="See https://www.FreeRTOS.org/RTOS-task-notifications.html for details."><title>ulTaskGenericNotifyValueClear in esp_idf_hal::sys - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../static.files/rustdoc-46132b98.css"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="esp_idf_hal" data-themes="" data-resource-suffix="" data-rustdoc-version="1.86.0-nightly (8361aef0d 2025-01-14)" data-channel="nightly" data-search-js="search-75f5ac3e.js" data-settings-js="settings-0f613d39.js" ><script src="../../static.files/storage-59e33391.js"></script><script defer src="sidebar-items.js"></script><script defer src="../../static.files/main-5f194d8c.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-893ab5e7.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-6580c154.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-044be391.svg"></head><body class="rustdoc fn"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../esp_idf_hal/index.html">esp_<wbr>idf_<wbr>hal</a><span class="version">0.45.2</span></h2></div><div class="sidebar-elems"><div id="rustdoc-modnav"><h2><a href="index.html">In esp_<wbr>idf_<wbr>hal::<wbr>sys</a></h2></div></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><span class="rustdoc-breadcrumbs"><a href="../index.html">esp_idf_hal</a>::<wbr><a href="index.html">sys</a></span><h1>Function <span class="fn">ulTaskGenericNotifyValueClear</span><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../../src/esp_idf_sys/home/runner/work/esp-idf-hal/esp-idf-hal/target/riscv32imc-esp-espidf/debug/build/esp-idf-sys-7bacc267eb742aef/out/bindings.rs.html#13583-13587">Source</a> </span></div><pre class="rust item-decl"><code>pub unsafe extern &quot;C&quot; fn ulTaskGenericNotifyValueClear(
+    xTask: *mut <a class="struct" href="struct.tskTaskControlBlock.html" title="struct esp_idf_hal::sys::tskTaskControlBlock">tskTaskControlBlock</a>,
+    uxIndexToClear: u32,
+    ulBitsToClear: u32,
+) -&gt; u32</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>See https://www.FreeRTOS.org/RTOS-task-notifications.html for details.</p>
+<p>configUSE_TASK_NOTIFICATIONS must be undefined or defined as 1 for these
+functions to be available.</p>
+<p>Each task has a private array of “notification values” (or ‘notifications’),
+each of which is a 32-bit unsigned integer (uint32_t).  The constant
+configTASK_NOTIFICATION_ARRAY_ENTRIES sets the number of indexes in the
+array, and (for backward compatibility) defaults to 1 if left undefined.
+Prior to FreeRTOS V10.4.0 there was only one notification value per task.</p>
+<p>ulTaskNotifyValueClearIndexed() clears the bits specified by the
+ulBitsToClear bit mask in the notification value at array index uxIndexToClear
+of the task referenced by xTask.</p>
+<p>Backward compatibility information:
+Prior to FreeRTOS V10.4.0 each task had a single “notification value”, and
+all task notification API functions operated on that value. Replacing the
+single notification value with an array of notification values necessitated a
+new set of API functions that could address specific notifications within the
+array.  ulTaskNotifyValueClear() is the original API function, and remains
+backward compatible by always operating on the notification value at index 0
+within the array. Calling ulTaskNotifyValueClear() is equivalent to calling
+ulTaskNotifyValueClearIndexed() with the uxIndexToClear parameter set to 0.</p>
+<p>@param xTask The handle of the RTOS task that will have bits in one of its
+notification values cleared. Set xTask to NULL to clear bits in a
+notification value of the calling task.  To obtain a task’s handle create the
+task using xTaskCreate() and make use of the pxCreatedTask parameter, or
+create the task using xTaskCreateStatic() and store the returned value, or
+use the task’s name in a call to xTaskGetHandle().</p>
+<p>@param uxIndexToClear The index within the target task’s array of
+notification values in which to clear the bits.  uxIndexToClear
+must be less than configTASK_NOTIFICATION_ARRAY_ENTRIES.
+ulTaskNotifyValueClear() does not have this parameter and always clears bits
+in the notification value at index 0.</p>
+<p>@param ulBitsToClear Bit mask of the bits to clear in the notification value of
+xTask. Set a bit to 1 to clear the corresponding bits in the task’s notification
+value. Set ulBitsToClear to 0xffffffff (UINT_MAX on 32-bit architectures) to clear
+the notification value to 0.  Set ulBitsToClear to 0 to query the task’s
+notification value without clearing any bits.</p>
+<p>@return The value of the target task’s notification value before the bits
+specified by ulBitsToClear were cleared.
+\ingroup TaskNotifications</p>
+</div></details></section></div></main></body></html>
