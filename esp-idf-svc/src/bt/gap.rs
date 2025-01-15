@@ -53,7 +53,7 @@ pub enum InqMode {
 #[repr(transparent)]
 pub struct Eir<'a>(&'a [u8]);
 
-impl<'a> Eir<'a> {
+impl Eir<'_> {
     pub fn flags<'d, M, T>(&self, _gap: &EspGap<'d, M, T>) -> Option<EnumSet<EirFlags>>
     where
         M: BtClassicEnabled,
@@ -229,7 +229,7 @@ impl<'a> From<&EirData<'a>> for esp_bt_eir_data_t {
     }
 }
 
-impl<'a> From<&esp_bt_eir_data_t> for EirData<'a> {
+impl From<&esp_bt_eir_data_t> for EirData<'_> {
     fn from(data: &esp_bt_eir_data_t) -> Self {
         Self {
             fec_required: data.fec_required,
@@ -367,7 +367,7 @@ pub struct PropData<'a> {
 }
 
 #[allow(non_upper_case_globals)]
-impl<'a> PropData<'a> {
+impl PropData<'_> {
     pub fn prop(&self) -> DeviceProp {
         unsafe {
             match self.data.type_ {
@@ -400,7 +400,7 @@ impl<'a> PropData<'a> {
 
 pub struct EventRawData<'a>(pub &'a esp_bt_gap_cb_param_t);
 
-impl<'a> Debug for EventRawData<'a> {
+impl Debug for EventRawData<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_tuple("EventRawData").finish()
     }
