@@ -532,7 +532,7 @@ impl<'d> SdMmcHostDriver<'d> {
     }
 }
 
-impl<'d> Drop for SdMmcHostDriver<'d> {
+impl Drop for SdMmcHostDriver<'_> {
     fn drop(&mut self) {
         let _cs = USED_SLOTS_CS.enter();
 
