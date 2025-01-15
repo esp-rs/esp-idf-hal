@@ -33,6 +33,7 @@ const XTAL_TICK_PERIOD_NS: u32 = 1_000_000_000 / XTAL_CLK_FREQ;
 pub struct APBTickType(::core::ffi::c_int);
 impl From<Duration> for APBTickType {
     #[cfg(any(esp32, esp32s2))]
+    #[allow(clippy::manual_div_ceil)]
     fn from(duration: Duration) -> Self {
         APBTickType(
             ((duration.as_nanos() + APB_TICK_PERIOD_NS as u128 - 1) / APB_TICK_PERIOD_NS as u128)

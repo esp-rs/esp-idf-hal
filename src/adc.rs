@@ -385,8 +385,8 @@ mod oneshot_legacy {
     }
 
     #[cfg(all(esp32, esp_idf_version_major = "4"))]
-    impl<'d> embedded_hal_0_2::adc::OneShot<super::ADC1, u16, crate::hall::HallSensor>
-        for AdcDriver<'d, super::ADC1>
+    impl embedded_hal_0_2::adc::OneShot<super::ADC1, u16, crate::hall::HallSensor>
+        for AdcDriver<'_, super::ADC1>
     {
         type Error = EspError;
 
