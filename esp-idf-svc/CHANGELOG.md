@@ -6,6 +6,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+### Breaking
+- New `embassy-time-driver` implementation compatible with `embassy-time-driver` V0.2 (#548)
+
 ### Added
 - New example, `wifi_dhcp_with_hostname` to demonstrate setting a custom hostname when establishing a DHCP connection
 
