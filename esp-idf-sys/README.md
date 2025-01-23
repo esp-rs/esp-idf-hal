@@ -69,3 +69,7 @@ For more information, check out:
 - The [embedded-hal](https://github.com/rust-embedded/embedded-hal) project
 - The [Rust for Xtensa toolchain](https://github.com/esp-rs/rust-build)
 - The [Rust-with-STD demo](https://github.com/ivmarkov/rust-esp32-std-demo) project
+
+## Known limitations
+
+* ESP IDF can’t be compiled on filesystems without support for symbolic links (e.g. FAT)
