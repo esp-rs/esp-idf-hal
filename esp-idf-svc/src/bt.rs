@@ -572,7 +572,7 @@ where
 
         #[cfg(not(any(esp32, esp32s3, esp32c3)))]
         let mut bt_cfg = esp_bt_controller_config_t {
-            config_version: 0x20231124,
+            config_version: CONFIG_VERSION as _,
             ble_ll_resolv_list_size: crate::sys::CONFIG_BT_LE_LL_RESOLV_LIST_SIZE as _,
             ble_hci_evt_hi_buf_count: crate::sys::DEFAULT_BT_LE_HCI_EVT_HI_BUF_COUNT as _,
             ble_hci_evt_lo_buf_count: crate::sys::DEFAULT_BT_LE_HCI_EVT_LO_BUF_COUNT as _,
@@ -698,7 +698,7 @@ where
                 not(esp_idf_version = "5.1")
             ))]
             csa2_select: crate::sys::DEFAULT_BT_LE_50_FEATURE_SUPPORT as _,
-            config_magic: 0x5A5AA5A5,
+            config_magic: CONFIG_MAGIC as _,
             ..Default::default()
         };
 
