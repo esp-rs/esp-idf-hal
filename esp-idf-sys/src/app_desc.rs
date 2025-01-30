@@ -72,7 +72,7 @@ macro_rules! esp_app_desc {
                     esp_idf_version_full = "5.3.0",
                     esp_idf_version_full = "5.3.1"
                 )))]
-                min_efuse_blk_rev_full: 0,
+                min_efuse_blk_rev_full: $crate::CONFIG_ESP_EFUSE_BLOCK_REV_MIN_FULL,
                 #[cfg(not(any(
                     esp_idf_version_major = "4",
                     esp_idf_version = "5.0",
@@ -83,7 +83,7 @@ macro_rules! esp_app_desc {
                     esp_idf_version_full = "5.3.0",
                     esp_idf_version_full = "5.3.1"
                 )))]
-                max_efuse_blk_rev_full: 0,
+                max_efuse_blk_rev_full: $crate::CONFIG_ESP_EFUSE_BLOCK_REV_MAX_FULL,
                 #[cfg(not(any(
                     esp_idf_version_major = "4",
                     esp_idf_version = "5.0",
