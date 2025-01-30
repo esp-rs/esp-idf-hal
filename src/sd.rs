@@ -393,6 +393,15 @@ mod sdcard {
                     all(esp_idf_version_major = "5", esp_idf_version_minor = "0"),
                     all(esp_idf_version_major = "5", esp_idf_version_minor = "1"),
                     all(esp_idf_version_major = "5", esp_idf_version_minor = "2"),
+                    all(esp_idf_version_major = "5", esp_idf_version_minor = "3"),
+                    all(esp_idf_version_major = "5", esp_idf_version_minor = "4"),
+                )))]   // For ESP-IDF v5.5 and later
+                sdmmc_host_check_buffer_alignment: Some(sdmmc_host_check_buffer_alignment),
+                #[cfg(not(any(
+                    esp_idf_version_major = "4",
+                    all(esp_idf_version_major = "5", esp_idf_version_minor = "0"),
+                    all(esp_idf_version_major = "5", esp_idf_version_minor = "1"),
+                    all(esp_idf_version_major = "5", esp_idf_version_minor = "2"),
                 )))]   // For ESP-IDF v5.3 and later
                 pwr_ctrl_handle: core::ptr::null_mut() as _,
                 #[cfg(not(any(
