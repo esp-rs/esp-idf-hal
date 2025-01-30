@@ -149,6 +149,17 @@ impl FirmwareInfoLoader for EspFirmwareInfoLoader {
     }
 }
 
+/// Native ESP-IDF firmware information
+#[derive(Debug, Clone)]
+pub struct EspNativeFirmwareInfo<'a> {
+    /// Image header
+    pub image_header: &'a esp_image_header_t,
+    /// Segment header
+    pub segment_header: &'a esp_image_segment_header_t,
+    /// Application description
+    pub app_desc: &'a esp_app_desc_t,
+}
+
 /// A firmware info loader that tries to read the firmware info directly
 /// from a user-supplied buffer which can be re-used for other purposes afterwards.
 ///
@@ -156,22 +167,38 @@ impl FirmwareInfoLoader for EspFirmwareInfoLoader {
 pub struct EspFirmwareInfoLoad;
 
 impl EspFirmwareInfoLoad {
-    /// Fetches firmware information from the firmware binary data chunk loaded so far.
+    /// Fetches the native ESP-IDF firmware information from the firmware binary data chunk loaded so far.
     ///
-    /// Returns `true` if the information was successfully fetched.
-    /// Returns `false` if the firmware data has not been loaded completely yet.
-    pub fn fetch(&self, data: &[u8], info: &mut FirmwareInfo) -> Result<bool, EspIOError> {
+    /// Returns `Some(EspNativeFirmwareInfo)` if the information was successfully fetched.
+    /// Returns `None` if the firmware data has not been loaded completely yet.
+    pub fn fetch_native<'a>(&self, data: &'a [u8]) -> Option<EspNativeFirmwareInfo<'a>> {
         let loaded = data.len()
             >= mem::size_of::<esp_image_header_t>()
                 + mem::size_of::<esp_image_segment_header_t>()
                 + mem::size_of::<esp_app_desc_t>();
 
         if loaded {
+            let image_header_slice = &data[..mem::size_of::<esp_image_header_t>()];
+            let image_segment_header_slice = &data[mem::size_of::<esp_image_header_t>()
+                ..mem::size_of::<esp_image_header_t>()
+                    + mem::size_of::<esp_image_segment_header_t>()];
             let app_desc_slice = &data[mem::size_of::<esp_image_header_t>()
                 + mem::size_of::<esp_image_segment_header_t>()
                 ..mem::size_of::<esp_image_header_t>()
                     + mem::size_of::<esp_image_segment_header_t>()
                     + mem::size_of::<esp_app_desc_t>()];
+
+            let image_header = unsafe {
+                (image_header_slice.as_ptr() as *const esp_image_header_t)
+                    .as_ref()
+                    .unwrap()
+            };
+
+            let segment_header = unsafe {
+                (image_segment_header_slice.as_ptr() as *const esp_image_segment_header_t)
+                    .as_ref()
+                    .unwrap()
+            };
 
             let app_desc = unsafe {
                 (app_desc_slice.as_ptr() as *const esp_app_desc_t)
@@ -179,7 +206,23 @@ impl EspFirmwareInfoLoad {
                     .unwrap()
             };
 
-            Self::load_firmware_info(info, app_desc)?;
+            Some(EspNativeFirmwareInfo {
+                image_header,
+                segment_header,
+                app_desc,
+            })
+        } else {
+            None
+        }
+    }
+
+    /// Fetches firmware information from the firmware binary data chunk loaded so far.
+    ///
+    /// Returns `true` if the information was successfully fetched.
+    /// Returns `false` if the firmware data has not been loaded completely yet.
+    pub fn fetch(&self, data: &[u8], info: &mut FirmwareInfo) -> Result<bool, EspIOError> {
+        if let Some(native_info) = self.fetch_native(data) {
+            Self::load_firmware_info(info, native_info.app_desc)?;
 
             Ok(true)
         } else {
