@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 - Fix the `esp_app_desc!` macro so that it properly embeds `CONFIG_ESP_EFUSE_BLOCK_REV_MIN_FULL`/`CONFIG_ESP_EFUSE_BLOCK_REV_MAX_FULL` with recent ESP-IDF versions (5.4+, 5.2.3+, 5.3.2+)
+- Make sure that the `esp_app_desc!` macro fails at build-time if some of the fields cannot fit inside the structure
 
 ## [0.36.1] - 2025-01-10
 
