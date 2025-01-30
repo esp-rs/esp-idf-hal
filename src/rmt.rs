@@ -642,7 +642,7 @@ impl VariableLengthSignal {
     /// - `capacity` is the number of [`Pulse`]s which can be pushes before reallocating
     pub fn with_capacity(capacity: usize) -> Self {
         // half the size, rounding up, because each entry in the [`Vec`] holds upto 2 pulses each
-        let vec_size = (capacity + 1) / 2;
+        let vec_size = capacity.div_ceil(2);
         Self {
             items: alloc::vec::Vec::with_capacity(vec_size),
             next_item_is_new: true,

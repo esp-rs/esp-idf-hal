@@ -2098,7 +2098,12 @@ impl Owner {
             Owner::Borrowed => false,
             Owner::Shared => REFS[port as usize].fetch_sub(1, Ordering::SeqCst) == 0,
         };
-        needs_drop.then(|| delete_driver(port)).unwrap_or(Ok(()))
+
+        if needs_drop {
+            delete_driver(port)
+        } else {
+            Ok(())
+        }
     }
 }
 
