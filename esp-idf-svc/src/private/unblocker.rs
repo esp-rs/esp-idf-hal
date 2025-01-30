@@ -32,7 +32,7 @@ where
     /// * `priority` - The priority of the task.
     /// * `pin_to_core` - The core to pin the task to, if any.
     /// * `worker` - The function to run in the task. A channel will be passed to the worker with all events.
-    ///              The channel will be closed when the Unblocker is dropped, at which point the worker should exit.
+    ///   The channel will be closed when the Unblocker is dropped, at which point the worker should exit.
     pub fn new<F>(
         task_name: &'static CStr,
         stack_size: usize,
