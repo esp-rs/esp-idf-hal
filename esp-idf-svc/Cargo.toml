@@ -40,6 +40,9 @@ panic_handler = ["esp-idf-hal/panic_handler"]
 binstart = ["esp-idf-hal/binstart"]
 libstart = ["esp-idf-hal/libstart"]
 
+# Propagated form embeded-svc
+use_serde = ["embedded-svc/use_serde"]
+
 [dependencies]
 heapless = { version = "0.8", default-features = false }
 num_enum = { version = "0.7", default-features = false }
