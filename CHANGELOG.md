@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 - Fix the SDMMC driver for ESP-IDF V5.5+
-- Replace Arc with Rc in ledc_threads example
+- Replace Arc with Rc in ledc_threads example (#514)
 
 ## [0.45.2] - 2025-01-15
 
