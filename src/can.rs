@@ -387,6 +387,8 @@ pub enum Alert {
 /// CAN abstraction
 pub struct CanDriver<'d>(PeripheralRef<'d, CAN>, EnumSet<Alert>, bool);
 
+unsafe impl Send for CanDriver<'_> {}
+
 impl<'d> CanDriver<'d> {
     pub fn new(
         can: impl Peripheral<P = CAN> + 'd,
