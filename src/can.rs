@@ -731,6 +731,8 @@ where
     }
 }
 
+unsafe impl<'d, T> Send for AsyncCanDriver<'d, T> where T: BorrowMut<CanDriver<'d>> + Send {}
+
 static READ_NOTIFICATION: Notification = Notification::new();
 static WRITE_NOTIFICATION: Notification = Notification::new();
 static ALERT_NOTIFICATION: Notification = Notification::new();
