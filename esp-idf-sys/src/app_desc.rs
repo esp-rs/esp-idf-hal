@@ -102,7 +102,7 @@ macro_rules! esp_app_desc {
                     esp_idf_version = "5.2",
                     esp_idf_version = "5.3"
                 )))]
-                reserv3: [0; 4],
+                reserv3: [0; 3],
                 #[cfg(not(any(
                     esp_idf_version_major = "4",
                     esp_idf_version = "5.0",
