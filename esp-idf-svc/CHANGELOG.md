@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Breaking
+- Implement MQTT outbox limit and get_outbox_size()
+
 ### Fixed
 - Fix wrong BT configuration version on the c6 (issue #556)
 
