@@ -935,13 +935,11 @@ pub mod notification {
     impl Notifier {
         /// # Safety
         ///
-        /// This method is unsafe because it is possible to call `core::mem::forget` on the Monitor instance
-        /// that produced this notifier.
+        /// Care should be taken to ensure that `Notifier` does not outlive the task
+        /// in which the `Notification` that produced it was created.
         ///
-        /// If that happens, the `Drop` dtor of `Monitor` will NOT be called, which - in turn - means that the
-        /// `Arc` holding the task reference will stick around even when the actual task where the `Monitor` instance was
-        /// created no longer exists. Which - in turn - would mean that the method will be trying to notify a task
-        /// which does no longer exist, which would lead to UB and specifically - to memory corruption.
+        /// If that happens, a dangling pointer instead of proper task handle will be passed to `task::notify`,
+        /// which will result in memory corruption.
         pub unsafe fn notify(&self, notification: NonZeroU32) -> (bool, bool) {
             let freertos_task = self.0.load(Ordering::SeqCst);
 
@@ -954,13 +952,11 @@ pub mod notification {
 
         /// # Safety
         ///
-        /// This method is unsafe because it is possible to call `core::mem::forget` on the Monitor instance
-        /// that produced this notifier.
+        /// Care should be taken to ensure that `Notifier` does not outlive the task
+        /// in which the `Notification` that produced it was created.
         ///
-        /// If that happens, the `Drop` dtor of `Monitor` will NOT be called, which - in turn - means that the
-        /// `Arc` holding the task reference will stick around even when the actual task where the `Monitor` instance was
-        /// created no longer exists. Which - in turn - would mean that the method will be trying to notify a task
-        /// which does no longer exist, which would lead to UB and specifically - to memory corruption.
+        /// If that happens, a dangling pointer instead of proper task handle will be passed to `task::notify_and_yield`,
+        /// which will result in memory corruption.
         pub unsafe fn notify_and_yield(&self, notification: NonZeroU32) -> bool {
             let freertos_task = self.0.load(Ordering::SeqCst);
 
