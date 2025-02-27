@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Breaking
 - Implement MQTT outbox limit and get_outbox_size()
+- Added argument `subprotocol_list` to `ws_handler` to allow subprotocols to be supported by WebSockets
 
 ### Fixed
 - Fix wrong BT configuration version on the c6 (issue #556)

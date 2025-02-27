@@ -1579,19 +1579,31 @@ pub mod ws {
         /// made to that URI, receiving a different `EspHttpWsConnection` each
         /// call.
         ///
+        /// # Arguments
+        ///
+        /// * `uri` - The URI to connect to
+        /// * `subprotocol_list` - An optional string slice containing a comma-separated
+        ///   list of subprotocols to be supported by this handler
+        /// * handler: the handler
+        ///
         /// Note that Websockets functionality is gated behind an SDK flag.
         /// See [`crate::ws`](esp-idf-svc::ws)
-        pub fn ws_handler<H, E>(&mut self, uri: &str, handler: H) -> Result<&mut Self, EspError>
+        pub fn ws_handler<H, E>(
+            &mut self,
+            uri: &str,
+            subprotocol_list: Option<&str>,
+            handler: H,
+        ) -> Result<&mut Self, EspError>
         where
             H: for<'r> Fn(&'r mut EspHttpWsConnection) -> Result<(), E> + Send + Sync + 'a,
             E: Debug,
         {
-            let c_str = to_cstring_arg(uri)?;
+            let uri_c_str = to_cstring_arg(uri)?;
 
             let (req_handler, close_handler) = self.to_native_ws_handler(self.sd, handler);
 
-            let conf = httpd_uri_t {
-                uri: c_str.as_ptr() as _,
+            let mut conf = httpd_uri_t {
+                uri: uri_c_str.as_ptr() as _,
                 method: Newtype::<ffi::c_uint>::from(Method::Get).0,
                 user_ctx: Box::into_raw(Box::new(req_handler)) as *mut _,
                 handler: Some(EspHttpServer::handle_req),
@@ -1599,6 +1611,12 @@ pub mod ws {
                 // TODO: Expose as a parameter in future: handle_ws_control_frames: true,
                 ..Default::default()
             };
+
+            let subproto_c_str; // SAFETY: same scope as httpd_register_uri_handler required!
+            if let Some(subprotocol_list) = subprotocol_list {
+                subproto_c_str = to_cstring_arg(subprotocol_list)?;
+                conf.supported_subprotocol = subproto_c_str.as_ptr();
+            }
 
             esp!(unsafe { crate::sys::httpd_register_uri_handler(self.sd, &conf) })?;
 
@@ -1615,10 +1633,10 @@ pub mod ws {
 
             info!(
                 "Registered Httpd server WS handler for URI \"{}\"",
-                c_str.to_str().unwrap()
+                uri_c_str.to_str().unwrap()
             );
 
-            self.registrations.push((c_str, conf));
+            self.registrations.push((uri_c_str, conf));
 
             Ok(self)
         }

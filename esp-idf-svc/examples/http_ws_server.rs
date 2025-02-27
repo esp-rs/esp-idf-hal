@@ -134,7 +134,7 @@ fn main() -> anyhow::Result<()> {
 
     let guessing_games = Mutex::new(BTreeMap::<i32, GuessingGame>::new());
 
-    server.ws_handler("/ws/guess", move |ws| {
+    server.ws_handler("/ws/guess", None, move |ws| {
         let mut sessions = guessing_games.lock().unwrap();
         if ws.is_new() {
             sessions.insert(ws.session(), GuessingGame::new((rand() % 100) + 1));
