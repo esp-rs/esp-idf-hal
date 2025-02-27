@@ -42,6 +42,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Change default eth key (#502)
 - ESP IDF Partitions API (#511)
 - Expose src_addr and dst_addr in espnow recv cb (#525)
+- Add `core` field to `http::server::Configuration` to control which CPU core runs the HTTP server task
 
 ### Added
 - Compatibility with ESP-IDF v5.3.X

@@ -58,6 +58,8 @@ use embedded_svc::http::headers::content_type;
 use embedded_svc::http::*;
 use embedded_svc::io::{ErrorType, Read, Write};
 
+use esp_idf_hal::cpu::Core;
+
 use crate::sys::*;
 
 use uncased::{Uncased, UncasedStr};
@@ -83,6 +85,7 @@ pub struct Configuration {
     pub http_port: u16,
     pub ctrl_port: u16,
     pub https_port: u16,
+    pub core: Option<Core>,
     pub max_sessions: usize,
     pub session_timeout: Duration,
     pub stack_size: usize,
@@ -103,6 +106,7 @@ impl Default for Configuration {
             http_port: 80,
             ctrl_port: 32768,
             https_port: 443,
+            core: None,
             max_sessions: 16,
             session_timeout: Duration::from_secs(20 * 60),
             #[cfg(not(esp_idf_esp_https_server_enable))]
@@ -141,7 +145,7 @@ impl From<&Configuration> for Newtype<httpd_config_t> {
             ))]
             task_caps: (MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT),
             stack_size: conf.stack_size,
-            core_id: i32::MAX,
+            core_id: conf.core.map(|core| core.into()).unwrap_or(i32::MAX),
             server_port: conf.http_port,
             ctrl_port: conf.ctrl_port,
             max_open_sockets: conf.max_open_sockets as _,
