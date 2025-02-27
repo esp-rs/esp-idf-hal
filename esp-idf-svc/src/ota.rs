@@ -539,6 +539,18 @@ impl EspOta {
     ///
     /// Returns an error if OTA could not be initiated (OTA partition not found, flash error).
     pub fn initiate_update(&mut self) -> Result<EspOtaUpdate<'_>, EspError> {
+        self.initiate_update_with_known_size(OTA_SIZE_UNKNOWN as usize)
+    }
+
+    /// We need to erase enough space in flash for the new image. By default `initiate_update`
+    /// passes `OTA_SIZE_UNKNOWN` which causes the entire partition to be erased, but this is slow
+    /// if the flash size is large and the image is relatively small. By setting the known size of
+    /// the image, we erase only what needs to be erased. If `file_size` is smaller than the size
+    /// of the actual image written, this will result in a corrupted image.
+    pub fn initiate_update_with_known_size(
+        &mut self,
+        file_size: usize,
+    ) -> Result<EspOtaUpdate<'_>, EspError> {
         // This might return a null pointer in case no valid partition can be found.
         // We don't have to handle this error in here, as this will implicitly trigger an error
         // as soon as the null pointer is provided to `esp_ota_begin`.
@@ -546,7 +558,7 @@ impl EspOta {
 
         let mut handle: esp_ota_handle_t = Default::default();
 
-        esp!(unsafe { esp_ota_begin(partition, OTA_SIZE_UNKNOWN as usize, &mut handle) })?;
+        esp!(unsafe { esp_ota_begin(partition, file_size, &mut handle) })?;
 
         Ok(EspOtaUpdate {
             update_partition: partition,
