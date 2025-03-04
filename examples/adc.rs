@@ -23,11 +23,11 @@ fn main() -> anyhow::Result<()> {
     // configuring pin to analog read, you can regulate the adc input voltage range depending on your need
     // for this example we use the attenuation of 11db which sets the input voltage range to around 0-3.6V
     #[cfg(not(esp32))]
-    let mut adc_pin: esp_idf_hal::adc::AdcChannelDriver<{ attenuation::DB_11 }, _> =
+    let mut adc_pin: esp_idf_hal::adc::AdcChannelDriver<{ attenuation::DB_12 }, _> =
         AdcChannelDriver::new(peripherals.pins.gpio4)?;
 
     #[cfg(esp32)]
-    let mut adc_pin: esp_idf_hal::adc::AdcChannelDriver<{ attenuation::DB_11 }, _> =
+    let mut adc_pin: esp_idf_hal::adc::AdcChannelDriver<{ attenuation::DB_12 }, _> =
         AdcChannelDriver::new(peripherals.pins.gpio12)?;
 
     loop {
