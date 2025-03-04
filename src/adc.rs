@@ -7,6 +7,7 @@ use esp_idf_sys::*;
     not(esp32c2),
     esp_idf_comp_esp_adc_enabled
 ))]
+#[allow(deprecated)]
 pub use continuous::{
     config as cont_config, config::Config as AdcContConfig, AdcChannels, AdcChannelsArray,
     AdcDriver as AdcContDriver, AdcMeasurement, Atten11dB, Atten12dB, Atten2p5dB, Atten6dB,
@@ -1006,6 +1007,7 @@ pub mod continuous {
         }
     }
 
+    #[allow(deprecated)]
     impl<T> Attenuated<{ attenuation::DB_11 }, T> {
         #[cfg_attr(
             not(esp_idf_version_major = "4"),
@@ -1036,6 +1038,7 @@ pub mod continuous {
         not(esp_idf_version_major = "4"),
         deprecated(since = "0.45.3", note = "Use `Atten12dB` instead")
     )]
+    #[allow(deprecated)]
     pub type Atten11dB<T> = Attenuated<{ attenuation::DB_11 }, T>;
     #[cfg(not(esp_idf_version_major = "4"))]
     pub type Atten12dB<T> = Attenuated<{ attenuation::DB_12 }, T>;
