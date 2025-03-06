@@ -39,7 +39,7 @@ impl ParseCallbacks for BindgenCallbacks {
         const SUFFIX_SPECIAL: [&str; 2] = ["OK", "FAIL"];
 
         let name = name.strip_prefix(PREFIX)?;
-        if name.starts_with(SUFFIX) || SUFFIX_SPECIAL.iter().any(|&s| name == s) {
+        if name.starts_with(SUFFIX) || SUFFIX_SPECIAL.contains(&name) {
             Some(IntKind::I32)
         } else {
             None

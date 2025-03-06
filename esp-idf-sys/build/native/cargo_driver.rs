@@ -49,7 +49,7 @@ pub fn build() -> Result<EspIdfBuildOutput> {
 
     let chip = if let Some(mcu) = &config.mcu {
         if let Ok(chip) = Chip::from_str(mcu) {
-            if !supported_chips.iter().any(|sc| *sc == chip) {
+            if !supported_chips.contains(&chip) {
                 bail!(
                     "Specified MCU '{chip}' is not amongst the MCUs ([{}]) supported by the build target ('{target}')",
                     supported_chips.iter().map(|chip| format!("{chip}")).collect::<Vec<_>>().join(", ")
