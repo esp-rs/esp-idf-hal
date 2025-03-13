@@ -7,8 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Deprecated
+- `DB_11` ADC attenuation in favor of `DB_12` for ESP-IDF V5.0+
+
 ### Added
 - `Send` for `AsyncCanDriver`
+- `DB_12` ADC attenuation
 - `fade_with_time`, `fade_with_step` for `LedcDriver`
 
 ### Fixed

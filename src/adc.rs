@@ -7,10 +7,11 @@ use esp_idf_sys::*;
     not(esp32c2),
     esp_idf_comp_esp_adc_enabled
 ))]
+#[allow(deprecated)]
 pub use continuous::{
     config as cont_config, config::Config as AdcContConfig, AdcChannels, AdcChannelsArray,
-    AdcDriver as AdcContDriver, AdcMeasurement, Atten11dB, Atten2p5dB, Atten6dB, AttenNone,
-    Attenuated, ChainedAdcChannels, EmptyAdcChannels,
+    AdcDriver as AdcContDriver, AdcMeasurement, Atten11dB, Atten12dB, Atten2p5dB, Atten6dB,
+    AttenNone, Attenuated, ChainedAdcChannels, EmptyAdcChannels,
 };
 
 #[cfg(any(feature = "adc-oneshot-legacy", esp_idf_version_major = "4"))]
@@ -22,6 +23,8 @@ pub trait Adc: Send {
 
 // NOTE: Will be changed to an enum once C-style enums are usable as const generics
 pub mod attenuation {
+    #[cfg(not(esp_idf_version_major = "4"))]
+    pub use esp_idf_sys::adc_atten_t_ADC_ATTEN_DB_12;
     pub use esp_idf_sys::{
         adc_atten_t, adc_atten_t_ADC_ATTEN_DB_0, adc_atten_t_ADC_ATTEN_DB_11,
         adc_atten_t_ADC_ATTEN_DB_2_5, adc_atten_t_ADC_ATTEN_DB_6,
@@ -30,7 +33,13 @@ pub mod attenuation {
     pub const NONE: adc_atten_t = adc_atten_t_ADC_ATTEN_DB_0;
     pub const DB_2_5: adc_atten_t = adc_atten_t_ADC_ATTEN_DB_2_5;
     pub const DB_6: adc_atten_t = adc_atten_t_ADC_ATTEN_DB_6;
+    #[cfg_attr(
+        not(esp_idf_version_major = "4"),
+        deprecated(since = "0.45.3", note = "Use `DB_12` instead")
+    )]
     pub const DB_11: adc_atten_t = adc_atten_t_ADC_ATTEN_DB_11;
+    #[cfg(not(esp_idf_version_major = "4"))]
+    pub const DB_12: adc_atten_t = adc_atten_t_ADC_ATTEN_DB_12;
 }
 
 /// The sampling/readout resolution of the ADC
@@ -448,6 +457,9 @@ impl DirectConverter {
             adc_atten_t_ADC_ATTEN_DB_0 => 950,
             adc_atten_t_ADC_ATTEN_DB_2_5 => 1250,
             adc_atten_t_ADC_ATTEN_DB_6 => 1750,
+            #[cfg(not(esp_idf_version_major = "4"))]
+            adc_atten_t_ADC_ATTEN_DB_12 => 2450,
+            #[cfg(esp_idf_version_major = "4")]
             adc_atten_t_ADC_ATTEN_DB_11 => 2450,
             other => panic!("Unknown attenuation: {}", other),
         };
@@ -457,6 +469,9 @@ impl DirectConverter {
             adc_atten_t_ADC_ATTEN_DB_0 => 750,
             adc_atten_t_ADC_ATTEN_DB_2_5 => 1050,
             adc_atten_t_ADC_ATTEN_DB_6 => 1300,
+            #[cfg(not(esp_idf_version_major = "4"))]
+            adc_atten_t_ADC_ATTEN_DB_12 => 2500,
+            #[cfg(esp_idf_version_major = "4")]
             adc_atten_t_ADC_ATTEN_DB_11 => 2500,
             other => panic!("Unknown attenuation: {}", other),
         };
@@ -466,6 +481,9 @@ impl DirectConverter {
             adc_atten_t_ADC_ATTEN_DB_0 => 950,
             adc_atten_t_ADC_ATTEN_DB_2_5 => 1250,
             adc_atten_t_ADC_ATTEN_DB_6 => 1750,
+            #[cfg(not(esp_idf_version_major = "4"))]
+            adc_atten_t_ADC_ATTEN_DB_12 => 3100,
+            #[cfg(esp_idf_version_major = "4")]
             adc_atten_t_ADC_ATTEN_DB_11 => 3100,
             other => panic!("Unknown attenuation: {}", other),
         };
@@ -481,7 +499,7 @@ impl DirectConverter {
 /// use std::time::Duration;
 ///
 /// fn main() -> anyhow::Result<()> {
-///     use esp_idf_hal::adc::attenuation::DB_11;
+///     use esp_idf_hal::adc::attenuation::DB_12;
 ///     use esp_idf_hal::adc::oneshot::config::AdcChannelConfig;
 ///     use esp_idf_hal::adc::oneshot::*;
 ///     use esp_idf_hal::peripherals::Peripherals;
@@ -492,7 +510,7 @@ impl DirectConverter {
 ///     /// configuring pin to analog read, you can regulate the adc input voltage range depending on your need
 ///     /// for this example we use the attenuation of 11db which sets the input voltage range to around 0-3.6V
 ///     let config = AdcChannelConfig {
-///         attenuation: DB_11,
+///         attenuation: DB_12,
 ///         ..Default::default()
 ///     };
 ///     let mut adc_pin = AdcChannelDriver::new(&adc, peripherals.pins.gpio2, &config)?;
@@ -929,7 +947,7 @@ pub mod oneshot {
 ///     let peripherals = Peripherals::take()?;
 ///     let config = AdcContConfig::default();
 ///
-///     let adc_1_channel_0 = Attenuated::db11(peripherals.pins.gpio0);
+///     let adc_1_channel_0 = Attenuated::db12(peripherals.pins.gpio0);
 ///     let mut adc = AdcContDriver::new(peripherals.adc1, &config, adc_1_channel_0)?;
 ///
 ///     adc.start()?;
@@ -968,7 +986,7 @@ pub mod continuous {
     use super::{attenuation, Adc};
 
     /// Set ADC attenuation level
-    /// Example: let pin = Attenuated::db11(peripherals.pins.gpio0);
+    /// Example: let pin = Attenuated::db12(peripherals.pins.gpio0);
     pub struct Attenuated<const A: adc_atten_t, T>(T);
 
     impl<T> Attenuated<{ attenuation::NONE }, T> {
@@ -989,8 +1007,20 @@ pub mod continuous {
         }
     }
 
+    #[allow(deprecated)]
     impl<T> Attenuated<{ attenuation::DB_11 }, T> {
+        #[cfg_attr(
+            not(esp_idf_version_major = "4"),
+            deprecated(since = "0.45.3", note = "Use `Attenuated::db12` instead")
+        )]
         pub const fn db11(t: T) -> Self {
+            Self(t)
+        }
+    }
+
+    #[cfg(not(esp_idf_version_major = "4"))]
+    impl<T> Attenuated<{ attenuation::DB_12 }, T> {
+        pub const fn db12(t: T) -> Self {
             Self(t)
         }
     }
@@ -1004,7 +1034,14 @@ pub mod continuous {
     pub type AttenNone<T> = Attenuated<{ attenuation::NONE }, T>;
     pub type Atten2p5dB<T> = Attenuated<{ attenuation::DB_2_5 }, T>;
     pub type Atten6dB<T> = Attenuated<{ attenuation::DB_6 }, T>;
+    #[cfg_attr(
+        not(esp_idf_version_major = "4"),
+        deprecated(since = "0.45.3", note = "Use `Atten12dB` instead")
+    )]
+    #[allow(deprecated)]
     pub type Atten11dB<T> = Attenuated<{ attenuation::DB_11 }, T>;
+    #[cfg(not(esp_idf_version_major = "4"))]
+    pub type Atten12dB<T> = Attenuated<{ attenuation::DB_12 }, T>;
 
     pub trait AdcChannels {
         type Adc: Adc;
