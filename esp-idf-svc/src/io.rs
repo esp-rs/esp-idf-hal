@@ -155,13 +155,21 @@ pub mod vfs {
     }
 
     /// Represents a mounted Littlefs filesystem.
-    #[cfg(all(feature = "alloc", esp_idf_comp_joltwallet__littlefs_enabled))]
+    #[cfg(all(
+        feature = "experimental",
+        feature = "alloc",
+        esp_idf_comp_joltwallet__littlefs_enabled
+    ))]
     pub struct MountedLittlefs<T> {
         _littlefs: T,
         partition_raw_data: crate::fs::littlefs::PartitionRawData,
     }
 
-    #[cfg(all(feature = "alloc", esp_idf_comp_joltwallet__littlefs_enabled))]
+    #[cfg(all(
+        feature = "experimental",
+        feature = "alloc",
+        esp_idf_comp_joltwallet__littlefs_enabled
+    ))]
     impl<T> MountedLittlefs<T> {
         /// Mount a Littlefs filesystem.
         ///
@@ -248,7 +256,11 @@ pub mod vfs {
         }
     }
 
-    #[cfg(all(feature = "alloc", esp_idf_comp_joltwallet__littlefs_enabled))]
+    #[cfg(all(
+        feature = "experimental",
+        feature = "alloc",
+        esp_idf_comp_joltwallet__littlefs_enabled
+    ))]
     impl<T> Drop for MountedLittlefs<T> {
         fn drop(&mut self) {
             use crate::fs::littlefs::PartitionRawData;
