@@ -1020,7 +1020,9 @@ where
 
     #[cfg(not(esp_idf_spi_master_isr_in_iram))]
     pub async fn read_async(&mut self, read: &mut [u8]) -> Result<(), EspError> {
-        core::pin::pin!(self.transaction_async(&mut [Operation::Read(read)])).await
+        let mut operation = [Operation::Read(read)];
+        let work = core::pin::pin!(self.transaction_async(&mut operation));
+        work.await
     }
 
     pub fn write(&mut self, write: &[u8]) -> Result<(), EspError> {
@@ -1029,7 +1031,9 @@ where
 
     #[cfg(not(esp_idf_spi_master_isr_in_iram))]
     pub async fn write_async(&mut self, write: &[u8]) -> Result<(), EspError> {
-        core::pin::pin!(self.transaction_async(&mut [Operation::Write(write)])).await
+        let mut operation = [Operation::Write(write)];
+        let work = core::pin::pin!(self.transaction_async(&mut operation));
+        work.await
     }
 
     pub fn transfer_in_place(&mut self, buf: &mut [u8]) -> Result<(), EspError> {
@@ -1038,7 +1042,9 @@ where
 
     #[cfg(not(esp_idf_spi_master_isr_in_iram))]
     pub async fn transfer_in_place_async(&mut self, buf: &mut [u8]) -> Result<(), EspError> {
-        core::pin::pin!(self.transaction_async(&mut [Operation::TransferInPlace(buf)])).await
+        let mut operation = [Operation::TransferInPlace(buf)];
+        let work = core::pin::pin!(self.transaction_async(&mut operation));
+        work.await
     }
 
     pub fn transfer(&mut self, read: &mut [u8], write: &[u8]) -> Result<(), EspError> {
@@ -1047,7 +1053,9 @@ where
 
     #[cfg(not(esp_idf_spi_master_isr_in_iram))]
     pub async fn transfer_async(&mut self, read: &mut [u8], write: &[u8]) -> Result<(), EspError> {
-        core::pin::pin!(self.transaction_async(&mut [Operation::Transfer(read, write)])).await
+        let mut operation = [Operation::Transfer(read, write)];
+        let work = core::pin::pin!(self.transaction_async(&mut operation));
+        work.await
     }
 
     fn run<'a, 'c, 'p, P, M>(
@@ -1525,7 +1533,9 @@ where
 
     #[cfg(not(esp_idf_spi_master_isr_in_iram))]
     pub async fn read_async(&mut self, read: &mut [u8]) -> Result<(), EspError> {
-        core::pin::pin!(self.transaction_async(&mut [Operation::Read(read)])).await
+        let mut operation = [Operation::Read(read)];
+        let work = core::pin::pin!(self.transaction_async(&mut operation));
+        work.await
     }
 
     pub fn write(&mut self, write: &[u8]) -> Result<(), EspError> {
@@ -1534,7 +1544,9 @@ where
 
     #[cfg(not(esp_idf_spi_master_isr_in_iram))]
     pub async fn write_async(&mut self, write: &[u8]) -> Result<(), EspError> {
-        core::pin::pin!(self.transaction_async(&mut [Operation::Write(write)])).await
+        let mut operation = [Operation::Write(write)];
+        let work = core::pin::pin!(self.transaction_async(&mut operation));
+        work.await
     }
 
     pub fn transfer_in_place(&mut self, buf: &mut [u8]) -> Result<(), EspError> {
@@ -1543,7 +1555,9 @@ where
 
     #[cfg(not(esp_idf_spi_master_isr_in_iram))]
     pub async fn transfer_in_place_async(&mut self, buf: &mut [u8]) -> Result<(), EspError> {
-        core::pin::pin!(self.transaction_async(&mut [Operation::TransferInPlace(buf)])).await
+        let mut operation = [Operation::TransferInPlace(buf)];
+        let work = core::pin::pin!(self.transaction_async(&mut operation));
+        work.await
     }
 
     pub fn transfer(&mut self, read: &mut [u8], write: &[u8]) -> Result<(), EspError> {
@@ -1552,7 +1566,9 @@ where
 
     #[cfg(not(esp_idf_spi_master_isr_in_iram))]
     pub async fn transfer_async(&mut self, read: &mut [u8], write: &[u8]) -> Result<(), EspError> {
-        core::pin::pin!(self.transaction_async(&mut [Operation::Transfer(read, write)])).await
+        let mut operation = [Operation::Transfer(read, write)];
+        let work = core::pin::pin!(self.transaction_async(&mut operation));
+        work.await
     }
 
     fn run<'a>(
