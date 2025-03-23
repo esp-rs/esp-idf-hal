@@ -766,7 +766,7 @@ impl IpEvent<'_> {
 
     pub fn is_for_handle(&self, handle: *mut esp_netif_t) -> bool {
         self.handle()
-            .map(|event_handle| event_handle == handle)
+            .map(|event_handle| core::ptr::eq(event_handle, handle))
             .unwrap_or(false)
     }
 

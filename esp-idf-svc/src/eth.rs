@@ -1348,7 +1348,7 @@ impl EthEvent {
     }
 
     pub fn is_for_handle(&self, handle: esp_eth_handle_t) -> bool {
-        self.handle() == handle
+        core::ptr::eq(self.handle(), handle)
     }
 
     pub fn handle(&self) -> esp_eth_handle_t {
