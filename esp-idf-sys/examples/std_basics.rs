@@ -2,12 +2,13 @@
 //! but demonstrates, that *linking* with the `esp-idf-sys` library artefacts (and with the Rust Standard Library)
 //! does provide the Rust STD layer on top of ESP IDF!
 
+#![allow(unexpected_cfgs)]
+
 use core::cell::RefCell;
 use core::ptr;
 use core::sync::atomic::{AtomicUsize, Ordering};
 use core::time::Duration;
 
-use std::env;
 use std::io;
 use std::thread;
 
