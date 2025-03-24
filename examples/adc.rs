@@ -24,9 +24,6 @@ fn main() -> anyhow::Result<()> {
     #[cfg(esp32)]
     let mut adc = AdcDriver::new(peripherals.adc2, &Config::new().calibration(true))?;
 
-    #[cfg(esp_idf_version_major = "4")]
-    const ATTENUATION: adc_atten_t = attenuation::DB_11;
-    #[cfg(not(esp_idf_version_major = "4"))]
     const ATTENUATION: adc_atten_t = attenuation::DB_12;
 
     // configuring pin to analog read, you can regulate the adc input voltage range depending on your need
