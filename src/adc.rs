@@ -23,22 +23,17 @@ pub trait Adc: Send {
 
 // NOTE: Will be changed to an enum once C-style enums are usable as const generics
 pub mod attenuation {
-    #[cfg(not(esp_idf_version_major = "4"))]
-    pub use esp_idf_sys::adc_atten_t_ADC_ATTEN_DB_12;
     pub use esp_idf_sys::{
         adc_atten_t, adc_atten_t_ADC_ATTEN_DB_0, adc_atten_t_ADC_ATTEN_DB_11,
-        adc_atten_t_ADC_ATTEN_DB_2_5, adc_atten_t_ADC_ATTEN_DB_6,
+        adc_atten_t_ADC_ATTEN_DB_11 as adc_atten_t_ADC_ATTEN_DB_12, adc_atten_t_ADC_ATTEN_DB_2_5,
+        adc_atten_t_ADC_ATTEN_DB_6,
     };
 
     pub const NONE: adc_atten_t = adc_atten_t_ADC_ATTEN_DB_0;
     pub const DB_2_5: adc_atten_t = adc_atten_t_ADC_ATTEN_DB_2_5;
     pub const DB_6: adc_atten_t = adc_atten_t_ADC_ATTEN_DB_6;
-    #[cfg_attr(
-        not(esp_idf_version_major = "4"),
-        deprecated(since = "0.45.3", note = "Use `DB_12` instead")
-    )]
+    #[deprecated(since = "0.45.3", note = "Use `DB_12` instead")]
     pub const DB_11: adc_atten_t = adc_atten_t_ADC_ATTEN_DB_11;
-    #[cfg(not(esp_idf_version_major = "4"))]
     pub const DB_12: adc_atten_t = adc_atten_t_ADC_ATTEN_DB_12;
 }
 
@@ -457,9 +452,6 @@ impl DirectConverter {
             adc_atten_t_ADC_ATTEN_DB_0 => 950,
             adc_atten_t_ADC_ATTEN_DB_2_5 => 1250,
             adc_atten_t_ADC_ATTEN_DB_6 => 1750,
-            #[cfg(not(esp_idf_version_major = "4"))]
-            adc_atten_t_ADC_ATTEN_DB_12 => 2450,
-            #[cfg(esp_idf_version_major = "4")]
             adc_atten_t_ADC_ATTEN_DB_11 => 2450,
             other => panic!("Unknown attenuation: {}", other),
         };
@@ -469,9 +461,6 @@ impl DirectConverter {
             adc_atten_t_ADC_ATTEN_DB_0 => 750,
             adc_atten_t_ADC_ATTEN_DB_2_5 => 1050,
             adc_atten_t_ADC_ATTEN_DB_6 => 1300,
-            #[cfg(not(esp_idf_version_major = "4"))]
-            adc_atten_t_ADC_ATTEN_DB_12 => 2500,
-            #[cfg(esp_idf_version_major = "4")]
             adc_atten_t_ADC_ATTEN_DB_11 => 2500,
             other => panic!("Unknown attenuation: {}", other),
         };
@@ -481,9 +470,6 @@ impl DirectConverter {
             adc_atten_t_ADC_ATTEN_DB_0 => 950,
             adc_atten_t_ADC_ATTEN_DB_2_5 => 1250,
             adc_atten_t_ADC_ATTEN_DB_6 => 1750,
-            #[cfg(not(esp_idf_version_major = "4"))]
-            adc_atten_t_ADC_ATTEN_DB_12 => 3100,
-            #[cfg(esp_idf_version_major = "4")]
             adc_atten_t_ADC_ATTEN_DB_11 => 3100,
             other => panic!("Unknown attenuation: {}", other),
         };
@@ -1034,13 +1020,9 @@ pub mod continuous {
     pub type AttenNone<T> = Attenuated<{ attenuation::NONE }, T>;
     pub type Atten2p5dB<T> = Attenuated<{ attenuation::DB_2_5 }, T>;
     pub type Atten6dB<T> = Attenuated<{ attenuation::DB_6 }, T>;
-    #[cfg_attr(
-        not(esp_idf_version_major = "4"),
-        deprecated(since = "0.45.3", note = "Use `Atten12dB` instead")
-    )]
+    #[deprecated(since = "0.45.3", note = "Use `Atten12dB` instead")]
     #[allow(deprecated)]
     pub type Atten11dB<T> = Attenuated<{ attenuation::DB_11 }, T>;
-    #[cfg(not(esp_idf_version_major = "4"))]
     pub type Atten12dB<T> = Attenuated<{ attenuation::DB_12 }, T>;
 
     pub trait AdcChannels {

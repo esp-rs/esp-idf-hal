@@ -15,6 +15,8 @@
 //! * Taking a [`Pin`] and [`Channel`] by ref mut, so that they can be used again later.
 //!
 
+#![allow(unexpected_cfgs)]
+
 #[cfg(any(feature = "rmt-legacy", esp_idf_version_major = "4"))]
 fn main() -> anyhow::Result<()> {
     example::main()

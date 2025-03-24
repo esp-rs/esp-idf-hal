@@ -42,17 +42,14 @@
 //! * Usage of the onewire bus driver interface.
 //! * How to iterate through a device search to discover devices on the bus.
 
-use std::time::Duration;
+#![allow(unexpected_cfgs)]
 
-use esp_idf_hal::delay::FreeRtos;
 #[cfg(all(
     esp_idf_soc_rmt_supported,
     not(feature = "rmt-legacy"),
     esp_idf_comp_espressif__onewire_bus_enabled,
 ))]
 use esp_idf_hal::onewire::{OWAddress, OWCommand, OWDriver};
-use esp_idf_hal::peripherals::Peripherals;
-use esp_idf_sys::EspError;
 
 #[cfg(all(
     esp_idf_soc_rmt_supported,
@@ -60,6 +57,11 @@ use esp_idf_sys::EspError;
     esp_idf_comp_espressif__onewire_bus_enabled,
 ))]
 fn main() -> anyhow::Result<()> {
+    use esp_idf_hal::delay::FreeRtos;
+    use esp_idf_hal::peripherals::Peripherals;
+    use esp_idf_hal::sys::EspError;
+    use std::time::Duration;
+
     println!("Starting APP!");
 
     let peripherals = Peripherals::take()?;

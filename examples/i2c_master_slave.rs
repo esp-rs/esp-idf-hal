@@ -13,6 +13,7 @@
 //! 3. Read/write register, write a value to a register addr and read it back.
 //!
 #![allow(unused)]
+#![allow(unexpected_cfgs)]
 
 use esp_idf_hal::delay::BLOCK;
 use esp_idf_hal::gpio::{AnyIOPin, InputPin, OutputPin};

@@ -1,3 +1,5 @@
+#![allow(unexpected_cfgs)]
+
 #[cfg(all(esp_idf_soc_temp_sensor_supported, esp_idf_version_major = "5"))]
 fn main() -> anyhow::Result<()> {
     use esp_idf_hal::delay::FreeRtos;

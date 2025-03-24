@@ -9,6 +9,8 @@
 //! Datasheet (PDF) for a WS2812, which explains how the pulses are to be sent:
 //! https://cdn-shop.adafruit.com/datasheets/WS2812.pdf
 
+#![allow(unexpected_cfgs)]
+
 #[cfg(any(feature = "rmt-legacy", esp_idf_version_major = "4"))]
 fn main() -> anyhow::Result<()> {
     example::main()

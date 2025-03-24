@@ -18,6 +18,8 @@
 //! level0 = High   dur0 = PulseTicks(210)   level1 = Low   dur1 = PulseTicks(0)
 //! Tx Loop
 
+#![allow(unexpected_cfgs)]
+
 #[cfg(any(feature = "rmt-legacy", esp_idf_version_major = "4"))]
 fn main() -> anyhow::Result<()> {
     example::main()
