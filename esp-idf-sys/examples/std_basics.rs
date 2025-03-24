@@ -6,6 +6,7 @@
 #![allow(unexpected_cfgs)]
 #![allow(renamed_and_removed_lints)]
 #![allow(clippy::thread_local_initializer_can_be_made_const)]
+#![allow(deprecated)]
 
 use core::cell::RefCell;
 use core::ptr;

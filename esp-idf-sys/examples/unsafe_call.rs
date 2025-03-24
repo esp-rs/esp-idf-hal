@@ -3,6 +3,7 @@
 
 #![allow(unknown_lints)]
 #![allow(unexpected_cfgs)]
+#![allow(deprecated)]
 
 use esp_idf_sys::esp_get_free_heap_size;
 
