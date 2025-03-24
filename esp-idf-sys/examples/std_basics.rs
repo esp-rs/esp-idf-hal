@@ -2,6 +2,7 @@
 //! but demonstrates, that *linking* with the `esp-idf-sys` library artefacts (and with the Rust Standard Library)
 //! does provide the Rust STD layer on top of ESP IDF!
 
+#![allow(unknown_lints)]
 #![allow(unexpected_cfgs)]
 
 use core::cell::RefCell;
