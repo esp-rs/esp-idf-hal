@@ -84,7 +84,6 @@ jobs:
           chmod a+x $HOME/.cargo/bin/ldproxy
 
       - name: Clippy | Examples
-        if: matrix.target != 'riscv32imac-esp-espidf' || matrix.idf-version != 'v4.4.8'
         env:
           ESP_IDF_VERSION: ${{ matrix.idf-version }}
           ESP_IDF_SDKCONFIG_DEFAULTS: "${{ github.workspace }}/.github/configs/sdkconfig.defaults"
