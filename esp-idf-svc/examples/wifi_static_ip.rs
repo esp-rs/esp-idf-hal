@@ -3,6 +3,9 @@
 //! Add your own ssid and password for the access point
 //! Add your own gateway IP, netmask, and local device IP for interface configuration
 
+#![allow(unknown_lints)]
+#![allow(unexpected_cfgs)]
+
 use core::convert::TryInto;
 
 use std::net::Ipv4Addr;

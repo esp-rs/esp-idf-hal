@@ -7,6 +7,9 @@
 //!
 //! NOTE: This example only works on MCUs that has Thread capabilities, like the ESP32-C6 or ESP32-H2.
 
+#![allow(unknown_lints)]
+#![allow(unexpected_cfgs)]
+
 fn main() -> anyhow::Result<()> {
     esp_idf_svc::sys::link_patches();
     esp_idf_svc::log::EspLogger::initialize_default();

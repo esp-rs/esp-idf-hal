@@ -2,6 +2,9 @@
 //!
 //! To use it, you need an RMII-capable Espressif MCU, like the original ESP32 chip
 
+#![allow(unknown_lints)]
+#![allow(unexpected_cfgs)]
+
 #[cfg(esp32)]
 use esp_idf_svc::{
     eth::{BlockingEth, EspEth, EthDriver},

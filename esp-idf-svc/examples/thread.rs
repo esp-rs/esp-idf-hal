@@ -8,6 +8,9 @@
 //! It is however possible to run this example on other MCUs, using the UART or SPI protocols, but then
 //! you anyway would need _another_, Thread-capable MCU that runs Thread in RCP mode (see the `thread_rcp`) example.
 
+#![allow(unknown_lints)]
+#![allow(unexpected_cfgs)]
+
 fn main() -> anyhow::Result<()> {
     esp_idf_svc::sys::link_patches();
     esp_idf_svc::log::EspLogger::initialize_default();

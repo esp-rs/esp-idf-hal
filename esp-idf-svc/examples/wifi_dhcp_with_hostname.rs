@@ -5,6 +5,9 @@
 //! Once the wifi is connected, the hostname will be set to "foo"
 //! Try pinging it from your PC with `ping foo`
 
+#![allow(unknown_lints)]
+#![allow(unexpected_cfgs)]
+
 use core::convert::TryInto;
 
 use embedded_svc::wifi::{AuthMethod, ClientConfiguration, Configuration as WifiConfiguration};

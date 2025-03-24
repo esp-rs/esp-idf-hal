@@ -1,3 +1,6 @@
+#![allow(unknown_lints)]
+#![allow(unexpected_cfgs)]
+
 #[cfg(esp32)]
 fn main() -> anyhow::Result<()> {
     use std::fs::{read_dir, File};

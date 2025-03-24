@@ -1,3 +1,6 @@
+#![allow(unknown_lints)]
+#![allow(unexpected_cfgs)]
+
 #[cfg(all(esp32, esp_idf_soc_sdmmc_host_supported))]
 fn main() -> anyhow::Result<()> {
     use std::fs::{read_dir, File};

@@ -20,7 +20,7 @@ fn main() -> anyhow::Result<()> {
     let nvs_default_partition: EspNvsPartition<NvsDefault> = EspDefaultNvsPartition::take()?;
 
     let test_namespace = "test_ns";
-    let mut nvs = match EspNvs::new(nvs_default_partition, test_namespace, true) {
+    let nvs = match EspNvs::new(nvs_default_partition, test_namespace, true) {
         Ok(nvs) => {
             info!("Got namespace {:?} from default partition", test_namespace);
             nvs

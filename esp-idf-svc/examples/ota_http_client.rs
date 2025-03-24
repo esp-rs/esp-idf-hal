@@ -15,6 +15,8 @@
 //! After a successful OTA update, you will need to reset the `otadata` partition. Otherwise, the ESP
 //! will continue to boot on the second partition, while `cargo run` is flashing the first one by default.
 //! To reset the `otadata` partition, add `--erase-parts otadata` to the runner command in `.cargo/config.toml`.
+
+#![allow(unknown_lints)]
 #![allow(unexpected_cfgs)]
 
 use anyhow::{anyhow, Context};
@@ -33,7 +35,6 @@ use esp_idf_svc::{
 use esp_idf_sys::esp_app_desc;
 use log::{error, info};
 
-const VERSION: &str = "1.0.0"; // You can pull this from an environment variable at build time using env! macro.
 const OTA_FIRMWARE_URI: &str = "http://your.domain/path/to/firmware";
 
 const SSID: &str = env!("WIFI_SSID");
@@ -81,7 +82,7 @@ fn main() -> anyhow::Result<()> {
     // Note: to enable this feature, you need to also flash the bootloader when flashing your image.
     //       Add `--bootloader ./target/<your arch target>/debug/bootloader.bin` to your runner
     //       command in `.cargo/config.toml`
-    check_firmware_is_valid();
+    check_firmware_is_valid()?;
 
     Ok(())
 }
@@ -156,7 +157,7 @@ fn download_update(
     mut response: Response<&mut EspHttpConnection>,
     update: &mut EspOtaUpdate<'_>,
 ) -> anyhow::Result<()> {
-    let mut buffer = [0 as u8; 1024];
+    let mut buffer = [0_u8; 1024];
 
     // You can optionally read the firmware metadata header.
     // It contains information like version and signature you can check before continuing the update

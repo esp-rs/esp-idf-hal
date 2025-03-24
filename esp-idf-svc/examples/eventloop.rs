@@ -1,10 +1,12 @@
 //! This example demonstrates how to post events in an ESP IDF event loop
 //! - (the system one is used but you can create your own too) -
-//! as well as how to fetch events from the event loop in a callback and asynchronous fashion.
+//!   as well as how to fetch events from the event loop in a callback and asynchronous fashion.
 //!
 //! Note that the example goes one step further by implementing and then posting and receiving a custom event.
 //! However, you can also subscribe to and listen to (and post too) events which are already defined in the ESP IDF itself,
 //! like - say - the Wifi events or the Netif events.
+
+#![allow(unknown_lints)]
 
 use core::ffi::CStr;
 use core::pin::pin;
@@ -84,6 +86,7 @@ enum CustomEvent {
 }
 
 unsafe impl EspEventSource for CustomEvent {
+    #[allow(clippy::manual_c_str_literals)]
     fn source() -> Option<&'static CStr> {
         // String should be unique across the whole project and ESP IDF
         Some(CStr::from_bytes_with_nul(b"DEMO-SERVICE\0").unwrap())

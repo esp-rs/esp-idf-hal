@@ -7,6 +7,9 @@
 //! You only pick one of the three, depending on which chip you have on your board.
 //! Also adjust the EspEth::wrap call below to match your board's chip.
 
+#![allow(unknown_lints)]
+#![allow(unexpected_cfgs)]
+
 fn main() {
     #[cfg(esp32)]
     example::main().unwrap();

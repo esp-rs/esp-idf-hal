@@ -5,6 +5,9 @@
 //!
 //! See the comment below as to how to build the example with ESP IDF 5+.
 
+#![allow(unknown_lints)]
+#![allow(unexpected_cfgs)]
+
 pub fn main() {
     #[cfg(esp_idf_version_major = "4")]
     example::main().unwrap();
