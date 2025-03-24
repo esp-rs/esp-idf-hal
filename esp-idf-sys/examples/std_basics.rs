@@ -21,7 +21,7 @@ fn main() -> Result<(), io::Error> {
 
     // Get backtraces from anyhow; only works for Xtensa arch currently
     #[cfg(target_arch = "xtensa")]
-    env::set_var("RUST_BACKTRACE", "1");
+    std::env::set_var("RUST_BACKTRACE", "1");
 
     test_print();
 
