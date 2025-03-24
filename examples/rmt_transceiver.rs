@@ -18,6 +18,7 @@
 //! level0 = High   dur0 = PulseTicks(210)   level1 = Low   dur1 = PulseTicks(0)
 //! Tx Loop
 
+#![allow(unknown_lints)]
 #![allow(unexpected_cfgs)]
 
 #[cfg(any(feature = "rmt-legacy", esp_idf_version_major = "4"))]

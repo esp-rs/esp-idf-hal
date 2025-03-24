@@ -1,6 +1,7 @@
 //! ADC oneshot example, reading a value form a pin and printing it on the terminal
 //! requires ESP-IDF v5.0 or newer
 
+#![allow(unknown_lints)]
 #![allow(unexpected_cfgs)]
 
 use std::thread;

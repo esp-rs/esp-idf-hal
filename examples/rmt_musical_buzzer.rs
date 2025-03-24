@@ -5,6 +5,7 @@
 //! Based off the ESP-IDF rmt musical buzzer example:
 //! https://github.com/espressif/esp-idf/blob/b092fa073047c957545a0ae9504f04972a8c6d74/examples/peripherals/rmt/musical_buzzer/main/musical_buzzer_example_main.c
 
+#![allow(unknown_lints)]
 #![allow(unexpected_cfgs)]
 
 #[cfg(any(feature = "rmt-legacy", esp_idf_version_major = "4"))]

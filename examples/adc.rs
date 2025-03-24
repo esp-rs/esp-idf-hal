@@ -1,6 +1,7 @@
 //! ADC example, reading a value form a pin and printing it on the terminal
 //!
 
+#![allow(unknown_lints)]
 #![allow(unexpected_cfgs)]
 
 use esp_idf_sys as _; // If using the `binstart` feature of `esp-idf-sys`, always keep this module imported

@@ -42,6 +42,7 @@
 //! * Usage of the onewire bus driver interface.
 //! * How to iterate through a device search to discover devices on the bus.
 
+#![allow(unknown_lints)]
 #![allow(unexpected_cfgs)]
 
 #[cfg(all(

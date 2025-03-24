@@ -1,3 +1,4 @@
+#![allow(unknown_lints)]
 #![allow(unexpected_cfgs)]
 
 #[cfg(all(esp_idf_soc_temp_sensor_supported, esp_idf_version_major = "5"))]

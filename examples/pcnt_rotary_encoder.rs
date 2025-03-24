@@ -6,6 +6,7 @@
 //! threshold and track how much that accounts for and provide an i32 value result
 //!
 
+#![allow(unknown_lints)]
 #![allow(unexpected_cfgs)]
 
 #[cfg(any(esp32, esp32s2, esp32s3))]
