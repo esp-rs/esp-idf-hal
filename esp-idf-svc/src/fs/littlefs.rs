@@ -11,6 +11,8 @@
 //! CONFIG_LITTLEFS_SDMMC_SUPPORT=y
 //! ```
 
+use core::ffi::c_char;
+
 use alloc::ffi::CString;
 
 use crate::{private::cstr::to_cstring_arg, sys::*};
@@ -28,7 +30,7 @@ enum Partition<T> {
 pub(crate) enum PartitionRawData {
     #[cfg(esp_idf_littlefs_sdmmc_support)]
     SdCard(*mut sdmmc_card_t),
-    PartitionLabel(*const i8),
+    PartitionLabel(*const c_char),
     RawPartition(*mut esp_partition_t),
 }
 
