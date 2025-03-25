@@ -4,7 +4,7 @@ target = "riscv32imc-esp-espidf"
 
 [target.xtensa-esp32-espidf]
 linker = "ldproxy"
-rustflags = ["--cfg", "espidf_time64"]
+rustflags = ["--cfg", "espidf_time32"]
 
 [target.xtensa-esp32s2-espidf]
 linker = "ldproxy"
@@ -24,7 +24,7 @@ rustflags = ["--cfg", "espidf_time64"]
 
 [env]
 ESP_IDF_SDKCONFIG_DEFAULTS = ".github/configs/sdkconfig.defaults"
-ESP_IDF_VERSION = "v5.2.3"
+ESP_IDF_VERSION = "v4.4.8"
 
 [unstable]
 build-std = ["std", "panic_abort"]

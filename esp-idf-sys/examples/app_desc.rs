@@ -3,7 +3,6 @@
 
 #![allow(unknown_lints)]
 #![allow(unexpected_cfgs)]
-#![allow(deprecated)]
 
 esp_idf_sys::esp_app_desc! {}
 
