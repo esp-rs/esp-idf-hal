@@ -20,6 +20,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - OTA: New method - `EspFirmwareInfoLoad::fetch_native` - returning the full native ESP-IDF image descriptor structures
 - Added `use_serde` feature, which enables the `use_serde` feature of `embedded-svc` crate, allowing to deserialize configuration structs.
 - OTA: Allow specifying image size to speed up erase
+- Bluetooth: New methods `EspBleGap::start_scanning` and `EspBleGap::stop_scanning`
+- New example, `bt_ble_gap_scanner` to demonstrate usage of added ble scanning methods
 
 ## [0.51.0] - 2025-01-15
 

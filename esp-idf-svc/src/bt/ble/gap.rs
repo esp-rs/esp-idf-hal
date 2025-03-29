@@ -656,6 +656,14 @@ where
         esp!(unsafe { esp_ble_set_encryption(&addr.0 as *const _ as *mut _, encryption as u32) })
     }
 
+    pub fn start_scanning(&self, duration: u32) -> Result<(), EspError> {
+        esp!(unsafe { esp_ble_gap_start_scanning(duration) })
+    }
+
+    pub fn stop_scanning(&self) -> Result<(), EspError> {
+        esp!(unsafe { esp_ble_gap_stop_scanning() })
+    }
+
     pub fn start_advertising(&self) -> Result<(), EspError> {
         let mut adv_param: esp_ble_adv_params_t = esp_ble_adv_params_t {
             // TODO
