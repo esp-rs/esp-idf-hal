@@ -19,6 +19,9 @@
 //! CONFIG_BT_BTC_TASK_STACK_SIZE=15000
 //! CONFIG_BT_BLE_DYNAMIC_ENV_MEMORY=y
 
+#![allow(unknown_lints)]
+#![allow(unexpected_cfgs)]
+
 #[cfg(all(not(esp32s2), feature = "experimental"))]
 fn main() -> anyhow::Result<()> {
     example::main()
