@@ -22,8 +22,8 @@ fn main() -> anyhow::Result<()> {
 
     println!("setup pins");
     let peripherals = Peripherals::take().context("failed to take Peripherals")?;
-    let mut pin_a = peripherals.pins.gpio5;
-    let mut pin_b = peripherals.pins.gpio6;
+    let mut pin_a = peripherals.pins.gpio4;
+    let mut pin_b = peripherals.pins.gpio5;
     println!("setup encoder");
     let encoder = Encoder::new(peripherals.pcnt0, &mut pin_a, &mut pin_b)?;
 
