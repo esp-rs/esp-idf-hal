@@ -112,7 +112,7 @@ pub mod config {
                     },
                 },
                 channel: s.channel.unwrap_or_default(),
-                scan_type: matches!(s.scan_type, ScanType::Active { .. }).into(),
+                scan_type: matches!(s.scan_type, ScanType::Passive { .. }).into(),
                 show_hidden: s.show_hidden,
                 ..Default::default()
             }

@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added argument `subprotocol_list` to `ws_handler` to allow subprotocols to be supported by WebSockets
 
 ### Fixed
+- Fix wrong conversion from `ScanType` to `u32` in Wi-Fi configuration
 - Fix wrong BT configuration version on the c6 (issue #556)
 - Fix inconsistent mutability in NVS (#567)
 - Fix #570 (c_char vs i8 mismatch on newer rustc toolchains)
