@@ -32,7 +32,7 @@ fn main() -> anyhow::Result<()> {
         ledc_driver.fade_with_time(0, Duration::from_secs(2).as_millis() as i32, true)?;
     }
 
-    #[cfg(not(esp32))]
+    #[cfg(not(any(esp32, esp_idf_version_major = "4")))]
     {
         // Fade up over 2 seconds, but abort after 1
         ledc_driver.fade_with_time(

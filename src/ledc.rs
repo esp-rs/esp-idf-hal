@@ -385,7 +385,7 @@ impl<'d> LedcDriver<'d> {
         Ok(())
     }
 
-    #[cfg(not(esp32))]
+    #[cfg(not(any(esp32, esp_idf_version_major = "4")))]
     /// Stop LED fading before target duty cycle is reached
     pub fn fade_stop(&mut self) -> Result<(), EspError> {
         unsafe {
