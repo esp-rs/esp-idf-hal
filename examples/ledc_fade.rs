@@ -32,6 +32,16 @@ fn main() -> anyhow::Result<()> {
         ledc_driver.fade_with_time(0, Duration::from_secs(2).as_millis() as i32, true)?;
     }
 
+    // Fade up over 2 seconds, but abort after 1
+    ledc_driver.fade_with_time(
+        ledc_driver.get_max_duty(),
+        Duration::from_secs(2).as_millis() as i32,
+        false,
+    )?;
+    FreeRtos::delay_ms(1000);
+    // Fade will stop halfway
+    ledc_driver.fade_stop()?;
+
     ledc_driver.set_duty(ledc_driver.get_max_duty() / 10)?;
     FreeRtos::delay_ms(10000);
 

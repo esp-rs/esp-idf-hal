@@ -384,6 +384,14 @@ impl<'d> LedcDriver<'d> {
         }
         Ok(())
     }
+
+    /// Stop LED fading before target duty cycle is reached
+    pub fn fade_stop(&mut self) -> Result<(), EspError> {
+        unsafe {
+            esp!(ledc_fade_stop(self.speed_mode, self.channel()))?;
+        }
+        Ok(())
+    }
 }
 
 impl Drop for LedcDriver<'_> {
