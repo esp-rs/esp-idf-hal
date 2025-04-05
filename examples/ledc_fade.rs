@@ -1,3 +1,5 @@
+#![allow(unexpected_cfgs)]
+
 use esp_idf_hal::delay::FreeRtos;
 use esp_idf_hal::ledc::{config::TimerConfig, LedcDriver, LedcTimerDriver};
 use esp_idf_hal::peripherals::Peripherals;
