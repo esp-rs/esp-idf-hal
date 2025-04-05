@@ -13,7 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - `Send` for `AsyncCanDriver`
 - `DB_12` ADC attenuation
-- `fade_with_time`, `fade_with_step` for `LedcDriver`
+- `fade_with_time`, `fade_with_step`, `fade_stop` for `LedcDriver`
 
 ### Fixed
 - Fix pcnt_rotary_encoder example for esp32

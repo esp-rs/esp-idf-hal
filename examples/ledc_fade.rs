@@ -1,3 +1,5 @@
+#![allow(unexpected_cfgs)]
+
 use esp_idf_hal::delay::FreeRtos;
 use esp_idf_hal::ledc::{config::TimerConfig, LedcDriver, LedcTimerDriver};
 use esp_idf_hal::peripherals::Peripherals;
@@ -30,6 +32,19 @@ fn main() -> anyhow::Result<()> {
 
         // Fade down over 2 seconds
         ledc_driver.fade_with_time(0, Duration::from_secs(2).as_millis() as i32, true)?;
+    }
+
+    #[cfg(not(any(esp32, esp_idf_version_major = "4")))]
+    {
+        // Fade up over 2 seconds, but abort after 1
+        ledc_driver.fade_with_time(
+            ledc_driver.get_max_duty(),
+            Duration::from_secs(2).as_millis() as i32,
+            false,
+        )?;
+        FreeRtos::delay_ms(1000);
+        // Fade will stop halfway
+        ledc_driver.fade_stop()?;
     }
 
     ledc_driver.set_duty(ledc_driver.get_max_duty() / 10)?;
