@@ -380,7 +380,7 @@ where
             if T::is_system() {
                 unsafe {
                     esp!(esp_event_handler_instance_unregister(
-                        self.source.map(ffi::CStr::as_ptr).unwrap_or(ptr::null()),
+                        self.source.map(ffi::CStr::as_ptr).unwrap_or_default(),
                         self.event_id,
                         self.handler_instance
                     ))
@@ -393,7 +393,7 @@ where
 
                     esp!(esp_event_handler_instance_unregister_with(
                         user.0,
-                        self.source.map(ffi::CStr::as_ptr).unwrap_or(ptr::null()),
+                        self.source.map(ffi::CStr::as_ptr).unwrap_or_default(),
                         self.event_id,
                         self.handler_instance
                     ))

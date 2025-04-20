@@ -632,7 +632,7 @@ where
                 status as _,
                 response
                     .map(|response| &response.0 as *const _)
-                    .unwrap_or(core::ptr::null()) as *mut _,
+                    .unwrap_or_default() as *mut _,
             )
         })
     }
