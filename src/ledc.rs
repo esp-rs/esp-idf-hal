@@ -449,13 +449,13 @@ impl embedded_hal_0_2::PwmPin for LedcDriver<'_> {
 
     fn disable(&mut self) {
         if let Err(e) = self.disable() {
-            panic!("disabling PWM failed: {}", e);
+            panic!("disabling PWM failed: {e}");
         }
     }
 
     fn enable(&mut self) {
         if let Err(e) = self.enable() {
-            panic!("enabling PWM failed: {}", e);
+            panic!("enabling PWM failed: {e}");
         }
     }
 
@@ -469,7 +469,7 @@ impl embedded_hal_0_2::PwmPin for LedcDriver<'_> {
 
     fn set_duty(&mut self, duty: Duty) {
         if let Err(e) = self.set_duty(duty) {
-            panic!("updating duty failed: {}", e);
+            panic!("updating duty failed: {e}");
         }
     }
 }

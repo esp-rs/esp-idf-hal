@@ -1988,6 +1988,7 @@ fn new_common<UART: Uart>(
     })?;
 
     esp!(unsafe {
+        #[allow(clippy::unwrap_or_default)]
         uart_driver_install(
             UART::port(),
             if rx.is_some() {

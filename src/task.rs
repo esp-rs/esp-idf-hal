@@ -219,7 +219,7 @@ pub fn get_idle_task(core: crate::cpu::Core) -> TaskHandle_t {
 
 /// Executes the supplied future on the current thread, thus blocking it until the future becomes ready.
 #[cfg(feature = "alloc")]
-pub fn block_on<F>(mut fut: F) -> F::Output
+pub fn block_on<F>(fut: F) -> F::Output
 where
     F: Future,
 {
@@ -383,6 +383,7 @@ pub mod thread {
 
     impl From<&ThreadSpawnConfiguration> for esp_pthread_cfg_t {
         fn from(conf: &ThreadSpawnConfiguration) -> Self {
+            #[allow(clippy::unwrap_or_default)]
             Self {
                 thread_name: conf
                     .name

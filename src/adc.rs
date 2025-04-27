@@ -453,7 +453,7 @@ impl DirectConverter {
             adc_atten_t_ADC_ATTEN_DB_2_5 => 1250,
             adc_atten_t_ADC_ATTEN_DB_6 => 1750,
             adc_atten_t_ADC_ATTEN_DB_11 => 2450,
-            other => panic!("Unknown attenuation: {}", other),
+            other => panic!("Unknown attenuation: {other}"),
         };
 
         #[cfg(any(esp32c3, esp32s2, esp32c2, esp32h2, esp32c5, esp32c6, esp32p4))]
@@ -462,7 +462,7 @@ impl DirectConverter {
             adc_atten_t_ADC_ATTEN_DB_2_5 => 1050,
             adc_atten_t_ADC_ATTEN_DB_6 => 1300,
             adc_atten_t_ADC_ATTEN_DB_11 => 2500,
-            other => panic!("Unknown attenuation: {}", other),
+            other => panic!("Unknown attenuation: {other}"),
         };
 
         #[cfg(esp32s3)]
@@ -471,7 +471,7 @@ impl DirectConverter {
             adc_atten_t_ADC_ATTEN_DB_2_5 => 1250,
             adc_atten_t_ADC_ATTEN_DB_6 => 1750,
             adc_atten_t_ADC_ATTEN_DB_11 => 3100,
-            other => panic!("Unknown attenuation: {}", other),
+            other => panic!("Unknown attenuation: {other}"),
         };
 
         mv

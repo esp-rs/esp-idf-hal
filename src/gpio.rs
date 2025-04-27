@@ -259,7 +259,7 @@ impl From<gpio_drive_cap_t> for DriveStrength {
             gpio_drive_cap_t_GPIO_DRIVE_CAP_1 => DriveStrength::I10mA,
             gpio_drive_cap_t_GPIO_DRIVE_CAP_2 => DriveStrength::I20mA,
             gpio_drive_cap_t_GPIO_DRIVE_CAP_3 => DriveStrength::I40mA,
-            other => panic!("Unknown GPIO pin drive capability: {}", other),
+            other => panic!("Unknown GPIO pin drive capability: {other}"),
         }
     }
 }
