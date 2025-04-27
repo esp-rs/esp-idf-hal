@@ -624,8 +624,8 @@ where
         status: GattStatus,
         response: Option<&GattResponse>,
     ) -> Result<(), EspError> {
-        #[allow(clippy::unwrap_or_default)]
         esp!(unsafe {
+            #[allow(clippy::unwrap_or_default)]
             esp_ble_gatts_send_response(
                 gatts_if,
                 conn_id,
