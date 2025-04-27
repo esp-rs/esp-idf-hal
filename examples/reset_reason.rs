@@ -7,10 +7,10 @@ fn main() -> anyhow::Result<()> {
     esp_idf_sys::link_patches();
 
     let wakeup_reason = esp_idf_hal::reset::WakeupReason::get();
-    println!("Wakeup reason: {:?}", wakeup_reason);
+    println!("Wakeup reason: {wakeup_reason:?}");
 
     let reset_reason = esp_idf_hal::reset::ResetReason::get();
-    println!("Reset reason: {:?}", reset_reason);
+    println!("Reset reason: {reset_reason:?}");
 
     thread::sleep(time::Duration::from_millis(1000));
 
