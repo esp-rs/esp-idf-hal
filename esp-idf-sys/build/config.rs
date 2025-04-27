@@ -105,7 +105,7 @@ impl BuildConfig {
     pub fn with_cargo_metadata(&mut self) -> Result<()> {
         // workaround for https://github.com/esp-rs/esp-idf-sys/issues/260
         let current_target = std::env::var("TARGET")?;
-        let filter_string = format!("--filter-platform={}", current_target);
+        let filter_string = format!("--filter-platform={current_target}");
 
         let metadata = cargo_metadata::MetadataCommand::new()
             .current_dir(workspace_dir()?)
