@@ -376,11 +376,14 @@ where
     T: EspEventLoopType,
 {
     fn drop(&mut self) {
+        #[allow(clippy::unwrap_or_default)]
         if let Some(handle) = self.event_loop_handle.upgrade() {
             if T::is_system() {
                 unsafe {
                     esp!(esp_event_handler_instance_unregister(
-                        self.source.map(ffi::CStr::as_ptr).unwrap_or_default(),
+                        self.source
+                            .map(ffi::CStr::as_ptr)
+                            .unwrap_or(core::ptr::null()),
                         self.event_id,
                         self.handler_instance
                     ))
@@ -393,7 +396,9 @@ where
 
                     esp!(esp_event_handler_instance_unregister_with(
                         user.0,
-                        self.source.map(ffi::CStr::as_ptr).unwrap_or_default(),
+                        self.source
+                            .map(ffi::CStr::as_ptr)
+                            .unwrap_or(core::ptr::null()),
                         self.event_id,
                         self.handler_instance
                     ))
