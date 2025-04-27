@@ -953,7 +953,7 @@ impl<'d> WifiDriver<'d> {
                 Newtype(ap_info_raw).try_into()
             })
             .filter_map(|r| r.ok())
-            .inspect(|ap_info| ::log::debug!("Found access point {:?}", ap_info))
+            .inspect(|ap_info| ::log::debug!("Found access point {ap_info:?}"))
             .collect();
 
         Ok((result, scanned_count))

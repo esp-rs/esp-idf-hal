@@ -710,7 +710,7 @@ where
         let param = unsafe { param.as_ref() }.unwrap();
         let event = BleGapEvent::from((event, param));
 
-        debug!("Got event {{ {:#?} }}", event);
+        debug!("Got event {{ {event:#?} }}");
 
         SINGLETON.call(event);
     }
