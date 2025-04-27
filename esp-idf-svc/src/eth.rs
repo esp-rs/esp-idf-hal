@@ -864,7 +864,7 @@ impl<'d, T> EthDriver<'d, T> {
                 )
             })?;
 
-            ::log::info!("Attached MAC address: {:?}", mac_addr);
+            ::log::info!("Attached MAC address: {mac_addr:?}");
         }
 
         let (waitable, subscription) = Self::subscribe(handle, &sysloop)?;

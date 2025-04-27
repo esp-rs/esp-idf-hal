@@ -868,7 +868,7 @@ where
         duration: Option<Duration>,
     ) -> Result<(), EspError> {
         if let Some(duration) = duration {
-            debug!("About to wait for duration {:?}", duration);
+            debug!("About to wait for duration {duration:?}");
 
             let (timeout, _) =
                 self.waitable
@@ -961,7 +961,7 @@ mod async_wait {
             });
 
             if let Some(duration) = duration {
-                debug!("About to wait for duration {:?}", duration);
+                debug!("About to wait for duration {duration:?}");
 
                 let timer_wait = self.timer.after(duration);
 

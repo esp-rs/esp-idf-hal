@@ -641,7 +641,7 @@ impl<'d> WifiDriver<'d> {
     pub fn get_capabilities(&self) -> Result<EnumSet<Capability>, EspError> {
         let caps = Capability::Client | Capability::AccessPoint | Capability::Mixed;
 
-        ::log::debug!("Providing capabilities: {:?}", caps);
+        ::log::debug!("Providing capabilities: {caps:?}");
 
         Ok(caps)
     }
@@ -789,7 +789,7 @@ impl<'d> WifiDriver<'d> {
     /// Calls [`crate::sys::esp_wifi_set_mode`](crate::sys::esp_wifi_set_mode)
     /// and [`crate::sys::esp_wifi_set_config`](crate::sys::esp_wifi_set_config)
     pub fn set_configuration(&mut self, conf: &Configuration) -> Result<(), EspError> {
-        ::log::debug!("Setting configuration: {:?}", conf);
+        ::log::debug!("Setting configuration: {conf:?}");
 
         match conf {
             Configuration::None => {
@@ -985,7 +985,7 @@ impl<'d> WifiDriver<'d> {
                 Newtype(ap_info_raw).try_into()
             })
             .filter_map(|r| r.ok())
-            .inspect(|ap_info| ::log::debug!("Found access point {:?}", ap_info))
+            .inspect(|ap_info| ::log::debug!("Found access point {ap_info:?}"))
             .collect();
 
         Ok(result)
@@ -1110,7 +1110,7 @@ impl<'d> WifiDriver<'d> {
         esp!(unsafe { esp_wifi_sta_get_ap_info(&mut ap_info_raw) })?;
         let ap_info: AccessPointInfo = Newtype(&ap_info_raw).try_into().unwrap();
 
-        ::log::debug!("AP Info: {:?}", ap_info);
+        ::log::debug!("AP Info: {ap_info:?}");
         Ok(ap_info)
     }
 
@@ -1252,7 +1252,7 @@ impl<'d> WifiDriver<'d> {
         let current_config = self.get_sta_conf()?;
 
         if current_config != *conf {
-            ::log::debug!("Setting STA configuration: {:?}", conf);
+            ::log::debug!("Setting STA configuration: {conf:?}");
 
             let mut wifi_config = wifi_config_t {
                 sta: Newtype::<wifi_sta_config_t>::try_from(conf)?.0,
@@ -1284,7 +1284,7 @@ impl<'d> WifiDriver<'d> {
         let current_config = self.get_ap_conf()?;
 
         if current_config != *conf {
-            ::log::debug!("Setting AP configuration: {:?}", conf);
+            ::log::debug!("Setting AP configuration: {conf:?}");
 
             let mut wifi_config = wifi_config_t {
                 ap: Newtype::<wifi_ap_config_t>::try_from(conf)?.0,
@@ -1323,7 +1323,7 @@ impl<'d> WifiDriver<'d> {
         let mut found_ap: u16 = 0;
         esp!(unsafe { esp_wifi_scan_get_ap_num(&mut found_ap as *mut _) })?;
 
-        ::log::debug!("Found {} access points", found_ap);
+        ::log::debug!("Found {found_ap} access points");
 
         Ok(found_ap as usize)
     }
@@ -1338,7 +1338,7 @@ impl<'d> WifiDriver<'d> {
 
         esp!(unsafe { esp_wifi_scan_get_ap_records(&mut ap_count, ap_infos_raw.as_mut_ptr(),) })?;
 
-        ::log::debug!("Got info for {} access points", ap_count);
+        ::log::debug!("Got info for {ap_count} access points");
 
         Ok(ap_count as usize)
     }

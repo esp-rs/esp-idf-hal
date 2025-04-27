@@ -598,7 +598,7 @@ where
             ))?;
 
             let data = core::slice::from_raw_parts(data, len as _);
-            trace!("len: {:?}, data: {:p}", len, data);
+            trace!("len: {len:?}, data: {data:p}");
 
             if buf.len() < len as _ {
                 Err(EspError::from_infallible::<ESP_ERR_INVALID_ARG>())?;
@@ -683,7 +683,7 @@ where
         let param = unsafe { param.as_ref() }.unwrap();
         let event = GattsEvent::from((event, param));
 
-        debug!("Got event {{ {:#?} }}", event);
+        debug!("Got event {{ {event:#?} }}");
 
         SINGLETON.call((gatts_if, event));
     }

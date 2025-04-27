@@ -385,7 +385,7 @@ impl<'a> EspHttpServer<'a> {
             }
         }
 
-        info!("Started Httpd server with config {:?}", conf);
+        info!("Started Httpd server with config {conf:?}");
 
         let server = Self {
             sd: handle,
@@ -1137,22 +1137,15 @@ impl<'a> EspHttpConnection<'a> {
         E: Debug,
     {
         if self.headers.is_some() {
-            info!(
-                "About to handle internal error [{:?}], response not sent yet",
-                &error
-            );
+            info!("About to handle internal error [{error:?}], response not sent yet");
 
             if let Err(error2) = self.render_error(&error) {
                 warn!(
-                    "Internal error[{}] while rendering another internal error:\n{:?}",
-                    error2, error
+                    "Internal error[{error2}] while rendering another internal error:\n{error:?}"
                 );
             }
         } else {
-            warn!(
-                "Unhandled internal error [{:?}], response is already sent",
-                error
-            );
+            warn!("Unhandled internal error [{error:?}], response is already sent");
         }
     }
 
@@ -1658,7 +1651,7 @@ pub mod ws {
         where
             E: Debug,
         {
-            warn!("Unhandled internal error [{:?}]:\n{:?}", error, error);
+            warn!("Unhandled internal error [{error:?}]:\n{error:?}");
 
             ESP_OK as _
         }

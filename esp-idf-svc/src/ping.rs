@@ -63,10 +63,7 @@ impl EspPing {
     }
 
     pub fn ping(&mut self, ip: ipv4::Ipv4Addr, conf: &Configuration) -> Result<Summary, EspError> {
-        info!(
-            "About to run a summary ping {} with configuration {:?}",
-            ip, conf
-        );
+        info!("About to run a summary ping {ip} with configuration {conf:?}");
 
         let mut tracker = Tracker::new(Some(nop_callback));
 
@@ -81,10 +78,7 @@ impl EspPing {
         conf: &Configuration,
         reply_callback: F,
     ) -> Result<Summary, EspError> {
-        info!(
-            "About to run a detailed ping {} with configuration {:?}",
-            ip, conf
-        );
+        info!("About to run a detailed ping {ip} with configuration {conf:?}");
 
         let mut tracker = Tracker::new(Some(reply_callback));
 
@@ -144,7 +138,7 @@ impl EspPing {
             return Err(EspError::from_infallible::<ESP_ERR_INVALID_ARG>());
         }
 
-        info!("Ping session established, got handle {:?}", handle);
+        info!("Ping session established, got handle {handle:?}");
 
         {
             let mut running = tracker.waitable.state.lock();
@@ -224,10 +218,7 @@ impl EspPing {
         #[cfg(esp_idf_lwip_ipv6)]
         let addr = ipv4::Ipv4Addr::from(target_addr.u_addr.ip4.addr);
 
-        info!(
-            "From {} icmp_seq={} ttl={} time={}ms bytes={}",
-            addr, seqno, ttl, elapsed_time, recv_len
-        );
+        info!("From {addr} icmp_seq={seqno} ttl={ttl} time={elapsed_time}ms bytes={recv_len}");
 
         if let Some(reply_callback) = tracker.reply_callback.as_mut() {
             Self::update_summary(handle, &mut tracker.summary);

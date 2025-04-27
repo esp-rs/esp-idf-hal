@@ -1269,7 +1269,7 @@ mod driver {
                 ..Default::default()
             };
 
-            debug!("Post attach ifconfig: {:?}", driver_ifconfig);
+            debug!("Post attach ifconfig: {driver_ifconfig:?}");
 
             // d->base.netif = esp_netif; TODO: This is weird; the netif in base is already set on constructor?
 
