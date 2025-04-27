@@ -1828,7 +1828,7 @@ impl EspEventDeserializer for ThreadEvent {
             esp_openthread_event_t_OPENTHREAD_EVENT_REMOVE_MESHCOP_E => {
                 ThreadEvent::MeshcopERemoveStarted
             }
-            _ => panic!("unknown event ID: {}", event_id),
+            _ => panic!("unknown event ID: {event_id}"),
         }
     }
 }

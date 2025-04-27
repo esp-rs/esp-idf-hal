@@ -2381,7 +2381,7 @@ impl EspEventDeserializer for WifiEvent<'_> {
                     new_snd: payload.new_snd.try_into().ok(),
                 })
             }
-            _ => panic!("unknown event ID: {}", event_id),
+            _ => panic!("unknown event ID: {event_id}"),
         }
     }
 }

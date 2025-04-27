@@ -1388,7 +1388,7 @@ impl EspEventDeserializer for EthEvent {
         } else if event_id == eth_event_t_ETHERNET_EVENT_DISCONNECTED {
             EthEvent::Disconnected(*eth_handle_ref.unwrap() as _)
         } else {
-            panic!("Unknown event ID: {}", event_id);
+            panic!("Unknown event ID: {event_id}");
         }
     }
 }

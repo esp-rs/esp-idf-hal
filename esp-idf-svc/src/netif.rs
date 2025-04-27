@@ -835,7 +835,7 @@ impl EspEventDeserializer for IpEvent<'_> {
 
             IpEvent::DhcpIpDeassigned(netif_handle_mut as *mut _)
         } else {
-            panic!("Unknown event ID: {}", event_id);
+            panic!("Unknown event ID: {event_id}");
         }
     }
 }
@@ -1426,7 +1426,7 @@ mod ppp {
                     PppEvent::PhaseDisconnect
                 }
                 esp_netif_ppp_status_event_t_NETIF_PPP_CONNECT_FAILED => PppEvent::PhaseFailed,
-                _ => panic!("Unknown event ID: {}", event_id),
+                _ => panic!("Unknown event ID: {event_id}"),
             }
         }
     }

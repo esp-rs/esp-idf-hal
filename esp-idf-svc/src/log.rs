@@ -257,12 +257,12 @@ impl ::log::Log for EspLogger {
             let mut stdout = EspStdout::new();
 
             if let Some(color) = color {
-                write!(stdout, "\x1b[0;{}m", color).unwrap();
+                write!(stdout, "\x1b[0;{color}m").unwrap();
             }
-            write!(stdout, "{} (", marker).unwrap();
+            write!(stdout, "{marker} (").unwrap();
             if cfg!(esp_idf_log_timestamp_source_rtos) {
                 let timestamp = unsafe { esp_log_timestamp() };
-                write!(stdout, "{}", timestamp).unwrap();
+                write!(stdout, "{timestamp}").unwrap();
             } else if cfg!(esp_idf_log_timestamp_source_system) {
                 // TODO: https://github.com/esp-rs/esp-idf-svc/pull/494 - official usage of
                 // `esp_log_timestamp_str()` should be tracked and replace the not thread-safe
@@ -270,9 +270,9 @@ impl ::log::Log for EspLogger {
                 // returning a pointer to a static buffer containing the c-string.
                 let timestamp =
                     unsafe { CStr::from_ptr(esp_log_system_timestamp()).to_str().unwrap() };
-                write!(stdout, "{}", timestamp).unwrap();
+                write!(stdout, "{timestamp}").unwrap();
             }
-            write!(stdout, ") {}: {}", target, args).unwrap();
+            write!(stdout, ") {target}: {args}").unwrap();
             if color.is_some() {
                 write!(stdout, "\x1b[0m").unwrap();
             }

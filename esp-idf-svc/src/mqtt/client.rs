@@ -1074,7 +1074,7 @@ impl<'a> EspMqttEvent<'a> {
                 },
             },
             esp_mqtt_event_id_t_MQTT_EVENT_DELETED => EventPayload::Deleted(self.0.msg_id as _),
-            other => panic!("Unknown message type: {}", other),
+            other => panic!("Unknown message type: {other}"),
         }
     }
 }

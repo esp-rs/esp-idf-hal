@@ -54,7 +54,7 @@ impl From<Method> for Newtype<(esp_http_client_method_t, ())> {
                 Method::Subscribe => esp_http_client_method_t_HTTP_METHOD_SUBSCRIBE,
                 Method::Unsubscribe => esp_http_client_method_t_HTTP_METHOD_UNSUBSCRIBE,
                 Method::Patch => esp_http_client_method_t_HTTP_METHOD_PATCH,
-                method => panic!("Method {:?} is not supported", method),
+                method => panic!("Method {method:?} is not supported"),
             },
             (),
         ))
