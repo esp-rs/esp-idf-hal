@@ -155,7 +155,7 @@ mod example {
 
         fn check_esp_status(&self, status: Result<(), EspError>) {
             if let Err(e) = status {
-                warn!("Got status: {:?}", e);
+                warn!("Got status: {e:?}");
             }
         }
     }
