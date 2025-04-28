@@ -47,6 +47,6 @@ fn main() -> Result<(), EspError> {
         let mut buffer = String::new();
         std::io::stdin().read_line(&mut buffer).unwrap();
 
-        println!("You entered: {}", buffer);
+        println!("You entered: {buffer}");
     }
 }
