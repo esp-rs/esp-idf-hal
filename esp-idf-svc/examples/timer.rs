@@ -30,7 +30,7 @@ fn run() -> Result<(), EspError> {
         timer_service.timer(move || {
             let current = counter.fetch_add(1, Ordering::SeqCst);
 
-            info!("Callback timer reports tick: {}", current);
+            info!("Callback timer reports tick: {current}");
         })?
     };
 
@@ -46,7 +46,7 @@ fn run() -> Result<(), EspError> {
             async_timer.after(Duration::from_secs(3)).await?;
 
             let current = counter.fetch_add(1, Ordering::SeqCst);
-            info!("Async timer reports tick: {}", current);
+            info!("Async timer reports tick: {current}");
         }
     }))
 }
