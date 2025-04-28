@@ -32,10 +32,10 @@ fn main() -> anyhow::Result<()> {
     let test_namespace = "test_ns";
     let nvs = match EspNvs::new(nvs_default_partition, test_namespace, true) {
         Ok(nvs) => {
-            info!("Got namespace {:?} from default partition", test_namespace);
+            info!("Got namespace {test_namespace:?} from default partition");
             nvs
         }
-        Err(e) => panic!("Could't get namespace {:?}", e),
+        Err(e) => panic!("Could't get namespace {e:?}"),
     };
 
     let key_raw_u8 = "test_raw_u8";
@@ -46,7 +46,7 @@ fn main() -> anyhow::Result<()> {
             Ok(_) => info!("Key updated"),
             // You can find the meaning of the error codes in the output of the error branch in:
             // https://docs.espressif.com/projects/esp-idf/en/latest/esp32/api-reference/error-codes.html
-            Err(e) => info!("Key not updated {:?}", e),
+            Err(e) => info!("Key not updated {e:?}"),
         };
     }
 
@@ -55,10 +55,10 @@ fn main() -> anyhow::Result<()> {
 
         match nvs.get_raw(key_raw_u8, key_raw_u8_data) {
             Ok(v) => match v {
-                Some(vv) => info!("{:?} = {:?}", key_raw_u8, vv),
+                Some(vv) => info!("{key_raw_u8:?} = {vv:?}"),
                 None => todo!(),
             },
-            Err(e) => info!("Couldn't get key {} because{:?}", key_raw_u8, e),
+            Err(e) => info!("Couldn't get key {key_raw_u8} because{e:?}"),
         };
     }
 
@@ -71,7 +71,7 @@ fn main() -> anyhow::Result<()> {
             &to_vec::<&str, 100>(&key_raw_str_data).unwrap(),
         ) {
             Ok(_) => info!("Key {} updated", key_raw_str),
-            Err(e) => info!("Key {} not updated {:?}", key_raw_str, e),
+            Err(e) => info!("Key {key_raw_str} not updated {e:?}"),
         };
     }
 
@@ -84,7 +84,7 @@ fn main() -> anyhow::Result<()> {
                     info!("{:?} = {:?}", key_raw_str, from_bytes::<&str>(the_str));
                 }
             }
-            Err(e) => info!("Couldn't get key {} because {:?}", key_raw_str, e),
+            Err(e) => info!("Couldn't get key {key_raw_str} because {e:?}"),
         };
     }
 
@@ -100,8 +100,8 @@ fn main() -> anyhow::Result<()> {
             key_raw_struct,
             &to_vec::<StructToBeStored, 100>(&key_raw_struct_data).unwrap(),
         ) {
-            Ok(_) => info!("Key {} updated", key_raw_struct),
-            Err(e) => info!("key {} not updated {:?}", key_raw_struct, e),
+            Ok(_) => info!("Key {key_raw_struct} updated"),
+            Err(e) => info!("key {key_raw_struct} not updated {e:?}"),
         };
     }
 
@@ -118,7 +118,7 @@ fn main() -> anyhow::Result<()> {
                     )
                 }
             }
-            Err(e) => info!("Couldn't get key {} because {:?}", key_raw_struct, e),
+            Err(e) => info!("Couldn't get key {key_raw_struct} because {e:?}"),
         };
     }
 

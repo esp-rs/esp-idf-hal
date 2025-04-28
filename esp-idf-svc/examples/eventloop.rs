@@ -64,7 +64,7 @@ fn run() -> Result<(), EspError> {
     // Fetch posted events with a callback
     // Need to keep the subscription around, or else if dropped, we'll get unsubscribed
     let _subscription = sys_loop.subscribe::<CustomEvent, _>(|event| {
-        info!("[Subscribe callback] Got event: {:?}", event);
+        info!("[Subscribe callback] Got event: {event:?}");
     })?;
 
     esp_idf_svc::hal::task::block_on(pin!(async move {
@@ -73,7 +73,7 @@ fn run() -> Result<(), EspError> {
 
         loop {
             let event = subscription.recv().await?;
-            info!("[Subscribe async] Got event: {:?}", event);
+            info!("[Subscribe async] Got event: {event:?}");
         }
     }))
 }

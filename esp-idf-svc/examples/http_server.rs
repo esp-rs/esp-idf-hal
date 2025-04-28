@@ -134,10 +134,7 @@ fn connect_wifi(wifi: &mut BlockingWifi<EspWifi<'static>>) -> anyhow::Result<()>
     wifi.wait_netif_up()?;
     info!("Wifi netif up");
 
-    info!(
-        "Created Wi-Fi with WIFI_SSID `{}` and WIFI_PASS `{}`",
-        SSID, PASSWORD
-    );
+    info!("Created Wi-Fi with WIFI_SSID `{SSID}` and WIFI_PASS `{PASSWORD}`");
 
     Ok(())
 }
