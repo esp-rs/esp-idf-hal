@@ -43,7 +43,7 @@ fn main() -> anyhow::Result<()> {
 
     let ip_info = wifi.wifi().sta_netif().get_ip_info()?;
 
-    info!("Wifi Interface info: {:?}", ip_info);
+    info!("Wifi Interface info: {ip_info:?}");
 
     loop {
         std::thread::sleep(core::time::Duration::from_secs(5));

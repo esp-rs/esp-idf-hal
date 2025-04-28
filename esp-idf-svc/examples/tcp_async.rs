@@ -98,12 +98,12 @@ async fn tcp_server(spawner: LocalSpawner) -> Result<(), io::Error> {
             let stream = listener.accept().await;
             match stream {
                 Ok((stream, addr)) => {
-                    info!("Accepted client {}", addr);
+                    info!("Accepted client {addr}");
 
                     spawner.spawn_local(handle(stream)).unwrap();
                 }
                 Err(e) => {
-                    error!("Error: {}", e);
+                    error!("Error: {e}");
                 }
             }
         }
