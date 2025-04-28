@@ -65,7 +65,7 @@ fn main() -> anyhow::Result<()> {
 
     let ip_info = wifi.wifi().sta_netif().get_ip_info()?;
 
-    info!("Wifi DHCP info: {:?}", ip_info);
+    info!("Wifi DHCP info: {ip_info:?}");
 
     let mut tls = EspTls::new()?;
 
