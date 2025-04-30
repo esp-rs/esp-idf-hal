@@ -81,7 +81,7 @@ fn main() -> anyhow::Result<()> {
         match nvs.get_raw(key_raw_str, key_raw_str_data) {
             Ok(v) => {
                 if let Some(the_str) = v {
-                    info!("{:?} = {:?}", key_raw_str, from_bytes::<&str>(the_str));
+                    info!("{key_raw_str:?} = {:?}", from_bytes::<&str>(the_str));
                 }
             }
             Err(e) => info!("Couldn't get key {key_raw_str} because {e:?}"),
