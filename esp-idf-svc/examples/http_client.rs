@@ -75,22 +75,22 @@ fn get_request(client: &mut HttpClient<EspHttpConnection>) -> anyhow::Result<()>
     //
     // Note: If you don't want to pass in any headers, you can also use `client.get(url, headers)`.
     let request = client.request(Method::Get, url, &headers)?;
-    info!("-> GET {}", url);
+    info!("-> GET {url}");
     let mut response = request.submit()?;
 
     // Process response
     let status = response.status();
-    info!("<- {}", status);
+    info!("<- {status}");
     let mut buf = [0u8; 1024];
     let bytes_read = io::try_read_full(&mut response, &mut buf).map_err(|e| e.0)?;
-    info!("Read {} bytes", bytes_read);
+    info!("Read {bytes_read} bytes");
     match std::str::from_utf8(&buf[0..bytes_read]) {
         Ok(body_string) => info!(
             "Response body (truncated to {} bytes): {:?}",
             buf.len(),
             body_string
         ),
-        Err(e) => error!("Error decoding response body: {}", e),
+        Err(e) => error!("Error decoding response body: {e}"),
     };
 
     Ok(())
@@ -113,22 +113,21 @@ fn post_request(client: &mut HttpClient<EspHttpConnection>) -> anyhow::Result<()
     let mut request = client.post(url, &headers)?;
     request.write_all(payload)?;
     request.flush()?;
-    info!("-> POST {}", url);
+    info!("-> POST {url}");
     let mut response = request.submit()?;
 
     // Process response
     let status = response.status();
-    info!("<- {}", status);
+    info!("<- {status}");
     let mut buf = [0u8; 1024];
     let bytes_read = io::try_read_full(&mut response, &mut buf).map_err(|e| e.0)?;
-    info!("Read {} bytes", bytes_read);
+    info!("Read {bytes_read} bytes");
     match std::str::from_utf8(&buf[0..bytes_read]) {
         Ok(body_string) => info!(
-            "Response body (truncated to {} bytes): {:?}",
-            buf.len(),
-            body_string
+            "Response body (truncated to {} bytes): {body_string:?}",
+            buf.len()
         ),
-        Err(e) => error!("Error decoding response body: {}", e),
+        Err(e) => error!("Error decoding response body: {e}"),
     };
 
     Ok(())
@@ -149,22 +148,21 @@ fn post_chunked_request(client: &mut HttpClient<EspHttpConnection>) -> anyhow::R
     request.write_all(payload1)?;
     request.write_all(payload2)?;
     request.flush()?;
-    info!("-> CHUNKED POST {}", url);
+    info!("-> CHUNKED POST {url}");
     let mut response = request.submit()?;
 
     // Process response
     let status = response.status();
-    info!("<- {}", status);
+    info!("<- {status}");
     let mut buf = [0u8; 1024];
     let bytes_read = io::try_read_full(&mut response, &mut buf).map_err(|e| e.0)?;
-    info!("Read {} bytes", bytes_read);
+    info!("Read {bytes_read} bytes");
     match std::str::from_utf8(&buf[0..bytes_read]) {
         Ok(body_string) => info!(
-            "Response body (truncated to {} bytes): {:?}",
-            buf.len(),
-            body_string
+            "Response body (truncated to {} bytes): {body_string:?}",
+            buf.len()
         ),
-        Err(e) => error!("Error decoding response body: {}", e),
+        Err(e) => error!("Error decoding response body: {e}"),
     };
 
     Ok(())

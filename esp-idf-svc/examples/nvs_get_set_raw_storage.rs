@@ -70,7 +70,7 @@ fn main() -> anyhow::Result<()> {
             key_raw_str,
             &to_vec::<&str, 100>(&key_raw_str_data).unwrap(),
         ) {
-            Ok(_) => info!("Key {} updated", key_raw_str),
+            Ok(_) => info!("Key {key_raw_str} updated"),
             Err(e) => info!("Key {key_raw_str} not updated {e:?}"),
         };
     }
