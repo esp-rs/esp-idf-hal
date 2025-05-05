@@ -23,6 +23,16 @@
 > this process run cargo with the `-vv` (very verbose) flag, so that build script output
 > is also displayed. This is especially useful since the initial build will take a while.
 
+## Commuity Effort
+
+Please note that **all `esp-idf-*` crates are a community effort**, in that Espressif puts little to no paid developer time in these.
+So while ESP-IDF itself is very popular and well tested, the `esp-idf-*` crates:
+- Might be a bit lagging behind the latest stable ESP-IDF version
+- Are (currently) missing HIL tests
+- Need more documentation
+
+For a HAL which is officially supported by Espressif (as in - with paid developer time), please look at [`esp-hal`](https://github.com/esp-rs/esp-hal). Keep in mind that `esp-hal` is `no_std`-only, does not use ESP-IDF and requires async programming.
+
 ## Build Prerequisites
 
 Follow the [Prerequisites](https://github.com/esp-rs/esp-idf-template#prerequisites) section in the `esp-idf-template` crate.
