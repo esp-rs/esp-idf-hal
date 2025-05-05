@@ -19,7 +19,7 @@
 
 Please note that **all `esp-idf-*` crates are a community effort**, in that Espressif puts little to no paid developer time in these.
 So while ESP-IDF itself is very popular and well tested, the `esp-idf-*` crates:
-- Might be lagging behind a bit the latest stable ESP-IDF version
+- Might be a bit lagging behind the latest stable ESP-IDF version
 - Are (currently) missing HIL tests
 - Need more documentation
 
