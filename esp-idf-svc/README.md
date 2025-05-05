@@ -15,6 +15,16 @@
 
 **You might want to also check out the ESP IDF [Drivers](https://github.com/esp-rs/esp-idf-hal) wrappers, and the raw bindings to ESP IDF in the [esp-idf-sys](https://github.com/esp-rs/esp-idf-sys) crate!**
 
+## Commuity Effort
+
+Please note that **all `esp-idf-*` crates are a community effort**, in that Espressif puts little to no paid developer time in these.
+So while ESP-IDF itself is very popular and well tested, the `esp-idf-*` crates:
+- Might be lagging behind a bit the latest stable ESP-IDF version
+- Are (currently) missing HIL tests
+- Need more documentation
+
+For a HAL which is officially supported by Espressif (as in - with paid developer time), please look at [`esp-hal`](https://github.com/esp-rs/esp-hal). Keep in mind that `esp-hal` is `no_std`-only, does not use ESP-IDF and requires async programming.
+
 ## Build Prerequisites
 
 Follow the [Prerequisites](https://github.com/esp-rs/esp-idf-template#prerequisites) section in the `esp-idf-template` crate.
