@@ -23,6 +23,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - OTA: Allow specifying image size to speed up erase
 - Bluetooth: New methods `EspBleGap::start_scanning` and `EspBleGap::stop_scanning`
 - New example, `bt_ble_gap_scanner` to demonstrate usage of added ble scanning methods
+- New example, `mdns_advertise` to demonstrate mDNS service advertisement
 
 ## [0.51.0] - 2025-01-15
 
