@@ -28,7 +28,7 @@ mod example {
 
     use esp_idf_hal::delay::Ets;
     use esp_idf_hal::{
-        prelude::Peripherals,
+        peripherals::Peripherals,
         rmt::{self, config::TransmitConfig, TxRmtDriver},
         units::Hertz,
     };

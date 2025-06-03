@@ -1,10 +1,11 @@
 #![allow(unexpected_cfgs)]
 
+use std::time::Duration;
+
 use esp_idf_hal::delay::FreeRtos;
 use esp_idf_hal::ledc::{config::TimerConfig, LedcDriver, LedcTimerDriver};
 use esp_idf_hal::peripherals::Peripherals;
-use esp_idf_hal::prelude::*;
-use std::time::Duration;
+use esp_idf_hal::units::*;
 
 fn main() -> anyhow::Result<()> {
     esp_idf_hal::sys::link_patches();
