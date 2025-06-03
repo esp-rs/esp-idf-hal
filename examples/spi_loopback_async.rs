@@ -13,9 +13,9 @@
 //! Connect SDI and SDO pins to see the outgoing data is read as incoming data.
 
 use esp_idf_hal::peripherals::Peripherals;
-use esp_idf_hal::prelude::*;
 use esp_idf_hal::spi::*;
 use esp_idf_hal::task::*;
+use esp_idf_hal::units::*;
 
 fn main() -> anyhow::Result<()> {
     esp_idf_hal::sys::link_patches();

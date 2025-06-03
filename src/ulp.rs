@@ -77,7 +77,7 @@ impl Word {
     all(esp32s2, esp_idf_esp32s2_ulp_coproc_enabled),
     all(esp32s3, esp_idf_esp32s3_ulp_coproc_enabled)
 ))]
-pub struct UlpDriver<'d>(crate::peripheral::PeripheralRef<'d, ULP>);
+pub struct UlpDriver<'d>(PhantomData<&'d mut ()>);
 
 #[cfg(any(
     all(not(esp_idf_version_major = "4"), esp_idf_ulp_coproc_enabled),
@@ -94,12 +94,8 @@ unsafe impl<'d> Send for UlpDriver<'d> {}
     all(esp32s3, esp_idf_esp32s3_ulp_coproc_enabled)
 ))]
 impl<'d> UlpDriver<'d> {
-    pub fn new(
-        ulp: impl crate::peripheral::Peripheral<P = ULP> + 'd,
-    ) -> Result<Self, esp_idf_sys::EspError> {
-        crate::into_ref!(ulp);
-
-        Ok(Self(ulp))
+    pub fn new(ulp: ULP<'d>) -> Result<Self, esp_idf_sys::EspError> {
+        Ok(Self(PhantomData))
     }
 
     pub fn stop(&mut self) -> Result<(), esp_idf_sys::EspError> {

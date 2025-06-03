@@ -23,7 +23,6 @@ use core::ptr;
 
 use esp_idf_sys::*;
 
-use crate::peripheral::Peripheral;
 use crate::rmt::RmtChannel;
 
 /// Onewire Address type
@@ -95,13 +94,13 @@ impl<'a> OWDriver<'a> {
     /// Create a new One Wire driver on the allocated pin.
     ///
     /// The pin will be used as an open drain output.
-    pub fn new<C: RmtChannel>(
-        pin: impl Peripheral<P = impl crate::gpio::InputPin + crate::gpio::OutputPin> + 'a,
-        _channel: impl Peripheral<P = C> + 'a,
+    pub fn new<C: RmtChannel + 'a>(
+        pin: impl crate::gpio::InputPin + crate::gpio::OutputPin + 'a,
+        _channel: C,
     ) -> Result<Self, EspError> {
         let mut bus: onewire_bus_handle_t = ptr::null_mut();
 
-        let pin = pin.into_ref().pin();
+        let pin = pin.pin() as _;
         let bus_config = esp_idf_sys::onewire_bus_config_t { bus_gpio_num: pin };
 
         let rmt_config = esp_idf_sys::onewire_bus_rmt_config_t { max_rx_bytes: 10 };

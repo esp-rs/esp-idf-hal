@@ -2,8 +2,6 @@ use core::marker::PhantomData;
 
 use esp_idf_sys::*;
 
-use crate::peripheral::Peripheral;
-
 #[cfg(feature = "alloc")]
 extern crate alloc;
 
@@ -127,8 +125,8 @@ pub struct TimerDriver<'d> {
 }
 
 impl<'d> TimerDriver<'d> {
-    pub fn new<TIMER: Timer>(
-        _timer: impl Peripheral<P = TIMER> + 'd,
+    pub fn new<TIMER: Timer + 'd>(
+        _timer: TIMER,
         config: &config::Config,
     ) -> Result<Self, EspError> {
         esp!(unsafe {
@@ -582,7 +580,7 @@ macro_rules! impl_timer {
     ($timer:ident: $group:expr, $index:expr) => {
         crate::impl_peripheral!($timer);
 
-        impl Timer for $timer {
+        impl Timer for $timer<'_> {
             #[inline(always)]
             fn group() -> timer_group_t {
                 $group

@@ -19,18 +19,16 @@
 use esp_idf_hal::delay::BLOCK;
 use esp_idf_hal::gpio::{AnyIOPin, InputPin, OutputPin};
 use esp_idf_hal::i2c::{I2c, I2cConfig, I2cDriver, I2cSlaveConfig, I2cSlaveDriver};
-use esp_idf_hal::peripheral::Peripheral;
 use esp_idf_hal::peripherals::Peripherals;
-use esp_idf_hal::prelude::*;
-use esp_idf_hal::units::Hertz;
+use esp_idf_hal::units::*;
 
 const SLAVE_ADDR: u8 = 0x22;
 const SLAVE_BUFFER_SIZE: usize = 128;
 
 fn i2c_master_init<'d>(
-    i2c: impl Peripheral<P = impl I2c> + 'd,
-    sda: AnyIOPin,
-    scl: AnyIOPin,
+    i2c: impl I2c + 'd,
+    sda: AnyIOPin<'d>,
+    scl: AnyIOPin<'d>,
     baudrate: Hertz,
 ) -> anyhow::Result<I2cDriver<'d>> {
     let config = I2cConfig::new().baudrate(baudrate);
@@ -39,9 +37,9 @@ fn i2c_master_init<'d>(
 }
 
 fn i2c_slave_init<'d>(
-    i2c: impl Peripheral<P = impl I2c> + 'd,
-    sda: AnyIOPin,
-    scl: AnyIOPin,
+    i2c: impl I2c + 'd,
+    sda: AnyIOPin<'d>,
+    scl: AnyIOPin<'d>,
     buflen: usize,
     slave_addr: u8,
 ) -> anyhow::Result<I2cSlaveDriver<'d>> {
