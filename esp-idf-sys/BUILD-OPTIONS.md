@@ -1,14 +1,18 @@
 # Customizing the Build
 
 **Table of contents**
-- [Rust configuration flags](#rust-configuration-flags)
-- [Features](#features)
-- [sdkconfig](#sdkconfig)
-- [ESP-IDF configuration](#esp-idf-configuration)
-- [Extra ESP-IDF components](#extra-esp-idf-components)
-- [Remote components (idf component registry)](#remote-components-idf-component-registry)
-- [Conditional compilation](#conditional-compilation)
-- [More info](#more-info)
+- [Customizing the Build](#customizing-the-build)
+  - [Rust configuration flags](#rust-configuration-flags)
+  - [Features](#features)
+  - [sdkconfig](#sdkconfig)
+    - [(*native* builder only) Using cargo-idf to interactively modify ESP-IDF's `sdkconfig` file](#native-builder-only-using-cargo-idf-to-interactively-modify-esp-idfs-sdkconfig-file)
+    - [(*pio* builder only) Using cargo-pio to interactively modify ESP-IDF's `sdkconfig` file](#pio-builder-only-using-cargo-pio-to-interactively-modify-esp-idfs-sdkconfig-file)
+  - [ESP-IDF configuration](#esp-idf-configuration)
+    - [Example](#example)
+  - [Extra ESP-IDF components](#extra-esp-idf-components)
+  - [Remote components (idf component registry)](#remote-components-idf-component-registry)
+  - [Conditional compilation](#conditional-compilation)
+  - [More info](#more-info)
 
 ## Rust configuration flags
 The following are flags passed to `rustc` that influence the build.
@@ -226,7 +230,7 @@ The following configuration options are available:
 
   The version used for the `esp-idf`, can be one of the following:
   - `commit:<hash>`: Uses the commit `<hash>` of the `esp-idf` repository.
-                     Note that this will clone the whole `esp-idf` not just one commit.
+    Note that this will clone the whole `esp-idf` not just one commit.
   - `tag:<tag>`: Uses the tag `<tag>` of the `esp-idf` repository.
   - `branch:<branch>`: Uses the branch `<branch>` of the `esp-idf` repository.
   - `v<major>.<minor>` or `<major>.<minor>`: Uses the tag `v<major>.<minor>` of the `esp-idf` repository.
@@ -246,9 +250,9 @@ The following configuration options are available:
   >
   > `ESP_IDF_PIO_CONF="platform_packages = framework-espidf @ <git-url> [@ <git-branch>]"`
   >
-  >  The above approach however has the restriction that PlatformIO will always use the ESP-IDF build tooling from
-  >  its own ESP-IDF distribution, so the user-provided ESP-IDF branch may or may not compile. The current 
-  >  PlatformIO tooling is suitable for compiling ESP-IDF branches derived from versions 4.3.X and 4.4.X.
+  > The above approach however has the restriction that PlatformIO will always use the ESP-IDF build tooling from
+  > its own ESP-IDF distribution, so the user-provided ESP-IDF branch may or may not compile. The current
+  > PlatformIO tooling is suitable for compiling ESP-IDF branches derived from versions 4.3.X and 4.4.X.
 
 - ### `$ESP_IDF_GLOB[_XXX]_BASE` and `$ESP_IDF_GLOB[_XXX]_YYY`
 
