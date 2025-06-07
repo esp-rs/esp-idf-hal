@@ -242,7 +242,7 @@ impl IsrCriticalSection {
     /// For more information, refer to https://docs.espressif.com/projects/esp-idf/en/latest/esp32/api-guides/freertos-smp.html#critical-sections
     #[inline(always)]
     #[link_section = ".iram1.interrupt_cs_enter"]
-    pub fn enter(&self) -> IsrCriticalSectionGuard {
+    pub fn enter(&self) -> IsrCriticalSectionGuard<'_> {
         enter(self);
 
         IsrCriticalSectionGuard(self)

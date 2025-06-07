@@ -760,7 +760,7 @@ impl<Dir> I2sDriver<'_, Dir> {
     }
 
     /// Borrow the I2S driver by a reference
-    pub fn as_ref(&mut self) -> I2sDriverRef<Dir> {
+    pub fn as_ref(&mut self) -> I2sDriverRef<'_, Dir> {
         I2sDriverRef(unsafe { NonNull::new_unchecked(self) })
     }
 }
@@ -1222,7 +1222,7 @@ impl I2sDriver<'_, I2sBiDir> {
     /// It is safe to use the two parts separately
     /// - esp-idf guarantees thread safety
     /// - esp-idf-hal guarantees asynchronous safety
-    pub fn split(&mut self) -> (I2sDriverRef<I2sRx>, I2sDriverRef<I2sTx>) {
+    pub fn split(&mut self) -> (I2sDriverRef<'_, I2sRx>, I2sDriverRef<'_, I2sTx>) {
         // Safe because self cannot be null
         let this = unsafe { NonNull::new_unchecked(self) };
 

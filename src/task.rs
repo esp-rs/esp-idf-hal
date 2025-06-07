@@ -530,7 +530,7 @@ impl CriticalSection {
 
     #[inline(always)]
     #[link_section = ".iram1.cs_enter"]
-    pub fn enter(&self) -> CriticalSectionGuard {
+    pub fn enter(&self) -> CriticalSectionGuard<'_> {
         enter(self);
 
         CriticalSectionGuard(self)
