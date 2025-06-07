@@ -30,8 +30,6 @@ pub mod can;
 pub mod cpu;
 pub mod delay;
 pub mod gpio;
-#[cfg(all(esp32, esp_idf_version_major = "4"))]
-pub mod hall;
 pub mod i2c;
 #[cfg_attr(
     feature = "nightly",
@@ -52,9 +50,7 @@ pub mod modem;
 pub mod onewire;
 #[cfg(any(esp32, esp32s2, esp32s3, esp32c6))]
 pub mod pcnt;
-pub mod peripheral;
 pub mod peripherals;
-pub mod prelude;
 pub mod reset;
 pub mod rmt;
 pub mod rom;
@@ -130,50 +126,39 @@ macro_rules! embedded_hal_error {
     };
 }
 
-#[macro_export]
-#[allow(unused_macros)]
-macro_rules! into_ref {
-    ($($name:ident),*) => {
-        $(
-            let $name = $name.into_ref();
-        )*
-    }
-}
-
-#[allow(unused_macros)]
-macro_rules! impl_peripheral_trait {
-    ($type:ident) => {
-        unsafe impl Send for $type {}
-
-        impl $crate::peripheral::sealed::Sealed for $type {}
-
-        impl $crate::peripheral::Peripheral for $type {
-            type P = $type;
-
-            #[inline]
-            unsafe fn clone_unchecked(&mut self) -> Self::P {
-                $type { ..*self }
-            }
-        }
-    };
-}
-
 #[allow(unused_macros)]
 macro_rules! impl_peripheral {
-    ($type:ident) => {
-        pub struct $type(::core::marker::PhantomData<*const ()>);
+    ($name:ident) => {
+        pub struct $name<'a>(::core::marker::PhantomData<&'a mut ()>);
 
-        impl $type {
+        impl $name<'_> {
+            /// Unsafely create an instance of this peripheral out of thin air.
+            ///
             /// # Safety
             ///
-            /// Care should be taken not to instantiate this peripheral instance, if it is already instantiated and used elsewhere
+            /// You must ensure that you're only using one instance of this type at a time.
             #[inline(always)]
-            pub unsafe fn new() -> Self {
-                $type(::core::marker::PhantomData)
+            pub unsafe fn steal() -> Self {
+                Self(::core::marker::PhantomData)
+            }
+
+            /// Creates a new peripheral reference with a shorter lifetime.
+            ///
+            /// Use this method if you would like to keep working with the peripheral after
+            /// you dropped the driver that consumes this.
+            ///
+            /// # Safety
+            ///
+            /// You must ensure that you are not using reborrowed peripherals in drivers which are
+            /// forgotten via `core::mem::forget`.
+            #[inline]
+            #[allow(dead_code)]
+            pub unsafe fn reborrow(&mut self) -> $name<'_> {
+                Self(::core::marker::PhantomData)
             }
         }
 
-        $crate::impl_peripheral_trait!($type);
+        unsafe impl Send for $name<'_> {}
     };
 }
 
@@ -181,5 +166,3 @@ macro_rules! impl_peripheral {
 pub(crate) use embedded_hal_error;
 #[allow(unused_imports)]
 pub(crate) use impl_peripheral;
-#[allow(unused_imports)]
-pub(crate) use impl_peripheral_trait;

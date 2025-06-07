@@ -39,7 +39,7 @@ fn main() -> anyhow::Result<()> {
 mod example {
     use esp_idf_hal::{
         delay::FreeRtos,
-        prelude::Peripherals,
+        peripherals::Peripherals,
         rmt::{
             FixedLengthSignal, PinState, Pulse, PulseTicks, Receive, RmtReceiveConfig,
             RmtTransmitConfig, RxRmtDriver, TxRmtDriver,

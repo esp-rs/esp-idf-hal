@@ -12,8 +12,8 @@
 use esp_idf_hal::delay::BLOCK;
 use esp_idf_hal::gpio;
 use esp_idf_hal::peripherals::Peripherals;
-use esp_idf_hal::prelude::*;
 use esp_idf_hal::uart::*;
+use esp_idf_hal::units::*;
 
 fn main() -> anyhow::Result<()> {
     esp_idf_hal::sys::link_patches();

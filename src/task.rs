@@ -601,8 +601,6 @@ pub mod watchdog {
 
     use esp_idf_sys::*;
 
-    use crate::peripheral::Peripheral;
-
     pub type TWDTConfig = config::Config;
 
     pub mod config {
@@ -670,10 +668,7 @@ pub mod watchdog {
     static TWDT_DRIVER_REF_COUNT: AtomicUsize = AtomicUsize::new(0);
 
     impl<'d> TWDTDriver<'d> {
-        pub fn new(
-            _twdt: impl Peripheral<P = TWDT> + 'd,
-            config: &config::Config,
-        ) -> Result<Self, EspError> {
+        pub fn new(_twdt: TWDT<'d>, config: &config::Config) -> Result<Self, EspError> {
             TWDT_DRIVER_REF_COUNT.fetch_add(1, Ordering::SeqCst);
             let init_by_idf = Self::watchdog_is_init_by_idf();
 

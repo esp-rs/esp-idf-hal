@@ -48,10 +48,9 @@ use esp_idf_sys::*;
 use heapless::Deque;
 
 use crate::delay::{self, Ets, BLOCK};
-use crate::gpio::{AnyOutputPin, IOPin, InputPin, Level, Output, OutputMode, OutputPin, PinDriver};
+use crate::gpio::{AnyOutputPin, InputPin, Level, Output, OutputMode, OutputPin, PinDriver};
 use crate::interrupt::asynch::HalIsrNotification;
 use crate::interrupt::InterruptType;
-use crate::peripheral::Peripheral;
 use crate::task::embassy_sync::EspRawMutex;
 use crate::task::CriticalSection;
 
@@ -431,19 +430,19 @@ impl<'d> SpiDriver<'d> {
     /// SPI1 can only use fixed pin for SCLK, SDO and SDI as they are shared with SPI0.
     #[cfg(esp32)]
     pub fn new_spi1(
-        _spi: impl Peripheral<P = SPI1> + 'd,
-        sclk: impl Peripheral<P = crate::gpio::Gpio6> + 'd,
-        sdo: impl Peripheral<P = crate::gpio::Gpio7> + 'd,
-        sdi: Option<impl Peripheral<P = crate::gpio::Gpio8> + 'd>,
+        _spi: SPI1<'d>,
+        sclk: crate::gpio::Gpio6<'d>,
+        sdo: crate::gpio::Gpio7<'d>,
+        sdi: Option<crate::gpio::Gpio8<'d>>,
         config: &config::DriverConfig,
     ) -> Result<Self, EspError> {
         use crate::gpio::Pin;
 
         let max_transfer_size = Self::new_internal(
             SPI1::device(),
-            Some(sclk.into_ref().pin()),
-            Some(sdo.into_ref().pin()),
-            sdi.map(|p| p.into_ref().pin()),
+            Some(sclk.pin() as _),
+            Some(sdo.pin() as _),
+            sdi.map(|p| p.pin() as _),
             None,
             None,
             config,
@@ -458,18 +457,18 @@ impl<'d> SpiDriver<'d> {
     }
 
     /// Create new instance of SPI controller for all others
-    pub fn new<SPI: SpiAnyPins>(
-        _spi: impl Peripheral<P = SPI> + 'd,
-        sclk: impl Peripheral<P = impl OutputPin> + 'd,
-        sdo: impl Peripheral<P = impl OutputPin> + 'd,
-        sdi: Option<impl Peripheral<P = impl InputPin> + 'd>,
+    pub fn new<SPI: SpiAnyPins + 'd>(
+        _spi: SPI,
+        sclk: impl OutputPin + 'd,
+        sdo: impl OutputPin + 'd,
+        sdi: Option<impl InputPin + 'd>,
         config: &config::DriverConfig,
     ) -> Result<Self, EspError> {
         let max_transfer_size = Self::new_internal(
             SPI::device(),
-            Some(sclk.into_ref().pin()),
-            Some(sdo.into_ref().pin()),
-            sdi.map(|p| p.into_ref().pin()),
+            Some(sclk.pin() as _),
+            Some(sdo.pin() as _),
+            sdi.map(|p| p.pin() as _),
             None,
             None,
             config,
@@ -483,17 +482,17 @@ impl<'d> SpiDriver<'d> {
         })
     }
 
-    pub fn new_without_sclk<SPI: SpiAnyPins>(
-        _spi: impl Peripheral<P = SPI> + 'd,
-        sdo: impl Peripheral<P = impl OutputPin> + 'd,
-        sdi: Option<impl Peripheral<P = impl InputPin> + 'd>,
+    pub fn new_without_sclk<SPI: SpiAnyPins + 'd>(
+        _spi: SPI,
+        sdo: impl OutputPin + 'd,
+        sdi: Option<impl InputPin + 'd>,
         config: &config::DriverConfig,
     ) -> Result<Self, EspError> {
         let max_transfer_size = Self::new_internal(
             SPI::device(),
             None,
-            Some(sdo.into_ref().pin()),
-            sdi.map(|p| p.into_ref().pin()),
+            Some(sdo.pin() as _),
+            sdi.map(|p| p.pin() as _),
             None,
             None,
             config,
@@ -507,18 +506,18 @@ impl<'d> SpiDriver<'d> {
         })
     }
 
-    pub fn new_dual<SPI: SpiAnyPins>(
-        _spi: impl Peripheral<P = SPI> + 'd,
-        sclk: impl Peripheral<P = impl OutputPin> + 'd,
-        data0: impl Peripheral<P = impl IOPin> + 'd,
-        data1: impl Peripheral<P = impl IOPin> + 'd,
+    pub fn new_dual<SPI: SpiAnyPins + 'd>(
+        _spi: SPI,
+        sclk: impl OutputPin + 'd,
+        data0: impl InputPin + OutputPin + 'd,
+        data1: impl InputPin + OutputPin + 'd,
         config: &config::DriverConfig,
     ) -> Result<Self, EspError> {
         let max_transfer_size = Self::new_internal(
             SPI::device(),
-            Some(sclk.into_ref().pin()),
-            Some(data0.into_ref().pin()),
-            Some(data1.into_ref().pin()),
+            Some(sclk.pin() as _),
+            Some(data0.pin() as _),
+            Some(data1.pin() as _),
             None,
             None,
             config,
@@ -532,22 +531,22 @@ impl<'d> SpiDriver<'d> {
         })
     }
 
-    pub fn new_quad<SPI: SpiAnyPins>(
-        _spi: impl Peripheral<P = SPI> + 'd,
-        sclk: impl Peripheral<P = impl OutputPin> + 'd,
-        data0: impl Peripheral<P = impl IOPin> + 'd,
-        data1: impl Peripheral<P = impl IOPin> + 'd,
-        data2: impl Peripheral<P = impl IOPin> + 'd,
-        data3: impl Peripheral<P = impl IOPin> + 'd,
+    pub fn new_quad<SPI: SpiAnyPins + 'd>(
+        _spi: SPI,
+        sclk: impl OutputPin + 'd,
+        data0: impl InputPin + OutputPin + 'd,
+        data1: impl InputPin + OutputPin + 'd,
+        data2: impl InputPin + OutputPin + 'd,
+        data3: impl InputPin + OutputPin + 'd,
         config: &config::DriverConfig,
     ) -> Result<Self, EspError> {
         let max_transfer_size = Self::new_internal(
             SPI::device(),
-            Some(sclk.into_ref().pin()),
-            Some(data0.into_ref().pin()),
-            Some(data1.into_ref().pin()),
-            Some(data2.into_ref().pin()),
-            Some(data3.into_ref().pin()),
+            Some(sclk.pin() as _),
+            Some(data0.pin() as _),
+            Some(data1.pin() as _),
+            Some(data2.pin() as _),
+            Some(data3.pin() as _),
             config,
         )?;
 
@@ -933,11 +932,11 @@ where
 impl<'d> SpiDeviceDriver<'d, SpiDriver<'d>> {
     #[cfg(esp32)]
     pub fn new_single_spi1(
-        spi: impl Peripheral<P = SPI1> + 'd,
-        sclk: impl Peripheral<P = crate::gpio::Gpio6> + 'd,
-        sdo: impl Peripheral<P = crate::gpio::Gpio7> + 'd,
-        sdi: Option<impl Peripheral<P = crate::gpio::Gpio8> + 'd>,
-        cs: Option<impl Peripheral<P = impl OutputPin> + 'd>,
+        spi: SPI1<'d>,
+        sclk: crate::gpio::Gpio6<'d>,
+        sdo: crate::gpio::Gpio7<'d>,
+        sdi: Option<crate::gpio::Gpio8<'d>>,
+        cs: Option<impl OutputPin + 'd>,
         bus_config: &config::DriverConfig,
         config: &config::Config,
     ) -> Result<Self, EspError> {
@@ -948,12 +947,12 @@ impl<'d> SpiDeviceDriver<'d, SpiDriver<'d>> {
         )
     }
 
-    pub fn new_single<SPI: SpiAnyPins>(
-        spi: impl Peripheral<P = SPI> + 'd,
-        sclk: impl Peripheral<P = impl OutputPin> + 'd,
-        sdo: impl Peripheral<P = impl OutputPin> + 'd,
-        sdi: Option<impl Peripheral<P = impl InputPin> + 'd>,
-        cs: Option<impl Peripheral<P = impl OutputPin> + 'd>,
+    pub fn new_single<SPI: SpiAnyPins + 'd>(
+        spi: SPI,
+        sclk: impl OutputPin + 'd,
+        sdo: impl OutputPin + 'd,
+        sdi: Option<impl InputPin + 'd>,
+        cs: Option<impl OutputPin + 'd>,
         bus_config: &config::DriverConfig,
         config: &config::Config,
     ) -> Result<Self, EspError> {
@@ -967,10 +966,10 @@ where
 {
     pub fn new(
         driver: T,
-        cs: Option<impl Peripheral<P = impl OutputPin> + 'd>,
+        cs: Option<impl OutputPin + 'd>,
         config: &config::Config,
     ) -> Result<Self, EspError> {
-        let cs = cs.map(|cs| cs.into_ref().pin()).unwrap_or(-1);
+        let cs = cs.map(|cs| cs.pin() as _).unwrap_or(-1);
 
         let mut conf: spi_device_interface_config_t = config.into();
         conf.spics_io_num = cs;
@@ -1058,13 +1057,12 @@ where
         work.await
     }
 
-    fn run<'a, 'c, 'p, P, M>(
+    fn run<'a, 'c, 'p, M>(
         &mut self,
-        mut cs_pin: CsCtl<'c, 'p, P, M>,
+        mut cs_pin: CsCtl<'c, 'p, M>,
         operations: impl Iterator<Item = Operation<'a>> + 'a,
     ) -> Result<(), EspError>
     where
-        P: OutputPin,
         M: OutputMode,
     {
         let _lock = if cs_pin.needs_bus_lock() {
@@ -1113,13 +1111,12 @@ where
     }
 
     #[allow(dead_code)]
-    async fn run_async<'a, 'c, 'p, P, M>(
+    async fn run_async<'a, 'c, 'p, M>(
         &self,
-        mut cs_pin: CsCtl<'c, 'p, P, M>,
+        mut cs_pin: CsCtl<'c, 'p, M>,
         operations: impl Iterator<Item = Operation<'a>> + 'a,
     ) -> Result<(), EspError>
     where
-        P: OutputPin,
         M: OutputMode,
     {
         let _async_bus_lock = if cs_pin.needs_bus_lock() {
@@ -1181,7 +1178,7 @@ where
     fn hardware_cs_ctl<'a, 'c, 'p>(
         &self,
         operations: impl Iterator<Item = Operation<'a>> + 'a,
-    ) -> Result<CsCtl<'c, 'p, AnyOutputPin, Output>, EspError> {
+    ) -> Result<CsCtl<'c, 'p, Output>, EspError> {
         let (total_count, transactions_count, first_transaction, last_transaction) =
             self.spi_operations_stats(operations);
 
@@ -1468,7 +1465,7 @@ where
 
 pub struct SpiSoftCsDeviceDriver<'d, DEVICE, DRIVER> {
     shared_device: DEVICE,
-    cs_pin: PinDriver<'d, AnyOutputPin, Output>,
+    cs_pin: PinDriver<'d, Output>,
     pre_delay_us: Option<u32>,
     post_delay_us: Option<u32>,
     _p: PhantomData<fn() -> DRIVER>,
@@ -1481,12 +1478,10 @@ where
 {
     pub fn new(
         shared_device: DEVICE,
-        cs: impl Peripheral<P = impl OutputPin> + 'd,
+        cs: impl OutputPin + 'd,
         cs_level: Level,
     ) -> Result<Self, EspError> {
-        crate::into_ref!(cs);
-
-        let mut cs_pin: PinDriver<AnyOutputPin, Output> = PinDriver::output(cs.map_into())?;
+        let mut cs_pin: PinDriver<Output> = PinDriver::output(cs)?;
 
         cs_pin.set_level(cs_level)?;
 
@@ -1700,9 +1695,8 @@ impl Drop for BusLock {
     }
 }
 
-enum CsCtl<'c, 'p, P, M>
+enum CsCtl<'c, 'p, M>
 where
-    P: OutputPin,
     M: OutputMode,
 {
     Hardware {
@@ -1711,15 +1705,14 @@ where
         last_transaction: Option<usize>,
     },
     Software {
-        cs: &'c mut PinDriver<'p, P, M>,
+        cs: &'c mut PinDriver<'p, M>,
         pre_delay: Option<u32>,
         post_delay: Option<u32>,
     },
 }
 
-impl<P, M> CsCtl<'_, '_, P, M>
+impl<M> CsCtl<'_, '_, M>
 where
-    P: OutputPin,
     M: OutputMode,
 {
     fn needs_bus_lock(&self) -> bool {
@@ -2211,7 +2204,7 @@ macro_rules! impl_spi {
     ($spi:ident: $device:expr) => {
         crate::impl_peripheral!($spi);
 
-        impl Spi for $spi {
+        impl Spi for $spi<'_> {
             #[inline(always)]
             fn device() -> spi_host_device_t {
                 $device
@@ -2222,7 +2215,7 @@ macro_rules! impl_spi {
 
 macro_rules! impl_spi_any_pins {
     ($spi:ident) => {
-        impl SpiAnyPins for $spi {}
+        impl SpiAnyPins for $spi<'_> {}
     };
 }
 

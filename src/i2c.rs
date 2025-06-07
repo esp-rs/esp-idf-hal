@@ -8,7 +8,6 @@ use esp_idf_sys::*;
 use crate::delay::*;
 use crate::gpio::*;
 use crate::interrupt::InterruptType;
-use crate::peripheral::Peripheral;
 use crate::units::*;
 
 pub use embedded_hal::i2c::Operation;
@@ -205,10 +204,10 @@ pub struct I2cDriver<'d> {
 }
 
 impl<'d> I2cDriver<'d> {
-    pub fn new<I2C: I2c>(
-        _i2c: impl Peripheral<P = I2C> + 'd,
-        sda: impl Peripheral<P = impl InputPin + OutputPin> + 'd,
-        scl: impl Peripheral<P = impl InputPin + OutputPin> + 'd,
+    pub fn new<I2C: I2c + 'd>(
+        _i2c: I2C,
+        sda: impl InputPin + OutputPin + 'd,
+        scl: impl InputPin + OutputPin + 'd,
         config: &config::Config,
     ) -> Result<Self, EspError> {
         // i2c_config_t documentation says that clock speed must be no higher than 1 MHz
@@ -216,13 +215,11 @@ impl<'d> I2cDriver<'d> {
             return Err(EspError::from_infallible::<ESP_ERR_INVALID_ARG>());
         }
 
-        crate::into_ref!(sda, scl);
-
         let sys_config = i2c_config_t {
             mode: i2c_mode_t_I2C_MODE_MASTER,
-            sda_io_num: sda.pin(),
+            sda_io_num: sda.pin() as _,
             sda_pullup_en: config.sda_pullup_enabled,
-            scl_io_num: scl.pin(),
+            scl_io_num: scl.pin() as _,
             scl_pullup_en: config.scl_pullup_enabled,
             __bindgen_anon_1: i2c_config_t__bindgen_ty_1 {
                 master: i2c_config_t__bindgen_ty_1__bindgen_ty_1 {
@@ -462,20 +459,18 @@ unsafe impl Send for I2cSlaveDriver<'_> {}
 
 #[cfg(not(esp32c2))]
 impl<'d> I2cSlaveDriver<'d> {
-    pub fn new<I2C: I2c>(
-        _i2c: impl Peripheral<P = I2C> + 'd,
-        sda: impl Peripheral<P = impl InputPin + OutputPin> + 'd,
-        scl: impl Peripheral<P = impl InputPin + OutputPin> + 'd,
+    pub fn new<I2C: I2c + 'd>(
+        _i2c: I2C,
+        sda: impl InputPin + OutputPin + 'd,
+        scl: impl InputPin + OutputPin + 'd,
         slave_addr: u8,
         config: &config::SlaveConfig,
     ) -> Result<Self, EspError> {
-        crate::into_ref!(sda, scl);
-
         let sys_config = i2c_config_t {
             mode: i2c_mode_t_I2C_MODE_SLAVE,
-            sda_io_num: sda.pin(),
+            sda_io_num: sda.pin() as _,
             sda_pullup_en: config.sda_pullup_enabled,
-            scl_io_num: scl.pin(),
+            scl_io_num: scl.pin() as _,
             scl_pullup_en: config.scl_pullup_enabled,
             __bindgen_anon_1: i2c_config_t__bindgen_ty_1 {
                 slave: i2c_config_t__bindgen_ty_1__bindgen_ty_2 {
@@ -595,7 +590,7 @@ macro_rules! impl_i2c {
     ($i2c:ident: $port:expr) => {
         crate::impl_peripheral!($i2c);
 
-        impl I2c for $i2c {
+        impl I2c for $i2c<'_> {
             #[inline(always)]
             fn port() -> i2c_port_t {
                 $port

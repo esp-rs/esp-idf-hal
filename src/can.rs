@@ -46,7 +46,6 @@ use num_enum::TryFromPrimitive;
 use crate::cpu::Core;
 use crate::delay::{self, BLOCK, NON_BLOCK};
 use crate::interrupt::InterruptType;
-use crate::peripheral::{Peripheral, PeripheralRef};
 use crate::task::asynch::Notification;
 use crate::{gpio::*, task};
 
@@ -385,22 +384,20 @@ pub enum Alert {
 }
 
 /// CAN abstraction
-pub struct CanDriver<'d>(PeripheralRef<'d, CAN>, EnumSet<Alert>, bool);
+pub struct CanDriver<'d>(PhantomData<&'d mut ()>, EnumSet<Alert>, bool);
 
 impl<'d> CanDriver<'d> {
     pub fn new(
-        can: impl Peripheral<P = CAN> + 'd,
-        tx: impl Peripheral<P = impl OutputPin> + 'd,
-        rx: impl Peripheral<P = impl InputPin> + 'd,
+        _can: CAN<'d>,
+        tx: impl OutputPin + 'd,
+        rx: impl InputPin + 'd,
         config: &config::Config,
     ) -> Result<Self, EspError> {
-        crate::into_ref!(can, tx, rx);
-
         #[allow(clippy::needless_update)]
         let general_config = twai_general_config_t {
             mode: config.mode.into(),
-            tx_io: tx.pin(),
-            rx_io: rx.pin(),
+            tx_io: tx.pin() as _,
+            rx_io: rx.pin() as _,
             clkout_io: -1,
             bus_off_io: -1,
             tx_queue_len: config.tx_queue_len,
@@ -439,7 +436,7 @@ impl<'d> CanDriver<'d> {
 
         esp!(unsafe { twai_driver_install(&general_config, &timing_config, &filter_config) })?;
 
-        Ok(Self(can, config.alerts, config.tx_queue_len > 0))
+        Ok(Self(PhantomData, config.alerts, config.tx_queue_len > 0))
     }
 
     pub fn start(&mut self) -> Result<(), EspError> {
@@ -572,9 +569,9 @@ where
 
 impl<'d> AsyncCanDriver<'d, CanDriver<'d>> {
     pub fn new(
-        can: impl Peripheral<P = CAN> + 'd,
-        tx: impl Peripheral<P = impl OutputPin> + 'd,
-        rx: impl Peripheral<P = impl InputPin> + 'd,
+        can: CAN<'d>,
+        tx: impl OutputPin + 'd,
+        rx: impl InputPin + 'd,
         config: &config::Config,
     ) -> Result<Self, EspError> {
         Self::wrap(CanDriver::new(can, tx, rx, config)?)

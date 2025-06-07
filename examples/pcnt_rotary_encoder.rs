@@ -14,7 +14,7 @@ fn main() -> anyhow::Result<()> {
     use anyhow::Context;
     use encoder::Encoder;
     use esp_idf_hal::delay::FreeRtos;
-    use esp_idf_hal::prelude::*;
+    use esp_idf_hal::peripherals::Peripherals;
 
     // Temporary. Will disappear once ESP-IDF 4.4 is released, but for now it is necessary to call this function once,
     // or else some patches to the runtime implemented by esp-idf-sys might not link properly.
@@ -22,10 +22,10 @@ fn main() -> anyhow::Result<()> {
 
     println!("setup pins");
     let peripherals = Peripherals::take().context("failed to take Peripherals")?;
-    let mut pin_a = peripherals.pins.gpio4;
-    let mut pin_b = peripherals.pins.gpio5;
+    let pin_a = peripherals.pins.gpio4;
+    let pin_b = peripherals.pins.gpio5;
     println!("setup encoder");
-    let encoder = Encoder::new(peripherals.pcnt0, &mut pin_a, &mut pin_b)?;
+    let encoder = Encoder::new(peripherals.pcnt0, pin_a, pin_b)?;
 
     let mut last_value = 0i32;
     loop {
@@ -58,7 +58,6 @@ mod encoder {
     use esp_idf_hal::gpio::AnyInputPin;
     use esp_idf_hal::gpio::InputPin;
     use esp_idf_hal::pcnt::*;
-    use esp_idf_hal::peripheral::Peripheral;
     use esp_idf_sys::EspError;
 
     const LOW_LIMIT: i16 = -100;
@@ -70,10 +69,10 @@ mod encoder {
     }
 
     impl<'d> Encoder<'d> {
-        pub fn new<PCNT: Pcnt>(
-            pcnt: impl Peripheral<P = PCNT> + 'd,
-            pin_a: impl Peripheral<P = impl InputPin> + 'd,
-            pin_b: impl Peripheral<P = impl InputPin> + 'd,
+        pub fn new(
+            pcnt: impl Pcnt + 'd,
+            pin_a: impl InputPin + 'd,
+            pin_b: impl InputPin + 'd,
         ) -> Result<Self, EspError> {
             let mut unit = PcntDriver::new(
                 pcnt,

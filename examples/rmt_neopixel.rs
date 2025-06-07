@@ -33,7 +33,7 @@ mod example {
     use anyhow::{bail, Result};
     use esp_idf_hal::{
         delay::FreeRtos,
-        prelude::Peripherals,
+        peripherals::Peripherals,
         rmt::{config::TransmitConfig, FixedLengthSignal, PinState, Pulse, TxRmtDriver},
     };
 
