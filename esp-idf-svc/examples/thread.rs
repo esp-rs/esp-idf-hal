@@ -63,7 +63,7 @@ mod example {
         sys_loop: EspSystemEventLoop,
     ) -> Result<EspSystemSubscription<'static>, anyhow::Error> {
         let subscription = sys_loop.subscribe::<ThreadEvent, _>(|event| {
-            info!("Got: {:?}", event);
+            info!("Got: {event:?}");
         })?;
 
         Ok(subscription)

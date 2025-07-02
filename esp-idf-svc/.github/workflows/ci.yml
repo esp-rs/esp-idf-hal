@@ -18,6 +18,7 @@ jobs:
     name: Compile
     runs-on: ubuntu-latest
     strategy:
+      fail-fast: false
       matrix:
         target:
           - riscv32imc-esp-espidf
@@ -43,10 +44,11 @@ jobs:
 
       - name: Install Rust for Xtensa
         if: matrix.target != 'riscv32imc-esp-espidf'
-        uses: esp-rs/xtensa-toolchain@v1.5.1
+        uses: esp-rs/xtensa-toolchain@v1.6
         with:
           default: true
-          
+          ldproxy: true
+
       - name: Build | Fmt Check
         if: matrix.target != 'riscv32imac-esp-espidf' || matrix.idf-version != 'v4.4.8'
         run: cargo fmt -- --check
