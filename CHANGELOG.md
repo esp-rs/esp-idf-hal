@@ -20,6 +20,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fix the SDMMC driver for ESP-IDF V5.5+
 - Replace Arc with Rc in ledc_threads example (#514)
 - Fix outdated task docs
+- CAN: fix wrong Alert enum indexing (#532)
 
 ## [0.45.2] - 2025-01-15
 
@@ -68,7 +69,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.44.1] - 2024-07-09
 ### Fixed
-* The crate now does build with ESP-IDF V4.4.x + esp32c2/esp32c6/esp32h2, yet these MCUs should only be used with ESP-IDF V5+ 
+* The crate now does build with ESP-IDF V4.4.x + esp32c2/esp32c6/esp32h2, yet these MCUs should only be used with ESP-IDF V5+
   as they are not officially supported with ESP-IDF V4.4.x (#450)
 * Enum `ResetReason` not dealing with all reset reasons (panics on unknown reset reason) (#443, #444)
 
@@ -100,7 +101,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * ledc: max_duty() method miscalulated in certain conditions. (#431)
 * timer: fix clock usage in timer driver used with ESP-IDF v5.x (#441)
 * i2c: use correct xtal for esp32c2 on timeout calculations. (#438)
- 
+
 ## [0.43.1] - 2024-02-21
 * Fix - PinDriver state changes and the drop call invoked pull-ups to be enabled. New default behavior on init / state transition / drop is to not enable pull-ups. (#344). If users want to reduce power usage on unused pins, they now need to manually enable pull-ups on a pin. For example, call `core::mem::forget` on the PinDriver instance after setting the pull-ups.
 * #354 - breaking change - `rmt` driver now does not directly expose `rmt_item32_t` but rather - wraps it with a `Symbol` newtype
@@ -120,7 +121,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * #350 - Not checking for ESP_FAIL in AsyncCanDriver::transmit
 
 ## [0.42.5] - 2023-11-12
-* BREAKING CHANGE IN A PATCH RELEASE DUE TO DISCOVERED UB: The `subscribe` methods in drivers `PinDriver`, `PcntDriver` and `TimerDriver` 
+* BREAKING CHANGE IN A PATCH RELEASE DUE TO DISCOVERED UB: The `subscribe` methods in drivers `PinDriver`, `PcntDriver` and `TimerDriver`
 no longer accept non-static callbacks, as these lead to UB / crash when the driver is forgotten with e.g. `core::mem::forget`. Since local borrows
 are a very useful feature however, these are still allowed via the newly-introduced and even more unsafe `subscribe_nonstatic` method.
 
@@ -238,12 +239,12 @@ The main themes of the 0.39 release are:
 #### Restore drop semantics for all drivers
 
 * The `release()` method is now retired everywhere
-* Just dropping a driver will make it stop functioning 
+* Just dropping a driver will make it stop functioning
 * If peripherals need to be reused after the driver is dropped, this is achieved by passing the peripherals to the driver constructor via `&mut` references, e.g. `I2cMasterDriver::new(&mut peripherals.i2c1, &mut peripherals.pins.gpio10, &mut peripherals.pins.gpio11, &mut peripherals.pins.gpio12)`
 
 ### Simpler driver types
 
-* All peripheral generics are removed from all drivers' types; e.g., the I2C master driver now has the following type signature: `I2cMasterDriver<'d>` 
+* All peripheral generics are removed from all drivers' types; e.g., the I2C master driver now has the following type signature: `I2cMasterDriver<'d>`
 * The lifetime - `'d` from above designates the lifetime of the peripheral (e.g. `I2c`) that is used by the driver
 * In the most common case where the peripheral is just moved into the driver (and no longer accessible when the driver is dropped), `'d` = `'static`, or in other words, the type signature of the driver becomes `I2cMasterDriver<'static>` and can even be type aliased by the user as in `pub type SimpleI2cMasterDriver = I2cMasterDriver<'static>;`
 * When the peripherals are passed to the driver using `&mut` references, `'d` designates the lifetime of the `&mut` reference
@@ -289,13 +290,13 @@ methods are actually safe to call from an ISR routine. Those which are unsafe wi
 
 In addition to implementing `embedded-hal` crates, `esp-idf-hal` integrates with the wider Rust embedded ecosystem by providing out of the box critical section implementation for the `critical-section` crate.
 
-To enable this support, you need to compile the crate with the `critical-section` feature enabled. 
+To enable this support, you need to compile the crate with the `critical-section` feature enabled.
 
 Note that the provided critical section implementation is based on `esp_idf_hal::task::CriticalSection`, which itself is based on a recursive FreeRtos mutex.
 This means that you can `enter()` the critical section for long periods of time, and your code can still be preempted by ISR routines or high priority FreeRtos tasks (threads), thus you should not worry about slowing down the whole RTOS reaction times by using a critical section.
 This also means however, that this critical section (and its native `esp_idf_hal::task::CriticalSection` equivalent) CANNOT be used from an ISR context.
 
-If you need a critical section with a warranty that your code will not be interrupted by an ISR or higher priority tasks (i.e. working accross ISRs and tasks), you should be using 
+If you need a critical section with a warranty that your code will not be interrupted by an ISR or higher priority tasks (i.e. working accross ISRs and tasks), you should be using
 `esp_idf_hal::interrupt::IsrCriticalSection` instance, or the `esp_idf_hal::interrupt::free` method. Keep in mind that you should stay in this type of critical section for a very short period of time, because it **disables all interrupts**.
 
 ### Support for the `embassy-sync` crate
@@ -304,7 +305,7 @@ The HAL provides two mutex implementations that implement the `RawMutex` trait f
 * `EspRawMutex` - this implementation uses a FreeRtos mutex and behaves similarly to `esp_idf_hal::task::CriticalSection`
 * `IsrRawMutex` - this implementation works by disabling all interrupts and thus behaves similarly to `esp_idf_hal::interrupt::IsrCriticalSection`
 
-To enable this support, you need to compile the crate with the `embassy-sync` feature enabled. 
+To enable this support, you need to compile the crate with the `embassy-sync` feature enabled.
 
 While `embassy-sync` itself can use - via its `CriticalSectionRawMutex` mutex bridge - whatever a HAL is providing as a critical section to the `critical-section` crate, the above two implementations provide further benefits:
 * `EspRawMutex` is almost the same as the `embassy-sync` native `CriticalSectionRawMutex` with the one major difference that ALL `CriticalSectionRawMutex` instances in fact share a **single** RTOS mutex underneath. This is a limitation which is coming from the `critical-section` crate itself. In contrast, each `EspRawMutex` instance has its own separate RTOS mutex
@@ -315,12 +316,12 @@ While `embassy-sync` itself can use - via its `CriticalSectionRawMutex` mutex br
 This is another HAL feature that integrates the ESP-RS ecosystem with the Rust embedded async ecosystem.
 
 The [`edge-executor`](https://github.com/ivmarkov/edge-executor) crate is a simple local-only executor that is based on the popular `async-task` crate coming from the Smol async executor (which in turn powers the `async-std` executor).
-Without getting into too many details, `edge-executor` is useful in embedded cotexts because 
-* It is `no_std` compatible (but requires an allocator, unlike [`embassy-executor`](https://github.com/embassy-rs/embassy), so the latter might be a better fit for bare-metal use cases where ESP IDF is not utilized) 
+Without getting into too many details, `edge-executor` is useful in embedded cotexts because
+* It is `no_std` compatible (but requires an allocator, unlike [`embassy-executor`](https://github.com/embassy-rs/embassy), so the latter might be a better fit for bare-metal use cases where ESP IDF is not utilized)
 * Has a small footprint
 * Is ISR-friendly in that it can operate from an ISR context - or - which would be the natural setup when used on top of a RTOS like ESP IDF's FreeRtos - can be **awoken** directly from an ISR routine, this having a minimal latency
 
-To enable this support, you need to compile the crate with the `edge-executor` feature enabled. 
+To enable this support, you need to compile the crate with the `edge-executor` feature enabled.
 
 The support for `edge-executor` in `esp-idf-hal` is in terms of providing an ISR-friendly `Monitor` trait implementation for `edge-executor` - `FreeRtosMonitor` - that can be awoken directly from an ISR, and is based on the FreeRtos task notification mechanism which is exposed in the `esp_idf_hal::task` crate.
 
@@ -337,9 +338,9 @@ This is now addressed in that the `esp-idf-hal` crate models two new peripherals
 ### SPI driver rework
 
 The SPI driver is now split into two structures
-* `SpiDriver` - represents an initialized SPI bus and manages access to the underlying SPI hardware 
+* `SpiDriver` - represents an initialized SPI bus and manages access to the underlying SPI hardware
 * `SpiDeviceDriver` (new) - an abstraction for rach device connected to the SPI bus
-  
+
 The above split allows for the creation of more than one device per SPI bus. (Up to 6 for the esp32c* variants and 3 for all others).
 When creating an `SpiDeviceDriver` instance, user is required to provide a `Borrow` to the `SpiDriver` instance (as in `SpiDriver`, `&SpiDriver`, `&mut SpiDriver`, `Rc(SpiDriver)` or `Arc(SpiDriver)`), so that the SPI bus stays initialized throughout the liftime of all devices.
 
