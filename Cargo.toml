@@ -33,7 +33,7 @@ embassy-sync = [] # For now, the dependecy on the `embassy-sync` crate is non-op
 adc-oneshot-legacy = []
 # Similar to adc-oneshot-legacy
 # - When enabled (default), the code for the legacy RMT TX/RX driver will be compiled.
-# - When disabled the code for the new onewire RMT driver will be compiled. 
+# - When disabled the code for the new onewire RMT driver will be compiled.
 rmt-legacy = []
 # Propagated esp-idf-sys features
 native = ["esp-idf-sys/native"]
@@ -55,7 +55,6 @@ embedded-io-async = "0.6"
 esp-idf-sys = { version = "0.36", default-features = false }
 critical-section = { version = "1.1.1", optional = true, features = ["restore-state-none"] }
 heapless = "0.8"
-num_enum = { version = "0.7", default-features = false }
 enumset = { version = "1.1.4", default-features = false }
 log = { version = "0.4", default-features = false }
 atomic-waker = { version = "1.1.1", default-features = false }
