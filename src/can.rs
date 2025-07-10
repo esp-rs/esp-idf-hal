@@ -41,8 +41,6 @@ use enumset::{EnumSet, EnumSetType};
 
 use esp_idf_sys::*;
 
-use num_enum::TryFromPrimitive;
-
 use crate::cpu::Core;
 use crate::delay::{self, BLOCK, NON_BLOCK};
 use crate::interrupt::InterruptType;
@@ -360,7 +358,7 @@ pub mod config {
     }
 }
 
-#[derive(Debug, EnumSetType, TryFromPrimitive)]
+#[derive(Debug, EnumSetType)]
 #[enumset(repr = "u32")]
 #[repr(u32)]
 pub enum Alert {
