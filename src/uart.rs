@@ -885,8 +885,8 @@ impl<'d> UartDriver<'d> {
     }
 
     /// Write multiple bytes from a slice, then send a break condition.
-    pub fn write_with_break(&self, bytes: &[u8]) -> Result<usize, EspError> {
-        self.tx().write_with_break(bytes)
+    pub fn write_with_break(&self, bytes: &[u8], brk_len: i32) -> Result<usize, EspError> {
+        self.tx().write_with_break(bytes, brk_len)
     }
 
     /// Write multiple bytes from a slice directly to the TX FIFO hardware.
