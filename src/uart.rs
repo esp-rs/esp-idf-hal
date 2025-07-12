@@ -884,6 +884,11 @@ impl<'d> UartDriver<'d> {
         self.tx().write(bytes)
     }
 
+    /// Write multiple bytes from a slice, then send a break condition.
+    pub fn write_with_break(&self, bytes: &[u8]) -> Result<usize, EspError> {
+        self.tx().write_with_break(bytes)
+    }
+
     /// Write multiple bytes from a slice directly to the TX FIFO hardware.
     /// Returns the number of bytes written, where 0 would mean that the TX FIFO is full.
     ///
@@ -1358,6 +1363,18 @@ impl<'d> UartTxDriver<'d> {
     pub fn write(&mut self, bytes: &[u8]) -> Result<usize, EspError> {
         // `uart_write_bytes()` returns error (-1) or how many bytes were written
         let len = unsafe { uart_write_bytes(self.port(), bytes.as_ptr().cast(), bytes.len()) };
+
+        if len >= 0 {
+            Ok(len as usize)
+        } else {
+            Err(EspError::from_infallible::<ESP_ERR_INVALID_STATE>())
+        }
+    }
+
+    /// Write multiple bytes from a slice, then send a break condition.
+    pub fn write_with_break(&mut self, bytes: &[u8], brk_len: i32) -> Result<usize, EspError> {
+        // `uart_write_bytes_with_break()` returns error (-1) or how many bytes were written
+        let len = unsafe { uart_write_bytes_with_break(self.port(), bytes.as_ptr().cast(), bytes.len(), brk_len) };
 
         if len >= 0 {
             Ok(len as usize)
