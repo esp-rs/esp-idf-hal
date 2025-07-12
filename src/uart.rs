@@ -1374,7 +1374,9 @@ impl<'d> UartTxDriver<'d> {
     /// Write multiple bytes from a slice, then send a break condition.
     pub fn write_with_break(&mut self, bytes: &[u8], brk_len: i32) -> Result<usize, EspError> {
         // `uart_write_bytes_with_break()` returns error (-1) or how many bytes were written
-        let len = unsafe { uart_write_bytes_with_break(self.port(), bytes.as_ptr().cast(), bytes.len(), brk_len) };
+        let len = unsafe {
+            uart_write_bytes_with_break(self.port(), bytes.as_ptr().cast(), bytes.len(), brk_len)
+        };
 
         if len >= 0 {
             Ok(len as usize)
