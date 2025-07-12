@@ -17,8 +17,57 @@ pub use continuous::{
 #[cfg(any(feature = "adc-oneshot-legacy", esp_idf_version_major = "4"))]
 pub use oneshot_legacy::*;
 
-pub trait Adc: Send {
+/// A trait designating the ADC Unit
+///
+/// An associated type provided by ADC peripherals
+pub trait AdcUnit: 'static {
+    /// Return the ESP-IDF ADC unit identifier.
     fn unit() -> adc_unit_t;
+}
+
+pub struct ADCU<const N: adc_unit_t>;
+
+impl<const N: adc_unit_t> AdcUnit for ADCU<N> {
+    fn unit() -> adc_unit_t {
+        N
+    }
+}
+
+/// A trait designating the ADC channel
+///
+/// An associated type provided by ADC pins
+pub trait AdcChannel: 'static {
+    /// The ADC unit this channel is associated with.
+    type AdcUnit: AdcUnit;
+
+    /// Return the ESP-IDF ADC unit identifier.
+    fn unit() -> adc_unit_t {
+        Self::AdcUnit::unit()
+    }
+
+    /// Return the ESP-IDF ADC channel identifier.
+    fn channel() -> adc_channel_t;
+}
+
+pub struct ADCCH<const U: adc_unit_t, const N: adc_channel_t>;
+
+impl<const U: adc_unit_t, const N: adc_channel_t> AdcChannel for ADCCH<U, N> {
+    type AdcUnit = ADCU<U>;
+
+    fn channel() -> adc_channel_t {
+        N
+    }
+}
+
+/// A trait for ADC peripherals
+pub trait Adc: Send {
+    /// The ADC unit this peripheral is associated with.
+    type AdcUnit: AdcUnit;
+
+    /// Return the ESP-IDF ADC unit identifier.
+    fn unit() -> adc_unit_t {
+        Self::AdcUnit::unit()
+    }
 }
 
 // NOTE: Will be changed to an enum once C-style enums are usable as const generics
@@ -89,11 +138,14 @@ impl From<Resolution> for adc_bits_width_t {
 
 #[cfg(any(feature = "adc-oneshot-legacy", esp_idf_version_major = "4"))]
 mod oneshot_legacy {
+    use core::marker::PhantomData;
+
     use esp_idf_sys::*;
 
-    use crate::gpio::ADCPin;
-
-    use crate::peripheral::{Peripheral, PeripheralRef};
+    use crate::{
+        adc::{AdcChannel, AdcUnit},
+        gpio::ADCPin,
+    };
 
     use super::{to_nb_err, Adc, DirectConverter};
 
@@ -130,48 +182,48 @@ mod oneshot_legacy {
         }
     }
 
-    pub struct AdcChannelDriver<'d, const A: adc_atten_t, T: ADCPin> {
-        pin: PeripheralRef<'d, T>,
+    pub struct AdcChannelDriver<'d, const A: adc_atten_t, C: AdcChannel> {
+        _channel: PhantomData<C>,
+        _t: PhantomData<&'d mut ()>,
     }
 
-    impl<'d, const A: adc_atten_t, T: ADCPin> AdcChannelDriver<'d, A, T> {
-        pub fn new(pin: impl Peripheral<P = T> + 'd) -> Result<Self, EspError> {
-            crate::into_ref!(pin);
-
+    impl<'d, const A: adc_atten_t, C: AdcChannel> AdcChannelDriver<'d, A, C>
+    where
+        C: AdcChannel,
+    {
+        pub fn new(pin: impl ADCPin<AdcChannel = C> + 'd) -> Result<Self, EspError> {
             unsafe {
-                crate::gpio::rtc_reset_pin(pin.pin())?;
+                crate::gpio::rtc_reset_pin(pin.pin() as _)?;
             }
 
-            if T::Adc::unit() == adc_unit_t_ADC_UNIT_1 {
-                esp!(unsafe { adc1_config_channel_atten(pin.adc_channel(), A) })?;
+            if C::unit() == adc_unit_t_ADC_UNIT_1 {
+                esp!(unsafe { adc1_config_channel_atten(C::channel(), A) })?;
             } else {
                 #[cfg(not(any(esp32c2, esp32h2, esp32c5, esp32c6, esp32p4)))]
-                esp!(unsafe { adc2_config_channel_atten(pin.adc_channel(), A) })?;
+                esp!(unsafe { adc2_config_channel_atten(C::channel(), A) })?;
 
                 #[cfg(any(esp32c2, esp32h2, esp32c5, esp32c6, esp32p4))]
                 unreachable!();
             }
 
-            Ok(Self { pin })
-        }
-
-        fn pin(&mut self) -> &mut PeripheralRef<'d, T> {
-            &mut self.pin
+            Ok(Self {
+                _channel: PhantomData,
+                _t: PhantomData,
+            })
         }
     }
 
-    impl<const A: adc_atten_t, T: ADCPin> embedded_hal_0_2::adc::Channel<T::Adc>
-        for AdcChannelDriver<'_, A, T>
+    impl<const A: adc_atten_t, C: AdcChannel> embedded_hal_0_2::adc::Channel<C::AdcUnit>
+        for AdcChannelDriver<'_, A, C>
     {
         type ID = (adc_channel_t, adc_atten_t);
 
         fn channel() -> Self::ID {
-            (T::CHANNEL, A)
+            (C::channel(), A)
         }
     }
 
-    pub struct AdcDriver<'d, ADC: Adc> {
-        _adc: PeripheralRef<'d, ADC>,
+    pub struct AdcDriver<'d, ADCU: AdcUnit> {
         #[allow(dead_code)]
         resolution: config::Resolution,
         #[cfg(all(
@@ -181,11 +233,13 @@ mod oneshot_legacy {
         cal_characteristics: Option<
             [Option<esp_adc_cal_characteristics_t>; adc_atten_t_ADC_ATTEN_DB_11 as usize + 1],
         >,
+        _unit: PhantomData<ADCU>,
+        _t: PhantomData<&'d mut ()>,
     }
 
-    unsafe impl<ADC: Adc> Send for AdcDriver<'_, ADC> {}
+    unsafe impl<ADCU: AdcUnit> Send for AdcDriver<'_, ADCU> {}
 
-    impl<'d, ADC: Adc> AdcDriver<'d, ADC> {
+    impl<'d, ADCU: AdcUnit> AdcDriver<'d, ADCU> {
         #[cfg(all(
             esp32,
             any(esp_idf_comp_esp_adc_cal_enabled, esp_idf_comp_esp_adc_enabled)
@@ -207,12 +261,10 @@ mod oneshot_legacy {
         const CALIBRATION_SCHEME: esp_adc_cal_value_t =
             esp_adc_cal_value_t_ESP_ADC_CAL_VAL_EFUSE_TP_FIT;
 
-        pub fn new(
-            adc: impl Peripheral<P = ADC> + 'd,
+        pub fn new<ADC: Adc<AdcUnit = ADCU> + 'd>(
+            _adc: ADC,
             config: &config::Config,
         ) -> Result<Self, EspError> {
-            crate::into_ref!(adc);
-
             #[cfg(all(
                 any(esp32, esp32s2, esp32s3, esp32c3),
                 any(esp_idf_comp_esp_adc_cal_enabled, esp_idf_comp_esp_adc_enabled)
@@ -226,7 +278,6 @@ mod oneshot_legacy {
             }
 
             Ok(Self {
-                _adc: adc,
                 resolution: config.resolution,
                 #[cfg(all(
                     any(esp32, esp32s2, esp32s3, esp32c3),
@@ -237,46 +288,25 @@ mod oneshot_legacy {
                 } else {
                     None
                 },
+                _unit: PhantomData,
+                _t: PhantomData,
             })
         }
 
         #[inline(always)]
-        pub fn read<const A: adc_atten_t, T>(
+        pub fn read<const A: adc_atten_t, C: AdcChannel<AdcUnit = ADCU>>(
             &mut self,
-            pin: &mut AdcChannelDriver<'_, A, T>,
-        ) -> Result<u16, EspError>
-        where
-            T: ADCPin<Adc = ADC>,
-        {
-            self.read_internal(ADC::unit(), pin.pin().adc_channel(), A)
-        }
-
-        #[inline(always)]
-        pub fn read_raw<const A: adc_atten_t, T>(
-            &mut self,
-            pin: &mut AdcChannelDriver<'_, A, T>,
-        ) -> Result<u16, EspError>
-        where
-            T: ADCPin<Adc = ADC>,
-        {
-            self.read_internal_raw(ADC::unit(), pin.pin().adc_channel())
-        }
-
-        #[inline(always)]
-        #[cfg(all(esp32, esp_idf_version_major = "4"))]
-        pub fn read_hall(
-            &mut self,
-            hall_sensor: &mut crate::hall::HallSensor,
+            _pin: &mut AdcChannelDriver<'_, A, C>,
         ) -> Result<u16, EspError> {
-            let measurement = self.read_hall_raw(hall_sensor);
-
-            self.raw_to_voltage(measurement, adc_atten_t_ADC_ATTEN_DB_0)
+            self.read_internal(C::unit(), C::channel(), A)
         }
 
         #[inline(always)]
-        #[cfg(all(esp32, esp_idf_version_major = "4"))]
-        pub fn read_hall_raw(&mut self, _hall_sensor: &mut crate::hall::HallSensor) -> u16 {
-            unsafe { hall_sensor_read() as u16 }
+        pub fn read_raw<const A: adc_atten_t, C: AdcChannel<AdcUnit = ADCU>>(
+            &mut self,
+            _pin: &mut AdcChannelDriver<'_, A, C>,
+        ) -> Result<u16, EspError> {
+            self.read_internal_raw(C::unit(), C::channel())
         }
 
         #[inline(always)]
@@ -356,7 +386,7 @@ mod oneshot_legacy {
                     let mut cal: esp_adc_cal_characteristics_t = Default::default();
                     unsafe {
                         esp_adc_cal_characterize(
-                            ADC::unit(),
+                            ADCU::unit(),
                             attenuation,
                             self.resolution.into(),
                             0,
@@ -374,31 +404,17 @@ mod oneshot_legacy {
         }
     }
 
-    impl<'c, const A: adc_atten_t, T>
-        embedded_hal_0_2::adc::OneShot<T::Adc, u16, AdcChannelDriver<'c, A, T>>
-        for AdcDriver<'_, T::Adc>
+    impl<'c, const A: adc_atten_t, C>
+        embedded_hal_0_2::adc::OneShot<C::AdcUnit, u16, AdcChannelDriver<'c, A, C>>
+        for AdcDriver<'_, C::AdcUnit>
     where
-        T: ADCPin,
+        C: AdcChannel,
     {
         type Error = EspError;
 
-        fn read(&mut self, pin: &mut AdcChannelDriver<'c, A, T>) -> nb::Result<u16, Self::Error> {
-            self.read_internal(T::Adc::unit(), pin.pin.adc_channel(), A)
+        fn read(&mut self, _pin: &mut AdcChannelDriver<'c, A, C>) -> nb::Result<u16, Self::Error> {
+            self.read_internal(C::unit(), C::channel(), A)
                 .map_err(to_nb_err)
-        }
-    }
-
-    #[cfg(all(esp32, esp_idf_version_major = "4"))]
-    impl embedded_hal_0_2::adc::OneShot<super::ADC1, u16, crate::hall::HallSensor>
-        for AdcDriver<'_, super::ADC1>
-    {
-        type Error = EspError;
-
-        fn read(
-            &mut self,
-            hall_sensor: &mut crate::hall::HallSensor,
-        ) -> nb::Result<u16, Self::Error> {
-            AdcDriver::read_hall(self, hall_sensor).map_err(to_nb_err)
         }
     }
 }
@@ -415,11 +431,8 @@ macro_rules! impl_adc {
     ($adc:ident: $unit:expr) => {
         crate::impl_peripheral!($adc);
 
-        impl Adc for $adc {
-            #[inline(always)]
-            fn unit() -> adc_unit_t {
-                $unit
-            }
+        impl Adc for $adc<'_> {
+            type AdcUnit = ADCU<$unit>;
         }
     };
 }
@@ -515,16 +528,17 @@ impl DirectConverter {
 ))]
 pub mod oneshot {
     use core::borrow::Borrow;
+    use core::marker::PhantomData;
 
     use esp_idf_sys::*;
 
+    use crate::adc::to_nb_err;
+    use crate::adc::AdcChannel;
     use crate::gpio::ADCPin;
-    use crate::peripheral::Peripheral;
-    use crate::peripheral::PeripheralRef;
 
     use super::attenuation::adc_atten_t;
-    use super::to_nb_err;
     use super::Adc;
+    use super::AdcUnit;
     use super::DirectConverter;
 
     pub mod config {
@@ -600,7 +614,7 @@ pub mod oneshot {
     impl Converter {
         #[allow(unused_variables)]
         fn create(
-            unit_id: u8,
+            unit: adc_unit_t,
             chan: adc_channel_t,
             atten: adc_atten_t,
             bitwidth: adc_bits_width_t,
@@ -627,7 +641,7 @@ pub mod oneshot {
                     // ADC_CALI_SCHEME_LINE_FITTING_SUPPORTED
                     // then we wouuld not need the ugliness for the esp32c6
                     let cal_config = adc_cali_curve_fitting_config_t {
-                        unit_id: unit_id as u32,
+                        unit_id: unit,
                         #[cfg(all(
                             esp_idf_version_major = "5",
                             not(esp_idf_version_minor = "0"),
@@ -657,7 +671,7 @@ pub mod oneshot {
                     // this as a config option?
                     #[allow(clippy::needless_update)]
                     let cal_config = adc_cali_line_fitting_config_t {
-                        unit_id: unit_id as u32,
+                        unit_id: unit,
                         atten,
                         bitwidth,
                         ..Default::default()
@@ -742,30 +756,29 @@ pub mod oneshot {
         }
     }
 
-    pub struct AdcChannelDriver<'d, T, M>
+    pub struct AdcChannelDriver<'d, C, M>
     where
-        T: ADCPin,
-        M: Borrow<AdcDriver<'d, T::Adc>>,
+        C: AdcChannel,
+        M: Borrow<AdcDriver<'d, C::AdcUnit>>,
     {
         adc: M,
-        _pin: PeripheralRef<'d, T>,
+        _channel: PhantomData<C>,
         converter: Converter,
+        _t: PhantomData<&'d mut ()>,
     }
 
-    impl<'d, T, M> AdcChannelDriver<'d, T, M>
+    impl<'d, C, M> AdcChannelDriver<'d, C, M>
     where
-        T: ADCPin,
-        M: Borrow<AdcDriver<'d, T::Adc>>,
+        C: AdcChannel,
+        M: Borrow<AdcDriver<'d, C::AdcUnit>>,
     {
         pub fn new(
             adc: M,
-            pin: impl Peripheral<P = T> + 'd,
+            pin: impl ADCPin<AdcChannel = C> + 'd,
             config: &config::AdcChannelConfig,
         ) -> Result<Self, EspError> {
-            crate::into_ref!(pin);
-
             unsafe {
-                crate::gpio::rtc_reset_pin(pin.pin())?;
+                crate::gpio::rtc_reset_pin(pin.pin() as _)?;
             }
 
             let chan_config = adc_oneshot_chan_cfg_t {
@@ -774,8 +787,8 @@ pub mod oneshot {
             };
 
             let converter = Converter::create(
-                T::Adc::unit() as u8,
-                pin.adc_channel(),
+                C::unit(),
+                C::channel(),
                 config.attenuation,
                 config.resolution.into(),
                 config.calibration,
@@ -784,15 +797,16 @@ pub mod oneshot {
             unsafe {
                 esp!(adc_oneshot_config_channel(
                     adc.borrow().handle,
-                    pin.adc_channel(),
+                    C::channel(),
                     &chan_config
                 ))?
             };
 
             Ok(Self {
                 adc,
-                _pin: pin,
+                _channel: PhantomData,
                 converter,
+                _t: PhantomData,
             })
         }
 
@@ -804,7 +818,7 @@ pub mod oneshot {
 
         #[inline(always)]
         pub fn read_raw(&mut self) -> Result<u16, EspError> {
-            let channel = T::CHANNEL;
+            let channel = C::channel();
             self.adc.borrow().read_raw_internal(channel)
         }
 
@@ -814,62 +828,69 @@ pub mod oneshot {
         }
     }
 
-    impl<'d, T, M> embedded_hal_0_2::adc::Channel<T::Adc> for AdcChannelDriver<'d, T, M>
+    impl<'d, C, M> embedded_hal_0_2::adc::Channel<C::AdcUnit> for AdcChannelDriver<'d, C, M>
     where
-        T: ADCPin,
-        M: Borrow<AdcDriver<'d, T::Adc>>,
+        C: AdcChannel,
+        M: Borrow<AdcDriver<'d, C::AdcUnit>>,
     {
         type ID = adc_channel_t;
 
         fn channel() -> Self::ID {
-            T::CHANNEL
+            C::channel()
         }
     }
 
-    unsafe impl<'d, T, M> Send for AdcChannelDriver<'d, T, M>
+    unsafe impl<'d, C, M> Send for AdcChannelDriver<'d, C, M>
     where
-        T: ADCPin,
-        M: Borrow<AdcDriver<'d, T::Adc>>,
+        C: AdcChannel,
+        M: Borrow<AdcDriver<'d, C::AdcUnit>>,
     {
     }
 
-    pub struct AdcDriver<'d, ADC: Adc> {
+    pub struct AdcDriver<'d, U> {
         handle: adc_oneshot_unit_handle_t,
-        _adc: PeripheralRef<'d, ADC>,
+        _unit: PhantomData<U>,
+        _t: PhantomData<&'d mut ()>,
     }
 
-    impl<'d, ADC: Adc> AdcDriver<'d, ADC> {
-        pub fn new(adc: impl Peripheral<P = ADC> + 'd) -> Result<Self, EspError> {
-            crate::into_ref!(adc);
+    impl<'d, U> AdcDriver<'d, U>
+    where
+        U: AdcUnit + 'd,
+    {
+        pub fn new<ADC: Adc<AdcUnit = U> + 'd>(_adc: ADC) -> Result<Self, EspError> {
             let config = adc_oneshot_unit_init_cfg_t {
                 unit_id: ADC::unit(),
                 ..Default::default()
             };
             let mut handle: adc_oneshot_unit_handle_t = core::ptr::null_mut();
             unsafe { esp!(adc_oneshot_new_unit(&config, &mut handle))? };
-            Ok(Self { handle, _adc: adc })
+            Ok(Self {
+                handle,
+                _unit: PhantomData,
+                _t: PhantomData,
+            })
         }
 
         #[inline(always)]
-        pub fn read<T, M>(&self, channel: &mut AdcChannelDriver<'d, T, M>) -> Result<u16, EspError>
+        pub fn read<C, M>(&self, channel: &mut AdcChannelDriver<'d, C, M>) -> Result<u16, EspError>
         where
-            T: ADCPin,
-            M: Borrow<AdcDriver<'d, T::Adc>>,
+            C: AdcChannel<AdcUnit = U>,
+            M: Borrow<AdcDriver<'d, U>>,
         {
             let raw = self.read_raw(channel)?;
             self.raw_to_mv(channel, raw)
         }
 
         #[inline(always)]
-        pub fn read_raw<T, M>(
+        pub fn read_raw<C, M>(
             &self,
-            _channel: &mut AdcChannelDriver<'d, T, M>,
+            _channel: &mut AdcChannelDriver<'d, C, M>,
         ) -> Result<u16, EspError>
         where
-            T: ADCPin,
-            M: Borrow<AdcDriver<'d, T::Adc>>,
+            C: AdcChannel<AdcUnit = U>,
+            M: Borrow<AdcDriver<'d, U>>,
         {
-            self.read_raw_internal(T::CHANNEL)
+            self.read_raw_internal(C::channel())
         }
 
         #[inline(always)]
@@ -880,40 +901,40 @@ pub mod oneshot {
         }
 
         #[inline(always)]
-        pub fn raw_to_mv<T, M>(
+        pub fn raw_to_mv<C, M>(
             &self,
-            channel: &AdcChannelDriver<'d, T, M>,
+            channel: &AdcChannelDriver<'d, C, M>,
             raw: u16,
         ) -> Result<u16, EspError>
         where
-            T: ADCPin,
-            M: Borrow<AdcDriver<'d, T::Adc>>,
+            C: AdcChannel<AdcUnit = U>,
+            M: Borrow<AdcDriver<'d, U>>,
         {
             channel.converter.raw_to_mv(raw)
         }
     }
 
-    impl<ADC: Adc> Drop for AdcDriver<'_, ADC> {
+    impl<U> Drop for AdcDriver<'_, U> {
         fn drop(&mut self) {
             unsafe { esp!(adc_oneshot_del_unit(self.handle)) }.unwrap();
         }
     }
 
-    impl<'d, T, M> embedded_hal_0_2::adc::OneShot<T::Adc, u16, AdcChannelDriver<'d, T, M>>
-        for AdcDriver<'d, T::Adc>
+    impl<'d, C, M> embedded_hal_0_2::adc::OneShot<C::AdcUnit, u16, AdcChannelDriver<'d, C, M>>
+        for AdcDriver<'d, C::AdcUnit>
     where
-        T: ADCPin,
-        M: Borrow<AdcDriver<'d, T::Adc>>,
+        C: AdcChannel,
+        M: Borrow<AdcDriver<'d, C::AdcUnit>>,
     {
         type Error = EspError;
 
-        fn read(&mut self, pin: &mut AdcChannelDriver<'d, T, M>) -> nb::Result<u16, Self::Error> {
+        fn read(&mut self, pin: &mut AdcChannelDriver<'d, C, M>) -> nb::Result<u16, Self::Error> {
             AdcDriver::read(self, pin).map_err(to_nb_err)
         }
     }
 
-    unsafe impl<ADC: Adc> Send for AdcDriver<'_, ADC> {}
-    unsafe impl<ADC: Adc> Sync for AdcDriver<'_, ADC> {}
+    unsafe impl<U: AdcUnit> Send for AdcDriver<'_, U> {}
+    unsafe impl<U: AdcUnit> Sync for AdcDriver<'_, U> {}
 }
 
 /// Continuous ADC module
@@ -963,13 +984,13 @@ pub mod continuous {
 
     use esp_idf_sys::*;
 
+    use crate::adc::AdcChannel;
     use crate::delay::{self, TickType};
-    use crate::gpio::{sealed::ADCPin as _, ADCPin};
+    use crate::gpio::ADCPin;
     use crate::interrupt::asynch::HalIsrNotification;
     use crate::io::EspIOError;
-    use crate::peripheral::Peripheral;
 
-    use super::{attenuation, Adc};
+    use super::{attenuation, Adc, AdcUnit};
 
     /// Set ADC attenuation level
     /// Example: let pin = Attenuated::db12(peripherals.pins.gpio0);
@@ -1026,7 +1047,8 @@ pub mod continuous {
     pub type Atten12dB<T> = Attenuated<{ attenuation::DB_12 }, T>;
 
     pub trait AdcChannels {
-        type Adc: Adc;
+        type AdcUnit: AdcUnit;
+
         type Iterator<'a>: Iterator<Item = (adc_channel_t, adc_atten_t)>
         where
             Self: 'a;
@@ -1036,10 +1058,9 @@ pub mod continuous {
 
     impl<P> AdcChannels for P
     where
-        P: Peripheral,
-        P::P: ADCPin,
+        P: ADCPin,
     {
-        type Adc = <<P as Peripheral>::P as ADCPin>::Adc;
+        type AdcUnit = <P::AdcChannel as AdcChannel>::AdcUnit;
 
         type Iterator<'a>
             = core::iter::Once<(adc_channel_t, adc_atten_t)>
@@ -1047,7 +1068,7 @@ pub mod continuous {
             Self: 'a;
 
         fn iter(&self) -> Self::Iterator<'_> {
-            core::iter::once((P::P::CHANNEL, attenuation::NONE))
+            core::iter::once((P::AdcChannel::channel(), attenuation::NONE))
         }
     }
 
@@ -1055,7 +1076,7 @@ pub mod continuous {
     where
         C: AdcChannels,
     {
-        type Adc = C::Adc;
+        type AdcUnit = C::AdcUnit;
 
         type Iterator<'a>
             = core::iter::Map<
@@ -1076,7 +1097,7 @@ pub mod continuous {
     where
         C: AdcChannels,
     {
-        type Adc = C::Adc;
+        type AdcUnit = C::AdcUnit;
 
         type Iterator<'a>
             = core::iter::FlatMap<
@@ -1098,7 +1119,7 @@ pub mod continuous {
         pub fn chain<O>(other: O) -> ChainedAdcChannels<Self, O>
         where
             A: Adc,
-            O: AdcChannels<Adc = A>,
+            O: AdcChannels<AdcUnit = A>,
         {
             ChainedAdcChannels {
                 first: Self(PhantomData),
@@ -1109,9 +1130,9 @@ pub mod continuous {
 
     impl<A> AdcChannels for EmptyAdcChannels<A>
     where
-        A: Adc,
+        A: AdcUnit,
     {
-        type Adc = A;
+        type AdcUnit = A;
 
         type Iterator<'a>
             = core::iter::Empty<(adc_channel_t, adc_atten_t)>
@@ -1132,8 +1153,8 @@ pub mod continuous {
         pub fn chain<O>(self, other: O) -> ChainedAdcChannels<Self, O>
         where
             F: AdcChannels,
-            S: AdcChannels<Adc = F::Adc>,
-            O: AdcChannels<Adc = F::Adc>,
+            S: AdcChannels<AdcUnit = F::AdcUnit>,
+            O: AdcChannels<AdcUnit = F::AdcUnit>,
         {
             ChainedAdcChannels {
                 first: self,
@@ -1145,9 +1166,9 @@ pub mod continuous {
     impl<F, S> AdcChannels for ChainedAdcChannels<F, S>
     where
         F: AdcChannels,
-        S: AdcChannels<Adc = F::Adc>,
+        S: AdcChannels<AdcUnit = F::AdcUnit>,
     {
-        type Adc = F::Adc;
+        type AdcUnit = F::AdcUnit;
 
         type Iterator<'a>
             = core::iter::Chain<F::Iterator<'a>, S::Iterator<'a>>
@@ -1317,10 +1338,10 @@ pub mod continuous {
         /// Initialize ADC continuous driver with configuration and channels.
         #[cfg(esp32)]
         pub fn new(
-            adc: impl Peripheral<P = super::ADC1> + 'd,
-            _i2s: impl Peripheral<P = crate::i2s::I2S0> + 'd,
+            adc: super::ADC1<'d>,
+            _i2s: crate::i2s::I2S0<'d>,
             config: &config::Config,
-            channels: impl AdcChannels<Adc = super::ADC1> + 'd,
+            channels: impl AdcChannels<AdcUnit = super::ADCU<0>> + 'd,
         ) -> Result<Self, EspError> {
             Self::internal_new(adc, config, channels)
         }
@@ -1328,28 +1349,28 @@ pub mod continuous {
         /// Initialize ADC continuous driver with configuration and channels
         #[cfg(esp32s2)]
         pub fn new(
-            adc: impl Peripheral<P = super::ADC1> + 'd,
-            _spi: impl Peripheral<P = crate::spi::SPI3> + 'd,
+            adc: super::ADC1<'d>,
+            _spi: crate::spi::SPI3<'d>,
             config: &config::Config,
-            channels: impl AdcChannels<Adc = super::ADC1> + 'd,
+            channels: impl AdcChannels<AdcUnit = super::ADCU<0>> + 'd,
         ) -> Result<Self, EspError> {
             Self::internal_new(adc, config, channels)
         }
 
         /// Initialize ADC continuous driver with configuration and channels.
         #[cfg(not(any(esp32, esp32s2)))]
-        pub fn new<A: Adc>(
-            adc: impl Peripheral<P = A> + 'd,
+        pub fn new<A: Adc + 'd>(
+            adc: A,
             config: &config::Config,
-            channels: impl AdcChannels<Adc = A> + 'd,
+            channels: impl AdcChannels<AdcUnit = A::AdcUnit> + 'd,
         ) -> Result<Self, EspError> {
             Self::internal_new(adc, config, channels)
         }
 
-        fn internal_new<A: Adc>(
-            _adc: impl Peripheral<P = A> + 'd,
+        fn internal_new<A: Adc + 'd>(
+            _adc: A,
             config: &config::Config,
-            channels: impl AdcChannels<Adc = A> + 'd,
+            channels: impl AdcChannels<AdcUnit = A::AdcUnit> + 'd,
         ) -> Result<Self, EspError> {
             let mut patterns = [adc_digi_pattern_config_t::default(); 32];
 

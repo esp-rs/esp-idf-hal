@@ -7,61 +7,55 @@ extern crate alloc;
 
 use esp_idf_sys::*;
 
-use crate::adc::Adc;
-use crate::peripheral::{Peripheral, PeripheralRef};
+use crate::adc::AdcChannel;
 
 pub use chip::*;
 
+pub type PinId = u8;
+
 /// A trait implemented by every pin instance
-pub trait Pin: Peripheral<P = Self> + Sized + Send + 'static {
-    fn pin(&self) -> i32;
+pub trait Pin: Sized + Send {
+    /// Return the pin ID
+    fn pin(&self) -> PinId;
 }
 
 /// A marker trait designating a pin which is capable of
 /// operating as an input pin
-pub trait InputPin: Pin + Into<AnyInputPin> {
-    fn downgrade_input(self) -> AnyInputPin {
-        self.into()
-    }
-}
+pub trait InputPin: Pin {}
 
 /// A marker trait designating a pin which is capable of
 /// operating as an output pin
-pub trait OutputPin: Pin + Into<AnyOutputPin> {
-    fn downgrade_output(self) -> AnyOutputPin {
-        self.into()
-    }
-}
-
-/// A marker trait designating a pin which is capable of
-/// operating as an input and output pin
-pub trait IOPin: InputPin + OutputPin + Into<AnyIOPin> {
-    fn downgrade(self) -> AnyIOPin {
-        self.into()
-    }
-}
+pub trait OutputPin: Pin {}
 
 /// A marker trait designating a pin which is capable of
 /// operating as an RTC pin
 pub trait RTCPin: Pin {
-    fn rtc_pin(&self) -> i32;
-}
-
-pub(crate) mod sealed {
-    pub trait ADCPin {
-        // NOTE: Will likely disappear in subsequent versions,
-        // once ADC support pops up in e-hal1. Hence sealed
-        const CHANNEL: super::adc_channel_t;
-    }
+    /// Return the RTC pin ID
+    fn rtc_pin(&self) -> PinId;
 }
 
 /// A marker trait designating a pin which is capable of
 /// operating as an ADC pin
-pub trait ADCPin: sealed::ADCPin + Pin {
-    type Adc: Adc;
+pub trait ADCPin: Pin {
+    /// Return the ADC channel for this pin
+    type AdcChannel: AdcChannel;
+}
 
-    fn adc_channel(&self) -> adc_channel_t {
-        Self::CHANNEL
+/// A marker trait designating a pin which is capable of
+/// operating as a DAC pin
+#[cfg(any(esp32, esp32s2))]
+pub trait DacChannel: 'static {
+    /// Return the DAC channel for this pin
+    fn dac_channel(&self) -> dac_channel_t;
+}
+
+#[cfg(any(esp32, esp32s2))]
+pub struct DACCH<const N: dac_channel_t>;
+
+#[cfg(any(esp32, esp32s2))]
+impl<const N: dac_channel_t> DacChannel for DACCH<N> {
+    fn dac_channel(&self) -> dac_channel_t {
+        N
     }
 }
 
@@ -69,135 +63,114 @@ pub trait ADCPin: sealed::ADCPin + Pin {
 /// operating as a DAC pin
 #[cfg(any(esp32, esp32s2))]
 pub trait DACPin: Pin {
-    fn dac_channel(&self) -> dac_channel_t;
+    /// Return the DAC channel for this pin
+    type DacChannel: DacChannel;
+}
+
+/// A marker trait designating a pin which is capable of
+/// operating as a touch pin
+#[cfg(any(esp32, esp32s2, esp32s3))]
+pub trait TouchChannel: 'static {
+    /// Return the touch channel for this pin
+    fn touch_channel(&self) -> touch_pad_t;
+}
+
+#[cfg(any(esp32, esp32s2, esp32s3))]
+pub struct TOUCHCH<const N: touch_pad_t>;
+
+#[cfg(any(esp32, esp32s2, esp32s3))]
+impl<const N: touch_pad_t> TouchChannel for TOUCHCH<N> {
+    fn touch_channel(&self) -> touch_pad_t {
+        N
+    }
 }
 
 /// A marker trait designating a pin which is capable of
 /// operating as a touch pin
 #[cfg(any(esp32, esp32s2, esp32s3))]
 pub trait TouchPin: Pin {
-    fn touch_channel(&self) -> touch_pad_t;
+    /// Return the touch channel for this pin
+    type TouchChannel: TouchChannel;
 }
 
-/// Generic Gpio input-output pin
-pub struct AnyIOPin {
-    pin: i32,
-    _p: PhantomData<*const ()>,
-}
-
-impl AnyIOPin {
-    /// # Safety
-    ///
-    /// Care should be taken not to instantiate this Pin, if it is
-    /// already instantiated and used elsewhere, or if it is not set
-    /// already in the mode of operation which is being instantiated
-    pub unsafe fn new(pin: i32) -> Self {
-        Self {
-            pin,
-            _p: PhantomData,
+#[allow(unused_macros)]
+macro_rules! impl_any {
+    ($name:ident) => {
+        pub struct $name<'a> {
+            pin: PinId,
+            _t: ::core::marker::PhantomData<&'a mut ()>,
         }
-    }
 
-    /// Creates an `Option<AnyIOPin>::None` for pins that are
-    /// optional in APIs.
-    pub const fn none() -> Option<Self> {
-        None
-    }
-}
+        impl $name<'_> {
+            /// Unsafely create an instance of this peripheral out of thin air.
+            ///
+            /// # Safety
+            ///
+            /// You must ensure that you're only using one instance of this type at a time.
+            #[inline(always)]
+            pub unsafe fn steal(pin: PinId) -> Self {
+                Self {
+                    pin,
+                    _t: ::core::marker::PhantomData,
+                }
+            }
 
-crate::impl_peripheral_trait!(AnyIOPin);
+            /// Creates a new peripheral reference with a shorter lifetime.
+            ///
+            /// Use this method if you would like to keep working with the peripheral after
+            /// you dropped the driver that consumes this.
+            ///
+            /// # Safety
+            ///
+            /// You must ensure that you are not using reborrowed peripherals in drivers which are
+            /// forgotten via `core::mem::forget`.
+            #[inline]
+            #[allow(dead_code)]
+            pub unsafe fn reborrow(&mut self) -> $name<'_> {
+                $name {
+                    pin: self.pin,
+                    _t: ::core::marker::PhantomData,
+                }
+            }
 
-impl Pin for AnyIOPin {
-    fn pin(&self) -> i32 {
-        self.pin
-    }
-}
-
-impl InputPin for AnyIOPin {}
-impl OutputPin for AnyIOPin {}
-impl IOPin for AnyIOPin {}
-
-/// Generic Gpio input pin
-pub struct AnyInputPin {
-    pin: i32,
-    _p: PhantomData<*const ()>,
-}
-
-impl AnyInputPin {
-    /// # Safety
-    ///
-    /// Care should be taken not to instantiate this Pin, if it is
-    /// already instantiated and used elsewhere, or if it is not set
-    /// already in the mode of operation which is being instantiated
-    pub unsafe fn new(pin: i32) -> Self {
-        Self {
-            pin,
-            _p: PhantomData,
+            /// Return `Option::None` for an unconfigured instance of that pin
+            pub const fn none() -> Option<Self> {
+                None
+            }
         }
-    }
 
-    /// Creates an `Option<AnyInputPin>::None` for pins that are
-    /// optional in APIs.
-    pub const fn none() -> Option<Self> {
-        None
-    }
-}
+        unsafe impl Send for $name<'_> {}
 
-crate::impl_peripheral_trait!(AnyInputPin);
-
-impl Pin for AnyInputPin {
-    fn pin(&self) -> i32 {
-        self.pin
-    }
-}
-
-impl InputPin for AnyInputPin {}
-
-impl From<AnyIOPin> for AnyInputPin {
-    fn from(pin: AnyIOPin) -> Self {
-        unsafe { Self::new(pin.pin()) }
-    }
-}
-
-/// Generic Gpio output pin
-pub struct AnyOutputPin {
-    pin: i32,
-    _p: PhantomData<*const ()>,
-}
-
-impl AnyOutputPin {
-    /// # Safety
-    ///
-    /// Care should be taken not to instantiate this Pin, if it is
-    /// already instantiated and used elsewhere, or if it is not set
-    /// already in the mode of operation which is being instantiated
-    pub unsafe fn new(pin: i32) -> Self {
-        Self {
-            pin,
-            _p: PhantomData,
+        impl Pin for $name<'_> {
+            fn pin(&self) -> PinId {
+                self.pin as _
+            }
         }
-    }
+    };
+}
 
-    /// Creates an `Option<AnyOutputPin>::None` for pins that are
-    /// optional in APIs.
-    pub const fn none() -> Option<Self> {
-        None
+impl_any!(AnyIOPin);
+
+impl InputPin for AnyIOPin<'_> {}
+impl OutputPin for AnyIOPin<'_> {}
+
+impl_any!(AnyInputPin);
+
+impl InputPin for AnyInputPin<'_> {}
+
+impl<'a> From<AnyIOPin<'a>> for AnyInputPin<'a> {
+    fn from(pin: AnyIOPin<'a>) -> Self {
+        unsafe { Self::steal(pin.pin()) }
     }
 }
 
-crate::impl_peripheral_trait!(AnyOutputPin);
+impl_any!(AnyOutputPin);
 
-impl Pin for AnyOutputPin {
-    fn pin(&self) -> i32 {
-        self.pin
-    }
-}
+impl OutputPin for AnyOutputPin<'_> {}
 
-impl OutputPin for AnyOutputPin {}
-
-impl From<AnyIOPin> for AnyOutputPin {
-    fn from(pin: AnyIOPin) -> Self {
-        unsafe { Self::new(pin.pin()) }
+impl<'a> From<AnyIOPin<'a>> for AnyOutputPin<'a> {
+    fn from(pin: AnyIOPin<'a>) -> Self {
+        unsafe { Self::steal(pin.pin()) }
     }
 }
 
@@ -356,10 +329,14 @@ impl From<Level> for embedded_hal::digital::PinState {
     }
 }
 
-pub trait GPIOMode {}
+pub trait GPIOMode {
+    const MODE: gpio_mode_t;
+}
 
 #[cfg(not(any(esp32c3, esp32c2, esp32h2, esp32c5)))]
-pub trait RTCMode {}
+pub trait RTCMode {
+    const RTC_MODE: rtc_gpio_mode_t;
+}
 
 pub trait InputMode {
     const RTC: bool;
@@ -382,15 +359,23 @@ pub struct RtcOutput;
 #[cfg(not(any(esp32c3, esp32c2, esp32h2, esp32c5)))]
 pub struct RtcInputOutput;
 
+impl GPIOMode for Disabled {
+    const MODE: gpio_mode_t = gpio_mode_t_GPIO_MODE_DISABLE;
+}
+
+impl GPIOMode for Input {
+    const MODE: gpio_mode_t = gpio_mode_t_GPIO_MODE_INPUT;
+}
+
 impl InputMode for Input {
     const RTC: bool = false;
 }
 
-impl InputMode for InputOutput {
-    const RTC: bool = false;
+impl GPIOMode for InputOutput {
+    const MODE: gpio_mode_t = gpio_mode_t_GPIO_MODE_INPUT_OUTPUT;
 }
 
-impl OutputMode for Output {
+impl InputMode for InputOutput {
     const RTC: bool = false;
 }
 
@@ -398,10 +383,23 @@ impl OutputMode for InputOutput {
     const RTC: bool = false;
 }
 
-impl GPIOMode for Disabled {}
-impl GPIOMode for Input {}
-impl GPIOMode for InputOutput {}
-impl GPIOMode for Output {}
+impl GPIOMode for Output {
+    const MODE: gpio_mode_t = gpio_mode_t_GPIO_MODE_OUTPUT;
+}
+
+impl OutputMode for Output {
+    const RTC: bool = false;
+}
+
+#[cfg(not(any(esp32c3, esp32c2, esp32h2, esp32c5)))]
+impl RTCMode for RtcDisabled {
+    const RTC_MODE: rtc_gpio_mode_t = rtc_gpio_mode_t_RTC_GPIO_MODE_DISABLED;
+}
+
+#[cfg(not(any(esp32c3, esp32c2, esp32h2, esp32c5)))]
+impl RTCMode for RtcInput {
+    const RTC_MODE: rtc_gpio_mode_t = rtc_gpio_mode_t_RTC_GPIO_MODE_INPUT_ONLY;
+}
 
 #[cfg(not(any(esp32c3, esp32c2, esp32h2, esp32c5)))]
 impl InputMode for RtcInput {
@@ -409,12 +407,12 @@ impl InputMode for RtcInput {
 }
 
 #[cfg(not(any(esp32c3, esp32c2, esp32h2, esp32c5)))]
-impl InputMode for RtcInputOutput {
-    const RTC: bool = true;
+impl RTCMode for RtcInputOutput {
+    const RTC_MODE: rtc_gpio_mode_t = rtc_gpio_mode_t_RTC_GPIO_MODE_INPUT_OUTPUT;
 }
 
 #[cfg(not(any(esp32c3, esp32c2, esp32h2, esp32c5)))]
-impl OutputMode for RtcOutput {
+impl InputMode for RtcInputOutput {
     const RTC: bool = true;
 }
 
@@ -424,16 +422,14 @@ impl OutputMode for RtcInputOutput {
 }
 
 #[cfg(not(any(esp32c3, esp32c2, esp32h2, esp32c5)))]
-impl RTCMode for RtcDisabled {}
+impl RTCMode for RtcOutput {
+    const RTC_MODE: rtc_gpio_mode_t = rtc_gpio_mode_t_RTC_GPIO_MODE_OUTPUT_ONLY;
+}
 
 #[cfg(not(any(esp32c3, esp32c2, esp32h2, esp32c5)))]
-impl RTCMode for RtcInput {}
-
-#[cfg(not(any(esp32c3, esp32c2, esp32h2, esp32c5)))]
-impl RTCMode for RtcInputOutput {}
-
-#[cfg(not(any(esp32c3, esp32c2, esp32h2, esp32c5)))]
-impl RTCMode for RtcOutput {}
+impl OutputMode for RtcOutput {
+    const RTC: bool = true;
+}
 
 /// A driver for a GPIO pin.
 ///
@@ -443,354 +439,156 @@ impl RTCMode for RtcOutput {}
 ///
 /// The mode-setting depends on the capabilities of the pin as well, i.e. input-only pins cannot be set
 /// into output or input-output mode.
-pub struct PinDriver<'d, T: Pin, MODE> {
-    pin: PeripheralRef<'d, T>,
+pub struct PinDriver<'d, MODE> {
+    pin: PinId,
     _mode: PhantomData<MODE>,
+    _t: PhantomData<&'d mut ()>,
 }
 
-impl<'d, T: Pin> PinDriver<'d, T, Disabled> {
+impl<'d> PinDriver<'d, Disabled> {
     /// Creates the driver for a pin in disabled state.
     #[inline]
-    pub fn disabled(pin: impl Peripheral<P = T> + 'd) -> Result<Self, EspError> {
-        crate::into_ref!(pin);
-
-        Self {
-            pin,
-            _mode: PhantomData,
-        }
-        .into_disabled()
+    pub fn disabled<T: Pin + 'd>(pin: T) -> Result<Self, EspError> {
+        Self::new_gpio(pin.pin())
     }
 }
 
-impl<'d, T: InputPin> PinDriver<'d, T, Input> {
+impl<'d> PinDriver<'d, Input> {
     /// Creates the driver for a pin in input state.
     #[inline]
-    pub fn input(pin: impl Peripheral<P = T> + 'd) -> Result<Self, EspError> {
-        crate::into_ref!(pin);
+    pub fn input<T: InputPin + 'd>(pin: T, pull: Pull) -> Result<Self, EspError> {
+        let mut pin = Self::new_gpio(pin.pin())?;
 
-        Self {
-            pin,
-            _mode: PhantomData,
-        }
-        .into_input()
+        pin.set_pull(pull)?;
+
+        Ok(pin)
     }
 }
 
-impl<'d, T: InputPin + OutputPin> PinDriver<'d, T, InputOutput> {
+impl<'d> PinDriver<'d, InputOutput> {
     /// Creates the driver for a pin in input-output state.
     #[inline]
-    pub fn input_output(pin: impl Peripheral<P = T> + 'd) -> Result<Self, EspError> {
-        crate::into_ref!(pin);
+    pub fn input_output<T: InputPin + OutputPin + 'd>(
+        pin: T,
+        pull: Pull,
+    ) -> Result<Self, EspError> {
+        let mut pin = Self::new_gpio(pin.pin())?;
 
-        Self {
-            pin,
-            _mode: PhantomData,
-        }
-        .into_input_output()
+        pin.set_pull(pull)?;
+
+        Ok(pin)
     }
 }
 
-impl<'d, T: InputPin + OutputPin> PinDriver<'d, T, InputOutput> {
+impl<'d> PinDriver<'d, InputOutput> {
     /// Creates the driver for a pin in input-output open-drain state.
     #[inline]
-    pub fn input_output_od(pin: impl Peripheral<P = T> + 'd) -> Result<Self, EspError> {
-        crate::into_ref!(pin);
+    pub fn input_output_od<T: InputPin + OutputPin + 'd>(
+        pin: T,
+        pull: Pull,
+    ) -> Result<Self, EspError> {
+        // TODO XXX FIXME
+        let mut pin = Self::new_gpio(pin.pin())?;
 
-        Self {
-            pin,
-            _mode: PhantomData,
-        }
-        .into_input_output_od()
+        pin.set_pull(pull)?;
+
+        Ok(pin)
     }
 }
 
-impl<'d, T: OutputPin> PinDriver<'d, T, Output> {
+impl<'d> PinDriver<'d, Output> {
     /// Creates the driver for a pin in output state.
     #[inline]
-    pub fn output(pin: impl Peripheral<P = T> + 'd) -> Result<Self, EspError> {
-        crate::into_ref!(pin);
-
-        Self {
-            pin,
-            _mode: PhantomData,
-        }
-        .into_output()
+    pub fn output<T: OutputPin + 'd>(pin: T) -> Result<Self, EspError> {
+        Self::new_gpio(pin.pin())
     }
 }
 
-impl<'d, T: OutputPin> PinDriver<'d, T, Output> {
+impl<'d> PinDriver<'d, Output> {
     /// Creates the driver for a pin in output open-drain state.
     #[inline]
-    pub fn output_od(pin: impl Peripheral<P = T> + 'd) -> Result<Self, EspError> {
-        crate::into_ref!(pin);
-
-        Self {
-            pin,
-            _mode: PhantomData,
-        }
-        .into_output_od()
+    pub fn output_od<T: OutputPin + 'd>(pin: T) -> Result<Self, EspError> {
+        Self::new_gpio(pin.pin()) // TODO XXX FIXME
     }
 }
 
 #[cfg(not(any(esp32c3, esp32c2, esp32h2, esp32c5)))]
-impl<'d, T: Pin + RTCPin> PinDriver<'d, T, RtcDisabled> {
+impl<'d> PinDriver<'d, RtcDisabled> {
     /// Creates the driver for a pin in disabled state.
     #[inline]
-    pub fn rtc_disabled(pin: impl Peripheral<P = T> + 'd) -> Result<Self, EspError> {
-        crate::into_ref!(pin);
-
-        Self {
-            pin,
-            _mode: PhantomData,
-        }
-        .into_rtc_disabled()
+    pub fn rtc_disabled<T: Pin + RTCPin + 'd>(pin: T) -> Result<Self, EspError> {
+        Self::new_rtc(pin.pin())
     }
 }
 
 #[cfg(not(any(esp32c3, esp32c2, esp32h2, esp32c5)))]
-impl<'d, T: InputPin + RTCPin> PinDriver<'d, T, RtcInput> {
+impl<'d> PinDriver<'d, RtcInput> {
     /// Creates the driver for a pin in RTC input state.
     #[inline]
-    pub fn rtc_input(pin: impl Peripheral<P = T> + 'd) -> Result<Self, EspError> {
-        crate::into_ref!(pin);
+    pub fn rtc_input<T: InputPin + RTCPin + 'd>(pin: T, pull: Pull) -> Result<Self, EspError> {
+        let mut pin = Self::new_rtc(pin.pin())?;
 
-        Self {
-            pin,
-            _mode: PhantomData,
-        }
-        .into_rtc_input()
+        pin.set_pull(pull)?;
+
+        Ok(pin)
     }
 }
 
 #[cfg(not(any(esp32c3, esp32c2, esp32h2, esp32c5)))]
-impl<'d, T: InputPin + OutputPin + RTCPin> PinDriver<'d, T, RtcInputOutput> {
+impl<'d> PinDriver<'d, RtcInputOutput> {
     /// Creates the driver for a pin in RTC input-output state.
     #[inline]
-    pub fn rtc_input_output(pin: impl Peripheral<P = T> + 'd) -> Result<Self, EspError> {
-        crate::into_ref!(pin);
+    pub fn rtc_input_output<T: InputPin + OutputPin + RTCPin + 'd>(
+        pin: T,
+        pull: Pull,
+    ) -> Result<Self, EspError> {
+        let mut pin = Self::new_rtc(pin.pin())?;
 
-        Self {
-            pin,
-            _mode: PhantomData,
-        }
-        .into_rtc_input_output()
+        pin.set_pull(pull)?;
+
+        Ok(pin)
     }
 }
 
 #[cfg(not(any(esp32c3, esp32c2, esp32h2, esp32c5)))]
-impl<'d, T: InputPin + OutputPin + RTCPin> PinDriver<'d, T, RtcInputOutput> {
+impl<'d> PinDriver<'d, RtcInputOutput> {
     /// Creates the driver for a pin in RTC input-output open-drain state.
     #[inline]
-    pub fn rtc_input_output_od(pin: impl Peripheral<P = T> + 'd) -> Result<Self, EspError> {
-        crate::into_ref!(pin);
+    pub fn rtc_input_output_od<T: InputPin + OutputPin + RTCPin + 'd>(
+        pin: T,
+        pull: Pull,
+    ) -> Result<Self, EspError> {
+        // TODO XXX FIXME
+        let mut pin = Self::new_rtc(pin.pin())?;
 
-        Self {
-            pin,
-            _mode: PhantomData,
-        }
-        .into_rtc_input_output_od()
+        pin.set_pull(pull)?;
+
+        Ok(pin)
     }
 }
 
 #[cfg(not(any(esp32c3, esp32c2, esp32h2, esp32c5)))]
-impl<'d, T: OutputPin + RTCPin> PinDriver<'d, T, RtcOutput> {
+impl<'d> PinDriver<'d, RtcOutput> {
     /// Creates the driver for a pin in RTC output state.
     #[inline]
-    pub fn rtc_output(pin: impl Peripheral<P = T> + 'd) -> Result<Self, EspError> {
-        crate::into_ref!(pin);
-
-        Self {
-            pin,
-            _mode: PhantomData,
-        }
-        .into_rtc_output()
+    pub fn rtc_output<T: OutputPin + RTCPin + 'd>(pin: T) -> Result<Self, EspError> {
+        Self::new_rtc(pin.pin())
     }
 }
 
 #[cfg(not(any(esp32c3, esp32c2, esp32h2, esp32c5)))]
-impl<'d, T: OutputPin + RTCPin> PinDriver<'d, T, RtcOutput> {
+impl<'d> PinDriver<'d, RtcOutput> {
     /// Creates the driver for a pin in RTC output open-drain state.
     #[inline]
-    pub fn rtc_output_od(pin: impl Peripheral<P = T> + 'd) -> Result<Self, EspError> {
-        crate::into_ref!(pin);
-
-        Self {
-            pin,
-            _mode: PhantomData,
-        }
-        .into_rtc_output_od()
+    pub fn rtc_output_od<T: OutputPin + RTCPin + 'd>(pin: T) -> Result<Self, EspError> {
+        Self::new_rtc(pin.pin()) // TODO XXX FIXME
     }
 }
 
-impl<'d, T: Pin, MODE> PinDriver<'d, T, MODE> {
+impl<'d, MODE> PinDriver<'d, MODE> {
     /// Returns the pin number.
-    pub fn pin(&self) -> i32 {
-        self.pin.pin()
-    }
-
-    /// Put the pin into disabled mode.
-    pub fn into_disabled(self) -> Result<PinDriver<'d, T, Disabled>, EspError> {
-        self.into_mode(gpio_mode_t_GPIO_MODE_DISABLE)
-    }
-
-    /// Put the pin into input mode.
-    #[inline]
-    pub fn into_input(self) -> Result<PinDriver<'d, T, Input>, EspError>
-    where
-        T: InputPin,
-    {
-        self.into_mode(gpio_mode_t_GPIO_MODE_INPUT)
-    }
-
-    /// Put the pin into input + output mode.
-    #[inline]
-    pub fn into_input_output(self) -> Result<PinDriver<'d, T, InputOutput>, EspError>
-    where
-        T: InputPin + OutputPin,
-    {
-        self.into_mode(gpio_mode_t_GPIO_MODE_INPUT_OUTPUT)
-    }
-
-    /// Put the pin into input + output Open Drain mode.
-    ///
-    /// This is commonly used for "open drain" mode.
-    /// the hardware will drive the line low if you set it to low, and will leave it floating if you set
-    /// it to high, in which case you can read the input to figure out whether another device
-    /// is driving the line low.
-    #[inline]
-    pub fn into_input_output_od(self) -> Result<PinDriver<'d, T, InputOutput>, EspError>
-    where
-        T: InputPin + OutputPin,
-    {
-        self.into_mode(gpio_mode_t_GPIO_MODE_INPUT_OUTPUT_OD)
-    }
-
-    /// Put the pin into output mode.
-    #[inline]
-    pub fn into_output(self) -> Result<PinDriver<'d, T, Output>, EspError>
-    where
-        T: OutputPin,
-    {
-        self.into_mode(gpio_mode_t_GPIO_MODE_OUTPUT)
-    }
-
-    /// Put the pin into output Open Drain mode.
-    #[inline]
-    pub fn into_output_od(self) -> Result<PinDriver<'d, T, Output>, EspError>
-    where
-        T: OutputPin,
-    {
-        self.into_mode(gpio_mode_t_GPIO_MODE_OUTPUT_OD)
-    }
-
-    /// Put the pin into RTC disabled mode.
-    #[inline]
-    #[cfg(not(any(esp32c3, esp32c2, esp32h2, esp32c5)))]
-    pub fn into_rtc_disabled(self) -> Result<PinDriver<'d, T, RtcDisabled>, EspError>
-    where
-        T: RTCPin,
-    {
-        self.into_rtc_mode(rtc_gpio_mode_t_RTC_GPIO_MODE_DISABLED)
-    }
-
-    /// Put the pin into RTC input mode.
-    #[inline]
-    #[cfg(not(any(esp32c3, esp32c2, esp32h2, esp32c5)))]
-    pub fn into_rtc_input(self) -> Result<PinDriver<'d, T, RtcInput>, EspError>
-    where
-        T: InputPin + RTCPin,
-    {
-        self.into_rtc_mode(rtc_gpio_mode_t_RTC_GPIO_MODE_INPUT_ONLY)
-    }
-
-    /// Put the pin into RTC input + output mode.
-    ///
-    /// This is commonly used for "open drain" mode.
-    /// the hardware will drive the line low if you set it to low, and will leave it floating if you set
-    /// it to high, in which case you can read the input to figure out whether another device
-    /// is driving the line low.
-    #[inline]
-    #[cfg(not(any(esp32c3, esp32c2, esp32h2, esp32c5)))]
-    pub fn into_rtc_input_output(self) -> Result<PinDriver<'d, T, RtcInputOutput>, EspError>
-    where
-        T: InputPin + OutputPin + RTCPin,
-    {
-        self.into_rtc_mode(rtc_gpio_mode_t_RTC_GPIO_MODE_INPUT_OUTPUT)
-    }
-
-    /// Put the pin into RTC input + output Open Drain mode.
-    ///
-    /// This is commonly used for "open drain" mode.
-    /// the hardware will drive the line low if you set it to low, and will leave it floating if you set
-    /// it to high, in which case you can read the input to figure out whether another device
-    /// is driving the line low.
-    #[inline]
-    #[cfg(not(any(esp32c3, esp32c2, esp32h2, esp32c5)))]
-    pub fn into_rtc_input_output_od(self) -> Result<PinDriver<'d, T, RtcInputOutput>, EspError>
-    where
-        T: InputPin + OutputPin + RTCPin,
-    {
-        self.into_rtc_mode(rtc_gpio_mode_t_RTC_GPIO_MODE_INPUT_OUTPUT_OD)
-    }
-
-    /// Put the pin into RTC output mode.
-    #[inline]
-    #[cfg(not(any(esp32c3, esp32c2, esp32h2, esp32c5)))]
-    pub fn into_rtc_output(self) -> Result<PinDriver<'d, T, RtcOutput>, EspError>
-    where
-        T: OutputPin + RTCPin,
-    {
-        self.into_rtc_mode(rtc_gpio_mode_t_RTC_GPIO_MODE_OUTPUT_ONLY)
-    }
-
-    /// Put the pin into RTC output Open Drain mode.
-    #[inline]
-    #[cfg(not(any(esp32c3, esp32c2, esp32h2, esp32c5)))]
-    pub fn into_rtc_output_od(self) -> Result<PinDriver<'d, T, RtcOutput>, EspError>
-    where
-        T: OutputPin + RTCPin,
-    {
-        self.into_rtc_mode(rtc_gpio_mode_t_RTC_GPIO_MODE_OUTPUT_OD)
-    }
-
-    #[inline]
-    fn into_mode<M>(mut self, mode: gpio_mode_t) -> Result<PinDriver<'d, T, M>, EspError>
-    where
-        T: Pin,
-    {
-        let pin = unsafe { self.pin.clone_unchecked() };
-        drop(self);
-
-        if mode != gpio_mode_t_GPIO_MODE_DISABLE {
-            esp!(unsafe { gpio_set_direction(pin.pin(), mode) })?;
-        }
-
-        Ok(PinDriver {
-            pin,
-            _mode: PhantomData,
-        })
-    }
-
-    #[inline]
-    #[cfg(not(any(esp32c3, esp32c2, esp32h2, esp32c5)))]
-    fn into_rtc_mode<M>(mut self, mode: rtc_gpio_mode_t) -> Result<PinDriver<'d, T, M>, EspError>
-    where
-        T: RTCPin,
-    {
-        let pin = unsafe { self.pin.clone_unchecked() };
-
-        drop(self);
-
-        #[cfg(not(any(esp32c3, esp32c2, esp32h2, esp32c5)))]
-        {
-            esp!(unsafe { rtc_gpio_init(pin.pin()) })?;
-            esp!(unsafe { rtc_gpio_set_direction(pin.pin(), mode) })?;
-        }
-
-        Ok(PinDriver {
-            pin,
-            _mode: PhantomData,
-        })
+    pub fn pin(&self) -> PinId {
+        self.pin
     }
 
     #[inline]
@@ -802,12 +600,12 @@ impl<'d, T: Pin, MODE> PinDriver<'d, T, MODE> {
 
         if MODE::RTC {
             #[cfg(not(any(esp32c3, esp32c2, esp32h2, esp32c5)))]
-            esp!(unsafe { rtc_gpio_get_drive_capability(self.pin.pin(), &mut cap) })?;
+            esp!(unsafe { rtc_gpio_get_drive_capability(self.pin as _, &mut cap) })?;
 
             #[cfg(any(esp32c3, esp32c2, esp32h2, esp32c5))]
             unreachable!();
         } else {
-            esp!(unsafe { gpio_get_drive_capability(self.pin.pin(), &mut cap) })?;
+            esp!(unsafe { gpio_get_drive_capability(self.pin as _, &mut cap) })?;
         }
 
         Ok(cap.into())
@@ -820,12 +618,12 @@ impl<'d, T: Pin, MODE> PinDriver<'d, T, MODE> {
     {
         if MODE::RTC {
             #[cfg(not(any(esp32c3, esp32c2, esp32h2, esp32c5)))]
-            esp!(unsafe { rtc_gpio_set_drive_capability(self.pin.pin(), strength.into()) })?;
+            esp!(unsafe { rtc_gpio_set_drive_capability(self.pin as _, strength.into()) })?;
 
             #[cfg(any(esp32c3, esp32c2, esp32h2, esp32c5))]
             unreachable!();
         } else {
-            esp!(unsafe { gpio_set_drive_capability(self.pin.pin(), strength.into()) })?;
+            esp!(unsafe { gpio_set_drive_capability(self.pin as _, strength.into()) })?;
         }
 
         Ok(())
@@ -857,7 +655,7 @@ impl<'d, T: Pin, MODE> PinDriver<'d, T, MODE> {
         if MODE::RTC {
             #[cfg(not(any(esp32c3, esp32c2, esp32h2, esp32c5)))]
             {
-                res = if unsafe { rtc_gpio_get_level(self.pin.pin()) } != 0 {
+                res = if unsafe { rtc_gpio_get_level(self.pin as _) } != 0 {
                     Level::High
                 } else {
                     Level::Low
@@ -866,7 +664,7 @@ impl<'d, T: Pin, MODE> PinDriver<'d, T, MODE> {
 
             #[cfg(any(esp32c3, esp32c2, esp32h2, esp32c5))]
             unreachable!();
-        } else if unsafe { gpio_get_level(self.pin.pin()) } != 0 {
+        } else if unsafe { gpio_get_level(self.pin as _) } != 0 {
             res = Level::High;
         } else {
             res = Level::Low;
@@ -900,7 +698,7 @@ impl<'d, T: Pin, MODE> PinDriver<'d, T, MODE> {
     {
         // TODO: Implement for RTC mode
 
-        let pin = self.pin.pin() as u32;
+        let pin = self.pin as u32;
 
         #[cfg(any(esp32c3, esp32c2, esp32h2, esp32c5))]
         let is_set_high = unsafe { (*(GPIO_OUT_REG as *const u32) >> pin) & 0x01 != 0 };
@@ -949,12 +747,12 @@ impl<'d, T: Pin, MODE> PinDriver<'d, T, MODE> {
 
         if MODE::RTC {
             #[cfg(not(any(esp32c3, esp32c2, esp32h2, esp32c5)))]
-            esp!(unsafe { rtc_gpio_set_level(self.pin.pin(), on) })?;
+            esp!(unsafe { rtc_gpio_set_level(self.pin as _, on) })?;
 
             #[cfg(any(esp32c3, esp32c2, esp32h2, esp32c5))]
             unreachable!();
         } else {
-            esp!(unsafe { gpio_set_level(self.pin.pin(), on) })?;
+            esp!(unsafe { gpio_set_level(self.pin as _, on) })?;
         }
 
         Ok(())
@@ -973,9 +771,8 @@ impl<'d, T: Pin, MODE> PinDriver<'d, T, MODE> {
         }
     }
 
-    pub fn set_pull(&mut self, pull: Pull) -> Result<(), EspError>
+    fn set_pull(&mut self, pull: Pull) -> Result<(), EspError>
     where
-        T: InputPin + OutputPin,
         MODE: InputMode,
     {
         if MODE::RTC {
@@ -983,20 +780,20 @@ impl<'d, T: Pin, MODE> PinDriver<'d, T, MODE> {
             unsafe {
                 match pull {
                     Pull::Down => {
-                        esp!(rtc_gpio_pulldown_en(self.pin.pin()))?;
-                        esp!(rtc_gpio_pullup_dis(self.pin.pin()))?;
+                        esp!(rtc_gpio_pulldown_en(self.pin as _))?;
+                        esp!(rtc_gpio_pullup_dis(self.pin as _))?;
                     }
                     Pull::Up => {
-                        esp!(rtc_gpio_pulldown_dis(self.pin.pin()))?;
-                        esp!(rtc_gpio_pullup_en(self.pin.pin()))?;
+                        esp!(rtc_gpio_pulldown_dis(self.pin as _))?;
+                        esp!(rtc_gpio_pullup_en(self.pin as _))?;
                     }
                     Pull::UpDown => {
-                        esp!(rtc_gpio_pulldown_en(self.pin.pin()))?;
-                        esp!(rtc_gpio_pullup_en(self.pin.pin()))?;
+                        esp!(rtc_gpio_pulldown_en(self.pin as _))?;
+                        esp!(rtc_gpio_pullup_en(self.pin as _))?;
                     }
                     Pull::Floating => {
-                        esp!(rtc_gpio_pulldown_dis(self.pin.pin()))?;
-                        esp!(rtc_gpio_pullup_dis(self.pin.pin()))?;
+                        esp!(rtc_gpio_pulldown_dis(self.pin as _))?;
+                        esp!(rtc_gpio_pullup_dis(self.pin as _))?;
                     }
                 }
             }
@@ -1004,7 +801,7 @@ impl<'d, T: Pin, MODE> PinDriver<'d, T, MODE> {
             #[cfg(any(esp32c3, esp32c2, esp32h2, esp32c5))]
             unreachable!();
         } else {
-            esp!(unsafe { gpio_set_pull_mode(self.pin.pin(), pull.into()) })?;
+            esp!(unsafe { gpio_set_pull_mode(self.pin as _, pull.into()) })?;
         }
 
         Ok(())
@@ -1089,7 +886,7 @@ impl<'d, T: Pin, MODE> PinDriver<'d, T, MODE> {
 
         let callback: alloc::boxed::Box<dyn FnMut() + Send + 'd> = alloc::boxed::Box::new(callback);
         unsafe {
-            chip::PIN_ISR_HANDLER[self.pin.pin() as usize] = Some(core::mem::transmute::<
+            chip::PIN_ISR_HANDLER[self.pin as usize] = Some(core::mem::transmute::<
                 alloc::boxed::Box<dyn FnMut() + Send>,
                 alloc::boxed::Box<dyn FnMut() + Send>,
             >(callback));
@@ -1103,7 +900,7 @@ impl<'d, T: Pin, MODE> PinDriver<'d, T, MODE> {
         MODE: InputMode,
     {
         unsafe {
-            unsubscribe_pin(self.pin.pin())?;
+            unsubscribe_pin(self.pin as _)?;
         }
 
         Ok(())
@@ -1125,9 +922,9 @@ impl<'d, T: Pin, MODE> PinDriver<'d, T, MODE> {
 
         unsafe {
             esp!(gpio_isr_handler_add(
-                self.pin.pin(),
+                self.pin as _,
                 Some(Self::handle_isr),
-                self.pin.pin() as u32 as *mut core::ffi::c_void,
+                self.pin as u32 as *mut core::ffi::c_void,
             ))
         }
     }
@@ -1139,7 +936,7 @@ impl<'d, T: Pin, MODE> PinDriver<'d, T, MODE> {
         use core::sync::atomic::Ordering;
 
         if ISR_SERVICE_ENABLED.load(Ordering::SeqCst) {
-            esp!(unsafe { gpio_isr_handler_remove(self.pin.pin()) })?;
+            esp!(unsafe { gpio_isr_handler_remove(self.pin as _) })?;
         }
 
         Ok(())
@@ -1149,9 +946,41 @@ impl<'d, T: Pin, MODE> PinDriver<'d, T, MODE> {
     where
         MODE: InputMode,
     {
-        esp!(unsafe { gpio_set_intr_type(self.pin.pin(), interrupt_type.into()) })?;
+        esp!(unsafe { gpio_set_intr_type(self.pin as _, interrupt_type.into()) })?;
 
         Ok(())
+    }
+
+    #[inline]
+    fn new_gpio(pin: PinId) -> Result<Self, EspError>
+    where
+        MODE: GPIOMode,
+    {
+        if MODE::MODE != gpio_mode_t_GPIO_MODE_DISABLE {
+            esp!(unsafe { gpio_set_direction(pin as _, MODE::MODE) })?;
+        }
+
+        Ok(Self {
+            pin,
+            _mode: PhantomData,
+            _t: PhantomData,
+        })
+    }
+
+    #[inline]
+    #[cfg(not(any(esp32c3, esp32c2, esp32h2, esp32c5)))]
+    fn new_rtc(pin: PinId) -> Result<Self, EspError>
+    where
+        MODE: RTCMode,
+    {
+        esp!(unsafe { rtc_gpio_init(pin as _) })?;
+        esp!(unsafe { rtc_gpio_set_direction(pin as _, MODE::RTC_MODE) })?;
+
+        Ok(PinDriver {
+            pin,
+            _mode: PhantomData,
+            _t: PhantomData,
+        })
     }
 
     unsafe extern "C" fn handle_isr(user_ctx: *mut core::ffi::c_void) {
@@ -1173,11 +1002,11 @@ impl<'d, T: Pin, MODE> PinDriver<'d, T, MODE> {
     }
 }
 
-impl<T: Pin, MODE: InputMode> PinDriver<'_, T, MODE> {
+impl<MODE: InputMode> PinDriver<'_, MODE> {
     pub async fn wait_for(&mut self, interrupt_type: InterruptType) -> Result<(), EspError> {
         self.disable_interrupt()?;
 
-        let notif = &chip::PIN_NOTIF[self.pin.pin() as usize];
+        let notif = &chip::PIN_NOTIF[self.pin as usize];
 
         notif.reset();
 
@@ -1224,15 +1053,15 @@ impl<T: Pin, MODE: InputMode> PinDriver<'_, T, MODE> {
     }
 }
 
-impl<T: Pin, MODE> Drop for PinDriver<'_, T, MODE> {
+impl<MODE> Drop for PinDriver<'_, MODE> {
     fn drop(&mut self) {
-        gpio_reset_without_pull(self.pin.pin()).unwrap();
+        gpio_reset_without_pull(self.pin as _).unwrap();
     }
 }
 
-unsafe impl<T: Pin, MODE> Send for PinDriver<'_, T, MODE> {}
+unsafe impl<MODE> Send for PinDriver<'_, MODE> {}
 
-impl<T: Pin, MODE> embedded_hal_0_2::digital::v2::InputPin for PinDriver<'_, T, MODE>
+impl<MODE> embedded_hal_0_2::digital::v2::InputPin for PinDriver<'_, MODE>
 where
     MODE: InputMode,
 {
@@ -1258,11 +1087,11 @@ fn to_gpio_err(err: EspError) -> GpioError {
     GpioError::other(err)
 }
 
-impl<T: Pin, MODE> embedded_hal::digital::ErrorType for PinDriver<'_, T, MODE> {
+impl<MODE> embedded_hal::digital::ErrorType for PinDriver<'_, MODE> {
     type Error = GpioError;
 }
 
-impl<T: Pin, MODE> embedded_hal::digital::InputPin for PinDriver<'_, T, MODE>
+impl<MODE> embedded_hal::digital::InputPin for PinDriver<'_, MODE>
 where
     MODE: InputMode,
 {
@@ -1275,7 +1104,7 @@ where
     }
 }
 
-impl<T: Pin, MODE> embedded_hal::digital::InputPin for &PinDriver<'_, T, MODE>
+impl<MODE> embedded_hal::digital::InputPin for &PinDriver<'_, MODE>
 where
     MODE: InputMode,
 {
@@ -1288,7 +1117,7 @@ where
     }
 }
 
-impl<T: Pin, MODE> embedded_hal_0_2::digital::v2::OutputPin for PinDriver<'_, T, MODE>
+impl<MODE> embedded_hal_0_2::digital::v2::OutputPin for PinDriver<'_, MODE>
 where
     MODE: OutputMode,
 {
@@ -1303,7 +1132,7 @@ where
     }
 }
 
-impl<T: Pin, MODE> embedded_hal::digital::OutputPin for PinDriver<'_, T, MODE>
+impl<MODE> embedded_hal::digital::OutputPin for PinDriver<'_, MODE>
 where
     MODE: OutputMode,
 {
@@ -1316,7 +1145,7 @@ where
     }
 }
 
-impl<T: Pin, MODE> embedded_hal::digital::StatefulOutputPin for PinDriver<'_, T, MODE>
+impl<MODE> embedded_hal::digital::StatefulOutputPin for PinDriver<'_, MODE>
 where
     MODE: OutputMode,
 {
@@ -1343,7 +1172,7 @@ where
 //     }
 // }
 
-impl<T: Pin, MODE> embedded_hal_0_2::digital::v2::StatefulOutputPin for PinDriver<'_, T, MODE>
+impl<MODE> embedded_hal_0_2::digital::v2::StatefulOutputPin for PinDriver<'_, MODE>
 where
     MODE: OutputMode,
 {
@@ -1356,7 +1185,7 @@ where
     }
 }
 
-impl<T: Pin, MODE> embedded_hal_0_2::digital::v2::ToggleableOutputPin for PinDriver<'_, T, MODE>
+impl<MODE> embedded_hal_0_2::digital::v2::ToggleableOutputPin for PinDriver<'_, MODE>
 where
     MODE: OutputMode,
 {
@@ -1367,7 +1196,7 @@ where
     }
 }
 
-impl<T: Pin, MODE: InputMode> embedded_hal_async::digital::Wait for PinDriver<'_, T, MODE> {
+impl<MODE: InputMode> embedded_hal_async::digital::Wait for PinDriver<'_, MODE> {
     async fn wait_for_high(&mut self) -> Result<(), GpioError> {
         self.wait_for_high().await?;
 
@@ -1459,11 +1288,11 @@ fn gpio_reset_without_pull(pin: gpio_num_t) -> Result<(), EspError> {
     Ok(())
 }
 
-unsafe fn unsubscribe_pin(pin: i32) -> Result<(), EspError> {
+unsafe fn unsubscribe_pin(pin: gpio_num_t) -> Result<(), EspError> {
     use core::sync::atomic::Ordering;
 
     if ISR_SERVICE_ENABLED.load(Ordering::SeqCst) {
-        esp!(gpio_isr_handler_remove(pin))?;
+        esp!(gpio_isr_handler_remove(pin as _))?;
 
         chip::PIN_NOTIF[pin as usize].reset();
 
@@ -1486,19 +1315,32 @@ const PIN_NOTIF_INIT: crate::interrupt::asynch::HalIsrNotification =
 
 macro_rules! impl_input {
     ($pxi:ident: $pin:expr) => {
-        crate::impl_peripheral!($pxi);
+        $crate::impl_peripheral!($pxi);
 
-        impl Pin for $pxi {
-            fn pin(&self) -> i32 {
-                $pin
+        impl $pxi<'static> {
+            /// Return `Option::None` for an unconfigured instance of that pin
+            pub const fn none() -> Option<Self> {
+                None
             }
         }
 
-        impl InputPin for $pxi {}
+        impl Pin for $pxi<'_> {
+            fn pin(&self) -> PinId {
+                $pin as _
+            }
+        }
 
-        impl From<$pxi> for AnyInputPin {
+        impl InputPin for $pxi<'_> {}
+
+        impl<'a> From<$pxi<'a>> for AnyInputPin<'a> {
             fn from(pin: $pxi) -> Self {
-                unsafe { Self::new(pin.pin()) }
+                unsafe { Self::steal(pin.pin()) }
+            }
+        }
+
+        impl<'a> $pxi<'a> {
+            pub fn degrade_input(self) -> AnyInputPin<'a> {
+                self.into()
             }
         }
     };
@@ -1508,19 +1350,27 @@ macro_rules! impl_input_output {
     ($pxi:ident: $pin:expr) => {
         impl_input!($pxi: $pin);
 
-        impl OutputPin for $pxi {}
+        impl<'a> $pxi<'a> {
+            pub fn degrade_output(self) -> AnyOutputPin<'a> {
+                self.into()
+            }
 
-        impl IOPin for $pxi {}
-
-        impl From<$pxi> for AnyOutputPin {
-            fn from(pin: $pxi) -> Self {
-                unsafe { Self::new(pin.pin()) }
+            pub fn degrade_input_output(self) -> AnyIOPin<'a> {
+                self.into()
             }
         }
 
-        impl From<$pxi> for AnyIOPin {
+        impl OutputPin for $pxi<'_> {}
+
+        impl<'a> From<$pxi<'a>> for AnyOutputPin<'a> {
             fn from(pin: $pxi) -> Self {
-                unsafe { Self::new(pin.pin()) }
+                unsafe { Self::steal(pin.pin()) }
+            }
+        }
+
+        impl<'a> From<$pxi<'a>> for AnyIOPin<'a> {
+            fn from(pin: $pxi) -> Self {
+                unsafe { Self::steal(pin.pin()) }
             }
         }
     };
@@ -1528,8 +1378,8 @@ macro_rules! impl_input_output {
 
 macro_rules! impl_rtc {
     ($pxi:ident: $pin:expr, RTC: $rtc:expr) => {
-        impl RTCPin for $pxi {
-            fn rtc_pin(&self) -> i32 {
+        impl RTCPin for $pxi<'_> {
+            fn rtc_pin(&self) -> PinId {
                 $rtc
             }
         }
@@ -1539,45 +1389,26 @@ macro_rules! impl_rtc {
 }
 
 macro_rules! impl_adc {
-    ($pxi:ident: $pin:expr, ADC1: $adc:expr) => {
-        impl sealed::ADCPin for $pxi {
-            const CHANNEL: adc_channel_t = $adc;
-        }
-
-        impl ADCPin for $pxi {
-            type Adc = ADC1;
-
-            fn adc_channel(&self) -> adc_channel_t {
-                $adc
-            }
+    ($pxi:ident: $pin:expr, ADC1: $channel:expr) => {
+        impl ADCPin for $pxi<'_> {
+            type AdcChannel = $crate::adc::ADCCH<adc_unit_t_ADC_UNIT_1, $channel>;
         }
     };
 
-    ($pxi:ident: $pin:expr, ADC2: $adc:expr) => {
-        impl sealed::ADCPin for $pxi {
-            const CHANNEL: adc_channel_t = $adc;
-        }
-
-        #[cfg(any(esp32, esp32s2, esp32s3, esp32c3))]
-        impl ADCPin for $pxi {
-            type Adc = ADC2;
-
-            fn adc_channel(&self) -> adc_channel_t {
-                $adc
-            }
+    ($pxi:ident: $pin:expr, ADC2: $channel:expr) => {
+        impl ADCPin for $pxi<'_> {
+            type AdcChannel = $crate::adc::ADCCH<adc_unit_t_ADC_UNIT_2, $channel>;
         }
     };
 
-    ($pxi:ident: $pin:expr, NOADC: $adc:expr) => {};
+    ($pxi:ident: $pin:expr, NOADC: $channel:expr) => {};
 }
 
 macro_rules! impl_dac {
     ($pxi:ident: $pin:expr, DAC: $dac:expr) => {
         #[cfg(any(esp32, esp32s2))]
-        impl DACPin for $pxi {
-            fn dac_channel(&self) -> dac_channel_t {
-                $dac
-            }
+        impl DACPin for $pxi<'_> {
+            type DacChannel = DACCH<$dac>;
         }
     };
 
@@ -1587,10 +1418,8 @@ macro_rules! impl_dac {
 macro_rules! impl_touch {
     ($pxi:ident: $pin:expr, TOUCH: $touch:expr) => {
         #[cfg(any(esp32, esp32s2, esp32s3))]
-        impl TouchPin for $pxi {
-            fn touch_channel(&self) -> touch_pad_t {
-                $touch
-            }
+        impl TouchPin for $pxi<'_> {
+            type TouchChannel = TOUCHCH<$touch>;
         }
     };
 
@@ -1626,8 +1455,6 @@ mod chip {
     use esp_idf_sys::*;
 
     use crate::interrupt::asynch::HalIsrNotification;
-
-    use crate::adc::{ADC1, ADC2};
 
     use super::*;
 
@@ -1678,41 +1505,41 @@ mod chip {
     pin!(Gpio39:39, Input, RTC:3, ADC1:3, NODAC:0, NOTOUCH:0);
 
     pub struct Pins {
-        pub gpio0: Gpio0,
-        pub gpio1: Gpio1,
-        pub gpio2: Gpio2,
-        pub gpio3: Gpio3,
-        pub gpio4: Gpio4,
-        pub gpio5: Gpio5,
-        pub gpio6: Gpio6,
-        pub gpio7: Gpio7,
-        pub gpio8: Gpio8,
-        pub gpio9: Gpio9,
-        pub gpio10: Gpio10,
-        pub gpio11: Gpio11,
-        pub gpio12: Gpio12,
-        pub gpio13: Gpio13,
-        pub gpio14: Gpio14,
-        pub gpio15: Gpio15,
-        pub gpio16: Gpio16,
-        pub gpio17: Gpio17,
-        pub gpio18: Gpio18,
-        pub gpio19: Gpio19,
-        pub gpio20: Gpio20,
-        pub gpio21: Gpio21,
-        pub gpio22: Gpio22,
-        pub gpio23: Gpio23,
-        pub gpio25: Gpio25,
-        pub gpio26: Gpio26,
-        pub gpio27: Gpio27,
-        pub gpio32: Gpio32,
-        pub gpio33: Gpio33,
-        pub gpio34: Gpio34,
-        pub gpio35: Gpio35,
-        pub gpio36: Gpio36,
-        pub gpio37: Gpio37,
-        pub gpio38: Gpio38,
-        pub gpio39: Gpio39,
+        pub gpio0: Gpio0<'static>,
+        pub gpio1: Gpio1<'static>,
+        pub gpio2: Gpio2<'static>,
+        pub gpio3: Gpio3<'static>,
+        pub gpio4: Gpio4<'static>,
+        pub gpio5: Gpio5<'static>,
+        pub gpio6: Gpio6<'static>,
+        pub gpio7: Gpio7<'static>,
+        pub gpio8: Gpio8<'static>,
+        pub gpio9: Gpio9<'static>,
+        pub gpio10: Gpio10<'static>,
+        pub gpio11: Gpio11<'static>,
+        pub gpio12: Gpio12<'static>,
+        pub gpio13: Gpio13<'static>,
+        pub gpio14: Gpio14<'static>,
+        pub gpio15: Gpio15<'static>,
+        pub gpio16: Gpio16<'static>,
+        pub gpio17: Gpio17<'static>,
+        pub gpio18: Gpio18<'static>,
+        pub gpio19: Gpio19<'static>,
+        pub gpio20: Gpio20<'static>,
+        pub gpio21: Gpio21<'static>,
+        pub gpio22: Gpio22<'static>,
+        pub gpio23: Gpio23<'static>,
+        pub gpio25: Gpio25<'static>,
+        pub gpio26: Gpio26<'static>,
+        pub gpio27: Gpio27<'static>,
+        pub gpio32: Gpio32<'static>,
+        pub gpio33: Gpio33<'static>,
+        pub gpio34: Gpio34<'static>,
+        pub gpio35: Gpio35<'static>,
+        pub gpio36: Gpio36<'static>,
+        pub gpio37: Gpio37<'static>,
+        pub gpio38: Gpio38<'static>,
+        pub gpio39: Gpio39<'static>,
     }
 
     impl Pins {
@@ -1722,41 +1549,41 @@ mod chip {
         /// already instantiated and used elsewhere
         pub unsafe fn new() -> Self {
             Self {
-                gpio0: Gpio0::new(),
-                gpio1: Gpio1::new(),
-                gpio2: Gpio2::new(),
-                gpio3: Gpio3::new(),
-                gpio4: Gpio4::new(),
-                gpio5: Gpio5::new(),
-                gpio6: Gpio6::new(),
-                gpio7: Gpio7::new(),
-                gpio8: Gpio8::new(),
-                gpio9: Gpio9::new(),
-                gpio10: Gpio10::new(),
-                gpio11: Gpio11::new(),
-                gpio12: Gpio12::new(),
-                gpio13: Gpio13::new(),
-                gpio14: Gpio14::new(),
-                gpio15: Gpio15::new(),
-                gpio16: Gpio16::new(),
-                gpio17: Gpio17::new(),
-                gpio18: Gpio18::new(),
-                gpio19: Gpio19::new(),
-                gpio20: Gpio20::new(),
-                gpio21: Gpio21::new(),
-                gpio22: Gpio22::new(),
-                gpio23: Gpio23::new(),
-                gpio25: Gpio25::new(),
-                gpio26: Gpio26::new(),
-                gpio27: Gpio27::new(),
-                gpio32: Gpio32::new(),
-                gpio33: Gpio33::new(),
-                gpio34: Gpio34::new(),
-                gpio35: Gpio35::new(),
-                gpio36: Gpio36::new(),
-                gpio37: Gpio37::new(),
-                gpio38: Gpio38::new(),
-                gpio39: Gpio39::new(),
+                gpio0: Gpio0::steal(),
+                gpio1: Gpio1::steal(),
+                gpio2: Gpio2::steal(),
+                gpio3: Gpio3::steal(),
+                gpio4: Gpio4::steal(),
+                gpio5: Gpio5::steal(),
+                gpio6: Gpio6::steal(),
+                gpio7: Gpio7::steal(),
+                gpio8: Gpio8::steal(),
+                gpio9: Gpio9::steal(),
+                gpio10: Gpio10::steal(),
+                gpio11: Gpio11::steal(),
+                gpio12: Gpio12::steal(),
+                gpio13: Gpio13::steal(),
+                gpio14: Gpio14::steal(),
+                gpio15: Gpio15::steal(),
+                gpio16: Gpio16::steal(),
+                gpio17: Gpio17::steal(),
+                gpio18: Gpio18::steal(),
+                gpio19: Gpio19::steal(),
+                gpio20: Gpio20::steal(),
+                gpio21: Gpio21::steal(),
+                gpio22: Gpio22::steal(),
+                gpio23: Gpio23::steal(),
+                gpio25: Gpio25::steal(),
+                gpio26: Gpio26::steal(),
+                gpio27: Gpio27::steal(),
+                gpio32: Gpio32::steal(),
+                gpio33: Gpio33::steal(),
+                gpio34: Gpio34::steal(),
+                gpio35: Gpio35::steal(),
+                gpio36: Gpio36::steal(),
+                gpio37: Gpio37::steal(),
+                gpio38: Gpio38::steal(),
+                gpio39: Gpio39::steal(),
             }
         }
     }
@@ -1773,8 +1600,6 @@ mod chip {
     use esp_idf_sys::*;
 
     use crate::interrupt::asynch::HalIsrNotification;
-
-    use crate::adc::{ADC1, ADC2};
 
     use super::*;
 
@@ -1847,53 +1672,53 @@ mod chip {
     pin!(Gpio48:48, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
 
     pub struct Pins {
-        pub gpio0: Gpio0,
-        pub gpio1: Gpio1,
-        pub gpio2: Gpio2,
-        pub gpio3: Gpio3,
-        pub gpio4: Gpio4,
-        pub gpio5: Gpio5,
-        pub gpio6: Gpio6,
-        pub gpio7: Gpio7,
-        pub gpio8: Gpio8,
-        pub gpio9: Gpio9,
-        pub gpio10: Gpio10,
-        pub gpio11: Gpio11,
-        pub gpio12: Gpio12,
-        pub gpio13: Gpio13,
-        pub gpio14: Gpio14,
-        pub gpio15: Gpio15,
-        pub gpio16: Gpio16,
-        pub gpio17: Gpio17,
-        pub gpio18: Gpio18,
-        pub gpio19: Gpio19,
-        pub gpio20: Gpio20,
-        pub gpio21: Gpio21,
-        pub gpio26: Gpio26,
-        pub gpio27: Gpio27,
-        pub gpio28: Gpio28,
-        pub gpio29: Gpio29,
-        pub gpio30: Gpio30,
-        pub gpio31: Gpio31,
-        pub gpio32: Gpio32,
-        pub gpio33: Gpio33,
-        pub gpio34: Gpio34,
-        pub gpio35: Gpio35,
-        pub gpio36: Gpio36,
-        pub gpio37: Gpio37,
-        pub gpio38: Gpio38,
-        pub gpio39: Gpio39,
-        pub gpio40: Gpio40,
-        pub gpio41: Gpio41,
-        pub gpio42: Gpio42,
-        pub gpio43: Gpio43,
-        pub gpio44: Gpio44,
-        pub gpio45: Gpio45,
-        pub gpio46: Gpio46,
+        pub gpio0: Gpio0<'static>,
+        pub gpio1: Gpio1<'static>,
+        pub gpio2: Gpio2<'static>,
+        pub gpio3: Gpio3<'static>,
+        pub gpio4: Gpio4<'static>,
+        pub gpio5: Gpio5<'static>,
+        pub gpio6: Gpio6<'static>,
+        pub gpio7: Gpio7<'static>,
+        pub gpio8: Gpio8<'static>,
+        pub gpio9: Gpio9<'static>,
+        pub gpio10: Gpio10<'static>,
+        pub gpio11: Gpio11<'static>,
+        pub gpio12: Gpio12<'static>,
+        pub gpio13: Gpio13<'static>,
+        pub gpio14: Gpio14<'static>,
+        pub gpio15: Gpio15<'static>,
+        pub gpio16: Gpio16<'static>,
+        pub gpio17: Gpio17<'static>,
+        pub gpio18: Gpio18<'static>,
+        pub gpio19: Gpio19<'static>,
+        pub gpio20: Gpio20<'static>,
+        pub gpio21: Gpio21<'static>,
+        pub gpio26: Gpio26<'static>,
+        pub gpio27: Gpio27<'static>,
+        pub gpio28: Gpio28<'static>,
+        pub gpio29: Gpio29<'static>,
+        pub gpio30: Gpio30<'static>,
+        pub gpio31: Gpio31<'static>,
+        pub gpio32: Gpio32<'static>,
+        pub gpio33: Gpio33<'static>,
+        pub gpio34: Gpio34<'static>,
+        pub gpio35: Gpio35<'static>,
+        pub gpio36: Gpio36<'static>,
+        pub gpio37: Gpio37<'static>,
+        pub gpio38: Gpio38<'static>,
+        pub gpio39: Gpio39<'static>,
+        pub gpio40: Gpio40<'static>,
+        pub gpio41: Gpio41<'static>,
+        pub gpio42: Gpio42<'static>,
+        pub gpio43: Gpio43<'static>,
+        pub gpio44: Gpio44<'static>,
+        pub gpio45: Gpio45<'static>,
+        pub gpio46: Gpio46<'static>,
         #[cfg(esp32s3)]
-        pub gpio47: Gpio47,
+        pub gpio47: Gpio47<'static>,
         #[cfg(esp32s3)]
-        pub gpio48: Gpio48,
+        pub gpio48: Gpio48<'static>,
     }
 
     impl Pins {
@@ -1903,53 +1728,53 @@ mod chip {
         /// already instantiated and used elsewhere
         pub unsafe fn new() -> Self {
             Self {
-                gpio0: Gpio0::new(),
-                gpio1: Gpio1::new(),
-                gpio2: Gpio2::new(),
-                gpio3: Gpio3::new(),
-                gpio4: Gpio4::new(),
-                gpio5: Gpio5::new(),
-                gpio6: Gpio6::new(),
-                gpio7: Gpio7::new(),
-                gpio8: Gpio8::new(),
-                gpio9: Gpio9::new(),
-                gpio10: Gpio10::new(),
-                gpio11: Gpio11::new(),
-                gpio12: Gpio12::new(),
-                gpio13: Gpio13::new(),
-                gpio14: Gpio14::new(),
-                gpio15: Gpio15::new(),
-                gpio16: Gpio16::new(),
-                gpio17: Gpio17::new(),
-                gpio18: Gpio18::new(),
-                gpio19: Gpio19::new(),
-                gpio20: Gpio20::new(),
-                gpio21: Gpio21::new(),
-                gpio26: Gpio26::new(),
-                gpio27: Gpio27::new(),
-                gpio28: Gpio28::new(),
-                gpio29: Gpio29::new(),
-                gpio30: Gpio30::new(),
-                gpio31: Gpio31::new(),
-                gpio32: Gpio32::new(),
-                gpio33: Gpio33::new(),
-                gpio34: Gpio34::new(),
-                gpio35: Gpio35::new(),
-                gpio36: Gpio36::new(),
-                gpio37: Gpio37::new(),
-                gpio38: Gpio38::new(),
-                gpio39: Gpio39::new(),
-                gpio40: Gpio40::new(),
-                gpio41: Gpio41::new(),
-                gpio42: Gpio42::new(),
-                gpio43: Gpio43::new(),
-                gpio44: Gpio44::new(),
-                gpio45: Gpio45::new(),
-                gpio46: Gpio46::new(),
+                gpio0: Gpio0::steal(),
+                gpio1: Gpio1::steal(),
+                gpio2: Gpio2::steal(),
+                gpio3: Gpio3::steal(),
+                gpio4: Gpio4::steal(),
+                gpio5: Gpio5::steal(),
+                gpio6: Gpio6::steal(),
+                gpio7: Gpio7::steal(),
+                gpio8: Gpio8::steal(),
+                gpio9: Gpio9::steal(),
+                gpio10: Gpio10::steal(),
+                gpio11: Gpio11::steal(),
+                gpio12: Gpio12::steal(),
+                gpio13: Gpio13::steal(),
+                gpio14: Gpio14::steal(),
+                gpio15: Gpio15::steal(),
+                gpio16: Gpio16::steal(),
+                gpio17: Gpio17::steal(),
+                gpio18: Gpio18::steal(),
+                gpio19: Gpio19::steal(),
+                gpio20: Gpio20::steal(),
+                gpio21: Gpio21::steal(),
+                gpio26: Gpio26::steal(),
+                gpio27: Gpio27::steal(),
+                gpio28: Gpio28::steal(),
+                gpio29: Gpio29::steal(),
+                gpio30: Gpio30::steal(),
+                gpio31: Gpio31::steal(),
+                gpio32: Gpio32::steal(),
+                gpio33: Gpio33::steal(),
+                gpio34: Gpio34::steal(),
+                gpio35: Gpio35::steal(),
+                gpio36: Gpio36::steal(),
+                gpio37: Gpio37::steal(),
+                gpio38: Gpio38::steal(),
+                gpio39: Gpio39::steal(),
+                gpio40: Gpio40::steal(),
+                gpio41: Gpio41::steal(),
+                gpio42: Gpio42::steal(),
+                gpio43: Gpio43::steal(),
+                gpio44: Gpio44::steal(),
+                gpio45: Gpio45::steal(),
+                gpio46: Gpio46::steal(),
                 #[cfg(esp32s3)]
-                gpio47: Gpio47::new(),
+                gpio47: Gpio47::steal(),
                 #[cfg(esp32s3)]
-                gpio48: Gpio48::new(),
+                gpio48: Gpio48::steal(),
             }
         }
     }
@@ -1966,8 +1791,6 @@ mod chip {
     use esp_idf_sys::*;
 
     use crate::interrupt::asynch::HalIsrNotification;
-
-    use crate::adc::{ADC1, ADC2};
 
     use super::*;
 
@@ -2004,59 +1827,55 @@ mod chip {
     pin!(Gpio21:21, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
 
     pub struct Pins {
-        pub gpio0: Gpio0,
-        pub gpio1: Gpio1,
-        pub gpio2: Gpio2,
-        pub gpio3: Gpio3,
-        pub gpio4: Gpio4,
-        pub gpio5: Gpio5,
-        pub gpio6: Gpio6,
-        pub gpio7: Gpio7,
-        pub gpio8: Gpio8,
-        pub gpio9: Gpio9,
-        pub gpio10: Gpio10,
-        pub gpio11: Gpio11,
-        pub gpio12: Gpio12,
-        pub gpio13: Gpio13,
-        pub gpio14: Gpio14,
-        pub gpio15: Gpio15,
-        pub gpio16: Gpio16,
-        pub gpio17: Gpio17,
-        pub gpio18: Gpio18,
-        pub gpio19: Gpio19,
-        pub gpio20: Gpio20,
-        pub gpio21: Gpio21,
+        pub gpio0: Gpio0<'static>,
+        pub gpio1: Gpio1<'static>,
+        pub gpio2: Gpio2<'static>,
+        pub gpio3: Gpio3<'static>,
+        pub gpio4: Gpio4<'static>,
+        pub gpio5: Gpio5<'static>,
+        pub gpio6: Gpio6<'static>,
+        pub gpio7: Gpio7<'static>,
+        pub gpio8: Gpio8<'static>,
+        pub gpio9: Gpio9<'static>,
+        pub gpio10: Gpio10<'static>,
+        pub gpio11: Gpio11<'static>,
+        pub gpio12: Gpio12<'static>,
+        pub gpio13: Gpio13<'static>,
+        pub gpio14: Gpio14<'static>,
+        pub gpio15: Gpio15<'static>,
+        pub gpio16: Gpio16<'static>,
+        pub gpio17: Gpio17<'static>,
+        pub gpio18: Gpio18<'static>,
+        pub gpio19: Gpio19<'static>,
+        pub gpio20: Gpio20<'static>,
+        pub gpio21: Gpio21<'static>,
     }
 
     impl Pins {
-        /// # Safety
-        ///
-        /// Care should be taken not to instantiate the Pins structure, if it is
-        /// already instantiated and used elsewhere
-        pub unsafe fn new() -> Self {
+        pub(crate) unsafe fn new() -> Self {
             Self {
-                gpio0: Gpio0::new(),
-                gpio1: Gpio1::new(),
-                gpio2: Gpio2::new(),
-                gpio3: Gpio3::new(),
-                gpio4: Gpio4::new(),
-                gpio5: Gpio5::new(),
-                gpio6: Gpio6::new(),
-                gpio7: Gpio7::new(),
-                gpio8: Gpio8::new(),
-                gpio9: Gpio9::new(),
-                gpio10: Gpio10::new(),
-                gpio11: Gpio11::new(),
-                gpio12: Gpio12::new(),
-                gpio13: Gpio13::new(),
-                gpio14: Gpio14::new(),
-                gpio15: Gpio15::new(),
-                gpio16: Gpio16::new(),
-                gpio17: Gpio17::new(),
-                gpio18: Gpio18::new(),
-                gpio19: Gpio19::new(),
-                gpio20: Gpio20::new(),
-                gpio21: Gpio21::new(),
+                gpio0: Gpio0::steal(),
+                gpio1: Gpio1::steal(),
+                gpio2: Gpio2::steal(),
+                gpio3: Gpio3::steal(),
+                gpio4: Gpio4::steal(),
+                gpio5: Gpio5::steal(),
+                gpio6: Gpio6::steal(),
+                gpio7: Gpio7::steal(),
+                gpio8: Gpio8::steal(),
+                gpio9: Gpio9::steal(),
+                gpio10: Gpio10::steal(),
+                gpio11: Gpio11::steal(),
+                gpio12: Gpio12::steal(),
+                gpio13: Gpio13::steal(),
+                gpio14: Gpio14::steal(),
+                gpio15: Gpio15::steal(),
+                gpio16: Gpio16::steal(),
+                gpio17: Gpio17::steal(),
+                gpio18: Gpio18::steal(),
+                gpio19: Gpio19::steal(),
+                gpio20: Gpio20::steal(),
+                gpio21: Gpio21::steal(),
             }
         }
     }
@@ -2073,8 +1892,6 @@ mod chip {
     use esp_idf_sys::*;
 
     use crate::interrupt::asynch::HalIsrNotification;
-
-    use crate::adc::ADC1;
 
     use super::*;
 
@@ -2110,27 +1927,27 @@ mod chip {
     pin!(Gpio20:20, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
 
     pub struct Pins {
-        pub gpio0: Gpio0,
-        pub gpio1: Gpio1,
-        pub gpio2: Gpio2,
-        pub gpio3: Gpio3,
-        pub gpio4: Gpio4,
-        pub gpio5: Gpio5,
-        pub gpio6: Gpio6,
-        pub gpio7: Gpio7,
-        pub gpio8: Gpio8,
-        pub gpio9: Gpio9,
-        pub gpio10: Gpio10,
-        pub gpio11: Gpio11,
-        pub gpio12: Gpio12,
-        pub gpio13: Gpio13,
-        pub gpio14: Gpio14,
-        pub gpio15: Gpio15,
-        pub gpio16: Gpio16,
-        pub gpio17: Gpio17,
-        pub gpio18: Gpio18,
-        pub gpio19: Gpio19,
-        pub gpio20: Gpio20,
+        pub gpio0: Gpio0<'static>,
+        pub gpio1: Gpio1<'static>,
+        pub gpio2: Gpio2<'static>,
+        pub gpio3: Gpio3<'static>,
+        pub gpio4: Gpio4<'static>,
+        pub gpio5: Gpio5<'static>,
+        pub gpio6: Gpio6<'static>,
+        pub gpio7: Gpio7<'static>,
+        pub gpio8: Gpio8<'static>,
+        pub gpio9: Gpio9<'static>,
+        pub gpio10: Gpio10<'static>,
+        pub gpio11: Gpio11<'static>,
+        pub gpio12: Gpio12<'static>,
+        pub gpio13: Gpio13<'static>,
+        pub gpio14: Gpio14<'static>,
+        pub gpio15: Gpio15<'static>,
+        pub gpio16: Gpio16<'static>,
+        pub gpio17: Gpio17<'static>,
+        pub gpio18: Gpio18<'static>,
+        pub gpio19: Gpio19<'static>,
+        pub gpio20: Gpio20<'static>,
     }
 
     impl Pins {
@@ -2140,27 +1957,27 @@ mod chip {
         /// already instantiated and used elsewhere
         pub unsafe fn new() -> Self {
             Self {
-                gpio0: Gpio0::new(),
-                gpio1: Gpio1::new(),
-                gpio2: Gpio2::new(),
-                gpio3: Gpio3::new(),
-                gpio4: Gpio4::new(),
-                gpio5: Gpio5::new(),
-                gpio6: Gpio6::new(),
-                gpio7: Gpio7::new(),
-                gpio8: Gpio8::new(),
-                gpio9: Gpio9::new(),
-                gpio10: Gpio10::new(),
-                gpio11: Gpio11::new(),
-                gpio12: Gpio12::new(),
-                gpio13: Gpio13::new(),
-                gpio14: Gpio14::new(),
-                gpio15: Gpio15::new(),
-                gpio16: Gpio16::new(),
-                gpio17: Gpio17::new(),
-                gpio18: Gpio18::new(),
-                gpio19: Gpio19::new(),
-                gpio20: Gpio20::new(),
+                gpio0: Gpio0::steal(),
+                gpio1: Gpio1::steal(),
+                gpio2: Gpio2::steal(),
+                gpio3: Gpio3::steal(),
+                gpio4: Gpio4::steal(),
+                gpio5: Gpio5::steal(),
+                gpio6: Gpio6::steal(),
+                gpio7: Gpio7::steal(),
+                gpio8: Gpio8::steal(),
+                gpio9: Gpio9::steal(),
+                gpio10: Gpio10::steal(),
+                gpio11: Gpio11::steal(),
+                gpio12: Gpio12::steal(),
+                gpio13: Gpio13::steal(),
+                gpio14: Gpio14::steal(),
+                gpio15: Gpio15::steal(),
+                gpio16: Gpio16::steal(),
+                gpio17: Gpio17::steal(),
+                gpio18: Gpio18::steal(),
+                gpio19: Gpio19::steal(),
+                gpio20: Gpio20::steal(),
             }
         }
     }
@@ -2177,8 +1994,6 @@ mod chip {
     use esp_idf_sys::*;
 
     use crate::interrupt::asynch::HalIsrNotification;
-
-    use crate::adc::ADC1;
 
     use super::*;
 
@@ -2224,34 +2039,34 @@ mod chip {
     pin!(Gpio27:27, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
 
     pub struct Pins {
-        pub gpio0: Gpio0,
-        pub gpio1: Gpio1,
-        pub gpio2: Gpio2,
-        pub gpio3: Gpio3,
-        pub gpio4: Gpio4,
-        pub gpio5: Gpio5,
-        pub gpio6: Gpio6,
-        pub gpio7: Gpio7,
-        pub gpio8: Gpio8,
-        pub gpio9: Gpio9,
-        pub gpio10: Gpio10,
-        pub gpio11: Gpio11,
-        pub gpio12: Gpio12,
-        pub gpio13: Gpio13,
-        pub gpio14: Gpio14,
-        pub gpio15: Gpio15,
-        pub gpio16: Gpio16,
-        pub gpio17: Gpio17,
-        pub gpio18: Gpio18,
-        pub gpio19: Gpio19,
-        pub gpio20: Gpio20,
-        pub gpio21: Gpio21,
-        pub gpio22: Gpio22,
-        pub gpio23: Gpio23,
-        pub gpio24: Gpio24,
-        pub gpio25: Gpio25,
-        pub gpio26: Gpio26,
-        pub gpio27: Gpio27,
+        pub gpio0: Gpio0<'static>,
+        pub gpio1: Gpio1<'static>,
+        pub gpio2: Gpio2<'static>,
+        pub gpio3: Gpio3<'static>,
+        pub gpio4: Gpio4<'static>,
+        pub gpio5: Gpio5<'static>,
+        pub gpio6: Gpio6<'static>,
+        pub gpio7: Gpio7<'static>,
+        pub gpio8: Gpio8<'static>,
+        pub gpio9: Gpio9<'static>,
+        pub gpio10: Gpio10<'static>,
+        pub gpio11: Gpio11<'static>,
+        pub gpio12: Gpio12<'static>,
+        pub gpio13: Gpio13<'static>,
+        pub gpio14: Gpio14<'static>,
+        pub gpio15: Gpio15<'static>,
+        pub gpio16: Gpio16<'static>,
+        pub gpio17: Gpio17<'static>,
+        pub gpio18: Gpio18<'static>,
+        pub gpio19: Gpio19<'static>,
+        pub gpio20: Gpio20<'static>,
+        pub gpio21: Gpio21<'static>,
+        pub gpio22: Gpio22<'static>,
+        pub gpio23: Gpio23<'static>,
+        pub gpio24: Gpio24<'static>,
+        pub gpio25: Gpio25<'static>,
+        pub gpio26: Gpio26<'static>,
+        pub gpio27: Gpio27<'static>,
     }
 
     impl Pins {
@@ -2261,34 +2076,34 @@ mod chip {
         /// already instantiated and used elsewhere
         pub unsafe fn new() -> Self {
             Self {
-                gpio0: Gpio0::new(),
-                gpio1: Gpio1::new(),
-                gpio2: Gpio2::new(),
-                gpio3: Gpio3::new(),
-                gpio4: Gpio4::new(),
-                gpio5: Gpio5::new(),
-                gpio6: Gpio6::new(),
-                gpio7: Gpio7::new(),
-                gpio8: Gpio8::new(),
-                gpio9: Gpio9::new(),
-                gpio10: Gpio10::new(),
-                gpio11: Gpio11::new(),
-                gpio12: Gpio12::new(),
-                gpio13: Gpio13::new(),
-                gpio14: Gpio14::new(),
-                gpio15: Gpio15::new(),
-                gpio16: Gpio16::new(),
-                gpio17: Gpio17::new(),
-                gpio18: Gpio18::new(),
-                gpio19: Gpio19::new(),
-                gpio20: Gpio20::new(),
-                gpio21: Gpio21::new(),
-                gpio22: Gpio22::new(),
-                gpio23: Gpio23::new(),
-                gpio24: Gpio24::new(),
-                gpio25: Gpio25::new(),
-                gpio26: Gpio26::new(),
-                gpio27: Gpio27::new(),
+                gpio0: Gpio0::steal(),
+                gpio1: Gpio1::steal(),
+                gpio2: Gpio2::steal(),
+                gpio3: Gpio3::steal(),
+                gpio4: Gpio4::steal(),
+                gpio5: Gpio5::steal(),
+                gpio6: Gpio6::steal(),
+                gpio7: Gpio7::steal(),
+                gpio8: Gpio8::steal(),
+                gpio9: Gpio9::steal(),
+                gpio10: Gpio10::steal(),
+                gpio11: Gpio11::steal(),
+                gpio12: Gpio12::steal(),
+                gpio13: Gpio13::steal(),
+                gpio14: Gpio14::steal(),
+                gpio15: Gpio15::steal(),
+                gpio16: Gpio16::steal(),
+                gpio17: Gpio17::steal(),
+                gpio18: Gpio18::steal(),
+                gpio19: Gpio19::steal(),
+                gpio20: Gpio20::steal(),
+                gpio21: Gpio21::steal(),
+                gpio22: Gpio22::steal(),
+                gpio23: Gpio23::steal(),
+                gpio24: Gpio24::steal(),
+                gpio25: Gpio25::steal(),
+                gpio26: Gpio26::steal(),
+                gpio27: Gpio27::steal(),
             }
         }
     }
@@ -2307,8 +2122,6 @@ mod chip {
     use esp_idf_sys::*;
 
     use crate::interrupt::asynch::HalIsrNotification;
-
-    use crate::adc::ADC1;
 
     use super::*;
 
@@ -2356,37 +2169,37 @@ mod chip {
     pin!(Gpio30:30, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
 
     pub struct Pins {
-        pub gpio0: Gpio0,
-        pub gpio1: Gpio1,
-        pub gpio2: Gpio2,
-        pub gpio3: Gpio3,
-        pub gpio4: Gpio4,
-        pub gpio5: Gpio5,
-        pub gpio6: Gpio6,
-        pub gpio7: Gpio7,
-        pub gpio8: Gpio8,
-        pub gpio9: Gpio9,
-        pub gpio10: Gpio10,
-        pub gpio11: Gpio11,
-        pub gpio12: Gpio12,
-        pub gpio13: Gpio13,
-        pub gpio14: Gpio14,
-        pub gpio15: Gpio15,
-        pub gpio16: Gpio16,
-        pub gpio17: Gpio17,
-        pub gpio18: Gpio18,
-        pub gpio19: Gpio19,
-        pub gpio20: Gpio20,
-        pub gpio21: Gpio21,
-        pub gpio22: Gpio22,
-        pub gpio23: Gpio23,
-        pub gpio24: Gpio24,
-        pub gpio25: Gpio25,
-        pub gpio26: Gpio26,
-        pub gpio27: Gpio27,
-        pub gpio28: Gpio28,
-        pub gpio29: Gpio29,
-        pub gpio30: Gpio30,
+        pub gpio0: Gpio0<'static>,
+        pub gpio1: Gpio1<'static>,
+        pub gpio2: Gpio2<'static>,
+        pub gpio3: Gpio3<'static>,
+        pub gpio4: Gpio4<'static>,
+        pub gpio5: Gpio5<'static>,
+        pub gpio6: Gpio6<'static>,
+        pub gpio7: Gpio7<'static>,
+        pub gpio8: Gpio8<'static>,
+        pub gpio9: Gpio9<'static>,
+        pub gpio10: Gpio10<'static>,
+        pub gpio11: Gpio11<'static>,
+        pub gpio12: Gpio12<'static>,
+        pub gpio13: Gpio13<'static>,
+        pub gpio14: Gpio14<'static>,
+        pub gpio15: Gpio15<'static>,
+        pub gpio16: Gpio16<'static>,
+        pub gpio17: Gpio17<'static>,
+        pub gpio18: Gpio18<'static>,
+        pub gpio19: Gpio19<'static>,
+        pub gpio20: Gpio20<'static>,
+        pub gpio21: Gpio21<'static>,
+        pub gpio22: Gpio22<'static>,
+        pub gpio23: Gpio23<'static>,
+        pub gpio24: Gpio24<'static>,
+        pub gpio25: Gpio25<'static>,
+        pub gpio26: Gpio26<'static>,
+        pub gpio27: Gpio27<'static>,
+        pub gpio28: Gpio28<'static>,
+        pub gpio29: Gpio29<'static>,
+        pub gpio30: Gpio30<'static>,
     }
 
     impl Pins {
@@ -2396,37 +2209,37 @@ mod chip {
         /// already instantiated and used elsewhere
         pub unsafe fn new() -> Self {
             Self {
-                gpio0: Gpio0::new(),
-                gpio1: Gpio1::new(),
-                gpio2: Gpio2::new(),
-                gpio3: Gpio3::new(),
-                gpio4: Gpio4::new(),
-                gpio5: Gpio5::new(),
-                gpio6: Gpio6::new(),
-                gpio7: Gpio7::new(),
-                gpio8: Gpio8::new(),
-                gpio9: Gpio9::new(),
-                gpio10: Gpio10::new(),
-                gpio11: Gpio11::new(),
-                gpio12: Gpio12::new(),
-                gpio13: Gpio13::new(),
-                gpio14: Gpio14::new(),
-                gpio15: Gpio15::new(),
-                gpio16: Gpio16::new(),
-                gpio17: Gpio17::new(),
-                gpio18: Gpio18::new(),
-                gpio19: Gpio19::new(),
-                gpio20: Gpio20::new(),
-                gpio21: Gpio21::new(),
-                gpio22: Gpio22::new(),
-                gpio23: Gpio23::new(),
-                gpio24: Gpio24::new(),
-                gpio25: Gpio25::new(),
-                gpio26: Gpio26::new(),
-                gpio27: Gpio27::new(),
-                gpio28: Gpio28::new(),
-                gpio29: Gpio29::new(),
-                gpio30: Gpio30::new(),
+                gpio0: Gpio0::steal(),
+                gpio1: Gpio1::steal(),
+                gpio2: Gpio2::steal(),
+                gpio3: Gpio3::steal(),
+                gpio4: Gpio4::steal(),
+                gpio5: Gpio5::steal(),
+                gpio6: Gpio6::steal(),
+                gpio7: Gpio7::steal(),
+                gpio8: Gpio8::steal(),
+                gpio9: Gpio9::steal(),
+                gpio10: Gpio10::steal(),
+                gpio11: Gpio11::steal(),
+                gpio12: Gpio12::steal(),
+                gpio13: Gpio13::steal(),
+                gpio14: Gpio14::steal(),
+                gpio15: Gpio15::steal(),
+                gpio16: Gpio16::steal(),
+                gpio17: Gpio17::steal(),
+                gpio18: Gpio18::steal(),
+                gpio19: Gpio19::steal(),
+                gpio20: Gpio20::steal(),
+                gpio21: Gpio21::steal(),
+                gpio22: Gpio22::steal(),
+                gpio23: Gpio23::steal(),
+                gpio24: Gpio24::steal(),
+                gpio25: Gpio25::steal(),
+                gpio26: Gpio26::steal(),
+                gpio27: Gpio27::steal(),
+                gpio28: Gpio28::steal(),
+                gpio29: Gpio29::steal(),
+                gpio30: Gpio30::steal(),
             }
         }
     }

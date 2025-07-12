@@ -1,12 +1,12 @@
 //! Time-division multiplexing (TDM) support for I2S.
 use super::*;
-use crate::{gpio::*, peripheral::*};
+use crate::gpio::*;
 
 use esp_idf_sys::*;
 
 pub(super) mod config {
     #[allow(unused)]
-    use crate::{gpio::*, i2s::config::*, peripheral::*};
+    use crate::{gpio::*, i2s::config::*};
     use core::ops::{BitAnd, BitAndAssign, BitOr, BitOrAssign, Not};
     use esp_idf_sys::*;
 
@@ -57,11 +57,11 @@ pub(super) mod config {
         #[inline(always)]
         pub(super) fn as_sdk<'d>(
             &self,
-            bclk: PeripheralRef<'d, impl InputPin + OutputPin>,
-            din: Option<PeripheralRef<'d, impl InputPin>>,
-            dout: Option<PeripheralRef<'d, impl OutputPin>>,
-            mclk: Option<PeripheralRef<'d, impl InputPin + OutputPin>>,
-            ws: PeripheralRef<'d, impl InputPin + OutputPin>,
+            bclk: impl InputPin + OutputPin + 'd,
+            din: Option<impl InputPin + 'd>,
+            dout: Option<impl OutputPin + 'd>,
+            mclk: Option<impl InputPin + OutputPin + 'd>,
+            ws: impl InputPin + OutputPin + 'd,
         ) -> i2s_tdm_config_t {
             i2s_tdm_config_t {
                 clk_cfg: self.clk_cfg.as_sdk(),
@@ -290,11 +290,11 @@ pub(super) mod config {
         #[cfg(not(esp_idf_version_major = "4"))]
         pub(crate) fn as_sdk<'d>(
             &self,
-            bclk: PeripheralRef<'d, impl InputPin + OutputPin>,
-            din: Option<PeripheralRef<'d, impl InputPin>>,
-            dout: Option<PeripheralRef<'d, impl OutputPin>>,
-            mclk: Option<PeripheralRef<'d, impl InputPin + OutputPin>>,
-            ws: PeripheralRef<'d, impl InputPin + OutputPin>,
+            bclk: impl InputPin + OutputPin + 'd,
+            din: Option<impl InputPin + 'd>,
+            dout: Option<impl OutputPin + 'd>,
+            mclk: Option<impl InputPin + OutputPin + 'd>,
+            ws: impl InputPin + OutputPin + 'd,
         ) -> i2s_tdm_gpio_config_t {
             let invert_flags = i2s_tdm_gpio_config_t__bindgen_ty_1 {
                 _bitfield_1: i2s_tdm_gpio_config_t__bindgen_ty_1::new_bitfield_1(
@@ -306,19 +306,23 @@ pub(super) mod config {
             };
 
             i2s_tdm_gpio_config_t {
-                bclk: bclk.pin(),
-                din: if let Some(din) = din { din.pin() } else { -1 },
+                bclk: bclk.pin() as _,
+                din: if let Some(din) = din {
+                    din.pin() as _
+                } else {
+                    -1
+                },
                 dout: if let Some(dout) = dout {
-                    dout.pin()
+                    dout.pin() as _
                 } else {
                     -1
                 },
                 mclk: if let Some(mclk) = mclk {
-                    mclk.pin()
+                    mclk.pin() as _
                 } else {
                     -1
                 },
-                ws: ws.pin(),
+                ws: ws.pin() as _,
                 invert_flags,
             }
         }
@@ -973,29 +977,23 @@ pub(super) mod config {
 impl<'d, Dir> I2sDriver<'d, Dir> {
     #[cfg(not(esp_idf_version_major = "4"))]
     #[allow(clippy::too_many_arguments)]
-    fn internal_new_tdm<I2S: I2s>(
-        _i2s: impl Peripheral<P = I2S> + 'd,
+    fn internal_new_tdm<I2S: I2s + 'd>(
+        _i2s: I2S,
         config: &config::TdmConfig,
         rx: bool,
         tx: bool,
-        bclk: impl Peripheral<P = impl InputPin + OutputPin> + 'd,
-        din: Option<impl Peripheral<P = impl InputPin> + 'd>,
-        dout: Option<impl Peripheral<P = impl OutputPin> + 'd>,
-        mclk: Option<impl Peripheral<P = impl InputPin + OutputPin> + 'd>,
-        ws: impl Peripheral<P = impl InputPin + OutputPin> + 'd,
+        bclk: impl InputPin + OutputPin + 'd,
+        din: Option<impl InputPin + 'd>,
+        dout: Option<impl OutputPin + 'd>,
+        mclk: Option<impl InputPin + OutputPin + 'd>,
+        ws: impl InputPin + OutputPin + 'd,
     ) -> Result<Self, EspError> {
         let chan_cfg = config.channel_cfg.as_sdk(I2S::port());
 
         let this = Self::internal_new::<I2S>(&chan_cfg, rx, tx)?;
 
         // Create the channel configuration.
-        let tdm_config = config.as_sdk(
-            bclk.into_ref(),
-            din.map(|d_in| d_in.into_ref()),
-            dout.map(|d_out| d_out.into_ref()),
-            mclk.map(|m_clk| m_clk.into_ref()),
-            ws.into_ref(),
-        );
+        let tdm_config = config.as_sdk(bclk, din, dout, mclk, ws);
 
         if rx {
             unsafe {
@@ -1016,16 +1014,16 @@ impl<'d, Dir> I2sDriver<'d, Dir> {
 
     #[cfg(esp_idf_version_major = "4")]
     #[allow(clippy::too_many_arguments)]
-    fn internal_new_tdm<I2S: I2s>(
-        _i2s: impl Peripheral<P = I2S> + 'd,
+    fn internal_new_tdm<I2S: I2s + 'd>(
+        _i2s: I2S,
         config: &config::TdmConfig,
         rx: bool,
         tx: bool,
-        bclk: impl Peripheral<P = impl InputPin + OutputPin> + 'd,
-        din: Option<impl Peripheral<P = impl InputPin> + 'd>,
-        dout: Option<impl Peripheral<P = impl OutputPin> + 'd>,
-        mclk: Option<impl Peripheral<P = impl InputPin + OutputPin> + 'd>,
-        ws: impl Peripheral<P = impl InputPin + OutputPin> + 'd,
+        bclk: impl InputPin + OutputPin + 'd,
+        din: Option<impl InputPin + 'd>,
+        dout: Option<impl OutputPin + 'd>,
+        mclk: Option<impl InputPin + OutputPin + 'd>,
+        ws: impl InputPin + OutputPin + 'd,
     ) -> Result<Self, EspError> {
         let mut driver_cfg = config.as_sdk();
 
@@ -1041,11 +1039,11 @@ impl<'d, Dir> I2sDriver<'d, Dir> {
 
         // Set the pin configuration.
         let pin_cfg = i2s_pin_config_t {
-            bck_io_num: bclk.into_ref().pin(),
-            data_in_num: din.map(|din| din.into_ref().pin()).unwrap_or(-1),
-            data_out_num: dout.map(|dout| dout.into_ref().pin()).unwrap_or(-1),
-            mck_io_num: mclk.map(|mclk| mclk.into_ref().pin()).unwrap_or(-1),
-            ws_io_num: ws.into_ref().pin(),
+            bck_io_num: bclk.pin() as _,
+            data_in_num: din.map(|din| din.pin() as _).unwrap_or(-1),
+            data_out_num: dout.map(|dout| dout.pin() as _).unwrap_or(-1),
+            mck_io_num: mclk.map(|mclk| mclk.pin() as _).unwrap_or(-1),
+            ws_io_num: ws.pin() as _,
         };
 
         // Safety: &pin_cfg is a valid pointer to an i2s_pin_config_t.
@@ -1062,14 +1060,14 @@ impl<'d> I2sDriver<'d, I2sBiDir> {
     #[cfg(not(any(esp32, esp32s2)))]
     #[cfg_attr(feature = "nightly", doc(cfg(not(any(esp32, esp32s2)))))]
     #[allow(clippy::too_many_arguments)]
-    pub fn new_tdm_bidir<I2S: I2s>(
-        i2s: impl Peripheral<P = I2S> + 'd,
+    pub fn new_tdm_bidir<I2S: I2s + 'd>(
+        i2s: I2S,
         config: &config::TdmConfig,
-        bclk: impl Peripheral<P = impl InputPin + OutputPin> + 'd,
-        din: impl Peripheral<P = impl InputPin> + 'd,
-        dout: impl Peripheral<P = impl OutputPin> + 'd,
-        mclk: Option<impl Peripheral<P = impl InputPin + OutputPin> + 'd>,
-        ws: impl Peripheral<P = impl InputPin + OutputPin> + 'd,
+        bclk: impl InputPin + OutputPin + 'd,
+        din: impl InputPin + 'd,
+        dout: impl OutputPin + 'd,
+        mclk: Option<impl InputPin + OutputPin + 'd>,
+        ws: impl InputPin + OutputPin + 'd,
     ) -> Result<Self, EspError> {
         Self::internal_new_tdm(
             i2s,
@@ -1090,13 +1088,13 @@ impl<'d> I2sDriver<'d, I2sRx> {
     #[cfg(not(any(esp32, esp32s2)))]
     #[cfg_attr(feature = "nightly", doc(cfg(not(any(esp32, esp32s2)))))]
     #[allow(clippy::too_many_arguments)]
-    pub fn new_tdm_rx<I2S: I2s>(
-        i2s: impl Peripheral<P = I2S> + 'd,
+    pub fn new_tdm_rx<I2S: I2s + 'd>(
+        i2s: I2S,
         config: &config::TdmConfig,
-        bclk: impl Peripheral<P = impl InputPin + OutputPin> + 'd,
-        din: impl Peripheral<P = impl InputPin> + 'd,
-        mclk: Option<impl Peripheral<P = impl InputPin + OutputPin> + 'd>,
-        ws: impl Peripheral<P = impl InputPin + OutputPin> + 'd,
+        bclk: impl InputPin + OutputPin + 'd,
+        din: impl InputPin + 'd,
+        mclk: Option<impl InputPin + OutputPin + 'd>,
+        ws: impl InputPin + OutputPin + 'd,
     ) -> Result<Self, EspError> {
         Self::internal_new_tdm(
             i2s,
@@ -1117,13 +1115,13 @@ impl<'d> I2sDriver<'d, I2sTx> {
     #[cfg(not(any(esp32, esp32s2)))]
     #[cfg_attr(feature = "nightly", doc(cfg(not(any(esp32, esp32s2)))))]
     #[allow(clippy::too_many_arguments)]
-    pub fn new_tdm_tx<I2S: I2s>(
-        i2s: impl Peripheral<P = I2S> + 'd,
+    pub fn new_tdm_tx<I2S: I2s + 'd>(
+        i2s: I2S,
         config: &config::TdmConfig,
-        bclk: impl Peripheral<P = impl InputPin + OutputPin> + 'd,
-        dout: impl Peripheral<P = impl OutputPin> + 'd,
-        mclk: Option<impl Peripheral<P = impl InputPin + OutputPin> + 'd>,
-        ws: impl Peripheral<P = impl InputPin + OutputPin> + 'd,
+        bclk: impl InputPin + OutputPin + 'd,
+        dout: impl OutputPin + 'd,
+        mclk: Option<impl InputPin + OutputPin + 'd>,
+        ws: impl InputPin + OutputPin + 'd,
     ) -> Result<Self, EspError> {
         Self::internal_new_tdm(
             i2s,

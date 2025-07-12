@@ -721,9 +721,8 @@ mod driver {
     };
     use esp_idf_sys::{rmt_channel_t, rmt_driver_uninstall};
 
-    use crate::gpio::InputPin;
+    use crate::gpio::{InputPin, OutputPin};
     use crate::interrupt::InterruptType;
-    use crate::{gpio::OutputPin, peripheral::Peripheral};
 
     use super::RmtChannel;
 
@@ -745,13 +744,11 @@ mod driver {
         /// To uninstall the driver just drop it.
         ///
         /// Internally this calls `rmt_config()` and `rmt_driver_install()`.
-        pub fn new<C: RmtChannel>(
-            _channel: impl Peripheral<P = C> + 'd,
-            pin: impl Peripheral<P = impl OutputPin> + 'd,
+        pub fn new<C: RmtChannel + 'd>(
+            _channel: C,
+            pin: impl OutputPin + 'd,
             config: &TransmitConfig,
         ) -> Result<Self, EspError> {
-            crate::into_ref!(pin);
-
             let mut flags = 0;
             if config.aware_dfs {
                 flags |= RMT_CHANNEL_FLAGS_AWARE_DFS;
@@ -763,7 +760,7 @@ mod driver {
             let sys_config = rmt_config_t {
                 rmt_mode: rmt_mode_t_RMT_MODE_TX,
                 channel: C::channel(),
-                gpio_num: pin.pin(),
+                gpio_num: pin.pin() as _,
                 clk_div: config.clock_divider,
                 mem_block_num: config.mem_block_num,
                 flags,
@@ -1025,14 +1022,12 @@ mod driver {
         /// To uninstall the driver just drop it.
         ///
         /// Internally this calls `rmt_config()` and `rmt_driver_install()`.
-        pub fn new<C: RmtChannel>(
-            _channel: impl Peripheral<P = C> + 'd,
-            pin: impl Peripheral<P = impl InputPin> + 'd,
+        pub fn new<C: RmtChannel + 'd>(
+            _channel: C,
+            pin: impl InputPin + 'd,
             config: &ReceiveConfig,
             ring_buf_size: usize,
         ) -> Result<Self, EspError> {
-            crate::into_ref!(pin);
-
             #[cfg(not(any(esp32, esp32c2)))]
             let carrier_en = config.carrier.is_some();
 
@@ -1042,7 +1037,7 @@ mod driver {
             let sys_config = rmt_config_t {
                 rmt_mode: rmt_mode_t_RMT_MODE_RX,
                 channel: C::channel(),
-                gpio_num: pin.pin(),
+                gpio_num: pin.pin() as _,
                 clk_div: config.clock_divider,
                 mem_block_num: config.mem_block_num,
                 flags: 0,
@@ -1197,7 +1192,7 @@ mod chip {
         ($instance:ident: $channel:expr) => {
             crate::impl_peripheral!($instance);
 
-            impl RmtChannel for $instance {
+            impl RmtChannel for $instance<'_> {
                 fn channel() -> rmt_channel_t {
                     $channel
                 }
@@ -1221,18 +1216,18 @@ mod chip {
     impl_channel!(CHANNEL7: rmt_channel_t_RMT_CHANNEL_7);
 
     pub struct RMT {
-        pub channel0: CHANNEL0,
-        pub channel1: CHANNEL1,
-        pub channel2: CHANNEL2,
-        pub channel3: CHANNEL3,
+        pub channel0: CHANNEL0<'static>,
+        pub channel1: CHANNEL1<'static>,
+        pub channel2: CHANNEL2<'static>,
+        pub channel3: CHANNEL3<'static>,
         #[cfg(any(esp32, esp32s3))]
-        pub channel4: CHANNEL4,
+        pub channel4: CHANNEL4<'static>,
         #[cfg(any(esp32, esp32s3))]
-        pub channel5: CHANNEL5,
+        pub channel5: CHANNEL5<'static>,
         #[cfg(any(esp32, esp32s3))]
-        pub channel6: CHANNEL6,
+        pub channel6: CHANNEL6<'static>,
         #[cfg(any(esp32, esp32s3))]
-        pub channel7: CHANNEL7,
+        pub channel7: CHANNEL7<'static>,
     }
 
     impl RMT {
@@ -1245,20 +1240,20 @@ mod chip {
         ///
         /// It is safe to instantiate the RMT peripheral exactly one time.
         /// Care has to be taken that this has not already been done elsewhere.
-        pub unsafe fn new() -> Self {
+        pub(crate) unsafe fn new() -> Self {
             Self {
-                channel0: CHANNEL0::new(),
-                channel1: CHANNEL1::new(),
-                channel2: CHANNEL2::new(),
-                channel3: CHANNEL3::new(),
+                channel0: CHANNEL0::steal(),
+                channel1: CHANNEL1::steal(),
+                channel2: CHANNEL2::steal(),
+                channel3: CHANNEL3::steal(),
                 #[cfg(any(esp32, esp32s3))]
-                channel4: CHANNEL4::new(),
+                channel4: CHANNEL4::steal(),
                 #[cfg(any(esp32, esp32s3))]
-                channel5: CHANNEL5::new(),
+                channel5: CHANNEL5::steal(),
                 #[cfg(any(esp32, esp32s3))]
-                channel6: CHANNEL6::new(),
+                channel6: CHANNEL6::steal(),
                 #[cfg(any(esp32, esp32s3))]
-                channel7: CHANNEL7::new(),
+                channel7: CHANNEL7::steal(),
             }
         }
     }

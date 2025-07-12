@@ -34,12 +34,12 @@ fn main() -> anyhow::Result<()> {
 
 #[cfg(any(feature = "rmt-legacy", esp_idf_version_major = "4"))]
 mod example {
+    use esp_idf_hal::gpio::Pull;
     use esp_idf_hal::units::FromValueType;
     use esp_idf_hal::{
         delay::Ets,
         gpio::{OutputPin, PinDriver},
-        peripheral::Peripheral,
-        prelude::Peripherals,
+        peripherals::Peripherals,
         rmt::{
             config::{CarrierConfig, DutyPercent, Loop, TransmitConfig},
             PinState, Pulse, PulseTicks, RmtChannel, TxRmtDriver, VariableLengthSignal,
@@ -62,9 +62,14 @@ mod example {
             .looping(Loop::Endless)
             .clock_divider(255);
 
-        let tx = send_morse_code(&mut channel, &mut led, &config, "HELLO ")?;
+        let tx = send_morse_code(
+            unsafe { channel.reborrow() },
+            unsafe { led.reborrow() },
+            &config,
+            "HELLO ",
+        )?;
 
-        let stop = PinDriver::input(stop)?;
+        let stop = PinDriver::input(stop, Pull::Down)?;
 
         println!("Keep sending until pin {} is set low.", stop.pin());
 
@@ -89,8 +94,8 @@ mod example {
     }
 
     fn send_morse_code<'d>(
-        channel: impl Peripheral<P = impl RmtChannel> + 'd,
-        led: impl Peripheral<P = impl OutputPin> + 'd,
+        channel: impl RmtChannel + 'd,
+        led: impl OutputPin + 'd,
         config: &TransmitConfig,
         message: &str,
     ) -> anyhow::Result<TxRmtDriver<'d>> {
