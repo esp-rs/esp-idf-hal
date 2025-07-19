@@ -153,10 +153,7 @@ fn main() -> anyhow::Result<()> {
 
     println!("---------------------");
 
-    println!(
-        "MASTER: write {:#04x} to reg addr {:#04x}",
-        new_value, reg_addr
-    );
+    println!("MASTER: write {new_value:#04x} to reg addr {reg_addr:#04x}");
     i2c_master.write(SLAVE_ADDR, &[reg_addr, new_value], BLOCK)?;
 
     println!("---------------------");
