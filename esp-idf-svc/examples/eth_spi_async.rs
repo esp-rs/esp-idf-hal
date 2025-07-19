@@ -73,7 +73,7 @@ pub mod example {
 
             let ip_info = eth.eth().netif().get_ip_info()?;
 
-            info!("Eth DHCP info: {:?}", ip_info);
+            info!("Eth DHCP info: {ip_info:?}");
 
             Result::<_, EspError>::Ok(ip_info)
         })?;
@@ -84,11 +84,11 @@ pub mod example {
     }
 
     fn ping(ip: ipv4::Ipv4Addr) -> Result<(), EspError> {
-        info!("About to do some pings for {:?}", ip);
+        info!("About to do some pings for {ip:?}");
 
         let ping_summary = ping::EspPing::default().ping(ip, &Default::default())?;
         if ping_summary.transmitted != ping_summary.received {
-            warn!("Pinging IP {} resulted in timeouts", ip);
+            warn!("Pinging IP {ip} resulted in timeouts");
         }
 
         info!("Pinging done");
