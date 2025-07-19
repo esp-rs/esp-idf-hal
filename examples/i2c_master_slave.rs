@@ -110,7 +110,7 @@ fn main() -> anyhow::Result<()> {
             loop {
                 let mut reg_addr: [u8; 1] = [0];
                 let res = i2c_slave.read(&mut reg_addr, BLOCK);
-                if res.is_err() {
+                if let Err(e) = res {
                     println!("SLAVE: failed to read register address from master: Error: {e:?}");
                     continue;
                 }
