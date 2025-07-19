@@ -88,8 +88,8 @@ fn main() -> anyhow::Result<()> {
 
     let mut rx_buf: [u8; 8] = [0; 8];
     match i2c_slave.read(&mut rx_buf, BLOCK) {
-        Ok(_) => println!("Master send {:?} Slave receives {:?}", tx_buf, rx_buf),
-        Err(e) => println!("Error: {:?}", e),
+        Ok(_) => println!("Master send {tx_buf:?} Slave receives {rx_buf:?}"),
+        Err(e) => println!("Error: {e:?}"),
     }
 
     println!("-------- TESTING SIMPLE MASTER READ --------");
@@ -97,8 +97,8 @@ fn main() -> anyhow::Result<()> {
 
     let mut rx_buf: [u8; 8] = [0; 8];
     match i2c_master.read(SLAVE_ADDR, &mut rx_buf, BLOCK) {
-        Ok(_) => println!("Slave send {:?} Master receives {:?}", tx_buf, rx_buf),
-        Err(e) => println!("Error: {:?}", e),
+        Ok(_) => println!("Slave send {tx_buf:?} Master receives {rx_buf:?}"),
+        Err(e) => println!("Error: {e:?}"),
     }
 
     println!("-------- TESTING READ/WRITE REGISTER --------");
@@ -111,10 +111,7 @@ fn main() -> anyhow::Result<()> {
                 let mut reg_addr: [u8; 1] = [0];
                 let res = i2c_slave.read(&mut reg_addr, BLOCK);
                 if res.is_err() {
-                    println!(
-                        "SLAVE: failed to read register address from master: Error: {:?}",
-                        res
-                    );
+                    println!("SLAVE: failed to read register address from master: Error: {e:?}");
                     continue;
                 }
                 let mut rx_data: [u8; 1] = [0];
@@ -144,7 +141,7 @@ fn main() -> anyhow::Result<()> {
     let reg_addr: u8 = 0x05;
     let new_value: u8 = 0x42;
 
-    println!("MASTER: read reg addr {:#04x}", reg_addr);
+    println!("MASTER: read reg addr {reg_addr:#04x}");
     let mut rx_buf: [u8; 1] = [0; 1];
     // TODO: make write_read work
     i2c_master.write(SLAVE_ADDR, &[reg_addr], BLOCK)?;
@@ -164,7 +161,7 @@ fn main() -> anyhow::Result<()> {
 
     println!("---------------------");
 
-    println!("MASTER: read reg addr {:#04x}", reg_addr);
+    println!("MASTER: read reg addr {reg_addr:#04x}");
     let mut rx_buf: [u8; 1] = [0; 1];
     // TODO: make write_read work
     i2c_master.write(SLAVE_ADDR, &[reg_addr], BLOCK)?;
