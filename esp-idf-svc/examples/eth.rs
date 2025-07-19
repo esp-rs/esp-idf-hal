@@ -60,7 +60,7 @@ fn main() -> anyhow::Result<()> {
 
     let ip_info = eth.eth().netif().get_ip_info()?;
 
-    info!("Eth DHCP info: {:?}", ip_info);
+    info!("Eth DHCP info: {ip_info:?}");
 
     Ok(())
 }
