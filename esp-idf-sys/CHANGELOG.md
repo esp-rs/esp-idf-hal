@@ -17,6 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - Add raw bindings for `esp_netif_net_stack.h` and `lwip/esp_netif_net_stack.h`. (#360)
+- Add raw bindings for `mqtt5_client.h` when `CONFIG_MQTT_PROTOCOL_5` is set.
 
 ### Fixed
 - Fix the `esp_app_desc!` macro so that it works with recent ESP-IDF versions (5.4+, 5.2.3+, 5.3.2+)

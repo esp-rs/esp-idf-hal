@@ -303,6 +303,9 @@
 
 #ifdef ESP_IDF_COMP_MQTT_ENABLED
 #include "mqtt_client.h"
+#ifdef CONFIG_MQTT_PROTOCOL_5
+#include "mqtt5_client.h"
+#endif
 #endif
 
 #ifdef ESP_IDF_COMP_NVS_FLASH_ENABLED
