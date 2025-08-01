@@ -738,21 +738,14 @@ impl RawHandle for EspNvs<NvsEncrypted> {
 }
 
 /// A specialized key-value storage wrapper around `EspNvs` that provides a simplified interface
-/// for storing and retrieving arbitrary data as byte arrays.
+/// for storing and retrieving arbitrary data as byte (`u8`) slices.
 ///
-/// This struct was introduced to solve issue [#585](https://github.com/esp-rs/esp-idf-svc/issues/585)
-/// where the `contains()` method in `EspNvs` incorrectly returned `false` for string values
-/// that actually existed in NVS partitions. The root cause was that `EspNvs` implements
-/// two different storage strategies:
-///
-/// 1. **Native ESP-IDF NVS API**: Direct access to ESP-IDF's native types (u8, u16, u32, u64, i8, i16, i32, i64, str, blob)
-/// 2. **Serialized storage**: Everything stored as either u64 (≤7 bytes) or blob (>7 bytes) for compatibility with serde
-///
-/// `EspKeyValueStorage` focuses on the second approach, providing a clean interface for:
+/// `EspKeyValueStorage` provides an interface for:
 /// - Storing any data that can be represented as `&[u8]`
-/// - Automatic optimization: values ≤7 bytes stored as u64, larger values as blobs
+/// - Automatic optimization: values ≤7 bytes stored as ESP-NVS `u64` values, larger values as ESP-NVS blobs
 /// - Consistent `contains()` method that works correctly with this storage strategy
-/// - Full compatibility with Rust serde implementations (postcard, json, etc.)
+/// - Full compatibility with Rust serde implementations (postcard, json, etc.) in that these can naturally do serde
+///   over byte slices
 ///
 /// ## Usage
 ///
@@ -778,26 +771,11 @@ impl RawHandle for EspNvs<NvsEncrypted> {
 /// # Ok(())
 /// # }
 /// ```
-///
-/// ## Performance Characteristics
-///
-/// - **Small values (≤7 bytes)**: Stored as u64 for efficiency
-/// - **Large values (>7 bytes)**: Stored as ESP-IDF blobs
-/// - **Memory efficient**: No unnecessary allocations for small values
-/// - **Flash efficient**: Optimized storage format reduces wear on flash memory
 pub struct EspKeyValueStorage<T: NvsPartitionId>(EspNvs<T>);
 
 impl<T: NvsPartitionId> EspKeyValueStorage<T> {
     pub const fn new(nvs: EspNvs<T>) -> Self {
         Self(nvs)
-    }
-
-    pub const fn esp_nvs(&self) -> &EspNvs<T> {
-        &self.0
-    }
-
-    pub fn partition(&self) -> &EspNvsPartition<T> {
-        &self.0 .0
     }
 
     pub fn contains(&self, name: &str) -> Result<bool, EspError> {
@@ -852,6 +830,9 @@ impl<T: NvsPartitionId> EspKeyValueStorage<T> {
 
     pub fn set_raw(&self, name: &str, buf: &[u8]) -> Result<bool, EspError> {
         // start by just clearing this key, ignoring the result since it may not exist
+        // TODO: This is not optimal, because if the chip is shut-down right after
+        // the call to `remove`, the key will be gone forever.
+
         _ = self.0.remove(name);
 
         if buf.len() < 8 {
@@ -897,31 +878,5 @@ impl<T: NvsPartitionId> RawStorage for EspKeyValueStorage<T> {
 
     fn set_raw(&mut self, name: &str, buf: &[u8]) -> Result<bool, Self::Error> {
         EspKeyValueStorage::set_raw(self, name, buf)
-    }
-}
-
-impl<T: NvsPartitionId> StorageBase for &EspKeyValueStorage<T> {
-    type Error = EspError;
-
-    fn contains(&self, name: &str) -> Result<bool, Self::Error> {
-        EspKeyValueStorage::contains(*self, name)
-    }
-
-    fn remove(&mut self, name: &str) -> Result<bool, Self::Error> {
-        EspKeyValueStorage::remove(*self, name)
-    }
-}
-
-impl<T: NvsPartitionId> RawStorage for &EspKeyValueStorage<T> {
-    fn len(&self, name: &str) -> Result<Option<usize>, Self::Error> {
-        EspKeyValueStorage::len(*self, name)
-    }
-
-    fn get_raw<'a>(&self, name: &str, buf: &'a mut [u8]) -> Result<Option<&'a [u8]>, Self::Error> {
-        EspKeyValueStorage::get_raw(*self, name, buf)
-    }
-
-    fn set_raw(&mut self, name: &str, buf: &[u8]) -> Result<bool, Self::Error> {
-        EspKeyValueStorage::set_raw(*self, name, buf)
     }
 }
