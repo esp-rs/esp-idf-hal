@@ -177,7 +177,12 @@
 #include "openthread/link.h"
 #include "openthread/logging.h"
 #include "openthread/message.h"
+#include "openthread/nat64.h"
+#include "openthread/netdata.h"
 #include "openthread/thread.h"
+#include "openthread/srp_client_buffers.h"
+#include "openthread/srp_client.h"
+#include "openthread/platform/settings.h"
 #endif
 #endif
 
