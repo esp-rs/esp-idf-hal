@@ -177,7 +177,9 @@
 #include "openthread/link.h"
 #include "openthread/logging.h"
 #include "openthread/message.h"
+#if (ESP_IDF_VERSION_MAJOR > 4)
 #include "openthread/nat64.h"
+#endif
 #include "openthread/netdata.h"
 #include "openthread/thread.h"
 #include "openthread/srp_client_buffers.h"
