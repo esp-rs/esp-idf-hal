@@ -18,7 +18,7 @@ use enumset::{EnumSet, EnumSetType};
 
 use crate::sys::*;
 
-use ::log::debug;
+use ::log::trace;
 
 use num_enum::TryFromPrimitive;
 
@@ -816,7 +816,7 @@ where
         let param = unsafe { param.as_ref() }.unwrap();
         let event = GapEvent::from((event, param));
 
-        debug!("Got event {{ {event:#?} }}");
+        trace!("Got event {{ {event:#?} }}");
 
         SINGLETON.call(event);
     }

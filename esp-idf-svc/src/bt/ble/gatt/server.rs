@@ -2,7 +2,7 @@ use core::borrow::Borrow;
 use core::fmt::{self, Debug};
 use core::marker::PhantomData;
 
-use ::log::{debug, trace};
+use ::log::trace;
 
 use crate::bt::{BdAddr, BleEnabled, BtDriver, BtSingleton, BtUuid};
 use crate::sys::*;
@@ -684,7 +684,7 @@ where
         let param = unsafe { param.as_ref() }.unwrap();
         let event = GattsEvent::from((event, param));
 
-        debug!("Got event {{ {event:#?} }}");
+        trace!("Got event {{ {event:#?} }}");
 
         SINGLETON.call((gatts_if, event));
     }

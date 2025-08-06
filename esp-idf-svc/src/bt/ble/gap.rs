@@ -6,7 +6,7 @@ use core::{ffi::CStr, ops::BitOr};
 use crate::bt::BtSingleton;
 use crate::sys::*;
 
-use ::log::debug;
+use ::log::trace;
 
 use crate::{
     bt::{BdAddr, BleEnabled, BtDriver, BtStatus, BtUuid},
@@ -710,7 +710,7 @@ where
         let param = unsafe { param.as_ref() }.unwrap();
         let event = BleGapEvent::from((event, param));
 
-        debug!("Got event {{ {event:#?} }}");
+        trace!("Got event {{ {event:#?} }}");
 
         SINGLETON.call(event);
     }

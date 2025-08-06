@@ -5,7 +5,7 @@ use core::convert::TryInto;
 use core::fmt::{self, Debug};
 use core::marker::PhantomData;
 
-use ::log::{debug, info};
+use ::log::{info, trace};
 
 use num_enum::TryFromPrimitive;
 
@@ -449,14 +449,14 @@ where
 
     unsafe extern "C" fn sink_data_handler(buf: *const u8, len: u32) {
         let event = A2dpEvent::SinkData(core::slice::from_raw_parts(buf, len as _));
-        debug!("Got event {{ {:#?} }}", event);
+        trace!("Got event {{ {:#?} }}", event);
 
         SINGLETON.call(event);
     }
 
     unsafe extern "C" fn source_data_handler(buf: *mut u8, len: i32) -> i32 {
         let event = A2dpEvent::SourceData(core::slice::from_raw_parts_mut(buf, len as _));
-        debug!("Got event {{ {:#?} }}", event);
+        trace!("Got event {{ {:#?} }}", event);
 
         SINGLETON.call(event) as _
     }

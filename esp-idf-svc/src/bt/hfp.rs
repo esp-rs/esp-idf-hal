@@ -10,7 +10,7 @@ pub mod client {
 
     use crate::sys::*;
 
-    use ::log::{debug, info};
+    use ::log::{info, trace};
 
     use num_enum::TryFromPrimitive;
 
@@ -531,7 +531,7 @@ pub mod client {
         #[cfg(esp_idf_bt_hfp_audio_data_path_hci)]
         unsafe extern "C" fn recv_data_handler(buf: *const u8, len: u32) {
             let event = HfpcEvent::RecvData(core::slice::from_raw_parts(buf, len as _));
-            debug!("Got event {{ {:#?} }}", event);
+            trace!("Got event {{ {:#?} }}", event);
 
             SINGLETON.call(event);
         }
@@ -539,7 +539,7 @@ pub mod client {
         #[cfg(esp_idf_bt_hfp_audio_data_path_hci)]
         unsafe extern "C" fn send_data_handler(buf: *mut u8, len: u32) -> u32 {
             let event = HfpcEvent::SendData(core::slice::from_raw_parts_mut(buf, len as _));
-            debug!("Got event {{ {:#?} }}", event);
+            trace!("Got event {{ {:#?} }}", event);
 
             SINGLETON.call(event) as _
         }
