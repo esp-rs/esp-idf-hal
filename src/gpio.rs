@@ -1429,6 +1429,16 @@ pub fn enable_isr_service() -> Result<(), EspError> {
     Ok(())
 }
 
+/// Notifies this GPIO driver that the GPIO ISR service has already been initialized.
+/// This prevents an error as this driver would otherwise attempt to initialize it again.
+///
+/// # Safety
+///
+/// The caller must ensure that `gpio_install_isr_service` has already been invoked elsewhere.
+pub unsafe fn isr_service_already_init() {
+    ISR_SERVICE_ENABLED.store(true, core::sync::atomic::Ordering::SeqCst);
+}
+
 pub(crate) unsafe fn rtc_reset_pin(pin: i32) -> Result<(), EspError> {
     gpio_reset_without_pull(pin)?;
 
