@@ -22,6 +22,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Replace Arc with Rc in ledc_threads example (#514)
 - Fix outdated task docs
 - CAN: fix wrong Alert enum indexing / remove wrong TryFromPrimitive derive (#532)
+- GPIO: Allow interoperability with other code that initializes the GPIO ISR service (#537)
 
 ## [0.45.2] - 2025-01-15
 
