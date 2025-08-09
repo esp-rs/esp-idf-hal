@@ -1435,7 +1435,7 @@ pub fn enable_isr_service() -> Result<(), EspError> {
 /// # Safety
 ///
 /// The caller must ensure that `gpio_install_isr_service` has already been invoked elsewhere.
-pub unsafe fn isr_service_already_init() {
+pub unsafe fn set_isr_service_flag_unchecked() {
     ISR_SERVICE_ENABLED.store(true, core::sync::atomic::Ordering::SeqCst);
 }
 
