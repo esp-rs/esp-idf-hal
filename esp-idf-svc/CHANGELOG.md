@@ -18,6 +18,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fix #570 (c_char vs i8 mismatch on newer rustc toolchains)
 
 ### Added
+- Logging configuration enhanced with a simpler setup where Rust logs can be configured to have a verbosity which is
+  disconnected from the verbosity of the ESP-IDF native C logging (#593)
 - OTA: New method - `EspFirmwareInfoLoad::fetch_native` - returning the full native ESP-IDF image descriptor structures
 - Added `use_serde` feature, which enables the `use_serde` feature of `embedded-svc` crate, allowing to deserialize configuration structs.
 - OTA: Allow specifying image size to speed up erase

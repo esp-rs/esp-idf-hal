@@ -13,6 +13,8 @@ use crate::sys::*;
 
 extern crate alloc;
 
+const RUST_LOG: Option<&str> = option_env!("RUST_LOG");
+
 /// Exposes the newlib stdout file descriptor to allow writing formatted
 /// messages to stdout without a std dependency or allocation
 ///
@@ -121,41 +123,66 @@ impl From<Level> for Newtype<esp_log_level_t> {
     }
 }
 
-static LOGGER: EspLogger = EspLogger::new();
+/// Trait for a log filter backend that can be used with the `EspIdfLogger`.
+pub trait LogFilterBackend {
+    /// Initialize the log filter backend.
+    fn initialize(&self) {}
 
-pub struct EspLogger {
-    // esp-idf function `esp_log_level_get` builds a cache using the address
-    // of the target and not doing a string compare. This means we need to
-    // build a cache of our own mapping the str value to a consistant
-    // Cstr value.
+    /// Check if logging for the given metadata is enabled.
+    fn enabled(&self, metadata: &Metadata) -> bool;
+}
+
+impl<T> LogFilterBackend for &T
+where
+    T: LogFilterBackend,
+{
+    fn initialize(&self) {
+        (**self).initialize()
+    }
+
+    fn enabled(&self, metadata: &Metadata) -> bool {
+        (**self).enabled(metadata)
+    }
+}
+
+/// Log filter backend based on the ESP-IDF logging configuration.
+///
+/// This filter is useful when the user would like to control the verbosity
+/// of the logging system based on the ESP-IDF configuration settings, which
+/// should apply both to the ESP-IDF native C logging, as well as to logging from Rust.
+///
+/// This backend uses the ESP-IDF logging system to filter log messages based on their target and level.
+/// Specifically:
+/// - The `log` crate is set to max level equal to the `CONFIG_LOG_MAXIMUM_LEVEL` ESP-IDF configuration.
+/// - The `set_target_level` method allows setting the log level for specific log targets
+///   (both targets based on Rust logging - i.e. most often than not Rust modules, as well as native ESP-IDF targets).
+pub struct EspIdfLogFilter {
     cache: Mutex<BTreeMap<String, CString>>,
 }
 
-unsafe impl Send for EspLogger {}
-unsafe impl Sync for EspLogger {}
-
-impl EspLogger {
-    /// Public in case user code would like to compose this logger in their own one
+impl EspIdfLogFilter {
+    /// Create a new instance of `EspIdfLogFilter`.
     pub const fn new() -> Self {
         Self {
             cache: Mutex::new(BTreeMap::new()),
         }
     }
 
-    pub fn initialize_default() {
-        ::log::set_logger(&LOGGER)
-            .map(|()| LOGGER.initialize())
-            .unwrap();
-    }
-
+    /// Initialize the ESP-IDF log filter backend.
     pub fn initialize(&self) {
         ::log::set_max_level(self.get_max_level());
     }
 
+    /// Return the maximum log level configured in the ESP-IDF.
     pub fn get_max_level(&self) -> LevelFilter {
         LevelFilter::from(Newtype(CONFIG_LOG_MAXIMUM_LEVEL))
     }
 
+    /// Set the log level for a specific target.
+    ///
+    /// Arguments:
+    /// - `target`: The target for which to set the log level. This can be a Rust log target, or an ESP-IDF native target.
+    /// - `level_filter`: The log level to set for the target.
     pub fn set_target_level(
         &self,
         target: impl AsRef<str>,
@@ -185,6 +212,100 @@ impl EspLogger {
         Ok(())
     }
 
+    /// Check if logging for the given metadata is enabled,
+    /// based on the ESP-IDF current log level, including taeget-specific log levels.
+    pub fn enabled(&self, metadata: &Metadata) -> bool {
+        let level = Newtype::<esp_log_level_t>::from(metadata.level()).0;
+
+        let mut cache = self.cache.lock();
+
+        let ctarget = loop {
+            if let Some(ctarget) = cache.get(metadata.target()) {
+                break ctarget;
+            }
+
+            if let Ok(ctarget) = to_cstring_arg(metadata.target()) {
+                cache.insert(metadata.target().into(), ctarget);
+            } else {
+                return true;
+            }
+        };
+
+        let max_level = unsafe { esp_log_level_get(ctarget.as_c_str().as_ptr()) };
+        level <= max_level
+    }
+}
+
+impl Default for EspIdfLogFilter {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl LogFilterBackend for EspIdfLogFilter {
+    fn initialize(&self) {
+        self.initialize();
+    }
+
+    fn enabled(&self, metadata: &Metadata) -> bool {
+        self.enabled(metadata)
+    }
+}
+
+/// A log filter backend that does not consider the ESP-IDF configuration settings
+/// that control the log verbosity and does not filter anything.
+///
+/// This way, the control of the log verbosity from within Rust is completely disconnected
+/// from the log verbosity for the ESP-IDF native C code.
+impl LogFilterBackend for () {
+    fn enabled(&self, _metadata: &Metadata) -> bool {
+        // Logging verbosity is controlled by the Rust log crate settings
+        true
+    }
+}
+
+static INTEGRATED_LOGGER: EspIdfLogger<EspIdfLogFilter> = EspIdfLogger::new(EspIdfLogFilter::new());
+static LOGGER: EspIdfLogger = EspIdfLogger::new(());
+
+/// A type alias for the ESP-IDf logger configured with the ESP-IDF log filter.
+///
+/// For backwards compatibility.
+pub type EspLogger = EspIdfLogger<EspIdfLogFilter>;
+
+impl EspIdfLogger<EspIdfLogFilter> {
+    /// For backwards compatibility
+    ///
+    /// Equivalent to calling `init_from_esp_idf()`
+    pub fn initialize_default() {
+        init_from_esp_idf();
+    }
+}
+
+/// A logger that integrates with the ESP-IDF logging system.
+///
+/// Specifically:
+/// - It logs to `stdout`/`stderr` just like the ESP-IDF native C logging functions
+/// - The format of the logs matches the ESP-IDF native C logging format
+/// - If the `EspIdfLogFilter` backend is used, it respects the ESP-IDF log level configuration
+#[derive(Debug)]
+pub struct EspIdfLogger<T = ()> {
+    filter: T,
+}
+
+impl<T> EspIdfLogger<T> {
+    /// Create a new instance of `EspIdfLogger` with the specified log filter backend.
+    ///
+    /// # Arguments
+    /// - `filter`: The log filter backend to use for filtering log messages.
+    pub const fn new(filter: T) -> Self {
+        Self { filter }
+    }
+
+    /// Return a reference to the log filter backend used by this logger.
+    pub fn filter(&self) -> &T {
+        &self.filter
+    }
+
     fn get_marker(level: Level) -> &'static str {
         match level {
             Level::Error => "E",
@@ -211,44 +332,20 @@ impl EspLogger {
             None
         }
     }
-
-    fn should_log(&self, record: &Record) -> bool {
-        let level = Newtype::<esp_log_level_t>::from(record.level()).0;
-
-        let mut cache = self.cache.lock();
-
-        let ctarget = loop {
-            if let Some(ctarget) = cache.get(record.target()) {
-                break ctarget;
-            }
-
-            if let Ok(ctarget) = to_cstring_arg(record.target()) {
-                cache.insert(record.target().into(), ctarget);
-            } else {
-                return true;
-            }
-        };
-
-        let max_level = unsafe { esp_log_level_get(ctarget.as_c_str().as_ptr()) };
-        level <= max_level
-    }
 }
 
-impl Default for EspLogger {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-impl ::log::Log for EspLogger {
+impl<T> ::log::Log for EspIdfLogger<T>
+where
+    T: LogFilterBackend + Send + Sync,
+{
     fn enabled(&self, metadata: &Metadata) -> bool {
-        metadata.level() <= LevelFilter::from(Newtype(CONFIG_LOG_MAXIMUM_LEVEL))
+        self.filter.enabled(metadata)
     }
 
     fn log(&self, record: &Record) {
         let metadata = record.metadata();
 
-        if self.enabled(metadata) && self.should_log(record) {
+        if self.enabled(metadata) {
             let marker = Self::get_marker(metadata.level());
             let target = record.metadata().target();
             let args = record.args();
@@ -283,9 +380,51 @@ impl ::log::Log for EspLogger {
     fn flush(&self) {}
 }
 
-pub fn set_target_level(
-    target: impl AsRef<str>,
-    level_filter: LevelFilter,
-) -> Result<(), EspError> {
-    LOGGER.set_target_level(target, level_filter)
+/// Initialize the Rust logging system with the ESP-IDF logger and with the noop log filter backend
+/// (i.e. logging verbosity is controlled by the Rust log crate settings and disconnected from the ESP-IDF configuration settings).
+///
+/// Arguments:
+/// - `filter`: The log level filter to set in the `log` crate.
+pub fn init(filter: LevelFilter) -> &'static EspIdfLogger<()> {
+    init_with_logger(&LOGGER);
+
+    ::log::set_max_level(filter);
+
+    &LOGGER
+}
+
+/// Initialize the Rust logging system with the ESP-IDF logger and with the noop log filter backend
+/// (i.e. logging verbosity is controlled by the `RUST_LOG` environment variable).
+///
+/// This function reads the `RUST_LOG` environment variable to determine the log level.
+pub fn init_from_env() -> &'static EspIdfLogger<()> {
+    let level = match RUST_LOG.unwrap_or("info").to_ascii_lowercase().as_str() {
+        "off" | "none" => LevelFilter::Off,
+        "error" => LevelFilter::Error,
+        "warn" | "warning" => LevelFilter::Warn,
+        "info" => LevelFilter::Info,
+        "debug" => LevelFilter::Debug,
+        "trace" => LevelFilter::Trace,
+        _ => LevelFilter::Info, // Default to Info if the level is not recognized
+    };
+
+    init(level)
+}
+
+/// Initialize the Rust logging system with the ESP-IDF logger and with the ESP-IDF log filter backend
+/// (i.e. logging verbosity is controlled by the ESP-IDF configuration settings).
+pub fn init_from_esp_idf() -> &'static EspIdfLogger<EspIdfLogFilter> {
+    init_with_logger(&INTEGRATED_LOGGER);
+
+    &INTEGRATED_LOGGER
+}
+
+/// Initialize the Rust logging system with the provided ESP-IDF logger.
+fn init_with_logger<T>(logger: &'static EspIdfLogger<T>)
+where
+    T: LogFilterBackend + Send + Sync,
+{
+    ::log::set_logger(logger)
+        .map(|()| logger.filter().initialize())
+        .unwrap();
 }
