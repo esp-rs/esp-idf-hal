@@ -141,8 +141,6 @@ mod example {
             wifi.wifi().sta_netif(),
         )?;
 
-        thread.init()?;
-
         #[cfg(esp32c6)]
         thread.init_coex()?;
 
@@ -150,9 +148,12 @@ mod example {
 
         info!("Thread Border Router initialized, now running...");
 
-        thread.run()?;
+        thread.start()?;
 
-        Ok(())
+        loop {
+            // Keep the main thread alive to allow the Thread Border Router to run
+            std::thread::sleep(std::time::Duration::from_secs(2));
+        }
     }
 
     fn connect_wifi(wifi: &mut BlockingWifi<EspWifi<'static>>) -> anyhow::Result<()> {

@@ -468,8 +468,13 @@ impl EspNetif {
         Ok(netif)
     }
 
+    pub fn is_netif_up(&self) -> Result<bool, EspError> {
+        Ok(unsafe { esp_netif_is_netif_up(self.handle) })
+    }
+
+    // TODO: Copy and rename to `is_up_ipv4` and deprecate the `is_up` variant in future
     pub fn is_up(&self) -> Result<bool, EspError> {
-        if !unsafe { esp_netif_is_netif_up(self.handle) } {
+        if !self.is_netif_up()? {
             Ok(false)
         } else {
             let mut ip_info = Default::default();

@@ -1,6 +1,7 @@
 [build]
 target = "riscv32imc-esp-espidf"
-# target = "xtensa-esp32-espidf"
+#target = "riscv32imac-esp-espidf"
+#target = "xtensa-esp32-espidf"
 
 [target.xtensa-esp32-espidf]
 linker = "ldproxy"
@@ -25,6 +26,7 @@ rustflags = ["--cfg", "espidf_time64"]
 [env]
 ESP_IDF_SDKCONFIG_DEFAULTS = ".github/configs/sdkconfig.defaults"
 ESP_IDF_VERSION = "v5.3.2"
+#ESP_IDF_VERSION = "release/v5.3" Necessary for `Thread::stop`
 
 [unstable]
 build-std = ["std", "panic_abort"]

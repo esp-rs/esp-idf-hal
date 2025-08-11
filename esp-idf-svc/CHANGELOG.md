@@ -10,6 +10,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Breaking
 - Implement MQTT outbox limit and get_outbox_size()
 - Added argument `subprotocol_list` to `ws_handler` to allow subprotocols to be supported by WebSockets
+- Thread enhancements (#592). Specifically:
+ - Thread SRP (Thread-specific mDNS) is now supported and has a new API so that the user can register/unregister SRP services
+ - Option to start/stop the Thread stack (methods `Thread::start` / `Thread::stop` in place of the previous `Thread::run`)
+ - Several callbacks where actually unsound, as they were not `Send + 'static`. Now fixed
+ - Simplifications:
+  - `Thread::init` and `Thread::deinit` are now gone
+  - No option to swap the Thread Netif with a custom one, as it complicates the implementation, and I don't see the use-case (unlike with Wifi)
 
 ### Fixed
 - Fix wrong conversion from `ScanType` to `u32` in Wi-Fi configuration

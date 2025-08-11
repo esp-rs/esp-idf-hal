@@ -269,7 +269,7 @@ impl<'a> From<(esp_gatts_cb_event_t, &'a esp_ble_gatts_cb_param_t)> for GattsEve
                     conn_id: param.exec_write.conn_id,
                     addr: param.exec_write.bda.into(),
                     trans_id: param.exec_write.trans_id,
-                    canceled: param.exec_write.exec_write_flag == ESP_GATT_PREP_WRITE_CANCEL as _,
+                    canceled: param.exec_write.exec_write_flag == ESP_GATT_PREP_WRITE_CANCEL as u8,
                 }
             },
             esp_gatts_cb_event_t_ESP_GATTS_MTU_EVT => unsafe {

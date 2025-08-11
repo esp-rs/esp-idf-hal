@@ -50,13 +50,14 @@ mod example {
         let mut thread =
             EspThread::new(peripherals.modem, sys_loop.clone(), nvs, mounted_event_fs)?;
 
-        thread.init()?;
-
         info!("Thread initialized, now running...");
 
-        thread.run()?;
+        thread.start()?;
 
-        Ok(())
+        loop {
+            // Keep the main thread alive to allow the Thread Border Router to run
+            std::thread::sleep(std::time::Duration::from_secs(2));
+        }
     }
 
     fn log_thread_sysloop(

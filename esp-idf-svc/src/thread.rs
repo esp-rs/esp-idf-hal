@@ -3,18 +3,22 @@
 // - Prio B: API to enable the Joiner workflow (need to read on that, but not needed for Matter; CONFIG_OPENTHREAD_JOINER - also native OpenThread API https://github.com/espressif/esp-idf/issues/13475)
 // - Prio B: API to to enable the Commissioner workflow (need to read on that, but not needed for Matter; CONFIG_OPENTHREAD_COMMISSIONER - also native OpenThread API https://github.com/espressif/esp-idf/issues/13475)
 
+use core::cell::UnsafeCell;
 use core::ffi::{self, c_void, CStr};
 use core::fmt::Debug;
 use core::marker::PhantomData;
-use core::mem::MaybeUninit;
+use core::ops::{Deref, DerefMut};
+use core::ptr::addr_of_mut;
 
-use ::log::debug;
+use alloc::boxed::Box;
+use alloc::sync::Arc;
+
+use ::log::info;
 
 use crate::eventloop::{EspEventDeserializer, EspEventSource, EspSystemEventLoop};
 use crate::hal::delay;
 use crate::hal::gpio::{InputPin, OutputPin};
 use crate::hal::peripheral::Peripheral;
-use crate::hal::task::CriticalSection;
 use crate::hal::uart::Uart;
 #[cfg(all(esp_idf_comp_esp_netif_enabled, not(esp_idf_openthread_radio)))]
 use crate::handle::RawHandle;
@@ -22,12 +26,15 @@ use crate::io::vfs::MountedEventfs;
 #[cfg(all(esp_idf_comp_esp_netif_enabled, not(esp_idf_openthread_radio)))]
 use crate::netif::*;
 use crate::nvs::EspDefaultNvsPartition;
+use crate::private::mutex::{Condvar, Mutex};
 use crate::sys::*;
+use crate::thread::srp::OtSrp;
+
+pub use srp::*;
 
 extern crate alloc;
 
-use alloc::boxed::Box;
-use alloc::sync::Arc;
+mod srp;
 
 /// A trait shared between the `Host` and `RCP` modes providing the option for these
 /// to do additional initialization.
@@ -96,17 +103,23 @@ pub mod config {
 
 macro_rules! ot_esp {
     ($err:expr) => {{
-        esp!({
-            #[allow(non_upper_case_globals, non_snake_case)]
-            let err = match $err as _ {
-                otError_OT_ERROR_NONE => ESP_OK,
-                otError_OT_ERROR_FAILED => ESP_FAIL,
-                _ => ESP_FAIL, // For now
-            };
-
-            err
-        })
+        $crate::sys::esp!($crate::thread::ot_esp_code($err as u32))
     }};
+}
+
+pub(crate) use ot_esp;
+
+#[allow(non_upper_case_globals, non_snake_case)]
+pub(crate) const fn ot_esp_code(ot_code: u32) -> esp_err_t {
+    match ot_code {
+        crate::sys::otError_OT_ERROR_NONE => crate::sys::ESP_OK as _,
+        crate::sys::otError_OT_ERROR_FAILED => crate::sys::ESP_FAIL as _,
+        _ => crate::sys::ESP_FAIL as _, // For now
+    }
+}
+
+pub(crate) fn ot_esp_err(ot_code: u32) -> EspError {
+    EspError::from(ot_esp_code(ot_code)).unwrap()
 }
 
 /// Active scan result
@@ -266,11 +279,7 @@ pub struct ThreadDriver<'d, T>
 where
     T: Mode,
 {
-    cfg: esp_openthread_platform_config_t,
-    initialized: bool,
-    cs: CriticalSection,
-    #[allow(clippy::type_complexity)]
-    callback: Option<Box<Box<dyn FnMut(Ipv6Incoming) + Send + 'static>>>,
+    inner: UnsafeCell<Box<ThreadDriverInner>>,
     //_subscription: EspSubscription<'static, System>,
     _nvs: EspDefaultNvsPartition,
     _mounted_event_fs: Arc<MountedEventfs>,
@@ -284,20 +293,17 @@ impl<'d> ThreadDriver<'d, Host> {
     #[cfg(esp_idf_soc_ieee802154_supported)]
     pub fn new<M: crate::hal::modem::ThreadModemPeripheral>(
         modem: impl Peripheral<P = M> + 'd,
-        _sysloop: EspSystemEventLoop,
+        sysloop: EspSystemEventLoop,
         nvs: EspDefaultNvsPartition,
         mounted_event_fs: Arc<MountedEventfs>,
     ) -> Result<Self, EspError> {
-        Ok(Self {
-            cfg: Self::host_native_cfg(modem),
-            initialized: false,
-            cs: CriticalSection::new(),
-            callback: None,
-            _nvs: nvs,
-            _mounted_event_fs: mounted_event_fs,
-            _mode: Host(()),
-            _p: PhantomData,
-        })
+        Self::internal_new(
+            Self::host_native_cfg(modem),
+            sysloop,
+            nvs,
+            mounted_event_fs,
+            Host(()),
+        )
     }
 
     /// Create a new Thread Host driver instance utilizing an SPI connection
@@ -312,20 +318,17 @@ impl<'d> ThreadDriver<'d, Host> {
         cs: Option<impl Peripheral<P = impl InputPin + OutputPin> + 'd>,
         intr: Option<impl Peripheral<P = impl InputPin + OutputPin> + 'd>,
         config: &crate::hal::spi::config::Config,
-        _sysloop: EspSystemEventLoop,
+        sysloop: EspSystemEventLoop,
         nvs: EspDefaultNvsPartition,
         mounted_event_fs: Arc<MountedEventfs>,
     ) -> Result<Self, EspError> {
-        Ok(Self {
-            cfg: Self::host_spi_cfg(spi, mosi, miso, sclk, cs, intr, config),
-            initialized: false,
-            cs: CriticalSection::new(),
-            callback: None,
-            _nvs: nvs,
-            _mounted_event_fs: mounted_event_fs,
-            _mode: Host(()),
-            _p: PhantomData,
-        })
+        Self::internal_new(
+            Self::host_spi_cfg(spi, mosi, miso, sclk, cs, intr, config),
+            sysloop,
+            nvs,
+            mounted_event_fs,
+            Host(()),
+        )
     }
 
     /// Create a new Thread Host driver instance utilizing a UART connection
@@ -335,27 +338,38 @@ impl<'d> ThreadDriver<'d, Host> {
         tx: impl Peripheral<P = impl OutputPin> + 'd,
         rx: impl Peripheral<P = impl InputPin> + 'd,
         config: &crate::hal::uart::config::Config,
-        _sysloop: EspSystemEventLoop,
+        sysloop: EspSystemEventLoop,
         nvs: EspDefaultNvsPartition,
         mounted_event_fs: Arc<MountedEventfs>,
     ) -> Result<Self, EspError> {
-        Ok(Self {
-            cfg: Self::host_uart_cfg(uart, tx, rx, config),
-            initialized: false,
-            cs: CriticalSection::new(),
-            callback: None,
-            _nvs: nvs,
-            _mounted_event_fs: mounted_event_fs,
-            _mode: Host(()),
-            _p: PhantomData,
-        })
+        Self::internal_new(
+            Self::host_uart_cfg(uart, tx, rx, config),
+            sysloop,
+            nvs,
+            mounted_event_fs,
+            Host(()),
+        )
+    }
+
+    /// Enable or disable the network interface of the Thread driver
+    pub fn enable_ipv6(&self, enable: bool) -> Result<(), EspError> {
+        let _lock = self.inner();
+
+        ot_esp!(unsafe { otIp6SetEnabled(esp_openthread_get_instance(), enable) })
+    }
+
+    /// Enable or disable Thread
+    ///
+    /// When enabling, this should be called after the network interface is enabled
+    pub fn enable_thread(&self, enable: bool) -> Result<(), EspError> {
+        let _lock = self.inner();
+
+        ot_esp!(unsafe { otThreadSetEnabled(esp_openthread_get_instance(), enable) })
     }
 
     /// Retrieve the current role of the device in the Thread network
     pub fn role(&self) -> Result<Role, EspError> {
-        self.check_init()?;
-
-        let _lock = OtLock::acquire()?;
+        let _lock = self.inner();
 
         Ok(unsafe { otThreadGetDeviceRole(esp_openthread_get_instance()) }.into())
     }
@@ -365,8 +379,6 @@ impl<'d> ThreadDriver<'d, Host> {
     /// NOTE: This function can only be called once.
     #[cfg(esp_idf_openthread_cli)]
     pub fn init_cli(&mut self) -> Result<(), EspError> {
-        self.init()?;
-
         // TODO: Can only be called once; track this
 
         unsafe {
@@ -391,7 +403,9 @@ impl<'d> ThreadDriver<'d, Host> {
     ///
     /// The TOD is in Thread TLV format.
     pub fn tod(&self, buf: &mut [u8]) -> Result<usize, EspError> {
-        self.internal_tod(true, buf)
+        let mut inner = self.inner();
+
+        Self::internal_tod(&mut inner, true, buf)
     }
 
     /// Retrieve the pending TOD (Thread Operational Dataset) in the user-supplied buffer
@@ -400,21 +414,53 @@ impl<'d> ThreadDriver<'d, Host> {
     ///
     /// The TOD is in Thread TLV format.
     pub fn pending_tod(&self, buf: &mut [u8]) -> Result<usize, EspError> {
-        self.internal_tod(false, buf)
+        let mut inner = self.inner();
+
+        Self::internal_tod(&mut inner, false, buf)
     }
 
     /// Set the active TOD (Thread Operational Dataset) to the provided data
     ///
     /// The TOD data should be in Thread TLV format.
     pub fn set_tod(&self, tod: &[u8]) -> Result<(), EspError> {
-        self.internal_set_tod(true, tod)
+        let mut inner = self.inner();
+
+        Self::fill_dataset_tlv(&mut inner.dataset_buf, tod)?;
+
+        Self::internal_set_tod(&mut inner, true)
     }
 
     /// Set the pending TOD (Thread Operational Dataset) to the provided data
     ///
     /// The TOD data should be in Thread TLV format.
     pub fn set_pending_tod(&self, tod: &[u8]) -> Result<(), EspError> {
-        self.internal_set_tod(false, tod)
+        let mut inner = self.inner();
+
+        Self::fill_dataset_tlv(&mut inner.dataset_buf, tod)?;
+
+        Self::internal_set_tod(&mut inner, false)
+    }
+
+    /// Set the active TOD (Thread Operational Dataset) to the provided data
+    ///
+    /// The TOD data should be in Thread TLV format.
+    pub fn set_tod_hexstr(&self, tod: &str) -> Result<(), EspError> {
+        let mut inner = self.inner();
+
+        Self::fill_dataset_tlv_hexstr(&mut inner.dataset_buf, tod)?;
+
+        Self::internal_set_tod(&mut inner, true)
+    }
+
+    /// Set the pending TOD (Thread Operational Dataset) to the provided data
+    ///
+    /// The TOD data should be in Thread TLV format.
+    pub fn set_pending_tod_hexstr(&self, tod: &str) -> Result<(), EspError> {
+        let mut inner = self.inner();
+
+        Self::fill_dataset_tlv_hexstr(&mut inner.dataset_buf, tod)?;
+
+        Self::internal_set_tod(&mut inner, false)
     }
 
     /// Set the active TOD (Thread Operational Dataset) according to the
@@ -422,7 +468,7 @@ impl<'d> ThreadDriver<'d, Host> {
     /// during build (via `sdkconfig*`)
     #[cfg(not(esp_idf_version_major = "4"))]
     pub fn set_tod_from_cfg(&self) -> Result<(), EspError> {
-        self.check_init()?;
+        let _lock = self.inner();
 
         ot_esp!(unsafe { esp_openthread_auto_start(core::ptr::null_mut()) })
     }
@@ -431,13 +477,18 @@ impl<'d> ThreadDriver<'d, Host> {
     ///
     /// The callback will be called for each found network
     /// At the end of the scan, the callback will be called with `None`
-    pub fn scan<F: FnMut(Option<ActiveScanResult>)>(&self, callback: F) -> Result<(), EspError> {
-        self.check_init()?;
+    pub fn scan<F: FnMut(Option<ActiveScanResult>) + Send + 'static>(
+        &self,
+        callback: F,
+    ) -> Result<(), EspError> {
+        let mut inner = self.inner();
 
-        let _lock = OtLock::acquire()?;
+        if inner.scan_cb.is_some() {
+            return Err(EspError::from_infallible::<ESP_ERR_INVALID_STATE>());
+        }
 
         #[allow(clippy::type_complexity)]
-        let mut callback: Box<Box<dyn FnMut(Option<ActiveScanResult>)>> =
+        let mut callback: Box<Box<dyn FnMut(Option<ActiveScanResult>) + Send + 'static>> =
             Box::new(Box::new(callback));
 
         ot_esp!(unsafe {
@@ -450,14 +501,14 @@ impl<'d> ThreadDriver<'d, Host> {
             )
         })?;
 
+        inner.scan_cb = Some(callback);
+
         Ok(())
     }
 
     /// Check if an active scan is in progress
     pub fn is_scan_in_progress(&self) -> Result<bool, EspError> {
-        self.check_init()?;
-
-        let _lock = OtLock::acquire()?;
+        let _lock = self.inner();
 
         Ok(unsafe { otLinkIsActiveScanInProgress(esp_openthread_get_instance()) })
     }
@@ -466,16 +517,18 @@ impl<'d> ThreadDriver<'d, Host> {
     ///
     /// The callback will be called for each found network
     /// At the end of the scan, the callback will be called with `None`
-    pub fn energy_scan<F: FnMut(Option<EnergyScanResult>)>(
+    pub fn energy_scan<F: FnMut(Option<EnergyScanResult>) + Send + 'static>(
         &self,
         callback: F,
     ) -> Result<(), EspError> {
-        self.check_init()?;
+        let mut inner = self.inner();
 
-        let _lock = OtLock::acquire()?;
+        if inner.energy_cb.is_some() {
+            return Err(EspError::from_infallible::<ESP_ERR_INVALID_STATE>());
+        }
 
         #[allow(clippy::type_complexity)]
-        let mut callback: Box<Box<dyn FnMut(Option<EnergyScanResult>)>> =
+        let mut callback: Box<Box<dyn FnMut(Option<EnergyScanResult>) + Send + 'static>> =
             Box::new(Box::new(callback));
 
         ot_esp!(unsafe {
@@ -488,23 +541,21 @@ impl<'d> ThreadDriver<'d, Host> {
             )
         })?;
 
+        inner.energy_cb = Some(callback);
+
         Ok(())
     }
 
     /// Check if an energy scan is in progress
     pub fn is_energy_scan_in_progress(&self) -> Result<bool, EspError> {
-        self.check_init()?;
-
-        let _lock = OtLock::acquire()?;
+        let _lock = self.inner();
 
         Ok(unsafe { otLinkIsEnergyScanInProgress(esp_openthread_get_instance()) })
     }
 
     /// Send an Ipv6 raw packet over Thread
     pub fn tx(&self, packet: &[u8]) -> Result<(), EspError> {
-        self.check_init()?;
-
-        let _lock = OtLock::acquire()?;
+        let _lock = self.inner();
 
         let message =
             unsafe { otIp6NewMessage(esp_openthread_get_instance(), core::ptr::null_mut()) };
@@ -523,11 +574,13 @@ impl<'d> ThreadDriver<'d, Host> {
     }
 
     /// Set a callback function for receiving Ipv6 raw packets from Thread
-    pub fn set_rx_callback<R>(&mut self, callback: Option<R>) -> Result<(), EspError>
+    pub fn set_rx_callback<R>(&self, callback: Option<R>) -> Result<(), EspError>
     where
         R: FnMut(Ipv6Incoming) + Send + 'static,
     {
-        self.internal_set_rx_callback(callback)
+        let mut inner = self.inner();
+
+        Self::internal_set_rx_callback(&mut inner, callback)
     }
 
     /// Set a callback function for receiving Ipv6 raw packets from Thread
@@ -555,21 +608,24 @@ impl<'d> ThreadDriver<'d, Host> {
     ///
     /// This "local borrowing" will only be possible to express in a safe way once/if `!Leak` types
     /// are introduced to Rust (i.e. the impossibility to "forget" a type and thus not call its destructor).
-    pub fn set_nonstatic_rx_callback<R>(&mut self, callback: Option<R>) -> Result<(), EspError>
+    pub fn set_nonstatic_rx_callback<R>(&self, callback: Option<R>) -> Result<(), EspError>
     where
         R: FnMut(Ipv6Incoming) + Send + 'd,
     {
-        self.internal_set_rx_callback(callback)
+        let mut inner = self.inner();
+
+        Self::internal_set_rx_callback(&mut inner, callback)
     }
 
-    fn internal_set_rx_callback<R>(&mut self, callback: Option<R>) -> Result<(), EspError>
+    // NOTE: Methods starting with `internal_` have to be called only when the OpenThread lock is held
+
+    fn internal_set_rx_callback<R>(
+        inner: &mut ThreadDriverInner,
+        callback: Option<R>,
+    ) -> Result<(), EspError>
     where
         R: FnMut(Ipv6Incoming) + Send + 'd,
     {
-        self.deinit()?;
-
-        let _lock = OtLock::acquire()?;
-
         if let Some(callback) = callback {
             #[allow(clippy::type_complexity)]
             let callback: Box<Box<dyn FnMut(Ipv6Incoming) + Send + 'd>> =
@@ -581,7 +637,7 @@ impl<'d> ThreadDriver<'d, Host> {
 
             let callback_ptr = callback.as_mut() as *mut _ as *mut c_void;
 
-            self.callback = Some(callback);
+            inner.ipv6_cb = Some(callback);
 
             unsafe {
                 otIp6SetAddressCallback(
@@ -606,8 +662,93 @@ impl<'d> ThreadDriver<'d, Host> {
                 // TODO otIcmp6SetEchoMode(esp_openthread_get_instance(), OT_ICMP6_ECHO_HANDLER_RLOC_ALOC_ONLY);
             }
 
-            self.callback = None;
+            inner.ipv6_cb = None;
         }
+
+        Ok(())
+    }
+
+    fn internal_tod(
+        inner: &mut ThreadDriverInner,
+        active: bool,
+        buf: &mut [u8],
+    ) -> Result<usize, EspError> {
+        let dataset_buf = &mut inner.dataset_buf;
+
+        ot_esp!(unsafe {
+            if active {
+                otDatasetGetActiveTlvs(esp_openthread_get_instance(), dataset_buf)
+            } else {
+                otDatasetGetPendingTlvs(esp_openthread_get_instance(), dataset_buf)
+            }
+        })?;
+
+        let len = dataset_buf.mLength as usize;
+        if buf.len() < len {
+            Err(EspError::from_infallible::<ESP_ERR_INVALID_ARG>())?;
+        }
+
+        buf[..len].copy_from_slice(&dataset_buf.mTlvs[..len]);
+
+        Ok(len)
+    }
+
+    fn internal_set_tod(inner: &mut ThreadDriverInner, active: bool) -> Result<(), EspError> {
+        ot_esp!(unsafe {
+            if active {
+                otDatasetSetActiveTlvs(esp_openthread_get_instance(), &inner.dataset_buf)
+            } else {
+                otDatasetSetPendingTlvs(esp_openthread_get_instance(), &inner.dataset_buf)
+            }
+        })?;
+
+        Ok(())
+    }
+
+    fn fill_dataset_tlv(
+        dataset_buf: &mut otOperationalDatasetTlvs,
+        data: &[u8],
+    ) -> Result<(), EspError> {
+        if data.len() > core::mem::size_of_val(&dataset_buf.mTlvs) {
+            Err(EspError::from_infallible::<ESP_ERR_INVALID_ARG>())?;
+        }
+
+        dataset_buf.mLength = data.len() as _;
+        dataset_buf.mTlvs[..data.len()].copy_from_slice(data);
+
+        Ok(())
+    }
+
+    /// Populates the internal OT TLV dataset structure with the given dataset in HEX-TLV str format.
+    fn fill_dataset_tlv_hexstr(
+        dataset_buf: &mut otOperationalDatasetTlvs,
+        dataset: &str,
+    ) -> Result<(), EspError> {
+        let dataset = dataset.trim();
+        let mut offset = 0;
+
+        for (chf, chs) in dataset
+            .chars()
+            .step_by(2)
+            .zip(dataset.chars().skip(1).step_by(2))
+        {
+            let byte = (chf
+                .to_digit(16)
+                .ok_or(ot_esp_err(otError_OT_ERROR_INVALID_ARGS))?
+                << 4)
+                | chs
+                    .to_digit(16)
+                    .ok_or(ot_esp_err(otError_OT_ERROR_INVALID_ARGS))?;
+
+            if offset >= dataset_buf.mTlvs.len() {
+                Err(ot_esp_err(otError_OT_ERROR_NO_BUFS))?;
+            }
+
+            dataset_buf.mTlvs[offset] = byte as _;
+            offset += 1;
+        }
+
+        dataset_buf.mLength = offset as _;
 
         Ok(())
     }
@@ -617,26 +758,30 @@ impl<'d> ThreadDriver<'d, Host> {
         is_added: bool,
         context: *mut c_void,
     ) {
-        let callback = unsafe { (context as *mut Box<dyn FnMut(Ipv6Incoming)>).as_mut() }.unwrap();
+        let inner = unsafe { (context as *mut ThreadDriverInner).as_mut().unwrap() };
 
-        let address_info = unsafe { address_info.as_ref() }.unwrap();
-        let ot_address = unsafe { address_info.mAddress.as_ref() }.unwrap();
+        if let Some(ipv6_cb) = inner.ipv6_cb.as_mut() {
+            let address_info = unsafe { address_info.as_ref() }.unwrap();
+            let ot_address = unsafe { address_info.mAddress.as_ref() }.unwrap();
 
-        let address = core::net::Ipv6Addr::from(ot_address.mFields.m8);
+            let address = core::net::Ipv6Addr::from(ot_address.mFields.m8);
 
-        if is_added {
-            callback(Ipv6Incoming::AddressAdded(address));
-        } else {
-            callback(Ipv6Incoming::AddressRemoved(address));
+            if is_added {
+                ipv6_cb(Ipv6Incoming::AddressAdded(address));
+            } else {
+                ipv6_cb(Ipv6Incoming::AddressRemoved(address));
+            }
         }
     }
 
     unsafe extern "C" fn on_packet(message: *mut otMessage, context: *mut c_void) {
-        let callback = unsafe { (context as *mut Box<dyn FnMut(Ipv6Incoming)>).as_mut() }.unwrap();
+        let inner = unsafe { (context as *mut ThreadDriverInner).as_mut().unwrap() };
 
-        callback(Ipv6Incoming::Data(Ipv6Packet(
-            unsafe { message.as_ref() }.unwrap(),
-        )));
+        if let Some(ipv6_cb) = inner.ipv6_cb.as_mut() {
+            ipv6_cb(Ipv6Incoming::Data(Ipv6Packet(
+                unsafe { message.as_ref() }.unwrap(),
+            )));
+        }
 
         otMessageFree(message);
     }
@@ -645,14 +790,18 @@ impl<'d> ThreadDriver<'d, Host> {
         result: *mut otActiveScanResult,
         context: *mut c_void,
     ) {
-        #[allow(clippy::type_complexity)]
-        let callback =
-            unsafe { (context as *mut Box<dyn FnMut(Option<ActiveScanResult>)>).as_mut() }.unwrap();
+        let inner = unsafe { (context as *mut ThreadDriverInner).as_mut().unwrap() };
+
+        if let Some(scan_cb) = inner.scan_cb.as_mut() {
+            if result.is_null() {
+                scan_cb(None);
+            } else {
+                scan_cb(Some(ActiveScanResult(unsafe { result.as_ref() }.unwrap())));
+            }
+        }
 
         if result.is_null() {
-            callback(None);
-        } else {
-            callback(Some(ActiveScanResult(unsafe { result.as_ref() }.unwrap())));
+            inner.scan_cb = None;
         }
     }
 
@@ -660,14 +809,18 @@ impl<'d> ThreadDriver<'d, Host> {
         result: *mut otEnergyScanResult,
         context: *mut c_void,
     ) {
-        #[allow(clippy::type_complexity)]
-        let callback =
-            unsafe { (context as *mut Box<dyn FnMut(Option<EnergyScanResult>)>).as_mut() }.unwrap();
+        let inner = unsafe { (context as *mut ThreadDriverInner).as_mut().unwrap() };
+
+        if let Some(energy_cb) = inner.energy_cb.as_mut() {
+            if result.is_null() {
+                energy_cb(None);
+            } else {
+                energy_cb(Some(EnergyScanResult(unsafe { result.as_ref() }.unwrap())));
+            }
+        }
 
         if result.is_null() {
-            callback(None);
-        } else {
-            callback(Some(EnergyScanResult(unsafe { result.as_ref() }.unwrap())));
+            inner.energy_cb = None;
         }
     }
 
@@ -802,59 +955,6 @@ impl<'d> ThreadDriver<'d, Host> {
 
         cfg
     }
-
-    fn internal_tod(&self, active: bool, buf: &mut [u8]) -> Result<usize, EspError> {
-        self.check_init()?;
-
-        let _lock = OtLock::acquire()?;
-
-        let mut tlvs = MaybeUninit::<otOperationalDatasetTlvs>::uninit(); // TODO: Large buffer
-        ot_esp!(unsafe {
-            if active {
-                otDatasetGetActiveTlvs(esp_openthread_get_instance(), tlvs.assume_init_mut())
-            } else {
-                otDatasetGetPendingTlvs(esp_openthread_get_instance(), tlvs.assume_init_mut())
-            }
-        })?;
-
-        let tlvs = unsafe { tlvs.assume_init_mut() };
-
-        let len = tlvs.mLength as usize;
-        if buf.len() < len {
-            Err(EspError::from_infallible::<ESP_ERR_INVALID_ARG>())?;
-        }
-
-        buf[..len].copy_from_slice(&tlvs.mTlvs[..len]);
-
-        Ok(len)
-    }
-
-    fn internal_set_tod(&self, active: bool, data: &[u8]) -> Result<(), EspError> {
-        self.check_init()?;
-
-        let _lock = OtLock::acquire()?;
-
-        let mut tlvs = MaybeUninit::<otOperationalDatasetTlvs>::uninit(); // TODO: Large buffer
-
-        let tlvs = unsafe { tlvs.assume_init_mut() };
-
-        if data.len() > core::mem::size_of_val(&tlvs.mTlvs) {
-            Err(EspError::from_infallible::<ESP_ERR_INVALID_ARG>())?;
-        }
-
-        tlvs.mLength = data.len() as _;
-        tlvs.mTlvs[..data.len()].copy_from_slice(data);
-
-        ot_esp!(unsafe {
-            if active {
-                otDatasetSetActiveTlvs(esp_openthread_get_instance(), tlvs)
-            } else {
-                otDatasetSetPendingTlvs(esp_openthread_get_instance(), tlvs)
-            }
-        })?;
-
-        Ok(())
-    }
 }
 
 #[cfg(esp_idf_soc_ieee802154_supported)]
@@ -871,20 +971,17 @@ impl<'d> ThreadDriver<'d, RCP> {
         sclk: impl Peripheral<P = impl InputPin + OutputPin> + 'd,
         cs: Option<impl Peripheral<P = impl InputPin + OutputPin> + 'd>,
         intr: Option<impl Peripheral<P = impl InputPin + OutputPin> + 'd>,
-        _sysloop: EspSystemEventLoop,
+        sysloop: EspSystemEventLoop,
         nvs: EspDefaultNvsPartition,
         mounted_event_fs: Arc<MountedEventfs>,
     ) -> Result<Self, EspError> {
-        Ok(Self {
-            cfg: Self::rcp_spi_cfg(modem, spi, mosi, miso, sclk, cs, intr),
-            initialized: false,
-            cs: CriticalSection::new(),
-            callback: None,
-            _nvs: nvs,
-            _mounted_event_fs: mounted_event_fs,
-            _mode: RCP(()),
-            _p: PhantomData,
-        })
+        Self::internal_new(
+            Self::rcp_spi_cfg(modem, spi, mosi, miso, sclk, cs, intr),
+            sysloop,
+            nvs,
+            mounted_event_fs,
+            RCP(()),
+        )
     }
 
     /// Create a new Thread RCP driver instance utilizing a UART connection
@@ -896,20 +993,17 @@ impl<'d> ThreadDriver<'d, RCP> {
         tx: impl Peripheral<P = impl OutputPin> + 'd,
         rx: impl Peripheral<P = impl InputPin> + 'd,
         config: &crate::hal::uart::config::Config,
-        _sysloop: EspSystemEventLoop,
+        sysloop: EspSystemEventLoop,
         nvs: EspDefaultNvsPartition,
         mounted_event_fs: Arc<MountedEventfs>,
     ) -> Result<Self, EspError> {
-        Ok(Self {
-            cfg: Self::rcp_uart_cfg(modem, uart, tx, rx, config),
-            initialized: false,
-            cs: CriticalSection::new(),
-            callback: None,
-            _nvs: nvs,
-            _mounted_event_fs: mounted_event_fs,
-            _mode: RCP(()),
-            _p: PhantomData,
-        })
+        Self::internal_new(
+            Self::rcp_uart_cfg(modem, uart, tx, rx, config),
+            sysloop,
+            nvs,
+            mounted_event_fs,
+            RCP(()),
+        )
     }
 
     #[cfg(not(esp_idf_version_major = "4"))]
@@ -1037,84 +1131,137 @@ where
         task_queue_size: 10,
     };
 
-    /// Initialize the Thread driver
-    /// Note that this needs to be done before calling any other driver method.
-    ///
-    /// Does nothing if the driver is already initialized.
-    pub fn init(&mut self) -> Result<(), EspError> {
-        if self.initialized {
-            return Ok(());
-        }
-
-        let _lock = self.cs.enter();
-
-        esp!(unsafe { esp_openthread_init(&self.cfg) })?;
-
-        #[cfg(not(esp_idf_openthread_radio))]
-        unsafe {
-            otLoggingSetLevel(CONFIG_LOG_DEFAULT_LEVEL as _);
-        }
-
-        T::init();
-
-        self.initialized = true;
-
-        Ok(())
-    }
-
-    // Deinitialize the Thread driver
-    pub fn deinit(&mut self) -> Result<(), EspError> {
-        if !self.initialized {
-            return Ok(());
-        }
-
-        let _lock = self.cs.enter();
-
-        esp!(unsafe { esp_openthread_deinit() })?;
-
-        self.initialized = false;
-
-        Ok(())
-    }
-
-    /// Return `true` if the driver is already initialized
-    pub fn is_init(&self) -> Result<bool, EspError> {
-        Ok(self.initialized)
-    }
-
     /// Initialize the coexistence between the Thread stack and a Wifi/BT stack on the modem
     #[cfg(all(esp_idf_openthread_radio_native, esp_idf_soc_ieee802154_supported))]
     pub fn init_coex(&mut self) -> Result<(), EspError> {
+        let _lock = self.inner();
+
         Self::internal_init_coex()
     }
 
-    /// Run the Thread stack
+    /// Start the Thread driver
     ///
-    /// The current thread would block while the stack is running
-    /// Note that the stack will only exit if an error occurs
-    pub fn run(&self) -> Result<(), EspError> {
-        // TODO: Figure out how to stop running
+    /// If the driver is already started, an error is returned.
+    pub fn start(&mut self) -> Result<(), EspError> {
+        {
+            let mut inner = self.inner();
 
-        self.check_init()?;
+            if *inner.started.lock() {
+                Err(EspError::from_infallible::<ESP_ERR_INVALID_STATE>())?;
+            }
 
-        let _lock = self.cs.enter();
-
-        debug!("Driver running");
-
-        let result = esp!(unsafe { esp_openthread_launch_mainloop() });
-
-        debug!("Driver stopped running");
-
-        result
-    }
-
-    fn check_init(&self) -> Result<(), EspError> {
-        if !self.initialized {
-            Err(EspError::from_infallible::<ESP_ERR_INVALID_STATE>())?;
+            #[allow(clippy::manual_c_str_literals)]
+            unsafe {
+                crate::hal::task::create(
+                    Self::run,
+                    CStr::from_bytes_with_nul_unchecked(b"ThreadDriver Runner\0"),
+                    12288,
+                    &mut *inner as *mut _ as *mut _,
+                    6,
+                    None,
+                )?;
+            }
         }
+
+        loop {
+            let inner = unsafe { self.inner.get().as_mut().unwrap() };
+
+            let started = inner.started.lock();
+
+            if *started {
+                break;
+            }
+
+            inner.started_condvar.wait(started);
+        }
+
+        info!("ThreadDriver started");
 
         Ok(())
     }
+
+    /// Stop the Thread driver
+    ///
+    /// If the driver is not started, an error is returned.
+    pub fn stop(&mut self) -> Result<(), EspError> {
+        {
+            let inner = self.inner();
+
+            if !*inner.started.lock() {
+                Err(EspError::from_infallible::<ESP_ERR_INVALID_STATE>())?;
+            }
+
+            #[allow(unused_mut)]
+            let mut stop_supported = false;
+
+            #[cfg(any(
+                not(any(esp_idf_version_major = "4", esp_idf_version_major = "5")),
+                all(
+                    esp_idf_version_major = "5",
+                    not(any(
+                        esp_idf_version = "5.0",
+                        esp_idf_version = "5.1",
+                        esp_idf_version = "5.2",
+                        esp_idf_version_full = "5.3.0",
+                        esp_idf_version_full = "5.3.1",
+                        esp_idf_version_full = "5.3.2",
+                        esp_idf_version_full = "5.3.3",
+                        esp_idf_version_full = "5.4.0",
+                        esp_idf_version_full = "5.4.1",
+                        esp_idf_version_full = "5.4.2",
+                    ))
+                )
+            ))]
+            {
+                unsafe {
+                    esp_openthread_mainloop_exit();
+                }
+
+                stop_supported = true;
+            }
+
+            if !stop_supported {
+                panic!("Stopping the Thread driver is supported since ESP-IDF patch-level 5.3.3+, 5.4.3+ and 5.5.1+. Please update to a newer version or don't call `stop`.")
+            }
+        }
+
+        loop {
+            let inner = unsafe { self.inner.get().as_mut().unwrap() };
+
+            let started = inner.started.lock();
+
+            if !*started {
+                break;
+            }
+
+            inner.started_condvar.wait(started);
+        }
+
+        info!("ThreadDriver stopped");
+
+        Ok(())
+    }
+
+    /// Check if the Thread driver is started
+    pub fn is_started(&self) -> Result<bool, EspError> {
+        let inner = self.inner();
+
+        let started = *inner.started.lock();
+
+        Ok(started)
+    }
+
+    /// Return a mutable reference to the inner driver state
+    /// by locking the OpenThread lock first.
+    #[allow(clippy::mut_from_ref)]
+    fn inner(&self) -> ThreadDriverInnerGuard<'_> {
+        ThreadDriverInnerGuard {
+            inner: unsafe { &mut *self.inner.get() },
+            _lock: OtLock::acquire().unwrap(),
+        }
+    }
+
+    // NOTE: Methods starting with `internal_` have to be called only when the OpenThread lock is held
 
     #[cfg(all(esp_idf_openthread_radio_native, esp_idf_soc_ieee802154_supported))]
     fn internal_init_coex() -> Result<(), EspError> {
@@ -1130,6 +1277,89 @@ where
 
         Ok(())
     }
+
+    fn internal_new(
+        cfg: esp_openthread_platform_config_t,
+        _sysloop: EspSystemEventLoop,
+        nvs: EspDefaultNvsPartition,
+        mounted_event_fs: Arc<MountedEventfs>,
+        mode: T,
+    ) -> Result<Self, EspError> {
+        let mut inner = {
+            let mut inner = Box::new_uninit();
+
+            unsafe {
+                ThreadDriverInner::init(inner.as_mut_ptr(), cfg);
+
+                inner.assume_init()
+            }
+        };
+
+        esp!(unsafe { esp_openthread_init(&inner.cfg) })?;
+
+        let instance = unsafe { esp_openthread_get_instance() };
+
+        #[cfg(not(esp_idf_openthread_radio))]
+        unsafe {
+            otLoggingSetLevel(CONFIG_LOG_DEFAULT_LEVEL as _);
+        }
+
+        let srp = &mut inner.srp;
+
+        unsafe {
+            crate::sys::otSrpClientSetCallback(
+                instance,
+                Some(OtSrp::plat_c_srp_state_change_callback),
+                srp as *mut _ as *mut _,
+            )
+        }
+
+        T::init();
+
+        info!("ThreadDriver initialized");
+
+        Ok(Self {
+            inner: UnsafeCell::new(inner),
+            _nvs: nvs,
+            _mounted_event_fs: mounted_event_fs,
+            _mode: mode,
+            _p: PhantomData,
+        })
+    }
+
+    fn internal_deinit(&mut self) -> Result<(), EspError> {
+        let _ = self.stop();
+
+        esp!(unsafe { esp_openthread_deinit() })?;
+
+        Ok(())
+    }
+
+    extern "C" fn run(arg: *mut core::ffi::c_void) {
+        {
+            let _lock = OtLock::acquire().unwrap();
+
+            let inner = unsafe { (arg as *mut ThreadDriverInner).as_mut().unwrap() };
+
+            *inner.started.lock() = true;
+            inner.started_condvar.notify_all();
+        }
+
+        unsafe {
+            esp_openthread_launch_mainloop();
+        }
+
+        {
+            let _lock = OtLock::acquire().unwrap();
+
+            let inner = unsafe { (arg as *mut ThreadDriverInner).as_mut().unwrap() };
+
+            *inner.started.lock() = false;
+            inner.started_condvar.notify_all();
+        }
+
+        unsafe { crate::hal::task::destroy(core::ptr::null_mut()) }
+    }
 }
 
 impl<T> Drop for ThreadDriver<'_, T>
@@ -1137,12 +1367,61 @@ where
     T: Mode,
 {
     fn drop(&mut self) {
-        self.deinit().unwrap();
+        self.internal_deinit().unwrap();
+        info!("ThreadDriver deinitialized");
     }
 }
 
 unsafe impl<T> Send for ThreadDriver<'_, T> where T: Mode {}
 unsafe impl<T> Sync for ThreadDriver<'_, T> where T: Mode {}
+
+struct ThreadDriverInner {
+    cfg: esp_openthread_platform_config_t,
+    dataset_buf: otOperationalDatasetTlvs,
+    srp: OtSrp,
+    #[allow(clippy::type_complexity)]
+    ipv6_cb: Option<Box<Box<dyn FnMut(Ipv6Incoming) + Send + 'static>>>,
+    #[allow(clippy::type_complexity)]
+    scan_cb: Option<Box<Box<dyn FnMut(Option<ActiveScanResult>) + Send + 'static>>>,
+    #[allow(clippy::type_complexity)]
+    energy_cb: Option<Box<Box<dyn FnMut(Option<EnergyScanResult>) + Send + 'static>>>,
+    started: Mutex<bool>,
+    started_condvar: Condvar,
+}
+
+impl ThreadDriverInner {
+    unsafe fn init(this: *mut Self, cfg: esp_openthread_platform_config_t) {
+        addr_of_mut!((*this).cfg).write(cfg);
+        addr_of_mut!((*this).dataset_buf).write_bytes(0, 1);
+
+        OtSrp::init(addr_of_mut!((*this).srp));
+
+        addr_of_mut!((*this).ipv6_cb).write(None);
+        addr_of_mut!((*this).scan_cb).write(None);
+        addr_of_mut!((*this).energy_cb).write(None);
+        addr_of_mut!((*this).started).write(Mutex::new(false));
+        addr_of_mut!((*this).started_condvar).write(Condvar::new());
+    }
+}
+
+struct ThreadDriverInnerGuard<'a> {
+    inner: &'a mut ThreadDriverInner,
+    _lock: OtLock,
+}
+
+impl Deref for ThreadDriverInnerGuard<'_> {
+    type Target = ThreadDriverInner;
+
+    fn deref(&self) -> &Self::Target {
+        self.inner
+    }
+}
+
+impl DerefMut for ThreadDriverInnerGuard<'_> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        self.inner
+    }
+}
 
 struct OtLock(PhantomData<*const ()>);
 
@@ -1241,9 +1520,8 @@ pub struct EspThread<'d, T>
 where
     T: NetifMode,
 {
-    netif: EspNetif,
     driver: ThreadDriver<'d, Host>,
-    netif_initialized: bool,
+    netif: EspNetif,
     mode: T,
 }
 
@@ -1318,15 +1596,8 @@ impl<'d> EspThread<'d, Node> {
     }
 
     /// Wrap an already created Thread L2 driver instance and a network interface
-    pub fn wrap_all(mut driver: ThreadDriver<'d, Host>, netif: EspNetif) -> Result<Self, EspError> {
-        driver.deinit()?;
-
-        Ok(Self {
-            driver,
-            netif,
-            netif_initialized: false,
-            mode: Node(()),
-        })
+    pub fn wrap_all(driver: ThreadDriver<'d, Host>, netif: EspNetif) -> Result<Self, EspError> {
+        Self::internal_init(driver, netif, Node(()))
     }
 }
 
@@ -1416,18 +1687,14 @@ where
         netif: EspNetif,
         backbone_netif: N,
     ) -> Result<Self, EspError> {
-        driver.deinit()?;
-
         #[cfg(not(esp_idf_version_major = "4"))]
         unsafe {
             esp_openthread_set_backbone_netif(backbone_netif.borrow().handle());
         }
 
-        Ok(Self {
+        Self::internal_init(Self {
             driver,
-            netif,
-            netif_initialized: false,
-            mode: BorderRouter(backbone_netif),
+            inner: UnsafeCell::new(EspThreadInner::new(netif, BorderRouter(backbone_netif))),
         })
     }
 }
@@ -1437,54 +1704,31 @@ impl<'d, T> EspThread<'d, T>
 where
     T: NetifMode,
 {
-    /// Return the underlying [`ThreadDriver`]
+    /// Return a reference to the underlying [`ThreadDriver`]
     pub fn driver(&self) -> &ThreadDriver<'d, Host> {
         &self.driver
     }
 
-    /// Return the underlying [`ThreadDriver`], as mutable
+    /// Return a mutable reference to the underlying [`ThreadDriver`]
     fn driver_mut(&mut self) -> &mut ThreadDriver<'d, Host> {
         &mut self.driver
     }
 
-    /// Return the underlying [`EspNetif`]
+    /// Return a reference to the underlying [`EspNetif`]
     pub fn netif(&self) -> &EspNetif {
         &self.netif
     }
 
-    /// Return the underlying [`EspNetif`] as mutable
-    pub fn netif_mut(&mut self) -> &mut EspNetif {
-        &mut self.netif
+    /// Enable or disable the Thread network interface
+    pub fn enable_ipv6(&self, enabled: bool) -> Result<(), EspError> {
+        self.driver().enable_ipv6(enabled)
     }
 
-    /// Initialize the Thread stack
+    /// Enable or disable Thread
     ///
-    /// This should be called after the `EspThread` instance is created
-    /// and before any other operation is performed on it
-    ///
-    /// If the stack is already initialized, this method does nothing
-    pub fn init(&mut self) -> Result<(), EspError> {
-        self.driver_mut().init()?;
-        self.init_netif()
-    }
-
-    /// Deinitialize the Thread stack
-    ///
-    /// If the stack is already deinitialized, this method does nothing
-    pub fn deinit(&mut self) -> Result<(), EspError> {
-        self.deinit_netif()?;
-        self.driver_mut().deinit()
-    }
-
-    /// Return `true` if the Thread stack is already initialized
-    pub fn is_init(&self) -> Result<bool, EspError> {
-        Ok(self.netif_initialized && self.driver().is_init()?)
-    }
-
-    /// Initialize the coexistence between the Thread stack and a Wifi/BT stack on the modem
-    #[cfg(all(esp_idf_openthread_radio_native, esp_idf_soc_ieee802154_supported))]
-    pub fn init_coex(&mut self) -> Result<(), EspError> {
-        self.driver_mut().init_coex()
+    /// When enabling, this should be called after the network interface is enabled
+    pub fn enable_thread(&self, enabled: bool) -> Result<(), EspError> {
+        self.driver().enable_thread(enabled)
     }
 
     /// Retrieve the current role of the device in the Thread network
@@ -1517,11 +1761,25 @@ where
         self.driver().set_tod(tod)
     }
 
+    /// Set the active TOD (Thread Operational Dataset) to the provided data
+    ///
+    /// The TOD data should be in Thread TLV format.
+    pub fn set_tod_hexstr(&self, tod: &str) -> Result<(), EspError> {
+        self.driver().set_tod_hexstr(tod)
+    }
+
     /// Set the pending TOD (Thread Operational Dataset) to the provided data
     ///
     /// The TOD data should be in Thread TLV format.
     pub fn set_pending_tod(&self, tod: &[u8]) -> Result<(), EspError> {
         self.driver().set_pending_tod(tod)
+    }
+
+    /// Set the pending TOD (Thread Operational Dataset) to the provided data
+    ///
+    /// The TOD data should be in Thread TLV format.
+    pub fn set_pending_tod_hexstr(&self, tod: &str) -> Result<(), EspError> {
+        self.driver().set_pending_tod_hexstr(tod)
     }
 
     /// Set the active TOD (Thread Operational Dataset) according to the
@@ -1536,7 +1794,10 @@ where
     /// The callback will be called for each found network
     ///
     /// At the end of the scan, the callback will be called with `None`
-    pub fn scan<F: FnMut(Option<ActiveScanResult>)>(&self, callback: F) -> Result<(), EspError> {
+    pub fn scan<F: FnMut(Option<ActiveScanResult>) + Send + 'static>(
+        &self,
+        callback: F,
+    ) -> Result<(), EspError> {
         self.driver().scan(callback)
     }
 
@@ -1549,7 +1810,7 @@ where
     /// The callback will be called for each found network
     ///
     /// At the end of the scan, the callback will be called with `None`
-    pub fn energy_scan<F: FnMut(Option<EnergyScanResult>)>(
+    pub fn energy_scan<F: FnMut(Option<EnergyScanResult>) + Send + 'static>(
         &self,
         callback: F,
     ) -> Result<(), EspError> {
@@ -1561,85 +1822,58 @@ where
         self.driver().is_energy_scan_in_progress()
     }
 
-    /// Run the Thread stack
+    /// Start the Thread driver
     ///
-    /// The current thread would block while the stack is running
-    /// Note that the stack will only exit if an error occurs
-    pub fn run(&self) -> Result<(), EspError> {
-        self.driver().run()
+    /// If the driver is already started, an error is returned.
+    pub fn start(&mut self) -> Result<(), EspError> {
+        self.driver_mut().start()
     }
 
-    /// Replace the network interface with the provided one and return the
-    /// existing network interface.
-    pub fn swap_netif(&mut self, netif: EspNetif) -> Result<EspNetif, EspError> {
-        let initialized = self.is_init()?;
-
-        self.deinit()?;
-
-        let old = core::mem::replace(&mut self.netif, netif);
-
-        if initialized {
-            self.init()?;
-        }
-
-        Ok(old)
+    /// Stop the Thread driver
+    ///
+    /// If the driver is not started, an error is returned.
+    pub fn stop(&mut self) -> Result<(), EspError> {
+        self.driver_mut().start()
     }
 
-    fn init_netif(&mut self) -> Result<(), EspError> {
-        if self.netif_initialized {
-            return Ok(());
-        }
-
-        let _lock = OtLock::acquire()?;
-
-        self.ot_attach_netif()?;
-        self.mode.init()?;
-
-        Self::ot_enable_network(true)?;
-
-        Ok(())
+    /// Check if the Thread driver is started
+    pub fn is_started(&self) -> Result<bool, EspError> {
+        self.driver().is_started()
     }
 
-    fn deinit_netif(&mut self) -> Result<(), EspError> {
-        if !self.netif_initialized {
-            return Ok(());
-        }
+    // NOTE: Methods starting with `internal_` have to be called only when the OpenThread lock is held
 
-        let _lock = OtLock::acquire()?;
+    fn internal_init(
+        driver: ThreadDriver<'d, Host>,
+        netif: EspNetif,
+        mut mode: T,
+    ) -> Result<Self, EspError> {
+        let inner = driver.inner();
 
-        Self::ot_enable_network(false)?;
+        let glue = unsafe { esp_openthread_netif_glue_init(&inner.cfg) };
+        assert!(!glue.is_null());
+
+        esp!(unsafe { esp_netif_attach(netif.handle() as *mut _, glue) })?;
+
+        mode.init()?;
+
+        info!("EspThread initialized");
+
+        Ok(Self {
+            netif,
+            mode,
+            driver,
+        })
+    }
+
+    fn internal_deinit(&mut self) -> Result<(), EspError> {
+        let _lock = self.driver.inner();
 
         self.mode.deinit()?;
-        self.ot_detach_netif()?;
 
-        Ok(())
-    }
-
-    // NOTE: Methods starting with `ot_` have to be called only when the OpenThread lock is held
-    fn ot_attach_netif(&mut self) -> Result<(), EspError> {
-        esp!(unsafe {
-            esp_netif_attach(
-                self.netif.handle() as *mut _,
-                esp_openthread_netif_glue_init(&self.driver().cfg),
-            )
-        })?;
-
-        Ok(())
-    }
-
-    fn ot_detach_netif(&mut self) -> Result<(), EspError> {
         unsafe {
             esp_openthread_netif_glue_deinit();
         }
-
-        Ok(())
-    }
-
-    fn ot_enable_network(enabled: bool) -> Result<(), EspError> {
-        ot_esp!(unsafe { otIp6SetEnabled(esp_openthread_get_instance(), enabled) })?;
-        ot_esp!(unsafe { otThreadSetEnabled(esp_openthread_get_instance(), enabled) })?;
-
-        debug!("Network enabled={enabled}");
 
         Ok(())
     }
@@ -1651,7 +1885,8 @@ where
     T: NetifMode,
 {
     fn drop(&mut self) {
-        self.deinit_netif().unwrap();
+        self.internal_deinit().unwrap();
+        info!("EspThread deinitialized");
     }
 }
 

@@ -13,7 +13,7 @@ readme = "README.md"
 links = "esp_idf_svc"
 build = "build.rs"
 documentation = "https://docs.esp-rs.org/esp-idf-svc/"
-rust-version = "1.77"
+rust-version = "1.82"
 
 [patch.crates-io]
 esp-idf-sys = { git = "https://github.com/esp-rs/esp-idf-sys" }
