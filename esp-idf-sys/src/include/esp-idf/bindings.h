@@ -87,7 +87,9 @@
 #endif
 
 #if defined(ESP_IDF_COMP_ESP_ADC_CAL_ENABLED) || defined(ESP_IDF_COMP_ESP_ADC_ENABLED)
+#if ESP_IDF_VERSION_MAJOR < 6
 #include "esp_adc_cal.h"
+#endif
 #if ESP_IDF_VERSION_MAJOR > 4
 #include "esp_adc/adc_cali.h"
 #include "esp_adc/adc_cali_scheme.h"
