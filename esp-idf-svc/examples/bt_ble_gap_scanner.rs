@@ -1,5 +1,4 @@
 //! Example of a BLE GAP scanner using the ESP IDF Bluedroid BLE bindings.
-//! Build with `--features experimental` (for now).
 //!
 //! The example prints discovered ble devices on the console.
 //!
@@ -22,21 +21,17 @@
 #![allow(unknown_lints)]
 #![allow(unexpected_cfgs)]
 
-#[cfg(all(not(esp32s2), feature = "experimental"))]
+#[cfg(not(esp32s2))]
 fn main() -> anyhow::Result<()> {
     example::main()
 }
 
-#[cfg(any(esp32s2, not(feature = "experimental")))]
+#[cfg(esp32s2)]
 fn main() -> anyhow::Result<()> {
-    #[cfg(esp32s2)]
     panic!("ESP32-S2 does not have a BLE radio");
-
-    #[cfg(not(feature = "experimental"))]
-    panic!("Use `--features experimental` when building this example");
 }
 
-#[cfg(all(not(esp32s2), feature = "experimental"))]
+#[cfg(not(esp32s2))]
 mod example {
     use core::fmt;
     use core::hash::{Hash, Hasher};

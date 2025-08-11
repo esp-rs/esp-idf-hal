@@ -17,12 +17,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
  - Simplifications:
   - `Thread::init` and `Thread::deinit` are now gone
   - No option to swap the Thread Netif with a custom one, as it complicates the implementation, and I don't see the use-case (unlike with Wifi)
+- MSRV raised to 1.82
 
 ### Fixed
 - Fix wrong conversion from `ScanType` to `u32` in Wi-Fi configuration
 - Fix wrong BT configuration version on the c6 (issue #556)
 - Fix inconsistent mutability in NVS (#567)
 - Fix #570 (c_char vs i8 mismatch on newer rustc toolchains)
+- ESP-IDF partitions support is no longer behind the `experimental` feature
+- Filesystems support is no longer behind the `experimental` feature
+- Bluetooth support is no longer behind the `experimental` feature
+- Thread support is no longer behind the `experimental` feature
 
 ### Added
 - Logging configuration enhanced with a simpler setup where Rust logs can be configured to have a verbosity which is
