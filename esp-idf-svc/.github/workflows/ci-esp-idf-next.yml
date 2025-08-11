@@ -27,6 +27,7 @@ jobs:
         idf-version:
           - release/v5.3
           - release/v5.4
+          - release/v5.5
           - master
     steps:
       - name: Setup | Checkout
