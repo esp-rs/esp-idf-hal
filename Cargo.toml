@@ -15,6 +15,9 @@ build = "build.rs"
 documentation = "https://docs.esp-rs.org/esp-idf-hal/"
 rust-version = "1.79"
 
+[patch.crates-io]
+esp-idf-sys = { git = "https://github.com/esp-rs/esp-idf-sys" }
+
 [lib]
 harness = false
 
