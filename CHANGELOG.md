@@ -23,6 +23,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fix outdated task docs
 - CAN: fix wrong Alert enum indexing / remove wrong TryFromPrimitive derive (#532)
 - GPIO: Allow interoperability with other code that initializes the GPIO ISR service (#537)
+- SD card support is no longer behind the `experimental` feature
 
 ## [0.45.2] - 2025-01-15
 

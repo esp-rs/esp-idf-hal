@@ -58,7 +58,6 @@ pub mod prelude;
 pub mod reset;
 pub mod rmt;
 pub mod rom;
-#[cfg(feature = "experimental")]
 pub mod sd;
 pub mod spi;
 pub mod sys;
