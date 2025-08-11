@@ -14,7 +14,10 @@ pub use continuous::{
     AttenNone, Attenuated, ChainedAdcChannels, EmptyAdcChannels,
 };
 
-#[cfg(any(all(feature = "adc-oneshot-legacy", esp_idf_version_major = "5"), esp_idf_version_major = "4"))]
+#[cfg(any(
+    all(feature = "adc-oneshot-legacy", esp_idf_version_major = "5"),
+    esp_idf_version_major = "4"
+))]
 pub use oneshot_legacy::*;
 
 pub trait Adc: Send {
@@ -87,7 +90,10 @@ impl From<Resolution> for adc_bits_width_t {
     }
 }
 
-#[cfg(any(all(feature = "adc-oneshot-legacy", esp_idf_version_major = "5"), esp_idf_version_major = "4"))]
+#[cfg(any(
+    all(feature = "adc-oneshot-legacy", esp_idf_version_major = "5"),
+    esp_idf_version_major = "4"
+))]
 mod oneshot_legacy {
     use esp_idf_sys::*;
 
