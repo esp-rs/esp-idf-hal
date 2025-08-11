@@ -330,6 +330,7 @@ pub mod asynch {
     }
 
     impl IsrReactorConfig {
+        #[allow(clippy::manual_c_str_literals)]
         pub const fn new() -> Self {
             Self {
                 task_name: unsafe { CStr::from_bytes_with_nul_unchecked(b"IsrReactor\0") },
