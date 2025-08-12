@@ -25,6 +25,9 @@ jobs:
           - xtensa-esp32s2-espidf
           - xtensa-esp32s3-espidf
         idf-version:
+          - release/v5.3
+          - release/v5.4
+          - release/v5.5
           - master
     steps:
       - name: Setup | Checkout
