@@ -5,12 +5,20 @@
 //! If your board doesn't have on-board LEDs don't forget to add an appropriate resistor.
 //!
 
-use esp_idf_hal::gpio::*;
-use esp_idf_hal::peripherals::Peripherals;
-use esp_idf_hal::task::*;
-use esp_idf_hal::timer::*;
+#![allow(unexpected_cfgs)]
 
+#[cfg(esp_idf_version_at_least_6_0_0)]
+fn main() {
+    panic!("Timer not yet available when building against ESP-IDF 6.0+")
+}
+
+#[cfg(not(esp_idf_version_at_least_6_0_0))]
 fn main() -> anyhow::Result<()> {
+    use esp_idf_hal::gpio::*;
+    use esp_idf_hal::peripherals::Peripherals;
+    use esp_idf_hal::task::*;
+    use esp_idf_hal::timer::*;
+
     esp_idf_hal::sys::link_patches();
 
     let peripherals = Peripherals::take()?;

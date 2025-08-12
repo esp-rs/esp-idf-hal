@@ -1,11 +1,18 @@
-use std::num::NonZeroU32;
+#![allow(unexpected_cfgs)]
 
-use esp_idf_hal::peripherals::*;
-use esp_idf_hal::sys::EspError;
-use esp_idf_hal::task::notification::Notification;
-use esp_idf_hal::timer::*;
+#[cfg(esp_idf_version_at_least_6_0_0)]
+fn main() {
+    panic!("Timer not yet available when building against ESP-IDF 6.0+")
+}
 
-fn main() -> Result<(), EspError> {
+#[cfg(not(esp_idf_version_at_least_6_0_0))]
+fn main() -> Result<(), esp_idf_hal::sys::EspError> {
+    use std::num::NonZeroU32;
+
+    use esp_idf_hal::peripherals::*;
+    use esp_idf_hal::task::notification::Notification;
+    use esp_idf_hal::timer::*;
+
     // It is necessary to call this function once. Otherwise some patches to the runtime
     // implemented by esp-idf-sys might not link properly. See https://github.com/esp-rs/esp-idf-template/issues/71
     esp_idf_hal::sys::link_patches();

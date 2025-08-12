@@ -102,7 +102,7 @@ impl From<esp_reset_reason_t> for ResetReason {
             esp_reset_reason_t_ESP_RST_USB => Self::USBPeripheral,
             #[cfg(not(any(
                 esp_idf_version_major = "4",
-                all(esp_idf_version_major = "5", esp_idf_version_minor = "0"),
+                esp_idf_version = "5.0",
                 esp_idf_version_full = "5.1.0",
                 esp_idf_version_full = "5.1.1",
                 esp_idf_version_full = "5.1.2",
@@ -111,24 +111,24 @@ impl From<esp_reset_reason_t> for ResetReason {
             esp_reset_reason_t_ESP_RST_JTAG => Self::JTAG,
             #[cfg(not(any(
                 esp_idf_version_major = "4",
-                all(esp_idf_version_major = "5", esp_idf_version_minor = "0"),
-                all(esp_idf_version_major = "5", esp_idf_version_minor = "1"),
+                esp_idf_version = "5.0",
+                esp_idf_version = "5.1",
                 esp_idf_version_full = "5.2.0",
                 esp_idf_version_full = "5.2.1",
             )))]
             esp_reset_reason_t_ESP_RST_EFUSE => Self::EfuseError,
             #[cfg(not(any(
                 esp_idf_version_major = "4",
-                all(esp_idf_version_major = "5", esp_idf_version_minor = "0"),
-                all(esp_idf_version_major = "5", esp_idf_version_minor = "1"),
+                esp_idf_version = "5.0",
+                esp_idf_version = "5.1",
                 esp_idf_version_full = "5.2.0",
                 esp_idf_version_full = "5.2.1",
             )))]
             esp_reset_reason_t_ESP_RST_PWR_GLITCH => Self::PowerGlitch,
             #[cfg(not(any(
                 esp_idf_version_major = "4",
-                all(esp_idf_version_major = "5", esp_idf_version_minor = "0"),
-                all(esp_idf_version_major = "5", esp_idf_version_minor = "1"),
+                esp_idf_version = "5.0",
+                esp_idf_version = "5.1",
                 esp_idf_version_full = "5.2.0",
                 esp_idf_version_full = "5.2.1",
             )))]

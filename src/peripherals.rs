@@ -24,6 +24,7 @@ use crate::spi;
 use crate::task::watchdog;
 #[cfg(all(esp_idf_soc_temp_sensor_supported, esp_idf_version_major = "5"))]
 use crate::temp_sensor;
+#[cfg(not(esp_idf_version_at_least_6_0_0))]
 use crate::timer;
 use crate::uart;
 #[cfg(all(
@@ -93,11 +94,15 @@ pub struct Peripherals {
     #[cfg(all(esp_idf_soc_temp_sensor_supported, esp_idf_version_major = "5"))]
     pub temp_sensor: temp_sensor::TempSensor,
     // TODO: Check the timer story for c2, h2, c5, c6, and p4
+    #[cfg(not(esp_idf_version_at_least_6_0_0))]
     pub timer00: timer::TIMER00,
+    #[cfg(not(esp_idf_version_at_least_6_0_0))]
     #[cfg(any(esp32, esp32s2, esp32s3))]
     pub timer01: timer::TIMER01,
+    #[cfg(not(esp_idf_version_at_least_6_0_0))]
     #[cfg(not(esp32c2))]
     pub timer10: timer::TIMER10,
+    #[cfg(not(esp_idf_version_at_least_6_0_0))]
     #[cfg(any(esp32, esp32s2, esp32s3))]
     pub timer11: timer::TIMER11,
     #[cfg(any(
@@ -197,11 +202,15 @@ impl Peripherals {
             sdmmc1: sd::mmc::SDMMC1::new(),
             #[cfg(all(esp_idf_soc_temp_sensor_supported, esp_idf_version_major = "5"))]
             temp_sensor: temp_sensor::TempSensor::new(),
+            #[cfg(not(esp_idf_version_at_least_6_0_0))]
             timer00: timer::TIMER00::new(),
+            #[cfg(not(esp_idf_version_at_least_6_0_0))]
             #[cfg(any(esp32, esp32s2, esp32s3))]
             timer01: timer::TIMER01::new(),
+            #[cfg(not(esp_idf_version_at_least_6_0_0))]
             #[cfg(not(esp32c2))]
             timer10: timer::TIMER10::new(),
+            #[cfg(not(esp_idf_version_at_least_6_0_0))]
             #[cfg(any(esp32, esp32s2, esp32s3))]
             timer11: timer::TIMER11::new(),
             #[cfg(any(

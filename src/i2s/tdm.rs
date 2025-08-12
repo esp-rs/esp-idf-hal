@@ -119,7 +119,7 @@ pub(super) mod config {
 
         /// The division from MCLK to BCLK. This is used only in I2S target (slave) mode. This should not be smaller
         /// than TDM_BCLK_DIV_MIN (8). Increase this field if the target device is not able to transmit data in time.
-        #[cfg(all(esp_idf_version_major = "5", not(esp_idf_version_minor = "0")))]
+        #[cfg(esp_idf_version_at_least_5_1_0)]
         bclk_div: u32,
     }
 
@@ -129,10 +129,7 @@ pub(super) mod config {
     impl TdmClkConfig {
         /// Create a TDM clock configuration with the specified rate (in Hz), clock source, and MCLK multiple of
         /// the sample rate.
-        #[cfg(any(
-            esp_idf_version_major = "4",
-            all(esp_idf_version_major = "5", esp_idf_version_minor = "0")
-        ))]
+        #[cfg(not(esp_idf_version_at_least_5_1_0))]
         #[inline(always)]
         pub fn new(sample_rate_hz: u32, clk_src: ClockSource, mclk_multiple: MclkMultiple) -> Self {
             Self {
@@ -144,7 +141,7 @@ pub(super) mod config {
 
         /// Create a TDM clock configuration with the specified rate (in Hz), clock source, and MCLK multiple of
         /// the sample rate.
-        #[cfg(all(esp_idf_version_major = "5", not(esp_idf_version_minor = "0")))]
+        #[cfg(esp_idf_version_at_least_5_1_0)]
         #[inline(always)]
         pub fn new(sample_rate_hz: u32, clk_src: ClockSource, mclk_multiple: MclkMultiple) -> Self {
             Self {
@@ -161,10 +158,7 @@ pub(super) mod config {
         /// # Note
         /// Set the mclk_multiple to [`MclkMultiple::M384`] when using 24-bit data width. Otherwise, the sample rate
         /// might be imprecise since the BCLK division is not an integer.
-        #[cfg(any(
-            esp_idf_version_major = "4",
-            all(esp_idf_version_major = "5", esp_idf_version_minor = "0")
-        ))]
+        #[cfg(not(esp_idf_version_at_least_5_1_0))]
         #[inline(always)]
         pub fn from_sample_rate_hz(rate: u32) -> Self {
             Self {
@@ -180,7 +174,7 @@ pub(super) mod config {
         /// # Note
         /// Set the mclk_multiple to [MclkMultiple::M384] when using 24-bit data width. Otherwise, the sample rate
         /// might be imprecise since the BCLK division is not an integer.
-        #[cfg(all(esp_idf_version_major = "5", not(esp_idf_version_minor = "0")))]
+        #[cfg(esp_idf_version_at_least_5_1_0)]
         #[inline(always)]
         pub fn from_sample_rate_hz(rate: u32) -> Self {
             Self {
@@ -206,7 +200,7 @@ pub(super) mod config {
         }
 
         /// Set the MCLK to BCLK division on this TDM clock configuration.
-        #[cfg(all(esp_idf_version_major = "5", not(esp_idf_version_minor = "0")))]
+        #[cfg(esp_idf_version_at_least_5_1_0)]
         #[inline(always)]
         pub fn bclk_div(mut self, bclk_div: u32) -> Self {
             self.bclk_div = bclk_div;
@@ -214,7 +208,7 @@ pub(super) mod config {
         }
 
         /// Convert to the ESP-IDF SDK `i2s_tdm_clk_config_t` representation.
-        #[cfg(all(esp_idf_version_major = "5", esp_idf_version_minor = "0"))]
+        #[cfg(not(esp_idf_version_at_least_5_1_0))]
         #[inline(always)]
         pub(crate) fn as_sdk(&self) -> i2s_tdm_clk_config_t {
             i2s_tdm_clk_config_t {
@@ -225,7 +219,7 @@ pub(super) mod config {
         }
 
         /// Convert to the ESP-IDF SDK `i2s_tdm_clk_config_t` representation.
-        #[cfg(all(esp_idf_version_major = "5", not(esp_idf_version_minor = "0")))]
+        #[cfg(esp_idf_version_at_least_5_1_0)]
         #[allow(clippy::needless_update)]
         #[inline(always)]
         pub(crate) fn as_sdk(&self) -> i2s_tdm_clk_config_t {
