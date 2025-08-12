@@ -79,64 +79,19 @@ macro_rules! esp_app_desc {
                     $crate::ESP_IDF_VERSION_PATCH
                 )),
                 app_elf_sha256: [0; 32],
-                #[cfg(not(any(
-                    esp_idf_version_major = "4",
-                    esp_idf_version = "5.0",
-                    esp_idf_version = "5.1",
-                    esp_idf_version_full = "5.2.0",
-                    esp_idf_version_full = "5.2.1",
-                    esp_idf_version_full = "5.2.2",
-                    esp_idf_version_full = "5.3.0",
-                    esp_idf_version_full = "5.3.1"
-                )))]
+                #[cfg(all(esp_idf_version_at_least_5_2_3, not(esp_idf_version_full = "5.3.0"), not(esp_idf_version_full = "5.3.1")))]
                 min_efuse_blk_rev_full: $crate::CONFIG_ESP_EFUSE_BLOCK_REV_MIN_FULL as _,
-                #[cfg(not(any(
-                    esp_idf_version_major = "4",
-                    esp_idf_version = "5.0",
-                    esp_idf_version = "5.1",
-                    esp_idf_version_full = "5.2.0",
-                    esp_idf_version_full = "5.2.1",
-                    esp_idf_version_full = "5.2.2",
-                    esp_idf_version_full = "5.3.0",
-                    esp_idf_version_full = "5.3.1"
-                )))]
+                #[cfg(all(esp_idf_version_at_least_5_2_3, not(esp_idf_version_full = "5.3.0"), not(esp_idf_version_full = "5.3.1")))]
                 max_efuse_blk_rev_full: $crate::CONFIG_ESP_EFUSE_BLOCK_REV_MAX_FULL as _,
-                #[cfg(not(any(
-                    esp_idf_version_major = "4",
-                    esp_idf_version = "5.0",
-                    esp_idf_version = "5.1",
-                    esp_idf_version = "5.2",
-                    esp_idf_version = "5.3"
-                )))]
+                #[cfg(esp_idf_version_at_least_5_4_0)]
                 mmu_page_size: 0,
-                #[cfg(not(any(
-                    esp_idf_version_major = "4",
-                    esp_idf_version = "5.0",
-                    esp_idf_version = "5.1",
-                    esp_idf_version = "5.2",
-                    esp_idf_version = "5.3"
-                )))]
+                #[cfg(esp_idf_version_at_least_5_4_0)]
                 reserv3: [0; 3],
-                #[cfg(not(any(
-                    esp_idf_version_major = "4",
-                    esp_idf_version = "5.0",
-                    esp_idf_version = "5.1",
-                    esp_idf_version = "5.2",
-                    esp_idf_version = "5.3"
-                )))]
+                #[cfg(esp_idf_version_at_least_5_4_0)]
                 reserv2: [0; 18],
-                #[cfg(any(esp_idf_version_full = "5.2.3", esp_idf_version_full = "5.3.2"))]
+                #[cfg(all(esp_idf_version_at_least_5_2_3, not(esp_idf_version_at_least_5_4_0), not(esp_idf_version_full = "5.3.0"), not(esp_idf_version_full = "5.3.1")))]
                 reserv2: [0; 19],
-                #[cfg(any(
-                    esp_idf_version_major = "4",
-                    esp_idf_version = "5.0",
-                    esp_idf_version = "5.1",
-                    esp_idf_version_full = "5.2.0",
-                    esp_idf_version_full = "5.2.1",
-                    esp_idf_version_full = "5.2.2",
-                    esp_idf_version_full = "5.3.0",
-                    esp_idf_version_full = "5.3.1"
-                ))]
+                #[cfg(any(not(esp_idf_version_at_least_5_2_3), esp_idf_version_full = "5.3.0", esp_idf_version_full = "5.3.1"))]
                 reserv2: [0; 20],
             }
         };
