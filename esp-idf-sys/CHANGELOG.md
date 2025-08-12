@@ -18,7 +18,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     due to significant changes in the ESP-IDF driver code layout since ESP-IDF 5.3.x
 
 ### Added
-- `esp_idf_version_at_least_X_Y_Z` `cfg` constants for easier conditional compilation against various ESP-IDF versions
+- `esp_idf_version_at_least_X_Y_Z` and `esp_idf_version_patch_at_least_X_Y_Z` `cfg` constants for easier conditional compilation against various ESP-IDF versions
 - Compatibility with ESP-IDF v5.4.X, v5.5.x
 
 ### Fixed

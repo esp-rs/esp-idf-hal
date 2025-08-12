@@ -79,9 +79,17 @@ macro_rules! esp_app_desc {
                     $crate::ESP_IDF_VERSION_PATCH
                 )),
                 app_elf_sha256: [0; 32],
-                #[cfg(all(esp_idf_version_at_least_5_2_3, not(esp_idf_version_full = "5.3.0"), not(esp_idf_version_full = "5.3.1")))]
+                #[cfg(any(
+                    esp_idf_version_patch_at_least_5_1_7,
+                    esp_idf_version_patch_at_least_5_2_3,
+                    esp_idf_version_at_least_5_3_2,
+                ))]
                 min_efuse_blk_rev_full: $crate::CONFIG_ESP_EFUSE_BLOCK_REV_MIN_FULL as _,
-                #[cfg(all(esp_idf_version_at_least_5_2_3, not(esp_idf_version_full = "5.3.0"), not(esp_idf_version_full = "5.3.1")))]
+                #[cfg(any(
+                    esp_idf_version_patch_at_least_5_1_7,
+                    esp_idf_version_patch_at_least_5_2_3,
+                    esp_idf_version_at_least_5_3_2,
+                ))]
                 max_efuse_blk_rev_full: $crate::CONFIG_ESP_EFUSE_BLOCK_REV_MAX_FULL as _,
                 #[cfg(esp_idf_version_at_least_5_4_0)]
                 mmu_page_size: 0,
@@ -89,9 +97,17 @@ macro_rules! esp_app_desc {
                 reserv3: [0; 3],
                 #[cfg(esp_idf_version_at_least_5_4_0)]
                 reserv2: [0; 18],
-                #[cfg(all(esp_idf_version_at_least_5_2_3, not(esp_idf_version_at_least_5_4_0), not(esp_idf_version_full = "5.3.0"), not(esp_idf_version_full = "5.3.1")))]
+                #[cfg(any(
+                    esp_idf_version_patch_at_least_5_1_7,
+                    esp_idf_version_patch_at_least_5_2_3,
+                    esp_idf_version_patch_at_least_5_3_2,
+                ))]
                 reserv2: [0; 19],
-                #[cfg(any(not(esp_idf_version_at_least_5_2_3), esp_idf_version_full = "5.3.0", esp_idf_version_full = "5.3.1"))]
+                #[cfg(not(any(
+                    esp_idf_version_patch_at_least_5_1_7,
+                    esp_idf_version_patch_at_least_5_2_3,
+                    esp_idf_version_at_least_5_3_2,
+                )))]
                 reserv2: [0; 20],
             }
         };
