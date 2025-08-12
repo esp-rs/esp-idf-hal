@@ -308,13 +308,11 @@ pub fn build() -> Result<EspIdfBuildOutput> {
             cargo::print_warning("Building against ESP-IDF `master` is not officially supported, because it is considered bleeding edge and might get backwards-incompatible changes.");
         } else if curr_branch.starts_with("release/v") {
             cargo::print_warning(format_args!(
-                "Building against ESP-IDF branch `{}` is not officially supported, because `release/vX.Y.Z` branches do not have a stable ESP-IDF version.",
-                curr_branch
+                "Building against ESP-IDF branch `{curr_branch}` is not officially supported, because `release/vX.Y.Z` branches do not have a stable ESP-IDF version.",
             ));
         } else if !curr_branch.starts_with("v") {
             cargo::print_warning(format_args!(
-                "Building against ESP-IDF branch `{}` is not officially supported, because it does not follow the `vX.Y.Z` ESP-IDF release tag naming convention.",
-                curr_branch
+                "Building against ESP-IDF branch `{curr_branch}` is not officially supported, because it does not follow the `vX.Y.Z` ESP-IDF release tag naming convention.",
             ));
         }
     }
