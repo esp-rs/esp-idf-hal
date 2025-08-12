@@ -204,6 +204,7 @@ impl EspIdfVersion {
     /// Additionally, for e.g. ESP-IDF 5.2.3, the iterator will yield:
     /// - `esp_idf_version_patch_at_least_5_2_0` .. `esp_idf_version_patch_at_least_5_2_3`
     /// - `esp_idf_version_patch_at_most_5_2_3` .. `esp_idf_version_patch_at_most_5_2_10`
+    ///
     /// This is useful for generating conditional compilation flags for version-specific ESP-IDF features
     /// which is otherwise very difficut because the Rust `cfg` syntax does not support
     /// anything else but "=" (equality)
