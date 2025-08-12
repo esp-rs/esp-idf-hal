@@ -4,8 +4,12 @@
 #![allow(unknown_lints)]
 #![allow(unexpected_cfgs)]
 
+#[cfg(esp_idf_version_at_least_5_1_0)]
 esp_idf_sys::esp_app_desc! {}
 
 fn main() {
     esp_idf_sys::link_patches();
+
+    #[cfg(not(esp_idf_version_at_least_5_1_0))]
+    panic!("The `esp_app_desc!` macro is only available for ESP-IDF V5.1.0+");
 }

@@ -39,6 +39,7 @@ extern crate std;
 extern crate alloc;
 
 mod alloc;
+#[cfg(esp_idf_version_at_least_5_1_0)]
 mod app_desc;
 mod error;
 mod panic;

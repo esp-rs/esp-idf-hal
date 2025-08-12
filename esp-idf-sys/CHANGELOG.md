@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Breaking
+- Support for the `esp_app_desc!` macro removed for all versions prior to ESP-IDF V5.1.0
+  - Reason: the "patch-ESP-IDF-during-cargo-build" mechanism was retired
+
 ### Deprecated
 - Support for all ESP-IDF releases < 5.3.0.
   - See https://docs.espressif.com/projects/esp-idf/en/latest/esp32/versions.html#support-periods

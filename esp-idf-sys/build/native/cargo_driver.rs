@@ -22,8 +22,7 @@ use strum::IntoEnumIterator;
 use self::chip::Chip;
 use crate::common::{
     self, list_specific_sdkconfigs, manifest_dir, sanitize_c_env_vars, sanitize_project_path,
-    setup_clang_env, workspace_dir, EspIdfBuildOutput, EspIdfComponents, InstallDir, NO_PATCHES,
-    V_4_4_PATCHES, V_5_0_PATCHES,
+    setup_clang_env, workspace_dir, EspIdfBuildOutput, EspIdfComponents, InstallDir,
 };
 use crate::config::{BuildConfig, ESP_IDF_GLOB_VAR_PREFIX, ESP_IDF_TOOLS_INSTALL_DIR_VAR};
 
@@ -318,37 +317,18 @@ pub fn build() -> Result<EspIdfBuildOutput> {
     }
 
     // Issue warnings when building against a deprecated ESP-IDF version
-    let patch_set = if let Ok((major, minor, patch)) =
-        idf.version.as_ref().map(|v| (v.major, v.minor, v.patch))
-    {
-        if major < 4 || major == 5 && minor < 3 {
+    if let Ok((major, minor, patch)) = idf.version.as_ref().map(|v| (v.major, v.minor, v.patch)) {
+        if major < 5 || major == 5 && minor < 3 {
             cargo::print_warning(format_args!(
                 "Building against ESP-IDF version {major}.{minor}.{patch} is deprecated and not officially supported. \
                  Please consider upgrading to ESP-IDF V5.3.0 or newer, because support for older ESP-IDF versions will be removed in newer releases."
             ));
-        }
-
-        if major == 4 && minor == 4 {
-            V_4_4_PATCHES
-        } else if major == 5 && minor == 0 {
-            V_5_0_PATCHES
-        } else {
-            NO_PATCHES
         }
     } else {
         cargo::print_warning(format_args!(
             "Could not extract ESP-IDF version from {:?}",
             idf.version
         ));
-
-        NO_PATCHES
-    };
-
-    // Apply patches, only if the patches were not previously applied and if the esp-idf dir is a managed GIT repo.
-    if idf.is_managed_espidf && !patch_set.is_empty() {
-        if let SourceTree::Git(repository) = &idf.esp_idf_dir {
-            repository.apply_once(patch_set.iter().map(|p| manifest_dir.join(p)))?;
-        }
     }
 
     // "PATH" is anyway passed to the CMake generator, but if we don't set it here, we get the following warnings from CMake:
