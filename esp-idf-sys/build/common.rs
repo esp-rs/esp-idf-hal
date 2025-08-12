@@ -191,19 +191,19 @@ impl EspIdfVersion {
     }
 
     /// Return an iterator of strings, where each string is either of the form `esp_idf_version_at_least_X_Y_Z`
-    /// or of the form `esp_idf_version_patch_at_least_X_Y_Z`.
+    /// or of the form `esp_idf_version_patch_at_least_X_Y_Z` / `esp_idf_version_patch_at_most_X_Y_Z`.
     ///
     /// X.Y.Z denotes a released ESP-IDF version which is smaller or equal to the ESP-IDF
     /// verson against which we are compiling.
     ///
-    /// Thus if we are compiling e.g. against ESP-IDF 5.2.1, the iterator will yield:
+    /// Thus if we are compiling e.g. against ESP-IDF 5.2.3, the iterator will yield:
     /// - `esp_idf_version_at_least_4_4_0` .. `esp_idf_version_at_least_4_4_10`
     /// - `esp_idf_version_at_least_5_0_0` .. `esp_idf_version_at_least_5_0_10`
-    /// - ... and so on, up to `esp_idf_version_at_least_5_2_1`
+    /// - ... and so on, up to `esp_idf_version_at_least_5_2_3`
     ///
-    /// Additionally, for e.g. ESP-IDF 5.2.1, the iterator will yield:
-    /// - `esp_idf_version_patch_at_least_5_2_0` .. `esp_idf_version_patch_at_least_5_2_1`
-    ///
+    /// Additionally, for e.g. ESP-IDF 5.2.3, the iterator will yield:
+    /// - `esp_idf_version_patch_at_least_5_2_0` .. `esp_idf_version_patch_at_least_5_2_3`
+    /// - `esp_idf_version_patch_at_most_5_2_3` .. `esp_idf_version_patch_at_most_5_2_10`
     /// This is useful for generating conditional compilation flags for version-specific ESP-IDF features
     /// which is otherwise very difficut because the Rust `cfg` syntax does not support
     /// anything else but "=" (equality)
@@ -241,6 +241,15 @@ impl EspIdfVersion {
                     })
                     .map(|(maj, min, patch)| {
                         format!("esp_idf_version_patch_at_least_{maj}_{min}_{patch}")
+                    }),
+            )
+            .chain(
+                versions()
+                    .filter(move |(maj, min, patch)| {
+                        cur_maj == *maj && cur_min == *min && cur_patch <= *patch
+                    })
+                    .map(|(maj, min, patch)| {
+                        format!("esp_idf_version_patch_at_most_{maj}_{min}_{patch}")
                     }),
             )
     }
