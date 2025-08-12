@@ -200,26 +200,27 @@ impl EspIdfVersion {
     }
 
     /// Return an iterator of strings, where each string is of the form `esp_idf_version_at_least_X_Y_Z`.
-    /// 
+    ///
     /// X.Y.Z denotes a released ESP-IDF version which is smaller or equal to the ESP-IDF
     /// verson against which we are compiling.
-    /// 
+    ///
     /// Thus if we are compiling e.g. against ESP-IDF 5.2.1, the iterator will yield:
     /// - `esp_idf_version_at_least_4_4_0` .. `esp_idf_version_at_least_4_4_10`
     /// - `esp_idf_version_at_least_5_0_0` .. `esp_idf_version_at_least_5_0_10`
     /// - ... and so on, up to `esp_idf_version_at_least_5_2_1`
-    /// 
+    ///
     /// This is useful for generating conditional compilation flags for version-specific ESP-IDF features
     /// which is otherwise very difficut because the Rust `cfg` syntax does not support
     /// anything else but "=" (equality)
-    fn atleast_version(&self, cur_maj: u8, cur_min: u8, cur_patch: u8) -> impl Iterator<Item = String> {
+    fn atleast_version(
+        &self,
+        cur_maj: u8,
+        cur_min: u8,
+        cur_patch: u8,
+    ) -> impl Iterator<Item = String> {
         // Major, Minimum Minor for that Major, Maximum Minor for that Major
         // (Patch Level always from 0 to MAX_PATCH_LEVEL, inclusive)
-        const VER_RANGES: [(u8, u8, u8); 3] = [
-            (4, 4, 4),
-            (5, 0, 5),
-            (6, 0, 2),
-        ];
+        const VER_RANGES: [(u8, u8, u8); 3] = [(4, 4, 4), (5, 0, 5), (6, 0, 2)];
 
         // This can be increased should an ESP-IDF version with a patch level > 10 ever appears (very unlikely)
         const MAX_PATCH_LEVEL: u8 = 10;

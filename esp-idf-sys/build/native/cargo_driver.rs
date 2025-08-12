@@ -320,7 +320,9 @@ pub fn build() -> Result<EspIdfBuildOutput> {
     }
 
     // Issue warnings when building against a deprecated ESP-IDF version
-    let patch_set = if let Ok((major, minor, patch)) = idf.version.as_ref().map(|v| (v.major, v.minor, v.patch)) {
+    let patch_set = if let Ok((major, minor, patch)) =
+        idf.version.as_ref().map(|v| (v.major, v.minor, v.patch))
+    {
         if major < 4 || major == 5 && minor < 3 {
             cargo::print_warning(format_args!(
                 "Building against ESP-IDF version {major}.{minor}.{patch} is deprecated and not officially supported. \
@@ -336,7 +338,10 @@ pub fn build() -> Result<EspIdfBuildOutput> {
             NO_PATCHES
         }
     } else {
-        cargo::print_warning(format_args!("Could not extract ESP-IDF version from {:?}", idf.version));
+        cargo::print_warning(format_args!(
+            "Could not extract ESP-IDF version from {:?}",
+            idf.version
+        ));
 
         NO_PATCHES
     };
