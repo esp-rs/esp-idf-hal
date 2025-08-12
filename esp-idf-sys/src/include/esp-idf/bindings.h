@@ -370,7 +370,7 @@
 #endif
 
 // GPTIMER
-#if OLD_DRIVER_COMP || defined(ESP_IDF_COMP_ESP_DRIVER_GPTIMER_ENABLED)
+#if ESP_IDF_VERSION_MAJOR > 4 && (OLD_DRIVER_COMP || defined(ESP_IDF_COMP_ESP_DRIVER_GPTIMER_ENABLED))
 #include "driver/gptimer.h"
 #endif
 
