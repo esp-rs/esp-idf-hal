@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Deprecated
+- Support for all ESP-IDF releases < 5.3.0.
+  - See https://docs.espressif.com/projects/esp-idf/en/latest/esp32/versions.html#support-periods
+  - Note that we are also deprecating 5.1.x and 5.2.x even if the ESP-IDF support for those is not officially over,
+    due to significant changes in the ESP-IDF driver code layout since ESP-IDF 5.3.x
+
+### Added
+- `esp_idf_version_at_least_X_Y_Z` `cfg` constants for easier conditional compilation against various ESP-IDF versions
+- Compatibility with ESP-IDF v5.4.X, v5.5.x
+
 ### Fixed
 - Fix the `esp_app_desc!` macro so the reserv3 field is correct for ESP IDF v5.4
 - Fix the `esp_app_desc!` macro so that it properly embeds `CONFIG_ESP_EFUSE_BLOCK_REV_MIN_FULL`/`CONFIG_ESP_EFUSE_BLOCK_REV_MAX_FULL` with recent ESP-IDF versions (5.4+, 5.2.3+, 5.3.2+)

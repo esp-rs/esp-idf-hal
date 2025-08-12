@@ -31,24 +31,24 @@
 #if CONFIG_IDF_TARGET_ESP32
 #if ESP_IDF_VERSION_MAJOR == 4
 #include "esp32/himem.h"
-#elif ESP_IDF_VERSION_MAJOR == 5
+#else
 #ifdef ESP_IDF_COMP_ESP_PSRAM_ENABLED
 #include "esp32/himem.h"
 #endif // ESP_IDF_COMP_ESP_PSRAM_ENABLED
-#endif // ESP_IDF_VERSION_MAJOR == 5
+#endif // ESP_IDF_VERSION_MAJOR == 4
 #endif // CONFIG_IDF_TARGET_ESP32
 
 #if ESP_IDF_VERSION_MAJOR == 4
 #include "esp_spiram.h"
-#elif ESP_IDF_VERSION_MAJOR == 5
+#else
 #ifdef ESP_IDF_COMP_ESP_PSRAM_ENABLED
 #include "esp_psram.h"
 #endif // ESP_IDF_COMP_ESP_PSRAM_ENABLED
-#endif // ESP_IDF_VERSION_MAJOR == 5
+#endif // ESP_IDF_VERSION_MAJOR == 4
 
 #if ESP_IDF_VERSION_MAJOR == 4
 #include "esp_int_wdt.h"
-#elif ESP_IDF_VERSION_MAJOR == 5
+#else
 #include "esp_private/esp_int_wdt.h"
 #endif
 
@@ -334,56 +334,106 @@
 #include "soc/rtc_periph.h"
 #endif
 
-#ifdef ESP_IDF_COMP_DRIVER_ENABLED
+// Since ESP-IDF 5.3 all drivers except TWAI are separate components
+#define OLD_DRIVER_COMP ((ESP_IDF_VERSION_MAJOR < 5 || ESP_IDF_VERSION_MAJOR == 5 && ESP_IDF_VERSION_MINOR < 3) && defined(ESP_IDF_COMP_DRIVER_ENABLED))
+#define OLD_DRIVER_COMP_TWAI ((ESP_IDF_VERSION_MAJOR < 5 || ESP_IDF_VERSION_MAJOR == 5 && ESP_IDF_VERSION_MINOR < 5) && defined(ESP_IDF_COMP_DRIVER_ENABLED))
+
+// ADC
+#if ESP_IDF_VERSION_MAJOR < 6 && defined(ESP_IDF_COMP_DRIVER_ENABLED)
 #include "driver/adc.h"
+#endif
 #if ESP_IDF_VERSION_MAJOR > 4 && (defined(ESP_IDF_COMP_ESP_ADC_CAL_ENABLED) || defined(ESP_IDF_COMP_ESP_ADC_ENABLED))
 #include "esp_adc/adc_oneshot.h"
 #include "esp_adc/adc_continuous.h"
 #endif
-#include "driver/twai.h"
 
+// TWAI
+#if OLD_DRIVER_COMP_TWAI || defined(ESP_IDF_COMP_ESP_DRIVER_TWAI_ENABLED)
+#include "driver/twai.h"
+#endif
+
+// DAC
+#if OLD_DRIVER_COMP || defined(ESP_IDF_COMP_ESP_DRIVER_DAC_ENABLED)
 #if defined(CONFIG_IDF_TARGET_ESP32) || defined(CONFIG_IDF_TARGET_ESP32S2)
 #include "driver/dac.h"
-#if ESP_IDF_VERSION_MAJOR > 5 || \
-    ESP_IDF_VERSION_MAJOR == 5 && ESP_IDF_VERSION_MINOR >= 1
+#if ESP_IDF_VERSION_MAJOR > 5 || ESP_IDF_VERSION_MAJOR == 5 && ESP_IDF_VERSION_MINOR >= 1
 #include "driver/dac_continuous.h"
 #include "driver/dac_cosine.h"
 #include "driver/dac_oneshot.h"
 #endif
 #endif
+#endif
 
+// GPIO
+#if OLD_DRIVER_COMP || defined(ESP_IDF_COMP_ESP_DRIVER_GPIO_ENABLED)
 #include "driver/gpio.h"
-#if ESP_IDF_VERSION_MAJOR > 4
+#endif
+
+// GPTIMER
+#if OLD_DRIVER_COMP || defined(ESP_IDF_COMP_ESP_DRIVER_GPTIMER_ENABLED)
 #include "driver/gptimer.h"
 #endif
+
+// Old timer
+#if defined(ESP_IDF_COMP_DRIVER_ENABLED) && ESP_IDF_VERSION_MAJOR < 6
+#include "driver/timer.h"
+#endif
+
+// I2C
+#if OLD_DRIVER_COMP || defined(ESP_IDF_COMP_ESP_DRIVER_I2C_ENABLED)
+#include "driver/i2c.h"
 #if ESP_IDF_VERSION_MAJOR > 5 || (ESP_IDF_VERSION_MAJOR == 5 && ESP_IDF_VERSION_MINOR > 1)
 #include "driver/i2c_types.h"
 #include "driver/i2c_master.h"
 #include "driver/i2c_slave.h"
 #endif
-#include "driver/i2c.h"
-#include "driver/i2s.h"
+#endif
+
+// LEDC
+#if OLD_DRIVER_COMP || defined(ESP_IDF_COMP_ESP_DRIVER_LEDC_ENABLED)
 #include "driver/ledc.h"
+#endif
+
+// I2S
+#if OLD_DRIVER_COMP || defined(ESP_IDF_COMP_ESP_DRIVER_I2S_ENABLED)
+#if ESP_IDF_VERSION_MAJOR < 6
+#include "driver/i2s.h"
+#endif
 #if ESP_IDF_VERSION_MAJOR > 4
 #include "driver/i2s_common.h"
 #include "driver/i2s_pdm.h"
 #include "driver/i2s_std.h"
 #include "driver/i2s_tdm.h"
 #include "driver/i2s_types.h"
+#endif
+#endif
+
+// MCPWM
+#if OLD_DRIVER_COMP || defined(ESP_IDF_COMP_ESP_DRIVER_MCPWM_ENABLED)
+#if ESP_IDF_VERSION_MAJOR > 4
 #define extra_flags mcpwm_drv_extra_flags // Rename to avoid conflict with extra_flags in rmt_rx.h
 #include "driver/mcpwm_prelude.h"
 #undef extra_flags
 #else
-#include "driver/i2s.h"
 #include "driver/mcpwm.h"
 #endif
+#endif
+
+// PCNT
+#if OLD_DRIVER_COMP || defined(ESP_IDF_COMP_ESP_DRIVER_PCNT_ENABLED)
 #if defined(CONFIG_IDF_TARGET_ESP32) || defined(CONFIG_IDF_TARGET_ESP32S2) || defined(CONFIG_IDF_TARGET_ESP32S3) || defined(CONFIG_IDF_TARGET_ESP32H2) || defined(CONFIG_IDF_TARGET_ESP32C6) // defined(CONFIG_IDF_TARGET_ESP32P4) // not yet supported in esp-idf
 #include "driver/pcnt.h"
 #if ESP_IDF_VERSION_MAJOR >= 5
 #include "driver/pulse_cnt.h"
 #endif
 #endif
+#endif
+
+// ???
 #include "driver/periph_ctrl.h"
+
+// RMT
+#if OLD_DRIVER_COMP || defined(ESP_IDF_COMP_ESP_DRIVER_RMT_ENABLED)
 #include "driver/rmt.h"
 #if ESP_IDF_VERSION_MAJOR >= 5
 #define rmt_channel_t rmt_drv_channel_t // Rename to avoid conflict with rmt_channel_t in rmt.h
@@ -392,31 +442,57 @@
 #include "driver/rmt_rx.h"
 #undef rmt_channel_t
 #endif
+#endif
+
+// RTC
 #include "driver/rtc_cntl.h"
 #include "driver/rtc_io.h"
+
+// SDIO Slave
+#if OLD_DRIVER_COMP || defined(ESP_IDF_COMP_ESP_DRIVER_SDIO_ENABLED)
 #ifdef SOC_SDIO_SLAVE_SUPPORTED
 #include "driver/sdio_slave.h"
 #endif
+#endif
+
+// SDMMC
+#if OLD_DRIVER_COMP || defined(ESP_IDF_COMP_ESP_DRIVER_SDMMC_ENABLED)
 #include "driver/sdmmc_defs.h"
 #include "driver/sdmmc_host.h"
 #include "driver/sdmmc_types.h"
 #include "driver/sdspi_host.h"
+#endif
+
+// Sigma-delta
+#if ESP_IDF_VERSION_MAJOR < 6
 #include "driver/sigmadelta.h"
+#endif
+
+// SPI
+#if OLD_DRIVER_COMP || defined(ESP_IDF_COMP_ESP_DRIVER_SPI_ENABLED)
 #include "driver/spi_common.h"
 #include "driver/spi_master.h"
 #include "driver/spi_slave.h"
-#include "driver/timer.h"
+#endif
 
+// TOUCH
+#if OLD_DRIVER_COMP || defined(ESP_IDF_COMP_ESP_DRIVER_TOUCH_SENS_ENABLED)
 #if defined(CONFIG_IDF_TARGET_ESP32) || defined(CONFIG_IDF_TARGET_ESP32S2) || defined(CONFIG_IDF_TARGET_ESP32S3)
 #include "driver/touch_pad.h"
 #endif
+#endif
 
+// UART
+#if OLD_DRIVER_COMP || defined(ESP_IDF_COMP_ESP_DRIVER_UART_ENABLED)
 #include "driver/uart.h"
 #include "driver/uart_select.h"
 #endif
 
+// TEMP SENSOR
+#if OLD_DRIVER_COMP || defined(ESP_IDF_COMP_ESP_DRIVER_TSENS_ENABLED)
 #if ESP_IDF_VERSION_MAJOR > 4 && defined(SOC_TEMP_SENSOR_SUPPORTED)
 #include "driver/temperature_sensor.h"
+#endif
 #endif
 
 #ifdef ESP_IDF_COMP_ESPCOREDUMP_ENABLED
@@ -573,15 +649,17 @@
 #include "esp_lcd_types.h"
 #include "esp_lcd_panel_interface.h"
 #include "esp_lcd_panel_io_interface.h"
-#if (ESP_IDF_VERSION_MAJOR == 4 && ESP_IDF_VERSION_MINOR >= 4) || ((ESP_IDF_VERSION_MAJOR >= 5 && ESP_IDF_VERSION_MINOR <= 2) || SOC_LCD_RGB_SUPPORTED)
+#if ESP_IDF_VERSION_MAJOR < 6
+#if ESP_IDF_VERSION_MAJOR == 4 && ESP_IDF_VERSION_MINOR >= 4 || (ESP_IDF_VERSION_MAJOR >= 5 && ESP_IDF_VERSION_MINOR <= 2 || SOC_LCD_RGB_SUPPORTED)
 #include "esp_lcd_panel_rgb.h"
 #endif //(ESP_IDF_VERSION_MAJOR == 4 && ESP_IDF_VERSION_MINOR >= 4) || ((ESP_IDF_VERSION_MAJOR >= 5 && ESP_IDF_VERSION_MINOR <= 2) || SOC_LCD_RGB_SUPPORTED)
-#if ESP_IDF_VERSION_MAJOR >= 5 && ESP_IDF_VERSION_MINOR >= 3
+#endif
+#if ESP_IDF_VERSION_MAJOR > 5 || ESP_IDF_VERSION_MAJOR == 5 && ESP_IDF_VERSION_MINOR >= 3
 #include "esp_lcd_panel_dev.h"
 #include "esp_lcd_panel_nt35510.h"
 #include "esp_lcd_panel_ssd1306.h"
 #include "esp_lcd_panel_st7789.h"
-#endif // (ESP_IDF_VERSION_MAJOR >= 5 && ESP_IDF_VERSION_MINOR >= 3
+#endif
 #endif // ESP_IDF_COMP_LCD_ENABLED
 
 // Usb serial support

@@ -293,41 +293,52 @@ pub fn build() -> Result<EspIdfBuildOutput> {
         None
     };
 
-    #[allow(unreachable_patterns)]
-    let patch_set = match idf.version.as_ref().map(|v| (v.major, v.minor, v.patch)) {
-        // master branch
-        _ if {
-            if let SourceTree::Git(repository) = &idf.esp_idf_dir {
-                let default_branch = repository.get_default_branch()?;
-                let curr_branch = repository.get_branch_name()?;
-                default_branch == curr_branch && default_branch.is_some()
-            } else {
-                false
-            }
-        } =>
-        {
-            cargo::print_warning(
-                "Building against ESP-IDF `master` is not officially supported. \
-                    Supported versions are 'v5.3(.X)', 'v5.2(.X)', 'v5.1(.X)', 'v5.0(.X)', 'v4.4(.X)'",
-            );
-            NO_PATCHES
-        }
-        Ok((4, 4, _)) => V_4_4_PATCHES,
-        Ok((5, 0, _)) => V_5_0_PATCHES,
-        Ok((5, 1, _)) | Ok((5, 2, _)) | Ok((5, 3, _)) => NO_PATCHES,
-        Ok((major, minor, patch)) => {
+    let (default_branch, curr_branch) = if let SourceTree::Git(repository) = &idf.esp_idf_dir {
+        let default_branch = repository.get_default_branch()?;
+        let curr_branch = repository.get_branch_name()?;
+
+        (default_branch, curr_branch)
+    } else {
+        (None, None)
+    };
+
+    // Issue warnings when building against an ESP-IDF branch/tag which does not designate an official ESP-IDF release
+    if let Some(curr_branch) = curr_branch {
+        if default_branch.as_ref() == Some(&curr_branch) {
+            cargo::print_warning("Building against ESP-IDF `master` is not officially supported, because it is considered bleeding edge and might get backwards-incompatible changes.");
+        } else if curr_branch.starts_with("release/v") {
             cargo::print_warning(format_args!(
-                "Building against ESP-IDF version ({major}.{minor}.{patch}) is not officially supported. \
-                    Supported versions are 'v5.3(.X)', 'v5.2(.X)', 'v5.1(.X)', 'v5.0(.X)', 'v4.4(.X)'",
+                "Building against ESP-IDF branch `{}` is not officially supported, because `release/vX.Y.Z` branches do not have a stable ESP-IDF version.",
+                curr_branch
             ));
+        } else if !curr_branch.starts_with("v") {
+            cargo::print_warning(format_args!(
+                "Building against ESP-IDF branch `{}` is not officially supported, because it does not follow the `vX.Y.Z` ESP-IDF release tag naming convention.",
+                curr_branch
+            ));
+        }
+    }
+
+    // Issue warnings when building against a deprecated ESP-IDF version
+    let patch_set = if let Ok((major, minor, patch)) = idf.version.as_ref().map(|v| (v.major, v.minor, v.patch)) {
+        if major < 4 || major == 5 && minor < 3 {
+            cargo::print_warning(format_args!(
+                "Building against ESP-IDF version {major}.{minor}.{patch} is deprecated and not officially supported. \
+                 Please consider upgrading to ESP-IDF V5.3.0 or newer, because support for older ESP-IDF versions will be removed in newer releases."
+            ));
+        }
+
+        if major == 4 && minor == 4 {
+            V_4_4_PATCHES
+        } else if major == 5 && minor == 0 {
+            V_5_0_PATCHES
+        } else {
             NO_PATCHES
         }
-        Err(err) => {
-            cargo::print_warning(format!(
-                "Could not determine patch-set for ESP-IDF repository: {err}"
-            ));
-            NO_PATCHES
-        }
+    } else {
+        cargo::print_warning(format_args!("Could not extract ESP-IDF version from {:?}", idf.version));
+
+        NO_PATCHES
     };
 
     // Apply patches, only if the patches were not previously applied and if the esp-idf dir is a managed GIT repo.
