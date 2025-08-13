@@ -9,6 +9,7 @@
 #![allow(unknown_lints)]
 #![allow(unexpected_cfgs)]
 
+#[cfg(not(esp_idf_version_at_least_6_0_0))]
 #[cfg(any(esp32, esp32s2, esp32s3))]
 fn main() -> anyhow::Result<()> {
     use anyhow::Context;
@@ -38,15 +39,22 @@ fn main() -> anyhow::Result<()> {
     }
 }
 
-#[cfg(not(any(esp32, esp32s2, esp32s3)))]
+#[cfg(any(esp_idf_version_at_least_6_0_0, not(any(esp32, esp32s2, esp32s3))))]
 fn main() {
     use esp_idf_hal::delay::FreeRtos;
-    println!("pcnt peripheral not supported on this device!");
+
+    #[cfg(not(any(esp32, esp32s2, esp32s3)))]
+    println!("PCNT is not supported on this device");
+
+    #[cfg(esp_idf_version_at_least_6_0_0)]
+    println!("PCNT is not yet available when building against ESP-IDF 6.0+");
+
     loop {
         FreeRtos::delay_ms(100u32);
     }
 }
 
+#[cfg(not(esp_idf_version_at_least_6_0_0))]
 #[cfg(any(esp32, esp32s2, esp32s3))]
 // esp-idf encoder implementation using v4 pcnt api
 mod encoder {
