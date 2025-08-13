@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Breaking
 - MSRV raised to 1.79
+- The PCNT and the Timer drivers are not available under ESP-IDF 6+.
+  These need to be rewritten against their newer "gptimer" and "pulse_cnt" ESP-IDF C equivalents.
 
 ### Deprecated
 - `DB_11` ADC attenuation in favor of `DB_12` for ESP-IDF V5.0+

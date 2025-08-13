@@ -8,6 +8,7 @@ use crate::ledc;
 #[cfg(any(all(esp32, esp_idf_eth_use_esp32_emac), esp_idf_eth_use_openeth))]
 use crate::mac;
 use crate::modem;
+#[cfg(not(esp_idf_version_at_least_6_0_0))]
 #[cfg(any(esp32, esp32s2, esp32s3, esp32c6))]
 use crate::pcnt;
 use crate::rmt;
@@ -56,20 +57,28 @@ pub struct Peripherals {
     #[cfg(any(esp32, esp32s2, esp32s3, esp32c3))]
     pub adc2: adc::ADC2,
     // TODO: Check the pulse counter story for c2, h2, c5, and p4
+    #[cfg(not(esp_idf_version_at_least_6_0_0))]
     #[cfg(any(esp32, esp32s2, esp32s3, esp32c6))]
     pub pcnt0: pcnt::PCNT0,
+    #[cfg(not(esp_idf_version_at_least_6_0_0))]
     #[cfg(any(esp32, esp32s2, esp32s3, esp32c6))]
     pub pcnt1: pcnt::PCNT1,
+    #[cfg(not(esp_idf_version_at_least_6_0_0))]
     #[cfg(any(esp32, esp32s2, esp32s3, esp32c6))]
     pub pcnt2: pcnt::PCNT2,
+    #[cfg(not(esp_idf_version_at_least_6_0_0))]
     #[cfg(any(esp32, esp32s2, esp32s3, esp32c6))]
     pub pcnt3: pcnt::PCNT3,
+    #[cfg(not(esp_idf_version_at_least_6_0_0))]
     #[cfg(esp32)]
     pub pcnt4: pcnt::PCNT4,
+    #[cfg(not(esp_idf_version_at_least_6_0_0))]
     #[cfg(esp32)]
     pub pcnt5: pcnt::PCNT5,
+    #[cfg(not(esp_idf_version_at_least_6_0_0))]
     #[cfg(esp32)]
     pub pcnt6: pcnt::PCNT6,
+    #[cfg(not(esp_idf_version_at_least_6_0_0))]
     #[cfg(esp32)]
     pub pcnt7: pcnt::PCNT7,
     #[cfg(all(esp32, esp_idf_version_major = "4"))]
@@ -165,20 +174,28 @@ impl Peripherals {
             adc1: adc::ADC1::new(),
             #[cfg(any(esp32, esp32s2, esp32s3, esp32c3))]
             adc2: adc::ADC2::new(),
+            #[cfg(not(esp_idf_version_at_least_6_0_0))]
             #[cfg(any(esp32, esp32s2, esp32s3, esp32c6))]
             pcnt0: pcnt::PCNT0::new(),
+            #[cfg(not(esp_idf_version_at_least_6_0_0))]
             #[cfg(any(esp32, esp32s2, esp32s3, esp32c6))]
             pcnt1: pcnt::PCNT1::new(),
+            #[cfg(not(esp_idf_version_at_least_6_0_0))]
             #[cfg(any(esp32, esp32s2, esp32s3, esp32c6))]
             pcnt2: pcnt::PCNT2::new(),
+            #[cfg(not(esp_idf_version_at_least_6_0_0))]
             #[cfg(any(esp32, esp32s2, esp32s3, esp32c6))]
             pcnt3: pcnt::PCNT3::new(),
+            #[cfg(not(esp_idf_version_at_least_6_0_0))]
             #[cfg(esp32)]
             pcnt4: pcnt::PCNT4::new(),
+            #[cfg(not(esp_idf_version_at_least_6_0_0))]
             #[cfg(esp32)]
             pcnt5: pcnt::PCNT5::new(),
+            #[cfg(not(esp_idf_version_at_least_6_0_0))]
             #[cfg(esp32)]
             pcnt6: pcnt::PCNT6::new(),
+            #[cfg(not(esp_idf_version_at_least_6_0_0))]
             #[cfg(esp32)]
             pcnt7: pcnt::PCNT7::new(),
             #[cfg(all(esp32, esp_idf_version_major = "4"))]

@@ -50,6 +50,7 @@ pub mod modem;
     esp_idf_comp_espressif__onewire_bus_enabled,
 ))]
 pub mod onewire;
+#[cfg(not(esp_idf_version_at_least_6_0_0))]
 #[cfg(any(esp32, esp32s2, esp32s3, esp32c6))]
 pub mod pcnt;
 pub mod peripheral;
