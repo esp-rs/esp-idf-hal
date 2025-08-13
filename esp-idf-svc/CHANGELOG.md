@@ -30,6 +30,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Thread support is no longer behind the `experimental` feature
 
 ### Added
+- Compatibility with ESP-IDF V5.4.x and V5.5.x
 - Logging configuration enhanced with a simpler setup where Rust logs can be configured to have a verbosity which is
   disconnected from the verbosity of the ESP-IDF native C logging (#593)
 - OTA: New method - `EspFirmwareInfoLoad::fetch_native` - returning the full native ESP-IDF image descriptor structures

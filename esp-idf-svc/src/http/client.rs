@@ -141,7 +141,16 @@ impl EspHttpConnection {
         if let (Some(cert), Some(private_key)) =
             (configuration.client_certificate, configuration.private_key)
         {
-            native_config.client_cert_pem = cert.as_esp_idf_raw_ptr() as _;
+            #[cfg(esp_idf_version_at_least_5_5_0)]
+            {
+                native_config.__bindgen_anon_2.client_cert_pem = cert.as_esp_idf_raw_ptr() as _;
+            }
+
+            #[cfg(not(esp_idf_version_at_least_5_5_0))]
+            {
+                native_config.client_cert_pem = cert.as_esp_idf_raw_ptr() as _;
+            }
+
             native_config.client_cert_len = cert.as_esp_idf_raw_len();
 
             native_config.client_key_pem = private_key.as_esp_idf_raw_ptr() as _;

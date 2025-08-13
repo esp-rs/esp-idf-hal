@@ -218,8 +218,16 @@ impl<'a> EspNow<'a> {
         Ok(())
     }
 
-    extern "C" fn send_callback(mac_addr: *const u8, status: esp_now_send_status_t) {
-        let c_mac = unsafe { core::slice::from_raw_parts(mac_addr, 6usize) };
+    extern "C" fn send_callback(
+        #[cfg(esp_idf_version_at_least_5_5_0)] tx_info: *const esp_now_send_info_t,
+        #[cfg(not(esp_idf_version_at_least_5_5_0))] dst_addr: *const u8,
+        status: esp_now_send_status_t,
+    ) {
+        #[cfg(esp_idf_version_at_least_5_5_0)]
+        let c_mac = unsafe { core::slice::from_raw_parts((*tx_info).des_addr, 6usize) };
+
+        #[cfg(not(esp_idf_version_at_least_5_5_0))]
+        let c_mac = unsafe { core::slice::from_raw_parts(dst_addr, 6usize) };
 
         if let Some(ref mut callback) = *SEND_CALLBACK.lock() {
             callback(c_mac, status.into())

@@ -1192,25 +1192,15 @@ where
             }
 
             #[allow(unused_mut)]
+            #[allow(unused_assignments)]
             let mut stop_supported = false;
 
             #[cfg(any(
-                not(any(esp_idf_version_major = "4", esp_idf_version_major = "5")),
-                all(
-                    esp_idf_version_major = "5",
-                    not(any(
-                        esp_idf_version = "5.0",
-                        esp_idf_version = "5.1",
-                        esp_idf_version = "5.2",
-                        esp_idf_version_full = "5.3.0",
-                        esp_idf_version_full = "5.3.1",
-                        esp_idf_version_full = "5.3.2",
-                        esp_idf_version_full = "5.3.3",
-                        esp_idf_version_full = "5.4.0",
-                        esp_idf_version_full = "5.4.1",
-                        esp_idf_version_full = "5.4.2",
-                    ))
-                )
+                esp_idf_version_at_least_5_5_0,
+                all(esp_idf_version = "5.1", esp_idf_version_at_least_5_1_7),
+                all(esp_idf_version = "5.2", esp_idf_version_at_least_5_2_6),
+                all(esp_idf_version = "5.3", esp_idf_version_at_least_5_3_4),
+                all(esp_idf_version = "5.4", esp_idf_version_at_least_5_4_3)
             ))]
             {
                 unsafe {
