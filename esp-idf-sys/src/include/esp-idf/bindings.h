@@ -355,7 +355,9 @@
 // DAC
 #if OLD_DRIVER_COMP || defined(ESP_IDF_COMP_ESP_DRIVER_DAC_ENABLED)
 #if defined(CONFIG_IDF_TARGET_ESP32) || defined(CONFIG_IDF_TARGET_ESP32S2)
+#if ESP_IDF_VERSION_MAJOR < 6
 #include "driver/dac.h"
+#endif
 #if ESP_IDF_VERSION_MAJOR > 5 || ESP_IDF_VERSION_MAJOR == 5 && ESP_IDF_VERSION_MINOR >= 1
 #include "driver/dac_continuous.h"
 #include "driver/dac_cosine.h"
@@ -422,7 +424,9 @@
 // PCNT
 #if OLD_DRIVER_COMP || defined(ESP_IDF_COMP_ESP_DRIVER_PCNT_ENABLED)
 #if defined(CONFIG_IDF_TARGET_ESP32) || defined(CONFIG_IDF_TARGET_ESP32S2) || defined(CONFIG_IDF_TARGET_ESP32S3) || defined(CONFIG_IDF_TARGET_ESP32H2) || defined(CONFIG_IDF_TARGET_ESP32C6) // defined(CONFIG_IDF_TARGET_ESP32P4) // not yet supported in esp-idf
+#if ESP_IDF_VERSION_MAJOR < 6
 #include "driver/pcnt.h"
+#endif
 #if ESP_IDF_VERSION_MAJOR >= 5
 #include "driver/pulse_cnt.h"
 #endif
