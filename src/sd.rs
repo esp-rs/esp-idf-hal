@@ -379,6 +379,8 @@ mod sdcard {
                     all(esp_idf_version_major = "5", esp_idf_version_minor = "1"),
                 )))] // For ESP-IDF v5.2 and later            
                 set_input_delay: Some(sdmmc_host_set_input_delay),
+                #[cfg(esp_idf_version_at_least_6_0_0)]
+                set_input_delayline: None,
                 command_timeout_ms: configuration.command_timeout_ms as _,
                 #[cfg(not(any(
                     esp_idf_version_major = "4",
