@@ -26,9 +26,14 @@ const APB_TICK_PERIOD_NS: u32 = 1_000_000_000 / 80_000_000;
 const XTAL_TICK_PERIOD_NS: u32 = 1_000_000_000 / 40_000_000;
 #[cfg(all(esp32c2, esp_idf_xtal_freq_26))]
 const XTAL_TICK_PERIOD_NS: u32 = 1_000_000_000 / 26_000_000;
-
+#[cfg(not(esp_idf_version_at_least_6_0_0))]
 #[cfg(not(any(esp32, esp32s2, esp32c2)))]
 const XTAL_TICK_PERIOD_NS: u32 = 1_000_000_000 / XTAL_CLK_FREQ;
+// TODO: Below is probably not correct
+#[cfg(esp_idf_version_at_least_6_0_0)]
+#[cfg(not(any(esp32, esp32s2, esp32c2)))]
+const XTAL_TICK_PERIOD_NS: u32 = 1_000_000_000 / 40_000_000;
+
 #[derive(Copy, Clone, Debug)]
 pub struct APBTickType(::core::ffi::c_int);
 impl From<Duration> for APBTickType {

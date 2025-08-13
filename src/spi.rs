@@ -575,6 +575,7 @@ impl<'d> SpiDriver<'d> {
         let max_transfer_sz = config.dma.max_transfer_size();
         let dma_chan: spi_dma_chan_t = config.dma.into();
 
+        #[cfg(not(esp_idf_version_at_least_6_0_0))]
         #[allow(clippy::needless_update)]
         let bus_config = spi_bus_config_t {
             flags: SPICOMMON_BUSFLAG_MASTER,
@@ -600,6 +601,41 @@ impl<'d> SpiDriver<'d> {
                 quadhd_io_num: data3.unwrap_or(-1),
                 //data3_io_num: -1,
             },
+            max_transfer_sz: max_transfer_sz as i32,
+            intr_flags: InterruptType::to_native(config.intr_flags) as _,
+            ..Default::default()
+        };
+
+        #[cfg(esp_idf_version_at_least_6_0_0)]
+        #[allow(clippy::needless_update)]
+        let bus_config = spi_bus_config_t {
+            __bindgen_anon_1: spi_bus_config_t__bindgen_ty_1 {
+                __bindgen_anon_1: spi_bus_config_t__bindgen_ty_1__bindgen_ty_1 {
+                    sclk_io_num: sclk.unwrap_or(-1),
+                    data4_io_num: -1,
+                    data5_io_num: -1,
+                    data6_io_num: -1,
+                    data7_io_num: -1,
+                    __bindgen_anon_1: spi_bus_config_t__bindgen_ty_1__bindgen_ty_1__bindgen_ty_1 {
+                        mosi_io_num: sdo.unwrap_or(-1),
+                        //data0_io_num: -1,
+                    },
+                    __bindgen_anon_2: spi_bus_config_t__bindgen_ty_1__bindgen_ty_1__bindgen_ty_2 {
+                        miso_io_num: sdi.unwrap_or(-1),
+                        //data1_io_num: -1,
+                    },
+                    __bindgen_anon_3: spi_bus_config_t__bindgen_ty_1__bindgen_ty_1__bindgen_ty_3 {
+                        quadwp_io_num: data2.unwrap_or(-1),
+                        //data2_io_num: -1,
+                    },
+                    __bindgen_anon_4: spi_bus_config_t__bindgen_ty_1__bindgen_ty_1__bindgen_ty_4 {
+                        quadhd_io_num: data3.unwrap_or(-1),
+                        //data3_io_num: -1,
+                    },
+                },
+            },
+
+            flags: SPICOMMON_BUSFLAG_MASTER,
             max_transfer_sz: max_transfer_sz as i32,
             intr_flags: InterruptType::to_native(config.intr_flags) as _,
             ..Default::default()

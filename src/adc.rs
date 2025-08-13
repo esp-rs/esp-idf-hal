@@ -27,10 +27,21 @@ pub trait Adc: Send {
 // NOTE: Will be changed to an enum once C-style enums are usable as const generics
 pub mod attenuation {
     pub use esp_idf_sys::{
-        adc_atten_t, adc_atten_t_ADC_ATTEN_DB_0, adc_atten_t_ADC_ATTEN_DB_11,
-        adc_atten_t_ADC_ATTEN_DB_11 as adc_atten_t_ADC_ATTEN_DB_12, adc_atten_t_ADC_ATTEN_DB_2_5,
+        adc_atten_t, adc_atten_t_ADC_ATTEN_DB_0, adc_atten_t_ADC_ATTEN_DB_2_5,
         adc_atten_t_ADC_ATTEN_DB_6,
     };
+
+    #[cfg(esp_idf_version_at_least_6_0_0)]
+    pub use esp_idf_sys::adc_atten_t_ADC_ATTEN_DB_12;
+    #[cfg(esp_idf_version_at_least_6_0_0)]
+    #[allow(non_upper_case_globals)]
+    pub const adc_atten_t_ADC_ATTEN_DB_11: adc_atten_t = adc_atten_t_ADC_ATTEN_DB_12;
+
+    #[cfg(not(esp_idf_version_at_least_6_0_0))]
+    pub use esp_idf_sys::adc_atten_t_ADC_ATTEN_DB_11;
+    #[cfg(not(esp_idf_version_at_least_6_0_0))]
+    #[allow(non_upper_case_globals)]
+    pub const adc_atten_t_ADC_ATTEN_DB_12: adc_atten_t = adc_atten_t_ADC_ATTEN_DB_11;
 
     pub const NONE: adc_atten_t = adc_atten_t_ADC_ATTEN_DB_0;
     pub const DB_2_5: adc_atten_t = adc_atten_t_ADC_ATTEN_DB_2_5;
@@ -73,6 +84,25 @@ impl Default for Resolution {
     }
 }
 
+#[cfg(esp_idf_version_at_least_6_0_0)]
+impl From<Resolution> for adc_bitwidth_t {
+    fn from(resolution: Resolution) -> Self {
+        match resolution {
+            #[cfg(esp32)]
+            Resolution::Resolution9Bit => adc_bitwidth_t_ADC_BITWIDTH_9,
+            #[cfg(esp32)]
+            Resolution::Resolution10Bit => adc_bitwidth_t_ADC_BITWIDTH_10,
+            #[cfg(esp32)]
+            Resolution::Resolution11Bit => adc_bitwidth_t_ADC_BITWIDTH_11,
+            #[cfg(any(esp32, esp32s3, esp32c3, esp32c2, esp32h2, esp32c5, esp32c6, esp32p4))]
+            Resolution::Resolution12Bit => adc_bitwidth_t_ADC_BITWIDTH_12,
+            #[cfg(esp32s2)]
+            Resolution::Resolution13Bit => adc_bitwidth_t_ADC_BITWIDTH_13,
+        }
+    }
+}
+
+#[cfg(not(esp_idf_version_at_least_6_0_0))]
 impl From<Resolution> for adc_bits_width_t {
     fn from(resolution: Resolution) -> Self {
         match resolution {
@@ -464,19 +494,19 @@ impl DirectConverter {
 
         #[cfg(any(esp32c3, esp32s2, esp32c2, esp32h2, esp32c5, esp32c6, esp32p4))]
         let mv = match attenuation {
-            adc_atten_t_ADC_ATTEN_DB_0 => 750,
-            adc_atten_t_ADC_ATTEN_DB_2_5 => 1050,
-            adc_atten_t_ADC_ATTEN_DB_6 => 1300,
-            adc_atten_t_ADC_ATTEN_DB_11 => 2500,
+            attenuation::NONE => 750,
+            attenuation::DB_2_5 => 1050,
+            attenuation::DB_6 => 1300,
+            attenuation::DB_12 => 2500,
             other => panic!("Unknown attenuation: {other}"),
         };
 
         #[cfg(esp32s3)]
         let mv = match attenuation {
-            adc_atten_t_ADC_ATTEN_DB_0 => 950,
-            adc_atten_t_ADC_ATTEN_DB_2_5 => 1250,
-            adc_atten_t_ADC_ATTEN_DB_6 => 1750,
-            adc_atten_t_ADC_ATTEN_DB_11 => 3100,
+            attenuation::NONE => 950,
+            attenuation::DB_2_5 => 1250,
+            attenuation::DB_6 => 1750,
+            attenuation::DB_12 => 3100,
             other => panic!("Unknown attenuation: {other}"),
         };
 
@@ -609,7 +639,8 @@ pub mod oneshot {
             unit_id: u8,
             chan: adc_channel_t,
             atten: adc_atten_t,
-            bitwidth: adc_bits_width_t,
+            #[cfg(esp_idf_version_at_least_6_0_0)] bitwidth: adc_bitwidth_t,
+            #[cfg(not(esp_idf_version_at_least_6_0_0))] bitwidth: adc_bits_width_t,
             calibration: config::Calibration,
         ) -> Result<Self, EspError> {
             match calibration {
@@ -634,11 +665,7 @@ pub mod oneshot {
                     // then we wouuld not need the ugliness for the esp32c6
                     let cal_config = adc_cali_curve_fitting_config_t {
                         unit_id: unit_id as u32,
-                        #[cfg(all(
-                            esp_idf_version_major = "5",
-                            not(esp_idf_version_minor = "0"),
-                            not(all(esp_idf_version_minor = "1", esp_idf_version_patch = "0"))
-                        ))]
+                        #[cfg(esp_idf_version_at_least_5_1_1)]
                         chan,
                         atten,
                         bitwidth,

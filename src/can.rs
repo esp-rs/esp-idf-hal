@@ -157,24 +157,7 @@ pub mod config {
                     tseg_1: timing_segment_1,
                     tseg_2: timing_segment_2,
                     sjw: synchronization_jump_width,
-                    #[cfg(any(
-                        esp_idf_version_major = "4",
-                        esp_idf_version = "5.0",
-                        esp_idf_version = "5.1",
-                        esp_idf_version = "5.2",
-                        esp_idf_version = "5.3",
-                        esp_idf_version = "5.4"
-                    ))]
                     triple_sampling,
-                    #[cfg(not(any(
-                        esp_idf_version_major = "4",
-                        esp_idf_version = "5.0",
-                        esp_idf_version = "5.1",
-                        esp_idf_version = "5.2",
-                        esp_idf_version = "5.3",
-                        esp_idf_version = "5.4"
-                    )))]
-                    __bindgen_anon_1: twai_timing_config_t__bindgen_ty_1 { triple_sampling },
                     ..Default::default()
                 },
             }

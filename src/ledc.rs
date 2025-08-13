@@ -119,9 +119,9 @@ where
             #[cfg(not(esp_idf_version_major = "4"))]
             duty_resolution: config.resolution.timer_bits(),
             freq_hz: config.frequency.into(),
-            #[cfg(any(esp_idf_version_major = "4", esp_idf_version_minor = "0"))]
+            #[cfg(not(esp_idf_version_at_least_5_1_0))]
             clk_cfg: ledc_clk_cfg_t_LEDC_AUTO_CLK,
-            #[cfg(not(any(esp_idf_version_major = "4", esp_idf_version_minor = "0")))]
+            #[cfg(esp_idf_version_at_least_5_1_0)]
             clk_cfg: soc_periph_ledc_clk_src_legacy_t_LEDC_AUTO_CLK,
             #[cfg(not(any(
                 esp_idf_version_major = "4",
