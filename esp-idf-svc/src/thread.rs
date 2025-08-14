@@ -881,6 +881,7 @@ impl<'d> ThreadDriver<'d, Host> {
                     radio_spi_config: esp_openthread_spi_host_config_t {
                         host_device: S::device() as _,
                         dma_channel: spi_common_dma_t_SPI_DMA_CH_AUTO,
+                        #[cfg(not(esp_idf_version_at_least_6_0_0))]
                         spi_interface: spi_bus_config_t {
                             __bindgen_anon_1: spi_bus_config_t__bindgen_ty_1 {
                                 mosi_io_num: mosi.pin() as _,
@@ -889,6 +890,35 @@ impl<'d> ThreadDriver<'d, Host> {
                                 miso_io_num: miso.pin() as _,
                             },
                             sclk_io_num: sclk.pin() as _,
+                            ..Default::default()
+                        },
+                        #[cfg(esp_idf_version_at_least_6_0_0)]
+                        spi_interface: spi_bus_config_t {
+                            __bindgen_anon_1: spi_bus_config_t__bindgen_ty_1 {
+                                __bindgen_anon_1: spi_bus_config_t__bindgen_ty_1__bindgen_ty_1 {
+                                    data4_io_num: -1,
+                                    data5_io_num: -1,
+                                    data6_io_num: -1,
+                                    data7_io_num: -1,
+                                    __bindgen_anon_1:
+                                        spi_bus_config_t__bindgen_ty_1__bindgen_ty_1__bindgen_ty_1 {
+                                            mosi_io_num: mosi.pin() as _,
+                                        },
+                                    __bindgen_anon_2:
+                                        spi_bus_config_t__bindgen_ty_1__bindgen_ty_1__bindgen_ty_2 {
+                                            miso_io_num: miso.pin() as _,
+                                        },
+                                    __bindgen_anon_3:
+                                        spi_bus_config_t__bindgen_ty_1__bindgen_ty_1__bindgen_ty_3 {
+                                            quadwp_io_num: -1,
+                                        },
+                                    __bindgen_anon_4:
+                                        spi_bus_config_t__bindgen_ty_1__bindgen_ty_1__bindgen_ty_4 {
+                                            quadhd_io_num: -1,
+                                        },
+                                    sclk_io_num: sclk.pin() as _,
+                                },
+                            },
                             ..Default::default()
                         },
                         spi_device: icfg,
@@ -1046,6 +1076,7 @@ impl<'d> ThreadDriver<'d, RCP> {
                 __bindgen_anon_1: esp_openthread_host_connection_config_t__bindgen_ty_1 {
                     spi_slave_config: esp_openthread_spi_slave_config_t {
                         host_device: S::device() as _,
+                        #[cfg(not(esp_idf_version_at_least_6_0_0))]
                         bus_config: spi_bus_config_t {
                             __bindgen_anon_1: spi_bus_config_t__bindgen_ty_1 {
                                 mosi_io_num: mosi.pin() as _,
@@ -1054,6 +1085,35 @@ impl<'d> ThreadDriver<'d, RCP> {
                                 miso_io_num: miso.pin() as _,
                             },
                             sclk_io_num: sclk.pin() as _,
+                            ..Default::default()
+                        },
+                        #[cfg(esp_idf_version_at_least_6_0_0)]
+                        bus_config: spi_bus_config_t {
+                            __bindgen_anon_1: spi_bus_config_t__bindgen_ty_1 {
+                                __bindgen_anon_1: spi_bus_config_t__bindgen_ty_1__bindgen_ty_1 {
+                                    data4_io_num: -1,
+                                    data5_io_num: -1,
+                                    data6_io_num: -1,
+                                    data7_io_num: -1,
+                                    __bindgen_anon_1:
+                                        spi_bus_config_t__bindgen_ty_1__bindgen_ty_1__bindgen_ty_1 {
+                                            mosi_io_num: mosi.pin() as _,
+                                        },
+                                    __bindgen_anon_2:
+                                        spi_bus_config_t__bindgen_ty_1__bindgen_ty_1__bindgen_ty_2 {
+                                            miso_io_num: miso.pin() as _,
+                                        },
+                                    __bindgen_anon_3:
+                                        spi_bus_config_t__bindgen_ty_1__bindgen_ty_1__bindgen_ty_3 {
+                                            quadwp_io_num: -1,
+                                        },
+                                    __bindgen_anon_4:
+                                        spi_bus_config_t__bindgen_ty_1__bindgen_ty_1__bindgen_ty_4 {
+                                            quadhd_io_num: -1,
+                                        },
+                                    sclk_io_num: sclk.pin() as _,
+                                },
+                            },
                             ..Default::default()
                         },
                         slave_config: spi_slave_interface_config_t {
