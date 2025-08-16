@@ -516,7 +516,6 @@ impl<'d> PinDriver<'d, RtcInputOutput> {
     pub fn rtc_input_output<T: InputPin + OutputPin + RTCPin + 'd>(
         pin: T,
         pull: Pull,
-        open_drain: bool,
     ) -> Result<Self, EspError> {
         let mut pin = Self::new_rtc(pin.pin(), rtc_gpio_mode_t_RTC_GPIO_MODE_INPUT_OUTPUT)?;
 
