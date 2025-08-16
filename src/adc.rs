@@ -1399,7 +1399,7 @@ pub mod continuous {
             adc: super::ADC1<'d>,
             _i2s: crate::i2s::I2S0<'d>,
             config: &config::Config,
-            channels: impl AdcChannels<AdcUnit = super::ADCU<0>> + 'd,
+            channels: impl AdcChannels<AdcUnit = super::ADCU1> + 'd,
         ) -> Result<Self, EspError> {
             Self::internal_new(adc, config, channels)
         }
@@ -1410,7 +1410,7 @@ pub mod continuous {
             adc: super::ADC1<'d>,
             _spi: crate::spi::SPI3<'d>,
             config: &config::Config,
-            channels: impl AdcChannels<AdcUnit = super::ADCU<0>> + 'd,
+            channels: impl AdcChannels<AdcUnit = super::ADCU1> + 'd,
         ) -> Result<Self, EspError> {
             Self::internal_new(adc, config, channels)
         }
