@@ -18,7 +18,6 @@ pub enum Core {
 
 impl Core {
     #[inline(always)]
-    #[link_section = ".iram1.cpu_core"]
     pub fn is_active(&self) -> bool {
         *self == core()
     }

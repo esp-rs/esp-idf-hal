@@ -523,13 +523,11 @@ fn exit(cs: &CriticalSection) {
 impl CriticalSection {
     /// Constructs a new `CriticalSection` instance
     #[inline(always)]
-    #[link_section = ".iram1.cs_new"]
     pub const fn new() -> Self {
         Self(Cell::new(None), AtomicBool::new(false))
     }
 
     #[inline(always)]
-    #[link_section = ".iram1.cs_enter"]
     pub fn enter(&self) -> CriticalSectionGuard<'_> {
         enter(self);
 
@@ -549,7 +547,6 @@ impl Drop for CriticalSection {
 
 impl Default for CriticalSection {
     #[inline(always)]
-    #[link_section = ".iram1.cs_default"]
     fn default() -> Self {
         Self::new()
     }
@@ -562,7 +559,6 @@ pub struct CriticalSectionGuard<'a>(&'a CriticalSection);
 
 impl Drop for CriticalSectionGuard<'_> {
     #[inline(always)]
-    #[link_section = ".iram1.csg_drop"]
     fn drop(&mut self) {
         exit(self.0);
     }
@@ -1035,7 +1031,6 @@ pub mod queue {
 
         /// Retrieves the underlying FreeRTOS handle.
         #[inline]
-        #[link_section = "iram1.queue_as_raw"]
         pub fn as_raw(&self) -> sys::QueueHandle_t {
             self.ptr
         }
@@ -1059,7 +1054,6 @@ pub mod queue {
         /// In non-ISR contexts, the function will always return `false`.
         /// In this case the interrupt should call [`crate::task::do_yield`].
         #[inline]
-        #[link_section = "iram1.queue_send_back"]
         pub fn send_back(&self, item: T, timeout: TickType_t) -> Result<bool, EspError> {
             self.send_generic(item, timeout, 0)
         }
@@ -1085,7 +1079,6 @@ pub mod queue {
         /// In non-ISR contexts, the function will always return `false`.
         /// In this case the interrupt should call [`crate::task::do_yield`].
         #[inline]
-        #[link_section = "iram1.queue_send_front"]
         pub fn send_front(&self, item: T, timeout: TickType_t) -> Result<bool, EspError> {
             self.send_generic(item, timeout, 1)
         }
@@ -1110,7 +1103,6 @@ pub mod queue {
         /// In non-ISR contexts, the function will always return `false`.
         /// In this case the interrupt should call [`crate::task::do_yield`].
         #[inline]
-        #[link_section = "iram1.queue_send_generic"]
         fn send_generic(
             &self,
             item: T,
@@ -1163,7 +1155,6 @@ pub mod queue {
         /// In this case the interrupt should call [`crate::task::do_yield`].
         /// In non-ISR contexts, the function will always return `false`.
         #[inline]
-        #[link_section = "iram1.queue_recv_front"]
         pub fn recv_front(&self, timeout: TickType_t) -> Option<(T, bool)> {
             let mut buf = MaybeUninit::uninit();
             let mut hp_task_awoken = false as i32;
@@ -1205,7 +1196,6 @@ pub mod queue {
         /// a higher priority task was awoken since we don't free
         /// up space in the queue and thus cannot unblock anyone.
         #[inline]
-        #[link_section = "iram1.queue_peek_front"]
         pub fn peek_front(&self, timeout: TickType_t) -> Option<T> {
             let mut buf = MaybeUninit::uninit();
 

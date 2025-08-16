@@ -208,7 +208,6 @@ fn exit(cs: &IsrCriticalSection) {
 impl IsrCriticalSection {
     /// Constructs a new `IsrCriticalSection` instance
     #[inline(always)]
-    #[link_section = ".iram1.interrupt_cs_new"]
     pub const fn new() -> Self {
         #[cfg(any(esp32, esp32s2, esp32s3, esp32p4))]
         let mux = core::cell::UnsafeCell::new(portMUX_TYPE {
@@ -241,7 +240,6 @@ impl IsrCriticalSection {
     ///
     /// For more information, refer to https://docs.espressif.com/projects/esp-idf/en/latest/esp32/api-guides/freertos-smp.html#critical-sections
     #[inline(always)]
-    #[link_section = ".iram1.interrupt_cs_enter"]
     pub fn enter(&self) -> IsrCriticalSectionGuard<'_> {
         enter(self);
 
@@ -251,7 +249,6 @@ impl IsrCriticalSection {
 
 impl Default for IsrCriticalSection {
     #[inline(always)]
-    #[link_section = ".iram1.interrupt_cs_default"]
     fn default() -> Self {
         Self::new()
     }
@@ -271,7 +268,6 @@ impl Drop for IsrCriticalSectionGuard<'_> {
     /// interrupts for the core will be re-enabled only when the last guard that
     /// disabled interrupts for the concrete core is dropped.
     #[inline(always)]
-    #[link_section = ".iram1.interrupt_csg_drop"]
     fn drop(&mut self) {
         exit(self.0);
     }
