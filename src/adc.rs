@@ -1,5 +1,7 @@
 //! Analog to Digital Converter peripheral control.
 
+use core::marker::PhantomData;
+
 use esp_idf_sys::*;
 
 #[cfg(all(
@@ -28,13 +30,21 @@ pub trait AdcUnit: 'static {
     fn unit() -> adc_unit_t;
 }
 
-pub struct ADCU<const N: adc_unit_t>;
+macro_rules! impl_adcu {
+    ($adcu:ident: $unit:expr) => {
+        pub struct $adcu;
 
-impl<const N: adc_unit_t> AdcUnit for ADCU<N> {
-    fn unit() -> adc_unit_t {
-        N
-    }
+        impl AdcUnit for $adcu {
+            fn unit() -> adc_unit_t {
+                $unit
+            }
+        }
+    };
 }
+
+impl_adcu!(ADCU1: adc_unit_t_ADC_UNIT_1);
+#[cfg(any(esp32, esp32s2, esp32s3, esp32c3))]
+impl_adcu!(ADCU2: adc_unit_t_ADC_UNIT_2);
 
 /// A trait designating the ADC channel
 ///
@@ -52,15 +62,30 @@ pub trait AdcChannel: 'static {
     fn channel() -> adc_channel_t;
 }
 
-pub struct ADCCH<const U: adc_unit_t, const N: adc_channel_t>;
+macro_rules! impl_adcch {
+    ($adcch:ident: $unit:expr) => {
+        pub struct $adcch<U: AdcUnit>(PhantomData<U>);
 
-impl<const U: adc_unit_t, const N: adc_channel_t> AdcChannel for ADCCH<U, N> {
-    type AdcUnit = ADCU<U>;
+        impl<U: AdcUnit> AdcChannel for $adcch<U> {
+            type AdcUnit = U;
 
-    fn channel() -> adc_channel_t {
-        N
-    }
+            fn channel() -> adc_channel_t {
+                $unit
+            }
+        }
+    };
 }
+
+impl_adcch!(ADCCH0: adc_channel_t_ADC_CHANNEL_0);
+impl_adcch!(ADCCH1: adc_channel_t_ADC_CHANNEL_1);
+impl_adcch!(ADCCH2: adc_channel_t_ADC_CHANNEL_2);
+impl_adcch!(ADCCH3: adc_channel_t_ADC_CHANNEL_3);
+impl_adcch!(ADCCH4: adc_channel_t_ADC_CHANNEL_4);
+impl_adcch!(ADCCH5: adc_channel_t_ADC_CHANNEL_5);
+impl_adcch!(ADCCH6: adc_channel_t_ADC_CHANNEL_6);
+impl_adcch!(ADCCH7: adc_channel_t_ADC_CHANNEL_7);
+impl_adcch!(ADCCH8: adc_channel_t_ADC_CHANNEL_8);
+impl_adcch!(ADCCH9: adc_channel_t_ADC_CHANNEL_9);
 
 /// A trait for ADC peripherals
 pub trait Adc: Send {
@@ -464,18 +489,18 @@ fn to_nb_err(err: EspError) -> nb::Error<EspError> {
 }
 
 macro_rules! impl_adc {
-    ($adc:ident: $unit:expr) => {
+    ($adc:ident: $unit:ident) => {
         crate::impl_peripheral!($adc);
 
         impl Adc for $adc<'_> {
-            type AdcUnit = ADCU<$unit>;
+            type AdcUnit = $unit;
         }
     };
 }
 
-impl_adc!(ADC1: adc_unit_t_ADC_UNIT_1);
+impl_adc!(ADC1: ADCU1);
 #[cfg(not(any(esp32c2, esp32h2, esp32c5, esp32c6, esp32p4)))] // TODO: Check for esp32c5 and esp32p4
-impl_adc!(ADC2: adc_unit_t_ADC_UNIT_2);
+impl_adc!(ADC2: ADCU2);
 
 /// Converts a raw reading to mV without using calibration
 struct DirectConverter(adc_atten_t);
