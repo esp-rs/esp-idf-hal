@@ -485,10 +485,10 @@ impl DirectConverter {
 
         #[cfg(esp32)]
         let mv = match attenuation {
-            adc_atten_t_ADC_ATTEN_DB_0 => 950,
-            adc_atten_t_ADC_ATTEN_DB_2_5 => 1250,
-            adc_atten_t_ADC_ATTEN_DB_6 => 1750,
-            adc_atten_t_ADC_ATTEN_DB_11 => 2450,
+            attenuation::NONE => 950,
+            attenuation::DB_2_5 => 1250,
+            attenuation::DB_6 => 1750,
+            attenuation::DB_12 => 2450,
             other => panic!("Unknown attenuation: {other}"),
         };
 
