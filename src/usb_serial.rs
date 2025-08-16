@@ -3,8 +3,9 @@
 //! Communication through a virtualized UART-like USB-CDC interface.
 #![allow(non_camel_case_types)]
 
+use core::marker::PhantomData;
+
 use crate::io::EspIOError;
-use crate::peripheral::{Peripheral, PeripheralRef};
 use crate::sys::{
     esp, usb_serial_jtag_driver_config_t, usb_serial_jtag_driver_install,
     usb_serial_jtag_driver_uninstall, usb_serial_jtag_is_connected, usb_serial_jtag_read_bytes,
@@ -17,45 +18,45 @@ pub type UsbSerialConfig = config::Config;
 
 /// USB D- GPIO pin
 #[cfg(esp32c3)]
-pub type UsbDMinGpio = gpio::Gpio18;
+pub type UsbDMinGpio<'d> = gpio::Gpio18<'d>;
 /// USB D+ GPIO pin
 #[cfg(esp32c3)]
-pub type UsbDPlusGpio = gpio::Gpio19;
+pub type UsbDPlusGpio<'d> = gpio::Gpio19<'d>;
 /// USB D- GPIO pin
 #[cfg(esp32c5)]
-pub type UsbDMinGpio = gpio::Gpio13;
+pub type UsbDMinGpio<'d> = gpio::Gpio13<'d>;
 /// USB D+ GPIO pin
 #[cfg(esp32c5)]
-pub type UsbDPlusGpio = gpio::Gpio14;
+pub type UsbDPlusGpio<'d> = gpio::Gpio14<'d>;
 /// USB D- GPIO pin
 #[cfg(esp32c6)]
-pub type UsbDMinGpio = gpio::Gpio12;
+pub type UsbDMinGpio<'d> = gpio::Gpio12<'d>;
 /// USB D+ GPIO pin
 #[cfg(esp32c6)]
-pub type UsbDPlusGpio = gpio::Gpio13;
+pub type UsbDPlusGpio<'d> = gpio::Gpio13<'d>;
 /// USB D- GPIO pin
 #[cfg(esp32h2)]
-pub type UsbDMinGpio = gpio::Gpio26;
+pub type UsbDMinGpio<'d> = gpio::Gpio26<'d>;
 /// USB D+ GPIO pin
 #[cfg(esp32h2)]
-pub type UsbDPlusGpio = gpio::Gpio27;
+pub type UsbDPlusGpio<'d> = gpio::Gpio27<'d>;
 /// USB D- GPIO pin
 #[cfg(esp32p4)]
-pub type UsbDMinGpio = gpio::Gpio24;
+pub type UsbDMinGpio<'d> = gpio::Gpio24<'d>;
 /// USB D+ GPIO pin
 #[cfg(esp32p4)]
-pub type UsbDPlusGpio = gpio::Gpio25;
+pub type UsbDPlusGpio<'d> = gpio::Gpio25<'d>;
 // TODO
 // #[cfg(esp32p4)]
-// pub type UsbDMinGpio2 = gpio::Gpio26;
+// pub type UsbDMinGpio2<'d> = gpio::Gpio26<'d>;
 // #[cfg(esp32p4)]
-// pub type UsbDPlusGpio2 = gpio::Gpio27;
+// pub type UsbDPlusGpio2<'d> = gpio::Gpio27<'d>;
 /// USB D- GPIO pin
 #[cfg(esp32s3)]
-pub type UsbDMinGpio = gpio::Gpio19;
+pub type UsbDMinGpio<'d> = gpio::Gpio19<'d>;
 /// USB D+ GPIO pin
 #[cfg(esp32s3)]
-pub type UsbDPlusGpio = gpio::Gpio20;
+pub type UsbDPlusGpio<'d> = gpio::Gpio20<'d>;
 
 /// USB Serial driver configuration
 pub mod config {
@@ -99,7 +100,7 @@ pub mod config {
 }
 
 /// USB-SERIAL driver
-pub struct UsbSerialDriver<'d>(PeripheralRef<'d, USB_SERIAL>);
+pub struct UsbSerialDriver<'d>(PhantomData<&'d mut ()>);
 
 impl<'d> UsbSerialDriver<'d> {
     /// Create a new USB Serial driver
@@ -110,13 +111,11 @@ impl<'d> UsbSerialDriver<'d> {
     /// - `usb_d_min`: The USB D- GPIO pin
     /// - `usb_d_plus`: The USB D+ GPIO pin
     pub fn new(
-        usb_serial: impl Peripheral<P = USB_SERIAL> + 'd,
-        _usb_d_min: impl Peripheral<P = UsbDMinGpio>,
-        _usb_d_plus: impl Peripheral<P = UsbDPlusGpio>,
+        _usb_serial: USB_SERIAL<'d>,
+        _usb_d_min: UsbDMinGpio<'d>,
+        _usb_d_plus: UsbDPlusGpio<'d>,
         config: &config::Config,
     ) -> Result<Self, EspError> {
-        crate::into_ref!(usb_serial);
-
         let mut config = usb_serial_jtag_driver_config_t {
             tx_buffer_size: config.tx_buffer_size as _,
             rx_buffer_size: config.rx_buffer_size as _,
@@ -124,7 +123,7 @@ impl<'d> UsbSerialDriver<'d> {
 
         esp!(unsafe { usb_serial_jtag_driver_install(&mut config) })?;
 
-        Ok(Self(usb_serial))
+        Ok(Self(PhantomData))
     }
 
     /// Check if the USB Serial is connected
