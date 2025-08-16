@@ -1,4 +1,65 @@
 //! GPIO and pin configuration
+//!
+//! Interface for the input/output pins.
+//!
+//! `Gpio0` through `GpioNN` represent the pin peripherals of the ESP chip. You
+//! may think of pin peripherals as *physical* pins.
+//!
+//! Pin drivers are implemented through `PinDriver`. You may think of pin drivers as
+//! *logical* I/O pins. They implement the [`embedded_hal::digital::InputPin`](https://docs.rs/embedded-hal/latest/embedded_hal/digital/trait.InputPin.html)/[`OutputPin`](https://docs.rs/embedded-hal/latest/embedded_hal/digital/trait.OutputPin.html)
+//! traits, as well as their [`embedded_hal_async`](https://docs.rs/embedded-hal-async/latest/embedded_hal_async/) counterparts.
+//!
+//! The ESP architecture has a [I/O multiplexer](https://www.espressif.com/sites/default/files/documentation/esp32_technical_reference_manual_en.pdf#iomuxgpio),
+//! which means that (almost) any physical pin can be used for any logical
+//! function (i.e. GPIO, I2C, SPI, ADC, etc).
+//!
+//! Reusing a pin for several functions is possible but should be avoided (since
+//! reusing a pin requires the programmer to be more careful about its usage).
+//! Avoiding pin reuse is particularly important with the pins used for the
+//! integrated SPI RAM and the SPI Flash.
+//!
+//! Each physical architecture (ESP32, ESP32C3, ESP32H2, etc) has a different set
+//! of pins; check the documentation for your model.
+//!
+//! # Examples
+//!
+//! Create a logical input/output pin on physical pin 2
+//! ```
+//! use esp_idf_hal::peripherals::Peripherals;
+//! use esp_idf_hal::gpio:PinDriver;
+//! use esp_idf_hal::gpio:Level;
+//!
+//! let physical_pin_2 = Peripherals::take().unwrap().pins.gpio2;
+//!
+//! // Set pin to input/output and open drain
+//! let logical_pin_2 = PinDriver::input_output_od().unwrap();
+//!
+//! // Set pin to high
+//! logical_pin_2.set_level(Level::High);
+//! ```
+//!
+//! Using (physical) pins for I2C does not require creating (logical) pin drivers:
+//! ```
+//! let peripherals = esp_idf_hal::peripherals::Peripherals::take()?;
+//! let i2c = peripherals.i2c0;
+//! let sda = peripherals.pins.gpio5;
+//! let scl = peripherals.pins.gpio6;
+//!
+//! let mut i2c = esp_idf_hal::i2c::I2cDriver::new(i2c, sda, scl, &esp_idf_hal_::i2c::I2cConfig::new())?;
+//! ```
+//!
+//! Since pin drivers implement `embedded_hal` traits, they can be used in
+//! crates that use those traits:
+//! ```
+//! use tm1637_embedded_hal::blocking::TM1637;
+//! let peripherals = esp_idf_hal::peripherals::Peripherals::take()?;
+//! let delay_provider = esp_idf_hal::delay::Delay::new(50);
+//!
+//! let dio = PinDriver::input_output_od(peripherals.pins.gpio16);
+//! let clk = PinDriver::output(peripherals.pins.gpio17);
+//!
+//! let display = TM1637::builder(clk, dio, delay_provider).build();
+//! ```
 
 use core::marker::PhantomData;
 
@@ -2015,6 +2076,19 @@ mod chip {
     pin!(Gpio20:20, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
     pin!(Gpio21:21, IO, NORTC:0, NOADC:0, NODAC:0, NOTOUCH:0);
 
+    /// The pins in this structure vary depending on your specific physical
+    /// architecture; for example, an ESP32C2 has pins 0 through 20, whereas
+    /// an ESP32S3 has pins 0 through 21 and 26 through 48.
+    ///
+    /// Each pin has different capabilities, and therefore each `gpioN` has a
+    /// specific type which implements different [traits](https://doc.rust-lang.org/book/ch10-02-traits.html).
+    /// For example, pin `gpio15` on a ESP32C2 is a `Gpio15` which implements
+    /// the `AnyInputPin`, `AnyOutputPin` and `AnyIOPin` traits. The same pin
+    /// `gpio15` on a ESP32S3 is also a `Gpio15`, but it implements the `AnyInputPin`,
+    /// `AnyOutputPin`, `AnyIOPin`, `ADCPin` and `RTCPin` traits.
+    ///
+    /// Note that pins here do **not** implement the `embedded_hal` pin traits.
+    /// Instead, check `esp-idf-hal::gpio`.
     pub struct Pins {
         pub gpio0: Gpio0,
         pub gpio1: Gpio1,
