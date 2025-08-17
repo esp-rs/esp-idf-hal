@@ -1,112 +1,72 @@
-use core::marker::PhantomData;
-
-use crate::peripheral::{sealed, Peripheral};
-
 #[cfg(not(esp32s2))]
 pub use split::*;
 
+use crate::impl_peripheral;
+
 #[cfg(not(any(esp32h2, esp32h4)))]
-pub trait WifiModemPeripheral: Peripheral<P = Self> {}
+pub trait WifiModemPeripheral {}
 
 #[cfg(any(esp32h2, esp32h4, esp32c6))]
-pub trait ThreadModemPeripheral: Peripheral<P = Self> {}
+pub trait ThreadModemPeripheral {}
 
 #[cfg(not(esp32s2))]
-pub trait BluetoothModemPeripheral: Peripheral<P = Self> {}
+pub trait BluetoothModemPeripheral {}
 
-#[cfg(not(any(esp32s2, esp32h2, esp32h4, esp32c6)))]
-pub struct Modem(PhantomData<*const ()>, WifiModem, BluetoothModem);
+impl_peripheral!(Modem);
 
-#[cfg(any(esp32h2, esp32h4))]
-pub struct Modem(PhantomData<*const ()>, ThreadModem, BluetoothModem);
-
-#[cfg(esp32c6)]
-pub struct Modem(
-    PhantomData<*const ()>,
-    WifiModem,
-    ThreadModem,
-    BluetoothModem,
-);
-
-#[cfg(esp32s2)]
-pub struct Modem(PhantomData<*const ()>);
-
-impl Modem {
-    /// # Safety
-    ///
-    /// Care should be taken not to instantiate this Mac instance, if it is already instantiated and used elsewhere
-    pub unsafe fn new() -> Self {
-        #[cfg(not(any(esp32s2, esp32h2, esp32h4, esp32c6)))]
-        let this = Modem(PhantomData, WifiModem::new(), BluetoothModem::new());
-
-        #[cfg(any(esp32h2, esp32h4))]
-        let this = Modem(PhantomData, ThreadModem::new(), BluetoothModem::new());
-
-        #[cfg(esp32c6)]
-        let this = Modem(
-            PhantomData,
-            WifiModem::new(),
-            ThreadModem::new(),
-            BluetoothModem::new(),
-        );
-
-        #[cfg(esp32s2)]
-        let this = Modem(PhantomData);
-
-        this
+#[allow(clippy::needless_lifetimes)]
+impl<'d> Modem<'d> {
+    #[cfg(not(any(esp32s2, esp32h2, esp32h4, esp32c6)))]
+    pub fn split(self) -> (WifiModem<'d>, BluetoothModem<'d>) {
+        unsafe { (WifiModem::steal(), BluetoothModem::steal()) }
     }
 
     #[cfg(not(any(esp32s2, esp32h2, esp32h4, esp32c6)))]
-    pub fn split(self) -> (WifiModem, BluetoothModem) {
-        unsafe { (WifiModem::new(), BluetoothModem::new()) }
-    }
-
-    #[cfg(not(any(esp32s2, esp32h2, esp32h4, esp32c6)))]
-    pub fn split_ref(&mut self) -> (&mut WifiModem, &mut BluetoothModem) {
-        (&mut self.1, &mut self.2)
+    pub fn split_reborrow(&mut self) -> (WifiModem<'_>, BluetoothModem<'_>) {
+        unsafe { (WifiModem::steal(), BluetoothModem::steal()) }
     }
 
     #[cfg(any(esp32h2, esp32h4))]
-    pub fn split(self) -> (ThreadModem, BluetoothModem) {
-        unsafe { (ThreadModem::new(), BluetoothModem::new()) }
+    pub fn split(self) -> (ThreadModem<'d>, BluetoothModem<'d>) {
+        unsafe { (ThreadModem::steal(), BluetoothModem::steal()) }
     }
 
     #[cfg(any(esp32h2, esp32h4))]
-    pub fn split_ref(&mut self) -> (&mut ThreadModem, &mut BluetoothModem) {
-        (&mut self.1, &mut self.2)
+    pub fn split_reborrow(&mut self) -> (ThreadModem<'_>, BluetoothModem<'_>) {
+        unsafe { (ThreadModem::steal(), BluetoothModem::steal()) }
     }
 
     #[cfg(esp32c6)]
-    pub fn split(self) -> (WifiModem, ThreadModem, BluetoothModem) {
-        unsafe { (WifiModem::new(), ThreadModem::new(), BluetoothModem::new()) }
+    pub fn split(self) -> (WifiModem<'d>, ThreadModem<'d>, BluetoothModem<'d>) {
+        unsafe {
+            (
+                WifiModem::steal(),
+                ThreadModem::steal(),
+                BluetoothModem::steal(),
+            )
+        }
     }
 
     #[cfg(esp32c6)]
-    pub fn split_ref(&mut self) -> (&mut WifiModem, &mut ThreadModem, &mut BluetoothModem) {
-        (&mut self.1, &mut self.2, &mut self.3)
-    }
-}
-
-unsafe impl Send for Modem {}
-
-impl sealed::Sealed for Modem {}
-
-impl Peripheral for Modem {
-    type P = Self;
-
-    unsafe fn clone_unchecked(&mut self) -> Self::P {
-        Self::new()
+    pub fn split_reborrow(&mut self) -> (WifiModem<'_>, ThreadModem<'_>, BluetoothModem<'_>) {
+        unsafe {
+            (
+                WifiModem::steal(),
+                ThreadModem::steal(),
+                BluetoothModem::steal(),
+            )
+        }
     }
 }
 
 #[cfg(not(esp32h2))]
-impl WifiModemPeripheral for Modem {}
+impl WifiModemPeripheral for Modem<'_> {}
 
 #[cfg(any(esp32h2, esp32c6))]
-impl ThreadModemPeripheral for Modem {}
+impl ThreadModemPeripheral for Modem<'_> {}
 
 #[cfg(not(esp32s2))]
-impl BluetoothModemPeripheral for Modem {}
+impl BluetoothModemPeripheral for Modem<'_> {}
 
 #[cfg(not(esp32s2))]
 mod split {
@@ -114,15 +74,15 @@ mod split {
     crate::impl_peripheral!(WifiModem);
 
     #[cfg(not(esp32h2))]
-    impl super::WifiModemPeripheral for WifiModem {}
+    impl super::WifiModemPeripheral for WifiModem<'_> {}
 
     #[cfg(any(esp32h2, esp32c6))]
     crate::impl_peripheral!(ThreadModem);
 
     #[cfg(any(esp32h2, esp32c6))]
-    impl super::ThreadModemPeripheral for ThreadModem {}
+    impl super::ThreadModemPeripheral for ThreadModem<'_> {}
 
     crate::impl_peripheral!(BluetoothModem);
 
-    impl super::BluetoothModemPeripheral for BluetoothModem {}
+    impl super::BluetoothModemPeripheral for BluetoothModem<'_> {}
 }

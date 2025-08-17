@@ -12,7 +12,6 @@ use esp_idf_sys::*;
 use enumset::EnumSetType;
 
 use crate::gpio::InputPin;
-use crate::peripheral::Peripheral;
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum PcntChannel {
@@ -136,22 +135,19 @@ pub struct PcntDriver<'d> {
 macro_rules! pin_to_number {
     ($pin:ident) => {
         match $pin {
-            Some(pin) => {
-                crate::into_ref!(pin);
-                pin.pin()
-            }
+            Some(pin) => pin.pin() as _,
             None => PCNT_PIN_NOT_USED,
         }
     };
 }
 
 impl<'d> PcntDriver<'d> {
-    pub fn new<PCNT: Pcnt>(
-        _pcnt: impl Peripheral<P = PCNT> + 'd,
-        pin0: Option<impl Peripheral<P = impl InputPin> + 'd>,
-        pin1: Option<impl Peripheral<P = impl InputPin> + 'd>,
-        pin2: Option<impl Peripheral<P = impl InputPin> + 'd>,
-        pin3: Option<impl Peripheral<P = impl InputPin> + 'd>,
+    pub fn new<PCNT: Pcnt + 'd>(
+        _pcnt: PCNT,
+        pin0: Option<impl InputPin + 'd>,
+        pin1: Option<impl InputPin + 'd>,
+        pin2: Option<impl InputPin + 'd>,
+        pin3: Option<impl InputPin + 'd>,
     ) -> Result<Self, EspError> {
         // consume the pins and keep only the pin number.
         let pins = [
@@ -360,8 +356,8 @@ impl<'d> PcntDriver<'d> {
     // pub fn set_pin<'a>(
     //     &mut self,
     //     channel: PcntChannel,
-    //     pulse_pin: Option<impl Peripheral<P = impl InputPin> + 'a>,
-    //     ctrl_pin: Option<impl Peripheral<P = impl InputPin> + 'a>,
+    //     pulse_pin: Option<impl InputPin + 'a>,
+    //     ctrl_pin: Option<impl InputPin + 'a>,
     // ) -> Result<(), EspError> {
     // }
 
@@ -637,7 +633,7 @@ macro_rules! impl_pcnt {
     ($pcnt:ident: $unit:expr) => {
         crate::impl_peripheral!($pcnt);
 
-        impl Pcnt for $pcnt {
+        impl Pcnt for $pcnt<'_> {
             #[inline(always)]
             fn unit() -> pcnt_unit_t {
                 $unit

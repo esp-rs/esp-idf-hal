@@ -25,7 +25,7 @@
 //! See the [`PdmTxSlotConfig documentation`][PdmTxSlotConfig] for more details.
 
 use super::*;
-use crate::{gpio::*, peripheral::Peripheral};
+use crate::gpio::*;
 
 // Note on cfg settings:
 // esp_idf_soc_i2s_hw_version_1 and esp_idf_soc_i2s_hw_version_2 are defined *only* for ESP-IDF v5.0+.
@@ -37,7 +37,7 @@ use esp_idf_sys::*;
 
 pub(super) mod config {
     #[allow(unused)]
-    use crate::{gpio::*, i2s::config::*, peripheral::*};
+    use crate::{gpio::*, i2s::config::*};
     use esp_idf_sys::*;
 
     /// I2S pulse density modulation (PDM) downsampling mode.
@@ -174,8 +174,8 @@ pub(super) mod config {
         #[inline(always)]
         pub(super) fn as_sdk<'d>(
             &self,
-            clk: PeripheralRef<'d, impl OutputPin>,
-            din: PeripheralRef<'d, impl InputPin>,
+            clk: impl OutputPin + 'd,
+            din: impl InputPin + 'd,
         ) -> i2s_pdm_rx_config_t {
             i2s_pdm_rx_config_t {
                 clk_cfg: self.clk_cfg.as_sdk(),
@@ -192,10 +192,10 @@ pub(super) mod config {
             not(all(esp_idf_version_major = "5", esp_idf_version_minor = "0"))
         ))]
         #[inline(always)]
-        pub(super) fn as_sdk_multi<'d>(
+        pub(super) fn as_sdk_multi<'d, DIN: InputPin + 'd>(
             &self,
-            clk: PeripheralRef<'d, impl OutputPin>,
-            dins: &[PeripheralRef<'d, impl InputPin>],
+            clk: impl OutputPin + 'd,
+            dins: &[DIN],
         ) -> i2s_pdm_rx_config_t {
             i2s_pdm_rx_config_t {
                 clk_cfg: self.clk_cfg.as_sdk(),
@@ -298,8 +298,8 @@ pub(super) mod config {
         ))]
         pub(crate) fn as_sdk<'d>(
             &self,
-            clk: PeripheralRef<'d, impl OutputPin>,
-            din: PeripheralRef<'d, impl InputPin>,
+            clk: impl OutputPin + 'd,
+            din: impl InputPin + 'd,
         ) -> i2s_pdm_rx_gpio_config_t {
             let invert_flags = i2s_pdm_rx_gpio_config_t__bindgen_ty_1 {
                 _bitfield_1: i2s_pdm_rx_gpio_config_t__bindgen_ty_1::new_bitfield_1(
@@ -322,13 +322,13 @@ pub(super) mod config {
         ))]
         pub(crate) fn as_sdk<'d>(
             &self,
-            clk: PeripheralRef<'d, impl OutputPin>,
-            din: PeripheralRef<'d, impl InputPin>,
+            clk: impl OutputPin + 'd,
+            din: impl InputPin + 'd,
         ) -> i2s_pdm_rx_gpio_config_t {
             #[allow(clippy::unnecessary_cast)]
             let mut dins: [gpio_num_t; SOC_I2S_PDM_MAX_RX_LINES as usize] =
                 [-1; SOC_I2S_PDM_MAX_RX_LINES as usize];
-            dins[0] = din.pin();
+            dins[0] = din.pin() as _;
 
             let pins = i2s_pdm_rx_gpio_config_t__bindgen_ty_1 { dins };
 
@@ -340,7 +340,7 @@ pub(super) mod config {
             };
 
             i2s_pdm_rx_gpio_config_t {
-                clk: clk.pin(),
+                clk: clk.pin() as _,
                 __bindgen_anon_1: pins,
                 invert_flags,
             }
@@ -355,10 +355,10 @@ pub(super) mod config {
             esp_idf_soc_i2s_supports_pdm_rx,
             not(all(esp_idf_version_major = "5", esp_idf_version_minor = "0"))
         ))]
-        pub(crate) fn as_sdk_multi<'d>(
+        pub(crate) fn as_sdk_multi<'d, DIN: InputPin + 'd>(
             &self,
-            clk: PeripheralRef<'d, impl OutputPin>,
-            dins: &[PeripheralRef<'d, impl InputPin>],
+            clk: impl OutputPin + 'd,
+            dins: &[DIN],
         ) -> i2s_pdm_rx_gpio_config_t {
             #[allow(clippy::unnecessary_cast)]
             let mut din_pins: [gpio_num_t; SOC_I2S_PDM_MAX_RX_LINES as usize] =
@@ -370,7 +370,7 @@ pub(super) mod config {
                     break;
                 }
 
-                din_pins[i] = din.pin();
+                din_pins[i] = din.pin() as _;
             }
 
             let pins = i2s_pdm_rx_gpio_config_t__bindgen_ty_1 { dins: din_pins };
@@ -383,7 +383,7 @@ pub(super) mod config {
             };
 
             i2s_pdm_rx_gpio_config_t {
-                clk: clk.pin(),
+                clk: clk.pin() as _,
                 __bindgen_anon_1: pins,
                 invert_flags,
             }
@@ -710,8 +710,8 @@ pub(super) mod config {
         #[inline(always)]
         pub(crate) fn as_sdk<'d>(
             &self,
-            clk: PeripheralRef<'d, impl OutputPin>,
-            dout: PeripheralRef<'d, impl OutputPin>,
+            clk: impl OutputPin + 'd,
+            dout: impl OutputPin + 'd,
         ) -> i2s_pdm_tx_config_t {
             i2s_pdm_tx_config_t {
                 clk_cfg: self.clk_cfg.as_sdk(),
@@ -725,9 +725,9 @@ pub(super) mod config {
         #[inline(always)]
         pub(crate) fn as_sdk<'d>(
             &self,
-            clk: PeripheralRef<'d, impl OutputPin>,
-            dout: PeripheralRef<'d, impl OutputPin>,
-            dout2: Option<PeripheralRef<'d, impl OutputPin>>,
+            clk: impl OutputPin + 'd,
+            dout: impl OutputPin + 'd,
+            dout2: Option<impl OutputPin + 'd>,
         ) -> i2s_pdm_tx_config_t {
             i2s_pdm_tx_config_t {
                 clk_cfg: self.clk_cfg.as_sdk(),
@@ -823,8 +823,8 @@ pub(super) mod config {
         #[cfg(esp_idf_soc_i2s_hw_version_1)]
         pub(crate) fn as_sdk<'d>(
             &self,
-            clk: PeripheralRef<'d, impl OutputPin>,
-            dout: PeripheralRef<'d, impl OutputPin>,
+            clk: impl OutputPin + 'd,
+            dout: impl OutputPin + 'd,
         ) -> i2s_pdm_tx_gpio_config_t {
             let invert_flags = i2s_pdm_tx_gpio_config_t__bindgen_ty_1 {
                 _bitfield_1: i2s_pdm_tx_gpio_config_t__bindgen_ty_1::new_bitfield_1(
@@ -833,8 +833,8 @@ pub(super) mod config {
                 ..Default::default()
             };
             i2s_pdm_tx_gpio_config_t {
-                clk: clk.pin(),
-                dout: dout.pin(),
+                clk: clk.pin() as _,
+                dout: dout.pin() as _,
                 invert_flags,
             }
         }
@@ -843,9 +843,9 @@ pub(super) mod config {
         #[cfg(esp_idf_soc_i2s_hw_version_2)]
         pub(crate) fn as_sdk<'d>(
             &self,
-            clk: PeripheralRef<'d, impl OutputPin>,
-            dout: PeripheralRef<'d, impl OutputPin>,
-            dout2: Option<PeripheralRef<'d, impl OutputPin>>,
+            clk: impl OutputPin + 'd,
+            dout: impl OutputPin + 'd,
+            dout2: Option<impl OutputPin + 'd>,
         ) -> i2s_pdm_tx_gpio_config_t {
             let invert_flags = i2s_pdm_tx_gpio_config_t__bindgen_ty_1 {
                 _bitfield_1: i2s_pdm_tx_gpio_config_t__bindgen_ty_1::new_bitfield_1(
@@ -854,14 +854,14 @@ pub(super) mod config {
                 ..Default::default()
             };
             let dout2 = if let Some(dout2) = dout2 {
-                dout2.pin()
+                dout2.pin() as _
             } else {
                 -1
             };
 
             i2s_pdm_tx_gpio_config_t {
-                clk: clk.pin(),
-                dout: dout.pin(),
+                clk: clk.pin() as _,
+                dout: dout.pin() as _,
                 dout2,
                 invert_flags,
             }
@@ -1203,17 +1203,17 @@ impl<'d> I2sDriver<'d, I2sRx> {
     /// Create a new pulse density modulation (PDM) mode driver for the given I2S peripheral with only the receive
     /// channel open.
     #[allow(clippy::too_many_arguments)]
-    pub fn new_pdm_rx<I2S: I2s>(
-        _i2s: impl Peripheral<P = I2S> + 'd,
+    pub fn new_pdm_rx<I2S: I2s + 'd>(
+        _i2s: I2S,
         rx_cfg: &config::PdmRxConfig,
-        clk: impl Peripheral<P = impl OutputPin> + 'd,
-        din: impl Peripheral<P = impl InputPin> + 'd,
+        clk: impl OutputPin + 'd,
+        din: impl InputPin + 'd,
     ) -> Result<Self, EspError> {
         let chan_cfg = rx_cfg.channel_cfg.as_sdk(I2S::port());
 
         let this = Self::internal_new::<I2S>(&chan_cfg, true, false)?;
 
-        let rx_cfg = rx_cfg.as_sdk(clk.into_ref(), din.into_ref());
+        let rx_cfg = rx_cfg.as_sdk(clk, din);
 
         // Safety: rx.chan_handle is a valid, non-null i2s_chan_handle_t,
         // and &rx_cfg is a valid pointer to an i2s_pdm_rx_config_t.
@@ -1236,41 +1236,22 @@ impl<'d> I2sDriver<'d, I2sRx> {
         doc(cfg(not(all(esp_idf_version_major = "5", esp_idf_version_minor = "0"))))
     )]
     #[allow(clippy::too_many_arguments)]
-    pub fn new_pdm_rx_multi<I2S, I2SP, CLK, CLKP, DIN, DINP, const DINC: usize>(
-        _i2s: I2SP,
+    pub fn new_pdm_rx_multi<I2S, DIN, const DINC: usize>(
+        _i2s: I2S,
         rx_cfg: &config::PdmRxConfig,
-        clk: CLKP,
-        dins: [DINP; DINC],
+        clk: impl OutputPin + 'd,
+        dins: [DIN; DINC],
     ) -> Result<Self, EspError>
     where
-        I2SP: Peripheral<P = I2S> + 'd,
-        I2S: I2s,
-        CLKP: Peripheral<P = CLK> + 'd,
-        CLK: OutputPin,
-        DINP: Peripheral<P = DIN> + 'd,
-        DIN: InputPin + Sized,
+        I2S: I2s + 'd,
+        DIN: InputPin + 'd,
     {
         let chan_cfg = rx_cfg.channel_cfg.as_sdk(I2S::port());
 
         let this = Self::internal_new::<I2S>(&chan_cfg, true, true)?;
 
-        // Safety: assume_init is safe to call because we are only claiming to have "initialized" the
-        // MaybeUninit, not the PeripheralRef itself.
-        let mut dins_ref: [MaybeUninit<crate::peripheral::PeripheralRef<'d, DIN>>; DINC] =
-            unsafe { MaybeUninit::uninit().assume_init() };
-        for (i, din) in IntoIterator::into_iter(dins).enumerate() {
-            dins_ref[i].write(din.into_ref());
-        }
-
-        // Safety: everything is initialized, so we can safely transmute the array to the initialized type.
-        let dins_ref = unsafe {
-            core::mem::transmute_copy::<_, [crate::peripheral::PeripheralRef<'d, DIN>; DINC]>(
-                &dins_ref,
-            )
-        };
-
         // Create the channel configuration.
-        let rx_cfg = rx_cfg.as_sdk_multi(clk.into_ref(), &dins_ref);
+        let rx_cfg = rx_cfg.as_sdk_multi(clk, &dins);
 
         // Safety: rx.chan_handle is a valid, non-null i2s_chan_handle_t,
         // and &rx_cfg is a valid pointer to an i2s_pdm_rx_config_t.
@@ -1295,11 +1276,11 @@ impl<'d> I2sDriver<'d, I2sRx> {
     /// Create a new pulse density modulation (PDM) mode driver for the given I2S peripheral with only the receive
     /// channel open.
     #[allow(clippy::too_many_arguments)]
-    pub fn new_pdm_rx<I2S: I2s>(
-        _i2s: impl Peripheral<P = I2S> + 'd,
+    pub fn new_pdm_rx<I2S: I2s + 'd>(
+        _i2s: I2S,
         rx_cfg: &config::PdmRxConfig,
-        clk: impl Peripheral<P = impl OutputPin> + 'd,
-        din: impl Peripheral<P = impl InputPin> + 'd,
+        clk: impl OutputPin + 'd,
+        din: impl InputPin + 'd,
     ) -> Result<Self, EspError> {
         let driver_cfg = rx_cfg.as_sdk();
 
@@ -1313,8 +1294,8 @@ impl<'d> I2sDriver<'d, I2sRx> {
 
         // Set the pin configuration.
         let pin_cfg = i2s_pin_config_t {
-            bck_io_num: clk.into_ref().pin(),
-            data_in_num: din.into_ref().pin(),
+            bck_io_num: clk.pin() as _,
+            data_in_num: din.pin() as _,
             data_out_num: -1,
             mck_io_num: -1,
             ws_io_num: -1,
@@ -1341,14 +1322,12 @@ impl<'d> I2sDriver<'d, I2sTx> {
     /// Create a new pulse density modulation (PDM) mode driver for the given I2S peripheral with only the transmit
     /// channel open.
     #[allow(clippy::too_many_arguments)]
-    pub fn new_pdm_tx<I2S: I2s>(
-        _i2s: impl Peripheral<P = I2S> + 'd,
+    pub fn new_pdm_tx<I2S: I2s + 'd>(
+        _i2s: I2S,
         tx_cfg: &config::PdmTxConfig,
-        clk: impl Peripheral<P = impl OutputPin> + 'd,
-        dout: impl Peripheral<P = impl OutputPin> + 'd,
-        #[cfg(esp_idf_soc_i2s_hw_version_2)] dout2: Option<
-            impl Peripheral<P = impl OutputPin> + 'd,
-        >,
+        clk: impl OutputPin + 'd,
+        dout: impl OutputPin + 'd,
+        #[cfg(esp_idf_soc_i2s_hw_version_2)] dout2: Option<impl OutputPin + 'd>,
     ) -> Result<Self, EspError> {
         let chan_cfg = tx_cfg.channel_cfg.as_sdk(I2S::port());
 
@@ -1356,10 +1335,10 @@ impl<'d> I2sDriver<'d, I2sTx> {
 
         // Create the channel configuration.
         let tx_cfg = tx_cfg.as_sdk(
-            clk.into_ref(),
-            dout.into_ref(),
+            clk,
+            dout,
             #[cfg(esp_idf_soc_i2s_hw_version_2)]
-            dout2.map(|dout2| dout2.into_ref()),
+            dout2,
         );
 
         // Safety: tx.chan_handle is a valid, non-null i2s_chan_handle_t,
@@ -1391,11 +1370,11 @@ impl<'d> I2sDriver<'d, I2sTx> {
     /// Create a new pulse density modulation (PDM) mode driver for the given I2S peripheral with only the transmit
     /// channel open.
     #[allow(clippy::too_many_arguments)]
-    pub fn new_pdm_tx<I2S: I2s>(
-        _i2s: impl Peripheral<P = I2S> + 'd,
+    pub fn new_pdm_tx<I2S: I2s + 'd>(
+        _i2s: I2S,
         tx_cfg: &config::PdmTxConfig,
-        clk: impl Peripheral<P = impl OutputPin> + 'd,
-        dout: impl Peripheral<P = impl OutputPin> + 'd,
+        clk: impl OutputPin + 'd,
+        dout: impl OutputPin + 'd,
     ) -> Result<Self, EspError> {
         let driver_cfg = tx_cfg.as_sdk();
 
@@ -1412,9 +1391,9 @@ impl<'d> I2sDriver<'d, I2sTx> {
 
         // Set the pin configuration.
         let pin_cfg = i2s_pin_config_t {
-            bck_io_num: clk.into_ref().pin(),
+            bck_io_num: clk.pin() as _,
             data_in_num: -1,
-            data_out_num: dout.into_ref().pin(),
+            data_out_num: dout.pin() as _,
             mck_io_num: -1,
             ws_io_num: -1,
         };

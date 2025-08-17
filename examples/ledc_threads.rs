@@ -5,7 +5,7 @@ use embedded_hal_0_2::PwmPin;
 
 use esp_idf_hal::ledc::*;
 use esp_idf_hal::peripherals::Peripherals;
-use esp_idf_hal::prelude::*;
+use esp_idf_hal::units::*;
 
 const CYCLES: usize = 3;
 
