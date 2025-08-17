@@ -18,6 +18,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `Thread::init` and `Thread::deinit` are now gone
   - No option to swap the Thread Netif with a custom one, as it complicates the implementation, and I don't see the use-case (unlike with Wifi)
 - MSRV raised to 1.82
+- NVS: Removed `NvsDataType::Any` and replaced `From<nvs_type_t>` with `NvsDataType:from_nvs_type`
 
 ### Fixed
 - Fix wrong conversion from `ScanType` to `u32` in Wi-Fi configuration
@@ -40,6 +41,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Bluetooth: New methods `EspBleGap::start_scanning` and `EspBleGap::stop_scanning`
 - New example, `bt_ble_gap_scanner` to demonstrate usage of added ble scanning methods
 - New example, `mdns_advertise` to demonstrate mDNS service advertisement
+- NVS: Implemented `RawHandle` for `EspNvs<NvsDefault>`
+- NVS: Added `EspNvs::erase_all` to remove all data stored in an nvs namespace
+- NVS: Added `EspNvs::keys` to iterate over all stored keys
 
 ## [0.51.0] - 2025-01-15
 

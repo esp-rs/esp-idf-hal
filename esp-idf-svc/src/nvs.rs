@@ -1,4 +1,6 @@
 //! Non-Volatile Storage (NVS)
+#[cfg(esp_idf_version_at_least_5_2_0)]
+use core::marker::PhantomData;
 use core::ptr;
 
 extern crate alloc;
@@ -46,24 +48,25 @@ pub enum NvsDataType {
     I64 = nvs_type_t_NVS_TYPE_I64,
     Str = nvs_type_t_NVS_TYPE_STR,
     Blob = nvs_type_t_NVS_TYPE_BLOB,
-    Any = nvs_type_t_NVS_TYPE_ANY,
 }
 
 #[allow(non_upper_case_globals)]
-impl From<nvs_type_t> for NvsDataType {
-    fn from(nvs_type: nvs_type_t) -> Self {
+impl NvsDataType {
+    /// Converts a `nvs_type_t` to an `NvsDataType`, returning `None` if the type is not recognized.
+    #[must_use]
+    pub fn from_nvs_type(nvs_type: nvs_type_t) -> Option<Self> {
         match nvs_type {
-            nvs_type_t_NVS_TYPE_U8 => NvsDataType::U8,
-            nvs_type_t_NVS_TYPE_I8 => NvsDataType::I8,
-            nvs_type_t_NVS_TYPE_U16 => NvsDataType::U16,
-            nvs_type_t_NVS_TYPE_I16 => NvsDataType::I16,
-            nvs_type_t_NVS_TYPE_U32 => NvsDataType::U32,
-            nvs_type_t_NVS_TYPE_I32 => NvsDataType::I32,
-            nvs_type_t_NVS_TYPE_U64 => NvsDataType::U64,
-            nvs_type_t_NVS_TYPE_I64 => NvsDataType::I64,
-            nvs_type_t_NVS_TYPE_STR => NvsDataType::Str,
-            nvs_type_t_NVS_TYPE_BLOB => NvsDataType::Blob,
-            _ => NvsDataType::Any,
+            nvs_type_t_NVS_TYPE_U8 => Some(Self::U8),
+            nvs_type_t_NVS_TYPE_I8 => Some(Self::I8),
+            nvs_type_t_NVS_TYPE_U16 => Some(Self::U16),
+            nvs_type_t_NVS_TYPE_I16 => Some(Self::I16),
+            nvs_type_t_NVS_TYPE_U32 => Some(Self::U32),
+            nvs_type_t_NVS_TYPE_I32 => Some(Self::I32),
+            nvs_type_t_NVS_TYPE_U64 => Some(Self::U64),
+            nvs_type_t_NVS_TYPE_I64 => Some(Self::I64),
+            nvs_type_t_NVS_TYPE_STR => Some(Self::Str),
+            nvs_type_t_NVS_TYPE_BLOB => Some(Self::Blob),
+            _ => None,
         }
     }
 }
@@ -373,7 +376,7 @@ impl<T: NvsPartitionId> EspNvs<T> {
         let result = unsafe { nvs_find_key(self.1, c_key.as_ptr(), &mut entry_type as *mut _) };
 
         match result {
-            ESP_OK => Ok(Some(NvsDataType::from(entry_type))),
+            ESP_OK => Ok(NvsDataType::from_nvs_type(entry_type)),
             ESP_ERR_NVS_NOT_FOUND => Ok(None),
             err => {
                 esp!(err)?;
@@ -708,6 +711,72 @@ impl<T: NvsPartitionId> EspNvs<T> {
 
         Ok(())
     }
+
+    /// Erases all key-value pairs in the NVS namespace.
+    ///
+    /// # Errors
+    ///
+    /// This function will return an error if the NVS erase operation fails, this can happen because of
+    /// - a corrupted NVS partition
+    /// - the NVS is opened in read-only mode
+    /// - other internal errors from the underlying storage driver
+    pub fn erase_all(&self) -> Result<(), EspError> {
+        esp!(unsafe { nvs_erase_all(self.1) })?;
+
+        esp!(unsafe { nvs_commit(self.1) })?;
+
+        Ok(())
+    }
+
+    /// Returns struct to iterate over all keys stored in this NVS namespace with the specified data type.
+    ///
+    /// A data type of `None` will return all keys regardless of their type.
+    ///
+    /// # Mutating the NVS while iterating
+    ///
+    /// Both this function and others that mutate the NVS like [`EspNvs::remove`] only require an immutable
+    /// reference, making it possible to mutate the NVS while iterating over it. For example, one could remove
+    /// keys while iterating.
+    ///
+    /// It is **not** recommended to do this, because the iterator might skip keys. It will not result in
+    /// a panic or undefinied behavior.
+    ///
+    /// # Errors
+    ///
+    /// This function will return an error if
+    /// - there is no memory available for allocation of internal structures
+    /// - for some reason the [`EspNvs::handle`] is invalid (should not happen)
+    #[cfg(esp_idf_version_at_least_5_2_0)]
+    pub fn keys(&self, data_type: Option<NvsDataType>) -> Result<EspNvsKeys<'_>, EspError> {
+        let mut raw_iter: nvs_iterator_t = core::ptr::null_mut();
+
+        match unsafe {
+            nvs_entry_find_in_handle(
+                self.1,
+                data_type
+                    .map(|ty| ty as u32)
+                    .unwrap_or(nvs_type_t_NVS_TYPE_ANY),
+                &mut raw_iter as *mut _,
+            )
+        } {
+            ESP_ERR_NVS_NOT_FOUND => {
+                return Ok(EspNvsKeys {
+                    _nvs: PhantomData,
+                    raw_iter: core::ptr::null_mut(),
+                    is_exhausted: true,
+                    key_name_buffer: [0; 16],
+                });
+            }
+            other => esp!(other)?,
+        }
+
+        Ok(EspNvsKeys {
+            _nvs: PhantomData,
+            raw_iter,
+            is_exhausted: false,
+            key_name_buffer: [0; 16],
+        })
+    }
 }
 
 impl<T: NvsPartitionId> Drop for EspNvs<T> {
@@ -734,6 +803,80 @@ impl RawHandle for EspNvs<NvsEncrypted> {
 
     fn handle(&self) -> Self::Handle {
         self.1
+    }
+}
+impl RawHandle for EspNvs<NvsDefault> {
+    type Handle = nvs_handle_t;
+
+    fn handle(&self) -> Self::Handle {
+        self.1
+    }
+}
+
+#[cfg(esp_idf_version_at_least_5_2_0)]
+pub struct EspNvsKeys<'a> {
+    // The EspNvs must not be dropped while the iterator is still in use,
+    // this reference ensures that.
+    _nvs: PhantomData<&'a ()>,
+    raw_iter: nvs_iterator_t,
+    is_exhausted: bool,
+    key_name_buffer: [u8; 16],
+}
+
+#[cfg(esp_idf_version_at_least_5_2_0)]
+impl<'a> EspNvsKeys<'a> {
+    /// Returns the next key in the NVS namespace and its data type.
+    ///
+    /// After the last key is returned, this function will return `None` on subsequent calls.
+    pub fn next_key(&mut self) -> Option<(&str, NvsDataType)> {
+        if self.is_exhausted || self.raw_iter.is_null() {
+            return None;
+        }
+
+        let mut info: nvs_entry_info_t = Default::default();
+        match unsafe { nvs_entry_info(self.raw_iter, &mut info as *mut _) } {
+            ESP_ERR_NVS_NOT_FOUND => {
+                self.is_exhausted = true;
+                None
+            }
+            ESP_OK => {
+                // For the next iteration, the iterator must be advanced to the next entry,
+                // otherwise it will return the same entry again.
+                //
+                // This function call will fail if the iterator is
+                // - null, which is checked before this call
+                // - exhausted (if it is, it will set self.raw_iter to null and iteration will stop)
+                //
+                // For convenience, the error is ignored here, because it should never happen anyway.
+                // The usage example in C simply stops the iteration on error too and does not do any
+                // error handling.
+                let _ = esp!(unsafe { nvs_entry_next(&mut self.raw_iter as *mut _) });
+
+                // Copy the current key name into the buffer to make a str
+                // that lives for the lifetime of the &mut self borrow.
+                self.key_name_buffer[..info.key.len()].copy_from_slice(&info.key[..]);
+
+                Some((
+                    from_cstr(&self.key_name_buffer[..info.key.len()]),
+                    NvsDataType::from_nvs_type(info.type_).expect("Unknown NVS data type"),
+                ))
+            }
+            // The nvs_entry_info only fails if any of the arguments are null.
+            // The nvs_entry_info is never null, and self.raw_iter is checked for null before the invocation.
+            //
+            // Therefore this should never happen.
+            err => unreachable!(
+                "Unexpected error while iterating over NVS entries: {:?}",
+                esp!(err)
+            ),
+        }
+    }
+}
+
+#[cfg(esp_idf_version_at_least_5_2_0)]
+impl<'a> Drop for EspNvsKeys<'a> {
+    fn drop(&mut self) {
+        unsafe { nvs_release_iterator(self.raw_iter) };
     }
 }
 
