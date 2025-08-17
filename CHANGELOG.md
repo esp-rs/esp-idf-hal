@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   These need to be rewritten against their newer "gptimer" and "pulse_cnt" ESP-IDF C equivalents.
 - (#529) `Peripheral` and `PeripheralRef` removed and replaced with a simple pattern similar to the `esp-hal` one.
   - Check https://github.com/esp-rs/esp-idf-hal/pull/529 for details on that change
+- The `prelude` module is removed. It was anyway only having a handful of types listed in it. And furthermore, there was no `prelude` module for `esp-idf-svc`.
 
 ### Deprecated
 - `DB_11` ADC attenuation in favor of `DB_12` for ESP-IDF V5.0+
