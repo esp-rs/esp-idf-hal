@@ -1996,15 +1996,33 @@ fn new_common<UART: Uart>(
 
     esp!(unsafe { uart_param_config(UART::port(), &uart_config) })?;
 
-    esp!(unsafe {
-        uart_set_pin(
-            UART::port(),
-            tx.as_ref().map_or(-1, |p| p.pin()),
-            rx.as_ref().map_or(-1, |p| p.pin()),
-            rts.as_ref().map_or(-1, |p| p.pin()),
-            cts.as_ref().map_or(-1, |p| p.pin()),
-        )
-    })?;
+    #[cfg(esp_idf_version_at_least_6_0_0)]
+    {
+        esp!(unsafe {
+            uart_set_pin6(
+                UART::port(),
+                tx.as_ref().map_or(-1, |p| p.pin()),
+                rx.as_ref().map_or(-1, |p| p.pin()),
+                rts.as_ref().map_or(-1, |p| p.pin()),
+                cts.as_ref().map_or(-1, |p| p.pin()),
+                -1,
+                -1,
+            )
+        })?;
+    }
+
+    #[cfg(not(esp_idf_version_at_least_6_0_0))]
+    {
+        esp!(unsafe {
+            uart_set_pin(
+                UART::port(),
+                tx.as_ref().map_or(-1, |p| p.pin()),
+                rx.as_ref().map_or(-1, |p| p.pin()),
+                rts.as_ref().map_or(-1, |p| p.pin()),
+                cts.as_ref().map_or(-1, |p| p.pin()),
+            )
+        })?;
+    }
 
     esp!(unsafe {
         #[allow(clippy::unwrap_or_default)]
