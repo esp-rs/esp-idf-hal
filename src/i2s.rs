@@ -516,9 +516,9 @@ pub trait I2s: Send + sealed::Sealed {
 mod sealed {
     pub trait Sealed {}
 
-    impl Sealed for super::I2S0 {}
+    impl Sealed for super::I2S0<'_> {}
     #[cfg(any(esp32, esp32s3))]
-    impl Sealed for super::I2S1 {}
+    impl Sealed for super::I2S1<'_> {}
 }
 
 pub trait I2sPort {
@@ -1352,7 +1352,7 @@ macro_rules! impl_i2s {
     ($i2s:ident: $port:expr) => {
         crate::impl_peripheral!($i2s);
 
-        impl I2s for $i2s {
+        impl I2s for $i2s<'_> {
             #[inline(always)]
             fn port() -> i2s_port_t {
                 $port

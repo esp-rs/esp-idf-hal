@@ -17,9 +17,7 @@ fn main() -> anyhow::Result<()> {
     let peripherals = Peripherals::take()?;
 
     let mut led = PinDriver::output(peripherals.pins.gpio4)?;
-    let mut button = PinDriver::input(peripherals.pins.gpio9)?;
-
-    button.set_pull(Pull::Down)?;
+    let mut button = PinDriver::input(peripherals.pins.gpio9, Pull::Down)?;
 
     block_on(async {
         loop {

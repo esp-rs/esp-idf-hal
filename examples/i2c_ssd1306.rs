@@ -12,7 +12,7 @@
 use esp_idf_hal::delay::{FreeRtos, BLOCK};
 use esp_idf_hal::i2c::*;
 use esp_idf_hal::peripherals::Peripherals;
-use esp_idf_hal::prelude::*;
+use esp_idf_hal::units::*;
 
 const SSD1306_ADDRESS: u8 = 0x3c;
 

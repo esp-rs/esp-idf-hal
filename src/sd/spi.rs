@@ -1,10 +1,8 @@
 use core::borrow::Borrow;
 use core::marker::PhantomData;
-use core::ops::Deref;
 use core::sync::atomic::{AtomicU8, Ordering};
 
 use crate::gpio::{InputPin, OutputPin};
-use crate::peripheral::Peripheral;
 use crate::spi::SpiDriver;
 use crate::sys::*;
 
@@ -33,10 +31,10 @@ where
     /// - wp_active_high: Write Protect active when high (optional, default = `false`)
     pub fn new(
         spi_driver: T,
-        cs: Option<impl Peripheral<P = impl OutputPin> + 'd>,
-        cd: Option<impl Peripheral<P = impl InputPin> + 'd>,
-        wp: Option<impl Peripheral<P = impl InputPin> + 'd>,
-        int: Option<impl Peripheral<P = impl InputPin> + 'd>,
+        cs: Option<impl OutputPin + 'd>,
+        cd: Option<impl InputPin + 'd>,
+        wp: Option<impl InputPin + 'd>,
+        int: Option<impl InputPin + 'd>,
         #[cfg(not(any(
             esp_idf_version_major = "4",
             all(esp_idf_version_major = "5", esp_idf_version_minor = "0"),
@@ -50,10 +48,10 @@ where
         #[allow(clippy::needless_update)]
         let dev_config = sdspi_device_config_t {
             host_id: spi_driver.borrow().host(),
-            gpio_cs: cs.map(|cs| cs.into_ref().deref().pin()).unwrap_or(-1),
-            gpio_cd: cd.map(|cd| cd.into_ref().deref().pin()).unwrap_or(-1),
-            gpio_wp: wp.map(|wp| wp.into_ref().deref().pin()).unwrap_or(-1),
-            gpio_int: int.map(|int| int.into_ref().deref().pin()).unwrap_or(-1),
+            gpio_cs: cs.map(|cs| cs.pin() as _).unwrap_or(-1),
+            gpio_cd: cd.map(|cd| cd.pin() as _).unwrap_or(-1),
+            gpio_wp: wp.map(|wp| wp.pin() as _).unwrap_or(-1),
+            gpio_int: int.map(|int| int.pin() as _).unwrap_or(-1),
             #[cfg(not(any(
                 esp_idf_version_major = "4",
                 all(esp_idf_version_major = "5", esp_idf_version_minor = "0"),
