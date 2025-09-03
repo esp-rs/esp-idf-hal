@@ -31,6 +31,8 @@ pub mod ble;
 pub mod gap;
 #[cfg(all(esp32, esp_idf_bt_classic_enabled, esp_idf_bt_hfp_enable))]
 pub mod hfp;
+#[cfg(all(esp32, esp_idf_bt_classic_enabled, esp_idf_bt_spp_enabled))]
+pub mod spp;
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 #[repr(transparent)]
