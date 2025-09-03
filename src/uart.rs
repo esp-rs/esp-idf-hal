@@ -1999,7 +1999,7 @@ fn new_common<UART: Uart>(
     #[cfg(esp_idf_version_at_least_6_0_0)]
     {
         esp!(unsafe {
-            uart_set_pin6(
+            _uart_set_pin6(
                 UART::port(),
                 tx.as_ref().map_or(-1, |p| p.pin()),
                 rx.as_ref().map_or(-1, |p| p.pin()),
