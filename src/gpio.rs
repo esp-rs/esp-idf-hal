@@ -425,6 +425,145 @@ pub struct PinDriver<'d, MODE> {
     _t: PhantomData<&'d mut ()>,
 }
 
+impl<'d, MODE> PinDriver<'d, MODE> {
+    /// Try to convert the pin driver into a disabled pin driver.
+    ///
+    /// Return an error if the pin cannot be disabled.
+    #[inline]
+    pub fn try_into_disabled(self) -> Result<PinDriver<'d, Disabled>, EspError> {
+        PinDriver::new_gpio(self.pin as _, gpio_mode_t_GPIO_MODE_DISABLE)
+    }
+
+    /// Try to convert the pin driver into an input pin driver.
+    ///
+    /// Return an error if the pin cannot be set as input.
+    #[inline]
+    pub fn try_into_input(self, pull: Pull) -> Result<PinDriver<'d, Input>, EspError> {
+        let mut pin = PinDriver::new_gpio(self.pin as _, gpio_mode_t_GPIO_MODE_INPUT)?;
+
+        pin.set_pull(pull)?;
+
+        Ok(pin)
+    }
+
+    /// Try to convert the pin driver into an output pin driver.
+    ///
+    /// Return an error if the pin cannot be set as output.
+    #[inline]
+    pub fn try_into_output(self) -> Result<PinDriver<'d, Output>, EspError> {
+        PinDriver::new_gpio(self.pin as _, gpio_mode_t_GPIO_MODE_OUTPUT)
+    }
+
+    /// Try to convert the pin driver into an input-output pin driver.
+    ///
+    /// Return an error if the pin cannot be set as input-output.
+    #[inline]
+    pub fn try_into_input_output(self, pull: Pull) -> Result<PinDriver<'d, InputOutput>, EspError> {
+        let mut pin = PinDriver::new_gpio(self.pin as _, gpio_mode_t_GPIO_MODE_INPUT_OUTPUT)?;
+
+        pin.set_pull(pull)?;
+
+        Ok(pin)
+    }
+
+    /// Try to convert the pin driver into an output open-drain pin driver.
+    ///
+    /// Return an error if the pin cannot be set as output open-drain.
+    #[inline]
+    pub fn try_into_output_od(self) -> Result<PinDriver<'d, Output>, EspError> {
+        PinDriver::new_gpio(self.pin as _, gpio_mode_t_GPIO_MODE_OUTPUT_OD)
+    }
+
+    /// Try to convert the pin driver into an input-output open-drain pin driver.
+    ///
+    /// Return an error if the pin cannot be set as input-output open-drain.
+    #[inline]
+    pub fn try_into_input_output_od(
+        self,
+        pull: Pull,
+    ) -> Result<PinDriver<'d, InputOutput>, EspError> {
+        let mut pin = PinDriver::new_gpio(self.pin as _, gpio_mode_t_GPIO_MODE_INPUT_OUTPUT_OD)?;
+
+        pin.set_pull(pull)?;
+
+        Ok(pin)
+    }
+
+    /// Try to convert the pin driver into an RTC disabled pin driver.
+    ///
+    /// Return an error if the pin cannot be disabled.
+    #[cfg(not(any(esp32c3, esp32c2, esp32h2, esp32c5)))]
+    #[inline]
+    pub fn try_into_rtc_disabled(self) -> Result<PinDriver<'d, RtcDisabled>, EspError> {
+        PinDriver::new_rtc(self.pin as _, rtc_gpio_mode_t_RTC_GPIO_MODE_DISABLED)
+    }
+
+    /// Try to convert the pin driver into an RTC input pin driver.
+    ///
+    /// Return an error if the pin cannot be set as RTC input.
+    #[cfg(not(any(esp32c3, esp32c2, esp32h2, esp32c5)))]
+    #[inline]
+    pub fn try_into_rtc_input(self, pull: Pull) -> Result<PinDriver<'d, RtcInput>, EspError> {
+        let mut pin = PinDriver::new_rtc(self.pin as _, rtc_gpio_mode_t_RTC_GPIO_MODE_INPUT_ONLY)?;
+
+        pin.set_pull(pull)?;
+
+        Ok(pin)
+    }
+
+    /// Try to convert the pin driver into an RTC output pin driver.
+    ///
+    /// Return an error if the pin cannot be set as RTC output.
+    #[cfg(not(any(esp32c3, esp32c2, esp32h2, esp32c5)))]
+    #[inline]
+    pub fn try_into_rtc_output(self) -> Result<PinDriver<'d, RtcOutput>, EspError> {
+        PinDriver::new_rtc(self.pin as _, rtc_gpio_mode_t_RTC_GPIO_MODE_OUTPUT_ONLY)
+    }
+
+    /// Try to convert the pin driver into an RTC output open-drain pin driver.
+    ///
+    /// Return an error if the pin cannot be set as RTC output open-drain.
+    #[cfg(not(any(esp32c3, esp32c2, esp32h2, esp32c5)))]
+    #[inline]
+    pub fn try_into_rtc_output_od(self) -> Result<PinDriver<'d, RtcOutput>, EspError> {
+        PinDriver::new_rtc(self.pin as _, rtc_gpio_mode_t_RTC_GPIO_MODE_OUTPUT_OD)
+    }
+
+    /// Try to convert the pin driver into an RTC input-output pin driver.
+    ///
+    /// Return an error if the pin cannot be set as RTC input-output.
+    #[cfg(not(any(esp32c3, esp32c2, esp32h2, esp32c5)))]
+    #[inline]
+    pub fn try_into_rtc_input_output(
+        self,
+        pull: Pull,
+    ) -> Result<PinDriver<'d, RtcInputOutput>, EspError> {
+        let mut pin =
+            PinDriver::new_rtc(self.pin as _, rtc_gpio_mode_t_RTC_GPIO_MODE_INPUT_OUTPUT)?;
+
+        pin.set_pull(pull)?;
+
+        Ok(pin)
+    }
+
+    /// Try to convert the pin driver into an RTC input-output open-drain pin driver.
+    ///
+    /// Return an error if the pin cannot be set as RTC input-output open-drain.
+    #[cfg(not(any(esp32c3, esp32c2, esp32h2, esp32c5)))]
+    #[inline]
+    pub fn try_into_rtc_input_output_od(
+        self,
+        pull: Pull,
+    ) -> Result<PinDriver<'d, RtcInputOutput>, EspError> {
+        let mut pin =
+            PinDriver::new_rtc(self.pin as _, rtc_gpio_mode_t_RTC_GPIO_MODE_INPUT_OUTPUT_OD)?;
+
+        pin.set_pull(pull)?;
+
+        Ok(pin)
+    }
+}
+
 impl<'d> PinDriver<'d, Disabled> {
     /// Creates the driver for a pin in disabled state.
     #[inline]
