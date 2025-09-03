@@ -10,7 +10,7 @@ use embedded_svc::{
     wifi::{self, AccessPointConfiguration, AuthMethod},
 };
 
-use esp_idf_svc::hal::prelude::Peripherals;
+use esp_idf_svc::hal::peripherals::Peripherals;
 use esp_idf_svc::{
     eventloop::EspSystemEventLoop,
     http::server::EspHttpServer,

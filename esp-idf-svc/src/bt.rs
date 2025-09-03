@@ -11,7 +11,6 @@ use ::log::info;
 use num_enum::TryFromPrimitive;
 
 use crate::hal::modem::BluetoothModemPeripheral;
-use crate::hal::peripheral::Peripheral;
 
 use crate::private::mutex::{self, Mutex};
 use crate::sys::*;
@@ -389,9 +388,7 @@ pub enum BtStatus {
 
 static MEM_FREED: mutex::Mutex<bool> = mutex::Mutex::new(false);
 
-pub fn reduce_bt_memory<'d, B: BluetoothModemPeripheral>(
-    _modem: impl Peripheral<P = B> + 'd,
-) -> Result<(), EspError> {
+pub fn reduce_bt_memory<'d, B: BluetoothModemPeripheral + 'd>(_modem: B) -> Result<(), EspError> {
     let mut mem_freed = MEM_FREED.lock();
 
     if *mem_freed {
@@ -439,8 +436,8 @@ where
     M: BtMode,
 {
     #[cfg(all(feature = "alloc", esp_idf_comp_nvs_flash_enabled))]
-    pub fn new<B: BluetoothModemPeripheral>(
-        _modem: impl Peripheral<P = B> + 'd,
+    pub fn new<B: BluetoothModemPeripheral + 'd>(
+        _modem: B,
         nvs: Option<EspDefaultNvsPartition>,
     ) -> Result<Self, EspError> {
         Self::init(nvs.is_some())?;
@@ -453,9 +450,7 @@ where
     }
 
     #[cfg(not(all(feature = "alloc", esp_idf_comp_nvs_flash_enabled)))]
-    pub fn new<B: BluetoothModemPeripheral>(
-        _modem: impl Peripheral<P = B> + 'd,
-    ) -> Result<Self, EspError> {
+    pub fn new<B: BluetoothModemPeripheral + 'd>(_modem: B) -> Result<Self, EspError> {
         Self::init(false)?;
 
         Ok(Self {

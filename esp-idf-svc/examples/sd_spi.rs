@@ -8,7 +8,7 @@ fn main() -> anyhow::Result<()> {
 
     use esp_idf_svc::fs::fatfs::Fatfs;
     use esp_idf_svc::hal::gpio::AnyIOPin;
-    use esp_idf_svc::hal::prelude::*;
+    use esp_idf_svc::hal::peripherals::Peripherals;
     use esp_idf_svc::hal::sd::{spi::SdSpiHostDriver, SdCardConfiguration, SdCardDriver};
     use esp_idf_svc::hal::spi::{config::DriverConfig, Dma, SpiDriver};
     use esp_idf_svc::io::vfs::MountedFatfs;

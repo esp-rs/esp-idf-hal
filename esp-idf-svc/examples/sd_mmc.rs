@@ -8,7 +8,7 @@ fn main() -> anyhow::Result<()> {
 
     use esp_idf_svc::fs::fatfs::Fatfs;
     use esp_idf_svc::hal::gpio;
-    use esp_idf_svc::hal::prelude::*;
+    use esp_idf_svc::hal::peripherals::Peripherals;
     use esp_idf_svc::hal::sd::{
         mmc::SdMmcHostConfiguration, mmc::SdMmcHostDriver, SdCardConfiguration, SdCardDriver,
     };

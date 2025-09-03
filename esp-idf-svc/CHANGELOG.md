@@ -19,6 +19,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - No option to swap the Thread Netif with a custom one, as it complicates the implementation, and I don't see the use-case (unlike with Wifi)
 - MSRV raised to 1.82
 - NVS: Removed `NvsDataType::Any` and replaced `From<nvs_type_t>` with `NvsDataType:from_nvs_type`
+- (#529) `Peripheral` and `PeripheralRef` removed and replaced with a simple pattern similar to the `esp-hal` one.
+  - Check https://github.com/esp-rs/esp-idf-hal/pull/529 for details on that change
 
 ### Fixed
 - Fix wrong conversion from `ScanType` to `u32` in Wi-Fi configuration

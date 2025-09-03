@@ -18,7 +18,6 @@ use ::log::info;
 use crate::eventloop::{EspEventDeserializer, EspEventSource, EspSystemEventLoop};
 use crate::hal::delay;
 use crate::hal::gpio::{InputPin, OutputPin};
-use crate::hal::peripheral::Peripheral;
 use crate::hal::uart::Uart;
 #[cfg(all(esp_idf_comp_esp_netif_enabled, not(esp_idf_openthread_radio)))]
 use crate::handle::RawHandle;
@@ -291,8 +290,8 @@ impl<'d> ThreadDriver<'d, Host> {
     /// Create a new Thread Host driver instance utilizing the
     /// native Thread radio on the MCU
     #[cfg(esp_idf_soc_ieee802154_supported)]
-    pub fn new<M: crate::hal::modem::ThreadModemPeripheral>(
-        modem: impl Peripheral<P = M> + 'd,
+    pub fn new<M: crate::hal::modem::ThreadModemPeripheral + 'd>(
+        modem: M,
         sysloop: EspSystemEventLoop,
         nvs: EspDefaultNvsPartition,
         mounted_event_fs: Arc<MountedEventfs>,
@@ -310,13 +309,13 @@ impl<'d> ThreadDriver<'d, Host> {
     /// to another MCU running the Thread stack in RCP mode.
     #[cfg(not(esp_idf_version_major = "4"))]
     #[allow(clippy::too_many_arguments)]
-    pub fn new_spi<S: crate::hal::spi::Spi>(
-        spi: impl Peripheral<P = S> + 'd,
-        mosi: impl Peripheral<P = impl InputPin> + 'd,
-        miso: impl Peripheral<P = impl OutputPin> + 'd,
-        sclk: impl Peripheral<P = impl InputPin + OutputPin> + 'd,
-        cs: Option<impl Peripheral<P = impl InputPin + OutputPin> + 'd>,
-        intr: Option<impl Peripheral<P = impl InputPin + OutputPin> + 'd>,
+    pub fn new_spi<S: crate::hal::spi::Spi + 'd>(
+        spi: S,
+        mosi: impl InputPin + 'd,
+        miso: impl OutputPin + 'd,
+        sclk: impl InputPin + OutputPin + 'd,
+        cs: Option<impl InputPin + OutputPin + 'd>,
+        intr: Option<impl InputPin + OutputPin + 'd>,
         config: &crate::hal::spi::config::Config,
         sysloop: EspSystemEventLoop,
         nvs: EspDefaultNvsPartition,
@@ -333,10 +332,10 @@ impl<'d> ThreadDriver<'d, Host> {
 
     /// Create a new Thread Host driver instance utilizing a UART connection
     /// to another MCU running the Thread stack in RCP mode.
-    pub fn new_uart<U: Uart>(
-        uart: impl Peripheral<P = U> + 'd,
-        tx: impl Peripheral<P = impl OutputPin> + 'd,
-        rx: impl Peripheral<P = impl InputPin> + 'd,
+    pub fn new_uart<U: Uart + 'd>(
+        uart: U,
+        tx: impl OutputPin + 'd,
+        rx: impl InputPin + 'd,
         config: &crate::hal::uart::config::Config,
         sysloop: EspSystemEventLoop,
         nvs: EspDefaultNvsPartition,
@@ -825,8 +824,8 @@ impl<'d> ThreadDriver<'d, Host> {
     }
 
     #[cfg(esp_idf_soc_ieee802154_supported)]
-    fn host_native_cfg<M: crate::hal::modem::ThreadModemPeripheral>(
-        _modem: impl Peripheral<P = M> + 'd,
+    fn host_native_cfg<M: crate::hal::modem::ThreadModemPeripheral + 'd>(
+        _modem: M,
     ) -> esp_openthread_platform_config_t {
         esp_openthread_platform_config_t {
             radio_config: esp_openthread_radio_config_t {
@@ -844,28 +843,18 @@ impl<'d> ThreadDriver<'d, Host> {
 
     #[cfg(not(esp_idf_version_major = "4"))]
     #[allow(clippy::too_many_arguments)]
-    fn host_spi_cfg<S: crate::hal::spi::Spi>(
-        _spi: impl Peripheral<P = S> + 'd,
-        mosi: impl Peripheral<P = impl InputPin> + 'd,
-        miso: impl Peripheral<P = impl OutputPin> + 'd,
-        sclk: impl Peripheral<P = impl InputPin + OutputPin> + 'd,
-        cs: Option<impl Peripheral<P = impl InputPin + OutputPin> + 'd>,
-        intr: Option<impl Peripheral<P = impl InputPin + OutputPin> + 'd>,
+    fn host_spi_cfg<S: crate::hal::spi::Spi + 'd>(
+        _spi: S,
+        mosi: impl InputPin + 'd,
+        miso: impl OutputPin + 'd,
+        sclk: impl InputPin + OutputPin + 'd,
+        cs: Option<impl InputPin + OutputPin + 'd>,
+        intr: Option<impl InputPin + OutputPin + 'd>,
         config: &crate::hal::spi::config::Config,
     ) -> esp_openthread_platform_config_t {
-        crate::hal::into_ref!(mosi, miso, sclk);
-
-        let cs_pin = if let Some(cs) = cs {
-            crate::hal::into_ref!(cs);
-
-            cs.pin() as _
-        } else {
-            -1
-        };
+        let cs_pin = if let Some(cs) = cs { cs.pin() as _ } else { -1 };
 
         let intr_pin = if let Some(intr) = intr {
-            crate::hal::into_ref!(intr);
-
             intr.pin() as _
         } else {
             -1
@@ -935,14 +924,12 @@ impl<'d> ThreadDriver<'d, Host> {
         }
     }
 
-    fn host_uart_cfg<U: Uart>(
-        _uart: impl Peripheral<P = U> + 'd,
-        tx: impl Peripheral<P = impl OutputPin> + 'd,
-        rx: impl Peripheral<P = impl InputPin> + 'd,
+    fn host_uart_cfg<U: Uart + 'd>(
+        _uart: U,
+        tx: impl OutputPin + 'd,
+        rx: impl InputPin + 'd,
         config: &crate::hal::uart::config::Config,
     ) -> esp_openthread_platform_config_t {
-        crate::hal::into_ref!(rx, tx);
-
         #[cfg(esp_idf_version_major = "4")]
         let cfg = esp_openthread_platform_config_t {
             radio_config: esp_openthread_radio_config_t {
@@ -993,14 +980,17 @@ impl<'d> ThreadDriver<'d, RCP> {
     /// to another MCU running the Thread Host stack.
     #[cfg(not(esp_idf_version_major = "4"))]
     #[allow(clippy::too_many_arguments)]
-    pub fn new_rcp_spi<M: crate::hal::modem::ThreadModemPeripheral, S: crate::hal::spi::Spi>(
-        modem: impl Peripheral<P = M> + 'd,
-        spi: impl Peripheral<P = S> + 'd,
-        mosi: impl Peripheral<P = impl InputPin> + 'd,
-        miso: impl Peripheral<P = impl OutputPin> + 'd,
-        sclk: impl Peripheral<P = impl InputPin + OutputPin> + 'd,
-        cs: Option<impl Peripheral<P = impl InputPin + OutputPin> + 'd>,
-        intr: Option<impl Peripheral<P = impl InputPin + OutputPin> + 'd>,
+    pub fn new_rcp_spi<
+        M: crate::hal::modem::ThreadModemPeripheral + 'd,
+        S: crate::hal::spi::Spi + 'd,
+    >(
+        modem: M,
+        spi: S,
+        mosi: impl InputPin + 'd,
+        miso: impl OutputPin + 'd,
+        sclk: impl InputPin + OutputPin + 'd,
+        cs: Option<impl InputPin + OutputPin + 'd>,
+        intr: Option<impl InputPin + OutputPin + 'd>,
         sysloop: EspSystemEventLoop,
         nvs: EspDefaultNvsPartition,
         mounted_event_fs: Arc<MountedEventfs>,
@@ -1017,11 +1007,11 @@ impl<'d> ThreadDriver<'d, RCP> {
     /// Create a new Thread RCP driver instance utilizing a UART connection
     /// to another MCU running the Thread Host stack.
     #[allow(clippy::too_many_arguments)]
-    pub fn new_rcp_uart<M: crate::hal::modem::ThreadModemPeripheral, U: Uart>(
-        modem: impl Peripheral<P = M> + 'd,
-        uart: impl Peripheral<P = U> + 'd,
-        tx: impl Peripheral<P = impl OutputPin> + 'd,
-        rx: impl Peripheral<P = impl InputPin> + 'd,
+    pub fn new_rcp_uart<M: crate::hal::modem::ThreadModemPeripheral + 'd, U: Uart + 'd>(
+        modem: M,
+        uart: U,
+        tx: impl OutputPin + 'd,
+        rx: impl InputPin + 'd,
         config: &crate::hal::uart::config::Config,
         sysloop: EspSystemEventLoop,
         nvs: EspDefaultNvsPartition,
@@ -1038,28 +1028,21 @@ impl<'d> ThreadDriver<'d, RCP> {
 
     #[cfg(not(esp_idf_version_major = "4"))]
     #[allow(clippy::too_many_arguments)]
-    fn rcp_spi_cfg<M: crate::hal::modem::ThreadModemPeripheral, S: crate::hal::spi::Spi>(
-        _modem: impl Peripheral<P = M> + 'd,
-        _spi: impl Peripheral<P = S> + 'd,
-        mosi: impl Peripheral<P = impl InputPin> + 'd,
-        miso: impl Peripheral<P = impl OutputPin> + 'd,
-        sclk: impl Peripheral<P = impl InputPin + OutputPin> + 'd,
-        cs: Option<impl Peripheral<P = impl InputPin + OutputPin> + 'd>,
-        intr: Option<impl Peripheral<P = impl InputPin + OutputPin> + 'd>,
+    fn rcp_spi_cfg<
+        M: crate::hal::modem::ThreadModemPeripheral + 'd,
+        S: crate::hal::spi::Spi + 'd,
+    >(
+        _modem: M,
+        _spi: S,
+        mosi: impl InputPin + 'd,
+        miso: impl OutputPin + 'd,
+        sclk: impl InputPin + OutputPin + 'd,
+        cs: Option<impl InputPin + OutputPin + 'd>,
+        intr: Option<impl InputPin + OutputPin + 'd>,
     ) -> esp_openthread_platform_config_t {
-        crate::hal::into_ref!(mosi, miso, sclk);
-
-        let cs_pin = if let Some(cs) = cs {
-            crate::hal::into_ref!(cs);
-
-            cs.pin() as _
-        } else {
-            -1
-        };
+        let cs_pin = if let Some(cs) = cs { cs.pin() as _ } else { -1 };
 
         let intr_pin = if let Some(intr) = intr {
-            crate::hal::into_ref!(intr);
-
             intr.pin() as _
         } else {
             -1
@@ -1128,15 +1111,13 @@ impl<'d> ThreadDriver<'d, RCP> {
         }
     }
 
-    fn rcp_uart_cfg<M: crate::hal::modem::ThreadModemPeripheral, U: Uart>(
-        _modem: impl Peripheral<P = M> + 'd,
-        _uart: impl Peripheral<P = U> + 'd,
-        tx: impl Peripheral<P = impl OutputPin> + 'd,
-        rx: impl Peripheral<P = impl InputPin> + 'd,
+    fn rcp_uart_cfg<M: crate::hal::modem::ThreadModemPeripheral + 'd, U: Uart + 'd>(
+        _modem: M,
+        _uart: U,
+        tx: impl OutputPin + 'd,
+        rx: impl InputPin + 'd,
         config: &crate::hal::uart::config::Config,
     ) -> esp_openthread_platform_config_t {
-        crate::hal::into_ref!(rx, tx);
-
         #[cfg(esp_idf_version_major = "4")]
         let cfg = esp_openthread_platform_config_t {
             radio_config: esp_openthread_radio_config_t {
@@ -1579,8 +1560,8 @@ where
 impl<'d> EspThread<'d, Node> {
     /// Create a new `EspThread` instance utilizing the native Thread radio on the MCU
     #[cfg(esp_idf_soc_ieee802154_supported)]
-    pub fn new<M: crate::hal::modem::ThreadModemPeripheral>(
-        modem: impl Peripheral<P = M> + 'd,
+    pub fn new<M: crate::hal::modem::ThreadModemPeripheral + 'd>(
+        modem: M,
         sysloop: EspSystemEventLoop,
         nvs: EspDefaultNvsPartition,
         mounted_event_fs: Arc<MountedEventfs>,
@@ -1592,13 +1573,13 @@ impl<'d> EspThread<'d, Node> {
     /// which is expected to run the Thread RCP driver mode over SPI
     #[cfg(not(esp_idf_version_major = "4"))]
     #[allow(clippy::too_many_arguments)]
-    pub fn new_spi<S: crate::hal::spi::Spi>(
-        _spi: impl Peripheral<P = S> + 'd,
-        mosi: impl Peripheral<P = impl InputPin> + 'd,
-        miso: impl Peripheral<P = impl OutputPin> + 'd,
-        sclk: impl Peripheral<P = impl InputPin + OutputPin> + 'd,
-        cs: Option<impl Peripheral<P = impl InputPin + OutputPin> + 'd>,
-        intr: Option<impl Peripheral<P = impl InputPin + OutputPin> + 'd>,
+    pub fn new_spi<S: crate::hal::spi::Spi + 'd>(
+        _spi: S,
+        mosi: impl InputPin + 'd,
+        miso: impl OutputPin + 'd,
+        sclk: impl InputPin + OutputPin + 'd,
+        cs: Option<impl InputPin + OutputPin + 'd>,
+        intr: Option<impl InputPin + OutputPin + 'd>,
         config: &crate::hal::spi::config::Config,
         _sysloop: EspSystemEventLoop,
         nvs: EspDefaultNvsPartition,
@@ -1620,10 +1601,10 @@ impl<'d> EspThread<'d, Node> {
 
     /// Create a new `EspThread` instance utilizing a UART connection to another MCU
     /// which is expected to run the Thread RCP driver mode over UART
-    pub fn new_uart<U: Uart>(
-        _uart: impl Peripheral<P = U> + 'd,
-        tx: impl Peripheral<P = impl OutputPin> + 'd,
-        rx: impl Peripheral<P = impl InputPin> + 'd,
+    pub fn new_uart<U: Uart + 'd>(
+        _uart: U,
+        tx: impl OutputPin + 'd,
+        rx: impl InputPin + 'd,
         config: &crate::hal::uart::config::Config,
         _sysloop: EspSystemEventLoop,
         nvs: EspDefaultNvsPartition,
@@ -1658,8 +1639,8 @@ where
 {
     /// Create a new `EspThread` Border Router instance utilizing the native Thread radio on the MCU
     #[cfg(esp_idf_soc_ieee802154_supported)]
-    pub fn new_br<M: crate::hal::modem::ThreadModemPeripheral>(
-        modem: impl Peripheral<P = M> + 'd,
+    pub fn new_br<M: crate::hal::modem::ThreadModemPeripheral + 'd>(
+        modem: M,
         sysloop: EspSystemEventLoop,
         nvs: EspDefaultNvsPartition,
         mounted_event_fs: Arc<MountedEventfs>,
@@ -1675,13 +1656,13 @@ where
     /// which is expected to run the Thread RCP driver mode over SPI
     #[cfg(not(esp_idf_version_major = "4"))]
     #[allow(clippy::too_many_arguments)]
-    pub fn new_br_spi<S: crate::hal::spi::Spi>(
-        _spi: impl Peripheral<P = S> + 'd,
-        mosi: impl Peripheral<P = impl InputPin> + 'd,
-        miso: impl Peripheral<P = impl OutputPin> + 'd,
-        sclk: impl Peripheral<P = impl InputPin + OutputPin> + 'd,
-        cs: Option<impl Peripheral<P = impl InputPin + OutputPin> + 'd>,
-        intr: Option<impl Peripheral<P = impl InputPin + OutputPin> + 'd>,
+    pub fn new_br_spi<S: crate::hal::spi::Spi + 'd>(
+        _spi: S,
+        mosi: impl InputPin + 'd,
+        miso: impl OutputPin + 'd,
+        sclk: impl InputPin + OutputPin + 'd,
+        cs: Option<impl InputPin + OutputPin + 'd>,
+        intr: Option<impl InputPin + OutputPin + 'd>,
         config: &crate::hal::spi::config::Config,
         _sysloop: EspSystemEventLoop,
         nvs: EspDefaultNvsPartition,
@@ -1708,10 +1689,10 @@ where
     /// Create a new `EspThread` Border Router instance utilizing a UART connection to another MCU
     /// which is expected to run the Thread RCP driver mode over UART
     #[allow(clippy::too_many_arguments)]
-    pub fn new_br_uart<U: Uart>(
-        _uart: impl Peripheral<P = U> + 'd,
-        tx: impl Peripheral<P = impl OutputPin> + 'd,
-        rx: impl Peripheral<P = impl InputPin> + 'd,
+    pub fn new_br_uart<U: Uart + 'd>(
+        _uart: U,
+        tx: impl OutputPin + 'd,
+        rx: impl InputPin + 'd,
         config: &crate::hal::uart::config::Config,
         _sysloop: EspSystemEventLoop,
         nvs: EspDefaultNvsPartition,

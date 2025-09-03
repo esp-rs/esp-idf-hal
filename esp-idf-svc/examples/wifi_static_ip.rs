@@ -13,7 +13,7 @@ use std::str::FromStr;
 
 use embedded_svc::wifi::{AuthMethod, ClientConfiguration, Configuration as WifiConfiguration};
 
-use esp_idf_svc::hal::prelude::Peripherals;
+use esp_idf_svc::hal::peripherals::Peripherals;
 use esp_idf_svc::ipv4::{
     ClientConfiguration as IpClientConfiguration, ClientSettings as IpClientSettings,
     Configuration as IpConfiguration, Mask, Subnet,

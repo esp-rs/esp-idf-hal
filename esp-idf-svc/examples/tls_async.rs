@@ -100,7 +100,7 @@ pub mod example {
 
     async fn wifi_create() -> Result<esp_idf_svc::wifi::EspWifi<'static>, EspError> {
         use esp_idf_svc::eventloop::*;
-        use esp_idf_svc::hal::prelude::Peripherals;
+        use esp_idf_svc::hal::peripherals::Peripherals;
         use esp_idf_svc::nvs::*;
         use esp_idf_svc::timer::*;
         use esp_idf_svc::wifi::*;

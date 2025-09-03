@@ -13,7 +13,6 @@ use enumset::*;
 use embedded_svc::wifi::Wifi;
 
 use crate::hal::modem::WifiModemPeripheral;
-use crate::hal::peripheral::Peripheral;
 
 use crate::sys::*;
 
@@ -470,8 +469,8 @@ struct WifiDriverStatus {
 
 impl<'d> WifiDriver<'d> {
     #[cfg(all(feature = "alloc", esp_idf_comp_nvs_flash_enabled))]
-    pub fn new<M: WifiModemPeripheral>(
-        _modem: impl Peripheral<P = M> + 'd,
+    pub fn new<M: WifiModemPeripheral + 'd>(
+        _modem: M,
         sysloop: EspSystemEventLoop,
         nvs: Option<EspDefaultNvsPartition>,
     ) -> Result<Self, EspError> {
@@ -488,8 +487,8 @@ impl<'d> WifiDriver<'d> {
     }
 
     #[cfg(not(all(feature = "alloc", esp_idf_comp_nvs_flash_enabled)))]
-    pub fn new<M: WifiModemPeripheral>(
-        _modem: impl Peripheral<P = M> + 'd,
+    pub fn new<M: WifiModemPeripheral + 'd>(
+        _modem: M,
         sysloop: EspSystemEventLoop,
     ) -> Result<Self, EspError> {
         Self::init(false)?;
@@ -1558,8 +1557,8 @@ pub struct EspWifi<'d> {
 #[cfg(esp_idf_comp_esp_netif_enabled)]
 impl<'d> EspWifi<'d> {
     #[cfg(all(feature = "alloc", esp_idf_comp_nvs_flash_enabled))]
-    pub fn new<M: WifiModemPeripheral>(
-        modem: impl Peripheral<P = M> + 'd,
+    pub fn new<M: WifiModemPeripheral + 'd>(
+        modem: M,
         sysloop: EspSystemEventLoop,
         nvs: Option<EspDefaultNvsPartition>,
     ) -> Result<Self, EspError> {
@@ -1567,8 +1566,8 @@ impl<'d> EspWifi<'d> {
     }
 
     #[cfg(not(all(feature = "alloc", esp_idf_comp_nvs_flash_enabled)))]
-    pub fn new<M: WifiModemPeripheral>(
-        modem: impl Peripheral<P = M> + 'd,
+    pub fn new<M: WifiModemPeripheral + 'd>(
+        modem: M,
         sysloop: EspSystemEventLoop,
     ) -> Result<Self, EspError> {
         Self::wrap(WifiDriver::new(modem, sysloop)?)

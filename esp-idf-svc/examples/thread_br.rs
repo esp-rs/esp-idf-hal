@@ -81,7 +81,7 @@ mod example {
     use embedded_svc::wifi::{AuthMethod, ClientConfiguration, Configuration};
 
     use esp_idf_svc::eventloop::EspSystemSubscription;
-    use esp_idf_svc::hal::prelude::Peripherals;
+    use esp_idf_svc::hal::peripherals::Peripherals;
     use esp_idf_svc::io::vfs::MountedEventfs;
     use esp_idf_svc::thread::{EspThread, ThreadEvent};
     use esp_idf_svc::wifi::{BlockingWifi, EspWifi};

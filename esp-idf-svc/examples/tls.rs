@@ -7,7 +7,7 @@ use core::ffi::CStr;
 
 use embedded_svc::wifi::{AuthMethod, ClientConfiguration, Configuration};
 
-use esp_idf_svc::hal::prelude::Peripherals;
+use esp_idf_svc::hal::peripherals::Peripherals;
 use esp_idf_svc::log::EspLogger;
 use esp_idf_svc::tls::{self, EspTls, X509};
 use esp_idf_svc::wifi::{BlockingWifi, EspWifi};

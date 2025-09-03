@@ -33,7 +33,7 @@ mod example {
     use log::info;
 
     use esp_idf_svc::eventloop::EspSystemSubscription;
-    use esp_idf_svc::hal::prelude::Peripherals;
+    use esp_idf_svc::hal::peripherals::Peripherals;
     use esp_idf_svc::io::vfs::MountedEventfs;
     use esp_idf_svc::thread::{ThreadDriver, ThreadEvent};
     use esp_idf_svc::{eventloop::EspSystemEventLoop, nvs::EspDefaultNvsPartition};

@@ -12,7 +12,7 @@ use core::convert::TryInto;
 
 use embedded_svc::wifi::{AuthMethod, ClientConfiguration, Configuration as WifiConfiguration};
 
-use esp_idf_svc::hal::prelude::Peripherals;
+use esp_idf_svc::hal::peripherals::Peripherals;
 use esp_idf_svc::ipv4::{
     ClientConfiguration as IpClientConfiguration, Configuration as IpConfiguration,
     DHCPClientSettings,

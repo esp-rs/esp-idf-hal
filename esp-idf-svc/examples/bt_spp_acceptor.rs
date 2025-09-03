@@ -64,7 +64,7 @@ mod example {
 
         let mut modem = peripherals.modem;
 
-        reduce_bt_memory(&mut modem)?;
+        reduce_bt_memory(unsafe { modem.reborrow() })?;
 
         let bt = Arc::new(BtDriver::<BtClassic>::new(modem, Some(nvs.clone()))?);
 

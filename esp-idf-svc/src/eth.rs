@@ -9,8 +9,6 @@ use alloc::sync::Arc;
 
 use embedded_svc::eth::*;
 
-use crate::hal::peripheral::Peripheral;
-
 #[cfg(any(
     all(esp32, esp_idf_eth_use_esp32_emac),
     any(
@@ -53,26 +51,16 @@ pub enum RmiiEthChipset {
 }
 
 #[cfg(all(esp32, esp_idf_eth_use_esp32_emac))]
-pub enum RmiiClockConfig<GPIO0, GPIO16, GPIO17>
-where
-    GPIO0: Peripheral<P = gpio::Gpio0>,
-    GPIO16: Peripheral<P = gpio::Gpio16>,
-    GPIO17: Peripheral<P = gpio::Gpio17>,
-{
-    Input(GPIO0),
-    OutputGpio0(GPIO0),
+pub enum RmiiClockConfig<'d> {
+    Input(gpio::Gpio0<'d>),
+    OutputGpio0(gpio::Gpio0<'d>),
     /// This according to ESP-IDF is for "testing" only    
-    OutputGpio16(GPIO16),
-    OutputInvertedGpio17(GPIO17),
+    OutputGpio16(gpio::Gpio16<'d>),
+    OutputInvertedGpio17(gpio::Gpio17<'d>),
 }
 
 #[cfg(all(esp32, esp_idf_eth_use_esp32_emac))]
-impl<GPIO0, GPIO16, GPIO17> RmiiClockConfig<GPIO0, GPIO16, GPIO17>
-where
-    GPIO0: Peripheral<P = gpio::Gpio0>,
-    GPIO16: Peripheral<P = gpio::Gpio16>,
-    GPIO17: Peripheral<P = gpio::Gpio17>,
-{
+impl RmiiClockConfig<'_> {
     fn eth_mac_clock_config(&self) -> eth_mac_clock_config_t {
         let rmii = match self {
             Self::Input(_) => eth_mac_clock_config_t__bindgen_ty_2 {
@@ -205,9 +193,7 @@ impl<'d> SpiEventSource<'d> {
     /// Get status updates/changes from the emac by way of an interrupt pin.
     ///
     /// If the interrupt pin is not connected, see [`Self::polling`] for an alternative.
-    pub fn interrupt(pin: impl Peripheral<P = impl gpio::InputPin> + 'd) -> Self {
-        crate::hal::into_ref!(pin);
-
+    pub fn interrupt(pin: impl gpio::InputPin + 'd) -> Self {
         Self {
             #[cfg(not(any(
                 esp_idf_version_major = "4",
@@ -224,7 +210,7 @@ impl<'d> SpiEventSource<'d> {
                 ),
             )))]
             poll_interval_ms: 0,
-            interrupt_pin: pin.pin(),
+            interrupt_pin: pin.pin() as _,
             _p: PhantomData,
         }
     }
@@ -305,21 +291,17 @@ pub struct EthDriver<'d, T> {
 impl<'d> EthDriver<'d, RmiiEth> {
     #[allow(clippy::too_many_arguments)]
     pub fn new(
-        mac: impl Peripheral<P = crate::hal::mac::MAC> + 'd,
-        rmii_rdx0: impl Peripheral<P = gpio::Gpio25> + 'd,
-        rmii_rdx1: impl Peripheral<P = gpio::Gpio26> + 'd,
-        rmii_crs_dv: impl Peripheral<P = gpio::Gpio27> + 'd,
-        rmii_mdc: impl Peripheral<P = impl gpio::OutputPin> + 'd,
-        rmii_txd1: impl Peripheral<P = gpio::Gpio22> + 'd,
-        rmii_tx_en: impl Peripheral<P = gpio::Gpio21> + 'd,
-        rmii_txd0: impl Peripheral<P = gpio::Gpio19> + 'd,
-        rmii_mdio: impl Peripheral<P = impl gpio::InputPin + gpio::OutputPin> + 'd,
-        rmii_ref_clk_config: RmiiClockConfig<
-            impl Peripheral<P = gpio::Gpio0> + 'd,
-            impl Peripheral<P = gpio::Gpio16> + 'd,
-            impl Peripheral<P = gpio::Gpio17> + 'd,
-        >,
-        rst: Option<impl Peripheral<P = impl gpio::OutputPin> + 'd>,
+        mac: crate::hal::mac::MAC<'d>,
+        rmii_rdx0: gpio::Gpio25<'d>,
+        rmii_rdx1: gpio::Gpio26<'d>,
+        rmii_crs_dv: gpio::Gpio27<'d>,
+        rmii_mdc: impl gpio::OutputPin + 'd,
+        rmii_txd1: gpio::Gpio22<'d>,
+        rmii_tx_en: gpio::Gpio21<'d>,
+        rmii_txd0: gpio::Gpio19<'d>,
+        rmii_mdio: impl gpio::InputPin + gpio::OutputPin + 'd,
+        rmii_ref_clk_config: RmiiClockConfig<'d>,
+        rst: Option<impl gpio::OutputPin + 'd>,
         chipset: RmiiEthChipset,
         phy_addr: Option<u32>,
         sysloop: EspSystemEventLoop,
@@ -344,31 +326,29 @@ impl<'d> EthDriver<'d, RmiiEth> {
 
     #[allow(clippy::too_many_arguments)]
     pub fn new_rmii(
-        _mac: impl Peripheral<P = crate::hal::mac::MAC> + 'd,
-        _rmii_rdx0: impl Peripheral<P = gpio::Gpio25> + 'd,
-        _rmii_rdx1: impl Peripheral<P = gpio::Gpio26> + 'd,
-        _rmii_crs_dv: impl Peripheral<P = gpio::Gpio27> + 'd,
-        rmii_mdc: impl Peripheral<P = impl gpio::OutputPin> + 'd,
-        _rmii_txd1: impl Peripheral<P = gpio::Gpio22> + 'd,
-        _rmii_tx_en: impl Peripheral<P = gpio::Gpio21> + 'd,
-        _rmii_txd0: impl Peripheral<P = gpio::Gpio19> + 'd,
-        rmii_mdio: impl Peripheral<P = impl gpio::InputPin + gpio::OutputPin> + 'd,
-        rmii_ref_clk_config: RmiiClockConfig<
-            impl Peripheral<P = gpio::Gpio0> + 'd,
-            impl Peripheral<P = gpio::Gpio16> + 'd,
-            impl Peripheral<P = gpio::Gpio17> + 'd,
-        >,
-        rst: Option<impl Peripheral<P = impl gpio::OutputPin> + 'd>,
+        _mac: crate::hal::mac::MAC<'d>,
+        _rmii_rdx0: gpio::Gpio25<'d>,
+        _rmii_rdx1: gpio::Gpio26<'d>,
+        _rmii_crs_dv: gpio::Gpio27<'d>,
+        rmii_mdc: impl gpio::OutputPin + 'd,
+        _rmii_txd1: gpio::Gpio22<'d>,
+        _rmii_tx_en: gpio::Gpio21<'d>,
+        _rmii_txd0: gpio::Gpio19<'d>,
+        rmii_mdio: impl gpio::InputPin + gpio::OutputPin + 'd,
+        rmii_ref_clk_config: RmiiClockConfig<'d>,
+        rst: Option<impl gpio::OutputPin + 'd>,
         chipset: RmiiEthChipset,
         phy_addr: Option<u32>,
         sysloop: EspSystemEventLoop,
     ) -> Result<Self, EspError> {
-        crate::hal::into_ref!(rmii_mdc, rmii_mdio);
-
-        let rst = rst.map(|rst| rst.into_ref().pin());
+        let rst = rst.map(|rst| rst.pin() as _);
 
         let eth = Self::init(
-            Self::rmii_mac(rmii_mdc.pin(), rmii_mdio.pin(), &rmii_ref_clk_config),
+            Self::rmii_mac(
+                rmii_mdc.pin() as _,
+                rmii_mdio.pin() as _,
+                &rmii_ref_clk_config,
+            ),
             Self::rmii_phy(chipset, rst, phy_addr)?,
             None,
             RmiiEth {},
@@ -401,15 +381,7 @@ impl<'d> EthDriver<'d, RmiiEth> {
         Ok(phy)
     }
 
-    fn rmii_mac(
-        mdc: i32,
-        mdio: i32,
-        clk_config: &RmiiClockConfig<
-            impl Peripheral<P = gpio::Gpio0> + 'd,
-            impl Peripheral<P = gpio::Gpio16> + 'd,
-            impl Peripheral<P = gpio::Gpio17> + 'd,
-        >,
-    ) -> *mut esp_eth_mac_t {
+    fn rmii_mac(mdc: i32, mdio: i32, clk_config: &RmiiClockConfig<'d>) -> *mut esp_eth_mac_t {
         #[cfg(esp_idf_version_major = "4")]
         let mac = {
             let mut config = Self::eth_mac_default_config(mdc, mdio);
@@ -484,14 +456,14 @@ impl<'d> EthDriver<'d, RmiiEth> {
 #[cfg(esp_idf_eth_use_openeth)]
 impl<'d> EthDriver<'d, OpenEth> {
     pub fn new(
-        mac: impl Peripheral<P = crate::hal::mac::MAC> + 'd,
+        mac: crate::hal::mac::MAC<'d>,
         sysloop: EspSystemEventLoop,
     ) -> Result<Self, EspError> {
         Self::new_openeth(mac, sysloop)
     }
 
     pub fn new_openeth(
-        _mac: impl Peripheral<P = crate::hal::mac::MAC> + 'd,
+        _mac: crate::hal::mac::MAC<'d>,
         sysloop: EspSystemEventLoop,
     ) -> Result<Self, EspError> {
         let eth = Self::init(
@@ -518,9 +490,9 @@ where
     #[allow(clippy::too_many_arguments)]
     pub fn new(
         driver: T,
-        int: impl Peripheral<P = impl gpio::InputPin> + 'd,
-        cs: Option<impl Peripheral<P = impl gpio::OutputPin> + 'd>,
-        rst: Option<impl Peripheral<P = impl gpio::OutputPin> + 'd>,
+        int: impl gpio::InputPin + 'd,
+        cs: Option<impl gpio::OutputPin + 'd>,
+        rst: Option<impl gpio::OutputPin + 'd>,
         chipset: SpiEthChipset,
         baudrate: Hertz,
         mac_addr: Option<&[u8; 6]>,
@@ -535,9 +507,9 @@ where
     #[allow(clippy::too_many_arguments)]
     pub fn new_spi(
         driver: T,
-        int: impl Peripheral<P = impl gpio::InputPin> + 'd,
-        cs: Option<impl Peripheral<P = impl gpio::OutputPin> + 'd>,
-        rst: Option<impl Peripheral<P = impl gpio::OutputPin> + 'd>,
+        int: impl gpio::InputPin + 'd,
+        cs: Option<impl gpio::OutputPin + 'd>,
+        rst: Option<impl gpio::OutputPin + 'd>,
         chipset: SpiEthChipset,
         baudrate: Hertz,
         mac_addr: Option<&[u8; 6]>,
@@ -561,8 +533,8 @@ where
     pub fn new_spi_with_event_source(
         driver: T,
         event_source: SpiEventSource<'d>,
-        cs: Option<impl Peripheral<P = impl gpio::OutputPin> + 'd>,
-        rst: Option<impl Peripheral<P = impl gpio::OutputPin> + 'd>,
+        cs: Option<impl gpio::OutputPin + 'd>,
+        rst: Option<impl gpio::OutputPin + 'd>,
         chipset: SpiEthChipset,
         baudrate: Hertz,
         mac_addr: Option<&[u8; 6]>,
@@ -589,8 +561,8 @@ where
                 ),
             )))]
             event_source.poll_interval_ms,
-            cs.map(|pin| pin.into_ref().pin()),
-            rst.map(|pin| pin.into_ref().pin()),
+            cs.map(|pin| pin.pin() as _),
+            rst.map(|pin| pin.pin() as _),
             phy_addr,
         )?;
 

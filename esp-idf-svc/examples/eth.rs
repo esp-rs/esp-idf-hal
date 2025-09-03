@@ -9,7 +9,7 @@
 use esp_idf_svc::{
     eth::{BlockingEth, EspEth, EthDriver},
     eventloop::EspSystemEventLoop,
-    hal::{gpio, prelude::Peripherals},
+    hal::peripherals::Peripherals,
     log::EspLogger,
 };
 #[cfg(esp32)]
@@ -35,9 +35,7 @@ fn main() -> anyhow::Result<()> {
         pins.gpio21,
         pins.gpio19,
         pins.gpio18,
-        esp_idf_svc::eth::RmiiClockConfig::<gpio::Gpio0, gpio::Gpio16, gpio::Gpio17>::OutputInvertedGpio17(
-            pins.gpio17,
-        ),
+        esp_idf_svc::eth::RmiiClockConfig::OutputInvertedGpio17(pins.gpio17),
         Some(pins.gpio5),
         // Replace with IP101 if you have that variant, or with some of the others in the `RmiiEthChipset`` enum
         esp_idf_svc::eth::RmiiEthChipset::LAN87XX,

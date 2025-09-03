@@ -23,7 +23,7 @@ pub mod example {
     use esp_idf_svc::eth;
     use esp_idf_svc::eventloop::EspSystemEventLoop;
     use esp_idf_svc::hal::spi;
-    use esp_idf_svc::hal::{prelude::Peripherals, units::FromValueType};
+    use esp_idf_svc::hal::{peripherals::Peripherals, units::FromValueType};
     use esp_idf_svc::log::EspLogger;
     use esp_idf_svc::sys::EspError;
     use esp_idf_svc::timer::EspTaskTimerService;
