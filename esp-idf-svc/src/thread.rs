@@ -2003,6 +2003,13 @@ pub enum ThreadEvent {
         ),
     ))]
     MeshcopERemoveStarted,
+    #[cfg(any(
+        esp_idf_version_patch_at_least_5_1_6,
+        esp_idf_version_patch_at_least_5_2_4,
+        esp_idf_version_patch_at_least_5_3_2,
+        esp_idf_version_at_least_5_4_0
+    ))]
+    DatasetChanged,
 }
 
 unsafe impl EspEventSource for ThreadEvent {
@@ -2094,6 +2101,13 @@ impl EspEventDeserializer for ThreadEvent {
             esp_openthread_event_t_OPENTHREAD_EVENT_REMOVE_MESHCOP_E => {
                 ThreadEvent::MeshcopERemoveStarted
             }
+            #[cfg(any(
+                esp_idf_version_patch_at_least_5_1_6,
+                esp_idf_version_patch_at_least_5_2_4,
+                esp_idf_version_patch_at_least_5_3_2,
+                esp_idf_version_at_least_5_4_0
+            ))]
+            esp_openthread_event_t_OPENTHREAD_EVENT_DATASET_CHANGED => ThreadEvent::DatasetChanged,
             _ => panic!("unknown event ID: {event_id}"),
         }
     }

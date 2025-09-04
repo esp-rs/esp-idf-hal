@@ -17,6 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
  - Simplifications:
   - `Thread::init` and `Thread::deinit` are now gone
   - No option to swap the Thread Netif with a custom one, as it complicates the implementation, and I don't see the use-case (unlike with Wifi)
+ - Compatibility with ESP-IDF 5.1.6+, 5.2.4+, 5.3.2+ and 5.4+ in that the new DatasetChanged event is properly handled and does not cause the event code to panic
 - MSRV raised to 1.82
 - NVS: Removed `NvsDataType::Any` and replaced `From<nvs_type_t>` with `NvsDataType:from_nvs_type`
 - (#529) `Peripheral` and `PeripheralRef` removed and replaced with a simple pattern similar to the `esp-hal` one.
