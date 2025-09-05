@@ -1743,6 +1743,12 @@ where
         &mut self.driver
     }
 
+    /// Initialize the coexistence between the Thread stack and a Wifi/BT stack on the modem
+    #[cfg(all(esp_idf_openthread_radio_native, esp_idf_soc_ieee802154_supported))]
+    pub fn init_coex(&mut self) -> Result<(), EspError> {
+        self.driver.init_coex()
+    }
+
     /// Return a reference to the underlying [`EspNetif`]
     pub fn netif(&self) -> &EspNetif {
         &self.netif
