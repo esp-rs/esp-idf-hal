@@ -68,16 +68,18 @@ mod example {
 
         let bt = Arc::new(BtDriver::<BtClassic>::new(modem, Some(nvs.clone()))?);
 
-        bt.set_device_name("ESP32_SPP_SERVER")?;
-
         let spp_config = SppConfig {
             mode: spp::Mode::Cb,
             enable_l2cap_ertm: true,
             tx_buffer_size: 0, // Only used for mode VFS
         };
 
+        let gap = EspGap::new(bt.clone())?;
+
+        gap.set_device_name("ESP32_SPP_SERVER")?;
+
         let server = ExampleServer::new(
-            Arc::new(EspGap::new(bt.clone())?),
+            Arc::new(gap),
             Arc::new(EspSpp::new(bt.clone(), &spp_config)?),
         );
 

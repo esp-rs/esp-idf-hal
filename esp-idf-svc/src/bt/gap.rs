@@ -679,6 +679,22 @@ where
         Ok(())
     }
 
+    pub fn set_device_name(&self, device_name: &str) -> Result<(), EspError> {
+        let device_name = to_cstring_arg(device_name)?;
+
+        #[cfg(esp_idf_version_at_least_6_0_0)]
+        {
+            esp!(unsafe { esp_bt_gap_set_device_name(device_name.as_ptr()) })?;
+        }
+
+        #[cfg(not(esp_idf_version_at_least_6_0_0))]
+        {
+            esp!(unsafe { esp_bt_dev_set_device_name(device_name.as_ptr()) })?;
+        }
+
+        Ok(())
+    }
+
     pub fn set_scan_mode(
         &self,
         connectable: bool,

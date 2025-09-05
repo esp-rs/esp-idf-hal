@@ -17,7 +17,6 @@ use crate::sys::*;
 
 #[cfg(all(feature = "alloc", esp_idf_comp_nvs_flash_enabled))]
 use crate::nvs::EspDefaultNvsPartition;
-use crate::private::cstr::to_cstring_arg;
 
 extern crate alloc;
 
@@ -707,7 +706,14 @@ where
         Ok(())
     }
 
+    #[deprecated(
+        since = "0.52.0",
+        note = "use `EspGap::set_device_name` or `EspBleGap::set_device_name` instead"
+    )]
+    #[cfg(not(esp_idf_version_at_least_6_0_0))]
     pub fn set_device_name(&self, device_name: &str) -> Result<(), EspError> {
+        use crate::private::cstr::to_cstring_arg;
+
         let device_name = to_cstring_arg(device_name)?;
 
         esp!(unsafe { esp_bt_dev_set_device_name(device_name.as_ptr()) })
