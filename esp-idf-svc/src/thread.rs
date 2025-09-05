@@ -13,7 +13,8 @@ use core::ptr::addr_of_mut;
 use alloc::boxed::Box;
 use alloc::sync::Arc;
 
-use ::log::info;
+#[allow(unused)]
+use ::log::{debug, info};
 
 use crate::eventloop::{EspEventDeserializer, EspEventSource, EspSystemEventLoop};
 use crate::hal::delay;
@@ -1714,7 +1715,7 @@ where
     /// Wrap an already created Thread L2 driver instance, a network interface to be used for the
     /// Thread network, and a backbone network interface to the outside world
     pub fn wrap_br_all(
-        mut driver: ThreadDriver<'d, Host>,
+        driver: ThreadDriver<'d, Host>,
         netif: EspNetif,
         backbone_netif: N,
     ) -> Result<Self, EspError> {
@@ -1723,10 +1724,7 @@ where
             esp_openthread_set_backbone_netif(backbone_netif.borrow().handle());
         }
 
-        Self::internal_init(Self {
-            driver,
-            inner: UnsafeCell::new(EspThreadInner::new(netif, BorderRouter(backbone_netif))),
-        })
+        Self::internal_init(driver, netif, BorderRouter(backbone_netif))
     }
 }
 
