@@ -1101,11 +1101,11 @@ impl<'d> WifiDriver<'d> {
         })
     }
 
-    /// Get information of AP which the ESP32 station is associated with.
+    /// Get information about the AP with which the station is associated.
     /// Useful to get the current signal strength of the AP.
-    pub fn get_ap_info(&mut self) -> Result<AccessPointInfo, EspError> {
+    pub fn get_ap_info(&self) -> Result<AccessPointInfo, EspError> {
         let mut ap_info_raw: wifi_ap_record_t = wifi_ap_record_t::default();
-        // If Sta not connected throws EspError(12303)
+        // If STA is not connected EspError(12303) is returned
         esp!(unsafe { esp_wifi_sta_get_ap_info(&mut ap_info_raw) })?;
         let ap_info: AccessPointInfo = Newtype(&ap_info_raw).try_into().unwrap();
 
@@ -1840,6 +1840,12 @@ impl<'d> EspWifi<'d> {
 
     pub fn get_rssi(&self) -> Result<i32, EspError> {
         self.driver().get_rssi()
+    }
+
+    /// Get information about the AP with which the station is associated.
+    /// Useful to get the current signal strength of the AP.
+    pub fn get_ap_info(&self) -> Result<AccessPointInfo, EspError> {
+        self.driver().get_ap_info()
     }
 }
 

@@ -24,6 +24,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Check https://github.com/esp-rs/esp-idf-hal/pull/529 for details on that change
 
 ### Fixed
+- `WifiDriver::get_ap_info` not takes `&self` instead of `&mut self`. Convenience method `EspWifi::get_ap_info` that delegates
+  to `WifiDriver::get_ap_info`
 - Fix wrong conversion from `ScanType` to `u32` in Wi-Fi configuration
 - Fix wrong BT configuration version on the c6 (issue #556)
 - Fix inconsistent mutability in NVS (#567)
