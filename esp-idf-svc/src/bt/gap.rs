@@ -16,11 +16,12 @@ use core::{borrow::Borrow, marker::PhantomData};
 
 use enumset::{EnumSet, EnumSetType};
 
-use crate::sys::*;
-
 use ::log::trace;
 
 use num_enum::TryFromPrimitive;
+
+use crate::private::cstr::to_cstring_arg;
+use crate::sys::*;
 
 use super::{BdAddr, BtClassicEnabled, BtDriver, BtSingleton, BtStatus, BtUuid};
 
