@@ -66,13 +66,14 @@ pub mod config {
     use super::Alert;
 
     /// CAN timing
-    #[derive(Debug, Copy, Clone, Eq, PartialEq)]
+    #[derive(Default, Debug, Copy, Clone, Eq, PartialEq, Hash)]
     pub enum Timing {
         B25K,
         B50K,
         B100K,
         B125K,
         B250K,
+        #[default]
         B500K,
         B800K,
         B1M,
@@ -163,12 +164,6 @@ pub mod config {
         }
     }
 
-    impl Default for Timing {
-        fn default() -> Self {
-            Self::B500K
-        }
-    }
-
     /// Is used to filter out unwanted CAN IDs (messages).
     ///
     /// Notice that Espressif TWAI (CAN in rest of the world) acceptance filtering
@@ -215,7 +210,7 @@ pub mod config {
     /// let mask   = 0x7F0;
     /// let f = Filter::Standard { filter, mask };
     /// ```
-    #[derive(Debug, Copy, Clone, Eq, PartialEq)]
+    #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
     pub enum Filter {
         /// Filter for 11 bit standard CAN IDs
         Standard { filter: u16, mask: u16 },
@@ -232,12 +227,12 @@ pub mod config {
 
     impl Filter {
         /// Filter that allows all standard CAN IDs.
-        pub fn standard_allow_all() -> Self {
+        pub const fn standard_allow_all() -> Self {
             Self::Standard { filter: 0, mask: 0 }
         }
 
         /// Filter that accepts all extended CAN IDs.
-        pub fn extended_allow_all() -> Self {
+        pub const fn extended_allow_all() -> Self {
             Self::Extended { filter: 0, mask: 0 }
         }
     }
@@ -248,7 +243,7 @@ pub mod config {
         }
     }
 
-    #[derive(Debug, Copy, Clone, Default)]
+    #[derive(Debug, Copy, Clone, Default, Eq, PartialEq, Hash)]
     pub enum Mode {
         #[default]
         Normal,
