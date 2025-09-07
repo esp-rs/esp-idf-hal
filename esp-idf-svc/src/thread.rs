@@ -1739,7 +1739,7 @@ where
     }
 
     /// Return a mutable reference to the underlying [`ThreadDriver`]
-    fn driver_mut(&mut self) -> &mut ThreadDriver<'d, Host> {
+    pub fn driver_mut(&mut self) -> &mut ThreadDriver<'d, Host> {
         &mut self.driver
     }
 
