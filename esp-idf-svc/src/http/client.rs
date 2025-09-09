@@ -61,18 +61,12 @@ impl From<Method> for Newtype<(esp_http_client_method_t, ())> {
     }
 }
 
-#[derive(Copy, Clone, Debug, Eq, PartialEq)]
-#[cfg_attr(feature = "std", derive(Hash))]
+#[derive(Default, Copy, Clone, Debug, Eq, PartialEq, Hash)]
 pub enum FollowRedirectsPolicy {
     FollowNone,
+    #[default]
     FollowGetHead,
     FollowAll,
-}
-
-impl Default for FollowRedirectsPolicy {
-    fn default() -> Self {
-        Self::FollowGetHead
-    }
 }
 
 #[derive(Copy, Clone, Debug, Default)]
