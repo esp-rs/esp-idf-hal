@@ -1297,11 +1297,6 @@ where
 
     #[cfg(all(esp_idf_openthread_radio_native, esp_idf_soc_ieee802154_supported))]
     fn internal_init_coex() -> Result<(), EspError> {
-        #[cfg(not(any(esp32h2, esp32h4)))]
-        {
-            esp!(unsafe { esp_wifi_set_ps(wifi_ps_type_t_WIFI_PS_MAX_MODEM) })?;
-        }
-
         #[cfg(esp_idf_esp_coex_sw_coexist_enable)]
         {
             esp!(unsafe { esp_coex_wifi_i154_enable() })?;
@@ -1498,18 +1493,11 @@ impl NetifMode for Node {
 
 /// The Border Router mode of operation for the `EspThread` instance
 #[cfg(all(esp_idf_comp_esp_netif_enabled, esp_idf_openthread_border_router))]
-pub struct BorderRouter<N>(N)
-where
-    N: core::borrow::Borrow<EspNetif>;
+pub struct BorderRouter(());
 
 #[cfg(all(esp_idf_comp_esp_netif_enabled, esp_idf_openthread_border_router))]
-impl<N: core::borrow::Borrow<EspNetif>> NetifMode for BorderRouter<N> {
+impl NetifMode for BorderRouter {
     fn init(&mut self) -> Result<(), EspError> {
-        #[cfg(esp_idf_version_major = "4")]
-        {
-            esp!(unsafe { esp_openthread_border_router_init(netif.borrow().handle()) })?;
-        }
-
         #[cfg(not(esp_idf_version_major = "4"))]
         {
             esp!(unsafe { esp_openthread_border_router_init() })?;
@@ -1634,10 +1622,34 @@ impl<'d> EspThread<'d, Node> {
 }
 
 #[cfg(all(esp_idf_comp_esp_netif_enabled, esp_idf_openthread_border_router))]
-impl<'d, N> EspThread<'d, BorderRouter<N>>
-where
-    N: core::borrow::Borrow<EspNetif>,
-{
+impl<'d> EspThread<'d, BorderRouter> {
+    /// Set or clear the backbone network interface to be used by the Border Router instance.
+    ///
+    /// This method _must_ be called _before_ the Border Router is constructed
+    /// and _after_ the Border Router is dropped.
+    ///
+    /// # Safety
+    ///
+    /// This method is unsafe, because the framework will internally store a raw pointer
+    /// to the provided `EspNetif` instance, and use it later when the Border Router
+    /// is initialized. If the provided `EspNetif` instance is dropped before
+    /// the Border Router is dropped, a use-after-free will occur.
+    ///
+    /// Make sure that the following conditions are met:
+    /// - The provided `EspNetif` instance outlives the Thread Border Router instance;
+    /// - The method is called _before_ both the Thread driver (`ThreadDriver`) and the `EspThread` instances are constructed;
+    /// - Additionally, that the driver behind the provided `EspNetif` instance is _already started_ (e.g. `EspWifi::start()` or `EspEth::start()` had been called).
+    #[cfg(not(esp_idf_version_major = "4"))]
+    pub unsafe fn set_backbone_netif(backbone_netif: Option<&EspNetif>) {
+        unsafe {
+            esp_openthread_set_backbone_netif(
+                backbone_netif
+                    .map(|netif| netif.handle())
+                    .unwrap_or(core::ptr::null_mut()),
+            );
+        }
+    }
+
     /// Create a new `EspThread` Border Router instance utilizing the native Thread radio on the MCU
     #[cfg(esp_idf_soc_ieee802154_supported)]
     pub fn new_br<M: crate::hal::modem::ThreadModemPeripheral + 'd>(
@@ -1645,12 +1657,8 @@ where
         sysloop: EspSystemEventLoop,
         nvs: EspDefaultNvsPartition,
         mounted_event_fs: Arc<MountedEventfs>,
-        backbone_netif: N,
     ) -> Result<Self, EspError> {
-        Self::wrap_br(
-            ThreadDriver::new(modem, sysloop, nvs, mounted_event_fs)?,
-            backbone_netif,
-        )
+        Self::wrap_br(ThreadDriver::new(modem, sysloop, nvs, mounted_event_fs)?)
     }
 
     /// Create a new `EspThread` Border Router instance utilizing an SPI connection to another MCU
@@ -1668,23 +1676,19 @@ where
         _sysloop: EspSystemEventLoop,
         nvs: EspDefaultNvsPartition,
         mounted_event_fs: Arc<MountedEventfs>,
-        backbone_netif: N,
     ) -> Result<Self, EspError> {
-        Self::wrap_br(
-            ThreadDriver::new_spi(
-                _spi,
-                mosi,
-                miso,
-                sclk,
-                cs,
-                intr,
-                config,
-                _sysloop,
-                nvs,
-                mounted_event_fs,
-            )?,
-            backbone_netif,
-        )
+        Self::wrap_br(ThreadDriver::new_spi(
+            _spi,
+            mosi,
+            miso,
+            sclk,
+            cs,
+            intr,
+            config,
+            _sysloop,
+            nvs,
+            mounted_event_fs,
+        )?)
     }
 
     /// Create a new `EspThread` Border Router instance utilizing a UART connection to another MCU
@@ -1698,33 +1702,28 @@ where
         _sysloop: EspSystemEventLoop,
         nvs: EspDefaultNvsPartition,
         mounted_event_fs: Arc<MountedEventfs>,
-        backbone_netif: N,
     ) -> Result<Self, EspError> {
-        Self::wrap_br(
-            ThreadDriver::new_uart(_uart, tx, rx, config, _sysloop, nvs, mounted_event_fs)?,
-            backbone_netif,
-        )
+        Self::wrap_br(ThreadDriver::new_uart(
+            _uart,
+            tx,
+            rx,
+            config,
+            _sysloop,
+            nvs,
+            mounted_event_fs,
+        )?)
     }
 
     /// Wrap an already created Thread L2 driver instance and a backbone network interface
     /// to the outside world
-    pub fn wrap_br(driver: ThreadDriver<'d, Host>, backbone_netif: N) -> Result<Self, EspError> {
-        Self::wrap_br_all(driver, EspNetif::new(NetifStack::Thread)?, backbone_netif)
+    pub fn wrap_br(driver: ThreadDriver<'d, Host>) -> Result<Self, EspError> {
+        Self::wrap_br_all(driver, EspNetif::new(NetifStack::Thread)?)
     }
 
     /// Wrap an already created Thread L2 driver instance, a network interface to be used for the
     /// Thread network, and a backbone network interface to the outside world
-    pub fn wrap_br_all(
-        driver: ThreadDriver<'d, Host>,
-        netif: EspNetif,
-        backbone_netif: N,
-    ) -> Result<Self, EspError> {
-        #[cfg(not(esp_idf_version_major = "4"))]
-        unsafe {
-            esp_openthread_set_backbone_netif(backbone_netif.borrow().handle());
-        }
-
-        Self::internal_init(driver, netif, BorderRouter(backbone_netif))
+    pub fn wrap_br_all(driver: ThreadDriver<'d, Host>, netif: EspNetif) -> Result<Self, EspError> {
+        Self::internal_init(driver, netif, BorderRouter(()))
     }
 }
 
