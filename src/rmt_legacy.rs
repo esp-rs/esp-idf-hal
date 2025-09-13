@@ -1230,6 +1230,7 @@ mod chip {
         pub channel7: CHANNEL7<'static>,
     }
 
+    #[cfg(feature = "rmt-legacy")]
     impl RMT {
         /// Creates a new instance of the RMT peripheral. Typically one wants
         /// to use the instance [`rmt`](crate::peripherals::Peripherals::rmt) from
