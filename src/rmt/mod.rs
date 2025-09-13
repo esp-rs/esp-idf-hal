@@ -4,7 +4,6 @@ pub mod encoder;
 mod tx_channel;
 pub use tx_channel::*;
 
-// pub type TxDriverConfig
 use esp_idf_sys::*;
 
 use crate::rmt_legacy::Pulse;
@@ -13,20 +12,32 @@ use crate::rmt_legacy::Pulse;
 pub enum SourceClock {
     #[default]
     Default,
+    #[cfg(any(esp32, esp32c3, esp32s2, esp32s3))]
     APB,
+    #[cfg(any(esp32c3, esp32c5, esp32c6, esp32h2, esp32h4, esp32p4, esp32s3))]
     RcFast,
+    #[cfg(any(esp32, esp32s2))]
+    RefTick,
+    #[cfg(any(esp32c3, esp32c5, esp32c6, esp32h2, esp32h4, esp32p4, esp32s3))]
     XTAL,
+    #[cfg(any(esp32c5, esp32c6, esp32p4))]
+    PllF80m,
 }
-
-// TODO: RMT_CLK_SRC_REF_TICK is documented, but not in the enum?
 
 impl From<SourceClock> for rmt_clock_source_t {
     fn from(clock: SourceClock) -> Self {
         match clock {
             SourceClock::Default => soc_periph_rmt_clk_src_t_RMT_CLK_SRC_DEFAULT,
+            #[cfg(any(esp32, esp32c3, esp32s2, esp32s3))]
             SourceClock::APB => soc_periph_rmt_clk_src_t_RMT_CLK_SRC_APB,
+            #[cfg(any(esp32c3, esp32c5, esp32c6, esp32h2, esp32h4, esp32p4, esp32s3))]
             SourceClock::RcFast => soc_periph_rmt_clk_src_t_RMT_CLK_SRC_RC_FAST,
+            #[cfg(any(esp32, esp32s2))]
+            SourceClock::RefTick => soc_periph_rmt_clk_src_t_RMT_CLK_SRC_REF_TICK,
+            #[cfg(any(esp32c3, esp32c5, esp32c6, esp32h2, esp32h4, esp32p4, esp32s3))]
             SourceClock::XTAL => soc_periph_rmt_clk_src_t_RMT_CLK_SRC_XTAL,
+            #[cfg(any(esp32c5, esp32c6, esp32p4))]
+            SourceClock::PllF80m => soc_periph_rmt_clk_src_t_RMT_CLK_SRC_PLL_F80M,
         }
     }
 }
