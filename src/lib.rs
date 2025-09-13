@@ -76,7 +76,9 @@ pub mod pcnt {
 
 pub mod peripherals;
 pub mod reset;
+#[cfg(not(feature = "rmt-legacy"))]
 pub mod rmt;
+pub mod rmt_legacy;
 pub mod rom;
 pub mod sd;
 pub mod spi;

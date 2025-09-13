@@ -253,7 +253,7 @@ pub mod config {
 
     /// A percentage from 0 to 100%, used to specify the duty percentage in [`CarrierConfig`].
     #[derive(Debug, Copy, Clone, Eq, PartialEq)]
-    pub struct DutyPercent(pub(super) u8);
+    pub struct DutyPercent(pub(crate) u8);
 
     impl DutyPercent {
         /// Must be between 0 and 100, otherwise an error is returned.
