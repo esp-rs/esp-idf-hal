@@ -72,7 +72,7 @@ impl<'d> TxChannel<'d> {
     /// either from highest to lowest or lowest to highest.
     pub fn new(pin: impl OutputPin + 'd, config: &TxChannelConfig) -> Result<Self, EspError> {
         let sys_config: rmt_tx_channel_config_t = rmt_tx_channel_config_t {
-            clk_src: config.source_clock.into(),
+            clk_src: config.clock_source.into(),
             resolution_hz: config.resolution.into(),
             mem_block_symbols: config.memory_block_symbols,
             trans_queue_depth: config.transaction_queue_depth,

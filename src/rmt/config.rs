@@ -1,7 +1,7 @@
 pub use crate::rmt_legacy::config::DutyPercent;
 pub use crate::rmt_legacy::config::Loop;
 
-use crate::rmt::SourceClock;
+use crate::rmt::ClockSource;
 use crate::units::{FromValueType, Hertz};
 
 #[derive(Debug, Clone)]
@@ -16,7 +16,7 @@ pub struct TxChannelConfig {
     /// please refer to the [Power Management] section.
     ///
     /// [Power Management]: https://docs.espressif.com/projects/esp-idf/en/stable/esp32/api-reference/peripherals/rmt.html#rmt-power-management
-    pub source_clock: SourceClock,
+    pub clock_source: ClockSource,
     /// Sets the resolution of the internal tick counter. The timing parameter
     /// of the RMT signal is calculated based on this **tick**.
     pub resolution: Hertz,
@@ -49,7 +49,7 @@ pub struct TxChannelConfig {
 impl Default for TxChannelConfig {
     fn default() -> Self {
         Self {
-            source_clock: Default::default(),
+            clock_source: Default::default(),
             resolution: 1.MHz().into(),
             memory_block_symbols: 64,
             transaction_queue_depth: 4,
