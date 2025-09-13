@@ -3,6 +3,8 @@ pub mod encoder;
 
 mod tx_channel;
 pub use tx_channel::*;
+mod sync_manager;
+pub use sync_manager::*;
 
 use esp_idf_sys::*;
 
