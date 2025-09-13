@@ -1,4 +1,5 @@
 use core::marker::PhantomData;
+use core::mem;
 use core::ptr;
 use core::time::Duration;
 use std::sync::atomic::{AtomicUsize, Ordering};
@@ -301,7 +302,7 @@ impl<'d> TxChannel<'d> {
                 handle.encoder.handle(),
                 data.as_ptr() as *const _,
                 // size should be given in bytes:
-                data.len() * core::mem::size_of::<E::Item>(),
+                mem::size_of_val(data),
                 &sys_config,
             )
         })?;

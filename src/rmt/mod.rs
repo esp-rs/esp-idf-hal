@@ -106,6 +106,6 @@ impl Signal<rmt_symbol_word_t> for [rmt_symbol_word_t] {
 
 impl Signal<rmt_symbol_word_t> for &[rmt_symbol_word_t] {
     fn as_slice(&self) -> &[rmt_symbol_word_t] {
-        *self
+        self
     }
 }
