@@ -8,8 +8,10 @@ use esp_idf_sys::*;
 
 use crate::rmt_legacy::Pulse;
 
+// TODO: esp32c2 does not define a clock source?
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
-pub enum SourceClock {
+pub enum ClockSource {
     #[default]
     Default,
     #[cfg(any(esp32, esp32c3, esp32s2, esp32s3))]
@@ -24,20 +26,20 @@ pub enum SourceClock {
     PllF80m,
 }
 
-impl From<SourceClock> for rmt_clock_source_t {
-    fn from(clock: SourceClock) -> Self {
+impl From<ClockSource> for rmt_clock_source_t {
+    fn from(clock: ClockSource) -> Self {
         match clock {
-            SourceClock::Default => soc_periph_rmt_clk_src_t_RMT_CLK_SRC_DEFAULT,
+            ClockSource::Default => soc_periph_rmt_clk_src_t_RMT_CLK_SRC_DEFAULT,
             #[cfg(any(esp32, esp32c3, esp32s2, esp32s3))]
-            SourceClock::APB => soc_periph_rmt_clk_src_t_RMT_CLK_SRC_APB,
+            ClockSource::APB => soc_periph_rmt_clk_src_t_RMT_CLK_SRC_APB,
             #[cfg(any(esp32c3, esp32c5, esp32c6, esp32h2, esp32h4, esp32p4, esp32s3))]
-            SourceClock::RcFast => soc_periph_rmt_clk_src_t_RMT_CLK_SRC_RC_FAST,
+            ClockSource::RcFast => soc_periph_rmt_clk_src_t_RMT_CLK_SRC_RC_FAST,
             #[cfg(any(esp32, esp32s2))]
-            SourceClock::RefTick => soc_periph_rmt_clk_src_t_RMT_CLK_SRC_REF_TICK,
+            ClockSource::RefTick => soc_periph_rmt_clk_src_t_RMT_CLK_SRC_REF_TICK,
             #[cfg(any(esp32c3, esp32c5, esp32c6, esp32h2, esp32h4, esp32p4, esp32s3))]
-            SourceClock::XTAL => soc_periph_rmt_clk_src_t_RMT_CLK_SRC_XTAL,
+            ClockSource::XTAL => soc_periph_rmt_clk_src_t_RMT_CLK_SRC_XTAL,
             #[cfg(any(esp32c5, esp32c6, esp32p4))]
-            SourceClock::PllF80m => soc_periph_rmt_clk_src_t_RMT_CLK_SRC_PLL_F80M,
+            ClockSource::PllF80m => soc_periph_rmt_clk_src_t_RMT_CLK_SRC_PLL_F80M,
         }
     }
 }
