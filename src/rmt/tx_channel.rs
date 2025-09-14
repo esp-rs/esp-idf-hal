@@ -1,6 +1,5 @@
 use core::marker::PhantomData;
 use core::mem;
-use core::ptr;
 use core::time::Duration;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
@@ -10,9 +9,9 @@ use crate::interrupt::asynch::HalIsrNotification;
 use esp_idf_sys::*;
 
 use crate::interrupt;
-use crate::rmt::config::{CarrierConfig, Loop, TransmitConfig, TxChannelConfig};
+use crate::rmt::config::{Loop, TransmitConfig, TxChannelConfig};
 use crate::rmt::encoder::{CopyEncoder, Encoder};
-use crate::rmt::Signal;
+use crate::rmt::{RmtChannel, Signal};
 
 #[must_use]
 pub struct TxHandle<'t, E, S> {
@@ -117,25 +116,6 @@ impl<'d> TxChannel<'d> {
         self.handle
     }
 
-    /// Must be called in advance before transmitting or receiving RMT symbols.
-    /// For TX channels, enabling a channel enables a specific interrupt and
-    /// prepares the hardware to dispatch transactions. For RX channels, enabling
-    /// a channel enables an interrupt, but the receiver is not started during
-    /// this time, as the characteristics of the incoming signal have yet to be
-    /// specified.
-    ///
-    /// The receiver is started in rmt_receive().
-    pub fn enable(&mut self) -> Result<(), EspError> {
-        esp!(unsafe { rmt_enable(self.handle) })?;
-        Ok(())
-    }
-
-    /// Disables the interrupt and clearing any pending interrupts. The transmitter
-    /// and receiver are disabled as well.
-    pub fn disable(&mut self) -> Result<(), EspError> {
-        esp!(unsafe { rmt_disable(self.handle) })
-    }
-
     /// Wait for all pending TX transactions to finish.
     ///
     /// # Note
@@ -154,45 +134,6 @@ impl<'d> TxChannel<'d> {
             rmt_tx_wait_all_done(
                 self.handle,
                 timeout.map_or(-1, |duration| duration.as_millis() as i32),
-            )
-        })
-    }
-
-    /// Apply modulation feature for the channel.
-    ///
-    /// # Errors
-    ///
-    /// - `ESP_ERR_INVALID_ARG`: Apply carrier failed because of invalid argument
-    /// - `ESP_FAIL`: Apply carrier failed because of other error
-    pub fn apply_carrier(
-        &mut self,
-        carrier_config: Option<&CarrierConfig>,
-    ) -> Result<(), EspError> {
-        let mut sys_carrier = None;
-        if let Some(CarrierConfig {
-            frequency,
-            duty_cycle,
-            polarity_active_low,
-            always_on,
-        }) = carrier_config
-        {
-            sys_carrier = Some(rmt_carrier_config_t {
-                frequency_hz: (*frequency).into(),
-                duty_cycle: duty_cycle.0 as f32 / 100.0,
-                flags: rmt_carrier_config_t__bindgen_ty_1 {
-                    _bitfield_1: rmt_carrier_config_t__bindgen_ty_1::new_bitfield_1(
-                        *polarity_active_low as u32,
-                        *always_on as u32,
-                    ),
-                    ..Default::default()
-                },
-            })
-        }
-
-        esp!(unsafe {
-            rmt_apply_carrier(
-                self.handle,
-                sys_carrier.as_ref().map_or(ptr::null(), |c| c as *const _),
             )
         })
     }
@@ -386,6 +327,12 @@ impl<'d> TxChannel<'d> {
         if interrupt::active() {
             panic!("This function cannot be called from an ISR");
         }
+    }
+}
+
+impl<'d> RmtChannel for TxChannel<'d> {
+    fn handle(&self) -> rmt_channel_handle_t {
+        self.handle
     }
 }
 
