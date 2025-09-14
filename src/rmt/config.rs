@@ -1,3 +1,5 @@
+use core::time::Duration;
+
 pub use crate::rmt_legacy::config::DutyPercent;
 pub use crate::rmt_legacy::config::Loop;
 
@@ -123,4 +125,80 @@ pub struct CarrierConfig {
     pub polarity_active_low: bool,
     /// If set, the carrier can always exist even there's not transfer undergoing
     pub always_on: bool,
+}
+
+#[derive(Debug, Clone)]
+#[non_exhaustive]
+pub struct RxChannelConfig {
+    /// Selects the source clock for the RMT channel.
+    ///
+    /// Note that, the selected clock is also used by other channels,
+    /// which means the user should ensure this configuration is the
+    /// same when allocating other channels, regardless of TX or RX.
+    /// For the effect on the power consumption of different clock sources,
+    /// please refer to the [Power Management] section.
+    ///
+    /// [Power Management]: https://docs.espressif.com/projects/esp-idf/en/stable/esp32/api-reference/peripherals/rmt.html#rmt-power-management
+    pub clock_source: ClockSource,
+    /// Sets the resolution of the internal tick counter. The timing parameter
+    /// of the RMT signal is calculated based on this **tick**.
+    pub resolution: Hertz,
+    /// Has a slightly different meaning based on if the DMA backend is enabled or not.
+    ///
+    /// ### With DMA enabled
+    ///
+    /// This field controls the size of the internal DMA buffer. To achieve a better
+    /// throughput and smaller CPU overhead, you can set a larger value, e.g., `1024`.
+    ///
+    /// ### With DMA disabled
+    ///
+    /// This field controls the size of the dedicated memory block owned by the channel,
+    /// which should be at least 64.
+    pub memory_block_symbols: usize,
+    /// Set the priority of the interrupt. If set to 0, then the driver will use a
+    /// interrupt with low or medium priority (priority level may be one of 1, 2 or 3),
+    /// otherwise use the priority indicated by `rmt_tx_channel_config_t::intr_priority`.
+    ///
+    /// Please pay attention that once the interrupt priority is set, it cannot be changed
+    /// until the channel is dropped.
+    #[cfg(esp_idf_version_at_least_5_1_2)]
+    pub interrupt_priority: i32,
+    pub flags: RxConfigChannelFlags,
+}
+
+#[derive(Debug, Clone, Default)]
+#[non_exhaustive]
+pub struct RxConfigChannelFlags {
+    /// Is used to decide whether to invert the incoming RMT signal.
+    pub invert_in: bool,
+    /// Enables the DMA backend for the channel. Using the DMA allows a significant amount of
+    /// the channel's workload to be offloaded from the CPU. However, the DMA backend is not
+    /// available on all ESP chips, please refer to [TRM] before you enable this option.
+    /// Or you might encounter a `ESP_ERR_NOT_SUPPORTED` error.
+    ///
+    /// [TRM]: https://www.espressif.com/sites/default/files/documentation/esp32_technical_reference_manual_en.pdf#rmt
+    pub with_dma: bool,
+    /// The signal output from the GPIO will be fed to the input path as well.
+    pub io_loop_back: bool,
+    /// Configures if the driver allows the system to power down the peripheral in light sleep mode.
+    /// Before entering sleep, the system will backup the RMT register context, which will be restored
+    /// later when the system exit the sleep mode. Powering down the peripheral can save more power,
+    /// but at the cost of more memory consumed to save the register context. It's a tradeoff between
+    /// power consumption and memory consumption. This configuration option relies on specific
+    /// hardware feature, if you enable it on an unsupported chip, you will see error message
+    /// like not able to power down in light sleep.
+    #[cfg(esp_idf_version_at_least_5_4_0)]
+    pub allow_pd: bool,
+}
+
+#[derive(Debug, Clone, Default)]
+#[non_exhaustive]
+pub struct ReceiveConfig {
+    /// A pulse whose width is smaller than this threshold will be treated as glitch and ignored
+    pub signal_range_min: Duration,
+    /// RMT will stop receiving if one symbol level has kept more than this threshold
+    pub signal_range_max: Duration,
+    /// Set this flag if the incoming data is very long, and the driver can only receive the data
+    /// piece by piece, because the user buffer is not sufficient to save all the data.
+    pub enable_partial_rx: bool,
 }
