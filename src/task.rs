@@ -351,7 +351,7 @@ pub mod thread {
     }
     #[derive(Debug)]
     pub struct ThreadSpawnConfiguration {
-        pub name: Option<&'static [u8]>,
+        pub name: Option<&'static CStr>,
         pub stack_size: usize,
         pub priority: u8,
         pub inherit: bool,
@@ -410,12 +410,7 @@ pub mod thread {
                 name: if conf.thread_name.is_null() {
                     None
                 } else {
-                    Some(unsafe {
-                        core::slice::from_raw_parts(
-                            conf.thread_name as _,
-                            c_strlen(conf.thread_name.cast()) + 1,
-                        )
-                    })
+                    Some(unsafe { CStr::from_ptr(conf.thread_name) })
                 },
                 stack_size: conf.stack_size as _,
                 priority: conf.prio as _,
@@ -453,11 +448,6 @@ pub mod thread {
     }
 
     fn set_conf(conf: &ThreadSpawnConfiguration) -> Result<(), EspError> {
-        if let Some(name) = conf.name {
-            let _str = CStr::from_bytes_with_nul(name)
-                .map_err(|_e| panic! {"Missing null byte in provided Thread-Name"});
-        }
-
         if conf.priority < 1 || conf.priority as u32 >= configMAX_PRIORITIES {
             panic!("Thread priority {} has to be [1 - 24]", conf.priority);
         }
@@ -465,18 +455,6 @@ pub mod thread {
         esp!(unsafe { esp_pthread_set_cfg(&conf.into()) })?;
 
         Ok(())
-    }
-
-    fn c_strlen(c_str: *const u8) -> usize {
-        let mut offset = 0;
-
-        loop {
-            if *unsafe { c_str.offset(offset).as_ref() }.unwrap() == 0 {
-                return offset as _;
-            }
-
-            offset += 1;
-        }
     }
 }
 
