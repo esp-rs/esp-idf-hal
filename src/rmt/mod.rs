@@ -13,31 +13,56 @@ use core::ptr;
 use esp_idf_sys::*;
 
 use crate::rmt::config::CarrierConfig;
-use crate::rmt_legacy::Pulse;
 
 pub trait RmtChannel {
     /// Returns the underlying `rmt_channel_handle_t`.
     fn handle(&self) -> rmt_channel_handle_t;
 
+    #[must_use]
+    fn is_enabled(&self) -> bool;
+
+    unsafe fn set_internal_enabled(&mut self, is_enabled: bool);
+
     /// Must be called in advance before transmitting or receiving RMT symbols.
     /// For TX channels, enabling a channel enables a specific interrupt and
-    /// prepares the hardware to dispatch transactions. For RX channels, enabling
-    /// a channel enables an interrupt, but the receiver is not started during
-    /// this time, as the characteristics of the incoming signal have yet to be
-    /// specified.
+    /// prepares the hardware to dispatch transactions.
     ///
-    /// The receiver is started in rmt_receive().
+    /// For RX channels, enabling a channel enables an interrupt, but the receiver
+    /// is not started during this time, as the characteristics of the incoming
+    /// signal have yet to be specified.
+    ///
+    /// The receiver is started in [`RxChannel::receive`].
     fn enable(&mut self) -> Result<(), EspError> {
-        esp!(unsafe { rmt_enable(self.handle()) })
+        esp!(unsafe { rmt_enable(self.handle()) })?;
+
+        // SAFETY: The channel has been enabled -> it is safe to mark it as enabled.
+        unsafe { self.set_internal_enabled(true) };
+        Ok(())
     }
 
     /// Disables the interrupt and clearing any pending interrupts. The transmitter
     /// and receiver are disabled as well.
+    ///
+    /// # Note
+    ///
+    /// This function will release a power management (PM) lock that might be
+    /// installed during channel allocation
+    ///
+    /// # Errors
+    ///
+    /// - `ESP_ERR_INVALID_ARG`: Disable RMT channel failed because of invalid argument
+    /// - `ESP_ERR_INVALID_STATE`: Disable RMT channel failed because it's not enabled yet
+    /// - `ESP_FAIL`: Disable RMT channel failed because of other error
     fn disable(&mut self) -> Result<(), EspError> {
-        esp!(unsafe { rmt_disable(self.handle()) })
+        esp!(unsafe { rmt_disable(self.handle()) })?;
+        // SAFETY: The channel has been disable -> it is safe to mark it as disabled.
+        unsafe { self.set_internal_enabled(false) };
+        Ok(())
     }
 
-    /// Apply modulation feature for the channel.
+    /// Apply (de)modulation feature for the channel.
+    ///
+    /// If `carrier_config` is `None`, the carrier (de)modulation will be disabled.
     ///
     /// # Errors
     ///
@@ -89,7 +114,7 @@ pub enum ClockSource {
     #[cfg(any(esp32c3, esp32c5, esp32c6, esp32h2, esp32h4, esp32p4, esp32s3))]
     XTAL,
     #[cfg(any(esp32c5, esp32c6, esp32p4))]
-    PllF80m,
+    PLLF80M,
 }
 
 impl From<ClockSource> for rmt_clock_source_t {
@@ -105,75 +130,7 @@ impl From<ClockSource> for rmt_clock_source_t {
             #[cfg(any(esp32c3, esp32c5, esp32c6, esp32h2, esp32h4, esp32p4, esp32s3))]
             ClockSource::XTAL => soc_periph_rmt_clk_src_t_RMT_CLK_SRC_XTAL,
             #[cfg(any(esp32c5, esp32c6, esp32p4))]
-            ClockSource::PllF80m => soc_periph_rmt_clk_src_t_RMT_CLK_SRC_PLL_F80M,
+            ClockSource::PLLF80M => soc_periph_rmt_clk_src_t_RMT_CLK_SRC_PLL_F80M,
         }
-    }
-}
-
-// TODO: Decide on how to adjust the signal trait.
-//
-// Why it needs an adjustment?
-//
-// The original api only accepted a pointer to an array of rmt symbols,
-// the new api supports a pointer to any kind of data, as long as it is
-// supported by an encoder.
-//
-// To accommodate this change, the Signal trait has been adjusted to
-// support a generic type T.
-//
-// Depending on the final implementation, one could keep backward compatibility
-// with the old api by defaulting T to rmt_item32_t (I am not a fan of this)
-//
-// Potential problems:
-// - Make sure that Signal owns its data, so the code can assume that when it is
-//   passed an owned value that implements Signal, that the slice it references is
-//   a part of it.
-pub trait Signal<T> {
-    // TODO: associated type instead of generic?
-    fn as_slice(&self) -> &[T];
-}
-
-#[derive(Clone, Copy)]
-pub struct Symbol(rmt_symbol_word_t);
-
-impl Symbol {
-    /// Create a symbol from a pair of half-cycles.
-    pub fn new(level0: Pulse, level1: Pulse) -> Self {
-        let item = rmt_symbol_word_t {
-            __bindgen_anon_1: Default::default(),
-        };
-        let mut this = Self(item);
-        this.update(level0, level1);
-        this
-    }
-
-    /// Mutate this symbol to store a different pair of half-cycles.
-    pub fn update(&mut self, level0: Pulse, level1: Pulse) {
-        // SAFETY: We're overriding all 32 bits, so it doesn't matter what was here before.
-        let inner = unsafe { &mut self.0.__bindgen_anon_1 };
-        inner.set_level0(level0.pin_state as u16);
-        inner.set_duration0(level0.ticks.ticks());
-        inner.set_level1(level1.pin_state as u16);
-        inner.set_duration1(level1.ticks.ticks());
-    }
-}
-
-// TODO: is it safe to transmute between rmt_item32_t and rmt_symbol_word_t?
-
-impl Signal<rmt_symbol_word_t> for Symbol {
-    fn as_slice(&self) -> &[rmt_symbol_word_t] {
-        std::slice::from_ref(&self.0)
-    }
-}
-
-impl Signal<rmt_symbol_word_t> for [rmt_symbol_word_t] {
-    fn as_slice(&self) -> &[rmt_symbol_word_t] {
-        self
-    }
-}
-
-impl Signal<rmt_symbol_word_t> for &[rmt_symbol_word_t] {
-    fn as_slice(&self) -> &[rmt_symbol_word_t] {
-        self
     }
 }

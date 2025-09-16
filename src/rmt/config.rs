@@ -162,7 +162,7 @@ pub struct RxChannelConfig {
     /// Please pay attention that once the interrupt priority is set, it cannot be changed
     /// until the channel is dropped.
     #[cfg(esp_idf_version_at_least_5_1_2)]
-    pub interrupt_priority: i32,
+    pub interrupt_priority: i32, // TODO: replace with InterruptType?
     pub flags: RxConfigChannelFlags,
 }
 
