@@ -1,5 +1,9 @@
 mod copy_encoder;
 pub use copy_encoder::*;
+mod bytes_encoder;
+pub use bytes_encoder::*;
+mod simple_encoder;
+pub use simple_encoder::*;
 
 use esp_idf_sys::*;
 
