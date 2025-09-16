@@ -9,10 +9,16 @@ use crate::interrupt;
 use crate::rmt::config::{ReceiveConfig, RxChannelConfig};
 use crate::rmt::RmtChannel;
 
+struct UserData {
+    on_recv_notifier: interrupt::asynch::HalIsrNotification,
+    #[cfg(feature = "alloc")]
+    callback: Option<alloc::boxed::Box<dyn Fn(rmt_rx_done_event_data_t) + Send + 'static>>,
+}
+
 pub struct RxChannel<'d> {
     handle: rmt_channel_handle_t,
     is_enabled: bool,
-    on_recv_notifier: interrupt::asynch::HalIsrNotification,
+    user_data: UserData,
     _p: PhantomData<&'d mut ()>,
 }
 
@@ -59,7 +65,11 @@ impl<'d> RxChannel<'d> {
         let this = Self {
             is_enabled: false,
             handle,
-            on_recv_notifier: interrupt::asynch::HalIsrNotification::new(),
+            user_data: UserData {
+                on_recv_notifier: interrupt::asynch::HalIsrNotification::new(),
+                #[cfg(feature = "alloc")]
+                callback: None,
+            },
             _p: PhantomData,
         };
         // The callback is necessary to receive the "done" event, therefore it is always registered.
@@ -67,7 +77,7 @@ impl<'d> RxChannel<'d> {
             rmt_rx_register_event_callbacks(
                 handle,
                 &Self::RX_EVENT_CALLBACKS,
-                (&this.on_recv_notifier as *const _) as *mut _,
+                (&this.user_data as *const _) as *mut _,
             )
         })?;
 
@@ -102,65 +112,52 @@ impl<'d> RxChannel<'d> {
             )
         })?;
 
-        Ok(self.on_recv_notifier.wait().await.get())
+        Ok(self.user_data.on_recv_notifier.wait().await.get())
     }
 
-    pub fn subscribe(
-        &mut self,
-        on_recv_done: impl FnMut(rmt_rx_done_event_data_t) + Send + 'static,
-    ) {
-        self.check();
+    #[cfg(feature = "alloc")]
+    pub fn subscribe(&mut self, on_recv_done: impl Fn(rmt_rx_done_event_data_t) + Send + 'static) {
+        super::assert_not_in_isr();
+        if self.is_enabled() {
+            panic!("Cannot subscribe to RX events while the channel is enabled");
+        }
 
         // TODO: allocate callback in IRAM?
         // See https://github.com/esp-rs/esp-idf-hal/issues/486
-        let on_recv_done: alloc::boxed::Box<dyn FnMut(rmt_rx_done_event_data_t) + Send + 'static> =
+        let on_recv_done: alloc::boxed::Box<dyn Fn(rmt_rx_done_event_data_t) + Send + 'static> =
             alloc::boxed::Box::new(on_recv_done);
 
-        unsafe {
-            ISR_HANDLERS[self.channel_id()] = Some(on_recv_done);
-        }
+        self.user_data.callback = Some(on_recv_done);
     }
 
     /// Remove the ISR handler for when a transmission is done.
+    #[cfg(feature = "alloc")]
     pub fn unsubscribe(&mut self) {
-        self.check();
-
-        unsafe {
-            ISR_HANDLERS[self.channel_id()] = None;
+        super::assert_not_in_isr();
+        if self.is_enabled() {
+            panic!("Cannot unsubscribe from RX events while the channel is enabled");
         }
-    }
 
-    fn channel_id(&self) -> usize {
-        // rmt_channel_handle_t is a `typedef struct rmt_channel_t *rmt_channel_handle_t;`
-        // which should correspond to a *mut rmt_channel_t
-        unsafe { (self.handle as *mut rmt_channel_t).read() as usize }
-    }
-
-    fn check(&self) {
-        if interrupt::active() {
-            panic!("This function cannot be called from an ISR");
-        }
+        self.user_data.callback = None;
     }
 
     /// Handles the ISR event for when a transmission is done.
     unsafe extern "C" fn handle_isr(
-        channel: rmt_channel_handle_t,
+        _channel: rmt_channel_handle_t,
         event_data: *const rmt_rx_done_event_data_t,
         user_data: *mut core::ffi::c_void,
     ) -> bool {
-        // rmt_channel_handle_t is a `typedef struct rmt_channel_t *rmt_channel_handle_t;`
-        // which should correspond to a *mut rmt_channel_t
-        let id = (channel as *mut rmt_channel_t).read() as usize;
         let data = event_data.read();
-        let notifier = &*(user_data as *const interrupt::asynch::HalIsrNotification);
+        let user_data = &*(user_data as *const UserData);
         let received_symbols = NonZeroU32::new_unchecked(data.num_symbols as u32);
 
         interrupt::with_isr_yield_signal(move || {
-            if let Some(handler) = ISR_HANDLERS[id].as_mut() {
+            #[cfg(feature = "alloc")]
+            if let Some(handler) = user_data.callback.as_ref() {
                 handler(data);
             }
 
-            notifier.notify(received_symbols);
+            user_data.on_recv_notifier.notify(received_symbols);
         })
     }
 }
@@ -184,7 +181,9 @@ impl<'d> Drop for RxChannel<'d> {
         // Deleting the channel might fail if it is not disabled first.
         //
         // The result is ignored here, because there is nothing we can do about it.
-        let _res = self.disable();
+        if self.is_enabled() {
+            let _res = self.disable();
+        }
 
         unsafe {
             rmt_rx_register_event_callbacks(
@@ -194,14 +193,6 @@ impl<'d> Drop for RxChannel<'d> {
             )
         };
 
-        unsafe {
-            ISR_HANDLERS[self.channel_id()] = None;
-        }
-        self.on_recv_notifier.reset();
-
         unsafe { rmt_del_channel(self.handle) };
     }
 }
-type IsrHandler = Option<alloc::boxed::Box<dyn FnMut(rmt_rx_done_event_data_t)>>;
-static mut ISR_HANDLERS: [IsrHandler; rmt_channel_t_RMT_CHANNEL_MAX as usize] =
-    [const { None }; rmt_channel_t_RMT_CHANNEL_MAX as usize];

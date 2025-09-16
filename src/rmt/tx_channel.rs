@@ -14,12 +14,6 @@ use crate::rmt::config::{Loop, TransmitConfig, TxChannelConfig};
 use crate::rmt::encoder::Encoder;
 use crate::rmt::RmtChannel;
 
-fn assert_not_in_isr() {
-    if interrupt::active() {
-        panic!("This function cannot be called from an ISR");
-    }
-}
-
 /// A handle to a sent transmission that can be used to wait for its completion.
 pub struct TxHandle<'t> {
     id: usize,
@@ -36,7 +30,7 @@ impl<'t> TxHandle<'t> {
     pub async fn wait(&mut self) {
         // Calling self.notif.wait() is explicitly not allowed from an ISR context,
         // this makes sure that this is not called from an ISR:
-        assert_not_in_isr();
+        super::assert_not_in_isr();
 
         // The notif will notify every time a transmission is done, this might not
         // be the one we are waiting for, therefore the id is checked here:
@@ -51,7 +45,12 @@ impl<'t> TxHandle<'t> {
     ///
     /// If the transmission never ends (e.g. [`Loop::Endless`]) this function will never return.
     pub fn wait_blocking(&mut self) {
-        crate::task::block_on(self.wait())
+        #[cfg(feature = "alloc")]
+        crate::task::block_on(self.wait());
+        #[cfg(not(feature = "alloc"))]
+        while self.finished_count.load(Ordering::SeqCst) <= self.id {
+            crate::task::do_yield();
+        }
     }
 }
 
@@ -83,7 +82,7 @@ impl<'channel, 'env> Scope<'channel, 'env> {
         signal: &'env [E::Item],
         config: &TransmitConfig,
     ) -> Result<TxHandle<'channel>, EspError> {
-        assert_not_in_isr();
+        super::assert_not_in_isr();
 
         // SAFETY: The lifetimes on the encoder and signal ensure that they live until 'env
         unsafe { self.channel.start_transmit(encoder, signal, config) }
@@ -139,7 +138,7 @@ impl<'d> TxChannel<'d> {
     ///
     /// This function will panic if called from an ISR context.
     pub fn new(pin: impl OutputPin + 'd, config: &TxChannelConfig) -> Result<Self, EspError> {
-        assert_not_in_isr();
+        super::assert_not_in_isr();
 
         let sys_config: rmt_tx_channel_config_t = rmt_tx_channel_config_t {
             clk_src: config.clock_source.into(),
@@ -234,7 +233,7 @@ impl<'d> TxChannel<'d> {
     where
         for<'s, 'channel> F: FnOnce(&'s mut Scope<'channel, 'env>) -> Result<R, EspError>,
     {
-        assert_not_in_isr();
+        super::assert_not_in_isr();
 
         let (is_canceled, result) = {
             let channel: &TxChannel<'_> = &*self;
@@ -360,7 +359,7 @@ impl<'d> TxChannel<'d> {
         &mut self,
         callback: impl Fn(rmt_tx_done_event_data_t) + Send + 'static,
     ) {
-        assert_not_in_isr();
+        super::assert_not_in_isr();
         if self.is_enabled() {
             panic!("Can't subscribe when the channel is enabled");
         }
@@ -380,8 +379,9 @@ impl<'d> TxChannel<'d> {
     /// # Panics
     ///
     /// This function will panic if called from an ISR context or while the channel is enabled.
+    #[cfg(feature = "alloc")]
     pub fn unsubscribe(&mut self) {
-        assert_not_in_isr();
+        super::assert_not_in_isr();
         if self.is_enabled() {
             panic!("Can't unsubscribe when the channel is enabled");
         }
@@ -394,17 +394,17 @@ impl<'d> TxChannel<'d> {
     /// Handles the ISR event for when a transmission is done.
     unsafe extern "C" fn handle_isr(
         _channel: rmt_channel_handle_t,
-        event_data: *const rmt_tx_done_event_data_t,
+        #[allow(unused_variables)] event_data: *const rmt_tx_done_event_data_t,
         user_data: *mut core::ffi::c_void,
     ) -> bool {
-        // rmt_channel_handle_t is a `typedef struct rmt_channel_t *rmt_channel_handle_t;`
-        // which should correspond to a *mut rmt_channel_t
+        #[cfg(feature = "alloc")]
         let event_data = event_data.read();
 
         let user_data = &*(user_data as *const UserData);
         user_data.finished_count.fetch_add(1, Ordering::SeqCst);
 
         interrupt::with_isr_yield_signal(move || {
+            #[cfg(feature = "alloc")]
             if let Some(handler) = user_data.callback.as_ref() {
                 handler(event_data);
             }
@@ -433,7 +433,9 @@ impl<'d> Drop for TxChannel<'d> {
         // Deleting the channel might fail if it is not disabled first.
         //
         // The result is ignored here, because there is nothing we can do about it.
-        let _res = self.disable();
+        if self.is_enabled() {
+            let _res = self.disable();
+        }
 
         unsafe {
             rmt_tx_register_event_callbacks(
