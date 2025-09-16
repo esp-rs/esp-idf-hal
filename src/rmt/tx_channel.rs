@@ -1,7 +1,8 @@
 use core::marker::PhantomData;
 use core::mem;
+use core::ptr;
+use core::sync::atomic::{AtomicUsize, Ordering};
 use core::time::Duration;
-use std::sync::atomic::{AtomicUsize, Ordering};
 
 use crate::gpio::OutputPin;
 use crate::interrupt::asynch::HalIsrNotification;
@@ -10,55 +11,119 @@ use esp_idf_sys::*;
 
 use crate::interrupt;
 use crate::rmt::config::{Loop, TransmitConfig, TxChannelConfig};
-use crate::rmt::encoder::{CopyEncoder, Encoder};
-use crate::rmt::{RmtChannel, Signal};
+use crate::rmt::encoder::Encoder;
+use crate::rmt::RmtChannel;
 
-#[must_use]
-pub struct TxHandle<'t, E, S> {
-    channel: &'t TxChannel<'t>,
-    notif: &'t HalIsrNotification,
-    signal: S,
-    id: usize,
-    encoder: E, // Ensures that the encoder lives as long as the TxHandle
-    enabled: bool,
+fn assert_not_in_isr() {
+    if interrupt::active() {
+        panic!("This function cannot be called from an ISR");
+    }
 }
 
-impl<'t, E, S> TxHandle<'t, E, S> {
-    pub async fn wait(&mut self) {
-        self.channel.check();
+/// A handle to a sent transmission that can be used to wait for its completion.
+pub struct TxHandle<'t> {
+    id: usize,
+    notif: &'t HalIsrNotification,
+    finished_count: &'t AtomicUsize,
+}
 
-        // Wait until the transmission with this id is done
-        while TRANSMISSION_COUNTER[self.channel.channel_id()]
-            .sent
-            .load(Ordering::SeqCst)
-            <= self.id
-        {
-            self.notif.wait().await; // Will be notified from the ISR every time a transmission is done
+impl<'t> TxHandle<'t> {
+    /// Waits asynchronously for the transmission to complete.
+    ///
+    /// # Note
+    ///
+    /// If the transmission never ends (e.g. [`Loop::Endless`]) this function will never return.
+    pub async fn wait(&mut self) {
+        // Calling self.notif.wait() is explicitly not allowed from an ISR context,
+        // this makes sure that this is not called from an ISR:
+        assert_not_in_isr();
+
+        // The notif will notify every time a transmission is done, this might not
+        // be the one we are waiting for, therefore the id is checked here:
+        while self.finished_count.load(Ordering::SeqCst) <= self.id {
+            self.notif.wait().await;
         }
     }
 
+    /// Waits for the transmission to complete.
+    ///
+    /// # Note
+    ///
+    /// If the transmission never ends (e.g. [`Loop::Endless`]) this function will never return.
     pub fn wait_blocking(&mut self) {
-        // TODO: This might block forever if the transmission never ends; Loop::Endless
         crate::task::block_on(self.wait())
     }
 }
 
-// TODO: impl IntoFuture for TxHandle?
+/// A scope in which multiple transmissions can be sent.
+pub struct Scope<'channel, 'env> {
+    channel: &'channel TxChannel<'channel>,
+    is_canceled: bool,
+    _p: PhantomData<&'env mut ()>,
+}
 
-impl<'t, E, S> Drop for TxHandle<'t, E, S> {
-    fn drop(&mut self) {
-        if self.enabled {
-            self.wait_blocking()
-        }
+impl<'channel, 'env> Scope<'channel, 'env> {
+    // SAFETY:
+    //
+    // It must be guaranteed that the encoder and signal live for the 'env lifetime.
+    //
+    // Make sure that the send function uses an `&mut self` reference and not `&self`,
+    // otherwise the compiler might shorten the lifetime of the parameters:
+    // https://doc.rust-lang.org/nomicon/subtyping.html#variance
+    //
+    // resulting in use-after-free bugs.
+
+    /// Starts transmitting the given signal using the specified encoder and config.
+    ///
+    /// This is a safe API for [`TxChannel::start_transmit`], see its documentation for more details
+    /// on the behavior.
+    pub fn send<E: Encoder>(
+        &mut self,
+        encoder: &'env mut E,
+        signal: &'env [E::Item],
+        config: &TransmitConfig,
+    ) -> Result<TxHandle<'channel>, EspError> {
+        assert_not_in_isr();
+
+        // SAFETY: The lifetimes on the encoder and signal ensure that they live until 'env
+        unsafe { self.channel.start_transmit(encoder, signal, config) }
+    }
+
+    /// Indicates that the channel should be disabled (will cancel all pending transmissions)
+    /// after the scope ends.
+    ///
+    /// # Note
+    ///
+    /// This does not immediately disable the channel, it will disable it after the scope ends.
+    pub fn cancel(&mut self) {
+        self.is_canceled = true;
     }
 }
 
+struct UserData {
+    // TODO: is it okay to expose rmt_tx_done_event_data_t directly?
+    #[cfg(feature = "alloc")]
+    callback: Option<alloc::boxed::Box<dyn Fn(rmt_tx_done_event_data_t) + Send + 'static>>,
+    next_tx_id: AtomicUsize,
+    finished_count: AtomicUsize,
+    notif: HalIsrNotification,
+}
+
 pub struct TxChannel<'d> {
+    is_enabled: bool,
     handle: rmt_channel_handle_t,
+    user_data: UserData,
     _p: PhantomData<&'d mut ()>,
 }
 
 impl<'d> TxChannel<'d> {
+    const TX_EVENT_CALLBACKS: rmt_tx_event_callbacks_t = rmt_tx_event_callbacks_t {
+        on_trans_done: Some(Self::handle_isr),
+    };
+    const TX_EVENT_CALLBACKS_DISABLE: rmt_tx_event_callbacks_t = rmt_tx_event_callbacks_t {
+        on_trans_done: None,
+    };
+
     /// Creates a new RMT TX channel.
     ///
     /// # Note
@@ -69,7 +134,13 @@ impl<'d> TxChannel<'d> {
     /// from low to high. To avoid prescale conflicts when allocating multiple
     /// channels, allocate channels in order of their target resolution,
     /// either from highest to lowest or lowest to highest.
+    ///
+    /// # Panics
+    ///
+    /// This function will panic if called from an ISR context.
     pub fn new(pin: impl OutputPin + 'd, config: &TxChannelConfig) -> Result<Self, EspError> {
+        assert_not_in_isr();
+
         let sys_config: rmt_tx_channel_config_t = rmt_tx_channel_config_t {
             clk_src: config.clock_source.into(),
             resolution_hz: config.resolution.into(),
@@ -92,8 +163,21 @@ impl<'d> TxChannel<'d> {
             },
             gpio_num: pin.pin() as _,
         };
-        let mut handle: rmt_channel_handle_t = core::ptr::null_mut();
+        let mut handle: rmt_channel_handle_t = ptr::null_mut();
         esp!(unsafe { rmt_new_tx_channel(&sys_config, &mut handle) })?;
+
+        let this = Self {
+            is_enabled: false,
+            handle,
+            user_data: UserData {
+                #[cfg(feature = "alloc")]
+                callback: None,
+                next_tx_id: AtomicUsize::new(0),
+                finished_count: AtomicUsize::new(0),
+                notif: HalIsrNotification::new(),
+            },
+            _p: PhantomData,
+        };
 
         // The callback is used to detect when a transmission is finished.
         // Therefore it is always registered:
@@ -101,19 +185,11 @@ impl<'d> TxChannel<'d> {
             rmt_tx_register_event_callbacks(
                 handle,
                 &Self::TX_EVENT_CALLBACKS,
-                core::ptr::null_mut(),
+                &this.user_data as *const _ as *mut core::ffi::c_void,
             )
         })?;
 
-        Ok(Self {
-            handle,
-            _p: PhantomData,
-        })
-    }
-
-    /// Returns the underlying `rmt_channel_handle_t`.
-    pub fn handle(&self) -> rmt_channel_handle_t {
-        self.handle
+        Ok(this)
     }
 
     /// Wait for all pending TX transactions to finish.
@@ -138,37 +214,68 @@ impl<'d> TxChannel<'d> {
         })
     }
 
-    /// Starts transmitting the given payloadk, it will not wait for the transmission to be done.
+    /// Creates a new scope in which multiple transmissions can be sent without awaiting the previous ones.
     ///
-    /// # Safety
+    /// After the closure returns, this function will wait for all transmissions to
+    /// finish before returning.
     ///
-    /// You are not allowed to `mem::forget` the returned `TxHandle`, this might lead to undefined behavior.
-    pub unsafe fn start_transmit<'t, S>(
-        &'t self,
-        payload: S,
-        config: &TransmitConfig,
-    ) -> Result<TxHandle<'t, CopyEncoder, S>, EspError>
+    /// # Note
+    ///
+    /// If a transmission never ends (e.g. [`Loop::Endless`]) this function will never return.
+    ///
+    /// # Errors
+    ///
+    /// This function will return any error returned by the closure or by [`Self::wait_all_done`].
+    ///
+    /// # Panics
+    ///
+    /// This function will panic if called from an ISR context.
+    pub fn scope<'env, F, R>(&'env mut self, f: F) -> Result<R, EspError>
     where
-        S: Signal<rmt_symbol_word_t>,
+        for<'s, 'channel> F: FnOnce(&'s mut Scope<'channel, 'env>) -> Result<R, EspError>,
     {
-        let copy_encoder = CopyEncoder::new(&rmt_copy_encoder_config_t {})?;
-        let handle = self.transmit_raw(copy_encoder, payload, config)?;
+        assert_not_in_isr();
 
-        Ok(handle)
+        let (is_canceled, result) = {
+            let channel: &TxChannel<'_> = &*self;
+            let mut scope = Scope {
+                channel: channel,
+                is_canceled: false,
+                _p: PhantomData,
+            };
+
+            let result = { f(&mut scope) };
+
+            (scope.is_canceled, result)
+        };
+
+        if is_canceled {
+            // If the scope was canceled, we don't wait for all done, instead disable the channel.
+            self.disable()?;
+        } else {
+            self.wait_all_done(None)?;
+        }
+
+        result
     }
 
-    /// Transmits the raw data using the specified encoder and config.
+    /// Transmits the signal using the specified encoder and config.
+    ///
+    /// It will not wait for the transmission to finish, but a [`TxHandle`] is returned
+    /// which can be used for this.
     ///
     /// # Safety
     ///
     /// The encoder is passed to the [`rmt_transmit`] function which then calls the
-    /// encoders functions to transform the payload into RMT symbols. You must ensure
+    /// encoders functions to transform the signal into RMT symbols. You must ensure
     /// that the encoder is implemented correctly, for more details, see the [RMT Encoder]
     /// documentation.
     ///
-    /// The passed payload must be valid and can not be modified, until the transmission is done.
+    /// The passed signal must be valid and can not be modified, until the transmission is done.
     /// One can await the transmission end by calling [`Self::wait_all_done`] or registering a
     /// callback to be notified when the transmission is done.
+    ///
+    /// If you are looking for a safe alternative, consider using [`Self::scope`].
     ///
     /// [RMT Encoder]: https://docs.espressif.com/projects/esp-idf/en/stable/esp32/api-reference/peripherals/rmt.html#rmt-encoder
     ///
@@ -185,15 +292,12 @@ impl<'d> TxChannel<'d> {
     /// - `ESP_ERR_INVALID_STATE`: The channel is not enabled, make sure you called [`Self::enable`] before transmitting.
     /// - `ESP_ERR_NOT_SUPPORTED`: Some feature is not supported by hardware e.g. unsupported loop count
     /// - `ESP_FAIL`: Because of other errors
-    pub unsafe fn transmit_raw<'t, E: Encoder, S>(
+    pub unsafe fn start_transmit<'t, E: Encoder>(
         &'t self,
-        encoder: E,
-        payload: S,
+        encoder: &mut E,
+        signal: &[E::Item],
         config: &TransmitConfig,
-    ) -> Result<TxHandle<'t, E, S>, EspError>
-    where
-        S: Signal<E::Item>,
-    {
+    ) -> Result<TxHandle<'t>, EspError> {
         let sys_config = rmt_transmit_config_t {
             loop_count: match config.loop_count {
                 Loop::Count(value) => value as i32,
@@ -212,54 +316,28 @@ impl<'d> TxChannel<'d> {
             },
         };
 
-        // TODO: The rmt_transmit might block if the queue is full and queue_non_blocking is false.
+        // This gets the id for the current transmission, which is
+        // later used to check if the transmission is done.
+        let id = self.user_data.next_tx_id.fetch_add(1, Ordering::SeqCst);
 
-        // SAFETY: The payload buffer must not be modified or dropped until the transmission is completed.
-        // SAFETY: The encoder must live until the transmission is completed.
-        //
-        // Both of these conditions are guaranteed by the TxHandle that is returned. This functions signature
-        // ensures that the channel, payload and encoder live at least as long as the TxHandle. When a TxHandle
-        // is dropped, it will wait for the transmission to be done, ensuring that the payload and encoder will
-        // not be dropped before the transmission is done.
-        // TODO: couldn't one forget the TxHandle? This would prevent it from calling the drop function -> not waiting for the transmission to be done?
-        // TODO: maybe define TxHandle such that it owns the data -> on forget the data will still be there?
-        let id = TRANSMISSION_COUNTER[self.channel_id()]
-            .queued
-            .fetch_add(1, Ordering::SeqCst);
-
-        let mut handle = TxHandle {
-            channel: self,
-            notif: &RMT_NOTIF[self.channel_id()],
+        let handle = TxHandle {
+            notif: &self.user_data.notif,
             id,
-            encoder,
-            signal: payload,
-            enabled: false,
+            finished_count: &self.user_data.finished_count,
         };
-        // TODO: is it enough to keep ownership or do we have to keep the reference in TxHandle as well?
-        let data = handle.signal.as_slice();
         esp!(unsafe {
             rmt_transmit(
                 self.handle,
-                handle.encoder.handle(),
-                data.as_ptr() as *const _,
+                encoder.handle(),
+                signal.as_ptr() as *const _,
                 // size should be given in bytes:
-                mem::size_of_val(data),
+                mem::size_of_val(signal),
                 &sys_config,
             )
         })?;
-        // The above might error, in which case the transmission was not started/it should not be waited for.
-        // This field solves that issue.
-        handle.enabled = true;
 
         Ok(handle)
     }
-
-    const TX_EVENT_CALLBACKS: rmt_tx_event_callbacks_t = rmt_tx_event_callbacks_t {
-        on_trans_done: Some(Self::handle_isr),
-    };
-    const TX_EVENT_CALLBACKS_DISABLE: rmt_tx_event_callbacks_t = rmt_tx_event_callbacks_t {
-        on_trans_done: None,
-    };
 
     /// Add ISR handler for when a transmission is done.
     ///
@@ -267,72 +345,86 @@ impl<'d> TxChannel<'d> {
     /// which is appended by the driver to mark the end of the transmission. For a loop transmission,
     /// this value only counts for one round.
     ///
+    /// # Panics
+    ///
+    /// This function will panic if called from an ISR context or while the channel is enabled.
+    ///
     /// # Safety
     ///
-    /// Care should be taken not to call STD, libc or FreeRTOS APIs (except for a few allowed ones)
+    /// Care should be taken not to call std, libc or FreeRTOS APIs (except for a few allowed ones)
     /// in the callback passed to this function, as it is executed in an ISR context.
+    ///
+    /// You are not allowed to block, but you are allowed to call FreeRTOS APIs with the FromISR suffix.
     #[cfg(feature = "alloc")]
-    pub unsafe fn subscribe(&mut self, callback: impl FnMut(usize) + Send + 'static) {
-        self.check();
+    pub unsafe fn subscribe(
+        &mut self,
+        callback: impl Fn(rmt_tx_done_event_data_t) + Send + 'static,
+    ) {
+        assert_not_in_isr();
+        if self.is_enabled() {
+            panic!("Can't subscribe when the channel is enabled");
+        }
 
         // TODO: allocate callback in IRAM?
         // See https://github.com/esp-rs/esp-idf-hal/issues/486
-        let callback: alloc::boxed::Box<dyn FnMut(usize) + Send + 'static> =
+        let callback: alloc::boxed::Box<dyn Fn(rmt_tx_done_event_data_t) + Send + 'static> =
             alloc::boxed::Box::new(callback);
 
-        unsafe {
-            ISR_HANDLERS[self.channel_id()] = Some(callback);
-        }
+        // SAFETY: The interrupt handler is not called while the channel is disabled
+        // -> it should be safe to change the callback.
+        self.user_data.callback = Some(callback);
     }
 
     /// Remove the ISR handler for when a transmission is done.
+    ///
+    /// # Panics
+    ///
+    /// This function will panic if called from an ISR context or while the channel is enabled.
     pub fn unsubscribe(&mut self) {
-        self.check();
-
-        unsafe {
-            ISR_HANDLERS[self.channel_id()] = None;
+        assert_not_in_isr();
+        if self.is_enabled() {
+            panic!("Can't unsubscribe when the channel is enabled");
         }
+
+        // SAFETY: The interrupt handler is not called while the channel is disabled
+        // -> it should be safe to change the callback.
+        self.user_data.callback = None;
     }
 
     /// Handles the ISR event for when a transmission is done.
     unsafe extern "C" fn handle_isr(
-        channel: rmt_channel_handle_t,
+        _channel: rmt_channel_handle_t,
         event_data: *const rmt_tx_done_event_data_t,
-        _user_data: *mut core::ffi::c_void,
+        user_data: *mut core::ffi::c_void,
     ) -> bool {
         // rmt_channel_handle_t is a `typedef struct rmt_channel_t *rmt_channel_handle_t;`
         // which should correspond to a *mut rmt_channel_t
-        let id = (channel as *mut rmt_channel_t).read() as usize;
-        let num_symbols = event_data.read().num_symbols;
+        let event_data = event_data.read();
 
-        // TODO: This might not be safe in ISR?
-        TRANSMISSION_COUNTER[id].sent.fetch_add(1, Ordering::SeqCst);
+        let user_data = &*(user_data as *const UserData);
+        user_data.finished_count.fetch_add(1, Ordering::SeqCst);
 
         interrupt::with_isr_yield_signal(move || {
-            if let Some(handler) = ISR_HANDLERS[id].as_mut() {
-                handler(num_symbols);
+            if let Some(handler) = user_data.callback.as_ref() {
+                handler(event_data);
             }
 
-            RMT_NOTIF[id].notify_lsb();
+            user_data.notif.notify_lsb();
         })
-    }
-
-    fn channel_id(&self) -> usize {
-        // rmt_channel_handle_t is a `typedef struct rmt_channel_t *rmt_channel_handle_t;`
-        // which should correspond to a *mut rmt_channel_t
-        unsafe { (self.handle as *mut rmt_channel_t).read() as usize }
-    }
-
-    fn check(&self) {
-        if interrupt::active() {
-            panic!("This function cannot be called from an ISR");
-        }
     }
 }
 
 impl<'d> RmtChannel for TxChannel<'d> {
     fn handle(&self) -> rmt_channel_handle_t {
         self.handle
+    }
+
+    fn is_enabled(&self) -> bool {
+        self.is_enabled
+    }
+
+    unsafe fn set_internal_enabled(&mut self, is_enabled: bool) {
+        self.is_enabled = is_enabled;
     }
 }
 
@@ -347,46 +439,10 @@ impl<'d> Drop for TxChannel<'d> {
             rmt_tx_register_event_callbacks(
                 self.handle,
                 &Self::TX_EVENT_CALLBACKS_DISABLE,
-                core::ptr::null_mut(),
+                ptr::null_mut(),
             )
         };
-
-        unsafe {
-            ISR_HANDLERS[self.channel_id()] = None;
-        }
-        RMT_NOTIF[self.channel_id()].reset();
-        TRANSMISSION_COUNTER[self.channel_id()].reset();
 
         unsafe { rmt_del_channel(self.handle) };
     }
 }
-
-type IsrHandler = Option<alloc::boxed::Box<dyn FnMut(usize)>>;
-static mut ISR_HANDLERS: [IsrHandler; rmt_channel_t_RMT_CHANNEL_MAX as usize] =
-    [const { None }; rmt_channel_t_RMT_CHANNEL_MAX as usize];
-
-static RMT_NOTIF: [interrupt::asynch::HalIsrNotification; rmt_channel_t_RMT_CHANNEL_MAX as usize] =
-    [const { interrupt::asynch::HalIsrNotification::new() }; rmt_channel_t_RMT_CHANNEL_MAX as usize];
-
-struct TransmissionCounter {
-    // TODO: move this into TxChannel?
-    queued: AtomicUsize,
-    sent: AtomicUsize,
-}
-
-impl TransmissionCounter {
-    const fn new() -> Self {
-        Self {
-            queued: AtomicUsize::new(0),
-            sent: AtomicUsize::new(0),
-        }
-    }
-
-    #[inline(always)]
-    fn reset(&self) {
-        self.queued.store(0, Ordering::SeqCst);
-        self.sent.store(0, Ordering::SeqCst);
-    }
-}
-static TRANSMISSION_COUNTER: [TransmissionCounter; rmt_channel_t_RMT_CHANNEL_MAX as usize] =
-    [const { TransmissionCounter::new() }; rmt_channel_t_RMT_CHANNEL_MAX as usize];

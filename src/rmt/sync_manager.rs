@@ -2,7 +2,7 @@ use core::ptr;
 
 use esp_idf_sys::*;
 
-use crate::rmt::TxChannel;
+use crate::rmt::{RmtChannel, TxChannel};
 
 /// In some real-time control applications (e.g., to make two robotic arms move simultaneously),
 /// you do not want any time drift between different channels. The RMT driver can help to manage

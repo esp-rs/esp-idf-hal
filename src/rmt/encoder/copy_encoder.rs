@@ -10,7 +10,11 @@ pub struct CopyEncoder {
 }
 
 impl CopyEncoder {
-    pub fn new(config: &rmt_copy_encoder_config_t) -> Result<Self, EspError> {
+    pub fn new() -> Result<Self, EspError> {
+        Self::with_config(&rmt_copy_encoder_config_t {})
+    }
+
+    pub fn with_config(config: &rmt_copy_encoder_config_t) -> Result<Self, EspError> {
         let mut handle: rmt_encoder_handle_t = ptr::null_mut();
         esp!(unsafe { rmt_new_copy_encoder(config, &mut handle) })?;
         Ok(Self { handle })

@@ -11,11 +11,18 @@ use crate::rmt::RmtChannel;
 
 pub struct RxChannel<'d> {
     handle: rmt_channel_handle_t,
+    is_enabled: bool,
     on_recv_notifier: interrupt::asynch::HalIsrNotification,
     _p: PhantomData<&'d mut ()>,
 }
 
 impl<'d> RxChannel<'d> {
+    const RX_EVENT_CALLBACKS: rmt_rx_event_callbacks_t = rmt_rx_event_callbacks_t {
+        on_recv_done: Some(Self::handle_isr),
+    };
+    const RX_EVENT_CALLBACKS_DISABLE: rmt_rx_event_callbacks_t =
+        rmt_rx_event_callbacks_t { on_recv_done: None };
+
     /// Creates a new RMT RX channel.
     ///
     /// # Errors
@@ -50,6 +57,7 @@ impl<'d> RxChannel<'d> {
         esp!(unsafe { rmt_new_rx_channel(&sys_config, &mut handle) })?;
 
         let this = Self {
+            is_enabled: false,
             handle,
             on_recv_notifier: interrupt::asynch::HalIsrNotification::new(),
             _p: PhantomData,
@@ -65,12 +73,6 @@ impl<'d> RxChannel<'d> {
 
         Ok(this)
     }
-
-    const RX_EVENT_CALLBACKS: rmt_rx_event_callbacks_t = rmt_rx_event_callbacks_t {
-        on_recv_done: Some(Self::handle_isr),
-    };
-    const RX_EVENT_CALLBACKS_DISABLE: rmt_rx_event_callbacks_t =
-        rmt_rx_event_callbacks_t { on_recv_done: None };
 
     /// Receives RMT symbols into the provided buffer, returning the number of received symbols.
     ///
@@ -166,6 +168,14 @@ impl<'d> RxChannel<'d> {
 impl<'d> RmtChannel for RxChannel<'d> {
     fn handle(&self) -> rmt_channel_handle_t {
         self.handle
+    }
+
+    fn is_enabled(&self) -> bool {
+        self.is_enabled
+    }
+
+    unsafe fn set_internal_enabled(&mut self, is_enabled: bool) {
+        self.is_enabled = is_enabled;
     }
 }
 
