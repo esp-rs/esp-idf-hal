@@ -14,6 +14,12 @@ use esp_idf_sys::*;
 
 use crate::rmt::config::CarrierConfig;
 
+fn assert_not_in_isr() {
+    if crate::interrupt::active() {
+        panic!("This function cannot be called from an ISR");
+    }
+}
+
 pub trait RmtChannel {
     /// Returns the underlying `rmt_channel_handle_t`.
     fn handle(&self) -> rmt_channel_handle_t;
