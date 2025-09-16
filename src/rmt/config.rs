@@ -6,8 +6,9 @@ pub use crate::rmt_legacy::config::Loop;
 use crate::rmt::ClockSource;
 use crate::units::{FromValueType, Hertz};
 
+// TODO: #[non_exhaustive] does not work as expected with the Default::default() refactor code to account for that
+
 #[derive(Debug, Clone)]
-#[non_exhaustive]
 pub struct TxChannelConfig {
     /// Selects the source clock for the RMT channel.
     ///
@@ -63,7 +64,6 @@ impl Default for TxChannelConfig {
 }
 
 #[derive(Debug, Clone, Default)]
-#[non_exhaustive]
 pub struct TxConfigChannelFlags {
     /// Is used to decide whether to invert the RMT signal before sending it to the GPIO pad.
     pub invert_out: bool,
@@ -90,7 +90,6 @@ pub struct TxConfigChannelFlags {
 }
 
 #[derive(Debug, Clone)]
-#[non_exhaustive]
 pub struct TransmitConfig {
     /// Specify the times of transmission in a loop, -1 means transmitting in an infinite loop
     pub loop_count: Loop,
@@ -115,7 +114,6 @@ impl Default for TransmitConfig {
 }
 
 #[derive(Debug, Clone)]
-#[non_exhaustive]
 pub struct CarrierConfig {
     /// Carrier wave frequency, in Hz, 0 means disabling the carrier.
     pub frequency: Hertz,
@@ -128,7 +126,6 @@ pub struct CarrierConfig {
 }
 
 #[derive(Debug, Clone)]
-#[non_exhaustive]
 pub struct RxChannelConfig {
     /// Selects the source clock for the RMT channel.
     ///
@@ -167,7 +164,6 @@ pub struct RxChannelConfig {
 }
 
 #[derive(Debug, Clone, Default)]
-#[non_exhaustive]
 pub struct RxConfigChannelFlags {
     /// Is used to decide whether to invert the incoming RMT signal.
     pub invert_in: bool,
@@ -192,7 +188,6 @@ pub struct RxConfigChannelFlags {
 }
 
 #[derive(Debug, Clone, Default)]
-#[non_exhaustive]
 pub struct ReceiveConfig {
     /// A pulse whose width is smaller than this threshold will be treated as glitch and ignored
     pub signal_range_min: Duration,

@@ -14,6 +14,54 @@ use esp_idf_sys::*;
 
 use crate::rmt::config::CarrierConfig;
 
+pub use crate::rmt_legacy::{PinState, Pulse, PulseTicks};
+
+// TODO: use Symbol in all places where rmt_symbol_word_t is used?
+
+/// Symbols
+///
+/// Represents a single pulse cycle symbol comprised of mark (high)
+/// and space (low) periods in either order or a fixed level if both
+/// halves have the same [`PinState`]. This is just a newtype over the
+/// IDF's `rmt_item32_t` or `rmt_symbol_word_t` type.
+#[derive(Clone, Copy)]
+#[repr(transparent)]
+pub struct Symbol(rmt_symbol_word_t);
+
+// TODO: implement things like Debug, PartialEq, Eq?
+
+impl Symbol {
+    /// Create a symbol from a pair of half-cycles.
+    pub fn new(level0: Pulse, level1: Pulse) -> Self {
+        let item = rmt_symbol_word_t { val: 0 };
+        let mut this = Self(item);
+        this.update(level0, level1);
+        this
+    }
+
+    /// Mutate this symbol to store a different pair of half-cycles.
+    pub fn update(&mut self, level0: Pulse, level1: Pulse) {
+        // SAFETY: We're overriding all 32 bits, so it doesn't matter what was here before.
+        let inner = unsafe { &mut self.0.__bindgen_anon_1 };
+        inner.set_level0(level0.pin_state as u16);
+        inner.set_duration0(level0.ticks.ticks() as u16);
+        inner.set_level1(level1.pin_state as u16);
+        inner.set_duration1(level1.ticks.ticks() as u16);
+    }
+}
+
+impl From<rmt_symbol_word_t> for Symbol {
+    fn from(value: rmt_symbol_word_t) -> Self {
+        Self(value)
+    }
+}
+
+impl From<Symbol> for rmt_symbol_word_t {
+    fn from(value: Symbol) -> Self {
+        value.0
+    }
+}
+
 fn assert_not_in_isr() {
     if crate::interrupt::active() {
         panic!("This function cannot be called from an ISR");
