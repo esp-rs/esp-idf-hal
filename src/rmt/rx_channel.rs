@@ -7,7 +7,7 @@ use esp_idf_sys::*;
 use crate::gpio::InputPin;
 use crate::interrupt;
 use crate::rmt::config::{ReceiveConfig, RxChannelConfig};
-use crate::rmt::RmtChannel;
+use crate::rmt::{RmtChannel, Symbol};
 
 struct UserData {
     on_recv_notifier: interrupt::asynch::HalIsrNotification,
@@ -89,7 +89,7 @@ impl<'d> RxChannel<'d> {
     /// This function will wait asynchronously until the receive operation is complete.
     pub async fn receive(
         &mut self,
-        buffer: &mut [rmt_symbol_word_t],
+        buffer: &mut [Symbol],
         config: &ReceiveConfig,
     ) -> Result<u32, EspError> {
         let sys_config = rmt_receive_config_t {

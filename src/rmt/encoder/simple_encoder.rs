@@ -1,5 +1,4 @@
 use core::ffi::c_void;
-use core::marker::PhantomData;
 use core::{mem, ptr, slice};
 
 use esp_idf_sys::*;
@@ -7,27 +6,52 @@ use esp_idf_sys::*;
 use crate::rmt::encoder::Encoder;
 use crate::rmt::Symbol;
 
-pub struct SimpleEncoderConfig {
-    pub min_chunk_size: usize,
-}
-
+/// The encoder was unable to encode all the input data into the provided buffer,
+/// it might have encoded some data (or it didn't), but there remains more to encode.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct NotEnoughSpace;
 
-pub type EncoderCallback<T, A> =
-    fn(data: &[T], writer: &mut SymbolWriter<'_>, arg: &mut A) -> Result<(), NotEnoughSpace>;
-
-pub struct DelegatorState<'a, T, A> {
-    pub callback: EncoderCallback<T, A>,
-    pub arg: &'a mut A,
+/// Configuration for the [`SimpleEncoder`].
+#[derive(Debug, Clone)]
+pub struct SimpleEncoderConfig {
+    /// Minimum amount of free space, in RMT symbols, the encoder needs in order
+    /// to guarantee it always returns non-zero. Defaults to 64 if zero / not given.
+    pub min_chunk_size: usize,
+    // This field is intentionally hidden to prevent non-exhaustive pattern matching.
+    // You should only construct this struct using the `..Default::default()` pattern.
+    // If you use this field directly, your code might break in future versions.
+    #[doc(hidden)]
+    #[allow(dead_code)]
+    pub __internal: (),
 }
 
-pub struct SymbolWriter<'a> {
+impl Default for SimpleEncoderConfig {
+    fn default() -> Self {
+        Self {
+            min_chunk_size: 64,
+            __internal: (),
+        }
+    }
+}
+
+/// A helper to write symbols into a buffer, tracking how many symbols were written.
+#[derive(Debug)]
+pub struct SymbolBuffer<'a> {
     symbols: &'a mut [Symbol],
     written: usize,
 }
 
-impl<'a> SymbolWriter<'a> {
+impl<'a> SymbolBuffer<'a> {
+    /// Constructs a `SymbolBuffer` from its raw parts.
+    ///
+    /// # Safety
+    ///
+    /// You must ensure that the provided pointer is valid for both reads and writes, not null,
+    /// and properly aligned to construct a slice from it.
+    ///
+    /// The `written` parameter must not exceed the length of the slice.
+    /// The `free` parameter must be such that `written + free` does not exceed the length of the
+    /// slice.
     #[must_use]
     pub unsafe fn from_raw_parts(
         symbols: *mut rmt_symbol_word_t,
@@ -38,13 +62,49 @@ impl<'a> SymbolWriter<'a> {
         Self { symbols, written }
     }
 
+    /// Returns how many symbols have been written so far.
+    ///
+    /// This can also be interpreted as the position of the next
+    /// element to write into the buffer.
+    ///
+    /// Initially this will be `0`. If you write `n` symbols in the
+    /// callback and then return, the next time the callback is called,
+    /// the position will always be `n`.
+    /// If you then encode `m` more symbols, the next callback will always
+    /// be called with position `n + m`, and so on.
+    ///
+    /// In other words, the position is preserved across callback invocations.
+    ///
+    /// The only exception is when the encoder is reset,
+    /// (e.g. to beging a new transaction) in which case the position
+    /// will always restart at `0`.
+    #[must_use]
+    pub const fn position(&self) -> usize {
+        self.written
+    }
+
+    /// Returns how many more symbols can be written to the buffer.
+    #[must_use]
     pub fn remaining(&self) -> usize {
         self.symbols.len() - self.written
     }
 
+    /// Sets the symbol at the given index.
+    ///
+    /// # Panics
+    ///
+    /// Panics if `index` is out of bounds.
+    pub fn set(&mut self, index: usize, symbol: Symbol) {
+        self.symbols[index] = symbol;
+    }
+
     /// Tries to write all symbols to the buffer.
     ///
-    /// If there is not enough space, it will not write anything and return `NotEnoughSpace`.
+    /// # Errors
+    ///
+    /// If there is not enough space, it will not write anything and return [`NotEnoughSpace`]
+    /// to indicate that the buffer is too small.
+    #[must_use]
     pub fn write_all(&mut self, symbols: &[Symbol]) -> Result<(), NotEnoughSpace> {
         if self.remaining() < symbols.len() {
             return Err(NotEnoughSpace);
@@ -54,12 +114,14 @@ impl<'a> SymbolWriter<'a> {
             self.symbols[self.written] = symbol;
             self.written += 1;
         }
-        self.written += 1;
+
         Ok(())
     }
 }
 
-unsafe extern "C" fn delegator<T, A>(
+/// This function implements the C API that the simple encoder expects for the callback
+/// and delegates the call to the rust type `S` which implements `EncoderCallback`.
+unsafe extern "C" fn delegator<S: EncoderCallback>(
     data: *const c_void,
     data_size: usize,
     symbols_written: usize,
@@ -68,66 +130,108 @@ unsafe extern "C" fn delegator<T, A>(
     done: *mut bool,
     arg: *mut c_void,
 ) -> usize {
-    let state = &mut *(arg as *mut DelegatorState<T, A>);
-    let data_slice = slice::from_raw_parts(data as *const T, data_size / mem::size_of::<T>());
-    let mut writer = SymbolWriter::from_raw_parts(symbols, symbols_written, symbols_free);
+    let callback = &mut *(arg as *mut S);
+    // The size of the data is in bytes -> must be converted to number of T items.
+    let data_slice = slice::from_raw_parts(
+        data as *const S::Item,
+        data_size / mem::size_of::<S::Item>(),
+    );
+    let mut buffer = SymbolBuffer::from_raw_parts(symbols, symbols_written, symbols_free);
 
-    // TODO: are panics allowed in isr context?
-    debug_assert!(!arg.is_null());
-
-    match (state.callback)(data_slice, &mut writer, &mut *state.arg) {
-        Ok(()) => {
-            *done = true;
-            // Calculate how many symbols were written in this call:
-            writer.written - symbols_written
-        }
-        Err(NotEnoughSpace) => writer.written - symbols_written,
+    // The function returns the following status:
+    // 1. `0` if the given buffer for writing symbols is too small,
+    //    like it needs 8 symbols to encode one data entry, but a buffer
+    //    with only 4 symbols is given.
+    // 2. a value `n > 0` indicating that `n` symbols were written in this callback round.
+    //
+    // If it finishes encoding all data, it sets `*done = true`.
+    // This can happen with status 1 or 2 (you don't have to write symbols to indicate that you are done).
+    //
+    // The number of written symbols is tracked by the `SymbolBuffer`.
+    //
+    // Important: It counts the output symbols, not the input data items!
+    //            If one processes a byte as an input into 8 symbols, then
+    //            the function should return `8`.
+    match callback.encode(data_slice, &mut buffer) {
+        Ok(()) => *done = true,
+        Err(NotEnoughSpace) => {}
     }
+
+    // Calculate how many symbols were written in this call:
+    buffer.position() - symbols_written
 }
 
-impl Default for SimpleEncoderConfig {
-    fn default() -> Self {
-        Self { min_chunk_size: 64 }
-    }
+/// Trait that is implemented by types that can be used as callbacks for the [`SimpleEncoder`].
+pub trait EncoderCallback {
+    /// The type of input data that the encoder can encode.
+    type Item;
+
+    /// This function encodes the provided input data into RMT symbols and writes them into the provided
+    /// `SymbolBuffer`.
+    ///
+    /// To do this, a buffer is allocated in which the resulting symbols can be written. It might happen that there
+    /// is not enough space in the buffer to encode all input data. In this case, the function has two options:
+    /// 1. It can immediately return [`NotEnoughSpace`] to indicate that the buffer is too small.
+    ///    The function will later be called again with a larger buffer. You should eventually process the data,
+    ///    and not return [`NotEnoughSpace`] forever.
+    ///
+    /// 2. It can start encoding the input data, and write symbols into the buffer until it runs out of space.
+    ///    It should return with [`NotEnoughSpace`]. The function will later be called again with more
+    ///    space, making it possible to continue encoding the remaining input data.
+    ///
+    /// The function takes a slice of input data of your chosen type [`EncoderCallback::Item`], this is the same data
+    /// that is passed to the RMT driver when sending data. The slice will not change between unfinished calls.
+    ///
+    /// For example, if you start processing an `input_data` of 10 elements, and you return with
+    /// [`NotEnoughSpace`] after encoding 4 elements, the next time the function is called,
+    /// the `input_data` will still be the same 10 elements.
+    ///
+    /// It is your responsibility to keep track of how many input elements you have already processed.
+    /// If the number of output symbols are a multiple of the number of input elements, you can use [`SymbolBuffer::position`]
+    /// to track how many input elements have been processed so far:
+    /// 1 input element = 8 output symbols -> position / 8 = number of input elements processed.
+    ///
+    /// Once you have processed all input elements, you should return with [`Ok`].
+    fn encode(
+        &mut self,
+        input_data: &[Self::Item],
+        buffer: &mut SymbolBuffer<'_>,
+    ) -> Result<(), NotEnoughSpace>; // TODO: will the callback be in ISR?
 }
 
 #[derive(Debug)]
-pub struct SimpleEncoder<'a, T, A> {
+pub struct SimpleEncoder<'a, S> {
+    // TODO: this is not unused... it is only indirectly used through pointer
+    #[allow(dead_code)]
+    encoder: &'a mut S, // TODO: <- this might result in a use-after-free if DelegatingEncoder is forgotten
     handle: rmt_encoder_handle_t,
-    _p: PhantomData<(T, &'a mut A)>,
 }
 
-impl<'a, T, A> SimpleEncoder<'a, T, A> {
-    pub fn with_config(
-        state: &mut DelegatorState<'a, T, A>,
-        config: &SimpleEncoderConfig,
-    ) -> Result<Self, EspError> {
+impl<'a, S: EncoderCallback> SimpleEncoder<'a, S> {
+    pub fn with_config(encoder: &'a mut S, config: &SimpleEncoderConfig) -> Result<Self, EspError> {
         let sys_config = rmt_simple_encoder_config_t {
-            callback: Some(delegator::<T, A> as _),
-            arg: (state as *mut _) as *mut c_void,
+            callback: Some(delegator::<S>),
+            arg: (encoder as *mut S) as *mut c_void,
             min_chunk_size: config.min_chunk_size,
         };
 
         let mut handle: rmt_encoder_handle_t = ptr::null_mut();
         esp!(unsafe { rmt_new_simple_encoder(&sys_config, &mut handle) })?;
-        Ok(Self {
-            handle,
-            _p: PhantomData,
-        })
+        Ok(Self { handle, encoder })
     }
 }
 
-impl<'a, T, A> Drop for SimpleEncoder<'a, T, A> {
-    fn drop(&mut self) {
-        // This is calling encoder->del(encoder);
-        unsafe { rmt_del_encoder(self.handle) };
-    }
-}
-
-impl<'a, T, A> Encoder for SimpleEncoder<'a, T, A> {
-    type Item = T;
+impl<'a, S: EncoderCallback> Encoder for SimpleEncoder<'a, S> {
+    type Item = S::Item;
 
     fn handle(&mut self) -> &mut rmt_encoder_t {
         unsafe { &mut *self.handle }
+    }
+}
+
+impl<'a, S> Drop for SimpleEncoder<'a, S> {
+    fn drop(&mut self) {
+        // This is calling encoder->del(encoder);
+        unsafe { rmt_del_encoder(self.handle) };
     }
 }

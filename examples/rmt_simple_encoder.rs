@@ -1,5 +1,7 @@
 // TODO: explain how this example works and what it demonstrates?
 
+// This is a port of https://github.com/espressif/esp-idf/blob/master/examples/peripherals/rmt/led_strip_simple_encoder/main/led_strip_example_main.c
+
 #![allow(unknown_lints)]
 #![allow(unexpected_cfgs)]
 
@@ -22,11 +24,15 @@ fn main() -> anyhow::Result<()> {
     not(feature = "rmt-legacy")
 ))]
 fn main() -> anyhow::Result<()> {
+    use esp_idf_hal::delay::Ets;
     use esp_idf_hal::peripherals::Peripherals;
     use esp_idf_hal::rmt::config::TxChannelConfig;
-    use esp_idf_hal::rmt::encoder::{DelegatorState, NotEnoughSpace, SimpleEncoder, SymbolWriter};
-    use esp_idf_hal::rmt::{PinState, Pulse, PulseTicks, Symbol, TxChannel};
+    use esp_idf_hal::rmt::encoder::{EncoderCallback, NotEnoughSpace, SimpleEncoder, SymbolBuffer};
+    use esp_idf_hal::rmt::{PinState, Pulse, PulseTicks, RmtChannel, Symbol, TxChannel};
     use esp_idf_hal::units::Hertz;
+
+    use std::f64::consts::PI;
+    use std::ops::AddAssign;
     use std::time::Duration;
 
     const RMT_LED_STRIP_RESOLUTION_HZ: Hertz = Hertz(10_000_000); // 10MHz resolution, 1 tick = 0.1us
@@ -35,19 +41,37 @@ fn main() -> anyhow::Result<()> {
 
     let peripherals = Peripherals::take()?;
 
-    let channel = TxChannel::new(
-        peripherals.pins.gpio19, // TODO: use builtin LED pin
-        &TxChannelConfig {
-            clock_source: Default::default(),
-            ..Default::default()
-        },
-    )?;
+    fn numbered_array<T, const N: usize>(start: T, step: T) -> [T; N]
+    where
+        T: AddAssign + Copy,
+    {
+        let mut current = start;
+        [(); N].map(|_| {
+            let value = current;
+            current += step;
+            value
+        })
+    }
 
-    fn encode_led_data(
-        data: &[u8],
-        writer: &mut SymbolWriter<'_>,
-        _arg: &mut (),
-    ) -> Result<(), NotEnoughSpace> {
+    pub struct LedEncoder {
+        input_position: usize,
+    }
+
+    impl LedEncoder {
+        pub fn new() -> Self {
+            Self { input_position: 0 }
+        }
+    }
+
+    #[derive(Debug, Clone, Copy)]
+    #[repr(C)]
+    pub struct Color {
+        pub red: u8,
+        pub green: u8,
+        pub blue: u8,
+    }
+
+    fn byte_to_symbols(byte: u8) -> [Symbol; 8] {
         // TODO: make these constants
         // TODO: construct PulseTicks with a duration?
         let ws2812_zero: Symbol = Symbol::new(
@@ -86,58 +110,116 @@ fn main() -> anyhow::Result<()> {
                 .unwrap(),
             ),
         );
-        let ws2812_reset: Symbol = Symbol::new(
-            Pulse::new(
-                PinState::Low,
-                PulseTicks::new_with_duration(
-                    RMT_LED_STRIP_RESOLUTION_HZ,
-                    &Duration::from_micros(25),
-                )
-                .unwrap(),
-            ),
-            Pulse::new(
-                PinState::Low,
-                PulseTicks::new_with_duration(
-                    RMT_LED_STRIP_RESOLUTION_HZ,
-                    &Duration::from_micros(25),
-                )
-                .unwrap(),
-            ),
-        );
 
-        // We need a minimum of 8 symbol spaces to encode a byte. We only
-        // need one to encode a reset, but it's simpler to simply demand that
-        // there are 8 symbol spaces free to write anything.
-        if writer.remaining() < 8 * data.len() + 1 {
-            return Err(NotEnoughSpace);
-        }
-
-        // TODO: it is impossible to indicate a partial write?
-        //       e.g. not finished with the entire transmission, because I ran out of space
-
-        for &byte in data {
-            let mut bitmask = 0x80;
-            while bitmask != 0 {
-                if (byte & bitmask) != 0 {
-                    writer.write_all(&[ws2812_one])?;
-                } else {
-                    writer.write_all(&[ws2812_zero])?;
-                }
-
-                bitmask >>= 1;
-            }
-        }
-
-        writer.write_all(&[ws2812_reset])?;
-
-        Ok(())
+        numbered_array(0, 1)
+            .map(|i| 0x80 >> i)
+            .map(|bitmask| (byte & bitmask) != 0)
+            .map(|is_one| if is_one { ws2812_one } else { ws2812_zero })
     }
 
-    let mut state = DelegatorState {
-        callback: encode_led_data,
-        arg: &mut (),
-    };
-    let mut encoder = SimpleEncoder::with_config(&mut state, &Default::default())?;
+    impl Color {
+        pub fn write_symbols(&self, buffer: &mut [Symbol]) {
+            buffer[0..8].copy_from_slice(&byte_to_symbols(self.green));
+            buffer[8..16].copy_from_slice(&byte_to_symbols(self.red));
+            buffer[16..24].copy_from_slice(&byte_to_symbols(self.blue));
+        }
+    }
 
-    Ok(())
+    impl EncoderCallback for LedEncoder {
+        type Item = Color;
+
+        fn encode(
+            &mut self,
+            input_data: &[Self::Item],
+            buffer: &mut SymbolBuffer<'_>,
+        ) -> Result<(), NotEnoughSpace> {
+            // TODO: ws2812b need 300us reset time
+            let ws2812_reset: Symbol = Symbol::new(
+                Pulse::new(
+                    PinState::Low,
+                    PulseTicks::new_with_duration(
+                        RMT_LED_STRIP_RESOLUTION_HZ,
+                        &Duration::from_micros(150),
+                    )
+                    .unwrap(),
+                ),
+                Pulse::new(
+                    PinState::Low,
+                    PulseTicks::new_with_duration(
+                        RMT_LED_STRIP_RESOLUTION_HZ,
+                        &Duration::from_micros(150),
+                    )
+                    .unwrap(),
+                ),
+            );
+
+            if buffer.position() == 0 {
+                self.input_position = 0;
+            }
+
+            for &next_color in &input_data[self.input_position..] {
+                let mut symbols = [ws2812_reset; 25];
+                next_color.write_symbols(&mut symbols[1..]);
+                buffer.write_all(&symbols)?;
+                self.input_position += 1;
+            }
+
+            // finished encoding all input data
+            Ok(())
+        }
+    }
+
+    let mut channel = TxChannel::new(
+        peripherals.pins.gpio21, // TODO: use builtin LED pin
+        &TxChannelConfig {
+            clock_source: Default::default(),
+            memory_block_symbols: 64, // increasing might reduce flickering
+            resolution: RMT_LED_STRIP_RESOLUTION_HZ,
+            transaction_queue_depth: 4, // The number of transactions that can be pending in the background
+            ..Default::default()
+        },
+    )?;
+
+    channel.enable()?;
+
+    let mut led_encoder = LedEncoder::new();
+    let mut encoder = SimpleEncoder::with_config(&mut led_encoder, &Default::default())?;
+
+    const NUMBER_OF_LEDS: usize = 1;
+    const ANGLE_INC_FRAME: f64 = 0.02;
+    const ANGLE_INC_LED: f64 = 0.3;
+    const FRAME_DURATION_MS: u32 = 20;
+
+    let mut offset = 0.0;
+    loop {
+        let mut signal = [Color {
+            red: 0,
+            green: 0,
+            blue: 0,
+        }; NUMBER_OF_LEDS];
+        for i in 0..NUMBER_OF_LEDS {
+            let angle = offset + (i as f64 * ANGLE_INC_LED);
+            let color_offset = (PI * 2.0) / 3.0;
+
+            let green = (angle + color_offset * 0.0).sin() * 127.0 + 128.0;
+            let red = (angle + color_offset * 1.0).sin() * 127.0 + 128.0;
+            let blue = (angle + color_offset * 2.0).sin() * 117.0 + 128.0; // TODO: 117 might be a typo?
+
+            signal[i] = Color {
+                red: red as u8,
+                green: green as u8,
+                blue: blue as u8,
+            };
+        }
+
+        channel.send_and_wait(&mut encoder, &mut signal, &Default::default())?;
+
+        Ets::delay_ms(FRAME_DURATION_MS);
+
+        // Increase offset to shift pattern
+        offset += ANGLE_INC_FRAME;
+        if offset > 2.0 * PI {
+            offset -= 2.0 * PI;
+        }
+    }
 }
