@@ -47,6 +47,12 @@ pub struct TxChannelConfig {
     #[cfg(esp_idf_version_at_least_5_1_2)]
     pub interrupt_priority: i32,
     pub flags: TxConfigChannelFlags,
+    // This field is intentionally hidden to prevent non-exhaustive pattern matching.
+    // You should only construct this struct using the `..Default::default()` pattern.
+    // If you use this field directly, your code might break in future versions.
+    #[doc(hidden)]
+    #[allow(dead_code)]
+    pub __internal: (),
 }
 
 impl Default for TxChannelConfig {
@@ -59,6 +65,7 @@ impl Default for TxChannelConfig {
             #[cfg(esp_idf_version_at_least_5_1_2)]
             interrupt_priority: 0,
             flags: Default::default(),
+            __internal: (),
         }
     }
 }
@@ -87,6 +94,12 @@ pub struct TxConfigChannelFlags {
     /// like not able to power down in light sleep.
     #[cfg(esp_idf_version_at_least_5_4_0)]
     pub allow_pd: bool,
+    // This field is intentionally hidden to prevent non-exhaustive pattern matching.
+    // You should only construct this struct using the `..Default::default()` pattern.
+    // If you use this field directly, your code might break in future versions.
+    #[doc(hidden)]
+    #[allow(dead_code)]
+    pub __internal: (),
 }
 
 #[derive(Debug, Clone)]
@@ -98,6 +111,12 @@ pub struct TransmitConfig {
     /// If set, when the transaction queue is full, driver will not block the thread but return directly.
     #[cfg(esp_idf_version_at_least_5_1_3)]
     pub queue_non_blocking: bool,
+    // This field is intentionally hidden to prevent non-exhaustive pattern matching.
+    // You should only construct this struct using the `..Default::default()` pattern.
+    // If you use this field directly, your code might break in future versions.
+    #[doc(hidden)]
+    #[allow(dead_code)]
+    pub __internal: (),
 }
 
 // TODO: queue_non_blocking or queue_nonblocking?
@@ -109,6 +128,7 @@ impl Default for TransmitConfig {
             eot_level: false,
             #[cfg(esp_idf_version_at_least_5_1_3)]
             queue_non_blocking: false,
+            __internal: (),
         }
     }
 }
@@ -123,6 +143,24 @@ pub struct CarrierConfig {
     pub polarity_active_low: bool,
     /// If set, the carrier can always exist even there's not transfer undergoing
     pub always_on: bool,
+    // This field is intentionally hidden to prevent non-exhaustive pattern matching.
+    // You should only construct this struct using the `..Default::default()` pattern.
+    // If you use this field directly, your code might break in future versions.
+    #[doc(hidden)]
+    #[allow(dead_code)]
+    pub __internal: (),
+}
+
+impl Default for CarrierConfig {
+    fn default() -> Self {
+        Self {
+            frequency: 38000.Hz().into(),
+            duty_cycle: DutyPercent(50),
+            polarity_active_low: false,
+            always_on: false,
+            __internal: (),
+        }
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -161,6 +199,28 @@ pub struct RxChannelConfig {
     #[cfg(esp_idf_version_at_least_5_1_2)]
     pub interrupt_priority: i32, // TODO: replace with InterruptType?
     pub flags: RxConfigChannelFlags,
+    // This field is intentionally hidden to prevent non-exhaustive pattern matching.
+    // You should only construct this struct using the `..Default::default()` pattern.
+    // If you use this field directly, your code might break in future versions.
+    #[doc(hidden)]
+    #[allow(dead_code)]
+    pub __internal: (),
+}
+
+// TODO: Should there be a Flags struct? or should they be inlined with the other config fields?
+
+impl Default for RxChannelConfig {
+    fn default() -> Self {
+        Self {
+            clock_source: Default::default(),
+            resolution: 1.MHz().into(),
+            memory_block_symbols: 64,
+            #[cfg(esp_idf_version_at_least_5_1_2)]
+            interrupt_priority: 0,
+            flags: Default::default(),
+            __internal: (),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Default)]
@@ -185,6 +245,12 @@ pub struct RxConfigChannelFlags {
     /// like not able to power down in light sleep.
     #[cfg(esp_idf_version_at_least_5_4_0)]
     pub allow_pd: bool,
+    // This field is intentionally hidden to prevent non-exhaustive pattern matching.
+    // You should only construct this struct using the `..Default::default()` pattern.
+    // If you use this field directly, your code might break in future versions.
+    #[doc(hidden)]
+    #[allow(dead_code)]
+    pub __internal: (),
 }
 
 #[derive(Debug, Clone, Default)]
@@ -196,4 +262,10 @@ pub struct ReceiveConfig {
     /// Set this flag if the incoming data is very long, and the driver can only receive the data
     /// piece by piece, because the user buffer is not sufficient to save all the data.
     pub enable_partial_rx: bool,
+    // This field is intentionally hidden to prevent non-exhaustive pattern matching.
+    // You should only construct this struct using the `..Default::default()` pattern.
+    // If you use this field directly, your code might break in future versions.
+    #[doc(hidden)]
+    #[allow(dead_code)]
+    pub __internal: (),
 }

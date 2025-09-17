@@ -7,14 +7,14 @@ mod rx_channel;
 pub use rx_channel::*;
 mod sync_manager;
 pub use sync_manager::*;
+mod pulse;
+pub use pulse::*;
 
-use core::ptr;
+use core::{fmt, ptr};
 
 use esp_idf_sys::*;
 
 use crate::rmt::config::CarrierConfig;
-
-pub use crate::rmt_legacy::{PinState, Pulse, PulseTicks};
 
 // TODO: use Symbol in all places where rmt_symbol_word_t is used?
 
@@ -28,15 +28,40 @@ pub use crate::rmt_legacy::{PinState, Pulse, PulseTicks};
 #[repr(transparent)]
 pub struct Symbol(rmt_symbol_word_t);
 
-// TODO: implement things like Debug, PartialEq, Eq?
-
+// TODO: it is very inconvenient that one can not call Symbol::new in a const context, fix this.
+// TODO: rename Pull::new_with_duration with Pulse::try_with_duration, then make the old function panic instead
+//       of returning a result to make it work nicely in const contexts?
 impl Symbol {
     /// Create a symbol from a pair of half-cycles.
+    #[must_use]
     pub fn new(level0: Pulse, level1: Pulse) -> Self {
         let item = rmt_symbol_word_t { val: 0 };
         let mut this = Self(item);
         this.update(level0, level1);
         this
+    }
+
+    #[must_use]
+    fn symbol_word_to_pulse(word: &rmt_symbol_word_t) -> Pulse {
+        // TODO: is this safe to do? I can't find any reason why not? How else would one interpret rmt symbols?
+        // SAFETY: ?
+        let inner = unsafe { &word.__bindgen_anon_1 };
+        Pulse::new(
+            (inner.level0() as u32).into(),
+            PulseTicks::new(inner.duration0()).unwrap(),
+        )
+    }
+
+    /// Returns the first half-cycle (pulse) of this symbol.
+    #[must_use]
+    pub fn level0(&self) -> Pulse {
+        Self::symbol_word_to_pulse(&self.0)
+    }
+
+    /// Returns the second half-cycle (pulse) of this symbol.
+    #[must_use]
+    pub fn level1(&self) -> Pulse {
+        Self::symbol_word_to_pulse(&self.0)
     }
 
     /// Mutate this symbol to store a different pair of half-cycles.
@@ -49,6 +74,29 @@ impl Symbol {
         inner.set_duration1(level1.ticks.ticks() as u16);
     }
 }
+
+impl fmt::Debug for Symbol {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("Symbol")
+            .field("level0", &self.level0())
+            .field("level1", &self.level1())
+            .finish()
+    }
+}
+
+impl Default for Symbol {
+    fn default() -> Self {
+        Self::new(Default::default(), Default::default())
+    }
+}
+
+impl PartialEq for Symbol {
+    fn eq(&self, other: &Self) -> bool {
+        (self.level0(), self.level1()) == (other.level0(), other.level1())
+    }
+}
+
+impl Eq for Symbol {}
 
 impl From<rmt_symbol_word_t> for Symbol {
     fn from(value: rmt_symbol_word_t) -> Self {
@@ -129,6 +177,8 @@ pub trait RmtChannel {
             duty_cycle,
             polarity_active_low,
             always_on,
+            // match __internal to get a compiler error if new fields are added in the future
+            __internal,
         }) = carrier_config
         {
             sys_carrier = Some(rmt_carrier_config_t {

@@ -1,3 +1,4 @@
+use alloc::boxed::Box;
 use core::marker::PhantomData;
 use core::mem;
 use core::ptr;
@@ -74,7 +75,7 @@ impl<'channel, 'env> Scope<'channel, 'env> {
 
     /// Starts transmitting the given signal using the specified encoder and config.
     ///
-    /// This is a safe API for [`TxChannel::start_transmit`], see its documentation for more details
+    /// This is a safe API for [`TxChannel::start_send`], see its documentation for more details
     /// on the behavior.
     pub fn send<E: Encoder>(
         &mut self,
@@ -85,7 +86,7 @@ impl<'channel, 'env> Scope<'channel, 'env> {
         super::assert_not_in_isr();
 
         // SAFETY: The lifetimes on the encoder and signal ensure that they live until 'env
-        unsafe { self.channel.start_transmit(encoder, signal, config) }
+        unsafe { self.channel.start_send(encoder, signal, config) }
     }
 
     /// Indicates that the channel should be disabled (will cancel all pending transmissions)
@@ -111,7 +112,7 @@ struct UserData {
 pub struct TxChannel<'d> {
     is_enabled: bool,
     handle: rmt_channel_handle_t,
-    user_data: UserData,
+    user_data: Box<UserData>,
     _p: PhantomData<&'d mut ()>,
 }
 
@@ -168,13 +169,14 @@ impl<'d> TxChannel<'d> {
         let this = Self {
             is_enabled: false,
             handle,
-            user_data: UserData {
+            // TODO: technically must be pined?
+            user_data: Box::new(UserData {
                 #[cfg(feature = "alloc")]
                 callback: None,
                 next_tx_id: AtomicUsize::new(0),
                 finished_count: AtomicUsize::new(0),
                 notif: HalIsrNotification::new(),
-            },
+            }),
             _p: PhantomData,
         };
 
@@ -184,7 +186,8 @@ impl<'d> TxChannel<'d> {
             rmt_tx_register_event_callbacks(
                 handle,
                 &Self::TX_EVENT_CALLBACKS,
-                &this.user_data as *const _ as *mut core::ffi::c_void,
+                // TODO: the Ok(this) likely moves this -> will invalidate the pointer...
+                this.user_data.as_ref() as *const UserData as *mut core::ffi::c_void,
             )
         })?;
 
@@ -258,6 +261,20 @@ impl<'d> TxChannel<'d> {
         result
     }
 
+    pub fn send_and_wait<E: Encoder>(
+        &mut self,
+        encoder: &mut E,
+        signal: &[E::Item],
+        config: &TransmitConfig,
+    ) -> Result<(), EspError> {
+        self.scope(|scope| {
+            scope.send(encoder, signal, config)?;
+            Ok(())
+        })?;
+
+        Ok(())
+    }
+
     /// Transmits the signal using the specified encoder and config.
     ///
     /// It will not wait for the transmission to finish, but a [`TxHandle`] is returned
@@ -291,7 +308,7 @@ impl<'d> TxChannel<'d> {
     /// - `ESP_ERR_INVALID_STATE`: The channel is not enabled, make sure you called [`Self::enable`] before transmitting.
     /// - `ESP_ERR_NOT_SUPPORTED`: Some feature is not supported by hardware e.g. unsupported loop count
     /// - `ESP_FAIL`: Because of other errors
-    pub unsafe fn start_transmit<'t, E: Encoder>(
+    pub unsafe fn start_send<'t, E: Encoder>(
         &'t self,
         encoder: &mut E,
         signal: &[E::Item],
