@@ -434,7 +434,9 @@
 #endif
 
 // ???
+#if ESP_IDF_VERSION_MAJOR < 6
 #include "driver/periph_ctrl.h"
+#endif
 
 // RMT
 #if OLD_DRIVER_COMP || defined(ESP_IDF_COMP_ESP_DRIVER_RMT_ENABLED)
@@ -449,7 +451,9 @@
 #endif
 
 // RTC
+#if ESP_IDF_VERSION_MAJOR < 6
 #include "driver/rtc_cntl.h"
+#endif
 #include "driver/rtc_io.h"
 
 // SDIO Slave
