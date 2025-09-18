@@ -504,7 +504,9 @@
 #endif
 
 #ifdef ESP_IDF_COMP_ESPCOREDUMP_ENABLED
+#ifdef CONFIG_ESP_COREDUMP_ENABLE
 #include "esp_core_dump.h"
+#endif
 #endif
 
 #ifdef ESP_IDF_COMP_ESP_SERIAL_SLAVE_LINK_ENABLED
