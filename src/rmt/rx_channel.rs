@@ -1,3 +1,4 @@
+use core::fmt;
 use core::marker::PhantomData;
 use core::mem;
 use core::pin::pin;
@@ -13,7 +14,7 @@ use crate::rmt::{RmtChannel, Symbol};
 
 struct TransmissionProgress {
     #[cfg(feature = "alloc")]
-    notif: crate::interrupt::asynch::HalIsrNotification,
+    notif: interrupt::asynch::HalIsrNotification,
     received_symbols: AtomicUsize,
 }
 
@@ -108,7 +109,7 @@ impl<'d> RxChannel<'d> {
 
         let progress = TransmissionProgress {
             #[cfg(feature = "alloc")]
-            notif: crate::interrupt::asynch::HalIsrNotification::new(),
+            notif: interrupt::asynch::HalIsrNotification::new(),
             received_symbols: AtomicUsize::new(0),
         };
         // This struct contains the data that will be passed to the ISR handler.
@@ -159,7 +160,7 @@ impl<'d> RxChannel<'d> {
     /// Receives RMT symbols into the provided buffer, returning the number of received symbols.
     ///
     /// This function will wait until the receive operation is complete.
-    pub fn receive(
+    pub fn receive_and_wait(
         &mut self,
         buffer: &mut [Symbol],
         config: &ReceiveConfig,
@@ -221,8 +222,6 @@ impl<'d> RxChannel<'d> {
             panic!("Cannot subscribe to RX events while the channel is enabled");
         }
 
-        // TODO: allocate callback in IRAM?
-        // See https://github.com/esp-rs/esp-idf-hal/issues/486
         let on_recv_done: alloc::boxed::Box<dyn FnMut(rmt_rx_done_event_data_t) + Send + 'static> =
             alloc::boxed::Box::new(on_recv_done);
 
@@ -284,5 +283,14 @@ impl<'d> Drop for RxChannel<'d> {
         }
 
         unsafe { rmt_del_channel(self.handle) };
+    }
+}
+
+impl<'d> fmt::Debug for RxChannel<'d> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("RxChannel")
+            .field("is_enabled", &self.is_enabled)
+            .field("handle", &self.handle)
+            .finish()
     }
 }

@@ -100,7 +100,7 @@ mod example {
 
     impl Color {
         #[must_use]
-        pub fn to_vec(&self) -> Vec<Symbol> {
+        pub fn to_vec(self) -> Vec<Symbol> {
             let mut result = Vec::with_capacity(24);
             for byte in [self.green, self.red, self.blue] {
                 result.extend(byte_to_symbols(byte));
@@ -123,7 +123,7 @@ mod example {
     impl EncoderCallback for LedEncoder {
         type Item = Color;
 
-        fn encode(
+        unsafe fn encode(
             &mut self,
             input_data: &[Self::Item],
             buffer: &mut SymbolBuffer<'_>,
