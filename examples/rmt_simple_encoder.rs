@@ -1,6 +1,12 @@
-// TODO: explain how this example works and what it demonstrates?
-
-// This is a port of https://github.com/espressif/esp-idf/blob/master/examples/peripherals/rmt/led_strip_simple_encoder/main/led_strip_example_main.c
+//! This example is based on the led strip example found in the esp-idf repository:
+//! https://github.com/espressif/esp-idf/blob/master/examples/peripherals/rmt/led_strip_simple_encoder/main/led_strip_example_main.c
+//!
+//! It uses the RMT peripheral to control an addressable LED strip (WS2812).
+//!
+//! This example demonstrates how to create a custom RMT encoder using the `SimpleEncoder` and how to interact with the
+//! RMT API in general.
+//!
+//! SPDX-License-Identifier: Unlicense OR CC0-1.0
 
 #![allow(unknown_lints)]
 #![allow(unexpected_cfgs)]
@@ -23,47 +29,24 @@ fn main() -> anyhow::Result<()> {
     esp_idf_version_at_least_5_3_0,
     not(feature = "rmt-legacy")
 ))]
-fn main() -> anyhow::Result<()> {
+mod example {
     use esp_idf_hal::delay::Ets;
     use esp_idf_hal::peripherals::Peripherals;
     use esp_idf_hal::rmt::config::TxChannelConfig;
     use esp_idf_hal::rmt::encoder::{EncoderCallback, NotEnoughSpace, SimpleEncoder, SymbolBuffer};
-    use esp_idf_hal::rmt::{PinState, Pulse, PulseTicks, RmtChannel, Symbol, TxChannel};
+    use esp_idf_hal::rmt::{PinState, Pulse, PulseTicks, Symbol, TxChannel};
     use esp_idf_hal::units::Hertz;
 
     use std::f64::consts::PI;
-    use std::ops::AddAssign;
     use std::time::Duration;
 
     const RMT_LED_STRIP_RESOLUTION_HZ: Hertz = Hertz(10_000_000); // 10MHz resolution, 1 tick = 0.1us
+    const NUMBER_OF_LEDS: usize = 1;
+    const ANGLE_INC_FRAME: f64 = 0.02;
+    const ANGLE_INC_LED: f64 = 0.3;
+    const FRAME_DURATION_MS: u32 = 20;
 
-    println!("Starting APP!");
-
-    let peripherals = Peripherals::take()?;
-
-    fn numbered_array<T, const N: usize>(start: T, step: T) -> [T; N]
-    where
-        T: AddAssign + Copy,
-    {
-        let mut current = start;
-        [(); N].map(|_| {
-            let value = current;
-            current += step;
-            value
-        })
-    }
-
-    pub struct LedEncoder {
-        input_position: usize,
-    }
-
-    impl LedEncoder {
-        pub fn new() -> Self {
-            Self { input_position: 0 }
-        }
-    }
-
-    #[derive(Debug, Clone, Copy)]
+    #[derive(Debug, Clone, Copy, Default)]
     #[repr(C)]
     pub struct Color {
         pub red: u8,
@@ -71,8 +54,7 @@ fn main() -> anyhow::Result<()> {
         pub blue: u8,
     }
 
-    fn byte_to_symbols(byte: u8) -> [Symbol; 8] {
-        // TODO: make these constants
+    fn byte_to_symbols(byte: u8) -> impl IntoIterator<Item = Symbol> {
         let ws2812_zero: Symbol = Symbol::new(
             Pulse::new(
                 PinState::High,
@@ -110,17 +92,31 @@ fn main() -> anyhow::Result<()> {
             ),
         );
 
-        numbered_array(0, 1)
+        (0..8)
             .map(|i| 0x80 >> i)
-            .map(|bitmask| (byte & bitmask) != 0)
-            .map(|is_one| if is_one { ws2812_one } else { ws2812_zero })
+            .map(move |bitmask| (byte & bitmask) != 0)
+            .map(move |is_one| if is_one { ws2812_one } else { ws2812_zero })
     }
 
     impl Color {
-        pub fn write_symbols(&self, buffer: &mut [Symbol]) {
-            buffer[0..8].copy_from_slice(&byte_to_symbols(self.green));
-            buffer[8..16].copy_from_slice(&byte_to_symbols(self.red));
-            buffer[16..24].copy_from_slice(&byte_to_symbols(self.blue));
+        #[must_use]
+        pub fn to_vec(&self) -> Vec<Symbol> {
+            let mut result = Vec::with_capacity(24);
+            for byte in [self.green, self.red, self.blue] {
+                result.extend(byte_to_symbols(byte));
+            }
+
+            result
+        }
+    }
+
+    pub struct LedEncoder {
+        input_position: usize,
+    }
+
+    impl LedEncoder {
+        pub fn new() -> Self {
+            Self { input_position: 0 }
         }
     }
 
@@ -156,8 +152,9 @@ fn main() -> anyhow::Result<()> {
             }
 
             for &next_color in &input_data[self.input_position..] {
-                let mut symbols = [ws2812_reset; 25];
-                next_color.write_symbols(&mut symbols[1..]);
+                let mut symbols = vec![ws2812_reset];
+                symbols.extend(next_color.to_vec());
+
                 buffer.write_all(&symbols)?;
                 self.input_position += 1;
             }
@@ -167,52 +164,62 @@ fn main() -> anyhow::Result<()> {
         }
     }
 
-    let mut channel = TxChannel::new(
-        peripherals.pins.gpio21, // TODO: use builtin LED pin
-        &TxChannelConfig {
-            clock_source: Default::default(),
-            memory_block_symbols: 64, // increasing might reduce flickering
-            resolution: RMT_LED_STRIP_RESOLUTION_HZ,
-            transaction_queue_depth: 4, // The number of transactions that can be pending in the background
-            ..Default::default()
-        },
-    )?;
+    pub fn run() -> anyhow::Result<()> {
+        println!("Create RMT TX channel");
 
-    channel.enable()?;
+        let peripherals = Peripherals::take()?;
 
-    let mut encoder = SimpleEncoder::with_config(LedEncoder::new(), &Default::default())?;
+        let mut channel = TxChannel::new(
+            peripherals.pins.gpio21, // set the pin of the led strip here
+            &TxChannelConfig {
+                clock_source: Default::default(),
+                memory_block_symbols: 64, // increasing might reduce flickering
+                resolution: RMT_LED_STRIP_RESOLUTION_HZ,
+                transaction_queue_depth: 4, // The number of transactions that can be pending in the background
+                ..Default::default()
+            },
+        )?;
 
-    const NUMBER_OF_LEDS: usize = 1;
-    const ANGLE_INC_FRAME: f64 = 0.02;
-    const ANGLE_INC_LED: f64 = 0.3;
-    const FRAME_DURATION_MS: u32 = 20;
+        println!("Create simple callback-based encoder");
 
-    let mut offset = 0.0;
-    loop {
-        let mut signal = [Color {
-            red: 0,
-            green: 0,
-            blue: 0,
-        }; NUMBER_OF_LEDS];
-        for (i, color) in signal.iter_mut().enumerate() {
-            let angle = offset + (i as f64 * ANGLE_INC_LED);
-            let color_offset = (PI * 2.0) / 3.0;
+        let mut encoder = SimpleEncoder::with_config(LedEncoder::new(), &Default::default())?;
 
-            *color = Color {
-                red: ((angle + color_offset * 1.0).sin() * 127.0 + 128.0) as u8,
-                green: ((angle + color_offset * 0.0).sin() * 127.0 + 128.0) as u8,
-                blue: ((angle + color_offset * 2.0).sin() * 117.0 + 128.0) as u8,
-            };
-        }
+        println!("Start LED rainbow chase");
+        let mut offset = 0.0;
+        loop {
+            let mut signal = [Color::default(); NUMBER_OF_LEDS];
+            for (i, color) in signal.iter_mut().enumerate() {
+                // Build RGB pixels. Each color is an offset sine, which gives a
+                // hue-like effect.
+                let angle = offset + (i as f64 * ANGLE_INC_LED);
+                let color_offset = (PI * 2.0) / 3.0;
 
-        channel.send_and_wait(&mut encoder, &signal, &Default::default())?;
+                *color = Color {
+                    red: ((angle + color_offset * 1.0).sin() * 127.0 + 128.0) as u8,
+                    green: ((angle + color_offset * 0.0).sin() * 127.0 + 128.0) as u8,
+                    blue: ((angle + color_offset * 2.0).sin() * 117.0 + 128.0) as u8,
+                };
+            }
 
-        Ets::delay_ms(FRAME_DURATION_MS);
+            // Send the frame to the LED strip:
+            channel.send_and_wait(&mut encoder, &signal, &Default::default())?;
 
-        // Increase offset to shift pattern
-        offset += ANGLE_INC_FRAME;
-        if offset > 2.0 * PI {
-            offset -= 2.0 * PI;
+            Ets::delay_ms(FRAME_DURATION_MS);
+
+            // Increase offset to shift pattern
+            offset += ANGLE_INC_FRAME;
+            if offset > 2.0 * PI {
+                offset -= 2.0 * PI;
+            }
         }
     }
+}
+
+#[cfg(all(
+    esp_idf_soc_rmt_supported,
+    esp_idf_version_at_least_5_3_0,
+    not(feature = "rmt-legacy")
+))]
+fn main() -> anyhow::Result<()> {
+    example::run()
 }
