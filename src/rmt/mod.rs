@@ -16,8 +16,6 @@ use esp_idf_sys::*;
 
 use crate::rmt::config::CarrierConfig;
 
-// TODO: use Symbol in all places where rmt_symbol_word_t is used?
-
 /// Symbols
 ///
 /// Represents a single pulse cycle symbol comprised of mark (high)
@@ -69,9 +67,9 @@ impl Symbol {
         // SAFETY: We're overriding all 32 bits, so it doesn't matter what was here before.
         let inner = unsafe { &mut self.0.__bindgen_anon_1 };
         inner.set_level0(level0.pin_state as u16);
-        inner.set_duration0(level0.ticks.ticks() as u16);
+        inner.set_duration0(level0.ticks.ticks());
         inner.set_level1(level1.pin_state as u16);
-        inner.set_duration1(level1.ticks.ticks() as u16);
+        inner.set_duration1(level1.ticks.ticks());
     }
 }
 
@@ -120,9 +118,18 @@ pub trait RmtChannel {
     /// Returns the underlying `rmt_channel_handle_t`.
     fn handle(&self) -> rmt_channel_handle_t;
 
+    /// Returns whether the channel is currently enabled.
     #[must_use]
     fn is_enabled(&self) -> bool;
 
+    /// Sets the internal `is_enabled` flag of the channel that is used to track the channel state.
+    ///
+    /// # Safety
+    ///
+    /// The channel assumes that the given `is_enabled` reflects the state of the channel.
+    /// There shouldn't be any reason for the user to call this function directly.
+    /// Use `enable`/`disable` instead.
+    #[doc(hidden)]
     unsafe fn set_internal_enabled(&mut self, is_enabled: bool);
 
     /// Must be called in advance before transmitting or receiving RMT symbols.
@@ -203,8 +210,7 @@ pub trait RmtChannel {
     }
 }
 
-// TODO: esp32c2 does not define a clock source?
-
+/// Clock source for RMT channels.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
 pub enum ClockSource {
     #[default]

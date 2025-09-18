@@ -2,7 +2,10 @@ mod copy_encoder;
 pub use copy_encoder::*;
 mod bytes_encoder;
 pub use bytes_encoder::*;
+
+#[cfg(feature = "alloc")]
 mod simple_encoder;
+#[cfg(feature = "alloc")]
 pub use simple_encoder::*;
 
 use esp_idf_sys::*;

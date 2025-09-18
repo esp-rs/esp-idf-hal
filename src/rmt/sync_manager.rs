@@ -43,8 +43,9 @@ impl<'d, const N: usize> SyncManager<'d, N> {
             channels: Some(channels),
         };
 
-        // The referenced handles are copied by the rmt_new_sync_manager, therefore
-        // it is okay to reference a local variable here.
+        // SAFETY:
+        // rmt_new_sync_manager copies the array of channel handles, therefore it is safe to reference a
+        // temporary variable here.
         let mut iter = this.channels_mut().iter().map(TxChannel::handle);
         let handles = [(); N].map(|_| iter.next().unwrap());
 
