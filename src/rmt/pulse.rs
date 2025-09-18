@@ -81,13 +81,15 @@ impl Pulse {
     /// let pulse = Pulse::new_with_duration(ticks_hz, PinState::High, Duration::from_nanos(500))?;
     /// # }
     /// ```
-    pub fn new_with_duration(
+    pub const fn new_with_duration(
         ticks_hz: Hertz,
         pin_state: PinState,
         duration: &Duration,
     ) -> Result<Self, EspError> {
-        let ticks = PulseTicks::new_with_duration(ticks_hz, duration)?;
-        Ok(Self::new(pin_state, ticks))
+        match PulseTicks::new_with_duration(ticks_hz, duration) {
+            Ok(ticks) => Ok(Self::new(pin_state, ticks)),
+            Err(error) => Err(error),
+        }
     }
 }
 

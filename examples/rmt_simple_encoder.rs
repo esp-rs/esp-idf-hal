@@ -73,7 +73,6 @@ fn main() -> anyhow::Result<()> {
 
     fn byte_to_symbols(byte: u8) -> [Symbol; 8] {
         // TODO: make these constants
-        // TODO: construct PulseTicks with a duration?
         let ws2812_zero: Symbol = Symbol::new(
             Pulse::new(
                 PinState::High,
@@ -133,7 +132,6 @@ fn main() -> anyhow::Result<()> {
             input_data: &[Self::Item],
             buffer: &mut SymbolBuffer<'_>,
         ) -> Result<(), NotEnoughSpace> {
-            // TODO: ws2812b need 300us reset time
             let ws2812_reset: Symbol = Symbol::new(
                 Pulse::new(
                     PinState::Low,
@@ -182,8 +180,7 @@ fn main() -> anyhow::Result<()> {
 
     channel.enable()?;
 
-    let mut led_encoder = LedEncoder::new();
-    let mut encoder = SimpleEncoder::with_config(&mut led_encoder, &Default::default())?;
+    let mut encoder = SimpleEncoder::with_config(LedEncoder::new(), &Default::default())?;
 
     const NUMBER_OF_LEDS: usize = 1;
     const ANGLE_INC_FRAME: f64 = 0.02;

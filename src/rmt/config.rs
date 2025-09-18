@@ -6,8 +6,6 @@ pub use crate::rmt_legacy::config::Loop;
 use crate::rmt::ClockSource;
 use crate::units::{FromValueType, Hertz};
 
-// TODO: #[non_exhaustive] does not work as expected with the Default::default() refactor code to account for that
-
 #[derive(Debug, Clone)]
 pub struct TxChannelConfig {
     /// Selects the source clock for the RMT channel.
@@ -119,8 +117,6 @@ pub struct TransmitConfig {
     pub __internal: (),
 }
 
-// TODO: queue_non_blocking or queue_nonblocking?
-
 impl Default for TransmitConfig {
     fn default() -> Self {
         Self {
@@ -154,7 +150,7 @@ pub struct CarrierConfig {
 impl Default for CarrierConfig {
     fn default() -> Self {
         Self {
-            frequency: 38000.Hz().into(),
+            frequency: 38000.Hz(),
             duty_cycle: DutyPercent(50),
             polarity_active_low: false,
             always_on: false,

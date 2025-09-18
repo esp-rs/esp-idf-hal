@@ -1,5 +1,8 @@
 use core::ffi::c_void;
+use core::pin::Pin;
 use core::{mem, ptr, slice};
+
+use alloc::boxed::Box;
 
 use esp_idf_sys::*;
 
@@ -89,22 +92,12 @@ impl<'a> SymbolBuffer<'a> {
         self.symbols.len() - self.written
     }
 
-    /// Sets the symbol at the given index.
-    ///
-    /// # Panics
-    ///
-    /// Panics if `index` is out of bounds.
-    pub fn set(&mut self, index: usize, symbol: Symbol) {
-        self.symbols[index] = symbol;
-    }
-
     /// Tries to write all symbols to the buffer.
     ///
     /// # Errors
     ///
     /// If there is not enough space, it will not write anything and return [`NotEnoughSpace`]
     /// to indicate that the buffer is too small.
-    #[must_use]
     pub fn write_all(&mut self, symbols: &[Symbol]) -> Result<(), NotEnoughSpace> {
         if self.remaining() < symbols.len() {
             return Err(NotEnoughSpace);
@@ -116,6 +109,12 @@ impl<'a> SymbolBuffer<'a> {
         }
 
         Ok(())
+    }
+
+    /// Returns the underlying slice of symbols that have been written so far.
+    #[must_use]
+    pub fn as_mut_slice(&mut self) -> &mut [Symbol] {
+        &mut self.symbols[..self.written]
     }
 }
 
@@ -152,9 +151,8 @@ unsafe extern "C" fn delegator<S: EncoderCallback>(
     // Important: It counts the output symbols, not the input data items!
     //            If one processes a byte as an input into 8 symbols, then
     //            the function should return `8`.
-    match callback.encode(data_slice, &mut buffer) {
-        Ok(()) => *done = true,
-        Err(NotEnoughSpace) => {}
+    if let Ok(()) = callback.encode(data_slice, &mut buffer) {
+        *done = true;
     }
 
     // Calculate how many symbols were written in this call:
@@ -200,36 +198,43 @@ pub trait EncoderCallback {
 }
 
 #[derive(Debug)]
-pub struct SimpleEncoder<'a, S> {
-    // TODO: this is not unused... it is only indirectly used through pointer
-    #[allow(dead_code)]
-    encoder: &'a mut S, // TODO: <- this might result in a use-after-free if DelegatingEncoder is forgotten
+pub struct SimpleEncoder<T> {
+    _encoder: Pin<Box<T>>,
     handle: rmt_encoder_handle_t,
 }
 
-impl<'a, S: EncoderCallback> SimpleEncoder<'a, S> {
-    pub fn with_config(encoder: &'a mut S, config: &SimpleEncoderConfig) -> Result<Self, EspError> {
+impl<T: EncoderCallback> SimpleEncoder<T> {
+    /// Constructs a new simple encoder with the given callback and configuration.
+    pub fn with_config(encoder: T, config: &SimpleEncoderConfig) -> Result<Self, EspError> {
+        let mut encoder = Box::pin(encoder);
+
+        // SAFETY: The reference will only be used to mutate the encoder and never to move it.
+        let reference = unsafe { encoder.as_mut().get_unchecked_mut() };
         let sys_config = rmt_simple_encoder_config_t {
-            callback: Some(delegator::<S>),
-            arg: (encoder as *mut S) as *mut c_void,
+            callback: Some(delegator::<T>),
+            arg: reference as *mut T as *mut c_void,
             min_chunk_size: config.min_chunk_size,
         };
 
         let mut handle: rmt_encoder_handle_t = ptr::null_mut();
+        // SAFETY: the config is copied by the c code
         esp!(unsafe { rmt_new_simple_encoder(&sys_config, &mut handle) })?;
-        Ok(Self { handle, encoder })
+        Ok(Self {
+            handle,
+            _encoder: encoder,
+        })
     }
 }
 
-impl<'a, S: EncoderCallback> Encoder for SimpleEncoder<'a, S> {
-    type Item = S::Item;
+impl<T: EncoderCallback> Encoder for SimpleEncoder<T> {
+    type Item = T::Item;
 
     fn handle(&mut self) -> &mut rmt_encoder_t {
         unsafe { &mut *self.handle }
     }
 }
 
-impl<'a, S> Drop for SimpleEncoder<'a, S> {
+impl<T> Drop for SimpleEncoder<T> {
     fn drop(&mut self) {
         // This is calling encoder->del(encoder);
         unsafe { rmt_del_encoder(self.handle) };
