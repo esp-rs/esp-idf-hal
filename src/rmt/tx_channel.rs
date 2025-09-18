@@ -1,3 +1,4 @@
+use core::fmt;
 use core::marker::PhantomData;
 use core::mem;
 use core::pin::pin;
@@ -18,6 +19,11 @@ use crate::rmt::RmtChannel;
 pub struct TxHandle<'t> {
     id: usize,
     progress: &'t TransmissionProgress,
+    #[cfg(feature = "alloc")]
+    _data: Option<(
+        core::pin::Pin<alloc::boxed::Box<dyn core::any::Any>>,
+        core::pin::Pin<alloc::boxed::Box<dyn core::any::Any>>,
+    )>,
 }
 
 impl<'t> TxHandle<'t> {
@@ -108,6 +114,62 @@ impl<'channel, 'env> Scope<'channel, 'env> {
         Ok(TxHandle {
             id: self.progress.next_id(),
             progress: self.progress,
+            #[cfg(feature = "alloc")]
+            _data: None,
+        })
+    }
+
+    // TODO: merge parts with the above send function
+    #[cfg(feature = "alloc")]
+    pub fn send_owned<E: Encoder + 'static>(
+        &mut self,
+        encoder: E,
+        signal: impl Into<alloc::vec::Vec<E::Item>>,
+        config: &TransmitConfig,
+    ) -> Result<TxHandle<'channel>, EspError> {
+        super::assert_not_in_isr();
+
+        let sys_config = rmt_transmit_config_t {
+            loop_count: match config.loop_count {
+                Loop::Count(value) => value as i32,
+                Loop::Endless => -1,
+                Loop::None => 0,
+            },
+            flags: rmt_transmit_config_t__bindgen_ty_1 {
+                _bitfield_1: rmt_transmit_config_t__bindgen_ty_1::new_bitfield_1(
+                    config.eot_level as u32,
+                    #[cfg(esp_idf_version_at_least_5_1_3)]
+                    {
+                        config.queue_non_blocking as u32
+                    },
+                ),
+                ..Default::default()
+            },
+        };
+
+        let signal: core::pin::Pin<alloc::boxed::Box<alloc::vec::Vec<E::Item>>> =
+            alloc::boxed::Box::pin(alloc::vec::Vec::from(signal.into()));
+
+        // first calculate size, then pin the data:
+        let signal_size = mem::size_of_val::<[E::Item]>(signal.as_ref().get_ref());
+        let ptr = signal.as_ptr() as *const core::ffi::c_void;
+        let mut encoder = alloc::boxed::Box::pin(encoder);
+
+        esp!(unsafe {
+            rmt_transmit(
+                self.channel.handle(),
+                encoder.as_mut().get_unchecked_mut().handle(),
+                ptr,
+                // size should be given in bytes:
+                signal_size,
+                &sys_config,
+            )
+        })?;
+
+        Ok(TxHandle {
+            id: self.progress.next_id(),
+            progress: self.progress,
+            _data: Some((signal, encoder)),
         })
     }
 
@@ -168,7 +230,6 @@ struct UserData<'c> {
     progress: &'c TransmissionProgress,
 }
 
-// TODO: implement Debug and Send for TxChannel?
 pub struct TxChannel<'d> {
     is_enabled: bool,
     handle: rmt_channel_handle_t,
@@ -439,8 +500,6 @@ impl<'d> TxChannel<'d> {
             panic!("Can't subscribe while the channel is enabled");
         }
 
-        // TODO: allocate callback in IRAM?
-        // See https://github.com/esp-rs/esp-idf-hal/issues/486
         let callback: alloc::boxed::Box<dyn Fn(rmt_tx_done_event_data_t) + Send + 'static> =
             alloc::boxed::Box::new(callback);
 
@@ -505,5 +564,14 @@ impl<'d> Drop for TxChannel<'d> {
         }
 
         unsafe { rmt_del_channel(self.handle) };
+    }
+}
+
+impl<'d> fmt::Debug for TxChannel<'d> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("TxChannel")
+            .field("is_enabled", &self.is_enabled)
+            .field("handle", &self.handle)
+            .finish()
     }
 }

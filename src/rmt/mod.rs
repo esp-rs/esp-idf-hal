@@ -26,7 +26,7 @@ use crate::rmt::config::CarrierConfig;
 #[repr(transparent)]
 pub struct Symbol(rmt_symbol_word_t);
 
-// TODO: it is very inconvenient that one can not call Symbol::new in a const context, fix this.
+// TODO: it is very inconvenient that one can not call Symbol::new in a const context, fix this. <- requires changes in esp-idf-sys
 // TODO: rename Pull::new_with_duration with Pulse::try_with_duration, then make the old function panic instead
 //       of returning a result to make it work nicely in const contexts?
 impl Symbol {
@@ -41,8 +41,6 @@ impl Symbol {
 
     #[must_use]
     fn symbol_word_to_pulse(word: &rmt_symbol_word_t) -> Pulse {
-        // TODO: is this safe to do? I can't find any reason why not? How else would one interpret rmt symbols?
-        // SAFETY: ?
         let inner = unsafe { &word.__bindgen_anon_1 };
         Pulse::new(
             (inner.level0() as u32).into(),

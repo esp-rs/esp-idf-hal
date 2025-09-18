@@ -38,7 +38,7 @@ pub struct TxChannelConfig {
     pub transaction_queue_depth: usize,
     /// Set the priority of the interrupt. If set to 0, then the driver will use a
     /// interrupt with low or medium priority (priority level may be one of 1, 2 or 3),
-    /// otherwise use the priority indicated by `rmt_tx_channel_config_t::intr_priority`.
+    /// otherwise use the priority indicated by [`TxChannelConfig::interrupt_priority`].
     ///
     /// Please pay attention that once the interrupt priority is set, it cannot be changed
     /// until the channel is dropped.
@@ -188,12 +188,12 @@ pub struct RxChannelConfig {
     pub memory_block_symbols: usize,
     /// Set the priority of the interrupt. If set to 0, then the driver will use a
     /// interrupt with low or medium priority (priority level may be one of 1, 2 or 3),
-    /// otherwise use the priority indicated by `rmt_tx_channel_config_t::intr_priority`.
+    /// otherwise use the priority indicated by [`RxChannelConfig::interrupt_priority`].
     ///
     /// Please pay attention that once the interrupt priority is set, it cannot be changed
     /// until the channel is dropped.
     #[cfg(esp_idf_version_at_least_5_1_2)]
-    pub interrupt_priority: i32, // TODO: replace with InterruptType?
+    pub interrupt_priority: i32,
     pub flags: RxConfigChannelFlags,
     // This field is intentionally hidden to prevent non-exhaustive pattern matching.
     // You should only construct this struct using the `..Default::default()` pattern.

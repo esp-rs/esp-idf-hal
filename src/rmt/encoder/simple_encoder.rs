@@ -190,11 +190,18 @@ pub trait EncoderCallback {
     /// 1 input element = 8 output symbols -> position / 8 = number of input elements processed.
     ///
     /// Once you have processed all input elements, you should return with [`Ok`].
-    fn encode(
+    ///
+    /// # Safety
+    ///
+    /// This function is called from an ISR context. Care should be taken not to call std,
+    /// libc or FreeRTOS APIs (except for a few allowed ones).
+    ///
+    /// You are not allowed to block, but you are allowed to call FreeRTOS APIs with the FromISR suffix.
+    unsafe fn encode(
         &mut self,
         input_data: &[Self::Item],
         buffer: &mut SymbolBuffer<'_>,
-    ) -> Result<(), NotEnoughSpace>; // TODO: will the callback be in ISR?
+    ) -> Result<(), NotEnoughSpace>;
 }
 
 #[derive(Debug)]
