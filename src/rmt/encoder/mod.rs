@@ -3,9 +3,9 @@ pub use copy_encoder::*;
 mod bytes_encoder;
 pub use bytes_encoder::*;
 
-#[cfg(feature = "alloc")]
+#[cfg(all(feature = "alloc", esp_idf_version_at_least_5_3_0))]
 mod simple_encoder;
-#[cfg(feature = "alloc")]
+#[cfg(all(feature = "alloc", esp_idf_version_at_least_5_3_0))]
 pub use simple_encoder::*;
 
 use esp_idf_sys::*;
