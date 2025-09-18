@@ -257,6 +257,7 @@ pub struct ReceiveConfig {
     pub signal_range_max: Duration,
     /// Set this flag if the incoming data is very long, and the driver can only receive the data
     /// piece by piece, because the user buffer is not sufficient to save all the data.
+    #[cfg(esp_idf_version_at_least_5_3_0)]
     pub enable_partial_rx: bool,
     // This field is intentionally hidden to prevent non-exhaustive pattern matching.
     // You should only construct this struct using the `..Default::default()` pattern.

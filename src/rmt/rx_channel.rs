@@ -167,6 +167,7 @@ impl<'d> RxChannel<'d> {
         let sys_config = rmt_receive_config_t {
             signal_range_min_ns: config.signal_range_min.as_nanos() as _,
             signal_range_max_ns: config.signal_range_max.as_nanos() as _,
+            #[cfg(esp_idf_version_at_least_5_3_0)]
             flags: rmt_receive_config_t_extra_rmt_receive_flags {
                 _bitfield_1: rmt_receive_config_t_extra_rmt_receive_flags::new_bitfield_1(
                     config.enable_partial_rx as u32,

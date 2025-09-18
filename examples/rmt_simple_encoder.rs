@@ -194,22 +194,18 @@ fn main() -> anyhow::Result<()> {
             green: 0,
             blue: 0,
         }; NUMBER_OF_LEDS];
-        for i in 0..NUMBER_OF_LEDS {
+        for (i, color) in signal.iter_mut().enumerate() {
             let angle = offset + (i as f64 * ANGLE_INC_LED);
             let color_offset = (PI * 2.0) / 3.0;
 
-            let green = (angle + color_offset * 0.0).sin() * 127.0 + 128.0;
-            let red = (angle + color_offset * 1.0).sin() * 127.0 + 128.0;
-            let blue = (angle + color_offset * 2.0).sin() * 117.0 + 128.0; // TODO: 117 might be a typo?
-
-            signal[i] = Color {
-                red: red as u8,
-                green: green as u8,
-                blue: blue as u8,
+            *color = Color {
+                red: ((angle + color_offset * 1.0).sin() * 127.0 + 128.0) as u8,
+                green: ((angle + color_offset * 0.0).sin() * 127.0 + 128.0) as u8,
+                blue: ((angle + color_offset * 2.0).sin() * 117.0 + 128.0) as u8,
             };
         }
 
-        channel.send_and_wait(&mut encoder, &mut signal, &Default::default())?;
+        channel.send_and_wait(&mut encoder, &signal, &Default::default())?;
 
         Ets::delay_ms(FRAME_DURATION_MS);
 
