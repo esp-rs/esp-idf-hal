@@ -15,15 +15,13 @@ use crate::rmt::config::{Loop, TransmitConfig, TxChannelConfig};
 use crate::rmt::encoder::Encoder;
 use crate::rmt::RmtChannel;
 
+#[cfg(feature = "alloc")]
+type AnyPinned = core::pin::Pin<alloc::boxed::Box<dyn core::any::Any>>;
+
 /// A handle to a sent transmission that can be used to wait for its completion.
 pub struct TxHandle<'t> {
     id: usize,
     progress: &'t TransmissionProgress,
-    #[cfg(feature = "alloc")]
-    _data: Option<(
-        core::pin::Pin<alloc::boxed::Box<dyn core::any::Any>>,
-        core::pin::Pin<alloc::boxed::Box<dyn core::any::Any>>,
-    )>,
 }
 
 impl<'t> TxHandle<'t> {
@@ -42,10 +40,51 @@ pub struct Scope<'channel, 'env> {
     channel: &'channel TxChannel<'channel>,
     is_canceled: bool,
     progress: &'channel TransmissionProgress,
+    #[cfg(feature = "alloc")]
+    _data: alloc::vec::Vec<(AnyPinned, AnyPinned)>,
     _p: PhantomData<&'env mut ()>,
 }
 
 impl<'channel, 'env> Scope<'channel, 'env> {
+    /// # Safety
+    ///
+    /// The caller must ensure that the encoder and signal live long enough.
+    unsafe fn start_send<E: Encoder>(
+        &mut self,
+        encoder: &mut E,
+        signal: &[E::Item],
+        config: &TransmitConfig,
+    ) -> Result<(), EspError> {
+        let sys_config = rmt_transmit_config_t {
+            loop_count: match config.loop_count {
+                Loop::Count(value) => value as i32,
+                Loop::Endless => -1,
+                Loop::None => 0,
+            },
+            flags: rmt_transmit_config_t__bindgen_ty_1 {
+                _bitfield_1: rmt_transmit_config_t__bindgen_ty_1::new_bitfield_1(
+                    config.eot_level as u32,
+                    #[cfg(esp_idf_version_at_least_5_1_3)]
+                    {
+                        config.queue_non_blocking as u32
+                    },
+                ),
+                ..Default::default()
+            },
+        };
+
+        esp!(unsafe {
+            rmt_transmit(
+                self.channel.handle(),
+                encoder.handle(),
+                signal.as_ptr() as *const _,
+                // size should be given in bytes:
+                mem::size_of_val(signal),
+                &sys_config,
+            )
+        })
+    }
+
     // SAFETY:
     //
     // It must be guaranteed that the encoder and signal live for the 'env lifetime.
@@ -82,44 +121,16 @@ impl<'channel, 'env> Scope<'channel, 'env> {
     ) -> Result<TxHandle<'channel>, EspError> {
         super::assert_not_in_isr();
 
-        let sys_config = rmt_transmit_config_t {
-            loop_count: match config.loop_count {
-                Loop::Count(value) => value as i32,
-                Loop::Endless => -1,
-                Loop::None => 0,
-            },
-            flags: rmt_transmit_config_t__bindgen_ty_1 {
-                _bitfield_1: rmt_transmit_config_t__bindgen_ty_1::new_bitfield_1(
-                    config.eot_level as u32,
-                    #[cfg(esp_idf_version_at_least_5_1_3)]
-                    {
-                        config.queue_non_blocking as u32
-                    },
-                ),
-                ..Default::default()
-            },
-        };
-
-        esp!(unsafe {
-            rmt_transmit(
-                self.channel.handle(),
-                encoder.handle(),
-                signal.as_ptr() as *const _,
-                // size should be given in bytes:
-                mem::size_of_val(signal),
-                &sys_config,
-            )
-        })?;
+        unsafe { self.start_send(encoder, signal, config) }?;
 
         Ok(TxHandle {
             id: self.progress.next_id(),
             progress: self.progress,
-            #[cfg(feature = "alloc")]
-            _data: None,
         })
     }
 
-    // TODO: merge parts with the above send function
+    /// A convenience function that will take care of storing the encoder and signal,
+    /// until they are no longer needed.
     #[cfg(feature = "alloc")]
     pub fn send_owned<E: Encoder + 'static>(
         &mut self,
@@ -129,47 +140,24 @@ impl<'channel, 'env> Scope<'channel, 'env> {
     ) -> Result<TxHandle<'channel>, EspError> {
         super::assert_not_in_isr();
 
-        let sys_config = rmt_transmit_config_t {
-            loop_count: match config.loop_count {
-                Loop::Count(value) => value as i32,
-                Loop::Endless => -1,
-                Loop::None => 0,
-            },
-            flags: rmt_transmit_config_t__bindgen_ty_1 {
-                _bitfield_1: rmt_transmit_config_t__bindgen_ty_1::new_bitfield_1(
-                    config.eot_level as u32,
-                    #[cfg(esp_idf_version_at_least_5_1_3)]
-                    {
-                        config.queue_non_blocking as u32
-                    },
-                ),
-                ..Default::default()
-            },
-        };
-
-        let signal: core::pin::Pin<alloc::boxed::Box<alloc::vec::Vec<E::Item>>> =
-            alloc::boxed::Box::pin(alloc::vec::Vec::from(signal.into()));
-
-        // first calculate size, then pin the data:
-        let signal_size = mem::size_of_val::<[E::Item]>(signal.as_ref().get_ref());
-        let ptr = signal.as_ptr() as *const core::ffi::c_void;
+        let signal = alloc::boxed::Box::pin(signal.into());
         let mut encoder = alloc::boxed::Box::pin(encoder);
 
-        esp!(unsafe {
-            rmt_transmit(
-                self.channel.handle(),
-                encoder.as_mut().get_unchecked_mut().handle(),
-                ptr,
-                // size should be given in bytes:
-                signal_size,
-                &sys_config,
+        // SAFETY: Both encoder and signal are pinned, and are stored in the scope to ensure that they live long enough
+        unsafe {
+            self.start_send(
+                encoder.as_mut().get_unchecked_mut(),
+                signal.as_ref().get_ref(),
+                config,
             )
-        })?;
+        }?;
+
+        // Store the pinned data to ensure it lives long enough:
+        self._data.push((encoder, signal));
 
         Ok(TxHandle {
             id: self.progress.next_id(),
             progress: self.progress,
-            _data: Some((signal, encoder)),
         })
     }
 
@@ -432,6 +420,8 @@ impl<'d> TxChannel<'d> {
                         progress,
                         is_canceled: false,
                         _p: PhantomData,
+                        #[cfg(feature = "alloc")]
+                        _data: alloc::vec::Vec::new(),
                     };
 
                     let result = { f(&mut scope) };
