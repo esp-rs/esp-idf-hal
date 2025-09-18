@@ -7,7 +7,7 @@
 
 #[cfg(any(
     feature = "rmt-legacy",
-    not(esp_idf_version_at_least_5_1_2),
+    not(esp_idf_version_at_least_5_3_0),
     not(esp_idf_soc_rmt_supported),
 ))]
 fn main() -> anyhow::Result<()> {
@@ -20,7 +20,7 @@ fn main() -> anyhow::Result<()> {
 
 #[cfg(all(
     esp_idf_soc_rmt_supported,
-    esp_idf_version_at_least_5_1_2,
+    esp_idf_version_at_least_5_3_0,
     not(feature = "rmt-legacy")
 ))]
 fn main() -> anyhow::Result<()> {
