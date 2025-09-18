@@ -484,50 +484,24 @@ where
             pcm_role: crate::sys::CONFIG_BTDM_CTRL_PCM_ROLE_EFF as _,
             pcm_polar: crate::sys::CONFIG_BTDM_CTRL_PCM_POLAR_EFF as _,
             hli: crate::sys::BTDM_CTRL_HLI != 0,
+            #[cfg(any(
+                esp_idf_version_patch_at_least_5_1_7,
+                esp_idf_version_patch_at_least_5_2_6,
+                esp_idf_version_patch_at_least_5_3_3,
+                esp_idf_version_patch_at_least_5_4_1,
+                esp_idf_version_least_5_5_0,
+            ))]
+            enc_key_sz_min: crate::sys::CONFIG_BTDM_CTRL_BR_EDR_MIN_ENC_KEY_SZ_DFT_EFF as _,
             dup_list_refresh_period: crate::sys::SCAN_DUPL_CACHE_REFRESH_PERIOD as _,
+            ble_scan_backoff: crate::sys::BTDM_CTRL_SCAN_BACKOFF_UPPERLIMITMAX != 0,
+            ble_llcp_disc_flag: crate::sys::BTDM_BLE_LLCP_DISC_FLAG as _,
+            ble_aa_check: crate::sys::BTDM_CTRL_CHECK_CONNECT_IND_ACCESS_ADDRESS_ENABLED != 0,
+            ble_chan_ass_en: crate::sys::BTDM_BLE_CHAN_ASS_EN as _,
+            ble_ping_en: crate::sys::BTDM_BLE_PING_EN as _,
             ..Default::default()
         };
 
-        #[cfg(esp32s3)]
-        let mut bt_cfg = esp_bt_controller_config_t {
-            magic: crate::sys::ESP_BT_CTRL_CONFIG_MAGIC_VAL as _,
-            version: crate::sys::ESP_BT_CTRL_CONFIG_VERSION as _,
-            controller_task_stack_size: crate::sys::ESP_TASK_BT_CONTROLLER_STACK as _,
-            controller_task_prio: crate::sys::ESP_TASK_BT_CONTROLLER_PRIO as _,
-            controller_task_run_cpu: crate::sys::CONFIG_BT_CTRL_PINNED_TO_CORE as _,
-            bluetooth_mode: crate::sys::CONFIG_BT_CTRL_MODE_EFF as _,
-            ble_max_act: crate::sys::CONFIG_BT_CTRL_BLE_MAX_ACT_EFF as _,
-            sleep_mode: crate::sys::CONFIG_BT_CTRL_SLEEP_MODE_EFF as _,
-            sleep_clock: crate::sys::CONFIG_BT_CTRL_SLEEP_CLOCK_EFF as _,
-            ble_st_acl_tx_buf_nb: crate::sys::CONFIG_BT_CTRL_BLE_STATIC_ACL_TX_BUF_NB as _,
-            ble_hw_cca_check: crate::sys::CONFIG_BT_CTRL_HW_CCA_EFF as _,
-            ble_adv_dup_filt_max: crate::sys::CONFIG_BT_CTRL_ADV_DUP_FILT_MAX as _,
-            coex_param_en: false,
-            ce_len_type: crate::sys::CONFIG_BT_CTRL_CE_LENGTH_TYPE_EFF as _,
-            coex_use_hooks: false,
-            hci_tl_type: crate::sys::CONFIG_BT_CTRL_HCI_TL_EFF as _,
-            hci_tl_funcs: core::ptr::null_mut(),
-            txant_dft: crate::sys::CONFIG_BT_CTRL_TX_ANTENNA_INDEX_EFF as _,
-            rxant_dft: crate::sys::CONFIG_BT_CTRL_RX_ANTENNA_INDEX_EFF as _,
-            txpwr_dft: crate::sys::CONFIG_BT_CTRL_DFT_TX_POWER_LEVEL_EFF as _,
-            cfg_mask: crate::sys::CFG_MASK as _,
-            scan_duplicate_mode: crate::sys::SCAN_DUPLICATE_MODE as _,
-            scan_duplicate_type: crate::sys::SCAN_DUPLICATE_TYPE_VALUE as _,
-            normal_adv_size: crate::sys::NORMAL_SCAN_DUPLICATE_CACHE_SIZE as _,
-            mesh_adv_size: crate::sys::MESH_DUPLICATE_SCAN_CACHE_SIZE as _,
-            coex_phy_coded_tx_rx_time_limit:
-                crate::sys::CONFIG_BT_CTRL_COEX_PHY_CODED_TX_RX_TLIM_EFF as _,
-            hw_target_code: crate::sys::BLE_HW_TARGET_CODE_CHIP_ECO0 as _,
-            slave_ce_len_min: crate::sys::SLAVE_CE_LEN_MIN_DEFAULT as _,
-            hw_recorrect_en: crate::sys::AGC_RECORRECT_EN as _,
-            cca_thresh: crate::sys::CONFIG_BT_CTRL_HW_CCA_VAL as _,
-            ..Default::default() // TODO
-                                 // ble_50_feat_supp: crate::sys::BT_CTRL_50_FEATURE_SUPPORT != 0,
-                                 // dup_list_refresh_period: crate::sys::DUPL_SCAN_CACHE_REFRESH_PERIOD as _,
-                                 // scan_backoff_upperlimitmax: crate::sys::BT_CTRL_SCAN_BACKOFF_UPPERLIMITMAX as _
-        };
-
-        #[cfg(esp32c3)]
+        #[cfg(any(esp32c3, esp32s3))]
         let mut bt_cfg = esp_bt_controller_config_t {
             magic: crate::sys::ESP_BT_CTRL_CONFIG_MAGIC_VAL,
             version: crate::sys::ESP_BT_CTRL_CONFIG_VERSION,
@@ -560,9 +534,52 @@ where
             cca_thresh: crate::sys::CONFIG_BT_CTRL_HW_CCA_VAL as _,
             coex_param_en: false,
             coex_use_hooks: false,
-            ble_50_feat_supp: crate::sys::BT_CTRL_50_FEATURE_SUPPORT != 0,
-            dup_list_refresh_period: crate::sys::DUPL_SCAN_CACHE_REFRESH_PERIOD as _,
             scan_backoff_upperlimitmax: crate::sys::BT_CTRL_SCAN_BACKOFF_UPPERLIMITMAX as _,
+            dup_list_refresh_period: crate::sys::DUPL_SCAN_CACHE_REFRESH_PERIOD as _,
+            ble_50_feat_supp: crate::sys::BT_CTRL_50_FEATURE_SUPPORT != 0,
+            ble_cca_mode: crate::sys::BT_BLE_CCA_MODE as _,
+            ble_data_lenth_zero_aux: crate::sys::BT_BLE_ADV_DATA_LENGTH_ZERO_AUX as _,
+            ble_chan_ass_en: crate::sys::BT_CTRL_CHAN_ASS_EN as _,
+            ble_ping_en: crate::sys::BT_CTRL_LE_PING_EN as _,
+            ble_llcp_disc_flag: crate::sys::BT_CTRL_BLE_LLCP_DISC_FLAG as _,
+            run_in_flash: crate::sys::BT_CTRL_RUN_IN_FLASH_ONLY != 0,
+            dtm_en: crate::sys::BT_CTRL_DTM_ENABLE != 0,
+            enc_en: crate::sys::BLE_SECURITY_ENABLE != 0,
+            qa_test: crate::sys::BT_CTRL_BLE_TEST != 0,
+            #[cfg(any(
+                esp_idf_version_patch_at_least_5_1_7,
+                esp_idf_version_patch_at_least_5_2_6,
+                esp_idf_version_patch_at_least_5_3_4,
+                esp_idf_version_patch_at_least_5_4_2,
+                esp_idf_version_least_5_5_0,
+            ))]
+            connect_en: crate::sys::BT_CTRL_BLE_MASTER != 0,
+            scan_en: crate::sys::BT_CTRL_BLE_SCAN != 0,
+            ble_aa_check: crate::sys::BLE_CTRL_CHECK_CONNECT_IND_ACCESS_ADDRESS_ENABLED != 0,
+            #[cfg(any(
+                esp_idf_version_patch_at_least_5_1_7,
+                esp_idf_version_patch_at_least_5_2_6,
+                esp_idf_version_patch_at_least_5_3_3,
+                esp_idf_version_patch_at_least_5_4_2,
+                esp_idf_version_least_5_5_0,
+            ))]
+            ble_log_mode_en: crate::sys::BLE_LOG_MODE_EN,
+            #[cfg(any(
+                esp_idf_version_patch_at_least_5_1_7,
+                esp_idf_version_patch_at_least_5_2_6,
+                esp_idf_version_patch_at_least_5_3_3,
+                esp_idf_version_patch_at_least_5_4_2,
+                esp_idf_version_least_5_5_0,
+            ))]
+            ble_log_level: crate::sys::BLE_LOG_LEVEL as _,
+            #[cfg(any(
+                esp_idf_version_patch_at_least_5_1_7,
+                esp_idf_version_patch_at_least_5_2_6,
+                esp_idf_version_patch_at_least_5_3_4,
+                esp_idf_version_patch_at_least_5_4_2,
+                esp_idf_version_least_5_5_0,
+            ))]
+            adv_en: crate::sys::BT_CTRL_BLE_ADV != 0,
             ..Default::default()
         };
 

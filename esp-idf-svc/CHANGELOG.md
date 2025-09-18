@@ -28,6 +28,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - `WifiDriver::get_ap_info` not takes `&self` instead of `&mut self`. Convenience method `EspWifi::get_ap_info` that delegates
   to `WifiDriver::get_ap_info`
+- BT: Fix BLE not working on the s3 and with ESP-IDF 5.3+
 - Fix wrong conversion from `ScanType` to `u32` in Wi-Fi configuration
 - Fix wrong BT configuration version on the c6 (issue #556)
 - Fix inconsistent mutability in NVS (#567)
