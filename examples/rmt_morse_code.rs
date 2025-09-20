@@ -40,7 +40,7 @@ mod example {
         delay::Ets,
         gpio::{OutputPin, PinDriver},
         peripherals::Peripherals,
-        rmt::{
+        rmt_legacy::{
             config::{CarrierConfig, DutyPercent, Loop, TransmitConfig},
             PinState, Pulse, PulseTicks, RmtChannel, TxRmtDriver, VariableLengthSignal,
         },
