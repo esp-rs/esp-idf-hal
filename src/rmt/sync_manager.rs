@@ -2,7 +2,7 @@ use core::ptr;
 
 use esp_idf_sys::*;
 
-use crate::rmt::{RmtChannel, TxChannel};
+use crate::rmt::{RmtChannel, TxChannelDriver};
 
 /// In some real-time control applications (e.g., to make two robotic arms move simultaneously),
 /// you do not want any time drift between different channels. The RMT driver can help to manage
@@ -15,9 +15,9 @@ pub struct SyncManager<'d, const N: usize> {
     // which would require taking ownership of them.
     //
     // Because it implements Drop, rust forbids moving fields out of the struct,
-    // to workaround this, we the channels is wrapped in an Option that always
+    // to workaround this, the channels are wrapped in an Option that always
     // contains a value, except when dropped where it might be None.
-    channels: Option<[TxChannel<'d>; N]>,
+    channels: Option<[TxChannelDriver<'d>; N]>,
 }
 
 impl<'d, const N: usize> SyncManager<'d, N> {
@@ -37,7 +37,7 @@ impl<'d, const N: usize> SyncManager<'d, N> {
     /// - `ESP_ERR_NO_MEM`: Create sync manager failed because out of memory
     /// - `ESP_ERR_NOT_FOUND`: Create sync manager failed because all sync controllers are used up and no more free one
     /// - `ESP_FAIL`: Create sync manager failed because of other error
-    pub fn new(channels: [TxChannel<'d>; N]) -> Result<Self, EspError> {
+    pub fn new(channels: [TxChannelDriver<'d>; N]) -> Result<Self, EspError> {
         let mut this = Self {
             handle: ptr::null_mut(),
             channels: Some(channels),
@@ -46,7 +46,7 @@ impl<'d, const N: usize> SyncManager<'d, N> {
         // SAFETY:
         // rmt_new_sync_manager copies the array of channel handles, therefore it is safe to reference a
         // temporary variable here.
-        let mut iter = this.channels_mut().iter().map(TxChannel::handle);
+        let mut iter = this.channels_mut().iter().map(TxChannelDriver::handle);
         let handles = [(); N].map(|_| iter.next().unwrap());
 
         let sys_config = rmt_sync_manager_config_t {
@@ -70,19 +70,19 @@ impl<'d, const N: usize> SyncManager<'d, N> {
     }
 
     /// Returns a mutable reference to the managed TX channels.
-    pub fn channels_mut(&mut self) -> &mut [TxChannel<'d>; N] {
-        // Safety: Channels are always Some except when dropped.
+    pub fn channels_mut(&mut self) -> &mut [TxChannelDriver<'d>; N] {
+        // SAFETY: Channels are always Some except when dropped.
         unsafe { self.channels.as_mut().unwrap_unchecked() }
     }
 
     /// Returns a reference to the managed TX channels.
-    pub fn channels(&self) -> &[TxChannel<'d>; N] {
-        // Safety: Channels are always Some except when dropped.
+    pub fn channels(&self) -> &[TxChannelDriver<'d>; N] {
+        // SAFETY: Channels are always Some except when dropped.
         unsafe { self.channels.as_ref().unwrap_unchecked() }
     }
 
     /// Consumes the sync manager and returns the managed TX channels.
-    pub fn into_channels(mut self) -> [TxChannel<'d>; N] {
+    pub fn into_channels(mut self) -> [TxChannelDriver<'d>; N] {
         unsafe { self.channels.take().unwrap_unchecked() }
     }
 }

@@ -6,6 +6,54 @@ pub use crate::rmt_legacy::config::Loop;
 use crate::rmt::ClockSource;
 use crate::units::{FromValueType, Hertz};
 
+/// Controls how the channel accesses memory.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum MemoryAccess {
+    /// Enables the DMA backend for the channel. Using the DMA allows a significant amount of
+    /// the channel's workload to be offloaded from the CPU. However, the DMA backend is not
+    /// available on all ESP chips, please refer to [TRM] before you enable this option.
+    /// Or you might encounter a `ESP_ERR_NOT_SUPPORTED` error.
+    ///
+    /// [TRM]: https://www.espressif.com/sites/default/files/documentation/esp32_technical_reference_manual_en.pdf#rmt
+    Direct {
+        /// This field controls the size of the internal DMA buffer. To achieve a better
+        /// throughput and smaller CPU overhead, you can set a larger value, e.g., `1024`.
+        memory_block_symbols: usize,
+    },
+    /// Disables direct memory access. The CPU will have to read/write the data transferred from/to the RMT memory.
+    Indirect {
+        /// This field controls the size of the dedicated memory block owned by the channel,
+        /// which should be at least 64.
+        memory_block_symbols: usize,
+    },
+}
+
+impl MemoryAccess {
+    #[must_use]
+    pub(crate) fn is_direct(&self) -> bool {
+        matches!(self, Self::Direct { .. })
+    }
+
+    #[must_use]
+    pub(crate) fn symbols(&self) -> usize {
+        let (Self::Direct {
+            memory_block_symbols,
+        }
+        | Self::Indirect {
+            memory_block_symbols,
+        }) = self;
+        *memory_block_symbols
+    }
+}
+
+impl Default for MemoryAccess {
+    fn default() -> Self {
+        Self::Indirect {
+            memory_block_symbols: 64,
+        }
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct TxChannelConfig {
     /// Selects the source clock for the RMT channel.
@@ -21,18 +69,8 @@ pub struct TxChannelConfig {
     /// Sets the resolution of the internal tick counter. The timing parameter
     /// of the RMT signal is calculated based on this **tick**.
     pub resolution: Hertz,
-    /// Has a slightly different meaning based on if the DMA backend is enabled or not.
-    ///
-    /// ### With DMA enabled
-    ///
-    /// This field controls the size of the internal DMA buffer. To achieve a better
-    /// throughput and smaller CPU overhead, you can set a larger value, e.g., `1024`.
-    ///
-    /// ### With DMA disabled
-    ///
-    /// This field controls the size of the dedicated memory block owned by the channel,
-    /// which should be at least 64.
-    pub memory_block_symbols: usize,
+    /// Controls how the channel accesses memory.
+    pub memory_access: MemoryAccess,
     /// Sets the depth of the internal transaction queue, the deeper the queue,
     /// the more transactions can be prepared in the backlog.
     pub transaction_queue_depth: usize,
@@ -44,41 +82,8 @@ pub struct TxChannelConfig {
     /// until the channel is dropped.
     #[cfg(esp_idf_version_at_least_5_1_2)]
     pub interrupt_priority: i32,
-    pub flags: TxConfigChannelFlags,
-    // This field is intentionally hidden to prevent non-exhaustive pattern matching.
-    // You should only construct this struct using the `..Default::default()` pattern.
-    // If you use this field directly, your code might break in future versions.
-    #[doc(hidden)]
-    #[allow(dead_code)]
-    pub __internal: (),
-}
-
-impl Default for TxChannelConfig {
-    fn default() -> Self {
-        Self {
-            clock_source: Default::default(),
-            resolution: 1.MHz().into(),
-            memory_block_symbols: 64,
-            transaction_queue_depth: 4,
-            #[cfg(esp_idf_version_at_least_5_1_2)]
-            interrupt_priority: 0,
-            flags: Default::default(),
-            __internal: (),
-        }
-    }
-}
-
-#[derive(Debug, Clone, Default)]
-pub struct TxConfigChannelFlags {
     /// Is used to decide whether to invert the RMT signal before sending it to the GPIO pad.
     pub invert_out: bool,
-    /// Enables the DMA backend for the channel. Using the DMA allows a significant amount of
-    /// the channel's workload to be offloaded from the CPU. However, the DMA backend is not
-    /// available on all ESP chips, please refer to [TRM] before you enable this option.
-    /// Or you might encounter a `ESP_ERR_NOT_SUPPORTED` error.
-    ///
-    /// [TRM]: https://www.espressif.com/sites/default/files/documentation/esp32_technical_reference_manual_en.pdf#rmt
-    pub with_dma: bool,
     /// The signal output from the GPIO will be fed to the input path as well.
     pub io_loop_back: bool,
     /// Configure the GPIO as open-drain mode.
@@ -98,6 +103,25 @@ pub struct TxConfigChannelFlags {
     #[doc(hidden)]
     #[allow(dead_code)]
     pub __internal: (),
+}
+
+impl Default for TxChannelConfig {
+    fn default() -> Self {
+        Self {
+            clock_source: Default::default(),
+            resolution: 1.MHz().into(),
+            memory_access: Default::default(),
+            transaction_queue_depth: 4,
+            #[cfg(esp_idf_version_at_least_5_1_2)]
+            interrupt_priority: 0,
+            invert_out: false,
+            io_loop_back: false,
+            io_od_mode: false,
+            #[cfg(esp_idf_version_at_least_5_4_0)]
+            allow_pd: false,
+            __internal: (),
+        }
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -174,18 +198,8 @@ pub struct RxChannelConfig {
     /// Sets the resolution of the internal tick counter. The timing parameter
     /// of the RMT signal is calculated based on this **tick**.
     pub resolution: Hertz,
-    /// Has a slightly different meaning based on if the DMA backend is enabled or not.
-    ///
-    /// ### With DMA enabled
-    ///
-    /// This field controls the size of the internal DMA buffer. To achieve a better
-    /// throughput and smaller CPU overhead, you can set a larger value, e.g., `1024`.
-    ///
-    /// ### With DMA disabled
-    ///
-    /// This field controls the size of the dedicated memory block owned by the channel,
-    /// which should be at least 64.
-    pub memory_block_symbols: usize,
+    /// Controls how the channel accesses memory.
+    pub memory_access: MemoryAccess,
     /// Set the priority of the interrupt. If set to 0, then the driver will use a
     /// interrupt with low or medium priority (priority level may be one of 1, 2 or 3),
     /// otherwise use the priority indicated by [`RxChannelConfig::interrupt_priority`].
@@ -194,42 +208,8 @@ pub struct RxChannelConfig {
     /// until the channel is dropped.
     #[cfg(esp_idf_version_at_least_5_1_2)]
     pub interrupt_priority: i32,
-    pub flags: RxConfigChannelFlags,
-    // This field is intentionally hidden to prevent non-exhaustive pattern matching.
-    // You should only construct this struct using the `..Default::default()` pattern.
-    // If you use this field directly, your code might break in future versions.
-    #[doc(hidden)]
-    #[allow(dead_code)]
-    pub __internal: (),
-}
-
-// TODO: Should there be a Flags struct? or should they be inlined with the other config fields?
-
-impl Default for RxChannelConfig {
-    fn default() -> Self {
-        Self {
-            clock_source: Default::default(),
-            resolution: 1.MHz().into(),
-            memory_block_symbols: 64,
-            #[cfg(esp_idf_version_at_least_5_1_2)]
-            interrupt_priority: 0,
-            flags: Default::default(),
-            __internal: (),
-        }
-    }
-}
-
-#[derive(Debug, Clone, Default)]
-pub struct RxConfigChannelFlags {
     /// Is used to decide whether to invert the incoming RMT signal.
     pub invert_in: bool,
-    /// Enables the DMA backend for the channel. Using the DMA allows a significant amount of
-    /// the channel's workload to be offloaded from the CPU. However, the DMA backend is not
-    /// available on all ESP chips, please refer to [TRM] before you enable this option.
-    /// Or you might encounter a `ESP_ERR_NOT_SUPPORTED` error.
-    ///
-    /// [TRM]: https://www.espressif.com/sites/default/files/documentation/esp32_technical_reference_manual_en.pdf#rmt
-    pub with_dma: bool,
     /// The signal output from the GPIO will be fed to the input path as well.
     pub io_loop_back: bool,
     /// Configures if the driver allows the system to power down the peripheral in light sleep mode.
@@ -247,6 +227,23 @@ pub struct RxConfigChannelFlags {
     #[doc(hidden)]
     #[allow(dead_code)]
     pub __internal: (),
+}
+
+impl Default for RxChannelConfig {
+    fn default() -> Self {
+        Self {
+            clock_source: Default::default(),
+            resolution: 1.MHz().into(),
+            memory_access: Default::default(),
+            #[cfg(esp_idf_version_at_least_5_1_2)]
+            interrupt_priority: 0,
+            invert_in: false,
+            io_loop_back: false,
+            #[cfg(esp_idf_version_at_least_5_4_0)]
+            allow_pd: false,
+            __internal: (),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Default)]

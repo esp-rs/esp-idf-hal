@@ -10,11 +10,13 @@ pub use sync_manager::*;
 mod pulse;
 pub use pulse::*;
 
+use core::time::Duration;
 use core::{fmt, ptr};
 
 use esp_idf_sys::*;
 
 use crate::rmt::config::CarrierConfig;
+use crate::units::Hertz;
 
 /// Symbols
 ///
@@ -37,6 +39,40 @@ impl Symbol {
         let mut this = Self(item);
         this.update(level0, level1);
         this
+    }
+
+    /// Constructs a symbol from the given levels and durations.
+    ///
+    /// This is a convenience function that combines [`Pulse::new_with_duration`] and [`Symbol::new`].
+    pub fn new_with(
+        ticks_hz: Hertz,
+        level0: PinState,
+        duration0: Duration,
+        level1: PinState,
+        duration1: Duration,
+    ) -> Result<Self, EspError> {
+        Ok(Self::new(
+            Pulse::new_with_duration(ticks_hz, level0, &duration0)?,
+            Pulse::new_with_duration(ticks_hz, level1, &duration1)?,
+        ))
+    }
+
+    /// Constructs a new symbol where the duration is split evenly between the two levels.
+    pub fn new_half_split(
+        ticks_hz: Hertz,
+        level0: PinState,
+        level1: PinState,
+        duration: Duration,
+    ) -> Result<Self, EspError> {
+        let first_half_duration = duration / 2;
+        // This ensures that the two halves always add up to the original duration,
+        // even if the duration is odd.
+        let second_half_duration = duration - first_half_duration;
+
+        Ok(Self::new(
+            Pulse::new_with_duration(ticks_hz, level0, &first_half_duration)?,
+            Pulse::new_with_duration(ticks_hz, level1, &second_half_duration)?,
+        ))
     }
 
     #[must_use]

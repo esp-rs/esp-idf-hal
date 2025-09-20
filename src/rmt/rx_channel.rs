@@ -41,7 +41,7 @@ struct UserData<'a> {
     callback: Option<&'a mut (dyn FnMut(rmt_rx_done_event_data_t) + Send + 'static)>,
 }
 
-pub struct RxChannel<'d> {
+pub struct RxChannelDriver<'d> {
     handle: rmt_channel_handle_t,
     is_enabled: bool,
     #[cfg(feature = "alloc")]
@@ -49,7 +49,7 @@ pub struct RxChannel<'d> {
     _p: PhantomData<&'d mut ()>,
 }
 
-impl<'d> RxChannel<'d> {
+impl<'d> RxChannelDriver<'d> {
     const RX_EVENT_CALLBACKS: rmt_rx_event_callbacks_t = rmt_rx_event_callbacks_t {
         on_recv_done: Some(Self::handle_isr),
     };
@@ -69,17 +69,17 @@ impl<'d> RxChannel<'d> {
         let sys_config = rmt_rx_channel_config_t {
             clk_src: config.clock_source.into(),
             resolution_hz: config.resolution.into(),
-            mem_block_symbols: config.memory_block_symbols,
+            mem_block_symbols: config.memory_access.symbols(),
             #[cfg(esp_idf_version_at_least_5_1_2)]
             intr_priority: config.interrupt_priority,
             flags: rmt_rx_channel_config_t__bindgen_ty_1 {
                 _bitfield_1: rmt_rx_channel_config_t__bindgen_ty_1::new_bitfield_1(
-                    config.flags.invert_in as u32,
-                    config.flags.with_dma as u32,
-                    config.flags.io_loop_back as u32,
+                    config.invert_in as u32,
+                    config.memory_access.is_direct() as u32,
+                    config.io_loop_back as u32,
                     #[cfg(esp_idf_version_at_least_5_4_0)]
                     {
-                        config.flags.allow_pd as u32
+                        config.allow_pd as u32
                     },
                 ),
                 ..Default::default()
@@ -259,7 +259,7 @@ impl<'d> RxChannel<'d> {
     }
 }
 
-impl<'d> RmtChannel for RxChannel<'d> {
+impl<'d> RmtChannel for RxChannelDriver<'d> {
     fn handle(&self) -> rmt_channel_handle_t {
         self.handle
     }
@@ -273,7 +273,7 @@ impl<'d> RmtChannel for RxChannel<'d> {
     }
 }
 
-impl<'d> Drop for RxChannel<'d> {
+impl<'d> Drop for RxChannelDriver<'d> {
     fn drop(&mut self) {
         // Deleting the channel might fail if it is not disabled first.
         //
@@ -286,9 +286,9 @@ impl<'d> Drop for RxChannel<'d> {
     }
 }
 
-impl<'d> fmt::Debug for RxChannel<'d> {
+impl<'d> fmt::Debug for RxChannelDriver<'d> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("RxChannel")
+        f.debug_struct("RxChannelDriver")
             .field("is_enabled", &self.is_enabled)
             .field("handle", &self.handle)
             .finish()
