@@ -32,9 +32,10 @@ fn main() -> anyhow::Result<()> {
 mod example {
     use esp_idf_hal::delay::Ets;
     use esp_idf_hal::peripherals::Peripherals;
+    use esp_idf_hal::rmt::blocking::TxChannelDriver;
     use esp_idf_hal::rmt::config::{MemoryAccess, TxChannelConfig};
     use esp_idf_hal::rmt::encoder::{EncoderCallback, NotEnoughSpace, SimpleEncoder, SymbolBuffer};
-    use esp_idf_hal::rmt::{PinState, Symbol, TxChannelDriver};
+    use esp_idf_hal::rmt::{PinState, Symbol};
     use esp_idf_hal::units::Hertz;
 
     use std::f64::consts::PI;

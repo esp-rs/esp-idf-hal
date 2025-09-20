@@ -10,7 +10,7 @@ use esp_idf_sys::*;
 use crate::gpio::InputPin;
 use crate::interrupt;
 use crate::rmt::config::{ReceiveConfig, RxChannelConfig};
-use crate::rmt::{RmtChannel, Symbol};
+use crate::rmt::{assert_not_in_isr, RmtChannel, Symbol};
 
 struct TransmissionProgress {
     #[cfg(feature = "alloc")]
@@ -24,12 +24,12 @@ impl TransmissionProgress {
             .store(received_symbols, Ordering::SeqCst);
     }
 
-    fn wait(&self) -> usize {
+    async fn wait(&self) -> usize {
         while self.received_symbols.load(Ordering::SeqCst) != 0 {
             #[cfg(feature = "alloc")]
-            crate::task::block_on(self.notif.wait());
+            self.notif.wait().await;
             #[cfg(not(feature = "alloc"))]
-            crate::task::do_yield();
+            crate::task::yield_now().await;
         }
 
         self.received_symbols.load(Ordering::SeqCst)
@@ -41,7 +41,7 @@ struct UserData<'a> {
     callback: Option<&'a mut (dyn FnMut(rmt_rx_done_event_data_t) + Send + 'static)>,
 }
 
-pub struct RxChannelDriver<'d> {
+pub struct AsyncRxChannelDriver<'d> {
     handle: rmt_channel_handle_t,
     is_enabled: bool,
     #[cfg(feature = "alloc")]
@@ -49,7 +49,7 @@ pub struct RxChannelDriver<'d> {
     _p: PhantomData<&'d mut ()>,
 }
 
-impl<'d> RxChannelDriver<'d> {
+impl<'d> AsyncRxChannelDriver<'d> {
     const RX_EVENT_CALLBACKS: rmt_rx_event_callbacks_t = rmt_rx_event_callbacks_t {
         on_recv_done: Some(Self::handle_isr),
     };
@@ -100,12 +100,12 @@ impl<'d> RxChannelDriver<'d> {
 
     /// A helper function that registers the ISR handler before calling the provided closure
     /// and always unregisters the ISR handler afterwards.
-    fn with_callback<R>(
+    async fn with_callback<R>(
         handle: rmt_channel_handle_t,
         callback: Option<&mut (dyn FnMut(rmt_rx_done_event_data_t) + Send + 'static)>,
-        f: impl FnOnce(&TransmissionProgress) -> Result<R, EspError>,
+        f: impl AsyncFnOnce(&TransmissionProgress) -> Result<R, EspError>,
     ) -> Result<R, EspError> {
-        super::assert_not_in_isr();
+        assert_not_in_isr();
 
         let progress = TransmissionProgress {
             #[cfg(feature = "alloc")]
@@ -129,11 +129,7 @@ impl<'d> RxChannelDriver<'d> {
             )
         })?;
 
-        #[cfg(not(feature = "std"))]
-        let result = f(&progress);
-        #[cfg(feature = "std")]
-        // in std environments, catch panics:
-        let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| f(&progress)));
+        let result = f(&progress).await;
 
         // Disable the callback to prevent use-after-free bugs:
         esp!(unsafe {
@@ -146,21 +142,13 @@ impl<'d> RxChannelDriver<'d> {
         // SAFETY: This must always succeed, if it doesn't it might cause undefined behavior
         .expect("failed to disable RX callback, this is a bug in the esp-idf-hal library.");
 
-        #[cfg(not(feature = "std"))]
-        {
-            result
-        }
-        #[cfg(feature = "std")]
-        match result {
-            Ok(value) => value,
-            Err(error) => std::panic::resume_unwind(error),
-        }
+        result
     }
 
     /// Receives RMT symbols into the provided buffer, returning the number of received symbols.
     ///
     /// This function will wait until the receive operation is complete.
-    pub fn receive_and_wait(
+    pub async fn receive_and_wait(
         &mut self,
         buffer: &mut [Symbol],
         config: &ReceiveConfig,
@@ -195,7 +183,7 @@ impl<'d> RxChannelDriver<'d> {
                     None
                 }
             },
-            |progress| {
+            async |progress| {
                 // Start a new receive operation, this does not block:
                 esp!(unsafe {
                     rmt_receive(
@@ -207,9 +195,10 @@ impl<'d> RxChannelDriver<'d> {
                 })?;
 
                 // Wait for the end of the receive operation:
-                Ok(progress.wait())
+                Ok(progress.wait().await)
             },
         )
+        .await
     }
 
     #[cfg(feature = "alloc")]
@@ -217,7 +206,7 @@ impl<'d> RxChannelDriver<'d> {
         &mut self,
         on_recv_done: impl FnMut(rmt_rx_done_event_data_t) + Send + 'static,
     ) {
-        super::assert_not_in_isr();
+        assert_not_in_isr();
         if self.is_enabled() {
             panic!("Cannot subscribe to RX events while the channel is enabled");
         }
@@ -231,7 +220,7 @@ impl<'d> RxChannelDriver<'d> {
     /// Remove the ISR handler for when a transmission is done.
     #[cfg(feature = "alloc")]
     pub fn unsubscribe(&mut self) {
-        super::assert_not_in_isr();
+        assert_not_in_isr();
         if self.is_enabled() {
             panic!("Cannot unsubscribe from RX events while the channel is enabled");
         }
@@ -259,7 +248,7 @@ impl<'d> RxChannelDriver<'d> {
     }
 }
 
-impl<'d> RmtChannel for RxChannelDriver<'d> {
+impl<'d> RmtChannel for AsyncRxChannelDriver<'d> {
     fn handle(&self) -> rmt_channel_handle_t {
         self.handle
     }
@@ -273,7 +262,7 @@ impl<'d> RmtChannel for RxChannelDriver<'d> {
     }
 }
 
-impl<'d> Drop for RxChannelDriver<'d> {
+impl<'d> Drop for AsyncRxChannelDriver<'d> {
     fn drop(&mut self) {
         // Deleting the channel might fail if it is not disabled first.
         //
@@ -286,9 +275,9 @@ impl<'d> Drop for RxChannelDriver<'d> {
     }
 }
 
-impl<'d> fmt::Debug for RxChannelDriver<'d> {
+impl<'d> fmt::Debug for AsyncRxChannelDriver<'d> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("RxChannelDriver")
+        f.debug_struct("AsyncRxChannelDriver")
             .field("is_enabled", &self.is_enabled)
             .field("handle", &self.handle)
             .finish()
