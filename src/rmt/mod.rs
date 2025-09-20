@@ -1,10 +1,14 @@
+pub mod asynch;
 pub mod config;
 pub mod encoder;
 
-mod tx_channel;
-pub use tx_channel::*;
-mod rx_channel;
-pub use rx_channel::*;
+#[cfg(feature = "alloc")]
+pub mod blocking;
+
+// TODO: decide on module layout for blocking and async
+
+pub use asynch::*;
+
 mod sync_manager;
 pub use sync_manager::*;
 mod pulse;
@@ -28,9 +32,6 @@ use crate::units::Hertz;
 #[repr(transparent)]
 pub struct Symbol(rmt_symbol_word_t);
 
-// TODO: it is very inconvenient that one can not call Symbol::new in a const context, fix this. <- requires changes in esp-idf-sys
-// TODO: rename Pull::new_with_duration with Pulse::try_with_duration, then make the old function panic instead
-//       of returning a result to make it work nicely in const contexts?
 impl Symbol {
     /// Create a symbol from a pair of half-cycles.
     #[must_use]

@@ -4,7 +4,6 @@ use core::mem;
 use core::pin::pin;
 use core::ptr;
 use core::sync::atomic::{AtomicUsize, Ordering};
-use core::time::Duration;
 
 use crate::gpio::OutputPin;
 
@@ -13,7 +12,7 @@ use esp_idf_sys::*;
 use crate::interrupt::asynch::HalIsrNotification;
 use crate::rmt::config::{Loop, TransmitConfig, TxChannelConfig};
 use crate::rmt::encoder::Encoder;
-use crate::rmt::RmtChannel;
+use crate::rmt::{assert_not_in_isr, RmtChannel};
 
 #[cfg(feature = "alloc")]
 type AnyPinned = core::pin::Pin<alloc::boxed::Box<dyn core::any::Any>>;
@@ -30,14 +29,37 @@ impl<'t> TxHandle<'t> {
     /// # Note
     ///
     /// If the transmission never ends (e.g. [`Loop::Endless`]) this function will never return.
-    pub fn wait(&mut self) {
-        self.progress.wait_for(self.id);
+    pub fn wait_blocking(&mut self) {
+        #[cfg(feature = "alloc")]
+        crate::task::block_on(self.wait());
+        #[cfg(not(feature = "alloc"))]
+        {
+            // Calling self.notif.wait() is explicitly not allowed from an ISR context
+            // (it should never block when called in an ISR context),
+            // this makes sure that this is not called from an ISR:
+            assert_not_in_isr();
+
+            // The notif will notify every time a transmission is done, this might not
+            // be the one we are waiting for, therefore the id is checked here:
+            while !self.progress.is_finished(self.id) {
+                crate::task::do_yield();
+            }
+        }
+    }
+
+    /// Waits for the transmission to complete.
+    ///
+    /// # Note
+    ///
+    /// If the transmission never ends (e.g. [`Loop::Endless`]) this function will never return.
+    pub async fn wait(&mut self) {
+        self.progress.wait_for(self.id).await
     }
 }
 
 /// A scope in which multiple transmissions can be sent.
 pub struct Scope<'channel, 'env> {
-    channel: &'channel TxChannelDriver<'channel>,
+    channel: &'channel AsyncTxChannelDriver<'channel>,
     is_canceled: bool,
     progress: &'channel TransmissionProgress,
     // The outstanding transmissions will still reference the encoder and signal,
@@ -121,7 +143,7 @@ impl<'channel, 'env> Scope<'channel, 'env> {
         signal: &'env [E::Item],
         config: &TransmitConfig,
     ) -> Result<TxHandle<'channel>, EspError> {
-        super::assert_not_in_isr();
+        assert_not_in_isr();
 
         unsafe { self.start_send(encoder, signal, config) }?;
 
@@ -144,7 +166,7 @@ impl<'channel, 'env> Scope<'channel, 'env> {
         signal: impl Into<alloc::vec::Vec<E::Item>>,
         config: &TransmitConfig,
     ) -> Result<TxHandle<'channel>, EspError> {
-        super::assert_not_in_isr();
+        assert_not_in_isr();
 
         let signal = alloc::boxed::Box::pin(signal.into());
         let mut encoder = alloc::boxed::Box::pin(encoder);
@@ -213,23 +235,19 @@ impl TransmissionProgress {
     }
 
     /// Waits for the transmission with the given id to complete.
-    fn wait_for(&self, id: usize) {
+    async fn wait_for(&self, id: usize) {
         // Calling self.notif.wait() is explicitly not allowed from an ISR context
         // (it should never block when called in an ISR context),
         // this makes sure that this is not called from an ISR:
-        super::assert_not_in_isr();
+        assert_not_in_isr();
 
         // The notif will notify every time a transmission is done, this might not
         // be the one we are waiting for, therefore the id is checked here:
-        #[cfg(feature = "alloc")]
-        crate::task::block_on(async {
-            while !self.is_finished(id) {
-                self.notif.wait().await;
-            }
-        });
-        #[cfg(not(feature = "alloc"))]
         while !self.is_finished(id) {
-            crate::task::do_yield();
+            #[cfg(feature = "alloc")]
+            self.notif.wait().await;
+            #[cfg(not(feature = "alloc"))]
+            crate::task::yield_now().await;
         }
     }
 
@@ -245,7 +263,7 @@ struct UserData<'c> {
     progress: &'c TransmissionProgress,
 }
 
-pub struct TxChannelDriver<'d> {
+pub struct AsyncTxChannelDriver<'d> {
     is_enabled: bool,
     handle: rmt_channel_handle_t,
     #[cfg(feature = "alloc")]
@@ -253,7 +271,7 @@ pub struct TxChannelDriver<'d> {
     _p: PhantomData<&'d mut ()>,
 }
 
-impl<'d> TxChannelDriver<'d> {
+impl<'d> AsyncTxChannelDriver<'d> {
     const TX_EVENT_CALLBACKS: rmt_tx_event_callbacks_t = rmt_tx_event_callbacks_t {
         on_trans_done: Some(Self::handle_isr),
     };
@@ -276,7 +294,7 @@ impl<'d> TxChannelDriver<'d> {
     ///
     /// This function will panic if called from an ISR context.
     pub fn new(pin: impl OutputPin + 'd, config: &TxChannelConfig) -> Result<Self, EspError> {
-        super::assert_not_in_isr();
+        assert_not_in_isr();
 
         let sys_config: rmt_tx_channel_config_t = rmt_tx_channel_config_t {
             clk_src: config.clock_source.into(),
@@ -323,25 +341,28 @@ impl<'d> TxChannelDriver<'d> {
     /// # Errors
     ///
     /// - `ESP_ERR_INVALID_ARG`: Flush transactions failed because of invalid argument
-    /// - `ESP_ERR_TIMEOUT`: Flush transactions failed because of timeout
     /// - `ESP_FAIL`: Flush transactions failed because of other error
-    pub fn wait_all_done(&self, timeout: Option<Duration>) -> Result<(), EspError> {
-        esp!(unsafe {
-            rmt_tx_wait_all_done(
-                self.handle,
-                timeout.map_or(-1, |duration| duration.as_millis() as i32),
-            )
-        })
+    pub async fn wait_all_done(&self) -> Result<(), EspError> {
+        loop {
+            match esp!(unsafe { rmt_tx_wait_all_done(self.handle, 0) }) {
+                Ok(()) => return Ok(()),
+                Err(e) if e.code() == esp_idf_sys::ESP_ERR_TIMEOUT => {
+                    // Yield to allow other tasks to run
+                    crate::task::yield_now().await;
+                }
+                Err(e) => return Err(e),
+            }
+        }
     }
 
     /// A helper function that registers the ISR handler before calling the provided closure
     /// and always unregisters the ISR handler afterwards.
-    fn with_callback<R>(
+    async fn with_callback<R>(
         handle: rmt_channel_handle_t,
         callback: Option<&mut (dyn FnMut(rmt_tx_done_event_data_t) + Send + 'static)>,
-        f: impl FnOnce(&TransmissionProgress) -> Result<R, EspError>,
+        f: impl AsyncFnOnce(&TransmissionProgress) -> Result<R, EspError>,
     ) -> Result<R, EspError> {
-        super::assert_not_in_isr();
+        assert_not_in_isr();
 
         let progress = TransmissionProgress {
             next_tx_id: AtomicUsize::new(0),
@@ -367,11 +388,7 @@ impl<'d> TxChannelDriver<'d> {
             )
         })?;
 
-        #[cfg(not(feature = "std"))]
-        let result = f(&progress);
-        #[cfg(feature = "std")]
-        // in std environments, catch panics:
-        let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| f(&progress)));
+        let result = f(&progress).await;
 
         // Disable the callback to prevent use-after-free bugs:
         esp!(unsafe {
@@ -384,15 +401,7 @@ impl<'d> TxChannelDriver<'d> {
         // SAFETY: This must always succeed, if it doesn't it might cause undefined behavior
         .expect("failed to disable TX callback, this is a bug in the esp-idf-hal library.");
 
-        #[cfg(not(feature = "std"))]
-        {
-            result
-        }
-        #[cfg(feature = "std")]
-        match result {
-            Ok(value) => value,
-            Err(error) => std::panic::resume_unwind(error),
-        }
+        result
     }
 
     /// Creates a new scope in which multiple transmissions can be sent without awaiting the previous ones.
@@ -411,11 +420,11 @@ impl<'d> TxChannelDriver<'d> {
     /// # Panics
     ///
     /// This function will panic if called from an ISR context.
-    pub fn scope<'env, F, R>(&'env mut self, f: F) -> Result<R, EspError>
+    pub async fn scope<'env, F, R>(&'env mut self, f: F) -> Result<R, EspError>
     where
-        for<'s, 'channel> F: FnOnce(&'s mut Scope<'channel, 'env>) -> Result<R, EspError>,
+        for<'s, 'channel> F: AsyncFnOnce(&'s mut Scope<'channel, 'env>) -> Result<R, EspError>,
     {
-        super::assert_not_in_isr();
+        assert_not_in_isr();
 
         let handle = self.handle();
 
@@ -435,7 +444,7 @@ impl<'d> TxChannelDriver<'d> {
                     None
                 }
             },
-            |progress| {
+            async |progress| {
                 // If the channel is not enabled yet, enable it now:
                 if !self.is_enabled() {
                     self.enable()?;
@@ -451,7 +460,7 @@ impl<'d> TxChannelDriver<'d> {
                         _data: alloc::vec::Vec::new(),
                     };
 
-                    let result = { f(&mut scope) };
+                    let result = f(&mut scope).await;
 
                     (scope.is_canceled, result)
                 };
@@ -460,12 +469,13 @@ impl<'d> TxChannelDriver<'d> {
                     // If the scope was canceled, we don't wait for all done, instead disable the channel.
                     self.disable()?;
                 } else {
-                    self.wait_all_done(None)?;
+                    self.wait_all_done().await?;
                 }
 
                 result
             },
-        );
+        )
+        .await;
 
         #[cfg(feature = "alloc")]
         {
@@ -477,18 +487,17 @@ impl<'d> TxChannelDriver<'d> {
 
     /// Sends the given signal using the specified encoder and config,
     /// then waits for the transmission to finish before returning.
-    pub fn send_and_wait<E: Encoder>(
+    pub async fn send_and_wait<E: Encoder>(
         &mut self,
         encoder: &mut E,
         signal: &[E::Item],
         config: &TransmitConfig,
     ) -> Result<(), EspError> {
-        self.scope(|scope| {
+        self.scope(async |scope| {
             scope.send_ref(encoder, signal, config)?;
             Ok(())
-        })?;
-
-        Ok(())
+        })
+        .await
     }
 
     /// Add ISR handler for when a transmission is done.
@@ -512,7 +521,7 @@ impl<'d> TxChannelDriver<'d> {
         &mut self,
         callback: impl Fn(rmt_tx_done_event_data_t) + Send + 'static,
     ) {
-        super::assert_not_in_isr();
+        assert_not_in_isr();
         if self.is_enabled() {
             panic!("Can't subscribe while the channel is enabled");
         }
@@ -530,7 +539,7 @@ impl<'d> TxChannelDriver<'d> {
     /// This function will panic if called from an ISR context or while the channel is enabled.
     #[cfg(feature = "alloc")]
     pub fn unsubscribe(&mut self) {
-        super::assert_not_in_isr();
+        assert_not_in_isr();
         if self.is_enabled() {
             panic!("Can't unsubscribe while the channel is enabled");
         }
@@ -557,7 +566,7 @@ impl<'d> TxChannelDriver<'d> {
     }
 }
 
-impl<'d> RmtChannel for TxChannelDriver<'d> {
+impl<'d> RmtChannel for AsyncTxChannelDriver<'d> {
     fn handle(&self) -> rmt_channel_handle_t {
         self.handle
     }
@@ -571,7 +580,7 @@ impl<'d> RmtChannel for TxChannelDriver<'d> {
     }
 }
 
-impl<'d> Drop for TxChannelDriver<'d> {
+impl<'d> Drop for AsyncTxChannelDriver<'d> {
     fn drop(&mut self) {
         // Deleting the channel might fail if it is not disabled first.
         //
@@ -584,9 +593,9 @@ impl<'d> Drop for TxChannelDriver<'d> {
     }
 }
 
-impl<'d> fmt::Debug for TxChannelDriver<'d> {
+impl<'d> fmt::Debug for AsyncTxChannelDriver<'d> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("TxChannelDriver")
+        f.debug_struct("AsyncTxChannelDriver")
             .field("is_enabled", &self.is_enabled)
             .field("handle", &self.handle)
             .finish()
