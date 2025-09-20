@@ -32,9 +32,9 @@ fn main() -> anyhow::Result<()> {
 mod example {
     use esp_idf_hal::delay::Ets;
     use esp_idf_hal::peripherals::Peripherals;
-    use esp_idf_hal::rmt::config::TxChannelConfig;
+    use esp_idf_hal::rmt::config::{MemoryAccess, TxChannelConfig};
     use esp_idf_hal::rmt::encoder::{EncoderCallback, NotEnoughSpace, SimpleEncoder, SymbolBuffer};
-    use esp_idf_hal::rmt::{PinState, Pulse, PulseTicks, Symbol, TxChannel};
+    use esp_idf_hal::rmt::{PinState, Symbol, TxChannelDriver};
     use esp_idf_hal::units::Hertz;
 
     use std::f64::consts::PI;
@@ -55,42 +55,22 @@ mod example {
     }
 
     fn byte_to_symbols(byte: u8) -> impl IntoIterator<Item = Symbol> {
-        let ws2812_zero: Symbol = Symbol::new(
-            Pulse::new(
-                PinState::High,
-                PulseTicks::new_with_duration(
-                    RMT_LED_STRIP_RESOLUTION_HZ,
-                    &Duration::from_nanos(300),
-                )
-                .unwrap(),
-            ),
-            Pulse::new(
-                PinState::Low,
-                PulseTicks::new_with_duration(
-                    RMT_LED_STRIP_RESOLUTION_HZ,
-                    &Duration::from_nanos(900),
-                )
-                .unwrap(),
-            ),
-        );
-        let ws2812_one: Symbol = Symbol::new(
-            Pulse::new(
-                PinState::High,
-                PulseTicks::new_with_duration(
-                    RMT_LED_STRIP_RESOLUTION_HZ,
-                    &Duration::from_nanos(900),
-                )
-                .unwrap(),
-            ),
-            Pulse::new(
-                PinState::Low,
-                PulseTicks::new_with_duration(
-                    RMT_LED_STRIP_RESOLUTION_HZ,
-                    &Duration::from_nanos(300),
-                )
-                .unwrap(),
-            ),
-        );
+        let ws2812_zero = Symbol::new_with(
+            RMT_LED_STRIP_RESOLUTION_HZ,
+            PinState::High,
+            Duration::from_micros(300),
+            PinState::Low,
+            Duration::from_micros(900),
+        )
+        .unwrap();
+        let ws2812_one = Symbol::new_with(
+            RMT_LED_STRIP_RESOLUTION_HZ,
+            PinState::High,
+            Duration::from_micros(900),
+            PinState::Low,
+            Duration::from_micros(300),
+        )
+        .unwrap();
 
         (0..8)
             .map(|i| 0x80 >> i)
@@ -128,24 +108,13 @@ mod example {
             input_data: &[Self::Item],
             buffer: &mut SymbolBuffer<'_>,
         ) -> Result<(), NotEnoughSpace> {
-            let ws2812_reset: Symbol = Symbol::new(
-                Pulse::new(
-                    PinState::Low,
-                    PulseTicks::new_with_duration(
-                        RMT_LED_STRIP_RESOLUTION_HZ,
-                        &Duration::from_micros(150),
-                    )
-                    .unwrap(),
-                ),
-                Pulse::new(
-                    PinState::Low,
-                    PulseTicks::new_with_duration(
-                        RMT_LED_STRIP_RESOLUTION_HZ,
-                        &Duration::from_micros(150),
-                    )
-                    .unwrap(),
-                ),
-            );
+            let ws2812_reset = Symbol::new_half_split(
+                RMT_LED_STRIP_RESOLUTION_HZ,
+                PinState::Low,
+                PinState::Low,
+                Duration::from_micros(300),
+            )
+            .unwrap();
 
             if buffer.position() == 0 {
                 self.input_position = 0;
@@ -169,11 +138,13 @@ mod example {
 
         let peripherals = Peripherals::take()?;
 
-        let mut channel = TxChannel::new(
+        let mut channel = TxChannelDriver::new(
             peripherals.pins.gpio21, // set the pin of the led strip here
             &TxChannelConfig {
                 clock_source: Default::default(),
-                memory_block_symbols: 64, // increasing might reduce flickering
+                memory_access: MemoryAccess::Indirect {
+                    memory_block_symbols: 64,
+                }, // increasing might reduce flickering
                 resolution: RMT_LED_STRIP_RESOLUTION_HZ,
                 transaction_queue_depth: 4, // The number of transactions that can be pending in the background
                 ..Default::default()

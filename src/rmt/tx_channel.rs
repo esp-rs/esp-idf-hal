@@ -37,11 +37,13 @@ impl<'t> TxHandle<'t> {
 
 /// A scope in which multiple transmissions can be sent.
 pub struct Scope<'channel, 'env> {
-    channel: &'channel TxChannel<'channel>,
+    channel: &'channel TxChannelDriver<'channel>,
     is_canceled: bool,
     progress: &'channel TransmissionProgress,
+    // The outstanding transmissions will still reference the encoder and signal,
+    // it is stored here to ensure that they live long enough:
     #[cfg(feature = "alloc")]
-    _data: alloc::vec::Vec<(AnyPinned, AnyPinned)>,
+    _data: alloc::vec::Vec<(usize, AnyPinned, AnyPinned)>,
     _p: PhantomData<&'env mut ()>,
 }
 
@@ -113,7 +115,7 @@ impl<'channel, 'env> Scope<'channel, 'env> {
     /// - `ESP_ERR_INVALID_STATE`: The channel is not enabled, make sure you called [`Self::enable`] before transmitting.
     /// - `ESP_ERR_NOT_SUPPORTED`: Some feature is not supported by hardware e.g. unsupported loop count
     /// - `ESP_FAIL`: Because of other errors
-    pub fn send<E: Encoder>(
+    pub fn send_ref<E: Encoder>(
         &mut self,
         encoder: &'env mut E,
         signal: &'env [E::Item],
@@ -129,10 +131,14 @@ impl<'channel, 'env> Scope<'channel, 'env> {
         })
     }
 
-    /// A convenience function that will take care of storing the encoder and signal,
-    /// until they are no longer needed.
+    /// Transmits the signal using the specified encoder and config.
+    ///
+    /// This function will ensure that the encoder and signal live long enough by storing them
+    /// in the scope.
+    ///
+    /// See also [`Self::send_ref`] for more details on the behavior of this function.
     #[cfg(feature = "alloc")]
-    pub fn send_owned<E: Encoder + 'static>(
+    pub fn send<E: Encoder + 'static>(
         &mut self,
         encoder: E,
         signal: impl Into<alloc::vec::Vec<E::Item>>,
@@ -153,12 +159,26 @@ impl<'channel, 'env> Scope<'channel, 'env> {
         }?;
 
         // Store the pinned data to ensure it lives long enough:
-        self._data.push((encoder, signal));
+        let id = self.progress.next_id();
+        self.store_data(id, encoder, signal);
 
         Ok(TxHandle {
-            id: self.progress.next_id(),
+            id,
             progress: self.progress,
         })
+    }
+
+    /// Stores the data in the scope of the transmission to ensure that it lives long enough.
+    ///
+    /// While adding the transmission, it will check the progress to see if any old transmission
+    /// data can be removed. (This helps to keep memory usage low when doing many transmissions.)
+    #[cfg(feature = "alloc")]
+    fn store_data(&mut self, id: usize, encoder: AnyPinned, signal: AnyPinned) {
+        // Remove old data that is no longer needed:
+        self._data
+            .retain(|(stored_id, _, _)| !self.progress.is_finished(*stored_id));
+
+        self._data.push((id, encoder, signal));
     }
 
     /// Indicates that the channel should be disabled (will cancel all pending transmissions)
@@ -185,6 +205,13 @@ impl TransmissionProgress {
         self.next_tx_id.fetch_add(1, Ordering::SeqCst)
     }
 
+    #[must_use]
+    fn is_finished(&self, id: usize) -> bool {
+        // Assuming id is 1, we have the transmissions [0, 1].
+        // For id 1 to be finished, the count has to be at least 2.
+        self.finished_count.load(Ordering::SeqCst) > id
+    }
+
     /// Waits for the transmission with the given id to complete.
     fn wait_for(&self, id: usize) {
         // Calling self.notif.wait() is explicitly not allowed from an ISR context
@@ -196,12 +223,12 @@ impl TransmissionProgress {
         // be the one we are waiting for, therefore the id is checked here:
         #[cfg(feature = "alloc")]
         crate::task::block_on(async {
-            while self.finished_count.load(Ordering::SeqCst) <= id {
+            while !self.is_finished(id) {
                 self.notif.wait().await;
             }
         });
         #[cfg(not(feature = "alloc"))]
-        while self.finished_count.load(Ordering::SeqCst) <= id {
+        while !self.is_finished(id) {
             crate::task::do_yield();
         }
     }
@@ -218,7 +245,7 @@ struct UserData<'c> {
     progress: &'c TransmissionProgress,
 }
 
-pub struct TxChannel<'d> {
+pub struct TxChannelDriver<'d> {
     is_enabled: bool,
     handle: rmt_channel_handle_t,
     #[cfg(feature = "alloc")]
@@ -226,7 +253,7 @@ pub struct TxChannel<'d> {
     _p: PhantomData<&'d mut ()>,
 }
 
-impl<'d> TxChannel<'d> {
+impl<'d> TxChannelDriver<'d> {
     const TX_EVENT_CALLBACKS: rmt_tx_event_callbacks_t = rmt_tx_event_callbacks_t {
         on_trans_done: Some(Self::handle_isr),
     };
@@ -254,19 +281,19 @@ impl<'d> TxChannel<'d> {
         let sys_config: rmt_tx_channel_config_t = rmt_tx_channel_config_t {
             clk_src: config.clock_source.into(),
             resolution_hz: config.resolution.into(),
-            mem_block_symbols: config.memory_block_symbols,
+            mem_block_symbols: config.memory_access.symbols(),
             trans_queue_depth: config.transaction_queue_depth,
             #[cfg(esp_idf_version_at_least_5_1_2)]
             intr_priority: config.interrupt_priority,
             flags: rmt_tx_channel_config_t__bindgen_ty_1 {
                 _bitfield_1: rmt_tx_channel_config_t__bindgen_ty_1::new_bitfield_1(
-                    config.flags.invert_out as u32,
-                    config.flags.with_dma as u32,
-                    config.flags.io_loop_back as u32,
-                    config.flags.io_od_mode as u32,
+                    config.invert_out as u32,
+                    config.memory_access.is_direct() as u32,
+                    config.io_loop_back as u32,
+                    config.io_od_mode as u32,
                     #[cfg(esp_idf_version_at_least_5_4_0)]
                     {
-                        config.flags.allow_pd as u32
+                        config.allow_pd as u32
                     },
                 ),
                 ..Default::default()
@@ -457,7 +484,7 @@ impl<'d> TxChannel<'d> {
         config: &TransmitConfig,
     ) -> Result<(), EspError> {
         self.scope(|scope| {
-            scope.send(encoder, signal, config)?;
+            scope.send_ref(encoder, signal, config)?;
             Ok(())
         })?;
 
@@ -530,7 +557,7 @@ impl<'d> TxChannel<'d> {
     }
 }
 
-impl<'d> RmtChannel for TxChannel<'d> {
+impl<'d> RmtChannel for TxChannelDriver<'d> {
     fn handle(&self) -> rmt_channel_handle_t {
         self.handle
     }
@@ -544,7 +571,7 @@ impl<'d> RmtChannel for TxChannel<'d> {
     }
 }
 
-impl<'d> Drop for TxChannel<'d> {
+impl<'d> Drop for TxChannelDriver<'d> {
     fn drop(&mut self) {
         // Deleting the channel might fail if it is not disabled first.
         //
@@ -557,9 +584,9 @@ impl<'d> Drop for TxChannel<'d> {
     }
 }
 
-impl<'d> fmt::Debug for TxChannel<'d> {
+impl<'d> fmt::Debug for TxChannelDriver<'d> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("TxChannel")
+        f.debug_struct("TxChannelDriver")
             .field("is_enabled", &self.is_enabled)
             .field("handle", &self.handle)
             .finish()
