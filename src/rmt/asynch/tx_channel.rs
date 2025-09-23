@@ -47,6 +47,11 @@ impl<'t> TxHandle<'t> {
         }
     }
 
+    #[must_use]
+    pub fn is_finished(&self) -> bool {
+        self.progress.is_finished(self.id)
+    }
+
     /// Waits for the transmission to complete.
     ///
     /// # Note
@@ -450,7 +455,9 @@ impl<'d> AsyncTxChannelDriver<'d> {
                     self.enable()?;
                 }
 
-                let (is_canceled, result) = {
+                // The _data must not be dropped until all transmissions are done or the channel is disabled
+                // -> it is moved out of this block to keep it alive:
+                let (is_canceled, result, _data) = {
                     let mut scope = Scope {
                         channel: self,
                         progress,
@@ -462,7 +469,14 @@ impl<'d> AsyncTxChannelDriver<'d> {
 
                     let result = f(&mut scope).await;
 
-                    (scope.is_canceled, result)
+                    #[cfg(feature = "alloc")]
+                    {
+                        (scope.is_canceled, result, scope._data)
+                    }
+                    #[cfg(not(feature = "alloc"))]
+                    {
+                        (scope.is_canceled, result, ())
+                    }
                 };
 
                 if is_canceled {
