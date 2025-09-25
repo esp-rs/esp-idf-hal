@@ -401,6 +401,14 @@ impl<T: NvsPartitionId> EspNvs<T> {
         }
     }
 
+    /// Returns the length of the blob stored under the key `name`.
+    ///
+    /// If the key does not exist, `Ok(None)` is returned.
+    ///
+    /// # Errors
+    ///
+    /// - `ESP_ERR_NVS_INVALID_HANDLE` if the NVS handle is invalid.
+    /// - `ESP_ERR_NVS_INVALID_NAME` if the key name is invalid.
     pub fn blob_len(&self, name: &str) -> Result<Option<usize>, EspError> {
         let c_key = to_cstring_arg(name)?;
 
@@ -457,6 +465,23 @@ impl<T: NvsPartitionId> EspNvs<T> {
         Ok(())
     }
 
+    /// Returns the length of the string stored under the key `name`.
+    ///
+    /// If the key does not exist, `Ok(None)` is returned.
+    ///
+    /// # Errors
+    ///
+    /// - `ESP_ERR_NVS_INVALID_HANDLE` if the NVS handle is invalid.
+    /// - `ESP_ERR_NVS_INVALID_NAME` if the key name is invalid.
+    ///
+    /// # Note
+    ///
+    /// The stored string is a [`CString`], which is why the returned length
+    /// includes the null terminator.
+    ///
+    /// Rust strings do not have a null terminator, so when constructing one,
+    /// make sure to only use the bytes up to `len - 1`. Alternatively one
+    /// can use [`CStr`] or [`CString`].
     pub fn str_len(&self, name: &str) -> Result<Option<usize>, EspError> {
         let c_key = to_cstring_arg(name)?;
 
