@@ -60,7 +60,7 @@ jobs:
 #        if: matrix.target == 'riscv32imc-esp-espidf' && matrix.idf-version == 'v5.2.3'
 #        env:
 #          RUSTFLAGS: "${{ '--cfg espidf_time64' }}"
-#        run: cargo clippy --features pio --no-deps --target ${{ matrix.target }} -Zbuild-std=std,panic_abort -Zbuild-std-features=panic_immediate_abort -- -Dwarnings
+#        run: cargo clippy --features pio --no-deps --target ${{ matrix.target }} -Zbuild-std=std,panic_abort -- -Dwarnings
 
       - name: Build | Clippy
         if: matrix.target != 'riscv32imac-esp-espidf' || matrix.idf-version != 'v4.4.8'
@@ -68,28 +68,28 @@ jobs:
           ESP_IDF_VERSION: ${{ matrix.idf-version }}
           ESP_IDF_SDKCONFIG_DEFAULTS: "${{ github.workspace }}/.github/configs/sdkconfig.defaults"
           RUSTFLAGS: "${{ startsWith(matrix.idf-version, 'v5') && '--cfg espidf_time64' || startsWith(matrix.idf-version, 'v4') && '--cfg espidf_time32' }}"
-        run: cargo clippy --no-deps --target ${{ matrix.target }} -Zbuild-std=std,panic_abort -Zbuild-std-features=panic_immediate_abort -- -Dwarnings -Adeprecated
+        run: cargo clippy --no-deps --target ${{ matrix.target }} -Zbuild-std=std,panic_abort -- -Dwarnings -Adeprecated
 
       - name: Build | Compile (Native)
         if: matrix.target != 'riscv32imac-esp-espidf' || matrix.idf-version != 'v4.4.8'
         env:
           ESP_IDF_VERSION: ${{ matrix.idf-version }}
           RUSTFLAGS: "${{ startsWith(matrix.idf-version, 'v5') && '--cfg espidf_time64' || startsWith(matrix.idf-version, 'v4') && '--cfg espidf_time32' }}"
-        run: cargo build --target ${{ matrix.target }} -Zbuild-std=std,panic_abort -Zbuild-std-features=panic_immediate_abort
+        run: cargo build --target ${{ matrix.target }} -Zbuild-std=std,panic_abort
 
       - name: Build | Compile (Native), no_std
         if: matrix.target != 'riscv32imac-esp-espidf' || matrix.idf-version != 'v4.4.8'
         env:
           ESP_IDF_VERSION: ${{ matrix.idf-version }}
           RUSTFLAGS: "${{ startsWith(matrix.idf-version, 'v5') && '--cfg espidf_time64' || startsWith(matrix.idf-version, 'v4') && '--cfg espidf_time32' }}"
-        run: cargo build --target ${{ matrix.target }} --no-default-features -Zbuild-std=std,panic_abort -Zbuild-std-features=panic_immediate_abort
+        run: cargo build --target ${{ matrix.target }} --no-default-features -Zbuild-std=std,panic_abort
 
 #      - name: Build | Compile (Native), alloc
 #        if: matrix.target != 'riscv32imac-esp-espidf' || matrix.idf-version != 'v4.4.8'
 #        env:
 #          ESP_IDF_VERSION: ${{ matrix.idf-version }}
 #          RUSTFLAGS: "${{ startsWith(matrix.idf-version, 'v5') && '--cfg espidf_time64' || '' }}"
-#        run: cargo build --no-default-features --features alloc --target ${{ matrix.target }} -Zbuild-std=std,panic_abort -Zbuild-std-features=panic_immediate_abort
+#        run: cargo build --no-default-features --features alloc --target ${{ matrix.target }} -Zbuild-std=std,panic_abort
 
       - name: Setup | ldproxy
         if: matrix.target == 'riscv32imc-esp-espidf'
@@ -103,11 +103,11 @@ jobs:
         env:
           ESP_IDF_VERSION: ${{ matrix.idf-version }}
           RUSTFLAGS: "${{ startsWith(matrix.idf-version, 'v5') && '--cfg espidf_time64' || startsWith(matrix.idf-version, 'v4') && '--cfg espidf_time32' }}"
-        run: cargo clippy --examples --target ${{ matrix.target }} -Zbuild-std=std,panic_abort -Zbuild-std-features=panic_immediate_abort -- -Dwarnings -Adeprecated
+        run: cargo clippy --examples --target ${{ matrix.target }} -Zbuild-std=std,panic_abort -- -Dwarnings -Adeprecated
 
       - name: Build | Examples
         if: matrix.target != 'riscv32imac-esp-espidf' || matrix.idf-version != 'v4.4.8'
         env:
           ESP_IDF_VERSION: ${{ matrix.idf-version }}
           RUSTFLAGS: "${{ startsWith(matrix.idf-version, 'v5') && '--cfg espidf_time64' || startsWith(matrix.idf-version, 'v4') && '--cfg espidf_time32' }}"
-        run: cargo build --examples --target ${{ matrix.target }} -Zbuild-std=std,panic_abort -Zbuild-std-features=panic_immediate_abort
+        run: cargo build --examples --target ${{ matrix.target }} -Zbuild-std=std,panic_abort
