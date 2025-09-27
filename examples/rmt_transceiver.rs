@@ -40,7 +40,7 @@ mod example {
     use esp_idf_hal::{
         delay::FreeRtos,
         peripherals::Peripherals,
-        rmt::{
+        rmt_legacy::{
             FixedLengthSignal, PinState, Pulse, PulseTicks, Receive, RmtReceiveConfig,
             RmtTransmitConfig, RxRmtDriver, TxRmtDriver,
         },
