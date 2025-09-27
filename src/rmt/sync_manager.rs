@@ -2,7 +2,6 @@ use core::ptr;
 
 use esp_idf_sys::*;
 
-#[cfg(feature = "alloc")]
 use crate::rmt::blocking::TxChannelDriver;
 use crate::rmt::{AsyncTxChannelDriver, RmtChannel};
 
@@ -22,7 +21,6 @@ pub struct SyncManager<T, const N: usize> {
     channels: Option<[T; N]>,
 }
 
-#[cfg(feature = "alloc")]
 impl<'d, const N: usize> SyncManager<TxChannelDriver<'d>, N> {
     /// Create a synchronization manager for multiple TX channels,
     /// so that the managed channel can start transmitting at the same time.

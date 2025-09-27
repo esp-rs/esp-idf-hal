@@ -24,3 +24,15 @@ pub trait Encoder {
         esp!(unsafe { rmt_encoder_reset(self.handle()) })
     }
 }
+
+impl<E: Encoder> Encoder for &mut E {
+    type Item = E::Item;
+
+    fn handle(&mut self) -> &mut rmt_encoder_t {
+        (*self).handle()
+    }
+
+    fn reset(&mut self) -> Result<(), EspError> {
+        (*self).reset()
+    }
+}
