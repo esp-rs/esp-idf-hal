@@ -1,19 +1,121 @@
+use core::fmt;
+use core::marker::PhantomData;
+use core::mem;
+use core::ptr;
+#[cfg(feature = "alloc")]
+use core::sync::atomic::{AtomicUsize, Ordering};
 use core::time::Duration;
 
-use crate::gpio::OutputPin;
-
+#[cfg(feature = "alloc")]
+use alloc::boxed::Box;
 use esp_idf_sys::*;
 
-use crate::rmt::config::{TransmitConfig, TxChannelConfig};
+use crate::gpio::OutputPin;
+#[cfg(feature = "alloc")]
+use crate::interrupt::asynch::HalIsrNotification;
+use crate::rmt::config::{Loop, TransmitConfig, TxChannelConfig};
 use crate::rmt::encoder::Encoder;
-use crate::rmt::{AsyncTxChannelDriver, RmtChannel, Scope};
+use crate::rmt::{assert_not_in_isr, RmtChannel};
 
-#[derive(Debug)]
+#[cfg(feature = "alloc")]
+type AnyPinned = core::pin::Pin<Box<dyn core::any::Any>>;
+
+/// A token is given out after starting a transmission.
+///
+/// It can be used to wait for the transmission to finish,
+/// or to check if it is finished.
+///
+/// A token for a transmission that was started before another is
+/// guaranteed to be "less" than the other token.
+#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct Token {
+    pub(crate) id: usize, // TODO: Token could be used between different channels -> would result in undefined behaviour
+}
+
+#[cfg(feature = "alloc")]
+pub(crate) struct TransmissionProgress {
+    next_tx_id: AtomicUsize,
+    finished_count: AtomicUsize,
+    notif: HalIsrNotification,
+}
+
+#[cfg(feature = "alloc")]
+impl TransmissionProgress {
+    /// Returns a new unique id for a transmission.
+    #[must_use]
+    fn next_id(&self) -> usize {
+        self.next_tx_id.fetch_add(1, Ordering::SeqCst)
+    }
+
+    #[must_use]
+    pub(crate) fn is_finished(&self, id: usize) -> bool {
+        // Assuming id is 1, we have the transmissions [0, 1].
+        // For id 1 to be finished, the count has to be at least 2.
+        self.finished_count.load(Ordering::SeqCst) > id
+    }
+
+    /// Waits for the transmission with the given id to complete.
+    pub(crate) async fn wait_for(&self, id: usize) {
+        // Calling self.notif.wait() is explicitly not allowed from an ISR context
+        // (it should never block when called in an ISR context),
+        // this makes sure that this is not called from an ISR:
+        assert_not_in_isr();
+
+        // The notif will notify every time a transmission is done, this might not
+        // be the one we are waiting for, therefore the id is checked here:
+        while !self.is_finished(id) {
+            #[cfg(feature = "alloc")]
+            self.notif.wait().await;
+            #[cfg(not(feature = "alloc"))]
+            crate::task::yield_now().await;
+        }
+    }
+
+    /// Signals that the next transmission has finished.
+    fn signal_finished(&self) {
+        self.finished_count.fetch_add(1, Ordering::SeqCst);
+        self.notif.notify_lsb();
+    }
+
+    fn notify_all(&self) {
+        // Mark all transmissions as finished:
+        self.finished_count
+            .store(self.next_tx_id.load(Ordering::SeqCst), Ordering::SeqCst);
+
+        // TODO: Is this correct?
+        // Notify all waiting tasks:
+        self.notif.notify_lsb();
+    }
+}
+
+#[cfg(feature = "alloc")]
+struct UserData {
+    callback: Option<Box<dyn FnMut(rmt_tx_done_event_data_t) + Send + 'static>>,
+    progress: TransmissionProgress,
+}
+
 pub struct TxChannelDriver<'d> {
-    driver: AsyncTxChannelDriver<'d>,
+    // SAFETY: The unsafe code relies on this field to accurately reflect the channel state.
+    //         It relies on the fact that in disabled state, the ISR handler will not be called.
+    is_enabled: bool,
+    handle: rmt_channel_handle_t,
+    #[cfg(feature = "alloc")]
+    on_transmit_data: Box<UserData>,
+    #[cfg(feature = "alloc")]
+    transmission_data: alloc::vec::Vec<(Token, AnyPinned, Option<AnyPinned>)>,
+    _p: PhantomData<&'d mut ()>,
 }
 
 impl<'d> TxChannelDriver<'d> {
+    #[cfg(feature = "alloc")]
+    const TX_EVENT_CALLBACKS: rmt_tx_event_callbacks_t = rmt_tx_event_callbacks_t {
+        on_trans_done: Some(Self::handle_isr),
+    };
+    #[cfg(feature = "alloc")]
+    const TX_EVENT_CALLBACKS_DISABLE: rmt_tx_event_callbacks_t = rmt_tx_event_callbacks_t {
+        on_trans_done: None,
+    };
+
     /// Creates a new RMT TX channel.
     ///
     /// # Note
@@ -29,12 +131,68 @@ impl<'d> TxChannelDriver<'d> {
     ///
     /// This function will panic if called from an ISR context.
     pub fn new(pin: impl OutputPin + 'd, config: &TxChannelConfig) -> Result<Self, EspError> {
-        Ok(Self {
-            driver: AsyncTxChannelDriver::new(pin, config)?,
-        })
+        assert_not_in_isr();
+
+        let sys_config: rmt_tx_channel_config_t = rmt_tx_channel_config_t {
+            clk_src: config.clock_source.into(),
+            resolution_hz: config.resolution.into(),
+            mem_block_symbols: config.memory_access.symbols(),
+            trans_queue_depth: config.transaction_queue_depth,
+            #[cfg(esp_idf_version_at_least_5_1_2)]
+            intr_priority: config.interrupt_priority,
+            flags: rmt_tx_channel_config_t__bindgen_ty_1 {
+                _bitfield_1: rmt_tx_channel_config_t__bindgen_ty_1::new_bitfield_1(
+                    config.invert_out as u32,
+                    config.memory_access.is_direct() as u32,
+                    config.io_loop_back as u32,
+                    config.io_od_mode as u32,
+                    #[cfg(esp_idf_version_at_least_5_4_0)]
+                    {
+                        config.allow_pd as u32
+                    },
+                ),
+                ..Default::default()
+            },
+            gpio_num: pin.pin() as _,
+        };
+        let mut handle: rmt_channel_handle_t = ptr::null_mut();
+        esp!(unsafe { rmt_new_tx_channel(&sys_config, &mut handle) })?;
+
+        #[cfg_attr(not(feature = "alloc"), allow(unused_mut))]
+        let mut this = Self {
+            is_enabled: false,
+            handle,
+            #[cfg(feature = "alloc")]
+            on_transmit_data: Box::new(UserData {
+                callback: None,
+                progress: TransmissionProgress {
+                    next_tx_id: AtomicUsize::new(0),
+                    finished_count: AtomicUsize::new(0),
+                    notif: HalIsrNotification::new(),
+                },
+            }),
+            #[cfg(feature = "alloc")]
+            transmission_data: alloc::vec::Vec::new(),
+            _p: PhantomData,
+        };
+
+        // The callback is used to detect when a transmission is finished.
+        #[cfg(feature = "alloc")]
+        esp!(unsafe {
+            rmt_tx_register_event_callbacks(
+                handle,
+                &Self::TX_EVENT_CALLBACKS,
+                (&raw mut *this.on_transmit_data) as *mut core::ffi::c_void,
+            )
+        })?;
+
+        Ok(this)
     }
 
     /// Wait for all pending TX transactions to finish.
+    ///
+    /// If `timeout` is `None`, it will wait indefinitely. If `timeout` is `Some(duration)`,
+    /// it will wait for at most `duration`.
     ///
     /// # Note
     ///
@@ -42,64 +200,42 @@ impl<'d> TxChannelDriver<'d> {
     /// be finished within a limited time (e.g. an infinite loop transaction).
     /// See also [`Self::disable`] for how to terminate a working channel.
     ///
+    /// If the given `timeout` converted to milliseconds is larger than `i32::MAX`,
+    /// it will be treated as `None` (wait indefinitely).
+    ///
     /// # Errors
     ///
     /// - `ESP_ERR_INVALID_ARG`: Flush transactions failed because of invalid argument
-    /// - `ESP_ERR_TIMEOUT`: Flush transactions failed because of timeout
     /// - `ESP_FAIL`: Flush transactions failed because of other error
-    pub fn wait_all_done(&self, timeout: Option<Duration>) -> Result<(), EspError> {
+    ///
+    /// # Polling
+    ///
+    /// When polling this function (calling with a timeout duration of 0ms),
+    /// esp-idf will log flush timeout errors to the console.
+    /// This issue is tracked in <https://github.com/espressif/esp-idf/issues/17527>
+    /// and should be fixed in future esp-idf versions.
+    pub fn wait_all_done(&mut self, timeout: Option<Duration>) -> Result<(), EspError> {
         esp!(unsafe {
             rmt_tx_wait_all_done(
-                self.handle(),
-                timeout.map_or(-1, |duration| duration.as_millis() as i32),
+                self.handle,
+                timeout.map_or(-1, |duration| duration.as_millis().try_into().unwrap_or(-1)),
             )
-        })
-    }
-
-    /// Creates a new scope in which multiple transmissions can be sent without awaiting the previous ones.
-    ///
-    /// After the closure returns, this function will wait for all transmissions to
-    /// finish before returning.
-    ///
-    /// # Note
-    ///
-    /// If a transmission never ends (e.g. [`Loop::Endless`]) this function will never return.
-    ///
-    /// # Errors
-    ///
-    /// This function will return any error returned by the closure or by [`Self::wait_all_done`].
-    ///
-    /// # Panics
-    ///
-    /// This function will panic if called from an ISR context.
-    pub fn scope<'env, F, R>(&'env mut self, f: F) -> Result<R, EspError>
-    where
-        for<'s, 'channel> F: FnOnce(&'s mut Scope<'channel, 'env>) -> Result<R, EspError>,
-    {
-        crate::task::block_on(self.driver.scope(async move |scope| f(scope)))
-    }
-
-    /// Sends the given signal using the specified encoder and config,
-    /// then waits for the transmission to finish before returning.
-    pub fn send_and_wait<E: Encoder>(
-        &mut self,
-        encoder: &mut E,
-        signal: &[E::Item],
-        config: &TransmitConfig,
-    ) -> Result<(), EspError> {
-        self.scope(|scope| {
-            scope.send_ref(encoder, signal, config)?;
-            Ok(())
         })?;
+
+        // All pending transmissions are done -> all stored data can be removed:
+        #[cfg(feature = "alloc")]
+        self.transmission_data.clear();
 
         Ok(())
     }
 
-    /// Add ISR handler for when a transmission is done.
+    /// Define the ISR handler for when a transmission is done.
     ///
     /// The callback will be called with the number of transmitted symbols, including one EOF symbol,
     /// which is appended by the driver to mark the end of the transmission. For a loop transmission,
     /// this value only counts for one round.
+    ///
+    /// There is only one callback possible, you can not subscribe multiple callbacks.
     ///
     /// # Panics
     ///
@@ -116,7 +252,12 @@ impl<'d> TxChannelDriver<'d> {
         &mut self,
         callback: impl Fn(rmt_tx_done_event_data_t) + Send + 'static,
     ) {
-        self.driver.subscribe(callback);
+        assert_not_in_isr();
+        if self.is_enabled() {
+            panic!("Can't subscribe while the channel is enabled");
+        }
+
+        self.on_transmit_data.callback = Some(Box::new(callback));
     }
 
     /// Remove the ISR handler for when a transmission is done.
@@ -126,20 +267,300 @@ impl<'d> TxChannelDriver<'d> {
     /// This function will panic if called from an ISR context or while the channel is enabled.
     #[cfg(feature = "alloc")]
     pub fn unsubscribe(&mut self) {
-        self.driver.unsubscribe();
+        assert_not_in_isr();
+        if self.is_enabled() {
+            panic!("Can't unsubscribe while the channel is enabled");
+        }
+
+        self.on_transmit_data.callback = None;
+    }
+
+    /// Handles the ISR event for when a transmission is done.
+    #[cfg(feature = "alloc")]
+    unsafe extern "C" fn handle_isr(
+        _channel: rmt_channel_handle_t,
+        event_data: *const rmt_tx_done_event_data_t,
+        user_data: *mut core::ffi::c_void,
+    ) -> bool {
+        let event_data = event_data.read();
+        let user_data = &mut *(user_data as *mut UserData);
+
+        crate::interrupt::with_isr_yield_signal(move || {
+            if let Some(handler) = user_data.callback.as_mut() {
+                handler(event_data);
+            }
+
+            user_data.progress.signal_finished();
+        })
+    }
+
+    #[cfg(feature = "alloc")]
+    #[must_use]
+    pub(crate) fn progress(&self) -> &TransmissionProgress {
+        &self.on_transmit_data.progress
+    }
+
+    /// Starts transmitting the signal using the specified encoder and config.
+    ///
+    /// # Safety
+    ///
+    /// This function is a thin wrapper around the `rmt_transmit` function, it assumes that
+    /// - the encoder is valid until the transmission is done (if not it is guaranteed to crash)
+    /// - the signal is valid until the transmission is done
+    /// - the encoder and signal are not modified during the transmission
+    ///
+    /// The caller must ensure that the encoder and signal live long enough, are not moved and
+    /// both pointers must not be null.
+    pub unsafe fn start_send<E: Encoder>(
+        &mut self,
+        encoder: *mut E,
+        signal: *const [E::Item],
+        config: &TransmitConfig,
+    ) -> Result<Token, EspError> {
+        if !self.is_enabled() {
+            self.enable()?;
+        }
+
+        let sys_config = rmt_transmit_config_t {
+            loop_count: match config.loop_count {
+                Loop::Count(value) => value as i32,
+                Loop::Endless => -1,
+                Loop::None => 0,
+            },
+            flags: rmt_transmit_config_t__bindgen_ty_1 {
+                _bitfield_1: rmt_transmit_config_t__bindgen_ty_1::new_bitfield_1(
+                    config.eot_level as u32,
+                    #[cfg(esp_idf_version_at_least_5_1_3)]
+                    {
+                        config.queue_non_blocking as u32
+                    },
+                ),
+                ..Default::default()
+            },
+        };
+
+        esp!(unsafe {
+            rmt_transmit(
+                self.handle(),
+                (&mut *encoder).handle(),
+                signal as *const core::ffi::c_void,
+                // size should be given in bytes:
+                mem::size_of_val::<[E::Item]>(&*signal),
+                &sys_config,
+            )
+        })?;
+
+        #[cfg(feature = "alloc")]
+        {
+            Ok(Token {
+                id: self.progress().next_id(),
+            })
+        }
+        #[cfg(not(feature = "alloc"))]
+        {
+            Ok(Token { id: 0 })
+        }
+    }
+
+    #[cfg(feature = "alloc")]
+    pub(crate) fn store_data(&mut self, id: Token, encoder: AnyPinned, signal: AnyPinned) {
+        self.cleanup_data();
+
+        self.transmission_data.push((id, encoder, Some(signal)));
+    }
+
+    #[cfg(feature = "alloc")]
+    pub(crate) fn cleanup_data(&mut self) {
+        // If the channel is disabled, all transmissions are cancelled -> they should be done
+        if !self.is_enabled() && !self.transmission_data.is_empty() {
+            self.transmission_data.clear();
+            self.progress().notify_all();
+            return;
+        }
+
+        let progress = &self.on_transmit_data.progress;
+        self.transmission_data
+            .retain(|(stored_id, _, _)| !progress.is_finished(stored_id.id));
+    }
+
+    /// Transmits the signals provided by the iterator using the specified encoder and config.
+    #[cfg(feature = "alloc")]
+    pub fn send_iter<'s, const N: usize, E: Encoder>(
+        &mut self,
+        encoder: [E; N],
+        iter: impl Iterator<Item = &'s [E::Item]> + 's,
+        config: &TransmitConfig,
+    ) -> Result<(), EspError>
+    where
+        E::Item: 's,
+    {
+        if N == 0 {
+            // Impossible to encode anything, just return the encoder as is:
+            return Ok(());
+        }
+
+        #[allow(type_alias_bounds)]
+        type PendingItem<'s, E: Encoder> = (E, Option<(Token, &'s [E::Item])>);
+
+        let mut pending: [PendingItem<'s, E>; N] = encoder.map(|e| (e, None));
+
+        for signal in iter {
+            // Find an encoder that is currently unused or the oldest pending transmission (which would finish first).
+            let (encoder, token) = pending
+                .iter_mut()
+                // None elements will be before Some elements. Tokens are ordered by their age,
+                // the oldest ones will finish first.
+                .min_by_key(|(_, token)| token.as_ref().map(|(t, _)| *t))
+                // N is > 0 -> there is always at least one element
+                .unwrap();
+
+            // If there is one token currently using the encoder, wait for it to finish
+            // -> this guarantees that there is nothing having mutable access to the encoder
+            if let Some((token, _)) = token.take() {
+                self.wait_for(token);
+            }
+
+            // SAFETY: There is no unfinished transmission using this encoder -> should be safe to reuse
+            *token = Some((unsafe { self.start_send(encoder, signal, config) }?, signal));
+        }
+
+        // Wait for all remaining transmissions to finish:
+        for (_, token) in pending.into_iter() {
+            if let Some((token, _)) = token {
+                self.wait_for(token);
+            }
+        }
+
+        Ok(())
+    }
+
+    /// Transmits the signal using the specified encoder and config.
+    ///
+    /// It will **not** wait for the transmission to finish, but a [`Token`] is returned
+    /// which can be used for this.
+    ///
+    /// If the channel is not enabled yet, it will be enabled automatically.
+    ///
+    /// # Queue blocking behavior
+    ///
+    /// This function constructs a transaction descriptor then pushes to a queue. The transaction
+    /// will not start immediately if there's another one under processing. Based on the setting
+    /// of [`TransmitConfig::queue_non_blocking`], if there're too many transactions pending in the
+    /// queue, this function can block until it has free slot, otherwise just return quickly.
+    ///
+    /// # Errors
+    ///
+    /// - `ESP_ERR_INVALID_ARG`: Transmit failed because of invalid argument
+    /// - `ESP_ERR_NOT_SUPPORTED`: Some feature is not supported by hardware e.g. unsupported loop count
+    /// - `ESP_FAIL`: Because of other errors
+    #[cfg(feature = "alloc")]
+    pub fn send<E: Encoder + 'static>(
+        &mut self,
+        encoder: E,
+        signal: impl Into<alloc::vec::Vec<E::Item>>,
+        config: &TransmitConfig,
+    ) -> Result<Token, EspError> {
+        let mut encoder = Box::pin(encoder);
+        let signal = Box::pin(signal.into());
+
+        let token = unsafe {
+            self.start_send(
+                encoder.as_mut().get_unchecked_mut(),
+                &**signal.as_ref(),
+                config,
+            )
+        }?;
+
+        self.store_data(token, encoder, signal);
+
+        Ok(token)
+    }
+
+    /// Transmits the signal and waits for the transmission to finish.
+    #[cfg(feature = "alloc")]
+    pub fn send_and_wait<E: Encoder>(
+        &mut self,
+        mut encoder: E,
+        signal: &[E::Item],
+        config: &TransmitConfig,
+    ) -> Result<(), EspError> {
+        // SAFETY: The encoder and signal are valid for the scope of this function,
+        //          and the transmission is waited for before returning.
+        let token = unsafe { self.start_send(&raw mut encoder, signal, config) }?;
+
+        self.wait_for(token);
+        Ok(())
+    }
+
+    /// Checks if the transmission associated with the given token is finished.
+    #[cfg(feature = "alloc")]
+    pub fn is_finished(&self, token: Token) -> bool {
+        !self.is_enabled || self.progress().is_finished(token.id)
+    }
+
+    /// Waits for the transmission associated with the given token to finish.
+    #[cfg(feature = "alloc")]
+    pub fn wait_for(&mut self, token: Token) {
+        // Only wait if the transmission is not already finished: (ensures that it does not wait when the channel is disabled)
+        if !self.is_finished(token) {
+            crate::task::block_on(self.progress().wait_for(token.id))
+        }
+
+        self.cleanup_data();
     }
 }
 
+// SAFETY: The C-Code doesn't seem to use any thread locals -> it should be safe to send the channel to another thread.
+unsafe impl<'d> Send for TxChannelDriver<'d> {}
+
 impl<'d> RmtChannel for TxChannelDriver<'d> {
     fn handle(&self) -> rmt_channel_handle_t {
-        self.driver.handle()
+        self.handle
     }
 
     fn is_enabled(&self) -> bool {
-        self.driver.is_enabled()
+        self.is_enabled
     }
 
     unsafe fn set_internal_enabled(&mut self, is_enabled: bool) {
-        self.driver.set_internal_enabled(is_enabled)
+        self.is_enabled = is_enabled;
+
+        // If the channel was disabled, all pending transmissions are cancelled
+        #[cfg(feature = "alloc")]
+        if !self.is_enabled {
+            self.cleanup_data();
+        }
+    }
+}
+
+impl<'d> Drop for TxChannelDriver<'d> {
+    fn drop(&mut self) {
+        // Deleting the channel might fail if it is not disabled first.
+        //
+        // The result is ignored here, because there is nothing we can do about it.
+        if self.is_enabled() {
+            let _res = self.disable();
+        }
+
+        // Remove the isr handler:
+        #[cfg(feature = "alloc")]
+        let _res = unsafe {
+            rmt_tx_register_event_callbacks(
+                self.handle,
+                &Self::TX_EVENT_CALLBACKS_DISABLE,
+                ptr::null_mut(),
+            )
+        };
+
+        unsafe { rmt_del_channel(self.handle) };
+    }
+}
+
+impl<'d> fmt::Debug for TxChannelDriver<'d> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("TxChannelDriver")
+            .field("is_enabled", &self.is_enabled)
+            .field("handle", &self.handle)
+            .finish()
     }
 }

@@ -1,13 +1,13 @@
-pub mod asynch;
 pub mod config;
 pub mod encoder;
 
-#[cfg(feature = "alloc")]
+pub mod asynch;
 pub mod blocking;
+pub use asynch::*;
+
+pub use blocking::Token;
 
 // TODO: decide on module layout for blocking and async
-
-pub use asynch::*;
 
 mod sync_manager;
 pub use sync_manager::*;
