@@ -78,12 +78,11 @@ impl<'d> AsyncTxChannelDriver<'d> {
     /// - the signal is valid until the transmission is done
     /// - the encoder and signal are not modified during the transmission
     ///
-    /// The caller must ensure that the encoder and signal live long enough, are not moved and
-    /// both pointers must not be null.
+    /// The caller must ensure that the encoder and signal live long enough and are not moved.
     pub async unsafe fn start_send<E: Encoder>(
         &mut self,
-        encoder: *mut E,
-        signal: *const [E::Item],
+        encoder: &mut E,
+        signal: &[E::Item],
         config: &TransmitConfig,
     ) -> Result<Token, EspError> {
         loop {
@@ -119,7 +118,7 @@ impl<'d> AsyncTxChannelDriver<'d> {
         let token = unsafe {
             self.start_send(
                 encoder.as_mut().get_unchecked_mut(),
-                &**signal.as_ref(),
+                &signal.as_ref(),
                 config,
             )
             .await
@@ -140,7 +139,7 @@ impl<'d> AsyncTxChannelDriver<'d> {
         signal: &[E::Item],
         config: &TransmitConfig,
     ) -> Result<(), EspError> {
-        let token = unsafe { self.driver.start_send(&raw mut encoder, signal, config) }?;
+        let token = unsafe { self.driver.start_send(&mut encoder, signal, config) }?;
 
         self.wait_for(token).await;
 

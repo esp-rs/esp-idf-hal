@@ -30,22 +30,36 @@ fn main() -> anyhow::Result<()> {
     not(feature = "rmt-legacy")
 ))]
 mod example {
-    use esp_idf_hal::delay::Ets;
     use esp_idf_hal::peripherals::Peripherals;
     use esp_idf_hal::rmt::blocking::TxChannelDriver;
     use esp_idf_hal::rmt::config::{MemoryAccess, TxChannelConfig};
     use esp_idf_hal::rmt::encoder::{EncoderCallback, NotEnoughSpace, SimpleEncoder, SymbolBuffer};
-    use esp_idf_hal::rmt::{PinState, Symbol};
+    use esp_idf_hal::rmt::{PinState, PulseTicks, Symbol};
     use esp_idf_hal::units::Hertz;
 
-    use std::f64::consts::PI;
-    use std::time::Duration;
+    use core::f64::consts::PI;
+    use core::time::Duration;
 
     const RMT_LED_STRIP_RESOLUTION_HZ: Hertz = Hertz(10_000_000); // 10MHz resolution, 1 tick = 0.1us
     const NUMBER_OF_LEDS: usize = 1;
     const ANGLE_INC_FRAME: f64 = 0.02;
     const ANGLE_INC_LED: f64 = 0.3;
-    const FRAME_DURATION_MS: u32 = 20;
+    const FRAME_DURATION: Duration = Duration::from_millis(20);
+    const BRIGHTNESS: f64 = 0.5; // 0.0 = dark, 1.0 = full brightness
+
+    // From the WS2812 datasheet:
+    const T0H: Duration = Duration::from_nanos(350); // 0.35us
+    const T0L: Duration = Duration::from_nanos(800); // 0.8us
+    const T1H: Duration = Duration::from_nanos(700); // 0.7us
+    const T1L: Duration = Duration::from_nanos(600); // 0.6us
+    const TRESET: Duration = Duration::from_micros(281); // >50us
+
+    // From the WS2812b datasheet:
+    // const T0H: Duration = Duration::from_nanos(300); // 0.22us ~ 0.38us
+    // const T0L: Duration = Duration::from_nanos(790); // 0.58us ~ 1.0us
+    // const T1H: Duration = Duration::from_nanos(790); // 0.58us ~ 1.0us
+    // const T1L: Duration = Duration::from_nanos(790); // 0.58us ~ 1.0us
+    // const TRESET: Duration = Duration::from_micros(281); // >280us
 
     #[derive(Debug, Clone, Copy, Default)]
     #[repr(C)]
@@ -55,21 +69,34 @@ mod example {
         pub blue: u8,
     }
 
+    impl Color {
+        #[must_use]
+        pub fn apply_brightness(self, brightness: f64) -> Self {
+            let factor = brightness.clamp(0.0, 1.0);
+
+            Self {
+                red: (self.red as f64 * factor).round() as u8,
+                green: (self.green as f64 * factor).round() as u8,
+                blue: (self.blue as f64 * factor).round() as u8,
+            }
+        }
+    }
+
     fn byte_to_symbols(byte: u8) -> impl IntoIterator<Item = Symbol> {
         let ws2812_zero = Symbol::new_with(
             RMT_LED_STRIP_RESOLUTION_HZ,
             PinState::High,
-            Duration::from_micros(300),
+            T0H,
             PinState::Low,
-            Duration::from_micros(900),
+            T0L,
         )
         .unwrap();
         let ws2812_one = Symbol::new_with(
             RMT_LED_STRIP_RESOLUTION_HZ,
             PinState::High,
-            Duration::from_micros(900),
+            T1H,
             PinState::Low,
-            Duration::from_micros(300),
+            T1L,
         )
         .unwrap();
 
@@ -113,7 +140,7 @@ mod example {
                 RMT_LED_STRIP_RESOLUTION_HZ,
                 PinState::Low,
                 PinState::Low,
-                Duration::from_micros(300),
+                TRESET,
             )
             .unwrap();
 
@@ -123,13 +150,55 @@ mod example {
 
             for &next_color in &input_data[self.input_position..] {
                 let mut symbols = vec![ws2812_reset];
-                symbols.extend(next_color.to_vec());
+                symbols.extend(next_color.apply_brightness(BRIGHTNESS).to_vec());
 
                 buffer.write_all(&symbols)?;
                 self.input_position += 1;
             }
 
             // finished encoding all input data
+
+            // Add a delay between this signal and the next one:
+
+            let max_duration = PulseTicks::max()
+                .duration(RMT_LED_STRIP_RESOLUTION_HZ)
+                .unwrap()
+                * 2; // times two, because we use half-split symbols
+
+            // The delay might be larger than what is allowed for one symbol -> it is split into multiple symbols:
+            let count = FRAME_DURATION.as_nanos() / max_duration.as_nanos();
+            let remainder =
+                Duration::from_nanos((FRAME_DURATION.as_nanos() % max_duration.as_nanos()) as u64);
+
+            let mut vec = Vec::with_capacity(
+                (count + if remainder > Duration::ZERO { 1 } else { 0 }) as usize,
+            );
+            for _ in 0..count {
+                vec.push(
+                    Symbol::new_half_split(
+                        RMT_LED_STRIP_RESOLUTION_HZ,
+                        PinState::Low,
+                        PinState::Low,
+                        max_duration,
+                    )
+                    .unwrap(),
+                );
+            }
+
+            if remainder > Duration::ZERO {
+                vec.push(
+                    Symbol::new_half_split(
+                        RMT_LED_STRIP_RESOLUTION_HZ,
+                        PinState::Low,
+                        PinState::Low,
+                        remainder,
+                    )
+                    .unwrap(),
+                );
+            }
+
+            buffer.write_all(&vec)?;
+
             Ok(())
         }
     }
@@ -152,13 +221,10 @@ mod example {
             },
         )?;
 
-        println!("Create simple callback-based encoder");
-
-        let mut encoder = SimpleEncoder::with_config(LedEncoder::new(), &Default::default())?;
-
         println!("Start LED rainbow chase");
         let mut offset = 0.0;
-        loop {
+
+        let iterator = core::iter::from_fn(|| {
             let mut signal = [Color::default(); NUMBER_OF_LEDS];
             for (i, color) in signal.iter_mut().enumerate() {
                 // Build RGB pixels. Each color is an offset sine, which gives a
@@ -173,17 +239,22 @@ mod example {
                 };
             }
 
-            // Send the frame to the LED strip:
-            channel.send_and_wait(&mut encoder, &signal, &Default::default())?;
-
-            Ets::delay_ms(FRAME_DURATION_MS);
-
             // Increase offset to shift pattern
             offset += ANGLE_INC_FRAME;
             if offset > 2.0 * PI {
                 offset -= 2.0 * PI;
             }
-        }
+
+            Some(signal)
+        });
+
+        // This will use 10 encoders to encode the data returned by the iterator:
+        let mut encoders = [(); 10]
+            .map(|_| SimpleEncoder::with_config(LedEncoder::new(), &Default::default()).unwrap());
+
+        channel.send_iter(encoders.each_mut(), iterator, &Default::default())?;
+
+        Ok(())
     }
 }
 

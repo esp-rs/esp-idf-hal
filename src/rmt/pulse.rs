@@ -84,7 +84,7 @@ impl Pulse {
     pub const fn new_with_duration(
         ticks_hz: Hertz,
         pin_state: PinState,
-        duration: &Duration,
+        duration: Duration,
     ) -> Result<Self, EspError> {
         match PulseTicks::new_with_duration(ticks_hz, duration) {
             Ok(ticks) => Ok(Self::new(pin_state, ticks)),
@@ -129,7 +129,7 @@ impl PulseTicks {
     /// Convert a `Duration` into `PulseTicks`.
     ///
     /// See `Pulse::new_with_duration()` for details.
-    pub const fn new_with_duration(ticks_hz: Hertz, duration: &Duration) -> Result<Self, EspError> {
+    pub const fn new_with_duration(ticks_hz: Hertz, duration: Duration) -> Result<Self, EspError> {
         match duration_to_ticks(ticks_hz, duration) {
             Ok(ticks) => Self::new(ticks),
             Err(error) => Err(error),
@@ -150,7 +150,7 @@ impl PulseTicks {
 const ONE_SECOND_IN_NANOS: u128 = Duration::from_secs(1).as_nanos();
 
 /// A utility to convert a duration into ticks, depending on the clock ticks.
-pub const fn duration_to_ticks(ticks_hz: Hertz, duration: &Duration) -> Result<u16, EspError> {
+pub const fn duration_to_ticks(ticks_hz: Hertz, duration: Duration) -> Result<u16, EspError> {
     let Some(ticks) = duration.as_nanos().checked_mul(ticks_hz.0 as u128) else {
         return Err(EspError::from_infallible::<ERR_EOVERFLOW>());
     };
