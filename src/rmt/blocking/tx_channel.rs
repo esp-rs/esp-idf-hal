@@ -1,6 +1,8 @@
 use core::fmt;
 use core::marker::PhantomData;
 use core::mem;
+#[cfg(feature = "alloc")]
+use core::pin::{pin, Pin};
 use core::ptr;
 #[cfg(feature = "alloc")]
 use core::sync::atomic::{AtomicUsize, Ordering};
@@ -15,6 +17,8 @@ use crate::gpio::OutputPin;
 use crate::interrupt::asynch::HalIsrNotification;
 use crate::rmt::config::{Loop, TransmitConfig, TxChannelConfig};
 use crate::rmt::encoder::Encoder;
+#[cfg(feature = "alloc")]
+use crate::rmt::TxQueue;
 use crate::rmt::{assert_not_in_isr, RmtChannel};
 
 #[cfg(feature = "alloc")]
@@ -31,6 +35,9 @@ type AnyPinned = core::pin::Pin<Box<dyn core::any::Any>>;
 pub struct Token {
     pub(crate) id: usize, // TODO: Token could be used between different channels -> would result in undefined behaviour
 }
+
+// TODO: reset ids before they overflow
+// Currently each transmission increments the counter -> it will eventually overflow
 
 #[cfg(feature = "alloc")]
 pub(crate) struct TransmissionProgress {
@@ -224,7 +231,7 @@ impl<'d> TxChannelDriver<'d> {
 
         // All pending transmissions are done -> all stored data can be removed:
         #[cfg(feature = "alloc")]
-        self.transmission_data.clear();
+        self.transmission_data.clear(); // TODO: call self.remove_data() instead?
 
         Ok(())
     }
@@ -250,7 +257,7 @@ impl<'d> TxChannelDriver<'d> {
     #[cfg(feature = "alloc")]
     pub unsafe fn subscribe(
         &mut self,
-        callback: impl Fn(rmt_tx_done_event_data_t) + Send + 'static,
+        callback: impl FnMut(rmt_tx_done_event_data_t) + Send + 'static,
     ) {
         assert_not_in_isr();
         if self.is_enabled() {
@@ -309,12 +316,11 @@ impl<'d> TxChannelDriver<'d> {
     /// - the signal is valid until the transmission is done
     /// - the encoder and signal are not modified during the transmission
     ///
-    /// The caller must ensure that the encoder and signal live long enough, are not moved and
-    /// both pointers must not be null.
+    /// The caller must ensure that the encoder and signal live long enough and are not moved.
     pub unsafe fn start_send<E: Encoder>(
         &mut self,
-        encoder: *mut E,
-        signal: *const [E::Item],
+        encoder: &mut E,
+        signal: &[E::Item],
         config: &TransmitConfig,
     ) -> Result<Token, EspError> {
         if !self.is_enabled() {
@@ -342,10 +348,10 @@ impl<'d> TxChannelDriver<'d> {
         esp!(unsafe {
             rmt_transmit(
                 self.handle(),
-                (&mut *encoder).handle(),
-                signal as *const core::ffi::c_void,
+                encoder.handle(),
+                signal.as_ptr() as *const core::ffi::c_void,
                 // size should be given in bytes:
-                mem::size_of_val::<[E::Item]>(&*signal),
+                mem::size_of_val::<[E::Item]>(signal),
                 &sys_config,
             )
         })?;
@@ -385,10 +391,10 @@ impl<'d> TxChannelDriver<'d> {
 
     /// Transmits the signals provided by the iterator using the specified encoder and config.
     #[cfg(feature = "alloc")]
-    pub fn send_iter<'s, const N: usize, E: Encoder>(
+    pub fn send_iter<'s, E: Encoder, S: AsRef<[E::Item]>, const N: usize>(
         &mut self,
-        encoder: [E; N],
-        iter: impl Iterator<Item = &'s [E::Item]> + 's,
+        encoders: [E; N],
+        iter: impl Iterator<Item = S> + 's,
         config: &TransmitConfig,
     ) -> Result<(), EspError>
     where
@@ -399,39 +405,52 @@ impl<'d> TxChannelDriver<'d> {
             return Ok(());
         }
 
-        #[allow(type_alias_bounds)]
-        type PendingItem<'s, E: Encoder> = (E, Option<(Token, &'s [E::Item])>);
-
-        let mut pending: [PendingItem<'s, E>; N] = encoder.map(|e| (e, None));
+        let mut pending: Pin<&mut TxQueue<'_, '_, E, S, N>> = pin!(TxQueue::new(encoders, self));
 
         for signal in iter {
-            // Find an encoder that is currently unused or the oldest pending transmission (which would finish first).
-            let (encoder, token) = pending
-                .iter_mut()
-                // None elements will be before Some elements. Tokens are ordered by their age,
-                // the oldest ones will finish first.
-                .min_by_key(|(_, token)| token.as_ref().map(|(t, _)| *t))
-                // N is > 0 -> there is always at least one element
-                .unwrap();
-
-            // If there is one token currently using the encoder, wait for it to finish
-            // -> this guarantees that there is nothing having mutable access to the encoder
-            if let Some((token, _)) = token.take() {
-                self.wait_for(token);
-            }
-
-            // SAFETY: There is no unfinished transmission using this encoder -> should be safe to reuse
-            *token = Some((unsafe { self.start_send(encoder, signal, config) }?, signal));
+            pending.as_mut().push(signal, config)?;
         }
 
-        // Wait for all remaining transmissions to finish:
-        for (_, token) in pending.into_iter() {
-            if let Some((token, _)) = token {
-                self.wait_for(token);
-            }
-        }
+        // The remaining pending transmissions will be awaited in the drop of the queue.
 
         Ok(())
+    }
+
+    /// Creates a transmission queue that manages the given encoders, and reuses them for new transmissions when possible.
+    ///
+    /// # Safety
+    ///
+    /// The pending transmissions are stored in the queue, which is why it must be pinned.
+    ///
+    /// The pinning ensures that the memory address of the signals and encoders does not change,
+    /// before the transmission is done.
+    ///
+    /// To prevent invalid memory accesses, the queue will wait for all pending transmissions to finish
+    /// in its drop implementation. If one were to [`mem::forget`] the queue with it on the stack,
+    /// it could result in invalid memory accesses (undefined behaviour).
+    ///
+    /// Pinning the queue on the heap is one way to ensure that [`mem::forget`] does not result in
+    /// undefined behaviour, for this reason, the safe wrapper [`Self::queue`] is provided.
+    ///
+    /// This function is provided to avoid the allocation. The caller has to pin it on the stack
+    /// with [`pin!`].
+    #[cfg(feature = "alloc")]
+    pub unsafe fn raw_queue<E: Encoder, S, const N: usize>(
+        &mut self,
+        encoders: [E; N],
+    ) -> TxQueue<'_, 'd, E, S, N> {
+        TxQueue::new(encoders, self)
+    }
+
+    /// Creates a transmission queue that manages the given encoders, and reuses them for new transmissions when possible.
+    #[cfg(feature = "alloc")]
+    pub fn queue<E: Encoder, S, const N: usize>(
+        &mut self,
+        encoders: [E; N],
+    ) -> Pin<Box<TxQueue<'_, 'd, E, S, N>>> {
+        // SAFETY: The queue is pinned on the heap, if it is forgotten,
+        //         the memory the pending transmissions reference won't be freed.
+        unsafe { Box::pin(self.raw_queue(encoders)) }
     }
 
     /// Transmits the signal using the specified encoder and config.
@@ -466,7 +485,7 @@ impl<'d> TxChannelDriver<'d> {
         let token = unsafe {
             self.start_send(
                 encoder.as_mut().get_unchecked_mut(),
-                &**signal.as_ref(),
+                &signal.as_ref(),
                 config,
             )
         }?;
@@ -480,16 +499,11 @@ impl<'d> TxChannelDriver<'d> {
     #[cfg(feature = "alloc")]
     pub fn send_and_wait<E: Encoder>(
         &mut self,
-        mut encoder: E,
+        encoder: E,
         signal: &[E::Item],
         config: &TransmitConfig,
     ) -> Result<(), EspError> {
-        // SAFETY: The encoder and signal are valid for the scope of this function,
-        //          and the transmission is waited for before returning.
-        let token = unsafe { self.start_send(&raw mut encoder, signal, config) }?;
-
-        self.wait_for(token);
-        Ok(())
+        self.send_iter([encoder], core::iter::once(signal), config)
     }
 
     /// Checks if the transmission associated with the given token is finished.

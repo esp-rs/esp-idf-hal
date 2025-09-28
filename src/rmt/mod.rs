@@ -12,6 +12,8 @@ pub use blocking::Token;
 mod sync_manager;
 pub use sync_manager::*;
 mod pulse;
+#[cfg(feature = "alloc")]
+pub use blocking::tx_queue::TxQueue;
 pub use pulse::*;
 
 use core::time::Duration;
@@ -53,8 +55,8 @@ impl Symbol {
         duration1: Duration,
     ) -> Result<Self, EspError> {
         Ok(Self::new(
-            Pulse::new_with_duration(ticks_hz, level0, &duration0)?,
-            Pulse::new_with_duration(ticks_hz, level1, &duration1)?,
+            Pulse::new_with_duration(ticks_hz, level0, duration0)?,
+            Pulse::new_with_duration(ticks_hz, level1, duration1)?,
         ))
     }
 
@@ -71,8 +73,8 @@ impl Symbol {
         let second_half_duration = duration - first_half_duration;
 
         Ok(Self::new(
-            Pulse::new_with_duration(ticks_hz, level0, &first_half_duration)?,
-            Pulse::new_with_duration(ticks_hz, level1, &second_half_duration)?,
+            Pulse::new_with_duration(ticks_hz, level0, first_half_duration)?,
+            Pulse::new_with_duration(ticks_hz, level1, second_half_duration)?,
         ))
     }
 
