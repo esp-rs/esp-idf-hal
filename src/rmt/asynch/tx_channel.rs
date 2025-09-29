@@ -106,19 +106,19 @@ impl<'d> AsyncTxChannelDriver<'d> {
     pub async fn send<E: Encoder + 'static>(
         &mut self,
         encoder: E,
-        signal: impl Into<alloc::vec::Vec<E::Item>>,
+        signal: impl AsRef<[E::Item]> + 'static,
         config: &TransmitConfig,
     ) -> Result<Token, EspError> {
         assert_not_in_isr();
 
-        let signal = alloc::boxed::Box::pin(signal.into());
+        let signal = alloc::boxed::Box::pin(signal);
         let mut encoder = alloc::boxed::Box::pin(encoder);
 
         // SAFETY: Both encoder and signal are pinned, and are stored in the channel to ensure that they live long enough
         let token = unsafe {
             self.start_send(
                 encoder.as_mut().get_unchecked_mut(),
-                &signal.as_ref(),
+                signal.as_ref().get_ref().as_ref(),
                 config,
             )
             .await
@@ -133,23 +133,16 @@ impl<'d> AsyncTxChannelDriver<'d> {
     /// Sends the given signal using the specified encoder and config,
     /// then waits for the transmission to finish before returning.
     ///
-    /// # Safety
-    ///
-    /// A future can be discarded while it is still in progress. This could result in it reading the signal
-    /// after it is freed or got moved (same for encoder).
-    ///
-    /// The caller must guarantee that this future is polled to completion.
+    /// This a convenience function that combines `send` and `wait_for`.
     #[cfg(feature = "alloc")]
-    pub async unsafe fn send_and_wait<E: Encoder>(
+    pub async fn send_and_wait<E: Encoder + 'static>(
         &mut self,
-        mut encoder: E,
-        signal: &[E::Item],
+        encoder: E,
+        signal: impl AsRef<[E::Item]> + 'static,
         config: &TransmitConfig,
     ) -> Result<(), EspError> {
-        let token = unsafe { self.driver.start_send(&mut encoder, signal, config) }?;
-
+        let token = self.send(encoder, signal, config).await?;
         self.wait_for(token).await;
-
         Ok(())
     }
 
