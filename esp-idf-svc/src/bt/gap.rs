@@ -369,7 +369,7 @@ pub struct PropData<'a> {
 
 #[allow(non_upper_case_globals)]
 impl PropData<'_> {
-    pub fn prop(&self) -> DeviceProp {
+    pub fn prop(&self) -> DeviceProp<'_> {
         unsafe {
             match self.data.type_ {
                 esp_bt_gap_dev_prop_type_t_ESP_BT_GAP_DEV_PROP_BDNAME => {
