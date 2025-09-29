@@ -221,6 +221,10 @@ pub struct RxChannelConfig {
     /// like not able to power down in light sleep.
     #[cfg(esp_idf_version_at_least_5_4_0)]
     pub allow_pd: bool,
+    /// This field controls the size of the queue for receiving events. See [`RxChannelDriver::queue`].
+    ///
+    /// It should be `> 0`.
+    pub queue_size: usize,
     // This field is intentionally hidden to prevent non-exhaustive pattern matching.
     // You should only construct this struct using the `..Default::default()` pattern.
     // If you use this field directly, your code might break in future versions.
@@ -241,6 +245,7 @@ impl Default for RxChannelConfig {
             io_loop_back: false,
             #[cfg(esp_idf_version_at_least_5_4_0)]
             allow_pd: false,
+            queue_size: 16,
             __internal: (),
         }
     }

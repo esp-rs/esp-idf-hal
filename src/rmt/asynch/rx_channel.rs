@@ -1,61 +1,42 @@
-use core::fmt;
-use core::marker::PhantomData;
-use core::mem;
-use core::pin::pin;
-use core::ptr;
-use core::sync::atomic::{AtomicUsize, Ordering};
-
 use esp_idf_sys::*;
 
 use crate::gpio::InputPin;
-use crate::interrupt;
+use crate::rmt::blocking::RxChannelDriver;
 use crate::rmt::config::{ReceiveConfig, RxChannelConfig};
-use crate::rmt::{assert_not_in_isr, RmtChannel, Symbol};
+use crate::rmt::{RmtChannel, Symbol};
+use crate::task::queue::Queue;
+use crate::task::{do_yield, yield_now};
 
-struct TransmissionProgress {
-    #[cfg(feature = "alloc")]
-    notif: interrupt::asynch::HalIsrNotification,
-    received_symbols: AtomicUsize,
-}
-
-impl TransmissionProgress {
-    fn signal(&self, received_symbols: usize) {
-        self.received_symbols
-            .store(received_symbols, Ordering::SeqCst);
-    }
-
-    async fn wait(&self) -> usize {
-        while self.received_symbols.load(Ordering::SeqCst) != 0 {
-            #[cfg(feature = "alloc")]
-            self.notif.wait().await;
-            #[cfg(not(feature = "alloc"))]
-            crate::task::yield_now().await;
+async fn queue_recv_front<T: Copy>(queue: &Queue<T>) -> T {
+    loop {
+        match queue.recv_front(0) {
+            Some((value, _)) => return value,
+            None => {
+                do_yield();
+                yield_now().await;
+            }
         }
-
-        self.received_symbols.load(Ordering::SeqCst)
     }
 }
 
-struct UserData<'a> {
-    progress: &'a TransmissionProgress,
-    callback: Option<&'a mut (dyn FnMut(rmt_rx_done_event_data_t) + Send + 'static)>,
+async fn queue_send_back<T: Copy>(queue: &Queue<T>, item: T) -> bool {
+    loop {
+        match queue.send_back(item, 0) {
+            Ok(value) => return value,
+            Err(_) => {
+                do_yield();
+                yield_now().await;
+            }
+        }
+    }
 }
 
+#[derive(Debug)]
 pub struct AsyncRxChannelDriver<'d> {
-    handle: rmt_channel_handle_t,
-    is_enabled: bool,
-    #[cfg(feature = "alloc")]
-    callback: Option<alloc::boxed::Box<dyn FnMut(rmt_rx_done_event_data_t) + Send + 'static>>,
-    _p: PhantomData<&'d mut ()>,
+    driver: RxChannelDriver<'d>,
 }
 
 impl<'d> AsyncRxChannelDriver<'d> {
-    const RX_EVENT_CALLBACKS: rmt_rx_event_callbacks_t = rmt_rx_event_callbacks_t {
-        on_recv_done: Some(Self::handle_isr),
-    };
-    const RX_EVENT_CALLBACKS_DISABLE: rmt_rx_event_callbacks_t =
-        rmt_rx_event_callbacks_t { on_recv_done: None };
-
     /// Creates a new RMT RX channel.
     ///
     /// # Errors
@@ -66,220 +47,69 @@ impl<'d> AsyncRxChannelDriver<'d> {
     /// - `ESP_ERR_NOT_SUPPORTED`: Create RMT RX channel failed because some feature is not supported by hardware, e.g. DMA feature is not supported by hardware
     /// - `ESP_FAIL`: Create RMT RX channel failed because of other error
     pub fn new(pin: impl InputPin + 'd, config: &RxChannelConfig) -> Result<Self, EspError> {
-        let sys_config = rmt_rx_channel_config_t {
-            clk_src: config.clock_source.into(),
-            resolution_hz: config.resolution.into(),
-            mem_block_symbols: config.memory_access.symbols(),
-            #[cfg(esp_idf_version_at_least_5_1_2)]
-            intr_priority: config.interrupt_priority,
-            flags: rmt_rx_channel_config_t__bindgen_ty_1 {
-                _bitfield_1: rmt_rx_channel_config_t__bindgen_ty_1::new_bitfield_1(
-                    config.invert_in as u32,
-                    config.memory_access.is_direct() as u32,
-                    config.io_loop_back as u32,
-                    #[cfg(esp_idf_version_at_least_5_4_0)]
-                    {
-                        config.allow_pd as u32
-                    },
-                ),
-                ..Default::default()
-            },
-            gpio_num: pin.pin() as _,
-        };
-        let mut handle: rmt_channel_handle_t = ptr::null_mut();
-        esp!(unsafe { rmt_new_rx_channel(&sys_config, &mut handle) })?;
-
         Ok(Self {
-            is_enabled: false,
-            handle,
-            #[cfg(feature = "alloc")]
-            callback: None,
-            _p: PhantomData,
+            driver: RxChannelDriver::new(pin, config)?,
         })
     }
 
-    /// A helper function that registers the ISR handler before calling the provided closure
-    /// and always unregisters the ISR handler afterwards.
-    async fn with_callback<R>(
-        handle: rmt_channel_handle_t,
-        callback: Option<&mut (dyn FnMut(rmt_rx_done_event_data_t) + Send + 'static)>,
-        f: impl AsyncFnOnce(&TransmissionProgress) -> Result<R, EspError>,
-    ) -> Result<R, EspError> {
-        assert_not_in_isr();
-
-        let progress = TransmissionProgress {
-            #[cfg(feature = "alloc")]
-            notif: interrupt::asynch::HalIsrNotification::new(),
-            received_symbols: AtomicUsize::new(0),
-        };
-        // This struct contains the data that will be passed to the ISR handler.
-        // The C code wants a mutable pointer, therefore the data must be pinned, to ensure
-        // that rust does not invalidate the pointer through moves:
-        let mut user_data = pin!(UserData {
-            progress: &progress,
-            callback,
-        });
-
-        esp!(unsafe {
-            rmt_rx_register_event_callbacks(
-                handle,
-                &Self::RX_EVENT_CALLBACKS,
-                // SAFETY: The referenced data will not be moved and this is the only reference to it
-                user_data.as_mut().get_unchecked_mut() as *mut UserData as *mut core::ffi::c_void,
-            )
-        })?;
-
-        let result = f(&progress).await;
-
-        // Disable the callback to prevent use-after-free bugs:
-        esp!(unsafe {
-            rmt_rx_register_event_callbacks(
-                handle,
-                &Self::RX_EVENT_CALLBACKS_DISABLE,
-                ptr::null_mut(),
-            )
-        })
-        // SAFETY: This must always succeed, if it doesn't it might cause undefined behavior
-        .expect("failed to disable RX callback, this is a bug in the esp-idf-hal library.");
-
-        result
+    /// Returns a mutable reference to the underlying blocking RX channel driver.
+    #[must_use]
+    pub fn driver(&mut self) -> &mut RxChannelDriver<'d> {
+        &mut self.driver
     }
 
     /// Receives RMT symbols into the provided buffer, returning the number of received symbols.
     ///
     /// This function will wait until the receive operation is complete.
-    pub async fn receive_and_wait(
+    ///
+    /// # Note
+    ///
+    /// If there are events from other receive operations, it will try to push them to
+    /// the end of the queue. Make sure there is enough space in the queue, otherwise this
+    /// might function might miss received symbols or never finish.
+    ///
+    /// # Safety
+    ///
+    /// A future can be discarded while it is still in progress. This could result in it writing to the buffer
+    /// after the buffer is freed or got moved. The caller must guarantee that this future is polled to completion.
+    pub async unsafe fn receive_and_wait(
         &mut self,
         buffer: &mut [Symbol],
         config: &ReceiveConfig,
     ) -> Result<usize, EspError> {
-        let sys_config = rmt_receive_config_t {
-            signal_range_min_ns: config.signal_range_min.as_nanos() as _,
-            signal_range_max_ns: config.signal_range_max.as_nanos() as _,
-            #[cfg(esp_idf_version_at_least_5_3_0)]
-            flags: rmt_receive_config_t_extra_rmt_receive_flags {
-                _bitfield_1: rmt_receive_config_t_extra_rmt_receive_flags::new_bitfield_1(
-                    config.enable_partial_rx as u32,
-                ),
-                ..Default::default()
-            },
-        };
+        let ptr = unsafe { self.driver().start_receive(buffer, config) }?;
 
-        // Enable the channel if it is not enabled yet:
-        if !self.is_enabled() {
-            self.enable()?;
-        }
+        let queue = self.driver().queue();
+        let mut read = 0;
+        loop {
+            let item = queue_recv_front(queue).await;
 
-        let handle = self.handle();
-        Self::with_callback(
-            handle,
-            {
-                #[cfg(feature = "alloc")]
-                {
-                    self.callback.as_mut().map(alloc::boxed::Box::as_mut)
-                }
-                #[cfg(not(feature = "alloc"))]
-                {
-                    None
-                }
-            },
-            async |progress| {
-                // Start a new receive operation, this does not block:
-                esp!(unsafe {
-                    rmt_receive(
-                        self.handle,
-                        buffer.as_mut_ptr() as *mut _,
-                        mem::size_of_val(buffer),
-                        &sys_config,
-                    )
-                })?;
-
-                // Wait for the end of the receive operation:
-                Ok(progress.wait().await)
-            },
-        )
-        .await
-    }
-
-    #[cfg(feature = "alloc")]
-    pub fn subscribe(
-        &mut self,
-        on_recv_done: impl FnMut(rmt_rx_done_event_data_t) + Send + 'static,
-    ) {
-        assert_not_in_isr();
-        if self.is_enabled() {
-            panic!("Cannot subscribe to RX events while the channel is enabled");
-        }
-
-        let on_recv_done: alloc::boxed::Box<dyn FnMut(rmt_rx_done_event_data_t) + Send + 'static> =
-            alloc::boxed::Box::new(on_recv_done);
-
-        self.callback = Some(on_recv_done);
-    }
-
-    /// Remove the ISR handler for when a transmission is done.
-    #[cfg(feature = "alloc")]
-    pub fn unsubscribe(&mut self) {
-        assert_not_in_isr();
-        if self.is_enabled() {
-            panic!("Cannot unsubscribe from RX events while the channel is enabled");
-        }
-
-        self.callback = None;
-    }
-
-    /// Handles the ISR event for when a transmission is done.
-    unsafe extern "C" fn handle_isr(
-        _channel: rmt_channel_handle_t,
-        event_data: *const rmt_rx_done_event_data_t,
-        user_data: *mut core::ffi::c_void,
-    ) -> bool {
-        let data = event_data.read();
-        let user_data = &mut *(user_data as *mut UserData);
-        let received_symbols = data.num_symbols;
-
-        interrupt::with_isr_yield_signal(move || {
-            if let Some(handler) = user_data.callback.as_mut() {
-                handler(data);
+            if ptr != item.received_symbols {
+                queue_send_back(queue, item).await;
+                continue;
             }
 
-            user_data.progress.signal(received_symbols);
-        })
+            read += item.num_symbols;
+
+            if item.flags.is_last() != 0 {
+                break;
+            }
+        }
+
+        Ok(read)
     }
 }
 
 impl<'d> RmtChannel for AsyncRxChannelDriver<'d> {
     fn handle(&self) -> rmt_channel_handle_t {
-        self.handle
+        self.driver.handle()
     }
 
     fn is_enabled(&self) -> bool {
-        self.is_enabled
+        self.driver.is_enabled()
     }
 
     unsafe fn set_internal_enabled(&mut self, is_enabled: bool) {
-        self.is_enabled = is_enabled;
-    }
-}
-
-impl<'d> Drop for AsyncRxChannelDriver<'d> {
-    fn drop(&mut self) {
-        // Deleting the channel might fail if it is not disabled first.
-        //
-        // The result is ignored here, because there is nothing we can do about it.
-        if self.is_enabled() {
-            let _res = self.disable();
-        }
-
-        unsafe { rmt_del_channel(self.handle) };
-    }
-}
-
-impl<'d> fmt::Debug for AsyncRxChannelDriver<'d> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("AsyncRxChannelDriver")
-            .field("is_enabled", &self.is_enabled)
-            .field("handle", &self.handle)
-            .finish()
+        self.driver.set_internal_enabled(is_enabled);
     }
 }

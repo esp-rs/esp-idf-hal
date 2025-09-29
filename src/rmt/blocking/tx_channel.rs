@@ -33,7 +33,27 @@ type AnyPinned = core::pin::Pin<Box<dyn core::any::Any>>;
 /// guaranteed to be "less" than the other token.
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Token {
-    pub(crate) id: usize, // TODO: Token could be used between different channels -> would result in undefined behaviour
+    // TODO: wrap on overflow? or make id counter larger?
+    pub(crate) id: usize,
+    // To prevent tokens from being used in different channels, the channel handle
+    // is stored here for comparison. It is stored as an usize to avoid someone accidentally
+    // treating it like a valid pointer (which it might not be, because a token can outlive the channel).
+    channel: usize,
+}
+
+impl Token {
+    pub(crate) fn new(id: usize, channel: rmt_channel_handle_t) -> Self {
+        Self {
+            id,
+            channel: channel as usize,
+        }
+    }
+
+    /// Checks if the token was created by the given channel.
+    #[must_use]
+    pub fn is_from(&self, channel: &impl RmtChannel) -> bool {
+        self.channel == channel.handle() as usize
+    }
 }
 
 // TODO: reset ids before they overflow
@@ -41,19 +61,12 @@ pub struct Token {
 
 #[cfg(feature = "alloc")]
 pub(crate) struct TransmissionProgress {
-    next_tx_id: AtomicUsize,
     finished_count: AtomicUsize,
     notif: HalIsrNotification,
 }
 
 #[cfg(feature = "alloc")]
 impl TransmissionProgress {
-    /// Returns a new unique id for a transmission.
-    #[must_use]
-    fn next_id(&self) -> usize {
-        self.next_tx_id.fetch_add(1, Ordering::SeqCst)
-    }
-
     #[must_use]
     pub(crate) fn is_finished(&self, id: usize) -> bool {
         // Assuming id is 1, we have the transmissions [0, 1].
@@ -84,10 +97,9 @@ impl TransmissionProgress {
         self.notif.notify_lsb();
     }
 
-    fn notify_all(&self) {
+    fn notify_all(&self, next_tx_id: usize) {
         // Mark all transmissions as finished:
-        self.finished_count
-            .store(self.next_tx_id.load(Ordering::SeqCst), Ordering::SeqCst);
+        self.finished_count.store(next_tx_id, Ordering::SeqCst);
 
         // TODO: Is this correct?
         // Notify all waiting tasks:
@@ -106,6 +118,8 @@ pub struct TxChannelDriver<'d> {
     //         It relies on the fact that in disabled state, the ISR handler will not be called.
     is_enabled: bool,
     handle: rmt_channel_handle_t,
+    #[cfg(feature = "alloc")]
+    next_tx_id: usize,
     #[cfg(feature = "alloc")]
     on_transmit_data: Box<UserData>,
     #[cfg(feature = "alloc")]
@@ -170,10 +184,11 @@ impl<'d> TxChannelDriver<'d> {
             is_enabled: false,
             handle,
             #[cfg(feature = "alloc")]
+            next_tx_id: 0,
+            #[cfg(feature = "alloc")]
             on_transmit_data: Box::new(UserData {
                 callback: None,
                 progress: TransmissionProgress {
-                    next_tx_id: AtomicUsize::new(0),
                     finished_count: AtomicUsize::new(0),
                     notif: HalIsrNotification::new(),
                 },
@@ -231,7 +246,8 @@ impl<'d> TxChannelDriver<'d> {
 
         // All pending transmissions are done -> all stored data can be removed:
         #[cfg(feature = "alloc")]
-        self.transmission_data.clear(); // TODO: call self.remove_data() instead?
+        self.transmission_data.clear();
+        // The notification of waiting tasks happens through the regular isr handler.
 
         Ok(())
     }
@@ -358,13 +374,18 @@ impl<'d> TxChannelDriver<'d> {
 
         #[cfg(feature = "alloc")]
         {
-            Ok(Token {
-                id: self.progress().next_id(),
-            })
+            Ok(Token::new(
+                {
+                    let id = self.next_tx_id;
+                    self.next_tx_id += 1;
+                    id
+                },
+                self.handle(),
+            ))
         }
         #[cfg(not(feature = "alloc"))]
         {
-            Ok(Token { id: 0 })
+            Ok(Token::new(0, self.handle()))
         }
     }
 
@@ -380,7 +401,7 @@ impl<'d> TxChannelDriver<'d> {
         // If the channel is disabled, all transmissions are cancelled -> they should be done
         if !self.is_enabled() && !self.transmission_data.is_empty() {
             self.transmission_data.clear();
-            self.progress().notify_all();
+            self.progress().notify_all(self.next_tx_id);
             return;
         }
 
@@ -476,16 +497,21 @@ impl<'d> TxChannelDriver<'d> {
     pub fn send<E: Encoder + 'static>(
         &mut self,
         encoder: E,
-        signal: impl Into<alloc::vec::Vec<E::Item>>,
+        // TODO: Is this safe?
+        //
+        // This assumes that when the signal is stored,
+        // a reference to it through AsRef will stay valid
+        // until the signal itself is dropped
+        signal: impl AsRef<[E::Item]> + 'static,
         config: &TransmitConfig,
     ) -> Result<Token, EspError> {
         let mut encoder = Box::pin(encoder);
-        let signal = Box::pin(signal.into());
+        let signal = Box::pin(signal);
 
         let token = unsafe {
             self.start_send(
                 encoder.as_mut().get_unchecked_mut(),
-                &signal.as_ref(),
+                signal.as_ref().get_ref().as_ref(),
                 config,
             )
         }?;
@@ -515,6 +541,10 @@ impl<'d> TxChannelDriver<'d> {
     /// Waits for the transmission associated with the given token to finish.
     #[cfg(feature = "alloc")]
     pub fn wait_for(&mut self, token: Token) {
+        if !token.is_from(self) {
+            panic!("The given token {token:?} is not from this channel.");
+        }
+
         // Only wait if the transmission is not already finished: (ensures that it does not wait when the channel is disabled)
         if !self.is_finished(token) {
             crate::task::block_on(self.progress().wait_for(token.id))
@@ -524,7 +554,7 @@ impl<'d> TxChannelDriver<'d> {
     }
 }
 
-// SAFETY: The C-Code doesn't seem to use any thread locals -> it should be safe to send the channel to another thread.
+// SAFETY: The C code doesn't seem to use any thread locals -> it should be safe to send the channel to another thread.
 unsafe impl<'d> Send for TxChannelDriver<'d> {}
 
 impl<'d> RmtChannel for TxChannelDriver<'d> {
@@ -555,6 +585,8 @@ impl<'d> Drop for TxChannelDriver<'d> {
         if self.is_enabled() {
             let _res = self.disable();
         }
+
+        // SAFETY: The disable will cancel all pending transmission -> the stored data can be freed
 
         // Remove the isr handler:
         #[cfg(feature = "alloc")]
