@@ -16,17 +16,12 @@ struct Slot<S, T> {
 }
 
 impl<T, S: AsRef<[T]>> Slot<S, T> {
-    #[must_use]
-    pub fn get_signal(self: Pin<&Self>) -> Pin<&[T]> {
-        // This is okay because `signal` is pinned when `self` is.
-        unsafe { self.map_unchecked(|s| s.signal.as_ref()) }
-    }
-
     pub fn set<E>(
         self: Pin<&mut Self>,
         f: impl FnOnce(Pin<&[T]>) -> Result<Token, E>,
     ) -> Result<(), E> {
-        let signal = self.as_ref().get_signal();
+        // SAFETY: This is okay because `signal` is pinned when `self` is.
+        let signal = unsafe { self.as_ref().map_unchecked(|s| s.signal.as_ref()) };
         let token = f(signal)?;
         unsafe {
             let mut this = self.map_unchecked_mut(|this| &mut this.token);
@@ -36,8 +31,6 @@ impl<T, S: AsRef<[T]>> Slot<S, T> {
         Ok(())
     }
 }
-
-// TODO: use pin-project crate? Should simplify this
 
 pub struct TxQueue<'c, 'd, E: Encoder, S, const N: usize> {
     #[allow(clippy::type_complexity)]
@@ -107,31 +100,17 @@ impl<'c, 'd, E: Encoder, S, const N: usize> TxQueue<'c, 'd, E, S, N> {
     /// Returns an iterator over all tokens that are currently in use.
     ///
     /// The order of the tokens is not defined.
-    fn pending_tokens(
-        self: Pin<&mut Self>,
-    ) -> (&mut TxChannelDriver<'d>, impl Iterator<Item = Token> + '_) {
-        unsafe {
-            let this = self.get_unchecked_mut();
-            (
-                this.channel,
-                this.slots
-                    .iter()
-                    .flat_map(|(_, slot)| slot.as_ref().and_then(|s| s.token)),
-            )
-        }
-    }
-
-    // TODO: fix this duplicate
-    fn pending_tokens2(self: Pin<&Self>) -> impl Iterator<Item = Token> + '_ {
+    fn pending_tokens(self: Pin<&Self>) -> impl Iterator<Item = Token> + '_ {
         self.get_ref()
             .slots
             .iter()
             .flat_map(|(_, slot)| slot.as_ref().and_then(|s| s.token))
     }
 
-    fn channel(self: Pin<&mut Self>) -> &mut TxChannelDriver<'d> {
-        // TODO: can this be exposed globally? Should this be exposed?
-        // SAFETY: The channel is not necessary to be pinned?
+    /// Returns a mutable reference to the channel this queue is using.
+    #[must_use]
+    pub fn channel(self: Pin<&mut Self>) -> &mut TxChannelDriver<'d> {
+        // SAFETY: The channel is not structural for pinning, it is okay to be moved
         unsafe { self.get_unchecked_mut().channel }
     }
 }
@@ -141,7 +120,7 @@ impl<'c, 'd, E: Encoder, S: AsRef<[E::Item]> + 'c, const N: usize> TxQueue<'c, '
     /// `None` if there are no ongoing transmissions.
     #[must_use]
     pub fn oldest_token(self: Pin<&Self>) -> Option<Token> {
-        self.pending_tokens2().min_by_key(|t| *t)
+        self.pending_tokens().min_by_key(|t| *t)
     }
 
     // TODO: naming of this function, should it be called send? enqueue? queue?
@@ -167,7 +146,7 @@ impl<'c, 'd, E: Encoder, S: AsRef<[E::Item]> + 'c, const N: usize> TxQueue<'c, '
             _marker: PhantomData,
         }));
 
-        // SAFETY: We just set the slot to Some above -> it is safe to unwrap here.
+        // SAFETY: The slot was set above -> it is safe to unwrap here.
         let slot = unsafe { slot.map_unchecked_mut(|s| s.as_mut().unwrap_unchecked()) };
 
         // SAFETY: The transmission using this encoder is finished -> should be safe to reuse the encoder
@@ -181,12 +160,20 @@ impl<'c, 'd, E: Encoder, S: AsRef<[E::Item]> + 'c, const N: usize> TxQueue<'c, '
 
 impl<'c, 'd, E: Encoder, S, const N: usize> Drop for TxQueue<'c, 'd, E, S, N> {
     fn drop(&mut self) {
-        // SAFETY: For a pinned type, drop must behave as if it was pinned.
-        let this = unsafe { Pin::new_unchecked(self) };
-        // Wait for all ongoing transmissions to finish:
-        let (channel, iter) = this.pending_tokens();
-        for token in iter {
-            channel.wait_for(token);
+        // SAFETY: For a pinned type, drop must behave as if it were pinned.
+        //
+        // The problem is that splitting borrows, mutably accessing channel while the slots are immutably borrowed,
+        // seems to be impossible without the use of unsafe.
+        //
+        // -> Code would be a Pin::new_unchecked, followed by a get_unchecked_mut, which defeats the purpose
+        //    of wrapping it in a pin in the first place
+
+        for token in self
+            .slots
+            .iter()
+            .flat_map(|(_, slot)| slot.as_ref().and_then(|s| s.token))
+        {
+            self.channel.wait_for(token);
         }
     }
 }

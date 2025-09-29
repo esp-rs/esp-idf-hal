@@ -132,8 +132,15 @@ impl<'d> AsyncTxChannelDriver<'d> {
 
     /// Sends the given signal using the specified encoder and config,
     /// then waits for the transmission to finish before returning.
+    ///
+    /// # Safety
+    ///
+    /// A future can be discarded while it is still in progress. This could result in it reading the signal
+    /// after it is freed or got moved (same for encoder).
+    ///
+    /// The caller must guarantee that this future is polled to completion.
     #[cfg(feature = "alloc")]
-    pub async fn send_and_wait<E: Encoder>(
+    pub async unsafe fn send_and_wait<E: Encoder>(
         &mut self,
         mut encoder: E,
         signal: &[E::Item],
@@ -149,6 +156,10 @@ impl<'d> AsyncTxChannelDriver<'d> {
     /// Waits for the transmission associated with the given token to finish.
     #[cfg(feature = "alloc")]
     pub async fn wait_for(&mut self, token: Token) {
+        if !token.is_from(self) {
+            panic!("The given token {token:?} is not from this channel.");
+        }
+
         // Only wait if the transmission is not already finished: (ensures that it does not wait when the channel is disabled)
         if !self.driver.is_finished(token) {
             self.driver.progress().wait_for(token.id).await;
