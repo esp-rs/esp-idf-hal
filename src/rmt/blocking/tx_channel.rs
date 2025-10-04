@@ -16,7 +16,7 @@ use crate::gpio::OutputPin;
 #[cfg(feature = "alloc")]
 use crate::interrupt::asynch::HalIsrNotification;
 use crate::rmt::config::{Loop, TransmitConfig, TxChannelConfig};
-use crate::rmt::encoder::Encoder;
+use crate::rmt::encoder::{into_raw, Encoder, RawEncoder};
 #[cfg(feature = "alloc")]
 use crate::rmt::TxQueue;
 use crate::rmt::{assert_not_in_isr, RmtChannel};
@@ -333,7 +333,7 @@ impl<'d> TxChannelDriver<'d> {
     /// - the encoder and signal are not modified during the transmission
     ///
     /// The caller must ensure that the encoder and signal live long enough and are not moved.
-    pub unsafe fn start_send<E: Encoder>(
+    pub unsafe fn start_send<E: RawEncoder>(
         &mut self,
         encoder: &mut E,
         signal: &[E::Item],
@@ -505,7 +505,7 @@ impl<'d> TxChannelDriver<'d> {
         signal: impl AsRef<[E::Item]> + 'static,
         config: &TransmitConfig,
     ) -> Result<Token, EspError> {
-        let mut encoder = Box::pin(encoder);
+        let mut encoder = Box::pin(into_raw(encoder));
         let signal = Box::pin(signal);
 
         let token = unsafe {

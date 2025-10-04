@@ -3,41 +3,41 @@ use core::marker::PhantomData;
 use core::mem;
 use core::ptr;
 
-#[cfg(feature = "alloc")]
 use alloc::boxed::Box;
+use alloc::vec::Vec;
 
 use esp_idf_sys::*;
 
+use crate::delay::TickType;
 use crate::gpio::InputPin;
-#[cfg(feature = "alloc")]
 use crate::rmt::assert_not_in_isr;
 use crate::rmt::config::{ReceiveConfig, RxChannelConfig};
-use crate::rmt::{RmtChannel, Symbol};
-#[cfg(feature = "alloc")]
+use crate::rmt::{RmtChannel, RxDoneEventData, Symbol};
 use crate::task::queue::Queue;
 
-#[cfg(feature = "alloc")]
 struct UserData {
-    queue: Queue<rmt_rx_done_event_data_t>,
-    callback: Option<Box<dyn FnMut(rmt_rx_done_event_data_t) + Send + 'static>>,
+    queue: Queue<RxDoneEventData>,
+    callback: Option<Box<dyn FnMut(RxDoneEventData) + Send + 'static>>,
 }
 
 pub struct RxChannelDriver<'d> {
     handle: rmt_channel_handle_t,
     is_enabled: bool,
-    #[cfg(feature = "alloc")]
     user_data: Box<UserData>,
+    buffer: Vec<Symbol>,
+    has_finished: bool,
     _p: PhantomData<&'d mut ()>,
 }
 
 impl<'d> RxChannelDriver<'d> {
-    #[cfg(feature = "alloc")]
     const RX_EVENT_CALLBACKS: rmt_rx_event_callbacks_t = rmt_rx_event_callbacks_t {
         on_recv_done: Some(Self::handle_isr),
     };
-    #[cfg(feature = "alloc")]
     const RX_EVENT_CALLBACKS_DISABLE: rmt_rx_event_callbacks_t =
         rmt_rx_event_callbacks_t { on_recv_done: None };
+    // There is no need for storing more than one event, because the driver will overwrite the buffer
+    // when a new event arrives.
+    const ISR_QUEUE_SIZE: usize = 1;
 
     /// Creates a new RMT RX channel.
     ///
@@ -70,140 +70,168 @@ impl<'d> RxChannelDriver<'d> {
             gpio_num: pin.pin() as _,
         };
 
-        if config.queue_size == 0 {
-            return Err(EspError::from_infallible::<ESP_ERR_INVALID_ARG>());
-        }
-
         let mut handle: rmt_channel_handle_t = ptr::null_mut();
         esp!(unsafe { rmt_new_rx_channel(&sys_config, &mut handle) })?;
 
-        #[cfg_attr(not(feature = "alloc"), allow(unused_mut))]
         let mut this = Self {
             is_enabled: false,
             handle,
-            #[cfg(feature = "alloc")]
             user_data: Box::new(UserData {
-                queue: Queue::new(config.queue_size),
+                queue: Queue::new(Self::ISR_QUEUE_SIZE),
                 callback: None,
             }),
+            buffer: Vec::new(),
+            has_finished: true,
             _p: PhantomData,
         };
 
-        #[cfg(feature = "alloc")]
         esp!(unsafe {
             rmt_rx_register_event_callbacks(
                 handle,
                 &Self::RX_EVENT_CALLBACKS,
                 // SAFETY: The referenced data will not be moved and this is the only reference to it
-                &raw mut this.user_data as *mut UserData as *mut core::ffi::c_void,
+                &raw mut (*this.user_data) as *mut core::ffi::c_void,
             )
         })?;
 
         Ok(this)
     }
 
-    /// Initiate a receive job for RMT RX channel.
+    /// Returns whether the last receive operation has finished.
     ///
-    /// This function is non-blocking, it initiates a new receive job and then returns
-    /// the pointer it passed to the [`rmt_receive`] function. With this pointer one
-    /// can identify the [`rmt_rx_done_event_data_t`] that corresponds to this receive
-    /// operation.
+    /// If a timeout happend before the `receive` finished, this will return `false`
+    /// and the data can be obtained on the next call to [`Self::receive`].
     ///
-    /// # ISR Safety
+    /// For partial receives, this will return `false`, until all parts have been received.
     ///
-    /// If [`Self::is_enabled`] returns `true`, this function can be safely called from an ISR
-    /// context.
-    ///
-    /// # Safety
-    ///
-    /// This function is a thin wrapper around the [`rmt_receive`] function, it assumes that
-    /// the buffer is valid until all data has been received.
-    pub unsafe fn start_receive(
-        &mut self,
-        buffer: &mut [Symbol],
-        config: &ReceiveConfig,
-    ) -> Result<*mut rmt_symbol_word_t, EspError> {
-        let sys_config = rmt_receive_config_t {
-            signal_range_min_ns: config.signal_range_min.as_nanos() as _,
-            signal_range_max_ns: config.signal_range_max.as_nanos() as _,
-            #[cfg(esp_idf_version_at_least_5_3_0)]
-            flags: rmt_receive_config_t_extra_rmt_receive_flags {
-                _bitfield_1: rmt_receive_config_t_extra_rmt_receive_flags::new_bitfield_1(
-                    config.enable_partial_rx as u32,
-                ),
-                ..Default::default()
-            },
-        };
-
-        // Enable the channel if it is not enabled yet:
-        if !self.is_enabled() {
-            self.enable()?;
-        }
-
-        // Start a new receive operation, this does not block:
-        let ptr = buffer.as_mut_ptr() as *mut rmt_symbol_word_t;
-        esp!(unsafe {
-            rmt_receive(
-                self.handle,
-                ptr as *mut _,
-                mem::size_of_val(buffer),
-                &sys_config,
-            )
-        })?;
-
-        Ok(ptr)
+    /// If this function returns `true`, the next call to [`Self::receive`]
+    /// will start a new receive operation.
+    #[must_use]
+    pub const fn has_finished(&self) -> bool {
+        self.has_finished
     }
 
     /// Receives RMT symbols into the provided buffer, returning the number of received symbols.
     ///
-    /// This function will wait until the receive operation is complete.
+    /// This function will wait until the ISR signals that it has received data. After that,
+    /// it copies the data from the internal buffer to the user-provided buffer and returns
+    /// the number of received symbols.
     ///
-    /// # Note
+    /// # Timeouts
     ///
-    /// If there are events from other receive operations, it will try to push them to
-    /// the end of the queue. In case this fails, it will discard the event.
-    #[cfg(feature = "alloc")]
-    pub fn receive_and_wait(
+    /// A timeout can be specified in the [`ReceiveConfig::timeout`] field. If a timeout happens,
+    /// it will return an error with the [`EspError::code`] [`ESP_ERR_TIMEOUT`].
+    /// If the data arrives after the timeout, it can be obtained on the next call to this function.
+    ///
+    /// # Partial Receives
+    ///
+    /// If partial receives are enabled (see [`ReceiveConfig::enable_partial_rx`]), subsequent
+    /// calls to this function will only start a new receive after all parts have been received.
+    ///
+    /// The driver will continue to write data into the internal buffer after this function returns.
+    /// It is important that this function is called without much delay, to not miss any data.
+    ///
+    /// One can check whether a partial receive has finished with [`Self::has_finished`].
+    pub fn receive(
         &mut self,
         buffer: &mut [Symbol],
         config: &ReceiveConfig,
     ) -> Result<usize, EspError> {
-        let ptr = unsafe { self.start_receive(buffer, config) }?;
-
-        let mut read = 0;
-        while let Some((item, _)) = self.queue().recv_front(u32::MAX) {
-            if ptr != item.received_symbols {
-                // if it fails to send the unknown event to the back of the queue, just discard it.
-                let _ = self.queue().send_back(item, u32::MAX);
-                continue;
+        let timeout = config.timeout.map(TickType::from);
+        // If the previous receive operation has finished, start a new one:
+        if self.has_finished {
+            // Ensure the internal buffer is large enough:
+            if self.buffer.len() < buffer.len() {
+                self.buffer.resize(buffer.len(), Symbol::default());
             }
 
-            read += item.num_symbols;
+            let sys_config = rmt_receive_config_t {
+                signal_range_min_ns: config.signal_range_min.as_nanos() as _,
+                signal_range_max_ns: config.signal_range_max.as_nanos() as _,
+                #[cfg(esp_idf_version_at_least_5_3_0)]
+                flags: rmt_receive_config_t_extra_rmt_receive_flags {
+                    _bitfield_1: rmt_receive_config_t_extra_rmt_receive_flags::new_bitfield_1(
+                        config.enable_partial_rx as u32,
+                    ),
+                    ..Default::default()
+                },
+            };
 
-            if item.flags.is_last() != 0 {
-                break;
+            // Enable the channel if it is not enabled yet:
+            if !self.is_enabled() {
+                self.enable()?;
             }
+
+            // Start a new receive operation, this does not block:
+            let slice = self.buffer.as_mut_slice();
+            // SAFETY: The previous receive operation has finished -> the buffer is not in use.
+            // It is allocated -> it will be valid for the duration of the receive operation.
+            // In case the channel is forgotten, the buffer will be leaked, but the driver can
+            // continue writing to it and when the driver is dropped, it will be disabled first.
+            esp!(unsafe {
+                rmt_receive(
+                    self.handle,
+                    slice.as_mut_ptr() as *mut _,
+                    mem::size_of_val::<[Symbol]>(slice),
+                    &sys_config,
+                )
+            })?;
         }
+
+        // The ISR will send an event through the queue when new data has been received.
+        // For partial receives, it will reuse the initial buffer for subsequent parts.
+
+        self.has_finished = false;
+
+        let event_data = self.wait(timeout)?;
+
+        #[cfg(esp_idf_version_at_least_5_3_0)]
+        {
+            self.has_finished = event_data.is_last;
+        }
+        #[cfg(not(esp_idf_version_at_least_5_3_0))]
+        {
+            self.has_finished = true;
+        }
+
+        let read = event_data.num_symbols;
+        // Before returning, copy the data to the user buffer:
+        buffer[..read].copy_from_slice(&self.buffer[..read]);
 
         Ok(read)
     }
 
-    /// Returns a reference the queue to which events will be written.
-    ///
-    /// If the queue becomes full, it will discard the oldest events (the elements in the front).
-    /// It is recommended to frequently poll the queue, to not miss any events.
-    #[cfg(feature = "alloc")]
-    #[must_use]
-    pub fn queue(&self) -> &Queue<rmt_rx_done_event_data_t> {
-        &self.user_data.queue
+    fn wait(&mut self, timeout: Option<TickType>) -> Result<RxDoneEventData, EspError> {
+        let has_timeout = timeout.is_some();
+        let ticks = timeout.map_or(u32::MAX, |tick| tick.ticks());
+        loop {
+            if let Some((data, _)) = self.user_data.queue.recv_front(ticks) {
+                return Ok(data);
+            }
+
+            if has_timeout {
+                return Err(EspError::from_infallible::<ESP_ERR_TIMEOUT>());
+            }
+        }
     }
 
-    #[cfg(feature = "alloc")]
-    pub fn subscribe(
-        &mut self,
-        on_recv_done: impl FnMut(rmt_rx_done_event_data_t) + Send + 'static,
-    ) {
+    /// Subscribe to the ISR handler to get notified when a receive operation is done.
+    ///
+    /// There is only one callback possible, you can not subscribe multiple callbacks.
+    ///
+    /// # Panics
+    ///
+    /// This function will panic if called from an ISR context or while the channel is enabled.
+    ///
+    /// # Safety
+    ///
+    /// Care should be taken not to call std, libc or FreeRTOS APIs (except for a few allowed ones)
+    /// in the callback passed to this function, as it is executed in an ISR context.
+    ///
+    /// You are not allowed to block, but you are allowed to call FreeRTOS APIs with the FromISR suffix.
+    pub unsafe fn subscribe(&mut self, on_recv_done: impl FnMut(RxDoneEventData) + Send + 'static) {
         assert_not_in_isr();
+
         if self.is_enabled() {
             panic!("Cannot subscribe to RX events while the channel is enabled");
         }
@@ -212,7 +240,6 @@ impl<'d> RxChannelDriver<'d> {
     }
 
     /// Remove the ISR handler for when a transmission is done.
-    #[cfg(feature = "alloc")]
     pub fn unsubscribe(&mut self) {
         assert_not_in_isr();
         if self.is_enabled() {
@@ -223,27 +250,27 @@ impl<'d> RxChannelDriver<'d> {
     }
 
     /// Handles the ISR event for when a transmission is done.
-    #[cfg(feature = "alloc")]
     unsafe extern "C" fn handle_isr(
         _channel: rmt_channel_handle_t,
         event_data: *const rmt_rx_done_event_data_t,
         user_data: *mut core::ffi::c_void,
     ) -> bool {
-        let data = event_data.read();
+        let data = RxDoneEventData::from(event_data.read());
         let user_data = &mut *(user_data as *mut UserData);
 
         if let Some(handler) = user_data.callback.as_mut() {
             handler(data);
         }
 
+        let raw_queue = &user_data.queue;
+
         // timeout is only relevant for non-isr calls
-        match user_data.queue.send_back(data, 0) {
+        match raw_queue.send_back(data, 0) {
             Ok(result) => result,
             // it might fail if the queue is full, in this case discard the oldest event:
             Err(_) => {
-                user_data.queue.recv_front(0);
-
-                user_data.queue.send_back(data, 0).unwrap()
+                raw_queue.recv_front(0);
+                raw_queue.send_back(data, 0).unwrap()
             }
         }
     }
@@ -260,6 +287,12 @@ impl<'d> RmtChannel for RxChannelDriver<'d> {
 
     unsafe fn set_internal_enabled(&mut self, is_enabled: bool) {
         self.is_enabled = is_enabled;
+
+        if !self.is_enabled {
+            // If the channel is disabled, any receive operation has been aborted
+            // -> it is finished:
+            self.has_finished = true;
+        }
     }
 }
 
@@ -273,7 +306,6 @@ impl<'d> Drop for RxChannelDriver<'d> {
         }
 
         // Disable the callback to prevent use-after-free bugs:
-        #[cfg(feature = "alloc")]
         unsafe {
             rmt_rx_register_event_callbacks(
                 self.handle(),
@@ -291,6 +323,7 @@ impl<'d> fmt::Debug for RxChannelDriver<'d> {
         f.debug_struct("RxChannelDriver")
             .field("is_enabled", &self.is_enabled)
             .field("handle", &self.handle)
+            .field("has_finished", &self.has_finished)
             .finish()
     }
 }

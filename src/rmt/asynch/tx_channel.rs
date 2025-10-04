@@ -8,7 +8,7 @@ use esp_idf_sys::*;
 #[cfg(feature = "alloc")]
 use crate::rmt::assert_not_in_isr;
 use crate::rmt::config::{TransmitConfig, TxChannelConfig};
-use crate::rmt::encoder::Encoder;
+use crate::rmt::encoder::{into_raw, Encoder, RawEncoder};
 use crate::rmt::RmtChannel;
 use crate::rmt::Token;
 
@@ -79,7 +79,7 @@ impl<'d> AsyncTxChannelDriver<'d> {
     /// - the encoder and signal are not modified during the transmission
     ///
     /// The caller must ensure that the encoder and signal live long enough and are not moved.
-    pub async unsafe fn start_send<E: Encoder>(
+    pub async unsafe fn start_send<E: RawEncoder>(
         &mut self,
         encoder: &mut E,
         signal: &[E::Item],
@@ -112,7 +112,7 @@ impl<'d> AsyncTxChannelDriver<'d> {
         assert_not_in_isr();
 
         let signal = alloc::boxed::Box::pin(signal);
-        let mut encoder = alloc::boxed::Box::pin(encoder);
+        let mut encoder = alloc::boxed::Box::pin(into_raw(encoder));
 
         // SAFETY: Both encoder and signal are pinned, and are stored in the channel to ensure that they live long enough
         let token = unsafe {

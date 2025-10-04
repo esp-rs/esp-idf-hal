@@ -78,25 +78,57 @@ impl Symbol {
         ))
     }
 
+    pub fn new_delay_for(
+        ticks: Hertz,
+        level0: PinState,
+        level1: PinState,
+        duration: Duration,
+    ) -> impl Iterator<Item = Self> {
+        let max_duration = PulseTicks::max().duration(ticks).unwrap() * 2; // times two, because we use half-split symbols
+
+        // The delay might be larger than what is allowed for one symbol -> it is split into multiple symbols:
+        let count = duration.as_nanos() / max_duration.as_nanos();
+        let remainder =
+            Duration::from_nanos((duration.as_nanos() % max_duration.as_nanos()) as u64);
+
+        // This can be replaced with a call to `core::iter::repeat_n` once the target rust version is high enough
+        core::iter::repeat(max_duration)
+            .take(count as usize)
+            .chain(core::iter::once(remainder))
+            .filter_map(move |duration| {
+                if duration.is_zero() {
+                    return None;
+                }
+
+                Some(Symbol::new_half_split(ticks, level0, level1, duration).unwrap())
+            })
+    }
+
     #[must_use]
-    fn symbol_word_to_pulse(word: &rmt_symbol_word_t) -> Pulse {
+    fn symbol_word_to_pulse(word: &rmt_symbol_word_t) -> (Pulse, Pulse) {
         let inner = unsafe { &word.__bindgen_anon_1 };
-        Pulse::new(
-            (inner.level0() as u32).into(),
-            PulseTicks::new(inner.duration0()).unwrap(),
+        (
+            Pulse::new(
+                (inner.level0() as u32).into(),
+                PulseTicks::new(inner.duration0()).unwrap(),
+            ),
+            Pulse::new(
+                (inner.level1() as u32).into(),
+                PulseTicks::new(inner.duration1()).unwrap(),
+            ),
         )
     }
 
     /// Returns the first half-cycle (pulse) of this symbol.
     #[must_use]
     pub fn level0(&self) -> Pulse {
-        Self::symbol_word_to_pulse(&self.0)
+        Self::symbol_word_to_pulse(&self.0).0
     }
 
     /// Returns the second half-cycle (pulse) of this symbol.
     #[must_use]
     pub fn level1(&self) -> Pulse {
-        Self::symbol_word_to_pulse(&self.0)
+        Self::symbol_word_to_pulse(&self.0).1
     }
 
     /// Mutate this symbol to store a different pair of half-cycles.
@@ -148,6 +180,66 @@ impl From<Symbol> for rmt_symbol_word_t {
 fn assert_not_in_isr() {
     if crate::interrupt::active() {
         panic!("This function cannot be called from an ISR");
+    }
+}
+
+/// Type of RMT RX done event data.
+#[derive(Debug, Clone, Copy)]
+pub struct RxDoneEventData {
+    /// Pointer to the received RMT symbols.
+    ///
+    /// These symbols are saved in the internal `buffer` of the `RxChannelDriver`.
+    /// You are not allowed to free this buffer.
+    ///
+    /// If the partial receive feature is enabled, then the buffer will be
+    /// used as a "second level buffer", where its content can be overwritten by
+    /// data coming in afterwards. In this case, you should copy the received data to
+    /// another place if you want to keep it or process it later.
+    pub received_symbols: *mut Symbol,
+    /// The number of received RMT symbols.
+    ///
+    /// This value will never be larger than the buffer size of the buffer passed to the
+    /// receive function.
+    ///
+    /// If the buffer is not sufficient to accomodate all the received RMT symbols, the
+    /// driver only keeps the maximum number of symbols that the buffer can hold, and excess
+    /// symbols are discarded or ignored.
+    pub num_symbols: usize,
+    /// Indicates whether the current received data is the last part of the transaction.
+    ///
+    /// This is useful for when [`ReceiveConfig::enable_partial_rx`] is enabled,
+    /// and the data is received in parts.
+    ///
+    /// For receives where partial rx is not enabled, this field will always be `true`.
+    ///
+    /// [`ReceiveConfig::enable_partial_rx`]: crate::rmt::config::ReceiveConfig::enable_partial_rx
+    #[cfg(esp_idf_version_at_least_5_3_0)]
+    pub is_last: bool,
+    __private: (),
+}
+
+impl RxDoneEventData {
+    /// Returns the received symbols as a slice.
+    ///
+    /// # Safety
+    ///
+    /// Both the pointer and the length must be valid.
+    /// If these haven't been changed from the values provided by the driver,
+    /// this should be the case in the ISR callback.
+    pub unsafe fn as_slice(&self) -> &[Symbol] {
+        core::slice::from_raw_parts(self.received_symbols, self.num_symbols)
+    }
+}
+
+impl From<rmt_rx_done_event_data_t> for RxDoneEventData {
+    fn from(data: rmt_rx_done_event_data_t) -> Self {
+        Self {
+            received_symbols: data.received_symbols as *mut Symbol,
+            num_symbols: data.num_symbols,
+            #[cfg(esp_idf_version_at_least_5_3_0)]
+            is_last: data.flags.is_last() != 0,
+            __private: (),
+        }
     }
 }
 

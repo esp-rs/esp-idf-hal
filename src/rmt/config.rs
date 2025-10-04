@@ -1,5 +1,7 @@
 use core::time::Duration;
 
+use esp_idf_sys::TickType_t;
+
 pub use crate::rmt_legacy::config::DutyPercent;
 pub use crate::rmt_legacy::config::Loop;
 
@@ -221,10 +223,6 @@ pub struct RxChannelConfig {
     /// like not able to power down in light sleep.
     #[cfg(esp_idf_version_at_least_5_4_0)]
     pub allow_pd: bool,
-    /// This field controls the size of the queue for receiving events. See [`RxChannelDriver::queue`].
-    ///
-    /// It should be `> 0`.
-    pub queue_size: usize,
     // This field is intentionally hidden to prevent non-exhaustive pattern matching.
     // You should only construct this struct using the `..Default::default()` pattern.
     // If you use this field directly, your code might break in future versions.
@@ -245,26 +243,48 @@ impl Default for RxChannelConfig {
             io_loop_back: false,
             #[cfg(esp_idf_version_at_least_5_4_0)]
             allow_pd: false,
-            queue_size: 16,
             __internal: (),
         }
     }
 }
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone)]
 pub struct ReceiveConfig {
-    /// A pulse whose width is smaller than this threshold will be treated as glitch and ignored
+    /// Specifies the minimal valid pulse duration in either high or low logic levels.
+    ///
+    /// A pulse width that is smaller than this value is treated as a glitch, and ignored by the hardware.
     pub signal_range_min: Duration,
-    /// RMT will stop receiving if one symbol level has kept more than this threshold
+    /// Specifies the maximum valid pulse duration in either high or low logic levels.
+    ///
+    /// A pulse width that is bigger than this value is treated as Stop Signal, and the
+    /// receiver generates receive-complete event immediately.
     pub signal_range_max: Duration,
     /// Set this flag if the incoming data is very long, and the driver can only receive the data
     /// piece by piece, because the user buffer is not sufficient to save all the data.
     #[cfg(esp_idf_version_at_least_5_3_0)]
     pub enable_partial_rx: bool,
+    /// Maximum time to wait for data to be received.
+    ///
+    /// If `None`, the driver will wait indefinitely.
+    pub timeout: Option<TickType_t>,
     // This field is intentionally hidden to prevent non-exhaustive pattern matching.
     // You should only construct this struct using the `..Default::default()` pattern.
     // If you use this field directly, your code might break in future versions.
     #[doc(hidden)]
     #[allow(dead_code)]
     pub __internal: (),
+}
+
+impl Default for ReceiveConfig {
+    fn default() -> Self {
+        Self {
+            signal_range_min: Duration::ZERO,
+            // This is the maximum duration that the driver supports.
+            signal_range_max: Duration::from_nanos(u32::MAX as u64),
+            #[cfg(esp_idf_version_at_least_5_3_0)]
+            enable_partial_rx: false,
+            timeout: None,
+            __internal: (),
+        }
+    }
 }
