@@ -2,7 +2,7 @@ use core::ptr;
 
 use esp_idf_sys::*;
 
-use super::Encoder;
+use super::RawEncoder;
 use crate::rmt::Symbol;
 
 /// A copy encoder copies the provided symbols from the user space into the driver layer.
@@ -35,7 +35,7 @@ impl Drop for CopyEncoder {
     }
 }
 
-impl Encoder for CopyEncoder {
+impl RawEncoder for CopyEncoder {
     type Item = Symbol;
 
     fn handle(&mut self) -> &mut rmt_encoder_t {

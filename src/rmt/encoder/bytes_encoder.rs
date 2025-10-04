@@ -2,7 +2,7 @@ use core::ptr;
 
 use esp_idf_sys::*;
 
-use crate::rmt::encoder::Encoder;
+use crate::rmt::encoder::RawEncoder;
 use crate::rmt::{PinState, Pulse, PulseTicks, Symbol};
 
 /// The configuration for the [`BytesEncoder`].
@@ -77,7 +77,7 @@ impl Drop for BytesEncoder {
     }
 }
 
-impl Encoder for BytesEncoder {
+impl RawEncoder for BytesEncoder {
     type Item = u8;
 
     fn handle(&mut self) -> &mut rmt_encoder_t {

@@ -6,7 +6,7 @@ use alloc::boxed::Box;
 
 use esp_idf_sys::*;
 
-use crate::rmt::encoder::Encoder;
+use crate::rmt::encoder::RawEncoder;
 use crate::rmt::Symbol;
 
 /// The encoder was unable to encode all the input data into the provided buffer,
@@ -233,7 +233,7 @@ impl<T: EncoderCallback> SimpleEncoder<T> {
     }
 }
 
-impl<T: EncoderCallback> Encoder for SimpleEncoder<T> {
+impl<T: EncoderCallback> RawEncoder for SimpleEncoder<T> {
     type Item = T::Item;
 
     fn handle(&mut self) -> &mut rmt_encoder_t {

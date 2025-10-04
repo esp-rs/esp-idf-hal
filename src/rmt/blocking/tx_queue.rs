@@ -6,7 +6,7 @@ use esp_idf_sys::EspError;
 use super::Token;
 use crate::rmt::blocking::TxChannelDriver;
 use crate::rmt::config::TransmitConfig;
-use crate::rmt::encoder::Encoder;
+use crate::rmt::encoder::{into_raw, Encoder, EncoderWrapper};
 
 struct Slot<S, T> {
     token: Option<Token>,
@@ -34,7 +34,7 @@ impl<T, S: AsRef<[T]>> Slot<S, T> {
 
 pub struct TxQueue<'c, 'd, E: Encoder, S, const N: usize> {
     #[allow(clippy::type_complexity)]
-    slots: [(E, Option<Slot<S, E::Item>>); N],
+    slots: [(EncoderWrapper<E>, Option<Slot<S, E::Item>>); N],
     channel: &'c mut TxChannelDriver<'d>,
     _pinned: PhantomPinned,
 }
@@ -42,7 +42,7 @@ pub struct TxQueue<'c, 'd, E: Encoder, S, const N: usize> {
 impl<'c, 'd, E: Encoder, S, const N: usize> TxQueue<'c, 'd, E, S, N> {
     pub(crate) fn new(encoders: [E; N], channel: &'c mut TxChannelDriver<'d>) -> Self {
         Self {
-            slots: encoders.map(|e| (e, None)),
+            slots: encoders.map(|e| (into_raw(e), None)),
             channel,
             _pinned: PhantomPinned,
         }
@@ -78,7 +78,7 @@ impl<'c, 'd, E: Encoder, S, const N: usize> TxQueue<'c, 'd, E, S, N> {
         index: usize,
     ) -> (
         &mut TxChannelDriver<'d>,
-        Pin<&mut E>,
+        Pin<&mut EncoderWrapper<E>>,
         Pin<&mut Option<Slot<S, E::Item>>>,
     ) {
         unsafe {
