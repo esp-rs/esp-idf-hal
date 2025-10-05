@@ -180,6 +180,7 @@ struct InternalEncoderWrapper<E> {
     encoder: Option<E>,
 }
 
+#[derive(Debug)]
 #[repr(C)]
 pub struct EncoderWrapper<E>(NonNull<InternalEncoderWrapper<E>>);
 

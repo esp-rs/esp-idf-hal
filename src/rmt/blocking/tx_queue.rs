@@ -1,3 +1,4 @@
+use core::fmt;
 use core::marker::{PhantomData, PhantomPinned};
 use core::pin::Pin;
 
@@ -13,6 +14,18 @@ struct Slot<S, T> {
     signal: S,
     _pinned: PhantomPinned,
     _marker: PhantomData<T>,
+}
+
+impl<S, T> Slot<S, T> {
+    #[must_use]
+    pub fn new(token: Option<Token>, signal: S) -> Self {
+        Self {
+            token,
+            signal,
+            _pinned: PhantomPinned,
+            _marker: PhantomData,
+        }
+    }
 }
 
 impl<T, S: AsRef<[T]>> Slot<S, T> {
@@ -123,28 +136,34 @@ impl<'c, 'd, E: Encoder, S: AsRef<[E::Item]> + 'c, const N: usize> TxQueue<'c, '
         self.pending_tokens().min_by_key(|t| *t)
     }
 
-    // TODO: naming of this function, should it be called send? enqueue? queue?
-
-    /// Pushes a new signal to be transmitted using the next available encoder.
+    /// This function is the code that actually does the work of waiting for an encoder to become available
+    /// and starting the transmission.
     ///
-    /// If all encoders are busy, this will block until one is available.
-    pub fn push(
+    /// To prevent duplicate code, this function is called by both `push` and the async `push` in `AsyncTxQueue`.
+    ///
+    /// Regarding the error type:
+    /// - If `should_block` is true, the functions error will always be `Err(...)`
+    /// - If `should_block` is false, the function can return either `Ok(())` or `Err(Ok(...))` or `Err(Err(...))`
+    ///   The `Err(Ok(...))` case contains the original signal and the token of the encoder that should be waited for.
+    pub(crate) fn push_internal(
         mut self: Pin<&mut Self>,
         signal: S,
         config: &TransmitConfig,
-    ) -> Result<(), EspError> {
+        should_block: bool,
+    ) -> Result<(), Result<(S, Token), EspError>> {
         let idx = self.as_ref().find_next_slot();
         if let Some(token) = self.as_ref().get_token(idx) {
+            // If the transmission is still in progress, and we should not block,
+            // return the original signal and the token
+            if !self.as_mut().channel().is_finished(token) && !should_block {
+                return Err(Ok((signal, token)));
+            }
+
             self.as_mut().channel().wait_for(token);
         }
 
         let (channel, encoder, mut slot) = self.get(idx);
-        slot.set(Some(Slot {
-            token: None,
-            signal,
-            _pinned: PhantomPinned,
-            _marker: PhantomData,
-        }));
+        slot.set(Some(Slot::new(None, signal)));
 
         // SAFETY: The slot was set above -> it is safe to unwrap here.
         let slot = unsafe { slot.map_unchecked_mut(|s| s.as_mut().unwrap_unchecked()) };
@@ -152,9 +171,19 @@ impl<'c, 'd, E: Encoder, S: AsRef<[E::Item]> + 'c, const N: usize> TxQueue<'c, '
         // SAFETY: The transmission using this encoder is finished -> should be safe to reuse the encoder
         slot.set(|signal| unsafe {
             channel.start_send(encoder.get_unchecked_mut(), signal.get_ref(), config)
-        })?;
+        })
+        .map_err(|err| Err(err))?;
 
         Ok(())
+    }
+
+    /// Pushes a new signal to be transmitted using the next available encoder.
+    ///
+    /// If all encoders are busy, this will block until one is available.
+    pub fn push(self: Pin<&mut Self>, signal: S, config: &TransmitConfig) -> Result<(), EspError> {
+        self.push_internal(signal, config, true)
+            // SAFETY: The error is always Err(EspError) because should_block is true
+            .map_err(|err| unsafe { err.unwrap_err_unchecked() })
     }
 }
 
@@ -175,5 +204,19 @@ impl<'c, 'd, E: Encoder, S, const N: usize> Drop for TxQueue<'c, 'd, E, S, N> {
         {
             self.channel.wait_for(token);
         }
+    }
+}
+
+impl<'c, 'd, E, S, const N: usize> fmt::Debug for TxQueue<'c, 'd, E, S, N>
+where
+    E: Encoder + fmt::Debug,
+    E::Item: fmt::Debug,
+    S: fmt::Debug,
+{
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("TxQueue")
+            .field("slots", &self.slots.len())
+            .field("channel", &self.channel)
+            .finish()
     }
 }

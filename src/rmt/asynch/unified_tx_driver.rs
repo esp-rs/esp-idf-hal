@@ -1,25 +1,20 @@
 use core::fmt;
 use core::marker::PhantomData;
 use core::mem;
-#[cfg(feature = "alloc")]
 use core::pin::{pin, Pin};
 use core::ptr;
-#[cfg(feature = "alloc")]
 use core::sync::atomic::{AtomicUsize, Ordering};
 use core::time::Duration;
 
-#[cfg(feature = "alloc")]
 use alloc::boxed::Box;
 use esp_idf_sys::*;
 
 use crate::gpio::OutputPin;
-#[cfg(feature = "alloc")]
 use crate::interrupt::asynch::HalIsrNotification;
 use crate::rmt::config::{Loop, TransmitConfig, TxChannelConfig};
 use crate::rmt::encoder::{into_raw, Encoder, RawEncoder};
-#[cfg(feature = "alloc")]
 use crate::rmt::TxQueue;
-use crate::rmt::{assert_not_in_isr, AsyncTxChannelDriver, RmtChannel};
+use crate::rmt::{assert_not_in_isr, RmtChannel};
 
 #[cfg(feature = "alloc")]
 type AnyPinned = core::pin::Pin<Box<dyn core::any::Any>>;
@@ -113,7 +108,16 @@ struct UserData {
     progress: TransmissionProgress,
 }
 
-pub struct TxChannelDriver<'d> {
+// TODO: make DriverMode sealed if this will be the go-to solution
+pub trait DriverMode {}
+
+pub enum Sync {}
+pub enum Async {}
+
+impl DriverMode for Sync {}
+impl DriverMode for Async {}
+
+pub struct TxDriver<'d, M: DriverMode> {
     // SAFETY: The unsafe code relies on this field to accurately reflect the channel state.
     //         It relies on the fact that in disabled state, the ISR handler will not be called.
     is_enabled: bool,
@@ -124,10 +128,10 @@ pub struct TxChannelDriver<'d> {
     on_transmit_data: Box<UserData>,
     #[cfg(feature = "alloc")]
     transmission_data: alloc::vec::Vec<(Token, AnyPinned, Option<AnyPinned>)>,
-    _p: PhantomData<&'d mut ()>,
+    _p: PhantomData<(&'d mut (), M)>,
 }
 
-impl<'d> TxChannelDriver<'d> {
+impl<'d, M: DriverMode> TxDriver<'d, M> {
     #[cfg(feature = "alloc")]
     const TX_EVENT_CALLBACKS: rmt_tx_event_callbacks_t = rmt_tx_event_callbacks_t {
         on_trans_done: Some(Self::handle_isr),
@@ -211,47 +215,6 @@ impl<'d> TxChannelDriver<'d> {
         Ok(this)
     }
 
-    /// Wait for all pending TX transactions to finish.
-    ///
-    /// If `timeout` is `None`, it will wait indefinitely. If `timeout` is `Some(duration)`,
-    /// it will wait for at most `duration`.
-    ///
-    /// # Note
-    ///
-    /// This function will block forever if the pending transaction can't
-    /// be finished within a limited time (e.g. an infinite loop transaction).
-    /// See also [`Self::disable`] for how to terminate a working channel.
-    ///
-    /// If the given `timeout` converted to milliseconds is larger than `i32::MAX`,
-    /// it will be treated as `None` (wait indefinitely).
-    ///
-    /// # Errors
-    ///
-    /// - `ESP_ERR_INVALID_ARG`: Flush transactions failed because of invalid argument
-    /// - `ESP_FAIL`: Flush transactions failed because of other error
-    ///
-    /// # Polling
-    ///
-    /// When polling this function (calling with a timeout duration of 0ms),
-    /// esp-idf will log flush timeout errors to the console.
-    /// This issue is tracked in <https://github.com/espressif/esp-idf/issues/17527>
-    /// and should be fixed in future esp-idf versions.
-    pub fn wait_all_done(&mut self, timeout: Option<Duration>) -> Result<(), EspError> {
-        esp!(unsafe {
-            rmt_tx_wait_all_done(
-                self.handle,
-                timeout.map_or(-1, |duration| duration.as_millis().try_into().unwrap_or(-1)),
-            )
-        })?;
-
-        // All pending transmissions are done -> all stored data can be removed:
-        #[cfg(feature = "alloc")]
-        self.transmission_data.clear();
-        // The notification of waiting tasks happens through the regular isr handler.
-
-        Ok(())
-    }
-
     /// Define the ISR handler for when a transmission is done.
     ///
     /// The callback will be called with the number of transmitted symbols, including one EOF symbol,
@@ -323,6 +286,91 @@ impl<'d> TxChannelDriver<'d> {
         &self.on_transmit_data.progress
     }
 
+    #[cfg(feature = "alloc")]
+    pub(crate) fn store_data(&mut self, id: Token, encoder: AnyPinned, signal: AnyPinned) {
+        self.cleanup_data();
+
+        self.transmission_data.push((id, encoder, Some(signal)));
+    }
+
+    #[cfg(feature = "alloc")]
+    pub(crate) fn cleanup_data(&mut self) {
+        // If the channel is disabled, all transmissions are cancelled -> they should be done
+        if !self.is_enabled() && !self.transmission_data.is_empty() {
+            self.transmission_data.clear();
+            self.progress().notify_all(self.next_tx_id);
+            return;
+        }
+
+        let progress = &self.on_transmit_data.progress;
+        self.transmission_data
+            .retain(|(stored_id, _, _)| !progress.is_finished(stored_id.id));
+    }
+
+    /// Checks if the transmission associated with the given token is finished.
+    #[cfg(feature = "alloc")]
+    pub fn is_finished(&self, token: Token) -> bool {
+        !self.is_enabled || self.progress().is_finished(token.id)
+    }
+
+    /// Waits for the transmission associated with the given token to finish.
+    #[cfg(feature = "alloc")]
+    pub fn wait_for(&mut self, token: Token) {
+        if !token.is_from(self) {
+            panic!("The given token {token:?} is not from this channel.");
+        }
+
+        // Only wait if the transmission is not already finished: (ensures that it does not wait when the channel is disabled)
+        if !self.is_finished(token) {
+            crate::task::block_on(self.progress().wait_for(token.id))
+        }
+
+        self.cleanup_data();
+    }
+}
+
+impl<'d> TxDriver<'d, Sync> {
+    /// Wait for all pending TX transactions to finish.
+    ///
+    /// If `timeout` is `None`, it will wait indefinitely. If `timeout` is `Some(duration)`,
+    /// it will wait for at most `duration`.
+    ///
+    /// # Note
+    ///
+    /// This function will block forever if the pending transaction can't
+    /// be finished within a limited time (e.g. an infinite loop transaction).
+    /// See also [`Self::disable`] for how to terminate a working channel.
+    ///
+    /// If the given `timeout` converted to milliseconds is larger than `i32::MAX`,
+    /// it will be treated as `None` (wait indefinitely).
+    ///
+    /// # Errors
+    ///
+    /// - `ESP_ERR_INVALID_ARG`: Flush transactions failed because of invalid argument
+    /// - `ESP_FAIL`: Flush transactions failed because of other error
+    ///
+    /// # Polling
+    ///
+    /// When polling this function (calling with a timeout duration of 0ms),
+    /// esp-idf will log flush timeout errors to the console.
+    /// This issue is tracked in <https://github.com/espressif/esp-idf/issues/17527>
+    /// and should be fixed in future esp-idf versions.
+    pub fn wait_all_done(&mut self, timeout: Option<Duration>) -> Result<(), EspError> {
+        esp!(unsafe {
+            rmt_tx_wait_all_done(
+                self.handle,
+                timeout.map_or(-1, |duration| duration.as_millis().try_into().unwrap_or(-1)),
+            )
+        })?;
+
+        // All pending transmissions are done -> all stored data can be removed:
+        #[cfg(feature = "alloc")]
+        self.transmission_data.clear();
+        // The notification of waiting tasks happens through the regular isr handler.
+
+        Ok(())
+    }
+
     /// Starts transmitting the signal using the specified encoder and config.
     ///
     /// # Safety
@@ -389,28 +437,7 @@ impl<'d> TxChannelDriver<'d> {
         }
     }
 
-    #[cfg(feature = "alloc")]
-    pub(crate) fn store_data(&mut self, id: Token, encoder: AnyPinned, signal: AnyPinned) {
-        self.cleanup_data();
-
-        self.transmission_data.push((id, encoder, Some(signal)));
-    }
-
-    #[cfg(feature = "alloc")]
-    pub(crate) fn cleanup_data(&mut self) {
-        // If the channel is disabled, all transmissions are cancelled -> they should be done
-        if !self.is_enabled() && !self.transmission_data.is_empty() {
-            self.transmission_data.clear();
-            self.progress().notify_all(self.next_tx_id);
-            return;
-        }
-
-        let progress = &self.on_transmit_data.progress;
-        self.transmission_data
-            .retain(|(stored_id, _, _)| !progress.is_finished(stored_id.id));
-    }
-
-    /// Transmits the signals provided by the iterator using the specified encoder and config.
+    /*/// Transmits the signals provided by the iterator using the specified encoder and config.
     #[cfg(feature = "alloc")]
     pub fn send_iter<'s, E: Encoder, S: AsRef<[E::Item]>, const N: usize>(
         &mut self,
@@ -472,7 +499,7 @@ impl<'d> TxChannelDriver<'d> {
         // SAFETY: The queue is pinned on the heap, if it is forgotten,
         //         the memory the pending transmissions reference won't be freed.
         unsafe { Box::pin(self.raw_queue(encoders)) }
-    }
+    }*/
 
     /// Transmits the signal using the specified encoder and config.
     ///
@@ -521,7 +548,7 @@ impl<'d> TxChannelDriver<'d> {
         Ok(token)
     }
 
-    /// Transmits the signal and waits for the transmission to finish.
+    /*/// Transmits the signal and waits for the transmission to finish.
     #[cfg(feature = "alloc")]
     pub fn send_and_wait<E: Encoder>(
         &mut self,
@@ -530,39 +557,19 @@ impl<'d> TxChannelDriver<'d> {
         config: &TransmitConfig,
     ) -> Result<(), EspError> {
         self.send_iter([encoder], core::iter::once(signal), config)
-    }
+    }*/
 
-    /// Checks if the transmission associated with the given token is finished.
-    #[cfg(feature = "alloc")]
-    pub fn is_finished(&self, token: Token) -> bool {
-        !self.is_enabled || self.progress().is_finished(token.id)
-    }
-
-    /// Waits for the transmission associated with the given token to finish.
-    #[cfg(feature = "alloc")]
-    pub fn wait_for(&mut self, token: Token) {
-        if !token.is_from(self) {
-            panic!("The given token {token:?} is not from this channel.");
-        }
-
-        // Only wait if the transmission is not already finished: (ensures that it does not wait when the channel is disabled)
-        if !self.is_finished(token) {
-            crate::task::block_on(self.progress().wait_for(token.id))
-        }
-
-        self.cleanup_data();
-    }
-
-    pub fn to_async(&mut self) -> &mut AsyncTxChannelDriver<'d> {
-        // SAFETY: AsyncTxChannelDriver has #[repr(transparent)], making this safe to do?
-        unsafe { &mut *(self as *mut Self as *mut AsyncTxChannelDriver<'d>) }
+    pub fn to_async(&mut self) -> &mut TxDriver<'d, Async> {
+        // TODO: questionable safety?
+        // It looks like this is only guaranteed to be safe with #[repr(transparent)] or #[repr(C)]
+        unsafe { &mut *(self as *mut Self as *mut TxDriver<'d, Async>) }
     }
 }
 
 // SAFETY: The C code doesn't seem to use any thread locals -> it should be safe to send the channel to another thread.
-unsafe impl<'d> Send for TxChannelDriver<'d> {}
+unsafe impl<'d, M: DriverMode> Send for TxDriver<'d, M> {}
 
-impl<'d> RmtChannel for TxChannelDriver<'d> {
+impl<'d, M: DriverMode> RmtChannel for TxDriver<'d, M> {
     fn handle(&self) -> rmt_channel_handle_t {
         self.handle
     }
@@ -582,7 +589,7 @@ impl<'d> RmtChannel for TxChannelDriver<'d> {
     }
 }
 
-impl<'d> Drop for TxChannelDriver<'d> {
+impl<'d, M: DriverMode> Drop for TxDriver<'d, M> {
     fn drop(&mut self) {
         // Deleting the channel might fail if it is not disabled first.
         //
@@ -607,11 +614,12 @@ impl<'d> Drop for TxChannelDriver<'d> {
     }
 }
 
-impl<'d> fmt::Debug for TxChannelDriver<'d> {
+impl<'d, M: DriverMode> fmt::Debug for TxDriver<'d, M> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("TxChannelDriver")
+        f.debug_struct("TxDriver")
             .field("is_enabled", &self.is_enabled)
             .field("handle", &self.handle)
+            .field("mode", &core::any::type_name::<M>())
             .finish()
     }
 }
