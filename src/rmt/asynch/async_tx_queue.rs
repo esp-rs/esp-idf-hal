@@ -5,7 +5,7 @@ use esp_idf_sys::EspError;
 
 use crate::rmt::config::TransmitConfig;
 use crate::rmt::encoder::Encoder;
-use crate::rmt::{AsyncTxChannelDriver, TxQueue};
+use crate::rmt::{AsyncTxChannelDriver, Token, TxQueue};
 
 /// An asynchronous wrapper around the blocking [`TxQueue`].
 ///
@@ -50,14 +50,14 @@ impl<'c, 'd, E: Encoder, S: AsRef<[E::Item]> + 'c, const N: usize> AsyncTxQueue<
         mut self: Pin<&mut Self>,
         mut signal: S,
         config: &TransmitConfig,
-    ) -> Result<(), EspError> {
+    ) -> Result<Token, EspError> {
         loop {
             match self
                 .as_mut()
                 .queue_mut()
                 .push_internal(signal, config, false)
             {
-                Ok(()) => return Ok(()),
+                Ok(token) => return Ok(token),
                 Err(Err(err)) => return Err(err),
                 Err(Ok((original_signal, token))) => {
                     self.as_mut().channel().wait_for(token).await;

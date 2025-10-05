@@ -32,7 +32,7 @@ impl<T, S: AsRef<[T]>> Slot<S, T> {
     pub fn set<E>(
         self: Pin<&mut Self>,
         f: impl FnOnce(Pin<&[T]>) -> Result<Token, E>,
-    ) -> Result<(), E> {
+    ) -> Result<Token, E> {
         // SAFETY: This is okay because `signal` is pinned when `self` is.
         let signal = unsafe { self.as_ref().map_unchecked(|s| s.signal.as_ref()) };
         let token = f(signal)?;
@@ -41,7 +41,7 @@ impl<T, S: AsRef<[T]>> Slot<S, T> {
             this.set(Some(token));
         }
 
-        Ok(())
+        Ok(token)
     }
 }
 
@@ -150,7 +150,7 @@ impl<'c, 'd, E: Encoder, S: AsRef<[E::Item]> + 'c, const N: usize> TxQueue<'c, '
         signal: S,
         config: &TransmitConfig,
         should_block: bool,
-    ) -> Result<(), Result<(S, Token), EspError>> {
+    ) -> Result<Token, Result<(S, Token), EspError>> {
         let idx = self.as_ref().find_next_slot();
         if let Some(token) = self.as_ref().get_token(idx) {
             // If the transmission is still in progress, and we should not block,
@@ -172,15 +172,17 @@ impl<'c, 'd, E: Encoder, S: AsRef<[E::Item]> + 'c, const N: usize> TxQueue<'c, '
         slot.set(|signal| unsafe {
             channel.start_send(encoder.get_unchecked_mut(), signal.get_ref(), config)
         })
-        .map_err(|err| Err(err))?;
-
-        Ok(())
+        .map_err(|err| Err(err))
     }
 
     /// Pushes a new signal to be transmitted using the next available encoder.
     ///
     /// If all encoders are busy, this will block until one is available.
-    pub fn push(self: Pin<&mut Self>, signal: S, config: &TransmitConfig) -> Result<(), EspError> {
+    pub fn push(
+        self: Pin<&mut Self>,
+        signal: S,
+        config: &TransmitConfig,
+    ) -> Result<Token, EspError> {
         self.push_internal(signal, config, true)
             // SAFETY: The error is always Err(EspError) because should_block is true
             .map_err(|err| unsafe { err.unwrap_err_unchecked() })
