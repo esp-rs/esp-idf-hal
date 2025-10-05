@@ -339,6 +339,20 @@ pub trait RmtChannel {
     }
 }
 
+impl<R: RmtChannel> RmtChannel for &mut R {
+    fn handle(&self) -> rmt_channel_handle_t {
+        (**self).handle()
+    }
+
+    fn is_enabled(&self) -> bool {
+        (**self).is_enabled()
+    }
+
+    unsafe fn set_internal_enabled(&mut self, is_enabled: bool) {
+        (**self).set_internal_enabled(is_enabled)
+    }
+}
+
 /// Clock source for RMT channels.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
 pub enum ClockSource {

@@ -4,8 +4,12 @@ use crate::gpio::InputPin;
 use crate::rmt::blocking::RxChannelDriver;
 use crate::rmt::config::{ReceiveConfig, RxChannelConfig};
 use crate::rmt::{RmtChannel, Symbol};
-use crate::task::{do_yield, yield_now};
+use crate::task::yield_now;
 
+/// An asynchronous wrapper around the blocking [`RxChannelDriver`].
+///
+/// This allows using the rmt driver in asynchronous contexts,
+/// without blocking the executor.
 #[derive(Debug)]
 pub struct AsyncRxChannelDriver<'d> {
     driver: RxChannelDriver<'d>,
@@ -57,7 +61,6 @@ impl<'d> AsyncRxChannelDriver<'d> {
                 Ok(n) => return Ok(n),
                 Err(err) if err.code() == ESP_ERR_TIMEOUT => {
                     // Yield to allow other tasks to run before retrying.
-                    do_yield();
                     yield_now().await;
                 }
                 Err(err) => return Err(err),
