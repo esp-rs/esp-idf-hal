@@ -236,6 +236,8 @@ pub mod config {
         /// start from positive value, end to negative value, i.e. +N->-M
         PositiveNegative,
         /// invalid zero cross mode
+        #[cfg(esp_idf_version_at_least_5_4_0)]
+        #[cfg_attr(feature = "nightly", doc(cfg(esp_idf_version_at_least_5_4_0)))]
         Invalid,
     }
 
@@ -247,6 +249,7 @@ pub mod config {
                 pcnt_unit_zero_cross_mode_t_PCNT_UNIT_ZERO_CROSS_NEG_ZERO => Self::NegativeZero,
                 pcnt_unit_zero_cross_mode_t_PCNT_UNIT_ZERO_CROSS_NEG_POS => Self::NegativePosition,
                 pcnt_unit_zero_cross_mode_t_PCNT_UNIT_ZERO_CROSS_POS_NEG => Self::PositiveNegative,
+                #[cfg(esp_idf_version_at_least_5_4_0)]
                 pcnt_unit_zero_cross_mode_t_PCNT_UNIT_ZERO_CROSS_INVALID => Self::Invalid,
                 _ => unreachable!("unknown zero cross mode: {value}"),
             }
@@ -500,13 +503,31 @@ pub trait State: Sealed {}
 
 /// Marker that the PCNT unit is enabled.
 pub enum Enabled {}
-impl State for Enabled {}
-impl private::Sealed for Enabled {}
+
+/// Marker that the PCNT unit is in an unknown state,
+/// it will check at runtime if it is okay to call a function.
+pub enum Dynamic {}
 
 /// Marker that the PCNT unit is disabled.
 pub enum Disabled {}
-impl State for Disabled {}
+
+pub trait IsEnabled: State {}
+
+impl private::Sealed for Enabled {}
 impl private::Sealed for Disabled {}
+impl private::Sealed for Dynamic {}
+
+impl State for Enabled {}
+impl State for Disabled {}
+impl State for Dynamic {}
+
+impl IsEnabled for Enabled {}
+impl IsEnabled for Dynamic {}
+
+pub trait IsDisabled: State {}
+
+impl IsDisabled for Disabled {}
+impl IsDisabled for Dynamic {}
 
 #[cfg(feature = "alloc")]
 struct DelegateUserData {
@@ -529,7 +550,7 @@ struct DelegateUserData {
 // SAFETY: The repr(C) is required for transmuting between Enabled and Disabled state,
 //         this is not currently guaranteed with the default repr(Rust)
 #[repr(C)]
-pub struct PcntUnitDriver<'d, S: State> {
+pub struct PcntUnitDriver<'d, S> {
     handle: pcnt_unit_handle_t,
     channels: Vec<PcntChannel<'d>, { SOC_PCNT_CHANNELS_PER_UNIT as usize }>,
     #[cfg(feature = "alloc")]
@@ -548,9 +569,26 @@ impl<'d, S: State> PcntUnitDriver<'d, S> {
     pub fn handle(&self) -> pcnt_unit_handle_t {
         self.handle
     }
+
+    /// Convert the PCNT unit driver from a typed state to a dynamic state.
+    ///
+    /// With the typing, it is impossible to call a method that only works in
+    /// one state in the wrong one, removing many potential errors at compile time.
+    ///
+    /// However, sometimes this might be inconvenient, hence this method.
+    /// In a dynamic state, it is possible to call all methods, but note that
+    /// they might return an error at runtime if they are called from the wrong state.
+    #[must_use]
+    pub fn to_dynamic(self) -> PcntUnitDriver<'d, Dynamic> {
+        // SAFETY: Enabled, Disabled and Dynamic do not influence the memory layout of the struct
+        unsafe { mem::transmute::<PcntUnitDriver<'d, S>, PcntUnitDriver<'d, Dynamic>>(self) }
+    }
 }
 
-impl<'d> PcntUnitDriver<'d, Disabled> {
+#[cfg(feature = "alloc")]
+const DISABLE_EVENT_CALLBACKS: pcnt_event_callbacks_t = pcnt_event_callbacks_t { on_reach: None };
+
+impl<'d, S: IsDisabled> PcntUnitDriver<'d, S> {
     /// Create a new PCNT unit driver instance, with the given configuration.
     ///
     /// # Errors
@@ -681,7 +719,7 @@ impl<'d> PcntUnitDriver<'d, Disabled> {
         esp!(unsafe {
             pcnt_unit_register_event_callbacks(
                 self.handle,
-                &Self::DISABLE_EVENT_CALLBACKS,
+                &DISABLE_EVENT_CALLBACKS,
                 ptr::null_mut(),
             )
         })?;
@@ -693,9 +731,6 @@ impl<'d> PcntUnitDriver<'d, Disabled> {
     const ENABLE_EVENT_CALLBACKS: pcnt_event_callbacks_t = pcnt_event_callbacks_t {
         on_reach: Some(Self::delegate_on_reach),
     };
-    #[cfg(feature = "alloc")]
-    const DISABLE_EVENT_CALLBACKS: pcnt_event_callbacks_t =
-        pcnt_event_callbacks_t { on_reach: None };
 
     /// Enable the PCNT unit.
     ///
@@ -713,9 +748,7 @@ impl<'d> PcntUnitDriver<'d, Disabled> {
         esp!(unsafe { pcnt_unit_enable(self.handle) })?;
 
         // SAFETY: The generic parameter is only a marker that is not present in the memory layout, other than that they are identical
-        Ok(unsafe {
-            mem::transmute::<PcntUnitDriver<'d, Disabled>, PcntUnitDriver<'d, Enabled>>(self)
-        })
+        Ok(unsafe { mem::transmute::<PcntUnitDriver<'d, S>, PcntUnitDriver<'d, Enabled>>(self) })
     }
 
     /// Enables the PCNT unit, runs the given closure, and then disables the PCNT unit again.
@@ -726,7 +759,7 @@ impl<'d> PcntUnitDriver<'d, Disabled> {
         esp!(unsafe { pcnt_unit_enable(self.handle) })?;
 
         let enabled_driver = unsafe {
-            &mut (*(self as *mut PcntUnitDriver<'d, Disabled> as *mut PcntUnitDriver<'d, Enabled>))
+            &mut (*(self as *mut PcntUnitDriver<'d, S> as *mut PcntUnitDriver<'d, Enabled>))
         };
 
         let result = f(enabled_driver);
@@ -750,7 +783,7 @@ impl<'d> PcntUnitDriver<'d, Disabled> {
     }
 }
 
-impl<'d> PcntUnitDriver<'d, Enabled> {
+impl<'d, S: IsEnabled> PcntUnitDriver<'d, S> {
     /// Disable the PCNT unit.
     ///
     /// # Note
@@ -760,9 +793,7 @@ impl<'d> PcntUnitDriver<'d, Enabled> {
         esp!(unsafe { pcnt_unit_disable(self.handle) })?;
 
         // SAFETY: The generic parameter is only a marker that is not present in the memory layout, other than that they are identical
-        Ok(unsafe {
-            mem::transmute::<PcntUnitDriver<'d, Enabled>, PcntUnitDriver<'d, Disabled>>(self)
-        })
+        Ok(unsafe { mem::transmute::<PcntUnitDriver<'d, S>, PcntUnitDriver<'d, Disabled>>(self) })
     }
 
     /// Disables the PCNT unit, runs the given closure, and then enables the PCNT unit again.
@@ -773,7 +804,7 @@ impl<'d> PcntUnitDriver<'d, Enabled> {
         esp!(unsafe { pcnt_unit_disable(self.handle) })?;
 
         let disabled_driver = unsafe {
-            &mut (*(self as *mut PcntUnitDriver<'d, Enabled> as *mut PcntUnitDriver<'d, Disabled>))
+            &mut (*(self as *mut PcntUnitDriver<'d, S> as *mut PcntUnitDriver<'d, Disabled>))
         };
 
         let result = f(disabled_driver);
@@ -981,7 +1012,7 @@ unsafe impl<'d, S: State> Send for PcntUnitDriver<'d, S> {}
 // SAFETY: All the functions taking &self are safe to be called from other threads
 unsafe impl<'d, S: State> Sync for PcntUnitDriver<'d, S> {}
 
-impl<'d, S: State> Drop for PcntUnitDriver<'d, S> {
+impl<'d, S> Drop for PcntUnitDriver<'d, S> {
     fn drop(&mut self) {
         // Disable the unit before deleting it (this is necessary). If it is already disabled,
         // this call would error, but that is ignored here (there is nothing we can do about it).
@@ -990,7 +1021,7 @@ impl<'d, S: State> Drop for PcntUnitDriver<'d, S> {
         unsafe {
             pcnt_unit_register_event_callbacks(
                 self.handle,
-                &PcntUnitDriver::DISABLE_EVENT_CALLBACKS,
+                &DISABLE_EVENT_CALLBACKS,
                 ptr::null_mut(),
             )
         };
