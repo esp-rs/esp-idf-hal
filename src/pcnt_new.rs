@@ -1,28 +1,37 @@
 use core::marker::PhantomData;
+#[cfg(feature = "alloc")]
 use core::pin::Pin;
 use core::{mem, ptr};
 
 #[cfg(feature = "alloc")]
 use alloc::boxed::Box;
-#[cfg(feature = "alloc")]
-use alloc::vec::Vec;
+use heapless::Vec;
 
 use esp_idf_sys::*;
 
 use crate::gpio::InputPin;
+#[cfg(feature = "alloc")]
 use crate::interrupt;
-use crate::new_pcnt::private::Sealed;
+use crate::pcnt_new::private::Sealed;
 
 use config::*;
 
+/// An event that is passed to the callback registered with [`PcntUnitDriver::subscribe`].
 #[derive(Debug, Clone)]
 #[non_exhaustive]
 pub struct WatchEventData {
+    /// The count value when the event was triggered.
     pub watch_point_value: i32,
+    /// How the PCNT unit crosses the zero point in the latest time.
+    /// The possible zero cross modes are listed in the [`ZeroCrossMode`].
+    ///
+    /// Usually different zero cross mode means different counting direction and
+    /// counting step size.
     pub zero_cross_mode: ZeroCrossMode,
 }
 
 impl From<pcnt_watch_event_data_t> for WatchEventData {
+    #[inline(always)]
     fn from(value: pcnt_watch_event_data_t) -> Self {
         Self {
             watch_point_value: value.watch_point_value,
@@ -31,20 +40,28 @@ impl From<pcnt_watch_event_data_t> for WatchEventData {
     }
 }
 
+/// This module contains configuration types and enums for the PCNT driver
 pub mod config {
     use core::time::Duration;
 
     use esp_idf_sys::*;
 
-    #[derive(Debug, Clone, Copy)]
+    /// Configuration for a PCNT unit.
+    #[derive(Debug, Clone)]
     pub struct UnitConfig {
         /// Specifies the lower limit for the internal hardware counter.
         ///
         /// The counter will reset to zero automatically when it crosses the low limit.
+        ///
+        /// The internal limit in esp-idf is set to `-32_767` (= [`i16::MIN`]) for most chips,
+        /// this might change in the future and should therefore not be relied on.
         pub low_limit: i32,
         /// Specifies the higher limit for the internal hardware counter.
         ///
         /// The counter will reset to zero automatically when it crosses the high limit.
+        ///
+        /// The internal limit in esp-idf is set to `32_767` (= [`i16::MAX`]) for most chips,
+        /// this might change in the future and should therefore not be relied on.
         pub high_limit: i32,
         /// Sets the priority of the interrupt. If it is set to 0, the driver will
         /// allocate an interrupt with a default priority. Otherwise, the driver
@@ -69,6 +86,12 @@ pub mod config {
         /// interrupt triggering, improve system performance, and avoid compensation
         /// failure due to multiple overflows.
         pub accum_count: bool,
+        // This field is intentionally hidden to prevent non-exhaustive pattern matching.
+        // You should only construct this struct using the `..Default::default()` pattern.
+        // If you use this field directly, your code might break in future versions.
+        #[doc(hidden)]
+        #[allow(dead_code)]
+        pub __internal: (),
     }
 
     impl Default for UnitConfig {
@@ -78,12 +101,13 @@ pub mod config {
                 high_limit: 1024,
                 intr_priority: 0,
                 accum_count: false,
+                __internal: (),
             }
         }
     }
 
-    impl From<UnitConfig> for pcnt_unit_config_t {
-        fn from(value: UnitConfig) -> Self {
+    impl From<&UnitConfig> for pcnt_unit_config_t {
+        fn from(value: &UnitConfig) -> Self {
             pcnt_unit_config_t {
                 low_limit: value.low_limit,
                 high_limit: value.high_limit,
@@ -106,7 +130,16 @@ pub mod config {
         /// If a signal pulse's width is smaller than this value, then it
         /// will be treated as noise and will not increase/decrease the
         /// internal counter.
+        ///
+        /// The upper limit for the maximum glitch width seems to be 1023ns
+        /// (this might be different, depending on the chip).
         pub max_glitch: Duration,
+        // This field is intentionally hidden to prevent non-exhaustive pattern matching.
+        // You should only construct this struct using the `..Default::default()` pattern.
+        // If you use this field directly, your code might break in future versions.
+        #[doc(hidden)]
+        #[allow(dead_code)]
+        pub __internal: (),
     }
 
     impl From<&GlitchFilterConfig> for pcnt_glitch_filter_config_t {
@@ -117,12 +150,25 @@ pub mod config {
         }
     }
 
-    #[non_exhaustive]
+    /// Configuration for a PCNT channel.
+    #[derive(Debug, Clone, Default)]
     pub struct ChannelConfig {
+        /// Invert the input edge signal.
         pub invert_edge_input: bool,
+        /// Invert the input level signal.
         pub invert_level_input: bool,
+        /// The initial level of the virtual IO pin for edge signal.
+        /// This is only valid if no edge pin has been specified.
         pub virt_edge_io_level: bool,
+        /// The initial level of the virtual IO pin for level signal.
+        /// This is only valid if no level pin has been specified.
         pub virt_level_io_level: bool,
+        // This field is intentionally hidden to prevent non-exhaustive pattern matching.
+        // You should only construct this struct using the `..Default::default()` pattern.
+        // If you use this field directly, your code might break in future versions.
+        #[doc(hidden)]
+        #[allow(dead_code)]
+        pub __internal: (),
     }
 
     /// PCNT channel action on control level.
@@ -208,6 +254,20 @@ pub mod config {
     }
 }
 
+/// A PCNT channel of a PCNT unit.
+///
+/// PCNT channels can react to signals of **edge** type and **level** type,
+/// however for simple applications, detecting the edge signal is usually
+/// sufficient.
+///
+/// PCNT channels can be configured to react to both pulse edges (i.e., rising
+/// and falling edge), and can be configured to increase, decrease or do nothing
+/// to the unit's counter on each edge. The level signal is the so-called control
+/// signal, which is used to control the counting mode of the edge signals that
+/// are attached to the same channel.
+///
+/// By combining the usage of both edge and level signals, a PCNT unit can act as
+/// a **quadrature decoder**.
 #[derive(Debug)]
 pub struct PcntChannel<'d> {
     handle: pcnt_channel_handle_t,
@@ -250,6 +310,57 @@ impl<'d> PcntChannel<'d> {
     ///
     /// The edge signal is input from the edge pin this channel was configured with.
     /// We use these actions to control when and how to change the counter value.
+    ///
+    /// # What is an edge?
+    ///
+    /// When you plot the signal on a graph, where the x-axis is time and the y-axis is the signal level
+    /// (high or low, 1.5V or 0V, ...), an edge is the point in time where a signal changes from one level
+    /// to another
+    ///
+    /// A rising edge looks like this:
+    /// ```text
+    ///      ┌─────
+    ///      │
+    ///      │
+    /// ─────┘
+    ///      ^ a positive edge
+    /// ```
+    /// and a falling edge where the signal goes from high to low looks like this:
+    /// ```text
+    /// ─────┐
+    ///      │
+    ///      │
+    ///      └─────
+    ///      ^ a negative edge
+    /// ```
+    ///
+    /// You can then configure what actions should happen on these edges.
+    /// Given the signal
+    ///
+    /// ```text
+    ///            ┌─────────────────┐     ┌──────────────
+    ///            │                 │     │
+    ///            │                 │     │
+    /// ───────────┘                 └─────┘
+    ///            ↑                 ↑     ↑
+    ///         rising            falling rising
+    /// ```
+    /// you could configure it to only count on rising edges by setting
+    /// `pos_act` to [`Increase`] and `neg_act` to [`Hold`].
+    /// This would result in the counter being increased twice (for each rising edge),
+    /// and the falling edges would not change the counter value.
+    ///
+    /// # Nonsensical configurations
+    ///
+    /// There are some configurations that are unlikely to be what you want, when setting
+    /// - `pos_act` to [`Increase`] and `neg_act` to [`Decrease`] the counter would never change,
+    ///   if the signal has an equal number of rising and falling edges.
+    /// - `pos_act` to [`Decrease`] and `neg_act` to [`Increase`] would have the same effect.
+    /// - `pos_act` to [`Hold`] and `neg_act` to [`Hold`] would never change the counter.
+    ///
+    /// [`Increase`]: config::ChannelEdgeAction::Increase
+    /// [`Decrease`]: config::ChannelEdgeAction::Decrease
+    /// [`Hold`]: config::ChannelEdgeAction::Hold
     pub fn set_edge_action(
         &mut self,
         pos_act: ChannelEdgeAction,
@@ -265,9 +376,97 @@ impl<'d> PcntChannel<'d> {
     /// The level signal is input from the `level_pin` configured in [`Self::new`].
     /// We use these actions to control when and how to change the counting mode.
     ///
-    /// # Note
+    /// # What is a level?
     ///
-    /// If both `high_act` and `low_act` are set to `Hold`, it will not count anything.
+    /// When you plot the signal on a graph, where the x-axis is time and the y-axis is the signal level
+    /// (high or low, 1.5V or 0V, ...), the level is the current state of the signal.
+    ///
+    ///
+    /// ```text
+    ///      v the level is high, until here      v
+    ///      ┌────────────────────────────────────┐
+    ///      │                                    │
+    ///      │                                    │
+    /// ─────┘                                    └────
+    /// ^^^^^                                      ^^^^
+    /// here the level is low                      and here it is low too
+    /// ```
+    ///
+    /// # What is the difference between triggering on edge and on level?
+    ///
+    /// The counter will count on edges, the level does not increase or decrease the counter.
+    /// For example, if you set both edge actions to [`Hold`](config::ChannelEdgeAction::Hold)
+    /// it would never change the counter, no matter what the level actions are.
+    ///
+    /// The level only influences how it is counted.
+    ///
+    /// ### An example
+    /// Assume the edge actions are set to `Increase` for rising edges and `Hold` for falling edges,
+    /// then it will only count up when a rising edge is encountered.
+    ///
+    /// If the level actions are set to [`Keep`] for **high** level and `Hold` for **low** level,
+    /// the counter will only count up **while** the level signal is **high** and ignore
+    /// rising edges while the level signal is **low**.
+    ///
+    /// If the level actions are set to [`Inverse`] for high level and [`Keep`] for **low** level,
+    /// it will count down **while** the level is **high** on rising edges and count up **while**
+    /// the level is **low** on rising edges.
+    ///
+    /// You can think of the level actions like this:
+    /// ```ignore
+    /// let mut counter: i32 = 0;
+    /// let mut increment = 1;
+    ///
+    /// loop {
+    ///     // read the level signal and set the action accordingly:
+    ///     let action = {
+    ///         if level_signal_is_high() {
+    ///             high_act
+    ///         } else { // if it is not high, it must be low
+    ///             low_act
+    ///         }
+    ///     };
+    ///
+    ///     // If it was previously set to Hold, increment would be 0, but with
+    ///     // the actions Keep/Inverse it should start counting again
+    ///     // -> it is set to 1 here
+    ///     if increment == 0 && !matches!(action, ChannelLevelAction::Hold) {
+    ///         increment = 1; // reset increment to default
+    ///     }
+    ///
+    ///     // level is high, so set increment based on high_act
+    ///     match action {
+    ///         ChannelLevelAction::Keep => {}, // do nothing, increment stays 1
+    ///         ChannelLevelAction::Inverse => { increment = -increment; }, // invert increment
+    ///         ChannelLevelAction::Hold => { increment = 0; }, // hold increment (no counting)
+    ///     }
+    ///
+    ///
+    ///     match readEdgeSignal() {
+    ///        Edge::Rising => counter += increment,
+    ///        Edge::Falling => {}, // Hold
+    ///        _ => {}, // no edge
+    ///     }
+    /// }
+    /// ```
+    /// note that this is just an illustrative example, the code does not work.
+    ///
+    /// # Nonsensical configurations
+    ///
+    /// There are some configurations that are unlikely to be what you want, when setting
+    /// - `high_act` to [`Keep`] and `low_act` to [`Keep`] the counting would never change based on the level.
+    /// - `high_act` to [`Hold`] and `low_act` to [`Hold`] would never change the counter.
+    /// - `high_act` to [`Inverse`] and `low_act` to [`Inverse`], with this the rising and falling edges would
+    ///   add up to no zero.
+    ///
+    /// If you do not want to change the counting mode based on the level, it is recommended to not specify a
+    /// level pin in [`PcntUnitDriver::add_channel`], instead leaving it as `None`. A **virtual IO** pin will
+    /// be assigned instead. The default level of the virtual IO pin can be configured with
+    /// [`ChannelConfig::virt_level_io_level`].
+    ///
+    /// [`Keep`]: config::ChannelLevelAction::Keep
+    /// [`Inverse`]: config::ChannelLevelAction::Inverse
+    /// [`Hold`]: config::ChannelLevelAction::Hold
     pub fn set_level_action(
         &mut self,
         high_act: ChannelLevelAction,
@@ -289,29 +488,66 @@ impl<'d> Drop for PcntChannel<'d> {
     }
 }
 
+// SAFETY: The PCNT channel does not use thread locals -> it should be safe to send it to another thread
+unsafe impl<'d> Send for PcntChannel<'d> {}
+
 mod private {
     pub trait Sealed {}
 }
 
+/// The state a PCNT unit can be in.
 pub trait State: Sealed {}
 
+/// Marker that the PCNT unit is enabled.
 pub enum Enabled {}
 impl State for Enabled {}
 impl private::Sealed for Enabled {}
 
+/// Marker that the PCNT unit is disabled.
 pub enum Disabled {}
 impl State for Disabled {}
 impl private::Sealed for Disabled {}
 
+#[cfg(feature = "alloc")]
 struct DelegateUserData {
     on_reach: Box<dyn FnMut(WatchEventData) + Send + 'static>,
 }
 
+/// A driver for a PCNT unit.
+///
+/// Each driver has a counter, which can be controlled by one or more channels,
+/// that have to be added with [`PcntUnitDriver::add_channel`].
+///
+/// ## State
+///
+/// Some functions are only available, when the PCNT unit is enabled or disabled.
+/// This is enforced by the type system with the generic parameter `S` that can
+/// be either [`Enabled`] or [`Disabled`].
+///
+/// You can use the [`PcntUnitDriver::enable`] and [`PcntUnitDriver::disable`] functions
+/// to change the state of the unit.
+// SAFETY: The repr(C) is required for transmuting between Enabled and Disabled state,
+//         this is not currently guaranteed with the default repr(Rust)
+#[repr(C)]
 pub struct PcntUnitDriver<'d, S: State> {
     handle: pcnt_unit_handle_t,
-    channels: Vec<PcntChannel<'d>>,
+    channels: Vec<PcntChannel<'d>, { SOC_PCNT_CHANNELS_PER_UNIT as usize }>,
+    #[cfg(feature = "alloc")]
     user_data: Option<Pin<Box<DelegateUserData>>>,
     _p: PhantomData<(&'d mut (), S)>,
+}
+
+impl<'d, S: State> PcntUnitDriver<'d, S> {
+    /// Returns a handle to the underlying PCNT unit.
+    ///
+    /// # Note
+    ///
+    /// This function is safe to call, but it is unsafe to use the returned handle in a way that would break
+    /// assumptions made by this driver. For example disabling the unit while the type is `Enabled`.
+    #[must_use]
+    pub fn handle(&self) -> pcnt_unit_handle_t {
+        self.handle
+    }
 }
 
 impl<'d> PcntUnitDriver<'d, Disabled> {
@@ -324,13 +560,14 @@ impl<'d> PcntUnitDriver<'d, Disabled> {
     /// - `ESP_ERR_NOT_FOUND`: Create PCNT unit failed because all PCNT units are used up and no more free one
     /// - `ESP_FAIL`: Create PCNT unit failed because of other error
     pub fn new(config: &UnitConfig) -> Result<Self, EspError> {
-        let sys_config = (*config).into();
+        let sys_config = config.into();
         let mut handle = ptr::null_mut();
         esp!(unsafe { pcnt_new_unit(&sys_config, &mut handle) })?;
 
         Ok(Self {
             handle,
             channels: Vec::new(),
+            #[cfg(feature = "alloc")]
             user_data: None,
             _p: PhantomData,
         })
@@ -371,6 +608,21 @@ impl<'d> PcntUnitDriver<'d, Disabled> {
     }
 
     /// Adds a new channel to the PCNT unit, with the given edge and level pins.
+    ///
+    /// If no pin is specified, a virtual IO pin will be assigned instead.
+    /// The initial level of the virtual IO pin can be configured with the [`ChannelConfig`].
+    ///
+    /// # Number of channels
+    ///
+    /// There is a hardware limit for how many channels a PCNT unit can have.
+    /// For most chips, each PCNT unit can have 2 channels.
+    ///
+    /// # Errors
+    ///
+    /// - `ESP_ERR_INVALID_ARG`: Create PCNT channel failed because of invalid argument
+    /// - `ESP_ERR_NO_MEM`: Create PCNT channel failed because of insufficient memory
+    /// - `ESP_ERR_NOT_FOUND`: Create PCNT channel failed because all PCNT channels are used up and no more free one
+    /// - `ESP_FAIL`: Create PCNT channel failed because of other error
     pub fn add_channel(
         &mut self,
         edge_pin: Option<impl InputPin + 'd>,
@@ -378,7 +630,8 @@ impl<'d> PcntUnitDriver<'d, Disabled> {
         config: &ChannelConfig,
     ) -> Result<&mut PcntChannel<'d>, EspError> {
         self.channels
-            .push(unsafe { PcntChannel::new(self.handle, edge_pin, level_pin, config)? });
+            .push(unsafe { PcntChannel::new(self.handle, edge_pin, level_pin, config)? })
+            .expect("Not enough channels available.");
 
         Ok(self.channels.last_mut().unwrap())
     }
@@ -396,6 +649,7 @@ impl<'d> PcntUnitDriver<'d, Disabled> {
     ///
     /// - `ESP_ERR_INVALID_ARG`: Set event callbacks failed because of invalid argument
     /// - `ESP_FAIL`: Set event callbacks failed because of other error
+    #[cfg(feature = "alloc")]
     pub unsafe fn subscribe(
         &mut self,
         on_reach: impl FnMut(WatchEventData) + Send + 'static,
@@ -422,6 +676,7 @@ impl<'d> PcntUnitDriver<'d, Disabled> {
     /// # Errors
     ///
     /// - `ESP_ERR_INVALID_ARG`: Failed because of other error
+    #[cfg(feature = "alloc")]
     pub fn unsubscribe(&mut self) -> Result<&mut Self, EspError> {
         esp!(unsafe {
             pcnt_unit_register_event_callbacks(
@@ -434,9 +689,11 @@ impl<'d> PcntUnitDriver<'d, Disabled> {
         Ok(self)
     }
 
+    #[cfg(feature = "alloc")]
     const ENABLE_EVENT_CALLBACKS: pcnt_event_callbacks_t = pcnt_event_callbacks_t {
         on_reach: Some(Self::delegate_on_reach),
     };
+    #[cfg(feature = "alloc")]
     const DISABLE_EVENT_CALLBACKS: pcnt_event_callbacks_t =
         pcnt_event_callbacks_t { on_reach: None };
 
@@ -461,6 +718,26 @@ impl<'d> PcntUnitDriver<'d, Disabled> {
         })
     }
 
+    /// Enables the PCNT unit, runs the given closure, and then disables the PCNT unit again.
+    pub fn enable_for<T>(
+        &mut self,
+        f: impl FnOnce(&mut PcntUnitDriver<'d, Enabled>) -> Result<T, EspError>,
+    ) -> Result<T, EspError> {
+        esp!(unsafe { pcnt_unit_enable(self.handle) })?;
+
+        let enabled_driver = unsafe {
+            &mut (*(self as *mut PcntUnitDriver<'d, Disabled> as *mut PcntUnitDriver<'d, Enabled>))
+        };
+
+        let result = f(enabled_driver);
+
+        esp!(unsafe { pcnt_unit_disable(self.handle) })?;
+
+        result
+    }
+
+    #[cfg(feature = "alloc")]
+    #[cfg_attr(esp_idf_pcnt_isr_iram_safe, link_section = ".iram1.rpcnt_delegate")]
     unsafe extern "C" fn delegate_on_reach(
         _handle: pcnt_unit_handle_t,
         event_data: *const pcnt_watch_event_data_t,
@@ -474,17 +751,6 @@ impl<'d> PcntUnitDriver<'d, Disabled> {
 }
 
 impl<'d> PcntUnitDriver<'d, Enabled> {
-    /// Returns a handle to the underlying PCNT unit.
-    ///
-    /// # Note
-    ///
-    /// This function is safe to call, but it is unsafe to use the returned handle in a way that would break
-    /// assumptions made by this driver. For example disabling the unit while the type is `Enabled`.
-    #[must_use]
-    pub fn handle(&self) -> pcnt_unit_handle_t {
-        self.handle
-    }
-
     /// Disable the PCNT unit.
     ///
     /// # Note
@@ -499,6 +765,24 @@ impl<'d> PcntUnitDriver<'d, Enabled> {
         })
     }
 
+    /// Disables the PCNT unit, runs the given closure, and then enables the PCNT unit again.
+    pub fn disable_for<T>(
+        &mut self,
+        f: impl FnOnce(&mut PcntUnitDriver<'d, Disabled>) -> Result<T, EspError>,
+    ) -> Result<T, EspError> {
+        esp!(unsafe { pcnt_unit_disable(self.handle) })?;
+
+        let disabled_driver = unsafe {
+            &mut (*(self as *mut PcntUnitDriver<'d, Enabled> as *mut PcntUnitDriver<'d, Disabled>))
+        };
+
+        let result = f(disabled_driver);
+
+        esp!(unsafe { pcnt_unit_enable(self.handle) })?;
+
+        result
+    }
+
     /// Start the PCNT unit, the counter will start to count according to the edge and/or level input signals.
     ///
     /// # ISR Safety
@@ -511,6 +795,7 @@ impl<'d> PcntUnitDriver<'d, Enabled> {
     /// # Errors
     ///
     /// - `ESP_FAIL`: Start PCNT unit failed because of other error
+    #[cfg_attr(esp_idf_pcnt_ctrl_func_in_iram, link_section = ".iram1.rpcnt_start")]
     pub fn start(&self) -> Result<(), EspError> {
         esp!(unsafe { pcnt_unit_start(self.handle) })
     }
@@ -532,6 +817,7 @@ impl<'d> PcntUnitDriver<'d, Enabled> {
     /// # Errors
     ///
     /// - `ESP_FAIL`:Failed because of other error
+    #[cfg_attr(esp_idf_pcnt_ctrl_func_in_iram, link_section = ".iram1.rpcnt_stop")]
     pub fn stop(&self) -> Result<(), EspError> {
         esp!(unsafe { pcnt_unit_stop(self.handle) })
     }
@@ -548,6 +834,10 @@ impl<'d> PcntUnitDriver<'d, Enabled> {
     /// # Errors
     ///
     /// - `ESP_FAIL`: Failed because of other error
+    #[cfg_attr(
+        esp_idf_pcnt_ctrl_func_in_iram,
+        link_section = ".iram1.rpcnt_clear_count"
+    )]
     pub fn clear_count(&self) -> Result<(), EspError> {
         esp!(unsafe { pcnt_unit_clear_count(self.handle) })
     }
@@ -568,6 +858,10 @@ impl<'d> PcntUnitDriver<'d, Enabled> {
     /// # Errors
     ///
     /// - `ESP_FAIL`: Failed because of other error
+    #[cfg_attr(
+        esp_idf_pcnt_ctrl_func_in_iram,
+        link_section = ".iram1.rpcnt_get_count"
+    )]
     pub fn get_count(&self) -> Result<i32, EspError> {
         let mut count = 0;
         esp!(unsafe { pcnt_unit_get_count(self.handle, &mut count) })?;
@@ -591,6 +885,30 @@ impl<'d> PcntUnitDriver<'d, Enabled> {
         esp!(unsafe { pcnt_unit_add_watch_point(self.handle, watch_point) })
     }
 
+    /// This is a convenience function to add multiple watch points.
+    ///
+    /// It will add all the watch points from the iterator and clear the count
+    /// if they were successfully added.
+    ///
+    /// # Errors
+    ///
+    /// If an error occurs while adding any of the watch points, it will not
+    /// continue adding the subsequent watch points and not clear the count.
+    /// Previously added watch points will **not** be removed, for this use
+    /// [`Self::remove_watch_point`].
+    pub fn add_watch_points_and_clear(
+        &mut self,
+        iterator: impl IntoIterator<Item = i32>,
+    ) -> Result<(), EspError> {
+        for watch_point in iterator {
+            self.add_watch_point(watch_point)?;
+        }
+
+        self.clear_count()?;
+
+        Ok(())
+    }
+
     /// Remove a watch point for PCNT unit.
     ///
     /// # Errors
@@ -602,18 +920,60 @@ impl<'d> PcntUnitDriver<'d, Enabled> {
         esp!(unsafe { pcnt_unit_remove_watch_point(self.handle, watch_point) })
     }
 
-    /* // TODO: these are only available in some esp-idf versions
+    /// Add a step notify for PCNT unit.
+    ///
+    /// PCNT will generate an event when the incremental (can be positive or negative)
+    /// of counter value reaches the step interval value.
+    ///
+    /// A positive step interval is a step forward, while a negative step interval
+    /// is a step backward.
+    ///
+    /// # Errors
+    ///
+    /// - `ESP_ERR_INVALID_ARG`: Add step notify failed because of invalid argument (e.g. the value incremental to be watched is out of the limitation set in [`UnitConfig`])
+    /// - `ESP_ERR_INVALID_STATE`: Add step notify failed because the step notify has already been added
+    /// - `ESP_FAIL`: Add step notify failed because of other error
+    #[cfg(esp_idf_version_at_least_5_4_0)]
+    #[cfg_attr(feature = "nightly", doc(cfg(esp_idf_version_at_least_5_4_0)))]
     pub fn add_watch_step(&mut self, step_interval: i32) -> Result<(), EspError> {
         esp!(unsafe { pcnt_unit_add_watch_step(self.handle, step_interval) })
-    }*/
+    }
 
-    /*pub fn remove_all_watch_step(&mut self) -> Result<(), EspError> {
-        esp!(unsafe { pcnt_unit_remove_all_watch_step(self.handle) })
-    }*/
+    /// Remove all watch steps for a PCNT unit.
+    ///
+    /// # Errors
+    ///
+    /// - `ESP_ERR_INVALID_STATE`: Remove step notify failed because the step notify was not added by [`Self::add_watch_step`] yet
+    /// - `ESP_FAIL`: Remove step notify failed because of other error
+    #[cfg(esp_idf_version_at_least_5_4_0)]
+    #[cfg_attr(feature = "nightly", doc(cfg(esp_idf_version_at_least_5_4_0)))]
+    pub fn remove_all_watch_step(&mut self) -> Result<(), EspError> {
+        // On version 5.4 the remove_watch_step was equivalent to remove_all_watch_step.
+        // In 5.5 it was renamed to remove_all_watch_step and a new function remove_single_watch_step was added.
+        //
+        // The below is to reduce confusion when switching IDF versions.
+        #[cfg(esp_idf_version_at_least_5_5_0)]
+        {
+            esp!(unsafe { pcnt_unit_remove_all_watch_step(self.handle) })
+        }
+        #[cfg(all(esp_idf_version_at_least_5_4_0, not(esp_idf_version_at_least_5_5_0)))]
+        {
+            esp!(unsafe { pcnt_unit_remove_watch_step(self.handle) })
+        }
+    }
 
-    /*pub fn remove_single_watch_step(&mut self, step_interval: i32) -> Result<(), EspError> {
+    /// Remove a watch step for PCNT unit
+    ///
+    /// # Errors
+    ///
+    /// - `ESP_ERR_INVALID_ARG`: Remove step notify failed because of invalid argument
+    /// - `ESP_ERR_INVALID_STATE`: Remove step notify failed because the step notify was not added by [`Self::add_watch_step`] yet
+    /// - `ESP_FAIL`: Remove step notify failed because of other error
+    #[cfg(esp_idf_version_at_least_5_5_0)]
+    #[cfg_attr(feature = "nightly", doc(cfg(esp_idf_version_at_least_5_5_0)))]
+    pub fn remove_single_watch_step(&mut self, step_interval: i32) -> Result<(), EspError> {
         esp!(unsafe { pcnt_unit_remove_single_watch_step(self.handle, step_interval) })
-    }*/
+    }
 }
 
 // SAFETY: No thread-locals are used
@@ -626,6 +986,7 @@ impl<'d, S: State> Drop for PcntUnitDriver<'d, S> {
         // Disable the unit before deleting it (this is necessary). If it is already disabled,
         // this call would error, but that is ignored here (there is nothing we can do about it).
         unsafe { pcnt_unit_disable(self.handle) };
+        #[cfg(feature = "alloc")]
         unsafe {
             pcnt_unit_register_event_callbacks(
                 self.handle,

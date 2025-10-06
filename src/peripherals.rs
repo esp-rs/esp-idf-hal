@@ -9,7 +9,7 @@ use crate::ledc;
 use crate::mac;
 use crate::modem;
 #[cfg(not(esp_idf_version_at_least_6_0_0))]
-#[cfg(any(esp32, esp32s2, esp32s3, esp32c6))]
+#[cfg(all(any(esp32, esp32s2, esp32s3, esp32c6), feature = "pcnt-legacy"))]
 use crate::pcnt;
 use crate::rmt;
 #[cfg(esp_idf_soc_sdmmc_host_supported)]
@@ -58,28 +58,28 @@ pub struct Peripherals {
     pub adc2: adc::ADC2<'static>,
     // TODO: Check the pulse counter story for c2, h2, c5, and p4
     #[cfg(not(esp_idf_version_at_least_6_0_0))]
-    #[cfg(any(esp32, esp32s2, esp32s3, esp32c6))]
+    #[cfg(all(any(esp32, esp32s2, esp32s3, esp32c6), feature = "pcnt-legacy"))]
     pub pcnt0: pcnt::PCNT0<'static>,
     #[cfg(not(esp_idf_version_at_least_6_0_0))]
-    #[cfg(any(esp32, esp32s2, esp32s3, esp32c6))]
+    #[cfg(all(any(esp32, esp32s2, esp32s3, esp32c6), feature = "pcnt-legacy"))]
     pub pcnt1: pcnt::PCNT1<'static>,
     #[cfg(not(esp_idf_version_at_least_6_0_0))]
-    #[cfg(any(esp32, esp32s2, esp32s3, esp32c6))]
+    #[cfg(all(any(esp32, esp32s2, esp32s3, esp32c6), feature = "pcnt-legacy"))]
     pub pcnt2: pcnt::PCNT2<'static>,
     #[cfg(not(esp_idf_version_at_least_6_0_0))]
-    #[cfg(any(esp32, esp32s2, esp32s3, esp32c6))]
+    #[cfg(all(any(esp32, esp32s2, esp32s3, esp32c6), feature = "pcnt-legacy"))]
     pub pcnt3: pcnt::PCNT3<'static>,
     #[cfg(not(esp_idf_version_at_least_6_0_0))]
-    #[cfg(esp32)]
+    #[cfg(all(esp32, feature = "pcnt-legacy"))]
     pub pcnt4: pcnt::PCNT4<'static>,
     #[cfg(not(esp_idf_version_at_least_6_0_0))]
-    #[cfg(esp32)]
+    #[cfg(all(esp32, feature = "pcnt-legacy"))]
     pub pcnt5: pcnt::PCNT5<'static>,
     #[cfg(not(esp_idf_version_at_least_6_0_0))]
-    #[cfg(esp32)]
+    #[cfg(all(esp32, feature = "pcnt-legacy"))]
     pub pcnt6: pcnt::PCNT6<'static>,
     #[cfg(not(esp_idf_version_at_least_6_0_0))]
-    #[cfg(esp32)]
+    #[cfg(all(esp32, feature = "pcnt-legacy"))]
     pub pcnt7: pcnt::PCNT7<'static>,
     pub can: can::CAN<'static>,
     pub ledc: ledc::LEDC,
@@ -173,28 +173,28 @@ impl Peripherals {
             #[cfg(any(esp32, esp32s2, esp32s3, esp32c3))]
             adc2: adc::ADC2::steal(),
             #[cfg(not(esp_idf_version_at_least_6_0_0))]
-            #[cfg(any(esp32, esp32s2, esp32s3, esp32c6))]
+            #[cfg(all(any(esp32, esp32s2, esp32s3, esp32c6), feature = "pcnt-legacy"))]
             pcnt0: pcnt::PCNT0::steal(),
             #[cfg(not(esp_idf_version_at_least_6_0_0))]
-            #[cfg(any(esp32, esp32s2, esp32s3, esp32c6))]
+            #[cfg(all(any(esp32, esp32s2, esp32s3, esp32c6), feature = "pcnt-legacy"))]
             pcnt1: pcnt::PCNT1::steal(),
             #[cfg(not(esp_idf_version_at_least_6_0_0))]
-            #[cfg(any(esp32, esp32s2, esp32s3, esp32c6))]
+            #[cfg(all(any(esp32, esp32s2, esp32s3, esp32c6), feature = "pcnt-legacy"))]
             pcnt2: pcnt::PCNT2::steal(),
             #[cfg(not(esp_idf_version_at_least_6_0_0))]
-            #[cfg(any(esp32, esp32s2, esp32s3, esp32c6))]
+            #[cfg(all(any(esp32, esp32s2, esp32s3, esp32c6), feature = "pcnt-legacy"))]
             pcnt3: pcnt::PCNT3::steal(),
             #[cfg(not(esp_idf_version_at_least_6_0_0))]
-            #[cfg(esp32)]
+            #[cfg(all(esp32, feature = "pcnt-legacy"))]
             pcnt4: pcnt::PCNT4::steal(),
             #[cfg(not(esp_idf_version_at_least_6_0_0))]
-            #[cfg(esp32)]
+            #[cfg(all(esp32, feature = "pcnt-legacy"))]
             pcnt5: pcnt::PCNT5::steal(),
             #[cfg(not(esp_idf_version_at_least_6_0_0))]
-            #[cfg(esp32)]
+            #[cfg(all(esp32, feature = "pcnt-legacy"))]
             pcnt6: pcnt::PCNT6::steal(),
             #[cfg(not(esp_idf_version_at_least_6_0_0))]
-            #[cfg(esp32)]
+            #[cfg(all(esp32, feature = "pcnt-legacy"))]
             pcnt7: pcnt::PCNT7::steal(),
             can: can::CAN::steal(),
             ledc: ledc::LEDC::new(),
