@@ -181,7 +181,7 @@ pub mod config {
     }
 
     /// Configuration for the PCNT glitch filter.
-    #[derive(Debug, Clone)]
+    #[derive(Debug, Clone, Default)]
     pub struct GlitchFilterConfig {
         /// The maximum glitch width (will be converted to nanoseconds).
         ///
@@ -613,6 +613,7 @@ pub struct PcntUnitDriver<'d, S> {
     channels: Vec<PcntChannel<'d>, { SOC_PCNT_CHANNELS_PER_UNIT as usize }>,
     #[cfg(feature = "alloc")]
     user_data: Option<Pin<Box<DelegateUserData>>>,
+    is_enabled: bool, // for dynamic state, to prevent errors when calling enable/disable while they are already in that state
     _p: PhantomData<(&'d mut (), S)>,
 }
 
@@ -641,12 +642,44 @@ impl<'d, S: State> PcntUnitDriver<'d, S> {
         // SAFETY: Enabled, Disabled and Dynamic do not influence the memory layout of the struct
         unsafe { mem::transmute::<PcntUnitDriver<'d, S>, PcntUnitDriver<'d, Dynamic>>(self) }
     }
+
+    fn change_state<T>(self) -> PcntUnitDriver<'d, T> {
+        // SAFETY: The generic parameter is only a marker that is not present in the memory layout,
+        //         other than that they are identical
+        unsafe { mem::transmute::<PcntUnitDriver<'d, S>, PcntUnitDriver<'d, T>>(self) }
+    }
+
+    fn change_state_mut<T>(&mut self) -> &mut PcntUnitDriver<'d, T> {
+        // SAFETY: The generic parameter is only a marker that is not present in the memory layout,
+        //         other than that they are identical
+        unsafe { &mut (*(self as *mut PcntUnitDriver<'d, S> as *mut PcntUnitDriver<'d, T>)) }
+    }
+
+    fn internal_enable(&mut self) -> Result<(), EspError> {
+        if self.is_enabled {
+            return Ok(());
+        }
+
+        esp!(unsafe { pcnt_unit_enable(self.handle) })?;
+        self.is_enabled = true;
+        Ok(())
+    }
+
+    fn internal_disable(&mut self) -> Result<(), EspError> {
+        if !self.is_enabled {
+            return Ok(());
+        }
+
+        esp!(unsafe { pcnt_unit_disable(self.handle) })?;
+        self.is_enabled = false;
+        Ok(())
+    }
 }
 
 #[cfg(feature = "alloc")]
 const DISABLE_EVENT_CALLBACKS: pcnt_event_callbacks_t = pcnt_event_callbacks_t { on_reach: None };
 
-impl<'d, S: IsDisabled> PcntUnitDriver<'d, S> {
+impl<'d> PcntUnitDriver<'d, Disabled> {
     /// Create a new PCNT unit driver instance, with the given configuration.
     ///
     /// # Errors
@@ -665,10 +698,13 @@ impl<'d, S: IsDisabled> PcntUnitDriver<'d, S> {
             channels: Vec::new(),
             #[cfg(feature = "alloc")]
             user_data: None,
+            is_enabled: false,
             _p: PhantomData,
         })
     }
+}
 
+impl<'d, S: IsDisabled> PcntUnitDriver<'d, S> {
     /// The PCNT unit features filters to ignore possible short glitches in the signals.
     ///
     /// You can enable the glitch filter for the pcnt unit, by calling this method with
@@ -802,11 +838,10 @@ impl<'d, S: IsDisabled> PcntUnitDriver<'d, S> {
     /// # Errors
     ///
     /// - `ESP_FAIL`: Enable PCNT unit failed because of other error
-    pub fn enable(self) -> Result<PcntUnitDriver<'d, Enabled>, EspError> {
-        esp!(unsafe { pcnt_unit_enable(self.handle) })?;
+    pub fn enable(mut self) -> Result<PcntUnitDriver<'d, Enabled>, EspError> {
+        self.internal_enable()?;
 
-        // SAFETY: The generic parameter is only a marker that is not present in the memory layout, other than that they are identical
-        Ok(unsafe { mem::transmute::<PcntUnitDriver<'d, S>, PcntUnitDriver<'d, Enabled>>(self) })
+        Ok(self.change_state())
     }
 
     /// Enables the PCNT unit, runs the given closure, and then disables the PCNT unit again.
@@ -814,15 +849,13 @@ impl<'d, S: IsDisabled> PcntUnitDriver<'d, S> {
         &mut self,
         f: impl FnOnce(&mut PcntUnitDriver<'d, Enabled>) -> Result<T, EspError>,
     ) -> Result<T, EspError> {
-        esp!(unsafe { pcnt_unit_enable(self.handle) })?;
+        self.internal_enable()?;
 
-        let enabled_driver = unsafe {
-            &mut (*(self as *mut PcntUnitDriver<'d, S> as *mut PcntUnitDriver<'d, Enabled>))
-        };
+        let enabled_driver = self.change_state_mut();
 
         let result = f(enabled_driver);
 
-        esp!(unsafe { pcnt_unit_disable(self.handle) })?;
+        self.internal_disable()?;
 
         result
     }
@@ -847,11 +880,10 @@ impl<'d, S: IsEnabled> PcntUnitDriver<'d, S> {
     /// # Note
     ///
     /// Disable a PCNT unit doesn't mean to stop it. See also [`Self::stop`] for how to stop the PCNT counter.
-    pub fn disable(self) -> Result<PcntUnitDriver<'d, Disabled>, EspError> {
-        esp!(unsafe { pcnt_unit_disable(self.handle) })?;
+    pub fn disable(mut self) -> Result<PcntUnitDriver<'d, Disabled>, EspError> {
+        self.internal_disable()?;
 
-        // SAFETY: The generic parameter is only a marker that is not present in the memory layout, other than that they are identical
-        Ok(unsafe { mem::transmute::<PcntUnitDriver<'d, S>, PcntUnitDriver<'d, Disabled>>(self) })
+        Ok(self.change_state())
     }
 
     /// Disables the PCNT unit, runs the given closure, and then enables the PCNT unit again.
@@ -859,15 +891,13 @@ impl<'d, S: IsEnabled> PcntUnitDriver<'d, S> {
         &mut self,
         f: impl FnOnce(&mut PcntUnitDriver<'d, Disabled>) -> Result<T, EspError>,
     ) -> Result<T, EspError> {
-        esp!(unsafe { pcnt_unit_disable(self.handle) })?;
+        self.internal_disable()?;
 
-        let disabled_driver = unsafe {
-            &mut (*(self as *mut PcntUnitDriver<'d, S> as *mut PcntUnitDriver<'d, Disabled>))
-        };
+        let disabled_driver = self.change_state_mut();
 
         let result = f(disabled_driver);
 
-        esp!(unsafe { pcnt_unit_enable(self.handle) })?;
+        self.internal_enable()?;
 
         result
     }
