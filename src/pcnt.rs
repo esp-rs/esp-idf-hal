@@ -555,8 +555,8 @@ impl<'d> Drop for PcntChannel<'d> {
 unsafe impl<'d> Send for PcntChannel<'d> {}
 
 #[cfg(feature = "alloc")]
-struct DelegateUserData {
-    on_reach: Box<dyn FnMut(WatchEventData) + Send + 'static>,
+struct DelegateUserData<'d> {
+    on_reach: Box<dyn FnMut(WatchEventData) + Send + 'd>,
 }
 
 /// A driver for a PCNT unit.
@@ -567,7 +567,7 @@ pub struct PcntUnitDriver<'d> {
     handle: pcnt_unit_handle_t,
     channels: Vec<PcntChannel<'d>, { SOC_PCNT_CHANNELS_PER_UNIT as usize }>,
     #[cfg(feature = "alloc")]
-    user_data: Option<Pin<Box<DelegateUserData>>>,
+    user_data: Option<Pin<Box<DelegateUserData<'d>>>>,
     _p: PhantomData<&'d mut ()>,
 }
 
@@ -786,7 +786,7 @@ impl<'d> PcntUnitDriver<'d> {
 
     /// Set event callback for the PCNT unit.
     ///
-    /// # Safety
+    /// # ISR Safety
     ///
     /// Care should be taken not to call std, libc or FreeRTOS APIs (except for a few allowed ones)
     /// in the callback passed to this function, as it is executed in an ISR context.
@@ -798,21 +798,69 @@ impl<'d> PcntUnitDriver<'d> {
     /// - `ESP_ERR_INVALID_ARG`: Set event callbacks failed because of invalid argument
     /// - `ESP_FAIL`: Set event callbacks failed because of other error
     #[cfg(feature = "alloc")]
-    pub unsafe fn subscribe(
+    pub fn subscribe(
         &mut self,
         on_reach: impl FnMut(WatchEventData) + Send + 'static,
     ) -> Result<&mut Self, EspError> {
-        let mut pinned: Pin<Box<DelegateUserData>> = Box::pin(DelegateUserData {
+        // SAFETY: The closure is 'static -> even with `mem::forget` it wouldn't lead to undefined behavior.
+        unsafe { self.subscribe_nonstatic(on_reach) }
+    }
+
+    /// Set event callback for the PCNT unit.
+    ///
+    /// # ISR Safety
+    ///
+    /// Care should be taken not to call std, libc or FreeRTOS APIs (except for a few allowed ones)
+    /// in the callback passed to this function, as it is executed in an ISR context.
+    ///
+    /// You are not allowed to block, but you are allowed to call FreeRTOS APIs with the FromISR suffix.
+    ///
+    /// # Safety
+    ///
+    /// Additionally, this method - in contrast to method `subscribe` - allows
+    /// the passed-in callback/closure to be non-`'static`. This enables users to borrow
+    /// - in the closure - variables that live on the stack - or more generally - in the same
+    ///   scope where the driver is created.
+    ///
+    /// HOWEVER: care should be taken NOT to call `core::mem::forget()` on the driver,
+    /// as that would immediately lead to an UB (crash).
+    /// Also note that forgetting the driver might happen with `Rc` and `Arc`
+    /// when circular references are introduced: https://github.com/rust-lang/rust/issues/24456
+    ///
+    /// The reason is that the closure is actually sent and owned by an ISR routine,
+    /// which means that if the driver is forgotten, Rust is free to e.g. unwind the stack
+    /// and the ISR routine will end up with references to variables that no longer exist.
+    ///
+    /// The destructor of the driver takes care - prior to the driver being dropped and e.g.
+    /// the stack being unwind - to unsubscribe the ISR routine.
+    /// Unfortunately, when the driver is forgotten, the un-subscription does not happen
+    /// and invalid references are left dangling.
+    ///
+    /// This "local borrowing" will only be possible to express in a safe way once/if `!Leak` types
+    /// are introduced to Rust (i.e. the impossibility to "forget" a type and thus not call its destructor).
+    ///
+    /// # Errors
+    ///
+    /// - `ESP_ERR_INVALID_ARG`: Set event callbacks failed because of invalid argument
+    /// - `ESP_FAIL`: Set event callbacks failed because of other error
+    #[cfg(feature = "alloc")]
+    pub unsafe fn subscribe_nonstatic(
+        &mut self,
+        on_reach: impl FnMut(WatchEventData) + Send + 'd,
+    ) -> Result<&mut Self, EspError> {
+        let mut pinned = Box::pin(DelegateUserData {
             on_reach: Box::new(on_reach),
         });
 
-        esp!(pcnt_unit_register_event_callbacks(
-            self.handle,
-            &Self::ENABLE_EVENT_CALLBACKS,
-            // SAFETY: The referenced data will not be moved out and this is the only reference to it
-            (pinned.as_mut().get_unchecked_mut()) as *mut DelegateUserData
-                as *mut core::ffi::c_void,
-        ))?;
+        esp!(unsafe {
+            pcnt_unit_register_event_callbacks(
+                self.handle,
+                &Self::ENABLE_EVENT_CALLBACKS,
+                // SAFETY: The referenced data will not be moved out and this is the only reference to it
+                (pinned.as_mut().get_unchecked_mut()) as *mut DelegateUserData
+                    as *mut core::ffi::c_void,
+            )
+        })?;
 
         self.user_data = Some(pinned);
 
@@ -867,7 +915,7 @@ impl<'d> PcntUnitDriver<'d> {
         event_data: *const pcnt_watch_event_data_t,
         user_data: *mut core::ffi::c_void,
     ) -> bool {
-        let user_data = &mut *(user_data as *mut DelegateUserData);
+        let user_data = &mut *(user_data as *mut DelegateUserData<'d>);
         let event_data = WatchEventData::from(*event_data);
 
         interrupt::with_isr_yield_signal(move || (user_data.on_reach)(event_data))
