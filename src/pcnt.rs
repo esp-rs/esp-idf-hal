@@ -59,7 +59,7 @@
 use core::marker::PhantomData;
 #[cfg(feature = "alloc")]
 use core::pin::Pin;
-use core::{mem, ptr};
+use core::ptr;
 
 #[cfg(feature = "alloc")]
 use alloc::boxed::Box;
@@ -70,7 +70,6 @@ use esp_idf_sys::*;
 use crate::gpio::InputPin;
 #[cfg(feature = "alloc")]
 use crate::interrupt;
-use crate::pcnt::private::Sealed;
 
 use config::*;
 
@@ -351,8 +350,11 @@ impl<'d> PcntChannel<'d> {
                     config.invert_level_input as u32,
                     config.virt_edge_io_level as u32,
                     config.virt_level_io_level as u32,
-                    // TODO: this will be removed with 6.0
-                    false as u32,
+                    // This field is marked as for removal in ESP-IDF 6.0.
+                    #[cfg(not(esp_idf_version_at_least_6_0_0))]
+                    {
+                        false as u32
+                    },
                 ),
                 ..Default::default()
             },
@@ -552,41 +554,6 @@ impl<'d> Drop for PcntChannel<'d> {
 // SAFETY: The PCNT channel does not use thread locals -> it should be safe to send it to another thread
 unsafe impl<'d> Send for PcntChannel<'d> {}
 
-mod private {
-    pub trait Sealed {}
-}
-
-/// The state a PCNT unit can be in.
-pub trait State: Sealed {}
-
-/// Marker that the PCNT unit is enabled.
-pub enum Enabled {}
-
-/// Marker that the PCNT unit is in an unknown state,
-/// it will check at runtime if it is okay to call a function.
-pub enum Dynamic {}
-
-/// Marker that the PCNT unit is disabled.
-pub enum Disabled {}
-
-pub trait IsEnabled: State {}
-
-impl private::Sealed for Enabled {}
-impl private::Sealed for Disabled {}
-impl private::Sealed for Dynamic {}
-
-impl State for Enabled {}
-impl State for Disabled {}
-impl State for Dynamic {}
-
-impl IsEnabled for Enabled {}
-impl IsEnabled for Dynamic {}
-
-pub trait IsDisabled: State {}
-
-impl IsDisabled for Disabled {}
-impl IsDisabled for Dynamic {}
-
 #[cfg(feature = "alloc")]
 struct DelegateUserData {
     on_reach: Box<dyn FnMut(WatchEventData) + Send + 'static>,
@@ -596,90 +563,16 @@ struct DelegateUserData {
 ///
 /// Each driver has a counter, which can be controlled by one or more channels,
 /// that have to be added with [`PcntUnitDriver::add_channel`].
-///
-/// ## State
-///
-/// Some functions are only available, when the PCNT unit is enabled or disabled.
-/// This is enforced by the type system with the generic parameter `S` that can
-/// be either [`Enabled`] or [`Disabled`].
-///
-/// You can use the [`PcntUnitDriver::enable`] and [`PcntUnitDriver::disable`] functions
-/// to change the state of the unit.
-// SAFETY: The repr(C) is required for transmuting between Enabled and Disabled state,
-//         this is not currently guaranteed with the default repr(Rust)
-#[repr(C)]
-pub struct PcntUnitDriver<'d, S> {
+pub struct PcntUnitDriver<'d> {
     handle: pcnt_unit_handle_t,
     channels: Vec<PcntChannel<'d>, { SOC_PCNT_CHANNELS_PER_UNIT as usize }>,
     #[cfg(feature = "alloc")]
     user_data: Option<Pin<Box<DelegateUserData>>>,
-    is_enabled: bool, // for dynamic state, to prevent errors when calling enable/disable while they are already in that state
-    _p: PhantomData<(&'d mut (), S)>,
+    _p: PhantomData<&'d mut ()>,
 }
 
-impl<'d, S: State> PcntUnitDriver<'d, S> {
-    /// Returns a handle to the underlying PCNT unit.
-    ///
-    /// # Note
-    ///
-    /// This function is safe to call, but it is unsafe to use the returned handle in a way that would break
-    /// assumptions made by this driver. For example disabling the unit while the type is `Enabled`.
-    #[must_use]
-    pub fn handle(&self) -> pcnt_unit_handle_t {
-        self.handle
-    }
-
-    /// Convert the PCNT unit driver from a typed state to a dynamic state.
-    ///
-    /// With the typing, it is impossible to call a method that only works in
-    /// one state in the wrong one, removing many potential errors at compile time.
-    ///
-    /// However, sometimes this might be inconvenient, hence this method.
-    /// In a dynamic state, it is possible to call all methods, but note that
-    /// they might return an error at runtime if they are called from the wrong state.
-    #[must_use]
-    pub fn to_dynamic(self) -> PcntUnitDriver<'d, Dynamic> {
-        // SAFETY: Enabled, Disabled and Dynamic do not influence the memory layout of the struct
-        unsafe { mem::transmute::<PcntUnitDriver<'d, S>, PcntUnitDriver<'d, Dynamic>>(self) }
-    }
-
-    fn change_state<T>(self) -> PcntUnitDriver<'d, T> {
-        // SAFETY: The generic parameter is only a marker that is not present in the memory layout,
-        //         other than that they are identical
-        unsafe { mem::transmute::<PcntUnitDriver<'d, S>, PcntUnitDriver<'d, T>>(self) }
-    }
-
-    fn change_state_mut<T>(&mut self) -> &mut PcntUnitDriver<'d, T> {
-        // SAFETY: The generic parameter is only a marker that is not present in the memory layout,
-        //         other than that they are identical
-        unsafe { &mut (*(self as *mut PcntUnitDriver<'d, S> as *mut PcntUnitDriver<'d, T>)) }
-    }
-
-    fn internal_enable(&mut self) -> Result<(), EspError> {
-        if self.is_enabled {
-            return Ok(());
-        }
-
-        esp!(unsafe { pcnt_unit_enable(self.handle) })?;
-        self.is_enabled = true;
-        Ok(())
-    }
-
-    fn internal_disable(&mut self) -> Result<(), EspError> {
-        if !self.is_enabled {
-            return Ok(());
-        }
-
-        esp!(unsafe { pcnt_unit_disable(self.handle) })?;
-        self.is_enabled = false;
-        Ok(())
-    }
-}
-
-#[cfg(feature = "alloc")]
-const DISABLE_EVENT_CALLBACKS: pcnt_event_callbacks_t = pcnt_event_callbacks_t { on_reach: None };
-
-impl<'d> PcntUnitDriver<'d, Disabled> {
+/// The functions listed in this `impl` are available in any state (enabled or disabled).
+impl<'d> PcntUnitDriver<'d> {
     /// Create a new PCNT unit driver instance, with the given configuration.
     ///
     /// # Errors
@@ -698,13 +591,136 @@ impl<'d> PcntUnitDriver<'d, Disabled> {
             channels: Vec::new(),
             #[cfg(feature = "alloc")]
             user_data: None,
-            is_enabled: false,
             _p: PhantomData,
         })
     }
+
+    /// Returns a handle to the underlying PCNT unit.
+    #[must_use]
+    pub fn handle(&self) -> pcnt_unit_handle_t {
+        self.handle
+    }
+
+    /// Add a watch point to the PCNT unit.
+    ///
+    /// PCNT will generate an event when the counter value reaches the watch point value.
+    ///
+    /// It is recommended to call [`Self::clear_count`] after adding a watch point,
+    /// so that the newly added watch point can take effect immediately.
+    ///
+    /// # Errors
+    ///
+    /// - `ESP_ERR_INVALID_ARG`: Add watch point failed because of invalid argument, like the value is out of range
+    /// - `ESP_ERR_INVALID_STATE`: Add watch point failed because the same watch point has already been added
+    /// - `ESP_ERR_NOT_FOUND`: Add watch point failed because no more hardware watch point can be configured
+    /// - `ESP_FAIL`: Add watch point failed because of other error
+    pub fn add_watch_point(&mut self, watch_point: i32) -> Result<(), EspError> {
+        esp!(unsafe { pcnt_unit_add_watch_point(self.handle, watch_point) })
+    }
+
+    /// This is a convenience function to add multiple watch points.
+    ///
+    /// It will add all the watch points from the iterator and clear the count
+    /// if they were successfully added.
+    ///
+    /// # Errors
+    ///
+    /// If an error occurs while adding any of the watch points, it will not
+    /// continue adding the subsequent watch points and not clear the count.
+    /// Previously added watch points will **not** be removed, for this use
+    /// [`Self::remove_watch_point`].
+    pub fn add_watch_points_and_clear(
+        &mut self,
+        iterator: impl IntoIterator<Item = i32>,
+    ) -> Result<(), EspError> {
+        for watch_point in iterator {
+            self.add_watch_point(watch_point)?;
+        }
+
+        self.clear_count()?;
+
+        Ok(())
+    }
+
+    /// Remove a watch point for PCNT unit.
+    ///
+    /// # Errors
+    ///
+    /// - `ESP_ERR_INVALID_ARG`: Remove watch point failed because of invalid argument
+    /// - `ESP_ERR_INVALID_STATE`: Remove watch point failed because the watch point was not added by [`Self::add_watch_point`] yet
+    /// - `ESP_FAIL`: Remove watch point failed because of other error
+    pub fn remove_watch_point(&mut self, watch_point: i32) -> Result<(), EspError> {
+        esp!(unsafe { pcnt_unit_remove_watch_point(self.handle, watch_point) })
+    }
+
+    /// Add a step notify for PCNT unit.
+    ///
+    /// PCNT will generate an event when the incremental (can be positive or negative)
+    /// of counter value reaches the step interval value.
+    ///
+    /// A positive step interval is a step forward, while a negative step interval
+    /// is a step backward.
+    ///
+    /// # Errors
+    ///
+    /// - `ESP_ERR_INVALID_ARG`: Add step notify failed because of invalid argument (e.g. the value incremental to be watched is out of the limitation set in [`UnitConfig`])
+    /// - `ESP_ERR_INVALID_STATE`: Add step notify failed because the step notify has already been added
+    /// - `ESP_FAIL`: Add step notify failed because of other error
+    #[cfg(esp_idf_version_at_least_5_4_0)]
+    #[cfg_attr(feature = "nightly", doc(cfg(esp_idf_version_at_least_5_4_0)))]
+    pub fn add_watch_step(&mut self, step_interval: i32) -> Result<(), EspError> {
+        esp!(unsafe { pcnt_unit_add_watch_step(self.handle, step_interval) })
+    }
+
+    /// Remove all watch steps for a PCNT unit.
+    ///
+    /// # Errors
+    ///
+    /// - `ESP_ERR_INVALID_STATE`: Remove step notify failed because the step notify was not added by [`Self::add_watch_step`] yet
+    /// - `ESP_FAIL`: Remove step notify failed because of other error
+    #[cfg(esp_idf_version_at_least_5_4_0)]
+    #[cfg_attr(feature = "nightly", doc(cfg(esp_idf_version_at_least_5_4_0)))]
+    pub fn remove_all_watch_step(&mut self) -> Result<(), EspError> {
+        // On version 5.4 the remove_watch_step was equivalent to remove_all_watch_step.
+        // In 5.5 it was renamed to remove_all_watch_step and a new function remove_single_watch_step was added.
+        //
+        // The below is to reduce confusion when switching IDF versions.
+        #[cfg(esp_idf_version_at_least_5_5_0)]
+        {
+            esp!(unsafe { pcnt_unit_remove_all_watch_step(self.handle) })
+        }
+        #[cfg(all(esp_idf_version_at_least_5_4_0, not(esp_idf_version_at_least_5_5_0)))]
+        {
+            esp!(unsafe { pcnt_unit_remove_watch_step(self.handle) })
+        }
+    }
+
+    /// Remove a watch step for PCNT unit
+    ///
+    /// # Errors
+    ///
+    /// - `ESP_ERR_INVALID_ARG`: Remove step notify failed because of invalid argument
+    /// - `ESP_ERR_INVALID_STATE`: Remove step notify failed because the step notify was not added by [`Self::add_watch_step`] yet
+    /// - `ESP_FAIL`: Remove step notify failed because of other error
+    #[cfg(esp_idf_version_at_least_5_5_0)]
+    #[cfg_attr(feature = "nightly", doc(cfg(esp_idf_version_at_least_5_5_0)))]
+    pub fn remove_single_watch_step(&mut self, step_interval: i32) -> Result<(), EspError> {
+        esp!(unsafe { pcnt_unit_remove_single_watch_step(self.handle, step_interval) })
+    }
 }
 
-impl<'d, S: IsDisabled> PcntUnitDriver<'d, S> {
+#[cfg(feature = "alloc")]
+const DISABLE_EVENT_CALLBACKS: pcnt_event_callbacks_t = pcnt_event_callbacks_t { on_reach: None };
+
+/// The functions listed in this `impl` are only available, when the PCNT unit is **disabled**.
+///
+/// After calling [`PcntUnitDriver::new`], the unit will be in the disabled state. To enable
+/// it, call [`PcntUnitDriver::enable`] and to disable it again, call [`PcntUnitDriver::disable`].
+///
+/// # Errors
+///
+/// If a function is called in the wrong state, it will return an [`EspError`] with the code [`ESP_ERR_INVALID_STATE`].
+impl<'d> PcntUnitDriver<'d> {
     /// The PCNT unit features filters to ignore possible short glitches in the signals.
     ///
     /// You can enable the glitch filter for the pcnt unit, by calling this method with
@@ -837,31 +853,15 @@ impl<'d, S: IsDisabled> PcntUnitDriver<'d, S> {
     ///
     /// # Errors
     ///
+    /// - `ESP_ERR_INVALID_STATE`: Enable PCNT unit failed because the unit is already enabled
     /// - `ESP_FAIL`: Enable PCNT unit failed because of other error
-    pub fn enable(mut self) -> Result<PcntUnitDriver<'d, Enabled>, EspError> {
-        self.internal_enable()?;
+    pub fn enable(&mut self) -> Result<(), EspError> {
+        esp!(unsafe { pcnt_unit_enable(self.handle) })?;
 
-        Ok(self.change_state())
-    }
-
-    /// Enables the PCNT unit, runs the given closure, and then disables the PCNT unit again.
-    pub fn enable_for<T>(
-        &mut self,
-        f: impl FnOnce(&mut PcntUnitDriver<'d, Enabled>) -> Result<T, EspError>,
-    ) -> Result<T, EspError> {
-        self.internal_enable()?;
-
-        let enabled_driver = self.change_state_mut();
-
-        let result = f(enabled_driver);
-
-        self.internal_disable()?;
-
-        result
+        Ok(())
     }
 
     #[cfg(feature = "alloc")]
-    #[cfg_attr(esp_idf_pcnt_isr_iram_safe, link_section = ".iram1.rpcnt_delegate")]
     unsafe extern "C" fn delegate_on_reach(
         _handle: pcnt_unit_handle_t,
         event_data: *const pcnt_watch_event_data_t,
@@ -874,32 +874,30 @@ impl<'d, S: IsDisabled> PcntUnitDriver<'d, S> {
     }
 }
 
-impl<'d, S: IsEnabled> PcntUnitDriver<'d, S> {
+/// The functions listed in this `impl` are only available, when the PCNT unit is **enabled**.
+///
+/// After calling [`PcntUnitDriver::new`], the unit will be in the disabled state. To enable
+/// it, call [`PcntUnitDriver::enable`] and to disable it again, call [`PcntUnitDriver::disable`].
+///
+/// # Errors
+///
+/// If a function is called in the wrong state, it will return an [`EspError`] with the code [`ESP_ERR_INVALID_STATE`].
+impl<'d> PcntUnitDriver<'d> {
     /// Disable the PCNT unit.
     ///
     /// # Note
     ///
     /// Disable a PCNT unit doesn't mean to stop it. See also [`Self::stop`] for how to stop the PCNT counter.
-    pub fn disable(mut self) -> Result<PcntUnitDriver<'d, Disabled>, EspError> {
-        self.internal_disable()?;
+    ///
+    /// # Errors
+    ///
+    ///
+    /// - `ESP_ERR_INVALID_STATE`: Disable PCNT unit failed because the unit is already disabled
+    /// - `ESP_FAIL`: Disable PCNT unit failed because of other error
+    pub fn disable(&mut self) -> Result<(), EspError> {
+        esp!(unsafe { pcnt_unit_disable(self.handle) })?;
 
-        Ok(self.change_state())
-    }
-
-    /// Disables the PCNT unit, runs the given closure, and then enables the PCNT unit again.
-    pub fn disable_for<T>(
-        &mut self,
-        f: impl FnOnce(&mut PcntUnitDriver<'d, Disabled>) -> Result<T, EspError>,
-    ) -> Result<T, EspError> {
-        self.internal_disable()?;
-
-        let disabled_driver = self.change_state_mut();
-
-        let result = f(disabled_driver);
-
-        self.internal_enable()?;
-
-        result
+        Ok(())
     }
 
     /// Start the PCNT unit, the counter will start to count according to the edge and/or level input signals.
@@ -908,13 +906,14 @@ impl<'d, S: IsEnabled> PcntUnitDriver<'d, S> {
     ///
     /// This function is safe to be called from an ISR context.
     ///
-    /// This function will be placed into IRAM if `CONFIG_PCNT_CTRL_FUNC_IN_IRAM`
+    /// The underlying esp-idf function will be placed into IRAM if `CONFIG_PCNT_CTRL_FUNC_IN_IRAM`
     /// is on, so that it's allowed to be executed when cache is disabled.
+    ///
+    /// This is not the case for this rust function at the moment, this might change in the future.
     ///
     /// # Errors
     ///
     /// - `ESP_FAIL`: Start PCNT unit failed because of other error
-    #[cfg_attr(esp_idf_pcnt_ctrl_func_in_iram, link_section = ".iram1.rpcnt_start")]
     pub fn start(&self) -> Result<(), EspError> {
         esp!(unsafe { pcnt_unit_start(self.handle) })
     }
@@ -925,8 +924,10 @@ impl<'d, S: IsEnabled> PcntUnitDriver<'d, S> {
     ///
     /// This function is safe to be called from an ISR context.
     ///
-    /// This function will be placed into IRAM if `CONFIG_PCNT_CTRL_FUNC_IN_IRAM`
+    /// The underlying esp-idf function will be placed into IRAM if `CONFIG_PCNT_CTRL_FUNC_IN_IRAM`
     /// is on, so that it's allowed to be executed when cache is disabled.
+    ///
+    /// This is not the case for this rust function at the moment, this might change in the future.
     ///
     /// # Note
     ///
@@ -936,7 +937,6 @@ impl<'d, S: IsEnabled> PcntUnitDriver<'d, S> {
     /// # Errors
     ///
     /// - `ESP_FAIL`:Failed because of other error
-    #[cfg_attr(esp_idf_pcnt_ctrl_func_in_iram, link_section = ".iram1.rpcnt_stop")]
     pub fn stop(&self) -> Result<(), EspError> {
         esp!(unsafe { pcnt_unit_stop(self.handle) })
     }
@@ -947,16 +947,14 @@ impl<'d, S: IsEnabled> PcntUnitDriver<'d, S> {
     ///
     /// This function is safe to be called from an ISR context.
     ///
-    /// This function will be placed into IRAM if `CONFIG_PCNT_CTRL_FUNC_IN_IRAM`
+    /// The underlying esp-idf function will be placed into IRAM if `CONFIG_PCNT_CTRL_FUNC_IN_IRAM`
     /// is on, so that it's allowed to be executed when cache is disabled.
+    ///
+    /// This is not the case for this rust function at the moment, this might change in the future.
     ///
     /// # Errors
     ///
     /// - `ESP_FAIL`: Failed because of other error
-    #[cfg_attr(
-        esp_idf_pcnt_ctrl_func_in_iram,
-        link_section = ".iram1.rpcnt_clear_count"
-    )]
     pub fn clear_count(&self) -> Result<(), EspError> {
         esp!(unsafe { pcnt_unit_clear_count(self.handle) })
     }
@@ -971,140 +969,32 @@ impl<'d, S: IsEnabled> PcntUnitDriver<'d, S> {
     ///
     /// This function is safe to be called from an ISR context.
     ///
-    /// This function will be placed into IRAM if `CONFIG_PCNT_CTRL_FUNC_IN_IRAM`
+    /// The underlying esp-idf function will be placed into IRAM if `CONFIG_PCNT_CTRL_FUNC_IN_IRAM`
     /// is on, so that it's allowed to be executed when cache is disabled.
+    ///
+    /// This is not the case for this rust function at the moment, this might change in the future.
     ///
     /// # Errors
     ///
     /// - `ESP_FAIL`: Failed because of other error
-    #[cfg_attr(
-        esp_idf_pcnt_ctrl_func_in_iram,
-        link_section = ".iram1.rpcnt_get_count"
-    )]
     pub fn get_count(&self) -> Result<i32, EspError> {
         let mut count = 0;
         esp!(unsafe { pcnt_unit_get_count(self.handle, &mut count) })?;
         Ok(count)
     }
-
-    /// Add a watch point to the PCNT unit.
-    ///
-    /// PCNT will generate an event when the counter value reaches the watch point value.
-    ///
-    /// It is recommended to call [`Self::clear_count`] after adding a watch point,
-    /// so that the newly added watch point can take effect immediately.
-    ///
-    /// # Errors
-    ///
-    /// - `ESP_ERR_INVALID_ARG`: Add watch point failed because of invalid argument, like the value is out of range
-    /// - `ESP_ERR_INVALID_STATE`: Add watch point failed because the same watch point has already been added
-    /// - `ESP_ERR_NOT_FOUND`: Add watch point failed because no more hardware watch point can be configured
-    /// - `ESP_FAIL`: Add watch point failed because of other error
-    pub fn add_watch_point(&mut self, watch_point: i32) -> Result<(), EspError> {
-        esp!(unsafe { pcnt_unit_add_watch_point(self.handle, watch_point) })
-    }
-
-    /// This is a convenience function to add multiple watch points.
-    ///
-    /// It will add all the watch points from the iterator and clear the count
-    /// if they were successfully added.
-    ///
-    /// # Errors
-    ///
-    /// If an error occurs while adding any of the watch points, it will not
-    /// continue adding the subsequent watch points and not clear the count.
-    /// Previously added watch points will **not** be removed, for this use
-    /// [`Self::remove_watch_point`].
-    pub fn add_watch_points_and_clear(
-        &mut self,
-        iterator: impl IntoIterator<Item = i32>,
-    ) -> Result<(), EspError> {
-        for watch_point in iterator {
-            self.add_watch_point(watch_point)?;
-        }
-
-        self.clear_count()?;
-
-        Ok(())
-    }
-
-    /// Remove a watch point for PCNT unit.
-    ///
-    /// # Errors
-    ///
-    /// - `ESP_ERR_INVALID_ARG`: Remove watch point failed because of invalid argument
-    /// - `ESP_ERR_INVALID_STATE`: Remove watch point failed because the watch point was not added by [`Self::add_watch_point`] yet
-    /// - `ESP_FAIL`: Remove watch point failed because of other error
-    pub fn remove_watch_point(&mut self, watch_point: i32) -> Result<(), EspError> {
-        esp!(unsafe { pcnt_unit_remove_watch_point(self.handle, watch_point) })
-    }
-
-    /// Add a step notify for PCNT unit.
-    ///
-    /// PCNT will generate an event when the incremental (can be positive or negative)
-    /// of counter value reaches the step interval value.
-    ///
-    /// A positive step interval is a step forward, while a negative step interval
-    /// is a step backward.
-    ///
-    /// # Errors
-    ///
-    /// - `ESP_ERR_INVALID_ARG`: Add step notify failed because of invalid argument (e.g. the value incremental to be watched is out of the limitation set in [`UnitConfig`])
-    /// - `ESP_ERR_INVALID_STATE`: Add step notify failed because the step notify has already been added
-    /// - `ESP_FAIL`: Add step notify failed because of other error
-    #[cfg(esp_idf_version_at_least_5_4_0)]
-    #[cfg_attr(feature = "nightly", doc(cfg(esp_idf_version_at_least_5_4_0)))]
-    pub fn add_watch_step(&mut self, step_interval: i32) -> Result<(), EspError> {
-        esp!(unsafe { pcnt_unit_add_watch_step(self.handle, step_interval) })
-    }
-
-    /// Remove all watch steps for a PCNT unit.
-    ///
-    /// # Errors
-    ///
-    /// - `ESP_ERR_INVALID_STATE`: Remove step notify failed because the step notify was not added by [`Self::add_watch_step`] yet
-    /// - `ESP_FAIL`: Remove step notify failed because of other error
-    #[cfg(esp_idf_version_at_least_5_4_0)]
-    #[cfg_attr(feature = "nightly", doc(cfg(esp_idf_version_at_least_5_4_0)))]
-    pub fn remove_all_watch_step(&mut self) -> Result<(), EspError> {
-        // On version 5.4 the remove_watch_step was equivalent to remove_all_watch_step.
-        // In 5.5 it was renamed to remove_all_watch_step and a new function remove_single_watch_step was added.
-        //
-        // The below is to reduce confusion when switching IDF versions.
-        #[cfg(esp_idf_version_at_least_5_5_0)]
-        {
-            esp!(unsafe { pcnt_unit_remove_all_watch_step(self.handle) })
-        }
-        #[cfg(all(esp_idf_version_at_least_5_4_0, not(esp_idf_version_at_least_5_5_0)))]
-        {
-            esp!(unsafe { pcnt_unit_remove_watch_step(self.handle) })
-        }
-    }
-
-    /// Remove a watch step for PCNT unit
-    ///
-    /// # Errors
-    ///
-    /// - `ESP_ERR_INVALID_ARG`: Remove step notify failed because of invalid argument
-    /// - `ESP_ERR_INVALID_STATE`: Remove step notify failed because the step notify was not added by [`Self::add_watch_step`] yet
-    /// - `ESP_FAIL`: Remove step notify failed because of other error
-    #[cfg(esp_idf_version_at_least_5_5_0)]
-    #[cfg_attr(feature = "nightly", doc(cfg(esp_idf_version_at_least_5_5_0)))]
-    pub fn remove_single_watch_step(&mut self, step_interval: i32) -> Result<(), EspError> {
-        esp!(unsafe { pcnt_unit_remove_single_watch_step(self.handle, step_interval) })
-    }
 }
 
 // SAFETY: No thread-locals are used
-unsafe impl<'d, S: State> Send for PcntUnitDriver<'d, S> {}
+unsafe impl<'d> Send for PcntUnitDriver<'d> {}
 // SAFETY: All the functions taking &self are safe to be called from other threads
-unsafe impl<'d, S: State> Sync for PcntUnitDriver<'d, S> {}
+unsafe impl<'d> Sync for PcntUnitDriver<'d> {}
 
-impl<'d, S> Drop for PcntUnitDriver<'d, S> {
+impl<'d> Drop for PcntUnitDriver<'d> {
     fn drop(&mut self) {
         // Disable the unit before deleting it (this is necessary). If it is already disabled,
         // this call would error, but that is ignored here (there is nothing we can do about it).
-        unsafe { pcnt_unit_disable(self.handle) };
+        let _ = self.disable();
+
         #[cfg(feature = "alloc")]
         unsafe {
             pcnt_unit_register_event_callbacks(

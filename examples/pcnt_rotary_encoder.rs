@@ -15,7 +15,7 @@ mod example {
     use esp_idf_hal::pcnt::config::{
         ChannelEdgeAction, ChannelLevelAction, GlitchFilterConfig, UnitConfig,
     };
-    use esp_idf_hal::pcnt::{Disabled, Enabled, PcntUnitDriver};
+    use esp_idf_hal::pcnt::PcntUnitDriver;
     use esp_idf_hal::peripherals::Peripherals;
     use esp_idf_sys::EspError;
 
@@ -23,12 +23,12 @@ mod example {
     const HIGH_LIMIT: i32 = -LOW_LIMIT;
 
     pub struct Encoder<'d> {
-        unit: PcntUnitDriver<'d, Enabled>,
+        unit: PcntUnitDriver<'d>,
     }
 
     impl<'d> Encoder<'d> {
         pub fn new(pin_a: impl InputPin + 'd, pin_b: impl InputPin + 'd) -> Result<Self, EspError> {
-            let mut unit: PcntUnitDriver<'_, Disabled> = PcntUnitDriver::new(&UnitConfig {
+            let mut unit = PcntUnitDriver::new(&UnitConfig {
                 low_limit: LOW_LIMIT,
                 high_limit: HIGH_LIMIT,
                 accum_count: true,
@@ -59,7 +59,8 @@ mod example {
             .set_edge_action(ChannelEdgeAction::Increase, ChannelEdgeAction::Decrease)?
             .set_level_action(ChannelLevelAction::Keep, ChannelLevelAction::Inverse)?;
 
-            let mut unit = unit.enable()?;
+            unit.enable()?;
+
             // If accum_count is true, the LOW and HIGH limits have to be added to the watch points
             unit.add_watch_points_and_clear([LOW_LIMIT, HIGH_LIMIT])?;
 
