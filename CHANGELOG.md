@@ -16,6 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The `prelude` module is removed. It was anyway only having a handful of types listed in it. And furthermore, there was no `prelude` module for `esp-idf-svc`.
 - `embassy-sync` updated to V0.7
 - Implement new pcnt API. The old API will be available through the `pcnt-legacy` feature.
+- `ThreadSpawnConfiguration::name` changed from `&'static [u8]` to `&'static core::ffi::CStr` as it is actually a `CStr`
 
 ### Deprecated
 - `DB_11` ADC attenuation in favor of `DB_12` for ESP-IDF V5.0+
