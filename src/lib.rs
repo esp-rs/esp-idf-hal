@@ -48,9 +48,32 @@ pub mod modem;
     esp_idf_comp_espressif__onewire_bus_enabled,
 ))]
 pub mod onewire;
-#[cfg(not(esp_idf_version_at_least_6_0_0))]
-#[cfg(any(esp32, esp32s2, esp32s3, esp32c6))]
+
+#[cfg(all(not(feature = "pcnt-legacy"), esp_idf_soc_pcnt_supported))]
+#[cfg_attr(feature = "nightly", doc(cfg(esp_idf_soc_pcnt_supported)))]
 pub mod pcnt;
+
+#[cfg(not(esp_idf_version_at_least_6_0_0))]
+#[cfg(all(any(esp32, esp32s2, esp32s3, esp32c6), feature = "pcnt-legacy"))]
+#[cfg_attr(
+    all(
+        not(esp_idf_version_at_least_6_0_0),
+        any(esp32, esp32s2, esp32s3, esp32c6),
+        feature = "pcnt-legacy"
+    ),
+    deprecated(
+        since = "0.46.0",
+        note = "use the new `pcnt` api by disabling the `pcnt-legacy` feature"
+    )
+)]
+mod pcnt_legacy;
+
+#[cfg(not(esp_idf_version_at_least_6_0_0))]
+#[cfg(all(any(esp32, esp32s2, esp32s3, esp32c6), feature = "pcnt-legacy"))]
+pub mod pcnt {
+    pub use crate::pcnt_legacy::*;
+}
+
 pub mod peripherals;
 pub mod reset;
 pub mod rmt;
