@@ -25,6 +25,9 @@ extern crate std;
 #[macro_use]
 extern crate alloc;
 
+pub use esp_idf_macros::dcfg;
+pub use esp_idf_macros::ram;
+
 pub mod adc;
 pub mod can;
 pub mod cpu;
