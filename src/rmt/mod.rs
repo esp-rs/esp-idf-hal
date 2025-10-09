@@ -1,0 +1,389 @@
+pub mod config;
+pub mod encoder;
+
+pub mod asynch;
+pub mod blocking;
+pub use asynch::*;
+
+pub use blocking::Token;
+
+// TODO: decide on module layout for blocking and async
+
+mod sync_manager;
+pub use sync_manager::*;
+mod pulse;
+#[cfg(feature = "alloc")]
+pub use blocking::tx_queue::TxQueue;
+pub use pulse::*;
+
+use core::time::Duration;
+use core::{fmt, ptr};
+
+use esp_idf_sys::*;
+
+use crate::rmt::config::CarrierConfig;
+use crate::units::Hertz;
+
+/// Symbols
+///
+/// Represents a single pulse cycle symbol comprised of mark (high)
+/// and space (low) periods in either order or a fixed level if both
+/// halves have the same [`PinState`]. This is just a newtype over the
+/// IDF's `rmt_item32_t` or `rmt_symbol_word_t` type.
+#[derive(Clone, Copy)]
+#[repr(transparent)]
+pub struct Symbol(rmt_symbol_word_t);
+
+impl Symbol {
+    /// Create a symbol from a pair of half-cycles.
+    #[must_use]
+    pub fn new(level0: Pulse, level1: Pulse) -> Self {
+        let item = rmt_symbol_word_t { val: 0 };
+        let mut this = Self(item);
+        this.update(level0, level1);
+        this
+    }
+
+    /// Constructs a symbol from the given levels and durations.
+    ///
+    /// This is a convenience function that combines [`Pulse::new_with_duration`] and [`Symbol::new`].
+    pub fn new_with(
+        ticks_hz: Hertz,
+        level0: PinState,
+        duration0: Duration,
+        level1: PinState,
+        duration1: Duration,
+    ) -> Result<Self, EspError> {
+        Ok(Self::new(
+            Pulse::new_with_duration(ticks_hz, level0, duration0)?,
+            Pulse::new_with_duration(ticks_hz, level1, duration1)?,
+        ))
+    }
+
+    /// Constructs a new symbol where the duration is split evenly between the two levels.
+    pub fn new_half_split(
+        ticks_hz: Hertz,
+        level0: PinState,
+        level1: PinState,
+        duration: Duration,
+    ) -> Result<Self, EspError> {
+        let first_half_duration = duration / 2;
+        // This ensures that the two halves always add up to the original duration,
+        // even if the duration is odd.
+        let second_half_duration = duration - first_half_duration;
+
+        Ok(Self::new(
+            Pulse::new_with_duration(ticks_hz, level0, first_half_duration)?,
+            Pulse::new_with_duration(ticks_hz, level1, second_half_duration)?,
+        ))
+    }
+
+    pub fn new_delay_for(
+        ticks: Hertz,
+        level0: PinState,
+        level1: PinState,
+        duration: Duration,
+    ) -> impl Iterator<Item = Self> {
+        let max_duration = PulseTicks::max().duration(ticks).unwrap() * 2; // times two, because we use half-split symbols
+
+        // The delay might be larger than what is allowed for one symbol -> it is split into multiple symbols:
+        let count = duration.as_nanos() / max_duration.as_nanos();
+        let remainder =
+            Duration::from_nanos((duration.as_nanos() % max_duration.as_nanos()) as u64);
+
+        // This can be replaced with a call to `core::iter::repeat_n` once the target rust version is high enough
+        core::iter::repeat(max_duration)
+            .take(count as usize)
+            .chain(core::iter::once(remainder))
+            .filter_map(move |duration| {
+                if duration.is_zero() {
+                    return None;
+                }
+
+                Some(Symbol::new_half_split(ticks, level0, level1, duration).unwrap())
+            })
+    }
+
+    #[must_use]
+    fn symbol_word_to_pulse(word: &rmt_symbol_word_t) -> (Pulse, Pulse) {
+        let inner = unsafe { &word.__bindgen_anon_1 };
+        (
+            Pulse::new(
+                (inner.level0() as u32).into(),
+                PulseTicks::new(inner.duration0()).unwrap(),
+            ),
+            Pulse::new(
+                (inner.level1() as u32).into(),
+                PulseTicks::new(inner.duration1()).unwrap(),
+            ),
+        )
+    }
+
+    /// Returns the first half-cycle (pulse) of this symbol.
+    #[must_use]
+    pub fn level0(&self) -> Pulse {
+        Self::symbol_word_to_pulse(&self.0).0
+    }
+
+    /// Returns the second half-cycle (pulse) of this symbol.
+    #[must_use]
+    pub fn level1(&self) -> Pulse {
+        Self::symbol_word_to_pulse(&self.0).1
+    }
+
+    /// Mutate this symbol to store a different pair of half-cycles.
+    pub fn update(&mut self, level0: Pulse, level1: Pulse) {
+        // SAFETY: We're overriding all 32 bits, so it doesn't matter what was here before.
+        let inner = unsafe { &mut self.0.__bindgen_anon_1 };
+        inner.set_level0(level0.pin_state as u16);
+        inner.set_duration0(level0.ticks.ticks());
+        inner.set_level1(level1.pin_state as u16);
+        inner.set_duration1(level1.ticks.ticks());
+    }
+}
+
+impl fmt::Debug for Symbol {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("Symbol")
+            .field("level0", &self.level0())
+            .field("level1", &self.level1())
+            .finish()
+    }
+}
+
+impl Default for Symbol {
+    fn default() -> Self {
+        Self::new(Default::default(), Default::default())
+    }
+}
+
+impl PartialEq for Symbol {
+    fn eq(&self, other: &Self) -> bool {
+        (self.level0(), self.level1()) == (other.level0(), other.level1())
+    }
+}
+
+impl Eq for Symbol {}
+
+impl From<rmt_symbol_word_t> for Symbol {
+    fn from(value: rmt_symbol_word_t) -> Self {
+        Self(value)
+    }
+}
+
+impl From<Symbol> for rmt_symbol_word_t {
+    fn from(value: Symbol) -> Self {
+        value.0
+    }
+}
+
+fn assert_not_in_isr() {
+    if crate::interrupt::active() {
+        panic!("This function cannot be called from an ISR");
+    }
+}
+
+/// Type of RMT RX done event data.
+#[derive(Debug, Clone, Copy)]
+pub struct RxDoneEventData {
+    /// Pointer to the received RMT symbols.
+    ///
+    /// These symbols are saved in the internal `buffer` of the `RxChannelDriver`.
+    /// You are not allowed to free this buffer.
+    ///
+    /// If the partial receive feature is enabled, then the buffer will be
+    /// used as a "second level buffer", where its content can be overwritten by
+    /// data coming in afterwards. In this case, you should copy the received data to
+    /// another place if you want to keep it or process it later.
+    pub received_symbols: *mut Symbol,
+    /// The number of received RMT symbols.
+    ///
+    /// This value will never be larger than the buffer size of the buffer passed to the
+    /// receive function.
+    ///
+    /// If the buffer is not sufficient to accomodate all the received RMT symbols, the
+    /// driver only keeps the maximum number of symbols that the buffer can hold, and excess
+    /// symbols are discarded or ignored.
+    pub num_symbols: usize,
+    /// Indicates whether the current received data is the last part of the transaction.
+    ///
+    /// This is useful for when [`ReceiveConfig::enable_partial_rx`] is enabled,
+    /// and the data is received in parts.
+    ///
+    /// For receives where partial rx is not enabled, this field will always be `true`.
+    ///
+    /// [`ReceiveConfig::enable_partial_rx`]: crate::rmt::config::ReceiveConfig::enable_partial_rx
+    #[cfg(esp_idf_version_at_least_5_3_0)]
+    pub is_last: bool,
+    __private: (),
+}
+
+impl RxDoneEventData {
+    /// Returns the received symbols as a slice.
+    ///
+    /// # Safety
+    ///
+    /// Both the pointer and the length must be valid.
+    /// If these haven't been changed from the values provided by the driver,
+    /// this should be the case in the ISR callback.
+    pub unsafe fn as_slice(&self) -> &[Symbol] {
+        core::slice::from_raw_parts(self.received_symbols, self.num_symbols)
+    }
+}
+
+impl From<rmt_rx_done_event_data_t> for RxDoneEventData {
+    fn from(data: rmt_rx_done_event_data_t) -> Self {
+        Self {
+            received_symbols: data.received_symbols as *mut Symbol,
+            num_symbols: data.num_symbols,
+            #[cfg(esp_idf_version_at_least_5_3_0)]
+            is_last: data.flags.is_last() != 0,
+            __private: (),
+        }
+    }
+}
+
+pub trait RmtChannel {
+    /// Returns the underlying `rmt_channel_handle_t`.
+    fn handle(&self) -> rmt_channel_handle_t;
+
+    /// Returns whether the channel is currently enabled.
+    #[must_use]
+    fn is_enabled(&self) -> bool;
+
+    /// Sets the internal `is_enabled` flag of the channel that is used to track the channel state.
+    ///
+    /// # Safety
+    ///
+    /// The channel assumes that the given `is_enabled` reflects the state of the channel.
+    /// There shouldn't be any reason for the user to call this function directly.
+    /// Use `enable`/`disable` instead.
+    #[doc(hidden)]
+    unsafe fn set_internal_enabled(&mut self, is_enabled: bool);
+
+    /// Must be called in advance before transmitting or receiving RMT symbols.
+    /// For TX channels, enabling a channel enables a specific interrupt and
+    /// prepares the hardware to dispatch transactions.
+    ///
+    /// For RX channels, enabling a channel enables an interrupt, but the receiver
+    /// is not started during this time, as the characteristics of the incoming
+    /// signal have yet to be specified.
+    ///
+    /// The receiver is started in [`RxChannel::receive`].
+    fn enable(&mut self) -> Result<(), EspError> {
+        esp!(unsafe { rmt_enable(self.handle()) })?;
+
+        // SAFETY: The channel has been enabled -> it is safe to mark it as enabled.
+        unsafe { self.set_internal_enabled(true) };
+        Ok(())
+    }
+
+    /// Disables the interrupt and clearing any pending interrupts. The transmitter
+    /// and receiver are disabled as well.
+    ///
+    /// # Note
+    ///
+    /// This function will release a power management (PM) lock that might be
+    /// installed during channel allocation
+    ///
+    /// # Errors
+    ///
+    /// - `ESP_ERR_INVALID_ARG`: Disable RMT channel failed because of invalid argument
+    /// - `ESP_ERR_INVALID_STATE`: Disable RMT channel failed because it's not enabled yet
+    /// - `ESP_FAIL`: Disable RMT channel failed because of other error
+    fn disable(&mut self) -> Result<(), EspError> {
+        esp!(unsafe { rmt_disable(self.handle()) })?;
+        // SAFETY: The channel has been disable -> it is safe to mark it as disabled.
+        unsafe { self.set_internal_enabled(false) };
+        Ok(())
+    }
+
+    /// Apply (de)modulation feature for the channel.
+    ///
+    /// If `carrier_config` is `None`, the carrier (de)modulation will be disabled.
+    ///
+    /// # Errors
+    ///
+    /// - `ESP_ERR_INVALID_ARG`: Apply carrier failed because of invalid argument
+    /// - `ESP_FAIL`: Apply carrier failed because of other error
+    fn apply_carrier(&mut self, carrier_config: Option<&CarrierConfig>) -> Result<(), EspError> {
+        let mut sys_carrier = None;
+        if let Some(CarrierConfig {
+            frequency,
+            duty_cycle,
+            polarity_active_low,
+            always_on,
+            // match __internal to get a compiler error if new fields are added in the future
+            __internal,
+        }) = carrier_config
+        {
+            sys_carrier = Some(rmt_carrier_config_t {
+                frequency_hz: (*frequency).into(),
+                duty_cycle: duty_cycle.0 as f32 / 100.0,
+                flags: rmt_carrier_config_t__bindgen_ty_1 {
+                    _bitfield_1: rmt_carrier_config_t__bindgen_ty_1::new_bitfield_1(
+                        *polarity_active_low as u32,
+                        *always_on as u32,
+                    ),
+                    ..Default::default()
+                },
+            })
+        }
+
+        esp!(unsafe {
+            rmt_apply_carrier(
+                self.handle(),
+                sys_carrier.as_ref().map_or(ptr::null(), |c| c as *const _),
+            )
+        })
+    }
+}
+
+impl<R: RmtChannel> RmtChannel for &mut R {
+    fn handle(&self) -> rmt_channel_handle_t {
+        (**self).handle()
+    }
+
+    fn is_enabled(&self) -> bool {
+        (**self).is_enabled()
+    }
+
+    unsafe fn set_internal_enabled(&mut self, is_enabled: bool) {
+        (**self).set_internal_enabled(is_enabled)
+    }
+}
+
+/// Clock source for RMT channels.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
+pub enum ClockSource {
+    #[default]
+    Default,
+    #[cfg(any(esp32, esp32c3, esp32s2, esp32s3))]
+    APB,
+    #[cfg(any(esp32c3, esp32c5, esp32c6, esp32h2, esp32h4, esp32p4, esp32s3))]
+    RcFast,
+    #[cfg(any(esp32, esp32s2))]
+    RefTick,
+    #[cfg(any(esp32c3, esp32c5, esp32c6, esp32h2, esp32h4, esp32p4, esp32s3))]
+    XTAL,
+    #[cfg(any(esp32c5, esp32c6, esp32p4))]
+    PLLF80M,
+}
+
+impl From<ClockSource> for rmt_clock_source_t {
+    fn from(clock: ClockSource) -> Self {
+        match clock {
+            ClockSource::Default => soc_periph_rmt_clk_src_t_RMT_CLK_SRC_DEFAULT,
+            #[cfg(any(esp32, esp32c3, esp32s2, esp32s3))]
+            ClockSource::APB => soc_periph_rmt_clk_src_t_RMT_CLK_SRC_APB,
+            #[cfg(any(esp32c3, esp32c5, esp32c6, esp32h2, esp32h4, esp32p4, esp32s3))]
+            ClockSource::RcFast => soc_periph_rmt_clk_src_t_RMT_CLK_SRC_RC_FAST,
+            #[cfg(any(esp32, esp32s2))]
+            ClockSource::RefTick => soc_periph_rmt_clk_src_t_RMT_CLK_SRC_REF_TICK,
+            #[cfg(any(esp32c3, esp32c5, esp32c6, esp32h2, esp32h4, esp32p4, esp32s3))]
+            ClockSource::XTAL => soc_periph_rmt_clk_src_t_RMT_CLK_SRC_XTAL,
+            #[cfg(any(esp32c5, esp32c6, esp32p4))]
+            ClockSource::PLLF80M => soc_periph_rmt_clk_src_t_RMT_CLK_SRC_PLL_F80M,
+        }
+    }
+}
