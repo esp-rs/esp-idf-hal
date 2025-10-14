@@ -1,19 +1,18 @@
 pub mod config;
 pub mod encoder;
 
-pub mod asynch;
-pub mod blocking;
-pub use asynch::*;
+mod tx_channel;
+pub use tx_channel::*;
 
-pub use blocking::Token;
+mod tx_queue;
+pub use tx_queue::*;
 
-// TODO: decide on module layout for blocking and async
+mod rx_channel;
+pub use rx_channel::*;
 
 mod sync_manager;
 pub use sync_manager::*;
 mod pulse;
-#[cfg(feature = "alloc")]
-pub use blocking::tx_queue::TxQueue;
 pub use pulse::*;
 
 use core::time::Duration;
@@ -350,6 +349,18 @@ impl<R: RmtChannel> RmtChannel for &mut R {
 
     unsafe fn set_internal_enabled(&mut self, is_enabled: bool) {
         (**self).set_internal_enabled(is_enabled)
+    }
+
+    fn enable(&mut self) -> Result<(), EspError> {
+        (**self).enable()
+    }
+
+    fn disable(&mut self) -> Result<(), EspError> {
+        (**self).disable()
+    }
+
+    fn apply_carrier(&mut self, carrier_config: Option<&CarrierConfig>) -> Result<(), EspError> {
+        (**self).apply_carrier(carrier_config)
     }
 }
 

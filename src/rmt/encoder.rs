@@ -204,6 +204,8 @@ impl<E> Drop for EncoderWrapper<E> {
 }
 
 impl<E: Encoder> InternalEncoderWrapper<E> {
+    // TODO: The base field is the first element of this struct -> the containerof should be redundant, because
+    // the pointer is already pointing to the start of InternalEncoderWrapper
     unsafe fn containerof(ptr: *mut rmt_encoder_t) -> *mut Self {
         // The given pointer points to the base field of this struct,
         // in the C-Code they use the __containerof macro to get the pointer to the whole struct
@@ -238,7 +240,9 @@ impl<E: Encoder> InternalEncoderWrapper<E> {
         data_size: usize,
         ret_state: *mut rmt_encode_state_t,
     ) -> usize {
-        let this = Self::containerof(encoder).as_mut().unwrap();
+        let this_ptr = Self::containerof(encoder);
+        assert_eq!(this_ptr as *mut rmt_encoder_t, encoder);
+        let this = this_ptr.as_mut().unwrap();
 
         let primary_data = core::slice::from_raw_parts(
             primary_data.cast::<E::Item>(),

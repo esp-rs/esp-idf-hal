@@ -2,8 +2,7 @@ use core::ptr;
 
 use esp_idf_sys::*;
 
-use crate::rmt::blocking::TxChannelDriver;
-use crate::rmt::{AsyncTxChannelDriver, RmtChannel};
+use crate::rmt::{RmtChannel, TxChannelDriver};
 
 /// In some real-time control applications (e.g., to make two robotic arms move simultaneously),
 /// you do not want any time drift between different channels. The RMT driver can help to manage
@@ -61,45 +60,7 @@ impl<'d, const N: usize> SyncManager<TxChannelDriver<'d>, N> {
     }
 }
 
-impl<'d, const N: usize> SyncManager<AsyncTxChannelDriver<'d>, N> {
-    /// Create a synchronization manager for multiple TX channels,
-    /// so that the managed channel can start transmitting at the same time.
-    ///
-    /// # Note
-    ///
-    /// All the channels managed by the sync manager should be enabled before creating
-    /// the sync manager.
-    ///
-    /// # Errors
-    ///
-    /// - `ESP_ERR_INVALID_ARG`: Create sync manager failed because of invalid argument
-    /// - `ESP_ERR_NOT_SUPPORTED`: Create sync manager failed because it is not supported by hardware
-    /// - `ESP_ERR_INVALID_STATE`: Create sync manager failed because not all channels are enabled
-    /// - `ESP_ERR_NO_MEM`: Create sync manager failed because out of memory
-    /// - `ESP_ERR_NOT_FOUND`: Create sync manager failed because all sync controllers are used up and no more free one
-    /// - `ESP_FAIL`: Create sync manager failed because of other error
-    pub fn new(channels: [AsyncTxChannelDriver<'d>; N]) -> Result<Self, EspError> {
-        let mut this = Self {
-            handle: ptr::null_mut(),
-            channels: Some(channels),
-        };
-
-        // SAFETY:
-        // rmt_new_sync_manager copies the array of channel handles, therefore it is safe to reference a
-        // temporary variable here.
-        let mut iter = this.channels_mut().iter().map(AsyncTxChannelDriver::handle);
-        let handles = [(); N].map(|_| iter.next().unwrap());
-
-        let sys_config = rmt_sync_manager_config_t {
-            tx_channel_array: handles.as_ptr(),
-            array_size: handles.len(),
-        };
-
-        esp!(unsafe { rmt_new_sync_manager(&sys_config, &mut this.handle) })?;
-
-        Ok(this)
-    }
-}
+// TODO: remove generic T if there will be no AsyncTxChannelDriver
 
 impl<T, const N: usize> SyncManager<T, N> {
     /// Reset synchronization manager.

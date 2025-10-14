@@ -31,10 +31,10 @@ fn main() -> anyhow::Result<()> {
 ))]
 mod example {
     use esp_idf_hal::peripherals::Peripherals;
-    use esp_idf_hal::rmt::blocking::TxChannelDriver;
     use esp_idf_hal::rmt::config::TxChannelConfig;
     use esp_idf_hal::rmt::encoder::{CopyEncoder, Encoder, EncoderState, EncoderWrapper};
     use esp_idf_hal::rmt::Symbol;
+    use esp_idf_hal::rmt::TxChannelDriver;
     use esp_idf_hal::units::Hertz;
 
     use esp_idf_sys::*;

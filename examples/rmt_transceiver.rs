@@ -32,12 +32,12 @@ mod example {
     use esp_idf_hal::gpio::{
         AnyIOPin, AnyInputPin, AnyOutputPin, InputPin, OutputPin, PinDriver, Pull,
     };
-    use esp_idf_hal::rmt::blocking::{RxChannelDriver, TxChannelDriver};
     use esp_idf_hal::rmt::config::{
         Loop, ReceiveConfig, RxChannelConfig, TransmitConfig, TxChannelConfig,
     };
     use esp_idf_hal::rmt::encoder::CopyEncoder;
     use esp_idf_hal::rmt::{PinState, Pulse, PulseTicks, Symbol};
+    use esp_idf_hal::rmt::{RxChannelDriver, TxChannelDriver};
     use esp_idf_hal::units::Hertz;
 
     use core::mem;
