@@ -8,7 +8,6 @@ use core::time::Duration;
 
 #[cfg(feature = "alloc")]
 use alloc::boxed::Box;
-use alloc::vec::Vec;
 use esp_idf_sys::*;
 
 use crate::gpio::OutputPin;
@@ -18,7 +17,7 @@ use crate::rmt::config::{Loop, TransmitConfig, TxChannelConfig};
 use crate::rmt::encoder::{into_raw, Encoder, RawEncoder};
 #[cfg(feature = "alloc")]
 use crate::rmt::tx_queue::TxQueue;
-use crate::rmt::{assert_not_in_isr, RmtChannel};
+use crate::rmt::{assert_not_in_isr, EncoderBuffer, RmtChannel};
 
 #[cfg(feature = "alloc")]
 struct UserData {
@@ -264,30 +263,45 @@ impl<'d> TxChannelDriver<'d> {
             )
         })?;
 
+        self.on_transmit_data
+            .queue_size
+            .fetch_add(1, Ordering::SeqCst);
+
         Ok(())
     }
 
     /// Transmits the signals provided by the iterator using the specified encoder and config.
+    ///
+    /// This is a convenience function that will create a [`TxQueue`], push all signals from the iterator
+    /// to the queue, and then drop the queue, waiting for all transmissions to finish.
+    ///
+    /// # Non blocking behavior
+    ///
+    /// It is not recommended to use this function with [`TransmitConfig::queue_non_blocking`] set to true,
+    /// because it will drop the queue if it would block, resulting in it blocking until all pending transmissions
+    /// are done.
+    ///
+    /// Therefore, one should use [`TxChannelDriver::queue`] for a non-blocking use case.
     #[cfg(feature = "alloc")]
-    pub fn send_iter<'s, E: Encoder, S: AsRef<[E::Item]> + 's, const N: usize>(
+    pub fn send_iter<E: Encoder, S: AsRef<[E::Item]>>(
         &mut self,
-        encoders: [E; N],
-        iter: impl Iterator<Item = S> + 's,
+        encoders: impl IntoIterator<Item = E>,
+        iter: impl Iterator<Item = S>,
         config: &TransmitConfig,
     ) -> Result<(), EspError>
     where
-        E::Item: 's,
+        E::Item: Clone,
     {
-        if N == 0 {
-            // Impossible to encode anything without encoders:
-            return Err(EspError::from_infallible::<ESP_ERR_INVALID_ARG>());
-        }
-
-        // TODO: decide on Vec or array
-        let mut pending = TxQueue::new(encoders.into_iter().collect(), self);
+        let mut pending = TxQueue::new(
+            encoders
+                .into_iter()
+                .map(|encoder| EncoderBuffer::new(into_raw(encoder)))
+                .collect(),
+            self,
+        );
 
         for signal in iter {
-            unsafe { pending.push_nonstatic(signal.as_ref(), config) }?;
+            pending.push(signal.as_ref(), config)?;
         }
 
         // The remaining pending transmissions will be awaited in the drop of the queue.
@@ -295,26 +309,42 @@ impl<'d> TxChannelDriver<'d> {
         Ok(())
     }
 
-    // TODO: Documentation
-
+    /// Creates a new queue for transmitting multiple signals with the given encoders.
+    ///
+    /// For more information, see [`TxQueue`].
+    ///
+    /// # Panics
+    ///
+    /// If no encoders are provided.
     #[must_use]
-    pub fn queue<E: Encoder>(&mut self, encoders: Vec<E>) -> TxQueue<'_, 'd, E> {
-        TxQueue::new(encoders, self)
+    pub fn queue<E: Encoder>(
+        &mut self,
+        encoders: impl IntoIterator<Item = E>,
+    ) -> TxQueue<'_, 'd, E> {
+        TxQueue::new(
+            encoders
+                .into_iter()
+                .map(|encoder| EncoderBuffer::new(into_raw(encoder)))
+                .collect(),
+            self,
+        )
     }
 
-    // TODO: make public?
-    pub(crate) async fn wait_for_progress(&self) {
+    /// Asynchronously waits until the next pending transmission has finished.
+    ///
+    /// If there are no pending transmissions, this function will wait indefinitely.
+    pub async fn wait_for_progress(&self) {
         self.on_transmit_data.queue_has_progressed.wait().await;
     }
 
-    pub(crate) fn queue_size(&self) -> usize {
+    /// Returns the number of currently pending transmissions.
+    ///
+    /// This will be updated when a transmission is started or finished.
+    pub fn queue_size(&self) -> usize {
         self.on_transmit_data.queue_size.load(Ordering::SeqCst)
     }
 
-    /// Transmits the signal using the specified encoder and config.
-    ///
-    /// It will **not** wait for the transmission to finish, but a [`Token`] is returned
-    /// which can be used for this.
+    /// Transmits the signal and waits for the transmission to finish.
     ///
     /// If the channel is not enabled yet, it will be enabled automatically.
     ///
@@ -331,46 +361,17 @@ impl<'d> TxChannelDriver<'d> {
     /// - `ESP_ERR_NOT_SUPPORTED`: Some feature is not supported by hardware e.g. unsupported loop count
     /// - `ESP_FAIL`: Because of other errors
     #[cfg(feature = "alloc")]
-    pub fn send<E: Encoder + 'static>(
-        &mut self,
-        encoder: E,
-        signal: impl AsRef<[E::Item]> + 'static,
-        config: &TransmitConfig,
-    ) -> Result<(), EspError> {
-        let mut encoder = Box::pin(into_raw(encoder));
-        let signal = Box::pin(signal);
-
-        unsafe {
-            self.start_send(
-                encoder.as_mut().get_unchecked_mut(),
-                signal.as_ref().get_ref().as_ref(),
-                config,
-            )
-        }?;
-
-        // TODO: consider removing this function?
-        // self.store_data(token, encoder, signal);
-        //
-        // Ok(token)
-
-        Ok(())
-    }
-
-    /// Transmits the signal and waits for the transmission to finish.
-    #[cfg(feature = "alloc")]
     pub fn send_and_wait<E: Encoder>(
         &mut self,
         encoder: E,
         signal: &[E::Item],
         config: &TransmitConfig,
-    ) -> Result<(), EspError> {
+    ) -> Result<(), EspError>
+    where
+        E::Item: Clone,
+    {
         self.send_iter([encoder], core::iter::once(signal), config)
     }
-
-    // TODO: remove wait_for, not necessary, because the send will wait
-    // TODO: make sure there is no busy waiting
-    // TODO: The async code needs the ISR notification to not busy wait until a space is free
-    // TODO: async make be unnecessary, because the default code is already non-blocking (depending on config)
 }
 
 // SAFETY: The C code doesn't seem to use any thread locals -> it should be safe to send the channel to another thread.

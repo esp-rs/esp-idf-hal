@@ -32,7 +32,7 @@ impl RmtEncoderAllocator {
         let memory = self.allocate(layout)?.cast::<T>();
         // SAFETY: The memory got allocated, should still be valid and is properly aligned.
         unsafe {
-            memory.write(value);
+            ptr::write(memory.as_ptr(), value);
         }
         Ok(memory)
     }
@@ -46,7 +46,7 @@ impl RmtEncoderAllocator {
             let ptr = memory.as_ptr();
             debug_assert_eq!(
                 // NOTE: this is ptr::is_aligned_to impl, which is unstable
-                ptr.addr() & (layout.align() - 1),
+                (ptr.cast::<()>() as usize) & (layout.align() - 1),
                 0,
                 "ptr {ptr:p} not aligned to {}",
                 layout.align()

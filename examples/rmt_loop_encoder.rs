@@ -32,7 +32,9 @@ fn main() -> anyhow::Result<()> {
 mod example {
     use esp_idf_hal::peripherals::Peripherals;
     use esp_idf_hal::rmt::config::TxChannelConfig;
-    use esp_idf_hal::rmt::encoder::{CopyEncoder, Encoder, EncoderState, EncoderWrapper};
+    use esp_idf_hal::rmt::encoder::{
+        CopyEncoder, Encoder, EncoderState, EncoderWrapper, RmtChannelHandle,
+    };
     use esp_idf_hal::rmt::Symbol;
     use esp_idf_hal::rmt::TxChannelDriver;
     use esp_idf_hal::units::Hertz;
@@ -60,17 +62,16 @@ mod example {
     impl<E: Encoder> Encoder for LoopEncoder<E> {
         type Item = E::Item;
 
-        unsafe fn encode(
+        fn encode(
             &mut self,
-            tx_channel: rmt_channel_handle_t,
+            handle: &mut RmtChannelHandle,
             primary_data: &[Self::Item],
         ) -> (usize, EncoderState) {
             let mut written = 0;
             let mut state;
 
             loop {
-                let (current_written, current_state) =
-                    self.encoder.encode(tx_channel, primary_data);
+                let (current_written, current_state) = self.encoder.encode(handle, primary_data);
                 written += current_written;
                 state = current_state;
 

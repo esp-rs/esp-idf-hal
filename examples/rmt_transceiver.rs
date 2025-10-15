@@ -125,16 +125,19 @@ mod example {
             DELAY_DURATION,
         ));
 
-        // The returned token can be used to await the end of the transmission, but
-        // because the transmission is endless, there is no reason to do so.
-        tx_channel.send(
-            CopyEncoder::new()?,
-            signal,
-            &TransmitConfig {
-                loop_count: Loop::Endless,
-                ..Default::default()
-            },
-        )?;
+        let mut encoder = CopyEncoder::new()?;
+
+        // SAFETY: The encoder and signal are valid until the end of this function, which would drop the channel as well.
+        unsafe {
+            tx_channel.start_send(
+                &mut encoder,
+                &signal,
+                &TransmitConfig {
+                    loop_count: Loop::Endless,
+                    ..Default::default()
+                },
+            )
+        }?;
 
         // Now configure the receiver to receive the data:
         let mut rx_channel = RxChannelDriver::new(

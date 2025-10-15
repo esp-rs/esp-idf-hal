@@ -184,6 +184,7 @@ fn assert_not_in_isr() {
 
 /// Type of RMT RX done event data.
 #[derive(Debug, Clone, Copy)]
+#[non_exhaustive]
 pub struct RxDoneEventData {
     /// Pointer to the received RMT symbols.
     ///
@@ -214,7 +215,6 @@ pub struct RxDoneEventData {
     /// [`ReceiveConfig::enable_partial_rx`]: crate::rmt::config::ReceiveConfig::enable_partial_rx
     #[cfg(esp_idf_version_at_least_5_3_0)]
     pub is_last: bool,
-    __private: (),
 }
 
 impl RxDoneEventData {
@@ -237,7 +237,6 @@ impl From<rmt_rx_done_event_data_t> for RxDoneEventData {
             num_symbols: data.num_symbols,
             #[cfg(esp_idf_version_at_least_5_3_0)]
             is_last: data.flags.is_last() != 0,
-            __private: (),
         }
     }
 }

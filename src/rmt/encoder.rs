@@ -75,6 +75,34 @@ impl From<rmt_encode_state_t> for EncoderState {
     }
 }
 
+/// A handle to an RMT channel.
+///
+/// For the special encoders like [`CopyEncoder`] or [`BytesEncoder`] that
+/// directly write to the RMT memory, this handle is used to access the channel.
+///
+/// For third-party encoders this functionality is not exposed. To prevent misuse,
+/// this type wraps the raw handle and does not expose it.
+#[derive(Debug)]
+pub struct RmtChannelHandle {
+    handle: rmt_channel_handle_t,
+}
+
+impl RmtChannelHandle {
+    /// Returns the underlying `rmt_channel_handle_t`.
+    ///
+    /// Note that this does not guarantee that the handle is still valid.
+    #[must_use]
+    pub(crate) fn as_ptr(&self) -> rmt_channel_handle_t {
+        // This is explicitly not public to prevent misuse.
+        //
+        // Calling any of the ESP-IDF functions will likely violate invariants
+        // of `TxChannelDriver` or `RxChannelDriver`.
+        // The handle is only used by the encoders that copy the data directly
+        // into the RMT memory (e.g. `CopyEncoder` or `BytesEncoder`).
+        self.handle
+    }
+}
+
 /// A trait for implementing custom RMT encoders in rust.
 ///
 /// An RMT encoder is part of the RMT TX transaction, whose responsibility
@@ -117,10 +145,9 @@ pub trait Encoder {
     ///
     /// The encoding function will also be called from an ISR context, thus the function must not
     /// call any blocking API.
-    unsafe fn encode(
-        // TODO: is this function unsafe? It shouldn't be?
+    fn encode(
         &mut self,
-        tx_channel: rmt_channel_handle_t,
+        handle: &mut RmtChannelHandle,
         primary_data: &[Self::Item],
     ) -> (usize, EncoderState);
 
@@ -135,27 +162,28 @@ pub trait Encoder {
 impl<E: RawEncoder> Encoder for E {
     type Item = E::Item;
 
-    unsafe fn encode(
+    fn encode(
         &mut self,
-        tx_channel: rmt_channel_handle_t,
+        handle: &mut RmtChannelHandle,
         primary_data: &[Self::Item],
     ) -> (usize, EncoderState) {
-        let handle = self.handle();
-        let Some(encode) = handle.encode else {
-            // TODO: panic?
+        let encoder_handle = self.handle();
+        let Some(encode) = encoder_handle.encode else {
             return (0, EncoderState::EncodingReset);
         };
 
         let mut ret_state: rmt_encode_state_t = rmt_encode_state_t_RMT_ENCODING_RESET;
         let data_size = mem::size_of_val::<[Self::Item]>(primary_data);
 
-        let written = encode(
-            handle,
-            tx_channel,
-            primary_data.as_ptr() as *const core::ffi::c_void,
-            data_size,
-            &raw mut ret_state,
-        );
+        let written = unsafe {
+            encode(
+                encoder_handle,
+                handle.as_ptr(),
+                primary_data.as_ptr() as *const core::ffi::c_void,
+                data_size,
+                &raw mut ret_state,
+            )
+        };
 
         (written, ret_state.into())
     }
@@ -204,8 +232,17 @@ impl<E> Drop for EncoderWrapper<E> {
 }
 
 impl<E: Encoder> InternalEncoderWrapper<E> {
-    // TODO: The base field is the first element of this struct -> the containerof should be redundant, because
-    // the pointer is already pointing to the start of InternalEncoderWrapper
+    /// This function returns a pointer to self from a pointer to its field `base`.
+    ///
+    /// One might assume that this is redundant, because the `base` field is the first field in the struct
+    /// -> the pointer would point to the same address as the struct itself.
+    /// but this is not guaranteed by rust.
+    ///
+    /// In the C representation, it might add padding before the fields to align them.
+    /// In the rust representation, it doesn't even guarantee that the field is at
+    /// the start of the struct.
+    ///
+    /// See <https://doc.rust-lang.org/reference/type-layout.html>
     unsafe fn containerof(ptr: *mut rmt_encoder_t) -> *mut Self {
         // The given pointer points to the base field of this struct,
         // in the C-Code they use the __containerof macro to get the pointer to the whole struct
@@ -240,16 +277,16 @@ impl<E: Encoder> InternalEncoderWrapper<E> {
         data_size: usize,
         ret_state: *mut rmt_encode_state_t,
     ) -> usize {
-        let this_ptr = Self::containerof(encoder);
-        assert_eq!(this_ptr as *mut rmt_encoder_t, encoder);
-        let this = this_ptr.as_mut().unwrap();
+        let this = Self::containerof(encoder).as_mut().unwrap();
 
         let primary_data = core::slice::from_raw_parts(
             primary_data.cast::<E::Item>(),
             data_size / mem::size_of::<E::Item>(),
         );
 
-        let (written, state) = this.encoder().encode(tx_channel, primary_data);
+        let mut channel_handle = RmtChannelHandle { handle: tx_channel };
+
+        let (written, state) = this.encoder().encode(&mut channel_handle, primary_data);
 
         *ret_state = state.into();
 
