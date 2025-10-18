@@ -12,7 +12,7 @@ pub struct DutyPercent(f32);
 impl DutyPercent {
     /// Must be between 0 and 1.0, otherwise an error is returned.
     pub fn new(value: f32) -> Result<Self, EspError> {
-        if value > 1.0 || value < 0.0 {
+        if !(0.0..=1.0).contains(&value) {
             Err(EspError::from_infallible::<ESP_ERR_INVALID_ARG>())
         } else {
             Ok(Self(value))
